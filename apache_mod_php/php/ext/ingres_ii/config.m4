@@ -1,13 +1,14 @@
-dnl $Id: config.m4,v 1.1.1.4 2001/12/14 22:12:27 zarzycki Exp $
-dnl config.m4 for extension ingres_ii
+dnl
+dnl $Id: config.m4,v 1.1.1.7 2003/07/18 18:07:34 zarzycki Exp $
+dnl
 
 PHP_ARG_WITH(ingres, for Ingres II support,
 [  --with-ingres[=DIR]     Include Ingres II support. DIR is the Ingres
-                          base directory (default $II_SYSTEM/II/ingres)])
+                          base directory (default $II_SYSTEM/ingres)])
 
 if test "$PHP_INGRES" != "no"; then
   AC_DEFINE(HAVE_II, 1, [Whether you have Ingres II])
-  PHP_EXTENSION(ingres_ii, $ext_shared)
+  PHP_NEW_EXTENSION(ingres_ii, ii.c, $ext_shared)
   PHP_SUBST(II_SHARED_LIBADD)
 
   if test "$PHP_INGRES" = "yes"; then

@@ -2,21 +2,24 @@
  * Copyright (c) 2000 Apple Computer, Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
- *
- * The contents of this file constitute Original Code as defined in and
- * are subject to the Apple Public Source License Version 1.1 (the
- * "License").  You may not use this file except in compliance with the
- * License.  Please obtain a copy of the License at
- * http://www.apple.com/publicsource and read it before using this file.
- *
- * This Original Code and all software distributed under the License are
- * distributed on an "AS IS" basis, WITHOUT WARRANTY OF ANY KIND, EITHER
+ * 
+ * Copyright (c) 1999-2003 Apple Computer, Inc.  All Rights Reserved.
+ * 
+ * This file contains Original Code and/or Modifications of Original Code
+ * as defined in and that are subject to the Apple Public Source License
+ * Version 2.0 (the 'License'). You may not use this file except in
+ * compliance with the License. Please obtain a copy of the License at
+ * http://www.opensource.apple.com/apsl/ and read it before using this
+ * file.
+ * 
+ * The Original Code and all software distributed under the License are
+ * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
  * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
  * INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY,
- * FITNESS FOR A PARTICULAR PURPOSE OR NON-INFRINGEMENT.  Please see the
- * License for the specific language governing rights and limitations
- * under the License.
- *
+ * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
+ * Please see the License for the specific language governing rights and
+ * limitations under the License.
+ * 
  * @APPLE_LICENSE_HEADER_END@
  */
 
@@ -81,25 +84,6 @@ int pptp_ip_dispose()
 }
 
 /* -----------------------------------------------------------------------------
------------------------------------------------------------------------------ */
-static struct mbuf *getcluster()
-{
-    struct mbuf *m;
-    
-    MGETHDR(m, M_DONTWAIT, MT_DATA);
-    if (m == 0)
-        return 0;
-    
-    MCLGET(m, M_DONTWAIT);
-    if (!(m->m_flags & M_EXT)) {
-        m_freem(m);
-        return 0;
-    }
-
-    return m;
-}
-
-/* -----------------------------------------------------------------------------
 callback from ip
 ----------------------------------------------------------------------------- */
 void pptp_ip_input(struct mbuf *m, int len)
@@ -124,7 +108,7 @@ void pptp_ip_input(struct mbuf *m, int len)
     to mbuf chain, neither data compression nor IP layer
     IP layer seems to expext IP header in a contiguous block
     */
-    m1 = getcluster();
+    m1 = m_getpacket();
     if (m1 == 0)
         goto fail;    
     m_copydata(m, 0, m->m_pkthdr.len, mtod(m1, caddr_t));
@@ -145,13 +129,15 @@ void pptp_ip_input(struct mbuf *m, int len)
 
 fail:
     // the packet was not for us, just call the old hook
+    if (m1)
+	m_freem(m1);
     (*old_pr).pr_input(m, len);
 }
 
 /* -----------------------------------------------------------------------------
 called from pppenet_proto when data need to be sent
 ----------------------------------------------------------------------------- */
-int pptp_ip_output(struct mbuf *m, u_int32_t to)
+int pptp_ip_output(struct mbuf *m, u_int32_t from, u_int32_t to)
 {
     struct route ro;
     struct ip 	*ip;
@@ -176,7 +162,7 @@ int pptp_ip_output(struct mbuf *m, u_int32_t to)
     ip->ip_off = 0;
     ip->ip_p = IPPROTO_GRE;
     ip->ip_len = m->m_pkthdr.len;
-    ip->ip_src.s_addr = INADDR_ANY;
+    ip->ip_src.s_addr = from;
     ip->ip_dst.s_addr = to;
     ip->ip_ttl = MAXTTL;
  

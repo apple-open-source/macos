@@ -3,21 +3,22 @@
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
- * "Portions Copyright (c) 1999 Apple Computer, Inc.  All Rights
- * Reserved.  This file contains Original Code and/or Modifications of
- * Original Code as defined in and that are subject to the Apple Public
- * Source License Version 1.0 (the 'License').  You may not use this file
- * except in compliance with the License.  Please obtain a copy of the
- * License at http://www.apple.com/publicsource and read it before using
- * this file.
+ * Copyright (c) 1999-2003 Apple Computer, Inc.  All Rights Reserved.
+ * 
+ * This file contains Original Code and/or Modifications of Original Code
+ * as defined in and that are subject to the Apple Public Source License
+ * Version 2.0 (the 'License'). You may not use this file except in
+ * compliance with the License. Please obtain a copy of the License at
+ * http://www.opensource.apple.com/apsl/ and read it before using this
+ * file.
  * 
  * The Original Code and all software distributed under the License are
  * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
  * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
  * INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY,
- * FITNESS FOR A PARTICULAR PURPOSE OR NON-INFRINGEMENT.  Please see the
- * License for the specific language governing rights and limitations
- * under the License."
+ * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
+ * Please see the License for the specific language governing rights and
+ * limitations under the License.
  * 
  * @APPLE_LICENSE_HEADER_END@
  */
@@ -63,9 +64,9 @@ extern BOOL doServerMounts;
 		return;
 	}
 
-	len = [mountPoint length] + [[v path] length] + 1;
+	len = [mountPoint length] + [[v relativepath] length] + 1;
 	s = malloc(len);
-	sprintf(s, "%s%s", [mountPoint value], [[v path] value]);
+	sprintf(s, "%s%s", [mountPoint value], [[v relativepath] value]);
 
 	x = [String uniqueString:s];
 	free(s);
@@ -76,11 +77,9 @@ extern BOOL doServerMounts;
 - (void)newMount:(String *)src dir:(String *)dst opts:(Array *)opts vfsType:(String *)type
 {
 	String *servername, *serversrc, *x;
-	String *authOpts, *opt;
 	Vnode *v, *s;
 	Server *server;
 	BOOL pathOK, isAuto;
-	int i;
 
 	sys_msg(debug, LOG_DEBUG, "New (FstabMap) mount: %s on %s...", [src value], [dst value]);
 	
@@ -141,24 +140,12 @@ extern BOOL doServerMounts;
 		return;
 	}
 
-	authOpts = [String uniqueString:""];
-
-	for (i = 0; i < [opts count]; i++)
-	{
-		opt = [opts objectAtIndex:i];
-		if (!strncmp([opt value], "url==", 5))
-		{
-			authOpts = [[opt postfix:'='] postfix:'='];
-			sys_msg(debug, LOG_DEBUG, "***** Found url string %s", [authOpts value]);
-		}
-	}
-
 	[v setType:NFLNK];
 	[v setServer:server];
 	[v setSource:serversrc];
 	[v setupOptions:opts];
+	[v addMntArg:MNT_DONTBROWSE];
 	[v setVfsType:type];
-	[v setUrlString:authOpts];
 	[servername release];
 	[serversrc release];
 	[self setupLink:v];
@@ -287,7 +274,7 @@ extern BOOL doServerMounts;
 }
 #endif
 
-- (Map *)initWithParent:(Vnode *)p directory:(String *)dir from:(String *)ds
+- (Map *)initWithParent:(Vnode *)p directory:(String *)dir from:(String *)ds mountdirectory:(String *)mnt
 {
 	dataStore = nil;
 
@@ -297,12 +284,19 @@ extern BOOL doServerMounts;
 		if (dataStore != nil) [dataStore retain];
 	}
 
-	[super initWithParent:p directory:dir];
+	[super initWithParent:p directory:dir from:ds mountdirectory:mnt];
 
 	[self setName:ds];
 	[self loadMounts];
 	[self postProcess:root];
 	return self;
+}
+
+- (void)reInit
+{
+	[root setMarked:NO];
+	[self loadMounts];
+	[self postProcess:root];
 }
 
 - (void)dealloc

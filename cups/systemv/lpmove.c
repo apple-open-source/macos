@@ -1,9 +1,9 @@
 /*
- * "$Id: lpmove.c,v 1.1.1.2 2002/02/10 04:51:46 jlovell Exp $"
+ * "$Id: lpmove.c,v 1.1.1.7 2003/02/10 21:59:11 jlovell Exp $"
  *
  *   "lpmove" command for the Common UNIX Printing System (CUPS).
  *
- *   Copyright 1997-2002 by Easy Software Products.
+ *   Copyright 1997-2003 by Easy Software Products.
  *
  *   These coded instructions, statements, and computer programs are the
  *   property of Easy Software Products and are protected by Federal
@@ -58,37 +58,42 @@ main(int  argc,			/* I - Number of command-line arguments */
   int		i;		/* Looping var */
   http_t	*http;		/* Connection to server */
   const char	*job;		/* Job name */
+  int		num_dests;	/* Number of destinations */
+  cups_dest_t	*dests;		/* Destinations */
   const char	*dest;		/* New destination */
-  http_encryption_t encryption;	/* Encryption? */
 
 
-  http       = NULL;
-  job        = NULL;
-  dest       = NULL;
-  encryption = cupsEncryption();
+  http      = NULL;
+  job       = NULL;
+  dest      = NULL;
+  num_dests = 0;
+  dests     = NULL;
 
   for (i = 1; i < argc; i ++)
     if (argv[i][0] == '-')
       switch (argv[i][1])
       {
         case 'E' : /* Encrypt */
-#ifdef HAVE_LIBSSL
-	    encryption = HTTP_ENCRYPT_REQUIRED;
+#ifdef HAVE_SSL
+	    cupsSetEncryption(HTTP_ENCRYPT_REQUIRED);
 
 	    if (http)
-	      httpEncryption(http, encryption);
+	      httpEncryption(http, HTTP_ENCRYPT_REQUIRED);
 #else
             fprintf(stderr, "%s: Sorry, no encryption support compiled in!\n",
 	            argv[0]);
-#endif /* HAVE_LIBSSL */
+#endif /* HAVE_SSL */
 	    break;
 
         case 'h' : /* Connect to host */
 	    if (http)
+	    {
 	      httpClose(http);
+	      http = NULL;
+	    }
 
 	    if (argv[i][2] != '\0')
-	      http = httpConnectEncrypt(argv[i] + 2, ippPort(), encryption);
+	      cupsSetServer(argv[i] + 2);
 	    else
 	    {
 	      i ++;
@@ -99,13 +104,7 @@ main(int  argc,			/* I - Number of command-line arguments */
 		return (1);
               }
 
-	      http = httpConnectEncrypt(argv[i], ippPort(), encryption);
-	    }
-
-	    if (http == NULL)
-	    {
-	      perror("lpmove: Unable to connect to server");
-	      return (1);
+	      cupsSetServer(argv[i]);
 	    }
 	    break;
 
@@ -115,7 +114,11 @@ main(int  argc,			/* I - Number of command-line arguments */
       }
     else if (job == NULL)
     {
-      if ((job = strrchr(argv[i], '-')) != NULL)
+      if (num_dests == 0)
+        num_dests = cupsGetDests(&dests);
+
+      if ((job = strrchr(argv[i], '-')) != NULL &&
+          cupsGetDest(argv[i], NULL, num_dests, dests) == NULL)
         job ++;
       else
         job = argv[i];
@@ -136,7 +139,7 @@ main(int  argc,			/* I - Number of command-line arguments */
 
   if (!http)
   {
-    http = httpConnectEncrypt(cupsServer(), ippPort(), encryption);
+    http = httpConnectEncrypt(cupsServer(), ippPort(), cupsEncryption());
 
     if (http == NULL)
     {
@@ -228,5 +231,5 @@ move_job(http_t     *http,	/* I - HTTP connection to server */
 
 
 /*
- * End of "$Id: lpmove.c,v 1.1.1.2 2002/02/10 04:51:46 jlovell Exp $".
+ * End of "$Id: lpmove.c,v 1.1.1.7 2003/02/10 21:59:11 jlovell Exp $".
  */

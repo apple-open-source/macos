@@ -37,13 +37,15 @@
 
 // Generic IOKit storage related headers
 #include <IOKit/storage/IOBlockStorageDriver.h>
+#include <IOKit/storage/IODVDTypes.h>
+#include <IOKit/storage/IOCDTypes.h>
 
 // User notification includes
 #include <UserNotification/KUNCUserNotifications.h>
 
 // SCSI Architecture Model Family includes
-#include <IOKit/scsi-commands/SCSICommandDefinitions.h>
-#include <IOKit/scsi-commands/SCSICmds_INQUIRY_Definitions.h>
+#include <IOKit/scsi/SCSICommandDefinitions.h>
+#include <IOKit/scsi/SCSICmds_INQUIRY_Definitions.h>
 #include "IOSCSIProtocolInterface.h"
 #include "IOSCSIMultimediaCommandsDevice.h"
 #include "IODVDServices.h"
@@ -51,8 +53,6 @@
 #include "SCSIBlockCommands.h"
 #include "SCSIMultimediaCommands.h"
 
-// Temporary definition until the actual one is available in IODVDTypes.h
-#define kDVDMediaTypePlusR 0x0207
 
 //ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
 //	Macros
@@ -133,30 +133,30 @@ OSDefineAbstractStructors ( IOSCSIMultimediaCommandsDevice, IOSCSIPrimaryCommand
 // Get Configuration Profiles
 enum
 {
-	kGetConfigurationProfileList						= 0x0000, /* Profile List */
-	kGetConfigurationProfileRandomWrite					= 0x0020, /* Random Write Profile */
-	kGetConfigurationProfileIncrementalStreamedWrite	= 0x0021, /* Incremental Streamed Writing Profile */
-	kGetConfigurationProfileDVDPlusRW					= 0x002A, /* DVD+RW Profile */
-	kGetConfigurationProfileDVDPlusR					= 0x002B, /* DVD+R Profile */
-	kGetConfigurationProfileCDTAO						= 0x002D, /* CD Track At Once Profile */
-	kGetConfigurationProfileCDMastering					= 0x002E, /* CD Mastering Profile */
-	kGetConfigurationProfileDVDWrite					= 0x002F, /* DVD-R Write Profile */
-	kGetConfigurationProfileAnalogAudio					= 0x0103, /* Analog Audio Profile */
-	kGetConfigurationProfileDVDCSS						= 0x0106  /* DVD-CSS Profile */
+	kGetConfigurationProfile_ProfileList				= 0x0000, /* Profile List */
+	kGetConfigurationProfile_RandomWrite				= 0x0020, /* Random Write Profile */
+	kGetConfigurationProfile_IncrementalStreamedWrite	= 0x0021, /* Incremental Streamed Writing Profile */
+	kGetConfigurationProfile_DVDPlusRW					= 0x002A, /* DVD+RW Profile */
+	kGetConfigurationProfile_DVDPlusR					= 0x002B, /* DVD+R Profile */
+	kGetConfigurationProfile_CDTAO						= 0x002D, /* CD Track At Once Profile */
+	kGetConfigurationProfile_CDMastering				= 0x002E, /* CD Mastering Profile */
+	kGetConfigurationProfile_DVDWrite					= 0x002F, /* DVD-R Write Profile */
+	kGetConfigurationProfile_AnalogAudio				= 0x0103, /* Analog Audio Profile */
+	kGetConfigurationProfile_DVDCSS						= 0x0106  /* DVD-CSS Profile */
 };
 
 // Get Configuration Feature Numbers in Profile List
 enum
 {
-	kGetConfigurationCDROM_Feature		= 0x0008,
-	kGetConfigurationCDR_Feature		= 0x0009,
-	kGetConfigurationCDRW_Feature		= 0x000A,
-	kGetConfigurationDVDROM_Feature		= 0x0010,
-	kGetConfigurationDVDR_Feature		= 0x0011,
-	kGetConfigurationDVDRAM_Feature		= 0x0012,
-	kGetConfigurationDVDRW_Feature		= 0x0014,
-	kGetConfigurationDVDPlusRW_Feature	= 0x001A,
-	kGetConfigurationDVDPlusR_Feature	= 0x001B
+	kGetConfigurationFeature_CDROM		= 0x0008,
+	kGetConfigurationFeature_CDR		= 0x0009,
+	kGetConfigurationFeature_CDRW		= 0x000A,
+	kGetConfigurationFeature_DVDROM		= 0x0010,
+	kGetConfigurationFeature_DVDR		= 0x0011,
+	kGetConfigurationFeature_DVDRAM		= 0x0012,
+	kGetConfigurationFeature_DVDRW		= 0x0014,
+	kGetConfigurationFeature_DVDPlusRW	= 0x001A,
+	kGetConfigurationFeature_DVDPlusR	= 0x001B
 };
 
 // Mechanical Capabilities flags
@@ -205,6 +205,10 @@ enum
 	kDVDSpeed1x		= 1350
 };
 
+enum
+{
+	kThirtySeconds	= 30
+};
 
 // Apple Features mode page code
 #define kAppleFeaturesModePageCode		0x31
@@ -248,35 +252,7 @@ IOSCSIMultimediaCommandsDevice::SyncReadWrite (
 							UInt64					startBlock,
 							UInt64					blockCount )
 {
-	
-	IODirection		direction;
-	IOReturn		status = kIOReturnBadArgument;
-	
-	require ( IsProtocolAccessEnabled ( ), ErrorExit );
-	require ( IsDeviceAccessEnabled ( ), ErrorExit );
-	
-	direction = buffer->getDirection ( );
-	
-	if ( direction == kIODirectionIn )
-	{
-		
-		status = IssueRead ( buffer, startBlock, blockCount );
-		
-	}
-	
-	else if ( direction == kIODirectionOut )
-	{
-		
-		status = IssueWrite ( buffer, startBlock, blockCount );
-		
-	}
-	
-	
-ErrorExit:
-	
-	
-	return status;
-	
+	return kIOReturnUnsupported;
 }
 
 
@@ -601,12 +577,17 @@ IOSCSIMultimediaCommandsDevice::ReportMaxReadTransfer (
 						kSCSIProtocolFeature_MaximumReadTransferByteCount,
 						&maxByteCount );	
 	
-	if ( ( supported == true ) && ( maxByteCount > 0 ) && ( fMediaBlockSize > 0 ) )
+	if ( ( supported == true ) && ( maxByteCount > 0 ) )
 	{
 		
-		maxBlockCount = min ( maxBlockCount, ( maxByteCount / fMediaBlockSize ) );
+		setProperty ( kIOMaximumByteCountReadKey, maxByteCount, 64 );
+		
+		if ( fMediaBlockSize > 0 )
+			maxBlockCount = min ( maxBlockCount, ( maxByteCount / fMediaBlockSize ) );
 		
 	}
+	
+	setProperty ( kIOMaximumBlockCountReadKey, maxBlockCount, 64 );
 	
 	*max = maxBlockCount * blockSize;
 	
@@ -644,12 +625,17 @@ IOSCSIMultimediaCommandsDevice::ReportMaxWriteTransfer ( UInt64 	blockSize,
 						kSCSIProtocolFeature_MaximumWriteTransferByteCount,
 						&maxByteCount );	
 	
-	if ( ( supported == true ) && ( maxByteCount > 0 ) && ( fMediaBlockSize > 0 ) )
+	if ( ( supported == true ) && ( maxByteCount > 0 ) )
 	{
 		
-		maxBlockCount = min ( maxBlockCount, ( maxByteCount / fMediaBlockSize ) );
+		setProperty ( kIOMaximumByteCountWriteKey, maxByteCount, 64 );
+		
+		if ( fMediaBlockSize > 0 )
+			maxBlockCount = min ( maxBlockCount, ( maxByteCount / fMediaBlockSize ) );
 		
 	}
+	
+	setProperty ( kIOMaximumBlockCountWriteKey, maxBlockCount, 64 );
 	
 	*max = maxBlockCount * blockSize;
 	
@@ -911,7 +897,7 @@ IOSCSIMultimediaCommandsDevice::AsyncReadCD (
 		SetApplicationLayerReference ( request, clientData );
 		
 		// The command was successfully built, now send it
-		SendCommand ( request, 0, &IOSCSIMultimediaCommandsDevice::AsyncReadWriteComplete );
+		SendCommand ( request, fReadTimeoutDuration, &IOSCSIMultimediaCommandsDevice::AsyncReadWriteComplete );
 		status = kIOReturnSuccess;
 		
 	}
@@ -2283,6 +2269,7 @@ IOSCSIMultimediaCommandsDevice::SetMediaAccessSpeed (
 		case kDVDMediaTypeRAM:
 		case kDVDMediaTypeR:
 		case kDVDMediaTypeRW:
+		case kDVDMediaTypePlusR:
 		case kDVDMediaTypePlusRW:
 			if ( SET_CD_SPEED ( request, kilobytesPerSecond, 0, 0x40 ) == true )
 			{
@@ -3270,7 +3257,7 @@ IOSCSIMultimediaCommandsDevice::GetDeviceConfigurationSize ( UInt32 * size )
 	if ( GET_CONFIGURATION ( 	request,
 								bufferDesc,
 								0x02, /* Only one feature descriptor */
-								kGetConfigurationProfileList,
+								kGetConfigurationProfile_ProfileList,
 								kProfileDataLengthFieldSize,
 								0 ) == true )
 	{
@@ -3386,7 +3373,7 @@ IOSCSIMultimediaCommandsDevice::GetDeviceConfiguration ( void )
 	if ( GET_CONFIGURATION ( 	request,
 								bufferDesc,
 								0x02, /* Only one feature descriptor */
-								kGetConfigurationProfileList,
+								kGetConfigurationProfile_ProfileList,
 								actualProfileSize,
 								0 ) == true )
 	{
@@ -3412,7 +3399,7 @@ IOSCSIMultimediaCommandsDevice::GetDeviceConfiguration ( void )
 	if ( GET_CONFIGURATION ( 	request,
 								bufferDesc,
 								0x02, /* Only one feature descriptor */
-								kGetConfigurationProfileAnalogAudio,
+								kGetConfigurationProfile_AnalogAudio,
 								4,
 								0 ) == true )
 	{
@@ -3432,7 +3419,7 @@ IOSCSIMultimediaCommandsDevice::GetDeviceConfiguration ( void )
 	if ( GET_CONFIGURATION ( request,
 							 bufferDesc,
 							 0x02, /* Only one feature descriptor */
-							 kGetConfigurationProfileIncrementalStreamedWrite,
+							 kGetConfigurationProfile_IncrementalStreamedWrite,
 							 4,
 							 0 ) == true )
 	{
@@ -3453,7 +3440,7 @@ IOSCSIMultimediaCommandsDevice::GetDeviceConfiguration ( void )
 	if ( GET_CONFIGURATION ( 	request,
 								bufferDesc,
 								0x02, /* Only one feature descriptor */
-								kGetConfigurationProfileCDTAO,
+								kGetConfigurationProfile_CDTAO,
 								8,
 								0 ) == true )
 	{
@@ -3490,7 +3477,7 @@ IOSCSIMultimediaCommandsDevice::GetDeviceConfiguration ( void )
 	if ( GET_CONFIGURATION ( 	request,
 								bufferDesc,
 								0x02, /* Only one feature descriptor */
-								kGetConfigurationProfileCDMastering,
+								kGetConfigurationProfile_CDMastering,
 								8,
 								0 ) == true )
 	{
@@ -3545,7 +3532,7 @@ IOSCSIMultimediaCommandsDevice::GetDeviceConfiguration ( void )
 		if ( GET_CONFIGURATION ( 	request,
 									bufferDesc,
 									0x02, /* Only one feature descriptor */
-									kGetConfigurationProfileDVDWrite,
+									kGetConfigurationProfile_DVDWrite,
 									8,
 									0 ) == true )
 		{
@@ -3584,7 +3571,7 @@ IOSCSIMultimediaCommandsDevice::GetDeviceConfiguration ( void )
 		if ( GET_CONFIGURATION ( 	request,
 									bufferDesc,
 									0x02, /* Only one feature descriptor */
-									kGetConfigurationProfileDVDCSS,
+									kGetConfigurationProfile_DVDCSS,
 									4,
 									0 ) == true )
 		{
@@ -3665,47 +3652,47 @@ IOSCSIMultimediaCommandsDevice::ParseFeatureList (
 		switch ( profileNumber )
 		{
 			
-			case kGetConfigurationCDROM_Feature:
+			case kGetConfigurationFeature_CDROM:
 				STATUS_LOG ( ( "device supports CD-ROM\n" ) );
 				fSupportedCDFeatures |= kCDFeaturesReadStructuresMask;
 				break;
 			
-			case kGetConfigurationCDR_Feature:
+			case kGetConfigurationFeature_CDR:
 				STATUS_LOG ( ( "device supports CD-R\n" ) );
 				fSupportedCDFeatures |= kCDFeaturesWriteOnceMask;
 				break;
 			
-			case kGetConfigurationCDRW_Feature:
+			case kGetConfigurationFeature_CDRW:
 				STATUS_LOG ( ( "device supports CD-RW\n" ) );
 				fSupportedCDFeatures |= kCDFeaturesReWriteableMask;
 				break;
 			
-			case kGetConfigurationDVDROM_Feature:
+			case kGetConfigurationFeature_DVDROM:
 				STATUS_LOG ( ( "device supports DVD-ROM\n" ) );
 				fSupportedDVDFeatures |= kDVDFeaturesReadStructuresMask;
 				break;
 			
-			case kGetConfigurationDVDR_Feature:
+			case kGetConfigurationFeature_DVDR:
 				STATUS_LOG ( ( "device supports DVD-R\n" ) );
 				fSupportedDVDFeatures |= kDVDFeaturesWriteOnceMask;
 				break;
 			
-			case kGetConfigurationDVDRAM_Feature:
+			case kGetConfigurationFeature_DVDRAM:
 				STATUS_LOG ( ( "device supports DVD-RAM/DVD+RW\n" ) );
 				fSupportedDVDFeatures |= kDVDFeaturesRandomWriteableMask;
 				break;
 			
-			case kGetConfigurationDVDRW_Feature:
+			case kGetConfigurationFeature_DVDRW:
 				STATUS_LOG ( ( "device supports DVD-RW\n" ) );
 				fSupportedDVDFeatures |= kDVDFeaturesReWriteableMask;
 				break;
 			
-			case kGetConfigurationDVDPlusRW_Feature:
+			case kGetConfigurationFeature_DVDPlusRW:
 				STATUS_LOG ( ( "device supports DVD+RW\n" ) );
 				fSupportedDVDFeatures |= kDVDFeaturesPlusRWMask;
 				break;
 			
-			case kGetConfigurationDVDPlusR_Feature:
+			case kGetConfigurationFeature_DVDPlusR:
 				STATUS_LOG ( ( "device supports DVD+R\n" ) );
 				fSupportedDVDFeatures |= kDVDFeaturesPlusRMask;
 				break;
@@ -4039,8 +4026,6 @@ IOSCSIMultimediaCommandsDevice::SetMediaCharacteristics (
 	
 	UInt64		maxBytesRead	= 0;
 	UInt64		maxBytesWrite	= 0;
-	UInt64		maxBlocksRead	= 0;
-	UInt64		maxBlocksWrite	= 0;
 	
 	STATUS_LOG ( ( "mediaBlockSize = %ld, blockCount = %ld\n",
 					blockSize, blockCount ) );
@@ -4050,18 +4035,7 @@ IOSCSIMultimediaCommandsDevice::SetMediaCharacteristics (
 	
 	ReportMaxReadTransfer  ( fMediaBlockSize, &maxBytesRead );
 	ReportMaxWriteTransfer ( fMediaBlockSize, &maxBytesWrite );
-	
-	if ( fMediaBlockSize > 0 )
-	{
 		
-		maxBlocksRead 	= maxBytesRead / fMediaBlockSize;
-		maxBlocksWrite	= maxBytesWrite / fMediaBlockSize;
-		
-		setProperty ( kIOMaximumBlockCountReadKey, maxBlocksRead, 64 );
-		setProperty ( kIOMaximumBlockCountWriteKey, maxBlocksWrite, 64 );
-		
-	}
-	
 }
 
 
@@ -4607,34 +4581,34 @@ IOSCSIMultimediaCommandsDevice::CheckForDVDMediaType ( void )
 		switch ( physicalFormatInfo->bookType )
 		{
 			
-			case 0:
+			case kDVDBookTypeROM:
 				STATUS_LOG ( ( "fMediaType = DVD-ROM\n" ) );
 				fMediaType = kDVDMediaTypeROM;
 				break;
 				
-			case 1:
+			case kDVDBookTypeRAM:
 				STATUS_LOG ( ( "fMediaType = DVD-RAM\n" ) );
 				fMediaType = kDVDMediaTypeRAM;
 				break;
 				
-			case 2:
+			case kDVDBookTypeR:
 				STATUS_LOG ( ( "fMediaType = DVD-R\n" ) );
 				fMediaType = kDVDMediaTypeR;
 				break;
 				
-			case 3:
+			case kDVDBookTypeRW:
 				STATUS_LOG ( ( "fMediaType = DVD-RW\n" ) );
 				fMediaType = kDVDMediaTypeRW;
 				break;
 				
-			case 8:
-				STATUS_LOG ( ( "fMediaType = DVD+R\n" ) );
-				fMediaType = kDVDMediaTypePlusR;
-				break;
-				
-			case 9:
+			case kDVDBookTypePlusRW:
 				STATUS_LOG ( ( "fMediaType = DVD+RW\n" ) );
 				fMediaType = kDVDMediaTypePlusRW;
+				break;
+				
+			case kDVDBookTypePlusR:
+				STATUS_LOG ( ( "fMediaType = DVD+R\n" ) );
+				fMediaType = kDVDMediaTypePlusR;
 				break;
 				
 			default:
@@ -4657,7 +4631,7 @@ IOSCSIMultimediaCommandsDevice::CheckForDVDMediaType ( void )
 		if ( GET_CONFIGURATION ( 	request,
 									bufferDesc,
 									0x02, // Only one feature descriptor
-									kGetConfigurationProfileDVDPlusRW,
+									kGetConfigurationProfile_DVDPlusRW,
 									kProfileFeatureHeaderSize + kProfileDescriptorSize,
 									0 ) == true )
 		
@@ -4697,7 +4671,7 @@ IOSCSIMultimediaCommandsDevice::CheckForDVDMediaType ( void )
 		if ( GET_CONFIGURATION ( 	request,
 									bufferDesc,
 									0x02, // Only one feature descriptor
-									kGetConfigurationProfileDVDPlusR,
+									kGetConfigurationProfile_DVDPlusR,
 									kProfileFeatureHeaderSize + kProfileDescriptorSize,
 									0 ) == true )
 		
@@ -5030,7 +5004,7 @@ IOSCSIMultimediaCommandsDevice::CheckWriteProtection ( void )
 	if ( GET_CONFIGURATION ( request,
 							 bufferDesc,
 							 0x02, /* Only one feature descriptor */
-							 kGetConfigurationProfileRandomWrite,
+							 kGetConfigurationProfile_RandomWrite,
 							 sizeof ( buffer ),
 							 0 ) == true )
 	{
@@ -5075,7 +5049,7 @@ Exit:
 
 
 //ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
-//	¥ IssueRead - Issues a synchronous read request.				[PROTECTED]
+//	¥ IssueRead - DEPRECATED.										[PROTECTED]
 //ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
 
 IOReturn
@@ -5084,52 +5058,13 @@ IOSCSIMultimediaCommandsDevice::IssueRead (
 							UInt64					startBlock,
 							UInt64					blockCount )
 {
-	
-	SCSIServiceResponse 	serviceResponse = kSCSIServiceResponse_SERVICE_DELIVERY_OR_TARGET_FAILURE;
-	IOReturn				status			= kIOReturnNoResources;
-	SCSITaskIdentifier		request			= NULL;
-	
-	request = GetSCSITask ( );
-	require_nonzero ( request, ErrorExit );
-	
-	if ( READ_10 ( 	request,
-					buffer,
-					fMediaBlockSize,
-					0,
-					0,
-					0,
-					( SCSICmdField4Byte ) startBlock,
-					( SCSICmdField2Byte ) blockCount,
-					0 ) == true )
-	{
-		// The command was successfully built, now send it
-		serviceResponse = SendCommand ( request, 0 );
-	}
-	
-	if ( ( serviceResponse == kSCSIServiceResponse_TASK_COMPLETE ) &&
-		 ( GetTaskStatus ( request ) == kSCSITaskStatus_GOOD ) )
-	{		
-		status = kIOReturnSuccess;	
-	}
-	
-	else
-	{
-		status = kIOReturnIOError;
-	}
-	
-	ReleaseSCSITask ( request );
-	
-	
-ErrorExit:
-	
-	
-	return status;
-	
+	return kIOReturnUnsupported;
 }
 
 
+
 //ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
-//	¥ IssueRead - Issues a synchronous write request.				[PROTECTED]
+//	¥ IssueWrite - DEPRECATED.										[PROTECTED]
 //ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
 
 IOReturn
@@ -5138,48 +5073,9 @@ IOSCSIMultimediaCommandsDevice::IssueWrite (
 							UInt64					startBlock,
 							UInt64					blockCount )
 {
-	
-	SCSIServiceResponse 	serviceResponse = kSCSIServiceResponse_SERVICE_DELIVERY_OR_TARGET_FAILURE;
-	IOReturn				status			= kIOReturnNoResources;
-	SCSITaskIdentifier		request			= NULL;
-	
-	request = GetSCSITask ( );
-	require_nonzero ( request, ErrorExit );
-	
-	if ( WRITE_10 ( request,
-					buffer,
-					fMediaBlockSize,
-					0,
-					0,
-					0,
-					( SCSICmdField4Byte ) startBlock,
-					( SCSICmdField2Byte ) blockCount,
-					0 ) == true )
-	{
-		// The command was successfully built, now send it
-		serviceResponse = SendCommand ( request, 0 );
-	}
-	
-	if ( ( serviceResponse == kSCSIServiceResponse_TASK_COMPLETE ) &&
-		 ( GetTaskStatus ( request ) == kSCSITaskStatus_GOOD ) )
-	{
-		status = kIOReturnSuccess;
-	}
-	
-	else
-	{
-		status = kIOReturnIOError;
-	}
-	
-	ReleaseSCSITask ( request );
-	
-	
-ErrorExit:
-	
-	
-	return status;
-	
+	return kIOReturnUnsupported;
 }
+
 
 
 //ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
@@ -5215,7 +5111,7 @@ IOSCSIMultimediaCommandsDevice::IssueRead (
 		
 		// The command was successfully built, now send it
 		SendCommand ( request,
-					  0,
+					  fReadTimeoutDuration,
 					  &IOSCSIMultimediaCommandsDevice::AsyncReadWriteComplete );
 		
 		status = kIOReturnSuccess;
@@ -5273,7 +5169,7 @@ IOSCSIMultimediaCommandsDevice::IssueWrite (
 		
 		// The command was successfully built, now send it
 		SendCommand ( request,
-					  0,
+					  fWriteTimeoutDuration,
 					  &IOSCSIMultimediaCommandsDevice::AsyncReadWriteComplete );
 		
 		status = kIOReturnSuccess;
@@ -5443,8 +5339,6 @@ IOSCSIMultimediaCommandsDevice::AsyncReadWriteComplete (
 		
 	}
 	
-	taskOwner->ReleaseSCSITask ( request );
-	
 	if ( taskOwner->fSupportedDVDFeatures & kDVDFeaturesReadStructuresMask )
 	{
 		IODVDServices::AsyncReadWriteComplete ( clientData, status, actCount );
@@ -5454,6 +5348,8 @@ IOSCSIMultimediaCommandsDevice::AsyncReadWriteComplete (
 	{	
 		IOCompactDiscServices::AsyncReadWriteComplete ( clientData, status, actCount );
 	}
+	
+	taskOwner->ReleaseSCSITask ( request );
 	
 	
 ErrorExit:

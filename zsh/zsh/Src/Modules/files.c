@@ -56,7 +56,7 @@ ask(void)
 
 /**/
 static int
-bin_sync(char *nam, char **args, char *ops, int func)
+bin_sync(char *nam, char **args, Options ops, int func)
 {
     sync();
     return 0;
@@ -66,20 +66,16 @@ bin_sync(char *nam, char **args, char *ops, int func)
 
 /**/
 static int
-bin_mkdir(char *nam, char **args, char *ops, int func)
+bin_mkdir(char *nam, char **args, Options ops, int func)
 {
     mode_t oumask = umask(0);
     mode_t mode = 0777 & ~oumask;
     int err = 0;
 
     umask(oumask);
-    if(ops['m']) {
-	char *str = *args++, *ptr;
+    if(OPT_ISSET(ops,'m')) {
+	char *str = OPT_ARG(ops,'m'), *ptr;
 
-	if(!*args) {
-	    zwarnnam(nam, "not enough arguments", NULL, 0);
-	    return 1;
-	}
 	mode = zstrtol(str, &ptr, 8);
 	if(!*str || *ptr) {
 	    zwarnnam(nam, "invalid mode `%s'", str, 0);
@@ -91,7 +87,7 @@ bin_mkdir(char *nam, char **args, char *ops, int func)
 
 	while(ptr > *args + (**args == '/') && *--ptr == '/')
 	    *ptr = 0;
-	if(ops['p']) {
+	if(OPT_ISSET(ops,'p')) {
 	    char *ptr = *args;
 
 	    for(;;) {
@@ -147,7 +143,7 @@ domkdir(char *nam, char *path, mode_t mode, int p)
 
 /**/
 static int
-bin_rmdir(char *nam, char **args, char *ops, int func)
+bin_rmdir(char *nam, char **args, Options ops, int func)
 {
     int err = 0;
 
@@ -183,7 +179,7 @@ bin_rmdir(char *nam, char **args, char *ops, int func)
 
 /**/
 static int
-bin_ln(char *nam, char **args, char *ops, int func)
+bin_ln(char *nam, char **args, Options ops, int func)
 {
     MoveFunc move;
     int flags, err = 0;
@@ -194,22 +190,22 @@ bin_ln(char *nam, char **args, char *ops, int func)
 
     if(func == BIN_MV) {
 	move = (MoveFunc) rename;
-	flags = ops['f'] ? 0 : MV_ASKNW;
+	flags = OPT_ISSET(ops,'f') ? 0 : MV_ASKNW;
 	flags |= MV_ATOMIC;
     } else {
-	flags = ops['f'] ? MV_FORCE : 0;
+	flags = OPT_ISSET(ops,'f') ? MV_FORCE : 0;
 #ifdef HAVE_LSTAT
-	if(ops['s'])
+	if(OPT_ISSET(ops,'s'))
 	    move = (MoveFunc) symlink;
 	else
 #endif
 	{
 	    move = (MoveFunc) link;
-	    if(!ops['d'])
+	    if(!OPT_ISSET(ops,'d'))
 		flags |= MV_NODIRS;
 	}
     }
-    if(ops['i'] && !ops['f'])
+    if(OPT_ISSET(ops,'i') && !OPT_ISSET(ops,'f'))
 	flags |= MV_INTER;
     for(a = args; a[1]; a++) ;
     if(a != args) {
@@ -567,18 +563,20 @@ rm_dirpost(char *arg, char *rp, struct stat const *sp, void *magic)
 
 /**/
 static int
-bin_rm(char *nam, char **args, char *ops, int func)
+bin_rm(char *nam, char **args, Options ops, int func)
 {
     struct rmmagic rmm;
     int err;
 
     rmm.nam = nam;
-    rmm.opt_force = ops['f'];
-    rmm.opt_interact = ops['i'] && !ops['f'];
-    rmm.opt_unlinkdir = ops['d'];
-    err = recursivecmd(nam, ops['f'], ops['r'] && !ops['d'], ops['s'],
+    rmm.opt_force = OPT_ISSET(ops,'f');
+    rmm.opt_interact = OPT_ISSET(ops,'i') && !OPT_ISSET(ops,'f');
+    rmm.opt_unlinkdir = OPT_ISSET(ops,'d');
+    err = recursivecmd(nam, OPT_ISSET(ops,'f'), 
+		       OPT_ISSET(ops,'r') && !OPT_ISSET(ops,'d'),
+		       OPT_ISSET(ops,'s'),
 	args, recurse_donothing, rm_dirpost, rm_leaf, &rmm);
-    return ops['f'] ? 0 : err;
+    return OPT_ISSET(ops,'f') ? 0 : err;
 }
 
 /* chown builtin */
@@ -620,7 +618,7 @@ enum { BIN_CHOWN, BIN_CHGRP };
 
 /**/
 static int
-bin_chown(char *nam, char **args, char *ops, int func)
+bin_chown(char *nam, char **args, Options ops, int func)
 {
     struct chownmagic chm;
     char *uspec = ztrdup(*args), *p = uspec;
@@ -685,7 +683,7 @@ bin_chown(char *nam, char **args, char *ops, int func)
 	    chm.gid = -1;
     }
     free(uspec);
-    return recursivecmd(nam, 0, ops['R'], ops['s'],
+    return recursivecmd(nam, 0, OPT_ISSET(ops,'R'), OPT_ISSET(ops,'s'),
 	args + 1, chown_dochown, recurse_donothing, chown_dochown, &chm);
 }
 
@@ -701,7 +699,7 @@ static struct builtin bintab[] = {
     BUILTIN("chgrp", 0, bin_chown, 2, -1, BIN_CHGRP, "Rs",    NULL),
     BUILTIN("chown", 0, bin_chown, 2, -1, BIN_CHOWN, "Rs",    NULL),
     BUILTIN("ln",    0, bin_ln,    1, -1, BIN_LN,    LN_OPTS, NULL),
-    BUILTIN("mkdir", 0, bin_mkdir, 1, -1, 0,         "pm",    NULL),
+    BUILTIN("mkdir", 0, bin_mkdir, 1, -1, 0,         "pm:",   NULL),
     BUILTIN("mv",    0, bin_ln,    2, -1, BIN_MV,    "fi",    NULL),
     BUILTIN("rm",    0, bin_rm,    1, -1, 0,         "dfirs", NULL),
     BUILTIN("rmdir", 0, bin_rmdir, 1, -1, 0,         NULL,    NULL),

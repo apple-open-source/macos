@@ -1,0 +1,34 @@
+#This script is to be included into the Debian gs build scripts.
+#Do not execute it alone.
+
+ifeq ($(stp-support), yes)
+APPLY_PATCHES	:= $(APPLY_PATCHES) patch-stp
+UNAPPLY_PATCHES	:= unpatch-stp $(UNAPPLY_PATCHES)
+INSTALL_PATCHES	:= $(INSTALL_PATCHES) install-stp
+endif
+
+patch-stp:	patch-stp-stamp
+patch-stp-stamp:
+	@echo -n Adding stp support...
+	@cp contrib/stp/*.[ch] .
+	@cp devs.mak devs.mak.stp-old
+	@cat contrib/stp/devs.mak.addon-5.10 >>devs.mak
+	@debian/addentry gcc-head.mak DEVICE_DEVS6 stp.dev
+	@touch $@
+	@echo done
+
+unpatch-stp:
+	@echo -n Removing stp support...
+	@if [ -f patch-stp-stamp ]; then			\
+	  mv devs.mak.stp-old devs.mak;			\
+	  debian/addentry --remove gcc-head.mak DEVICE_DEVS6 stp.dev; \
+	  cd contrib/stp;					\
+	  for i in *.[ch]; do					\
+	    rm -f ../../$$i;					\
+	  done;							\
+        fi
+	@echo done
+	@rm -f patch-stp-stamp
+
+install-stp:
+	install -m 644 contrib/stp/README.stp  $(GSDOCDIR)

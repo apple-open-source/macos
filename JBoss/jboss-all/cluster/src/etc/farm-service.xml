@@ -1,0 +1,72 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<!-- ===================================================================== -->
+<!--                                                                       -->
+<!--  Sample Farming Service Configuration                                   -->
+<!--                                                                       -->
+<!-- ===================================================================== -->
+
+<server>
+   
+   <classpath codebase="lib" archives="jbossha.jar"/>
+   
+   <mbean code="org.jboss.ha.framework.server.FarmMemberService" name="jboss:service=FarmMember,partition=DefaultPartition" >   
+      <depends>jboss:service=DefaultPartition</depends>    
+   	<attribute name="PartitionName">DefaultPartition</attribute>
+   	
+      <depends>jboss.web:service=WebServer</depends>           
+
+    <!-- Uncomment (and comment/remove version below) to enable usage of the
+      DeploymentCache
+    <depends optional-attribute-name="Deployer">jboss.deployment:type=DeploymentCache</depends>
+    -->
+    <depends optional-attribute-name="Deployer">jboss.system:service=MainDeployer</depends>
+    
+    
+
+    <!-- The URLComparator can be used to specify a deployment ordering
+         for deployments found in a scanned directory.  The class specified
+         must be an implementation of java.util.Comparator, it must be able
+         to compare two URL objects, and it must have a no-arg constructor.
+         Two deployment comparators are shipped with JBoss:
+           - org.jboss.deployment.DeploymentSorter 
+             Sorts by file extension, as follows:
+               "sar", "service.xml", "rar", "jar", "war", "wsr", "ear", "zip", 
+               "*"
+           - org.jboss.deployment.scanner.PrefixDeploymentSorter
+             If the name portion of the url begins with 1 or more digits, those 
+             digits are converted to an int (ignoring leading zeroes), and 
+             files are deployed in that order.  Files that do not start with 
+             any digits will be deployed last, and they will be sorted by
+             extension as above with DeploymentSorter.
+    -->
+    <attribute name="URLComparator">org.jboss.deployment.DeploymentSorter</attribute>
+    <!--
+    <attribute name="URLComparator">org.jboss.deployment.scanner.PrefixDeploymentSorter</attribute>
+    -->
+
+    <!-- The Filter specifies a java.io.FileFilter for scanned
+         directories.  Any file not accepted by this filter will not be
+         deployed.  The org.jboss.deployment.scanner.DeploymentFilter 
+         rejects the following patterns:
+             "#*", "%*", ",*", ".*", "_$*", "*#", "*$", "*%", "*.BAK", 
+             "*.old", "*.orig", "*.rej", "*.bak", "*,v", "*~", ".make.state", 
+             ".nse_depinfo", "CVS", "CVS.admin", "RCS", "RCSLOG", "SCCS", 
+             "TAGS", "core", "tags"
+    -->
+    <attribute name="Filter">org.jboss.deployment.scanner.DeploymentFilter</attribute>
+
+    <attribute name="ScanPeriod">5000</attribute>
+
+    <!-- URLs are comma seperated and unprefixed arguments are considered
+       file URLs and resolve relative to server home(JBOSS_DIST/server/default)
+       unless the given path is absolute. Any referenced directories cannot
+       be unpackaged archives, use the parent directory of the unpacked
+       archive.
+     -->
+    <attribute name="URLs">
+       farm/
+    </attribute>
+   </mbean>
+   
+</server>

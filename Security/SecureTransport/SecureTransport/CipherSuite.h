@@ -21,8 +21,6 @@
 
 	Contains:	SSL Cipher Suite definitions. 
 
-	Written by:	Doug Mitchell, based in Netscape SSLRef 3.0
-
 	Copyright: (c) 1999 by Apple Computer, Inc., all rights reserved.
 
 */

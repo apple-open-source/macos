@@ -9,7 +9,7 @@
 #define __MISC_H
 
 /*
- * $Id: misc.h,v 1.1.1.1 2002/01/31 07:09:04 zarzycki Exp $
+ * $Id: misc.h,v 1.1.1.2 2003/05/22 01:16:35 rbraun Exp $
  */
 
 #if !defined(linux)

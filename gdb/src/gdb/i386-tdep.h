@@ -1,5 +1,5 @@
 /* Target-dependent code for GDB, the GNU debugger.
-   Copyright 2001
+   Copyright 2001, 2002, 2003
    Free Software Foundation, Inc.
 
    This file is part of GDB.
@@ -40,14 +40,36 @@
    differs and is determined by the num_xmm_regs member of `struct
    gdbarch_tdep'.  */
 
+/* Convention for returning structures.  */
+
+enum struct_return
+{
+  pcc_struct_return,		/* Return "short" structures in memory.  */
+  reg_struct_return		/* Return "short" structures in registers.  */
+};
+
 /* i386 architecture specific information.  */
 struct gdbarch_tdep
 {
-  /* OS/ABI.  */
-  int os_ident;
-
   /* Number of SSE registers.  */
   int num_xmm_regs;
+
+  /* Offset of saved PC in jmp_buf.  */
+  int jb_pc_offset;
+
+  /* Convention for returning structures.  */
+  enum struct_return struct_return;
+
+  /* Address range where sigtramp lives.  */
+  CORE_ADDR sigtramp_start;
+  CORE_ADDR sigtramp_end;
+
+  /* Get address of sigcontext for sigtramp.  */
+  CORE_ADDR (*sigcontext_addr) (struct frame_info *);
+
+  /* Offset of saved PC and SP in `struct sigcontext'.  */
+  int sc_pc_offset;
+  int sc_sp_offset;
 };
 
 /* Floating-point registers.  */
@@ -86,11 +108,10 @@ struct gdbarch_tdep
 /* FPU opcode, bottom eleven bits.  */
 #define FOP_REGNUM	(FPC_REGNUM + 7)
 
-/* Return non-zero if N corresponds to a FPU data registers.  */
-#define FP_REGNUM_P(n)	(FP0_REGNUM <= (n) && (n) < FPC_REGNUM)
-
-/* Return non-zero if N corresponds to a FPU control register.  */
-#define FPC_REGNUM_P(n)	(FPC_REGNUM <= (n) && (n) < XMM0_REGNUM)
+/* Return non-zero if REGNUM matches the FP register and the FP
+   register set is active.  */
+extern int i386_fp_regnum_p (int regnum);
+extern int i386_fpc_regnum_p (int regnum);
 
 /* SSE registers.  */
 
@@ -101,16 +122,59 @@ struct gdbarch_tdep
 #define MXCSR_REGNUM \
   (XMM0_REGNUM + gdbarch_tdep (current_gdbarch)->num_xmm_regs)
 
-/* Return non-zero if N corresponds to a SSE data register.  */
-#define SSE_REGNUM_P(n) (XMM0_REGNUM <= (n) && (n) < MXCSR_REGNUM)
+/* Return non-zero if REGNUM matches the SSE register and the SSE
+   register set is active.  */
+extern int i386_sse_regnum_p (int regnum);
+extern int i386_mxcsr_regnum_p (int regnum);
 
 /* FIXME: kettenis/2001-11-24: Obsolete macro's.  */
 #define FCS_REGNUM FISEG_REGNUM
 #define FCOFF_REGNUM FIOFF_REGNUM
 #define FDS_REGNUM FOSEG_REGNUM
 #define FDOFF_REGNUM FOOFF_REGNUM
-#define IS_FP_REGNUM(n) FP_REGNUM_P (n)
-#define IS_FPU_CTRL_REGNUM(n) FPC_REGNUM_P (n)
-#define IS_SSE_REGNUM(n) SSE_REGNUM_P (n)
+#define IS_FP_REGNUM(n) i386_fp_regnum_p (n)
+#define IS_SSE_REGNUM(n) i386_sse_regnum_p (n)
+
+#define I386_NUM_GREGS	16
+#define I386_NUM_FREGS	16
+#define I386_NUM_XREGS  9
+
+#define I386_SSE_NUM_REGS	(I386_NUM_GREGS + I386_NUM_FREGS \
+				 + I386_NUM_XREGS)
+
+/* Sizes of individual register sets.  These cover the entire register
+   file, so summing up the sizes of those portions actually present
+   yields REGISTER_BYTES.  */
+#define I386_SIZEOF_GREGS	(I386_NUM_GREGS * 4)
+#define I386_SIZEOF_FREGS	(8 * 10 + 8 * 4)
+#define I386_SIZEOF_XREGS	(8 * 16 + 4)
+
+#define I386_SSE_SIZEOF_REGS	(I386_SIZEOF_GREGS + I386_SIZEOF_FREGS \
+				 + I386_SIZEOF_XREGS)
+
+/* Size of the largest register.  */
+#define I386_MAX_REGISTER_SIZE	16
+
+/* Functions exported from i386-tdep.c.  */
+extern CORE_ADDR i386_pe_skip_trampoline_code (CORE_ADDR pc, char *name);
+extern int i386_frameless_signal_p (struct frame_info *frame);
+
+/* Return the name of register REG.  */
+extern char const *i386_register_name (int reg);
+
+/* Return non-zero if REGNUM is a member of the specified group.  */
+extern int i386_register_reggroup_p (struct gdbarch *gdbarch, int regnum,
+				     struct reggroup *group);
+
+/* Initialize a basic ELF architecture variant.  */
+extern void i386_elf_init_abi (struct gdbarch_info, struct gdbarch *);
+
+/* Initialize a SVR4 architecture variant.  */
+extern void i386_svr4_init_abi (struct gdbarch_info, struct gdbarch *);
+
+/* Functions exported from i386bsd-tdep.c.  */
+
+extern CORE_ADDR i386bsd_sigcontext_addr (struct frame_info *frame);
+extern void i386bsd_init_abi (struct gdbarch_info, struct gdbarch *);
 
 #endif /* i386-tdep.h */

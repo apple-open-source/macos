@@ -1,0 +1,4 @@
+Current version: 2.0.8b (HEAD from 30.05.2003, tagged JG_2_0_8b_JBOSS)
+
+SL: Compile with modern compiler *no* log4j support (delegates integration to JBoss)
+

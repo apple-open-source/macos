@@ -1,9 +1,9 @@
 /*
- * "$Id: textcommon.c,v 1.3 2002/06/10 23:47:30 jlovell Exp $"
+ * "$Id: textcommon.c,v 1.1.1.10 2003/04/29 00:15:16 jlovell Exp $"
  *
  *   Common text filter routines for the Common UNIX Printing System (CUPS).
  *
- *   Copyright 1997-2002 by Easy Software Products.
+ *   Copyright 1997-2003 by Easy Software Products.
  *
  *   These coded instructions, statements, and computer programs are the
  *   property of Easy Software Products and are protected by Federal
@@ -496,7 +496,6 @@ TextMain(const char *name,	/* I - Name of filter */
   int		i,		/* Looping var */
 		ch,		/* Current char from file */
 		lastch,		/* Previous char from file */
-		nextch,		/* Next char from file */
 		attr,		/* Current attribute */
 		line,		/* Current line */
   		column,		/* Current column */
@@ -555,7 +554,9 @@ TextMain(const char *name,	/* I - Name of filter */
   options     = NULL;
   num_options = cupsParseOptions(argv[5], 0, &options);
 
-  if ((val = cupsGetOption("prettyprint", num_options, options)) != NULL)
+  if ((val = cupsGetOption("prettyprint", num_options, options)) != NULL &&
+      strcasecmp(val, "no") != 0 && strcasecmp(val, "off") != 0 &&
+      strcasecmp(val, "false") != 0)
   {
     PageLeft     = 72.0f;
     PageRight    = PageWidth - 36.0f;
@@ -599,7 +600,7 @@ TextMain(const char *name,	/* I - Name of filter */
   ppd = SetCommonOptions(num_options, options, 1);
 
   if ((val = cupsGetOption("wrap", num_options, options)) == NULL)
-    WrapLines = 0;
+    WrapLines = 1;
   else
     WrapLines = strcasecmp(val, "true") == 0;
 
@@ -612,7 +613,7 @@ TextMain(const char *name,	/* I - Name of filter */
   if ((val = cupsGetOption("lpi", num_options, options)) != NULL)
     LinesPerInch = atof(val);
 
-  if ((val = cupsGetOption("prettyprint", num_options, options)) != NULL)
+  if (PrettyPrint)
     PageTop -= 216.0f / LinesPerInch;
 
   Copies = atoi(argv[4]);
@@ -721,10 +722,13 @@ TextMain(const char *name,	/* I - Name of filter */
 	  * MacOS/Darwin still need to treat CR as a line ending.
 	  */
 
-          if ((nextch = getc(fp)) != 0x0a)
-	    ungetc(nextch, fp);
-	  else
-	    ch = nextch;
+          {
+	    int nextch;
+            if ((nextch = getc(fp)) != 0x0a)
+	      ungetc(nextch, fp);
+	    else
+	      ch = nextch;
+	  }
 #endif /* !__APPLE__ */
 
       case 0x0a :		/* LF - output current line */
@@ -1177,5 +1181,5 @@ getutf8(FILE *fp)	/* I - File to read from */
 
 
 /*
- * End of "$Id: textcommon.c,v 1.3 2002/06/10 23:47:30 jlovell Exp $".
+ * End of "$Id: textcommon.c,v 1.1.1.10 2003/04/29 00:15:16 jlovell Exp $".
  */

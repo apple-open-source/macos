@@ -104,8 +104,8 @@ bool MacRISC2PE::start(IOService *provider)
     if (tmpData == 0) return false;
     macRISC2Speed[0] = *(unsigned long *)tmpData->getBytesNoCopy();
     
-    // If this machine is a P99, P84, P72D, Q16, Q41, or Q54, it has a platform monitor, which we'll load later in this function
-    hasPMon = (!strcmp (provider_name, "PowerBook5,1")) || (!strcmp (provider_name, "PowerBook5,2")) || (!strcmp (provider_name, "PowerBook5,3"));
+    // If this machine is a P99, P84, Q16, Q41, or Q54, it has a platform monitor, which we'll load later in this function
+    hasPMon = (!strcmp (provider_name, "PowerBook6,1")) || (!strcmp (provider_name, "PowerBook5,1")) || (!strcmp (provider_name, "PowerBook5,2")) || (!strcmp (provider_name, "PowerBook5,3")) || (!strcmp (provider_name, "PowerBook6,2"));
    	
 	// get uni-N version for use by platformAdjustService
 	uniNRegEntry = provider->childFromPath("uni-n", gIODTPlane);
@@ -270,7 +270,8 @@ bool MacRISC2PE::start(IOService *provider)
 			dict->setObject (nameKey, nameValueData);
 			compatKey = OSSymbol::withCStringNoCopy("compatible");
                         if ((!strcmp(provider_name, "PowerBook5,2")) || 	// Q16
-                            (!strcmp(provider_name, "PowerBook5,3"))) { 	// Q41
+                            (!strcmp(provider_name, "PowerBook5,3")) || 	// Q41
+                            (!strcmp(provider_name, "PowerBook6,2"))) { 	// P54
                             strcpy (tmpCompat, "Portable2003");
                         } else {
                             strcpy (tmpCompat, provider_name);
@@ -419,8 +420,6 @@ bool MacRISC2PE::platformAdjustService(IOService *service)
 				childIterator = gpioNode->getChildIterator(gIODTPlane);
 				if(childIterator)
 				{
-					IOLog("**** PAS: got childIterator\n");
-					
 					while((childNode = (IORegistryEntry *)(childIterator->getNextObject())) != NULL)
 					{
 						if(!strcmp(childNode->getName(), "extint-gpio4"))
@@ -430,14 +429,11 @@ bool MacRISC2PE::platformAdjustService(IOService *service)
 							{
 								if(!strcmp((const char *)tmpOSData->getBytesNoCopy(), "line-input-detect"))
 								{
-									IOLog("**** PAS: deleting %s with value %s\n", (const char *)audioSymbol->getCStringNoCopy(), (const char *)tmpOSData->getBytesNoCopy());
 									childNode->removeProperty(audioSymbol);
 
 									tmpOSData = OSDynamicCast(OSData, childNode->getProperty(activeStateSymbol));
 									if(tmpOSData)
 									{
-										IOLog("**** PAS: deleting %s with value %s\n", (const char *)activeStateSymbol->getCStringNoCopy(), (const char *)tmpOSData->getBytesNoCopy());
-										
 										// we don't care what the returned value is, we just need to delete the property
 										childNode->removeProperty(activeStateSymbol);
 									}
@@ -452,14 +448,11 @@ bool MacRISC2PE::platformAdjustService(IOService *service)
 							{
 								if(!strcmp((const char *)tmpOSData->getBytesNoCopy(), "headphone-detect"))
 								{
-									IOLog("**** PAS: deleting %s with value %s\n", (const char *)audioSymbol->getCStringNoCopy(), (const char *)tmpOSData->getBytesNoCopy());
 									childNode->removeProperty(audioSymbol);
 
 									tmpOSData = OSDynamicCast(OSData, childNode->getProperty(activeStateSymbol));
 									if(tmpOSData)
 									{
-										IOLog("**** PAS: deleting %s with value %s\n", (const char *)activeStateSymbol->getCStringNoCopy(), (const char *)tmpOSData->getBytesNoCopy());
-										
 										// we don't care what the returned value is, we just need to delete the property
 										childNode->removeProperty(activeStateSymbol);
 									}
@@ -474,14 +467,11 @@ bool MacRISC2PE::platformAdjustService(IOService *service)
 							{
 								if(!strcmp((const char *)tmpOSData->getBytesNoCopy(), "headphone-mute"))
 								{
-									IOLog("**** PAS: deleting %s with value %s\n", (const char *)audioSymbol->getCStringNoCopy(), (const char *)tmpOSData->getBytesNoCopy());
 									childNode->removeProperty(audioSymbol);
 
 									tmpOSData = OSDynamicCast(OSData, childNode->getProperty(activeStateSymbol));
 									if(tmpOSData)
 									{
-										IOLog("**** PAS: deleting %s with value %s\n", (const char *)activeStateSymbol->getCStringNoCopy(), (const char *)tmpOSData->getBytesNoCopy());
-										
 										// we don't care what the returned value is, we just need to delete the property
 										childNode->removeProperty(activeStateSymbol);
 									}
@@ -496,14 +486,11 @@ bool MacRISC2PE::platformAdjustService(IOService *service)
 							{
 								if(!strcmp((const char *)tmpOSData->getBytesNoCopy(), "amp-mute"))
 								{
-									IOLog("**** PAS: deleting %s with value %s\n", (const char *)audioSymbol->getCStringNoCopy(), (const char *)tmpOSData->getBytesNoCopy());
 									childNode->removeProperty(audioSymbol);
 
 									tmpOSData = OSDynamicCast(OSData, childNode->getProperty(activeStateSymbol));
 									if(tmpOSData)
 									{
-										IOLog("**** PAS: deleting %s with value %s\n", (const char *)activeStateSymbol->getCStringNoCopy(), (const char *)tmpOSData->getBytesNoCopy());
-										
 										// we don't care what the returned value is, we just need to delete the property
 										childNode->removeProperty(activeStateSymbol);
 									}
@@ -518,14 +505,11 @@ bool MacRISC2PE::platformAdjustService(IOService *service)
 							{
 								if(!strcmp((const char *)tmpOSData->getBytesNoCopy(), "audio-hw-reset"))
 								{
-									IOLog("**** PAS: deleting %s with value %s\n", (const char *)audioSymbol->getCStringNoCopy(), (const char *)tmpOSData->getBytesNoCopy());
 									childNode->removeProperty(audioSymbol);
 
 									tmpOSData = OSDynamicCast(OSData, childNode->getProperty(activeStateSymbol));
 									if(tmpOSData)
 									{
-										IOLog("**** PAS: deleting %s with value %s\n", (const char *)activeStateSymbol->getCStringNoCopy(), (const char *)tmpOSData->getBytesNoCopy());
-										
 										// we don't care what the returned value is, we just need to delete the property
 										childNode->removeProperty(activeStateSymbol);
 									}

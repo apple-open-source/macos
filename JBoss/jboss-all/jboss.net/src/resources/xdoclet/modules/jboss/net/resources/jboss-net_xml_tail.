@@ -1,0 +1,25 @@
+<!-- The following are typemappings for bean-type value-objects -->
+ 
+<XDtClass:forAllClasses type="java.io.Serializable">
+ <XDtType:ifIsNotOfType type="javax.ejb.EntityBean">
+  <XDtType:ifIsNotOfType type="javax.ejb.SessionBean">
+   <XDtClass:ifHasClassTag tagName="jboss-net:xml-schema">
+  <typeMapping 
+      qname="<XDtClass:classTagValue tagName='jboss-net:xml-schema' paramName='urn'/>" 
+      type="java:<XDtClass:fullClassName/>"
+      serializer="org.apache.axis.encoding.ser.BeanSerializerFactory"
+      deserializer="org.apache.axis.encoding.ser.BeanDeserializerFactory"
+      encodingStyle="http://schemas.xmlsoap.org/soap/encoding/"/>
+   </XDtClass:ifHasClassTag>
+  </XDtType:ifIsNotOfType>
+ </XDtType:ifIsNotOfType>
+</XDtClass:forAllClasses>
+
+<!-- There follow merged custom web service descriptions -->
+
+<XDtMerge:merge file="web-service.xml">
+</XDtMerge:merge>
+
+</deployment>
+
+

@@ -1,21 +1,23 @@
 /*
- * Copyright (c) 2000 Apple Computer, Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
- * The contents of this file constitute Original Code as defined in and
- * are subject to the Apple Public Source License Version 1.1 (the
- * "License").  You may not use this file except in compliance with the
- * License.  Please obtain a copy of the License at
- * http://www.apple.com/publicsource and read it before using this file.
+ * Copyright (c) 1999-2003 Apple Computer, Inc.  All Rights Reserved.
  * 
- * This Original Code and all software distributed under the License are
- * distributed on an "AS IS" basis, WITHOUT WARRANTY OF ANY KIND, EITHER
+ * This file contains Original Code and/or Modifications of Original Code
+ * as defined in and that are subject to the Apple Public Source License
+ * Version 2.0 (the 'License'). You may not use this file except in
+ * compliance with the License. Please obtain a copy of the License at
+ * http://www.opensource.apple.com/apsl/ and read it before using this
+ * file.
+ * 
+ * The Original Code and all software distributed under the License are
+ * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
  * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
  * INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY,
- * FITNESS FOR A PARTICULAR PURPOSE OR NON-INFRINGEMENT.  Please see the
- * License for the specific language governing rights and limitations
- * under the License.
+ * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
+ * Please see the License for the specific language governing rights and
+ * limitations under the License.
  * 
  * @APPLE_LICENSE_HEADER_END@
  */
@@ -51,6 +53,43 @@
 #define kPreviousTrack		0x09
 #define kEject			0x0a
 
+#define InitButtons(ptrs) 			\
+{						\
+    ptrs = 0;					\
+    ptrs ## Count = 0;				\	
+}
+
+
+#define AppendButtons(ptrs, ptr)		\
+{						\
+    UInt32 size = sizeof(UInt32 *) * ( ptrs ## Count); \
+    UInt32 ** tempPtrs = IOMalloc(size + sizeof(UInt32 *)); \
+                                                \
+    if (ptrs) {					\
+        bcopy( ptrs, tempPtrs, size );		\
+        IOFree(ptrs, size);			\
+    }						\
+    ptrs = tempPtrs;				\
+    ptrs[ ptrs ## Count ++] = ptr;		\
+}
+
+
+#define ReleaseButtons(ptrs)			\
+{						\
+    UInt32 size = sizeof(UInt32 *) * ( ptrs ## Count); \
+    IOFree(ptrs, size);				\
+    ptrs = 0;					\
+    ptrs ## Count = 0;				\
+}			
+
+#define GetButtonValues(ptrs, value)		\
+{						\
+    for (int i=0; i< ptrs ## Count ; i++)	\
+    {						\
+        value |= (ptrs[i][0] & 0x1);		\
+    }						\
+}						
+
 OSDefineMetaClassAndStructors( IOHIDConsumer, IOHIKeyboard )
 
 //====================================================================================================
@@ -82,29 +121,57 @@ IOHIDConsumer::init(OSDictionary *properties)
     _soundUpIsPressed = false;
     _soundDownIsPressed = false;
     
-    _systemPowerValuePtr = 0;
-    _systemSleepValuePtr = 0;
-    _systemWakeUpValuePtr = 0;
+    InitButtons(_systemPowerValuePtrs);
+    InitButtons(_systemSleepValuePtrs);
+    InitButtons(_systemWakeUpValuePtrs);
     
-    _volumeIncValuePtr = 0;
-    _volumeDecValuePtr = 0;
-    _volumeMuteValuePtr = 0;
+    InitButtons(_volumeIncValuePtrs);
+    InitButtons(_volumeDecValuePtrs);
+    InitButtons(_volumeMuteValuePtrs);
 
-    _powerValuePtr = 0;
-    _resetValuePtr = 0;
-    _sleepValuePtr = 0;
+    InitButtons(_powerValuePtrs);
+    InitButtons(_resetValuePtrs);
+    InitButtons(_sleepValuePtrs);
     
-    _playValuePtr = 0;
-    _playOrPauseValuePtr = 0;
-    _playOrSkipPtr = 0;
-    _nextTrackValuePtr = 0;
-    _prevTrackValuePtr = 0;
-    _fastFowardValuePtr = 0;
-    _rewindValuePtr = 0;
-    _stopOrEjectPtr = 0;
-    _ejectValuePtr = 0;
+    InitButtons(_playValuePtrs);
+    InitButtons(_playOrPauseValuePtrs);
+    InitButtons(_playOrSkipPtrs);
+    InitButtons(_nextTrackValuePtrs);
+    InitButtons(_prevTrackValuePtrs);
+    InitButtons(_fastFowardValuePtrs);
+    InitButtons(_rewindValuePtrs);
+    InitButtons(_stopOrEjectPtrs);
+    InitButtons(_ejectValuePtrs);
 
     return true;
+}
+
+void IOHIDConsumer::free()
+{
+    ReleaseButtons(_systemPowerValuePtrs);
+    ReleaseButtons(_systemSleepValuePtrs);
+    ReleaseButtons(_systemWakeUpValuePtrs);
+    
+    ReleaseButtons(_volumeIncValuePtrs);
+    ReleaseButtons(_volumeDecValuePtrs);
+    ReleaseButtons(_volumeMuteValuePtrs);
+
+    ReleaseButtons(_powerValuePtrs);
+    ReleaseButtons(_resetValuePtrs);
+    ReleaseButtons(_sleepValuePtrs);
+    
+    ReleaseButtons(_playValuePtrs);
+    ReleaseButtons(_playOrPauseValuePtrs);
+    ReleaseButtons(_playOrSkipPtrs);
+    ReleaseButtons(_nextTrackValuePtrs);
+    ReleaseButtons(_prevTrackValuePtrs);
+    ReleaseButtons(_fastFowardValuePtrs);
+    ReleaseButtons(_rewindValuePtrs);
+    ReleaseButtons(_stopOrEjectPtrs);
+    ReleaseButtons(_ejectValuePtrs);
+
+
+    super::free();
 }
 
 //====================================================================================================
@@ -128,78 +195,63 @@ IOHIDConsumer::findDesiredElements(OSArray *elements)
             switch(element->getUsage())
             {
                 case kHIDUsage_Csmr_Power:
-                    if (!_powerValuePtr)
-                        _powerValuePtr = element->getElementValue()->value;
+                    AppendButtons(_powerValuePtrs, element->getElementValue()->value);
                     found = true;
                     break;
                 case kHIDUsage_Csmr_Reset:
-                    if (!_resetValuePtr)
-                        _resetValuePtr = element->getElementValue()->value;
+                    AppendButtons(_resetValuePtrs, element->getElementValue()->value);
                     found = true;
                     break;
                 case kHIDUsage_Csmr_Sleep:
-                    if (!_sleepValuePtr)
-                        _sleepValuePtr = element->getElementValue()->value;
+                    AppendButtons(_sleepValuePtrs, element->getElementValue()->value);
                     found = true;
                     break;
                 case kHIDUsage_Csmr_Play:
-                    if (!_playValuePtr)
-                        _playValuePtr = element->getElementValue()->value;
+                    AppendButtons(_playValuePtrs, element->getElementValue()->value);
                     found = true;
                     break;
                 case kHIDUsage_Csmr_PlayOrPause:
-                    if (!_playOrPauseValuePtr)
-                        _playOrPauseValuePtr = element->getElementValue()->value;
+                    AppendButtons(_playOrPauseValuePtrs, element->getElementValue()->value);
                     found = true;
                     break;
                 case kHIDUsage_Csmr_PlayOrSkip:
-                    if (!_playOrSkipPtr)
-                        _playOrSkipPtr = element->getElementValue()->value;
+                    AppendButtons(_playOrSkipPtrs, element->getElementValue()->value);
                     found = true;
                     break;
                 case kHIDUsage_Csmr_ScanNextTrack:
-                    if (!_nextTrackValuePtr)
-                        _nextTrackValuePtr = element->getElementValue()->value;
+                    AppendButtons(_nextTrackValuePtrs, element->getElementValue()->value);
                      found = true;
                     break;
                 case kHIDUsage_Csmr_ScanPreviousTrack:
-                    if (!_prevTrackValuePtr)
-                        _prevTrackValuePtr = element->getElementValue()->value;
+                    AppendButtons(_prevTrackValuePtrs, element->getElementValue()->value);
                     found = true;
                     break;
                 case kHIDUsage_Csmr_FastForward:
-                    if (!_fastFowardValuePtr)
-                        _fastFowardValuePtr = element->getElementValue()->value;
+                    AppendButtons(_fastFowardValuePtrs, element->getElementValue()->value);
                     found = true;
                     break;
                 case kHIDUsage_Csmr_Rewind:
-                    if (!_rewindValuePtr)
-                        _rewindValuePtr = element->getElementValue()->value;
+                    AppendButtons(_rewindValuePtrs, element->getElementValue()->value);
                     found = true;
                     break;
                 case kHIDUsage_Csmr_StopOrEject:
-                    if (!_stopOrEjectPtr)
-                        _stopOrEjectPtr = element->getElementValue()->value;
+                    AppendButtons(_stopOrEjectPtrs, element->getElementValue()->value);
                     found = true;
                     break;
                 case kHIDUsage_Csmr_Eject:
-                    if (!_ejectValuePtr)
-                        _ejectValuePtr = element->getElementValue()->value;
+                    AppendButtons(_ejectValuePtrs, element->getElementValue()->value);
                     found = true;
                     break;
                 case kHIDUsage_Csmr_VolumeIncrement:
-                    if (!_volumeIncValuePtr)
-                        _volumeIncValuePtr = element->getElementValue()->value;
+                    AppendButtons(_volumeIncValuePtrs, element->getElementValue()->value);
                     found = true;
                     break;
                 case kHIDUsage_Csmr_VolumeDecrement:
-                    if (!_volumeDecValuePtr)
-                        _volumeDecValuePtr = element->getElementValue()->value;
+                    AppendButtons(_volumeDecValuePtrs, element->getElementValue()->value);
                     found = true;
                     break;
                 case kHIDUsage_Csmr_Mute:
-                    if (!_volumeMuteValuePtr)
-                        _volumeMuteValuePtr = element->getElementValue()->value;
+                    AppendButtons(_volumeMuteValuePtrs, element->getElementValue()->value);
                     found = true;
                     break;
                 default:
@@ -211,23 +263,21 @@ IOHIDConsumer::findDesiredElements(OSArray *elements)
             switch (element->getUsage())
             {
                 case kHIDUsage_GD_SystemPowerDown:
-                    if (!_systemPowerValuePtr)
-                        _systemPowerValuePtr = element->getElementValue()->value;
+                    AppendButtons(_systemPowerValuePtrs, element->getElementValue()->value);
                     found = true;
                     break;
                 case kHIDUsage_GD_SystemSleep:
-                    if (!_systemSleepValuePtr)
-                        _systemSleepValuePtr = element->getElementValue()->value;
+                    AppendButtons(_systemSleepValuePtrs, element->getElementValue()->value);
                     found = true;
                     break;
                 case kHIDUsage_GD_SystemWakeUp:
-                    if (!_systemWakeUpValuePtr)
-                        _systemWakeUpValuePtr = element->getElementValue()->value;
+                    AppendButtons(_systemWakeUpValuePtrs, element->getElementValue()->value);
                     found = true;
                     break;
             }
         }
     }
+        
     return found;
 }
 
@@ -258,65 +308,83 @@ void IOHIDConsumer::handleReport()
 
     // Check and see if the states have changed since last report, if so, we'll notify whoever
     // cares by posting the appropriate key and keystates.
-    powerIsPressed 		= ((_powerValuePtr && _powerValuePtr[0] == 1) ||
-                                    (_resetValuePtr && _resetValuePtr[0] == 1) ||
-                                    (_sleepValuePtr && _sleepValuePtr[0] == 1) ||
-                                    (_systemPowerValuePtr && _systemPowerValuePtr[0] == 1) ||
-                                    (_systemSleepValuePtr && _systemSleepValuePtr[0] == 1) ||
-                                    (_systemWakeUpValuePtr && _systemWakeUpValuePtr[0] == 1));
-    playIsPressed 		= ((_playValuePtr && _playValuePtr[0] == 1) ||
-                                    (_playOrPauseValuePtr && _playOrPauseValuePtr[0] == 1) ||
-                                    (_playOrSkipPtr && _playOrSkipPtr[0] == 1));
-    ejectIsPressed 		= (_ejectValuePtr && _ejectValuePtr[0] == 1);
-    muteIsPressed 		= (_volumeMuteValuePtr && _volumeMuteValuePtr[0] == 1);
-    soundUpIsPressed 		= (_volumeIncValuePtr && _volumeIncValuePtr[0] == 1);
-    soundDownIsPressed 		= (_volumeDecValuePtr && _volumeDecValuePtr[0] == 1);
-    fastForwardIsPressed 	= (_fastFowardValuePtr && _fastFowardValuePtr[0] == 1);
-    rewindIsPressed 		= (_rewindValuePtr && _rewindValuePtr[0] == 1);
-    nextTrackIsPressed 		= (_nextTrackValuePtr && _nextTrackValuePtr[0] == 1);
-    prevTrackIsPressed 		= (_prevTrackValuePtr && _prevTrackValuePtr[0] == 1);
+    powerIsPressed = 0;
+    GetButtonValues(_powerValuePtrs, powerIsPressed);
+    GetButtonValues(_resetValuePtrs, powerIsPressed);
+    GetButtonValues(_sleepValuePtrs, powerIsPressed);
+    GetButtonValues(_systemPowerValuePtrs, powerIsPressed);
+    GetButtonValues(_systemSleepValuePtrs, powerIsPressed);
+    GetButtonValues(_systemWakeUpValuePtrs, powerIsPressed);
 
-    // *** BEGIN ONE SHOT BUTTON
-    // Post key down and key up events. We don't want auto-repeat happening here.
-    if ( muteIsPressed && !_muteIsPressed )
+    playIsPressed = 0;
+    GetButtonValues(_playValuePtrs, playIsPressed);
+    GetButtonValues(_playOrPauseValuePtrs, playIsPressed);
+    GetButtonValues(_playOrSkipPtrs, playIsPressed);
+    
+    ejectIsPressed = 0;
+    GetButtonValues(_ejectValuePtrs, ejectIsPressed);
+
+    muteIsPressed = 0;
+    GetButtonValues(_volumeMuteValuePtrs, muteIsPressed);
+
+    soundUpIsPressed = 0;
+    GetButtonValues(_volumeIncValuePtrs, soundUpIsPressed);
+
+    soundDownIsPressed = 0;
+    GetButtonValues(_volumeDecValuePtrs, soundDownIsPressed);
+
+    fastForwardIsPressed = 0;
+    GetButtonValues(_fastFowardValuePtrs, fastForwardIsPressed);
+
+    rewindIsPressed = 0;
+    GetButtonValues(_rewindValuePtrs, rewindIsPressed);
+
+    nextTrackIsPressed = 0;
+    GetButtonValues(_nextTrackValuePtrs, nextTrackIsPressed);
+
+    prevTrackIsPressed = 0;
+    GetButtonValues(_prevTrackValuePtrs, prevTrackIsPressed);
+
+
+    if ( !( muteIsPressed && soundUpIsPressed && soundDownIsPressed ) )
     {
-            dispatchKeyboardEvent( kVolumeMute, true, now );
-            dispatchKeyboardEvent( kVolumeMute, false, now );
+        if ( muteIsPressed != _muteIsPressed )
+        {
+                // Mute state has changed.
+                dispatchKeyboardEvent( kVolumeMute, muteIsPressed, now );
+        }
+        
+        if( soundUpIsPressed != _soundUpIsPressed )
+        {
+                // Sound up state has changed.
+                dispatchKeyboardEvent( kVolumeUp, soundUpIsPressed, now );
+        }
+        
+        if( soundDownIsPressed != _soundDownIsPressed )
+        {
+                // Sound down state has changed.
+                dispatchKeyboardEvent( kVolumeDown, soundDownIsPressed, now );
+        }
     }
     
-    if ( ejectIsPressed && !_ejectIsPressed )
+    if ( ejectIsPressed != _ejectIsPressed )
     {
-            dispatchKeyboardEvent( kEject, true, now );
-            dispatchKeyboardEvent( kEject, false, now );
+            // Eject state has changed.
+            dispatchKeyboardEvent( kEject, ejectIsPressed, now );
     }
         
-    if ( powerIsPressed && !_powerIsPressed )
+    if ( powerIsPressed != _powerIsPressed )
     {
-            dispatchKeyboardEvent( kPower, true, now );
-            dispatchKeyboardEvent( kPower, false, now );
+            // Power state has changed.
+            dispatchKeyboardEvent( kPower, powerIsPressed, now );
     }
      
-    if ( playIsPressed && !_playIsPressed )
+    if ( playIsPressed != _playIsPressed )
     {
-            dispatchKeyboardEvent( kPlay, true, now );
-            dispatchKeyboardEvent( kPlay, false, now );
+            // Play state has changed.
+            dispatchKeyboardEvent( kPlay, playIsPressed, now );
     }
-    // *** END ONE-SHOT BUTTONS
-       
-    // *** REPEATING BUTTONS
-    // For these keys, we will use IOHIKeyboard's
-    // repeat keys code
-    if( soundUpIsPressed != _soundUpIsPressed )
-    {
-            // Sound up state has changed.
-            dispatchKeyboardEvent( kVolumeUp, soundUpIsPressed, now );
-    }
-    
-    if( soundDownIsPressed != _soundDownIsPressed )
-    {
-            // Sound down state has changed.
-            dispatchKeyboardEvent( kVolumeDown, soundDownIsPressed, now );
-    }
+
     if( fastForwardIsPressed != _fastForwardIsPressed )
     {
             // Sound up state has changed.
@@ -338,7 +406,6 @@ void IOHIDConsumer::handleReport()
             // Sound down state has changed.
             dispatchKeyboardEvent( kPreviousTrack, soundDownIsPressed, now );
     }
-    // *** END REPEATING BUTTONS
     
     // Save states for our next report.
     _soundUpIsPressed		= soundUpIsPressed;
@@ -432,11 +499,7 @@ UInt32 IOHIDConsumer::FindKeyboardsAndGetModifiers()
 {
 	OSIterator	*iterator = NULL;
 	OSDictionary	*matchingDictionary = NULL;
-	IOHIKeyboard	*device = NULL;
-	Boolean 	value = false;
-	OSObject 	*adbProperty;
-	const char 	*adbKey;
-	
+	IOHIKeyboard	*device = NULL;	
 	
 	_eventFlags = 0;
 	_capsLockOn = FALSE;
@@ -462,17 +525,9 @@ UInt32 IOHIDConsumer::FindKeyboardsAndGetModifiers()
 	while( (device = (IOHIKeyboard*) iterator->getNextObject()) )
 	{		
 		
-		//Ignore the eventFlags of non-keyboard ADB devices such as audio buttons
-                //
-		adbProperty = device->getProperty("ADB Match");
-		if (adbProperty)
-		{
-		    adbKey = ((OSString *)adbProperty)->getCStringNoCopy();
-		    if( *adbKey != '2' )	//If not a keyboard
+		//Ignore the eventFlags keyboards that don't have modifiers defined
+		if (!device->getProperty(kIOHIDKeyboardSupportedModifiersKey))
 			continue;
-		}
-
-		value = false;
 		
 		// Save the caps lock state. If more than one keyboard has it down, that's fine -- we
 		// just want to know if ANY keyboards have the key down.

@@ -1,6 +1,6 @@
-/* $OpenLDAP: pkg/ldap/libraries/libldap/error.c,v 1.37 2002/01/04 20:17:38 kurt Exp $ */
+/* $OpenLDAP: pkg/ldap/libraries/libldap/error.c,v 1.37.2.6 2003/02/08 23:53:24 kurt Exp $ */
 /*
- * Copyright 1998-2002 The OpenLDAP Foundation, All Rights Reserved.
+ * Copyright 1998-2003 The OpenLDAP Foundation, All Rights Reserved.
  * COPYING RESTRICTIONS APPLY, see COPYRIGHT file
  */
 
@@ -30,13 +30,13 @@ static struct ldaperror ldap_builtin_errlist[] = {
 	{LDAP_COMPARE_FALSE, 			"Compare False" },
 	{LDAP_COMPARE_TRUE, 			"Compare True" },
 	{LDAP_STRONG_AUTH_NOT_SUPPORTED, "Authentication method not supported" },
-	{LDAP_STRONG_AUTH_REQUIRED, 	"Strong authentication required" },
+	{LDAP_STRONG_AUTH_REQUIRED, 	"Strong(er) authentication required" },
 	{LDAP_PARTIAL_RESULTS, 			"Partial results and referral received" },
 
 	{LDAP_REFERRAL,					"Referral"},
 	{LDAP_ADMINLIMIT_EXCEEDED,		"Administrative limit exceeded"},
 	{LDAP_UNAVAILABLE_CRITICAL_EXTENSION,
-									"Criticial extension is unavailable"},
+									"Critical extension is unavailable"},
 	{LDAP_CONFIDENTIALITY_REQUIRED,	"Confidentiality required"},
 	{LDAP_SASL_BIND_IN_PROGRESS,	"SASL bind in progress"},
 
@@ -53,24 +53,25 @@ static struct ldaperror ldap_builtin_errlist[] = {
 	{LDAP_IS_LEAF, 					"Entry is a leaf" },
 	{LDAP_ALIAS_DEREF_PROBLEM,	 	"Alias dereferencing problem" },
 
+	{LDAP_PROXY_AUTHZ_FAILURE,		"Proxy Authorization Failure" },
 	{LDAP_INAPPROPRIATE_AUTH, 		"Inappropriate authentication" },
 	{LDAP_INVALID_CREDENTIALS, 		"Invalid credentials" },
 	{LDAP_INSUFFICIENT_ACCESS, 		"Insufficient access" },
-	{LDAP_BUSY, 					"DSA is busy" },
-	{LDAP_UNAVAILABLE, 				"DSA is unavailable" },
-	{LDAP_UNWILLING_TO_PERFORM, 	"DSA is unwilling to perform" },
+	{LDAP_BUSY, 					"Server is busy" },
+	{LDAP_UNAVAILABLE, 				"Server is unavailable" },
+	{LDAP_UNWILLING_TO_PERFORM, 	"Server is unwilling to perform" },
 	{LDAP_LOOP_DETECT, 				"Loop detected" },
 
 	{LDAP_NAMING_VIOLATION, 		"Naming violation" },
 	{LDAP_OBJECT_CLASS_VIOLATION, 	"Object class violation" },
-	{LDAP_NOT_ALLOWED_ON_NONLEAF, 	"Operation not allowed on nonleaf" },
+	{LDAP_NOT_ALLOWED_ON_NONLEAF, 	"Operation not allowed on non-leaf" },
 	{LDAP_NOT_ALLOWED_ON_RDN,	 	"Operation not allowed on RDN" },
 	{LDAP_ALREADY_EXISTS, 			"Already exists" },
 	{LDAP_NO_OBJECT_CLASS_MODS, 	"Cannot modify object class" },
 	{LDAP_RESULTS_TOO_LARGE,		"Results too large" },
 	{LDAP_AFFECTS_MULTIPLE_DSAS,	"Operation affects multiple DSAs" },
 
-	{LDAP_OTHER, 					"Unknown error" },
+	{LDAP_OTHER, 					"Internal (implementation specific) error" },
 
 	/* API ResultCodes */
 	{LDAP_SERVER_DOWN,				"Can't contact LDAP server" },
@@ -91,6 +92,22 @@ static struct ldaperror ldap_builtin_errlist[] = {
 	{LDAP_MORE_RESULTS_TO_RETURN,	"More results to return" },
 	{LDAP_CLIENT_LOOP,				"Client Loop" },
 	{LDAP_REFERRAL_LIMIT_EXCEEDED,	"Referral Limit Exceeded" },
+
+#ifdef LDAP_CLIENT_UPDATE
+	{LDAP_CUP_RESOURCES_EXHAUSTED,	"Client Update Resource Exhausted" },
+	{LDAP_CUP_SECURITY_VIOLATION,	"Client Update Security Violation" },
+	{LDAP_CUP_INVALID_COOKIE,		"Client Update Invalid Cookie" },
+	{LDAP_CUP_UNSUPPORTED_SCHEME,	"Client Update Unsupported Scheme" },
+	{LDAP_CUP_CLIENT_DISCONNECT,	"Client Update Client Disconnect" },
+	{LDAP_CUP_RELOAD_REQUIRED,		"Client Update Reload Required" },
+#endif
+
+#ifdef LDAP_EXOP_X_CANCEL
+	{LDAP_CANCELLED,				"Cancelled" },
+	{LDAP_NO_SUCH_OPERATION,		"No Operation to Cancel" },
+	{LDAP_TOO_LATE,					"Too Late to Cancel" },
+	{LDAP_CANNOT_CANCEL,			"Cannot Cancel" },
+#endif
 
 	{-1, NULL}
 };
@@ -146,7 +163,11 @@ ldap_err2string( int err )
 {
 	const struct ldaperror *e;
 	
+#ifdef NEW_LOGGING
+	LDAP_LOG ( OPERATION, ENTRY, "ldap_err2string\n", 0,0,0 );
+#else
 	Debug( LDAP_DEBUG_TRACE, "ldap_err2string\n", 0, 0, 0 );
+#endif
 
 	e = ldap_int_error( err );
 
@@ -157,17 +178,17 @@ ldap_err2string( int err )
 void
 ldap_perror( LDAP *ld, LDAP_CONST char *str )
 {
+    int i;
 	const struct ldaperror *e;
+#ifdef NEW_LOGGING
+	LDAP_LOG ( OPERATION, ENTRY, "ldap_perror\n", 0,0,0 );
+#else
 	Debug( LDAP_DEBUG_TRACE, "ldap_perror\n", 0, 0, 0 );
+#endif
 
 	assert( ld != NULL );
 	assert( LDAP_VALID( ld ) );
 	assert( str );
-
-	if ( ld == NULL ) {
-		fprintf( stderr, "ldap_perror: invalid session handle\n" );
-		return;
-	}
 
 	e = ldap_int_error( ld->ld_errno );
 
@@ -182,6 +203,13 @@ ldap_perror( LDAP *ld, LDAP_CONST char *str )
 
 	if ( ld->ld_error != NULL && ld->ld_error[0] != '\0' ) {
 		fprintf( stderr, "\tadditional info: %s\n", ld->ld_error );
+	}
+
+	if ( ld->ld_referrals != NULL && ld->ld_referrals[0] != NULL) {
+		fprintf( stderr, "\treferrals:\n" );
+		for (i=0; ld->ld_referrals[i]; i++) {
+			fprintf( stderr, "\t\t%s\n", ld->ld_referrals[i] );
+		}
 	}
 
 	fflush( stderr );
@@ -239,15 +267,15 @@ ldap_parse_result(
 	ber_tag_t tag;
 	BerElement	*ber;
 
+#ifdef NEW_LOGGING
+	LDAP_LOG ( OPERATION, ENTRY, "ldap_parse_result\n", 0,0,0 );
+#else
 	Debug( LDAP_DEBUG_TRACE, "ldap_parse_result\n", 0, 0, 0 );
+#endif
 
 	assert( ld != NULL );
 	assert( LDAP_VALID( ld ) );
 	assert( r != NULL );
-
-	if ( ld == NULL || r == NULL ) {
-		return LDAP_PARAM_ERROR;
-	}
 
 	if(errcodep != NULL) *errcodep = LDAP_SUCCESS;
 	if(matcheddnp != NULL) *matcheddnp = NULL;
@@ -279,6 +307,10 @@ ldap_parse_result(
 		LDAP_FREE( ld->ld_matched );
 		ld->ld_matched = NULL;
 	}
+	if ( ld->ld_referrals ) {
+		LDAP_VFREE( ld->ld_referrals );
+		ld->ld_referrals = NULL;
+	}
 
 	/* parse results */
 
@@ -295,13 +327,7 @@ ldap_parse_result(
 		if( tag != LBER_ERROR ) {
 			/* peek for referrals */
 			if( ber_peek_tag(ber, &len) == LDAP_TAG_REFERRAL ) {
-				if( referralsp != NULL ) {
-					tag = ber_scanf( ber, "v", referralsp );
-
-				} else {
-					/* no place to put them so skip 'em */
-					tag = ber_scanf( ber, "x" );
-				}
+				tag = ber_scanf( ber, "v", &ld->ld_referrals );
 			}
 		}
 
@@ -361,6 +387,10 @@ ldap_parse_result(
 		}
 		if( errmsgp != NULL ) {
 			*errmsgp = LDAP_STRDUP( ld->ld_error );
+		}
+
+		if( referralsp != NULL) {
+			*referralsp = ldap_value_dup( ld->ld_referrals );
 		}
 
 		/* Find the next result... */

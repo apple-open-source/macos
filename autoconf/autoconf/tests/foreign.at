@@ -1,10 +1,28 @@
-#							-*- autoconf -*-
+#							-*- Autotest -*-
 
 AT_BANNER([Compatibility with other tools.])
 
-## -------------------- ##
-## Autoconf & Libtool.  ##
-## -------------------- ##
+# Copyright 2000, 2001, 2002 Free Software Foundation, Inc.
+#
+# This program is free software; you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation; either version 2, or (at your option)
+# any later version.
+#
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with this program; if not, write to the Free Software
+# Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA
+# 02111-1307, USA.
+
+
+## --------- ##
+## Libtool.  ##
+## --------- ##
 
 AT_SETUP([[Libtool]])
 
@@ -31,13 +49,15 @@ AT_DATA([configure.in],
 AC_CONFIG_AUX_DIR(.)
 AC_PROG_LIBTOOL
 ]])
-AT_CHECK([libtoolize | sed -n ["s,^.*\`\(/[^']*\)'.*,\1,p"]],
-         0, [stdout], ignore)
+AT_CHECK([libtoolize], 0, [stdout], ignore)
+
+# Some broken libtoolize fail to install a functional config.guess.
+AT_CHECK([./config.guess || exit 77], [], [ignore], [ignore])
 
 # Make sure at-path contains something valid, and let the test suite
 # display it when verbose.  And fail, skipping would too easily hide
 # problems.
-AT_CHECK([grep . stdout], 0, [ignore])
+AT_CHECK([sed -n ["s,^.*\`\(/[^']*\)'.*,\1,p"] stdout], 0, [stdout])
 AT_CHECK([test -f "`cat stdout`"])
 
 # libtoolize installed everything but install-sh...
@@ -52,7 +72,8 @@ AC_CANONICAL_SYSTEM
 AC_PROG_LIBTOOL
 _EOF
 
-AT_CHECK_AUTOCONF
+# FIXME: Once Libtool really fixed, stop ignoring stderr.
+AT_CHECK_AUTOCONF([], [], [], [ignore])
 
 # Ignore stderr, because ltconfig always loads the cache, which is
 # /dev/null, and some shells choke on this.  For instance with Bash

@@ -34,6 +34,7 @@
 #import "DecodeHIDReport.h"
 #import "NodeOutput.h"
 #import "DecodeAudioInterfaceDescriptor.h"
+#import "DecodeVideoInterfaceDescriptor.h"
 
 #define RETURNNUM(obj, fld, integer) \
 [self returnNum:(obj.fld) size:(sizeof(obj.fld)) asInt:integer];
@@ -95,25 +96,30 @@ enum {
     int GetDescriptor(IOUSBDeviceInterface **deviceIntf, UInt8 descType, UInt8 descIndex, void *buf, UInt16 len);
     int GetDeviceSpeed(IOUSBDeviceInterface **deviceIntf, UInt8 *speed);
     int GetDeviceAddress(IOUSBDeviceInterface **deviceIntf, USBDeviceAddress *address);
-int GetDescriptorFromInterface(IOUSBDeviceInterface **deviceIntf, UInt8 descType, UInt8 descIndex, UInt16 wIndex, void *buf, UInt16 len);
-int GetStringDescriptor(IOUSBDeviceInterface **deviceIntf, UInt8 descIndex, void *buf, UInt16 len, UInt16 lang);
-+(USBClass *)ClassAndSubClass:(const char *)scope pcls:(UInt8 *)pcls forDevice:(int)deviceNumber atDepth:(int)depth;
+    int GetDescriptorFromInterface(IOUSBDeviceInterface **deviceIntf, UInt8 descType, UInt8 descIndex, UInt16 wIndex, void *buf, UInt16 len);
+    int GetStringDescriptor(IOUSBDeviceInterface **deviceIntf, UInt8 descIndex, void *buf, UInt16 len, UInt16 lang);
++(USBClass *)DeviceClassAndSubClass:(const char *)scope devDescriptor:(IOUSBDeviceDescriptor *)devDescriptor forDevice:(int)deviceNumber atDepth:(int)depth;
++(USBClass *)InterfaceClassAndSubClass:(const char *)scope devDescriptor:(IOUSBDeviceDescriptor *)devDescriptor intfceDescriptor:(IOUSBInterfaceDescriptor *)intfceDescriptor forDevice:(int)deviceNumber atDepth:(int)depth;
 +(void)PrintDescLenAndType:(void *)desc forDevice:(int)deviceNumber atDepth:(int)depth;
 +(void)printNum:(char *)name value:(UInt32)value size:(int)sizeInBytes forDevice:(int)deviceNumber atDepth:(int)depth asInt:(int)asInt;
 +(NSString *)returnNum:(UInt32)value size:(int)sizeInBytes asInt:(int)asInt;
 +(void)PrintNumStr:(char *)name value:(UInt32)value size:(int)sizeInBytes interpret:(char *)interpret forDevice:(int)deviceNumber atDepth:(int)depth asInt:(int)asInt;
-UInt16 Swap16(void *p);
+    UInt16 Swap16(void *p);
+    UInt32 Swap32(void *p);
+    UInt64 Swap64(void *p);
 +(void)PrintStr:(IOUSBDeviceInterface **)deviceIntf name:(char *)name strIndex:(UInt8)strIndex forDevice:(int)deviceNumber atDepth:(int)depth;
 +(NSString *)ReturnStr:(IOUSBDeviceInterface **)deviceIntf strIndex:(UInt8)strIndex;
 +(void)dump:(int)n byte:(Byte *)p forDevice:(int)deviceNumber atDepth:(int)depth;
 +(void)DumpRawDescriptor:(Byte *)p forDevice:(int)deviceNumber atDepth:(int)depth;
-//+(void)DumpDescriptor:(IOUSBDeviceInterface **)deviceIntf p:(Byte *)p forDevice:(int)deviceNumber;
-+(void)DumpDescriptor:(IOUSBDeviceInterface **)deviceIntf p:(Byte *)p forDevice:(int)deviceNumber lastInterfaceClass:(UInt8)lastInterfaceClass lastInterfaceSubClass:(UInt8)lastInterfaceSubClass currentInterfaceNum:(int)currentInterfaceNum ;
+ //+(void)DumpDescriptor:(IOUSBDeviceInterface **)deviceIntf p:(Byte *)p forDevice:(int)deviceNumber;
++(void)DumpDescriptor:(IOUSBDeviceInterface **)deviceIntf dev:(IOUSBDeviceDescriptor)dev p:(Byte *)p forDevice:(int)deviceNumber lastInterfaceClass:(UInt8)lastInterfaceClass lastInterfaceSubClass:(UInt8)lastInterfaceSubClass currentInterfaceNum:(int)currentInterfaceNum ;
 +(void)DoRegularCSInterface:(Byte *)p deviceClass:(USBClass *)interfaceClass forDevice:(int)deviceNumber atDepth:(int)depth;
 +(void)DoRegularCSEndpoint:(Byte *)p deviceClass:(USBClass *)interfaceClass forDevice:(int)deviceNumber atDepth:(int)depth;
 
 - (void)loadVendorNamesFromFile;
+- (void)loadVDCListFromFile;
 + (NSString *)vendorNameFromVendorID:(NSString *)intValueAsString;
++ (BOOL)isInterfaceVDC:(UInt32)vendorID idProduct:(UInt32)productID;
 
 -(id)outlineView:(NSOutlineView *)outlineView child:(int)index ofItem:(id)item;
 -(BOOL)outlineView:(NSOutlineView *)outlineView isItemExpandable:(id)item;

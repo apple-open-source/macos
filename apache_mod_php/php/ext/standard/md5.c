@@ -1,8 +1,8 @@
 /*
    +----------------------------------------------------------------------+
-   | PHP version 4.0                                                      |
+   | PHP Version 4                                                        |
    +----------------------------------------------------------------------+
-   | Copyright (c) 1997-2001 The PHP Group                                |
+   | Copyright (c) 1997-2003 The PHP Group                                |
    +----------------------------------------------------------------------+
    | This source file is subject to version 2.02 of the PHP license,      |
    | that is bundled with this package in the file LICENSE, and is        |
@@ -12,14 +12,15 @@
    | obtain it through the world-wide-web, please send a note to          |
    | license@php.net so we can mail you a copy immediately.               |
    +----------------------------------------------------------------------+
-   | Authors: Lachlan Roche                                               |
+   | Author: Lachlan Roche                                                |
    +----------------------------------------------------------------------+
 */
 
-/* $Id: md5.c,v 1.1.1.4 2001/12/14 22:13:24 zarzycki Exp $ */
+/* $Id: md5.c,v 1.1.1.7 2003/07/18 18:07:43 zarzycki Exp $ */
 
 /* 
  * md5.c - Copyright 1997 Lachlan Roche 
+ * md5_file() added by Alessandro Astarita <aleast@capri.it>
  */
 
 #include <stdio.h>
@@ -27,16 +28,26 @@
 
 #include "md5.h"
 
+PHPAPI void make_digest(char *md5str, unsigned char *digest)
+{
+	int i;
+
+	for (i = 0; i < 16; i++) {
+		sprintf(md5str, "%02x", digest[i]);
+		md5str += 2;
+	}
+
+	*md5str = '\0';
+}
+
 /* {{{ proto string md5(string str)
    Calculate the md5 hash of a string */
 PHP_NAMED_FUNCTION(php_if_md5)
 {
-	pval **arg;
+	zval **arg;
 	char md5str[33];
 	PHP_MD5_CTX context;
 	unsigned char digest[16];
-	int i;
-	char *r;
 	
 	if (ZEND_NUM_ARGS() != 1 || zend_get_parameters_ex(1, &arg) == FAILURE) {
 		WRONG_PARAM_COUNT;
@@ -45,12 +56,61 @@ PHP_NAMED_FUNCTION(php_if_md5)
 
 	md5str[0] = '\0';
 	PHP_MD5Init(&context);
-	PHP_MD5Update(&context, (*arg)->value.str.val, (*arg)->value.str.len);
+	PHP_MD5Update(&context, Z_STRVAL_PP(arg), Z_STRLEN_PP(arg));
 	PHP_MD5Final(digest, &context);
-	for (i = 0, r = md5str; i < 16; i++, r += 2) {
-		sprintf(r, "%02x", digest[i]);
+	make_digest(md5str, digest);
+	RETVAL_STRING(md5str, 1);
+}
+/* }}} */
+
+/* {{{ proto string md5_file(string filename)
+   Calculate the md5 hash of given filename */
+PHP_NAMED_FUNCTION(php_if_md5_file)
+{
+	zval          **arg;
+	char          md5str[33];
+	unsigned char buf[1024];
+	unsigned char digest[16];
+	PHP_MD5_CTX   context;
+	int           n;
+	FILE          *fp;
+
+	if (ZEND_NUM_ARGS() != 1 || zend_get_parameters_ex(1, &arg) == FAILURE) {
+		WRONG_PARAM_COUNT;
 	}
-	*r = '\0';
+
+	convert_to_string_ex(arg);
+
+	if (PG(safe_mode) && (!php_checkuid(Z_STRVAL_PP(arg), NULL, CHECKUID_CHECK_FILE_AND_DIR))) {
+		RETURN_FALSE;
+	}
+
+	if (php_check_open_basedir(Z_STRVAL_PP(arg) TSRMLS_CC)) {
+		RETURN_FALSE;
+	}
+
+	if ((fp = VCWD_FOPEN(Z_STRVAL_PP(arg), "rb")) == NULL) {
+		php_error_docref(NULL TSRMLS_CC, E_WARNING, "Unable to open file");
+		RETURN_FALSE;
+	}
+
+	PHP_MD5Init(&context);
+
+	while ((n = fread(buf, 1, sizeof(buf), fp)) > 0) {
+		PHP_MD5Update(&context, buf, n);
+	}
+
+	PHP_MD5Final(digest, &context);
+
+	if (ferror(fp)) {
+		fclose(fp);
+		RETURN_FALSE;
+	}
+
+	fclose(fp);
+
+	make_digest(md5str, digest);
+
 	RETVAL_STRING(md5str, 1);
 }
 /* }}} */
@@ -153,7 +213,7 @@ static unsigned char PADDING[64] =
 /* {{{ PHP_MD5Init
  * MD5 initialization. Begins an MD5 operation, writing a new context.
  */
-void PHP_MD5Init(PHP_MD5_CTX * context)
+PHPAPI void PHP_MD5Init(PHP_MD5_CTX * context)
 {
 	context->count[0] = context->count[1] = 0;
 	/* Load magic initialization constants.
@@ -170,7 +230,7 @@ void PHP_MD5Init(PHP_MD5_CTX * context)
    operation, processing another message block, and updating the
    context.
  */
-void PHP_MD5Update(PHP_MD5_CTX * context, const unsigned char *input,
+PHPAPI void PHP_MD5Update(PHP_MD5_CTX * context, const unsigned char *input,
 			   unsigned int inputLen)
 {
 	unsigned int i, index, partLen;
@@ -211,7 +271,7 @@ void PHP_MD5Update(PHP_MD5_CTX * context, const unsigned char *input,
    MD5 finalization. Ends an MD5 message-digest operation, writing the
    the message digest and zeroizing the context.
  */
-void PHP_MD5Final(unsigned char digest[16], PHP_MD5_CTX * context)
+PHPAPI void PHP_MD5Final(unsigned char digest[16], PHP_MD5_CTX * context)
 {
 	unsigned char bits[8];
 	unsigned int index, padLen;
@@ -372,6 +432,6 @@ unsigned int len;
  * tab-width: 4
  * c-basic-offset: 4
  * End:
- * vim600: sw=4 ts=4 tw=78 fdm=marker
- * vim<600: sw=4 ts=4 tw=78
+ * vim600: sw=4 ts=4 fdm=marker
+ * vim<600: sw=4 ts=4
  */

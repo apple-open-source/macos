@@ -1,5 +1,5 @@
 /*
- * Copyright 1998-2002 The OpenLDAP Foundation, All Rights Reserved.
+ * Copyright 1998-2003 The OpenLDAP Foundation, All Rights Reserved.
  * COPYING RESTRICTIONS APPLY, see COPYRIGHT file
  *
  * Copyright 2001, Pierangelo Masarati, All rights reserved. <ando@sys-net.it>
@@ -85,9 +85,8 @@ meta_back_conn_destroy(
 	struct metaconn *lc, lc_curr;
 
 #ifdef NEW_LOGGING
-	LDAP_LOG(( "backend", LDAP_LEVEL_ENTRY,
-			"meta_back_conn_destroy: fetching conn %ld\n",
-			conn->c_connid ));
+	LDAP_LOG( BACK_META, ENTRY,
+		"meta_back_conn_destroy: fetching conn %ld\n", conn->c_connid, 0, 0 );
 #else /* !NEW_LOGGING */
 	Debug( LDAP_DEBUG_TRACE,
 		"=>meta_back_conn_destroy: fetching conn %ld\n%s%s",
@@ -105,9 +104,9 @@ meta_back_conn_destroy(
 		int i;
 		
 #ifdef NEW_LOGGING
-		LDAP_LOG(( "backend", LDAP_LEVEL_INFO,
-				"meta_back_conn_destroy: destroying conn %ld\n",
-				lc->conn->c_connid ));
+		LDAP_LOG( BACK_META, INFO,
+			"meta_back_conn_destroy: destroying conn %ld\n",
+			lc->conn->c_connid, 0, 0 );
 #else /* !NEW_LOGGING */
 		Debug( LDAP_DEBUG_TRACE,
 			"=>meta_back_conn_destroy: destroying conn %ld\n%s%s",
@@ -118,14 +117,12 @@ meta_back_conn_destroy(
 		 * Cleanup rewrite session
 		 */
 		for ( i = 0; i < li->ntargets; ++i ) {
-			if ( lc->conns[ i ]->ld == NULL ) {
-				free( lc->conns[ i ] );
+			if ( lc->conns[ i ].ld == NULL ) {
 				continue;
 			}
 
 			rewrite_session_delete( li->targets[ i ]->rwinfo, conn );
-			meta_clear_one_candidate( lc->conns[ i ], 1 );
-			free( lc->conns[ i ] );
+			meta_clear_one_candidate( &lc->conns[ i ], 1 );
 		}
 
 		free( lc->conns );

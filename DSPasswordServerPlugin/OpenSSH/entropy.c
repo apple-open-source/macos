@@ -27,6 +27,10 @@
  * THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
+/*
+ * Portions Copyright (c) 2002 Apple Computer, Inc.
+ */
+
 //#include "includes.h"
 #include <stdlib.h>
 #include <stdio.h>
@@ -62,13 +66,17 @@ void error(const char *fmt,...)
 {
     fprintf(stderr, fmt);
 }
+void ssh_log(const char *fmt,...)
+{
+    fprintf(stderr, fmt);
+}
 void verbose(const char *fmt,...)
 {
     printf(fmt);
 }
 
 
-//RCSID("$Id: entropy.c,v 1.2 2002/05/24 00:47:37 snsimon Exp $");
+//RCSID("$Id: entropy.c,v 1.2 2003/03/18 19:29:07 snsimon Exp $");
 
 #ifndef offsetof
 # define offsetof(type, member) ((size_t) &((type *)0)->member)

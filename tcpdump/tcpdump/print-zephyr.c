@@ -20,18 +20,18 @@
 
 #ifndef lint
 static const char rcsid[] =
-    "@(#) $Header: /cvs/Darwin/src/live/tcpdump/tcpdump/print-zephyr.c,v 1.1.1.1 2002/05/29 00:05:45 landonf Exp $";
+    "@(#) $Header: /cvs/root/tcpdump/tcpdump/print-zephyr.c,v 1.1.1.2 2003/03/17 18:42:20 rbraun Exp $";
 #endif
 
 #ifdef HAVE_CONFIG_H
 #include "config.h"
 #endif
 
+#include <tcpdump-stdinc.h>
+
 #include <stdio.h>
-#include <ctype.h>
 #include <string.h>
 #include <stdlib.h>
-#include <sys/types.h>
 
 #include "interface.h"
 
@@ -48,7 +48,7 @@ struct z_packet {
     char *inst;
     char *opcode;
     char *sender;
-    char *recipient;
+    const char *recipient;
     char *format;
     int cksum;
     int multi;
@@ -56,7 +56,7 @@ struct z_packet {
     /* Other fields follow here.. */
 };
 
-enum {
+enum z_packet_type {
     Z_PACKET_UNSAFE = 0,
     Z_PACKET_UNACKED,
     Z_PACKET_ACKED,
@@ -66,7 +66,7 @@ enum {
     Z_PACKET_SERVNAK,
     Z_PACKET_CLIENTACK,
     Z_PACKET_STAT
-} z_packet_type;
+};
 
 static struct tok z_types[] = {
     { Z_PACKET_UNSAFE,		"unsafe" },
@@ -105,7 +105,7 @@ parse_field(char **pptr, int *len)
 }
 
 static const char *
-z_triple(char *class, char *inst, char *recipient)
+z_triple(char *class, char *inst, const char *recipient)
 {
     if (!*recipient)
 	recipient = "*";
@@ -122,7 +122,7 @@ str_to_lower(char *string)
 
     string = z_buf;
     while (*string) {
-	*string = tolower(*string);
+	*string = tolower((unsigned char)(*string));
 	string++;
     }
 

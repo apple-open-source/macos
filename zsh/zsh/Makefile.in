@@ -60,7 +60,7 @@ dvi ps html info:
 
 # install stripped
 install-strip:
-	$(MAKE) install STRIPFLAGS="-s"
+	$(MAKE) install STRIPFLAGS=""
 
 # install/uninstall most things
 install: install.bin install.modules install.fns install.man

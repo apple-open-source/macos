@@ -77,7 +77,7 @@ netinfo_back_modrdn(
 	struct atmap map;
 
 #ifdef NEW_LOGGING
-	LDAP_LOG(("backend", LDAP_LEVEL_ARGS, "netinfo_back_modrdn DN %s "
+	LDAP_LOG((BACK_NETINFO, ARGS, "netinfo_back_modrdn DN %s "
 		"new RDN %s new superior DN %s\n", dn->bv_val, newrdn->bv_val,
 		(newSuperior != NULL) ? newSuperior->bv_val : "(null)"));
 #else
@@ -224,15 +224,12 @@ netinfo_back_modrdn(
 	dsattribute_release(a);
 
 	/* check for abandon */
-	ldap_pvt_thread_mutex_lock(&op->o_abandonmutex);
 	if (op->o_abandon)
 	{
 		dsrecord_release(child);
 		ENGINE_UNLOCK(di);
-		ldap_pvt_thread_mutex_unlock(&op->o_abandonmutex);
 		return SLAPD_ABANDON;
 	}
-	ldap_pvt_thread_mutex_unlock(&op->o_abandonmutex);
 
 	/*
 	 * If newSuperior != NULL, move to a new parent. 
@@ -305,15 +302,12 @@ netinfo_back_modrdn(
 	}
 
 	/* check for abandon */
-	ldap_pvt_thread_mutex_lock(&op->o_abandonmutex);
 	if (op->o_abandon)
 	{
 		dsrecord_release(child);
 		ENGINE_UNLOCK(di);
-		ldap_pvt_thread_mutex_unlock(&op->o_abandonmutex);
 		return SLAPD_ABANDON;
 	}
-	ldap_pvt_thread_mutex_unlock(&op->o_abandonmutex);
 
 	/* there is no going back now */
 	/* should we call dsengine_save() or dsstore_save()? */
@@ -375,7 +369,7 @@ netinfo_back_modrdn(
 	ENGINE_UNLOCK(di);
 
 #ifdef NEW_LOGGING
-	LDAP_LOG(("backend", LDAP_LEVEL_INFO, "netinfo_back_modrdn: done\n"));
+	LDAP_LOG((BACK_NETINFO, INFO, "netinfo_back_modrdn: done\n"));
 #else
 	Debug(LDAP_DEBUG_TRACE, "<== netinfo_back_modrdn \n", 0, 0, 0);
 #endif

@@ -1,8 +1,8 @@
 /*
  * Copyright (C) 2000, Richard Sharpe
  *
- * This software may be distributed either under the terms of the 
- * BSD-style licence that accompanies tcpdump or under the GNU GPL 
+ * This software may be distributed either under the terms of the
+ * BSD-style licence that accompanies tcpdump or under the GNU GPL
  * version 2 or later.
  *
  * print-beep.c
@@ -11,15 +11,14 @@
 
 #ifndef lint
 static const char rcsid[] =
-  "@(#) $Header: /cvs/Darwin/src/live/tcpdump/tcpdump/print-beep.c,v 1.1.1.1 2002/05/29 00:05:34 landonf Exp $";
+  "@(#) $Header: /cvs/root/tcpdump/tcpdump/print-beep.c,v 1.1.1.2 2003/03/17 18:42:16 rbraun Exp $";
 #endif
 
 #ifdef HAVE_CONFIG_H
 #include "config.h"
 #endif
 
-#include <sys/param.h>
-#include <sys/time.h>
+#include <tcpdump-stdinc.h>
 
 #ifdef HAVE_MEMORY_H
 #include <memory.h>
@@ -27,14 +26,13 @@ static const char rcsid[] =
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <unistd.h>
 
 #include "interface.h"
 #include "extract.h"
 
 /* Check for a string but not go beyond length
  * Return TRUE on match, FALSE otherwise
- * 
+ *
  * Looks at the first few chars up to tl1 ...
  */
 
@@ -54,20 +52,20 @@ void
 beep_print(const u_char *bp, u_int length)
 {
 
-	if (l_strnstart("MSG", 4, bp, length)) /* A REQuest */
+	if (l_strnstart("MSG", 4, (const char *)bp, length)) /* A REQuest */
 		printf(" BEEP MSG");
-	else if (l_strnstart("RPY ", 4, bp, length))
+	else if (l_strnstart("RPY ", 4, (const char *)bp, length))
 		printf(" BEEP RPY");
-	else if (l_strnstart("ERR ", 4, bp, length))
+	else if (l_strnstart("ERR ", 4, (const char *)bp, length))
 		printf(" BEEP ERR");
-	else if (l_strnstart("ANS ", 4, bp, length))
+	else if (l_strnstart("ANS ", 4, (const char *)bp, length))
 		printf(" BEEP ANS");
-	else if (l_strnstart("NUL ", 4, bp, length))
+	else if (l_strnstart("NUL ", 4, (const char *)bp, length))
 		printf(" BEEP NUL");
-	else if (l_strnstart("SEQ ", 4, bp, length))
+	else if (l_strnstart("SEQ ", 4, (const char *)bp, length))
 		printf(" BEEP SEQ");
-	else if (l_strnstart("END", 4, bp, length))
+	else if (l_strnstart("END", 4, (const char *)bp, length))
 		printf(" BEEP END");
-	else 
+	else
 		printf(" BEEP (payload or undecoded)");
 }

@@ -1,0 +1,13 @@
+<!DOCTYPE para PUBLIC "-//OASIS//DTD DocBook V3.1//EN">
+<para>
+Here is a <sgmltag>SimpleList</>, rendered inline: 
+<simplelist type=inline>
+<member>A</>
+<member>B</>
+<member>C</>
+<member>D</>
+<member>E</>
+<member>F</>
+<member>G</>
+</simplelist>
+</para>

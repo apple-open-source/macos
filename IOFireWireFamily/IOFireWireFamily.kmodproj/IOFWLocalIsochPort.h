@@ -32,14 +32,31 @@
  *
  * HISTORY
  *
+ * $Log: IOFWLocalIsochPort.h,v $
+ * Revision 1.9  2003/08/30 00:16:44  collin
+ * *** empty log message ***
+ *
+ * Revision 1.8  2003/08/15 04:36:55  niels
+ * *** empty log message ***
+ *
+ * Revision 1.7  2003/07/29 22:49:22  niels
+ * *** empty log message ***
+ *
+ * Revision 1.6  2003/07/21 06:52:58  niels
+ * merge isoch to TOT
+ *
+ * Revision 1.5.14.1  2003/07/01 20:54:07  niels
+ * isoch merge
+ *
  */
 
 
 #ifndef _IOKIT_IOFWLOCALISOCHPORT_H
 #define _IOKIT_IOFWLOCALISOCHPORT_H
 
-#include <IOKit/firewire/IOFireWireFamilyCommon.h>
-#include <IOKit/firewire/IOFWIsochPort.h>
+#import <IOKit/firewire/IOFireWireFamilyCommon.h>
+#import <IOKit/firewire/IOFWIsochPort.h>
+
 class IOFireWireController;
 class IODCLProgram;
 
@@ -49,47 +66,67 @@ class IOFWLocalIsochPort : public IOFWIsochPort
 {
     OSDeclareDefaultStructors(IOFWLocalIsochPort)
 
-protected:
-    IOFireWireController *	fControl;
-    IODCLProgram *		fProgram;
+	protected:
+	
+		IOFireWireController *	fControl;
+		IODCLProgram *			fProgram;
+	
+	/*! @struct ExpansionData
+		@discussion This structure will be used to expand the capablilties of the class in the future.
+		*/    
+		struct ExpansionData
+		{
+		} ;
+	
+		ExpansionData *			fExpansion ;
 
-/*! @struct ExpansionData
-    @discussion This structure will be used to expand the capablilties of the class in the future.
-    */    
-    struct ExpansionData { };
+	protected :
+	
+		virtual void 			free ( void ) ;
 
-/*! @var reserved
-    Reserved for future use.  (Internal use only)  */
-    ExpansionData *reserved;
+	public:
+	
+		virtual bool 			init (
+										IODCLProgram *			program, 
+										IOFireWireController *	control ) ;
+	
+		// Return maximum speed and channels supported
+		// (bit n set = chan n supported)
+		virtual IOReturn 		getSupported (
+										IOFWSpeed &				maxSpeed, 
+										UInt64 &				chanSupported ) ;
+	
+		// Allocate hardware resources for port
+		virtual IOReturn 		allocatePort (
+										IOFWSpeed 				speed, 
+										UInt32 					chan ) ;
+		virtual IOReturn 		releasePort ( void ) ;	// Free hardware resources
+		virtual IOReturn 		start ( void ) ;		// Start port processing packets
+		virtual IOReturn 		stop ( void ) ;		// Stop processing packets
+	
+		/*! @function notify
+			@abstract Informs hardware of a change to the DCL program.
+			@param notificationType Type of change.
+			@param dclCommandList List of DCL commands that have been changed.
+			@param numDCLCommands Number of commands in list.
+			@result IOKit error code. */
+		virtual IOReturn 		notify(
+										IOFWDCLNotificationType 	notificationType,
+										DCLCommand ** 				dclCommandList, 
+										UInt32 						numDCLCommands ) ;
+		static void				printDCLProgram (
+										const DCLCommand *		dcl,
+										UInt32					count = 0,
+										void (*printFN)( const char *format, ...) = NULL,
+										unsigned				lineDelayMS = 0 ) ;
+		IOReturn				setIsochResourceFlags (
+										IOFWIsochResourceFlags	flags ) ;
+		IODCLProgram *			getProgramRef() const ;
+										
+	private:
 
-    virtual void free();
-
-public:
-    virtual bool init(IODCLProgram *program, IOFireWireController *control);
-
-	// Return maximum speed and channels supported
-	// (bit n set = chan n supported)
-    virtual IOReturn getSupported(IOFWSpeed &maxSpeed, UInt64 &chanSupported);
-
-	// Allocate hardware resources for port
-    virtual IOReturn allocatePort(IOFWSpeed speed, UInt32 chan);
-    virtual IOReturn releasePort();	// Free hardware resources
-    virtual IOReturn start();		// Start port processing packets
-    virtual IOReturn stop();		// Stop processing packets
-
-    /*! @function notify
-        @abstract Informs hardware of a change to the DCL program.
-        @param notificationType Type of change.
-        @param dclCommandList List of DCL commands that have been changed.
-        @param numDCLCommands Number of commands in list.
-        @result IOKit error code.
-     */
-    virtual IOReturn notify(UInt32 notificationType,
-        DCLCommand** dclCommandList, UInt32 numDCLCommands);
-
-private:
-    OSMetaClassDeclareReservedUnused(IOFWLocalIsochPort, 0);
-    OSMetaClassDeclareReservedUnused(IOFWLocalIsochPort, 1);
+		OSMetaClassDeclareReservedUnused ( IOFWLocalIsochPort, 0 ) ;
+		OSMetaClassDeclareReservedUnused ( IOFWLocalIsochPort, 1 ) ;
 };
 
 #endif /* ! _IOKIT_IOFWLOCALISOCHPORT_H */

@@ -1,4 +1,4 @@
-/*	$KAME: cftoken.l,v 1.66 2001/12/07 03:35:14 sakane Exp $	*/
+/*	$KAME: cftoken.l,v 1.69 2002/09/27 06:03:51 itojun Exp $	*/
 
 %{
 #include <sys/types.h>
@@ -14,6 +14,7 @@
 #include <errno.h>
 #include <limits.h>
 #include <ctype.h>
+#include <glob.h>
 #ifdef HAVE_STDARG_H
 #include <stdarg.h>
 #else
@@ -60,8 +61,10 @@ int yyerrorcount = 0;
 static struct include_stack {
 	char *path;
 	FILE *fp;
-	YY_BUFFER_STATE state;
+	YY_BUFFER_STATE prevstate;
 	int lineno;
+	glob_t matches;
+	int matchon;
 } incstack[MAX_INCLUDE_DEPTH];
 static int incstackp = 0;
 
@@ -209,6 +212,7 @@ hexstring	0x{hexdigit}+
 <S_RMTS>peers_identifier	{ YYD; return(PEERS_IDENTIFIER); }
 <S_RMTS>verify_identifier	{ YYD; return(VERIFY_IDENTIFIER); }
 <S_RMTS>certificate_type	{ YYD; return(CERTIFICATE_TYPE); }
+<S_RMTS>shared_secret	{ YYD; return(SHARED_SECRET); }
 <S_RMTS>x509		{ YYD; yylval.num = ISAKMP_CERT_X509SIGN; return(CERT_X509); }
 <S_RMTS>peers_certfile	{ YYD; return(PEERS_CERTFILE); }
 <S_RMTS>dnssec		{ YYD; return(DNSSEC); }
@@ -333,6 +337,11 @@ address		{ YYD; yylval.num = IDTYPE_ADDRESS; return(IDENTIFIERTYPE); }
 asn1dn		{ YYD; yylval.num = IDTYPE_ASN1DN; return(IDENTIFIERTYPE); }
 certname	{ YYD; yywarn("certname will be obsoleted in near future."); yylval.num = IDTYPE_ASN1DN; return(IDENTIFIERTYPE); }
 
+	/* shared secret type */
+use		{ YYD; yylval.num = SECRETTYPE_USE; return(SECRETTYPE); }
+key		{ YYD; yylval.num = SECRETTYPE_KEY; return(SECRETTYPE); }
+keychain	{ YYD; yylval.num = SECRETTYPE_KEYCHAIN; return(SECRETTYPE); }
+
 	/* units */
 B|byte|bytes		{ YYD; return(UNITTYPE_BYTE); }
 KB			{ YYD; return(UNITTYPE_KBYTES); }
@@ -407,11 +416,35 @@ no		{ YYD; yylval.num = FALSE; return(BOOLEAN); }
 		}
 
 <<EOF>>		{
-			if ( --incstackp < 0 ) {
-				yyterminate();
-			} else {
-				yy_delete_buffer(YY_CURRENT_BUFFER);
-				yy_switch_to_buffer(incstack[incstackp].state);
+			yy_delete_buffer(YY_CURRENT_BUFFER);
+			fclose(incstack[incstackp].fp);
+			incstack[incstackp].fp = -1;
+			racoon_free(incstack[incstackp].path);
+			incstack[incstackp].path = NULL;
+			incstackp--;
+nextfile:
+			if (incstack[incstackp].matchon < incstack[incstackp].matches.gl_pathc)
+			{
+				char* filepath = incstack[incstackp].matches.gl_pathv[incstack[incstackp].matchon];
+				incstack[incstackp].matchon++;
+				incstackp++;
+				if (yycf_set_buffer(filepath) != 0)
+				{
+					incstackp--;
+					goto nextfile;
+				}
+				
+				yy_switch_to_buffer(yy_create_buffer(yyin, YY_BUF_SIZE));
+				
+				BEGIN(S_INI);
+			}
+			else
+			{
+				globfree(&incstack[incstackp].matches);
+				if (incstackp == 0)
+					yyterminate();
+				else
+					yy_switch_to_buffer(incstack[incstackp].prevstate);
 			}
 		}
 
@@ -466,17 +499,35 @@ int
 yycf_switch_buffer(path)
 	char *path;
 {
+	char*	filepath = NULL;
 	/* got the include file name */
 	if (incstackp >= MAX_INCLUDE_DEPTH) {
 		plog(LLV_ERROR, LOCATION, NULL,
 			"Includes nested too deeply");
 		return -1;
 	}
+	
+	if (glob(path, GLOB_TILDE, NULL, &incstack[incstackp].matches) != 0 ||
+		incstack[incstackp].matches.gl_pathc == 0)
+	{
+		plog(LLV_DEBUG, LOCATION, NULL,
+			"glob found no matches for path\n");
+		return 0;
+	}
+	incstack[incstackp].matchon = 0;
+	incstack[incstackp].prevstate = YY_CURRENT_BUFFER;
 
-	incstack[incstackp++].state = YY_CURRENT_BUFFER;
+nextmatch:
+	if (incstack[incstackp].matchon >= incstack[incstackp].matches.gl_pathc) return -1;
+	filepath = incstack[incstackp].matches.gl_pathv[incstack[incstackp].matchon];
+	incstack[incstackp].matchon++;
+	incstackp++;
 
-	if (yycf_set_buffer(path) != 0)
-		return -1;
+	if (yycf_set_buffer(filepath) != 0)
+	{
+		incstackp--;
+		goto nextmatch;
+	}
 
 	yy_switch_to_buffer(yy_create_buffer(yyin, YY_BUF_SIZE));
 
@@ -503,6 +554,9 @@ yycf_set_buffer(path)
 	incstack[incstackp].fp = yyin;
 	incstack[incstackp].path = strdup(path);
 	incstack[incstackp].lineno = 1;
+	plog(LLV_DEBUG, LOCATION, NULL,
+		"reading config file %s\n",
+		path, 0);
 
 	return 0;
 }
@@ -524,7 +578,8 @@ yycf_clean_buffer()
 
 	for (i = 0; i < MAX_INCLUDE_DEPTH; i++) {
 		if (incstack[i].path != NULL) {
-			fclose(incstack[i].fp);
+			if (incstack[i].fp >= 0)
+				fclose(incstack[i].fp);
 			racoon_free(incstack[i].path);
 			incstack[i].path = NULL;
 		}

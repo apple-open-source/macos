@@ -1,0 +1,8 @@
+
+namespace Common {
+    private variable iCount 0
+}
+
+verbose "prepeding test_001.exp"
+prependQueue test_001.exp
+pass "test_000.exp"

@@ -1,0 +1,99 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mbean PUBLIC
+   "-//JBoss//DTD JBOSS XMBEAN 1.0//EN"
+   "http://www.jboss.org/j2ee/dtd/jboss_xmbean_1_0.dtd">
+
+<mbean>
+   <description>The User2 JBoss XMBean Testcase</description>
+   <class>org.jboss.test.jmx.xmbean.User2</class>
+
+   <constructor>
+      <description>The default constructor</description>
+      <name>User2</name>
+   </constructor>
+   <constructor>
+      <description>Create a User2 with an Attr1 initial value</description>
+      <name>User2</name>
+      <parameter>
+         <description>The initial attr1 value</description>
+         <name>attr1</name>
+         <type>java.lang.String</type>
+      </parameter>
+   </constructor>
+
+   <!-- Attributes -->
+   <attribute access="read-write" getMethod="getAttr1" setMethod="setAttr1">
+      <description>Attr1 is the first example managed attribute</description>
+      <name>Attr1</name>
+      <type>java.lang.String</type>
+   </attribute>
+   <attribute access="read-write" getMethod="getAttr2" setMethod="setAttr2">
+      <description>Attr2 is the second example managed attribute</description>
+      <name>Attr2</name>
+      <type>int</type>
+      <descriptors>
+         <default value="10" />
+      </descriptors>
+   </attribute>
+   <attribute access="read-write">
+      <description>Attr3 is the third example managed attribute</description>
+      <name>Attr3</name>
+      <type>org.jboss.test.jmx.xmbean.CustomType</type>
+      <descriptors>
+         <value value="10.20" />
+      </descriptors>
+   </attribute>
+   <attribute access="read-only" getMethod="getHashCode">
+      <description>This return the User2 instance hashCode value</description>
+      <name>HashCode</name>
+      <type>java.lang.Integer</type>
+   </attribute>
+   <attribute access="read-only">
+      <description>Pi is a read-only attribute added at the metadata level
+         for which there is no state in the User2 instance.
+      </description>
+      <name>Pi</name>
+      <type>double</type>
+      <descriptors>
+         <default value="3.14159" />
+      </descriptors>
+   </attribute>
+   <attribute access="read-write">
+      <description>SecMgr is a read-write attribute added at the metadata level
+         for which there is no state in the User2 instance.
+      </description>
+      <name>SecMgr</name>
+      <type>javax.management.ObjectName</type>
+      <descriptors>
+         <currencyTimeLimit value="-1"/>
+         <default value="jboss.security:service=JaasSecurityManager" />
+      </descriptors>
+   </attribute>
+
+   <!-- Operations -->
+   <operation>
+      <description>The start lifecycle operation</description>
+      <name>start</name>
+   </operation>
+   <operation>
+      <description>The stop lifecycle operation</description>
+      <name>stop</name>
+   </operation>
+
+   <operation>
+      <description></description>
+      <name>noop</name>
+   </operation>
+   <operation>
+      <description>An operation that returns the current date prefixed by
+      the input argument</description>
+      <name>echoDate</name>
+      <parameter>
+         <description>The prefix to include in the return echo message</description>
+         <name>prefix</name>
+         <type>java.lang.String</type>
+      </parameter>
+      <return-type>java.lang.String</return-type>
+   </operation>
+
+</mbean>

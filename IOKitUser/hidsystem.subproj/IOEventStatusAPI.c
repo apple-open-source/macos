@@ -39,7 +39,7 @@
 
 #include <CoreFoundation/CoreFoundation.h>
 
-#include <drivers/event_status_driver.h>
+#include <IOKit/hidsystem/event_status_driver.h>
 #include <IOKit/IOKitLib.h>
 #include <IOKit/hidsystem/IOHIDLib.h>
 #include <IOKit/hidsystem/IOHIDParameter.h>
@@ -50,14 +50,14 @@
 /* Definitions specific to the Mach based event driver */
 #define BRIGHT_MAX 64
 
-static void secs_to_packed_nsecs(double secs, unsigned int *nsecs)
+static void secs_to_packed_nsecs(double secs, UInt64 *nsecs)
 {
-    *((UInt64 *)nsecs) = (1000.0 * 1000.0 * 1000.0 * secs);
+    *nsecs = (1000.0 * 1000.0 * 1000.0 * secs);
 }
 
-static double packed_nsecs_to_secs(unsigned int *nsecs)
+static double packed_nsecs_to_secs(UInt64 nsecs)
 {
-    return( ((double)*((UInt64 *)nsecs)) / 1000.0 / 1000.0 / 1000.0);
+    return( ((double)nsecs) / 1000.0 / 1000.0 / 1000.0);
 }
 
 /* Open and Close */
@@ -179,37 +179,144 @@ NXEventSystemInfoType NXEventSystemInfo(NXEventHandle handle,
     return evs_info;
 }
 
-kern_return_t IOHIDSetParameter( io_connect_t handle, CFStringRef key, 
-		const void * bytes, IOByteCount size )
+kern_return_t IOHIDSetParameter( io_connect_t handle, CFStringRef key,
+                const void * bytes, IOByteCount size )
 {
     kern_return_t		kr = kIOReturnNoMemory;
-    CFDataRef			data;
+    CFNumberType		numberType;
+    CFNumberRef			numberRef;
 
-    do {
-        data = CFDataCreate( kCFAllocatorDefault, bytes, size );
-        if( !data)
-	    continue;
-	kr = IOConnectSetCFProperty( handle, key, data );
-	CFRelease(data);
+    if (!bytes || !size)
+        return kIOReturnError;
 
-    } while( false );
+    switch ( size )
+    {
+        case sizeof(UInt64):
+            numberType = kCFNumberSInt64Type;
+            break;
+        case sizeof(UInt32):
+            numberType = kCFNumberSInt32Type;
+            break;
+        case sizeof(UInt16):
+            numberType = kCFNumberSInt16Type;
+            break;
+        case sizeof(UInt8):
+            numberType = kCFNumberSInt8Type;
+            break;
+        default:
+            numberType = kCFNumberSInt32Type;
+            break;
+    }
+
+    numberRef = CFNumberCreate(kCFAllocatorDefault, numberType, bytes);
+    if( numberRef)
+    {
+        kr = IOConnectSetCFProperty( handle, key, numberRef );
+        CFRelease(numberRef);
+    }
+
 
     return( kr );
 }
+
+kern_return_t IOHIDSetCFTypeParameter( io_connect_t handle, CFStringRef key, CFTypeRef parameter)
+{
+    kern_return_t		kr = kIOReturnError;
+
+    if ( parameter )
+        kr = IOConnectSetCFProperty( handle, key, parameter );
+    else
+        kr = kIOReturnBadArgument;
+    
+    return( kr );
+}
+
 #ifndef kIOHIDParametersKey
 #define kIOHIDParametersKey		"HIDParameters"
 #endif
 
-kern_return_t IOHIDGetParameter( io_connect_t handle, CFStringRef key, 
-		IOByteCount maxSize, void * bytes, IOByteCount * actualSize )
+kern_return_t IOHIDGetParameter( io_connect_t handle, CFStringRef key,
+                IOByteCount maxSize, void * bytes, IOByteCount * actualSize )
+{
+    kern_return_t	kr;
+    io_service_t	hidsystem;
+    CFDataRef		data;
+    CFNumberRef		number;
+    CFNumberType	numberType;
+    CFTypeRef		typeRef = NULL;
+    int 		copySize;
+
+    if (!bytes || !maxSize)
+        return kIOReturnBadArgument;
+
+    kr = IOHIDCopyCFTypeParameter(handle, key, &typeRef);
+
+    if ( kr != kIOReturnSuccess )
+        return kr;
+
+    if( !typeRef )
+        return kIOReturnBadArgument;
+
+    if (CFGetTypeID(typeRef) == CFDataGetTypeID())
+    {
+        data = (CFDataRef)typeRef;
+        copySize = CFDataGetLength(data);
+        *actualSize = copySize;
+        if( maxSize < copySize)
+            copySize = maxSize;
+        bcopy( CFDataGetBytePtr(data), bytes, copySize );
+    }
+    else if (CFGetTypeID(typeRef) == CFNumberGetTypeID())
+    {
+        number = (CFNumberRef)typeRef;
+        copySize = CFNumberGetByteSize(number);
+        *actualSize = copySize;
+        if( maxSize < copySize)
+            copySize = maxSize;
+
+        switch ( copySize )
+        {
+            case sizeof(UInt64):
+                numberType = kCFNumberSInt64Type;
+                break;
+            case sizeof(UInt32):
+                numberType = kCFNumberSInt32Type;
+                break;
+            case sizeof(UInt16):
+                numberType = kCFNumberSInt16Type;
+                break;
+            case sizeof(UInt8):
+                numberType = kCFNumberSInt8Type;
+                break;
+            default:
+                numberType = kCFNumberSInt32Type;
+                break;
+        }
+
+        CFNumberGetValue( number, numberType, bytes );
+    }
+    else
+    {
+        kr = kIOReturnBadArgument;
+    }
+
+    CFRelease(typeRef);
+    
+    return( kr );
+
+}
+
+kern_return_t IOHIDCopyCFTypeParameter( io_connect_t handle, CFStringRef key, CFTypeRef * parameter )
 {
     kern_return_t	kr;
     io_service_t	hidsystem;
     CFDictionaryRef	paramDict;
     CFDictionaryRef	dict;
-    CFDataRef		data = NULL;
-    int 		copySize;
+    CFTypeRef		tempParameter = NULL;
 
+    if (!parameter)
+        return kIOReturnError;
+    
     kr = IOConnectGetService( handle, &hidsystem );
     if( KERN_SUCCESS != kr )
         return( kr );
@@ -219,35 +326,147 @@ kern_return_t IOHIDGetParameter( io_connect_t handle, CFStringRef key,
     IOObjectRelease( hidsystem );
 
     if( kr != KERN_SUCCESS)
-	return( kr );
+        return( kr );
 
     if( (paramDict = CFDictionaryGetValue( dict, CFSTR(kIOHIDParametersKey))))
-        data = CFDictionaryGetValue( paramDict, key);
-    if( !data)
-        data = CFDictionaryGetValue( dict, key);
+        tempParameter = CFDictionaryGetValue( paramDict, key);
+    if( !tempParameter )
+        tempParameter = CFDictionaryGetValue( dict, key);
 
-    if( data ) {
-	copySize = CFDataGetLength(data);
-	*actualSize = copySize;
-	if( maxSize < copySize)
-	    copySize = maxSize;
-	bcopy( CFDataGetBytePtr(data), bytes, copySize );
-
-    } else
-	kr = kIOReturnBadArgument;
+    if ( tempParameter )
+        CFRetain(tempParameter);
+    else
+        kr = kIOReturnBadArgument;
+    
+    *parameter = tempParameter;
 
     CFRelease(dict);
 
     return( kr );
 }
 
-#define NXEvSetParameterChar( h,n,p,sz ) IOHIDSetParameter( h,n,p,sz )
+
+/*
 #define NXEvSetParameterInt( h,n,p,sz )	 IOHIDSetParameter( h,n,	\
 					(unsigned char *)p,sz * 4 )
-#define NXEvGetParameterChar( h,n,mx,p,sz ) IOHIDGetParameter( h, n,mx,p,sz )
 #define NXEvGetParameterInt( h,n,mx,p,sz )	 IOHIDGetParameter( h,n, mx * 4, \
 					(unsigned char *)p,sz ); \
 			*sz /= 4
+#define NXEvSetParameterChar( h,n,p,sz ) IOHIDSetParameter( h,n,p,sz )
+*/
+#define NXEvGetParameterChar( h,n,mx,p,sz ) IOHIDGetParameter( h, n,mx,p,sz )
+
+static inline int NXEvSetParameterChar( io_connect_t 	handle,
+                                 CFStringRef 	key,
+                                 const void * 	bytes,
+                                 IOByteCount 	size )
+{
+    kern_return_t		kr = kIOReturnNoMemory;
+    CFDataRef			data;
+
+    do {
+        data = CFDataCreate( kCFAllocatorDefault, bytes, size );
+        if( !data)
+            continue;
+        kr = IOHIDSetCFTypeParameter( handle, key, data );
+        CFRelease(data);
+
+    } while( false );
+
+    return( kr );
+}
+
+static inline int NXEvSetParameterInt(	NXEventHandle handle,
+                                CFStringRef parameterName,
+                                unsigned int *parameterArray,
+                                unsigned int count)
+{
+
+    CFMutableArrayRef 	arrayRef;
+    CFNumberRef 	numberRef;
+    IOReturn		ret;
+    int 		i;
+
+
+    if (!parameterArray || !count)
+        return kIOReturnError;
+
+    if (count > 1)
+    {
+        arrayRef = CFArrayCreateMutable(kCFAllocatorDefault, count, &kCFTypeArrayCallBacks);
+        if ( !arrayRef )
+            return kIOReturnNoMemory;
+
+        for (i=0; i<count; i++)
+        {
+            numberRef = CFNumberCreate(kCFAllocatorDefault, kCFNumberSInt32Type, &(parameterArray[i]));
+
+            if (numberRef)
+            {
+                CFArraySetValueAtIndex(arrayRef, i, numberRef);
+                CFRelease(numberRef);
+            }
+        }
+
+        ret = IOHIDSetCFTypeParameter(handle, parameterName, arrayRef);
+
+        CFRelease(arrayRef);
+    }
+    else
+    {
+        numberRef = CFNumberCreate(kCFAllocatorDefault, kCFNumberIntType, &(parameterArray[0]));
+
+        if (numberRef)
+        {
+            ret = IOHIDSetCFTypeParameter(handle, parameterName, numberRef);
+            CFRelease(numberRef);
+        }
+
+    }
+    return ret;
+}
+
+static inline int NXEvGetParameterInt(	NXEventHandle handle,
+                                CFStringRef parameterName,
+                                unsigned int maxCount,
+                                unsigned int *parameterArray,
+                                unsigned int *returnedCount)
+{
+
+    CFArrayRef 		arrayRef;
+    CFNumberRef 	numberRef;
+    CFTypeRef		typeRef;
+    IOReturn		ret;
+    int 		i;
+
+
+    ret = IOHIDCopyCFTypeParameter(handle, parameterName, &typeRef);
+
+    if ( ret != kIOReturnSuccess )
+        return ret;
+
+    if ( !typeRef || (CFGetTypeID(typeRef) != CFArrayGetTypeID()) || !parameterArray || !maxCount)
+        return kIOReturnBadArgument;
+
+    arrayRef = (CFArrayRef)typeRef;
+
+    *returnedCount = CFArrayGetCount(arrayRef);
+
+    if( maxCount < *returnedCount)
+        *returnedCount = maxCount;
+
+    for (i=0; i<*returnedCount; i++)
+    {
+        numberRef = CFArrayGetValueAtIndex(arrayRef, i);
+
+        if (numberRef)
+            CFNumberGetValue(numberRef, kCFNumberIntType, &(parameterArray[i]));
+    }
+
+    CFRelease(arrayRef);
+
+    return ret;
+}
 
 
 /* Keyboard */
@@ -261,19 +480,19 @@ void NXResetKeyboard(NXEventHandle handle)
 
 void NXSetKeyRepeatInterval(NXEventHandle handle, double rate)
 {
-	unsigned int params[EVSIOSKR_SIZE];
-	secs_to_packed_nsecs( rate, params );
-	NXEvSetParameterInt(	handle, CFSTR(EVSIOSKR), params, EVSIOSKR_SIZE);
+	UInt64 params;
+	secs_to_packed_nsecs( rate, &params );
+	IOHIDSetParameter(	handle, CFSTR(EVSIOSKR), &params, sizeof(UInt64));
 }
 
 double NXKeyRepeatInterval(NXEventHandle handle)
 {
-	unsigned int params[EVSIOCKR_SIZE];
+	UInt64 params;
 	IOByteCount rcnt = EVSIOCKR_SIZE;
 	int r;
 
-	r = NXEvGetParameterInt( handle, CFSTR(EVSIOSKR), EVSIOCKR_SIZE,
-				params, &rcnt );
+        r = IOHIDGetParameter( handle, CFSTR(EVSIOSKR), sizeof(params),
+				&params, &rcnt );
 	if ( r != kIOReturnSuccess )
 		return 0.0;
 
@@ -282,19 +501,19 @@ double NXKeyRepeatInterval(NXEventHandle handle)
 
 void NXSetKeyRepeatThreshold(NXEventHandle handle, double threshold)
 {
-	unsigned int params[EVSIOSIKR_SIZE];
-	secs_to_packed_nsecs( threshold, params );
-	NXEvSetParameterInt(	handle, CFSTR(EVSIOSIKR), params, EVSIOSIKR_SIZE);
+        UInt64 params;
+        secs_to_packed_nsecs( threshold, &params );
+        IOHIDSetParameter( handle, CFSTR(EVSIOSIKR), &params, sizeof(params));
 }
 
 double NXKeyRepeatThreshold(NXEventHandle handle)
 {
-	unsigned int params[EVSIOCKR_SIZE];
+	UInt64 params;
 	IOByteCount rcnt = EVSIOCKR_SIZE;
 	int r;
 
-	r = NXEvGetParameterInt( handle, CFSTR(EVSIOSIKR), EVSIOCKR_SIZE,
-				params, &rcnt );
+	r = IOHIDGetParameter( handle, CFSTR(EVSIOSIKR), sizeof(UInt64),
+				&params, &rcnt );
 	if ( r != kIOReturnSuccess )
 		return 0.0;
 	return packed_nsecs_to_secs( params );
@@ -350,20 +569,20 @@ void NXResetMouse(NXEventHandle handle)
 
 void NXSetClickTime(NXEventHandle handle, double secs)
 {
-	unsigned int params[EVSIOSCT_SIZE];
+	UInt64 params;
 
-	secs_to_packed_nsecs( secs, params );
-	NXEvSetParameterInt(handle, CFSTR(EVSIOSCT), params, EVSIOSCT_SIZE);
+	secs_to_packed_nsecs( secs, &params );
+        IOHIDSetParameter(handle, CFSTR(EVSIOSCT), &params, sizeof(params));
 }
 
 double NXClickTime(NXEventHandle handle)
 {
-	unsigned int params[EVSIOCCT_SIZE];
+	UInt64 params;
 	IOByteCount rcnt = EVSIOCCT_SIZE;
 	int r;
 
-	r = NXEvGetParameterInt(handle, CFSTR(EVSIOCCT), EVSIOCCT_SIZE,
-				params, &rcnt );
+	r = IOHIDGetParameter(handle, CFSTR(EVSIOCCT), sizeof(UInt64),
+				&params, &rcnt );
 	if ( r != kIOReturnSuccess )
 		return 0.0;
 	return packed_nsecs_to_secs( params );
@@ -537,20 +756,20 @@ kern_return_t IOHIDSetAccelerationWithKey( io_connect_t handle, CFStringRef key,
 
 void NXSetAutoDimThreshold(NXEventHandle handle, double threshold)
 {
-	unsigned int params[EVSIOSADT_SIZE];
+	UInt64 params;
 
-	secs_to_packed_nsecs( threshold, params );
-	NXEvSetParameterInt(handle, CFSTR(EVSIOSADT), params, EVSIOSADT_SIZE);
+	secs_to_packed_nsecs( threshold, &params );
+	IOHIDSetParameter(handle, CFSTR(EVSIOSADT), &params, sizeof(UInt64));
 }
 
 double NXAutoDimThreshold(NXEventHandle handle)
 {
-	unsigned int params[EVSIOCADT_SIZE];
-	IOByteCount rcnt = EVSIOCADT_SIZE;
+	UInt64 params;
+        IOByteCount rcnt = sizeof(UInt64);
 	int r;
 
-	r = NXEvGetParameterInt(handle, CFSTR(EVSIOCADT), EVSIOCADT_SIZE,
-				params, &rcnt );
+	r = IOHIDGetParameter(handle, CFSTR(EVSIOCADT), sizeof(UInt64),
+				&params, &rcnt );
 	if ( r != kIOReturnSuccess )
 		return 0.0;
 	return packed_nsecs_to_secs( params );
@@ -558,12 +777,12 @@ double NXAutoDimThreshold(NXEventHandle handle)
 
 double NXAutoDimTime(NXEventHandle handle)
 {
-	unsigned int params[EVSIOGDADT_SIZE];
-	IOByteCount rcnt = EVSIOGDADT_SIZE;
+        UInt64 params;
+        IOByteCount rcnt = sizeof(UInt64);
 	int r;
 
-	r = NXEvGetParameterInt( handle, CFSTR(EVSIOGDADT), EVSIOGDADT_SIZE,
-				params, &rcnt );
+        r = IOHIDGetParameter( handle, CFSTR(EVSIOGDADT), sizeof(UInt64),
+				&params, &rcnt );
 	if ( r != kIOReturnSuccess )
 		return 0.0;
 	return packed_nsecs_to_secs( params );
@@ -571,78 +790,78 @@ double NXAutoDimTime(NXEventHandle handle)
 
 double NXIdleTime(NXEventHandle handle)
 {
-	unsigned int params[EVSIOIDLE_SIZE];
-	IOByteCount rcnt = EVSIOIDLE_SIZE;
-	int r;
+        UInt64 params;
+        IOByteCount rcnt = sizeof(UInt64);
+        int r;
 
-	r = NXEvGetParameterInt( handle, CFSTR(EVSIOIDLE), EVSIOIDLE_SIZE,
-				params, &rcnt );
-	if ( r != kIOReturnSuccess )
-		return 0.0;
-	return packed_nsecs_to_secs( params );
+        r = IOHIDGetParameter( handle, CFSTR(EVSIOIDLE), sizeof(UInt64),
+                                &params, &rcnt );
+        if ( r != kIOReturnSuccess )
+                return 0.0;
+        return packed_nsecs_to_secs( params );
+
 }
 
 void NXSetAutoDimState(NXEventHandle handle, boolean_t dimmed)
 {
-	unsigned int params[EVSIOSADS_SIZE];
+	UInt32 params = dimmed;
 
-	params[0] = dimmed;
-	NXEvSetParameterInt(handle, CFSTR(EVSIOSADS), params, EVSIOSADS_SIZE);
+	IOHIDSetParameter(handle, CFSTR(EVSIOSADS), &params, sizeof(UInt32));
 }
 
 boolean_t NXAutoDimState(NXEventHandle handle)
 {
-	unsigned int params[EVSIOCADS_SIZE];
-	IOByteCount rcnt = EVSIOCADS_SIZE;
+        UInt32 params;
+	IOByteCount rcnt = sizeof(UInt32);
 	int r;
 
-	r = NXEvGetParameterInt( handle, CFSTR(EVSIOCADS), EVSIOCADS_SIZE,
-				params, &rcnt );
+        r = IOHIDGetParameter( handle, CFSTR(EVSIOCADS), sizeof(UInt32),
+				&params, &rcnt );
 	if ( r != kIOReturnSuccess )
 		return false;
-	return (params[0] != 0);
+	return (params != 0);
 }
 
 void NXSetAutoDimBrightness(NXEventHandle handle, double brightness)
 {
-	unsigned int params[EVSIOSADB_SIZE];
+	UInt32 params;
 
-	params[0] = (int) (brightness * BRIGHT_MAX);
-	NXEvSetParameterInt(handle, CFSTR(EVSIOSADB), params, EVSIOSADB_SIZE);
+	params = (int) (brightness * BRIGHT_MAX);
+	IOHIDSetParameter(handle, CFSTR(EVSIOSADB), &params, sizeof(UInt32));
 }
 
 double NXAutoDimBrightness(NXEventHandle handle)
 {
-	unsigned int params[EVSIOSB_SIZE];
-	IOByteCount rcnt = EVSIOSB_SIZE;
+	UInt32 params;
+        IOByteCount rcnt = sizeof(UInt32);
 	int r;
 
-	r = NXEvGetParameterInt( handle, CFSTR(EVSIOSADB), EVSIOSB_SIZE,
-				params, &rcnt );
+        r = IOHIDGetParameter( handle, CFSTR(EVSIOSADB), sizeof(UInt32),
+				&params, &rcnt );
 	if ( r != kIOReturnSuccess )
 		return 1.0;
-	return ((double)params[0]
+	return ((double)params
 		/ (double)BRIGHT_MAX);
 }
 
 void NXSetScreenBrightness(NXEventHandle handle, double brightness)
 {
-	unsigned int params[EVSIOSB_SIZE];
-	params[0] = (int) (brightness * BRIGHT_MAX);
-	NXEvSetParameterInt(handle, CFSTR(EVSIOSB), params, EVSIOSB_SIZE);
+	UInt32 params;
+	params = (int) (brightness * BRIGHT_MAX);
+        IOHIDSetParameter(handle, CFSTR(EVSIOSB), &params, sizeof(UInt32));
 }
 
 double NXScreenBrightness(NXEventHandle handle)
 {
-	unsigned int params[EVSIOSB_SIZE];
-	IOByteCount rcnt = EVSIOSB_SIZE;
+	UInt32 params;
+        IOByteCount rcnt = sizeof(UInt32);
 	int r;
 
-	r = NXEvGetParameterInt( handle, CFSTR(EVSIOSB), EVSIOSB_SIZE,
-				params, &rcnt );
+        r = IOHIDGetParameter( handle, CFSTR(EVSIOSB), sizeof(UInt32),
+				&params, &rcnt );
 	if ( r != kIOReturnSuccess )
 		return 1.0;
-	return ((double)params[0] / (double)BRIGHT_MAX);
+	return ((double)params / (double)BRIGHT_MAX);
 }
 
 /* Generic entry points */

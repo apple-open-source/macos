@@ -23,6 +23,7 @@
 #include <Security/osxsigning.h>
 #include <Security/osxsigner.h>
 #include <Security/trackingallocator.h>
+#include <sys/syslimits.h>
 #include <memory>
 
 using namespace KeychainCore;
@@ -60,7 +61,8 @@ TrustedApplication::TrustedApplication(const char *path)
 	RefPointer<OSXCode> object(OSXCode::at(path));
 	auto_ptr<OSXSigner::OSXSignature> signature(signer.sign(*object));
 	mSignature = *signature;
-	mData = CssmData(const_cast<char *>(path), strlen(path) + 1);
+	string basePath = object->canonicalPath();
+	mData = CssmData(const_cast<char *>(basePath.c_str()), basePath.length() + 1);
 }
 
 TrustedApplication::TrustedApplication()
@@ -75,7 +77,7 @@ TrustedApplication::TrustedApplication()
 	mData.copy(path.c_str(), path.length() + 1);	// including trailing null
 }
 
-TrustedApplication::~TrustedApplication()
+TrustedApplication::~TrustedApplication() throw()
 {
 }
 
@@ -83,6 +85,15 @@ const CssmData &
 TrustedApplication::signature() const
 {
 	return mSignature;
+}
+
+const char *
+TrustedApplication::path() const
+{
+	if (mData)
+		return mData.get().interpretedAs<const char>();
+	else
+		return NULL;
 }
 
 bool
@@ -116,6 +127,42 @@ TypedList TrustedApplication::makeSubject(CssmAllocator &allocator)
 	return TypedList(allocator,
 		CSSM_ACL_SUBJECT_TYPE_CODE_SIGNATURE,
 		new(allocator) ListElement(CSSM_ACL_CODE_SIGNATURE_OSX),
-		new(allocator) ListElement(mSignature.get()),
-		new(allocator) ListElement(mData.get()));
+		new(allocator) ListElement(allocator, mSignature.get()),
+		new(allocator) ListElement(allocator, mData.get()));
+}
+
+
+//
+// On a completely different note...
+// Read a simple text file from disk and cache the lines in a set.
+// This is used during re-prebinding to cut down on the number of
+// equivalency records being generated.
+// This feature is otherwise completely unconnected to anything else here.
+//
+PathDatabase::PathDatabase(const char *path)
+{
+    if (FILE *f = fopen(path, "r")) {
+        mQualifyAll = false;
+        char path[PATH_MAX+1];
+        while (fgets(path, sizeof(path), f)) {
+            path[strlen(path)-1] = '\0';	// strip NL
+            mPaths.insert(path);
+        }
+		fclose(f);
+        secdebug("equivdb", "read %ld paths from %s", mPaths.size(), path);
+    } else {
+        mQualifyAll = true;
+        secdebug("equivdb", "cannot open %s, will qualify all application paths", path);
+    }
+}
+
+
+bool PathDatabase::lookup(const string &path)
+{
+	string::size_type lastSlash = path.rfind('/');
+	string::size_type bundleCore = path.find("/Contents/MacOS/");
+	if (lastSlash != string::npos && bundleCore != string::npos)
+		if (bundleCore + 15 == lastSlash)
+			path = path.substr(0, bundleCore);
+	return mPaths.find(path) != mPaths.end();
 }

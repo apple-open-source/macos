@@ -18,8 +18,7 @@ MKALIAS=/usr/sbin/mkalias
 MKNETID=/usr/sbin/mknetid
 REVNETGROUP=/usr/sbin/revnetgroup
 TOUCH=/usr/bin/touch
-PWD:=$(shell /bin/pwd)
-DOMAIN:=$(shell /usr/bin/basename $(PWD))
+DOMAIN:=`/usr/bin/basename ${.CURDIR}`
 YPPUSH=/usr/sbin/yppush
 
 # Password maps in standard YP is unsecure. This is due to the fact that

@@ -1,4 +1,3 @@
-/*	$NetBSD: ls.h,v 1.9 1998/05/16 15:12:26 lukem Exp $	*/
 
 /*
  * Copyright (c) 1989, 1993
@@ -35,7 +34,8 @@
  * OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
  * SUCH DAMAGE.
  *
- *	@(#)ls.h	8.1 (Berkeley) 5/31/93
+ *	from: @(#)ls.h	8.1 (Berkeley) 5/31/93
+ * $FreeBSD: src/bin/ls/ls.h,v 1.18 2002/05/19 02:51:36 tjr Exp $
  */
 
 #define NO_PRINT	1
@@ -44,33 +44,48 @@ extern long blocksize;		/* block size units */
 
 extern int f_accesstime;	/* use time of last access */
 extern int f_flags;		/* show flags associated with a file */
+extern int f_humanval;		/* show human-readable file sizes */
+#ifndef __APPLE__
+extern int f_lomac;		/* show LOMAC attributes */
+#endif /* __APPLE__ */
 extern int f_inode;		/* print inode */
 extern int f_longform;		/* long listing format */
+extern int f_octal;		/* print unprintables in octal */
+extern int f_octal_escape;	/* like f_octal but use C escapes if possible */
 extern int f_nonprint;		/* show unprintables as ? */
 extern int f_sectime;		/* print the real time for all files */
 extern int f_size;		/* list size in short listing */
+extern int f_slash;		/* append a '/' if the file is a directory */
+extern int f_sortacross;	/* sort across rows, not down columns */ 
 extern int f_statustime;	/* use time of last mode change */
+extern int f_notabs;		/* don't use tab-separated multi-col output */
 extern int f_type;		/* add type character for non-regular files */
+#ifdef COLORLS
+extern int f_color;		/* add type in color for non-regular files */
+#endif
 
 typedef struct {
 	FTSENT *list;
 	u_int64_t btotal;
+	int bcfile;
 	int entries;
 	int maxlen;
-	int s_block;
-	int s_flags;
-	int s_group;
-	int s_inode;
-	int s_nlink;
-	int s_size;
-	int s_user;
-	int s_major;
-	int s_minor;
+	u_int s_block;
+	u_int s_flags;
+	u_int s_lattr;
+	u_int s_group;
+	u_int s_inode;
+	u_int s_nlink;
+	u_int s_size;
+	u_int s_user;
 } DISPLAY;
 
 typedef struct {
 	char *user;
 	char *group;
 	char *flags;
+#ifndef __APPLE__
+	char *lattr;
+#endif /* __APPLE__ */
 	char data[1];
 } NAMES;

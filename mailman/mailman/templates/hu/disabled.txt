@@ -1,0 +1,24 @@
+A(z) %(listname)s levelezõlista tagságod szüneteltetve lett 
+%(reason)s. A listáról addig nem kapsz
+újabb leveleket, amíg a listatagságodat vissza nem állítod. Még %(noticesleft)s
+ilyen emlékeztetõ üzenetet kapsz, utána a listáról törölni fogunk.
+
+Listatagságod visszaállításához elég erre a levélre válaszolnod
+(a Subject: sort ne változtasd), vagy a következõ címre ellátogatnod
+
+    %(confirmurl)s
+
+A listatagsági oldaladon is módosíthatod a beállításaidat
+
+    %(optionsurl)s
+
+Ezen az oldalon olyan különbözõ beállításokat módosíthatsz, mint 
+például a feliratkozási címed vagy a digest fogadása. Emlékeztetõül
+a listatagsági jelszavad
+
+    %(password)s
+
+Kérdéseiddel és problémáiddal fordulj a lista tulajdonoshoz a 
+következõ címen:
+
+    %(owneraddr)s

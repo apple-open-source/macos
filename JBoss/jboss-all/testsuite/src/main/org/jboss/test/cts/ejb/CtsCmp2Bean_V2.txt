@@ -1,0 +1,80 @@
+package org.jboss.test.cts.ejb;
+
+import javax.ejb.CreateException;
+import javax.ejb.CreateException;
+import javax.ejb.EntityBean;
+import javax.ejb.EntityContext;
+
+import org.apache.log4j.Category;
+
+/**
+ @author Scott.Stark@jboss.org
+ @version $Revision: 1.2 $
+ */
+public abstract class CtsCmp2Bean implements EntityBean
+{
+   private static String VERSION = "CtsCmp2BeanV2";
+   private static Category log = Category.getInstance(CtsCmp2Bean.class);
+   private EntityContext ctx;
+
+   public String ejbCreate(String key, String data)
+      throws CreateException
+   {
+      log.debug("ejbCreate '" + key + "' "+ data+", version="+VERSION);
+      setKey(key);
+      setData(data);
+      return null;
+   }
+
+   public void ejbPostCreate(String key, String data)
+   {
+      log.debug("ejbPostCreate'" + key + "' "+ data);
+   }
+
+   // CMP field accessors -----------------------------------------------------
+   public abstract String getKey();
+   public abstract void setKey(String param);
+   public abstract String getData();
+   public abstract void setData(String param);
+   public abstract String getMoreData();
+   public abstract void setMoreData(String param);
+
+// EJB callbacks
+   public void ejbLoad ()
+   {
+      log.debug("ejbLoad () called");
+
+   }
+
+   public void ejbStore ()
+   {
+      log.debug("ejbStore () called");
+   }
+
+   public void ejbRemove ()
+   {
+      log.debug("ejbRemove () called");
+   }
+
+   public void ejbActivate ()
+   {
+      log.debug("ejbActivate () called");
+   }
+
+   public void ejbPassivate ()
+   {
+      log.debug("ejbPassivate () called");
+   }
+
+   public void setEntityContext (EntityContext ctx)
+   {
+      log.debug("setEntityContext ('" + ctx.getPrimaryKey() + "') called");
+      this.ctx = ctx;
+   }
+
+   public void unsetEntityContext ()
+   {
+      log.debug("unsetEntityContext () called");
+      ctx = null;
+   }
+}

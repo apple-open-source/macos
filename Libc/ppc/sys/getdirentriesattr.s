@@ -27,4 +27,3 @@
 #include "SYS.h"
 
 SYSCALL(getdirentriesattr, 0)
-	blr

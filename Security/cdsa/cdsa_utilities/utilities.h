@@ -95,6 +95,7 @@ public:
     virtual CSSM_RETURN cssmError() const = 0;
     virtual CSSM_RETURN cssmError(CSSM_RETURN base) const;
     virtual OSStatus osStatus() const;
+	virtual int unixError() const;
 	
 protected:
 	virtual void debugDiagnose(const void *id) const;	// used internally for debug logging
@@ -126,6 +127,7 @@ public:
     const int error;
     virtual CSSM_RETURN cssmError() const;
     virtual OSStatus osStatus() const;
+	virtual int unixError() const;
     virtual const char *what () const throw ();
     
     static void check(int result)		{ if (result == -1) throwMe(); }
@@ -181,6 +183,13 @@ inline T &Required(T *ptr, CSSM_RETURN err = CSSM_ERRCODE_INVALID_POINTER)
     if (ptr == NULL)
         CssmError::throwMe(err);
     return *ptr;
+}
+
+// specialization for void * (just check for non-null; don't return a void & :-)
+inline void Required(void *ptr, CSSM_RETURN err = CSSM_ERRCODE_INVALID_POINTER)
+{
+	if (ptr == NULL)
+		CssmError::throwMe(err);
 }
 
 
@@ -267,29 +276,19 @@ public:
 //
 class CssmSubserviceUid : public PodWrapper<CssmSubserviceUid, CSSM_SUBSERVICE_UID> {
 public:
-    CssmSubserviceUid() { /*IFDEBUG(*/ memset(this, 0, sizeof(*this)) /*)*/ ; }
+    CssmSubserviceUid() { clearPod(); }
     CssmSubserviceUid(const CSSM_SUBSERVICE_UID &rSSuid) { memcpy(this, &rSSuid, sizeof(*this)); }
 
     CssmSubserviceUid &operator = (const CSSM_SUBSERVICE_UID &rSSuid)
     { memcpy(this, &rSSuid, sizeof(CSSM_SUBSERVICE_UID)); return *this; }
    
-    bool operator == (const CSSM_SUBSERVICE_UID &other) const
-    { return (this == &other) || !memcmp(this, &other, sizeof(CSSM_SUBSERVICE_UID)); }
-    bool operator != (const CSSM_SUBSERVICE_UID &other) const
-    { return (this != &other) && memcmp(this, &other, sizeof(CSSM_SUBSERVICE_UID)); }
-    bool operator < (const CSSM_SUBSERVICE_UID &other) const
-    { return memcmp(this, &other, sizeof(CSSM_SUBSERVICE_UID)) < 0; }
+    bool operator == (const CSSM_SUBSERVICE_UID &other) const;
+    bool operator != (const CSSM_SUBSERVICE_UID &other) const { return !(*this == other); }
+    bool operator < (const CSSM_SUBSERVICE_UID &other) const;
 
     CssmSubserviceUid(const CSSM_GUID &guid, const CSSM_VERSION *version = NULL,
 		uint32 subserviceId = 0,
-        CSSM_SERVICE_TYPE subserviceType = CSSM_SERVICE_DL)
-    {
-        Guid=guid;SubserviceId=subserviceId;SubserviceType=subserviceType;
-        if (version)
-            Version=*version;
-        else
-        { Version.Major=0; Version.Minor=0; }
-    }
+        CSSM_SERVICE_TYPE subserviceType = CSSM_SERVICE_DL);
 
 	const ::Guid &guid() const { return ::Guid::overlay(Guid); }
 	uint32 subserviceId() const { return SubserviceId; }
@@ -321,9 +320,14 @@ public:
 	{ Data = reinterpret_cast<UInt8 *>(data); Length = length; }
 	CssmData(signed char *data, size_t length)
 	{ Data = reinterpret_cast<UInt8 *>(data); Length = length; }
-	
+		
 	// the void * form accepts too much; explicitly deny all other types
 	private: template <class T> CssmData(T *, size_t); public:
+	
+	// explicitly construct from a data-oid source
+	template <class T>
+	explicit CssmData(const T &obj)
+	{ Data = (UInt8 *)obj.data(); Length = obj.length(); }
 	
 	//
 	// Do allow generic "wrapping" of any data structure, but make it conspicuous
@@ -347,17 +351,21 @@ public:
 	operator void * () const { return reinterpret_cast<void *>(Data); }
 	
 	//
-	// If you want to interprete the contents of a CssmData blob as a particular
+	// If you want to interpret the contents of a CssmData blob as a particular
 	// type, you have to be more explicit to show that you know what you're doing.
 	// See wrap() above.
 	//
 	template <class T>
 	T *interpretedAs() const		{ return reinterpret_cast<T *>(Data); }
+
+	template <class T>
+	T *interpretedAs(CSSM_RETURN error) const
+	{ return interpretedAs<T>(sizeof(T), error); }
 	
 	template <class T>
-	T *interpretedAs(size_t len, CSSM_RETURN error = CSSM_ERRCODE_INVALID_DATA) const
+	T *interpretedAs(size_t len, CSSM_RETURN error) const
 	{
-		if (length() != len) CssmError::throwMe(error);
+		if (data() == NULL || length() != len) CssmError::throwMe(error);
 		return interpretedAs<T>();
 	}
 	
@@ -490,10 +498,11 @@ typedef CssmData CssmOid;
 //
 class CssmKey : public PodWrapper<CssmKey, CSSM_KEY> {
 public:
-    CssmKey() { KeyHeader.HeaderVersion = CSSM_KEYHEADER_VERSION; }
-    CssmKey(CSSM_KEY &key);
-    CssmKey(CSSM_DATA &keyData);
-    CssmKey(uint32 length, uint8 *data);
+    CssmKey() { clearPod(); KeyHeader.HeaderVersion = CSSM_KEYHEADER_VERSION; }
+	// all of the following constructors take over ownership of the key data
+    CssmKey(const CSSM_KEY &key);
+	CssmKey(const CSSM_DATA &keyData);
+    CssmKey(uint32 length, void *data);
 
 public:
     class Header : public PodWrapper<Header, CSSM_KEYHEADER> {
@@ -535,8 +544,8 @@ public:
 
     };
 
-   // access to the key header
-   Header &header() { return Header::overlay(KeyHeader); }
+	// access to the key header
+	Header &header() { return Header::overlay(KeyHeader); }
 	const Header &header() const { return Header::overlay(KeyHeader); }
 	
 	CSSM_KEYBLOB_TYPE blobType() const	{ return header().blobType(); }
@@ -576,8 +585,10 @@ public:
 	size_t length() const { return KeyData.Length; }
 	void *data() const { return KeyData.Data; }
 	operator void * () const { return data(); }
-	operator CssmData & () { return CssmData::overlay(KeyData); }
-	operator const CssmData & () const { return static_cast<const CssmData &>(KeyData); }
+	CssmData &keyData()		{ return CssmData::overlay(KeyData); }
+	const CssmData &keyData() const { return CssmData::overlay(KeyData); }
+	operator CssmData & () { return keyData(); }
+	operator const CssmData & () const { return keyData(); }
 	operator bool () const { return KeyData.Data != NULL; }
 	void operator = (const CssmData &data) { KeyData = data; }
 };

@@ -1,0 +1,74 @@
+#
+# The following procedures are creted to replace the
+# procedures defined in expect incase expect is not used as the
+# test framework
+#
+
+proc send_user args {
+    set newline 1
+    set logfile 0
+    set i 0
+    if { [string index [lindex $args 0] 0] == "-" } {
+	for { set i 0 } { $i < [llength $args] } { incr i } {
+	    if { [lindex $args $i] == "--" } {
+		incr i
+		break
+	    } elseif { [lindex $args $i] == "-n" } {
+		set newline 0
+	    } elseif { [lindex $args $i] == "-log" } {
+		set logfile 1
+	    } elseif { [string index [lindex $args $i] 0] == "-" } {
+		::BlueGnu::clone_output "ERROR: verbose:\
+			illegal argument: [lindex $args $i]"
+		return
+	    } else {
+		break
+	    }
+	}
+	if { [llength $args] == $i } {
+	    ::BlueGnu::clone_output "ERROR: send_user: nothing to print"
+	    return
+	}
+    }
+    puts -nonewline [lindex $args $i]
+}
+
+proc send_error msg {
+    puts -nonewline stderr $msg
+}
+
+proc send_log msg {
+    global log_file
+
+    if {[info exists log_file]} {
+	puts -nonewline $log_file $msg
+    } else {
+	send_user "####### No log file has been defined\n"
+	puts -nonewline stderr $msg
+    }
+}
+
+proc log_file {args} {
+    global log_file
+    if {[info exists log_file]} {
+	catch {close $log_file}
+	unset log_file
+    }
+    set eAppend w
+    foreach arg $args {
+	switch -- $arg {
+	    -a {
+		set eAppend a
+	    }
+	    default {
+		set log_file $arg
+	    }
+	}
+    }
+    if {[info exist log_file]} {
+	set log_file [open $log_file $eAppend]
+    } else {
+	set log_file stderr
+    }
+}
+

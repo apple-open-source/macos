@@ -1,0 +1,267 @@
+Objective: how to build MyODBC for Mac OS X and configure for use with iODBC
+
+Introduction
+============
+
+This readme file describes the steps required to build a MyODBC driver
+on Mac OS X.
+
+Before this driver can be built you need to install the current version of
+MySQL on your system. As building MySQL itself on Mac OS X falls outside
+the context of this readme, we suggest you download a Darwin binary from:
+
+	http://www.mysql.com/downloads/mysql-3.23.htm
+
+As of writing the version of this package is:
+
+	MySQL 3.23.47
+	MacOS X 10.1.1 (Darwin 5.1.x) (PowerPC) (4.8M)
+
+
+From the same site you can also download the latest MyODBC sources:
+
+	http://www.mysql.com/downloads/api-myodbc-2.50.html	
+
+As of writing the version of this package is:
+
+	MyODBC 2.50.39
+	Source Files (tar.gz) (226K)
+
+
+Unpack this source code into a new directory.
+
+There are who ways to build the MyODBC driver which we will both describe
+in detail below:
+
+
+Method 1 : using the iODBC frameworks
+=====================================
+
+1.  Install iODBC framework version
+
+    Please read the file ../README.MACOSX for details on how to build
+    and install the framework version of iODBC.
+
+
+2.  Setting up the MyODBC source tree.
+
+    To setup the MyODBC tree execute the following commands:
+
+	$ cd MyODBC-2.50.39
+
+
+    First update the version of libtool this package uses:
+
+	$ glibtoolize -c -f
+
+
+    Then we can either use the supplied myodbc.configure.diff file from
+    the iODBC project using the command:
+
+	$ patch -p1 < myodbc.configure.diff
+
+    or edit the file configure manually and replace every occurrence of
+
+	String			Replace with
+
+	-liodbc			-framework iODBC
+	-liodbcinst		-framework iODBCinst
+	isql.h			iODBC/isql.h
+	isqlext.h		iODBC/isqlext.h
+	isqltypes.h		iODBC/isqltypes.h
+	sql.h			iODBC/sql.h
+	sqlext.h		iODBC/sqlext.h
+	sqltypes.h		iODBC/sqltypes.h
+	iodbcinst.h		iODBCinst/iodbcinst.h
+	
+
+    After this we configure the source code using the following
+    command:
+ 
+	./configure --with-mysql-libs=XXX --with-mysql-includes=YYY
+
+    where XXX and YYY need to be replaced with the correct paths to the
+    MySQL libraries and header files.
+
+
+    Edit the libtool shell script and modify the following line:
+
+	allow_undefined_flag="-undefined warning"
+   
+    into:
+
+	allow_undefined_flag="-flat_namespace -undefined suppress"
+
+
+    Edit the file myodbc.h and replace every occurrence of:
+
+	String			Replace with
+
+	isql.h			iODBC/isql.h
+	isqlext.h		iODBC/isqlext.h
+	isqltypes.h		iODBC/isqltypes.h
+	sql.h			iODBC/sql.h
+	sqlext.h		iODBC/sqlext.h
+	sqltypes.h		iODBC/sqltypes.h
+	iodbcinst.h		iODBCinst/iodbcinst.h
+
+
+    Edit the file myconf.h and make sure the following options are defined:
+
+	HAVE_IODBCINST_H
+	HAVE_ISQL_H
+	HAVE_ISQLEXT_H
+	HAVE_SQLGETPRIVATEPROFILESTRING
+
+    If any of these options are not defined, change the line from:
+
+	/* #undef HAVE_ISQL_H */
+
+    into:
+
+	#define HAVE_ISQL_H	1
+	
+
+3.  Building the MyODBC driver
+
+    You can now execute the following command to build the driver:
+
+	$ make
+
+    As the version of libtool currently installed on Mac OS X does
+    not know how to deal with frameworks, use the following command
+    to build the actual MyODBC driver:
+
+	$ cc -bundle -o libmyodbc.dylib *.lo -framework iODBCinst \
+	  -L/usr/local/mysql/lib/mysql -lmysqlclient -lz
+
+    Use this file libmyodbc.dylib as the driver.
+
+
+
+Method 2 : using the iODBC Unix libraries
+=========================================
+
+1.  Install iODBC Unix version
+ 
+    The iODBC package can also be build as a normal Unix type package
+    using the following commands:
+
+	$ ./configure --prefix=/usr
+	$ make
+
+    followed by installing the library as root using the command:
+
+	# make install
+
+
+2.  Setting up the MyODBC source tree.
+
+    To setup the MyODBC tree execute the following commands:
+
+	$ cd MyODBC-2.50.39
+
+
+    First update the version of libtool this package uses:
+
+	$ glibtoolize -c -f
+
+
+    After this we can configure the source code using the following 
+    command:
+ 
+	./configure --with-mysql-libs=XXX --with-mysql-includes=YYY
+
+    where XXX and YYY need to be replaced with the correct paths to the
+    MySQL libraries and header files.
+
+
+    Next edit the libtool shell script and modify the following line:
+
+	allow_undefined_flag="-undefined warning"
+   
+    into:
+
+	allow_undefined_flag="-flat_namespace -undefined suppress"
+
+
+3.  Building the MyODBC driver
+
+    You can now execute the following command to build the driver:
+
+	$ make
+
+    As the version of libtool currently installed on Mac OS X does not
+    know how to deal with modules, use the following command
+    to build the actual MyODBC driver:
+
+	$ cc -bundle -o libmyodbc.dylib *.lo -framework iODBCinst \
+	  -L/usr/local/mysql/lib/mysql -lmysqlclient -lz
+
+    Use this file libmyodbc.dylib to configure the driver in the next 
+    section.
+
+
+Configuring MyODBC Driver for use with iODBC
+=============================================
+
+To configure the MyODBC for use with iODBC the following actions should
+be performed:
+
+1.  From the MyODBC directory run the following command to install driver
+    in '/usr/local/lib' as user root:
+
+	$ cp libmyodbc.dylib /usr/local/lib
+
+
+2.  Configure the MyODBC Driver by adding the following lines to
+    /etc/odbcinst.ini:
+
+	[ODBC Drivers]
+	MyODBC Driver = Installed
+
+	[MyODBC Driver]
+	Driver = /usr/local/lib/libmyodbc.dylib
+
+
+3.  Configure MyODBC Driver ODBC DSN by adding the following lines to
+    either /etc/odbc.ini or $HOME/.odbc.ini:
+
+	[ODBC Data Sources]
+	MyODBCDSN = MyODBC Driver
+
+	[MyODBCDSN]
+	Driver = /usr/local/lib/libmyodbc.dylib
+	Port = 3306
+	UID = mysql
+
+     *** Please note that the DSN ie MyODBCDSN, must be the name of a
+         valid MySQL Database for the Database Server the connection
+         attempt is being made to.
+
+
+4.  A test connection can now be made to the MySQL Database using the
+    following sample program bundled with the iODBC SDK:
+
+	/usr/local/bin/odbctest
+	OpenLink ODBC Demonstration program
+	This program shows an interactive SQL processor
+
+	Enter ODBC connect string (? shows list): ?
+
+	DSN                            | Driver
+	---------------------------------------------------------------
+
+	MyODBCDSN                      | MyODBC Driver
+
+	Enter ODBC connect string (? shows list): 
+
+    Use the following string:
+
+	DSN=MyODBCDSN;UID=mysql;PWD=xxxx
+
+	Driver: 02.50.39 
+
+	SQL> select * from <table_name>
+
+

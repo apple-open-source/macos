@@ -1,5 +1,5 @@
 ;;; gnus-group.el --- group mode commands for Gnus
-;; Copyright (C) 1996, 1997, 1998, 1999, 2000
+;; Copyright (C) 1996, 1997, 1998, 1999, 2000, 2002
 ;;        Free Software Foundation, Inc.
 
 ;; Author: Lars Magne Ingebrigtsen <larsi@gnus.org>
@@ -3462,7 +3462,7 @@ group."
 
 (defun gnus-group-find-new-groups (&optional arg)
   "Search for new groups and add them.
-Each new group will be treated with `gnus-subscribe-newsgroup-method.'
+Each new group will be treated with `gnus-subscribe-newsgroup-method'.
 With 1 C-u, use the `ask-server' method to query the server for new
 groups.
 With 2 C-u's, use most complete method possible to query the server

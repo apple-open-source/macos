@@ -1,0 +1,19 @@
+# Danger, Will Robinson!  Settings in this file do not override
+# previous settings for the board being defined.
+
+# DDB linker script.
+if { [board_info $board obj_format] == "ecoff" } {
+    set_board_info ldscript "-Wl,-Tddbecoff.ld"
+} else {
+    set_board_info ldscript "-Wl,-Tddb.ld"
+}
+
+# This is needed for compiling nullstone.
+set_board_info nullstone,lib "mips-clock.c"
+set_board_info nullstone,ticks_per_sec 3782018
+
+# The GDB protocol used with this board.
+set_board_info gdb_protocol "ddb"
+
+# Otherwise, we're the same as a generic vr4300 board.
+load_base_board_description "vr4300";

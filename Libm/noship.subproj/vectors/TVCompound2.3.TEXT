@@ -5,30 +5,21 @@
 !  Commented out signaling NaN cases <JPO, 5/14/93>
 !
 !  Exponents near 32767:
-3Y	0=<d	-1d1	32767	ux	0
-3Y	>d	-1d1	32767	ux	0i1-1
-3Y	<0=d	-1d2	32766	ux	0
-3Y	>d	-1d2	32766	ux	0i1-1
-3Y	>d	-1i1	32766	i	Q
-3Y	<0=d	-1i1	32766	i	Q
-3Y	<d	-1i3	32767	i	Q
-3Y	>0=d	-1i3	32767	i	Q
-3Y	>=d	-1d1	-32767	ox	H
-3Y	<0d	-1d1	-32767	ox	Hd1+1
-3Y	>=d	-1d2	-32768	ox	H
-3Y	<0d	-1d2	-32768	ox	Hd1+1
-3Y	>=d	-1i1	-32766	i	Q
-3Y	<0d	-1i1	-32766	i	Q
-3Y	<=d	-1i2	-32767	i	Q
-3Y	>0d	-1i2	-32767	i	Q
-3Y	>=d	-1i3	-32768	i	Q
-3Y	<0d	-1i3	-32768	i	Q
+!!3Y	d	-1d1	32767	ux	0
+!!3Y	d	-1d2	32766	ux	0
+!!3Y	d	-1i1	32766	i	Q
+!!3Y	d	-1i3	32767	i	Q
+!!3Y	d	-1d1	-32767	ox	H
+!!3Y	d	-1d2	-32768	ox	H
+!!3Y	d	-1i1	-32766	i	Q
+!!3Y	d	-1i2	-32767	i	Q
+!!3Y	d	-1i3	-32768	i	Q
 !  Results near H, (small)^(large negative):
-3Y	d	-1d2	-260	OK	Hm4
-3Y	d	-1i1	-260	i	Q
-3Y	d	-1u1m2	-252	x	1i63
-3Y	d	-1d2	-281	ox	H
-3Y	d	-1i1	-281	i	Q
+!!3Y	d	-1d2	-260	OK	Hm4
+!!3Y	d	-1i1	-260	i	Q
+!!3Y	d	-1u1m2	-252	x	1i63
+!!3Y	d	-1d2	-281	ox	H
+!!3Y	d	-1i1	-281	i	Q
 !  Zero Exponent:
 3Y	d	-1	0	OK	1
 3Y	d	-1d2	0	OK	1
@@ -37,18 +28,18 @@
 3Y	d	-1i2	0	i	Q
 3Y	d	0	0	OK	1
 3Y	d	-2	0	i	Q
-3Y	d	1m63	0	OK	1
-3Y	d	1m62	0	OK	1
-3Y	d	-1m64	0	OK	1
-3Y	d	-1m63	0	OK	1
+!!3Y	d	1m63	0	OK	1
+!!3Y	d	1m62	0	OK	1
+!!3Y	d	-1m64	0	OK	1
+!!3Y	d	-1m63	0	OK	1
 3Y	d	1	0	OK	1
 3Y	d	2	0	OK	1
-3Y	d	15124	0	OK	1
-3Y	d	-15124	0	i	Q
+!!3Y	d	15124	0	OK	1
+!!3Y	d	-15124	0	i	Q
 3Y	d	1p16	0	OK	1
 3Y	d	-1p16	0	i	Q
-3Y	d	1p8123	0	OK	1
-3Y	d	-1p8123	0	i	Q
+!!3Y	d	1p8123	0	OK	1
+!!3Y	d	-1p8123	0	i	Q
 3Y	d	Hm1	0	OK	1
 3Y	d	-Hm1	0	i	Q
 3Y	d	Hd1	0	OK	1
@@ -62,10 +53,10 @@
 3Y	d	-1i1	1	i	Q
 3Y	d	-1d2	-1	OK	1p63
 3Y	d	-1i1	-1	i	Q
-3Y	d	-1m63	1	x	1d2	Note:Exact	result.
-3Y	d	-1m64	1	x	1d1	Note:Exact	result.
-3Y	d	1m63	1	x	1i1	Note:Exact	result.
-3Y	d	1m62	1	x	1i2	Note:Exact	result.
+!!3Y	d	-1m63	1	x	1d2	Note:Exact	result.
+!!3Y	d	-1m64	1	x	1d1	Note:Exact	result.
+!!3Y	d	1m63	1	x	1i1	Note:Exact	result.
+!!3Y	d	1m62	1	x	1i2	Note:Exact	result.
 3Y	d	1	-1	OK	1m1
 3Y	d	2	1	x	3	Note:Exact	result.
 3Y	d	3	1	OK	4
@@ -74,10 +65,10 @@
 3Y	d	-28	1	i	Q
 3Y	d	31	1	OK	32
 3Y	d	31	-1	OK	1m5
-3Y	d	511	1	OK	512
-3Y	d	-513	1	i	Q
-3Y	d	511	-1	OK	1m9
-3Y	d	-513	-1	i	Q
+!!3Y	d	511	1	OK	512
+!!3Y	d	-513	1	i	Q
+!!3Y	d	511	-1	OK	1m9
+!!3Y	d	-513	-1	i	Q
 3Y	d	Hm9	1	x	Hm9
 3Y	d	-Hm9	1	i	Q
 3Y	d	Hm2	-1	x	Ep1
@@ -92,80 +83,44 @@
 3Y	d	-H	-1	i	Q
 !  Rate near 0 and exponent near +/- 1,2,3
 !	   Rate and exponent a little large:
-3Y	<=0d	1m63	1i1	x	1i1
-3Y	>d	1m63	1i1	x	1i2-1
-3Y	<=0d	1m63	-1i1	x	1d2
-3Y	>d	1m63	-1i1	x	1d1-1
-3Y	<=0d	1m63	2i1	x	1i2
-3Y	>d	1m63	2i1	x	1i3-1
-3Y	<=0d	1m63	-2i1	x	1d4
-3Y	>d	1m63	-2i1	x	1d3-1
-3Y	<=0d	1m63	3i2	x	1i3
-3Y	>d	1m63	3i2	x	1i4-1
-3Y	<=0d	1m63	-3i2	x	1d6
-3Y	>d	1m63	-3i2	x	1d5-1
-3Y	<=0d	1m62	1i1	x	1i2
-3Y	>d	1m62	1i1	x	1i3-1
-3Y	<=0d	1m62	-1i1	x	1d4
-3Y	>d	1m62	-1i1	x	1d3-1
-3Y	<=0d	1m62	2i1	x	1i4
-3Y	>d	1m62	2i1	x	1i5-1
-3Y	<=0d	1m62	-2i1	x	1d8
-3Y	>d	1m62	-2i1	x	1d7-1
-3Y	<=0d	1m62	3i2	x	1i6
-3Y	>d	1m62	3i2	x	1i7-1
-3Y	<=0d	1m62	-3i2	x	1d12
-3Y	>d	1m62	-3i2	x	1d11-1
+!! 3Y	d	1m63	1i1	x	1i1
+!! 3Y	d	1m63	-1i1	x	1d2
+!! 3Y	d	1m63	2i1	x	1i2
+!! 3Y	d	1m63	-2i1	x	1d4
+!! 3Y	d	1m63	3i2	x	1i3
+!! 3Y	d	1m63	-3i2	x	1d6
+!! 3Y	d	1m62	1i1	x	1i2
+!! 3Y	d	1m62	-1i1	x	1d4
+!! 3Y	d	1m62	2i1	x	1i4
+!! 3Y	d	1m62	-2i1	x	1d8
+!! 3Y	d	1m62	3i2	x	1i6
+!! 3Y	d	1m62	-3i2	x	1d12
 !	   Rate a little small, exponent a little large:
-3Y	>=d	-1m64	1i1	x	1d1
-3Y	<0d	-1m64	1i1	x	1d2+1
-3Y	>=d	-1m64	-1i1	x	1i1
-3Y	<0d	-1m64	-1i1	x	1+1
-3Y	>=d	-1m64	2i1	x	1d2
-3Y	<0d	-1m64	2i1	x	1d3+1
-3Y	>d	-1m64	-2i1	x	1i2-1
-3Y	<0=d	-1m64	-2i1	x	1i1
-3Y	>=d	-1m64	3i2	x	1d3
-3Y	<0d	-1m64	3i2	x	1d4+1
-3Y	>=d	-1m64	-3i2	x	1i2
-3Y	<0d	-1m64	-3i2	x	1i1+1
-3Y	>=d	-1m63	1i1	x	1d2
-3Y	<0d	-1m63	1i1	x	1d3+1
-3Y	>d	-1m63	-1i1	x	1i2-1
-3Y	<0=d	-1m63	-1i1	x	1i1
-3Y	>=d	-1m63	2i1	x	1d4
-3Y	<0d	-1m63	2i1	x	1d5+1
-3Y	>d	-1m63	-2i1	x	1i3-1
-3Y	<0=d	-1m63	-2i1	x	1i2
-3Y	>=d	-1m63	3i2	x	1d6
-3Y	<0d	-1m63	3i2	x	1d7+1
-3Y	>d	-1m63	-3i2	x	1i4-1
-3Y	<0=d	-1m63	-3i2	x	1i3
+!! 3Y	d	-1m64	1i1	x	1d1
+!! 3Y	d	-1m64	-1i1	x	1i1
+!! 3Y	d	-1m64	2i1	x	1d2
+!! 3Y	d	-1m64	-2i1	x	1i2-1
+!! 3Y	d	-1m64	3i2	x	1d3
+!! 3Y	d	-1m64	-3i2	x	1i2
+!! 3Y	d	-1m63	1i1	x	1d2
+!! 3Y	d	-1m63	-1i1	x	1i2-1
+!! 3Y	d	-1m63	2i1	x	1d4
+!! 3Y	d	-1m63	-2i1	x	1i3-1
+!! 3Y	d	-1m63	3i2	x	1d6
+!! 3Y	d	-1m63	-3i2	x	1i4-1
 !	   Rate a little large, exponent a little small:
-3Y	>=d	1m63	1d1	x	1i1
-3Y	<0d	1m63	1d1	x	1+1
-3Y	>=d	1m63	-1d1	x	1d2
-3Y	<0d	1m63	-1d1	x	1d1-1
-3Y	>=d	1m63	2d1	x	1i2
-3Y	<0d	1m63	2d1	x	1i1+1
-3Y	>=d	1m63	-2d1	x	1d4
-3Y	<0d	1m63	-2d1	x	1d3-1
-3Y	>=d	1m63	3d2	x	1i3
-3Y	<0d	1m63	3d2	x	1i2+1
-3Y	>=d	1m63	-3d2	x	1d6
-3Y	<0d	1m63	-3d2	x	1d5-1
-3Y	>=d	1m62	1d1	x	1i2
-3Y	<0d	1m62	1d1	x	1i1+1
-3Y	>=d	1m62	-1d1	x	1d4
-3Y	<0d	1m62	-1d1	x	1d3-1
-3Y	>=d	1m62	2d1	x	1i4
-3Y	<0d	1m62	2d1	x	1i3+1
-3Y	>=d	1m62	-2d1	x	1d8
-3Y	<0d	1m62	-2d1	x	1d7-1
-3Y	>=d	1m62	3d2	x	1i6
-3Y	<0d	1m62	3d2	x	1i5+1
-3Y	>=d	1m62	-3d2	x	1d12
-3Y	<0d	1m62	-3d2	x	1d11-1
+!! 3Y	d	1m63	1d1	x	1i1
+!! 3Y	d	1m63	-1d1	x	1d2
+!! 3Y	d	1m63	2d1	x	1i2
+!! 3Y	d	1m63	-2d1	x	1d4
+!! 3Y	d	1m63	3d2	x	1i3
+!! 3Y	d	1m63	-3d2	x	1d6
+!! 3Y	d	1m62	1d1	x	1i2
+!! 3Y	d	1m62	-1d1	x	1d4
+!! 3Y	d	1m62	2d1	x	1i4
+!! 3Y	d	1m62	-2d1	x	1d8
+!! 3Y	d	1m62	3d2	x	1i6
+!! 3Y	d	1m62	-3d2	x	1d12
 !	   Rate < -1, producing invalid flag and NaN result:
 3Y	d	-1i1	1d1	i	Q
 3Y	d	-1i1	-1d1	i	Q
@@ -208,22 +163,16 @@
 3Y	d	-1	7	OK	0
 3Y	d	-1	-2	z	H
 3Y	d	-1	-9	z	H
-3Y	<0=d	-1m64	2	x	1d2
-3Y	>d	-1m64	2	x	1d1-1
-3Y	<0=d	-1m64	3	x	1d3
-3Y	>d	-1m64	3	x	1d2-1
-3Y	<0=d	-1m64	9	x	1d9
-3Y	>d	-1m64	9	x	1d8-1
+!! 3Y	d	-1m64	2	x	1d2
+!! 3Y	d	-1m64	3	x	1d3
+!! 3Y	d	-1m64	9	x	1d9
 3Y	d	0	-2	OK	1
 3Y	d	-0	-3	OK	1
 3Y	d	0	-2	OK	1
 3Y	d	-0	-3	OK	1
-3Y	<0=d	1m63	2	x	1i2
-3Y	>d	1m63	2	x	1i3-1
-3Y	<0=d	1m63	3	x	1i3
-3Y	>d	1m63	3	x	1i4-1
-3Y	<0=d	1m63	9	x	1i9
-3Y	>d	1m63	9	x	1i10-1
+!! 3Y	d	1m63	2	x	1i2
+!! 3Y	d	1m63	3	x	1i3
+!! 3Y	d	1m63	9	x	1i9
 3Y	d	1	-2	OK	1m2
 3Y	d	1	-9	OK	1m9
 3Y	d	-3	-2	i	Q
@@ -235,14 +184,10 @@
 3Y	d	-5	-3	i	Q
 3Y	d	3	-31	OK	1u1p1
 3Y	d	-5	-31	i	Q
-3Y	<0=d	3i2	2	x	16i2+1
-3Y	>d	3i2	2	x	16i3
-3Y	<0=d	3i2	3	x	1i3p6+3
-3Y	>d	3i2	3	x	1i4p6+2
-3Y	<0=d	3i2	4	x	1i4p8+2
-3Y	>d	3i2	4	x	1i5p8+1
-3Y	<0=d	3i4	2	x	1i4p4-1
-3Y	>d	3i4	2	x	1i5p4-2
+3Y	d	3i2	2	x	16i2+1
+3Y	d	3i2	3	x	1i3p6+3
+3Y	d	3i2	4	x	1i4p8+2
+3Y	d	3i4	2	x	1i4p4-1
 3Y	d	7	-8	OK	1m24
 3Y	d	7	8	OK	1p24
 3Y	d	-9	-8	i	Q
@@ -253,8 +198,8 @@
 3Y	d	-17	-16	i	Q
 3Y	d	127	-9	OK	1u1
 3Y	d	-129	-9	i	Q
-3Y	d	254	2	x	65025+3	Note:3	ulp	error,	Resultexact
-3Y	d	-256	2	i	Q
+!! 3Y	d	254	2	x	65025+3	Note:3	ulp	error,	Resultexact
+!! 3Y	d	-256	2	i	Q
 !  Too large  3Y	  e		  255	  2		  OK	  65536
 3Y	d	-257	2	i	Q
 !  Too large  3Y	  e		  256	  2		  OK	  66049
@@ -269,10 +214,8 @@
 3Y	d	Hm2	5	ox	H
 3Y	d	-Hm2	2	i	Q
 3Y	d	-Hm2	5	i	Q
-3Y	<0=d	Hm1	-3	ux	0
-3Y	>d	Hm1	-3	ux	0i1-1
-3Y	>0=d	-Hm1	-3	i	Q
-3Y	<d	-Hm1	-3	i	Q
+3Y	d	Hm1	-3	ux	0
+3Y	d	-Hm1	-3	i	Q
 3Y	d	H	2	OK	H
 3Y	d	H	-2	OK	0
 3Y	d	-H	2	i	Q
@@ -332,23 +275,15 @@
 3Y	d	-257	2047	i	Q
 !  Results near Zero:
 3Y	d	63	-2741	OK	0i1	2^(-16383-63)	=	(2^6)^(-2741)
-3Y	<0=d	-1d2	281	ux	0
-3Y	>d	-1d2	281	ux	0i1-1
-3Y	>0=d	-1i1	281	i	Q
-3Y	<d	-1i1	281	i	Q
+3Y	d	-1d2	281	ux	0
+3Y	d	-1i1	281	i	Q
 3Y	d	-1d2	260	OK	Ep3
 3Y	d	-1i1	260	i	Q
 3Y	d	-1d1	256	OK	Em1
-3Y	<0=d	-1d1	257	ux	0
-3Y	>d	-1d1	257	ux	0i1-1
-3Y	<0=d	Hm1	-260	ux	0
-3Y	>d	Hm1	-260	ux	0i1-1
-3Y	<0=d	-Hm1	-260	i	Q
-3Y	>d	-Hm1	-260	i	Q
-3Y	<0=d	Hm1	-261	ux	0
-3Y	>d	Hm1	-261	ux	0i1-1
-3Y	>0=d	-Hm1	-261	i	Q
-3Y	<d	-Hm1	-261	i	Q
+3Y	d	-1d1	257	ux	0
+3Y	d	Hm1	-260	ux	0
+3Y	d	-Hm1	-260	i	Q
+3Y	d	Hm1	-261	ux	0
 !  NaNs:
 3Y	d	Q	0	OK	Q
 3Y	d	-Q	0	OK	-Q
@@ -366,10 +301,10 @@
 3Y	d	-Q	257	OK	-Q
 3Y	d	Q	256	OK	Q
 3Y	d	-Q	256	OK	-Q
-3Y	d	Q	16383	OK	Q
-3Y	d	-Q	16383	OK	-Q
-3Y	d	Q	32767	OK	Q
-3Y	d	-Q	32767	OK	-Q
+!! 3Y	d	Q	16383	OK	Q
+!! 3Y	d	-Q	16383	OK	-Q
+!! 3Y	d	Q	32767	OK	Q
+!! 3Y	d	-Q	32767	OK	-Q
 3Y	d	Q	-1	OK	Q
 3Y	d	-Q	-1	OK	-Q
 3Y	d	Q	-2	OK	Q
@@ -384,10 +319,10 @@
 3Y	d	-Q	-257	OK	-Q
 3Y	d	Q	-256	OK	Q
 3Y	d	-Q	-256	OK	-Q
-3Y	d	Q	-16383	OK	Q
-3Y	d	-Q	-16383	OK	-Q
-3Y	d	Q	-32767	OK	Q
-3Y	d	-Q	-32767	OK	-Q
+!! 3Y	d	Q	-16383	OK	Q
+!! 3Y	d	-Q	-16383	OK	-Q
+!! 3Y	d	Q	-32767	OK	Q
+!! 3Y	d	-Q	-32767	OK	-Q
 !3Y	    e	    S	    0	    i	    Q
 !3Y	    e	    -S	    0	    i	    -Q
 !3Y	    e	    S	    1	    i	    Q

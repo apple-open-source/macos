@@ -3,19 +3,22 @@
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
- * The contents of this file constitute Original Code as defined in and
- * are subject to the Apple Public Source License Version 1.1 (the
- * "License").  You may not use this file except in compliance with the
- * License.  Please obtain a copy of the License at
- * http://www.apple.com/publicsource and read it before using this file.
+ * Copyright (c) 1999-2003 Apple Computer, Inc.  All Rights Reserved.
  * 
- * This Original Code and all software distributed under the License are
- * distributed on an "AS IS" basis, WITHOUT WARRANTY OF ANY KIND, EITHER
+ * This file contains Original Code and/or Modifications of Original Code
+ * as defined in and that are subject to the Apple Public Source License
+ * Version 2.0 (the 'License'). You may not use this file except in
+ * compliance with the License. Please obtain a copy of the License at
+ * http://www.opensource.apple.com/apsl/ and read it before using this
+ * file.
+ * 
+ * The Original Code and all software distributed under the License are
+ * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
  * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
  * INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY,
- * FITNESS FOR A PARTICULAR PURPOSE OR NON-INFRINGEMENT.  Please see the
- * License for the specific language governing rights and limitations
- * under the License.
+ * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
+ * Please see the License for the specific language governing rights and
+ * limitations under the License.
  * 
  * @APPLE_LICENSE_HEADER_END@
  */
@@ -124,12 +127,12 @@ CDSRefMap::~CDSRefMap ( void )
 	uInt32		i	= 1;
 	uInt32		j	= 1;
 
-	for ( i = 1; i <= kMaxTables; i++ )	//array is still zero based even if first entry NOT used
+	for ( i = 1; i <= kMaxFWTables; i++ )	//array is still zero based even if first entry NOT used
 										//-- added the last kMaxTable in the .h file so this should work now
 	{
 		if ( fRefMapTables[ i ] != nil )
 		{
-			for (j=0; j< kMaxTableItems; j++)
+			for (j=0; j< kMaxFWTableItems; j++)
 			{
 				if (fRefMapTables[ i ]->fTableData[j] != nil)
 				{
@@ -176,7 +179,7 @@ tDirStatus CDSRefMap::VerifyReference (	tDirReference	inDirRef, //should be gene
 {
 	tDirStatus		siResult	= eDSInvalidReference;
 	sFWRefMapEntry	   *refData		= nil;
-	sPIDInfo	   *pPIDInfo	= nil;
+	sPIDFWInfo	   *pPIDInfo	= nil;
 	
 	if ((inDirRef & 0x00C00000) != 0)
 	{
@@ -540,7 +543,7 @@ sFWRefMapEntry* CDSRefMap::GetTableRef ( uInt32 inRefNum )
 		pTable = GetThisTable( uiTableNum );
 		if ( pTable == nil ) throw( (sInt32)eDSInvalidReference );
 
-		uiSlot = uiRefNum % kMaxTableItems;
+		uiSlot = uiRefNum % kMaxFWTableItems;
 		if ( pTable->fTableData != nil)
 		{
 			if ( pTable->fTableData[ uiSlot ] != nil )
@@ -596,7 +599,7 @@ sRefMapTable* CDSRefMap::GetNextTable ( sRefMapTable *inTable )
 		else
 		{
 			uiTblNum = inTable->fTableNum + 1;
-			if (uiTblNum > kMaxTables) throw( (sInt32)eDSInvalidReference );
+			if (uiTblNum > kMaxFWTables) throw( (sInt32)eDSInvalidReference );
 
 			if ( fRefMapTables[ uiTblNum ] == nil )
 			{
@@ -674,13 +677,13 @@ tDirStatus CDSRefMap::GetNewRef (	uInt32		   *outRef,
 		while ( !done )
 		{
 			pCurTable = GetNextTable( pCurTable );
-			if ( pCurTable == nil ) throw( (sInt32)eDSRefTableAllocError );
+			if ( pCurTable == nil ) throw( (sInt32)eDSRefTableFWAllocError );
 
-			if ( pCurTable->fItemCnt < kMaxTableItems )
+			if ( pCurTable->fItemCnt < kMaxFWTableItems )
 			{
 				uiCntr = 0;
 				uiTableNum = pCurTable->fTableNum;
-				while ( (uiCntr < kMaxTableItems) && !done )	//KW80 - uiCntr was a condition never used
+				while ( (uiCntr < kMaxFWTableItems) && !done )	//KW80 - uiCntr was a condition never used
 																//fixed below with uiCntr++; code addition
 				{
 					if ( (pCurTable->fCurRefNum == 0) || 
@@ -696,11 +699,11 @@ tDirStatus CDSRefMap::GetNewRef (	uInt32		   *outRef,
 					uiRefNum += 0x00C00000;
 
 					// Find a slot in the table for this ref number
-					uiSlot = uiRefNum % kMaxTableItems;
+					uiSlot = uiRefNum % kMaxFWTableItems;
 					if ( pCurTable->fTableData[ uiSlot ] == nil )
 					{
 						pCurTable->fTableData[ uiSlot ] = (sFWRefMapEntry *)::calloc( sizeof( sFWRefMapEntry ), sizeof( char ) );
-						if ( pCurTable->fTableData[ uiSlot ] == nil ) throw( (sInt32)eDSRefTableAllocError );
+						if ( pCurTable->fTableData[ uiSlot ] == nil ) throw( (sInt32)eDSRefTableFWAllocError );
 						
 						// We found an empty slot, now set this table entry
 						pCurTable->fTableData[ uiSlot ]->fRefNum		= uiRefNum;
@@ -734,7 +737,7 @@ tDirStatus CDSRefMap::GetNewRef (	uInt32		   *outRef,
 					}
 					uiCntr++;	//KW80 needed for us to only go through the table once
 								//ie the uiCntr does not get used directly BUT the uiRefNum gets
-								//incremented only kMaxTableItems times since uiCntr is in the while condition
+								//incremented only kMaxFWTableItems times since uiCntr is in the while condition
 				}
 			}
 		}
@@ -765,7 +768,7 @@ tDirStatus CDSRefMap::LinkToParent ( uInt32 inRefNum, uInt32 inType, uInt32 inPa
 {
 	tDirStatus		dsResult		= eDSNoErr;
 	sFWRefMapEntry	   *pCurrRef		= nil;
-	sListInfo	   *pChildInfo		= nil;
+	sListFWInfo	   *pChildInfo		= nil;
 
 	gFWRefMapMutex->Wait();
 
@@ -775,8 +778,8 @@ tDirStatus CDSRefMap::LinkToParent ( uInt32 inRefNum, uInt32 inType, uInt32 inPa
 		if ( pCurrRef == nil ) throw( (sInt32)eDSInvalidReference );
 
 		// This is the one we want
-		pChildInfo = (sListInfo *)::calloc( sizeof( sListInfo ), sizeof( char ) );
-		if ( pChildInfo == nil ) throw( (sInt32)eDSRefTableAllocError );
+		pChildInfo = (sListFWInfo *)::calloc( sizeof( sListFWInfo ), sizeof( char ) );
+		if ( pChildInfo == nil ) throw( (sInt32)eDSRefTableFWAllocError );
 
 		// Save the info required later for removal if the parent gets removed
 		pChildInfo->fRefNum		= inRefNum;
@@ -811,8 +814,8 @@ tDirStatus CDSRefMap::UnlinkFromParent ( uInt32 inRefNum )
 	uInt32			parentID		= 0;
 	sFWRefMapEntry	   *pCurrRef		= nil;
 	sFWRefMapEntry	   *pParentRef		= nil;
-	sListInfo	   *pCurrChild		= nil;
-	sListInfo	   *pPrevChild		= nil;
+	sListFWInfo	   *pCurrChild		= nil;
+	sListFWInfo	   *pPrevChild		= nil;
 
 	gFWRefMapMutex->Wait();
 
@@ -922,8 +925,8 @@ tDirStatus CDSRefMap::RemoveRef ( uInt32 inRefNum, uInt32 inType, sInt32 inPID )
 	uInt32			uiTableNum		= (inRefNum & 0xFF000000) >> 24;
 	uInt32			uiRefNum		= (inRefNum & 0x00FFFFFF);
 	bool			doFree			= false;
-	sPIDInfo	   *pPIDInfo		= nil;
-	sPIDInfo	   *pPrevPIDInfo	= nil;
+	sPIDFWInfo	   *pPIDInfo		= nil;
+	sPIDFWInfo	   *pPrevPIDInfo	= nil;
 	uInt32			refCountUpdate	= 0;
 
 
@@ -938,7 +941,7 @@ tDirStatus CDSRefMap::RemoveRef ( uInt32 inRefNum, uInt32 inType, sInt32 inPID )
 			pTable = GetThisTable( uiTableNum );
 			if ( pTable == nil ) throw( (sInt32)eDSInvalidReference );
 
-			uiSlot = uiRefNum % kMaxTableItems;
+			uiSlot = uiRefNum % kMaxFWTableItems;
 
 			if ( inType != eDirectoryRefType ) // API refs have no parents
 			{
@@ -954,7 +957,8 @@ tDirStatus CDSRefMap::RemoveRef ( uInt32 inRefNum, uInt32 inType, sInt32 inPID )
 
 			if ( pCurrRef->fChildren != nil )
 			{
-				// need to make sure we release the table mutex before the callback
+				// Its ok to keep the mutex when calling RemoveChildren, it also calls Wait but we are on the same thread
+// KA - Need to revisit, commenting these out seems to have caused a regression and more deadlocking.
 				gFWRefMapMutex->Signal();
 				RemoveChildren( pCurrRef->fChildren, inPID );
 				gFWRefMapMutex->Wait();
@@ -993,6 +997,11 @@ tDirStatus CDSRefMap::RemoveRef ( uInt32 inRefNum, uInt32 inType, sInt32 inPID )
 							free(pPIDInfo);
 							pPIDInfo			= pPrevPIDInfo->fNext;
 						}
+					}
+					else
+					{
+						pPrevPIDInfo = pPIDInfo;
+						pPIDInfo = pPIDInfo->fNext;
 					}
 				}
 				//child client PIDs now removed so re-eval free
@@ -1050,10 +1059,10 @@ tDirStatus CDSRefMap::RemoveRef ( uInt32 inRefNum, uInt32 inType, sInt32 inPID )
 //	* RemoveChildren
 //------------------------------------------------------------------------------------
 
-void CDSRefMap::RemoveChildren ( sListInfo *inChildList, sInt32 inPID )
+void CDSRefMap::RemoveChildren ( sListFWInfo *inChildList, sInt32 inPID )
 {
-	sListInfo	   *pCurrChild		= nil;
-	sListInfo	   *pNextChild		= nil;
+	sListFWInfo	   *pCurrChild		= nil;
+	sListFWInfo	   *pNextChild		= nil;
 //	sFWRefMapEntry	   *pCurrRef		= nil;
 
 	gFWRefMapMutex->Wait();
@@ -1072,6 +1081,8 @@ void CDSRefMap::RemoveChildren ( sListInfo *inChildList, sInt32 inPID )
 			//remove ref if it matches the inPID
 			if ( pCurrChild->fPID == inPID )
 			{
+				// Its ok to keep the mutex when calling RemoveRef, it also calls Wait but we are on the same thread
+// KA - Need to revisit, commenting these out seems to have caused a regression and more deadlocking.
 				gFWRefMapMutex->Signal();
 				RemoveRef( pCurrChild->fRefNum, pCurrChild->fType, inPID );
 				gFWRefMapMutex->Wait();
@@ -1098,7 +1109,7 @@ tDirStatus CDSRefMap:: AddChildPIDToRef ( uInt32 inRefNum, uInt32 inParentPID, s
 {
 	tDirStatus		dsResult		= eDSNoErr;
 	sFWRefMapEntry	   *pCurrRef		= nil;
-	sPIDInfo	   *pChildPIDInfo	= nil;
+	sPIDFWInfo	   *pChildPIDInfo	= nil;
 
 	gFWRefMapMutex->Wait();
 
@@ -1110,8 +1121,8 @@ tDirStatus CDSRefMap:: AddChildPIDToRef ( uInt32 inRefNum, uInt32 inParentPID, s
 		pCurrRef = gFWRefMap->GetTableRef( inRefNum );
 		if ( pCurrRef == nil ) throw( (sInt32)eDSInvalidReference );
 
-		pChildPIDInfo = (sPIDInfo *)::calloc( 1, sizeof( sPIDInfo ) );
-		if ( pChildPIDInfo == nil ) throw( (sInt32)eDSRefTableAllocError );
+		pChildPIDInfo = (sPIDFWInfo *)::calloc( 1, sizeof( sPIDFWInfo ) );
+		if ( pChildPIDInfo == nil ) throw( (sInt32)eDSRefTableFWAllocError );
 
 		// Save the info required for verification of ref
 		pChildPIDInfo->fPID = inChildPID;

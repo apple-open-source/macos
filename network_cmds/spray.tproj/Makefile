@@ -15,7 +15,7 @@ PROJECT_TYPE = Tool
 CFILES = spray.c
 
 OTHERSRCS = Makefile Makefile.dist Makefile.postamble Makefile.preamble\
-            spray.x
+            spray.8 spray.x
 
 
 MAKEFILEDIR = $(MAKEFILEPATH)/pb_makefiles

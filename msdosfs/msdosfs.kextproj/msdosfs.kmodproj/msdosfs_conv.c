@@ -3,19 +3,22 @@
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
- * The contents of this file constitute Original Code as defined in and
- * are subject to the Apple Public Source License Version 1.1 (the
- * "License").  You may not use this file except in compliance with the
- * License.  Please obtain a copy of the License at
- * http://www.apple.com/publicsource and read it before using this file.
+ * Copyright (c) 1999-2003 Apple Computer, Inc.  All Rights Reserved.
  * 
- * This Original Code and all software distributed under the License are
- * distributed on an "AS IS" basis, WITHOUT WARRANTY OF ANY KIND, EITHER
+ * This file contains Original Code and/or Modifications of Original Code
+ * as defined in and that are subject to the Apple Public Source License
+ * Version 2.0 (the 'License'). You may not use this file except in
+ * compliance with the License. Please obtain a copy of the License at
+ * http://www.opensource.apple.com/apsl/ and read it before using this
+ * file.
+ * 
+ * The Original Code and all software distributed under the License are
+ * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
  * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
  * INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY,
- * FITNESS FOR A PARTICULAR PURPOSE OR NON-INFRINGEMENT.  Please see the
- * License for the specific language governing rights and limitations
- * under the License.
+ * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
+ * Please see the License for the specific language governing rights and
+ * limitations under the License.
  * 
  * @APPLE_LICENSE_HEADER_END@
  */
@@ -74,7 +77,6 @@
  */
 #include <sys/param.h>
 #include <sys/time.h>
-#include <sys/kernel.h>		/* defines tz */
 #include <sys/systm.h>
 #include <sys/dirent.h>
 
@@ -110,8 +112,22 @@ static u_short lastdtime;
 
 static __inline u_int8_t find_lcode __P((u_int16_t code, u_int16_t *u2w));
 
-int wall_cmos_clock = 0;
-int adjkerntz = 0;
+/*
+ * This variable contains the number of seconds that local time is west of GMT
+ * It is updated every time an msdosfs volume is mounted.  This value is
+ * essentially tz_minuteswest * 60 - (tz_dsttime ? 3600 : 0) based on the
+ * timezone returned by gettimeofday() in the mount_msdosfs tool.
+ *
+ * This has a problem with daylight savings time.  If the current daylight
+ * savings time setting does not match the date being converted, then it
+ * will be off by one hour.  The only way to properly fix this is to know
+ * (inside the kernel) what dates should be adjusted for daylight savings,
+ * and which should not.  That would let us return correct GMT for dates
+ * throughout the year.  Of course, the GUI would have to do the opposite
+ * conversion when converting to local time for display to the user.
+ */
+long msdos_secondsWest = 0;
+
 /*
  * Convert the unix version of time to dos's idea of time to be used in
  * file timestamps. The passed in unix time is assumed to be in GMT.
@@ -134,10 +150,8 @@ unix2dostime(tsp, ddp, dtp, dhp)
 	 * If the time from the last conversion is the same as now, then
 	 * skip the computations and use the saved result.
 	 */
-	t = tsp->tv_sec - (tz.tz_minuteswest * 60)
-	    - (wall_cmos_clock ? adjkerntz : 0);
-	    /* - daylight savings time correction */
-	t &= ~1;
+	t = tsp->tv_sec - msdos_secondsWest;
+	t &= ~1;	/* Round down to multiple of 2 seconds */
 	if (lasttime != t) {
 		lasttime = t;
 		lastdtime = (((t / 2) % 30) << DT_2SECONDS_SHIFT)
@@ -246,9 +260,7 @@ dos2unixtime(dd, dt, dh, tsp)
 		days += ((dd & DD_DAY_MASK) >> DD_DAY_SHIFT) - 1;
 		lastseconds = (days * 24 * 60 * 60) + SECONDSTO1980;
 	}
-	tsp->tv_sec = seconds + lastseconds + (tz.tz_minuteswest * 60)
-	     + adjkerntz;
-	     /* + daylight savings time correction */
+	tsp->tv_sec = seconds + lastseconds + msdos_secondsWest;
 	tsp->tv_nsec = (dh % 100) * 10000000;
 }
 
@@ -309,7 +321,7 @@ unipunct2dos[48] = {
 };
 
 /* Win Latin1 (ANSI CodePage 1252) to Unicode */
-static u_int16_t
+__private_extern__ u_int16_t
 dos2unicode[32] = {
   0x20AC, 0x003f, 0x201A, 0x0192, 0x201E, 0x2026, 0x2020, 0x2021, /* 80-87 */
   0x02C6, 0x2030, 0x0160, 0x2039, 0x0152, 0x003f, 0x017D, 0x003f, /* 88-8F */
@@ -318,7 +330,7 @@ dos2unicode[32] = {
 };
 
 
-static u_char
+__private_extern__ u_char
 l2u[256] = {
 	0x00, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, /* 00-07 */
 	0x08, 0x09, 0x0a, 0x0b, 0x0c, 0x0d, 0x0e, 0x0f, /* 08-0f */
@@ -355,7 +367,7 @@ l2u[256] = {
 };
 
 /* map a Unicode char into a DOS char */
-static u_char
+__private_extern__ u_char
 unicode2dos(uc)
 	u_int16_t uc;
 {

@@ -1,5 +1,5 @@
 /* 
- * $Id: gdcache.c,v 1.1.1.1 2000/08/10 02:08:28 wsanchez Exp $
+ * $Id: gdcache.c,v 1.1.1.3 2003/07/18 18:07:32 zarzycki Exp $
  *
  * Caches of pointers to user structs in which the least-recently-used 
  * element is replaced in the event of a cache miss after the cache has 
@@ -36,13 +36,15 @@
  * sizes of a few tens of elements.
  */
 
+#include "php.h"
+
 /* This just seems unessacary */
-#if (WIN32|WINNT)
+#if PHP_WIN32
 #define ENABLE_GD_TTF
 #else
 #include "php_config.h"
 #endif
-#if HAVE_LIBTTF|HAVE_LIBFREETYPE
+#if (HAVE_LIBTTF | HAVE_LIBFREETYPE) && !defined(HAVE_GD_CACHE_CREATE)
 
 #include "gdcache.h"
 
@@ -61,7 +63,7 @@ gdCacheCreate(
 {
 	gdCache_head_t *head; 
 
-	head = (gdCache_head_t *)malloc(sizeof(gdCache_head_t));
+	head = (gdCache_head_t *)pemalloc(sizeof(gdCache_head_t), 1);
 	head->mru = NULL;
 	head->size = size;
 	head->gdCacheTest = gdCacheTest;
@@ -80,9 +82,9 @@ gdCacheDelete( gdCache_head_t *head )
 		(*(head->gdCacheRelease))(elem->userdata);
 		prev = elem;
 		elem = elem->next;
-		free((char *)prev);
+		pefree((char *)prev, 1);
 	}
-	free((char *)head);
+	pefree((char *)head, 1);
 }
 
 void *
@@ -114,7 +116,7 @@ gdCacheGet( gdCache_head_t *head, void *keydata )
 		return NULL;
 	}
 	if (i < head->size) {  /* cache still growing - add new elem */
-		elem = (gdCache_element_t *)malloc(sizeof(gdCache_element_t));
+		elem = (gdCache_element_t *)pemalloc(sizeof(gdCache_element_t), 1);
 	}
 	else { /* cache full - replace least-recently-used */
 		/* preveprev becomes new end of list */

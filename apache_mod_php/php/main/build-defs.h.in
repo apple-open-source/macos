@@ -1,8 +1,8 @@
 /*                                                                -*- C -*-
    +----------------------------------------------------------------------+
-   | PHP version 4.0                                                      |
+   | PHP Version 4                                                        |
    +----------------------------------------------------------------------+
-   | Copyright (c) 1997-2001 The PHP Group                                |
+   | Copyright (c) 1997-2002 The PHP Group                                |
    +----------------------------------------------------------------------+
    | This source file is subject to version 2.02 of the PHP license,      |
    | that is bundled with this package in the file LICENSE, and is        |
@@ -12,11 +12,11 @@
    | obtain it through the world-wide-web, please send a note to          |
    | license@php.net so we can mail you a copy immediately.               |
    +----------------------------------------------------------------------+
-   | Authors: Stig Sæther Bakken <ssb@fast.no>                            |
+   | Author: Stig Sæther Bakken <ssb@fast.no>                             |
    +----------------------------------------------------------------------+
 */
 
-/* $Id: build-defs.h.in,v 1.1.1.2 2001/07/19 00:20:36 zarzycki Exp $ */
+/* $Id: build-defs.h.in,v 1.1.1.4 2003/03/11 01:09:35 zarzycki Exp $ */
 
 #define CONFIGURE_COMMAND "@CONFIGURE_COMMAND@"
 #define PHP_ADA_INCLUDE		""
@@ -75,14 +75,17 @@
 #define PHP_LDAP_LFLAGS		""
 #define PHP_LDAP_INCLUDE	""
 #define PHP_LDAP_LIBS		""
-#define PHP_VELOCIS_INCLUDE     ""
-#define PHP_VELOCIS_LIBS        ""
+#define PHP_BIRDSTEP_INCLUDE     ""
+#define PHP_BIRDSTEP_LIBS        ""
 #define PEAR_INSTALLDIR         "@EXPANDED_PEAR_INSTALLDIR@"
 #define PHP_INCLUDE_PATH	"@INCLUDE_PATH@"
 #define PHP_EXTENSION_DIR       "@EXPANDED_EXTENSION_DIR@"
+#define PHP_PREFIX              "@prefix@"
 #define PHP_BINDIR              "@EXPANDED_BINDIR@"
 #define PHP_LIBDIR              "@EXPANDED_LIBDIR@"
 #define PHP_DATADIR             "@EXPANDED_DATADIR@"
 #define PHP_SYSCONFDIR          "@EXPANDED_SYSCONFDIR@"
 #define PHP_LOCALSTATEDIR       "@EXPANDED_LOCALSTATEDIR@"
 #define PHP_CONFIG_FILE_PATH    "@EXPANDED_PHP_CONFIG_FILE_PATH@"
+#define PHP_CONFIG_FILE_SCAN_DIR    "@EXPANDED_PHP_CONFIG_FILE_SCAN_DIR@"
+#define PHP_SHLIB_SUFFIX        "@SHLIB_SUFFIX_NAME@"

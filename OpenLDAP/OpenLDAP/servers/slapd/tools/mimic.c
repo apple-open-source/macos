@@ -1,6 +1,6 @@
-/* $OpenLDAP: pkg/ldap/servers/slapd/tools/mimic.c,v 1.51 2002/02/08 05:44:34 hyc Exp $ */
+/* $OpenLDAP: pkg/ldap/servers/slapd/tools/mimic.c,v 1.51.2.5 2003/02/09 16:31:39 kurt Exp $ */
 /*
- * Copyright 1998-2002 The OpenLDAP Foundation, All Rights Reserved.
+ * Copyright 1998-2003 The OpenLDAP Foundation, All Rights Reserved.
  * COPYING RESTRICTIONS APPLY, see COPYRIGHT file
  */
 /*
@@ -42,7 +42,7 @@ send_ldap_disconnect(
 }
 
 void
-send_ldap_extended(
+slap_send_ldap_extended(
     Connection	*conn,
     Operation	*op,
     ber_int_t	err,
@@ -50,6 +50,22 @@ send_ldap_extended(
     const char	*text,
 	BerVarray refs,
     const char	*rspoid,
+	struct berval *rspdata,
+	LDAPControl **ctrls
+)
+{
+	assert(0);
+}
+
+void
+slap_send_ldap_intermediate_resp(
+	Connection  *conn,
+	Operation   *op,
+	ber_int_t   err,
+	const char  *matched,
+	const char  *text,
+	BerVarray refs,
+	const char  *rspoid,
 	struct berval *rspdata,
 	LDAPControl **ctrls
 )
@@ -73,7 +89,7 @@ send_ldap_sasl(
 }
 
 void
-send_ldap_result(
+slap_send_ldap_result(
 	Connection  *conn, 
 	Operation   *op,
 	ber_int_t     err,
@@ -87,7 +103,7 @@ send_ldap_result(
 }
 
 void
-send_search_result(
+slap_send_search_result(
 	Connection  *conn, 
 	Operation   *op,
 	ber_int_t     err,
@@ -102,7 +118,7 @@ send_search_result(
 }
 
 int
-send_search_entry(
+slap_send_search_entry(
 	Backend *be,
 	Connection  *conn, 
 	Operation   *op,
@@ -116,7 +132,8 @@ send_search_entry(
 	return -1;
 }
 
-int send_search_reference(
+int
+slap_send_search_reference(
 	Backend *be,
 	Connection  *conn, 
 	Operation   *op,
@@ -140,15 +157,27 @@ int slap_sasl_destroy(void)
 	return LDAP_SUCCESS;
 }
 
-char * slap_sasl_secprops( const char *in )
+int slap_sasl_setpass(
+	Connection      *conn,
+	Operation       *op,
+	const char      *reqoid,
+	struct berval   *reqdata,
+	char            **rspoid,
+	struct berval   **rspdata,
+	LDAPControl     *** rspctrls,
+	const char      **text )
 {
-	return NULL;
+	return LDAP_SUCCESS;
 }
 
-
-int slap_sasl_regexp_config( const char *match, const char *replace )
+int slap_sasl_config(
+	int cargc,
+	char **cargv,
+	char *line,
+	const char *fname,
+	int lineno )
 {
-	return(0);
+	return LDAP_SUCCESS;
 }
 
 
@@ -201,7 +230,7 @@ int add_replica_suffix( Backend *be, int nr, const char *suffix )
 	return 0;
 }
 
-int add_replica_attrs( Backend *be, int nr, char *attrs )
+int add_replica_attrs( Backend *be, int nr, char *attrs, int exclude )
 {
 	return 0;
 }
@@ -227,7 +256,7 @@ int read_root_dse_file ( const char *file )
 }
 
 Attribute *
-slap_operational_subschemaSubentry( void )
+slap_operational_subschemaSubentry( Backend *be )
 {
 	return NULL;
 }
@@ -242,5 +271,42 @@ Listener **
 slapd_get_listeners(void)
 {
 	return NULL;
+}
+
+int
+slap_modrdn2mods(
+	Backend		*be,
+	Connection	*conn,
+	Operation	*op,
+	Entry		*e,
+	LDAPRDN		*oldrdn,
+	LDAPRDN		*newrdn,
+	int		deleteoldrdn,
+	Modifications	**pmod )
+{
+	return 0;
+}
+
+int
+slap_mods2entry(
+	Modifications *mods,
+	Entry **e,
+	int repl_user,
+	const char **text,
+	char *textbuf, size_t textlen )
+{
+	return 0;
+}
+
+int slap_sasl_getdn( Connection *conn, char *id, int len,
+	char *user_realm, struct berval *dn, int flags )
+{
+	return -1;
+}
+
+int slap_sasl_authorized( Connection *conn,
+	struct berval *authcDN, struct berval *authzDN )
+{
+	return -1;
 }
 

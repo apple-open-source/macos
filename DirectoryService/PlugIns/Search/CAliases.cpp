@@ -3,19 +3,22 @@
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
- * The contents of this file constitute Original Code as defined in and
- * are subject to the Apple Public Source License Version 1.1 (the
- * "License").  You may not use this file except in compliance with the
- * License.  Please obtain a copy of the License at
- * http://www.apple.com/publicsource and read it before using this file.
+ * Copyright (c) 1999-2003 Apple Computer, Inc.  All Rights Reserved.
  * 
- * This Original Code and all software distributed under the License are
- * distributed on an "AS IS" basis, WITHOUT WARRANTY OF ANY KIND, EITHER
+ * This file contains Original Code and/or Modifications of Original Code
+ * as defined in and that are subject to the Apple Public Source License
+ * Version 2.0 (the 'License'). You may not use this file except in
+ * compliance with the License. Please obtain a copy of the License at
+ * http://www.opensource.apple.com/apsl/ and read it before using this
+ * file.
+ * 
+ * The Original Code and all software distributed under the License are
+ * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
  * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
  * INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY,
- * FITNESS FOR A PARTICULAR PURPOSE OR NON-INFRINGEMENT.  Please see the
- * License for the specific language governing rights and limitations
- * under the License.
+ * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
+ * Please see the License for the specific language governing rights and
+ * limitations under the License.
  * 
  * @APPLE_LICENSE_HEADER_END@
  */
@@ -38,6 +41,13 @@ CAliases::CAliases ( void )
 	fDataRef	= nil;
 	fPlistRef	= nil;
 	fDictRef	= nil;
+	fRecordIDString			= CFStringCreateWithCString( NULL, "dsRecordID", kCFStringEncodingUTF8 );
+	fRecordNameString		= CFStringCreateWithCString( NULL, "dsRecordName", kCFStringEncodingUTF8 );
+	fRecordTypeString		= CFStringCreateWithCString( NULL, "dsRecordType", kCFStringEncodingUTF8 );
+	fRecordLocationString   = CFStringCreateWithCString( NULL, "dsRecordLocation", kCFStringEncodingUTF8 );
+	fAliasVersionString		= CFStringCreateWithCString( NULL, "dsAliasVersion", kCFStringEncodingUTF8 );
+
+
 } // CAliases
 
 
@@ -47,6 +57,11 @@ CAliases::CAliases ( void )
 
 CAliases::~CAliases ( void )
 {
+	CFRelease(fRecordIDString);
+	CFRelease(fRecordNameString);
+	CFRelease(fRecordTypeString);
+	CFRelease(fRecordLocationString);
+	CFRelease(fAliasVersionString);
 } // ~CAliases
 
 
@@ -88,12 +103,12 @@ sInt32 CAliases::GetRecordID ( char **outRecID )
 	bool			bFound		= false;
 	CFStringRef		cfStringRef	= nil;
 
-	bFound = ::CFDictionaryContainsKey( fDictRef, CFSTR( kRecordID ) );
+	bFound = ::CFDictionaryContainsKey( fDictRef, fRecordIDString );
 	if ( bFound == true )
 	{
 		siResult = errInvalidDataType;
 
-		cfStringRef = (CFStringRef)::CFDictionaryGetValue( fDictRef, CFSTR( kRecordID ) );
+		cfStringRef = (CFStringRef)::CFDictionaryGetValue( fDictRef, fRecordIDString );
 		if ( cfStringRef != nil )
 		{
 			if ( ::CFGetTypeID( cfStringRef ) == ::CFStringGetTypeID() )
@@ -128,12 +143,12 @@ sInt32 CAliases::GetRecordName ( tDataList *outDataList )
 	CFStringRef		cfStringRef	= nil;
 	const char	   *cpCStr		= nil;
 
-	bFound = ::CFDictionaryContainsKey( fDictRef, CFSTR( kRecordName ) );
+	bFound = ::CFDictionaryContainsKey( fDictRef, fRecordNameString );
 	if ( bFound == true )
 	{
 		siResult = errInvalidDataType;
 
-		cfArrayRef = (CFArrayRef)::CFDictionaryGetValue( fDictRef, CFSTR( kRecordName ) );
+		cfArrayRef = (CFArrayRef)::CFDictionaryGetValue( fDictRef, fRecordNameString );
 		if ( ::CFGetTypeID( cfArrayRef ) == ::CFArrayGetTypeID() )
 		{
 			siResult = errEmptyArray;
@@ -180,12 +195,12 @@ sInt32 CAliases::GetRecordType ( char **outRecType )
 	bool			bFound		= false;
 	CFStringRef		cfStringRef	= nil;
 
-	bFound = ::CFDictionaryContainsKey( fDictRef, CFSTR( kRecordType ) );
+	bFound = ::CFDictionaryContainsKey( fDictRef, fRecordTypeString );
 	if ( bFound == true )
 	{
 		siResult = errInvalidDataType;
 
-		cfStringRef = (CFStringRef)::CFDictionaryGetValue( fDictRef, CFSTR( kRecordType ) );
+		cfStringRef = (CFStringRef)::CFDictionaryGetValue( fDictRef, fRecordTypeString );
 		if ( cfStringRef != nil )
 		{
 			siResult = errItemNotFound;
@@ -220,12 +235,12 @@ sInt32 CAliases::GetRecordLocation ( tDataList *outDataList )
 	CFStringRef		cfStringRef	= nil;
 	const char	   *cpCStr		= nil;
 
-	bFound = ::CFDictionaryContainsKey( fDictRef, CFSTR( kRecordLocation ) );
+	bFound = ::CFDictionaryContainsKey( fDictRef, fRecordLocationString );
 	if ( bFound == true )
 	{
 		siResult = errInvalidDataType;
 
-		cfArrayRef = (CFArrayRef)::CFDictionaryGetValue( fDictRef, CFSTR( kRecordLocation ) );
+		cfArrayRef = (CFArrayRef)::CFDictionaryGetValue( fDictRef, fRecordLocationString );
 		if ( ::CFGetTypeID( cfArrayRef ) == ::CFArrayGetTypeID() )
 		{
 			siResult = errEmptyArray;
@@ -272,12 +287,12 @@ sInt32 CAliases::GetAliasVersion ( char **outAliasVersion )
 	bool			bFound		= false;
 	CFStringRef		cfStringRef	= nil;
 
-	bFound = ::CFDictionaryContainsKey( fDictRef, CFSTR( kAliasVersion ) );
+	bFound = ::CFDictionaryContainsKey( fDictRef, fAliasVersionString );
 	if ( bFound == true )
 	{
 		siResult = errInvalidDataType;
 
-		cfStringRef = (CFStringRef)::CFDictionaryGetValue( fDictRef, CFSTR( kAliasVersion ) );
+		cfStringRef = (CFStringRef)::CFDictionaryGetValue( fDictRef, fAliasVersionString );
 		if ( cfStringRef != nil )
 		{
 			siResult = errItemNotFound;

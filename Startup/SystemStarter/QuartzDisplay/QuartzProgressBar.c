@@ -2,7 +2,7 @@
  * QuartzProgressBar.c - Quartz Progress Bar
  * $Apple$
  **
- * Copyright (c) 1999-2001 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 1999-2002 Apple Computer, Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -26,18 +26,11 @@
  * @APPLE_LICENSE_HEADER_END@
  **
  * Draws the progress bar using CoreGraphics (Quartz).
- *
- * WARNING: This code uses private Core Graphics API.  Private API is
- * subject to change at any time without notice, and it's use by
- * parties unknown to the Core Graphics authors is in no way supported.
- * If you borrow code from here for other use and it later breaks, you
- * have no basis for complaint.
  **/
 
 #include <stdlib.h>
 #include <unistd.h>
 #include <pthread.h>
-#include <CoreGraphics/CoreGraphicsPrivate.h>
 #include <CoreGraphics/CGContext.h>
 
 /*
@@ -46,12 +39,13 @@
  */
 typedef struct ProgressBar
 {
-    CGContextRef context;
-    CGRect	 frame;
-    float	 percent;
-    int		 offset;
-    int		 active;
-    pthread_t	 thread;
+    CGContextRef   context;
+    CGRect         frame;
+    CGImageRef     fillImage;
+    float          percent;
+    int            offset;
+    int            active;
+    pthread_t      thread;
 } *ProgressBarRef;
 #define _QuartzProgressBar_C_
 #include "QuartzProgressBar.h"
@@ -61,46 +55,81 @@ typedef struct ProgressBar
 static void _ProgressBarDrawBackground (ProgressBarRef aProgressBar)
 {
     CGColorSpaceRef aColorspace = CGColorSpaceCreateDeviceRGB();
-    const unsigned char *aBitmapData[5] = {0, 0, 0, 0, 0};
+    CGDataProviderRef aDataProvider;
+    CGImageRef endCap = NULL, barBackground = NULL;
     float x, y, w, xcur;
 
     x = aProgressBar->frame.origin.x;
     y = aProgressBar->frame.origin.y;
     w = aProgressBar->frame.size.width;
 
-    /**
-     * Lay down the progress bar frame and background.
-     **/
-    aBitmapData[0] = gEndcapData;
-
     /* Using only 1/4th the image on each end cap may seem like a waste, */
     /* but is necessary so that shadows do not overlap.                  */
 
     /* Left endcap */
     CGContextSaveGState    (aProgressBar->context);
-    CGContextClipToRect      (aProgressBar->context, CGRectMake(x, y, gEndCapWidth / 2.0, gEndCapHeight));
-    CGDrawBitmap    (aProgressBar->context, CGRectMake(x, y, gEndCapWidth, gEndCapHeight),
-                                            gEndCapWidth, gEndCapHeight, 8, 4, 32,
-                                            gEndCapWidth * 4, 0, 1, aColorspace, aBitmapData);
+    CGContextClipToRect    (aProgressBar->context, CGRectMake(x, y, gEndCapWidth / 2.0, gEndCapHeight));
+
+    aDataProvider = CGDataProviderCreateWithData(NULL, &gEndcapData, 4 * gEndCapWidth * gEndCapHeight, NULL);
+    if (aDataProvider)
+      {
+        endCap = CGImageCreate(gEndCapWidth,
+                               gEndCapHeight,
+                               8,
+                               32,
+                               gEndCapWidth * 4,
+                               aColorspace,
+                               kCGImageAlphaPremultipliedLast,
+                               aDataProvider,
+                               NULL,
+                               0,
+                               kCGRenderingIntentDefault);
+        CGDataProviderRelease(aDataProvider);
+      }
+    if (endCap)
+      {
+        CGContextDrawImage (aProgressBar->context, CGRectMake(x, y, gEndCapWidth, gEndCapHeight), endCap);
+      }
     CGContextRestoreGState (aProgressBar->context);
 
     /* Right endcap */
     CGContextSaveGState    (aProgressBar->context);
-    CGContextClipToRect      (aProgressBar->context, CGRectMake(x + w - gEndCapWidth / 2.0, y, gEndCapWidth / 2.0, gEndCapHeight));
-    CGDrawBitmap    (aProgressBar->context, CGRectMake(x + w - gEndCapWidth, y, gEndCapWidth, gEndCapHeight),
-                                            gEndCapWidth, gEndCapHeight, 8, 4, 32,
-                                            gEndCapWidth * 4, 0, 1, aColorspace, aBitmapData);
+    CGContextClipToRect    (aProgressBar->context, CGRectMake(x + w - gEndCapWidth / 2.0, y, gEndCapWidth / 2.0, gEndCapHeight));
+
+    if (endCap)
+      {
+        CGContextDrawImage (aProgressBar->context, CGRectMake((x + w - gEndCapWidth / 2.0) - 1.0, y, gEndCapWidth / 2.0, gEndCapHeight), endCap);
+        CGImageRelease(endCap);
+      }
+
     CGContextRestoreGState (aProgressBar->context);
 
     /* Bar */
-    aBitmapData[0] = gBackfillData;
     CGContextSaveGState    (aProgressBar->context);
-    CGContextClipToRect      (aProgressBar->context, CGRectMake(x + gEndCapWidth / 2.0 , y, w - gEndCapWidth, gEndCapHeight));
-    for (xcur = x; xcur < x + w; xcur += gBackFillWidth)
+    CGContextClipToRect    (aProgressBar->context, CGRectMake(x + gEndCapWidth / 2.0 , y, w - gEndCapWidth, gEndCapHeight));
+    aDataProvider = CGDataProviderCreateWithData(NULL, &gBackfillData, 4 * gBackFillWidth * gBackFillHeight, NULL);
+    if (aDataProvider)
       {
-        CGDrawBitmap(aProgressBar->context, CGRectMake(xcur, y, gBackFillWidth, gBackFillHeight),
-                                            gBackFillWidth, gBackFillHeight, 8, 4, 32,
-                                            gBackFillWidth * 4, 0, 1, aColorspace, aBitmapData);
+        barBackground = CGImageCreate( gBackFillWidth,
+                               gBackFillHeight,
+                               8,
+                               32,
+                               gBackFillWidth * 4,
+                               aColorspace,
+                               kCGImageAlphaPremultipliedLast,
+                               aDataProvider,
+                               NULL,
+                               0,
+                               kCGRenderingIntentDefault);
+        CGDataProviderRelease(aDataProvider);
+      }
+    if (barBackground)
+      {
+        for (xcur = x; xcur < x + w; xcur += gBackFillWidth)
+          {
+            CGContextDrawImage (aProgressBar->context, CGRectMake(xcur, y, gBackFillWidth, gBackFillHeight), barBackground);
+          }
+        CGImageRelease(barBackground);
       }
     CGContextRestoreGState (aProgressBar->context);
 
@@ -111,8 +140,6 @@ static void _ProgressBarDrawBackground (ProgressBarRef aProgressBar)
 
 static void _ProgressBarDraw (ProgressBarRef aProgressBar)
 {
-    CGColorSpaceRef aColorspace = CGColorSpaceCreateDeviceRGB();
-    const unsigned char *aBitmapData[5] = {0, 0, 0, 0, 0};
     float x, y, w, xcur;
 
     x = aProgressBar->frame.origin.x;
@@ -122,7 +149,6 @@ static void _ProgressBarDraw (ProgressBarRef aProgressBar)
     /**
      * Lay down the progress bar.
      **/
-    aBitmapData[0] = gFillData;
     CGContextSaveGState (aProgressBar->context);
     CGContextClipToRect   (aProgressBar->context,
                   CGRectMake(x + gEndCapWidth / 4.0, y + (gEndCapHeight - gFillHeight),
@@ -131,15 +157,12 @@ static void _ProgressBarDraw (ProgressBarRef aProgressBar)
          xcur < x + w - gEndCapWidth / 4.0;
          xcur += gFillWidth)
       {
-        CGDrawBitmap(aProgressBar->context,
-                     CGRectMake(xcur, y + (gEndCapHeight - gFillHeight), gFillWidth, gFillHeight),
-                     gFillWidth, gFillHeight, 8, 4, 32, gFillWidth * 4, 0, 1, aColorspace, aBitmapData);
+        CGContextDrawImage (aProgressBar->context, CGRectMake(xcur, y + (gEndCapHeight - gFillHeight), gFillWidth, gFillHeight), aProgressBar->fillImage);
       }
     CGContextRestoreGState (aProgressBar->context);
 
     /* Clean up */
     CGContextFlush (aProgressBar->context);
-    CGColorSpaceRelease (aColorspace);
 }
 
 /* FIXME: This should be in a public header */
@@ -168,6 +191,8 @@ static void *_ProgressBarBackgroundThread (void *arg)
 
 ProgressBarRef ProgressBarCreate (CGContextRef aContext, float x, float y, float w)
 {
+    CGColorSpaceRef aColorspace = CGColorSpaceCreateDeviceRGB();
+    CGDataProviderRef aDataProvider;
     ProgressBarRef aProgressBar = (ProgressBarRef)malloc(sizeof(struct ProgressBar));
 
     aProgressBar->context           = aContext;
@@ -177,8 +202,32 @@ ProgressBarRef ProgressBarCreate (CGContextRef aContext, float x, float y, float
     aProgressBar->frame.size.height = gEndCapHeight;
     aProgressBar->percent           = 0.0;
     aProgressBar->offset            = 0;
-    aProgressBar->active	    = 1;
+    aProgressBar->active            = 1;
+    aProgressBar->fillImage         = NULL;
+    aDataProvider                   = CGDataProviderCreateWithData(NULL, & gFillData, 4 * gFillWidth * gFillHeight, NULL);
+    if (aDataProvider && aColorspace)
+      {
+        aProgressBar->fillImage     = CGImageCreate( gFillWidth,
+                                           gFillHeight,
+                                           8,
+                                           32,
+                                           gFillWidth * 4,
+                                           aColorspace,
+                                           kCGImageAlphaPremultipliedLast,
+                                           aDataProvider,
+                                           NULL,
+                                           0,
+                                           kCGRenderingIntentDefault);
+      }
 
+    if (aColorspace)
+      {
+        CGColorSpaceRelease (aColorspace);
+      }
+    if (aDataProvider)
+      {
+        CGDataProviderRelease(aDataProvider);
+      }
     pthread_create (&aProgressBar->thread, NULL, _ProgressBarBackgroundThread, aProgressBar);
 
     return aProgressBar;
@@ -188,6 +237,11 @@ void ProgressBarFree (ProgressBarRef aProgressBar)
 {
     aProgressBar->active = 0;
     pthread_join(aProgressBar->thread, NULL);
+
+    if (aProgressBar->fillImage)
+      {
+        CGImageRelease(aProgressBar->fillImage);
+      }
 
     free(aProgressBar);
 }

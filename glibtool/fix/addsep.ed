@@ -1,0 +1,7 @@
+g/^# Libtool was configured on host/a\
+\
+# Set the command separator (default: ~)\
+_S_=\${LIBTOOL_CMD_SEP-\~}\
+.
+w
+q

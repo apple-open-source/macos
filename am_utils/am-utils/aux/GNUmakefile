@@ -1,9 +1,7 @@
 #
-# THIS MAKEFILE IS DEFUNCT.  DON'T USE IT!
+# THIS MAKEFILE IS FOR am-utils maintainers only!
 #
 # GNUmakefile for remaking configuration files.
-# Used by am-utils maintainers only!
-#
 #
 # Erez Zadok <ezk@cs.columbia.edu>
 #
@@ -94,6 +92,9 @@ clean:
 ##############################################################################
 # maintainer rules to update autoconf/automake/libtool files distributed with
 # am-utils. -Erez.
+
+P1s=/usr/local/gnu/share/automake
+P2s=/usr/local/gnu/share/libtool
 P1=/usr/local/gnu/lib/automake
 P2=/usr/local/gnu/lib/libtool
 P3=/misc/mirror/gnu/prep/config
@@ -113,16 +114,16 @@ update:		\
 # 	missing		\
 # 	mkinstalldirs	\
 
-config.guess:: $(P1)/config.guess
+config.guess:: $(P1s)/config.guess
 	$(ICMD) $? $@
-config.guess:: $(P2)/config.guess
+config.guess:: $(P2s)/config.guess
 	$(ICMD) $? $@
 config.guess:: $(P3)/config.guess
 	$(ICMD) $? $@
 
-config.sub:: $(P1)/config.sub
+config.sub:: $(P1s)/config.sub
 	$(ICMD) $? $@
-config.sub:: $(P2)/config.sub
+config.sub:: $(P2s)/config.sub
 	$(ICMD) $? $@
 config.sub:: $(P3)/config.sub
 	$(ICMD) $? $@

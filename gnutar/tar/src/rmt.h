@@ -1,5 +1,5 @@
 /* Definitions for communicating with a remote tape drive.
-   Copyright (C) 1988, 1992, 1996, 1997 Free Software Foundation, Inc.
+   Copyright 1988, 1992, 1996, 1997, 2001 Free Software Foundation, Inc.
 
    This program is free software; you can redistribute it and/or modify
    it under the terms of the GNU General Public License as published by
@@ -24,7 +24,7 @@ ssize_t rmt_write__ PARAMS ((int, char *, size_t));
 off_t rmt_lseek__ PARAMS ((int, off_t, int));
 int rmt_ioctl__ PARAMS ((int, int, char *));
 
-/* A filename is remote if it contains a colon not preceeded by a slash,
+/* A filename is remote if it contains a colon not preceded by a slash,
    to take care of `/:/' which is a shorthand for `/.../<CELL-NAME>/fs'
    on machines running OSF's Distributing Computing Environment (DCE) and
    Distributed File System (DFS).  However, when --force-local, a
@@ -32,12 +32,12 @@ int rmt_ioctl__ PARAMS ((int, int, char *));
 
 #define _remdev(Path) \
   (!force_local_option && (rmt_path__ = strchr (Path, ':')) \
-   && rmt_path__ > (Path) && rmt_path__[-1] != '/')
+   && rmt_path__ > (Path) && ! memchr (Path, rmt_path__ - (Path), '/'))
 
 #define _isrmt(Fd) \
   ((Fd) >= __REM_BIAS)
 
-#define __REM_BIAS 128
+#define __REM_BIAS (1 << 30)
 
 #ifndef O_CREAT
 # define O_CREAT 01000
@@ -52,7 +52,6 @@ int rmt_ioctl__ PARAMS ((int, int, char *));
 
 #define rmtstat(Path, Buffer) \
   (_remdev (Path) ? (errno = EOPNOTSUPP), -1 : stat (Path, Buffer))
-				/* FIXME: errno should be read-only */
 
 #define rmtcreat(Path, Mode, Command) \
    (_remdev (Path) \
@@ -61,7 +60,6 @@ int rmt_ioctl__ PARAMS ((int, int, char *));
 
 #define rmtlstat(Path, Buffer) \
   (_remdev (Path) ? (errno = EOPNOTSUPP), -1 : lstat (Path, Buffer))
-				/* FIXME: errno should be read-only */
 
 #define rmtread(Fd, Buffer, Length) \
   (_isrmt (Fd) ? rmt_read__ (Fd - __REM_BIAS, Buffer, Length) \
@@ -84,15 +82,12 @@ int rmt_ioctl__ PARAMS ((int, int, char *));
 
 #define rmtdup(Fd) \
   (_isrmt (Fd) ? (errno = EOPNOTSUPP), -1 : dup (Fd))
-				/* FIXME: errno should be read-only */
 
 #define rmtfstat(Fd, Buffer) \
   (_isrmt (Fd) ? (errno = EOPNOTSUPP), -1 : fstat (Fd, Buffer))
-				/* FIXME: errno should be read-only */
 
 #define rmtfcntl(Fd, Command, Argument) \
   (_isrmt (Fd) ? (errno = EOPNOTSUPP), -1 : fcntl (Fd, Command, Argument))
-				/* FIXME: errno should be read-only */
 
 #define rmtisatty(Fd) \
   (_isrmt (Fd) ? 0 : isatty (Fd))

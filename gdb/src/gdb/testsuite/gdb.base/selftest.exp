@@ -1,4 +1,4 @@
-#   Copyright 1988, 1990, 1991, 1992, 1994, 1997, 1999, 2000
+#   Copyright 1988, 1990, 1991, 1992, 1994, 1997, 1999, 2000, 2002
 #   Free Software Foundation, Inc.
 
 # This program is free software; you can redistribute it and/or modify
@@ -52,8 +52,12 @@ proc do_steps_and_nexts {} {
  
     gdb_reinitialize_dir $srcdir/..
 
-    for {set count 0} {$count < 22} {incr count} {
+    for {set count 0} {$count < 27} {incr count} {
 	send_gdb "list\n"
+	# NOTE: carlton/2002-12-11: The "initial brace" and
+	# "current_directory initialization" possibilities happen to
+	# me with GCC 3.1 on i686-pc-linux-gnu when I compile with
+	# optimization.
 	gdb_expect {
 	    -re ".*context = data.*$gdb_prompt $" {
 		set description "step over context initialization"
@@ -141,6 +145,40 @@ proc do_steps_and_nexts {} {
 	    }
 	    -re ".*dirarg = .* xmalloc.*$gdb_prompt $" {
 		return
+	    }
+	    -re ".*setlocale .LC_MESSAGES,.*$gdb_prompt $" {
+		set description "next over setlocale LC_MESSAGES"
+		set command "next"
+	    }
+	    -re ".*setlocale .LC_CTYPE,.*$gdb_prompt $" {
+		set description "next over setlocale LC_CTYPE"
+		set command "next"
+	    }
+	    -re ".*bindtextdomain .PACKAGE, LOCALEDIR.;.*$gdb_prompt $" {
+		set description "next over bindtextdomain"
+		set command "next"
+	    }
+	    -re ".*textdomain .PACKAGE.;.*$gdb_prompt $" {
+		set description "next over textdomain PACKAGE"
+		set command "next"
+	    }
+	    -re ".*init_mmalloc_default_pool ..PTR. NULL.;.*$gdb_prompt $" {
+		set description "next over init_mmalloc_default_pool"
+		set command "next"
+	    }
+	    -re "\[0-9\]*\t\{\r\n$gdb_prompt $" {
+		set description "step over initial brace"
+		set command "step"
+	    }
+	    -re ".*current_directory = gdb_dirbuf.*$gdb_prompt $" {
+		set description "step over current_directory initialization"
+		set command "step"
+	    }
+	    -re ".*gdb_sysroot = .*$gdb_prompt $" {
+		# NOTE: carlton/2003-01-15: More optimization reordering,
+		# observed on GCC 3.1.
+		set description "step over gdb_sysroot initialization"
+		set command "step"
 	    }
 	    -re "\[ \t\]+\{\r\n$gdb_prompt $" {
 		setup_xfail "mips-*-irix5*"
@@ -293,7 +331,7 @@ proc test_with_self { executable } {
     set description "step into xmalloc call"
     send_gdb "step\n"
     gdb_expect {
-	-re "xmalloc.*size=.*at.*utils.c.*$gdb_prompt $" {
+	-re "xmalloc.*size=.*at.*(xmalloc.c|utils.c).*$gdb_prompt $" {
 	    pass "$description"
 	}
 	-re ".*No such file or directory.\r\n$gdb_prompt $" {
@@ -376,7 +414,7 @@ GDB.*Copyright \[0-9\]+ Free Software Foundation, Inc..*$gdb_prompt $"\
     set description "backtrace through signal handler"
     send_gdb "backtrace\n"
     gdb_expect {
-	-re "#0.*read.*in main \\(.*\\) at .*main\\.c.*$gdb_prompt $" {
+	-re "#0.*(read|poll).*in main \\(.*\\) at .*gdb\\.c.*$gdb_prompt $" {
 	    pass "$description"
 	}
 	-re ".*$gdb_prompt $" {

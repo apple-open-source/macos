@@ -1,22 +1,25 @@
 /*
- * Copyright (c) 2000 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 2000-2003 Apple Computer, Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
- *
- * The contents of this file constitute Original Code as defined in and
- * are subject to the Apple Public Source License Version 1.1 (the
- * "License").  You may not use this file except in compliance with the
- * License.  Please obtain a copy of the License at
- * http://www.apple.com/publicsource and read it before using this file.
- *
- * This Original Code and all software distributed under the License are
- * distributed on an "AS IS" basis, WITHOUT WARRANTY OF ANY KIND, EITHER
+ * 
+ * Copyright (c) 1999-2003 Apple Computer, Inc.  All Rights Reserved.
+ * 
+ * This file contains Original Code and/or Modifications of Original Code
+ * as defined in and that are subject to the Apple Public Source License
+ * Version 2.0 (the 'License'). You may not use this file except in
+ * compliance with the License. Please obtain a copy of the License at
+ * http://www.opensource.apple.com/apsl/ and read it before using this
+ * file.
+ * 
+ * The Original Code and all software distributed under the License are
+ * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
  * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
  * INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY,
- * FITNESS FOR A PARTICULAR PURPOSE OR NON-INFRINGEMENT.  Please see the
- * License for the specific language governing rights and limitations
- * under the License.
- *
+ * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
+ * Please see the License for the specific language governing rights and
+ * limitations under the License.
+ * 
  * @APPLE_LICENSE_HEADER_END@
  */
 
@@ -36,94 +39,26 @@
 #include "config.h"		/* MiG generated file */
 
 
-static __inline__ void
-my_CFSetApplyFunction(CFSetRef			theSet,
-		      CFSetApplierFunction	applier,
-		      void			*context)
-{
-	CFAllocatorRef	myAllocator;
-	CFSetRef	mySet;
-
-	myAllocator = CFGetAllocator(theSet);
-	mySet       = CFSetCreateCopy(myAllocator, theSet);
-	CFSetApplyFunction(mySet, applier, context);
-	CFRelease(mySet);
-	return;
-}
-
-
-/*
- * "context" argument for removeOldKey() and addNewKey()
- */
-typedef struct {
-	SCDynamicStoreRef       store;
-	CFArrayRef		newKeys;	/* for removeOldKey */
-	Boolean			isRegex;
-	Boolean			ok;
-} updateKeysContext, *updateKeysContextRef;
-
-
-static void
-removeOldKey(const void *value, void *context)
-{
-	CFStringRef			oldKey		= (CFStringRef)value;
-	updateKeysContextRef		myContextRef	= (updateKeysContextRef)context;
-
-	if (!myContextRef->ok) {
-		return;
-	}
-
-	if (!myContextRef->newKeys ||
-	    !CFArrayContainsValue(myContextRef->newKeys,
-				  CFRangeMake(0, CFArrayGetCount(myContextRef->newKeys)),
-				  oldKey)) {
-		/* the old notification key is not being retained, remove it */
-		myContextRef->ok = SCDynamicStoreRemoveWatchedKey(myContextRef->store,
-								  oldKey,
-								  myContextRef->isRegex);
-	}
-
-	return;
-}
-
-
-static void
-addNewKey(const void *value, void *context)
-{
-	CFStringRef			newKey		= (CFStringRef)value;
-	updateKeysContextRef		myContextRef	= (updateKeysContextRef)context;
-	SCDynamicStorePrivateRef	storePrivate	= (SCDynamicStorePrivateRef)myContextRef->store;
-
-	if (!myContextRef->ok) {
-		return;
-	}
-
-	if (myContextRef->isRegex) {
-		if (!CFSetContainsValue(storePrivate->reKeys, newKey)) {
-			/* add pattern to this sessions notifier list */
-			myContextRef->ok = SCDynamicStoreAddWatchedKey(myContextRef->store, newKey, TRUE);
-		}
-	} else {
-		if (!CFSetContainsValue(storePrivate->keys, newKey)) {
-			/* add key to this sessions notifier list */
-			myContextRef->ok = SCDynamicStoreAddWatchedKey(myContextRef->store, newKey, FALSE);
-		}
-	}
-
-	return;
-}
-
 Boolean
 SCDynamicStoreSetNotificationKeys(SCDynamicStoreRef	store,
 				  CFArrayRef		keys,
 				  CFArrayRef		patterns)
 {
-	updateKeysContext		myContext;
 	SCDynamicStorePrivateRef	storePrivate = (SCDynamicStorePrivateRef)store;
+	kern_return_t			status;
+	CFDataRef			xmlKeys		= NULL;	/* keys (XML serialized) */
+	xmlData_t			myKeysRef	= NULL;	/* keys (serialized) */
+	CFIndex				myKeysLen	= 0;
+	CFDataRef			xmlPatterns	= NULL;	/* patterns (XML serialized) */
+	xmlData_t			myPatternsRef	= NULL;	/* patterns (serialized) */
+	CFIndex				myPatternsLen	= 0;
+	int				sc_status;
 
-	SCLog(_sc_verbose, LOG_DEBUG, CFSTR("SCDynamicStoreSetNotificationKeys:"));
-	SCLog(_sc_verbose, LOG_DEBUG, CFSTR("  keys     = %@"), keys);
-	SCLog(_sc_verbose, LOG_DEBUG, CFSTR("  patterns = %@"), patterns);
+	if (_sc_verbose) {
+		SCLog(TRUE, LOG_DEBUG, CFSTR("SCDynamicStoreSetNotificationKeys:"));
+		SCLog(TRUE, LOG_DEBUG, CFSTR("  keys     = %@"), keys);
+		SCLog(TRUE, LOG_DEBUG, CFSTR("  patterns = %@"), patterns);
+	}
 
 	if (!store) {
 		/* sorry, you must provide a session */
@@ -132,39 +67,52 @@ SCDynamicStoreSetNotificationKeys(SCDynamicStoreRef	store,
 	}
 
 	if (storePrivate->server == MACH_PORT_NULL) {
-		/* sorry, you must have an open session to play */
 		_SCErrorSet(kSCStatusNoStoreServer);
+		return FALSE;	/* you must have an open session to play */
+	}
+
+	/* serialize the keys */
+	if (keys) {
+		if (!_SCSerialize(keys, &xmlKeys, (void **)&myKeysRef, &myKeysLen)) {
+			_SCErrorSet(kSCStatusFailed);
+			return FALSE;
+		}
+	}
+
+	/* serialize the patterns */
+	if (patterns) {
+		if (!_SCSerialize(patterns, &xmlPatterns, (void **)&myPatternsRef, &myPatternsLen)) {
+			CFRelease(xmlKeys);
+			_SCErrorSet(kSCStatusFailed);
+			return FALSE;
+		}
+	}
+
+	/* send the keys and patterns, fetch the associated result from the server */
+	status = notifyset(storePrivate->server,
+			   myKeysRef,
+			   myKeysLen,
+			   myPatternsRef,
+			   myPatternsLen,
+			   (int *)&sc_status);
+
+	/* clean up */
+	if (xmlKeys)		CFRelease(xmlKeys);
+	if (xmlPatterns)	CFRelease(xmlPatterns);
+
+	if (status != KERN_SUCCESS) {
+		if (status != MACH_SEND_INVALID_DEST)
+			SCLog(_sc_verbose, LOG_DEBUG, CFSTR("notifyset(): %s"), mach_error_string(status));
+		(void) mach_port_destroy(mach_task_self(), storePrivate->server);
+		storePrivate->server = MACH_PORT_NULL;
+		_SCErrorSet(status);
 		return FALSE;
 	}
 
-	myContext.ok      = TRUE;
-	myContext.store   = store;
-
-	/* remove any previously registered keys */
-	myContext.newKeys = keys;
-	myContext.isRegex = FALSE;
-	my_CFSetApplyFunction(storePrivate->keys, removeOldKey, &myContext);
-
-	/* register any new keys */
-	if (keys) {
-		CFArrayApplyFunction(keys,
-				     CFRangeMake(0, CFArrayGetCount(keys)),
-				     addNewKey,
-				     &myContext);
+	if (sc_status != kSCStatusOK) {
+		_SCErrorSet(sc_status);
+		return FALSE;
 	}
 
-	/* remove any previously registered patterns */
-	myContext.newKeys = patterns;
-	myContext.isRegex = TRUE;
-	my_CFSetApplyFunction(storePrivate->reKeys, removeOldKey, &myContext);
-
-	/* register any new patterns */
-	if (patterns) {
-		CFArrayApplyFunction(patterns,
-				     CFRangeMake(0, CFArrayGetCount(patterns)),
-				     addNewKey,
-				     &myContext);
-	}
-
-	return myContext.ok;
+	return TRUE;
 }

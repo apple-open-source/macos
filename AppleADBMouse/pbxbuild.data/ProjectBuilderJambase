@@ -1857,6 +1857,7 @@ actions KernelModuleGeneratedSource.Create
     /bin/echo "KMOD_EXPLICIT_DECL($(MODULE_NAME), \"$(MODULE_VERSION)\", _start, _stop)" >> "$(1)"
     /bin/echo "__private_extern__ kmod_start_func_t *_realmain = $(MODULE_START);" >> "$(1)"
     /bin/echo "__private_extern__ kmod_stop_func_t *_antimain = $(MODULE_STOP);" >> "$(1)"
+    /bin/echo "__private_extern__ int _kext_apple_cc = __APPLE_CC__ ;" >> "$(1)"
 }
 
 # GenerateFrameworkStub <framework stub>

@@ -1,27 +1,32 @@
 /*
- * Copyright (c) 1998-2000 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 1998-2003 Apple Computer, Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
- * The contents of this file constitute Original Code as defined in and
- * are subject to the Apple Public Source License Version 1.1 (the
- * "License").  You may not use this file except in compliance with the
- * License.  Please obtain a copy of the License at
- * http://www.apple.com/publicsource and read it before using this file.
+ * Copyright (c) 1999-2003 Apple Computer, Inc.  All Rights Reserved.
  * 
- * This Original Code and all software distributed under the License are
- * distributed on an "AS IS" basis, WITHOUT WARRANTY OF ANY KIND, EITHER
+ * This file contains Original Code and/or Modifications of Original Code
+ * as defined in and that are subject to the Apple Public Source License
+ * Version 2.0 (the 'License'). You may not use this file except in
+ * compliance with the License. Please obtain a copy of the License at
+ * http://www.opensource.apple.com/apsl/ and read it before using this
+ * file.
+ * 
+ * The Original Code and all software distributed under the License are
+ * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
  * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
  * INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY,
- * FITNESS FOR A PARTICULAR PURPOSE OR NON-INFRINGEMENT.  Please see the
- * License for the specific language governing rights and limitations
- * under the License.
+ * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
+ * Please see the License for the specific language governing rights and
+ * limitations under the License.
  * 
  * @APPLE_LICENSE_HEADER_END@
  */
 #include <IOKit/adb/IOADBDevice.h>
 #include <IOKit/hidsystem/IOHIKeyboard.h>
 #include <IOKit/hidsystem/IOLLEvent.h>
+#include <IOKit/hidsystem/IOHIDSystem.h>
+#include <IOKit/hidsystem/IOHIDParameter.h>
 
 enum {
     kgestaltPwrBkEKDomKbd = 0xc3,
@@ -57,6 +62,9 @@ void keyboardEvent(unsigned eventType,
 void updateFKeyMap();       // Update the F key mapping in PMU from device tree
                             //use adb write to PMU register
 void setButtonTransTableEntry(unsigned char fkeynum, unsigned char transvalue);
+void setFKeyMode(UInt8 mode);
+SInt8 getFKeyMode( void);
+virtual IOReturn  setParamProperties(OSDictionary * dict);
 
 
 bool programmerKey;
@@ -67,19 +75,28 @@ AbsoluteTime  _lastkeydown;
 AbsoluteTime  _lastkeyCGEvent;
 bool _fwd_delete_down;
 bool _enable_fwd_delete;
+bool _fn_key_invoked_power;
+bool _hasDualModeFunctionKeys;
 
 // callPlatformFunction symbols
 const OSSymbol 	*_get_last_keydown, *_get_handler_id, *_get_device_flags;
 
 char 	_virtualmap[130]; //Convert raw ADB codes into virtual key codes
+char	_fnvirtualmap[130];  //Fake fn key being held down
+IOLock *  _keybrdLock;  
+bool _oneshotCAPSLOCK;
+
 
 public:
 
 IOADBDevice *	adbDevice;
 UInt16       	turnLEDon;		// used by setAlphaLockFeedback mechanism
 UInt16		LEDStatus;		//For ADB device TALK commands
+bool		_sticky_fn_ON, _stickymodeON;	  //Get from HIDSystem 
 
 bool start ( IOService * theNub );
+void stop( IOService * provider );
+void free( void );
 AbsoluteTime getTimeLastNonmodKeydown (void);
 IOReturn packet (UInt8 * data, IOByteCount length, UInt8 adbCommand );
 void dispatchKeyboardEvent(unsigned int keyCode,
@@ -89,6 +106,10 @@ virtual IOReturn callPlatformFunction(const OSSymbol *functionName,
 					bool waitForFunction,
                                         void *param1, void *param2,
                                         void *param3, void *param4);
+virtual void keyboardSpecialEvent(unsigned eventType,
+		    /* flags */     unsigned flags,
+		    /* keyCode */   unsigned keyCode,
+		    /* specialty */ unsigned flavor);
 
 };
 
@@ -132,6 +153,10 @@ virtual IOReturn callPlatformFunction(const OSSymbol *functionName,
 #define ADBK_8		0x1C
 #define ADBK_9		0x19
 #define ADBK_0		0x1D
+#define ADBK_F9		0x65
+#define ADBK_F10	0x6D
+#define ADBK_F11	0x67
+#define ADBK_F12	0x6F
 #define	ADBK_POWER	0x7f	/* actual 0x7f 0x7f */
 
 #define ADBK_KEYVAL(key)	((key) & 0x7f)

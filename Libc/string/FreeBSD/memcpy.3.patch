@@ -1,0 +1,39 @@
+--- memcpy.3.orig	Tue May 20 15:23:54 2003
++++ memcpy.3	Sat Jun 21 06:17:05 2003
+@@ -58,6 +58,18 @@
+ .Fa src
+ to string
+ .Fa dst .
++If 
++.Fa src
++and 
++.Fa dst
++overlap, behaviour is undefined.
++Applications in which
++.Fa src
++and 
++.Fa dst 
++might overlap should use
++.Xr memmove 3
++instead.
+ .Sh RETURN VALUES
+ The
+ .Fn memcpy
+@@ -75,17 +87,3 @@
+ function
+ conforms to
+ .St -isoC .
+-.Sh BUGS
+-In this implementation
+-.Fn memcpy
+-is implemented using
+-.Xr bcopy 3 ,
+-and therefore the strings may overlap.
+-On other systems, copying overlapping strings may produce surprises.
+-Programs intended to be portable should use
+-.Xr memmove 3
+-when
+-.Fa src
+-and
+-.Fa dst
+-may overlap.

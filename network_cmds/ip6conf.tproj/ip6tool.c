@@ -2,21 +2,22 @@
 *
 * @APPLE_LICENSE_HEADER_START@
 * 
-* "Portions Copyright (c) 2002 Apple Computer, Inc.  All Rights
-* Reserved.  This file contains Original Code and/or Modifications of
-* Original Code as defined in and that are subject to the Apple Public
-* Source License Version 1.0 (the 'License').  You may not use this file
-* except in compliance with the License.  Please obtain a copy of the
-* License at http://www.apple.com/publicsource and read it before using
-* this file.
+* Copyright (c) 1999-2003 Apple Computer, Inc.  All Rights Reserved.
+* 
+* This file contains Original Code and/or Modifications of Original Code
+* as defined in and that are subject to the Apple Public Source License
+* Version 2.0 (the 'License'). You may not use this file except in
+* compliance with the License. Please obtain a copy of the License at
+* http://www.opensource.apple.com/apsl/ and read it before using this
+* file.
 * 
 * The Original Code and all software distributed under the License are
 * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
 * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
 * INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY,
-* FITNESS FOR A PARTICULAR PURPOSE OR NON-INFRINGEMENT.  Please see the
-* License for the specific language governing rights and limitations
-* under the License."
+* FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
+* Please see the License for the specific language governing rights and
+* limitations under the License.
 * 
 * @APPLE_LICENSE_HEADER_END@
 *
@@ -25,15 +26,28 @@
 #include <stdio.h>
 #include <unistd.h>
 #include <string.h>
+#include <sys/errno.h>
 #include <sys/socket.h>
-/* this is needed to get SIOCPROTOATTACH/SIOCPROTODETACH */
-#define KERNEL_PRIVATE
 #include <sys/ioctl.h>
-#undef KERNEL_PRIVATE
 #include <net/if.h>
 #include <sys/types.h>
+#include <netinet/in.h>
+#include <netinet6/in6_var.h>
 #include <ifaddrs.h>
 
+/* From netinet6/in6_var.h */
+#ifndef SIOCPROTOATTACH_IN6
+#define SIOCPROTOATTACH_IN6 _IOWR('i', 110, struct in6_aliasreq)    /* attach proto to interface */
+#endif
+#ifndef SIOCPROTODETACH_IN6
+#define SIOCPROTODETACH_IN6 _IOWR('i', 111, struct in6_ifreq)    /* detach proto from interface */
+#endif
+#ifndef SIOCLL_START
+#define SIOCLL_START _IOWR('i', 130, struct in6_aliasreq)    /* start aquiring linklocal on interface */
+#endif
+#ifndef SIOCLL_STOP
+#define SIOCLL_STOP _IOWR('i', 131, struct in6_ifreq)    /* deconfigure linklocal from interface */
+#endif
 
 /* options */
 #define IPv6_STARTUP		1
@@ -48,8 +62,8 @@ extern char	*optarg;
 void do_usage(void);
 int do_protoattach(int s, char *name);
 int do_protodetach(int s, char *name);
-int do_protoattach_all(int s);
-int do_protodetach_all(int s);
+void do_protoattach_all(int s);
+void do_protodetach_all(int s);
 
 
 int
@@ -101,25 +115,21 @@ main(int argc, char **argv)
 		case IPv6_STARTUP:
 			err = do_protoattach(s, interface);
 			if (err < 0)
-				printf("%s: Error %d encountered attaching to interface %s.\n", argv[0], err, interface);
+				printf("%s: Error %d encountered attaching interface %s.\n", argv[0], err, interface);
 				
 			break;
 		case IPv6_SHUTDOWN:
 			err = do_protodetach(s, interface);
 			if (err < 0)
-				printf("%s: Error %d encountered detaching to interface %s.\n", argv[0], err, interface);
+				printf("%s: Error %d encountered detaching interface %s.\n", argv[0], err, interface);
 			
 			break;
 		case IPv6_STARTUP_ALL:
-			err = do_protoattach_all(s);
-			if (err < 0)
-				printf("%s: Error %d encountered attaching to interfaces.\n", argv[0], err);
+			do_protoattach_all(s);
 			
 			break;
 		case IPv6_SHUTDOWN_ALL:
-			err = do_protodetach_all(s);
-			if (err < 0)
-				printf("%s: Error %d encountered detaching to interfaces.\n", argv[0], err);
+			do_protodetach_all(s);
 			
 			break;
 		default:
@@ -144,31 +154,41 @@ do_usage(void)
 int
 do_protoattach(int s, char *name)
 {
-    struct ifreq	ifr;
+    struct in6_aliasreq		ifr;
+    int		err;
 	
     bzero(&ifr, sizeof(ifr));
-    strncpy(ifr.ifr_name, name, sizeof(ifr.ifr_name));
-    return (ioctl(s, SIOCPROTOATTACH, &ifr));
+    strncpy(ifr.ifra_name, name, sizeof(ifr.ifra_name));
+    
+    if ((err = ioctl(s, SIOCPROTOATTACH_IN6, &ifr)) != 0)
+        return (err);
+    
+    return (ioctl(s, SIOCLL_START, &ifr));
 }
 
 int
 do_protodetach(int s, char *name)
 {
-    struct ifreq	ifr;
+    struct in6_ifreq	ifr;
+    int		err;
 
     bzero(&ifr, sizeof(ifr));
     strncpy(ifr.ifr_name, name, sizeof(ifr.ifr_name));
-    return (ioctl(s, SIOCPROTODETACH, &ifr));
+
+    if ((err = ioctl(s, SIOCLL_STOP, &ifr)) != 0)
+        return (err);
+    
+    return (ioctl(s, SIOCPROTODETACH_IN6, &ifr));
 }
 
-int
+void
 do_protoattach_all(int s)
 {
 	struct	ifaddrs *ifaddrs, *ifa;
-	int		err;
-	
-	if ((err = getifaddrs(&ifaddrs)) < 0)
-		return err; /* getifaddrs properly sets errno */
+    
+	if (getifaddrs(&ifaddrs)) {
+        printf("ip6: getifaddrs returned error (%s)", strerror(errno));
+    }
 			
 	for (ifa = ifaddrs; ifa != NULL; ifa = ifa->ifa_next) {
 		/* skip over invalid interfaces */
@@ -177,9 +197,9 @@ do_protoattach_all(int s)
 				if (strcmp(ifa->ifa_name, if_exceptions[2]))
 					if (strcmp(ifa->ifa_name, if_exceptions[3])) {
 						/* this is a valid interface */
-						err = do_protoattach(s, ifa->ifa_name);
-						if (err)
-							break;
+						if (do_protoattach(s, ifa->ifa_name)) {
+                            printf("ip6: error attaching %s\n", ifa->ifa_name);
+                        }
 						
 						while (ifa->ifa_next != NULL && 
 								!(strcmp(ifa->ifa_name, ifa->ifa_next->ifa_name))) {
@@ -191,17 +211,17 @@ do_protoattach_all(int s)
 	
 	freeifaddrs(ifaddrs);
 	
-	return err;
+	return;
 }
 
-int
+void
 do_protodetach_all(int s)
 {
 	struct	ifaddrs *ifaddrs, *ifa;
-	int		err;
 	
-	if ((err = getifaddrs(&ifaddrs)) < 0)
-		return err; /* getifaddrs properly sets errno */
+	if (getifaddrs(&ifaddrs)) {
+        printf("ip6: getifaddrs returned error (%s)", strerror(errno));
+    }
 			
 	for (ifa = ifaddrs; ifa != NULL; ifa = ifa->ifa_next) {
 		/* skip over invalid interfaces */
@@ -210,9 +230,9 @@ do_protodetach_all(int s)
 				if (strcmp(ifa->ifa_name, if_exceptions[2]))
 					if (strcmp(ifa->ifa_name, if_exceptions[3])) {
 						/* this is a valid interface */
-						err = do_protodetach(s, ifa->ifa_name);
-						if (err)
-							break;
+						if (do_protodetach(s, ifa->ifa_name)) {
+                            printf("ip6: error detaching %s\n", ifa->ifa_name);
+                        }
 						
 						while (ifa->ifa_next != NULL && 
 								!(strcmp(ifa->ifa_name, ifa->ifa_next->ifa_name))) {
@@ -224,5 +244,5 @@ do_protodetach_all(int s)
 	
 	freeifaddrs(ifaddrs);
 	
-	return err;
+	return;
 }

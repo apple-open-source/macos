@@ -1,0 +1,179 @@
+#!/usr/bin/python
+#
+# Usage: faxnotify log-file image-file [image-file ...]
+#
+# This script converts received fax TIFF files to a PDF 
+# file and delivers them according to the fax preferences.
+#
+
+import os, sys, string
+import shutil, errno
+
+from email import Encoders
+from email.Message import Message
+from email.MIMEBase import MIMEBase
+from email.MIMEMultipart import MIMEMultipart
+
+
+def defaults_read(key, domain = '/Library/Preferences/com.apple.print.FaxPrefs'):
+	"""Read the value of 'key' from the defaults system"""
+	pipe = os.popen('/usr/bin/defaults read ' + domain + ' ' + key)
+	value = string.rstrip(pipe.read())
+	pipe.close()
+	return value
+
+
+def quote(x):
+	"""Add quotes to a shell command argument string"""
+	if '\'' not in x :
+		return '\'' + x + '\''
+	s = '"'
+	for c in x:
+		if c in '\\$"`':
+			s = s + '\\'
+		s = s + c
+	s = s + '"'
+	return s
+
+
+def phone_from_log(logfilename):
+	"""Find the sender's phone number so it can be used in the PDF name"""
+	phone_number = ''
+	PHONE_KEY = 'remote ID ->'
+	logfile = file(logfilename)
+	for line in logfile :
+		index = line.find(PHONE_KEY)
+		if index != -1 :
+			phone_number = string.strip(line[index + len(PHONE_KEY):])
+			break
+	logfile.close()
+	if len(phone_number) == 0 :
+		phone_number = 'Unknown'
+	return phone_number
+
+
+def copy_versioned_file(srcfile, dstdir):
+	"""Copy a file to a directory adding versioning as needed"""
+	fsrc = None
+	fdst = None
+
+	if not os.path.isdir(dstdir) :
+		print >> sys.stderr, 'faxnotify: Save to directory missing ' + quote(dstdir)
+		return -1
+
+	old_uid = os.getuid()
+	old_mask = os.umask(002)
+
+	try:
+		# open src as root
+		fsrc = open(srcfile, 'rb')
+
+		# get the owner of the destination directory
+		dstdir_owner = os.lstat(dstdir).st_uid
+
+		# step down to the dir owner's uid before creating the file
+		os.seteuid(dstdir_owner)
+
+		# create the full path for the destination file and seperate 
+		#  the components in case we have to version it
+		dstfile = dstdir + '/' + os.path.split(srcfile)[1]
+		name, ext = os.path.splitext(dstfile)
+
+		for i in xrange(1, 10000):
+			try:
+				fd = os.open(dstfile, os.O_WRONLY | os.O_CREAT | os.O_EXCL)
+				fdst = os.fdopen(fd, 'wb')
+				break
+			except (OSError, IOError), e:
+				if e.errno != errno.EEXIST:
+					raise
+
+			# file exists, find next available version
+			dstfile = '%s %d%s' % (name, i, ext)
+
+		# we've created a new unique file, now copy the contents of src into it
+		shutil.copyfileobj(fsrc, fdst)
+	
+	except (OSError, IOError), e:
+		print >> sys.stderr, 'faxnotify: Save to failed;' , e
+	except:
+		print >> sys.stderr, 'faxnotify: Save to ' + quote(dstdir) + ' failed'
+		pass
+
+	if fsrc:
+		fsrc.close()
+	if fdst:
+		fdst.close()
+	os.umask(old_mask)
+	os.seteuid(old_uid)
+
+	return 0
+
+
+def email_fax(receipents, sender, pdffile):
+	"""Send email to the receipents with an attached file"""
+	msg = MIMEMultipart()
+	msg['Subject'] = pdffile
+	msg['To'] = receipents
+	msg['From'] = sender
+	msg.preamble = 'You will not see this in a MIME-aware mail reader.\n'
+	# To guarantee the message ends with a newline
+	msg.epilogue = ''
+
+	fp = open(pdffile)
+	pdf = MIMEBase('application', 'pdf')
+	pdf.set_payload(fp.read())
+	fp.close()
+
+	# Encode the payload using Base64
+	Encoders.encode_base64(pdf)
+
+	# Set the filename parameter
+	pdf.add_header('Content-Disposition', 'attachment', filename=pdffile)
+	msg.attach(pdf)
+
+	stdout, stdin = os.popen2('/usr/bin/mail ' + quote(receipents))
+	stdout.write(msg.as_string())
+	stdout.close()
+	stdin.close()
+
+
+#
+# Make sure we have enough arguments
+#
+if len(sys.argv) <= 2 :
+	print >> sys.stderr, 'Usage: faxnotify log-file image-file [image-file ...]'
+	sys.exit(2)
+
+
+tiff_files = string.join(map(quote, sys.argv[2:]))
+pdf_file = 'FAX from ' + phone_from_log(sys.argv[1]) + '.pdf'
+
+try:
+	# Convert TIFFs into a single PDF
+	command = '/usr/libexec/fax/imagestopdf ' + tiff_files + ' ' + quote(pdf_file)
+
+	if os.system(command) :
+		print >> sys.stderr, 'faxnotify: ' + command + ' failed'
+		sys.exit(1)
+
+	# Print on printer
+	if defaults_read('PrintFax') == '1' :
+		printer = quote(defaults_read('PrinterID'))
+		command = '/usr/bin/lpr -P ' + printer + ' ' + quote(pdf_file)
+		if os.system(command) :
+			print >> sys.stderr, 'faxnotify: Print on printer ' + printer + ' failed'
+
+	# Save to
+	if defaults_read('SaveFax') == '1' :
+		copy_versioned_file(pdf_file, defaults_read('SavePath'))
+
+	# Email to
+	if defaults_read('EmailFax') == '1' :
+		email_fax(defaults_read('EmailRecipient'), 'FaxNotify', pdf_file)
+
+finally:
+	# Remove the TIFFs and converted PDF
+	map(os.remove, sys.argv[2:])
+	if os.path.exists(pdf_file):
+		os.remove(pdf_file)

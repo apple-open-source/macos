@@ -1,0 +1,212 @@
+<HTML
+><HEAD
+><TITLE
+>Using CUPS from the Command Line</TITLE
+><META
+NAME="GENERATOR"
+CONTENT="Modular DocBook HTML Stylesheet Version 1.64
+"><LINK
+REL="HOME"
+TITLE="The User's Guide to the Gimp-Print Top Quality Printer Drivers"
+HREF="book1.html"><LINK
+REL="UP"
+TITLE="CUPS and Gimp-Print"
+HREF="c447.html"><LINK
+REL="PREVIOUS"
+TITLE="Configuring your Printer in CUPS"
+HREF="x548.html"><LINK
+REL="NEXT"
+TITLE="Gimp-Print Utilities"
+HREF="c570.html"></HEAD
+><BODY
+CLASS="SECT1"
+><DIV
+CLASS="NAVHEADER"
+><TABLE
+WIDTH="100%"
+BORDER="0"
+CELLPADDING="0"
+CELLSPACING="0"
+><TR
+><TH
+COLSPAN="3"
+ALIGN="center"
+>The User's Guide to the Gimp-Print Top Quality Printer Drivers</TH
+></TR
+><TR
+><TD
+WIDTH="10%"
+ALIGN="left"
+VALIGN="bottom"
+><A
+HREF="x548.html"
+>Prev</A
+></TD
+><TD
+WIDTH="80%"
+ALIGN="center"
+VALIGN="bottom"
+>Chapter 3. CUPS and Gimp-Print</TD
+><TD
+WIDTH="10%"
+ALIGN="right"
+VALIGN="bottom"
+><A
+HREF="c570.html"
+>Next</A
+></TD
+></TR
+></TABLE
+><HR
+ALIGN="LEFT"
+WIDTH="100%"></DIV
+><DIV
+CLASS="SECT1"
+><H1
+CLASS="SECT1"
+><A
+NAME="AEN562"
+>Using CUPS from the Command Line</A
+></H1
+><P
+>    It is possible to use the CUPS printing system from the command
+line.  While this document will not delve into all of the specifics of
+the CUPS command line interface, there are portions of this interface
+which are specific to the Gimp-Print software.
+   </P
+><P
+>The command line is in some cases a more convenient way to generate
+printed output (e.g. when printing from a script).  However, most
+people (including the author) cannot easily predict what a command
+line option of "-o stpCyan=1350" will do to the output.  It is
+therefore a good idea to use the GIMP to view the image and the
+Gimp-Print plugin to preview these settings before relying on the
+command line.
+   </P
+><P
+>When using CUPS from the command line, the command will have this
+general format:
+
+   <TABLE
+BORDER="0"
+BGCOLOR="#E0E0E0"
+WIDTH="100%"
+><TR
+><TD
+><PRE
+CLASS="PROGRAMLISTING"
+>   
+     lpr -P my_printer_name \
+         -o option1=&#60;choice1&#62; \
+         -o option2=&#60;choice2&#62; \
+         /path/to/printfile
+     
+   </PRE
+></TD
+></TR
+></TABLE
+>
+
+When typing the command directly onto the command line, put all of the
+command line options on one line, and do not type the "\" characters.
+The list of possible options which are specific to Gimp-Print,
+followed by some of the supported choices, are shown below:
+
+   <TABLE
+BORDER="0"
+BGCOLOR="#E0E0E0"
+WIDTH="100%"
+><TR
+><TD
+><PRE
+CLASS="PROGRAMLISTING"
+>   
+   -o PageSize=&#60;...| A3 | A4 | A4 | ...&#62;
+   -o InputSlot=&#60;Roll | Standard&#62;
+   -o MediaType=&#60; ..| Inkjet | Plain | GlossyPaper | ...&#62;
+   -o Resolution=&#60;360sw | 360swuni ...| 1440x720 &#62;
+   -o ColorModel=&#60;Black | RGB | Gray | CMYK&#62;
+   -o stpBrightness=&#60;0...2000&#62;
+   -o stpContrast=&#60;0...2000&#62;
+   -o stpCyan=&#60;0...4000&#62;
+   -o stpDensity=&#60;0...2000&#62;
+   -o stpDither=&#60;0...4000&#62;
+   -o stpGamma=&#60;0...4000&#62;
+   -o stpImageType=&#60;LineArt | Continuous | SolidTone&#62;
+   -o stpInkType=&#60;PhotoCMY | CMYK | PhotoCMYK | RGB&#62;
+   -o stpMagenta=&#60;0...4000&#62;
+   -o stpSaturation=&#60;0...9000&#62;
+   -o stpYellow=&#60;0...4000&#62;
+   
+   </PRE
+></TD
+></TR
+></TABLE
+>
+
+For more detailed information, consult the appropriate sections of <A
+HREF="ch-gimp-and-gimp-print.html"
+>Chapter 2</A
+>.
+   </P
+></DIV
+><DIV
+CLASS="NAVFOOTER"
+><HR
+ALIGN="LEFT"
+WIDTH="100%"><TABLE
+WIDTH="100%"
+BORDER="0"
+CELLPADDING="0"
+CELLSPACING="0"
+><TR
+><TD
+WIDTH="33%"
+ALIGN="left"
+VALIGN="top"
+><A
+HREF="x548.html"
+>Prev</A
+></TD
+><TD
+WIDTH="34%"
+ALIGN="center"
+VALIGN="top"
+><A
+HREF="book1.html"
+>Home</A
+></TD
+><TD
+WIDTH="33%"
+ALIGN="right"
+VALIGN="top"
+><A
+HREF="c570.html"
+>Next</A
+></TD
+></TR
+><TR
+><TD
+WIDTH="33%"
+ALIGN="left"
+VALIGN="top"
+>Configuring your Printer in CUPS</TD
+><TD
+WIDTH="34%"
+ALIGN="center"
+VALIGN="top"
+><A
+HREF="c447.html"
+>Up</A
+></TD
+><TD
+WIDTH="33%"
+ALIGN="right"
+VALIGN="top"
+>Gimp-Print Utilities</TD
+></TR
+></TABLE
+></DIV
+></BODY
+></HTML
+>

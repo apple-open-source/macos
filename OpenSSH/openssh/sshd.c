@@ -42,7 +42,7 @@
  */
 
 #include "includes.h"
-RCSID("$OpenBSD: sshd.c,v 1.251 2002/06/25 18:51:04 markus Exp $");
+RCSID("$OpenBSD: sshd.c,v 1.263 2003/02/16 17:09:57 markus Exp $");
 
 #include <openssl/dh.h>
 #include <openssl/bn.h>
@@ -84,6 +84,14 @@ RCSID("$OpenBSD: sshd.c,v 1.251 2002/06/25 18:51:04 markus Exp $");
 #include "monitor.h"
 #include "monitor_wrap.h"
 #include "monitor_fdpass.h"
+
+#ifdef GSSAPI
+#include "ssh-gss.h"
+#endif
+
+#ifdef USE_SECURITY_SESSION_API
+#include <Security/AuthSession.h>
+#endif
 
 #ifdef LIBWRAP
 #include <tcpd.h>
@@ -202,8 +210,8 @@ int *startup_pipes = NULL;
 int startup_pipe;		/* in child */
 
 /* variables used for privilege separation */
-extern struct monitor *pmonitor;
-extern int use_privsep;
+int use_privsep;
+struct monitor *pmonitor;
 
 /* Prototypes for various functions defined later in this file. */
 void destroy_sensitive_data(void);
@@ -303,11 +311,8 @@ grace_alarm_handler(int sig)
 {
 	/* XXX no idea how fix this signal handler */
 
-	/* Close the connection. */
-	packet_close();
-
 	/* Log error and exit. */
-	fatal("Timeout before authentication for %s.", get_remote_ipaddr());
+	fatal("Timeout before authentication for %s", get_remote_ipaddr());
 }
 
 /*
@@ -320,7 +325,7 @@ grace_alarm_handler(int sig)
 static void
 generate_ephemeral_server_key(void)
 {
-	u_int32_t rand = 0;
+	u_int32_t rnd = 0;
 	int i;
 
 	verbose("Generating %s%d bit RSA key.",
@@ -333,9 +338,9 @@ generate_ephemeral_server_key(void)
 
 	for (i = 0; i < SSH_SESSION_KEY_LENGTH; i++) {
 		if (i % 4 == 0)
-			rand = arc4random();
-		sensitive_data.ssh1_cookie[i] = rand & 0xff;
-		rand >>= 8;
+			rnd = arc4random();
+		sensitive_data.ssh1_cookie[i] = rnd & 0xff;
+		rnd >>= 8;
 	}
 	arc4random_stir();
 }
@@ -426,6 +431,12 @@ sshd_exchange_identification(int sock_in, int sock_out)
 	    remote_major, remote_minor, remote_version);
 
 	compat_datafellows(remote_version);
+
+	if (datafellows & SSH_BUG_PROBE) {
+		log("probed from %s with %s.  Don't panic.",
+		    get_remote_ipaddr(), client_version_string);
+		fatal_cleanup();
+	}
 
 	if (datafellows & SSH_BUG_SCANNER) {
 		log("scanned from %s with %s.  Don't panic.",
@@ -529,8 +540,8 @@ demote_sensitive_data(void)
 static void
 privsep_preauth_child(void)
 {
-	u_int32_t rand[256];
-	gid_t gidset[2];
+	u_int32_t rnd[256];
+	gid_t gidset[1];
 	struct passwd *pw;
 	int i;
 
@@ -538,8 +549,8 @@ privsep_preauth_child(void)
 	privsep_challenge_enable();
 
 	for (i = 0; i < 256; i++)
-		rand[i] = arc4random();
-	RAND_seed(rand, sizeof(rand));
+		rnd[i] = arc4random();
+	RAND_seed(rnd, sizeof(rnd));
 
 	/* Demote the private keys to public keys. */
 	demote_sensitive_data();
@@ -550,7 +561,7 @@ privsep_preauth_child(void)
 	memset(pw->pw_passwd, 0, strlen(pw->pw_passwd));
 	endpwent();
 
-	/* Change our root directory*/
+	/* Change our root directory */
 	if (chroot(_PATH_PRIVSEP_CHROOT_DIR) == -1)
 		fatal("chroot(\"%s\"): %s", _PATH_PRIVSEP_CHROOT_DIR,
 		    strerror(errno));
@@ -573,7 +584,7 @@ privsep_preauth_child(void)
 #endif
 }
 
-static Authctxt*
+static Authctxt *
 privsep_preauth(void)
 {
 	Authctxt *authctxt = NULL;
@@ -589,6 +600,8 @@ privsep_preauth(void)
 	if (pid == -1) {
 		fatal("fork of unprivileged child failed");
 	} else if (pid != 0) {
+		fatal_remove_cleanup((void (*) (void *)) packet_close, NULL);
+
 		debug2("Network child is on pid %ld", (long)pid);
 
 		close(pmonitor->m_recvfd);
@@ -602,6 +615,10 @@ privsep_preauth(void)
 		while (waitpid(pid, &status, 0) < 0)
 			if (errno != EINTR)
 				break;
+
+		/* Reinstall, since the child has finished */
+		fatal_add_cleanup((void (*) (void *)) packet_close, NULL);
+
 		return (authctxt);
 	} else {
 		/* child */
@@ -624,7 +641,7 @@ privsep_postauth(Authctxt *authctxt)
 	/* XXX - Remote port forwarding */
 	x_authctxt = authctxt;
 
-#ifdef BROKEN_FD_PASSING
+#ifdef DISABLE_FD_PASSING
 	if (1) {
 #else
 	if (authctxt->pw->pw_uid == 0 || options.use_login) {
@@ -649,6 +666,8 @@ privsep_postauth(Authctxt *authctxt)
 	if (pmonitor->m_pid == -1)
 		fatal("fork of unprivileged child failed");
 	else if (pmonitor->m_pid != 0) {
+		fatal_remove_cleanup((void (*) (void *)) packet_close, NULL);
+
 		debug2("User child is on pid %ld", (long)pmonitor->m_pid);
 		close(pmonitor->m_recvfd);
 		monitor_child_postauth(pmonitor);
@@ -801,7 +820,6 @@ main(int ac, char **av)
 	const char *remote_ip;
 	int remote_port;
 	FILE *f;
-	struct linger linger;
 	struct addrinfo *ai;
 	char ntop[NI_MAXHOST], strport[NI_MAXSERV];
 	int listen_sock, maxfd;
@@ -817,9 +835,17 @@ main(int ac, char **av)
 	__progname = get_progname(av[0]);
 	init_rng();
 
-	/* Save argv. */
+	/* Save argv. Duplicate so setproctitle emulation doesn't clobber it */
 	saved_argc = ac;
 	saved_argv = av;
+	saved_argv = xmalloc(sizeof(*saved_argv) * ac);
+	for (i = 0; i < ac; i++)
+		saved_argv[i] = xstrdup(av[i]);
+
+#ifndef HAVE_SETPROCTITLE
+	/* Prepare for later setproctitle emulation */
+	compat_init_setproctitle(ac, av);
+#endif
 
 	/* Initialize configuration options to their default values. */
 	initialize_server_options(&options);
@@ -906,6 +932,10 @@ main(int ac, char **av)
 			break;
 		case 'u':
 			utmp_len = atoi(optarg);
+			if (utmp_len > MAXHOSTNAMELEN) {
+				fprintf(stderr, "Invalid utmp length.\n");
+				exit(1);
+			}
 			break;
 		case 'o':
 			if (process_server_config_line(&options, optarg,
@@ -930,9 +960,9 @@ main(int ac, char **av)
 	    SYSLOG_LEVEL_INFO : options.log_level,
 	    options.log_facility == SYSLOG_FACILITY_NOT_SET ?
 	    SYSLOG_FACILITY_AUTH : options.log_facility,
-	    !inetd_flag);
+	    log_stderr || !inetd_flag);
 
-#ifdef _CRAY
+#ifdef _UNICOS
 	/* Cray can define user privs drop all prives now!
 	 * Not needed on PRIV_SU systems!
 	 */
@@ -956,7 +986,8 @@ main(int ac, char **av)
 	debug("sshd version %.100s", SSH_VERSION);
 
 	/* load private host keys */
-	sensitive_data.host_keys = xmalloc(options.num_host_key_files*sizeof(Key*));
+	sensitive_data.host_keys = xmalloc(options.num_host_key_files *
+	    sizeof(Key *));
 	for (i = 0; i < options.num_host_key_files; i++)
 		sensitive_data.host_keys[i] = NULL;
 	sensitive_data.server_key = NULL;
@@ -990,10 +1021,13 @@ main(int ac, char **av)
 		log("Disabling protocol version 1. Could not load host key");
 		options.protocol &= ~SSH_PROTO_1;
 	}
+#ifndef GSSAPI
+	/* The GSSAPI key exchange can run without a host key */
 	if ((options.protocol & SSH_PROTO_2) && !sensitive_data.have_ssh2_key) {
 		log("Disabling protocol version 2. Could not load host key");
 		options.protocol &= ~SSH_PROTO_2;
 	}
+#endif
 	if (!(options.protocol & (SSH_PROTO_1|SSH_PROTO_2))) {
 		log("sshd: no hostkeys available -- exiting.");
 		exit(1);
@@ -1035,9 +1069,16 @@ main(int ac, char **av)
 		    (S_ISDIR(st.st_mode) == 0))
 			fatal("Missing privilege separation directory: %s",
 			    _PATH_PRIVSEP_CHROOT_DIR);
+
+#ifdef HAVE_CYGWIN
+		if (check_ntsec(_PATH_PRIVSEP_CHROOT_DIR) &&
+		    (st.st_uid != getuid () ||
+		    (st.st_mode & (S_IWGRP|S_IWOTH)) != 0))
+#else
 		if (st.st_uid != 0 || (st.st_mode & (S_IWGRP|S_IWOTH)) != 0)
-			fatal("Bad owner or mode for %s",
-			    _PATH_PRIVSEP_CHROOT_DIR);
+#endif
+			fatal("%s must be owned by root and not group or "
+			    "world-writable.", _PATH_PRIVSEP_CHROOT_DIR);
 	}
 
 	/* Configuration looks good, so exit if in test mode. */
@@ -1135,17 +1176,12 @@ main(int ac, char **av)
 				continue;
 			}
 			/*
-			 * Set socket options.  We try to make the port
-			 * reusable and have it close as fast as possible
-			 * without waiting in unnecessary wait states on
-			 * close.
+			 * Set socket options.
+			 * Allow local port reuse in TIME_WAIT.
 			 */
-			setsockopt(listen_sock, SOL_SOCKET, SO_REUSEADDR,
-			    &on, sizeof(on));
-			linger.l_onoff = 1;
-			linger.l_linger = 5;
-			setsockopt(listen_sock, SOL_SOCKET, SO_LINGER,
-			    &linger, sizeof(linger));
+			if (setsockopt(listen_sock, SOL_SOCKET, SO_REUSEADDR,
+			    &on, sizeof(on)) == -1)
+				error("setsockopt SO_REUSEADDR: %s", strerror(errno));
 
 			debug("Bind to port %s on %s.", strport, ntop);
 
@@ -1375,8 +1411,12 @@ main(int ac, char **av)
 	 * setlogin() affects the entire process group.  We don't
 	 * want the child to be able to affect the parent.
 	 */
-#if 0
-	/* XXX: this breaks Solaris */
+#if !defined(STREAMS_PUSH_ACQUIRES_CTTY)
+	/*
+	 * If setsid is called on Solaris, sshd will acquire the controlling
+	 * terminal while pushing STREAMS modules. This will prevent the
+	 * shell from acquiring it later.
+	 */
 	if (!debug_flag && !inetd_flag && setsid() < 0)
 		error("setsid: %.100s", strerror(errno));
 #endif
@@ -1393,16 +1433,6 @@ main(int ac, char **av)
 	signal(SIGQUIT, SIG_DFL);
 	signal(SIGCHLD, SIG_DFL);
 	signal(SIGINT, SIG_DFL);
-
-	/*
-	 * Set socket options for the connection.  We want the socket to
-	 * close as fast as possible without waiting for anything.  If the
-	 * connection is not a socket, these will do nothing.
-	 */
-	/* setsockopt(sock_in, SOL_SOCKET, SO_REUSEADDR, (void *)&on, sizeof(on)); */
-	linger.l_onoff = 1;
-	linger.l_linger = 5;
-	setsockopt(sock_in, SOL_SOCKET, SO_LINGER, &linger, sizeof(linger));
 
 	/* Set keepalives if requested. */
 	if (options.keepalives &&
@@ -1439,6 +1469,62 @@ main(int ac, char **av)
 	/* Log the connection. */
 	verbose("Connection from %.500s port %d", remote_ip, remote_port);
 
+#ifdef USE_SECURITY_SESSION_API
+        /*
+         * Create a new security session for use by the new user login if
+         * the current session is the root session or we are not launched
+         * by inetd (eg: debugging mode or server mode).  We do not
+         * necessarily need to create a session if we are launched from
+         * inetd because Panther xinetd will create a session for us.
+         *
+         * The only case where this logic will fail is if there is an
+         * inetd running in a non-root session which is not creating
+         * new sessions for us.  Then all the users will end up in the
+         * same session (bad).
+         *
+         * When the client exits, the session will be destroyed for us
+         * automatically.
+         *
+         * We must create the session before any credentials are stored
+         * (including AFS pags, which happens a few lines below).
+         */
+        {
+            OSStatus err = 0;
+            SecuritySessionId sid = 0;
+            SessionAttributeBits sattrs = 0;
+
+            err = SessionGetInfo (callerSecuritySession, &sid, &sattrs);
+            if (err) {
+                debug ("SessionGetInfo() failed with error %.8X",
+                       (unsigned) err);
+            } else {
+                debug ("Current Session ID is %.8X / Session Attributes are %.8X",
+                       (unsigned) sid, (unsigned) sattrs);
+            }
+
+            if (inetd_flag && !(sattrs & sessionIsRoot)) {
+                debug("Running in inetd mode in a non-root session... "
+                      "assuming inetd created the session for us.");
+            } else {
+                debug("Creating new security session...");
+                err = SessionCreate(0, sessionHasTTY | sessionIsRemote);
+                if (err) {
+                    debug("SessionCreate() failed with error %.8X",
+                        (unsigned) err);
+                }
+    
+                err = SessionGetInfo (callerSecuritySession, &sid, &sattrs);
+                if (err) {
+                    debug ("SessionGetInfo() failed with error %.8X",
+                        (unsigned) err);
+                } else {
+                    debug ("New Session ID is %.8X / Session Attributes are %.8X",
+                        (unsigned) sid, (unsigned) sattrs);
+                }
+            }
+        }
+#endif
+        
 	/*
 	 * We don\'t want to listen forever unless the other side
 	 * successfully authenticates itself.  So we set up an alarm which is
@@ -1591,7 +1677,7 @@ do_ssh1_kex(void)
 	u_char session_key[SSH_SESSION_KEY_LENGTH];
 	u_char cookie[8];
 	u_int cipher_type, auth_mask, protocol_flags;
-	u_int32_t rand = 0;
+	u_int32_t rnd = 0;
 
 	/*
 	 * Generate check bytes that the client must send back in the user
@@ -1604,9 +1690,9 @@ do_ssh1_kex(void)
 	 */
 	for (i = 0; i < 8; i++) {
 		if (i % 4 == 0)
-			rand = arc4random();
-		cookie[i] = rand & 0xff;
-		rand >>= 8;
+			rnd = arc4random();
+		cookie[i] = rnd & 0xff;
+		rnd >>= 8;
 	}
 
 	/*
@@ -1797,8 +1883,52 @@ do_ssh2_kex(void)
 	}
 	myproposal[PROPOSAL_SERVER_HOST_KEY_ALGS] = list_hostkey_types();
 
+#ifdef GSSAPI
+	{ 
+	char *orig;
+	char *gss = NULL;
+	char *newstr = NULL;
+       	orig = myproposal[PROPOSAL_KEX_ALGS];
+
+	/* If we don't have a host key, then all of the algorithms
+	 * currently in myproposal are useless */
+	if (strlen(myproposal[PROPOSAL_SERVER_HOST_KEY_ALGS])==0)
+		orig= NULL;
+		
+        if (options.gss_keyex)
+        	gss = ssh_gssapi_server_mechanisms();
+        else
+        	gss = NULL;
+        
+	if (gss && orig) {
+		int len = strlen(orig) + strlen(gss) +2;
+		newstr=xmalloc(len);
+		snprintf(newstr,len,"%s,%s",gss,orig);
+	} else if (gss) {
+		newstr=gss;
+	} else if (orig) {
+		newstr=orig;
+	}
+        /* If we've got GSSAPI mechanisms, then we've also got the 'null'
+	   host key algorithm, but we're not allowed to advertise it, unless
+	   its the only host key algorithm we're supporting */
+	if (gss && (strlen(myproposal[PROPOSAL_SERVER_HOST_KEY_ALGS])) == 0) {
+	  	myproposal[PROPOSAL_SERVER_HOST_KEY_ALGS]="null";
+	}
+	if (newstr)
+		myproposal[PROPOSAL_KEX_ALGS]=newstr;
+	else
+		fatal("No supported key exchange algorithms");
+        }
+#endif
+
 	/* start key exchange */
 	kex = kex_setup(myproposal);
+	kex->kex[KEX_DH_GRP1_SHA1] = kexdh_server;
+	kex->kex[KEX_DH_GEX_SHA1] = kexgex_server;
+#ifdef GSSAPI
+        kex->kex[KEX_GSS_GRP1_SHA1] = kexgss_server;
+#endif	        
 	kex->server = 1;
 	kex->client_version_string=client_version_string;
 	kex->server_version_string=server_version_string;

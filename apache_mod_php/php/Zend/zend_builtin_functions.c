@@ -2,12 +2,12 @@
    +----------------------------------------------------------------------+
    | Zend Engine                                                          |
    +----------------------------------------------------------------------+
-   | Copyright (c) 1998-2001 Zend Technologies Ltd. (http://www.zend.com) |
+   | Copyright (c) 1998-2003 Zend Technologies Ltd. (http://www.zend.com) |
    +----------------------------------------------------------------------+
-   | This source file is subject to version 0.92 of the Zend license,     |
+   | This source file is subject to version 2.00 of the Zend license,     |
    | that is bundled with this package in the file LICENSE, and is        |
    | available at through the world-wide-web at                           |
-   | http://www.zend.com/license/0_92.txt.                                |
+   | http://www.zend.com/license/2_00.txt.                                |
    | If you did not receive a copy of the Zend license and are unable to  |
    | obtain it through the world-wide-web, please send a note to          |
    | license@zend.com so we can mail you a copy immediately.              |
@@ -22,7 +22,7 @@
 #include "zend_API.h"
 #include "zend_builtin_functions.h"
 #include "zend_constants.h"
-
+#include "zend_ini.h"
 #undef ZEND_TEST_EXCEPTIONS
 
 static ZEND_FUNCTION(zend_version);
@@ -43,12 +43,15 @@ static ZEND_FUNCTION(get_parent_class);
 static ZEND_FUNCTION(method_exists);
 static ZEND_FUNCTION(class_exists);
 static ZEND_FUNCTION(function_exists);
+#if ZEND_DEBUG
 static ZEND_FUNCTION(leak);
 #ifdef ZEND_TEST_EXCEPTIONS
 static ZEND_FUNCTION(crash);
 #endif
+#endif
 static ZEND_FUNCTION(get_included_files);
 static ZEND_FUNCTION(is_subclass_of);
+static ZEND_FUNCTION(is_a);
 static ZEND_FUNCTION(get_class_vars);
 static ZEND_FUNCTION(get_object_vars);
 static ZEND_FUNCTION(get_class_methods);
@@ -64,6 +67,7 @@ static ZEND_FUNCTION(get_loaded_extensions);
 static ZEND_FUNCTION(extension_loaded);
 static ZEND_FUNCTION(get_extension_funcs);
 static ZEND_FUNCTION(get_defined_constants);
+static ZEND_FUNCTION(debug_backtrace);
 #if ZEND_DEBUG
 static ZEND_FUNCTION(zend_test_func);
 #endif
@@ -91,13 +95,16 @@ static zend_function_entry builtin_functions[] = {
 	ZEND_FE(method_exists,		NULL)
 	ZEND_FE(class_exists,		NULL)
 	ZEND_FE(function_exists,	NULL)
+#if ZEND_DEBUG
 	ZEND_FE(leak,				NULL)
 #ifdef ZEND_TEST_EXCEPTIONS
 	ZEND_FE(crash,				NULL)
 #endif
+#endif
 	ZEND_FE(get_included_files,	NULL)
 	ZEND_FALIAS(get_required_files,	get_included_files,		NULL)
 	ZEND_FE(is_subclass_of,		NULL)
+	ZEND_FE(is_a,				NULL)
 	ZEND_FE(get_class_vars,		NULL)
 	ZEND_FE(get_object_vars,	NULL)
 	ZEND_FE(get_class_methods,	NULL)
@@ -114,6 +121,7 @@ static zend_function_entry builtin_functions[] = {
 	ZEND_FE(extension_loaded,			NULL)
 	ZEND_FE(get_extension_funcs,		NULL)
 	ZEND_FE(get_defined_constants,		NULL)
+	ZEND_FE(debug_backtrace,			NULL)
 #if ZEND_DEBUG
 	ZEND_FE(zend_test_func,		NULL)
 #endif
@@ -127,12 +135,17 @@ int zend_startup_builtin_functions(TSRMLS_D)
 }
 
 
+/* {{{ proto string zend_version(void)
+   Get the version of the Zend Engine */
 ZEND_FUNCTION(zend_version)
 {
 	RETURN_STRINGL(ZEND_VERSION, sizeof(ZEND_VERSION)-1, 1);
 }
+/* }}} */
 
 
+/* {{{ proto int func_num_args(void)
+   Get the number of arguments that were passed to the function */
 ZEND_FUNCTION(func_num_args)
 {
 	void **p;
@@ -152,8 +165,11 @@ ZEND_FUNCTION(func_num_args)
 		RETURN_LONG(-1);
 	}
 }
+/* }}} */
 
 
+/* {{{ proto mixed func_get_arg(int arg_num)
+   Get the $arg_num'th argument that was passed to the function */
 ZEND_FUNCTION(func_get_arg)
 {
 	void **p;
@@ -167,6 +183,11 @@ ZEND_FUNCTION(func_get_arg)
 	}
 	convert_to_long_ex(z_requested_offset);
 	requested_offset = (*z_requested_offset)->value.lval;
+
+	if (requested_offset < 0) {
+		zend_error(E_WARNING, "func_get_arg():  The argument number should be >= 0");
+		RETURN_FALSE;
+	}
 
 	p = EG(argument_stack).top_element-1-1;
 	arg_count = (ulong) *p;		/* this is the amount of arguments passed to func_get_arg(); */
@@ -190,8 +211,11 @@ ZEND_FUNCTION(func_get_arg)
 	*return_value = *arg;
 	zval_copy_ctor(return_value);
 }
+/* }}} */
 
 
+/* {{{ proto array func_get_args()
+   Get an array of the arguments that were passed to the function */
 ZEND_FUNCTION(func_get_args)
 {
 	void **p;
@@ -224,6 +248,7 @@ ZEND_FUNCTION(func_get_args)
 		zend_hash_next_index_insert(return_value->value.ht, &element, sizeof(zval *), NULL);
 	}
 }
+/* }}} */
 
 
 /* {{{ proto int strlen(string str)
@@ -240,6 +265,7 @@ ZEND_NAMED_FUNCTION(zend_if_strlen)
 }
 /* }}} */
 
+
 /* {{{ proto int strcmp(string str1, string str2)
    Binary safe string comparison */
 ZEND_FUNCTION(strcmp)
@@ -254,6 +280,7 @@ ZEND_FUNCTION(strcmp)
 	RETURN_LONG(zend_binary_zval_strcmp(*s1, *s2));
 }
 /* }}} */
+
 
 /* {{{ proto int strncmp(string str1, string str2, int len)
    Binary safe string comparison */
@@ -271,6 +298,7 @@ ZEND_FUNCTION(strncmp)
 }
 /* }}} */
 
+
 /* {{{ proto int strcasecmp(string str1, string str2)
    Binary safe case-insensitive string comparison */
 ZEND_FUNCTION(strcasecmp)
@@ -285,6 +313,7 @@ ZEND_FUNCTION(strcasecmp)
 	RETURN_LONG(zend_binary_zval_strcasecmp(*s1, *s2));
 }
 /* }}} */
+
 
 /* {{{ proto int strncasecmp(string str1, string str2, int len)
    Binary safe string comparison */
@@ -302,6 +331,9 @@ ZEND_FUNCTION(strncasecmp)
 }
 /* }}} */
 
+
+/* {{{ proto array each(array arr)
+   Return the currently pointed key..value pair in the passed array, and advance the pointer to the next element */
 ZEND_FUNCTION(each)
 {
 	zval **array, *entry, **entry_ptr, *tmp;
@@ -352,7 +384,11 @@ ZEND_FUNCTION(each)
 	(*inserted_pointer)->refcount++;
 	zend_hash_move_forward(target_hash);
 }
+/* }}} */
 
+
+/* {{{ proto int error_reporting(int new_error_level=null)
+   Return the current error_reporting level, and if an argument was passed - change to the new level */
 ZEND_FUNCTION(error_reporting)
 {
 	zval **arg;
@@ -366,8 +402,8 @@ ZEND_FUNCTION(error_reporting)
 			if (zend_get_parameters_ex(1, &arg) == FAILURE) {
 				RETURN_FALSE;
 			}
-			convert_to_long_ex(arg);
-			EG(error_reporting)=(*arg)->value.lval;
+			convert_to_string_ex(arg);
+			zend_alter_ini_entry("error_reporting", sizeof("error_reporting"), Z_STRVAL_PP(arg), Z_STRLEN_PP(arg), ZEND_INI_USER, ZEND_INI_STAGE_RUNTIME);
 			break;
 		default:
 			ZEND_WRONG_PARAM_COUNT();
@@ -376,7 +412,11 @@ ZEND_FUNCTION(error_reporting)
 
 	RETVAL_LONG(old_error_reporting);
 }
+/* }}} */
 
+
+/* {{{ proto bool define(string constant_name, mixed value, case_sensitive=true)
+   Define a new constant */
 ZEND_FUNCTION(define)
 {
 	zval **var, **val, **non_cs;
@@ -427,13 +467,16 @@ ZEND_FUNCTION(define)
 	c.name = zend_strndup((*var)->value.str.val, (*var)->value.str.len);
 	c.name_len = (*var)->value.str.len+1;
 	if (zend_register_constant(&c TSRMLS_CC) == SUCCESS) {
-	  RETURN_TRUE;
+		RETURN_TRUE;
 	} else {
-	  RETURN_FALSE;
+		RETURN_FALSE;
 	}
 }
+/* }}} */
 
 
+/* {{{ proto bool defined(string constant_name)
+   Check whether a constant exists */
 ZEND_FUNCTION(defined)
 {
 	zval **var;
@@ -451,6 +494,8 @@ ZEND_FUNCTION(defined)
 		RETURN_LONG(0);
 	}
 }
+/* }}} */
+
 
 /* {{{ proto string get_class(object object)
    Retrieves the class name */
@@ -470,6 +515,7 @@ ZEND_FUNCTION(get_class)
 	RETURN_STRINGL(ce->name, ce->name_length, 1);
 }
 /* }}} */
+
 
 /* {{{ proto string get_parent_class(mixed object)
    Retrieves the parent class name for object or class. */
@@ -498,28 +544,30 @@ ZEND_FUNCTION(get_parent_class)
 }
 /* }}} */
 
-/* {{{ proto bool is_subclass_of(object object, string class_name)
-   Returns true if the object has this class as one of its parents */
-ZEND_FUNCTION(is_subclass_of)
+static void is_a_impl(INTERNAL_FUNCTION_PARAMETERS, zend_bool only_subclass)
 {
 	zval **obj, **class_name;
 	char *lcname;
-	zend_class_entry *parent_ce = NULL;
+	zend_class_entry *ce = NULL;
 
 	if (ZEND_NUM_ARGS() != 2 || zend_get_parameters_ex(2, &obj, &class_name)==FAILURE) {
 		ZEND_WRONG_PARAM_COUNT();
 	}
 
-	if ((*obj)->type != IS_OBJECT) {
+	if (Z_TYPE_PP(obj) != IS_OBJECT) {
 		RETURN_FALSE;
 	}
 
 	convert_to_string_ex(class_name);
-	lcname = estrndup((*class_name)->value.str.val, (*class_name)->value.str.len);
-	zend_str_tolower(lcname, (*class_name)->value.str.len);
+	lcname = estrndup(Z_STRVAL_PP(class_name), Z_STRLEN_PP(class_name));
+	zend_str_tolower(lcname, Z_STRLEN_PP(class_name));
 
-	for (parent_ce = Z_OBJCE_PP(obj)->parent; parent_ce != NULL; parent_ce = parent_ce->parent) {
-		if (!strcmp(parent_ce->name, lcname)) {
+	if (only_subclass)
+		ce = Z_OBJCE_PP(obj)->parent;
+	else
+		ce = Z_OBJCE_PP(obj);
+	for (; ce != NULL; ce = ce->parent) {
+		if ((ce->name_length == (uint)Z_STRLEN_PP(class_name)) && !zend_binary_strcasecmp(ce->name, ce->name_length, lcname, Z_STRLEN_PP(class_name))) {
 			efree(lcname);
 			RETURN_TRUE;
 		}
@@ -527,7 +575,24 @@ ZEND_FUNCTION(is_subclass_of)
 	efree(lcname);
 	RETURN_FALSE;
 }
+
+/* {{{ proto bool is_subclass_of(object object, string class_name)
+   Returns true if the object has this class as one of its parents */
+ZEND_FUNCTION(is_subclass_of)
+{
+	is_a_impl(INTERNAL_FUNCTION_PARAM_PASSTHRU, 1);
+}
 /* }}} */
+
+
+/* {{{ proto bool is_a(object object, string class_name)
+   Returns true if the object is of this class or has this class as one of its parents */
+ZEND_FUNCTION(is_a)
+{
+	is_a_impl(INTERNAL_FUNCTION_PARAM_PASSTHRU, 0);
+}
+/* }}} */
+
 
 /* {{{ proto array get_class_vars(string class_name)
    Returns an array of default properties of the class */
@@ -561,6 +626,7 @@ ZEND_FUNCTION(get_class_vars)
 }
 /* }}} */
 
+
 /* {{{ proto array get_object_vars(object obj)
    Returns an array of object properties */
 ZEND_FUNCTION(get_object_vars)
@@ -581,6 +647,7 @@ ZEND_FUNCTION(get_object_vars)
 				   (copy_ctor_func_t) zval_add_ref, (void *) &tmp, sizeof(zval *));
 }
 /* }}} */
+
 
 /* {{{ proto array get_class_methods(mixed class)
    Returns an array of method names for class or class instance. */
@@ -622,6 +689,7 @@ ZEND_FUNCTION(get_class_methods)
 }
 /* }}} */
 
+
 /* {{{ proto bool method_exists(object object, string method)
    Checks if the class method exists */
 ZEND_FUNCTION(method_exists)
@@ -648,6 +716,7 @@ ZEND_FUNCTION(method_exists)
 }
 /* }}} */
 
+
 /* {{{ proto bool class_exists(string classname)
    Checks if the class exists */
 ZEND_FUNCTION(class_exists)
@@ -671,13 +740,15 @@ ZEND_FUNCTION(class_exists)
 }
 /* }}} */
 
+
 /* {{{ proto bool function_exists(string function_name) 
    Checks if the function exists */
 ZEND_FUNCTION(function_exists)
 {
 	zval **function_name;
+	zend_function *func;
 	char *lcname;
-	int retval;
+	zend_bool retval;
 	
 	if (ZEND_NUM_ARGS()!=1 || zend_get_parameters_ex(1, &function_name)==FAILURE) {
 		ZEND_WRONG_PARAM_COUNT();
@@ -686,14 +757,25 @@ ZEND_FUNCTION(function_exists)
 	lcname = estrndup((*function_name)->value.str.val, (*function_name)->value.str.len);
 	zend_str_tolower(lcname, (*function_name)->value.str.len);
 
-	retval = zend_hash_exists(EG(function_table), lcname, (*function_name)->value.str.len+1);
+	retval = (zend_hash_find(EG(function_table), lcname, (*function_name)->value.str.len+1, (void **)&func) == SUCCESS);
 	efree(lcname);
+
+	/*
+	 * A bit of a hack, but not a bad one: we see if the handler of the function
+	 * is actually one that displays "function is disabled" message.
+	 */
+	if (retval &&
+		func->internal_function.handler == zif_display_disabled_function) {
+		retval = 0;
+	}
 
 	RETURN_BOOL(retval);
 }
 /* }}} */
 
-
+#if ZEND_DEBUG
+/* {{{ proto void leak(int num_bytes=3)
+   Cause an intentional memory leak, for testing/debugging purposes */
 ZEND_FUNCTION(leak)
 {
 	int leakbytes=3;
@@ -708,6 +790,7 @@ ZEND_FUNCTION(leak)
 	
 	emalloc(leakbytes);
 }
+/* }}} */
 
 
 #ifdef ZEND_TEST_EXCEPTIONS
@@ -719,6 +802,7 @@ ZEND_FUNCTION(crash)
 }
 #endif
 
+#endif /* ZEND_DEBUG */
 
 /* {{{ proto array get_included_files(void)
    Returns an array with the file names that were include_once()'d */
@@ -784,13 +868,21 @@ ZEND_FUNCTION(trigger_error)
 ZEND_FUNCTION(set_error_handler)
 {
 	zval **error_handler;
+	char *error_handler_name;
 	zend_bool had_orig_error_handler=0;
 
 	if (ZEND_NUM_ARGS()!=1 || zend_get_parameters_ex(1, &error_handler)==FAILURE) {
 		ZEND_WRONG_PARAM_COUNT();
 	}
 
-	convert_to_string_ex(error_handler);
+	if (!zend_is_callable(*error_handler, 0, &error_handler_name)) {
+		zend_error(E_WARNING, "%s() expects argument 1, '%s', to be a valid callback",
+				   get_active_function_name(TSRMLS_C), error_handler_name);
+		efree(error_handler_name);
+		return;
+	}
+	efree(error_handler_name);
+
 	if (EG(user_error_handler)) {
 		had_orig_error_handler = 1;
 		*return_value = *EG(user_error_handler);
@@ -799,11 +891,17 @@ ZEND_FUNCTION(set_error_handler)
 	}
 	ALLOC_ZVAL(EG(user_error_handler));
 
-	if (Z_STRLEN_PP(error_handler)==0) { /* unset user-defined handler */
-		FREE_ZVAL(EG(user_error_handler));
-		EG(user_error_handler) = NULL;
-		RETURN_TRUE;
-	}
+#ifdef JANI_0
+    /*
+     * This part would never be reached unless there is something
+     * wrong with the engine as empty string can not be valid callback.
+     * See bug #23619 for more information why this is left here.
+     * (this only applies to non-debug-builds.)
+     */
+    if (Z_STRLEN_PP(error_handler)==0) { /* unset user-defined handler */
+        zend_error(E_ERROR, "%s(): This should never happen! '%s'", get_active_function_name(TSRMLS_C), error_handler);
+    }
+#endif
 
 	*EG(user_error_handler) = **error_handler;
 	zval_copy_ctor(EG(user_error_handler));
@@ -813,7 +911,6 @@ ZEND_FUNCTION(set_error_handler)
 	}
 }
 /* }}} */
-
 
 
 /* {{{ proto void restore_error_handler(void)
@@ -842,6 +939,7 @@ static int copy_class_name(zend_class_entry *ce, int num_args, va_list args, zen
 	return 0;
 }
 
+
 /* {{{ proto array get_declared_classes(void)
    Returns an array of all declared classes. */
 ZEND_FUNCTION(get_declared_classes)
@@ -854,6 +952,7 @@ ZEND_FUNCTION(get_declared_classes)
 	zend_hash_apply_with_arguments(EG(class_table), (apply_func_args_t) copy_class_name, 1, return_value);
 }
 /* }}} */
+
 
 static int copy_function_name(zend_function *func, int num_args, va_list args, zend_hash_key *hash_key)
 {
@@ -872,6 +971,7 @@ static int copy_function_name(zend_function *func, int num_args, va_list args, z
 	
 	return 0;
 }
+
 
 /* {{{ proto array get_defined_functions(void)
    Returns an array of all defined functions */
@@ -905,6 +1005,7 @@ ZEND_FUNCTION(get_defined_functions)
 }
 /* }}} */
 
+
 /* {{{ proto array get_defined_vars(void)
    Returns an associative array of names and values of all currently defined variable names (variables in the current scope) */
 ZEND_FUNCTION(get_defined_vars)
@@ -918,8 +1019,8 @@ ZEND_FUNCTION(get_defined_vars)
 }
 /* }}} */
 
-#define LAMBDA_TEMP_FUNCNAME	"__lambda_func"
 
+#define LAMBDA_TEMP_FUNCNAME	"__lambda_func"
 /* {{{ proto string create_function(string args, string code)
    Creates an anonymous function, and returns its name (funny, eh?) */
 ZEND_FUNCTION(create_function)
@@ -984,7 +1085,8 @@ ZEND_FUNCTION(zend_test_func)
 }
 #endif
 
-
+/* {{{ proto string get_resource_type(resource res)
+   Get the resource type name for a given resource */
 ZEND_FUNCTION(get_resource_type)
 {
 	char *resource_type;
@@ -1006,7 +1108,7 @@ ZEND_FUNCTION(get_resource_type)
 		RETURN_STRING("Unknown", 1);
 	}
 }
-
+/* }}} */
 
 static int add_extension_info(zend_module_entry *module, void *arg TSRMLS_DC)
 {
@@ -1028,12 +1130,13 @@ static int add_constant_info(zend_constant *constant, void *arg TSRMLS_DC)
 	return 0;
 }
 
+
 /* {{{ proto array get_loaded_extensions(void)
    Return an array containing names of loaded extensions */
 ZEND_FUNCTION(get_loaded_extensions)
 {
 	if (ZEND_NUM_ARGS() != 0) {
-		WRONG_PARAM_COUNT;
+		ZEND_WRONG_PARAM_COUNT();
 	}
 
 	array_init(return_value);
@@ -1047,11 +1150,174 @@ ZEND_FUNCTION(get_loaded_extensions)
 ZEND_FUNCTION(get_defined_constants)
 {
 	if (ZEND_NUM_ARGS() != 0) {
-		WRONG_PARAM_COUNT;
+		ZEND_WRONG_PARAM_COUNT();
 	}
 
 	array_init(return_value);
 	zend_hash_apply_with_argument(EG(zend_constants), (apply_func_arg_t) add_constant_info, return_value TSRMLS_CC);
+}
+
+/* }}} */
+
+static zval *debug_backtrace_get_args(void ***curpos TSRMLS_DC) {
+	void **p = *curpos - 2;
+	zval *arg_array, **arg;
+	int arg_count = (ulong) *p;
+
+	*curpos -= (arg_count+2); 
+
+	MAKE_STD_ZVAL(arg_array);
+	array_init(arg_array);
+	p -= arg_count;
+
+	while (--arg_count >= 0) {
+		arg = (zval **) p++;
+		SEPARATE_ZVAL_TO_MAKE_IS_REF(arg);
+		(*arg)->refcount++;
+		add_next_index_zval(arg_array, *arg);
+	}
+	return arg_array;
+}
+
+/* {{{ proto void debug_backtrace(void)
+   Prints out a backtrace */
+ZEND_FUNCTION(debug_backtrace)
+{
+	zend_execute_data *ptr;
+	int lineno;
+	char *function_name;
+	char *filename;
+	char *class_name;
+	char *call_type;
+	char *include_filename = NULL;
+	zval *stack_frame;
+	void **cur_arg_pos = EG(argument_stack).top_element;
+	void **args = cur_arg_pos;
+	int arg_stack_consistent = 0;
+	int frames_on_stack = 0;
+
+	if (ZEND_NUM_ARGS()) {
+		ZEND_WRONG_PARAM_COUNT();
+	}
+
+	while (--args >= EG(argument_stack).elements) {
+		if (*args--) {
+			break;
+		}
+		args -= *(ulong*)args;
+		frames_on_stack++;
+
+		if (args == EG(argument_stack).elements) {
+			arg_stack_consistent = 1;
+			break;
+		}
+	}
+
+	ptr = EG(current_execute_data);
+
+	/* skip debug_backtrace() */
+	ptr = ptr->prev_execute_data;
+	cur_arg_pos -= 2;
+	frames_on_stack--;
+
+	array_init(return_value);
+
+	while (ptr) {
+		MAKE_STD_ZVAL(stack_frame);
+		array_init(stack_frame);
+
+		if (ptr->op_array) {
+			filename = ptr->op_array->filename;
+			lineno = ptr->opline->lineno;
+			add_assoc_string_ex(stack_frame, "file", sizeof("file"), filename, 1);
+			add_assoc_long_ex(stack_frame, "line", sizeof("line"), lineno);
+
+			/* try to fetch args only if an FCALL was just made - elsewise we're in the middle of a function
+			 * and debug_baktrace() might have been called by the error_handler. in this case we don't 
+			 * want to pop anything of the argument-stack */
+		} else {
+			filename = NULL;
+		}
+
+		function_name = ptr->function_state.function->type != ZEND_OVERLOADED_FUNCTION ? ptr->function_state.function->common.function_name : get_active_function_name(TSRMLS_C);  /* "OVERLOADED_FUNCTION" */
+
+		if (function_name) {
+			add_assoc_string_ex(stack_frame, "function", sizeof("function"), function_name, 1);
+
+			if (ptr->ce) {
+				class_name = ptr->ce->name;
+				call_type = "::";
+			} else if (ptr->object.ptr) {
+				class_name = ptr->object.ptr->value.obj.ce->name;
+				call_type = "->";
+			} else {
+				class_name = NULL;
+				call_type = NULL;
+			}
+
+			if (class_name) {
+				add_assoc_string_ex(stack_frame, "class", sizeof("class"), class_name, 1);
+				add_assoc_string_ex(stack_frame, "type", sizeof("type"), call_type, 1);
+			}
+
+			if ((! ptr->opline) || ((ptr->opline->opcode == ZEND_DO_FCALL_BY_NAME) || (ptr->opline->opcode == ZEND_DO_FCALL))) {
+				if (arg_stack_consistent && (frames_on_stack > 0)) {
+					add_assoc_zval_ex(stack_frame, "args", sizeof("args"), debug_backtrace_get_args(&cur_arg_pos TSRMLS_CC));
+					frames_on_stack--;
+				}
+			}	
+		} else {
+			/* i know this is kinda ugly, but i'm trying to avoid extra cycles in the main execution loop */
+			zend_bool build_filename_arg = 1;
+
+			switch (ptr->opline->op2.u.constant.value.lval) {
+				case ZEND_EVAL:
+					function_name = "eval";
+					build_filename_arg = 0;
+					break;
+				case ZEND_INCLUDE:
+					function_name = "include";
+					break;
+				case ZEND_REQUIRE:
+					function_name = "require";
+					break;
+				case ZEND_INCLUDE_ONCE:
+					function_name = "include_once";
+					break;
+				case ZEND_REQUIRE_ONCE:
+					function_name = "require_once";
+					break;
+				default:
+					/* this can actually happen if you use debug_backtrace() in your error_handler and 
+					 * you're in the top-scope */
+					function_name = "unknown"; 
+					build_filename_arg = 0;
+					break;
+			}
+
+			if (build_filename_arg && include_filename) {
+				zval *arg_array;
+
+				MAKE_STD_ZVAL(arg_array);
+				array_init(arg_array);
+				
+				/* include_filename always points to the last filename of the last last called-fuction.
+				   if we have called include in the frame above - this is the file we have included.
+				 */
+
+				add_next_index_string(arg_array, include_filename, 1);
+				add_assoc_zval_ex(stack_frame, "args", sizeof("args"), arg_array);
+			}
+
+			add_assoc_string_ex(stack_frame, "function", sizeof("function"), function_name, 1);
+		}
+
+		add_next_index_zval(return_value, stack_frame);
+
+		include_filename = filename; 
+
+		ptr = ptr->prev_execute_data;
+	}
 }
 
 
@@ -1062,7 +1328,7 @@ ZEND_FUNCTION(extension_loaded)
 	zval **extension_name;
 
 	if (ZEND_NUM_ARGS() != 1 || zend_get_parameters_ex(1, &extension_name)) {
-		WRONG_PARAM_COUNT;
+		ZEND_WRONG_PARAM_COUNT();
 	}
 
 	convert_to_string_ex(extension_name);
@@ -1084,7 +1350,7 @@ ZEND_FUNCTION(get_extension_funcs)
 	zend_function_entry *func;
 
 	if (ZEND_NUM_ARGS() != 1 || zend_get_parameters_ex(1, &extension_name)) {
-		WRONG_PARAM_COUNT;
+		ZEND_WRONG_PARAM_COUNT();
 	}
 
 	convert_to_string_ex(extension_name);

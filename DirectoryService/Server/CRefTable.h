@@ -3,19 +3,22 @@
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
- * The contents of this file constitute Original Code as defined in and
- * are subject to the Apple Public Source License Version 1.1 (the
- * "License").  You may not use this file except in compliance with the
- * License.  Please obtain a copy of the License at
- * http://www.apple.com/publicsource and read it before using this file.
+ * Copyright (c) 1999-2003 Apple Computer, Inc.  All Rights Reserved.
  * 
- * This Original Code and all software distributed under the License are
- * distributed on an "AS IS" basis, WITHOUT WARRANTY OF ANY KIND, EITHER
+ * This file contains Original Code and/or Modifications of Original Code
+ * as defined in and that are subject to the Apple Public Source License
+ * Version 2.0 (the 'License'). You may not use this file except in
+ * compliance with the License. Please obtain a copy of the License at
+ * http://www.opensource.apple.com/apsl/ and read it before using this
+ * file.
+ * 
+ * The Original Code and all software distributed under the License are
+ * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
  * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
  * INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY,
- * FITNESS FOR A PARTICULAR PURPOSE OR NON-INFRINGEMENT.  Please see the
- * License for the specific language governing rights and limitations
- * under the License.
+ * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
+ * Please see the License for the specific language governing rights and
+ * limitations under the License.
  * 
  * @APPLE_LICENSE_HEADER_END@
  */
@@ -43,11 +46,6 @@ extern CRefTable			*gRefTable;
 //#define		kMaxTableItems	4096	//KW80 - made smaller
 #define		kMaxTableItems	512
 #define		kMaxTables		0xFF
-
-const	sInt16	kErrEndOfTableList		= -8561;
-const	sInt16	kErrBadTableCount		= -8562;
-const	sInt16	kErrRefTablesFull		= -8563;
-const	sInt16	kErrZeorRefTableNum		= -8564;
 
 typedef struct sListInfo *sListInfoPtr;
 
@@ -81,7 +79,15 @@ typedef struct sRefEntry {
 	sPIDInfo	   *fChildPID;
 } sRefEntry;
 
-typedef sInt32 RefDeallocateProc ( uInt32 inRefNum, sRefEntry *entry );
+//struct of a ref cleanup entry
+typedef struct sRefCleanUpEntry {
+	uInt32					fRefNum;
+	uInt32					fType;
+	CServerPlugin		   *fPlugin;
+	sRefCleanUpEntry	   *fNext;
+} sRefCleanUpEntry;
+
+typedef sInt32 RefDeallocateProc ( uInt32 inRefNum, uInt32 inRefType, CServerPlugin *inPluginPtr );
 
 // -------------------------------------------
 
@@ -95,15 +101,6 @@ typedef struct sRefTable {
 } sRefTable;
 
 
-typedef enum {
-	eDirectoryRefType		=	'Dire',
-	eNodeRefType			=	'Node',
-	eRecordRefType			=	'Reco',
-	eAttrListRefType		=	'AtLi',
-	eAttrValueListRefType  	=	'AtVa'
-} eRefTypes;
-
-
 //------------------------------------------------------------------------------------
 //	* CRefTable
 //------------------------------------------------------------------------------------
@@ -112,6 +109,9 @@ class CRefTable {
 public:
 					CRefTable			( RefDeallocateProc *deallocProc );
 	virtual		   ~CRefTable			( void );
+
+	void			Lock				( void );
+	void			Unlock				( void );
 
 	static tDirStatus	VerifyDirRef		( tDirReference inDirRef, CServerPlugin **outPlugin, sInt32 inPID, uInt32 inIPAddress );
 	static tDirStatus	VerifyNodeRef		( tDirNodeReference inDirNodeRef, CServerPlugin **outPlugin, sInt32 inPID, uInt32 inIPAddress );
@@ -139,7 +139,7 @@ public:
 private:
 	tDirStatus	VerifyReference		( tDirReference inDirRef, uInt32 inType, CServerPlugin **outPlugin, sInt32 inPID, uInt32 inIPAddress );
 	tDirStatus	GetNewRef			( uInt32 *outRef, uInt32 inParentID, eRefTypes inType, CServerPlugin *inPlugin, sInt32 inPID, uInt32 inIPAddress );
-	tDirStatus	RemoveRef			( uInt32 inRefNum, uInt32 inType, sInt32 inPID, uInt32 inIPAddress );
+	tDirStatus	RemoveRef			( uInt32 inRefNum, uInt32 inType, sInt32 inPID, uInt32 inIPAddress, bool inbAtTop = false);
 	tDirStatus	SetPluginPtr		( uInt32 inRefNum, uInt32 inType, CServerPlugin *inPlugin );
 
 	tDirStatus	GetReference		( uInt32 inRefNum, sRefEntry **outRefData );
@@ -168,6 +168,9 @@ private:
 	CFMutableDictionaryRef	fClientIPList;
 	DSMutexSemaphore	   *fClientPIDListLock;		//mutex on the client PID list tracking references per PID
 	time_t					fSunsetTime;
+	DSMutexSemaphore		fTableMutex;
+	sRefCleanUpEntry	   *fRefCleanUpEntriesHead;
+	sRefCleanUpEntry	   *fRefCleanUpEntriesTail;
 
 };
 

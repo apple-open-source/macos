@@ -1,0 +1,75 @@
+# Jamfile for target "BuildHeaderDoc" of project "IOPCCardFamily"
+
+
+JAVAC_SOURCE_FILE_ENCODING default = MacRoman ;
+
+# Implicitly computed project-wide settings for project
+export deferred DEVELOPMENT_LANGUAGE = English ;
+export deferred PROJECT = $(PROJECT_NAME) ;
+export deferred PROJECT_NAME = IOPCCardFamily ;
+export deferred SRCROOT = /Volumes/home/sandbox/pccard/IOPCCardFamily ;
+
+# User-defined project-wide settings for project
+
+# Target "BuildHeaderDoc"
+
+# Implicitly computed build settings for target "BuildHeaderDoc"
+export deferred CLONE_HEADERS = NO ;
+export deferred SKIP_INSTALL = YES ;
+export deferred TARGETNAME = $(TARGET_NAME) ;
+export deferred TARGET_NAME = BuildHeaderDoc ;
+
+# User-defined build settings for target "BuildHeaderDoc"
+export deferred OTHER_CFLAGS =  ;
+export deferred OTHER_LDFLAGS =  ;
+export deferred OTHER_REZFLAGS =  ;
+export deferred PRODUCT_NAME = BuildHeaderDoc ;
+export deferred REZ_EXECUTABLE = YES ;
+export deferred SECTORDER_FLAGS =  ;
+export deferred WARNING_CFLAGS = -Wmost -Wno-four-char-constants -Wno-unknown-pragmas ;
+
+if "$(BUILD_STYLE)" = Development {
+	export deferred COPY_PHASE_STRIP = NO ;
+	export deferred OPTIMIZATION_CFLAGS = -O0 ;
+	export deferred OTHER_CFLAGS +=  -DPCMCIA_DEBUG=0 ;
+}
+
+if "$(BUILD_STYLE)" = Deployment {
+	export deferred COPY_PHASE_STRIP = YES ;
+}
+
+
+ConditionalDefinitions _ ;
+commitdeferred ;
+
+
+BeginTool "<BuildHeaderDoc>BuildHeaderDoc$(TOOL_SUFFIX)" ;
+
+# Headers
+HEADERS = ;
+ProcessHeaders "<BuildHeaderDoc>BuildHeaderDoc$(TOOL_SUFFIX)" : "$(HEADERS)" : "" : BPTag000 ;
+
+# Sources
+SOURCES = ;
+ProcessSources "<BuildHeaderDoc>BuildHeaderDoc$(TOOL_SUFFIX)" : "$(SOURCES)" : BPTag000 : BPTag001 ;
+
+# Frameworks & Libraries
+FRAMEWORKS_AND_LIBRARIES = ;
+ProcessFrameworksAndLibraries "<BuildHeaderDoc>BuildHeaderDoc$(TOOL_SUFFIX)" : "$(FRAMEWORKS_AND_LIBRARIES)" : BPTag001 : BPTag002 ;
+
+# Rez Files
+REZ_FILES = ;
+ProcessRezFiles "<BuildHeaderDoc>BuildHeaderDoc$(TOOL_SUFFIX)" : "$(REZ_FILES)" : BPTag002 : BPTag003 ;
+
+# Script Build Phase Files
+SCRIPT_BUILD_PHASE_FILES = "$(SRCROOT)/pbxbuild.data/BuildHeaderDoc.build/BPTag004-script.sh" ;
+ProcessScriptBuildPhaseFiles "<BuildHeaderDoc>BuildHeaderDoc$(TOOL_SUFFIX)" : "$(SCRIPT_BUILD_PHASE_FILES)" : BPTag003 : BPTag004 ;
+
+rule DefineHeaderDependencies
+{
+}
+
+DefineHeaderDependencies "<BuildHeaderDoc>BuildHeaderDoc$(TOOL_SUFFIX)" ;
+
+EndTool "<BuildHeaderDoc>BuildHeaderDoc$(TOOL_SUFFIX)" ;
+

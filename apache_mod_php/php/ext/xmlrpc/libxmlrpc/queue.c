@@ -1,4 +1,4 @@
-static const char rcsid[] = "#(@) $Id: queue.c,v 1.1.1.1 2001/12/14 22:13:40 zarzycki Exp $";
+static const char rcsid[] = "#(@) $Id: queue.c,v 1.1.1.3 2003/03/11 01:09:35 zarzycki Exp $";
 
 /* 
  * Date last modified: Jan 2001
@@ -97,7 +97,9 @@ static const char rcsid[] = "#(@) $Id: queue.c,v 1.1.1.1 2001/12/14 22:13:40 zar
  *
  ****************************************************************/
 
-
+#ifdef _WIN32
+#include "xmlrpc_win32.h"
+#endif
 #include <stdlib.h>
 #include "queue.h"
 
@@ -365,6 +367,7 @@ int Q_PushTail(queue *q, void *d)
 
       return True_;
    }
+   return False_;
 }
 
 
@@ -476,7 +479,7 @@ void *Q_Next(queue *q)
    if(!q)
       return NULL;
 
-   if(q->cursor->next == NULL)
+   if(!q->cursor || q->cursor->next == NULL)
       return NULL;
 
    q->cursor = (node *)q->cursor->next;

@@ -1,8 +1,8 @@
 /*
    +----------------------------------------------------------------------+
-   | PHP version 4.0                                                      |
+   | PHP Version 4                                                        |
    +----------------------------------------------------------------------+
-   | Copyright (c) 1997-2001 The PHP Group                                |
+   | Copyright (c) 1997-2003 The PHP Group                                |
    +----------------------------------------------------------------------+
    | This source file is subject to version 2.02 of the PHP license,      |
    | that is bundled with this package in the file LICENSE, and is        |
@@ -12,11 +12,11 @@
    | obtain it through the world-wide-web, please send a note to          |
    | license@php.net so we can mail you a copy immediately.               |
    +----------------------------------------------------------------------+
-   | Authors: Sascha Schumann <sascha@schumann.cx>                        |
+   | Author: Sascha Schumann <sascha@schumann.cx>                         |
    +----------------------------------------------------------------------+
  */
 
-/* $Id: ircg_scanner.re,v 1.1.1.2 2001/12/14 22:12:30 zarzycki Exp $ */
+/* $Id: ircg_scanner.re,v 1.1.1.4 2003/07/18 18:07:35 zarzycki Exp $ */
 
 #include <ext/standard/php_smart_str.h>
 #include <stdio.h>
@@ -75,6 +75,7 @@ bold = "";
 underline = "\037";
 italic = "";
 ircnl = "\036";
+winquotes = [\204\223\224];
 */
 
 #define YYFILL(n) do { } while (0)
@@ -223,6 +224,7 @@ state_plain:
 	"<"				{ add_entity(STD_ARGS, "&lt;"); goto state_plain; }
 	">"				{ add_entity(STD_ARGS, "&gt;"); goto state_plain; }
 	"&"				{ add_entity(STD_ARGS, "&amp;"); goto state_plain; }
+	winquotes		{ add_entity(STD_ARGS, "&quot;"); goto state_plain; }
 	ircnl			{ if (gen_br) smart_str_appendl_ex(ctx->result, "<br>", 4, 1); goto state_plain; }
 	bold			{ handle_bold(STD_ARGS, 0); goto state_plain; }
 	underline		{ handle_underline(STD_ARGS, 0); goto state_plain; }

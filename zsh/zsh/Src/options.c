@@ -75,6 +75,7 @@ static struct optname optns[] = {
 {NULL, "alwaystoend",	      0,			 ALWAYSTOEND},
 {NULL, "appendhistory",	      OPT_ALL,			 APPENDHISTORY},
 {NULL, "autocd",	      OPT_EMULATE,		 AUTOCD},
+{NULL, "autocontinue",	      0,			 AUTOCONTINUE},
 {NULL, "autolist",	      OPT_ALL,			 AUTOLIST},
 {NULL, "automenu",	      OPT_ALL,			 AUTOMENU},
 {NULL, "autonamedirs",	      0,			 AUTONAMEDIRS},
@@ -106,8 +107,10 @@ static struct optname optns[] = {
 {NULL, "cshjunkiequotes",     OPT_EMULATE|OPT_CSH,	 CSHJUNKIEQUOTES},
 {NULL, "cshnullcmd",	      OPT_EMULATE|OPT_CSH,	 CSHNULLCMD},
 {NULL, "cshnullglob",	      OPT_EMULATE|OPT_CSH,	 CSHNULLGLOB},
+{NULL, "emacs",		      0,			 EMACSMODE},
 {NULL, "equals",	      OPT_EMULATE|OPT_ZSH,	 EQUALS},
 {NULL, "errexit",	      OPT_EMULATE,		 ERREXIT},
+{NULL, "errreturn",	      OPT_EMULATE,		 ERRRETURN},
 {NULL, "exec",		      OPT_ALL,			 EXECOPT},
 {NULL, "extendedglob",	      OPT_EMULATE,		 EXTENDEDGLOB},
 {NULL, "extendedhistory",     OPT_CSH,			 EXTENDEDHISTORY},
@@ -198,8 +201,11 @@ static struct optname optns[] = {
 {NULL, "singlecommand",	      OPT_SPECIAL,		 SINGLECOMMAND},
 {NULL, "singlelinezle",	      OPT_KSH,			 SINGLELINEZLE},
 {NULL, "sunkeyboardhack",     0,			 SUNKEYBOARDHACK},
+{NULL, "transientrprompt",    0,			 TRANSIENTRPROMPT},
+{NULL, "typesetsilent",	      OPT_EMULATE|OPT_BOURNE,	 TYPESETSILENT},
 {NULL, "unset",		      OPT_EMULATE|OPT_BSHELL,	 UNSET},
 {NULL, "verbose",	      0,			 VERBOSE},
+{NULL, "vi",		      0,			 VIMODE},
 {NULL, "xtrace",	      0,			 XTRACE},
 {NULL, "zle",		      OPT_SPECIAL,		 USEZLE},
 {NULL, "braceexpand",	      OPT_ALIAS, /* ksh/bash */	 -IGNOREBRACES},
@@ -478,7 +484,7 @@ setoption(HashNode hn, int value)
 
 /**/
 int
-bin_setopt(char *nam, char **args, char *ops, int isun)
+bin_setopt(char *nam, char **args, Options ops, int isun)
 {
     int action, optno, match = 0;
 
@@ -675,6 +681,9 @@ dosetopt(int optno, int value, int force)
     } else if(optno == CDABLEVARS && value) {
 	    return -1;
 #endif /* GETPWNAM_FAKED */
+    } else if ((optno == EMACSMODE || optno == VIMODE) && value) {
+	(*zlesetkeymapptr)(optno);
+	opts[(optno == EMACSMODE) ? VIMODE : EMACSMODE] = 0;
     }
     opts[optno] = value;
     if (optno == BANGHIST || optno == SHINSTDIN)
@@ -699,6 +708,33 @@ dashgetfn(Param pm)
     }
     *val = '\0';
     return buf;
+}
+
+/* print options for set -o/+o */
+
+/**/
+void
+printoptionstates(int hadplus)
+{
+    scanhashtable(optiontab, 1, 0, OPT_ALIAS, printoptionnodestate, hadplus);
+}
+
+/**/
+static void
+printoptionnodestate(HashNode hn, int hadplus)
+{
+    Optname on = (Optname) hn;
+    int optno = on->optno;
+
+    if (hadplus) {
+        if (defset(on) != isset(optno))
+	    printf("set -o %s%s\n", defset(on) ? "no" : "", on->nam);
+    } else {
+	if (defset(on))
+	    printf("no%-19s %s\n", on->nam, isset(optno) ? "off" : "on");
+	else
+	    printf("%-21s %s\n", on->nam, isset(optno) ? "on" : "off");
+    }
 }
 
 /* Print option list for --help */

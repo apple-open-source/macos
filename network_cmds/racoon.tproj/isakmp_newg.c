@@ -1,4 +1,4 @@
-/*	$KAME: isakmp_newg.c,v 1.8 2000/12/15 13:43:55 sakane Exp $	*/
+/*	$KAME: isakmp_newg.c,v 1.10 2002/09/27 05:55:52 itojun Exp $	*/
 
 /*
  * Copyright (C) 1995, 1996, 1997, and 1998 WIDE Project.

@@ -1,8 +1,8 @@
 /* 
    +----------------------------------------------------------------------+
-   | PHP version 4.0                                                      |
+   | PHP Version 4                                                        |
    +----------------------------------------------------------------------+
-   | Copyright (c) 1997-2001 The PHP Group                                |
+   | Copyright (c) 1997-2003 The PHP Group                                |
    +----------------------------------------------------------------------+
    | This source file is subject to version 2.02 of the PHP license,      |
    | that is bundled with this package in the file LICENSE, and is        |
@@ -12,17 +12,17 @@
    | obtain it through the world-wide-web, please send a note to          |
    | license@php.net so we can mail you a copy immediately.               |
    +----------------------------------------------------------------------+
-   | Authors: Rasmus Lerdorf <rasmus@lerdorf.on.ca>                       |
+   | Author: Rasmus Lerdorf <rasmus@lerdorf.on.ca>                        |
    +----------------------------------------------------------------------+
 */
 
 
-/* $Id: reg.h,v 1.1.1.4 2001/12/14 22:13:27 zarzycki Exp $ */
+/* $Id: reg.h,v 1.1.1.7 2003/07/18 18:07:44 zarzycki Exp $ */
 
 #ifndef REG_H
 #define REG_H
 
-char *php_reg_replace(const char *pattern, const char *replace, const char *string, int icase, int extended);
+PHPAPI char *php_reg_replace(const char *pattern, const char *replace, const char *string, int icase, int extended);
 
 PHP_FUNCTION(ereg);
 PHP_FUNCTION(eregi);
@@ -32,9 +32,9 @@ PHP_FUNCTION(split);
 PHP_FUNCTION(spliti);
 PHPAPI PHP_FUNCTION(sql_regcase);
 
-typedef struct {
+ZEND_BEGIN_MODULE_GLOBALS(reg)
 	HashTable ht_rc;
-} php_reg_globals;
+ZEND_END_MODULE_GLOBALS(reg)
 
 PHP_MINIT_FUNCTION(regex);
 PHP_MSHUTDOWN_FUNCTION(regex);
@@ -42,7 +42,7 @@ PHP_MINFO_FUNCTION(regex);
 
 
 #ifdef ZTS
-#define REG(v) TSRMG(reg_globals_id, php_reg_globals *, v)
+#define REG(v) TSRMG(reg_globals_id, zend_reg_globals *, v)
 #else
 #define REG(v) (reg_globals.v)
 #endif

@@ -1,4 +1,4 @@
-# $Id: mk-1st.awk,v 1.5 2002/02/16 00:43:53 jevans Exp $
+# $Id: mk-1st.awk,v 1.6 2002/12/07 03:24:38 jevans Exp $
 ##############################################################################
 # Copyright (c) 1998,2000,2002 Free Software Foundation, Inc.                #
 #                                                                            #
@@ -194,6 +194,8 @@ END	{
 				}
 				if ( subset == "termlib") {
 					printf "\t$(MK_SHARED_LIB) $(%s_OBJS) $(TINFO_LIST)\n", OBJS
+				} else if ( name == "ncurses" ) {
+					printf "\t$(MK_SHARED_LIB) $(%s_OBJS) $(SHLIB_LIST) $(LDFLAGS) -Wl,-sectorder,__TEXT,__text,$(APPLE_INTERNAL_DIR)/OrderFiles/libncurses.order\n", OBJS
 				} else {
 					printf "\t$(MK_SHARED_LIB) $(%s_OBJS) $(SHLIB_LIST) $(LDFLAGS)\n", OBJS
 				}

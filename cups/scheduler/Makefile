@@ -1,9 +1,9 @@
 #
-# "$Id: Makefile,v 1.9 2002/07/21 22:06:30 jlovell Exp $"
+# "$Id: Makefile,v 1.13 2003/04/12 03:04:29 jlovell Exp $"
 #
 #   Scheduler Makefile for the Common UNIX Printing System (CUPS).
 #
-#   Copyright 1997-2002 by Easy Software Products, all rights reserved.
+#   Copyright 1997-2003 by Easy Software Products, all rights reserved.
 #
 #   These coded instructions, statements, and computer programs are the
 #   property of Easy Software Products and are protected by Federal
@@ -24,20 +24,19 @@
 
 include ../Makedefs
 
-TARGETS	= cupsd cups-lpd cups-polld libmime.a
 CUPSDOBJS =	auth.o banners.o cert.o classes.o client.o conf.o devices.o \
 		dirsvc.o main.o ipp.o listen.o job.o log.o network.o \
 		ppds.o printers.o quotas.o server.o
-MIMEOBJS =	filter.o mime.o type.o
+MIMEOBJS =	file.o filter.o mime.o type.o
 OBJS	=	$(CUPSDOBJS) $(MIMEOBJS) cups-lpd.o cups-polld.o testmime.o \
 		testspeed.o
-
+TARGETS	=	cupsd cups-lpd cups-polld libmime.a testmime testspeed
 
 #
 # Make everything...
 #
 
-all:	$(TARGETS)
+all:		$(TARGETS)
 
 
 #
@@ -45,7 +44,8 @@ all:	$(TARGETS)
 #
 
 clean:
-	$(RM) $(OBJS) cupsd cups-lpd cups-polld libmime.a testmime testspeed
+	$(RM) $(OBJS)
+	$(RM) $(TARGETS)
 
 
 #
@@ -70,8 +70,8 @@ install:	all
 	$(INSTALL_DIR) $(SERVERROOT)/interfaces
 	$(INSTALL_DIR) $(SERVERROOT)/ppd
 	$(INSTALL_DIR) $(LOGDIR)
-	$(INSTALL_DIR) -m 700 $(REQUESTS)
-	$(INSTALL_DIR) -m 1700 $(REQUESTS)/tmp
+	$(INSTALL_DIR) -m 710 $(REQUESTS)
+	$(INSTALL_DIR) -m 1770 $(REQUESTS)/tmp
 	if test "x$(SYMROOT)" != "x"; then \
 		$(INSTALL_DIR) $(SYMROOT); \
 		for file in $(TARGETS); do \
@@ -87,8 +87,10 @@ install:	all
 cupsd:	$(CUPSDOBJS) libmime.a ../cups/$(LIBCUPS)
 	echo Linking $@...
 	$(CC) $(LDFLAGS) -o cupsd $(CUPSDOBJS) libmime.a \
-		$(LIBZ) $(SSLLIBS) $(LIBSLP) $(PAMLIBS) $(LIBS) $(LIBMALLOC) \
-		-sectorder __TEXT __text cupsd.order -e start
+		-framework CoreFoundation \
+		-sectorder __TEXT __text cupsd.order -e start \
+		$(LIBZ) $(SSLLIBS) $(LIBSLP) $(PAMLIBS) $(LIBS) \
+		$(LIBPAPER) $(LIBMALLOC)
 
 
 #
@@ -126,7 +128,7 @@ libmime.a:	$(MIMEOBJS)
 
 testmime:	testmime.o libmime.a
 	echo Linking $@...
-	$(CC) $(LDFLAGS) -o $@ testmime.o libmime.a ../cups/libcups.a
+	$(CC) $(LDFLAGS) -o $@ testmime.o libmime.a ../cups/libcups.a $(LIBZ)
 
 
 #
@@ -146,5 +148,5 @@ include Dependencies
 
 
 #
-# End of "$Id: Makefile,v 1.9 2002/07/21 22:06:30 jlovell Exp $".
+# End of "$Id: Makefile,v 1.13 2003/04/12 03:04:29 jlovell Exp $".
 #

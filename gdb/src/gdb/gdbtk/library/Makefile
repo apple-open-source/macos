@@ -1,7 +1,7 @@
 
 TCL := $(wildcard *.tcl *.itcl *.ith *.itb)
 
-TCLSH = tclsh8.3
+TCLSH = tclsh
 
 tclIndex: $(TCL) Makefile
 	echo "package require Itcl; auto_mkindex `pwd` $(TCL)" | $(TCLSH)

@@ -1,22 +1,25 @@
 /*
- * Copyright (c) 2000-2002 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 2000-2003 Apple Computer, Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
- *
- * The contents of this file constitute Original Code as defined in and
- * are subject to the Apple Public Source License Version 1.1 (the
- * "License").  You may not use this file except in compliance with the
- * License.  Please obtain a copy of the License at
- * http://www.apple.com/publicsource and read it before using this file.
- *
- * This Original Code and all software distributed under the License are
- * distributed on an "AS IS" basis, WITHOUT WARRANTY OF ANY KIND, EITHER
+ * 
+ * Copyright (c) 1999-2003 Apple Computer, Inc.  All Rights Reserved.
+ * 
+ * This file contains Original Code and/or Modifications of Original Code
+ * as defined in and that are subject to the Apple Public Source License
+ * Version 2.0 (the 'License'). You may not use this file except in
+ * compliance with the License. Please obtain a copy of the License at
+ * http://www.opensource.apple.com/apsl/ and read it before using this
+ * file.
+ * 
+ * The Original Code and all software distributed under the License are
+ * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
  * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
  * INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY,
- * FITNESS FOR A PARTICULAR PURPOSE OR NON-INFRINGEMENT.  Please see the
- * License for the specific language governing rights and limitations
- * under the License.
- *
+ * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
+ * Please see the License for the specific language governing rights and
+ * limitations under the License.
+ * 
  * @APPLE_LICENSE_HEADER_END@
  */
 
@@ -31,6 +34,7 @@
  */
 
 #include <SystemConfiguration/SystemConfiguration.h>
+#include <SystemConfiguration/SCValidation.h>
 #include <SystemConfiguration/SCPrivate.h>
 
 #include <mach/mach.h>
@@ -38,18 +42,55 @@
 #include <mach/mach_error.h>
 #include <pthread.h>
 
+#define	N_QUICK	32
+
+
+char *
+_SC_cfstring_to_cstring(CFStringRef cfstr, char *buf, int bufLen, CFStringEncoding encoding)
+{
+	CFIndex	last;
+	CFIndex	len	= CFStringGetLength(cfstr);
+
+	/* how much buffer space will we really need? */
+	(void)CFStringGetBytes(cfstr,
+			       CFRangeMake(0, len),
+			       encoding,
+			       0,
+			       FALSE,
+			       NULL,
+			       0,
+			       &len);
+
+	if (!buf) {
+		bufLen = len + 1;
+		buf = CFAllocatorAllocate(NULL, bufLen, 0);
+		if (!buf) {
+			return NULL;
+		}
+	}
+
+	if (len >= bufLen) {
+		len = bufLen - 1;
+	}
+
+	(void)CFStringGetBytes(cfstr,
+			       CFRangeMake(0, len),
+			       encoding,
+			       0,
+			       FALSE,
+			       buf,
+			       bufLen,
+			       &last);
+	buf[last] = '\0';
+
+	return buf;
+}
+
+
 Boolean
-_SCSerialize(CFPropertyListRef		obj,
-	     CFDataRef			*xml,
-	     void			**dataRef,
-	     CFIndex			*dataLen)
+_SCSerialize(CFPropertyListRef obj, CFDataRef *xml, void **dataRef, CFIndex *dataLen)
 {
 	CFDataRef	myXml;
-
-	if (!obj) {
-		/* if no object to serialize */
-		return FALSE;
-	}
 
 	if (!xml && !(dataRef && dataLen)) {
 		/* if not keeping track of allocated space */
@@ -98,31 +139,33 @@ _SCSerialize(CFPropertyListRef		obj,
 
 
 Boolean
-_SCUnserialize(CFPropertyListRef	*obj,
-	       void			*dataRef,
-	       CFIndex			dataLen)
+_SCUnserialize(CFPropertyListRef *obj, CFDataRef xml, void *dataRef, CFIndex dataLen)
 {
-	kern_return_t		status;
-	CFDataRef		xml;
-	CFStringRef		xmlError;
+	CFStringRef	xmlError;
 
-	if (!obj) {
-		return FALSE;
+	if (!xml) {
+		kern_return_t	status;
+
+		xml = CFDataCreateWithBytesNoCopy(NULL, (void *)dataRef, dataLen, kCFAllocatorNull);
+		*obj = CFPropertyListCreateFromXMLData(NULL,
+						       xml,
+						       kCFPropertyListImmutable,
+						       &xmlError);
+		CFRelease(xml);
+
+		status = vm_deallocate(mach_task_self(), (vm_address_t)dataRef, dataLen);
+		if (status != KERN_SUCCESS) {
+			SCLog(_sc_verbose, LOG_DEBUG, CFSTR("vm_deallocate(): %s"), mach_error_string(status));
+			/* non-fatal???, proceed */
+		}
+	} else {
+		*obj = CFPropertyListCreateFromXMLData(NULL,
+						       xml,
+						       kCFPropertyListImmutable,
+						       &xmlError);
 	}
 
-	xml = CFDataCreate(NULL, (void *)dataRef, dataLen);
-	status = vm_deallocate(mach_task_self(), (vm_address_t)dataRef, dataLen);
-	if (status != KERN_SUCCESS) {
-		SCLog(_sc_verbose, LOG_DEBUG, CFSTR("vm_deallocate(): %s"), mach_error_string(status));
-		/* non-fatal???, proceed */
-	}
-	*obj = CFPropertyListCreateFromXMLData(NULL,
-					       xml,
-					       kCFPropertyListImmutable,
-					       &xmlError);
-	CFRelease(xml);
-
-	if (!obj) {
+	if (*obj == NULL) {
 		if (xmlError) {
 			SCLog(TRUE,
 			      LOG_ERR,
@@ -135,6 +178,251 @@ _SCUnserialize(CFPropertyListRef	*obj,
 	}
 
 	return TRUE;
+}
+
+
+Boolean
+_SCSerializeString(CFStringRef str, CFDataRef *data, void **dataRef, CFIndex *dataLen)
+{
+	CFDataRef	myData;
+
+	if (!isA_CFString(str)) {
+		/* if not a CFString */
+		return FALSE;
+	}
+
+	if (!data && !(dataRef && dataLen)) {
+		/* if not keeping track of allocated space */
+		return FALSE;
+	}
+
+	myData = CFStringCreateExternalRepresentation(NULL, str, kCFStringEncodingUTF8, 0);
+	if (!myData) {
+		SCLog(TRUE, LOG_ERR, CFSTR("CFStringCreateExternalRepresentation() failed"));
+		if (data)	*data    = NULL;
+		if (dataRef)	*dataRef = NULL;
+		if (dataLen)	*dataLen = 0;
+		return FALSE;
+	}
+
+	if (data) {
+		*data = myData;
+		if (dataRef) {
+			*dataRef = (void *)CFDataGetBytePtr(myData);
+		}
+		if (dataLen) {
+			*dataLen = CFDataGetLength(myData);
+		}
+	} else {
+		kern_return_t	status;
+
+		*dataLen = CFDataGetLength(myData);
+		status = vm_allocate(mach_task_self(), (void *)dataRef, *dataLen, TRUE);
+		if (status != KERN_SUCCESS) {
+			SCLog(TRUE,
+			      LOG_ERR,
+			      CFSTR("vm_allocate(): %s"),
+			      mach_error_string(status));
+			CFRelease(myData);
+			*dataRef = NULL;
+			*dataLen = 0;
+			return FALSE;
+		}
+
+		bcopy((char *)CFDataGetBytePtr(myData), *dataRef, *dataLen);
+		CFRelease(myData);
+	}
+
+	return TRUE;
+}
+
+
+Boolean
+_SCUnserializeString(CFStringRef *str, CFDataRef utf8, void *dataRef, CFIndex dataLen)
+{
+	if (!utf8) {
+		kern_return_t	status;
+
+		utf8 = CFDataCreateWithBytesNoCopy(NULL, dataRef, dataLen, kCFAllocatorNull);
+		*str = CFStringCreateFromExternalRepresentation(NULL, utf8, kCFStringEncodingUTF8);
+		CFRelease(utf8);
+
+		status = vm_deallocate(mach_task_self(), (vm_address_t)dataRef, dataLen);
+		if (status != KERN_SUCCESS) {
+			SCLog(_sc_verbose, LOG_DEBUG, CFSTR("vm_deallocate(): %s"), mach_error_string(status));
+			/* non-fatal???, proceed */
+		}
+	} else {
+		*str = CFStringCreateFromExternalRepresentation(NULL, utf8, kCFStringEncodingUTF8);
+	}
+
+	if (*str == NULL) {
+		SCLog(TRUE, LOG_ERR, CFSTR("CFStringCreateFromExternalRepresentation() failed"));
+		return FALSE;
+	}
+
+	return TRUE;
+}
+
+
+Boolean
+_SCSerializeData(CFDataRef data, void **dataRef, CFIndex *dataLen)
+{
+	kern_return_t	status;
+
+	if (!isA_CFData(data)) {
+		/* if not a CFData */
+		return FALSE;
+	}
+
+	*dataLen = CFDataGetLength(data);
+	status = vm_allocate(mach_task_self(), (void *)dataRef, *dataLen, TRUE);
+	if (status != KERN_SUCCESS) {
+		SCLog(TRUE,
+		      LOG_ERR,
+		      CFSTR("vm_allocate(): %s"),
+		      mach_error_string(status));
+		*dataRef = NULL;
+		*dataLen = 0;
+		return FALSE;
+	}
+
+	bcopy((char *)CFDataGetBytePtr(data), *dataRef, *dataLen);
+
+	return TRUE;
+}
+
+
+Boolean
+_SCUnserializeData(CFDataRef *data, void *dataRef, CFIndex dataLen)
+{
+	kern_return_t		status;
+
+	*data = CFDataCreate(NULL, dataRef, dataLen);
+	status = vm_deallocate(mach_task_self(), (vm_address_t)dataRef, dataLen);
+	if (status != KERN_SUCCESS) {
+		SCLog(_sc_verbose, LOG_DEBUG, CFSTR("vm_deallocate(): %s"), mach_error_string(status));
+		_SCErrorSet(kSCStatusFailed);
+		return FALSE;
+	}
+
+	return TRUE;
+}
+
+
+CFDictionaryRef
+_SCSerializeMultiple(CFDictionaryRef dict)
+{
+	const void *		keys_q[N_QUICK];
+	const void **		keys		= keys_q;
+	CFIndex			nElements;
+	CFDictionaryRef		newDict		= NULL;
+	const void *		pLists_q[N_QUICK];
+	const void **		pLists		= pLists_q;
+	const void *		values_q[N_QUICK];
+	const void **		values		= values_q;
+
+	nElements = CFDictionaryGetCount(dict);
+	if (nElements > 0) {
+		CFIndex	i;
+
+		if (nElements > (CFIndex)(sizeof(keys_q) / sizeof(CFTypeRef))) {
+			keys   = CFAllocatorAllocate(NULL, nElements * sizeof(CFTypeRef), 0);
+			values = CFAllocatorAllocate(NULL, nElements * sizeof(CFTypeRef), 0);
+			pLists = CFAllocatorAllocate(NULL, nElements * sizeof(CFTypeRef), 0);
+		}
+		bzero(pLists, nElements * sizeof(CFTypeRef));
+
+		CFDictionaryGetKeysAndValues(dict, keys, values);
+		for (i = 0; i < nElements; i++) {
+			if (!_SCSerialize((CFPropertyListRef)values[i], (CFDataRef *)&pLists[i], NULL, NULL)) {
+				goto done;
+			}
+		}
+	}
+
+	newDict = CFDictionaryCreate(NULL,
+				     keys,
+				     pLists,
+				     nElements,
+				     &kCFTypeDictionaryKeyCallBacks,
+				     &kCFTypeDictionaryValueCallBacks);
+
+    done :
+
+	if (nElements > 0) {
+		CFIndex	i;
+
+		for (i = 0; i < nElements; i++) {
+			if (pLists[i])	CFRelease(pLists[i]);
+		}
+
+		if (keys != keys_q) {
+			CFAllocatorDeallocate(NULL, keys);
+			CFAllocatorDeallocate(NULL, values);
+			CFAllocatorDeallocate(NULL, pLists);
+		}
+	}
+
+	return newDict;
+}
+
+
+CFDictionaryRef
+_SCUnserializeMultiple(CFDictionaryRef dict)
+{
+	const void *		keys_q[N_QUICK];
+	const void **		keys		= keys_q;
+	CFIndex			nElements;
+	CFDictionaryRef		newDict		= NULL;
+	const void *		pLists_q[N_QUICK];
+	const void **		pLists		= pLists_q;
+	const void *		values_q[N_QUICK];
+	const void **		values		= values_q;
+
+	nElements = CFDictionaryGetCount(dict);
+	if (nElements > 0) {
+		CFIndex	i;
+
+		if (nElements > (CFIndex)(sizeof(keys_q) / sizeof(CFTypeRef))) {
+			keys   = CFAllocatorAllocate(NULL, nElements * sizeof(CFTypeRef), 0);
+			values = CFAllocatorAllocate(NULL, nElements * sizeof(CFTypeRef), 0);
+			pLists = CFAllocatorAllocate(NULL, nElements * sizeof(CFTypeRef), 0);
+		}
+		bzero(pLists, nElements * sizeof(CFTypeRef));
+
+		CFDictionaryGetKeysAndValues(dict, keys, values);
+		for (i = 0; i < nElements; i++) {
+			if (!_SCUnserialize((CFPropertyListRef *)&pLists[i], values[i], NULL, NULL)) {
+				goto done;
+			}
+		}
+	}
+
+	newDict = CFDictionaryCreate(NULL,
+				     keys,
+				     pLists,
+				     nElements,
+				     &kCFTypeDictionaryKeyCallBacks,
+				     &kCFTypeDictionaryValueCallBacks);
+
+    done :
+
+	if (nElements > 0) {
+		CFIndex	i;
+
+		for (i = 0; i < nElements; i++) {
+			if (pLists[i])	CFRelease(pLists[i]);
+		}
+
+		if (keys != keys_q) {
+			CFAllocatorDeallocate(NULL, keys);
+			CFAllocatorDeallocate(NULL, values);
+			CFAllocatorDeallocate(NULL, pLists);
+		}
+	}
+
+	return newDict;
 }
 
 
@@ -156,7 +444,7 @@ __showMachPortStatus()
 		status = mach_port_names(mach_task_self(), &ports, &pn, &types, &tn);
 		if (status == MACH_MSG_SUCCESS) {
 			str = CFStringCreateMutable(NULL, 0);
-			for (pi=0; pi < pn; pi++) {
+			for (pi = 0; pi < pn; pi++) {
 				char	rights[16], *rp = &rights[0];
 
 				if (types[pi] != MACH_PORT_TYPE_NONE) {

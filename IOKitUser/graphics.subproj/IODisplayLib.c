@@ -27,6 +27,7 @@
 #include <mach/thread_switch.h>
 #include <sys/file.h>
 #include <sys/stat.h>
+#include <unistd.h>
 #include <string.h>
 #include <stdlib.h>
 
@@ -34,21 +35,21 @@
 #include <CoreFoundation/CFBundlePriv.h>
 
 #include <IOKit/IOKitLib.h>
+#include <libkern/OSByteOrder.h>
 #include <IOKit/graphics/IOGraphicsLib.h>
+#include <IOKit/graphics/IOGraphicsLibPrivate.h>
 #include <IOKit/graphics/IOGraphicsEngine.h>
-#include <IOKit/ndrvsupport/IOMacOSVideo.h>
 #include <IOKit/iokitmig.h>
 
-#include "IOGraphicsLibPrivate.h"
+#include "IOGraphicsLibInternal.h"
 
-#define DEBUGPARAMS	0
-
-#define MACOS9_RANGE_LIMIT	0
+#define DEBUGPARAMS		0
+#define LOG			0
 
 
 /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
 
-static IOReturn
+__private_extern__ IOReturn
 readFile(const char *path, vm_offset_t * objAddr, vm_size_t * objSize)
 {
     int fd;
@@ -66,6 +67,13 @@ readFile(const char *path, vm_offset_t * objAddr, vm_size_t * objSize)
 	    err = errno;
 	    continue;
 	}
+        if (0 == (stat_buf.st_mode & S_IFREG)) 
+        {
+            *objAddr = 0;
+            *objSize = 0;
+            err = kIOReturnNotReadable;
+            continue;
+        }
 	*objSize = stat_buf.st_size;
 
 	if( KERN_SUCCESS != map_fd(fd, 0, objAddr, TRUE, *objSize)) {
@@ -75,7 +83,7 @@ readFile(const char *path, vm_offset_t * objAddr, vm_size_t * objSize)
 	    continue;
 	}
 
-	err = 0;
+	err = kIOReturnSuccess;
 
     } while( false );
 
@@ -85,6 +93,33 @@ readFile(const char *path, vm_offset_t * objAddr, vm_size_t * objSize)
 }
 
 
+__private_extern__ CFMutableDictionaryRef
+readPlist( const char * path, UInt32 key )
+{
+    IOReturn			err;
+    vm_offset_t 		bytes;
+    vm_size_t			byteLen;
+    CFDataRef			data;
+    CFMutableDictionaryRef	obj = 0;
+
+    err = readFile( path, &bytes, &byteLen );
+
+    if( kIOReturnSuccess != err) 
+	return (0);
+    
+    data = CFDataCreateWithBytesNoCopy( kCFAllocatorDefault,
+				(const UInt8 *) bytes, byteLen, kCFAllocatorNull );
+    if( data) {
+	obj = (CFMutableDictionaryRef) CFPropertyListCreateFromXMLData( kCFAllocatorDefault, data,
+					    kCFPropertyListMutableContainers,
+					    (CFStringRef *) NULL );
+	CFRelease( data );
+    }
+    vm_deallocate( mach_task_self(), bytes, byteLen );
+
+    return (obj);
+}
+
 static CFMutableDictionaryRef
 IODisplayCreateOverrides( IOOptionBits options, 
                             IODisplayVendorID vendor, IODisplayProductID product,
@@ -92,12 +127,8 @@ IODisplayCreateOverrides( IOOptionBits options,
 {
 
     char			path[256];
-    vm_offset_t 		bytes;
-    vm_size_t			byteLen;
-    CFDataRef			data;
     CFTypeRef			obj = 0;
     CFMutableDictionaryRef	dict = 0;
-    IOReturn			err;
 
     if( 0 == (options & kIODisplayMatchingInfo)) {
 
@@ -106,21 +137,7 @@ IODisplayCreateOverrides( IOOptionBits options,
                         "/" kDisplayProductID "-%lx",
                         vendor, product );
     
-        err = readFile( path, &bytes, &byteLen );
-    
-        if( kIOReturnSuccess == err) {
-        
-            data = CFDataCreateWithBytesNoCopy( kCFAllocatorDefault,
-                                        (const UInt8 *) bytes, byteLen, kCFAllocatorNull );
-            if( data) {
-                obj = CFPropertyListCreateFromXMLData( kCFAllocatorDefault, data,
-                                                    kCFPropertyListImmutable,
-                                                    (CFStringRef *) NULL );
-                CFRelease( data );
-            }
-            vm_deallocate( mach_task_self(), bytes, byteLen );
-        }
-
+        obj = readPlist( path, ((vendor & 0xffff) << 16) | (product & 0xffff) );
         if( obj) {
             if( CFDictionaryGetTypeID() == CFGetTypeID( obj )) {
                 dict = CFDictionaryCreateMutableCopy( kCFAllocatorDefault, 0, obj);
@@ -335,6 +352,8 @@ static void GenerateProductName( CFMutableDictionaryRef dict,
 
         if( EDIDName(edid, sbuf))
             name = sbuf;
+	else if (edid)
+	    name = "Unknown Display";
         else {
 
             if( displayType < (sizeof( type2Name) / sizeof(type2Name[0])))
@@ -376,51 +395,51 @@ static void GenerateProductName( CFMutableDictionaryRef dict,
 }
 
 static void
-MaxTimingRangeRec( VDDisplayTimingRangeRec * range )
+MaxTimingRangeRec( IODisplayTimingRange * range )
 {
-    bzero( range, sizeof( VDDisplayTimingRangeRec) );
+    bzero( range, sizeof( IODisplayTimingRange) );
 
-    range->csTimingRangeSyncFlags		= 0xffffffff;
-    range->csTimingRangeSignalLevels		= 0xffffffff;
+    range->supportedSyncFlags			= 0xffffffff;
+    range->supportedSignalLevels		= 0xffffffff;
 
-    range->csMaxFrameRate			= 0xffffffff;
-    range->csMaxLineRate			= 0xffffffff;
-    range->csMaxPixelClock			= 0xffffffff;
-    range->csMaxPixelError			= 0xffffffff;
+    range->maxFrameRate				= 0xffffffff;
+    range->maxLineRate				= 0xffffffff;
+    range->maxPixelClock			= 0xffffffff;
+    range->maxPixelError			= 0xffffffff;
 
-    range->csMaxHorizontalTotal			= 0xffffffff;
-    range->csMaxVerticalTotal			= 0xffffffff;
-    range->csMaxHorizontalActiveClocks		= 0xffffffff;
-    range->csMaxHorizontalBlankingClocks	= 0xffffffff;
-    range->csMaxHorizontalSyncOffsetClocks	= 0xffffffff;
-    range->csMaxHorizontalPulseWidthClocks	= 0xffffffff;
-    range->csMaxVerticalActiveClocks		= 0xffffffff;
-    range->csMaxVerticalBlankingClocks		= 0xffffffff;
-    range->csMaxVerticalSyncOffsetClocks	= 0xffffffff;
-    range->csMaxVerticalPulseWidthClocks	= 0xffffffff;
-    range->csMaxHorizontalBorderLeft		= 0xffffffff;
-    range->csMaxHorizontalBorderRight		= 0xffffffff;
-    range->csMaxVerticalBorderTop		= 0xffffffff;
-    range->csMaxVerticalBorderBottom		= 0xffffffff;
+    range->maxHorizontalTotal			= 0xffffffff;
+    range->maxVerticalTotal			= 0xffffffff;
+    range->maxHorizontalActiveClocks		= 0xffffffff;
+    range->maxHorizontalBlankingClocks		= 0xffffffff;
+    range->maxHorizontalSyncOffsetClocks	= 0xffffffff;
+    range->maxHorizontalPulseWidthClocks	= 0xffffffff;
+    range->maxVerticalActiveClocks		= 0xffffffff;
+    range->maxVerticalBlankingClocks		= 0xffffffff;
+    range->maxVerticalSyncOffsetClocks		= 0xffffffff;
+    range->maxVerticalPulseWidthClocks		= 0xffffffff;
+    range->maxHorizontalBorderLeft		= 0xffffffff;
+    range->maxHorizontalBorderRight		= 0xffffffff;
+    range->maxVerticalBorderTop			= 0xffffffff;
+    range->maxVerticalBorderBottom		= 0xffffffff;
 
-    range->csCharSizeHorizontalActive		= 1;
-    range->csCharSizeHorizontalBlanking		= 1;
-    range->csCharSizeHorizontalSyncOffset	= 1;
-    range->csCharSizeHorizontalSyncPulse	= 1;
-    range->csCharSizeVerticalBlanking		= 1;
-    range->csCharSizeVerticalSyncOffset		= 1;
-    range->csCharSizeVerticalSyncPulse		= 1;
-    range->csCharSizeHorizontalBorderLeft	= 1;
-    range->csCharSizeHorizontalBorderRight	= 1;
-    range->csCharSizeVerticalBorderTop		= 1;
-    range->csCharSizeVerticalBorderBottom	= 1;
-    range->csCharSizeHorizontalTotal		= 1;
-    range->csCharSizeVerticalTotal		= 1;
+    range->charSizeHorizontalActive		= 1;
+    range->charSizeHorizontalBlanking		= 1;
+    range->charSizeHorizontalSyncOffset		= 1;
+    range->charSizeHorizontalSyncPulse		= 1;
+    range->charSizeVerticalBlanking		= 1;
+    range->charSizeVerticalSyncOffset		= 1;
+    range->charSizeVerticalSyncPulse		= 1;
+    range->charSizeHorizontalBorderLeft		= 1;
+    range->charSizeHorizontalBorderRight	= 1;
+    range->charSizeVerticalBorderTop		= 1;
+    range->charSizeVerticalBorderBottom		= 1;
+    range->charSizeHorizontalTotal		= 1;
+    range->charSizeVerticalTotal		= 1;
 }
 
 static Boolean
 EDIDDescToDisplayTimingRangeRec( EDID * edid, EDIDGeneralDesc * desc,
-                             VDDisplayTimingRangeRec * range )
+                                 IODisplayTimingRange * range )
 {
     UInt8 byte;
 
@@ -435,254 +454,571 @@ EDIDDescToDisplayTimingRangeRec( EDID * edid, EDIDGeneralDesc * desc,
     MaxTimingRangeRec( range );
 
     byte = edid->displayParams[0];
-    range->csTimingRangeSignalLevels = 1 << ((byte >> 5) & 3);
-    range->csTimingRangeSyncFlags = ((byte & 1) ? kRangeSupportsVSyncSerrationMask : 0)
-                                  | ((byte & 2) ? kRangeSupportsSyncOnGreenMask : 0)
-                                  | ((byte & 4) ? kRangeSupportsCompositeSyncMask : 0)
-                                  | ((byte & 8) ? kRangeSupportsVSyncSerrationMask : 0);
+    range->supportedSignalLevels  = 1 << ((byte >> 5) & 3);
+    range->supportedSyncFlags	  = ((byte & 1) ? kIORangeSupportsVSyncSerration : 0)
+                                  | ((byte & 2) ? kIORangeSupportsSyncOnGreen : 0)
+                                  | ((byte & 4) ? kIORangeSupportsCompositeSync : 0)
+                                  | ((byte & 8) ? kIORangeSupportsVSyncSerration : 0);
 
-    range->csMinFrameRate  = desc->data[0];
-    range->csMaxFrameRate  = desc->data[1];
-    range->csMinLineRate   = desc->data[2] * 1000;
-    range->csMaxLineRate   = desc->data[3] * 1000;
-    range->csMaxPixelClock = desc->data[4] * 10000000ULL;
+    range->minFrameRate  = desc->data[0];
+    range->maxFrameRate  = desc->data[1];
+    range->minLineRate   = desc->data[2] * 1000;
+    range->maxLineRate   = desc->data[3] * 1000;
+    range->maxPixelClock = desc->data[4] * 10000000ULL;
 
-//-- these from DM:
-    range->csMinHorizontalActiveClocks = 640;
-    range->csMinVerticalActiveClocks   = 480;
-#if MACOS9_RANGE_LIMIT
-    if( range->csMaxLineRate)
-        range->csMaxHorizontalActiveClocks = range->csMaxPixelClock / range->csMaxLineRate;
-    if( range->csMaxFrameRate)
-        range->csMaxVerticalActiveClocks   = range->csMaxPixelClock
-                                            / (range->csMinHorizontalActiveClocks * range->csMaxFrameRate);
-#else
-    if( range->csMinLineRate)
-        range->csMaxHorizontalActiveClocks = range->csMaxPixelClock / range->csMinLineRate;
-    if( range->csMinFrameRate)
-        range->csMaxVerticalActiveClocks   = range->csMaxPixelClock
-                                            / (range->csMinHorizontalActiveClocks * range->csMinFrameRate);
-#endif
-//--
+    range->minHorizontalActiveClocks = 640;
+    range->minVerticalActiveClocks   = 480;
+
+    if( range->minLineRate)
+        range->maxHorizontalActiveClocks = range->maxPixelClock / range->minLineRate;
+    if( range->minFrameRate)
+        range->maxVerticalActiveClocks   = range->maxPixelClock
+                                            / (range->minHorizontalActiveClocks * range->minFrameRate);
+
     return( true );
 }
 
+static kern_return_t
+DecodeStandardTiming( EDID * edid, UInt16 standardTiming, 
+		      UInt32 * oWidth, UInt32 * height, float * refreshRate)
+{
+    UInt32 width;
+
+    if( 0x0101 == standardTiming)
+	return (kIOReturnBadArgument);
+
+    width = ((standardTiming >> 8) + 31) << 3;
+    *oWidth = width;
+    switch( (standardTiming >> 6) & 3) {
+	case 0:
+	    if ((edid->version > 1) || (edid->revision >= 3))
+		*height = (10 * width) / 16;
+	    else
+		*height = width;
+	    break;
+	case 2:
+	    *height = (4 * width) / 5;
+	    break;
+	case 3:
+	    *height = (9 * width) / 16;
+	    break;
+	default:
+	case 1:
+	    *height = (3 * width) / 4;
+	    break;
+    }
+
+    if (refreshRate)
+	*refreshRate = (float) ((standardTiming & 31) + 60);
+
+    return (kIOReturnSuccess);
+}
+
 static IOReturn
-EDIDDescToDetailedTimingRec( EDID * edid, EDIDDetailedTimingDesc * desc,
-                            VDDetailedTimingRec * timing )
+EDIDDescToDetailedTiming( EDID * edid, EDIDDetailedTimingDesc * desc,
+                            IODetailedTimingInformation * timing )
 {
 
-    bzero( timing, sizeof( VDDetailedTimingRec) );
-    timing->csTimingSize = sizeof( VDDetailedTimingRec);
+    bzero( timing, sizeof( IODetailedTimingInformation) );
+    timing->__reservedA[0] = sizeof( IODetailedTimingInformation);	// csTimingSize
 
     if( !desc->clock)
         return( kIOReturnBadArgument );
 
-    timing->csSignalConfig		= (edid->displayParams[0] & 16)
-                                        ? kAnalogSetupExpectedMask : 0;
-    timing->csSignalLevels		= (edid->displayParams[0] >> 5) & 3;
+    timing->signalConfig		= (edid->displayParams[0] & 16)
+                                        ? kIOAnalogSetupExpected : 0;
+    timing->signalLevels		= (edid->displayParams[0] >> 5) & 3;
 
-    timing->csPixelClock 		= ((UInt64) ((desc->clock & 0xff) << 8)
-                                                   | (desc->clock >> 8))
+    timing->pixelClock 			= ((UInt64) OSReadLittleInt16(&desc->clock, 0))
                                         * 10000ULL;
 
-    timing->csHorizontalActive		= desc->horizActive
+    timing->horizontalActive		= desc->horizActive
                                         | ((desc->horizHigh & 0xf0) << 4);
-    timing->csHorizontalBlanking	= desc->horizBlanking
+    timing->horizontalBlanking		= desc->horizBlanking
                                         | ((desc->horizHigh & 0x0f) << 8);
 
-    timing->csVerticalActive 		= desc->verticalActive
+    timing->verticalActive 		= desc->verticalActive
                                         | ((desc->verticalHigh & 0xf0) << 4);
-    timing->csVerticalBlanking  	= desc->verticalBlanking
+    timing->verticalBlanking  		= desc->verticalBlanking
                                         | ((desc->verticalHigh & 0x0f) << 8);
 
-    timing->csHorizontalSyncOffset	= desc->horizSyncOffset
+    timing->horizontalSyncOffset	= desc->horizSyncOffset
                                         | ((desc->syncHigh & 0xc0) << 2);
-    timing->csHorizontalSyncPulseWidth	= desc->horizSyncWidth
+    timing->horizontalSyncPulseWidth	= desc->horizSyncWidth
                                         | ((desc->syncHigh & 0x30) << 4);
 
-    timing->csVerticalSyncOffset	= ((desc->verticalSyncOffsetWidth & 0xf0) >> 4)
+    timing->verticalSyncOffset		= ((desc->verticalSyncOffsetWidth & 0xf0) >> 4)
                                         | ((desc->syncHigh & 0x0c) << 4);
-    timing->csVerticalSyncPulseWidth	= ((desc->verticalSyncOffsetWidth & 0x0f) >> 0)
+    timing->verticalSyncPulseWidth	= ((desc->verticalSyncOffsetWidth & 0x0f) >> 0)
                                         | ((desc->syncHigh & 0x03) << 4);
 
-    timing->csHorizontalBorderLeft	= desc->horizBorder;
-    timing->csHorizontalBorderRight	= desc->horizBorder;
-    timing->csVerticalBorderTop		= desc->verticalBorder;
-    timing->csVerticalBorderBottom	= desc->verticalBorder;
+    timing->horizontalBorderLeft	= desc->horizBorder;
+    timing->horizontalBorderRight	= desc->horizBorder;
+    timing->verticalBorderTop		= desc->verticalBorder;
+    timing->verticalBorderBottom	= desc->verticalBorder;
 
-    timing->csHorizontalSyncConfig	= (desc->flags & 2)
-                                        ? kSyncPositivePolarityMask : 0;
-    timing->csHorizontalSyncLevel	= 0;
-    timing->csVerticalSyncConfig	= (desc->flags & 4)
-                                        ? kSyncPositivePolarityMask : 0;
-    timing->csVerticalSyncLevel		= 0;
+    timing->horizontalSyncConfig	= (desc->flags & 2)
+                                        ? kIOSyncPositivePolarity : 0;
+    timing->horizontalSyncLevel		= 0;
+    timing->verticalSyncConfig		= (desc->flags & 4)
+                                        ? kIOSyncPositivePolarity : 0;
+    timing->verticalSyncLevel		= 0;
+
+    return( kIOReturnSuccess );
+}
+
+static void
+TimingToHost( const IODetailedTimingInformationV2 * _t1, IODetailedTimingInformationV2 * t2 )
+{
+    IODetailedTimingInformationV2 * t1 = (IODetailedTimingInformationV2 *) _t1;
+
+    bcopy(t1, t2, sizeof(IODetailedTimingInformationV2));
+
+    t2->scalerFlags      	 = OSReadBigInt32(&t1->scalerFlags, 0);
+    t2->horizontalScaled 	 = OSReadBigInt32(&t1->horizontalScaled, 0);
+    t2->verticalScaled   	 = OSReadBigInt32(&t1->verticalScaled, 0);
+    t2->signalConfig     	 = OSReadBigInt32(&t1->signalConfig, 0);
+    t2->signalLevels     	 = OSReadBigInt32(&t1->signalLevels, 0);
+
+    t2->pixelClock    		 = OSReadBigInt64(&t1->pixelClock, 0);
+    t2->minPixelClock		 = OSReadBigInt64(&t1->minPixelClock, 0);
+    t2->maxPixelClock		 = OSReadBigInt64(&t1->maxPixelClock, 0);
+
+    t2->horizontalActive	 = OSReadBigInt32(&t1->horizontalActive, 0);
+    t2->horizontalBlanking	 = OSReadBigInt32(&t1->horizontalBlanking, 0);
+    t2->horizontalSyncOffset	 = OSReadBigInt32(&t1->horizontalSyncOffset, 0);
+    t2->horizontalSyncPulseWidth = OSReadBigInt32(&t1->horizontalSyncPulseWidth, 0);
+
+    t2->verticalActive		 = OSReadBigInt32(&t1->verticalActive, 0);
+    t2->verticalBlanking	 = OSReadBigInt32(&t1->verticalBlanking, 0);
+    t2->verticalSyncOffset	 = OSReadBigInt32(&t1->verticalSyncOffset, 0);
+    t2->verticalSyncPulseWidth	 = OSReadBigInt32(&t1->verticalSyncPulseWidth, 0);
+
+    t2->horizontalBorderLeft 	 = OSReadBigInt32(&t1->horizontalBorderLeft, 0);
+    t2->horizontalBorderRight 	 = OSReadBigInt32(&t1->horizontalBorderRight, 0);
+    t2->verticalBorderTop 	 = OSReadBigInt32(&t1->verticalBorderTop, 0);
+    t2->verticalBorderBottom 	 = OSReadBigInt32(&t1->verticalBorderBottom, 0);
+    t2->horizontalSyncConfig 	 = OSReadBigInt32(&t1->horizontalSyncConfig, 0);
+    t2->horizontalSyncLevel 	 = OSReadBigInt32(&t1->horizontalSyncLevel, 0);
+    t2->verticalSyncConfig 	 = OSReadBigInt32(&t1->verticalSyncConfig, 0);
+    t2->verticalSyncLevel 	 = OSReadBigInt32(&t1->verticalSyncLevel, 0);
+}
+
+static IOReturn
+StandardResolutionToDetailedTiming( IOFBConnectRef connectRef, EDID * edid, 
+				    IOFBResolutionSpec * spec,
+				    IOTimingInformation * timing )
+{
+    CFDictionaryRef stdModes, timingIDs, dict;
+    const void *    key;
+    CFDataRef	    data;
+
+    stdModes = CFDictionaryGetValue(connectRef->iographicsProperties, CFSTR("std-modes"));
+    if (!stdModes)
+	return (kIOReturnUnsupportedMode);
+
+    key = (const void *) spec->timingID;
+    if (!key)
+    {
+	timingIDs = CFDictionaryGetValue(connectRef->iographicsProperties, CFSTR("timing-ids"));
+	if (!timingIDs)
+	    return (kIOReturnUnsupportedMode);
+	key = (const void *)((spec->width << 20) | (spec->height << 8) | ((UInt32)(spec->refreshRate + 0.5)));
+	key = CFDictionaryGetValue(timingIDs, key);
+    }
+    dict = CFDictionaryGetValue(stdModes, key);
+
+    if (!dict)
+	return (kIOReturnUnsupportedMode);
+    data = CFDictionaryGetValue(dict, CFSTR(kIOFBModeTMKey));
+    if (!data)
+	return (kIOReturnUnsupportedMode);
+
+    TimingToHost( (const IODetailedTimingInformationV2 *) CFDataGetBytePtr(data), &timing->detailedInfo.v2 );
+
+    timing->appleTimingID = (UInt32) key;
+
+    return (kIOReturnSuccess);
+}
+
+static IOReturn
+GTFToDetailedTiming( IOFBConnectRef connectRef, EDID * edid, 
+		     IOFBResolutionSpec  * spec, UInt32 characterSize,
+		     IODetailedTimingInformation * timing )
+{
+    SInt32	curve;
+    int		vSyncRqd	= 3;
+    float	hSyncPct	= 8.0/100.0;
+    float	minVSyncBP	= 550e-6;    // s
+    int		minPorchRnd	= 1;
+
+    float	interlace	= spec->needInterlace ? 0.5 : 0.0;
+    float	interlaceFactor = spec->needInterlace ? 2.0 : 1.0;
+    float	vFieldRateRqd	= spec->refreshRate * interlaceFactor;
+
+    // 1.
+    int		hPixelsRnd	= roundf(spec->width / characterSize) * characterSize;
+    int		vLinesRnd	= roundf(spec->height / interlaceFactor);
+    
+    // 4,5,15,16.
+    int		topMargin	= 0;
+    int		bottomMargin	= 0;
+    int		leftMargin	= 0;
+    int		rightMargin	= 0;
+
+    // 7.
+    float	hPeriodEst	= ((1 / vFieldRateRqd) - (minVSyncBP)) 
+				/ (vLinesRnd + (2 * topMargin) + minPorchRnd + interlace);
+    // 8.
+    int		vSyncBP		= roundf( minVSyncBP / hPeriodEst );
+    // 10.
+    float	totalVLines	= vLinesRnd + topMargin + bottomMargin + vSyncBP + interlace + minPorchRnd;
+    // 11.
+    float	vFieldRateEst	= 1 / hPeriodEst / totalVLines;
+    // 12.
+    float	hPeriod		= hPeriodEst / (vFieldRateRqd / vFieldRateEst);
+    // 17.
+    int		totalActivePixels = hPixelsRnd + leftMargin + rightMargin;
+
+    //
+    for (curve = (connectRef->numGTFCurves - 1); curve >= 0; curve--)
+    {
+	if ((1 / hPeriod) > connectRef->gtfCurves[curve].startHFrequency)
+	    break;
+    }
+
+    float	cPrime		= ((((float) connectRef->gtfCurves[curve].c) - ((float) connectRef->gtfCurves[curve].j)) 
+				* ((float) connectRef->gtfCurves[curve].k) / 256.0) + ((float) connectRef->gtfCurves[curve].j);
+    float	mPrime		= ((float) connectRef->gtfCurves[curve].k) / 256.0 * ((float) connectRef->gtfCurves[curve].m);
+
+    // 18.
+    float	idealDutyCycle	= cPrime - (mPrime * hPeriod * 1e6 / 1000.0);
+    // 19.
+    int		hBlankPixels	= roundf((totalActivePixels * idealDutyCycle / (100.0 - idealDutyCycle)
+				/ (2 * characterSize))) * 2 * characterSize;
+    // 20.
+    int		totalPixels	= totalActivePixels + hBlankPixels;
+    // 21.
+    float	pixelFreq	= totalPixels / hPeriod;
+
+    // stage 2 - 17.
+    int		hSyncPixels	= roundf( hSyncPct * totalPixels / characterSize) * characterSize;
+    int		hFPPixels	= (hBlankPixels / 2) - hSyncPixels;
+    // 30.
+    float	vOddBlankingLines = vSyncBP + minPorchRnd;
+    // 36.
+    float	vOddFPLines	= minPorchRnd + interlace;
+
+    // --
+    bzero( timing, sizeof( IODetailedTimingInformation) );
+    timing->__reservedA[0] = sizeof( IODetailedTimingInformation);	// csTimingSize
+
+    if (edid)
+    {
+        timing->signalConfig		= (edid->displayParams[0] & 16)
+                                        ? kIOAnalogSetupExpected : 0;
+        timing->signalLevels		= (edid->displayParams[0] >> 5) & 3;
+    }
+    else
+    {
+        timing->signalConfig		= kIOAnalogSetupExpected;
+        timing->signalLevels		= kIOAnalogSignalLevel_0700_0300;
+    }
+
+    timing->pixelClock 			= pixelFreq;
+
+    timing->horizontalActive		= totalActivePixels;
+    timing->horizontalBlanking		= hBlankPixels;
+
+    timing->verticalActive 		= vLinesRnd;
+    timing->verticalBlanking  		= vOddBlankingLines;
+
+    timing->horizontalSyncOffset	= hFPPixels;
+    timing->horizontalSyncPulseWidth	= hSyncPixels;
+
+    timing->verticalSyncOffset		= vOddFPLines;
+    timing->verticalSyncPulseWidth	= vSyncRqd;
+
+    timing->horizontalBorderLeft	= leftMargin;
+    timing->horizontalBorderRight	= rightMargin;
+    timing->verticalBorderTop		= topMargin;
+    timing->verticalBorderBottom	= bottomMargin;
+
+    timing->horizontalSyncConfig	= (curve == 0)
+                                        ? 0 : kIOSyncPositivePolarity;
+    timing->horizontalSyncLevel		= 0;
+    timing->verticalSyncConfig		= (curve == 0)
+                                        ? kIOSyncPositivePolarity : 0;
+    timing->verticalSyncLevel		= 0;
 
     return( kIOReturnSuccess );
 }
 
 static Boolean
-CheckTimingWithRange( VDDisplayTimingRangeRec * range,
-                        VDDetailedTimingRec * timing )
+CheckTimingWithRange( IODisplayTimingRange * range,
+                        IODetailedTimingInformation * timing )
 {
     UInt64	pixelClock;
     UInt64	rate;
     UInt64	hTotal, vTotal;
 
-    if( kDigitalSignalMask & timing->csSignalConfig)
+    if( kIODigitalSignal & timing->signalConfig)
         return( false);
 
-//    if( 0 == (range->csTimingRangeSyncFlags & (1 << (timing->csSignalLevels))))
+//    if( 0 == (range->supportedSyncFlags & (1 << (timing->signalLevels))))
 //        return( false);
-//    if( 0 == (range->csTimingRangeSignalLevels & (1 << (timing->csSignalLevels))))
+//    if( 0 == (range->supportedSignalLevels & (1 << (timing->signalLevels))))
 //        return( false);
 
-    pixelClock = timing->csPixelClock;
-    hTotal  = timing->csHorizontalActive;
-    hTotal += timing->csHorizontalBlanking;
-    vTotal  = timing->csVerticalActive;
-    vTotal += timing->csVerticalBlanking;
+    pixelClock = timing->pixelClock;
+    hTotal  = timing->horizontalActive;
+    hTotal += timing->horizontalBlanking;
+    vTotal  = timing->verticalActive;
+    vTotal += timing->verticalBlanking;
 
-    if( (pixelClock > range->csMaxPixelClock)
-     || (pixelClock < range->csMinPixelClock))
+    if( (pixelClock > range->maxPixelClock)
+     || (pixelClock < range->minPixelClock))
         return( false);
 
     // line rate
     rate = pixelClock / hTotal;
-    if( (rate > range->csMaxLineRate)
-     || (rate < range->csMinLineRate))
+    if( (rate > range->maxLineRate)
+     || (rate < range->minLineRate))
         return( false);
 
     // frame rate
     rate = pixelClock / (hTotal * vTotal);
-    if( (rate > range->csMaxFrameRate)
-     || (rate < range->csMinFrameRate))
+    if( (rate > range->maxFrameRate)
+     || (rate < range->minFrameRate))
         return( false);
 
-    if( hTotal > range->csMaxHorizontalTotal)
+    if( hTotal > range->maxHorizontalTotal)
         return( false);
-    if( vTotal > range->csMaxVerticalTotal)
+    if( vTotal > range->maxVerticalTotal)
         return( false);
 
-    if( (timing->csHorizontalActive > range->csMaxHorizontalActiveClocks)
-     || (timing->csHorizontalActive < range->csMinHorizontalActiveClocks))
+    if( (timing->horizontalActive > range->maxHorizontalActiveClocks)
+     || (timing->horizontalActive < range->minHorizontalActiveClocks))
         return( false);
-    if( (timing->csVerticalActive > range->csMaxVerticalActiveClocks)
-     || (timing->csVerticalActive < range->csMinVerticalActiveClocks))
+    if( (timing->verticalActive > range->maxVerticalActiveClocks)
+     || (timing->verticalActive < range->minVerticalActiveClocks))
         return( false);
 
 /*
-    if( (timing->csHorizontalBlanking > range->csMaxHorizontalBlankingClocks)
-     || (timing->csHorizontalBlanking < range->csMinHorizontalBlankingClocks))
+    if( (timing->horizontalBlanking > range->maxHorizontalBlankingClocks)
+     || (timing->horizontalBlanking < range->minHorizontalBlankingClocks))
         return( false);
-    if( (timing->csVerticalBlanking > range->csMaxVerticalBlankingClocks)
-     || (timing->csVerticalBlanking < range->csMinVerticalBlankingClocks))
+    if( (timing->verticalBlanking > range->maxVerticalBlankingClocks)
+     || (timing->verticalBlanking < range->minVerticalBlankingClocks))
         return( false);
 */
-    if( (timing->csHorizontalSyncOffset > range->csMaxHorizontalSyncOffsetClocks)
-     || (timing->csHorizontalSyncOffset < range->csMinHorizontalSyncOffsetClocks))
+    if( (timing->horizontalSyncOffset > range->maxHorizontalSyncOffsetClocks)
+     || (timing->horizontalSyncOffset < range->minHorizontalSyncOffsetClocks))
         return( false);
-    if( (timing->csHorizontalSyncPulseWidth > range->csMaxHorizontalPulseWidthClocks)
-     || (timing->csHorizontalSyncPulseWidth < range->csMinHorizontalPulseWidthClocks))
-        return( false);
-
-    if( (timing->csVerticalSyncOffset > range->csMaxVerticalSyncOffsetClocks)
-     || (timing->csVerticalSyncOffset < range->csMinVerticalSyncOffsetClocks))
-        return( false);
-    if( (timing->csVerticalSyncPulseWidth > range->csMaxVerticalPulseWidthClocks)
-     || (timing->csVerticalSyncPulseWidth < range->csMinVerticalPulseWidthClocks))
+    if( (timing->horizontalSyncPulseWidth > range->maxHorizontalPulseWidthClocks)
+     || (timing->horizontalSyncPulseWidth < range->minHorizontalPulseWidthClocks))
         return( false);
 
-    if( (timing->csHorizontalBorderLeft > range->csMaxHorizontalBorderLeft)
-     || (timing->csHorizontalBorderLeft < range->csMinHorizontalBorderLeft))
+    if( (timing->verticalSyncOffset > range->maxVerticalSyncOffsetClocks)
+     || (timing->verticalSyncOffset < range->minVerticalSyncOffsetClocks))
         return( false);
-    if( (timing->csHorizontalBorderRight > range->csMaxHorizontalBorderRight)
-     || (timing->csHorizontalBorderRight < range->csMinHorizontalBorderRight))
-        return( false);
-    if( (timing->csVerticalBorderTop > range->csMaxVerticalBorderTop)
-     || (timing->csVerticalBorderTop < range->csMinVerticalBorderTop))
-        return( false);
-    if( (timing->csVerticalBorderBottom > range->csMaxVerticalBorderBottom)
-     || (timing->csVerticalBorderBottom < range->csMinVerticalBorderBottom))
+    if( (timing->verticalSyncPulseWidth > range->maxVerticalPulseWidthClocks)
+     || (timing->verticalSyncPulseWidth < range->minVerticalPulseWidthClocks))
         return( false);
 
-    if( timing->csHorizontalActive & (range->csCharSizeHorizontalActive - 1))
+    if( (timing->horizontalBorderLeft > range->maxHorizontalBorderLeft)
+     || (timing->horizontalBorderLeft < range->minHorizontalBorderLeft))
         return( false);
-    if( timing->csHorizontalBlanking & (range->csCharSizeHorizontalBlanking - 1))
+    if( (timing->horizontalBorderRight > range->maxHorizontalBorderRight)
+     || (timing->horizontalBorderRight < range->minHorizontalBorderRight))
         return( false);
-    if( timing->csHorizontalSyncOffset & (range->csCharSizeHorizontalSyncOffset - 1))
+    if( (timing->verticalBorderTop > range->maxVerticalBorderTop)
+     || (timing->verticalBorderTop < range->minVerticalBorderTop))
         return( false);
-    if( timing->csHorizontalSyncPulseWidth & (range->csCharSizeHorizontalSyncPulse - 1))
+    if( (timing->verticalBorderBottom > range->maxVerticalBorderBottom)
+     || (timing->verticalBorderBottom < range->minVerticalBorderBottom))
         return( false);
-    if( timing->csVerticalBlanking & (range->csCharSizeVerticalBlanking - 1))
+
+    if( timing->horizontalActive & (range->charSizeHorizontalActive - 1))
         return( false);
-    if( timing->csVerticalSyncOffset & (range->csCharSizeVerticalSyncOffset - 1))
+    if( timing->horizontalBlanking & (range->charSizeHorizontalBlanking - 1))
         return( false);
-    if( timing->csVerticalSyncPulseWidth & (range->csCharSizeVerticalSyncPulse - 1))
+    if( timing->horizontalSyncOffset & (range->charSizeHorizontalSyncOffset - 1))
         return( false);
-    if( timing->csHorizontalBorderLeft & (range->csCharSizeHorizontalBorderLeft - 1))
+    if( timing->horizontalSyncPulseWidth & (range->charSizeHorizontalSyncPulse - 1))
         return( false);
-    if( timing->csHorizontalBorderRight & (range->csCharSizeHorizontalBorderRight - 1))
+    if( timing->verticalBlanking & (range->charSizeVerticalBlanking - 1))
         return( false);
-    if( timing->csVerticalBorderTop & (range->csCharSizeVerticalBorderTop - 1))
+    if( timing->verticalSyncOffset & (range->charSizeVerticalSyncOffset - 1))
         return( false);
-    if( timing->csVerticalBorderBottom & (range->csCharSizeVerticalBorderBottom - 1))
+    if( timing->verticalSyncPulseWidth & (range->charSizeVerticalSyncPulse - 1))
         return( false);
-    if( hTotal & (range->csCharSizeHorizontalTotal - 1))
+    if( timing->horizontalBorderLeft & (range->charSizeHorizontalBorderLeft - 1))
         return( false);
-    if( vTotal & (range->csCharSizeVerticalTotal - 1))
+    if( timing->horizontalBorderRight & (range->charSizeHorizontalBorderRight - 1))
+        return( false);
+    if( timing->verticalBorderTop & (range->charSizeVerticalBorderTop - 1))
+        return( false);
+    if( timing->verticalBorderBottom & (range->charSizeVerticalBorderBottom - 1))
+        return( false);
+    if( hTotal & (range->charSizeHorizontalTotal - 1))
+        return( false);
+    if( vTotal & (range->charSizeVerticalTotal - 1))
         return( false);
 
     return( true );
 }
 
-Boolean
-IOCheckTimingWithRange( const void * range,
-                        const IODetailedTimingInformationV2 * timing )
+static Boolean
+HasEstablishedTiming( IOFBConnectRef connectRef, UInt32 appleTimingID )
 {
-    return( CheckTimingWithRange( (VDDisplayTimingRangeRec *) range, (VDDetailedTimingRec *) timing));
+    CFDataRef data;
+    UInt32 *  establishedIDs;
+    UInt32    i;
+
+    if (kIOTimingIDInvalid == appleTimingID)
+	return (false);
+
+    data = CFDictionaryGetValue(connectRef->iographicsProperties, CFSTR("established-ids"));
+    if (data)
+	establishedIDs = (UInt32 *) CFDataGetBytePtr(data);
+    else
+	establishedIDs = 0;
+
+    for( i = 0; 
+	 establishedIDs && (i < 24) && (appleTimingID != OSReadBigInt32(&establishedIDs[i], 0));
+	 i++ )	{}
+
+    return( i < 24 );
+}
+
+__private_extern__ IOReturn
+IOCheckTimingWithDisplay( IOFBConnectRef connectRef,
+			  const IOTimingInformation * timing,
+			  IOOptionBits modeGenFlags )
+{
+    IOReturn	result;
+    CFDataRef	edidData;
+    CFDataRef	data;
+
+    do 
+    {
+        if (connectRef->fbRange && !(kIOFBDriverMode & modeGenFlags))
+	{
+	    unsigned int len;
+
+	    if (!CheckTimingWithRange(connectRef->fbRange, 
+					(IODetailedTimingInformation *) &timing->detailedInfo.v2))
+	    {
+#if LOG
+		printf("Out of fb\n");
+#endif
+		result = kIOReturnUnsupportedMode;
+		continue;
+	    }
+	    len = sizeof(IODetailedTimingInformation);
+	    result = io_connect_method_structureI_structureO( connectRef->connect, 17, /*index*/
+			    (void *) &timing->detailedInfo.v2, len, (void *) &timing->detailedInfo.v2, &len);
+	    if (kIOReturnSuccess != result)
+	    {
+#if LOG
+		printf("preflight (%x)\n", result);
+#endif
+		result = kIOReturnUnsupportedMode;
+		continue;
+	    }
+	}
+
+	result = kIOReturnNotFound;
+	if(!connectRef->overrides)
+	    continue;
+
+	if (kIOFBDriverMode & modeGenFlags)
+	{
+	    edidData = CFDictionaryGetValue(connectRef->overrides, CFSTR(kIODisplayEDIDKey));
+	    if (edidData && HasEstablishedTiming(connectRef, timing->appleTimingID))
+		continue;
+	}
+
+	if (kIODetailedTimingValid & timing->flags)
+	{
+	    CFNumberRef num;
+
+	    num = CFDictionaryGetValue( connectRef->overrides, CFSTR("sync") );
+	    if( num)
+	    {
+		UInt32 hSyncMask, hSyncValue, vSyncMask, vSyncValue;
+    
+		CFNumberGetValue( num, kCFNumberSInt32Type, &vSyncValue );
+		hSyncMask  = 0xff & (vSyncValue >> 24);
+		hSyncValue = 0xff & (vSyncValue >> 16);
+		vSyncMask  = 0xff & (vSyncValue >> 8);
+		vSyncValue = 0xff & (vSyncValue >> 0);
+		if ((hSyncValue != (timing->detailedInfo.v2.horizontalSyncConfig & hSyncMask))
+		 || (vSyncValue != (timing->detailedInfo.v2.verticalSyncConfig   & vSyncMask)))
+		{
+		    result = kIOReturnUnsupportedMode;
+		    continue;
+		}
+	    }
+    
+	    data = CFDictionaryGetValue(connectRef->overrides, CFSTR("trng"));
+	    if (data && ((kIOFBGTFMode | kIOFBStdMode | kIOFBDriverMode) & modeGenFlags))
+	    {
+		result = CheckTimingWithRange((IODisplayTimingRange *) CFDataGetBytePtr(data),
+					      (IODetailedTimingInformation *) &timing->detailedInfo.v2)
+			? kIOReturnSuccess : kIOReturnUnsupportedMode;
+	    }
+	}
+    }
+    while (false);
+
+    return (result);
 }
 
 static kern_return_t
-PreflightDetailedTiming( IOFBConnectRef connectRef,
-                            VDDetailedTimingRec * timing,
-                            VDDisplayTimingRangeRec * fbRange,
-                            VDDisplayTimingRangeRec * displayRange )
+InstallTiming( IOFBConnectRef             connectRef, 
+		IOTimingInformation	* timing,
+		IOOptionBits              dmFlags,
+		IOOptionBits              modeGenFlags )
 {
-    IOReturn 			err = kIOReturnUnsupportedMode;
-    unsigned int		len;
+    IOReturn			err;
+    IODisplayModeInformation	dmInfo;
 
-    do {
-        if( !CheckTimingWithRange( fbRange, timing))
-            continue;
+    err = IOCheckTimingWithDisplay( connectRef, timing, modeGenFlags );
+    if(kIOReturnUnsupportedMode == err)
+        return( err );
 
-        len = sizeof( VDDetailedTimingRec);
-        err = io_connect_method_structureI_structureO( connectRef->connect, 17, /*index*/
-                        (void *) timing, len, (void *) timing, &len);
-    
-#if LOG
-        printf("err(%x), clocks (%qx, %qx, %qx), %ld, %ld, %ld\n", err,
-            timing->csPixelClock,
-            timing->csMinPixelClock, timing->csMaxPixelClock,
-            timing->csSignalConfig,
-            timing->csHorizontalSyncConfig, timing->csVerticalSyncConfig );
-#endif
-    
-        if( kIOReturnSuccess != err)
-            continue;
+    if ((kIOFBEDIDStdEstMode | kIOFBEDIDDetailedMode) & modeGenFlags)
+    {
+	if ((0xffffffff == connectRef->dimensions.width)
+	|| (timing->detailedInfo.v2.horizontalActive > connectRef->dimensions.width))
+	    connectRef->dimensions.width = timing->detailedInfo.v2.horizontalActive;
+	if ((0xffffffff == connectRef->dimensions.height)
+	|| (timing->detailedInfo.v2.verticalActive > connectRef->dimensions.height))
+	    connectRef->dimensions.height = timing->detailedInfo.v2.verticalActive;
+    }
+    else
+    {
+	if( (timing->detailedInfo.v2.horizontalActive > connectRef->dimensions.width)
+	    || (timing->detailedInfo.v2.verticalActive > connectRef->dimensions.height)) {
+	    dmFlags |= connectRef->dimensions.setFlags;
+	    dmFlags &= ~connectRef->dimensions.clearFlags;
+	}
+	if (kIOReturnSuccess != err)
+	    dmFlags &= ~kDisplayModeSafeFlag;
+    }
 
-        err = CheckTimingWithRange( displayRange, timing) ? kIOReturnSuccess : kIOReturnUnsupportedMode;
-
-    } while( false );
+    bzero( &dmInfo, sizeof( dmInfo ));
+    dmInfo.flags = dmFlags;
+    err = IOFBInstallMode( connectRef, 0xffffffff, &dmInfo, timing, 0, modeGenFlags );
 
     return( err );
 }
 
 static kern_return_t
 InstallFromEDIDDesc( IOFBConnectRef connectRef, 
-                            EDID * edid, EDIDDetailedTimingDesc * desc,
-                            VDDisplayTimingRangeRec * fbRange,
-                            VDDisplayTimingRangeRec * displayRange )
+                            EDID * edid, EDIDDetailedTimingDesc * desc )
 {
     IOReturn		err;
     IOTimingInformation	timing;
@@ -690,65 +1026,399 @@ InstallFromEDIDDesc( IOFBConnectRef connectRef,
     bzero( &timing, sizeof( timing ));
     timing.flags = kIODetailedTimingValid;
 
-    err = EDIDDescToDetailedTimingRec( edid, desc, (VDDetailedTimingRec *) &timing.detailedInfo.v2 );
+    err = EDIDDescToDetailedTiming( edid, desc, (IODetailedTimingInformation *) &timing.detailedInfo.v2 );
     if( kIOReturnSuccess != err)
         return( err );
 
-    err = PreflightDetailedTiming( connectRef, (VDDetailedTimingRec *) &timing.detailedInfo.v2,
-                                    fbRange, displayRange );
-    if( kIOReturnSuccess != err)
-        return( err );
-
-    err = IOFBInstallMode( connectRef, 0xffffffff, NULL, &timing, 0 );
+    if (!connectRef->defaultWidth)
+    {
+	connectRef->defaultWidth       = timing.detailedInfo.v2.horizontalActive;
+	connectRef->defaultHeight      = timing.detailedInfo.v2.verticalActive;
+	connectRef->defaultImageWidth  = desc->horizImageSize    | ((desc->imageSizeHigh & 0xf0) << 4);
+	connectRef->defaultImageHeight = desc->verticalImageSize | ((desc->imageSizeHigh & 0x0f) << 8);
+    }
+    err = InstallTiming( connectRef, &timing,
+			    kDisplayModeValidFlag | kDisplayModeSafeFlag,
+			    kIOFBEDIDDetailedMode );
 
     return( err );
 }
 
-void
-IODisplayInstallDetailedTimings( IOFBConnectRef connectRef )
+static kern_return_t
+InstallFromTimingOverride( IOFBConnectRef connectRef, IODetailedTimingInformation * desc)
+{
+    IOReturn		err;
+    IOTimingInformation	timing;
+
+    bzero( &timing, sizeof( timing ));
+    timing.flags = kIODetailedTimingValid;
+
+    TimingToHost( desc, &timing.detailedInfo.v2 );
+
+    if (!connectRef->defaultWidth)
+    {
+	connectRef->defaultWidth       = timing.detailedInfo.v2.horizontalActive;
+	connectRef->defaultHeight      = timing.detailedInfo.v2.verticalActive;
+	// doh!:
+	connectRef->defaultImageWidth  = timing.detailedInfo.v2.horizontalActive;
+	connectRef->defaultImageHeight = timing.detailedInfo.v2.verticalActive;
+    }
+    err = InstallTiming( connectRef, &timing,
+			    kDisplayModeValidFlag | kDisplayModeSafeFlag,
+			    kIOFBEDIDDetailedMode );
+
+    return( err );
+}
+
+static IOReturn
+InstallTimingForResolution( IOFBConnectRef connectRef, EDID * edid,
+			    IOFBResolutionSpec * spec,
+			    IOOptionBits dmFlags, IOOptionBits modeGenFlags )
+{
+    IOReturn		err;
+    CFNumberRef		num;
+    IOTimingInformation	timing;
+
+    bzero( &timing, sizeof( timing ));
+    timing.flags = kIODetailedTimingValid;
+
+    do
+    {
+	err = StandardResolutionToDetailedTiming( connectRef, edid, spec, &timing );
+
+	if (kIOReturnSuccess == err)
+	{
+#if LOG
+	    printf("Using std-modes for %ldx%ld@%ld, %ld\n",
+		    spec->width, spec->height, (UInt32)(spec->refreshRate + 0.5), timing.appleTimingID);
+#endif
+	    if (kIOFBGTFMode & modeGenFlags)
+	    {
+		modeGenFlags = kIOFBStdMode;
+		dmFlags      = kDisplayModeValidFlag | kDisplayModeSafeFlag;
+	    }
+	}
+	else
+	{
+#if LOG
+	    printf("Not using std-modes for %ldx%ld@%ld, %ld\n",
+		    spec->width, spec->height, (UInt32)(spec->refreshRate + 0.5), timing.appleTimingID);
+#endif
+	    if (connectRef->overrides && CFDictionaryGetValue(connectRef->overrides, CFSTR(kIODisplayIsDigitalKey)))
+	    {
+		err = kIOReturnUnsupportedMode;
+		continue;
+	    }
+	    err = GTFToDetailedTiming( connectRef, edid, spec, 8,
+					  (IODetailedTimingInformation *) &timing.detailedInfo.v2 );
+	    if( kIOReturnSuccess != err)
+		continue;
+	}
+
+	if( connectRef->overrides
+	 && (num = CFDictionaryGetValue( connectRef->overrides, CFSTR("sync") )))
+	 {
+	    UInt32 hSyncMask, hSyncValue, vSyncMask, vSyncValue;
+
+	    CFNumberGetValue( num, kCFNumberSInt32Type, &vSyncValue );
+	    hSyncMask  = 0xff & (vSyncValue >> 24);
+	    hSyncValue = 0xff & (vSyncValue >> 16);
+	    vSyncMask  = 0xff & (vSyncValue >> 8);
+	    vSyncValue = 0xff & (vSyncValue >> 0);
+	    if ((hSyncValue != (timing.detailedInfo.v2.horizontalSyncConfig & hSyncMask))
+	     || (vSyncValue != (timing.detailedInfo.v2.verticalSyncConfig   & vSyncMask)))
+	    {
+		err = kIOReturnUnsupportedMode;
+		continue;
+	    }
+	}
+    
+	err = InstallTiming( connectRef, &timing, dmFlags, modeGenFlags );
+    }
+    while (false);
+    
+    return (err);
+}
+
+static IOReturn
+InstallGTFResolution( IOFBConnectRef connectRef, EDID * edid,
+                      float h, float v, float nativeAspect )
+{
+    IOReturn	 	err = kIOReturnSuccess;
+    CFArrayRef	 	array;
+    CFTypeRef	 	obj;
+    CFIndex	 	count, i;
+    IOOptionBits	dmFlags;
+    IOFBResolutionSpec	spec = { 0 };
+    UInt32       	width  = (UInt32) h;
+    UInt32       	height = (UInt32) v;		    // rounding?
+    Boolean	 	gtfDisplay;
+
+    if (width > connectRef->dimensions.width)
+        return (kIOReturnNoSpace);
+    if (height > connectRef->dimensions.height)
+        return (kIOReturnNoSpace);
+
+    array = CFDictionaryGetValue( connectRef->iographicsProperties, CFSTR("gtf-refresh-rates") );
+    count = array ? CFArrayGetCount(array) : 0;
+
+    gtfDisplay = (edid && (0 != (edid->displayParams[4] & 1)));
+
+    dmFlags = kDisplayModeValidFlag;
+    if (gtfDisplay)
+	dmFlags |= kDisplayModeSafeFlag;
+    if( !gtfDisplay || (ratioOver( nativeAspect, h / v ) > 1.03125))
+        dmFlags |= kDisplayModeNotPresetFlag;
+
+    spec.width         = width;
+    spec.height        = height;
+    spec.needInterlace = false;
+
+    for (i = 0; i < count; i++)
+    {
+        obj = CFArrayGetValueAtIndex(array, i);
+        if( CFNumberGetTypeID() != CFGetTypeID(obj))
+            continue;
+        CFNumberGetValue( (CFNumberRef) obj, kCFNumberFloatType, &spec.refreshRate );
+
+	err = InstallTimingForResolution( connectRef, edid,
+                                          &spec, dmFlags, kIOFBGTFMode );
+    }
+    
+    return (err);
+}
+
+static void
+InstallStandardEstablishedTiming(
+		    IOFBConnectRef connectRef, EDID * edid,
+		    IOFBResolutionSpec * spec )
+
+{
+    InstallTimingForResolution( connectRef, edid, spec,
+                                kDisplayModeValidFlag | kDisplayModeSafeFlag, kIOFBEDIDStdEstMode );
+}
+
+static void
+InstallStandardEstablishedTimings( IOFBConnectRef connectRef, EDID * edid  )
+{
+    CFDataRef		data;
+    IOFBResolutionSpec	spec = { 0 };
+    UInt32 *		establishedIDs;
+    UInt32		i;
+
+    data = CFDictionaryGetValue(connectRef->iographicsProperties, CFSTR("established-ids"));
+    if (data)
+	establishedIDs = (UInt32 *) CFDataGetBytePtr(data);
+    else
+	establishedIDs = 0;
+
+    spec.needInterlace = false;
+
+    for( i = 7; establishedIDs && (i < 24); i++ )
+    {
+        if (0 != (edid->establishedTimings[ 2 - (i / 8) ] & (1 << (i % 8))))
+	{
+	    spec.timingID = OSReadBigInt32(&establishedIDs[i], 0);
+	    if (spec.timingID != kIOTimingIDInvalid)
+		InstallStandardEstablishedTiming(connectRef, edid, &spec);
+	}
+    }
+
+    for( i = 0; i < 8; i++ )
+    {
+	spec.timingID = kIOTimingIDInvalid;
+	if (kIOReturnSuccess != DecodeStandardTiming(edid, OSReadBigInt16(&edid->standardTimings[i], 0),
+							&spec.width, &spec.height, &spec.refreshRate))
+	    continue;
+	InstallStandardEstablishedTiming(connectRef, edid, &spec);
+    }
+}
+
+static Boolean
+IODisplayConsiderAspect( float w, float h, float * aspectWidth, float * aspectHeight )
+{
+    float ratio;
+
+    if (!w || !h)
+	return (false);
+
+    ratio = w / h;
+
+    if ((ratio > 1.85) || (ratio < 1.2))
+    {
+	*aspectWidth = w;
+	*aspectHeight = h;
+	return (true);
+    }
+
+    if (ratio > 1.65)
+    {
+	*aspectWidth = 16.0;
+	*aspectHeight = 9.0;
+	return (true);
+    }
+
+    if (ratio > 1.55)
+    {
+	*aspectWidth = 16.0;
+	*aspectHeight = 10.0;
+	return (true);
+    }
+
+    if (ratio > 1.45)
+    {
+	*aspectWidth = 3.0;
+	*aspectHeight = 2.0;
+	return (true);
+    }
+
+    return (false);
+}
+
+static void
+IODisplayGetAspect( IOFBConnectRef connectRef, 
+                    EDID * edid,
+                    float * aspectWidth, float * aspectHeight )
+{
+    CFDictionaryRef ovr;
+    CFNumberRef     imageH, imageV;
+    float	    w, h;
+
+    *aspectWidth = 4.0;
+    *aspectHeight = 3.0;
+
+    ovr = connectRef->overrides;
+
+    do
+    {
+	if (IODisplayConsiderAspect(connectRef->defaultWidth, connectRef->defaultHeight,
+				    aspectWidth, aspectHeight))
+	    break;
+
+	if (IODisplayConsiderAspect(connectRef->defaultImageWidth, connectRef->defaultImageHeight,
+				    aspectWidth, aspectHeight))
+	    break;
+
+	if( ovr)
+	{
+	    imageH = CFDictionaryGetValue( ovr, CFSTR(kDisplayHorizontalImageSize) );
+	    imageV = CFDictionaryGetValue( ovr, CFSTR(kDisplayVerticalImageSize) );
+	    if (imageH && imageV)
+	    {
+		CFNumberGetValue( imageH, kCFNumberFloatType, &w );
+		CFNumberGetValue( imageV, kCFNumberFloatType, &h );
+		if (IODisplayConsiderAspect(w, h, aspectWidth, aspectHeight))
+		    break;
+	    } 
+	}
+    }
+    while (false);
+}
+
+
+static kern_return_t
+InstallGTFTimings( IOFBConnectRef connectRef, EDID * edid )
+{
+    IOReturn		err = kIOReturnSuccess;
+    UInt32		i;
+    CFArrayRef		array;
+    CFIndex		count;
+    CFStringRef		key;
+    float		h, v, nh, nv, nativeAspect;
+    Boolean		wide, displayNot4By3;
+
+    // arb timings
+
+    IODisplayGetAspect( connectRef, edid, &nh, &nv );
+
+    nativeAspect = nh / nv;
+    wide = (nativeAspect > 1.45);
+    displayNot4By3 = (ratioOver(nativeAspect, 4.0 / 3.0) > 1.03125);
+
+    key = wide ? CFSTR("gtf-resolutions-wide") : CFSTR("gtf-resolutions");
+    array = CFDictionaryGetValue( connectRef->iographicsProperties, key );
+    count = array ? CFArrayGetCount(array) : 0;
+
+    for( i = 0; i < count; i++)
+    {
+        CFTypeRef obj;
+
+        obj = CFArrayGetValueAtIndex(array, i);
+        if( CFNumberGetTypeID() == CFGetTypeID(obj)) {
+            SInt32	value;
+            CFNumberGetValue( (CFNumberRef) obj, kCFNumberSInt32Type, &value );
+            h = (float) (value & 0xffff);
+            v = (float) (value >> 16);
+
+        } else
+            continue;
+
+	if (v)
+        {
+            err = InstallGTFResolution( connectRef, edid,
+                                        h, v, nativeAspect );
+        }
+        else
+        {
+            if (displayNot4By3)
+                err = InstallGTFResolution( connectRef, edid,
+                                            h, (h * 3.0) / 4.0, nativeAspect );
+
+            err = InstallGTFResolution( connectRef, edid,
+                                        h, (h * nv) / nh, nativeAspect );
+        }
+    }
+
+    return( err );
+}
+
+__private_extern__ void
+IODisplayInstallTimings( IOFBConnectRef connectRef )
 {
     int				i;
     io_service_t		service = connectRef->framebuffer;
-    EDID *			edid;
-    CFDictionaryRef		dict = 0;
-    CFDataRef			fbRange = 0;
+    EDID *			edid = 0;
+    CFDataRef			fbRange;
     CFDataRef			data;
     CFArrayRef			array;
     CFIndex			count;
-    VDDisplayTimingRangeRec *	displayRange;
-    VDDisplayTimingRangeRec	localDisplayRange;
 
-    do {
-        dict = IODisplayCreateInfoDictionary( service, kNilOptions );
-        if( !dict)
-            continue;
+    static const GTFTimingCurve defaultGTFCurves[] = {
+	{ 0,          40, 600, 128, 20 },
+	{ 0xffffffff,  0,   0,   0,  0 }
+    };
 
-        data = CFDictionaryGetValue( dict, CFSTR(kIODisplayEDIDKey) );
+    // controller timing range
+    fbRange = (CFDataRef) IORegistryEntryCreateCFProperty( service, 
+							    CFSTR(kIOFBTimingRangeKey),
+							    kCFAllocatorDefault, kNilOptions);
+    if (fbRange && CFDataGetLength(fbRange) >= sizeof(IODisplayTimingRange))
+	connectRef->fbRange = (IODisplayTimingRange *) CFDataGetBytePtr(fbRange);
+
+    connectRef->numGTFCurves = 1;
+    bcopy(&defaultGTFCurves, &connectRef->gtfCurves, sizeof(connectRef->gtfCurves));
+
+    do 
+    {
+        // EDID timings
+
+        data = CFDictionaryGetValue( connectRef->overrides, CFSTR(kIODisplayEDIDKey) );
         if( !data || (CFDataGetLength(data) < sizeof( EDID)) )
             continue;
+
         edid = (EDID *) CFDataGetBytePtr( data );
 
-        // Install no detailed timings from digital displays
-        if( 0x80 & edid->displayParams[0])
-            continue;
+        // max dimensions
+        connectRef->dimensions.setFlags = kDisplayModeNotPresetFlag;
+        if( CFDictionaryGetValue( connectRef->overrides, CFSTR(kIODisplayIsDigitalKey)))
+            connectRef->dimensions.clearFlags = 
+		kDisplayModeValidFlag | kDisplayModeSafeFlag | kDisplayModeDefaultFlag;
+        else
+            connectRef->dimensions.clearFlags =
+		kDisplayModeSafeFlag | kDisplayModeDefaultFlag;
 
-        fbRange = (CFDataRef) IORegistryEntryCreateCFProperty( service, 
-                                    CFSTR(kIOFBTimingRangeKey),
-                                    kCFAllocatorDefault, kNilOptions);
-        if( !fbRange || (CFDataGetLength(fbRange)) < sizeof(VDDisplayTimingRangeRec))
-            continue;
-
-        // EDID timing range
-        data = (CFDataRef) CFDictionaryGetValue( dict, CFSTR("trng"));
-        if( data)
-            displayRange = (VDDisplayTimingRangeRec *) CFDataGetBytePtr(data);
-        else {
-            MaxTimingRangeRec( &localDisplayRange );
-            displayRange = &localDisplayRange;
-        }
-
-        // override timing recs
-        array = (CFArrayRef) CFDictionaryGetValue( dict, CFSTR("dspc"));
+        // override timing recs (18-byte)
+        array = (CFArrayRef) CFDictionaryGetValue( connectRef->overrides, CFSTR("dspc"));
         if( array)
             count = CFArrayGetCount(array);
         else
@@ -759,31 +1429,54 @@ IODisplayInstallDetailedTimings( IOFBConnectRef connectRef )
                 continue;
 
             InstallFromEDIDDesc( connectRef,
-                            edid, (EDIDDetailedTimingDesc *) CFDataGetBytePtr(data),
-                            (VDDisplayTimingRangeRec *) CFDataGetBytePtr(fbRange),
-                            displayRange );
+ 				 edid, (EDIDDetailedTimingDesc *) CFDataGetBytePtr(data) );
         }
 
         // EDID timing recs
-	for( i = 0; i < 4; i++ ) {
-
+	for( i = 0; i < 4; i++ )
+	{
             if( i && (0 == bcmp( &edid->descriptors[0].timing,
                                  &edid->descriptors[i].timing,
                                  sizeof( EDIDDetailedTimingDesc))))
                 continue;
             InstallFromEDIDDesc( connectRef,
-                                edid,
-                                &edid->descriptors[i].timing,
-                                (VDDisplayTimingRangeRec *) CFDataGetBytePtr(fbRange),
-                                displayRange );
+                                 edid,
+                                 &edid->descriptors[i].timing );
         }
 
-    } while( false );
+        InstallStandardEstablishedTimings( connectRef, edid );
+    }
+    while( false );
 
-    if( dict)
-        CFRelease(dict);
-    if( fbRange)
-        CFRelease(fbRange);
+    // override timing recs
+    array = (CFArrayRef) CFDictionaryGetValue( connectRef->overrides, CFSTR("tspc"));
+    if (array)
+	count = CFArrayGetCount(array);
+    else
+	count = 0;
+    for (i = 0; i < count; i++ ) {
+	data = CFArrayGetValueAtIndex(array, i);
+	if( !data || (sizeof(IODetailedTimingInformation) != CFDataGetLength(data)))
+	    continue;
+
+	InstallFromTimingOverride(connectRef, 
+		(IODetailedTimingInformation *) CFDataGetBytePtr(data));
+    }
+
+    if (CFDictionaryGetValue(connectRef->overrides, CFSTR("trng"))
+    || ((!CFDictionaryGetValue(connectRef->overrides, CFSTR(kIODisplayIsDigitalKey)))
+	&& ((connectRef->displayVendor != kDisplayVendorIDUnknown)
+	 || (connectRef->displayProduct == kDisplayProductIDGeneric))
+	&& (!edid || ((0xffffffff != connectRef->dimensions.width)
+		    && (0xffffffff != connectRef->dimensions.height)))))
+    {
+	// have range limits, or analog-VGA/nonsensed
+	InstallGTFTimings( connectRef, edid );
+    }
+
+    connectRef->fbRange = 0;
+    if (fbRange)
+	CFRelease(fbRange);
 }
 
 SInt32
@@ -867,16 +1560,17 @@ enum {
 };
 
 CFDictionaryRef
-IODisplayCreateInfoDictionary(
-	io_service_t		framebuffer,
-	IOOptionBits		options )
+_IODisplayCreateInfoDictionary(
+    IOFBConnectRef		connectRef,
+    io_service_t		framebuffer,
+    IOOptionBits		options )
 {
     IOReturn			kr;
     io_service_t		service = 0;
     CFDataRef			data = 0;
     CFNumberRef			num;
     CFMutableDictionaryRef	dict = 0;
-    CFDictionaryRef		regDict;
+    CFMutableDictionaryRef	regDict;
     CFTypeRef			obj;
     SInt32			sint;
     UInt8			low;
@@ -889,7 +1583,7 @@ IODisplayCreateInfoDictionary(
     CFAbsoluteTime		manufactureDate;
     io_string_t			path;
     int				i;
-    VDDisplayTimingRangeRec	displayRange;
+    IODisplayTimingRange	displayRange;
 
     bzero( &manufactureDate, sizeof(manufactureDate) );
 
@@ -930,9 +1624,25 @@ IODisplayCreateInfoDictionary(
 #warning             ****************
 #warning             ** SPOOF_EDID **
 #warning             ****************
-        data = CFDataCreateWithBytesNoCopy( kCFAllocatorDefault,
-                                            spoofEDID, 128, kCFAllocatorNull );
-        vendor = product = 0;
+
+//	if (!connectRef || !connectRef->dependentID || connectRef->dependentIndex)
+	{
+	    vm_offset_t 		bytes;
+	    vm_size_t			byteLen;
+    
+	    if (kIOReturnSuccess == readFile( "/testedid", &bytes, &byteLen ))
+	    {
+		data = CFDataCreateWithBytesNoCopy( kCFAllocatorDefault,
+						    (const void *) bytes, byteLen, kCFAllocatorNull );
+//		vm_deallocate( mach_task_self(), bytes, byteLen );
+	    }
+	    else
+		data = CFDataCreateWithBytesNoCopy( kCFAllocatorDefault,
+						    spoofEDID, 128, kCFAllocatorNull );
+
+	}
+
+	vendor = product = 0;
 #endif
         if( !data)
             continue;
@@ -1016,7 +1726,7 @@ IODisplayCreateInfoDictionary(
 
         data = CFDictionaryGetValue( dict, CFSTR("dmdg") );
         if( data)
-            sint = *((SInt32 *) CFDataGetBytePtr(data));
+            sint = OSReadBigInt32((void *) CFDataGetBytePtr(data), 0);
         else
             sint = kDisplayGestaltBrightnessAffectsGammaMask;
 
@@ -1293,7 +2003,7 @@ IODisplaySetFloatParameter(
     if( err)
         return( err);
 
-    ivalue = (value * (((float) max) - ((float) min)) + ((float) min));
+    ivalue = roundf((value * (((float) max) - ((float) min)) + ((float) min)));
 
     err = IODisplaySetIntegerParameter( service, options, parameterName, ivalue );
 
@@ -1315,6 +2025,13 @@ IOCreateDisplayInfoDictionary(
 	io_service_t		framebuffer,
 	IOOptionBits		options )
 {
-    return( IODisplayCreateInfoDictionary( framebuffer, options));
+    return( _IODisplayCreateInfoDictionary( NULL, framebuffer, options));
 }
 
+CFDictionaryRef
+IODisplayCreateInfoDictionary(
+	io_service_t		framebuffer,
+	IOOptionBits		options )
+{
+    return( _IODisplayCreateInfoDictionary( NULL, framebuffer, options));
+}

@@ -9,7 +9,7 @@
 #define DEFS_H
 
 /*
- * $Id: defs.h,v 1.1.1.1 2002/01/31 07:09:05 zarzycki Exp $
+ * $Id: defs.h,v 1.1.1.2 2003/05/22 01:16:36 rbraun Exp $
  */
 
 
@@ -151,10 +151,15 @@ typedef status_e (*statfunc)() ;
  */
 struct name_value
 {
+   const char   *name ;
+   int          value ;
+} ;
+
+struct protocol_name_value
+{
    char   *name ;
    int    value ;
 } ;
-
 
 struct debug
 {

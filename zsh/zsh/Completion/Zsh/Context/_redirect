@@ -1,3 +1,16 @@
 #compdef -redirect-
 
-_files
+local strs _comp_command1 _comp_command2 _comp_command
+
+_set_command
+
+strs=( -default- )
+
+if [[ -n "$_comp_command1" ]]; then
+  strs=( "${_comp_command1}" "$strs[@]" )
+  [[ -n "$_comp_command2" ]] &&
+      strs=( "${_comp_command2}" "$strs[@]" )
+fi
+
+_dispatch -redirect-,${compstate[redirect]},${_comp_command} \
+          -redirect-,{${compstate[redirect]},-default-},${^strs}

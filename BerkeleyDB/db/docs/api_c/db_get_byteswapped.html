@@ -1,0 +1,59 @@
+<!--$Id: db_get_byteswapped.html,v 1.1.1.1 2003/02/15 04:55:46 zarzycki Exp $-->
+<!--Copyright 1997-2002 by Sleepycat Software, Inc.-->
+<!--All rights reserved.-->
+<!--See the file LICENSE for redistribution information.-->
+<html>
+<head>
+<title>Berkeley DB: DB-&gt;get_byteswapped</title>
+<meta name="description" content="Berkeley DB: An embedded database programmatic toolkit.">
+<meta name="keywords" content="embedded,database,programmatic,toolkit,b+tree,btree,hash,hashing,transaction,transactions,locking,logging,access method,access methods,java,C,C++">
+</head>
+<body bgcolor=white>
+<a name="2"><!--meow--></a>
+<table width="100%"><tr valign=top>
+<td>
+<h1>DB-&gt;get_byteswapped</h1>
+</td>
+<td align=right>
+<a href="../api_c/c_index.html"><img src="../images/api.gif" alt="API"></a><a href="../reftoc.html"><img src="../images/ref.gif" alt="Ref"></a>
+</td></tr></table>
+<hr size=1 noshade>
+<tt>
+<h3><pre>
+#include &lt;db.h&gt;
+<p>
+int
+DB-&gt;get_byteswapped(DB *db, int *isswapped);
+</pre></h3>
+<h1>Description</h1>
+<p>The DB-&gt;get_byteswapped method
+stores 0 into the memory location referenced by <b>isswapped</b>
+if the underlying database files were created on an architecture of the
+same byte order as the current one, and
+stores 1 into the memory location referenced by <b>isswapped</b>
+if they were not (that is, big-endian on a little-endian machine, or
+vice versa). This field may be used to determine whether application
+data needs to be adjusted for this architecture or not.
+<p>The DB-&gt;get_byteswapped interface may not be called before the <a href="../api_c/db_open.html">DB-&gt;open</a>
+interface has been called.
+<h1>Errors</h1>
+<p>The DB-&gt;get_byteswapped method may fail and return a non-zero error for the following conditions:
+<p><dl compact>
+<p><dt>EINVAL<dd>An invalid flag value or parameter was specified.
+<p>Called before <a href="../api_c/db_open.html">DB-&gt;open</a> was called.
+</dl>
+<p>The DB-&gt;get_byteswapped method may fail and return a non-zero error for errors specified for other Berkeley DB and C library or system functions.
+If a catastrophic error has occurred, the DB-&gt;get_byteswapped method may fail and
+return <a href="../ref/program/errorret.html#DB_RUNRECOVERY">DB_RUNRECOVERY</a>,
+in which case all subsequent Berkeley DB calls will fail in the same way.
+<h1>Class</h1>
+<a href="../api_c/db_class.html">DB</a>
+<h1>See Also</h1>
+<a href="../api_c/db_list.html">Databases and Related Methods</a>
+</tt>
+<table width="100%"><tr><td><br></td><td align=right>
+<a href="../api_c/c_index.html"><img src="../images/api.gif" alt="API"></a><a href="../reftoc.html"><img src="../images/ref.gif" alt="Ref"></a>
+</td></tr></table>
+<p><font size=1><a href="http://www.sleepycat.com">Copyright Sleepycat Software</a></font>
+</body>
+</html>

@@ -47,7 +47,7 @@ static struct lookup_table intercept_lookup_table[] =
    {
       { di_init,         SOCK_DGRAM  },
       { si_init,         SOCK_STREAM },
-      { NULL                         }
+      { NULL,            0           }
    } ;
 
          
@@ -109,7 +109,7 @@ static int get_server_socket( struct intercept_s *ip )
    struct service *sp = SERVER_SERVICE( INT_SERVER( ip ) ) ;
    union xsockaddr *sinp = INT_LOCALADDR( ip ) ;
    int sd ;
-   int size ;
+   unsigned int size ;
    const char *func = "get_server_socket" ;
 
    if( SC_IPV6(SVC_CONF(sp)) ) {
@@ -182,7 +182,7 @@ static void start_server( struct intercept_s *ip )
       
       default:
          SERVER_SET_PID( serp, pid ) ;
-         (void) close( server_socket ) ;
+         (void) Sclose( server_socket ) ;
    }
 }
 

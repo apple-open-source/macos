@@ -3,7 +3,6 @@
 	<head>
 		<meta http-equiv="content-type" content="text/html;charset=iso-8859-1">
 		<title>Tags for C Headers</title>
-		<meta http-equiv="expires" content="Sun, 31 Dec 2000 00:00:00 GMT">
 	</head>
 
 	<body bgcolor="white">
@@ -12,7 +11,9 @@
 		<ul>
 			<li><a href="#Anchor-Conventions-34807">Conventions</a>
 			<li><a href="#Anchor-Conventions-34807">Tags Common to All API Types</a>
-			<li><a href="#Anchor-Tags-30189">Function Tags</a>
+			<li><a href="#Anchor-Class">Class Tags</a>
+			<li><a href="#Anchor-Groups">Function Group Tags</a>
+			<li><a href="#Anchor-Function-59404">Function Tags</a>
 			<li><a href="#Anchor-Struct-38219">struct and union Tags</a>
 			<li><a href="#Anchor-Enum-54325">enum tags</a>
 			<li><a href="#Anchor-Typedef-58500">typedef tags</a>
@@ -30,14 +31,110 @@
 		<p>The tags highlighted in <font size="4" color="#660000"><b>RED</b></font> below are required.</p>
 		<p>&nbsp;</p>
 		<h2><a name="Anchor-Tags-30189"></a>Tags Common to All API Types</h2>
-		<p>The <b>@abstract</b> and <b>@discussion</b> tags can be used within any of the type-specific tags below. For example,:</p>
+		<p>The <b>@abstract</b>, <b>@updated</b>, and <b>@discussion</b> tags can be used within any of the type-specific tags below. For example,:</p>
 		<pre>/*!
   @enum Beverage Categories
   @abstract Constants to group beverage types.
   @discussion These constants (such as kSoda, kBeer, etc.) can be used...
+  @updated 2003-04-15
 */</pre>
 		<p>They are not required within any HeaderDoc comment, but can improve the formatting of the HTML output, and can help automate the importation of comments into the Inside Mac documentation database.</p>
 		<p>&nbsp;</p>
+		<h2><a name="Anchor-Class"></a>Class Tags</H2>
+		<p>
+		<table border="1" cellpadding="0" cellspacing="2" width="92%">
+			<tr>
+				<td>
+					<center>
+						<b>Tag</b></center>
+				</td>
+				<td>
+					<center>
+						<b>Identifies</b></center>
+				</td>
+				<td><b>Fields</b></td>
+			</tr>
+			<tr>
+				<td><font color="#660000"><b>@class</b></font></td>
+				<td>The name of the class.</td>
+				<td>
+					<center>
+						1</center>
+				</td>
+			</tr>
+		</table>
+		</p>
+		<p><b>Example:</b></p>
+		<pre>/*! 
+  @class IOFireWireDeviceInterface_t
+*/
+  typedef struct IOFireWireDeviceInterface_t
+{
+	IUNKNOWN_C_GUTS ;
+.
+.
+.
+}
+</pre>
+<p>
+		The <b>@class</b> tag causes the <tt>typedef struct</tt>
+		that follows the headerdoc comment to be treated as a class.
+		This is commonly used for COM interfaces, but is also a
+		frequently-used technique in kernel programming.</p>
+
+<p>
+		You should mark up any C pseudoclasses in the same way
+		as you would mark up a C++ class.  Apart from the unusual
+		form of function declarations (in the form of function
+		pointers), the resulting output should be similar to that
+		of a C++ class.</p>
+
+<p>&nbsp;<p>
+		<h2><a name="Anchor-Groups"></a>Function Group Tags</H2>
+		<p>
+		<table border="1" cellpadding="0" cellspacing="2" width="92%">
+			<tr>
+				<td>
+					<center>
+						<b>Tag</b></center>
+				</td>
+				<td>
+					<center>
+						<b>Identifies</b></center>
+				</td>
+				<td><b>Fields</b></td>
+			</tr>
+			<tr>
+				<td><font color="#660000"><b>@functiongroup</b></font></td>
+				<td>The name of the function group.</td>
+				<td>
+					<center>
+						1</center>
+				</td>
+			</tr>
+		</table>
+		</p>
+		<p><b>Example:</b></p>
+		<pre>/*! 
+  @functiongroup Core Functions
+*/
+</pre>
+<p>
+		Function groups are not required, but they allow you to
+		organize a large number of functions into near groupings.
+		The <b>@functiongroup</b> tag remains in effect until the next
+		<b>@functiongroup</b> tag.<p>
+
+		If you need to put functions in
+		different parts of the header into the same group,
+		simply give them the same name (with the same capitalization,
+		punctuation, spacing, etc.), and it will merge the two
+		function groups into one.<p>
+
+		Note that functions encountered before the first
+		<b>@functiongroup</b> are considered part of the "empty" group.
+		These functions will be listed before any grouped functions.
+<p>&nbsp;<p>
 		<h2><a name="Anchor-Function-59404"></a>Function Tags</h2>
 		<p>
 		<table border="1" cellpadding="0" cellspacing="2" width="92%">

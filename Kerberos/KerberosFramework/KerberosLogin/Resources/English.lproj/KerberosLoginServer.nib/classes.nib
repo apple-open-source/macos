@@ -1,0 +1,66 @@
+{
+    IBClasses = (
+        {CLASS = FirstResponder; LANGUAGE = ObjC; SUPERCLASS = NSObject; }, 
+        {
+            ACTIONS = {
+                changePasswordCancelButtonWasHit = id; 
+                changePasswordOkButtonWasHit = id; 
+                loginAddresslessCheckboxWasHit = id; 
+                loginCancelButtonWasHit = id; 
+                loginForwardableCheckboxWasHit = id; 
+                loginLifetimeSliderChanged = id; 
+                loginOkButtonWasHit = id; 
+                loginOptionsButtonWasHit = id; 
+                loginRenewableCheckboxWasHit = id; 
+                loginRenewableLifetimeSliderChanged = id; 
+                prompterCancelButtonWasHit = id; 
+                prompterOkButtonWasHit = id; 
+            }; 
+            CLASS = KLSController; 
+            LANGUAGE = ObjC; 
+            OUTLETS = {
+                changePasswordCancelButton = NSButton; 
+                changePasswordKerberosIconImageView = KLSIconImageView; 
+                changePasswordNewPasswordSecureTextField = NSSecureTextField; 
+                changePasswordOkButton = NSButton; 
+                changePasswordOldPasswordSecureTextField = NSSecureTextField; 
+                changePasswordPrincipalTextField = NSTextField; 
+                changePasswordVerifyPasswordSecureTextField = NSSecureTextField; 
+                changePasswordVersionTextField = NSTextField; 
+                changePasswordWindow = NSWindow; 
+                loginAddresslessCheckbox = NSButton; 
+                loginCallerProvidedRealmTextField = NSTextField; 
+                loginCallerProvidedUsernameTextField = NSTextField; 
+                loginCancelButton = NSButton; 
+                loginForwardableCheckbox = NSButton; 
+                loginHeaderTextField = NSTextField; 
+                loginKerberosIconImageView = KLSIconImageView; 
+                loginLifetimeSlider = NSSlider; 
+                loginLifetimeText = NSTextField; 
+                loginOkButton = NSButton; 
+                loginOptionsBox = NSBox; 
+                loginOptionsButton = NSButton; 
+                loginPasswordSecureTextField = NSSecureTextField; 
+                loginRealmComboBox = NSComboBox; 
+                loginRenewableCheckbox = NSButton; 
+                loginRenewableLifetimeSlider = NSSlider; 
+                loginRenewableLifetimeText = NSTextField; 
+                loginUsernameTextField = NSTextField; 
+                loginVersionTextField = NSTextField; 
+                loginWindow = NSWindow; 
+                prompterBannerTextField = NSTextField; 
+                prompterCancelButton = NSButton; 
+                prompterKerberosIconImageView = KLSIconImageView; 
+                prompterOkButton = NSButton; 
+                prompterPromptsMatrix = NSMatrix; 
+                prompterResponsesBox = NSBox; 
+                prompterVersionTextField = NSTextField; 
+                prompterWindow = NSWindow; 
+            }; 
+            SUPERCLASS = NSObject; 
+        }, 
+        {CLASS = KLSIconImageView; LANGUAGE = ObjC; SUPERCLASS = NSView; }, 
+        {CLASS = LifetimeSlider; LANGUAGE = ObjC; SUPERCLASS = NSSlider; }
+    ); 
+    IBVersion = 1; 
+}

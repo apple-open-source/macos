@@ -29,6 +29,12 @@
 load_lib mi-support.exp
 set MIFLAGS "-i=mi"
 
+# APPLE LOCAL: For now, ignore all non-mi1 tests.
+if [istarget "*-apple-darwin*"] then {
+  gdb_suppress_entire_file "Not testing non-mi1 on Darwin at this time."
+  return
+}
+
 gdb_exit
 if [mi_gdb_start] {
     continue
@@ -81,25 +87,36 @@ proc test_until {} {
 	-re "111\\^running\r\n${mi_gdb_prompt}111\\*stopped,reason=\"end-stepping-range\",thread-id=\"\[0-9\]\",frame=\{addr=\"$hex\",func=\"foo\",args=\\\[\\\],file=\".*until.c\",line=\"12\"\}\r\n$mi_gdb_prompt$" {
 	    pass "until after while loop"
 	}
+	-re ".*$mi_gdb_prompt$" {
+	    fail "until after while loop (2)"
+	}
 	timeout {
 	    fail "until after while loop (timeout)"
 	}
     }
 
+    sleep 2
     send_gdb "222-exec-until 15\n"
     gdb_expect {
 	-re "222\\^running\r\n${mi_gdb_prompt}222\\*stopped,reason=\"location-reached\",thread-id=\"\[0-9\]\",frame=\{addr=\"$hex\",func=\"foo\",args=\\\[\\\],file=\".*until.c\",line=\"15\"\}\r\n$mi_gdb_prompt$" {
 	    pass "until line number"
+	}
+	-re ".*$mi_gdb_prompt$" {
+	    fail "until line number (2)"
 	}
 	timeout {
 	    fail "until line number (timeout)"
 	}
     }
 
+    sleep 2
     send_gdb "333-exec-until until.c:17\n"
     gdb_expect {
 	-re "333\\^running\r\n${mi_gdb_prompt}333\\*stopped,reason=\"location-reached\",thread-id=\"\[0-9\]\",frame=\{addr=\"$hex\",func=\"foo\",args=\\\[\\\],file=\".*until.c\",line=\"17\"\}\r\n$mi_gdb_prompt$" {
 	    pass "until line number:file"
+	}
+	-re ".*$mi_gdb_prompt$" {
+	    fail "until line number:file (2)"
 	}
 	timeout {
 	    fail "until line number:file (timeout)"
@@ -108,10 +125,14 @@ proc test_until {} {
 
     # This is supposed to NOT stop at line 25. It stops right after foo is over.
 
+    sleep 2
     send_gdb "444-exec-until until.c:25\n"
     gdb_expect {
 	-re "444\\^running\r\n${mi_gdb_prompt}444\\*stopped,reason=\"location-reached\",thread-id=\"\[0-9\]\",frame=\{addr=\"$hex\",func=\"main\",args=\\\[\\\],file=\".*until.c\",line=\"24\"\}\r\n$mi_gdb_prompt$" {
 	    pass "until after current function"
+	}
+	-re ".*$mi_gdb_prompt$" {
+	    fail "until after current function (2)"
 	}
 	timeout {
 	    fail "until after current function (timeout)"

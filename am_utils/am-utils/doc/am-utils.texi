@@ -38,13 +38,14 @@
 @c
 @c      %W% (Berkeley) %G%
 @c
-@c $Id: am-utils.texi,v 1.1.1.1 2002/05/15 01:22:15 jkh Exp $
+@c $Id: am-utils.texi,v 1.1.1.2 2002/07/15 19:43:01 zarzycki Exp $
 @c
 @setfilename am-utils.info
 
 @include version.texi
 
 @c info directory entry
+@dircategory Administration
 @direntry
 * Am-utils: (am-utils).          The Amd automounter suite of utilities
 @end direntry
@@ -340,14 +341,21 @@ on am-utils.
 Am-utils version 6.0 was numbered with a major new release number to
 distinguish it from the last official release of @i{Amd} (5.x).  Many
 new features have been added such as a GNU @code{configure} system, NFS
-Version 3, Autofs support, a run-time configuration file (`amd.conf'),
-many new ports, more scripts and programs, as well as numerous bug
-fixes.  Another reason for the new major release number was to alert
-users of am-utils that user-visible interfaces may have changed.  In
-order to make @i{Amd} work well for the next 10 years, and be easier to
-maintain, it was necessary to remove old or unused features, change
-various syntax files, etc.  However, great care was taken to ensure the
-maximum possible backwards compatibility.
+Version 3, a run-time configuration file (`amd.conf'), many new ports,
+more scripts and programs, as well as numerous bug fixes.  Another
+reason for the new major release number was to alert users of am-utils
+that user-visible interfaces may have changed.  In order to make @i{Amd}
+work well for the next 10 years, and be easier to maintain, it was
+necessary to remove old or unused features, change various syntax files,
+etc.  However, great care was taken to ensure the maximum possible
+backwards compatibility.
+
+Am-utils version 6.1 has autofs support for Linux and Solaris 2.5+ as
+_the_ major new feature, in addition to several other minor new
+features. The autofs support is completely transparent to the end-user,
+aside from the fact that /bin/pwd now always returns the correct
+amd-ified path. The administrator can easily switch between NFS and
+autofs mounts by changing one parameter in amd.conf.
 
 @c ################################################################
 @node Overview, Supported Platforms, History, Top
@@ -1706,7 +1714,8 @@ The following selectors are currently implemented.
 
 The machine architecture which was automatically determined at compile
 time.  The architecture type can be displayed by running the command
-@samp{amd -v}.  @xref{Supported Platforms}.@refill
+@samp{amd -v}.  You can override this value also using the @code{-A}
+command line option.  @xref{Supported Platforms}.@refill
 
 @c ----------------------------------------------------------------
 @node autodir Selector Variable, byte Selector Variable, arch Selector Variable, Selectors
@@ -2605,6 +2614,10 @@ has failed.  In fact the interval is extended before the unmount is
 attempted to avoid thrashing.  The default value is 120 seconds (two
 minutes) or as set by the @code{-w} command line option.
 
+@item xlatecookie
+@cindex Mount flags; xlatecookie
+Translate directory cookies between 32-long and 64-long lengths.
+
 @end table
 
 @node remopts Option, sublink Option, opts Option, Map Options
@@ -2716,6 +2729,7 @@ exists.
 * -w Option::   Wait interval after failed unmount.
 * -x Option::   Log options.
 * -y Option::   NIS domain.
+* -A-Option::   Operating system Architecture.
 * -C-Option::   Cluster name.
 * -D-Option::   Debug flags.
 * -F Option::   Amd configuration file.
@@ -3074,7 +3088,7 @@ If @i{Amd} was built with debugging enabled the @code{debug} option is
 automatically enabled regardless of the command line options.
 
 @c ----------------------------------------------------------------
-@node -y Option, -C-Option, -x Option, Amd Command Line Options
+@node -y Option, -A-Option, -x Option, Amd Command Line Options
 @comment  node-name,  next,  previous,  up
 @section @code{-y} @var{NIS-domain}
 @cindex NIS (YP) domain name
@@ -3089,7 +3103,22 @@ immediately attempts to bind to a server for this domain.
 @c is specified, and whenever required in a mount map.
 
 @c ----------------------------------------------------------------
-@node -C-Option, -D-Option, -y Option, Amd Command Line Options
+@node -A-Option, -C-Option, -y Option, Amd Command Line Options
+@comment  node-name,  next,  previous,  up
+@section @code{-A} @var{architecture}
+@cindex Setting the operating system architecture
+
+Specifies the OS architecture of the system.  
+The only effect of this option is to set the variable @code{$@{arch@}}.
+
+This option would be used as follows:
+
+@example
+amd -A i386 ...
+@end example
+
+@c ----------------------------------------------------------------
+@node -C-Option, -D-Option, -A-Option, Amd Command Line Options
 @comment  node-name,  next,  previous,  up
 @section @code{-C} @var{cluster-name}
 @cindex Cluster names
@@ -3142,7 +3171,7 @@ program trace
 print high resolution time stamps (only if @b{syslog}(3) is not used)
 @item info
 @cindex debugging hesiod resolver service
-@cindex Hesiod: turning on RES_DEBUG
+@cindex Hesiod; turning on RES_DEBUG
 info service specific debugging (hesiod, nis, etc.)  In the case of
 hesiod maps, turns on the hesiod RES_DEBUG internal debugging option.
 @item mem
@@ -3283,7 +3312,6 @@ effect visible to the user.@refill
 * Union Filesystem::
 * Error Filesystem::
 * Top-level Filesystem::
-* Autofs Filesystem::           Sun's kernel-based automounter filesystem.
 * Root Filesystem::
 * Inheritance Filesystem::
 @end menu
@@ -4110,7 +4138,7 @@ directory''.  All other operations trivially succeed.
 The error filesystem is not directly accessible.
 
 @c ----------------------------------------------------------------
-@node Top-level Filesystem, Autofs Filesystem, Error Filesystem, Filesystem Types
+@node Top-level Filesystem, Root Filesystem, Error Filesystem, Filesystem Types
 @comment  node-name,  next,  previous,  up
 @section Top-level Filesystem (@samp{toplvl})
 @cindex Top level filesystem
@@ -4122,7 +4150,7 @@ and is used to mount the top-level automount nodes.  Requests of this
 type are automatically generated from the command line arguments.
 
 @c ----------------------------------------------------------------
-@node Root Filesystem, Inheritance Filesystem, Autofs Filesystem, Filesystem Types
+@node Root Filesystem, Inheritance Filesystem, Top-level Filesystem, Filesystem Types
 @comment  node-name,  next,  previous,  up
 @section Root Filesystem (@samp{root})
 @cindex Root filesystem
@@ -4136,24 +4164,6 @@ during startup.  The effect of having more than one root node is
 undefined.
 
 The root filesystem is not directly accessible.
-
-@c ----------------------------------------------------------------
-@node Autofs Filesystem, Root Filesystem, Top-level Filesystem, Filesystem Types
-@comment  node-name,  next,  previous,  up
-@section Autofs Filesystem (@samp{autofs})
-@cindex Autofs filesystem
-@cindex autofs, filesystem type
-@cindex Filesystem type; autofs
-
-The @dfn{autofs} (@samp{type:=autofs}) filesystem uses Sun's kernel-based automounter
-supporting filesystem for @i{Amd}'s mount points.  Hence it is another
-type of top level filesystem.
-
-The autofs filesystem is not directly accessible from @i{Amd} maps, but
-only from the @file{amd.conf} file (@pxref{mount_type Parameter}).
-
-Note that Autofs support is still very early.  See the distribution file
-@file{README.autofs} for detail of what works and what does not.
 
 @c ----------------------------------------------------------------
 @node Inheritance Filesystem, , Root Filesystem, Filesystem Types
@@ -4413,8 +4423,9 @@ The following parameters are applicable to the @samp{[global]} section only.
 @subsection @t{arch} Parameter
 @cindex arch Parameter
 
-(type=string, default to compiled in value).  Allows you to override the
-value of the @i{arch} @i{Amd} variable.
+(type=string, default to compiled in value).  Same as the @code{-A}
+option to @i{Amd}.  Allows you to override the value of the @i{arch}
+@i{Amd} variable.
 
 @c ----------------------------------------------------------------
 @node auto_dir Parameter, cache_duration Parameter, arch Parameter, Global Parameters
@@ -5496,7 +5507,7 @@ The purpose of @i{FSinfo} is to generate all the important standard
 filesystem data files from a single set of input data.  Starting with a
 single data source guarantees that all the generated files are
 self-consistent.  One of the possible output data formats is a set of
-@i{Amd} maps which can be used amongst the set of hosts described in the
+@i{Amd} maps which can be used among the set of hosts described in the
 input data.
 
 @i{FSinfo} implements a declarative language.  This language is
@@ -7298,8 +7309,8 @@ If you wish to generate Amd maps using the @i{hostd} (@pxref{hostd
 Selector Variable}) @i{Amd} map syntax, then define the environment
 variable @b{$DOMAIN} or modify the script.
 
-Note that automount2amd does not understand newer Sun Automount map
-syntax, those used by autofs.
+Note that automount2amd does not understand the syntax in newer Sun
+Automount maps, those used with autofs.
 
 @c ----------------------------------------------------------------
 @node ctl-amd, ctl-hlfsd, automount2amd, Assorted Tools
@@ -7942,7 +7953,7 @@ file service performance.
 @comment  node-name,  next,  previous,  up
 @section @samp{/tftpboot} in a chroot-ed environment
 @cindex /tftpboot in a chroot-ed environment
-@cindex chroot: /tftpboot example
+@cindex chroot; /tftpboot example
 
 In this complex example, we attempt to run an @i{Amd} process
 @emph{inside} a chroot-ed environment.  @samp{tftpd} (Trivial FTP) is
@@ -8346,3 +8357,4 @@ All other registered trademarks are owned by their respective owners.
 @c LocalWords:  freebsdelf gnuoldld ifhtml defperm nodefperm norrip RRIP rrip
 @c LocalWords:  noversion attr XXXXXX netgrpd rh mkstemp uid gid noexec mntfs
 @c LocalWords:  nomnttab optionstr hrtime xdrtrace getpwd proplist redhat ctl
+@c LocalWords:  texinfo texi ib sp cartouche ified xlatecookie

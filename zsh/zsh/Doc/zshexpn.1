@@ -1,4 +1,4 @@
-.TH "ZSHEXPN" "1" "October 26, 2001" "zsh 4\&.0\&.4"
+.TH "ZSHEXPN" "1" "June 18, 2003" "zsh 4\&.1\&.1"
 .SH "NAME"
 zshexpn \- zsh expansion and substitution
 .\" Yodl file: Zsh/expn.yo
@@ -317,7 +317,16 @@ cuts fields 1 and 3 from the files \fIfile1\fP and \fIfile2\fP respectively,
 pastes the results together, and sends it to the processes
 \fIprocess1\fP and \fIprocess2\fP\&.
 .PP
-Both the \fB/dev/fd\fP and the named pipe implementation have drawbacks\&.  In
+If \fB=(\fP\fI\&.\&.\&.\fP\fB)\fP is used instead of
+\fB<(\fP\fI\&.\&.\&.\fP\fB)\fP,
+then the file passed as an argument will be the name
+of a temporary file containing the output of the \fIlist\fP
+process\&.  This may be used instead of the \fB<\fP
+form for a program that expects to lseek (see \fIlseek\fP(2))
+on the input file\&.
+.PP
+The \fB=\fP form is useful as both the \fB/dev/fd\fP and the named pipe
+implementation of \fB<(\fP\fI\&.\&.\&.\fP\fB)\fP have drawbacks\&.  In 
 the former case, some programmes may automatically close the file
 descriptor in question before examining the file on the command line,
 particularly if this is necessary for security reasons such as when the
@@ -342,18 +351,43 @@ efficiently written (provided the \fBMULTIOS\fP option is set) as:
 The shell uses pipes instead of FIFOs to implement the latter
 two process substitutions in the above example\&.
 .PP
-If \fB=\fP is used,
-then the file passed as an argument will be the name
-of a temporary file containing the output of the \fIlist\fP
-process\&.  This may be used instead of the \fB<\fP
-form for a program that expects to lseek (see \fIlseek\fP(2))
-on the input file\&.
+There is an additional problem with \fB>(\fP\fIprocess\fP\fB)\fP; when
+this is attached to an external command, the parent shell does not wait
+for \fIprocess\fP to finish and hence an immediately following command
+cannot rely on the results being complete\&.  The problem and solution are
+the same as described in the section \fIMULTIOS\fP in
+\fIzshmisc\fP(1)\&.  Hence in a simplified
+version of the example above:
+.PP
+.RS
+.nf
+\fB\fBpaste <(cut \-f1\fP \fIfile1\fP\fB) <(cut \-f3\fP \fIfile2\fP\fB)\fP \fB> >(\fP\fIprocess\fP\fB)\fP\fP
+.fi
+.RE
+.PP
+(note that no \fBMULTIOS\fP are involved), \fIprocess\fP will be run
+asynchronously\&.  The workaround is:
+.PP
+.RS
+.nf
+\fB\fB{ paste <(cut \-f1\fP \fIfile1\fP\fB) <(cut \-f3\fP \fIfile2\fP\fB) }\fP \fB> >(\fP\fIprocess\fP\fB)\fP\fP
+.fi
+.RE
+.PP
+The extra processes here are
+spawned from the parent shell which will wait for their completion\&.
+.PP
 .SH "PARAMETER EXPANSION"
 The character `\fB$\fP' is used to introduce parameter expansions\&.
 See
 \fIzshparam\fP(1)
 for a description of parameters, including arrays, associative arrays,
 and subscript notation to access individual array elements\&.
+.PP
+Note in particular the fact that words of unquoted parameters are not
+automatically split on whitespace unless the option \fBSH_WORD_SPLIT\fP is
+set; see references to this option below for more details\&.  This is an
+important difference from other shells\&.
 .PP
 In the expansions discussed below that require a pattern, the form of
 the pattern is the same as that used for filename generation;
@@ -480,8 +514,8 @@ The \fIpattern\fP may begin with a `\fB#\fP', in which case the
 \fIpattern\fP must match at the start of the string, or `\fB%\fP', in
 which case it must match at the end of the string\&.  The \fIrepl\fP may
 be an empty string, in which case the final `\fB/\fP' may also be omitted\&.
-To quote the final `\fB/\fP' in other cases it should be preceded by two
-backslashes (i\&.e\&., a quoted backslash); this is not necessary if the
+To quote the final `\fB/\fP' in other cases it should be preceded by a
+single backslash; this is not necessary if the
 `\fB/\fP' occurs inside a substituted parameter\&.  Note also that the `\fB#\fP'
 and `\fB%\fP' are not active if they occur inside a substituted parameter,
 even at the start\&.
@@ -614,6 +648,11 @@ arrays; the \fIword\fP part \fImust\fP be converted to an array, for
 example by using `\fB${(AA)=\fP\fIname\fP\fB=\fP\&.\&.\&.\fB}\fP' to activate
 field splitting, when creating an associative array\&.
 .TP
+\fBa\fP
+With \fBo\fP or \fBO\fP, sort in array index order\&. Note that `\fBoa\fP' is
+therefore equivalent to the default but `\fBOa\fP' is useful for
+obtaining an array's elements in reverse order\&.
+.TP
 \fBc\fP
 With \fB${#\fP\fIname\fP\fB}\fP, count the total number of characters in an array,
 as if the elements were concatenated with spaces between them\&.
@@ -648,6 +687,9 @@ this flag may not be combined with subscript ranges\&.
 .TP
 \fBL\fP
 Convert all letters in the result to lower case\&.
+.TP
+\fBn\fP
+With \fBo\fP or \fBO\fP, sort numerically\&.
 .TP
 \fBo\fP
 Sort the resulting words in ascending order\&.
@@ -722,6 +764,9 @@ for parameters with the `hide' flag
 \fBspecial\fP
 for special parameters defined by the shell
 .RE
+.TP
+\fBu\fP
+Expand only the first occurrence of each unique word\&.
 .TP
 \fBU\fP
 Convert all letters in the result to upper case\&.
@@ -1103,11 +1148,9 @@ except when the directory is \fB/\fP itself\&.  The parameters \fB$PWD\fP and
 If a word begins with an unquoted `\fB=\fP'
 and the \fBEQUALS\fP option is set,
 the remainder of the word is taken as the
-name of a command or alias\&.  If a command
+name of a command\&.  If a command
 exists by that name, the word is replaced
 by the full pathname of the command\&.
-If an alias exists by that name, the word
-is replaced with the text of the alias\&.
 .PP
 Filename expansion is performed on the right hand side of a parameter
 assignment, including those appearing after commands of the
@@ -1162,6 +1205,7 @@ first character in the list\&.
 There are also several named classes of characters, in the form
 `\fB[:\fP\fIname\fP\fB:]\fP' with the following meanings:  `\fB[:alnum:]\fP'
 alphanumeric, `\fB[:alpha:]\fP' alphabetic,
+`\fB[:ascii:]\fP' 7\-bit,
 `\fB[:blank:]\fP' space or tab,
 `\fB[:cntrl:]\fP' control character, `\fB[:digit:]\fP' decimal
 digit, `\fB[:graph:]\fP' printable character except whitespace,
@@ -1440,7 +1484,17 @@ anywhere except at the start of the string, although this actually means
 need to use `\fB(""~(#s))\fP' to match a zero\-length portion of the string
 not at the start\&.
 .RE
-.RE
+.TP
+\fBq\fP
+A `\fBq\fP' and everything up to the closing parenthesis of the globbing
+flags are ignored by the pattern matching code\&.  This is intended to
+support the use of glob qualifiers, see below\&.  The result is that
+the pattern `\fB(#b)(*)\&.c(#q\&.)\fP' can be used both for globbing and for
+matching against a string\&.  In the former case, the `\fB(#q\&.)\fP' will be
+treated as a glob qualifier and the `\fB(#b)\fP' will not be useful, while in
+the latter case the `\fB(#b)\fP' is useful for backreferences and the
+`\fB(#q\&.)\fP' will be ignored\&.  Note that colon modifiers in the glob
+qualifiers are also not applied in ordinary pattern matching\&.
 .PP
 For example, the test string \fBfooxx\fP can be matched by the pattern
 \fB(#i\fP\fB)FOOXX\fP, but not by \fB(#l\fP\fB)FOOXX\fP,
@@ -1567,6 +1621,20 @@ qualifiers, for example `\fB(^x)\fP', can be forced to be treated as part of
 the glob pattern by doubling the parentheses, in this case producing
 `\fB((^x))\fP'\&.
 .PP
+If the option \fBEXTENDED_GLOB\fP is set, a different syntax for glob
+qualifiers is available, namely `\fB(#qx)\fP' where \fBx\fP is any of the same
+glob qualifiers used in the other format\&.  The qualifiers must still appear
+at the end of the pattern\&.  However, with this syntax multiple glob
+qualifiers may be chained together\&.  They are treated as a logical AND of
+the individual sets of flags\&.  Also, as the syntax is unambiguous, the
+expression will be treated as glob qualifiers just as long any parentheses
+contained within it are balanced; appearance of `\fB|\fP', `\fB(\fP' or
+`\fB~\fP' does not negate the effect\&.  Note that qualifiers will be
+recognised in this form even if a bare glob qualifier exists at the end of
+the pattern, for example `\fB*(#q*)(\&.)\fP' will recognise executable regular
+files if both options are set; however, mixed syntax should probably be
+avoided for the sake of clarity\&.
+.PP
 A qualifier may be any one of the following:
 .PP
 .PD 0
@@ -1653,11 +1721,11 @@ If the qualifier `\fBf\fP' is followed by any other character anything
 up to the next matching character (`\fB[\fP', `\fB{\fP', and `\fB<\fP' match 
 `\fB]\fP', `\fB}\fP', and `\fB>\fP' respectively, any other character
 matches itself) is taken as a list of comma\-separated
-\fIsub\-spec\fPs\&. Each \fIsub\-spec\fP may be either a octal number as
+\fIsub\-spec\fPs\&. Each \fIsub\-spec\fP may be either an octal number as
 described above or a list of any of the characters `\fBu\fP', `\fBg\fP',
 `\fBo\fP', and `\fBa\fP', followed by a `\fB=\fP', a `\fB+\fP', or a
 `\fB\-\fP', followed by a list of any of the characters `\fBr\fP', `\fBw\fP', 
-`\fBx\fP', `\fBs\fP', and `\fBt\fP', or a octal digit\&. The first list of
+`\fBx\fP', `\fBs\fP', and `\fBt\fP', or an octal digit\&. The first list of
 characters specify which access rights are to be checked\&. If a `\fBu\fP'
 is given, those for the owner of the file are used, if a `\fBg\fP' is
 given, those of the group are checked, a `\fBo\fP' means to test those
@@ -1868,3 +1936,15 @@ outputs the basename of all root\-owned files beginning with the string
 lists all files having a link count of one whose names contain a dot
 (but not those starting with a dot, since \fBGLOB_DOTS\fP is explicitly
 switched off) except for \fBlex\&.c\fP, \fBlex\&.h\fP, \fBparse\&.c\fP and \fBparse\&.h\fP\&.
+.PP
+.RS
+.nf
+\fBprint b*\&.pro(#q:s/pro/shmo/)(#q\&.:s/builtin/shmiltin/)\fP
+.fi
+.RE
+.PP
+demonstrates how colon modifiers and other qualifiers may be chained
+together\&.  The ordinary qualifier `\fB\&.\fP' is applied first, then the colon
+modifiers in order from left to right\&.  So if \fBEXTENDED_GLOB\fP is set and
+the base pattern matches the regular file \fBbuiltin\&.pro\fP, the shell will
+print `\fBshmiltin\&.shmo\fP'\&.

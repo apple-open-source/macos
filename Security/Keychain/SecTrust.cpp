@@ -16,16 +16,9 @@
  */
 
 #include <Security/SecTrust.h>
+#include <Security/SecTrustPriv.h>
 #include <Security/Trust.h>
-
 #include "SecBridge.h"
-
-
-static inline Trust *Required(SecTrustRef trustRef)
-{
-    return gTypes().trust.required(trustRef);
-}
-
 
 //
 // CF boilerplate
@@ -34,7 +27,7 @@ CFTypeID SecTrustGetTypeID(void)
 {
 	BEGIN_SECAPI
 
-	return gTypes().trust.typeId;
+	return gTypes().Trust.typeID;
 
 	END_SECAPI1(_kCFRuntimeNotATypeID)
 }
@@ -49,10 +42,18 @@ OSStatus SecTrustCreateWithCertificates(
 	SecTrustRef *trustRef)
 {
     BEGIN_SECAPI
-	Required(trustRef);	// preflight
-    RefPointer<Trust> trust(new Trust(certificates, policies));
-	*trustRef = gTypes().trust.handle(*trust);
+	Required(trustRef);
+    *trustRef = (new Trust(certificates, policies))->handle();
     END_SECAPI
+}
+
+
+OSStatus
+SecTrustSetPolicies(SecTrustRef trustRef, CFTypeRef policies)
+{
+	BEGIN_SECAPI
+	Trust::required(trustRef)->policies(policies);
+	END_SECAPI
 }
 
 
@@ -62,7 +63,7 @@ OSStatus SecTrustSetParameters(
     CFDataRef actionData)
 {
     BEGIN_SECAPI
-    Trust *trust = gTypes().trust.required(trustRef);
+    Trust *trust = Trust::required(trustRef);
     trust->action(action);
     trust->actionData(actionData);
     END_SECAPI
@@ -72,7 +73,7 @@ OSStatus SecTrustSetParameters(
 OSStatus SecTrustSetAnchorCertificates(SecTrustRef trust, CFArrayRef anchorCertificates)
 {
     BEGIN_SECAPI
-    Required(trust)->anchors(anchorCertificates);
+    Trust::required(trust)->anchors(anchorCertificates);
     END_SECAPI
 }
 
@@ -82,7 +83,7 @@ OSStatus SecTrustSetKeychains(SecTrustRef trust, CFTypeRef keychainOrArray)
     BEGIN_SECAPI
 	StorageManager::KeychainList keychains;
 	globals().storageManager.optionalSearchList(keychainOrArray, keychains);
-    Required(trust)->searchLibs() = keychains;
+    Trust::required(trust)->searchLibs() = keychains;
     END_SECAPI
 }
 
@@ -90,7 +91,7 @@ OSStatus SecTrustSetKeychains(SecTrustRef trust, CFTypeRef keychainOrArray)
 OSStatus SecTrustSetVerifyDate(SecTrustRef trust, CFDateRef verifyDate)
 {
     BEGIN_SECAPI
-    Required(trust)->time(verifyDate);
+    Trust::required(trust)->time(verifyDate);
     END_SECAPI
 }
 
@@ -98,7 +99,7 @@ OSStatus SecTrustSetVerifyDate(SecTrustRef trust, CFDateRef verifyDate)
 OSStatus SecTrustEvaluate(SecTrustRef trustRef, SecTrustResultType *resultP)
 {
     BEGIN_SECAPI
-    Trust *trust = Required(trustRef);
+    Trust *trust = Trust::required(trustRef);
     trust->evaluate();
     if (resultP)
         *resultP = trust->result();
@@ -115,7 +116,7 @@ OSStatus SecTrustGetResult(
 	CFArrayRef *certChain, CSSM_TP_APPLE_EVIDENCE_INFO **statusChain)
 {
     BEGIN_SECAPI
-    Trust *trust = Required(trustRef);
+    Trust *trust = Trust::required(trustRef);
     if (result)
         *result = trust->result();
     if (certChain && statusChain)
@@ -130,14 +131,28 @@ OSStatus SecTrustGetResult(
 OSStatus SecTrustGetCssmResult(SecTrustRef trust, CSSM_TP_VERIFY_CONTEXT_RESULT_PTR *result)
 {
     BEGIN_SECAPI
-    Required(result) = Required(trust)->cssmResult();
+    Required(result) = Trust::required(trust)->cssmResult();
+    END_SECAPI
+}
+
+//
+// Retrieve CSSM_LEVEL TP return code
+//
+OSStatus SecTrustGetCssmResultCode(SecTrustRef trustRef, OSStatus *result)
+{
+    BEGIN_SECAPI
+	Trust *trust = Trust::required(trustRef);
+	if (trust->result() == kSecTrustResultInvalid)
+		return paramErr; 
+	else
+		Required(result) = trust->cssmResultCode();
     END_SECAPI
 }
 
 OSStatus SecTrustGetTPHandle(SecTrustRef trust, CSSM_TP_HANDLE *handle)
 {
     BEGIN_SECAPI
-    Required(handle) = Required(trust)->getTPHandle();
+    Required(handle) = Trust::required(trust)->getTPHandle();
     END_SECAPI
 }
 
@@ -172,8 +187,8 @@ OSStatus SecTrustGetUserTrust(SecCertificateRef certificate,
 {
 	BEGIN_SECAPI
 	Required(trustSetting) = Trust::gStore().find(
-		gTypes().certificate.required(certificate),
-		gTypes().policy.required(policy));
+		Certificate::required(certificate),
+		Policy::required(policy));
 	END_SECAPI
 }
 
@@ -191,8 +206,8 @@ OSStatus SecTrustSetUserTrust(SecCertificateRef certificate,
 		MacOSError::throwMe(errSecInvalidTrustSetting);
 	}
 	Trust::gStore().assign(
-		gTypes().certificate.required(certificate),
-		gTypes().policy.required(policy),
+		Certificate::required(certificate),
+		Policy::required(policy),
 		trustSetting);
 	END_SECAPI
 }

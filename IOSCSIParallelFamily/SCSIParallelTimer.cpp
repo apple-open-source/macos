@@ -239,7 +239,7 @@ SCSIParallelTimer::GetTimeoutDuration ( SCSIParallelTask * task )
 //	GetExpiredTask - Gets the task which timed out.					   [PUBLIC]
 //ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
 
-SCSIParallelTask *
+SCSIParallelTaskIdentifier
 SCSIParallelTimer::GetExpiredTask ( void )
 {
 	
@@ -279,7 +279,7 @@ SCSIParallelTimer::GetExpiredTask ( void )
 	
 	openGate ( );
 	
-	return task;
+	return ( SCSIParallelTaskIdentifier ) task;
 	
 }
 
@@ -391,6 +391,67 @@ ErrorExit:
 
 
 //ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+//	RemoveTask - Removes a task from the timeout list.				   [PUBLIC]
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+
+void
+SCSIParallelTimer::RemoveTask ( SCSIParallelTaskIdentifier parallelRequest )
+{
+	
+	SCSIParallelTask *	task 		= NULL;
+	SCSIParallelTask *	prevTask	= NULL;
+	
+	require_nonzero ( OSDynamicCast ( SCSIParallelTask, parallelRequest ), Exit );
+	require_nonzero ( fTimeoutTaskListHead, Exit );
+	
+	closeGate ( );
+	
+	// Special case for parallelRequest being the list head.
+	if ( parallelRequest == fTimeoutTaskListHead )
+	{
+		fTimeoutTaskListHead = GetNextTask ( ( SCSIParallelTask * ) parallelRequest );
+	}
+	
+	else
+	{
+		
+		// It isn't the list head, so search the list for the task.
+		task = GetNextTask ( fTimeoutTaskListHead );
+		prevTask = fTimeoutTaskListHead;
+		
+		while ( task != NULL )
+		{
+			
+			if ( task == parallelRequest )
+			{
+				
+				SetNextTask ( prevTask, GetNextTask ( task ) );
+				break;
+				
+			}
+			
+			prevTask = task;
+			task = GetNextTask ( task );
+			
+		}
+		
+	}
+	
+	openGate ( );
+	
+	// Rearm the timer.
+	Rearm ( );
+	
+	
+Exit:
+	
+	
+	return;
+	
+}
+
+
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
 //	Rearm - Arms the timeout timer.									   [PUBLIC]
 //ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
 
@@ -404,7 +465,7 @@ SCSIParallelTimer::Rearm ( void )
 	
 	if ( fTimeoutTaskListHead != NULL )
 	{
-	
+		
 		// Re-arm the timer with new timeout deadline
 		wakeAtTime ( GetDeadline ( fTimeoutTaskListHead ) );
 		result = true;

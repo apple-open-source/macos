@@ -33,12 +33,12 @@ typedef enum _NSTitlePosition {
 } NSTitlePosition;
 
 /*!
- 	@category Boats(BoatsCanFly)
+ 	@category Boats (BoatsCanFly)
 	@abstract The BoatsCanFly category adds levitation methods to the Boat class.
 	@discussion Methods declared in the BoatsCanFly category of the Boats class can only be used with properly equiped Boat objects.   
 */
 
-@interface Boats(BoatsCanFly)
+@interface Boats (BoatsCanFly)
 /*!
  	@method levitateToHeight:
 	@abstract Raises the boat specified number of centimeters

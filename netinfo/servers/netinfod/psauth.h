@@ -17,6 +17,11 @@ enum {
 
 #define PASSWORD_SERVER_AUTH_TYPE "ApplePasswordServer"
 #define BASIC_AUTH_TYPE "basic"
+#define SHADOWHASH_AUTH_TYPE "ShadowHash"
+
+void ConvertBinaryToHex( const unsigned char *inData, unsigned long inLen, char *outHexStr );
+void ConvertHexToBinary( const char *inHexStr, unsigned char *outData, unsigned long *outLen );
+
 
 int CheckAuthType(char* inAuthAuthorityData, char* authType);
 int DoPSAuth(char* userName, char* password, char* inAuthAuthorityData);

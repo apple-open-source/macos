@@ -41,7 +41,7 @@
 
 /**/
 static int
-bin_clone(char *nam, char **args, char *ops, int func)
+bin_clone(char *nam, char **args, Options ops, int func)
 {
     int ttyfd, pid;
 
@@ -53,7 +53,7 @@ bin_clone(char *nam, char **args, char *ops, int func)
     }
     pid = fork();
     if (!pid) {
-	clearjobtab();
+	clearjobtab(0);
 	ppid = getppid();
 	mypid = getpid();
 #ifdef HAVE_SETSID

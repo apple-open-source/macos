@@ -4,7 +4,7 @@
  * Kevin Van Vechten | kevinvv@uclink4.berkeley.edu
  * $Apple$
  **
- * Copyright (c) 1999-2001 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 1999-2002 Apple Computer, Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -64,6 +64,7 @@ static void startupItemTerminated (CFMachPortRef aMachPort, void *anInfo)
     if (aTerminationContext && aTerminationContext->anItem)
       {
         pid_t	 		aPID 		= 0;
+        pid_t	 		rPID 		= 0;
         int			aStatus		= 0;
         CFMutableDictionaryRef	anItem          = aTerminationContext->anItem;
         StartupContext		aStartupContext = aTerminationContext->aStartupContext;
@@ -73,9 +74,7 @@ static void startupItemTerminated (CFMachPortRef aMachPort, void *anInfo)
           {
             aPID = StartupItemGetPID(anItem);
             if (aPID > 0)
-              {
-                aPID = wait4(aPID, &aStatus, 0, NULL);
-              }
+                rPID = waitpid(aPID, &aStatus, WNOHANG);
           }
           
         if (aStartupContext)
@@ -97,24 +96,15 @@ static void startupItemTerminated (CFMachPortRef aMachPort, void *anInfo)
                 displayProgress(aStartupContext->aDisplayContext, ((float)CFDictionaryGetCount(aStartupContext->aStatusDict)/((float)aStartupContext->aServicesCount + 1.0)));
               }
 
-            /* Remove the item from the waiting list. */
-            if (aStartupContext->aWaitingList)
+            /* If the item failed to start, then add it to the failed list */
+            if (WEXITSTATUS(aStatus) || WTERMSIG(aStatus) || WCOREDUMP(aStatus))
               {
-                CFRange aRange  = {0, CFArrayGetCount(aStartupContext->aWaitingList)};
-                CFIndex anIndex = CFArrayGetFirstIndexOfValue(aStartupContext->aWaitingList, aRange, anItem);
-            
-                if (anIndex >= 0)
-                    CFArrayRemoveValueAtIndex(aStartupContext->aWaitingList, anIndex);
+                CFDictionarySetValue(anItem, kErrorKey, kErrorReturnNonZero);
+                AddItemToFailedList(aStartupContext, anItem);
               }
 
-            /* If we've backgrounded, stop drawing. */
-            /*
-            if (!gParentPID && aStartupContext->aDisplayContext)
-              {
-                freeDisplayContext(aStartupContext->aDisplayContext);
-                aStartupContext->aDisplayContext = NULL;
-              }
-            */
+            /* Remove the item from the waiting list regardless if it was successful or it failed. */
+            RemoveItemFromWaitingList(aStartupContext, anItem);
           }
       }
       
@@ -133,6 +123,8 @@ void MonitorStartupItem (StartupContext aStartupContext, CFMutableDictionaryRef 
         mach_port_t         aPort;
         kern_return_t       aResult;
         CFMachPortContext   aContext;
+	CFMachPortRef       aMachPort;
+	CFRunLoopSourceRef  aSource;
         TerminationContext  aTerminationContext = (TerminationContext) malloc(sizeof(struct TerminationContextStorage));
         
         aTerminationContext->aStartupContext = aStartupContext;
@@ -142,34 +134,26 @@ void MonitorStartupItem (StartupContext aStartupContext, CFMutableDictionaryRef 
         aContext.info    = aTerminationContext;
         aContext.retain  = 0;
         aContext.release = 0;
-        
-        aResult = task_for_pid(mach_task_self(), aPID, &aPort);
-        if (aResult == KERN_SUCCESS)
-          {
-            CFMachPortRef aMachPort = CFMachPortCreateWithPort(NULL, aPort, NULL, &aContext, NULL);
-            if (aMachPort)
-              {
-                CFRunLoopSourceRef aSource = CFMachPortCreateRunLoopSource(NULL, aMachPort, 0);
-                if (aSource)
-                  {
-                    CFMachPortSetInvalidationCallBack(aMachPort, startupItemTerminated);
-                    CFRunLoopAddSource(CFRunLoopGetCurrent(), aSource, kCFRunLoopCommonModes);
-                    CFRelease(aSource);
-                  }
-                CFRelease(aMachPort);
-              }
-            else
-              {
-                error(CFSTR("Could not monitor startup item.  Failed to create mach port.\n"));
-                /* The assumption is if we can't connect, the task already terminated. */
-                startupItemTerminated(NULL, aTerminationContext);
-              }
-          }
-        else
-          {
-            /* The assumption is if we can't connect, the task already terminated. */
-            startupItemTerminated(NULL, aTerminationContext);
-          }
+
+        if ((aResult = task_for_pid(mach_task_self(), aPID, &aPort)) != KERN_SUCCESS)
+		goto out_bad;
+
+	if (!(aMachPort = CFMachPortCreateWithPort(NULL, aPort, NULL, &aContext, NULL)))
+		goto out_bad;
+
+	if (!(aSource = CFMachPortCreateRunLoopSource(NULL, aMachPort, 0))) {
+		CFRelease(aMachPort);
+		goto out_bad;
+	}
+
+	CFMachPortSetInvalidationCallBack(aMachPort, startupItemTerminated);
+	CFRunLoopAddSource(CFRunLoopGetCurrent(), aSource, kCFRunLoopCommonModes);
+	CFRelease(aSource);
+	CFRelease(aMachPort);
+	return;
+out_bad:
+	/* The assumption is something failed, the task already terminated. */
+	startupItemTerminated(NULL, aTerminationContext);
       }
 }
 
@@ -344,6 +328,7 @@ static void loadDisplayBundle (StartupContext aStartupContext, CFDictionaryRef a
  **/
 static void unloadDisplayBundle (StartupContext aStartupContext, CFDictionaryRef anIPCMessage)
 {
+    aStartupContext->aQuitOnNotification = 0;
     if (!gVerboseFlag && aStartupContext)
       {
         extern void UnloadDisplayPlugIn();
@@ -355,6 +340,8 @@ static void unloadDisplayBundle (StartupContext aStartupContext, CFDictionaryRef
         
         /* Use the default text display again. */
         aStartupContext->aDisplayContext = initDisplayContext();
+
+        CFRunLoopStop(CFRunLoopGetCurrent());
       }
 }
 
@@ -545,5 +532,3 @@ CFRunLoopSourceRef CreateIPCRunLoopSource(CFStringRef aPortName, StartupContext 
       }
     return aSource;
 }
-
-

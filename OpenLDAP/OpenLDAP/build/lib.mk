@@ -1,5 +1,5 @@
-# $OpenLDAP: pkg/ldap/build/lib.mk,v 1.15 2002/01/04 20:17:29 kurt Exp $
-## Copyright 1998-2002 The OpenLDAP Foundation
+# $OpenLDAP: pkg/ldap/build/lib.mk,v 1.15.2.2 2003/03/29 15:45:42 kurt Exp $
+## Copyright 1998-2003 The OpenLDAP Foundation
 ## COPYING RESTRICTIONS APPLY.  See COPYRIGHT File in top level directory
 ## of this package for details.
 ##---------------------------------------------------------------------------
@@ -9,9 +9,11 @@
 
 all-common: $(LIBRARY) $(PROGRAMS)
 
-version.c: $(OBJS)
+version.c: Makefile
 	$(RM) $@
 	$(MKVERSION) $(LIBRARY) > $@
+
+version.o version.lo: version.c $(OBJS)
 
 install-common: FORCE
 

@@ -1,3 +1,27 @@
+/*
+ * Copyright (c) 2003 Apple Computer, Inc. All rights reserved.
+ *
+ * @APPLE_LICENSE_HEADER_START@
+ * 
+ * Copyright (c) 1999-2003 Apple Computer, Inc.  All Rights Reserved.
+ * 
+ * This file contains Original Code and/or Modifications of Original Code
+ * as defined in and that are subject to the Apple Public Source License
+ * Version 2.0 (the 'License'). You may not use this file except in
+ * compliance with the License. Please obtain a copy of the License at
+ * http://www.opensource.apple.com/apsl/ and read it before using this
+ * file.
+ * 
+ * The Original Code and all software distributed under the License are
+ * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
+ * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
+ * INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY,
+ * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
+ * Please see the License for the specific language governing rights and
+ * limitations under the License.
+ * 
+ * @APPLE_LICENSE_HEADER_END@
+ */
 
 /*
  * mslplib_prlist.c : PRList utilities for the mslplib.
@@ -25,6 +49,9 @@
  * (c) Sun Microsystems, 1998, All Rights Reserved.
  * Author: Erik Guttman
  */
+ /*
+	Portions Copyright (c) 2002 Apple Computer, Inc. All rights reserved.
+ */
  
 #include <stdio.h>
 #include <string.h>
@@ -39,7 +66,7 @@ pthread_mutex_t	gPRListLock = PTHREAD_MUTEX_INITIALIZER;
 void prlist_modify(char **ppcList, struct sockaddr_in sin) 
 {
 	char pcSrcBuf[16] = {0};
-    char *pcSrc = inet_ntop(AF_INET, &sin.sin_addr, pcSrcBuf, sizeof(pcSrcBuf));
+    const char *pcSrc = inet_ntop(AF_INET, &sin.sin_addr, pcSrcBuf, sizeof(pcSrcBuf));
     char *pcTemp = *ppcList;
     int len;
     
@@ -94,7 +121,7 @@ int getlen(const char *pc) {
  *    pcList     the new pr list to insert into the send buffer.
  *
  */
-void recalc_sendBuf(char *pcBuf, int iLen, const char *pcList) {
+int recalc_sendBuf(char *pcBuf, int iLen, const char *pcList) {
 
   int iPROffset = HDRLEN+GETLANGLEN(pcBuf);             /* begin of PRList */
   int iCurrentPRListSz = GETSHT(pcBuf,iPROffset);   /* current prlist size */
@@ -103,7 +130,7 @@ void recalc_sendBuf(char *pcBuf, int iLen, const char *pcList) {
   int iOutLen = getlen(pcBuf) + strlen(pcList) - iCurrentPRListSz;
   int loop;
   
-  if (iOutLen >= iLen) return;                 /* too big to expand - punt */
+  if (iOutLen >= iLen) return -1;                 /* too big to expand - punt */
 
   /* copy the data forward to make space for the new, longer, pr list */
   for (loop = 0; loop < iToCopy; loop++) {
@@ -113,10 +140,11 @@ void recalc_sendBuf(char *pcBuf, int iLen, const char *pcList) {
   /* write the new, longer, pr list into the space we have made */
   if (add_string(pcBuf,iLen,pcList,&iPROffset) != SLP_OK) {
     LOG(SLP_LOG_ERR,"recalc_sendBuf:  could not add_string the new PR List");
-    return;
+    return -1;
   }
 
   /* update the length field in the header of the slp message for new len */
   SETLEN(pcBuf,iOutLen);
 
+	return 0;
 }

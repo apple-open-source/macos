@@ -60,7 +60,7 @@ typedef list<CallbackInfo>::iterator CallbackInfoListIterator;
 typedef list<CallbackInfo>::const_iterator ConstCallbackInfoListIterator;
 
 
-class CCallbackMgr : Observer
+class CCallbackMgr : private Observer
 {
 public:
 	
@@ -79,11 +79,8 @@ public:
 	
 private:
 
-    virtual void 	Event ( CFNotificationCenterRef center, 
-                            CFStringRef 			name, 
-                            const void*				object, 
-                            CFDictionaryRef 		userInfo );
-
+	void Event (Listener::Domain domain, Listener::Event whichEvent, NameValueDictionary &dictionary);
+	
 	static void AlertClients( SecKeychainEvent inEvent, pid_t inPid,
 		const Keychain& inKeychain, const Item &inItem);
 

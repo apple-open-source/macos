@@ -43,6 +43,7 @@
 #include <IOKit/IORangeAllocator.h>
 #include <IOKit/IODeviceTreeSupport.h>
 #include <IOKit/IOPlatformExpert.h>
+#include <IOKit/IOMapper.h>
 #include <IOKit/IOLib.h>
 #include <IOKit/assert.h>
 
@@ -471,7 +472,7 @@ bool AppleMacRiscHT::start( IOService * provider )
 	return( false);
 
     provider->setDeviceMemory( array );
-    ioMemory = (IODeviceMemory *) array->getObject( 3 );
+    ioMemory = (IODeviceMemory *) array->getObject( 2 );
     array->release();
 
     /* map registers */
@@ -696,11 +697,8 @@ bool AppleMacRiscAGP::configure( IOService * provider )
 
     isU3 = IODTMatchNubWithKeys(provider, "u3-agp");
     if (isU3) {
-
-//	gartCtrl |= kGART_PERF_RD;
+	gartCtrl |= kGART_PERF_RD;
 	isU32     = (uniNVersion > 0x30);
-
-	dummyPage = IOBufferMemoryDescriptor::withOptions( 0, page_size, page_size );
     }
 
     return( super::configure( provider));
@@ -736,8 +734,25 @@ IOPCIDevice * AppleMacRiscAGP::createNub( OSDictionary * from )
 	    flags = num->unsigned64BitValue();
 	else
 	    flags = 0;
+
 	if (isU32)
 	    flags &= ~kIOAGPGartInvalidate;
+	else
+	    flags |= kIOAGPGartInvalidate;
+#if 1
+	if (isU3 || (uniNVersion < 0x08))
+	    flags |= kIOAGPDisablePageSpans;
+#else
+	if ((uniNVersion < 0x08) || (isU3 && (uniNVersion < 0x33)))
+	    flags |= kIOAGPDisablePageSpans;
+#endif
+	if (isU3 && (uniNVersion < 0x34))
+	    flags |= kIOAGPDisableUnaligned;
+	if (uniNVersion < 0x20)
+	    flags |= kIOAGPDisableAGPWrites;
+	if (uniNVersion == 0x30)
+	    flags |= kIOAGPDisablePCIReads | kIOAGPDisablePCIWrites;
+
 	num = OSNumber::withNumber(flags, 64);
 	nub = new IOAGPDevice;
         if (nub)
@@ -764,7 +779,7 @@ IOReturn AppleMacRiscAGP::createAGPSpace( IOAGPDevice * master,
     IOReturn		err;
     IOPCIAddressSpace 	target = getBridgeSpace();
     IOPhysicalLength	agpLength;
-    IOPhysicalAddress	gartPhys;
+    UInt64		gartPhys;
     OSData *		data;
 
     enum { agpSpacePerPage = 4 * 1024 * 1024 };
@@ -773,16 +788,19 @@ IOReturn AppleMacRiscAGP::createAGPSpace( IOAGPDevice * master,
 
     destroyAGPSpace( master );
 
+    if (isU32 && !dummyPage)
+	dummyPage = IOBufferMemoryDescriptor::withOptions(0, page_size, page_size);
     if (dummyPage) {
 	IOPhysicalLength len;
-	// should be getPhysicalSegment64
-	IOPhysicalAddress phys = dummyPage->getPhysicalSegment(0, &len);
-        configWrite32( target, kUniNDUMMY_PAGE,
-				phys >> 12 );
+	dummyPhys = dummyPage->getPhysicalSegment64(0, &len);
+        configWrite32( target, kUniNDUMMY_PAGE, dummyPhys >> PAGE_SHIFT );
     }
 
     agpCommandMask = 0xffffffff;
 //  agpCommandMask &= ~kIOAGPSideBandAddresssing;
+
+    if (isU3)
+	agpCommandMask &= ~kIOAGPFastWrite;
 
     {
 	// There's an nVidia NV11 ROM (revision 1017) that says that it can do fast writes,
@@ -797,7 +815,8 @@ IOReturn AppleMacRiscAGP::createAGPSpace( IOAGPDevice * master,
 	if( 0 == strncmp( kNVIDIAEntryName, master->getName(), strlen(kNVIDIAEntryName)))
         {
 	    agpCommandMask &= ~kIOAGPFastWrite;			// NV34 systems (Q26B/Q54) has issues with this
-            agpCommandMask &= ~kIOAGPSideBandAddresssing;	// NV34 systems (Q26B/Q54) has issues with this
+	    if (!isU3)
+		agpCommandMask &= ~kIOAGPSideBandAddresssing;	// NV34 systems (Q26B/Q54) has issues with this
         }
 
 #else	/* NO_NVIDIA_FASTWRITE */
@@ -833,14 +852,17 @@ IOReturn AppleMacRiscAGP::createAGPSpace( IOAGPDevice * master,
 
     err = kIOReturnVMError;
     do {
+        ppnum_t physPage;
 
 	gartLength = agpLength / agpBytesPerGartByte;
-	gartArray = (volatile UInt32 *) IOMallocContiguous( 
-				gartLength, 4096, &gartPhys );
-	if( !gartArray)
-	    continue;
+        gartHandle = IOMapper::NewARTTable(gartLength, (void **) &gartArray, &physPage);
+        if (!gartHandle)
+            continue;
+        gartPhys = ptoa_64(physPage);
+
         // IOMapPages( kernel_map, gartArray, gartPhys, gartLength, kIOMapInhibitCache );
-        bzero( (void *) gartArray, gartLength);
+	bzero( (void *) gartArray, gartLength);
+	flush_dcache( (vm_offset_t) gartArray, gartLength, false);
 
 #if ALLOC_AGP_RANGE
         IORangeAllocator * platformRanges
@@ -873,17 +895,13 @@ IOReturn AppleMacRiscAGP::createAGPSpace( IOAGPDevice * master,
 #endif
 
 	UInt32 gartBaseExt = 0;
-
-	if (isU3) {
-	    // get phys64 or page number for gartArray,
-	    // gartBaseExt = phys64 >> 32;
-	}
+	if (isU3)
+	    gartBaseExt = (gartPhys >> 32);
 
         configWrite32( target, kUniNAGP_BASE, (agpBaseIndex << 28) | gartBaseExt );
 
-        assert( 0 == (gartPhys & 0xfff));
         configWrite32( target, kUniNGART_BASE,
-     			gartPhys | (agpLength / agpSpacePerPage));
+     			(gartPhys & ~PAGE_MASK) | (agpLength / agpSpacePerPage));
 
         err = kIOReturnSuccess;
 
@@ -953,6 +971,37 @@ IOOptionBits AppleMacRiscAGP::getAGPStatus( IOAGPDevice * master,
     return( configRead32( target, kUniNINTERNAL_STATUS ) );
 }
 
+inline void AppleMacRiscAGP::configSetClearMask( IOPCIAddressSpace space, 
+						 UInt8 offset, UInt32 data, UInt32 mask )
+{
+    IOInterruptState ints;
+
+    ints = IOSimpleLockLockDisableInterrupt( lock );
+
+    if( setConfigSpace( space, offset )) {
+
+        offset = offset & configDataOffsetMask & 4;
+
+        OSWriteSwapInt32( configData, offset, data | mask );
+        eieio();
+	/* read to sync */
+        (void) OSReadSwapInt32( configData, offset );
+        eieio();
+	sync();
+	isync();
+
+        OSWriteSwapInt32( configData, offset, data );
+        eieio();
+	/* read to sync */
+        (void) OSReadSwapInt32( configData, offset );
+        eieio();
+	sync();
+	isync();
+    }
+
+    IOSimpleLockUnlockEnableInterrupt( lock, ints );
+}
+
 IOReturn AppleMacRiscAGP::commitAGPMemory( IOAGPDevice * master, 
 				      IOMemoryDescriptor * memory,
 				      IOByteCount agpOffset,
@@ -961,7 +1010,7 @@ IOReturn AppleMacRiscAGP::commitAGPMemory( IOAGPDevice * master,
     IOPCIAddressSpace 	target = getBridgeSpace();
     IOReturn		err = kIOReturnSuccess;
     UInt32		offset = 0;
-    IOPhysicalAddress	physAddr;
+    addr64_t		phys64;
     IOByteCount		len;
     IOByteCount         agpFlushStart, flushLength;
 
@@ -970,20 +1019,20 @@ IOReturn AppleMacRiscAGP::commitAGPMemory( IOAGPDevice * master,
     assert( agpOffset < systemLength );
     agpOffset /= (page_size / 4);
     agpFlushStart = agpOffset;
-    // getPhysicalSegment64
-    while( (physAddr = memory->getPhysicalSegment( offset, &len ))) {
 
+    while( (phys64 = memory->getPhysicalSegment64(offset, &len)))
+    {
 	offset += len;
-	len = (len + 0xfff) & ~0xfff;
+	len = (len + PAGE_MASK) & ~PAGE_MASK;
 	while( len > 0) {
 	    if (isU3)
 		OSWriteBigInt32( gartArray, agpOffset,
-				    ((physAddr >> 12) | 0x80000000));
+				    (((UInt32)(phys64 >> PAGE_SHIFT)) | 0x80000000));
 	    else
 		OSWriteLittleInt32( gartArray, agpOffset,
-				    ((physAddr & ~0xfff) | 1));
+				    ((phys64 & ~PAGE_MASK) | 1));
 	    agpOffset += 4;
-	    physAddr += page_size;
+	    phys64 += page_size;
 	    len -= page_size;
 	}
     }
@@ -1008,14 +1057,11 @@ IOReturn AppleMacRiscAGP::commitAGPMemory( IOAGPDevice * master,
     isync();
 
     if (isU32) {
-        configWrite32( target, kUniNGART_CTRL, gartCtrl | kGART_EN | kGART_INV );
-        configWrite32( target, kUniNGART_CTRL, gartCtrl | kGART_EN );
+	configSetClearMask( target, kUniNGART_CTRL, gartCtrl | kGART_EN, kGART_INV );
     
     } else if( kIOAGPGartInvalidate & options) {
-        configWrite32( target, kUniNGART_CTRL, gartCtrl | kGART_EN | kGART_INV );
-        configWrite32( target, kUniNGART_CTRL, gartCtrl | kGART_EN );
-        configWrite32( target, kUniNGART_CTRL, gartCtrl | kGART_EN | kGART_2xRESET);
-        configWrite32( target, kUniNGART_CTRL, gartCtrl | kGART_EN );
+	configSetClearMask( target, kUniNGART_CTRL, gartCtrl | kGART_EN, kGART_INV );
+	configSetClearMask( target, kUniNGART_CTRL, gartCtrl | kGART_EN, kGART_2xRESET );
     }
 
     return( err );
@@ -1041,11 +1087,11 @@ IOReturn AppleMacRiscAGP::releaseAGPMemory( IOAGPDevice * master,
 
 //    agpRange->deallocate( agpOffset, length );
 
-    length = (length + 0xfff) & ~0xfff;
+    length = (length + PAGE_MASK) & ~PAGE_MASK;
     agpOffset /= page_size;
     agpFlushStart = agpOffset;
     while( length > 0) {
-	gartArray[ agpOffset++ ] = 0;
+	gartArray[agpOffset++] = 0;
 	length -= page_size;
     }
     
@@ -1066,14 +1112,11 @@ IOReturn AppleMacRiscAGP::releaseAGPMemory( IOAGPDevice * master,
     isync();
 
     if (isU32) {
-        configWrite32( target, kUniNGART_CTRL, gartCtrl | kGART_EN | kGART_INV );
-        configWrite32( target, kUniNGART_CTRL, gartCtrl | kGART_EN );
+	configSetClearMask( target, kUniNGART_CTRL, gartCtrl | kGART_EN, kGART_INV );
     
     } else if( kIOAGPGartInvalidate & options) {
-        configWrite32( target, kUniNGART_CTRL, gartCtrl | kGART_EN | kGART_INV );
-        configWrite32( target, kUniNGART_CTRL, gartCtrl | kGART_EN );
-        configWrite32( target, kUniNGART_CTRL, gartCtrl | kGART_EN | kGART_2xRESET);
-        configWrite32( target, kUniNGART_CTRL, gartCtrl | kGART_EN );
+	configSetClearMask( target, kUniNGART_CTRL, gartCtrl | kGART_EN, kGART_INV );
+	configSetClearMask( target, kUniNGART_CTRL, gartCtrl | kGART_EN, kGART_2xRESET );
     }
 
     return( err );
@@ -1121,7 +1164,7 @@ IOReturn AppleMacRiscAGP::setAGPEnable( IOAGPDevice * _master,
 	{
 	    command &= ~kIOAGP4xDataRate;
 	    if( command & kIOAGP8xDataRateMode3)
-		command &= ~kIOAGP4xDataRateMode3;
+		command &= ~(kIOAGP4xDataRateMode3 | kIOAGPFastWrite);
 	    else if( 0 == (command & kIOAGP4xDataRateMode3))
 		return( kIOReturnUnsupported );
 	}

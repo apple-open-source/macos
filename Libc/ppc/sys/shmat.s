@@ -25,5 +25,4 @@
 #include "SYS.h"
 
 SYSCALL(shmat, 3)
-	blr
 

@@ -4,15 +4,22 @@
 # compat-43 sources
 .PATH: ${.CURDIR}/${MACHINE_ARCH}/compat-43 ${.CURDIR}/compat-43
 
-SRCS+= creat.c  getwd.c send.c       setpgrp.c    setreuid.c   setruid.c \
-       gethostid.c killpg.c sethostid.c  setregid.c   setrgid.c    sigcompat.c
-
+SRCS+= setregid.c setreuid.c sigcompat.c
+.include "Makefile.fbsd_begin"
+FBSDSRCS= creat.c gethostid.c getwd.c killpg.c sethostid.c setpgrp.c \
+	setrgid.c setruid.c
+.include "Makefile.fbsd_end"
 
 .if ${LIB} == "c"
-MAN2+=	creat.2 killpg.2 sigpause.2 sigvec.2
-MAN3+=	gethostid.3 setruid.3
+MAN2+=	sigblock.2 sigpause.2 sigsetmask.2 sigvec.2
+
+.include "Makefile.fbsd_begin"
+FBSDMAN2= creat.2 killpg.2
+FBSDMAN3= gethostid.3 setruid.3
+.include "Makefile.fbsd_end"
 
 MLINKS+=gethostid.3 sethostid.3
 MLINKS+=setruid.3 setrgid.3
+MLINKS+=sigsetmask.2 sigmask.2
 
 .endif

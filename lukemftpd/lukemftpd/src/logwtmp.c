@@ -46,7 +46,7 @@ static int fd = -1;
  * after login, but before logout).
  */
 void
-logwtmp(const char *line, const char *name, const char *host)
+ftp_logwtmp(const char *line, const char *name, const char *host)
 {
 	struct utmp ut;
 	struct stat buf;

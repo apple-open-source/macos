@@ -1,0 +1,92 @@
+<?xml version='1.0' ?>
+<!DOCTYPE jboss PUBLIC
+   "-//JBoss//DTD JBOSS 3.2//EN"
+   "http://www.jboss.org/j2ee/dtd/jboss_3_2.dtd">
+
+<!-- Version: $Id: jboss.xml,v 1.6.2.3 2003/03/05 02:40:34 starksm Exp $ -->
+<jboss>
+   <invoker-proxy-bindings>
+      <invoker-proxy-binding>
+         <name>this-rmi-invoker</name>
+         <invoker-mbean>jboss:service=invoker,type=jrmp</invoker-mbean>
+         <proxy-factory>org.jboss.proxy.ejb.ProxyFactory</proxy-factory>
+         <proxy-factory-config>
+            <client-interceptors>
+               <home>
+                  <interceptor>org.jboss.proxy.ejb.HomeInterceptor</interceptor>
+                  <interceptor>org.jboss.ha.httpsession.beanimpl.ejb.ClientTCLInterceptor</interceptor>
+                  <interceptor>org.jboss.invocation.InvokerInterceptor</interceptor>
+               </home>
+               <bean>
+                  <interceptor>org.jboss.proxy.ejb.EntityInterceptor</interceptor>
+                  <interceptor>org.jboss.ha.httpsession.beanimpl.ejb.ClientTCLInterceptor</interceptor>
+                  <interceptor>org.jboss.invocation.InvokerInterceptor</interceptor>
+               </bean>
+               <list-entity>
+                  <interceptor>org.jboss.proxy.ejb.ListEntityInterceptor</interceptor>
+                  <interceptor>org.jboss.ha.httpsession.beanimpl.ejb.ClientTCLInterceptor</interceptor>
+                  <interceptor>org.jboss.invocation.InvokerInterceptor</interceptor>
+               </list-entity>
+            </client-interceptors>
+         </proxy-factory-config>
+      </invoker-proxy-binding>
+   </invoker-proxy-bindings>
+
+   <enterprise-beans>
+      <entity>
+         <ejb-name>ClusteredHTTPSession</ejb-name>
+         <jndi-name>clustering/HTTPSession</jndi-name>
+         <local-jndi-name>clustering/LocalHTTPSession</local-jndi-name>
+         <configuration-name>Clustered in-memory CMP EntityBean</configuration-name>
+         <invoker-bindings>
+            <invoker>
+               <invoker-proxy-binding-name>this-rmi-invoker</invoker-proxy-binding-name>
+            </invoker>
+         </invoker-bindings>
+      </entity>
+   </enterprise-beans>
+
+   <container-configurations>
+      <container-configuration>
+         <container-name>Clustered in-memory CMP EntityBean</container-name>
+         <call-logging>false</call-logging>
+         <container-interceptors>
+            <interceptor>org.jboss.ha.httpsession.beanimpl.ejb.ServerTCLInterceptor</interceptor>
+            <interceptor>org.jboss.ejb.plugins.ProxyFactoryFinderInterceptor</interceptor>
+            <interceptor>org.jboss.ejb.plugins.LogInterceptor</interceptor>
+            <interceptor>org.jboss.ejb.plugins.EntityLockInterceptor</interceptor>
+            <interceptor>org.jboss.ejb.plugins.EntityInstanceInterceptor</interceptor>
+            <interceptor>org.jboss.ejb.plugins.EntitySynchronizationInterceptor</interceptor>
+         </container-interceptors>
+         <instance-pool>org.jboss.ejb.plugins.EntityInstancePool</instance-pool>
+         <instance-cache>org.jboss.ejb.plugins.ClusterSyncEntityInstanceCache</instance-cache>
+         <persistence-manager>org.jboss.ejb.plugins.CMPClusteredInMemoryPersistenceManager</persistence-manager>
+         <locking-policy>org.jboss.ejb.plugins.lock.QueuedPessimisticEJBLock</locking-policy>
+
+         <container-cache-conf>
+            <cache-policy>org.jboss.ejb.plugins.LRUEnterpriseContextCachePolicy</cache-policy>
+            <cache-policy-conf>
+               <min-capacity>50</min-capacity>
+               <max-capacity>1000000</max-capacity>
+               <overager-period>300</overager-period>
+               <max-bean-age>600</max-bean-age>
+               <resizer-period>400</resizer-period>
+               <max-cache-miss-period>60</max-cache-miss-period>
+               <min-cache-miss-period>1</min-cache-miss-period>
+               <cache-load-factor>0.75</cache-load-factor>
+            </cache-policy-conf>
+         </container-cache-conf>
+         <container-pool-conf>
+            <MinimumSize>10</MinimumSize>
+            <MaximumSize>100</MaximumSize>
+         </container-pool-conf>
+         <commit-option>A</commit-option>
+         <cluster-config>
+            <partition-name>DefaultPartition</partition-name>
+         </cluster-config>
+         <depends>jboss:service=DefaultPartition</depends>
+         <depends>jboss:service=invoker,type=jrmp</depends>
+      </container-configuration>
+   </container-configurations>
+
+</jboss>

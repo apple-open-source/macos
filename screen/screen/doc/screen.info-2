@@ -1,13 +1,14 @@
-This is screen.info, produced by makeinfo version 4.0 from
+This is screen.info, produced by makeinfo version 4.2 from
 ./screen.texinfo.
 
+INFO-DIR-SECTION General Commands
 START-INFO-DIR-ENTRY
 * Screen: (screen).             Full-screen window manager.
 END-INFO-DIR-ENTRY
 
    This file documents the `Screen' virtual terminal manager.
 
-   Copyright (c) 1993-1995 Free Software Foundation, Inc.
+   Copyright (c) 1993-2003 Free Software Foundation, Inc.
 
    Permission is granted to make and distribute verbatim copies of this
 manual provided the copyright notice and this permission notice are
@@ -22,6 +23,92 @@ permission notice identical to this one.
 manual into another language, under the above conditions for modified
 versions, except that this permission notice may be stated in a
 translation approved by the Foundation.
+
+
+File: screen.info,  Node: Selecting,  Next: Session Management,  Prev: New Window,  Up: Top
+
+Selecting a Window
+******************
+
+   This section describes the commands for switching between windows in
+an `screen' session.  The windows are numbered from 0 to 9, and are
+created in that order by default (*note New Window::).
+
+* Menu:
+
+* Next and Previous::           Forward or back one window.
+* Other Window::                Switch back and forth between two windows.
+* Select::                      Switch to a window (and to one after `kill').
+* Windowlist::                  Present a list of all windows for selection.
+
+
+File: screen.info,  Node: Next and Previous,  Next: Other Window,  Up: Selecting
+
+Moving Back and Forth
+=====================
+
+ - Command: next
+     (`C-a <SPC>', `C-a n', `C-a C-n')
+     Switch to the next window.  This command can be used repeatedly to
+     cycle through the list of windows.  (On some terminals, C-<SPC>
+     generates a NUL character, so you must release the control key
+     before pressing space.)
+
+ - Command: prev
+     (`C-a p', `C-a C-p')
+     Switch to the previous window (the opposite of `C-a n').
+
+
+File: screen.info,  Node: Other Window,  Next: Select,  Prev: Next and Previous,  Up: Selecting
+
+Other Window
+============
+
+ - Command: other
+     (`C-a C-a')
+     Switch to the last window displayed.  Note that this command
+     defaults to the command character typed twice, unless overridden.
+     For instance, if you use the option `-e]x', this command becomes
+     `]]' (*note Command Character::).
+
+
+File: screen.info,  Node: Select,  Next: Windowlist,  Prev: Other Window,  Up: Selecting
+
+Select
+======
+
+ - Command: select [n]
+     (`C-a N', `C-a '')
+     Switch to the window with the number N.  If no window number is
+     specified, you get prompted for an identifier. This can be a
+     window name (title) or a number.  When a new window is
+     established, the lowest available number is assigned to this
+     window.  Thus, the first window can be activated by `select 0';
+     there can be no more than 10 windows present simultaneously
+     (unless screen is compiled with a higher MAXWIN setting).  The
+     special command `select -' switches to a blank window.
+
+
+File: screen.info,  Node: Windowlist,  Prev: Select,  Up: Selecting
+
+Windowlist
+==========
+
+ - Command: windowlist [-b] | string [STRING] | title [TITLE]
+     (`C-a "')
+     Display all windows in a table for visual window selection.  The
+     desired window can be selected via the standard movement keys
+     (*note Movement::) and activated via the return key.  If the `-b'
+     option is given, screen will switch to the blank window before
+     presenting the list, so that the current window is also selectable.
+
+     The table format can be changed with the string and title option,
+     the title is displayed as table heading, while the lines are made
+     by using the string setting.  The default setting is `Num
+     Name%=Flags' for the title and `%3n %t%=%f' for the lines. See the
+     string escapes chapter (*note String Escapes::) for more codes
+     (e.g. color settings).
+
 
 
 File: screen.info,  Node: Session Management,  Next: Regions,  Prev: Selecting,  Up: Top
@@ -62,7 +149,9 @@ Detach
      (`C-a d', `C-a C-d')
      Detach the `screen' session (disconnect it from the terminal and
      put it into the background).  A detached `screen' can be resumed by
-     invoking `screen' with the `-r' option. (*note Invoking Screen::)
+     invoking `screen' with the `-r' option (*note Invoking Screen::).
+     The `-h' option tells screen to immediately close the connection
+     to the terminal (`hangup').
 
  - Command: password [crypted_pw]
      (none)
@@ -185,7 +274,7 @@ Aclchg
      a comma separated list of commands or windows (specified either by
      number or title). The special list `#' refers to all windows, `?'
      to all commands. If USERNAMES consists of a single `*', all known
-     users is affected.  A command can be executed when the user has
+     users are affected.  A command can be executed when the user has
      the `x' bit for it. The user can type input to a window when he
      has its `w' bit set and no other user obtains a writelock for this
      window. Other bits are currently ignored.  To withdraw the
@@ -244,8 +333,8 @@ File: screen.info,  Node: Umask,  Next: Wall,  Prev: Displays,  Up: Multiuser Se
 aclumask
 --------
 
- - Command: aclumask [[USERS]+BITS |[USERS]-BITS .... ]
- - Command: umask [[USERS]+BITS |[USERS]-BITS .... ]
+ - Command: aclumask [USERS]+/-BITS ...
+ - Command: umask [USERS]+/-BITS ...
      (none)
      This specifies the access other users have to  windows  that will
      be  created  by  the caller of the command. USERS may be no, one
@@ -536,7 +625,7 @@ Title Command
 
  - Command: title [windowtitle]
      (`C-a A')
-     Set the name of the current window to WINDOWALIAS. If no name is
+     Set the name of the current window to WINDOWTITLE. If no name is
      specified, screen prompts for one.
 
 
@@ -955,7 +1044,10 @@ functions, respectively.
                 ?7           (V)     `Wrap' Mode
                 ?9                   X10 mouse tracking
                 ?25          (V)     Visible Cursor
+                ?47                  Alternate Screen (old xterm code)
                 ?1000        (V)     VT200 mouse tracking
+                ?1047                Alternate Screen (new xterm code)
+                ?1049                Alternate Screen (new xterm code)
      ESC [ 5 i               (A)     Start relay to printer (ANSI Media Copy)
      ESC [ 4 i               (A)     Stop relay to printer (ANSI Media Copy)
      ESC [ 8 ; Ph ; Pw t             Resize the window to `Ph' lines and
@@ -1008,9 +1100,8 @@ command is executed if the keyboard is switched into application mode.
      Function key 8       k8         stuff \033[19~
      Function key 9       k9         stuff \033[20~
      Function key 10      k;         stuff \033[21~
-     Function key 11      F1         stuff \033[22~
-     Function key 12      F2         stuff \033[23~
-     Backspace            kb         stuff \010
+     Function key 11      F1         stuff \033[23~
+     Function key 12      F2         stuff \033[24~
      Home                 kh         stuff \033[1~
      End                  kH         stuff \033[4~
      Insert               kI         stuff \033[2~
@@ -1129,113 +1220,4 @@ Clear
  - Command: clear
      (`C-a C')
      Clears the screen and saves its contents to the scrollback buffer.
-
-
-File: screen.info,  Node: Info,  Next: Redisplay,  Prev: Clear,  Up: Virtual Terminal
-
-Info
-====
-
- - Command: info
-     (`C-a i', `C-a C-i')
-     Uses the message line to display some information about the current
-     window: the cursor position in the form `(COLUMN,ROW)' starting
-     with `(1,1)', the terminal width and height plus the size of the
-     scrollback buffer in lines, like in `(80,24)+50', the current
-     state of window XON/XOFF flow control is shown like this (*note
-     Flow Control::):
-            +flow     automatic flow control, currently on.
-            -flow     automatic flow control, currently off.
-            +(+)flow  flow control enabled. Agrees with automatic control.
-            -(+)flow  flow control disabled. Disagrees with automatic control.
-            +(-)flow  flow control enabled. Disagrees with automatic control.
-            -(-)flow  flow control disabled. Agrees with automatic control.
-
-     The current line wrap setting (`+wrap' indicates enabled, `-wrap'
-     not) is also shown. The flags `ins', `org', `app', `log', `mon'
-     and `nored' are displayed when the window is in insert mode,
-     origin mode, application-keypad mode, has output logging, insert
-     mode, origin mode, application-keypad mode, output logging,
-     activity monitoring or partial redraw enabled.
-
-     The currently active character set (`G0', `G1', `G2', or `G3'),
-     and in square brackets the terminal character sets that are
-     currently designated as `G0' through `G3'.  If the window is in
-     UTF-8 mode, the string `UTF-8' is shown instead.  Additional modes
-     depending on the type of the window are displayed at the end of
-     the status line (*note Window Types::).
-
-     If the state machine of the terminal emulator is in a non-default
-     state, the info line is started with a string identifying the
-     current state.
-
-     For system information use `time'.
-
- - Command: dinfo
-     (none)
-     Show what screen thinks about your terminal. Useful if you want to
-     know why features like color or the alternate charset don't work.
-
-
-File: screen.info,  Node: Redisplay,  Next: Wrap,  Prev: Info,  Up: Virtual Terminal
-
-Redisplay
-=========
-
- - Command: allpartial state
-     (none)
-     If set to on, only the current cursor line is refreshed on window
-     change.  This affects all windows and is useful for slow terminal
-     lines. The previous setting of full/partial refresh for each
-     window is restored with `allpartial off'. This is a global flag
-     that immediately takes effect on all windows overriding the
-     `partial' settings. It does not change the default redraw behavior
-     of newly created windows.
-
- - Command: partial state
-     (none)
-     Defines whether the display should be refreshed (as with
-     `redisplay') after switching to the current window. This command
-     only affects the current window.  To immediately affect all
-     windows use the `allpartial' command.  Default is `off', of
-     course.  This default is fixed, as there is currently no
-     `defpartial' command.
-
- - Command: redisplay
-     (`C-a l', `C-a C-l')
-     Redisplay the current window.  Needed to get a full redisplay in
-     partial redraw mode.
-
-
-File: screen.info,  Node: Wrap,  Next: Reset,  Prev: Redisplay,  Up: Virtual Terminal
-
-Wrap
-====
-
- - Command: wrap state
-     (`C-a r', `C-a C-r')
-     Sets the line-wrap setting for the current window.  When line-wrap
-     is on, the second consecutive printable character output at the
-     last column of a line will wrap to the start of the following
-     line.  As an added feature, backspace (^H) will also wrap through
-     the left margin to the previous line.  Default is `on'.
-
- - Command: defwrap state
-     (none)
-     Same as the `wrap' command except that the default setting for new
-     windows is changed. Initially line-wrap is on and can be toggled
-     with the `wrap' command (`C-a r') or by means of "C-a : wrap
-     on|off".
-
-
-File: screen.info,  Node: Reset,  Next: Window Size,  Prev: Wrap,  Up: Virtual Terminal
-
-Reset
-=====
-
- - Command: reset
-     (`C-a Z')
-     Reset the virtual terminal to its "power-on" values. Useful when
-     strange settings (like scroll regions or graphics character set)
-     are left over from an application.
 

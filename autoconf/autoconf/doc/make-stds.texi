@@ -8,6 +8,17 @@
 @cindex conventions for makefiles
 @cindex standards for makefiles
 
+@c Copyright 1992, 1993, 1994, 1995, 1996, 1997, 1998, 2000, 2001 Free
+@c Software Foundation, Inc.
+
+@c Permission is granted to copy, distribute and/or modify this document
+@c under the terms of the GNU Free Documentation License, Version 1.1
+@c or any later version published by the Free Software Foundation;
+@c with no Invariant Sections, with no
+@c Front-Cover Texts, and with no Back-Cover Texts.
+@c A copy of the license is included in the section entitled ``GNU
+@c Free Documentation License''.
+
 This
 @ifinfo
 node
@@ -25,11 +36,11 @@ Using Automake will help you write a Makefile that follows these
 conventions.
 
 @menu
-* Makefile Basics::		General Conventions for Makefiles
-* Utilities in Makefiles::	Utilities in Makefiles
-* Command Variables::		Variables for Specifying Commands
-* Directory Variables::		Variables for Installation Directories
-* Standard Targets::		Standard Targets for Users
+* Makefile Basics::             General Conventions for Makefiles
+* Utilities in Makefiles::      Utilities in Makefiles
+* Command Variables::           Variables for Specifying Commands
+* Directory Variables::         Variables for Installation Directories
+* Standard Targets::            Standard Targets for Users
 * Install Command Categories::  Three categories of commands in the `install'
                                   rule: normal, pre-install and post-install.
 @end menu
@@ -140,7 +151,7 @@ installation should not use any utilities directly except these:
 
 @c dd find
 @c gunzip gzip md5sum
-@c mkfifo mknod tee uname 
+@c mkfifo mknod tee uname
 
 @example
 cat cmp cp diff echo egrep expr false grep install-info
@@ -366,17 +377,26 @@ discourage the use of architecture-dependent files, aside from object
 files and libraries.  It is much cleaner to make other data files
 architecture-independent, and it is generally not hard.
 
-Therefore, here are the variables Makefiles should use to specify
-directories:
+Here are the variables Makefiles should use to specify directories
+to put these various kinds of files in:
 
 @table @samp
+@item datarootdir
+The root of the directory tree for read-only architecture-independent
+data files.  This should normally be @file{/usr/local/share}, but
+write it as @file{$(prefix)/share}.  @samp{datadir}'s default value is
+based on this variable; so are @samp{infodir}, @samp{mandir}, and others.
+
 @item datadir
-The directory for installing read-only architecture independent data
-files.  This should normally be @file{/usr/local/share}, but write it as
-@file{$(prefix)/share}.
-(If you are using Autoconf, write it as @samp{@@datadir@@}.)
-As a special exception, see @file{$(infodir)}
-and @file{$(includedir)} below.
+The directory for installing ideosyncratic read-only
+architecture-independent data files for this program.  This is usually
+the same place as @samp{datarootdir}, but we use the two separate
+variables so that you can move these ideosyncratic files without
+altering the location for Info files, man pages, etc.
+
+The default definition of @samp{datadir} should be
+@file{$(datarootdir)}.  (If you are using Autoconf, write it as
+@samp{@@datadir@@}.)
 
 @item sysconfdir
 The directory for installing read-only data files that pertain to a
@@ -408,34 +428,14 @@ in @file{$(datadir)} or @file{$(sysconfdir)}.  @file{$(localstatedir)}
 should normally be @file{/usr/local/var}, but write it as
 @file{$(prefix)/var}.
 (If you are using Autoconf, write it as @samp{@@localstatedir@@}.)
+@end table
 
-@item libdir
-The directory for object files and libraries of object code.  Do not
-install executables here, they probably ought to go in @file{$(libexecdir)}
-instead.  The value of @code{libdir} should normally be
-@file{/usr/local/lib}, but write it as @file{$(exec_prefix)/lib}.
-(If you are using Autoconf, write it as @samp{@@libdir@@}.)
+These variables specify the directory for installing certain specific
+types of files, if your program has them.  Every GNU package should
+have Info files, so every program needs @samp{infodir}, but not all
+need @samp{libdir} or @samp{lispdir}.
 
-@item infodir
-The directory for installing the Info files for this package.  By
-default, it should be @file{/usr/local/info}, but it should be written
-as @file{$(prefix)/info}.
-(If you are using Autoconf, write it as @samp{@@infodir@@}.)
-
-@item lispdir
-The directory for installing any Emacs Lisp files in this package.  By
-default, it should be @file{/usr/local/share/emacs/site-lisp}, but it
-should be written as @file{$(prefix)/share/emacs/site-lisp}.
-
-If you are using Autoconf, write the default as @samp{@@lispdir@@}.
-In order to make @samp{@@lispdir@@} work, you need the following lines
-in your @file{configure.in} file:
-
-@example
-lispdir='$@{datadir@}/emacs/site-lisp'
-AC_SUBST(lispdir)
-@end example
-
+@table @samp
 @item includedir
 @c rewritten to avoid overfull hbox --roland
 The directory for installing header files to be included by user
@@ -470,6 +470,39 @@ package.
 
 To tell whether @file{foo.h} came from the Foo package, put a magic
 string in the file---part of a comment---and @code{grep} for that string.
+
+@item infodir
+The directory for installing the Info files for this package.  By
+default, it should be @file{/usr/local/share/info}, but it should be
+written as @file{$(datarootdir)/info}.  (If you are using Autoconf,
+write it as @samp{@@infodir@@}.)
+
+@item libdir
+The directory for object files and libraries of object code.  Do not
+install executables here, they probably ought to go in @file{$(libexecdir)}
+instead.  The value of @code{libdir} should normally be
+@file{/usr/local/lib}, but write it as @file{$(exec_prefix)/lib}.
+(If you are using Autoconf, write it as @samp{@@libdir@@}.)
+
+@item lispdir
+The directory for installing any Emacs Lisp files in this package.  By
+default, it should be @file{/usr/local/share/emacs/site-lisp}, but it
+should be written as @file{$(datarootdir)/emacs/site-lisp}.
+
+If you are using Autoconf, write the default as @samp{@@lispdir@@}.
+In order to make @samp{@@lispdir@@} work, you need the following lines
+in your @file{configure.in} file:
+
+@example
+lispdir='$@{datarootdir@}/emacs/site-lisp'
+AC_SUBST(lispdir)
+@end example
+
+@item localedir
+The directory for installing locale-specific message catalogs for this
+package.  By default, it should be @file{/usr/local/share/locale}, but
+it should be written as @file{$(datarootdir)/locale}.  (If you are
+using Autoconf, write it as @samp{@@localedir@@}.)
 @end table
 
 Unix-style man pages are installed in one of the following:
@@ -477,9 +510,9 @@ Unix-style man pages are installed in one of the following:
 @table @samp
 @item mandir
 The top-level directory for installing the man pages (if any) for this
-package.  It will normally be @file{/usr/local/man}, but you should
-write it as @file{$(prefix)/man}.
-(If you are using Autoconf, write it as @samp{@@mandir@@}.)
+package.  It will normally be @file{/usr/local/share/man}, but you
+should write it as @file{$(datarootdir)/man}.  (If you are using
+Autoconf, write it as @samp{@@mandir@@}.)
 
 @item man1dir
 The directory for installing section 1 man pages.  Write it as
@@ -524,13 +557,15 @@ For example:
 # Common prefix for installation directories.
 # NOTE: This directory must exist when you start the install.
 prefix = /usr/local
+datarootdir = $(prefix)/share
+datadir = $(datarootdir)
 exec_prefix = $(prefix)
 # Where to put the executable for the command `gcc'.
 bindir = $(exec_prefix)/bin
 # Where to put the directories used by the compiler.
 libexecdir = $(exec_prefix)/libexec
 # Where to put the Info files.
-infodir = $(prefix)/info
+infodir = $(datarootdir)/info
 @end smallexample
 
 If your program installs a large number of files into one of the

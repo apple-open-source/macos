@@ -1,0 +1,38 @@
+La lista de distribución %(listname)s acaba de sufrir un cambio
+importante. Ahora la gestiona un nuevo paquete de listas de
+distribución llamado "Mailman". Esperamos que esto mejore el
+servicio y la administración de la lista.
+
+
+¿Como le afecta esto?
+
+1) Los mensajes de correo dirigidos a la lista deben enviarse a:
+
+     %(listaddr)s
+
+2) Se le ha asignado una clave aleatoria para impedir que otros
+anulen su subscripción sin que usted lo sepa. La clave se le enviara
+en otro mensaje de correo electrónico, que puede que ya haya
+recibido. No se preocupe si se le olvida esta clave, todos los
+meses recibirá un recordatorio por correo electronico.
+
+3) Si dispone de acceso WEB, lo puede utilizar para anular su 
+subscripción a esta lista, para cambiar la forma de recepción
+de los mensajes, etc. La dirección es: 
+
+    %(listinfo_url)s
+
+4) Si no dispone de acceso WEB, puede realizar estas mismas
+operaciones por correo electrónico.  Envíe un mensaje a
+%(requestaddr)s con  la palabra 'help' en el asunto (subject) o
+en el cuerpo del mensaje y recibirá un respuesta automática con
+instrucciones.
+
+Por favor, dirijase a la siguiente dirección si tiene alguna
+pregunta o problema con esta nueva configuración: 
+
+    %(adminaddr)s.
+
+Este mensaje ha sido generado automaticamente por Mailman %(version)s.
+Para obtener mas información sobre Mailman, visite la pagina principal
+en http://www.list.org/

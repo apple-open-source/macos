@@ -30,8 +30,19 @@
 
 //#include <IOKit/firewire/IOFireWireController.h>
 
-#include "IOFireWireAVCUnit.h"
-#include "IOFireWireAVCUserClientCommon.h"
+#include <IOKit/avc/IOFireWireAVCUnit.h>
+#include <IOKit/avc/IOFireWireAVCUserClientCommon.h>
+
+// A little class to put into the connections set
+class IOFireWireAVCConnection : public OSObject
+{
+    OSDeclareDefaultStructors(IOFireWireAVCConnection)
+
+public:
+
+    UInt32 fPlugAddr;
+	UInt32 fChannel;
+};
 
 class IOFireWireAVCUserClient : public IOUserClient
 {
@@ -47,18 +58,26 @@ protected:
     task_t					fTask;
 	
     IOFireWireAVCNub *		fUnit;
-	
+	OSArray *				fConnections;
+    
+    static void remakeConnections(void *arg);
     virtual IOExternalMethod * getTargetAndMethodForIndex(IOService **target, UInt32 index);
     virtual IOExternalAsyncMethod * getAsyncTargetAndMethodForIndex(IOService **target, UInt32 index);
-
+    virtual IOReturn IOFireWireAVCUserClient::updateP2PCount(UInt32 addr, SInt32 inc, bool failOnBusReset, UInt32 chan, IOFWSpeed speed);
+    virtual IOReturn makeConnection(UInt32 addr, UInt32 chan, IOFWSpeed speed);
+    virtual void breakConnection(UInt32 addr);
+    
 public:
 
     static IOFireWireAVCUserClient* withTask( task_t owningTask );
 
     virtual bool init( OSDictionary * dictionary = 0 );
+    virtual void free();
     virtual bool start( IOService * provider );
     virtual void stop( IOService * provider );
 
+    virtual IOReturn message(UInt32 type, IOService *provider, void *argument);
+    
     virtual IOReturn clientClose( void );
     virtual IOReturn clientDied( void );
 
@@ -71,6 +90,11 @@ public:
     virtual IOReturn AVCCommandInGen(UInt8 * cmd, UInt8 * response, UInt32 len, UInt32 *size);
 
     virtual IOReturn updateAVCCommandTimeout( void * = 0, void * = 0, void * = 0, void * = 0, void * = 0, void * = 0);
+
+    virtual IOReturn makeP2PInputConnection( UInt32 plugNo, UInt32 chan, void * = 0, void * = 0, void * = 0, void * = 0);
+    virtual IOReturn breakP2PInputConnection( UInt32 plugNo, void * = 0, void * = 0, void * = 0, void * = 0, void * = 0);
+    virtual IOReturn makeP2POutputConnection( UInt32 plugNo, UInt32 chan, IOFWSpeed speed, void * = 0, void * = 0, void * = 0);
+    virtual IOReturn breakP2POutputConnection( UInt32 plugNo, void * = 0, void * = 0, void * = 0, void * = 0, void * = 0);
 };
 
 #endif // _IOKIT_IOFIREWIREAVCUSERCLIENT_H

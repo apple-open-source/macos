@@ -1,5 +1,5 @@
 Package: lsof 
 Maintainer: Victor A. Abell <abe@purdue.edu>
 Vendor: Purdue University Computing Center
-Version: 4.60
+Version: 4.68
 Build-Depends: build-base

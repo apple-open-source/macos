@@ -44,52 +44,81 @@ class IODCLProgram : public OSObject
 {
     OSDeclareAbstractStructors(IODCLProgram)
 
-protected:
-    SInt32 fDCLTaskToKernel;
-    SInt32 fDataTaskToKernel;
-    IOByteCount fDataBase;
-    IOMemoryDescriptor *fDCLDesc;
-    IOMemoryDescriptor *fDataDesc;
-    IOMemoryCursor *fDataCursor;
+	protected:
+	
+		void * 						reserved0 ;//fDCLTaskToKernel;
+		void * 						reserved1 ;//fDataTaskToKernel;
+		void *		 				reserved2 ;//fDataBase;
+		void *		 				reserved3 ;//		IOMemoryDescriptor *		fDCLDesc;
+		IOMemoryMap *				fBufferMem ;
+		void *		 				reserved5 ;//		IOMemoryCursor *			fDataCursor;
+	
+	/*! @struct ExpansionData
+		@discussion This structure will be used to expand the capablilties of the class in the future.
+		*/    
+		struct ExpansionData 
+		{
+			IOFWIsochResourceFlags		resourceFlags ;
+		};
+		
+	/*! @var reserved
+		Reserved for future use.  (Internal use only)  */
+		ExpansionData *					fExpansionData ;
+	
+	public :
+	
+		virtual void			setIsochResourceFlags ( IOFWIsochResourceFlags flags ) ;	// formerly getPhysicalSegs()
+		IOFWIsochResourceFlags	getIsochResourceFlags () const ;
+		
+	protected:
+	
+		virtual void 			free () ;
+	
+	public:
+	
+		virtual bool 			init ( IOFireWireBus :: DCLTaskInfo * info = NULL ) ;
+		virtual IOReturn 		allocateHW (
+										IOFWSpeed 			speed, 
+										UInt32 				chan) = 0;
+		virtual IOReturn 		releaseHW () = 0;
+		virtual IOReturn 		compile (
+										IOFWSpeed 			speed, 
+										UInt32 				chan) = 0;
+		virtual IOReturn 		notify (
+												IOFWDCLNotificationType		notificationType,
+												DCLCommand ** 				dclCommandList, 
+												UInt32 						numDCLCommands ) = 0;
+		virtual IOReturn 		start () = 0;
+		virtual void 			stop () = 0;
+		virtual IOReturn 		pause ();
+		virtual IOReturn 		resume ();
+				
+		virtual void			setForceStopProc( 
+												IOFWIsochChannel::ForceStopNotificationProc proc, 
+												void * 						refCon,
+												IOFWIsochChannel *			channel ) ;
+	protected :
+	
+		IOMemoryMap *			generateBufferMap( DCLCommand * program ) ;
+		IOReturn				virtualToPhysical( 
+												IOVirtualRange						ranges[], 
+												unsigned							rangeCount, 
+												IOMemoryCursor::IOPhysicalSegment	outSegments[], 
+												unsigned &							outPhysicalSegmentCount, 
+												unsigned							maxSegments ) ;
 
-/*! @struct ExpansionData
-    @discussion This structure will be used to expand the capablilties of the class in the future.
-    */    
-    struct ExpansionData { };
-
-/*! @var reserved
-    Reserved for future use.  (Internal use only)  */
-    ExpansionData *reserved;
-
-    virtual UInt32 getPhysicalSegs( void *							addr, 
-									IOMemoryDescriptor *			memory, 
-									IOByteCount 					len,
-									IOMemoryCursor::PhysicalSegment	segs[], 
-									UInt32 							maxSegs );
-
-    void dumpDCL(DCLCommand *op);
-
-    virtual void free();
-
-public:
-
-    virtual bool init(IOFireWireBus::DCLTaskInfo *info=NULL);
-    virtual IOReturn allocateHW(IOFWSpeed speed, UInt32 chan) = 0;
-    virtual IOReturn releaseHW() = 0;
-    virtual IOReturn compile(IOFWSpeed speed, UInt32 chan) = 0;
-    virtual IOReturn notify(UInt32 notificationType,
-        DCLCommand** dclCommandList, UInt32 numDCLCommands) = 0;
-    virtual IOReturn start() = 0;
-    virtual void stop() = 0;
-    virtual IOReturn pause();
-    virtual IOReturn resume();
-    
-private:
-    OSMetaClassDeclareReservedUnused(IODCLProgram, 0);
-    OSMetaClassDeclareReservedUnused(IODCLProgram, 1);
-    OSMetaClassDeclareReservedUnused(IODCLProgram, 2);
-    OSMetaClassDeclareReservedUnused(IODCLProgram, 3);
-
+	public :
+	
+		IOMemoryMap *			getBufferMap() const ;
+		
+	private:
+	
+		OSMetaClassDeclareReservedUsed(IODCLProgram, 0);
+		OSMetaClassDeclareReservedUnused(IODCLProgram, 1);
+		OSMetaClassDeclareReservedUnused(IODCLProgram, 2);
+		OSMetaClassDeclareReservedUnused(IODCLProgram, 3);
+		OSMetaClassDeclareReservedUnused(IODCLProgram, 4);
+	
 };
 
 #endif /* ! _IOKIT_IOFWDCLPROGRAM_H */

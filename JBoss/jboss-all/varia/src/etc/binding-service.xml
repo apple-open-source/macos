@@ -1,0 +1,44 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE server>
+<!-- $Id: binding-service.xml,v 1.1 2002/06/21 05:40:28 starksm Exp $ -->
+
+<server>
+
+  <!-- ServiceBindingManager configuration. This is a service that provides
+    binding mappings of service (host,port) pairs to allow multiple instances
+    of JBoss to be run on a server.
+
+    Typically you will add this configuration to the core jboss-services.xml
+    descriptor rather than deploying this as a seperate mbean so that it
+    may be available for use by other mbeans during their configuration.
+
+    Note that the JMX object name given below must be used
+    as the ServiceConfigurator currently has this hard coded.
+  -->
+  <mbean code="org.jboss.services.binding.ServiceBindingManager"
+    name="jboss.system:service=ServiceBindingManager">
+    <!-- 
+        Attribute: ServerName (mandatory)
+        Descr: Points to the 'server' block in the config file (servicebindings.xml)
+        which should be used for lookup requests to this service. This enables
+        the deployer/installer to have multiple port configurations from which
+        to choose.
+    -->
+	  <attribute name="ServerName">default</attribute>
+	  
+    <!-- Attribute: StoreURL
+        Descr: URL for the config store to use. The format of the config
+        store URL contents depends on the type of ServicesStore implementation
+        being used. Change this to your bindings configuration location
+        file: and http: URL protocols have been tested.
+    -->
+	  <attribute name="StoreURL">file:/etc/jboss-bindings.xml</attribute>
+
+     <!-- The ServicesStoreFactory interface implementation. This factory
+        creates an XML document based read-only store.
+     -->
+     <attribute name="StoreFactoryClassName">org.jboss.services.binding.XMLServicesStoreFactory</attribute>
+
+  </mbean>
+</server>
+

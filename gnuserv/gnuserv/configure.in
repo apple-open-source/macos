@@ -1,0 +1,86 @@
+dnl Process this file with autoconf 2.x to produce a configure script.
+AC_REVISION([$Id$])
+AC_PREREQ(2.12)dnl                  Minimum Autoconf version required.
+AC_INIT(gnuserv.c)
+AC_CONFIG_HEADER(config.h)
+AC_PROG_CC
+AC_PROG_INSTALL
+AC_C_CONST
+AC_ARG_WITH_RESOLV
+AC_ARG_ENABLE_XAUTH
+
+AC_HEADER_STDC
+AC_CHECK_HEADERS(string.h unistd.h)
+AC_CHECK_HEADERS(sys/types.h sys/select.h sys/socket.h sys/time.h)
+AC_CHECK_HEADERS(libintl.h sys/un.h)
+AC_CHECK_HEADERS(sgtty.h bsd/sgtty.h)
+
+dnl From xemacs-21.2.43/configure.in
+dnl check for Unix98 socklen_t
+AC_MSG_CHECKING(for socklen_t)
+AC_TRY_COMPILE([
+#include <sys/socket.h>
+socklen_t x;
+],[],[AC_MSG_RESULT(yes)],[
+AC_TRY_COMPILE([
+#include <sys/socket.h>
+int accept (int, struct sockaddr *, size_t *);
+],[],[
+AC_MSG_RESULT(size_t)
+AC_DEFINE(socklen_t,size_t)], [
+AC_MSG_RESULT(int)
+AC_DEFINE(socklen_t,int)])])
+
+AC_CHECK_SIZEOF(long, 32)
+
+AC_HAVE_XAUTH
+AC_CHECK_LIB(socket, socket)
+AC_CHECK_LIB(nsl, inet_ntoa)
+AC_CHECK_LIB(intl, gettext)
+AC_USE_RESOLV
+
+AC_CHECK_FUNCS(getcwd memcmp)
+
+AC_ARG_ENABLE(internet-domain-sockets,
+	[  --disable-internet-domain-sockets
+                          Do not use Internet domain sockets])
+
+if test "$enable_internet_domain_sockets" != "no" ; then
+AC_MSG_CHECKING([for internet-domain sockets])
+AC_EGREP_CPP([yes],[
+#include <sys/socket.h>
+#ifdef AF_INET
+yes
+#endif
+],
+  [AC_DEFINE(HAVE_INTERNET_DOMAIN_SOCKETS)
+   AC_MSG_RESULT(yes)],
+  [AC_MSG_RESULT(no)])
+fi
+
+AC_ARG_ENABLE(internet-unix-sockets,
+	[  --disable-unix-domain-sockets
+                          Do not use Unix domain sockets])
+
+if test "$enable_unix_domain_sockets" != "no" ; then
+AC_MSG_CHECKING([for unix-domain sockets])
+AC_EGREP_CPP(yes,[
+#include <sys/socket.h>
+#ifdef AF_UNIX
+yes
+#endif
+],
+  [AC_DEFINE(HAVE_UNIX_DOMAIN_SOCKETS)
+   AC_MSG_RESULT(yes)],
+  [AC_MSG_RESULT(no)])
+fi
+
+AC_ARG_ENABLE(sysv-ipc,
+	[  --disable-sysv-ipc
+                          Do not use SYSV IPC])
+
+if test "$enable_sysv_ipc" != "no" ; then
+AC_CHECK_FUNCS(msgget,[AC_DEFINE(HAVE_SYSVIPC)])
+fi
+
+AC_OUTPUT(Makefile)

@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="utf-8"?>
+
+<jboss>
+   <enterprise-beans>
+      <session>
+         <ejb-name>EJBTestRunnerEJB</ejb-name>
+         <jndi-name>ejb/EJBTestRunner</jndi-name>
+      </session>
+
+      <entity>
+         <ejb-name>PublisherEJB</ejb-name>
+         <local-jndi-name>cmp2/readonly/Publisher</local-jndi-name>
+      </entity>
+      <entity>
+         <ejb-name>BookEJB</ejb-name>
+         <local-jndi-name>cmp2/readonly/Book</local-jndi-name>
+      </entity>
+      <entity>
+         <ejb-name>AuthorEJB</ejb-name>
+         <local-jndi-name>cmp2/readonly/Author</local-jndi-name>
+      </entity>
+   </enterprise-beans>
+</jboss>

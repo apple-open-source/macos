@@ -1,9 +1,9 @@
 /*
- * "$Id: testhttp.c,v 1.1.1.3 2002/03/02 18:27:52 jlovell Exp $"
+ * "$Id: testhttp.c,v 1.1.1.8 2003/04/11 21:07:19 jlovell Exp $"
  *
  *   HTTP test program for the Common UNIX Printing System (CUPS).
  *
- *   Copyright 1997-2002 by Easy Software Products.
+ *   Copyright 1997-2003 by Easy Software Products.
  *
  *   These coded instructions, statements, and computer programs are the
  *   property of Easy Software Products and are protected by Federal
@@ -33,6 +33,7 @@
  */
 
 #include <stdio.h>
+#include <stdlib.h>
 #include "http.h"
 
 
@@ -122,5 +123,5 @@ main(int  argc,			/* I - Number of command-line arguments */
 
 
 /*
- * End of "$Id: testhttp.c,v 1.1.1.3 2002/03/02 18:27:52 jlovell Exp $".
+ * End of "$Id: testhttp.c,v 1.1.1.8 2003/04/11 21:07:19 jlovell Exp $".
  */

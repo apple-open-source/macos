@@ -1,6 +1,7 @@
 /* Target-dependent code for the HP PA architecture, for GDB.
-   Copyright 1986, 1987, 1989, 1990, 1991, 1992, 1993, 1994, 1995, 1996,
-   1998, 1999, 2000, 2001 Free Software Foundation, Inc.
+
+   Copyright 1986, 1987, 1989, 1990, 1991, 1992, 1993, 1994, 1995,
+   1996, 1998, 1999, 2000, 2001, 2002, 2003 Free Software Foundation, Inc.
 
    Contributed by the Center for Software Science at the
    University of Utah (pa-gdb-bugs@cs.utah.edu).
@@ -29,6 +30,8 @@
 #include "value.h"
 #include "regcache.h"
 #include "completer.h"
+#include "language.h"
+#include "osabi.h"
 
 /* For argument passing to the inferior */
 #include "symtab.h"
@@ -59,6 +62,9 @@
 #include "target.h"
 #include "symfile.h"
 #include "objfiles.h"
+
+/* Some local constants.  */
+static const int hppa_num_regs = 128;
 
 /* To support detection of the pseudo-initial frame
    that threads have. */
@@ -129,6 +135,46 @@ static void pa_register_look_aside (char *, int, long *);
 static void pa_print_fp_reg (int);
 static void pa_strcat_fp_reg (int, struct ui_file *, enum precision_type);
 static void record_text_segment_lowaddr (bfd *, asection *, void *);
+/* FIXME: brobecker 2002-11-07: We will likely be able to make the
+   following functions static, once we hppa is partially multiarched.  */
+int hppa_reg_struct_has_addr (int gcc_p, struct type *type);
+CORE_ADDR hppa_skip_prologue (CORE_ADDR pc);
+CORE_ADDR hppa_skip_trampoline_code (CORE_ADDR pc);
+int hppa_in_solib_call_trampoline (CORE_ADDR pc, char *name);
+int hppa_in_solib_return_trampoline (CORE_ADDR pc, char *name);
+CORE_ADDR hppa_saved_pc_after_call (struct frame_info *frame);
+int hppa_inner_than (CORE_ADDR lhs, CORE_ADDR rhs);
+CORE_ADDR hppa_stack_align (CORE_ADDR sp);
+int hppa_pc_requires_run_before_use (CORE_ADDR pc);
+int hppa_instruction_nullified (void);
+int hppa_register_raw_size (int reg_nr);
+int hppa_register_byte (int reg_nr);
+struct type * hppa_register_virtual_type (int reg_nr);
+void hppa_store_struct_return (CORE_ADDR addr, CORE_ADDR sp);
+void hppa_extract_return_value (struct type *type, char *regbuf, char *valbuf);
+int hppa_use_struct_convention (int gcc_p, struct type *type);
+void hppa_store_return_value (struct type *type, char *valbuf);
+CORE_ADDR hppa_extract_struct_value_address (char *regbuf);
+int hppa_cannot_store_register (int regnum);
+void hppa_init_extra_frame_info (int fromleaf, struct frame_info *frame);
+CORE_ADDR hppa_frame_chain (struct frame_info *frame);
+int hppa_frame_chain_valid (CORE_ADDR chain, struct frame_info *thisframe);
+int hppa_frameless_function_invocation (struct frame_info *frame);
+CORE_ADDR hppa_frame_saved_pc (struct frame_info *frame);
+CORE_ADDR hppa_frame_args_address (struct frame_info *fi);
+CORE_ADDR hppa_frame_locals_address (struct frame_info *fi);
+int hppa_frame_num_args (struct frame_info *frame);
+void hppa_push_dummy_frame (struct inferior_status *inf_status);
+void hppa_pop_frame (void);
+CORE_ADDR hppa_fix_call_dummy (char *dummy, CORE_ADDR pc, CORE_ADDR fun,
+                               int nargs, struct value **args,
+                               struct type *type, int gcc_p);
+CORE_ADDR hppa_push_arguments (int nargs, struct value **args, CORE_ADDR sp,
+		               int struct_return, CORE_ADDR struct_addr);
+CORE_ADDR hppa_smash_text_address (CORE_ADDR addr);
+CORE_ADDR hppa_target_read_pc (ptid_t ptid);
+void hppa_target_write_pc (CORE_ADDR v, ptid_t ptid);
+CORE_ADDR hppa_target_read_fp (void);
 
 typedef struct
   {
@@ -138,7 +184,7 @@ typedef struct
   }
 args_for_find_stub;
 
-static int cover_find_stub_with_shl_get (PTR);
+static int cover_find_stub_with_shl_get (void *);
 
 static int is_pa_2 = 0;		/* False */
 
@@ -148,10 +194,8 @@ extern int hp_som_som_object_present;
 /* In breakpoint.c */
 extern int exception_catchpoints_are_fragile;
 
-/* This is defined in valops.c. */
-extern struct value *find_function_in_inferior (char *);
-
 /* Should call_function allocate stack space for a struct return?  */
+
 int
 hppa_use_struct_convention (int gcc_p, struct type *type)
 {
@@ -299,7 +343,7 @@ static CORE_ADDR low_text_segment_address;
 static void
 record_text_segment_lowaddr (bfd *abfd, asection *section, void *ignored)
 {
-  if ((section->flags & (SEC_ALLOC | SEC_LOAD | SEC_READONLY)
+  if (((section->flags & (SEC_ALLOC | SEC_LOAD | SEC_READONLY))
        == (SEC_ALLOC | SEC_LOAD | SEC_READONLY))
       && section->vma < low_text_segment_address)
     low_text_segment_address = section->vma;
@@ -329,7 +373,7 @@ internalize_unwinds (struct objfile *objfile, struct unwind_table_entry *table,
       if (TARGET_PTR_BIT == 64 && text_offset == 0)
 	{
 	  bfd_map_over_sections (objfile->obfd,
-				 record_text_segment_lowaddr, (PTR) NULL);
+				 record_text_segment_lowaddr, NULL);
 
 	  /* ?!? Mask off some low bits.  Should this instead subtract
 	     out the lowest section's filepos or something like that?
@@ -530,7 +574,7 @@ read_unwind_info (struct objfile *objfile)
       obj_private->so_info = NULL;
       obj_private->dp = 0;
 
-      objfile->obj_private = (PTR) obj_private;
+      objfile->obj_private = obj_private;
     }
   obj_private = (obj_private_data_t *) objfile->obj_private;
   obj_private->unwind_info = ui;
@@ -632,7 +676,8 @@ pc_in_interrupt_handler (CORE_ADDR pc)
      its frame isn't a pure interrupt frame.  Deal with this.  */
   msym_us = lookup_minimal_symbol_by_pc (pc);
 
-  return u->HP_UX_interrupt_marker && !IN_SIGTRAMP (pc, SYMBOL_NAME (msym_us));
+  return (u->HP_UX_interrupt_marker
+	  && !PC_IN_SIGTRAMP (pc, SYMBOL_NAME (msym_us)));
 }
 
 /* Called when no unwind descriptor was found for PC.  Returns 1 if it
@@ -750,7 +795,7 @@ find_proc_framesize (CORE_ADDR pc)
   if (u->Save_SP
       && !pc_in_interrupt_handler (pc)
       && msym_us
-      && !IN_SIGTRAMP (pc, SYMBOL_NAME (msym_us)))
+      && !PC_IN_SIGTRAMP (pc, SYMBOL_NAME (msym_us)))
     return -1;
 
   return u->Total_frame_size << 3;
@@ -799,7 +844,7 @@ rp_saved (CORE_ADDR pc)
 }
 
 int
-frameless_function_invocation (struct frame_info *frame)
+hppa_frameless_function_invocation (struct frame_info *frame)
 {
   struct unwind_table_entry *u;
 
@@ -811,8 +856,13 @@ frameless_function_invocation (struct frame_info *frame)
   return (u->Total_frame_size == 0 && u->stub_unwind.stub_type == 0);
 }
 
+/* Immediately after a function call, return the saved pc.
+   Can't go through the frames for this because on some machines
+   the new frame is not set up until the new function executes
+   some instructions.  */
+
 CORE_ADDR
-saved_pc_after_call (struct frame_info *frame)
+hppa_saved_pc_after_call (struct frame_info *frame)
 {
   int ret_regnum;
   CORE_ADDR pc;
@@ -870,7 +920,7 @@ hppa_frame_saved_pc (struct frame_info *frame)
 
 #ifdef FRAME_SAVED_PC_IN_SIGTRAMP
   /* Deal with signal handler caller frames too.  */
-  if (frame->signal_handler_caller)
+  if ((get_frame_type (frame) == SIGTRAMP_FRAME))
     {
       CORE_ADDR rp;
       FRAME_SAVED_PC_IN_SIGTRAMP (frame, &rp);
@@ -878,7 +928,7 @@ hppa_frame_saved_pc (struct frame_info *frame)
     }
 #endif
 
-  if (frameless_function_invocation (frame))
+  if (hppa_frameless_function_invocation (frame))
     {
       int ret_regnum;
 
@@ -889,12 +939,12 @@ hppa_frame_saved_pc (struct frame_info *frame)
          register area to get the return pointer (the values
          in the registers may not correspond to anything useful).  */
       if (frame->next
-	  && (frame->next->signal_handler_caller
+	  && ((get_frame_type (frame->next) == SIGTRAMP_FRAME)
 	      || pc_in_interrupt_handler (frame->next->pc)))
 	{
 	  struct frame_saved_regs saved_regs;
 
-	  get_frame_saved_regs (frame->next, &saved_regs);
+	  deprecated_get_frame_saved_regs (frame->next, &saved_regs);
 	  if (read_memory_integer (saved_regs.regs[FLAGS_REGNUM],
 				   TARGET_PTR_BIT / 8) & 0x2)
 	    {
@@ -929,12 +979,12 @@ hppa_frame_saved_pc (struct frame_info *frame)
          information out of the saved register info.  */
       if (rp_offset == 0
 	  && frame->next
-	  && (frame->next->signal_handler_caller
+	  && ((get_frame_type (frame->next) == SIGTRAMP_FRAME)
 	      || pc_in_interrupt_handler (frame->next->pc)))
 	{
 	  struct frame_saved_regs saved_regs;
 
-	  get_frame_saved_regs (frame->next, &saved_regs);
+	  deprecated_get_frame_saved_regs (frame->next, &saved_regs);
 	  if (read_memory_integer (saved_regs.regs[FLAGS_REGNUM],
 				   TARGET_PTR_BIT / 8) & 0x2)
 	    {
@@ -1010,7 +1060,7 @@ hppa_frame_saved_pc (struct frame_info *frame)
    in a system call.  */
 
 void
-init_extra_frame_info (int fromleaf, struct frame_info *frame)
+hppa_init_extra_frame_info (int fromleaf, struct frame_info *frame)
 {
   int flags;
   int framesize;
@@ -1058,16 +1108,17 @@ init_extra_frame_info (int fromleaf, struct frame_info *frame)
     frame->frame = read_register (SP_REGNUM) - framesize;
 }
 
-/* Given a GDB frame, determine the address of the calling function's frame.
-   This will be used to create a new GDB frame struct, and then
-   INIT_EXTRA_FRAME_INFO and INIT_FRAME_PC will be called for the new frame.
+/* Given a GDB frame, determine the address of the calling function's
+   frame.  This will be used to create a new GDB frame struct, and
+   then INIT_EXTRA_FRAME_INFO and DEPRECATED_INIT_FRAME_PC will be
+   called for the new frame.
 
    This may involve searching through prologues for several functions
    at boundaries where GCC calls HP C code, or where code which has
    a frame pointer calls code without a frame pointer.  */
 
 CORE_ADDR
-frame_chain (struct frame_info *frame)
+hppa_frame_chain (struct frame_info *frame)
 {
   int my_framesize, caller_framesize;
   struct unwind_table_entry *u;
@@ -1123,7 +1174,7 @@ frame_chain (struct frame_info *frame)
     frame_base = read_memory_integer (frame->frame + SP_REGNUM * 4,
 				      TARGET_PTR_BIT / 8);
 #ifdef FRAME_BASE_BEFORE_SIGTRAMP
-  else if (frame->signal_handler_caller)
+  else if ((get_frame_type (frame) == SIGTRAMP_FRAME))
     {
       FRAME_BASE_BEFORE_SIGTRAMP (frame, &frame_base);
     }
@@ -1194,7 +1245,7 @@ frame_chain (struct frame_info *frame)
 	}
 
       if (u->Save_SP
-	  || tmp_frame->signal_handler_caller
+	  || (get_frame_type (tmp_frame) == SIGTRAMP_FRAME)
 	  || pc_in_interrupt_handler (tmp_frame->pc))
 	break;
 
@@ -1205,7 +1256,7 @@ frame_chain (struct frame_info *frame)
 	  /* The unwind entry claims that r3 is saved here.  However,
 	     in optimized code, GCC often doesn't actually save r3.
 	     We'll discover this if we look at the prologue.  */
-	  get_frame_saved_regs (tmp_frame, &saved_regs);
+	  deprecated_get_frame_saved_regs (tmp_frame, &saved_regs);
 	  saved_regs_frame = tmp_frame;
 
 	  /* If we have an address for r3, that's good.  */
@@ -1219,7 +1270,7 @@ frame_chain (struct frame_info *frame)
       /* We may have walked down the chain into a function with a frame
          pointer.  */
       if (u->Save_SP
-	  && !tmp_frame->signal_handler_caller
+	  && !(get_frame_type (tmp_frame) == SIGTRAMP_FRAME)
 	  && !pc_in_interrupt_handler (tmp_frame->pc))
 	{
 	  return read_memory_integer (tmp_frame->frame, TARGET_PTR_BIT / 8);
@@ -1254,7 +1305,7 @@ frame_chain (struct frame_info *frame)
 	     system call has a variable sized stack frame.  */
 
 	  if (tmp_frame != saved_regs_frame)
-	    get_frame_saved_regs (tmp_frame, &saved_regs);
+	    deprecated_get_frame_saved_regs (tmp_frame, &saved_regs);
 
 	  /* Abominable hack.  */
 	  if (current_target.to_has_execution == 0
@@ -1289,7 +1340,7 @@ frame_chain (struct frame_info *frame)
 	tmp_frame = tmp_frame->next;
 
       if (tmp_frame != saved_regs_frame)
-	get_frame_saved_regs (tmp_frame, &saved_regs);
+	deprecated_get_frame_saved_regs (tmp_frame, &saved_regs);
 
       /* Abominable hack.  See above.  */
       if (current_target.to_has_execution == 0
@@ -1330,9 +1381,6 @@ hppa_frame_chain_valid (CORE_ADDR chain, struct frame_info *thisframe)
   struct unwind_table_entry *u, *next_u = NULL;
   struct frame_info *next;
 
-  if (!chain)
-    return 0;
-
   u = find_unwind_entry (thisframe->pc);
 
   if (u == NULL)
@@ -1367,7 +1415,7 @@ hppa_frame_chain_valid (CORE_ADDR chain, struct frame_info *thisframe)
      and doesn't "call" an interrupt routine or signal handler caller,
      then its not valid.  */
   if (u->Save_SP || u->Total_frame_size || u->stub_unwind.stub_type != 0
-      || (thisframe->next && thisframe->next->signal_handler_caller)
+      || (thisframe->next && (get_frame_type (thisframe->next) == SIGTRAMP_FRAME))
       || (next_u && next_u->HP_UX_interrupt_marker))
     return 1;
 
@@ -1384,7 +1432,7 @@ hppa_frame_chain_valid (CORE_ADDR chain, struct frame_info *thisframe)
    to be aligned to a 64-byte boundary. */
 
 void
-push_dummy_frame (struct inferior_status *inf_status)
+hppa_push_dummy_frame (struct inferior_status *inf_status)
 {
   CORE_ADDR sp, pc, pcspace;
   register int regnum;
@@ -1400,7 +1448,7 @@ push_dummy_frame (struct inferior_status *inf_status)
      We also need a number of horrid hacks to deal with lossage in the
      PC queue registers (apparently they're not valid when the in syscall
      bit is set).  */
-  pc = target_read_pc (inferior_ptid);
+  pc = hppa_target_read_pc (inferior_ptid);
   int_buffer = read_register (FLAGS_REGNUM);
   if (int_buffer & 0x2)
     {
@@ -1448,7 +1496,8 @@ push_dummy_frame (struct inferior_status *inf_status)
 
   for (regnum = FP0_REGNUM; regnum < NUM_REGS; regnum++)
     {
-      read_register_bytes (REGISTER_BYTE (regnum), (char *) &freg_buffer, 8);
+      deprecated_read_register_bytes (REGISTER_BYTE (regnum),
+				      (char *) &freg_buffer, 8);
       sp = push_bytes (sp, (char *) &freg_buffer, 8);
     }
   sp = push_word (sp, read_register (IPSW_REGNUM));
@@ -1510,8 +1559,8 @@ hppa_pop_frame (void)
   struct frame_saved_regs fsr;
   double freg_buffer;
 
-  fp = FRAME_FP (frame);
-  get_frame_saved_regs (frame, &fsr);
+  fp = get_frame_base (frame);
+  deprecated_get_frame_saved_regs (frame, &fsr);
 
 #ifndef NO_PC_SPACE_QUEUE_RESTORE
   if (fsr.regs[IPSW_REGNUM])	/* Restoring a call dummy frame */
@@ -1527,7 +1576,8 @@ hppa_pop_frame (void)
     if (fsr.regs[regnum])
       {
 	read_memory (fsr.regs[regnum], (char *) &freg_buffer, 8);
-	write_register_bytes (REGISTER_BYTE (regnum), (char *) &freg_buffer, 8);
+	deprecated_write_register_bytes (REGISTER_BYTE (regnum),
+					 (char *) &freg_buffer, 8);
       }
 
   if (fsr.regs[IPSW_REGNUM])
@@ -1579,7 +1629,7 @@ hppa_pop_frame (void)
          for "return_command" will print the frame we returned to.  */
       sal = find_pc_line (target_pc, 0);
       sal.pc = target_pc;
-      breakpoint = set_momentary_breakpoint (sal, NULL, bp_finish);
+      breakpoint = set_momentary_breakpoint (sal, null_frame_id, bp_finish);
       breakpoint->silent = 1;
 
       /* So we can clean things up.  */
@@ -1981,7 +2031,7 @@ find_stub_with_shl_get (struct minimal_symbol *function, CORE_ADDR handle)
 
 /* Cover routine for find_stub_with_shl_get to pass to catch_errors */
 static int
-cover_find_stub_with_shl_get (PTR args_untyped)
+cover_find_stub_with_shl_get (void *args_untyped)
 {
   args_for_find_stub *args = args_untyped;
   args->return_val = find_stub_with_shl_get (args->msym, args->solib_handle);
@@ -2374,7 +2424,7 @@ hppa_fix_call_dummy (char *dummy, CORE_ADDR pc, CORE_ADDR fun, int nargs,
   if (flags & 2)
     return pc;
 #ifndef GDB_TARGET_IS_PA_ELF
-  else if (som_solib_get_got_by_pc (target_read_pc (inferior_ptid)))
+  else if (som_solib_get_got_by_pc (hppa_target_read_pc (inferior_ptid)))
     return pc;
 #endif
   else
@@ -2382,14 +2432,12 @@ hppa_fix_call_dummy (char *dummy, CORE_ADDR pc, CORE_ADDR fun, int nargs,
 #endif
 }
 
-
-
-
 /* If the pid is in a syscall, then the FP register is not readable.
    We'll return zero in that case, rather than attempting to read it
    and cause a warning. */
+
 CORE_ADDR
-target_read_fp (int pid)
+hppa_read_fp (int pid)
 {
   int flags = read_register (FLAGS_REGNUM);
 
@@ -2407,12 +2455,17 @@ target_read_fp (int pid)
   return read_register (FP_REGNUM);
 }
 
+CORE_ADDR
+hppa_target_read_fp (void)
+{
+  return hppa_read_fp (PIDGET (inferior_ptid));
+}
 
 /* Get the PC from %r31 if currently in a syscall.  Also mask out privilege
    bits.  */
 
 CORE_ADDR
-target_read_pc (ptid_t ptid)
+hppa_target_read_pc (ptid_t ptid)
 {
   int flags = read_register_pid (FLAGS_REGNUM, ptid);
 
@@ -2429,7 +2482,7 @@ target_read_pc (ptid_t ptid)
    PC value into %r31.  */
 
 void
-target_write_pc (CORE_ADDR v, ptid_t ptid)
+hppa_target_write_pc (CORE_ADDR v, ptid_t ptid)
 {
   int flags = read_register_pid (FLAGS_REGNUM, ptid);
 
@@ -2491,7 +2544,7 @@ pa_do_registers_info (int regnum, int fpregs)
   /* Make a copy of gdb's save area (may cause actual
      reads from the target). */
   for (i = 0; i < NUM_REGS; i++)
-    read_relative_register_raw_bytes (i, raw_regs + REGISTER_BYTE (i));
+    frame_register_read (deprecated_selected_frame, i, raw_regs + REGISTER_BYTE (i));
 
   if (regnum == -1)
     pa_print_registers (raw_regs, regnum, fpregs);
@@ -2535,7 +2588,7 @@ pa_do_strcat_registers_info (int regnum, int fpregs, struct ui_file *stream,
   /* Make a copy of gdb's save area (may cause actual
      reads from the target). */
   for (i = 0; i < NUM_REGS; i++)
-    read_relative_register_raw_bytes (i, raw_regs + REGISTER_BYTE (i));
+    frame_register_read (deprecated_selected_frame, i, raw_regs + REGISTER_BYTE (i));
 
   if (regnum == -1)
     pa_strcat_registers (raw_regs, regnum, fpregs, stream);
@@ -2787,7 +2840,7 @@ pa_print_fp_reg (int i)
   char virtual_buffer[MAX_REGISTER_VIRTUAL_SIZE];
 
   /* Get 32bits of data.  */
-  read_relative_register_raw_bytes (i, raw_buffer);
+  frame_register_read (deprecated_selected_frame, i, raw_buffer);
 
   /* Put it in the buffer.  No conversions are ever necessary.  */
   memcpy (virtual_buffer, raw_buffer, REGISTER_RAW_SIZE (i));
@@ -2805,7 +2858,7 @@ pa_print_fp_reg (int i)
   if ((i % 2) == 0)
     {
       /* Get the data in raw format for the 2nd half.  */
-      read_relative_register_raw_bytes (i + 1, raw_buffer);
+      frame_register_read (deprecated_selected_frame, i + 1, raw_buffer);
 
       /* Copy it into the appropriate part of the virtual buffer.  */
       memcpy (virtual_buffer + REGISTER_RAW_SIZE (i), raw_buffer,
@@ -2833,7 +2886,7 @@ pa_strcat_fp_reg (int i, struct ui_file *stream, enum precision_type precision)
   print_spaces_filtered (8 - strlen (REGISTER_NAME (i)), stream);
 
   /* Get 32bits of data.  */
-  read_relative_register_raw_bytes (i, raw_buffer);
+  frame_register_read (deprecated_selected_frame, i, raw_buffer);
 
   /* Put it in the buffer.  No conversions are ever necessary.  */
   memcpy (virtual_buffer, raw_buffer, REGISTER_RAW_SIZE (i));
@@ -2844,7 +2897,7 @@ pa_strcat_fp_reg (int i, struct ui_file *stream, enum precision_type precision)
       char raw_buf[MAX_REGISTER_RAW_SIZE];
 
       /* Get the data in raw format for the 2nd half.  */
-      read_relative_register_raw_bytes (i + 1, raw_buf);
+      frame_register_read (deprecated_selected_frame, i + 1, raw_buf);
 
       /* Copy it into the appropriate part of the virtual buffer.  */
       memcpy (virtual_buffer + REGISTER_RAW_SIZE (i), raw_buf, REGISTER_RAW_SIZE (i));
@@ -2867,7 +2920,7 @@ pa_strcat_fp_reg (int i, struct ui_file *stream, enum precision_type precision)
    just shared library trampolines (import, export).  */
 
 int
-in_solib_call_trampoline (CORE_ADDR pc, char *name)
+hppa_in_solib_call_trampoline (CORE_ADDR pc, char *name)
 {
   struct minimal_symbol *minsym;
   struct unwind_table_entry *u;
@@ -3027,7 +3080,7 @@ in_solib_call_trampoline (CORE_ADDR pc, char *name)
    just shared library trampolines (import, export).  */
 
 int
-in_solib_return_trampoline (CORE_ADDR pc, char *name)
+hppa_in_solib_return_trampoline (CORE_ADDR pc, char *name)
 {
   struct unwind_table_entry *u;
 
@@ -3100,7 +3153,7 @@ in_solib_return_trampoline (CORE_ADDR pc, char *name)
    used in dynamic executables.  */
 
 CORE_ADDR
-skip_trampoline_code (CORE_ADDR pc, char *name)
+hppa_skip_trampoline_code (CORE_ADDR pc)
 {
   long orig_pc = pc;
   long prev_inst, curr_inst, loc;
@@ -3888,7 +3941,7 @@ hppa_frame_find_saved_regs (struct frame_info *frame_info,
 
 #ifdef FRAME_FIND_SAVED_REGS_IN_SIGTRAMP
   /* Handle signal handler callers.  */
-  if (frame_info->signal_handler_caller)
+  if ((get_frame_type (frame_info) == SIGTRAMP_FRAME))
     {
       FRAME_FIND_SAVED_REGS_IN_SIGTRAMP (frame_info, frame_saved_regs);
       return;
@@ -4270,7 +4323,7 @@ initialize_hp_cxx_exception_support (void)
       args.return_val = 0;
 
       recurse++;
-      catch_errors (cover_find_stub_with_shl_get, (PTR) &args, message,
+      catch_errors (cover_find_stub_with_shl_get, &args, message,
 		    RETURN_MASK_ALL);
       eh_notify_callback_addr = args.return_val;
       recurse--;
@@ -4371,28 +4424,27 @@ initialize_hp_cxx_exception_support (void)
    exception events.
    KIND is either EX_EVENT_THROW or EX_EVENT_CATCH
    ENABLE is either 0 (disable) or 1 (enable).
-   Return value is NULL if no support found;
+   Return value is 0
    -1 if something went wrong,
-   or a pointer to a symtab/line struct if the breakpointable
-   address was found. */
+   or 1 if successful */
 
-struct symtab_and_line *
+int
 child_enable_exception_callback (enum exception_event_kind kind, int enable)
 {
   char buf[4];
-
+ 
   if (!exception_support_initialized || !hp_cxx_exception_support_initialized)
     if (!initialize_hp_cxx_exception_support ())
-      return NULL;
+      return 0;
 
   switch (hp_cxx_exception_support)
     {
     case 0:
       /* Assuming no HP support at all */
-      return NULL;
+      return 0;
     case 1:
       /* HP support should be present, but something went wrong */
-      return (struct symtab_and_line *) -1;	/* yuck! */
+      return -1;	/* yuck! */
       /* there may be other cases in the future */
     }
 
@@ -4403,7 +4455,7 @@ child_enable_exception_callback (enum exception_event_kind kind, int enable)
     {
       warning ("Could not write to target memory for exception event callback.");
       warning ("Interception of exception events may not work.");
-      return (struct symtab_and_line *) -1;
+      return -1;
     }
   if (enable)
     {
@@ -4411,12 +4463,12 @@ child_enable_exception_callback (enum exception_event_kind kind, int enable)
       if (PIDGET (inferior_ptid) > 0)
 	{
 	  if (setup_d_pid_in_inferior ())
-	    return (struct symtab_and_line *) -1;
+	    return -1;
 	}
       else
 	{
 	  warning ("Internal error: Invalid inferior pid?  Cannot intercept exception events.");
-	  return (struct symtab_and_line *) -1;
+	  return -1;
 	}
     }
 
@@ -4427,7 +4479,7 @@ child_enable_exception_callback (enum exception_event_kind kind, int enable)
       if (target_write_memory (eh_catch_throw_addr, buf, 4))	/* FIXME 32x64? */
 	{
 	  warning ("Couldn't enable exception throw interception.");
-	  return (struct symtab_and_line *) -1;
+	  return -1;
 	}
       break;
     case EX_EVENT_CATCH:
@@ -4435,25 +4487,34 @@ child_enable_exception_callback (enum exception_event_kind kind, int enable)
       if (target_write_memory (eh_catch_catch_addr, buf, 4))	/* FIXME 32x64? */
 	{
 	  warning ("Couldn't enable exception catch interception.");
-	  return (struct symtab_and_line *) -1;
+	  return -1;
 	}
       break;
     default:
       error ("Request to enable unknown or unsupported exception event.");
     }
+}
 
-  /* Copy break address into new sal struct, malloc'ing if needed. */
-  if (!break_callback_sal)
-    {
-      break_callback_sal = (struct symtab_and_line *) xmalloc (sizeof (struct symtab_and_line));
-    }
-  INIT_SAL (break_callback_sal);
-  break_callback_sal->symtab = NULL;
-  break_callback_sal->pc = eh_break_addr;
-  break_callback_sal->line = 0;
-  break_callback_sal->end = eh_break_addr;
+struct symtabs_and_lines *
+child_find_exception_catchpoints (enum exception_event_kind kind, 
+				  struct objfile *objfile)
+{
+ struct symtabs_and_lines *ret_sals;
 
-  return break_callback_sal;
+  ret_sals = (struct symtabs_and_lines *) 
+    xmalloc (sizeof (struct symtabs_and_lines));
+  ret_sals->sals = 
+    (struct symtab_and_line *) xmalloc (sizeof (struct symtab_and_line));
+
+  init_sal (ret_sals->sals);
+  ret_sals->sals->symtab = NULL;
+  ret_sals->sals->pc = eh_break_addr;
+  ret_sals->sals->line = 0;
+  ret_sals->sals->end = eh_break_addr;
+
+  ret_sals.nelts = 1;
+
+  return ret_sals;
 }
 
 /* Record some information about the current exception event */
@@ -4486,7 +4547,7 @@ child_get_current_exception_event (void)
   if (level != 0)
     return (struct exception_event_record *) NULL;
 
-  select_frame (fi, -1);
+  select_frame (fi);
 
   /* Read in the arguments */
   /* __d_eh_notify_callback() is called with 3 arguments:
@@ -4512,11 +4573,11 @@ child_get_current_exception_event (void)
   if (level != 0)
     return (struct exception_event_record *) NULL;
 
-  select_frame (fi, -1);
+  select_frame (fi);
   throw_addr = fi->pc;
 
   /* Go back to original (top) frame */
-  select_frame (curr_frame, -1);
+  select_frame (curr_frame);
 
   current_ex_event.kind = (enum exception_event_kind) event_kind;
   current_ex_event.throw_sal = find_pc_line (throw_addr, 1);
@@ -4698,6 +4759,305 @@ hppa_skip_permanent_breakpoint (void)
   /* We can leave the tail's space the same, since there's no jump.  */
 }
 
+/* Copy the function value from VALBUF into the proper location
+   for a function return.
+
+   Called only in the context of the "return" command.  */
+
+void
+hppa_store_return_value (struct type *type, char *valbuf)
+{
+  /* For software floating point, the return value goes into the
+     integer registers.  But we do not have any flag to key this on,
+     so we always store the value into the integer registers.
+
+     If its a float value, then we also store it into the floating
+     point registers.  */
+  deprecated_write_register_bytes (REGISTER_BYTE (28)
+				   + (TYPE_LENGTH (type) > 4
+				      ? (8 - TYPE_LENGTH (type))
+				      : (4 - TYPE_LENGTH (type))),
+				   valbuf, TYPE_LENGTH (type));
+  if (! SOFT_FLOAT && TYPE_CODE (type) == TYPE_CODE_FLT)
+    deprecated_write_register_bytes (REGISTER_BYTE (FP4_REGNUM),
+				     valbuf, TYPE_LENGTH (type));
+}
+
+/* Copy the function's return value into VALBUF.
+
+   This function is called only in the context of "target function calls",
+   ie. when the debugger forces a function to be called in the child, and
+   when the debugger forces a fucntion to return prematurely via the
+   "return" command.  */
+
+void
+hppa_extract_return_value (struct type *type, char *regbuf, char *valbuf)
+{
+  if (! SOFT_FLOAT && TYPE_CODE (type) == TYPE_CODE_FLT)
+    memcpy (valbuf,
+	    (char *)regbuf + REGISTER_BYTE (FP4_REGNUM),
+	    TYPE_LENGTH (type));
+  else
+    memcpy (valbuf,
+	    ((char *)regbuf
+	     + REGISTER_BYTE (28)
+	     + (TYPE_LENGTH (type) > 4
+		? (8 - TYPE_LENGTH (type))
+		: (4 - TYPE_LENGTH (type)))),
+	    TYPE_LENGTH (type));
+}
+
+int
+hppa_reg_struct_has_addr (int gcc_p, struct type *type)
+{
+  /* On the PA, any pass-by-value structure > 8 bytes is actually passed
+     via a pointer regardless of its type or the compiler used.  */
+  return (TYPE_LENGTH (type) > 8);
+}
+
+int
+hppa_inner_than (CORE_ADDR lhs, CORE_ADDR rhs)
+{
+  /* Stack grows upward */
+  return (lhs > rhs);
+}
+
+CORE_ADDR
+hppa_stack_align (CORE_ADDR sp)
+{
+  /* elz: adjust the quantity to the next highest value which is
+     64-bit aligned.  This is used in valops.c, when the sp is adjusted.
+     On hppa the sp must always be kept 64-bit aligned */
+  return ((sp % 8) ? (sp + 7) & -8 : sp);
+}
+
+int
+hppa_pc_requires_run_before_use (CORE_ADDR pc)
+{
+  /* Sometimes we may pluck out a minimal symbol that has a negative address.
+  
+     An example of this occurs when an a.out is linked against a foo.sl.
+     The foo.sl defines a global bar(), and the a.out declares a signature
+     for bar().  However, the a.out doesn't directly call bar(), but passes
+     its address in another call.
+  
+     If you have this scenario and attempt to "break bar" before running,
+     gdb will find a minimal symbol for bar() in the a.out.  But that
+     symbol's address will be negative.  What this appears to denote is
+     an index backwards from the base of the procedure linkage table (PLT)
+     into the data linkage table (DLT), the end of which is contiguous
+     with the start of the PLT.  This is clearly not a valid address for
+     us to set a breakpoint on.
+  
+     Note that one must be careful in how one checks for a negative address.
+     0xc0000000 is a legitimate address of something in a shared text
+     segment, for example.  Since I don't know what the possible range
+     is of these "really, truly negative" addresses that come from the
+     minimal symbols, I'm resorting to the gross hack of checking the
+     top byte of the address for all 1's.  Sigh.  */
+
+  return (!target_has_stack && (pc & 0xFF000000));
+}
+
+int
+hppa_instruction_nullified (void)
+{
+  /* brobecker 2002/11/07: Couldn't we use a ULONGEST here? It would
+     avoid the type cast.  I'm leaving it as is for now as I'm doing
+     semi-mechanical multiarching-related changes.  */
+  const int ipsw = (int) read_register (IPSW_REGNUM);
+  const int flags = (int) read_register (FLAGS_REGNUM);
+
+  return ((ipsw & 0x00200000) && !(flags & 0x2));
+}
+
+int
+hppa_register_raw_size (int reg_nr)
+{
+  /* All registers have the same size.  */
+  return REGISTER_SIZE;
+}
+
+/* Index within the register vector of the first byte of the space i
+   used for register REG_NR.  */
+
+int
+hppa_register_byte (int reg_nr)
+{
+  return reg_nr * 4;
+}
+
+/* Return the GDB type object for the "standard" data type of data
+   in register N.  */
+
+struct type *
+hppa_register_virtual_type (int reg_nr)
+{
+   if (reg_nr < FP4_REGNUM)
+     return builtin_type_int;
+   else
+     return builtin_type_float;
+}
+
+/* Store the address of the place in which to copy the structure the
+   subroutine will return.  This is called from call_function.  */
+
+void
+hppa_store_struct_return (CORE_ADDR addr, CORE_ADDR sp)
+{
+  write_register (28, addr);
+}
+
+CORE_ADDR
+hppa_extract_struct_value_address (char *regbuf)
+{
+  /* Extract from an array REGBUF containing the (raw) register state
+     the address in which a function should return its structure value,
+     as a CORE_ADDR (or an expression that can be used as one).  */
+  /* FIXME: brobecker 2002-12-26.
+     The current implementation is historical, but we should eventually
+     implement it in a more robust manner as it relies on the fact that
+     the address size is equal to the size of an int* _on the host_...
+     One possible implementation that crossed my mind is to use
+     extract_address.  */
+  return (*(int *)(regbuf + REGISTER_BYTE (28)));
+}
+
+/* Return True if REGNUM is not a register available to the user
+   through ptrace().  */
+
+int
+hppa_cannot_store_register (int regnum)
+{
+  return (regnum == 0
+          || regnum == PCSQ_HEAD_REGNUM
+          || (regnum >= PCSQ_TAIL_REGNUM && regnum < IPSW_REGNUM)
+          || (regnum > IPSW_REGNUM && regnum < FP4_REGNUM));
+
+}
+
+CORE_ADDR
+hppa_frame_args_address (struct frame_info *fi)
+{
+  return fi->frame;
+}
+
+CORE_ADDR
+hppa_frame_locals_address (struct frame_info *fi)
+{
+  return fi->frame;
+}
+
+int
+hppa_frame_num_args (struct frame_info *frame)
+{
+  /* We can't tell how many args there are now that the C compiler delays
+     popping them.  */
+  return -1;
+}
+
+CORE_ADDR
+hppa_smash_text_address (CORE_ADDR addr)
+{
+  /* The low two bits of the PC on the PA contain the privilege level.
+     Some genius implementing a (non-GCC) compiler apparently decided
+     this means that "addresses" in a text section therefore include a
+     privilege level, and thus symbol tables should contain these bits.
+     This seems like a bonehead thing to do--anyway, it seems to work
+     for our purposes to just ignore those bits.  */
+
+  return (addr &= ~0x3);
+}
+
+static struct gdbarch *
+hppa_gdbarch_init (struct gdbarch_info info, struct gdbarch_list *arches)
+{
+  struct gdbarch *gdbarch;
+  
+  /* Try to determine the ABI of the object we are loading.  */
+  if (info.abfd != NULL && info.osabi == GDB_OSABI_UNKNOWN)
+    {
+      /* If it's a SOM file, assume it's HP/UX SOM.  */
+      if (bfd_get_flavour (info.abfd) == bfd_target_som_flavour)
+	info.osabi = GDB_OSABI_HPUX_SOM;
+    }
+
+  /* find a candidate among the list of pre-declared architectures.  */
+  arches = gdbarch_list_lookup_by_info (arches, &info);
+  if (arches != NULL)
+    return (arches->gdbarch);
+
+  /* If none found, then allocate and initialize one.  */
+  gdbarch = gdbarch_alloc (&info, NULL);
+
+  /* Hook in ABI-specific overrides, if they have been registered.  */
+  gdbarch_init_osabi (info, gdbarch);
+
+  set_gdbarch_reg_struct_has_addr (gdbarch, hppa_reg_struct_has_addr);
+  set_gdbarch_function_start_offset (gdbarch, 0);
+  set_gdbarch_skip_prologue (gdbarch, hppa_skip_prologue);
+  set_gdbarch_skip_trampoline_code (gdbarch, hppa_skip_trampoline_code);
+  set_gdbarch_in_solib_call_trampoline (gdbarch, hppa_in_solib_call_trampoline);
+  set_gdbarch_in_solib_return_trampoline (gdbarch,
+                                          hppa_in_solib_return_trampoline);
+  set_gdbarch_saved_pc_after_call (gdbarch, hppa_saved_pc_after_call);
+  set_gdbarch_inner_than (gdbarch, hppa_inner_than);
+  set_gdbarch_stack_align (gdbarch, hppa_stack_align);
+  set_gdbarch_extra_stack_alignment_needed (gdbarch, 0);
+  set_gdbarch_decr_pc_after_break (gdbarch, 0);
+  set_gdbarch_register_size (gdbarch, 4);
+  set_gdbarch_num_regs (gdbarch, hppa_num_regs);
+  set_gdbarch_fp_regnum (gdbarch, 3);
+  set_gdbarch_sp_regnum (gdbarch, 30);
+  set_gdbarch_fp0_regnum (gdbarch, 64);
+  set_gdbarch_pc_regnum (gdbarch, PCOQ_HEAD_REGNUM);
+  set_gdbarch_npc_regnum (gdbarch, PCOQ_TAIL_REGNUM);
+  set_gdbarch_register_raw_size (gdbarch, hppa_register_raw_size);
+  set_gdbarch_register_bytes (gdbarch, hppa_num_regs * 4);
+  set_gdbarch_register_byte (gdbarch, hppa_register_byte);
+  set_gdbarch_register_virtual_size (gdbarch, hppa_register_raw_size);
+  set_gdbarch_max_register_raw_size (gdbarch, 4);
+  set_gdbarch_max_register_virtual_size (gdbarch, 8);
+  set_gdbarch_register_virtual_type (gdbarch, hppa_register_virtual_type);
+  set_gdbarch_store_struct_return (gdbarch, hppa_store_struct_return);
+  set_gdbarch_deprecated_extract_return_value (gdbarch,
+                                               hppa_extract_return_value);
+  set_gdbarch_use_struct_convention (gdbarch, hppa_use_struct_convention);
+  set_gdbarch_deprecated_store_return_value (gdbarch, hppa_store_return_value);
+  set_gdbarch_deprecated_extract_struct_value_address
+    (gdbarch, hppa_extract_struct_value_address);
+  set_gdbarch_cannot_store_register (gdbarch, hppa_cannot_store_register);
+  set_gdbarch_init_extra_frame_info (gdbarch, hppa_init_extra_frame_info);
+  set_gdbarch_frame_chain (gdbarch, hppa_frame_chain);
+  set_gdbarch_frame_chain_valid (gdbarch, hppa_frame_chain_valid);
+  set_gdbarch_frameless_function_invocation
+    (gdbarch, hppa_frameless_function_invocation);
+  set_gdbarch_frame_saved_pc (gdbarch, hppa_frame_saved_pc);
+  set_gdbarch_frame_args_address (gdbarch, hppa_frame_args_address);
+  set_gdbarch_frame_locals_address (gdbarch, hppa_frame_locals_address);
+  set_gdbarch_frame_num_args (gdbarch, hppa_frame_num_args);
+  set_gdbarch_frame_args_skip (gdbarch, 0);
+  /* set_gdbarch_push_dummy_frame (gdbarch, hppa_push_dummy_frame);  */
+  set_gdbarch_pop_frame (gdbarch, hppa_pop_frame);
+  set_gdbarch_call_dummy_length (gdbarch, INSTRUCTION_SIZE * 28);
+  set_gdbarch_call_dummy_start_offset (gdbarch, 0);
+  /* set_gdbarch_fix_call_dummy (gdbarch, hppa_fix_call_dummy); */
+  set_gdbarch_push_arguments (gdbarch, hppa_push_arguments);
+  set_gdbarch_smash_text_address (gdbarch, hppa_smash_text_address);
+  set_gdbarch_believe_pcc_promotion (gdbarch, 1);
+  set_gdbarch_read_pc (gdbarch, hppa_target_read_pc);
+  set_gdbarch_write_pc (gdbarch, hppa_target_write_pc);
+  set_gdbarch_read_fp (gdbarch, hppa_target_read_fp);
+
+  return gdbarch;
+}
+
+static void
+hppa_dump_tdep (struct gdbarch *current_gdbarch, struct ui_file *file)
+{
+   /* Nothing to print for the moment.  */
+}
+
 void
 _initialize_hppa_tdep (void)
 {
@@ -4706,6 +5066,7 @@ _initialize_hppa_tdep (void)
   void tbreak_at_finish_command (char *arg, int from_tty);
   void break_at_finish_at_depth_command (char *arg, int from_tty);
 
+  gdbarch_register (bfd_arch_hppa, hppa_gdbarch_init, hppa_dump_tdep);
   tm_print_insn = print_insn_hppa;
 
   add_cmd ("unwind", class_maintenance, unwind_command,
@@ -4743,52 +5104,3 @@ be no argument or the argument must be a depth.\n"), NULL);
 be no argument or the argument must be a depth.\n"), NULL);
 }
 
-/* Copy the function value from VALBUF into the proper location
-   for a function return.
-
-   Called only in the context of the "return" command.  */
-
-void
-hppa_store_return_value (struct type *type, char *valbuf)
-{
-  /* For software floating point, the return value goes into the
-     integer registers.  But we do not have any flag to key this on,
-     so we always store the value into the integer registers.
-
-     If its a float value, then we also store it into the floating
-     point registers.  */
-  write_register_bytes (REGISTER_BYTE (28)
-		        + (TYPE_LENGTH (type) > 4
-			   ? (8 - TYPE_LENGTH (type))
-			   : (4 - TYPE_LENGTH (type))),
-			valbuf,
-			TYPE_LENGTH (type));
-  if (! SOFT_FLOAT && TYPE_CODE (type) == TYPE_CODE_FLT)
-    write_register_bytes (REGISTER_BYTE (FP4_REGNUM),
-			  valbuf,
-			  TYPE_LENGTH (type));
-}
-
-/* Copy the function's return value into VALBUF.
-
-   This function is called only in the context of "target function calls",
-   ie. when the debugger forces a function to be called in the child, and
-   when the debugger forces a fucntion to return prematurely via the
-   "return" command.  */
-
-void
-hppa_extract_return_value (struct type *type, char *regbuf, char *valbuf)
-{
-  if (! SOFT_FLOAT && TYPE_CODE (type) == TYPE_CODE_FLT)
-    memcpy (valbuf,
-	    (char *)regbuf + REGISTER_BYTE (FP4_REGNUM),
-	    TYPE_LENGTH (type));
-  else
-    memcpy (valbuf,
-	    ((char *)regbuf
-	     + REGISTER_BYTE (28)
-	     + (TYPE_LENGTH (type) > 4
-		? (8 - TYPE_LENGTH (type))
-		: (4 - TYPE_LENGTH (type)))),
-	    TYPE_LENGTH (type));
-}

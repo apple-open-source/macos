@@ -1,5 +1,5 @@
-# $OpenLDAP: pkg/ldap/libraries/liblunicode/Makefile.in,v 1.15.2.2 2002/05/22 14:25:46 kurt Exp $
-## Copyright 1998-2002 The OpenLDAP Foundation, All Rights Reserved.
+# $OpenLDAP: pkg/ldap/libraries/liblunicode/Makefile.in,v 1.15.2.7 2003/02/08 23:50:39 kurt Exp $
+## Copyright 1998-2003 The OpenLDAP Foundation, All Rights Reserved.
 ## COPYING RESTRICTIONS APPLY, see COPYRIGHT file
 ##
 ## Makefile.in for LDAP -lldap
@@ -14,6 +14,7 @@ SRCS	= ucstr.c
 OBJS	= ucdata.o ure.o urestubs.o ucstr.o
 
 XLIB = $(LIBRARY)
+XLIBS = $(LDAP_LIBLBER_LA) $(LDAP_LIBLUTIL_A)
 PROGRAMS = ucgendat
 
 LDAP_INCDIR= ../../include       

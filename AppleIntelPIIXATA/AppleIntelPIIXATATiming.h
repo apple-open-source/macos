@@ -1,21 +1,24 @@
 /*
- * Copyright (c) 2000 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 1998-2003 Apple Computer, Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
- * The contents of this file constitute Original Code as defined in and
- * are subject to the Apple Public Source License Version 1.1 (the
- * "License").  You may not use this file except in compliance with the
- * License.  Please obtain a copy of the License at
- * http://www.apple.com/publicsource and read it before using this file.
+ * Copyright (c) 1999-2003 Apple Computer, Inc.  All Rights Reserved.
  * 
- * This Original Code and all software distributed under the License are
- * distributed on an "AS IS" basis, WITHOUT WARRANTY OF ANY KIND, EITHER
+ * This file contains Original Code and/or Modifications of Original Code
+ * as defined in and that are subject to the Apple Public Source License
+ * Version 2.0 (the 'License'). You may not use this file except in
+ * compliance with the License. Please obtain a copy of the License at
+ * http://www.opensource.apple.com/apsl/ and read it before using this
+ * file.
+ * 
+ * The Original Code and all software distributed under the License are
+ * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
  * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
  * INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY,
- * FITNESS FOR A PARTICULAR PURPOSE OR NON-INFRINGEMENT.  Please see the
- * License for the specific language governing rights and limitations
- * under the License.
+ * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
+ * Please see the License for the specific language governing rights and
+ * limitations under the License.
  * 
  * @APPLE_LICENSE_HEADER_END@
  */
@@ -41,7 +44,7 @@ static const UInt16 piixIDETIM[][2] =
 /*    Unit 0   Unit 1 */
     { 0xb30f,  0xf3f0 },   /* 0. Mask                   */
     { 0x8000,  0x8000 },   /* 1. PIO0/Compatible 600 ns */
-	{ 0x9007,  0x9007 },   /* 2. PIO2/SW2        240 ns */
+    { 0x9007,  0x9007 },   /* 2. PIO2/SW2        240 ns */
     { 0xa107,  0xa107 },   /* 3. PIO3/MW1        180 ns */
     { 0xa307,  0xa307 }    /* 4. PIO4/MW2        120 ns */
 };
@@ -54,7 +57,7 @@ static const UInt16 piix3IDETIM[][2] =
 /*    Unit 0   Unit 1 */
     { 0xb30f,  0xc0f0 },   /* 0. Mask                   */
     { 0x8000,  0xc000 },   /* 1. PIO0/Compatible 600 ns */
-	{ 0x9007,  0xc070 },   /* 2. PIO2/SW2        240 ns */
+    { 0x9007,  0xc070 },   /* 2. PIO2/SW2        240 ns */
     { 0xa107,  0xc070 },   /* 3. PIO3/MW1        180 ns */
     { 0xa307,  0xc070 }    /* 4. PIO4/MW2        120 ns */
 };
@@ -67,7 +70,7 @@ static const UInt16 piix3SIDETIM[][2] =
 /*    Primary  Secondary */
     { 0x0f,    0xf0 },     /* 0. Mask                   */
     { 0x00,    0x00 },     /* 1. PIO0/Compatible 600 ns */
-	{ 0x04,    0x40 },     /* 2. PIO2/SW2        240 ns */
+    { 0x04,    0x40 },     /* 2. PIO2/SW2        240 ns */
     { 0x09,    0x90 },     /* 3. PIO3/MW1        180 ns */
     { 0x0b,    0xb0 }      /* 4. PIO4/MW2        120 ns */
 };

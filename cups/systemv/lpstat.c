@@ -1,9 +1,9 @@
 /*
- * "$Id: lpstat.c,v 1.1.1.2 2002/02/10 04:51:47 jlovell Exp $"
+ * "$Id: lpstat.c,v 1.1.1.10 2003/07/16 17:22:07 jlovell Exp $"
  *
  *   "lpstat" command for the Common UNIX Printing System (CUPS).
  *
- *   Copyright 1997-2002 by Easy Software Products.
+ *   Copyright 1997-2003 by Easy Software Products.
  *
  *   These coded instructions, statements, and computer programs are the
  *   property of Easy Software Products and are protected by Federal
@@ -24,6 +24,7 @@
  * Contents:
  *
  *   main()           - Parse options and show status information.
+ *   check_dest()     - Verify that the named destination(s) exists.
  *   show_accepting() - Show acceptance status.
  *   show_classes()   - Show printer classes.
  *   show_default()   - Show default destination.
@@ -50,12 +51,14 @@
  * Local functions...
  */
 
-static void	show_accepting(http_t *, const char *, int, cups_dest_t *);
-static void	show_classes(http_t *, const char *);
+static void	check_dest(const char *, int *, cups_dest_t **);
+static int	show_accepting(http_t *, const char *, int, cups_dest_t *);
+static int	show_classes(http_t *, const char *);
 static void	show_default(int, cups_dest_t *);
-static void	show_devices(http_t *, const char *, int, cups_dest_t *);
-static void	show_jobs(http_t *, const char *, const char *, int, int);
-static void	show_printers(http_t *, const char *, int, cups_dest_t *, int);
+static int	show_devices(http_t *, const char *, int, cups_dest_t *);
+static int	show_jobs(http_t *, const char *, const char *, int, int,
+		          const char *);
+static int	show_printers(http_t *, const char *, int, cups_dest_t *, int);
 static void	show_scheduler(http_t *);
 
 
@@ -67,21 +70,27 @@ int
 main(int  argc,			/* I - Number of command-line arguments */
      char *argv[])		/* I - Command-line arguments */
 {
-  int		i;		/* Looping var */
+  int		i,		/* Looping var */
+		status;		/* Exit status */
   http_t	*http;		/* Connection to server */
   int		num_dests;	/* Number of user destinations */
   cups_dest_t	*dests;		/* User destinations */
   int		long_status;	/* Long status report? */
   int		ranking;	/* Show job ranking? */
-  http_encryption_t encryption;	/* Encryption? */
+  const char	*which;		/* Which jobs to show? */
 
+
+#ifdef LC_TIME
+  setlocale(LC_TIME, "");
+#endif /* LC_TIME */
 
   http        = NULL;
   num_dests   = 0;
   dests       = NULL;
   long_status = 0;
   ranking     = 0;
-  encryption  = cupsEncryption();
+  status      = 0;
+  which       = "not-completed";
 
   for (i = 1; i < argc; i ++)
     if (argv[i][0] == '-')
@@ -92,15 +101,15 @@ main(int  argc,			/* I - Number of command-line arguments */
 	    break;
 
         case 'E' : /* Encrypt */
-#ifdef HAVE_LIBSSL
-	    encryption = HTTP_ENCRYPT_REQUIRED;
+#ifdef HAVE_SSL
+	    cupsSetEncryption(HTTP_ENCRYPT_REQUIRED);
 
 	    if (http)
-	      httpEncryption(http, encryption);
+	      httpEncryption(http, HTTP_ENCRYPT_REQUIRED);
 #else
             fprintf(stderr, "%s: Sorry, no encryption support compiled in!\n",
 	            argv[0]);
-#endif /* HAVE_LIBSSL */
+#endif /* HAVE_SSL */
 	    break;
 
         case 'P' : /* Show paper types */
@@ -115,10 +124,36 @@ main(int  argc,			/* I - Number of command-line arguments */
 	      i ++;
 	    break;
 
+        case 'W' : /* Show which jobs? */
+	    if (argv[i][2])
+	      which = argv[i] + 2;
+	    else
+	    {
+	      i ++;
+
+	      if (i >= argc)
+	      {
+	        fputs("lpstat: Need \"completed\" or \"not-completed\" after -W!\n",
+		      stderr);
+		return (1);
+              }
+
+	      which = argv[i];
+	    }
+
+            if (strcmp(which, "completed") && strcmp(which, "not-completed"))
+	    {
+	      fputs("lpstat: Need \"completed\" or \"not-completed\" after -W!\n",
+		    stderr);
+	      return (1);
+	    }
+	    break;
+
         case 'a' : /* Show acceptance status */
 	    if (!http)
 	    {
-              http = httpConnectEncrypt(cupsServer(), ippPort(), encryption);
+              http = httpConnectEncrypt(cupsServer(), ippPort(),
+	                                cupsEncryption());
 
 	      if (http == NULL)
 	      {
@@ -127,25 +162,35 @@ main(int  argc,			/* I - Number of command-line arguments */
 	      }
             }
 
-            if (num_dests == 0)
-	      num_dests = cupsGetDests(&dests);
-
 	    if (argv[i][2] != '\0')
-	      show_accepting(http, argv[i] + 2, num_dests, dests);
+	    {
+              check_dest(argv[i] + 2, &num_dests, &dests);
+
+	      status |= show_accepting(http, argv[i] + 2, num_dests, dests);
+	    }
 	    else if ((i + 1) < argc && argv[i + 1][0] != '-')
 	    {
 	      i ++;
-	      show_accepting(http, argv[i], num_dests, dests);
+
+              check_dest(argv[i], &num_dests, &dests);
+
+	      status |= show_accepting(http, argv[i], num_dests, dests);
 	    }
 	    else
-	      show_accepting(http, NULL, num_dests, dests);
+	    {
+              if (num_dests == 0)
+		num_dests = cupsGetDests(&dests);
+
+	      status |= show_accepting(http, NULL, num_dests, dests);
+	    }
 	    break;
 
 #ifdef __sgi
         case 'b' : /* Show both the local and remote status */
 	    if (!http)
 	    {
-              http = httpConnectEncrypt(cupsServer(), ippPort(), encryption);
+              http = httpConnectEncrypt(cupsServer(), ippPort(),
+	                                cupsEncryption());
 
 	      if (http == NULL)
 	      {
@@ -165,8 +210,10 @@ main(int  argc,			/* I - Number of command-line arguments */
 	      * happy...
 	      */
 
+              check_dest(argv[i] + 2, &num_dests, &dests);
+
 	      puts("");
-	      show_jobs(http, argv[i] + 2, NULL, 3, ranking);
+	      status |= show_jobs(http, argv[i] + 2, NULL, 3, ranking, which);
 	    }
 	    else
 	    {
@@ -181,7 +228,8 @@ main(int  argc,			/* I - Number of command-line arguments */
         case 'c' : /* Show classes and members */
 	    if (!http)
 	    {
-              http = httpConnectEncrypt(cupsServer(), ippPort(), encryption);
+              http = httpConnectEncrypt(cupsServer(), ippPort(),
+	                                cupsEncryption());
 
 	      if (http == NULL)
 	      {
@@ -191,14 +239,21 @@ main(int  argc,			/* I - Number of command-line arguments */
             }
 
 	    if (argv[i][2] != '\0')
-	      show_classes(http, argv[i] + 2);
+	    {
+              check_dest(argv[i] + 2, &num_dests, &dests);
+
+	      status |= show_classes(http, argv[i] + 2);
+	    }
 	    else if ((i + 1) < argc && argv[i + 1][0] != '-')
 	    {
 	      i ++;
-	      show_classes(http, argv[i]);
+
+              check_dest(argv[i], &num_dests, &dests);
+
+	      status |= show_classes(http, argv[i]);
 	    }
 	    else
-	      show_classes(http, NULL);
+	      status |= show_classes(http, NULL);
 	    break;
 
         case 'd' : /* Show default destination */
@@ -215,13 +270,13 @@ main(int  argc,			/* I - Number of command-line arguments */
 	    
         case 'h' : /* Connect to host */
 	    if (http)
+	    {
 	      httpClose(http);
+	      http = NULL;
+	    }
 
 	    if (argv[i][2] != '\0')
-	    {
-	      http = httpConnectEncrypt(argv[i] + 2, ippPort(), encryption);
 	      cupsSetServer(argv[i] + 2);
-	    }
 	    else
 	    {
 	      i ++;
@@ -232,14 +287,7 @@ main(int  argc,			/* I - Number of command-line arguments */
 		return (1);
               }
 
-	      http = httpConnectEncrypt(argv[i], ippPort(), encryption);
 	      cupsSetServer(argv[i]);
-	    }
-
-	    if (http == NULL)
-	    {
-	      perror("lpstat: Unable to connect to server");
-	      return (1);
 	    }
 	    break;
 
@@ -247,7 +295,8 @@ main(int  argc,			/* I - Number of command-line arguments */
 #ifdef __sgi
 	    if (!http)
 	    {
-              http = httpConnectEncrypt(cupsServer(), ippPort(), encryption);
+              http = httpConnectEncrypt(cupsServer(), ippPort(),
+	                                cupsEncryption());
 
 	      if (http == NULL)
 	      {
@@ -257,7 +306,11 @@ main(int  argc,			/* I - Number of command-line arguments */
             }
 
 	    if (argv[i][2] != '\0')
-	      show_jobs(http, argv[i] + 2, NULL, 3, ranking);
+	    {
+              check_dest(argv[i] + 2, &num_dests, &dests);
+
+	      status |= show_jobs(http, argv[i] + 2, NULL, 3, ranking, which);
+	    }
 	    else
 #endif /* __sgi */
 	      long_status = 2;
@@ -266,7 +319,8 @@ main(int  argc,			/* I - Number of command-line arguments */
         case 'o' : /* Show jobs by destination */
 	    if (!http)
 	    {
-              http = httpConnectEncrypt(cupsServer(), ippPort(), encryption);
+              http = httpConnectEncrypt(cupsServer(), ippPort(),
+	                                cupsEncryption());
 
 	      if (http == NULL)
 	      {
@@ -276,20 +330,31 @@ main(int  argc,			/* I - Number of command-line arguments */
             }
 
 	    if (argv[i][2] != '\0')
-	      show_jobs(http, argv[i] + 2, NULL, long_status, ranking);
+	    {
+              check_dest(argv[i] + 2, &num_dests, &dests);
+
+	      status |= show_jobs(http, argv[i] + 2, NULL, long_status,
+	                          ranking, which);
+	    }
 	    else if ((i + 1) < argc && argv[i + 1][0] != '-')
 	    {
 	      i ++;
-	      show_jobs(http, argv[i], NULL, long_status, ranking);
+
+              check_dest(argv[i], &num_dests, &dests);
+
+	      status |= show_jobs(http, argv[i], NULL, long_status,
+	                          ranking, which);
 	    }
 	    else
-	      show_jobs(http, NULL, NULL, long_status, ranking);
+	      status |= show_jobs(http, NULL, NULL, long_status,
+	                          ranking, which);
 	    break;
 
         case 'p' : /* Show printers */
 	    if (!http)
 	    {
-              http = httpConnectEncrypt(cupsServer(), ippPort(), encryption);
+              http = httpConnectEncrypt(cupsServer(), ippPort(),
+	                                cupsEncryption());
 
 	      if (http == NULL)
 	      {
@@ -298,24 +363,34 @@ main(int  argc,			/* I - Number of command-line arguments */
 	      }
             }
 
-            if (num_dests == 0)
-	      num_dests = cupsGetDests(&dests);
-
 	    if (argv[i][2] != '\0')
-	      show_printers(http, argv[i] + 2, num_dests, dests, long_status);
+	    {
+              check_dest(argv[i] + 2, &num_dests, &dests);
+
+	      status |= show_printers(http, argv[i] + 2, num_dests, dests, long_status);
+	    }
 	    else if ((i + 1) < argc && argv[i + 1][0] != '-')
 	    {
 	      i ++;
-	      show_printers(http, argv[i], num_dests, dests, long_status);
+
+              check_dest(argv[i], &num_dests, &dests);
+
+	      status |= show_printers(http, argv[i], num_dests, dests, long_status);
 	    }
 	    else
-	      show_printers(http, NULL, num_dests, dests, long_status);
+	    {
+              if (num_dests == 0)
+		num_dests = cupsGetDests(&dests);
+
+	      status |= show_printers(http, NULL, num_dests, dests, long_status);
+	    }
 	    break;
 
         case 'r' : /* Show scheduler status */
 	    if (!http)
 	    {
-              http = httpConnectEncrypt(cupsServer(), ippPort(), encryption);
+              http = httpConnectEncrypt(cupsServer(), ippPort(),
+	                                cupsEncryption());
 
 	      if (http == NULL)
 	      {
@@ -330,7 +405,8 @@ main(int  argc,			/* I - Number of command-line arguments */
         case 's' : /* Show summary */
 	    if (!http)
 	    {
-              http = httpConnectEncrypt(cupsServer(), ippPort(), encryption);
+              http = httpConnectEncrypt(cupsServer(), ippPort(),
+	                                cupsEncryption());
 
 	      if (http == NULL)
 	      {
@@ -343,14 +419,15 @@ main(int  argc,			/* I - Number of command-line arguments */
 	      num_dests = cupsGetDests(&dests);
 
 	    show_default(num_dests, dests);
-	    show_classes(http, NULL);
-	    show_devices(http, NULL, num_dests, dests);
+	    status |= show_classes(http, NULL);
+	    status |= show_devices(http, NULL, num_dests, dests);
 	    break;
 
         case 't' : /* Show all info */
 	    if (!http)
 	    {
-              http = httpConnectEncrypt(cupsServer(), ippPort(), encryption);
+              http = httpConnectEncrypt(cupsServer(), ippPort(),
+	                                cupsEncryption());
 
 	      if (http == NULL)
 	      {
@@ -364,17 +441,18 @@ main(int  argc,			/* I - Number of command-line arguments */
 
 	    show_scheduler(http);
 	    show_default(num_dests, dests);
-	    show_classes(http, NULL);
-	    show_devices(http, NULL, num_dests, dests);
-	    show_accepting(http, NULL, num_dests, dests);
-	    show_printers(http, NULL, num_dests, dests, long_status);
-	    show_jobs(http, NULL, NULL, long_status, ranking);
+	    status |= show_classes(http, NULL);
+	    status |= show_devices(http, NULL, num_dests, dests);
+	    status |= show_accepting(http, NULL, num_dests, dests);
+	    status |= show_printers(http, NULL, num_dests, dests, long_status);
+	    status |= show_jobs(http, NULL, NULL, long_status, ranking, which);
 	    break;
 
         case 'u' : /* Show jobs by user */
 	    if (!http)
 	    {
-              http = httpConnectEncrypt(cupsServer(), ippPort(), encryption);
+              http = httpConnectEncrypt(cupsServer(), ippPort(),
+	                                cupsEncryption());
 
 	      if (http == NULL)
 	      {
@@ -384,20 +462,24 @@ main(int  argc,			/* I - Number of command-line arguments */
             }
 
 	    if (argv[i][2] != '\0')
-	      show_jobs(http, NULL, argv[i] + 2, long_status, ranking);
+	      status |= show_jobs(http, NULL, argv[i] + 2, long_status,
+	                          ranking, which);
 	    else if ((i + 1) < argc && argv[i + 1][0] != '-')
 	    {
 	      i ++;
-	      show_jobs(http, NULL, argv[i], long_status, ranking);
+	      status |= show_jobs(http, NULL, argv[i], long_status,
+	                          ranking, which);
 	    }
 	    else
-	      show_jobs(http, NULL, NULL, long_status, ranking);
+	      status |= show_jobs(http, NULL, NULL, long_status,
+	                          ranking, which);
 	    break;
 
         case 'v' : /* Show printer devices */
 	    if (!http)
 	    {
-              http = httpConnectEncrypt(cupsServer(), ippPort(), encryption);
+              http = httpConnectEncrypt(cupsServer(), ippPort(),
+	                                cupsEncryption());
 
 	      if (http == NULL)
 	      {
@@ -406,18 +488,27 @@ main(int  argc,			/* I - Number of command-line arguments */
 	      }
             }
 
-            if (num_dests == 0)
-	      num_dests = cupsGetDests(&dests);
-
 	    if (argv[i][2] != '\0')
-	      show_devices(http, argv[i] + 2, num_dests, dests);
+	    {
+              check_dest(argv[i] + 2, &num_dests, &dests);
+
+	      status |= show_devices(http, argv[i] + 2, num_dests, dests);
+	    }
 	    else if ((i + 1) < argc && argv[i + 1][0] != '-')
 	    {
 	      i ++;
-	      show_devices(http, argv[i], num_dests, dests);
+
+              check_dest(argv[i], &num_dests, &dests);
+
+	      status |= show_devices(http, argv[i], num_dests, dests);
 	    }
 	    else
-	      show_devices(http, NULL, num_dests, dests);
+	    {
+              if (num_dests == 0)
+		num_dests = cupsGetDests(&dests);
+
+	      status |= show_devices(http, NULL, num_dests, dests);
+	    }
 	    break;
 
 
@@ -429,7 +520,8 @@ main(int  argc,			/* I - Number of command-line arguments */
     {
       if (!http)
       {
-	http = httpConnectEncrypt(cupsServer(), ippPort(), encryption);
+	http = httpConnectEncrypt(cupsServer(), ippPort(),
+	                          cupsEncryption());
 
 	if (http == NULL)
 	{
@@ -438,14 +530,15 @@ main(int  argc,			/* I - Number of command-line arguments */
 	}
       }
 
-      show_jobs(http, argv[i], NULL, long_status, ranking);
+      status |= show_jobs(http, argv[i], NULL, long_status, ranking, which);
     }
 
   if (argc == 1)
   {
     if (!http)
     {
-      http = httpConnectEncrypt(cupsServer(), ippPort(), encryption);
+      http = httpConnectEncrypt(cupsServer(), ippPort(),
+                                cupsEncryption());
 
       if (http == NULL)
       {
@@ -454,10 +547,77 @@ main(int  argc,			/* I - Number of command-line arguments */
       }
     }
 
-    show_jobs(http, NULL, cupsUser(), long_status, ranking);
+    status |= show_jobs(http, NULL, cupsUser(), long_status, ranking, which);
   }
 
-  return (0);
+  return (status);
+}
+
+
+/*
+ * 'check_dest()' - Verify that the named destination(s) exists.
+ */
+
+static void
+check_dest(const char  *name,		/* I  - Name of printer/class(es) */
+           int         *num_dests,	/* IO - Number of destinations */
+	   cups_dest_t **dests)		/* IO - Destinations */
+{
+  const char	*dptr;
+  char		*pptr,
+		printer[128];
+
+
+ /*
+  * Load the destination list as necessary...
+  */
+
+  if (*num_dests == 0)
+    *num_dests = cupsGetDests(dests);
+
+ /*
+  * Scan the name string for printer/class name(s)...
+  */
+
+  for (dptr = name; *dptr != '\0';) 
+  {
+   /*
+    * Skip leading whitespace and commas...
+    */
+
+    while (isspace(*dptr) || *dptr == ',')
+      dptr ++;
+
+    if (*dptr == '\0')
+      break;
+
+   /*
+    * Extract a single destination name from the name string...
+    */
+
+    for (pptr = printer; !isspace(*dptr) && *dptr != ',' && *dptr != '\0';)
+    {
+      if ((pptr - printer) < (sizeof(printer) - 1))
+        *pptr++ = *dptr++;
+      else
+      {
+        fprintf(stderr, "lpstat: Invalid destination name in list \"%s\"!\n", name);
+        exit(1);
+      }
+    }
+
+    *pptr = '\0';
+
+   /*
+    * Check the destination...
+    */
+
+    if (cupsGetDest(printer, NULL, *num_dests, *dests) == NULL)
+    {
+      fprintf(stderr, "lpstat: Unknown destination \"%s\"!\n", printer);
+      exit(1);
+    }
+  }
 }
 
 
@@ -465,24 +625,24 @@ main(int  argc,			/* I - Number of command-line arguments */
  * 'show_accepting()' - Show acceptance status.
  */
 
-static void
+static int				/* O - 0 on success, 1 on fail */
 show_accepting(http_t      *http,	/* I - HTTP connection to server */
                const char  *printers,	/* I - Destinations */
                int         num_dests,	/* I - Number of user-defined dests */
 	       cups_dest_t *dests)	/* I - User-defined destinations */
 {
-  int		i;		/* Looping var */
-  ipp_t		*request,	/* IPP Request */
-		*response;	/* IPP Response */
-  ipp_attribute_t *attr;	/* Current attribute */
-  cups_lang_t	*language;	/* Default language */
-  const char	*printer,	/* Printer name */
-		*message;	/* Printer device URI */
-  int		accepting;	/* Accepting requests? */
-  const char	*dptr,		/* Pointer into destination list */
-		*ptr;		/* Pointer into printer name */
-  int		match;		/* Non-zero if this job matches */
-  static const char *pattrs[] =	/* Attributes we need for printers... */
+  int		i;			/* Looping var */
+  ipp_t		*request,		/* IPP Request */
+		*response;		/* IPP Response */
+  ipp_attribute_t *attr;		/* Current attribute */
+  cups_lang_t	*language;		/* Default language */
+  const char	*printer,		/* Printer name */
+		*message;		/* Printer device URI */
+  int		accepting;		/* Accepting requests? */
+  const char	*dptr,			/* Pointer into destination list */
+		*ptr;			/* Pointer into printer name */
+  int		match;			/* Non-zero if this job matches */
+  static const char *pattrs[] =		/* Attributes we need for printers... */
 		{
 		  "printer-name",
 		  "printer-state-message",
@@ -493,7 +653,7 @@ show_accepting(http_t      *http,	/* I - HTTP connection to server */
   DEBUG_printf(("show_accepting(%p, %p)\n", http, printers));
 
   if (http == NULL)
-    return;
+    return (1);
 
   if (printers != NULL && strcmp(printers, "all") == 0)
     printers = NULL;
@@ -537,7 +697,7 @@ show_accepting(http_t      *http,	/* I - HTTP connection to server */
       fprintf(stderr, "lpstat: get-printers failed: %s\n",
               ippErrorString(response->request.status.status_code));
       ippDelete(response);
-      return;
+      return (1);
     }
 
    /*
@@ -619,7 +779,7 @@ show_accepting(http_t      *http,	/* I - HTTP connection to server */
 	  */
 
 	  for (ptr = printer;
-	       *ptr != '\0' && *dptr != '\0' && *ptr == *dptr;
+	       *ptr != '\0' && *dptr != '\0' && tolower(*ptr) == tolower(*dptr);
 	       ptr ++, dptr ++);
 
           if (*ptr == '\0' && (*dptr == '\0' || *dptr == ',' || isspace(*dptr)))
@@ -632,7 +792,7 @@ show_accepting(http_t      *http,	/* I - HTTP connection to server */
 	  * Skip trailing junk...
 	  */
 
-          while (!isspace(*dptr) && *dptr != '\0')
+          while (!isspace(*dptr) && *dptr != ',' && *dptr != '\0')
 	    dptr ++;
 	  while (isspace(*dptr) || *dptr == ',')
 	    dptr ++;
@@ -673,8 +833,13 @@ show_accepting(http_t      *http,	/* I - HTTP connection to server */
     ippDelete(response);
   }
   else
+  {
     fprintf(stderr, "lpstat: get-printers failed: %s\n",
             ippErrorString(cupsLastError()));
+    return (1);
+  }
+
+  return (0);
 }
 
 
@@ -682,33 +847,29 @@ show_accepting(http_t      *http,	/* I - HTTP connection to server */
  * 'show_classes()' - Show printer classes.
  */
 
-static void
-show_classes(http_t     *http,	/* I - HTTP connection to server */
-             const char *dests)	/* I - Destinations */
+static int				/* O - 0 on success, 1 on fail */
+show_classes(http_t     *http,		/* I - HTTP connection to server */
+             const char *dests)		/* I - Destinations */
 {
-  int		i;		/* Looping var */
-  ipp_t		*request,	/* IPP Request */
-		*response,	/* IPP Response */
-		*response2;	/* IPP response from remote server */
-  http_t	*http2;		/* Remote server */
-  ipp_attribute_t *attr;	/* Current attribute */
-  cups_lang_t	*language;	/* Default language */
-  const char	*printer,	/* Printer class name */
-		*printer_uri;	/* Printer class URI */
-  ipp_attribute_t *members;	/* Printer members */
-  char		method[HTTP_MAX_URI],
-				/* Request method */
-		username[HTTP_MAX_URI],
-				/* Username:password */
-		server[HTTP_MAX_URI],
-				/* Server name */
-		resource[HTTP_MAX_URI];
-				/* Resource name */
-  int		port;		/* Port number */
-  const char	*dptr,		/* Pointer into destination list */
-		*ptr;		/* Pointer into printer name */
-  int		match;		/* Non-zero if this job matches */
-  static const char *cattrs[] =	/* Attributes we need for classes... */
+  int		i;			/* Looping var */
+  ipp_t		*request,		/* IPP Request */
+		*response,		/* IPP Response */
+		*response2;		/* IPP response from remote server */
+  http_t	*http2;			/* Remote server */
+  ipp_attribute_t *attr;		/* Current attribute */
+  cups_lang_t	*language;		/* Default language */
+  const char	*printer,		/* Printer class name */
+		*printer_uri;		/* Printer class URI */
+  ipp_attribute_t *members;		/* Printer members */
+  char		method[HTTP_MAX_URI],	/* Request method */
+		username[HTTP_MAX_URI],	/* Username:password */
+		server[HTTP_MAX_URI],	/* Server name */
+		resource[HTTP_MAX_URI];	/* Resource name */
+  int		port;			/* Port number */
+  const char	*dptr,			/* Pointer into destination list */
+		*ptr;			/* Pointer into printer name */
+  int		match;			/* Non-zero if this job matches */
+  static const char *cattrs[] =		/* Attributes we need for classes... */
 		{
 		  "printer-name",
 		  "printer-uri-supported",
@@ -719,7 +880,7 @@ show_classes(http_t     *http,	/* I - HTTP connection to server */
   DEBUG_printf(("show_classes(%p, %p)\n", http, dests));
 
   if (http == NULL)
-    return;
+    return (1);
 
   if (dests != NULL && strcmp(dests, "all") == 0)
     dests = NULL;
@@ -763,7 +924,7 @@ show_classes(http_t     *http,	/* I - HTTP connection to server */
       fprintf(stderr, "lpstat: get-classes failed: %s\n",
               ippErrorString(response->request.status.status_code));
       ippDelete(response);
-      return;
+      return (1);
     }
 
    /*
@@ -897,7 +1058,7 @@ show_classes(http_t     *http,	/* I - HTTP connection to server */
 	  */
 
 	  for (ptr = printer;
-	       *ptr != '\0' && *dptr != '\0' && *ptr == *dptr;
+	       *ptr != '\0' && *dptr != '\0' && tolower(*ptr) == tolower(*dptr);
 	       ptr ++, dptr ++);
 
           if (*ptr == '\0' && (*dptr == '\0' || *dptr == ',' || isspace(*dptr)))
@@ -910,7 +1071,7 @@ show_classes(http_t     *http,	/* I - HTTP connection to server */
 	  * Skip trailing junk...
 	  */
 
-          while (!isspace(*dptr) && *dptr != '\0')
+          while (!isspace(*dptr) && *dptr != ',' && *dptr != '\0')
 	    dptr ++;
 	  while (isspace(*dptr) || *dptr == ',')
 	    dptr ++;
@@ -947,8 +1108,13 @@ show_classes(http_t     *http,	/* I - HTTP connection to server */
     ippDelete(response);
   }
   else
+  {
     fprintf(stderr, "lpstat: get-classes failed: %s\n",
             ippErrorString(cupsLastError()));
+    return (1);
+  }
+
+  return (0);
 }
 
 
@@ -960,20 +1126,14 @@ static void
 show_default(int         num_dests,	/* I - Number of user-defined dests */
 	     cups_dest_t *dests)	/* I - User-defined destinations */
 {
-  int	i;				/* Looping var */
+  cups_dest_t	*dest;			/* Destination */
 
-
-  for (i = 0; i < num_dests; i ++)
-    if (dests[i].is_default)
-      break;
-
-  if (i < num_dests)
+  if ((dest = cupsGetDest(NULL, NULL, num_dests, dests)) != NULL)
   {
-    if (dests[i].instance)
-      printf("system default destination: %s/%s\n", dests[i].name,
-             dests[i].instance);
+    if (dest->instance)
+      printf("system default destination: %s/%s\n", dest->name, dest->instance);
     else
-      printf("system default destination: %s\n", dests[i].name);
+      printf("system default destination: %s\n", dest->name);
   }
   else
     puts("no system default destination");
@@ -984,24 +1144,24 @@ show_default(int         num_dests,	/* I - Number of user-defined dests */
  * 'show_devices()' - Show printer devices.
  */
 
-static void
+static int				/* O - 0 on success, 1 on fail */
 show_devices(http_t      *http,		/* I - HTTP connection to server */
              const char  *printers,	/* I - Destinations */
              int         num_dests,	/* I - Number of user-defined dests */
 	     cups_dest_t *dests)	/* I - User-defined destinations */
 {
-  int		i;		/* Looping var */
-  ipp_t		*request,	/* IPP Request */
-		*response;	/* IPP Response */
-  ipp_attribute_t *attr;	/* Current attribute */
-  cups_lang_t	*language;	/* Default language */
-  const char	*printer,	/* Printer name */
-		*uri,		/* Printer URI */
-		*device,	/* Printer device URI */
-		*dptr,		/* Pointer into destination list */
-		*ptr;		/* Pointer into printer name */
-  int		match;		/* Non-zero if this job matches */
-  static const char *pattrs[] =	/* Attributes we need for printers... */
+  int		i;			/* Looping var */
+  ipp_t		*request,		/* IPP Request */
+		*response;		/* IPP Response */
+  ipp_attribute_t *attr;		/* Current attribute */
+  cups_lang_t	*language;		/* Default language */
+  const char	*printer,		/* Printer name */
+		*uri,			/* Printer URI */
+		*device,		/* Printer device URI */
+		*dptr,			/* Pointer into destination list */
+		*ptr;			/* Pointer into printer name */
+  int		match;			/* Non-zero if this job matches */
+  static const char *pattrs[] =		/* Attributes we need for printers... */
 		{
 		  "printer-name",
 		  "printer-uri-supported",
@@ -1012,7 +1172,7 @@ show_devices(http_t      *http,		/* I - HTTP connection to server */
   DEBUG_printf(("show_devices(%p, %p)\n", http, dests));
 
   if (http == NULL)
-    return;
+    return (1);
 
   if (printers != NULL && strcmp(printers, "all") == 0)
     printers = NULL;
@@ -1056,7 +1216,7 @@ show_devices(http_t      *http,		/* I - HTTP connection to server */
       fprintf(stderr, "lpstat: get-printers failed: %s\n",
               ippErrorString(response->request.status.status_code));
       ippDelete(response);
-      return;
+      return (1);
     }
 
    /*
@@ -1138,7 +1298,7 @@ show_devices(http_t      *http,		/* I - HTTP connection to server */
 	  */
 
 	  for (ptr = printer;
-	       *ptr != '\0' && *dptr != '\0' && *ptr == *dptr;
+	       *ptr != '\0' && *dptr != '\0' && tolower(*ptr) == tolower(*dptr);
 	       ptr ++, dptr ++);
 
           if (*ptr == '\0' && (*dptr == '\0' || *dptr == ',' || isspace(*dptr)))
@@ -1151,7 +1311,7 @@ show_devices(http_t      *http,		/* I - HTTP connection to server */
 	  * Skip trailing junk...
 	  */
 
-          while (!isspace(*dptr) && *dptr != '\0')
+          while (!isspace(*dptr) && *dptr != ',' && *dptr != '\0')
 	    dptr ++;
 	  while (isspace(*dptr) || *dptr == ',')
 	    dptr ++;
@@ -1226,8 +1386,13 @@ show_devices(http_t      *http,		/* I - HTTP connection to server */
     ippDelete(response);
   }
   else
+  {
     fprintf(stderr, "lpstat: get-printers failed: %s\n",
             ippErrorString(cupsLastError()));
+    return (1);
+  }
+
+  return (0);
 }
 
 
@@ -1235,31 +1400,32 @@ show_devices(http_t      *http,		/* I - HTTP connection to server */
  * 'show_jobs()' - Show active print jobs.
  */
 
-static void
-show_jobs(http_t     *http,	/* I - HTTP connection to server */
-          const char *dests,	/* I - Destinations */
-          const char *users,	/* I - Users */
-          int        long_status,/* I - Show long status? */
-          int        ranking)	/* I - Show job ranking? */
+static int				/* O - 0 on success, 1 on fail */
+show_jobs(http_t     *http,		/* I - HTTP connection to server */
+          const char *dests,		/* I - Destinations */
+          const char *users,		/* I - Users */
+          int        long_status,	/* I - Show long status? */
+          int        ranking,		/* I - Show job ranking? */
+	  const char *which)		/* I - Show which jobs? */
 {
-  ipp_t		*request,	/* IPP Request */
-		*response;	/* IPP Response */
-  ipp_attribute_t *attr;	/* Current attribute */
-  cups_lang_t	*language;	/* Default language */
-  const char	*dest,		/* Pointer into job-printer-uri */
-		*username,	/* Pointer to job-originating-user-name */
-		*title;		/* Pointer to job-name */
-  int		rank,		/* Rank in queue */
-		jobid,		/* job-id */
-		size;		/* job-k-octets */
-  time_t	jobtime;	/* time-at-creation */
-  struct tm	*jobdate;	/* Date & time */
-  const char	*dptr,		/* Pointer into destination list */
-		*ptr;		/* Pointer into printer name */
-  int		match;		/* Non-zero if this job matches */
-  char		temp[22],	/* Temporary buffer */
-		date[32];	/* Date buffer */
-  static const char *jattrs[] =	/* Attributes we need for jobs... */
+  ipp_t		*request,		/* IPP Request */
+		*response;		/* IPP Response */
+  ipp_attribute_t *attr;		/* Current attribute */
+  cups_lang_t	*language;		/* Default language */
+  const char	*dest,			/* Pointer into job-printer-uri */
+		*username,		/* Pointer to job-originating-user-name */
+		*title;			/* Pointer to job-name */
+  int		rank,			/* Rank in queue */
+		jobid,			/* job-id */
+		size;			/* job-k-octets */
+  time_t	jobtime;		/* time-at-creation */
+  struct tm	*jobdate;		/* Date & time */
+  const char	*dptr,			/* Pointer into destination list */
+		*ptr;			/* Pointer into printer name */
+  int		match;			/* Non-zero if this job matches */
+  char		temp[255],		/* Temporary buffer */
+		date[32];		/* Date buffer */
+  static const char *jattrs[] =		/* Attributes we need for jobs... */
 		{
 		  "job-id",
 		  "job-k-octets",
@@ -1273,7 +1439,7 @@ show_jobs(http_t     *http,	/* I - HTTP connection to server */
   DEBUG_printf(("show_jobs(%p, %p, %p)\n", http, dests, users));
 
   if (http == NULL)
-    return;
+    return (1);
 
   if (dests != NULL && strcmp(dests, "all") == 0)
     dests = NULL;
@@ -1308,6 +1474,9 @@ show_jobs(http_t     *http,	/* I - HTTP connection to server */
   ippAddString(request, IPP_TAG_OPERATION, IPP_TAG_URI, "job-uri",
                NULL, "ipp://localhost/jobs/");
 
+  ippAddString(request, IPP_TAG_OPERATION, IPP_TAG_KEYWORD, "which-jobs",
+               NULL, which);
+
  /*
   * Do the request and get back a response...
   */
@@ -1323,7 +1492,7 @@ show_jobs(http_t     *http,	/* I - HTTP connection to server */
       fprintf(stderr, "lpstat: get-jobs failed: %s\n",
               ippErrorString(response->request.status.status_code));
       ippDelete(response);
-      return;
+      return (1);
     }
 
     rank = -1;
@@ -1419,7 +1588,7 @@ show_jobs(http_t     *http,	/* I - HTTP connection to server */
 	  */
 
 	  for (ptr = dest;
-	       *ptr != '\0' && *dptr != '\0' && *ptr == *dptr;
+	       *ptr != '\0' && *dptr != '\0' && tolower(*ptr) == tolower(*dptr);
 	       ptr ++, dptr ++);
 
           if (*ptr == '\0' && (*dptr == '\0' || *dptr == ',' || isspace(*dptr)))
@@ -1432,7 +1601,7 @@ show_jobs(http_t     *http,	/* I - HTTP connection to server */
 	  * Skip trailing junk...
 	  */
 
-          while (!isspace(*dptr) && *dptr != '\0')
+          while (!isspace(*dptr) && *dptr != ',' && *dptr != '\0')
 	    dptr ++;
 	  while (isspace(*dptr) || *dptr == ',')
 	    dptr ++;
@@ -1474,7 +1643,7 @@ show_jobs(http_t     *http,	/* I - HTTP connection to server */
 	  * Skip trailing junk...
 	  */
 
-          while (!isspace(*dptr) && *dptr != '\0')
+          while (!isspace(*dptr) && *dptr != ',' && *dptr != '\0')
 	    dptr ++;
 	  while (isspace(*dptr) || *dptr == ',')
 	    dptr ++;
@@ -1526,8 +1695,13 @@ show_jobs(http_t     *http,	/* I - HTTP connection to server */
     ippDelete(response);
   }
   else
+  {
     fprintf(stderr, "lpstat: get-jobs failed: %s\n",
             ippErrorString(cupsLastError()));
+    return (1);
+  }
+
+  return (0);
 }
 
 
@@ -1535,41 +1709,49 @@ show_jobs(http_t     *http,	/* I - HTTP connection to server */
  * 'show_printers()' - Show printers.
  */
 
-static void
+static int				/* O - 0 on success, 1 on fail */
 show_printers(http_t      *http,	/* I - HTTP connection to server */
               const char  *printers,	/* I - Destinations */
               int         num_dests,	/* I - Number of user-defined dests */
 	      cups_dest_t *dests,	/* I - User-defined destinations */
               int         long_status)	/* I - Show long status? */
 {
-  int		i;		/* Looping var */
-  ipp_t		*request,	/* IPP Request */
-		*response,	/* IPP Response */
-		*jobs;		/* IPP Get Jobs response */
-  ipp_attribute_t *attr;	/* Current attribute */
-  ipp_attribute_t *jobattr;	/* Job ID attribute */
-  cups_lang_t	*language;	/* Default language */
-  const char	*printer,	/* Printer name */
-		*message,	/* Printer state message */
-		*description;	/* Description of printer */
-  ipp_pstate_t	pstate;		/* Printer state */
-  cups_ptype_t	ptype;		/* Printer type */
-  int		jobid;		/* Job ID of current job */
-  const char	*dptr,		/* Pointer into destination list */
-		*ptr;		/* Pointer into printer name */
-  int		match;		/* Non-zero if this job matches */
+  int		i, j;			/* Looping vars */
+  ipp_t		*request,		/* IPP Request */
+		*response,		/* IPP Response */
+		*jobs;			/* IPP Get Jobs response */
+  ipp_attribute_t *attr,		/* Current attribute */
+		*jobattr,		/* Job ID attribute */
+		*reasons;		/* Job state reasons attribute */
+  cups_lang_t	*language;		/* Default language */
+  const char	*printer,		/* Printer name */
+		*message,		/* Printer state message */
+		*description,		/* Description of printer */
+		*location,		/* Location of printer */
+		*make_model,		/* Make and model of printer */
+		*uri;			/* URI of printer */
+  ipp_pstate_t	pstate;			/* Printer state */
+  cups_ptype_t	ptype;			/* Printer type */
+  int		jobid;			/* Job ID of current job */
+  const char	*dptr,			/* Pointer into destination list */
+		*ptr;			/* Pointer into printer name */
+  int		match;			/* Non-zero if this job matches */
   char		printer_uri[HTTP_MAX_URI];
-				/* Printer URI */
-  const char	*root;		/* Server root directory... */
-  static const char *pattrs[] =	/* Attributes we need for printers... */
+					/* Printer URI */
+  const char	*root;			/* Server root directory... */
+  static const char *pattrs[] =		/* Attributes we need for printers... */
 		{
 		  "printer-name",
 		  "printer-state",
 		  "printer-state-message",
+		  "printer-state-reasons",
 		  "printer-type",
-		  "printer-info"
+		  "printer-info",
+                  "printer-location",
+		  "printer-make-and-model",
+		  "printer-uri-supported"
 		};
-  static const char *jattrs[] =	/* Attributes we need for jobs... */
+  static const char *jattrs[] =		/* Attributes we need for jobs... */
 		{
 		  "job-id"
 		};
@@ -1578,7 +1760,7 @@ show_printers(http_t      *http,	/* I - HTTP connection to server */
   DEBUG_printf(("show_printers(%p, %p)\n", http, dests));
 
   if (http == NULL)
-    return;
+    return (1);
 
   if ((root = getenv("CUPS_SERVERROOT")) == NULL)
     root = CUPS_SERVERROOT;
@@ -1625,7 +1807,7 @@ show_printers(http_t      *http,	/* I - HTTP connection to server */
       fprintf(stderr, "lpstat: get-printers failed: %s\n",
               ippErrorString(response->request.status.status_code));
       ippDelete(response);
-      return;
+      return (1);
     }
 
    /*
@@ -1654,6 +1836,10 @@ show_printers(http_t      *http,	/* I - HTTP connection to server */
       pstate      = IPP_PRINTER_IDLE;
       message     = NULL;
       description = NULL;
+      location    = NULL;
+      make_model  = NULL;
+      reasons     = NULL;
+      uri         = NULL;
       jobid       = 0;
 
       while (attr != NULL && attr->group_tag == IPP_TAG_PRINTER)
@@ -1661,22 +1847,30 @@ show_printers(http_t      *http,	/* I - HTTP connection to server */
         if (strcmp(attr->name, "printer-name") == 0 &&
 	    attr->value_tag == IPP_TAG_NAME)
 	  printer = attr->values[0].string.text;
-
-        if (strcmp(attr->name, "printer-state") == 0 &&
-	    attr->value_tag == IPP_TAG_ENUM)
+        else if (strcmp(attr->name, "printer-state") == 0 &&
+	         attr->value_tag == IPP_TAG_ENUM)
 	  pstate = (ipp_pstate_t)attr->values[0].integer;
-
-        if (strcmp(attr->name, "printer-type") == 0 &&
-	    attr->value_tag == IPP_TAG_ENUM)
+        else if (strcmp(attr->name, "printer-type") == 0 &&
+	         attr->value_tag == IPP_TAG_ENUM)
 	  ptype = (cups_ptype_t)attr->values[0].integer;
-
-        if (strcmp(attr->name, "printer-state-message") == 0 &&
-	    attr->value_tag == IPP_TAG_TEXT)
+        else if (strcmp(attr->name, "printer-state-message") == 0 &&
+	         attr->value_tag == IPP_TAG_TEXT)
 	  message = attr->values[0].string.text;
-
-        if (strcmp(attr->name, "printer-info") == 0 &&
-	    attr->value_tag == IPP_TAG_TEXT)
+        else if (strcmp(attr->name, "printer-info") == 0 &&
+	         attr->value_tag == IPP_TAG_TEXT)
 	  description = attr->values[0].string.text;
+        else if (strcmp(attr->name, "printer-location") == 0 &&
+	         attr->value_tag == IPP_TAG_TEXT)
+	  location = attr->values[0].string.text;
+        else if (strcmp(attr->name, "printer-make-and-model") == 0 &&
+	         attr->value_tag == IPP_TAG_TEXT)
+	  make_model = attr->values[0].string.text;
+        else if (strcmp(attr->name, "printer-uri-supported") == 0 &&
+	         attr->value_tag == IPP_TAG_URI)
+	  uri = attr->values[0].string.text;
+        else if (strcmp(attr->name, "printer-state-reasons") == 0 &&
+	         attr->value_tag == IPP_TAG_KEYWORD)
+	  reasons = attr;
 
         attr = attr->next;
       }
@@ -1718,7 +1912,7 @@ show_printers(http_t      *http,	/* I - HTTP connection to server */
 	  */
 
 	  for (ptr = printer;
-	       *ptr != '\0' && *dptr != '\0' && *ptr == *dptr;
+	       *ptr != '\0' && *dptr != '\0' && tolower(*ptr) == tolower(*dptr);
 	       ptr ++, dptr ++);
 
           if (*ptr == '\0' && (*dptr == '\0' || *dptr == ',' || isspace(*dptr)))
@@ -1731,7 +1925,7 @@ show_printers(http_t      *http,	/* I - HTTP connection to server */
 	  * Skip trailing junk...
 	  */
 
-          while (!isspace(*dptr) && *dptr != '\0')
+          while (!isspace(*dptr) && *dptr != ',' && *dptr != '\0')
 	    dptr ++;
 	  while (isspace(*dptr) || *dptr == ',')
 	    dptr ++;
@@ -1814,10 +2008,13 @@ show_printers(http_t      *http,	/* I - HTTP connection to server */
 	      printf("printer %s now printing %s-%d.  enabled since Jan 01 00:00\n", printer, printer, jobid);
 	      break;
 	  case IPP_PRINTER_STOPPED :
-	      printf("printer %s disabled since Jan 01 00:00 -\n\t%s\n", printer,
-	             message == NULL ? "reason unknown" : message);
+	      printf("printer %s disabled since Jan 01 00:00 -\n", printer);
 	      break;
 	}
+
+        if ((message && *message) || pstate == IPP_PRINTER_STOPPED)
+	  printf("\t%s\n", message == NULL || !*message ? "reason unknown" :
+	                                                  message);
 
         if (long_status > 1)
 	{
@@ -1826,13 +2023,32 @@ show_printers(http_t      *http,	/* I - HTTP connection to server */
 	  puts("\tPrinter types: unknown");
 	}
         if (long_status)
+	{
 	  printf("\tDescription: %s\n", description ? description : "");
+	  if (reasons)
+	  {
+	    printf("\tAlerts:");
+	    for (i = 0; i < reasons->num_values; i ++)
+	      printf(" %s", reasons->values[i].string.text);
+	    putchar('\n');
+	  }
+	}
         if (long_status > 1)
 	{
+	  printf("\tLocation: %s\n", location ? location : "");
 	  printf("\tConnection: %s\n",
 	         (ptype & CUPS_PRINTER_REMOTE) ? "remote" : "direct");
 	  if (!(ptype & CUPS_PRINTER_REMOTE))
-	    printf("\tInterface: %s/ppd/%s.ppd\n", root, printer);
+	  {
+	    if (make_model && strstr(make_model, "System V Printer"))
+	      printf("\tInterface: %s/ppd/%s.ppd\n", root, printer);
+	    else if (make_model && !strstr(make_model, "Raw Printer"))
+	      printf("\tInterface: %s/ppd/%s.ppd\n", root, printer);
+          }
+	  else if (make_model && !strstr(make_model, "System V Printer") &&
+	           !strstr(make_model, "Raw Printer") && uri)
+	    printf("\tInterface: %s.ppd\n", uri);
+
 	  puts("\tOn fault: no alert");
 	  puts("\tAfter fault: continue");
 	  puts("\tUsers allowed:");
@@ -1860,11 +2076,14 @@ show_printers(http_t      *http,	/* I - HTTP connection to server */
 		         dests[i].instance, printer, jobid);
 		  break;
 	      case IPP_PRINTER_STOPPED :
-		  printf("printer %s/%s disabled since Jan 01 00:00 -\n\t%s\n", printer,
-		         dests[i].instance,
-			 message == NULL ? "reason unknown" : message);
+		  printf("printer %s/%s disabled since Jan 01 00:00 -\n", printer,
+		         dests[i].instance);
 		  break;
 	    }
+
+            if ((message && *message) || pstate == IPP_PRINTER_STOPPED)
+	      printf("\t%s\n", message == NULL || !*message ? "reason unknown" :
+	                                                      message);
 
             if (long_status > 1)
 	    {
@@ -1873,13 +2092,31 @@ show_printers(http_t      *http,	/* I - HTTP connection to server */
 	      puts("\tPrinter types: unknown");
 	    }
             if (long_status)
+	    {
 	      printf("\tDescription: %s\n", description ? description : "");
+	      if (reasons)
+	      {
+	        printf("\tAlerts:");
+		for (j = 0; j < reasons->num_values; j ++)
+		  printf(" %s", reasons->values[j].string.text);
+		putchar('\n');
+	      }
+	    }
             if (long_status > 1)
 	    {
+	      printf("\tLocation: %s\n", location ? location : "");
 	      printf("\tConnection: %s\n",
 	             (ptype & CUPS_PRINTER_REMOTE) ? "remote" : "direct");
 	      if (!(ptype & CUPS_PRINTER_REMOTE))
-		printf("\tInterface: %s/ppd/%s.ppd\n", root, printer);
+	      {
+		if (make_model && strstr(make_model, "System V Printer"))
+		  printf("\tInterface: %s/ppd/%s.ppd\n", root, printer);
+		else if (make_model && !strstr(make_model, "Raw Printer"))
+		  printf("\tInterface: %s/ppd/%s.ppd\n", root, printer);
+              }
+	      else if (make_model && !strstr(make_model, "System V Printer") &&
+	               !strstr(make_model, "Raw Printer") && uri)
+		printf("\tInterface: %s.ppd\n", uri);
 	      puts("\tOn fault: no alert");
 	      puts("\tAfter fault: continue");
 	      puts("\tUsers allowed:");
@@ -1903,8 +2140,13 @@ show_printers(http_t      *http,	/* I - HTTP connection to server */
     ippDelete(response);
   }
   else
+  {
     fprintf(stderr, "lpstat: get-printers failed: %s\n",
             ippErrorString(cupsLastError()));
+    return (1);
+  }
+
+  return (0);
 }
 
 
@@ -1920,5 +2162,5 @@ show_scheduler(http_t *http)	/* I - HTTP connection to server */
 
 
 /*
- * End of "$Id: lpstat.c,v 1.1.1.2 2002/02/10 04:51:47 jlovell Exp $".
+ * End of "$Id: lpstat.c,v 1.1.1.10 2003/07/16 17:22:07 jlovell Exp $".
  */

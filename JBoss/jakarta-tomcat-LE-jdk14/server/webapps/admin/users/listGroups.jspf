@@ -1,0 +1,32 @@
+<td align="right" nowrap>
+<div class="page-title-text">
+<controls:actions label="Group Actions">
+
+  <controls:action selected="true">
+    ----<bean:message key="actions.available.actions"/>----
+  </controls:action>
+
+  <controls:action>
+    ---------------------------------
+  </controls:action>
+
+  <controls:action url='<%= "/users/setUpGroup.do?databaseName=" +
+       URLEncoder.encode(request.getParameter("databaseName")) %>'>
+    <bean:message key="users.actions.group.create"/>
+  </controls:action>
+
+  <controls:action url='<%= "/users/listGroups.do?databaseName=" +
+       URLEncoder.encode(request.getParameter("databaseName")) +
+       "&forward=" + URLEncoder.encode("Groups Delete List") %>'>
+    <bean:message key="users.actions.group.delete"/>
+  </controls:action>
+
+  <controls:action url='<%= "/users/listGroups.do?databaseName=" +
+       URLEncoder.encode(request.getParameter("databaseName")) +
+       "&forward=" + URLEncoder.encode("Groups List") %>'>
+    <bean:message key="users.actions.group.list"/>
+  </controls:action>
+
+</controls:actions>
+</div>
+</td>

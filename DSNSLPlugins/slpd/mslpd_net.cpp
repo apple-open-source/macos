@@ -1,4 +1,28 @@
 /*
+ * Copyright (c) 2003 Apple Computer, Inc. All rights reserved.
+ *
+ * @APPLE_LICENSE_HEADER_START@
+ * 
+ * Copyright (c) 1999-2003 Apple Computer, Inc.  All Rights Reserved.
+ * 
+ * This file contains Original Code and/or Modifications of Original Code
+ * as defined in and that are subject to the Apple Public Source License
+ * Version 2.0 (the 'License'). You may not use this file except in
+ * compliance with the License. Please obtain a copy of the License at
+ * http://www.opensource.apple.com/apsl/ and read it before using this
+ * file.
+ * 
+ * The Original Code and all software distributed under the License are
+ * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
+ * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
+ * INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY,
+ * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
+ * Please see the License for the specific language governing rights and
+ * limitations under the License.
+ * 
+ * @APPLE_LICENSE_HEADER_END@
+ */
+/*
  * mslpd_net.c : Minimal SLP v2 Service Agent networking code
  *
  *  All reads, writes, message composing and decomposing are done here.
@@ -78,7 +102,6 @@ int handle_udp( SAState *psa, char* pcInBuf, int inBufSz, struct sockaddr_in sin
 { 
 	char				*pcOutBuf = NULL;
 	int					iOutSz;
-    SOCKET  			sdSend = socket(AF_INET, SOCK_DGRAM, 0);
 //	struct sockaddr_in	sinIn;
 	int					err = 0;
 	int					iSinInSz = sizeof(sinIn);
@@ -98,7 +121,9 @@ int handle_udp( SAState *psa, char* pcInBuf, int inBufSz, struct sockaddr_in sin
 		else 
 		{
 #ifndef NDEBUG
-			char*	endPtr = NULL;
+			char*				endPtr = NULL;
+			SOCKET  			sdSend = socket(AF_INET, SOCK_DGRAM, 0);
+
 			if ( iOutSz > strtol(SENDMTU,&endPtr,10) )		// can't send more than this, we better make sure the overflow bit is set
 			{
 //                    SETFLAGS(pcOutBuf,OVERFLOWFLAG);
@@ -120,9 +145,12 @@ int handle_udp( SAState *psa, char* pcInBuf, int inBufSz, struct sockaddr_in sin
 					
 					sprintf( logMsg, "mslpd handle_udp sendto: %s", inet_ntoa(sinIn.sin_addr) );
 					SLP_LOG( SLP_LOG_DROP, logMsg, errno );
+					CLOSESOCKET(sdSend);
 					return errno;
 				}
 			}
+
+			CLOSESOCKET(sdSend);
 		}
 		
 		if ( pcOutBuf ) 
@@ -136,7 +164,6 @@ int handle_udp( SAState *psa, char* pcInBuf, int inBufSz, struct sockaddr_in sin
 		SLP_LOG( SLP_LOG_DROP, logMsg );
 	}
 	
-    CLOSESOCKET(sdSend);
 	return 0; /* no error */
 }
 
@@ -908,7 +935,7 @@ static void  generate_error(SLPReturnError iErr, Slphdr s,char *out, int *pI)
     //  *pI = 0;
 	char*	endPtr = NULL;
     if ((err = add_header((s.h_pcLangTag)?s.h_pcLangTag:"en",out,
-                strtol(SLPGetProperty("net.slp.MTU"),&endPtr,10),
+                (SLPGetProperty("net.slp.MTU"))?strtol(SLPGetProperty("net.slp.MTU"),&endPtr,10):1400,
                 fun,*pI,&offset))
         != SLP_OK) {
         mslplog(SLP_LOG_ERR,"generate_error: could not create header",slperror(err)); 

@@ -14,7 +14,7 @@ PROJECT_TYPE = Tool
 
 CFILES = ypwhich.c
 
-OTHERSRCS = Makefile.dist Makefile.preamble ypwhich.1
+OTHERSRCS = Makefile.dist Makefile.preamble Makefile.postamble ypwhich.1
 
 
 MAKEFILEDIR = $(MAKEFILEPATH)/pb_makefiles

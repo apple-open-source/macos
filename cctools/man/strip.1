@@ -1,4 +1,4 @@
-.TH STRIP 1 "October 29, 2001" "Apple Computer, Inc."
+.TH STRIP 1 "April 21, 2001" "Apple Computer, Inc."
 .SH NAME
 strip \- remove symbols
 .SH SYNOPSIS
@@ -216,6 +216,10 @@ Remove the local symbols whose names begin with `L'.
 .TP 
 .B \-x
 Remove all local symbols (saving only global symbols).
+.TP
+.B \-c
+Remove the section contents of a dynamic library creating a stub library output
+file.
 .PP
 And the last options:
 .TP

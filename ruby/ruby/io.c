@@ -2,8 +2,8 @@
 
   io.c -
 
-  $Author: jkh $
-  $Date: 2002/05/27 17:59:44 $
+  $Author: melville $
+  $Date: 2003/05/14 13:58:43 $
   created at: Fri Oct 15 18:08:59 JST 1993
 
   Copyright (C) 1993-2000 Yukihiro Matsumoto
@@ -54,8 +54,8 @@ struct timeval {
 
 #include <sys/stat.h>
 
-/* EMX has sys/parm.h, but.. */
-#if defined(HAVE_SYS_PARAM_H) && !defined(__EMX__)
+/* EMX has sys/param.h, but.. */
+#if defined(HAVE_SYS_PARAM_H) && !(defined(__EMX__) || defined(__HIUX_MPP__))
 # include <sys/param.h>
 #else
 # define NOFILE 64
@@ -111,12 +111,10 @@ static VALUE lineno;
 #  define READ_DATA_PENDING(fp) ((fp)->FILE_COUNT > 0)
 #elif defined(__BEOS__)
 #  define READ_DATA_PENDING(fp) (fp->_state._eof == 0)
-#elif defined(__UCLIBC__)
-#  define READ_DATA_PENDING(fp) ((fp)->bufpos < (fp)->bufend)
+#elif defined(__UCLIBC__) && !defined(_UC_IOFBF)
+#  define READ_DATA_PENDING(fp) ((fp)->bufpos < (fp)->bufread)
 #else
-/* requires systems own version of the ReadDataPending() */
-extern int ReadDataPending();
-#  define READ_DATA_PENDING(fp) ReadDataPending(fp)
+#  define READ_DATA_PENDING(fp) (!feof(fp))
 #endif
 
 #define READ_CHECK(fp) do {\
@@ -252,11 +250,11 @@ io_write(io, str)
 		break;
 	n = ptr - RSTRING(str)->ptr;
     }
-    if (n == 0 && ferror(f))
+    if (n != RSTRING(str)->len && ferror(f))
 	rb_sys_fail(fptr->path);
 #else
     n = fwrite(RSTRING(str)->ptr, 1, RSTRING(str)->len, f);
-    if (n == 0 && ferror(f)) {
+    if (n != RSTRING(str)->len && ferror(f)) {
 	rb_sys_fail(fptr->path);
     }
 #endif
@@ -465,7 +463,7 @@ io_fread(ptr, len, f)
     long n = len;
     int c;
 
-    while (n--) {
+    while (n > 0) {
 	if (!READ_DATA_PENDING(f)) {
 	    rb_thread_wait_fd(fileno(f));
 	}
@@ -475,9 +473,9 @@ io_fread(ptr, len, f)
 	if (c == EOF) {
 	    if (ferror(f)) {
 		if (errno == EINTR) continue;
-		if (errno == EAGAIN) return len - n;
+		if (errno == EAGAIN) break;
 #if defined(EWOULDBLOCK) && EWOULDBLOCK != EAGAIN
-		if (errno == EWOULDBLOCK) return len - n;
+		if (errno == EWOULDBLOCK) break;
 #endif
 		return 0;
 	    }
@@ -485,9 +483,10 @@ io_fread(ptr, len, f)
 	    break;
 	}
 	*ptr++ = c;
+	--n;
     }
 
-    return len - n - 1;
+    return len - n;
 }
 
 #ifndef S_ISREG
@@ -506,6 +505,7 @@ read_all(port)
     long siz = BUFSIZ;
     long bytes = 0;
     int n;
+    long pos = 0;
 
     GetOpenFile(port, fptr);
     rb_io_check_readable(fptr);
@@ -517,22 +517,16 @@ read_all(port)
 #endif
 	)
     {
-	if (st.st_size == 0) {
-	    getc(fptr->f);	/* force EOF */
-	    return rb_str_new(0, 0);
-	}
-	else {
-	    long pos = ftell(fptr->f);
-	    if (st.st_size > pos && pos >= 0) {
-		siz = st.st_size - pos + 1;
-	    }
+	pos = ftell(fptr->f);
+	if (st.st_size > pos && pos >= 0) {
+	    siz = st.st_size - pos + 1;
 	}
     }
     str = rb_tainted_str_new(0, siz);
     READ_CHECK(fptr->f);
     for (;;) {
 	n = io_fread(RSTRING(str)->ptr+bytes, siz-bytes, fptr->f);
-	if (n == 0 && bytes == 0) {
+	if (pos > 0 && n == 0 && bytes == 0) {
 	    if (feof(fptr->f)) return Qnil;
 	    rb_sys_fail(fptr->path);
 	}
@@ -1985,9 +1979,9 @@ rb_io_clone(io)
     }
     fd = rb_dup(fileno(orig->f));
     fptr->f = rb_fdopen(fd, mode);
-    if (fptr->f2) {
+    if (orig->f2) {
 	fd = rb_dup(fileno(orig->f2));
-	fptr->f = rb_fdopen(fd, "w");
+	fptr->f2 = rb_fdopen(fd, "w");
     }
     if (fptr->mode & FMODE_BINMODE) {
 	rb_io_binmode((VALUE)clone);

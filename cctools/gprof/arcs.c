@@ -3,8 +3,6 @@
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
- * Copyright (c) 1999-2003 Apple Computer, Inc.  All Rights Reserved.
- * 
  * This file contains Original Code and/or Modifications of Original Code
  * as defined in and that are subject to the Apple Public Source License
  * Version 2.0 (the 'License'). You may not use this file except in
@@ -151,7 +149,7 @@ void)
 {
     nltype	*parentp, **timesortnlp;
     arctype	*arcp;
-    long	index;
+    unsigned long index;
 
 	/*
 	 * initialize various things:
@@ -244,7 +242,7 @@ void)
 	for(index = 0; index < nname; index++){
 	    timesortnlp[index] = &nl[index];
 	}
-	for(index = 1; index <= ncycle; index++){
+	for(index = 1; index <= (unsigned long)ncycle; index++){
 	    timesortnlp[nname + index - 1] = &cyclenl[index];
 	}
 	qsort(timesortnlp, nname + ncycle, sizeof(nltype *),
@@ -260,7 +258,7 @@ void
 dotime(
 void)
 {
-    int	index;
+    unsigned long index;
 
 	cycletime();
 	for(index = 0; index < nname; index += 1){
@@ -486,7 +484,7 @@ void
 doflags(
 void)
 {
-    int index;
+    long index;
     nltype *childp;
     nltype *oldhead;
 

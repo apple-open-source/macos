@@ -65,6 +65,7 @@
 				06AA1265FFB2107B11CA28AA,
 				06AA1266FFB2107B11CA28AA,
 			);
+			hasScannedForEncodings = 1;
 			isa = PBXProject;
 			mainGroup = 089C166AFE841209C02AAC07;
 			projectDirPath = "";
@@ -127,7 +128,7 @@
 	<key>CFBundleExecutable</key>
 	<string>AppleIntel8255x</string>
 	<key>CFBundleGetInfoString</key>
-	<string>1.3.2, Copyright Apple Computer, Inc. 2001-2002</string>
+	<string>1.3.2, Copyright Apple Computer, Inc. 2001-2003</string>
 	<key>CFBundleIconFile</key>
 	<string></string>
 	<key>CFBundleIdentifier</key>
@@ -151,7 +152,7 @@
 			<key>CFBundleIdentifier</key>
 			<string>com.apple.driver.AppleIntel8255x</string>
 			<key>Flow Control</key>
-			<true/>
+			<false/>
 			<key>IOClass</key>
 			<string>Intel82557</string>
 			<key>IODefaultMedium</key>
@@ -159,7 +160,7 @@
 			<key>IOPCIClassMatch</key>
 			<string>0x02000000&amp;0xffff0000</string>
 			<key>IOPCIMatch</key>
-			<string>0x10298086 0x10308086&amp;0xfff0ffff 0x12098086 0x12278086 0x12288086 0x12298086 0x24498086 0x24598086 0x245d8086</string>
+			<string>0x10508086 0x10298086 0x10308086&amp;0xfff0ffff 0x12098086 0x12278086 0x12288086 0x12298086 0x24498086 0x24598086 0x245d8086</string>
 			<key>IOProviderClass</key>
 			<string>IOPCIDevice</string>
 			<key>Transmit Threshold</key>
@@ -184,7 +185,6 @@
 </dict>
 </plist>
 ";
-			shouldUseHeadermap = 1;
 		};
 		089C1674FE841209C02AAC07 = {
 			buildActionMask = 2147483647;
@@ -333,46 +333,55 @@
 //3A3
 //3A4
 		3A81C76B0097A0B111CA2928 = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			path = i82557.cpp;
 			refType = 4;
 		};
 		3A81C76C0097A0B111CA2928 = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			path = i82557.h;
 			refType = 4;
 		};
 		3A81C76D0097A0B111CA2928 = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			path = i82557eeprom.cpp;
 			refType = 4;
 		};
 		3A81C76E0097A0B111CA2928 = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			path = i82557eeprom.h;
 			refType = 4;
 		};
 		3A81C76F0097A0B111CA2928 = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			path = i82557HW.h;
 			refType = 4;
 		};
 		3A81C7700097A0B111CA2928 = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			path = i82557Inline.h;
 			refType = 4;
 		};
 		3A81C7710097A0B111CA2928 = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			path = i82557PHY.cpp;
 			refType = 4;
 		};
 		3A81C7720097A0B111CA2928 = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			path = i82557PHY.h;
 			refType = 4;
 		};
 		3A81C7730097A0B111CA2928 = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			path = i82557Private.cpp;
 			refType = 4;
@@ -442,6 +451,7 @@
 //B93
 //B94
 		B913377B01AAD9B708CA29FD = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			path = i82557PM.cpp;
 			refType = 4;

@@ -29,6 +29,7 @@
 
 #include "AppleCSPContext.h"
 #include "AppleCSPSession.h"
+#include "AppleCSPKeys.h"
 #include <CryptKitCSP/cryptkitcsp.h>
 #include <CryptKit/feeTypes.h>
 
@@ -44,8 +45,11 @@ public:
 	void generateKeyBlob(
 		CssmAllocator 		&allocator,
 		CssmData			&blob,
-		CSSM_KEYBLOB_FORMAT	&format);
-
+		CSSM_KEYBLOB_FORMAT	&format,
+		AppleCSPSession		&session,
+		const CssmKey		*paramKey,		/* optional, unused here */
+		CSSM_KEYATTR_FLAGS 	&attrFlags);	/* IN/OUT */
+		
 	feePubKey				feeKey() { return mFeeKey; }
 private:
 	feePubKey				mFeeKey;
@@ -88,15 +92,23 @@ class FEEKeyInfoProvider : public CSPKeyInfoProvider
 {
 private:
 	FEEKeyInfoProvider(
-		const CssmKey		&cssmKey);
+		const CssmKey		&cssmKey,
+		AppleCSPSession		&session);
 public:
 	static CSPKeyInfoProvider *provider(
-		const CssmKey &cssmKey);
+		const CssmKey 		&cssmKey,
+		AppleCSPSession		&session);
+		
 	~FEEKeyInfoProvider() { }
 	void CssmKeyToBinary(
+		CssmKey				*paramKey,	// optional, ignored here
+		CSSM_KEYATTR_FLAGS	&attrFlags,	// IN/OUT
 		BinaryKey			**binKey);	// RETURNED
 	void QueryKeySizeInBits(
 		CSSM_KEY_SIZE		&keySize);	// RETURNED
+	bool getHashableBlob(
+		CssmAllocator 		&allocator,
+		CssmData			&hashBlob);
 };
 
 } /* namespace CryptKit */

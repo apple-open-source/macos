@@ -42,6 +42,9 @@
 #define	rp	r11
 #define	rv	r10
 
+#define __APPLE_API_PRIVATE
+#include <machine/cpu_capabilities.h>
+
 #include <architecture/ppc/asm_help.h>
 
         .text
@@ -54,84 +57,36 @@
 // *************
 
 _bzero:						// void	bzero(void *b, size_t len);
-        cmplwi	cr1,rc,32	// too short for DCBZ?
-        li		rv,0		// get a 0
-Lbzero1:					// enter from memset with cr1 and rv set up
-        neg		r5,r3		// start to compute bytes to align
-        mr		rp,r3		// make copy of operand ptr
-        andi.	r6,r5,0x1F	// r6 <- bytes to align on cache block
-        blt-	cr1,Ltail	// <32, so skip DCBZs
-        beq-	cr0,Ldcbz	// already aligned
-        
-        // align on 32-byte boundary
-        
-        mtcrf	0x01,r6		// move length to cr7 (faster if only 1 cr)
-        andi.	r7,r6,16	// test bit 27 by hand
-        sub		rc,rc,r6	// adjust length
-        bf		31,1f		// test bits of count
-        stb		rv,0(rp)
-        addi	rp,rp,1
-1:
-        bf		30,2f
-        sth		rv,0(rp)
-        addi	rp,rp,2
-2:
-        bf		29,3f
-        stw		rv,0(rp)
-        addi	rp,rp,4
-3:
-        bf		28,4f
-        stw		rv,0(rp)
-        stw		rv,4(rp)
-        addi	rp,rp,8
-4:
-        beq		Ldcbz
-        stw		rv,0(rp)
-        stw		rv,4(rp)
-        stw		rv,8(rp)
-        stw		rv,12(rp)
-        addi	rp,rp,16
-        
-        // DCBZ 32-byte cache blocks
-Ldcbz:
-        srwi.	r5,rc,5		// r5 <- number of cache blocks to zero
-        beq		Ltail		// none
-        mtctr	r5			// set up loop count
-        andi.	rc,rc,0x1F	// will there be leftovers?
-1:
-        dcbz	0,rp		// zero 32 bytes
-        addi	rp,rp,32
-        bdnz	1b
-        beqlr				// no leftovers so done
-        
-        // store up to 31 trailing bytes
-        //	rv = value to store (in all 4 bytes)
-        //	rc = #bytes to store (0..31)
+	ba	_COMM_PAGE_BZERO
+
+	// store up to 31 trailing bytes
+	//     rv = value to store (in all 4 bytes)
+	//     rc = #bytes to store (0..31)
 Ltail:
-        andi.	r5,rc,16	// bit 27 set in length?
-        mtcrf	0x01,rc		// low 4 bits of length to cr7
-        beq		1f			// test bits of length
-        stw		rv,0(rp)
-        stw		rv,4(rp)
-        stw		rv,8(rp)
-        stw		rv,12(rp)
-        addi	rp,rp,16
+        andi.  r5,rc,16        // bit 27 set in length?
+        mtcrf  0x01,rc         // low 4 bits of length to cr7
+        beq            1f                      // test bits of length
+        stw            rv,0(rp)
+        stw            rv,4(rp)
+        stw            rv,8(rp)
+        stw            rv,12(rp)
+        addi   rp,rp,16
 1:
-        bf		28,2f
-        stw		rv,0(rp)
-        stw		rv,4(rp)
-        addi	rp,rp,8
+        bf             28,2f
+        stw            rv,0(rp)
+        stw            rv,4(rp)
+        addi   rp,rp,8
 2:
-        bf		29,3f
-        stw		rv,0(rp)
-        addi	rp,rp,4
+        bf             29,3f
+        stw            rv,0(rp)
+        addi   rp,rp,4
 3:
-        bf		30,4f
-        sth		rv,0(rp)
-        addi	rp,rp,2
+        bf             30,4f
+        sth            rv,0(rp)
+        addi   rp,rp,2
 4:
-        bflr	31
-        stb		rv,0(rp)
+        bflr   31
+        stb            rv,0(rp)
         blr
 
 
@@ -144,7 +99,7 @@ _memset:					// void *   memset(void *b, int c, size_t len);
         andi.	rv,r4,0xFF	// copy value to working register, test for 0
         mr		rc,r5		// move length to working register
         cmplwi	cr1,r5,32	// length < 32 ?
-        beq		Lbzero1		// memset of 0 is just a bzero
+        beqa++	_COMM_PAGE_BZERO
         rlwimi	rv,rv,8,16,23	// replicate value to low 2 bytes
         mr		rp,r3		// make working copy of operand ptr
         rlwimi	rv,rv,16,0,15	// value now in all 4 bytes
@@ -202,4 +157,4 @@ Lmemset1:
 5:
         bflr	31
         stb		rv,0(rp)
-        blr
+		blr

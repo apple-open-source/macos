@@ -2,21 +2,24 @@
  * Copyright (c) 2000-2002 Apple Computer, Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
- *
- * The contents of this file constitute Original Code as defined in and
- * are subject to the Apple Public Source License Version 1.1 (the
- * "License").  You may not use this file except in compliance with the
- * License.  Please obtain a copy of the License at
- * http://www.apple.com/publicsource and read it before using this file.
- *
- * This Original Code and all software distributed under the License are
- * distributed on an "AS IS" basis, WITHOUT WARRANTY OF ANY KIND, EITHER
+ * 
+ * Copyright (c) 1999-2003 Apple Computer, Inc.  All Rights Reserved.
+ * 
+ * This file contains Original Code and/or Modifications of Original Code
+ * as defined in and that are subject to the Apple Public Source License
+ * Version 2.0 (the 'License'). You may not use this file except in
+ * compliance with the License. Please obtain a copy of the License at
+ * http://www.opensource.apple.com/apsl/ and read it before using this
+ * file.
+ * 
+ * The Original Code and all software distributed under the License are
+ * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
  * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
  * INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY,
- * FITNESS FOR A PARTICULAR PURPOSE OR NON-INFRINGEMENT.  Please see the
- * License for the specific language governing rights and limitations
- * under the License.
- *
+ * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
+ * Please see the License for the specific language governing rights and
+ * limitations under the License.
+ * 
  * @APPLE_LICENSE_HEADER_END@
  */
 
@@ -227,11 +230,13 @@ _SC_stringIsValidDNSName(const char *name)
 		char 	next	= *(scan + 1);
 
 		if (prev == '.' || prev == '\0') {
-			if (isalpha(ch) == 0) {
+			if (isalnum(ch) == 0) {
+				/* a label must begin with a letter or digit */
 				return FALSE;
 			}
 		} else if (next == '\0' || next == '.') {
 			if (isalnum(ch) == 0) {
+				/* a label must end with a letter or digit */
 				return FALSE;
 			}
 		} else if (isalnum(ch) == 0) {
@@ -239,10 +244,12 @@ _SC_stringIsValidDNSName(const char *name)
 				case '.':
 				case '-':
 					if (prev == '.' || prev == '-') {
+						/* a label cannot begin or end with a hyphen */
 						return FALSE;
 					}
 					break;
 				default:
+					/* an invalid character */
 					return FALSE;
 					break;
 			}
@@ -257,30 +264,18 @@ Boolean
 _SC_CFStringIsValidDNSName(CFStringRef name)
 {
 	Boolean	clean	= FALSE;
-	CFIndex	len;
 	char	*str	= NULL;
 
 	if (!isA_CFString(name)) {
-		goto failed;
+		return FALSE;
 	}
 
-	len = CFStringGetLength(name) + 1;
-	if (len == 0) {
-		goto failed;
-	}
-
-	str = CFAllocatorAllocate(NULL, len, 0);
+	str = _SC_cfstring_to_cstring(name, NULL, 0, kCFStringEncodingASCII);
 	if (str == NULL) {
-		goto failed;
-	}
-
-	if (!CFStringGetCString(name, str, len, kCFStringEncodingASCII)) {
-		goto failed;
+		return FALSE;
 	}
 
 	clean = _SC_stringIsValidDNSName(str);
-
-    failed:
 
 	if (str)	CFAllocatorDeallocate(NULL, str);
 	return clean;
@@ -289,7 +284,7 @@ _SC_CFStringIsValidDNSName(CFStringRef name)
 
 Boolean
 SCPreferencesSetLocalHostName(SCPreferencesRef	session,
-			     CFStringRef	name)
+			      CFStringRef	name)
 {
 	CFDictionaryRef		dict;
 	CFMutableDictionaryRef	newDict	= NULL;
@@ -297,19 +292,27 @@ SCPreferencesSetLocalHostName(SCPreferencesRef	session,
 	CFStringRef		path	= NULL;
 
 	if (name) {
+		CFIndex	len;
+
 		if (!isA_CFString(name)) {
 			_SCErrorSet(kSCStatusInvalidArgument);
 			return FALSE;
 		}
 
-		if (CFStringGetLength(name) == 0) {
+		len = CFStringGetLength(name);
+		if (len > 0) {
+			if (!_SC_CFStringIsValidDNSName(name)) {
+				_SCErrorSet(kSCStatusInvalidArgument);
+				return FALSE;
+			}
+
+			if (CFStringFindWithOptions(name, CFSTR("."), CFRangeMake(0, len), 0, NULL)) {
+				_SCErrorSet(kSCStatusInvalidArgument);
+				return FALSE;
+			}
+		} else {
 			name = NULL;
 		}
-	}
-
-	if (name && !_SC_CFStringIsValidDNSName(name)) {
-		_SCErrorSet(kSCStatusInvalidArgument);
-		return FALSE;
 	}
 
 	path = CFStringCreateWithFormat(NULL,

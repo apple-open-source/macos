@@ -83,10 +83,18 @@ static char copyright[] =
 
 #include "chpass.h"
 #include "pathnames.h"
+#ifdef DIRECTORY_SERVICE
+#include "directory_service.h"
+
+#define	PWSETFIELD(field, in, out)	if(in->field) out.field = strdup(in->field)
+#endif /* DIRECTORY_SERVICE */
 
 char *progname = "chpass";
 char *tempname;
 uid_t uid;
+#ifdef DIRECTORY_SERVICE
+int dswhere;
+#endif /* DIRECTORY_SERVICE */
 
 void	baduser __P((void));
 void	usage __P((void));
@@ -100,6 +108,9 @@ main(argc, argv)
 	struct passwd *pw, lpw;
 	int ch, pfd, tfd;
 	char *arg;
+#ifdef DIRECTORY_SERVICE
+	struct passwd pworig;
+#endif /* DIRECTORY_SERVICE */
 
 	op = EDITENTRY;
 	while ((ch = getopt(argc, argv, "a:s:")) != EOF)
@@ -122,6 +133,9 @@ main(argc, argv)
 	uid = getuid();
 
 	if (op == EDITENTRY || op == NEWSH)
+#ifdef DIRECTORY_SERVICE
+	{
+#endif /* DIRECTORY_SERVICE */
 		switch(argc) {
 		case 0:
 			if (!(pw = getpwuid(uid)))
@@ -130,12 +144,52 @@ main(argc, argv)
 		case 1:
 			if (!(pw = getpwnam(*argv)))
 				errx(1, "unknown user: %s", *argv);
+#ifndef DIRECTORY_SERVICE
 			if (uid && uid != pw->pw_uid)
 				baduser();
+#endif /* DIRECTORY_SERVICE */
 			break;
 		default:
 			usage();
 		}
+
+#ifdef DIRECTORY_SERVICE
+		if ((dswhere = wherepwent(pw->pw_name)) < 0) {
+			if(dswhere > E_NOTFOUND)
+				errc(1, dswhere, "wherepwent");
+			else
+				errx(1, "wherepwent returned %d", dswhere);
+		}
+		switch(dswhere) {
+		case WHERE_REMOTENI:
+			errx(1,
+"Can't change info for user \"%s\", which resides in the\n"
+"netinfo domain \"%s\"",
+			 pw->pw_name, DSPath);
+		case WHERE_DS:
+			errx(1,
+"Can't change info for user \"%s\", which resides in the\n"
+"Directory Service path \"%s\"",
+			 pw->pw_name, DSPath);
+		case WHERE_NIS:
+			errx(1,
+"Can't change info for user \"%s\", which resides in NIS",
+			 pw->pw_name);
+		case WHERE_LOCALNI:
+			pworig = *pw;
+			PWSETFIELD(pw_name, pw, pworig);
+			PWSETFIELD(pw_passwd, pw, pworig);
+			PWSETFIELD(pw_class, pw, pworig);
+			PWSETFIELD(pw_gecos, pw, pworig);
+			PWSETFIELD(pw_dir, pw, pworig);
+			PWSETFIELD(pw_shell, pw, pworig);
+			/* drop through */
+		default:
+			if (uid && uid != pw->pw_uid)
+				baduser();
+		}
+	}
+#endif /* DIRECTORY_SERVICE */
 
 	if (op == NEWSH) {
 		/* protect p_shell -- it thinks NULL is /bin/sh */
@@ -146,10 +200,14 @@ main(argc, argv)
 	}
 
 	if (op == LOADENTRY) {
+#ifdef DIRECTORY_SERVICE
+		warnx("-a is only supported for %s", MasterPasswd);
+		dswhere = WHERE_FILES;
+#endif /* DIRECTORY_SERVICE */
 		if (uid)
 			baduser();
 		pw = &lpw;
-		if (!pw_scan(arg, pw))
+		if (!pw_scan(arg, pw, NULL))
 			exit(1);
 	}
 
@@ -179,20 +237,40 @@ main(argc, argv)
 	 *	The exit closes the master passwd fp/fd.
 	 */
 	pw_init();
-	pfd = pw_lock();
+#ifdef DIRECTORY_SERVICE
+	if (dswhere == WHERE_FILES)
+#endif /* DIRECTORY_SERVICE */
+		pfd = pw_lock();
 	tfd = pw_tmp();
 
 	if (op == EDITENTRY) {
+#ifdef DIRECTORY_SERVICE
+		setrestricted(dswhere, pw);
+#endif /* DIRECTORY_SERVICE */
 		display(tfd, pw);
 		edit(pw);
 		(void)unlink(tempname);
-		tfd = pw_tmp();
+#ifdef DIRECTORY_SERVICE
+		if (dswhere == WHERE_FILES)
+#endif /* DIRECTORY_SERVICE */
+			tfd = pw_tmp();
 	}
 		
-	pw_copy(pfd, tfd, pw);
+#ifdef DIRECTORY_SERVICE
+	switch (dswhere) {
+	case WHERE_LOCALNI:
+		update_local_ni(&pworig, pw);
+		break;
+	case WHERE_FILES:
+#endif /* DIRECTORY_SERVICE */
+		pw_copy(pfd, tfd, pw);
 
-	if (!pw_mkdb())
-		pw_error((char *)NULL, 0, 1);
+		if (pw_mkdb() != 0)
+			pw_error((char *)NULL, 0, 1);
+#ifdef DIRECTORY_SERVICE
+	}
+	system("/usr/sbin/lookupd -flushcache");
+#endif /* DIRECTORY_SERVICE */
 	exit(0);
 }
 

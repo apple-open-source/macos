@@ -1,4 +1,4 @@
-/* $Header: /cvs/Darwin/flex/flex/MISC/Amiga/config.h,v 1.1.1.1 1999/04/23 00:46:31 wsanchez Exp $ */
+/* $Header: /cvs/root/flex/flex/MISC/Amiga/config.h,v 1.1.1.1 1999/04/23 00:46:31 wsanchez Exp $ */
 
 /* Define to empty if the keyword does not work.  */
 #undef const

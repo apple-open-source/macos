@@ -32,12 +32,13 @@ using namespace MachPlusPlus;
 //
 // Construct the server object
 //
-Server::Server(Authority &myAuthority, const char *bootstrapName)
+Server::Server(Authority &authority, CodeSignatures &signatures, const char *bootstrapName)
   : MachServer(bootstrapName),
     mBootstrapName(bootstrapName),
     mCurrentConnection(false),
     mCSPModule(gGuidAppleCSP, mCssm), mCSP(mCSPModule),
-    mAuthority(myAuthority)
+    mAuthority(authority),
+	mCodeSignatures(signatures)
 {
     // engage the subsidiary port handler for sleep notifications
     add(sleepWatcher);
@@ -63,13 +64,13 @@ Connection &Server::connection(mach_port_t port)
 {
 	Server &server = active();
 	StLock<Mutex> _(server.lock);
-	if (Connection *conn = server.connections[port]) {
-		active().mCurrentConnection = conn;
-		conn->beginWork();
-		return *conn;
-	}
-	// unknown client port -- could be a hack attempt
-	CssmError::throwMe(CSSM_ERRCODE_INVALID_CONTEXT_HANDLE);
+	ConnectionMap::iterator it = server.connections.find(port);
+	if (it == server.connections.end()) // unknown client port -- could be a hack attempt
+		CssmError::throwMe(CSSM_ERRCODE_INVALID_CONTEXT_HANDLE);
+	Connection *conn = it->second;
+	active().mCurrentConnection = conn;
+	conn->beginWork();
+	return *conn;
 }
 
 Connection &Server::connection(bool tolerant)
@@ -138,11 +139,11 @@ static const struct IPCName { const char *name; int ipc; } ipcNames[] =
 boolean_t Server::handle(mach_msg_header_t *in, mach_msg_header_t *out)
 {
     const int first = ipcNames[0].ipc;
-    assert(in->msgh_id >= first && in->msgh_id < first + ucsp_MSG_COUNT);
-    const char *name = ipcNames[in->msgh_id - first].name;
-    debug("SSreq", "begin %s (%d)", name, in->msgh_id);
+    const char *name = (in->msgh_id >= first && in->msgh_id < first + ucsp_MSG_COUNT) ?
+		ipcNames[in->msgh_id - first].name : "OUT OF BOUNDS";
+    secdebug("SSreq", "begin %s (%d)", name, in->msgh_id);
 	boolean_t result = ucsp_server(in, out);
-    debug("SSreq", "end %s (%d)", name, in->msgh_id);
+    secdebug("SSreq", "end %s (%d)", name, in->msgh_id);
     return result;
 }
 
@@ -152,15 +153,33 @@ boolean_t Server::handle(mach_msg_header_t *in, mach_msg_header_t *out)
 //
 // Set up a new Connection. This establishes the environment (process et al) as needed
 // and registers a properly initialized Connection object to run with.
+// Type indicates how "deep" we need to initialize (new session, process, or connection).
+// Everything at and below that level is constructed. This is straight-forward except
+// in the case of session re-initialization (see below).
 //
-void Server::setupConnection(Port servicePort, Port replyPort, Port taskPort,
-    const security_token_t &securityToken, const char *identity)
+void Server::setupConnection(ConnectLevel type, Port servicePort, Port replyPort, Port taskPort,
+    const security_token_t &securityToken, const ClientSetupInfo *info, const char *identity)
 {
 	// first, make or find the process based on task port
 	StLock<Mutex> _(lock);
 	Process * &proc = processes[taskPort];
-	if (proc == NULL) {
-		proc = new Process(servicePort, taskPort, identity,
+	if (type == connectNewSession && proc) {
+		// The client has talked to us before and now wants to create a new session.
+		// We'll unmoor the old process object and cast it adrift (it will die either now
+		// or later following the usual deferred-death mechanics).
+		// The connection object will die (it's probably already dead) because the client
+		// has destroyed its replyPort. So we don't worry about this here.
+		secdebug("server", "session setup - marooning old process %p(%d) of session %p",
+			proc, proc->pid(), &proc->session);
+		if (proc->kill(true))
+			delete proc;
+		proc = NULL;
+	}
+	if (!proc) {
+		if (type == connectNewThread)	// client error (or attack)
+			CssmError::throwMe(CSSM_ERRCODE_INTERNAL_ERROR);
+		assert(info && identity);
+		proc = new Process(servicePort, taskPort, info, identity,
 			securityToken.val[0], securityToken.val[1]);
 		notifyIfDead(taskPort);
 	}
@@ -190,52 +209,13 @@ void Server::endConnection(Port replyPort)
 
 
 //
-// Take an existing Connection/Process combo. Tear them down even though
-// the client-side thread/process is still alive and construct new ones in their place.
-// This is a high-wire act with a frayed net. We use it ONLY to deal with clients
-// who change their Session (by changing their bootstrap subset port) in mid-stream.
-// In other words, this is a hack that the client would be well advised to avoid.
-// (Avoid it by calling SessionCreate before calling any other Security interfaces in
-// the process's life.)
-//
-#if 0
-Process *Server::resetConnection()
-{
-    Connection *oldConnection = mCurrentConnection;
-    Process *oldProcess = &oldConnection->process;
-    debug("SS", "reset process %p connection %p for session switch",
-        oldProcess, oldConnection);
-
-    Port replyPort = oldConnection->clientPort();
-    
-    oldConnection->endWork();
-    oldConnection->abort(true);
-    delete oldConnection;
-    
-    oldProcess->kill();
-    
-    Process * &proc = processes[oldProcess->taskPort()];
-    proc = new Process(*oldProcess);
-    delete oldProcess;
-    
-    Connection *connection = new Connection(*proc, replyPort);
-    connections[replyPort] = connection;
-    mCurrentConnection = connection;
-    connection->beginWork();
-    
-    return proc;
-}
-#endif
-
-
-//
 // Handling dead-port notifications.
 // This receives DPNs for all kinds of ports we're interested in.
 //
 void Server::notifyDeadName(Port port)
 {
 	StLock<Mutex> _(lock);
-	debug("SSports", "port %d is dead", port.port());
+	secdebug("SSports", "port %d is dead", port.port());
     
     // is it a connection?
     ConnectionMap::iterator conIt = connections.find(port);
@@ -261,7 +241,7 @@ void Server::notifyDeadName(Port port)
     if (Listener::remove(port))
         return;
     
-	debug("server", "spurious dead port notification for port %d", port.port());
+	secdebug("server", "spurious dead port notification for port %d", port.port());
 }
 
 
@@ -271,7 +251,7 @@ void Server::notifyDeadName(Port port)
 //
 void Server::notifyNoSenders(Port port, mach_port_mscount_t)
 {
-	debug("SSports", "port %d no senders", port.port());
+	secdebug("SSports", "port %d no senders", port.port());
 	Session::eliminate(port);
 }
 
@@ -281,8 +261,8 @@ void Server::notifyNoSenders(Port port, mach_port_mscount_t)
 //
 void Server::SleepWatcher::systemWillSleep()
 {
-    debug("SS", "sleep notification received");
-    Database::lockAllDatabases(true);
+    secdebug("SS", "sleep notification received");
+    Session::lockAllDatabases(true);
 }
 
 
@@ -309,12 +289,24 @@ void Server::loadCssm()
 	if (!mCssm->isActive()) {
 		StLock<Mutex> _(lock);
 		if (!mCssm->isActive()) {
-			initMds();
-			debug("SS", "CSSM initializing");
+			try {
+				initMds();
+			} catch (const CssmError &error) {
+				switch (error.cssmError()) {
+				case CSSMERR_DL_MDS_ERROR:
+				case CSSMERR_DL_OS_ACCESS_DENIED:
+					secdebug("SS", "MDS initialization failed; continuing");
+					Syslog::warning("MDS initialization failed; continuing");
+					break;
+				default:
+					throw;
+				}
+			}
+			secdebug("SS", "CSSM initializing");
 			mCssm->init();
 			mCSP->attach();
-			char guids[Guid::stringRepLength+1];
-			IFDEBUG(debug("SS", "CSSM ready with CSP %s", mCSP->guid().toString(guids)));
+			IFDEBUG(char guids[Guid::stringRepLength+1]);
+			secdebug("SS", "CSSM ready with CSP %s", mCSP->guid().toString(guids));
 		}
 	}
 }
@@ -323,7 +315,7 @@ void Server::loadCssm()
 
 static void initMds()
 {
-	debug("SS", "MDS initializing");
+	secdebug("SS", "MDS initializing");
 	CssmAllocatorMemoryFunctions memory(CssmAllocator::standard());
 	MDS_FUNCS functions;
 	MDS_HANDLE handle;

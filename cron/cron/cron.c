@@ -31,6 +31,7 @@ static const char rcsid[] =
 # include <time.h>
 #endif
 
+
 static	void	usage __P((void)),
 		run_reboot_jobs __P((cron_db *)),
 		cron_tick __P((cron_db *)),
@@ -160,7 +161,7 @@ cron_tick(db)
 	static time_t	diff = 0, /* time difference in seconds from the last offset change */
 		difflimit = 0; /* end point for the time zone correction */
 	struct tm	otztm; /* time in the old time zone */
-	int		otzminute=0, otzhour=0, otzdom=0, otzmonth=0, otzdow=0;
+	int		otzminute, otzhour, otzdom, otzmonth, otzdow;
  	register struct tm	*tm = localtime(&TargetTime);
 	register int		minute, hour, dom, month, dow;
 	register user		*u;
@@ -224,14 +225,7 @@ cron_tick(db)
 		} else {
 			/* get the time in the old time zone */
 			time_t difftime = TargetTime + tm->tm_gmtoff - diff;
-#ifdef __APPLE__
-			{
-				struct tm *tmp = gmtime(&difftime);
-				memcpy(&otztm, tmp, sizeof(struct tm));
-			}
-#else
 			gmtime_r(&difftime, &otztm);
-#endif
 
 			/* make 0-based values out of these so we can use them as indicies
 			 */

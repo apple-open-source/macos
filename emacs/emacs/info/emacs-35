@@ -1,7 +1,8 @@
-This is ../info/emacs, produced by makeinfo version 4.0 from emacs.texi.
+This is ../info/emacs, produced by makeinfo version 4.0f from
+emacs.texi.
 
    This is the Fourteenth edition of the `GNU Emacs Manual', updated
-for Emacs version 21.1.
+for Emacs version 21.2.
 
 INFO-DIR-SECTION Emacs
 START-INFO-DIR-ENTRY
@@ -11,9 +12,9 @@ END-INFO-DIR-ENTRY
    Published by the Free Software Foundation 59 Temple Place, Suite 330
 Boston, MA  02111-1307 USA
 
-   Copyright (C) 1985,
-1986,1987,1993,1994,1995,1996,1997,1998,1999,2000,2001    Free Software
-Foundation, Inc.
+   Copyright (C)
+1985,1986,1987,1993,1994,1995,1996,1997,1998,1999,2000,2001,2002
+Free Software Foundation, Inc.
 
    Permission is granted to copy, distribute and/or modify this document
 under the terms of the GNU Free Documentation License, Version 1.1 or
@@ -518,8 +519,8 @@ Variable Index
 * vc-initial-comment:                    Registering.
 * vc-keep-workfiles:                     General VC Options.
 * vc-log-mode-hook:                      Log Buffer.
-* vc-make-backup-files <1>:              Backup.
-* vc-make-backup-files:                  General VC Options.
+* vc-make-backup-files <1>:              General VC Options.
+* vc-make-backup-files:                  Backup.
 * vc-mistrust-permissions:               RCS and SCCS.
 * vc-path:                               General VC Options.
 * vc-rcs-diff-switches:                  Old Versions.

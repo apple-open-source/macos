@@ -97,6 +97,9 @@ void DigestCalcHA1(
 	IN char *pszCNonce,
 	OUT HASHHEX SessionKey)
 {
+#if !MD5_SESS_SUPPORT
+	#pragma unused(pszAlg, pszNonce, pszCNonce)
+#endif
 	MD5_CTX Md5Ctx;
 	HASH HA1;
 
@@ -142,6 +145,9 @@ void DigestCalcResponse(
 	OUT HASHHEX Response	/* request-digest or response-digest */
 	)
 {
+#if !AUTH_INT_SUPPORT
+	#pragma unused(HEntity)
+#endif
 	MD5_CTX Md5Ctx;
 	HASH HA2;
 	HASH RespHash;

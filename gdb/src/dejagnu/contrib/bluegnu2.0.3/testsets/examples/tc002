@@ -1,0 +1,3 @@
+set MSG "Hello World"
+processTestScriptArgs
+benchmark $szTestCaseID $MSG

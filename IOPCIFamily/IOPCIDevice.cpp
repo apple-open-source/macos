@@ -23,7 +23,7 @@
  * @APPLE_LICENSE_HEADER_END@
  */
 /*
- * Copyright (c) 1998 Apple Computer, Inc.  All rights reserved. 
+ * Copyright (c) 1998-2003 Apple Computer, Inc. All rights reserved. 
  *
  * HISTORY
  * 23 Nov 98 sdouglas created from objc version.
@@ -427,12 +427,13 @@ IOService * IOPCIDevice::matchLocation( IOService * /* client */ )
     return (this);
 }
 
+/* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
+
 OSMetaClassDefineReservedUsed(IOPCIDevice,  0);
 bool IOPCIDevice::hasPCIPowerManagement(IOOptionBits state)
 {
     UInt8	pciPMCapOffset;
     UInt16	pciPMCapReg;
-    UInt16	requiredSleepState = 0;
     OSObject	*anObject;
     OSData	*aString;
 
@@ -457,7 +458,6 @@ bool IOPCIDevice::hasPCIPowerManagement(IOOptionBits state)
     {
 	if (state)
 	{
-	    requiredSleepState = state;
 	    switch (state) {
 		case kPCIPMCPMESupportFromD3Cold:
 		case kPCIPMCPMESupportFromD3Hot:
@@ -469,8 +469,11 @@ bool IOPCIDevice::hasPCIPowerManagement(IOOptionBits state)
 		case kPCIPMCPMESupportFromD1:
 		    sleepControlBits = (kPCIPMCSPMEStatus | kPCIPMCSPMEEnable | kPCIPMCSPowerStateD1);
 		    break;
+		case kPCIPMCD3Support:
+			sleepControlBits = kPCIPMCSPowerStateD3;
+			break;
 		default:
-		    requiredSleepState = 0;
+		    break;
 	    }
 	}
 	else
@@ -485,76 +488,73 @@ bool IOPCIDevice::hasPCIPowerManagement(IOOptionBits state)
     
 		if (aString->isEqualTo("D3cold", 6))
 		{
-		    requiredSleepState = kPCIPMCPMESupportFromD3Cold;
 		    sleepControlBits = (kPCIPMCSPMEStatus | kPCIPMCSPMEEnable | kPCIPMCSPowerStateD3);
 		}
 		else if (aString->isEqualTo("D3Hot", 5))
 		{
-		    requiredSleepState = kPCIPMCPMESupportFromD3Hot;
 		    sleepControlBits = (kPCIPMCSPMEStatus | kPCIPMCSPMEEnable | kPCIPMCSPowerStateD3);
 		}
 	    }
 	}
-	if (requiredSleepState)
-	{
-#if DEBUG_PCI_PWR_MGMT
-	    IOLog("%s[%p]::hasPCIPwrMgmt checking for requiredSleepState %x\n", getName(), this, requiredSleepState);
-#endif
-	    if ( pciPMCapReg & requiredSleepState )
-	    {
-		PMcontrolStatus = pciPMCapOffset+4;
-#if DEBUG_PCI_PWR_MGMT
-		IOLog("%s[%p]::hasPCIPwrMgmt - PMcontrolStatus is %d\n", getName(), this, PMcontrolStatus);
-#endif
-	    }
-	}
+	
     }
     return sleepControlBits ? true : false;
 }
-    
+
+/* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
+
 OSMetaClassDefineReservedUsed(IOPCIDevice,  1);
 IOReturn IOPCIDevice::enablePCIPowerManagement(IOOptionBits state)
 {
     IOReturn	ret = kIOReturnSuccess;
     
     if (!PMcontrolStatus)
-	ret = kIOReturnBadArgument;
+	{
+		ret = kIOReturnBadArgument;
+		return ret;
+	}
+	
+	if ( state == kPCIPMCSPowerStateD0 )
+	{
+		sleepControlBits = 0;
+		PMsleepEnabled = false;
+		return ret;
+	}
+    
     else
-    {
-	switch (state) {
-	    case kPCIPMCSPowerStateD3:
-	    case kPCIPMCSPowerStateD2:
-	    case kPCIPMCSPowerStateD1:
-		sleepControlBits = state | kPCIPMCSPMEStatus | kPCIPMCSPMEEnable;
-		// intentional fall through
-	    case kPCIPMCSDefaultEnableBits:			// default case - use bits gleaned from hasPCIPwrMgmt
+	{
+		
+		UInt32	oldBits = sleepControlBits;
+		
+		sleepControlBits = state & kPCIPMCSPowerStateMask;
+		
+		if ( oldBits & kPCIPMCSPMEStatus )
+			sleepControlBits |= kPCIPMCSPMEStatus;
+		
+		if ( oldBits & kPCIPMCSPMEEnable )
+			sleepControlBits |= kPCIPMCSPMEEnable;
+		
 		if (!sleepControlBits)
 		{
-#if DEBUG_PCI_PWR_MGMT
-		    IOLog("%s[%p] - enablePCIPwrMgmt - no sleep control bits - not enabling", getName(), this);
-#endif
-		    ret = kIOReturnBadArgument;
+			
+		#if DEBUG_PCI_PWR_MGMT
+			IOLog("%s[%p] - enablePCIPwrMgmt - no sleep control bits - not enabling", getName(), this);
+		#endif
+			ret = kIOReturnBadArgument;
+			
 		}
 		else
 		{
-#if DEBUG_PCI_PWR_MGMT
-		    IOLog("%s[%p] - enablePCIPwrMgmt, enabling", getName(), this);
-#endif
-		    PMsleepEnabled = true;
+		
+		#if DEBUG_PCI_PWR_MGMT
+			IOLog("%s[%p] - enablePCIPwrMgmt, enabling", getName(), this);
+		#endif
+			
+			PMsleepEnabled = true;
+			
 		}
-		break;
 		
-	    case kPCIPMCSPowerStateD0:			// disables PM
-		sleepControlBits = 0;
-		PMsleepEnabled = false;
-		break;
-		
-	    default:
-		PMsleepEnabled = false;
-		ret = kIOReturnBadArgument;
-		break;
 	}
-    }
     return ret;
 }
 

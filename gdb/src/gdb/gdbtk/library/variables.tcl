@@ -18,7 +18,7 @@
 # 'getVariablesBlankPath' and a few other things...
 # ----------------------------------------------------------------------
 
-class VariableWin {
+itcl::class VariableWin {
     inherit EmbeddedWin GDBWin
     protected variable Sizebox 1
 
@@ -46,7 +46,7 @@ class VariableWin {
     #  METHOD:  build_win - build the watch window
     # ------------------------------------------------------------------
     method build_win {f} {
-	global tixOption tcl_platform Display
+	global tcl_platform Display
 	#    debug
 	set width [font measure global/fixed "W"]
 	# Choose the default width to be...
@@ -71,34 +71,32 @@ class VariableWin {
 	}
 	set Hlist [$Tree subwidget hlist]
 
-	# FIXME: probably should use columns instead.
-	$Hlist configure -header 1
+        # FIXME: probably should use columns instead.
+        $Hlist configure -header 1 
 
 	set l [expr {$EntryLength - $Length - [string length "Name"]}]
 	# Ok, this is as hack as it gets
 	set blank "                                                                                                                                                             "
-	$Hlist header create 0 -itemtype text \
+      $Hlist header create 0 -itemtype text -headerbackground $::Colors(bg) \
 	    -text "Name[string range $blank 0 $l]Value"
 
 	# Configure the look of the tree
-	set sbg [$Hlist cget -bg]
-	set fg [$Hlist cget -fg]
-	set bg $tixOption(input1_bg)
 	set width [font measure global/fixed $LengthString]
-	$Hlist configure -indent $width -bg $bg \
-	    -selectforeground $fg -selectbackground $sbg \
-	    -selectborderwidth 0 -separator . -font global/fixed
+	$Hlist configure -indent $width \
+	  -bg $::Colors(textbg) -fg $::Colors(textfg) \
+	  -selectforeground $::Colors(textfg) -selectbackground $::Colors(textbg) \
+	  -selectborderwidth 0 -separator . -font global/fixed
 
 	# Get display styles
 	set normal_fg    [$Hlist cget -fg]
-	set highlight_fg [pref get gdb/font/highlight_fg]
-	set disabled_fg  [pref get gdb/variable/disabled_fg]
+	set highlight_fg $::Colors(sfg)
+	set disabled_fg  red
 	set NormalTextStyle [tixDisplayStyle text -refwindow $Hlist \
-				 -bg $bg -fg $normal_fg -font global/fixed]
-	set HighlightTextStyle [tixDisplayStyle text -refwindow $Hlist \
-				    -bg $bg -fg $highlight_fg -font global/fixed]
+			       -bg $::Colors(textbg) -font global/fixed]
+        set HighlightTextStyle [tixDisplayStyle text -refwindow $Hlist \
+				  -bg $::Colors(hbg) -font global/fixed]
 	set DisabledTextStyle [tixDisplayStyle text -refwindow $Hlist \
-				   -bg $bg -fg $disabled_fg -font global/fixed]
+				   -bg green -fg red -font global/fixed]
 
 	if {[catch {gdb_cmd "show output-radix"} msg]} {
 	    set Radix 10
@@ -117,7 +115,7 @@ class VariableWin {
 
 	# Do not use the tixPopup widget... 
 	set Popup [menu $f.menu -tearoff 0]
-	set disabled_foreground [$Popup cget -foreground]
+	set disabled_foreground red
 	$Popup configure -disabledforeground $disabled_foreground
 	set ViewMenu [menu $Popup.view]
 
@@ -391,7 +389,7 @@ class VariableWin {
     # METHOD edit -- edit a variable
     # ------------------------------------------------------------------
     method edit {variable} {
-	global Update tixOption
+	global Update
 
 	# disable menus
 	selectionChanged ""
@@ -404,7 +402,7 @@ class VariableWin {
 	    # Must create the frame
 	    set Editing [frame $Hlist.frame -bg $bg -bd 0 -relief flat]
 	    set lbl [::label $Editing.lbl -fg $fg -bg $bg -font global/fixed]
-	    set ent [entry $Editing.ent -bg $tixOption(bg) -font global/fixed]
+	    set ent [entry $Editing.ent -bg $::Colors(bg) -fg $::Colors(fg) -font global/fixed]
 	    pack $lbl $ent -side left
 	}
 
@@ -587,13 +585,15 @@ class VariableWin {
 
     method toggleUpdate {variable} {
 	global Update
-
+      debug $variable
 	if {$Update($this,$variable)} {
+	  debug NORMAL
 	    # Must update value
 	    $Hlist entryconfigure $variable \
 		-style $NormalTextStyle    \
 		-text [label $variable]
 	} else {
+	  debug DISABLED
 	    $Hlist entryconfigure $variable \
 		-style $DisabledTextStyle
 	}
@@ -815,16 +815,16 @@ class VariableWin {
     # OVERRIDE THIS METHOD and call it from there
     # ------------------------------------------------------------------
     method update {event} {
-	global Update
-	debug
+      global Update
+      debug
 
-	# First, reset color on label to black
-	foreach w $ChangeList {
-	    catch {
-		$Hlist entryconfigure $w -style $NormalTextStyle
-	    }
+      # First, reset color on label to normal
+      foreach w $ChangeList {
+	catch {
+	  $Hlist entryconfigure $w -style $NormalTextStyle
 	}
-
+      }
+      
 	# Tell toplevel variables to update themselves. This will
 	# give us a list of all the variables in the table that
 	# have changed values.
@@ -855,6 +855,7 @@ class VariableWin {
 	}
 
 	foreach var $ChangeList {
+	  debug "$var HIGHLIGHT"
 	    $Hlist entryconfigure $var \
 		-style  $HighlightTextStyle   \
 		-text [label $var]

@@ -42,6 +42,7 @@
 				09B9ECA200D6F86B11CA2BB4,
 			);
 			isa = PBXCopyFilesBuildPhase;
+			runOnlyForDeploymentPostprocessing = 1;
 		};
 		09B9ECA200D6F86B11CA2BB4 = {
 			fileRef = 2D8D3004009680437F000001;
@@ -57,6 +58,7 @@
 				09B9ECA400D6F86B11CA2BB4,
 			);
 			isa = PBXCopyFilesBuildPhase;
+			runOnlyForDeploymentPostprocessing = 1;
 		};
 		09B9ECA400D6F86B11CA2BB4 = {
 			fileRef = 2D8D2FF5009680147F000001;
@@ -75,6 +77,7 @@
 //0B3
 //0B4
 		0B5C3FEC00AA2A9B11CA2BBA = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			path = md5c.c;
 			refType = 4;
@@ -90,6 +93,7 @@
 //0C3
 //0C4
 		0CBA5C5600AA2D8D11CA2BBA = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			path = poll.h;
 			refType = 4;
@@ -118,11 +122,13 @@
 			refType = 4;
 		};
 		0CC63C8400AA2EFA11CA2BBA = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			path = des_ecb.c;
 			refType = 4;
 		};
 		0CC63C8500AA2EFA11CA2BBA = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			path = des_setkey.c;
 			refType = 4;
@@ -138,21 +144,25 @@
 //153
 //154
 		156C732B00AB77B711CA2BBA = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			path = iconv_ces_if.c;
 			refType = 4;
 		};
 		156C732C00AB77B711CA2BBA = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			path = iconv_ces_if.h;
 			refType = 4;
 		};
 		156C732D00AB77B711CA2BBA = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			path = iconv_converter_if.c;
 			refType = 4;
 		};
 		156C732E00AB77B711CA2BBA = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			path = iconv_converter_if.h;
 			refType = 4;
@@ -200,6 +210,7 @@
 			isa = PBXShellScriptBuildPhase;
 			neededFileNames = (
 			);
+			runOnlyForDeploymentPostprocessing = 1;
 			shellPath = /bin/sh;
 			shellScript = "mkdir -p $DSTROOT/private/var/root\ncp $SRCROOT/examples/dot.nsmbrc $DSTROOT/private/var/root/.nsmbrc\nchmod 0600 $DSTROOT/private/var/root/.nsmbrc";
 		};
@@ -218,6 +229,7 @@
 				01B07B2200A8BA2A11CA2BBA,
 				01B07B2300A8BA2A11CA2BBA,
 			);
+			hasScannedForEncodings = 1;
 			isa = PBXProject;
 			mainGroup = 2D8D2F39009679647F000001;
 			productRefGroup = 2D8D2F3A009679827F000001;
@@ -253,6 +265,7 @@
 				9B7880D2011A1AF717CA28FA,
 				F5A268BB02242ABA01CA2BBA,
 				F53F429502358E1301CA2BBA,
+				72312691043A70A300CA2BB7,
 			);
 			isa = PBXGroup;
 			refType = 4;
@@ -285,6 +298,7 @@
 			);
 			buildSettings = {
 				FRAMEWORK_SEARCH_PATHS = "";
+				GCC_TREAT_WARNINGS_AS_ERRORS = YES;
 				HEADER_SEARCH_PATHS = "kernel kernel/sys5 kernel/mysys";
 				INSTALL_PATH = "$(SYSTEM_LIBRARY_DIR)/Extensions";
 				KERNEL_MODULE = YES;
@@ -293,7 +307,7 @@
 				MODULE_START = smbfs_module_start;
 				MODULE_STOP = smbfs_module_stop;
 				MODULE_VERSION = 1.0.0;
-				OTHER_CFLAGS = "-traditional-cpp -DSMP -DNETSMB=1 -DNETSMBCRYPTO=1 -DNSMB=1 -fno-builtin";
+				OTHER_CFLAGS = "-no-cpp-precomp -DSMP -DNETSMB=1 -DNETSMBCRYPTO=1 -DNSMB=1 -fno-builtin";
 				OTHER_LDFLAGS = "";
 				OTHER_REZFLAGS = "";
 				PRODUCT_NAME = smbfs;
@@ -329,11 +343,11 @@
 	<key>CFBundlePackageType</key>
 	<string>KEXT</string>
 	<key>CFBundleShortVersionString</key>
-	<string>1.1.2</string>
+	<string>1.2.0</string>
 	<key>CFBundleSignature</key>
 	<string>????</string>
 	<key>CFBundleVersion</key>
-	<string>1.1.2</string>
+	<string>1.2.0</string>
 	<key>OSBundleLibraries</key>
 	<dict>
 		<key>com.apple.kernel.bsd</key>
@@ -342,7 +356,6 @@
 </dict>
 </plist>
 ";
-			shouldUseHeadermap = 1;
 		};
 		2D8D2F4500967A727F000001 = {
 			buildActionMask = 2147483647;
@@ -353,6 +366,7 @@
 			isa = PBXShellScriptBuildPhase;
 			neededFileNames = (
 			);
+			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
 			shellScript = "script=\"${SYSTEM_DEVELOPER_DIR}/ProjectBuilder Extras/Kernel Extension Support/KEXTPreprocess\";\nif [ -x \"$script\" ]; then\n    . \"$script\"\nfi";
 		};
@@ -379,8 +393,10 @@
 				156C733100AB77B711CA2BBA,
 				156C733200AB77B711CA2BBA,
 				F5A268C002244E0B01CA2BBA,
+				D103AA90041FE2BB0BCA2B4C,
 			);
 			isa = PBXHeadersBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
 		};
 		2D8D2F4700967A727F000001 = {
 			buildActionMask = 2147483647;
@@ -412,8 +428,11 @@
 				156C733500AB77B711CA2BBA,
 				F56D09200120EDA501CA2BBA,
 				F54450280120F07301CA2BBA,
+				D103AA8F041FE2BB0BCA2B4C,
+				EBCF4B3F051B98230057AC94,
 			);
 			isa = PBXSourcesBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
 		};
 		2D8D2F4800967A727F000001 = {
 			buildActionMask = 2147483647;
@@ -428,12 +447,14 @@
 				2D8D2FD000967DAF7F000001,
 			);
 			isa = PBXResourcesBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
 		};
 		2D8D2F4900967A727F000001 = {
 			buildActionMask = 2147483647;
 			files = (
 			);
 			isa = PBXFrameworksBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
 		};
 		2D8D2F4A00967A727F000001 = {
 			buildActionMask = 2147483647;
@@ -444,6 +465,7 @@
 			isa = PBXShellScriptBuildPhase;
 			neededFileNames = (
 			);
+			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
 			shellScript = "script=\"${SYSTEM_DEVELOPER_DIR}/ProjectBuilder Extras/Kernel Extension Support/KEXTPostprocess\";\nif [ -x \"$script\" ]; then\n    . \"$script\"\nfi";
 		};
@@ -478,12 +500,15 @@
 				2D8D2F5500967DAF7F000001,
 				2D8D2F5600967DAF7F000001,
 				2D8D2F5700967DAF7F000001,
+				D103AA8D041FE2BB0BCA2B4C,
+				D103AA8E041FE2BB0BCA2B4C,
 			);
 			isa = PBXGroup;
 			path = smbfs;
 			refType = 4;
 		};
 		2D8D2F4E00967DAF7F000001 = {
+			fileEncoding = 30;
 			indentWidth = 8;
 			isa = PBXFileReference;
 			path = smbfs.h;
@@ -492,41 +517,49 @@
 			usesTabs = 1;
 		};
 		2D8D2F4F00967DAF7F000001 = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			path = smbfs_io.c;
 			refType = 4;
 		};
 		2D8D2F5100967DAF7F000001 = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			path = smbfs_node.c;
 			refType = 4;
 		};
 		2D8D2F5200967DAF7F000001 = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			path = smbfs_node.h;
 			refType = 4;
 		};
 		2D8D2F5300967DAF7F000001 = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			path = smbfs_smb.c;
 			refType = 4;
 		};
 		2D8D2F5400967DAF7F000001 = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			path = smbfs_subr.c;
 			refType = 4;
 		};
 		2D8D2F5500967DAF7F000001 = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			path = smbfs_subr.h;
 			refType = 4;
 		};
 		2D8D2F5600967DAF7F000001 = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			path = smbfs_vfsops.c;
 			refType = 4;
 		};
 		2D8D2F5700967DAF7F000001 = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			path = smbfs_vnops.c;
 			refType = 4;
@@ -554,16 +587,19 @@
 			refType = 4;
 		};
 		2D8D2F5C00967DAF7F000001 = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			path = Makefile;
 			refType = 4;
 		};
 		2D8D2F5D00967DAF7F000001 = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			path = Makefile;
 			refType = 4;
 		};
 		2D8D2F5E00967DAF7F000001 = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			path = Makefile.inc;
 			refType = 4;
@@ -578,6 +614,7 @@
 			refType = 4;
 		};
 		2D8D2F6000967DAF7F000001 = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			path = Makefile;
 			refType = 4;
@@ -591,6 +628,7 @@
 			refType = 4;
 		};
 		2D8D2F6200967DAF7F000001 = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			path = Makefile;
 			refType = 4;
@@ -604,6 +642,7 @@
 			refType = 4;
 		};
 		2D8D2F6400967DAF7F000001 = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			path = Makefile;
 			refType = 4;
@@ -617,6 +656,7 @@
 			refType = 4;
 		};
 		2D8D2F6600967DAF7F000001 = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			path = Makefile;
 			refType = 4;
@@ -648,21 +688,25 @@
 			refType = 4;
 		};
 		2D8D2F6900967DAF7F000001 = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			path = iconv.c;
 			refType = 4;
 		};
 		2D8D2F6A00967DAF7F000001 = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			path = iconv_ces.c;
 			refType = 4;
 		};
 		2D8D2F6F00967DAF7F000001 = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			path = iconv_test.c;
 			refType = 4;
 		};
 		2D8D2F7000967DAF7F000001 = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			path = iconv_xlat.c;
 			refType = 4;
@@ -677,6 +721,7 @@
 			refType = 4;
 		};
 		2D8D2F7200967DAF7F000001 = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			path = iconv.h;
 			refType = 4;
@@ -704,112 +749,134 @@
 				2D8D2F8B00967DAF7F000001,
 				2D8D2F8C00967DAF7F000001,
 				2D8D2F8D00967DAF7F000001,
+				EBCF4B3E051B98230057AC94,
 			);
 			isa = PBXGroup;
 			path = netsmb;
 			refType = 4;
 		};
 		2D8D2F7500967DAF7F000001 = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			path = md4.h;
 			refType = 4;
 		};
 		2D8D2F7600967DAF7F000001 = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			path = md4c.c;
 			refType = 4;
 		};
 		2D8D2F7700967DAF7F000001 = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			path = netbios.h;
 			refType = 4;
 		};
 		2D8D2F7800967DAF7F000001 = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			path = smb.h;
 			refType = 4;
 		};
 		2D8D2F7900967DAF7F000001 = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			path = smb_compat4.c;
 			refType = 4;
 		};
 		2D8D2F7A00967DAF7F000001 = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			path = smb_compat4.h;
 			refType = 4;
 		};
 		2D8D2F7B00967DAF7F000001 = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			path = smb_conn.c;
 			refType = 4;
 		};
 		2D8D2F7C00967DAF7F000001 = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			path = smb_conn.h;
 			refType = 4;
 		};
 		2D8D2F7D00967DAF7F000001 = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			path = smb_crypt.c;
 			refType = 4;
 		};
 		2D8D2F7E00967DAF7F000001 = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			path = smb_dev.c;
 			refType = 4;
 		};
 		2D8D2F7F00967DAF7F000001 = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			path = smb_dev.h;
 			refType = 4;
 		};
 		2D8D2F8000967DAF7F000001 = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			path = smb_iod.c;
 			refType = 4;
 		};
 		2D8D2F8500967DAF7F000001 = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			path = smb_rq.c;
 			refType = 4;
 		};
 		2D8D2F8600967DAF7F000001 = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			path = smb_rq.h;
 			refType = 4;
 		};
 		2D8D2F8700967DAF7F000001 = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			path = smb_smb.c;
 			refType = 4;
 		};
 		2D8D2F8800967DAF7F000001 = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			path = smb_subr.c;
 			refType = 4;
 		};
 		2D8D2F8900967DAF7F000001 = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			path = smb_subr.h;
 			refType = 4;
 		};
 		2D8D2F8A00967DAF7F000001 = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			path = smb_tran.h;
 			refType = 4;
 		};
 		2D8D2F8B00967DAF7F000001 = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			path = smb_trantcp.c;
 			refType = 4;
 		};
 		2D8D2F8C00967DAF7F000001 = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			path = smb_trantcp.h;
 			refType = 4;
 		};
 		2D8D2F8D00967DAF7F000001 = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			path = smb_usr.c;
 			refType = 4;
@@ -836,16 +903,19 @@
 			refType = 4;
 		};
 		2D8D2F9000967DAF7F000001 = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			path = makeobjops.pl;
 			refType = 4;
 		};
 		2D8D2F9100967DAF7F000001 = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			path = subr_kobj.c;
 			refType = 4;
 		};
 		2D8D2F9200967DAF7F000001 = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			path = subr_mchain.c;
 			refType = 4;
@@ -861,11 +931,13 @@
 			refType = 4;
 		};
 		2D8D2F9400967DAF7F000001 = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			path = mchain.h;
 			refType = 4;
 		};
 		2D8D2F9500967DAF7F000001 = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			path = kobj.h;
 			refType = 4;
@@ -1171,18 +1243,19 @@
 				09B9ECA100D6F72811CA2BB4,
 			);
 			buildSettings = {
+				GCC_TREAT_WARNINGS_AS_ERRORS = YES;
 				HEADER_SEARCH_PATHS = "include kernel kernel/sys5 kernel/mysys";
 				INSTALL_GROUP = wheel;
 				INSTALL_MODE_FLAG = 04555;
 				INSTALL_OWNER = root;
 				INSTALL_PATH = /sbin;
-				OTHER_CFLAGS = "-traditional-cpp -DAPPLE";
+				OTHER_CFLAGS = "-no-cpp-precomp -DAPPLE";
 				OTHER_LDFLAGS = "";
 				OTHER_REZFLAGS = "";
 				PRODUCT_NAME = mount_smbfs;
 				REZ_EXECUTABLE = YES;
 				SECTORDER_FLAGS = "";
-				WARNING_CFLAGS = "-Wall -Wno-four-char-constants -Wno-unknown-pragmas";
+				WARNING_CFLAGS = "-W -Wall -Wno-four-char-constants -Wno-unknown-pragmas";
 			};
 			dependencies = (
 			);
@@ -1191,7 +1264,6 @@
 			productInstallPath = /sbin;
 			productName = mount_smbfs;
 			productReference = 2D8D2FD100967EC67F000001;
-			shouldUseHeadermap = 1;
 		};
 		2D8D2FD400967EC67F000001 = {
 			buildActionMask = 2147483647;
@@ -1199,6 +1271,7 @@
 				2D8D3006009680437F000001,
 			);
 			isa = PBXHeadersBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
 		};
 		2D8D2FD500967EC67F000001 = {
 			buildActionMask = 2147483647;
@@ -1207,6 +1280,7 @@
 				2D8D3008009680437F000001,
 			);
 			isa = PBXSourcesBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
 		};
 		2D8D2FD600967EC67F000001 = {
 			buildActionMask = 2147483647;
@@ -1214,14 +1288,17 @@
 				5D15CEA000CD7ED811CA2BB4,
 				F5A268BC02242ABA01CA2BBA,
 				F53F439302358E1301CA2BBA,
+				72312693043A70A300CA2BB7,
 			);
 			isa = PBXFrameworksBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
 		};
 		2D8D2FD700967EC67F000001 = {
 			buildActionMask = 2147483647;
 			files = (
 			);
 			isa = PBXRezBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
 		};
 		2D8D2FD800967EC67F000001 = {
 			buildPhases = (
@@ -1232,18 +1309,19 @@
 				09B9ECA300D6F86B11CA2BB4,
 			);
 			buildSettings = {
+				GCC_TREAT_WARNINGS_AS_ERRORS = YES;
 				HEADER_SEARCH_PATHS = "include kernel kernel/sys5 kernel/mysys";
 				INSTALL_GROUP = wheel;
 				INSTALL_MODE_FLAG = 04555;
 				INSTALL_OWNER = root;
 				INSTALL_PATH = /usr/bin;
-				OTHER_CFLAGS = "-traditional-cpp -DAPPLE";
+				OTHER_CFLAGS = "-no-cpp-precomp -DAPPLE";
 				OTHER_LDFLAGS = "";
 				OTHER_REZFLAGS = "";
 				PRODUCT_NAME = smbutil;
 				REZ_EXECUTABLE = YES;
 				SECTORDER_FLAGS = "";
-				WARNING_CFLAGS = "-Wall -Wno-four-char-constants -Wno-unknown-pragmas";
+				WARNING_CFLAGS = "-W -Wall -Wno-four-char-constants -Wno-unknown-pragmas";
 			};
 			dependencies = (
 			);
@@ -1252,7 +1330,6 @@
 			productInstallPath = /usr/bin;
 			productName = smbutil;
 			productReference = 2D8D2FD200967EC67F000001;
-			shouldUseHeadermap = 1;
 		};
 		2D8D2FD900967EC67F000001 = {
 			buildActionMask = 2147483647;
@@ -1260,6 +1337,7 @@
 				2D8D2FF8009680147F000001,
 			);
 			isa = PBXHeadersBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
 		};
 		2D8D2FDA00967EC67F000001 = {
 			buildActionMask = 2147483647;
@@ -1273,6 +1351,7 @@
 				9B923E1301290EB117CA28FA,
 			);
 			isa = PBXSourcesBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
 		};
 		2D8D2FDB00967EC67F000001 = {
 			buildActionMask = 2147483647;
@@ -1280,14 +1359,17 @@
 				616DAEC000CDA42911CA2BB4,
 				F5A268BD02242ABA01CA2BBA,
 				F53F439202358E1301CA2BBA,
+				72312694043A70A300CA2BB7,
 			);
 			isa = PBXFrameworksBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
 		};
 		2D8D2FDC00967EC67F000001 = {
 			buildActionMask = 2147483647;
 			files = (
 			);
 			isa = PBXRezBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
 		};
 		2D8D2FEE009680147F000001 = {
 			children = (
@@ -1307,46 +1389,55 @@
 			refType = 4;
 		};
 		2D8D2FEF009680147F000001 = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			path = Makefile;
 			refType = 4;
 		};
 		2D8D2FF0009680147F000001 = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			path = common.h;
 			refType = 4;
 		};
 		2D8D2FF1009680147F000001 = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			path = dumptree.c;
 			refType = 4;
 		};
 		2D8D2FF2009680147F000001 = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			path = login.c;
 			refType = 4;
 		};
 		2D8D2FF3009680147F000001 = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			path = lookup.c;
 			refType = 4;
 		};
 		2D8D2FF4009680147F000001 = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			path = print.c;
 			refType = 4;
 		};
 		2D8D2FF5009680147F000001 = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			path = smbutil.1;
 			refType = 4;
 		};
 		2D8D2FF6009680147F000001 = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			path = smbutil.c;
 			refType = 4;
 		};
 		2D8D2FF7009680147F000001 = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			path = view.c;
 			refType = 4;
@@ -1406,26 +1497,31 @@
 			refType = 4;
 		};
 		2D8D3001009680437F000001 = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			path = Makefile;
 			refType = 4;
 		};
 		2D8D3002009680437F000001 = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			path = getmntopts.c;
 			refType = 4;
 		};
 		2D8D3003009680437F000001 = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			path = mntopts.h;
 			refType = 4;
 		};
 		2D8D3004009680437F000001 = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			path = mount_smbfs.8;
 			refType = 4;
 		};
 		2D8D3005009680437F000001 = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			path = mount_smbfs.c;
 			refType = 4;
@@ -1464,9 +1560,10 @@
 			buildSettings = {
 				DYLIB_COMPATIBILITY_VERSION = 1;
 				DYLIB_CURRENT_VERSION = 1;
+				GCC_TREAT_WARNINGS_AS_ERRORS = YES;
 				HEADER_SEARCH_PATHS = "include kernel kernel/sys5 kernel/mysys";
 				LIBRARY_STYLE = STATIC;
-				OTHER_CFLAGS = "-traditional-cpp -DAPPLE -DNO_ICONV";
+				OTHER_CFLAGS = "-no-cpp-precomp -DAPPLE -DNO_ICONV";
 				OTHER_LDFLAGS = "";
 				OTHER_LIBTOOL_FLAGS = "";
 				OTHER_REZFLAGS = "";
@@ -1474,7 +1571,7 @@
 				REZ_EXECUTABLE = YES;
 				SECTORDER_FLAGS = "";
 				STRIP = /usr/bin/true;
-				WARNING_CFLAGS = "-Wall -Wno-four-char-constants -Wno-unknown-pragmas";
+				WARNING_CFLAGS = "-W -Wall -Wno-four-char-constants -Wno-unknown-pragmas";
 			};
 			dependencies = (
 			);
@@ -1483,14 +1580,17 @@
 			productInstallPath = /usr/local/lib;
 			productName = libsmb.a;
 			productReference = 2D8D3009009680FA7F000001;
-			shouldUseHeadermap = 1;
 		};
 		2D8D300B009680FA7F000001 = {
 			buildActionMask = 2147483647;
 			files = (
 				2D8D3046009681767F000001,
+				72610DB50438E92000CA2BB7,
+				72610DB70438E92000CA2BB7,
+				72610DB90438E92000CA2BB7,
 			);
 			isa = PBXHeadersBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
 		};
 		2D8D300C009680FA7F000001 = {
 			buildActionMask = 2147483647;
@@ -1511,20 +1611,27 @@
 				2D8D3053009681767F000001,
 				2D8D3054009681767F000001,
 				9B4EED3E011A112617CA28FA,
+				72610DB40438E92000CA2BB7,
+				72610DB60438E92000CA2BB7,
+				72610DB80438E92000CA2BB7,
 			);
 			isa = PBXSourcesBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
 		};
 		2D8D300D009680FA7F000001 = {
 			buildActionMask = 2147483647;
 			files = (
+				72312692043A70A300CA2BB7,
 			);
 			isa = PBXFrameworksBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
 		};
 		2D8D300E009680FA7F000001 = {
 			buildActionMask = 2147483647;
 			files = (
 			);
 			isa = PBXRezBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
 		};
 		2D8D3032009681767F000001 = {
 			children = (
@@ -1556,97 +1663,121 @@
 				2D8D3043009681767F000001,
 				F565EB7400F2A3C701CA2BB4,
 				9B4EED3B011A112517CA28FA,
+				72610DAE0438E91F00CA2BB7,
+				72610DAF0438E92000CA2BB7,
+				72610DB00438E92000CA2BB7,
+				72610DB10438E92000CA2BB7,
+				72610DB20438E92000CA2BB7,
+				72610DB30438E92000CA2BB7,
 			);
 			isa = PBXGroup;
 			path = smb;
 			refType = 4;
 		};
 		2D8D3034009681767F000001 = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			path = Makefile;
 			refType = 4;
 		};
 		2D8D3035009681767F000001 = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			path = cfopt.c;
 			refType = 4;
 		};
 		2D8D3036009681767F000001 = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			path = ctx.c;
 			refType = 4;
 		};
 		2D8D3037009681767F000001 = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			path = file.c;
 			refType = 4;
 		};
 		2D8D3038009681767F000001 = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			path = mbuf.c;
 			refType = 4;
 		};
 		2D8D3039009681767F000001 = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			path = nb.c;
 			refType = 4;
 		};
 		2D8D303A009681767F000001 = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			path = nb_name.c;
 			refType = 4;
 		};
 		2D8D303B009681767F000001 = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			path = nb_net.c;
 			refType = 4;
 		};
 		2D8D303C009681767F000001 = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			path = nbns_rq.c;
 			refType = 4;
 		};
 		2D8D303D009681767F000001 = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			path = nls.c;
 			refType = 4;
 		};
 		2D8D303E009681767F000001 = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			path = print.c;
 			refType = 4;
 		};
 		2D8D303F009681767F000001 = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			path = rap.c;
 			refType = 4;
 		};
 		2D8D3040009681767F000001 = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			path = rcfile.c;
 			refType = 4;
 		};
 		2D8D3041009681767F000001 = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			path = rcfile_priv.h;
 			refType = 4;
 		};
 		2D8D3042009681767F000001 = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			path = rq.c;
 			refType = 4;
 		};
 		2D8D3043009681767F000001 = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			path = subr.c;
 			refType = 4;
 		};
 		2D8D3044009681767F000001 = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			path = Makefile;
 			refType = 4;
 		};
 		2D8D3045009681767F000001 = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			path = Makefile.inc;
 			refType = 4;
@@ -1742,16 +1873,19 @@
 			};
 		};
 		2D8D3056009684517F000001 = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			path = config.mk.in;
 			refType = 4;
 		};
 		2D8D3058009684517F000001 = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			path = COPYRIGHT;
 			refType = 4;
 		};
 		2D8D3059009684517F000001 = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			path = CREDITS;
 			refType = 4;
@@ -1790,6 +1924,7 @@
 			refType = 0;
 		};
 		2D8D305E009684517F000001 = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			path = printcap.sample;
 			refType = 4;
@@ -1801,16 +1936,19 @@
 			refType = 0;
 		};
 		2D8D3060009684517F000001 = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			path = dot.nsmbrc;
 			refType = 4;
 		};
 		2D8D3061009684517F000001 = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			path = smbfs.sh.sample;
 			refType = 4;
 		};
 		2D8D3062009684517F000001 = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			path = HISTORY;
 			refType = 4;
@@ -1825,26 +1963,31 @@
 			refType = 4;
 		};
 		2D8D3064009684517F000001 = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			path = cflib.h;
 			refType = 4;
 		};
 		2D8D3065009684517F000001 = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			path = INSTALL;
 			refType = 4;
 		};
 		2D8D3066009684517F000001 = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			path = Makefile;
 			refType = 4;
 		};
 		2D8D3067009684517F000001 = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			path = Makefile.inc;
 			refType = 4;
 		};
 		2D8D3068009684517F000001 = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			path = README;
 			refType = 4;
@@ -1853,7 +1996,7 @@
 			buildPhases = (
 			);
 			buildSettings = {
-				OTHER_CFLAGS = "-traditional-cpp -DAPPLE";
+				OTHER_CFLAGS = "-no-cpp-precomp -DAPPLE";
 				OTHER_LDFLAGS = "";
 				OTHER_REZFLAGS = "";
 				PRODUCT_NAME = all;
@@ -1870,7 +2013,6 @@
 			isa = PBXAggregateTarget;
 			name = all;
 			productName = all;
-			shouldUseHeadermap = 0;
 		};
 		2D8D306A00978A037F000001 = {
 			isa = PBXTargetDependency;
@@ -1899,6 +2041,7 @@
 //593
 //594
 		5929E83D00CD7B7911CA2BB4 = {
+			fileEncoding = 30;
 			isa = PBXExecutableFileReference;
 			path = configure;
 			refType = 4;
@@ -1940,6 +2083,112 @@
 //612
 //613
 //614
+//720
+//721
+//722
+//723
+//724
+		72312691043A70A300CA2BB7 = {
+			isa = PBXFrameworkReference;
+			name = Kerberos.framework;
+			path = /System/Library/Frameworks/Kerberos.framework;
+			refType = 0;
+		};
+		72312692043A70A300CA2BB7 = {
+			fileRef = 72312691043A70A300CA2BB7;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		72312693043A70A300CA2BB7 = {
+			fileRef = 72312691043A70A300CA2BB7;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		72312694043A70A300CA2BB7 = {
+			fileRef = 72312691043A70A300CA2BB7;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		72610DAE0438E91F00CA2BB7 = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			path = derparse.c;
+			refType = 4;
+		};
+		72610DAF0438E92000CA2BB7 = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			path = derparse.h;
+			refType = 4;
+		};
+		72610DB00438E92000CA2BB7 = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			path = spnego.c;
+			refType = 4;
+		};
+		72610DB10438E92000CA2BB7 = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			path = spnego.h;
+			refType = 4;
+		};
+		72610DB20438E92000CA2BB7 = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			path = spnegoparse.c;
+			refType = 4;
+		};
+		72610DB30438E92000CA2BB7 = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			path = spnegoparse.h;
+			refType = 4;
+		};
+		72610DB40438E92000CA2BB7 = {
+			fileRef = 72610DAE0438E91F00CA2BB7;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		72610DB50438E92000CA2BB7 = {
+			fileRef = 72610DAF0438E92000CA2BB7;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		72610DB60438E92000CA2BB7 = {
+			fileRef = 72610DB00438E92000CA2BB7;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		72610DB70438E92000CA2BB7 = {
+			fileRef = 72610DB10438E92000CA2BB7;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		72610DB80438E92000CA2BB7 = {
+			fileRef = 72610DB20438E92000CA2BB7;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		72610DB90438E92000CA2BB7 = {
+			fileRef = 72610DB30438E92000CA2BB7;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+//720
+//721
+//722
+//723
+//724
 //9B0
 //9B1
 //9B2
@@ -1959,13 +2208,14 @@
 				9B3CD5030119F06E17CA28FA,
 			);
 			buildSettings = {
+				GCC_TREAT_WARNINGS_AS_ERRORS = YES;
 				INSTALL_PATH = /System/Library/CoreServices;
 				OTHER_CFLAGS = "";
 				OTHER_LDFLAGS = "-bundle -undefined suppress";
 				OTHER_REZFLAGS = "";
 				PRODUCT_NAME = smb;
 				SECTORDER_FLAGS = "";
-				WARNING_CFLAGS = "-Wmost -Wno-four-char-constants -Wno-unknown-pragmas";
+				WARNING_CFLAGS = "-W -Wall -Wno-four-char-constants -Wno-unknown-pragmas";
 				WRAPPER_EXTENSION = bundle;
 			};
 			dependencies = (
@@ -1996,21 +2246,21 @@
 	<key>CFBundlePackageType</key>
 	<string>BNDL</string>
 	<key>CFBundleShortVersionString</key>
-	<string>1.1.2</string>
+	<string>1.2.0</string>
 	<key>CFBundleSignature</key>
 	<string>????</string>
 	<key>CFBundleVersion</key>
-	<string>1.1.2</string>
+	<string>1.2.0</string>
 </dict>
 </plist>
 ";
-			shouldUseHeadermap = 0;
 		};
 		9B3CD4FF0119F06E17CA28FA = {
 			buildActionMask = 2147483647;
 			files = (
 			);
 			isa = PBXHeadersBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
 		};
 		9B3CD5000119F06E17CA28FA = {
 			buildActionMask = 2147483647;
@@ -2018,12 +2268,14 @@
 				9B3CD5070119F10717CA28FA,
 			);
 			isa = PBXResourcesBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
 		};
 		9B3CD5010119F06E17CA28FA = {
 			buildActionMask = 2147483647;
 			files = (
 			);
 			isa = PBXSourcesBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
 		};
 		9B3CD5020119F06E17CA28FA = {
 			buildActionMask = 2147483647;
@@ -2031,12 +2283,14 @@
 				9B7880D3011A1AF717CA28FA,
 			);
 			isa = PBXFrameworksBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
 		};
 		9B3CD5030119F06E17CA28FA = {
 			buildActionMask = 2147483647;
 			files = (
 			);
 			isa = PBXRezBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
 		};
 		9B3CD5040119F0F317CA28FA = {
 			fileEncoding = 10;
@@ -2060,6 +2314,7 @@
 			};
 		};
 		9B4EED3B011A112517CA28FA = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			path = ui.c;
 			refType = 4;
@@ -2087,6 +2342,7 @@
 			target = 9B3CD4FE0119F06E17CA28FA;
 		};
 		9B923E1201290EB117CA28FA = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			path = status.c;
 			refType = 4;
@@ -2108,6 +2364,7 @@
 //C33
 //C34
 		C36E552C0103CCEB03CA2A8A = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			path = iconv_utf8.c;
 			refType = 4;
@@ -2117,6 +2374,62 @@
 //C32
 //C33
 //C34
+//D10
+//D11
+//D12
+//D13
+//D14
+		D103AA8D041FE2BB0BCA2B4C = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			path = smbfs_lockf.c;
+			refType = 4;
+		};
+		D103AA8E041FE2BB0BCA2B4C = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			path = smbfs_lockf.h;
+			refType = 4;
+		};
+		D103AA8F041FE2BB0BCA2B4C = {
+			fileRef = D103AA8D041FE2BB0BCA2B4C;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		D103AA90041FE2BB0BCA2B4C = {
+			fileRef = D103AA8E041FE2BB0BCA2B4C;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+//D10
+//D11
+//D12
+//D13
+//D14
+//EB0
+//EB1
+//EB2
+//EB3
+//EB4
+		EBCF4B3E051B98230057AC94 = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			path = smb_sleephandler.cpp;
+			refType = 4;
+		};
+		EBCF4B3F051B98230057AC94 = {
+			fileRef = EBCF4B3E051B98230057AC94;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+//EB0
+//EB1
+//EB2
+//EB3
+//EB4
 //F50
 //F51
 //F52
@@ -2147,6 +2460,7 @@
 			};
 		};
 		F565EB7400F2A3C701CA2BB4 = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			path = kiconv.c;
 			refType = 4;
@@ -2158,6 +2472,7 @@
 			};
 		};
 		F56D091F0120EDA401CA2BBA = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			path = iconv_codepage.c;
 			refType = 4;
@@ -2180,16 +2495,19 @@
 			refType = 2;
 		};
 		F58DD0DD00EBF0E701CA2BB4 = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			path = nb_lib.h;
 			refType = 4;
 		};
 		F58DD0DE00EBF0E701CA2BB4 = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			path = smb_lib.h;
 			refType = 4;
 		};
 		F58DD0DF00EBF0E701CA2BB4 = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			path = smb_rap.h;
 			refType = 4;
@@ -2213,11 +2531,13 @@
 			};
 		};
 		F5A268BE02244D0A01CA2BBA = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			path = Makefile.iconv;
 			refType = 4;
 		};
 		F5A268BF02244E0B01CA2BBA = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			path = smb_apple.h;
 			refType = 4;

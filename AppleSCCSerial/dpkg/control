@@ -1,0 +1,6 @@
+Package: applesccserial
+Maintainer: Darwin Developers <darwin-development@lists.apple.com>
+Vendor: Apple Computer, Inc.
+Version: 1.1b10
+Build-Depends: cctools, libsystem, zsh, gnumake, system-cmds, gcc, corefoundation, carbonheaders, xnu, pb-makefiles, shell-cmds, file-cmds, bootstrap-cmds, text-cmds, project-makefiles, gnutar, jam, ioserialfamily, files, grep
+Description: Apple Serial driver

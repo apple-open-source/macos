@@ -20,6 +20,7 @@
    Boston, MA 02111-1307, USA.  */
 
 #include "defs.h"
+#include "target.h"
 #include "mi-cmds.h"
 #include "ui-out.h"
 #include "mi-out.h"
@@ -255,12 +256,68 @@ mi_cmd_break_watch (char *command, char **argv, int argc)
   return MI_CMD_DONE;
 }
 
+enum mi_cmd_result
+mi_cmd_break_catch (char *command, char **argv, int argc)
+{
+  enum exception_event_kind ex_event;
+  int ret_val;
+
+  if (argc < 1)
+    error ("mi_cmd_break_catch: USAGE: %s [catch|throw] [on|off]", command);
+
+  if (strcmp(argv[0], "catch") == 0)
+    ex_event = EX_EVENT_CATCH;
+  else if (strcmp(argv[0], "throw") == 0)
+    ex_event = EX_EVENT_THROW;
+  else
+    error ("mi_cmd_break_catch: bad argument, should be \"catch\""
+	   " or \"throw\"");
+
+  if (argc == 2)
+    {
+      if (strcmp (argv[1], "off") == 0)
+	{
+	  if (exception_catchpoints_enabled (ex_event))
+	    {
+	      disable_exception_catch (ex_event);
+	    }
+	  else
+	    {
+	      return MI_CMD_ERROR;
+	    }
+	}
+      else if (strcmp (argv[1], "on") != 0)
+	error ("mi_cmd_break_catch: bad argument 2, should be \"on\""
+	       " or \"off\".");
+    }
+
+  /* If the catchpoints are already enabled, we are done... */
+  if (exception_catchpoints_enabled (ex_event))
+      return MI_CMD_DONE;
+
+  /* See if we can find a callback routine */
+
+  ret_val = target_enable_exception_callback (ex_event, 1);
+
+  if (!ret_val)
+    {
+      error ("mi_cmd_break_catch: error getting callback routine.");
+    }
+  else
+    {
+      /* We have callbacks from the runtime system for exceptions.
+         Now update the catchpoints.  This is the first time we are
+	 calling this, so we don't need to delete old catchpoints.  */
+
+      update_exception_catchpoints (ex_event, 0, NULL, 0, NULL);
+    }
+  return MI_CMD_DONE;
+}
+
 void
 mi_interp_create_breakpoint_hook (struct breakpoint *bpt)
 {
-  CORE_ADDR unusued_addr;
   struct ui_out *saved_ui_out = uiout;
-  struct mi_out *tmp_mi_out;
 
   uiout = mi_interp->interpreter_out;
 
@@ -278,9 +335,7 @@ void
 mi_interp_modify_breakpoint_hook (struct breakpoint *bpt)
 {
 
-  CORE_ADDR unusued_addr;
   struct ui_out *saved_ui_out = uiout;
-  struct mi_out *tmp_mi_out;
 
   uiout = mi_interp->interpreter_out;
 
@@ -297,9 +352,7 @@ mi_interp_modify_breakpoint_hook (struct breakpoint *bpt)
 void
 mi_interp_delete_breakpoint_hook (struct breakpoint *bpt)
 {
-  CORE_ADDR unusued_addr;
   struct ui_out *saved_ui_out = uiout;
-  struct mi_out *tmp_mi_out;
 
   uiout = mi_interp->interpreter_out;
 

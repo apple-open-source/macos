@@ -1,0 +1,53 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<jaws>
+     <enterprise-beans>
+       <entity>
+	 <ejb-name>Account</ejb-name>
+	 <table-name>Account</table-name>
+	 <create-table>true</create-table>
+	 <remove-table>false</remove-table>
+	 <tuned-updates>false</tuned-updates>
+	 <read-only>false</read-only>
+	 <time-out>300</time-out>
+	 <cmp-field>
+	   <field-name>id</field-name>
+	   <column-name>id</column-name>
+	   <sql-type>VARCHAR(256)</sql-type>
+	   <jdbc-type>VARCHAR</jdbc-type>
+	 </cmp-field>
+	 <cmp-field>
+	   <field-name>balance</field-name>
+	   <column-name>balance</column-name>
+	   <sql-type>REAL</sql-type>
+	   <jdbc-type>REAL</jdbc-type>
+	 </cmp-field>
+	 <finder>
+	   <name>findLargeAccounts</name>
+	   <query>balance &gt; {0}</query>
+	   <order>balance</order>
+	 </finder>
+       </entity>
+       <entity>
+	 <ejb-name>Customer</ejb-name>
+	 <table-name>Customer</table-name>
+	 <create-table>true</create-table>
+	 <remove-table>false</remove-table>
+	 <tuned-updates>false</tuned-updates>
+	 <read-only>true</read-only>
+	 <time-out>600</time-out>
+	 <cmp-field>
+	   <field-name>name</field-name>
+	   <column-name>name</column-name>
+	   <sql-type>VARCHAR(256)</sql-type>
+	   <jdbc-type>VARCHAR</jdbc-type>
+	 </cmp-field>
+	 <cmp-field>
+	   <field-name>id</field-name>
+	   <column-name>id</column-name>
+	   <sql-type>VARCHAR(256)</sql-type>
+	   <jdbc-type>VARCHAR</jdbc-type>
+	 </cmp-field>
+       </entity>
+     </enterprise-beans>
+   </jaws>

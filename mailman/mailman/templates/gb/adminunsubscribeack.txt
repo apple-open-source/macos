@@ -1,0 +1,3 @@
+%(member)s 已经取消订阅 %(listname)s 了.
+
+

@@ -5,6 +5,50 @@
 	};
 	objectVersion = 38;
 	objects = {
+		03328FC704598E7303CA2A5F = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			path = prelink.c;
+			refType = 4;
+		};
+		03328FC804598E7303CA2A5F = {
+			fileRef = 03328FC704598E7303CA2A5F;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+//030
+//031
+//032
+//033
+//034
+//050
+//051
+//052
+//053
+//054
+		05A475DE0435062C00A64A39 = {
+			isa = PBXFrameworkReference;
+			name = Security.framework;
+			path = /System/Library/Frameworks/Security.framework;
+			refType = 0;
+		};
+		05A475DF0435062C00A64A39 = {
+			fileRef = 05A475DE0435062C00A64A39;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+//050
+//051
+//052
+//053
+//054
+//140
+//141
+//142
+//143
+//144
 		141E3CD002552F4D02CA28EB = {
 			isa = PBXTargetDependency;
 			target = 14A9DD810254012B02CA28EB;
@@ -22,6 +66,7 @@
 			refType = 0;
 		};
 		14597B28022D521B02CA29F8 = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			path = kextmanager.defs;
 			refType = 4;
@@ -65,11 +110,27 @@
 			settings = {
 			};
 		};
+		1485151C03F1F3A002CA28EB = {
+			fileRef = 14DA20A701EE680802CA2A87;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		1485151D03F1F3B302CA28EB = {
+			children = (
+				14DA20A701EE680802CA2A87,
+			);
+			isa = PBXGroup;
+			name = "Shared Source";
+			path = "";
+			refType = 4;
+		};
 		1492D16B01E53C3C02CA2A87 = {
 			buildStyles = (
 				1492D16D01E53C3C02CA2A87,
 				1492D16E01E53C3C02CA2A87,
 			);
+			hasScannedForEncodings = 1;
 			isa = PBXProject;
 			mainGroup = 1492D16C01E53C3C02CA2A87;
 			productRefGroup = 1492D16F01E53C9002CA2A87;
@@ -82,6 +143,7 @@
 				14EB401702666D3802CA28EB,
 				1492D18101E53C9002CA2A87,
 				14A9DD810254012B02CA28EB,
+				A681761D0485790F007579F1,
 			);
 		};
 		1492D16C01E53C3C02CA2A87 = {
@@ -120,6 +182,7 @@
 				14A199C701EB7C6E02CA2A87,
 				14A9DD820254012B02CA28EB,
 				14EB401802666D3802CA28EB,
+				A681761E0485790F007579F1,
 			);
 			isa = PBXGroup;
 			name = Products;
@@ -158,11 +221,11 @@
 				14EB401B02666D4802CA28EB,
 				1492D18001E53C9002CA2A87,
 				141E3CD002552F4D02CA28EB,
+				A681762604857A79007579F1,
 			);
 			isa = PBXAggregateTarget;
 			name = all;
 			productName = all;
-			shouldUseHeadermap = 0;
 		};
 		1492D17401E53C9002CA2A87 = {
 			isa = PBXTargetDependency;
@@ -178,7 +241,6 @@
 			);
 			buildSettings = {
 				INSTALL_PATH = /sbin;
-				OPTIMIZATION_CFLAGS = "-O1";
 				OTHER_CFLAGS = "";
 				OTHER_REZFLAGS = "";
 				PRODUCT_NAME = kextload;
@@ -193,7 +255,6 @@
 			productInstallPath = /sbin;
 			productName = kxload;
 			productReference = 1492D17001E53C9002CA2A87;
-			shouldUseHeadermap = 0;
 		};
 		1492D17601E53C9002CA2A87 = {
 			buildActionMask = 2147483647;
@@ -215,7 +276,6 @@
 			files = (
 				1492D20E01E541CF02CA2A87,
 				146BE2D401F7A95A02CA2A87,
-				58BCD87802BAAB9B040001C9,
 			);
 			isa = PBXFrameworksBuildPhase;
 			runOnlyForDeploymentPostprocessing = 0;
@@ -257,7 +317,6 @@
 			productInstallPath = /usr/libexec;
 			productName = kextd;
 			productReference = 1492D17101E53C9002CA2A87;
-			shouldUseHeadermap = 0;
 		};
 		1492D17C01E53C9002CA2A87 = {
 			buildActionMask = 2147483647;
@@ -265,7 +324,6 @@
 				1492D1CE01E5414702CA2A87,
 				1492D1CF01E5414702CA2A87,
 				1492D1D001E5414702CA2A87,
-				1492D1D101E5414702CA2A87,
 				1492D1D201E5414702CA2A87,
 				1492D1D301E5414702CA2A87,
 				1492D1D401E5414702CA2A87,
@@ -279,7 +337,6 @@
 				1492D1E201E5414702CA2A87,
 				1492D1E301E5414702CA2A87,
 				1492D1E401E5414702CA2A87,
-				1492D1E501E5414702CA2A87,
 				1492D1E601E5414702CA2A87,
 				1492D1E701E5414702CA2A87,
 				14597B29022D521B02CA29F8,
@@ -292,7 +349,7 @@
 			files = (
 				1492D20F01E541CF02CA2A87,
 				146BE2D301F7A95A02CA2A87,
-				58BCD87B02BAABD6040001C9,
+				05A475DF0435062C00A64A39,
 			);
 			isa = PBXFrameworksBuildPhase;
 			runOnlyForDeploymentPostprocessing = 0;
@@ -334,7 +391,6 @@
 			productInstallPath = /sbin;
 			productName = kxunload;
 			productReference = 1492D17201E53C9002CA2A87;
-			shouldUseHeadermap = 0;
 		};
 		1492D18201E53C9002CA2A87 = {
 			buildActionMask = 2147483647;
@@ -356,7 +412,6 @@
 			files = (
 				1492D21001E541CF02CA2A87,
 				146BE2D501F7A95A02CA2A87,
-				58BCD87D02BAABE9040001C9,
 			);
 			isa = PBXFrameworksBuildPhase;
 			runOnlyForDeploymentPostprocessing = 0;
@@ -370,6 +425,8 @@
 		};
 		1492D18701E53C9C02CA2A87 = {
 			children = (
+				A6817625048579EE007579F1,
+				1485151D03F1F3B302CA28EB,
 				14A199C501EB7C6E02CA2A87,
 				1492D1A201E53CF102CA2A87,
 				1492D1A301E53CF102CA2A87,
@@ -382,6 +439,7 @@
 			refType = 4;
 		};
 		1492D1A001E53CC502CA2A87 = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			path = kextload_main.c;
 			refType = 4;
@@ -407,8 +465,6 @@
 				1492D1B101E53D0502CA2A87,
 				1492D1B001E53D0502CA2A87,
 				1492D1AB01E53D0502CA2A87,
-				1492D1A401E53D0502CA2A87,
-				1492D1AC01E53D0502CA2A87,
 				14597B28022D521B02CA29F8,
 			);
 			isa = PBXGroup;
@@ -425,72 +481,74 @@
 			path = "";
 			refType = 4;
 		};
-		1492D1A401E53D0502CA2A87 = {
-			isa = PBXFileReference;
-			path = GetSymbolFromPEF.h;
-			refType = 4;
-		};
 		1492D1A501E53D0502CA2A87 = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			path = globals.h;
 			refType = 4;
 		};
 		1492D1A601E53D0502CA2A87 = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			path = kext_types.h;
 			refType = 4;
 		};
 		1492D1A801E53D0502CA2A87 = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			path = logging.c;
 			refType = 4;
 		};
 		1492D1A901E53D0502CA2A87 = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			path = logging.h;
 			refType = 4;
 		};
 		1492D1AA01E53D0502CA2A87 = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			path = kextd_main.c;
 			refType = 4;
 		};
 		1492D1AB01E53D0502CA2A87 = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			path = mig_server.c;
 			refType = 4;
 		};
-		1492D1AC01E53D0502CA2A87 = {
-			isa = PBXFileReference;
-			path = PEFSupport.c;
-			refType = 4;
-		};
 		1492D1AD01E53D0502CA2A87 = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			path = PTLock.c;
 			refType = 4;
 		};
 		1492D1AE01E53D0502CA2A87 = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			path = PTLock.h;
 			refType = 4;
 		};
 		1492D1AF01E53D0502CA2A87 = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			path = queue.h;
 			refType = 4;
 		};
 		1492D1B001E53D0502CA2A87 = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			path = request.c;
 			refType = 4;
 		};
 		1492D1B101E53D0502CA2A87 = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			path = request.h;
 			refType = 4;
 		};
 		1492D1B401E53D2702CA2A87 = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			path = kextunload_main.c;
 			refType = 4;
@@ -521,12 +579,6 @@
 		};
 		1492D1D001E5414702CA2A87 = {
 			fileRef = 1492D1A901E53D0502CA2A87;
-			isa = PBXBuildFile;
-			settings = {
-			};
-		};
-		1492D1D101E5414702CA2A87 = {
-			fileRef = 1492D1A401E53D0502CA2A87;
 			isa = PBXBuildFile;
 			settings = {
 			};
@@ -563,12 +615,6 @@
 		};
 		1492D1E401E5414702CA2A87 = {
 			fileRef = 1492D1AB01E53D0502CA2A87;
-			isa = PBXBuildFile;
-			settings = {
-			};
-		};
-		1492D1E501E5414702CA2A87 = {
-			fileRef = 1492D1AC01E53D0502CA2A87;
 			isa = PBXBuildFile;
 			settings = {
 			};
@@ -615,7 +661,7 @@
 				1492D20D01E541CE02CA2A87,
 				1452E76F01F9032A02CA28EB,
 				1452E77001F9032A02CA28EB,
-				58BCD76902BAAB9A040001C9,
+				05A475DE0435062C00A64A39,
 			);
 			isa = PBXGroup;
 			name = "External Frameworks and Libraries";
@@ -632,11 +678,13 @@
 			refType = 4;
 		};
 		149E0AB702664EC402CA28EB = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			path = kextstat_main.c;
 			refType = 4;
 		};
 		149E0ABB02665FD902CA28EB = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			path = kextstat.8;
 			refType = 4;
@@ -644,15 +692,16 @@
 		14A199C501EB7C6E02CA2A87 = {
 			children = (
 				14A199C601EB7C6E02CA2A87,
-				14DA20A701EE680802CA2A87,
 				14DA20A901EE682802CA2A87,
 				14FEF92B025BBA6E02CA28EB,
+				03328FC704598E7303CA2A5F,
 			);
 			isa = PBXGroup;
 			name = kextcache;
 			refType = 4;
 		};
 		14A199C601EB7C6E02CA2A87 = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			path = kextcache_main.c;
 			refType = 4;
@@ -672,7 +721,6 @@
 			);
 			buildSettings = {
 				INSTALL_PATH = /usr/sbin;
-				OPTIMIZATION_CFLAGS = "-O1";
 				OTHER_CFLAGS = "";
 				OTHER_LDFLAGS = "";
 				OTHER_REZFLAGS = "";
@@ -688,7 +736,6 @@
 			productInstallPath = /usr/sbin;
 			productName = kextcache;
 			productReference = 14A199C701EB7C6E02CA2A87;
-			shouldUseHeadermap = 0;
 		};
 		14A199CD01EB7C6E02CA2A87 = {
 			buildActionMask = 2147483647;
@@ -704,6 +751,7 @@
 				14DA20A801EE680802CA2A87,
 				14DA20AA01EE682802CA2A87,
 				14FEF92C025BBA6E02CA28EB,
+				03328FC804598E7303CA2A5F,
 			);
 			isa = PBXSourcesBuildPhase;
 			runOnlyForDeploymentPostprocessing = 0;
@@ -719,7 +767,6 @@
 			files = (
 				14A6346601F7671B02CA2A87,
 				146BE2D601F7A95A02CA2A87,
-				58BCD87A02BAABCA040001C9,
 			);
 			isa = PBXFrameworksBuildPhase;
 			runOnlyForDeploymentPostprocessing = 0;
@@ -748,6 +795,7 @@
 			};
 		};
 		14A633FD01F7647402CA2A87 = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			path = kextcache.8;
 			refType = 4;
@@ -816,8 +864,8 @@
 		14A9DD7E0254012B02CA28EB = {
 			buildActionMask = 2147483647;
 			files = (
-				14A9DD8E025401E002CA28EB,
 				14A9DD8F025401E002CA28EB,
+				1485151C03F1F3A002CA28EB,
 			);
 			isa = PBXSourcesBuildPhase;
 			runOnlyForDeploymentPostprocessing = 0;
@@ -826,7 +874,6 @@
 			buildActionMask = 2147483647;
 			files = (
 				14A9DD870254013C02CA28EB,
-				58BCD87E02BAABF1040001C9,
 			);
 			isa = PBXFrameworksBuildPhase;
 			runOnlyForDeploymentPostprocessing = 0;
@@ -847,7 +894,7 @@
 				14A9DD980254F3AE02CA28EB,
 			);
 			buildSettings = {
-				INSTALL_PATH = /usr/local/bin;
+				INSTALL_PATH = /usr/sbin;
 				OPTIMIZATION_CFLAGS = "-O1";
 				OTHER_CFLAGS = "";
 				OTHER_LDFLAGS = "";
@@ -861,10 +908,9 @@
 			);
 			isa = PBXToolTarget;
 			name = mkextunpack;
-			productInstallPath = /usr/local/bin;
+			productInstallPath = /usr/sbin;
 			productName = mkextunpack;
 			productReference = 14A9DD820254012B02CA28EB;
-			shouldUseHeadermap = 0;
 		};
 		14A9DD820254012B02CA28EB = {
 			isa = PBXExecutableFileReference;
@@ -877,21 +923,11 @@
 			settings = {
 			};
 		};
-		14A9DD8C025401E002CA28EB = {
-			isa = PBXFileReference;
-			path = mkext.c;
-			refType = 2;
-		};
 		14A9DD8D025401E002CA28EB = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			path = mkextunpack_main.c;
 			refType = 2;
-		};
-		14A9DD8E025401E002CA28EB = {
-			fileRef = 14A9DD8C025401E002CA28EB;
-			isa = PBXBuildFile;
-			settings = {
-			};
 		};
 		14A9DD8F025401E002CA28EB = {
 			fileRef = 14A9DD8D025401E002CA28EB;
@@ -902,7 +938,6 @@
 		14A9DD90025401EB02CA28EB = {
 			children = (
 				14A9DD8D025401E002CA28EB,
-				14A9DD8C025401E002CA28EB,
 			);
 			isa = PBXGroup;
 			name = mkextunpack;
@@ -910,13 +945,14 @@
 			refType = 4;
 		};
 		14A9DD970254F38602CA28EB = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			path = mkextunpack.8;
 			refType = 4;
 		};
 		14A9DD980254F3AE02CA28EB = {
 			buildActionMask = 8;
-			dstPath = /usr/local/share/man/man8/;
+			dstPath = /usr/share/man/man8/;
 			dstSubfolderSpec = 0;
 			files = (
 				14A9DD990254F3C302CA28EB,
@@ -945,21 +981,25 @@
 			refType = 4;
 		};
 		14D5D8AE01F5072802CA2A87 = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			path = kextd.8;
 			refType = 4;
 		};
 		14D5D8AF01F5072802CA2A87 = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			path = kextload.8;
 			refType = 4;
 		};
 		14D5D8B001F5072802CA2A87 = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			path = kextunload.8;
 			refType = 4;
 		};
 		14DA20A701EE680802CA2A87 = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			path = compression.c;
 			refType = 4;
@@ -971,6 +1011,7 @@
 			};
 		};
 		14DA20A901EE682802CA2A87 = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			path = arch.c;
 			refType = 4;
@@ -999,7 +1040,6 @@
 		14EB401502666D3802CA28EB = {
 			buildActionMask = 2147483647;
 			files = (
-				58BCD87C02BAABE1040001C9,
 			);
 			isa = PBXFrameworksBuildPhase;
 			runOnlyForDeploymentPostprocessing = 0;
@@ -1036,7 +1076,6 @@
 			productInstallPath = /usr/sbin;
 			productName = kextstat;
 			productReference = 14EB401802666D3802CA28EB;
-			shouldUseHeadermap = 0;
 		};
 		14EB401802666D3802CA28EB = {
 			isa = PBXExecutableFileReference;
@@ -1074,6 +1113,7 @@
 			target = 14A199CC01EB7C6E02CA2A87;
 		};
 		14FEF92B025BBA6E02CA28EB = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			path = mkext_file.c;
 			refType = 4;
@@ -1089,52 +1129,93 @@
 //142
 //143
 //144
-//580
-//581
-//582
-//583
-//584
-		58BCD76902BAAB9A040001C9 = {
-			isa = PBXFrameworkReference;
-			name = Security.framework;
-			path = /System/Library/Frameworks/Security.framework;
-			refType = 0;
+//A60
+//A61
+//A62
+//A63
+//A64
+		A68176190485790F007579F1 = {
+			buildActionMask = 2147483647;
+			files = (
+			);
+			isa = PBXHeadersBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
 		};
-		58BCD87802BAAB9B040001C9 = {
-			fileRef = 58BCD76902BAAB9A040001C9;
+		A681761A0485790F007579F1 = {
+			buildActionMask = 2147483647;
+			files = (
+				A68176210485795F007579F1,
+			);
+			isa = PBXSourcesBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		A681761B0485790F007579F1 = {
+			buildActionMask = 2147483647;
+			files = (
+			);
+			isa = PBXFrameworksBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		A681761C0485790F007579F1 = {
+			buildActionMask = 2147483647;
+			files = (
+			);
+			isa = PBXRezBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		A681761D0485790F007579F1 = {
+			buildPhases = (
+				A68176190485790F007579F1,
+				A681761A0485790F007579F1,
+				A681761B0485790F007579F1,
+				A681761C0485790F007579F1,
+			);
+			buildSettings = {
+				INSTALL_PATH = /usr/local/bin;
+				OTHER_CFLAGS = "";
+				OTHER_LDFLAGS = "";
+				OTHER_REZFLAGS = "";
+				PRODUCT_NAME = kextsymboltool;
+				REZ_EXECUTABLE = YES;
+				SECTORDER_FLAGS = "";
+				WARNING_CFLAGS = "-Wmost -Wno-four-char-constants -Wno-unknown-pragmas";
+			};
+			dependencies = (
+			);
+			isa = PBXToolTarget;
+			name = kextsymboltool;
+			productInstallPath = /usr/local/bin;
+			productName = kextsymboltool;
+			productReference = A681761E0485790F007579F1;
+		};
+		A681761E0485790F007579F1 = {
+			isa = PBXExecutableFileReference;
+			path = kextsymboltool;
+			refType = 3;
+		};
+		A68176200485795F007579F1 = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			path = kextsymboltool.c;
+			refType = 4;
+		};
+		A68176210485795F007579F1 = {
+			fileRef = A68176200485795F007579F1;
 			isa = PBXBuildFile;
 			settings = {
 			};
 		};
-		58BCD87A02BAABCA040001C9 = {
-			fileRef = 58BCD76902BAAB9A040001C9;
-			isa = PBXBuildFile;
-			settings = {
-			};
+		A6817625048579EE007579F1 = {
+			children = (
+				A68176200485795F007579F1,
+			);
+			isa = PBXGroup;
+			name = kextsymboltool;
+			refType = 4;
 		};
-		58BCD87B02BAABD6040001C9 = {
-			fileRef = 58BCD76902BAAB9A040001C9;
-			isa = PBXBuildFile;
-			settings = {
-			};
-		};
-		58BCD87C02BAABE1040001C9 = {
-			fileRef = 58BCD76902BAAB9A040001C9;
-			isa = PBXBuildFile;
-			settings = {
-			};
-		};
-		58BCD87D02BAABE9040001C9 = {
-			fileRef = 58BCD76902BAAB9A040001C9;
-			isa = PBXBuildFile;
-			settings = {
-			};
-		};
-		58BCD87E02BAABF1040001C9 = {
-			fileRef = 58BCD76902BAAB9A040001C9;
-			isa = PBXBuildFile;
-			settings = {
-			};
+		A681762604857A79007579F1 = {
+			isa = PBXTargetDependency;
+			target = A681761D0485790F007579F1;
 		};
 	};
 	rootObject = 1492D16B01E53C3C02CA2A87;

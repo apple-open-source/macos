@@ -1,0 +1,40 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+  <!-- ==================================================================== -->
+  <!-- New ConnectionManager setup for SAP R3                               -->
+  <!-- Author: David Jencks (d_jencks@users.sourceforge.net)                -->
+  <!-- Author: Chris Pinfold (chrisp@yambay.com)                            -->
+  <!--	                                                                    -->
+  <!-- ==================================================================== -->
+
+<connection-factories>
+
+  <tx-connection-factory>
+
+    <attribute name="JndiName">R3ConnectionFactory</attribute>
+
+    <config-property name="ClientNumber" type="java.lang.String">010</config-property>
+
+    <user-name>myusername</user-name>
+
+    <password>mypassword</password>
+
+    <config-property name="Language" type="java.lang.String">EN</config-property>
+
+    <config-property name="ServerName" type="java.lang.String">myservername</config-property>
+
+    <config-property name="SystemNumber" type="java.lang.String">00</config-property>
+
+    <config-property name="GatewayServerName" type="java.lang.String"></config-property>
+
+    <config-property name="GatewayServiceNumber" type="java.lang.String"></config-property>
+
+    <config-property name="MessageServerName" type="java.lang.String"></config-property>
+
+    <config-property name="SystemName" type="java.lang.String"></config-property>
+
+    <config-property name="GroupName" type="java.lang.String"></config-property>
+
+  </tx-connection-factory>
+
+</connection-factories>

@@ -3,21 +3,22 @@
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
- * "Portions Copyright (c) 1999 Apple Computer, Inc.  All Rights
- * Reserved.  This file contains Original Code and/or Modifications of
- * Original Code as defined in and that are subject to the Apple Public
- * Source License Version 1.0 (the 'License').  You may not use this file
- * except in compliance with the License.  Please obtain a copy of the
- * License at http://www.apple.com/publicsource and read it before using
- * this file.
+ * Copyright (c) 1999-2003 Apple Computer, Inc.  All Rights Reserved.
+ * 
+ * This file contains Original Code and/or Modifications of Original Code
+ * as defined in and that are subject to the Apple Public Source License
+ * Version 2.0 (the 'License'). You may not use this file except in
+ * compliance with the License. Please obtain a copy of the License at
+ * http://www.opensource.apple.com/apsl/ and read it before using this
+ * file.
  * 
  * The Original Code and all software distributed under the License are
  * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
  * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
  * INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY,
- * FITNESS FOR A PARTICULAR PURPOSE OR NON-INFRINGEMENT.  Please see the
- * License for the specific language governing rights and limitations
- * under the License."
+ * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
+ * Please see the License for the specific language governing rights and
+ * limitations under the License.
  * 
  * @APPLE_LICENSE_HEADER_END@
  */
@@ -159,10 +160,12 @@ NI_configure(agent_private *ap)
 static void
 NI_add_domain(agent_private *ap, ni_shared_handle_t *h, u_int32_t f)
 {
-	ni_setreadtimeout(h->ni, ap->timeout);
-	ni_setabort(h->ni, 1);
+	sa_setreadtimeout(h, ap->timeout);
+	sa_setabort(h, 1);
+
 	syslock_lock(rpcLock);
-	ni_setpassword(h->ni, "checksum");
+
+	sa_setpassword(h, "checksum");
 	syslock_unlock(rpcLock);
 
 	if (ap->domain_count == 0)
@@ -201,8 +204,8 @@ NI_climb_to_root(agent_private *ap)
 
 	if (ap->domain_count > 1)
 	{
-		ni_setreadtimeout(h0->ni, ap->connect_timeout);
-		ni_setabort(h0->ni, 1);
+		sa_setreadtimeout(h0, ap->connect_timeout);
+		sa_setabort(h0, 1);
 	}
 
 	forever
@@ -308,7 +311,7 @@ NI_checksum_for_index(agent_private *ap, u_int32_t i)
 
 	if (ap == NULL) return 0;
 
-	if (i <= ap->domain_count) return 0;
+	if (i >= ap->domain_count) return 0;
 
 	gettimeofday(&now, (struct timezone *)NULL);
 	age = now.tv_sec - ap->domain[i].checksum_time;
@@ -317,7 +320,7 @@ NI_checksum_for_index(agent_private *ap, u_int32_t i)
 	NI_INIT(&pl);
 
 	syslock_lock(rpcLock);
-	status = ni_statistics(ap->domain[i].handle->ni, &pl);
+	status = sa_statistics(ap->domain[i].handle, &pl);
 	syslock_unlock(rpcLock);
 
 	if (status != NI_OK)
@@ -446,7 +449,7 @@ nitods(ni_proplist *p)
  * Fetch all subdirectories and append those that match the pattern to the list.
  */
 static u_int32_t
-NI_query_all(agent_private *ap, char *path, int single_item, dsrecord *pattern, dsrecord **list)
+NI_query_all(agent_private *ap, char *path, int single_item, int stamp, dsrecord *pattern, dsrecord **list)
 {
 	ni_idlist idl;
 	ni_proplist pl;
@@ -459,15 +462,25 @@ NI_query_all(agent_private *ap, char *path, int single_item, dsrecord *pattern, 
 
 	for (dx = 0; dx < ap->domain_count; dx++)
 	{
+		if (stamp == 1)
+		{
+			r = dsrecord_new();
+			NI_add_validation(ap, r, dx);
+			if (*list == NULL) *list = r;
+			else lastrec->next = r;
+			lastrec = r;
+			continue;
+		}
+	
 		NI_INIT(&dir);
 		syslock_lock(rpcLock);
-		status = ni_pathsearch(ap->domain[dx].handle->ni, &dir, path);
+		status = sa_pathsearch(ap->domain[dx].handle, &dir, path);
 		syslock_unlock(rpcLock);
 		if (status != NI_OK) continue;
 
 		NI_INIT(&idl);
 		syslock_lock(rpcLock);
-		status = ni_children(ap->domain[dx].handle->ni, &dir, &idl);
+		status = sa_children(ap->domain[dx].handle, &dir, &idl);
 		syslock_unlock(rpcLock);
 		if (status != NI_OK) continue;
 		
@@ -478,7 +491,7 @@ NI_query_all(agent_private *ap, char *path, int single_item, dsrecord *pattern, 
 
 			NI_INIT(&pl);
 			syslock_lock(rpcLock);
-			status = ni_read(ap->domain[dx].handle->ni, &dir, &pl);
+			status = sa_read(ap->domain[dx].handle, &dir, &pl);
 			syslock_unlock(rpcLock);
 			if (status != NI_OK) continue;
 
@@ -546,17 +559,18 @@ NI_query_lookup(agent_private *ap, char *path, int single_item, u_int32_t where,
 	{
 		NI_INIT(&dir);
 		syslock_lock(rpcLock);
-		status = ni_pathsearch(ap->domain[dx].handle->ni, &dir, path);
+		status = sa_pathsearch(ap->domain[dx].handle, &dir, path);
 		syslock_unlock(rpcLock);
 		if (status != NI_OK) continue;
 
 		NI_INIT(&idl);
 		syslock_lock(rpcLock);
-		status = ni_lookup(ap->domain[dx].handle->ni, &dir, key, val, &idl);
+
+		status = sa_lookup(ap->domain[dx].handle, &dir, key, val, &idl);
 
 		if ((idl.ni_idlist_len == 0) && (try_realname == 1))
 		{
-			status = ni_lookup(ap->domain[dx].handle->ni, &dir, "realname", val, &idl);
+			status = sa_lookup(ap->domain[dx].handle, &dir, "realname", val, &idl);
 		}
 
 		syslock_unlock(rpcLock);
@@ -569,7 +583,7 @@ NI_query_lookup(agent_private *ap, char *path, int single_item, u_int32_t where,
 
 			NI_INIT(&pl);
 			syslock_lock(rpcLock);
-			status = ni_read(ap->domain[dx].handle->ni, &dir, &pl);
+			status = sa_read(ap->domain[dx].handle, &dir, &pl);
 			syslock_unlock(rpcLock);
 			if (status != NI_OK) continue;
 
@@ -609,21 +623,21 @@ u_int32_t
 NI_query(void *c, dsrecord *pattern, dsrecord **list)
 {
 	agent_private *ap;
-	u_int32_t cat, i, wname, wkey;
+	u_int32_t cat, i, wname, wkey, status;
 	dsattribute *a;
 	dsdata *k;
-	int single_item = 0;
-	char *path;
+	int single_item, stamp;
+	char *path, *str, *catname;
 
 	if (c == NULL) return 1;
 	if (pattern == NULL) return 1;
 	if (list == NULL) return 1;
 
 	*list = NULL;
+	single_item = 0;
+	stamp = 0;
 
 	ap = (agent_private *)c;
-
-	if (ap->domain_count == 0) return 1;
 
 	/* Determine the category */
 	k = cstring_to_dsdata(CATEGORY_KEY);
@@ -634,18 +648,53 @@ NI_query(void *c, dsrecord *pattern, dsrecord **list)
 	if (a->count == 0) return 1;
 	dsrecord_remove_attribute(pattern, a, SELECT_META_ATTRIBUTE);
 
-	cat = atoi(dsdata_to_cstring(a->value[0]));
+	catname = dsdata_to_cstring(a->value[0]);
+	if (catname == NULL) return 1;
+
+	str = NULL;
+	if (catname[0] == '/')
+	{
+		cat = -1;
+		str = catname;
+	}
+	else
+	{
+		cat = atoi(catname);
+
+		str = pathForCategory[cat];
+		if (str == NULL)
+		{
+			dsattribute_release(a);
+			return 1;
+		}
+	}
+
+	path = strdup(str);
 	dsattribute_release(a);
 
-	path = pathForCategory[cat];
-	if (path == NULL) return 1;
-
-	if ((ap->domain[ap->domain_count - 1].flags & CLIMB_TO_ROOT) != 0)
+	if ((ap->domain_count == 0) || ((ap->domain[ap->domain_count - 1].flags & CLIMB_TO_ROOT) != 0))
 	{
 		/* Re-check the (current) top-level domain for a parent */
 		NI_climb_to_root(ap);
 	}
-	
+
+	if (ap->domain_count == 0)
+	{
+		free(path);
+		return 1;
+	}
+
+	/* Check if the caller desires a validation stamp */
+	k = cstring_to_dsdata(STAMP_KEY);
+	a = dsrecord_attribute(pattern, k, SELECT_META_ATTRIBUTE);
+	dsdata_release(k);
+	if (a != NULL)
+	{
+		dsrecord_remove_attribute(pattern, a, SELECT_META_ATTRIBUTE);
+		stamp = 1;
+	}
+	dsattribute_release(a);
+
 	/* Check if the caller desires a single record */
 	k = cstring_to_dsdata(SINGLE_KEY);
 	a = dsrecord_attribute(pattern, k, SELECT_META_ATTRIBUTE);
@@ -658,9 +707,11 @@ NI_query(void *c, dsrecord *pattern, dsrecord **list)
 	dsattribute_release(a);
 
 	/* Check the pattern */
-	if (pattern->count == 0)
+	if ((pattern->count == 0) || (stamp == 1))
 	{
-		return NI_query_all(ap, path, single_item, pattern, list);
+		status = NI_query_all(ap, path, single_item, stamp, pattern, list);
+		free(path);
+		return status;
 	}
 
 	wkey = IndexNull;
@@ -682,8 +733,12 @@ NI_query(void *c, dsrecord *pattern, dsrecord **list)
 
 	if (wkey == IndexNull)
 	{
-		return NI_query_all(ap, path, single_item, pattern, list);
+		status = NI_query_all(ap, path, single_item, stamp, pattern, list);
+		free(path);
+		return status;
 	}
 
-	return NI_query_lookup(ap, path, single_item, wkey, pattern, list);
+	status = NI_query_lookup(ap, path, single_item, wkey, pattern, list);
+	free(path);
+	return status;
 }

@@ -1,4 +1,4 @@
-/* Copyright (c) 1993-2000
+/* Copyright (c) 1993-2002
  *      Juergen Weigert (jnweiger@immd4.informatik.uni-erlangen.de)
  *      Michael Schroeder (mlschroe@immd4.informatik.uni-erlangen.de)
  * Copyright (c) 1987 Oliver Laumann
@@ -19,7 +19,7 @@
  * 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA
  *
  ****************************************************************
- * RCS_ID("$Id: acls.h,v 1.1.1.1 2001/12/14 22:08:28 bbraun Exp $ FAU")
+ * RCS_ID("$Id: acls.h,v 1.1.1.2 2003/03/19 21:16:18 landonf Exp $ FAU")
  */
 
 #ifdef MULTIUSER
@@ -55,6 +55,18 @@ struct aclusergroup
  */
 
 /*
+ * a copy buffer
+ */
+struct plop
+{
+  char *buf;
+  int len;
+#ifdef ENCODINGS
+  int enc;
+#endif
+};
+
+/*
  * A User has a list of groups, and points to other users.  
  * users is the User entry of the session owner (creator)
  * and anchors all other users. Add/Delete users there.
@@ -69,8 +81,7 @@ typedef struct acluser
   int  u_detachotherwin;	/* window that was "other" when he detached */
   int  u_Esc, u_MetaEsc;	/* the users screen escape character */
 #ifdef COPY_PASTE
-  char  *u_copybuffer;
-  int   u_copylen;
+  struct plop u_plop;
 #endif
 #ifdef MULTIUSER
   int u_id;			/* a uniq index in the bitfields. */

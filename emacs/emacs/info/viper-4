@@ -826,19 +826,19 @@ Key Index
 
 * Menu:
 
-* "<a-z1-9>p:                            Appending Text.
-* "<a-z1-9>P:                            Appending Text.
-* "<a-z1-9>p:                            Yanking.
 * "<a-z1-9>P:                            Yanking.
-* "<A-Z>y<move>:                         Yanking.
+* "<a-z1-9>p:                            Yanking.
+* "<a-z1-9>P:                            Appending Text.
+* "<a-z1-9>p:                            Appending Text.
 * "<a-z>y<move>:                         Yanking.
+* "<A-Z>y<move>:                         Yanking.
 * #:                                     New Commands.
-* #c<move>:                              New Commands.
-* #C<move> <1>:                          New Commands.
-* #C<move>:                              Changing Text.
 * #c<move>:                              Changing Text.
-* #g<move> <1>:                          Search and Replace.
-* #g<move> <2>:                          Mapping.
+* #C<move> <1>:                          Changing Text.
+* #C<move>:                              New Commands.
+* #c<move>:                              New Commands.
+* #g<move> <1>:                          Mapping.
+* #g<move> <2>:                          Search and Replace.
 * #g<move>:                              New Commands.
 * #q<move>:                              New Commands.
 * #q<move> :                             Changing Text.
@@ -848,22 +848,22 @@ Key Index
 * %:                                     Move Commands.
 * & <1>:                                 Search and Replace.
 * &:                                     Changing Text.
-* '' <1>:                                Move Commands.
-* '':                                    Marking.
-* '<a-z> <1>:                            Move Commands.
-* '<a-z>:                                Marking.
+* '' <1>:                                Marking.
+* '':                                    Move Commands.
+* '<a-z> <1>:                            Marking.
+* '<a-z>:                                Move Commands.
 * (:                                     Move Commands.
 * ):                                     Move Commands.
-* * <1>:                                 New Commands.
-* *:                                     Mapping.
+* * <1>:                                 Mapping.
+* *:                                     New Commands.
 * +:                                     Move Commands.
 * ,:                                     Move Commands.
 * -:                                     Move Commands.
-* . <1>:                                 Appending Text.
-* .:                                     Undoing.
+* . <1>:                                 Undoing.
+* .:                                     Appending Text.
 * /<cr>:                                 Move Commands.
-* /<string> <1>:                         Move Commands.
-* /<string>:                             Search and Replace.
+* /<string> <1>:                         Search and Replace.
+* /<string>:                             Move Commands.
 * 0:                                     Move Commands.
 * ;:                                     Move Commands.
 * <<:                                    Deleting Text.
@@ -881,30 +881,30 @@ Key Index
 * ><move>:                               Appending Text.
 * >>:                                    Appending Text.
 * ?<cr>:                                 Move Commands.
-* ?<string> <1>:                         Move Commands.
-* ?<string>:                             Search and Replace.
+* ?<string> <1>:                         Search and Replace.
+* ?<string>:                             Move Commands.
 * @!:                                    New Commands.
 * @!<a-z>:                               Mapping.
 * @# <1>:                                Mapping.
 * @#:                                    New Commands.
-* @<a-z> <1>:                            New Commands.
-* @<a-z>:                                Mapping.
+* @<a-z> <1>:                            Mapping.
+* @<a-z>:                                New Commands.
 * @@:                                    Mapping.
 * [<a-z> <1>:                            Mapping.
-* [<a-z> <2>:                            New Commands.
-* [<a-z> <3>:                            Yanking.
-* [<a-z> <4>:                            Appending Text.
-* [<a-z>:                                Move Commands.
+* [<a-z> <2>:                            Yanking.
+* [<a-z> <3>:                            Appending Text.
+* [<a-z> <4>:                            Move Commands.
+* [<a-z>:                                New Commands.
 * [[:                                    Move Commands.
-* [] <1>:                                New Commands.
-* []:                                    Move Commands.
+* [] <1>:                                Move Commands.
+* []:                                    New Commands.
 * \:                                     New Commands.
 * \&:                                    Changing Text.
-* ]<a-z> <1>:                            New Commands.
-* ]<a-z> <2>:                            Mapping.
+* ]<a-z> <1>:                            Mapping.
+* ]<a-z> <2>:                            Yanking.
 * ]<a-z> <3>:                            Appending Text.
-* ]<a-z> <4>:                            Yanking.
-* ]<a-z>:                                Move Commands.
+* ]<a-z> <4>:                            Move Commands.
+* ]<a-z>:                                New Commands.
 * ]]:                                    Move Commands.
 * ^:                                     Move Commands.
 * `<a-z> <1>:                            Marking.
@@ -916,24 +916,24 @@ Key Index
 * b:                                     Move Commands.
 * B:                                     Move Commands.
 * C:                                     Changing Text.
-* C-\ <1>:                               Vi State.
-* C-\:                                   Emacs Related Commands.
-* C-] <1>:                               Vi State.
-* C-]:                                   New Commands.
+* C-\ <1>:                               Emacs Related Commands.
+* C-\:                                   Vi State.
+* C-] <1>:                               New Commands.
+* C-]:                                   Vi State.
 * C-^:                                   File and Buffer Handling.
 * C-b:                                   Display.
-* C-c <1>:                               Vi State.
-* C-c:                                   New Commands.
-* C-c / <1>:                             New Commands.
-* C-c / <2>:                             Vi State.
-* C-c /:                                 Move Commands.
+* C-c <1>:                               New Commands.
+* C-c:                                   Vi State.
+* C-c / <1>:                             Move Commands.
+* C-c / <2>:                             New Commands.
+* C-c /:                                 Vi State.
 * C-c C-g:                               New Commands.
 * C-c M-n <1>:                           Changing Text.
-* C-c M-n <2>:                           New Commands.
-* C-c M-n:                               Appending Text.
+* C-c M-n <2>:                           Appending Text.
+* C-c M-n:                               New Commands.
 * C-c M-p <1>:                           Changing Text.
-* C-c M-p <2>:                           New Commands.
-* C-c M-p:                               Appending Text.
+* C-c M-p <2>:                           Appending Text.
+* C-c M-p:                               New Commands.
 * C-c\:                                  Emacs Related Commands.
 * C-d:                                   Display.
 * C-e:                                   Display.
@@ -947,8 +947,8 @@ Key Index
 * C-p:                                   Move Commands.
 * C-u <1>:                               Display.
 * C-u:                                   Editing in Insert State.
-* C-v <1>:                               New Commands.
-* C-v:                                   Editing in Insert State.
+* C-v <1>:                               Editing in Insert State.
+* C-v:                                   New Commands.
 * C-w:                                   Editing in Insert State.
 * C-x <1>:                               New Commands.
 * C-x:                                   Vi State.
@@ -969,19 +969,19 @@ Key Index
 * dd:                                    Deleting Text.
 * e:                                     Move Commands.
 * E:                                     Move Commands.
-* F<char>:                               Move Commands.
 * f<char>:                               Move Commands.
+* F<char>:                               Move Commands.
 * G:                                     Move Commands.
 * g<move>:                               Search and Replace.
 * h:                                     Move Commands.
 * H:                                     Move Commands.
-* i <1>:                                 States in Viper.
-* i:                                     Appending Text.
-* j:                                     Move Commands.
+* i <1>:                                 Appending Text.
+* i:                                     States in Viper.
 * J:                                     Changing Text.
+* j:                                     Move Commands.
 * k:                                     Move Commands.
-* L:                                     Move Commands.
 * l:                                     Move Commands.
+* L:                                     Move Commands.
 * M:                                     Move Commands.
 * m,:                                    Marking.
 * M-n:                                   New Commands.
@@ -989,48 +989,48 @@ Key Index
 * M-y:                                   Emacs Related Commands.
 * m.:                                    Marking.
 * m<:                                    Marking.
-* m<a-z> <1>:                            Marking.
-* m<a-z> <2>:                            Move Commands.
-* m<a-z>:                                Yanking.
+* m<a-z> <1>:                            Yanking.
+* m<a-z> <2>:                            Marking.
+* m<a-z>:                                Move Commands.
 * m>:                                    Marking.
 * m^:                                    Marking.
 * meta button1up:                        Mouse-bound Commands.
 * meta button2up:                        Mouse-bound Commands.
 * meta shift button1up:                  Viper Specials.
 * meta shift button2up:                  Viper Specials.
-* n:                                     Move Commands.
-* N:                                     Search and Replace.
 * n:                                     Search and Replace.
+* N:                                     Search and Replace.
+* n:                                     Move Commands.
 * N:                                     Move Commands.
 * o:                                     Appending Text.
 * O:                                     Appending Text.
 * p:                                     Yanking.
-* P:                                     Appending Text.
-* p:                                     Appending Text.
 * P:                                     Yanking.
+* p:                                     Appending Text.
+* P:                                     Appending Text.
 * Q <1>:                                 Search and Replace.
 * Q:                                     New Commands.
 * R:                                     Changing Text.
 * r<char>:                               Changing Text.
-* S:                                     Changing Text.
 * s:                                     Changing Text.
+* S:                                     Changing Text.
 * S-Mouse-1 <1>:                         Mouse-bound Commands.
 * S-Mouse-1:                             Viper Specials.
-* S-Mouse-2 <1>:                         Viper Specials.
-* S-Mouse-2:                             Mouse-bound Commands.
+* S-Mouse-2 <1>:                         Mouse-bound Commands.
+* S-Mouse-2:                             Viper Specials.
 * t<char>:                               Move Commands.
 * T<char>:                               Move Commands.
+* u:                                     Undoing.
 * U:                                     Undoing.
-* u <1>:                                 Undoing.
 * u:                                     Vi State.
+* V:                                     File and Buffer Handling.
 * v:                                     File and Buffer Handling.
-* V <1>:                                 File and Buffer Handling.
 * V:                                     New Commands.
 * v:                                     New Commands.
-* W:                                     Move Commands.
 * w:                                     Move Commands.
-* X:                                     Deleting Text.
+* W:                                     Move Commands.
 * x:                                     Deleting Text.
+* X:                                     Deleting Text.
 * Y:                                     Yanking.
 * y<move>:                               Yanking.
 * yank:                                  Yanking.
@@ -1083,23 +1083,23 @@ Function Index
 * :move [z]:                             Changing Text.
 * :n:                                    New Commands.
 * :n [<count> | <file>]:                 File and Buffer Handling.
-* :pre <1>:                              New Commands.
-* :pre:                                  File and Buffer Handling.
+* :pre <1>:                              File and Buffer Handling.
+* :pre:                                  New Commands.
 * :PreviousRelatedFile <1>:              Viper Specials.
 * :PreviousRelatedFile:                  New Commands.
-* :pwd <1>:                              New Commands.
-* :pwd:                                  File and Buffer Handling.
+* :pwd <1>:                              File and Buffer Handling.
+* :pwd:                                  New Commands.
 * :q:                                    File and Buffer Handling.
-* :q! <1>:                               Undoing.
-* :q!:                                   File and Buffer Handling.
+* :q! <1>:                               File and Buffer Handling.
+* :q!:                                   Undoing.
 * :quit:                                 File and Buffer Handling.
 * :quit!:                                File and Buffer Handling.
 * :r:                                    File and Buffer Handling.
 * :read:                                 File and Buffer Handling.
-* :rec <1>:                              Undoing.
-* :rec:                                  File and Buffer Handling.
-* :RelatedFile <1>:                      New Commands.
-* :RelatedFile:                          Viper Specials.
+* :rec <1>:                              File and Buffer Handling.
+* :rec:                                  Undoing.
+* :RelatedFile <1>:                      Viper Specials.
+* :RelatedFile:                          New Commands.
 * :rew:                                  File and Buffer Handling.
 * :s/<pat>/<repl>/<f>:                   Changing Text.
 * :set:                                  Rudimentary Changes.
@@ -1161,8 +1161,8 @@ Function Index
 * viper-buffer-search-enable:            Viper Specials.
 * viper-describe-kbd-macros:             Vi Macros.
 * viper-glob-function:                   Rudimentary Changes.
-* viper-go-away <1>:                     States in Viper.
-* viper-go-away:                         Viper Specials.
+* viper-go-away <1>:                     Viper Specials.
+* viper-go-away:                         States in Viper.
 * viper-harness-minor-mode:              Packages that Change Keymaps.
 * viper-mode:                            Packages that Change Keymaps.
 * viper-modify-major-mode:               Key Bindings.
@@ -1194,8 +1194,8 @@ Variable Index
 * viper-always <1>:                      Packages that Change Keymaps.
 * viper-always:                          Rudimentary Changes.
 * viper-auto-indent:                     Rudimentary Changes.
-* viper-buffer-search-char <1>:          Rudimentary Changes.
-* viper-buffer-search-char:              Viper Specials.
+* viper-buffer-search-char <1>:          Viper Specials.
+* viper-buffer-search-char:              Rudimentary Changes.
 * viper-case-fold-search:                Rudimentary Changes.
 * viper-command-ring-size:               Viper Specials.
 * viper-custom-file-name:                Rudimentary Changes.
@@ -1231,15 +1231,15 @@ Variable Index
 * viper-replace-region-end-symbol:       Rudimentary Changes.
 * viper-replace-region-start-symbol:     Rudimentary Changes.
 * viper-replace-state-hook:              Rudimentary Changes.
-* viper-search-face <1>:                 Improved Search.
-* viper-search-face:                     Rudimentary Changes.
+* viper-search-face <1>:                 Rudimentary Changes.
+* viper-search-face:                     Improved Search.
 * viper-search-scroll-threshold:         Rudimentary Changes.
 * viper-search-wrap-around:              Rudimentary Changes.
 * viper-shift-width:                     Rudimentary Changes.
 * viper-slash-and-colon-map:             Viper Specials.
 * viper-smart-suffix-list:               Viper Specials.
-* viper-spell-function <1>:              New Commands.
-* viper-spell-function:                  Rudimentary Changes.
+* viper-spell-function <1>:              Rudimentary Changes.
+* viper-spell-function:                  New Commands.
 * viper-surrounding-word-function:       Rudimentary Changes.
 * viper-syntax-preference <1>:           Groundwork.
 * viper-syntax-preference:               Movement and Markers.
@@ -1250,8 +1250,8 @@ Variable Index
 * viper-vi-state-mode-list:              Packages that Change Keymaps.
 * viper-vi-style-in-minibuffer:          Rudimentary Changes.
 * viper-want-ctl-h-help:                 Rudimentary Changes.
-* viper-want-emacs-keys-in-insert <1>:   Rudimentary Changes.
-* viper-want-emacs-keys-in-insert:       Packages that Change Keymaps.
+* viper-want-emacs-keys-in-insert <1>:   Packages that Change Keymaps.
+* viper-want-emacs-keys-in-insert:       Rudimentary Changes.
 * viper-want-emacs-keys-in-vi <1>:       Packages that Change Keymaps.
 * viper-want-emacs-keys-in-vi:           Rudimentary Changes.
 

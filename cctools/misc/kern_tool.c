@@ -3,8 +3,6 @@
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
- * Copyright (c) 1999-2003 Apple Computer, Inc.  All Rights Reserved.
- * 
  * This file contains Original Code and/or Modifications of Original Code
  * as defined in and that are subject to the Apple Public Source License
  * Version 2.0 (the 'License'). You may not use this file except in
@@ -196,7 +194,8 @@ int argc,
 char **argv,
 char **envp)
 {
-    unsigned long i, j;
+    int i;
+    unsigned long j;
     struct arch_flag *arch_flags;
     unsigned long narch_flags;
     enum bool all_archs;
@@ -301,8 +300,8 @@ char **envp)
 	    }
 	}
 
-	for(i = 0; i < cmd_flags.nfiles; i++)
-	    ofile_process(files[i], arch_flags, narch_flags, all_archs, FALSE,
+	for(j = 0; j < cmd_flags.nfiles; j++)
+	    ofile_process(files[j], arch_flags, narch_flags, all_archs, FALSE,
 			  FALSE, TRUE, nm, &cmd_flags);
 	if(cmd_flags.nfiles == 0)
 	    ofile_process("a.out",  arch_flags, narch_flags, all_archs, FALSE,
@@ -564,7 +563,7 @@ void *cookie)
 		if(symbols[i].n_un.n_strx == 0)
 		    symbols[i].n_un.n_name = "";
 		else if(symbols[i].n_un.n_strx < 0 ||
-			symbols[i].n_un.n_strx > st->strsize)
+			(unsigned long)symbols[i].n_un.n_strx > st->strsize)
 		    symbols[i].n_un.n_name = "bad string index";
 		else
 		    symbols[i].n_un.n_name = symbols[i].n_un.n_strx + strings;

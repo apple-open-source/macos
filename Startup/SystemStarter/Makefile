@@ -34,7 +34,7 @@ PROF_LIBS = $(LIBS)
 
 
 FRAMEWORK_PATHS = -F/System/Library/PrivateFrameworks
-NEXTSTEP_PB_CFLAGS = -traditional-cpp -Wall -Werror
+NEXTSTEP_PB_CFLAGS = -Wall -Werror
 FRAMEWORKS = -framework CoreFoundation
 
 

@@ -1,0 +1,254 @@
+body {
+  margin: 0;
+  font-family: "verdana", "tahoma", "arial", "helvetica", sans-serif;
+  font-size: 9pt;
+}
+
+td.logo {
+  background-color: #ffffff;
+  border-style: none;
+}
+
+td.nil {
+  font-size: 1px;
+}
+
+td.head {
+  background-color: #999999;
+  border-style: solid;
+  border-width: 1px;
+  border-color: #cccccc #666666 #666666 #cccccc;
+  font-weight: bold;
+  font-size: smaller;
+  color: #cccccc;
+  padding: 2px;
+  text-align: right;
+}
+
+a.head:link {
+  text-decoration: none;
+  color: #cccccc;
+}
+
+a.head:visited {
+  text-decoration: none;
+  color: #cccccc;
+}
+
+a.head:active {
+  text-decoration: underline;
+  color: #ffffff;
+}
+
+a.head:hover {
+  text-decoration: underline;
+  color: #ffffff;
+}
+
+table.menu {
+  background-color: #cccccc;
+  border-style: solid;
+  border-width: 1px;
+  border-color: #cccccc #999999 #999999 #999999;
+  font-weight: bold;
+  font-size: smaller;
+  color: #000000;
+  padding: 2px;
+  text-align: left;
+  margin-left: 5px;
+}
+
+a.menu:link {
+  text-decoration: none;
+  color: #333333;
+}
+
+a.menu:visited {
+  text-decoration: none;
+  color: #333333;
+}
+
+a.menu:active {
+  text-decoration: underline;
+  color: #000000;
+}
+
+a.menu:hover {
+  text-decoration: underline;
+  color: #000000;
+}
+
+td.body {
+  background-color: #ffffff;
+  border-style: none;
+  padding: 4px;
+  text-align: justify;
+}
+
+td.section {
+  background-color: #525D76;
+  border-style: none;
+  font-weight: bold;
+  font-size: bigger;
+  color: #ffffff;
+  padding: 1px;
+  text-align: left;
+}
+
+td.subsection {
+  background-color: #525D76;
+  border-style: none;
+  font-weight: bold;
+  font-size: smaller;
+  color: #ffffff;
+  padding: 0px;
+  text-align: left;
+}
+
+p.section {
+  background-color: #ffffff;
+  border-style: none;
+  color: #000000;
+  margin-left: 20px;
+  margin-right: 10px;
+  text-align: justify;
+}
+
+pre.section {
+   margin-left: 20px;
+}
+
+td.section {
+  background-color: #828DA6;
+  border-style: none;
+  font-weight: bold;
+  font-size: bigger;
+  color: #ffffff;
+  padding: 0px;
+  text-align: left;
+}
+
+p.todo {
+  background-color: #ffffff;
+  border-style: none;
+  color: #000000;
+  margin-left: 20px;
+  margin-right: 10px;
+  text-align: justify;
+  font-size: smaller;
+}
+
+p.screen {
+  background-color: #ffffff;
+  border-style: none;
+  color: #000000;
+  margin-left: 10px;
+  margin-right: 0px;
+  text-align: left;
+}
+
+code.screen {
+  background-color: #cccccc;
+  border-style: none;
+  color: #000000;
+  margin-left: 10px;
+  margin-right: 0px;
+  text-align: left;
+}
+
+p.screendos {
+  background-color: #000000;
+  border-style: none;
+  color: #c0c0c0;
+  margin-left: 10px;
+  margin-right: 0px;
+  text-align: left;
+}
+
+code.screendos {
+  background-color: #000000;
+  border-style: none;
+  color: #c0c0c0;
+  margin-left: 10px;
+  margin-right: 0px;
+  text-align: left;
+}
+
+p.screen5250 {
+  background-color: #000000;
+  border-style: none;
+  color: #00ff00;
+  margin-left: 10px;
+  margin-right: 0px;
+  text-align: left;
+}
+
+code.screen5250 {
+  background-color: #000000;
+  border-style: none;
+  color: #00ff00;
+  margin-left: 10px;
+  margin-right: 0px;
+  text-align: left;
+}
+
+div.screen {
+  margin: 10px 0px 10px 20px;
+  font-size: smaller;
+  color: #666666;
+}
+
+div.screendos {
+  margin: 10px 0px 10px 20px;
+  font-size: smaller;
+  color: #ffffff;
+}
+
+div.screen5250 {
+  margin: 10px 0px 10px 20px;
+  font-size: smaller;
+  color: #66ff66;
+}
+
+em.screen {
+  font-weight: normal;
+  font-style: normal;
+  color: #666666;
+}
+
+em.screendos {
+  font-weight: normal;
+  font-style: normal;
+  color: #c0c0c0;
+}
+
+em.screen5250 {
+  font-weight: normal;
+  font-style: normal;
+  color: #00ff00;
+}
+
+b.screen {
+  font-weight: normal;
+  font-style: normal;
+  color: #0000ff;
+}
+
+b.screendos {
+  font-weight: normal;
+  font-style: normal;
+  color: #c0c0c0;
+}
+
+b.screen5250 {
+  font-weight: normal;
+  font-style: normal;
+  color: #00ff00;
+}
+
+b.code {
+  font-weight: normal;
+  font-style: normal;
+  color: #023264;
+}
+

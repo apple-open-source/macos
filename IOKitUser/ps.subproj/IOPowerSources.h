@@ -30,47 +30,60 @@
 #ifndef _IOKIT_IOPOWERSOURCES_H
 #define _IOKIT_IOPOWERSOURCES_H
 
+/*! 
+    @header IOPowerSources.h
+    IOPowerSources provides uniform access to the state of power sources attached to the system.
+    You can receive a change notification when any power source data changes.
+    "Power sources" currently include batteries and UPS devices.<br>
+    The header follows CF semantics in that it is the caller's responsibility to CFRelease() anything
+    returned by a "Copy" function, and the caller should not CFRelease() anything returned by a "Get" function.
+*/
+
 typedef void  (*IOPowerSourceCallbackType)(void *context);
 
-/***
- Returns a blob of Power Source information in an opaque CFTypeRef. Clients should
- not actually look directly at data in the CFTypeRef - they should use the accessor
- functions IOPSCopyPowerSourcesList and IOPSGetPowerSourceDescription, instead.
- Returns NULL if errors were encountered.
- Return: Caller must CFRelease() the return value when done.
-***/
+/*! @function IOPSCopyPowerSourcesInfo
+    @abstract Returns a blob of Power Source information in an opaque CFTypeRef. 
+    @discussion Clients should not directly access data in the returned CFTypeRef - 
+        they should use the accessor functions IOPSCopyPowerSourcesList and 
+        IOPSGetPowerSourceDescription, instead.
+    @result NULL if errors were encountered, a CFTypeRef otherwise.
+        Caller must CFRelease() the return value when done accessing it.
+*/
 CFTypeRef IOPSCopyPowerSourcesInfo(void);
 
-/***
- Arguments - Takes the CFTypeRef returned by IOPSCopyPowerSourcesInfo()
- Returns a CFArray of Power Source handles, each of type CFTypeRef.
- The caller shouldn't look directly at the CFTypeRefs, but should use
- IOPSGetPowerSourceDescription on each member of the CFArrayRef.
- Returns NULL if errors were encountered.
- Return: Caller must CFRelease() the returned CFArrayRef.
-***/
-CFArrayRef IOPSCopyPowerSourcesList(CFTypeRef);
+/*! @function IOPSCopyPowerSourcesList
+    @abstract Returns a CFArray of Power Source handles, each of type CFTypeRef.
+    @discussion  The caller shouldn't directly access the CFTypeRefs, but should use
+        IOPSGetPowerSourceDescription on each member of the CFArrayRef.
+    @param  blob Takes the CFTypeRef returned by IOPSCopyPowerSourcesInfo()
+    @result Returns NULL if errors were encountered, otherwise a CFArray of CFTypeRefs.
+        Caller must CFRelease() the returned CFArrayRef.
+*/
+CFArrayRef IOPSCopyPowerSourcesList(CFTypeRef blob);
 
-/***
- Arguments -
- 1) The CFTypeRef returned by IOPSCopyPowerSourcesInfo
- 2) One of the CFTypeRefs in the CFArray returned by IOPSCopyPowerSourcesList
+/*! @function IOPSGetPowerSourceDescription
+    
+    @abstract Returns a CFDictionary with readable information about the specific power source.
+    @discussion See the C-strings defined in IOPSKeys.h for specific keys into the dictionary.
+        Don't expect all keys to be present in any dictionary. Some power sources, for example,
+        may not support the "Time Remaining To Empty" key and it will not be present in their dictionaries.
+    @param blob The CFTypeRef returned by IOPSCopyPowerSourcesInfo()
+    @param ps One of the CFTypeRefs in the CFArray returned by IOPSCopyPowerSourcesList()
+    @result Returns NULL if an error was encountered, otherwise a CFDictionary. Caller should 
+        NOT release the returned CFDictionary - it will be released as part of the CFTypeRef returned by
+        IOPSCopyPowerSourcesInfo().
+*/
+CFDictionaryRef IOPSGetPowerSourceDescription(CFTypeRef blob, CFTypeRef ps);
 
- Returns a CFDictionary with specific information about the power source.
- See IOPSKeys.h for keys and the meaning of specific fields.
- Return: Caller should NOT CFRelease() the returned CFDictionaryRef
-***/
-CFDictionaryRef IOPSGetPowerSourceDescription(CFTypeRef, CFTypeRef);
-
-/***
- Returns a CFRunLoopSourceRef that notifies the caller when power source
- information changes.
- Arguments:
-    IOPowerSourceCallbackType callback - A function to be called whenever any power source is added, removed, or changes
-    void *context - Any user-defined pointer, passed to the IOPowerSource callback.
- Returns NULL if there were any problems.
- Caller must CFRelease() the returned value.
-***/
+/*! @function IOPSNotificationCreateRunLoopSource
+    
+    @abstract  Returns a CFRunLoopSourceRef that notifies the caller when power source
+        information changes.
+    @param callback A function to be called whenever any power source is added, removed, or changes.
+    @param context Any user-defined pointer, passed to the IOPowerSource callback.
+    @result Returns NULL if an error was encountered, otherwise a CFRunLoopSource. Caller must
+        release the CFRunLoopSource.
+*/
 CFRunLoopSourceRef IOPSNotificationCreateRunLoopSource(IOPowerSourceCallbackType, void *);
 
 #endif /* _IOKIT_IOPOWERSOURCES_H */

@@ -1,5 +1,5 @@
 /*
- * Copyright 1998-2002 The OpenLDAP Foundation, All Rights Reserved.
+ * Copyright 1998-2003 The OpenLDAP Foundation, All Rights Reserved.
  * COPYING RESTRICTIONS APPLY, see COPYRIGHT file
  */
 /* Adapted for inclusion into OpenLDAP by Kurt D. Zeilenga */
@@ -15,6 +15,10 @@
  * PUBLIC LICENSE, OR OTHER PRIOR WRITTEN CONSENT FROM NOVELL, COULD SUBJECT
  * THE PERPETRATOR TO CRIMINAL AND CIVIL LIABILITY.
  *---*/
+/* Note: A verbatim copy of version 2.0.1 of the OpenLDAP Public License
+ * can be found in the file "build/LICENSE-2.0.1" in this distribution
+ * of OpenLDAP Software.
+ */
 
 #include "portable.h"
 
@@ -79,10 +83,10 @@ ldap_create_vlv_control( LDAP *ld,
 	ber_tag_t tag;
 	BerElement *ber;
 
-	if ( (ld==NULL) || (vlvinfop==NULL) || (ctrlp == NULL) ) {
-		ld->ld_errno =  LDAP_PARAM_ERROR;
-		return(ld->ld_errno);
-	}
+	assert( ld != NULL );
+	assert( LDAP_VALID( ld ) );
+	assert( vlvinfop != NULL );
+	assert( ctrlp != NULL );
 
 	if ((ber = ldap_alloc_ber_with_options(ld)) == NULL) {
 		ld->ld_errno = LDAP_NO_MEMORY;
@@ -203,13 +207,11 @@ ldap_parse_vlv_control(
 	ber_tag_t tag, berTag;
 	ber_len_t berLen;
 
+	assert( ld != NULL );
+	assert( LDAP_VALID( ld ) );
+
 	if (contextp) {
 		*contextp = NULL;	 /* Make sure we return a NULL if error occurs. */
-	}
-
-	if (ld == NULL) {
-		ld->ld_errno = LDAP_PARAM_ERROR;
-		return(ld->ld_errno);
 	}
 
 	if (ctrls == NULL) {

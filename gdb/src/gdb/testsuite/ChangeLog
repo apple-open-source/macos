@@ -1,3 +1,959 @@
+2003-01-22  Daniel Jacobowitz  <drow@mvista.com>
+
+	* gdb.exp (gdb_test_multiple): New function, cloned from
+	gdb_test.  Accept a list of expect arguments as the third
+	parameter.
+	(gdb_test): Use it.
+
+2003-01-20  Elena Zannoni  <ezannoni@redhat.com>
+
+	* gdb.arch/altivec-abi.exp: Set variable 'srcfile' differently, to
+	allow for different test tree configurations.  Update some
+	tescases accordingly.
+	* gdb.arch/altivec-regs.exp: Ditto.
+	* gdb.asm/asm-source.exp: Ditto.
+	* gdb.base/advance.exp: Ditto.
+	* gdb.base/display.exp: Ditto.
+	* gdb.base/long_long.exp: Ditto. 
+	* gdb.base/mips_pro.exp: Ditto.
+	* gdb.base/overlays.exp: Ditto.
+	* gdb.base/relocate.exp: Ditto.
+	* gdb.base/setshow.exp: Ditto.
+	* gdb.base/step-line.exp: Ditto.
+	* gdb.base/step-test.exp: Ditto.
+	* gdb.base/until.exp: Ditto.
+	* gdb.c++/virtfunc.exp: Get rid of variable 'src'.
+
+2003-01-17  David Carlton  <carlton@math.stanford.edu>
+
+	* gdb.c++/demangle.exp (test_lucid_style_demangling): KFAIL test
+	corresponding to PR c++/945.
+	Update copyright.
+
+2003-01-17  David Carlton  <carlton@math.stanford.edu>
+
+	* gdb.c++/inherit.exp (test_print_mi_members): KFAIL tests
+	corresponding to PR c++/68.
+
+2003-01-17  David Carlton  <carlton@math.stanford.edu>
+
+	* gdb.c++/cplusfuncs.exp (print_addr_2_kfail): New procedure.
+	(test_paddr_hairy_functions): Call print_addr_2_kfail for
+	hairyfunc5 through hairyfunc7.  KFAIL for PR c++/19.
+
+2003-01-15  Elena Zannoni  <ezannoni@redhat.com>
+
+	* gdb.base/break.exp: Fix change of default location, because of
+	removal of until tests.
+	* gdb.base/help.exp: Update test for new 'until' help message.
+	Add test for help on 'advance'.
+        * gdb.base/args.exp: Fix foobar with GDBFLAGS global.
+
+2003-01-15  Mark Kettenis  <kettenis@gnu.org>
+
+	* gdb.base/default.exp: Adapt "info float" test for recent changes
+	to that command.  Add test for "info vector".
+	* gdb.base/float.exp: New file.  Add test for "info float" that
+	resembles the old test in gdb.base/default.exp.
+
+2003-01-15  David Carlton  <carlton@math.stanford.edu>
+
+	* gdb.base/selftest.exp (do_steps_and_nexts): Allow gdb_sysroot.
+
+2003-01-15  Elena Zannoni  <ezannoni@redhat.com>
+
+	* gdb.base/break.exp: Move the tests of until command from here...
+	* gdb.base/until.exp: ... to here. New file. Add other tests.
+	* gdb.base/advance.c: New file.
+	* gdb.base/advance.exp: New file.
+
+2003-01-14  Elena Zannoni  <ezannoni@redhat.com>
+
+        * gdb.base/args.c: New file.
+        * gdb.base/args.exp: New file.
+
+2003-01-14  Daniel Jacobowitz  <drow@mvista.com>
+
+	* gdb.c++/virtfunc.exp: Remove fixed XFAIL.
+
+2003-01-14  Daniel Jacobowitz  <drow@mvista.com>
+
+	* gdb.threads/killed.exp: Use KFAIL for gdb/568.
+
+2003-01-14  Daniel Jacobowitz  <drow@mvista.com>
+
+	* gdb.base/constvars.exp: Remove two extra XFAILs.  Update copyright
+	dates.
+
+2003-01-13  Daniel Jacobowitz  <drow@mvista.com>
+
+	* gdb.c++/printmethod.exp (print virtual method): Accept "(void)".
+
+2003-01-13  Daniel Jacobowitz  <drow@mvista.com>
+
+	* gdb.base/printcmds.exp: Enable setup_kfail for gdb/538
+	(ptype &*"foo").
+	* gdb.c++/local.exp: Enable setup_kfail for gdb/482.
+
+2002-01-13  Daniel Jacobowitz  <drow@mvista.com>
+
+	* gdb.mi/mi-console.exp: Remove extra "(known bug)".
+	* gdb.mi/mi1-console.exp: Likewise.
+
+2002-01-13  Daniel Jacobowitz  <drow@mvista.com>
+
+	* gdb.mi/mi-console.exp: Add KFAIL for "Hello message (known bug)".
+	* gdb.mi/mi1-console.exp: Likewise.
+
+2003-01-13  Daniel Jacobowitz  <drow@mvista.com>
+
+	* gdb.c++/overload.exp: Remove some fixed XFAILs.
+
+2003-01-09  Daniel Jacobowitz  <drow@mvista.com>
+
+	* gdb.base/detach.exp: New test.
+
+2003-01-09  Daniel Jacobowitz  <drow@mvista.com>
+
+	* Makefile.in (ALL_SUBDIRS): New variable.
+	(subdirs, clean, distclean): Use it.
+	* gdb.arch/Makefile.in: Clean up Makefile.  Remove rules for
+	regenerating Makefile, since it is generated from the top level.
+	* gdb.asm/Makefile.in: Likewise.
+	* gdb.base/Makefile.in: Likewise.
+	* gdb.c++/Makefile.in: Likewise.
+	* gdb.disasm/Makefile.in: Likewise.
+	* gdb.java/Makefile.in: Likewise.
+	* gdb.mi/Makefile.in: Likewise.
+	* gdb.threads/Makefile.in: Likewise.
+	* gdb.trace/Makefile.in: Likewise.
+
+2003-01-09  David Carlton  <carlton@math.stanford.edu>
+
+	* gdb.c++/annota2.exp: KFAIL "watch triggered on a.x".
+	Add copyright year 2003.
+
+2003-01-06  Michael Chastain  <mec@shout.net>
+
+	* gdb.mi/mi-pthreads.exp (check_mi_thread_command_set):
+	When selecting a thread, 'line' and 'file' are optional.
+	* gdb.mi/mi1-pthreads.exp: Likewise.
+
+2003-01-06  Andreas Schwab  <schwab@suse.de>
+
+	* lib/gdb.exp: Set LC_ALL to "C" to avoid spurious testsuite
+	failures.
+
+2003-01-04  Daniel Jacobowitz  <drow@mvista.com>
+
+	Fix PR gdb/844
+	* lib/gdb.exp (gdb_compile): Handle "quiet" option.
+	(gdb_compile_pthreads): Pass "quiet" to gdb_compile.
+
+	* gdb.threads/gcore-thread.exp: Use gdb_compile_pthreads.  Return
+	instead of calling gdb_suppress_entire_file.
+	* gdb.threads/print-threads.exp: Likewise.
+	* gdb.threads/schedlock.exp: Likewise.
+
+	* gdb.threads/killed.exp: Return instead of calling
+	gdb_suppress_entire_file.
+	* gdb.threads/linux-dp.exp: Likewise.
+	* gdb.threads/pthreads.exp: Likewise.
+
+2003-01-04  Daniel Jacobowitz  <drow@mvista.com>
+
+	* gdb.base/callfuncs.exp: Don't XFAIL unprototyped functions for
+	stabs.
+	* gdb.base/completion.exp: Allow marker1(void) as well as marker1().
+	* gdb.base/whatis.exp: Always allow (void) after function names.
+
+2003-01-04  Daniel Jacobowitz  <drow@mvista.com>
+
+	* gdb.c++/casts.exp: Correct regexp.
+
+2003-01-04  Mark Kettenis  <kettenis@gnu.org>
+
+	* configure.in: Call AC_CONFIG_HEADER.  Don't call
+	AC_CONFIG_SUBDIRS on gdb.arch, gdb.asm, gdb.base gdb.c++ gdb.java,
+	gdb.disasm, gdb.mi, gdb.threads and gdb.trace.  Call
+	AC_CHECK_HEADERS on pthread.h.  Put Makefiles in the
+	aforementioned directories in the AC_OUPUT call.
+	* config.hin: New file.
+	* gdb.mi/gdb669.exp, gdb.mi/mi-pthreads.exp,
+	gdb.mi/mi1-pthreads.exp, gdb.threads/gcore-thread.exp,
+	gdb.threads/killed.exp, gdb.threads/print-threads.exp,
+	gdb.threads/pthreads.exp, gdb.threads/schedlock.exp: Make sure we
+	pass -I$objdir instead of -I$objdir/$subdir in compilation.
+	* gdb.arch/configure.in, gdb.arch/configure, gdb.asm/configure.in,
+	gdb.asm/configure, gdb.base/configure.in, gdb.base/configure,
+	gdb.c++/configure.in, gdb.c++/configure, gdb.disasm/configure.in,
+	gdb.disasm/configure, gdb.java/configure.in, gdb.java/configure,
+	gdb.mi/configure.in, gdb.mi/configure, gdb.mi/config.in,
+	gdb.threads/configure.in, gdb.threads/configure,
+	gdb.threads/config.in, gdb.trace/configure.in,
+	gdb.trace/configure: Removed.
+
+2003-01-03  Michael Chastain  <mec@shout.net>
+
+	* gdb.base/miscexprs.c: Fix PR gdb/697, "buglet in
+	testsuite/gdb.base/miscexprs.c, off-by-1 array reference".
+
+2003-01-03  Daniel Jacobowitz  <drow@mvista.com>
+
+	* gdb.base/store.exp: Fix regular expressions.
+
+2002-12-28  Mark Kettenis  <kettenis@gnu.org>
+
+	* configure.in: Rewrite.
+	* configure: Regenerated.
+
+2003-01-03  David Carlton  <carlton@math.stanford.edu>
+
+	* gdb.base/psymtab.exp: New file.
+	* gdb.base/psymtab1.c: Ditto.
+	* gdb.base/psymtab2.c: Ditto.
+
+2002-12-23  Adam Fedor  <fedor@gnu.org>
+
+	* gdb.base/maint.exp: Update expect output to include 'ObjC'.
+
+2002-12-23  David Carlton  <carlton@math.stanford.edu>
+
+	* gdb.base/selftest.exp (do_steps_and_nexts): Allow initial brace
+	and current_directory initialization.
+
+2002-12-22  Jim Blandy  <jimb@redhat.com>
+
+	* gdb.trace/tfind.exp: Pass '-O1' flag via the 'optimize' option,
+	rather than as part of the output file name.
+
+	* gdb.base/attach.exp: There's no need to copy the test program to
+	/tmp; that was only ever necessary on HP/UX, and this test is
+	entirely disabled there anyway.
+
+2002-12-21  Jim Blandy  <jimb@redhat.com>
+
+	* gdb.c++/psmang.exp: Doc fix.
+
+	* gdb.c++/psmang.exp, gdb.c++/psmang1.cc, gdb.c++/psmang2.cc: New
+	test.
+
+2002-12-20  David Carlton  <carlton@math.stanford.edu>
+
+	* gdb.c++/annota2.exp: KFAIL annotate-quit.
+
+2002-12-18  Michael Chastain  <mec@shout.net>
+
+	* gdb.c++/annota2.exp: Add copyright year 2002.
+
+2002-12-17  David Carlton  <carlton@math.stanford.edu>
+
+	* gdb.c++/try_catch.cc: Add marker comments.
+	* gdb.c++/try_catch.exp: Get line numbers from marker comments.
+	* gdb.c++/m-data.cc: Delete namespace __gnu_test.
+	* gdb.c++/m-static.cc: Ditto.
+	* gdb.c++/m-static1.cc: Ditto.
+	* gdb.c++/try_catch.cc: Ditto.
+
+2002-12-16  Jeff Johnston  <jjohnstn@redhat.com>
+
+	* lib/mi-support.exp (mi_reinitialize_dir): Check mi level
+	to see whether we are using the new -environment-directory
+	command which resets via -r or the old version of the command
+	which may prompt the user.  Part of fix for gdb/741.
+
+2002-12-13  Andrew Cagney  <ac131313@redhat.com>
+
+	* gdb.fortran/types.exp: Update obsolete comment.
+	* gdb.fortran/exprs.exp: Ditto.
+	* lib/gdb.exp: Delete obsolete code.
+	* gdb.chill/ChangeLog, gdb.chill/Makefile.in: Delete.
+	* gdb.chill/builtins.ch, gdb.chill/builtins.exp: Delete.
+	* gdb.chill/callch.ch, gdb.chill/callch.exp: Delete.
+	* gdb.chill/chexp.exp, gdb.chill/chillvars.ch: Delete.
+	* gdb.chill/chillvars.exp, gdb.chill/configure: Delete.
+	* gdb.chill/configure.in, gdb.chill/enum.ch: Delete.
+	* gdb.chill/enum.exp, gdb.chill/func1.ch: Delete.
+	* gdb.chill/gch1041.ch, gdb.chill/gch1041.exp: Delete.
+	* gdb.chill/gch1272.ch, gdb.chill/gch1272.exp: Delete.
+	* gdb.chill/gch1280.ch, gdb.chill/gch1280.exp: Delete.
+	* gdb.chill/gch922.ch, gdb.chill/gch922.exp: Delete.
+	* gdb.chill/gch981.ch, gdb.chill/gch981.exp: Delete.
+	* gdb.chill/misc.ch, gdb.chill/misc.exp: Delete.
+	* gdb.chill/powerset.ch, gdb.chill/powerset.exp: Delete.
+	* gdb.chill/pr-4975-grt.ch, gdb.chill/pr-4975.ch: Delete.
+	* gdb.chill/pr-4975.exp, gdb.chill/pr-5016.ch: Delete.
+	* gdb.chill/pr-5016.exp, gdb.chill/pr-5020.ch: Delete.
+	* gdb.chill/pr-5020.exp, gdb.chill/pr-5022.ch: Delete.
+	* gdb.chill/pr-5022.exp, gdb.chill/pr-5646-grt.ch: Delete.
+	* gdb.chill/pr-5646.ch, gdb.chill/pr-5646.exp: Delete.
+	* gdb.chill/pr-5984.ch, gdb.chill/pr-5984.exp: Delete.
+	* gdb.chill/pr-6292.ch, gdb.chill/pr-6292.exp: Delete.
+	* gdb.chill/pr-6632-grt.ch, gdb.chill/pr-6632.ch: Delete.
+	* gdb.chill/pr-6632.exp, gdb.chill/pr-8134.exp: Delete.
+	* gdb.chill/pr-8136.ch, gdb.chill/pr-8136.exp: Delete.
+	* gdb.chill/pr-8405.ch, gdb.chill/pr-8405.exp: Delete.
+	* gdb.chill/pr-8742.ch, gdb.chill/pr-8742.exp: Delete.
+	* gdb.chill/pr-8894-grt.ch, gdb.chill/pr-8894.ch: Delete.
+	* gdb.chill/pr-8894.exp, gdb.chill/pr-9095.ch: Delete.
+	* gdb.chill/pr-9095.exp, gdb.chill/pr-9946.ch: Delete.
+	* gdb.chill/pr-9946.exp, gdb.chill/result.ch: Delete.
+	* gdb.chill/result.exp, gdb.chill/string.ch: Delete.
+	* gdb.chill/string.exp, gdb.chill/tests1.ch: Delete.
+	* gdb.chill/tests1.exp, gdb.chill/tests2.ch: Delete.
+	* gdb.chill/tests2.exp, gdb.chill/tuples.ch: Delete.
+	* gdb.chill/tuples.exp, gdb.chill/xstruct-grt.ch: Delete.
+	* gdb.chill/xstruct.ch, gdb.chill/xstruct.exp: Delete.
+
+2002-12-11  David Carlton  <carlton@math.stanford.edu>
+
+	* gdb.c++/m-data.exp: Add test for members that shadow global
+	variables: see PR gdb/804.
+	* gdb.c++/m-data.cc: Ditto.
+
+2002-12-10  Daniel Jacobowitz  <drow@mvista.com>
+
+	* gdb.base/foll-vfork.exp: Re-enable test on HP/UX.
+
+2002-12-06  David Carlton  <carlton@math.stanford.edu>
+
+	* gdb.base/store.c: Don't declare functions static.
+
+2002-12-04  Andrew Cagney  <ac131313@redhat.com>
+
+	* gdb.base/store.exp, gdb.base/store.c: New files.
+
+2002-12-03  Daniel Jacobowitz  <drow@mvista.com>
+
+	* gdb.base/selftest.exp: Update for current gdb.
+
+2002-12-03  Daniel Jacobowitz  <drow@mvista.com>
+
+	* gdb.base/maint.exp: Only dump symbols from one source file
+	or objfile.
+
+2002-12-03  Daniel Jacobowitz  <drow@mvista.com>
+
+	* gdb.base/step-test.exp: Allow MIPS to return to the line of a
+	function call.
+
+2002-11-25  Jim Blandy  <jimb@redhat.com>
+
+	* lib/mi-support.exp (mi_delete_breakpoints): Change name of
+	function appearing in error message.
+
+2002-11-21  Daniel Jacobowitz  <drow@mvista.com>
+
+	* gdb.base/maint.exp (help maint dump-me): Update with typo fix.
+
+2002-11-08  Jeff Johnston  <jjohnstn@redhat.com>
+
+	* lib/mi-support.exp (mi_gdb_start): Verify the startup message 
+	for mi1 and current mi is in correct format.  New mi startup message 
+	should be in mi console format.  This is part of fix for PR gdb/604.
+
+2002-09-18  Fernando Nasser  <fnasser@redhat.com>
+
+	* gdb.asm/asm-source.exp: Adjust patter to new disassembler routine
+	which explicitly prints the zero offset as "+0".
+
+2002-10-22  Daniel Jacobowitz  <drow@mvista.com>
+
+	* gdb.threads/schedlock.c (args): Make unsigned.
+
+2002-10-21  Daniel Jacobowitz  <drow@mvista.com>
+
+	* gdb.asm/asm-source.exp: Add "mips*-*" pattern.  Update line
+	numbers.  Allow "foo2|selected stack frame".
+	* gdb.asm/asmsrc1.s: Use gdbasm_declare and gdbasm_end.
+	* gdb.asm/asmsrc2.s: Likewise.
+	* gdb.asm/common.inc: Define gdbasm_declare and gdbasm_end.  Update
+	comments.
+	* gdb.asm/mips.inc: New file.
+
+2002-10-18  Adam Fedor  <fedor@gnu.org>
+
+	* gdb.base/default.exp: Update expected output to include 'ObjC'.
+	* gdb.base/help.exp: Likewise.
+
+2002-10-17  Kevin Buettner  <kevinb@redhat.com>
+
+	* gdb.base/constvars.c (struct crass, struct crisp): New structs.
+	* gdb.base/constvars.exp (ptype crass, ptype crisp): New tests.
+
+2002-10-02  Jim Blandy  <jimb@redhat.com>
+
+	* gdb.c++/casts.cc, gdb.c++/casts.exp: New test.
+
+2002-10-01  Andrew Cagney  <ac131313@redhat.com>
+
+	* mi1-basics.exp: Copy of mi1-basics.exp MIFLAGS set "-i=mi1".
+	* mi1-break.exp, mi1-console.exp, mi1-disassemble.exp: Ditto.
+	* mi1-eval.exp, mi1-hack-cli.exp, mi1-pthreads.exp: Ditto.
+	* mi1-read-memory.exp, mi1-regs.exp, mi1-return.exp: Ditto.
+	* mi1-simplerun.exp, mi1-stack.exp, mi1-stepi.exp: Ditto.
+	* mi1-until.exp, mi1-var-block.exp, mi1-var-child.exp: Ditto.
+	* mi1-var-cmd.exp, mi1-var-display.exp, mi1-watch.exp: Ditto.
+
+2002-09-29  Andrew Cagney  <ac131313@redhat.com>
+
+	* mi0-basics.exp, mi0-break.exp, mi0-console.exp: Delete.
+	* mi0-disassemble.exp, mi0-eval.exp: Delete.
+	* mi0-hack-cli.exp, mi0-read-memory.exp: Delete.
+	* mi0-regs.exp, mi0-return.exp, mi0-simplerun.exp: Delete.
+	* mi0-stack.exp, mi0-stepi.exp, mi0-until.exp: Delete.
+	* mi0-var-block.exp, mi0-var-child.exp: Delete.
+	* mi0-var-cmd.exp, mi0-var-display.exp, mi0-watch.exp: Delete.
+	
+2002-09-27  Kevin Buettner  <kevinb@redhat.com>
+
+	* gdb.base/annota1.exp (info break): Make directory components of
+	path optional since not all compilers emit this debug information.
+
+ 	* gdb.base/shlib-call.exp (step inside shr2): Don't fail if first
+ 	step ends up stepping out of the function instead of stopping on
+ 	the epilogue.
+
+2002-09-26  Keith Seitz  <keiths@redhat.com>
+
+	* lib/insight-support.exp (gdbtk_start): Figure out where
+	the insight executable is based on where gdb is. Use this
+	executable to start insight instead of gdb.
+
+2002-09-25  Andrew Cagney  <cagney@redhat.com>
+
+	* gdb.base/pc-fp.exp, gdb.base/pc-fp.c: New test.
+
+2002-09-24  Andrew Cagney  <ac131313@redhat.com>
+
+	* gdb.gdb/complaints.exp (test_initial_complaints): Rename
+	test_isolated_complaints.
+	(test_empty_complaint): New function.
+	(test_empty_complaints): New function.  Check no output when no
+	complaints.
+	
+2002-09-19  Jim Blandy  <jimb@redhat.com>
+
+        * gdb.base/charset.exp, gdb.base/charset.c: New files.
+
+2002-09-19  Andrew Cagney  <ac131313@redhat.com>
+
+	* gdb.gdb/complaints.exp: New file.
+
+2002-09-18  Andrew Cagney  <ac131313@redhat.com>
+
+	* gdb.base/maint.exp: Check `help maint internal-warning'.
+
+2002-09-18  David Carlton  <carlton@math.stanford.edu>
+
+	* gdb.c++/m-static.exp: Remove breakpoints depending on line
+	numbers, and replace them by a single breakpoint after the
+	constructors are all finished.
+	Add test 4.
+	* gdb.c++/m-static.cc: Add test 4.
+	* gdb.c++/m-static.h: New file.
+	* gdb.c++/m-static1.cc: New file.
+
+	* gdb.c++/printmethod.exp: New file.
+	* gdb.c++/printmethod.cc: New file.
+
+	* gdb.c++/pr-574.exp: New file.
+	* gdb.c++/pr-574.cc: New file.
+
+2002-09-18  Corinna Vinschen  <vinschen@redhat.com>
+
+	* gdb.base/ending-run.exp: Add handling of "step to end of run" for
+	embedded targets which never actually exit.
+
+2002-09-18  Fernando Nasser  <fnasser@redhat.com>
+
+	* gdb.base/ending-run.exp: Properly mark "continue after exit" and
+	"don't step after run" as unresolved or unsupported, instead of xfail.
+
+2002-09-18  Corinna Vinschen  <vinschen@redhat.com>
+
+	* gdb.base/ending-run.exp: Fix expected string for _wrap_main to
+	allow correct handling of #ifdef UNDERSCORES from dejagnu/testglue.c.
+	Add newline to expected string in "step out of main (status wrapper)"
+	case.
+
+2002-09-18  Corinna Vinschen  <vinschen@redhat.com>
+
+	* lib/gdb.exp (rerun_to_main): Allow restarting application.
+	* gdb.base/ena-dis-br.exp (rerun_to_main): Eliminate.
+
+2002-09-17  Tom Tromey  <tromey@redhat.com>
+
+	* gdb.base/printcmds.exp (test_print_string_constants): Expect
+	\000, not \0, in double-quoted string.
+
+2002-09-14  Corinna Vinschen  <vinschen@redhat.com>
+
+	* gdb.base/command.exp: Don't expect a "Program exited normally"
+	string after running the commands execution on breakpoint tests.
+
+2002-09-13  Corinna Vinschen  <vinschen@redhat.com>
+
+	* lib/gdb.exp (gdb_continue_to_end): Fix typo in expected string.
+
+2002-09-12  Joel Brobecker  <brobecker@gnat.com>
+
+	* gdb.base/call-strs.exp: Fix a small typo in one of the comments.
+
+2002-09-10  Keith Seitz  <keiths@redhat.com>
+
+	* lib/mi-support.exp (mi_runto): New proc. Does the same as gdb's
+	runto proc.
+	(mi_run_to_main): Use mi_runto.
+	(mi_execute_to): Renamed from mi_run_to. Changed all callers.
+
+2002-09-10  Keith Seitz  <keiths@redhat.com>
+
+	* lib/mi-support.exp: (mi_run_to_main): Allow anything to precede
+	regexp for stopping at main. Could have multiple event notifications.
+	Don't assume that main was declared with no parameters.
+	(mi_next): Use mi_step_to.
+	(mi_step): Use mi_next_to.
+
+2002-09-09  Corinna Vinschen  <vinschen@redhat.com>
+
+	* gdb.base/default.exp: Fix expected string in `info float' test.
+
+2002-09-09  Ben Elliston  <bje@redhat.com>
+
+	* config/mips.exp: Update comments.
+	* config/mips-idt.exp: Likewise.
+	* config/nind.exp: Likewise.
+	* config/slite.exp: Likewise.
+	* config/sparclet.exp: Likewise.
+	* config/udi.exp: Likewise.
+	* config/vx.exp: Likewise.
+	* config/vxworks29k.exp: Likewise.
+
+2002-09-05  Jim Blandy  <jimb@redhat.com>
+
+	* gdb.threads/killed.exp: Fix test failure message.
+
+2002-09-04  Keith Seitz  <keiths@redhat.com>
+
+	* lib/mi-support.exp: Update copyright.
+	(mi_gdb_test): Increase the priority of the expected pattern
+	so that it matches gdb_test.
+
+2002-09-03  Keith Seitz  <keiths@redhat.com>
+
+	* lib/gdb.exp (gdb_compile_pthreads): Fix "build_bin" typo.
+	Use integer comparison instead of string comparison for testing
+	whether binary was built.
+
+2002-09-03  Jim Blandy  <jimb@redhat.com>
+
+	* gdb.threads/killed.exp, gdb.threads/killed.c: New test.
+
+2002-08-29  Jim Blandy  <jimb@redhat.com>
+
+	* gdb.threads/pthreads.exp: Move the portable thread compilation
+	code into a function in lib/gdb.exp, and call that from here.
+	* lib/gdb.exp (gdb_compile_pthreads): New function.
+
+2002-08-29  Keith Seitz  <keiths@redhat.com>
+
+	* lib/mi-support.exp (mi_gdb_test): Add global declaration for
+	expect_out so that callers can get at it.
+
+2002-08-23  Daniel Jacobowitz  <drow@mvista.com>
+
+	* gdb.threads/print-threads.c: New file.
+	* gdb.threads/print-threads.exp: New file.
+	* gdb.threads/schedlock.c: New file.
+	* gdb.threads/schedlock.exp: New file.
+
+2002-08-22  Elena Zannoni  <ezannoni@redhat.com>
+
+        * gdb.arch/altivec-abi.exp: The source C file is altivec-abi.c,
+        not altivec.c.
+
+2002-08-17  Mark Kettenis  <kettenis@gnu.org>
+
+	* gdb.base/return.exp: Remove i*86-*-* from list of xfail'ed
+	targets.  The problem should be fixed now.
+
+2002-08-15  Mark Kettenis  <kettenis@gnu.org>
+
+	* gdb.java/jv-print.exp: Fix p '' and p ''' tests to deal with
+	2002-07-24 change that removes final dots from error messages.
+
+2002-08-13  Tom Tromey  <tromey@redhat.com>
+
+	* gdb.base/readline.exp: New file.
+
+2002-08-01  Andrew Cagney  <ac131313@redhat.com>
+
+	* lib/gdb.exp (gdb_expect_list): Only print one pass, fail, or
+	supress message.
+
+2002-08-01  Andrew Cagney  <cagney@redhat.com>
+
+	* Makefile.in (TARGET_FLAGS_TO_PASS): Remove CHILLFLAGS, CHILL,
+	CHILL_FOR_TARGET and CHILL_LIB.
+	* configure.in (configdirs): Remove gdb.chill.
+	* configure: Regenerate.
+	* lib/gdb.exp: Obsolete references to chill.
+	* gdb.fortran/types.exp: Ditto.
+	* gdb.fortran/exprs.exp: Ditto.
+
+2002-07-30  Kevin Buettner  <kevinb@redhat.com>
+
+	* gdb.base/shlib-call.exp (additional_flags): Conditionally
+	set Irix-specific compile and link flags.
+
+2002-07-29  Kevin Buettner  <kevinb@redhat.com>
+
+	* lib/gdb.exp (mips*-*-irix*): Use alternate method for preprocessing
+	source files.  The ``-o'' option doesn't work with the ``-E'' option
+	when using the Irix compiler.
+
+2002-07-19  Daniel Jacobowitz  <drow@mvista.com>
+
+	* config/gdbserver.exp (gdb_load): Don't use TCL varargs.
+	Improve support for reusing an exec file.  Copy exec file
+	to target, and run gdbserver on the target instead of on the host.
+
+2002-07-18  Jim Blandy  <jimb@redhat.com>
+
+	* gdb.base/ending-run.exp: Don't expect to see the program end in
+	some orderly fashion when we're running on a real stand-alone
+	board.
+
+	* gdb.base/interrupt.exp: Correct logic for skipping tests on
+	targets that don't support interrupts.
+
+2002-07-10  Paul N. Hilfinger  <hilfingr@otisco.mckusick.com>
+
+	* gdb.base/attach.exp: Add patterns to match output from /proc-based
+	systems.
+	Move comments in expect statements to inside the actions, so that they
+	don't get matched against.
+
+2002-07-10  Mark Kettenis  <kettenis@gnu.org>
+
+	* gdb.base/interrupt.exp: Setup xfail for all i386 BSD's on "call
+	function when asleep" test.
+
+2002-07-10  Andrew Cagney  <ac131313@redhat.com>
+
+	* gdb.base/page.exp: Rewrite to handle problems with very long
+	`info set' output.  Update copyright.
+
+2002-06-26  Andrew Cagney  <ac131313@redhat.com>
+
+	* gdb.hp/configure.in (AC_CONFIG_SUBDIRS): Do not try to configure
+	gdb.threads-hp.
+	* gdb.hp/configure: Regenerate.
+	* gdb.hp/gdb.threads-hp/configure.in: Delete file.
+	* gdb.hp/gdb.threads-hp/configure: Delete file.
+	* gdb.hp/gdb.threads-hp/Makefile.in: Delete file.
+
+2002-06-22  Andrew Cagney  <ac131313@redhat.com>
+
+	* gdb.base/selftest.exp (do_stes_and_next): Skip calls to
+	setlocale, bindtextdomain and textdomain.
+
+2002-06-11  Jim Blandy  <jimb@redhat.com>
+
+	* lib/gdb.exp (get_debug_format): Tolerate message saying whether
+	preprocessor macro information is present.
+
+	* macscp.exp, macscp1.c, macscp2.h, macscp3.h, macscp4.h: New
+	tests.
+
+2002-06-06  Michael Snyder  <msnyder@redhat.com>
+
+	* gdb.base/overlays.exp: Record addresses of overlay
+	functions in TCL variables rather than in GDB variables,
+	to avoid having GDB convert them to pointers (with loss
+	of information).
+
+	* gdb.base/d10v.ld: Merge in several years worth of 
+	default linker script changes.
+	* gdb.base/long_long.exp: Add check for sizeof (long double).
+
+2002-06-06  Michal Ludvig  <mludvig@suse.cz>
+
+	* gdb.asm/asm-source.exp: Add x86-64 target.
+	* gdb.asm/x86_64.inc: New.
+	
+2002-05-30  Michael Chastain  <mec@shout.net>
+
+	From Benjamin Kosnik <bkoz@redhat.com>:
+	* gdb.c++/m-static.cc: New file.
+	* gdb.c++/m-static.exp: New file.
+
+2002-05-28  Michael Snyder  <msnyder@redhat.com>
+
+	* gdb.base/call-ar-st.exp: Allow for reduced floating point
+	precision.
+
+2002-05-27  Michael Chastain  <mec@shout.net>
+
+	From Benjamin Kosnik <bkoz@redhat.com>:
+	* gdb.c++/m-data.cc: New file.
+	* gdb.c++/m-data.exp: New file.
+
+2002-05-27  Michael Chastain  <mec@shout.net>
+
+	From Benjamin Kosnik <bkoz@redhat.com>:
+	* gdb.c++/try_catch.cc: New file.
+	* gdb.c++/try_catch.exp: New file.	
+
+2002-05-27  Michael Chastain  <mec@shout.net>
+
+	* gdb.c++/local.exp: Accept more nested types in output.
+
+2002-05-26  Michael Chastain  <mec@shout.net>
+
+	* gdb.base/call-rt-st.exp: Fix typo in brace quoting.
+
+2002-05-15  Nick Clifton  <nickc@cambridge.redhat.com>
+
+	* lib/gdb.exp (gdb_wrapper_init): Just because
+	gdb_wrapper_file exists, this does not mean that the file
+	should not be rebuilt.  That is what gdb_wrapper_initialized
+	is for.
+	(default_gdb_init): Reset gdb_wrapper_initialized.
+
+2002-05-23  Michael Snyder  <msnyder@redhat.com>
+
+	* gdb.base/all-bin.exp: Revise previous patch by just reducing 
+	the precision of the floating point test results.
+	* gdb.base/call-rt-st.exp: Ditto.
+
+	* gdb.base/all-bin.exp: Allow for reduced floating point precision.
+	* gdb.base/call-rt-st.exp: Ditto.
+
+2002-05-19  Michael Chastain  <mec@shout.net>
+
+	* gdb.c++/inherit.exp: Accept "VTT for ..." in output strings.
+
+2002-05-19  Elena Zannoni  <ezannoni@redhat.com>
+
+        * configure.in (configdirs): Add gdb.arch.
+        * configure: Regenerate.
+
+2002-05-17  Jim Blandy  <jimb@redhat.com>
+
+	* gdb.base/completion.exp: Recognize the more detailed error
+	messages produced by the macro expander's lexical analyzer.
+
+2002-05-14  Elena Zannoni  <ezannoni@redhat.com>
+
+        * gdb.arch/altivec-abi.c: New file.
+        * gdb.arch/altivec-abi.exp: New file.
+        * gdb.arch/altivec-regs.c: New file.
+        * gdb.arch/altivec-regs.exp: New file.
+
+2002-05-14  Daniel Jacobowitz  <drow@mvista.com>
+
+	* gdb.base/maint.exp (maint print type): Update for new type
+	structure.
+	
+2002-05-14  Elena Zannoni  <ezannoni@redhat.com>
+
+	* gdb.arch: New directory.
+	* gdb.arch/configure.in: New file.
+	* gdb.arch/configure: New file.
+	* gdb.arch/Makefile.in: New file.
+
+2002-05-13  Corinna Vinschen  <vinschen@redhat.com>
+
+	* gdb.asm/asm-source.exp: Add v850 as supported target.
+	* gdb.asm/v850.inc: New file.
+
+2002-05-13  Daniel Jacobowitz  <drow@mvista.com>
+
+	* gdb.c++/annota2.exp (annotate-quit): Add comment.
+
+2002-05-12  Daniel Jacobowitz  <drow@mvista.com>
+
+	* gdb.base/break.exp: Check 'break "marker2"'.
+
+2002-05-10  Michael Snyder  <msnyder@redhat.com>
+
+	* gdb.base/long_long.exp: Fix typo.
+
+2002-05-10  Jim Blandy  <jimb@redhat.com>
+
+	* gdb.base/printcmds.exp: Don't xfail the ptype command.  This is
+	a bug.
+
+	* gdb.base/printcmds.exp (test_integer_literals_rejected):
+	Recognize more detailed error message produced by the macro
+	expander's lexical analyzer.
+	* lib/gdb.exp (test_print_reject): Same.
+
+2002-05-09  Mark Kettenis  <kettenis@gnu.org>
+
+	* gdb.c++/method.exp: Fix typo.
+
+2002-05-08  Michael Snyder  <msnyder@redhat.com>
+
+	* gdb.mi/mi-var-child.exp: Accept (void) as well as ().
+	* gdb.mi/mi0-var-child.exp: Accept (void) as well as ().
+	* gdb.base/default.exp: Merge clauses for arm, strongarm, xscale.
+	* gdb.base/long_long.exp: Merge clauses for arm and xscale.
+	Add iftarget clause for strongarm.
+	
+2002-05-06  Michael Snyder  <msnyder@redhat.com>
+
+	* lib/gdb.exp (gdb_test): Add case to allow for status wrapper.
+	(gdb_continue_to_end): Accept output from status wrapper.
+	* gdb.base/ending-run.exp: Add case for output from status wrapper.
+	Clean up fail messages to match pass messages.
+
+	Enable the "needs_status_wrapper" testsuite feature.
+	* lib/gdb.exp (gdb_wrapper_init): New procedure.
+	(gdb_compile): Conditionally call gdb_wrapper_init.
+	* gdb.base/a2-run.exp: Recognize output from status wrapper.
+	* gdb.c++/method.exp: Recognize output from status wrapper.
+
+2002-05-06  Ben Elliston  <bje@redhat.com>
+From Graydon Hoare  <graydon@redhat.com>
+
+	* config/sid.exp: Include support for "rawsid" protocol.
+
+2002-05-03  Jim Blandy  <jimb@redhat.com>
+
+	* gdb.c++/hang.exp: Check for corruption of the cv_type chain.
+	* gdb.c++/hang3.C: New file.
+
+2002-05-04  Andrew Cagney  <ac131313@redhat.com>
+
+	* gdb.base/default.exp: Remove obsolete code.
+	* gdb.c++/misc.exp: Ditto.  Update copyright.
+	* gdb.c++/cplusfuncs.exp: Ditto.  Update copyright.
+	* gdb.base/whatis.exp: Ditto.  Update copyright.
+	* gdb.base/scope.exp: Ditto.  Update copyright.
+	* gdb.base/ptype.exp: Ditto.  Update copyright.
+	* gdb.base/printcmds.exp: Ditto.  Update copyright.
+	* gdb.base/opaque.exp: Ditto.  Update copyright.
+	* gdb.base/list.exp: Ditto.
+	* gdb.base/funcargs.exp: Ditto.  Update copyright.
+	* gdb.hp/gdb.threads-hp/usrthbasic.c: Delete.
+	* gdb.hp/gdb.threads-hp/usrthbasic.exp: Delete.
+	* gdb.hp/gdb.threads-hp/usrthcore.c: Delete.
+	* gdb.hp/gdb.threads-hp/usrthcore.exp: Delete.
+	* gdb.hp/gdb.threads-hp/usrthfork.c: Delete.
+	* gdb.hp/gdb.threads-hp/usrthfork.exp: Delete.
+
+2002-05-02  Michael Snyder  <msnyder@redhat.com>
+
+	* gdb.base/watchpoint.exp: Add xscale target.
+	* gdb.base/long_long.exp: Add xscale target.
+	* gdb.base/default.exp: Add xscale target.
+
+2002-05-01  Jim Blandy  <jimb@redhat.com>
+
+	* gdb.c++/hang1.C, gdb.c++/hang2.C, gdb.c++/hang.H,
+	gdb.c++/hang.exp: New test.
+
+2002-05-01  Fred Fish  <fnf@redhat.com>
+
+	* gdb.base/completion.exp: Handle completions of "./Make" for
+	more than one completion possibility, as is the case when we
+	build and test in the source tree.
+
+2002-04-29  Anthony Green  <green@redhat.com>
+
+	* gdb.java/jmisc1.exp: New file.
+	* gdb.java/jmisc2.exp: New file.
+
+2002-04-24  Daniel Jacobowitz  <drow@mvista.com>
+
+	* gdb.threads/linux-dp.exp: Use 'unset' instead of 'array unset'.
+
+2002-04-23  Elena Zannoni  <ezannoni@redhat.com>
+
+	* gdb.base/help.exp: Change 'help status' to allow for target
+	dependent output differences.
+
+2002-04-22  Michael Chastain  <mec@shout.net>
+
+	* gdb.c++/local.exp: Add PR numbers: gdb/482, gdb/483.
+
+2002-04-22  Michael Chastain  <mec@shout.net>
+
+	* gdb.c++/method.exp: Fix syntax of reference to gdb/277.
+
+2002-04-17  David S. Miller  <davem@redhat.com>
+
+	* gdb.asm/sparc64.inc: New file.
+	* gdb.asm/asm-source.exp: Handle sparc64-*-*.
+
+2002-04-19  Elena Zannoni  <ezannoni@redhat.com>
+
+	* gdb.asm/asm-source.exp: Don't use a symlink, just copy the
+	instruction file directly into the build tree.  Clean up at end of
+	test.
+
+2002-04-18  David S. Miller  <davem@redhat.com>
+
+	* gdb.base/annota1.exp: Expect addresses as $hex + whitespace to
+	handle 64-bit platforms correctly.
+	* gdb.base/maint.exp: Likewise.
+
+2002-04-18  Kevin Buettner  <kevinb@redhat.com>
+
+	* gdb.base/shlib-call.exp (additional_flags): AIX doesn't need
+	``-fpic'' when compiling files comprising a shared library, but
+	it does need additional linker flags in order to find shared
+	libraries at run time.
+
+2002-04-18  Kevin Buettner  <kevinb@redhat.com>
+
+	* gdb.base/cvexpr.c (use): New function.
+	(main): Invoke use() on all global variables to prevent
+	some linkers from deleting these otherwise unused symbols.
+
+2002-04-17  Michael Chastain  <mec@shout.net>
+From David S. Miller  <davem@redhat.com>
+
+	* gdb.c++/ovldbreak.exp: Expect addresses as $hex + whitespace to
+	handle 64-bit platforms correctly.
+
+2002-04-12  Michael Snyder  <msnyder@redhat.com>
+From Jim Blandy  <jimb@redhat.com>
+        * gdb.base/foo.c (foox): Remove section attribute; the linker
+	script can handle this instead.
+	* gdb.base/bar.c (barx): Same.
+	* gdb.base/baz.c (bazx): Same.
+	* gdb.base/grbx.c (grbxx): Same.
+
+	* gdb.base/overlays.exp: New test: check that GDB's manual overlay
+	manager doesn't automatically unmap overlays unnecessarily.
+
+2002-04-10  Martin M. Hunt  <hunt@redhat.com>
+
+	* gdb.base/ending-run.exp: Fix pattern for Mips targets
+	stepping out of main.
+
+2002-04-09  Michael Chastain  <mec@shout.net>
+
+	* gdb.c++/local.cc (main): Move call to marker1() inside nested
+	scope so that the nested scope tests will make sense.
+	* gdb.c++/local.exp: Write patterns that actually work with gcc
+	(the HP patterns "were never known to work with gcc").
+	Keep the old aCC patterns too.
+
+2002-04-09  Daniel Jacobowitz  <drow@mvista.com>
+
+	* gdb.base/attach.exp: Correct target board test.
+
+2002-04-08  Michael Chastain  <mec@shout.net>
+
+	* gdb.c++/method.exp: Require "const ... A * ..." for "ptype this"
+	in a const method.  Add some xfail and fail cases for configurations
+	that do not emit the "const ...".
+
 2002-04-07  Michael Chastain  <mec@shout.net>
 
 	* gdb.c++/method.exp: Use gdb_test instead of send_gdb/gdb_expect.
@@ -181,6 +1137,10 @@
 
 	* gdb.c++/userdef.exp: Test overloaded operators properly.
 	Remove xfails.
+
+2002-02-14  Michael Snyder  <msnyder@redhat.com>
+
+	* gdb.base/gcore.exp: Relax recognition of function breakpoint.
 
 2002-02-14  Daniel Jacobowitz  <drow@mvista.com>
 

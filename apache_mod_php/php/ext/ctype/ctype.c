@@ -1,8 +1,8 @@
 /*
    +----------------------------------------------------------------------+
-   | PHP version 4.0                                                      |
+   | PHP Version 4                                                        |
    +----------------------------------------------------------------------+
-   | Copyright (c) 1997-2001 The PHP Group                                |
+   | Copyright (c) 1997-2003 The PHP Group                                |
    +----------------------------------------------------------------------+
    | This source file is subject to version 2.02 of the PHP license,      |
    | that is bundled with this package in the file LICENSE, and is        |
@@ -12,7 +12,7 @@
    | obtain it through the world-wide-web, please send a note to          |
    | license@php.net so we can mail you a copy immediately.               |
    +----------------------------------------------------------------------+
-   | Authors: Hartmut Holzgraefe <hartmut@six.de>                         |
+   | Author: Hartmut Holzgraefe <hartmut@six.de>                          |
    +----------------------------------------------------------------------+
  */
 
@@ -38,7 +38,7 @@ ZEND_DECLARE_MODULE_GLOBALS(ctype)
 */
 
 /* True global resources - no need for thread safety here */
-static int le_ctype;
+/* static int le_ctype; */
 
 /* {{{ ctype_functions[]
  * Every user visible function must have an entry in ctype_functions[].
@@ -79,241 +79,128 @@ zend_module_entry ctype_module_entry = {
 ZEND_GET_MODULE(ctype)
 #endif
 
-#ifndef PHP_EXPERIMENTAL
-#define PHP_EXPERIMENTAL(x, y)
-#endif 
-
 /* {{{ PHP_MINFO_FUNCTION
  */
 PHP_MINFO_FUNCTION(ctype)
 {
 	php_info_print_table_start();
-	php_info_print_table_row(2, "ctype functions", "enabled (experimental)");
+	php_info_print_table_row(2, "ctype functions", "enabled");
 	php_info_print_table_end();
 }
 /* }}} */
 
 /* {{{ ctype
  */
-static int ctype(int (*iswhat)(int), zval **c) 
-{
-	switch ((*c)->type) {
-	case IS_LONG:
-		return iswhat((*c)->value.lval);
-	case IS_STRING:
-		{
-			char *p;
-			int n, len;
-			convert_to_string_ex(c);
-			p=(*c)->value.str.val;
-			len = (*c)->value.str.len;
-			for(n=0;n<len;n++) {
-				if(!iswhat(*p++)) return 0;
-			}
-			return 1;
-		}
-	default:
-		break;
-	}
-	return 0;
-}
+#define CTYPE(iswhat) \
+	zval *c; \
+	if (zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "z", &c) == FAILURE) \
+		return; \
+ 	switch (Z_TYPE_P(c)) { \
+	case IS_LONG: \
+		RETURN_BOOL(iswhat(Z_LVAL_P(c))); \
+	case IS_STRING: \
+		{ \
+			char *p; \
+			int n, len; \
+			p=Z_STRVAL_P(c); \
+			len = Z_STRLEN_P(c); \
+			for(n=0;n<len;n++) { \
+				if(!iswhat(*p++)) RETURN_FALSE; \
+			} \
+			RETURN_TRUE; \
+		} \
+	default: \
+		break; \
+	} \
+	RETURN_FALSE; 
+ 
 /* }}} */
 
-/* {{{ proto bool isalnum(mixed c)
-    Check for alphanumeric character(s) */
+/* {{{ proto bool ctype_alnum(mixed c)
+   Checks for alphanumeric character(s) */
 PHP_FUNCTION(ctype_alnum)
 {
-	PHP_EXPERIMENTAL("4.0.4dev", NULL)
-	zval **c;
-	if (ZEND_NUM_ARGS() != 1 || zend_get_parameters_ex(1, &c) == FAILURE){
-		WRONG_PARAM_COUNT;
-	}
-	
-	if(ctype(isalnum, c)) {
-	   RETURN_TRUE;
-	}
-
-	RETURN_FALSE;		
+	CTYPE(isalnum);
 }
 /* }}} */
 
-/* {{{ proto bool isalpha(mixed c)
-    Check for alphabetic character(s) */
+/* {{{ proto bool ctype_alpha(mixed c)
+   Checks for alphabetic character(s) */
 PHP_FUNCTION(ctype_alpha)
 {
-	PHP_EXPERIMENTAL("4.0.4dev", NULL)
-	zval **c;
-	if (ZEND_NUM_ARGS() != 1 || zend_get_parameters_ex(1, &c) == FAILURE){
-		WRONG_PARAM_COUNT;
-	}
-
-	if(ctype(isalpha, c)) {
-	   RETURN_TRUE;
-	}
-
-	RETURN_FALSE;		
+	CTYPE(isalpha);
 }
 /* }}} */
 
-/* {{{ proto bool iscntrl(mixed c)
-    Check for control character(s) */
+/* {{{ proto bool ctype_cntrl(mixed c)
+   Checks for control character(s) */
 PHP_FUNCTION(ctype_cntrl)
 {
-	PHP_EXPERIMENTAL("4.0.4dev", NULL)
-	zval **c;
-	if (ZEND_NUM_ARGS() != 1 || zend_get_parameters_ex(1, &c) == FAILURE){
-		WRONG_PARAM_COUNT;
-	}
-
-	if(ctype(iscntrl, c)) {
-	   RETURN_TRUE;
-	}
-
-	RETURN_FALSE;		
+	CTYPE(iscntrl);
 }
 /* }}} */
 
-/* {{{ proto bool isdigit(mixed c)
-   Check for numeric character(s) */
+/* {{{ proto bool ctype_digit(mixed c)
+   Checks for numeric character(s) */
 PHP_FUNCTION(ctype_digit)
 {
-	PHP_EXPERIMENTAL("4.0.4dev", NULL)
-	zval **c;
-	if (ZEND_NUM_ARGS() != 1 || zend_get_parameters_ex(1, &c) == FAILURE){
-		WRONG_PARAM_COUNT;
-	}
-
-	if(ctype(isdigit, c)) {
-	   RETURN_TRUE;
-	}
-
-	RETURN_FALSE;		
+	CTYPE(isdigit);
 }
 /* }}} */
 
-/* {{{ proto bool islower(mixed c)
-   Check for lowercase character(s)  */
+/* {{{ proto bool ctype_lower(mixed c)
+   Checks for lowercase character(s)  */
 PHP_FUNCTION(ctype_lower)
 {
-	PHP_EXPERIMENTAL("4.0.4dev", NULL)
-	zval **c;
-	if (ZEND_NUM_ARGS() != 1 || zend_get_parameters_ex(1, &c) == FAILURE){
-		WRONG_PARAM_COUNT;
-	}
-
-	if(ctype(islower, c)) {
-	   RETURN_TRUE;
-	}
-
-	RETURN_FALSE;		
+	CTYPE(islower);
 }
 /* }}} */
 
-/* {{{ proto bool isgraph(mixed c)
-    Check for any printable character(s) except space */
+/* {{{ proto bool ctype_graph(mixed c)
+   Checks for any printable character(s) except space */
 PHP_FUNCTION(ctype_graph)
 {
-	PHP_EXPERIMENTAL("4.0.4dev", NULL)
-	zval **c;
-	if (ZEND_NUM_ARGS() != 1 || zend_get_parameters_ex(1, &c) == FAILURE){
-		WRONG_PARAM_COUNT;
-	}
-
-	if(ctype(isgraph, c)) {
-	   RETURN_TRUE;
-	}
-
-	RETURN_FALSE;		
+	CTYPE(isgraph);
 }
 /* }}} */
 
-/* {{{ proto bool isprint(mixed c)
-    Check for printable character(s) */
+/* {{{ proto bool ctype_print(mixed c)
+   Checks for printable character(s) */
 PHP_FUNCTION(ctype_print)
 {
-	PHP_EXPERIMENTAL("4.0.4dev", NULL)
-	zval **c;
-	if (ZEND_NUM_ARGS() != 1 || zend_get_parameters_ex(1, &c) == FAILURE){
-		WRONG_PARAM_COUNT;
-	}
-
-	if(ctype(isprint, c)) {
-	   RETURN_TRUE;
-	}
-
-	RETURN_FALSE;		
+	CTYPE(isprint);
 }
 /* }}} */
 
-/* {{{ proto bool ispunct(mixed c)
-    Check for any printable character which is not whitespace or an alphanumeric character */
+/* {{{ proto bool ctype_punct(mixed c)
+   Checks for any printable character which is not whitespace or an alphanumeric character */
 PHP_FUNCTION(ctype_punct)
 {
-	PHP_EXPERIMENTAL("4.0.4dev", NULL)
-	zval **c;
-	if (ZEND_NUM_ARGS() != 1 || zend_get_parameters_ex(1, &c) == FAILURE){
-		WRONG_PARAM_COUNT;
-	}
-
-	if(ctype(ispunct, c)) {
-	   RETURN_TRUE;
-	}
-
-	RETURN_FALSE;		
+	CTYPE(ispunct);
 }
 /* }}} */
 
-/* {{{ proto bool isspace(mixed c)
-    Check for whitespace character(s)*/
+/* {{{ proto bool ctype_space(mixed c)
+   Checks for whitespace character(s)*/
 PHP_FUNCTION(ctype_space)
 {
-	PHP_EXPERIMENTAL("4.0.4dev", NULL)
-	zval **c;
-	if (ZEND_NUM_ARGS() != 1 || zend_get_parameters_ex(1, &c) == FAILURE){
-		WRONG_PARAM_COUNT;
-	}
-
-	if(ctype(isspace, c)) {
-	   RETURN_TRUE;
-	}
-
-	RETURN_FALSE;		
+	CTYPE(isspace);
 }
 /* }}} */
 
-/* {{{ proto bool isupper(mixed c)
-    Check for uppercase character(s) */
+/* {{{ proto bool ctype_upper(mixed c)
+   Checks for uppercase character(s) */
 PHP_FUNCTION(ctype_upper)
 {
-	PHP_EXPERIMENTAL("4.0.4dev", NULL)
-	zval **c;
-	if (ZEND_NUM_ARGS() != 1 || zend_get_parameters_ex(1, &c) == FAILURE){
-		WRONG_PARAM_COUNT;
-	}
-
-	if(ctype(isupper, c)) {
-	   RETURN_TRUE;
-	}
-
-	RETURN_FALSE;		
+	CTYPE(isupper);
 }
 /* }}} */
 
-/* {{{ proto bool isxdigit(mixed c)
-    Check for character(s) representing a hexadecimal digit */
+/* {{{ proto bool ctype_xdigit(mixed c)
+   Checks for character(s) representing a hexadecimal digit */
 PHP_FUNCTION(ctype_xdigit)
 {
-	PHP_EXPERIMENTAL("4.0.4dev", NULL)
-	zval **c;
-	if (ZEND_NUM_ARGS() != 1 || zend_get_parameters_ex(1, &c) == FAILURE){
-		WRONG_PARAM_COUNT;
-	}
-
-	if(ctype(isxdigit, c)) {
-	   RETURN_TRUE;
-	}
-
-	RETURN_FALSE;		
+	CTYPE(isxdigit);
 }
 /* }}} */
 
@@ -324,6 +211,6 @@ PHP_FUNCTION(ctype_xdigit)
  * tab-width: 4
  * c-basic-offset: 4
  * End:
- * vim600: sw=4 ts=4 tw=78 fdm=marker
- * vim<600: sw=4 ts=4 tw=78
+ * vim600: sw=4 ts=4 fdm=marker
+ * vim<600: sw=4 ts=4
  */

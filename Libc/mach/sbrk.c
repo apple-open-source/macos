@@ -46,10 +46,7 @@ static vm_address_t sbrk_curbrk;
 caddr_t sbrk(size)
 	int	size;
 {
-	vm_offset_t	addr;
 	kern_return_t	ret;
-	caddr_t		ocurbrk;
-	extern int	end;
 
 	if (sbrk_needs_init) {
 		sbrk_needs_init = FALSE;
@@ -64,10 +61,10 @@ caddr_t sbrk(size)
 	
 	if (size <= 0)
 		return((caddr_t)sbrk_curbrk);
+	else if (size > sbrk_region_size)
+		return((caddr_t)-1);
 	sbrk_curbrk += size;
 	sbrk_region_size -= size;
-	if (sbrk_region_size < 0)
-		return((caddr_t)-1);
 	return((caddr_t)(sbrk_curbrk - size));
 }
 

@@ -1,25 +1,25 @@
-/*****************************************************************************
+/***************************************************************************
  *                                  _   _ ____  _     
  *  Project                     ___| | | |  _ \| |    
  *                             / __| | | | |_) | |    
  *                            | (__| |_| |  _ <| |___ 
  *                             \___|\___/|_| \_\_____|
  *
- * Copyright (C) 2000, Daniel Stenberg, <daniel@haxx.se>, et al.
+ * Copyright (C) 1998 - 2002, Daniel Stenberg, <daniel@haxx.se>, et al.
  *
- * In order to be useful for every potential user, curl and libcurl are
- * dual-licensed under the MPL and the MIT/X-derivate licenses.
- *
+ * This software is licensed as described in the file COPYING, which
+ * you should have received as part of this distribution. The terms
+ * are also available at http://curl.haxx.se/docs/copyright.html.
+ * 
  * You may opt to use, copy, modify, merge, publish, distribute and/or sell
  * copies of the Software, and permit persons to whom the Software is
- * furnished to do so, under the terms of the MPL or the MIT/X-derivate
- * licenses. You may pick one of these licenses.
+ * furnished to do so, under the terms of the COPYING file.
  *
  * This software is distributed on an "AS IS" basis, WITHOUT WARRANTY OF ANY
  * KIND, either express or implied.
  *
- * $Id: easy.c,v 1.1.1.2 2001/04/24 18:49:07 wsanchez Exp $
- *****************************************************************************/
+ * $Id: easy.c,v 1.1.1.3 2002/11/26 19:07:50 zarzycki Exp $
+ ***************************************************************************/
 
 #include "setup.h"
 
@@ -73,23 +73,121 @@
 #include "urldata.h"
 #include <curl/curl.h>
 #include "transfer.h"
-#include <curl/types.h>
+#include "ssluse.h"
+#include "url.h"
+#include "getinfo.h"
+#include "hostip.h"
 
 #define _MPRINTF_REPLACE /* use our functions only */
 #include <curl/mprintf.h>
 
+
+/* Silly win32 socket initialization functions */
+
+#if defined(WIN32) && !defined(__GNUC__) || defined(__MINGW32__)
+static void win32_cleanup(void)
+{
+  WSACleanup();
+}
+
+static CURLcode win32_init(void)
+{
+  WORD wVersionRequested;  
+  WSADATA wsaData; 
+  int err; 
+  wVersionRequested = MAKEWORD(2, 0); 
+    
+  err = WSAStartup(wVersionRequested, &wsaData); 
+    
+  if (err != 0) 
+    /* Tell the user that we couldn't find a useable */ 
+    /* winsock.dll.     */ 
+    return CURLE_FAILED_INIT; 
+    
+  /* Confirm that the Windows Sockets DLL supports 2.0.*/ 
+  /* Note that if the DLL supports versions greater */ 
+  /* than 2.0 in addition to 2.0, it will still return */ 
+  /* 2.0 in wVersion since that is the version we */ 
+  /* requested. */ 
+    
+  if ( LOBYTE( wsaData.wVersion ) != 2 || 
+       HIBYTE( wsaData.wVersion ) != 0 ) { 
+    /* Tell the user that we couldn't find a useable */ 
+
+    /* winsock.dll. */ 
+    WSACleanup(); 
+    return CURLE_FAILED_INIT; 
+  }
+  return CURLE_OK;
+}
+/* The Windows Sockets DLL is acceptable. Proceed. */ 
+#else
+/* These functions exist merely to prevent compiler warnings */
+static CURLcode win32_init(void) { return CURLE_OK; }
+static void win32_cleanup(void) { }
+#endif
+
+
+/* true globals -- for curl_global_init() and curl_global_cleanup() */
+static unsigned int  initialized = 0;
+static long          init_flags  = 0;
+
+/**
+ * Globally initializes cURL given a bitwise set of 
+ * the different features to initialize.
+ */
+CURLcode curl_global_init(long flags)
+{
+  if (initialized)
+    return CURLE_OK;
+
+  if (flags & CURL_GLOBAL_SSL)
+    Curl_SSL_init();
+
+  if (flags & CURL_GLOBAL_WIN32)
+    if (win32_init() != CURLE_OK)
+      return CURLE_FAILED_INIT;
+
+  initialized = 1;
+  init_flags  = flags;
+  
+  return CURLE_OK;
+}
+
+/**
+ * Globally cleanup cURL, uses the value of "init_flags" to determine
+ * what needs to be cleaned up and what doesn't
+ */
+void curl_global_cleanup(void)
+{
+  if (!initialized)
+    return;
+
+  Curl_global_host_cache_dtor();
+
+  if (init_flags & CURL_GLOBAL_SSL)
+    Curl_SSL_cleanup();
+
+  if (init_flags & CURL_GLOBAL_WIN32)
+    win32_cleanup();
+
+  initialized = 0;
+  init_flags  = 0;
+}
+
 CURL *curl_easy_init(void)
 {
   CURLcode res;
-  struct UrlData *data;
+  struct SessionHandle *data;
+
+  /* Make sure we inited the global SSL stuff */
+  if (!initialized)
+    curl_global_init(CURL_GLOBAL_DEFAULT);
 
   /* We use curl_open() with undefined URL so far */
-  res = Curl_open((CURL **)&data, NULL);
+  res = Curl_open(&data);
   if(res != CURLE_OK)
     return NULL;
-
-  /* SAC */
-  data->device = NULL;
 
   return data;
 }
@@ -101,7 +199,7 @@ CURLcode curl_easy_setopt(CURL *curl, CURLoption tag, ...)
   func_T param_func = (func_T)0;
   long param_long = 0;
   void *param_obj = NULL;
-  struct UrlData *data = curl;
+  struct SessionHandle *data = curl;
 
   va_start(arg, tag);
 
@@ -133,20 +231,111 @@ CURLcode curl_easy_setopt(CURL *curl, CURLoption tag, ...)
 
 CURLcode curl_easy_perform(CURL *curl)
 {
-  return Curl_perform(curl);
+  struct SessionHandle *data = (struct SessionHandle *)curl;
+
+  if (!data->hostcache) {
+    if (Curl_global_host_cache_use(data)) {
+      data->hostcache = Curl_global_host_cache_get();
+    }
+    else {
+      data->hostcache = Curl_hash_alloc(7, Curl_freeaddrinfo);
+    }
+  }
+
+  return Curl_perform(data);
 }
 
 void curl_easy_cleanup(CURL *curl)
 {
-  Curl_close(curl);
+  struct SessionHandle *data = (struct SessionHandle *)curl;
+  if (!Curl_global_host_cache_use(data)) {
+    Curl_hash_destroy(data->hostcache);
+  }
+  Curl_close(data);
 }
 
 CURLcode curl_easy_getinfo(CURL *curl, CURLINFO info, ...)
 {
   va_list arg;
   void *paramp;
+  struct SessionHandle *data = (struct SessionHandle *)curl;
+
   va_start(arg, info);
   paramp = va_arg(arg, void *);
 
-  return Curl_getinfo(curl, info, paramp);
+  return Curl_getinfo(data, info, paramp);
 }
+
+CURL *curl_easy_duphandle(CURL *incurl)
+{
+  struct SessionHandle *data=(struct SessionHandle *)incurl;
+
+  struct SessionHandle *outcurl = (struct SessionHandle *)
+    malloc(sizeof(struct SessionHandle));
+
+  if(NULL == outcurl)
+    return NULL; /* failure */
+
+  /* start with clearing the entire new struct */
+  memset(outcurl, 0, sizeof(struct SessionHandle));
+
+  /*
+   * We setup a few buffers we need. We should probably make them
+   * get setup on-demand in the code, as that would probably decrease
+   * the likeliness of us forgetting to init a buffer here in the future.
+   */
+  outcurl->state.headerbuff=(char*)malloc(HEADERSIZE);
+  if(!outcurl->state.headerbuff) {
+    free(outcurl); /* free the memory again */
+    return NULL;
+  }
+  outcurl->state.headersize=HEADERSIZE;
+
+  /* copy all userdefined values */
+  outcurl->set = data->set;
+  outcurl->state.numconnects = data->state.numconnects;
+  outcurl->state.connects = (struct connectdata **)
+      malloc(sizeof(struct connectdata *) * outcurl->state.numconnects);
+
+  if(!outcurl->state.connects) {
+    free(outcurl->state.headerbuff);
+    free(outcurl);
+    return NULL;
+  }
+  memset(outcurl->state.connects, 0,
+         sizeof(struct connectdata *)*outcurl->state.numconnects);
+
+  outcurl->progress.flags    = data->progress.flags;
+  outcurl->progress.callback = data->progress.callback;
+
+  if(data->cookies)
+    /* If cookies are enabled in the parent handle, we enable them
+       in the clone as well! */
+    outcurl->cookies = Curl_cookie_init(data->cookies->filename,
+                                        outcurl->cookies,
+                                        data->set.cookiesession);
+
+  /* duplicate all values in 'change' */
+  if(data->change.url) {
+    outcurl->change.url = strdup(data->change.url);
+    outcurl->change.url_alloc = TRUE;
+  }
+  if(data->change.proxy) {
+    outcurl->change.proxy = strdup(data->change.proxy);
+    outcurl->change.proxy_alloc = TRUE;
+  }
+  if(data->change.referer) {
+    outcurl->change.referer = strdup(data->change.referer);
+    outcurl->change.referer_alloc = TRUE;
+  }
+
+  return outcurl;
+}
+
+/*
+ * local variables:
+ * eval: (load-file "../curl-mode.el")
+ * end:
+ * vim600: fdm=marker
+ * vim: et sw=2 ts=2 sts=2 tw=78
+ */

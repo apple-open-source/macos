@@ -1,5 +1,3 @@
-/*	$NetBSD: rmdir.c,v 1.16 1998/07/28 05:31:27 mycroft Exp $	*/
-
 /*-
  * Copyright (c) 1992, 1993, 1994
  *	The Regents of the University of California.  All rights reserved.
@@ -33,41 +31,35 @@
  * SUCH DAMAGE.
  */
 
-#include <sys/cdefs.h>
 #ifndef lint
-__COPYRIGHT("@(#) Copyright (c) 1992, 1993, 1994\n\
-	The Regents of the University of California.  All rights reserved.\n");
+static char const copyright[] =
+"@(#) Copyright (c) 1992, 1993, 1994\n\
+	The Regents of the University of California.  All rights reserved.\n";
 #endif /* not lint */
 
 #ifndef lint
 #if 0
 static char sccsid[] = "@(#)rmdir.c	8.3 (Berkeley) 4/2/94";
-#else
-__RCSID("$NetBSD: rmdir.c,v 1.16 1998/07/28 05:31:27 mycroft Exp $");
 #endif
 #endif /* not lint */
+#include <sys/cdefs.h>
+__RCSID("$FreeBSD: src/bin/rmdir/rmdir.c,v 1.13 2002/06/30 05:15:03 obrien Exp $");
 
 #include <err.h>
 #include <errno.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <locale.h>
 #include <unistd.h>
 
-int rm_path __P((char *));
-void usage __P((void));
-int main __P((int, char *[]));
+int rm_path(char *);
+void usage(void);
 
 int
-main(argc, argv)
-	int argc;
-	char *argv[];
+main(int argc, char *argv[])
 {
 	int ch, errors;
 	int pflag;
-
-	(void)setlocale(LC_ALL, "");
 
 	pflag = 0;
 	while ((ch = getopt(argc, argv, "p")) != -1)
@@ -86,14 +78,6 @@ main(argc, argv)
 		usage();
 
 	for (errors = 0; *argv; argv++) {
-		char *p;
-
-		/* Delete trailing slashes, per POSIX. */
-		p = *argv + strlen(*argv);
-		while (--p > *argv && *p == '/')
-			;
-		*++p = '\0';
-
 		if (rmdir(*argv) < 0) {
 			warn("%s", *argv);
 			errors = 1;
@@ -102,15 +86,17 @@ main(argc, argv)
 	}
 
 	exit(errors);
-	/* NOTREACHED */
 }
 
 int
-rm_path(path)
-	char *path;
+rm_path(char *path)
 {
 	char *p;
 
+	p = path + strlen(path);
+	while (--p > path && *p == '/')
+		;
+	*++p = '\0';
 	while ((p = strrchr(path, '/')) != NULL) {
 		/* Delete trailing slashes. */
 		while (--p > path && *p == '/')
@@ -127,10 +113,9 @@ rm_path(path)
 }
 
 void
-usage()
+usage(void)
 {
 
 	(void)fprintf(stderr, "usage: rmdir [-p] directory ...\n");
 	exit(1);
-	/* NOTREACHED */
 }

@@ -3,8 +3,6 @@
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
- * Copyright (c) 1999-2003 Apple Computer, Inc.  All Rights Reserved.
- * 
  * This file contains Original Code and/or Modifications of Original Code
  * as defined in and that are subject to the Apple Public Source License
  * Version 2.0 (the 'License'). You may not use this file except in
@@ -52,11 +50,6 @@ extern void kld_error_vprintf(const char *format, va_list ap);
 __private_extern__ long kld_load_basefile(
     const char *base_filename);
 
-__private_extern__ long kld_load_basefile_from_memory(
-    const char *base_filename,
-    char *base_addr,
-    long base_size);
-
 /* Note: this takes only one object file name */
 __private_extern__ long kld_load(
     struct mach_header **header_addr,
@@ -72,7 +65,7 @@ __private_extern__ long kld_load_from_memory(
 #endif /* __DYNAMIC__ */
 
 /*
- * This two are only in libkld.a use by /mach_kernel (kernel code compiled with
+ * This one is only in libkld.a use by /mach_kernel (kernel code compiled with
  * -static).
  */
 #ifdef __STATIC__
@@ -83,6 +76,11 @@ __private_extern__ long kld_load_from_memory(
     char *object_addr,
     long object_size);
 #endif /* __STATIC__ */
+
+__private_extern__ long kld_load_basefile_from_memory(
+    const char *base_filename,
+    char *base_addr,
+    long base_size);
 
 __private_extern__ long kld_unload_all(
     long deallocate_sets);
@@ -96,5 +94,11 @@ __private_extern__ long kld_forget_symbol(
 
 __private_extern__ void kld_address_func(
     unsigned long (*func)(unsigned long size, unsigned long headers_size));
+
+#define KLD_STRIP_ALL	0x00000000
+#define KLD_STRIP_NONE	0x00000001
+
+__private_extern__ void kld_set_link_options(
+    unsigned long link_options);
 
 #endif /* _MACHO_KLD_H_ */

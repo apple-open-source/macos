@@ -1,4 +1,4 @@
-/*	$KAME: pfkey.h,v 1.19 2001/06/27 15:54:40 sakane Exp $	*/
+/*	$KAME: pfkey.h,v 1.20 2001/06/28 06:21:04 sakane Exp $	*/
 
 /*
  * Copyright (C) 1995, 1996, 1997, and 1998 WIDE Project.
@@ -60,7 +60,7 @@ extern void pfkey_timeover __P((struct ph2handle *));
 
 extern u_int pfkey2ipsecdoi_proto __P((u_int));
 extern u_int ipsecdoi2pfkey_proto __P((u_int));
-extern u_int pfkey2ipsecdoi_mode __P((u_int));
+extern u_int pfkey2ipsecdoi_mode __P((u_int, int));
 extern u_int ipsecdoi2pfkey_mode __P((u_int));
 
 extern int pfkey_convertfromipsecdoi __P(( u_int, u_int, u_int,

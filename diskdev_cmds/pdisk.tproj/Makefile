@@ -20,6 +20,7 @@ CFILES = bitfield.c cmdline.c convert.c dump.c errors.c io.c\
 
 OTHERSRCS = Makefile.preamble Makefile Makefile.postamble pdisk.8
 
+FRAMEWORKS = -framework CoreFoundation -framework IOKit
 
 MAKEFILEDIR = $(MAKEFILEPATH)/pb_makefiles
 CODE_GEN_STYLE = DYNAMIC

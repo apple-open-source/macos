@@ -3,21 +3,22 @@
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
- * "Portions Copyright (c) 1999 Apple Computer, Inc.  All Rights
- * Reserved.  This file contains Original Code and/or Modifications of
- * Original Code as defined in and that are subject to the Apple Public
- * Source License Version 1.0 (the 'License').  You may not use this file
- * except in compliance with the License.  Please obtain a copy of the
- * License at http://www.apple.com/publicsource and read it before using
- * this file.
+ * Copyright (c) 1999-2003 Apple Computer, Inc.  All Rights Reserved.
+ * 
+ * This file contains Original Code and/or Modifications of Original Code
+ * as defined in and that are subject to the Apple Public Source License
+ * Version 2.0 (the 'License'). You may not use this file except in
+ * compliance with the License. Please obtain a copy of the License at
+ * http://www.opensource.apple.com/apsl/ and read it before using this
+ * file.
  * 
  * The Original Code and all software distributed under the License are
  * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
  * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
  * INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY,
- * FITNESS FOR A PARTICULAR PURPOSE OR NON-INFRINGEMENT.  Please see the
- * License for the specific language governing rights and limitations
- * under the License."
+ * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
+ * Please see the License for the specific language governing rights and
+ * limitations under the License.
  * 
  * @APPLE_LICENSE_HEADER_END@
  */
@@ -42,28 +43,37 @@
 #include <errno.h>
 #include <unistd.h>
 #include <netinfo/ni.h>
+#include <histedit.h>
 
 #define streq(A,B) (strcmp(A,B) == 0)
 #define forever for(;;)
-
-static char myname[256];
-dsengine *engine = NULL;
-static int verbose = 0;
-static int interactive = 0;
-static u_int32_t current_dir = 0;
-static int mode = 0;
-static int raw = 0;
-
-#define INPUT_LENGTH 4096
-
-#define MODE_NETINFO 0
-#define MODE_X500 1
 
 #define PROMPT_NONE 0
 #define PROMPT_PLAIN 1
 #define PROMPT_NI 2
 #define PROMPT_X500 3
 #define PROMPT_DOT 4
+
+#define VT100_BOLD "\e[1m"
+#define VT100_NORM "\e[0m"
+
+static char myname[256];
+dsengine *engine = NULL;
+static int verbose = 0;
+static int interactive = 0;
+static u_int32_t current_dir = 0;
+static int prompt = PROMPT_NONE;
+static int do_bold = 0;
+static int do_notify = 0;
+static int mode = 0;
+static int raw = 0;
+static char *term_bold = NULL;
+static char *term_norm = NULL;
+
+#define INPUT_LENGTH 4096
+
+#define MODE_NETINFO 0
+#define MODE_X500 1
 
 #define ATTR_CREATE 0
 #define ATTR_APPEND 1
@@ -1902,8 +1912,8 @@ nifty_get_string(char **s)
 	memmove(p, x, i);
 	p[i] = 0;
 
+	if (quote == 1) i++;
 	*s += i;
-	*s += 1;
 
 	while (esc != 0)
 	{
@@ -1921,62 +1931,123 @@ nifty_get_string(char **s)
 	return p;
 }
 
-int
-nifty_interactive(FILE *in, int prompt)
+char *
+nifty_prompt(EditLine *el)
 {
-	char *s, *p, **iargv, line[INPUT_LENGTH];
-	int status, i, iargc, quote, esc, dotcount;
+	static char *ps = NULL;
+	char *p;
+
+	if (ps != NULL) free(ps);
+
+	switch (prompt)
+	{
+		case PROMPT_NONE:
+			ps = calloc(1, 1);
+			break;
+		case PROMPT_DOT:
+			ps = strdup(".");
+			break;
+		case PROMPT_PLAIN:
+			ps = strdup("> ");
+			break;
+		case PROMPT_NI:
+			p = dsengine_netinfo_string_path(engine, current_dir);
+			asprintf(&ps, "%s%s%s > ", do_bold ? term_bold : "", p, do_bold ? term_norm : "");
+			free(p);
+			break;
+		case PROMPT_X500:
+			p = dsengine_x500_string_path(engine, current_dir);
+			if (p == NULL || p[0] == '\0') p = copyString("rootDSE");
+			asprintf(&ps, "%s%s%s > ", do_bold ? term_bold : "", p, do_bold ? term_norm : "");
+			free(p);
+			break;
+		default:
+			ps = calloc(1, 1);
+			break;
+	}
+
+	return ps;
+}
+
+static char *
+nifty_input_line(FILE *in, EditLine *el, History *h)
+{
+	HistEvent hev;
+	const char *eline;
+	char *out, fline[INPUT_LENGTH];
+	int count, len;
+	
+	if (el == NULL)
+	{
+		count = fscanf(in, "%[^\n]%*c", fline);
+		if (count < 0) return NULL;
+		if (count == 0)
+		{
+			fscanf(in, "%*c");
+			out = calloc(1, 1);
+			return out;
+		}
+		len = strlen(fline);
+		out = malloc(len + 1);
+		memmove(out, fline, len);
+		out[len] = '\0';
+		return out;
+	}
+
+	eline = el_gets(el, &count);
+	if (eline == NULL) return NULL;
+	if (count <= 0) return NULL;
+
+	len = count - 1;
+	out = malloc(len);
+	memmove(out, eline, len);
+	out[len] = '\0';
+	if (len > 0) history(h, &hev, H_ENTER, out);
+
+	return out;
+}
+
+
+
+int
+nifty_interactive(FILE *in, int pmt)
+{
+	char *s, *p, **iargv, *line;
+	int i, iargc, quote, esc;
+	EditLine *el;
+	History *h;
+	HistEvent hev;
 
 	iargv = NULL;
 	interactive = 1;
-	dotcount = 0;
+
+	el = NULL;
+	h = NULL;
+
+	if (pmt != PROMPT_NONE)
+	{
+		el = el_init("nicl", in, stdout, stderr);
+		h = history_init();
+
+		el_set(el, EL_HIST, history, h);
+		el_set(el, EL_PROMPT, nifty_prompt);
+		el_set(el, EL_EDITOR, "emacs");
+		el_set(el, EL_SIGNAL, 1);
+		el_set(el, EL_EDITMODE, 1);
+
+		history(h, &hev, H_SETSIZE, 100000);
+	}
 
 	forever
 	{
-		memset(line, 0, INPUT_LENGTH);
+		line = nifty_input_line(in, el, h);
 
-		switch (prompt)
+		if (line == NULL) break;
+		if (line[0] == '\0')
 		{
-			case PROMPT_NONE:
-				break;
-			case PROMPT_DOT:
-				printf(".");
-				fflush(stdout);
-				dotcount++;
-				if (dotcount == 50)
-				{
-					dotcount = 0;
-					printf("\n");
-				}
-				break;
-			case PROMPT_PLAIN:
-				printf("> ");
-				break;
-			case PROMPT_NI:
-				p = dsengine_netinfo_string_path(engine, current_dir);
-				printf("\e[1m%s\e[0m > ", p);
-				free(p);
-				break;
-			case PROMPT_X500:
-				p = dsengine_x500_string_path(engine, current_dir);
-				if (p == NULL || p[0] == '\0') p = copyString("rootDSE");
-				printf("\e[1m%s\e[0m > ", p);
-				free(p);
-				break;
-			default:
-				break;
-		}
-
-		fflush(stdout);
-
-		status = fscanf(in, "%[^\n]%*c", line);
-		if (status == 0)
-		{
-			status = fscanf(in, "%*c");
+			free(line);
 			continue;
 		}
-
-		if (status < 0) break;
 		if (streq(line, "quit")) break;
 		if (streq(line, "exit")) break;
 		if (streq(line, "q")) break;
@@ -2002,6 +2073,7 @@ nifty_interactive(FILE *in, int prompt)
 
 		for (i = 0; i < iargc; i++) free(iargv[i]);
 		free(iargv);
+		free(line);
 	}
 
 	return DSStatusOK;
@@ -2010,9 +2082,9 @@ nifty_interactive(FILE *in, int prompt)
 int
 main(int argc, char *argv[])
 {
-	int i, opt_tag, opt_promptpw, opt_user, opt_password, opt_create, prompt;
+	int i, opt_tag, opt_promptpw, opt_user, opt_password, opt_create;
 	u_int32_t flags;
-	char *slash;
+	char *slash, *term;
 	dsstatus status;
 	dsengine *e;
 	dsdata *auth_user, *auth_password;
@@ -2039,10 +2111,19 @@ main(int argc, char *argv[])
 	opt_password = 0;
 	opt_create = 0;
 	interactive = 0;
+	do_notify = 1;
 	flags = 0;
 
 	flags |= DSSTORE_FLAGS_SERVER_MASTER;
 	flags |= DSSTORE_FLAGS_ACCESS_READWRITE;
+
+	term = getenv("TERM");
+	if ((term != NULL) && (!strcasecmp(term, "vt100")))
+	{
+		do_bold = 1;
+		term_bold = VT100_BOLD;
+		term_norm = VT100_NORM;
+	}
 
 	for (i = 1; i < argc; i++)
 	{
@@ -2054,6 +2135,8 @@ main(int argc, char *argv[])
 		else if (streq(argv[i], "-v")) verbose = 1;
 		else if (streq(argv[i], "-vv")) verbose = 2;
 		else if (streq(argv[i], "-q")) prompt = PROMPT_NONE;
+		else if (streq(argv[i], "-nobold")) do_bold = 0;
+		else if (streq(argv[i], "-nonotify")) do_notify = 0;
 		else if (streq(argv[i], "-t")) opt_tag = 1;
 		else if (streq(argv[i], "-raw")) raw = 1;
 		else if (streq(argv[i], "-p")) opt_promptpw = 1;
@@ -2086,7 +2169,9 @@ main(int argc, char *argv[])
 		flags |= DSENGINE_FLAGS_NETINFO_NAMING;
 	else
 		flags |= DSENGINE_FLAGS_X500_NAMING;
-	
+
+	if (do_notify != 0) flags |= DSSTORE_FLAGS_NOTIFY_CHANGES;
+
 	if (opt_user) opt_promptpw = 1;
 	if (opt_password) opt_promptpw = 0;
 
@@ -2153,6 +2238,8 @@ main(int argc, char *argv[])
 	i++;
 	if (i >= argc)
 	{
+		if (isatty(fileno(stdin)) == 0) prompt = PROMPT_NONE;
+
 		status = nifty_interactive(stdin, prompt);
 		if (prompt != PROMPT_NONE) printf("Goodbye\n");
 	}

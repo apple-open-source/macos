@@ -1,5 +1,5 @@
-# Local variable window for Insight.
-# Copyright 1997, 1998, 1999, 2001 Red Hat
+# Local Variable Window for Insight.
+# Copyright 2002, 2003 Red Hat
 #
 # This program is free software; you can redistribute it and/or modify it
 # under the terms of the GNU General Public License (GPL) as published by
@@ -12,112 +12,172 @@
 # GNU General Public License for more details.
 
 
-class LocalsWin {
-    inherit VariableWin
+# ----------------------------------------------------------------------
+# Implements local variables windows for gdb.
+# ----------------------------------------------------------------------
 
-    # ------------------------------------------------------------------
-    #  CONSTRUCTOR - create new locals window
-    # ------------------------------------------------------------------
-    constructor {args} {
-	update dummy
+itcl::class LocalsWin {
+  inherit EmbeddedWin GDBWin
+  # ------------------------------------------------------------------
+  #  CONSTRUCTOR - create new locals window
+  # ------------------------------------------------------------------
+  constructor {args} {
+    debug
+
+    gdbtk_busy
+    build_win $itk_interior
+    gdbtk_idle
+    
+    add_hook gdb_no_inferior_hook "$this no_inferior"
+    add_hook gdb_clear_file_hook [code $this clear_file]
+    add_hook file_changed_hook [code $this clear_file]
+
+    update dummy
+  }
+  
+
+  # ------------------------------------------------------------------
+  #   PUBLIC METHOD:  busy - BusyEvent handler
+  #           Disable all ui elements that could affect gdb's state
+  # ------------------------------------------------------------------
+  method busy {event} {
+    debug
+    set Running 1
+    cursor watch
+  }
+
+  # Re-enable the UI
+  method idle {event} {
+    debug
+    set Running 0
+    cursor {}
+  }
+
+  # ------------------------------------------------------------------
+  # METHOD:   no_inferior
+  #           Reset this object.
+  # ------------------------------------------------------------------
+  method no_inferior {} {
+    debug
+    cursor {}
+    set Running 0
+    set _frame {}
+  }
+  
+  # ------------------------------------------------------------------
+  #  METHOD:  cursor - change the toplevel's cursor
+  # ------------------------------------------------------------------
+  method cursor {what} {
+    [winfo toplevel [namespace tail $this]] configure -cursor $what
+    ::update idletasks
+  }
+  
+  
+  # ------------------------------------------------------------------
+  # METHOD: build_win - build window for variables. 
+  # ------------------------------------------------------------------
+  method build_win {f} {
+    #debug "$f"
+    
+    set tree [VarTree $f.tree -type "local"]
+    pack $f.tree -expand yes -fill both
+    pack $f -expand yes -fill both
+    if {$::tcl_platform(platform) == "windows"} {
+#      ide_sizebox [namespace tail $this].sizebox
+#      place [namespace tail $this].sizebox -relx 1 -rely 1 -anchor se
     }
+    
+    window_name "Local Variables"
+    ::update idletasks
+  }
 
-    # ------------------------------------------------------------------
-    # DESTRUCTOR - delete locals window
-    # ------------------------------------------------------------------
-    destructor {
+
+  # ------------------------------------------------------------------
+  #  METHOD: clear_file - Clear out state so that a new executable
+  #             can be loaded. For LocalWins, this means deleting
+  #             the Variables list.
+  # ------------------------------------------------------------------
+  method clear_file {} {
+    debug
+    set Variables {}
+  }
+
+  # ------------------------------------------------------------------
+  # DESTRUCTOR - delete locals window
+  # ------------------------------------------------------------------
+  destructor {
+    debug
+    set tree {}
+
+    # Remove this window and all hooks
+    remove_hook gdb_no_inferior_hook "$this no_inferior"
+    remove_hook gdb_clear_file_hook [code $this clear_file]
+    remove_hook file_changed_hook [code $this clear_file]
+
+    foreach var $Variables {
+      $var delete
     }
+  }
 
-    method build_win {f} {
-	global tcl_platform
-	build_menu_helper Variable
-	if {$tcl_platform(platform) == "windows"} {
-	    frame $f.f
-	    VariableWin::build_win $f.f
-	    pack $f.f -expand yes -fill both -side top
-	    frame $f.stat
-	    pack $f.stat -side bottom -fill x
-	} else {
-	    VariableWin::build_win $f
-	}
+  method context_switch {} {
+    debug
+
+    set err [catch {gdb_selected_frame} current_frame]
+    #debug "1: err=$err; _frame=\"$_frame\"; current_frame=\"$current_frame\""
+
+    if {$err && $_frame != ""} {
+      # No current frame
+      debug "no current frame"
+      catch {destroy $_frame}
+      set _frame {}
+      return 1
+    } elseif {$current_frame == "" && $_frame == ""} {
+      #debug "2"
+      return 0
+    } elseif {$_frame == "" || $current_frame != [$_frame address]} {
+      # We've changed frames. If we knew something about
+      # the stack layout, we could be more intelligent about
+      # destroying variables, but we don't know that here (yet).
+      debug "switching to frame at $current_frame"
+      
+      # Destroy the old frame and create the new one
+      catch {destroy $_frame}
+      set _frame [Frame ::\#auto $current_frame]
+      debug "created new frame: $_frame at [$_frame address]"
+      return 1
     }
+    
+    # Nothing changed
+    #debug "3"
+    return 0
+  }
 
 
-    # ------------------------------------------------------------------
-    # METHOD: reconfig
-    # Overrides VarialbeWin::reconfig method.  Have to make sure the locals
-    #  will get redrawn after everything is destroyed...
-    # ------------------------------------------------------------------
-    method reconfig {} {
-	VariableWin::reconfig
-	populate {}
-    }
+  method update {event} {
+    debug
 
-    # ------------------------------------------------------------------
-    # METHOD: getVariablesBlankPath
-    # Overrides VarialbeWin::getVariablesBlankPath. For a Locals Window,
-    # this method returns a list of local variables.
-    # ------------------------------------------------------------------
-    method getVariablesBlankPath {} {
-	global Update
-	debug
+    # Check that a context switch has not occured
+    if {[context_switch]} {
+      debug "CONTEXT SWITCH"
+      
+      # delete variables in tree
+      $tree remove all
+      set Variables {}
 
-	return [$_frame variables]
-    }
-
-    method update {event} {
-	global Update Display
-
-	debug "START LOCALS UPDATE CALLBACK"
-	# Check that a context switch has not occured
-	if {[context_switch]} {
-	    debug "CONTEXT SWITCH"
-
-	    # our context has changed... repopulate with new variables
-	    # destroy the old tree and create a new one
-	    #
-	    # We need to be more intelligent about saving window state
-	    # when browsing the stack or stepping into new frames, but
-	    # for now, we'll have to settle for just getting this working.
-	    deleteTree
-	    set ChangeList {}
-	    
-	    # context_switch will have already created the new frame for
-	    # us, so all we need to do is shove stuff into the window.
-	    debug "_frame=$_frame"
-	    if {$_frame != ""} {
-		debug "vars=[$_frame variables]"
-	    }
-	    if {$_frame != "" && [$_frame variables] != ""} {
-		populate {}
-	    }
-	}
-
-	# Erase old variables
-	if {$_frame != ""} {
-	    foreach var [$_frame old] {
-		$Hlist delete entry $var
-		$_frame deleteOld
-		unset Update($this,$var)
-	    }
-
-	    # Add new variables
-	    foreach var [$_frame new] {
-		set Update($this,$var) 1
-		$Hlist add $var                 \
-		    -itemtype text              \
-		    -text [label $var]
-		if {[$var numChildren] > 0} {
-		    # Make sure we get this labeled as openable
-		    $Tree setmode $var open
-		}
-	    }
-	}
-
-	# Update variables in window
-	VariableWin::update dummy
-
-	debug "END LOCALS UPDATE CALLBACK"
-    }
+      if {$_frame != ""} {
+	$tree add [$_frame variables]
+      }
+    } else {
+      if {$_frame == ""} {return}
+      # check for any new variables in the same frame
+      $tree add [$_frame new]
+    }    
+    after idle [code $tree update]
+  }
+  
+  protected variable Entry
+  protected variable Variables {}
+  protected variable tree
+  protected variable Running
+  protected variable _frame {}
 }
-

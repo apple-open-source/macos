@@ -3,19 +3,22 @@
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
- * The contents of this file constitute Original Code as defined in and
- * are subject to the Apple Public Source License Version 1.1 (the
- * "License").  You may not use this file except in compliance with the
- * License.  Please obtain a copy of the License at
- * http://www.apple.com/publicsource and read it before using this file.
+ * Copyright (c) 1999-2003 Apple Computer, Inc.  All Rights Reserved.
  * 
- * This Original Code and all software distributed under the License are
- * distributed on an "AS IS" basis, WITHOUT WARRANTY OF ANY KIND, EITHER
+ * This file contains Original Code and/or Modifications of Original Code
+ * as defined in and that are subject to the Apple Public Source License
+ * Version 2.0 (the 'License'). You may not use this file except in
+ * compliance with the License. Please obtain a copy of the License at
+ * http://www.opensource.apple.com/apsl/ and read it before using this
+ * file.
+ * 
+ * The Original Code and all software distributed under the License are
+ * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
  * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
  * INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY,
- * FITNESS FOR A PARTICULAR PURPOSE OR NON-INFRINGEMENT.  Please see the
- * License for the specific language governing rights and limitations
- * under the License.
+ * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
+ * Please see the License for the specific language governing rights and
+ * limitations under the License.
  * 
  * @APPLE_LICENSE_HEADER_END@
  */
@@ -23,11 +26,13 @@
 #ifndef _APPLEPS2TOADBMAP_H
 #define _APPLEPS2TOADBMAP_H
 
+#define DEADKEY 0x80
+
 static const UInt8 PS2ToADBMap[0x80] = 
 {
 /*  ADB       AT  Key-Legend
     ======================== */
-    0x00,  // 00
+    DEADKEY,  // 00
     0x35,  // 01  Escape
     0x12,  // 02  1
     0x13,  // 03  2
@@ -81,7 +86,7 @@ static const UInt8 PS2ToADBMap[0x80] =
     0x2b,  // 33  ,<
     0x2f,  // 34  .>
     0x2c,  // 35  /?
-    0x38,  // 36  Right Shift
+    0x3c,  // 36  Right Shift
     0x43,  // 37  Keypad *
     0x3a,  // 38  Left Alt
     0x31,  // 39  Space
@@ -111,20 +116,20 @@ static const UInt8 PS2ToADBMap[0x80] =
     0x55,  // 51  Keypad PgDn
     0x52,  // 52  Keypad Insert
     0x41,  // 53  Keypad Del
-    0x00,  // 54  SysReq
-    0x00,  // 55
-    0x00,  // 56
+    DEADKEY,  // 54  SysReq
+    DEADKEY,  // 55
+    DEADKEY,  // 56
     0x67,  // 57  F11
     0x6f,  // 58  F12
-    0x00,  // 59
-    0x00,  // 5a
-    0x00,  // 5b
-    0x00,  // 5c
-    0x00,  // 5d
-    0x00,  // 5e
-    0x00,  // 5f
-    0x3b,  // 60  Right Ctrl
-    0x3a,  // 61  Right Alt
+    DEADKEY,  // 59
+    DEADKEY,  // 5a
+    DEADKEY,  // 5b
+    DEADKEY,  // 5c
+    DEADKEY,  // 5d
+    DEADKEY,  // 5e
+    DEADKEY,  // 5f
+    0x3e,  // 60  Right Ctrl
+    0x3d,  // 61  Right Alt
     0x4c,  // 62  Keypad Enter
     0x4b,  // 53  Keypad /
     0x7e,  // 64  Up Arrow
@@ -140,21 +145,21 @@ static const UInt8 PS2ToADBMap[0x80] =
     0x69,  // 6e  Print Scrn
     0x71,  // 6f  Pause
     0x37,  // 70  Left Window
-    0x37,  // 71  Right Window
+    0x36,  // 71  Right Window
     0x6e,  // 72  Applications
-    0x00,  // 73
-    0x00,  // 74
-    0x00,  // 75
-    0x00,  // 76
-    0x00,  // 77
-    0x00,  // 78
-    0x00,  // 79
-    0x00,  // 7a
-    0x00,  // 7b
-    0x00,  // 7c
-    0x00,  // 7d
-    0x00,  // 7e
-    0x00   // 7f
+    DEADKEY,  // 73
+    DEADKEY,  // 74
+    DEADKEY,  // 75
+    DEADKEY,  // 76
+    DEADKEY,  // 77
+    DEADKEY,  // 78
+    DEADKEY,  // 79
+    DEADKEY,  // 7a
+    DEADKEY,  // 7b
+    DEADKEY,  // 7c
+    DEADKEY,  // 7d
+    DEADKEY,  // 7e
+    DEADKEY   // 7f
 };
 
 #endif /* !_APPLEPS2TOADBMAP_H */

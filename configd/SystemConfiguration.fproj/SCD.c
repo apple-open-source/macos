@@ -1,22 +1,25 @@
 /*
- * Copyright (c) 2000-2002 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 2000-2003 Apple Computer, Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
- *
- * The contents of this file constitute Original Code as defined in and
- * are subject to the Apple Public Source License Version 1.1 (the
- * "License").  You may not use this file except in compliance with the
- * License.  Please obtain a copy of the License at
- * http://www.apple.com/publicsource and read it before using this file.
- *
- * This Original Code and all software distributed under the License are
- * distributed on an "AS IS" basis, WITHOUT WARRANTY OF ANY KIND, EITHER
+ * 
+ * Copyright (c) 1999-2003 Apple Computer, Inc.  All Rights Reserved.
+ * 
+ * This file contains Original Code and/or Modifications of Original Code
+ * as defined in and that are subject to the Apple Public Source License
+ * Version 2.0 (the 'License'). You may not use this file except in
+ * compliance with the License. Please obtain a copy of the License at
+ * http://www.opensource.apple.com/apsl/ and read it before using this
+ * file.
+ * 
+ * The Original Code and all software distributed under the License are
+ * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
  * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
  * INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY,
- * FITNESS FOR A PARTICULAR PURPOSE OR NON-INFRINGEMENT.  Please see the
- * License for the specific language governing rights and limitations
- * under the License.
- *
+ * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
+ * Please see the License for the specific language governing rights and
+ * limitations under the License.
+ * 
  * @APPLE_LICENSE_HEADER_END@
  */
 
@@ -76,6 +79,8 @@ static const struct sc_errmsg {
 // from <CoreFoundation/CFVeryPrivate.h>
 extern CFStringRef _CFStringCreateWithFormatAndArgumentsAux(CFAllocatorRef alloc, CFStringRef (*copyDescFunc)(void *, CFDictionaryRef), CFDictionaryRef formatOptions, CFStringRef format, va_list arguments);
 
+#define	N_QUICK	32
+
 static CFStringRef
 _SCCopyDescription(void *info, CFDictionaryRef formatOptions)
 {
@@ -106,7 +111,7 @@ _SCCopyDescription(void *info, CFDictionaryRef formatOptions)
 	}
 
 	if (type == CFDataGetTypeID()) {
-		const u_int8_t		*data;
+		const uint8_t		*data;
 		CFIndex			dataLen;
 		CFIndex			i;
 		CFMutableStringRef	str;
@@ -168,7 +173,8 @@ _SCCopyDescription(void *info, CFDictionaryRef formatOptions)
 	}
 
 	if (type == CFArrayGetTypeID()) {
-		const void		**elements;
+		const void *		elements_q[32];
+		const void **		elements	= elements_q;
 		CFIndex			i;
 		CFIndex			nElements;
 		CFMutableStringRef	str;
@@ -178,9 +184,10 @@ _SCCopyDescription(void *info, CFDictionaryRef formatOptions)
 
 		nElements = CFArrayGetCount(info);
 		if (nElements > 0) {
-			elements  = CFAllocatorAllocate(NULL, nElements * sizeof(CFTypeRef), 0);
+			if (nElements > (CFIndex)(sizeof(elements_q)/sizeof(CFTypeRef)))
+				elements  = CFAllocatorAllocate(NULL, nElements * sizeof(CFTypeRef), 0);
 			CFArrayGetValues(info, CFRangeMake(0, nElements), elements);
-			for (i=0; i<nElements; i++) {
+			for (i = 0; i < nElements; i++) {
 				CFMutableStringRef	nPrefix1;
 				CFMutableStringRef	nPrefix2;
 				CFStringRef		nStr;
@@ -213,7 +220,7 @@ _SCCopyDescription(void *info, CFDictionaryRef formatOptions)
 						     vStr);
 				CFRelease(vStr);
 			}
-			CFAllocatorDeallocate(NULL, elements);
+			if (elements != elements_q) CFAllocatorDeallocate(NULL, elements);
 		}
 		CFStringAppendFormat(str, formatOptions, CFSTR("\n%@}"), prefix2);
 
@@ -222,23 +229,27 @@ _SCCopyDescription(void *info, CFDictionaryRef formatOptions)
 	}
 
 	if (type == CFDictionaryGetTypeID()) {
-		const void		**keys;
+		const void *		keys_q[N_QUICK];
+		const void **		keys	= keys_q;
 		CFIndex			i;
 		CFIndex			nElements;
 		CFMutableStringRef	nPrefix1;
 		CFMutableStringRef	nPrefix2;
 		CFMutableStringRef	str;
-		const void		**values;
+		const void *		values_q[N_QUICK];
+		const void **		values	= values_q;
 
 		str = CFStringCreateMutable(NULL, 0);
 		CFStringAppendFormat(str, formatOptions, CFSTR("%@<dictionary> {"), prefix1);
 
 		nElements = CFDictionaryGetCount(info);
 		if (nElements > 0) {
-			keys   = CFAllocatorAllocate(NULL, nElements * sizeof(CFTypeRef), 0);
-			values = CFAllocatorAllocate(NULL, nElements * sizeof(CFTypeRef), 0);
+			if (nElements > (CFIndex)(sizeof(keys_q) / sizeof(CFTypeRef))) {
+				keys   = CFAllocatorAllocate(NULL, nElements * sizeof(CFTypeRef), 0);
+				values = CFAllocatorAllocate(NULL, nElements * sizeof(CFTypeRef), 0);
+			}
 			CFDictionaryGetKeysAndValues(info, keys, values);
-			for (i=0; i<nElements; i++) {
+			for (i = 0; i < nElements; i++) {
 				CFStringRef		kStr;
 				CFStringRef		vStr;
 
@@ -269,14 +280,18 @@ _SCCopyDescription(void *info, CFDictionaryRef formatOptions)
 						     vStr);
 				CFRelease(vStr);
 			}
-			CFAllocatorDeallocate(NULL, keys);
-			CFAllocatorDeallocate(NULL, values);
+			if (keys != keys_q) {
+				CFAllocatorDeallocate(NULL, keys);
+				CFAllocatorDeallocate(NULL, values);
+			}
 		}
 		CFStringAppendFormat(str, formatOptions, CFSTR("\n%@}"), prefix2);
 
 		CFRelease(nFormatOptions);
 		return str;
 	}
+
+	CFRelease(nFormatOptions);
 
 	{
 		CFStringRef	cfStr;
@@ -299,17 +314,34 @@ _SCCopyDescription(void *info, CFDictionaryRef formatOptions)
 static pthread_mutex_t lock = PTHREAD_MUTEX_INITIALIZER;
 
 
-__private_extern__ void
-__SCLog(int level, CFStringRef str)
+static void
+__SCLog(int level, CFStringRef formatString, va_list formatArguments)
 {
 	CFArrayRef	lines;
+	CFStringRef	str;
+
+#ifdef	USE_SCCOPYDESCRIPTION
+	str = _CFStringCreateWithFormatAndArgumentsAux(NULL,
+						       _SCCopyDescription,
+						       NULL,
+						       formatString,
+						       formatArguments);
+#else	/* USE_SCCOPYDESCRIPTION */
+	str =  CFStringCreateWithFormatAndArguments   (NULL,
+						       NULL,
+						       formatString,
+						       formatArguments);
+#endif	/* !USE_SCCOPYDESCRIPTION */
 
 	lines = CFStringCreateArrayBySeparatingStrings(NULL, str, CFSTR("\n"));
+	CFRelease(str);
+
 	if (lines) {
-		int		i;
+		int	i;
+		int	n	= CFArrayGetCount(lines);
 
 		pthread_mutex_lock(&lock);
-		for (i=0; i<CFArrayGetCount(lines); i++) {
+		for (i = 0; i < n; i++) {
 			CFDataRef	line;
 
 			line = CFStringCreateExternalRepresentation(NULL,
@@ -329,22 +361,52 @@ __SCLog(int level, CFStringRef str)
 }
 
 
-__private_extern__ void
-__SCPrint(FILE *stream, CFStringRef str)
+static void
+__SCPrint(FILE *stream, CFStringRef formatString, va_list formatArguments, Boolean trace, Boolean addNL)
 {
 	CFDataRef	line;
+	CFStringRef	str;
+
+#ifdef	USE_SCCOPYDESCRIPTION
+	str = _CFStringCreateWithFormatAndArgumentsAux(NULL,
+						       _SCCopyDescription,
+						       NULL,
+						       formatString,
+						       formatArguments);
+#else	/* USE_SCCOPYDESCRIPTION */
+	str =  CFStringCreateWithFormatAndArguments   (NULL,
+						       NULL,
+						       formatString,
+						       formatArguments);
+#endif	/* !USE_SCCOPYDESCRIPTION */
 
 	line = CFStringCreateExternalRepresentation(NULL,
 						    str,
 						    kCFStringEncodingMacRoman,
 						    '?');
-	if (line) {
-		pthread_mutex_lock(&lock);
-		fprintf(stream, "%.*s", (int)CFDataGetLength(line), CFDataGetBytePtr(line));
-		fflush (stream);
-		pthread_mutex_unlock(&lock);
-		CFRelease(line);
+	CFRelease(str);
+	if (!line) {
+		return;
 	}
+
+	pthread_mutex_lock(&lock);
+	if (trace) {
+		time_t		now	= time(NULL);
+		struct tm	tm;
+
+		(void)localtime_r(&now, &tm);
+		fprintf(stream, "%2d:%02d:%02d %.*s%s",
+			tm.tm_hour, tm.tm_min, tm.tm_sec,
+			(int)CFDataGetLength(line), CFDataGetBytePtr(line),
+			addNL ? "\n" : "");
+	} else {
+		fprintf(stream, "%.*s%s",
+			(int)CFDataGetLength(line), CFDataGetBytePtr(line),
+			addNL ? "\n" : "");
+	}
+	fflush (stream);
+	pthread_mutex_unlock(&lock);
+	CFRelease(line);
 
 	return;
 }
@@ -353,37 +415,24 @@ __SCPrint(FILE *stream, CFStringRef str)
 void
 SCLog(Boolean condition, int level, CFStringRef formatString, ...)
 {
-	va_list		argList;
-	CFStringRef	resultString;
+	va_list		formatArguments;
 
 	if (!condition) {
 		return;
 	}
 
-	va_start(argList, formatString);
-#ifdef	USE_SCCOPYDESCRIPTION
-	resultString = _CFStringCreateWithFormatAndArgumentsAux(NULL,
-								_SCCopyDescription,
-								NULL,
-								formatString,
-								argList);
-#else	/* USE_SCCOPYDESCRIPTION */
-	resultString = CFStringCreateWithFormatAndArguments(NULL, NULL, formatString, argList);
-#endif	/* !USE_SCCOPYDESCRIPTION */
-	va_end(argList);
-
+	va_start(formatArguments, formatString);
 	if (_sc_log) {
-		__SCLog(level, resultString);
+		__SCLog(level, formatString, formatArguments);
 	} else {
-		FILE		*f = (LOG_PRI(level) > LOG_NOTICE) ? stderr : stdout;
-		CFStringRef	newString;
-
-		/* add a new-line */
-		newString = CFStringCreateWithFormat(NULL, NULL, CFSTR("%@\n"), resultString);
-	       __SCPrint(f, newString);
-		CFRelease(newString);
+		__SCPrint((LOG_PRI(level) > LOG_NOTICE) ? stderr : stdout,
+			  formatString,
+			  formatArguments,
+			  FALSE,		// trace
+			  TRUE);		// add newline
 	}
-	CFRelease(resultString);
+	va_end(formatArguments);
+
 	return;
 }
 
@@ -391,27 +440,33 @@ SCLog(Boolean condition, int level, CFStringRef formatString, ...)
 void
 SCPrint(Boolean condition, FILE *stream, CFStringRef formatString, ...)
 {
-	va_list		argList;
-	CFStringRef	resultString;
+	va_list		formatArguments;
 
 	if (!condition) {
 		return;
 	}
 
-	va_start(argList, formatString);
-#ifdef	USE_SCCOPYDESCRIPTION
-	resultString = _CFStringCreateWithFormatAndArgumentsAux(NULL,
-								_SCCopyDescription,
-								NULL,
-								formatString,
-								argList);
-#else	/* USE_SCCOPYDESCRIPTION */
-	resultString = CFStringCreateWithFormatAndArguments(NULL, NULL, formatString, argList);
-#endif	/* !USE_SCCOPYDESCRIPTION */
-	va_end(argList);
+	va_start(formatArguments, formatString);
+	__SCPrint(stream, formatString, formatArguments, FALSE, FALSE);
+	va_end(formatArguments);
 
-	__SCPrint(stream, resultString);
-	CFRelease(resultString);
+	return;
+}
+
+
+void
+SCTrace(Boolean condition, FILE *stream, CFStringRef formatString, ...)
+{
+	va_list		formatArguments;
+
+	if (!condition) {
+		return;
+	}
+
+	va_start(formatArguments, formatString);
+	__SCPrint(stream, formatString, formatArguments, TRUE, FALSE);
+	va_end(formatArguments);
+
 	return;
 }
 
@@ -481,7 +536,7 @@ SCErrorString(int status)
 {
 	int i;
 
-	for (i = 0; i < nSC_ERRMSGS; i++) {
+	for (i = 0; i < (int)nSC_ERRMSGS; i++) {
 		if (sc_errmsgs[i].status == status) {
 			return sc_errmsgs[i].message;
 		}

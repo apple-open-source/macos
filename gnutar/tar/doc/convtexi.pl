@@ -4,7 +4,7 @@ eval "exec /usr/local/bin/perl -S $0 $*"
 
 # Copy a Texinfo file, replacing @value's, @FIXME's and other gooddies.
 
-# Copyright © 1996 Free Software Foundation, Inc.
+# Copyright © 1996, 2001 Free Software Foundation, Inc.
 #
 # This program is free software; you can redistribute it and/or modify it
 # under the terms of the GNU General Public License as published by the
@@ -132,3 +132,7 @@ while ($_)
     }
 }
 exit 0;
+
+# Local Variables:
+# coding: iso-latin-1
+# End:

@@ -1,0 +1,20 @@
+
+puts "Test test_002.exp: level [info level]"
+puts "szTestName: [set szTestName]"
+puts "lTestName : $lTestName"
+
+namespace ::Common {
+    if [info exists i] {
+	if {[expr $i % 2]} {
+	    puts "    Remainder is 1 >$i<"
+	    incr i
+	    return
+	} else {
+	    puts "    Zero remainder >$i<"
+	    incr i
+	}
+	puts "         === End: $env(SHELL)"
+    } else {
+	puts "#### i doesn't exists"
+    }
+}

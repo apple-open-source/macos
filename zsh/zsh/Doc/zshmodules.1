@@ -1,4 +1,4 @@
-.TH "ZSHMODULES" "1" "October 26, 2001" "zsh 4\&.0\&.4"
+.TH "ZSHMODULES" "1" "June 18, 2003" "zsh 4\&.1\&.1"
 .SH "NAME"
 zshmodules \- zsh loadable modules
 .\" Yodl file: Zsh/modules.yo
@@ -51,8 +51,14 @@ Standard scientific functions for use in mathematical evaluations\&.
 \fBzsh/parameter\fP
 Access to internal hash tables via special associative arrays\&.
 .TP
+\fBzsh/pcre\fP
+Interface to the PCRE library\&.
+.TP
 \fBzsh/sched\fP
 A builtin that provides a timed execution facility within the shell\&.
+.TP
+\fBzsh/net/socket\fP
+Manipulation of Unix domain sockets
 .TP
 \fBzsh/stat\fP
 A builtin command interface to the \fBstat\fP system call\&.
@@ -78,9 +84,15 @@ A module allowing profiling for shell functions\&.
 \fBzsh/zpty\fP
 A builtin for starting a command in a pseudo\-terminal\&.
 .TP
+\fBzsh/zselect\fP
+Block and return when file descriptors are ready\&.
+.TP
 \fBzsh/zutil\fP
 Some utility builtins, e\&.g\&. the one for supporting configuration via 
 styles\&.
+.TP
+\fBzsh/net/tcp\fP
+Manipulation of TCP sockets
 .\" Yodl file: Zsh/modmenu.yo
 .SH "THE ZSH/CAP MODULE"
 .\" Yodl file: Zsh/mod_cap.yo
@@ -484,6 +496,22 @@ moves the mark to the next match
 .TP
 \fBreverse\-menu\-complete\fP
 moves the mark to the previous match
+.TP
+\fBvi\-insert\fP
+this toggles between normal and interactive mode; in interactive mode
+the keys bound to \fBself\-insert\fP and \fBself\-insert\-unmeta\fP insert
+into the command line as in normal editing mode but without leaving
+menu selection; after each character completion is tried again and the
+list changes to contain only the new matches; the completion widgets
+make the longest unambiguous string be inserted in the command line
+and \fBundo\fP and \fBbackward\-delete\-char\fP go back to the previous set
+of matches
+.TP
+\fBhistory\-incremental\-search\-forward\fP,
+\fBhistory\-incremental\-search\-backward\fP
+this starts incremental searches in the list of completions displayed;
+in this mode, \fBaccept\-line\fP only leaves incremental search, going
+back to the normal menu selection mode
 .PP
 All movement functions wrap around at the edges; any other zle function not
 listed leaves menu selection and executes that function\&.  It is possible to
@@ -886,6 +914,43 @@ a floating point or integer value (by truncation) respectively\&.
 .PP
 Note that the C \fBpow\fP function is available in ordinary math evaluation
 as the `\fB**\fP' operator and is not provided here\&.
+.PP
+The function \fBrand48\fP is available if your system's mathematical library
+has the function \fBerand48(3)\fP\&.  It returns a pseudo\-random floating point
+number between 0 and 1\&.  It takes a single string optional argument\&.
+.PP
+If the argument is not present, the random number seed is initialised by
+three calls to the \fBrand(3)\fP function \-\-\- this produces the same random
+numbers as the next three values of \fB$RANDOM\fP\&.
+.PP
+If the argument is present, it gives the name of a scalar parameter where
+the current random number seed will be stored\&.  On the first call, the
+value must contain at least twelve hexadecimal digits (the remainder of the
+string is ignored), or the seed will be initialised in the same manner as
+for a call to \fBrand48\fP with no argument\&.  Subsequent calls to
+\fBrand48\fP(\fIparam\fP) will then maintain the seed in the
+parameter \fIparam\fP as a string of twelve hexadecimal digits, with no base
+signifier\&.  The random number sequences for different parameters are
+completely independent, and are also independent from that used by calls to
+\fBrand48\fP with no argument\&.
+.PP
+For example, consider
+.PP
+.RS
+.nf
+\fBprint $(( rand48(seed) ))
+print $(( rand48() ))
+print $(( rand48(seed) ))\fP
+.fi
+.RE
+.PP
+Assuming \fB$seed\fP does not exist, it will be initialised by the first
+call\&.  In the second call, the default seed is initialised; note, however,
+that because of the properties of \fBrand()\fP there is a correlation between
+the seeds used for the two initialisations, so for more secure uses, you
+should generate your own 12\-byte seed\&.  The third call returns to the same
+sequence of random numbers used in the first call, unaffected by the
+intervening \fBrand48()\fP\&.
 .SH "THE ZSH/PARAMETER MODULE"
 .\" Yodl file: Zsh/mod_parameter.yo
 
@@ -1013,6 +1078,32 @@ directories\&.
 This array contains the names of the functions currently being
 executed\&. The first element is the name of the function using the
 parameter\&.
+.SH "THE ZSH/PCRE MODULE"
+.\" Yodl file: Zsh/mod_pcre.yo
+
+The \fBzsh/pcre\fP module makes some commands available as builtins:
+.PP
+.PD 0
+.TP
+.PD
+\fBpcre_compile\fP [ \fB\-aimx\fP ] \fIPCRE\fP
+Compiles a perl\-compatible regular expression\&.
+.TP
+\fBpcre_study\fP
+Studies the previously\-compiled PCRE which may result in faster
+matching\&.
+.TP
+\fBpcre_match\fP [ \fB\-a\fP \fIarr\fP ] \fIstring\fP
+Returns successfully if \fBstring\fP matches the previously\-compiled
+PCRE\&.
+.RS
+.PP
+If the expression captures substrings within parentheses,
+\fBpcre_match\fP will set the array \fI$match\fP to those
+substrings, unless the \fB\-a\fP option is given, in which
+case it will set the array \fIarr\fP\&.
+.RE
+.RE
 .SH "THE ZSH/SCHED MODULE"
 .\" Yodl file: Zsh/mod_sched.yo
 
@@ -1030,6 +1121,78 @@ The time may be specified in either absolute or relative time\&.
 With no arguments, prints the list of scheduled commands\&.
 With the argument `\fB\-\fP\fIitem\fP', removes the given item
 from the list\&.
+.SH "THE ZSH/NET/SOCKET MODULE"
+.\" Yodl file: Zsh/mod_socket.yo
+
+The \fBzsh/net/socket\fP module makes available one builtin command:
+.PP
+.PD 0
+.TP
+.PD
+\fBzsocket\fP [ \fB\-altv\fP ] [ \fB\-d\fP \fIfd\fP ] [ \fIargs\fP ]
+\fBzsocket\fP is implemented as a builtin to allow full use of shell
+command line editing, file I/O, and job control mechanisms\&.
+.RS
+.PP
+.SS "Outbound Connections"
+.PP
+.PD 0
+.TP
+.PD
+\fBzsocket\fP [ \fB\-v\fP ] [ \fB\-d\fP \fIfd\fP ] \fIfilename\fP
+Open a new Unix domain connection to \fIfilename\fP\&.
+The shell parameter \fBREPLY\fP will be set to the file descriptor
+associated with that connection\&.  Currently, only stream connections
+are supported\&.
+.RS
+.PP
+If \fB\-d\fP is specified, its argument
+will be taken as the target file descriptor for the
+connection\&.
+.PP
+In order to elicit more verbose output, use \fB\-v\fP\&.
+.RE
+.RE
+.PP
+.SS "Inbound Connections"
+.PP
+.PD 0
+.TP
+.PD
+\fBzsocket\fP \fB\-l\fP [ \fB\-v\fP ] [ \fB\-d\fP \fIfd\fP ] \fIfilename\fP
+\fBzsocket \-l\fP will open a socket listening on \fIfilename\fP\&.
+The shell parameter \fBREPLY\fP will be set to the file descriptor
+associated with that listener\&.
+.RS
+.PP
+If \fB\-d\fP is specified, its argument
+will be taken as the target file descriptor for
+the connection\&.
+.PP
+In order to elicit more verbose output, use \fB\-v\fP\&.
+.RE
+.TP
+\fBzsocket\fP \fB\-a\fP [ \fB\-tv\fP ] [ \fB\-d\fP \fItargetfd\fP ] \fIlistenfd\fP
+\fBzsocket \-a\fP will accept an incoming connection
+to the socket associated with \fIlistenfd\fP\&.
+The shell parameter \fBREPLY\fP will
+be set to the file descriptor associated with
+the inbound connection\&.
+.RS
+.PP
+If \fB\-d\fP is specified, its argument
+will be taken as the target file descriptor for the
+connection\&.
+.PP
+If \fB\-t\fP is specified, \fBzsocket\fP will return
+if no incoming connection is pending\&.  Otherwise
+it will wait for one\&.
+.PP
+In order to elicit more verbose output, use \fB\-v\fP\&.
+.RE
+.RE
+.RE
+.RE
 .SH "THE ZSH/STAT MODULE"
 .\" Yodl file: Zsh/mod_stat.yo
 
@@ -1220,9 +1383,9 @@ The \fBzsh/terminfo\fP module makes available one builtin command:
 .PD 0
 .TP
 .PD
-\fBechoti\fP \fIcap\fP
+\fBechoti\fP \fIcap\fP [ \fIarg\fP ]
 Output the terminfo value corresponding to the capability
-\fIcap\fP\&.
+\fIcap\fP, instantiated with \fIarg\fP if applicable\&.
 .PP
 The \fBzsh/terminfo\fP module makes available one parameter:
 .PP
@@ -1902,6 +2065,76 @@ value if the command is running and a non\-zero value otherwise\&.
 The last form, without any arguments, is used to list the commands
 currently defined\&.  If the \fB\-L\fP option is given, this is done in the
 form of calls to the \fBzpty\fP builtin\&.
+.SH "THE ZSH/ZSELECT MODULE"
+.\" Yodl file: Zsh/mod_zselect.yo
+
+The \fBzsh/zselect\fP module makes available one builtin command:
+.PP
+.PD 0
+.TP
+.PD
+\fBzselect\fP [ \fB\-rwe\fP \fB\-t\fP \fItimeout\fP \fB\-a\fP \fIarray\fP ] [ \fIfd\fP \&.\&.\&. ]
+The \fBzselect\fP builtin is a front\-end to the `select' system call, which
+blocks until a file descriptor is ready for reading or writing, or has an
+error condition, with an optional timeout\&.  If this is not available on
+your system, the command prints an error message and returns status 2
+(normal errors return status 1)\&.  For more information, see your systems
+documentation for \fIselect\fP(3)\&.  Note there is no connection with the
+shell builtin of the same name\&.
+.RS
+.PP
+Arguments and options may be intermingled in any order\&.  Non\-option
+arguments are file descriptors, which must be decimal integers\&.  By
+default, file descriptors are to be tested for reading, i\&.e\&. \fBzselect\fP
+will return when data is available to be read from the file descriptor, or
+more precisely, when a read operation from the file descriptor will not
+block\&.  After a \fB\-r\fP, \fB\-w\fP and \fB\-e\fP, the given file descriptors are
+to be tested for reading, writing, or error conditions\&.  These options and
+an arbitrary list of file descriptors may be given in any order\&.
+.PP
+(The presence of an `error condition' is not well defined in the
+documentation for many implementations of the select system call\&.
+According to recent versions of the POSIX specification, it is really an
+\fIexception\fP condition, of which the only standard example is out\-of\-band
+data received on a socket\&.  So zsh users are unlikely to find the \fB\-e\fP
+option useful\&.)
+.PP
+The option `\fB\-t\fP \fItimeout\fP' specifies a timeout in hundredths of a
+second\&.  This may be zero, in which case the file descriptors will simply
+be polled and \fBzselect\fP will return immediately\&.  It is possible to call
+zselect with no file descriptors and a non\-zero timeout for use as a
+finer\-grained replacement for `sleep'; not, however, the return status is
+always 1 for a timeout\&.
+.PP
+The option `\fB\-a\fP \fIarray\fP' indicates that \fBarray\fP should be set to
+indicate the file descriptor(s) which are ready\&.  If the option is not
+given, the array \fBreply\fP will be used for this purpose\&.  The array will
+contain a string similar to the arguments for \fBzselect\fP\&.  For example,
+.PP
+.RS
+.nf
+\fBzselect \-t 0 \-r 0 \-w 1\fP
+.fi
+.RE
+.PP
+might return immediately with status 0 and \fB$reply\fP containing `\fB\-r 0 \-w
+1\fP' to show that both file descriptors are ready for the requested
+operations\&.
+.PP
+The option `\fB\-A\fP \fIassoc\fP' indicates that the associative array
+\fBassoc\fP should be set to indicate the file descriptor(s) which are
+ready\&.  This option overrides the option \fB\-a\fP, nor will \fBreply\fP be
+modified\&.  The keys of \fBassoc\fP are the file descriptors, and the
+corresponding values are any of the characters `\fBrwe\fP' to indicate the
+condition\&.
+.PP
+The command returns 0 if some file descriptors are ready for reading\&.  If
+the operation timed out, or a timeout of 0 was given and no file
+descriptors were ready, or there was an error, it returns status 1 and
+the array will not be set (nor modified in any way)\&.  If there was an error
+in the select operation the appropriate error message is printed\&.
+.RE
+.RE
 .SH "THE ZSH/ZUTIL MODULE"
 .\" Yodl file: Zsh/mod_zutil.yo
 
@@ -2205,4 +2438,210 @@ set \-\- \-a x \-c z arg1 arg2\fP
 I\&.e\&., the option \fB\-b\fP and its arguments are taken from the
 positional parameters and put into the array \fBbar\fP\&.
 .RE
+.RE
+.SH "THE ZSH/NET/TCP MODULE"
+.\" Yodl file: Zsh/mod_tcp.yo
+
+The \fBzsh/net/tcp\fP module makes available one builtin command:
+.PP
+.PD 0
+.TP
+.PD
+\fBztcp\fP [ \fB\-acflLtv\fP ] [ \fB\-d\fP \fIfd\fP ] [ \fIargs\fP ]
+\fBztcp\fP is implemented as a builtin to allow full use of shell
+command line editing, file I/O, and job control mechanisms\&.
+.RS
+.PP
+If \fBztcp\fP is run with no options, it will output
+the contents of its session table\&.
+.PP
+If it is run with only the option \fB\-L\fP, it will output the contents of
+the session table in a format suitable for automatic parsing\&.  The option
+is ignored if given with a command to open or close a session\&.  The output
+consists of a set of lines, one per session, each containing the following
+elements separated by spaces:
+.PP
+.PD 0
+.TP
+.PD
+File descriptor
+The file descriptor in use for the connection\&.  For normal inbound (\fBI\fP)
+and outbound (\fBO\fP) connections this may be read and written by the usual
+shell mechanisms\&.  However, it should only be close with `\fBztcp \-c\fP'\&.
+.TP
+Connection type
+A letter indicating how the session was created:
+.RS
+.PP
+.PD 0
+.TP
+.PD
+\fBZ\fP
+A session created with the \fBzftp\fP command\&.
+.TP
+\fBL\fP
+A connection opened for listening with `\fBztcp \-l\fP'\&.
+.TP
+\fBI\fP
+An inbound connection accepted with `\fBztcp \-a\fP'\&.
+.TP
+\fBO\fP
+An outbound connection created with `\fBztcp\fP \fIhost\fP \fI\&.\&.\&.\fP'\&.
+.PP
+.RE
+.TP
+The local host
+This is usually set to an all\-zero IP address as the address of the
+localhost is irrelevant\&.
+.TP
+The local port
+This is likely to be zero unless the connection is for listening\&.
+.TP
+The remote host
+This is the fully qualified domain name of the peer, if available, else an
+IP address\&.  It is an all\-zero IP address for a session opened for
+listening\&.
+.TP
+The remote port
+This is zero for a connection opened for listening\&.
+.RE
+.RE
+.PP
+.SS "Outbound Connections"
+.PP
+.PD 0
+.TP
+.PD
+\fBztcp\fP [ \fB\-v\fP ] [ \fB\-d\fP \fIfd\fP ] \fIhost\fP [ \fIport\fP ]
+Open a new TCP connection to \fIhost\fP\&.  If the \fIport\fP is
+omitted, it will default to port 23\&.  The connection will
+be added to the session table and the shell parameter
+\fBREPLY\fP will be set to the file descriptor associated
+with that connection\&.
+.RS
+.PP
+If \fB\-d\fP is specified, its argument will be taken as the target file
+descriptor for the connection\&.
+.PP
+In order to elicit more verbose output, use \fB\-v\fP\&.
+.RE
+.RE
+.PP
+.SS "Inbound Connections"
+.PP
+.PD 0
+.TP
+.PD
+\fBztcp\fP \fB\-l\fP [ \fB\-v\fP ] [ \fB\-d\fP \fIfd\fP ] \fIport\fP
+\fBztcp \-l\fP will open a socket listening on TCP
+\fIport\fP\&.  The socket will be added to the
+session table and the shell parameter \fBREPLY\fP
+will be set to the file descriptor associated
+with that listener\&.
+.RS
+.PP
+If \fB\-d\fP is specified, its argument will be taken as the target file
+descriptor for the connection\&.
+.PP
+In order to elicit more verbose output, use \fB\-v\fP\&.
+.RE
+.TP
+\fBztcp\fP \fB\-a\fP [ \fB\-tv\fP ] [ \fB\-d\fP \fItargetfd\fP ] \fIlistenfd\fP
+\fBztcp \-a\fP will accept an incoming connection
+to the port associated with \fIlistenfd\fP\&.
+The connection will be added to the session
+table and the shell parameter \fBREPLY\fP will
+be set to the file descriptor associated with
+the inbound connection\&.
+.RS
+.PP
+If \fB\-d\fP is specified, its argument
+will be taken as the target file descriptor for the
+connection\&.
+.PP
+If \fB\-t\fP is specified, \fBztcp\fP will return
+if no incoming connection is pending\&.  Otherwise
+it will wait for one\&.
+.PP
+In order to elicit more verbose output, use \fB\-v\fP\&.
+.RE
+.RE
+.PP
+.SS "Closing Connections"
+.PP
+.PD 0
+.TP
+.PD 0
+\fBztcp\fP \fB\-cf\fP [ \fB\-v\fP ] [ \fIfd\fP ]
+.TP
+.PD
+\fBztcp\fP \fB\-c\fP [ \fB\-v\fP ] [ \fIfd\fP ]
+\fBztcp \-c\fP will close the socket associated
+with \fIfd\fP\&.  The socket will be removed from the
+session table\&.  If \fIfd\fP is not specified,
+\fBztcp\fP will close everything in the session table\&.
+.RS
+.PP
+Normally, sockets registered by zftp (see
+\fIzshmodules\fP(1)
+) cannot be closed this way\&.  In order
+to force such a socket closed, use \fB\-f\fP\&.
+.PP
+In order to elicit more verbose output, use \fB\-v\fP\&.
+.RE
+.RE
+.PP
+.SS "Example"
+Here is how to create a TCP connection between two instances of zsh\&.  We
+need to pick an unassigned port; here we use the randomly chosen 5123\&.
+.PP
+On \fBhost1\fP,
+.RS
+.nf
+\fBzmodload zsh/net/tcp
+ztcp \-l 5123
+listenfd=$REPLY
+ztcp \-a $listenfd
+fd=$REPLY\fP
+.fi
+.RE
+The second from last command blocks until there is an incoming connection\&.
+.PP
+Now create a connection from \fBhost2\fP (which may, of course, be the same
+machine):
+.RS
+.nf
+\fBzmodload zsh/net/tcp
+ztcp host1 5123
+fd=$REPLY\fP
+.fi
+.RE
+.PP
+Now on each host, \fB$fd\fP contains a file descriptor for talking to the
+other\&.  For example, on \fBhost1\fP:
+.RS
+.nf
+\fBprint This is a message >&$fd\fP
+.fi
+.RE
+and on \fBhost2\fP:
+.RS
+.nf
+\fBread \-r line <&$fd; print \-r \- $line\fP
+.fi
+.RE
+prints `\fBThis is a message\fP'\&.
+.PP
+To tidy up, on \fBhost1\fP:
+.RS
+.nf
+\fBztcp \-c $listenfd
+ztcp \-c $fd\fP
+.fi
+.RE
+and on \fBhost2\fP
+.RS
+.nf
+\fBztcp \-c $fd\fP
+.fi
 .RE

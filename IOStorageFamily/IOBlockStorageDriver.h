@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1998-2000 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 1998-2003 Apple Computer, Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -32,12 +32,12 @@
 #ifndef _IOBLOCKSTORAGEDRIVER_H
 #define _IOBLOCKSTORAGEDRIVER_H
 
+#include <IOKit/IOTypes.h>
+
 /*!
  * @defined kIOBlockStorageDriverClass
  * @abstract
- * kIOBlockStorageDriverClass is the name of the IOBlockStorageDriver class.
- * @discussion
- * kIOBlockStorageDriverClass is the name of the IOBlockStorageDriver class.
+ * The name of the IOBlockStorageDriver class.
  */
 
 #define kIOBlockStorageDriverClass "IOBlockStorageDriver"
@@ -45,7 +45,7 @@
 /*!
  * @defined kIOBlockStorageDriverStatisticsKey
  * @abstract
- * This property holds a table of numeric values describing the driver's
+ * Holds a table of numeric values describing the driver's
  * operating statistics.
  * @discussion
  * This property holds a table of numeric values describing the driver's
@@ -58,9 +58,8 @@
 /*!
  * @defined kIOBlockStorageDriverStatisticsBytesReadKey
  * @abstract
- * This property describes the number of bytes read since the block storage
- * driver was instantiated.  It is one of the statistic entries listed under
- * the top-level kIOBlockStorageDriverStatisticsKey property table.
+ * Describes the number of bytes read since the block storage
+ * driver was instantiated.
  * @discussion
  * This property describes the number of bytes read since the block storage
  * driver was instantiated.  It is one of the statistic entries listed under
@@ -73,9 +72,8 @@
 /*!
  * @defined kIOBlockStorageDriverStatisticsBytesWrittenKey
  * @abstract
- * This property describes the number of bytes written since the block storage
- * driver was instantiated.  It is one of the statistic entries listed under the
- * top-level kIOBlockStorageDriverStatisticsKey property table.
+ * Describes the number of bytes written since the block storage
+ * driver was instantiated. 
  * @discussion
  * This property describes the number of bytes written since the block storage
  * driver was instantiated.  It is one of the statistic entries listed under the
@@ -88,9 +86,8 @@
 /*!
  * @defined kIOBlockStorageDriverStatisticsReadErrorsKey
  * @abstract
- * This property describes the number of read errors encountered since the block
- * storage driver was instantiated.  It is one of the statistic entries listed
- * under the top-level kIOBlockStorageDriverStatisticsKey property table.
+ * Describes the number of read errors encountered since the block
+ * storage driver was instantiated. 
  * @discussion
  * This property describes the number of read errors encountered since the block
  * storage driver was instantiated.  It is one of the statistic entries listed
@@ -103,9 +100,8 @@
 /*!
  * @defined kIOBlockStorageDriverStatisticsWriteErrorsKey
  * @abstract
- * This property describes the number of write errors encountered since the
- * block storage driver was instantiated.  It is one of the statistic entries
- * listed under the top-level kIOBlockStorageDriverStatisticsKey property table.
+ * Describes the number of write errors encountered since the
+ * block storage driver was instantiated.
  * @discussion
  * This property describes the number of write errors encountered since the
  * block storage driver was instantiated.  It is one of the statistic entries
@@ -118,10 +114,8 @@
 /*!
  * @defined kIOBlockStorageDriverStatisticsLatentReadTimeKey
  * @abstract
- * This property describes the number of nanoseconds of latency during reads
- * since the block storage driver was instantiated.  It is one of the statistic
- * entries listed under the top-level kIOBlockStorageDriverStatisticsKey
- * property table. 
+ * Describes the number of nanoseconds of latency during reads
+ * since the block storage driver was instantiated. 
  * @discussion
  * This property describes the number of nanoseconds of latency during reads
  * since the block storage driver was instantiated.  It is one of the statistic
@@ -134,10 +128,8 @@
 /*!
  * @defined kIOBlockStorageDriverStatisticsLatentWriteTimeKey
  * @abstract
- * This property describes the number of nanoseconds of latency during writes
- * since the block storage driver was instantiated.  It is one of the statistic
- * entries listed under the top-level kIOBlockStorageDriverStatisticsKey
- * property table. 
+ * Describes the number of nanoseconds of latency during writes
+ * since the block storage driver was instantiated. 
  * @discussion
  * This property describes the number of nanoseconds of latency during writes
  * since the block storage driver was instantiated.  It is one of the statistic
@@ -150,9 +142,8 @@
 /*!
  * @defined kIOBlockStorageDriverStatisticsReadsKey
  * @abstract
- * This property describes the number of read operations processed since the
- * block storage driver was instantiated.  It is one of the statistic entries
- * listed under the top-level kIOBlockStorageDriverStatisticsKey property table.
+ * Describes the number of read operations processed since the
+ * block storage driver was instantiated.
  * @discussion
  * This property describes the number of read operations processed since the
  * block storage driver was instantiated.  It is one of the statistic entries
@@ -165,9 +156,8 @@
 /*!
  * @defined kIOBlockStorageDriverStatisticsWritesKey
  * @abstract
- * This property describes the number of write operations processed since the
- * block storage driver was instantiated.  It is one of the statistic entries
- * listed under the top-level kIOBlockStorageDriverStatisticsKey property table.
+ * Describes the number of write operations processed since the
+ * block storage driver was instantiated.
  * @discussion
  * This property describes the number of write operations processed since the
  * block storage driver was instantiated.  It is one of the statistic entries
@@ -180,9 +170,8 @@
 /*!
  * @defined kIOBlockStorageDriverStatisticsReadRetriesKey
  * @abstract
- * This property describes the number of read retries required since the block
- * storage driver was instantiated.  It is one of the statistic entries listed
- * under the top-level kIOBlockStorageDriverStatisticsKey property table.
+ * Describes the number of read retries required since the block
+ * storage driver was instantiated.
  * @discussion
  * This property describes the number of read retries required since the block
  * storage driver was instantiated.  It is one of the statistic entries listed
@@ -195,10 +184,8 @@
 /*!
  * @defined kIOBlockStorageDriverStatisticsWriteRetriesKey
  * @abstract
- * This property describes the number of write retries required since the block
- * storage driver was instantiated.  It is one of the statistic entries listed
- * under the top-level kIOBlockStorageDriverStatisticsKey property table.  It
- * has an OSNumber value.
+ * Describes the number of write retries required since the block
+ * storage driver was instantiated.
  * @discussion
  * This property describes the number of write retries required since the block
  * storage driver was instantiated.  It is one of the statistic entries listed
@@ -211,10 +198,8 @@
 /*!
  * @defined kIOBlockStorageDriverStatisticsTotalReadTimeKey
  * @abstract
- * This property describes the number of nanoseconds spent performing reads
- * since the block storage driver was instantiated.  It is one of the statistic
- * entries listed under the top-level kIOBlockStorageDriverStatisticsKey
- * property table.
+ * Describes the number of nanoseconds spent performing reads
+ * since the block storage driver was instantiated.
  * @discussion
  * This property describes the number of nanoseconds spent performing reads
  * since the block storage driver was instantiated.  It is one of the statistic
@@ -227,10 +212,8 @@
 /*!
  * @defined kIOBlockStorageDriverStatisticsTotalWriteTimeKey
  * @abstract
- * This property describes the number of nanoseconds spent performing writes
- * since the block storage driver was instantiated.  It is one of the statistic
- * entries listed under the top-level kIOBlockStorageDriverStatisticsKey
- * property table.
+ * Describes the number of nanoseconds spent performing writes
+ * since the block storage driver was instantiated.
  * @discussion
  * This property describes the number of nanoseconds spent performing writes
  * since the block storage driver was instantiated.  It is one of the statistic
@@ -242,7 +225,7 @@
 
 /*!
  * @enum IOMediaState
- * @discussion
+ * @abstract
  * The different states that getMediaState() can report.
  * @constant kIOMediaStateOffline
  * Media is not available.
@@ -273,10 +256,7 @@ typedef UInt32 IOMediaState;
 /*!
  * @class IOBlockStorageDriver
  * @abstract
- * The IOBlockStorageDriver class is the common base class for generic block
- * storage drivers.  It matches and communicates via an IOBlockStorageDevice
- * interface, and connects to the remainder of the storage framework via the
- * IOStorage protocol.
+ * The common base class for generic block storage drivers.
  * @discussion
  * The IOBlockStorageDriver class is the common base class for generic block
  * storage drivers.  It matches and communicates via an IOBlockStorageDevice
@@ -284,7 +264,7 @@ typedef UInt32 IOMediaState;
  * IOStorage protocol. It extends the IOStorage protocol by implementing the
  * appropriate open and close semantics, deblocking for unaligned transfers,
  * polling for ejectable media, locking and ejection policies, media object
- * creation and teardown, and statistics gathering and reporting.
+ * creation and tear-down, and statistics gathering and reporting.
  *
  * Block storage drivers are split into two parts: the generic driver handles
  * all generic device issues, independent of the lower-level transport
@@ -320,34 +300,21 @@ public:
 
     /*!
      * @enum Statistics
-     * @discussion
+     * @abstract
      * Indices for the different statistics that getStatistics() can report.
-     * @constant kStatisticsReads
-     * Number of read operations thus far.
-     * @constant kStatisticsBytesRead
-     * Number of bytes read thus far.
-     * @constant kStatisticsTotalReadTime
-     * Nanoseconds spent performing reads thus far.
-     * @constant kStatisticsLatentReadTime
-     * Nanoseconds of latency during reads thus far.
-     * @constant kStatisticsReadRetries
-     * Number of read retries thus far.
-     * @constant kStatisticsReadErrors
-     * Number of read errors thus far.
-     * @constant kStatisticsWrites
-     * Number of write operations thus far.
-     * @constant kStatisticsSingleBlockWrites
-     * Number of write operations for a single block thus far.
-     * @constant kStatisticsBytesWritten
-     * Number of bytes written thus far.
-     * @constant kStatisticsTotalWriteTime
-     * Nanoseconds spent performing writes thus far.
-     * @constant kStatisticsLatentWriteTime
-     * Nanoseconds of latency during writes thus far.
-     * @constant kStatisticsWriteRetries
-     * Number of write retries thus far.
-     * @constant kStatisticsWriteErrors
-     * Number of write errors thus far.
+     * @constant kStatisticsReads Number of read operations thus far.
+     * @constant kStatisticsBytesRead Number of bytes read thus far.
+     * @constant kStatisticsTotalReadTime Nanoseconds spent performing reads thus far.
+     * @constant kStatisticsLatentReadTime Nanoseconds of latency during reads thus far.
+     * @constant kStatisticsReadRetries Number of read retries thus far.
+     * @constant kStatisticsReadErrors Number of read errors thus far.
+     * @constant kStatisticsWrites Number of write operations thus far.
+     * @constant kStatisticsSingleBlockWrites Number of write operations for a single block thus far.
+     * @constant kStatisticsBytesWritten Number of bytes written thus far.
+     * @constant kStatisticsTotalWriteTime Nanoseconds spent performing writes thus far.
+     * @constant kStatisticsLatentWriteTime Nanoseconds of latency during writes thus far.
+     * @constant kStatisticsWriteRetries Number of write retries thus far.
+     * @constant kStatisticsWriteErrors Number of write errors thus far.
      */
 
     enum Statistics
@@ -456,7 +423,7 @@ protected:
     /*
      * Free all of this object's outstanding resources.
      *
-     * This method's implementation is not typically overidden.
+     * This method's implementation is not typically overridden.
      */
 
     void free();
@@ -495,7 +462,7 @@ protected:
      * @function handleIsOpen
      * @discussion
      * The handleIsOpen method determines whether the specified client, or any
-     * client if none is specificed, presently has an open on this object.
+     * client if none is specified, presently has an open on this object.
      *
      * This implementation replaces the IOService definition of handleIsOpen().
      * @param client
@@ -527,7 +494,7 @@ protected:
      * Update the total number of bytes transferred, the total transfer time,
      * and the total latency time -- used for statistics.
      *
-     * This method's implementation is not typically overidden.
+     * This method's implementation is not typically overridden.
      * @param bytesTransferred
      * Number of bytes transferred in this operation.
      * @param totalTime
@@ -548,7 +515,7 @@ protected:
      * @discussion
      * Update the total error count -- used for statistics.
      *
-     * This method's implementation is not typically overidden.
+     * This method's implementation is not typically overridden.
      * @param isWrite
      * Indicates whether this operation was a write, otherwise is was a read.
      */
@@ -560,7 +527,7 @@ protected:
      * @discussion
      * Update the total retry count -- used for statistics.
      *
-     * This method's implementation is not typically overidden.
+     * This method's implementation is not typically overridden.
      * @param isWrite
      * Indicates whether this operation was a write, otherwise is was a read.
      */
@@ -600,7 +567,7 @@ protected:
      * constraints are exceeded; fourth is executeRequest, which implements the
      * actual transfer from the block storage device.
      *
-     * This method's implementation is not typically overidden.
+     * This method's implementation is not typically overridden.
      * @param byteStart
      * Starting byte offset for the data transfer.
      * @param buffer
@@ -630,7 +597,7 @@ protected:
      * constraints are exceeded; fourth is executeRequest, which implements the
      * actual transfer from the block storage device.
      *
-     * This method's implementation is not typically overidden.
+     * This method's implementation is not typically overridden.
      * @param byteStart
      * Starting byte offset for the data transfer.
      * @param buffer
@@ -639,7 +606,7 @@ protected:
      * @param completion
      * Completion routine to call once the data transfer is complete.
      * @param context
-     * Additional context information for the data transfer (eg. block size).
+     * Additional context information for the data transfer (e.g. block size).
      */
 
     virtual void deblockRequest(UInt64               byteStart,
@@ -668,7 +635,7 @@ protected:
      * @param completion
      * Completion routine to call once the data transfer is complete.
      * @param context
-     * Additional context information for the data transfer (eg. block size).
+     * Additional context information for the data transfer (e.g. block size).
      */
 
     virtual void executeRequest(UInt64               byteStart,
@@ -737,7 +704,7 @@ public:
     /*
      * Initialize this object's minimal state.
      *
-     * This method's implementation is not typically overidden.
+     * This method's implementation is not typically overridden.
      */
 
     virtual bool init(OSDictionary * properties = 0);
@@ -745,7 +712,7 @@ public:
     /*
      * This method is called once we have been attached to the provider object.
      *
-     * This method's implementation is not typically overidden.
+     * This method's implementation is not typically overridden.
      */
 
     virtual bool start(IOService * provider);
@@ -753,7 +720,7 @@ public:
     /*
      * This method is called before we are detached from the provider object.
      *
-     * This method's implementation is not typically overidden.
+     * This method's implementation is not typically overridden.
      */
 
     virtual void stop(IOService * provider);
@@ -763,7 +730,7 @@ public:
      * provider message.  The argument is passed in as-is from the message.  The
      * options are unused.
      *
-     * This method's implementation is not typically overidden.
+     * This method's implementation is not typically overridden.
      */
 
     virtual bool yield(IOService *  provider,
@@ -784,7 +751,7 @@ public:
      * constraints are exceeded; fourth is executeRequest, which implements the
      * actual transfer from the block storage device.
      *
-     * This method's implementation is not typically overidden.
+     * This method's implementation is not typically overridden.
      * @param client
      * Client requesting the read.
      * @param byteStart
@@ -815,7 +782,7 @@ public:
      * constraints are exceeded; fourth is executeRequest, which implements the
      * actual transfer from the block storage device.
      *
-     * This method's implementation is not typically overidden.
+     * This method's implementation is not typically overridden.
      * @param client
      * Client requesting the write.
      * @param byteStart
@@ -849,7 +816,7 @@ public:
      * @discussion
      * Eject the media from the device.  The driver is responsible for tearing
      * down the media object it created before proceeding with the eject.   If
-     * the teardown fails, an error should be returned.
+     * the tear-down fails, an error should be returned.
      * @result
      * An IOReturn code.
      */
@@ -1022,7 +989,7 @@ protected:
     thread_call_t _pollerCall;
 
     /*
-     * This is the completion routine for the broken up breaker subrequests.
+     * This is the completion routine for the broken up breaker sub-requests.
      * It verifies the success of the just-completed stage,  transitions to
      * the next stage, then builds and issues a transfer for the next stage.
      */
@@ -1033,7 +1000,7 @@ protected:
                                          UInt64   actualByteCount);
 
     /*
-     * This is the completion routine for the aligned deblocker subrequests.
+     * This is the completion routine for the aligned deblocker sub-requests.
      * It verifies the success of the just-completed stage,  transitions to
      * the next stage, then builds and issues a transfer for the next stage.
      */
@@ -1195,7 +1162,7 @@ protected:
      * This function should be called prior to each read or write operation, so that
      * the driver can constrain the requested byte count, as necessary, to meet
      * current device limits. Such limits could be imposed by the device depending
-     * on operating modes, media types, or transport prototol (e.g. ATA, SCSI).
+     * on operating modes, media types, or transport protocol (e.g. ATA, SCSI).
      * 
      * At present, this method is not used.
      * @param requestedCount
@@ -1214,7 +1181,7 @@ protected:
      * the IOMedia object for the media. If "forcible" is true, the media
      * object will be forgotten, and initMediaState will be called. A
      * forcible decommission would occur when an unrecoverable error
-     * happens during teardown (e.g. perhaps a client is still open), but
+     * happens during tear-down (e.g. perhaps a client is still open), but
      * we must still forget about the media.
      * @param forcible
      * True to force forgetting of the media object even if terminate reports
@@ -1285,7 +1252,7 @@ protected:
      * Verify that new media is acceptable.
      * @discussion
      * This method will be called whenever new media is detected. Return true to accept
-     * the media, or false to reject it (andcall rejectMedia). Vendors might override
+     * the media, or false to reject it (and call rejectMedia). Vendors might override
      * this method to handle password-protection for new media.
      * 
      * The default implementation always returns True, indicating media is accepted.
@@ -1347,7 +1314,7 @@ protected:
      * or removal. If media has just become available, calls are made to
      * recordMediaParameters and acceptNewMedia. If media has just gone
      * away, a call is made to decommissionMedia, with the forcible
-     * parameter set to true. The forcible teardown is needed to enforce
+     * parameter set to true. The forcible tear-down is needed to enforce
      * the disappearance of media, regardless of interested clients.
      */
     virtual IOReturn	mediaStateHasChanged(IOMediaState state);
@@ -1373,7 +1340,7 @@ protected:
      * constraints are exceeded; fourth is executeRequest, which implements the
      * actual transfer from the block storage device.
      *
-     * This method's implementation is not typically overidden.
+     * This method's implementation is not typically overridden.
      * @param byteStart
      * Starting byte offset for the data transfer.
      * @param buffer
@@ -1382,7 +1349,7 @@ protected:
      * @param completion
      * Completion routine to call once the data transfer is complete.
      * @param context
-     * Additional context information for the data transfer (eg. block size).
+     * Additional context information for the data transfer (e.g. block size).
      */
 
     virtual void breakUpRequest(UInt64               byteStart,

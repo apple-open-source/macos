@@ -339,18 +339,15 @@ doskip(fname, statok)
 	int cnt;
 	struct stat sb;
 
-	if (statok) {
-		if (fstat(fileno(stdin), &sb))
-			err(1, "fstat %s", fname);
-		if (S_ISREG(sb.st_mode) && skip >= sb.st_size) {
-			address += sb.st_size;
-			skip -= sb.st_size;
-			return;
-		}
+	if (fstat(fileno(stdin), &sb))
+	    err(1, "fstat %s", fname);
+	if (S_ISREG(sb.st_mode) && skip >= sb.st_size) {
+	    address += sb.st_size;
+	    skip -= sb.st_size;
+	    return;
 	}
-	if (S_ISREG(sb.st_mode)) {
-		if (fseek(stdin, skip, SEEK_SET))
-			err(1, "fseek %s", fname);
+	
+	if (fseeko(stdin, skip, SEEK_SET) == 0) {
 		address += skip;
 		skip = 0;
 	} else {

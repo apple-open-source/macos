@@ -1,0 +1,156 @@
+#
+# This test check the BlueGnu command clone_output
+#
+
+verbose "all_flag: >$::BlueGnu::all_flag<"
+
+BlueGnu_overwrite [namespace current]
+
+set szCurrent [::BlueGnu::clone_output "namespace: >[namespace current]<"]
+
+set szSendUser [::BlueGnu::clone_output "send_user: >[info body ::send_user]<"]
+
+# Checking default messages
+#
+catch {unset sending}
+::BlueGnu::clone_output "Hello there!"
+::BlueGnu::clone_output "   [array names sending]"
+if [catch {
+    if {$sending(USER) && ([llength [array names sending]] == 1)} {
+	pass "Default message"
+    } else {
+	fail "Default Message: [array names sending]"
+    }
+} szErrMsg] {
+    ::BlueGnu::clone_output "####### $szErrMsg\n      \
+	    sending([join [array names sending] ")\n         sending("])"
+    perror "Missing sending array elements"
+}
+
+# Checking the PASS type messages
+#
+foreach szMsg {"PASS: hello there!" "XFAIL: hello there!"} {
+    catch {unset sending}
+    ::BlueGnu::clone_output $szMsg
+    if {$::BlueGnu::all_flag} {
+	if [catch {
+	    if {$sending(USER) && $sending(LOG) && \
+		    ([llength [array names sending]] == 2)} {
+		pass "PASS message"
+	    } else {
+		fail "PASS Message: [array names sending]"
+	    }
+	} szErrMsg] {
+	    ::BlueGnu::clone_output "####### $szErrMsg\n      \
+		    sending([join [array names sending] ")\n        \
+		    sending("])"
+	    perror "Missing sending array elements"
+	}
+    } else {
+	if [catch {
+	    if {$sending(LOG) && ([llength [array names sending]] == 1)} {
+		pass "PASS message"
+	    } else {
+		fail "PASS Message: [array names sending]"
+	    }
+	} szErrMsg] {
+	    ::BlueGnu::clone_output "####### $szErrMsg\n      \
+		    sending([join [array names sending] ")\n        \
+		    sending("])"
+	    perror "Missing sending array elements"
+	}
+    }
+}
+
+# Checking the fail type messages
+#
+foreach szMsg {"FAIL: Hallo daar!" "XPASS: Hallo daar!" \
+    "UNRESOLVED: Hello unresolved!" "UNSUPPORTED: Hello unsupported!" \
+    "UNTESTED: not tested!"} {
+    catch {unset sending}
+    ::BlueGnu::clone_output $szMsg
+    if [catch {
+	if {$sending(USER) && $sending(LOG) && \
+		([llength [array names sending]] == 2)} {
+	    pass "PASS message"
+	} else {
+	    fail "PASS Message: [array names sending]"
+	}
+    } szErrMsg] {
+	::BlueGnu::clone_output "####### $szErrMsg\n      \
+		sending([join [array names sending] ")\n         sending("])"
+	perror "Missing sending array elements"
+    }
+}
+
+# Checking ERROR type messages
+#
+catch {unset sending}
+::BlueGnu::clone_output "ERROR: hallo daar!"
+if [catch {
+    if {$sending(LOG) && $sending(ERROR) && \
+	    ([llength [array names sending]] == 2)} {
+	pass "PASS message"
+    } else {
+	fail "PASS Message: [array names sending]"
+    }
+} szErrMsg] {
+    ::BlueGnu::clone_output "####### $szErrMsg\n      \
+	    sending([join [array names sending] ")\n         sending("])"
+    perror "Missing sending array elements"
+}
+
+# Checking WARNING type message
+#
+foreach szMsg {"WARNING: Hello there!" "NOTE: Hello there!"} {
+    catch {unset sending}
+    ::BlueGnu::clone_output $szMsg
+    if {$::BlueGnu::all_flag} {
+	if [catch {
+	    if {$sending(ERROR) && $sending(LOG) && \
+		    ([llength [array names sending]] == 2)} {
+		pass "PASS message"
+	    } else {
+		fail "PASS Message: [array names sending]"
+	    }
+	} szErrMsg] {
+	    ::BlueGnu::clone_output "####### $szErrMsg\n      \
+		    sending([join [array names sending] ")\n        \
+		    sending("])"
+	    perror "Missing sending array elements"
+	}
+    } else {
+	if [catch {
+	    if {$sending(LOG) && ([llength [array names sending]] == 1)} {
+		pass "PASS message"
+	    } else {
+		fail "PASS Message: [array names sending]"
+	    }
+	} szErrMsg] {
+	    ::BlueGnu::clone_output "####### $szErrMsg\n      \
+		    sending([join [array names sending] ")\n        \
+		    sending("])"
+	    perror "Missing sending array elements"
+	}
+    }
+}
+
+# Checking ******* type messages
+#
+catch {unset sending}
+::BlueGnu::clone_output "******* Ik zie sterretjes!"
+if [catch {
+    if {$sending(USER) && ([llength [array names sending]] == 1)} {
+	pass "PASS message"
+    } else {
+	fail "PASS Message: [array names sending]"
+    }
+} szErrMsg] {
+    ::BlueGnu::clone_output "####### $szErrMsg\n      \
+	    sending([join [array names sending] ")\n         sending("])"
+    perror "Missing sending array elements"
+}
+
+catch {unset sending}
+
+BlueGnu_restore

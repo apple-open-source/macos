@@ -22,6 +22,7 @@
 #define _SECURITY_CERTIFICATEREQUEST_H_
 
 #include <Security/SecRuntime.h>
+#include <Security/SecCertificateRequest.h>
 
 namespace Security
 {
@@ -33,8 +34,10 @@ class CertificateRequest : public SecCFObject
 {
 	NOCOPY(CertificateRequest)
 public:
+	SECCFFUNCTIONS(CertificateRequest, SecCertificateRequestRef, errSecInvalidItemRef)
+
     CertificateRequest(int a);
-    virtual ~CertificateRequest();
+    virtual ~CertificateRequest() throw();
 
 private:
 };

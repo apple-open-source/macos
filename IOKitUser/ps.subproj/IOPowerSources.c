@@ -147,6 +147,7 @@ typedef struct {
 typedef struct {
     SCDynamicStoreRef		store;
     CFRunLoopSourceRef		SCDSrls;
+    user_callback_context   *user_callback;
 } my_cfrls_context;
 
 /* SCDynamicStoreCallback */
@@ -181,20 +182,20 @@ rlsCancel(void *info, CFRunLoopRef rl, CFStringRef mode)
 }
 
 static void
-rlsRelease(void *info, CFRunLoopRef rl, CFStringRef mode)
+rlsRelease(void *info)
 {
 	my_cfrls_context	*c = (my_cfrls_context *)info;
-    printf("rlsRelease called\n"); fflush(stdout);
+
+    if(!c) return;
+    if(c->SCDSrls) CFRelease(c->SCDSrls);
+    if(c->store) CFRelease(c->store);
+    if(c->user_callback) free(c->user_callback);
+    free(c);
+        
 	return;
 }
 
-static void
-rlsRetain(void *info, CFRunLoopRef rl, CFStringRef mode)
-{
-	my_cfrls_context	*c = (my_cfrls_context *)info;
-    printf("rlsRelease called\n"); fflush(stdout);
-	return;
-}
+
 
 /***
  Returns a CFRunLoopSourceRef that notifies the caller when power source
@@ -212,8 +213,8 @@ CFRunLoopSourceRef IOPSNotificationCreateRunLoopSource(IOPowerSourceCallbackType
     CFRunLoopSourceRef  SCDrls = NULL;
     // For the source we're creating:
     CFRunLoopSourceRef	ourSource = NULL;
-    CFRunLoopSourceContext *rlsContext = NULL;
-    SCDynamicStoreContext	*scdsctxt = NULL;
+    CFRunLoopSourceContext  rlsContext;
+    SCDynamicStoreContext	scdsctxt;
 
     user_callback_context		*callback_state = NULL;
     my_cfrls_context			*runloop_state = NULL;
@@ -223,13 +224,12 @@ CFRunLoopSourceRef IOPSNotificationCreateRunLoopSource(IOPowerSourceCallbackType
     callback_state->context = context;
     callback_state->callback = callback;
     
-    scdsctxt = (SCDynamicStoreContext *)malloc(sizeof(SCDynamicStoreContext));
-    bzero(scdsctxt, sizeof(SCDynamicStoreContext));
-    scdsctxt->info = callback_state;
+    bzero(&scdsctxt, sizeof(SCDynamicStoreContext));
+    scdsctxt.info = callback_state;
     
     // Open connection to SCDynamicStore. User's callback as context.
     store = SCDynamicStoreCreate(kCFAllocatorDefault, 
-                CFSTR("IOKit Power Source Copy"), my_dynamic_store_call, (void *)scdsctxt);
+                CFSTR("IOKit Power Source Copy"), my_dynamic_store_call, (void *)&scdsctxt);
     if(!store) return NULL;
      
     // Create regular expression to match all Power Sources
@@ -238,7 +238,7 @@ CFRunLoopSourceRef IOPSNotificationCreateRunLoopSource(IOPowerSourceCallbackType
     ps_arr = CFArrayCreateMutable(kCFAllocatorDefault, 0, &kCFTypeArrayCallBacks);
     if(!ps_arr) return NULL;
     CFArrayAppendValue(ps_arr, ps_match);
-    CFRelease(ps_match);   
+    CFRelease(ps_match);
     
     // Set up regular expression notifications
     SCDynamicStoreSetNotificationKeys(store, NULL, ps_arr);
@@ -246,21 +246,27 @@ CFRunLoopSourceRef IOPSNotificationCreateRunLoopSource(IOPowerSourceCallbackType
 
     // Obtain the CFRunLoopSourceRef from this SCDynamicStoreRef session
     SCDrls = SCDynamicStoreCreateRunLoopSource(kCFAllocatorDefault, store, 0);
+    
+    // Here's where it gets kind of hokey. The RLS granted us by the SCDynamicStore
+    // is what we want, but we need to keep the SCDynamicStoreRef around as long as
+    // the RLS is around, and free it when the RLS is released.
+    // So we create our own RLS, and free all our bookkeeping data when it's released.
     runloop_state = malloc(sizeof(my_cfrls_context));
     runloop_state->store = store;
     runloop_state->SCDSrls = SCDrls;
-    
+    runloop_state->user_callback = callback_state;
+        
     // Setup the CFRunLoopSource context for the return-value CFRLS
     // Install my hooks into schedule/cancel/perform here
-    rlsContext = (CFRunLoopSourceContext *)malloc(sizeof(CFRunLoopSourceContext));
-    bzero(rlsContext, sizeof(CFRunLoopSourceContext));
-    rlsContext->version         = 0;
-    rlsContext->info            = (void *)runloop_state;
-    rlsContext->schedule        = rlsSchedule;
-    rlsContext->cancel          = rlsCancel;
-
-    // Create the RunLoopSource
-    ourSource = CFRunLoopSourceCreate(kCFAllocatorDefault, 0, rlsContext);    
+    bzero(&rlsContext, sizeof(CFRunLoopSourceContext));
+    rlsContext.version         = 0;
+    rlsContext.info            = (void *)runloop_state;
+    rlsContext.schedule        = rlsSchedule;
+    rlsContext.cancel          = rlsCancel;
+    rlsContext.release         = rlsRelease;
     
+    // Create the RunLoopSource
+    ourSource = CFRunLoopSourceCreate(kCFAllocatorDefault, 0, &rlsContext);    
+
     return ourSource;
 }

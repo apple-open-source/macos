@@ -1,7 +1,7 @@
 /* ====================================================================
  * The Apache Software License, Version 1.1
  *
- * Copyright (c) 2000-2002 The Apache Software Foundation.  All rights
+ * Copyright (c) 2000-2003 The Apache Software Foundation.  All rights
  * reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -411,6 +411,12 @@ static int fixup_redir(request_rec *r)
                               r->uri, ret);
             }
             else {
+                /* append requested query only, if the config didn't
+                 * supply its own.
+                 */
+                if (r->args && !strchr(ret, '?')) {
+                    ret = ap_pstrcat(r->pool, ret, "?", r->args, NULL);
+                }
                 ap_table_setn(r->headers_out, "Location", ret);
             }
         }

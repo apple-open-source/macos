@@ -1,0 +1,108 @@
+<!DOCTYPE html public "-//w3c//dtd html 4.0 transitional//en">
+<!-- Version: $Revision: 1.4.2.1 $ -->
+<html>
+<head>
+   <title>JBoss Servlet Container Integration Tests</title>
+</head>
+	<h1>JBoss Servlet Container Integration Tests</h1>
+	<h2>Servlet Tests</h2>
+	<ul>
+		<li><a href="/jbosstest/DebugServlet">Try the DebugServlet</a>
+		A debugging servlet that dumps out its request thread ClassLoaders
+        and the JNDI InitialContext environment.
+      </li>
+		<li><a href="/jbosstest/APIServlet">Try the APIServlet</a>
+		A servlet that tests usage of various servlet API calls that can be
+      affected by the web container integration layer.
+      </li>
+		<li><a href="/jbosstest/ClasspathServlet">Try the ClasspathServlet</a>
+		A servlet that tests access to items located in the war
+      classpath during its initialization.
+      </li>
+		<li><a href="/jbosstest/ENCServlet">Try the ENCServlet</a>
+		A test of the servlet container integration into the JNDI namespace. This
+		servlet accesses the java:comp/env namespace for JDBC javax.sql.DataSources,
+		JMS QueueConnectionFactory, EJBs, env variables, etc.
+		</li>
+		<li><a href="/jbosstest/EJBServlet">Try the EJBServlet</a>
+		A test of the ability to access EJBs from a servlet using the
+		ejb-ref tag in web.xml and jboss-web.xml.
+		</li>
+		<li><a href="/jbosstest/EntityServlet">Try the EntityServlet</a>
+		A test of the ability to access entity EJBs from a servlet using the
+		ejb-ref tag in web.xml and jboss-web.xml.
+		</li>
+		<li><a href="/jbosstest/UserTransactionServlet">Try the UserTransactionServlet</a>
+		A test of the ability to explicitly control transactions from a servlet.
+		</li>
+	</ul>
+
+	<h2>Speed Tests</h2>
+	<ul>
+		<li><a href="/jbosstest/SpeedServlet">Try the SpeedServlet</a>
+		A test of optimized (by reference) versus not optimized (by value) calls.
+		</li>
+	</ul>
+
+	<h2>JSP Tests</h2>
+	<ul>
+		<li><a href="/jbosstest/snoop.jsp">Try snoop.jsp test #1</a>
+		A basic test of a JSP page accessed using the jsp page uri.
+		</li>
+		<li><a href="/jbosstest/test-snoop.snp">Try snoop.jsp test #2</a>
+		A basic test of a JSP page accessed via a *.snp pattern mapping.
+		</li>
+		<li><a href="/jbosstest/test-jsp-mapping">Try snoop.jsp test #3</a>
+		A basic test of a JSP page accessed via a /test-jsp-mapping mapping.
+		</li>
+		<li><a href="/jbosstest/classpath.jsp">Try classpath.jsp</a>
+		A JSP page that access the org.jboss.test.web.util.Util class from the
+      WEB-INF/lib/util.jar to dump its class loaders and display the JNDI ENC.
+		</li>
+		<li><a href="/jbosstest/restricted/include_ejb.jsp">Try include_ejb.jsp</a>
+		A secured JSP page that includes the ejb.jsp multiple times
+		</li>
+	</ul>
+
+	<h2>Security Tests</h2>
+	<ul>
+		<li><a href="/jbosstest/restricted/SecureServlet">Try SecureServlet</a>
+		A test of securing servlet content using the JBoss JAAS authentication layer.
+		</li>
+
+		<li><a href="/jbosstest/restricted/SecureEJBAccess">Try SecureEJBAccess</a>
+		A test of securing servlet content using the JBoss JAAS authentication layer
+		as well as propagation of the servlet container identity to a secure EJB.
+		</li>
+
+		<li><a href="/jbosstest/restricted/SecureEJBAccessMT">Try SecureEJBAccessMT</a>
+		A test of securing servlet content using the JBoss JAAS authentication layer
+		as well as propagation of the servlet container identity to a secure EJB from
+        a thread spawned within the servlet request.
+		</li>
+
+		<li><a href="/jbosstest/restricted/SecureEJBAccess?testPropagation=true">Try SecureEJBAccess with nested call</a>
+		A test of securing servlet content using the JBoss JAAS authentication layer
+		as well as propagation of the servlet container identity to an unsecure EJB
+        which in turn calls a secure EJB to test principal propagation.
+		</li>
+
+		<li><a href="/jbosstest/ClientLoginServlet">Try ClientLoginServlet</a>
+		An unsecure servlet that performs a JAAS login as jduke to access a
+        secured EJB.
+		</li>
+		<li><a href="/jbosstest/UnsecureEJBAccess">Try UnsecureEJBServlet</a>
+		An unsecure servlet that tries to access a secured EJB.
+		</li>
+		<li><a href="/jbosstest/IncludeServlet">Try IncludeServlet</a>
+		An unsecure servlet that tries to include both secured and unsecured servlets
+      which access a secured EJB.
+		</li>
+		<li><a href="/jbosstest/restricted/IncludeServlet">Try IncludeServlet</a>
+		An secure servlet that tries to include both secured and unsecured servlets
+      which access a secured EJB.
+		</li>
+	</ul>
+</body>
+</html>
+

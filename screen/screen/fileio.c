@@ -1,4 +1,4 @@
-/* Copyright (c) 1993-2000
+/* Copyright (c) 1993-2002
  *      Juergen Weigert (jnweiger@immd4.informatik.uni-erlangen.de)
  *      Michael Schroeder (mlschroe@immd4.informatik.uni-erlangen.de)
  * Copyright (c) 1987 Oliver Laumann
@@ -22,7 +22,7 @@
  */
 
 #include "rcs.h"
-RCS_ID("$Id: fileio.c,v 1.1.1.1 2001/12/14 22:08:28 bbraun Exp $ FAU")
+RCS_ID("$Id: fileio.c,v 1.1.1.2 2003/03/19 21:16:18 landonf Exp $ FAU")
 
 
 #include <sys/types.h>
@@ -55,8 +55,8 @@ static char *CatExtra __P((char *, char *));
 static char *findrcfile __P((char *));
 
 
-static FILE *fp = NULL;
-char *rc_name;
+char *rc_name = "";
+int rc_recursion = 0;
 
 static char *
 CatExtra(str1, str2)
@@ -95,32 +95,36 @@ static char *
 findrcfile(rcfile)
 char *rcfile;
 {
-  static char buf[256];
-  char *rc, *p;
+  char buf[256];
+  char *p;
 
   if (rcfile)
     {
-      rc = SaveStr(rcfile);
+      char *rcend = rindex(rc_name, '/');
+      if (*rcfile != '/' && rcend && (rcend - rc_name) + strlen(rcfile) + 2 < sizeof(buf))
+	{
+	  strncpy(buf, rc_name, rcend - rc_name + 1);
+	  strcpy(buf + (rcend - rc_name) + 1, rcfile);
+	  if (access(buf, R_OK) == 0)
+	    return SaveStr(buf);
+	}
       debug1("findrcfile: you specified '%s'\n", rcfile);
+      return SaveStr(rcfile);
+    }
+  debug("findrcfile: you specified nothing...\n");
+  if ((p = getenv("SCREENRC")) != NULL && *p != '\0')
+    {
+      debug1("  $SCREENRC has: '%s'\n", p);
+      return SaveStr(p);
     }
   else
     {
-      debug("findrcfile: you specified nothing...\n");
-      if ((p = getenv("SCREENRC")) != NULL && *p != '\0')
-	{
-	  debug1("  $SCREENRC has: '%s'\n", p);
-	  rc = SaveStr(p);
-	}
-      else
-	{
-	  debug("  ...nothing in $SCREENRC, defaulting $HOME/.screenrc\n");
-	  if (strlen(home) > sizeof(buf) - 12)
-	    Panic(0, "Rc: home too large");
-	  sprintf(buf, "%s/.screenrc", home);
-	  rc = SaveStr(buf);
-	}
+      debug("  ...nothing in $SCREENRC, defaulting $HOME/.screenrc\n");
+      if (strlen(home) > sizeof(buf) - 12)
+	Panic(0, "Rc: home too large");
+      sprintf(buf, "%s/.screenrc", home);
+      return SaveStr(buf);
     }
-  return rc;
 }
 
 /*
@@ -136,6 +140,8 @@ char *rcfilename;
   register char *p, *cp;
   char buf[2048];
   char *args[MAXARGS];
+  FILE *fp;
+  char *oldrc_name = rc_name;
 
   /* always fix termcap/info capabilities */
   extra_incap = CatExtra("TF", extra_incap);
@@ -148,7 +154,7 @@ char *rcfilename;
 
   if ((fp = secfopen(rc_name, "r")) == NULL)
     {
-      if (RcFileName && strcmp(RcFileName, rc_name) == 0)
+      if (!rc_recursion && RcFileName && !strcmp(RcFileName, rc_name))
 	{
           /*
            * User explicitly gave us that name,
@@ -161,7 +167,7 @@ char *rcfilename;
 	}
       debug1("StartRc: '%s' no good. ignored\n", rc_name);
       Free(rc_name);
-      rc_name = "";
+      rc_name = oldrc_name;
       return;
     }
   while (fgets(buf, sizeof buf, fp) != NULL)
@@ -230,10 +236,19 @@ char *rcfilename;
 	  if (argc == 4)
 	    extra_outcap = CatExtra(args[3], extra_outcap);
 	}
+      else if (!strcmp(args[0], "source"))
+	{
+	  if (rc_recursion <= 10)
+	    {
+	      rc_recursion++;
+	      StartRc(args[1]);
+	      rc_recursion--;
+	    }
+	}
     }
   fclose(fp);
   Free(rc_name);
-  rc_name = "";
+  rc_name = oldrc_name;
 }
 
 void
@@ -241,12 +256,16 @@ FinishRc(rcfilename)
 char *rcfilename;
 {
   char buf[2048];
+  FILE *fp;
+  char *oldrc_name = rc_name;
 
   rc_name = findrcfile(rcfilename);
 
   if ((fp = secfopen(rc_name, "r")) == NULL)
     {
-      if (RcFileName && strcmp(RcFileName, rc_name) == 0)
+      if (rc_recursion)
+        Msg(errno, "%s: source %s", oldrc_name, rc_name);
+      else if (RcFileName && !strcmp(RcFileName, rc_name))
 	{
     	  /*
  	   * User explicitly gave us that name, 
@@ -259,7 +278,7 @@ char *rcfilename;
 	}
       debug1("FinishRc: '%s' no good. ignored\n", rc_name);
       Free(rc_name);
-      rc_name = "";
+      rc_name = oldrc_name;
       return;
     }
 
@@ -268,8 +287,23 @@ char *rcfilename;
     RcLine(buf);
   (void) fclose(fp);
   Free(rc_name);
-  rc_name = "";
+  rc_name = oldrc_name;
 }
+
+void
+do_source(rcfilename)
+char *rcfilename;
+{
+  if (rc_recursion > 10)
+    {
+      Msg(0, "%s: source: recursion limit reached", rc_name);
+      return;
+    }
+  rc_recursion++;
+  FinishRc(rcfilename);
+  rc_recursion--;
+}
+
 
 /*
  * Running a Command Line in the environment determined by the display.
@@ -325,6 +359,7 @@ int dump;
    * #ifdef COPY_PASTE
    * dump==2:	BUFFERFILE
    * #endif COPY_PASTE 
+   * dump==1:	scrollback,
    */
   register int i, j, k;
   register char *p;
@@ -358,8 +393,11 @@ int dump;
 	}
       break;
     case DUMP_HARDCOPY:
+    case DUMP_SCROLLBACK:
       if (fn == 0)
 	{
+	  if (fore == 0)
+	    return;
 	  if (hardcopydir && *hardcopydir && strlen(hardcopydir) < sizeof(fnbuf) - 21)
 	    sprintf(fnbuf, "%s/hardcopy.%d", hardcopydir, fore->w_number);
 	  else
@@ -433,6 +471,9 @@ int dump;
 	  switch (dump)
 	    {
 	    case DUMP_HARDCOPY:
+	    case DUMP_SCROLLBACK:
+	      if (!fore)
+		break;
 	      if (*mode == 'a')
 		{
 		  putc('>', f);
@@ -440,9 +481,21 @@ int dump;
 		    putc('=', f);
 		  fputs("<\n", f);
 		}
+	      if (dump == DUMP_SCROLLBACK)
+		{
+		  for (i = 0; i < fore->w_histheight; i++)
+		    {
+		      p = (char *)(WIN(i)->image);
+		      for (k = fore->w_width - 1; k >= 0 && p[k] == ' '; k--)
+			;
+		      for (j = 0; j <= k; j++)
+			putc(p[j], f);
+		      putc('\n', f);
+		    }
+		}
 	      for (i = 0; i < fore->w_height; i++)
 		{
-		  p = fore->w_mlines[i].image;
+		  p = (char *)fore->w_mlines[i].image;
 		  for (k = fore->w_width - 1; k >= 0 && p[k] == ' '; k--)
 		    ;
 		  for (j = 0; j <= k; j++)
@@ -459,8 +512,8 @@ int dump;
 	      break;
 #ifdef COPY_PASTE
 	    case DUMP_EXCHANGE:
-	      p = user->u_copybuffer;
-	      for (i = user->u_copylen; i-- > 0; p++)
+	      p = user->u_plop.buf;
+	      for (i = user->u_plop.len; i-- > 0; p++)
 		if (*p == '\r' && (i == 0 || p[1] != '\n'))
 		  putc('\n', f);
 		else
@@ -474,7 +527,7 @@ int dump;
     }
   if (UserStatus() <= 0)
     Msg(0, "Cannot open \"%s\"", fn);
-  else
+  else if (display && !*rc_name)
     {
       switch (dump)
 	{
@@ -482,6 +535,7 @@ int dump;
 	  Msg(0, "Termcap entry written to \"%s\".", fn);
 	  break;
 	case DUMP_HARDCOPY:
+	case DUMP_SCROLLBACK:
 	  Msg(0, "Screen image %s to \"%s\".",
 	      (*mode == 'a') ? "appended" : "written", fn);
 	  break;
@@ -716,6 +770,10 @@ char *cmd;
     case 0:
       display = p->w_pdisplay;
       displays = 0;
+#ifdef DEBUG
+      if (dfp && dfp != stderr)
+        fclose(dfp);
+#endif
       close(0);
       dup(pi[0]);
       closeallfiles(0);
@@ -731,4 +789,43 @@ char *cmd;
     }
   close(pi[0]);
   return pi[1];
+}
+
+int
+readpipe(cmdv)
+char **cmdv;
+{
+  int pi[2];
+  if (pipe(pi))
+    {
+      Msg(errno, "pipe");
+      return -1;
+    }
+  switch (fork())
+    {
+    case -1:
+      Msg(errno, "fork");
+      return -1;
+    case 0:
+      displays = 0;
+#ifdef DEBUG
+      if (dfp && dfp != stderr)
+        fclose(dfp);
+#endif
+      close(1);
+      if (dup(pi[1]) != 1)
+        Panic(0, "dup");
+      closeallfiles(1);
+      if (setgid(real_gid) || setuid(real_uid))
+        Panic(errno, "setuid/setgid");
+#ifdef SIGPIPE
+      signal(SIGPIPE, SIG_DFL);
+#endif
+      execvp(*cmdv, cmdv);
+      Panic(errno, *cmdv);
+    default:
+      break;
+    }
+  close(pi[1]);
+  return pi[0];
 }

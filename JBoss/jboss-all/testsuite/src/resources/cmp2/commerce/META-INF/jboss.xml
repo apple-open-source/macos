@@ -1,0 +1,47 @@
+<?xml version="1.0" encoding="utf-8"?>
+
+<jboss>
+   <enterprise-beans>
+      <entity>
+         <ejb-name>UserEJB</ejb-name>
+         <jndi-name>commerce/User</jndi-name>
+         <local-jndi-name>commerce/UserLocalHome</local-jndi-name>
+      </entity>
+      <entity>
+         <ejb-name>CustomerEJB</ejb-name>
+         <jndi-name>commerce/Customer</jndi-name>
+      </entity>
+      <entity>
+         <ejb-name>OrderEJB</ejb-name>
+         <local-jndi-name>commerce/Order</local-jndi-name>
+      </entity>
+      <entity>
+         <ejb-name>AddressEJB</ejb-name>
+         <local-jndi-name>commerce/Address</local-jndi-name>
+      </entity>
+      <entity>
+         <ejb-name>LineItemEJB</ejb-name>
+         <local-jndi-name>commerce/LineItem</local-jndi-name>
+      </entity>
+      <entity>
+         <ejb-name>ProductEJB</ejb-name>
+         <local-jndi-name>commerce/Product</local-jndi-name>
+      </entity>
+      <entity>
+         <ejb-name>ProductCategoryEJB</ejb-name>
+         <local-jndi-name>commerce/ProductCategory</local-jndi-name>
+      </entity>
+      <session>
+         <ejb-name>TxTesterEJB</ejb-name>
+         <local-jndi-name>commerce/TxTester</local-jndi-name>
+      </session>
+      <session>
+         <ejb-name>EJBTestRunnerEJB</ejb-name>
+         <jndi-name>ejb/EJBTestRunner</jndi-name>
+      </session>
+      <entity>
+         <ejb-name>AutoNumberEJB</ejb-name>
+         <jndi-name>JBossUtilAutoNumber</jndi-name>
+      </entity>
+   </enterprise-beans>
+</jboss>

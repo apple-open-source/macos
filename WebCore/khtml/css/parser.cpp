@@ -26,9 +26,9 @@
 #define	MEDIA_SYM	269
 #define	FONT_FACE_SYM	270
 #define	CHARSET_SYM	271
-#define	KONQ_RULE_SYM	272
-#define	KONQ_DECLS_SYM	273
-#define	KONQ_VALUE_SYM	274
+#define	KHTML_RULE_SYM	272
+#define	KHTML_DECLS_SYM	273
+#define	KHTML_VALUE_SYM	274
 #define	IMPORTANT_SYM	275
 #define	QEMS	276
 #define	EMS	277
@@ -308,7 +308,7 @@ static const short yyrline[] = { 0,
    875,   877,   878,   879,   886,   887,   888,   889,   890,   891,
    893,   898,   900,   901,   902,   903,   904,   905,   906,   907,
    908,   909,   910,   911,   912,   913,   914,   915,   916,   920,
-   928,   940,   947,   954,   962,   988,   990,   993,   995
+   928,   943,   950,   957,   965,   991,   993,   996,   998
 };
 #endif
 
@@ -318,11 +318,11 @@ static const short yyrline[] = { 0,
 static const char * const yytname[] = {   "$","error","$undefined.","S","SGML_CD",
 "INCLUDES","DASHMATCH","BEGINSWITH","ENDSWITH","CONTAINS","STRING","IDENT","HASH",
 "':'","'.'","'['","IMPORT_SYM","PAGE_SYM","MEDIA_SYM","FONT_FACE_SYM","CHARSET_SYM",
-"KONQ_RULE_SYM","KONQ_DECLS_SYM","KONQ_VALUE_SYM","IMPORTANT_SYM","QEMS","EMS",
-"EXS","PXS","CMS","MMS","INS","PTS","PCS","DEGS","RADS","GRADS","MSECS","SECS",
-"HERZ","KHERZ","DIMEN","PERCENTAGE","NUMBER","URI","FUNCTION","UNICODERANGE",
+"KHTML_RULE_SYM","KHTML_DECLS_SYM","KHTML_VALUE_SYM","IMPORTANT_SYM","QEMS",
+"EMS","EXS","PXS","CMS","MMS","INS","PTS","PCS","DEGS","RADS","GRADS","MSECS",
+"SECS","HERZ","KHERZ","DIMEN","PERCENTAGE","NUMBER","URI","FUNCTION","UNICODERANGE",
 "'{'","'}'","';'","','","'+'","'>'","'-'","'*'","']'","'='","')'","'/'","'#'",
-"'@'","stylesheet","konq_rule","konq_decls","konq_value","maybe_space","maybe_sgml",
+"'@'","stylesheet","khtml_rule","khtml_decls","khtml_value","maybe_space","maybe_sgml",
 "maybe_charset","import_list","rule_list","rule","import","string_or_uri","maybe_media_list",
 "media_list","media","ruleset_list","medium","page","font_face","combinator",
 "unary_operator","ruleset","selector_list","selector","simple_selector","element_name",
@@ -1987,17 +1987,20 @@ case 140:
 case 141:
 #line 929 "parser.y"
 {
+      Function *f = new Function;
+      f->name = yyvsp[-2].string;
+      f->args = 0;
       yyval.value.id = 0;
       yyval.value.unit = Value::Function;
-      yyval.value.function = 0;
+      yyval.value.function = f;
   ;
     break;}
 case 142:
-#line 941 "parser.y"
+#line 944 "parser.y"
 { yyval.string = yyvsp[-1].string; ;
     break;}
 case 143:
-#line 948 "parser.y"
+#line 951 "parser.y"
 {
 	yyval.rule = 0;
 #ifdef CSS_DEBUG
@@ -2006,7 +2009,7 @@ case 143:
     ;
     break;}
 case 144:
-#line 954 "parser.y"
+#line 957 "parser.y"
 {
 	yyval.rule = 0;
 #ifdef CSS_DEBUG
@@ -2015,7 +2018,7 @@ case 144:
     ;
     break;}
 case 145:
-#line 963 "parser.y"
+#line 966 "parser.y"
 {
 	yyval.rule = 0;
 #ifdef CSS_DEBUG
@@ -2245,6 +2248,6 @@ yyerrhandle:
     }
   return 1;
 }
-#line 998 "parser.y"
+#line 1001 "parser.y"
 
 

@@ -1,0 +1,19 @@
+Done:
+
+JRW	07MAY01	Add a line counter for the number of items in the log.
+JRW	07MAY01	Add a timer function to update automatically.  This will require some UI to enable and disable.
+JRW 09MAY01 Changed the name to "IrDA Debug Log" since we are going to do a "Status" Application
+JRW 09MAY01 The number of entries should always be correct now.
+JRW 14MAY01 Display first and second in Hex
+JRW 14MAY01 Display time in seconds
+JRW 14MAY01 Add Delta column
+
+To Do:
+
+1.  Add Filter capabilities.
+
+2.  Implement multiple selection and deletion.
+
+3.  Disable "Add" and "Remove" buttons when timer is running.
+
+4.  Add Save as text.

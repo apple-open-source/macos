@@ -76,7 +76,7 @@ Value ArrayInstanceImp::get(ExecState *exec, const Identifier &propertyName) con
     return Number(length);
 
   bool ok;
-  unsigned index = propertyName.toULong(&ok);
+  unsigned index = propertyName.toArrayIndex(&ok);
   if (ok) {
     if (index >= length)
       return Undefined();
@@ -110,7 +110,7 @@ void ArrayInstanceImp::put(ExecState *exec, const Identifier &propertyName, cons
   }
   
   bool ok;
-  unsigned index = propertyName.toULong(&ok);
+  unsigned index = propertyName.toArrayIndex(&ok);
   if (ok) {
     put(exec, index, value, attr);
     return;
@@ -144,7 +144,7 @@ bool ArrayInstanceImp::hasProperty(ExecState *exec, const Identifier &propertyNa
     return true;
   
   bool ok;
-  unsigned index = propertyName.toULong(&ok);
+  unsigned index = propertyName.toArrayIndex(&ok);
   if (ok) {
     if (index >= length)
       return false;
@@ -253,7 +253,8 @@ void ArrayInstanceImp::setLength(unsigned newLength, ExecState *exec)
     while (it != sparseProperties.end()) {
       Reference ref = it++;
       bool ok;
-      if (ref.getPropertyName(exec).toULong(&ok) > newLength) {
+      unsigned index = ref.getPropertyName(exec).toArrayIndex(&ok);
+      if (ok && index > newLength) {
 	ref.deleteValue(exec);
       }
     }

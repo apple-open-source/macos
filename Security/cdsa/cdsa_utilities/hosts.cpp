@@ -124,7 +124,7 @@ NamedHost::NamedHost(const char *name) : mName(name)
     if (hostent *he = gethostbyname(name)) {
         for (char **p = he->h_addr_list; *p; p++)
             mAddrs.insert(*reinterpret_cast<in_addr *>(*p));
-        debug("ipname", "host %s resolves to %ld address(es)", mName.c_str(), mAddrs.size());
+        secdebug("ipname", "host %s resolves to %ld address(es)", mName.c_str(), mAddrs.size());
         return;
     }
     UnixError::throwMe(ENOENT);	//@@@ h_errno translation or other source

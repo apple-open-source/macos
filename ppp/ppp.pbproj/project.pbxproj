@@ -56,11 +56,11 @@
 	<key>CFBundlePackageType</key>
 	<string>APPL</string>
 	<key>CFBundleShortVersionString</key>
-	<string>1.2</string>
+	<string>1.3</string>
 	<key>CFBundleSignature</key>
 	<string>????</string>
 	<key>CFBundleVersion</key>
-	<string>1.2</string>
+	<string>1.3</string>
 	<key>LSUIElement</key>
 	<string>1</string>
 	<key>NSMainNibFile</key>
@@ -70,7 +70,6 @@
 </dict>
 </plist>
 ";
-			shouldUseHeadermap = 0;
 		};
 		013F971F001901317F000001 = {
 			buildActionMask = 2147483647;
@@ -151,21 +150,25 @@
 			refType = 4;
 		};
 		013F974C001901697F000001 = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			path = MiniTerm.h;
 			refType = 4;
 		};
 		013F974D001901697F000001 = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			path = MiniTerm.iconheader;
 			refType = 4;
 		};
 		013F974E001901697F000001 = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			path = MiniTerm.m;
 			refType = 4;
 		};
 		013F9752001901697F000001 = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			path = MiniTerm_main.m;
 			refType = 4;
@@ -225,6 +228,7 @@
 			target = 013F971E001901317F000001;
 		};
 		01451890007262CE7F000001 = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			name = main.c;
 			path = "Drivers/PPPoE/PPPoE-plugin/main.c";
@@ -240,6 +244,7 @@
 			refType = 4;
 		};
 		01451892007262CE7F000001 = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			name = English;
 			path = "Drivers/PPPoE/PPPoE-plugin/English.lproj/InfoPlist.strings";
@@ -270,120 +275,133 @@
 			};
 		};
 		014A7C5300754CF87F000001 = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			name = ppp_comp.c;
 			path = Family/ppp_comp.c;
 			refType = 4;
 		};
 		014A7C5400754CF87F000001 = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			name = ppp_domain.c;
 			path = Family/ppp_domain.c;
 			refType = 4;
 		};
 		014A7C5500754CF87F000001 = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			name = ppp_fam.c;
 			path = Family/ppp_fam.c;
 			refType = 4;
 		};
 		014A7C5600754CF87F000001 = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			name = ppp_if.c;
 			path = Family/ppp_if.c;
 			refType = 4;
 		};
-		014A7C5700754CF87F000001 = {
-			isa = PBXFileReference;
-			name = ppp_ip.c;
-			path = Family/ppp_ip.c;
-			refType = 4;
-		};
 		014A7C5800754CF87F000001 = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			name = ppp_link.c;
 			path = Family/ppp_link.c;
 			refType = 4;
 		};
 		014A7C5900754CF87F000001 = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			name = ppp_serial.c;
 			path = Family/ppp_serial.c;
 			refType = 4;
 		};
 		014A7C5A00754CF87F000001 = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			name = ppp.c;
 			path = Family/ppp.c;
 			refType = 4;
 		};
 		014A7C5B00754CF87F000001 = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			name = slcompress.c;
 			path = Family/slcompress.c;
 			refType = 4;
 		};
 		014A7C5C00754CF87F000001 = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			name = if_ppp.h;
 			path = Family/if_ppp.h;
 			refType = 2;
 		};
 		014A7C5D00754CF87F000001 = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			name = if_ppplink.h;
 			path = Family/if_ppplink.h;
 			refType = 2;
 		};
 		014A7C5F00754CF87F000001 = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			name = ppp_defs.h;
 			path = Family/ppp_defs.h;
 			refType = 2;
 		};
 		014A7C6000754CF87F000001 = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			name = ppp_domain.h;
 			path = Family/ppp_domain.h;
 			refType = 2;
 		};
 		014A7C6100754CF87F000001 = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			name = ppp_fam.h;
 			path = Family/ppp_fam.h;
 			refType = 2;
 		};
 		014A7C6200754CF87F000001 = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			name = ppp_if.h;
 			path = Family/ppp_if.h;
 			refType = 2;
 		};
 		014A7C6300754CF87F000001 = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			name = ppp_ip.h;
 			path = Family/ppp_ip.h;
 			refType = 2;
 		};
 		014A7C6400754CF87F000001 = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			name = ppp_link.h;
 			path = Family/ppp_link.h;
 			refType = 2;
 		};
 		014A7C6500754CF87F000001 = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			name = ppp_serial.h;
 			path = Family/ppp_serial.h;
 			refType = 2;
 		};
 		014A7C6600754CF87F000001 = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			name = ppp_comp.h;
 			path = Family/ppp_comp.h;
 			refType = 2;
 		};
 		014A7C6700754CF87F000001 = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			name = slcompress.h;
 			path = Family/slcompress.h;
@@ -479,12 +497,6 @@
 			settings = {
 			};
 		};
-		014A7C7800754CF87F000001 = {
-			fileRef = 014A7C5700754CF87F000001;
-			isa = PBXBuildFile;
-			settings = {
-			};
-		};
 		014A7C7900754CF87F000001 = {
 			fileRef = 014A7C5800754CF87F000001;
 			isa = PBXBuildFile;
@@ -510,60 +522,70 @@
 			};
 		};
 		014A7C7D00754E8E7F000001 = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			name = pppoe_dlil.c;
 			path = "Drivers/PPPoE/PPPoE-extension/pppoe_dlil.c";
 			refType = 2;
 		};
 		014A7C7E00754E8E7F000001 = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			name = pppoe_domain.c;
 			path = "Drivers/PPPoE/PPPoE-extension/pppoe_domain.c";
 			refType = 2;
 		};
 		014A7C7F00754E8E7F000001 = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			name = pppoe_proto.c;
 			path = "Drivers/PPPoE/PPPoE-extension/pppoe_proto.c";
 			refType = 2;
 		};
 		014A7C8000754E8E7F000001 = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			name = pppoe_rfc.c;
 			path = "Drivers/PPPoE/PPPoE-extension/pppoe_rfc.c";
 			refType = 2;
 		};
 		014A7C8100754E8E7F000001 = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			name = pppoe_wan.c;
 			path = "Drivers/PPPoE/PPPoE-extension/pppoe_wan.c";
 			refType = 2;
 		};
 		014A7C8200754E8E7F000001 = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			name = pppoe_dlil.h;
 			path = "Drivers/PPPoE/PPPoE-extension/pppoe_dlil.h";
 			refType = 2;
 		};
 		014A7C8300754E8E7F000001 = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			name = pppoe_proto.h;
 			path = "Drivers/PPPoE/PPPoE-extension/pppoe_proto.h";
 			refType = 2;
 		};
 		014A7C8400754E8E7F000001 = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			name = pppoe_rfc.h;
 			path = "Drivers/PPPoE/PPPoE-extension/pppoe_rfc.h";
 			refType = 2;
 		};
 		014A7C8500754E8E7F000001 = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			name = pppoe_wan.h;
 			path = "Drivers/PPPoE/PPPoE-extension/pppoe_wan.h";
 			refType = 2;
 		};
 		014A7C8600754E8E7F000001 = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			name = PPPoE.h;
 			path = "Drivers/PPPoE/PPPoE-extension/PPPoE.h";
@@ -635,6 +657,7 @@
 			dstSubfolderSpec = 13;
 			files = (
 				0151E1EB0073C6DD7F000001,
+				FAAF7E1803F42F2704CA2DDA,
 			);
 			isa = PBXCopyFilesBuildPhase;
 			runOnlyForDeploymentPostprocessing = 0;
@@ -662,6 +685,7 @@
 			};
 		};
 		01A345D600C4684A7F000001 = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			name = ppp_client.c;
 			path = Controller/ppp_client.c;
@@ -683,6 +707,7 @@
 			refType = 2;
 		};
 		01A345D900C468837F000001 = {
+			fileEncoding = 10;
 			isa = PBXFileReference;
 			name = English;
 			path = Controller/English.lproj/Localizable.strings;
@@ -736,6 +761,7 @@
 			runOnlyForDeploymentPostprocessing = 0;
 		};
 		071EC564009888F57F000001 = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			name = Dialogs.c;
 			path = Dialogs/Dialogs.c;
@@ -751,6 +777,7 @@
 			refType = 4;
 		};
 		071EC567009889367F000001 = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			name = English;
 			path = Dialogs/English.lproj/Localizable.strings;
@@ -806,15 +833,16 @@
 	<key>CFBundlePackageType</key>
 	<string>BNDL</string>
 	<key>CFBundleShortVersionString</key>
-	<string>1.2</string>
+	<string>1.3</string>
 	<key>CFBundleSignature</key>
 	<string>????</string>
 	<key>CFBundleVersion</key>
-	<string>1.2</string>
+	<string>1.3</string>
+	<key>PPPPluginType</key>
+	<string>Other</string>
 </dict>
 </plist>
 ";
-			shouldUseHeadermap = 0;
 		};
 		071EC56C00988A547F000001 = {
 			buildActionMask = 2147483647;
@@ -903,6 +931,726 @@
 //0D2
 //0D3
 //0D4
+//230
+//231
+//232
+//233
+//234
+		23524800049FFD5F0051E486 = {
+			isa = PBXFrameworkReference;
+			name = Security.framework;
+			path = /System/Library/Frameworks/Security.framework;
+			refType = 0;
+		};
+		23524801049FFD5F0051E486 = {
+			fileRef = 23524800049FFD5F0051E486;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		2364AD260466D36B00A8C900 = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			name = eap_plugin.h;
+			path = pppd/eap_plugin.h;
+			refType = 4;
+		};
+		2364AD270466D36B00A8C900 = {
+			fileRef = 2364AD260466D36B00A8C900;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		2364AD280466D41500A8C900 = {
+			fileRef = 2364AD260466D36B00A8C900;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		238AE029044B14B1002F20A4 = {
+			children = (
+				2562EB3E0469B4F7005239BE,
+				2562EB3C0469B4AF005239BE,
+				238AE02A044B14EC002F20A4,
+			);
+			isa = PBXGroup;
+			name = Authenticators;
+			path = "";
+			refType = 4;
+		};
+		238AE02A044B14EC002F20A4 = {
+			children = (
+				238AE03E044B162D002F20A4,
+				238AE03F044B162D002F20A4,
+				238AE040044B162D002F20A4,
+				238AE041044B162D002F20A4,
+				238AE042044B162D002F20A4,
+				238AE048044B165E002F20A4,
+			);
+			isa = PBXGroup;
+			name = Radius;
+			path = "";
+			refType = 4;
+		};
+		238AE02B044B1524002F20A4 = {
+			buildActionMask = 2147483647;
+			files = (
+				238AE044044B162D002F20A4,
+				238AE045044B162D002F20A4,
+				238AE047044B162D002F20A4,
+			);
+			isa = PBXHeadersBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		238AE02C044B1524002F20A4 = {
+			buildActionMask = 2147483647;
+			files = (
+			);
+			isa = PBXResourcesBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		238AE02D044B1524002F20A4 = {
+			buildActionMask = 2147483647;
+			files = (
+				238AE043044B162D002F20A4,
+				238AE046044B162D002F20A4,
+			);
+			isa = PBXSourcesBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		238AE02E044B1524002F20A4 = {
+			buildActionMask = 2147483647;
+			files = (
+				238AE049044B165E002F20A4,
+			);
+			isa = PBXFrameworksBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		238AE02F044B1524002F20A4 = {
+			buildActionMask = 2147483647;
+			files = (
+			);
+			isa = PBXRezBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		238AE030044B1524002F20A4 = {
+			buildPhases = (
+				238AE02B044B1524002F20A4,
+				238AE02C044B1524002F20A4,
+				238AE02D044B1524002F20A4,
+				238AE02E044B1524002F20A4,
+				238AE02F044B1524002F20A4,
+			);
+			buildSettings = {
+				INSTALL_PATH = "$(SYSTEM_LIBRARY_DIR)/Extensions";
+				OTHER_CFLAGS = "";
+				OTHER_LDFLAGS = "-bundle -bundle_loader $(SYMROOT)/pppd";
+				OTHER_REZFLAGS = "";
+				PRODUCT_NAME = Radius;
+				SECTORDER_FLAGS = "";
+				WARNING_CFLAGS = "-Wmost -Wno-four-char-constants -Wno-unknown-pragmas";
+				WRAPPER_EXTENSION = ppp;
+			};
+			dependencies = (
+			);
+			isa = PBXBundleTarget;
+			name = "Radius (Plugin)";
+			productInstallPath = "$(USER_LIBRARY_DIR)/Bundles";
+			productName = Radius;
+			productReference = 238AE031044B1524002F20A4;
+			productSettingsXML = "<?xml version=\"1.0\" encoding=\"UTF-8\"?>
+<!DOCTYPE plist PUBLIC \"-//Apple Computer//DTD PLIST 1.0//EN\" \"http://www.apple.com/DTDs/PropertyList-1.0.dtd\">
+<plist version=\"1.0\">
+<dict>
+	<key>CFBundleDevelopmentRegion</key>
+	<string>English</string>
+	<key>CFBundleExecutable</key>
+	<string>Radius</string>
+	<key>CFBundleGetInfoString</key>
+	<string>Radius Plugin</string>
+	<key>CFBundleIconFile</key>
+	<string></string>
+	<key>CFBundleIdentifier</key>
+	<string>com.apple.RemoteAccessServer.Radius</string>
+	<key>CFBundleInfoDictionaryVersion</key>
+	<string>6.0</string>
+	<key>CFBundleName</key>
+	<string>Radius</string>
+	<key>CFBundlePackageType</key>
+	<string>BNDL</string>
+	<key>CFBundleShortVersionString</key>
+	<string>1.3</string>
+	<key>CFBundleSignature</key>
+	<string>????</string>
+	<key>CFBundleVersion</key>
+	<string>1.3</string>
+	<key>PPPPluginType</key>
+	<string>Authentication</string>
+</dict>
+</plist>
+";
+		};
+		238AE031044B1524002F20A4 = {
+			isa = PBXBundleReference;
+			path = Radius.ppp;
+			refType = 3;
+		};
+		238AE032044B1553002F20A4 = {
+			buildPhases = (
+			);
+			buildSettings = {
+				OTHER_CFLAGS = "";
+				OTHER_LDFLAGS = "";
+				OTHER_REZFLAGS = "";
+				PRODUCT_NAME = "Authenticators (Aggregate)";
+				SECTORDER_FLAGS = "";
+				WARNING_CFLAGS = "-Wmost -Wno-four-char-constants -Wno-unknown-pragmas";
+			};
+			dependencies = (
+				2562EB4F0469B5DA005239BE,
+				2562EB4E0469B5D7005239BE,
+				238AE033044B1563002F20A4,
+			);
+			isa = PBXAggregateTarget;
+			name = "Authenticators (Aggregate)";
+			productName = Authenticarots;
+		};
+		238AE033044B1563002F20A4 = {
+			isa = PBXTargetDependency;
+			target = 238AE030044B1524002F20A4;
+		};
+		238AE03E044B162D002F20A4 = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			name = main.c;
+			path = Authenticators/Radius/main.c;
+			refType = 4;
+		};
+		238AE03F044B162D002F20A4 = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			name = radlib_private.h;
+			path = Authenticators/Radius/radlib_private.h;
+			refType = 4;
+		};
+		238AE040044B162D002F20A4 = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			name = radlib_vs.h;
+			path = Authenticators/Radius/radlib_vs.h;
+			refType = 4;
+		};
+		238AE041044B162D002F20A4 = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			name = radlib.c;
+			path = Authenticators/Radius/radlib.c;
+			refType = 4;
+		};
+		238AE042044B162D002F20A4 = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			name = radlib.h;
+			path = Authenticators/Radius/radlib.h;
+			refType = 4;
+		};
+		238AE043044B162D002F20A4 = {
+			fileRef = 238AE03E044B162D002F20A4;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		238AE044044B162D002F20A4 = {
+			fileRef = 238AE03F044B162D002F20A4;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		238AE045044B162D002F20A4 = {
+			fileRef = 238AE040044B162D002F20A4;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		238AE046044B162D002F20A4 = {
+			fileRef = 238AE041044B162D002F20A4;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		238AE047044B162D002F20A4 = {
+			fileRef = 238AE042044B162D002F20A4;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		238AE048044B165E002F20A4 = {
+			isa = PBXFrameworkReference;
+			name = CoreFoundation.framework;
+			path = /System/Library/Frameworks/CoreFoundation.framework;
+			refType = 0;
+		};
+		238AE049044B165E002F20A4 = {
+			fileRef = 238AE048044B165E002F20A4;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		238AE04A044B1786002F20A4 = {
+			isa = PBXTargetDependency;
+			target = 238AE032044B1553002F20A4;
+		};
+		23BCB57B048442EA00767149 = {
+			fileRef = FAAA1C2300D5514104CA2CDC;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+//230
+//231
+//232
+//233
+//234
+//250
+//251
+//252
+//253
+//254
+		25285D49047041F90076C2C4 = {
+			fileRef = 2562EB580469B8D2005239BE;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		2562EB3C0469B4AF005239BE = {
+			children = (
+				2562EB560469B889005239BE,
+			);
+			isa = PBXGroup;
+			name = DSACL;
+			refType = 4;
+		};
+		2562EB3E0469B4F7005239BE = {
+			children = (
+				2562EB3F0469B50F005239BE,
+				2562EB520469B806005239BE,
+				2562EB540469B824005239BE,
+			);
+			isa = PBXGroup;
+			name = DSAuth;
+			refType = 4;
+		};
+		2562EB3F0469B50F005239BE = {
+			children = (
+				2562EB500469B7E6005239BE,
+			);
+			isa = PBXGroup;
+			name = Headers;
+			refType = 4;
+		};
+		2562EB400469B5B9005239BE = {
+			buildActionMask = 2147483647;
+			files = (
+				2562EB510469B7E6005239BE,
+			);
+			isa = PBXHeadersBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		2562EB410469B5B9005239BE = {
+			buildActionMask = 2147483647;
+			files = (
+			);
+			isa = PBXResourcesBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		2562EB420469B5B9005239BE = {
+			buildActionMask = 2147483647;
+			files = (
+				2562EB530469B806005239BE,
+				2562EB550469B824005239BE,
+			);
+			isa = PBXSourcesBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		2562EB430469B5B9005239BE = {
+			buildActionMask = 2147483647;
+			files = (
+				2562EB6A0469BA5F005239BE,
+				2562EB750469BC9D005239BE,
+				612B31AD04EAFA6400A11300,
+				612B31B504EAFA7000A11300,
+			);
+			isa = PBXFrameworksBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		2562EB440469B5B9005239BE = {
+			buildActionMask = 2147483647;
+			files = (
+			);
+			isa = PBXRezBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		2562EB450469B5B9005239BE = {
+			buildPhases = (
+				2562EB400469B5B9005239BE,
+				2562EB410469B5B9005239BE,
+				2562EB420469B5B9005239BE,
+				2562EB430469B5B9005239BE,
+				2562EB440469B5B9005239BE,
+			);
+			buildSettings = {
+				INSTALL_PATH = "$(SYSTEM_LIBRARY_DIR)/Extensions";
+				OTHER_CFLAGS = "";
+				OTHER_LDFLAGS = "-bundle -bundle_loader $(SYMROOT)/pppd";
+				OTHER_REZFLAGS = "";
+				PRODUCT_NAME = DSAuth;
+				SECTORDER_FLAGS = "";
+				WARNING_CFLAGS = "-Wmost -Wno-four-char-constants -Wno-unknown-pragmas";
+				WRAPPER_EXTENSION = ppp;
+			};
+			dependencies = (
+			);
+			isa = PBXBundleTarget;
+			name = "DSAuth (Plugin)";
+			productInstallPath = "$(SYSTEM_LIBRARY_DIR)/Extensions";
+			productName = "DSAuth (Plugin)";
+			productReference = 2562EB460469B5B9005239BE;
+			productSettingsXML = "<?xml version=\"1.0\" encoding=\"UTF-8\"?>
+<!DOCTYPE plist PUBLIC \"-//Apple Computer//DTD PLIST 1.0//EN\" \"http://www.apple.com/DTDs/PropertyList-1.0.dtd\">
+<plist version=\"1.0\">
+<dict>
+	<key>CFBundleDevelopmentRegion</key>
+	<string>English</string>
+	<key>CFBundleExecutable</key>
+	<string>DSAuth</string>
+	<key>CFBundleGetInfoString</key>
+	<string>DSAuth Plugin</string>
+	<key>CFBundleIconFile</key>
+	<string></string>
+	<key>CFBundleIdentifier</key>
+	<string>com.apple.RemoteAccessServer.DSAuth</string>
+	<key>CFBundleInfoDictionaryVersion</key>
+	<string>6.0</string>
+	<key>CFBundleName</key>
+	<string>DSAuth</string>
+	<key>CFBundlePackageType</key>
+	<string>BNDL</string>
+	<key>CFBundleShortVersionString</key>
+	<string>1.3</string>
+	<key>CFBundleSignature</key>
+	<string>????</string>
+	<key>CFBundleVersion</key>
+	<string>1.3</string>
+	<key>PPPPluginType</key>
+	<string>Authentication</string>
+</dict>
+</plist>
+";
+		};
+		2562EB460469B5B9005239BE = {
+			isa = PBXBundleReference;
+			path = DSAuth.ppp;
+			refType = 3;
+		};
+		2562EB470469B5CF005239BE = {
+			buildActionMask = 2147483647;
+			files = (
+				2562EB590469B8D2005239BE,
+				2562EB5D0469B914005239BE,
+			);
+			isa = PBXHeadersBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		2562EB480469B5CF005239BE = {
+			buildActionMask = 2147483647;
+			files = (
+			);
+			isa = PBXResourcesBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		2562EB490469B5CF005239BE = {
+			buildActionMask = 2147483647;
+			files = (
+				2562EB570469B889005239BE,
+				2562EB5C0469B902005239BE,
+			);
+			isa = PBXSourcesBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		2562EB4A0469B5CF005239BE = {
+			buildActionMask = 2147483647;
+			files = (
+				2562EB680469BA5F005239BE,
+				2562EB730469BC72005239BE,
+				2562EB740469BC76005239BE,
+			);
+			isa = PBXFrameworksBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		2562EB4B0469B5CF005239BE = {
+			buildActionMask = 2147483647;
+			files = (
+			);
+			isa = PBXRezBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		2562EB4C0469B5CF005239BE = {
+			buildPhases = (
+				2562EB470469B5CF005239BE,
+				2562EB480469B5CF005239BE,
+				2562EB490469B5CF005239BE,
+				2562EB4A0469B5CF005239BE,
+				2562EB4B0469B5CF005239BE,
+			);
+			buildSettings = {
+				INSTALL_PATH = "$(SYSTEM_LIBRARY_DIR)/Extensions";
+				OTHER_CFLAGS = "";
+				OTHER_LDFLAGS = "-bundle -bundle_loader $(SYMROOT)/pppd";
+				OTHER_REZFLAGS = "";
+				PRODUCT_NAME = DSACL;
+				SECTORDER_FLAGS = "";
+				WARNING_CFLAGS = "-Wmost -Wno-four-char-constants -Wno-unknown-pragmas";
+				WRAPPER_EXTENSION = ppp;
+			};
+			dependencies = (
+			);
+			isa = PBXBundleTarget;
+			name = "DSACL (Plugin)";
+			productInstallPath = "$(SYSTEM_LIBRARY_DIR)/Extensions";
+			productName = "DSAccessControl (Plugin)";
+			productReference = 2562EB4D0469B5CF005239BE;
+			productSettingsXML = "<?xml version=\"1.0\" encoding=\"UTF-8\"?>
+<!DOCTYPE plist PUBLIC \"-//Apple Computer//DTD PLIST 1.0//EN\" \"http://www.apple.com/DTDs/PropertyList-1.0.dtd\">
+<plist version=\"1.0\">
+<dict>
+	<key>CFBundleDevelopmentRegion</key>
+	<string>English</string>
+	<key>CFBundleExecutable</key>
+	<string>DSACL</string>
+	<key>CFBundleGetInfoString</key>
+	<string>DSACL Plugin</string>
+	<key>CFBundleIconFile</key>
+	<string></string>
+	<key>CFBundleIdentifier</key>
+	<string>com.apple.RemoteAccessServer.DSACL</string>
+	<key>CFBundleInfoDictionaryVersion</key>
+	<string>6.0</string>
+	<key>CFBundleName</key>
+	<string>DSACL</string>
+	<key>CFBundlePackageType</key>
+	<string>BNDL</string>
+	<key>CFBundleShortVersionString</key>
+	<string>1.3</string>
+	<key>CFBundleSignature</key>
+	<string>????</string>
+	<key>CFBundleVersion</key>
+	<string>1.3</string>
+	<key>PPPPluginType</key>
+	<string>Authorization</string>
+</dict>
+</plist>
+";
+		};
+		2562EB4D0469B5CF005239BE = {
+			isa = PBXBundleReference;
+			path = DSACL.ppp;
+			refType = 3;
+		};
+		2562EB4E0469B5D7005239BE = {
+			isa = PBXTargetDependency;
+			target = 2562EB450469B5B9005239BE;
+		};
+		2562EB4F0469B5DA005239BE = {
+			isa = PBXTargetDependency;
+			target = 2562EB4C0469B5CF005239BE;
+		};
+		2562EB500469B7E6005239BE = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			name = DSUser.h;
+			path = Authenticators/DSAuthentication/DSUser.h;
+			refType = 4;
+		};
+		2562EB510469B7E6005239BE = {
+			fileRef = 2562EB500469B7E6005239BE;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		2562EB520469B806005239BE = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			name = main.c;
+			path = Authenticators/DSAuthentication/main.c;
+			refType = 4;
+		};
+		2562EB530469B806005239BE = {
+			fileRef = 2562EB520469B806005239BE;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		2562EB540469B824005239BE = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			name = DSUser.c;
+			path = Authenticators/DSAuthentication/DSUser.c;
+			refType = 4;
+		};
+		2562EB550469B824005239BE = {
+			fileRef = 2562EB540469B824005239BE;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		2562EB560469B889005239BE = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			name = main.c;
+			path = Authenticators/DSAccessControl/main.c;
+			refType = 4;
+		};
+		2562EB570469B889005239BE = {
+			fileRef = 2562EB560469B889005239BE;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		2562EB580469B8D2005239BE = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			name = RASSchemaDefinitions.h;
+			path = vpnd/RASSchemaDefinitions.h;
+			refType = 4;
+		};
+		2562EB590469B8D2005239BE = {
+			fileRef = 2562EB580469B8D2005239BE;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		2562EB5A0469B8D2005239BE = {
+			fileRef = 2562EB580469B8D2005239BE;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		2562EB5B0469B8D2005239BE = {
+			fileRef = 2562EB580469B8D2005239BE;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		2562EB5C0469B902005239BE = {
+			fileRef = 2562EB540469B824005239BE;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		2562EB5D0469B914005239BE = {
+			fileRef = 2562EB500469B7E6005239BE;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		2562EB620469BA3D005239BE = {
+			fileRef = FAAA1C1B00D5475E04CA2CDC;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		2562EB660469BA41005239BE = {
+			fileRef = FAAA1C2300D5514104CA2CDC;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		2562EB670469BA5F005239BE = {
+			isa = PBXFrameworkReference;
+			name = DirectoryService.framework;
+			path = /System/Library/Frameworks/DirectoryService.framework;
+			refType = 0;
+		};
+		2562EB680469BA5F005239BE = {
+			fileRef = 2562EB670469BA5F005239BE;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		2562EB690469BA5F005239BE = {
+			fileRef = 2562EB670469BA5F005239BE;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		2562EB6A0469BA5F005239BE = {
+			fileRef = 2562EB670469BA5F005239BE;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		2562EB730469BC72005239BE = {
+			fileRef = FAAA1C1B00D5475E04CA2CDC;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		2562EB740469BC76005239BE = {
+			fileRef = FAAA1C2300D5514104CA2CDC;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		2562EB750469BC9D005239BE = {
+			fileRef = FAAA1C1B00D5475E04CA2CDC;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		25D80A73049E98E20070403F = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			name = acscp_plugin.h;
+			path = pppd/acscp_plugin.h;
+			refType = 4;
+		};
+		25D80A74049E98E20070403F = {
+			fileRef = 25D80A73049E98E20070403F;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		25D80A75049E99120070403F = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			name = acscp.h;
+			path = pppd/acscp.h;
+			refType = 4;
+		};
+		25D80A76049E99120070403F = {
+			fileRef = 25D80A75049E99120070403F;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		25D80A77049E992F0070403F = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			name = acscp.c;
+			path = pppd/acscp.c;
+			refType = 4;
+		};
+		25D80A78049E992F0070403F = {
+			fileRef = 25D80A77049E992F0070403F;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+//250
+//251
+//252
+//253
+//254
 //2D0
 //2D1
 //2D2
@@ -915,7 +1663,8 @@
 				014A7C5500754CF87F000001,
 				014A7C5600754CF87F000001,
 				014A7C5800754CF87F000001,
-				014A7C5700754CF87F000001,
+				FA2201D70368D05504CA2CDC,
+				FA2201DB0368D0C304CA2CDC,
 				014A7C5900754CF87F000001,
 				014A7C5A00754CF87F000001,
 				014A7C5B00754CF87F000001,
@@ -981,6 +1730,7 @@
 				WRAPPER_EXTENSION = ppp;
 			};
 			dependencies = (
+				FA86265E03F429C004CA2DDA,
 				0151E1EC0073C7AF7F000001,
 			);
 			isa = PBXBundleTarget;
@@ -1009,15 +1759,16 @@
 	<key>CFBundlePackageType</key>
 	<string>BNDL</string>
 	<key>CFBundleShortVersionString</key>
-	<string>1.2</string>
+	<string>1.3</string>
 	<key>CFBundleSignature</key>
 	<string>????</string>
 	<key>CFBundleVersion</key>
-	<string>1.2</string>
+	<string>1.3</string>
+	<key>PPPPluginType</key>
+	<string>Link</string>
 </dict>
 </plist>
 ";
-			shouldUseHeadermap = 0;
 		};
 		2D5033C000725AB07F000001 = {
 			buildActionMask = 2147483647;
@@ -1074,6 +1825,54 @@
 //2D2
 //2D3
 //2D4
+//610
+//611
+//612
+//613
+//614
+		612B31AD04EAFA6400A11300 = {
+			fileRef = 23524800049FFD5F0051E486;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		612B31B504EAFA7000A11300 = {
+			fileRef = FAAA1C2300D5514104CA2CDC;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		618C82A604B0EBE40048D503 = {
+			fileEncoding = 4;
+			isa = PBXFileReference;
+			name = acsp.h;
+			path = pppd/acsp.h;
+			refType = 4;
+		};
+		618C82A704B0EBE40048D503 = {
+			fileEncoding = 4;
+			isa = PBXFileReference;
+			name = acsp.c;
+			path = pppd/acsp.c;
+			refType = 4;
+		};
+		618C82AA04B0EBE40048D503 = {
+			fileRef = 618C82A604B0EBE40048D503;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		618C82AB04B0EBE40048D503 = {
+			fileRef = 618C82A704B0EBE40048D503;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+//610
+//611
+//612
+//613
+//614
 //710
 //711
 //712
@@ -1084,6 +1883,7 @@
 				7129A554FFF9584B11CA2CDC,
 				7129A555FFF9584B11CA2CDC,
 			);
+			hasScannedForEncodings = 1;
 			isa = PBXProject;
 			mainGroup = 7129A432FFF956F311CA2CDC;
 			productRefGroup = 7129A4CEFFF956F311CA2CDC;
@@ -1095,6 +1895,7 @@
 				7129A51BFFF956F311CA2CDC,
 				2D5033BF00725AB07F000001,
 				7129A51DFFF956F311CA2CDC,
+				FA86265C03F429A604CA2DDA,
 				7129A53EFFF956F311CA2CDC,
 				7129A540FFF956F311CA2CDC,
 				7129A542FFF956F311CA2CDC,
@@ -1102,10 +1903,19 @@
 				071EC56B00988A547F000001,
 				F5899BFD018A66A701CA2DD5,
 				F5899BF4018A666201CA2DD5,
+				F5BDED7103CE019001CA2DE3,
 				F5592B7801E2B33501EA6C3B,
 				F51AB0DA0235C6660160DF93,
+				F5BDED7E03CE033401CA2DE3,
 				F51AB1770235CB820160DF93,
 				FACB5F3C025CE11604CA2CDC,
+				FAE9AFE903A19CCE04CA2CDC,
+				FAE9AFF103A19CE304CA2CDC,
+				F5BDED6A03CE016F01CA2DE3,
+				238AE032044B1553002F20A4,
+				238AE030044B1524002F20A4,
+				2562EB450469B5B9005239BE,
+				2562EB4C0469B5CF005239BE,
 			);
 		};
 		7129A432FFF956F311CA2CDC = {
@@ -1113,6 +1923,7 @@
 				7129A438FFF956F311CA2CDC,
 				7129A46AFFF956F311CA2CDC,
 				02BD92D900786C227F000001,
+				238AE029044B14B1002F20A4,
 				7129A485FFF956F311CA2CDC,
 				7129A4BAFFF956F311CA2CDC,
 				7129A4B5FFF956F311CA2CDC,
@@ -1148,66 +1959,78 @@
 			refType = 4;
 		};
 		7129A445FFF956F311CA2CDC = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			path = ppp_client.h;
 			refType = 4;
 		};
 		7129A446FFF956F311CA2CDC = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			path = ppp_command.h;
 			refType = 4;
 		};
 		7129A447FFF956F311CA2CDC = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			path = ppp_manager.h;
 			refType = 4;
 		};
 		7129A448FFF956F311CA2CDC = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			path = ppp_msg.h;
 			refType = 4;
 		};
 		7129A449FFF956F311CA2CDC = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			path = ppp_option.h;
 			refType = 4;
 		};
 		7129A44DFFF956F311CA2CDC = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			path = ppp_privmsg.h;
 			refType = 4;
 		};
 		7129A45AFFF956F311CA2CDC = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			name = ppp_command.c;
 			path = Controller/ppp_command.c;
 			refType = 4;
 		};
 		7129A45CFFF956F311CA2CDC = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			name = ppp_getoption.c;
 			path = Controller/ppp_getoption.c;
 			refType = 4;
 		};
 		7129A45DFFF956F311CA2CDC = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			name = ppp_manager.c;
 			path = Controller/ppp_manager.c;
 			refType = 4;
 		};
 		7129A45EFFF956F311CA2CDC = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			name = ppp_option.c;
 			path = Controller/ppp_option.c;
 			refType = 4;
 		};
 		7129A45FFFF956F311CA2CDC = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			name = ppp_setoption.c;
 			path = Controller/ppp_setoption.c;
 			refType = 4;
 		};
 		7129A463FFF956F311CA2CDC = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			name = ppp_main.c;
 			path = Controller/ppp_main.c;
@@ -1233,6 +2056,7 @@
 				014A7C6100754CF87F000001,
 				014A7C6200754CF87F000001,
 				014A7C6300754CF87F000001,
+				FA2201D90368D08E04CA2CDC,
 				014A7C6400754CF87F000001,
 				014A7C6500754CF87F000001,
 				014A7C6700754CF87F000001,
@@ -1247,6 +2071,7 @@
 				F5592B7501E2B22701EA6C3B,
 				7129A48BFFF956F311CA2CDC,
 				F5899BF0018A662401CA2DD5,
+				FAE9AFE103A19C1C04CA2CDC,
 			);
 			isa = PBXGroup;
 			path = Drivers;
@@ -1254,6 +2079,7 @@
 		};
 		7129A48BFFF956F311CA2CDC = {
 			children = (
+				FA86265603F4294D04CA2DDA,
 				2D5033CC00725D927F000001,
 				7129A492FFF956F311CA2CDC,
 			);
@@ -1292,6 +2118,7 @@
 		};
 		7129A4BAFFF956F311CA2CDC = {
 			children = (
+				F5BDED8103CE034301CA2DE3,
 				F51AB0D50235C5AF0160DF93,
 				7129A4C0FFF956F311CA2CDC,
 				013F9724001901697F000001,
@@ -1313,11 +2140,13 @@
 			refType = 4;
 		};
 		7129A4C2FFF956F311CA2CDC = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			path = CCLEngine.h;
 			refType = 4;
 		};
 		7129A4C4FFF956F311CA2CDC = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			path = CCLEngine.c;
 			refType = 4;
@@ -1327,6 +2156,7 @@
 				FAAA1C1B00D5475E04CA2CDC,
 				FAAA1C2300D5514104CA2CDC,
 				FA43F57A00F2A22504CA2CDC,
+				2562EB670469BA5F005239BE,
 			);
 			isa = PBXGroup;
 			name = "External Frameworks and Libraries";
@@ -1348,6 +2178,15 @@
 				F51AB0DB0235C6660160DF93,
 				F51AB1780235CB820160DF93,
 				FACB5F3D025CE11604CA2CDC,
+				FAE9AFEA03A19CCE04CA2CDC,
+				FAE9AFF203A19CE304CA2CDC,
+				F5BDED6B03CE016F01CA2DE3,
+				F5BDED7203CE019001CA2DE3,
+				F5BDED7F03CE033401CA2DE3,
+				FA86265D03F429A604CA2DDA,
+				238AE031044B1524002F20A4,
+				2562EB460469B5B9005239BE,
+				2562EB4D0469B5CF005239BE,
 			);
 			isa = PBXGroup;
 			name = Products;
@@ -1393,12 +2232,12 @@
 				7129A4D5FFF956F311CA2CDC,
 				7129A505FFF956F311CA2CDC,
 				7129A51AFFF956F311CA2CDC,
+				238AE04A044B1786002F20A4,
 				7129A53DFFF956F311CA2CDC,
 			);
 			isa = PBXAggregateTarget;
 			name = "ppp (Aggregate)";
 			productName = "ppp (Aggregate)";
-			shouldUseHeadermap = 0;
 		};
 		7129A4D5FFF956F311CA2CDC = {
 			isa = PBXTargetDependency;
@@ -1456,15 +2295,18 @@
 	<key>CFBundlePackageType</key>
 	<string>BNDL</string>
 	<key>CFBundleShortVersionString</key>
-	<string>1.2</string>
+	<string>1.3</string>
 	<key>CFBundleSignature</key>
 	<string>????</string>
 	<key>CFBundleVersion</key>
-	<string>1.2</string>
+	<string>1.3</string>
+	<key>Requires</key>
+	<array>
+		<string>com.apple.SystemConfiguration.PreferencesMonitor</string>
+	</array>
 </dict>
 </plist>
 ";
-			shouldUseHeadermap = 0;
 		};
 		7129A4D7FFF956F311CA2CDC = {
 			buildActionMask = 2147483647;
@@ -1629,7 +2471,7 @@
 				MODULE_NAME = com.apple.nke.ppp;
 				MODULE_START = ppp_module_start;
 				MODULE_STOP = ppp_module_stop;
-				MODULE_VERSION = 1.2.1;
+				MODULE_VERSION = 1.3;
 				OTHER_CFLAGS = "-Wno-format";
 				OTHER_REZFLAGS = "";
 				PRODUCT_NAME = PPP;
@@ -1665,11 +2507,11 @@
 	<key>CFBundlePackageType</key>
 	<string>KEXT</string>
 	<key>CFBundleShortVersionString</key>
-	<string>1.2.1</string>
+	<string>1.3</string>
 	<key>CFBundleSignature</key>
 	<string>????</string>
 	<key>CFBundleVersion</key>
-	<string>1.2.1</string>
+	<string>1.3</string>
 	<key>IOKitPersonalities</key>
 	<dict/>
 	<key>NSPrincipalClass</key>
@@ -1684,7 +2526,6 @@
 </dict>
 </plist>
 ";
-			shouldUseHeadermap = 0;
 		};
 		7129A507FFF956F311CA2CDC = {
 			buildActionMask = 2147483647;
@@ -1714,6 +2555,7 @@
 				014A7C7200754CF87F000001,
 				014A7C7300754CF87F000001,
 				F526A6FD01911B0201CA2DD5,
+				FA2201DA0368D08E04CA2CDC,
 			);
 			isa = PBXHeadersBuildPhase;
 			runOnlyForDeploymentPostprocessing = 0;
@@ -1732,11 +2574,12 @@
 				014A7C7500754CF87F000001,
 				014A7C7600754CF87F000001,
 				014A7C7700754CF87F000001,
-				014A7C7800754CF87F000001,
 				014A7C7900754CF87F000001,
 				014A7C7A00754CF87F000001,
 				014A7C7B00754CF87F000001,
 				014A7C7C00754CF87F000001,
+				FA2201DC0368D0C304CA2CDC,
+				FA2201DD0368D0D304CA2CDC,
 			);
 			isa = PBXSourcesBuildPhase;
 			runOnlyForDeploymentPostprocessing = 0;
@@ -1791,11 +2634,11 @@
 				F563229501E4ED6B01000107,
 				2D5033BE00725AB07F000001,
 				F5899BFC018A66A701CA2DD5,
+				F68A777A03A1B33A01DF2EE2,
 			);
 			isa = PBXAggregateTarget;
 			name = "Drivers (Aggregate)";
 			productName = "Drivers (Aggregate)";
-			shouldUseHeadermap = 0;
 		};
 		7129A51DFFF956F311CA2CDC = {
 			buildPhases = (
@@ -1816,7 +2659,7 @@
 				MODULE_NAME = com.apple.nke.pppoe;
 				MODULE_START = pppoe_domain_module_start;
 				MODULE_STOP = pppoe_domain_module_stop;
-				MODULE_VERSION = 1.2.1;
+				MODULE_VERSION = 1.3;
 				OTHER_CFLAGS = "-Wno-format";
 				OTHER_REZFLAGS = "";
 				PRODUCT_NAME = PPPoE;
@@ -1851,11 +2694,11 @@
 	<key>CFBundlePackageType</key>
 	<string>KEXT</string>
 	<key>CFBundleShortVersionString</key>
-	<string>1.2.1</string>
+	<string>1.3</string>
 	<key>CFBundleSignature</key>
 	<string>????</string>
 	<key>CFBundleVersion</key>
-	<string>1.2.1</string>
+	<string>1.3</string>
 	<key>IOKitPersonalities</key>
 	<dict/>
 	<key>OSBundleLibraries</key>
@@ -1863,12 +2706,11 @@
 		<key>com.apple.kernel.bsd</key>
 		<string>6.0</string>
 		<key>com.apple.nke.ppp</key>
-		<string>1.2</string>
+		<string>1.3</string>
 	</dict>
 </dict>
 </plist>
 ";
-			shouldUseHeadermap = 0;
 		};
 		7129A51EFFF956F311CA2CDC = {
 			buildActionMask = 2147483647;
@@ -1980,7 +2822,6 @@
 			isa = PBXAggregateTarget;
 			name = "SampleCode (Aggregate)";
 			productName = "SampleCode (Aggregate)";
-			shouldUseHeadermap = 0;
 		};
 		7129A53FFFF956F311CA2CDC = {
 			isa = PBXTargetDependency;
@@ -2003,13 +2844,13 @@
 			};
 			dependencies = (
 				F51AB17A0235CBAF0160DF93,
+				F505929E03DDFECC01CA2DE3,
 				013F977F0019059F7F000001,
 				7129A541FFF956F311CA2CDC,
 			);
 			isa = PBXAggregateTarget;
 			name = "Helpers (Aggregate)";
 			productName = "Helpers (Aggregate)";
-			shouldUseHeadermap = 0;
 		};
 		7129A541FFF956F311CA2CDC = {
 			isa = PBXTargetDependency;
@@ -2043,7 +2884,6 @@
 			productInstallPath = /usr/libexec;
 			productName = "CCLEngine (Tool)";
 			productReference = 7129A4D3FFF956F311CA2CDC;
-			shouldUseHeadermap = 0;
 		};
 		7129A543FFF956F311CA2CDC = {
 			buildActionMask = 2147483647;
@@ -2114,7 +2954,6 @@
 			files = (
 				7129A54DFFF956F311CA2CDC,
 				FA3E237E01223CBB04CA2CDC,
-				F52DB5450194EC9F01DBB4AA,
 			);
 			isa = PBXCopyFilesBuildPhase;
 			runOnlyForDeploymentPostprocessing = 0;
@@ -2176,6 +3015,84 @@
 //F52
 //F53
 //F54
+		F505929C03DDFE8701CA2DE3 = {
+			buildActionMask = 8;
+			dstPath = /usr/share/man/man8;
+			dstSubfolderSpec = 0;
+			files = (
+				F50592A203DDFFB301CA2DE3,
+			);
+			isa = PBXCopyFilesBuildPhase;
+			runOnlyForDeploymentPostprocessing = 1;
+		};
+		F505929D03DDFEA801CA2DE3 = {
+			buildActionMask = 8;
+			files = (
+			);
+			generatedFileNames = (
+			);
+			isa = PBXShellScriptBuildPhase;
+			neededFileNames = (
+			);
+			runOnlyForDeploymentPostprocessing = 1;
+			shellPath = /bin/sh;
+			shellScript = "/bin/chmod 444 $DSTROOT/usr/share/man/man8/vpnd.8";
+		};
+		F505929E03DDFECC01CA2DE3 = {
+			isa = PBXTargetDependency;
+			target = F5BDED7E03CE033401CA2DE3;
+		};
+		F50592A103DDFFB301CA2DE3 = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			name = vpnd.8;
+			path = vpnd/vpnd.8;
+			refType = 4;
+		};
+		F50592A203DDFFB301CA2DE3 = {
+			fileRef = F50592A103DDFFB301CA2DE3;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		F5130EDC03F04FD701CA2DE3 = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			name = vpnoptions.c;
+			path = vpnd/vpnoptions.c;
+			refType = 4;
+		};
+		F5130EDD03F04FD701CA2DE3 = {
+			fileRef = F5130EDC03F04FD701CA2DE3;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		F5130EDE03F04FF301CA2DE3 = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			name = vpnoptions.h;
+			path = vpnd/vpnoptions.h;
+			refType = 4;
+		};
+		F5130EDF03F04FF301CA2DE3 = {
+			fileRef = F5130EDE03F04FF301CA2DE3;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		F514B5BB03E1CFFE01CA2DE3 = {
+			isa = PBXFrameworkReference;
+			name = CoreFoundation.framework;
+			path = /System/Library/Frameworks/CoreFoundation.framework;
+			refType = 0;
+		};
+		F514B8C003E1CFFF01CA2DE3 = {
+			fileRef = F514B5BB03E1CFFE01CA2DE3;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
 		F517DE910237226101E059DF = {
 			isa = PBXFrameworkReference;
 			name = System.framework;
@@ -2202,6 +3119,8 @@
 		};
 		F517DE960237251F01E059DF = {
 			children = (
+				23524800049FFD5F0051E486,
+				FA9E969403798CF504CA2CDC,
 				F517DE910237226101E059DF,
 				F51AB13A0235C9C70160DF93,
 				F517DE940237250601E059DF,
@@ -2212,22 +3131,28 @@
 		};
 		F517DE990237253101E059DF = {
 			children = (
-				F51AB1250235C7020160DF93,
-				F51AB1260235C7020160DF93,
-				F51AB1270235C7020160DF93,
-				F51AB12A0235C7020160DF93,
-				F51AB1340235C7110160DF93,
-				F51AB11B0235C6E60160DF93,
-				F51AB11D0235C6E60160DF93,
+				618C82A604B0EBE40048D503,
+				25D80A75049E99120070403F,
+				25D80A73049E98E20070403F,
+				FAA0F5490327F35404CA2CDC,
+				2364AD260466D36B00A8C900,
+				F61B2AE10361E5360169B27A,
+				FA2201C20368A8A204CA2CDC,
+				F51AB0E60235C6910160DF93,
+				F51AB0E40235C6910160DF93,
+				F51AB0E20235C6910160DF93,
 				F51AB0EF0235C6910160DF93,
 				F51AB0F10235C6910160DF93,
+				FA2201BE0368A76404CA2CDC,
 				F51AB0F70235C6910160DF93,
 				F51AB0F90235C6910160DF93,
 				F51AB1190235C6E60160DF93,
-				F51AB0E20235C6910160DF93,
-				F51AB0E40235C6910160DF93,
-				F51AB0E60235C6910160DF93,
-				F51AB0ED0235C6910160DF93,
+				F51AB11B0235C6E60160DF93,
+				F51AB1270235C7020160DF93,
+				F51AB1250235C7020160DF93,
+				F51AB1260235C7020160DF93,
+				F51AB12A0235C7020160DF93,
+				F51AB1340235C7110160DF93,
 			);
 			isa = PBXGroup;
 			name = Headers;
@@ -2239,20 +3164,24 @@
 				FAAAD5FD023EA4CE04CA2CDC,
 				F517DE990237253101E059DF,
 				F517DE960237251F01E059DF,
+				25D80A77049E992F0070403F,
+				618C82A704B0EBE40048D503,
 				F51AB0DE0235C6910160DF93,
 				F51AB0E10235C6910160DF93,
-				F51AB0E30235C6910160DF93,
 				F51AB0E50235C6910160DF93,
+				F51AB0E30235C6910160DF93,
 				F51AB0E70235C6910160DF93,
-				F51AB0EC0235C6910160DF93,
+				FAA0F5480327F35404CA2CDC,
+				F61B2AE00361E5360169B27A,
+				FA2201C10368A8A204CA2CDC,
+				F51AB11A0235C6E60160DF93,
 				F51AB0EE0235C6910160DF93,
 				F51AB0F00235C6910160DF93,
+				FA2201BD0368A76404CA2CDC,
 				F51AB0F60235C6910160DF93,
 				F51AB0F80235C6910160DF93,
 				F51AB0FA0235C6910160DF93,
 				F51AB1180235C6E60160DF93,
-				F51AB11A0235C6E60160DF93,
-				F51AB11C0235C6E60160DF93,
 				F51AB1240235C7020160DF93,
 				F51AB1280235C7020160DF93,
 				F51AB1290235C7020160DF93,
@@ -2270,19 +3199,25 @@
 				F51AB0FF0235C6910160DF93,
 				F51AB1010235C6910160DF93,
 				F51AB1030235C6910160DF93,
-				F51AB10A0235C6910160DF93,
 				F51AB10C0235C6910160DF93,
 				F51AB10E0235C6910160DF93,
 				F51AB1140235C6910160DF93,
 				F51AB1160235C6910160DF93,
 				F51AB11F0235C6E60160DF93,
 				F51AB1210235C6E60160DF93,
-				F51AB1230235C6E60160DF93,
 				F51AB12C0235C7020160DF93,
 				F51AB12D0235C7020160DF93,
 				F51AB12E0235C7020160DF93,
 				F51AB1310235C7020160DF93,
 				F51AB1380235C7110160DF93,
+				FAA0F54B0327F35404CA2CDC,
+				F61B2AE30361E5360169B27A,
+				FA2201C00368A76404CA2CDC,
+				FA2201C40368A8A204CA2CDC,
+				2364AD270466D36B00A8C900,
+				25D80A74049E98E20070403F,
+				25D80A76049E99120070403F,
+				618C82AA04B0EBE40048D503,
 			);
 			isa = PBXHeadersBuildPhase;
 			runOnlyForDeploymentPostprocessing = 0;
@@ -2295,7 +3230,6 @@
 				F51AB1000235C6910160DF93,
 				F51AB1020235C6910160DF93,
 				F51AB1040235C6910160DF93,
-				F51AB1090235C6910160DF93,
 				F51AB10B0235C6910160DF93,
 				F51AB10D0235C6910160DF93,
 				F51AB1130235C6910160DF93,
@@ -2303,13 +3237,18 @@
 				F51AB1170235C6910160DF93,
 				F51AB11E0235C6E60160DF93,
 				F51AB1200235C6E60160DF93,
-				F51AB1220235C6E60160DF93,
 				F51AB12B0235C7020160DF93,
 				F51AB12F0235C7020160DF93,
 				F51AB1300235C7020160DF93,
 				F51AB1360235C7110160DF93,
 				F51AB1370235C7110160DF93,
 				F51AB1390235C7110160DF93,
+				FAA0F54A0327F35404CA2CDC,
+				F61B2AE20361E5360169B27A,
+				FA2201BF0368A76404CA2CDC,
+				FA2201C30368A8A204CA2CDC,
+				25D80A78049E992F0070403F,
+				618C82AB04B0EBE40048D503,
 			);
 			isa = PBXSourcesBuildPhase;
 			runOnlyForDeploymentPostprocessing = 0;
@@ -2321,6 +3260,8 @@
 				F51AB1700235CA450160DF93,
 				F517DE930237226101E059DF,
 				F517DE950237250601E059DF,
+				FA9E994A03798CF604CA2CDC,
+				23524801049FFD5F0051E486,
 			);
 			isa = PBXFrameworksBuildPhase;
 			runOnlyForDeploymentPostprocessing = 0;
@@ -2347,7 +3288,7 @@
 				INSTALL_MODE_FLAG = 4511;
 				INSTALL_OWNER = root;
 				INSTALL_PATH = /usr/sbin;
-				OTHER_CFLAGS = "-I../../Family -I$(DSTROOT)/usr/include -DNO_DRAND48 -DDEBUGUPAP -DDEBUGCHAP -DDEBUGLCP -DDEBUGIPCP -DHAVE_PATHS_H -DPLUGIN \n-DCHAPMS -DMPPE -DUSE_CRYPT";
+				OTHER_CFLAGS = "-I../../Family -I$(DSTROOT)/usr/include -DNO_DRAND48 -DDEBUGUPAP -DDEBUGCHAP -DDEBUGLCP -DDEBUGIPCP -DHAVE_PATHS_H -DPLUGIN -DEAP \n-DCHAPMS -DMPPE -DUSE_CRYPT -DINET6 -DACSCP";
 				OTHER_REZFLAGS = "";
 				PRODUCT_NAME = pppd;
 				REZ_EXECUTABLE = YES;
@@ -2362,7 +3303,6 @@
 			productInstallPath = /usr/sbin;
 			productName = "pppd (Tool)";
 			productReference = F51AB0DB0235C6660160DF93;
-			shouldUseHeadermap = 0;
 		};
 		F51AB0DB0235C6660160DF93 = {
 			isa = PBXExecutableFileReference;
@@ -2370,114 +3310,119 @@
 			refType = 3;
 		};
 		F51AB0DE0235C6910160DF93 = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			name = auth.c;
 			path = pppd/auth.c;
 			refType = 4;
 		};
 		F51AB0E10235C6910160DF93 = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			name = ccp.c;
 			path = pppd/ccp.c;
 			refType = 4;
 		};
 		F51AB0E20235C6910160DF93 = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			name = ccp.h;
 			path = pppd/ccp.h;
 			refType = 4;
 		};
 		F51AB0E30235C6910160DF93 = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			name = chap_ms.c;
 			path = pppd/chap_ms.c;
 			refType = 4;
 		};
 		F51AB0E40235C6910160DF93 = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			name = chap_ms.h;
 			path = pppd/chap_ms.h;
 			refType = 4;
 		};
 		F51AB0E50235C6910160DF93 = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			name = chap.c;
 			path = pppd/chap.c;
 			refType = 4;
 		};
 		F51AB0E60235C6910160DF93 = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			name = chap.h;
 			path = pppd/chap.h;
 			refType = 4;
 		};
 		F51AB0E70235C6910160DF93 = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			name = demand.c;
 			path = pppd/demand.c;
 			refType = 4;
 		};
-		F51AB0EC0235C6910160DF93 = {
-			isa = PBXFileReference;
-			name = extra_crypto.c;
-			path = pppd/extra_crypto.c;
-			refType = 4;
-		};
-		F51AB0ED0235C6910160DF93 = {
-			isa = PBXFileReference;
-			name = extra_crypto.h;
-			path = pppd/extra_crypto.h;
-			refType = 4;
-		};
 		F51AB0EE0235C6910160DF93 = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			name = fsm.c;
 			path = pppd/fsm.c;
 			refType = 4;
 		};
 		F51AB0EF0235C6910160DF93 = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			name = fsm.h;
 			path = pppd/fsm.h;
 			refType = 4;
 		};
 		F51AB0F00235C6910160DF93 = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			name = ipcp.c;
 			path = pppd/ipcp.c;
 			refType = 4;
 		};
 		F51AB0F10235C6910160DF93 = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			name = ipcp.h;
 			path = pppd/ipcp.h;
 			refType = 4;
 		};
 		F51AB0F60235C6910160DF93 = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			name = lcp.c;
 			path = pppd/lcp.c;
 			refType = 4;
 		};
 		F51AB0F70235C6910160DF93 = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			name = lcp.h;
 			path = pppd/lcp.h;
 			refType = 4;
 		};
 		F51AB0F80235C6910160DF93 = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			name = magic.c;
 			path = pppd/magic.c;
 			refType = 4;
 		};
 		F51AB0F90235C6910160DF93 = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			name = magic.h;
 			path = pppd/magic.h;
 			refType = 4;
 		};
 		F51AB0FA0235C6910160DF93 = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			name = main.c;
 			path = pppd/main.c;
@@ -2527,18 +3472,6 @@
 		};
 		F51AB1040235C6910160DF93 = {
 			fileRef = F51AB0E70235C6910160DF93;
-			isa = PBXBuildFile;
-			settings = {
-			};
-		};
-		F51AB1090235C6910160DF93 = {
-			fileRef = F51AB0EC0235C6910160DF93;
-			isa = PBXBuildFile;
-			settings = {
-			};
-		};
-		F51AB10A0235C6910160DF93 = {
-			fileRef = F51AB0ED0235C6910160DF93;
 			isa = PBXBuildFile;
 			settings = {
 			};
@@ -2598,39 +3531,31 @@
 			};
 		};
 		F51AB1180235C6E60160DF93 = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			name = md4.c;
 			path = pppd/md4.c;
 			refType = 4;
 		};
 		F51AB1190235C6E60160DF93 = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			name = md4.h;
 			path = pppd/md4.h;
 			refType = 4;
 		};
 		F51AB11A0235C6E60160DF93 = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			name = md5.c;
 			path = pppd/md5.c;
 			refType = 4;
 		};
 		F51AB11B0235C6E60160DF93 = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			name = md5.h;
 			path = pppd/md5.h;
-			refType = 4;
-		};
-		F51AB11C0235C6E60160DF93 = {
-			isa = PBXFileReference;
-			name = mppe.c;
-			path = pppd/mppe.c;
-			refType = 4;
-		};
-		F51AB11D0235C6E60160DF93 = {
-			isa = PBXFileReference;
-			name = mppe.h;
-			path = pppd/mppe.h;
 			refType = 4;
 		};
 		F51AB11E0235C6E60160DF93 = {
@@ -2657,55 +3582,50 @@
 			settings = {
 			};
 		};
-		F51AB1220235C6E60160DF93 = {
-			fileRef = F51AB11C0235C6E60160DF93;
-			isa = PBXBuildFile;
-			settings = {
-			};
-		};
-		F51AB1230235C6E60160DF93 = {
-			fileRef = F51AB11D0235C6E60160DF93;
-			isa = PBXBuildFile;
-			settings = {
-			};
-		};
 		F51AB1240235C7020160DF93 = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			name = options.c;
 			path = pppd/options.c;
 			refType = 4;
 		};
 		F51AB1250235C7020160DF93 = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			name = patchlevel.h;
 			path = pppd/patchlevel.h;
 			refType = 4;
 		};
 		F51AB1260235C7020160DF93 = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			name = pathnames.h;
 			path = pppd/pathnames.h;
 			refType = 4;
 		};
 		F51AB1270235C7020160DF93 = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			name = pppd.h;
 			path = pppd/pppd.h;
 			refType = 4;
 		};
 		F51AB1280235C7020160DF93 = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			name = "sys-MacOSX.c";
 			path = "pppd/sys-MacOSX.c";
 			refType = 4;
 		};
 		F51AB1290235C7020160DF93 = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			name = tdb.c;
 			path = pppd/tdb.c;
 			refType = 4;
 		};
 		F51AB12A0235C7020160DF93 = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			name = tdb.h;
 			path = pppd/tdb.h;
@@ -2754,24 +3674,28 @@
 			};
 		};
 		F51AB1320235C7110160DF93 = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			name = tty.c;
 			path = pppd/tty.c;
 			refType = 4;
 		};
 		F51AB1330235C7110160DF93 = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			name = upap.c;
 			path = pppd/upap.c;
 			refType = 4;
 		};
 		F51AB1340235C7110160DF93 = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			name = upap.h;
 			path = pppd/upap.h;
 			refType = 4;
 		};
 		F51AB1350235C7110160DF93 = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			name = utils.c;
 			path = pppd/utils.c;
@@ -2889,7 +3813,6 @@
 			productInstallPath = /usr/local/bin;
 			productName = pppstats;
 			productReference = F51AB1780235CB820160DF93;
-			shouldUseHeadermap = 0;
 		};
 		F51AB1780235CB820160DF93 = {
 			isa = PBXExecutableFileReference;
@@ -2901,6 +3824,7 @@
 			target = F51AB0DA0235C6660160DF93;
 		};
 		F51AB1820235CC1C0160DF93 = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			name = pppstats.c;
 			path = pppstats/pppstats.c;
@@ -2922,6 +3846,7 @@
 			refType = 2;
 		};
 		F51EFEA401E823CA01000118 = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			name = English;
 			path = "Drivers/PPPSerial/PPPSerial-plugin/English.lproj/InfoPlist.strings";
@@ -2937,6 +3862,7 @@
 			refType = 4;
 		};
 		F51EFEA601E823CA01000118 = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			name = English;
 			path = "Drivers/PPPoE/PPPoE-plugin/English.lproj/Localizable.strings";
@@ -2955,6 +3881,7 @@
 			};
 		};
 		F526A6FC01911B0201CA2DD5 = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			name = ppp_compress.h;
 			path = Family/ppp_compress.h;
@@ -3000,6 +3927,7 @@
 			refType = 4;
 		};
 		F52C515901F3540C01CA2DE5 = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			name = English;
 			path = "PPPSerial/PPPSerial-plugin/English.lproj/Localizable.strings";
@@ -3011,21 +3939,26 @@
 			settings = {
 			};
 		};
-		F52DB5450194EC9F01DBB4AA = {
-			fileRef = 014A7C5700754CF87F000001;
-			isa = PBXBuildFile;
-			settings = {
-			};
-		};
 		F52DB5520194EECB01DBB4AA = {
 			buildActionMask = 2147483647;
 			dstPath = "";
 			dstSubfolderSpec = 13;
 			files = (
 				F5B797E80194F1FC01DBB4AA,
+				FA75047903F32BCC04CA2DDA,
 			);
 			isa = PBXCopyFilesBuildPhase;
 			runOnlyForDeploymentPostprocessing = 0;
+		};
+		F5326F0403E1EAA401CA2DE3 = {
+			fileRef = F5BDED6B03CE016F01CA2DE3;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		F5326F0503E1EAB401CA2DE3 = {
+			isa = PBXTargetDependency;
+			target = F5BDED6A03CE016F01CA2DE3;
 		};
 		F540B7FD0298B01601CA2D7A = {
 			isa = PBXFrameworkReference;
@@ -3135,15 +4068,16 @@
 	<key>CFBundlePackageType</key>
 	<string>BNDL</string>
 	<key>CFBundleShortVersionString</key>
-	<string>1.2</string>
+	<string>1.3</string>
 	<key>CFBundleSignature</key>
 	<string>????</string>
 	<key>CFBundleVersion</key>
-	<string>1.2</string>
+	<string>1.3</string>
+	<key>PPPPluginType</key>
+	<string>Link</string>
 </dict>
 </plist>
 ";
-			shouldUseHeadermap = 0;
 		};
 		F5592B7901E2B33501EA6C3B = {
 			buildActionMask = 2147483647;
@@ -3187,6 +4121,7 @@
 			runOnlyForDeploymentPostprocessing = 0;
 		};
 		F5592B7E01E2B47B01EA6C3B = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			name = main.c;
 			path = "PPPSerial/PPPSerial-plugin/main.c";
@@ -3215,12 +4150,14 @@
 			};
 		};
 		F582B56C018FBC5201DBB4AA = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			name = ppp_mppe.h;
 			path = "Drivers/PPTP/PPTP-extension/ppp_mppe.h";
 			refType = 4;
 		};
 		F582B56D018FBC5201DBB4AA = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			name = ppp_mppe.c;
 			path = "Drivers/PPTP/PPTP-extension/ppp_mppe.c";
@@ -3240,8 +4177,9 @@
 		};
 		F5899BF0018A662401CA2DD5 = {
 			children = (
-				F5899BF1018A662401CA2DD5,
+				F5BDED6403CDFFFE01CA2DE3,
 				F5899BF2018A662401CA2DD5,
+				F5899BF1018A662401CA2DD5,
 			);
 			isa = PBXGroup;
 			name = PPTP;
@@ -3260,6 +4198,7 @@
 			);
 			isa = PBXGroup;
 			name = "PPTP plugin";
+			path = "";
 			refType = 4;
 		};
 		F5899BF2018A662401CA2DD5 = {
@@ -3294,7 +4233,7 @@
 				MODULE_NAME = com.apple.nke.pptp;
 				MODULE_START = pptp_domain_module_start;
 				MODULE_STOP = pptp_domain_module_stop;
-				MODULE_VERSION = 1.2.1;
+				MODULE_VERSION = 1.3;
 				OTHER_CFLAGS = "-I/System/Library/Frameworks/System.framework/PrivateHeaders";
 				OTHER_REZFLAGS = "";
 				PRODUCT_NAME = PPTP;
@@ -3329,11 +4268,11 @@
 	<key>CFBundlePackageType</key>
 	<string>KEXT</string>
 	<key>CFBundleShortVersionString</key>
-	<string>1.2.1</string>
+	<string>1.3</string>
 	<key>CFBundleSignature</key>
 	<string>????</string>
 	<key>CFBundleVersion</key>
-	<string>1.2.1</string>
+	<string>1.3</string>
 	<key>IOKitPersonalities</key>
 	<dict/>
 	<key>OSBundleLibraries</key>
@@ -3341,12 +4280,11 @@
 		<key>com.apple.kernel.bsd</key>
 		<string>6.0</string>
 		<key>com.apple.nke.ppp</key>
-		<string>1.2</string>
+		<string>1.3</string>
 	</dict>
 </dict>
 </plist>
 ";
-			shouldUseHeadermap = 0;
 		};
 		F5899BF5018A666201CA2DD5 = {
 			buildActionMask = 2147483647;
@@ -3444,6 +4382,7 @@
 			};
 			dependencies = (
 				F5899BFE018A66A701CA2DD5,
+				FA75047A03F32C1004CA2DDA,
 			);
 			isa = PBXBundleTarget;
 			name = "PPTP (Plugin)";
@@ -3463,7 +4402,7 @@
 	<key>CFBundleIconFile</key>
 	<string></string>
 	<key>CFBundleIdentifier</key>
-	<string>com.apple.SystemConfiguration.</string>
+	<string>com.apple.SystemConfiguration.PPTP</string>
 	<key>CFBundleInfoDictionaryVersion</key>
 	<string>6.0</string>
 	<key>CFBundleName</key>
@@ -3471,15 +4410,16 @@
 	<key>CFBundlePackageType</key>
 	<string>BNDL</string>
 	<key>CFBundleShortVersionString</key>
-	<string>1.2</string>
+	<string>1.3</string>
 	<key>CFBundleSignature</key>
 	<string>????</string>
 	<key>CFBundleVersion</key>
-	<string>1.2</string>
+	<string>1.3</string>
+	<key>PPPPluginType</key>
+	<string>Link</string>
 </dict>
 </plist>
 ";
-			shouldUseHeadermap = 0;
 		};
 		F5899BFE018A66A701CA2DD5 = {
 			isa = PBXTargetDependency;
@@ -3528,54 +4468,63 @@
 			runOnlyForDeploymentPostprocessing = 0;
 		};
 		F58FB650018A69D701CA2DD5 = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			name = main.c;
 			path = "Drivers/PPTP/PPTP-plugin/main.c";
 			refType = 4;
 		};
 		F58FB654018A69D701CA2DD5 = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			name = pptp_domain.c;
 			path = "Drivers/PPTP/PPTP-extension/pptp_domain.c";
 			refType = 4;
 		};
 		F58FB655018A69D701CA2DD5 = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			name = pptp_ip.c;
 			path = "Drivers/PPTP/PPTP-extension/pptp_ip.c";
 			refType = 4;
 		};
 		F58FB656018A69D701CA2DD5 = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			name = pptp_ip.h;
 			path = "Drivers/PPTP/PPTP-extension/pptp_ip.h";
 			refType = 4;
 		};
 		F58FB657018A69D701CA2DD5 = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			name = pptp_proto.c;
 			path = "Drivers/PPTP/PPTP-extension/pptp_proto.c";
 			refType = 4;
 		};
 		F58FB658018A69D701CA2DD5 = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			name = pptp_proto.h;
 			path = "Drivers/PPTP/PPTP-extension/pptp_proto.h";
 			refType = 4;
 		};
 		F58FB659018A69D701CA2DD5 = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			name = pptp_wan.c;
 			path = "Drivers/PPTP/PPTP-extension/pptp_wan.c";
 			refType = 4;
 		};
 		F58FB65A018A69D701CA2DD5 = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			name = pptp_wan.h;
 			path = "Drivers/PPTP/PPTP-extension/pptp_wan.h";
 			refType = 4;
 		};
 		F58FB65D018A69D701CA2DD5 = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			name = PPTP.h;
 			path = "Drivers/PPTP/PPTP-extension/PPTP.h";
@@ -3636,12 +4585,14 @@
 			};
 		};
 		F58FB66D018A6B6A01CA2DD5 = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			name = pptp_rfc.c;
 			path = "Drivers/PPTP/PPTP-extension/pptp_rfc.c";
 			refType = 4;
 		};
 		F58FB66E018A6B6A01CA2DD5 = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			name = pptp_rfc.h;
 			path = "Drivers/PPTP/PPTP-extension/pptp_rfc.h";
@@ -3677,16 +4628,902 @@
 			settings = {
 			};
 		};
+		F5B82BDC03D7902401CA2DE3 = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			name = vpnplugins.c;
+			path = vpnd/vpnplugins.c;
+			refType = 4;
+		};
+		F5B82BDD03D7902401CA2DE3 = {
+			fileRef = F5B82BDC03D7902401CA2DE3;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		F5BDED6303CDFFD601CA2DE3 = {
+			children = (
+				F5BE620003D8906F01CA2DE3,
+				F514B5BB03E1CFFE01CA2DE3,
+			);
+			isa = PBXGroup;
+			name = "L2TP-vpn";
+			refType = 4;
+		};
+		F5BDED6403CDFFFE01CA2DE3 = {
+			children = (
+				F5BDED7703CE029B01CA2DE3,
+				F5C000D203E73F4101CA2DE3,
+			);
+			isa = PBXGroup;
+			name = "PPTP vpn";
+			refType = 4;
+		};
+		F5BDED6503CE016F01CA2DE3 = {
+			buildActionMask = 2147483647;
+			files = (
+				F62DCE7F03F0C57601000102,
+				F62DCE8003F0C57801000102,
+				F62DCE8303F0C57A01000102,
+				2562EB5A0469B8D2005239BE,
+			);
+			isa = PBXHeadersBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		F5BDED6603CE016F01CA2DE3 = {
+			buildActionMask = 2147483647;
+			files = (
+			);
+			isa = PBXResourcesBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		F5BDED6703CE016F01CA2DE3 = {
+			buildActionMask = 2147483647;
+			files = (
+				F5BE620103D8906F01CA2DE3,
+				F62DCE8103F0C57801000102,
+				F62DCE8203F0C57901000102,
+			);
+			isa = PBXSourcesBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		F5BDED6803CE016F01CA2DE3 = {
+			buildActionMask = 2147483647;
+			files = (
+				F514B8C003E1CFFF01CA2DE3,
+				23BCB57B048442EA00767149,
+			);
+			isa = PBXFrameworksBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		F5BDED6903CE016F01CA2DE3 = {
+			buildActionMask = 2147483647;
+			files = (
+			);
+			isa = PBXRezBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		F5BDED6A03CE016F01CA2DE3 = {
+			buildPhases = (
+				F5BDED6503CE016F01CA2DE3,
+				F5BDED6603CE016F01CA2DE3,
+				F5BDED6703CE016F01CA2DE3,
+				F5BDED6803CE016F01CA2DE3,
+				F5BDED6903CE016F01CA2DE3,
+			);
+			buildSettings = {
+				OTHER_CFLAGS = "";
+				OTHER_LDFLAGS = "-bundle -bundle_loader $(SYMROOT)/vpnd -lipsec";
+				OTHER_REZFLAGS = "";
+				PRODUCT_NAME = L2TP;
+				SECTORDER_FLAGS = "";
+				WARNING_CFLAGS = "-Wmost -Wno-four-char-constants -Wno-unknown-pragmas";
+				WRAPPER_EXTENSION = vpn;
+			};
+			dependencies = (
+			);
+			isa = PBXBundleTarget;
+			name = "L2TP (VPN Plugin)";
+			productInstallPath = "$(USER_LIBRARY_DIR)/Bundles";
+			productName = "L2TP (VPN Plugin)";
+			productReference = F5BDED6B03CE016F01CA2DE3;
+			productSettingsXML = "<?xml version=\"1.0\" encoding=\"UTF-8\"?>
+<!DOCTYPE plist PUBLIC \"-//Apple Computer//DTD PLIST 1.0//EN\" \"http://www.apple.com/DTDs/PropertyList-1.0.dtd\">
+<plist version=\"1.0\">
+<dict>
+	<key>CFBundleDevelopmentRegion</key>
+	<string>English</string>
+	<key>CFBundleExecutable</key>
+	<string>L2TP</string>
+	<key>CFBundleGetInfoString</key>
+	<string>L2TP Server Plugin</string>
+	<key>CFBundleIconFile</key>
+	<string></string>
+	<key>CFBundleIdentifier</key>
+	<string>com.apple.RemoteAccessServer.L2TP</string>
+	<key>CFBundleInfoDictionaryVersion</key>
+	<string>6.0</string>
+	<key>CFBundleName</key>
+	<string>L2TP</string>
+	<key>CFBundlePackageType</key>
+	<string>BNDL</string>
+	<key>CFBundleShortVersionString</key>
+	<string>1.3</string>
+	<key>CFBundleSignature</key>
+	<string>????</string>
+	<key>CFBundleVersion</key>
+	<string>1.3</string>
+</dict>
+</plist>
+";
+		};
+		F5BDED6B03CE016F01CA2DE3 = {
+			isa = PBXBundleReference;
+			path = L2TP.vpn;
+			refType = 3;
+		};
+		F5BDED6C03CE019001CA2DE3 = {
+			buildActionMask = 2147483647;
+			files = (
+			);
+			isa = PBXHeadersBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		F5BDED6D03CE019001CA2DE3 = {
+			buildActionMask = 2147483647;
+			files = (
+			);
+			isa = PBXResourcesBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		F5BDED6E03CE019001CA2DE3 = {
+			buildActionMask = 2147483647;
+			files = (
+				F5BDED7803CE029B01CA2DE3,
+			);
+			isa = PBXSourcesBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		F5BDED6F03CE019001CA2DE3 = {
+			buildActionMask = 2147483647;
+			files = (
+				F5C000D303E73F4101CA2DE3,
+			);
+			isa = PBXFrameworksBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		F5BDED7003CE019001CA2DE3 = {
+			buildActionMask = 2147483647;
+			files = (
+			);
+			isa = PBXRezBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		F5BDED7103CE019001CA2DE3 = {
+			buildPhases = (
+				F5BDED6C03CE019001CA2DE3,
+				F5BDED6D03CE019001CA2DE3,
+				F5BDED6E03CE019001CA2DE3,
+				F5BDED6F03CE019001CA2DE3,
+				F5BDED7003CE019001CA2DE3,
+			);
+			buildSettings = {
+				OTHER_CFLAGS = "";
+				OTHER_LDFLAGS = "-bundle -bundle_loader $(SYMROOT)/vpnd ";
+				OTHER_REZFLAGS = "";
+				PRODUCT_NAME = PPTP;
+				SECTORDER_FLAGS = "";
+				WARNING_CFLAGS = "-Wmost -Wno-four-char-constants -Wno-unknown-pragmas";
+				WRAPPER_EXTENSION = vpn;
+			};
+			dependencies = (
+			);
+			isa = PBXBundleTarget;
+			name = "PPTP (VPN Plugin)";
+			productInstallPath = "$(USER_LIBRARY_DIR)/Bundles";
+			productName = "PPTP (VPN Plugin)";
+			productReference = F5BDED7203CE019001CA2DE3;
+			productSettingsXML = "<?xml version=\"1.0\" encoding=\"UTF-8\"?>
+<!DOCTYPE plist PUBLIC \"-//Apple Computer//DTD PLIST 1.0//EN\" \"http://www.apple.com/DTDs/PropertyList-1.0.dtd\">
+<plist version=\"1.0\">
+<dict>
+	<key>CFBundleDevelopmentRegion</key>
+	<string>English</string>
+	<key>CFBundleExecutable</key>
+	<string>PPTP</string>
+	<key>CFBundleGetInfoString</key>
+	<string>PPTP Server Plugin</string>
+	<key>CFBundleIconFile</key>
+	<string></string>
+	<key>CFBundleIdentifier</key>
+	<string>com.apple.RemoteAccessServer.PPTP</string>
+	<key>CFBundleInfoDictionaryVersion</key>
+	<string>6.0</string>
+	<key>CFBundleName</key>
+	<string>PPTP</string>
+	<key>CFBundlePackageType</key>
+	<string>BNDL</string>
+	<key>CFBundleShortVersionString</key>
+	<string>1.3</string>
+	<key>CFBundleSignature</key>
+	<string>????</string>
+	<key>CFBundleVersion</key>
+	<string>1.3</string>
+</dict>
+</plist>
+";
+		};
+		F5BDED7203CE019001CA2DE3 = {
+			isa = PBXBundleReference;
+			path = PPTP.vpn;
+			refType = 3;
+		};
+		F5BDED7703CE029B01CA2DE3 = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			name = main.c;
+			path = "Drivers/PPTP/PPTP-vpn/main.c";
+			refType = 4;
+		};
+		F5BDED7803CE029B01CA2DE3 = {
+			fileRef = F5BDED7703CE029B01CA2DE3;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		F5BDED7A03CE033401CA2DE3 = {
+			buildActionMask = 2147483647;
+			files = (
+				F5BDFB7903CE487501CA2DE3,
+				F5130EDF03F04FF301CA2DE3,
+				F6CBB02B03F5EECE01EEA24D,
+				2562EB5B0469B8D2005239BE,
+			);
+			isa = PBXHeadersBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		F5BDED7B03CE033401CA2DE3 = {
+			buildActionMask = 2147483647;
+			files = (
+				F5BDED8303CE03D801CA2DE3,
+				F5B82BDD03D7902401CA2DE3,
+				F5130EDD03F04FD701CA2DE3,
+				F6818E5603F5F45601521AA5,
+			);
+			isa = PBXSourcesBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		F5BDED7C03CE033401CA2DE3 = {
+			buildActionMask = 2147483647;
+			files = (
+				2562EB620469BA3D005239BE,
+				2562EB660469BA41005239BE,
+				2562EB690469BA5F005239BE,
+			);
+			isa = PBXFrameworksBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		F5BDED7D03CE033401CA2DE3 = {
+			buildActionMask = 2147483647;
+			files = (
+			);
+			isa = PBXRezBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		F5BDED7E03CE033401CA2DE3 = {
+			buildPhases = (
+				F5BDED7A03CE033401CA2DE3,
+				F5BDED7B03CE033401CA2DE3,
+				F5BDED7C03CE033401CA2DE3,
+				F5BDED7D03CE033401CA2DE3,
+				F505929C03DDFE8701CA2DE3,
+				F505929D03DDFEA801CA2DE3,
+			);
+			buildSettings = {
+				COPY_PHASE_STRIP = NO;
+				INSTALL_GROUP = wheel;
+				INSTALL_MODE_FLAG = 4511;
+				INSTALL_OWNER = root;
+				INSTALL_PATH = /usr/sbin;
+				OTHER_CFLAGS = "
+";
+				OTHER_LDFLAGS = "";
+				OTHER_REZFLAGS = "";
+				PRODUCT_NAME = vpnd;
+				REZ_EXECUTABLE = YES;
+				SECTORDER_FLAGS = "";
+				STRIPFLAGS = "-x";
+				WARNING_CFLAGS = "-Wmost -Wno-four-char-constants -Wno-unknown-pragmas";
+			};
+			dependencies = (
+			);
+			isa = PBXToolTarget;
+			name = "vpnd (Tool)";
+			productInstallPath = /usr/sbin;
+			productName = "vpnd (Tool)";
+			productReference = F5BDED7F03CE033401CA2DE3;
+		};
+		F5BDED7F03CE033401CA2DE3 = {
+			isa = PBXExecutableFileReference;
+			path = vpnd;
+			refType = 3;
+		};
+		F5BDED8103CE034301CA2DE3 = {
+			children = (
+				F5BDED8203CE03D801CA2DE3,
+				F5B82BDC03D7902401CA2DE3,
+				F5130EDC03F04FD701CA2DE3,
+				F6818E5503F5F45601521AA5,
+				F6CBB03503F5F36401EEA24D,
+				F50592A103DDFFB301CA2DE3,
+			);
+			isa = PBXGroup;
+			name = vpnd;
+			refType = 4;
+		};
+		F5BDED8203CE03D801CA2DE3 = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			name = main.c;
+			path = vpnd/main.c;
+			refType = 4;
+		};
+		F5BDED8303CE03D801CA2DE3 = {
+			fileRef = F5BDED8203CE03D801CA2DE3;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		F5BDFB7803CE487501CA2DE3 = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			name = vpnplugins.h;
+			path = vpnd/vpnplugins.h;
+			refType = 4;
+		};
+		F5BDFB7903CE487501CA2DE3 = {
+			fileRef = F5BDFB7803CE487501CA2DE3;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		F5BE620003D8906F01CA2DE3 = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			name = main.c;
+			path = "Drivers/L2TP/L2TP-vpn/main.c";
+			refType = 4;
+		};
+		F5BE620103D8906F01CA2DE3 = {
+			fileRef = F5BE620003D8906F01CA2DE3;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		F5C000D203E73F4101CA2DE3 = {
+			isa = PBXFrameworkReference;
+			name = CoreFoundation.framework;
+			path = /System/Library/Frameworks/CoreFoundation.framework;
+			refType = 0;
+		};
+		F5C000D303E73F4101CA2DE3 = {
+			fileRef = F5C000D203E73F4101CA2DE3;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
 //F50
 //F51
 //F52
 //F53
 //F54
+//F60
+//F61
+//F62
+//F63
+//F64
+		F612B6CC03A1B52201E1AD84 = {
+			buildActionMask = 2147483647;
+			dstPath = "";
+			dstSubfolderSpec = 13;
+			files = (
+				F612B6CF03A1B53701E1AD84,
+				F5326F0403E1EAA401CA2DE3,
+			);
+			isa = PBXCopyFilesBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		F612B6CF03A1B53701E1AD84 = {
+			fileRef = FAE9AFF203A19CE304CA2CDC;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		F612C4BF03A1B63C01E1AD84 = {
+			children = (
+				F68A778403A1B48B01DF2EE2,
+				F68A778203A1B48B01DF2EE2,
+				F68A778003A1B48B01DF2EE2,
+				F68A777D03A1B48B01DF2EE2,
+				F68A777E03A1B48B01DF2EE2,
+			);
+			isa = PBXGroup;
+			name = Sources;
+			refType = 4;
+		};
+		F612C4C003A1B65501E1AD84 = {
+			children = (
+				F68A778603A1B48B01DF2EE2,
+				F68A778503A1B48B01DF2EE2,
+				F68A778303A1B48B01DF2EE2,
+				F68A778103A1B48B01DF2EE2,
+				F68A777F03A1B48B01DF2EE2,
+			);
+			isa = PBXGroup;
+			name = Headers;
+			refType = 4;
+		};
+		F61B2AE00361E5360169B27A = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			name = ecp.c;
+			path = pppd/ecp.c;
+			refType = 4;
+		};
+		F61B2AE10361E5360169B27A = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			name = ecp.h;
+			path = pppd/ecp.h;
+			refType = 4;
+		};
+		F61B2AE20361E5360169B27A = {
+			fileRef = F61B2AE00361E5360169B27A;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		F61B2AE30361E5360169B27A = {
+			fileRef = F61B2AE10361E5360169B27A;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		F620B40D03ED05BD011C440A = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			name = ipsec_utils.c;
+			path = "Drivers/L2TP/L2TP-plugin/ipsec_utils.c";
+			refType = 4;
+		};
+		F620B40E03ED05BD011C440A = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			name = ipsec_utils.h;
+			path = "Drivers/L2TP/L2TP-plugin/ipsec_utils.h";
+			refType = 4;
+		};
+		F620B40F03ED05BD011C440A = {
+			fileRef = F620B40D03ED05BD011C440A;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		F620B41003ED05BD011C440A = {
+			fileRef = F620B40E03ED05BD011C440A;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		F62DCE7F03F0C57601000102 = {
+			fileRef = FA76575303EB2B7504CA2DDA;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		F62DCE8003F0C57801000102 = {
+			fileRef = FA76575403EB2B7504CA2DDA;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		F62DCE8103F0C57801000102 = {
+			fileRef = FA76575503EB2B7504CA2DDA;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		F62DCE8203F0C57901000102 = {
+			fileRef = F620B40D03ED05BD011C440A;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		F62DCE8303F0C57A01000102 = {
+			fileRef = F620B40E03ED05BD011C440A;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		F6818E5503F5F45601521AA5 = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			name = sys_MacOSX.c;
+			path = vpnd/sys_MacOSX.c;
+			refType = 4;
+		};
+		F6818E5603F5F45601521AA5 = {
+			fileRef = F6818E5503F5F45601521AA5;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		F68A744903A1B0E301DF2EE2 = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			name = l2tp.c;
+			path = "Drivers/L2TP/L2TP-plugin/l2tp.c";
+			refType = 4;
+		};
+		F68A744A03A1B0E301DF2EE2 = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			name = l2tp.h;
+			path = "Drivers/L2TP/L2TP-plugin/l2tp.h";
+			refType = 4;
+		};
+		F68A744B03A1B0E301DF2EE2 = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			name = main.c;
+			path = "Drivers/L2TP/L2TP-plugin/main.c";
+			refType = 4;
+		};
+		F68A744C03A1B0E301DF2EE2 = {
+			fileRef = F68A744903A1B0E301DF2EE2;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		F68A744D03A1B0E301DF2EE2 = {
+			fileRef = F68A744A03A1B0E301DF2EE2;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		F68A744E03A1B0E301DF2EE2 = {
+			fileRef = F68A744B03A1B0E301DF2EE2;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		F68A744F03A1B10001DF2EE2 = {
+			children = (
+				F68A745003A1B10001DF2EE2,
+			);
+			isa = PBXVariantGroup;
+			name = InfoPlist.strings;
+			path = "";
+			refType = 4;
+		};
+		F68A745003A1B10001DF2EE2 = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			name = English;
+			path = "Drivers/L2TP/L2TP-plugin/English.lproj/InfoPlist.strings";
+			refType = 4;
+		};
+		F68A745103A1B10001DF2EE2 = {
+			fileRef = F68A744F03A1B10001DF2EE2;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		F68A745203A1B11401DF2EE2 = {
+			isa = PBXFrameworkReference;
+			name = SystemConfiguration.framework;
+			path = /System/Library/Frameworks/SystemConfiguration.framework;
+			refType = 0;
+		};
+		F68A747303A1B11501DF2EE2 = {
+			fileRef = F68A745203A1B11401DF2EE2;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		F68A747403A1B12D01DF2EE2 = {
+			isa = PBXFrameworkReference;
+			name = CoreFoundation.framework;
+			path = /System/Library/Frameworks/CoreFoundation.framework;
+			refType = 0;
+		};
+		F68A777903A1B12E01DF2EE2 = {
+			fileRef = F68A747403A1B12D01DF2EE2;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		F68A777A03A1B33A01DF2EE2 = {
+			isa = PBXTargetDependency;
+			target = FAE9AFE903A19CCE04CA2CDC;
+		};
+		F68A777D03A1B48B01DF2EE2 = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			name = l2tp_domain.c;
+			path = "Drivers/L2TP/L2TP-extension/l2tp_domain.c";
+			refType = 4;
+		};
+		F68A777E03A1B48B01DF2EE2 = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			name = l2tp_proto.c;
+			path = "Drivers/L2TP/L2TP-extension/l2tp_proto.c";
+			refType = 4;
+		};
+		F68A777F03A1B48B01DF2EE2 = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			name = l2tp_proto.h;
+			path = "Drivers/L2TP/L2TP-extension/l2tp_proto.h";
+			refType = 4;
+		};
+		F68A778003A1B48B01DF2EE2 = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			name = l2tp_rfc.c;
+			path = "Drivers/L2TP/L2TP-extension/l2tp_rfc.c";
+			refType = 4;
+		};
+		F68A778103A1B48B01DF2EE2 = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			name = l2tp_rfc.h;
+			path = "Drivers/L2TP/L2TP-extension/l2tp_rfc.h";
+			refType = 4;
+		};
+		F68A778203A1B48B01DF2EE2 = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			name = l2tp_udp.c;
+			path = "Drivers/L2TP/L2TP-extension/l2tp_udp.c";
+			refType = 4;
+		};
+		F68A778303A1B48B01DF2EE2 = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			name = l2tp_udp.h;
+			path = "Drivers/L2TP/L2TP-extension/l2tp_udp.h";
+			refType = 4;
+		};
+		F68A778403A1B48B01DF2EE2 = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			name = l2tp_wan.c;
+			path = "Drivers/L2TP/L2TP-extension/l2tp_wan.c";
+			refType = 4;
+		};
+		F68A778503A1B48B01DF2EE2 = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			name = l2tp_wan.h;
+			path = "Drivers/L2TP/L2TP-extension/l2tp_wan.h";
+			refType = 4;
+		};
+		F68A778603A1B48B01DF2EE2 = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			name = l2tpk.h;
+			path = "Drivers/L2TP/L2TP-extension/l2tpk.h";
+			refType = 4;
+		};
+		F68A778703A1B48B01DF2EE2 = {
+			fileRef = F68A777D03A1B48B01DF2EE2;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		F68A778803A1B48B01DF2EE2 = {
+			fileRef = F68A777E03A1B48B01DF2EE2;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		F68A778903A1B48B01DF2EE2 = {
+			fileRef = F68A777F03A1B48B01DF2EE2;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		F68A778A03A1B48B01DF2EE2 = {
+			fileRef = F68A778003A1B48B01DF2EE2;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		F68A778B03A1B48B01DF2EE2 = {
+			fileRef = F68A778103A1B48B01DF2EE2;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		F68A778C03A1B48B01DF2EE2 = {
+			fileRef = F68A778203A1B48B01DF2EE2;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		F68A778D03A1B48B01DF2EE2 = {
+			fileRef = F68A778303A1B48B01DF2EE2;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		F68A778E03A1B48B01DF2EE2 = {
+			fileRef = F68A778403A1B48B01DF2EE2;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		F68A778F03A1B48B01DF2EE2 = {
+			fileRef = F68A778503A1B48B01DF2EE2;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		F68A779003A1B48B01DF2EE2 = {
+			fileRef = F68A778603A1B48B01DF2EE2;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		F69A541603A3100E01326A2E = {
+			children = (
+				F69A541703A3100E01326A2E,
+			);
+			isa = PBXVariantGroup;
+			name = Localizable.strings;
+			path = "";
+			refType = 4;
+		};
+		F69A541703A3100E01326A2E = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			name = English;
+			path = "Drivers/L2TP/L2TP-plugin/English.lproj/Localizable.strings";
+			refType = 4;
+		};
+		F69A541803A3100E01326A2E = {
+			fileRef = F69A541603A3100E01326A2E;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		F6CBB02A03F5EECE01EEA24D = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			name = vpnd.h;
+			path = vpnd/vpnd.h;
+			refType = 4;
+		};
+		F6CBB02B03F5EECE01EEA24D = {
+			fileRef = F6CBB02A03F5EECE01EEA24D;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		F6CBB03503F5F36401EEA24D = {
+			children = (
+				F6CBB02A03F5EECE01EEA24D,
+				F5130EDE03F04FF301CA2DE3,
+				F5BDFB7803CE487501CA2DE3,
+				2562EB580469B8D2005239BE,
+			);
+			isa = PBXGroup;
+			name = Headers;
+			refType = 4;
+		};
+//F60
+//F61
+//F62
+//F63
+//F64
 //FA0
 //FA1
 //FA2
 //FA3
 //FA4
+		FA2201BD0368A76404CA2CDC = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			name = ipv6cp.c;
+			path = pppd/ipv6cp.c;
+			refType = 4;
+		};
+		FA2201BE0368A76404CA2CDC = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			name = ipv6cp.h;
+			path = pppd/ipv6cp.h;
+			refType = 4;
+		};
+		FA2201BF0368A76404CA2CDC = {
+			fileRef = FA2201BD0368A76404CA2CDC;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		FA2201C00368A76404CA2CDC = {
+			fileRef = FA2201BE0368A76404CA2CDC;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		FA2201C10368A8A204CA2CDC = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			name = eui64.c;
+			path = pppd/eui64.c;
+			refType = 4;
+		};
+		FA2201C20368A8A204CA2CDC = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			name = eui64.h;
+			path = pppd/eui64.h;
+			refType = 4;
+		};
+		FA2201C30368A8A204CA2CDC = {
+			fileRef = FA2201C10368A8A204CA2CDC;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		FA2201C40368A8A204CA2CDC = {
+			fileRef = FA2201C20368A8A204CA2CDC;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		FA2201D70368D05504CA2CDC = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			name = ppp_ip.c;
+			path = Family/ppp_ip.c;
+			refType = 4;
+		};
+		FA2201D90368D08E04CA2CDC = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			name = ppp_ipv6.h;
+			path = Family/ppp_ipv6.h;
+			refType = 2;
+		};
+		FA2201DA0368D08E04CA2CDC = {
+			fileRef = FA2201D90368D08E04CA2CDC;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		FA2201DB0368D0C304CA2CDC = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			name = ppp_ipv6.c;
+			path = Family/ppp_ipv6.c;
+			refType = 4;
+		};
+		FA2201DC0368D0C304CA2CDC = {
+			fileRef = FA2201DB0368D0C304CA2CDC;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		FA2201DD0368D0D304CA2CDC = {
+			fileRef = FA2201D70368D05504CA2CDC;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
 		FA3E237E01223CBB04CA2CDC = {
 			fileRef = 013F974C001901697F000001;
 			isa = PBXBuildFile;
@@ -3740,6 +5577,228 @@
 			shellPath = /bin/sh;
 			shellScript = "/bin/mkdir -m 755 -p $DSTROOT/private/etc/ppp\n/bin/chmod 444 $DSTROOT/usr/share/man/man8/pppd.8";
 		};
+		FA75047903F32BCC04CA2DDA = {
+			fileRef = F5BDED7203CE019001CA2DE3;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		FA75047A03F32C1004CA2DDA = {
+			isa = PBXTargetDependency;
+			target = F5BDED7103CE019001CA2DE3;
+		};
+		FA76575303EB2B7504CA2DDA = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			name = ipsec_strerror.h;
+			path = "Drivers/L2TP/L2TP-plugin/ipsec_strerror.h";
+			refType = 4;
+		};
+		FA76575403EB2B7504CA2DDA = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			name = libpfkey.h;
+			path = "Drivers/L2TP/L2TP-plugin/libpfkey.h";
+			refType = 4;
+		};
+		FA76575503EB2B7504CA2DDA = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			name = pfkey.c;
+			path = "Drivers/L2TP/L2TP-plugin/pfkey.c";
+			refType = 4;
+		};
+		FA76575603EB2B7504CA2DDA = {
+			fileRef = FA76575303EB2B7504CA2DDA;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		FA76575703EB2B7504CA2DDA = {
+			fileRef = FA76575403EB2B7504CA2DDA;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		FA76575803EB2B7504CA2DDA = {
+			fileRef = FA76575503EB2B7504CA2DDA;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		FA86265603F4294D04CA2DDA = {
+			children = (
+				FA86265F03F42AF604CA2DDA,
+				FA86267E03F42E5604CA2DDA,
+			);
+			isa = PBXGroup;
+			name = "PPPoE vpn";
+			path = "";
+			refType = 2;
+		};
+		FA86265703F429A604CA2DDA = {
+			buildActionMask = 2147483647;
+			files = (
+			);
+			isa = PBXHeadersBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		FA86265803F429A604CA2DDA = {
+			buildActionMask = 2147483647;
+			files = (
+			);
+			isa = PBXResourcesBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		FA86265903F429A604CA2DDA = {
+			buildActionMask = 2147483647;
+			files = (
+				FA86266003F42AF604CA2DDA,
+			);
+			isa = PBXSourcesBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		FA86265A03F429A604CA2DDA = {
+			buildActionMask = 2147483647;
+			files = (
+				FA86297A03F42E5704CA2DDA,
+			);
+			isa = PBXFrameworksBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		FA86265B03F429A604CA2DDA = {
+			buildActionMask = 2147483647;
+			files = (
+			);
+			isa = PBXRezBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		FA86265C03F429A604CA2DDA = {
+			buildPhases = (
+				FA86265703F429A604CA2DDA,
+				FA86265803F429A604CA2DDA,
+				FA86265903F429A604CA2DDA,
+				FA86265A03F429A604CA2DDA,
+				FA86265B03F429A604CA2DDA,
+			);
+			buildSettings = {
+				OTHER_CFLAGS = "";
+				OTHER_LDFLAGS = "-bundle -bundle_loader $(SYMROOT)/vpnd ";
+				OTHER_REZFLAGS = "";
+				PRODUCT_NAME = PPPoE;
+				SECTORDER_FLAGS = "";
+				WARNING_CFLAGS = "-Wmost -Wno-four-char-constants -Wno-unknown-pragmas";
+				WRAPPER_EXTENSION = vpn;
+			};
+			dependencies = (
+			);
+			isa = PBXBundleTarget;
+			name = "PPPoE (VPN Plugin)";
+			productInstallPath = "$(USER_LIBRARY_DIR)/Bundles";
+			productName = PPPoEvpn;
+			productReference = FA86265D03F429A604CA2DDA;
+			productSettingsXML = "<?xml version=\"1.0\" encoding=\"UTF-8\"?>
+<!DOCTYPE plist PUBLIC \"-//Apple Computer//DTD PLIST 1.0//EN\" \"http://www.apple.com/DTDs/PropertyList-1.0.dtd\">
+<plist version=\"1.0\">
+<dict>
+	<key>CFBundleDevelopmentRegion</key>
+	<string>English</string>
+	<key>CFBundleExecutable</key>
+	<string>PPPoE</string>
+	<key>CFBundleGetInfoString</key>
+	<string>PPPoE Server Plugin</string>
+	<key>CFBundleIconFile</key>
+	<string></string>
+	<key>CFBundleIdentifier</key>
+	<string>com.apple.RemoteAccessServer.PPPoE</string>
+	<key>CFBundleInfoDictionaryVersion</key>
+	<string>6.0</string>
+	<key>CFBundleName</key>
+	<string>PPPoE</string>
+	<key>CFBundlePackageType</key>
+	<string>BNDL</string>
+	<key>CFBundleShortVersionString</key>
+	<string>1.3</string>
+	<key>CFBundleSignature</key>
+	<string>????</string>
+	<key>CFBundleVersion</key>
+	<string>1.3</string>
+</dict>
+</plist>
+";
+		};
+		FA86265D03F429A604CA2DDA = {
+			isa = PBXBundleReference;
+			path = PPPoE.vpn;
+			refType = 3;
+		};
+		FA86265E03F429C004CA2DDA = {
+			isa = PBXTargetDependency;
+			target = FA86265C03F429A604CA2DDA;
+		};
+		FA86265F03F42AF604CA2DDA = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			name = main.c;
+			path = "Drivers/PPPoE/PPPoE-vpn/main.c";
+			refType = 4;
+		};
+		FA86266003F42AF604CA2DDA = {
+			fileRef = FA86265F03F42AF604CA2DDA;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		FA86267E03F42E5604CA2DDA = {
+			isa = PBXFrameworkReference;
+			name = CoreFoundation.framework;
+			path = /System/Library/Frameworks/CoreFoundation.framework;
+			refType = 0;
+		};
+		FA86297A03F42E5704CA2DDA = {
+			fileRef = FA86267E03F42E5604CA2DDA;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		FA9E969403798CF504CA2CDC = {
+			isa = PBXFrameworkReference;
+			name = IOKit.framework;
+			path = /System/Library/Frameworks/IOKit.framework;
+			refType = 0;
+		};
+		FA9E994A03798CF604CA2CDC = {
+			fileRef = FA9E969403798CF504CA2CDC;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		FAA0F5480327F35404CA2CDC = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			name = eap.c;
+			path = pppd/eap.c;
+			refType = 4;
+		};
+		FAA0F5490327F35404CA2CDC = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			name = eap.h;
+			path = pppd/eap.h;
+			refType = 4;
+		};
+		FAA0F54A0327F35404CA2CDC = {
+			fileRef = FAA0F5480327F35404CA2CDC;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		FAA0F54B0327F35404CA2CDC = {
+			fileRef = FAA0F5490327F35404CA2CDC;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
 		FAAA1C1B00D5475E04CA2CDC = {
 			isa = PBXFrameworkReference;
 			name = CoreFoundation.framework;
@@ -3771,12 +5830,14 @@
 			};
 		};
 		FAAAD5FA023EA44604CA2CDC = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			name = pppstats.8;
 			path = pppstats/pppstats.8;
 			refType = 4;
 		};
 		FAAAD5FD023EA4CE04CA2CDC = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			name = pppd.8;
 			path = pppd/pppd.8;
@@ -3816,6 +5877,12 @@
 			runOnlyForDeploymentPostprocessing = 1;
 			shellPath = /bin/sh;
 			shellScript = "/bin/chmod 444 $DSTROOT/usr/share/man/man8/pppstats.8";
+		};
+		FAAF7E1803F42F2704CA2DDA = {
+			fileRef = FA86265D03F429A604CA2DDA;
+			isa = PBXBuildFile;
+			settings = {
+			};
 		};
 		FAB2307A0246616904CA2CDC = {
 			buildActionMask = 8;
@@ -3883,7 +5950,6 @@
 			productInstallPath = /usr/include/net;
 			productName = InstallHeaders;
 			productReference = FACB5F3D025CE11604CA2CDC;
-			shouldUseHeadermap = 0;
 		};
 		FACB5F3D025CE11604CA2CDC = {
 			isa = PBXExecutableFileReference;
@@ -3900,6 +5966,8 @@
 				FACB5F43025D0C4204CA2CDC,
 				FACB5F48025D1F1604CA2CDC,
 				FACB5F45025D0C5404CA2CDC,
+				25285D49047041F90076C2C4,
+				2364AD280466D41500A8C900,
 			);
 			isa = PBXCopyFilesBuildPhase;
 			runOnlyForDeploymentPostprocessing = 1;
@@ -3938,13 +6006,29 @@
 			isa = PBXTargetDependency;
 			target = FACB5F3C025CE11604CA2CDC;
 		};
+		FACD767C040D4BD004CA2DF0 = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			name = psk.l2tp;
+			path = "Drivers/L2TP/L2TP-plugin/psk.l2tp";
+			refType = 4;
+		};
+		FACD767D040D4BD004CA2DF0 = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			name = racoon.l2tp;
+			path = "Drivers/L2TP/L2TP-plugin/racoon.l2tp";
+			refType = 4;
+		};
 		FAD305DC029D629504CA2CDC = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			name = pptp.h;
 			path = "Drivers/PPTP/PPTP-plugin/pptp.h";
 			refType = 4;
 		};
 		FAD305DD029D629504CA2CDC = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			name = pptp.c;
 			path = "Drivers/PPTP/PPTP-plugin/pptp.c";
@@ -3962,6 +6046,306 @@
 			settings = {
 			};
 		};
+		FAE9AFE103A19C1C04CA2CDC = {
+			children = (
+				F5BDED6303CDFFD601CA2DE3,
+				FAE9AFE203A19C4C04CA2CDC,
+				FAE9AFE303A19C5704CA2CDC,
+			);
+			isa = PBXGroup;
+			name = L2TP;
+			path = "";
+			refType = 2;
+		};
+		FAE9AFE203A19C4C04CA2CDC = {
+			children = (
+				F612C4BF03A1B63C01E1AD84,
+				F612C4C003A1B65501E1AD84,
+			);
+			isa = PBXGroup;
+			name = "L2TP-extension";
+			path = "";
+			refType = 4;
+		};
+		FAE9AFE303A19C5704CA2CDC = {
+			children = (
+				F68A744B03A1B0E301DF2EE2,
+				F68A744903A1B0E301DF2EE2,
+				F68A744A03A1B0E301DF2EE2,
+				F68A744F03A1B10001DF2EE2,
+				F69A541603A3100E01326A2E,
+				F68A745203A1B11401DF2EE2,
+				F68A747403A1B12D01DF2EE2,
+				FA76575303EB2B7504CA2DDA,
+				FA76575403EB2B7504CA2DDA,
+				FA76575503EB2B7504CA2DDA,
+				F620B40D03ED05BD011C440A,
+				F620B40E03ED05BD011C440A,
+				FACD767C040D4BD004CA2DF0,
+				FACD767D040D4BD004CA2DF0,
+			);
+			isa = PBXGroup;
+			name = "L2TP-plugin";
+			path = "";
+			refType = 4;
+		};
+		FAE9AFE403A19CCE04CA2CDC = {
+			buildActionMask = 2147483647;
+			files = (
+				F68A744D03A1B0E301DF2EE2,
+				FA76575603EB2B7504CA2DDA,
+				FA76575703EB2B7504CA2DDA,
+				F620B41003ED05BD011C440A,
+			);
+			isa = PBXHeadersBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		FAE9AFE503A19CCE04CA2CDC = {
+			buildActionMask = 2147483647;
+			files = (
+				F68A745103A1B10001DF2EE2,
+				F69A541803A3100E01326A2E,
+			);
+			isa = PBXResourcesBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		FAE9AFE603A19CCE04CA2CDC = {
+			buildActionMask = 2147483647;
+			files = (
+				F68A744C03A1B0E301DF2EE2,
+				F68A744E03A1B0E301DF2EE2,
+				FA76575803EB2B7504CA2DDA,
+				F620B40F03ED05BD011C440A,
+			);
+			isa = PBXSourcesBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		FAE9AFE703A19CCE04CA2CDC = {
+			buildActionMask = 2147483647;
+			files = (
+				F68A747303A1B11501DF2EE2,
+				F68A777903A1B12E01DF2EE2,
+			);
+			isa = PBXFrameworksBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		FAE9AFE803A19CCE04CA2CDC = {
+			buildActionMask = 2147483647;
+			files = (
+			);
+			isa = PBXRezBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		FAE9AFE903A19CCE04CA2CDC = {
+			buildPhases = (
+				FAE9AFE403A19CCE04CA2CDC,
+				FAE9AFE503A19CCE04CA2CDC,
+				FAE9AFE603A19CCE04CA2CDC,
+				FAE9AFE703A19CCE04CA2CDC,
+				FAE9AFE803A19CCE04CA2CDC,
+				F612B6CC03A1B52201E1AD84,
+			);
+			buildSettings = {
+				INSTALL_PATH = "$(SYSTEM_LIBRARY_DIR)/Extensions";
+				OTHER_CFLAGS = "";
+				OTHER_LDFLAGS = "-bundle -bundle_loader $(SYMROOT)/pppd -lipsec";
+				OTHER_REZFLAGS = "";
+				PRODUCT_NAME = L2TP;
+				SECTORDER_FLAGS = "";
+				WARNING_CFLAGS = "-Wmost -Wno-four-char-constants -Wno-unknown-pragmas";
+				WRAPPER_EXTENSION = ppp;
+			};
+			dependencies = (
+				FAE9AFF303A19CE604CA2CDC,
+				F5326F0503E1EAB401CA2DE3,
+			);
+			isa = PBXBundleTarget;
+			name = "L2TP (Plugin)";
+			productInstallPath = "$(USER_LIBRARY_DIR)/Bundles";
+			productName = "L2TP (Plugin)";
+			productReference = FAE9AFEA03A19CCE04CA2CDC;
+			productSettingsXML = "<?xml version=\"1.0\" encoding=\"UTF-8\"?>
+<!DOCTYPE plist PUBLIC \"-//Apple Computer//DTD PLIST 1.0//EN\" \"http://www.apple.com/DTDs/PropertyList-1.0.dtd\">
+<plist version=\"1.0\">
+<dict>
+	<key>CFBundleDevelopmentRegion</key>
+	<string>English</string>
+	<key>CFBundleExecutable</key>
+	<string>L2TP</string>
+	<key>CFBundleGetInfoString</key>
+	<string>L2TP Plugin</string>
+	<key>CFBundleIconFile</key>
+	<string></string>
+	<key>CFBundleIdentifier</key>
+	<string>com.apple.SystemConfiguration.L2TP</string>
+	<key>CFBundleInfoDictionaryVersion</key>
+	<string>6.0</string>
+	<key>CFBundleName</key>
+	<string>L2TP</string>
+	<key>CFBundlePackageType</key>
+	<string>BNDL</string>
+	<key>CFBundleShortVersionString</key>
+	<string>1.3</string>
+	<key>CFBundleSignature</key>
+	<string>????</string>
+	<key>CFBundleVersion</key>
+	<string>1.3</string>
+	<key>PPPPluginType</key>
+	<string>Link</string>
+</dict>
+</plist>
+";
+		};
+		FAE9AFEA03A19CCE04CA2CDC = {
+			isa = PBXBundleReference;
+			path = L2TP.ppp;
+			refType = 3;
+		};
+		FAE9AFEB03A19CE304CA2CDC = {
+			buildActionMask = 2147483647;
+			files = (
+			);
+			generatedFileNames = (
+			);
+			isa = PBXShellScriptBuildPhase;
+			neededFileNames = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/sh;
+			shellScript = "script=\"${SYSTEM_DEVELOPER_DIR}/ProjectBuilder Extras/Kernel Extension Support/KEXTPreprocess\";\nif [ -x \"$script\" ]; then\n    . \"$script\"\nfi";
+		};
+		FAE9AFEC03A19CE304CA2CDC = {
+			buildActionMask = 2147483647;
+			files = (
+				F68A778903A1B48B01DF2EE2,
+				F68A778B03A1B48B01DF2EE2,
+				F68A778D03A1B48B01DF2EE2,
+				F68A778F03A1B48B01DF2EE2,
+				F68A779003A1B48B01DF2EE2,
+			);
+			isa = PBXHeadersBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		FAE9AFED03A19CE304CA2CDC = {
+			buildActionMask = 2147483647;
+			files = (
+				F68A778703A1B48B01DF2EE2,
+				F68A778803A1B48B01DF2EE2,
+				F68A778A03A1B48B01DF2EE2,
+				F68A778C03A1B48B01DF2EE2,
+				F68A778E03A1B48B01DF2EE2,
+			);
+			isa = PBXSourcesBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		FAE9AFEE03A19CE304CA2CDC = {
+			buildActionMask = 2147483647;
+			files = (
+			);
+			isa = PBXResourcesBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		FAE9AFEF03A19CE304CA2CDC = {
+			buildActionMask = 2147483647;
+			files = (
+			);
+			isa = PBXFrameworksBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		FAE9AFF003A19CE304CA2CDC = {
+			buildActionMask = 2147483647;
+			files = (
+			);
+			generatedFileNames = (
+			);
+			isa = PBXShellScriptBuildPhase;
+			neededFileNames = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/sh;
+			shellScript = "script=\"${SYSTEM_DEVELOPER_DIR}/ProjectBuilder Extras/Kernel Extension Support/KEXTPostprocess\";\nif [ -x \"$script\" ]; then\n    . \"$script\"\nfi";
+		};
+		FAE9AFF103A19CE304CA2CDC = {
+			buildPhases = (
+				FAE9AFEB03A19CE304CA2CDC,
+				FAE9AFEC03A19CE304CA2CDC,
+				FAE9AFED03A19CE304CA2CDC,
+				FAE9AFEE03A19CE304CA2CDC,
+				FAE9AFEF03A19CE304CA2CDC,
+				FAE9AFF003A19CE304CA2CDC,
+			);
+			buildSettings = {
+				FRAMEWORK_SEARCH_PATHS = "";
+				HEADER_SEARCH_PATHS = "";
+				KERNEL_MODULE = YES;
+				LIBRARY_SEARCH_PATHS = "";
+				MODULE_NAME = com.apple.nke.lttp;
+				MODULE_START = l2tp_domain_module_start;
+				MODULE_STOP = l2tp_domain_module_stop;
+				MODULE_VERSION = 1.3;
+				OTHER_CFLAGS = "-I/System/Library/Frameworks/System.framework/PrivateHeaders";
+				OTHER_LDFLAGS = "";
+				OTHER_REZFLAGS = "";
+				PRODUCT_NAME = L2TP;
+				SECTORDER_FLAGS = "";
+				WARNING_CFLAGS = "-Wmost -Wno-four-char-constants -Wno-unknown-pragmas";
+				WRAPPER_EXTENSION = kext;
+			};
+			dependencies = (
+			);
+			isa = PBXBundleTarget;
+			name = "L2TP (Kernel Extension)";
+			productInstallPath = "$(USER_LIBRARY_DIR)/Bundles";
+			productName = "L2TP (Kernel Extension)";
+			productReference = FAE9AFF203A19CE304CA2CDC;
+			productSettingsXML = "<?xml version=\"1.0\" encoding=\"UTF-8\"?>
+<!DOCTYPE plist PUBLIC \"-//Apple Computer//DTD PLIST 1.0//EN\" \"http://www.apple.com/DTDs/PropertyList-1.0.dtd\">
+<plist version=\"1.0\">
+<dict>
+	<key>CFBundleDevelopmentRegion</key>
+	<string>English</string>
+	<key>CFBundleExecutable</key>
+	<string>L2TP</string>
+	<key>CFBundleGetInfoString</key>
+	<string>L2TP Driver</string>
+	<key>CFBundleIconFile</key>
+	<string></string>
+	<key>CFBundleIdentifier</key>
+	<string>com.apple.nke.l2tp</string>
+	<key>CFBundleInfoDictionaryVersion</key>
+	<string>6.0</string>
+	<key>CFBundleName</key>
+	<string>L2TP</string>
+	<key>CFBundlePackageType</key>
+	<string>KEXT</string>
+	<key>CFBundleShortVersionString</key>
+	<string>1.3</string>
+	<key>CFBundleSignature</key>
+	<string>????</string>
+	<key>CFBundleVersion</key>
+	<string>1.3</string>
+	<key>IOKitPersonalities</key>
+	<dict/>
+	<key>OSBundleLibraries</key>
+	<dict>
+		<key>com.apple.kernel.bsd</key>
+		<string>6.0</string>
+		<key>com.apple.nke.ppp</key>
+		<string>1.3</string>
+	</dict>
+</dict>
+</plist>
+";
+		};
+		FAE9AFF203A19CE304CA2CDC = {
+			isa = PBXBundleReference;
+			path = L2TP.kext;
+			refType = 3;
+		};
+		FAE9AFF303A19CE604CA2CDC = {
+			isa = PBXTargetDependency;
+			target = FAE9AFF103A19CE304CA2CDC;
+		};
 		FAF1E54302620BA204CA2CDC = {
 			children = (
 				FAF1E54402620BA204CA2CDC,
@@ -3972,6 +6356,7 @@
 			refType = 4;
 		};
 		FAF1E54402620BA204CA2CDC = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			name = English;
 			path = "Drivers/PPTP/PPTP-plugin/English.lproj/InfoPlist.strings";
@@ -3993,6 +6378,7 @@
 			refType = 4;
 		};
 		FAF1E54702620BC204CA2CDC = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			name = English;
 			path = "Drivers/PPTP/PPTP-plugin/English.lproj/Localizable.strings";

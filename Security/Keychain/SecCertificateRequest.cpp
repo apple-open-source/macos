@@ -25,7 +25,7 @@ SecCertificateRequestGetTypeID(void)
 {
 	BEGIN_SECAPI
 
-	return gTypes().certificateRequest.typeId;
+	return gTypes().CertificateRequest.typeID;
 
 	END_SECAPI1(_kCFRuntimeNotATypeID)
 }

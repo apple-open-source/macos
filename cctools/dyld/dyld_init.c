@@ -3,8 +3,6 @@
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
- * Copyright (c) 1999-2003 Apple Computer, Inc.  All Rights Reserved.
- * 
  * This file contains Original Code and/or Modifications of Original Code
  * as defined in and that are subject to the Apple Public Source License
  * Version 2.0 (the 'License'). You may not use this file except in
@@ -125,6 +123,7 @@ char *dyld_image_suffix = NULL;
 char *dyld_insert_libraries = NULL;
 
 enum bool dyld_print_libraries = FALSE;
+static enum bool dyld_print_libraries_post_launch = FALSE;
 enum bool dyld_trace = FALSE;
 enum bool dyld_mem_protect = FALSE;
 enum bool dyld_ebadexec_only = FALSE;
@@ -154,10 +153,30 @@ enum bool profile_server = FALSE;
 enum bool prebinding = TRUE;
 enum bool launched = FALSE;
 enum bool executable_prebound = FALSE;
+/*
+ * This is TRUE when all libraries currently loaded are two-level, prebound,
+ * and and all of their modules are bound.  It will get set to TRUE in 
+ * set_all_twolevel_modules_prebound() right before the program is launched.
+ * It may then be cleared if a library is later dynamically loaded that is
+ * not two-level, prebound and all modules bound.
+ */
+enum bool all_twolevel_modules_prebound = FALSE;
+
+/*
+ * When loading libraries after the program is launched if we will try to use
+ * the prebinding if all the previously loaded libraries were two-level and all
+ * the modules were prebound if the library being loaded is also prebound and
+ * two-level.  When that is happening trying_to_use_prebinding_post_launch is
+ * set to true.  And the prebinding for the libraries is not touched until
+ * all the dependent libraries are loaded. Once they are loaded then ...
+ */
+enum bool trying_to_use_prebinding_post_launch = FALSE;
 
 static struct segment_command *data_seg;
+#if 0 /* disable until NXProtectZone() works again */
 static void get_data_segment(
     void);
+#endif
 
 /*
  * The variable executables_path is an absolute path of the executable being
@@ -230,7 +249,8 @@ char **envp)
 #if defined(__GONZO_BUNSEN_BEAKER__) && defined(__ppc__)
 	if(host_basic_info.cpu_type == CPU_TYPE_POWERPC &&
 	   (host_basic_info.cpu_subtype == CPU_SUBTYPE_POWERPC_7400 ||
-	    host_basic_info.cpu_subtype == CPU_SUBTYPE_POWERPC_7450))
+	    host_basic_info.cpu_subtype == CPU_SUBTYPE_POWERPC_7450 ||
+	    host_basic_info.cpu_subtype == CPU_SUBTYPE_POWERPC_970))
 	    processor_has_vec = TRUE;
 #endif
 
@@ -327,7 +347,7 @@ char **envp)
 	}
 	if(prebinding == FALSE){
 	    /*
-	     * The program was not fully prebound but it we are not forcing
+	     * The program was not fully prebound but if we are not forcing
 	     * flat namespace semantics we can still use any sub trees of
 	     * libraries that are all two-level namespace and prebound.
 	     */
@@ -337,7 +357,7 @@ char **envp)
 	    /*
 	     * First undo any images that were prebound.
 	     */
-	    undo_prebound_images();
+	    undo_prebound_images(FALSE);
 
 	    /*
 	     * Build the initial list of non-lazy symbol references based on the
@@ -350,7 +370,7 @@ char **envp)
 	    /*
 	     * With the undefined list set up link in the needed modules.
 	     */
-	    link_in_need_modules(FALSE, FALSE);
+	    link_in_need_modules(FALSE, FALSE, NULL);
 	}
 	else{
 	    if(dyld_prebind_debug != 0){
@@ -361,6 +381,12 @@ char **envp)
 		    print("dyld: %s: prebinding enabled\n", argv[0]);
 	    }
 	}
+	/*
+	 * Now with the program about to be launched set
+	 * all_twolevel_modules_prebound to TRUE if all libraries are two-level,
+	 * prebound and all modules in them are linked.
+	 */
+	set_all_twolevel_modules_prebound();
 	launched = TRUE;
 
 	/*
@@ -372,6 +398,9 @@ char **envp)
 		"program not started)", argv[0]);
 	    link_edit_error(DYLD_FILE_ACCESS, EBADEXEC, argv[0]);
 	}
+	
+	if(dyld_print_libraries_post_launch == TRUE)
+	    dyld_print_libraries = TRUE;
 
 	/* release lock for dyld data structures */
 	release_lock();
@@ -518,10 +547,15 @@ char *envp[])
 		                sizeof("DYLD_PRINT_LIBRARIES=") - 1) == 0){
 		    dyld_print_libraries = TRUE;
 		}
+		else if(strncmp(*p, "DYLD_PRINT_LIBRARIES_POST_LAUNCH=",
+			sizeof("DYLD_PRINT_LIBRARIES_POST_LAUNCH=") - 1) == 0){
+		    dyld_print_libraries_post_launch = TRUE;
+		}
 		else if(strncmp(*p, "DYLD_TRACE=",
 		                sizeof("DYLD_TRACE=") - 1) == 0){
 		    dyld_trace = TRUE;
 		}
+#if 0 /* disable until NXProtectZone() works again */
 		else if(strncmp(*p, "DYLD_MEM_PROTECT=",
 		                sizeof("DYLD_MEM_PROTECT=") - 1) == 0){
 		    dyld_mem_protect = TRUE;
@@ -531,6 +565,7 @@ char *envp[])
 		    mem_prot_debug_lock = *debug_thread_lock;
 		    debug_thread_lock = &mem_prot_debug_lock;
 		}
+#endif
 		else if(strncmp(*p, "DYLD_EBADEXEC_ONLY=",
 		                sizeof("DYLD_EBADEXEC_ONLY=") - 1) == 0){
 		    dyld_ebadexec_only = TRUE;
@@ -675,6 +710,7 @@ void)
 }
 #endif /* DYLD_PROFILING */
 
+#if 0 /* disable until NXProtectZone() works again */
 /*
  * get_data_segment() sets data_seg to point at the data segment command for the
  * dynamic linker.
@@ -700,6 +736,7 @@ void)
 	}
 	data_seg = NULL;
 }
+#endif
 
 void
 protect_data_segment(
@@ -728,3 +765,39 @@ void)
 	    link_edit_error(DYLD_MACH_RESOURCE, r, "dyld");
 	}
 }
+
+/*
+ * To avoid linking in libm.  These variables are defined as they are used in
+ * pthread_init() to put in place a fast sqrt().
+ */
+size_t hw_sqrt_len = 0;
+
+double
+sqrt(double x)
+{
+	return(0.0);
+}
+double
+hw_sqrt(double x)
+{
+	return(0.0);
+}
+
+/*
+ * More stubs to avoid linking in libm.  This works as along as we don't use
+ * long doubles.
+ */
+#ifdef __ppc__
+long
+__fpclassifyd(double x) /* ppc doesn't support long doubles */
+{
+	return(0);
+}
+#endif /* __ppc__ */
+#ifdef __i386__
+long
+__fpclassify(long double x)
+{
+	return(0);
+}
+#endif /* __i386__ */

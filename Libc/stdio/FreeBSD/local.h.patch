@@ -1,0 +1,11 @@
+--- local.h.orig	Fri Oct 25 00:01:56 2002
++++ local.h	Sat May  3 14:38:49 2003
+@@ -130,7 +130,7 @@
+ 
+ #define	INITEXTRA(fp) { \
+ 	(fp)->_extra->_up = NULL; \
+-	(fp)->_extra->fl_mutex = PTHREAD_MUTEX_INITIALIZER; \
++	(fp)->_extra->fl_mutex = (pthread_mutex_t)PTHREAD_MUTEX_INITIALIZER; \
+ 	(fp)->_extra->fl_owner = NULL; \
+ 	(fp)->_extra->fl_count = 0; \
+ 	(fp)->_extra->orientation = 0; \

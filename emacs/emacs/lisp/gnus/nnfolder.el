@@ -1,5 +1,5 @@
 ;;; nnfolder.el --- mail folder access for Gnus
-;; Copyright (C) 1995, 1996, 1997, 1998, 1999, 2000, 2001
+;; Copyright (C) 1995, 1996, 1997, 1998, 1999, 2000, 2001, 2002
 ;;        Free Software Foundation, Inc.
 
 ;; Author: Scott Byer <byer@mv.us.adobe.com>
@@ -99,7 +99,7 @@ message, a huge time saver for large mailboxes.")
 (defvoo nnfolder-file-coding-system mm-text-coding-system)
 (defvoo nnfolder-file-coding-system-for-write nnheader-file-coding-system
   "Coding system for save nnfolder file.
-If NIL, NNFOLDER-FILE-CODING-SYSTEM is used.")
+If nil, `nnfolder-file-coding-system' is used.")
 
 
 

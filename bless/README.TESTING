@@ -1,0 +1,43 @@
+Usage:
+	bless with no arguments
+	bless with -h
+
+Info mode:
+	bless -version should print "6.0", same as "what /usr/sbin/bless"
+	bless -info implies bless -info /
+	bless -info / works.
+	bless -info -bootBlocks and -info / -bootBlocks work
+
+	on a disk image:
+	bless -info /Volumes/hfs (should be unbless)
+	with -bootBlocks (should not print anything
+
+	plist:
+	bless -info / -plist
+	same on disk image
+
+	add UUID
+	hfs.util -s disk1
+	hfs.util  -k disk1; echo
+	bless -info concurrs
+
+FOlder mode:
+	bless -folder /mnt -verbose
+	bless -info /mnt
+
+	bless -folder /mnt -verbose -bootBlockFile /usr/share/misc/bootblockdata
+	bless -info /mnt -bootBlocks
+
+	bless -folder9 /mnt -verbose
+	bless -info /mnt
+
+	bless -folder /mnt -bootinfo /usr/standalone/ppc/bootx.bootinfo  -verbose
+	 /Developer/Tools/GetFileInfo  /mnt/BootX 
+
+	bless -folder /mnt -label foo -verbose 
+	/Developer/Tools/GetFileInfo  /mnt/Volume\ Name\ Icon
+	(invis)
+
+	bless -folder /mnt -openfolder /mnt -verbose
+	bless -info /mnt
+

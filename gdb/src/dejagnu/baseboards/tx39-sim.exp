@@ -1,0 +1,3 @@
+# This file is unnecessary, but we'll keep it for now.
+# We're the same as the standard MIPS simulator.
+load_base_board_description "mips-sim";

@@ -1,4 +1,4 @@
-This is automake.info, produced by makeinfo version 4.1 from
+This is automake.info, produced by makeinfo version 4.2 from
 automake.texi.
 
 INFO-DIR-SECTION GNU programming tools
@@ -11,7 +11,7 @@ START-INFO-DIR-ENTRY
 * aclocal: (automake)Invoking aclocal.          Generating aclocal.m4
 END-INFO-DIR-ENTRY
 
-   This file documents GNU automake 1.6.1
+   This file documents GNU automake 1.6.3
 
    Copyright 1995, 1996, 1997, 1998, 1999, 2000, 2001, 2002 Free
 Software Foundation, Inc.
@@ -38,7 +38,7 @@ GNU Automake
 
    This file documents the GNU Automake package.  Automake is a program
 which creates GNU standards-compliant Makefiles from template files.
-This edition documents version 1.6.1.
+This edition documents version 1.6.3.
 
 * Menu:
 
@@ -950,8 +950,7 @@ their effects are:
      This macro adds a `--enable-maintainer-mode' option to
      `configure'.  If this is used, `automake' will cause
      `maintainer-only' rules to be turned off by default in the
-     generated `Makefile.in's.  This macro is disallowed in `Gnits'
-     mode (*note Gnits::).  This macro defines the `MAINTAINER_MODE'
+     generated `Makefile.in's. This macro defines the `MAINTAINER_MODE'
      conditional, which you can use in your own `Makefile.am'.
 
 `AC_SUBST'

@@ -433,14 +433,14 @@ bool FTPProtocol::FTPConnection::validate()
 //
 void FTPProtocol::FTPDataConnection::start(Sink &sink)
 {
-    debug("ftp", "data connection starts download");
+    secdebug("ftp", "data connection starts download");
     setup();
     mode(sink);
 }
 
 void FTPProtocol::FTPDataConnection::start(Source &source)
 {
-    debug("ftp", "data connection starts upload");
+    secdebug("ftp", "data connection starts upload");
     setup();
     mode(source);
 }
@@ -461,7 +461,7 @@ int FTPProtocol::FTPDataConnection::fileDesc() const
 void FTPProtocol::FTPDataConnection::transit(Event event, char *input, size_t length)
 {
     assert(event == autoReadDone || event == autoWriteDone || event == endOfInput);
-    debug("ftp", "data transfer complete");
+    secdebug("ftp", "data transfer complete");
     close();		// close data path
     finish();		// proceed with state protocol
 }
@@ -496,9 +496,9 @@ void FTPProtocol::FTPDataConnection::finish()
     } else if (mTransferDone && mConnectionDone) {
         connection.finish();
     } else if (mConnectionDone) {
-        debug("ftp", "holding for data transfer completion");
+        secdebug("ftp", "holding for data transfer completion");
     } else {
-        debug("ftp", "holding for control message");
+        secdebug("ftp", "holding for control message");
     }
 }
 

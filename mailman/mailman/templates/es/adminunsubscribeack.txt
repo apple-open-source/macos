@@ -1,0 +1,3 @@
+%(member)s ha anulado su subscripción de %(listname)s.
+
+

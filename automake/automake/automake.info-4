@@ -1,4 +1,4 @@
-This is automake.info, produced by makeinfo version 4.1 from
+This is automake.info, produced by makeinfo version 4.2 from
 automake.texi.
 
 INFO-DIR-SECTION GNU programming tools
@@ -11,7 +11,7 @@ START-INFO-DIR-ENTRY
 * aclocal: (automake)Invoking aclocal.          Generating aclocal.m4
 END-INFO-DIR-ENTRY
 
-   This file documents GNU automake 1.6.1
+   This file documents GNU automake 1.6.3
 
    Copyright 1995, 1996, 1997, 1998, 1999, 2000, 2001, 2002 Free
 Software Foundation, Inc.
@@ -29,6 +29,53 @@ permission notice identical to this one.
 manual into another language, under the above conditions for modified
 versions, except that this permission notice may be stated in a
 translation approved by the Foundation.
+
+
+File: automake.info,  Node: Cygnus,  Next: Extending,  Prev: Gnits,  Up: Top
+
+The effect of `--cygnus'
+************************
+
+   Some packages, notably GNU GCC and GNU gdb, have a build environment
+originally written at Cygnus Support (subsequently renamed Cygnus
+Solutions, and then later purchased by Red Hat).  Packages with this
+ancestry are sometimes referred to as "Cygnus" trees.
+
+   A Cygnus tree has slightly different rules for how a `Makefile.in'
+is to be constructed.  Passing `--cygnus' to `automake' will cause any
+generated `Makefile.in' to comply with Cygnus rules.
+
+   Here are the precise effects of `--cygnus':
+
+   * Info files are always created in the build directory, and not in
+     the source directory.
+
+   * `texinfo.tex' is not required if a Texinfo source file is
+     specified.  The assumption is that the file will be supplied, but
+     in a place that Automake cannot find.  This assumption is an
+     artifact of how Cygnus packages are typically bundled.
+
+   * `make dist' is not supported, and the rules for it are not
+     generated.  Cygnus-style trees use their own distribution
+     mechanism.
+
+   * Certain tools will be searched for in the build tree as well as in
+     the user's `PATH'.  These tools are `runtest', `expect',
+     `makeinfo' and `texi2dvi'.
+
+   * `--foreign' is implied.
+
+   * The options `no-installinfo' and `no-dependencies' are implied.
+
+   * The macros `AM_MAINTAINER_MODE' and `AM_CYGWIN32' are required.
+
+   * The `check' target doesn't depend on `all'.
+
+   GNU maintainers are advised to use `gnu' strictness in preference to
+the special Cygnus mode.  Some day, perhaps, the differences between
+Cygnus trees and GNU trees will disappear (for instance, as GCC is made
+more standards compliant).  At that time the special Cygnus mode will be
+removed.
 
 
 File: automake.info,  Node: Extending,  Next: Distributing,  Prev: Cygnus,  Up: Top
@@ -95,7 +142,7 @@ Automake API versioning
 
    New Automake releases usually include bug fixes and new features.
 Unfortunately they may also introduce new bugs and incompatibilities.
-This make four reasons why a package may require a particular Automake
+This makes four reasons why a package may require a particular Automake
 version.
 
    Things get worse when maintaining a large tree of packages, each one
@@ -160,10 +207,10 @@ Macro and Variable Index
 
 * Menu:
 
-* _LDADD:                                A Program.
-* _LDFLAGS:                              A Program.
+* _LDADD:                                Linking.
+* _LDFLAGS:                              Linking.
 * _LIBADD:                               A Library.
-* _SOURCES:                              A Program.
+* _SOURCES:                              Program Sources.
 * _TEXINFOS:                             Texinfo.
 * AC_CANONICAL_HOST:                     Optional.
 * AC_CANONICAL_SYSTEM:                   Optional.
@@ -216,7 +263,7 @@ Macro and Variable Index
 * AM_INIT_AUTOMAKE:                      Requirements.
 * AM_JAVACFLAGS:                         Java.
 * AM_LDFLAGS <1>:                        Program variables.
-* AM_LDFLAGS:                            A Program.
+* AM_LDFLAGS:                            Linking.
 * AM_MAINTAINER_MODE:                    Optional.
 * AM_MAKEINFOFLAGS:                      Texinfo.
 * AM_PATH_LISPDIR:                       Public macros.
@@ -227,7 +274,7 @@ Macro and Variable Index
 * AUTOMAKE_OPTIONS <1>:                  Options.
 * AUTOMAKE_OPTIONS <2>:                  Dependencies.
 * AUTOMAKE_OPTIONS:                      ANSI.
-* bin_PROGRAMS:                          A Program.
+* bin_PROGRAMS:                          Program Sources.
 * bin_SCRIPTS:                           Scripts.
 * build_alias:                           Optional.
 * BUILT_SOURCES:                         Sources.
@@ -236,7 +283,7 @@ Macro and Variable Index
 * CCASFLAGS:                             Assembly Support.
 * CFLAGS:                                Program variables.
 * check_LTLIBRARIES:                     A Shared Library.
-* check_PROGRAMS:                        A Program.
+* check_PROGRAMS:                        Program Sources.
 * check_SCRIPTS:                         Scripts.
 * CLASSPATH_ENV:                         Java.
 * CLEANFILES:                            Clean.
@@ -262,7 +309,7 @@ Macro and Variable Index
 * ETAGSFLAGS:                            Tags.
 * EXPECT:                                Tests.
 * EXTRA_DIST:                            Dist.
-* EXTRA_PROGRAMS:                        A Program.
+* EXTRA_PROGRAMS:                        Conditional Programs.
 * F77:                                   Fortran 77 Support.
 * F77COMPILE:                            Fortran 77 Support.
 * FFLAGS:                                Fortran 77 Support.
@@ -280,12 +327,12 @@ Macro and Variable Index
 * JAVAC:                                 Java.
 * JAVACFLAGS:                            Java.
 * JAVAROOT:                              Java.
-* LDADD:                                 A Program.
+* LDADD:                                 Linking.
 * LDFLAGS:                               Program variables.
 * lib_LIBRARIES:                         A Library.
 * lib_LTLIBRARIES:                       A Shared Library.
 * LIBADD:                                A Library.
-* libexec_PROGRAMS:                      A Program.
+* libexec_PROGRAMS:                      Program Sources.
 * libexec_SCRIPTS:                       Scripts.
 * LIBOBJS:                               Optional.
 * LIBRARIES:                             Uniform.
@@ -309,7 +356,7 @@ Macro and Variable Index
 * noinst_LIBRARIES:                      A Library.
 * noinst_LISP:                           Emacs Lisp.
 * noinst_LTLIBRARIES:                    A Shared Library.
-* noinst_PROGRAMS:                       A Program.
+* noinst_PROGRAMS:                       Program Sources.
 * noinst_SCRIPTS:                        Scripts.
 * oldinclude_HEADERS:                    Headers.
 * PACKAGE:                               Dist.
@@ -322,7 +369,7 @@ Macro and Variable Index
 * pkgincludedir:                         Uniform.
 * pkglib_LIBRARIES:                      A Library.
 * pkglib_LTLIBRARIES:                    A Shared Library.
-* pkglib_PROGRAMS:                       A Program.
+* pkglib_PROGRAMS:                       Program Sources.
 * pkglibdir:                             Uniform.
 * pkgpyexecdir:                          Python.
 * pkgpythondir:                          Python.
@@ -339,12 +386,12 @@ Macro and Variable Index
 * RUNTEST:                               Tests.
 * RUNTESTDEFAULTFLAGS:                   Tests.
 * RUNTESTFLAGS:                          Tests.
-* sbin_PROGRAMS:                         A Program.
+* sbin_PROGRAMS:                         Program Sources.
 * sbin_SCRIPTS:                          Scripts.
 * SCRIPTS <1>:                           Scripts.
 * SCRIPTS:                               Uniform.
 * sharedstate_DATA:                      Data.
-* SOURCES:                               A Program.
+* SOURCES:                               Program Sources.
 * SUBDIRS:                               Top level.
 * SUFFIXES:                              Suffixes.
 * sysconf_DATA:                          Data.
@@ -413,10 +460,10 @@ General Index
 * @LIBOBJS@, special handling:           LIBOBJS.
 * @LTLIBOBJS@, special handling:         A Shared Library.
 * _DATA primary, defined:                Data.
-* _DEPENDENCIES, defined:                A Program.
+* _DEPENDENCIES, defined:                Linking.
 * _HEADERS primary, defined:             Headers.
 * _JAVA primary, defined:                Java.
-* _LDFLAGS, defined:                     A Program.
+* _LDFLAGS, defined:                     Linking.
 * _LIBADD primary, defined:              A Library.
 * _LIBRARIES primary, defined:           A Library.
 * _LISP primary, defined:                Emacs Lisp.
@@ -425,8 +472,8 @@ General Index
 * _PROGRAMS primary variable:            Uniform.
 * _PYTHON primary, defined:              Python.
 * _SCRIPTS primary, defined:             Scripts.
-* _SOURCES and header files:             A Program.
-* _SOURCES primary, defined:             A Program.
+* _SOURCES and header files:             Program Sources.
+* _SOURCES primary, defined:             Program Sources.
 * _TEXINFOS primary, defined:            Texinfo.
 * AC_OUTPUT, scanning:                   Requirements.
 * acinclude.m4, defined:                 Complete.
@@ -517,8 +564,8 @@ General Index
 * Extension, executable:                 EXEEXT.
 * Extra files distributed with Automake: Invoking Automake.
 * EXTRA_, prepending:                    Uniform.
-* EXTRA_prog_SOURCES, defined:           A Program.
-* EXTRA_PROGRAMS, defined <1>:           A Program.
+* EXTRA_prog_SOURCES, defined:           Conditional Sources.
+* EXTRA_PROGRAMS, defined <1>:           Conditional Programs.
 * EXTRA_PROGRAMS, defined:               Uniform.
 * Files distributed with Automake:       Invoking Automake.
 * First line of Makefile.am:             General Operation.
@@ -535,7 +582,7 @@ General Index
 * GNU make extensions:                   General Operation.
 * GNU Makefile standards:                Introduction.
 * gnu strictness:                        Strictness.
-* Header files in _SOURCES:              A Program.
+* Header files in _SOURCES:              Program Sources.
 * HEADERS primary, defined:              Headers.
 * HEADERS, installation directories:     Headers.
 * Hello example:                         Hello.
@@ -666,12 +713,12 @@ General Index
 * Primary variable, PROGRAMS:            Uniform.
 * Primary variable, PYTHON:              Python.
 * Primary variable, SCRIPTS:             Scripts.
-* Primary variable, SOURCES:             A Program.
+* Primary variable, SOURCES:             Program Sources.
 * Primary variable, TEXINFOS:            Texinfo.
-* prog_LDADD, defined:                   A Program.
+* prog_LDADD, defined:                   Linking.
 * PROGRAMS primary variable:             Uniform.
 * Programs, auxiliary:                   Auxiliary Programs.
-* PROGRAMS, bindir:                      A Program.
+* PROGRAMS, bindir:                      Program Sources.
 * PYTHON primary, defined:               Python.
 * Ratfor programs:                       Preprocessing Fortran 77.
 * README-alpha:                          Gnits.
@@ -689,7 +736,8 @@ General Index
 * SCRIPTS, installation directories:     Scripts.
 * Selecting the linker automatically:    How the Linker is Chosen.
 * Shared libraries, support for:         A Shared Library.
-* SOURCES primary, defined:              A Program.
+* site.exp:                              Tests.
+* SOURCES primary, defined:              Program Sources.
 * Special Automake comment:              General Operation.
 * Strictness, command line:              Invoking Automake.
 * Strictness, defined:                   Strictness.

@@ -1,0 +1,11 @@
+--- setlocale.c.orig	Wed Aug  7 22:51:54 2002
++++ setlocale.c	Sat May  3 14:15:25 2003
+@@ -56,7 +56,7 @@
+ #include "lmessages.h"	/* for __messages_load_locale() */
+ #include "setlocale.h"
+ #include "ldpart.h"
+-#include "../stdtime/timelocal.h" /* for __time_load_locale() */
++#include "timelocal.h" /* for __time_load_locale() */
+ 
+ /*
+  * Category names for getenv()

@@ -2,8 +2,8 @@
 
   class.c -
 
-  $Author: jkh $
-  $Date: 2002/05/27 17:59:43 $
+  $Author: melville $
+  $Date: 2003/05/14 13:58:42 $
   created at: Tue Aug 10 15:05:44 JST 1993
 
   Copyright (C) 1993-2000 Yukihiro Matsumoto
@@ -162,6 +162,9 @@ rb_define_class(name, super)
     ID id;
 
     id = rb_intern(name);
+    if (rb_autoload_defined(id)) {
+	rb_autoload_load(id);
+    }
     if (rb_const_defined(rb_cObject, id)) {
 	klass = rb_const_get(rb_cObject, id);
 	if (TYPE(klass) != T_CLASS) {
@@ -242,6 +245,9 @@ rb_define_module(name)
     ID id;
 
     id = rb_intern(name);
+    if (rb_autoload_defined(id)) {
+	rb_autoload_load(id);
+    }
     if (rb_const_defined(rb_cObject, id)) {
 	module = rb_const_get(rb_cObject, id);
 	if (TYPE(module) == T_MODULE)
@@ -284,6 +290,9 @@ include_class_new(module, super)
     NEWOBJ(klass, struct RClass);
     OBJSETUP(klass, rb_cClass, T_ICLASS);
 
+    if (BUILTIN_TYPE(module) == T_ICLASS) {
+	module = RBASIC(module)->klass;
+    }
     if (!RCLASS(module)->iv_tbl) {
 	RCLASS(module)->iv_tbl = st_init_numtable();
     }
@@ -314,30 +323,33 @@ rb_include_module(klass, module)
     if (NIL_P(module)) return;
     if (klass == module) return;
 
-    switch (TYPE(module)) {
-      case T_MODULE:
-      case T_CLASS:
-      case T_ICLASS:
-	break;
-      default:
+    if (TYPE(module) != T_MODULE) {
 	Check_Type(module, T_MODULE);
     }
 
     c = klass;
     while (module) {
+	int superclass_seen = Qfalse;
+
 	if (RCLASS(klass)->m_tbl == RCLASS(module)->m_tbl)
 	    rb_raise(rb_eArgError, "cyclic include detected");
 	/* ignore if the module included already in superclasses */
 	for (p = RCLASS(klass)->super; p; p = RCLASS(p)->super) {
-	    if (BUILTIN_TYPE(p) == T_ICLASS) {
+	    switch (BUILTIN_TYPE(p)) {
+	      case T_ICLASS:
 		if (RCLASS(p)->m_tbl == RCLASS(module)->m_tbl) {
-		    c = p;
+		    if (!superclass_seen) {
+			c = p;	/* move insertion point */
+		    }
 		    goto skip;
 		}
+		break;
+	      case T_CLASS:
+		superclass_seen = Qtrue;
+		break;
 	    }
 	}
-	RCLASS(c)->super = include_class_new(module, RCLASS(c)->super);
-	c = RCLASS(c)->super;
+	c = RCLASS(c)->super = include_class_new(module, RCLASS(c)->super);
 	changed = 1;
       skip:
 	module = RCLASS(module)->super;
@@ -616,15 +628,17 @@ rb_singleton_class(obj)
 	SPECIAL_SINGLETON(Qnil, rb_cNilClass);
 	SPECIAL_SINGLETON(Qfalse, rb_cFalseClass);
 	SPECIAL_SINGLETON(Qtrue, rb_cTrueClass);
-	rb_bug("unknown immediate %d", obj);
+	rb_bug("unknown immediate %ld", (long)obj);
     }
 
     DEFER_INTS;
-    if (FL_TEST(RBASIC(obj)->klass, FL_SINGLETON)) {
+    if (FL_TEST(RBASIC(obj)->klass, FL_SINGLETON) &&
+       ((BUILTIN_TYPE(obj) != T_CLASS && BUILTIN_TYPE(obj) != T_MODULE) ||
+       rb_iv_get(RBASIC(obj)->klass, "__attached__") == obj)) {
 	klass = RBASIC(obj)->klass;
     }
     else {
-	klass = rb_make_metaclass(obj, RBASIC(obj)->klass);
+	klass = rb_make_metaclass(obj, CLASS_OF(obj));
     }
     if (OBJ_TAINTED(obj)) {
 	OBJ_TAINT(klass);

@@ -1,0 +1,33 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<!-- Tests of the Scheduler services
+$Id: test-default-scheduler-service.xml,v 1.2.4.2 2003/05/21 08:30:19 starksm Exp $
+-->
+
+<server>
+
+   <mbean code="org.jboss.varia.scheduler.Scheduler"
+      name="test:service=Scheduler">
+      <attribute name="StartAtStartup">true</attribute>
+      <attribute name="SchedulableClass">org.jboss.varia.scheduler.example.SchedulableExample</attribute>
+      <attribute name="SchedulableArguments">Schedulabe Test,12345</attribute>
+      <attribute name="SchedulableArgumentTypes">java.lang.String,int</attribute>
+      <attribute name="InitialStartDate">0</attribute>
+      <attribute name="SchedulePeriod">10000</attribute>
+      <attribute name="InitialRepetitions">-1</attribute>
+   </mbean>
+
+   <mbean code="org.jboss.varia.scheduler.example.SchedulableMBeanExample"
+      name="test:name=SchedulableMBeanExample">
+   </mbean>
+   <mbean code="org.jboss.varia.scheduler.Scheduler"
+      name="test:service=Scheduler,name=SchedulableMBeanExample">
+      <attribute name="StartAtStartup">true</attribute>
+      <attribute name="SchedulableMBean">:name=SchedulableMBeanExample</attribute>
+      <attribute name="SchedulableMBeanMethod">hit( NOTIFICATION, DATE, REPETITIONS, SCHEDULER_NAME, java.lang.String )</attribute>
+      <attribute name="InitialStartDate">NOW</attribute>
+      <attribute name="SchedulePeriod">10000</attribute>
+      <attribute name="InitialRepetitions">10</attribute>
+   </mbean>
+
+</server>

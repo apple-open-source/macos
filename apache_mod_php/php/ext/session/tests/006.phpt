@@ -1,10 +1,17 @@
 --TEST--
-References between variables in sessions
+correct instantiation of references between variables in sessions
+--SKIPIF--
+<?php include('skipif.inc'); ?>
+--INI--
+session.use_cookies=0
+session.cache_limiter=
+register_globals=1
+session.serialize_handler=php
 --FILE--
 <?php
-error_reporting(E_ALL & ~E_NOTICE);
-ob_start();
-session_id("test");
+error_reporting(E_ALL);
+
+session_id("abtest");
 session_start();
 
 class a {

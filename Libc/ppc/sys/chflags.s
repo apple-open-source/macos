@@ -25,4 +25,3 @@
 #include "SYS.h"
 
 SYSCALL(chflags, 2)
-	blr

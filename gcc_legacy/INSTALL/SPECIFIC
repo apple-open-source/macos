@@ -1,0 +1,175 @@
+
+              Host/Target specific installation notes for egcs
+                                      
+   _i?86-*-linux*_
+   You will need binutils-2.9.1.0.15 or newer for exception handling to
+   work.
+   
+   _i?86-*-sco3.2v5*_
+   The native SCO assembler that is provided with the OS at no charge is
+   normally required. If, however, you must be able to use the GNU
+   assembler you may configure this package @samp{--with-gnu-as}. You
+   must use a recent version of GNU binutils; version 2.9.1 seems to work
+   well. If you select this option, you will be unable to reliably build
+   COFF images. In general, the "--with-gnu-as" option isn't as well
+   tested as the native assembler.
+   
+   Unlike various prereleases of GCC, that used '-belf' and defaulted to
+   COFF, you must now use the '-melf' and '-mcoff' flags to toggle
+   between the two object file formats. ELF is now the default.
+   
+   Look in gcc/config/i386/sco5.h (search for "messy") for additional
+   OpenServer-specific flags.
+   
+   Systems based on OpenServer before 5.0.4 (uname -X will tell you what
+   you're running) require TLS597 from ftp.sco.com/TLS for C++
+   constructors and destructors to work right.
+   
+   The system linker in (at least) 5.0.4 and 5.0.5 will sometimes do the
+   wrong thing for a construct that egcs will emit for PIC code. This can
+   be seen as execution testsuite failures when using -fPIC on
+   921215-1.c, 931002-1.c, nestfunc-1.c, and gcov-1.c. For 5.0.5, an
+   updated linker that will cure this problem is available at
+   [1]ftp://ftp.sco.com/Supplements/rs505a/.
+   
+   _i?86-*-udk_
+   This target emulates the SCO Universal Development Kit and requires
+   that package be installed. It's very much like the i?86-*-unixware7
+   target but is meant to be used when hosting on a system where UDK
+   isn't the default compiler such as OpenServer 5 or Unixware 2. This
+   target will generate binaries that will run on OpenServer, Unixware 2,
+   or Unixware 7, with the same warnings and caveats as the SCO UDK.
+   
+   You can stage1 with either your native compiler or with UDK. If you
+   don't do a full bootstrap when initially building with your native
+   compiler you will have an utterly unusable pile of bits as your
+   reward.
+   
+   This target is a little tricky to build because we have to distinguish
+   it from the native tools (so it gets headers, startups, and libraries
+   from the right place) while making the tools not think we're actually
+   building a cross compiler. The easiest way to do this is with a
+   configure command like this:
+   
+   CC=/udk/usr/ccs/bin/cc CFLAGS=-O /play/egcs/configure
+   --host=i686-pc-udk --target=i686-pc-udk --exec-prefix=udk-
+   
+   You should follow this with a 'make bootstrap'. After you do a 'make
+   install' you can then access the UDK-targeted EGCS tools by adding
+   'udk-' before the commonly known name. For example, to invoke the C
+   compiler, you would use 'udk-gcc'. They will coexist peacefully with
+   any native-target EGCS tools you may have installed.
+   
+   _hppa*-hp-hpux*_
+   We _highly_ recommend using gas/binutils-2.8 or newer on all hppa
+   platforms; you may encounter a variety of problems when using the HP
+   assembler.
+   
+   _hppa*-hp-hpux9_
+   The HP assembler has major problems on this platform. We've tried to
+   work around the worst of the problems. However, those workarounds may
+   be causing linker crashes in some circumstances; the workarounds also
+   probably prevent shared libraries from working. Use the GNU assembler
+   to avoid these problems.
+   The configuration scripts for egcs will also trigger a bug in the
+   hpux9 shell. To avoid this problem set CONFIG_SHELL to /bin/ksh and
+   SHELL to /bin/ksh in your environment.
+   
+   _hppa*-hp-hpux10_
+   For hpux10.20, we _highly_ recommend you pick up the latest sed patch
+   from HP. HP has two sites which provide patches free of charge.
+   [2]US, Canada, Asia-Pacific, and Latin-America
+   [3]Europe
+   
+   Retrieve patch PHCO_15468.
+   
+   The HP assembler on these systems is much better than the hpux9
+   assembler, but still has some problems. Most notably the assembler
+   inserts timestamps into each object file it creates, causing the
+   3-stage comparison test to fail during a "make bootstrap". You should
+   be able to continue by saying "make all" after getting the failure
+   from "make bootstrap".
+   
+   _m68k-*-nextstep*_
+   
+   You absolutely must use GNU sed and GNU make on this platform.
+   
+   On NEXTSTEP 3.x where x < 3 the build of egcs will abort during stage1
+   with an error message like this:
+_eh
+/usr/tmp/ccbbsZ0U.s:987:Unknown pseudo-op: .section
+/usr/tmp/ccbbsZ0U.s:987:Rest of line ignored. 1st junk character
+valued 95 (_).
+
+   The reason for this is the fact that NeXT's assembler for these
+   versions of the operating system does not support the .section pseudo
+   op that's needed for full C++ exception functionality.
+   
+   As NeXT's assembler is a derived work from GNU as, a free replacement
+   that does can be obtained at
+   [4]ftp://ftp.next.peak.org:/next-ftp/next/apps/devtools/as.3.3.NIHS.s.
+   tar.gz.
+   
+   If you try to build the integrated C++ & C++ runtime libraries on this
+   system you will run into trouble with include files. The way to get
+   around this is to use the following sequence. Note you must have write
+   permission to _prefix_ for this sequence to work.
+   
+   cd _objdir_
+   make all-texinfo all-bison all-byacc all-binutils all-gas all-ld
+   cd gcc
+   make bootstrap
+   make install-headers-tar
+   cd ..
+   make bootstrap3
+   
+   _m68k-sun-sunos4.1.1_
+   It is reported that you may need the GNU assembler on this platform.
+   
+   _mips*-sgi-irix4_
+   _mips*-sgi-irix5_
+   You must use GAS on these platforms, the native assembler can not
+   handle the code for exception handling support on this platform.
+   
+   These systems don't have ranlib, which various components in egcs
+   need; you should be able to avoid this problem by installing GNU
+   binutils, which includes a functional ranlib for this system.
+   
+   You may get the following warning on irix4 platforms, it can be safely
+   ignored.
+    warning: foo.o does not have gp tables for all its sections.
+
+   _mips*-sgi-irix6_
+   You must not use GAS on irix6 platforms; doing so will only cause
+   problems.
+   
+   These systems don't have ranlib, which various components in egcs
+   need; you should be able to avoid this problem by making a dummy
+   script called ranlib which just exits with zero status and placing it
+   in your path.
+   
+   _rs6000-ibm-aix*_
+   _powerpc-ibm-aix*_
+   At least one person as reported problems with older versions of
+   gnu-make on this platform. make-3.76 is reported to work correctly.
+   
+   _powerpc-*-linux-gnu*_
+   You will need [5]binutils-2.8.1.0.23 for a working egcs. It is
+   strongly recommended to recompile binutils with egcs if you initially
+   built it with gcc-2.7.2.*.
+   
+   _sparc-unkonwn-linux-gnulibc1_
+   It has been reported that you might need [6]binutils-2.8.1.0.23 for
+   this platform too.
+     _________________________________________________________________
+   
+   _Last modified on January 21, 1999._
+
+References
+
+   1. ftp://ftp.sco.com/Supplements/rs505a/
+   2. http://us-support.external.hp.com/
+   3. http://europe-support.external.hp.com/
+   4. ftp://ftp.next.peak.org/next-ftp/next/apps/devtools/as.3.3.NIHS.s.tar.gz
+   5. ftp://ftp.yggdrasil.com/private/hjl
+   6. ftp://ftp.yggdrasil.com/private/hjl

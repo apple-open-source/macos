@@ -1,5 +1,5 @@
 ##
-## $Id: Makefile,v 1.12 2002/05/15 03:59:15 bbraun Exp $
+## $Id: Makefile,v 1.13 2003/08/10 19:39:04 rbraun Exp $
 ##
 
 ## Note, ideally I would prefer it if this top level makefile did
@@ -25,7 +25,7 @@ all: $(THINGSTOMAKE)
 
 real-giantlibpam:
     ifeq ($(USESONAME),yes)
-	$(LD_L) $(SOSWITCH) /usr/lib/libpam.$(MAJOR_REL).$(MINOR_REL).$(DYNTYPE) -o libpam/libpam.$(DYNTYPE) libpam/libpam.a libpamc/libpamc.a libpam_misc/libpam_misc.a
+	$(LD_L) $(SOSWITCH) /usr/lib/libpam.$(MAJOR_REL).$(DYNTYPE) -o libpam/libpam.$(DYNTYPE) libpam/libpam.a libpamc/libpamc.a libpam_misc/libpam_misc.a
     else
 	$(LD_L) -o libpam/libpam.$(DYNTYPE) libpam/libpam.a libpamc/libpamc.a libpam_misc/libpam_misc.a
     endif

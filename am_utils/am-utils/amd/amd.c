@@ -37,7 +37,7 @@
  * SUCH DAMAGE.
  *
  *
- * $Id: amd.c,v 1.2 2002/05/15 01:29:58 jkh Exp $
+ * $Id: amd.c,v 1.4 2003/07/08 23:45:15 rbraun Exp $
  *
  */
 
@@ -68,8 +68,23 @@ struct amu_global_options gopt;	/* where global options are stored */
 char pid_fsname[16 + MAXHOSTNAMELEN];	/* "kiska.southseas.nz:(pid%d)" */
 char *hostdomain = "unknown.domain";
 char hostd[2 * MAXHOSTNAMELEN + 1]; /* Host+domain */
+#ifdef __APPLE__
+#ifdef __BIG_ENDIAN__
+char *endian = "big";
+#endif
+#ifdef __LITTLE_ENDIAN__
+char *endian = "little";
+#endif
+#ifdef __i386__
+char *cpu = "i386";
+#endif
+#ifdef __ppc__
+char *cpu = "powerpc";
+#endif
+#else
 char *endian = ARCH_ENDIAN;	/* Big or Little endian */
 char *cpu = HOST_CPU;		/* CPU type */
+#endif
 char *PrimNetName;		/* name of primary network */
 char *PrimNetNum;		/* number of primary network */
 
@@ -133,10 +148,8 @@ sighup(int sig)
   signal(sig, sighup);
 #endif /* REINSTALL_SIGNAL_HANDLER */
 
-#ifdef DEBUG
   if (sig != SIGHUP)
     dlog("spurious call to sighup");
-#endif /* DEBUG */
   /*
    * Force a reload by zero'ing the timer
    */
@@ -148,7 +161,7 @@ sighup(int sig)
 static RETSIGTYPE
 parent_exit(int sig)
 {
-  exit(0);
+  _exit(0);
 }
 
 
@@ -581,14 +594,14 @@ main(int argc, char *argv[])
   error = mount_automounter(ppid);
   if (error && ppid)
     kill(ppid, SIGALRM);
-  going_down(error);
 
 #ifdef HAVE_FS_AUTOFS
-  if (amd_use_autofs) {
-    plog(XLOG_INFO, "Unregistering autofs service listener");
+  /* XXX this should be part of going_down(), but I can't move it there because it would be calling non-library code from the library... ugh */
+  if (amd_use_autofs)
     destroy_autofs_service();
-  }
 #endif /* HAVE_FS_AUTOFS */
+
+  going_down(error);
 
   abort();
   return 1; /* should never get here */

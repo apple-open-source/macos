@@ -165,7 +165,7 @@ protected:
 	
 	static const UInt32 kDefaultBusyTimeoutValue	= 0x0000000F;
 	static const UInt64 kMaxFireWireLUN				= 0xFFFF;
-	static const UInt32 kMaxFireWirePayload			= 2048;
+	static const UInt32 kMaxFireWirePayload			= 4096;
 	static const UInt32 kMaxLoginRetryCount			= 8;
 	static const UInt32 kMaxReconnectCount			= 128;
 	static const UInt32 kCSRModelInfoKey			= 0x17;
@@ -354,15 +354,13 @@ public:
 
 	/*! 
 		@function start
-		@abstract During an IOService instantiation, the start method is called when the
-		IOService has been selected to run on the provider.
 		@discussion See IOService for discussion.
 		@result Return true if the start was successful, false otherwise ( which will
 		cause the instance to be detached and usually freed ).
 	*/
 
 	virtual bool start ( IOService * provider );
-
+	
 	/*!
 	 *	@function cleanUp
 		@abstract cleanUp is called to tear down IOFireWireSerialBusProtocolTransport.
@@ -372,6 +370,22 @@ public:
 	
 	virtual void cleanUp ( void );
 
+	/*!
+		@function finalize
+		@abstract See IOService for discussion.
+		@result Returns true.
+	*/
+	
+	virtual bool finalize ( IOOptionBits options );
+
+	/*! 
+		@function free
+		@discussion See IOService for discussion.
+		@result none.
+	*/
+	
+	virtual void free ( void );
+		
 protected:
 	
 	virtual IOReturn login ( void );
@@ -388,6 +402,26 @@ protected:
    
 	virtual void loginResumed ( void );
 	OSMetaClassDeclareReservedUsed ( IOFireWireSerialBusProtocolTransport, 5 );
+
+	static IOReturn
+		IOFireWireSerialBusProtocolTransport::CriticalOrbSubmissionStatic ( 
+			OSObject * refCon, 
+			void * val1,
+			void * val2,
+			void * val3,
+			void * val4 );
+
+	/*!
+		@function CriticalOrbSubmission
+		@abstract xxx.
+		@discussion	xxx.
+		@result none.
+	*/
+	
+	void
+		CriticalOrbSubmission (
+			IOFireWireSBP2ORB * orb,
+			SCSITaskIdentifier request );
 		
 private:
 	

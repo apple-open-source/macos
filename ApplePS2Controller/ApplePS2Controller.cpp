@@ -3,19 +3,22 @@
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
- * The contents of this file constitute Original Code as defined in and
- * are subject to the Apple Public Source License Version 1.1 (the
- * "License").  You may not use this file except in compliance with the
- * License.  Please obtain a copy of the License at
- * http://www.apple.com/publicsource and read it before using this file.
+ * Copyright (c) 1999-2003 Apple Computer, Inc.  All Rights Reserved.
  * 
- * This Original Code and all software distributed under the License are
- * distributed on an "AS IS" basis, WITHOUT WARRANTY OF ANY KIND, EITHER
+ * This file contains Original Code and/or Modifications of Original Code
+ * as defined in and that are subject to the Apple Public Source License
+ * Version 2.0 (the 'License'). You may not use this file except in
+ * compliance with the License. Please obtain a copy of the License at
+ * http://www.opensource.apple.com/apsl/ and read it before using this
+ * file.
+ * 
+ * The Original Code and all software distributed under the License are
+ * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
  * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
  * INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY,
- * FITNESS FOR A PARTICULAR PURPOSE OR NON-INFRINGEMENT.  Please see the
- * License for the specific language governing rights and limitations
- * under the License.
+ * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
+ * Please see the License for the specific language governing rights and
+ * limitations under the License.
  * 
  * @APPLE_LICENSE_HEADER_END@
  */
@@ -39,7 +42,7 @@ typedef unsigned short i386_ioport_t;
 inline unsigned char inb(i386_ioport_t port)
 {
         unsigned char datum;
-	asm volatile("inl %1, %0" : "=a" (datum) : "d" (port));
+	asm volatile("inb %1, %0" : "=a" (datum) : "d" (port));
 	return(datum);
 }
 
@@ -604,6 +607,27 @@ void ApplePS2Controller::processRequest(PS2Request * request,
         if (request->commands[index].inOrOut == kCP_TransmitToMouse)
           transmitToMouse = true; // preparing to transmit data to mouse
         break;
+
+      //
+      // Send a composite mouse command that is equivalent to the following
+      // (frequently used) command sequence:
+      //
+      // 1. kPS2C_WriteCommandPort( kCP_TransmitToMouse )
+      // 2. kPS2C_WriteDataPort( command )
+      // 3. kPS2C_ReadDataPortAndCompare( kSC_Acknowledge )
+      //
+
+      case kPS2C_SendMouseCommandAndCompareAck:
+        writeCommandPort(kCP_TransmitToMouse);
+        writeDataPort(request->commands[index].inOrOut);
+        deviceMode = kDT_Mouse;
+#if OUT_OF_ORDER_DATA_CORRECTION_FEATURE
+        byte = readDataPort(kDT_Mouse, kSC_Acknowledge);
+#else 
+        byte = readDataPort(kDT_Mouse);
+#endif
+        failed = (byte != kSC_Acknowledge);
+        break;
     }
 
     if (failed) break;
@@ -620,6 +644,10 @@ void ApplePS2Controller::processRequest(PS2Request * request,
   {
     (*request->completionAction)(request->completionTarget,
                                  request->completionParam);
+  }
+  else
+  {
+    freeRequest(request);
   }
 }
 

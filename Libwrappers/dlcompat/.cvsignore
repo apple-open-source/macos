@@ -1,0 +1,11 @@
+Makefile
+*.a
+*.o
+*.dylib
+*.tar.gz
+*.log
+*.diff
+.gdb_history
+configure
+dlopen.3
+*.cache

@@ -19,7 +19,7 @@ OTHERSRCS = Makefile.preamble Makefile Makefile.postamble
 MAKEFILEDIR = $(MAKEFILEPATH)/pb_makefiles
 CODE_GEN_STYLE = DYNAMIC
 MAKEFILE = aggregate.make
-LIBS = 
+LIBS =
 DEBUG_LIBS = $(LIBS)
 PROF_LIBS = $(LIBS)
 

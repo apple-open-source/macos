@@ -1,9 +1,9 @@
 /*
- * "$Id: parallel.c,v 1.6 2002/06/10 23:47:25 jlovell Exp $"
+ * "$Id: parallel.c,v 1.1.1.9 2002/12/24 00:04:40 jlovell Exp $"
  *
  *   Parallel port backend for the Common UNIX Printing System (CUPS).
  *
- *   Copyright 1997-2002 by Easy Software Products, all rights reserved.
+ *   Copyright 1997-2003 by Easy Software Products, all rights reserved.
  *
  *   These coded instructions, statements, and computer programs are the
  *   property of Easy Software Products and are protected by Federal
@@ -104,6 +104,20 @@ main(int  argc,		/* I - Number of command-line arguments (6 or 7) */
   */
 
   setbuf(stderr, NULL);
+
+ /*
+  * Ignore SIGPIPE signals...
+  */
+
+#ifdef HAVE_SIGSET
+  sigset(SIGPIPE, SIG_IGN);
+#elif defined(HAVE_SIGACTION)
+  memset(&action, 0, sizeof(action));
+  action.sa_handler = SIG_IGN;
+  sigaction(SIGPIPE, &action, NULL);
+#else
+  signal(SIGPIPE, SIG_IGN);
+#endif /* HAVE_SIGSET */
 
  /*
   * Check command-line...
@@ -658,5 +672,5 @@ list_devices(void)
 
 
 /*
- * End of "$Id: parallel.c,v 1.6 2002/06/10 23:47:25 jlovell Exp $".
+ * End of "$Id: parallel.c,v 1.1.1.9 2002/12/24 00:04:40 jlovell Exp $".
  */

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1999 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 2003 Apple Computer, Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -22,8 +22,8 @@
  * 
  * @APPLE_LICENSE_HEADER_END@
  */
-/*
- * Copyright (c) 1990, 1993
+/*-
+ * Copyright (c) 1990, 1993, 1994
  *	The Regents of the University of California.  All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -55,11 +55,14 @@
  * SUCH DAMAGE.
  */
 
+#if defined(LIBC_SCCS) && !defined(lint)
+static char sccsid[] = "@(#)rec_close.c	8.6 (Berkeley) 8/18/94";
+#endif /* LIBC_SCCS and not lint */
+#include <sys/cdefs.h>
 
 #include <sys/types.h>
 #include <sys/uio.h>
-
-#include <mach/mach.h>
+#include <sys/mman.h>
 
 #include <errno.h>
 #include <limits.h>
@@ -98,17 +101,17 @@ __rec_close(dbp)
 
 	/* Committed to closing. */
 	status = RET_SUCCESS;
-	if (ISSET(t, R_MEMMAPPED)
-	&&  vm_deallocate(mach_task_self(), (vm_offset_t) t->bt_smap, t->bt_msize))
+	if (F_ISSET(t, R_MEMMAPPED) && munmap(t->bt_smap, t->bt_msize))
 		status = RET_ERROR;
 
-	if (!ISSET(t, R_INMEM))
-		if (ISSET(t, R_CLOSEFP)) {
+	if (!F_ISSET(t, R_INMEM)) {
+		if (F_ISSET(t, R_CLOSEFP)) {
 			if (fclose(t->bt_rfp))
 				status = RET_ERROR;
 		} else
 			if (close(t->bt_rfd))
 				status = RET_ERROR;
+	}
 
 	if (__bt_close(dbp) == RET_ERROR)
 		status = RET_ERROR;
@@ -148,39 +151,59 @@ __rec_sync(dbp, flags)
 	if (flags == R_RECNOSYNC)
 		return (__bt_sync(dbp, 0));
 
-	if (ISSET(t, R_RDONLY | R_INMEM) || !ISSET(t, R_MODIFIED))
+	if (F_ISSET(t, R_RDONLY | R_INMEM) || !F_ISSET(t, R_MODIFIED))
 		return (RET_SUCCESS);
 
 	/* Read any remaining records into the tree. */
-	if (!ISSET(t, R_EOF) && t->bt_irec(t, MAX_REC_NUMBER) == RET_ERROR)
+	if (!F_ISSET(t, R_EOF) && t->bt_irec(t, MAX_REC_NUMBER) == RET_ERROR)
 		return (RET_ERROR);
 
 	/* Rewind the file descriptor. */
 	if (lseek(t->bt_rfd, (off_t)0, SEEK_SET) != 0)
 		return (RET_ERROR);
 
-	iov[1].iov_base = "\n";
-	iov[1].iov_len = 1;
-	scursor = t->bt_rcursor;
+	/* Save the cursor. */
+	scursor = t->bt_cursor.rcursor;
 
 	key.size = sizeof(recno_t);
 	key.data = &trec;
 
-	status = (dbp->seq)(dbp, &key, &data, R_FIRST);
-        while (status == RET_SUCCESS) {
-		iov[0].iov_base = data.data;
-		iov[0].iov_len = data.size;
-		if (writev(t->bt_rfd, iov, 2) != data.size + 1)
-			return (RET_ERROR);
-                status = (dbp->seq)(dbp, &key, &data, R_NEXT);
-        }
-	t->bt_rcursor = scursor;
+	if (F_ISSET(t, R_FIXLEN)) {
+		/*
+		 * We assume that fixed length records are all fixed length.
+		 * Any that aren't are either EINVAL'd or corrected by the
+		 * record put code.
+		 */
+		status = (dbp->seq)(dbp, &key, &data, R_FIRST);
+		while (status == RET_SUCCESS) {
+			if (write(t->bt_rfd, data.data, data.size) !=
+			    data.size)
+				return (RET_ERROR);
+			status = (dbp->seq)(dbp, &key, &data, R_NEXT);
+		}
+	} else {
+		iov[1].iov_base = (char *)&t->bt_bval;
+		iov[1].iov_len = 1;
+
+		status = (dbp->seq)(dbp, &key, &data, R_FIRST);
+		while (status == RET_SUCCESS) {
+			iov[0].iov_base = data.data;
+			iov[0].iov_len = data.size;
+			if (writev(t->bt_rfd, iov, 2) != data.size + 1)
+				return (RET_ERROR);
+			status = (dbp->seq)(dbp, &key, &data, R_NEXT);
+		}
+	}
+
+	/* Restore the cursor. */
+	t->bt_cursor.rcursor = scursor;
+
 	if (status == RET_ERROR)
 		return (RET_ERROR);
 	if ((off = lseek(t->bt_rfd, (off_t)0, SEEK_CUR)) == -1)
 		return (RET_ERROR);
 	if (ftruncate(t->bt_rfd, off))
 		return (RET_ERROR);
-	CLR(t, R_MODIFIED);
+	F_CLR(t, R_MODIFIED);
 	return (RET_SUCCESS);
 }

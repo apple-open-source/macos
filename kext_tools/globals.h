@@ -25,10 +25,7 @@ extern CFRunLoopRef gMainRunLoop;
 extern CFRunLoopSourceRef gKernelRequestRunLoopSource;
 extern CFRunLoopSourceRef gRescanRunLoopSource;
 extern CFRunLoopSourceRef gClientRequestRunLoopSource;
-
-#ifndef NO_CFUserNotification
-extern CFRunLoopSourceRef gNonsecureKextRunLoopSource;
-#endif /* NO_CFUserNotification */
+extern CFRunLoopSourceRef gCurrentNotificationRunLoopSource;
 
 extern PTLockRef gKernelRequestQueueLock;
 extern PTLockRef gRunLoopSourceLock;
@@ -38,15 +35,10 @@ extern queue_head_t g_request_queue;
 // in request.c
 #ifndef NO_CFUserNotification
 
-extern CFMutableArrayRef gPendedNonsecureKexts;      // loaded by kextd
-extern CFMutableArrayRef gPendedKextloadOperations;  // loaded by kextload
-extern CFMutableArrayRef gScheduledNonsecureKexts;   // awaiting user response
-
-extern CFUserNotificationRef gSecurityNotification;
-extern CFUserNotificationRef gFailureNotification;
-
-extern KXKextRef gSecurityAlertKext;
-extern Boolean gResendSecurityAlertKextPersonalities;
+extern CFRunLoopSourceRef gNotificationQueueRunLoopSource;
+extern CFMutableArrayRef gPendedNonsecureKextPaths; // alerts to be raised on user login
+extern CFMutableDictionaryRef gNotifiedNonsecureKextPaths;
+extern CFUserNotificationRef gCurrentNotification;
 
 #endif /* NO_CFUserNotification */
 

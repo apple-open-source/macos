@@ -97,7 +97,7 @@ newsyntax(argc, argvp)
 			add("\"%07.7_ax \" 8/2 \" %06o \" \"\\n\"");
 			break;
 		case 's':
-			if ((skip = strtol(optarg, &p, 0)) < 0)
+			if ((skip = strtoll(optarg, &p, 0)) < 0)
 				errx(1, "%s: bad skip value", optarg);
 			switch(*p) {
 			case 'b':
@@ -108,6 +108,9 @@ newsyntax(argc, argvp)
 				break;
 			case 'm':
 				skip *= 1048576;
+				break;
+			case 'g':
+				skip *= 1073741824;
 				break;
 			}
 			break;

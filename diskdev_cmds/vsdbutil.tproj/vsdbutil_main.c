@@ -56,6 +56,9 @@
 
 #include <sys/attr.h>
 
+#include <openssl/sha.h>
+#include <architecture/byte_order.h>
+
 struct FinderAttrBuf {
 	unsigned long info_length;
 	unsigned long finderinfo[8];
@@ -232,18 +235,30 @@ UpdateMountStatus(const char *path, unsigned long volstatus) {
 	int result;
 	union wait status;
 	int pid;
-	
+	int nosuid;
+	int nodev;
+	int noexec;
+	int readonly;
+	char mountline[255];
+
 	result = statfs(path, &mntstat);
 	if (result != 0) {
 		warn("couldn't look up mount status for '%s'", path);
 		return errno;
 	};
 
+	nosuid = mntstat.f_flags & MNT_NOSUID;
+	nodev = mntstat.f_flags & MNT_NODEV;
+	noexec = mntstat.f_flags & MNT_NOEXEC;
+	readonly = mntstat.f_flags & MNT_RDONLY;
+
+	sprintf(mountline, "%s%s%s%s%s", (volstatus & VOLUME_USEPERMISSIONS) ? "perm" : "noperm",(nosuid)?",nosuid":"",(nodev)?",nodev":"",(noexec)?",noexec":"",(readonly)?",rdonly":"");
+
 	pid = fork();
 	if (pid == 0) {
 		result = execl("/sbin/mount", "mount",
 						"-t", mntstat.f_fstypename,
-						"-u","-o", (volstatus & VOLUME_USEPERMISSIONS) ? "perm" : "noperm",
+						"-u","-o", mountline,
 						mntstat.f_mntfromname, mntstat.f_mntonname, NULL);
 #if DEBUG_TRACE
 		if (result) {
@@ -553,7 +568,8 @@ GetVolumeUUID(const char *path, VolumeUUID *volumeUUIDPtr, boolean_t generate) {
 	finderInfoUUIDPtr = (VolumeUUID *)(&volFinderInfo.finderinfo[6]);
 	if (generate && ((finderInfoUUIDPtr->v.high == 0) || (finderInfoUUIDPtr->v.low == 0))) {
 		GenerateVolumeUUID(volumeUUIDPtr);
-		bcopy(volumeUUIDPtr, finderInfoUUIDPtr, sizeof(*finderInfoUUIDPtr));
+		finderInfoUUIDPtr->v.high = NXSwapHostLongToBig(volumeUUIDPtr->v.high);
+		finderInfoUUIDPtr->v.low = NXSwapHostLongToBig(volumeUUIDPtr->v.low);
 		result = setattrlist(path, &alist, &volFinderInfo.finderinfo, sizeof(volFinderInfo.finderinfo), 0);
 		if (result) {
 			warn("Couldn't update volume information for '%s'", path);
@@ -562,7 +578,8 @@ GetVolumeUUID(const char *path, VolumeUUID *volumeUUIDPtr, boolean_t generate) {
 		};
 	};
 
-	bcopy(finderInfoUUIDPtr, volumeUUIDPtr, sizeof(*volumeUUIDPtr));
+	volumeUUIDPtr->v.high = NXSwapBigLongToHost(finderInfoUUIDPtr->v.high);
+	volumeUUIDPtr->v.low = NXSwapBigLongToHost(finderInfoUUIDPtr->v.low);
 	result = 0;
 
 Err_Exit:
@@ -601,7 +618,8 @@ SetVolumeUUID(const char *path, VolumeUUID *volumeUUIDPtr) {
 	}
 
 	finderInfoUUIDPtr = (VolumeUUID *)(&volFinderInfo.finderinfo[6]);
-	bcopy(volumeUUIDPtr, finderInfoUUIDPtr, sizeof(*finderInfoUUIDPtr));
+	finderInfoUUIDPtr->v.high = NXSwapHostLongToBig(volumeUUIDPtr->v.high);
+	finderInfoUUIDPtr->v.low = NXSwapHostLongToBig(volumeUUIDPtr->v.low);
 	
 	result = setattrlist(path, &alist, &volFinderInfo.finderinfo, sizeof(volFinderInfo.finderinfo), 0);
 	if (result != 0) {
@@ -666,12 +684,6 @@ struct VSDBState {
 
 typedef struct VSDBState *VSDBStatePtr;
 
-typedef struct {
-	unsigned long state[5];
-	unsigned long count[2];
-	unsigned char buffer[64];
-} SHA1_CTX;
-
 
 
 /* Internal function prototypes: */
@@ -691,11 +703,6 @@ static void FormatDBRecord(unsigned long volumeStatusFlags, struct VSDBRecord *d
 static void FormatDBEntry(VolumeUUID *volumeID, unsigned long volumeStatusFlags, struct VSDBEntry *dbentry);
 static unsigned long ConvertHexStringToULong(const char *hs, long maxdigits);
 
-static void SHA1Transform(unsigned long state[5], unsigned char buffer[64]);
-static void SHA1Init(SHA1_CTX* context);
-static void SHA1Update(SHA1_CTX* context, void* data, size_t len);
-static void SHA1Final(unsigned char digest[20], SHA1_CTX* context);
-
 
 
 /******************************************************************************
@@ -705,7 +712,7 @@ static void SHA1Final(unsigned char digest[20], SHA1_CTX* context);
  *****************************************************************************/
 
 void GenerateVolumeUUID(VolumeUUID *newVolumeID) {
-	SHA1_CTX context;
+	SHA_CTX context;
 	char randomInputBuffer[26];
 	unsigned char digest[20];
 	time_t now;
@@ -719,70 +726,70 @@ void GenerateVolumeUUID(VolumeUUID *newVolumeID) {
 	
 	do {
 		/* Initialize the SHA-1 context for processing: */
-		SHA1Init(&context);
+		SHA1_Init(&context);
 		
 		/* Now process successive bits of "random" input to seed the process: */
 		
 		/* The current system's uptime: */
 		uptime = clock();
-		SHA1Update(&context, &uptime, sizeof(uptime));
+		SHA1_Update(&context, &uptime, sizeof(uptime));
 		
 		/* The kernel's boot time: */
 		mib[0] = CTL_KERN;
 		mib[1] = KERN_BOOTTIME;
 		datalen = sizeof(sysdata);
 		sysctl(mib, 2, &sysdata, &datalen, NULL, 0);
-		SHA1Update(&context, &sysdata, datalen);
+		SHA1_Update(&context, &sysdata, datalen);
 		
 		/* The system's host id: */
 		mib[0] = CTL_KERN;
 		mib[1] = KERN_HOSTID;
 		datalen = sizeof(sysdata);
 		sysctl(mib, 2, &sysdata, &datalen, NULL, 0);
-		SHA1Update(&context, &sysdata, datalen);
+		SHA1_Update(&context, &sysdata, datalen);
 
 		/* The system's host name: */
 		mib[0] = CTL_KERN;
 		mib[1] = KERN_HOSTNAME;
 		datalen = sizeof(sysctlstring);
 		sysctl(mib, 2, sysctlstring, &datalen, NULL, 0);
-		SHA1Update(&context, sysctlstring, datalen);
+		SHA1_Update(&context, sysctlstring, datalen);
 
 		/* The running kernel's OS release string: */
 		mib[0] = CTL_KERN;
 		mib[1] = KERN_OSRELEASE;
 		datalen = sizeof(sysctlstring);
 		sysctl(mib, 2, sysctlstring, &datalen, NULL, 0);
-		SHA1Update(&context, sysctlstring, datalen);
+		SHA1_Update(&context, sysctlstring, datalen);
 
 		/* The running kernel's version string: */
 		mib[0] = CTL_KERN;
 		mib[1] = KERN_VERSION;
 		datalen = sizeof(sysctlstring);
 		sysctl(mib, 2, sysctlstring, &datalen, NULL, 0);
-		SHA1Update(&context, sysctlstring, datalen);
+		SHA1_Update(&context, sysctlstring, datalen);
 
 		/* The system's load average: */
 		mib[0] = CTL_VM;
 		mib[1] = VM_LOADAVG;
 		datalen = sizeof(sysloadavg);
 		sysctl(mib, 2, &sysloadavg, &datalen, NULL, 0);
-		SHA1Update(&context, &sysloadavg, datalen);
+		SHA1_Update(&context, &sysloadavg, datalen);
 
 		/* The system's VM statistics: */
 		mib[0] = CTL_VM;
 		mib[1] = VM_METER;
 		datalen = sizeof(sysvmtotal);
 		sysctl(mib, 2, &sysvmtotal, &datalen, NULL, 0);
-		SHA1Update(&context, &sysvmtotal, datalen);
+		SHA1_Update(&context, &sysvmtotal, datalen);
 
 		/* The current GMT (26 ASCII characters): */
 		time(&now);
 		strncpy(randomInputBuffer, asctime(gmtime(&now)), 26);	/* "Mon Mar 27 13:46:26 2000" */
-		SHA1Update(&context, randomInputBuffer, 26);
+		SHA1_Update(&context, randomInputBuffer, 26);
 		
 		/* Pad the accumulated input and extract the final digest hash: */
-		SHA1Final(digest, &context);
+		SHA1_Final(digest, &context);
 	
 		memcpy(newVolumeID, digest, sizeof(*newVolumeID));
 	} while ((newVolumeID->v.high == 0) || (newVolumeID->v.low == 0));
@@ -837,14 +844,14 @@ int OpenVolumeStatusDB(VolumeStatusDBHandle *DBHandlePtr) {
 	};
 	
 	dbstateptr->dbmode = O_RDWR;
-	dbstateptr->dbfile = open(gVSDBPath, O_RDWR | O_CREAT, S_IRUSR | S_IWUSR);
+	dbstateptr->dbfile = open(gVSDBPath, O_RDWR | O_CREAT, S_IRUSR | S_IWUSR | S_IRGRP | S_IROTH);
 	if (dbstateptr->dbfile == -1) {
 		/*
 		   The file couldn't be opened for read/write access:
 		   try read-only access before giving up altogether.
 		 */
 		dbstateptr->dbmode = O_RDONLY;
-		dbstateptr->dbfile = open(gVSDBPath, O_RDONLY | O_CREAT, S_IRUSR | S_IWUSR);
+		dbstateptr->dbfile = open(gVSDBPath, O_RDONLY | O_CREAT, S_IRUSR | S_IWUSR | S_IRGRP | S_IROTH);
 		if (dbstateptr->dbfile == -1) {
 			return errno;
 		};
@@ -1239,186 +1246,4 @@ static unsigned long ConvertHexStringToULong(const char *hs, long maxdigits) {
 	};
 	
 	return n;
-}
-
-
-
-/******************************************************************************
- *
- *  S H A - 1   I M P L E M E N T A T I O N   R O U T I N E S
- *
- *****************************************************************************/
-
-/*
-	Derived from SHA-1 in C
-	By Steve Reid <steve@edmweb.com>
-	100% Public Domain
-
-	Test Vectors (from FIPS PUB 180-1)
-		"abc"
-			A9993E36 4706816A BA3E2571 7850C26C 9CD0D89D
-		"abcdbcdecdefdefgefghfghighijhijkijkljklmklmnlmnomnopnopq"
-			84983E44 1C3BD26E BAAE4AA1 F95129E5 E54670F1
-		A million repetitions of "a"
-			34AA973C D4C4DAA4 F61EEB2B DBAD2731 6534016F
-*/
-
-/* #define LITTLE_ENDIAN * This should be #define'd if true. */
-/* #define SHA1HANDSOFF * Copies data before messing with it. */
-
-#define rol(value, bits) (((value) << (bits)) | ((value) >> (32 - (bits))))
-
-/* blk0() and blk() perform the initial expand. */
-/* I got the idea of expanding during the round function from SSLeay */
-#ifdef LITTLE_ENDIAN
-#define blk0(i) (block->l[i] = (rol(block->l[i],24)&0xFF00FF00) \
-	|(rol(block->l[i],8)&0x00FF00FF))
-#else
-#define blk0(i) block->l[i]
-#endif
-#define blk(i) (block->l[i&15] = rol(block->l[(i+13)&15]^block->l[(i+8)&15] \
-	^block->l[(i+2)&15]^block->l[i&15],1))
-
-/* (R0+R1), R2, R3, R4 are the different operations used in SHA1 */
-#if TRACE_HASH
-#define R0(v,w,x,y,z,i) z+=((w&(x^y))^y)+blk0(i)+0x5A827999+rol(v,5);w=rol(w,30);printf("t = %2d: %08lX %08lX %08lX %08lX %08lX\n", i, a, b, c, d, e);
-#define R1(v,w,x,y,z,i) z+=((w&(x^y))^y)+blk(i)+0x5A827999+rol(v,5);w=rol(w,30);printf("t = %2d: %08lX %08lX %08lX %08lX %08lX\n", i, a, b, c, d, e);
-#define R2(v,w,x,y,z,i) z+=(w^x^y)+blk(i)+0x6ED9EBA1+rol(v,5);w=rol(w,30);printf("t = %2d: %08lX %08lX %08lX %08lX %08lX\n", i, a, b, c, d, e);
-#define R3(v,w,x,y,z,i) z+=(((w|x)&y)|(w&x))+blk(i)+0x8F1BBCDC+rol(v,5);w=rol(w,30);printf("t = %2d: %08lX %08lX %08lX %08lX %08lX\n", i, a, b, c, d, e);
-#define R4(v,w,x,y,z,i) z+=(w^x^y)+blk(i)+0xCA62C1D6+rol(v,5);w=rol(w,30);printf("t = %2d: %08lX %08lX %08lX %08lX %08lX\n", i, a, b, c, d, e);
-#else
-#define R0(v,w,x,y,z,i) z+=((w&(x^y))^y)+blk0(i)+0x5A827999+rol(v,5);w=rol(w,30);
-#define R1(v,w,x,y,z,i) z+=((w&(x^y))^y)+blk(i)+0x5A827999+rol(v,5);w=rol(w,30);
-#define R2(v,w,x,y,z,i) z+=(w^x^y)+blk(i)+0x6ED9EBA1+rol(v,5);w=rol(w,30);
-#define R3(v,w,x,y,z,i) z+=(((w|x)&y)|(w&x))+blk(i)+0x8F1BBCDC+rol(v,5);w=rol(w,30);
-#define R4(v,w,x,y,z,i) z+=(w^x^y)+blk(i)+0xCA62C1D6+rol(v,5);w=rol(w,30);
-#endif
-
-
-/* Hash a single 512-bit block. This is the core of the algorithm. */
-
-static void SHA1Transform(unsigned long state[5], unsigned char buffer[64])
-{
-unsigned long a, b, c, d, e;
-typedef union {
-	unsigned char c[64];
-	unsigned long l[16];
-} CHAR64LONG16;
-CHAR64LONG16* block;
-#ifdef SHA1HANDSOFF
-static unsigned char workspace[64];
-	block = (CHAR64LONG16*)workspace;
-	memcpy(block, buffer, 64);
-#else
-	block = (CHAR64LONG16*)buffer;
-#endif
-	/* Copy context->state[] to working vars */
-	a = state[0];
-	b = state[1];
-	c = state[2];
-	d = state[3];
-	e = state[4];
-#if TRACE_HASH
-	printf("            A        B        C        D        E\n");
-	printf("        -------- -------- -------- -------- --------\n");
-	printf("        %08lX %08lX %08lX %08lX %08lX\n", a, b, c, d, e);
-#endif
-	/* 4 rounds of 20 operations each. Loop unrolled. */
-	R0(a,b,c,d,e, 0); R0(e,a,b,c,d, 1); R0(d,e,a,b,c, 2); R0(c,d,e,a,b, 3);
-	R0(b,c,d,e,a, 4); R0(a,b,c,d,e, 5); R0(e,a,b,c,d, 6); R0(d,e,a,b,c, 7);
-	R0(c,d,e,a,b, 8); R0(b,c,d,e,a, 9); R0(a,b,c,d,e,10); R0(e,a,b,c,d,11);
-	R0(d,e,a,b,c,12); R0(c,d,e,a,b,13); R0(b,c,d,e,a,14); R0(a,b,c,d,e,15);
-	R1(e,a,b,c,d,16); R1(d,e,a,b,c,17); R1(c,d,e,a,b,18); R1(b,c,d,e,a,19);
-	R2(a,b,c,d,e,20); R2(e,a,b,c,d,21); R2(d,e,a,b,c,22); R2(c,d,e,a,b,23);
-	R2(b,c,d,e,a,24); R2(a,b,c,d,e,25); R2(e,a,b,c,d,26); R2(d,e,a,b,c,27);
-	R2(c,d,e,a,b,28); R2(b,c,d,e,a,29); R2(a,b,c,d,e,30); R2(e,a,b,c,d,31);
-	R2(d,e,a,b,c,32); R2(c,d,e,a,b,33); R2(b,c,d,e,a,34); R2(a,b,c,d,e,35);
-	R2(e,a,b,c,d,36); R2(d,e,a,b,c,37); R2(c,d,e,a,b,38); R2(b,c,d,e,a,39);
-	R3(a,b,c,d,e,40); R3(e,a,b,c,d,41); R3(d,e,a,b,c,42); R3(c,d,e,a,b,43);
-	R3(b,c,d,e,a,44); R3(a,b,c,d,e,45); R3(e,a,b,c,d,46); R3(d,e,a,b,c,47);
-	R3(c,d,e,a,b,48); R3(b,c,d,e,a,49); R3(a,b,c,d,e,50); R3(e,a,b,c,d,51);
-	R3(d,e,a,b,c,52); R3(c,d,e,a,b,53); R3(b,c,d,e,a,54); R3(a,b,c,d,e,55);
-	R3(e,a,b,c,d,56); R3(d,e,a,b,c,57); R3(c,d,e,a,b,58); R3(b,c,d,e,a,59);
-	R4(a,b,c,d,e,60); R4(e,a,b,c,d,61); R4(d,e,a,b,c,62); R4(c,d,e,a,b,63);
-	R4(b,c,d,e,a,64); R4(a,b,c,d,e,65); R4(e,a,b,c,d,66); R4(d,e,a,b,c,67);
-	R4(c,d,e,a,b,68); R4(b,c,d,e,a,69); R4(a,b,c,d,e,70); R4(e,a,b,c,d,71);
-	R4(d,e,a,b,c,72); R4(c,d,e,a,b,73); R4(b,c,d,e,a,74); R4(a,b,c,d,e,75);
-	R4(e,a,b,c,d,76); R4(d,e,a,b,c,77); R4(c,d,e,a,b,78); R4(b,c,d,e,a,79);
-	/* Add the working vars back into context.state[] */
-	state[0] += a;
-	state[1] += b;
-	state[2] += c;
-	state[3] += d;
-	state[4] += e;
-	/* Wipe variables */
-	a = b = c = d = e = 0;
-}
-
-
-/* SHA1Init - Initialize new context */
-
-static void SHA1Init(SHA1_CTX* context)
-{
-	/* SHA1 initialization constants */
-	context->state[0] = 0x67452301;
-	context->state[1] = 0xEFCDAB89;
-	context->state[2] = 0x98BADCFE;
-	context->state[3] = 0x10325476;
-	context->state[4] = 0xC3D2E1F0;
-	context->count[0] = context->count[1] = 0;
-}
-
-
-/* Run your data through this. */
-
-static void SHA1Update(SHA1_CTX* context, void* data, size_t len)
-{
-	unsigned char *dataptr = (char *)data;
-	unsigned int i, j;
-
-	j = (context->count[0] >> 3) & 63;
-	if ((context->count[0] += len << 3) < (len << 3)) context->count[1]++;
-	context->count[1] += (len >> 29);
-	if ((j + len) > 63) {
-		memcpy(&context->buffer[j], dataptr, (i = 64-j));
-		SHA1Transform(context->state, context->buffer);
-		for ( ; i + 63 < len; i += 64) {
-			SHA1Transform(context->state, &dataptr[i]);
-		}
-		j = 0;
-	}
-	else i = 0;
-	memcpy(&context->buffer[j], &dataptr[i], len - i);
-}
-
-
-/* Add padding and return the message digest. */
-
-static void SHA1Final(unsigned char digest[20], SHA1_CTX* context)
-{
-unsigned long i, j;
-unsigned char finalcount[8];
-
-	for (i = 0; i < 8; i++) {
-		finalcount[i] = (unsigned char)((context->count[(i >= 4 ? 0 : 1)]
-		 >> ((3-(i & 3)) * 8) ) & 255);  /* Endian independent */
-	}
-	SHA1Update(context, (unsigned char *)"\200", 1);
-	while ((context->count[0] & 504) != 448) {
-		SHA1Update(context, (unsigned char *)"\0", 1);
-	}
-	SHA1Update(context, finalcount, 8);  /* Should cause a SHA1Transform() */
-	for (i = 0; i < 20; i++) {
-		digest[i] = (unsigned char)
-		 ((context->state[i>>2] >> ((3-(i & 3)) * 8) ) & 255);
-	}
-	/* Wipe variables */
-	i = j = 0;
-	memset(context->buffer, 0, 64);
-	memset(context->state, 0, 20);
-	memset(context->count, 0, 8);
-	memset(&finalcount, 0, 8);
-#ifdef SHA1HANDSOFF  /* make SHA1Transform overwrite it's own static vars */
-	SHA1Transform(context->state, context->buffer);
-#endif
 }

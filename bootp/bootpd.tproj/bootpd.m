@@ -3,19 +3,22 @@
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
- * The contents of this file constitute Original Code as defined in and
- * are subject to the Apple Public Source License Version 1.1 (the
- * "License").  You may not use this file except in compliance with the
- * License.  Please obtain a copy of the License at
- * http://www.apple.com/publicsource and read it before using this file.
+ * Copyright (c) 1999-2003 Apple Computer, Inc.  All Rights Reserved.
  * 
- * This Original Code and all software distributed under the License are
- * distributed on an "AS IS" basis, WITHOUT WARRANTY OF ANY KIND, EITHER
+ * This file contains Original Code and/or Modifications of Original Code
+ * as defined in and that are subject to the Apple Public Source License
+ * Version 2.0 (the 'License'). You may not use this file except in
+ * compliance with the License. Please obtain a copy of the License at
+ * http://www.opensource.apple.com/apsl/ and read it before using this
+ * file.
+ * 
+ * The Original Code and all software distributed under the License are
+ * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
  * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
  * INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY,
- * FITNESS FOR A PARTICULAR PURPOSE OR NON-INFRINGEMENT.  Please see the
- * License for the specific language governing rights and limitations
- * under the License.
+ * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
+ * Please see the License for the specific language governing rights and
+ * limitations under the License.
  * 
  * @APPLE_LICENSE_HEADER_END@
  */
@@ -61,6 +64,10 @@
  * - eliminated ability to read host entries from a file
  */
 
+#ifndef BIND_8_COMPAT
+#define BIND_8_COMPAT
+#endif BIND_8_COMPAT
+
 #include <unistd.h>
 #include <stdlib.h>
 #include <sys/stat.h>
@@ -84,7 +91,6 @@
 #include <errno.h>
 #include <ctype.h>
 #include <netdb.h>
-#include <setjmp.h>
 #include <syslog.h>
 #include <arpa/inet.h>
 #include <arpa/nameser.h>
@@ -107,12 +113,14 @@
 #include "bsdp.h"
 #include "bootp_transmit.h"
 
+#define CFGPROP_DETECT_OTHER_DHCP_SERVER	"detect_other_dhcp_server"
 #define CFGPROP_BOOTP_ENABLED		"bootp_enabled"
 #define CFGPROP_DHCP_ENABLED		"dhcp_enabled"
 #define CFGPROP_OLD_NETBOOT_ENABLED	"old_netboot_enabled"
 #define CFGPROP_NETBOOT_ENABLED		"netboot_enabled"
 #define CFGPROP_ALLOW			"allow"
 #define CFGPROP_DENY			"deny"
+#define CFGPROP_REPLY_THRESHOLD_SECONDS	"reply_threshold_seconds"
 
 /* external functions */
 extern struct ether_addr *	ether_aton(char *);
@@ -131,9 +139,11 @@ char		boot_tftp_dir[128] = "/private/tftpboot";
 int		bootp_socket = -1;
 NICache_t	cache;
 int		debug = 0;
+int		detect_other_dhcp_server = 0;
 NIDomain_t *	ni_local = NULL; /* local netinfo domain */
 NIDomainList_t	niSearchDomains;
 int		quiet = 0;
+u_int16_t	reply_threshold_seconds = 0;
 unsigned char	rfc_magic[4] = RFC_OPTIONS_MAGIC;
 unsigned short	server_priority = BSDP_PRIORITY_BASE;
 char *		testing_control = "";
@@ -148,7 +158,7 @@ int		verbose = 0;
 static boolean_t		S_bootfile_noexist_reply = TRUE;
 static unsigned long		S_cache_check_interval = 30; /* seconds */
 static PropList_t		S_config_dhcp;
-static boolean_t		S_do_bootp;
+static boolean_t		S_do_bootp = TRUE;
 static boolean_t		S_do_netboot;
 static boolean_t		S_do_dhcp;
 static boolean_t		S_do_old_netboot;
@@ -269,7 +279,6 @@ static int 		issock(int fd);
 static void		on_alarm(int sigraised);
 static void		on_sighup(int sigraised);
 static void		bootp_request(request_t * request);
-static void		setarp(struct in_addr * ia, u_char * ha, int len);
 static void		S_server_loop();
 static void		S_relay_loop(struct in_addr * relay, int max_hops);
 
@@ -533,7 +542,7 @@ S_get_dns()
  *   Given a List object, return boolean whether the C string is
  *   in the list.
  */
-static __inline__ boolean_t
+static boolean_t
 S_string_in_list(ptrlist_t * list, u_char * str)
 {
     int i;
@@ -630,10 +639,21 @@ S_get_network_routes()
 }
 
 static void
-S_service_enable(char * * list, int count, u_int32_t which)
+S_service_enable(ni_namelist * nl_p, u_int32_t which)
 {
-    int i;
+    int 	i;
+    int		count;
+    char * *	list;
 
+    if (nl_p == NULL) {
+	return;
+    }
+    if (nl_p->ninl_len == 0) {
+	S_which_services |= which;
+	return;
+    }
+    list = nl_p->ninl_val;
+    count = nl_p->ninl_len;
     for (i = 0; i < count; i++) {
 	interface_t * 	if_p;
 	char *		ifname = list[i];
@@ -678,7 +698,7 @@ S_service_is_enabled(u_int32_t service)
     return (FALSE);
 }
 
-static __inline__ void
+static void
 S_disable_netboot()
 {
     S_do_netboot = FALSE;
@@ -786,54 +806,55 @@ S_refresh_allow_deny(PropList_t * pl_p)
 static void
 S_update_services()
 {
-    ni_namelist *	nl_p;
+    ni_namelist *	nl_p = NULL;
 
     S_which_services = 0;
+
     PropList_read(&S_config_dhcp);
 
     /* BOOTP */
-    nl_p = PropList_lookup(&S_config_dhcp, CFGPROP_BOOTP_ENABLED);
-    if (nl_p == NULL || nl_p->ninl_len == 0) {
-	S_which_services |= SERVICE_BOOTP;
-    }
-    else {
-	S_service_enable(nl_p->ninl_val, nl_p->ninl_len, SERVICE_BOOTP);
+    if (S_do_bootp) {
+	nl_p = PropList_lookup(&S_config_dhcp, CFGPROP_BOOTP_ENABLED);
+	if (nl_p == NULL) {
+	    /* if nothing is specified, BOOTP is enabled */
+	    S_which_services |= SERVICE_BOOTP;
+	}
+	else {
+	    S_service_enable(nl_p, SERVICE_BOOTP);
+	}
     }
 
     /* DHCP */
-    nl_p = PropList_lookup(&S_config_dhcp, CFGPROP_DHCP_ENABLED);
-    if (nl_p) {
-	if (nl_p->ninl_len == 0) {
-	    S_which_services |= SERVICE_DHCP;
-	}
-	else {
-	    S_service_enable(nl_p->ninl_val, nl_p->ninl_len, SERVICE_DHCP);
-	}
-    }
+    S_service_enable(PropList_lookup(&S_config_dhcp, CFGPROP_DHCP_ENABLED),
+		     SERVICE_DHCP);
 
     /* NetBoot (2.0) */
-    nl_p = PropList_lookup(&S_config_dhcp, CFGPROP_NETBOOT_ENABLED);
-    if (nl_p) {
-	if (nl_p->ninl_len == 0) {
-	    S_which_services |= SERVICE_NETBOOT;
-	}
-	else {
-	    S_service_enable(nl_p->ninl_val, nl_p->ninl_len, SERVICE_NETBOOT);
-	}
-    }
+    S_service_enable(PropList_lookup(&S_config_dhcp, CFGPROP_NETBOOT_ENABLED),
+		     SERVICE_NETBOOT);
 
     /* NetBoot (old, pre 2.0) */
-    nl_p = PropList_lookup(&S_config_dhcp, CFGPROP_OLD_NETBOOT_ENABLED);
-    if (nl_p) {
-	if (nl_p->ninl_len == 0) {
-	    S_which_services |= SERVICE_OLD_NETBOOT;
-	}
-	else {
-	    S_service_enable(nl_p->ninl_val, nl_p->ninl_len, 
-			     SERVICE_OLD_NETBOOT);
+    S_service_enable(PropList_lookup(&S_config_dhcp, 
+				     CFGPROP_OLD_NETBOOT_ENABLED),
+		     SERVICE_OLD_NETBOOT);
+
+    /* allow/deny list */
+    S_refresh_allow_deny(&S_config_dhcp);
+
+    /* reply threshold */
+    reply_threshold_seconds = 0;
+    nl_p = PropList_lookup(&S_config_dhcp, CFGPROP_REPLY_THRESHOLD_SECONDS);
+    if (nl_p != NULL && nl_p->ninl_len != 0) {
+	reply_threshold_seconds = strtoul(nl_p->ninl_val[0], NULL, NULL);
+    }
+
+    /* detect other DHCP server */
+    detect_other_dhcp_server = 0;
+    nl_p = PropList_lookup(&S_config_dhcp, CFGPROP_DETECT_OTHER_DHCP_SERVER);
+    if (nl_p != NULL && nl_p->ninl_len != 0) {
+	if (strtol(nl_p->ninl_val[0], NULL, NULL) != 0) {
+	    detect_other_dhcp_server = 1;
 	}
     }
-    S_refresh_allow_deny(&S_config_dhcp);
     return;
 }
 
@@ -842,7 +863,7 @@ bootp_enabled(interface_t * if_p)
 {
     u_int32_t 	which = (S_which_services | if_p->user_defined);
 
-    return (S_do_bootp || (which & SERVICE_BOOTP) != 0);
+    return ((which & SERVICE_BOOTP) != 0);
 }
 
 static __inline__ boolean_t
@@ -876,26 +897,35 @@ usage()
 	    "<options> are:\n"
 	    "[ -a ] 	support anonymous binding for BOOTP clients\n"
 	    "[ -D ]	be a DHCP server\n"
+	    "[ -B ]	don't service BOOTP requests\n"
 	    "[ -b ] 	bootfile must exist or we don't respond\n"
 	    "[ -c <cache check interval in seconds> ]\n"
 	    "[ -d ]	debug mode, stay in foreground, extra printf's\n"
+	    "[ -I ]	disable re-initialization on IP address changes\n"
 	    "[ -i <interface> [ -i <interface> ... ] ]\n"
+	    "[ -m ] 	be an old NetBoot (1.0) server\n"
 	    "[ -n <domain> [ -n <domain> [...] ] ]\n"
-	    "[ -N ]	be a NetBoot server\n"
+	    "[ -N ]	be a NetBoot 2.0 server\n"
 	    "[ -q ]	be quiet as possible\n"
-	    "[ -r <BOOTP/DHCP server ip> [ -o <max hops> ] ]\n"
+	    "[ -r <server ip> [ -o <max hops> ] ] relay packets to server, "
+	    "optionally set the hop count (default is 4 hops)\n"
 	    "[ -v ] 	verbose mode, extra information\n"
 	    );
     exit(1);
 }
 
+static void
+S_add_ip_change_notifications();
+
 int
 main(int argc, char * argv[])
 {
     int			ch;
+    boolean_t		ip_change_notifications = TRUE;
     int			logopt = LOG_CONS;
     int			max_hops = 4;
     boolean_t		netinfo_lookups = TRUE;
+    boolean_t		persist = 0;
     boolean_t		relay = FALSE;
     struct in_addr	relay_server = { 0 };
 
@@ -904,7 +934,7 @@ main(int argc, char * argv[])
 
     ptrlist_init(&S_domain_list);
     ptrlist_init(&S_if_list);
-    while ((ch =  getopt(argc, argv, "aBbc:DdhHi:mNn:o:p:qr:t:v")) != EOF) {
+    while ((ch =  getopt(argc, argv, "aBbc:DdhHi:ImNn:o:Pp:qr:t:v")) != EOF) {
 	switch ((char)ch) {
 	case 'a':
 	    /* enable anonymous binding for BOOTP clients */
@@ -924,7 +954,6 @@ main(int argc, char * argv[])
 	    break;
 	case 'D':		/* answer DHCP requests as a DHCP server */
 	    S_do_dhcp = TRUE;
-	    S_do_bootp = TRUE;
 	    break;
 	case 'd':		/* stay in the foreground, extra printf's */
 	    debug = 1;
@@ -933,6 +962,9 @@ main(int argc, char * argv[])
 	case 'H':
 	    usage();
 	    exit(1);
+	    break;
+	case 'I':
+	    ip_change_notifications = FALSE;
 	    break;
 	case 'i':	/* user specified interface(s) to use */
 	    if (S_string_in_list(&S_if_list, optarg) == FALSE) {
@@ -969,6 +1001,10 @@ main(int argc, char * argv[])
 		exit(1);
 	    }
 	    max_hops = h;
+	    break;
+	}
+	case 'P': {
+	    persist = 1;
 	    break;
 	}
 	case 'p': {
@@ -1027,9 +1063,11 @@ main(int argc, char * argv[])
     } 
     else { /* started by inetd */
 	bootp_socket = 0;
-	signal(SIGALRM, on_alarm);
 	gettimeofday(&S_lastmsgtime, 0);
-	alarm(15);
+	if (persist == 0) {
+	    signal(SIGALRM, on_alarm);
+	    alarm(15);
+	}
     }
 
     writepid();
@@ -1078,6 +1116,10 @@ main(int argc, char * argv[])
 
     S_get_interfaces();
     S_get_network_routes();
+
+    if (ip_change_notifications) {
+	S_add_ip_change_notifications();
+    }
 
     if (relay == FALSE) {
 	PropList_init(&S_config_dhcp, "/config/dhcp");
@@ -1386,9 +1428,19 @@ bootp_request(request_t * request)
 	= sizeof(netinfo_options) / sizeof(netinfo_options[0]);
     struct bootp 	rp;
     struct bootp *	rq = (struct bootp *)request->pkt;
+    u_int16_t		secs;
 
     if (request->pkt_length < sizeof(struct bootp))
 	return;
+
+    secs = (u_int16_t)ntohs(rq->bp_secs);
+    if (secs < reply_threshold_seconds) {
+	if (debug) {
+	    printf("rq->bp_secs %d < threshold %d\n",
+		   secs, reply_threshold_seconds);
+	}
+	return;
+    }
 
     rp = *rq;	/* copy request into reply */
     rp.bp_op = BOOTREPLY;
@@ -1518,8 +1570,6 @@ sendreply(interface_t * if_p, struct bootp * bp, int n,
 		dst = *dest_p;
 	    else
 		dst = bp->bp_yiaddr;
-	    if (dst.s_addr)
-		setarp(&dst, bp->bp_chaddr, bp->bp_hlen);
 	    hwaddr = bp->bp_chaddr;
 	}
 	my_log(LOG_DEBUG, "replying to %s", inet_ntoa(dst));
@@ -1763,57 +1813,6 @@ add_subnet_options(NIDomain_t * domain, u_char * hostname,
     return (dhcpoa_count(options) - number_before);
 }
 
-
-/*
- * Function: setarp
- *
- * Purpose:
- *   Temporarily bind IP address 'ia'  to hardware address 'ha' of 
- *   length 'len'.  Uses the arp_set/arp_delete routines.
- */
-void
-setarp(struct in_addr * ia, u_char * ha, int len)
-{
-    int arp_ret;
-    route_msg msg;
-
-    if (S_rtsockfd == -1) {
-	my_log(LOG_ERR, "setarp: routing socket not initialized");
-	exit(1);
-    }
-    arp_ret = arp_get(S_rtsockfd, &msg, ia);
-    if (arp_ret == 0) {
-   	struct sockaddr_inarp *	sin;
-    	struct sockaddr_dl *	sdl;
-
-	sin = (struct sockaddr_inarp *)msg.m_space;
-	sdl = (struct sockaddr_dl *)(sin->sin_len + (char *)sin);
-	if (sdl->sdl_alen == len
-	    && bcmp(ha, sdl->sdl_data + sdl->sdl_nlen, len) == 0) {
-	    if (msg.m_rtm.rtm_rmx.rmx_expire == 0) {
-		if (debug)
-		    printf("permanent ARP entry for %s - leaving it alone\n",
-			   inet_ntoa(*ia));
-		return;
-	    }
-	}
-    }
-    else 
-	my_log(LOG_DEBUG, "arp_get(%s) failed, %d", inet_ntoa(*ia), arp_ret);
-    arp_ret = arp_delete(S_rtsockfd, *ia, FALSE);
-    if (arp_ret != 0)
-	my_log(LOG_DEBUG, "arp_delete(%s) failed, %d", inet_ntoa(*ia), arp_ret);
-    arp_ret = arp_set(S_rtsockfd, ia, (void *)ha, len, TRUE, FALSE);
-    if (arp_ret == 0)
-	my_log(LOG_DEBUG, "arp_set(%s, %s) succeeded", inet_ntoa(*ia), 
-	       ether_ntoa((struct ether_addr *)ha));
-    else
-	my_log(LOG_DEBUG, "arp_set(%s, %s) failed: %s", inet_ntoa(*ia), 
-	       ether_ntoa((struct ether_addr *)ha),
-	       arp_strerror(arp_ret));
-    return;
-}
-
 /**
  ** Server Main Loop
  **/
@@ -1840,6 +1839,8 @@ static void
 S_relay_packet(struct in_addr * relay, int max_hops, struct bootp * bp, int n, 
 	       interface_t * if_p)
 {
+    u_int16_t	secs;
+
     if (n < sizeof(struct bootp))
 	return;
 
@@ -1847,6 +1848,11 @@ S_relay_packet(struct in_addr * relay, int max_hops, struct bootp * bp, int n,
     case BOOTREQUEST:
 	if (bp->bp_hops >= max_hops)
 	    return;
+	secs = (u_int16_t)ntohs(bp->bp_secs);
+	if (secs < reply_threshold_seconds) {
+	    /* don't bother yet */
+	    return;
+	}
 	if (bp->bp_giaddr.s_addr == 0) {
 	    /* fill it in with our interface address */
 	    bp->bp_giaddr = if_inet_addr(if_p);
@@ -1880,8 +1886,6 @@ S_relay_packet(struct in_addr * relay, int max_hops, struct bootp * bp, int n,
 	}
 	else {
 	    dst = bp->bp_yiaddr;
-	    if (dst.s_addr != 0)
-		setarp(&dst, bp->bp_chaddr, bp->bp_hlen);
 	}
 	if (verbose) {
 	    my_log(LOG_DEBUG, "relaying from server '%s' to %s", 
@@ -1974,7 +1978,8 @@ S_dispatch_packet(struct bootp * bp, int n, interface_t * if_p,
 		    }
 		    else {
 			bsdp_request(&request, dhcp_msgtype,
-				     arch, sysid, &rq_vsopt, client_version);
+				     arch, sysid, &rq_vsopt, client_version,
+				     is_old_netboot);
 		    }
 		}
 		dhcpol_free(&rq_vsopt);
@@ -2014,7 +2019,7 @@ S_dispatch_packet(struct bootp * bp, int n, interface_t * if_p,
     return;
 }
 
-static __inline__ void *
+static void *
 S_parse_control(int level, int type, int * len)
 {
     struct cmsghdr *	cmsg;
@@ -2066,7 +2071,7 @@ S_which_interface()
 }
 #endif
 
-static __inline__ struct in_addr *
+static struct in_addr *
 S_which_dstaddr()
 {
     void *	data;
@@ -2256,4 +2261,34 @@ S_relay_loop(struct in_addr * relay, int max_hops)
 	sigsetmask(mask);
     }
     exit (0); /* not reached */
+}
+
+#include <SystemConfiguration/SystemConfiguration.h>
+#include <SystemConfiguration/SCDynamicStorePrivate.h>
+
+static void
+S_add_ip_change_notifications()
+{
+    CFStringRef			key;
+    CFMutableArrayRef		patterns;
+    SCDynamicStoreRef		store;
+
+    store = SCDynamicStoreCreate(NULL,
+				 CFSTR("com.apple.network.bootpd"),
+				 NULL,
+				 NULL);
+    if (store == NULL) {
+	return;
+    }
+    key = SCDynamicStoreKeyCreateNetworkInterfaceEntity(NULL,
+							kSCDynamicStoreDomainState,
+							kSCCompAnyRegex,
+							kSCEntNetIPv4);
+    patterns = CFArrayCreateMutable(NULL, 1, &kCFTypeArrayCallBacks);
+    CFArrayAppendValue(patterns, key);
+    CFRelease(key);
+    SCDynamicStoreSetNotificationKeys(store, NULL, patterns);
+    CFRelease(patterns);
+    SCDynamicStoreNotifySignal(store, getpid(), SIGHUP);
+    return;
 }

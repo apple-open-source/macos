@@ -31,6 +31,10 @@
  * Copyright (c) 1995 Tatu Ylonen <ylo@cs.hut.fi>, Espoo, Finland
  */
 
+/*
+ * Portions Copyright (c) 2002 Apple Computer, Inc.
+ */
+
 //#include "includes.h"
 #include <stdlib.h>
 #include <stdio.h>
@@ -240,7 +244,7 @@ write_bignum(FILE *f, BIGNUM *num)
 	return 1;
 }
 unsigned int
-key_read(Key *ret, char **cpp)
+pwsf_key_read(Key *ret, char **cpp)
 {
 	Key *k;
 	unsigned int bits = 0;
@@ -283,12 +287,12 @@ key_read(Key *ret, char **cpp)
 		blob = xmalloc(len);
 		n = uudecode(cp, blob, len);
 		if (n < 0) {
-			error("key_read: uudecode %s failed", cp);
+			error("pwsf_key_read: uudecode %s failed", cp);
 			return 0;
 		}
 		k = dsa_key_from_blob(blob, n);
 		if (k == NULL) {
-			error("key_read: dsa_key_from_blob %s failed", cp);
+			error("pwsf_key_read: dsa_key_from_blob %s failed", cp);
 			return 0;
 		}
 		xfree(blob);
@@ -306,7 +310,7 @@ key_read(Key *ret, char **cpp)
 		*cpp = cp;
 		break;
 	default:
-		fatal("key_read: bad key type: %d", ret->type);
+		fatal("pwsf_key_read: bad key type: %d", ret->type);
 		break;
 	}
 	return bits;

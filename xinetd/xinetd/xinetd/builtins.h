@@ -9,7 +9,7 @@
 #define BUILTINS_H
 
 /*
- * $Id: builtins.h,v 1.1.1.3 2002/10/02 21:07:21 bbraun Exp $
+ * $Id: builtins.h,v 1.1.1.4 2003/05/22 01:16:36 rbraun Exp $
  */
 
 #include "defs.h"
@@ -36,7 +36,7 @@ typedef struct builtin builtin_s ;
 
 struct builtin_service
 {
-   char        *bs_name ;               /* for identification purposes      */
+   const char  *bs_name ;               /* for identification purposes      */
    int         bs_socket_type ;         /* for identification purposes      */
    builtin_s   bs_handle ;
 } ;

@@ -1,10 +1,15 @@
 ########################################################
 ## Makefile for building curl.exe with MSVC6
-## Use: nmake -f makefile.vc6 [release | debug]
+## Use: nmake -f makefile.vc6 [release | debug] [CFG=release-ssl]
 ##      (default is release)
+## "nmake -f makefile.vc6 CFG=release-ssl" statically links OpenSSL
+## into curl.exe producing a standalone SSL-enabled executable.
 ##
 ## Comments to: Troy Engel <tengel@sonic.net>
 ## Updated by: Craig Davison <cd@securityfocus.com>
+## release-ssl added by Miklos Nemeth <mnemeth@kfkisystems.com>
+## winmm.lib added by Miklos Nemeth <mnemeth@kfkisystems.com> to support
+## timeGetTime() in timeval.c
 
 PROGRAM_NAME = curl.exe
 
@@ -21,8 +26,8 @@ LINKD = link.exe /incremental:yes /debug /libpath:"../lib"
 
 CFLAGS = /I "../include" /nologo /W3 /GX /D "WIN32" /D "_CONSOLE" /D "_MBCS" /YX /FD /c
 LFLAGS = /nologo /out:$(PROGRAM_NAME) /subsystem:console /machine:I386
-LINKLIBS = wsock32.lib libcurl.lib
-LINKLIBS_DEBUG = wsock32.lib libcurld.lib
+LINKLIBS = ws2_32.lib libcurl.lib winmm.lib
+LINKLIBS_DEBUG = ws2_32.lib libcurld.lib winmm.lib
 
 RELEASE_OBJS= \
 	hugehelpr.obj \
@@ -42,6 +47,20 @@ LINK_OBJS= \
 	urlglob.obj \
 	main.obj
 
+ 
+######################
+# release-ssl
+ 
+!IF "$(CFG)" == "release-ssl"
+!IFNDEF OPENSSL_PATH
+OPENSSL_PATH   = ../../openssl-0.9.6
+!ENDIF
+LFLAGSSSL = /LIBPATH:"$(OPENSSL_PATH)/out32"
+SSLLIBS   = libeay32.lib ssleay32.lib RSAglue.lib gdi32.lib 
+LINKLIBS  = $(LINKLIBS) $(SSLLIBS)
+LFLAGS = $(LFLAGS) $(LFLAGSSSL)
+!ENDIF
+ 
 all : release
 
 release: $(RELEASE_OBJS)

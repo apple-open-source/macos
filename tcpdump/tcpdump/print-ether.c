@@ -20,21 +20,14 @@
  */
 #ifndef lint
 static const char rcsid[] =
-    "@(#) $Header: /cvs/Darwin/src/live/tcpdump/tcpdump/print-ether.c,v 1.1.1.2 2002/05/29 00:05:36 landonf Exp $ (LBL)";
+    "@(#) $Header: /cvs/root/tcpdump/tcpdump/print-ether.c,v 1.1.1.3 2003/03/17 18:42:16 rbraun Exp $ (LBL)";
 #endif
 
 #ifdef HAVE_CONFIG_H
 #include "config.h"
 #endif
 
-#include <sys/param.h>
-#include <sys/time.h>
-#include <sys/socket.h>
-
-struct mbuf;
-struct rtentry;
-
-#include <netinet/in.h>
+#include <tcpdump-stdinc.h>
 
 #include <stdio.h>
 #include <pcap.h>
@@ -45,11 +38,10 @@ struct rtentry;
 
 #include "ether.h"
 
-const u_char *packetp;
 const u_char *snapend;
 
 static inline void
-ether_print(register const u_char *bp, u_int length)
+ether_hdr_print(register const u_char *bp, u_int length)
 {
 	register const struct ether_header *ep;
 
@@ -67,39 +59,20 @@ ether_print(register const u_char *bp, u_int length)
 			     length);
 }
 
-/*
- * This is the top level routine of the printer.  'p' is the points
- * to the ether header of the packet, 'h->tv' is the timestamp,
- * 'h->length' is the length of the packet off the wire, and 'h->caplen'
- * is the number of bytes actually captured.
- */
 void
-ether_if_print(u_char *user, const struct pcap_pkthdr *h, const u_char *p)
+ether_print(const u_char *p, u_int length, u_int caplen)
 {
-	u_int caplen = h->caplen;
-	u_int length = h->len;
 	struct ether_header *ep;
 	u_short ether_type;
 	u_short extracted_ethertype;
 
-	++infodelay;
-	ts_print(&h->ts);
-
 	if (caplen < ETHER_HDRLEN) {
 		printf("[|ether]");
-		goto out;
+		return;
 	}
 
 	if (eflag)
-		ether_print(p, length);
-
-	/*
-	 * Some printers want to get back at the ethernet addresses,
-	 * and/or check that they're not walking off the end of the packet.
-	 * Rather than pass them all the way down, we set these globals.
-	 */
-	packetp = p;
-	snapend = p + caplen;
+		ether_hdr_print(p, length);
 
 	length -= ETHER_HDRLEN;
 	caplen -= ETHER_HDRLEN;
@@ -118,7 +91,7 @@ ether_if_print(u_char *user, const struct pcap_pkthdr *h, const u_char *p)
 		    &extracted_ethertype) == 0) {
 			/* ether_type not known, print raw packet */
 			if (!eflag)
-				ether_print((u_char *)ep, length + ETHER_HDRLEN);
+				ether_hdr_print((u_char *)ep, length + ETHER_HDRLEN);
 			if (extracted_ethertype) {
 				printf("(LLC %s) ",
 			       etherproto_string(htons(extracted_ethertype)));
@@ -130,17 +103,24 @@ ether_if_print(u_char *user, const struct pcap_pkthdr *h, const u_char *p)
 	    &extracted_ethertype) == 0) {
 		/* ether_type not known, print raw packet */
 		if (!eflag)
-			ether_print((u_char *)ep, length + ETHER_HDRLEN);
+			ether_hdr_print((u_char *)ep, length + ETHER_HDRLEN);
 		if (!xflag && !qflag)
 			default_print(p, caplen);
 	}
-	if (xflag)
-		default_print(p, caplen);
- out:
-	putchar('\n');
-	--infodelay;
-	if (infoprint)
-		info(0);
+}
+
+/*
+ * This is the top level routine of the printer.  'p' points
+ * to the ether header of the packet, 'h->ts' is the timestamp,
+ * 'h->length' is the length of the packet off the wire, and 'h->caplen'
+ * is the number of bytes actually captured.
+ */
+u_int
+ether_if_print(const struct pcap_pkthdr *h, const u_char *p)
+{
+	ether_print(p, h->len, h->caplen);
+
+	return (ETHER_HDRLEN);
 }
 
 /*
@@ -194,6 +174,7 @@ ether_encap_print(u_short ethertype, const u_char *p,
 		return (1);
 
 	case ETHERTYPE_IPX:
+		printf("(NOV-ETHII) ");
 		ipx_print(p, length);
 		return (1);
 
@@ -215,7 +196,7 @@ ether_encap_print(u_short ethertype, const u_char *p,
 		    extracted_ethertype) == 0) {
 			/* ether_type not known, print raw packet */
 			if (!eflag)
-				ether_print(p - 18, length + 4);
+				ether_hdr_print(p - 18, length + 4);
 			if (*extracted_ethertype) {
 				printf("(LLC %s) ",
 			       etherproto_string(htons(*extracted_ethertype)));
@@ -228,8 +209,8 @@ ether_encap_print(u_short ethertype, const u_char *p,
 	case ETHERTYPE_PPPOED:
 	case ETHERTYPE_PPPOES:
 		pppoe_print(p, length);
- 		return (1);
- 
+		return (1);
+
 	case ETHERTYPE_PPP:
 		printf("ppp");
 		if (length) {
@@ -237,6 +218,10 @@ ether_encap_print(u_short ethertype, const u_char *p,
 			ppp_print(p, length);
 		}
 		return (1);
+
+        case ETHERTYPE_LOOPBACK:
+                printf("loopback");
+                return (1);
 
 	case ETHERTYPE_MPLS:
 	case ETHERTYPE_MPLS_MULTI:

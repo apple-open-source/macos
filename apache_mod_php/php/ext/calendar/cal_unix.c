@@ -1,8 +1,8 @@
 /*
    +----------------------------------------------------------------------+
-   | PHP version 4.0                                                      |
+   | PHP Version 4                                                        |
    +----------------------------------------------------------------------+
-   | Copyright (c) 1997-2001 The PHP Group                                |
+   | Copyright (c) 1997-2003 The PHP Group                                |
    +----------------------------------------------------------------------+
    | This source file is subject to version 2.02 of the PHP license,      |
    | that is bundled with this package in the file LICENSE, and is        |
@@ -13,7 +13,7 @@
    | license@php.net so we can mail you a copy immediately.               |
    +----------------------------------------------------------------------+
    | Authors: Shane Caraveo             <shane@caraveo.com>               | 
-   |          Colin Viebrock            <cmv@easydns.com>                 |
+   |          Colin Viebrock            <colin@easydns.com>               |
    |          Hartmut Holzgraefe        <hartmut@six.de>                  |
    +----------------------------------------------------------------------+
  */
@@ -40,7 +40,7 @@ PHP_FUNCTION(unixtojd)
 
   if(myargc==1) {
     convert_to_long(timestamp);
-    t = timestamp->value.lval;
+    t = Z_LVAL_P(timestamp);
   } else {
     t = time(NULL);
   }
@@ -69,7 +69,7 @@ PHP_FUNCTION(jdtounix)
   
   convert_to_long(jday);
 
-  uday = jday->value.lval - 2440588 /* J.D. of 1.1.1970 */;
+  uday = Z_LVAL_P(jday) - 2440588 /* J.D. of 1.1.1970 */;
   
   if(uday<0)     RETURN_FALSE; /* before beginning of unix epoch */ 
   if(uday>24755) RETURN_FALSE; /* behind end of unix epoch */
@@ -83,6 +83,6 @@ PHP_FUNCTION(jdtounix)
  * tab-width: 4
  * c-basic-offset: 4
  * End:
- * vim600: sw=4 ts=4 tw=78 fdm=marker
- * vim<600: sw=4 ts=4 tw=78
+ * vim600: sw=4 ts=4 fdm=marker
+ * vim<600: sw=4 ts=4
  */

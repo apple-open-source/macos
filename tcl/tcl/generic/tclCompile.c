@@ -6,11 +6,12 @@
  *	sequence of instructions ("bytecodes"). 
  *
  * Copyright (c) 1996-1998 Sun Microsystems, Inc.
+ * Copyright (c) 2001 by Kevin B. Kenny.  All rights reserved.
  *
  * See the file "license.terms" for information on usage and redistribution
  * of this file, and for a DISCLAIMER OF ALL WARRANTIES.
  *
- * RCS: @(#) $Id: tclCompile.c,v 1.1.1.5 2002/04/05 16:13:17 jevans Exp $
+ * RCS: @(#) $Id: tclCompile.c,v 1.1.1.8 2003/07/22 23:11:06 landonf Exp $
  */
 
 #include "tclInt.h"
@@ -34,8 +35,10 @@ TCL_DECLARE_MUTEX(tableMutex)
  * This variable is linked to the Tcl variable "tcl_traceCompile".
  */
 
+#ifdef TCL_COMPILE_DEBUG
 int tclTraceCompile = 0;
 static int traceInitialized = 0;
+#endif
 
 /*
  * A table describing the Tcl bytecode instructions. Entries in this table
@@ -49,167 +52,223 @@ static int traceInitialized = 0;
  * existence of a procedure call frame to distinguish these.
  */
 
-InstructionDesc instructionTable[] = {
-   /* Name	      Bytes #Opnds Operand types        Stack top, next   */
-    {"done",	          1,   0,   {OPERAND_NONE}},
-        /* Finish ByteCode execution and return stktop (top stack item) */
-    {"push1",	          2,   1,   {OPERAND_UINT1}},
-        /* Push object at ByteCode objArray[op1] */
-    {"push4",	          5,   1,   {OPERAND_UINT4}},
-        /* Push object at ByteCode objArray[op4] */
-    {"pop",	          1,   0,   {OPERAND_NONE}},
-        /* Pop the topmost stack object */
-    {"dup",	          1,   0,   {OPERAND_NONE}},
-        /* Duplicate the topmost stack object and push the result */
-    {"concat1",	          2,   1,   {OPERAND_UINT1}},
-        /* Concatenate the top op1 items and push result */
-    {"invokeStk1",        2,   1,   {OPERAND_UINT1}},
-        /* Invoke command named objv[0]; <objc,objv> = <op1,top op1> */
-    {"invokeStk4",        5,   1,   {OPERAND_UINT4}},
-        /* Invoke command named objv[0]; <objc,objv> = <op4,top op4> */
-    {"evalStk",           1,   0,   {OPERAND_NONE}},
-        /* Evaluate command in stktop using Tcl_EvalObj. */
-    {"exprStk",           1,   0,   {OPERAND_NONE}},
-        /* Execute expression in stktop using Tcl_ExprStringObj. */
+InstructionDesc tclInstructionTable[] = {
+   /* Name	      Bytes stackEffect #Opnds Operand types	Stack top, next	  */
+    {"done",		  1,   -1,        0,   {OPERAND_NONE}},
+	/* Finish ByteCode execution and return stktop (top stack item) */
+    {"push1",		  2,   +1,         1,   {OPERAND_UINT1}},
+	/* Push object at ByteCode objArray[op1] */
+    {"push4",		  5,   +1,         1,   {OPERAND_UINT4}},
+	/* Push object at ByteCode objArray[op4] */
+    {"pop",		  1,   -1,        0,   {OPERAND_NONE}},
+	/* Pop the topmost stack object */
+    {"dup",		  1,   +1,         0,   {OPERAND_NONE}},
+	/* Duplicate the topmost stack object and push the result */
+    {"concat1",		  2,   INT_MIN,    1,   {OPERAND_UINT1}},
+	/* Concatenate the top op1 items and push result */
+    {"invokeStk1",	  2,   INT_MIN,    1,   {OPERAND_UINT1}},
+	/* Invoke command named objv[0]; <objc,objv> = <op1,top op1> */
+    {"invokeStk4",	  5,   INT_MIN,    1,   {OPERAND_UINT4}},
+	/* Invoke command named objv[0]; <objc,objv> = <op4,top op4> */
+    {"evalStk",		  1,   0,          0,   {OPERAND_NONE}},
+	/* Evaluate command in stktop using Tcl_EvalObj. */
+    {"exprStk",		  1,   0,          0,   {OPERAND_NONE}},
+	/* Execute expression in stktop using Tcl_ExprStringObj. */
     
-    {"loadScalar1",       2,   1,   {OPERAND_UINT1}},
-        /* Load scalar variable at index op1 <= 255 in call frame */
-    {"loadScalar4",       5,   1,   {OPERAND_UINT4}},
-        /* Load scalar variable at index op1 >= 256 in call frame */
-    {"loadScalarStk",     1,   0,   {OPERAND_NONE}},
-        /* Load scalar variable; scalar's name is stktop */
-    {"loadArray1",        2,   1,   {OPERAND_UINT1}},
-        /* Load array element; array at slot op1<=255, element is stktop */
-    {"loadArray4",        5,   1,   {OPERAND_UINT4}},
-        /* Load array element; array at slot op1 > 255, element is stktop */
-    {"loadArrayStk",      1,   0,   {OPERAND_NONE}},
-        /* Load array element; element is stktop, array name is stknext */
-    {"loadStk",           1,   0,   {OPERAND_NONE}},
-        /* Load general variable; unparsed variable name is stktop */
-    {"storeScalar1",      2,   1,   {OPERAND_UINT1}},
-        /* Store scalar variable at op1<=255 in frame; value is stktop */
-    {"storeScalar4",      5,   1,   {OPERAND_UINT4}},
-        /* Store scalar variable at op1 > 255 in frame; value is stktop */
-    {"storeScalarStk",    1,   0,   {OPERAND_NONE}},
-        /* Store scalar; value is stktop, scalar name is stknext */
-    {"storeArray1",       2,   1,   {OPERAND_UINT1}},
-        /* Store array element; array at op1<=255, value is top then elem */
-    {"storeArray4",       5,   1,   {OPERAND_UINT4}},
-        /* Store array element; array at op1>=256, value is top then elem */
-    {"storeArrayStk",     1,   0,   {OPERAND_NONE}},
-        /* Store array element; value is stktop, then elem, array names */
-    {"storeStk",          1,   0,   {OPERAND_NONE}},
-        /* Store general variable; value is stktop, then unparsed name */
+    {"loadScalar1",	  2,   1,          1,   {OPERAND_UINT1}},
+	/* Load scalar variable at index op1 <= 255 in call frame */
+    {"loadScalar4",	  5,   1,          1,   {OPERAND_UINT4}},
+	/* Load scalar variable at index op1 >= 256 in call frame */
+    {"loadScalarStk",	  1,   0,          0,   {OPERAND_NONE}},
+	/* Load scalar variable; scalar's name is stktop */
+    {"loadArray1",	  2,   0,          1,   {OPERAND_UINT1}},
+	/* Load array element; array at slot op1<=255, element is stktop */
+    {"loadArray4",	  5,   0,          1,   {OPERAND_UINT4}},
+	/* Load array element; array at slot op1 > 255, element is stktop */
+    {"loadArrayStk",	  1,   -1,         0,   {OPERAND_NONE}},
+	/* Load array element; element is stktop, array name is stknext */
+    {"loadStk",		  1,   0,          0,   {OPERAND_NONE}},
+	/* Load general variable; unparsed variable name is stktop */
+    {"storeScalar1",	  2,   0,          1,   {OPERAND_UINT1}},
+	/* Store scalar variable at op1<=255 in frame; value is stktop */
+    {"storeScalar4",	  5,   0,          1,   {OPERAND_UINT4}},
+	/* Store scalar variable at op1 > 255 in frame; value is stktop */
+    {"storeScalarStk",	  1,   -1,         0,   {OPERAND_NONE}},
+	/* Store scalar; value is stktop, scalar name is stknext */
+    {"storeArray1",	  2,   -1,         1,   {OPERAND_UINT1}},
+	/* Store array element; array at op1<=255, value is top then elem */
+    {"storeArray4",	  5,   -1,          1,   {OPERAND_UINT4}},
+	/* Store array element; array at op1>=256, value is top then elem */
+    {"storeArrayStk",	  1,   -2,         0,   {OPERAND_NONE}},
+	/* Store array element; value is stktop, then elem, array names */
+    {"storeStk",	  1,   -1,         0,   {OPERAND_NONE}},
+	/* Store general variable; value is stktop, then unparsed name */
     
-    {"incrScalar1",       2,   1,   {OPERAND_UINT1}},
-        /* Incr scalar at index op1<=255 in frame; incr amount is stktop */
-    {"incrScalarStk",     1,   0,   {OPERAND_NONE}},
-        /* Incr scalar; incr amount is stktop, scalar's name is stknext */
-    {"incrArray1",        2,   1,   {OPERAND_UINT1}},
-        /* Incr array elem; arr at slot op1<=255, amount is top then elem */
-    {"incrArrayStk",      1,   0,   {OPERAND_NONE}},
-        /* Incr array element; amount is top then elem then array names */
-    {"incrStk",           1,   0,   {OPERAND_NONE}},
-        /* Incr general variable; amount is stktop then unparsed var name */
-    {"incrScalar1Imm",    3,   2,   {OPERAND_UINT1, OPERAND_INT1}},
-        /* Incr scalar at slot op1 <= 255; amount is 2nd operand byte */
-    {"incrScalarStkImm",  2,   1,   {OPERAND_INT1}},
-        /* Incr scalar; scalar name is stktop; incr amount is op1 */
-    {"incrArray1Imm",     3,   2,   {OPERAND_UINT1, OPERAND_INT1}},
-        /* Incr array elem; array at slot op1 <= 255, elem is stktop,
+    {"incrScalar1",	  2,   0,          1,   {OPERAND_UINT1}},
+	/* Incr scalar at index op1<=255 in frame; incr amount is stktop */
+    {"incrScalarStk",	  1,   -1,         0,   {OPERAND_NONE}},
+	/* Incr scalar; incr amount is stktop, scalar's name is stknext */
+    {"incrArray1",	  2,   -1,         1,   {OPERAND_UINT1}},
+	/* Incr array elem; arr at slot op1<=255, amount is top then elem */
+    {"incrArrayStk",	  1,   -2,         0,   {OPERAND_NONE}},
+	/* Incr array element; amount is top then elem then array names */
+    {"incrStk",		  1,   -1,         0,   {OPERAND_NONE}},
+	/* Incr general variable; amount is stktop then unparsed var name */
+    {"incrScalar1Imm",	  3,   +1,         2,   {OPERAND_UINT1, OPERAND_INT1}},
+	/* Incr scalar at slot op1 <= 255; amount is 2nd operand byte */
+    {"incrScalarStkImm",  2,   0,          1,   {OPERAND_INT1}},
+	/* Incr scalar; scalar name is stktop; incr amount is op1 */
+    {"incrArray1Imm",	  3,   0,         2,   {OPERAND_UINT1, OPERAND_INT1}},
+	/* Incr array elem; array at slot op1 <= 255, elem is stktop,
 	 * amount is 2nd operand byte */
-    {"incrArrayStkImm",   2,   1,   {OPERAND_INT1}},
-        /* Incr array element; elem is top then array name, amount is op1 */
-    {"incrStkImm",        2,   1,   {OPERAND_INT1}},
-        /* Incr general variable; unparsed name is top, amount is op1 */
+    {"incrArrayStkImm",	  2,   -1,         1,   {OPERAND_INT1}},
+	/* Incr array element; elem is top then array name, amount is op1 */
+    {"incrStkImm",	  2,   0,         1,   {OPERAND_INT1}},
+	/* Incr general variable; unparsed name is top, amount is op1 */
     
-    {"jump1",             2,   1,   {OPERAND_INT1}},
-        /* Jump relative to (pc + op1) */
-    {"jump4",             5,   1,   {OPERAND_INT4}},
-        /* Jump relative to (pc + op4) */
-    {"jumpTrue1",         2,   1,   {OPERAND_INT1}},
-        /* Jump relative to (pc + op1) if stktop expr object is true */
-    {"jumpTrue4",         5,   1,   {OPERAND_INT4}},
-        /* Jump relative to (pc + op4) if stktop expr object is true */
-    {"jumpFalse1",        2,   1,   {OPERAND_INT1}},
-        /* Jump relative to (pc + op1) if stktop expr object is false */
-    {"jumpFalse4",        5,   1,   {OPERAND_INT4}},
-        /* Jump relative to (pc + op4) if stktop expr object is false */
+    {"jump1",		  2,   0,          1,   {OPERAND_INT1}},
+	/* Jump relative to (pc + op1) */
+    {"jump4",		  5,   0,          1,   {OPERAND_INT4}},
+	/* Jump relative to (pc + op4) */
+    {"jumpTrue1",	  2,   -1,         1,   {OPERAND_INT1}},
+	/* Jump relative to (pc + op1) if stktop expr object is true */
+    {"jumpTrue4",	  5,   -1,         1,   {OPERAND_INT4}},
+	/* Jump relative to (pc + op4) if stktop expr object is true */
+    {"jumpFalse1",	  2,   -1,         1,   {OPERAND_INT1}},
+	/* Jump relative to (pc + op1) if stktop expr object is false */
+    {"jumpFalse4",	  5,   -1,         1,   {OPERAND_INT4}},
+	/* Jump relative to (pc + op4) if stktop expr object is false */
 
-    {"lor",               1,   0,   {OPERAND_NONE}},
-        /* Logical or:	push (stknext || stktop) */
-    {"land",              1,   0,   {OPERAND_NONE}},
-        /* Logical and:	push (stknext && stktop) */
-    {"bitor",             1,   0,   {OPERAND_NONE}},
-        /* Bitwise or:	push (stknext | stktop) */
-    {"bitxor",            1,   0,   {OPERAND_NONE}},
-        /* Bitwise xor	push (stknext ^ stktop) */
-    {"bitand",            1,   0,   {OPERAND_NONE}},
-        /* Bitwise and:	push (stknext & stktop) */
-    {"eq",                1,   0,   {OPERAND_NONE}},
-        /* Equal:	push (stknext == stktop) */
-    {"neq",               1,   0,   {OPERAND_NONE}},
-        /* Not equal:	push (stknext != stktop) */
-    {"lt",                1,   0,   {OPERAND_NONE}},
-        /* Less:	push (stknext < stktop) */
-    {"gt",                1,   0,   {OPERAND_NONE}},
-        /* Greater:	push (stknext || stktop) */
-    {"le",                1,   0,   {OPERAND_NONE}},
-        /* Logical or:	push (stknext || stktop) */
-    {"ge",                1,   0,   {OPERAND_NONE}},
-        /* Logical or:	push (stknext || stktop) */
-    {"lshift",            1,   0,   {OPERAND_NONE}},
-        /* Left shift:	push (stknext << stktop) */
-    {"rshift",            1,   0,   {OPERAND_NONE}},
-        /* Right shift:	push (stknext >> stktop) */
-    {"add",               1,   0,   {OPERAND_NONE}},
-        /* Add:		push (stknext + stktop) */
-    {"sub",               1,   0,   {OPERAND_NONE}},
-        /* Sub:		push (stkext - stktop) */
-    {"mult",              1,   0,   {OPERAND_NONE}},
-        /* Multiply:	push (stknext * stktop) */
-    {"div",               1,   0,   {OPERAND_NONE}},
-        /* Divide:	push (stknext / stktop) */
-    {"mod",               1,   0,   {OPERAND_NONE}},
-        /* Mod:		push (stknext % stktop) */
-    {"uplus",             1,   0,   {OPERAND_NONE}},
-        /* Unary plus:	push +stktop */
-    {"uminus",            1,   0,   {OPERAND_NONE}},
-        /* Unary minus:	push -stktop */
-    {"bitnot",            1,   0,   {OPERAND_NONE}},
-        /* Bitwise not:	push ~stktop */
-    {"not",               1,   0,   {OPERAND_NONE}},
-        /* Logical not:	push !stktop */
-    {"callBuiltinFunc1",  2,   1,   {OPERAND_UINT1}},
-        /* Call builtin math function with index op1; any args are on stk */
-    {"callFunc1",         2,   1,   {OPERAND_UINT1}},
-        /* Call non-builtin func objv[0]; <objc,objv>=<op1,top op1>  */
-    {"tryCvtToNumeric",   1,   0,   {OPERAND_NONE}},
-        /* Try converting stktop to first int then double if possible. */
+    {"lor",		  1,   -1,         0,   {OPERAND_NONE}},
+	/* Logical or:	push (stknext || stktop) */
+    {"land",		  1,   -1,         0,   {OPERAND_NONE}},
+	/* Logical and:	push (stknext && stktop) */
+    {"bitor",		  1,   -1,         0,   {OPERAND_NONE}},
+	/* Bitwise or:	push (stknext | stktop) */
+    {"bitxor",		  1,   -1,         0,   {OPERAND_NONE}},
+	/* Bitwise xor	push (stknext ^ stktop) */
+    {"bitand",		  1,   -1,         0,   {OPERAND_NONE}},
+	/* Bitwise and:	push (stknext & stktop) */
+    {"eq",		  1,   -1,         0,   {OPERAND_NONE}},
+	/* Equal:	push (stknext == stktop) */
+    {"neq",		  1,   -1,         0,   {OPERAND_NONE}},
+	/* Not equal:	push (stknext != stktop) */
+    {"lt",		  1,   -1,         0,   {OPERAND_NONE}},
+	/* Less:	push (stknext < stktop) */
+    {"gt",		  1,   -1,         0,   {OPERAND_NONE}},
+	/* Greater:	push (stknext || stktop) */
+    {"le",		  1,   -1,         0,   {OPERAND_NONE}},
+	/* Logical or:	push (stknext || stktop) */
+    {"ge",		  1,   -1,         0,   {OPERAND_NONE}},
+	/* Logical or:	push (stknext || stktop) */
+    {"lshift",		  1,   -1,         0,   {OPERAND_NONE}},
+	/* Left shift:	push (stknext << stktop) */
+    {"rshift",		  1,   -1,         0,   {OPERAND_NONE}},
+	/* Right shift:	push (stknext >> stktop) */
+    {"add",		  1,   -1,         0,   {OPERAND_NONE}},
+	/* Add:		push (stknext + stktop) */
+    {"sub",		  1,   -1,         0,   {OPERAND_NONE}},
+	/* Sub:		push (stkext - stktop) */
+    {"mult",		  1,   -1,         0,   {OPERAND_NONE}},
+	/* Multiply:	push (stknext * stktop) */
+    {"div",		  1,   -1,         0,   {OPERAND_NONE}},
+	/* Divide:	push (stknext / stktop) */
+    {"mod",		  1,   -1,         0,   {OPERAND_NONE}},
+	/* Mod:		push (stknext % stktop) */
+    {"uplus",		  1,   0,          0,   {OPERAND_NONE}},
+	/* Unary plus:	push +stktop */
+    {"uminus",		  1,   0,          0,   {OPERAND_NONE}},
+	/* Unary minus:	push -stktop */
+    {"bitnot",		  1,   0,          0,   {OPERAND_NONE}},
+	/* Bitwise not:	push ~stktop */
+    {"not",		  1,   0,          0,   {OPERAND_NONE}},
+	/* Logical not:	push !stktop */
+    {"callBuiltinFunc1",  2,   1,          1,   {OPERAND_UINT1}},
+	/* Call builtin math function with index op1; any args are on stk */
+    {"callFunc1",	  2,   INT_MIN,    1,   {OPERAND_UINT1}},
+	/* Call non-builtin func objv[0]; <objc,objv>=<op1,top op1>  */
+    {"tryCvtToNumeric",	  1,   0,          0,   {OPERAND_NONE}},
+	/* Try converting stktop to first int then double if possible. */
 
-    {"break",             1,   0,   {OPERAND_NONE}},
-        /* Abort closest enclosing loop; if none, return TCL_BREAK code. */
-    {"continue",          1,   0,   {OPERAND_NONE}},
-        /* Skip to next iteration of closest enclosing loop; if none,
+    {"break",		  1,   0,          0,   {OPERAND_NONE}},
+	/* Abort closest enclosing loop; if none, return TCL_BREAK code. */
+    {"continue",	  1,   0,          0,   {OPERAND_NONE}},
+	/* Skip to next iteration of closest enclosing loop; if none,
 	 * return TCL_CONTINUE code. */
 
-    {"foreach_start4",    5,   1,   {OPERAND_UINT4}},
-        /* Initialize execution of a foreach loop. Operand is aux data index
+    {"foreach_start4",	  5,   0,          1,   {OPERAND_UINT4}},
+	/* Initialize execution of a foreach loop. Operand is aux data index
 	 * of the ForeachInfo structure for the foreach command. */
-    {"foreach_step4",     5,   1,   {OPERAND_UINT4}},
-        /* "Step" or begin next iteration of foreach loop. Push 0 if to
+    {"foreach_step4",	  5,   +1,         1,   {OPERAND_UINT4}},
+	/* "Step" or begin next iteration of foreach loop. Push 0 if to
 	 *  terminate loop, else push 1. */
 
-    {"beginCatch4",	  5,   1,   {OPERAND_UINT4}},
-        /* Record start of catch with the operand's exception index.
+    {"beginCatch4",	  5,   0,          1,   {OPERAND_UINT4}},
+	/* Record start of catch with the operand's exception index.
 	 * Push the current stack depth onto a special catch stack. */
-    {"endCatch",	  1,   0,   {OPERAND_NONE}},
-        /* End of last catch. Pop the bytecode interpreter's catch stack. */
-    {"pushResult",	  1,   0,   {OPERAND_NONE}},
-        /* Push the interpreter's object result onto the stack. */
-    {"pushReturnCode",	  1,   0,   {OPERAND_NONE}},
-        /* Push interpreter's return code (e.g. TCL_OK or TCL_ERROR) as
+    {"endCatch",	  1,   0,          0,   {OPERAND_NONE}},
+	/* End of last catch. Pop the bytecode interpreter's catch stack. */
+    {"pushResult",	  1,   +1,         0,   {OPERAND_NONE}},
+	/* Push the interpreter's object result onto the stack. */
+    {"pushReturnCode",	  1,   +1,         0,   {OPERAND_NONE}},
+	/* Push interpreter's return code (e.g. TCL_OK or TCL_ERROR) as
 	 * a new object onto the stack. */
+    {"streq",		  1,   -1,         0,   {OPERAND_NONE}},
+	/* Str Equal:	push (stknext eq stktop) */
+    {"strneq",		  1,   -1,         0,   {OPERAND_NONE}},
+	/* Str !Equal:	push (stknext neq stktop) */
+    {"strcmp",		  1,   -1,         0,   {OPERAND_NONE}},
+	/* Str Compare:	push (stknext cmp stktop) */
+    {"strlen",		  1,   0,          0,   {OPERAND_NONE}},
+	/* Str Length:	push (strlen stktop) */
+    {"strindex",	  1,   -1,         0,   {OPERAND_NONE}},
+	/* Str Index:	push (strindex stknext stktop) */
+    {"strmatch",	  2,   -1,         1,   {OPERAND_INT1}},
+	/* Str Match:	push (strmatch stknext stktop) opnd == nocase */
+    {"list",		  5,   INT_MIN,    1,   {OPERAND_UINT4}},
+	/* List:	push (stk1 stk2 ... stktop) */
+    {"listindex",	  1,   -1,         0,   {OPERAND_NONE}},
+	/* List Index:	push (listindex stknext stktop) */
+    {"listlength",	  1,   0,          0,   {OPERAND_NONE}},
+	/* List Len:	push (listlength stktop) */
+    {"appendScalar1",	  2,   0,          1,   {OPERAND_UINT1}},
+	/* Append scalar variable at op1<=255 in frame; value is stktop */
+    {"appendScalar4",	  5,   0,          1,   {OPERAND_UINT4}},
+	/* Append scalar variable at op1 > 255 in frame; value is stktop */
+    {"appendArray1",	  2,   -1,         1,   {OPERAND_UINT1}},
+	/* Append array element; array at op1<=255, value is top then elem */
+    {"appendArray4",	  5,   -1,         1,   {OPERAND_UINT4}},
+	/* Append array element; array at op1>=256, value is top then elem */
+    {"appendArrayStk",	  1,   -2,         0,   {OPERAND_NONE}},
+	/* Append array element; value is stktop, then elem, array names */
+    {"appendStk",	  1,   -1,         0,   {OPERAND_NONE}},
+	/* Append general variable; value is stktop, then unparsed name */
+    {"lappendScalar1",	  2,   0,          1,   {OPERAND_UINT1}},
+	/* Lappend scalar variable at op1<=255 in frame; value is stktop */
+    {"lappendScalar4",	  5,   0,          1,   {OPERAND_UINT4}},
+	/* Lappend scalar variable at op1 > 255 in frame; value is stktop */
+    {"lappendArray1",	  2,   -1,         1,   {OPERAND_UINT1}},
+	/* Lappend array element; array at op1<=255, value is top then elem */
+    {"lappendArray4",	  5,   -1,         1,   {OPERAND_UINT4}},
+	/* Lappend array element; array at op1>=256, value is top then elem */
+    {"lappendArrayStk",	  1,   -2,         0,   {OPERAND_NONE}},
+	/* Lappend array element; value is stktop, then elem, array names */
+    {"lappendStk",	  1,   -1,         0,   {OPERAND_NONE}},
+	/* Lappend general variable; value is stktop, then unparsed name */
+    {"lindexMulti",	  5,   INT_MIN,   1,   {OPERAND_UINT4}},
+        /* Lindex with generalized args, operand is number of stacked objs 
+	 * used: (operand-1) entries from stktop are the indices; then list 
+	 * to process. */
+    {"over",		  5,   +1,         1,   {OPERAND_UINT4}},
+        /* Duplicate the arg-th element from top of stack (TOS=0) */
+    {"lsetList",          1,   -2,         0,   {OPERAND_NONE}},
+        /* Four-arg version of 'lset'. stktop is old value; next is
+         * new element value, next is the index list; pushes new value */
+    {"lsetFlat",          5,   INT_MIN,   1,   {OPERAND_UINT4}},
+        /* Three- or >=5-arg version of 'lset', operand is number of 
+	 * stacked objs: stktop is old value, next is new element value, next 
+	 * come (operand-2) indices; pushes the new value.
+	 */
     {0}
 };
 
@@ -233,7 +292,8 @@ static void		FreeByteCodeInternalRep _ANSI_ARGS_((
 static int		GetCmdLocEncodingSize _ANSI_ARGS_((
 			    CompileEnv *envPtr));
 static void		LogCompilationInfo _ANSI_ARGS_((Tcl_Interp *interp,
-        		    char *script, char *command, int length));
+        		    CONST char *script, CONST char *command,
+			    int length));
 #ifdef TCL_COMPILE_STATS
 static void		RecordByteCodeStats _ANSI_ARGS_((
 			    ByteCode *codePtr));
@@ -298,6 +358,7 @@ TclSetByteCodeFromAny(interp, objPtr, hookProc, clientData)
     int length, nested, result;
     char *string;
 
+#ifdef TCL_COMPILE_DEBUG
     if (!traceInitialized) {
         if (Tcl_LinkVar(interp, "tcl_traceCompile",
 	            (char *) &tclTraceCompile,  TCL_LINK_INT) != TCL_OK) {
@@ -305,6 +366,7 @@ TclSetByteCodeFromAny(interp, objPtr, hookProc, clientData)
         }
         traceInitialized = 1;
     }
+#endif
 
     if (iPtr->evalFlags & TCL_BRACKET_TERM) {
 	nested = 1;
@@ -342,7 +404,7 @@ TclSetByteCodeFromAny(interp, objPtr, hookProc, clientData)
 
 	TclInitByteCodeObj(objPtr, &compEnv);
 #ifdef TCL_COMPILE_DEBUG
-	if (tclTraceCompile == 2) {
+	if (tclTraceCompile >= 2) {
 	    TclPrintByteCodeObj(interp, objPtr);
 	}
 #endif /* TCL_COMPILE_DEBUG */
@@ -531,7 +593,7 @@ TclCleanupByteCode(codePtr)
 		(double) (codePtr->numAuxDataItems * sizeof(AuxData));
 	statsPtr->currentCmdMapBytes -= (double) codePtr->numCmdLocBytes;
 
-	TclpGetTime(&destroyTime);
+	Tcl_GetTime(&destroyTime);
 	lifetimeSec = destroyTime.sec - codePtr->createTime.sec;
 	if (lifetimeSec > 2000) {	/* avoid overflow */
 	    lifetimeSec = 2000;
@@ -641,9 +703,8 @@ TclInitCompileEnv(interp, envPtr, string, numBytes)
     envPtr->exceptDepth = 0;
     envPtr->maxExceptDepth = 0;
     envPtr->maxStackDepth = 0;
+    envPtr->currStackDepth = 0;
     TclInitLiteralTable(&(envPtr->localLitTable));
-    envPtr->exprIsJustVarRef = 0;
-    envPtr->exprIsComparison = 0;
 
     envPtr->codeStart = envPtr->staticCodeSpace;
     envPtr->codeNext = envPtr->codeStart;
@@ -728,8 +789,6 @@ TclFreeCompileEnv(envPtr)
  *	interp->termOffset is set to the offset of the character in the
  *	script just after the last one successfully processed; this will be
  *	the offset of the ']' if (flags & TCL_BRACKET_TERM).
- *	envPtr->maxStackDepth is set to the maximum number of stack elements
- *	needed to execute the script's commands.
  *
  * Side effects:
  *	Adds instructions to envPtr to evaluate the script at runtime.
@@ -739,8 +798,10 @@ TclFreeCompileEnv(envPtr)
 
 int
 TclCompileScript(interp, script, numBytes, nested, envPtr)
-    Tcl_Interp *interp;		/* Used for error and status reporting. */
-    char *script;		/* The source script to compile. */
+    Tcl_Interp *interp;		/* Used for error and status reporting.
+				 * Also serves as context for finding and
+				 * compiling commands.  May not be NULL. */
+    CONST char *script;		/* The source script to compile. */
     int numBytes;		/* Number of bytes in script. If < 0, the
 				 * script consists of all bytes up to the
 				 * first null character. */
@@ -752,8 +813,6 @@ TclCompileScript(interp, script, numBytes, nested, envPtr)
 {
     Interp *iPtr = (Interp *) interp;
     Tcl_Parse parse;
-    int maxDepth = 0;		/* Maximum number of stack elements needed
-				 * to execute all cmds. */
     int lastTopLevelCmdIndex = -1;
     				/* Index of most recent toplevel command in
  				 * the command location table. Initialized
@@ -761,13 +820,12 @@ TclCompileScript(interp, script, numBytes, nested, envPtr)
     int startCodeOffset = -1;	/* Offset of first byte of current command's
                                  * code. Init. to avoid compiler warning. */
     unsigned char *entryCodeNext = envPtr->codeNext;
-    char *p, *next;
+    CONST char *p, *next;
     Namespace *cmdNsPtr;
     Command *cmdPtr;
     Tcl_Token *tokenPtr;
     int bytesLeft, isFirstCmd, gotParse, wordIdx, currCmdIndex;
     int commandLength, objIndex, code;
-    char prev;
     Tcl_DString ds;
 
     Tcl_DStringInit(&ds);
@@ -786,12 +844,56 @@ TclCompileScript(interp, script, numBytes, nested, envPtr)
     p = script;
     bytesLeft = numBytes;
     gotParse = 0;
-    while (bytesLeft > 0) {
+    do {
 	if (Tcl_ParseCommand(interp, p, bytesLeft, nested, &parse) != TCL_OK) {
 	    code = TCL_ERROR;
 	    goto error;
 	}
 	gotParse = 1;
+	if (nested) {
+	    /*
+	     * This is an unusual situation where the caller has passed us
+	     * a non-zero value for "nested".  How unusual?  Well, this
+	     * procedure, TclCompileScript, is internal to Tcl, so all
+	     * callers should be within Tcl itself.  All but one of those
+	     * callers explicitly pass in (nested = 0).  The exceptional
+	     * caller is TclSetByteCodeFromAny, which will pass in
+	     * (nested = 1) if and only if the flag TCL_BRACKET_TERM
+	     * is set in the evalFlags field of interp.
+	     *
+	     * It appears that the TCL_BRACKET_TERM flag is only ever set
+	     * by Tcl_SubstObj, and it immediately calls Tcl_EvalEx
+	     * which clears the flag before passing the interp along.
+	     * So, I don't think this procedure, TclCompileScript, is
+	     * **ever** called with (nested != 0). 
+	     * (The testsuite indeed doesn't exercise this code. MS)
+	     *
+	     * This means that the branches in this procedure that are
+	     * only active when (nested != 0) are probably never exercised.
+	     * This means that any bugs in them go unnoticed, and any bug
+	     * fixes in them have a semi-theoretical nature.
+	     *
+	     * All that said, the spec for this procedure says it should
+	     * handle the (nested != 0) case, so here's an attempt to fix
+	     * bugs (Tcl Bug 681841) in that case.  Just in case some
+	     * callers eventually come along and expect it to work...
+	     */
+
+	    if (parse.term == (script + numBytes)) {
+		/* 
+		 * The (nested != 0) case is meant to indicate that the
+		 * caller found an open bracket ([) and asked us to
+		 * parse and compile Tcl commands up to the matching
+		 * close bracket (]).  We have to detect and handle
+		 * the case where the close bracket is missing.
+		 */
+
+		Tcl_SetObjResult(interp,
+			Tcl_NewStringObj("missing close-bracket", -1));
+		code = TCL_ERROR;
+		goto error;
+	    }
+	}
 	if (parse.numWords > 0) {
 	    /*
 	     * If not the first command, pop the previous command's result
@@ -813,15 +915,10 @@ TclCompileScript(interp, script, numBytes, nested, envPtr)
 	     */
 
 	    commandLength = parse.commandSize;
-	    prev = '\0';
-	    if (commandLength > 0) {
-		prev = parse.commandStart[commandLength-1];
-	    }
-	    if (((parse.commandStart+commandLength) != (script+numBytes))
-	            || ((prev=='\n') || (nested && (prev==']')))) {
+	    if (parse.term == parse.commandStart + commandLength - 1) {
 		/*
-		 * The command didn't end at the end of the script (i.e.  it
-		 * ended at a terminator character such as ";".  Reduce the
+		 * The command terminator character (such as ; or ]) is
+		 * the last character in the parsed command.  Reduce the
 		 * length by one so that the trace message doesn't include
 		 * the terminator character.
 		 */
@@ -829,6 +926,7 @@ TclCompileScript(interp, script, numBytes, nested, envPtr)
 		commandLength -= 1;
 	    }
 
+#ifdef TCL_COMPILE_DEBUG
 	    /*
              * If tracing, print a line for each top level command compiled.
              */
@@ -840,7 +938,7 @@ TclCompileScript(interp, script, numBytes, nested, envPtr)
 			TclMin(commandLength, 55));
 		fprintf(stdout, "\n");
 	    }
-
+#endif
 	    /*
 	     * Each iteration of the following loop compiles one word
 	     * from the command.
@@ -889,15 +987,21 @@ TclCompileScript(interp, script, numBytes, nested, envPtr)
 
 			if ((cmdPtr != NULL)
 			        && (cmdPtr->compileProc != NULL)
+			        && !(cmdPtr->flags & CMD_HAS_EXEC_TRACES)
 			        && !(iPtr->flags & DONT_COMPILE_CMDS_INLINE)) {
+			    int savedNumCmds = envPtr->numCommands;
+
 			    code = (*(cmdPtr->compileProc))(interp, &parse,
 			            envPtr);
 			    if (code == TCL_OK) {
-				maxDepth = TclMax(envPtr->maxStackDepth,
-			                maxDepth);
 				goto finishCommand;
 			    } else if (code == TCL_OUT_LINE_COMPILE) {
-				/* do nothing */
+				/*
+				 * Restore numCommands to its correct value, removing
+				 * any commands compiled before TCL_OUT_LINE_COMPILE
+				 * [Bug 705406]
+				 */
+				envPtr->numCommands = savedNumCmds;
 			    } else { /* an error */
 				/*
 				 * There was a compilation error, the last
@@ -906,7 +1010,7 @@ TclCompileScript(interp, script, numBytes, nested, envPtr)
 				 * claimed to be in (*envPtr).
 				 */
 				envPtr->numCommands--;
-				goto error;
+				goto log;
 			    }
 			}
 
@@ -916,21 +1020,18 @@ TclCompileScript(interp, script, numBytes, nested, envPtr)
 			 * reduce runtime lookups.
 			 */
 
-			objIndex = TclRegisterLiteral(envPtr,
-				tokenPtr[1].start, tokenPtr[1].size,
-				/*onHeap*/ 0);
+			objIndex = TclRegisterNewLiteral(envPtr,
+				tokenPtr[1].start, tokenPtr[1].size);
 			if (cmdPtr != NULL) {
 			    TclSetCmdNameObj(interp,
 			           envPtr->literalArrayPtr[objIndex].objPtr,
 				   cmdPtr);
 			}
 		    } else {
-			objIndex = TclRegisterLiteral(envPtr,
-				tokenPtr[1].start, tokenPtr[1].size,
-				/*onHeap*/ 0);
+			objIndex = TclRegisterNewLiteral(envPtr,
+				tokenPtr[1].start, tokenPtr[1].size);
 		    }
 		    TclEmitPush(objIndex, envPtr);
-		    maxDepth = TclMax((wordIdx + 1), maxDepth);
 		} else {
 		    /*
 		     * The word is not a simple string of characters.
@@ -939,10 +1040,8 @@ TclCompileScript(interp, script, numBytes, nested, envPtr)
 		    code = TclCompileTokens(interp, tokenPtr+1,
 			    tokenPtr->numComponents, envPtr);
 		    if (code != TCL_OK) {
-			goto error;
+			goto log;
 		    }
-		    maxDepth = TclMax((wordIdx + envPtr->maxStackDepth),
-			   maxDepth);
 		}
 	    }
 
@@ -979,16 +1078,17 @@ TclCompileScript(interp, script, numBytes, nested, envPtr)
 	p = next;
 	Tcl_FreeParse(&parse);
 	gotParse = 0;
-	if (nested && (p[-1] == ']')) {
+	if (nested && (*parse.term == ']')) {
 	    /*
 	     * We get here in the special case where TCL_BRACKET_TERM was
-	     * set in the interpreter and we reached a close bracket in the
-	     * script. Stop compilation.
+	     * set in the interpreter and the latest parsed command was
+	     * terminated by the matching close-bracket we were looking for.
+	     * Stop compilation.
 	     */
 	    
 	    break;
 	}
-    }
+    } while (bytesLeft > 0);
 
     /*
      * If the source script yielded no instructions (e.g., if it was empty),
@@ -998,15 +1098,19 @@ TclCompileScript(interp, script, numBytes, nested, envPtr)
     if (envPtr->codeNext == entryCodeNext) {
 	TclEmitPush(TclRegisterLiteral(envPtr, "", 0, /*onHeap*/ 0),
 	        envPtr);
-	maxDepth = 1;
     }
     
-    if ((nested != 0) && (p > script) && (p[-1] == ']')) {
+    if (nested) {
+	/*
+	 * When (nested != 0) back up 1 character to have 
+	 * iPtr->termOffset indicate the offset to the matching
+	 * close-bracket.
+	 */
+
 	iPtr->termOffset = (p - 1) - script;
     } else {
 	iPtr->termOffset = (p - script);
     }
-    envPtr->maxStackDepth = maxDepth;
     Tcl_DStringFree(&ds);
     return TCL_OK;
 	
@@ -1019,27 +1123,23 @@ TclCompileScript(interp, script, numBytes, nested, envPtr)
      */
 
     commandLength = parse.commandSize;
-    prev = '\0';
-    if (commandLength > 0) {
-	prev = parse.commandStart[commandLength-1];
-    }
-    if (((parse.commandStart+commandLength) != (script+numBytes))
-	    || ((prev == '\n') || (nested && (prev == ']')))) {
+    if (parse.term == parse.commandStart + commandLength - 1) {
 	/*
-	 * The command where the error occurred didn't end at the end
-	 * of the script (i.e. it ended at a terminator character such
-	 * as ";".  Reduce the length by one so that the error message
-	 * doesn't include the terminator character.
+	 * The terminator character (such as ; or ]) of the command where
+	 * the error occurred is the last character in the parsed command.
+	 * Reduce the length by one so that the error message doesn't
+	 * include the terminator character.
 	 */
 
 	commandLength -= 1;
     }
+
+    log:
     LogCompilationInfo(interp, script, parse.commandStart, commandLength);
     if (gotParse) {
 	Tcl_FreeParse(&parse);
     }
     iPtr->termOffset = (p - script);
-    envPtr->maxStackDepth = maxDepth;
     Tcl_DStringFree(&ds);
     return code;
 }
@@ -1058,9 +1158,6 @@ TclCompileScript(interp, script, numBytes, nested, envPtr)
  *	The return value is a standard Tcl result. If an error occurs, an
  *	error message is left in the interpreter's result.
  *	
- *	envPtr->maxStackDepth is updated with the maximum number of stack
- *	elements needed to evaluate the tokens.
- *
  * Side effects:
  *	Instructions are added to envPtr to push and evaluate the tokens
  *	at runtime.
@@ -1080,13 +1177,12 @@ TclCompileTokens(interp, tokenPtr, count, envPtr)
     Tcl_DString textBuffer;	/* Holds concatenated chars from adjacent
 				 * TCL_TOKEN_TEXT, TCL_TOKEN_BS tokens. */
     char buffer[TCL_UTF_MAX];
-    char *name, *p;
-    int numObjsToConcat, nameBytes, hasNsQualifiers, localVar;
-    int length, maxDepth, depthForVar, i, code;
+    CONST char *name, *p;
+    int numObjsToConcat, nameBytes, localVarName, localVar;
+    int length, i, code;
     unsigned char *entryCodeNext = envPtr->codeNext;
 
     Tcl_DStringInit(&textBuffer);
-    maxDepth = 0;
     numObjsToConcat = 0;
     for ( ;  count > 0;  count--, tokenPtr++) {
 	switch (tokenPtr->type) {
@@ -1114,17 +1210,14 @@ TclCompileTokens(interp, tokenPtr, count, envPtr)
 			    Tcl_DStringLength(&textBuffer), /*onHeap*/ 0);
 		    TclEmitPush(literal, envPtr);
 		    numObjsToConcat++;
-		    maxDepth = TclMax(numObjsToConcat, maxDepth);
 		    Tcl_DStringFree(&textBuffer);
 		}
 		
 		code = TclCompileScript(interp, tokenPtr->start+1,
-			tokenPtr->size-2, /*nested*/ 1,	envPtr);
+			tokenPtr->size-2, /*nested*/ 0,	envPtr);
 		if (code != TCL_OK) {
 		    goto error;
 		}
-		maxDepth = TclMax((numObjsToConcat + envPtr->maxStackDepth),
-		        maxDepth);
 		numObjsToConcat++;
 		break;
 
@@ -1141,44 +1234,49 @@ TclCompileTokens(interp, tokenPtr, count, envPtr)
 			    Tcl_DStringLength(&textBuffer), /*onHeap*/ 0);
 		    TclEmitPush(literal, envPtr);
 		    numObjsToConcat++;
-		    maxDepth = TclMax(numObjsToConcat, maxDepth);
 		    Tcl_DStringFree(&textBuffer);
 		}
 		
 		/*
-		 * Check if the name contains any namespace qualifiers.
+		 * Determine how the variable name should be handled: if it contains 
+		 * any namespace qualifiers it is not a local variable (localVarName=-1);
+		 * if it looks like an array element and the token has a single component, 
+		 * it should not be created here [Bug 569438] (localVarName=0); otherwise, 
+		 * the local variable can safely be created (localVarName=1).
 		 */
 		
 		name = tokenPtr[1].start;
 		nameBytes = tokenPtr[1].size;
-		hasNsQualifiers = 0;
-		for (i = 0, p = name;  i < nameBytes;  i++, p++) {
-		    if ((*p == ':') && (i < (nameBytes-1))
-			    && (*(p+1) == ':')) {
-			hasNsQualifiers = 1;
-			break;
+		localVarName = -1;
+		if (envPtr->procPtr != NULL) {
+		    localVarName = 1;
+		    for (i = 0, p = name;  i < nameBytes;  i++, p++) {
+			if ((*p == ':') && (i < (nameBytes-1))
+			        && (*(p+1) == ':')) {
+			    localVarName = -1;
+			    break;
+			} else if ((*p == '(')
+			        && (tokenPtr->numComponents == 1) 
+				&& (*(name + nameBytes - 1) == ')')) {
+			    localVarName = 0;
+			    break;
+			}
 		    }
 		}
 
 		/*
 		 * Either push the variable's name, or find its index in
-		 * the array of local variables in a procedure frame.
+		 * the array of local variables in a procedure frame. 
 		 */
 
-		depthForVar = 0;
-		if ((envPtr->procPtr == NULL) || hasNsQualifiers) {
-		    localVar = -1;
-		    TclEmitPush(TclRegisterLiteral(envPtr, name, nameBytes,
-		            /*onHeap*/ 0), envPtr);
-		    depthForVar = 1;
-		} else {
+		localVar = -1;
+		if (localVarName != -1) {
 		    localVar = TclFindCompiledLocal(name, nameBytes, 
-			    /*create*/ 0, /*flags*/ 0, envPtr->procPtr);
-		    if (localVar < 0) {
-			TclEmitPush(TclRegisterLiteral(envPtr, name,
-			        nameBytes, /*onHeap*/ 0), envPtr); 
-			depthForVar = 1;
-		    }
+			        localVarName, /*flags*/ 0, envPtr->procPtr);
+		}
+		if (localVar < 0) {
+		    TclEmitPush(TclRegisterNewLiteral(envPtr, name, nameBytes),
+			    envPtr); 
 		}
 
 		/*
@@ -1199,13 +1297,13 @@ TclCompileTokens(interp, tokenPtr, count, envPtr)
 		    code = TclCompileTokens(interp, tokenPtr+2,
 			    tokenPtr->numComponents-1, envPtr);
 		    if (code != TCL_OK) {
-			sprintf(buffer,
+			char errorBuffer[150];
+			sprintf(errorBuffer,
 			        "\n    (parsing index for array \"%.*s\")",
 				((nameBytes > 100)? 100 : nameBytes), name);
-			Tcl_AddObjErrorInfo(interp, buffer, -1);
+			Tcl_AddObjErrorInfo(interp, errorBuffer, -1);
 			goto error;
 		    }
-		    depthForVar += envPtr->maxStackDepth;
 		    if (localVar < 0) {
 			TclEmitOpcode(INST_LOAD_ARRAY_STK, envPtr);
 		    } else if (localVar <= 255) {
@@ -1216,7 +1314,6 @@ TclCompileTokens(interp, tokenPtr, count, envPtr)
 			        envPtr);
 		    }
 		}
-		maxDepth = TclMax(numObjsToConcat + depthForVar, maxDepth);
 		numObjsToConcat++;
 		count -= tokenPtr->numComponents;
 		tokenPtr += tokenPtr->numComponents;
@@ -1238,7 +1335,6 @@ TclCompileTokens(interp, tokenPtr, count, envPtr)
 	        Tcl_DStringLength(&textBuffer), /*onHeap*/ 0);
 	TclEmitPush(literal, envPtr);
 	numObjsToConcat++;
-	maxDepth = TclMax(numObjsToConcat, maxDepth);
     }
 
     /*
@@ -1260,15 +1356,12 @@ TclCompileTokens(interp, tokenPtr, count, envPtr)
     if (envPtr->codeNext == entryCodeNext) {
 	TclEmitPush(TclRegisterLiteral(envPtr, "", 0, /*onHeap*/ 0),
 	        envPtr);
-	maxDepth = 1;
     }
     Tcl_DStringFree(&textBuffer);
-    envPtr->maxStackDepth = maxDepth;
     return TCL_OK;
 
     error:
     Tcl_DStringFree(&textBuffer);
-    envPtr->maxStackDepth = maxDepth;
     return code;
 }
 
@@ -1287,9 +1380,6 @@ TclCompileTokens(interp, tokenPtr, count, envPtr)
  *	The return value is a standard Tcl result. If an error occurs, an
  *	error message is left in the interpreter's result.
  *	
- *	envPtr->maxStackDepth is updated with the maximum number of stack
- *	elements needed to execute the tokens.
- *
  * Side effects:
  *	Instructions are added to envPtr to execute the tokens at runtime.
  *
@@ -1312,7 +1402,6 @@ TclCompileCmdWord(interp, tokenPtr, count, envPtr)
      * into an inline sequence of instructions.
      */
     
-    envPtr->maxStackDepth = 0;
     if ((count == 1) && (tokenPtr->type == TCL_TOKEN_TEXT)) {
 	code = TclCompileScript(interp, tokenPtr->start, tokenPtr->size,
 	        /*nested*/ 0, envPtr);
@@ -1348,9 +1437,6 @@ TclCompileCmdWord(interp, tokenPtr, count, envPtr)
  *	The return value is a standard Tcl result. If an error occurs, an
  *	error message is left in the interpreter's result.
  *	
- *	envPtr->maxStackDepth is updated with the maximum number of stack
- *	elements needed to execute the expression.
- *
  * Side effects:
  *	Instructions are added to envPtr to execute the expression.
  *
@@ -1369,27 +1455,17 @@ TclCompileExprWords(interp, tokenPtr, numWords, envPtr)
     CompileEnv *envPtr;		/* Holds the resulting instructions. */
 {
     Tcl_Token *wordPtr;
-    int maxDepth, range, numBytes, i, code;
-    char *script;
-    int saveExprIsJustVarRef = envPtr->exprIsJustVarRef;
-    int saveExprIsComparison = envPtr->exprIsComparison;
+    int numBytes, i, code;
+    CONST char *script;
 
-    envPtr->maxStackDepth = 0;
-    maxDepth = 0;
-    range = -1;
     code = TCL_OK;
 
     /*
      * If the expression is a single word that doesn't require
-     * substitutions, just compile it's string into inline instructions.
+     * substitutions, just compile its string into inline instructions.
      */
 
     if ((numWords == 1) && (tokenPtr->type == TCL_TOKEN_SIMPLE_WORD)) {
-	/*
-	 * Temporarily overwrite the character just after the end of the
-	 * string with a 0 byte.
-	 */
-
 	script = tokenPtr[1].start;
 	numBytes = tokenPtr[1].size;
 	code = TclCompileExpr(interp, script, numBytes, envPtr);
@@ -1411,9 +1487,6 @@ TclCompileExprWords(interp, tokenPtr, numWords, envPtr)
 	if (i < (numWords - 1)) {
 	    TclEmitPush(TclRegisterLiteral(envPtr, " ", 1, /*onHeap*/ 0),
 	            envPtr);
-	    maxDepth = TclMax((envPtr->maxStackDepth + 1), maxDepth);
-	} else {
-	    maxDepth = TclMax(envPtr->maxStackDepth, maxDepth);
 	}
 	wordPtr += (wordPtr->numComponents + 1);
     }
@@ -1429,9 +1502,6 @@ TclCompileExprWords(interp, tokenPtr, numWords, envPtr)
 	TclEmitOpcode(INST_EXPR_STK, envPtr);
     }
 
-    envPtr->exprIsJustVarRef = saveExprIsJustVarRef;
-    envPtr->exprIsComparison = saveExprIsComparison;
-    envPtr->maxStackDepth = maxDepth;
     return code;
 }
 
@@ -1523,7 +1593,7 @@ TclInitByteCodeObj(objPtr, envPtr)
     codePtr->numCmdLocBytes = cmdLocBytes;
     codePtr->maxExceptDepth = envPtr->maxExceptDepth;
     codePtr->maxStackDepth = envPtr->maxStackDepth;
-    
+
     p += sizeof(ByteCode);
     codePtr->codeStart = p;
     memcpy((VOID *) p, (VOID *) envPtr->codeStart, (size_t) codeBytes);
@@ -1568,7 +1638,7 @@ TclInitByteCodeObj(objPtr, envPtr)
 #ifdef TCL_COMPILE_STATS
     codePtr->structureSize = structureSize
 	    - (sizeof(size_t) + sizeof(Tcl_Time));
-    TclpGetTime(&(codePtr->createTime));
+    Tcl_GetTime(&(codePtr->createTime));
     
     RecordByteCodeStats(codePtr);
 #endif /* TCL_COMPILE_STATS */
@@ -1613,15 +1683,15 @@ static void
 LogCompilationInfo(interp, script, command, length)
     Tcl_Interp *interp;		/* Interpreter in which to log the
 				 * information. */
-    char *script;		/* First character in script containing
+    CONST char *script;		/* First character in script containing
 				 * command (must be <= command). */
-    char *command;		/* First character in command that
+    CONST char *command;	/* First character in command that
 				 * generated the error. */
     int length;			/* Number of bytes in command (-1 means
 				 * use all bytes up to first null byte). */
 {
     char buffer[200];
-    register char *p;
+    register CONST char *p;
     char *ellipsis = "";
     Interp *iPtr = (Interp *) interp;
 
@@ -1657,6 +1727,14 @@ LogCompilationInfo(interp, script, command, length)
 	length = 150;
 	ellipsis = "...";
     }
+    while ( (command[length] & 0xC0) == 0x80 ) {
+        /*
+	 * Back up truncation point so that we don't truncate in the
+	 * middle of a multi-byte character (in UTF-8)
+	 */
+	 length--;
+	 ellipsis = "...";
+    }
     sprintf(buffer, "\n    while compiling\n\"%.*s%s\"",
 	    length, command, ellipsis);
     Tcl_AddObjErrorInfo(interp, buffer, -1);
@@ -1690,7 +1768,7 @@ LogCompilationInfo(interp, script, command, length)
 
 int
 TclFindCompiledLocal(name, nameBytes, create, flags, procPtr)
-    register char *name;	/* Points to first character of the name of
+    register CONST char *name;	/* Points to first character of the name of
 				 * a scalar or array variable. If NULL, a
 				 * temporary var should be created. */
     int nameBytes;		/* Number of bytes in the name. */
@@ -1744,7 +1822,7 @@ TclFindCompiledLocal(name, nameBytes, create, flags, procPtr)
 	localPtr->nextPtr = NULL;
 	localPtr->nameLength = nameBytes;
 	localPtr->frameIndex = localVar;
-	localPtr->flags = flags;
+	localPtr->flags = flags | VAR_UNDEFINED;
 	if (name == NULL) {
 	    localPtr->flags |= VAR_TEMPORARY;
 	}
@@ -1868,7 +1946,7 @@ TclInitCompiledLocals(interp, framePtr, nsPtr)
 	    varPtr->refCount = 0;
 	    varPtr->tracePtr = NULL;
 	    varPtr->searchPtr = NULL;
-	    varPtr->flags = (localPtr->flags | VAR_UNDEFINED);
+	    varPtr->flags = localPtr->flags;
         }
 	varPtr++;
     }
@@ -1901,6 +1979,7 @@ TclExpandCodeArray(envArgPtr)
 {
     CompileEnv *envPtr = (CompileEnv*) envArgPtr;	/* Points to the CompileEnv whose code array
 							 * must be enlarged. */
+
     /*
      * envPtr->codeNext is equal to envPtr->codeEnd. The currently defined
      * code bytes are stored between envPtr->codeStart and
@@ -2491,7 +2570,7 @@ TclFixupForwardJump(envPtr, jumpFixupPtr, jumpDist, distThreshold)
  *
  * Results:
  *	Returns a pointer to the global instruction table, same as the
- *	expression (&instructionTable[0]).
+ *	expression (&tclInstructionTable[0]).
  *
  * Side effects:
  *	None.
@@ -2502,7 +2581,7 @@ TclFixupForwardJump(envPtr, jumpFixupPtr, jumpDist, distThreshold)
 void * /* == InstructionDesc* == */
 TclGetInstructionTable()
 {
-    return &instructionTable[0];
+    return &tclInstructionTable[0];
 }
 
 /*
@@ -3159,7 +3238,7 @@ TclPrintInstruction(codePtr, pc)
 {
     Proc *procPtr = codePtr->procPtr;
     unsigned char opCode = *pc;
-    register InstructionDesc *instDesc = &instructionTable[opCode];
+    register InstructionDesc *instDesc = &tclInstructionTable[opCode];
     unsigned char *codeStart = codePtr->codeStart;
     unsigned int pcOffset = (pc - codeStart);
     int opnd, i, j;
@@ -3308,10 +3387,10 @@ TclPrintObject(outFile, objPtr, maxChars)
 void
 TclPrintSource(outFile, string, maxChars)
     FILE *outFile;		/* The file to print the source to. */
-    char *string;		/* The string to print. */
+    CONST char *string;		/* The string to print. */
     int maxChars;		/* Maximum number of chars to print. */
 {
-    register char *p;
+    register CONST char *p;
     register int i = 0;
 
     if (string == NULL) {
@@ -3385,7 +3464,7 @@ RecordByteCodeStats(codePtr)
     statsPtr->currentByteCodeBytes += (double) codePtr->structureSize;
     
     statsPtr->srcCount[TclLog2(codePtr->numSrcBytes)]++;
-    statsPtr->byteCodeCount[TclLog2(codePtr->structureSize)]++;
+    statsPtr->byteCodeCount[TclLog2((int)(codePtr->structureSize))]++;
 
     statsPtr->currentInstBytes   += (double) codePtr->numCodeBytes;
     statsPtr->currentLitBytes    +=

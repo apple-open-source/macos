@@ -324,11 +324,11 @@ deletezlefunction(Widget w)
 
 /**/
 int
-bin_zle(char *name, char **args, char *ops, int func)
+bin_zle(char *name, char **args, Options ops, int func)
 {
     static struct opn {
 	char o;
-	int (*func) _((char *, char **, char *, char));
+	int (*func) _((char *, char **, Options, char));
 	int min, max;
     } const opns[] = {
 	{ 'l', bin_zle_list, 0, -1 },
@@ -339,17 +339,19 @@ bin_zle(char *name, char **args, char *ops, int func)
 	{ 'R', bin_zle_refresh, 0, -1 },
 	{ 'M', bin_zle_mesg, 1, 1 },
 	{ 'U', bin_zle_unget, 1, 1 },
+	{ 'K', bin_zle_keymap, 1, 1 },
 	{ 'I', bin_zle_invalidate, 0, 0 },
+	{ 'F', bin_zle_fd, 0, 2 },
 	{ 0,   bin_zle_call, 0, -1 },
     };
     struct opn const *op, *opp;
     int n;
 
     /* select operation and ensure no clashing arguments */
-    for(op = opns; op->o && !ops[STOUC(op->o)]; op++) ;
+    for(op = opns; op->o && !OPT_ISSET(ops,STOUC(op->o)); op++) ;
     if(op->o)
 	for(opp = op; (++opp)->o; )
-	    if(ops[STOUC(opp->o)]) {
+	    if(OPT_ISSET(ops,STOUC(opp->o))) {
 		zwarnnam(name, "incompatible operation selection options",
 		    NULL, 0);
 		return 1;
@@ -371,11 +373,11 @@ bin_zle(char *name, char **args, char *ops, int func)
 
 /**/
 static int
-bin_zle_list(char *name, char **args, char *ops, char func)
+bin_zle_list(char *name, char **args, Options ops, char func)
 {
     if (!*args) {
 	scanhashtable(thingytab, 1, 0, DISABLED, scanlistwidgets,
-		      (ops['a'] ? -1 : ops['L']));
+		      (OPT_ISSET(ops,'a') ? -1 : OPT_ISSET(ops,'L')));
 	return 0;
     } else {
 	int ret = 0;
@@ -383,7 +385,7 @@ bin_zle_list(char *name, char **args, char *ops, char func)
 
 	for (; *args && !ret; args++) {
 	    if (!(t = (Thingy) thingytab->getnode2(thingytab, *args)) ||
-		(!ops['a'] && (t->widget->flags & WIDGET_INT)))
+		(!OPT_ISSET(ops,'a') && (t->widget->flags & WIDGET_INT)))
 		ret = 1;
 	}
 	return ret;
@@ -392,7 +394,7 @@ bin_zle_list(char *name, char **args, char *ops, char func)
 
 /**/
 static int
-bin_zle_refresh(char *name, char **args, char *ops, char func)
+bin_zle_refresh(char *name, char **args, Options ops, char func)
 {
     char *s = statusline;
     int sl = statusll, ocl = clearlist;
@@ -419,11 +421,11 @@ bin_zle_refresh(char *name, char **args, char *ops, char func)
 		lastlistlen++;
 	    showinglist = clearlist = 0;
 	    zmult = zmultsav;
-	} else if (ops['c']) {
+	} else if (OPT_ISSET(ops,'c')) {
 	    clearlist = 1;
 	    lastlistlen = 0;
 	}
-    } else if (ops['c']) {
+    } else if (OPT_ISSET(ops,'c')) {
 	clearlist = listshown = 1;
 	lastlistlen = 0;
     }
@@ -437,7 +439,7 @@ bin_zle_refresh(char *name, char **args, char *ops, char func)
 
 /**/
 static int
-bin_zle_mesg(char *name, char **args, char *ops, char func)
+bin_zle_mesg(char *name, char **args, Options ops, char func)
 {
     if (!zleactive) {
 	zwarnnam(name, "can only be called from widget function", NULL, 0);
@@ -451,7 +453,7 @@ bin_zle_mesg(char *name, char **args, char *ops, char func)
 
 /**/
 static int
-bin_zle_unget(char *name, char **args, char *ops, char func)
+bin_zle_unget(char *name, char **args, Options ops, char func)
 {
     char *b = *args, *p = b + strlen(b);
 
@@ -462,6 +464,17 @@ bin_zle_unget(char *name, char **args, char *ops, char func)
     while (p > b)
 	ungetkey((int) *--p);
     return 0;
+}
+
+/**/
+static int
+bin_zle_keymap(char *name, char **args, Options ops, char func)
+{
+    if (!zleactive) {
+	zwarnnam(name, "can only be called from widget function", NULL, 0);
+	return 1;
+    }
+    return selectkeymap(*args, 0);
 }
 
 /**/
@@ -509,7 +522,7 @@ scanlistwidgets(HashNode hn, int list)
 
 /**/
 static int
-bin_zle_del(char *name, char **args, char *ops, char func)
+bin_zle_del(char *name, char **args, Options ops, char func)
 {
     int ret = 0;
 
@@ -528,7 +541,7 @@ bin_zle_del(char *name, char **args, char *ops, char func)
 
 /**/
 static int
-bin_zle_link(char *name, char **args, char *ops, char func)
+bin_zle_link(char *name, char **args, Options ops, char func)
 {
     Thingy t = (Thingy) thingytab->getnode(thingytab, args[0]);
 
@@ -545,7 +558,7 @@ bin_zle_link(char *name, char **args, char *ops, char func)
 
 /**/
 static int
-bin_zle_new(char *name, char **args, char *ops, char func)
+bin_zle_new(char *name, char **args, Options ops, char func)
 {
     Widget w = zalloc(sizeof(*w));
 
@@ -561,7 +574,7 @@ bin_zle_new(char *name, char **args, char *ops, char func)
 
 /**/
 static int
-bin_zle_complete(char *name, char **args, char *ops, char func)
+bin_zle_complete(char *name, char **args, Options ops, char func)
 {
     Thingy t;
     Widget w, cw;
@@ -588,12 +601,14 @@ bin_zle_complete(char *name, char **args, char *ops, char func)
 	zwarnnam(name, "widget name `%s' is protected", args[0], 0);
 	return 1;
     }
+    hascompwidgets++;
+
     return 0;
 }
 
 /**/
 static int
-bin_zle_call(char *name, char **args, char *ops, char func)
+bin_zle_call(char *name, char **args, Options ops, char func)
 {
     Thingy t;
     struct modifier modsave;
@@ -657,13 +672,116 @@ bin_zle_call(char *name, char **args, char *ops, char func)
 
 /**/
 static int
-bin_zle_invalidate(char *name, char **args, char *ops, char func)
+bin_zle_invalidate(char *name, char **args, Options ops, char func)
 {
     if (zleactive) {
-	trashzle();
+	if (!trashedzle)
+	    trashzle();
 	return 0;
     } else
 	return 1;
+}
+
+/**/
+static int
+bin_zle_fd(char *name, char **args, Options ops, char func)
+{
+    int fd = 0, i, found = 0;
+    char *endptr;
+
+    if (*args) {
+	fd = (int)zstrtol(*args, &endptr, 10);
+
+	if (*endptr || fd < 0) {
+	    zwarnnam(name, "Bad file descriptor number for -F: %s", *args, 0);
+	    return 1;
+	}
+    }
+
+    if (OPT_ISSET(ops,'L') || !*args) {
+	/* Listing handlers. */
+	if (*args && args[1]) {
+	    zwarnnam(name, "too many arguments for -FL", NULL, 0);
+	    return 1;
+	}
+	for (i = 0; i < nwatch; i++) {
+	    if (*args && watch_fds[i] != fd)
+		continue;
+	    found = 1;
+	    printf("%s -F %d %s\n", name, watch_fds[i], watch_funcs[i]);
+	}
+	/* only return status 1 if fd given and not found */
+	return *args && !found;
+    }
+
+    if (args[1]) {
+	/* Adding or replacing a handler */
+	char *funcnam = ztrdup(args[1]);
+	if (nwatch) {
+	    for (i = 0; i < nwatch; i++) {
+		if (watch_fds[i] == fd) {
+		    zsfree(watch_funcs[i]);
+		    watch_funcs[i] = funcnam;
+		    found = 1;
+		    break;
+		}
+	    }
+	}
+	if (!found) {
+	    /* zrealloc handles NULL pointers, so OK for first time through */
+	    int newnwatch = nwatch+1;
+	    watch_fds = (int *)zrealloc(watch_fds, 
+					newnwatch * sizeof(int));
+	    watch_funcs = (char **)zrealloc(watch_funcs,
+					    (newnwatch+1) * sizeof(char *));
+	    watch_fds[nwatch] = fd;
+	    watch_funcs[nwatch] = funcnam;
+	    watch_funcs[newnwatch] = NULL;
+	    nwatch = newnwatch;
+	}
+    } else {
+	/* Deleting a handler */
+	for (i = 0; i < nwatch; i++) {
+	    if (watch_fds[i] == fd) {
+		int newnwatch = nwatch-1;
+		int *new_fds;
+		char **new_funcs;
+
+		zsfree(watch_funcs[i]);
+		if (newnwatch) {
+		    new_fds = zalloc(newnwatch*sizeof(int));
+		    new_funcs = zalloc((newnwatch+1)*sizeof(char*));
+		    if (i) {
+			memcpy(new_fds, watch_fds, i*sizeof(int));
+			memcpy(new_funcs, watch_funcs, i*sizeof(char *));
+		    }
+		    if (i < newnwatch) {
+			memcpy(new_fds+i, watch_fds+i+1,
+			       (newnwatch-i)*sizeof(int));
+			memcpy(new_funcs+i, watch_funcs+i+1,
+			       (newnwatch-i)*sizeof(char *));
+		    }
+		    new_funcs[newnwatch] = NULL;
+		} else {
+		    new_fds = NULL;
+		    new_funcs = NULL;
+		}
+		zfree(watch_fds, nwatch*sizeof(int));
+		zfree(watch_funcs, (nwatch+1)*sizeof(char *));
+		watch_fds = new_fds;
+		watch_funcs = new_funcs;
+		nwatch = newnwatch;
+		found = 1;
+		break;
+	    }
+	}
+	if (!found) {
+	    zwarnnam(name, "No handler installed for fd %d", NULL, fd);
+	    return 1;
+	}
+    }
+
+    return 0;
 }
 
 /*******************/

@@ -1,0 +1,190 @@
+--- samba/source/rpc_server/srv_netlog_nt.c.orig	Fri Aug 29 14:17:39 2003
++++ samba/source/rpc_server/srv_netlog_nt.c	Fri Aug 29 14:40:37 2003
+@@ -26,6 +26,12 @@
+ 
+ #include "includes.h"
+ 
++#ifdef WITH_OPENDIRECTORY
++#include <DirectoryService/DirServices.h>
++#include <DirectoryService/DirServicesConst.h>
++#include <DirectoryService/DirServicesUtils.h>
++#endif
++
+ #undef DBGC_CLASS
+ #define DBGC_CLASS DBGC_RPC_SRV
+ 
+@@ -269,11 +275,54 @@ NTSTATUS _net_auth(pipes_struct *p, NET_
+ 	DOM_CHAL srv_cred;
+ 	UTIME srv_time;
+ 	fstring mach_acct;
++#ifdef WITH_OPENDIRECTORY
++	tDirStatus dirStatus = eDSNullParameter;
++#endif
+ 
+ 	srv_time.time = 0;
+ 
+ 	rpcstr_pull(mach_acct, q_u->clnt_id.uni_acct_name.buffer,sizeof(fstring),q_u->clnt_id.uni_acct_name.uni_str_len*2,0);
+ 
++#ifdef WITH_OPENDIRECTORY
++	if (p->dc.challenge_sent ) {
++		/* from client / server challenges and md4 password, generate sess key */
++		if (lp_opendirectory()) {
++			//check acct_ctrl flags
++			become_root();
++			dirStatus = opendirectory_cred_session_key(&p->dc.clnt_chal, &p->dc.srv_chal, mach_acct, p->dc.sess_key, NULL);
++			unbecome_root();
++			DEBUG(2, ("_net_auth opendirectory_cred_session_key [%d]\n", dirStatus));
++		} else if (get_md4pw((char *)p->dc.md4pw, mach_acct)) {
++			cred_session_key(&p->dc.clnt_chal, &p->dc.srv_chal,
++					 p->dc.md4pw, p->dc.sess_key);
++		} else {
++			status = NT_STATUS_ACCESS_DENIED;
++			goto exit;
++		}
++			
++		/* check that the client credentials are valid */
++		if (cred_assert(&q_u->clnt_chal, p->dc.sess_key, &p->dc.clnt_cred.challenge, srv_time)) {
++			
++			/* create server challenge for inclusion in the reply */
++			cred_create(p->dc.sess_key, &p->dc.srv_cred.challenge, srv_time, &srv_cred);
++		
++			/* copy the received client credentials for use next time */
++			memcpy(p->dc.clnt_cred.challenge.data, q_u->clnt_chal.data, sizeof(q_u->clnt_chal.data));
++			memcpy(p->dc.srv_cred .challenge.data, q_u->clnt_chal.data, sizeof(q_u->clnt_chal.data));
++			
++			/* Save the machine account name. */
++			fstrcpy(p->dc.mach_acct, mach_acct);
++		
++			p->dc.authenticated = True;
++
++		} else {
++			status = NT_STATUS_ACCESS_DENIED;
++		}
++	} else {
++		status = NT_STATUS_ACCESS_DENIED;
++	}
++exit:
++#else
+ 	if (p->dc.challenge_sent && get_md4pw((char *)p->dc.md4pw, mach_acct)) {
+ 
+ 		/* from client / server challenges and md4 password, generate sess key */
+@@ -301,7 +350,7 @@ NTSTATUS _net_auth(pipes_struct *p, NET_
+ 	} else {
+ 		status = NT_STATUS_ACCESS_DENIED;
+ 	}
+-	
++#endif	
+ 	/* set up the LSA AUTH response */
+ 	init_net_r_auth(r_u, &srv_cred, status);
+ 
+@@ -331,6 +380,9 @@ NTSTATUS _net_auth_2(pipes_struct *p, NE
+ 	UTIME srv_time;
+ 	NEG_FLAGS srv_flgs;
+ 	fstring mach_acct;
++#ifdef WITH_OPENDIRECTORY
++	tDirStatus dirStatus = eDSNullParameter;
++#endif
+ 
+ 	srv_time.time = 0;
+ 
+@@ -343,6 +395,49 @@ NTSTATUS _net_auth_2(pipes_struct *p, NE
+ 
+ 	rpcstr_pull(mach_acct, q_u->clnt_id.uni_acct_name.buffer,sizeof(fstring),q_u->clnt_id.uni_acct_name.uni_str_len*2,0);
+ 
++#ifdef WITH_OPENDIRECTORY
++	DEBUG(0, ("_net_auth_2 for [%s]\n", mach_acct));
++	if (p->dc.challenge_sent) {
++		/* from client / server challenges and md4 password, generate sess key */
++		if (lp_opendirectory()) {
++			//check acct_ctrl flags
++			become_root();
++			dirStatus = opendirectory_cred_session_key(&p->dc.clnt_chal, &p->dc.srv_chal, mach_acct, p->dc.sess_key, NULL);
++			unbecome_root();
++			DEBUG(2, ("_net_auth_2 opendirectory_cred_session_key [%d]\n", dirStatus));
++		} else if (get_md4pw((char *)p->dc.md4pw, mach_acct)) {
++			DEBUG(0, ("_net_auth_2 use account hash \n"));
++			cred_session_key(&p->dc.clnt_chal, &p->dc.srv_chal,
++					 p->dc.md4pw, p->dc.sess_key);
++		} else {
++			DEBUG(0, ("_net_auth_2 CAN NOT COMPUTE SESSION KEY \n"));
++			status = NT_STATUS_ACCESS_DENIED;
++			goto exit;
++		}
++
++		/* check that the client credentials are valid */
++		if (cred_assert(&q_u->clnt_chal, p->dc.sess_key, &p->dc.clnt_cred.challenge, srv_time)) {
++			
++			/* create server challenge for inclusion in the reply */
++			cred_create(p->dc.sess_key, &p->dc.srv_cred.challenge, srv_time, &srv_cred);
++			
++			/* copy the received client credentials for use next time */
++			memcpy(p->dc.clnt_cred.challenge.data, q_u->clnt_chal.data, sizeof(q_u->clnt_chal.data));
++			memcpy(p->dc.srv_cred .challenge.data, q_u->clnt_chal.data, sizeof(q_u->clnt_chal.data));
++			
++			/* Save the machine account name. */
++			fstrcpy(p->dc.mach_acct, mach_acct);
++			
++			p->dc.authenticated = True;
++
++		} else {
++			status = NT_STATUS_ACCESS_DENIED;
++		}
++	} else {
++		status = NT_STATUS_ACCESS_DENIED;
++	}
++exit:
++#else
+ 	if (p->dc.challenge_sent && get_md4pw((char *)p->dc.md4pw, mach_acct)) {
+ 		
+ 		/* from client / server challenges and md4 password, generate sess key */
+@@ -370,7 +465,7 @@ NTSTATUS _net_auth_2(pipes_struct *p, NE
+ 	} else {
+ 		status = NT_STATUS_ACCESS_DENIED;
+ 	}
+-	
++#endif	
+ 	srv_flgs.neg_flags = 0x000001ff;
+ 
+ 	if (lp_server_schannel() != False) {
+@@ -402,6 +497,9 @@ NTSTATUS _net_srv_pwset(pipes_struct *p,
+ 	unsigned char pwd[16];
+ 	int i;
+ 	uint32 acct_ctrl;
++#ifdef WITH_OPENDIRECTORY
++	tDirStatus dirStatus = eDSNullParameter;
++#endif
+ 
+ 	/* checks and updates credentials.  creates reply credentials */
+ 	if (!(p->dc.authenticated && deal_with_creds(p->dc.sess_key, &p->dc.clnt_cred, &q_u->clnt_id.cred, &srv_cred)))
+@@ -446,6 +544,20 @@ NTSTATUS _net_srv_pwset(pipes_struct *p,
+ 
+ 	cred_hash3( pwd, q_u->pwd, p->dc.sess_key, 0);
+ 
++#ifdef WITH_OPENDIRECTORY
++	if (lp_opendirectory()) {
++		become_root();
++		dirStatus = opendirectory_set_workstation_nthash(p->dc.mach_acct, pwd, NULL);
++		unbecome_root();
++		DEBUG(2, ("_net_srv_pwset opendirectory_set_workstation_nthash [%d]\n", dirStatus));
++		if (dirStatus != eDSNoErr) {
++			pdb_free_sam(&sampass);
++			return NT_STATUS_UNSUCCESSFUL;
++		} else {
++			status = NT_STATUS_OK;
++		}
++	} else {
++#endif
+ 	/* lies!  nt and lm passwords are _not_ the same: don't care */
+ 	if (!pdb_set_lanman_passwd (sampass, pwd, PDB_CHANGED)) {
+ 		pdb_free_sam(&sampass);
+@@ -469,7 +581,9 @@ NTSTATUS _net_srv_pwset(pipes_struct *p,
+  
+ 	if (ret)
+ 		status = NT_STATUS_OK;
+-
++#ifdef WITH_OPENDIRECTORY
++ 	}
++#endif
+ 	/* set up the LSA Server Password Set response */
+ 	init_net_r_srv_pwset(r_u, &srv_cred, status);
+ 

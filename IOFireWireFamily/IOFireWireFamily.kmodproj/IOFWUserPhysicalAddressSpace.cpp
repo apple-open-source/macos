@@ -32,13 +32,12 @@
  */
 
 #import "IOFWUserPhysicalAddressSpace.h"
+#import "FWDebugging.h"
 
-#import <IOKit/IOLib.h>
-
-OSDefineMetaClassAndStructors(IOFWUserClientPhysicalAddressSpace, IOFWPhysicalAddressSpace) ;
+OSDefineMetaClassAndStructors(IOFWUserPhysicalAddressSpace, IOFWPhysicalAddressSpace) ;
 
 bool
-IOFWUserClientPhysicalAddressSpace::initWithDesc(
+IOFWUserPhysicalAddressSpace::initWithDesc(
 	IOFireWireBus*		bus,
 	IOMemoryDescriptor*	mem)
 {
@@ -52,7 +51,7 @@ IOFWUserClientPhysicalAddressSpace::initWithDesc(
 	}
 	
 	fMemPrepared = true ;
-	mSegmentCount = 0 ;
+	fSegmentCount = 0 ;
 
 	{ //scope
 		UInt32 			currentOffset = 0 ;
@@ -61,7 +60,7 @@ IOFWUserClientPhysicalAddressSpace::initWithDesc(
 		while (0 != fMem->getPhysicalSegment(currentOffset, & length))
 		{
 			currentOffset += length ;
-			++mSegmentCount ;
+			++fSegmentCount ;
 		}
 	}
 	
@@ -69,35 +68,46 @@ IOFWUserClientPhysicalAddressSpace::initWithDesc(
 }
 
 void
-IOFWUserClientPhysicalAddressSpace::free()
+IOFWUserPhysicalAddressSpace::free()
 {
-	IOFWPhysicalAddressSpace::free() ;
-
 	if (fMemPrepared)
 		fMem->complete() ;
+
+	IOFWPhysicalAddressSpace::free() ;
 }
 
-UInt32
-IOFWUserClientPhysicalAddressSpace::getSegmentCount()
+// exporterCleanup
+//
+//
+
+void
+IOFWUserPhysicalAddressSpace::exporterCleanup ()
 {
-	return mSegmentCount ;
+	DebugLog("IOFWUserPseudoAddressSpace::exporterCleanup\n");
+	
+	deactivate();
 }
 
 IOReturn
-IOFWUserClientPhysicalAddressSpace::getSegments(
-	UInt32*				ioSegmentCount,
-	IOPhysicalAddress	outPages[],
-	IOByteCount			outLength[])
+IOFWUserPhysicalAddressSpace::getSegmentCount( UInt32 * outSegmentCount )
 {
-	UInt32 segmentCount = min(*ioSegmentCount, mSegmentCount) ;
-	IOReturn	result = kIOReturnSuccess ;
+	*outSegmentCount = fSegmentCount ;
+	return kIOReturnSuccess ;
+}
 
+IOReturn
+IOFWUserPhysicalAddressSpace :: getSegments (
+	UInt32*				ioSegmentCount,
+	IOMemoryCursor::IOPhysicalSegment	outSegments[] )
+{
+	unsigned segmentCount = *ioSegmentCount <? fSegmentCount ;	// min
 	IOByteCount currentOffset = 0 ;
-	for(UInt32 segment=0; segment < segmentCount; ++segment)
-	{
-		outPages[segment] = fMem->getPhysicalSegment(currentOffset, & outLength[segment]) ;
-		currentOffset+= outLength[segment] ;
-	}
 	
-	return result ;
+	for( unsigned index = 0; index < segmentCount; ++index )
+	{
+		outSegments[ index ].location = fMem->getPhysicalSegment( currentOffset, & outSegments[ index ].length ) ;
+		currentOffset += outSegments[ index ].length ;
+	}
+
+	return kIOReturnSuccess ;
 }

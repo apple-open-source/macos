@@ -26,10 +26,10 @@
 #ifndef __SCSI_TASK_LIB_H__
 #define __SCSI_TASK_LIB_H__
 
-#include <IOKit/scsi-commands/SCSITask.h>
-#include <IOKit/scsi-commands/SCSICommandDefinitions.h>
-#include <IOKit/scsi-commands/SCSICmds_INQUIRY_Definitions.h>
-#include <IOKit/scsi-commands/SCSICmds_REQUEST_SENSE_Defs.h>
+#include <IOKit/scsi/SCSITask.h>
+#include <IOKit/scsi/SCSICommandDefinitions.h>
+#include <IOKit/scsi/SCSICmds_INQUIRY_Definitions.h>
+#include <IOKit/scsi/SCSICmds_REQUEST_SENSE_Defs.h>
 
 #if !KERNEL
 	#include <CoreFoundation/CFPlugIn.h>
@@ -896,10 +896,6 @@ typedef struct MMCDeviceInterface
 	*/
 	
 	SCSITaskDeviceInterface ** 	( *GetSCSITaskDeviceInterface )( void * self );
-
-	
-	
-	
 	
 	/* Added in Mac OS X 10.2 */
 	
@@ -936,6 +932,58 @@ typedef struct MMCDeviceInterface
 									SCSICmdField2Byte	bufferSize,
 									SCSITaskStatus *	taskStatus,
 									SCSI_Sense_Data *	senseDataBuffer );
+	
+	/* Added in Mac OS X 10.3 */
+	
+	/*! @function SetCDSpeed
+    @abstract Issues a SET_CD_SPEED command to the device as defined in MMC-2.
+    @discussion Once an MMCDeviceInterface is opened the client may send this command to
+				change the read and/or write CD speed of the drive.
+    @param self Pointer to an MMCDeviceInterface for one IOService.
+	@param LOGICAL_UNIT_READ_SPEED The LOGICAL_UNIT_READ_SPEED field as defined in MMC-2.
+    @param LOGICAL_UNIT_WRITE_SPEED The LOGICAL_UNIT_WRITE_SPEED field as defined in MMC-2.
+	@param taskStatus Pointer to a SCSITaskStatus to get the status of the SCSITask
+		   which was executed. Valid SCSITaskStatus values are defined in SCSITask.h
+    @param senseDataBuffer Pointer to a buffer the size of the SCSI_Sense_Data struct
+		   found in SCSICmds_REQUEST_SENSE_Defs.h.  The sense data is only valid if the
+		   SCSITaskStatus is kSCSITaskStatus_CHECK_CONDITION.
+    @result Returns kIOReturnSuccess if successful, kIOReturnNoDevice if there is no
+			connection to an IOService, kIOReturnNoMemory if a SCSITask couldn't be created,
+			or kIOReturnExclusiveAccess if the device is already opened for exclusive access
+			by another client.
+	*/
+
+	IOReturn ( *SetCDSpeed ) (	void *				self,
+								SCSICmdField2Byte	LOGICAL_UNIT_READ_SPEED,
+								SCSICmdField2Byte	LOGICAL_UNIT_WRITE_SPEED,
+								SCSITaskStatus *	taskStatus,
+								SCSI_Sense_Data *	senseDataBuffer );
+	
+	/* Added in Mac OS X 10.3 */
+	
+	/*! @function ReadFormatCapacities
+    @abstract Issues a READ_FORMAT_CAPACITIES command to the device as defined in MMC-2.
+    @discussion Once an MMCDeviceInterface is opened the client may send this command to
+				get format capacity information from the media.
+    @param self Pointer to an MMCDeviceInterface for one IOService.
+	@param buffer Pointer to the buffer where the mode sense data should be placed.
+	@param bufferSize Size of the buffer.
+	@param taskStatus Pointer to a SCSITaskStatus to get the status of the SCSITask
+		   which was executed. Valid SCSITaskStatus values are defined in SCSITask.h
+    @param senseDataBuffer Pointer to a buffer the size of the SCSI_Sense_Data struct
+		   found in SCSICmds_REQUEST_SENSE_Defs.h.  The sense data is only valid if the
+		   SCSITaskStatus is kSCSITaskStatus_CHECK_CONDITION.
+    @result Returns kIOReturnSuccess if successful, kIOReturnNoDevice if there is no
+			connection to an IOService, kIOReturnNoMemory if a SCSITask couldn't be created,
+			or kIOReturnExclusiveAccess if the device is already opened for exclusive access
+			by another client.
+	*/
+	
+	IOReturn ( *ReadFormatCapacities ) ( void *					self,
+										 void *					buffer,
+										 SCSICmdField2Byte		bufferSize,
+										 SCSITaskStatus *		taskStatus,
+										 SCSI_Sense_Data *		senseDataBuffer );
 	
 } MMCDeviceInterface;
 	

@@ -1,0 +1,41 @@
+<?xml version = "1.0" encoding = "UTF-8"?>
+<policy>
+    <application-policy name = "test-domain">
+        <authentication>
+            <login-module code="org.jboss.security.plugins.ProxyLoginModule" flag="required">
+                <module-option name="moduleName">org.jboss.security.srp.jaas.SRPCacheLoginModule</module-option>
+                <module-option name="cacheJndiName">SRPAuthenticationCache</module-option>
+            </login-module>
+            <login-module code="org.jboss.security.plugins.samples.RolesLoginModule" flag="required">
+            </login-module>
+        </authentication>
+
+        <authorization>
+            <grant>
+                <principal code = "org.jboss.security.SimplePrincipal" name = "scott"/>
+                <permission code = "org.jboss.test.security.test.NamespacePermission" name = "Project1" actions = "rwxd"/>
+                <permission code = "org.jboss.test.security.test.NamespacePermission" name = "Project1/Documents/Private" actions = "rw-d"/>
+                <permission code = "org.jboss.test.security.test.NamespacePermission" name = "Project1/Documents/Public/starksm" actions = "----"/>
+            </grant>
+            <grant>
+                <principal code = "org.jboss.security.SimplePrincipal" name = "starksm"/>
+                <permission code = "org.jboss.test.security.test.NamespacePermission" name = "Project1/Documents/Public" actions = "r---"/>
+            </grant>
+        </authorization>
+    </application-policy>
+
+   <application-policy name = "spec-test">
+        <authentication>
+            <login-module code="org.jboss.security.plugins.samples.JaasServerLoginModule" flag="required">
+            </login-module>
+        </authentication>
+   </application-policy>
+
+   <application-policy name = "simple">
+        <authentication>
+            <login-module code="org.jboss.security.plugins.samples.JaasServerLoginModule" flag="required">
+            </login-module>
+        </authentication>
+   </application-policy>
+
+</policy>

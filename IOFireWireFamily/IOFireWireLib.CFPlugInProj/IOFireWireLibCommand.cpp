@@ -35,8 +35,9 @@
 #import <IOKit/firewire/IOFireWireLib.h>
 
 // private
-#import "IOFireWireLibPriv.h"
 #import "IOFireWireLibCommand.h"
+#import "IOFireWireLibDevice.h"
+#import "IOFireWireLibPriv.h"
 
 // system
 #import <assert.h>
@@ -127,10 +128,11 @@ namespace IOFireWireLib {
 	{
 		INTERFACEIMP_INTERFACE,
 		1, 0, 									// version/revision
-		IOFIREWIRELIBCOMMANDIMP_INTERFACE
+		IOFIREWIRELIBCOMMANDIMP_INTERFACE,
+		0, 0, 0, 0
 	} ;
 
-	Cmd::Cmd( IUnknownVTbl* vtable, Device& userClient, io_object_t device, 
+	Cmd::Cmd( const IUnknownVTbl & vtable, Device& userClient, io_object_t device, 
 					const FWAddress& inAddr, CommandCallback inCallback, 
 					const bool inFailOnReset, const UInt32 inGeneration, void* inRefCon,
 					CommandSubmitParams* params )
@@ -165,9 +167,12 @@ namespace IOFireWireLib {
 			if (mParams->kernCommandRef)
 			{
 				IOReturn result = kIOReturnSuccess;
-				result = IOConnectMethodScalarIScalarO( mUserClient.GetUserClientConnection(), kCommand_Release,
-																		1, 0, mParams->kernCommandRef ) ;
-				IOFireWireLibLogIfErr_( result, "Cmd::~Cmd: command release returned 0x%08x\n", result) ;
+				
+				result = ::IOConnectMethodScalarIScalarO(  mUserClient.GetUserClientConnection(), 
+														   kReleaseUserObject, 
+														   1, 0, mParams->kernCommandRef ) ;
+				
+				DebugLogCond( result, "Cmd::~Cmd: command release returned 0x%08x\n", result) ;
 			}
 		
 			delete mParams ;
@@ -290,11 +295,9 @@ namespace IOFireWireLib {
 		if (!mIsExecuting)
 			return kIOReturnSuccess ;
 		
-		return IOConnectMethodScalarIScalarO( mUserClient.GetUserClientConnection(),
-											kCommand_Cancel,
-											1,
-											0,
-											mParams->kernCommandRef) ;
+		return IOConnectMethodScalarIScalarO(   mUserClient.GetUserClientConnection(),
+												mUserClient.MakeSelectorWithObject( kCommand_Cancel_d, mParams->kernCommandRef ),
+												0, 0 ) ;
 	}
 	
 	void
@@ -333,7 +336,7 @@ namespace IOFireWireLib {
 		UInt32					inFlags)
 	{
 		if (mParams->flags & ~kFireWireCommandUserFlagsMask)
-			IOFireWireLibLog_("Invalid flags %p passed to SetFlags!\n", inFlags) ;
+			DebugLog("Invalid flags %lx passed to SetFlags!\n", inFlags) ;
 	
 		mParams->flags &= ~kFireWireCommandUserFlagsMask ;
 		mParams->flags |= (inFlags & kFireWireCommandUserFlagsMask) ;
@@ -492,7 +495,7 @@ namespace IOFireWireLib {
 	ReadCmd::ReadCmd( Device& userclient, io_object_t device, const FWAddress& addr, void* buf,
 							UInt32 size, CommandCallback callback, bool failOnReset, 
 							UInt32 generation, void* refcon )
-	: Cmd( reinterpret_cast<IUnknownVTbl*>(& sInterface), userclient, device, addr, callback, 
+	: Cmd( reinterpret_cast<const IUnknownVTbl &>( sInterface ), userclient, device, addr, callback, 
 				failOnReset, generation, refcon, 
 				reinterpret_cast<CommandSubmitParams*>(new UInt8[sizeof(CommandSubmitParams)]) )
 	{
@@ -590,7 +593,7 @@ namespace IOFireWireLib {
 								Boolean							failOnReset,
 								UInt32							generation,
 								void*							refcon)
-	: Cmd( reinterpret_cast<IUnknownVTbl*>(&sInterface), userclient, device, addr, callback, 
+	: Cmd( reinterpret_cast<const IUnknownVTbl &>( sInterface ), userclient, device, addr, callback, 
 				failOnReset, generation, refcon, 
 				reinterpret_cast<CommandSubmitParams*>(new UInt8[sizeof(CommandSubmitParams)]) )
 	{		
@@ -720,7 +723,7 @@ namespace IOFireWireLib {
 #pragma mark -
 	WriteCmd::WriteCmd( Device& userclient, io_object_t device, const FWAddress& addr, void* buf, UInt32 size, 
 								CommandCallback callback, bool failOnReset, UInt32 generation, void* refcon )
-	: Cmd( reinterpret_cast<IUnknownVTbl*>(& sInterface), userclient, device, addr, callback, 
+	: Cmd( reinterpret_cast<const IUnknownVTbl &>( sInterface), userclient, device, addr, callback, 
 				failOnReset, generation, refcon, 
 				reinterpret_cast<CommandSubmitParams*>(new UInt8[sizeof(CommandSubmitParams)]) )
 	{
@@ -794,7 +797,7 @@ namespace IOFireWireLib {
 #pragma mark -
 	WriteQuadCmd::WriteQuadCmd( Device& userclient, io_object_t device, const FWAddress& addr, UInt32 quads[], UInt32 numQuads,
 										CommandCallback callback, bool failOnReset, UInt32 generation, void* refcon )
-	: Cmd( reinterpret_cast<IUnknownVTbl*>(& sInterface), userclient, device, addr, callback, failOnReset, generation, refcon, 
+	: Cmd( reinterpret_cast<const IUnknownVTbl &>( sInterface ), userclient, device, addr, callback, failOnReset, generation, refcon, 
 				reinterpret_cast<CommandSubmitParams*>(new UInt8[sizeof(CommandSubmitParams) + numQuads << 2]) ),
 	mParamsExtra( reinterpret_cast<UInt8*>(mParams) )
 	{
@@ -881,7 +884,7 @@ namespace IOFireWireLib {
 			// allocate a new submit params + quad storage area:
 			UInt8* newParamsExtra = new UInt8[sizeof(CommandSubmitParams) + newSize] ;
 	
-			IOFireWireLibLogIfNil_(newParamsExtra, ("warning: WriteQuadCmd::SetQuads: out of memory!\n")) ;
+			DebugLogCond( !newParamsExtra, "warning: WriteQuadCmd::SetQuads: out of memory!\n" ) ;
 	
 			// copy the old params to the new param block (which is at the beginning of ParamsExtra):
 			bcopy(mParams, newParamsExtra+0, sizeof(*mParams)) ;
@@ -934,8 +937,9 @@ namespace IOFireWireLib {
 	CompareSwapCmd::CompareSwapCmd(	Device& userclient, io_object_t device, const FWAddress& addr, UInt64 cmpVal, UInt64 newVal,
 											unsigned int quads, CommandCallback callback, bool failOnReset,
 											UInt32 generation, void* refcon )
-	: Cmd( reinterpret_cast<IUnknownVTbl*>(& sInterface), userclient, device, addr, callback, failOnReset, generation, refcon, 
-				reinterpret_cast<CommandSubmitParams*>( new UInt8[sizeof(CommandSubmitParams) + sizeof(UInt64) * 2] ) ),	// 8 bytes/UInt16 * 2 values/cmd
+	: Cmd( reinterpret_cast<const IUnknownVTbl &>( sInterface ), userclient, device, addr, callback, 
+			failOnReset, generation, refcon, 
+			reinterpret_cast<CommandSubmitParams*>( new UInt8[sizeof(CommandSubmitParams) + sizeof(UInt64) * 2] ) ),	// 8 bytes/UInt16 * 2 values/cmd
 	mParamsExtra( reinterpret_cast<UInt8*>(mParams) )
 	{
 		mParams->callback		= (void*)& CommandCompletionHandler ;

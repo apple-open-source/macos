@@ -17,6 +17,10 @@
 
 #include <Security/SecKeychainItem.h>
 
+#include <Security/Keychains.h>
+#include <Security/KeyItem.h>
+#include <Security/Item.h>
+
 #include "SecBridge.h"
 #include "KCExceptions.h"
 #include "Access.h"
@@ -32,14 +36,15 @@ RefPointer<AclBearer> aclBearer(CFTypeRef itemRef)
 {
 	// well, exactly what kind of something are you?
 	CFTypeID id = CFGetTypeID(itemRef);
-	if (id == gTypes().item.typeId) {
+	if (id == gTypes().ItemImpl.typeID) {
 		// keychain item. If it's in a protected group, return the group key
-		if (SSGroup group = gTypes().item.required(SecKeychainItemRef(itemRef))->group())
+		if (SSGroup group = ItemImpl::required(SecKeychainItemRef(itemRef))->group())
 			return &*group;
-	} else if (id == gTypes().keyItem.typeId) {
-		// key item
-		//@@@ not hooked up yet
-	} else if (id == gTypes().keychain.typeId) {
+	} else if (id == gTypes().KeyItem.typeID) {
+		// key item, return the key itself.
+		if (CssmClient::Key key = KeyItem::required(SecKeyRef(itemRef))->key())
+			return &*key;
+	} else if (id == gTypes().KeychainImpl.typeID) {
 		// keychain (this yields the database ACL)
 		//@@@ not hooked up yet
 	}
@@ -53,7 +58,8 @@ SecKeychainItemGetTypeID(void)
 {
 	BEGIN_SECAPI
 
-	return gTypes().item.typeId;
+	secdebug("kcitem", "SecKeychainItemGetTypeID()");
+	return gTypes().ItemImpl.typeID;
 
 	END_SECAPI1(_kCFRuntimeNotATypeID)
 }
@@ -65,13 +71,30 @@ SecKeychainItemCreateFromContent(SecItemClass itemClass, SecKeychainAttributeLis
 		SecAccessRef initialAccess, SecKeychainItemRef *itemRef)
 {
     BEGIN_SECAPI
+		secdebug("kcitem", "SecKeychainItemCreateFromContent(%lu, %p, %lu, %p, %p, %p)",
+			itemClass, attrList, length, data, keychainRef, initialAccess);
 		KCThrowParamErrIf_(length!=0 && data==NULL);
         Item item(itemClass, attrList, length, data);
 		if (initialAccess)
-			item->setAccess(gTypes().access.required(initialAccess));
-        Keychain::optional(keychainRef)->add(item);
+			item->setAccess(Access::required(initialAccess));
+
+        Keychain keychain = nil;
+        try
+        {
+            keychain = Keychain::optional(keychainRef);
+            if ( !keychain->exists() )
+            {
+                MacOSError::throwMe(errSecNoSuchKeychain);	// Might be deleted or not available at this time.
+            }
+        }
+        catch(...)
+        {
+            keychain = globals().storageManager.defaultKeychainUI(item);
+        }
+
+        keychain->add(item);
         if (itemRef)
-        	*itemRef = gTypes().item.handle(*item);
+        	*itemRef = item->handle();
 	END_SECAPI
 }
 
@@ -80,7 +103,8 @@ OSStatus
 SecKeychainItemModifyContent(SecKeychainItemRef itemRef, const SecKeychainAttributeList *attrList, UInt32 length, const void *data)
 {
     BEGIN_SECAPI
-		Item item = gTypes().item.required(itemRef);
+		secdebug("kcitem", "SecKeychainItemModifyContent(%p, %p, %lu, %p)", itemRef, attrList, length, data);
+		Item item = ItemImpl::required(itemRef);
 		item->modifyContent(attrList, length, data);
 	END_SECAPI
 }
@@ -90,7 +114,9 @@ OSStatus
 SecKeychainItemCopyContent(SecKeychainItemRef itemRef, SecItemClass *itemClass, SecKeychainAttributeList *attrList, UInt32 *length, void **outData)
 {
 	BEGIN_SECAPI
-		Item item = gTypes().item.required(itemRef);
+		secdebug("kcitem", "SecKeychainItemCopyContent(%p, %p, %p, %p, %p)",
+			itemRef, itemClass, attrList, length, outData);
+		Item item = ItemImpl::required(itemRef);
 		item->getContent(itemClass, attrList, length, outData);
 	END_SECAPI
 }
@@ -100,6 +126,7 @@ OSStatus
 SecKeychainItemFreeContent(SecKeychainAttributeList *attrList, void *data)
 {
 	BEGIN_SECAPI
+		secdebug("kcitem", "SecKeychainItemFreeContent(%p, %p)", attrList, data);
 		ItemImpl::freeContent(attrList, data);
 	END_SECAPI
 }
@@ -109,7 +136,8 @@ OSStatus
 SecKeychainItemModifyAttributesAndData(SecKeychainItemRef itemRef, const SecKeychainAttributeList *attrList, UInt32 length, const void *data)
 {
     BEGIN_SECAPI
-		Item item = gTypes().item.required(itemRef);
+		secdebug("kcitem", "SecKeychainItemModifyAttributesAndData(%p, %p, %lu, %p)", itemRef, attrList, length, data);
+		Item item = ItemImpl::required(itemRef);
 		item->modifyAttributesAndData(attrList, length, data);
 	END_SECAPI
 }
@@ -119,7 +147,8 @@ OSStatus
 SecKeychainItemCopyAttributesAndData(SecKeychainItemRef itemRef, SecKeychainAttributeInfo *info, SecItemClass *itemClass, SecKeychainAttributeList **attrList, UInt32 *length, void **outData)
 {
 	BEGIN_SECAPI
-		Item item = gTypes().item.required(itemRef);
+		secdebug("kcitem", "SecKeychainItemCopyAttributesAndData(%p, %p, %p, %p, %p, %p)", itemRef, info, itemClass, attrList, length, outData);
+		Item item = ItemImpl::required(itemRef);
 		item->getAttributesAndData(info, itemClass, attrList, length, outData);
 	END_SECAPI
 }
@@ -129,6 +158,7 @@ OSStatus
 SecKeychainItemFreeAttributesAndData(SecKeychainAttributeList *attrList, void *data)
 {
 	BEGIN_SECAPI
+		secdebug("kcitem", "SecKeychainItemFreeAttributesAndData(%p, %p)", attrList, data);
 		ItemImpl::freeAttributesAndData(attrList, data);
 	END_SECAPI
 }
@@ -138,7 +168,8 @@ OSStatus
 SecKeychainItemDelete(SecKeychainItemRef itemRef)
 {
     BEGIN_SECAPI
-		Item item = gTypes().item.required( itemRef );
+		secdebug("kcitem", "SecKeychainItemFreeAttributesAndData(%p)", itemRef);
+		Item item = ItemImpl::required( itemRef );
 		Keychain keychain = item->keychain();
 		KCThrowIf_( !keychain, errSecInvalidItemRef );
 		
@@ -151,7 +182,8 @@ OSStatus
 SecKeychainItemCopyKeychain(SecKeychainItemRef itemRef, SecKeychainRef* keychainRef)
 {
     BEGIN_SECAPI
-		Required(keychainRef) = gTypes().keychain.handle(*gTypes().item.required(itemRef)->keychain());
+		secdebug("kcitem", "SecKeychainItemCopyKeychain(%p, %p)", itemRef, keychainRef);
+		Required(keychainRef) = ItemImpl::required(itemRef)->keychain()->handle();
 	END_SECAPI
 }
 
@@ -161,18 +193,22 @@ SecKeychainItemCreateCopy(SecKeychainItemRef itemRef, SecKeychainRef destKeychai
 	SecAccessRef initialAccess, SecKeychainItemRef *itemCopy)
 {
     BEGIN_SECAPI
-		Item copy = gTypes().item.required(itemRef)->copyTo(Keychain::optional(destKeychainRef));
+		secdebug("kcitem", "SecKeychainItemCreateCopy(%p, %p, %p, %p)",
+			itemRef, destKeychainRef, initialAccess, itemCopy);
+
+		Item copy = ItemImpl::required(itemRef)->copyTo(Keychain::optional(destKeychainRef), Access::optional(initialAccess));
 		if (itemCopy)
-			*itemCopy = gTypes().item.handle(*copy);
+			*itemCopy = copy->handle();
 	END_SECAPI
 }
 
 
 OSStatus
-SecKeychainItemGetUniqueRecordID(SecKeychainItemRef keyItemRef, CSSM_DB_UNIQUE_RECORD* uniqueRecordID)
+SecKeychainItemGetUniqueRecordID(SecKeychainItemRef itemRef, const CSSM_DB_UNIQUE_RECORD **uniqueRecordID)
 {
     BEGIN_SECAPI
-        uniqueRecordID = gTypes().item.required(keyItemRef)->dbUniqueRecord();
+		secdebug("kcitem", "SecKeychainItemGetUniqueRecordID(%p, %p)", itemRef, uniqueRecordID);
+        Required(uniqueRecordID) = ItemImpl::required(itemRef)->dbUniqueRecord();
 	END_SECAPI
 }
 
@@ -181,7 +217,8 @@ OSStatus
 SecKeychainItemGetDLDBHandle(SecKeychainItemRef itemRef, CSSM_DL_DB_HANDLE* dldbHandle)
 {
     BEGIN_SECAPI
-        *dldbHandle = gTypes().item.required(itemRef)->keychain()->database()->handle();
+		secdebug("kcitem", "SecKeychainItemGetDLDBHandle(%p, %p)", itemRef, dldbHandle);
+        *dldbHandle = ItemImpl::required(itemRef)->keychain()->database()->handle();
 	END_SECAPI
 }
 
@@ -190,9 +227,10 @@ OSStatus SecAccessCreateFromObject(CFTypeRef sourceRef,
 	SecAccessRef *accessRef)
 {
 	BEGIN_SECAPI
+	secdebug("kcitem", "SecAccessCreateFromObject(%p, %p)", sourceRef, accessRef);
 	Required(accessRef);	// preflight
-	RefPointer<Access> access = new Access(*aclBearer(sourceRef));
-	*accessRef = gTypes().access.handle(*access);
+	SecPointer<Access> access = new Access(*aclBearer(sourceRef));
+	*accessRef = access->handle();
 	END_SECAPI
 }
 
@@ -202,7 +240,8 @@ OSStatus SecAccessCreateFromObject(CFTypeRef sourceRef,
 OSStatus SecAccessModifyObject(SecAccessRef accessRef, CFTypeRef sourceRef)
 {
 	BEGIN_SECAPI
-	gTypes().access.required(accessRef)->setAccess(*aclBearer(sourceRef), true);
+	secdebug("kcitem", "SecAccessModifyObject(%p, %p)", accessRef, sourceRef);
+	Access::required(accessRef)->setAccess(*aclBearer(sourceRef), true);
 	END_SECAPI
 }
 
@@ -211,9 +250,10 @@ SecKeychainItemCopyAccess(SecKeychainItemRef itemRef, SecAccessRef* accessRef)
 {
     BEGIN_SECAPI
 
+	secdebug("kcitem", "SecKeychainItemCopyAccess(%p, %p)", itemRef, accessRef);
 	Required(accessRef);	// preflight
-	RefPointer<Access> access = new Access(*aclBearer(reinterpret_cast<CFTypeRef>(itemRef)));
-	*accessRef = gTypes().access.handle(*access);
+	SecPointer<Access> access = new Access(*aclBearer(reinterpret_cast<CFTypeRef>(itemRef)));
+	*accessRef = access->handle();
 
     END_SECAPI
 }
@@ -224,7 +264,8 @@ SecKeychainItemSetAccess(SecKeychainItemRef itemRef, SecAccessRef accessRef)
 {
     BEGIN_SECAPI
 
-	gTypes().access.required(accessRef)->setAccess(*aclBearer(reinterpret_cast<CFTypeRef>(itemRef)), true);
+	secdebug("kcitem", "SecKeychainItemSetAccess(%p, %p)", itemRef, accessRef);
+	Access::required(accessRef)->setAccess(*aclBearer(reinterpret_cast<CFTypeRef>(itemRef)), true);
 
     END_SECAPI
 }

@@ -3,8 +3,6 @@
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
- * Copyright (c) 1999-2003 Apple Computer, Inc.  All Rights Reserved.
- * 
  * This file contains Original Code and/or Modifications of Original Code
  * as defined in and that are subject to the Apple Public Source License
  * Version 2.0 (the 'License'). You may not use this file except in
@@ -24,7 +22,8 @@
  */
 extern void call_module_initializers(
     enum bool make_delayed_calls,
-    enum bool bind_now);
+    enum bool bind_now,
+    enum bool post_launch_libraries_only);
 
 extern void call_module_initializers_for_library(
     struct library_image *library_image,
@@ -37,7 +36,8 @@ extern void call_module_initializers_for_library(
 #endif /* !defined(__GONZO_BUNSEN_BEAKER__) && !defined(__HERA__) */
 #endif /* __ppc__ */
     enum bool make_delayed_calls,
-    enum bool bind_now);
+    enum bool bind_now,
+    enum bool post_launch_libraries_only);
 
 extern void call_module_terminator_for_object(
     struct object_image *object_image);

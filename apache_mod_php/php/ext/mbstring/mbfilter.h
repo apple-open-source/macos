@@ -86,7 +86,7 @@
  *
  */
 
-/* $Id: mbfilter.h,v 1.1.1.2 2001/12/14 22:12:33 zarzycki Exp $ */
+/* $Id: mbfilter.h,v 1.1.1.4 2003/03/11 01:09:22 zarzycki Exp $ */
 
 
 #ifndef MBFL_MBFILTER_H
@@ -94,6 +94,7 @@
 
 enum mbfl_no_language {
 	mbfl_no_language_invalid = -1,
+	mbfl_no_language_neutral,
 	mbfl_no_language_uni,
 	mbfl_no_language_min,
 	mbfl_no_language_catalan,		/* ca */
@@ -109,9 +110,11 @@ enum mbfl_no_language {
 	mbfl_no_language_korean,		/* ko */
 	mbfl_no_language_dutch,			/* nl */
 	mbfl_no_language_polish,		/* pl */
-	mbfl_no_language_portuguese,	/* pt */
+	mbfl_no_language_portuguese,	        /* pt */
 	mbfl_no_language_swedish,		/* sv */
-	mbfl_no_language_chinese,		/* zh */
+	mbfl_no_language_simplified_chinese,		/* zh-cn */
+	mbfl_no_language_traditional_chinese,		/* zh-tw */
+	mbfl_no_language_russian,		/* ru */
 	mbfl_no_language_max
 };
 
@@ -126,6 +129,7 @@ enum mbfl_no_encoding {
 	mbfl_no_encoding_byte4le,
 	mbfl_no_encoding_base64,
 	mbfl_no_encoding_uuencode,
+	mbfl_no_encoding_html_ent,
 	mbfl_no_encoding_qprint,
 	mbfl_no_encoding_7bit,
 	mbfl_no_encoding_8bit,
@@ -167,6 +171,17 @@ enum mbfl_no_encoding {
 	mbfl_no_encoding_8859_13,
 	mbfl_no_encoding_8859_14,
 	mbfl_no_encoding_8859_15,
+	mbfl_no_encoding_euc_cn,
+	mbfl_no_encoding_cp936,
+	mbfl_no_encoding_euc_tw,
+	mbfl_no_encoding_big5,
+	mbfl_no_encoding_euc_kr,
+	mbfl_no_encoding_2022kr,
+	mbfl_no_encoding_uhc,
+	mbfl_no_encoding_hz,
+	mbfl_no_encoding_cp1251,
+	mbfl_no_encoding_cp866,
+	mbfl_no_encoding_koi8r,
 	mbfl_no_encoding_charset_max
 };
 
@@ -208,9 +223,10 @@ typedef struct _mbfl_encoding {
 #define MBFL_ENCTYPE_WCS4LE		0x00000200
 #define MBFL_ENCTYPE_MWC4BE		0x00000400
 #define MBFL_ENCTYPE_MWC4LE		0x00000800
-#define MBFL_ENCTYPE_SHFTCODE	0x00001000
+#define MBFL_ENCTYPE_SHFTCODE	0x00001000 
+#define MBFL_ENCTYPE_HTML_ENT       0x00002000
 
-/* wchar plane, spesial charactor */
+/* wchar plane, special charactor */
 #define MBFL_WCSPLANE_MASK			0xffff
 #define MBFL_WCSPLANE_UCS2MAX		0x00010000
 #define MBFL_WCSPLANE_SUPMIN		0x00010000
@@ -233,7 +249,14 @@ typedef struct _mbfl_encoding {
 #define MBFL_WCSPLANE_8859_15		0x70f00000		/*  00h - FFh */
 #define MBFL_WCSPLANE_KSC5601		0x70f10000		/*  2121h - 7E7Eh */
 #define MBFL_WCSPLANE_GB2312		0x70f20000		/*  2121h - 7E7Eh */
-#define MBFL_WCSGROUP_MASK			0xffffff
+#define MBFL_WCSPLANE_WINCP936		0x70f30000		/*  2121h - 9898h */
+#define MBFL_WCSPLANE_BIG5		0x70f40000		/*  2121h - 9898h */
+#define MBFL_WCSPLANE_CNS11643		0x70f50000		/*  2121h - 9898h */
+#define MBFL_WCSPLANE_UHC		0x70f60000		/*  8141h - fefeh */
+#define MBFL_WCSPLANE_CP1251		0x70f70000	
+#define MBFL_WCSPLANE_CP866			0x70f80000	
+#define MBFL_WCSPLANE_KOI8R 		0x70f90000	
+#define MBFL_WCSGROUP_MASK                0xffffff
 #define MBFL_WCSGROUP_UCS4MAX		0x70000000
 #define MBFL_WCSGROUP_WCHARMAX		0x78000000
 #define MBFL_WCSGROUP_THROUGH		0x78000000		/* 000000h - FFFFFFh */
@@ -257,8 +280,8 @@ void mbfl_string_clear(mbfl_string *string);
 /*
  * language resolver
  */
-mbfl_language * mbfl_name2language(const char *name);
-mbfl_language * mbfl_no2language(enum mbfl_no_language no_language);
+const mbfl_language * mbfl_name2language(const char *name);
+const mbfl_language * mbfl_no2language(enum mbfl_no_language no_language);
 enum mbfl_no_language mbfl_name2no_language(const char *name);
 const char * mbfl_no_language2name(enum mbfl_no_language no_language);
 
@@ -266,8 +289,8 @@ const char * mbfl_no_language2name(enum mbfl_no_language no_language);
 /*
  * encoding resolver
  */
-mbfl_encoding * mbfl_name2encoding(const char *name);
-mbfl_encoding * mbfl_no2encoding(enum mbfl_no_encoding no_encoding);
+const mbfl_encoding * mbfl_name2encoding(const char *name);
+const mbfl_encoding * mbfl_no2encoding(enum mbfl_no_encoding no_encoding);
 enum mbfl_no_encoding mbfl_name2no_encoding(const char *name);
 const char * mbfl_no_encoding2name(enum mbfl_no_encoding no_encoding);
 const char * mbfl_no2preferred_mime_name(enum mbfl_no_encoding no_encoding);
@@ -293,20 +316,20 @@ typedef struct _mbfl_wchar_device {
 	int allocsz;
 } mbfl_wchar_device;
 
-void mbfl_memory_device_init(mbfl_memory_device *device, int initsz, int allocsz);
-void mbfl_memory_device_realloc(mbfl_memory_device *device, int initsz, int allocsz);
-void mbfl_memory_device_clear(mbfl_memory_device *device);
-void mbfl_memory_device_reset(mbfl_memory_device *device);
-mbfl_string * mbfl_memory_device_result(mbfl_memory_device *device, mbfl_string *result);
-int mbfl_memory_device_output(int c, void *data);
-int mbfl_memory_device_output2(int c, void *data);
-int mbfl_memory_device_output4(int c, void *data);
-int mbfl_memory_device_strcat(mbfl_memory_device *device, const char *psrc);
-int mbfl_memory_device_strncat(mbfl_memory_device *device, const char *psrc, int len);
-int mbfl_memory_device_devcat(mbfl_memory_device *dest, mbfl_memory_device *src);
+void mbfl_memory_device_init(mbfl_memory_device *device, int initsz, int allocsz TSRMLS_DC);
+void mbfl_memory_device_realloc(mbfl_memory_device *device, int initsz, int allocsz TSRMLS_DC);
+void mbfl_memory_device_clear(mbfl_memory_device *device TSRMLS_DC);
+void mbfl_memory_device_reset(mbfl_memory_device *device TSRMLS_DC);
+mbfl_string * mbfl_memory_device_result(mbfl_memory_device *device, mbfl_string *result TSRMLS_DC);
+int mbfl_memory_device_output(int c, void *data TSRMLS_DC);
+int mbfl_memory_device_output2(int c, void *data TSRMLS_DC);
+int mbfl_memory_device_output4(int c, void *data TSRMLS_DC);
+int mbfl_memory_device_strcat(mbfl_memory_device *device, const char *psrc TSRMLS_DC);
+int mbfl_memory_device_strncat(mbfl_memory_device *device, const char *psrc, int len TSRMLS_DC);
+int mbfl_memory_device_devcat(mbfl_memory_device *dest, mbfl_memory_device *src TSRMLS_DC);
 
-void mbfl_wchar_device_init(mbfl_wchar_device *device);
-int mbfl_wchar_device_output(int c, void *data);
+void mbfl_wchar_device_init(mbfl_wchar_device *device TSRMLS_DC);
+int mbfl_wchar_device_output(int c, void *data TSRMLS_DC);
 
 
 /*
@@ -319,17 +342,17 @@ int mbfl_wchar_device_output(int c, void *data);
 typedef struct _mbfl_convert_filter mbfl_convert_filter;
 
 struct _mbfl_convert_filter {
-	void (*filter_ctor)(mbfl_convert_filter *filter);
-	void (*filter_dtor)(mbfl_convert_filter *filter);
-	int (*filter_function)(int c, mbfl_convert_filter *filter);
-	int (*filter_flush)(mbfl_convert_filter *filter);
-	int (*output_function)(int c, void *data);
-	int (*flush_function)(void *data);
+	void (*filter_ctor)(mbfl_convert_filter *filter TSRMLS_DC);
+	void (*filter_dtor)(mbfl_convert_filter *filter TSRMLS_DC);
+	int (*filter_function)(int c, mbfl_convert_filter *filter TSRMLS_DC);
+	int (*filter_flush)(mbfl_convert_filter *filter TSRMLS_DC);
+	int (*output_function)(int c, void *data TSRMLS_DC);
+	int (*flush_function)(void *data TSRMLS_DC);
 	void *data;
 	int status;
 	int cache;
-	mbfl_encoding *from;
-	mbfl_encoding *to;
+	const mbfl_encoding *from;
+	const mbfl_encoding *to;
 	int illegal_mode;
 	int illegal_substchar;
 };
@@ -337,25 +360,25 @@ struct _mbfl_convert_filter {
 struct mbfl_convert_vtbl {
 	enum mbfl_no_encoding from;
 	enum mbfl_no_encoding to;
-	void (*filter_ctor)(mbfl_convert_filter *filter);
-	void (*filter_dtor)(mbfl_convert_filter *filter);
-	int (*filter_function)(int c, mbfl_convert_filter *filter);
-	int (*filter_flush)(mbfl_convert_filter *filter);
+	void (*filter_ctor)(mbfl_convert_filter *filter TSRMLS_DC);
+	void (*filter_dtor)(mbfl_convert_filter *filter TSRMLS_DC);
+	int (*filter_function)(int c, mbfl_convert_filter *filter TSRMLS_DC);
+	int (*filter_flush)(mbfl_convert_filter *filter TSRMLS_DC);
 };
 
 mbfl_convert_filter *
 mbfl_convert_filter_new(
     enum mbfl_no_encoding from,
     enum mbfl_no_encoding to,
-    int (*output_function)(int, void *),
-    int (*flush_function)(void *),
-    void *data);
-void mbfl_convert_filter_delete(mbfl_convert_filter *filter);
-int mbfl_convert_filter_feed(int c, mbfl_convert_filter *filter);
-int mbfl_convert_filter_flush(mbfl_convert_filter *filter);
-void mbfl_convert_filter_reset(mbfl_convert_filter *filter, enum mbfl_no_encoding from, enum mbfl_no_encoding to);
-void mbfl_convert_filter_copy(mbfl_convert_filter *src, mbfl_convert_filter *dist);
-int mbfl_filt_conv_illegal_output(int c, mbfl_convert_filter *filter);
+    int (*output_function)(int, void * TSRMLS_DC),
+    int (*flush_function)(void * TSRMLS_DC),
+    void *data TSRMLS_DC);
+void mbfl_convert_filter_delete(mbfl_convert_filter *filter TSRMLS_DC);
+int mbfl_convert_filter_feed(int c, mbfl_convert_filter *filter TSRMLS_DC);
+int mbfl_convert_filter_flush(mbfl_convert_filter *filter TSRMLS_DC);
+void mbfl_convert_filter_reset(mbfl_convert_filter *filter, enum mbfl_no_encoding from, enum mbfl_no_encoding to TSRMLS_DC);
+void mbfl_convert_filter_copy(mbfl_convert_filter *src, mbfl_convert_filter *dist TSRMLS_DC);
+int mbfl_filt_conv_illegal_output(int c, mbfl_convert_filter *filter TSRMLS_DC);
 
 
 /*
@@ -364,24 +387,24 @@ int mbfl_filt_conv_illegal_output(int c, mbfl_convert_filter *filter);
 typedef struct _mbfl_identify_filter mbfl_identify_filter;
 
 struct _mbfl_identify_filter {
-	void (*filter_ctor)(mbfl_identify_filter *filter);
-	void (*filter_dtor)(mbfl_identify_filter *filter);
-	int (*filter_function)(int c, mbfl_identify_filter *filter);
+	void (*filter_ctor)(mbfl_identify_filter *filter TSRMLS_DC);
+	void (*filter_dtor)(mbfl_identify_filter *filter TSRMLS_DC);
+	int (*filter_function)(int c, mbfl_identify_filter *filter TSRMLS_DC);
 	int status;
 	int flag;
 	int score;
-	mbfl_encoding *encoding;
+	const mbfl_encoding *encoding;
 };
 
 struct mbfl_identify_vtbl {
 	enum mbfl_no_encoding encoding;
-	void (*filter_ctor)(mbfl_identify_filter *filter);
-	void (*filter_dtor)(mbfl_identify_filter *filter);
-	int (*filter_function)(int c, mbfl_identify_filter *filter);
+	void (*filter_ctor)(mbfl_identify_filter *filter TSRMLS_DC);
+	void (*filter_dtor)(mbfl_identify_filter *filter TSRMLS_DC);
+	int (*filter_function)(int c, mbfl_identify_filter *filter TSRMLS_DC);
 };
 
-mbfl_identify_filter * mbfl_identify_filter_new(enum mbfl_no_encoding encoding);
-void mbfl_identify_filter_delete(mbfl_identify_filter *filter);
+mbfl_identify_filter * mbfl_identify_filter_new(enum mbfl_no_encoding encoding TSRMLS_DC);
+void mbfl_identify_filter_delete(mbfl_identify_filter *filter TSRMLS_DC);
 
 
 /*
@@ -393,21 +416,21 @@ struct _mbfl_buffer_converter {
 	mbfl_convert_filter *filter1;
 	mbfl_convert_filter *filter2;
 	mbfl_memory_device device;
-	mbfl_encoding *from;
-	mbfl_encoding *to;
+	const mbfl_encoding *from;
+	const mbfl_encoding *to;
 };
 
-mbfl_buffer_converter * mbfl_buffer_converter_new(enum mbfl_no_encoding from, enum mbfl_no_encoding to, int buf_initsz);
-void mbfl_buffer_converter_delete(mbfl_buffer_converter *convd);
-void mbfl_buffer_converter_reset(mbfl_buffer_converter *convd);
-int mbfl_buffer_converter_illegal_mode(mbfl_buffer_converter *convd, int mode);
-int mbfl_buffer_converter_illegal_substchar(mbfl_buffer_converter *convd, int substchar);
-int mbfl_buffer_converter_strncat(mbfl_buffer_converter *convd, const unsigned char *p, int n);
-int mbfl_buffer_converter_feed(mbfl_buffer_converter *convd, mbfl_string *string);
-int mbfl_buffer_converter_flush(mbfl_buffer_converter *convd);
-mbfl_string * mbfl_buffer_converter_getbuffer(mbfl_buffer_converter *convd, mbfl_string *result);
-mbfl_string * mbfl_buffer_converter_result(mbfl_buffer_converter *convd, mbfl_string *result);
-mbfl_string * mbfl_buffer_converter_feed_result(mbfl_buffer_converter *convd, mbfl_string *string, mbfl_string *result);
+mbfl_buffer_converter * mbfl_buffer_converter_new(enum mbfl_no_encoding from, enum mbfl_no_encoding to, int buf_initsz TSRMLS_DC);
+void mbfl_buffer_converter_delete(mbfl_buffer_converter *convd TSRMLS_DC);
+void mbfl_buffer_converter_reset(mbfl_buffer_converter *convd TSRMLS_DC);
+int mbfl_buffer_converter_illegal_mode(mbfl_buffer_converter *convd, int mode TSRMLS_DC);
+int mbfl_buffer_converter_illegal_substchar(mbfl_buffer_converter *convd, int substchar TSRMLS_DC);
+int mbfl_buffer_converter_strncat(mbfl_buffer_converter *convd, const unsigned char *p, int n TSRMLS_DC);
+int mbfl_buffer_converter_feed(mbfl_buffer_converter *convd, mbfl_string *string TSRMLS_DC);
+int mbfl_buffer_converter_flush(mbfl_buffer_converter *convd TSRMLS_DC);
+mbfl_string * mbfl_buffer_converter_getbuffer(mbfl_buffer_converter *convd, mbfl_string *result TSRMLS_DC);
+mbfl_string * mbfl_buffer_converter_result(mbfl_buffer_converter *convd, mbfl_string *result TSRMLS_DC);
+mbfl_string * mbfl_buffer_converter_feed_result(mbfl_buffer_converter *convd, mbfl_string *string, mbfl_string *result TSRMLS_DC);
 
 
 /*
@@ -420,66 +443,81 @@ struct _mbfl_encoding_detector {
 	int filter_list_size;
 };
 
-mbfl_encoding_detector * mbfl_encoding_detector_new(enum mbfl_no_encoding *elist, int eliztsz);
-void mbfl_encoding_detector_delete(mbfl_encoding_detector *identd);
-int mbfl_encoding_detector_feed(mbfl_encoding_detector *identd, mbfl_string *string);
-enum mbfl_no_encoding mbfl_encoding_detector_judge(mbfl_encoding_detector *identd);
+mbfl_encoding_detector * mbfl_encoding_detector_new(enum mbfl_no_encoding *elist, int eliztsz TSRMLS_DC);
+void mbfl_encoding_detector_delete(mbfl_encoding_detector *identd TSRMLS_DC);
+int mbfl_encoding_detector_feed(mbfl_encoding_detector *identd, mbfl_string *string TSRMLS_DC);
+enum mbfl_no_encoding mbfl_encoding_detector_judge(mbfl_encoding_detector *identd TSRMLS_DC);
 
 
 /*
  * encoding converter
  */
 mbfl_string *
-mbfl_convert_encoding(mbfl_string *string, mbfl_string *result, enum mbfl_no_encoding toenc);
+mbfl_convert_encoding(mbfl_string *string, mbfl_string *result, enum mbfl_no_encoding toenc TSRMLS_DC);
 
 
 /*
  * identify encoding
  */
-mbfl_encoding *
-mbfl_identify_encoding(mbfl_string *string, enum mbfl_no_encoding *elist, int eliztsz);
+const mbfl_encoding *
+mbfl_identify_encoding(mbfl_string *string, enum mbfl_no_encoding *elist, int eliztsz TSRMLS_DC);
 
 const char *
-mbfl_identify_encoding_name(mbfl_string *string, enum mbfl_no_encoding *elist, int eliztsz);
+mbfl_identify_encoding_name(mbfl_string *string, enum mbfl_no_encoding *elist, int eliztsz TSRMLS_DC);
 
-enum mbfl_no_encoding
-mbfl_identify_encoding_no(mbfl_string *string, enum mbfl_no_encoding *elist, int eliztsz);
+const enum mbfl_no_encoding
+mbfl_identify_encoding_no(mbfl_string *string, enum mbfl_no_encoding *elist, int eliztsz TSRMLS_DC);
 
 /*
  * strlen
  */
 int
-mbfl_strlen(mbfl_string *string);
+mbfl_strlen(mbfl_string *string TSRMLS_DC);
+
+#ifdef ZEND_MULTIBYTE
+/*
+ * oddlen
+ */
+int
+mbfl_oddlen(mbfl_string *string);
+#endif /* ZEND_MULTIBYTE */
 
 /*
  * strpos
  */
 int
-mbfl_strpos(mbfl_string *haystack, mbfl_string *needle, int offset, int reverse);
+mbfl_strpos(mbfl_string *haystack, mbfl_string *needle, int offset, int reverse TSRMLS_DC);
+
+
+/*
+ * substr_count
+ */
+int
+mbfl_substr_count(mbfl_string *haystack, mbfl_string *needle TSRMLS_DC);
 
 /*
  * substr
  */
 mbfl_string *
-mbfl_substr(mbfl_string *string, mbfl_string *result, int from, int length);
+mbfl_substr(mbfl_string *string, mbfl_string *result, int from, int length TSRMLS_DC);
 
 /*
  * strcut
  */
 mbfl_string *
-mbfl_strcut(mbfl_string *string, mbfl_string *result, int from, int length);
+mbfl_strcut(mbfl_string *string, mbfl_string *result, int from, int length TSRMLS_DC);
 
 /*
  *  strwidth
  */
 int
-mbfl_strwidth(mbfl_string *string);
+mbfl_strwidth(mbfl_string *string TSRMLS_DC);
 
 /*
  *  strimwidth
  */
 mbfl_string *
-mbfl_strimwidth(mbfl_string *string, mbfl_string *marker, mbfl_string *result, int from, int width);
+mbfl_strimwidth(mbfl_string *string, mbfl_string *marker, mbfl_string *result, int from, int width TSRMLS_DC);
 
 /*
  * MIME header encode
@@ -490,16 +528,16 @@ struct mime_header_encoder_data *
 mime_header_encoder_new(
     enum mbfl_no_encoding incode,
     enum mbfl_no_encoding outcode,
-    enum mbfl_no_encoding encoding);
+    enum mbfl_no_encoding encoding TSRMLS_DC);
 
 void
-mime_header_encoder_delete(struct mime_header_encoder_data *pe);
+mime_header_encoder_delete(struct mime_header_encoder_data *pe TSRMLS_DC);
 
 int
-mime_header_encoder_feed(int c, struct mime_header_encoder_data *pe);
+mime_header_encoder_feed(int c, struct mime_header_encoder_data *pe TSRMLS_DC);
 
 mbfl_string *
-mime_header_encoder_result(struct mime_header_encoder_data *pe, mbfl_string *result);
+mime_header_encoder_result(struct mime_header_encoder_data *pe, mbfl_string *result TSRMLS_DC);
 
 mbfl_string *
 mbfl_mime_header_encode(
@@ -507,7 +545,7 @@ mbfl_mime_header_encode(
     enum mbfl_no_encoding outcode,
     enum mbfl_no_encoding encoding,
     const char *linefeed,
-    int indent);
+    int indent TSRMLS_DC);
 
 /*
  * MIME header decode
@@ -515,35 +553,45 @@ mbfl_mime_header_encode(
 struct mime_header_decoder_data;	/* forward declaration */
 
 struct mime_header_decoder_data *
-mime_header_decoder_new(enum mbfl_no_encoding outcode);
+mime_header_decoder_new(enum mbfl_no_encoding outcode TSRMLS_DC);
 
 void
-mime_header_decoder_delete(struct mime_header_decoder_data *pd);
+mime_header_decoder_delete(struct mime_header_decoder_data *pd TSRMLS_DC);
 
 int
-mime_header_decoder_feed(int c, struct mime_header_decoder_data *pd);
+mime_header_decoder_feed(int c, struct mime_header_decoder_data *pd TSRMLS_DC);
 
 mbfl_string *
-mime_header_decoder_result(struct mime_header_decoder_data *pd, mbfl_string *result);
+mime_header_decoder_result(struct mime_header_decoder_data *pd, mbfl_string *result TSRMLS_DC);
 
 mbfl_string *
 mbfl_mime_header_decode(
     mbfl_string *string,
     mbfl_string *result,
-    enum mbfl_no_encoding outcode);
+    enum mbfl_no_encoding outcode TSRMLS_DC);
 
 
 /*
  * convert HTML numeric entity
  */
 mbfl_string *
-mbfl_html_numeric_entity(mbfl_string *string, mbfl_string *result, int *convmap, int mapsize, int type);
+mbfl_html_numeric_entity(mbfl_string *string, mbfl_string *result, int *convmap, int mapsize, int type TSRMLS_DC);
 
 
 /*
  * convert of harfwidth and fullwidth for japanese
  */
 mbfl_string *
-mbfl_ja_jp_hantozen(mbfl_string *string, mbfl_string *result, int mode);
+mbfl_ja_jp_hantozen(mbfl_string *string, mbfl_string *result, int mode TSRMLS_DC);
+
+/*
+ * HTML Entity table
+ */
+typedef struct _mbfl_html_entity {
+	char *  name;
+	int     code;
+} mbfl_html_entity;
+
+extern const mbfl_html_entity mbfl_html_entity_list[];
 
 #endif	/* MBFL_MBFILTER_H */

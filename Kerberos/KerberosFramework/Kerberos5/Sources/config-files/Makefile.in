@@ -1,0 +1,11 @@
+thisconfigdir=./..
+myfulldir=config-files
+mydir=config-files
+MY_SUBDIRS=.
+BUILDTOP=$(REL)..
+all::
+
+install::
+	$(INSTALL_DATA) $(srcdir)/kdc.conf.M ${DESTDIR}$(FILE_MANDIR)/kdc.conf.5
+	$(INSTALL_DATA) $(srcdir)/krb5.conf.M ${DESTDIR}$(FILE_MANDIR)/krb5.conf.5
+

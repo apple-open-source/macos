@@ -26,6 +26,12 @@
  * (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF
  * THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
+ 
+ /*
+ * Portions Copyright (c) 2002 Apple Computer, Inc.
+ */
+
+
 /* RCSID("$OpenBSD: compat.h,v 1.9 2000/06/20 01:39:40 markus Exp $"); */
 
 #ifndef COMPAT_H

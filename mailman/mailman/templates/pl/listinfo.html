@@ -1,0 +1,152 @@
+<!-- $Revision: 1.1.1.1 $ -->
+<HTML>
+  <HEAD>
+ <meta http-equiv="Content-Type" content="text/html; charset=iso-8859-2">
+    <TITLE>Strona informacyjna listy <MM-List-Name></TITLE>
+  
+  </HEAD>
+  <BODY BGCOLOR="#ffffff">
+
+    <P>
+      <TABLE COLS="1" BORDER="0" CELLSPACING="4" CELLPADDING="5">
+	<TR>
+	  <TD COLSPAN="2" WIDTH="100%" BGCOLOR="#99CCFF" ALIGN="CENTER">
+	    <B><FONT COLOR="#000000" SIZE="+1"><MM-List-Name> --
+	<MM-List-Description></FONT></B>
+	  </TD>
+	</TR>
+	<tr>
+	    <td colspan="2">
+	      <p>&nbsp;
+	    </td>
+	  </tr>
+	  <tr>
+	    <TD COLSPAN="1" WIDTH="100%" BGCOLOR="#FFF0D0">
+	      <B><FONT COLOR="#000000">Lista dyskusyjna <MM-List-Name></FONT></B>
+	    </TD>
+            <TD COLSPAN="1" WIDTH="100%" BGCOLOR="#FFF0D0">
+              <MM-lang-form-start><MM-displang-box> <MM-list-langs>
+              <MM-form-end>
+    <MM-Subscribe-Form-Start>
+            </TD>
+	  </TR>
+	    <tr>
+	      <td colspan="2">
+		<P><MM-List-Info></P>
+                <p> Aby obejrzeć dotychczasową kolekcję wiadomości wysłanych 
+                    na listę odwiedź <MM-Archive> archiwum <MM-List-Name>
+                    </MM-Archive>
+
+	      <MM-Restricted-List-Message>
+	  </p>
+	</TD>
+      </TR>
+      <TR>
+	<TD COLSPAN="2" WIDTH="100%" BGCOLOR="#FFF0D0">
+	  <B><FONT COLOR="#000000">Korzystanie z listy <MM-List-Name></FONT></B>
+	</TD>
+      </TR>
+      <tr>
+	<td colspan="2">
+        Aby wysłać wiadomość do wszystkich członków listy użyj adresu:
+          <A HREF="mailto:<MM-Posting-Addr>"><MM-Posting-Addr></A>.
+
+          <p>Możesz dołączyć do listy lub zmienić dotychczasowe opcje
+          subskrybcji korzystając z poniższych sekcji.
+	</td>
+      </tr>
+      <TR>
+	<TD COLSPAN="2" WIDTH="100%" BGCOLOR="#FFF0D0">
+	  <B><FONT COLOR="#000000">Zapisywanie się na listę <MM-List-Name></FONT></B>
+	</TD>
+      </TR>
+      <tr>
+	<td colspan="2">
+	  <P>
+          Aby zapisać się na listę <MM-List-Name> należy wypełnić poniższy
+          formularz.
+
+	  <MM-List-Subscription-Msg>
+	  <ul>
+	      <TABLE BORDER="0" CELLSPACING="2" CELLPADDING="2"
+		WIDTH="70%" HEIGHT= "112">
+		<TR>
+		  <TD BGCOLOR="#dddddd" WIDTH="55%">Twój adres email:</TD>
+		  <TD WIDTH="33%"><MM-Subscribe-Box>
+	</TD>
+	<TD WIDTH="12%">&nbsp;</TD></TR>
+      <tr>
+        <td bgcolor="#dddddd" width="55%">Imię i nazwisko (opcjonalne):</td>
+        <td width="33%"><mm-fullname-box></td>
+	<TD WIDTH="12%">&nbsp;</TD></TR>
+      <TR>
+
+        <TD COLSPAN="3"><FONT SIZE=-1>Musisz wprowadzić swoje
+          prywatne hasło. Zapewnia to tylko minimum bezpieczeństwa,
+          lecz powinno zapobiec niepożądanym działaniom dotyczącym
+          Twojej subskrybcji przez innych użytkowników.
+         <b>Nie używaj cennego hasła</b>, ponieważ co
+         pewien czas będzie ono przesyłane na Twoje konto
+          jako 'czysty tekst' (w formie niezaszyfrowanej).
+
+         <p>Jeżeli nie podasz hasła, system przydzieli Ci
+          je automatycznie. Zostanie ono przesłane razem z wiadomością
+          potwierdzającą Twoją subskrybcję. W każdej chwili możesz prosić 
+          o przypomnienie hasła za pomocą zwrotnego emaila, a później
+          zmienić parametry swojej subskrybcji.
+	    <MM-Reminder>
+	</TD>
+      </TR>  
+      <TR>
+	<TD BGCOLOR="#dddddd">Nowe hasło:</TD>
+	<TD><MM-New-Password-Box></TD>
+	<TD>&nbsp;</TD></TR>
+      <TR> 
+	<TD BGCOLOR="#dddddd">Potwierdź hasło, wprowadzając je powtórnie:</TD>
+	<TD><MM-Confirm-Password></TD>
+	<TD>&nbsp; </TD></TR>
+      <tr>
+        <TD BGCOLOR="#dddddd">W jakim języku chcesz się komunikować z
+         systemem?</TD> 
+        <TD> <MM-list-langs></TD>
+        <TD>&nbsp; </TD></TR>
+      <mm-digest-question-start>
+      <tr>
+
+	<td>Czy chcesz dostawać listy tylko raz dziennie,
+           w formie paczki?
+	  </td>
+	<td><MM-Undigest-Radio-Button> Nie
+	    <MM-Digest-Radio-Button> Tak
+	</TD>
+      </tr>
+      <mm-digest-question-end>
+      <tr>
+	<td colspan="3">
+	  <center><MM-Subscribe-Button></P></center>
+    </TABLE>
+    <MM-Form-End>
+    </ul>
+    </td>
+    </tr>
+    <TR>
+      <TD COLSPAN="2" WIDTH="100%" BGCOLOR="#FFF0D0">
+	<a name="subscribers">
+        <B><FONT COLOR="#000000">Osoby zapisane na listę <MM-List-Name></FONT></B></a>
+      </TD>
+    </TR>
+    <tr>
+      <TD COLSPAN="2" WIDTH="100%">
+	<MM-Roster-Form-Start>
+	<MM-Roster-Option>
+	    <MM-Form-End>
+	  <p>
+	<MM-Options-Form-Start>
+	<MM-Editing-Options>
+		<MM-Form-End>
+      </td>
+    </tr>
+  </table>
+<MM-Mailman-Footer>
+</BODY>
+</HTML>

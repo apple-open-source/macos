@@ -1,8 +1,8 @@
 /*
    +----------------------------------------------------------------------+
-   | PHP version 4.0                                                      |
+   | PHP Version 4                                                        |
    +----------------------------------------------------------------------+
-   | Copyright (c) 1997, 1998, 1999, 2000 The PHP Group                   |
+   | Copyright (c) 1997-2003 The PHP Group                                |
    +----------------------------------------------------------------------+
    | This source file is subject to version 2.02 of the PHP license,      |
    | that is bundled with this package in the file LICENSE, and is        |
@@ -17,7 +17,7 @@
    +----------------------------------------------------------------------+
 */
 
-/* $Id: tsrm_virtual_cwd.c,v 1.1.1.3 2001/12/14 22:15:51 zarzycki Exp $ */
+/* $Id: tsrm_virtual_cwd.c,v 1.1.1.6 2003/07/18 18:07:25 zarzycki Exp $ */
 
 #include <sys/types.h>
 #include <sys/stat.h>
@@ -36,12 +36,21 @@
 #include "tsrm_win32.h"
 #endif
 
+#ifdef NETWARE
+/*#include "pipe.h"*/
+#include "tsrm_nw.h"
+#endif
+
+#ifndef HAVE_REALPATH
+#define realpath(x,y) strcpy(y,x)
+#endif
+
 #define VIRTUAL_CWD_DEBUG 0
 
 #include "TSRM.h"
 
-/* Only need mutex for popen() in Windows because it doesn't chdir() on UNIX */
-#if defined(TSRM_WIN32) && defined(ZTS)
+/* Only need mutex for popen() in Windows and NetWare, because it doesn't chdir() on UNIX */
+#if (defined(TSRM_WIN32) || defined(NETWARE)) && defined(ZTS)
 MUTEX_T cwd_mutex;
 #endif
 
@@ -68,7 +77,8 @@ cwd_state main_cwd_state; /* True global */
 #endif
 
 #ifdef TSRM_WIN32
-#define tsrm_strtok_r(a,b,c) strtok((a),(b))
+#include <tchar.h>
+#define tsrm_strtok_r(a,b,c) _tcstok((a),(b))
 #define TOKENIZER_STRING "/\\"
 	
 static int php_check_dots(const char *element, int n) 
@@ -84,6 +94,13 @@ static int php_check_dots(const char *element, int n)
 #define IS_DIRECTORY_CURRENT(element, len) \
 	(len == 1 && ptr[0] == '.')
 
+#elif defined(NETWARE)
+/* NetWare has strtok() (in LibC) and allows both slashes in paths, like Windows --
+   but rest of the stuff is like Unix */
+/* strtok() call in LibC is abending when used in a different address space -- hence using
+   PHP's version itself for now */
+/*#define tsrm_strtok_r(a,b,c) strtok((a),(b))*/
+#define TOKENIZER_STRING "/\\"
 
 #else
 #define TOKENIZER_STRING "/"
@@ -120,9 +137,15 @@ static int php_check_dots(const char *element, int n)
 	
 static int php_is_dir_ok(const cwd_state *state) 
 {
+#if !(defined(NETWARE) && defined(CLIB_STAT_PATCH))
 	struct stat buf;
 
 	if (stat(state->cwd, &buf) == 0 && S_ISDIR(buf.st_mode))
+#else
+    struct stat_libc buf;
+
+    if (stat(state->cwd, (struct stat*)(&buf)) == 0 && S_ISDIR(buf.st_mode))
+#endif
 		return (0);
 
 	return (1);
@@ -130,9 +153,15 @@ static int php_is_dir_ok(const cwd_state *state)
 
 static int php_is_file_ok(const cwd_state *state) 
 {
+#if !(defined(NETWARE) && defined(CLIB_STAT_PATCH))
 	struct stat buf;
 
 	if (stat(state->cwd, &buf) == 0 && S_ISREG(buf.st_mode))
+#else
+    struct stat_libc buf;
+
+    if (stat(state->cwd, (struct stat*)(&buf)) == 0 && S_ISREG(buf.st_mode))
+#endif
 		return (0);
 
 	return (1);
@@ -255,7 +284,7 @@ CWD_API char *virtual_getcwd(char *buf, size_t size TSRMLS_DC)
 
 /* Resolve path relatively to state and put the real path into state */
 /* returns 0 for ok, 1 for error */
-CWD_API int virtual_file_ex(cwd_state *state, const char *path, verify_path_func verify_path)
+CWD_API int virtual_file_ex(cwd_state *state, const char *path, verify_path_func verify_path, int use_realpath)
 {
 	int path_length = strlen(path);
 	char *ptr, *path_copy;
@@ -273,9 +302,12 @@ CWD_API int virtual_file_ex(cwd_state *state, const char *path, verify_path_func
 	if (path_length == 0) 
 		return (0);
 
-#if !defined(TSRM_WIN32) && !defined(__BEOS__)
-	if (IS_ABSOLUTE_PATH(path, path_length)) {
-		if (realpath(path, resolved_path)) {
+#if !defined(TSRM_WIN32) && !defined(NETWARE)
+	/* cwd_length can be 0 when getcwd() fails.
+	 * This can happen under solaris when a dir does not have read permissions
+	 * but *does* have execute permissions */
+	if (IS_ABSOLUTE_PATH(path, path_length) || (state->cwd_length < 1)) {
+		if (use_realpath && realpath(path, resolved_path)) {
 			path = resolved_path;
 			path_length = strlen(path);
 		}
@@ -293,7 +325,7 @@ CWD_API int virtual_file_ex(cwd_state *state, const char *path, verify_path_func
 		memcpy(ptr, path, path_length);
 		ptr += path_length;
 		*ptr = '\0';
-		if (realpath(tmp, resolved_path)) {
+		if (use_realpath && realpath(tmp, resolved_path)) {
 			path = resolved_path;
 			path_length = strlen(path);
 		}
@@ -308,7 +340,7 @@ CWD_API int virtual_file_ex(cwd_state *state, const char *path, verify_path_func
 	fprintf(stderr,"cwd = %s path = %s\n", state->cwd, path);
 #endif
 	if (IS_ABSOLUTE_PATH(path_copy, path_length)) {
-		copy_amount = COPY_WHEN_ABSOLUTE;
+        copy_amount = COPY_WHEN_ABSOLUTE(path_copy);
 		is_absolute = 1;
 #ifdef TSRM_WIN32
 	} else if (IS_UNC_PATH(path_copy, path_length)) {
@@ -334,52 +366,64 @@ CWD_API int virtual_file_ex(cwd_state *state, const char *path, verify_path_func
 	}
 
 
-	ptr = tsrm_strtok_r(path_copy, TOKENIZER_STRING, &tok);
-	while (ptr) {
-		ptr_length = strlen(ptr);
+	if (state->cwd_length > 0 || IS_ABSOLUTE_PATH(path, path_length)) {
+		ptr = tsrm_strtok_r(path_copy, TOKENIZER_STRING, &tok);
+		while (ptr) {
+			ptr_length = strlen(ptr);
 
-		if (IS_DIRECTORY_UP(ptr, ptr_length)) {
-			char save;
+			if (IS_DIRECTORY_UP(ptr, ptr_length)) {
+				char save;
 
-			save = DEFAULT_SLASH;
+				save = DEFAULT_SLASH;
 
 #define PREVIOUS state->cwd[state->cwd_length - 1]
 
-			while (IS_ABSOLUTE_PATH(state->cwd, state->cwd_length) &&
-					!IS_SLASH(PREVIOUS)) {
-				save = PREVIOUS;
-				PREVIOUS = '\0';
-				state->cwd_length--;
-			}
+				while (IS_ABSOLUTE_PATH(state->cwd, state->cwd_length) &&
+						!IS_SLASH(PREVIOUS)) {
+					save = PREVIOUS;
+					PREVIOUS = '\0';
+					state->cwd_length--;
+				}
 
-			if (!IS_ABSOLUTE_PATH(state->cwd, state->cwd_length)) {
-				state->cwd[state->cwd_length++] = save;
-				state->cwd[state->cwd_length] = '\0';
-			} else {
-				PREVIOUS = '\0';
-				state->cwd_length--;
-			}
-		} else if (!IS_DIRECTORY_CURRENT(ptr, ptr_length)) {
-			state->cwd = (char *) realloc(state->cwd, state->cwd_length+ptr_length+1+1);
+				if (!IS_ABSOLUTE_PATH(state->cwd, state->cwd_length)) {
+					state->cwd[state->cwd_length++] = save;
+					state->cwd[state->cwd_length] = '\0';
+				} else {
+					PREVIOUS = '\0';
+					state->cwd_length--;
+				}
+			} else if (!IS_DIRECTORY_CURRENT(ptr, ptr_length)) {
+				state->cwd = (char *) realloc(state->cwd, state->cwd_length+ptr_length+1+1);
 #ifdef TSRM_WIN32
-			/* Windows 9x will consider C:\\Foo as a network path. Avoid it. */
-			if (state->cwd[state->cwd_length-1]!='\\' && state->cwd[state->cwd_length-1]!='/') {
-				state->cwd[state->cwd_length++] = DEFAULT_SLASH;
-			}
+				/* Windows 9x will consider C:\\Foo as a network path. Avoid it. */
+				if ((state->cwd[state->cwd_length-1]!='\\' && state->cwd[state->cwd_length-1]!='/') || 
+						IsDBCSLeadByte(state->cwd[state->cwd_length-2])) {
+					state->cwd[state->cwd_length++] = DEFAULT_SLASH;
+				}
+#elif defined(NETWARE)
+				/* If the token is a volume name, it will have colon at the end -- so, no slash before it */
+				if (ptr[ptr_length-1] != ':') {
+					state->cwd[state->cwd_length++] = DEFAULT_SLASH;
+				}
 #else
-			state->cwd[state->cwd_length++] = DEFAULT_SLASH;
+				state->cwd[state->cwd_length++] = DEFAULT_SLASH;
 #endif
-			memcpy(&state->cwd[state->cwd_length], ptr, ptr_length+1);
-			state->cwd_length += ptr_length;
+				memcpy(&state->cwd[state->cwd_length], ptr, ptr_length+1);
+				state->cwd_length += ptr_length;
+			}
+			ptr = tsrm_strtok_r(NULL, TOKENIZER_STRING, &tok);
 		}
-		ptr = tsrm_strtok_r(NULL, TOKENIZER_STRING, &tok);
-	}
 
-	if (state->cwd_length == COPY_WHEN_ABSOLUTE) {
-		state->cwd = (char *) realloc(state->cwd, state->cwd_length+1+1);
-		state->cwd[state->cwd_length] = DEFAULT_SLASH;
-		state->cwd[state->cwd_length+1] = '\0';
-		state->cwd_length++;
+		if (state->cwd_length == COPY_WHEN_ABSOLUTE(state->cwd)) {
+			state->cwd = (char *) realloc(state->cwd, state->cwd_length+1+1);
+			state->cwd[state->cwd_length] = DEFAULT_SLASH;
+			state->cwd[state->cwd_length+1] = '\0';
+			state->cwd_length++;
+		}
+	} else {
+		state->cwd = (char *) realloc(state->cwd, path_length+1);
+		memcpy(state->cwd, path, path_length+1);
+		state->cwd_length = path_length;
 	}
 
 	if (verify_path && verify_path(state)) {
@@ -404,7 +448,7 @@ CWD_API int virtual_file_ex(cwd_state *state, const char *path, verify_path_func
 
 CWD_API int virtual_chdir(const char *path TSRMLS_DC)
 {
-	return virtual_file_ex(&CWDG(cwd), path, php_is_dir_ok)?-1:0;
+	return virtual_file_ex(&CWDG(cwd), path, php_is_dir_ok, 1)?-1:0;
 }
 
 CWD_API int virtual_chdir_file(const char *path, int (*p_chdir)(const char *path TSRMLS_DC) TSRMLS_DC)
@@ -425,7 +469,7 @@ CWD_API int virtual_chdir_file(const char *path, int (*p_chdir)(const char *path
 		return -1;
 	}
 
-	if (length == COPY_WHEN_ABSOLUTE && IS_ABSOLUTE_PATH(path, length+1)) { /* Also use trailing slash if this is absolute */
+	if (length == COPY_WHEN_ABSOLUTE(path) && IS_ABSOLUTE_PATH(path, length+1)) { /* Also use trailing slash if this is absolute */
 		length++;
 	}
 	temp = (char *) tsrm_do_alloca(length+1);
@@ -445,7 +489,7 @@ CWD_API char *virtual_realpath(const char *path, char *real_path TSRMLS_DC)
 	int retval;
 
 	CWD_STATE_COPY(&new_state, &CWDG(cwd));
-	retval = virtual_file_ex(&new_state, path, NULL);
+	retval = virtual_file_ex(&new_state, path, NULL, 1);
 	
 	if (!retval) {
 		int len = new_state.cwd_length>MAXPATHLEN-1?MAXPATHLEN-1:new_state.cwd_length;
@@ -463,7 +507,7 @@ CWD_API int virtual_filepath_ex(const char *path, char **filepath, verify_path_f
 	int retval;
 
 	CWD_STATE_COPY(&new_state, &CWDG(cwd));
-	retval = virtual_file_ex(&new_state, path, verify_path);
+	retval = virtual_file_ex(&new_state, path, verify_path, 1);
 
 	*filepath = new_state.cwd;
 
@@ -486,13 +530,31 @@ CWD_API FILE *virtual_fopen(const char *path, const char *mode TSRMLS_DC)
 	}
 
 	CWD_STATE_COPY(&new_state, &CWDG(cwd));
-	virtual_file_ex(&new_state, path, NULL);
+	virtual_file_ex(&new_state, path, NULL, 1);
 
 	f = fopen(new_state.cwd, mode);
 
 	CWD_STATE_FREE(&new_state);
 	return f;
 }
+
+#if !defined(TSRM_WIN32)
+CWD_API int virtual_access(const char *pathname, int mode TSRMLS_DC)
+{
+	cwd_state new_state;
+	int ret;
+	
+	CWD_STATE_COPY(&new_state, &CWDG(cwd));
+	virtual_file_ex(&new_state, pathname, NULL, 1);
+
+	ret = access(new_state.cwd, mode);
+	
+	CWD_STATE_FREE(&new_state);
+	
+	return ret;
+}
+#endif
+
 
 #if HAVE_UTIME
 CWD_API int virtual_utime(const char *filename, struct utimbuf *buf TSRMLS_DC)
@@ -501,7 +563,7 @@ CWD_API int virtual_utime(const char *filename, struct utimbuf *buf TSRMLS_DC)
 	int ret;
 
 	CWD_STATE_COPY(&new_state, &CWDG(cwd));
-	virtual_file_ex(&new_state, filename, NULL);
+	virtual_file_ex(&new_state, filename, NULL, 0);
 
 	ret = utime(new_state.cwd, buf);
 
@@ -516,7 +578,7 @@ CWD_API int virtual_chmod(const char *filename, mode_t mode TSRMLS_DC)
 	int ret;
 
 	CWD_STATE_COPY(&new_state, &CWDG(cwd));
-	virtual_file_ex(&new_state, filename, NULL);
+	virtual_file_ex(&new_state, filename, NULL, 1);
 
 	ret = chmod(new_state.cwd, mode);
 
@@ -524,14 +586,14 @@ CWD_API int virtual_chmod(const char *filename, mode_t mode TSRMLS_DC)
 	return ret;
 }
 
-#ifndef TSRM_WIN32
+#if !defined(TSRM_WIN32) && !defined(NETWARE)
 CWD_API int virtual_chown(const char *filename, uid_t owner, gid_t group TSRMLS_DC)
 {
 	cwd_state new_state;
 	int ret;
 
 	CWD_STATE_COPY(&new_state, &CWDG(cwd));
-	virtual_file_ex(&new_state, filename, NULL);
+	virtual_file_ex(&new_state, filename, NULL, 0);
 
 	ret = chown(new_state.cwd, owner, group);
 
@@ -546,7 +608,7 @@ CWD_API int virtual_open(const char *path TSRMLS_DC, int flags, ...)
 	int f;
 
 	CWD_STATE_COPY(&new_state, &CWDG(cwd));
-	virtual_file_ex(&new_state, path, NULL);
+	virtual_file_ex(&new_state, path, NULL, 1);
 
 	if (flags & O_CREAT) {
 		mode_t mode;
@@ -570,7 +632,7 @@ CWD_API int virtual_creat(const char *path, mode_t mode TSRMLS_DC)
 	int f;
 
 	CWD_STATE_COPY(&new_state, &CWDG(cwd));
-	virtual_file_ex(&new_state, path, NULL);
+	virtual_file_ex(&new_state, path, NULL, 1);
 
 	f = creat(new_state.cwd,  mode);
 
@@ -585,11 +647,11 @@ CWD_API int virtual_rename(char *oldname, char *newname TSRMLS_DC)
 	int retval;
 
 	CWD_STATE_COPY(&old_state, &CWDG(cwd));
-	virtual_file_ex(&old_state, oldname, NULL);
+	virtual_file_ex(&old_state, oldname, NULL, 0);
 	oldname = old_state.cwd;
 
 	CWD_STATE_COPY(&new_state, &CWDG(cwd));
-	virtual_file_ex(&new_state, newname, NULL);
+	virtual_file_ex(&new_state, newname, NULL, 0);
 	newname = new_state.cwd;
  
 	retval = rename(oldname, newname);
@@ -600,36 +662,50 @@ CWD_API int virtual_rename(char *oldname, char *newname TSRMLS_DC)
 	return retval;
 }
 
+#if !(defined(NETWARE) && defined(CLIB_STAT_PATCH))
 CWD_API int virtual_stat(const char *path, struct stat *buf TSRMLS_DC)
 {
 	cwd_state new_state;
 	int retval;
 
 	CWD_STATE_COPY(&new_state, &CWDG(cwd));
-	virtual_file_ex(&new_state, path, NULL);
+	virtual_file_ex(&new_state, path, NULL, 1);
 
 	retval = stat(new_state.cwd, buf);
 
 	CWD_STATE_FREE(&new_state);
 	return retval;
 }
+#else
+CWD_API int virtual_stat(const char *path, struct stat_libc *buf TSRMLS_DC)
+{
+	cwd_state new_state;
+	int retval;
 
-#ifndef TSRM_WIN32
+	CWD_STATE_COPY(&new_state, &CWDG(cwd));
+	virtual_file_ex(&new_state, path, NULL, 1);
 
+	retval = stat(new_state.cwd, (struct stat*)buf);
+
+	CWD_STATE_FREE(&new_state);
+	return retval;
+}
+#endif
+
+#if !defined(TSRM_WIN32) && !defined(NETWARE)
 CWD_API int virtual_lstat(const char *path, struct stat *buf TSRMLS_DC)
 {
 	cwd_state new_state;
 	int retval;
 
 	CWD_STATE_COPY(&new_state, &CWDG(cwd));
-	virtual_file_ex(&new_state, path, NULL);
+	virtual_file_ex(&new_state, path, NULL, 0);
 
 	retval = lstat(new_state.cwd, buf);
 
 	CWD_STATE_FREE(&new_state);
 	return retval;
 }
-
 #endif
 
 CWD_API int virtual_unlink(const char *path TSRMLS_DC)
@@ -638,7 +714,7 @@ CWD_API int virtual_unlink(const char *path TSRMLS_DC)
 	int retval;
 
 	CWD_STATE_COPY(&new_state, &CWDG(cwd));
-	virtual_file_ex(&new_state, path, NULL);
+	virtual_file_ex(&new_state, path, NULL, 0);
 
 	retval = unlink(new_state.cwd);
 
@@ -652,7 +728,7 @@ CWD_API int virtual_mkdir(const char *pathname, mode_t mode TSRMLS_DC)
 	int retval;
 
 	CWD_STATE_COPY(&new_state, &CWDG(cwd));
-	virtual_file_ex(&new_state, pathname, NULL);
+	virtual_file_ex(&new_state, pathname, NULL, 1);
 
 #ifdef TSRM_WIN32
 	retval = mkdir(new_state.cwd);
@@ -669,7 +745,7 @@ CWD_API int virtual_rmdir(const char *pathname TSRMLS_DC)
 	int retval;
 
 	CWD_STATE_COPY(&new_state, &CWDG(cwd));
-	virtual_file_ex(&new_state, pathname, NULL);
+	virtual_file_ex(&new_state, pathname, NULL, 0);
 
 	retval = rmdir(new_state.cwd);
 
@@ -687,7 +763,7 @@ CWD_API DIR *virtual_opendir(const char *pathname TSRMLS_DC)
 	DIR *retval;
 
 	CWD_STATE_COPY(&new_state, &CWDG(cwd));
-	virtual_file_ex(&new_state, pathname, NULL);
+	virtual_file_ex(&new_state, pathname, NULL, 1);
 
 	retval = opendir(new_state.cwd);
 
@@ -695,7 +771,45 @@ CWD_API DIR *virtual_opendir(const char *pathname TSRMLS_DC)
 	return retval;
 }
 
-#ifndef TSRM_WIN32
+#ifdef TSRM_WIN32
+
+CWD_API FILE *virtual_popen(const char *command, const char *type TSRMLS_DC)
+{
+	return popen_ex(command, type, CWDG(cwd).cwd, NULL);
+}
+
+#elif defined(NETWARE)
+
+/* On NetWare, the trick of prepending "cd cwd; " doesn't work so we need to perform
+   a VCWD_CHDIR() and mutex it
+ */
+CWD_API FILE *virtual_popen(const char *command, const char *type TSRMLS_DC)
+{
+	char prev_cwd[MAXPATHLEN];
+	char *getcwd_result;
+	FILE *retval;
+
+	getcwd_result = VCWD_GETCWD(prev_cwd, MAXPATHLEN);
+	if (!getcwd_result) {
+		return NULL;
+	}
+
+#ifdef ZTS
+	tsrm_mutex_lock(cwd_mutex);
+#endif
+
+	VCWD_CHDIR(CWDG(cwd).cwd);
+	retval = popen(command, type);
+	VCWD_CHDIR(prev_cwd);
+
+#ifdef ZTS
+	tsrm_mutex_unlock(cwd_mutex);
+#endif
+
+	return retval;
+}
+
+#else /* Unix */
 
 CWD_API FILE *virtual_popen(const char *command, const char *type TSRMLS_DC)
 {
@@ -728,37 +842,6 @@ CWD_API FILE *virtual_popen(const char *command, const char *type TSRMLS_DC)
 	retval = popen(command_line, type);
 
 	free(command_line);
-	return retval;
-}
-
-#else
-
-/* On Windows the trick of prepending "cd cwd; " doesn't work so we need to perform
-   a real chdir() and mutex it
- */
-CWD_API FILE *virtual_popen(const char *command, const char *type TSRMLS_DC)
-{
-	char prev_cwd[MAXPATHLEN];
-	char *getcwd_result;
-	FILE *retval;
-
-	getcwd_result = getcwd(prev_cwd, MAXPATHLEN);
-	if (!getcwd_result) {
-		return NULL;
-	}
-
-#ifdef ZTS
-	tsrm_mutex_lock(cwd_mutex);
-#endif
-
-	chdir(CWDG(cwd).cwd);
-	retval = popen(command, type);
-	chdir(prev_cwd);
-
-#ifdef ZTS
-	tsrm_mutex_unlock(cwd_mutex);
-#endif
-
 	return retval;
 }
 

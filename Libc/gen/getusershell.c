@@ -72,7 +72,7 @@
 
 static char *okshells[] = { _PATH_BSHELL, _PATH_CSHELL, NULL };
 static char **curshell, **shells, *strings;
-static char **initshells __P((void));
+static char **initshells(void);
 
 /*
  * Get a list of shells from _PATH_SHELLS, if it exists.

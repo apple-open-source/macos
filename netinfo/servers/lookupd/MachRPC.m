@@ -3,21 +3,22 @@
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
- * "Portions Copyright (c) 1999 Apple Computer, Inc.  All Rights
- * Reserved.  This file contains Original Code and/or Modifications of
- * Original Code as defined in and that are subject to the Apple Public
- * Source License Version 1.0 (the 'License').  You may not use this file
- * except in compliance with the License.  Please obtain a copy of the
- * License at http://www.apple.com/publicsource and read it before using
- * this file.
+ * Copyright (c) 1999-2003 Apple Computer, Inc.  All Rights Reserved.
+ * 
+ * This file contains Original Code and/or Modifications of Original Code
+ * as defined in and that are subject to the Apple Public Source License
+ * Version 2.0 (the 'License'). You may not use this file except in
+ * compliance with the License. Please obtain a copy of the License at
+ * http://www.opensource.apple.com/apsl/ and read it before using this
+ * file.
  * 
  * The Original Code and all software distributed under the License are
  * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
  * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
  * INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY,
- * FITNESS FOR A PARTICULAR PURPOSE OR NON-INFRINGEMENT.  Please see the
- * License for the specific language governing rights and limitations
- * under the License."
+ * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
+ * Please see the License for the specific language governing rights and
+ * limitations under the License.
  * 
  * @APPLE_LICENSE_HEADER_END@
  */
@@ -65,14 +66,9 @@
 #define valIPNet			5
 #define valENAddr		6
 
-#ifdef _OS_VERSION_MACOS_X_
 extern boolean_t lookup_server(mach_msg_header_t *, mach_msg_header_t *);
-#else
-extern kern_return_t lookup_server(lookup_request_msg *, lookup_reply_msg *);
-#endif
 extern char *proc_name(int);
 
-extern char *ether_ntoa(struct ether_addr *);
 extern char *nettoa(u_int32_t net);
 
 @implementation MachRPC
@@ -400,11 +396,7 @@ extern char *nettoa(u_int32_t net);
 - (void)process
 {
 	kern_return_t status;
-#ifdef _OS_VERSION_MACOS_X_
 	BOOL lustatus;
-#else
-	kern_return_t lustatus;
-#endif
 	Thread *t;
 	LUServer *server;
 	lookup_reply_msg reply;
@@ -420,16 +412,9 @@ extern char *nettoa(u_int32_t net);
 	 * Use the MIG server to dispatch messages.
 	 * Server functions for the MIG interface are in lookup_proc.m
 	 */ 
-#ifdef _OS_VERSION_MACOS_X_
 	lustatus = lookup_server(&request->head, &reply.head);
 	free(request);
 	if (lustatus == NO)
-#else
-	reply.head.msg_local_port = request->head.msg_local_port;
-	lustatus = lookup_server(request, &reply);
-	free(request);
-	if (lustatus == MIG_NO_REPLY)
-#endif
 	{
 		system_log(LOG_DEBUG, "MachRPC process request: no reply");
 		return;
@@ -439,7 +424,14 @@ extern char *nettoa(u_int32_t net);
 
 	if (status != KERN_SUCCESS)
 	{
-		system_log(LOG_ERR, "msg_send failed (%s)", sys_strerror(status));
+		if (status == MACH_SEND_INVALID_DEST)
+		{
+			sys_port_free(reply.head.msgh_remote_port);
+		}
+		else
+		{
+			system_log(LOG_ERR, "msg_send failed (%s)", sys_strerror(status));
+		}
 	}
 
 	server = (LUServer *)[t server];
@@ -467,7 +459,7 @@ extern char *nettoa(u_int32_t net);
 	outData:(char **)outdata
 	outLength:(unsigned int *)outlen
 {
-	LUDictionary *dict;
+	LUDictionary *dict, *item;
 	LUArray *list;
 	LUServer *server;
 	Thread *t;
@@ -506,7 +498,7 @@ extern char *nettoa(u_int32_t net);
 		aSel = proc_helper[procno].encoder;
 		cat = proc_helper[procno].cat;
 
-		system_log(LOG_DEBUG, logString);
+		system_log(LOG_DEBUG, "%s", logString);
 
 		list = [server allItemsWithCategory:cat];
 		if (list == nil) return NO;
@@ -521,7 +513,7 @@ extern char *nettoa(u_int32_t net);
 	{
 		if ((inlen == 0) || (indata == NULL))
 		{
-			system_log(LOG_NOTICE, "%s - can't decode lookup value", logString);
+			system_log(LOG_DEBUG, "%s - can't decode lookup value", logString);
 			return NO;
 		}
 
@@ -560,7 +552,7 @@ extern char *nettoa(u_int32_t net);
 	
 		if (val == NULL)
 		{
-			system_log(LOG_NOTICE, "%s - can't decode lookup value", logString);
+			system_log(LOG_DEBUG, "%s - can't decode lookup value", logString);
 			return NO;
 		}
 
@@ -590,7 +582,7 @@ extern char *nettoa(u_int32_t net);
 
 			if (name == NULL)
 			{
-				system_log(LOG_NOTICE, "%s - can't decode lookup value", logString);
+				system_log(LOG_DEBUG, "%s - can't decode lookup value", logString);
 				return NO;
 			}
 
@@ -607,14 +599,14 @@ extern char *nettoa(u_int32_t net);
 		case PROC_ALIAS_SETENT:
 			*outlen = 0;
 			*outdata = NULL;
-			system_log(LOG_DEBUG, logString);
+			system_log(LOG_DEBUG, "%s", logString);
 			return YES;
 
 		case PROC_GETSERVBYNAME: /* NONSTANDARD */
 			stuff = [self twoStringsFromBuffer:indata length:inlen];
 			if (stuff == NULL)
 			{
-				system_log(LOG_NOTICE, "%s - can't decode lookup value", logString);
+				system_log(LOG_DEBUG, "%s - can't decode lookup value", logString);
 				return NO;
 			}
 
@@ -634,7 +626,7 @@ extern char *nettoa(u_int32_t net);
 			stuff = [self intAndStringFromBuffer:indata length:inlen];
 			if (stuff == NULL)
 			{
-				system_log(LOG_NOTICE, "%s - can't decode lookup value", logString);
+				system_log(LOG_DEBUG, "%s - can't decode lookup value", logString);
 				return NO;
 			}
 
@@ -655,7 +647,7 @@ extern char *nettoa(u_int32_t net);
 			stuff = [self threeStringsFromBuffer:indata length:inlen];
 			if (stuff == NULL)
 			{
-				system_log(LOG_NOTICE, "%s - can't decode lookup value", logString);
+				system_log(LOG_DEBUG, "%s - can't decode lookup value", logString);
 				return NO;
 			}
 
@@ -680,7 +672,7 @@ extern char *nettoa(u_int32_t net);
 
 			if (name == NULL)
 			{
-				system_log(LOG_NOTICE, "%s - can't decode lookup value", logString);
+				system_log(LOG_DEBUG, "%s - can't decode lookup value", logString);
 				return NO;
 			}
 	
@@ -706,13 +698,13 @@ extern char *nettoa(u_int32_t net);
 			dict = [self dictionaryFromBuffer:indata length:inlen];
 			if (dict == nil)
 			{
-				system_log(LOG_NOTICE, "%s - can't decode lookup value", logString);
+				system_log(LOG_DEBUG, "%s - can't decode lookup value", logString);
 				return NO;
 			}
 
-			system_log(LOG_DEBUG, logString);
+			system_log(LOG_DEBUG, "%s", logString);
 			name = [dict description];
-			system_log(LOG_DEBUG, name);
+			system_log(LOG_DEBUG, "%s", name);
 			free(name);
 
 			list = [server query:dict];
@@ -732,7 +724,7 @@ extern char *nettoa(u_int32_t net);
 
 			if (name == NULL)
 			{
-				system_log(LOG_NOTICE, "%s - can't decode lookup value", logString);
+				system_log(LOG_DEBUG, "%s - can't decode lookup value", logString);
 				return NO;
 			}
 
@@ -749,7 +741,7 @@ extern char *nettoa(u_int32_t net);
 			stuff = [self inNetgroupArgsFromBuffer:indata length:inlen];
 			if (stuff == NULL)
 			{
-				system_log(LOG_NOTICE, "%s - can't decode lookup value", logString);
+				system_log(LOG_DEBUG, "%s - can't decode lookup value", logString);
 				return NO;
 			}
 
@@ -774,7 +766,7 @@ extern char *nettoa(u_int32_t net);
 
 			if (name == NULL)
 			{
-				system_log(LOG_NOTICE, "%s - can't decode lookup value", logString);
+				system_log(LOG_DEBUG, "%s - can't decode lookup value", logString);
 				return NO;
 			}
 
@@ -797,7 +789,7 @@ extern char *nettoa(u_int32_t net);
 
 			if (name == NULL)
 			{
-				system_log(LOG_NOTICE, "%s - can't decode lookup value", logString);
+				system_log(LOG_DEBUG, "%s - can't decode lookup value", logString);
 				return NO;
 			}
 
@@ -809,7 +801,7 @@ extern char *nettoa(u_int32_t net);
 			return YES;
 	
 		case PROC_CHECKNETWAREENBL: /* NONSTANDARD */
-			system_log(LOG_DEBUG, logString);
+			system_log(LOG_DEBUG, "%s", logString);
 			test = [server isNetwareEnabled];
 			[self xdrInt:(test ? 1 : 0) buffer:outdata length:outlen];
 			return YES;
@@ -817,7 +809,7 @@ extern char *nettoa(u_int32_t net);
 		case PROC_SETLOGINUSER: /* NONSTANDARD */
 			if ((inlen == 0) || (indata == NULL))
 			{
-				system_log(LOG_NOTICE, "%s - can't decode lookup value", logString);
+				system_log(LOG_DEBUG, "%s - can't decode lookup value", logString);
 				return NO;
 			}
 
@@ -828,7 +820,7 @@ extern char *nettoa(u_int32_t net);
 			return YES;
 
 		case PROC__GETSTATISTICS: /* NONSTANDARD */
-			system_log(LOG_DEBUG, logString);
+			system_log(LOG_DEBUG, "%s", logString);
 			if (statistics == NULL) return NO;
 			sprintf(logString, "%u", [rover totalMemory]);
 			[statistics setValue:logString forKey:"# Total Memory"];
@@ -836,19 +828,79 @@ extern char *nettoa(u_int32_t net);
 			return test;
 
 		case PROC__INVALIDATECACHE: /* NONSTANDARD */
-			system_log(LOG_DEBUG, logString);
+			system_log(LOG_DEBUG, "%s", logString);
 			if (!shutting_down) [controller flushCache];
 			[self xdrInt:0 buffer:outdata length:outlen];
 			return YES;
 
 		case PROC__SUSPEND: /* NONSTANDARD */
-			system_log(LOG_DEBUG, logString);
+			system_log(LOG_DEBUG, "%s", logString);
 			if (!shutting_down) [controller suspend];
 			[self xdrInt:1 buffer:outdata length:outlen];
 			return YES;
 
+		case PROC_DNS_PROXY: /* NONSTANDARD */
+			dict = [self dictionaryFromBuffer:indata length:inlen];
+			if (dict == nil)
+			{
+				system_log(LOG_DEBUG, "%s - can't decode lookup value", logString);
+				return NO;
+			}
+
+			system_log(LOG_DEBUG, "%s", logString);
+			name = [dict description];
+			system_log(LOG_DEBUG, "%s", name);
+			free(name);
+
+			item = [server dns_proxy:dict];
+			[dict release];
+			if (item == nil) return NO;
+			test = [self xdrItem:item method:@selector(encodeDictionary:intoXdr:) buffer:outdata length:outlen];
+			[item release];
+			return test;
+
+		case PROC_GETADDRINFO: /* NONSTANDARD */
+			dict = [self dictionaryFromBuffer:indata length:inlen];
+			if (dict == nil)
+			{
+				system_log(LOG_DEBUG, "%s - can't decode lookup value", logString);
+				return NO;
+			}
+
+			system_log(LOG_DEBUG, "%s", logString);
+			name = [dict description];
+			system_log(LOG_DEBUG, "%s", name);
+			free(name);
+
+			list = [server getaddrinfo:dict];
+			[dict release];
+			if (list == nil) return NO;
+			test = [self xdrList:list method:@selector(encodeDictionary:intoXdr:) buffer:outdata length:outlen server:server];
+			[list release];
+			return test;
+
+		case PROC_GETNAMEINFO: /* NONSTANDARD */
+			dict = [self dictionaryFromBuffer:indata length:inlen];
+			if (dict == nil)
+			{
+				system_log(LOG_DEBUG, "%s - can't decode lookup value", logString);
+				return NO;
+			}
+
+			system_log(LOG_DEBUG, "%s", logString);
+			name = [dict description];
+			system_log(LOG_DEBUG, "%s", name);
+			free(name);
+
+			item = [server getnameinfo:dict];
+			[dict release];
+			if (item == nil) return NO;
+			test = [self xdrItem:item method:@selector(encodeDictionary:intoXdr:) buffer:outdata length:outlen];
+			[item release];
+			return test;
+
 		default: 
-			system_log(LOG_NOTICE, "%s: unknown proc %d", [t name], procno);
+			system_log(LOG_DEBUG, "%s: unknown proc %d", [t name], procno);
 			return NO;
 	}
 
@@ -1175,12 +1227,19 @@ extern char *nettoa(u_int32_t net);
 	u_int32_t i, len;
 	char **values;
 
+	if (key == NULL) return;
+
 	values = [item valuesForKey:key];
 	len = [item countForKey:key];
 
 	if (len == IndexNull) len = 0;
 	if (len > n) len = n;
-		
+
+	for (i = 0; i < len; i++)
+	{
+		if (values[i] == NULL) return;
+	}
+
 	lu_xdr_string(xdrs, &key);
 	lu_xdr_u_int_32(xdrs, &len);
 

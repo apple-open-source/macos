@@ -1,0 +1,13 @@
+#! /bin/sh
+# $OpenLDAP: pkg/ldap/build/version.var,v 1.1.2.12 2003/06/26 20:06:59 kurt Exp $
+## Copyright 2000-2003 The OpenLDAP Foundation
+## COPYING RESTRICTIONS APPLY.  See COPYRIGHT File in top level directory
+## of this package for details.
+#
+ol_package=OpenLDAP
+ol_major=2
+ol_minor=1
+ol_patch=22
+ol_api_inc=20122
+ol_api_lib=2:122:0
+ol_release_date="06-26-2003"

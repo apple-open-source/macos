@@ -1,5 +1,6 @@
 #include <limits.h>
 #include <stdio.h>
+#include <string.h>
 #include <stdlib.h>
 #include <sys/types.h>
 #include <mach/machine.h>
@@ -319,12 +320,14 @@ find_arch(
     } fakeHeader;
     int is_fat;
     int is_mh;
+    int is_hm;
 
     fat_hdr = (struct fat_header *) data_ptr;
     is_fat = (FAT_MAGIC == fat_hdr->magic || FAT_CIGAM == fat_hdr->magic);
 
     mach_hdr = (struct mach_header *) data_ptr;
-    is_mh = (MH_MAGIC == mach_hdr->magic || MH_CIGAM == mach_hdr->magic);
+    is_hm = (MH_CIGAM == mach_hdr->magic);
+    is_mh = (MH_MAGIC == mach_hdr->magic) || is_hm;
 
     // If it is full fat or not an executable then return unchanged.
     if (cputype == CPU_TYPE_ANY || !(is_mh || is_fat)) {
@@ -334,13 +337,18 @@ find_arch(
     }
 
     if (is_mh) {
+        fat_hdr = &fakeHeader.hdr;
         fakeHeader.hdr.magic = FAT_MAGIC;
         fakeHeader.hdr.nfat_arch = NXSwapHostLongToBig(1);
-        fakeHeader.arch.cputype = NXSwapHostIntToBig(mach_hdr->cputype);
-        fakeHeader.arch.cpusubtype = NXSwapHostIntToBig(mach_hdr->cpusubtype);
         fakeHeader.arch.offset = NXSwapHostIntToBig(0);
         fakeHeader.arch.size = NXSwapHostLongToBig((long) filesize);
-        fat_hdr = &fakeHeader.hdr;
+	if (is_hm) {
+	    fakeHeader.arch.cputype = NXSwapLong(mach_hdr->cputype);
+	    fakeHeader.arch.cpusubtype = NXSwapLong(mach_hdr->cpusubtype);
+	} else {
+	    fakeHeader.arch.cputype = NXSwapHostIntToBig(mach_hdr->cputype);
+	    fakeHeader.arch.cpusubtype = NXSwapHostIntToBig(mach_hdr->cpusubtype);
+	}
     }
 
     /*

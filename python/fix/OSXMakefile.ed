@@ -1,0 +1,3 @@
+g/--python $(INSTALLED_PYTHONW)/s//--python $(DESTDIR)$(INSTALLED_PYTHONW)/g
+w
+q

@@ -1,3 +1,58 @@
+                  -------------------------------
+                   What's new in screen-3.9.15 ?
+                  -------------------------------
+
+* unicode combining character support
+
+* new encoding: chinese GBK
+
+* new 'backtick' command and string escape to embed command
+  output into e.g. the hardstatus line
+
+
+                  -------------------------------
+                   What's new in screen-3.9.13 ?
+                  -------------------------------
+
+* altscreen support from Gurusamy Sarathy
+
+* new command "maxwin" to set a limit on the number of windows
+
+* new keys in copy&paste mode: 'B' and 'E'
+
+
+                  -------------------------------
+                   What's new in screen-3.9.11 ?
+                  -------------------------------
+
+* windowlist, bound to ^A"
+
+* support for other encodings, e.g. big5, koi8r, cp1251
+    new commands 'encoding', 'defencoding'
+    'register', 'readreg', 'readbuf', 'writebuf' now understand
+    an extra encoding parameter
+
+* support for double utf-8 characters
+
+* lots of new string escapes and extensions to existsing ones:
+    %LD, %LM, %Lw, %W, %-w, %+w, %H, %f, %F, %l, %=, %<, %>
+
+* new commands: 'source', 'eval', 'deflog', 'ignorecase', 'setsid'
+
+* command key classes: 'bind', 'command' and 'help' understand
+  a '-c <class>' parameter. See the man page for examples
+
+* new login state: always - don't remove slot even if screen gets
+  detached
+
+* 256 color support (experimental)
+
+* configurable time format string (for ^At)
+
+* config option to use localized month/week names
+
+* new option '-h' for hardcopy: also dump the scrollback buffer
+
 
                   ------------------------------
                    What's new in screen-3.9.9 ?

@@ -1,0 +1,8 @@
+override DEBUG_SUFFIX = _debug
+PRODUCTS += $(LIBRARY_PREFIX)$(NAME)$(DEBUG_SUFFIX)$(LIBRARY_EXT)
+PRODUCTS += $(LIBRARY_PREFIX)$(NAME)$(PROFILE_SUFFIX)$(LIBRARY_EXT)
+MANPAGES = notify.3
+
+after_install:
+	mkdir -p "$(DSTROOT)/usr/share/man/man3"
+	install -c -m 644 notify.3 "$(DSTROOT)/usr/share/man/man3"

@@ -102,9 +102,9 @@
 
 #undef HAVE_STRCASECMP
 
-#undef HAVE_RLIM_T
-
 #undef HAVE_DNSREGISTRATION
+
+#undef HAVE_SESSIONCREATE
 
 /* OS specific */
 #undef solaris
@@ -121,9 +121,10 @@
 #undef gid_t
 #undef uid_t
 #undef socklen_t
+#undef rlim_t
 
 /* Versioning Information */
-#define XINETD_VERSION "xinetd Version 2.3.10"
+#define XINETD_VERSION "xinetd Version 2.3.11"
 #define MISC_VERSION   "MISC Version 1.2.2"
 #define PSET_VERSION   "PSET Version 1.2.0"
 #define SIO_VERSION    "SIO Version 1.6.2"

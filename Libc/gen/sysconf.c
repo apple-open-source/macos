@@ -83,7 +83,6 @@ long
 sysconf(name)
 	int name;
 {
-	struct clockinfo clk;
 	struct rlimit rl;
 	size_t len;
 	int mib[2], value;
@@ -155,6 +154,10 @@ sysconf(name)
 	case _SC_LINE_MAX:
 		mib[0] = CTL_USER;
 		mib[1] = USER_LINE_MAX;
+		break;
+	case _SC_PAGESIZE:
+		mib[0] = CTL_HW;
+		mib[1] = HW_PAGESIZE;
 		break;
 	case _SC_RE_DUP_MAX:
 		mib[0] = CTL_USER;

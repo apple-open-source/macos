@@ -7,6 +7,9 @@
 
 void int_fail(const struct intercept_s *ip,const char *lsyscall);
 int int_select(int max,fd_set *read_mask);
+#ifdef __GNUC__
+__attribute__ ((noreturn))
+#endif
 void int_exit(struct intercept_s *ip);
 void int_init(struct intercept_s *ip,struct server *serp);
 

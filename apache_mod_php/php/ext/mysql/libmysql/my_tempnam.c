@@ -1,8 +1,21 @@
 /* Copyright Abandoned 1996 TCX DataKonsult AB & Monty Program KB & Detron HB 
 This file is public domain and comes with NO WARRANTY of any kind */
 
+/*
+  This function is only used by some old ISAM code.
+  When we remove ISAM support from MySQL, we should also delete this file
+
+  One should instead use the functions in mf_tempfile.c
+*/
+
 #include "mysys_priv.h"
 #include <m_string.h>
+
+/* HPUX 11.0 doesn't allow us to change the environ pointer */
+#ifdef HPUX11
+#undef HAVE_TEMPNAM
+#endif
+
 #include "my_static.h"
 #include "mysys_err.h"
 
@@ -12,7 +25,7 @@ This file is public domain and comes with NO WARRANTY of any kind */
 #endif
 
 #ifdef HAVE_TEMPNAM
-#ifndef MSDOS
+#if !defined( MSDOS) && !defined(OS2) && !defined(__NETWARE__)
 extern char **environ;
 #endif
 #endif
@@ -77,14 +90,32 @@ my_string my_tempnam(const char *dir, const char *pfx,
     temp[1]= 0;
     dir=temp;
   }
-  old_env=environ;
+#ifdef OS2
+  /* changing environ variable doesn't work with VACPP */
+  char  buffer[256];
+  sprintf( buffer, "TMP=%s", dir);
+  /* remove ending backslash */
+  if (buffer[strlen(buffer)-1] == '\\')
+     buffer[strlen(buffer)-1] = '\0';
+  putenv( buffer);
+#elif !defined(__NETWARE__)
+  old_env=(char**)environ;
   if (dir)
   {				/* Don't use TMPDIR if dir is given */
-    environ=temp_env;
+    /*
+      The following strange cast is required because the IBM compiler on AIX
+      doesn't allow us to cast the value of environ.
+      The cast of environ is needed as some systems doesn't allow us to
+      update environ with a char ** pointer. (const mismatch)
+    */
+    (*(char***) &environ)=(char**) temp_env;
     temp_env[0]=0;
   }
+#endif
   res=tempnam((char*) dir,(my_string) pfx); /* Use stand. dir with prefix */
-  environ=old_env;
+#if !defined(OS2) && !defined(__NETWARE__)
+  (*(char***) &environ)=(char**) old_env;
+#endif
   if (!res)
     DBUG_PRINT("error",("Got error: %d from tempnam",errno));
   return res;

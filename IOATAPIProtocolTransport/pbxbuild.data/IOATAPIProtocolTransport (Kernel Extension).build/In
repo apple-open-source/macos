@@ -1,0 +1,59 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple Computer//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<key>CFBundleDevelopmentRegion</key>
+	<string>English</string>
+	<key>CFBundleExecutable</key>
+	<string>IOATAPIProtocolTransport</string>
+	<key>CFBundleGetInfoString</key>
+	<string>1.3.0, Copyright Apple Computer, Inc. 2000-2001</string>
+	<key>CFBundleIdentifier</key>
+	<string>com.apple.iokit.IOATAPIProtocolTransport</string>
+	<key>CFBundleInfoDictionaryVersion</key>
+	<string>6.0</string>
+	<key>CFBundleName</key>
+	<string>IOATAPIProtocolTransport</string>
+	<key>CFBundlePackageType</key>
+	<string>KEXT</string>
+	<key>CFBundleShortVersionString</key>
+	<string>1.3.0</string>
+	<key>CFBundleSignature</key>
+	<string>????</string>
+	<key>CFBundleVersion</key>
+	<string>1.3.0</string>
+	<key>IOKitPersonalities</key>
+	<dict>
+		<key>IOATAPIProtocolTransport</key>
+		<dict>
+			<key>CFBundleIdentifier</key>
+			<string>com.apple.iokit.IOATAPIProtocolTransport</string>
+			<key>IOClass</key>
+			<string>IOATAPIProtocolTransport</string>
+			<key>IOProviderClass</key>
+			<string>IOATADevice</string>
+			<key>Physical Interconnect</key>
+			<string>ATAPI</string>
+			<key>Physical Interconnect Location</key>
+			<string>Internal</string>
+			<key>Read Time Out Duration</key>
+			<integer>30000</integer>
+			<key>Write Time Out Duration</key>
+			<integer>30000</integer>
+			<key>ata device type</key>
+			<string>atapi</string>
+		</dict>
+	</dict>
+	<key>OSBundleCompatibleVersion</key>
+	<string>1.0.0</string>
+	<key>OSBundleLibraries</key>
+	<dict>
+		<key>com.apple.iokit.IOATAFamily</key>
+		<string>1.4.8f1</string>
+		<key>com.apple.iokit.IOSCSIArchitectureModelFamily</key>
+		<string>1.0.0</string>
+	</dict>
+	<key>OSBundleRequired</key>
+	<string>Local-Root</string>
+</dict>
+</plist>

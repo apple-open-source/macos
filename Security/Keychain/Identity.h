@@ -35,16 +35,19 @@ class Identity : public SecCFObject
 {
     NOCOPY(Identity)
 public:
-    Identity(const RefPointer<KeyItem> &privateKey,
-		const RefPointer<Certificate> &certificate);
-    virtual ~Identity();
+	SECCFFUNCTIONS(Identity, SecIdentityRef, errSecInvalidItemRef)
 
-    RefPointer<KeyItem> privateKey() const;
-	RefPointer<Certificate> certificate() const;
+    Identity(const SecPointer<KeyItem> &privateKey,
+		const SecPointer<Certificate> &certificate);
+    Identity(const StorageManager::KeychainList &keychains, const SecPointer<Certificate> &certificate);
+    virtual ~Identity() throw();
+
+    SecPointer<KeyItem> privateKey() const;
+	SecPointer<Certificate> certificate() const;
 
 private:
-    RefPointer<KeyItem> mPrivateKey;
-	RefPointer<Certificate> mCertificate;
+    SecPointer<KeyItem> mPrivateKey;
+	SecPointer<Certificate> mCertificate;
 };
 
 } // end namespace KeychainCore

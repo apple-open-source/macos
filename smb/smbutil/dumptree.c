@@ -4,6 +4,8 @@
 #include <string.h>
 #include <unistd.h>
 #include <stdlib.h>
+#include <pwd.h>
+#include <grp.h>
 #ifdef APPLE
 #include <err.h>
 #include <sysexits.h>
@@ -16,6 +18,7 @@
 
 #define	DEFBIT(bit)	{bit, #bit}
 
+#ifndef APPLE
 static struct smb_bitname conn_caps[] = {
 	DEFBIT(SMB_CAP_RAW_MODE),
 	DEFBIT(SMB_CAP_MPX_MODE),
@@ -102,6 +105,7 @@ print_shareinfo(struct smb_share_info *sip)
 int
 cmd_dumptree(int argc, char *argv[])
 {
+	#pragma unused(argc, argv)
 	void *p, *op;
 	int *itype;
 
@@ -140,3 +144,4 @@ cmd_dumptree(int argc, char *argv[])
 	printf("\n");
 	return 0;
 }
+#endif /* APPLE */

@@ -1,5 +1,6 @@
 /* backupfile.c -- make Emacs style backup file names
-   Copyright (C) 1990-1997, 1998, 1999 Free Software Foundation, Inc.
+   Copyright (C) 1990,91,92,93,94,95,96,97,98,99,2000, 2001, 2002 Free Software
+   Foundation, Inc.
 
    This program is free software; you can redistribute it and/or modify
    it under the terms of the GNU General Public License as published by
@@ -22,9 +23,6 @@
 #if HAVE_CONFIG_H
 # include <config.h>
 #endif
-
-#include <argmatch.h>
-#include <backupfile.h>
 
 #include <stdio.h>
 #include <sys/types.h>
@@ -58,17 +56,23 @@
 # define CLOSEDIR(d) closedir (d)
 #endif
 
-#if STDC_HEADERS
+#if HAVE_STDLIB_H
 # include <stdlib.h>
-#else
-char *malloc ();
 #endif
 
 #ifndef HAVE_DECL_GETENV
+"this configure-time declaration test was not run"
+#endif
+#if !HAVE_DECL_GETENV
 char *getenv ();
 #endif
 
-char *base_name PARAMS ((char const *));
+#ifndef HAVE_DECL_MALLOC
+"this configure-time declaration test was not run"
+#endif
+#if !HAVE_DECL_MALLOC
+char *malloc ();
+#endif
 
 #if HAVE_DIRENT_H || HAVE_NDIR_H || HAVE_SYS_DIR_H || HAVE_SYS_NDIR_H
 # define HAVE_DIR 1
@@ -91,10 +95,9 @@ char *base_name PARAMS ((char const *));
    - Its arg may be any int or unsigned int; it need not be an unsigned char.
    - It's guaranteed to evaluate its argument exactly once.
    - It's typically faster.
-   Posix 1003.2-1992 section 2.5.2.1 page 50 lines 1556-1558 says that
-   only '0' through '9' are digits.  Prefer ISDIGIT to isdigit unless
-   it's important to use the locale's definition of `digit' even when the
-   host does not conform to Posix.  */
+   POSIX says that only '0' through '9' are digits.  Prefer ISDIGIT to
+   ISDIGIT_LOCALE unless it's important to use the locale's definition
+   of `digit' even when the host does not conform to POSIX.  */
 #define ISDIGIT(c) ((unsigned) (c) - '0' <= 9)
 
 #if D_INO_IN_DIRENT
@@ -102,6 +105,10 @@ char *base_name PARAMS ((char const *));
 #else
 # define REAL_DIR_ENTRY(dp) 1
 #endif
+
+#include "argmatch.h"
+#include "backupfile.h"
+#include "dirname.h"
 
 /* The extension added to file names to produce a simple (as opposed
    to numbered) backup file name. */
@@ -129,29 +136,31 @@ find_backup_file_name (const char *file, enum backup_type backup_type)
   if (HAVE_DIR && backup_suffix_size_max < numbered_suffix_size_max)
     backup_suffix_size_max = numbered_suffix_size_max;
 
-  s = malloc (file_len + backup_suffix_size_max + numbered_suffix_size_max);
+  s = malloc (file_len + 1
+	      + backup_suffix_size_max + numbered_suffix_size_max);
   if (s)
     {
-      strcpy (s, file);
-
 #if HAVE_DIR
       if (backup_type != simple)
 	{
 	  int highest_backup;
-	  size_t dir_len = base_name (s) - s;
+	  size_t dirlen = dir_len (file);
 
-	  strcpy (s + dir_len, ".");
-	  highest_backup = max_backup_version (file + dir_len, s);
+	  memcpy (s, file, dirlen);
+	  if (dirlen == FILESYSTEM_PREFIX_LEN (file))
+	    s[dirlen++] = '.';
+	  s[dirlen] = '\0';
+	  highest_backup = max_backup_version (base_name (file), s);
 	  if (! (backup_type == numbered_existing && highest_backup == 0))
 	    {
 	      char *numbered_suffix = s + (file_len + backup_suffix_size_max);
 	      sprintf (numbered_suffix, ".~%d~", highest_backup + 1);
 	      suffix = numbered_suffix;
 	    }
-	  strcpy (s, file);
 	}
 #endif /* HAVE_DIR */
 
+      strcpy (s, file);
       addext (s, suffix, '~');
     }
   return s;
@@ -178,7 +187,7 @@ max_backup_version (const char *file, const char *dir)
     return 0;
 
   highest_version = 0;
-  file_name_length = strlen (file);
+  file_name_length = base_len (file);
 
   while ((dp = readdir (dirp)) != 0)
     {

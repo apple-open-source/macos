@@ -3,19 +3,22 @@
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
- * The contents of this file constitute Original Code as defined in and
- * are subject to the Apple Public Source License Version 1.1 (the
- * "License").  You may not use this file except in compliance with the
- * License.  Please obtain a copy of the License at
- * http://www.apple.com/publicsource and read it before using this file.
+ * Copyright (c) 1999-2003 Apple Computer, Inc.  All Rights Reserved.
  * 
- * This Original Code and all software distributed under the License are
- * distributed on an "AS IS" basis, WITHOUT WARRANTY OF ANY KIND, EITHER
+ * This file contains Original Code and/or Modifications of Original Code
+ * as defined in and that are subject to the Apple Public Source License
+ * Version 2.0 (the 'License'). You may not use this file except in
+ * compliance with the License. Please obtain a copy of the License at
+ * http://www.opensource.apple.com/apsl/ and read it before using this
+ * file.
+ * 
+ * The Original Code and all software distributed under the License are
+ * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
  * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
  * INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY,
- * FITNESS FOR A PARTICULAR PURPOSE OR NON-INFRINGEMENT.  Please see the
- * License for the specific language governing rights and limitations
- * under the License.
+ * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
+ * Please see the License for the specific language governing rights and
+ * limitations under the License.
  * 
  * @APPLE_LICENSE_HEADER_END@
  */
@@ -29,6 +32,8 @@
 #endif
 
 #include "ServerControl.h"
+#include "DirServicesConst.h"
+#include "DirServicesPriv.h"
 #include "CHandlers.h"
 #include "CListener.h"
 #include "DSTCPListener.h"
@@ -40,8 +45,10 @@
 #include "CPluginHandler.h"
 #include "CNodeList.h"
 #include "CLog.h"
+#include "CPluginConfig.h"
+#include "SharedConsts.h"
 
-#include <LDAP/ldap.h>
+#include <ldap.h>
 #include <mach/mach.h>
 #include <mach/mach_error.h>
 #include <sys/stat.h>							//used for mkdir and stat
@@ -56,11 +63,15 @@ extern io_object_t		gPMDeregisterNotifier;
 extern io_connect_t		gPMKernelPort;
 
 //network change
-extern boolean_t NetworkChangeCallBack(SCDynamicStoreRef aSCDStore, void *callback_argument);
+extern void NetworkChangeCallBack(SCDynamicStoreRef aSCDStore, CFArrayRef changedKeys, void *callback_argument);
 extern CFRunLoopRef		gServerRunLoop;
 
 extern time_t			gSunsetTime;
 extern dsBool			gLogAPICalls;
+extern dsBool			gDebugLogging;
+
+extern	bool			gServerOS;
+
 
 // ---------------------------------------------------------------------------
 //	* Globals
@@ -74,54 +85,37 @@ CMsgQueue			   *gTCPMsgQueue		= nil;
 CMsgQueue			   *gMsgQueue			= nil;
 CMsgQueue			   *gInternalMsgQueue	= nil;
 CMsgQueue			   *gCheckpwMsgQueue	= nil;
+CPluginConfig		   *gPluginConfig		= nil;
 CNodeList			   *gNodeList			= nil;
+CPluginHandler		   *gPluginHandler		= nil;
 
-name_t					gServerName				= "DirectoryService";	//KW use constant string here
 DSMutexSemaphore	   *gTCPHandlerLock			= new DSMutexSemaphore();	//mutex on create and destroy of CHandler threads
 DSMutexSemaphore	   *gHandlerLock			= new DSMutexSemaphore();	//mutex on create and destroy of CHandler threads
 DSMutexSemaphore	   *gInternalHandlerLock	= new DSMutexSemaphore();	//mutex on create and destroy of CHandler Internal threads
 DSMutexSemaphore	   *gCheckpwHandlerLock		= new DSMutexSemaphore();	//mutex on create and destroy of CHandler Checkpw threads
+DSMutexSemaphore	   *gPerformanceLoggingLock = new DSMutexSemaphore();	//mutex on manipulating performance logging matrix
+DSMutexSemaphore	   *gLazyPluginLoadingLock	= new DSMutexSemaphore();	//mutex on loading plugins lazily
 
 uInt32					gDaemonPID;
 uInt32					gDaemonIPAddress;
 
-static mach_port_t		gClient_Death_Notify_Port = NULL;
+//PFIXdsBool					gLocalNodeNotAvailable	= true;
 
-void ClientDeathCallback(CFMachPortRef port, void *voidmsg, CFIndex size, void *info);
-void ClientDeathCallback(CFMachPortRef port, void *voidmsg, CFIndex size, void *info)
+static void DoNIAutoSwitchNetworkChange(CFRunLoopTimerRef timer, void *info);
+void DoNIAutoSwitchNetworkChange(CFRunLoopTimerRef timer, void *info)
 {
-	mach_msg_header_t *msg = (mach_msg_header_t *)voidmsg;
-	if (msg->msgh_id == MACH_NOTIFY_DEAD_NAME)
+	if ( info != nil )
 	{
-		const mach_dead_name_notification_t *const deathMessage = (mach_dead_name_notification_t *)msg;
-		DBGLOG1( kLogApplication, "Client that used port %d has died or port has been deallocated.", deathMessage->not_port );
-
-		// Deallocate the send right that came in the dead name notification
-		mach_port_destroy( mach_task_self(), deathMessage->not_port );
+		((ServerControl *)info)->NIAutoSwitchCheck();
 	}
-}// ClientDeathCallback
+}// DoNIAutoSwitchNetworkChange
 
-//when we receive the message first time we do this
-void EnableDeathNotificationForClient(mach_port_t port);
-void EnableDeathNotificationForClient(mach_port_t port)
+
+CFStringRef NetworkChangeNIAutoSwitchCopyStringCallback( const void *item );
+CFStringRef NetworkChangeNIAutoSwitchCopyStringCallback( const void *item )
 {
-	mach_port_t prev;
-	if (gClient_Death_Notify_Port != NULL)
-	{
-		kern_return_t r = mach_port_request_notification(	mach_task_self(),
-															port,
-															MACH_NOTIFY_DEAD_NAME,
-															0,
-															gClient_Death_Notify_Port,
-															MACH_MSG_TYPE_MAKE_SEND_ONCE,
-															&prev);
-		// If the port already died while we thought to register for its death, then log this
-		if (r != KERN_SUCCESS)
-		{
-			DBGLOG1( kLogApplication, "Can't register for dead port notification since port %d already gone.", port );
-		}
-	}
-} // EnableDeathNotificationForClient
+	return CFSTR("NetworkChangeNIAutoSwitchCheck");
+}
 
 void DoPeriodicTask(CFRunLoopTimerRef timer, void *info);
 
@@ -150,7 +144,22 @@ ServerControl::ServerControl ( void )
 	fHandlerThreadsCnt			= 0;
 	fInternalHandlerThreadsCnt	= 0;
 	fCheckpwHandlerThreadsCnt	= 0;
-	fSCDStore					= 0;
+	fSCDStore					= 0;	
+	fPerformanceStatGatheringActive	= false; //default
+	fTimeToCheckNIAutoSwitch	= 0;
+	fHoldStore					= NULL;
+	
+#ifdef BUILD_IN_PERFORMANCE
+	fLastPluginCalled			= 0;
+	fPerfTableNumPlugins		= 0;
+	fPerfTable					= nil;
+	
+#if PERFORMANCE_STATS_ALWAYS_ON
+	fPerformanceStatGatheringActive	= true;
+#else
+	fPerformanceStatGatheringActive	= false;
+#endif
+#endif
 
 	for ( i = 0; i < kMaxHandlerThreads; i++)
 	{
@@ -176,6 +185,8 @@ ServerControl::ServerControl ( void )
 	fHandlerSemaphore			= new DSSemaphore( fHandlerThreadsCnt );
 	fInternalHandlerSemaphore	= new DSSemaphore( fInternalHandlerThreadsCnt );
 	fCheckpwHandlerSemaphore	= new DSSemaphore( fCheckpwHandlerThreadsCnt );
+	
+	fServiceNameString = CFStringCreateWithCString( NULL, kDSServiceName, kCFStringEncodingUTF8 );
     
 } // ServerControl
 
@@ -229,7 +240,7 @@ sInt32 ServerControl::StartUpServer ( void )
 	{
 		if ( gNodeList == nil )
 		{
-			gNodeList = new CNodeList;
+			gNodeList = new CNodeList();
 			if ( gNodeList == nil ) throw((sInt32)eMemoryAllocError);
 		}
 
@@ -239,6 +250,13 @@ sInt32 ServerControl::StartUpServer ( void )
 			if ( gRefTable == nil ) throw( (sInt32)eMemoryAllocError );
 		}
 
+		if ( gPluginConfig == nil )
+		{
+			gPluginConfig = new CPluginConfig();
+			if ( gPluginConfig == nil ) throw( (sInt32)eMemoryAllocError );
+			gPluginConfig->Initialize();
+		}
+                
 		if ( gPlugins == nil )
 		{
 			gPlugins = new CPlugInList();
@@ -247,25 +265,25 @@ sInt32 ServerControl::StartUpServer ( void )
 
 		if ( gTCPMsgQueue == nil )
 		{
-			gTCPMsgQueue = new CMsgQueue;
+			gTCPMsgQueue = new CMsgQueue();
 			if ( gTCPMsgQueue == nil ) throw((sInt32)eMemoryAllocError);
 		}
 
 		if ( gMsgQueue == nil )
 		{
-			gMsgQueue = new CMsgQueue;
+			gMsgQueue = new CMsgQueue();
 			if ( gMsgQueue == nil ) throw((sInt32)eMemoryAllocError);
 		}
 
 		if ( gInternalMsgQueue == nil )
 		{
-			gInternalMsgQueue = new CMsgQueue;
+			gInternalMsgQueue = new CMsgQueue();
 			if ( gInternalMsgQueue == nil ) throw((sInt32)eMemoryAllocError);
 		}
 
 		if ( gCheckpwMsgQueue == nil )
 		{
-			gCheckpwMsgQueue = new CMsgQueue;
+			gCheckpwMsgQueue = new CMsgQueue();
 			if ( gCheckpwMsgQueue == nil ) throw((sInt32)eMemoryAllocError);
 		}
 
@@ -274,6 +292,9 @@ sInt32 ServerControl::StartUpServer ( void )
 			gLogAPICalls	= true;
 			gSunsetTime		= time(nil) + 300;
 			syslog(LOG_INFO,"Logging of API Calls turned ON at Startup of DS Daemon.");
+			gDebugLogging	= true;
+			CLog::StartDebugLog();
+			syslog(LOG_INFO,"Debug Logging turned ON at Startup of DS Daemon.");
 		}
 
 		// initialize LDAP before any plug-ins
@@ -287,7 +308,9 @@ sInt32 ServerControl::StartUpServer ( void )
 		result = StartListener();
 		if ( result != eDSNoErr ) throw( result );
 		
-		if (::stat( "/Library/Preferences/DirectoryService/.DSTCPListening", &statResult ) == eDSNoErr)
+		if ( 	(	(::stat( "/Library/Preferences/DirectoryService/.DSTCPListening", &statResult ) == eDSNoErr) ||
+					(gServerOS) ) &&
+					(::stat( "/Library/Preferences/DirectoryService/.DSTCPNotListening", &statResult ) != eDSNoErr) )
 		{
 			// Start the TCP listener thread
 			result = StartTCPListener(kDSDefaultListenPort);
@@ -296,7 +319,7 @@ sInt32 ServerControl::StartUpServer ( void )
 
 		if ( gPluginHandler == nil )
 		{
-			gPluginHandler = new CPluginHandler;
+			gPluginHandler = new CPluginHandler();
 			if ( gPluginHandler == nil ) throw((sInt32)eMemoryAllocError);
 
 			//this call could throw
@@ -311,6 +334,9 @@ sInt32 ServerControl::StartUpServer ( void )
 		
 		result = SetUpPeriodicTask();
 		if ( result != eDSNoErr ) throw( result );
+
+		//at boot we wait the same as a network transition for the NI auto switch check
+		HandleMultipleNetworkTransitionsForNIAutoSwitch();
 
 	}
 
@@ -448,6 +474,10 @@ sInt32 ServerControl::ShutDownServer ( void )
 			uiStopCnt--;
 		}
 		
+		//no need to delete the global objects as this process is going away and
+		//we don't want to create a race condition on the threads dying that
+		//could lead to a crash
+/*
 		if ( gNodeList != nil )
 		{
 			delete( gNodeList );
@@ -489,12 +519,16 @@ sInt32 ServerControl::ShutDownServer ( void )
 			delete( gCheckpwMsgQueue );
 			gCheckpwMsgQueue = nil;
 		}
-
-		delete(gTCPHandlerLock);
-		delete(gHandlerLock);
-		delete(gInternalHandlerLock);
-		delete(gCheckpwHandlerLock);
-
+*/
+		//no need to delete the global mutexes as this process is going away and
+		//we don't want to create a reace condition on the threads dying that
+		//could lead to a crash
+		//delete(gTCPHandlerLock);
+		//delete(gHandlerLock);
+		//delete(gInternalHandlerLock);
+		//delete(gCheckpwHandlerLock);
+		//delete(gPerformanceLoggingLock);
+		
 		CLog::Deinitialize();
 	}
 
@@ -534,7 +568,7 @@ sInt32 ServerControl::StartListener ( void )
 		DBGLOG2( kLogApplication, "File: %s. Line: %d", __FILE__, __LINE__ );
 		DBGLOG1( kLogApplication, "  Caught exception = %d.", err );
 	}
-
+/*
 	if ( (result == eDSNoErr) && (gServerRunLoop != NULL) )
 	{
 		//let's add in capability to clean up dead client mach ports if listener started
@@ -545,7 +579,7 @@ sInt32 ServerControl::StartListener ( void )
 		CFRelease(d_rls);
 		//do we need to release d_port?
 	}
-	
+*/	
 	return( result );
 
 } // StartListener
@@ -940,88 +974,125 @@ sInt32 ServerControl:: RegisterForNetworkChange ( void )
 	CFStringRef			dhcpKey				= 0;	//DHCP changes key
 	CFStringRef			ipKey				= 0;	//ip changes key
 	CFStringRef			niKey				= 0;	//NetInfo changes key
-	CFStringRef			atKey				= 0;	//Appletalk changes key
+//	CFStringRef			atKey				= 0;	//Appletalk changes key
 //	CFStringRef			dnsKey				= 0;	//DNS changes key
 //	CFStringRef			nisKey				= 0;	//NIS changes key
 //	CFStringRef			computerNameKey 	= 0;	//computer name changes key
 	CFMutableArrayRef	notifyKeys			= 0;
 	CFMutableArrayRef	notifyPatterns		= 0;
 	Boolean				setStatus			= FALSE;
-	CFStringRef			aPIDString			= 0;
+	CFStringRef			aPIDString			= NULL;
+	SCDynamicStoreRef	store				= NULL;
+    CFRunLoopSourceRef	rls					= NULL;
 	
 	DBGLOG( kLogApplication, "RegisterForNetworkChange(): " );
 
-	fSCDStore = SCDynamicStoreCreate(NULL, CFSTR("DirectoryService"), NULL, NULL); //KW use constant string instead
+	notifyKeys		= CFArrayCreateMutable(	kCFAllocatorDefault,
+											0,
+											&kCFTypeArrayCallBacks);
+	notifyPatterns	= CFArrayCreateMutable(	kCFAllocatorDefault,
+											0,
+											&kCFTypeArrayCallBacks);
+	//CFArrayAppendValue(notifyPatterns, kSCCompAnyRegex); //formerly kSCDRegexKey
+											
+	// ip changes
+	ipKey = SCDynamicStoreKeyCreateNetworkGlobalEntity(NULL, kSCDynamicStoreDomainState, kSCEntNetIPv4);
+	CFArrayAppendValue(notifyKeys, ipKey);
+	CFRelease(ipKey);
 
-	if (fSCDStore != 0)
-	{
-		notifyKeys		= CFArrayCreateMutable(	kCFAllocatorDefault,
-												0,
-												&kCFTypeArrayCallBacks);
-		notifyPatterns	= CFArrayCreateMutable(	kCFAllocatorDefault,
-												0,
-												&kCFTypeArrayCallBacks);
-		//CFArrayAppendValue(notifyPatterns, kSCCompAnyRegex); //formerly kSCDRegexKey
-												
-        // ip changes
-		ipKey = SCDynamicStoreKeyCreateNetworkGlobalEntity(NULL, kSCDynamicStoreDomainState, kSCEntNetIPv4);
-		CFArrayAppendValue(notifyKeys, ipKey);
-		CFRelease(ipKey);
-    
-		//DHCP changes
-		dhcpKey = SCDynamicStoreKeyCreateNetworkServiceEntity(NULL, kSCDynamicStoreDomainState, kSCCompAnyRegex, kSCEntNetDHCP);
-		CFArrayAppendValue(notifyPatterns, dhcpKey);
-		CFRelease(dhcpKey);
+	//DHCP changes
+	dhcpKey = SCDynamicStoreKeyCreateNetworkServiceEntity(NULL, kSCDynamicStoreDomainState, kSCCompAnyRegex, kSCEntNetDHCP);
+	CFArrayAppendValue(notifyPatterns, dhcpKey);
+	CFRelease(dhcpKey);
+		
+	// Appletalk changes
+	//atKey = SCDynamicStoreKeyCreateNetworkGlobalEntity(NULL, kSCDynamicStoreDomainState, kSCEntNetAppleTalk);
+	//CFArrayAppendValue(notifyKeys, atKey);
+	//CFRelease(atKey);
+
+	// NetInfo changes
+	niKey = SCDynamicStoreKeyCreateNetworkGlobalEntity(NULL, kSCDynamicStoreDomainState, kSCEntNetNetInfo);
+	CFArrayAppendValue(notifyKeys, niKey);
+	CFRelease(niKey);
 			
-        // Appletalk changes
-		atKey = SCDynamicStoreKeyCreateNetworkGlobalEntity(NULL, kSCDynamicStoreDomainState, kSCEntNetAppleTalk);
-		CFArrayAppendValue(notifyKeys, atKey);
-		CFRelease(atKey);
-    
-        // NetInfo changes
-		niKey = SCDynamicStoreKeyCreateNetworkGlobalEntity(NULL, kSCDynamicStoreDomainState, kSCEntNetNetInfo);
-		CFArrayAppendValue(notifyKeys, niKey);
-		CFRelease(niKey);
-               
-        // DNS changed
-		//dnsKey = SCDynamicStoreKeyCreateNetworkGlobalEntity(NULL, kSCDynamicStoreDomainState, kSCEntNetDNS);
-		//CFArrayAppendValue(notifyKeys, dnsKey);
-		//CFRelease(dnsKey);
-               
-        // NIS changed
-		//nisKey = SCDynamicStoreKeyCreateNetworkGlobalEntity(NULL, kSCDynamicStoreDomainState, kSCEntNetNIS);
-		//CFArrayAppendValue(notifyKeys, nisKey);
-		//CFRelease(nisKey);
+	// DNS changed
+	//dnsKey = SCDynamicStoreKeyCreateNetworkGlobalEntity(NULL, kSCDynamicStoreDomainState, kSCEntNetDNS);
+	//CFArrayAppendValue(notifyKeys, dnsKey);
+	//CFRelease(dnsKey);
+			
+	// NIS changed
+	//nisKey = SCDynamicStoreKeyCreateNetworkGlobalEntity(NULL, kSCDynamicStoreDomainState, kSCEntNetNIS);
+	//CFArrayAppendValue(notifyKeys, nisKey);
+	//CFRelease(nisKey);
 
-		//same mechanism that lookupd daemon currently uses to restart itself
-		//although in our case we simply stop and allow any client through our
-		//framework to restart us when required
-		//CFArrayAppendValue(notifyKeys, CFSTR("File:/var/run/nibindd.pid"));
+	//same mechanism that lookupd daemon currently uses to restart itself
+	//although in our case we simply stop and allow any client through our
+	//framework to restart us when required
+	//CFArrayAppendValue(notifyKeys, CFSTR("File:/var/run/nibindd.pid"));
 
-        // computer name changes
-        //computerNameKey = SCDynamicStoreKeyCreateHostName();
-		//CFArrayAppendValue(notifyKeys, computerNameKey);
-               
-        setStatus = SCDynamicStoreSetNotificationKeys(fSCDStore, notifyKeys, notifyPatterns);
+	// computer name changes
+	//computerNameKey = SCDynamicStoreKeyCreateHostName();
+	//CFArrayAppendValue(notifyKeys, computerNameKey);
+	
+	//not checking bool return
+	store = SCDynamicStoreCreate(NULL, fServiceNameString, NetworkChangeCallBack, NULL);
+	if (store != NULL && notifyKeys != NULL && notifyPatterns != NULL)
+	{
+		SCDynamicStoreSetNotificationKeys(store, notifyKeys, notifyPatterns);
+		rls = SCDynamicStoreCreateRunLoopSource(NULL, store, 0);
+		if (rls != NULL)
+		{
+			CFRunLoopAddSource(gServerRunLoop, rls, kCFRunLoopDefaultMode);
+			CFRelease(rls);
+			rls = NULL;
+		}
+		else
+		{
+			syslog(LOG_INFO,"Unable to add source to RunLoop for SystemConfiguration registration for Network Notification");
+		}
 		CFRelease(notifyKeys);
+		notifyKeys = NULL;
 		CFRelease(notifyPatterns);
+		notifyPatterns = NULL;
+		CFRelease(store);
+		store = NULL;
+	}
+	else
+	{
+		syslog(LOG_INFO,"Unable to create DirectoryService store for SystemConfiguration registration for Network Notification");
+	}
+	
+	if (fHoldStore == NULL)
+	{
+		fHoldStore = SCDynamicStoreCreate(NULL, fServiceNameString, NULL, NULL);
+	}
 
-		//SCDOptionSet(NULL, kSCDOptionUseCFRunLoop, FALSE);
-		
-		//not checking bool return
-		SCDynamicStoreNotifyCallback( fSCDStore, gServerRunLoop, NetworkChangeCallBack, this );
-		
+	if (fHoldStore != NULL)
+	{
 		//this is update code for things like NetInfo and DHCP issues
 		//ie. calls to the search node that verify or re-establish the default NI and LDAPv3(from DHCP) nodes
 		
 		//send SIGHUP on a network transition
-		//setStatus = SCDynamicStoreNotifySignal( fSCDStore, getpid(), SIGHUP);
+		//setStatus = SCDynamicStoreNotifySignal( fHoldStore, getpid(), SIGHUP);
 		
 		aPIDString = CFStringCreateWithFormat(kCFAllocatorDefault, NULL, CFSTR("%d"), (uInt32)getpid());
-		setStatus = SCDynamicStoreAddTemporaryValue( fSCDStore, CFSTR("DirectoryService:PID"), aPIDString );
-   		CFRelease(aPIDString);
-		
-	} // SCDSessionRef okay
+		if (aPIDString != NULL)
+		{
+			setStatus = SCDynamicStoreAddTemporaryValue( fHoldStore, CFSTR("DirectoryService:PID"), aPIDString );
+			CFRelease(aPIDString);
+		}
+		else
+		{
+			syslog(LOG_INFO,"Unable to create DirectoryService:PID string for SystemConfiguration registration - DSAgent will be disabled in lookupd");
+		}
+		//DO NOT release the store here since we use SCDynamicStoreAddTemporaryValue above
+		//CFRelease(fHoldStore);
+		//fHoldStore = NULL;
+	}
+	else
+	{
+		syslog(LOG_INFO,"Unable to create DirectoryService store for SystemConfiguration registration of DirectoryService:PID string - DSAgent will be disabled in lookupd");
+	}
 
 	return scdStatus;
 	
@@ -1038,12 +1109,6 @@ sInt32 ServerControl:: UnRegisterForNetworkChange ( void )
 
 	DBGLOG( kLogApplication, "UnRegisterForNetworkChange(): " );
 
-	if (fSCDStore != 0)
-	{
-		CFRelease(fSCDStore);
-		fSCDStore = 0;
-	}
-	
 	return scdStatus;
 
 } // UnRegisterForNetworkChange
@@ -1150,17 +1215,18 @@ sInt32 ServerControl::HandleNetworkTransition ( void )
 	//handle the search plugin transition last to ensure at least NetInfo and LDAPv3 have gone first
 	if (searchPlugin != nil)
 	{
-		pPIInfo = gPlugins->GetPlugInInfo( searchIterator-1 );
 		siResult = eDSNoErr;
+		//now do the network transition itself
+		aHeader.fType = kHandleNetworkTransition;
 		siResult = searchPlugin->ProcessRequest( (void*)&aHeader );
 		if (siResult != eDSNoErr)
 		{
-			if (pPIInfo != nil)
-			{
-				ERRORLOG1( kLogApplication, "Network transition in Search returned error %d", siResult );
-			}
+			ERRORLOG1( kLogApplication, "Network transition in Search returned error %d", siResult );
 		}
 	}
+	
+	//NIAutoSwitch checking
+	HandleMultipleNetworkTransitionsForNIAutoSwitch();
 				
 	return siResult;
 } // HandleNetworkTransition
@@ -1177,7 +1243,7 @@ sInt32 ServerControl::SetUpPeriodicTask ( void )
 	void	   *ptInfo		= nil;
 	
 	CFRunLoopTimerContext c = {0, (void*)ptInfo, NULL, NULL, PeriodicTaskCopyStringCallback};
-	//IMPORTANT:LDAPv3 Idle TimeOut requires the 30 second periodic task here set
+	
 	CFRunLoopTimerRef timer = CFRunLoopTimerCreate(	NULL,
 													CFAbsoluteTimeGetCurrent() + 120,
 													30,
@@ -1192,6 +1258,285 @@ sInt32 ServerControl::SetUpPeriodicTask ( void )
 	return siResult;
 } // SetUpPeriodicTask
 
+void ServerControl::NodeSearchPolicyChanged( void )
+{
+	SCDynamicStoreRef	store		= NULL;
+	
+	DBGLOG( kLogApplication, "NodeSearchPolicyChanged" );
+
+	store = SCDynamicStoreCreate(NULL, fServiceNameString, NULL, NULL);
+	if (store != NULL)
+	{
+		if ( !SCDynamicStoreSetValue( store, CFSTR(kDSStdNotifySearchPolicyChanged), CFSTR("") ) )
+		{
+			ERRORLOG( kLogApplication, "Could not set the DirectoryService:SearchPolicyChangeToken in System Configuration" );
+		}
+		CFRelease(store);
+		store = NULL;
+	}
+	else
+	{
+		ERRORLOG( kLogApplication, "ServerControl::NodeSearchPolicyChanged SCDynamicStoreCreate not yet available from System Configuration" );
+	}
+	
+	LaunchKerberosAutoConfigTool();
+}
+
+void ServerControl::NotifyDirNodeAdded( const char* newNode )
+{
+	SCDynamicStoreRef	store	= NULL;
+
+	if ( newNode != nil )
+	{
+		CFStringRef		newNodeRef = CFStringCreateWithCString( NULL, newNode, kCFStringEncodingUTF8 );
+		
+		if ( newNodeRef == NULL )
+		{
+			ERRORLOG1( kLogApplication, "Could not notify that dir node: (%s) was added due to an encoding problem", newNode );
+		}
+		else
+		{
+			store = SCDynamicStoreCreate(NULL, fServiceNameString, NULL, NULL);
+			if (store != NULL)
+			{
+				if ( !SCDynamicStoreSetValue( store, CFSTR(kDSStdNotifyDirectoryNodeAdded), newNodeRef ) )
+				{
+					ERRORLOG( kLogApplication, "Could not set the DirectoryService:NotifyDirNodeAdded in System Configuration" );
+				}
+				CFRelease(store);
+				store = NULL;
+			}
+			else
+			{
+				ERRORLOG( kLogApplication, "ServerControl::NotifyDirNodeAdded SCDynamicStoreCreate not yet available from System Configuration" );
+			}
+			CFRelease( newNodeRef );
+			newNodeRef = NULL;
+		}
+	}
+}
+
+void ServerControl::NotifyDirNodeDeleted( char* oldNode )
+{
+	SCDynamicStoreRef	store	= NULL;
+
+	if ( oldNode != nil )
+	{
+		CFStringRef		oldNodeRef = CFStringCreateWithCString( NULL, oldNode, kCFStringEncodingUTF8 );
+		
+		if ( oldNodeRef == NULL )
+		{
+			ERRORLOG1( kLogApplication, "Could not notify that dir node: (%s) was deleted due to an encoding problem", oldNode );
+		}
+		else
+		{
+			store = SCDynamicStoreCreate(NULL, fServiceNameString, NULL, NULL);
+			if (store != NULL)
+			{
+				if ( !SCDynamicStoreSetValue( store, CFSTR(kDSStdNotifyDirectoryNodeDeleted), oldNodeRef ) )
+				{
+					ERRORLOG( kLogApplication, "Could not set the DirectoryService:NotifyDirNodeAdded in System Configuration" );
+				}
+				CFRelease(store);
+				store = NULL;
+			}
+			else
+			{
+				ERRORLOG( kLogApplication, "ServerControl::NotifyDirNodeDeleted SCDynamicStoreCreate not yet available from System Configuration" );
+			}
+			CFRelease( oldNodeRef );
+			oldNodeRef = NULL;
+		}
+	}
+}
+
+#ifdef BUILD_IN_PERFORMANCE
+void ServerControl::DeletePerfStatTable( void )
+{
+	PluginPerformanceStats**	table = fPerfTable;
+	uInt32						pluginCount = fPerfTableNumPlugins;
+
+	fPerfTable = NULL;
+	fPerfTableNumPlugins = 0;
+	
+	if ( table )
+	{
+		for ( uInt32 i=0; i<pluginCount+1; i++ )
+		{
+			if ( table[i] )
+			{
+				free( table[i] );
+				table[i] = NULL;
+			}
+		}
+		
+		free( table );
+	}
+}
+
+PluginPerformanceStats** ServerControl::CreatePerfStatTable( void )
+{
+DBGLOG( kLogPerformanceStats, "ServerControl::CreatePerfStatTable called\n" );
+
+	PluginPerformanceStats**	table = NULL;
+	uInt32						pluginCount = gPlugins->GetPlugInCount();
+	
+	if ( fPerfTable )
+		DeletePerfStatTable();
+		
+	// how many plugins?
+	table = (PluginPerformanceStats**)calloc( sizeof(PluginPerformanceStats*), pluginCount+1 );	// create table for #plugins + 1 for server
+
+	for ( uInt32 i=0; i<pluginCount; i++ )
+	{
+		table[i] = (PluginPerformanceStats*)calloc( sizeof(PluginPerformanceStats), 1 );
+		table[i]->pluginSignature = gPlugins->GetPlugInInfo(i)->fKey;
+		table[i]->pluginName = gPlugins->GetPlugInInfo(i)->fName;
+	}
+	
+	table[pluginCount] = (PluginPerformanceStats*)calloc( sizeof(PluginPerformanceStats), 1 );
+	table[pluginCount]->pluginSignature = 0;
+	table[pluginCount]->pluginName = "Server";
+	
+	fPerfTableNumPlugins = pluginCount;
+	fPerfTable = table;
+	
+	return table;
+}
+
+double gLastDump =0;
+#define	kNumSecsBetweenDumps	60*2
+void ServerControl::HandlePerformanceStats( uInt32 msgType, FourCharCode pluginSig, sInt32 siResult, sInt32 clientPID, double inTime, double outTime )
+{
+	// Since the number of plugins is so small, just doing an O(n)/2 search is probably fine...
+	gPerformanceLoggingLock->Wait();
+	PluginPerformanceStats*		curPluginStats = NULL;
+	uInt32						pluginCount = gPlugins->GetPlugInCount();
+
+	if ( !fPerfTable || fPerfTableNumPlugins != pluginCount )
+	{
+		// first api call, or number of plugins changed, (re)create the table
+		fPerfTable = CreatePerfStatTable();
+	}
+	
+	if ( !pluginSig )
+		curPluginStats = fPerfTable[pluginCount];	// last entry in the table is reserved for the server
+		
+	if ( fPerfTable[fLastPluginCalled]->pluginSignature == pluginSig )
+		curPluginStats = fPerfTable[fLastPluginCalled];
+		
+	for ( uInt32 i=0; !curPluginStats && i<pluginCount; i++ )
+	{
+		if ( pluginSig == fPerfTable[i]->pluginSignature )
+		{
+			curPluginStats = fPerfTable[i];
+			fLastPluginCalled = i;
+		}
+	}
+	
+	if ( curPluginStats )
+	{
+		PluginPerformanceAPIStat*	curAPI = &(curPluginStats->apiStats[msgType]);
+		double						duration = outTime-inTime;
+		curAPI->msgCnt++;
+		
+		if ( siResult )
+		{
+			for( int i=kNumErrorsToTrack-1; i>0; i-- )
+			{
+				curAPI->lastNErrors[i].error = curAPI->lastNErrors[i-1].error;
+				curAPI->lastNErrors[i].clientPID = curAPI->lastNErrors[i-1].clientPID;
+			}
+			
+			curAPI->lastNErrors[0].error = siResult;
+			curAPI->lastNErrors[0].clientPID = clientPID;
+			curAPI->errCnt++;
+		}
+		
+		if ( curAPI->minTime == 0 || curAPI->minTime > duration )
+			curAPI->minTime = duration;
+			
+		if ( curAPI->maxTime == 0 || curAPI->maxTime < duration )
+			curAPI->maxTime = duration;
+		
+		curAPI->totTime += duration;
+	}
+	
+	gPerformanceLoggingLock->Signal();
+}
+
+#define USEC_PER_HOUR	(double)60*60*USEC_PER_SEC	/* microseconds per hour */
+#define USEC_PER_DAY	(double)24*USEC_PER_HOUR	/* microseconds per day */
+
+void ServerControl::LogStats( void )
+{
+	PluginPerformanceStats*		curPluginStats = NULL;
+	uInt32						pluginCount = fPerfTableNumPlugins;
+	char						logBuf[1024];
+	char						totTimeStr[256];
+	
+	gPerformanceLoggingLock->Wait();
+
+	syslog( LOG_INFO, "**Usage Stats**\n");
+	syslog( LOG_INFO, "\tPlugin\tAPI\tMsgCnt\tErrCnt\tminTime (usec)\tmaxTime (usec)\taverageTime (usec)\ttotTime (usec|secs|hours|days)\tLast PID\tLast Error\tPrev PIDs/Errors\n" );
+	
+	for ( uInt32 i=0; i<pluginCount+1; i++ )	// server is at the end
+	{
+		if ( !fPerfTable[i] )
+			continue;
+			
+		curPluginStats = fPerfTable[i];
+				
+		for ( uInt32 j=0; j<kDSPlugInCallsEnd; j++ )
+		{
+			if ( curPluginStats->apiStats[j].msgCnt > 0 )
+			{
+				if ( curPluginStats->apiStats[j].totTime < USEC_PER_SEC )
+					sprintf( totTimeStr, "%0.f usecs", curPluginStats->apiStats[j].totTime );
+				else if ( curPluginStats->apiStats[j].totTime < USEC_PER_HOUR )
+				{
+					double		time = curPluginStats->apiStats[j].totTime / USEC_PER_SEC;
+					sprintf( totTimeStr, "%0.4f secs", time );
+				}
+				else if ( curPluginStats->apiStats[j].totTime < USEC_PER_DAY )
+				{
+					double		time = curPluginStats->apiStats[j].totTime / USEC_PER_HOUR;
+					sprintf( totTimeStr, "%0.4f hours", time );
+				}
+				else
+				{
+					double		time = curPluginStats->apiStats[j].totTime / USEC_PER_DAY;
+					sprintf( totTimeStr, "%0.4f days", time );
+				}
+				
+				sprintf( logBuf, "\t%s\t%s\t%ld\t%ld\t%.0f\t%0.f\t%0.f\t%s\t%ld/%ld\t%ld/%ld\t%ld/%ld\t%ld/%ld\t%ld/%ld\n",
+								curPluginStats->pluginName,
+								CRequestHandler::GetCallName(j),
+								curPluginStats->apiStats[j].msgCnt,
+								curPluginStats->apiStats[j].errCnt,
+								curPluginStats->apiStats[j].minTime,
+								curPluginStats->apiStats[j].maxTime,
+								(curPluginStats->apiStats[j].totTime/curPluginStats->apiStats[j].msgCnt),
+								totTimeStr,
+								curPluginStats->apiStats[j].lastNErrors[0].clientPID,
+								curPluginStats->apiStats[j].lastNErrors[0].error,
+								curPluginStats->apiStats[j].lastNErrors[1].clientPID,
+								curPluginStats->apiStats[j].lastNErrors[1].error,
+								curPluginStats->apiStats[j].lastNErrors[2].clientPID,
+								curPluginStats->apiStats[j].lastNErrors[2].error,
+								curPluginStats->apiStats[j].lastNErrors[3].clientPID,
+								curPluginStats->apiStats[j].lastNErrors[3].error,
+								curPluginStats->apiStats[j].lastNErrors[4].clientPID,
+								curPluginStats->apiStats[j].lastNErrors[4].error );
+				
+				syslog( LOG_INFO, logBuf );
+			}
+		}
+	}
+	
+	gPerformanceLoggingLock->Signal();
+}
+#endif
 
 // ---------------------------------------------------------------------------
 //	* DoPeriodicTask ()
@@ -1212,17 +1557,19 @@ void DoPeriodicTask(CFRunLoopTimerRef timer, void *info)
 		while (pPlugin != nil)
 		{
 			pPIInfo = gPlugins->GetPlugInInfo( iterator-1 );
-			siResult = eDSNoErr;
-			siResult = pPlugin->PeriodicTask();
-			if (siResult != eDSNoErr)
+			if (pPIInfo->fState & kActive) //only pulse the Active plugins
 			{
-				if (pPIInfo != nil)
+				siResult = pPlugin->PeriodicTask();
+				if (siResult != eDSNoErr)
 				{
-					DBGLOG2( kLogApplication, "Periodic Task in %s plugin returned error %d", pPIInfo->fName, siResult );
-				}
-				else
-				{
-					DBGLOG1( kLogApplication, "Periodic Task of unnamed plugin returned error %d", siResult );
+					if (pPIInfo != nil)
+					{
+							DBGLOG2( kLogApplication, "Periodic Task in %s plugin returned error %d", pPIInfo->fName, siResult );
+					}
+					else
+					{
+							DBGLOG1( kLogApplication, "Periodic Task of unnamed plugin returned error %d", siResult );
+					}
 				}
 			}
 			pPlugin = gPlugins->Next( &iterator );
@@ -1231,5 +1578,248 @@ void DoPeriodicTask(CFRunLoopTimerRef timer, void *info)
 					
 	return;
 } // DoPeriodicTask
+
+// ---------------------------------------------------------------------------
+//	* NIAutoSwitchCheck ()
+//
+// ---------------------------------------------------------------------------
+
+sInt32 ServerControl::NIAutoSwitchCheck ( void )
+{
+	sInt32						siResult		= eDSNoErr;
+	uInt32						iterator		= 0;
+	CServerPlugin			   *pPlugin			= nil;
+	sHeader						aHeader;
+	CPlugInList::sTableData	   *pPIInfo			= nil;
+	
+	aHeader.fType			= kCheckNIAutoSwitch;
+	aHeader.fResult			= eDSNoErr;
+	aHeader.fContextData	= nil;
+
+	//should be assured that the search plugin is online already at boot
+	//but regardless since the plugin will block the request for up
+	//to two minutes allowing the plugin to initialize
+	//TODO KW looks  like the plugin ptr is not there yet always when this is called at boot
+
+	//do something if the delay period has passed
+	if (dsTimestamp() >= fTimeToCheckNIAutoSwitch)
+	{
+		// we know we need the search node, so let's wait until it is available.
+		gNodeList->WaitForAuthenticationSearchNode();
+			
+		//call thru to only the search policy plugin
+		if ( gPlugins != nil )
+		{
+			pPlugin = gPlugins->Next( &iterator );
+			while (pPlugin != nil)
+			{
+				pPIInfo = gPlugins->GetPlugInInfo( iterator-1 );
+				if ( ( strcmp(pPIInfo->fName,"Search") == 0) && (pPIInfo->fState & kActive) )
+				{
+					siResult = pPlugin->ProcessRequest( (void*)&aHeader );
+					if (siResult == eDSContinue)
+					{
+						//here we need to turn off netinfo bindings
+						sInt32 unbindResult = UnbindToNetInfo();
+						if (unbindResult == eDSNoErr)
+						{
+							DBGLOG( kLogApplication, "NIAutoSwitchCheck(): NIAutoSwitch record found in NetInfo parent has directed addition of LDAP directory to the search policy" );
+							//if success then NIBindings turn off will generate a network transition itself
+						}
+						else
+						{
+							DBGLOG( kLogApplication, "NIAutoSwitchCheck(): NIAutoSwitch record found in NetInfo parent has directed addition of LDAP directory to the search policy but NetInfo Unbind failed" );
+						}
+					}
+					break;
+				}
+				pPlugin = gPlugins->Next( &iterator );
+			}
+		}
+	}
+	
+	return(siResult);
+} // NIAutoSwitchCheck
+
+
+// ---------------------------------------------------------------------------
+//	* UnbindToNetInfo ()
+//
+// ---------------------------------------------------------------------------
+
+sInt32 ServerControl::UnbindToNetInfo ( void )
+{
+	sInt32					siResult			= eUnknownServerError;
+	SCPreferencesRef		scpRef				= NULL;
+	bool					scpStatus			= false;
+	CFTypeRef				cfTypeRef			= NULL;
+	char				   *pCurrSet			= nil;
+	char					charArray[ 1024 ];
+	const char			   *NetInfoPath			= "%s/Network/Global/NetInfo";
+	CFStringRef				cfNetInfoKey		= NULL;
+	const char			   *InactiveTag			= 
+"<dict>\
+	<key>__INACTIVE__</key>\
+	<integer>1</integer>\
+</dict>";
+	unsigned long			uiDataLen			= 0;
+	CFDataRef				dataRef				= NULL;
+	CFPropertyListRef		plistRef			= NULL;
+	CFDictionaryRef			dictRef				= NULL;
+	CFMutableDictionaryRef	dictMutableRef		= NULL;
+
+	scpRef = SCPreferencesCreate( NULL, CFSTR("NIAutoSwitch"), 0 );
+	if ( scpRef == NULL )
+	{
+		return(siResult);
+	}
+
+	//	Get the current set
+	cfTypeRef = SCPreferencesGetValue( scpRef, CFSTR( "CurrentSet" ) );
+	if ( cfTypeRef != NULL )
+	{
+		pCurrSet = (char *)CFStringGetCStringPtr( (CFStringRef)cfTypeRef, kCFStringEncodingMacRoman );
+		if ( pCurrSet != nil )
+		{
+			sprintf( charArray, NetInfoPath, pCurrSet );
+		}
+	}
+	else
+	{
+		// Modify the system config file
+		sprintf( charArray, NetInfoPath, "/Sets/0" );
+	}
+			
+	cfNetInfoKey = CFStringCreateWithCString( kCFAllocatorDefault, charArray, kCFStringEncodingMacRoman );
+	
+	if (cfNetInfoKey != NULL)
+	{
+		dictRef = SCPreferencesPathGetValue( scpRef, cfNetInfoKey);
+		if (dictRef != NULL)
+		{
+			dictMutableRef = CFDictionaryCreateMutableCopy(kCFAllocatorDefault, NULL, dictRef);
+			if ( dictMutableRef	!= NULL)
+			{
+				int intValue = 1;
+				CFNumberRef cfNumber = CFNumberCreate(kCFAllocatorDefault, kCFNumberIntType, &intValue);
+				// add the INACTIVE key/value with the old binding methods still present
+				CFDictionarySetValue( dictMutableRef, CFSTR( "__INACTIVE__"), cfNumber );
+			}
+			//CFRelease(dictRef); //retrieved with Get so don't release
+		}
+		else
+		{
+			uiDataLen = strlen( InactiveTag );
+			dataRef = CFDataCreate( kCFAllocatorDefault, (const UInt8 *)InactiveTag, uiDataLen );
+			if ( dataRef != nil )
+			{
+				plistRef = CFPropertyListCreateFromXMLData( kCFAllocatorDefault, dataRef, kCFPropertyListMutableContainers, nil );
+				if ( plistRef != nil )
+				{
+					dictMutableRef = (CFMutableDictionaryRef)plistRef;
+				}
+				CFRelease( dataRef );
+			}
+		}
+		if (dictMutableRef != NULL) //either of two ways to get the dict better have succeeded
+		{
+			//update the local copy with the dict entry
+			scpStatus = SCPreferencesPathSetValue( scpRef, cfNetInfoKey, dictMutableRef );
+			CFRelease( dictMutableRef );
+		}
+		CFRelease( cfNetInfoKey );
+	}
+
+	if (scpStatus)
+	{
+		scpStatus = SCPreferencesCommitChanges( scpRef );
+		if (scpStatus)
+		{
+			scpStatus = SCPreferencesApplyChanges( scpRef );
+		}
+	}
+	CFRelease( scpRef );
+
+	if (scpStatus) siResult = eDSNoErr;
+	
+	return(siResult);
+} // UnbindToNetInfo
+
+
+//------------------------------------------------------------------------------------
+//	* HandleMultipleNetworkTransitionsForNIAutoSwitch
+//------------------------------------------------------------------------------------
+
+void ServerControl::HandleMultipleNetworkTransitionsForNIAutoSwitch ( void )
+{
+	void	   *ptInfo		= nil;
+	
+	//let us be smart about doing the check
+	//we would like to wait a short period for the Network transitions to subside
+	//since we don't want to re-init multiple times during this wait period
+	//however we do go ahead and fire off timers each time
+	//each call in here we update the delay time by 5 seconds
+	fTimeToCheckNIAutoSwitch = dsTimestamp() + USEC_PER_SEC*5;
+
+	if (gServerRunLoop != nil)
+	{
+		ptInfo = (void *)this;
+		CFRunLoopTimerContext c = {0, (void*)ptInfo, NULL, NULL, NetworkChangeNIAutoSwitchCopyStringCallback};
+	
+		CFRunLoopTimerRef timer = CFRunLoopTimerCreate(	NULL,
+														CFAbsoluteTimeGetCurrent() + 5,
+														0,
+														0,
+														0,
+														DoNIAutoSwitchNetworkChange,
+														(CFRunLoopTimerContext*)&c);
+	
+		CFRunLoopAddTimer(gServerRunLoop, timer, kCFRunLoopDefaultMode);
+		if (timer) CFRelease(timer);
+	}
+} // HandleMultipleNetworkTransitionsForNIAutoSwitch
+
+//------------------------------------------------------------------------------
+//	* LaunchKerberosAutoConfigTool
+//
+//------------------------------------------------------------------------------
+
+void ServerControl:: LaunchKerberosAutoConfigTool ( void )
+{
+	sInt32			result			= eDSNoErr;
+	mach_port_t		mach_init_port	= MACH_PORT_NULL;
+
+	//lookup mach init port to launch Kerberos AutoConfig Tool on demand
+	result = bootstrap_look_up( bootstrap_port, "com.apple.KerberosAutoConfig", &mach_init_port );
+	if ( result != eDSNoErr )
+	{
+		syslog( LOG_ALERT, "Error with bootstrap_look_up for com.apple.KerberosAutoConfig on mach_init port: %s at: %d: Msg = %s\n", __FILE__, __LINE__, mach_error_string( result ) );
+	}
+	else
+	{
+		sIPCMsg aMsg;
+		
+		aMsg.fHeader.msgh_bits			= MACH_MSGH_BITS( MACH_MSG_TYPE_COPY_SEND, MACH_MSG_TYPE_MAKE_SEND );
+		aMsg.fHeader.msgh_size			= sizeof(sIPCMsg) - sizeof( mach_msg_security_trailer_t );
+		aMsg.fHeader.msgh_id			= 0;
+		aMsg.fHeader.msgh_remote_port	= mach_init_port;
+		aMsg.fHeader.msgh_local_port	= MACH_PORT_NULL;
+	
+		aMsg.fMsgType	= 0;
+		aMsg.fCount		= 1;
+		aMsg.fPort		= MACH_PORT_NULL;
+		aMsg.fPID		= 0;
+		aMsg.fMsgID		= 0;
+		aMsg.fOf		= 1;
+		//tickle the mach init port - should this really be required to start the daemon
+		mach_msg((mach_msg_header_t *)&aMsg, MACH_SEND_MSG | MACH_SEND_TIMEOUT, aMsg.fHeader.msgh_size, 0, MACH_PORT_NULL, 1, MACH_PORT_NULL);
+		//don't retain the mach init port since only using it to launch the Kerberos AutoConfig tool
+		mach_port_destroy(mach_task_self(), mach_init_port);
+		mach_init_port = MACH_PORT_NULL;
+	}
+
+} // CheckForServer
+
+
 
 

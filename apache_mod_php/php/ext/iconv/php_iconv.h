@@ -1,8 +1,8 @@
 /*
    +----------------------------------------------------------------------+
-   | PHP version 4.0                                                      |
+   | PHP Version 4                                                        |
    +----------------------------------------------------------------------+
-   | Copyright (c) 1997-2001 The PHP Group                                |
+   | Copyright (c) 1997-2003 The PHP Group                                |
    +----------------------------------------------------------------------+
    | This source file is subject to version 2.02 of the PHP license,      |
    | that is bundled with this package in the file LICENSE, and is        |
@@ -12,7 +12,7 @@
    | obtain it through the world-wide-web, please send a note to          |
    | license@php.net so we can mail you a copy immediately.               |
    +----------------------------------------------------------------------+
-   | Authors: Rui Hirokawa <louis@cityfujisawa.ne.jp>                     |
+   | Authors: Rui Hirokawa <rui_hirokawa@ybb.ne.jp>                       |
    |          Stig Bakken <ssb@fast.no>                                   |
    +----------------------------------------------------------------------+
  */
@@ -26,8 +26,15 @@
 #define PHP_ICONV_API
 #endif
 
+#ifdef PHP_ATOM_INC
+#include "php_have_iconv.h"
+#include "php_have_libiconv.h"
+#endif
+
+
+#ifdef HAVE_ICONV
 extern zend_module_entry iconv_module_entry;
-#define phpext_iconv_ptr &iconv_module_entry
+#define iconv_module_ptr &iconv_module_entry
 
 PHP_MINIT_FUNCTION(miconv);
 PHP_MSHUTDOWN_FUNCTION(miconv);
@@ -53,6 +60,14 @@ ZEND_END_MODULE_GLOBALS(iconv)
 #define ICONV_INPUT_ENCODING "ISO-8859-1" 
 #define ICONV_OUTPUT_ENCODING "ISO-8859-1"
 #define ICONV_INTERNAL_ENCODING "ISO-8859-1" 
+
+#else
+
+#define iconv_module_ptr NULL
+
+#endif /* HAVE_ICONV */
+
+#define phpext_iconv_ptr iconv_module_ptr
 
 #endif	/* PHP_ICONV_H */
 

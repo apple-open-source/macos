@@ -1,0 +1,240 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE ejb-jar PUBLIC "-//Sun Microsystems, Inc.//DTD Enterprise JavaBeans 2.0//EN" 
+                         "http://java.sun.com/dtd/ejb-jar_2_0.dtd">
+<ejb-jar>
+    <enterprise-beans>
+        
+       <session>
+            <description>Nextgen test bean stateless</description>
+            <ejb-name>nextgen.StatelessSession</ejb-name>
+            <home>org.jboss.test.testbean.interfaces.StatelessSessionHome</home>
+            <remote>org.jboss.test.testbean.interfaces.StatelessSession</remote>
+            <ejb-class>org.jboss.test.testbean.bean.StatelessSessionBean</ejb-class>
+            <session-type>Stateless</session-type>
+            <transaction-type>Container</transaction-type>
+            <env-entry>
+                <env-entry-name>myNameProp</env-entry-name>
+                <env-entry-type>java.lang.String</env-entry-type>
+                <env-entry-value>marc</env-entry-value>
+            </env-entry>
+            <env-entry>
+                <env-entry-name>subContext/myNameProp</env-entry-name>
+                <env-entry-type>java.lang.String</env-entry-type>
+                <env-entry-value>marc with subContext</env-entry-value>
+            </env-entry>
+        </session>
+        <session>
+            <description>Nextgen test bean stateful</description>
+            <ejb-name>nextgen.StatefulSession</ejb-name>
+            <home>org.jboss.test.testbean.interfaces.StatefulSessionHome</home>
+            <remote>org.jboss.test.testbean.interfaces.StatefulSession</remote>
+            <ejb-class>org.jboss.test.testbean.bean.StatefulSessionBean</ejb-class>
+            <session-type>Stateful</session-type>
+            <transaction-type>Container</transaction-type>
+        </session>
+         <session>
+            <description>Nextgen test bean BMT stateful</description>
+            <ejb-name>BMTStateful</ejb-name>
+            <home>org.jboss.test.testbean.interfaces.BMTStatefulHome</home>
+            <remote>org.jboss.test.testbean.interfaces.BMTStateful</remote>
+            <ejb-class>org.jboss.test.testbean.bean.BMTStatefulBean</ejb-class>
+            <session-type>Stateful</session-type>
+            <transaction-type>Bean</transaction-type>
+            <reentrant>True</reentrant>
+			<resource-ref>
+                <description>A jdbc connection for the BMT bean</description>
+                <res-ref-name>jdbc/myDatabase</res-ref-name>
+                <res-type>javax.sql.DataSource</res-type>
+                <res-auth>Container</res-auth>
+            </resource-ref>
+        </session>
+         <session>
+            <description>Nextgen test bean BMT stateless</description>
+            <ejb-name>BMTStateless</ejb-name>
+            <home>org.jboss.test.testbean.interfaces.BMTStatelessHome</home>
+            <remote>org.jboss.test.testbean.interfaces.BMTStateless</remote>
+            <ejb-class>org.jboss.test.testbean.bean.BMTStatelessBean</ejb-class>
+            <session-type>Stateless</session-type>
+            <transaction-type>Bean</transaction-type>
+            <reentrant>True</reentrant>
+        </session>
+         <session>
+            <description>Nextgen test bean TX stateful</description>
+            <ejb-name>nextgen.TxSession</ejb-name>
+            <home>org.jboss.test.testbean.interfaces.TxSessionHome</home>
+            <remote>org.jboss.test.testbean.interfaces.TxSession</remote>
+            <ejb-class>org.jboss.test.testbean.bean.TxSessionBean</ejb-class>
+            <session-type>Stateless</session-type>
+            <transaction-type>Container</transaction-type>
+            <reentrant>True</reentrant>
+        </session>
+        <entity>
+            <description>Nextgen test bean entity </description>
+            <ejb-name>nextgen.EnterpriseEntity</ejb-name>
+            <home>org.jboss.test.testbean.interfaces.EnterpriseEntityHome</home>
+            <remote>org.jboss.test.testbean.interfaces.EnterpriseEntity</remote>
+            <ejb-class>org.jboss.test.testbean.bean.EnterpriseEntityBean</ejb-class>
+            <persistence-type>Container</persistence-type>
+            <prim-key-class>java.lang.String</prim-key-class>
+            <reentrant>False</reentrant>
+            <cmp-version>1.x</cmp-version>
+            <cmp-field>
+                <field-name>name</field-name>
+            </cmp-field>
+            <cmp-field>
+                <field-name>otherField</field-name>
+            </cmp-field>
+            <primkey-field>name</primkey-field>
+        </entity>
+        
+       <entity>
+            <description>Nextgen BMP bean</description>
+            <ejb-name>nextgen.EntityBMP</ejb-name>
+            <home>org.jboss.test.testbean.interfaces.EntityBMPHome</home>
+            <remote>org.jboss.test.testbean.interfaces.EntityBMP</remote>
+            <ejb-class>org.jboss.test.testbean.bean.EntityBMPBean</ejb-class>
+            <persistence-type>Bean</persistence-type>
+            <prim-key-class>java.lang.String</prim-key-class>
+            <reentrant>False</reentrant>
+            <primkey-field>name</primkey-field>
+            <resource-ref>
+                <description>A jdbc connection for the BMP bean</description>
+                <res-ref-name>jdbc/myDatabase</res-ref-name>
+                <res-type>javax.sql.DataSource</res-type>
+                <res-auth>Container</res-auth>
+            </resource-ref>
+            <ejb-ref>
+                <description>An EJB ref for this bean to test</description>
+                <ejb-link>nextgen.StatelessSession</ejb-link>
+                <ejb-ref-name>ejb/myEJBRef</ejb-ref-name>
+          <ejb-ref-type>Session</ejb-ref-type>
+                <home>org.jboss.test.testbean.interfaces.StatelessSessionHome</home>
+                <remote>org.jboss.test.testbean.interfaces.StatelessSession</remote>
+            </ejb-ref>
+        </entity>
+        <entity>
+            <description>Nextgen PK bean</description>
+            <ejb-name>nextgen.EntityPK</ejb-name>
+            <home>org.jboss.test.testbean.interfaces.EntityPKHome</home>
+            <remote>org.jboss.test.testbean.interfaces.EntityPK</remote>
+            <ejb-class>org.jboss.test.testbean.bean.EntityPKBean</ejb-class>
+            <persistence-type>Container</persistence-type>
+            <prim-key-class>org.jboss.test.testbean.interfaces.AComplexPK</prim-key-class>
+            <reentrant>False</reentrant>
+            <cmp-version>1.x</cmp-version>
+            <cmp-field>
+                <field-name>aBoolean</field-name>
+            </cmp-field>
+            <cmp-field>
+                <field-name>anInt</field-name>
+            </cmp-field>
+            <cmp-field>
+                <field-name>aLong</field-name>
+            </cmp-field>
+            <cmp-field>
+                <field-name>aDouble</field-name>
+            </cmp-field>
+            <cmp-field>
+                <field-name>aString</field-name>
+            </cmp-field>
+         <cmp-field>
+          <field-name>otherField</field-name>
+         </cmp-field>
+        </entity>
+        
+    </enterprise-beans>
+    <assembly-descriptor>
+        <container-transaction>
+            <method>
+                <ejb-name>nextgen.EnterpriseEntity</ejb-name>
+                <method-name>*</method-name>
+            </method>
+            <method>
+                <ejb-name>nextgen.EntityBMP</ejb-name>
+                <method-name>*</method-name>
+            </method>
+            <method>
+                <ejb-name>nextgen.StatefulSession</ejb-name>
+                <method-name>*</method-name>
+            </method>
+            <method>
+                <ejb-name>nextgen.StatelessSession</ejb-name>
+                <method-name>*</method-name>
+            </method>
+             <method>
+                <ejb-name>nextgen.EntityPK</ejb-name>
+                <method-name>*</method-name>
+            </method>
+            <method>
+                <ejb-name>nextgen.TxSession</ejb-name>
+                <method-name>txRequired</method-name>
+            </method>
+            <trans-attribute>Required</trans-attribute>
+        </container-transaction>
+                                                           
+            
+        <container-transaction>
+            <method>
+                <ejb-name>nextgen.TxSession</ejb-name>
+                <method-name>requiredToSupports</method-name>
+            </method>
+            <trans-attribute>Required</trans-attribute>
+        </container-transaction>
+        <container-transaction>
+            <method>
+                <ejb-name>nextgen.TxSession</ejb-name>
+                 <method-name>requiredToNotSupported</method-name>
+            </method>
+            <trans-attribute>Required</trans-attribute>
+        </container-transaction>
+        <container-transaction>
+            <method>
+                <ejb-name>nextgen.TxSession</ejb-name>
+                <method-name>requiredToRequiresNew</method-name>
+            </method>
+            <trans-attribute>Required</trans-attribute>
+        </container-transaction>
+        
+        <container-transaction>
+            <method>
+                <ejb-name>nextgen.TxSession</ejb-name>
+                <method-name>txSupports</method-name>
+            </method>
+            <trans-attribute>Supports</trans-attribute>
+        </container-transaction>
+        
+        <container-transaction>
+            <method>
+                <ejb-name>nextgen.TxSession</ejb-name>
+                <method-name>txMandatory</method-name>
+            </method>
+            <trans-attribute>Mandatory</trans-attribute>
+        </container-transaction>
+          
+        <container-transaction>
+            <method>
+                <ejb-name>nextgen.TxSession</ejb-name>
+                <method-name>txRequiresNew</method-name>
+            </method>
+            <trans-attribute>REQUIRESNEW</trans-attribute>
+        </container-transaction>
+        
+        <container-transaction>
+            <method>
+                <ejb-name>nextgen.TxSession</ejb-name>
+                <method-name>txNever</method-name>
+            </method>
+            <trans-attribute>Never</trans-attribute>
+        </container-transaction>
+        
+        <container-transaction>
+            <method>
+                <ejb-name>nextgen.TxSession</ejb-name>
+                <method-name>txNotSupported</method-name>
+            </method>
+            <trans-attribute>Not_Supported</trans-attribute>
+        </container-transaction>
+        
+    </assembly-descriptor>
+</ejb-jar>
+

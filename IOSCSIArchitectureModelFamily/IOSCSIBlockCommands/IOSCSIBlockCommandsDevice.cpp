@@ -39,9 +39,10 @@
 #include <IOKit/storage/IOBlockStorageDriver.h>
 
 // SCSI Architecture Model Family includes
-#include <IOKit/scsi-commands/SCSICommandDefinitions.h>
-#include <IOKit/scsi-commands/IOBlockStorageServices.h>
-#include <IOKit/scsi-commands/IOSCSIBlockCommandsDevice.h>
+#include <IOKit/scsi/SCSICommandDefinitions.h>
+#include <IOKit/scsi/IOBlockStorageServices.h>
+
+#include "IOSCSIBlockCommandsDevice.h"
 #include "SCSIBlockCommands.h"
 
 
@@ -119,40 +120,7 @@ IOSCSIBlockCommandsDevice::SyncReadWrite (
 						UInt64					blockCount,
 						UInt64					blockSize )
 {
-	
-	IODirection		direction;
-	IOReturn		status = kIOReturnBadArgument;
-	
-	require_action ( IsProtocolAccessEnabled ( ),
-					 ErrorExit,
-					 status = kIOReturnNotAttached );
-					
-	require_action ( IsDeviceAccessEnabled ( ),
-					 ErrorExit,
-					 status = kIOReturnOffline );
-	
-	direction = buffer->getDirection ( );
-	
-	if ( direction == kIODirectionIn )
-	{
-		
-		status = IssueRead ( buffer, startBlock, blockCount );
-		
-	}
-	
-	else if ( direction == kIODirectionOut )
-	{
-		
-		status = IssueWrite ( buffer, startBlock, blockCount );
-		
-	}
-	
-	
-ErrorExit:
-	
-	
-	return status;
-	
+	return kIOReturnUnsupported;	
 }
 
 
@@ -232,11 +200,41 @@ IOSCSIBlockCommandsDevice::EjectTheMedium ( void )
 	// Is the media removable?
 	if ( fMediaIsRemovable == false )
 	{
+
+		if ( getProperty ( "Power Off" ) != NULL )
+		{
+			
+			// Spin down the media now. We use to queue up a power change but we found
+			// that since the PM stuff happens at a deferred point, the machine might shutdown
+			// before we finish the PM change. So, we do the spindown now, then sync with PM
+			// so it knows the state.
+			if ( ( fCurrentPowerState > kSBCPowerStateSleep ) && ( fDeviceIsShared == false ) )
+			{
+				
+				request = GetSCSITask ( );
+				require_nonzero ( request, ErrorExit );
+				
+				// At a minimum, make sure the drive is spun down
+				if ( START_STOP_UNIT ( request, 1, 0, 0, 0, 0 ) == true )
+				{
+					
+					serviceResponse = SendCommand ( request, 0 );
+					
+				}
+				
+				// Give the drive some time to park the heads.
+				IOSleep ( 500 );
+				
+				ReleaseSCSITask ( request );
+				request = NULL;
+				
+			}
+			
+			fCurrentPowerState = kSBCPowerStateSleep;
+			
+		}
 		
-		// Not a removable disk. Synchronize the drive's write cache.
-		status = SynchronizeCache ( );
-		
-		// Tell power management to ask us to spin the drive down.
+		// Sync ourselves with PM.
 		changePowerStateToPriv ( kSBCPowerStateSleep );
 		
 	}
@@ -527,10 +525,13 @@ IOSCSIBlockCommandsDevice::ReportDeviceMaxBlocksReadTransfer ( void )
 						kSCSIProtocolFeature_MaximumReadTransferByteCount,
 						&maxByteCount );	
 	
-	if ( ( supported == true ) && ( maxByteCount > 0 ) && ( fMediumBlockSize > 0 ) )
+	if ( ( supported == true ) && ( maxByteCount > 0 ) )
 	{
 		
-		maxBlockCount = min ( maxBlockCount, ( maxByteCount / fMediumBlockSize ) );
+		setProperty ( kIOMaximumByteCountReadKey, maxByteCount, 64 );
+		
+		if ( fMediumBlockSize > 0 )
+			maxBlockCount = min ( maxBlockCount, ( maxByteCount / fMediumBlockSize ) );
 		
 	}
 	
@@ -567,10 +568,13 @@ IOSCSIBlockCommandsDevice::ReportDeviceMaxBlocksWriteTransfer ( void )
 						kSCSIProtocolFeature_MaximumWriteTransferByteCount,
 						&maxByteCount );	
 	
-	if ( ( supported == true ) && ( maxByteCount > 0 ) && ( fMediumBlockSize > 0 ) )
+	if ( ( supported == true ) && ( maxByteCount > 0 ) )
 	{
 		
-		maxBlockCount = min ( maxBlockCount, ( maxByteCount / fMediumBlockSize ) );
+		setProperty ( kIOMaximumByteCountWriteKey, maxByteCount, 64 );
+		
+		if ( fMediumBlockSize > 0 )
+			maxBlockCount = min ( maxBlockCount, ( maxByteCount / fMediumBlockSize ) );
 		
 	}
 	
@@ -612,6 +616,7 @@ IOSCSIBlockCommandsDevice::InitializeDeviceSupport ( void )
 {
 	
 	bool	setupSuccessful = false;
+	bool	supported		= false;
 	
 	// Initialize the device characteristics flags
 	fMediaIsRemovable 		= false;
@@ -648,6 +653,7 @@ IOSCSIBlockCommandsDevice::InitializeDeviceSupport ( void )
 			
 			STATUS_LOG ( ( "%s: found a Manual Eject property.\n", getName ( ) ) );
 			fKnownManualEject = true;
+			fDeviceIsShared = true;		
 			
 		}
 		
@@ -1132,6 +1138,7 @@ IOSCSIBlockCommandsDevice::DetermineDeviceCharacteristics ( void )
 	SCSIServiceResponse 			serviceResponse 	= kSCSIServiceResponse_SERVICE_DELIVERY_OR_TARGET_FAILURE;
 	SCSITaskIdentifier				request 			= NULL;
 	IOBufferMemoryDescriptor *		buffer	 			= NULL;
+	IOReturn						status				= kIOReturnSuccess;
 	SCSICmd_INQUIRY_StandardData * 	inquiryBuffer 		= NULL;
 	UInt8							inquiryBufferSize	= 0;
 	UInt8							loop				= 0;
@@ -1222,43 +1229,27 @@ IOSCSIBlockCommandsDevice::DetermineDeviceCharacteristics ( void )
 		
 	}
 	
+	SetCMDQUE ( inquiryBuffer->flags1 & kINQUIRY_Byte7_CMDQUE_Mask );
+	
 	buffer->release ( );
 	buffer = NULL;
-	
-	// There are a whole class of devices which do not like to be sent
-	// any MODE_SENSE or MODE_SELECT commands which they don't implement.
-	// Since removable devices don't usually have a cache, we restrict
-	// the device set to fixed hard disks for the following calls.
-	require ( ( fMediaIsRemovable == false ), ReleaseTask );
 	
 	// Check for any caching support
 	buffer = IOBufferMemoryDescriptor::withCapacity ( kCachingModePageSize,
 													  kIODirectionOutIn );
 	require_nonzero ( buffer, ReleaseTask );
 	
-	if ( MODE_SENSE_6 ( request,
-						buffer,
-						0x00,
-						kModePageControlSavedValues,
-						kCachingModePageCode,
-						kCachingModePageSize,
-						0x00 ) == true )
-	{
-		
-		// The command was successfully built, now send it
-		serviceResponse = SendCommand ( request, kTenSecondTimeoutInMS );
-		
-	}
+	status = GetWriteCacheState ( buffer, kModePageControlSavedValues );
+	require_success ( status, ReleaseTask );
 	
-	if ( ( serviceResponse == kSCSIServiceResponse_TASK_COMPLETE ) &&
-		 ( GetTaskStatus ( request ) == kSCSITaskStatus_GOOD ) )
 	{
 		
 		UInt8 *		cachePage				= ( UInt8 * ) buffer->getBytesNoCopy ( );
 		UInt8		blockDescriptorLength	= 0;
 		UInt8		minSize					= 0;
+		UInt8		pageSize				= 0;
 		bool		WCEBit					= false;
-				
+		
 		// Sanity check on buffer size
 		minSize = kModeSense6ParameterHeaderSize + kCachingModePageMinSize + 2;
 		require ( ( cachePage[0] + sizeof ( UInt8 ) ) >= minSize, ReleaseTask );
@@ -1276,12 +1267,19 @@ IOSCSIBlockCommandsDevice::DetermineDeviceCharacteristics ( void )
 		// Find out if the WCE bit is set.
 		WCEBit = cachePage[blockDescriptorLength + 6] & kWriteCacheEnabledMask;
 		
+		// Save off the page size. When we do a MODE_SELECT, the MODE_DATA_LENGTH field is reserved, so we'll
+		// need to set cachePage[0] to zero. This is documented in SPC-2 ¤8.3.3.
+		pageSize = cachePage[0] + sizeof ( UInt8 );
+		
+		// Set the reserved field to zero.
+		cachePage[0] = 0x00;
+		
 		// Write back out the saved bits to enable the saved behavior
 		if ( MODE_SELECT_6 ( request,
 							 buffer,
 							 0x01,	// PageFormat		= 1
 							 0x00,	// SaveParameters	= 0
-							 cachePage[0] + sizeof ( UInt8 ),
+							 pageSize,
 							 0x00 ) == true )
 		{
 			
@@ -1502,7 +1500,8 @@ IOSCSIBlockCommandsDevice::PollForNewMedia ( void )
 		// Media is not locked into the drive, so this is most likely
 		// a manually ejectable device, start polling for media removal.
 		fPollingMode = kPollingMode_MediaRemoval;
-		
+		fKnownManualEject = true;		
+		fDeviceIsShared = true;		
 	}
 	
 	
@@ -2073,6 +2072,218 @@ IOSCSIBlockCommandsDevice::SetMediumIcon ( void )
 
 
 //ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+//	¥ GetWriteCacheState - Gets the write cache state.				  [PRIVATE]
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+
+IOReturn
+IOSCSIBlockCommandsDevice::GetWriteCacheState (
+							IOMemoryDescriptor * 	buffer,
+							UInt8					modePageControlValue )
+{
+	
+	IOReturn				status			= kIOReturnUnsupported;
+	SCSIServiceResponse 	serviceResponse = kSCSIServiceResponse_SERVICE_DELIVERY_OR_TARGET_FAILURE;
+	SCSITaskIdentifier		request 		= NULL;
+	
+	// There are a whole class of devices which do not like to be sent
+	// any MODE_SENSE or MODE_SELECT commands which they don't implement.
+	// Since removable devices don't usually have a cache, we restrict
+	// the device set to fixed hard disks for the following calls.
+	require ( ( fMediaIsRemovable == false ), ErrorExit );
+	
+	request = GetSCSITask ( );
+	require_nonzero_action ( request, ErrorExit, status = kIOReturnNoResources );
+	
+	if ( MODE_SENSE_6 ( request,
+						buffer,
+						0x00,
+						modePageControlValue,
+						kCachingModePageCode,
+						buffer->getLength ( ),
+						0x00 ) == true )
+	{
+		
+		// The command was successfully built, now send it
+		serviceResponse = SendCommand ( request, kTenSecondTimeoutInMS );
+		
+	}
+	
+	if ( ( serviceResponse == kSCSIServiceResponse_TASK_COMPLETE ) &&
+		 ( GetTaskStatus ( request ) == kSCSITaskStatus_GOOD ) )
+	{
+		status = kIOReturnSuccess;
+	}
+	
+	else
+	{
+		status = kIOReturnError;
+	}
+	
+	ReleaseSCSITask ( request );
+	request = NULL;
+	
+	
+ErrorExit:
+	
+	
+	return status;
+	
+}
+
+
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+//	¥ GetWriteCacheState - Gets the write cache state.				   [PUBLIC]
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+
+IOReturn
+IOSCSIBlockCommandsDevice::GetWriteCacheState ( bool * enabled )
+{
+	
+	IOReturn					status 		= kIOReturnUnsupported;
+	IOBufferMemoryDescriptor *	buffer 		= NULL;
+	UInt8 *						cachePage	= NULL;
+	UInt8						length		= 0;
+	UInt8						minSize		= 0;
+	
+	buffer = IOBufferMemoryDescriptor::withCapacity ( kCachingModePageSize,
+													  kIODirectionOutIn );
+	require_nonzero ( buffer, ErrorExit );
+	
+	status = GetWriteCacheState ( buffer, kModePageControlCurrentValues );
+	require_success ( status, ReleaseDescriptor );
+	
+	cachePage = ( UInt8 * ) buffer->getBytesNoCopy ( );
+	
+	// Sanity check on buffer size
+	minSize = kModeSense6ParameterHeaderSize + kCachingModePageMinSize + 2;
+	require_action ( ( cachePage[0] + sizeof ( UInt8 ) ) >= minSize, ReleaseDescriptor, status = kIOReturnError );
+	
+	// Get the block descriptor length
+	length = cachePage[3];
+	
+	// Sanity check on returned data from drive
+	require_action ( ( cachePage[length + kModeSense6ParameterHeaderSize] & 0x3F ) == kCachingModePageCode, ReleaseDescriptor, status = kIOReturnError );
+	require_action ( ( cachePage[length + kModeSense6ParameterHeaderSize + 1] ) >= kCachingModePageMinSize, ReleaseDescriptor, status = kIOReturnError );
+	
+	// Find out if the WCE bit is set.
+	*enabled = cachePage[length + 6] & kWriteCacheEnabledMask;
+	
+	
+ReleaseDescriptor:
+	
+	
+	require_nonzero ( buffer, ErrorExit );
+	buffer->release ( );
+	buffer = NULL;
+	
+	
+ErrorExit:
+	
+	
+	return status;
+	
+}
+
+
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+//	¥ SetWriteCacheState - Sets the write cache state.				   [PUBLIC]
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+
+IOReturn
+IOSCSIBlockCommandsDevice::SetWriteCacheState ( bool enabled )
+{
+	
+	IOReturn					status 			= kIOReturnUnsupported;
+	SCSIServiceResponse			serviceResponse	= kSCSIServiceResponse_SERVICE_DELIVERY_OR_TARGET_FAILURE;
+	SCSITaskIdentifier			request 		= NULL;
+	IOBufferMemoryDescriptor *	buffer 			= NULL;
+	UInt8 *						cachePage		= NULL;
+	UInt8						length			= 0;
+	UInt8						minSize			= 0;
+	
+	buffer = IOBufferMemoryDescriptor::withCapacity ( kCachingModePageSize,
+													  kIODirectionOutIn );
+	require_nonzero ( buffer, ErrorExit );
+	
+	status = GetWriteCacheState ( buffer, kModePageControlCurrentValues );
+	require_success ( status, ReleaseDescriptor );
+	
+	cachePage = ( UInt8 * ) buffer->getBytesNoCopy ( );
+	
+	// Sanity check on buffer size
+	minSize = kModeSense6ParameterHeaderSize + kCachingModePageMinSize + 2;
+	require_action ( ( cachePage[0] + sizeof ( UInt8 ) ) >= minSize, ReleaseDescriptor, status = kIOReturnError );
+	
+	// Get the block descriptor length
+	length = cachePage[3];
+	
+	// Sanity check on returned data from drive
+	require_action ( ( cachePage[length + kModeSense6ParameterHeaderSize] & 0x3F ) == kCachingModePageCode, ReleaseDescriptor, status = kIOReturnError );
+	require_action ( ( cachePage[length + kModeSense6ParameterHeaderSize + 1] ) >= kCachingModePageMinSize, ReleaseDescriptor, status = kIOReturnError );
+	
+	// Set the page code in the buffer to the cache page code
+	cachePage[length + kModeSense6ParameterHeaderSize] = kCachingModePageCode;
+	
+	// Enable/disable cache as appropriate
+	if ( enabled == true )
+		cachePage[length + 6] |= kWriteCacheEnabledMask;
+	else
+		cachePage[length + 6] &= ~kWriteCacheEnabledMask;
+	
+	request = GetSCSITask ( );
+	require_nonzero_action ( request, ReleaseDescriptor, status = kIOReturnNoResources );
+	
+	// Write back out the saved bits to enable the saved behavior
+	if ( MODE_SELECT_6 ( request,
+						 buffer,
+						 0x01,	// PageFormat		= 1
+						 0x00,	// SaveParameters	= 0
+						 cachePage[0] + sizeof ( UInt8 ),
+						 0x00 ) == true )
+	{
+		
+		// The command was successfully built, now send it
+		serviceResponse = SendCommand ( request, kTenSecondTimeoutInMS );
+		
+		if ( ( serviceResponse == kSCSIServiceResponse_TASK_COMPLETE ) &&
+			 ( GetTaskStatus ( request ) == kSCSITaskStatus_GOOD ) )
+		{
+			
+			fWriteCacheEnabled = enabled;
+			status = kIOReturnSuccess;
+			
+		}
+		
+		else
+		{
+			
+			status = kIOReturnError;
+			
+		}
+		
+	}
+	
+	ReleaseSCSITask ( request );
+	request = NULL;
+	
+	
+ReleaseDescriptor:
+	
+	
+	require_nonzero ( buffer, ErrorExit );
+	buffer->release ( );
+	buffer = NULL;
+	
+	
+ErrorExit:	
+	
+	
+	return status;
+	
+}
+
+
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
 //	¥ PollForMediaRemoval - Polls for media removal.				[PROTECTED]
 //ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
 
@@ -2173,7 +2384,7 @@ ErrorExit:
 
 
 //ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
-//	¥ IssueRead - Issues a synchronous read command.				[PROTECTED]
+//	¥ IssueRead - DEPRECATED.										[PROTECTED]
 //ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
 
 IOReturn
@@ -2182,60 +2393,7 @@ IOSCSIBlockCommandsDevice::IssueRead (
 							UInt64					startBlock,
 							UInt64					blockCount )
 {
-	
-	SCSIServiceResponse 	serviceResponse = kSCSIServiceResponse_SERVICE_DELIVERY_OR_TARGET_FAILURE;
-	SCSITaskIdentifier		request			= NULL;
-	IOReturn				status			= kIOReturnNoResources;
-	
-	request = GetSCSITask ( );
-	require_nonzero ( request, ErrorExit );
-	
-	if ( READ_10 ( 	request,
-					buffer,
-  					fMediumBlockSize,
-					0,
-					0,
-					0,
-					( SCSICmdField4Byte ) startBlock,
-					( SCSICmdField2Byte ) blockCount,
-					0 ) == true )
-	{
-		
-		// The command was successfully built, now send it
-		serviceResponse = SendCommand ( request, 0 );
-		
-		if ( ( serviceResponse == kSCSIServiceResponse_TASK_COMPLETE ) &&
-			 ( GetTaskStatus ( request ) == kSCSITaskStatus_GOOD ) )
-		{
-			
-			status = kIOReturnSuccess;
-			
-		}
-		
-		else
-		{
-			
-			status = kIOReturnIOError;
-			
-		}
-		
-	}
-	
-	else
-	{
-		
-		status = kIOReturnBadArgument;
-		
-	}
-	
-	ReleaseSCSITask ( request );
-	
-	
-ErrorExit:
-	
-	
-	return status;
-	
+	return kIOReturnUnsupported;
 }
 
 
@@ -2270,10 +2428,18 @@ IOSCSIBlockCommandsDevice::IssueRead (
 		
 		// The command was successfully built, now send it
 		SetApplicationLayerReference ( request, clientData );
-		STATUS_LOG ( ( "IOSCSIBlockCommandsDevice::IssueRead send command.\n" ) );
+		
+		// Tag the command if requested
+		if ( GetCMDQUE ( ) == true )
+		{
+			
+			SetTaskAttribute ( request, kSCSITask_SIMPLE );
+			SetTaggedTaskIdentifier ( request, GetUniqueTagID ( ) );
+			
+		}
 		
 		SendCommand ( request,
-					  0,
+					  fReadTimeoutDuration,
 					  &IOSCSIBlockCommandsDevice::AsyncReadWriteComplete );
 		
 		status = kIOReturnSuccess;
@@ -2299,7 +2465,7 @@ ErrorExit:
 
 
 //ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
-//	¥ IssueRead - Issues a synchronous write command.				[PROTECTED]
+//	¥ IssueWrite - DEPRECATED.										[PROTECTED]
 //ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
 
 IOReturn
@@ -2307,66 +2473,12 @@ IOSCSIBlockCommandsDevice::IssueWrite ( IOMemoryDescriptor *	buffer,
 										UInt64					startBlock,
 										UInt64					blockCount )
 {
-	
-	SCSIServiceResponse 	serviceResponse = kSCSIServiceResponse_SERVICE_DELIVERY_OR_TARGET_FAILURE;
-	SCSITaskIdentifier		request			= NULL;
-	IOReturn				status 			= kIOReturnNoResources;
-	
-	request = GetSCSITask ( );
-	require_nonzero ( request, ErrorExit );
-	
-	if ( WRITE_10 ( request,
-					buffer,
-					fMediumBlockSize,
-					0,
-					0,
-					0,
-					0,
-					( SCSICmdField4Byte ) startBlock,
-					( SCSICmdField2Byte ) blockCount,
-					0 ) == true )
-	{
-		
-		// The command was successfully built, now send it
-		serviceResponse = SendCommand ( request, 0 );
-		
-		if ( ( serviceResponse == kSCSIServiceResponse_TASK_COMPLETE ) &&
-			 ( GetTaskStatus ( request ) == kSCSITaskStatus_GOOD ) )
-		{
-			
-			status = kIOReturnSuccess;
-			
-		}
-		
-		else
-		{
-			
-			status = kIOReturnIOError;
-			
-		}
-		
-	}
-	
-	else
-	{
-		
-		status = kIOReturnBadArgument;
-		
-	}
-	
-	ReleaseSCSITask ( request );
-	
-	
-ErrorExit:
-	
-	
-	return status;
-	
+	return kIOReturnUnsupported;
 }
 
 
 //ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
-//	¥ IssueRead - Issues an asynchronous write command.				[PROTECTED]
+//	¥ IssueWrite - Issues an asynchronous write command.			[PROTECTED]
 //ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
 
 IOReturn
@@ -2396,8 +2508,18 @@ IOSCSIBlockCommandsDevice::IssueWrite (
 		
 		// The command was successfully built, now send it
 		SetApplicationLayerReference ( request, clientData );
+		
+		// Tag the command if requested
+		if ( GetCMDQUE ( ) == true )
+		{
+			
+			SetTaskAttribute ( request, kSCSITask_SIMPLE );
+			SetTaggedTaskIdentifier ( request, GetUniqueTagID ( ) );
+			
+		}
+		
 		SendCommand ( request,
-					  0,
+					  fWriteTimeoutDuration,
 					  &IOSCSIBlockCommandsDevice::AsyncReadWriteComplete );
 		
 		status = kIOReturnSuccess;
@@ -2493,9 +2615,9 @@ IOSCSIBlockCommandsDevice::AsyncReadWriteComplete (
 		
 	}
 	
-	taskOwner->ReleaseSCSITask ( request );
-	
 	IOBlockStorageServices::AsyncReadWriteComplete ( clientData, status, actCount );
+	
+	taskOwner->ReleaseSCSITask ( request );
 	
 	return;
 	

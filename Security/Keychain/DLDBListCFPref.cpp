@@ -22,12 +22,23 @@
 
 #include "DLDBListCFPref.h"
 #include <Security/cssmapple.h>
+#include <Security/debugging.h>
+#include <syslog.h>
 #include <memory>
+#include <fcntl.h>
+#include <sys/types.h>
+#include <sys/stat.h>
+#include <unistd.h>
 #include <pwd.h>
 
 using namespace CssmClient;
 
 static const double kDLDbListCFPrefRevertInterval = 30.0;
+
+// normal debug calls, which get stubbed out for deployment builds
+#define x_debug(str) secdebug("KClogin",(str))
+#define x_debug1(fmt,arg1) secdebug("KClogin",(fmt),(arg1))
+#define x_debug2(fmt,arg1,arg2) secdebug("KClogin",(fmt),(arg1),(arg2))
 
 #define kKeyGUID CFSTR("GUID")
 #define kKeySubserviceId CFSTR("SubserviceId")
@@ -38,8 +49,49 @@ static const double kDLDbListCFPrefRevertInterval = 30.0;
 #define kKeyMajorVersion CFSTR("MajorVersion")
 #define kKeyMinorVersion CFSTR("MinorVersion")
 #define kDefaultDLDbListKey CFSTR("DLDBSearchList")
-#define kDefaultDomain CFSTR("com.apple.security")
+#define kDefaultKeychainKey CFSTR("DefaultKeychain")
+#define kLoginKeychainKey CFSTR("LoginKeychain")
+#define kUserDefaultPath "~/Library/Preferences/com.apple.security.plist"
+#define kSystemDefaultPath "/Library/Preferences/com.apple.security.plist"
+#define kCommonDefaultPath "/Library/Preferences/com.apple.security-common.plist"
+#define kLoginKeychainPathPrefix "~/Library/Keychains/"
+#define kUserLoginKeychainPath "~/Library/Keychains/login.keychain"
+#define kSystemLoginKeychainPath "/Library/Keychains/System.keychain"
 
+
+// A utility class for managing password database lookups
+
+const time_t kPasswordCacheExpire = 30; // number of seconds cached password db info is valid
+
+PasswordDBLookup::PasswordDBLookup () : mValid (false), mCurrent (0), mTime (0)
+{
+}
+
+void PasswordDBLookup::lookupInfoOnUID (uid_t uid)
+{
+    time_t currentTime = time (NULL);
+    
+    if (!mValid || uid != mCurrent || currentTime - mTime >= kPasswordCacheExpire)
+    {
+        struct passwd* pw = getpwuid(uid);
+		if (pw == NULL)
+		{
+			UnixError::throwMe (EPERM);
+		}
+		
+        mDirectory = pw->pw_dir;
+        mName = pw->pw_name;
+        mValid = true;
+        mCurrent = uid;
+        mTime = currentTime;
+
+        x_debug2("PasswordDBLookup::lookupInfoOnUID: uid=%d caching home=%s", uid, pw->pw_dir);
+
+        endpwent();
+    }
+}
+
+PasswordDBLookup *DLDbListCFPref::mPdbLookup = NULL;
 
 //-------------------------------------------------------------------------------------
 //
@@ -47,80 +99,370 @@ static const double kDLDbListCFPrefRevertInterval = 30.0;
 //
 //-------------------------------------------------------------------------------------
 
-DLDbListCFPref::DLDbListCFPref(CFStringRef theDLDbListKey,CFStringRef prefsDomain) :
-    mPrefsDomain(prefsDomain?prefsDomain:kDefaultDomain),mDLDbListKey(theDLDbListKey?theDLDbListKey:kDefaultDLDbListKey)
+DLDbListCFPref::DLDbListCFPref(SecPreferencesDomain domain) : mDomain(domain), mPropertyList(NULL), mChanged(false),
+    mSearchListSet(false), mDefaultDLDbIdentifierSet(false), mLoginDLDbIdentifierSet(false)
 {
-    loadOrCreate();
+    x_debug2("New DLDbListCFPref %p for domain %d", this, domain);
+	loadPropertyList(true);
+}
+
+void DLDbListCFPref::set(SecPreferencesDomain domain)
+{
+	save();
+
+	mDomain = domain;
+
+    x_debug2("DLDbListCFPref %p domain set to %d", this, domain);
+
+	if (loadPropertyList(true))
+        resetCachedValues();
 }
 
 DLDbListCFPref::~DLDbListCFPref()
 {
     save();
+
+    x_debug1("~DLDbListCFPref %p", this);
+
+	if (mPropertyList)
+		CFRelease(mPropertyList);
 }
 
-void DLDbListCFPref::loadOrCreate()
+bool
+DLDbListCFPref::loadPropertyList(bool force)
 {
- 
-    CFRef<CFArrayRef> theArray(static_cast<CFArrayRef>(::CFPreferencesCopyValue(mDLDbListKey, mPrefsDomain, kCFPreferencesCurrentUser, kCFPreferencesAnyHost)));
-	if (!theArray)
-        return;
+    string prefsPath;
 
-    if (::CFGetTypeID(theArray)!=::CFArrayGetTypeID())
+	switch (mDomain)
     {
-        ::CFPreferencesSetValue(mDLDbListKey, NULL, mPrefsDomain, kCFPreferencesCurrentUser, kCFPreferencesAnyHost);
-		return;
-    }
-    
-    CFIndex top=::CFArrayGetCount(theArray);
-    // Each entry is a CFDictionary; peel it off & add it to the array
-    for (CFIndex idx=0;idx<top;idx++)
+	case kSecPreferencesDomainUser:
+		prefsPath = ExpandTildesInPath(kUserDefaultPath);
+		break;
+	case kSecPreferencesDomainSystem:
+		prefsPath = kSystemDefaultPath;
+		break;
+	case kSecPreferencesDomainCommon:
+		prefsPath = kCommonDefaultPath;
+		break;
+	default:
+		MacOSError::throwMe(errSecInvalidPrefsDomain);
+	}
+
+	x_debug2("DLDbListCFPref::loadPropertyList: force=%s prefsPath=%s", force ? "true" : "false",
+		prefsPath.c_str());
+
+	CFAbsoluteTime now = CFAbsoluteTimeGetCurrent();
+
+    // If for some reason the prefs file path has changed, blow away the old plist and force an update
+    if (mPrefsPath != prefsPath)
     {
-        CFDictionaryRef theDict=reinterpret_cast<CFDictionaryRef>(::CFArrayGetValueAtIndex(theArray,idx));
-        DLDbIdentifier theDLDbIdentifier=cfDictionaryRefToDLDbIdentifier(theDict);
-        push_back(theDLDbIdentifier);
+        mPrefsPath = prefsPath;
+        if (mPropertyList)
+        {
+            CFRelease(mPropertyList);
+            mPropertyList = NULL;
+        }
+
+		mPrefsTimeStamp = now;
     }
-	
-	
-	mPrefsTimeStamp=CFAbsoluteTimeGetCurrent();
+	else if (!force)
+	{
+		if (now - mPrefsTimeStamp < kDLDbListCFPrefRevertInterval)
+			return false;
 
+		mPrefsTimeStamp = now;
+	}
 
+	struct stat st;
+	if (stat(mPrefsPath.c_str(), &st))
+	{
+		if (errno == ENOENT)
+		{
+			if (mPropertyList)
+			{
+				if (CFDictionaryGetCount(mPropertyList) == 0)
+					return false;
+				CFRelease(mPropertyList);
+			}
+
+			mPropertyList = CFDictionaryCreateMutable(kCFAllocatorDefault, 0, &kCFTypeDictionaryKeyCallBacks, &kCFTypeDictionaryValueCallBacks);
+			return true;
+		}
+	}
+	else
+	{
+		if (mPropertyList)
+		{
+			if (mTimespec.tv_sec == st.st_mtimespec.tv_sec
+				&& mTimespec.tv_nsec == st.st_mtimespec.tv_nsec)
+				return false;
+		}
+
+		mTimespec = st.st_mtimespec;
+	}
+
+	CFMutableDictionaryRef thePropertyList = NULL;
+	CFMutableDataRef xmlData = NULL;
+	CFStringRef errorString = NULL;
+	int fd = -1;
+
+	do
+	{
+		fd = open(mPrefsPath.c_str(), O_RDONLY, 0);
+		if (fd < 0)
+			break;
+
+		off_t theSize = lseek(fd, 0, SEEK_END);
+		if (theSize <= 0)
+			break;
+
+		if (lseek(fd, 0, SEEK_SET))
+			break;
+
+		xmlData = CFDataCreateMutable(NULL, CFIndex(theSize));
+		if (!xmlData)
+			break;
+		CFDataSetLength(xmlData, CFIndex(theSize));
+		void *buffer = reinterpret_cast<void *>(CFDataGetMutableBytePtr(xmlData));
+		if (!buffer)
+			break;
+		ssize_t bytesRead = read(fd, buffer, theSize);
+		if (bytesRead != theSize)
+			break;
+
+		thePropertyList = CFMutableDictionaryRef(CFPropertyListCreateFromXMLData(NULL, xmlData, kCFPropertyListMutableContainers, &errorString));
+		if (!thePropertyList)
+			break;
+
+		if (CFGetTypeID(thePropertyList) != CFDictionaryGetTypeID())
+		{
+			CFRelease(thePropertyList);
+			thePropertyList = NULL;
+			break;
+		}
+	} while (0);
+
+	if (fd >= 0)
+		close(fd);
+	if (xmlData)
+		CFRelease(xmlData);
+	if (errorString)
+		CFRelease(errorString);
+
+	if (!thePropertyList)
+	{
+		thePropertyList = CFDictionaryCreateMutable(kCFAllocatorDefault, 0, &kCFTypeDictionaryKeyCallBacks, &kCFTypeDictionaryValueCallBacks);
+	}
+
+	if (mPropertyList)
+	{
+		if (CFEqual(mPropertyList, thePropertyList))
+		{
+            // The new property list is the same as the old one, so nothing has changed.
+			CFRelease(thePropertyList);
+			return false;
+		}
+		CFRelease(mPropertyList);
+	}
+
+	mPropertyList = thePropertyList;
+	return true;
+}
+
+void
+DLDbListCFPref::writePropertyList()
+{
+	if (!mPropertyList || CFDictionaryGetCount(mPropertyList) == 0)
+	{
+		// There is nothing in the mPropertyList dictionary,
+		// so we don't need a prefs file.
+		unlink(mPrefsPath.c_str());
+	}
+	else
+	{
+		CFDataRef xmlData = CFPropertyListCreateXMLData(NULL, mPropertyList);
+		if (!xmlData)
+			return; // Bad out of memory or something evil happened let's act like CF and do nothing.
+
+		mode_t mode = 0666;
+		int fd = open(mPrefsPath.c_str(), O_WRONLY|O_CREAT|O_TRUNC, mode);
+		if (fd >= 0)
+		{
+			const void *buffer = CFDataGetBytePtr(xmlData);
+			size_t toWrite = CFDataGetLength(xmlData);
+			/* ssize_t bytesWritten = */ write(fd, buffer, toWrite);
+			// Emulate CFPreferences by not checking for any errors.
+	
+			fsync(fd);
+			struct stat st;
+			if (!fstat(fd, &st))
+				mTimespec = st.st_mtimespec;
+
+			close(fd);
+		}
+
+		CFRelease(xmlData);
+	}
+
+	mPrefsTimeStamp = CFAbsoluteTimeGetCurrent();
+}
+
+void
+DLDbListCFPref::resetCachedValues()
+{
+	// Unset the login and default Keychain.
+	mLoginDLDbIdentifier = mDefaultDLDbIdentifier = DLDbIdentifier();
+
+	// Clear the searchList.
+	mSearchList.clear();
+
+	changed(false);
+
+    // Note that none of our cached values are valid
+    mSearchListSet = mDefaultDLDbIdentifierSet = mLoginDLDbIdentifierSet = false;
+
+	mPrefsTimeStamp = CFAbsoluteTimeGetCurrent();
 }
 
 void DLDbListCFPref::save()
 {
     if (!hasChanged())
         return;
-    // Make a temporary CFArray with the contents of the vector
- 	CFRef<CFMutableArrayRef> theArray(::CFArrayCreateMutable(kCFAllocatorDefault,size(),&kCFTypeArrayCallBacks));
-    for (DLDbList::const_iterator ix=begin();ix!=end();ix++)
-	{
-		CFRef<CFDictionaryRef> aDict(dlDbIdentifierToCFDictionaryRef(*ix));
-        ::CFArrayAppendValue(theArray,aDict);
-	}
 
-	::CFPreferencesSetValue(mDLDbListKey, theArray, mPrefsDomain, kCFPreferencesCurrentUser, kCFPreferencesAnyHost);
-    ::CFPreferencesSynchronize(mPrefsDomain, kCFPreferencesCurrentUser, kCFPreferencesAnyHost);
+	// Resync from disc to make sure we don't clobber anyone elses changes.
+	// @@@ This is probably already done by the next layer up so we don't
+	// really need to do it here again.
+	loadPropertyList(true);
 
+    // Do the searchList first since it might end up invoking defaultDLDbIdentifier() which can set
+    // mLoginDLDbIdentifierSet and mDefaultDLDbIdentifierSet to true.
+    if (mSearchListSet)
+    {
+        // Make a temporary CFArray with the contents of the vector
+        if (mSearchList.size() == 1 && mSearchList[0] == defaultDLDbIdentifier() && mSearchList[0] == LoginDLDbIdentifier())
+        {
+            // The only element in the search list is the default keychain, which is a
+            // post Jaguar style login keychain, so omit the entry from the prefs file.
+            CFDictionaryRemoveValue(mPropertyList, kDefaultDLDbListKey);
+        }
+        else
+        {
+            CFMutableArrayRef searchArray = CFArrayCreateMutable(kCFAllocatorDefault, mSearchList.size(), &kCFTypeArrayCallBacks);
+            for (DLDbList::const_iterator ix=mSearchList.begin();ix!=mSearchList.end();ix++)
+            {
+                CFDictionaryRef aDict = dlDbIdentifierToCFDictionaryRef(*ix);
+                CFArrayAppendValue(searchArray, aDict);
+                CFRelease(aDict);
+            }
+    
+            CFDictionarySetValue(mPropertyList, kDefaultDLDbListKey, searchArray);
+            CFRelease(searchArray);
+        }
+    }
+
+    if (mLoginDLDbIdentifierSet)
+    {
+        // Make a temporary CFArray with the login keychain
+        CFArrayRef loginArray = NULL;
+        if (!mLoginDLDbIdentifier)
+        {
+            loginArray = CFArrayCreate(kCFAllocatorDefault, NULL, 0, &kCFTypeArrayCallBacks);
+        }
+        else if (!(mLoginDLDbIdentifier == LoginDLDbIdentifier())
+            && !(mLoginDLDbIdentifier == JaguarLoginDLDbIdentifier()))
+        {
+            CFDictionaryRef aDict = dlDbIdentifierToCFDictionaryRef(mLoginDLDbIdentifier);
+            const void *value = reinterpret_cast<const void *>(aDict);
+            loginArray = CFArrayCreate(kCFAllocatorDefault, &value, 1, &kCFTypeArrayCallBacks);
+            CFRelease(aDict);
+        }
+    
+        if (loginArray)
+        {
+            CFDictionarySetValue(mPropertyList, kLoginKeychainKey, loginArray);
+            CFRelease(loginArray);
+        }
+        else
+            CFDictionaryRemoveValue(mPropertyList, kLoginKeychainKey);
+    }
+
+    if (mDefaultDLDbIdentifierSet)
+    {
+        // Make a temporary CFArray with the default keychain
+        CFArrayRef defaultArray = NULL;
+        if (!mDefaultDLDbIdentifier)
+        {
+            defaultArray = CFArrayCreate(kCFAllocatorDefault, NULL, 0, &kCFTypeArrayCallBacks);
+        }
+        else if (!(mDefaultDLDbIdentifier == LoginDLDbIdentifier()))
+        {
+            CFDictionaryRef aDict = dlDbIdentifierToCFDictionaryRef(mDefaultDLDbIdentifier);
+            const void *value = reinterpret_cast<const void *>(aDict);
+            defaultArray = CFArrayCreate(kCFAllocatorDefault, &value, 1, &kCFTypeArrayCallBacks);
+            CFRelease(aDict);
+        }
+    
+        if (defaultArray)
+        {
+            CFDictionarySetValue(mPropertyList, kDefaultKeychainKey, defaultArray);
+            CFRelease(defaultArray);
+        }
+        else
+            CFDictionaryRemoveValue(mPropertyList, kDefaultKeychainKey);
+    }
+
+	writePropertyList();
     changed(false);
 }
-
-void DLDbListCFPref::clearDefaultKeychain()
-{
-	::CFPreferencesSetValue(mDLDbListKey, NULL, mPrefsDomain, kCFPreferencesCurrentUser, kCFPreferencesAnyHost);
-    ::CFPreferencesSynchronize(mPrefsDomain, kCFPreferencesCurrentUser, kCFPreferencesAnyHost);
-	
-    changed(false);
-}
-
 
 
 //----------------------------------------------------------------------
 //			Conversions
 //----------------------------------------------------------------------
 
+DLDbIdentifier DLDbListCFPref::LoginDLDbIdentifier()
+{
+	CSSM_VERSION theVersion={};
+    CssmSubserviceUid ssuid(gGuidAppleCSPDL,&theVersion,0,CSSM_SERVICE_DL|CSSM_SERVICE_CSP);
+	CssmNetAddress *dbLocation=NULL;
+
+	switch (mDomain) {
+	case kSecPreferencesDomainUser:
+		return DLDbIdentifier(ssuid, ExpandTildesInPath(kUserLoginKeychainPath).c_str(), dbLocation);
+	default:
+		assert(false);
+	case kSecPreferencesDomainSystem:
+	case kSecPreferencesDomainCommon:
+		return DLDbIdentifier(ssuid, kSystemLoginKeychainPath, dbLocation);
+	}
+}
+
+DLDbIdentifier DLDbListCFPref::JaguarLoginDLDbIdentifier()
+{
+	CSSM_VERSION theVersion={};
+    CssmSubserviceUid ssuid(gGuidAppleCSPDL,&theVersion,0,CSSM_SERVICE_DL|CSSM_SERVICE_CSP);
+	CssmNetAddress *dbLocation=NULL;
+
+	switch (mDomain) {
+	case kSecPreferencesDomainUser:
+    {
+        string basepath = ExpandTildesInPath(kLoginKeychainPathPrefix) + getPwInfo(kUsername);
+        return DLDbIdentifier(ssuid,basepath.c_str(),dbLocation);
+    }
+	case kSecPreferencesDomainSystem:
+	case kSecPreferencesDomainCommon:
+		return DLDbIdentifier(ssuid, kSystemLoginKeychainPath, dbLocation);
+	default:
+		assert(false);
+		return DLDbIdentifier();
+	}
+}
+
 DLDbIdentifier DLDbListCFPref::cfDictionaryRefToDLDbIdentifier(CFDictionaryRef theDict)
 {
     // We must get individual values from the dictionary and store in basic types
+	if (CFGetTypeID(theDict) != CFDictionaryGetTypeID())
+		throw std::logic_error("wrong type in property list");
 
     // GUID
     CCFValue vGuid(::CFDictionaryGetValue(theDict,kKeyGUID));
@@ -156,29 +498,60 @@ DLDbIdentifier DLDbListCFPref::cfDictionaryRefToDLDbIdentifier(CFDictionaryRef t
     return DLDbIdentifier(ssuid,ExpandTildesInPath(dbName).c_str(),dbLocation);
 }
 
-string DLDbListCFPref::HomeDir()
+void DLDbListCFPref::clearPWInfo ()
 {
-    const char *home = getenv("HOME");
-    if (!home)
+    if (mPdbLookup != NULL)
     {
-        // If $HOME is unset get the current users home directory from the passwd file.
-        struct passwd *pw = getpwuid(getuid());
-        if (pw)
-            home = pw->pw_dir;
+        delete mPdbLookup;
+        mPdbLookup = NULL;
     }
-    return home ? home : "";
+}
+
+string DLDbListCFPref::getPwInfo(PwInfoType type)
+{
+	// Get our effective uid
+	uid_t uid = geteuid();
+	// If we are setuid root use the real uid instead
+	if (!uid) uid = getuid();
+
+    // get the password entries
+    if (mPdbLookup == NULL)
+    {
+        mPdbLookup = new PasswordDBLookup ();
+    }
+    
+    mPdbLookup->lookupInfoOnUID (uid);
+    
+    string result;
+    switch (type)
+    {
+    case kHomeDir:
+        result = mPdbLookup->getDirectory ();
+        break;
+    case kUsername:
+        result = mPdbLookup->getName ();
+        break;
+    }
+
+	return result;
 }
 
 string DLDbListCFPref::ExpandTildesInPath(const string &inPath)
 {
     if ((short)inPath.find("~/",0,2) == 0)
-        return HomeDir() + inPath.substr(1);
+        return getPwInfo(kHomeDir) + inPath.substr(1);
     else
         return inPath;
 }
 
 string DLDbListCFPref::StripPathStuff(const string &inPath)
 {
+    if (inPath.find("/private/var/automount/Network/",0,31) == 0)
+        return inPath.substr(22);
+    if (inPath.find("/private/automount/Servers/",0,27) == 0)
+        return "/Network" + inPath.substr(18);
+    if (inPath.find("/automount/Servers/",0,19) == 0)
+        return "/Network" + inPath.substr(10);
     if (inPath.find("/private/automount/Network/",0,27) == 0)
         return inPath.substr(18);
     if (inPath.find("/automount/Network/",0,19) == 0)
@@ -191,7 +564,7 @@ string DLDbListCFPref::StripPathStuff(const string &inPath)
 string DLDbListCFPref::AbbreviatedPath(const string &inPath)
 {
     string path = StripPathStuff(inPath);
-    string home = StripPathStuff(HomeDir() + "/");
+    string home = StripPathStuff(getPwInfo(kHomeDir) + "/");
     size_t homeLen = home.length();
 
     if (homeLen > 1 && path.find(home.c_str(), 0, homeLen) == 0)
@@ -257,18 +630,213 @@ CFDictionaryRef DLDbListCFPref::dlDbIdentifierToCFDictionaryRef(const DLDbIdenti
     ::CFRetain(aDict);
 	return aDict;
 }
+
 bool DLDbListCFPref::revert(bool force)
 { 
+	// If the prefs have not been refreshed in the last kDLDbListCFPrefRevertInterval
+	// seconds or we are asked to force a reload, then reload.
+	if (!loadPropertyList(force))
+		return false;
 
-	// if the prefs have not been refreshed in the last 5 seconds force a reload
-	if (force || CFAbsoluteTimeGetCurrent() - mPrefsTimeStamp > kDLDbListCFPrefRevertInterval)
-	{
-		clear();
-		::CFPreferencesSynchronize(mPrefsDomain, kCFPreferencesCurrentUser, kCFPreferencesAnyHost);
-	    loadOrCreate();
-		return true;  // @@@ Be smarter about when something *really* changed
-	}
-
-	return false;
+	resetCachedValues();
+	return true;
 }
 
+void
+DLDbListCFPref::add(const DLDbIdentifier &dldbIdentifier)
+{
+    for (vector<DLDbIdentifier>::const_iterator ix = searchList().begin(); ix != mSearchList.end(); ++ix)
+	{
+        if (*ix==dldbIdentifier)		// already in list
+            return;
+	}
+
+    mSearchList.push_back(dldbIdentifier);
+    changed(true);
+}
+
+void
+DLDbListCFPref::remove(const DLDbIdentifier &dldbIdentifier)
+{
+    // Make sure mSearchList is set
+    searchList();
+    for (vector<DLDbIdentifier>::iterator ix = mSearchList.begin(); ix != mSearchList.end(); ++ix)
+	{
+		if (*ix==dldbIdentifier)		// found in list
+		{
+			mSearchList.erase(ix);
+			changed(true);
+			break;
+		}
+	}
+}
+
+const vector<DLDbIdentifier> &
+DLDbListCFPref::searchList()
+{
+    if (!mSearchListSet)
+    {
+        CFArrayRef searchList = reinterpret_cast<CFArrayRef>(CFDictionaryGetValue(mPropertyList, kDefaultDLDbListKey));
+        if (searchList && CFGetTypeID(searchList) != CFArrayGetTypeID())
+            searchList = NULL;
+
+        if (searchList)
+        {
+            CFIndex top = CFArrayGetCount(searchList);
+            // Each entry is a CFDictionary; peel it off & add it to the array
+            for (CFIndex idx = 0; idx < top; ++idx)
+            {
+                CFDictionaryRef theDict = reinterpret_cast<CFDictionaryRef>(CFArrayGetValueAtIndex(searchList, idx));
+                try
+                {
+                    mSearchList.push_back(cfDictionaryRefToDLDbIdentifier(theDict));
+                }
+                catch (...)
+                {
+                    // Drop stuff that doesn't parse on the floor.
+                }
+            }
+    
+            // If there were entries specified, but they were invalid revert to using the
+            // default keychain in the searchlist.
+            if (top > 0 && mSearchList.size() == 0)
+                searchList = NULL;
+        }
+
+        // The default when no search list is specified is to only search the
+        // default keychain.
+        if (!searchList && static_cast<bool>(defaultDLDbIdentifier()))
+            mSearchList.push_back(mDefaultDLDbIdentifier);
+
+        mSearchListSet = true;
+    }
+
+	return mSearchList;
+}
+
+void
+DLDbListCFPref::searchList(const vector<DLDbIdentifier> &searchList)
+{
+	vector<DLDbIdentifier> newList(searchList);
+	mSearchList.swap(newList);
+    mSearchListSet = true;
+    changed(true);
+}
+
+void
+DLDbListCFPref::defaultDLDbIdentifier(const DLDbIdentifier &dlDbIdentifier)
+{
+	if (!(defaultDLDbIdentifier() == dlDbIdentifier))
+	{
+		mDefaultDLDbIdentifier = dlDbIdentifier;
+		changed(true);
+	}
+}
+
+const DLDbIdentifier &
+DLDbListCFPref::defaultDLDbIdentifier()
+{
+    if (!mDefaultDLDbIdentifierSet)
+    {
+        CFArrayRef defaultArray = reinterpret_cast<CFArrayRef>(CFDictionaryGetValue(mPropertyList, kDefaultKeychainKey));
+        if (defaultArray && CFGetTypeID(defaultArray) != CFArrayGetTypeID())
+            defaultArray = NULL;
+
+        if (defaultArray && CFArrayGetCount(defaultArray) > 0)
+        {
+            CFDictionaryRef defaultDict = reinterpret_cast<CFDictionaryRef>(CFArrayGetValueAtIndex(defaultArray, 0));
+            try
+            {
+                x_debug("Getting default DLDbIdentifier from defaultDict");
+                mDefaultDLDbIdentifier = cfDictionaryRefToDLDbIdentifier(defaultDict);
+                x_debug1("Now we think the default keychain is %s", (mDefaultDLDbIdentifier) ? mDefaultDLDbIdentifier.dbName() : "<NULL>");
+            }
+            catch (...)
+            {
+                // If defaultArray doesn't parse fall back on the default way of getting the default keychain
+                defaultArray = NULL;
+            }
+        }
+    
+        if (!defaultArray)
+        {
+            // If the Panther style login keychain actually exists we use that otherwise no
+            // default is set.
+            mDefaultDLDbIdentifier = loginDLDbIdentifier();
+            x_debug1("Now we think the default keychain is %s", (mDefaultDLDbIdentifier) ? mDefaultDLDbIdentifier.dbName() : "<NULL>");
+
+            struct stat st;
+            int st_result = stat(mDefaultDLDbIdentifier.dbName(), &st);
+            if (st_result)
+            {
+                x_debug2("stat() of %s returned %d", mDefaultDLDbIdentifier.dbName(), st_result);
+                mDefaultDLDbIdentifier  = DLDbIdentifier();
+                x_debug1("After DLDbIdentifier(), we think the default keychain is %s", static_cast<bool>(mDefaultDLDbIdentifier) ? mDefaultDLDbIdentifier.dbName() : "<NULL>");
+            }
+        }
+
+        mDefaultDLDbIdentifierSet = true;
+    }
+
+	return mDefaultDLDbIdentifier;
+}
+
+void
+DLDbListCFPref::loginDLDbIdentifier(const DLDbIdentifier &dlDbIdentifier)
+{
+	if (!(loginDLDbIdentifier() == dlDbIdentifier))
+	{
+		mLoginDLDbIdentifier = dlDbIdentifier;
+		changed(true);
+	}
+}
+
+const DLDbIdentifier &
+DLDbListCFPref::loginDLDbIdentifier()
+{
+    if (!mLoginDLDbIdentifierSet)
+    {
+        CFArrayRef loginArray = reinterpret_cast<CFArrayRef>(CFDictionaryGetValue(mPropertyList, kLoginKeychainKey));
+        if (loginArray && CFGetTypeID(loginArray) != CFArrayGetTypeID())
+            loginArray = NULL;
+
+        if (loginArray && CFArrayGetCount(loginArray) > 0)
+        {
+            CFDictionaryRef loginDict = reinterpret_cast<CFDictionaryRef>(CFArrayGetValueAtIndex(loginArray, 0));
+            try
+            {
+                x_debug("Getting login DLDbIdentifier from loginDict");
+                mLoginDLDbIdentifier = cfDictionaryRefToDLDbIdentifier(loginDict);
+                x_debug1("We think the login keychain is %s", static_cast<bool>(mLoginDLDbIdentifier) ? mLoginDLDbIdentifier.dbName() : "<NULL>");
+            }
+            catch (...)
+            {
+                // If loginArray doesn't parse fall back on the default way of getting the login keychain.
+                loginArray = NULL;
+            }
+        }
+    
+        if (!loginArray)
+        {
+            // If the jaguar login keychain actually exists we use that otherwise no
+            // login keychain is set.
+            x_debug("No loginDict found, calling JaguarLoginDLDbIdentifier()");
+            mLoginDLDbIdentifier = JaguarLoginDLDbIdentifier();
+            x_debug1("After JaguarLoginDLDbIdentifier(), we think the login keychain is %s", static_cast<bool>(mLoginDLDbIdentifier) ? mLoginDLDbIdentifier.dbName() : "<NULL>");
+    
+            struct stat st;
+            int st_result = stat(mLoginDLDbIdentifier.dbName(), &st);
+            if (st_result)
+            {
+                // Jaguar login Keychain didn't exist, so assume new style one.
+                x_debug2("stat() of %s returned %d", mLoginDLDbIdentifier.dbName(), st_result);
+                mLoginDLDbIdentifier = LoginDLDbIdentifier();
+                x_debug1("After LoginDLDbIdentifier(), we think the login keychain is %s", static_cast<bool>(mLoginDLDbIdentifier) ? mLoginDLDbIdentifier.dbName() : "<NULL>");
+            }
+        }
+
+        mLoginDLDbIdentifierSet = true;
+    }
+
+	return mLoginDLDbIdentifier;
+}

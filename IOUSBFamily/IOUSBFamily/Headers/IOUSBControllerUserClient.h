@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1998-2002 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 1998-2003 Apple Computer, Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -22,6 +22,7 @@
  * 
  * @APPLE_LICENSE_HEADER_END@
  */
+
 #ifndef _IOKIT_IOUSBCONTROLLERUSERCLIENT_H
 #define _IOKIT_IOUSBCONTROLLERUSERCLIENT_H
 
@@ -41,7 +42,6 @@ private:
     task_t				fTask;
     const IOExternalMethod *		fMethods;
     IOCommandGate *			fGate;
-    IOMemoryMap *			fMemMap;
     UInt32				fNumMethods;
     mach_port_t 			fWakePort;
     bool				fDead;
@@ -79,8 +79,6 @@ public:
     virtual IOReturn			GetDebuggingLevel(KernelDebugLevel * inLevel);
     virtual IOReturn			GetDebuggingType(KernelDebuggingOutputType * inType);
     virtual IOReturn			SetTestMode(UInt32 mode, UInt32 port);
-    virtual IOReturn			ReadRegister(UInt32 offset, UInt32 size, void *value);
-    virtual IOReturn			WriteRegister(UInt32 offset, UInt32 size, UInt32 value);
 };
 
 

@@ -236,7 +236,7 @@
 
   $lsof -iTCP@ipscgate:login
   COMMAND     PID     USER   FD   TYPE     DEVICE   SIZE/OFF  INODE NAME
-  rlogin    25023      abe    3u  inet 0x10144168      0t184    TCP vic.cc.purdue.edu:1023->ipscgate.cc.purdue.edu:login
+  rlogin    25023      abe    3u  inet 0x10144168      0t184    TCP lsof.itap.purdue.edu:1023->ipscgate.cc.purdue.edu:login
   ...
 
   There's another way.  Notice the 0x10144168 in the DEVICE column
@@ -253,7 +253,7 @@
   way, too:
 
   $ lsof -i | grep 10144168
-  rlogin    25023      abe    3u  inet 0x10144168      0t184    TCP vic.cc.purdue.edu:1023->ipscgate.cc.purdue.edu:login
+  rlogin    25023      abe    3u  inet 0x10144168      0t184    TCP lsof.itap.purdue.edu:1023->ipscgate.cc.purdue.edu:login
   ...
 
 
@@ -297,15 +297,15 @@
     to identify the login.
 
     This example comes from a Solaris 2.4 system, named klaatu.cc.
-    I've logged on to it via rlogin from vic.cc.  The first lsof
+    I've logged on to it via rlogin from lsof.itap.  The first lsof
     probe,
 
-    $ lsof -i@vic.cc
+    $ lsof -i@lsof.itap
 
     yields (among other things):
 
     COMMAND     PID     USER   FD   TYPE     DEVICE   SIZE/OFF  INODE NAME
-    in.rlogin  7362     root    0u  inet 0xfc0193b0      0t242    TCP klaatu.cc.purdue.edu:login->vic.cc.purdue.edu:1023
+    in.rlogin  7362     root    0u  inet 0xfc0193b0      0t242    TCP klaatu.cc.purdue.edu:login->lsof.itap.purdue.edu:1023
     ...
 
     This confirms that a connection exists.  A second lsof probe
@@ -314,7 +314,7 @@
     $ lsof -p7362
     COMMAND     PID     USER   FD   TYPE     DEVICE   SIZE/OFF  INODE NAME
     ...
-    in.rlogin  7362     root    0u  inet 0xfc0193b0      0t242    TCP klaatu.cc.purdue.edu:login->vic.cc.purdue.edu:1023
+    in.rlogin  7362     root    0u  inet 0xfc0193b0      0t242    TCP klaatu.cc.purdue.edu:login->lsof.itap.purdue.edu:1023
     ...
     in.rlogin  7362     root    3u  VCHR    23,   0       0t66  52928 /devices/pseudo/clone@0:ptmx->pckt->ptm
 
@@ -334,11 +334,11 @@
     of the symbolic link that lsof finds at /dev/pts/0.)
 
     Here's a second example, done on an HP-UX 9.01 host named ghg.ecn.
-    Again, I've logged on to it from vic.cc, so I start with:
+    Again, I've logged on to it from lsof.itap, so I start with:
 
-    $ lsof -i@vic.cc
+    $ lsof -i@lsof.itap
     COMMAND     PID     USER   FD   TYPE       DEVICE   SIZE/OFF  INODE NAME
-    rlogind   10214     root    0u  inet   0x041d5f00     0t1536    TCP ghg.ecn.purdue.edu:login->vic.cc.purdue.edu:1023
+    rlogind   10214     root    0u  inet   0x041d5f00     0t1536    TCP ghg.ecn.purdue.edu:login->lsof.itap.purdue.edu:1023
     ...
 
     Then,
@@ -346,7 +346,7 @@
     $ lsof -p10214
     COMMAND     PID     USER   FD   TYPE       DEVICE   SIZE/OFF  INODE NAME
     ...
-    rlogind   10214     root    0u  inet   0x041d5f00     0t2005    TCP ghg.ecn.purdue.edu:login->vic.cc.purdue.edu:1023
+    rlogind   10214     root    0u  inet   0x041d5f00     0t2005    TCP ghg.ecn.purdue.edu:login->lsof.itap.purdue.edu:1023
     ...
     rlogind   10214     root    3u  VCHR  16,0x000030     0t2037  24642 /dev/ptym/ptys0
 
@@ -360,19 +360,19 @@
     ...
 
     Here's a third example for an AIX 4.1.4 system.  I've used telnet
-    to connect to it from vic.cc.purdue.edu.  I start with:
+    to connect to it from lsof.itap.purdue.edu.  I start with:
 
-    $ lsof -i@vic.cc.purdue.edu
+    $ lsof -i@lsof.itap.purdue.edu
     COMMAND     PID     USER   FD   TYPE     DEVICE   SIZE/OFF      INODE NAME
     ...
-    telnetd   15616     root    0u  inet 0x05a93400     0t5156        TCP cloud.cc.purdue.edu:telnet->vic.cc.purdue.edu:3369
+    telnetd   15616     root    0u  inet 0x05a93400     0t5156        TCP cloud.cc.purdue.edu:telnet->lsof.itap.purdue.edu:3369
 
     Then I look at the telnetd process:
 
     $ lsof -p15616
     COMMAND     PID     USER   FD   TYPE     DEVICE   SIZE/OFF      INODE NAME
     ...
-    telnetd   15616     root    0u  inet 0x05a93400     0t5641        TCP cloud.cc.purdue.edu:telnet->vic.cc.purdue.edu:3369
+    telnetd   15616     root    0u  inet 0x05a93400     0t5641        TCP cloud.cc.purdue.edu:telnet->lsof.itap.purdue.edu:3369
     ...
     telnetd   15616     root    3u  VCHR    25,   0     0t5493        103 /dev/ptc/0
 
@@ -392,7 +392,9 @@
     two Perl scripts, idrlogin.perl (Perl 4) and idrlogin.perl5
     (Perl 5), that use lsof field output to display values for
     shells that are parented by rlogind, sshd, or telnetd, or
-    connected directly to TCP sockets.
+    connected directly to TCP sockets.  The lsof test suite contains
+    a C library that can be adapted for use with C programs that
+    need to call lsof and process its field output.
 
     The two Perl scripts use the lsof -R option; it causes the
     paRent process ID (PPID) to be listed in the lsof output.  The
@@ -413,7 +415,7 @@
     sh       csh       18207 in.rlogind  18205 pts/1      babylon5.cc.purdue.edu
     root     csh       18242 in.rlogind  18205 pts/1      babylon5.cc.purdue.edu
     trouble  ksh       19208 in.rlogind  18205 pts/1      babylon5.cc.purdue.edu
-    abe      ksh       21334 in.rlogind  21332 pts/2      vic.cc.purdue.edu
+    abe      ksh       21334 in.rlogind  21332 pts/2      lsof.itap.purdue.edu
 
     The scripts assume that its parent directory contains an
     executable lsof.  If you decide to use one of the scripts, you
@@ -427,7 +429,7 @@
     tweeker: 1 = cd src/lsof4/scripts
     tweeker: 9 = ./idrlogin.perl
     Login    Shell       PID Via           PID TTY        From
-    abe      ksh        9438 in.telnetd   9436 pts/3      vic.cc.purdue.edu
+    abe      ksh        9438 in.telnetd   9436 pts/3      lsof.itap.purdue.edu
 
 
 10. Watching an Ftp or Rcp Transfer
@@ -704,7 +706,9 @@
   open files with a special form of output, called field output,
   that can be parsed easily by a subsequent program.  The lsof
   distribution comes with sample AWK, Perl 4, and Perl 5 scripts
-  that post-process field output.
+  that post-process field output.  The lsof test suite has a C
+  library that could be adapted for use by C programs that want to
+  process lsof field output from an in-bound pipe.
 
   The lsof manual page describes field output in detail in its
   OUTPUT FOR OTHER PROGRAMS section.  A quick look at a sample
@@ -811,7 +815,7 @@ A.  Selection Options
 		multiple -i options.  Examples:
 
 		    $ lsof -iTCP
-		    $ lsof -i@vic.cc.purdue.edu:sendmail
+		    $ lsof -i@lsof.itap.purdue.edu:sendmail
 
 	-N	selects the listing of files mounted on NFS devices.
 
@@ -958,4 +962,4 @@ D.  Miscellaneous Lsof Options
 
 
 Vic Abell <abe@purdue.edu>
-October 16, 2001
+March 25, 2003

@@ -55,7 +55,7 @@
 
 // SCSI Architecture Model Family includes
 #include "SCSIPrimaryCommands.h"
-#include <IOKit/scsi-commands/SCSICommandDefinitions.h>
+#include <IOKit/scsi/SCSICommandDefinitions.h>
 
 
 //ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ

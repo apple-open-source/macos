@@ -1,9 +1,9 @@
 #
-# "$Id: Makefile,v 1.5 2002/06/11 20:14:11 jlovell Exp $"
+# "$Id: Makefile,v 1.6 2002/12/24 02:13:27 jlovell Exp $"
 #
 #   Man page makefile for the Common UNIX Printing System (CUPS).
 #
-#   Copyright 1993-2002 by Easy Software Products.
+#   Copyright 1993-2003 by Easy Software Products.
 #
 #   These coded instructions, statements, and computer programs are the
 #   property of Easy Software Products and are protected by Federal
@@ -40,7 +40,7 @@ LANGDIRS =
 all:	$(CAT1) $(CAT3) $(CAT5) $(CAT8)
 	for dir in $(LANGDIRS); do \
 		echo "Making all in man/$$dir..."; \
-		(cd $$dir; make all); \
+		(cd $$dir; $(MAKE) $(MFLAGS) all); \
 	done
 
 
@@ -52,7 +52,7 @@ clean:
 	$(RM) $(CAT1) $(CAT3) $(CAT5) $(CAT8)
 	for dir in $(LANGDIRS); do \
 		echo "Cleaning all in man/$$dir..."; \
-		(cd $$dir; make clean); \
+		(cd $$dir; $(MAKE) $(MFLAGS) clean); \
 	done
 
 
@@ -114,10 +114,10 @@ install:	all
 	$(LN) enable.$(CAT8EXT) $(AMANDIR)/cat$(MAN8EXT)/disable.$(CAT8EXT)
 	for dir in $(LANGDIRS); do \
 		echo "Installing all in man/$$dir..."; \
-		(cd $$dir; make install); \
+		(cd $$dir; $(MAKE) $(MFLAGS) install); \
 	done
 
 
 #
-# End of "$Id: Makefile,v 1.5 2002/06/11 20:14:11 jlovell Exp $".
+# End of "$Id: Makefile,v 1.6 2002/12/24 02:13:27 jlovell Exp $".
 #

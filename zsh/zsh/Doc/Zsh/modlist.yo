@@ -36,8 +36,14 @@ Standard scientific functions for use in mathematical evaluations.
 item(tt(zsh/parameter))(
 Access to internal hash tables via special associative arrays.
 )
+item(tt(zsh/pcre))(
+Interface to the PCRE library.
+)
 item(tt(zsh/sched))(
 A builtin that provides a timed execution facility within the shell.
+)
+item(tt(zsh/net/socket))(
+Manipulation of Unix domain sockets
 )
 item(tt(zsh/stat))(
 A builtin command interface to the tt(stat) system call.
@@ -63,9 +69,15 @@ A module allowing profiling for shell functions.
 item(tt(zsh/zpty))(
 A builtin for starting a command in a pseudo-terminal.
 )
+item(tt(zsh/zselect))(
+Block and return when file descriptors are ready.
+)
 item(tt(zsh/zutil))(
 Some utility builtins, e.g. the one for supporting configuration via 
 styles.
+)
+item(tt(zsh/net/tcp))(
+Manipulation of TCP sockets
 )
 enditem()
 includefile(Zsh/modmenu.yo)
@@ -102,13 +114,19 @@ includefile(Zsh/mod_mapfile.yo)
 texinode(The zsh/mathfunc Module)(The zsh/parameter Module)(The zsh/mapfile Module)(Zsh Modules)
 sect(The zsh/mathfunc Module)
 includefile(Zsh/mod_mathfunc.yo)
-texinode(The zsh/parameter Module)(The zsh/sched Module)(The zsh/mathfunc Module)(Zsh Modules)
+texinode(The zsh/parameter Module)(The zsh/pcre Module)(The zsh/mathfunc Module)(Zsh Modules)
 sect(The zsh/parameter Module)
 includefile(Zsh/mod_parameter.yo)
-texinode(The zsh/sched Module)(The zsh/stat Module)(The zsh/parameter Module)(Zsh Modules)
+texinode(The zsh/pcre Module)(The zsh/sched Module)(The zsh/parameter Module)(Zsh Modules)
+sect(The zsh/pcre Module)
+includefile(Zsh/mod_pcre.yo)
+texinode(The zsh/sched Module)(The zsh/net/socket Module)(The zsh/pcre Module)(Zsh Modules)
 sect(The zsh/sched Module)
 includefile(Zsh/mod_sched.yo)
-texinode(The zsh/stat Module)(The zsh/termcap Module)(The zsh/sched Module)(Zsh Modules)
+texinode(The zsh/net/socket Module)(The zsh/stat Module)(The zsh/sched Module)(Zsh Modules)
+sect(The zsh/net/socket Module)
+includefile(Zsh/mod_socket.yo)
+texinode(The zsh/stat Module)(The zsh/termcap Module)(The zsh/net/socket Module)(Zsh Modules)
 sect(The zsh/stat Module)
 includefile(Zsh/mod_stat.yo)
 texinode(The zsh/termcap Module)(The zsh/terminfo Module)(The zsh/stat Module)(Zsh Modules)
@@ -129,9 +147,15 @@ includefile(Zsh/mod_zleparameter.yo)
 texinode(The zsh/zprof Module)(The zsh/zpty Module)(The zsh/zleparameter Module)(Zsh Modules)
 sect(The zsh/zprof Module)
 includefile(Zsh/mod_zprof.yo)
-texinode(The zsh/zpty Module)(The zsh/zutil Module)(The zsh/zprof Module)(Zsh Modules)
+texinode(The zsh/zpty Module)(The zsh/zselect Module)(The zsh/zprof Module)(Zsh Modules)
 sect(The zsh/zpty Module)
 includefile(Zsh/mod_zpty.yo)
-texinode(The zsh/zutil Module)()(The zsh/zpty Module)(Zsh Modules)
+texinode(The zsh/zselect Module)(The zsh/zutil Module)(The zsh/zpty Module)(Zsh Modules)
+sect(The zsh/zselect Module)
+includefile(Zsh/mod_zselect.yo)
+texinode(The zsh/zutil Module)(The zsh/net/tcp Module)(The zsh/zselect Module)(Zsh Modules)
 sect(The zsh/zutil Module)
 includefile(Zsh/mod_zutil.yo)
+texinode(The zsh/net/tcp Module)()(The zsh/zutil Module)(Zsh Modules)
+sect(The zsh/net/tcp Module)
+includefile(Zsh/mod_tcp.yo)

@@ -1,9 +1,9 @@
 /*
- * "$Id: testmime.c,v 1.1.1.3 2002/04/08 07:26:36 jlovell Exp $"
+ * "$Id: testmime.c,v 1.1.1.9 2003/05/28 06:02:44 jlovell Exp $"
  *
  *   MIME test program for the Common UNIX Printing System (CUPS).
  *
- *   Copyright 1997-2002 by Easy Software Products, all rights reserved.
+ *   Copyright 1997-2003 by Easy Software Products, all rights reserved.
  *
  *   These coded instructions, statements, and computer programs are the
  *   property of Easy Software Products and are protected by Federal
@@ -51,9 +51,11 @@ int					/* O - Exit status */
 main(int  argc,				/* I - Number of command-line args */
      char *argv[])			/* I - Command-line arguments */
 {
-  int		i;			/* Looping var */
+  int		i, j;			/* Looping vars */
+  const char	*filter_path;		/* Filter path */
   char		super[MIME_MAX_SUPER],	/* Super-type name */
 		type[MIME_MAX_TYPE];	/* Type name */
+  int		compression;		/* Compression of file */
   mime_t	*mime;			/* MIME database */
   mime_type_t	*src,			/* Source type */
 		*dst,			/* Destination type */
@@ -62,9 +64,10 @@ main(int  argc,				/* I - Number of command-line args */
   int		num_filters;		/* Number of filters for the file */
 
 
-  mime = NULL;
-  src  = NULL;
-  dst  = NULL;
+  mime        = NULL;
+  src         = NULL;
+  dst         = NULL;
+  filter_path = "../filter";
 
   for (i = 1; i < argc; i ++)
     if (strcmp(argv[i], "-d") == 0)
@@ -72,22 +75,25 @@ main(int  argc,				/* I - Number of command-line args */
       i ++;
 
       if (i < argc)
-        mime = mimeLoad(argv[i]);
+        mime = mimeLoad(argv[i], filter_path);
+    }
+    else if (strcmp(argv[i], "-f") == 0)
+    {
+      i ++;
+
+      if (i < argc)
+        filter_path = argv[i];
     }
     else if (src == NULL)
     {
       if (!mime)
-	mime = mimeLoad("../conf");
+	mime = mimeLoad("../conf", filter_path);
 
-      src = mimeFileType(mime, argv[i]);
+      src = mimeFileType(mime, argv[i], &compression);
 
       if (src != NULL)
-      {
-	printf("%s: %s/%s\n", argv[i], src->super, src->type);
-	if (mime)
-	  mimeDelete(mime);
-	return (0);
-      }
+	printf("%s: %s/%s%s\n", argv[i], src->super, src->type,
+	       compression ? " (gzipped)" : "");
       else
       {
 	printf("%s: unknown\n", argv[i]);
@@ -101,7 +107,7 @@ main(int  argc,				/* I - Number of command-line args */
       sscanf(argv[i], "%15[^/]/%31s", super, type);
       dst = mimeType(mime, super, type);
 
-      filters = mimeFilter(mime, src, dst, &num_filters);
+      filters = mimeFilter(mime, src, dst, &num_filters, 10);
 
       if (filters == NULL)
       {
@@ -110,18 +116,18 @@ main(int  argc,				/* I - Number of command-line args */
       }
       else
       {
-	for (i = 0; i < num_filters; i ++)
-	  if (i < (num_filters - 1))
-	    printf("%s | ", filters[i].filter);
+	for (j = 0; j < num_filters; j ++)
+	  if (j < (num_filters - 1))
+	    printf("%s | ", filters[j].filter);
 	  else
-	    puts(filters[i].filter);
+	    puts(filters[j].filter);
 
         free(filters);
       }
     }
 
   if (!mime)
-    mime = mimeLoad("../conf");
+    mime = mimeLoad("../conf", filter_path);
 
   if (src == NULL)
   {
@@ -237,5 +243,5 @@ print_rules(mime_magic_t *rules)	/* I - Rules to print */
 
 
 /*
- * End of "$Id: testmime.c,v 1.1.1.3 2002/04/08 07:26:36 jlovell Exp $".
+ * End of "$Id: testmime.c,v 1.1.1.9 2003/05/28 06:02:44 jlovell Exp $".
  */

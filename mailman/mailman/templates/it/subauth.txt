@@ -1,0 +1,11 @@
+La tua autorizzazione è richiesta per approvare un'iscrizione 
+ad una lista:
+
+    Per:   %(username)s
+    Lista: %(listname)s@%(hostname)s
+
+Quando riterrai opportuno, visita la pagina:
+
+    %(admindb_url)s
+
+per elaborare la richiesta.

@@ -71,5 +71,11 @@ else {
 REZ_FILES = ;
 ProcessRezFiles "<InstallHdrs>InstallHdrs$(TOOL_SUFFIX)" : "$(REZ_FILES)" : BPTag003 : BPTag004 ;
 
+rule DefineHeaderDependencies
+{
+}
+
+DefineHeaderDependencies "<InstallHdrs>InstallHdrs$(TOOL_SUFFIX)" ;
+
 EndTool "<InstallHdrs>InstallHdrs$(TOOL_SUFFIX)" ;
 

@@ -1,0 +1,55 @@
+### --------------- Gimp-Print/stp Driver ---------------------------- ###
+### Be careful to add the exact contents of this file; cut and paste   ###
+### may corrupt the file and cause mysterious make errors              ###
+
+stp_=gdevstp.$(OBJ) \
+	gdevstp-dither.$(OBJ) \
+	gdevstp-dither-matrices.$(OBJ) \
+	gdevstp-util.$(OBJ) \
+	gdevstp-color.$(OBJ) \
+	gdevstp-weave.$(OBJ) \
+	gdevstp-escp2.$(OBJ) \
+	gdevstp-escp2-data.$(OBJ) \
+	gdevstp-lexmark.$(OBJ) \
+	gdevstp-pcl.$(OBJ) \
+	gdevstp-canon.$(OBJ) \
+	gdevstp-ps.$(OBJ)
+
+$(DD)stp.dev:	$(stp_) $(DD)page.dev
+	$(SETPDEV) $(DD)stp $(stp_)
+
+gdevstp.$(OBJ) : gdevstp.c $(PDEVH) gdevstp-print.h
+	$(CCC) -DDISABLE_NLS gdevstp.c
+
+gdevstp-util.$(OBJ) : gdevstp-util.c gdevstp-printers.c $(PDEVH) gdevstp-print.h gdevstp-print-internal.h
+	$(CCC) -DDISABLE_NLS gdevstp-util.c
+
+gdevstp-weave.$(OBJ) : gdevstp-weave.c $(PDEVH) gdevstp-print.h gdevstp-print-internal.h
+	$(CCC) -DDISABLE_NLS gdevstp-weave.c
+
+gdevstp-color.$(OBJ) : gdevstp-color.c $(PDEVH) gdevstp-print.h gdevstp-print-internal.h
+	$(CCC) -DDISABLE_NLS gdevstp-color.c
+
+gdevstp-dither.$(OBJ) : gdevstp-dither.c $(PDEVH) gdevstp-print.h gdevstp-print-internal.h gdevstp-print-dither.h
+	$(CCC) -DDISABLE_NLS gdevstp-dither.c
+
+gdevstp-dither-matrices.$(OBJ) : gdevstp-dither-matrices.c $(PDEVH) gdevstp-print.h gdevstp-print-internal.h gdevstp-print-dither.h
+	$(CCC) -DDISABLE_NLS gdevstp-dither.c
+
+gdevstp-escp2.$(OBJ) : gdevstp-escp2.c $(PDEVH) gdevstp-print.h gdevstp-print-internal.h gdevstp-print-escp2.h
+	$(CCC) -DDISABLE_NLS gdevstp-escp2.c
+
+gdevstp-escp2-data.$(OBJ) : gdevstp-escp2-data.c $(PDEVH) gdevstp-print.h gdevstp-print-internal.h gdevstp-print-escp2.h
+	$(CCC) -DDISABLE_NLS gdevstp-escp2-data.c
+
+gdevstp-lexmark.$(OBJ) : gdevstp-lexmark.c $(PDEVH) gdevstp-print.h gdevstp-print-internal.h
+	$(CCC) -DDISABLE_NLS gdevstp-lexmark.c
+
+gdevstp-pcl.$(OBJ) : gdevstp-pcl.c $(PDEVH) gdevstp-print.h gdevstp-print-internal.h
+	$(CCC) -DDISABLE_NLS gdevstp-pcl.c
+
+gdevstp-canon.$(OBJ) : gdevstp-canon.c $(PDEVH) gdevstp-print.h gdevstp-print-internal.h
+	$(CCC) -DDISABLE_NLS gdevstp-canon.c
+
+gdevstp-ps.$(OBJ) : gdevstp-ps.c $(PDEVH) gdevstp-print.h gdevstp-print-internal.h
+	$(CCC) -DDISABLE_NLS gdevstp-ps.c

@@ -3,19 +3,22 @@
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
- * The contents of this file constitute Original Code as defined in and
- * are subject to the Apple Public Source License Version 1.1 (the
- * "License").  You may not use this file except in compliance with the
- * License.  Please obtain a copy of the License at
- * http://www.apple.com/publicsource and read it before using this file.
+ * Copyright (c) 1999-2003 Apple Computer, Inc.  All Rights Reserved.
  * 
- * This Original Code and all software distributed under the License are
- * distributed on an "AS IS" basis, WITHOUT WARRANTY OF ANY KIND, EITHER
+ * This file contains Original Code and/or Modifications of Original Code
+ * as defined in and that are subject to the Apple Public Source License
+ * Version 2.0 (the 'License'). You may not use this file except in
+ * compliance with the License. Please obtain a copy of the License at
+ * http://www.opensource.apple.com/apsl/ and read it before using this
+ * file.
+ * 
+ * The Original Code and all software distributed under the License are
+ * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
  * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
  * INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY,
- * FITNESS FOR A PARTICULAR PURPOSE OR NON-INFRINGEMENT.  Please see the
- * License for the specific language governing rights and limitations
- * under the License.
+ * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
+ * Please see the License for the specific language governing rights and
+ * limitations under the License.
  * 
  * @APPLE_LICENSE_HEADER_END@
  */
@@ -33,13 +36,6 @@
 #include <syslog.h>
 
 #include "COSUtils.h"
-
-#warning VERIFY the version string before each distinct build submission
-static const char	*sysStrList [] =
-{
-	/* 01 */	"1.5.3",
-	/* 02 */	"197.8"
-};
 
 /*
 	>***    [<date>.]<service-name>[.<level>][.<category>].log
@@ -82,13 +78,6 @@ const char* COSUtils::GetStringFromList ( const uInt32 inListID, const sInt32 in
 
 	switch ( inListID )
 	{
-		case kSysStringListID:
-			if ( (inIndex - 1) < (sInt32)(sizeof (sysStrList) / sizeof( char * )) )
-			{
-				pStr = (char *)sysStrList[ inIndex - 1 ];
-			}
-			break;
-
 		case kAppStringsListID:
 			if ( (inIndex - 1) < (sInt32)(sizeof (appStrList) / sizeof( char * )) )
 			{
@@ -134,11 +123,15 @@ int dsRemove( const char* path  )
 {
 	if ( unlink( path ) )
 	{
-		syslog( LOG_ALERT, "WARNING - dsRemove: file was asked to be deleted that should be zero length but isn't! <%s> (%s)\n", path, strerror(errno) );
+		if ( errno != ENOENT )	// if the error wasn't that the file didn't already exist
+		{
+			syslog( LOG_ALERT, "WARNING - dsRemove: file was asked to be deleted that should be zero length but isn't! <%s> (%s)\n", path, strerror(errno) );
 
-		return errno;
+			return errno;
+		}
 	}
-	else
-		return 0;
+
+	return 0;
 }
+
 

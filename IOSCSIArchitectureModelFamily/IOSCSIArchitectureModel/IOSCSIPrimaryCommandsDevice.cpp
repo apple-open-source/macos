@@ -35,11 +35,15 @@
 #include <IOKit/IOMessage.h>
 #include <IOKit/IOKitKeys.h>
 
-// SCSI Architecture Model Family includes
-#include <IOKit/scsi-commands/SCSICommandOperationCodes.h>
-#include <IOKit/scsi-commands/IOSCSIPrimaryCommandsDevice.h>
+// IOKit storage related headers
+#include <IOKit/storage/IOStorageDeviceCharacteristics.h>
 
+// SCSI Architecture Model Family includes
+#include <IOKit/scsi/SCSICommandOperationCodes.h>
+
+#include "IOSCSIPrimaryCommandsDevice.h"
 #include "SCSIPrimaryCommands.h"
+
 
 //ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
 //	Macros
@@ -98,7 +102,9 @@ enum
 // Reserved fields
 #define fKeySwitchNotifier							fIOSCSIPrimaryCommandsDeviceReserved->fKeySwitchNotifier
 #define fANSIVersion								fIOSCSIPrimaryCommandsDeviceReserved->fANSIVersion
-
+#define fCMDQUE										fIOSCSIPrimaryCommandsDeviceReserved->fCMDQUE
+#define	fTaskID										fIOSCSIPrimaryCommandsDeviceReserved->fTaskID
+#define	fTaskIDLock									fIOSCSIPrimaryCommandsDeviceReserved->fTaskIDLock
 
 #if 0
 #pragma mark -
@@ -137,10 +143,14 @@ bool
 IOSCSIPrimaryCommandsDevice::start ( IOService * provider )
 {
 	
-	OSString *		string			= NULL;
+	bool			result			= false;
+	bool			supported		= false;
+	UInt64			maxByteCount	= 0;
 	OSIterator *	iterator		= NULL;
 	OSObject *		obj				= NULL;
-	bool			result			= false;
+	OSDictionary *	dict			= NULL;
+	OSString *		string			= NULL;
+	OSNumber *		value			= NULL;
 	
 	// Call our super class' start routine so that all inherited
 	// behavior is initialized.	
@@ -159,11 +169,14 @@ IOSCSIPrimaryCommandsDevice::start ( IOService * provider )
 	
 	fANSIVersion = kINQUIRY_ANSI_VERSION_NoClaimedConformance;
 	
+	fTaskIDLock = IOSimpleLockAlloc ( );
+	require_nonzero ( fTaskIDLock, FreeReservedMemory );
+	
 	fProtocolDriver = OSDynamicCast ( IOSCSIProtocolInterface, provider );
-	require_nonzero ( fProtocolDriver, FreeReservedMemory );
+	require_nonzero ( fProtocolDriver, FreeTaskIDLock );
 	
 	fDeviceCharacteristicsDictionary = OSDictionary::withCapacity ( 1 );
-	require_nonzero ( fDeviceCharacteristicsDictionary, FreeReservedMemory );
+	require_nonzero ( fDeviceCharacteristicsDictionary, FreeTaskIDLock );
 	
 	string = ( OSString * ) GetProtocolDriver ( )->getProperty ( kIOPropertySCSIVendorIdentification );	
 	check ( string );
@@ -176,6 +189,18 @@ IOSCSIPrimaryCommandsDevice::start ( IOService * provider )
 	string = ( OSString * ) GetProtocolDriver ( )->getProperty ( kIOPropertySCSIProductRevisionLevel );	
 	check ( string );
 	fDeviceCharacteristicsDictionary->setObject ( kIOPropertyProductRevisionLevelKey, string );
+	
+	value = ( OSNumber * ) GetProtocolDriver ( )->getProperty ( kIOPropertyReadTimeOutDurationKey );	
+	if ( value != NULL );
+	{
+		fDeviceCharacteristicsDictionary->setObject ( kIOPropertyReadTimeOutDurationKey, value );
+	}
+	
+	value = ( OSNumber * ) GetProtocolDriver ( )->getProperty ( kIOPropertyWriteTimeOutDurationKey );	
+	if ( value != NULL );
+	{
+		fDeviceCharacteristicsDictionary->setObject ( kIOPropertyWriteTimeOutDurationKey, value );
+	}
 	
 	// Now create the required command sets used by the class
 	require ( CreateCommandSetObjects ( ), FreeDeviceDictionary );
@@ -249,13 +274,99 @@ IOSCSIPrimaryCommandsDevice::start ( IOService * provider )
 								OSBoolean,
 								service->getProperty ( kKeySwitchProperty ) );
 			
-			setProperty ( kAppleKeySwitchProperty, boolKey );
+			dict = GetProtocolCharacteristicsDictionary ( );
+			
+			OSString *	protocol = OSDynamicCast ( OSString, dict->getObject ( kIOPropertyPhysicalInterconnectTypeKey ) );
+			
+			if ( ( protocol == NULL ) ||
+				 ( protocol->isEqualTo ( kIOPropertyPhysicalInterconnectTypeUSB ) ) ||
+				 ( protocol->isEqualTo ( kIOPropertyPhysicalInterconnectTypeFireWire ) ) ||
+				 ( protocol->isEqualTo ( kIOPropertyPhysicalInterconnectTypeATAPI ) ) )
+			{			
+				
+				setProperty ( kAppleKeySwitchProperty, boolKey );
+				
+				// Add a notification for the Apple KeySwitch on the servers.
+				fKeySwitchNotifier = addNotification (
+						gIOMatchedNotification,
+						nameMatching ( kAppleKeySwitchProperty ),
+						( IOServiceNotificationHandler ) &IOSCSIPrimaryCommandsDevice::ServerKeyswitchCallback,
+						this,
+						0 );
+				
+			}
 			
 		}
 		
 		iterator->release ( );
 		iterator = NULL;
 		
+	}
+	
+	// assume device will use infinite time outs
+	fReadTimeoutDuration	= 0;
+	fWriteTimeoutDuration	= 0;
+	
+	// determine the protocol-specific default read/write time out values 
+	dict = GetProtocolCharacteristicsDictionary ( );
+	if ( dict != NULL )
+	{
+		
+		value = OSDynamicCast ( OSNumber, dict->getObject ( kIOPropertyReadTimeOutDurationKey ) );
+		
+		if ( value != NULL )
+		{
+			fReadTimeoutDuration = value->unsigned32BitValue ( );
+		}
+		
+		value = OSDynamicCast ( OSNumber, dict->getObject ( kIOPropertyWriteTimeOutDurationKey ) );
+		
+		if ( value != NULL )
+		{
+			fWriteTimeoutDuration = value->unsigned32BitValue ( );
+		}
+		
+	}
+	
+	// check if we should override the maximum read/write time outs with a device-specific
+	dict = GetDeviceCharacteristicsDictionary ( );
+	if ( dict != NULL )
+	{
+		
+		value = OSDynamicCast ( OSNumber, dict->getObject ( kIOPropertyReadTimeOutDurationKey ) );
+		
+		if ( value != NULL )
+		{
+			fReadTimeoutDuration = value->unsigned32BitValue ( );
+		}
+		
+		value = OSDynamicCast ( OSNumber, dict->getObject ( kIOPropertyWriteTimeOutDurationKey ) );
+		
+		if ( value != NULL )
+		{
+			fWriteTimeoutDuration = value->unsigned32BitValue ( );
+		}
+		
+	}
+	
+	// See if the transport driver wants us to limit the read transfer byte count
+	supported = GetProtocolDriver ( )->IsProtocolServiceSupported (
+						kSCSIProtocolFeature_MaximumReadTransferByteCount,
+						&maxByteCount );	
+	
+	if ( supported == true )
+	{
+		setProperty ( kIOMaximumByteCountReadKey, maxByteCount, 64 );
+	}
+	
+	// See if the transport driver wants us to limit the write transfer byte count
+	supported = GetProtocolDriver ( )->IsProtocolServiceSupported (
+						kSCSIProtocolFeature_MaximumWriteTransferByteCount,
+						&maxByteCount );	
+	
+	if ( supported == true )
+	{
+		setProperty ( kIOMaximumByteCountWriteKey, maxByteCount, 64 );
 	}
 	
 	fDeviceAccessEnabled = true;
@@ -267,14 +378,6 @@ IOSCSIPrimaryCommandsDevice::start ( IOService * provider )
 		removeProperty ( kAppleKeySwitchProperty );
 		
 	}
-	
-	// Add a notification for the Apple KeySwitch on the servers.
-	fKeySwitchNotifier = addNotification (
-			gIOMatchedNotification,
-			nameMatching ( kAppleKeySwitchProperty ),
-			( IOServiceNotificationHandler ) &IOSCSIPrimaryCommandsDevice::ServerKeyswitchCallback,
-			this,
-			0 );
 	
 	result = true;
 	
@@ -290,9 +393,17 @@ CloseProvider:
 FreeDeviceDictionary:
 	
 	
-	require_nonzero ( fDeviceCharacteristicsDictionary, FreeReservedMemory );
+	require_nonzero ( fDeviceCharacteristicsDictionary, FreeTaskIDLock );
 	fDeviceCharacteristicsDictionary->release ( );
 	fDeviceCharacteristicsDictionary = NULL;
+	
+	
+FreeTaskIDLock:
+	
+	
+	require_nonzero ( fTaskIDLock, FreeReservedMemory );
+	IOSimpleLockFree ( fTaskIDLock );
+	fTaskIDLock = NULL;
 	
 	
 FreeReservedMemory:
@@ -302,7 +413,7 @@ FreeReservedMemory:
 	IODelete ( fIOSCSIPrimaryCommandsDeviceReserved, IOSCSIPrimaryCommandsDeviceExpansionData, 1 );
 	fIOSCSIPrimaryCommandsDeviceReserved = NULL;
 	
-	
+
 ErrorExit:
 	
 	
@@ -359,6 +470,14 @@ IOSCSIPrimaryCommandsDevice::free ( void )
 	// Free our reserved data
 	if ( fIOSCSIPrimaryCommandsDeviceReserved != NULL )
 	{
+		
+		if ( fTaskIDLock != NULL )
+		{
+			
+			IOSimpleLockFree ( fTaskIDLock );
+			fTaskIDLock = NULL;
+			
+		}
 		
 		IODelete ( fIOSCSIPrimaryCommandsDeviceReserved, IOSCSIPrimaryCommandsDeviceExpansionData, 1 );
 		fIOSCSIPrimaryCommandsDeviceReserved = NULL;
@@ -878,6 +997,27 @@ Exit:
 }
 
 
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+// ¥ GetUniqueTagID - 	Returns a unique tagged task ID.			[PROTECTED]
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+
+SCSITaggedTaskIdentifier 
+IOSCSIPrimaryCommandsDevice::GetUniqueTagID ( void )
+{
+	
+	SCSITaggedTaskIdentifier	taskID = kSCSIUntaggedTaskIdentifier;
+	
+	IOSimpleLockLock ( fTaskIDLock );
+	
+	taskID = ++fTaskID;
+	
+	IOSimpleLockUnlock ( fTaskIDLock );
+	
+	return taskID;
+	
+}
+
+
 #if 0
 #pragma mark -
 #pragma mark ¥ Supporting Object Accessor Methods
@@ -1157,6 +1297,45 @@ IOSCSIPrimaryCommandsDevice::GetTaskAttribute ( SCSITaskIdentifier request )
 	check ( scsiRequest );
 	
 	return scsiRequest->GetTaskAttribute ( );
+	
+}
+
+
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+// ¥ SetTaggedTaskIdentifier - Sets the SCSITaggedTaskIdentifier.	[PROTECTED]
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+
+bool
+IOSCSIPrimaryCommandsDevice::SetTaggedTaskIdentifier (
+							SCSITaskIdentifier			request,
+							SCSITaggedTaskIdentifier	taggedTaskIdentifier )
+{
+	
+	SCSITask *	scsiRequest;
+	
+	scsiRequest = OSDynamicCast ( SCSITask, request );
+	check ( scsiRequest );
+	
+	return scsiRequest->SetTaggedTaskIdentifier ( taggedTaskIdentifier );
+	
+}
+
+
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+// ¥ GetTaggedTaskIdentifier - Gets the SCSITaggedTaskIdentifier.	[PROTECTED]
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+
+SCSITaggedTaskIdentifier
+IOSCSIPrimaryCommandsDevice::GetTaggedTaskIdentifier (
+							SCSITaskIdentifier			request )
+{
+	
+	SCSITask *	scsiRequest;
+	
+	scsiRequest = OSDynamicCast ( SCSITask, request );
+	check ( scsiRequest );
+	
+	return scsiRequest->GetTaggedTaskIdentifier ( );
 	
 }
 
@@ -1946,6 +2125,32 @@ IOSCSIPrimaryCommandsDevice::SetANSIVersion ( UInt8 newVersion )
 {
 	
 	fANSIVersion = newVersion;
+	
+}
+
+
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+// ¥ GetCMDQUE - Gets the CMDQUE bit from the INQUIRY data.			[PROTECTED]
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+
+bool
+IOSCSIPrimaryCommandsDevice::GetCMDQUE ( void )
+{
+	
+	return fCMDQUE;
+	
+}
+
+
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+// ¥ SetANSIVersion - Sets the CMDQUE bit from the INQUIRY data.	[PROTECTED]
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+
+void
+IOSCSIPrimaryCommandsDevice::SetCMDQUE ( bool value )
+{
+	
+	fCMDQUE = value;
 	
 }
 

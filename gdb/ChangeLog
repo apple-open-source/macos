@@ -1,0 +1,73 @@
+2003-07-24  Klee Dienes <kdienes@apple.com>
+
+	* cache-symfiles.sh: Use the proper prefix for dyld; no longer
+	remove the dyld.syms from the cached symfile directory.
+
+2003-05-04  Klee Dienes <kdienes@apple.com>
+
+	* Makefile: Use GDB_RC_VERSION instead of APPLE_VERSION in the
+	gdb.sh target.  Use GDB_FRAMEWORKS and BINUTILS_FRAMEWORKS instead
+	of FRAMEWORKS in the install target.
+
+2003-05-04  Klee Dienes <kdienes@apple.com>
+
+	* cache-symfiles.sh: Use the correct path to GDB.  Don't read the
+	user's .gdbinit.  Check for dangling symlinks in /usr/lib.
+
+2003-04-24  Jim Ingham  <jingham@apple.com>
+
+	* Makefile: Don't chmod the dylds if you aren't doing 
+	--enable-shared.
+	Also change the version string to 268.
+	
+2003-04-25  Klee Dienes  <kdienes@apple.com>
+
+	* cache-symfiles.sh: Update to use the new cached-symfile
+	creation commands.
+
+2003-03-18  Jason Molenda  (jmolenda@apple.com)
+
+	* Makefile (GDB_VERSION): Updated date string to most recent
+	merge.
+	(CONFIG_OTHER_OPTIONS): Add --disable-serial-configure.  Not
+	exactly sure what is up with this, but buildit fails without
+	it -- somehow configure-liberty is being triggered from the
+	"configure-gdb" target and the build fails because libiberty
+	isn't included in the sources.
+
+2003-01-14  Klee Dienes  <kdienes@apple.com>
+
+	* Makefile: Update to use the top-level configure, and then run
+	make configure-gdb.  Build intl and readline for each
+	cross-compiled platform, rather than re-using the native build.
+	
+2002-12-12  Klee Dienes  <kdienes@apple.com>
+
+	* cache-symfiles.sh: Test each potential framework for validity,
+	rather than by using an explicit list of invalid framework.
+	* configure: Update to configure the needed subdirectories (they
+	are no longer automatically configured by the top-level
+	configure).  Remove __objcInit removal code (it's removed by the
+	GDB makefile).
+	
+2002-10-28  Klee Dienes  <kdienes@apple.com>
+
+	* Makefile: Remove PDO support.  Convert "rhapsody" to "macosx".
+	Remove obsolete Mac OS X release names.  Use *-apple-darwin
+	instead of *-apple-macos10 as the primary build string.  Remove
+	WITH_CFM and WITH_PTHREADS options.  Pass location for
+	libintl.dylib.
+	* gdb.sh: Convert *-apple-macos10 to *-apple-darwin.
+	* template.h: Convert *-apple-macos10 to *-apple-darwin.  Remove
+	Rhapsody support.
+	* macsbug/Makefile: Convert *-apple-macos10 to *-apple-darwin.
+	* macsbug/build.sh: Remove.
+	
+2002-09-24  Klee Dienes  <kdienes@apple.com>
+
+	* Makefile: Update version number.
+	* Makefile: Add *-macosx-darwin to the list of recognized arch strings.
+	* Makefile: Strip trailing and leading spaces from CFLAGS.
+
+	* template.h: include machine/sys--sys/file, not sys--sys/file.
+

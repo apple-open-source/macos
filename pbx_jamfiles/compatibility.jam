@@ -1,18 +1,11 @@
-# Copyright (c) 1999-2002 Apple Computer, Inc.
+# Copyright (c) 1999-2003 Apple Computer, Inc.
 # All rights reserved.
-
-# old skool...
-# Source root is SRCROOT, or ., or working directory
-# Root values are overridden by default
-#SRCROOT default = $(PWD) ;
-#SRCROOT default = . ;
-#SOURCE_ROOT default = $(SRCROOT) ;
 
 # Maps legacy Makefile variables to modern Jambase variables
 # Set global C flags, architectures, and architecture flags for linking
 GLOBAL_CFLAGS default = $(RC_NONARCH_CFLAGS) ;
 ARCHITECTURES default = $(RC_ARCHS) ;
-SUPPORTED_ARCHITECTURES = i386 ppc ;
+SUPPORTED_ARCHITECTURES default = i386 ppc ;
 VALID_ARCHS default = i386 ppc ;
 for ARCH in $(SUPPORTED_ARCHITECTURES) {
     if $(RC_$(ARCH)) = YES {

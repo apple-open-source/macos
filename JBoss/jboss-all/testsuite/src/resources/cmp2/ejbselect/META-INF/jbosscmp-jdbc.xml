@@ -1,0 +1,69 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<!DOCTYPE jbosscmp-jdbc PUBLIC
+   "-//JBoss//DTD JBOSSCMP-JDBC 3.0//EN"
+   "http://www.jboss.org/j2ee/dtd/jbosscmp-jdbc_3_0.dtd">
+
+<jbosscmp-jdbc>
+   <defaults>
+      <create-table>true</create-table>
+      <remove-table>true</remove-table>
+      <pk-constraint>true</pk-constraint>
+   </defaults>
+
+   <enterprise-beans>
+      <entity>
+         <ejb-name>ABean</ejb-name>
+         <table-name>TEST_A</table-name>
+         <cmp-field>
+            <field-name>id</field-name>
+            <column-name>ID</column-name>
+         </cmp-field>
+         <query>
+            <query-method>
+               <method-name>ejbSelectSomeBsDeclaredSQL</method-name>
+               <method-params>
+                  <method-param>org.jboss.test.cmp2.ejbselect.A</method-param>
+               </method-params>
+            </query-method>
+            <declared-sql>
+               <select>
+                  <ejb-name>BBean</ejb-name>
+                  <alias>b</alias>
+               </select>
+               <from>, TEST_A a</from>
+               <where>a.ID={0.id} AND b.A_ID=a.ID</where>
+            </declared-sql>
+         </query>
+      </entity>
+
+      <entity>
+         <ejb-name>BBean</ejb-name>
+         <table-name>TEST_B</table-name>
+         <cmp-field>
+            <field-name>id</field-name>
+            <column-name>ID</column-name>
+         </cmp-field>
+      </entity>
+   </enterprise-beans>
+
+   <relationships>
+      <ejb-relation>
+         <ejb-relation-name>A-B</ejb-relation-name>
+         <foreign-key-mapping/>
+         <ejb-relationship-role>
+            <ejb-relationship-role-name>B-has-an-A</ejb-relationship-role-name>
+            <key-fields/>
+         </ejb-relationship-role>
+         <ejb-relationship-role>
+            <ejb-relationship-role-name>A-has-Bs</ejb-relationship-role-name>
+            <key-fields>
+               <key-field>
+                  <field-name>id</field-name>
+                  <column-name>A_ID</column-name>
+               </key-field>
+            </key-fields>
+         </ejb-relationship-role>
+      </ejb-relation>
+   </relationships>
+</jbosscmp-jdbc>

@@ -128,10 +128,6 @@ LIB32=link.exe -lib
 # Name "liblutil - Win32 Single Release"
 # Begin Source File
 
-SOURCE=.\authpasswd.c
-# End Source File
-# Begin Source File
-
 SOURCE=.\base64.c
 # End Source File
 # Begin Source File
@@ -141,10 +137,6 @@ SOURCE=..\..\include\ac\bytes.h
 # Begin Source File
 
 SOURCE=.\csn.c
-# End Source File
-# Begin Source File
-
-SOURCE=.\debug.c
 # End Source File
 # Begin Source File
 
@@ -205,6 +197,10 @@ SOURCE=.\md5.c
 # Begin Source File
 
 SOURCE=.\ntservice.c
+# End Source File
+# Begin Source File
+
+SOURCE=.\passfile.c
 # End Source File
 # Begin Source File
 

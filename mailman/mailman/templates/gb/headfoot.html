@@ -1,0 +1,23 @@
+本文可包含 <b>%(attribute)s</b> 格式字串，这可以替换为邮件列表
+相应的属性。详情请参照
+<a href="http://www.python.org/doc/current/lib/typesseq-strings.html">Python
+格式化字串规则</a>.  预设属性如下∶
+
+<ul>
+    <li><b>real_name</b> - 本论坛 "好听" 的名称；
+    通常都用大写。
+
+    <li><b>list_name</b> - 此论坛名称用于 URL 识别
+    ，其大小写不可用错。 
+
+    <li><b>host_name</b> - 列表所在的服务器主机的详细名称（FQDN）。
+
+    <li><b>web_page_url</b> - Mailman 的 URL base. 其后可添加
+    一些参数以产生有用的网址。
+    例如∶ 加上 <em>listinfo/%(list_name)s</em> 
+    可产生邮件列表的 listinfo 网址。
+
+    <li><b>description</b> - 该邮件列表的摘要说明。
+
+    <li><b>info</b> - 该邮件列表的详细说明。
+</ul>

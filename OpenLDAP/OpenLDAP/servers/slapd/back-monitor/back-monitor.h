@@ -1,6 +1,6 @@
 /* back-monitor.h - ldap monitor back-end header file */
 /*
- * Copyright 1998-2002 The OpenLDAP Foundation, All Rights Reserved.
+ * Copyright 1998-2003 The OpenLDAP Foundation, All Rights Reserved.
  * COPYING RESTRICTIONS APPLY, see COPYRIGHT file
  */
 /*
@@ -34,10 +34,10 @@
 #ifndef _BACK_MONITOR_H_
 #define _BACK_MONITOR_H_
 
-#include <slap.h>
-#include <avl.h>
 #include <ldap_pvt.h>
 #include <ldap_pvt_thread.h>
+#include <avl.h>
+#include <slap.h>
 
 LDAP_BEGIN_DECL
 
@@ -48,7 +48,7 @@ LDAP_BEGIN_DECL
  * selection.
  */
 struct monitorcache {
-	struct berval		*mc_ndn;
+	struct berval		mc_ndn;
 	Entry   		*mc_e;
 };
 

@@ -1,22 +1,25 @@
 /*
- * Copyright (c) 2001 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 2001-2003 Apple Computer, Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
- *
- * The contents of this file constitute Original Code as defined in and
- * are subject to the Apple Public Source License Version 1.1 (the
- * "License").  You may not use this file except in compliance with the
- * License.  Please obtain a copy of the License at
- * http://www.apple.com/publicsource and read it before using this file.
- *
- * This Original Code and all software distributed under the License are
- * distributed on an "AS IS" basis, WITHOUT WARRANTY OF ANY KIND, EITHER
+ * 
+ * Copyright (c) 1999-2003 Apple Computer, Inc.  All Rights Reserved.
+ * 
+ * This file contains Original Code and/or Modifications of Original Code
+ * as defined in and that are subject to the Apple Public Source License
+ * Version 2.0 (the 'License'). You may not use this file except in
+ * compliance with the License. Please obtain a copy of the License at
+ * http://www.opensource.apple.com/apsl/ and read it before using this
+ * file.
+ * 
+ * The Original Code and all software distributed under the License are
+ * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
  * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
  * INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY,
- * FITNESS FOR A PARTICULAR PURPOSE OR NON-INFRINGEMENT.  Please see the
- * License for the specific language governing rights and limitations
- * under the License.
- *
+ * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
+ * Please see the License for the specific language governing rights and
+ * limitations under the License.
+ * 
  * @APPLE_LICENSE_HEADER_END@
  */
 
@@ -28,9 +31,13 @@
  */
 
 #include <fcntl.h>
+#include <paths.h>
 #include <pthread.h>
 #include <unistd.h>
+#include <sysexits.h>
 #include <sys/types.h>
+#include <sys/ioctl.h>
+#include <sys/socket.h>
 #include <sys/wait.h>
 #include <mach/mach.h>
 #include <mach/mach_error.h>
@@ -124,12 +131,12 @@ reaper(int sigraised)
 	msg.header.msgh_id = 0;
 	options = MACH_SEND_TIMEOUT;
 	status = mach_msg(&msg.header,			/* msg */
-				    MACH_SEND_MSG|options,	/* options */
-				    msg.header.msgh_size,		/* send_size */
-				    0,				/* rcv_size */
-				    MACH_PORT_NULL,		/* rcv_name */
-				    0,				/* timeout */
-				    MACH_PORT_NULL);		/* notify */
+			  MACH_SEND_MSG|options,	/* options */
+			  msg.header.msgh_size,		/* send_size */
+			  0,				/* rcv_size */
+			  MACH_PORT_NULL,		/* rcv_name */
+			  0,				/* timeout */
+			  MACH_PORT_NULL);		/* notify */
 
 	return;
 }
@@ -263,12 +270,15 @@ _SCDPluginExecInit()
 
 
 pid_t
-_SCDPluginExecCommand(SCDPluginExecCallBack	callout,
-		     void			*context,
-		     uid_t			uid,
-		     gid_t			gid,
-		     const char			*path,
-		     char * const		argv[])
+_SCDPluginExecCommand2(SCDPluginExecCallBack	callout,
+		       void			*context,
+		       uid_t			uid,
+		       gid_t			gid,
+		       const char		*path,
+		       char * const 		argv[],
+		       SCDPluginExecSetup	setup,
+		       void			*setupContext
+		       )
 {
 	pid_t	pid;
 
@@ -276,13 +286,14 @@ _SCDPluginExecCommand(SCDPluginExecCallBack	callout,
 	pthread_mutex_lock(&lock);
 
 	pid = fork();
+
 	switch (pid) {
 		case -1 : {	/* if error */
 
 			int	status;
 
 			status = errno;
-			printf("fork() failed: %s", strerror(status));
+			printf("fork() failed: %s\n", strerror(status));
 			errno  = status;
 			break;
 		}
@@ -302,11 +313,21 @@ _SCDPluginExecCommand(SCDPluginExecCallBack	callout,
 				(void) setgid(gid);
 			}
 
-			/* close any open FDs */
-			for (i = getdtablesize()-1; i>=0; i--) close(i);
-			open("/dev/null", O_RDWR, 0);
-			dup(0);
-			dup(0);
+			if (setup) {
+				(setup)(pid, setupContext);
+			} else {
+				/* close any open FDs */
+				for (i = getdtablesize()-1; i>=0; i--) close(i);
+				open(_PATH_DEVNULL, O_RDWR, 0);
+				dup(0);
+				dup(0);
+			}
+
+			/* ensure that our PATH environment variable is somewhat reasonable */
+			if (setenv("PATH", "/bin:/sbin:/usr/bin:/usr/sbin", 0) == -1) {
+				printf("setenv() failed: %s\n", strerror(errno));
+				exit(EX_OSERR);
+			}
 
 			/* execute requested command */
 			(void) execv(path, argv);
@@ -317,6 +338,9 @@ _SCDPluginExecCommand(SCDPluginExecCallBack	callout,
 		}
 
 		default : {	/* if parent */
+			if (setup) {
+				(setup)(pid, setupContext);
+			}
 
 			if (callout) {
 				childInfoRef	child;
@@ -340,4 +364,16 @@ _SCDPluginExecCommand(SCDPluginExecCallBack	callout,
 	pthread_mutex_unlock(&lock);
 
 	return pid;
+}
+
+
+pid_t
+_SCDPluginExecCommand(SCDPluginExecCallBack	callout,
+		     void			*context,
+		     uid_t			uid,
+		     gid_t			gid,
+		     const char			*path,
+		     char * const		argv[])
+{
+	return _SCDPluginExecCommand2(callout, context, uid, gid, path, argv, NULL, NULL);
 }

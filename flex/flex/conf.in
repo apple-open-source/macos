@@ -1,4 +1,4 @@
-/* $Header: /cvs/Darwin/flex/flex/conf.in,v 1.1.1.1 1999/04/23 00:46:29 wsanchez Exp $ */
+/* $Header: /cvs/root/flex/flex/conf.in,v 1.1.1.1 1999/04/23 00:46:29 wsanchez Exp $ */
 
 /* Define to empty if the keyword does not work.  */
 #undef const

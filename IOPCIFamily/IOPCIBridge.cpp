@@ -48,7 +48,6 @@ extern "C"
 #define super IOService
 OSDefineMetaClassAndAbstractStructorsWithInit( IOPCIBridge, IOService, IOPCIBridge::initialize() )
 
-OSMetaClassDefineReservedUnused(IOPCIBridge,  0);
 OSMetaClassDefineReservedUnused(IOPCIBridge,  1);
 OSMetaClassDefineReservedUnused(IOPCIBridge,  2);
 OSMetaClassDefineReservedUnused(IOPCIBridge,  3);
@@ -87,7 +86,7 @@ OSMetaClassDefineReservedUnused(IOPCIBridge, 31);
 int gIOPCIDebug = 0;
 
 #ifdef __i386__
-static void setupIntelPIC(IOPCIDevice * nub);
+static void resolvePCIInterrupt( IOService * provider, IOPCIDevice * nub );
 #endif
 
 /* Definitions of PCI2PCI Config Registers */
@@ -107,6 +106,8 @@ static IOPCI2PCIBridge * gIOAllPCI2PCIBridges[kIOPCIMaxPCI2PCIBridges];
 IOSimpleLock *  	 gIOAllPCI2PCIBridgesLock;
 UInt32			 gIOAllPCI2PCIBridgeState;
 
+/* Expansion data fields */
+#define cardBusMemoryRanges	  reserved->cardBusMemoryRanges
 
 /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
 // stub driver has two power states, off and on
@@ -132,6 +133,11 @@ bool IOPCIBridge::start( IOService * provider )
     if (!super::start(provider))
         return (false);
 
+    reserved = IONew(ExpansionData, 1);
+    if (reserved == 0) return (false);
+
+    bzero(reserved, sizeof(ExpansionData));
+
     // empty ranges to start
     bridgeMemoryRanges = IORangeAllocator::withRange( 0, 1, 8,
                          IORangeAllocator::kLocking );
@@ -142,6 +148,11 @@ bool IOPCIBridge::start( IOService * provider )
                      IORangeAllocator::kLocking );
     assert( bridgeIORanges );
     setProperty( "Bridge IO Ranges", bridgeIORanges );
+
+#ifdef __i386__
+    cardBusMemoryRanges = IORangeAllocator::withRange( 0, 1, 8,
+                          IORangeAllocator::kLocking );
+#endif
 
     if (!configure(provider))
         return (false);
@@ -159,6 +170,33 @@ bool IOPCIBridge::start( IOService * provider )
     probeBus( provider, firstBusNum() );
 
     return (true);
+}
+
+void IOPCIBridge::free( void )
+{
+    if (bridgeMemoryRanges)
+    {
+        bridgeMemoryRanges->release();
+        bridgeMemoryRanges = 0;
+    }
+
+    if (bridgeIORanges)
+    {
+        bridgeIORanges->release();
+        bridgeIORanges = 0;
+    }
+
+    if (reserved)
+    {
+        if (cardBusMemoryRanges)
+        {
+            cardBusMemoryRanges->release();
+            cardBusMemoryRanges = 0;
+        }
+        IODelete(reserved, ExpansionData, 1);
+    }
+
+    super::free();
 }
 
 IOReturn IOPCIBridge::setDevicePowerState( IOPCIDevice * device,
@@ -278,6 +316,13 @@ void IOPCIBridge::spaceFromProperties( OSDictionary * propTable,
     {
         inSpace = (IOPCIAddressSpace *) regProp->getBytesNoCopy();
         space->s.busNum = inSpace->s.busNum;
+        space->s.deviceNum = inSpace->s.deviceNum;
+        space->s.functionNum = inSpace->s.functionNum;
+    }
+    else if ((regProp = (OSData *) propTable->getObject("acpi-reg")))
+    {
+        inSpace = (IOPCIAddressSpace *) regProp->getBytesNoCopy();
+        space->s.busNum = firstBusNum();
         space->s.deviceNum = inSpace->s.deviceNum;
         space->s.functionNum = inSpace->s.functionNum;
     }
@@ -612,7 +657,8 @@ bool IOPCIBridge::checkCardBusNumbering(OSArray * children)
     UInt8 theBusIDs[256];
 
     OSArray * yentas = OSArray::withCapacity(0x10);
-    if (!yentas) goto error;
+    OSArray * pciBridges = OSArray::withCapacity(0x10);
+    if (!yentas || !pciBridges) goto error;
 
     // clear out the bus id we will be checking
     parentSecBus = firstBusNum();
@@ -704,6 +750,8 @@ bool IOPCIBridge::checkCardBusNumbering(OSArray * children)
 	    }
 
 	} else {	// not a yenta bridge
+        
+        pciBridges->setObject(child);
 
 	    for (int i = secBus; i <= subBus; i++) {
 
@@ -724,6 +772,30 @@ bool IOPCIBridge::checkCardBusNumbering(OSArray * children)
 	    }
 	}
     }
+
+#ifdef __i386__
+    // Fill the void between PCI-PCI bridges by expanding their 
+    // subordinate bus number. This attempts to propagate a larger
+    // bus number range to the cardbus controllers.
+
+    if ( yentas->getCount() == 0 && pciBridges->getCount() )
+    {
+        childIndex = 0;
+        while (child = (IOPCIDevice *)pciBridges->getObject(childIndex++))
+        {
+            UInt8 newSubBus = subBus = child->configRead8( kPCI2PCISubordinateBus );
+
+            for (int j = subBus + 1; j <= parentSubBus && theBusIDs[j] == 0; j++)
+            {
+                newSubBus = j;
+                theBusIDs[j] = 1;
+            }
+
+            if ( newSubBus != subBus )
+                child->configWrite8( kPCI2PCISubordinateBus, newSubBus );
+        }
+    }
+#endif
 
     // on the second pass, we know what what has been claimed by the
     // the other busses, if what is set fits then just use it, else
@@ -784,11 +856,86 @@ bool IOPCIBridge::checkCardBusNumbering(OSArray * children)
     }
 
     if (yentas) yentas->release();
+    if (pciBridges) pciBridges->release();
     return false;
     
  error:
     if (yentas) yentas->release();
+    if (pciBridges) pciBridges->release();
     return true;
+}
+
+void IOPCIBridge::checkCardBusResources( const OSArray * nubs,
+                                         UInt32 * yentaIndices, UInt32 yentaCount )
+{
+    IOPCIDevice * yenta;
+    UInt32        index;
+    UInt32        socketBase;
+
+    if (!yentaCount || !cardBusMemoryRanges) return;
+
+    // Allocate 4K bytes for socket registers on each cardbus bridge
+    if (cardBusMemoryRanges->allocate(4096 * yentaCount, &socketBase, 4096) == false)
+    {
+        IOLog("%s: cardbus memory allocation failed\n", getName());
+        return;
+    }
+
+    // Create "ranges" property
+    OSData * ranges = OSData::withCapacity( 5 * sizeof(UInt32) * 2 );
+    if (ranges)
+    {
+        IOPCIAddressSpace space;
+        IOPhysicalAddress start;
+
+        for ( IOByteCount size = 8192 * 1024; size >= 4096; size >>= 1 )
+        {
+            if (cardBusMemoryRanges->allocate( size, &start, 4096 ))
+            {
+                space.s.space = kIOPCI32BitMemorySpace;
+                ranges->appendBytes( &space, sizeof(space) );
+                ranges->appendBytes( &start, sizeof(start) );
+                ranges->appendBytes( &space, sizeof(space) );
+                ranges->appendBytes( &start, sizeof(start) );
+                ranges->appendBytes( &size,  sizeof(size)  );
+                if (1 & gIOPCIDebug)
+                    IOLog("%s: cardbus memory range %ld bytes @ 0x%08lx\n",
+                          getName(), size, start);
+                break;
+            }
+        }
+
+        for ( IOByteCount size = 8 * 1024; size >= 32; size >>= 1 )
+        {
+            if (bridgeIORanges->allocate( size, &start, 0 ))
+            {
+                space.s.space = kIOPCIIOSpace;
+                ranges->appendBytes( &space, sizeof(space) );
+                ranges->appendBytes( &start, sizeof(start) );
+                ranges->appendBytes( &space, sizeof(space) );
+                ranges->appendBytes( &start, sizeof(start) );
+                ranges->appendBytes( &size,  sizeof(size)  );
+                if (1 & gIOPCIDebug)
+                    IOLog("%s: cardbus I/O range %ld bytes at 0x%08lx\n",
+                          getName(), size, start);
+                break;
+            }
+        }
+    }
+
+    for ( UInt32 i = 0; i < yentaCount; i++ )
+    {
+        index = yentaIndices[i];  // 1-based index
+        yenta = (IOPCIDevice *) nubs->getObject(index - 1);
+        assert(yenta);
+
+        yenta->setMemoryEnable( false );
+        yenta->configWrite32( kIOPCIConfigBaseAddress0, socketBase );
+        socketBase += 4096;
+
+        if (ranges && 0==i) yenta->setProperty( "ranges", ranges );
+        publishNub( yenta, index );
+    }
 }
 
 void IOPCIBridge::probeBus( IOService * provider, UInt8 busNum )
@@ -801,6 +948,8 @@ void IOPCIBridge::probeBus( IOService * provider, UInt8 busNum )
     UInt8		scanDevice, scanFunction, lastFunction;
     OSIterator *	kidsIter;
     UInt32		index = 0;
+    UInt32		yentaIndices[8];
+    UInt32		yentaCount = 0;
 
     IODTSetResolving( provider, PCICompare, nvLocation );
 
@@ -819,14 +968,31 @@ void IOPCIBridge::probeBus( IOService * provider, UInt8 busNum )
 	{
 	    propTable = found->getPropertyTable();
 	    nub = createNub( propTable );
-	    if (!nub)
-		continue;
-	    if (!initializeNub(nub, propTable))
-		continue;
-	    if (!nub->init(found, gIODTPlane))
-		continue;
+	    if ( nub && initializeNub(nub, propTable) &&
+             nub->init(found, gIODTPlane) )
+        {
+#ifdef __i386__
+            spaceFromProperties( propTable, &space );
+            if ((propTable = constructProperties(space)))
+            {
+                OSCollectionIterator * propIter =
+                    OSCollectionIterator::withCollection(propTable);
+                if (propIter)
+                {
+                    const OSSymbol * propKey;
+                    while ((propKey = (const OSSymbol *)propIter->getNextObject()))
+                    {
+                        if ( 0 == nub->getProperty(propKey))
+                            nub->setProperty(propKey, propTable->getObject(propKey));
+                    }
+                    propIter->release();
+                }
+            	propTable->release();
+            }
+#endif
 
-	    nubs->setObject(index++, nub);
+            nubs->setObject(index++, nub);
+        }
 	}
     }
 
@@ -841,7 +1007,7 @@ void IOPCIBridge::probeBus( IOService * provider, UInt8 busNum )
         {
             space.s.deviceNum = scanDevice;
             space.s.functionNum = scanFunction;
-
+            
             if (findMatching(kidsIter, space) == 0)
             {
                 /* probe - should guard exceptions */
@@ -854,35 +1020,42 @@ void IOPCIBridge::probeBus( IOService * provider, UInt8 busNum )
                 if ((0 == vendor) || (0xffff == vendor))
                     continue;
 
-                // look in function 0 for multi function flag
-                if ((0 == scanFunction)
-                        && (0x00800000 & configRead32(space,
-                                                      kIOPCIConfigCacheLineSize)))
-                    lastFunction = 7;
-
                 propTable = constructProperties( space );
 
-		if (propTable)
-		{
-		    if ((nub = createNub(propTable))
-			&& (initializeNub(nub, propTable))
-			&& (nub->init(propTable)))
-		    {
-#ifdef __i386__
-			setupIntelPIC(nub);
-#endif
-			nubs->setObject(index++, nub);
-		    }
-		    propTable->release();
-		}
+                if (propTable)
+                {
+                    if ((nub = createNub(propTable))
+                    && (initializeNub(nub, propTable))
+                    && (nub->init(propTable)))
+                    {
+                        nubs->setObject(index++, nub);
+                    }
+                    propTable->release();
+                }
             }
-	}
+
+            // look in function 0 for multi function flag
+            if ((0 == scanFunction)
+                    && (0x00800000 & configRead32(space,
+                                                  kIOPCIConfigCacheLineSize)))
+                lastFunction = 7;
+        }
     }
 
     checkCardBusNumbering(nubs);
 
     UInt32 i = 0;
     while (nub = (IOPCIDevice *)nubs->getObject(i++)) {
+
+#ifdef __i386__
+    resolvePCIInterrupt( provider, nub );
+    if ((nub->configRead8(kIOPCIConfigHeaderType) & 0x7) == 0x2)
+    {
+        if (yentaCount < 8) yentaIndices[yentaCount++] = i;
+        continue;  // skip cardbus bridges
+    }
+    getNubResources( nub );
+#endif
 
 	publishNub(nub , i);
 
@@ -892,12 +1065,26 @@ void IOPCIBridge::probeBus( IOService * provider, UInt8 busNum )
 		  nub->configRead32(kIOPCIConfigCommand) );
     }
 
+    checkCardBusResources( nubs, yentaIndices, yentaCount );
+
     nubs->release();
     if (kidsIter) kidsIter->release();
 }
 
 bool IOPCIBridge::addBridgeMemoryRange( IOPhysicalAddress start,
                                         IOPhysicalLength length, bool host )
+{
+    if (cardBusMemoryRanges)
+        cardBusMemoryRanges->deallocate( start, length );
+
+    return addBridgePrefetchableMemoryRange( start, length, host );
+}
+
+OSMetaClassDefineReservedUsed(IOPCIBridge, 0);
+
+bool IOPCIBridge::addBridgePrefetchableMemoryRange( IOPhysicalAddress start,
+                                                    IOPhysicalLength length,
+                                                    bool host )
 {
     IORangeAllocator *	platformRanges;
     bool		ok = true;
@@ -964,19 +1151,17 @@ bool IOPCIBridge::constructRange( IOPCIAddressSpace * flags,
         range = IODeviceMemory::withRange( phys, len );
     }
 
-
     if (range)
     {
-#ifdef __i386__
-        // Do nothing for Intel -- I/O ports are not accessed through
-        // memory on this platform, but through I/O port instructions
-#else
-
         ok = bridgeRanges->allocateRange( phys, len );
+#ifdef __ppc__
         if (!ok)
             IOLog("%s: bad range %d(%08lx:%08lx)\n", getName(), flags->s.space,
                   phys, len);
 #endif
+
+        if (cardBusMemoryRanges && (bridgeRanges == bridgeMemoryRanges))
+            cardBusMemoryRanges->allocateRange( phys, len );
 
         range->setTag( flags->bits );
         ok = array->setObject( range );
@@ -1041,6 +1226,7 @@ IOReturn IOPCIBridge::getNubAddressing( IOPCIDevice * nub )
     UInt32		save, value;
     IOPCIAddressSpace	reg;
     UInt8		regNum;
+    UInt8       headerType;
     bool		memEna, ioEna;
     boolean_t		s;
 
@@ -1048,9 +1234,9 @@ IOReturn IOPCIBridge::getNubAddressing( IOPCIDevice * nub )
     if (0x0003106b == value)		// control doesn't play well
         return (kIOReturnSuccess);
 
-    // only header type 0
-    value = nub->configRead32( kIOPCIConfigCacheLineSize );
-    if (value & 0x007f0000)
+    // headers type 0 and 2
+    headerType = nub->configRead8( kIOPCIConfigHeaderType ) & 0x7f;
+    if (headerType != 0 && headerType != 2)
         return (kIOReturnSuccess);
 
     array = OSArray::withCapacity( 1 );
@@ -1062,6 +1248,10 @@ IOReturn IOPCIBridge::getNubAddressing( IOPCIDevice * nub )
 
     for (regNum = 0x10; regNum < 0x28; regNum += 4)
     {
+        // Only look at CardBus socket BAR
+        if ( (2 == headerType) && (regNum > 0x10) )
+            break;
+
         // begin scary
         s = ml_set_interrupts_enabled(FALSE);
         memEna = nub->setMemoryEnable( false );
@@ -1162,9 +1352,11 @@ IOReturn IOPCIBridge::getNubResources( IOService * service )
     if (service->getDeviceMemory())
         return (kIOReturnSuccess);
 
+#ifdef __ppc__
     if (isDTNub(nub))
         err = getDTNubAddressing( nub );
     else
+#endif
         err = getNubAddressing( nub );
 
     return (err);
@@ -1402,7 +1594,7 @@ bool IOPCI2PCIBridge::configure( IOService * provider )
     {
         start = (end & 0xfff0) << 16;
         end |= 0x000fffff;
-        ok = addBridgeMemoryRange( start, end - start + 1, false );
+        ok = addBridgePrefetchableMemoryRange( start, end - start + 1, false );
     }
 
     end = bridgeDevice->configRead32( kPCI2PCIIORange );
@@ -1460,8 +1652,8 @@ void IOPCI2PCIBridge::saveBridgeState( void )
 
 void IOPCI2PCIBridge::restoreBridgeState( void )
 {
-    long cnt;
-
+  long cnt;
+  
     // start at config space location 8 -- bytes 0-3 are
     // defined by the PCI Spec. as ReadOnly, and we don't
     // want to write anything to the Command or Status
@@ -1548,46 +1740,48 @@ bool IOPCI2PCIBridge::publishNub( IOPCIDevice * nub, UInt32 index )
 
 #ifdef __i386__
 
-static void setupIntelPIC(IOPCIDevice *nub)
+static void resolvePCIInterrupt( IOService * provider, IOPCIDevice * nub )
 {
-    OSDictionary		*propTable;
-    OSArray		*controller;
-    OSArray		*specifier;
-    OSData		*tmpData;
-    long			irq;
-    extern OSSymbol	*gIntelPICName;
+    UInt32 pin;
+    UInt32 irq = 0;
 
-    propTable = nub->getPropertyTable();
-    if (!propTable)
-        return ;
+    pin = (UInt8)(nub->configRead32( kIOPCIConfigInterruptLine ) >> 8);
+    if ( pin == 0 || pin > 4 )
+        return;  // assume no interrupt usage
 
-    do
+    pin--;  // make pin zero based, INTA=0, INTB=1, INTC=2, INTD=3
+
+    // Ask the platform driver to resolve the PCI interrupt route,
+    // and return its corresponding system interrupt vector.
+
+    if ( provider->callPlatformFunction( "ResolvePCIInterrupt",
+                   /* waitForFunction */ false,
+                   /* provider nub    */ provider,
+                   /* device number   */ (void *) nub->space.s.deviceNum,
+                   /* interrupt pin   */ (void *) pin,
+                   /* resolved IRQ    */ &irq ) == kIOReturnSuccess )
     {
-        // Create the interrupt specifer array.
-        specifier = OSArray::withCapacity(1);
-        if (!specifier)
-            break;
-        irq = nub->configRead32(kIOPCIConfigInterruptLine) & 0xf;
-        tmpData = OSData::withBytes(&irq, sizeof(irq));
-        if (tmpData)
-        {
-            specifier->setObject(tmpData);
-            tmpData->release();
-        }
-
-        controller = OSArray::withCapacity(1);
-        if (controller)
-        {
-            controller->setObject(gIntelPICName);
-
-            // Put the two arrays into the property table.
-            propTable->setObject(gIOInterruptControllersKey, controller);
-            controller->release();
-        }
-        propTable->setObject(gIOInterruptSpecifiersKey, specifier);
-        specifier->release();
+        if (1 & gIOPCIDebug)
+            IOLog("%s: Resolved interrupt %ld (%d) for %s\n",
+                  provider->getName(),
+                  irq, nub->configRead8(kIOPCIConfigInterruptLine),
+                  nub->getName());
+        
+        nub->configWrite8( kIOPCIConfigInterruptLine, irq & 0xff );
     }
-    while (false);
+    else
+    {
+        irq = nub->configRead8( kIOPCIConfigInterruptLine );
+        if ( 0 == irq || 0xff == irq ) return;
+        irq &= 0xf;  // what about IO-APIC and irq > 15?
+    }
+
+    provider->callPlatformFunction( "SetDeviceInterrupts",
+              /* waitForFunction */ false,
+              /* nub             */ nub, 
+              /* vectors         */ (void *) &irq,
+              /* vectorCount     */ (void *) 1,
+              /* exclusive       */ (void *) false );
 }
 
-#endif
+#endif /* __i386__ */

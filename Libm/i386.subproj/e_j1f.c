@@ -64,7 +64,7 @@ float j1f(float x)
 	 * j1(x) = 1/sqrt(pi) * (P(1,x)*cc - Q(1,x)*ss) / sqrt(x)
 	 * y1(x) = 1/sqrt(pi) * (P(1,x)*ss + Q(1,x)*cc) / sqrt(x)
 	 */
-		if(ix>0x80000000) z = (invsqrtpi*cc)/sqrtf(y);
+		if((unsigned long)ix>0x80000000ul) z = (invsqrtpi*cc)/sqrtf(y);
 		else {
 		    u = ponef(y); v = qonef(y);
 		    z = invsqrtpi*(u*cc-v*ss)/sqrtf(y);

@@ -1,0 +1,9 @@
+--- glue.h.orig	Fri Mar 22 15:42:01 2002
++++ glue.h	Sat May  3 14:38:31 2003
+@@ -45,4 +45,5 @@
+ 	struct	glue *next;
+ 	int	niobs;
+ 	FILE	*iobs;
+-} __sglue;
++};
++extern struct glue __sglue;

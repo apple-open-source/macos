@@ -13,10 +13,10 @@ PROJECTVERSION = 2.8
 PROJECT_TYPE = Tool
 
 HFILES = scutil.h commands.h dictionary.h session.h cache.h notify.h\
-         tests.h
+         tests.h prefs.h
 
 CFILES = scutil.c commands.c dictionary.c session.c cache.c notify.c\
-         tests.c
+         tests.c prefs.c
 
 OTHERSRCS = Makefile.preamble Makefile Makefile.postamble m.template\
             h.template
@@ -33,6 +33,7 @@ DEBUG_LIBS = $(LIBS)
 PROF_LIBS = $(LIBS)
 
 
+NEXTSTEP_PB_LDFLAGS = -ledit
 FRAMEWORKS = -framework CoreFoundation -framework SystemConfiguration
 
 

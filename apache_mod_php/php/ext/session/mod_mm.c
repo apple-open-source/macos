@@ -2,7 +2,7 @@
    +----------------------------------------------------------------------+
    | PHP Version 4                                                        |
    +----------------------------------------------------------------------+
-   | Copyright (c) 1997-2002 The PHP Group                                |
+   | Copyright (c) 1997-2003 The PHP Group                                |
    +----------------------------------------------------------------------+
    | This source file is subject to version 2.02 of the PHP license,      |
    | that is bundled with this package in the file LICENSE, and is        |
@@ -12,11 +12,11 @@
    | obtain it through the world-wide-web, please send a note to          |
    | license@php.net so we can mail you a copy immediately.               |
    +----------------------------------------------------------------------+
-   | Authors: Sascha Schumann <sascha@schumann.cx>                        |
+   | Author: Sascha Schumann <sascha@schumann.cx>                         |
    +----------------------------------------------------------------------+
  */
 
-/* $Id: mod_mm.c,v 1.1.1.6 2002/03/20 03:23:42 zarzycki Exp $ */
+/* $Id: mod_mm.c,v 1.1.1.9 2003/07/18 18:07:41 zarzycki Exp $ */
 
 #include "php.h"
 
@@ -124,7 +124,9 @@ static ps_sd *ps_sd_new(ps_mm *data, const char *key)
 	
 	sd = mm_malloc(data->mm, sizeof(ps_sd) + keylen);
 	if (!sd) {
-		php_error(E_WARNING, "mm_malloc failed, avail %d, err %s", mm_available(data->mm), mm_error());
+		TSRMLS_FETCH();
+
+		php_error_docref(NULL TSRMLS_CC, E_WARNING, "mm_malloc failed, avail %d, err %s", mm_available(data->mm), mm_error());
 		return NULL;
 	}
 
@@ -319,6 +321,7 @@ PS_READ_FUNC(mm)
 {
 	PS_MM_DATA;
 	ps_sd *sd;
+	int ret = FAILURE;
 
 	mm_lock(data->mm, MM_LOCK_RD);
 	
@@ -328,13 +331,12 @@ PS_READ_FUNC(mm)
 		*val = emalloc(sd->datalen + 1);
 		memcpy(*val, sd->data, sd->datalen);
 		(*val)[sd->datalen] = '\0';
+		ret = SUCCESS;
 	}
-	else {
-		*val = estrdup("");
-	}
+
 	mm_unlock(data->mm);
 	
- 	return SUCCESS;
+	return ret;
 }
 
 PS_WRITE_FUNC(mm)
@@ -359,7 +361,7 @@ PS_WRITE_FUNC(mm)
 
 			if (!sd->data) {
 				ps_sd_destroy(data, sd);
-				php_error(E_WARNING, "cannot allocate new data segment");
+				php_error_docref(NULL TSRMLS_CC, E_WARNING, "cannot allocate new data segment");
 				sd = NULL;
 			}
 		}
@@ -422,17 +424,6 @@ PS_GC_FUNC(mm)
 	
 	return SUCCESS;
 }
-
-zend_module_entry php_session_mm_module = {
-	STANDARD_MODULE_HEADER,
-	"session mm",
-	NULL,
-	PHP_MINIT(ps_mm), PHP_MSHUTDOWN(ps_mm),
-	NULL, NULL,
-	NULL,
-    NO_VERSION_YET,
-	STANDARD_MODULE_PROPERTIES
-};
 
 #endif
 

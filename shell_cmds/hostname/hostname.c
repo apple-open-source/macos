@@ -1,5 +1,3 @@
-/*	$NetBSD: hostname.c,v 1.13 1998/07/28 05:31:24 mycroft Exp $	*/
-
 /*
  * Copyright (c) 1988, 1993
  *	The Regents of the University of California.  All rights reserved.
@@ -33,19 +31,19 @@
  * SUCH DAMAGE.
  */
 
-#include <sys/cdefs.h>
 #ifndef lint
-__COPYRIGHT("@(#) Copyright (c) 1988, 1993\n\
-	The Regents of the University of California.  All rights reserved.\n");
+static char const copyright[] =
+"@(#) Copyright (c) 1988, 1993\n\
+	The Regents of the University of California.  All rights reserved.\n";
 #endif /* not lint */
 
 #ifndef lint
 #if 0
-static char sccsid[] = "@(#)hostname.c	8.2 (Berkeley) 4/28/95";
-#else
-__RCSID("$NetBSD: hostname.c,v 1.13 1998/07/28 05:31:24 mycroft Exp $");
+static char sccsid[] = "@(#)hostname.c	8.1 (Berkeley) 5/31/93";
 #endif
 #endif /* not lint */
+#include <sys/cdefs.h>
+__RCSID("$FreeBSD: src/bin/hostname/hostname.c,v 1.14 2002/06/30 05:13:53 obrien Exp $");
 
 #include <sys/param.h>
 
@@ -55,16 +53,13 @@ __RCSID("$NetBSD: hostname.c,v 1.13 1998/07/28 05:31:24 mycroft Exp $");
 #include <string.h>
 #include <unistd.h>
 
-void usage __P((void));
-int main __P((int, char *[]));
+void usage(void);
 
 int
-main(argc, argv)
-	int argc;
-	char *argv[];
+main(int argc, char *argv[])
 {
 	int ch, sflag;
-	char *p, hostname[MAXHOSTNAMELEN + 1];
+	char *p, hostname[MAXHOSTNAMELEN];
 
 	sflag = 0;
 	while ((ch = getopt(argc, argv, "s")) != -1)
@@ -83,25 +78,25 @@ main(argc, argv)
 		usage();
 
 	if (*argv) {
-		if (sethostname(*argv, strlen(*argv)))
+		if (sethostname(*argv, (int)strlen(*argv)))
 			err(1, "sethostname");
 	} else {
-		if (gethostname(hostname, sizeof(hostname)))
+		if (gethostname(hostname, (int)sizeof(hostname)))
 			err(1, "gethostname");
-		hostname[sizeof(hostname) - 1] = '\0';
-		if (sflag && (p = strchr(hostname, '.')))
-			*p = '\0';
+		if (sflag) {
+			p = strchr(hostname, '.');
+			if (p != NULL)
+				*p = '\0';
+		}
 		(void)printf("%s\n", hostname);
 	}
 	exit(0);
-	/* NOTREACHED */
 }
 
 void
-usage()
+usage(void)
 {
 
 	(void)fprintf(stderr, "usage: hostname [-s] [name-of-host]\n");
 	exit(1);
-	/* NOTREACHED */
 }

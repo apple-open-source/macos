@@ -64,9 +64,11 @@ install-strip: installhdrs
 		$(DSTROOT)/usr/lib/libpam_misc.dylib \
 		$(DSTROOT)/usr/lib/libpamc.dylib
 	$(_v) $(STRIP) -x $(DSTROOT)/usr/lib/libpam*.dylib
-	ln -s /usr/lib/libpam.1.0.dylib $(DSTROOT)/usr/lib/libpam.dylib
-	ln -s /usr/lib/libpam.1.0.dylib $(DSTROOT)/usr/lib/libpam_misc.dylib
-	ln -s /usr/lib/libpam.1.0.dylib $(DSTROOT)/usr/lib/libpamc.dylib
-	ln -s /usr/lib/libpam.1.0.dylib $(DSTROOT)/usr/lib/libpamc.1.0.dylib
-	ln -s /usr/lib/libpam.1.0.dylib $(DSTROOT)/usr/lib/libpam_misc.1.0.dylib
+	mv $(DSTROOT)/usr/lib/libpam.1.0.dylib $(DSTROOT)/usr/lib/libpam.1.dylib
+	ln -s /usr/lib/libpam.1.dylib $(DSTROOT)/usr/lib/libpam.dylib
+	ln -s /usr/lib/libpam.1.dylib $(DSTROOT)/usr/lib/libpam_misc.dylib
+	ln -s /usr/lib/libpam.1.dylib $(DSTROOT)/usr/lib/libpamc.dylib
+	ln -s /usr/lib/libpam.1.dylib $(DSTROOT)/usr/lib/libpamc.1.dylib
+	ln -s /usr/lib/libpam.1.dylib $(DSTROOT)/usr/lib/libpam_misc.1.dylib
+	ln -s /usr/lib/libpam.1.dylib $(DSTROOT)/usr/lib/libpam.1.0.dylib
 	$(_v) $(STRIP) -x $(DSTROOT)/usr/lib/pam/*.so

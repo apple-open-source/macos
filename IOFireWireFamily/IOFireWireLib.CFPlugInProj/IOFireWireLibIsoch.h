@@ -38,33 +38,40 @@
 #include <IOKit/IOCFPlugIn.h>
 
 #include <IOKit/firewire/IOFireWireFamilyCommon.h>
-#include <IOKit/firewire/IOFireWireFamilyCommon.h>
 #include <IOKit/firewire/IOFireWireLib.h>
 
-// === [CFPlugIn support constants] ========================================
+//
+// local isoch port
+//
 
-//
-//	v3 interfaces
-//
+//	uuid string: 541971C6-CE72-11D7-809D-000393C0B9D8
+#define kIOFireWireLocalIsochPortInterfaceID_v5 CFUUIDGetConstantUUIDWithBytes( kCFAllocatorDefault \
+											, 0x54, 0x19, 0x71, 0xC6, 0xCE, 0x72, 0x11, 0xD7\
+											, 0x80, 0x9D, 0x00, 0x03, 0x93, 0xC0, 0xB9, 0xD8 )
+
+//	uuid string: FECAA2F6-4E84-11D7-B6FD-0003938BEB0A
+#define kIOFireWireLocalIsochPortInterfaceID_v4 CFUUIDGetConstantUUIDWithBytes( kCFAllocatorDefault \
+											,0xFE, 0xCA, 0xA2, 0xF6, 0x4E, 0x84, 0x11, 0xD7\
+											,0xB6, 0xFD, 0x00, 0x03, 0x93, 0x8B, 0xEB, 0x0A )
 
 //  uuid string: A0AD095E-6D2F-11D6-AC82-0003933F84F0
 #define kIOFireWireLocalIsochPortInterfaceID_v3 CFUUIDGetConstantUUIDWithBytes(kCFAllocatorDefault,\
 											0xA0, 0xAD, 0x09, 0x5E, 0x6D, 0x2F, 0x11, 0xD6,\
 											0xAC, 0x82, 0x00, 0x03, 0x93, 0x3F, 0x84, 0xF0 )
 
-//
-//	v2 interfaces
-//
 //	Availability: Mac OS X "Jaguar" and later
-//
-
 //  uuid string: 73C76D09-6D2F-11D6-AF7F-0003933F84F0
 #define kIOFireWireLocalIsochPortInterfaceID_v2 CFUUIDGetConstantUUIDWithBytes(kCFAllocatorDefault,\
 											0x73, 0xC7, 0x6D, 0x09, 0x6D, 0x2F, 0x11, 0xD6,\
 											0xAF, 0x7F, 0x00, 0x03, 0x93, 0x3F, 0x84, 0xF0 )
 
+//  uuid string: 0F5E33C8-1350-11D5-9BE7-003065AF75CC
+#define kIOFireWireLocalIsochPortInterfaceID CFUUIDGetConstantUUIDWithBytes(kCFAllocatorDefault,\
+											0x0F, 0x5E, 0x33, 0xC8, 0x13, 0x50, 0x11, 0xD5,\
+											0x9B, 0xE7, 0x00, 0x30, 0x65, 0xAF, 0x75, 0xCC)
+
 //
-//	v1 interfaces
+// remote isoch port
 //
 
 //	uuid string: AAFDBDB0-489F-11D5-BC9B-003065423456
@@ -72,20 +79,34 @@
 											0xAA, 0xFD, 0xBD, 0xB0, 0x48, 0x9F, 0x11, 0xD5,\
 											0xBC, 0x9B, 0x00, 0x30, 0x65, 0x42, 0x34, 0x56)
 
-//  uuid string: 0F5E33C8-1350-11D5-9BE7-003065AF75CC
-#define kIOFireWireLocalIsochPortInterfaceID CFUUIDGetConstantUUIDWithBytes(kCFAllocatorDefault,\
-											0x0F, 0x5E, 0x33, 0xC8, 0x13, 0x50, 0x11, 0xD5,\
-											0x9B, 0xE7, 0x00, 0x30, 0x65, 0xAF, 0x75, 0xCC)
+
+//
+// isoch channel
+//
 
 //  uuid string: 2EC1E404-1350-11D5-89B5-003065AF75CC
 #define kIOFireWireIsochChannelInterfaceID CFUUIDGetConstantUUIDWithBytes(kCFAllocatorDefault,\
 											0x2E, 0xC1, 0xE4, 0x04, 0x13, 0x50, 0x11, 0xD5,\
 											0x89, 0xB5, 0x00, 0x30, 0x65, 0xAF, 0x75, 0xCC)
 
+//
+// DCL command pool
+//
+
 //  uuid string: 4A4B1710-1350-11D5-9B12-003065AF75CC
 #define kIOFireWireDCLCommandPoolInterfaceID CFUUIDGetConstantUUIDWithBytes(kCFAllocatorDefault,\
 											0x4A, 0x4B, 0x17, 0x10, 0x13, 0x50, 0x11, 0xD5,\
 											0x9B, 0x12, 0x00, 0x30, 0x65, 0xAF, 0x75, 0xCC)
+
+//
+// NuDCL pool
+//
+
+//	uuid string: D3837670-4463-11D7-B79A-0003938BEB0A
+#define kIOFireWireNuDCLPoolInterfaceID CFUUIDGetConstantUUIDWithBytes( kCFAllocatorDefault,\
+											0xD3, 0x83, 0x76, 0x70, 0x44, 0x63, 0x11, 0xD7,\
+											0xB7, 0x9A, 0x00, 0x03, 0x93, 0x8B, 0xEB, 0x0A)
+
 
 typedef void	(*IOFireWireIsochChannelForceStopHandler)(
 	IOFireWireLibIsochChannelRef	interface, 
@@ -103,6 +124,8 @@ typedef IOReturn	(*IOFireWireLibIsochPortGetSupportedCallback)(
 	IOFireWireLibIsochPortRef		interface,
 	IOFWSpeed*						outMaxSpeed,
 	UInt64*							outChanSupported) ;
+
+typedef IOReturn	(*IOFireWireLibIsochPortFinalizeCallback)( void* refcon ) ;
 
 // ============================================================
 //
@@ -345,6 +368,38 @@ public:
 			[buffer, buffer+size] is not in the range of memory locked
 			down for this program.*/
 	IOReturn	(*ModifyTransferPacketDCL)( IOFireWireLibLocalIsochPortRef self, DCLTransferPacket* inDCL, void* buffer, IOByteCount size ) ;
+
+	//
+	// v4
+	// 
+	
+	/*!	@function SetFinalizeCallback
+		@abstract Set the finalize callback for a local isoch port
+		@discussion When Stop() is called on a LocalIsochPortInterface, there may or
+			may not be isoch callbacks still pending for this isoch port. The port must be allowed
+			to handle any pending callbacks, so the isoch runloop should not be stopped until a port 
+			has handled all pending callbacks. The finalize callback is called after the final 
+			callback has been made on the isoch runloop. After this callback is sent, it is safe
+			to stop the isoch runloop.
+			
+			You should not access the isoch port after the finalize callback has been made; it may
+			be released immediately after this callback is sent.
+						
+			Availability: IOFireWireLocalIsochPortInterface_v4 and newer.
+			
+		@param self The local isoch port interface to use.
+		@param finalizeCalback The finalize callback.
+		@result Returns true if this isoch port has no more pending callbacks and does not
+			need any more runloop time.*/
+	IOReturn		(*SetFinalizeCallback)( IOFireWireLibLocalIsochPortRef self, IOFireWireLibIsochPortFinalizeCallback finalizeCallback ) ;
+
+	//
+	// v5
+	//
+	
+	IOReturn		(*SetResourceUsageFlags)( IOFireWireLibLocalIsochPortRef self, IOFWIsochResourceFlags flags ) ;
+	IOReturn		(*Notify)( IOFireWireLibLocalIsochPortRef self, IOFWDCLNotificationType notificationType, void ** inDCLList, UInt32 numDCLs ) ;
+
 } IOFireWireLocalIsochPortInterface ;
 
 // ============================================================
@@ -359,7 +414,7 @@ typedef struct IOFireWireIsochChannelInterface_t
 		@abstract FireWire user client isochronous channel object.
 		@discussion IOFireWireIsochChannelInterface is an abstract
 			representataion of a FireWire bus isochronous channel. This
-			interface coordinates the start of stop traffic on a
+			interface coordinates starting and stopping traffic on a
 			FireWire bus isochronous channel and can optionally
 			communicate with the IRM to automatically allocate bandwidth
 			and channel numbers. When using automatic IRM allocation,
@@ -379,10 +434,9 @@ public:
 
 	/*!	@function SetTalker
 		@abstract Set the talker port for this channel.
-		@param self The local isoch port interface to use.
+		@param self The isoch channel interface to use.
 		@param talker The new talker.
-		@result Returns kIOReturnSuccess on success. Returns on IOReturn error
-			code on failure.*/
+		@result Returns an IOReturn error code. */
 	IOReturn 			(*SetTalker)		( IOFireWireLibIsochChannelRef self, IOFireWireLibIsochPortRef talker ) ;
 
 	/*!	@function AddListener
@@ -394,47 +448,41 @@ public:
 
 		Availability: IOFireWireLocalIsochPortInterface_v3 and newer.
 
-		@param self The local isoch port interface to use.
-		@param inDCL A pointer to the DCL to modify.
-		@param buffer The new buffer to or from data will be transferred.
-		@param size The new size of data to be transferred.
-		@result Returns kIOReturnSuccess on success. Will return an
-			error if 'size' is too large or 'inDCL' does not point to a
-			valid transfer packet DCL, or the range specified by
-			[buffer, buffer+size] is not in the range of memory locked
-			down for this program.*/
+		@param self The isoch channel interface to use.
+		@param listener The listener to add.
+		@result Returns an IOReturn error code. */
 	IOReturn			(*AddListener)		( IOFireWireLibIsochChannelRef self, IOFireWireLibIsochPortRef listener ) ;
 	
 	/*!	@function AllocateChannel
 		@abstract Prepare all hardware to begin sending or receiving isochronous data.
 		@discussion Calling this function will result in all listener and talker ports on this 
 			isochronous channel having their AllocatePort method called.
-		@param self The local isoch channel interface to use.
-		@result Returns kIOReturnSuccess on success, other IOReturn error code on failure.*/
+		@param self The isoch channel interface to use.
+		@result Returns an IOReturn error code. */
 	IOReturn			(*AllocateChannel)	( IOFireWireLibIsochChannelRef self ) ;
 
 	/*!	@function ReleaseChannel
 		@abstract Release all hardware after stopping the isochronous channel.
 		@discussion Calling this function will result in all listener and talker ports on this 
 			isochronous channel having their ReleasePort method called.
-		@param self The local isoch channel interface to use.
-		@result Returns kIOReturnSuccess on success, other IOReturn error code on failure.*/
+		@param self The isoch channel interface to use.
+		@result Returns an IOReturn error code. */
 	IOReturn			(*ReleaseChannel)	( IOFireWireLibIsochChannelRef self ) ;
 
 	/*!	@function Start
 		@abstract Start the channel.
 		@discussion Calling this function will result in all listener and talker ports on this 
 			isochronous channel having their Start method called.
-		@param self The local isoch channel interface to use.
-		@result Returns kIOReturnSuccess on success, other IOReturn error code on failure.*/
+		@param self The isoch channel interface to use.
+		@result Returns an IOReturn error code. */
 	IOReturn			(*Start)			( IOFireWireLibIsochChannelRef self ) ;
 
 	/*!	@function Stop
 		@abstract Stop the channel.
 		@discussion Calling this function will result in all listener and talker ports on this 
 			isochronous channel having their Stop method called.
-		@param self The local isoch channel interface to use.
-		@result Returns kIOReturnSuccess on success, other IOReturn error code on failure.*/
+		@param self The isoch channel interface to use.
+		@result Returns an IOReturn error code. */
 	IOReturn			(*Stop)				( IOFireWireLibIsochChannelRef self ) ;
 	
 	// --- notification
@@ -442,7 +490,7 @@ public:
 		@abstract Set the channel force stop handler.
 		@discussion The specified callback is called when the channel is stopped and cannot be 
 			restarted automatically.
-		@param self The local isoch channel interface to use.
+		@param self The isoch channel interface to use.
 		@param stopProc The handler to set.
 		@result Returns the previously set handler or NULL is no handler was set.*/
 	IOFireWireIsochChannelForceStopHandler (*SetChannelForceStopHandler)
@@ -514,5 +562,230 @@ public:
 	Boolean				(*SetSize)						( IOFireWireLibDCLCommandPoolRef self, IOByteCount inSize ) ;
 	IOByteCount			(*GetBytesRemaining)			( IOFireWireLibDCLCommandPoolRef self ) ;
 } IOFireWireDCLCommandPoolInterface ;
+
+typedef struct IOFireWireNuDCLPoolInterface_t
+{
+/*!	@class IOFireWireNuDCLPoolInterface
+	@discussion
+*/
+/* headerdoc parse workaround	
+class IOFireWireNuDCLPoolInterface {
+public:
+*/
+	IUNKNOWN_C_GUTS ;
+	UInt32 revision, version ;
+
+	// Command pool management:
+
+	/*!	@function GetProgram
+		@abstract Finds the first DCL in the pool not preceeded by any other DCL.
+		@discussion The specified callback is called when the channel is stopped and cannot be 
+			restarted automatically.
+		@param self The NuDCL pool to use.
+		@param stopProc The handler to set.
+		@result Returns the previously set handler or NULL is no handler was set.*/
+	DCLCommand*				(*GetProgram)( IOFireWireLibNuDCLPoolRef self ) ;
+	CFArrayRef				(*GetDCLs)( IOFireWireLibNuDCLPoolRef self ) ;
+
+	void					(*PrintProgram)( IOFireWireLibNuDCLPoolRef self ) ;
+	void					(*PrintDCL)( NuDCLRef dcl ) ;
+	
+	// Allocating transmit NuDCLs:
+
+	/*!	@function SetCurrentTagAndSync
+		@abstract Set current tag and sync bits
+		@discussion
+		@param self The NuDCL pool to use.
+		@param numBuffers The number of virtual ranges in 'buffers'. Can be no greater than 6.
+		@param buffers An array of virtual memory ranges containing the packet contents. The array will be copied
+			into the DCL when it is created.
+		@result Returns an NuDCLSendPacketRef on success or 0 on failure. */
+	void					(*SetCurrentTagAndSync)( IOFireWireLibNuDCLPoolRef self, UInt8 tag, UInt8 sync ) ;
+
+	/*!	@function AllocateSendPacket
+		@abstract Allocate a SendPacket NuDCL
+		@discussion The SendPacket DCL sends an isochronous packet on the bus. 
+			When transmitting, one SendPacket DCL will be executed per FireWire bus cycle. The isochronous header 
+			for this DCL is specified by the closest preceeding SetHeader NuDCL. If there is no current header,
+			the sync and tag fields of the isochronous header will be set to 0.			
+		@param self The NuDCL pool to use.
+		@param numBuffers The number of virtual ranges in 'buffers'. Can be no greater than 6.
+		@param buffers An array of virtual memory ranges containing the packet contents. The array will be copied
+			into the DCL when it is created.
+		@param saveBag The allocated DCL can be added to a CFBag for easily setting DCL update lists. Pass a CFMutableSetRef to add the allocated
+			DCL to a CFBag; pass NULL to ignore. SaveBag is unmodified on failure.
+		@result Returns an NuDCLSendPacketRef on success or 0 on failure. */
+	NuDCLSendPacketRef		(*AllocateSendPacket)( IOFireWireLibNuDCLPoolRef self, CFMutableSetRef saveBag, UInt32 numBuffers, IOVirtualRange* buffers ) ;	
+	NuDCLSendPacketRef		(*AllocateSendPacket_v)( IOFireWireLibNuDCLPoolRef self, CFMutableSetRef saveBag, IOVirtualRange* firstRange, ... ) ;	
+
+	/*!	@function AllocateSkipCycle
+		@abstract Allocate a SkipCycle NuCDL
+		@discussion The SkipCycle "sends" an empty cycle on the bus.
+		@param self The NuDCL pool to use.
+		@result Returns an NuDCLSkipCycleRef on success or 0 on failure. */
+	NuDCLSkipCycleRef		(*AllocateSkipCycle)( IOFireWireLibNuDCLPoolRef self ) ;
+	
+	// Allocating receive NuDCLs:
+
+	/*!	@function AllocateReceivePacket
+		@abstract Allocate a ReceivePacket NuDCL.
+		@discussion The ReceivePacket DCL is used to receive an isochronous packet. One ReceivePacket DCL can
+			be executed per FireWire bus cycle.
+		@param self The NuDCL pool to use.
+		@param wantHeader Set to true to store packet isochronous header with the received data.
+		@param saveBag The allocated DCL can be added to a CFBag for easily setting DCL update lists. Pass a CFMutableSetRef to add the allocated
+			DCL to a CFBag; pass NULL to ignore. SaveBag is unmodified on failure.
+		@result Returns an NuDCLReceivePacketRef on success or 0 on failure. */
+	NuDCLReceivePacketRef	(*AllocateReceivePacket)( IOFireWireLibNuDCLPoolRef self, CFMutableSetRef saveBag, UInt8 headerBytes, UInt32 numBuffers, IOVirtualRange* buffers ) ;
+	NuDCLReceivePacketRef	(*AllocateReceivePacket_v)( IOFireWireLibNuDCLPoolRef self, CFMutableSetRef saveBag, UInt8 headerBytes, IOVirtualRange* firstRange, ... ) ;
+
+	// NuDCL configuration
+
+	/*!	@function GetDCLNextDCL
+		@abstract Get the next pointer for a NuDCL
+		@discussion Applies: Any NuDCLRef
+
+			Applies: NuDCLSendPacketRef, NuDCLSendPacketWithHeaderRef, NuDCLSkipCycleRef, NuDCLReceivePacket, NuDCLReceivePacketWithHeader
+		@param dcl The dcl whose next pointer will be returned
+		@result Returns the DCL immediately following this DCL in program order (ignoring branches) or 0 for none.*/
+	NuDCLRef			(*FindDCLNextDCL)( IOFireWireLibNuDCLPoolRef self, NuDCLRef dcl ) ;
+
+	/*!	@function SetDCLBranch
+		@abstract Set the branch pointer for a NuDCL
+		@discussion Program execution will jump to the DCL pointed to by 'branchDCL', when set. 
+		
+			This change will apply immediately to a non-running DCL program. To apply the change to a running program
+			use IOFireWireLibIsochPortInterface->ModifyNuDCLs()
+			restarted automatically.
+
+			Applies: NuDCLSendPacketRef, NuDCLSendPacketWithHeaderRef, NuDCLSkipCycleRef, NuDCLReceivePacket, NuDCLReceivePacketWithHeader
+		@param stopProc The handler to set.
+		@result Returns an IOReturn error code.*/
+	IOReturn			(*SetDCLBranch)( NuDCLRef dcl, NuDCLRef branchDCL ) ;
+
+	/*!	@function GetDCLBranch
+		@abstract Get the branch pointer for a NuDCL
+		@param dcl The dcl whose branch pointer will be returned.
+		@result Returns the branch pointer of 'dcl' or 0 for none is set.*/
+	NuDCLRef			(*GetDCLBranch)( NuDCLRef dcl ) ;
+
+	/*!	@function SetDCLTimeStampPtr
+		@abstract Set the time stamp pointer for a NuDCL
+		@discussion Setting a the time stamp pointer for a NuDCL causes a time stamp to be recorded when a DCL executes. 
+			You must run an update NuDCL on this DCL to copy the written timestamp to the proper location.
+
+			Applies: NuDCLSendPacketRef, NuDCLSendPacketWithHeaderRef, NuDCLSkipCycleRef, NuDCLReceivePacket, NuDCLReceivePacketWithHeader
+
+		@param dcl The DCL for which time stamp pointer will be set
+		@param timeStampPtr A pointer to a quadlet which will hold the timestamp after 'dcl' is updated.
+		@result Returns an IOReturn error code.*/
+	IOReturn			(*SetDCLTimeStampPtr)( NuDCLRef dcl, UInt32* timeStampPtr ) ;
+
+	/*!	@function GetDCLTimeStampPtr
+		@abstract Get the time stamp pointer for a NuDCL.
+		@discussion The specified callback is called when the channel is stopped and cannot be 
+			restarted automatically.
+
+			Applies: NuDCLSendPacketRef, NuDCLSendPacketWithHeaderRef, NuDCLSkipCycleRef, NuDCLReceivePacket, NuDCLReceivePacketWithHeader
+
+		@param dcl The DCL to modify
+		@result Returns a UInt32 time stamp pointer.*/
+	UInt32*				(*GetDCLTimeStampPtr)( NuDCLRef dcl ) ;
+
+	IOReturn			(*SetDCLStatusPtr)( NuDCLRef dcl, UInt32* statusPtr ) ;
+	UInt32*				(*GetDCLStatusPtr)( NuDCLRef dcl ) ;
+	
+
+	/*!	@function AddDCLRange
+		@abstract Add a memory range to the scatter gather list of a NuDCL
+		@discussion
+		
+			Applies: NuDCLSendPacketRef, NuDCLSendPacketWithHeaderRef, NuDCLReceivePacket, NuDCLReceivePacketWithHeader
+
+		@param dcl The DCL to modify
+		@param range A IOVirtualRange to add to this DCL buffer list. Do not pass NULL.
+		@result Returns an IOReturn error code.*/
+	IOReturn			(*AppendDCLRanges)			( NuDCLRef dcl, UInt32 numRanges, IOVirtualRange* range ) ;
+
+	/*!	@function SetDCLRanges
+		@abstract Set the scatter gather list for a NuDCL
+		@discussion
+
+			Applies: NuDCLSendPacketRef, NuDCLSendPacketWithHeaderRef, NuDCLReceivePacket, NuDCLReceivePacketWithHeader
+
+		@param dcl The DCL to modify
+		@param numRanges number of ranges in 'ranges'. Must be less than 7
+		@param ranges An array of virtual ranges
+		@result Returns an IOReturn error code.*/
+	IOReturn			(*SetDCLRanges)				( NuDCLRef dcl, UInt32 numRanges, IOVirtualRange* ranges ) ;
+
+	IOReturn			(*SetDCLRanges_v)			( NuDCLRef dcl, IOVirtualRange* firstRange, ... ) ;
+	
+	/*!	@function GetDCLRanges
+		@abstract Get the scatter-gather list for a NuDCL
+		@discussion 
+
+			Applies: NuDCLSendPacketRef, NuDCLSendPacketWithHeaderRef, NuDCLReceivePacket, NuDCLReceivePacketWithHeader
+
+		@param dcl The DCL to query
+		@param stopProc The handler to set.
+		@result Returns the previously set handler or NULL is no handler was set.*/
+	UInt32				(*GetDCLRanges)				( NuDCLRef dcl, UInt32 maxRanges, IOVirtualRange* outRanges ) ;
+	UInt32				(*CountDCLRanges)			( NuDCLRef dcl ) ;
+	IOReturn			(*GetDCLSpan)				( NuDCLRef dcl, IOVirtualRange* spanRange ) ;
+	IOByteCount			(*GetDCLSize)				( NuDCLRef dcl ) ;
+
+	/*!	@function SetDCLCallback
+		@abstract Set the callback for a NuDCL
+		@discussion A callback can be called each time a NuDCL is run. Use SetDCLCallback() to set the
+			callback for a NuDCL. If the update option is also set, the callback will be called after the update
+			has run.
+
+			Applies: NuDCLSendPacketRef, NuDCLSendPacketWithHeaderRef, NuDCLReceivePacket, NuDCLReceivePacketWithHeader
+		
+		@param dcl The DCL to modify
+		@param callback The callback function.
+		@result Returns an IOReturn error code.*/
+	IOReturn			(*SetDCLCallback)				( NuDCLRef dcl, NuDCLCallback callback ) ;
+
+	/*!	@function Get callback for a NuDCL
+		@abstract Returns the callback function for a DCL
+		@discussion
+
+			Applies: NuDCLSendPacketRef, NuDCLSendPacketWithHeaderRef, NuDCLReceivePacket, NuDCLReceivePacketWithHeader
+		@param dcl The DCL to query
+		@result Returns the DCLs callback function or NULL is none.*/
+	NuDCLCallback		(*GetDCLCallback)( NuDCLRef dcl ) ;
+
+	IOReturn			(*SetDCLUserHeaderPtr)( NuDCLRef dcl, UInt32 * headerPtr, UInt32 * mask ) ;
+	UInt32 *			(*GetDCLUserHeaderPtr)( NuDCLRef dcl ) ;
+	UInt32 *			(*GetUserHeaderMaskPtr)( NuDCLRef dcl ) ;
+	
+	void				(*SetDCLRefcon)( NuDCLRef dcl, void* refcon ) ;
+	void*				(*GetDCLRefcon)( NuDCLRef dcl ) ;
+	
+	IOReturn			(*AppendDCLUpdateList)( NuDCLRef dcl, NuDCLRef updateDCL ) ;
+
+	// consumes a reference on dclList..
+	IOReturn			(*SetDCLUpdateList)( NuDCLRef dcl, CFSetRef dclList ) ;
+	CFSetRef			(*CopyDCLUpdateList)( NuDCLRef dcl ) ;
+	IOReturn			(*RemoveDCLUpdateList)( NuDCLRef dcl ) ;
+	
+	IOReturn			(*SetDCLWaitControl)( NuDCLRef dcl, Boolean wait ) ;
+	
+	void				(*SetDCLFlags)( NuDCLRef dcl, UInt32 flags ) ;
+	UInt32				(*GetDCLFlags)( NuDCLRef dcl ) ;
+	IOReturn			(*SetDCLSkipBranch)( NuDCLRef dcl, NuDCLRef skipCycleDCL ) ;
+	NuDCLRef			(*GetDCLSkipBranch)( NuDCLRef dcl ) ;
+	IOReturn			(*SetDCLSkipCallback)( NuDCLRef dcl, NuDCLCallback callback ) ;
+	NuDCLCallback		(*GetDCLSkipCallback)( NuDCLRef dcl ) ;
+	IOReturn			(*SetDCLSkipRefcon)( NuDCLRef dcl, void * refcon ) ;
+	void *				(*GetDCLSkipRefcon)( NuDCLRef dcl ) ;
+	IOReturn			(*SetDCLSyncBits)( NuDCLRef dcl, UInt8 syncBits ) ;
+	UInt8				(*GetDCLSyncBits)( NuDCLRef dcl ) ;
+	IOReturn			(*SetDCLTagBits)( NuDCLRef dcl, UInt8 tagBits ) ;
+	UInt8				(*GetDCLTagBits)( NuDCLRef dcl ) ;
+
+} IOFireWireNuDCLPoolInterface ;
 
 #endif //__IOFireWireLibIsoch_H__

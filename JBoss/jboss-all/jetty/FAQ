@@ -1,0 +1,633 @@
+What is the scope of this FAQ?
+-----------------------------
+
+Anything JBoss/Jetty specific.
+
+I'm not going to waste bandwidth talking all about standard J2EE -
+there are 1001 books and websites where you can find this.
+
+I will touch on proprietary Jetty features, but usually with a link
+back to the Jetty website where there is a wealth of documentation
+(jetty.mortbay.org).
+
+I will also touch on proprietary JBoss features, but once again, the
+JBoss website (www.jboss.org) would be a better place to look for this
+sort of documentation.
+
+Now that we have narrowed it down a bit - let's begin....
+
+
+What is Jetty?
+-------------
+
+A pure Java, HTTP1.1 httpd, Servlet 2.3 & JSP 1.2 WebContainer. In
+short a 100% pure Java and elegant solution to serving static and
+dynamic web content. See jetty.mortbay.org for more information.
+
+
+What is the difference between JBossWeb and Jetty ?
+----------------------------------------------------
+
+NOTHING - JBossWeb is the JBoss Web Service - currently implemented
+using a tailored Jetty instance.
+
+
+Why would I want to use Jetty instead of Tomcat/Catalina?
+----------------------------------------------------------
+
+Tomcat and Jetty's missions are very different. Tomcat's is to define
+the standard behaviour of a J2EE-compliant web-container. Jetty's is
+to deliver this behaviour in as fast, lightweight, and embeddable
+solution as possible.
+
+I happen to think that Jetty's mission fits better with JBoss'
+requirements. The Jetty developer community see it as a priority to
+integrate as tightly and as usefully as possible with JBoss, whilst
+continuing to provide standalone Jetty to a wider audience with
+similar requirements for an embedded Java HTTP server and
+Web-Container. Tomcat's priorities probably lie elsewhere.
+
+I will support Jetty problems in the JBoss Fora. If you use Catalina,
+you will have to turn to it's own community for help.
+
+Take your pick....
+
+
+Will I have trouble moving my WebApp from Tomcat to Jetty
+---------------------------------------------------------
+
+Hopefully, you should experience no difference. The two provide
+implementations of the same APIs and both are tested against
+jakarta-watchdog, a suite of hundreds of test cases, to ensure
+compliance. If, by mischance, you do happen to come across a
+difference in behaviour between the two, mail
+jetty-support@yahoogroups.com with a clear and specific explanation of
+this difference and the Jetty development team will do their best to
+resolve it.
+
+
+How do I run the Jetty integration?
+-----------------------------------
+
+Just start JBoss3. Jetty should deploy from the jbossweb.sar. The
+HTTP server will be on 8080 by default. This and other proprietary
+features are configurable in META-INF/jboss-service.xml which you will
+find in ...deploy/jbossweb.sar. Edit it. JBoss will notice, reload
+and restart Jetty with it's new configuration.  Alternatively, for
+more ephemeral alterations you can use the JMX HTML Adaptor.
+
+
+OK, I'm up and running, but I get a 404 when I hit 'localhost:8080/'
+--------------------------------------------------------------------
+
+Currently, JBoss comes with no webapps preinstalled, so starting it up
+and hitting localhost:8080/ will result in your receiving a "404 Not
+Found" error. This is NOT a problem with your installation. It IS
+correct behaviour. If you want to see something there, deploy
+something.
+
+
+How do I deploy my WAR ?
+------------------------
+
+Copy it to server/<configuration>/deploy where <configuration> is your
+configuration (probably "default" if you don't know what I am talking
+about). JBoss will see it and deploy it to Jetty automagically.
+
+You can also deploy it unpacked i.e. make a directory called
+e.g. my.war/, go into it and unjar your webapp the copy the whole
+directory into deploy/ as above. It should be treated in exctly the
+same way as above.
+
+If you update/touch the packed WAR or the unpacked
+<WAR>/WEB-INF/web.xml Jetty will undeploy the old copy of your webapp
+and load the new one.
+
+This is all standard JBoss stuff and will work for anything that JBoss
+knows how to deploy.
+
+
+How do control the context my WAR is deployed at ?
+---------------------------------------------------
+
+If you are deploying the war by itself (no ear) you can simply name it
+<context-root>.war (where <context-root> is the context-root that you
+require) and deploy it. This is problematic if you want to use the '/'
+context-root - see the next item on remaining ways to specify
+context-root.
+
+
+How do I deploy a WAR to the '/' context
+----------------------------------------------
+
+When I deploy my app foo.war to JBoss, it gets installed at /foo. I
+want it at /.
+
+You have three choices.
+
+1. The standard J2EE way - wrap your .war in an .ear and in the .ear's
+application.xml you can specify the required <context-root> -
+.http://cvs.sourceforge.net/cgi-bin/viewcvs.cgi/jboss/jboss/src/resources/org/jboss/metadata/application_1_3.dtd?rev=HEAD&content-type=text/vnd.viewcvs-markup
+
+2. The proprietary JBoss extension - put a jboss-web.xml into your
+.war's WEB-INF directory and specify the <context-root> in that. -
+http://cvs.sourceforge.net/cgi-bin/viewcvs.cgi/jboss/jboss/src/resources/org/jboss/metadata/jboss-web_3_0.dtd?rev=HEAD&content-type=text/vnd.viewcvs-markup
+
+3. A Tomcat-ism. Call the file ROOT.war and deploy this standalone -
+i.e. without a surrounding ear. (This is CASE-SENSITIVE - careful on
+Windoze)
+
+Note that a context path specification in a META-INF/application.xml
+file will take precedence over the WEB-INF/jboss-web.xml specification.
+
+
+How do I configure the Jetty Service ?
+--------------------------------------
+
+Configuration for a JettyService instance may be found in
+jbossweb.sar/META-INF/jboss-service.xml.
+
+Proprietary WebApp specific configuration may be done in
+e.g. my.war/WEB-INF/jetty-web.xml.
+
+The ConfigurationElement in jboss-service.xml and the contents of
+jetty-web.xml are written in a very thin XML veneer over Jetty's java
+API, so have your JavaDoc to hand - for further info see
+the Jetty tutorial at http://jetty.mortbay.org/jetty/tut.
+
+
+I want to use Virtual Hosts
+---------------------------
+
+Virtual hosts are an area currently not (AFAIK) addressed by the J2EE
+spec (1.3). However this is supported as of JBoss2.4.5 via a
+proprietary extension mechanism.
+
+To define a virtual host, add a line of the following form to your webapp's
+WEB-INF/jboss-web.xml file:
+http://cvs.sourceforge.net/cgi-bin/viewcvs.cgi/jboss/jboss/src/resources/org/jboss/metadata/jboss-web_3_0.dtd?rev=HEAD&content-type=text/vnd.viewcvs-markup
+
+  <virtual-host>myvirtualhost</virtual-host>
+
+Note that you will also need your system configured appropriately to
+map this name to your machines IP address.
+
+
+I want to use more than one Virtual Host for a webapp
+-----------------------------------------------------
+
+Unfortunately the proprietary JBoss descriptor (WEB-INF/jboss-web.xml)
+does not yet support this.
+
+Fortunately the proprietary Jetty descriptor (WEB-INF/jetty-web.xml)
+does - since it is just a thin XML veneer over the Java classes API.
+
+Try a jetty-web.xml something like this :
+
+
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE Configure PUBLIC "-//Mort Bay Consulting//DTD Configure 1.2//EN" "http://jetty.mortbay.org/configure_1_2.dtd">
+
+<Configure class="org.jboss.jetty.JBossWebApplicationContext">
+
+<Call name="addVirtualHost"><Arg>host1</Arg></Call>
+<Call name="addVirtualHost"><Arg>host2</Arg></Call>
+
+</Configure>
+
+
+I want to use SSL
+-----------------
+
+Look in the jbossweb.sar/META-INF/jboss-service.xml file for an
+example of how to configure an SSL listener for Jetty. You might also
+find some useful tips on the Jetty FAQ at http://jetty.mortbay.org/jetty/doc,
+and in the Jetty SSL demo at http://jetty.mortbay.org/jetty/JsseSSL.html
+
+
+I want to use JAAS
+------------------
+
+JAAS support is configurable across the JettyService instance via an
+attribute in jboss-service.xml (see above), or via localhost:8082
+
+
+I want to change the port that Jetty listens on
+-----------------------------------------------
+
+Either
+
+hack your startup to pass -Djetty.port=xxxx (Hmmmm.... - this doesn't
+work, for some reason, the property disappears before reaching Jetty)
+
+Or
+
+edit ..../deploy/jbossweb.sar/META-INF/jboss-service.xml's
+ConfigurationElement to reflect your needs.
+
+
+I want to run on 80, not 8080
+-----------------------------
+
+http://jetty.mortbay.org/jetty/doc/User80.html
+
+
+I want to run with Apache
+-------------------------
+
+http://jetty.mortbay.org/jetty/doc/JettyWithApache.html
+
+
+So - tell me about Distributed HttpSessions...
+---------------------------------------------
+
+An HttpSession is an object used in a WebApp to store conversational
+state between requests.
+
+A WebApp may be described as 'distributable' in it's WEB-INF/web.xml.
+
+The J2EE spec requires that a 'distributable' app may be 'migrated'
+between nodes of a cluster - i.e. taken down on one node and brought
+up on another. Extant HttpSessions must continue to be available to
+the new WebApp instance.
+
+Many AppServers extend this fn-ality from simply allowing migration to
+providing failover i.e. If a WebApp is not undeployed from it's node
+cleanly (The node may crash, hang or be too busy to process new
+requests) it's HttpSessions are still made available to other
+instances of the same WebApp within the cluster.
+
+
+How do I set up Distributed HttpSession support ?
+--------------------------------------------------
+
+Look in docs/examples/jbossweb/ at the example jetty-web.xml. This is
+a proprietary Jetty descriptor and should be placed in your webapp's
+WEB-INF directory. A distributable webapp, without a jetty-web.xml
+like this, will use the default httpsession distribution mechanism.
+
+
+Why is Jetty packaged in a .SAR ?
+----------------------------------
+
+Because it is a useful way of encapsulating all the components that
+form the Jetty service.
+
+If you really don't like it, move all the jars inside into ./lib and
+the jboss-service.xml to e.g. ./deploy/jbossweb-service.xml
+
+
+Explain this Java2ClassLoadingCompliance JMX attribute to me
+-------------------------------------------------------------
+
+The Java language spec says a ClassLoader should always check it's
+parent for a class it is asked for (delegate up). The servlet spec
+implies that it should try to find the class locally (i.e. in the .war
+file) first.
+
+These different requirements cannot be reconciled and lead to
+differing behaviours.
+
+Jetty allows you to choose the strategy you require via this flag.
+
+
+JSP Precompilation - What, Why and How ?
+-----------------------------------------
+
+If you include a .jsp in your .war and hit it, Jasper (the JSP engine)
+will find the JSP, transform it into a .java, compile that into a
+.class, load and run it, returning the output. The .class file is then
+cached and reused on subsequent hits.
+
+This can lead to 3 problems.
+
+1). You might prefer to be notified of compile errors during your
+development cycle - rather than post deployment.
+
+2). The first person to hit the page will have to wait a while whilst
+this process is carried out.
+
+3). If you are deploying into a heavily loaded site, it is possible
+that a page may be hit again before the first hit has finished it's
+on-the-fly preparation. This may result in more than one concurrent
+attempt at compiling the page, resulting in unecessary load on the
+server and more than one user waiting a long time for the resource
+that they have requested.
+
+The way out of all these problems is to precompile your JSPs - i.e. Do
+what Jasper would do lazily, preemptively during your development
+iteration.
+
+Doing this results in the further following advantages:
+
+- your production site may consider the presence of a compiler a
+security breach. Precompiled JSPs do not need one.
+
+- dispatch of request to servlet is simpler and therefore quicker
+since it goes direct from Jetty->Servlet and not
+Jetty->Jasper->Servlet.
+
+
+Here is a mail I sent to jboss-user to help someone who wanted to do
+this:
+
+
+I have just fixed up the JBoss website to precompile JSPs.
+
+This is a diff showing the code I added to the build.xml
+
+http://cvs.sourceforge.net/cgi-bin/viewcvs.cgi/jboss/website/content/build.xml.diff?r1=text&tr1=1.7&r2=text&tr2=1.8&diff_format=h
+
+and this is a diff showing what I added to the web.xml
+
+http://cvs.sourceforge.net/cgi-bin/viewcvs.cgi/jboss/website/content/src/resources/content-war/WEB-INF/web.xml.diff?r1=text&tr1=1.7&r2=text&tr2=1.8&diff_format=h
+
+
+The comment line in the web.xml MUST be after the last <servlet/> and
+before the first <servlet-mapping/> directive.
+
+JspC will generate some xml <servlet/> and <servlet-mapping/> elements
+which I substitute in at this comment.
+
+The rest you will have to figure out for yourself - it is well commented.
+
+You will probably not need some of the workarounds I have had to retrofit.....
+
+Since adding this item I have found the following :
+
+1). Throwing a lot of concurrent requests at compile-on-the-fly JSPs
+can make Jasper simply fall about and complain about files not
+existing. Remove the load and hit the same page and it is returned no
+problem - conclusion compile-on-the-fly is simply not an option for
+enterprise level sites.
+
+2). The JspC stuff referenced above fails to take into account
+welcome-files. Jetty will look for a file of the same (e.g. index.jsp)
+(so you should make sure something is there - even if it is an empty
+file) and if so redirect the request to it. - Of course, you could
+probably remove the welcome-file directive and map your servlet
+directly.
+
+
+Don't delete JSP compilation results between JBoss instances.
+--------------------------------------------------------------
+
+Look in
+.../deploy/jbossweb.sar/org.mortbay.jetty.jar/org/mortbay/jetty/servlet/webdefault.xml.
+This controls the default configuration of e.g. Jasper for
+WebApplications. The 'keepgenerated' init parameter may help you. You
+MAY find that, since your webapp will be undeployed whan JBoss
+shutsdown and redeployed when it restarts, that even this won't help
+you.
+
+Feedback on this point will be greatfully received...
+
+
+I'm debugging a JSP and would like to use the Java source generated by Jasper
+------------------------------------------------------------------------------
+
+Look in /tmp/Jetty__<Jetty-Port-Number>___<war-context>. Compiled JSPs
+should appear as <name>$jsp.java.
+
+
+I've been looking on the Jetty website. It keeps talking about jetty.xml...
+----------------------------------------------------------------------------
+
+The contents of the Jetty.xml are now embedded in
+jbossweb.sar/META-INF/jboss-service.xml. They are the value of the
+attribute: ConfigurationElement.
+
+
+Packaging - to SAR or not to SAR
+---------------------------------
+
+Jetty is currently deployed as an <UNPACKED> SAR (jboss Service
+ARchive) of configuration and implementation. This has caused some
+consternation in various quarters, where it is felt that these should
+be separated. I shall try to list the pros and cons of both
+approaches.
+
+Cons:
+
+because the configuration is buried in
+deploy/jbossweb.sar/META-INF/jboss-service.xml it is not as easy
+to find as say : deploy/mail-service.xml.
+
+you have to keep unpacking/repacking the sar - NO YOU DON'T. JETTY IS
+NOW DEPLOYED UNPACKED.
+
+Pros:
+
+New releases of Jetty can be distributed as a single drop-in sar.
+
+The sar (being a jar) can be signed
+
+If you are running a farm, having jetty packaged in sar means that you
+can upgrade the service across the whole cluster just by replacing
+your current sar with the new one.
+
+I think that a sar is more J2EE - that is the configuration is held in
+a descriptor, which is in the deployable, with it's implementation,
+exactly where you would expect to find it.
+
+The jury is still out...
+
+
+I want to serve content from outside a war
+-------------------------------------------------
+
+To serve external content, you can step outside the J2EE way of doing
+things and use Jetty's proprietary configuration mechanism to tell it
+to serve pages from anywhere on your disc.
+
+Add something like this to the ConfigurationElement in
+jbossweb.sar/META-INF/jboss-service.xml, to serve static pages:
+
+   <Call name="addContext">
+     <Arg>/documents/*</Arg>
+     <Set name="ResourceBase">/docroot/</Set>
+     <Set name="ServingResources">TRUE</Set>
+   </Call>
+
+This example maps the context /documents to the directory /docroot, so
+to retrieve e.g. /docroot/myfile.html you would hit
+http://localhost:8080/documents/myfile.html.
+
+For CGI, see below...
+
+For other dynamic content, you can do the same sort of thing, but add
+servlet handlers etc. to the context.
+
+
+Jetty moans about elements in my web.xml not being allowed in this position
+-----------------------------------------------------------------------------
+
+The webapp deploys on ANOther webcontainer what is going on ?
+
+The XML parser is set to be strict about the ordering of elements (as
+per spec).
+
+Look at the following DTD :
+
+http://cvs.sourceforge.net/cgi-bin/viewcvs.cgi/jboss/jboss/src/resources/org/jboss/metadata/web-app_2_3.dtd?rev=HEAD&content-type=text/vnd.viewcvs-markup
+
+and ensure that the elements in your web.xml appear in exactly the same order as in the DTD.
+
+You are now assured of MAXIMUM portability for your webapp.
+
+
+I want to play around with WebServices
+---------------------------------------
+
+Look at the JBoss.Net. I believe it packages up Axis and a WebService
+aware deployer so that you can just bundle your classes and descriptor
+and drop them into deploy. They will be deployed into Axis running on
+Jetty and you can get on with developing the application instaed of
+fiddling around with the plumbing.
+
+
+I need support for CGI
+----------------------------
+
+Jetty comes equipped with a CGI Servlet, which you should be able to
+add to your webapp or the ConfigurationElement in jboss-service.xml.
+
+To do the latter, you will need something like this...
+
+  <Call name="addContext">
+    <Arg>/cgi-bin/*</Arg>
+    <Set name="ResourceBase">/home/jules/www/cgi-bin</Set>
+    <Set name="ServingDynamicServlets">TRUE</Set>
+    <Call name="addServlet">
+      <Arg>Common Gateway Interface</Arg>
+      <Arg>/</Arg>
+      <Arg>com.mortbay.Servlet.CGI</Arg>
+     <Put name="Path">/usr/local/bin:/usr/ucb:/bin:/usr/bin</Put>
+    </Call>
+  </Call>
+
+I leave the former as an exercise (but if you do it, mail me the web.xml!).
+
+This is fine on Unix (on which I developed this servlet), on Windows
+you should be alright as long as you are running .exes. If you want to
+run scripts I believe that there is an issue with the way that Java
+execs subprocesses which will try to run the script direct without the
+interpreter. I'm open to suggestions...
+
+BTW - This will not be as fast as using e.g. mod_perl in Apache (which
+caches it's Perl interpreters?), since it fires off a fresh process
+everytime it is hit....
+
+
+Editing the jboss-service.xml
+------------------------------
+
+You may need to unpack the plugin.sar to get at the
+jboss-service.xml. You do not need to repack it, if you think you will
+be reediting it - just make a directory called deploy/jbossweb.sar
+and unjar the contents of the sar into it - JBoss will understand it
+in just the same way as the packed sar.
+
+
+Separation of Web & EJB tiers
+------------------------------
+
+Whilst there are obvious advantages to running web & EJB tiers within
+the same VM, you may find that your architecture requires the
+separation of these two tiers into remote processes.
+
+Currently the only way to achieve this is to sacrifice the work that
+has been done on the Jetty/JBoss integration (which is in-VM) and
+simply run stand-alone Jetty instances which are configured to use a
+remote JBoss instance as their JNDI server. Thus your web-content
+becomes a standard EJB client.
+
+Jetty JNDI can be persuaded to use a JBoss instance for it's
+InitialContext's in two ways:
+
+1. Specify System properties as you start Jetty e.g.
+
+      -Djava.naming.factory.initial=org.jnp.interfaces.NamingContextFactory
+      -Djava.naming.provider.url=<remote.jboss.host.name>
+
+2. Specify System properties in a config file.
+
+      Create a file called jndi.properties with the following two
+      lines (and put the jndi.properties file into the classpath of
+      the client):
+
+      java.naming.factory.initial=org.jnp.interfaces.NamingContextFactory
+      java.naming.provider.url=<remote.jboss.host.name>
+
+I suspect, although have not tried, that the second solution would be
+the better one - since you may be able to package the jndi.properties
+file in your.war/WEB-INF/classes (it depends on whether InitialContext
+uses getClass().getClassLoader() or
+Thread.currentThread().getContextClassLoader() to find the file...)
+
+(Thanks to the JBoss FAQ for these solutions).
+
+
+Sometimes when I copy apps into .../deploy/ I get "invalid LOC header" errors
+-----------------------------------------------------------------------------
+
+This is because JBoss started to read and deploy the file before the
+copy had finished. For 100% safe deployment, copy your file to a
+teporary space on the same filesystem as the deploy dir, then
+move/rename it into the deploy dir. This will be an atomic operation
+for your filesystem, so JBoss will see the whole file appear in one
+go, not a file gradually increasing in size. Alternatively, you can
+use the JMX interface to pass the url of the app that you want
+deployed - see JBoss doc.
+
+
+Turning on debug in Jetty
+--------------------------
+
+Jetty provides a CodeMBean available through the JMX HTML
+Adaptor. Switching on debug here (with a verbosity level of e.g. '9')
+will cause Jetty debug output to be passed to JBoss. If JBoss debug
+output is not enabled you will see no Jetty debug output. JBoss debug
+output is echoed into server<configuration>/logs/server.log by
+default.
+
+
+Development
+------------
+
+There is a 'devel' target in the build.xml which should rebuild and
+deploy the plugin then (perhaps) run the WebIntegration test
+suite. You need a JBoss up and running.
+
+
+Where can I go for Jetty help?
+------------------------------
+Jetty FAQ - http://jetty.mortbay.org/jetty/doc/index.html
+Jetty Tutorial - http://jetty.mortbay.org/jetty/tut/index.html
+Jetty Site - http://jetty.mortbay.org/jetty/index.html
+jetty-support@yahoogroups.com
+jetty-discuss@yahoogroups.com
+www.jboss.org/forums/?????
+
+
+Who is the author/maintainer of Jetty ?
+---------------------------------------
+
+gregw@mortbay.com
+
+
+Who is the author/maintainer of the JBoss/Jetty integration ?
+--------------------------------------------------------------
+
+jules@mortbay.com
+
+
+
+If you have any further questions about the integration which you feel
+should be discussed in this document, please let me know,
+
+
+Enjoy,
+
+
+Jules (21/02/2002)

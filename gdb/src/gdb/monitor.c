@@ -1174,7 +1174,7 @@ monitor_wait (ptid_t ptid, struct target_waitstatus *status)
 static void
 monitor_fetch_register (int regno)
 {
-  char *name;
+  const char *name;
   char *zerobuf;
   char *regbuf;
   int i;
@@ -1183,7 +1183,10 @@ monitor_fetch_register (int regno)
   zerobuf = alloca (MAX_REGISTER_RAW_SIZE);
   memset (zerobuf, 0, MAX_REGISTER_RAW_SIZE);
 
-  name = current_monitor->regnames[regno];
+  if (current_monitor->regname != NULL)
+    name = current_monitor->regname (regno);
+  else
+    name = current_monitor->regnames[regno];
   monitor_debug ("MON fetchreg %d '%s'\n", regno, name ? name : "(null name)");
 
   if (!name || (*name == '\0'))
@@ -1333,10 +1336,14 @@ monitor_fetch_registers (int regno)
 static void
 monitor_store_register (int regno)
 {
-  char *name;
+  const char *name;
   ULONGEST val;
-
-  name = current_monitor->regnames[regno];
+  
+  if (current_monitor->regname != NULL)
+    name = current_monitor->regname (regno);
+  else
+    name = current_monitor->regnames[regno];
+  
   if (!name || (*name == '\0'))
     {
       monitor_debug ("MON Cannot store unknown register\n");
@@ -2078,7 +2085,7 @@ static int
 monitor_insert_breakpoint (CORE_ADDR addr, char *shadow)
 {
   int i;
-  unsigned char *bp;
+  const unsigned char *bp;
   int bplen;
 
   monitor_debug ("MON inst bkpt %s\n", paddr (addr));
@@ -2287,19 +2294,10 @@ static struct target_ops monitor_ops;
 static void
 init_base_monitor_ops (void)
 {
-  monitor_ops.to_shortname = NULL;
-  monitor_ops.to_longname = NULL;
-  monitor_ops.to_doc = NULL;
-  monitor_ops.to_open = NULL;
   monitor_ops.to_close = monitor_close;
-  monitor_ops.to_attach = NULL;
-  monitor_ops.to_post_attach = NULL;
-  monitor_ops.to_require_attach = NULL;
   monitor_ops.to_detach = monitor_detach;
-  monitor_ops.to_require_detach = NULL;
   monitor_ops.to_resume = monitor_resume;
   monitor_ops.to_wait = monitor_wait;
-  monitor_ops.to_post_wait = NULL;
   monitor_ops.to_fetch_registers = monitor_fetch_registers;
   monitor_ops.to_store_registers = monitor_store_registers;
   monitor_ops.to_prepare_to_store = monitor_prepare_to_store;
@@ -2307,48 +2305,18 @@ init_base_monitor_ops (void)
   monitor_ops.to_files_info = monitor_files_info;
   monitor_ops.to_insert_breakpoint = monitor_insert_breakpoint;
   monitor_ops.to_remove_breakpoint = monitor_remove_breakpoint;
-  monitor_ops.to_terminal_init = 0;
-  monitor_ops.to_terminal_inferior = 0;
-  monitor_ops.to_terminal_ours_for_output = 0;
-  monitor_ops.to_terminal_ours = 0;
-  monitor_ops.to_terminal_info = 0;
   monitor_ops.to_kill = monitor_kill;
   monitor_ops.to_load = monitor_load;
-  monitor_ops.to_lookup_symbol = 0;
   monitor_ops.to_create_inferior = monitor_create_inferior;
-  monitor_ops.to_post_startup_inferior = NULL;
-  monitor_ops.to_acknowledge_created_inferior = NULL;
-  monitor_ops.to_clone_and_follow_inferior = NULL;
-  monitor_ops.to_post_follow_inferior_by_clone = NULL;
-  monitor_ops.to_insert_fork_catchpoint = NULL;
-  monitor_ops.to_remove_fork_catchpoint = NULL;
-  monitor_ops.to_insert_vfork_catchpoint = NULL;
-  monitor_ops.to_remove_vfork_catchpoint = NULL;
-  monitor_ops.to_has_forked = NULL;
-  monitor_ops.to_has_vforked = NULL;
-  monitor_ops.to_can_follow_vfork_prior_to_exec = NULL;
-  monitor_ops.to_post_follow_vfork = NULL;
-  monitor_ops.to_insert_exec_catchpoint = NULL;
-  monitor_ops.to_remove_exec_catchpoint = NULL;
-  monitor_ops.to_has_execd = NULL;
-  monitor_ops.to_reported_exec_events_per_exec_call = NULL;
-  monitor_ops.to_has_exited = NULL;
   monitor_ops.to_mourn_inferior = monitor_mourn_inferior;
-  monitor_ops.to_can_run = 0;
-  monitor_ops.to_notice_signals = 0;
-  monitor_ops.to_thread_alive = 0;
   monitor_ops.to_stop = monitor_stop;
   monitor_ops.to_rcmd = monitor_rcmd;
-  monitor_ops.to_pid_to_exec_file = NULL;
   monitor_ops.to_stratum = process_stratum;
-  monitor_ops.DONT_USE = 0;
   monitor_ops.to_has_all_memory = 1;
   monitor_ops.to_has_memory = 1;
   monitor_ops.to_has_stack = 1;
   monitor_ops.to_has_registers = 1;
   monitor_ops.to_has_execution = 1;
-  monitor_ops.to_sections = 0;
-  monitor_ops.to_sections_end = 0;
   monitor_ops.to_magic = OPS_MAGIC;
 }				/* init_base_monitor_ops */
 

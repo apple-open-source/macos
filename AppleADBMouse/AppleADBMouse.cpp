@@ -3,19 +3,22 @@
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
- * The contents of this file constitute Original Code as defined in and
- * are subject to the Apple Public Source License Version 1.1 (the
- * "License").  You may not use this file except in compliance with the
- * License.  Please obtain a copy of the License at
- * http://www.apple.com/publicsource and read it before using this file.
+ * Copyright (c) 1999-2003 Apple Computer, Inc.  All Rights Reserved.
  * 
- * This Original Code and all software distributed under the License are
- * distributed on an "AS IS" basis, WITHOUT WARRANTY OF ANY KIND, EITHER
+ * This file contains Original Code and/or Modifications of Original Code
+ * as defined in and that are subject to the Apple Public Source License
+ * Version 2.0 (the 'License'). You may not use this file except in
+ * compliance with the License. Please obtain a copy of the License at
+ * http://www.opensource.apple.com/apsl/ and read it before using this
+ * file.
+ * 
+ * The Original Code and all software distributed under the License are
+ * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
  * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
  * INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY,
- * FITNESS FOR A PARTICULAR PURPOSE OR NON-INFRINGEMENT.  Please see the
- * License for the specific language governing rights and limitations
- * under the License.
+ * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
+ * Please see the License for the specific language governing rights and
+ * limitations under the License.
  * 
  * @APPLE_LICENSE_HEADER_END@
  */
@@ -73,13 +76,13 @@ IOService * AppleADBMouse::probe(IOService * provider, SInt32 * score)
 }
 
 
+
 // ****************************************************************************
 // start
 //
 // ****************************************************************************
 bool AppleADBMouse::start(IOService * provider)
 {
-//kprintf("ADB Mouse super is starting\n");
   if(!super::start(provider)) return false;
   
   if(!adbDevice->seizeForClient(this, NewMouseData)) {
@@ -383,7 +386,7 @@ bool check_usb_mouse(OSObject * us, void *, IOService * yourDevice)
 }
 
 /*
- *  If a USB mouse HID driver is found, then disable the trackpad.
+ *  If any extra  mouse is found, then disable the trackpad.
  */
 void AppleADBMouseType4::_check_usb_mouse( void ) 
 {
@@ -392,38 +395,23 @@ void AppleADBMouseType4::_check_usb_mouse( void )
 	
     OSIterator	*iterator = NULL;
     OSDictionary	*dict = NULL;
-    OSNumber  	*usbClass, *usbPage, *usbUsage;
 
-    dict = IOService::serviceMatching( "IOUSBHIDDriver" );
+    dict = IOService::serviceMatching( "IOHIPointing" );
     if( dict )
     {
 	iterator = IOService::getMatchingServices( dict );
 	if( iterator )
 	{
+	    int count=0;
+
 	    while( (pHIDDevice = (IOHIDDevice *) iterator->getNextObject()) )
 	    {
-		usbClass = OSDynamicCast( OSNumber, pHIDDevice->getProperty("bInterfaceClass"));
-		usbPage = OSDynamicCast( OSNumber, pHIDDevice->getProperty("PrimaryUsagePage"));
-		usbUsage = OSDynamicCast( OSNumber, pHIDDevice->getProperty("PrimaryUsage"));
-
-		if ((usbClass == NULL) || (usbPage == NULL) || (usbUsage == NULL) )
-		{
-		    IOLog("Null found for properties that should exist in IOUSBHIDDriver\n");
-		    continue;
-		}
-
-		//Keithen said the only way to find a USB mouse in either boot or report
-		//  protocol is to make sure the class is 3 (HID) and the page is 1 (desktop)
-		//  and the usage is 2 (mouse).  Subclass is 1 for boot protocol and 0 for
-		//  report protocol.  bInterfaceProtocol does not exist as a property for
-		//  IOUSBHIDDriver objects.
-		if ((usbClass->unsigned16BitValue() == 3) && (usbUsage->unsigned16BitValue() == 2) 
-		    && (usbPage->unsigned16BitValue() == 1))
-		{
-		    _ignoreTrackpad = true;
-		    foundUSBHIDMouse = true;
-		    break;
-		}		
+		count++;
+	    }
+	    if (count > 1)
+	    {
+		_ignoreTrackpad = true;
+		foundUSBHIDMouse = true;
 	    }
 	}
 
@@ -724,12 +712,15 @@ void AppleADBMouseType4::packetW(UInt8 /*adbCommand*/, IOByteCount length, UInt8
 	} else
 	if (_pADBKeyboard)
 	{
+	    AbsoluteTime	  sub_now;
+
 	    _keyboardTimeAB.hi = 0;
 	    _keyboardTimeAB.lo = 0;
 	    _pADBKeyboard->callPlatformFunction(_gettime, false, (void *)&_keyboardTimeAB, 0, 0, 0);
 	    nanoseconds_to_absolutetime( (unsigned long long)( (unsigned long long)(5 * 60 * 1000) * (unsigned long long)(1000 * 1000) ), &_fake5minAB);
-	    SUB_ABSOLUTETIME(&now, &_keyboardTimeAB);
-	    if (CMP_ABSOLUTETIME (&now, &_fake5minAB) == -1) 
+	    sub_now = now;
+	    SUB_ABSOLUTETIME(&sub_now, &_keyboardTimeAB); 
+	    if (CMP_ABSOLUTETIME (&sub_now, &_fake5minAB) == -1) 
 	    //if (nowtime64 - keytime64 < _fake5min)
 	    {
 		//This part rejects all movements along the edge when typing.  By
@@ -1259,38 +1250,48 @@ bool AppleADBMouseType4::enableEnhancedMode()
 // ****************************************************************************
 IOReturn AppleADBMouseType4::setParamProperties( OSDictionary * dict )
 {
-    OSData *	data;
     OSNumber 	*datan;
     IOReturn	err = kIOReturnSuccess;
     UInt8       adbdata[8];
     IOByteCount adblength;
+    UInt16	settrue = 0;
  
     if (typeTrackpad == TRUE) 
     {  
 	IOLockLock( _mouseLock); 
-	if (data = OSDynamicCast(OSData, dict->getObject("Clicking"))) 
-	{
+	if (datan = OSDynamicCast(OSNumber, dict->getObject("Clicking"))) 
+	{	  
+	    settrue = 0;
+	    if (datan->unsigned32BitValue())
+	    {
+		settrue = 1;	//Guard against values that are neither 0 nor 1
+	    }
 	    adblength = sizeof(adbdata);
 	    adbDevice->readRegister(2, adbdata, &adblength);
-	    adbdata[0] = (adbdata[0] & 0x7F) | (*( (UInt8 *) data->getBytesNoCopy() ))<<7;
+	    adbdata[0] = (adbdata[0] & 0x7F) | ( settrue <<7);
 	    setProperty("Clicking", (unsigned long long)((adbdata[0]&0x80)>>7), sizeof(adbdata[0])*8);
 	    adbDevice->writeRegister(2, adbdata, &adblength);
 	}
     
-	if (data = OSDynamicCast(OSData, dict->getObject("Dragging"))) 
+	if (datan = OSDynamicCast(OSNumber, dict->getObject("Dragging"))) 
 	{
+	    settrue = 0;
+	    if (datan->unsigned32BitValue())
+	    {
+		settrue = 1;
+	    }
 	    adblength = sizeof(adbdata);
 	    adbDevice->readRegister(2, adbdata, &adblength);
-	    adbdata[1] = (adbdata[1] & 0x7F) | (*( (UInt8 *) data->getBytesNoCopy() ))<<7;
+	    adbdata[1] = (adbdata[1] & 0x7F) | (settrue <<7);
 	    setProperty("Dragging", (unsigned long long)((adbdata[1]&0x80)>>7), sizeof(adbdata[1])*8);
 	    adbDevice->writeRegister(2, adbdata, &adblength);
 	}
     
-	if (data = OSDynamicCast(OSData, dict->getObject("DragLock"))) 
+	if (datan = OSDynamicCast(OSNumber, dict->getObject("DragLock"))) 
 	{
 	    adblength = sizeof(adbdata);
 	    adbDevice->readRegister(2, adbdata, &adblength);
-	    adbdata[3] = *((UInt8 *) data->getBytesNoCopy());
+	    adbdata[3] = datan->unsigned32BitValue();
     
 	    if(adbdata[3])
 	    {
@@ -1418,10 +1419,10 @@ IOReturn AppleADBMouseType4::setParamProperties( OSDictionary * dict )
 	    if (mode)
 	    {
 		if ( ! _notifierA)
-		    _notifierA = addNotification( gIOFirstMatchNotification, serviceMatching( "IOUSBHIDDriver" ), 
+		    _notifierA = addNotification( gIOFirstMatchNotification, serviceMatching( "IOHIPointing" ), 
 			(IOServiceNotificationHandler)check_usb_mouse, this, 0 ); 
 		if (! _notifierT)
-		    _notifierT = addNotification( gIOTerminatedNotification, serviceMatching( "IOUSBHIDDriver" ), 
+		    _notifierT = addNotification( gIOTerminatedNotification, serviceMatching( "IOHIPointing" ), 
 			(IOServiceNotificationHandler)check_usb_mouse, this, 0 ); 
 		//The same C function can handle both firstmatch and termination notifications
 	    }

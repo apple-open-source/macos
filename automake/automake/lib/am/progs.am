@@ -43,8 +43,11 @@ install-%DIR%PROGRAMS: $(%DIR%_PROGRAMS)
 ## Compute basename of source file.  Unless this is a nobase_ target, we
 ## want to install 'python/foo.py' as '$(DESTDIR)$(%NDIR%dir)/foo.yo',
 ## not '$(DESTDIR)$(%NDIR%dir)/python/foo.yo'.
-?BASE?	    p1=`echo "$$p1" | sed -e 's,^.*/,,'`; \
-	    f=`echo $$p1|sed '$(transform);s/$$/$(EXEEXT)/'`; \
+## However in all cases $(transform) applies only to the basename,
+## so we have to strip the directory part.
+	    f=`echo "$$p1" | sed 's,^.*/,,;$(transform);s/$$/$(EXEEXT)/'`; \
+## Prepend the directory part if nobase_ is used.
+?!BASE?	    f=`echo "$$p1" | sed 's|[^/]*$$||'`"$$f"; \
 ## Note that we explicitly set the libtool mode.  This avoids any
 ## lossage if the install program doesn't have a name that libtool
 ## expects.
@@ -66,8 +69,10 @@ if %?INSTALL%
 uninstall-%DIR%PROGRAMS:
 	@$(NORMAL_UNINSTALL)
 	@list='$(%DIR%_PROGRAMS)'; for p in $$list; do \
-	  f=`echo $$p|sed 's/$(EXEEXT)$$//;$(transform);s/$$/$(EXEEXT)/'`; \
-?BASE?	  f=`echo "$$f" | sed -e 's,^.*/,,'`; \
+## Remove any leading directory before applying $(transform).
+	  f=`echo "$$p" | sed 's,^.*/,,;s/$(EXEEXT)$$//;$(transform);s/$$/$(EXEEXT)/'`; \
+## Prepend the directory part if nobase_ is used.
+?!BASE?	  f=`echo "$$p" | sed 's|[^/]*$$||'`"$$f"; \
 	  echo " rm -f $(DESTDIR)$(%NDIR%dir)/$$f"; \
 	  rm -f $(DESTDIR)$(%NDIR%dir)/$$f; \
 	done
@@ -80,4 +85,17 @@ endif %?INSTALL%
 
 .PHONY clean-am: clean-%DIR%PROGRAMS
 clean-%DIR%PROGRAMS:
-	-test -z "$(%DIR%_PROGRAMS)" || rm -f $(%DIR%_PROGRAMS)
+?!LIBTOOL?	-test -z "$(%DIR%_PROGRAMS)" || rm -f $(%DIR%_PROGRAMS)
+## Under Cygwin, we build `program$(EXEEXT)'.  However, if this
+## program uses a Libtool library, Libtool will move it in
+## `_libs/program$(EXEEXT)' and create a `program' wrapper (without
+## `$(EXEEXT)').  Therefore, if Libtool is used, we must try to erase
+## both `program$(EXEEXT)' and `program'.
+## Cleaning the `_libs/' or `.libs/' directory is done from clean-libtool.
+## FIXME: In the future (i.e., when it works) it would be nice to delegate
+## this task to `libtool --mode=clean'.
+?LIBTOOL?	@list='$(%DIR%_PROGRAMS)'; for p in $$list; do \
+?LIBTOOL?	  f=`echo $$p|sed 's/$(EXEEXT)$$//'`; \
+?LIBTOOL?	  echo " rm -f $$p $$f"; \
+?LIBTOOL?	  rm -f $$p $$f ; \
+?LIBTOOL?	done

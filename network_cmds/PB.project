@@ -8,6 +8,8 @@
             bootparams, 
             domainname.tproj, 
             identd.tproj, 
+            rpc_lockd.tproj, 
+            rpc_statd.tproj, 
             ifconfig.tproj, 
             inetd.tproj, 
             logger.tproj, 
@@ -68,7 +70,9 @@
             rtsol.tproj,
             rtadvd.tproj,
             ndp.tproj,
-            ip6conf.tproj
+            ip6conf.tproj,
+            ip6fw.tproj,
+	    kdumpd.tproj
         ); 
     }; 
     LANGUAGE = English; 

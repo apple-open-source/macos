@@ -26,7 +26,8 @@
 #define RSYNC_RSH_ENV "RSYNC_RSH"
 
 #define RSYNC_NAME "rsync"
-#define RSYNCD_CONF "/etc/rsyncd.conf"
+#define RSYNCD_SYSCONF "/etc/rsyncd.conf"
+#define RSYNCD_USERCONF "rsyncd.conf"
 
 #define DEFAULT_LOCK_FILE "/var/run/rsyncd.lock"
 #define URL_PREFIX "rsync://"
@@ -85,11 +86,9 @@ enum logcode {FNONE=0, FERROR=1, FINFO=2, FLOG=3 };
 
 #include "config.h"
 
-#if HAVE_REMSH
-#define RSYNC_RSH "remsh"
-#else
-#define RSYNC_RSH "rsh"
-#endif
+/* The default RSYNC_RSH is always set in config.h, either to "remsh",
+ * "rsh", or otherwise something specified by the user.  HAVE_REMSH
+ * controls parameter munging for HP/UX, etc. */
 
 #include <sys/types.h>
 
@@ -219,6 +218,8 @@ enum logcode {FNONE=0, FERROR=1, FINFO=2, FLOG=3 };
 #include <compat.h>
 #endif
 
+#include <assert.h>
+
 
 #define BOOL int
 
@@ -303,8 +304,8 @@ enum logcode {FNONE=0, FERROR=1, FINFO=2, FLOG=3 };
  * cope with platforms on which this is an unsigned int or even a
  * struct.  Later.
  */ 
-#define INO64_T unsigned int64
-#define DEV64_T unsigned int64
+#define INO64_T int64
+#define DEV64_T int64
 
 #ifndef MIN
 #define MIN(a,b) ((a)<(b)?(a):(b))
@@ -328,6 +329,10 @@ enum logcode {FNONE=0, FERROR=1, FINFO=2, FLOG=3 };
 
 #ifndef INADDR_NONE
 #define INADDR_NONE 0xffffffff
+#endif
+
+#ifndef IN_LOOPBACKNET
+#define IN_LOOPBACKNET 127
 #endif
 
 struct file_struct {
@@ -369,19 +374,19 @@ struct file_list {
 };
 
 struct sum_buf {
-	OFF_T offset;		/* offset in file of this chunk */
-	int len;		/* length of chunk of file */
-	int i;			/* index of this chunk */
-	uint32 sum1;	        /* simple checksum */
-	char sum2[SUM_LENGTH];	/* checksum  */
+	OFF_T offset;		/**< offset in file of this chunk */
+	int len;		/**< length of chunk of file */
+	int i;			/**< index of this chunk */
+	uint32 sum1;	        /**< simple checksum */
+	char sum2[SUM_LENGTH];	/**< checksum  */
 };
 
 struct sum_struct {
-	OFF_T flength;		/* total file length */
-	size_t count;		/* how many chunks */
-	size_t remainder;	/* flength % block_length */
-	size_t n;		/* block_length */
-	struct sum_buf *sums;	/* points to info for each chunk */
+	OFF_T flength;		/**< total file length */
+	size_t count;		/**< how many chunks */
+	size_t remainder;	/**< flength % block_length */
+	size_t n;		/**< block_length */
+	struct sum_buf *sums;	/**< points to info for each chunk */
 };
 
 struct map_struct {
@@ -463,6 +468,9 @@ extern int errno;
 #define SUPPORT_LINKS HAVE_READLINK
 #define SUPPORT_HARD_LINKS HAVE_LINK
 
+/* This could be bad on systems which have no lchown and where chown
+ * follows symbollic links.  On such systems it might be better not to
+ * try to chown symlinks at all. */
 #ifndef HAVE_LCHOWN
 #define lchown chown
 #endif
@@ -563,19 +571,24 @@ extern int errno;
 /* handler for null strings in printf format */
 #define NS(s) ((s)?(s):"<NULL>")
 
+#if !defined(__GNUC__) || defined(APPLE)
+/* Apparently the OS X port of gcc gags on __attribute__.
+ *
+ * <http://www.opensource.apple.com/bugs/X/gcc/2512150.html> */
+#define __attribute__(x) 
+
+#endif
+
+
 /* use magic gcc attributes to catch format errors */
  void rprintf(enum logcode , const char *, ...)
-#ifdef __GNUC__
-     __attribute__ ((format (printf, 2, 3)))
-#endif
+     __attribute__((format (printf, 2, 3)))
 ;
 
 /* This is just like rprintf, but it also tries to print some
  * representation of the error code.  Normally errcode = errno. */
 void rsyserr(enum logcode, int, const char *, ...)
-#ifdef __GNUC__
-     __attribute__ ((format (printf, 3, 4)))
-#endif
+     __attribute__((format (printf, 3, 4)))
      ;
 
 #ifdef REPLACE_INET_NTOA
@@ -606,5 +619,13 @@ inet_ntop(int af, const void *src, char *dst, size_t size);
 #endif /* !HAVE_INET_NTOP */
 
 #ifndef HAVE_INET_PTON
-int isc_net_pton(int af, const char *src, void *dst);
+int inet_pton(int af, const char *src, void *dst);
 #endif
+
+#ifdef MAINTAINER_MODE
+const char *get_panic_action(void);
+#endif
+
+#define UNUSED(x) x __attribute__((__unused__))
+
+extern const char *io_write_phase, *io_read_phase;

@@ -114,68 +114,108 @@ const char *unparse_inheritance (vm_inherit_t i)
 
 void macosx_debug_region (task_t task, vm_address_t address)
 {
+  macosx_debug_regions (task, address, 1);
+}
+
+void macosx_debug_regions (task_t task, vm_address_t address, int max)
+{
   kern_return_t kret;
-  struct vm_region_basic_info info;
-  vm_size_t size;
+  struct vm_region_basic_info info, prev_info;
+  vm_address_t prev_address;
+  vm_size_t size, prev_size;
+
   mach_port_t object_name;
   mach_msg_type_number_t count;
+
+  int nsubregions = 0;
+  int num_printed = 0;
 
   count = VM_REGION_BASIC_INFO_COUNT;
   kret = vm_region (task, &address, &size, VM_REGION_BASIC_INFO, (vm_region_info_t) &info, &count, &object_name);
-  MACH_CHECK_ERROR (kret);
+  if (kret != KERN_SUCCESS)
+    {
+      printf_filtered ("No memory regions.");
+      return;
+    }
+  memcpy (&prev_info, &info, sizeof (struct vm_region_basic_info));
+  prev_address = address;
+  prev_size = size;
+  nsubregions = 1;
 
-  printf_filtered ("Region from 0x%ulx to 0x%ulx (size 0x%ulx) "
-		   "(currently %s; max %s; inheritance \"%s\"; %s; %s\n",
-		   address, address + size, size,
-		   unparse_protection (info.protection),
-		   unparse_protection (info.max_protection),
-		   unparse_inheritance (info.inheritance),
-		   info.shared ? "shared" : "private",
-		   info.reserved ? "reserved" : "not reserved");
+  for (;;)
+    {
+      int print = 0;
+      int done = 0;
+
+      address = prev_address + prev_size;
+
+      /* Check to see if address space has wrapped around. */
+      if (address == 0)
+	print = done = 1;
+
+      if (! done) 
+	{
+	  count = VM_REGION_BASIC_INFO_COUNT;
+	  kret = vm_region (task, &address, &size, VM_REGION_BASIC_INFO, (vm_region_info_t) &info, &count, &object_name);
+	  if (kret != KERN_SUCCESS)
+	    {
+	      size = 0;
+	      print = done = 1;
+	    }
+	}
+    
+      if (address != prev_address + prev_size)
+	print = 1;
+      
+      if ((info.protection != prev_info.protection)
+	  || (info.max_protection != prev_info.max_protection)
+	  || (info.inheritance != prev_info.inheritance)
+	  || (info.shared != prev_info.reserved)
+	  || (info.reserved != prev_info.reserved))
+	print = 1;
+	  
+      if (print)
+	{
+	  if (num_printed == 0)
+	    printf_filtered ("Region ");
+	  else
+	    printf_filtered ("   ... ");
+
+	  printf_filtered ("from 0x%lx to 0x%lx (%s, max %s; %s, %s, %s)",
+			   (unsigned long) prev_address, 
+			   (unsigned long) prev_address + prev_size,
+			   unparse_protection (prev_info.protection),
+			   unparse_protection (prev_info.max_protection),
+			   unparse_inheritance (prev_info.inheritance),
+			   prev_info.shared ? "shared" : "private",
+			   prev_info.reserved ? "reserved" : "not-reserved");
+
+	  if (nsubregions > 1)
+	    printf_filtered (" (%d sub-regions)", nsubregions);
+
+	  printf_filtered ("\n");
+	  
+	  prev_address = address;
+	  prev_size = size;
+	  memcpy (&prev_info, &info, sizeof (struct vm_region_basic_info));
+	  nsubregions = 1;
+
+	  num_printed++;
+	}
+      else
+	{
+	  prev_size += size;
+	  nsubregions++;
+	}
+
+      if ((max > 0) && (num_printed >= max))
+	done = 1;
+
+      if (done)
+	break;
+    }
 }
-
-void macosx_debug_regions (task_t task)
-{
-  kern_return_t kret;
-  struct vm_region_basic_info info;
-  vm_size_t size;
-  mach_port_t object_name;
-  mach_msg_type_number_t count;
-
-  vm_address_t address;
-  vm_address_t last_address;
-
-  address = 0;
-  last_address = (vm_address_t) -1;
-
-  for (;;) {
-    count = VM_REGION_BASIC_INFO_COUNT;
-    kret = vm_region (task, &address, &size, VM_REGION_BASIC_INFO, (vm_region_info_t) &info, &count, &object_name);
-    if (kret == KERN_NO_SPACE) {
-      break;
-    }
-    if (last_address == address) {
-      printf_filtered ("   ... ");
-    } else {
-      printf_filtered ("Region ");
-    }
-    printf_filtered ("from 0x%ulx to 0x%ulx (size 0x%ulx) "
-		     "(currently %s; max %s; inheritance \"%s\"; %s; %s\n",
-		     address, address + size, size,
-		     unparse_protection (info.protection),
-		     unparse_protection (info.max_protection),
-		     unparse_inheritance (info.inheritance),
-		     info.shared ? "shared" : "private",
-		     info.reserved ? "reserved" : "not reserved");
-    address += size;
-    last_address = address;
-    if (address == 0) {
-      /* address space has wrapped around */
-      break;
-    }
-  }
-}
-
+  
 void macosx_debug_port_info (task_t task, port_t port)
 {
 #if 0

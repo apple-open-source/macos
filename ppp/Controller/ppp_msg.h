@@ -2,21 +2,24 @@
  * Copyright (c) 2000 Apple Computer, Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
- *
- * The contents of this file constitute Original Code as defined in and
- * are subject to the Apple Public Source License Version 1.1 (the
- * "License").  You may not use this file except in compliance with the
- * License.  Please obtain a copy of the License at
- * http://www.apple.com/publicsource and read it before using this file.
- *
- * This Original Code and all software distributed under the License are
- * distributed on an "AS IS" basis, WITHOUT WARRANTY OF ANY KIND, EITHER
+ * 
+ * Copyright (c) 1999-2003 Apple Computer, Inc.  All Rights Reserved.
+ * 
+ * This file contains Original Code and/or Modifications of Original Code
+ * as defined in and that are subject to the Apple Public Source License
+ * Version 2.0 (the 'License'). You may not use this file except in
+ * compliance with the License. Please obtain a copy of the License at
+ * http://www.opensource.apple.com/apsl/ and read it before using this
+ * file.
+ * 
+ * The Original Code and all software distributed under the License are
+ * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
  * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
  * INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY,
- * FITNESS FOR A PARTICULAR PURPOSE OR NON-INFRINGEMENT.  Please see the
- * License for the specific language governing rights and limitations
- * under the License.
- *
+ * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
+ * Please see the License for the specific language governing rights and
+ * limitations under the License.
+ * 
  * @APPLE_LICENSE_HEADER_END@
  */
 
@@ -68,9 +71,11 @@ enum {
     PPP_GETNBLINKS,
     PPP_GETLINKBYINDEX,
     PPP_GETLINKBYSERVICEID,
-    PPP_GETLINKBYIFNAME,
+    PPP_GETLINKBYIFNAME,                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                           
     PPP_SUSPEND,
-    PPP_RESUME
+    PPP_RESUME,
+    PPP_EXTENDEDSTATUS,
+    PPP_GETCONNECTDATA
 };
 
 // flags
@@ -79,6 +84,19 @@ enum {
    serviceID string is put after m_len field
    and m_len still contains the data lenght, excluding serviceID string */
 #define USE_SERVICEID	0x8000 
+
+/* flags specific to the message type. 
+   They will be interpreted differently depending on the type field of the message */
+#define FLAG_TYPE0	0x0001 
+#define FLAG_TYPE1	0x0002 
+#define FLAG_TYPE2	0x0004 
+
+/* PPP_CONNECT message specific flags */
+#define CONNECT_ARBITRATED_FLAG		FLAG_TYPE0	/* connection will be arbitrated with other clients */
+#define CONNECT_AUTOCLOSE_FLAG		FLAG_TYPE1 	/* connection will be disconnected when socket is gone */
+
+/* PPP_DISCONNECT message specific flags */
+#define DISCONNECT_ARBITRATED_FLAG	FLAG_TYPE0	/* disconnection will be arbitrated with other clients */
 
 
 /* macro to access real data base on header flags */
@@ -137,7 +155,8 @@ enum {
     PPP_OPT_SERVICEID,			// string, name of the associated service in the cache
     PPP_OPT_IFNAME,			// string, name of the associated interface (ppp0, ...)
     
-    PPP_OPT_DEV_DIALMODE		// 4 bytes, dial mode, applies to modem connection
+    PPP_OPT_DEV_DIALMODE,		// 4 bytes, dial mode, applies to modem connection
+    PPP_OPT_DIALONDEMAND		// 4 bytes, is service configured for DialOnDemand ?
 };
 
 // options values
@@ -288,7 +307,8 @@ enum {
     PPP_ERR_MOD_ERROR,
     PPP_ERR_MOD_HANGUP,
     PPP_ERR_MOD_NOANSWER,
-    PPP_ERR_MOD_NONUMBER
+    PPP_ERR_MOD_NONUMBER,
+    PPP_ERR_MOD_BADSCRIPT
 };
 
 #endif /* PPP_MSG_H */

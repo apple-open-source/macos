@@ -1,22 +1,25 @@
 /*
- * Copyright (c) 2000-2002 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 2000-2003 Apple Computer, Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
- *
- * The contents of this file constitute Original Code as defined in and
- * are subject to the Apple Public Source License Version 1.1 (the
- * "License").  You may not use this file except in compliance with the
- * License.  Please obtain a copy of the License at
- * http://www.apple.com/publicsource and read it before using this file.
- *
- * This Original Code and all software distributed under the License are
- * distributed on an "AS IS" basis, WITHOUT WARRANTY OF ANY KIND, EITHER
+ * 
+ * Copyright (c) 1999-2003 Apple Computer, Inc.  All Rights Reserved.
+ * 
+ * This file contains Original Code and/or Modifications of Original Code
+ * as defined in and that are subject to the Apple Public Source License
+ * Version 2.0 (the 'License'). You may not use this file except in
+ * compliance with the License. Please obtain a copy of the License at
+ * http://www.opensource.apple.com/apsl/ and read it before using this
+ * file.
+ * 
+ * The Original Code and all software distributed under the License are
+ * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
  * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
  * INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY,
- * FITNESS FOR A PARTICULAR PURPOSE OR NON-INFRINGEMENT.  Please see the
- * License for the specific language governing rights and limitations
- * under the License.
- *
+ * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
+ * Please see the License for the specific language governing rights and
+ * limitations under the License.
+ * 
  * @APPLE_LICENSE_HEADER_END@
  */
 
@@ -33,19 +36,25 @@
 #include "configd.h"
 #include "session.h"
 
+__private_extern__
 int
 __SCDynamicStoreTouchValue(SCDynamicStoreRef store, CFStringRef key)
 {
 	SCDynamicStorePrivateRef	storePrivate	= (SCDynamicStorePrivateRef)store;
 	int				sc_status;
-	Boolean				newValue	= FALSE;
-	CFPropertyListRef		value;
+	CFDataRef			value;
 
-	SCLog(_configd_verbose, LOG_DEBUG, CFSTR("__SCDynamicStoreTouchValue:"));
-	SCLog(_configd_verbose, LOG_DEBUG, CFSTR("  key = %@"), key);
+	if (_configd_verbose) {
+		SCLog(TRUE, LOG_DEBUG, CFSTR("__SCDynamicStoreTouchValue:"));
+		SCLog(TRUE, LOG_DEBUG, CFSTR("  key = %@"), key);
+	}
 
 	if (!store || (storePrivate->server == MACH_PORT_NULL)) {
 		return kSCStatusNoStoreSession;	/* you must have an open session to play */
+	}
+
+	if (_configd_trace) {
+		SCTrace(TRUE, _configd_trace, CFSTR("touch   : %5d : %@\n"), storePrivate->server, key);
 	}
 
 	/*
@@ -59,36 +68,45 @@ __SCDynamicStoreTouchValue(SCDynamicStoreRef store, CFStringRef key)
 	/*
 	 * 2. Grab the current (or establish a new) store entry for this key.
 	 */
-	sc_status = __SCDynamicStoreCopyValue(store, key, &value);
+	sc_status = __SCDynamicStoreCopyValue(store, key, &value, TRUE);
 	switch (sc_status) {
-		case kSCStatusNoKey :
+		case kSCStatusNoKey : {
+			CFDateRef	now;
+
 			/* store entry does not exist, create */
-			value    = CFDateCreate(NULL, CFAbsoluteTimeGetCurrent());
-			newValue = TRUE;
-			SCLog(_configd_verbose, LOG_DEBUG, CFSTR("  new time stamp = %@"), value);
-			break;
 
-		case kSCStatusOK :
+			now = CFDateCreate(NULL, CFAbsoluteTimeGetCurrent());
+			SCLog(_configd_verbose, LOG_DEBUG, CFSTR("  new time stamp = %@"), now);
+			(void) _SCSerialize(now, &value, NULL, NULL);
+			CFRelease(now);
+			break;
+		}
+
+		case kSCStatusOK : {
+			CFDateRef	now;
+
 			/* store entry exists */
-			if (isA_CFDate(value)) {
-				/* the value is a CFDate, update the time stamp */
-				CFRelease(value);
-				value = CFDateCreate(NULL, CFAbsoluteTimeGetCurrent());
-				newValue = TRUE;
-				SCLog(_configd_verbose, LOG_DEBUG, CFSTR("  new time stamp = %@"), value);
-			} /* else, we'll just save the data (again) to bump the instance */
-			break;
 
+			(void) _SCUnserialize((CFPropertyListRef *)&now, value, NULL, NULL);
+			if (isA_CFDate(now)) {
+				/* the value is a CFDate, update the time stamp */
+				CFRelease(now);
+				CFRelease(value);
+				now = CFDateCreate(NULL, CFAbsoluteTimeGetCurrent());
+				SCLog(_configd_verbose, LOG_DEBUG, CFSTR("  new time stamp = %@"), now);
+				(void) _SCSerialize(now, &value, NULL, NULL);
+			} /* else, we'll just save the data (again) to bump the instance */
+			CFRelease(now);
+
+			break;
+		}
 		default :
 			SCLog(_configd_verbose, LOG_DEBUG, CFSTR("  __SCDynamicStoreCopyValue(): %s"), SCErrorString(sc_status));
 			goto done;
 	}
 
-	sc_status = __SCDynamicStoreSetValue(store, key, value);
-
-	if (newValue) {
-		CFRelease(value);
-	}
+	sc_status = __SCDynamicStoreSetValue(store, key, value, TRUE);
+	CFRelease(value);
 
     done :
 
@@ -101,6 +119,7 @@ __SCDynamicStoreTouchValue(SCDynamicStoreRef store, CFStringRef key)
 }
 
 
+__private_extern__
 kern_return_t
 _configtouch(mach_port_t 		server,
 	     xmlData_t			keyRef,		/* raw XML bytes */
@@ -111,18 +130,26 @@ _configtouch(mach_port_t 		server,
 	serverSessionRef	mySession = getSession(server);
 	CFStringRef		key;		/* key  (un-serialized) */
 
-	SCLog(_configd_verbose, LOG_DEBUG, CFSTR("Touch key in configuration database."));
-	SCLog(_configd_verbose, LOG_DEBUG, CFSTR("  server = %d"), server);
+	if (_configd_verbose) {
+		SCLog(TRUE, LOG_DEBUG, CFSTR("Touch key in configuration database."));
+		SCLog(TRUE, LOG_DEBUG, CFSTR("  server = %d"), server);
+	}
 
 	/* un-serialize the key */
-	if (!_SCUnserialize((CFPropertyListRef *)&key, (void *)keyRef, keyLen)) {
+	if (!_SCUnserializeString(&key, NULL, (void *)keyRef, keyLen)) {
 		*sc_status = kSCStatusFailed;
 		return KERN_SUCCESS;
 	}
 
 	if (!isA_CFString(key)) {
-		CFRelease(key);
 		*sc_status = kSCStatusInvalidArgument;
+		CFRelease(key);
+		return KERN_SUCCESS;
+	}
+
+	if (!mySession) {
+		*sc_status = kSCStatusNoStoreSession;	/* you must have an open session to play */
+		CFRelease(key);
 		return KERN_SUCCESS;
 	}
 

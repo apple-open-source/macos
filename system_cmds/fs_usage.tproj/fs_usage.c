@@ -92,6 +92,7 @@ char *lookup_name();
 struct th_info {
         int  in_filemgr;
         int  thread;
+        int  pid;
         int  type;
         int  arg1;
         int  arg2;
@@ -118,6 +119,17 @@ int  select_pid_mode = 0;  /* Flag set indicates that output is restricted
 
 int  one_good_pid = 0;    /* Used to fail gracefully when bad pids given */
 
+char	*arguments = 0;
+int     argmax = 0;
+
+/*
+ * Network only or filesystem only output filter
+ * Default of zero means report all activity - no filtering
+ */
+#define FILESYS_FILTER 0x01
+#define NETWORK_FILTER 0x02
+#define DEFAULT_DO_NOT_FILTER 0x0
+int filter_mode = DEFAULT_DO_NOT_FILTER;
 
 #define NFS_DEV -1
 
@@ -153,7 +165,16 @@ void    	free_diskio();
 void		print_diskio();
 void		format_print();
 char           *find_disk_name();
-
+void		cache_disk_names();
+int 		ReadSegAddrTable();
+void		mark_thread_waited(int);
+int		check_filter_mode(struct th_info *, int, int, int);
+void		fs_usage_fd_set(unsigned int, unsigned int);
+int		fs_usage_fd_isset(unsigned int, unsigned int);
+void		fs_usage_fd_clear(unsigned int, unsigned int);
+void		init_arguments_buffer();
+int	        get_real_command_name(int, char *, int);
+void            create_map_entry(int, int, char *);
 
 #define DBG_ZERO_FILL_FAULT   1
 #define DBG_PAGEIN_FAULT      2
@@ -161,6 +182,7 @@ char           *find_disk_name();
 #define DBG_CACHE_HIT_FAULT   4
 
 #define TRACE_DATA_NEWTHREAD   0x07000004
+#define TRACE_DATA_EXEC        0x07000008
 #define TRACE_STRING_NEWTHREAD 0x07010004
 #define TRACE_STRING_EXEC      0x07010008
 
@@ -199,10 +221,19 @@ char           *find_disk_name();
 
 
 #define MSC_map_fd   0x010c00ac
+
+// Network related codes
 #define	BSC_recvmsg  0x040C006C
 #define	BSC_sendmsg  0x040C0070
 #define	BSC_recvfrom 0x040C0074
+#define BSC_accept   0x040C0078
+#define BSC_select   0x040C0174
+#define BSC_socket   0x040C0184
+#define BSC_connect  0x040C0188
+#define BSC_bind     0x040C01A0
+#define BSC_listen   0x040C01A8
 #define	BSC_sendto   0x040C0214
+#define BSC_socketpair 0x040C021C
 
 #define BSC_read     0x040C000C
 #define BSC_write    0x040C0010
@@ -219,10 +250,12 @@ char           *find_disk_name();
 #define BSC_chflags  0x040C0088	
 #define BSC_fchflags 0x040C008C
 #define BSC_sync     0x040C0090
+#define BSC_dup      0x040C00A4
 #define BSC_revoke   0x040C00E0
 #define BSC_symlink  0x040C00E4	
 #define BSC_readlink 0x040C00E8
-#define BSC_chroot   0x040C00F4	
+#define BSC_chroot   0x040C00F4
+#define BSC_dup2     0x040C0168
 #define BSC_fsync    0x040C017C	
 #define BSC_readv    0x040C01E0	
 #define BSC_writev   0x040C01E4	
@@ -234,6 +267,10 @@ char           *find_disk_name();
 #define BSC_rmdir    0x040C0224
 #define BSC_utimes   0x040C0228
 #define BSC_futimes  0x040C022C
+#define BSC_pread    0x040C0264
+#define BSC_pread_extended    0x040E0264
+#define BSC_pwrite   0x040C0268
+#define BSC_pwrite_extended   0x040E0268
 #define BSC_statfs   0x040C0274	
 #define BSC_fstatfs  0x040C0278	
 #define BSC_stat     0x040C02F0	
@@ -360,10 +397,26 @@ int mib[6];
 size_t needed;
 char  *my_buffer;
 
-kbufinfo_t bufinfo = {0, 0, 0, 0};
+kbufinfo_t bufinfo = {0, 0, 0, 0, 0};
 
 int total_threads = 0;
-kd_threadmap *mapptr = 0;
+kd_threadmap *mapptr = 0;	/* pointer to list of threads */
+
+/* defines for tracking file descriptor state */
+#define FS_USAGE_FD_SETSIZE 256		/* Initial number of file descriptors per
+					   thread that we will track */
+
+#define FS_USAGE_NFDBITS      (sizeof (unsigned long) * 8)
+#define FS_USAGE_NFDBYTES(n)  (((n) / FS_USAGE_NFDBITS) * sizeof (unsigned long))
+
+typedef struct {
+    unsigned int   fd_valid;       /* set if this is a valid entry */
+    unsigned int   fd_thread;
+    unsigned int   fd_setsize;     /* this is a bit count */
+    unsigned long  *fd_setptr;     /* file descripter bitmap */
+} fd_threadmap;
+
+fd_threadmap *fdmapptr = 0;	/* pointer to list of threads for fd tracking */
 
 int trace_enabled = 0;
 int set_remove_flag = 1;
@@ -421,12 +474,15 @@ void sigwinch()
 }
 
 int
-exit_usage(myname) {
+exit_usage(char *myname) {
 
-        fprintf(stderr, "Usage: %s [-e] [-w] [pid | cmd [pid | cmd]....]\n", myname);
+        fprintf(stderr, "Usage: %s [-e] [-w] [-f mode] [pid | cmd [pid | cmd]....]\n", myname);
 	fprintf(stderr, "  -e    exclude the specified list of pids from the sample\n");
 	fprintf(stderr, "        and exclude fs_usage by default\n");
 	fprintf(stderr, "  -w    force wider, detailed, output\n");
+	fprintf(stderr, "  -f    Output is filtered based on the mode provided\n");
+	fprintf(stderr, "          mode = \"network\"  Show only network related output\n");
+	fprintf(stderr, "          mode = \"filesys\"  Show only file system  related output\n");
 	fprintf(stderr, "  pid   selects process(s) to sample\n");
 	fprintf(stderr, "  cmd   selects process(s) matching command string to sample\n");
 	fprintf(stderr, "\n%s will handle a maximum list of %d pids.\n\n", myname, MAX_PIDS);
@@ -436,7 +492,7 @@ exit_usage(myname) {
 	exit(1);
 }
 
-
+int
 main(argc, argv)
 	int	argc;
 	char	*argv[];
@@ -466,8 +522,9 @@ main(argc, argv)
 			myname++;
 		}
 	}
+
 	
-       while ((ch = getopt(argc, argv, "ew")) != EOF) {
+       while ((ch = getopt(argc, argv, "ewf:")) != EOF) {
                switch(ch) {
                 case 'e':
 		    exclude_pids = 1;
@@ -475,9 +532,16 @@ main(argc, argv)
 		    break;
                 case 'w':
 		    wideflag = 1;
-		    if (columns < MAX_WIDE_MODE_COLS)
+		    if ((uint)columns < MAX_WIDE_MODE_COLS)
 		      columns = MAX_WIDE_MODE_COLS;
 		    break;
+	       case 'f':
+		   if (!strcmp(optarg, "network"))
+		       filter_mode |= NETWORK_FILTER;
+		   else if (!strcmp(optarg, "filesys"))
+		       filter_mode |= FILESYS_FILTER;
+		   break;
+		       
 	       default:
 		 exit_usage(myname);		 
 	       }
@@ -566,6 +630,7 @@ main(argc, argv)
 
 	set_enable(1);
 	getdivisor();
+	init_arguments_buffer();
 
 
 	/* main loop */
@@ -623,6 +688,7 @@ struct th_info *find_thread(int thread, int type) {
 }
 
 
+void
 mark_thread_waited(int thread) {
        struct th_info *ti;
 
@@ -827,6 +893,7 @@ sample_sc()
 
 	        for (i = 0; i < cur_max; i++) {
 			th_state[i].thread = 0;
+			th_state[i].pid = 0;
 			th_state[i].pathptr = (long *)0;
 			th_state[i].pathname[0] = 0;
 		}
@@ -844,19 +911,35 @@ sample_sc()
 	        int debugid, thread;
 		int type, n;
 		long *sargptr;
-		unsigned long long now;
+		uint64_t now;
+		long long l_usecs;
+		int secs;
+		long curr_time;
 		struct th_info *ti;
                 struct diskio  *dio;
 		void enter_syscall();
 		void exit_syscall();
+		void extend_syscall();
 		void kill_thread_map();
 
 		thread  = kd[i].arg5 & KDBG_THREAD_MASK;
 		debugid = kd[i].debugid;
 		type    = kd[i].debugid & DBG_FUNC_MASK;
                 
-                now = (((unsigned long long)kd[i].timestamp.tv_sec) << 32) |
-                        (unsigned long long)((unsigned int)(kd[i].timestamp.tv_nsec));
+                now = kd[i].timestamp;
+
+		if (i == 0)
+		{
+		    /*
+		     * Compute bias seconds after each trace buffer read.
+		     * This helps resync timestamps with the system clock
+		     * in the event of a system sleep.
+		     */
+		    l_usecs = (long long)(now / divisor);
+		    secs = l_usecs / 1000000;
+		    curr_time = time((long *)0);
+		    bias_secs = curr_time - secs;
+		}
 
 
 		switch (type) {
@@ -888,7 +971,7 @@ sample_sc()
                 case P_WrDataAsyncDone:
                 case P_PgInAsyncDone:
                 case P_PgOutAsyncDone:
-                    if (dio = complete_diskio(kd[i].arg1, kd[i].arg4, kd[i].arg3, thread, (double)now)) {
+                    if ((dio = complete_diskio(kd[i].arg1, kd[i].arg4, kd[i].arg3, thread, (double)now))) {
                         print_diskio(dio);
                         free_diskio(dio);
                     }
@@ -896,7 +979,7 @@ sample_sc()
 
 
 		case TRACE_DATA_NEWTHREAD:
-		   
+		    
 		    for (n = 0, ti = th_state; ti < &th_state[MAX_THREADS]; ti++, n++) {
 		        if (ti->thread == 0)
 		           break;
@@ -908,6 +991,7 @@ sample_sc()
 
 		    ti->thread = thread;
 		    ti->child_thread = kd[i].arg1;
+		    ti->pid = kd[i].arg2;
 		    continue;
 
 		case TRACE_STRING_NEWTHREAD:
@@ -915,16 +999,44 @@ sample_sc()
 		            continue;
 		    if (ti->child_thread == 0)
 		            continue;
-		    create_map_entry(ti->child_thread, (char *)&kd[i].arg1);
+		    create_map_entry(ti->child_thread, ti->pid, (char *)&kd[i].arg1);
 
 		    if (ti == &th_state[cur_max - 1])
 		        cur_max--;
 		    ti->child_thread = 0;
 		    ti->thread = 0;
+		    ti->pid = 0;
 		    continue;
+	
+		case TRACE_DATA_EXEC:
+
+		    for (n = 0, ti = th_state; ti < &th_state[MAX_THREADS]; ti++, n++) {
+		        if (ti->thread == 0)
+		           break;
+		    }
+		    if (ti == &th_state[MAX_THREADS])
+		        continue;
+		    if (n >= cur_max)
+		        cur_max = n + 1;
+
+		    ti->thread = thread;
+		    ti->pid = kd[i].arg1;
+		    continue;	    
 
 		case TRACE_STRING_EXEC:
-		    create_map_entry(thread, (char *)&kd[i].arg1);
+		    if ((ti = find_thread(thread, 0)) == (struct th_info *)0)
+		    {
+			/* this is for backwards compatibility */
+			create_map_entry(thread, 0, (char *)&kd[i].arg1);
+		    }
+		    else
+		    {
+			create_map_entry(thread, ti->pid, (char *)&kd[i].arg1);
+			if (ti == &th_state[cur_max - 1])
+			    cur_max--;
+			ti->thread = 0;
+			ti->pid = 0;
+		    }
 		    continue;
 
 		case BSC_exit:
@@ -1191,7 +1303,12 @@ sample_sc()
 		        enter_syscall(thread, type, &kd[i], p, (double)now);
 			continue;
 		}
+		
 		switch (type) {
+		    
+		case BSC_pread_extended:
+		case BSC_pwrite_extended:
+		    extend_syscall(thread, type, &kd[i], (double)now);
 
 		case MACH_pageout:
 		    if (kd[i].arg2) 
@@ -1206,7 +1323,7 @@ sample_sc()
                     else if (kd[i].arg2 == DBG_CACHE_HIT_FAULT)
 		            exit_syscall("CACHE_HIT", thread, type, 0, kd[i].arg1, 0, 2, (double)now);
 		    else {
-		            if (ti = find_thread(thread, type)) {
+		            if ((ti = find_thread(thread, type))) {
 			            if (ti == &th_state[cur_max - 1])
 				            cur_max--;
 				    ti->thread = 0;
@@ -1221,7 +1338,7 @@ sample_sc()
 		case BSC_mmap:
 		    exit_syscall("mmap", thread, type, kd[i].arg1, kd[i].arg2, 0, 0, (double)now);
 		    break;
-
+		    
 		case BSC_recvmsg:
 		    exit_syscall("recvmsg", thread, type, kd[i].arg1, kd[i].arg2, 1, 1, (double)now);
 		    break;
@@ -1234,10 +1351,38 @@ sample_sc()
 		    exit_syscall("recvfrom", thread, type, kd[i].arg1, kd[i].arg2, 1, 1, (double)now);
 		    break;
 
+		case BSC_accept:
+		    exit_syscall("accept", thread, type, kd[i].arg1, kd[i].arg2, 2, 0, (double)now);
+		    break;
+		    
+		case BSC_select:
+		    exit_syscall("select", thread, type, kd[i].arg1, kd[i].arg2, 0, 8, (double)now);
+		    break;
+		    
+		case BSC_socket:
+		    exit_syscall("socket", thread, type, kd[i].arg1, kd[i].arg2, 2, 0, (double)now);
+		    break;
+
+		case BSC_connect:
+		    exit_syscall("connect", thread, type, kd[i].arg1, kd[i].arg2, 1, 0, (double)now);
+		    break;
+
+		case BSC_bind:
+		    exit_syscall("bind", thread, type, kd[i].arg1, kd[i].arg2, 1, 0, (double)now);
+		    break;
+
+		case BSC_listen:
+		    exit_syscall("listen", thread, type, kd[i].arg1, kd[i].arg2, 1, 0, (double)now);
+		    break;
+
 		case BSC_sendto:
 		    exit_syscall("sendto", thread, type, kd[i].arg1, kd[i].arg2, 1, 1, (double)now);
 		    break;
 
+		case BSC_socketpair:
+		    exit_syscall("socketpair", thread, type, kd[i].arg1, kd[i].arg2, 0, 0, (double)now);
+		    break;
+		    
 		case BSC_stat:
 		    exit_syscall("stat", thread, type, kd[i].arg1, kd[i].arg2, 0, 0, (double)now);
 		    break;
@@ -1249,6 +1394,14 @@ sample_sc()
 		case BSC_open:
 		    exit_syscall("open", thread, type, kd[i].arg1, kd[i].arg2, 2, 0, (double)now);
 		    break;
+
+		case BSC_dup:
+		    exit_syscall("dup", thread, type, kd[i].arg1, kd[i].arg2, 2, 0, (double)now);
+		    break;
+
+		case BSC_dup2:
+		    exit_syscall("dup2", thread, type, kd[i].arg1, kd[i].arg2, 2, 0, (double)now);
+		    break;		    
 
 		case BSC_close:
 		    exit_syscall("close", thread, type, kd[i].arg1, kd[i].arg2, 1, 0, (double)now);
@@ -1360,6 +1513,14 @@ sample_sc()
 
 		case BSC_writev:
 		    exit_syscall("writev", thread, type, kd[i].arg1, kd[i].arg2, 1, 1, (double)now);
+		    break;
+
+		case BSC_pread:
+		    exit_syscall("pread", thread, type, kd[i].arg1, kd[i].arg2, 1, 9, (double)now);
+		    break;
+
+		case BSC_pwrite:
+		    exit_syscall("pwrite", thread, type, kd[i].arg1, kd[i].arg2, 1, 9, (double)now);
 		    break;
 
 		case BSC_fchown:
@@ -1695,10 +1856,19 @@ enter_syscall(int thread, int type, kd_buf *kd, char *name, double now)
        case BSC_recvmsg:
        case BSC_sendmsg:
        case BSC_recvfrom:
+       case BSC_accept:
+       case BSC_select:
+       case BSC_socket:
+       case BSC_connect:
+       case BSC_bind:
+       case BSC_listen:
        case BSC_sendto:
+       case BSC_socketpair:
        case BSC_stat:
        case BSC_load_shared_file:
        case BSC_open:
+       case BSC_dup:
+       case BSC_dup2:
        case BSC_close:
        case BSC_read:
        case BSC_write:
@@ -1728,6 +1898,8 @@ enter_syscall(int thread, int type, kd_buf *kd, char *name, double now)
        case BSC_fsync:
        case BSC_readv:
        case BSC_writev:
+       case BSC_pread:
+       case BSC_pwrite:
        case BSC_fchown:
        case BSC_fchmod:
        case BSC_rename:
@@ -1836,12 +2008,8 @@ enter_syscall(int thread, int type, kd_buf *kd, char *name, double now)
 
 		   l_usecs = (long long)(now / divisor);
 		   secs = l_usecs / 1000000;
-
-		   if (bias_secs == 0) {
-		           curr_time = time((long *)0);
-			   bias_secs = curr_time - secs;
-		   }
 		   curr_time = bias_secs + secs;
+		   
 		   sprintf(buf, "%-8.8s", &(ctime(&curr_time)[11]));
 		   tsclen = strlen(buf);
 
@@ -1915,6 +2083,40 @@ enter_syscall(int thread, int type, kd_buf *kd, char *name, double now)
        fflush (0);
 }
 
+/*
+ * Handle system call extended trace data.
+ * pread and pwrite:
+ *     Wipe out the kd args that were collected upon syscall_entry
+ *     because it is the extended info that we really want, and it
+ *     is all we really need.
+*/
+
+void
+extend_syscall(int thread, int type, kd_buf *kd, char *name, double now)
+{
+       struct th_info *ti;
+
+       switch (type) {
+       case BSC_pread_extended:
+	   if ((ti = find_thread(thread, BSC_pread)) == (struct th_info *)0)
+	       return;
+	   ti->arg1   = kd->arg1;  /* the fd */
+	   ti->arg2   = kd->arg2;  /* nbytes */
+	   ti->arg3   = kd->arg3;  /* top half offset */
+	   ti->arg4   = kd->arg4;  /* bottom half offset */	   
+	   break;
+       case BSC_pwrite_extended:
+	   if ((ti = find_thread(thread, BSC_pwrite)) == (struct th_info *)0)
+	       return;
+	   ti->arg1   = kd->arg1;  /* the fd */
+	   ti->arg2   = kd->arg2;  /* nbytes */
+	   ti->arg3   = kd->arg3;  /* top half offset */
+	   ti->arg4   = kd->arg4;  /* bottom half offset */
+	   break;
+       default:
+	   return;
+       }
+}
 
 void
 exit_syscall(char *sc_name, int thread, int type, int error, int retval,
@@ -1924,8 +2126,9 @@ exit_syscall(char *sc_name, int thread, int type, int error, int retval,
       
     if ((ti = find_thread(thread, type)) == (struct th_info *)0)
         return;
-               
-    format_print(ti, sc_name, thread, type, error, retval, has_fd, has_ret, now, ti->stime, ti->waited, ti->pathname, NULL);
+
+    if (check_filter_mode(ti, type, error, retval))
+	format_print(ti, sc_name, thread, type, error, retval, has_fd, has_ret, now, ti->stime, ti->waited, ti->pathname, NULL);
 
     if (ti == &th_state[cur_max - 1])
         cur_max--;
@@ -1956,16 +2159,12 @@ format_print(struct th_info *ti, char *sc_name, int thread, int type, int error,
        if (dio)
             command_name = dio->issuing_command;
        else {
-            if (map = find_thread_map(thread))
+	   if ((map = find_thread_map(thread)))
                 command_name = map->command;
        }
+       
        l_usecs = (long long)(now / divisor);
        secs = l_usecs / 1000000;
-
-       if (bias_secs == 0) {
-	       curr_time = time((long *)0);
-	       bias_secs = curr_time - secs;
-       }
        curr_time = bias_secs + secs;
        sprintf(buf, "%-8.8s", &(ctime(&curr_time)[11]));
        clen = strlen(buf);
@@ -2006,7 +2205,9 @@ format_print(struct th_info *ti, char *sc_name, int thread, int type, int error,
                 else
                     sprintf(&buf[clen], "  B=0x%-6x   /dev/%s", dio->iosize, find_disk_name(dio->dev));
             } else {
-              
+
+		off_t offset_reassembled = 0LL;
+		
 	       if (has_fd == 2 && error == 0)
 		       sprintf(&buf[clen], " F=%-3d", retval);
 	       else if (has_fd == 1)
@@ -2033,6 +2234,18 @@ format_print(struct th_info *ti, char *sc_name, int thread, int type, int error,
 		       sprintf(&buf[clen], "  B=0x%-6x", retval);
 	       else if (has_ret == 4)
 		       sprintf(&buf[clen], "B=0x%-8x", retval);
+	       else if (has_ret == 8)  /* BSC_select */
+		       sprintf(&buf[clen], "  S=%-3d     ", retval);	       
+	       else if (has_ret == 9)  /* BSC_pread, BSC_pwrite */
+	       {
+		   sprintf(&buf[clen], "B=0x%-8x", retval);
+		   clen = strlen(buf);
+		   offset_reassembled = (((off_t)(unsigned int)(ti->arg3)) << 32) | (unsigned int)(ti->arg4);
+		   if ((offset_reassembled >> 32) != 0)
+		       sprintf(&buf[clen], "O=0x%16.16qx", (off_t)offset_reassembled);
+		   else
+		       sprintf(&buf[clen], "O=0x%8.8qx", (off_t)offset_reassembled);
+	       }
 	       else
 		       sprintf(&buf[clen], "            ");
             }
@@ -2144,51 +2357,113 @@ void getdivisor()
 void read_command_map()
 {
     size_t size;
+    int i;
+    int prev_total_threads;
     int mib[6];
   
     if (mapptr) {
 	free(mapptr);
 	mapptr = 0;
     }
+
+    prev_total_threads = total_threads;
     total_threads = bufinfo.nkdthreads;
     size = bufinfo.nkdthreads * sizeof(kd_threadmap);
 
     if (size)
     {
-        if (mapptr = (kd_threadmap *) malloc(size))
+        if ((mapptr = (kd_threadmap *) malloc(size)))
+	{
 	     bzero (mapptr, size);
-	else
-	    return;
-    }
  
-    /* Now read the threadmap */
-    mib[0] = CTL_KERN;
-    mib[1] = KERN_KDEBUG;
-    mib[2] = KERN_KDTHRMAP;
-    mib[3] = 0;
-    mib[4] = 0;
-    mib[5] = 0;		/* no flags */
-    if (sysctl(mib, 3, mapptr, &size, NULL, 0) < 0)
+	     /* Now read the threadmap */
+	     mib[0] = CTL_KERN;
+	     mib[1] = KERN_KDEBUG;
+	     mib[2] = KERN_KDTHRMAP;
+	     mib[3] = 0;
+	     mib[4] = 0;
+	     mib[5] = 0;		/* no flags */
+	     if (sysctl(mib, 3, mapptr, &size, NULL, 0) < 0)
+	     {
+		 /* This is not fatal -- just means I cant map command strings */
+		 free(mapptr);
+		 mapptr = 0;
+	     }
+	}
+    }
+
+    if (mapptr && (filter_mode != DEFAULT_DO_NOT_FILTER))
     {
-        /* This is not fatal -- just means I cant map command strings */
-	free(mapptr);
-	mapptr = 0;
+	if (fdmapptr)
+	{
+	    /* We accept the fact that we lose file descriptor state if the
+	       kd_buffer wraps */
+	    for (i = 0; i < prev_total_threads; i++)
+	    {
+		if (fdmapptr[i].fd_setptr)
+		    free (fdmapptr[i].fd_setptr);
+	    }
+	    free(fdmapptr);
+	    fdmapptr = 0;
+	}
+
+	size = total_threads * sizeof(fd_threadmap);
+	if ((fdmapptr = (fd_threadmap *) malloc(size)))
+	{
+	    bzero (fdmapptr, size);
+	    /* reinitialize file descriptor state map */
+	    for (i = 0; i < total_threads; i++)
+	    {
+		fdmapptr[i].fd_thread = mapptr[i].thread;
+		fdmapptr[i].fd_valid = mapptr[i].valid;
+		fdmapptr[i].fd_setsize = 0;
+		fdmapptr[i].fd_setptr = 0;
+	    }
+	}
+    }
+
+    /* Resolve any LaunchCFMApp command names */
+    if (mapptr && arguments)
+    {
+	for (i=0; i < total_threads; i++)
+	{
+	    int pid;
+
+	    pid = mapptr[i].valid;
+	    
+	    if (pid == 0 || pid == 1)
+		continue;
+	    else if (!strncmp(mapptr[i].command,"LaunchCFMA", 10))
+	    {
+		(void)get_real_command_name(pid, mapptr[i].command, sizeof(mapptr[i].command));
+	    }
+	}
     }
 }
 
 
-void create_map_entry(int thread, char *command)
+void create_map_entry(int thread, int pid, char *command)
 {
     int i, n;
     kd_threadmap *map;
+    fd_threadmap *fdmap = 0;
 
     if (!mapptr)
         return;
 
     for (i = 0, map = 0; !map && i < total_threads; i++)
     {
-        if (mapptr[i].thread == thread )	
-	    map = &mapptr[i];   /* Reuse this entry, the thread has been reassigned */
+        if ((int)mapptr[i].thread == thread )
+	{
+	    map = &mapptr[i];   /* Reuse this entry, the thread has been
+				 * reassigned */
+	    if(filter_mode && fdmapptr)
+	    {
+		fdmap = &fdmapptr[i];
+		if (fdmap->fd_thread != thread)    /* This shouldn't happen */
+		    fdmap = (fd_threadmap *)0;
+	    }
+	}
     }
 
     if (!map)   /* look for invalid entries that I can reuse*/
@@ -2197,6 +2472,10 @@ void create_map_entry(int thread, char *command)
 	{
 	    if (mapptr[i].valid == 0 )	
 	        map = &mapptr[i];   /* Reuse this invalid entry */
+	    if (filter_mode && fdmapptr)
+	    {
+		fdmap = &fdmapptr[i];
+	    }
 	}
     }
   
@@ -2211,6 +2490,14 @@ void create_map_entry(int thread, char *command)
 	mapptr = (kd_threadmap *) realloc(mapptr, n * sizeof(kd_threadmap));
 	bzero(&mapptr[total_threads], total_threads*sizeof(kd_threadmap));
 	map = &mapptr[total_threads];
+
+	if (filter_mode && fdmapptr)
+	{
+	    fdmapptr = (fd_threadmap *)realloc(fdmapptr, n * sizeof(fd_threadmap));
+	    bzero(&fdmapptr[total_threads], total_threads*sizeof(fd_threadmap));
+	    fdmap = &fdmapptr[total_threads];	    
+	}
+	
 	total_threads = n;
     }
 
@@ -2223,6 +2510,23 @@ void create_map_entry(int thread, char *command)
     */
     (void)strncpy (map->command, command, MAXCOMLEN);
     map->command[MAXCOMLEN] = '\0';
+
+    if (fdmap)
+    {
+	fdmap->fd_valid = 1;
+	fdmap->fd_thread = thread;
+	if (fdmap->fd_setptr)
+	{
+	    free(fdmap->fd_setptr);
+	    fdmap->fd_setptr = (unsigned long *)0;
+	}
+	fdmap->fd_setsize = 0;
+    }
+
+    if (pid == 0 || pid == 1)
+	return;
+    else if (!strncmp(map->command, "LaunchCFMA", 10))
+	(void)get_real_command_name(pid, map->command, sizeof(map->command));
 }
 
 
@@ -2237,7 +2541,7 @@ kd_threadmap *find_thread_map(int thread)
     for (i = 0; i < total_threads; i++)
     {
         map = &mapptr[i];
-	if (map->valid && (map->thread == thread))
+	if (map->valid && ((int)map->thread == thread))
 	{
 	    return(map);
 	}
@@ -2245,16 +2549,51 @@ kd_threadmap *find_thread_map(int thread)
     return ((kd_threadmap *)0);
 }
 
+fd_threadmap *find_fd_thread_map(int thread)
+{
+    int i;
+    fd_threadmap *fdmap = 0;
+
+    if (!fdmapptr)
+        return((fd_threadmap *)0);
+
+    for (i = 0; i < total_threads; i++)
+    {
+        fdmap = &fdmapptr[i];
+	if (fdmap->fd_valid && ((int)fdmap->fd_thread == thread))
+	{
+	    return(fdmap);
+	}
+    }
+    return ((fd_threadmap *)0);
+}
+
 
 void
 kill_thread_map(int thread)
 {
     kd_threadmap *map;
+    fd_threadmap *fdmap;
 
-    if (map = find_thread_map(thread)) {
+    if ((map = find_thread_map(thread))) {
         map->valid = 0;
 	map->thread = 0;
 	map->command[0] = '\0';
+    }
+
+    if (filter_mode)
+    {
+	if ((fdmap = find_fd_thread_map(thread)))
+	{
+	    fdmap->fd_valid = 0;
+	    fdmap->fd_thread = 0;
+	    if (fdmap->fd_setptr)
+	    {
+		free (fdmap->fd_setptr);
+		fdmap->fd_setptr = (unsigned long *)0;
+	    }
+	    fdmap->fd_setsize = 0;
+	}	
     }
 }
 
@@ -2359,7 +2698,6 @@ int ReadSegAddrTable()
     int  ntokens;
     char *substring,*ptr;
     int  founddylib = 0;
-    int  i;
 
 
     bzero(buf, sizeof(buf));
@@ -2438,7 +2776,7 @@ int ReadSegAddrTable()
             /*
 	     * Extract lib name from path name
 	     */
-	    if (substring = strrchr(tokens[2], '.'))
+	    if ((substring = strrchr(tokens[2], '.')))
 	    {		
 	        /*
 		 * There is a ".": name is whatever is between the "/" around the "." 
@@ -2496,7 +2834,7 @@ struct diskio *insert_diskio(int type, int bp, int dev, int blkno, int io_size, 
     register struct diskio *dio;
     register kd_threadmap  *map;
     
-    if (dio = free_diskios)
+    if ((dio = free_diskios))
         free_diskios = dio->next;
     else {
         if ((dio = (struct diskio *)malloc(sizeof(struct diskio))) == NULL)
@@ -2512,8 +2850,11 @@ struct diskio *insert_diskio(int type, int bp, int dev, int blkno, int io_size, 
     dio->issued_time = curtime;
     dio->issuing_thread = thread;
     
-    if (map = find_thread_map(thread))
-        strcpy(dio->issuing_command, map->command);
+    if ((map = find_thread_map(thread)))
+    {
+        strncpy(dio->issuing_command, map->command, MAXCOMLEN);
+	dio->issuing_command[MAXCOMLEN-1] = '\0';
+    }
     else
         strcpy(dio->issuing_command, "");
     
@@ -2534,7 +2875,7 @@ struct diskio *complete_diskio(int bp, int io_errno, int resid, int thread, doub
         if (dio->bp == bp) {
         
             if (dio == busy_diskios) {
-                if (busy_diskios = dio->next)
+                if ((busy_diskios = dio->next))
                     dio->next->prev = NULL;
             } else {
                 if (dio->next)
@@ -2563,7 +2904,6 @@ void free_diskio(struct diskio *dio)
 void print_diskio(struct diskio *dio)
 {
     register char  *p;
-    struct th_info *ti;
 
     switch (dio->type) {
 
@@ -2603,13 +2943,16 @@ void print_diskio(struct diskio *dio)
         case P_PgOutAsync:
             p = "  PgOut[async]";
             break;
-
+        default:
+            p = "  ";
+	    break;
     }
-    format_print(NULL, p, dio->issuing_thread, dio->type, 0, 0, 0, 7, dio->completed_time, dio->issued_time, 1, "", dio);
+    if (check_filter_mode(NULL, dio->type,0, 0))
+	format_print(NULL, p, dio->issuing_thread, dio->type, 0, 0, 0, 7, dio->completed_time, dio->issued_time, 1, "", dio);
 }
 
 
-cache_disk_names()
+void cache_disk_names()
 {
     struct stat    st;
     DIR            *dirp = NULL;
@@ -2660,4 +3003,313 @@ char *find_disk_name(int dev)
             return (dnp->diskname);
     }
     return ("NOTFOUND");
+}
+
+void
+fs_usage_fd_set(thread, fd)
+    unsigned int thread;
+    unsigned int fd;
+{
+    int n;
+    fd_threadmap *fdmap;
+
+    if(!(fdmap = find_fd_thread_map(thread)))
+	return;
+
+    /* If the map is not allocated, then now is the time */
+    if (fdmap->fd_setptr == (unsigned long *)0)
+    {
+	fdmap->fd_setptr = (unsigned long *)malloc(FS_USAGE_NFDBYTES(FS_USAGE_FD_SETSIZE));
+	if (fdmap->fd_setptr)
+	{
+	    fdmap->fd_setsize = FS_USAGE_FD_SETSIZE;
+	    bzero(fdmap->fd_setptr,(FS_USAGE_NFDBYTES(FS_USAGE_FD_SETSIZE)));
+	}
+	else
+	    return;
+    }
+
+    /* If the map is not big enough, then reallocate it */
+    while (fdmap->fd_setsize < fd)
+    {
+	printf("reallocating bitmap for threadid %d, fd = %d, setsize = %d\n",
+	  thread, fd, fdmap->fd_setsize);
+	n = fdmap->fd_setsize * 2;
+	fdmap->fd_setptr = (unsigned long *)realloc(fdmap->fd_setptr, (FS_USAGE_NFDBYTES(n)));
+	bzero(&fdmap->fd_setptr[(fdmap->fd_setsize/FS_USAGE_NFDBITS)], (FS_USAGE_NFDBYTES(fdmap->fd_setsize)));
+	fdmap->fd_setsize = n;
+    }
+
+    /* set the bit */
+    fdmap->fd_setptr[fd/FS_USAGE_NFDBITS] |= (1 << ((fd) % FS_USAGE_NFDBITS));
+
+    return;
+}
+
+/*
+  Return values:
+  0 : File Descriptor bit is not set
+  1 : File Descriptor bit is set
+*/
+    
+int
+fs_usage_fd_isset(thread, fd)
+    unsigned int thread;
+    unsigned int fd;
+{
+    int ret = 0;
+    fd_threadmap *fdmap;
+
+    if(!(fdmap = find_fd_thread_map(thread)))
+	return(ret);
+
+    if (fdmap->fd_setptr == (unsigned long *)0)
+	return (ret);
+
+    if (fd < fdmap->fd_setsize)
+	ret = fdmap->fd_setptr[fd/FS_USAGE_NFDBITS] & (1 << (fd % FS_USAGE_NFDBITS));
+    
+    return (ret);
+}
+    
+void
+fs_usage_fd_clear(thread, fd)
+    unsigned int thread;
+    unsigned int fd;
+{
+    fd_threadmap *map;
+
+    if (!(map = find_fd_thread_map(thread)))
+	return;
+
+    if (map->fd_setptr == (unsigned long *)0)
+	return;
+
+    /* clear the bit */
+    if (fd < map->fd_setsize)
+	map->fd_setptr[fd/FS_USAGE_NFDBITS] &= ~(1 << (fd % FS_USAGE_NFDBITS));
+    
+    return;
+}
+
+
+/*
+ * ret = 1 means print the entry
+ * ret = 0 means don't print the entry
+ */
+int
+check_filter_mode(struct th_info * ti, int type, int error, int retval)
+{
+    int ret = 0;
+    int network_fd_isset = 0;
+    unsigned int fd;
+
+    if (filter_mode == DEFAULT_DO_NOT_FILTER)
+	return(1);
+
+    if (ti == (struct th_info *)0)
+    {
+	if(filter_mode & FILESYS_FILTER)
+	    ret = 1;
+	else
+	    ret = 0;
+	return(ret);
+    }
+	
+
+    switch (type) {
+    case BSC_close:
+	fd = ti->arg1;
+	network_fd_isset = fs_usage_fd_isset(ti->thread, fd);
+	if (error == 0)
+	{
+	    fs_usage_fd_clear(ti->thread,fd);
+	}
+	
+	if (network_fd_isset)
+	{
+	    if (filter_mode & NETWORK_FILTER)
+		ret = 1;
+	}
+	else if (filter_mode & FILESYS_FILTER)
+	    ret = 1;
+	break;
+    case BSC_read:
+    case BSC_write:
+	/* we don't care about error in this case */
+	fd = ti->arg1;
+	network_fd_isset = fs_usage_fd_isset(ti->thread, fd);
+	if (network_fd_isset)
+	{
+	    if (filter_mode & NETWORK_FILTER)
+		ret = 1;
+	}
+	else if (filter_mode & FILESYS_FILTER)
+	    ret = 1;	
+	break;
+    case BSC_accept:
+    case BSC_socket:
+	fd = retval;
+	if (error == 0)
+	    fs_usage_fd_set(ti->thread, fd);
+	if (filter_mode & NETWORK_FILTER)
+	    ret = 1;
+	break;
+    case BSC_recvfrom:
+    case BSC_sendto:
+    case BSC_recvmsg:
+    case BSC_sendmsg:
+    case BSC_connect:
+    case BSC_bind:
+    case BSC_listen:	    
+	fd = ti->arg1;
+	if (error == 0)
+	    fs_usage_fd_set(ti->thread, fd);
+	if (filter_mode & NETWORK_FILTER)
+	    ret = 1;
+	break;
+    case BSC_select:
+    case BSC_socketpair:
+	/* Cannot determine info about file descriptors */
+	if (filter_mode & NETWORK_FILTER)
+	    ret = 1;
+	break;
+    case BSC_dup:
+    case BSC_dup2:
+	ret=0;   /* We track these cases for fd state only */
+	fd = ti->arg1;  /* oldd */
+	network_fd_isset = fs_usage_fd_isset(ti->thread, fd);
+	if (error == 0 && network_fd_isset)
+	{
+	    /* then we are duping a socket descriptor */
+	    fd = retval;  /* the new fd */
+	    fs_usage_fd_set(ti->thread, fd);
+	}
+	break;
+
+    default:
+	if (filter_mode & FILESYS_FILTER)
+	    ret = 1;
+	break;
+    }
+
+    return(ret);
+}
+
+/*
+ * Allocate a buffer that is large enough to hold the maximum arguments
+ * to execve().  This is used when getting the arguments to programs
+ * when we see LaunchCFMApps.  If this fails, it is not fatal, we will
+ * simply not resolve the command name.
+ */
+
+void
+init_arguments_buffer()
+{
+
+    int     mib[2];
+    size_t  size;
+
+    mib[0] = CTL_KERN;
+    mib[1] = KERN_ARGMAX;
+    size = sizeof(argmax);
+    if (sysctl(mib, 2, &argmax, &size, NULL, 0) == -1)
+	return;
+
+#if 1
+    /* Hack to avoid kernel bug. */
+    if (argmax > 8192) {
+	argmax = 8192;
+    }
+#endif
+
+    arguments = (char *)malloc(argmax);
+    
+    return;
+}
+
+
+int
+get_real_command_name(int pid, char *cbuf, int csize)
+{
+    /*
+     *      Get command and arguments.
+     */
+    char  *cp;
+    int             mib[4];
+    char    *command_beg, *command, *command_end;
+
+    if (cbuf == NULL) {
+	return(0);
+    }
+
+    if (arguments)
+	bzero(arguments, argmax);
+    else
+	return(0);
+
+    /*
+     * A sysctl() is made to find out the full path that the command
+     * was called with.
+     */
+    mib[0] = CTL_KERN;
+    mib[1] = KERN_PROCARGS;
+    mib[2] = pid;
+    mib[3] = 0;
+
+    if (sysctl(mib, 3, arguments, (size_t *)&argmax, NULL, 0) < 0) {
+	return(0);
+    }
+
+    /* Skip the saved exec_path. */
+    for (cp = arguments; cp < &arguments[argmax]; cp++) {
+	if (*cp == '\0') {
+	    /* End of exec_path reached. */
+	    break;
+	}
+    }
+    if (cp == &arguments[argmax]) {
+	return(0);
+    }
+
+    /* Skip trailing '\0' characters. */
+    for (; cp < &arguments[argmax]; cp++) {
+	if (*cp != '\0') {
+	    /* Beginning of first argument reached. */
+	    break;
+	}
+    }
+    if (cp == &arguments[argmax]) {
+	return(0);
+    }
+    command_beg = cp;
+
+    /*
+     * Make sure that the command is '\0'-terminated.  This protects
+     * against malicious programs; under normal operation this never
+     * ends up being a problem..
+     */
+    for (; cp < &arguments[argmax]; cp++) {
+	if (*cp == '\0') {
+	    /* End of first argument reached. */
+	    break;
+	}
+    }
+    if (cp == &arguments[argmax]) {
+	return(0);
+    }
+    command_end = command = cp;
+
+    /* Get the basename of command. */
+    for (command--; command >= command_beg; command--) {
+	if (*command == '/') {
+	    command++;
+	    break;
+	}
+    }
+
+    (void) strncpy(cbuf, (char *)command, csize);
+    cbuf[csize-1] = '\0';
+
+    return(1);
 }

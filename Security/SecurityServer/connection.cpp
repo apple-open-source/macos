@@ -46,7 +46,7 @@ Connection::Connection(Process &proc, Port rPort)
 	// bump the send-rights count on the reply port so we keep the right after replying
 	mClientPort.modRefs(MACH_PORT_RIGHT_SEND, +1);
 	
-	debug("SS", "New connection %p for process %d clientport=%d",
+	secdebug("SS", "New connection %p for process %d clientport=%d",
 		this, process.pid(), int(rPort));
 }
 
@@ -57,7 +57,7 @@ Connection::Connection(Process &proc, Port rPort)
 //
 Connection::~Connection()
 {
-	debug("SS", "Connection %p destroyed", this);
+	secdebug("SS", "Connection %p destroyed", this);
 	assert(!agentWait);
 }
 
@@ -72,7 +72,7 @@ void Connection::terminate()
 	assert(state == idle);
 	mClientPort.modRefs(MACH_PORT_RIGHT_SEND, -1);	// discard surplus send right
 	assert(mClientPort.getRefs(MACH_PORT_RIGHT_SEND) == 1);	// one left for final reply
-	debug("SS", "Connection %p terminated", this);
+	secdebug("SS", "Connection %p terminated", this);
 }
 
 
@@ -88,16 +88,17 @@ bool Connection::abort(bool keepReplyPort)
         mClientPort.destroy();		// dead as a doornail already
 	switch (state) {
 	case idle:
-		debug("SS", "Connection %p aborted", this);
+		secdebug("SS", "Connection %p aborted", this);
 		return true;				// just shoot me
 	case busy:
 		state = dying;				// shoot me soon, please
 		if (agentWait)
 			agentWait->cancel();
-		debug("SS", "Connection %p abort deferred (busy)", this);
+		secdebug("SS", "Connection %p abort deferred (busy)", this);
 		return false;				// but not quite yet
 	default:
 		assert(false);				// impossible (we hope)
+		return true;				// placebo
 	}
 }
 
@@ -116,7 +117,7 @@ void Connection::beginWork()
 		process.beginConnection(*this);
 		break;
 	case busy:
-		debug("SS", "Attempt to re-enter connection %p(port %d)", this, mClientPort.port());
+		secdebug("SS", "Attempt to re-enter connection %p(port %d)", this, mClientPort.port());
 		CssmError::throwMe(CSSM_ERRCODE_INTERNAL_ERROR);	//@@@ some state-error code instead?
 	default:
 		assert(false);
@@ -145,9 +146,9 @@ bool Connection::endWork()
 		if (aclUpdateTrigger) {
             if (--aclUpdateTriggerCount == 0) {
                 aclUpdateTrigger = NULL;
-                debug("kcacl", "acl update trigger expires");
+                secdebug("kcacl", "acl update trigger expires");
             } else
-                debug("kcacl", "acl update trigger armed for %d calls",
+                secdebug("kcacl", "acl update trigger armed for %d calls",
                     aclUpdateTriggerCount);
         }
 		// end involvement
@@ -155,12 +156,13 @@ bool Connection::endWork()
 		process.endConnection(*this);
 		return false;
 	case dying:
-		debug("SS", "Connection %p abort resuming", this);
+		secdebug("SS", "Connection %p abort resuming", this);
 		if (process.endConnection(*this))
 			delete &process;
 		return true;
 	default:
 		assert(false);
+		return true;	// placebo
 	}
 }
 
@@ -190,7 +192,7 @@ CSSM_KEY_SIZE Connection::queryKeySize(Key &key)
 void Connection::generateSignature(const Context &context, Key &key,
 	CSSM_ALGORITHMS signOnlyAlgorithm, const CssmData &data, CssmData &signature)
 {
-	context.replace(CSSM_ATTRIBUTE_KEY, (CSSM_KEY &)key);
+	context.replace(CSSM_ATTRIBUTE_KEY, key.cssmKey());
 	key.validate(CSSM_ACL_AUTHORIZATION_SIGN, context);
 	CssmClient::Sign signer(Server::csp(), context.algorithm(), signOnlyAlgorithm);
 	signer.override(context);
@@ -200,7 +202,7 @@ void Connection::generateSignature(const Context &context, Key &key,
 void Connection::verifySignature(const Context &context, Key &key,
 	CSSM_ALGORITHMS verifyOnlyAlgorithm, const CssmData &data, const CssmData &signature)
 {
-	context.replace(CSSM_ATTRIBUTE_KEY, (CSSM_KEY &)key);
+	context.replace(CSSM_ATTRIBUTE_KEY, key.cssmKey());
 	CssmClient::Verify verifier(Server::csp(), context.algorithm(), verifyOnlyAlgorithm);
 	verifier.override(context);
 	verifier.verify(data, signature);
@@ -209,7 +211,7 @@ void Connection::verifySignature(const Context &context, Key &key,
 void Connection::generateMac(const Context &context, Key &key,
 	const CssmData &data, CssmData &mac)
 {
-	context.replace(CSSM_ATTRIBUTE_KEY, (CSSM_KEY &)key);
+	context.replace(CSSM_ATTRIBUTE_KEY, key.cssmKey());
 	key.validate(CSSM_ACL_AUTHORIZATION_MAC, context);
 	CssmClient::GenerateMac signer(Server::csp(), context.algorithm());
 	signer.override(context);
@@ -219,7 +221,7 @@ void Connection::generateMac(const Context &context, Key &key,
 void Connection::verifyMac(const Context &context, Key &key,
 	const CssmData &data, const CssmData &mac)
 {
-	context.replace(CSSM_ATTRIBUTE_KEY, (CSSM_KEY &)key);
+	context.replace(CSSM_ATTRIBUTE_KEY, key.cssmKey());
 	key.validate(CSSM_ACL_AUTHORIZATION_MAC, context);
 	CssmClient::VerifyMac verifier(Server::csp(), context.algorithm());
 	verifier.override(context);
@@ -233,7 +235,7 @@ void Connection::verifyMac(const Context &context, Key &key,
 void Connection::encrypt(const Context &context, Key &key,
 	const CssmData &clear, CssmData &cipher)
 {
-	context.replace(CSSM_ATTRIBUTE_KEY, (CSSM_KEY &)key);
+	context.replace(CSSM_ATTRIBUTE_KEY, key.cssmKey());
 	key.validate(CSSM_ACL_AUTHORIZATION_ENCRYPT, context);
 	CssmClient::Encrypt cryptor(Server::csp(), context.algorithm());
 	cryptor.override(context);
@@ -248,7 +250,7 @@ void Connection::encrypt(const Context &context, Key &key,
 void Connection::decrypt(const Context &context, Key &key,
 	const CssmData &cipher, CssmData &clear)
 {
-	context.replace(CSSM_ATTRIBUTE_KEY, (CSSM_KEY &)key);
+	context.replace(CSSM_ATTRIBUTE_KEY, key.cssmKey());
 	key.validate(CSSM_ACL_AUTHORIZATION_DECRYPT, context);
 	CssmClient::Decrypt cryptor(Server::csp(), context.algorithm());
 	cryptor.override(context);
@@ -313,7 +315,7 @@ Key &Connection::deriveKey(Database *db, const Context &context, Key *baseKey,
 	// prepare a key-derivation context
     if (baseKey) {
 		baseKey->validate(CSSM_ACL_AUTHORIZATION_DERIVE, cred);
-        context.replace(CSSM_ATTRIBUTE_KEY, (CSSM_KEY &)*baseKey);
+        context.replace(CSSM_ATTRIBUTE_KEY, baseKey->cssmKey());
 	}
 	CssmClient::DeriveKey derive(Server::csp(), context.algorithm(), CSSM_ALGID_NONE);
 	derive.override(context);
@@ -333,6 +335,7 @@ Key &Connection::deriveKey(Database *db, const Context &context, Key *baseKey,
 // Note that the key argument (the key in the context) is optional because of the special
 // case of "cleartext" (null algorithm) wrapping for import/export.
 //
+
 void Connection::wrapKey(const Context &context, Key *key,
     Key &keyToBeWrapped, const AccessCredentials *cred,
     const CssmData &descriptiveData, CssmKey &wrappedKey)
@@ -340,8 +343,11 @@ void Connection::wrapKey(const Context &context, Key *key,
     keyToBeWrapped.validate(context.algorithm() == CSSM_ALGID_NONE ?
             CSSM_ACL_AUTHORIZATION_EXPORT_CLEAR : CSSM_ACL_AUTHORIZATION_EXPORT_WRAPPED,
         cred);
+	if(!(keyToBeWrapped.attributes() & CSSM_KEYATTR_EXTRACTABLE)) {
+		CssmError::throwMe(CSSMERR_CSP_INVALID_KEYATTR_MASK);
+	}
     if (key)
-        context.replace(CSSM_ATTRIBUTE_KEY, (CSSM_KEY &)*key);
+        context.replace(CSSM_ATTRIBUTE_KEY, key->cssmKey());
     CssmClient::WrapKey wrap(Server::csp(), context.algorithm());
     wrap.override(context);
     wrap.cred(const_cast<AccessCredentials *>(cred));	//@@@ const madness - fix in client/pod
@@ -354,7 +360,7 @@ Key &Connection::unwrapKey(Database *db, const Context &context, Key *key,
     Key *publicKey, CssmData *descriptiveData)
 {
     if (key)
-        context.replace(CSSM_ATTRIBUTE_KEY, (CSSM_KEY &)*key);
+        context.replace(CSSM_ATTRIBUTE_KEY, key->cssmKey());
     CssmClient::UnwrapKey unwrap(Server::csp(), context.algorithm());
     unwrap.override(context);
     CssmKey unwrappedKey;
@@ -366,7 +372,7 @@ Key &Connection::unwrapKey(Database *db, const Context &context, Key *key,
 
     // @@@ Invoking conversion operator to CssmKey & on *publicKey and take the address of the result.
     unwrap(wrappedKey, Key::KeySpec(usage, attrs), unwrappedKey,
-        descriptiveData, publicKey ? &static_cast<CssmKey &>(*publicKey) : NULL);
+        descriptiveData, publicKey ? &static_cast<const CssmKey &>(*publicKey) : NULL);
 
     return *new Key(db, unwrappedKey, attrs & Key::managedAttributes, owner);
 }
@@ -379,7 +385,7 @@ uint32 Connection::getOutputSize(const Context &context, Key &key, uint32 inputS
 {
     // We're fudging here somewhat, since the context can be any type.
     // ctx.override will fix the type, and no-one's the wiser.
-	context.replace(CSSM_ATTRIBUTE_KEY, (CSSM_KEY &)key);
+	context.replace(CSSM_ATTRIBUTE_KEY, key.cssmKey());
     CssmClient::Digest ctx(Server::csp(), context.algorithm());
     ctx.override(context);
     return ctx.getOutputSize(inputSize, encrypt);

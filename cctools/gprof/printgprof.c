@@ -3,8 +3,6 @@
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
- * Copyright (c) 1999-2003 Apple Computer, Inc.  All Rights Reserved.
- * 
  * This file contains Original Code and/or Modifications of Original Code
  * as defined in and that are subject to the Apple Public Source License
  * Version 2.0 (the 'License'). You may not use this file except in
@@ -119,7 +117,7 @@ void)
 {
     nltype *np;
     nltype **sortednlp;
-    int index;
+    unsigned long index;
 
 	actime = 0.0;
 	printf("\f\n");
@@ -282,7 +280,7 @@ void
 printgprof(
 nltype **timesortnlp)
 {
-    int index;
+    unsigned long index;
     nltype *parentp;
 
 	/*
@@ -739,7 +737,7 @@ arctype *thatp)
 		thatp->arc_count, thatchildp->ncall);
 	    printf("\n");
 	}
-#endif DEBUG
+#endif /* DEBUG */
 	if(thisparentp == thischildp){
 	    /* this is a self call */
 	    return(LESSTHAN);
@@ -825,7 +823,7 @@ void)
 {
     nltype **namesortnlp;
     nltype *nlp;
-    int index, nnames, todo, i, j;
+    unsigned long index, nnames, todo, i, j;
     char peterbuffer[BUFSIZ];
 
 	/*
@@ -843,7 +841,7 @@ void)
 	}
 	qsort(namesortnlp, nnames, sizeof(nltype *),
 	      (int (*)(const void *, const void *))namecmp);
-	for(index = 1, todo = nnames; index <= ncycle; index++){
+	for(index = 1, todo = nnames; index <= (unsigned long)ncycle; index++){
 	    namesortnlp[todo++] = &cyclenl[index];
 	}
 	printf("\f\nIndex by function name\n\n");

@@ -1,0 +1,111 @@
+.\" t
+.\" $Id: gimpprint-inktypes.7.in,v 1.1.1.1 2003/01/27 19:05:32 jlovell Exp $
+.\" Copyright (C) 2000 Roger Leigh <roger@whinlatter.uklinux.net>
+.\"
+.\" This program is free software; you can redistribute it and/or modify
+.\" it under the terms of the GNU General Public License as published by
+.\" the Free Software Foundation; either version 2, or (at your option)
+.\" any later version.
+.\"
+.\" This program is distributed in the hope that it will be useful,
+.\" but WITHOUT ANY WARRANTY; without even the implied warranty of
+.\" MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+.\" GNU General Public License for more details.
+.\"
+.\" You should have received a copy of the GNU General Public License
+.\" along with this program; if not, write to the Free Software
+.\" Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
+.TH GIMPPRINT-INKTYPES 7 "@RELEASE_DATE@" "Version @GIMPPRINT_VERSION@" "Gimp-Print Manual Pages"
+.SH NAME
+gimpprint-inktypes \- Gimp-Print inkset types
+.SH DESCRIPTION
+Gimp-Print supports many different inksets, which are printer type specific.
+The option names are case sensitive.  Two names are listed for each resolution;
+the first (short) name is the \fIinktype\fP, and the second (long) name is
+descriptive.  Not all ink types are supported on all printers.
+.SH INK TYPES
+.SS Epson and Lexmark (other than the 4076) printers
+Six color printers can print using four color inks or all six colors.  Six
+color mode is recommended for photographs.  Four color mode may be useful when
+printing text with embedded graphics to reduce ink consumption, or to print
+higher quality with Ordered, Fast, or Very Fast dithering (see below).
+.PP
+The "Composite" modes use only color inks (no black) to produce all colors and
+black.  These ink types are rarely useful, but on certain types of paper they
+may produce a smoother image than that produced by mixing black ink in.  The
+Epson Stylus Color 1500 cannot mix black ink with colored inks; on this
+printer, Three Color Composite must be used.
+.PP
+.TS
+li li
+lb lw(4i).
+Ink Type	Description
+_
+Photo7	T{
+.na
+Seven Color Photo (CcMmYKk, for the Epson Stylus Photo 2100 and 2200, and
+Stylus Pro 7600 and 9600)
+T}
+PhotoCMYK	Six Color Photo
+PhotoCMY	Five Color Photo Composite
+CMYK	Four Color Standard
+RGB	Three Color Composite
+Quadtone	T{
+Quadtone grayscale inks (special third party inksets designed to produce
+superior results for grayscale images)
+T}
+Gray2	T{
+Two Level Grayscale (Kk, for the Epson stylus Photo 2100 and 2200, and Stylus
+Pro 7600 and 9600)
+.ad
+T}
+.TE
+.SS Canon printers
+.TS
+li li
+lb l.
+Ink Type	Description
+_
+Gray	Black
+RGB	Color
+CMYK	Black/Color
+PhotoCMY	Photo/Color
+PhotoCMYK	Photo
+.TE
+.SS PCL (Hewlett-Packard and Lexmark 4076) color printers
+.TS
+li li
+lb l.
+Ink Type	Description
+_
+CMYK	Color + Black Cartridges
+Photo	Color + Photo Cartridges (For Deskjet 69x only)
+.TE
+.PP
+Black and white PCL printers (laser printers, in particular) do not
+allow any value to be specified for the ink type.
+.SH COPYRIGHT
+Copyright \(co 2001 Michael Sweet (mike@easysw.com) and Robert Krawitz
+(rlk@alum.mit.edu)
+.PP
+This program is free software; you can redistribute it and/or modify it under
+the terms of the GNU General Public License as published by the Free Software
+Foundation; either version 2 of the License, or (at your option) any later
+version.
+.PP
+This manual page was written by Roger Leigh (roger@whinlatter.uklinux.net)
+.SH SEE ALSO
+.BR gimpprint-color (7),
+.BR gimpprint-dithers (7),
+.BR gimpprint-imagetypes (7),
+.BR gimpprint-mediasizes (7),
+.BR gimpprint-mediasources (7),
+.BR gimpprint-mediatypes (7),
+.BR gimpprint-models (7),
+.BR gimpprint-resolutions (7).
+.\"#
+.\"# The following sets edit modes for GNU EMACS
+.\"# Local Variables:
+.\"# mode:nroff
+.\"# fill-column:79
+.\"# End:

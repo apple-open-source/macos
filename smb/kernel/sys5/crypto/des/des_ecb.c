@@ -45,7 +45,7 @@
  * [including the GNU Public Licence.]
  */
 
-#warning XXX build xnu/bsd/crypto and delete our sys5/crypto
+/* XXX build xnu/bsd/crypto and delete our sys5/crypto */
 
 #include <crypto/des/des_locl.h>
 #include <crypto/des/spr.h>

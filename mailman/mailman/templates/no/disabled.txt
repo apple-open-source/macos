@@ -1,0 +1,25 @@
+Ditt medlemskap på epostlisten %(listname)s er midlertidig skrudd av
+%(reason)s.
+Du vil ikke motta flere meldinger fra denne listen inntil
+du skrur medlemskapet ditt på igjen. Du vil motta %(noticesleft)s
+påminnelser som denne før du blir meldt ut av listen.
+
+For å skru på mottak av meldinger igjen, kan du svare på denne eposten
+(med Subject: feltet slik det er), eller gå inn på denne websiden:
+
+    %(confirmurl)s
+
+Du kan også gå inn på din personlige medlemswebside:
+
+    %(optionsurl)s
+
+På den siden kan du også tilpasse levering av epost fra listen, f.eks.
+endre epostadresse og om du vil benytte sammendrag-modus eller ikke.
+Passordet ditt er:
+
+    %(password)s
+
+Har du spørsmål eller problemer, kan du kontakte listens eier på
+følgende epostadresse:
+
+    %(owneraddr)s

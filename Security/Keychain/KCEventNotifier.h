@@ -25,18 +25,13 @@
 #include <CoreFoundation/CFNotificationCenter.h>
 #include <CoreFoundation/CFString.h>
 #include <Security/Item.h>
+#include "dictionary.h"
 
 namespace Security
 {
 
 namespace KeychainCore
 {
-
-#define kSecEventNotificationName CFSTR("com.apple.securitycore.kcevent")
-#define kSecEventTypeKey CFSTR("type")
-#define kSecEventPidKey CFSTR("pid")
-#define kSecEventKeychainKey CFSTR("keychain")
-#define kSecEventItemKey CFSTR("item")
 
 class Keychain;
 

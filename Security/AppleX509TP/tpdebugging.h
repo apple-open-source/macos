@@ -35,127 +35,19 @@
 #ifndef	_TPDEBUGGING_H_
 #define _TPDEBUGGING_H_
 
+#include <Security/debugging.h>
+
 #ifdef	NDEBUG
-#define DEBUG_ENABLE		0
-#define ERROR_LOG_ENABLE	0
+/* this actually compiles to nothing */
+#define tpErrorLog(args...)		secdebug("tpError", ## args)
 #else
-#define DEBUG_ENABLE		1
-#define ERROR_LOG_ENABLE	1
+#define tpErrorLog(args...)		printf(args)
 #endif
 
-/* any other way? */
-#define LOG_VIA_PRINTF		1
-
-#if		DEBUG_ENABLE || ERROR_LOG_ENABLE
-
-#include <stdio.h>
-#include <stdlib.h>
-
-#if		!LOG_VIA_PRINTF
-
-#error Hey, figure out a debug mechanism
-
-#include <string.h>
-#include <CarbonCore/MacTypes.h>
-#include <TextUtils.h>
-
-/* common log macros */
-
-/* remaining ones can take constant strings */
-
-#ifdef	__cplusplus
-extern "C" {
-#endif
-
-extern void dblog0(char *str);
-extern void dblog1(char *str, void * arg1);
-extern void dblog2(char *str, void * arg1, void * arg2);
-extern void dblog3(char *str, void * arg1, void * arg2, void * arg3);
-extern void dblog4(char *str, void * arg1, void * arg2, void * arg3, void * arg4);
-
-#ifdef	__cplusplus
-}
-#endif
-
-
-#else	/* LOG_VIA_PRINTF */
-
-#define dblog0(str)								printf(str)
-#define dblog1(str, arg1)						printf(str, arg1)
-#define dblog2(str, arg1, arg2)					printf(str, arg1, arg2)
-#define dblog3(str, arg1, arg2, arg3)			printf(str, arg1, arg2, arg3)
-#define dblog4(str, arg1, arg2, arg3, arg4)		printf(str, arg1, arg2, arg3, arg4)
-
-#endif	/* LOG_VIA_PRINTF */
-
-#else	/* log macros disabled */
-
-#define dblog0(str)
-#define dblog1(str, arg1)
-#define dblog2(str, arg1, arg2)
-#define dblog3(str, arg1, arg2, arg3)
-#define dblog4(str, arg1, arg2, arg3, arg4)
-
-#endif	/* DEBUG_ENABLE || ERROR_LOG_ENABLE */
-
-#if	DEBUG_ENABLE
-
-#define dprintf0(str)								dblog0(str)
-#define dprintf1(str, arg1)							dblog1(str, arg1)
-#define dprintf2(str, arg1, arg2)					dblog2(str, arg1, arg2)
-#define dprintf3(str, arg1, arg2, arg3)				dblog3(str, arg1, arg2, arg3)
-#define dprintf4(str, arg1, arg2, arg3, arg4)		dblog4(str, arg1, arg2, arg3,  arg4)
-
-#ifdef	__cplusplus
-extern "C" {
-#endif
-
-static inline volatile void _panic(const char *str)
-{
-	printf(str);
-	exit(1);
-}
-
-#ifdef	__cplusplus
-}
-#endif
-
-#define CASSERT(expression) 							\
-  ((expression) ? (void)0 : 							\
-   (dprintf1 ("Assertion failed: " #expression 			\
-      ", file " __FILE__ ", line %d.\n", __LINE__), 	\
-    _panic("Assertion Failure")))
-
-#else	/* DEBUG_ENABLE */
-
-#define dprintf0(str)
-#define dprintf1(str, arg1)
-#define dprintf2(str, arg1, arg2)
-#define dprintf3(str, arg1, arg2, arg3)
-#define dprintf4(str, arg1, arg2, arg3, arg4)
-
-#define CASSERT(expression)
-
-#endif	/* DEBUG_ENABLE */
-
-/*
- * Error logging. This may well be platform dependent.
- */
-#if		ERROR_LOG_ENABLE
-#define errorLog0(str)								dblog0(str)
-#define errorLog1(str, arg1)						dblog1(str, arg1)
-#define errorLog2(str, arg1, arg2)					dblog2(str, arg1, arg2)
-#define errorLog3(str, arg1, arg2, arg3)			dblog3(str, arg1, arg2, arg3)
-#define errorLog4(str, arg1, arg2, arg3, arg4)		dblog4(str, arg1, arg2, arg3, arg4)
-
-#else	/* ERROR_LOG_ENABLE */
-
-#define errorLog0(str)
-#define errorLog1(str, arg1)
-#define errorLog2(str, arg1, arg2)
-#define errorLog3(str, arg1, arg2, arg3)
-#define errorLog4(str, arg1, arg2, arg3, arg4)
-
-#endif	/* ERROR_LOG_ENABLE */
+#define tpDebug(args...)		secdebug("tpDebug", ## args)
+#define tpCrlDebug(args...)		secdebug("tpCrlDebug", ## args)
+#define tpPolicyError(args...)	secdebug("tpPolicy", ## args)
+#define tpVfyDebug(args...)		secdebug("tpVfyDebug", ## args)
+#define tpAnchorDebug(args...)	secdebug("tpAnchorDebug", ## args)
 
 #endif	/* _TPDEBUGGING_H_ */

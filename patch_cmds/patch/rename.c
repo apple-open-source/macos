@@ -1,5 +1,7 @@
-/* BSD compatible rename and directory rename function for System V.
-   Copyright (C) 1988, 1990 Free Software Foundation, Inc.
+/* Work around the bug in some systems whereby rename fails when the source
+   path has a trailing slash.  The rename functions of SunOS 4.1.1_U1 and
+   mips-dec-ultrix4.4 have this bug.
+   Copyright (C) 2001, 2002 Free Software Foundation, Inc.
 
    This program is free software; you can redistribute it and/or modify
    it under the terms of the GNU General Public License as published by
@@ -15,99 +17,52 @@
    along with this program; if not, write to the Free Software Foundation,
    Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.  */
 
-#if HAVE_CONFIG_H
-# include <config.h>
+/* written by Volker Borchert */
+
+#include <config.h>
+#include <stdio.h>
+#if HAVE_STDLIB_H
+# include <stdlib.h>
 #endif
 
-#include <sys/types.h>
-#include <sys/stat.h>
-#include <errno.h>
-#ifndef errno
-extern int errno;
+#if HAVE_STRING_H
+# include <string.h>
+#else
+# include <strings.h>
 #endif
 
-#if STAT_MACROS_BROKEN
-# undef S_ISDIR
+#include "dirname.h"
+#include "xalloc.h"
+
+#ifndef HAVE_DECL_FREE
+"this configure-time declaration test was not run"
+#endif
+#if !HAVE_DECL_FREE
+void free ();
 #endif
 
-#if !defined(S_ISDIR) && defined(S_IFDIR)
-# define S_ISDIR(m) (((m) & S_IFMT) == S_IFDIR)
-#endif
-
-/* Rename file FROM to file TO.
-   Return 0 if successful, -1 if not. */
+/* Rename the file SRC_PATH to DST_PATH, removing any trailing
+   slashes from SRC_PATH.  Needed for SunOS 4.1.1_U1.  */
 
 int
-rename (char *from, char *to)
+rpl_rename (const char *src_path, const char *dst_path)
 {
-  struct stat from_stats, to_stats;
+  char *src_temp;
+  int ret_val;
+  size_t s_len = strlen (src_path);
 
-  if (stat (from, &from_stats))
-    return -1;
-
-  /* Be careful not to unlink `from' if it happens to be equal to `to' or
-     (on filesystems that silently truncate filenames after 14 characters)
-     if `from' and `to' share the significant characters. */
-  if (stat (to, &to_stats))
+  if (s_len && src_path[s_len - 1] == '/')
     {
-      if (errno != ENOENT)
-        return -1;
+      src_temp = xstrdup (src_path);
+      strip_trailing_slashes (src_temp);
     }
   else
-    {
-      if ((from_stats.st_dev == to_stats.st_dev)
-          && (from_stats.st_ino == to_stats.st_ino))
-        /* `from' and `to' designate the same file on that filesystem. */
-        return 0;
+    src_temp = (char *) src_path;
 
-      if (unlink (to) && errno != ENOENT)
-        return -1;
-    }
+  ret_val = rename (src_temp, dst_path);
 
-#ifdef MVDIR
+  if (src_temp != src_path)
+    free (src_temp);
 
-/* If MVDIR is defined, it should be the full filename of a setuid root
-   program able to link and unlink directories.  If MVDIR is not defined,
-   then the capability of renaming directories may be missing.  */
-
-  if (S_ISDIR (from_stats.st_mode))
-    {
-      /* Need a setuid root process to link and unlink directories. */
-      int status;
-      pid_t pid = fork ();
-      switch (pid)
-	{
-	case -1:		/* Error. */
-	  return -1;		/* errno already set */
-
-	case 0:			/* Child. */
-	  execl (MVDIR, "mvdir", from, to, (char *) 0);
-	  _exit (1);
-
-	default:		/* Parent. */
-	  while (wait (&status) != pid)
-	    /* Do nothing. */ ;
-
-	  if (status)
-	    {
-	      /* MVDIR failed.  */
-	      errno = EIO;
-	      return -1;
-	    }
-	}
-    }
-  else
-
-#endif /* MVDIR */
-
-    {
-      if (link (from, to))
-	return -1;
-      if (unlink (from) && errno != ENOENT)
-	{
-	  unlink (to);
-	  return -1;
-	}
-    }
-  return 0;
+  return ret_val;
 }

@@ -1,0 +1,33 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE server>
+<!-- $Id: user-service.xml,v 1.4 2002/06/01 02:10:53 starksm Exp $ -->
+
+<!-- ===================================================================== -->
+<!--                                                                       -->
+<!--  User Service Configuration                                           -->
+<!--                                                                       -->
+<!-- ===================================================================== -->
+
+<server>
+
+  <!-- Specify required library jars as needed.
+  <classpath codebase="." archives="myservice.jar,myutil.jar"/>
+  -->
+  
+  <!--
+     | Add custom MBeans here.  MBeans should be registered under the
+     | 'user' JMX domain, or a domain specific to the component application.
+     |
+     | Do not place user components in the 'jboss' domain or any sub-domain.
+   -->
+ 
+  <!-- Example Service Configuration  
+
+  <mbean code="my.company.MyService" 
+         name="user:service=MyService">
+    <attribute name="MyAttribute">AttributeValue</attribute>
+  </mbean>
+  
+  -->
+   
+</server>

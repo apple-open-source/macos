@@ -121,28 +121,6 @@ CSSM_SPI_ModuleAttach (const CSSM_GUID *ModuleGuid,
 CSSM_RETURN CSSMSPI
 CSSM_SPI_ModuleDetach (CSSM_MODULE_HANDLE ModuleHandle);
 
-#if 0
-/* XXX You should call these though the Upcalls structure passed into
-   moduleattach, --Michael. */
-
-/* CSSM Upcalls for Service Provider Modules */
-
-CSSM_RETURN CSSMAPI
-cssm_CcToHandle (CSSM_CC_HANDLE Cc,
-                 CSSM_MODULE_HANDLE *ModuleHandle);
-
-CSSM_RETURN CSSMAPI
-cssm_GetModuleInfo (CSSM_MODULE_HANDLE Module,
-                    CSSM_GUID_PTR Guid,
-                    CSSM_VERSION_PTR Version,
-                    uint32 *SubServiceId,
-                    CSSM_SERVICE_TYPE *SubServiceType,
-                    CSSM_ATTACH_FLAGS *AttachFlags,
-                    CSSM_KEY_HIERARCHY *KeyHierarchy,
-                    CSSM_API_MEMORY_FUNCS_PTR AttachedMemFuncs,
-                    CSSM_FUNC_NAME_ADDR_PTR FunctionTable,
-                    uint32 NumFunctions);
-#endif
 
 #ifdef __cplusplus
 }

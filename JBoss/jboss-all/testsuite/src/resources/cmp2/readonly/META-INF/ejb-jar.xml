@@ -1,0 +1,180 @@
+<?xml version="1.0"?>
+
+<!DOCTYPE ejb-jar PUBLIC
+      "-//Sun Microsystems, Inc.//DTD Enterprise JavaBeans 2.0//EN"
+      "http://java.sun.com/dtd/ejb-jar_2_0.dtd">
+
+<ejb-jar>
+   <enterprise-beans>
+      <session>
+         <description>JUnit Session Bean Test Runner</description>
+         <ejb-name>EJBTestRunnerEJB</ejb-name>
+         <home>net.sourceforge.junitejb.EJBTestRunnerHome</home>
+         <remote>net.sourceforge.junitejb.EJBTestRunner</remote>
+         <ejb-class>net.sourceforge.junitejb.EJBTestRunnerBean</ejb-class>
+         <session-type>Stateless</session-type>
+         <transaction-type>Bean</transaction-type>
+      </session>
+
+      <entity>
+         <description>A publisher of books</description>
+         <ejb-name>PublisherEJB</ejb-name>
+         <local-home>org.jboss.test.cmp2.readonly.PublisherHome</local-home>
+         <local>org.jboss.test.cmp2.readonly.Publisher</local>
+         <ejb-class>org.jboss.test.cmp2.readonly.PublisherBean</ejb-class>
+         <persistence-type>Container</persistence-type>
+         <prim-key-class>java.lang.Integer</prim-key-class>
+         <reentrant>False</reentrant>
+         <cmp-version>2.x</cmp-version>
+         <abstract-schema-name>Publisher</abstract-schema-name>
+         <cmp-field><field-name>id</field-name></cmp-field>
+         <cmp-field><field-name>name</field-name></cmp-field>
+         <primkey-field>id</primkey-field>
+         <query>
+            <query-method>
+               <method-name>findByName</method-name>
+               <method-params>
+                  <method-param>java.lang.String</method-param>
+               </method-params>
+            </query-method>
+            <ejb-ql>
+               select object(p) 
+               from Publisher p
+               where p.name = ?1
+            </ejb-ql>               
+         </query>
+      </entity>
+      <entity>
+         <description>A books</description>
+         <ejb-name>BookEJB</ejb-name>
+         <local-home>org.jboss.test.cmp2.readonly.BookHome</local-home>
+         <local>org.jboss.test.cmp2.readonly.Book</local>
+         <ejb-class>org.jboss.test.cmp2.readonly.BookBean</ejb-class>
+         <persistence-type>Container</persistence-type>
+         <prim-key-class>java.lang.Integer</prim-key-class>
+         <reentrant>False</reentrant>
+         <cmp-version>2.x</cmp-version>
+         <abstract-schema-name>Book</abstract-schema-name>
+         <cmp-field><field-name>id</field-name></cmp-field>
+         <cmp-field><field-name>name</field-name></cmp-field>
+         <cmp-field><field-name>isbn</field-name></cmp-field>
+         <primkey-field>id</primkey-field>
+         <query>
+            <query-method>
+               <method-name>findByName</method-name>
+               <method-params>
+                  <method-param>java.lang.String</method-param>
+               </method-params>
+            </query-method>
+            <ejb-ql>
+               select object(b) 
+               from Book b
+               where b.name = ?1
+            </ejb-ql>               
+         </query>
+      </entity>
+
+      <entity>
+         <ejb-name>AuthorEJB</ejb-name>
+         <local-home>org.jboss.test.cmp2.readonly.AuthorHome</local-home>
+         <local>org.jboss.test.cmp2.readonly.Author</local>
+         <ejb-class>org.jboss.test.cmp2.readonly.AuthorBean</ejb-class>
+         <persistence-type>Container</persistence-type>
+         <prim-key-class>java.lang.Integer</prim-key-class>
+         <reentrant>False</reentrant>
+         <cmp-version>2.x</cmp-version>
+         <abstract-schema-name>Author</abstract-schema-name>
+         <cmp-field><field-name>id</field-name></cmp-field>
+         <cmp-field><field-name>name</field-name></cmp-field>
+         <primkey-field>id</primkey-field>
+         <query>
+            <query-method>
+               <method-name>findByName</method-name>
+               <method-params>
+                  <method-param>java.lang.String</method-param>
+               </method-params>
+            </query-method>
+            <ejb-ql>
+               select object(a) 
+               from Author a
+               where a.name = ?1
+            </ejb-ql>               
+         </query>
+      </entity>
+   </enterprise-beans>
+
+   <relationships>
+      <ejb-relation>
+         <ejb-relation-name>Book-Publisher</ejb-relation-name>
+         <ejb-relationship-role>
+            <ejb-relationship-role-name>publisher-has-books</ejb-relationship-role-name>
+            <multiplicity>One</multiplicity>
+            <relationship-role-source>
+               <ejb-name>PublisherEJB</ejb-name>
+            </relationship-role-source>
+            <cmr-field>
+               <cmr-field-name>books</cmr-field-name>
+               <cmr-field-type>java.util.Collection</cmr-field-type>
+            </cmr-field>
+         </ejb-relationship-role>
+         <ejb-relationship-role>
+            <ejb-relationship-role-name>book-has-a-publisher</ejb-relationship-role-name>
+            <multiplicity>Many</multiplicity>
+            <cascade-delete/>
+            <relationship-role-source>
+               <ejb-name>BookEJB</ejb-name>
+            </relationship-role-source>
+            <cmr-field>
+               <cmr-field-name>publisher</cmr-field-name>
+            </cmr-field>
+         </ejb-relationship-role>
+      </ejb-relation>
+<!--
+      <ejb-relation>
+         <ejb-relation-name>AB_ManyToMany_Bi</ejb-relation-name>
+         <ejb-relationship-role>
+            <ejb-relationship-role-name>A-has-Bs</ejb-relationship-role-name>
+            <multiplicity>Many</multiplicity>
+            <relationship-role-source>
+               <ejb-name>A_ManyToMany_Bi_EJB</ejb-name>
+            </relationship-role-source>
+            <cmr-field>
+               <cmr-field-name>b</cmr-field-name>
+               <cmr-field-type>java.util.Collection</cmr-field-type>
+            </cmr-field>
+         </ejb-relationship-role>
+         <ejb-relationship-role>
+            <ejb-relationship-role-name>B-has-As</ejb-relationship-role-name>
+            <multiplicity>Many</multiplicity>
+            <relationship-role-source>
+               <ejb-name>B_ManyToMany_Bi_EJB</ejb-name>
+            </relationship-role-source>
+            <cmr-field>
+               <cmr-field-name>a</cmr-field-name>
+               <cmr-field-type>java.util.Collection</cmr-field-type>
+            </cmr-field>
+         </ejb-relationship-role>
+      </ejb-relation>
+-->
+   </relationships>
+
+
+    <assembly-descriptor>
+        <container-transaction>
+            <method>
+                <ejb-name>PublisherEJB</ejb-name>
+                <method-name>*</method-name>
+            </method>
+            <trans-attribute>Required</trans-attribute>
+        </container-transaction>
+        <container-transaction>
+            <method>
+                <ejb-name>BookEJB</ejb-name>
+                <method-name>*</method-name>
+            </method>
+            <trans-attribute>Required</trans-attribute>
+        </container-transaction>
+    </assembly-descriptor>
+</ejb-jar>
+
+

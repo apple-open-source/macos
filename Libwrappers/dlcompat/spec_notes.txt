@@ -1,0 +1,47 @@
+Notes About Spec compliance.
+
+dlopen()
+    dlopen - gain access to an executable object file
+
+For MH_BUNDLE file types dlopen should be spec compliant.
+
+dlopening MH_DYLIB files is not going to be spec compliant. Regardless of the flags passed, MH_DYLIB files are always opened global and lazy.
+
+
+dlclose()
+"The use of dlclose() reflects a statement of intent on the part of the process, but does not create any requirement upon the implementation"
+
+Therefore, dlcompat is compliant.
+
+dlerror()
+
+compliant (and thread safe), I hope. I guess I'd better get to writing some test code to check these assumptions.
+
+dlsym()
+NOT COMPLIANT.
+"    The dlsym() function shall obtain the address of a symbol defined within an object made accessible through a dlopen() call."
+While this is a nice statement, it was decided that instead of requiring the symbols passed to dlsym to have an underscore, the dlsym function would automatically append one. This makes it impossible to look up an assembly language symbol (e.g. "start") using the dlsym interface, it will instead return the address of "_start".
+This was done for maximum compatibility with existing software programs which make bad assumptions about the symbols being the same in the library as the C names. Darwin always has an underscore before C symbols in the output objects.
+
+"The dlsym() function shall search for the named symbol in all objects loaded automatically as a result of loading the object referenced by handle"
+Again, not compliant, dlsym only looks one level deep in dlcompat.
+
+Example:
+					liba
+					  |
+		+---------+--------+-------+
+	  libb		libd	 libe	 libf
+	   |		  |		           |
+  +--------+	  +           +---------+
+libg     libh    libi       libj      libk
+
+In this (beautiful) diagram, you see library liba was linked against libb, libd, libe and libf. libb was linked against libg and libh, libb was linked against libi, libf against libj and libk.
+
+According to the spec, the symbol search order should be:
+liba - libb - libd - libe - libf - libg - libh - libi - libj - libk
+In fact, we stop at level one:
+liba - libb - libd - libe - libf
+
+The RTLD_NEXT handle to dlsym has the same restriction.
+
+

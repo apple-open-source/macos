@@ -1,5 +1,8 @@
 /* List a tar archive, with support routines for reading a tar archive.
-   Copyright 1988,92,93,94,96,97,98,1999 Free Software Foundation, Inc.
+
+   Copyright 1988, 1992, 1993, 1994, 1996, 1997, 1998, 1999, 2000,
+   2001 Free Software Foundation, Inc.
+
    Written by John Gilmore, on 1985-08-26.
 
    This program is free software; you can redistribute it and/or modify it
@@ -16,45 +19,65 @@
    with this program; if not, write to the Free Software Foundation, Inc.,
    59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.  */
 
-/* Define to non-zero for forcing old ctime() instead of isotime().  */
+/* Define to non-zero for forcing old ctime format instead of ISO format.  */
 #undef USE_OLD_CTIME
 
 #include "system.h"
 #include <quotearg.h>
 
-#include <time.h>
-
-#ifndef FNM_LEADING_DIR
-# include <fnmatch.h>
-#endif
-
 #include "common.h"
+
+#define max(a, b) ((a) < (b) ? (b) : (a))
 
 union block *current_header;	/* points to current archive header */
 struct stat current_stat;	/* stat struct corresponding */
 enum archive_format current_format; /* recognized format */
+union block *recent_long_name;	/* recent long name header and contents */
+union block *recent_long_link;	/* likewise, for long link */
+size_t recent_long_name_blocks;	/* number of blocks in recent_long_name */
+size_t recent_long_link_blocks;	/* likewise, for long link */
 
-static uintmax_t from_oct PARAMS ((const char *, size_t, const char *, uintmax_t));
+static uintmax_t from_header PARAMS ((const char *, size_t, const char *,
+				      uintmax_t, uintmax_t));
 
+/* Base 64 digits; see Internet RFC 2045 Table 1.  */
+static char const base_64_digits[64] =
+{
+  'A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J', 'K', 'L', 'M',
+  'N', 'O', 'P', 'Q', 'R', 'S', 'T', 'U', 'V', 'W', 'X', 'Y', 'Z',
+  'a', 'b', 'c', 'd', 'e', 'f', 'g', 'h', 'i', 'j', 'k', 'l', 'm',
+  'n', 'o', 'p', 'q', 'r', 's', 't', 'u', 'v', 'w', 'x', 'y', 'z',
+  '0', '1', '2', '3', '4', '5', '6', '7', '8', '9', '+', '/'
+};
 
-/*-----------------------------------.
-| Main loop for reading an archive.  |
-`-----------------------------------*/
+/* Table of base-64 digit values indexed by unsigned chars.
+   The value is 64 for unsigned chars that are not base-64 digits.  */
+static char base64_map[UCHAR_MAX + 1];
 
+static void
+base64_init (void)
+{
+  int i;
+  memset (base64_map, 64, sizeof base64_map);
+  for (i = 0; i < 64; i++)
+    base64_map[(int) base_64_digits[i]] = i;
+}
+
+/* Main loop for reading an archive.  */
 void
 read_and (void (*do_something) ())
 {
   enum read_header status = HEADER_STILL_UNREAD;
   enum read_header prev_status;
-  char save_typeflag;
 
+  base64_init ();
   name_gather ();
   open_archive (ACCESS_READ);
 
   while (1)
     {
       prev_status = status;
-      status = read_header ();
+      status = read_header (0);
       switch (status)
 	{
 	case HEADER_STILL_UNREAD:
@@ -65,57 +88,32 @@ read_and (void (*do_something) ())
 	  /* Valid header.  We should decode next field (mode) first.
 	     Ensure incoming names are null terminated.  */
 
-	  /* FIXME: This is a quick kludge before 1.12 goes out.  */
-	  current_stat.st_mtime = TIME_FROM_OCT (current_header->header.mtime);
-
-	  if (!name_match (current_file_name)
-	      || current_stat.st_mtime < newer_mtime_option
-	      || excluded_filename (excluded, base_name (current_file_name)))
+	  if (! name_match (current_file_name)
+	      || (newer_mtime_option != TYPE_MINIMUM (time_t)
+		  /* FIXME: We get mtime now, and again later; this causes
+		     duplicate diagnostics if header.mtime is bogus.  */
+		  && ((current_stat.st_mtime
+		       = TIME_FROM_HEADER (current_header->header.mtime))
+		      < newer_mtime_option))
+	      || excluded_name (current_file_name))
 	    {
-	      int isextended = 0;
-
-	      if (current_header->header.typeflag == GNUTYPE_VOLHDR
-		  || current_header->header.typeflag == GNUTYPE_MULTIVOL
-		  || current_header->header.typeflag == GNUTYPE_NAMES)
+	      switch (current_header->header.typeflag)
 		{
-		  (*do_something) ();
+		case GNUTYPE_VOLHDR:
+		case GNUTYPE_MULTIVOL:
+		case GNUTYPE_NAMES:
+		  break;
+		
+		case DIRTYPE:
+		  if (show_omitted_dirs_option)
+		    WARN ((0, 0, _("%s: Omitting"),
+			   quotearg_colon (current_file_name)));
+		  /* Fall through.  */
+		default:
+		  skip_member ();
 		  continue;
 		}
-	      if (show_omitted_dirs_option
-		  && current_header->header.typeflag == DIRTYPE)
-		WARN ((0, 0, _("Omitting %s"), current_file_name));
-
-	      /* Skip past it in the archive.  */
-
-	      if (current_header->oldgnu_header.isextended)
-		isextended = 1;
-	      save_typeflag = current_header->header.typeflag;
-	      set_next_block_after (current_header);
-	      if (isextended)
-		{
-#if 0
-		  union block *exhdr;
-
-		  while (1)
-		    {
-		      exhdr = find_next_block ();
-		      if (!exhdr->sparse_header.isextended)
-			{
-			  set_next_block_after (exhdr);
-			  break;
-			}
-		    }
-		  set_next_block_after (exhdr);
-#endif
-		  skip_extended_headers ();
-		}
-
-	      /* Skip to the next header on the archive.  */
-
-	      if (save_typeflag != DIRTYPE)
-		skip_file (current_stat.st_size);
-	      continue;
-	    }
+	      }
 
 	  (*do_something) ();
 	  continue;
@@ -150,12 +148,12 @@ read_and (void (*do_something) ())
 	  switch (prev_status)
 	    {
 	    case HEADER_STILL_UNREAD:
-	      WARN ((0, 0, _("Hmm, this doesn't look like a tar archive")));
+	      ERROR ((0, 0, _("This does not look like a tar archive")));
 	      /* Fall through.  */
 
 	    case HEADER_ZERO_BLOCK:
 	    case HEADER_SUCCESS:
-	      WARN ((0, 0, _("Skipping to next file header")));
+	      ERROR ((0, 0, _("Skipping to next header")));
 	      break;
 
 	    case HEADER_END_OF_FILE:
@@ -168,20 +166,14 @@ read_and (void (*do_something) ())
       break;
     }
 
-  apply_delayed_set_stat ();
   close_archive ();
   names_notfound ();		/* print names not found */
 }
 
-/*---------------------------------------------.
-| Print a header block, based on tar options.  |
-`---------------------------------------------*/
-
+/* Print a header block, based on tar options.  */
 void
 list_archive (void)
 {
-  int isextended = 0;		/* to remember if current_header is extended */
-
   /* Print the header block.  */
 
   if (verbose_option)
@@ -210,115 +202,80 @@ list_archive (void)
 	  data_block = find_next_block ();
 	  if (!data_block)
 	    {
-	      ERROR ((0, 0, _("EOF in archive file")));
+	      ERROR ((0, 0, _("Unexpected EOF in archive")));
 	      break;		/* FIXME: What happens, then?  */
 	    }
 	  written = available_space_after (data_block);
 	  if (written > size)
 	    written = size;
-	  errno = 0;		/* FIXME: errno should be read-only */
+	  errno = 0;
 	  check = fwrite (data_block->buffer, sizeof (char), written, stdlis);
 	  set_next_block_after ((union block *)
 				(data_block->buffer + written - 1));
 	  if (check != written)
 	    {
-	      ERROR ((0, errno, _("Only wrote %lu of %lu bytes to file %s"),
-		      (unsigned long) check,
-		      (unsigned long) written, current_file_name));
+	      write_error_details (current_file_name, check, written);
 	      skip_file (size - written);
 	      break;
 	    }
 	}
       if (multi_volume_option)
-	assign_string (&save_name, NULL);
+	assign_string (&save_name, 0);
       fputc ('\n', stdlis);
       fflush (stdlis);
       return;
 
     }
 
-  /* Check to see if we have an extended header to skip over also.  */
-
-  if (current_header->oldgnu_header.isextended)
-    isextended = 1;
-
-  /* Skip past the header in the archive.  */
-
-  set_next_block_after (current_header);
-
-  /* If we needed to skip any extended headers, do so now, by reading
-     extended headers and skipping past them in the archive.  */
-
-  if (isextended)
-    {
-#if 0
-      union block *exhdr;
-
-      while (1)
-	{
-	  exhdr = find_next_block ();
-
-	  if (!exhdr->sparse_header.isextended)
-	    {
-	      set_next_block_after (exhdr);
-	      break;
-	    }
-	  set_next_block_after (exhdr);
-	}
-#endif
-      skip_extended_headers ();
-    }
-
   if (multi_volume_option)
     assign_string (&save_name, current_file_name);
 
-  /* Skip to the next header on the archive.  */
-
-  skip_file (current_stat.st_size);
+  skip_member ();
 
   if (multi_volume_option)
-    assign_string (&save_name, NULL);
+    assign_string (&save_name, 0);
 }
 
-/*-----------------------------------------------------------------------.
-| Read a block that's supposed to be a header block.  Return its address |
-| in "current_header", and if it is good, the file's size in             |
-| current_stat.st_size.                                                  |
-|                                                                        |
-| Return 1 for success, 0 if the checksum is bad, EOF on eof, 2 for a    |
-| block full of zeros (EOF marker).                                      |
-|                                                                        |
-| You must always set_next_block_after(current_header) to skip past the  |
-| header which this routine reads.                                       |
-`-----------------------------------------------------------------------*/
+/* Read a block that's supposed to be a header block.  Return its
+   address in "current_header", and if it is good, the file's size in
+   current_stat.st_size.
+
+   Return 1 for success, 0 if the checksum is bad, EOF on eof, 2 for a
+   block full of zeros (EOF marker).
+
+   If RAW_EXTENDED_HEADERS is nonzero, do not automagically fold the
+   GNU long name and link headers into later headers.
+
+   You must always set_next_block_after(current_header) to skip past
+   the header which this routine reads.  */
 
 /* The standard BSD tar sources create the checksum by adding up the
    bytes in the header as type char.  I think the type char was unsigned
    on the PDP-11, but it's signed on the Next and Sun.  It looks like the
    sources to BSD tar were never changed to compute the checksum
-   currectly, so both the Sun and Next add the bytes of the header as
+   correctly, so both the Sun and Next add the bytes of the header as
    signed chars.  This doesn't cause a problem until you get a file with
    a name containing characters with the high bit set.  So read_header
    computes two checksums -- signed and unsigned.  */
 
-/* FIXME: The signed checksum computation is broken on machines where char's
-   are unsigned.  It's uneasy to handle all cases correctly...  */
-
 enum read_header
-read_header (void)
+read_header (bool raw_extended_headers)
 {
   size_t i;
-  long unsigned_sum;		/* the POSIX one :-) */
-  long signed_sum;		/* the Sun one :-( */
-  long recorded_sum;
+  int unsigned_sum;		/* the POSIX one :-) */
+  int signed_sum;		/* the Sun one :-( */
+  int recorded_sum;
   uintmax_t parsed_sum;
   char *p;
   union block *header;
-  char **longp;
+  union block *header_copy;
   char *bp;
   union block *data_block;
   size_t size, written;
-  static char *next_long_name, *next_long_link;
+  union block *next_long_name = 0;
+  union block *next_long_link = 0;
+  size_t next_long_name_blocks;
+  size_t next_long_link_blocks;
 
   while (1)
     {
@@ -327,42 +284,36 @@ read_header (void)
       if (!header)
 	return HEADER_END_OF_FILE;
 
-      parsed_sum = from_oct (header->header.chksum,
-			     sizeof header->header.chksum,
-			     (char *) 0, TYPE_MAXIMUM (long));
-      if (parsed_sum == (uintmax_t) -1)
-	return HEADER_FAILURE;
-
-      recorded_sum = parsed_sum;
       unsigned_sum = 0;
       signed_sum = 0;
       p = header->buffer;
-      for (i = sizeof (*header); i-- != 0;)
+      for (i = sizeof *header; i-- != 0;)
 	{
-	  /* We can't use unsigned char here because of old compilers,
-	     e.g. V7.  */
-
-	  unsigned_sum += 0xFF & *p;
-	  signed_sum += *p++;
+	  unsigned_sum += (unsigned char) *p;
+	  signed_sum += (signed char) (*p++);
 	}
+
+      if (unsigned_sum == 0)
+	return HEADER_ZERO_BLOCK;
 
       /* Adjust checksum to count the "chksum" field as blanks.  */
 
-      for (i = sizeof (header->header.chksum); i-- != 0;)
+      for (i = sizeof header->header.chksum; i-- != 0;)
 	{
-	  unsigned_sum -= 0xFF & header->header.chksum[i];
-	  signed_sum -= header->header.chksum[i];
+	  unsigned_sum -= (unsigned char) header->header.chksum[i];
+	  signed_sum -= (signed char) (header->header.chksum[i]);
 	}
       unsigned_sum += ' ' * sizeof header->header.chksum;
       signed_sum += ' ' * sizeof header->header.chksum;
 
-      if (unsigned_sum == sizeof header->header.chksum * ' ')
-	{
-	  /* This is a zeroed block...whole block is 0's except for the
-	     blanks we faked for the checksum field.  */
+      parsed_sum = from_header (header->header.chksum,
+				sizeof header->header.chksum, 0,
+				(uintmax_t) 0,
+				(uintmax_t) TYPE_MAXIMUM (int));
+      if (parsed_sum == (uintmax_t) -1)
+	return HEADER_FAILURE;
 
-	  return HEADER_ZERO_BLOCK;
-	}
+      recorded_sum = parsed_sum;
 
       if (unsigned_sum != recorded_sum && signed_sum != recorded_sum)
 	return HEADER_FAILURE;
@@ -372,30 +323,48 @@ read_header (void)
       if (header->header.typeflag == LNKTYPE)
 	current_stat.st_size = 0;	/* links 0 size on tape */
       else
-	current_stat.st_size = OFF_FROM_OCT (header->header.size);
+	current_stat.st_size = OFF_FROM_HEADER (header->header.size);
 
-      header->header.name[NAME_FIELD_SIZE - 1] = '\0';
       if (header->header.typeflag == GNUTYPE_LONGNAME
 	  || header->header.typeflag == GNUTYPE_LONGLINK)
 	{
-	  longp = ((header->header.typeflag == GNUTYPE_LONGNAME)
-		   ? &next_long_name
-		   : &next_long_link);
+	  if (raw_extended_headers)
+	    return HEADER_SUCCESS_EXTENDED;
+	  else
+	    {
+	      size_t name_size = current_stat.st_size;
+	      size = name_size - name_size % BLOCKSIZE + 2 * BLOCKSIZE;
+	      if (name_size != current_stat.st_size || size < name_size)
+		xalloc_die ();
+	    }
+
+	  header_copy = xmalloc (size + 1);
+
+	  if (header->header.typeflag == GNUTYPE_LONGNAME)
+	    {
+	      if (next_long_name)
+		free (next_long_name);
+	      next_long_name = header_copy;
+	      next_long_name_blocks = size / BLOCKSIZE;
+	    }
+	  else
+	    {
+	      if (next_long_link)
+		free (next_long_link);
+	      next_long_link = header_copy;
+	      next_long_link_blocks = size / BLOCKSIZE;
+	    }
 
 	  set_next_block_after (header);
-	  if (*longp)
-	    free (*longp);
-	  size = current_stat.st_size;
-	  if (size != current_stat.st_size)
-	    FATAL_ERROR ((0, 0, _("Memory exhausted")));
-	  bp = *longp = (char *) xmalloc (size);
+	  *header_copy = *header;
+	  bp = header_copy->buffer + BLOCKSIZE;
 
-	  for (; size > 0; size -= written)
+	  for (size -= BLOCKSIZE; size > 0; size -= written)
 	    {
 	      data_block = find_next_block ();
-	      if (data_block == NULL)
+	      if (! data_block)
 		{
-		  ERROR ((0, 0, _("Unexpected EOF on archive file")));
+		  ERROR ((0, 0, _("Unexpected EOF in archive")));
 		  break;
 		}
 	      written = available_space_after (data_block);
@@ -408,58 +377,89 @@ read_header (void)
 				    (data_block->buffer + written - 1));
 	    }
 
+	  *bp = '\0';
+
 	  /* Loop!  */
 
 	}
       else
 	{
-	  char *name = next_long_name;
-	  struct posix_header *h = &current_header->header;
-	  char namebuf[sizeof h->prefix + 1 + sizeof h->name + 1];
+	  char const *name;
+	  struct posix_header const *h = &current_header->header;
+	  char namebuf[sizeof h->prefix + 1 + NAME_FIELD_SIZE + 1];
 
-	  if (! name)
+	  if (recent_long_name)
+	    free (recent_long_name);
+
+	  if (next_long_name)
+	    {
+	      name = next_long_name->buffer + BLOCKSIZE;
+	      recent_long_name = next_long_name;
+	      recent_long_name_blocks = next_long_name_blocks;
+	    }
+	  else
 	    {
 	      /* Accept file names as specified by POSIX.1-1996
                  section 10.1.1.  */
 	      char *np = namebuf;
-	      if (h->prefix[0])
+
+	      if (h->prefix[0] && strcmp (h->magic, TMAGIC) == 0)
 		{
 		  memcpy (np, h->prefix, sizeof h->prefix);
 		  np[sizeof h->prefix] = '\0';
 		  np += strlen (np);
 		  *np++ = '/';
+
+		  /* Prevent later references to current_header from
+		     mistakenly treating this as an old GNU header.
+		     This assignment invalidates h->prefix.  */
+		  current_header->oldgnu_header.isextended = 0;
 		}
 	      memcpy (np, h->name, sizeof h->name);
 	      np[sizeof h->name] = '\0';
 	      name = namebuf;
+	      recent_long_name = 0;
+	      recent_long_name_blocks = 0;
 	    }
-
 	  assign_string (&current_file_name, name);
-	  assign_string (&current_link_name,
-			 (next_long_link ? next_long_link
-			  : current_header->header.linkname));
-	  next_long_link = next_long_name = 0;
+
+	  if (recent_long_link)
+	    free (recent_long_link);
+
+	  if (next_long_link)
+	    {
+	      name = next_long_link->buffer + BLOCKSIZE;
+	      recent_long_link = next_long_link;
+	      recent_long_link_blocks = next_long_link_blocks;
+	    }
+	  else
+	    {
+	      memcpy (namebuf, h->linkname, sizeof h->linkname);
+	      namebuf[sizeof h->linkname] = '\0';
+	      name = namebuf;
+	      recent_long_link = 0;
+	      recent_long_link_blocks = 0;
+	    }
+	  assign_string (&current_link_name, name);
+
 	  return HEADER_SUCCESS;
 	}
     }
 }
 
-/*-------------------------------------------------------------------------.
-| Decode things from a file HEADER block into STAT_INFO, also setting	   |
-| *FORMAT_POINTER depending on the header block format.  If DO_USER_GROUP, |
-| decode the user/group information (this is useful for extraction, but	   |
-| waste time when merely listing).					   |
-| 									   |
-| read_header() has already decoded the checksum and length, so we don't.  |
-| 									   |
-| This routine should *not* be called twice for the same block, since the  |
-| two calls might use different DO_USER_GROUP values and thus might end up |
-| with different uid/gid for the two calls.  If anybody wants the uid/gid  |
-| they should decode it first, and other callers should decode it without  |
-| uid/gid before calling a routine, e.g. print_header, that assumes	   |
-| decoded data.								   |
-`-------------------------------------------------------------------------*/
+/* Decode things from a file HEADER block into STAT_INFO, also setting
+   *FORMAT_POINTER depending on the header block format.  If
+   DO_USER_GROUP, decode the user/group information (this is useful
+   for extraction, but waste time when merely listing).
 
+   read_header() has already decoded the checksum and length, so we don't.
+
+   This routine should *not* be called twice for the same block, since
+   the two calls might use different DO_USER_GROUP values and thus
+   might end up with different uid/gid for the two calls.  If anybody
+   wants the uid/gid they should decode it first, and other callers
+   should decode it without uid/gid before calling a routine,
+   e.g. print_header, that assumes decoded data.  */
 void
 decode_header (union block *header, struct stat *stat_info,
 	       enum archive_format *format_pointer, int do_user_group)
@@ -474,19 +474,19 @@ decode_header (union block *header, struct stat *stat_info,
     format = V7_FORMAT;
   *format_pointer = format;
 
-  stat_info->st_mode = MODE_FROM_OCT (header->header.mode);
-  stat_info->st_mtime = TIME_FROM_OCT (header->header.mtime);
+  stat_info->st_mode = MODE_FROM_HEADER (header->header.mode);
+  stat_info->st_mtime = TIME_FROM_HEADER (header->header.mtime);
 
   if (format == OLDGNU_FORMAT && incremental_option)
     {
-      stat_info->st_atime = TIME_FROM_OCT (header->oldgnu_header.atime);
-      stat_info->st_ctime = TIME_FROM_OCT (header->oldgnu_header.ctime);
+      stat_info->st_atime = TIME_FROM_HEADER (header->oldgnu_header.atime);
+      stat_info->st_ctime = TIME_FROM_HEADER (header->oldgnu_header.ctime);
     }
 
   if (format == V7_FORMAT)
     {
-      stat_info->st_uid = UID_FROM_OCT (header->header.uid);
-      stat_info->st_gid = GID_FROM_OCT (header->header.gid);
+      stat_info->st_uid = UID_FROM_HEADER (header->header.uid);
+      stat_info->st_gid = GID_FROM_HEADER (header->header.gid);
       stat_info->st_rdev = 0;
     }
   else
@@ -498,30 +498,26 @@ decode_header (union block *header, struct stat *stat_info,
 	  if (numeric_owner_option
 	      || !*header->header.uname
 	      || !uname_to_uid (header->header.uname, &stat_info->st_uid))
-	    stat_info->st_uid = UID_FROM_OCT (header->header.uid);
+	    stat_info->st_uid = UID_FROM_HEADER (header->header.uid);
 
 	  if (numeric_owner_option
 	      || !*header->header.gname
 	      || !gname_to_gid (header->header.gname, &stat_info->st_gid))
-	    stat_info->st_gid = GID_FROM_OCT (header->header.gid);
+	    stat_info->st_gid = GID_FROM_HEADER (header->header.gid);
 	}
       switch (header->header.typeflag)
 	{
-#ifdef S_IFBLK
 	case BLKTYPE:
 	  stat_info->st_rdev
-	    = makedev (MAJOR_FROM_OCT (header->header.devmajor),
-		       MINOR_FROM_OCT (header->header.devminor));
+	    = makedev (MAJOR_FROM_HEADER (header->header.devmajor),
+		       MINOR_FROM_HEADER (header->header.devminor));
 	  break;
-#endif
 
-#ifdef S_IFCHR
 	case CHRTYPE:
 	  stat_info->st_rdev
-	    = makedev (MAJOR_FROM_OCT (header->header.devmajor),
-		       MINOR_FROM_OCT (header->header.devminor));
+	    = makedev (MAJOR_FROM_HEADER (header->header.devmajor),
+		       MINOR_FROM_HEADER (header->header.devminor));
 	  break;
-#endif
 
 	default:
 	  stat_info->st_rdev = 0;
@@ -529,45 +525,165 @@ decode_header (union block *header, struct stat *stat_info,
     }
 }
 
-/*------------------------------------------------------------------------.
-| Quick and dirty octal conversion.  Result is -1 if the field is invalid |
-| (all blank, or nonoctal).						  |
-`------------------------------------------------------------------------*/
-
+/* Convert buffer at WHERE0 of size DIGS from external format to
+   uintmax_t.  The data is of type TYPE.  The buffer must represent a
+   value in the range -MINUS_MINVAL through MAXVAL.  DIGS must be
+   positive.  Return -1 on error, diagnosing the error if TYPE is
+   nonzero.  */
 static uintmax_t
-from_oct (const char *where0, size_t digs0, const char *type, uintmax_t maxval)
+from_header (char const *where0, size_t digs, char const *type,
+	     uintmax_t minus_minval, uintmax_t maxval)
 {
   uintmax_t value;
-  const char *where = where0;
-  size_t digs = digs0;
+  char const *where = where0;
+  char const *lim = where + digs;
+  int negative = 0;
 
+  /* Accommodate buggy tar of unknown vintage, which outputs leading
+     NUL if the previous field overflows.  */
+  where += !*where;
+
+  /* Accommodate older tars, which output leading spaces.  */
   for (;;)
     {
-      if (digs == 0)
+      if (where == lim)
 	{
 	  if (type)
-	    ERROR ((0, 0, _("Blanks in header where octal %s value expected"),
+	    ERROR ((0, 0,
+		    _("Blanks in header where numeric %s value expected"),
 		    type));
 	  return -1;
 	}
       if (!ISSPACE ((unsigned char) *where))
 	break;
       where++;
-      digs--;
     }
 
   value = 0;
-  while (digs != 0 && ISODIGIT (*where))
+  if (ISODIGIT (*where))
     {
-      /* Scan til nonoctal.  */
+      char const *where1 = where;
+      uintmax_t overflow = 0;
 
-      if (value << 3 >> 3 != value)
-	goto out_of_range;
-      value = (value << 3) | (*where++ - '0');
-      --digs;
+      for (;;)
+	{
+	  value += *where++ - '0';
+	  if (where == lim || ! ISODIGIT (*where))
+	    break;
+	  overflow |= value ^ (value << LG_8 >> LG_8);
+	  value <<= LG_8;
+	}
+
+      /* Parse the output of older, unportable tars, which generate
+         negative values in two's complement octal.  If the leading
+         nonzero digit is 1, we can't recover the original value
+         reliably; so do this only if the digit is 2 or more.  This
+         catches the common case of 32-bit negative time stamps.  */
+      if ((overflow || maxval < value) && '2' <= *where1 && type)
+	{
+	  /* Compute the negative of the input value, assuming two's
+	     complement.  */
+	  int digit = (*where1 - '0') | 4;
+	  overflow = 0;
+	  value = 0;
+	  where = where1;
+	  for (;;)
+	    {
+	      value += 7 - digit;
+	      where++;
+	      if (where == lim || ! ISODIGIT (*where))
+		break;
+	      digit = *where - '0';
+	      overflow |= value ^ (value << LG_8 >> LG_8);
+	      value <<= LG_8;
+	    }
+	  value++;
+	  overflow |= !value;
+
+	  if (!overflow && value <= minus_minval)
+	    {
+	      WARN ((0, 0,
+		     _("Archive octal value %.*s is out of %s range; assuming two's complement"),
+		     (int) (where - where1), where1, type));
+	      negative = 1;
+	    }
+	}
+
+      if (overflow)
+	{
+	  if (type)
+	    ERROR ((0, 0,
+		    _("Archive octal value %.*s is out of %s range"),
+		    (int) (where - where1), where1, type));
+	  return -1;
+	}
+    }
+  else if (*where == '-' || *where == '+')
+    {
+      /* Parse base-64 output produced only by tar test versions
+	 1.13.6 (1999-08-11) through 1.13.11 (1999-08-23).
+	 Support for this will be withdrawn in future releases.  */
+      int dig;
+      static int warned_once;
+      if (! warned_once)
+	{
+	  warned_once = 1;
+	  WARN ((0, 0,
+		 _("Archive contains obsolescent base-64 headers")));
+	}
+      negative = *where++ == '-';
+      while (where != lim
+	     && (dig = base64_map[(unsigned char) *where]) < 64)
+	{
+	  if (value << LG_64 >> LG_64 != value)
+	    {
+	      char *string = alloca (digs + 1);
+	      memcpy (string, where0, digs);
+	      string[digs] = '\0';
+	      if (type)
+		ERROR ((0, 0,
+			_("Archive signed base-64 string %s is out of %s range"),
+			quote (string), type));
+	      return -1;
+	    }
+	  value = (value << LG_64) | dig;
+	  where++;
+	}
+    }
+  else if (*where == '\200' /* positive base-256 */
+	   || *where == '\377' /* negative base-256 */)
+    {
+      /* Parse base-256 output.  A nonnegative number N is
+	 represented as (256**DIGS)/2 + N; a negative number -N is
+	 represented as (256**DIGS) - N, i.e. as two's complement.
+	 The representation guarantees that the leading bit is
+	 always on, so that we don't confuse this format with the
+	 others (assuming ASCII bytes of 8 bits or more).  */
+      int signbit = *where & (1 << (LG_256 - 2));
+      uintmax_t topbits = (((uintmax_t) - signbit)
+			   << (CHAR_BIT * sizeof (uintmax_t)
+			       - LG_256 - (LG_256 - 2)));
+      value = (*where++ & ((1 << (LG_256 - 2)) - 1)) - signbit;
+      for (;;)
+	{
+	  value = (value << LG_256) + (unsigned char) *where++;
+	  if (where == lim)
+	    break;
+	  if (((value << LG_256 >> LG_256) | topbits) != value)
+	    {
+	      if (type)
+		ERROR ((0, 0,
+			_("Archive base-256 value is out of %s range"),
+			type));
+	      return -1;
+	    }
+	}
+      negative = signbit;
+      if (negative)
+	value = -value;
     }
 
-  if (digs != 0 && *where && !ISSPACE ((unsigned char) *where))
+  if (where != lim && *where && !ISSPACE ((unsigned char) *where))
     {
       if (type)
 	{
@@ -576,48 +692,74 @@ from_oct (const char *where0, size_t digs0, const char *type, uintmax_t maxval)
 
 	  if (!o)
 	    {
-	      o = clone_quoting_options ((struct quoting_options *) 0);
-	      set_quoting_style (o, escape_quoting_style);
+	      o = clone_quoting_options (0);
+	      set_quoting_style (o, locale_quoting_style);
 	    }
 
-	  quotearg_buffer (buf, sizeof buf, where0, digs0, o);
+	  while (where0 != lim && ! lim[-1])
+	    lim--;
+	  quotearg_buffer (buf, sizeof buf, where0, lim - where, o);
 	  ERROR ((0, 0,
-		  _("Header contains \"%.*s\" where octal %s value expected"),
+		  _("Archive contains %.*s where numeric %s value expected"),
 		  (int) sizeof buf, buf, type));
 	}
 
       return -1;
     }
 
-  if (value <= maxval)
-    return value;
+  if (value <= (negative ? minus_minval : maxval))
+    return negative ? -value : value;
 
- out_of_range:
   if (type)
-    ERROR ((0, 0, _("Octal value `%.*s' is out of range for %s"),
-	    (int) digs0, where0, type));
+    {
+      char minval_buf[UINTMAX_STRSIZE_BOUND + 1];
+      char maxval_buf[UINTMAX_STRSIZE_BOUND];
+      char value_buf[UINTMAX_STRSIZE_BOUND + 1];
+      char *minval_string = STRINGIFY_BIGINT (minus_minval, minval_buf + 1);
+      char *value_string = STRINGIFY_BIGINT (value, value_buf + 1);
+      if (negative)
+	*--value_string = '-';
+      if (minus_minval)
+	*--minval_string = '-';
+      ERROR ((0, 0, _("Archive value %s is out of %s range %s..%s"),
+	      value_string, type,
+	      minval_string, STRINGIFY_BIGINT (maxval, maxval_buf)));
+    }
+
   return -1;
 }
+
 gid_t
-gid_from_oct (const char *p, size_t s)
+gid_from_header (const char *p, size_t s)
 {
-  return from_oct (p, s, "gid_t", (uintmax_t) TYPE_MAXIMUM (gid_t));
+  return from_header (p, s, "gid_t",
+		      - (uintmax_t) TYPE_MINIMUM (gid_t),
+		      (uintmax_t) TYPE_MAXIMUM (gid_t));
 }
+
 major_t
-major_from_oct (const char *p, size_t s)
+major_from_header (const char *p, size_t s)
 {
-  return from_oct (p, s, "major_t", (uintmax_t) TYPE_MAXIMUM (major_t));
+  return from_header (p, s, "major_t",
+		      - (uintmax_t) TYPE_MINIMUM (major_t),
+		      (uintmax_t) TYPE_MAXIMUM (major_t));
 }
+
 minor_t
-minor_from_oct (const char *p, size_t s)
+minor_from_header (const char *p, size_t s)
 {
-  return from_oct (p, s, "minor_t", (uintmax_t) TYPE_MAXIMUM (minor_t));
+  return from_header (p, s, "minor_t",
+		      - (uintmax_t) TYPE_MINIMUM (minor_t),
+		      (uintmax_t) TYPE_MAXIMUM (minor_t));
 }
+
 mode_t
-mode_from_oct (const char *p, size_t s)
+mode_from_header (const char *p, size_t s)
 {
   /* Do not complain about unrecognized mode bits.  */
-  unsigned u = from_oct (p, s, "mode_t", TYPE_MAXIMUM (uintmax_t));
+  unsigned u = from_header (p, s, "mode_t",
+			    - (uintmax_t) TYPE_MINIMUM (mode_t),
+			    TYPE_MAXIMUM (uintmax_t));
   return ((u & TSUID ? S_ISUID : 0)
 	  | (u & TSGID ? S_ISGID : 0)
 	  | (u & TSVTX ? S_ISVTX : 0)
@@ -631,38 +773,49 @@ mode_from_oct (const char *p, size_t s)
 	  | (u & TOWRITE ? S_IWOTH : 0)
 	  | (u & TOEXEC ? S_IXOTH : 0));
 }
+
 off_t
-off_from_oct (const char *p, size_t s)
+off_from_header (const char *p, size_t s)
 {
-  return from_oct (p, s, "off_t", (uintmax_t) TYPE_MAXIMUM (off_t));
+  /* Negative offsets are not allowed in tar files, so invoke
+     from_header with minimum value 0, not TYPE_MINIMUM (off_t).  */
+  return from_header (p, s, "off_t", (uintmax_t) 0,
+		      (uintmax_t) TYPE_MAXIMUM (off_t));
 }
+
 size_t
-size_from_oct (const char *p, size_t s)
+size_from_header (const char *p, size_t s)
 {
-  return from_oct (p, s, "size_t", (uintmax_t) TYPE_MAXIMUM (size_t));
+  return from_header (p, s, "size_t", (uintmax_t) 0, 
+		      (uintmax_t) TYPE_MAXIMUM (size_t));
 }
+
 time_t
-time_from_oct (const char *p, size_t s)
+time_from_header (const char *p, size_t s)
 {
-  return from_oct (p, s, "time_t", (uintmax_t) TYPE_MAXIMUM (time_t));
+  return from_header (p, s, "time_t",
+		      - (uintmax_t) TYPE_MINIMUM (time_t),
+		      (uintmax_t) TYPE_MAXIMUM (time_t));
 }
+
 uid_t
-uid_from_oct (const char *p, size_t s)
+uid_from_header (const char *p, size_t s)
 {
-  return from_oct (p, s, "uid_t", (uintmax_t) TYPE_MAXIMUM (uid_t));
+  return from_header (p, s, "uid_t",
+		      - (uintmax_t) TYPE_MINIMUM (uid_t),
+		      (uintmax_t) TYPE_MAXIMUM (uid_t));
 }
+
 uintmax_t
-uintmax_from_oct (const char *p, size_t s)
+uintmax_from_header (const char *p, size_t s)
 {
-  return from_oct (p, s, "uintmax_t", TYPE_MAXIMUM (uintmax_t));
+  return from_header (p, s, "uintmax_t", (uintmax_t) 0,
+		      TYPE_MAXIMUM (uintmax_t));
 }
 
 
-
-/*----------------------------------------------------------------------.
-| Format O as a null-terminated decimal string into BUF _backwards_;	|
-| return pointer to start of result.					|
-`----------------------------------------------------------------------*/
+/* Format O as a null-terminated decimal string into BUF _backwards_;
+   return pointer to start of result.  */
 char *
 stringify_uintmax_t_backwards (uintmax_t o, char *buf)
 {
@@ -673,65 +826,61 @@ stringify_uintmax_t_backwards (uintmax_t o, char *buf)
   return buf;
 }
 
-#if !USE_OLD_CTIME
-
-/*-------------------------------------------.
-| Return the time formatted along ISO 8601.  |
-`-------------------------------------------*/
-
-/* Also, see http://www.ft.uni-erlangen.de/~mskuhn/iso-time.html.  */
-
-static char *
-isotime (const time_t *time)
+/* Return a printable representation of T.  The result points to
+   static storage that can be reused in the next call to this
+   function, to ctime, or to asctime.  */
+char const *
+tartime (time_t t)
 {
-  static char buffer[21];
-  struct tm *tm;
+  static char buffer[max (UINTMAX_STRSIZE_BOUND + 1,
+			  INT_STRLEN_BOUND (int) + 16)];
+  char *p;
 
-  tm = localtime (time);
-  sprintf (buffer, "%4d-%02d-%02d %02d:%02d:%02d\n",
-	   tm->tm_year + 1900, tm->tm_mon + 1, tm->tm_mday,
-	   tm->tm_hour, tm->tm_min, tm->tm_sec);
-  return buffer;
+#if USE_OLD_CTIME
+  p = ctime (&t);
+  if (p)
+    {
+      char const *time_stamp = p + 4;
+      for (p += 16; p[3] != '\n'; p++)
+	p[0] = p[3];
+      p[0] = '\0';
+      return time_stamp;
+    }
+#else
+  /* Use ISO 8610 format.  See:
+     http://www.cl.cam.ac.uk/~mgk25/iso-time.html  */
+  struct tm *tm = localtime (&t);
+  if (tm)
+    {
+      sprintf (buffer, "%04d-%02d-%02d %02d:%02d:%02d",
+	       tm->tm_year + 1900, tm->tm_mon + 1, tm->tm_mday,
+	       tm->tm_hour, tm->tm_min, tm->tm_sec);
+      return buffer;
+    }
+#endif
+
+  /* The time stamp cannot be broken down, most likely because it
+     is out of range.  Convert it as an integer,
+     right-adjusted in a field with the same width as the usual
+     19-byte 4-year ISO time format.  */
+  p = stringify_uintmax_t_backwards (t < 0 ? - (uintmax_t) t : (uintmax_t) t,
+				     buffer + sizeof buffer);
+  if (t < 0)
+    *--p = '-';
+  while (buffer + sizeof buffer - 19 - 1 < p)
+    *--p = ' ';
+  return p;
 }
 
-#endif /* not USE_OLD_CTIME */
+/* Actually print it.
 
-/*-------------------------------------------------------------------------.
-| Decode MODE from its binary form in a stat structure, and encode it into |
-| a 9 characters string STRING, terminated with a NUL.                     |
-`-------------------------------------------------------------------------*/
+   Plain and fancy file header block logging.  Non-verbose just prints
+   the name, e.g. for "tar t" or "tar x".  This should just contain
+   file names, so it can be fed back into tar with xargs or the "-T"
+   option.  The verbose option can give a bunch of info, one line per
+   file.  I doubt anybody tries to parse its format, or if they do,
+   they shouldn't.  Unix tar is pretty random here anyway.  */
 
-static void
-decode_mode (mode_t mode, char *string)
-{
-  *string++ = mode & S_IRUSR ? 'r' : '-';
-  *string++ = mode & S_IWUSR ? 'w' : '-';
-  *string++ = (mode & S_ISUID
-	       ? (mode & S_IXUSR ? 's' : 'S')
-	       : (mode & S_IXUSR ? 'x' : '-'));
-  *string++ = mode & S_IRGRP ? 'r' : '-';
-  *string++ = mode & S_IWGRP ? 'w' : '-';
-  *string++ = (mode & S_ISGID
-	       ? (mode & S_IXGRP ? 's' : 'S')
-	       : (mode & S_IXGRP ? 'x' : '-'));
-  *string++ = mode & S_IROTH ? 'r' : '-';
-  *string++ = mode & S_IWOTH ? 'w' : '-';
-  *string++ = (mode & S_ISVTX
-	       ? (mode & S_IXOTH ? 't' : 'T')
-	       : (mode & S_IXOTH ? 'x' : '-'));
-  *string = '\0';
-}
-
-/*-------------------------------------------------------------------------.
-| Actually print it.							   |
-| 									   |
-| Plain and fancy file header block logging.  Non-verbose just prints the  |
-| name, e.g. for "tar t" or "tar x".  This should just contain file names, |
-| so it can be fed back into tar with xargs or the "-T" option.  The	   |
-| verbose option can give a bunch of info, one line per file.  I doubt	   |
-| anybody tries to parse its format, or if they do, they shouldn't.  Unix  |
-| tar is pretty random here anyway.					   |
-`-------------------------------------------------------------------------*/
 
 /* FIXME: Note that print_header uses the globals HEAD, HSTAT, and
    HEAD_STANDARD, which must be set up in advance.  Not very clean...  */
@@ -752,16 +901,14 @@ void
 print_header (void)
 {
   char modes[11];
-  char *timestamp;
+  char const *time_stamp;
   /* These hold formatted ints.  */
   char uform[UINTMAX_STRSIZE_BOUND], gform[UINTMAX_STRSIZE_BOUND];
   char *user, *group;
   char size[2 * UINTMAX_STRSIZE_BOUND];
   				/* holds formatted size or major,minor */
   char uintbuf[UINTMAX_STRSIZE_BOUND];
-  time_t longie;		/* to make ctime() call portable */
   int pad;
-  char *name;
 
   if (block_number_option)
     {
@@ -773,16 +920,7 @@ print_header (void)
   if (verbose_option <= 1)
     {
       /* Just the fax, mam.  */
-
-      char *quoted_name = quote_copy_string (current_file_name);
-
-      if (quoted_name)
-	{
-	  fprintf (stdlis, "%s\n", quoted_name);
-	  free (quoted_name);
-	}
-      else
-	fprintf (stdlis, "%s\n", current_file_name);
+      fprintf (stdlis, "%s\n", quotearg (current_file_name));
     }
   else
     {
@@ -841,49 +979,73 @@ print_header (void)
 
       decode_mode (current_stat.st_mode, modes + 1);
 
-      /* Timestamp.  */
+      /* Time stamp.  */
 
-      longie = current_stat.st_mtime;
-#if USE_OLD_CTIME
-      timestamp = ctime (&longie);
-      timestamp[16] = '\0';
-      timestamp[24] = '\0';
-#else
-      timestamp = isotime (&longie);
-      timestamp[16] = '\0';
-#endif
+      time_stamp = tartime (current_stat.st_mtime);
 
       /* User and group names.  */
 
-      if (*current_header->header.uname && current_format != V7_FORMAT)
+      if (*current_header->header.uname && current_format != V7_FORMAT
+	  && !numeric_owner_option)
 	user = current_header->header.uname;
       else
-	user = STRINGIFY_BIGINT (UINTMAX_FROM_OCT (current_header->header.uid),
-				 uform);
+	{
+	  /* Try parsing it as an unsigned integer first, and as a
+	     uid_t if that fails.  This method can list positive user
+	     ids that are too large to fit in a uid_t.  */
+	  uintmax_t u = from_header (current_header->header.uid,
+				     sizeof current_header->header.uid, 0,
+				     (uintmax_t) 0,
+				     (uintmax_t) TYPE_MAXIMUM (uintmax_t));
+	  if (u != -1)
+	    user = STRINGIFY_BIGINT (u, uform);
+	  else
+	    {
+	      sprintf (uform, "%ld",
+		       (long) UID_FROM_HEADER (current_header->header.uid));
+	      user = uform;
+	    }
+	}
 
-      if (*current_header->header.gname && current_format != V7_FORMAT)
+      if (*current_header->header.gname && current_format != V7_FORMAT
+	  && !numeric_owner_option)
 	group = current_header->header.gname;
       else
-	group = STRINGIFY_BIGINT (UINTMAX_FROM_OCT
-				  (current_header->header.gid),
-				  gform);
+	{
+	  /* Try parsing it as an unsigned integer first, and as a
+	     gid_t if that fails.  This method can list positive group
+	     ids that are too large to fit in a gid_t.  */
+	  uintmax_t g = from_header (current_header->header.gid,
+				     sizeof current_header->header.gid, 0,
+				     (uintmax_t) 0,
+				     (uintmax_t) TYPE_MAXIMUM (uintmax_t));
+	  if (g != -1)
+	    group = STRINGIFY_BIGINT (g, gform);
+	  else
+	    {
+	      sprintf (gform, "%ld",
+		       (long) GID_FROM_HEADER (current_header->header.gid));
+	      group = gform;
+	    }
+	}
 
       /* Format the file size or major/minor device numbers.  */
 
       switch (current_header->header.typeflag)
 	{
-#if defined(S_IFBLK) || defined(S_IFCHR)
 	case CHRTYPE:
 	case BLKTYPE:
-	  sprintf (size, "%lu,%lu",
-		   (unsigned long) major (current_stat.st_rdev),
-		   (unsigned long) minor (current_stat.st_rdev));
+	  strcpy (size,
+		  STRINGIFY_BIGINT (major (current_stat.st_rdev), uintbuf));
+	  strcat (size, ",");
+	  strcat (size,
+		  STRINGIFY_BIGINT (minor (current_stat.st_rdev), uintbuf));
 	  break;
-#endif
 	case GNUTYPE_SPARSE:
 	  strcpy (size,
 		  STRINGIFY_BIGINT
-		  (UINTMAX_FROM_OCT (current_header->oldgnu_header.realsize),
+		  (UINTMAX_FROM_HEADER (current_header
+					->oldgnu_header.realsize),
 		   uintbuf));
 	  break;
 	default:
@@ -897,51 +1059,29 @@ print_header (void)
       if (pad > ugswidth)
 	ugswidth = pad;
 
-#if USE_OLD_CTIME
-      fprintf (stdlis, "%s %s/%s %*s%s %s %s",
-	       modes, user, group, ugswidth - pad, "",
-	       size, timestamp + 4, timestamp + 20);
-#else
       fprintf (stdlis, "%s %s/%s %*s%s %s",
-	       modes, user, group, ugswidth - pad, "", size, timestamp);
-#endif
+	       modes, user, group, ugswidth - pad, "", size, time_stamp);
 
-      name = quote_copy_string (current_file_name);
-      if (name)
-	{
-	  fprintf (stdlis, " %s", name);
-	  free (name);
-	}
-      else
-	fprintf (stdlis, " %s", current_file_name);
+      fprintf (stdlis, " %s", quotearg (current_file_name));
 
       switch (current_header->header.typeflag)
 	{
 	case SYMTYPE:
-	  name = quote_copy_string (current_link_name);
-	  if (name)
-	    {
-	      fprintf (stdlis, " -> %s\n", name);
-	      free (name);
-	    }
-	  else
-	    fprintf (stdlis, " -> %s\n", current_link_name);
+	  fprintf (stdlis, " -> %s\n", quotearg (current_link_name));
 	  break;
 
 	case LNKTYPE:
-	  name = quote_copy_string (current_link_name);
-	  if (name)
-	    {
-	      fprintf (stdlis, _(" link to %s\n"), name);
-	      free (name);
-	    }
-	  else
-	    fprintf (stdlis, _(" link to %s\n"), current_link_name);
+	  fprintf (stdlis, _(" link to %s\n"), quotearg (current_link_name));
 	  break;
 
 	default:
-	  fprintf (stdlis, _(" unknown file type `%c'\n"),
-		   current_header->header.typeflag);
+	  {
+	    char type_string[2];
+	    type_string[0] = current_header->header.typeflag;
+	    type_string[1] = '\0';
+	    fprintf (stdlis, _(" unknown file type %s\n"),
+		     quote (type_string));
+	  }
 	  break;
 
 	case AREGTYPE:
@@ -963,7 +1103,7 @@ print_header (void)
 	case GNUTYPE_MULTIVOL:
 	  strcpy (size,
 		  STRINGIFY_BIGINT
-		  (UINTMAX_FROM_OCT (current_header->oldgnu_header.offset),
+		  (UINTMAX_FROM_HEADER (current_header->oldgnu_header.offset),
 		   uintbuf));
 	  fprintf (stdlis, _("--Continued at byte %s--\n"), size);
 	  break;
@@ -976,15 +1116,11 @@ print_header (void)
   fflush (stdlis);
 }
 
-/*--------------------------------------------------------------.
-| Print a similar line when we make a directory automatically.  |
-`--------------------------------------------------------------*/
-
+/* Print a similar line when we make a directory automatically.  */
 void
 print_for_mkdir (char *pathname, int length, mode_t mode)
 {
   char modes[11];
-  char *name;
 
   if (verbose_option > 1)
     {
@@ -999,23 +1135,13 @@ print_for_mkdir (char *pathname, int length, mode_t mode)
 	  fprintf (stdlis, _("block %s: "),
 		   STRINGIFY_BIGINT (current_block_ordinal (), buf));
 	}
-      name = quote_copy_string (pathname);
-      if (name)
-	{
-	  fprintf (stdlis, "%s %*s %.*s\n", modes, ugswidth + DATEWIDTH,
-		   _("Creating directory:"), length, name);
-	  free (name);
-	}
-      else
-	fprintf (stdlis, "%s %*s %.*s\n", modes, ugswidth + DATEWIDTH,
-		 _("Creating directory:"), length, pathname);
+
+      fprintf (stdlis, "%s %*s %.*s\n", modes, ugswidth + DATEWIDTH,
+	       _("Creating directory:"), length, quotearg (pathname));
     }
 }
 
-/*--------------------------------------------------------.
-| Skip over SIZE bytes of data in blocks in the archive.  |
-`--------------------------------------------------------*/
-
+/* Skip over SIZE bytes of data in blocks in the archive.  */
 void
 skip_file (off_t size)
 {
@@ -1030,8 +1156,8 @@ skip_file (off_t size)
   while (size > 0)
     {
       x = find_next_block ();
-      if (x == NULL)
-	FATAL_ERROR ((0, 0, _("Unexpected EOF on archive file")));
+      if (! x)
+	FATAL_ERROR ((0, 0, _("Unexpected EOF in archive")));
 
       set_next_block_after (x);
       size -= BLOCKSIZE;
@@ -1040,23 +1166,26 @@ skip_file (off_t size)
     }
 }
 
-/*---.
-| ?  |
-`---*/
-
+/* Skip the current member in the archive.  */
 void
-skip_extended_headers (void)
+skip_member (void)
 {
-  union block *exhdr;
+  char save_typeflag = current_header->header.typeflag;
+  set_next_block_after (current_header);
 
-  while (1)
+  if (current_header->oldgnu_header.isextended)
     {
-      exhdr = find_next_block ();
-      if (!exhdr->sparse_header.isextended)
+      union block *exhdr;
+      do
 	{
+	  exhdr = find_next_block ();
+	  if (!exhdr)
+	    FATAL_ERROR ((0, 0, _("Unexpected EOF in archive")));
 	  set_next_block_after (exhdr);
-	  break;
 	}
-      set_next_block_after (exhdr);
+      while (exhdr->sparse_header.isextended);
     }
+
+  if (save_typeflag != DIRTYPE)
+    skip_file (current_stat.st_size);
 }

@@ -1,6 +1,6 @@
 /* libmain - flex run-time support library "main" function */
 
-/* $Header: /cvs/Darwin/flex/flex/libmain.c,v 1.1.1.1 1999/04/23 00:46:30 wsanchez Exp $ */
+/* $Header: /cvs/root/flex/flex/libmain.c,v 1.1.1.1 1999/04/23 00:46:30 wsanchez Exp $ */
 
 extern int yylex();
 

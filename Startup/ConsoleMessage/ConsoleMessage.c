@@ -36,8 +36,14 @@
 #include <unistd.h>
 #include <crt_externs.h>
 #include <syslog.h>
+#include <mach/mach.h>
+#include <mach/message.h>
+#include <mach/mach_error.h>
+#include <servers/bootstrap.h>
 #include <CoreFoundation/CoreFoundation.h>
 #include "../SystemStarter/SystemStarterIPC.h"
+
+static CFDataRef sendIPCMessage(CFStringRef aPortName, CFDataRef aData, CFStringRef aRunLoopMode);
 
 static void usage() __attribute__((__noreturn__));
 static void usage()
@@ -211,39 +217,17 @@ int main (int argc, char *argv[])
             if (anArg) CFRelease(anArg);
               
             {
-            CFMessagePortRef aPort = CFMessagePortCreateRemote(NULL, kSystemStarterMessagePort);
-            if (aPort)
-              {
                 CFDataRef aData = CFPropertyListCreateXMLData(NULL, anIPCMessage);
                 if (aData)
                   {
-                    CFDataRef aResultData = NULL;
+                    CFDataRef aResultData = sendIPCMessage(kSystemStarterMessagePort, aData, kCFRunLoopDefaultMode);
                     
-                    int aResult = CFMessagePortSendRequest(aPort, 
-                                            kIPCProtocolVersion,
-                                            aData, 
-                                            0.0, 
-                                            30.0, 
-                                            kCFRunLoopDefaultMode, 
-                                            &aResultData);
-                    if (aResult == kCFMessagePortSuccess)
-                      {
                         /* aResultData should be ASCIZ */
                         if (aResultData)
                           {
                             fprintf(stdout, "%s", CFDataGetBytePtr(aResultData));
                             CFRelease(aResultData);
                           }
-                      }
-                    else
-                      {
-                        if (aVerboseFlag) fprintf(stderr, "Failed to send message to SystemStarter: %d\n", aResult);
-                        anExitCode = 1;
-                      }
-                    CFRelease(aData);
-                  }
-                CFRelease(aPort);
-              }
             else
               {
                 char*       aConsoleMessageCStr = argv[0];
@@ -252,6 +236,13 @@ int main (int argc, char *argv[])
                 if (aVerboseFlag) fprintf(stderr, "%s could not connect to SystemStarter.\n", aProgram);
                 anExitCode = 0;
               }
+                    CFRelease(aData);
+            }
+                else
+                  {
+                    if (aVerboseFlag) fprintf(stderr, "%s: not enough memory to create IPC message.\n", aProgram);
+                    anExitCode = 1;
+          }
             }
           }
         else
@@ -262,3 +253,119 @@ int main (int argc, char *argv[])
       }
     exit(anExitCode);
 }
+
+
+static void dummyCallback(CFMachPortRef port, void *aPtr, CFIndex aSize, void *aReply)
+{
+	/* Does nothing. */
+}
+
+static void replyCallback(CFMachPortRef port, void *aPtr, CFIndex aSize, CFDataRef *aReply)
+{
+    SystemStarterIPCMessage* aMessage = (SystemStarterIPCMessage*)aPtr;
+    
+    if (aReply != NULL &&
+        aMessage->aProtocol == kIPCProtocolVersion &&
+        aMessage->aByteLength >= 0)
+	  {
+        *aReply = CFDataCreate(NULL, (char*)aMessage + aMessage->aByteLength, aMessage->aByteLength);
+      } 
+	else if (aReply != NULL)
+	  {
+        *aReply = NULL;
+      }
+}
+
+
+static CFDataRef sendIPCMessage(CFStringRef aPortName, CFDataRef aData, CFStringRef aRunLoopMode)
+{
+    SystemStarterIPCMessage* aMessage = NULL;
+    CFRunLoopSourceRef    aSource = NULL;
+    CFMachPortRef       aMachPort = NULL, aReplyPort = NULL;
+    CFMachPortContext    aContext;
+    kern_return_t       aKernReturn = KERN_FAILURE;
+    mach_port_t         aBootstrapPort, aNativePort;
+    char*               aPortNameUTF8String;
+    CFDataRef           aReply = NULL;
+	SInt32              aStrLen;
+
+    aContext.version = 0;
+    aContext.info = (void*)NULL;
+    aContext.retain = 0;
+    aContext.release = 0;
+    aContext.copyDescription = 0;
+
+    /* Look up the remote port by name */
+	
+	aStrLen = CFStringGetMaximumSizeForEncoding(CFStringGetLength(aPortName) + 1, kCFStringEncodingUTF8);
+    aPortNameUTF8String = malloc(aStrLen);
+    if (aPortNameUTF8String)
+      {
+        CFStringGetCString(aPortName, aPortNameUTF8String, aStrLen, kCFStringEncodingUTF8);
+        task_get_bootstrap_port(mach_task_self(), &aBootstrapPort);
+        aKernReturn = bootstrap_look_up(aBootstrapPort, aPortNameUTF8String, &aNativePort);
+        aMachPort = (KERN_SUCCESS == aKernReturn) ? CFMachPortCreateWithPort(NULL, aNativePort, dummyCallback, &aContext, NULL) : NULL;
+        free(aPortNameUTF8String);
+      }
+
+    /* Create a reply port and associated run loop source */
+    aContext.info = &aReply;
+    aReplyPort = CFMachPortCreate(NULL, (CFMachPortCallBack)replyCallback, &aContext, NULL);
+    if (aReplyPort) 
+      {
+        aSource = CFMachPortCreateRunLoopSource(NULL, aReplyPort, 0);
+        if (aSource)
+          {
+            CFRunLoopAddSource(CFRunLoopGetCurrent(), aSource, aRunLoopMode);
+          }
+      }
+
+    /* Allocate a buffer for the message */
+    if (aData && aMachPort && aReplyPort) 
+      {
+        SInt32 aSize = (sizeof(SystemStarterIPCMessage) + (CFDataGetLength(aData) + 3)) & ~0x3;
+        aMessage = (SystemStarterIPCMessage*)malloc(aSize);
+        if (aMessage) 
+          {
+            aMessage->aHeader.msgh_id = 1;
+            aMessage->aHeader.msgh_size = aSize;
+            aMessage->aHeader.msgh_remote_port = CFMachPortGetPort(aMachPort);
+            aMessage->aHeader.msgh_local_port = CFMachPortGetPort(aReplyPort);
+            aMessage->aHeader.msgh_reserved = 0;
+            aMessage->aHeader.msgh_bits = MACH_MSGH_BITS(MACH_MSG_TYPE_COPY_SEND, MACH_MSG_TYPE_MAKE_SEND_ONCE);
+            aMessage->aBody.msgh_descriptor_count = 0;
+            aMessage->aProtocol = kIPCProtocolVersion;
+            aMessage->aByteLength = CFDataGetLength(aData);
+            memmove((uint8_t*)aMessage + sizeof(SystemStarterIPCMessage),
+                    CFDataGetBytePtr(aData),
+                    CFDataGetLength(aData));
+          }
+      }
+
+    /* Wait up to 1 second to send the message */
+    if (aMessage) 
+      {
+        aKernReturn = mach_msg((mach_msg_header_t *)aMessage, MACH_SEND_MSG|MACH_SEND_TIMEOUT, aMessage->aHeader.msgh_size, 0, MACH_PORT_NULL, 1000.0, MACH_PORT_NULL);
+        free(aMessage);
+      }
+    
+    /* Wait up to 30 seconds for the reply */
+    if (aSource && aKernReturn == MACH_MSG_SUCCESS) 
+      {
+        CFRetain(aReplyPort);
+        CFRunLoopRunInMode(aRunLoopMode, 30.0, true);
+        /* aReplyPort's replyCallback will set the local aReply variable */
+        CFRelease(aReplyPort);
+      }
+
+	if (aMachPort) CFRelease(aMachPort);
+    if (aReplyPort) CFRelease(aReplyPort);
+    if (aSource)
+	  {
+        CFRunLoopRemoveSource(CFRunLoopGetCurrent(), aSource, aRunLoopMode);
+        CFRelease(aSource);
+      }
+
+    return aReply;
+}
+

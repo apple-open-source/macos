@@ -31,40 +31,97 @@
 #include <Security/threading.h>
 #include <Security/globalizer.h>
 
-/*** Interim hack, disable not before/not after checking during cert chain processing ***/
-/*** code #ifdef'd with this gets ripped out later ***/
-#define TP_CERT_CURRENT_CHECK_INLINE		0
-
 /* protects TP-wide access to time() and gmtime() */
 extern ModuleNexus<Mutex> tpTimeLock;
 
+/* 
+ * Prototypes for functions which are isomorphic between certs and CRLs at the
+ * CL API.
+ */
+typedef CSSM_RETURN (*clGetFirstFieldFcn)(
+	CSSM_CL_HANDLE CLHandle,
+	CSSM_HANDLE ItemHandle,			// cached cert or CRL
+	const CSSM_OID *ItemField,
+	CSSM_HANDLE_PTR ResultsHandle,
+	uint32 *NumberOfMatchedFields,
+	CSSM_DATA_PTR *Value);
+typedef CSSM_RETURN (*clAbortQueryFcn)(
+	CSSM_CL_HANDLE CLHandle,
+	CSSM_HANDLE ResultsHandle);		// from clGetFirstFieldFcn
+typedef CSSM_RETURN (*clCacheItemFcn)(
+	CSSM_CL_HANDLE CLHandle,
+	const CSSM_DATA *Item,			// raw cert or CRL
+	CSSM_HANDLE_PTR CertHandle);
+typedef CSSM_RETURN (*clAbortCacheFcn)(
+	CSSM_CL_HANDLE CLHandle,
+	CSSM_HANDLE ItemHandle);		// from clCacheItemFcn
+typedef CSSM_RETURN (*clItemVfyFcn)(
+	CSSM_CL_HANDLE CLHandle,
+	CSSM_CC_HANDLE CCHandle,
+	const CSSM_DATA *CrlOrCertToBeVerified,
+	const CSSM_DATA *SignerCert,
+	const CSSM_FIELD *VerifyScope,
+	uint32 ScopeSize);
+
+typedef struct {
+	/* CL/cert-specific functions */
+	clGetFirstFieldFcn	getField;
+	clAbortQueryFcn		abortQuery;
+	clCacheItemFcn		cacheItem;
+	clAbortCacheFcn		abortCache;
+	clItemVfyFcn		itemVerify;
+	/* CL/cert-specific OIDs */
+	const CSSM_OID		*notBeforeOid;
+	const CSSM_OID		*notAfterOid;
+	/* CL/cert specific errors */
+	CSSM_RETURN			invalidItemRtn;	// CSSMERR_TP_INVALID_{CERT,CRL}_POINTER
+	CSSM_RETURN			expiredRtn;		
+	CSSM_RETURN			notValidYetRtn;
+} TPClItemCalls;
+
+class TPCertInfo;
+
 /*
- * Class representing one certificate. The raw cert data usually comes from
- * a client (via incoming cert groups in CertGroupConstruct() and CertGroupVerify());
- * In this case, we don't own the raw data and don't copy or free it. Caller can 
- * optionally specify that we copy (and own and eventnually free) the raw cert data. 
- * The constructor throws on any error (bad cert data); subsequent to successful 
- * construction, no CSSM errors are thrown and it's guaranteed that the cert is
- * basically good and successfully cached in the CL, and that we have a locally
- * cached subject and issuer name (in normalized encoded format). 
- */ 
-class TPCertInfo
+ * On construction of a TPClItemInfo, specifies whether or not to 
+ * copy the incoming item data (in which we free it upon destruction)
+ * or to use caller's data as is (in which case the caller maintains 
+ * the data).
+ */
+typedef enum {
+	TIC_None = 0,		// never used
+	TIC_NoCopy,			// caller maintains
+	TIC_CopyData		// we copy and free
+} TPItemCopy;
+ 
+/*
+ * State of a cert's mIsRoot flag. We do signature self-verify on demand.
+ */
+typedef enum {
+	TRS_Unknown,		// initial state
+	TRS_NamesMatch,		// subject == issuer, but no sig verify yet
+	TRS_NotRoot,		// subject != issuer, OR sig verify failed
+	TRS_IsRoot			// it's a root
+} TPRootState;
+
+/*
+ * Base class for TPCertInfo and TPCrlInfo. Encapsulates caching of 
+ * an entity within the CL, field lookup/free, and signature verify,
+ * all of which use similar functions at the CL API.
+ */
+class TPClItemInfo
 {
+	NOCOPY(TPClItemInfo)
 public:
-	/* 
-	 * No default constructor - this is the only way.
-	 * This caches the cert and fetches subjectName and issuerName
-	 * to ensure the incoming certData is well-constructed.
-	 */
-	TPCertInfo(
-		const CSSM_DATA		*certData,
+	TPClItemInfo(
 		CSSM_CL_HANDLE		clHand,
-		const char 			*cssmTimeStr = NULL,	// NULL ==> time base = right now
-		bool				copyCertData = false);	// true: we copy, we free
-													// false - caller owns
-		
-	/* frees mSubjectName, mIssuerName, mCacheHand via mClHand */
-	~TPCertInfo();
+		CSSM_CSP_HANDLE		cspHand,
+		const TPClItemCalls	&clCalls,
+		const CSSM_DATA		*itemData,
+		TPItemCopy			copyItemData,		
+		const char			*verifyTime);		// may be NULL
+				
+	~TPClItemInfo();
+	void releaseResources();
 	
 	/* 
 	 * Fetch arbitrary field from cached cert.
@@ -79,25 +136,120 @@ public:
 	CSSM_RETURN freeField( 
 		const CSSM_OID	*fieldOid,
 		CSSM_DATA_PTR	fieldData);
-		
+
+	/* 
+	 * Verify with an issuer cert - works on certs and CRLs.
+	 * Issuer/subject name match already performed by caller.
+	 * May return CSSMERR_CSP_APPLE_PUBLIC_KEY_INCOMPLETE without
+	 * performing a signature op, in which case it is the caller's 
+	 * resposibility to complete this operation later when 
+	 * sufficient information is available.
+	 *
+	 * Optional paramCert is used to provide parameters when issuer
+	 * has a partial public key.
+	 */
+	CSSM_RETURN verifyWithIssuer(
+		TPCertInfo		*issuerCert,
+		TPCertInfo		*paramCert = NULL) const;
+
 	/* accessors */
-	CSSM_CL_HANDLE	clHand();
-	CSSM_HANDLE		cacheHand();
-	const CSSM_DATA *certData();
+	CSSM_CL_HANDLE	clHand()	  	const { return mClHand; }
+	CSSM_CSP_HANDLE	cspHand()	  	const { return mCspHand; }
+	CSSM_HANDLE		cacheHand()	  	const { return mCacheHand; }
+	const CSSM_DATA *itemData()	  	const { return mItemData; }
+	const CSSM_DATA *issuerName() 	const { return mIssuerName; };				
+	unsigned 		index()			const { return mIndex; }	
+	void 			index(unsigned dex)	  { mIndex = dex; }
+	bool			isExpired()			  { return mIsExpired; }
+	bool			isNotValidYet()		  { return mIsNotValidYet; }
+	
+	/* 
+	 * Calculate validity (not before/after). Returns 
+	 * 		CSSMERR_{TP_CERT,APPLETP_CRL}_NOT_VALID_YET
+	 *		CSSMERR_xxx_T_EXPIRED
+	 *		CSSM_OK
+	 *		CSSMERR_xxx_INVALID_CERT_POINTER, other "bogus cert" errors
+	 */
+	CSSM_RETURN calculateCurrent(
+		const char 			*verifyString = NULL);
+		
+private:
+
+	/* Tell CL to parse and cache the item */
+	CSSM_RETURN cacheItem(
+		const CSSM_DATA		*itemData,
+		TPItemCopy			copyItemData);			
+													
+		
+	/* fetch not before/after fields */
+	void fetchNotBeforeAfter();
+		
+	CSSM_CL_HANDLE			mClHand;				// always valid
+	CSSM_CSP_HANDLE			mCspHand;				// always valid
+	const TPClItemCalls		&mClCalls;
+	bool					mWeOwnTheData;			// if true, we have to free 
+													//    mCertData
+	/* following four valid subsequent to cacheItem(), generally
+	 * called by subclass's constructor */
+	CSSM_HANDLE				mCacheHand;	
+	CSSM_DATA_PTR			mIssuerName;
+	CSSM_DATA				*mItemData;	
+	CSSM_ALGORITHMS			mSigAlg;
+
+	/* calculated implicitly at construction */
+	struct tm				mNotBefore;
+	struct tm				mNotAfter;
+	
+	/* also calculated at construction, but can be recalculated at will */
+	bool					mIsExpired;
+	bool					mIsNotValidYet;
+	
+	unsigned				mIndex;
+};
+
+/*
+ * Class representing one certificate. The raw cert data usually comes from
+ * a client (via incoming cert groups in CertGroupConstruct() and 
+ * CertGroupVerify()); in this case, we don't own the raw data and 
+ * don't copy or free it. Caller can optionally specify that we copy 
+ * (and own and eventually free) the raw cert data. Currently this is 
+ * only done when we find a cert in a DlDb. The constructor throws 
+ * on any error (bad cert data); subsequent to successful construction, no CSSM 
+ * errors are thrown and it's guaranteed that the cert is basically good and 
+ * successfully cached in the CL, and that we have a locally cached subject 
+ * and issuer name (in normalized encoded format). 
+ */ 
+class TPCertInfo : public TPClItemInfo
+{
+	NOCOPY(TPCertInfo)
+public:
+	/* 
+	 * No default constructor - this is the only way.
+	 * This caches the cert and fetches subjectName and issuerName
+	 * to ensure the incoming certData is well-constructed.
+	 */
+	TPCertInfo(
+		CSSM_CL_HANDLE		clHand,
+		CSSM_CSP_HANDLE		cspHand,
+		const CSSM_DATA		*certData,
+		TPItemCopy			copyCertData,	
+											
+		const char			*verifyTime);		// may be NULL
+		
+	/* frees mSubjectName, mIssuerName, mCacheHand via mClHand */
+	~TPCertInfo();
+	
+	/* accessors */
 	const CSSM_DATA *subjectName();
-	const CSSM_DATA *issuerName();				
 
-	bool 		isSelfSigned()			{ return mIsRoot; }				
-	bool 		isExpired() 			{ return mExpired; }
-	bool 		isNotValidYet()			{ return mNotValidYet; }
+	bool 		isSelfSigned();
 
-	unsigned 	index()					{ return mIndex; }	
-	void 		index(unsigned dex)		{ mIndex = dex; }
 	bool		isAnchor()				{ return mIsAnchor; }
 	void		isAnchor(bool a)		{ mIsAnchor = a; }
+	bool		isFromNet()				{ return mIsFromNet; }
+	void		isFromNet(bool n)		{ mIsFromNet = n; };
 	unsigned	numStatusCodes()		{ return mNumStatusCodes; }
 	CSSM_RETURN	*statusCodes()			{ return mStatusCodes; }
-	void		addStatusCode(CSSM_RETURN code);
 	CSSM_DL_DB_HANDLE dlDbHandle()		{ return mDlDbHandle; }
 	void dlDbHandle(CSSM_DL_DB_HANDLE hand)
 										{ mDlDbHandle = hand; }
@@ -105,66 +257,155 @@ public:
 										{ return mUniqueRecord; }
 	void uniqueRecord(CSSM_DB_UNIQUE_RECORD_PTR rec)
 										{ mUniqueRecord = rec; }
-										
-	/* 
-	 * Verify validity (not before/after). Returns 
-	 * 		CSSMERR_TP_CERT_NOT_VALID_YET
-	 *		CSSMERR_TP_CERT_EXPIRED
-	 *		CSSM_OK
-	 *		CSSMERR_TP_INVALID_CERT_POINTER, other "bogus cert" errors
+	CSSM_KEY_PTR pubKey()				{ return mPublicKey; }
+	bool		used()					{ return mUsed; }
+	void 		used(bool u)			{ mUsed = u; }
+	bool		isLeaf()				{ return mIsLeaf; }
+	void		isLeaf(bool l)			{ mIsLeaf = l; }
+	/*
+	 * Am I the issuer of the specified subject item? Returns true if so.
+	 * Works for subject certs as well as CRLs. 
 	 */
-	CSSM_RETURN isCurrent(
-		CSSM_BOOL		allowExpired = CSSM_FALSE);
+	bool isIssuerOf(
+		const TPClItemInfo	&subject);
 		
+	void addStatusCode(
+		CSSM_RETURN 		code);
+
+	/* 
+	 * Indicate whether this cert's public key is a CSSM_KEYATTR_PARTIAL
+	 * key.
+	 */
+	bool 					hasPartialKey();
+	 
 private:
-	CSSM_DATA				*mCertData;			// always valid
-	bool					mWeOwnTheData;		// if true, we have to free mCertData
-	CSSM_CL_HANDLE			mClHand;			// always valid
-	CSSM_HANDLE				mCacheHand;			// always valid
+	/* obtained from CL at construction */
 	CSSM_DATA_PTR			mSubjectName;		// always valid
-	CSSM_DATA_PTR			mIssuerName;		// always valid
+	CSSM_KEY_PTR			mPublicKey;
 	
 	/* maintained by caller, default at constructor 0/false */
-	unsigned				mIndex;
 	bool					mIsAnchor;
 	bool					mIsFromDb;
+	bool					mIsFromNet;
 	unsigned				mNumStatusCodes;
 	CSSM_RETURN				*mStatusCodes;
 	CSSM_DL_DB_HANDLE		mDlDbHandle;
 	CSSM_DB_UNIQUE_RECORD_PTR mUniqueRecord;
-	
-	/* calculated implicitly at construction */
-	bool					mExpired;
-	bool					mNotValidYet;
-	bool					mIsRoot;		// i.e., subject == issuer
+	bool					mUsed;			// e.g., used in current loop 
+	bool					mIsLeaf;		// first in chain
+	TPRootState				mIsRoot;		// subject == issuer
 
-	void releaseResources();
-	void calculateCurrent(
-		const char *cssmTimeStr = NULL);	// set mExpired, mNotValidYet
-	
+	void 					releaseResources();
 };
 
+/* Describe who owns the items in a TP{Cert,Crl}Group */
+typedef enum {
+	TGO_None = 0,		// not used
+	TGO_Group,			// TP{Cert,Crl}Group owns the items
+	TGO_Caller			// caller owns the items
+} TPGroupOwner;
+
 /*
- * TP's private Cert Group class. Provides a list of TPCertInfo pointers, to which 
- * caller can append additional elements, access an element at an arbitrary position, 
- * and remover an element at an arbitrrary position. 
+ * TP's private Cert Group class. Provides a list of TPCertInfo pointers, 
+ * to which caller can append additional elements, access an element at 
+ * an arbitrary position, and remover an element at an arbitrrary position. 
  */
 class TPCertGroup
 {
+	NOCOPY(TPCertGroup)
 public:
 	/*
-	 * No default constructor - use this to cook up an instance with 
-	 * space for numCerts TPCertInfos. 
+	 * No default constructor.
+	 * This one creates an empty TPCertGroup.
 	 */
 	TPCertGroup(
 		CssmAllocator		&alloc,
-		unsigned			numCerts);
+		TPGroupOwner		whoOwns);		// if TGO_Group, we delete
 	
+	/*
+	 * Construct from unordered, untrusted CSSM_CERTGROUP. Resulting
+	 * TPCertInfos are more or less in the same order as the incoming
+	 * certs, though incoming certs are discarded if they don't parse.
+	 * No verification of any sort is performed. 
+	 */
+	TPCertGroup(
+		const CSSM_CERTGROUP 	&CertGroupFrag,
+		CSSM_CL_HANDLE 			clHand,
+		CSSM_CSP_HANDLE 		cspHand,
+		CssmAllocator			&alloc,
+		const char				*verifyString,			// may be NULL
+		bool					firstCertMustBeValid,
+		TPGroupOwner			whoOwns);	
+		
 	/*
 	 * Deletes all TPCertInfo's.
 	 */
 	~TPCertGroup();
 	
+	/*
+	 * Construct ordered, verified cert chain from a variety of inputs. 
+	 * Time validity is ignored and needs to be checked by caller (it's
+	 * stored in each TPCertInfo we add to ourself during construction).
+	 * The only error returned is CSSMERR_APPLETP_INVALID_ROOT, meaning 
+	 * we verified back to a supposed root cert which did not in fact
+	 * self-verify. Other interesting status is returned via the
+	 * verifiedToRoot and verifiedToAnchor flags. 
+	 *
+	 * NOTE: is it the caller's responsibility to call setAllUnused() 
+	 * for both incoming cert groups (inCertGroup and gatheredCerts). 
+	 * We don't do that here because we may call ourself recursively. 
+	 *
+	 * subjectItem may or may not be in the cert group (currently, it
+	 * is in the group if it's a cert and it's not if it's a CRL, but 
+	 * we don't rely on that). 
+	 */
+	CSSM_RETURN buildCertGroup(
+		const TPClItemInfo		&subjectItem,	// Cert or CRL
+		TPCertGroup				*inCertGroup,	// optional
+		const CSSM_DL_DB_LIST 	*dbList,		// optional
+		CSSM_CL_HANDLE 			clHand,
+		CSSM_CSP_HANDLE 		cspHand,
+		const char 				*verifyString,	// optional, for establishing
+												//   validity of new TPCertInfos
+		/* trusted anchors, optional */
+		/* FIXME - maybe this should be a TPCertGroup */
+		uint32 					numAnchorCerts,
+		const CSSM_DATA			*anchorCerts,
+		
+		/* 
+		 * Certs to be freed by caller (i.e., TPCertInfo which we allocate
+		 * as a result of using a cert from anchorCerts or dbList) are added
+		 * to this group.
+		 */
+		TPCertGroup				&certsToBeFreed,
+		
+		/*
+		* Other certificates gathered during the course of this operation,
+		* currently consisting of certs fetched from DBs and from the net.
+		* This is not used when called by AppleTPSession::CertGroupConstructPriv;
+		* it's an optimization for the case when we're building a cert group
+		* for TPCrlInfo::verifyWithContext - we avoid re-fetching certs from
+		* the net which are needed to verify both the subject cert and a CRL.
+		*/
+		TPCertGroup				*gatheredCerts,
+		
+		/*
+		* Indicates that subjectItem is the last element in this cert group.
+		* If true, that cert will be tested for "root-ness", including 
+		*   -- subject/issuer compare
+		*   -- signature self-verify
+		*   -- anchor compare
+		*/
+		CSSM_BOOL				subjectIsInGroup,
+		
+		/* currently, only CSSM_TP_ACTION_FETCH_CERT_FROM_NET is 
+		 * interesting */
+		CSSM_APPLE_TP_ACTION_FLAGS	actionFlags,
+		
+		/* returned */
+		CSSM_BOOL				&verifiedToRoot,	// end of chain self-verifies
+		CSSM_BOOL				&verifiedToAnchor);	// end of chain in anchors
+		
 	/* add/remove/access TPTCertInfo's. */
 	void appendCert(
 		TPCertInfo			*certInfo);			// appends to end of mCertInfo
@@ -173,8 +414,9 @@ public:
 	TPCertInfo *removeCertAtIndex(
 		unsigned			index);				// doesn't delete the cert, just 
 												// removes it from our list
-	unsigned numCerts();						// how many do we have? 
-	
+	unsigned numCerts() const 					// how many do we have? 
+		{ return mNumCerts; }
+		
 	/* 
 	 * Convenience accessors for first and last cert, only valid when we have
 	 * at least one cert.
@@ -203,10 +445,40 @@ public:
 	CssmAllocator
 		&alloc() {return mAlloc; }
 	
+	/* set all TPCertInfo.mUsed flags false */
+	void					setAllUnused();
+	
 private:
+	
+	/* 
+	 * Search unused incoming certs to find an issuer of specified 
+	 * cert or CRL.
+	 * WARNING this assumes a valied "used" state for all certs 
+	 * in this group.
+	 * If partialIssuerKey is true on return, caller must re-verify signature
+     * of subject later when sufficient info is available. 
+	 */ 
+	TPCertInfo *findIssuerForCertOrCrl(
+		const TPClItemInfo 	&subject,
+		bool				&partialIssuerKey);
+
+	/* 
+	 * Called from buildCertGroup as final processing of a constructed
+	 * group when CSSMERR_CSP_APPLE_PUBLIC_KEY_INCOMPLETE has been
+	 * detected. Perform partial public key processing.
+	 * Returns:
+	 *   	CSSMERR_TP_CERTIFICATE_CANT_OPERATE - can't complete partial key
+	 *		CSSMERR_TP_INVALID_CERT_AUTHORITY - sig verify failed with 
+	 *			(supposedly) completed partial key
+	 */
+	CSSM_RETURN				verifyWithPartialKeys(
+		const TPClItemInfo	&subjectItem);		// Cert or CRL
+	
 	CssmAllocator			&mAlloc;
 	TPCertInfo				**mCertInfo;		// just an array of pointers
 	unsigned				mNumCerts;			// valid certs in certInfo
 	unsigned				mSizeofCertInfo;	// mallocd space in certInfo
+	TPGroupOwner			mWhoOwns;			// if TGO_Group, we delete certs 
+												//    upon destruction
 };
 #endif	/* _TP_CERT_INFO_H_ */

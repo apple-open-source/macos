@@ -1,9 +1,9 @@
 /*
- * "$Id: cups-lpd.c,v 1.5 2002/06/10 23:47:31 jlovell Exp $"
+ * "$Id: cups-lpd.c,v 1.1.1.11 2003/05/28 06:02:42 jlovell Exp $"
  *
  *   Line Printer Daemon interface for the Common UNIX Printing System (CUPS).
  *
- *   Copyright 1997-2002 by Easy Software Products, all rights reserved.
+ *   Copyright 1997-2003 by Easy Software Products, all rights reserved.
  *
  *   These coded instructions, statements, and computer programs are the
  *   property of Easy Software Products and are protected by Federal
@@ -27,7 +27,7 @@
  *   print_file()       - Print a file to a printer or class.
  *   recv_print_job()   - Receive a print job from the client.
  *   remove_jobs()      - Cancel one or more jobs.
- *   send_short_state() - Send the short queue state.
+ *   send_state()       - Send the queue state.
  *   smart_gets()       - Get a line of text, removing the trailing CR
  *                        and/or LF.
  */
@@ -247,14 +247,14 @@ main(int  argc,			/* I - Number of command-line arguments */
 
     case 0x03 : /* Send queue state (short) */
         syslog(LOG_INFO, "Send queue state (short) for %s %s", dest, list);
-	/* send_state() sends initial status byte */
+	/* no status byte for this command */
 
         status = send_state(dest, list, 0);
 	break;
 
     case 0x04 : /* Send queue state (long) */
         syslog(LOG_INFO, "Send queue state (long) for %s %s", dest, list);
-	/* send_state() sends initial status byte */
+	/* no status byte for this command */
 
         status = send_state(dest, list, 1);
 	break;
@@ -446,19 +446,30 @@ recv_print_job(const char    *dest,	/* I - Destination */
   num_dests = cupsGetDests(&dests);
   if ((destptr = cupsGetDest(queue, instance, num_dests, dests)) == NULL)
   {
-    if (instance)
-      syslog(LOG_ERR, "Unknown destination %s/%s!", queue, instance);
-    else
-      syslog(LOG_ERR, "Unknown destination %s!", queue);
+   /*
+    * If the queue name is blank or "lp" then use the default queue.
+    */
 
-    cupsFreeDests(num_dests, dests);
+    if (!queue[0] || !strcmp(queue, "lp"))
+      if ((destptr = cupsGetDest(NULL, NULL, num_dests, dests)) != NULL)
+	strlcpy(queue, destptr->name, sizeof(queue));
 
-    putchar(1);
+    if (destptr == NULL)
+    {
+      if (instance)
+	syslog(LOG_ERR, "Unknown destination %s/%s!", queue, instance);
+      else
+	syslog(LOG_ERR, "Unknown destination %s!", queue);
 
-    return (1);
+      cupsFreeDests(num_dests, dests);
+
+      putchar(1);
+
+      return (1);
+    }
   }
-  else
-    putchar(0);
+
+  putchar(0);
 
   while (smart_gets(line, sizeof(line), stdin) != NULL)
   {
@@ -925,7 +936,7 @@ send_state(const char *dest,		/* I - Destination */
   char		uri[HTTP_MAX_URI];	/* Printer URI */
   char		queue[256],		/* Printer/class queue */
 		*instance;		/* Printer/class instance */
-  static const char *ranks[10] =	/* Ranking strings */
+  static const char * const ranks[10] =	/* Ranking strings */
 		{
 		  "th",
 		  "st",
@@ -938,8 +949,8 @@ send_state(const char *dest,		/* I - Destination */
 		  "th",
 		  "th"
 		};
-  static const char *requested[] =	/* Requested attributes */
-		{
+  static const char * const requested[] =
+		{			/* Requested attributes */
 		  "job-id",
 		  "job-k-octets",
 		  "job-state",
@@ -967,7 +978,7 @@ send_state(const char *dest,		/* I - Destination */
                                  cupsEncryption())) == NULL)
   {
     syslog(LOG_ERR, "Unable to connect to server: %s", strerror(errno));
-    putchar(1);
+    printf("Unable to connect to server: %s", strerror(errno));
     return (1);
   }
 
@@ -1010,12 +1021,11 @@ send_state(const char *dest,		/* I - Destination */
     {
       syslog(LOG_WARNING, "Unable to get printer list: %s\n",
              ippErrorString(response->request.status.status_code));
+      printf("Unable to get printer list: %s\n",
+             ippErrorString(response->request.status.status_code));
       ippDelete(response);
-      putchar(1);
       return (1);
     }
-    else
-      putchar(0);
 
     if ((attr = ippFindAttribute(response, "printer-state", IPP_TAG_ENUM)) != NULL)
       state = (ipp_pstate_t)attr->values[0].integer;
@@ -1041,7 +1051,8 @@ send_state(const char *dest,		/* I - Destination */
   {
     syslog(LOG_WARNING, "Unable to get printer list: %s\n",
            ippErrorString(cupsLastError()));
-    putchar(1);
+    printf("Unable to get printer list: %s\n",
+           ippErrorString(cupsLastError()));
     return (1);
   }
 
@@ -1205,11 +1216,11 @@ send_state(const char *dest,		/* I - Destination */
 	else
 	  strlcpy(namestr, jobname, sizeof(namestr));
 
-        printf("%s: %-34.34s[job %d localhost]\n", jobuser, rankstr, jobid);
-        printf("        %-40.40s%d bytes\n", namestr, jobsize);
+        printf("%s: %-33.33s [job %d localhost]\n", jobuser, rankstr, jobid);
+        printf("        %-39.39s %d bytes\n", namestr, jobsize);
       }
       else
-        printf("%-7s %-8.8s%-8d%-32.32s%d bytes\n", rankstr, jobuser,
+        printf("%-7s %-7.7s %-7d %-31.31s %d bytes\n", rankstr, jobuser,
 	       jobid, jobname, jobsize);
 
       if (attr == NULL)
@@ -1289,5 +1300,5 @@ smart_gets(char *s,	/* I - Pointer to line buffer */
 
 
 /*
- * End of "$Id: cups-lpd.c,v 1.5 2002/06/10 23:47:31 jlovell Exp $".
+ * End of "$Id: cups-lpd.c,v 1.1.1.11 2003/05/28 06:02:42 jlovell Exp $".
  */

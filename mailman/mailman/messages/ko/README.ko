@@ -1,0 +1,26 @@
+Mailman 한글 메세지에 대한 노트.
+
+  번역 : Hyejin Soang,  (redcloak@igrus.inha.ac.kr)
+	 Wongyo Jung,   ( andsoon@igrus.inha.ac.kr)
+
+- 사용단어
+
+  Digest 의 경우
+	"묶음배달" 이라는 형식으로 번역 하였습니다.
+  Non-Digest 의 경우
+	"개별배달" 이라는 형식으로 번역 하였습니다.
+
+- 문제점
+
+  1) 요청 처리를 처리하는 부분에서 제목 부분의 글이 EUC-KR 형식을 지원하지
+     않기에 깨져 보이게 됩니다. 수정해야 할 것입니다.
+
+  2) 현재 messages/ko/LC_MESSAGES/mailman.po 부분 중 번역되지 않은 부분이
+     있습니다. 5300줄 부터 끝까지는 아직 번역되지 않았습니다. 이 경우 대
+     부분은 E메일이나 WEB에 영향을 미치지 않는 바이너리나 Python 프로그램
+     들입니다. bin/ 과 cron/ 에 대한 부분이며, 이 부분에 대해서는 추가
+     번역을 할 필요가 있습니다. 번역 지원자를 모십니다.
+
+	  andsoon@igrus.inha.ac.kr
+
+     로 연락주시기 바랍니다.

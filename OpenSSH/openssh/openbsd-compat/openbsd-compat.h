@@ -1,4 +1,4 @@
-/* $Id: openbsd-compat.h,v 1.1.1.5 2002/03/08 21:07:48 wsanchez Exp $ */
+/* $Id: openbsd-compat.h,v 1.1.1.7 2003/04/01 04:02:24 zarzycki Exp $ */
 
 #ifndef _OPENBSD_H
 #define _OPENBSD_H
@@ -6,6 +6,7 @@
 #include "config.h"
 
 /* OpenBSD function replacements */
+#include "basename.h"
 #include "bindresvport.h"
 #include "getcwd.h"
 #include "realpath.h"
@@ -26,9 +27,11 @@
 #include "glob.h"
 #include "readpassphrase.h"
 #include "getopt.h"
+#include "vis.h"
 
 /* Home grown routines */
 #include "bsd-arc4random.h"
+#include "bsd-getpeereid.h"
 #include "bsd-misc.h"
 #include "bsd-snprintf.h"
 #include "bsd-waitpid.h"

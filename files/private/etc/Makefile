@@ -19,13 +19,11 @@ install-sysconf:
 	$(_v) $(INSTALL_FILE) -c -m 644 afpovertcp.cfg	 "$(Destination)/afpovertcp.cfg"
 	$(_v) $(INSTALL_FILE) -c -m 644 /dev/null	 "$(Destination)/find.codes"
 	$(_v) $(INSTALL_FILE) -c -m 644 ftpusers	 "$(Destination)/ftpusers"
+	$(_v) $(INSTALL_FILE) -c -m 644 fstab	 "$(Destination)/fstab"
 	$(_v) $(INSTALL_FILE) -c -m 644 fstab.hd	 "$(Destination)/fstab.hd"
-	$(_v) $(INSTALL_FILE) -c -m 644 fstab.rd	 "$(Destination)/fstab.rd"
-	$(_v) $(INSTALL_FILE) -c -m 644 fstab.sd	 "$(Destination)/fstab.sd"
 	$(_v) $(INSTALL_FILE) -c -m 644 gettytab	 "$(Destination)/gettytab"
 	$(_v) $(INSTALL_FILE) -c -m 644 /dev/null	 "$(Destination)/hosts.lpd"
 	$(_v) $(INSTALL_FILE) -c -m 644 /dev/null	 "$(Destination)/hosts.equiv"
-	$(_v) $(INSTALL_FILE) -c -m 644 inetd.conf	 "$(Destination)/inetd.conf"
 	$(_v) $(INSTALL_FILE) -c -m 644 kern_loader.conf "$(Destination)/kern_loader.conf"
 	$(_v) $(INSTALL_FILE) -c -m 644 motd		 "$(Destination)/motd"
 	$(_v) $(INSTALL_FILE) -c -m 644 /dev/null	 "$(Destination)/rmtab"
@@ -37,7 +35,6 @@ ifeq "$(RC_RELEASE)" "Darwin"
 else
 	$(_v) $(INSTALL_FILE) -c -m 644 ttys		 "$(Destination)/ttys"
 endif
-	$(_v) $(INSTALL_FILE) -c	ttys.installer	 "$(Destination)/ttys.installer"
 	$(_v) $(INSTALL_FILE) -c -m 644 /dev/null	 "$(Destination)/xtab"
 	$(_v) $(LN) -s /var/run/resolv.conf              "$(Destination)"
 

@@ -33,26 +33,33 @@
 .\" SUCH DAMAGE.
 .\"
 .\"	@(#)mklocale.1	8.2 (Berkeley) 4/18/94
+.\" $FreeBSD: src/usr.bin/mklocale/mklocale.1,v 1.16 2002/12/27 12:15:35 schweikh Exp $
 .\"
-.Dd "April 18, 1994"
+.Dd October 14, 2002
 .Dt MKLOCALE 1
 .Os
 .Sh NAME
 .Nm mklocale
 .Nd make LC_CTYPE locale files
 .Sh SYNOPSIS
-.Nm mklocale
+.Nm
+.Op Fl d
 .Ar "< src-file"
 .Ar "> language/LC_CTYPE"
+.Nm
+.Op Fl d
+.Fl o
+.Ar language/LC_CTYPE
+.Ar src-file
 .Sh DESCRIPTION
 The
-.Nm mklocale
+.Nm
 utility reads a
 .Dv LC_CTYPE
 source file from standard input and produces a
 .Dv LC_CTYPE
 binary file on standard output suitable for placement in
-.Dv /usr/share/locale/\fIlanguage\fP/LC_CTYPE.
+.Pa /usr/share/locale/ Ns Ar language Ns Pa /LC_CTYPE .
 .Pp
 The format of
 .Ar src-file
@@ -61,17 +68,25 @@ It consists of a series of lines which start with a keyword and have
 associated data following.  C style comments are used
 to place comments in the file.
 .Pp
+Following options are available:
+.Bl -tag -width indent
+.It Fl d
+Turns on debugging messages.
+.It Fl o
+Specify output file.
+.El
+.Pp
 Besides the keywords which will be listed below,
 the following are valid tokens in
 .Ar src-file :
-.Bl -tag -width literal
+.Bl -tag -width ".Ar literal"
 .It Dv RUNE
 A
 .Dv RUNE
 may be any of the following:
-.Bl -tag -width 0x[0-9a-z]*
+.Bl -tag -width ".Ar 0x[0-9a-z]*"
 .It Ar 'x'
-The ascii character
+The ASCII character
 .Ar x .
 .It Ar '\ex'
 The ANSI C character
@@ -104,7 +119,7 @@ or
 Used to indicate ranges.
 .It Ar literal
 The follow characters are taken literally:
-.Bl -tag -width "<\|\|(\|\|["
+.Bl -tag -width ".Dv <\|\|(\|\|["
 .It Dv "<\|(\|["
 Used to start a mapping.  All are equivalent.
 .It Dv ">\|\^)\|]"
@@ -113,48 +128,66 @@ Used to end a mapping.  All are equivalent.
 Used as a delimiter in mappings.
 .El
 .El
-.sp
+.Pp
 Key words which should only appear once are:
-.Bl -tag -width PHONOGRAM
+.Bl -tag -width ".Dv PHONOGRAM"
 .It Dv ENCODING
 Followed by a
 .Dv STRING
 which indicates the encoding mechanism to be used for this locale.
 The current encodings are:
-.Bl -tag -width NONE
-.It Dv NONE
-No translation and the default.
-.It Dv UTF2
-.Dv "Universal character set Transformation Format"
-adopted from
-.Nm "Plan 9 from Bell Labs" .
-This is the preferred encoding.
+.Bl -tag -width ".Dv MSKanji"
+.It Dv BIG5
+The
+.Dq Big5
+encoding of Chinese.
 .It Dv EUC
 .Dv EUC
 encoding as used by several
 vendors of
 .Ux
 systems.
+.It Dv MSKanji
+The method of encoding Japanese used by Microsoft,
+loosely based on JIS.
+Also known as
+.Dq "Shift JIS"
+and
+.Dq SJIS .
+.It Dv NONE
+No translation and the default.
+.It Dv UTF2
+(deprecated)
+.Dq "Universal character set Transformation Format"
+adopted from
+.Tn "Plan 9 from Bell Labs" .
+.It Dv UTF-8
+The
+.Dv UTF-8
+transformation format of
+.Tn ISO
+10646
+as defined by RFC 2279.
 .El
 .It Dv VARIABLE
 This keyword must be followed by a single tab or space character,
 after which encoding specific data is placed.
-Currently only the 
+Currently only the
 .Dv "EUC"
 encoding requires variable data.
-See 
+See
 .Xr euc 4
 for further details.
 .It Dv INVALID
+(deprecated)
 A single
 .Dv RUNE
 follows and is used as the invalid rune for this locale.
 .El
-.sp
+.Pp
 The following keywords may appear multiple times and have the following
 format for data:
-.in +.5i
-.Bl -tag -width "<RUNE1 THRU RUNEn : RUNE2>"
+.Bl -tag -width ".Dv <RUNE1 THRU RUNEn : RUNE2>" -offset indent
 .It Dv <RUNE1 RUNE2>
 .Dv RUNE1
 is mapped to
@@ -170,36 +203,32 @@ through
 .Dv RUNE2
 + n-1.
 .El
-.in -.5i
-.Bl -tag -width PHONOGRAM
+.Bl -tag -width ".Dv PHONOGRAM"
 .It Dv MAPLOWER
 Defines the tolower mappings.
 .Dv RUNE2
 is the lower case representation of
-.Dv RUNE1.
+.Dv RUNE1 .
 .It Dv MAPUPPER
 Defines the toupper mappings.
 .Dv RUNE2
 is the upper case representation of
-.Dv RUNE1.
+.Dv RUNE1 .
 .It Dv TODIGIT
 Defines a map from runes to their digit value.
 .Dv RUNE2
 is the integer value represented  by
 .Dv RUNE1 .
-For example, the ascii character
-.Nm '0'
-would map to the decimal value
-.Nm 0 .
-Only values up to
-.Nm 255
+For example, the ASCII character
+.Ql 0
+would map to the decimal value 0.
+Only values up to 255
 are allowed.
 .El
-.sp
+.Pp
 The following keywords may appear multiple times and have the following
 format for data:
-.in +.5i
-.Bl -tag -width "RUNE1 THRU RUNEn"
+.Bl -tag -width ".Dv RUNE1 THRU RUNEn" -offset indent
 .It Dv RUNE
 This rune has the property defined by the keyword.
 .It Dv "RUNE1 THRU RUNEn"
@@ -209,8 +238,7 @@ and
 .Dv RUNEn
 have the property defined by the keyword.
 .El
-.in -.5i
-.Bl -tag -width PHONOGRAM
+.Bl -tag -width ".Dv PHONOGRAM"
 .It Dv ALPHA
 Defines runes which are alphabetic, printable and graphic.
 .It Dv CONTROL
@@ -239,19 +267,33 @@ Defines runes which are ideograms, printable and graphic.
 Defines runes which are special characters, printable and graphic.
 .It Dv PHONOGRAM
 Defines runes which are phonograms, printable and graphic.
+.It Dv SWIDTH0
+Defines runes with display width 0.
+.It Dv SWIDTH1
+Defines runes with display width 1.
+.It Dv SWIDTH2
+Defines runes with display width 2.
+.It Dv SWIDTH3
+Defines runes with display width 3.
 .El
+.Pp
+If no display width explicitly defined, width 1 assumed
+for printable runes by default.
 .Sh SEE ALSO
+.Xr colldef 1 ,
 .Xr mbrune 3 ,
 .Xr rune 3 ,
 .Xr setlocale 3 ,
+.Xr wcwidth 3 ,
 .Xr euc 4 ,
-.Xr utf2 4
+.Xr utf2 4 ,
+.Xr utf8 5
 .Sh BUGS
 The
-.Nm mklocale
+.Nm
 utility is overly simplistic.
 .Sh HISTORY
 The
-.Nm mklocale
+.Nm
 utility first appeared in
 .Bx 4.4 .

@@ -48,11 +48,11 @@
 OSDefineMetaClassAndAbstractStructors(IOAudioEngine, IOService)
 
 OSMetaClassDefineReservedUsed(IOAudioEngine, 0);
+OSMetaClassDefineReservedUsed(IOAudioEngine, 1);
+OSMetaClassDefineReservedUsed(IOAudioEngine, 2);
+OSMetaClassDefineReservedUsed(IOAudioEngine, 3);
+OSMetaClassDefineReservedUsed(IOAudioEngine, 4);
 
-OSMetaClassDefineReservedUnused(IOAudioEngine, 1);
-OSMetaClassDefineReservedUnused(IOAudioEngine, 2);
-OSMetaClassDefineReservedUnused(IOAudioEngine, 3);
-OSMetaClassDefineReservedUnused(IOAudioEngine, 4);
 OSMetaClassDefineReservedUnused(IOAudioEngine, 5);
 OSMetaClassDefineReservedUnused(IOAudioEngine, 6);
 OSMetaClassDefineReservedUnused(IOAudioEngine, 7);
@@ -105,6 +105,35 @@ IOReturn IOAudioEngine::performFormatChange(IOAudioStream *audioStream, const IO
 #endif
 
     return kIOReturnUnsupported;
+}
+
+IOBufferMemoryDescriptor *IOAudioEngine::getStatusDescriptor()
+{
+#ifdef DEBUG_CALLS
+    IOLog("IOAudioEngine[%p]::getStatusDescriptor()\n", this);
+#endif
+	assert(reserved);
+
+	return reserved->statusDescriptor;
+}
+
+IOReturn IOAudioEngine::getNearestStartTime(IOAudioStream *audioStream, IOAudioTimeStamp *ioTimeStamp, bool isInput)
+{
+	return kIOReturnSuccess;
+}
+
+IOBufferMemoryDescriptor * IOAudioEngine::getBytesInInputBufferArrayDescriptor()
+{
+	assert(reserved);
+
+	return reserved->bytesInInputBufferArrayDescriptor;
+}
+
+IOBufferMemoryDescriptor * IOAudioEngine::getBytesInOutputBufferArrayDescriptor()
+{
+	assert(reserved);
+
+	return reserved->bytesInOutputBufferArrayDescriptor;
 }
 
 // Original code from here forward:
@@ -206,6 +235,13 @@ bool IOAudioEngine::init(OSDictionary *properties)
         return false;
     }
     
+	reserved = (ExpansionData *)IOMalloc (sizeof(struct ExpansionData));
+	if (!reserved) {
+		return false;
+	} else {
+		reserved->pauseCount = 0;
+	}
+
     duringStartup = true;
 
     sampleRate.whole = 0;
@@ -216,7 +252,19 @@ bool IOAudioEngine::init(OSDictionary *properties)
     
     numActiveUserClients = 0;
 
-    status = (IOAudioEngineStatus *)IOMallocAligned(round_page(sizeof(IOAudioEngineStatus)), PAGE_SIZE);
+	reserved = (ExpansionData *)IOMalloc (sizeof(struct ExpansionData));
+	if (!reserved) {
+		return false;
+	}
+	reserved->bytesInInputBufferArrayDescriptor = NULL;
+	reserved->bytesInOutputBufferArrayDescriptor = NULL;
+
+	reserved->statusDescriptor = IOBufferMemoryDescriptor::withOptions(kIODirectionOutIn | kIOMemoryKernelUserShared, round_page_32(sizeof(IOAudioEngineStatus)), page_size);
+//	reserved->statusDescriptor = IOBufferMemoryDescriptor::withOptions(kIODirectionOutIn | kIOMemoryKernelUserShared, round_page(sizeof(IOAudioEngineStatus)), page_size);
+	if (!reserved->statusDescriptor) {
+		return false;
+	}
+	status = (IOAudioEngineStatus *)reserved->statusDescriptor->getBytesNoCopy();
 
     if (!status) {
         return false;
@@ -242,10 +290,16 @@ bool IOAudioEngine::init(OSDictionary *properties)
         return false;
     }
     
-    bzero(status, round_page(sizeof(IOAudioEngineStatus)));
+	bzero(status, round_page_32(sizeof(IOAudioEngineStatus)));
     status->fVersion = kIOAudioEngineCurrentStatusStructVersion;
 
     setState(kIOAudioEngineStopped);
+
+#if __i386__
+	setProperty(kIOAudioEngineFlavorKey, (UInt32)kIOAudioStreamByteOrderLittleEndian, sizeof(UInt32)*8);
+#elif __ppc__
+	setProperty(kIOAudioEngineFlavorKey, (unsigned long long)kIOAudioStreamByteOrderBigEndian, sizeof(UInt32)*8);
+#endif
 
     return true;
 }
@@ -256,10 +310,11 @@ void IOAudioEngine::free()
     IOLog("IOAudioEngine[%p]::free()\n", this);
 #endif
 
-    if (status) {
-        IOFreeAligned(status, round_page(sizeof(IOAudioEngineStatus)));
-        status = 0;
-    }
+	if (reserved->statusDescriptor) {
+		reserved->statusDescriptor->release();
+		reserved->statusDescriptor = NULL;
+		status = NULL;
+	}
 
     if (outputStreams) {
         outputStreams->release();
@@ -295,6 +350,10 @@ void IOAudioEngine::free()
         workLoop->release();
         workLoop = NULL;
     }
+
+	if (reserved) {
+		IOFree (reserved, sizeof(struct ExpansionData));
+	}
 
     super::free();
 }
@@ -467,9 +526,10 @@ OSString *IOAudioEngine::getGlobalUniqueID()
     }
         
     uniqueIDStr = (char *)IOMallocAligned(uniqueIDSize, sizeof (char));
-    bzero(uniqueIDStr, uniqueIDSize);
     
     if (uniqueIDStr) {
+		bzero(uniqueIDStr, uniqueIDSize);
+
         if (className) {
             sprintf(uniqueIDStr, "%s:", className);
         }
@@ -839,6 +899,10 @@ IOReturn IOAudioEngine::incrementActiveUserClients()
         result = startAudioEngine();
     }
     
+	if (result != kIOReturnSuccess) {
+		decrementActiveUserClients();
+	}
+	
     return result;
 }
 
@@ -898,6 +962,11 @@ IOReturn IOAudioEngine::addAudioStream(IOAudioStream *stream)
                 if (outputStreams->getCount() == 1) {
                     setRunEraseHead(true);
                 }
+
+				if (reserved->bytesInOutputBufferArrayDescriptor) {
+					reserved->bytesInOutputBufferArrayDescriptor->release();
+				}
+				reserved->bytesInOutputBufferArrayDescriptor = IOBufferMemoryDescriptor::withOptions(kIODirectionOutIn | kIOMemoryKernelUserShared, round_page(outputStreams->getCount() * sizeof(UInt32)), page_size);
                 break;
             case kIOAudioStreamDirectionInput:
                 assert(inputStreams);
@@ -905,6 +974,11 @@ IOReturn IOAudioEngine::addAudioStream(IOAudioStream *stream)
                 inputStreams->setObject(stream);
                 
                 maxNumInputChannels += stream->getMaxNumChannels();
+
+				if (reserved->bytesInInputBufferArrayDescriptor) {
+					reserved->bytesInInputBufferArrayDescriptor->release();
+				}
+				reserved->bytesInInputBufferArrayDescriptor = IOBufferMemoryDescriptor::withOptions(kIODirectionOutIn | kIOMemoryKernelUserShared, round_page(inputStreams->getCount() * sizeof(UInt32)), page_size);
                 break;
         }
 
@@ -938,6 +1012,10 @@ void IOAudioEngine::detachAudioStreams()
             iterator->release();
         }
         outputStreams->flushCollection();
+		if (reserved->bytesInOutputBufferArrayDescriptor) {
+			reserved->bytesInOutputBufferArrayDescriptor->release();
+			reserved->bytesInOutputBufferArrayDescriptor = NULL;
+		}
     }
     
     if (inputStreams && (inputStreams->getCount() > 0)) {
@@ -951,6 +1029,10 @@ void IOAudioEngine::detachAudioStreams()
             iterator->release();
         }
         inputStreams->flushCollection();
+		if (reserved->bytesInInputBufferArrayDescriptor) {
+			reserved->bytesInInputBufferArrayDescriptor->release();
+			reserved->bytesInInputBufferArrayDescriptor = NULL;
+		}
     }
 }
 
@@ -1168,18 +1250,18 @@ void IOAudioEngine::updateChannelNumbers()
                 if (channelID != 0) {
                     switch (control->getUsage()) {
                         case kIOAudioControlUsageOutput:
-                            if (outputChannelNumbers && (channelID <= maxNumOutputChannels)) {
-                                control->setChannelNumber(outputChannelNumbers[channelID - 1]);
-                            } else {
-                                control->setChannelNumber(kIOAudioControlChannelNumberInactive);
-                            }
+								if (outputChannelNumbers && (channelID <= maxNumOutputChannels)) {
+									control->setChannelNumber(outputChannelNumbers[channelID - 1]);
+								} else {
+									control->setChannelNumber(kIOAudioControlChannelNumberInactive);
+							}
                             break;
                         case kIOAudioControlUsageInput:
-                            if (inputChannelNumbers && (channelID <= maxNumInputChannels)) {
-                                control->setChannelNumber(inputChannelNumbers[channelID - 1]);
-                            } else {
-                                control->setChannelNumber(kIOAudioControlChannelNumberInactive);
-                            }
+							if (inputChannelNumbers && (channelID <= maxNumInputChannels)) {
+								control->setChannelNumber(inputChannelNumbers[channelID - 1]);
+							} else {
+								control->setChannelNumber(kIOAudioControlChannelNumberInactive);
+							}
                             break;
                         case kIOAudioControlUsagePassThru:
                             if (inputChannelNumbers) {
@@ -1235,6 +1317,7 @@ IOReturn IOAudioEngine::startAudioEngine()
         case kIOAudioEngineResumed:
             resetStatusBuffer();
             
+			reserved->pauseCount = 0;
             result = performAudioEngineStart();
             if (result == kIOReturnSuccess) {
                 setState(kIOAudioEngineRunning);
@@ -1285,6 +1368,7 @@ IOReturn IOAudioEngine::pauseAudioEngine()
     IOLog("IOAudioEngine[%p]::pauseAudioEngine()\n", this);
 #endif
 
+	reserved->pauseCount++;
     switch(getState()) {
         case kIOAudioEngineRunning:
         case kIOAudioEngineResumed:
@@ -1316,11 +1400,13 @@ IOReturn IOAudioEngine::resumeAudioEngine()
 #ifdef DEBUG_CALLS
     IOLog("IOAudioEngine[%p]::resumeAudioEngine()\n", this);
 #endif
-    
-    if (getState() == kIOAudioEnginePaused) {
-        setState(kIOAudioEngineResumed);
-        sendNotification(kIOAudioEngineResumedNotification);
-    }
+
+	if (--reserved->pauseCount == 0) {
+		if (getState() == kIOAudioEnginePaused) {
+			setState(kIOAudioEngineResumed);
+			sendNotification(kIOAudioEngineResumedNotification);
+		}
+	}
     
     return result;
 }
@@ -1534,7 +1620,25 @@ AbsoluteTime IOAudioEngine::getTimerInterval()
     } else if ((numErasesPerBuffer == 0) || (!getRunEraseHead())) {	// Run once per ring buffer
         nanoseconds_to_absolutetime(((UInt64)NSEC_PER_SEC * (UInt64)getNumSampleFramesPerBuffer() / (UInt64)currentRate->whole), &interval);
     } else {
-        nanoseconds_to_absolutetime(((UInt64)NSEC_PER_SEC * (UInt64)getNumSampleFramesPerBuffer() / (UInt64)currentRate->whole / (UInt64)numErasesPerBuffer), &interval);
+        OSCollectionIterator *outputIterator;
+        IOAudioStream *outputStream;
+		UInt32 bufferSize;
+		UInt32 newNumErasesPerBuffer;
+
+		outputIterator = OSCollectionIterator::withCollection(outputStreams);
+
+		if (outputIterator) {
+			while (outputStream = (IOAudioStream *)outputIterator->getNextObject()) {
+				bufferSize = outputStream->getSampleBufferSize();
+				if ((bufferSize / numErasesPerBuffer) > 65536) {
+					newNumErasesPerBuffer = bufferSize / 65536;
+					if (newNumErasesPerBuffer > numErasesPerBuffer) {
+						numErasesPerBuffer = newNumErasesPerBuffer;
+					}
+				}
+			}
+		}
+		nanoseconds_to_absolutetime(((UInt64)NSEC_PER_SEC * (UInt64)getNumSampleFramesPerBuffer() / (UInt64)currentRate->whole / (UInt64)numErasesPerBuffer), &interval);
     }
     return interval;
 }
@@ -1921,7 +2025,7 @@ IOReturn IOAudioEngine::addDefaultAudioControl(IOAudioControl *defaultAudioContr
 		}
         if (defaultAudioControl->attachAndStart(this)) {
             if (!defaultAudioControls) {
-                defaultAudioControls = OSSet::withObjects(&(const OSObject *)defaultAudioControl, 1, 1);
+                defaultAudioControls = OSSet::withObjects((const OSObject **)&defaultAudioControl, 1, 1);
             } else {
                 defaultAudioControls->setObject(defaultAudioControl);
             }

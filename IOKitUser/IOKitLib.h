@@ -292,7 +292,7 @@ IOIteratorIsValid(
 /*!
     @function IOServiceGetMatchingService
     @abstract Look up a registered IOService object that matches a matching dictionary.
-    @discussion This is the preferred method of finding IOService objects currently registered by IOKit. IOServiceAddMatchingNotification can also supply this information and install a notification of new IOServices. The matching information used in the matching dictionary may vary depending on the class of service being looked up.
+    @discussion This is the preferred method of finding IOService objects currently registered by IOKit (that is, objects that have had their registerService() methods invoked). To find IOService objects that aren't yet registered, use an iterator as created by IORegistryEntryCreateIterator(). IOServiceAddMatchingNotification can also supply this information and install a notification of new IOServices. The matching information used in the matching dictionary may vary depending on the class of service being looked up.
     @param masterPort The master port obtained from IOMasterPort(). Pass kIOMasterPortDefault to look up the default master port.
     @param matching A CF dictionary containing matching information, of which one reference is consumed by this function. IOKitLib can construct matching dictionaries for common criteria with helper functions such as IOServiceMatching, IOServiceNameMatching, IOBSDNameMatching, IOOpenFirmwarePathMatching.
     @result The first service matched is returned on success. The service must be released by the caller.
@@ -305,7 +305,7 @@ IOServiceGetMatchingService(
 
 /*! @function IOServiceGetMatchingServices
     @abstract Look up registered IOService objects that match a matching dictionary.
-    @discussion This is the preferred method of finding IOService objects currently registered by IOKit. IOServiceAddMatchingNotification can also supply this information and install a notification of new IOServices. The matching information used in the matching dictionary may vary depending on the class of service being looked up.
+    @discussion This is the preferred method of finding IOService objects currently registered by IOKit (that is, objects that have had their registerService() methods invoked). To find IOService objects that aren't yet registered, use an iterator as created by IORegistryEntryCreateIterator(). IOServiceAddMatchingNotification can also supply this information and install a notification of new IOServices. The matching information used in the matching dictionary may vary depending on the class of service being looked up.
     @param masterPort The master port obtained from IOMasterPort(). Pass kIOMasterPortDefault to look up the default master port.
     @param matching A CF dictionary containing matching information, of which one reference is consumed by this function. IOKitLib can construct matching dictionaries for common criteria with helper functions such as IOServiceMatching, IOServiceNameMatching, IOBSDNameMatching, IOOpenFirmwarePathMatching.
     @param existing An iterator handle is returned on success, and should be released by the caller when the iteration is finished.

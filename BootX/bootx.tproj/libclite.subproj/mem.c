@@ -79,9 +79,9 @@ void *memset(void *dst, int ch, size_t len)
   return dst;
 }
 
-void *bcopy(void *src, void *dst, int len)
+void bcopy(const void *src, void *dst, size_t len)
 {
-  return memcpy(dst, src, len);
+  memcpy(dst, src, len);
 }
 
 void bzero(void *dst, int len)

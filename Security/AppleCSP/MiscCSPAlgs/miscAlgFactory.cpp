@@ -33,6 +33,8 @@
 #include "SHA1_MD5_Object.h"			/* raw digest */
 #include "MD2Object.h"
 #include "NullCryptor.h"
+#include "bfContext.h"
+#include "castContext.h"
 #include <Security/cssmapple.h>
 
 /*
@@ -140,6 +142,19 @@ bool MiscAlgFactory::setup(
 					return true;
 				#endif
 				
+				case CSSM_ALGID_BLOWFISH:
+					if(cspCtx == NULL) {
+						cspCtx = new BlowfishContext(session);
+					}
+					return true;
+
+				case CSSM_ALGID_CAST:
+				case CSSM_ALGID_CAST5:			
+					if(cspCtx == NULL) {
+						cspCtx = new CastContext(session);
+					}
+					return true;
+
 				#if		NULL_CRYPT_ENABLE
 				case CSSM_ALGID_NONE:
 					if(cspCtx == NULL) {
@@ -245,6 +260,25 @@ bool MiscAlgFactory::setup(
 					return true;
 				#endif
 				
+				case CSSM_ALGID_BLOWFISH:
+					if(cspCtx == NULL) {
+						cspCtx = new AppleSymmKeyGenerator(session,
+							BF_MIN_KEY_SIZE_BYTES * 8,
+							BF_MAX_KEY_SIZE_BYTES * 8,
+							true);				// must be byte size
+					}
+					return true;
+
+				/* Note we require keys to be ALGID_CAST, not ALGID_CAST5 */
+				case CSSM_ALGID_CAST:
+					if(cspCtx == NULL) {
+						cspCtx = new AppleSymmKeyGenerator(session,
+							CAST_MIN_KEY_LENGTH * 8,
+							CAST_KEY_LENGTH * 8,
+							true);				// must be byte size
+					}
+					return true;
+
 				#if		MAF_MAC_ENABLE
 				case CSSM_ALGID_SHA1HMAC:
 					if(cspCtx == NULL) {

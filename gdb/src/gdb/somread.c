@@ -45,11 +45,10 @@ static void som_symfile_read (struct objfile *, int);
 
 static void som_symfile_finish (struct objfile *);
 
-static void
-som_symtab_read (bfd *, struct objfile *, struct section_offsets *);
+static void som_symtab_read (bfd *, struct objfile *,
+			     struct section_offsets *);
 
-static void
-som_symfile_offsets (struct objfile *, struct section_addr_info *);
+static void som_symfile_offsets (struct objfile *, struct section_addr_info *);
 
 /* FIXME: These should really be in a common header somewhere */
 
@@ -330,7 +329,7 @@ som_symfile_read (struct objfile *objfile, int mainline)
   bfd *abfd = objfile->obfd;
   struct cleanup *back_to;
 
-  do_pxdb (symfile_bfd_open (objfile->name));
+  do_pxdb (symfile_bfd_open (objfile->name, 0));
 
   /* Read in the import list and the export list.  Currently
      the export list isn't used; the import list is used in

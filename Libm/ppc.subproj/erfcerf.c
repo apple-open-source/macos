@@ -130,13 +130,13 @@
 *     decreasing order.                                                        *
 *******************************************************************************/
 
-static double a[5] = { 3.16112374387056560e+0,
+static const double a[5] = { 3.16112374387056560e+0,
                        1.13864154151050156e+2,
                        3.77485237685302021e+2,
                        3.20937758913846947e+3,
                        1.85777706184603153e-1 };
                        
-static double b[4] = { 2.36012909523441209e+1,
+static const double b[4] = { 2.36012909523441209e+1,
                        2.44024637934444173e+2,
                        1.28261652607737228e+3,
                        2.84423683343917062e+3 };
@@ -146,7 +146,7 @@ static double b[4] = { 2.36012909523441209e+1,
 *     in decreasing order.                                                     *
 *******************************************************************************/
 
-static double c[9] = { 5.64188496988670089e-1,
+static const double c[9] = { 5.64188496988670089e-1,
                        8.88314979438837594e+0,
                        6.61191906371416295e+1,
                        2.98635138197400131e+2,
@@ -156,7 +156,7 @@ static double c[9] = { 5.64188496988670089e-1,
                        1.23033935479799725e+3,
                        2.15311535474403846e-8 };
 
-static double d[8] = { 1.57449261107098347e+1,
+static const double d[8] = { 1.57449261107098347e+1,
                        1.17693950891312499e+2,
                        5.37181101862009858e+2,
                        1.62138957456669019e+3,
@@ -170,23 +170,23 @@ static double d[8] = { 1.57449261107098347e+1,
 *    decreasing order.                                                         *
 *******************************************************************************/
 
-static double p[6] = { 3.05326634961232344e-1,
+static const double p[6] = { 3.05326634961232344e-1,
                        3.60344899949804439e-1,
                        1.25781726111229246e-1,
                        1.60837851487422766e-2,
                        6.58749161529837803e-4,
                        1.63153871373020978e-2 };
 
-static double q[5] = { 2.56852019228982242e+0,
+static const double q[5] = { 2.56852019228982242e+0,
                        1.87295284992346047e+0,
                        5.27905102951428412e-1,
                        6.05183413124413191e-2,
                        2.33520497626869185e-3 };
 
-static double InvSqrtPI = 5.6418958354775628695e-1;
-static double xbig      = 27.2e+0;
-static double Maximum   = 2.53e+307;
-static double _HUGE      = 6.71e+7;
+static const double InvSqrtPI = 5.6418958354775628695e-1;
+static const double xbig      = 27.2e+0;
+static const double Maximum   = 2.53e+307;
+static const double _HUGE      = 6.71e+7;
 
 #pragma fenv_access on
 
@@ -220,8 +220,8 @@ double erf ( double x )
                   break;
             }
 
-            fegetenvd( OldEnvironment.d );               // save environment, set default
-            fesetenvd( 0.0 );
+            FEGETENVD( OldEnvironment.d );               // save environment, set default
+            FESETENVD( 0.0 );
 
       result = 1.0;
       result = ErrFunApprox ( x, result, which );
@@ -232,19 +232,12 @@ double erf ( double x )
 
       result = copysign ( result, x);
 
-      fegetenvd( NewEnvironment.d );
+      FEGETENVD( NewEnvironment.d );
       OldEnvironment.i.lo |= ( NewEnvironment.i.lo & EXCEPT_MASK );  // Merge new exceptions into old environment
-      fesetenvd( OldEnvironment.d );         //   restore caller's environment
+      FESETENVD( OldEnvironment.d );         //   restore caller's environment
        
       return ( result );
       }
-
-#ifdef notdef
-float erff ( float x )
-{
-    return (float)erf ( x );
-}
-#endif
 
 /*******************************************************************************
 *        C O M P L E M E N T A R Y    E R R O R    F U N C T I O N             *
@@ -275,8 +268,8 @@ double erfc ( double x )
                   break;
             }
             
-            fegetenvd( OldEnvironment.d );               // save environment, set default
-            fesetenvd( 0.0 );
+            FEGETENVD( OldEnvironment.d );               // save environment, set default
+            FESETENVD( 0.0 );
 	
       result = 0.0;
       result = ErrFunApprox ( x, result, which );
@@ -288,19 +281,13 @@ double erfc ( double x )
       if ( x < 0.0 )
             result = 2.0 - result;
       
-      fegetenvd( NewEnvironment.d );
+      FEGETENVD( NewEnvironment.d );
       OldEnvironment.i.lo |= ( NewEnvironment.i.lo & EXCEPT_MASK );  // Merge new exceptions into old environment
-      fesetenvd( OldEnvironment.d );         //   restore caller's environment
+      FESETENVD( OldEnvironment.d );         //   restore caller's environment
      
       return ( result );
       }
 
-#ifdef notdef
-float erfcf ( float x )
-{
-    return (float)erfc ( x );
-}
-#endif
 
 /*******************************************************************************
 *            C  O  R  E    A  P  P  R  O  X  I  M  A  T  I  O  N               *
@@ -367,9 +354,9 @@ static double ErrFunApprox ( double arg, double result, int which )
                         if ( which == 1 )
                                 {
                                 hexdouble OldEnvironment;
-                                fegetenvd( OldEnvironment.d );
+                                FEGETENVD( OldEnvironment.d );
                                 OldEnvironment.i.lo |= FE_UNDERFLOW;
-                                fesetenvd( OldEnvironment.d );
+                                FESETENVD( OldEnvironment.d );
                                 }
                         return result;
                         }
@@ -403,9 +390,9 @@ static double ErrFunApprox ( double arg, double result, int which )
 		if ( which == 0 )
                     {
                     hexdouble OldEnvironment;
-                    fegetenvd( OldEnvironment.d );
+                    FEGETENVD( OldEnvironment.d );
                     OldEnvironment.i.lo &= ~FE_UNDERFLOW;
-                    fesetenvd( OldEnvironment.d );
+                    FESETENVD( OldEnvironment.d );
                     }
 	
 	return ( which ) ? result : ( 0.5 - result ) + 0.5;

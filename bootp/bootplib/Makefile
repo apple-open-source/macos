@@ -23,13 +23,13 @@ HFILES = afp.h arp.h bpflib.h clientTypes.h dhcp.h dhcplib.h\
          dhcp_options.h dynarray.h macnc_options.h ptrlist.h tftplib.h\
          bsdp.h NICache.h bootp_transmit.h NICachePrivate.h nbsp.h\
          NetBootServer.h ioregpath.h cfutil.h nbimages.h\
-         NetBootImageInfo.h
+         NetBootImageInfo.h bsdplib.h
 
 CFILES = arp.c bootp_transmit.c bpflib.c dhcplib.c dhcp_options.c\
          dynarray.c hfsvols.c hostlist.c host_identifier.c inetroute.c\
          interfaces.c in_cksum.c ipcfg.c macnc_options.c nbsp.c\
          netinfo.c NICache.c NIDomain.c ptrlist.c tftplib.c ts_log.c\
-         util.c ioregpath.c cfutil.c nbimages.c
+         util.c ioregpath.c cfutil.c nbimages.c bsdplib.c
 
 OTHERSRCS = Makefile.preamble Makefile Makefile.postamble\
             genoptionfiles.c ipconfig.defs

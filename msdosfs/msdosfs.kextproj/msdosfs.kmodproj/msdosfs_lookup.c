@@ -3,19 +3,22 @@
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
- * The contents of this file constitute Original Code as defined in and
- * are subject to the Apple Public Source License Version 1.1 (the
- * "License").  You may not use this file except in compliance with the
- * License.  Please obtain a copy of the License at
- * http://www.apple.com/publicsource and read it before using this file.
+ * Copyright (c) 1999-2003 Apple Computer, Inc.  All Rights Reserved.
  * 
- * This Original Code and all software distributed under the License are
- * distributed on an "AS IS" basis, WITHOUT WARRANTY OF ANY KIND, EITHER
+ * This file contains Original Code and/or Modifications of Original Code
+ * as defined in and that are subject to the Apple Public Source License
+ * Version 2.0 (the 'License'). You may not use this file except in
+ * compliance with the License. Please obtain a copy of the License at
+ * http://www.opensource.apple.com/apsl/ and read it before using this
+ * file.
+ * 
+ * The Original Code and all software distributed under the License are
+ * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
  * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
  * INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY,
- * FITNESS FOR A PARTICULAR PURPOSE OR NON-INFRINGEMENT.  Please see the
- * License for the specific language governing rights and limitations
- * under the License.
+ * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
+ * Please see the License for the specific language governing rights and
+ * limitations under the License.
  * 
  * @APPLE_LICENSE_HEADER_END@
  */
@@ -199,7 +202,7 @@ msdosfs_lookup(vdp, vpp, cnp)
 	u_long cluster;
 	int blkoff;
 	int diroff;
-	int blsize;
+	u_long blsize;
 	int isadir;		/* ~0 if found direntry is a directory	 */
 	u_long scn;		/* starting cluster number		 */
 	struct vnode *pdp;
@@ -261,7 +264,12 @@ msdosfs_lookup(vdp, vpp, cnp)
 	
 	switch (unicode2dosfn(ucfn, dosfilename, unichars, 0)) {
 	case 0:
-		return (EINVAL);
+                /*
+                 * The name is syntactically invalid.  Normally, we'd return EINVAL,
+                 * but ENAMETOOLONG makes it clear that the name is the problem (and
+                 * allows Carbon to return a more meaningful error).
+                 */
+		return (ENAMETOOLONG);
 	case 1:
 		break;
 	case 2:
@@ -307,7 +315,7 @@ msdosfs_lookup(vdp, vpp, cnp)
 	 */
 	diroff = 0;
 	for (frcn = 0;; frcn++) {
-		error = pcbmap(dp, frcn, &bn, &cluster, &blsize);
+		error = pcbmap(dp, frcn, 1, &bn, &cluster, &blsize);
 		if (error) {
 			if (error == E2BIG)
 				break;
@@ -499,6 +507,12 @@ found:
 	}
 
 	if (isadir) {
+		/*
+		 * For directories, the cluster and offset in the denode
+		 * actually point at the "." entry in the directory.
+		 * The denode for the root directory itself uses a special
+		 * constant MSDOSFSROOT_OFS for the offset.
+		 */
 		cluster = scn;
 		if (cluster == MSDOSFSROOT)
 			blkoff = MSDOSFSROOT_OFS;
@@ -666,7 +680,7 @@ createde(dep, ddep, depp, cnp)
 	struct msdosfsmount *pmp = ddep->de_pmp;
 	struct buf *bp;
 	daddr_t bn;
-	int blsize;
+	u_long blsize;
 
 #ifdef MSDOSFS_DEBUG
 	printf("createde(dep %p, ddep %p, depp %p, cnp %p)\n",
@@ -702,7 +716,7 @@ createde(dep, ddep, depp, cnp)
 	 * entry in.  Then write it to disk. NOTE:  DOS directories
 	 * do not get smaller as clusters are emptied.
 	 */
-	error = pcbmap(ddep, de_cluster(pmp, ddep->de_fndoffset),
+	error = pcbmap(ddep, de_cluster(pmp, ddep->de_fndoffset), 1,
 		       &bn, &dirclust, &blsize);
 	if (error)
 		return error;
@@ -747,6 +761,7 @@ createde(dep, ddep, depp, cnp)
 				error = pcbmap(ddep,
 					       de_cluster(pmp,
 							  ddep->de_fndoffset),
+                                               1,
 					       &bn, 0, &blsize);
 				if (error)
 					return error;
@@ -804,7 +819,7 @@ int
 dosdirempty(dep)
 	struct denode *dep;
 {
-	int blsize;
+	u_long blsize;
 	int error;
 	u_long cn;
 	daddr_t bn;
@@ -818,7 +833,7 @@ dosdirempty(dep)
 	 * we hit end of file.
 	 */
 	for (cn = 0;; cn++) {
-		if ((error = pcbmap(dep, cn, &bn, 0, &blsize)) != 0) {
+		if ((error = pcbmap(dep, cn, 1, &bn, NULL, &blsize)) != 0) {
 			if (error == E2BIG)
 				return (1);	/* it's empty */
 			return (0);
@@ -977,6 +992,21 @@ readep(pmp, dirclust, diroffset, bpp, epp)
 	daddr_t bn;
 	int blsize;
 
+        /*
+         * Handle the special case of the root directory.  If there is a volume
+         * label entry, then get that.  Otherwise, return an error.
+         */
+	if ((dirclust == MSDOSFSROOT
+	     || (FAT32(pmp) && dirclust == pmp->pm_rootdirblk))
+	    && diroffset == MSDOSFSROOT_OFS) {
+                if (pmp->pm_label_cluster == CLUST_EOFE)
+                    return EIO;
+                else {
+                    dirclust = pmp->pm_label_cluster;
+                    diroffset = pmp->pm_label_offset;
+                }
+        }
+        
 	blsize = pmp->pm_bpcluster;
 	if (dirclust == MSDOSFSROOT
 	    && de_blk(pmp, diroffset + blsize) > pmp->pm_rootdirsize)
@@ -1025,7 +1055,7 @@ removede(pdep, dep)
     struct direntry *ep;
     struct buf *bp;
     daddr_t bn;
-    int blsize;
+    u_long blsize;
     struct msdosfsmount *pmp = pdep->de_pmp;
     u_long offset = pdep->de_fndoffset;
 
@@ -1038,7 +1068,7 @@ removede(pdep, dep)
     offset += sizeof(struct direntry);
     do {
         offset -= sizeof(struct direntry);
-        error = pcbmap(pdep, de_cluster(pmp, offset), &bn, 0, &blsize);
+        error = pcbmap(pdep, de_cluster(pmp, offset), 1, &bn, NULL, &blsize);
         if (error)
             return error;
         error = meta_bread(pmp->pm_devvp, bn, blsize, NOCRED, &bp);
@@ -1098,7 +1128,7 @@ uniqdosname(dep, cnp, cp)
 	struct msdosfsmount *pmp = dep->de_pmp;
 	struct direntry *dentp;
 	int gen;
-	int blsize;
+	u_long blsize;
 	u_long cn;
 	daddr_t bn;
 	struct buf *bp;
@@ -1115,20 +1145,20 @@ uniqdosname(dep, cnp, cp)
 	
 	if (pmp->pm_flags & MSDOSFSMNT_SHORTNAME)
 		return (unicode2dosfn(ucfn, cp, unichars, 0) ?
-		    0 : EINVAL);
+		    0 : ENAMETOOLONG);
 
 	for (gen = 1;; gen++) {
 		/*
 		 * Generate DOS name with generation number
 		 */
 		if (!unicode2dosfn(ucfn, cp, unichars, gen))
-			return gen == 1 ? EINVAL : EEXIST;
+			return gen == 1 ? ENAMETOOLONG : EEXIST;
 
 		/*
 		 * Now look for a dir entry with this exact name
 		 */
 		for (cn = error = 0; !error; cn++) {
-			if ((error = pcbmap(dep, cn, &bn, 0, &blsize)) != 0) {
+			if ((error = pcbmap(dep, cn, 1, &bn, NULL, &blsize)) != 0) {
 				if (error == E2BIG)	/* EOF reached and not found */
 					return 0;
 				return error;
@@ -1172,7 +1202,8 @@ findwin95(dep)
 {
 	struct msdosfsmount *pmp = dep->de_pmp;
 	struct direntry *dentp;
-	int blsize, win95;
+        u_long blsize;
+	int win95;
 	u_long cn;
 	daddr_t bn;
 	struct buf *bp;
@@ -1183,7 +1214,7 @@ findwin95(dep)
 	 * Note: Error currently handled just as EOF			XXX
 	 */
 	for (cn = 0;; cn++) {
-		if (pcbmap(dep, cn, &bn, 0, &blsize))
+		if (pcbmap(dep, cn, 1, &bn, NULL, &blsize))
 			return (win95);
         	if (meta_bread(pmp->pm_devvp, bn, blsize, NOCRED, &bp)) {
 			brelse(bp);
@@ -1214,4 +1245,129 @@ findwin95(dep)
 		}
 		brelse(bp);
 	}
+}
+
+/*
+ * Find room in a directory to create the entries for a given name.
+ *
+ * dep	- directory to search for free/unused entries
+ * cnp	- the name to be created (used to determine number of slots needed).
+ */
+int
+findslots(dep, cnp)
+    struct denode *dep;
+    struct componentname *cnp;
+{
+        int error;
+	u_char dosfilename[12];
+        u_int16_t ucfn[WIN_MAXLEN];
+        size_t unichars;
+        int wincnt;	/* Number of consecutive entries needed for long name + dir entry */
+        int slotcount;	/* Number of consecutive entries found so far */
+	int diroff;	/* Byte offset of entry from start of directory */
+	int blkoff;	/* Byte offset of entry from start of block */
+	int frcn;	/* File (directory) relative cluster number */
+	daddr_t bn;	/* Physical disk block number */
+	u_long cluster;	/* Physical cluster */
+	u_long blsize;	/* Size of directory cluster, in bytes */
+        struct direntry *entry;
+	struct msdosfsmount *pmp;
+	struct buf *bp;
+
+        pmp = dep->de_pmp;
+
+        /*
+         * Decode name into UCS-2 (Unicode)
+         */
+        (void) utf8_decodestr(cnp->cn_nameptr, cnp->cn_namelen, ucfn, &unichars,
+                                sizeof(ucfn), 0, UTF_PRECOMPOSED);
+        unichars /= 2; /* bytes to chars */
+
+        /*
+         * Determine the number of consecutive directory entries we'll need.
+         */
+        switch (unicode2dosfn(ucfn, dosfilename, unichars, 0)) {
+        case 0:
+                /*
+                 * The name is syntactically invalid.  Normally, we'd return EINVAL,
+                 * but ENAMETOOLONG makes it clear that the name is the problem (and
+                 * allows Carbon to return a more meaningful error).
+                 */
+                return (ENAMETOOLONG);
+        case 1:
+                /*
+                 * The name is already a short, DOS name, so no long name entries needed.
+                 */
+                wincnt = 1;
+                break;
+        case 2:
+        case 3:
+                wincnt = winSlotCnt(ucfn, unichars) + 1;
+                break;
+        }
+        if (pmp->pm_flags & MSDOSFSMNT_SHORTNAME) {
+                wincnt = 1;
+        }
+
+        /*
+         * Look for some consecutive unused directory entries.
+         */
+        slotcount = 0;		/* None found yet. */
+        
+        /* The outer loop ranges over the clusters in the directory. */
+        diroff = 0;
+        for (frcn = 0; ; frcn++) {
+		error = pcbmap(dep, frcn, 1, &bn, &cluster, &blsize);
+		if (error) {
+			if (error == E2BIG)
+				break;
+			return (error);
+		}
+                error = meta_bread(pmp->pm_devvp, bn, blsize, NOCRED, &bp);
+		if (error) {
+			brelse(bp);
+			return (error);
+		}
+
+                /* Loop over entries in the cluster. */
+		for (blkoff = 0; blkoff < blsize;
+		     blkoff += sizeof(struct direntry),
+		     diroff += sizeof(struct direntry)) {
+			entry = (struct direntry *)(bp->b_data + blkoff);
+                        
+                        if (entry->deName[0] == SLOT_EMPTY ||
+                            entry->deName[0] == SLOT_DELETED) {
+                                slotcount++;
+                                if (slotcount == wincnt) {
+                                        /* Found enough space! */
+                                        dep->de_fndoffset = diroff;
+                                        goto found;
+                                }
+                        } else {
+                                /* Empty space wasn't big enough, so forget about it. */
+                                slotcount = 0;
+                        }
+                }
+                brelse(bp);
+                bp = NULL;
+        }
+        /*
+         * Fix up the slot description to point to where we would put the
+         * DOS entry (with Win95 long name entries before that).  If we
+         * would need to grow the entry, then the offset will be past the
+         * current size of the directory.
+         */
+found:        
+	if (!slotcount) {
+		slotcount = 1;
+		dep->de_fndoffset = diroff;
+	}
+	if (wincnt > slotcount)
+		dep->de_fndoffset += sizeof(struct direntry) * (wincnt - slotcount);
+        dep->de_fndcnt = wincnt - 1;
+
+        if (bp)
+                brelse(bp);
+
+        return 0;
 }

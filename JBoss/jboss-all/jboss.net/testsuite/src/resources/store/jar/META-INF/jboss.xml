@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="utf-8"?>
+<jboss>
+   <enterprise-beans>
+      <session>
+         <ejb-name>ItemService</ejb-name>
+         <jndi-name>ItemService</jndi-name>
+      </session>
+      <session>
+         <ejb-name>BusinessPartnerService</ejb-name>
+         <jndi-name>BusinessPartnerService</jndi-name>
+      </session>
+      <entity>
+         <ejb-name>ItemHome</ejb-name>
+         <jndi-name>ItemHome</jndi-name>
+      </entity>
+      <entity>
+         <ejb-name>BusinessPartnerHome</ejb-name>
+         <jndi-name>BusinessPartnerHome</jndi-name>
+      </entity>
+   </enterprise-beans>
+</jboss>

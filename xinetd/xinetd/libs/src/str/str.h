@@ -9,7 +9,7 @@
 #define __STR_H
 
 /*
- * $Id: str.h,v 1.1.1.3 2002/10/02 21:07:11 bbraun Exp $
+ * $Id: str.h,v 1.1.1.5 2003/06/15 17:31:44 rbraun Exp $
  */
 
 #include <stdarg.h>
@@ -20,6 +20,8 @@
 #else
 #define PRINTF_FORMAT(n, m)
 #endif
+
+typedef void *str_h ;
 
 /*
  * strprint(3) functions
@@ -40,6 +42,7 @@ void strx_printv ( int *cnt, char *buf, int len, const char *fmt, va_list )
 /*
  * strparse(3) functions
  */
+int str_setstr( str_h handle, char *newstr );
    
 /*
  * Return values
@@ -64,10 +67,8 @@ void strx_printv ( int *cnt, char *buf, int len, const char *fmt, va_list )
 #define STR_ENULLSTRING			2
 #define STR_ENOMEM			3
 
-typedef void *str_h ;
-
 char *new_string(const char *) ;
-str_h str_parse ( char *str, char *separ, int flags, int *errnop ) ;
+str_h str_parse ( char *str, const char *separ, int flags, int *errnop ) ;
 void str_endparse ( str_h handle ) ;
 char *str_component ( str_h handle ) ;
 
@@ -75,7 +76,7 @@ char *str_component ( str_h handle ) ;
 /*
  * strutil(3) functions
  */
-char *str_casefind ( const char *s1, const char *s2 ) ;
+char *str_casefind ( char *s1, const char *s2 ) ;
 void str_fill ( char *s, char c ) ;
 
 

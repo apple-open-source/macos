@@ -18,7 +18,7 @@ what:
 	@echo
 	@echo "	generic (most bsd-ish systems with sys5 compatibility)"
 	@echo "	386bsd aix alpha apollo bsdos convex-ultranet dell-gcc dgux dgux543"
-	@echo "	dynix epix esix freebsd rhapsody hpux irix4 irix5 irix6 isc iunix"
+	@echo "	dynix epix esix freebsd hpux irix4 irix5 irix6 isc iunix"
 	@echo "	linux machten mips(untested) ncrsvr4 netbsd next osf power_unix_211"
 	@echo "	ptx-2.x ptx-generic pyramid sco sco-nis sco-od2 sco-os5 sinix sunos4"
 	@echo "	sunos40 sunos5 sysv4 tandem ultrix unicos7 unicos8 unixware1 unixware2"
@@ -92,7 +92,7 @@ what:
 generic aix osf alpha dynix:
 	@make REAL_DAEMON_DIR=$(REAL_DAEMON_DIR) STYLE=$(STYLE) \
 	LIBS= RANLIB=ranlib ARFLAGS=rv AUX_OBJ=setenv.o \
-	NETGROUP=-DNETGROUP TLI= all
+	NETGROUP=-DNETGROUP TLI= IPV6="$(IPV6)" all
 
 # Ditto, with vsyslog
 sunos4:
@@ -134,22 +134,22 @@ epix:
 386bsd netbsd bsdos:
 	@make REAL_DAEMON_DIR=$(REAL_DAEMON_DIR) STYLE=$(STYLE) \
 	LIBS= RANLIB=ranlib ARFLAGS=rv AUX_OBJ= NETGROUP= TLI= \
-	EXTRA_CFLAGS=-DSYS_ERRLIST_DEFINED VSYSLOG= all
+	EXTRA_CFLAGS=-DUSE_STRERROR VSYSLOG= all
 
 freebsd:
 	@make REAL_DAEMON_DIR=$(REAL_DAEMON_DIR) STYLE=$(STYLE) \
 	LIBS= RANLIB=ranlib ARFLAGS=rv AUX_OBJ= NETGROUP= TLI= \
-	EXTRA_CFLAGS=-DSYS_ERRLIST_DEFINED VSYSLOG= all
+	EXTRA_CFLAGS=-DUSE_STRERROR VSYSLOG= all
 
-rhapsody macos:
-	@make REAL_DAEMON_DIR=$(REAL_DAEMON_DIR) STYLE=$(STYLE) \
+macos:
+	make REAL_DAEMON_DIR=$(REAL_DAEMON_DIR) STYLE=$(STYLE) \
 	LIBS= RANLIB=ranlib ARFLAGS=rv AUX_OBJ= NETGROUP=-DNETGROUP \
 	TLI= EXTRA_CFLAGS=-DSYS_ERRLIST_DEFINED VSYSLOG= all
 
 linux:
 	@make REAL_DAEMON_DIR=$(REAL_DAEMON_DIR) STYLE=$(STYLE) \
 	LIBS= RANLIB=ranlib ARFLAGS=rv AUX_OBJ=setenv.o \
-	NETGROUP= TLI= EXTRA_CFLAGS="-DBROKEN_SO_LINGER" all
+	NETGROUP= TLI= EXTRA_CFLAGS="-DBROKEN_SO_LINGER -DUSE_STRERROR" all
 
 # This is good for many SYSV+BSD hybrids with NIS, probably also for HP-UX 7.x.
 hpux hpux8 hpux9 hpux10:
@@ -196,10 +196,11 @@ irix6:
 
 # SunOS 5.x is another SYSV4 variant.
 sunos5:
-	@make REAL_DAEMON_DIR=$(REAL_DAEMON_DIR) STYLE=$(STYLE) \
+	@$(MAKE) REAL_DAEMON_DIR=$(REAL_DAEMON_DIR) STYLE=$(STYLE) \
 	LIBS="-lsocket -lnsl" RANLIB=echo ARFLAGS=rv VSYSLOG= \
 	NETGROUP=-DNETGROUP AUX_OBJ=setenv.o TLI=-DTLI \
-	BUGS="$(BUGS) -DSOLARIS_24_GETHOSTBYNAME_BUG" all
+	BUGS="$(BUGS) -DSOLARIS_24_GETHOSTBYNAME_BUG" IPV6="$(IPV6)" \
+	EXTRA_CFLAGS=-DUSE_STRERROR all
 
 # Generic SYSV40
 esix sysv4:
@@ -234,7 +235,7 @@ tandem:
 
 # Amdahl UTS 2.1.5 (Richard.Richmond@bridge.bst.bls.com)
 uts215:
-	@make REAL_DAEMON_DIR=$(REAL_DAEMON_DIR) STYLE=$(STYLE) \
+	@make REAL_DAEMON_DIR=$(REAL_DAEMON_DIR) STYLE=$(STYLE) \   
 	LIBS="-lsocket" RANLIB=echo \
 	ARFLAGS=rv AUX_OBJ=setenv.o NETGROUP=-DNO_NETGROUP TLI= all
 
@@ -479,6 +480,18 @@ BUGS = -DGETPEERNAME_BUG -DBROKEN_FGETS -DLIBC_CALLS_STRTOK
 
 VSYSLOG	= -Dvsyslog=myvsyslog
 
+###############################################################
+# System dependencies: whether or not your system has IPV6
+#
+# If your system has IPv6 and supports getipnode* and inet_pton/inet_ntop
+# uncomment the following (Solaris 8)
+
+IPV6 = -DHAVE_IPV6
+
+# If your system does not have getipnodebyname() but uses the obsolete
+# gethostbyname2() instead, use this (AIX)
+# IPV6 = -DHAVE_IPV6 -DUSE_GETHOSTBYNAME2
+
 # End of the system dependencies.
 #################################
 
@@ -523,11 +536,7 @@ FACILITY= LOG_MAIL	# LOG_MAIL is what most sendmail daemons use
 
 # The syslog priority at which successful connections are logged.
 
-ALLOW_SEVERITY= LOG_INFO	# LOG_INFO is normally not logged to the console
-
-# The syslog priority at which unsuccessful connections are logged.
-
-DENY_SEVERITY= LOG_INFO		# LOG_INFO is normally not logged to the console
+SEVERITY= LOG_INFO	# LOG_INFO is normally not logged to the console
 
 ###########################
 # Optional: Reduce DNS load
@@ -668,20 +677,17 @@ HOSTNAME= -DALWAYS_HOSTNAME
 SHELL	= /bin/sh
 .c.o:;	$(CC) $(CFLAGS) $(CPPFLAGS) -c $*.c
 
-CFLAGS = -O
-
-CPPFLAGS = -DFACILITY=$(FACILITY) $(ACCESS) $(PARANOID) $(NETGROUP) \
+CPPFLAGS = -O -DFACILITY=$(FACILITY) $(ACCESS) $(PARANOID) $(NETGROUP) \
 	$(BUGS) $(SYSTYPE) $(AUTH) $(UMASK) \
 	-DREAL_DAEMON_DIR=\"$(REAL_DAEMON_DIR)\" $(STYLE) $(KILL_OPT) \
-	-DALLOW_SEVERITY=$(ALLOW_SEVERITY) -DDENY_SEVERITY=$(DENY_SEVERITY) \
-	-DRFC931_TIMEOUT=$(RFC931_TIMEOUT) \
+	-DSEVERITY=$(SEVERITY) -DRFC931_TIMEOUT=$(RFC931_TIMEOUT) \
 	$(UCHAR) $(TABLES) $(STRINGS) $(TLI) $(EXTRA_CFLAGS) $(DOT) \
-	$(VSYSLOG) $(HOSTNAME)
+	$(VSYSLOG) $(HOSTNAME) $(IPV6)
 
 LIB_OBJ= hosts_access.o options.o shell_cmd.o rfc931.o eval.o \
 	hosts_ctl.o refuse.o percent_x.o clean_exit.o $(AUX_OBJ) \
 	$(FROM_OBJ) fix_options.o socket.o tli.o workarounds.o \
-	update.o misc.o address_range.o diag.o percent_m.o myvsyslog.o
+	update.o misc.o diag.o percent_m.o myvsyslog.o
 
 FROM_OBJ= fromhost.o
 
@@ -691,7 +697,7 @@ KIT	= README miscd.c tcpd.c fromhost.c hosts_access.c shell_cmd.c \
 	clean_exit.c environ.c patchlevel.h fix_options.c workarounds.c \
 	socket.c tli.c DISCLAIMER fakelog.c safe_finger.c hosts_options.5 \
 	CHANGES try-from.c update.c ptx.c vfprintf.c tli-sequent.c \
-	tli-sequent.h misc.c address_range.c diag.c ncr.c tcpdchk.c percent_m.c \
+	tli-sequent.h misc.c diag.c ncr.c tcpdchk.c percent_m.c \
 	myvsyslog.c mystdarg.h printf.ck README.IRIX Banners.Makefile \
 	refuse.c tcpdchk.8 setenv.c inetcf.c inetcf.h scaffold.c \
 	scaffold.h tcpdmatch.8 README.NIS
@@ -709,6 +715,8 @@ config-check:
 	then rm /tmp/cflags.$$$$ ; \
 	else mv /tmp/cflags.$$$$ cflags ; \
 	fi >/dev/null 2>/dev/null
+
+cflags: config-check
 
 $(LIB):	$(LIB_OBJ)
 	rm -f $(LIB)
@@ -763,8 +771,7 @@ lint: tcpd_lint miscd_lint match_lint chk_lint
 
 tcpd_lint:
 	lint -DFACILITY=LOG_MAIL -DHOSTS_ACCESS -DPARANOID -DNETGROUP \
-	-DGETPEERNAME_BUG -DDAEMON_UMASK=022 \
-	-DALLOW_SEVERITY=$(ALLOW_SEVERITY) -DDENY_SEVERITY=$(DENY_SEVERITY) \
+	-DGETPEERNAME_BUG -DDAEMON_UMASK=022 -DSEVERITY=$(SEVERITY) \
 	$(TABLES) -DKILL_IP_OPTIONS -DPROCESS_OPTIONS \
 	-DRFC931_TIMEOUT=$(RFC931_TIMEOUT) -DALWAYS_RFC931 \
 	-DREAL_DAEMON_DIR=\"$(REAL_DAEMON_DIR)\" \
@@ -772,12 +779,11 @@ tcpd_lint:
 	tcpd.c fromhost.c socket.c tli.c hosts_access.c \
 	shell_cmd.c refuse.c rfc931.c eval.c percent_x.c clean_exit.c \
 	options.c setenv.c fix_options.c workarounds.c update.c misc.c \
-	address_range.c diag.c myvsyslog.c percent_m.c
+	diag.c myvsyslog.c percent_m.c
 
 miscd_lint:
 	lint -DFACILITY=LOG_MAIL -DHOSTS_ACCESS -DPARANOID -DNETGROUP \
-	-DGETPEERNAME_BUG -DDAEMON_UMASK=022 \
-	-DALLOW_SEVERITY=$(ALLOW_SEVERITY) -DDENY_SEVERITY=$(DENY_SEVERITY) \
+	-DGETPEERNAME_BUG -DDAEMON_UMASK=022 -DSEVERITY=$(SEVERITY) \
 	$(TABLES) -DKILL_IP_OPTIONS -DPROCESS_OPTIONS \
 	-DRFC931_TIMEOUT=$(RFC931_TIMEOUT) -DALWAYS_RFC931 \
 	-DREAL_DAEMON_DIR=\"$(REAL_DAEMON_DIR)\" \
@@ -785,53 +791,46 @@ miscd_lint:
 	miscd.c fromhost.c socket.c tli.c hosts_access.c \
 	shell_cmd.c refuse.c rfc931.c eval.c percent_x.c clean_exit.c \
 	options.c setenv.c fix_options.c workarounds.c update.c misc.c \
-	address_range.c diag.c myvsyslog.c percent_m.c
+	diag.c myvsyslog.c percent_m.c
 
 match_lint:
-	lint -DFACILITY=LOG_MAIL -DHOSTS_ACCESS \
-	-DALLOW_SEVERITY=$(ALLOW_SEVERITY) -DDENY_SEVERITY=$(DENY_SEVERITY) \
+	lint -DFACILITY=LOG_MAIL -DSEVERITY=$(SEVERITY) -DHOSTS_ACCESS \
 	-DPARANOID $(TABLES) -DNETGROUP -DPROCESS_OPTIONS -DRFC931_TIMEOUT=10 \
 	-DREAL_DAEMON_DIR=\"$(REAL_DAEMON_DIR)\" \
 	-Dvsyslog=myvsyslog \
 	tcpdmatch.c hosts_access.c eval.c percent_x.c options.c workarounds.c \
-	update.c socket.c misc.c address_range.c diag.c myvsyslog.c percent_m.c \
-	setenv.c inetcf.c scaffold.c
+	update.c socket.c misc.c diag.c myvsyslog.c percent_m.c setenv.c \
+	inetcf.c scaffold.c
 
 chk_lint:
-	lint -DFACILITY=LOG_MAIL -DHOSTS_ACCESS \
-	-DALLOW_SEVERITY=$(ALLOW_SEVERITY) -DDENY_SEVERITY=$(DENY_SEVERITY) \
+	lint -DFACILITY=LOG_MAIL -DSEVERITY=$(SEVERITY) -DHOSTS_ACCESS \
 	-DPARANOID $(TABLES) -DNETGROUP -DPROCESS_OPTIONS -DRFC931_TIMEOUT=10 \
 	-DREAL_DAEMON_DIR=\"$(REAL_DAEMON_DIR)\" \
 	-Dvsyslog=myvsyslog \
 	tcpdchk.c eval.c percent_x.c options.c update.c workarounds.c \
-	setenv.c misc.c address_range.c diag.c myvsyslog.c percent_m.c inetcf.c \
-	scaffold.c
+	setenv.c misc.c diag.c myvsyslog.c percent_m.c inetcf.c scaffold.c
 
 printfck:
 	printfck -f printf.ck \
 	tcpd.c fromhost.c socket.c tli.c hosts_access.c \
 	shell_cmd.c refuse.c rfc931.c eval.c percent_x.c clean_exit.c \
 	options.c setenv.c fix_options.c workarounds.c update.c misc.c \
-	address_range.c diag.c myvsyslog.c percent_m.c >aap.c
+	diag.c myvsyslog.c percent_m.c >aap.c
 	lint -DFACILITY=LOG_MAIL -DHOSTS_ACCESS -DPARANOID -DNETGROUP \
-	-DGETPEERNAME_BUG -DDAEMON_UMASK=022 \
-	-DALLOW_SEVERITY=$(ALLOW_SEVERITY) -DDENY_SEVERITY=$(DENY_SEVERITY) \
+	-DGETPEERNAME_BUG -DDAEMON_UMASK=022 -DSEVERITY=$(SEVERITY) \
 	$(TABLES) -DKILL_IP_OPTIONS -DPROCESS_OPTIONS \
 	-DRFC931_TIMEOUT=$(RFC931_TIMEOUT) -DALWAYS_RFC931 \
 	-DREAL_DAEMON_DIR=\"$(REAL_DAEMON_DIR)\" -Dvsyslog=myvsyslog aap.c
 	printfck -f printf.ck \
 	tcpdchk.c eval.c percent_x.c options.c update.c workarounds.c \
-	setenv.c misc.c address_range.c diag.c myvsyslog.c percent_m.c inetcf.c \
-	scaffold.c >aap.c
-	lint -DFACILITY=LOG_MAIL -DHOSTS_ACCESS \
-	-DALLOW_SEVERITY=$(ALLOW_SEVERITY) -DDENY_SEVERITY=$(DENY_SEVERITY) \
+	setenv.c misc.c diag.c myvsyslog.c percent_m.c inetcf.c scaffold.c \
+	>aap.c
+	lint -DFACILITY=LOG_MAIL -DSEVERITY=$(SEVERITY) -DHOSTS_ACCESS \
 	-DPARANOID $(TABLES) -DNETGROUP -DPROCESS_OPTIONS -DRFC931_TIMEOUT=10 \
 	-Dvsyslog=myvsyslog -DREAL_DAEMON_DIR=\"$(REAL_DAEMON_DIR)\"
 
 # Internal compilation dependencies.
 
-address_range.o: cflags
-address_range.o: tcpd.h
 clean_exit.o: cflags
 clean_exit.o: tcpd.h
 diag.o: cflags

@@ -23,40 +23,22 @@
  * OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
  * SUCH DAMAGE.
  */
-/* $Id: fetch_util.c,v 1.3 2002/07/22 22:59:44 lutherj Exp $ */
+/* $Id: fetch_util.c,v 1.4 2003/02/06 20:22:31 lutherj Exp $ */
 
 #include <sys/types.h>
+#include <sys/syslog.h>
 
-#include <err.h>
-#include <errno.h>
-#include <setjmp.h>
-#include <signal.h>
 #include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
-#include <unistd.h>
-
-#include <sys/param.h>		/* for MAXHOSTNAMELEN */
-#include <sys/time.h>		/* for struct timeval, gettimeofday */
-
 #include "fetch.h"
 #include "webdavd.h"
 
 /*****************************************************************************/
 
-static sigjmp_buf sigbuf;
 int get(struct fetch_state *volatile fs, int * download_status);
 
 /*****************************************************************************/
 
-/*
- * The signal handling is probably more complex than it needs to be,
- * but it doesn't cost a lot, so we'll be extra-careful.  Using
- * siglongjmp() to get out of the signal handler allows us to
- * call rm() without having to store the state variable in some global
- * spot where the signal handler can get at it.	 We also obviate the need
- * for a separate timeout signal handler.
- */
+/* XXX This function could probably be moved to http.c or removed completely */
 int get(struct fetch_state *volatile fs, int *download_status)
 {
 	volatile int error;
@@ -72,6 +54,7 @@ int get(struct fetch_state *volatile fs, int *download_status)
 
 /*****************************************************************************/
 
+/* XXX This function could probably be moved to http.c or removed completely */
 int make_request(struct fetch_state *volatile fs,
 	int( *function)(struct fetch_state *fs, void *arg), void *arg, int do_close)
 {
@@ -85,20 +68,6 @@ int make_request(struct fetch_state *volatile fs,
 	}
 	
 	return error;
-}
-
-/*****************************************************************************/
-
-/*
- * Utility functions
- */
-
-/*
- * Handle all signals by jumping back into get().
- */
-void catchsig(int sig)
-{
-	siglongjmp(sigbuf, sig);
 }
 
 /*****************************************************************************/

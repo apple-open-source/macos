@@ -1,6 +1,7 @@
-/* charset=UTF-8
- * vim: encoding=utf-8:
- * */
+/*
+ * charset=UTF-8
+ * vim600: encoding=utf-8
+ */
 
 /*
  * "streamable kanji code filter and converter"
@@ -79,12 +80,37 @@
  *
  */
 
-/* $Id: mbfilter.c,v 1.1.1.2 2001/12/14 22:12:33 zarzycki Exp $ */
+/* $Id: mbfilter.c,v 1.1.1.5 2003/07/18 18:07:35 zarzycki Exp $ */
 
+
+#ifdef HAVE_CONFIG_H
+#include "config.h"
+#endif
+
+#include "php.h"
+#include "php_globals.h"
+
+#ifdef HAVE_MBSTRING
 
 #include <stdlib.h>
 #include "mbfilter.h"
+
+#if defined(HAVE_MBSTR_JA)
 #include "mbfilter_ja.h"
+#endif
+#if defined(HAVE_MBSTR_CN)
+#include "mbfilter_cn.h"
+#endif
+#if defined(HAVE_MBSTR_TW)
+#include "mbfilter_tw.h"
+#endif
+#if defined(HAVE_MBSTR_KR)
+#include "mbfilter_kr.h"
+#endif
+#if defined(HAVE_MBSTR_KR)
+#include "mbfilter_ru.h"
+#endif
+
 #include "zend.h"
 
 #ifdef PHP_WIN32
@@ -100,46 +126,32 @@
 #define	mbfl_prealloc	realloc
 #define	mbfl_pfree		free
 
-/* unicode table */
-extern const unsigned short cp1252_ucs_table[];
-extern const unsigned short iso8859_2_ucs_table[];
-extern const unsigned short iso8859_3_ucs_table[];
-extern const unsigned short iso8859_4_ucs_table[];
-extern const unsigned short iso8859_5_ucs_table[];
-extern const unsigned short iso8859_6_ucs_table[];
-extern const unsigned short iso8859_7_ucs_table[];
-extern const unsigned short iso8859_8_ucs_table[];
-extern const unsigned short iso8859_9_ucs_table[];
-extern const unsigned short iso8859_10_ucs_table[];
-extern const unsigned short iso8859_13_ucs_table[];
-extern const unsigned short iso8859_14_ucs_table[];
-extern const unsigned short iso8859_15_ucs_table[];
-
-/* charactor property table */
-#define MBFL_CHP_CTL		0x01
-#define MBFL_CHP_DIGIT		0x02
-#define MBFL_CHP_UALPHA		0x04
-#define MBFL_CHP_LALPHA		0x08
-#define MBFL_CHP_MMHQENC	0x10	/* must Q-encoding in MIME Header encoded-word */
-#define MBFL_CHP_MSPECIAL	0x20	/* RFC822 Special characters */
-
-extern const unsigned char mbfl_charprop_table[];
-
+#include "unicode_table.h"
 
 /* language structure */
-static const char *mbfl_language_uni_aliases[] = {"universal", "none", NULL};
-
-static mbfl_language mbfl_language_uni = {
-	mbfl_no_language_uni,
-	"uni",
-	"uni",
-	&mbfl_language_uni_aliases,
+static const mbfl_language mbfl_language_neutral = {
+	mbfl_no_language_neutral,
+	"neutral",
+	"neutral",
+	NULL,
 	mbfl_no_encoding_utf8,
 	mbfl_no_encoding_base64,
 	mbfl_no_encoding_base64
 };
 
-static mbfl_language mbfl_language_japanese = {
+static const char *mbfl_language_uni_aliases[] = {"universal", NULL};
+
+static const mbfl_language mbfl_language_uni = {
+	mbfl_no_language_uni,
+	"uni",
+	"uni",
+	(const char *(*)[])&mbfl_language_uni_aliases,
+	mbfl_no_encoding_utf8,
+	mbfl_no_encoding_base64,
+	mbfl_no_encoding_base64
+};
+
+static const mbfl_language mbfl_language_japanese = {
 	mbfl_no_language_japanese,
 	"Japanese",
 	"ja",
@@ -149,7 +161,17 @@ static mbfl_language mbfl_language_japanese = {
 	mbfl_no_encoding_7bit
 };
 
-static mbfl_language mbfl_language_english = {
+static const mbfl_language mbfl_language_korean = {
+	mbfl_no_language_korean,
+	"Korean",
+	"ko",
+	NULL,
+	mbfl_no_encoding_2022kr,
+	mbfl_no_encoding_base64,
+	mbfl_no_encoding_7bit
+};
+
+static const mbfl_language mbfl_language_english = {
 	mbfl_no_language_english,
 	"English",
 	"en",
@@ -159,10 +181,58 @@ static mbfl_language mbfl_language_english = {
 	mbfl_no_encoding_8bit
 };
 
-static mbfl_language *mbfl_language_ptr_table[] = {
+static const char *mbfl_language_german_aliases[] = {"Deutsch", NULL};
+
+static const mbfl_language mbfl_language_german = {
+	mbfl_no_language_german,
+	"German",
+	"de",
+	(const char *(*)[])&mbfl_language_german_aliases,
+	mbfl_no_encoding_8859_15,
+	mbfl_no_encoding_qprint,
+	mbfl_no_encoding_8bit
+};
+
+static mbfl_language mbfl_language_simplified_chinese = {
+	mbfl_no_language_simplified_chinese,
+	"Simplified Chinese",
+	"zh-cn",
+	NULL,
+	mbfl_no_encoding_hz,
+	mbfl_no_encoding_base64,
+	mbfl_no_encoding_7bit
+};
+
+static mbfl_language mbfl_language_traditional_chinese = {
+	mbfl_no_language_traditional_chinese,
+	"Traditional Chinese",
+	"zh-tw",
+	NULL,
+	mbfl_no_encoding_big5,
+	mbfl_no_encoding_base64,
+	mbfl_no_encoding_8bit
+};
+
+static mbfl_language mbfl_language_russian = {
+	mbfl_no_language_russian,
+	"Russian",
+	"ru",
+	NULL,
+	mbfl_no_encoding_koi8r,
+	mbfl_no_encoding_qprint,
+	mbfl_no_encoding_8bit
+};
+
+static const mbfl_language *mbfl_language_ptr_table[] = {
 	&mbfl_language_uni,
 	&mbfl_language_japanese,
+	&mbfl_language_korean,
+	&mbfl_language_simplified_chinese,
+	&mbfl_language_traditional_chinese,
 	&mbfl_language_english,
+	&mbfl_language_german,
+	&mbfl_language_russian,
+	&mbfl_language_neutral,
 	NULL
 };
 
@@ -226,30 +296,164 @@ static const unsigned char mblen_table_sjis[] = { /* 0x80-0x9f,0xE0-0xFF */
 };
 
 
+static const unsigned char mblen_table_euccn[] = { /* 0xA1-0xFE */
+  1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
+  1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
+  1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
+  1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
+  1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
+  1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
+  1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
+  1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
+  1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
+  1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
+  1, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2,
+  2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2,
+  2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2,
+  2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2,
+  2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2,
+  2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 1
+};
+
+static const unsigned char mblen_table_cp936[] = { /* 0x81-0xFE */
+  1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
+  1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
+  1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
+  1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
+  1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
+  1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
+  1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
+  1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
+  1, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2,
+  2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2,
+  2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2,
+  2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2,
+  2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2,
+  2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2,
+  2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2,
+  2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 1
+};
+
+static const unsigned char mblen_table_euctw[] = { /* 0xA1-0xFE */
+  1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
+  1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
+  1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
+  1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
+  1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
+  1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
+  1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
+  1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
+  1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 4, 1,
+  1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
+  1, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2,
+  2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2,
+  2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2,
+  2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2,
+  2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2,
+  2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 1
+};
+
+static const unsigned char mblen_table_big5[] = { /* 0x81-0xFE */
+  1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
+  1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
+  1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
+  1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
+  1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
+  1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
+  1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
+  1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
+  1, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2,
+  2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2,
+  2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2,
+  2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2,
+  2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2,
+  2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2,
+  2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2,
+  2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 1
+};
+
+
+static const unsigned char mblen_table_euckr[] = { /* 0xA1-0xFE */
+  1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
+  1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
+  1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
+  1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
+  1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
+  1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
+  1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
+  1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
+  1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
+  1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
+  1, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2,
+  2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2,
+  2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2,
+  2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2,
+  2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2,
+  2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 1
+};
+
+static const unsigned char mblen_table_uhc[] = { /* 0x81-0xFE */
+  1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
+  1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
+  1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
+  1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
+  1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
+  1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
+  1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
+  1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
+  1, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2,
+  2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2,
+  2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2,
+  2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2,
+  2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2,
+  2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2,
+  2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2,
+  2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 1
+};
+
+static const unsigned char mblen_table_html[] = { /* 0x00, 0x80 - 0xFF, only valid for numeric entities */
+  1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
+  1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
+  1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
+  1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
+  1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
+  1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
+  1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
+  1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
+  6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6,
+  6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6,
+  6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6,
+  6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6,
+  6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6,
+  6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6,
+  6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6,
+  6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6
+};
+
 /* encoding structure */
 static const char *mbfl_encoding_pass_aliases[] = {"none", NULL};
 
-static mbfl_encoding mbfl_encoding_pass = {
+static const mbfl_encoding mbfl_encoding_pass = {
 	mbfl_no_encoding_pass,
 	"pass",
 	NULL,
-	&mbfl_encoding_pass_aliases,
+	(const char *(*)[])&mbfl_encoding_pass_aliases,
 	NULL,
 	0
 };
 
 static const char *mbfl_encoding_auto_aliases[] = {"unknown", NULL};
 
-static mbfl_encoding mbfl_encoding_auto = {
+static const mbfl_encoding mbfl_encoding_auto = {
 	mbfl_no_encoding_auto,
 	"auto",
 	NULL,
-	&mbfl_encoding_auto_aliases,
+	(const char *(*)[])&mbfl_encoding_auto_aliases,
 	NULL,
 	0
 };
 
-static mbfl_encoding mbfl_encoding_wchar = {
+static const mbfl_encoding mbfl_encoding_wchar = {
 	mbfl_no_encoding_wchar,
 	"wchar",
 	NULL,
@@ -258,7 +462,7 @@ static mbfl_encoding mbfl_encoding_wchar = {
 	MBFL_ENCTYPE_WCS4BE
 };
 
-static mbfl_encoding mbfl_encoding_byte2be = {
+static const mbfl_encoding mbfl_encoding_byte2be = {
 	mbfl_no_encoding_byte2be,
 	"byte2be",
 	NULL,
@@ -267,7 +471,7 @@ static mbfl_encoding mbfl_encoding_byte2be = {
 	MBFL_ENCTYPE_SBCS
 };
 
-static mbfl_encoding mbfl_encoding_byte2le = {
+static const mbfl_encoding mbfl_encoding_byte2le = {
 	mbfl_no_encoding_byte2le,
 	"byte2le",
 	NULL,
@@ -276,7 +480,7 @@ static mbfl_encoding mbfl_encoding_byte2le = {
 	MBFL_ENCTYPE_SBCS
 };
 
-static mbfl_encoding mbfl_encoding_byte4be = {
+static const mbfl_encoding mbfl_encoding_byte4be = {
 	mbfl_no_encoding_byte4be,
 	"byte4be",
 	NULL,
@@ -285,7 +489,7 @@ static mbfl_encoding mbfl_encoding_byte4be = {
 	MBFL_ENCTYPE_SBCS
 };
 
-static mbfl_encoding mbfl_encoding_byte4le = {
+static const mbfl_encoding mbfl_encoding_byte4le = {
 	mbfl_no_encoding_byte4le,
 	"byte4le",
 	NULL,
@@ -294,7 +498,7 @@ static mbfl_encoding mbfl_encoding_byte4le = {
 	MBFL_ENCTYPE_SBCS
 };
 
-static mbfl_encoding mbfl_encoding_base64 = {
+static const mbfl_encoding mbfl_encoding_base64 = {
 	mbfl_no_encoding_base64,
 	"BASE64",
 	"BASE64",
@@ -303,7 +507,7 @@ static mbfl_encoding mbfl_encoding_base64 = {
 	MBFL_ENCTYPE_SBCS
 };
 
-static mbfl_encoding mbfl_encoding_uuencode = {
+static const mbfl_encoding mbfl_encoding_uuencode = {
 	mbfl_no_encoding_uuencode,
 	"UUENCODE",
 	"x-uuencode",
@@ -312,18 +516,29 @@ static mbfl_encoding mbfl_encoding_uuencode = {
 	MBFL_ENCTYPE_SBCS
 };
 
+static const char *mbfl_encoding_html_ent_aliases[] = {"HTML", "html", NULL};
+
+static const mbfl_encoding mbfl_encoding_html_ent = {
+	mbfl_no_encoding_html_ent,
+	"HTML-ENTITIES",
+	"US-ASCII",
+	(const char *(*)[])&mbfl_encoding_html_ent_aliases,
+	NULL, /* mblen_table_html, Do not use table instead calulate length based on entities actually used */
+	MBFL_ENCTYPE_HTML_ENT
+};
+
 static const char *mbfl_encoding_qprint_aliases[] = {"qprint", NULL};
 
-static mbfl_encoding mbfl_encoding_qprint = {
+static const mbfl_encoding mbfl_encoding_qprint = {
 	mbfl_no_encoding_qprint,
 	"Quoted-Printable",
 	"Quoted-Printable",
-	&mbfl_encoding_qprint_aliases,
+	(const char *(*)[])&mbfl_encoding_qprint_aliases,
 	NULL,
 	MBFL_ENCTYPE_SBCS
 };
 
-static mbfl_encoding mbfl_encoding_7bit = {
+static const mbfl_encoding mbfl_encoding_7bit = {
 	mbfl_no_encoding_7bit,
 	"7bit",
 	"7bit",
@@ -332,7 +547,7 @@ static mbfl_encoding mbfl_encoding_7bit = {
 	MBFL_ENCTYPE_SBCS
 };
 
-static mbfl_encoding mbfl_encoding_8bit = {
+static const mbfl_encoding mbfl_encoding_8bit = {
 	mbfl_no_encoding_8bit,
 	"8bit",
 	"8bit",
@@ -343,16 +558,16 @@ static mbfl_encoding mbfl_encoding_8bit = {
 
 static const char *mbfl_encoding_ucs2_aliases[] = {"ISO-10646-UCS-2", "UCS2" , "UNICODE", NULL};
 
-static mbfl_encoding mbfl_encoding_ucs2 = {
+static const mbfl_encoding mbfl_encoding_ucs2 = {
 	mbfl_no_encoding_ucs2,
 	"UCS-2",
 	"UCS-2",
-	&mbfl_encoding_ucs2_aliases,
+	(const char *(*)[])&mbfl_encoding_ucs2_aliases,
 	NULL,
 	MBFL_ENCTYPE_WCS2BE
 };
 
-static mbfl_encoding mbfl_encoding_ucs2be = {
+static const mbfl_encoding mbfl_encoding_ucs2be = {
 	mbfl_no_encoding_ucs2be,
 	"UCS-2BE",
 	"UCS-2BE",
@@ -361,7 +576,7 @@ static mbfl_encoding mbfl_encoding_ucs2be = {
 	MBFL_ENCTYPE_WCS2BE
 };
 
-static mbfl_encoding mbfl_encoding_ucs2le = {
+static const mbfl_encoding mbfl_encoding_ucs2le = {
 	mbfl_no_encoding_ucs2le,
 	"UCS-2LE",
 	"UCS-2LE",
@@ -372,16 +587,16 @@ static mbfl_encoding mbfl_encoding_ucs2le = {
 
 static const char *mbfl_encoding_ucs4_aliases[] = {"ISO-10646-UCS-4", "UCS4", NULL};
 
-static mbfl_encoding mbfl_encoding_ucs4 = {
+static const mbfl_encoding mbfl_encoding_ucs4 = {
 	mbfl_no_encoding_ucs4,
 	"UCS-4",
 	"UCS-4",
-	&mbfl_encoding_ucs4_aliases,
+	(const char *(*)[])&mbfl_encoding_ucs4_aliases,
 	NULL,
 	MBFL_ENCTYPE_WCS4BE
 };
 
-static mbfl_encoding mbfl_encoding_ucs4be = {
+static const mbfl_encoding mbfl_encoding_ucs4be = {
 	mbfl_no_encoding_ucs4be,
 	"UCS-4BE",
 	"UCS-4BE",
@@ -390,7 +605,7 @@ static mbfl_encoding mbfl_encoding_ucs4be = {
 	MBFL_ENCTYPE_WCS4BE
 };
 
-static mbfl_encoding mbfl_encoding_ucs4le = {
+static const mbfl_encoding mbfl_encoding_ucs4le = {
 	mbfl_no_encoding_ucs4le,
 	"UCS-4LE",
 	"UCS-4LE",
@@ -401,16 +616,16 @@ static mbfl_encoding mbfl_encoding_ucs4le = {
 
 static const char *mbfl_encoding_utf32_aliases[] = {"utf32", NULL};
 
-static mbfl_encoding mbfl_encoding_utf32 = {
+static const mbfl_encoding mbfl_encoding_utf32 = {
 	mbfl_no_encoding_utf32,
 	"UTF-32",
 	"UTF-32",
-	&mbfl_encoding_utf32_aliases,
+	(const char *(*)[])&mbfl_encoding_utf32_aliases,
 	NULL,
 	MBFL_ENCTYPE_WCS4BE
 };
 
-static mbfl_encoding mbfl_encoding_utf32be = {
+static const mbfl_encoding mbfl_encoding_utf32be = {
 	mbfl_no_encoding_utf32be,
 	"UTF-32BE",
 	"UTF-32BE",
@@ -419,7 +634,7 @@ static mbfl_encoding mbfl_encoding_utf32be = {
 	MBFL_ENCTYPE_WCS4BE
 };
 
-static mbfl_encoding mbfl_encoding_utf32le = {
+static const mbfl_encoding mbfl_encoding_utf32le = {
 	mbfl_no_encoding_utf32le,
 	"UTF-32LE",
 	"UTF-32LE",
@@ -430,16 +645,16 @@ static mbfl_encoding mbfl_encoding_utf32le = {
 
 static const char *mbfl_encoding_utf16_aliases[] = {"utf16", NULL};
 
-static mbfl_encoding mbfl_encoding_utf16 = {
+static const mbfl_encoding mbfl_encoding_utf16 = {
 	mbfl_no_encoding_utf16,
 	"UTF-16",
 	"UTF-16",
-	&mbfl_encoding_utf16_aliases,
+	(const char *(*)[])&mbfl_encoding_utf16_aliases,
 	NULL,
 	MBFL_ENCTYPE_MWC2BE
 };
 
-static mbfl_encoding mbfl_encoding_utf16be = {
+static const mbfl_encoding mbfl_encoding_utf16be = {
 	mbfl_no_encoding_utf16be,
 	"UTF-16BE",
 	"UTF-16BE",
@@ -448,7 +663,7 @@ static mbfl_encoding mbfl_encoding_utf16be = {
 	MBFL_ENCTYPE_MWC2BE
 };
 
-static mbfl_encoding mbfl_encoding_utf16le = {
+static const mbfl_encoding mbfl_encoding_utf16le = {
 	mbfl_no_encoding_utf16le,
 	"UTF-16LE",
 	"UTF-16LE",
@@ -459,27 +674,27 @@ static mbfl_encoding mbfl_encoding_utf16le = {
 
 static const char *mbfl_encoding_utf8_aliases[] = {"utf8", NULL};
 
-static mbfl_encoding mbfl_encoding_utf8 = {
+static const mbfl_encoding mbfl_encoding_utf8 = {
 	mbfl_no_encoding_utf8,
 	"UTF-8",
 	"UTF-8",
-	&mbfl_encoding_utf8_aliases,
+	(const char *(*)[])&mbfl_encoding_utf8_aliases,
 	mblen_table_utf8,
 	MBFL_ENCTYPE_MBCS
 };
 
 static const char *mbfl_encoding_utf7_aliases[] = {"utf7", NULL};
 
-static mbfl_encoding mbfl_encoding_utf7 = {
+static const mbfl_encoding mbfl_encoding_utf7 = {
 	mbfl_no_encoding_utf7,
 	"UTF-7",
 	"UTF-7",
-	&mbfl_encoding_utf7_aliases,
+	(const char *(*)[])&mbfl_encoding_utf7_aliases,
 	NULL,
 	MBFL_ENCTYPE_MBCS | MBFL_ENCTYPE_SHFTCODE
 };
 
-static mbfl_encoding mbfl_encoding_utf7imap = {
+static const mbfl_encoding mbfl_encoding_utf7imap = {
 	mbfl_no_encoding_utf7imap,
 	"UTF7-IMAP",
 	NULL,
@@ -488,60 +703,64 @@ static mbfl_encoding mbfl_encoding_utf7imap = {
 	MBFL_ENCTYPE_MBCS | MBFL_ENCTYPE_SHFTCODE
 };
 
-static mbfl_encoding mbfl_encoding_ascii = {
+
+static const char *mbfl_encoding_ascii_aliases[] = {"ANSI_X3.4-1968", "iso-ir-6", "ANSI_X3.4-1986", "ISO_646.irv:1991", "US-ASCII", "ISO646-US", "us", "IBM367", "cp367", "csASCII", NULL};
+
+static const mbfl_encoding mbfl_encoding_ascii = {
 	mbfl_no_encoding_ascii,
 	"ASCII",
-	"US-ASCII",
-	NULL,
+	"US-ASCII", /* preferred MIME name */
+	(const char *(*)[])&mbfl_encoding_ascii_aliases,
 	NULL,
 	MBFL_ENCTYPE_SBCS
 };
 
+#if defined(HAVE_MBSTR_JA)
 static const char *mbfl_encoding_euc_jp_aliases[] = {"EUC", "EUC_JP", "eucJP", "x-euc-jp", NULL};
 
-static mbfl_encoding mbfl_encoding_euc_jp = {
+static const mbfl_encoding mbfl_encoding_euc_jp = {
 	mbfl_no_encoding_euc_jp,
 	"EUC-JP",
 	"EUC-JP",
-	&mbfl_encoding_euc_jp_aliases,
+	(const char *(*)[])&mbfl_encoding_euc_jp_aliases,
 	mblen_table_eucjp,
 	MBFL_ENCTYPE_MBCS
 };
 
 static const char *mbfl_encoding_sjis_aliases[] = {"x-sjis", "SHIFT-JIS", NULL};
 
-static mbfl_encoding mbfl_encoding_sjis = {
+static const mbfl_encoding mbfl_encoding_sjis = {
 	mbfl_no_encoding_sjis,
 	"SJIS",
 	"Shift_JIS",
-	&mbfl_encoding_sjis_aliases,
+	(const char *(*)[])&mbfl_encoding_sjis_aliases,
 	mblen_table_sjis,
 	MBFL_ENCTYPE_MBCS
 };
 
 static const char *mbfl_encoding_eucjp_win_aliases[] = {"eucJP-open", NULL};
 
-static mbfl_encoding mbfl_encoding_eucjp_win = {
+static const mbfl_encoding mbfl_encoding_eucjp_win = {
 	mbfl_no_encoding_eucjp_win,
 	"eucJP-win",
 	"EUC-JP",
-	&mbfl_encoding_eucjp_win_aliases,
+	(const char *(*)[])&mbfl_encoding_eucjp_win_aliases,
 	mblen_table_eucjp,
 	MBFL_ENCTYPE_MBCS
 };
 
-static const char *mbfl_encoding_sjis_win_aliases[] = {"SJIS-open", "MS_Kanji", "Windows-31J", NULL};
+static const char *mbfl_encoding_sjis_win_aliases[] = {"SJIS-open", "MS_Kanji", "Windows-31J", "CP932", NULL};
 
-static mbfl_encoding mbfl_encoding_sjis_win = {
+static const mbfl_encoding mbfl_encoding_sjis_win = {
 	mbfl_no_encoding_sjis_win,
 	"SJIS-win",
 	"Shift_JIS",
-	&mbfl_encoding_sjis_win_aliases,
+	(const char *(*)[])&mbfl_encoding_sjis_win_aliases,
 	mblen_table_sjis,
 	MBFL_ENCTYPE_MBCS
 };
 
-static mbfl_encoding mbfl_encoding_jis = {
+static const mbfl_encoding mbfl_encoding_jis = {
 	mbfl_no_encoding_jis,
 	"JIS",
 	"ISO-2022-JP",
@@ -550,7 +769,7 @@ static mbfl_encoding mbfl_encoding_jis = {
 	MBFL_ENCTYPE_MBCS | MBFL_ENCTYPE_SHFTCODE
 };
 
-static mbfl_encoding mbfl_encoding_2022jp = {
+static const mbfl_encoding mbfl_encoding_2022jp = {
 	mbfl_no_encoding_2022jp,
 	"ISO-2022-JP",
 	"ISO-2022-JP",
@@ -558,162 +777,292 @@ static mbfl_encoding mbfl_encoding_2022jp = {
 	NULL,
 	MBFL_ENCTYPE_MBCS | MBFL_ENCTYPE_SHFTCODE
 };
+#endif /* HAVE_MBSTR_JA */
+
+
+#if defined(HAVE_MBSTR_CN)
+static const char *mbfl_encoding_euc_cn_aliases[] = {"CN-GB", "EUC_CN", "eucCN", "x-euc-cn", "gb2312", NULL};
+
+static mbfl_encoding mbfl_encoding_euc_cn = {
+	mbfl_no_encoding_euc_cn,
+	"EUC-CN",
+	"CN-GB",
+	(const char *(*)[])&mbfl_encoding_euc_cn_aliases,
+	mblen_table_euccn,
+	MBFL_ENCTYPE_MBCS
+};
+
+static const char *mbfl_encoding_cp936_aliases[] = {"CP-936", NULL};
+
+static mbfl_encoding mbfl_encoding_cp936 = {
+	mbfl_no_encoding_cp936,
+	"CP936",
+	"CP936",
+	(const char *(*)[])&mbfl_encoding_cp936_aliases,
+	mblen_table_cp936,
+	MBFL_ENCTYPE_MBCS
+};
+
+static mbfl_encoding mbfl_encoding_hz = {
+	mbfl_no_encoding_hz,
+	"HZ",
+	"HZ-GB-2312",
+	NULL,
+	NULL,
+	MBFL_ENCTYPE_MBCS | MBFL_ENCTYPE_SHFTCODE
+};
+
+#endif /* HAVE_MBSTR_CN */
+
+#if defined(HAVE_MBSTR_TW)
+static const char *mbfl_encoding_euc_tw_aliases[] = {"EUC_TW", "eucTW", "x-euc-tw", NULL};
+
+static mbfl_encoding mbfl_encoding_euc_tw = {
+	mbfl_no_encoding_euc_tw,
+	"EUC-TW",
+	"EUC-TW",
+	(const char *(*)[])&mbfl_encoding_euc_tw_aliases,
+	mblen_table_euctw,
+	MBFL_ENCTYPE_MBCS
+};
+
+static const char *mbfl_encoding_big5_aliases[] = {"CN-BIG5", "BIG-FIVE", "BIGFIVE", "CP950", NULL};
+
+static mbfl_encoding mbfl_encoding_big5 = {
+	mbfl_no_encoding_big5,
+	"BIG-5",
+	"BIG5",
+	(const char *(*)[])&mbfl_encoding_big5_aliases,
+	mblen_table_big5,
+	MBFL_ENCTYPE_MBCS
+};
+
+#endif /* HAVE_MBSTR_TW */
+
+#if defined(HAVE_MBSTR_KR)
+static const char *mbfl_encoding_euc_kr_aliases[] = {"EUC_KR", "eucKR", "x-euc-kr", NULL};
+
+static const mbfl_encoding mbfl_encoding_euc_kr = {
+	mbfl_no_encoding_euc_kr,
+	"EUC-KR",
+	"EUC-KR",
+	(const char *(*)[])&mbfl_encoding_euc_kr_aliases,
+	mblen_table_euckr,
+	MBFL_ENCTYPE_MBCS
+};
+
+static const char *mbfl_encoding_uhc_aliases[] = {"CP949", NULL};
+
+static const mbfl_encoding mbfl_encoding_uhc = {
+	mbfl_no_encoding_uhc,
+	"UHC",
+	"UHC",
+	(const char *(*)[])&mbfl_encoding_uhc_aliases,
+	mblen_table_uhc,
+	MBFL_ENCTYPE_MBCS
+};
+
+static const mbfl_encoding mbfl_encoding_2022kr = {
+	mbfl_no_encoding_2022kr,
+	"ISO-2022-KR",
+	"ISO-2022-KR",
+	NULL,
+	NULL,
+	MBFL_ENCTYPE_MBCS | MBFL_ENCTYPE_SHFTCODE
+};
+
+#endif /* HAVE_MBSTR_KR */
 
 static const char *mbfl_encoding_cp1252_aliases[] = {"cp1252", NULL};
 
-static mbfl_encoding mbfl_encoding_cp1252 = {
+static const mbfl_encoding mbfl_encoding_cp1252 = {
 	mbfl_no_encoding_cp1252,
 	"Windows-1252",
 	"Windows-1252",
-	&mbfl_encoding_cp1252_aliases,
+	(const char *(*)[])&mbfl_encoding_cp1252_aliases,
 	NULL,
 	MBFL_ENCTYPE_SBCS
 };
 
 static const char *mbfl_encoding_8859_1_aliases[] = {"ISO_8859-1", "latin1", NULL};
 
-static mbfl_encoding mbfl_encoding_8859_1 = {
+static const mbfl_encoding mbfl_encoding_8859_1 = {
 	mbfl_no_encoding_8859_1,
 	"ISO-8859-1",
 	"ISO-8859-1",
-	&mbfl_encoding_8859_1_aliases,
+	(const char *(*)[])&mbfl_encoding_8859_1_aliases,
 	NULL,
 	MBFL_ENCTYPE_SBCS
 };
 
 static const char *mbfl_encoding_8859_2_aliases[] = {"ISO_8859-2", "latin2", NULL};
 
-static mbfl_encoding mbfl_encoding_8859_2 = {
+static const mbfl_encoding mbfl_encoding_8859_2 = {
 	mbfl_no_encoding_8859_2,
 	"ISO-8859-2",
 	"ISO-8859-2",
-	&mbfl_encoding_8859_2_aliases,
+	(const char *(*)[])&mbfl_encoding_8859_2_aliases,
 	NULL,
 	MBFL_ENCTYPE_SBCS
 };
 
 static const char *mbfl_encoding_8859_3_aliases[] = {"ISO_8859-3", "latin3", NULL};
 
-static mbfl_encoding mbfl_encoding_8859_3 = {
+static const mbfl_encoding mbfl_encoding_8859_3 = {
 	mbfl_no_encoding_8859_3,
 	"ISO-8859-3",
 	"ISO-8859-3",
-	&mbfl_encoding_8859_3_aliases,
+	(const char *(*)[])&mbfl_encoding_8859_3_aliases,
 	NULL,
 	MBFL_ENCTYPE_SBCS
 };
 
 static const char *mbfl_encoding_8859_4_aliases[] = {"ISO_8859-4", "latin4", NULL};
 
-static mbfl_encoding mbfl_encoding_8859_4 = {
+static const mbfl_encoding mbfl_encoding_8859_4 = {
 	mbfl_no_encoding_8859_4,
 	"ISO-8859-4",
 	"ISO-8859-4",
-	&mbfl_encoding_8859_4_aliases,
+	(const char *(*)[])&mbfl_encoding_8859_4_aliases,
 	NULL,
 	MBFL_ENCTYPE_SBCS
 };
 
 static const char *mbfl_encoding_8859_5_aliases[] = {"ISO_8859-5", "cyrillic", NULL};
 
-static mbfl_encoding mbfl_encoding_8859_5 = {
+static const mbfl_encoding mbfl_encoding_8859_5 = {
 	mbfl_no_encoding_8859_5,
 	"ISO-8859-5",
 	"ISO-8859-5",
-	&mbfl_encoding_8859_5_aliases,
+	(const char *(*)[])&mbfl_encoding_8859_5_aliases,
 	NULL,
 	MBFL_ENCTYPE_SBCS
 };
 
 static const char *mbfl_encoding_8859_6_aliases[] = {"ISO_8859-6", "arabic", NULL};
 
-static mbfl_encoding mbfl_encoding_8859_6 = {
+static const mbfl_encoding mbfl_encoding_8859_6 = {
 	mbfl_no_encoding_8859_6,
 	"ISO-8859-6",
 	"ISO-8859-6",
-	&mbfl_encoding_8859_6_aliases,
+	(const char *(*)[])&mbfl_encoding_8859_6_aliases,
 	NULL,
 	MBFL_ENCTYPE_SBCS
 };
 
 static const char *mbfl_encoding_8859_7_aliases[] = {"ISO_8859-7", "greek", NULL};
 
-static mbfl_encoding mbfl_encoding_8859_7 = {
+static const mbfl_encoding mbfl_encoding_8859_7 = {
 	mbfl_no_encoding_8859_7,
 	"ISO-8859-7",
 	"ISO-8859-7",
-	&mbfl_encoding_8859_7_aliases,
+	(const char *(*)[])&mbfl_encoding_8859_7_aliases,
 	NULL,
 	MBFL_ENCTYPE_SBCS
 };
 
 static const char *mbfl_encoding_8859_8_aliases[] = {"ISO_8859-8", "hebrew", NULL};
 
-static mbfl_encoding mbfl_encoding_8859_8 = {
+static const mbfl_encoding mbfl_encoding_8859_8 = {
 	mbfl_no_encoding_8859_8,
 	"ISO-8859-8",
 	"ISO-8859-8",
-	&mbfl_encoding_8859_8_aliases,
+	(const char *(*)[])&mbfl_encoding_8859_8_aliases,
 	NULL,
 	MBFL_ENCTYPE_SBCS
 };
 
 static const char *mbfl_encoding_8859_9_aliases[] = {"ISO_8859-9", "latin5", NULL};
 
-static mbfl_encoding mbfl_encoding_8859_9 = {
+static const mbfl_encoding mbfl_encoding_8859_9 = {
 	mbfl_no_encoding_8859_9,
 	"ISO-8859-9",
 	"ISO-8859-9",
-	&mbfl_encoding_8859_9_aliases,
+	(const char *(*)[])&mbfl_encoding_8859_9_aliases,
 	NULL,
 	MBFL_ENCTYPE_SBCS
 };
 
 static const char *mbfl_encoding_8859_10_aliases[] = {"ISO_8859-10", "latin6", NULL};
 
-static mbfl_encoding mbfl_encoding_8859_10 = {
+static const mbfl_encoding mbfl_encoding_8859_10 = {
 	mbfl_no_encoding_8859_10,
 	"ISO-8859-10",
 	"ISO-8859-10",
-	&mbfl_encoding_8859_10_aliases,
+	(const char *(*)[])&mbfl_encoding_8859_10_aliases,
 	NULL,
 	MBFL_ENCTYPE_SBCS
 };
 
 static const char *mbfl_encoding_8859_13_aliases[] = {"ISO_8859-13", NULL};
 
-static mbfl_encoding mbfl_encoding_8859_13 = {
+static const mbfl_encoding mbfl_encoding_8859_13 = {
 	mbfl_no_encoding_8859_13,
 	"ISO-8859-13",
 	"ISO-8859-13",
-	&mbfl_encoding_8859_13_aliases,
+	(const char *(*)[])&mbfl_encoding_8859_13_aliases,
 	NULL,
 	MBFL_ENCTYPE_SBCS
 };
 
 static const char *mbfl_encoding_8859_14_aliases[] = {"ISO_8859-14", "latin8", NULL};
 
-static mbfl_encoding mbfl_encoding_8859_14 = {
+static const mbfl_encoding mbfl_encoding_8859_14 = {
 	mbfl_no_encoding_8859_14,
 	"ISO-8859-14",
 	"ISO-8859-14",
-	&mbfl_encoding_8859_14_aliases,
+	(const char *(*)[])&mbfl_encoding_8859_14_aliases,
 	NULL,
 	MBFL_ENCTYPE_SBCS
 };
 
 static const char *mbfl_encoding_8859_15_aliases[] = {"ISO_8859-15", NULL};
 
-static mbfl_encoding mbfl_encoding_8859_15 = {
+static const mbfl_encoding mbfl_encoding_8859_15 = {
 	mbfl_no_encoding_8859_15,
 	"ISO-8859-15",
 	"ISO-8859-15",
-	&mbfl_encoding_8859_15_aliases,
+	(const char *(*)[])&mbfl_encoding_8859_15_aliases,
 	NULL,
 	MBFL_ENCTYPE_SBCS
 };
 
-static mbfl_encoding *mbfl_encoding_ptr_list[] = {
+#if defined(HAVE_MBSTR_RU)
+static const char *mbfl_encoding_cp1251_aliases[] = {"CP1251", "CP-1251", "WINDOWS-1251", NULL};
+
+static const mbfl_encoding mbfl_encoding_cp1251 = {
+	mbfl_no_encoding_cp1251,
+	"Windows-1251",
+	"Windows-1251",
+	(const char *(*)[])&mbfl_encoding_cp1251_aliases,
+	NULL,
+	MBFL_ENCTYPE_SBCS
+};
+
+static const char *mbfl_encoding_cp866_aliases[] = {"CP866", "CP-866", "IBM-866", NULL};
+
+static const mbfl_encoding mbfl_encoding_cp866 = {
+	mbfl_no_encoding_cp866,
+	"CP866",
+	"CP866",
+	(const char *(*)[])&mbfl_encoding_cp866_aliases,
+	NULL,
+	MBFL_ENCTYPE_SBCS
+};
+
+static const char *mbfl_encoding_koi8r_aliases[] = {"KOI8-R", "KOI8R", NULL};
+
+static const mbfl_encoding mbfl_encoding_koi8r = {
+	mbfl_no_encoding_koi8r,
+	"KOI8-R",
+	"KOI8-R",
+	(const char *(*)[])&mbfl_encoding_koi8r_aliases,
+	NULL,
+	MBFL_ENCTYPE_SBCS
+};
+#endif
+
+static const mbfl_encoding *mbfl_encoding_ptr_list[] = {
 	&mbfl_encoding_pass,
 	&mbfl_encoding_auto,
 	&mbfl_encoding_wchar,
@@ -723,6 +1072,7 @@ static mbfl_encoding *mbfl_encoding_ptr_list[] = {
 	&mbfl_encoding_byte4le,
 	&mbfl_encoding_base64,
 	&mbfl_encoding_uuencode,
+	&mbfl_encoding_html_ent,
 	&mbfl_encoding_qprint,
 	&mbfl_encoding_7bit,
 	&mbfl_encoding_8bit,
@@ -742,12 +1092,14 @@ static mbfl_encoding *mbfl_encoding_ptr_list[] = {
 	&mbfl_encoding_utf7,
 	&mbfl_encoding_utf7imap,
 	&mbfl_encoding_ascii,
+#if defined(HAVE_MBSTR_JA)
 	&mbfl_encoding_euc_jp,
 	&mbfl_encoding_sjis,
 	&mbfl_encoding_eucjp_win,
 	&mbfl_encoding_sjis_win,
 	&mbfl_encoding_jis,
 	&mbfl_encoding_2022jp,
+#endif
 	&mbfl_encoding_cp1252,
 	&mbfl_encoding_8859_1,
 	&mbfl_encoding_8859_2,
@@ -762,102 +1114,159 @@ static mbfl_encoding *mbfl_encoding_ptr_list[] = {
 	&mbfl_encoding_8859_13,
 	&mbfl_encoding_8859_14,
 	&mbfl_encoding_8859_15,
+#if defined(HAVE_MBSTR_CN)
+	&mbfl_encoding_euc_cn,
+	&mbfl_encoding_cp936,
+	&mbfl_encoding_hz,
+#endif
+#if defined(HAVE_MBSTR_TW)
+	&mbfl_encoding_euc_tw,
+	&mbfl_encoding_big5,
+#endif
+#if defined(HAVE_MBSTR_KR)
+	&mbfl_encoding_euc_kr,
+	&mbfl_encoding_uhc,
+	&mbfl_encoding_2022kr,
+#endif
+#if defined(HAVE_MBSTR_RU)
+	&mbfl_encoding_cp1251,
+	&mbfl_encoding_cp866,
+	&mbfl_encoding_koi8r,
+#endif
 	NULL
 };
 
+/* hex character table "0123456789ABCDEF" */
+static char mbfl_hexchar_table[] = {
+	0x30,0x31,0x32,0x33,0x34,0x35,0x36,0x37,0x38,0x39,0x41,0x42,0x43,0x44,0x45,0x46
+};
+
 /* forward */
-static void mbfl_filt_conv_common_ctor(mbfl_convert_filter *filter);
-static int mbfl_filt_conv_common_flush(mbfl_convert_filter *filter);
-static void mbfl_filt_conv_common_dtor(mbfl_convert_filter *filter);
+static void mbfl_filt_conv_common_ctor(mbfl_convert_filter *filter TSRMLS_DC);
+static int mbfl_filt_conv_common_flush(mbfl_convert_filter *filter TSRMLS_DC);
+static void mbfl_filt_conv_common_dtor(mbfl_convert_filter *filter TSRMLS_DC);
 
-static int mbfl_filt_conv_pass(int c, mbfl_convert_filter *filter);
-static int mbfl_filt_conv_wchar_byte2be(int c, mbfl_convert_filter *filter);
-static int mbfl_filt_conv_byte2be_wchar(int c, mbfl_convert_filter *filter);
-static int mbfl_filt_conv_wchar_byte2le(int c, mbfl_convert_filter *filter);
-static int mbfl_filt_conv_byte2le_wchar(int c, mbfl_convert_filter *filter);
-static int mbfl_filt_conv_wchar_byte4be(int c, mbfl_convert_filter *filter);
-static int mbfl_filt_conv_byte4be_wchar(int c, mbfl_convert_filter *filter);
-static int mbfl_filt_conv_wchar_byte4le(int c, mbfl_convert_filter *filter);
-static int mbfl_filt_conv_byte4le_wchar(int c, mbfl_convert_filter *filter);
-static int mbfl_filt_conv_any_7bit(int c, mbfl_convert_filter *filter);
+static int mbfl_filt_conv_pass(int c, mbfl_convert_filter *filter TSRMLS_DC);
+static int mbfl_filt_conv_wchar_byte2be(int c, mbfl_convert_filter *filter TSRMLS_DC);
+static int mbfl_filt_conv_byte2be_wchar(int c, mbfl_convert_filter *filter TSRMLS_DC);
+static int mbfl_filt_conv_wchar_byte2le(int c, mbfl_convert_filter *filter TSRMLS_DC);
+static int mbfl_filt_conv_byte2le_wchar(int c, mbfl_convert_filter *filter TSRMLS_DC);
+static int mbfl_filt_conv_wchar_byte4be(int c, mbfl_convert_filter *filter TSRMLS_DC);
+static int mbfl_filt_conv_byte4be_wchar(int c, mbfl_convert_filter *filter TSRMLS_DC);
+static int mbfl_filt_conv_wchar_byte4le(int c, mbfl_convert_filter *filter TSRMLS_DC);
+static int mbfl_filt_conv_byte4le_wchar(int c, mbfl_convert_filter *filter TSRMLS_DC);
+static int mbfl_filt_conv_any_7bit(int c, mbfl_convert_filter *filter TSRMLS_DC);
 
-static int mbfl_filt_conv_base64enc(int c, mbfl_convert_filter *filter);
-static int mbfl_filt_conv_base64enc_flush(mbfl_convert_filter *filter);
-static int mbfl_filt_conv_base64dec(int c, mbfl_convert_filter *filter);
-static int mbfl_filt_conv_base64dec_flush(mbfl_convert_filter *filter);
-static int mbfl_filt_conv_uudec(int c, mbfl_convert_filter *filter);
+static int mbfl_filt_conv_base64enc(int c, mbfl_convert_filter *filter TSRMLS_DC);
+static int mbfl_filt_conv_base64enc_flush(mbfl_convert_filter *filter TSRMLS_DC);
+static int mbfl_filt_conv_base64dec(int c, mbfl_convert_filter *filter TSRMLS_DC);
+static int mbfl_filt_conv_base64dec_flush(mbfl_convert_filter *filter TSRMLS_DC);
+static int mbfl_filt_conv_uudec(int c, mbfl_convert_filter *filter TSRMLS_DC);
 
-static int mbfl_filt_conv_qprintenc(int c, mbfl_convert_filter *filter);
-static int mbfl_filt_conv_qprintenc_flush(mbfl_convert_filter *filter);
-static int mbfl_filt_conv_qprintdec(int c, mbfl_convert_filter *filter);
-static int mbfl_filt_conv_qprintdec_flush(mbfl_convert_filter *filter);
+static void mbfl_filt_conv_html_dec_ctor(mbfl_convert_filter *filter TSRMLS_DC);
+static void mbfl_filt_conv_html_dec_dtor(mbfl_convert_filter *filter TSRMLS_DC);
+static int mbfl_filt_conv_html_enc(int c, mbfl_convert_filter *filter TSRMLS_DC);
+static int mbfl_filt_conv_html_enc_flush(mbfl_convert_filter *filter TSRMLS_DC);
+static int mbfl_filt_conv_html_dec(int c, mbfl_convert_filter *filter TSRMLS_DC);
+static int mbfl_filt_conv_html_dec_flush(mbfl_convert_filter *filter TSRMLS_DC);
 
-static int mbfl_filt_conv_ucs4_wchar(int c, mbfl_convert_filter *filter);
-static int mbfl_filt_conv_wchar_ucs4be(int c, mbfl_convert_filter *filter);
-static int mbfl_filt_conv_wchar_ucs4le(int c, mbfl_convert_filter *filter);
-static int mbfl_filt_conv_ucs2_wchar(int c, mbfl_convert_filter *filter);
-static int mbfl_filt_conv_wchar_ucs2be(int c, mbfl_convert_filter *filter);
-static int mbfl_filt_conv_wchar_ucs2le(int c, mbfl_convert_filter *filter);
-static int mbfl_filt_conv_utf16_wchar(int c, mbfl_convert_filter *filter);
-static int mbfl_filt_conv_utf16be_wchar(int c, mbfl_convert_filter *filter);
-static int mbfl_filt_conv_wchar_utf16be(int c, mbfl_convert_filter *filter);
-static int mbfl_filt_conv_utf16le_wchar(int c, mbfl_convert_filter *filter);
-static int mbfl_filt_conv_wchar_utf16le(int c, mbfl_convert_filter *filter);
-static int mbfl_filt_conv_utf8_wchar(int c, mbfl_convert_filter *filter);
-static int mbfl_filt_conv_wchar_utf8(int c, mbfl_convert_filter *filter);
-static int mbfl_filt_conv_utf7_wchar(int c, mbfl_convert_filter *filter);
-static int mbfl_filt_conv_wchar_utf7(int c, mbfl_convert_filter *filter);
-static int mbfl_filt_conv_wchar_utf7_flush(mbfl_convert_filter *filter);
-static int mbfl_filt_conv_utf7imap_wchar(int c, mbfl_convert_filter *filter);
-static int mbfl_filt_conv_wchar_utf7imap(int c, mbfl_convert_filter *filter);
-static int mbfl_filt_conv_wchar_utf7imap_flush(mbfl_convert_filter *filter);
-static int mbfl_filt_conv_wchar_ascii(int c, mbfl_convert_filter *filter);
+static int mbfl_filt_conv_qprintenc(int c, mbfl_convert_filter *filter TSRMLS_DC);
+static int mbfl_filt_conv_qprintenc_flush(mbfl_convert_filter *filter TSRMLS_DC);
+static int mbfl_filt_conv_qprintdec(int c, mbfl_convert_filter *filter TSRMLS_DC);
+static int mbfl_filt_conv_qprintdec_flush(mbfl_convert_filter *filter TSRMLS_DC);
 
-static int mbfl_filt_conv_wchar_cp1252(int c, mbfl_convert_filter *filter);
-static int mbfl_filt_conv_cp1252_wchar(int c, mbfl_convert_filter *filter);
-static int mbfl_filt_conv_wchar_8859_1(int c, mbfl_convert_filter *filter);
-static int mbfl_filt_conv_8859_2_wchar(int c, mbfl_convert_filter *filter);
-static int mbfl_filt_conv_wchar_8859_2(int c, mbfl_convert_filter *filter);
-static int mbfl_filt_conv_8859_3_wchar(int c, mbfl_convert_filter *filter);
-static int mbfl_filt_conv_wchar_8859_3(int c, mbfl_convert_filter *filter);
-static int mbfl_filt_conv_8859_4_wchar(int c, mbfl_convert_filter *filter);
-static int mbfl_filt_conv_wchar_8859_4(int c, mbfl_convert_filter *filter);
-static int mbfl_filt_conv_8859_5_wchar(int c, mbfl_convert_filter *filter);
-static int mbfl_filt_conv_wchar_8859_5(int c, mbfl_convert_filter *filter);
-static int mbfl_filt_conv_8859_6_wchar(int c, mbfl_convert_filter *filter);
-static int mbfl_filt_conv_wchar_8859_6(int c, mbfl_convert_filter *filter);
-static int mbfl_filt_conv_8859_7_wchar(int c, mbfl_convert_filter *filter);
-static int mbfl_filt_conv_wchar_8859_7(int c, mbfl_convert_filter *filter);
-static int mbfl_filt_conv_8859_8_wchar(int c, mbfl_convert_filter *filter);
-static int mbfl_filt_conv_wchar_8859_8(int c, mbfl_convert_filter *filter);
-static int mbfl_filt_conv_8859_9_wchar(int c, mbfl_convert_filter *filter);
-static int mbfl_filt_conv_wchar_8859_9(int c, mbfl_convert_filter *filter);
-static int mbfl_filt_conv_8859_10_wchar(int c, mbfl_convert_filter *filter);
-static int mbfl_filt_conv_wchar_8859_10(int c, mbfl_convert_filter *filter);
-static int mbfl_filt_conv_8859_13_wchar(int c, mbfl_convert_filter *filter);
-static int mbfl_filt_conv_wchar_8859_13(int c, mbfl_convert_filter *filter);
-static int mbfl_filt_conv_8859_14_wchar(int c, mbfl_convert_filter *filter);
-static int mbfl_filt_conv_wchar_8859_14(int c, mbfl_convert_filter *filter);
-static int mbfl_filt_conv_8859_15_wchar(int c, mbfl_convert_filter *filter);
-static int mbfl_filt_conv_wchar_8859_15(int c, mbfl_convert_filter *filter);
+static int mbfl_filt_conv_ucs4_wchar(int c, mbfl_convert_filter *filter TSRMLS_DC);
+static int mbfl_filt_conv_wchar_ucs4be(int c, mbfl_convert_filter *filter TSRMLS_DC);
+static int mbfl_filt_conv_wchar_ucs4le(int c, mbfl_convert_filter *filter TSRMLS_DC);
+static int mbfl_filt_conv_ucs2_wchar(int c, mbfl_convert_filter *filter TSRMLS_DC);
+static int mbfl_filt_conv_wchar_ucs2be(int c, mbfl_convert_filter *filter TSRMLS_DC);
+static int mbfl_filt_conv_wchar_ucs2le(int c, mbfl_convert_filter *filter TSRMLS_DC);
+static int mbfl_filt_conv_utf16_wchar(int c, mbfl_convert_filter *filter TSRMLS_DC);
+static int mbfl_filt_conv_utf16be_wchar(int c, mbfl_convert_filter *filter TSRMLS_DC);
+static int mbfl_filt_conv_wchar_utf16be(int c, mbfl_convert_filter *filter TSRMLS_DC);
+static int mbfl_filt_conv_utf16le_wchar(int c, mbfl_convert_filter *filter TSRMLS_DC);
+static int mbfl_filt_conv_wchar_utf16le(int c, mbfl_convert_filter *filter TSRMLS_DC);
+static int mbfl_filt_conv_utf8_wchar(int c, mbfl_convert_filter *filter TSRMLS_DC);
+static int mbfl_filt_conv_wchar_utf8(int c, mbfl_convert_filter *filter TSRMLS_DC);
+static int mbfl_filt_conv_utf7_wchar(int c, mbfl_convert_filter *filter TSRMLS_DC);
+static int mbfl_filt_conv_wchar_utf7(int c, mbfl_convert_filter *filter TSRMLS_DC);
+static int mbfl_filt_conv_wchar_utf7_flush(mbfl_convert_filter *filter TSRMLS_DC);
+static int mbfl_filt_conv_utf7imap_wchar(int c, mbfl_convert_filter *filter TSRMLS_DC);
+static int mbfl_filt_conv_wchar_utf7imap(int c, mbfl_convert_filter *filter TSRMLS_DC);
+static int mbfl_filt_conv_wchar_utf7imap_flush(mbfl_convert_filter *filter TSRMLS_DC);
+static int mbfl_filt_conv_wchar_ascii(int c, mbfl_convert_filter *filter TSRMLS_DC);
 
-static void mbfl_filt_ident_common_ctor(mbfl_identify_filter *filter);
-static void mbfl_filt_ident_common_dtor(mbfl_identify_filter *filter);
-static void mbfl_filt_ident_false_ctor(mbfl_identify_filter *filter);
-static int mbfl_filt_ident_utf8(int c, mbfl_identify_filter *filter);
-static int mbfl_filt_ident_utf7(int c, mbfl_identify_filter *filter);
-static int mbfl_filt_ident_ascii(int c, mbfl_identify_filter *filter);
-static int mbfl_filt_ident_eucjp(int c, mbfl_identify_filter *filter);
-static int mbfl_filt_ident_sjis(int c, mbfl_identify_filter *filter);
-static int mbfl_filt_ident_sjiswin(int c, mbfl_identify_filter *filter);
-static int mbfl_filt_ident_jis(int c, mbfl_identify_filter *filter);
-static int mbfl_filt_ident_cp1252(int c, mbfl_identify_filter *filter);
-static int mbfl_filt_ident_2022jp(int c, mbfl_identify_filter *filter);
-static int mbfl_filt_ident_false(int c, mbfl_identify_filter *filter);
-static int mbfl_filt_ident_true(int c, mbfl_identify_filter *filter);
+static int mbfl_filt_conv_wchar_cp1252(int c, mbfl_convert_filter *filter TSRMLS_DC);
+static int mbfl_filt_conv_cp1252_wchar(int c, mbfl_convert_filter *filter TSRMLS_DC);
+static int mbfl_filt_conv_wchar_8859_1(int c, mbfl_convert_filter *filter TSRMLS_DC);
+static int mbfl_filt_conv_8859_2_wchar(int c, mbfl_convert_filter *filter TSRMLS_DC);
+static int mbfl_filt_conv_wchar_8859_2(int c, mbfl_convert_filter *filter TSRMLS_DC);
+static int mbfl_filt_conv_8859_3_wchar(int c, mbfl_convert_filter *filter TSRMLS_DC);
+static int mbfl_filt_conv_wchar_8859_3(int c, mbfl_convert_filter *filter TSRMLS_DC);
+static int mbfl_filt_conv_8859_4_wchar(int c, mbfl_convert_filter *filter TSRMLS_DC);
+static int mbfl_filt_conv_wchar_8859_4(int c, mbfl_convert_filter *filter TSRMLS_DC);
+static int mbfl_filt_conv_8859_5_wchar(int c, mbfl_convert_filter *filter TSRMLS_DC);
+static int mbfl_filt_conv_wchar_8859_5(int c, mbfl_convert_filter *filter TSRMLS_DC);
+static int mbfl_filt_conv_8859_6_wchar(int c, mbfl_convert_filter *filter TSRMLS_DC);
+static int mbfl_filt_conv_wchar_8859_6(int c, mbfl_convert_filter *filter TSRMLS_DC);
+static int mbfl_filt_conv_8859_7_wchar(int c, mbfl_convert_filter *filter TSRMLS_DC);
+static int mbfl_filt_conv_wchar_8859_7(int c, mbfl_convert_filter *filter TSRMLS_DC);
+static int mbfl_filt_conv_8859_8_wchar(int c, mbfl_convert_filter *filter TSRMLS_DC);
+static int mbfl_filt_conv_wchar_8859_8(int c, mbfl_convert_filter *filter TSRMLS_DC);
+static int mbfl_filt_conv_8859_9_wchar(int c, mbfl_convert_filter *filter TSRMLS_DC);
+static int mbfl_filt_conv_wchar_8859_9(int c, mbfl_convert_filter *filter TSRMLS_DC);
+static int mbfl_filt_conv_8859_10_wchar(int c, mbfl_convert_filter *filter TSRMLS_DC);
+static int mbfl_filt_conv_wchar_8859_10(int c, mbfl_convert_filter *filter TSRMLS_DC);
+static int mbfl_filt_conv_8859_13_wchar(int c, mbfl_convert_filter *filter TSRMLS_DC);
+static int mbfl_filt_conv_wchar_8859_13(int c, mbfl_convert_filter *filter TSRMLS_DC);
+static int mbfl_filt_conv_8859_14_wchar(int c, mbfl_convert_filter *filter TSRMLS_DC);
+static int mbfl_filt_conv_wchar_8859_14(int c, mbfl_convert_filter *filter TSRMLS_DC);
+static int mbfl_filt_conv_8859_15_wchar(int c, mbfl_convert_filter *filter TSRMLS_DC);
+static int mbfl_filt_conv_wchar_8859_15(int c, mbfl_convert_filter *filter TSRMLS_DC);
+
+static void mbfl_filt_ident_common_ctor(mbfl_identify_filter *filter TSRMLS_DC);
+static void mbfl_filt_ident_common_dtor(mbfl_identify_filter *filter TSRMLS_DC);
+static void mbfl_filt_ident_false_ctor(mbfl_identify_filter *filter TSRMLS_DC);
+static int mbfl_filt_ident_utf8(int c, mbfl_identify_filter *filter TSRMLS_DC);
+static int mbfl_filt_ident_utf7(int c, mbfl_identify_filter *filter TSRMLS_DC);
+static int mbfl_filt_ident_ascii(int c, mbfl_identify_filter *filter TSRMLS_DC);
+#if defined(HAVE_MBSTR_JA)
+static int mbfl_filt_ident_eucjp(int c, mbfl_identify_filter *filter TSRMLS_DC);
+static int mbfl_filt_ident_sjis(int c, mbfl_identify_filter *filter TSRMLS_DC);
+static int mbfl_filt_ident_sjiswin(int c, mbfl_identify_filter *filter TSRMLS_DC);
+static int mbfl_filt_ident_jis(int c, mbfl_identify_filter *filter TSRMLS_DC);
+static int mbfl_filt_ident_2022jp(int c, mbfl_identify_filter *filter TSRMLS_DC);
+#endif /* HAVE_MBSTR_JA */
+
+#if defined(HAVE_MBSTR_CN)
+static int mbfl_filt_ident_euccn(int c, mbfl_identify_filter *filter TSRMLS_DC);
+static int mbfl_filt_ident_cp936(int c, mbfl_identify_filter *filter TSRMLS_DC);
+static int mbfl_filt_ident_hz(int c, mbfl_identify_filter *filter TSRMLS_DC);
+#endif /* HAVE_MBSTR_CN */
+
+#if defined(HAVE_MBSTR_TW)
+static int mbfl_filt_ident_euctw(int c, mbfl_identify_filter *filter TSRMLS_DC);
+static int mbfl_filt_ident_big5(int c, mbfl_identify_filter *filter TSRMLS_DC);
+#endif /* HAVE_MBSTR_TW */
+
+#if defined(HAVE_MBSTR_KR)
+static int mbfl_filt_ident_euckr(int c, mbfl_identify_filter *filter TSRMLS_DC);
+static int mbfl_filt_ident_uhc(int c, mbfl_identify_filter *filter TSRMLS_DC);
+static int mbfl_filt_ident_2022kr(int c, mbfl_identify_filter *filter TSRMLS_DC);
+#endif /* HAVE_MBSTR_KR */
+
+#if defined(HAVE_MBSTR_RU)
+static int mbfl_filt_ident_cp1251(int c, mbfl_identify_filter *filter TSRMLS_DC);
+static int mbfl_filt_ident_cp866(int c, mbfl_identify_filter *filter TSRMLS_DC);
+static int mbfl_filt_ident_koi8r(int c, mbfl_identify_filter *filter TSRMLS_DC);
+#endif /* HAVE_MBSTR_RU */
+
+static int mbfl_filt_ident_cp1252(int c, mbfl_identify_filter *filter TSRMLS_DC);
+static int mbfl_filt_ident_false(int c, mbfl_identify_filter *filter TSRMLS_DC);
+static int mbfl_filt_ident_true(int c, mbfl_identify_filter *filter TSRMLS_DC);
 
 /* convert filter function table */
-static struct mbfl_convert_vtbl vtbl_pass = {
+static const struct mbfl_convert_vtbl vtbl_pass = {
 	mbfl_no_encoding_pass,
 	mbfl_no_encoding_pass,
 	mbfl_filt_conv_common_ctor,
@@ -865,7 +1274,7 @@ static struct mbfl_convert_vtbl vtbl_pass = {
 	mbfl_filt_conv_pass,
 	mbfl_filt_conv_common_flush };
 
-static struct mbfl_convert_vtbl vtbl_byte2be_wchar = {
+static const struct mbfl_convert_vtbl vtbl_byte2be_wchar = {
 	mbfl_no_encoding_byte2be,
 	mbfl_no_encoding_wchar,
 	mbfl_filt_conv_common_ctor,
@@ -873,7 +1282,7 @@ static struct mbfl_convert_vtbl vtbl_byte2be_wchar = {
 	mbfl_filt_conv_byte2be_wchar,
 	mbfl_filt_conv_common_flush };
 
-static struct mbfl_convert_vtbl vtbl_wchar_byte2be = {
+static const struct mbfl_convert_vtbl vtbl_wchar_byte2be = {
 	mbfl_no_encoding_wchar,
 	mbfl_no_encoding_byte2be,
 	mbfl_filt_conv_common_ctor,
@@ -881,7 +1290,7 @@ static struct mbfl_convert_vtbl vtbl_wchar_byte2be = {
 	mbfl_filt_conv_wchar_byte2be,
 	mbfl_filt_conv_common_flush };
 
-static struct mbfl_convert_vtbl vtbl_byte2le_wchar = {
+static const struct mbfl_convert_vtbl vtbl_byte2le_wchar = {
 	mbfl_no_encoding_byte2le,
 	mbfl_no_encoding_wchar,
 	mbfl_filt_conv_common_ctor,
@@ -889,7 +1298,7 @@ static struct mbfl_convert_vtbl vtbl_byte2le_wchar = {
 	mbfl_filt_conv_byte2le_wchar,
 	mbfl_filt_conv_common_flush };
 
-static struct mbfl_convert_vtbl vtbl_wchar_byte2le = {
+static const struct mbfl_convert_vtbl vtbl_wchar_byte2le = {
 	mbfl_no_encoding_wchar,
 	mbfl_no_encoding_byte2le,
 	mbfl_filt_conv_common_ctor,
@@ -897,7 +1306,7 @@ static struct mbfl_convert_vtbl vtbl_wchar_byte2le = {
 	mbfl_filt_conv_wchar_byte2le,
 	mbfl_filt_conv_common_flush };
 
-static struct mbfl_convert_vtbl vtbl_byte4be_wchar = {
+static const struct mbfl_convert_vtbl vtbl_byte4be_wchar = {
 	mbfl_no_encoding_byte4be,
 	mbfl_no_encoding_wchar,
 	mbfl_filt_conv_common_ctor,
@@ -905,7 +1314,7 @@ static struct mbfl_convert_vtbl vtbl_byte4be_wchar = {
 	mbfl_filt_conv_byte4be_wchar,
 	mbfl_filt_conv_common_flush };
 
-static struct mbfl_convert_vtbl vtbl_wchar_byte4be = {
+static const struct mbfl_convert_vtbl vtbl_wchar_byte4be = {
 	mbfl_no_encoding_wchar,
 	mbfl_no_encoding_byte4be,
 	mbfl_filt_conv_common_ctor,
@@ -913,7 +1322,7 @@ static struct mbfl_convert_vtbl vtbl_wchar_byte4be = {
 	mbfl_filt_conv_wchar_byte4be,
 	mbfl_filt_conv_common_flush };
 
-static struct mbfl_convert_vtbl vtbl_byte4le_wchar = {
+static const struct mbfl_convert_vtbl vtbl_byte4le_wchar = {
 	mbfl_no_encoding_byte4le,
 	mbfl_no_encoding_wchar,
 	mbfl_filt_conv_common_ctor,
@@ -921,7 +1330,7 @@ static struct mbfl_convert_vtbl vtbl_byte4le_wchar = {
 	mbfl_filt_conv_byte4le_wchar,
 	mbfl_filt_conv_common_flush };
 
-static struct mbfl_convert_vtbl vtbl_wchar_byte4le = {
+static const struct mbfl_convert_vtbl vtbl_wchar_byte4le = {
 	mbfl_no_encoding_wchar,
 	mbfl_no_encoding_byte4le,
 	mbfl_filt_conv_common_ctor,
@@ -929,7 +1338,7 @@ static struct mbfl_convert_vtbl vtbl_wchar_byte4le = {
 	mbfl_filt_conv_wchar_byte4le,
 	mbfl_filt_conv_common_flush };
 
-static struct mbfl_convert_vtbl vtbl_8bit_b64 = {
+static const struct mbfl_convert_vtbl vtbl_8bit_b64 = {
 	mbfl_no_encoding_8bit,
 	mbfl_no_encoding_base64,
 	mbfl_filt_conv_common_ctor,
@@ -937,7 +1346,7 @@ static struct mbfl_convert_vtbl vtbl_8bit_b64 = {
 	mbfl_filt_conv_base64enc,
 	mbfl_filt_conv_base64enc_flush };
 
-static struct mbfl_convert_vtbl vtbl_b64_8bit = {
+static const struct mbfl_convert_vtbl vtbl_b64_8bit = {
 	mbfl_no_encoding_base64,
 	mbfl_no_encoding_8bit,
 	mbfl_filt_conv_common_ctor,
@@ -945,17 +1354,31 @@ static struct mbfl_convert_vtbl vtbl_b64_8bit = {
 	mbfl_filt_conv_base64dec,
 	mbfl_filt_conv_base64dec_flush };
 
-static struct mbfl_convert_vtbl vtbl_uuencode_8bit = {
+static const struct mbfl_convert_vtbl vtbl_uuencode_8bit = {
 	mbfl_no_encoding_uuencode,
 	mbfl_no_encoding_8bit,
 	mbfl_filt_conv_common_ctor,
 	mbfl_filt_conv_common_dtor,
 	mbfl_filt_conv_uudec,
-	mbfl_filt_conv_common_flush
-};
+	mbfl_filt_conv_common_flush };
 
+static const struct mbfl_convert_vtbl vtbl_wchar_html = {
+	mbfl_no_encoding_wchar,
+	mbfl_no_encoding_html_ent,
+	mbfl_filt_conv_common_ctor,
+	mbfl_filt_conv_common_dtor,
+	mbfl_filt_conv_html_enc,
+	mbfl_filt_conv_html_enc_flush };
 
-static struct mbfl_convert_vtbl vtbl_8bit_qprint = {
+static const struct mbfl_convert_vtbl vtbl_html_wchar = {
+	mbfl_no_encoding_html_ent,
+	mbfl_no_encoding_wchar,
+	mbfl_filt_conv_html_dec_ctor,
+	mbfl_filt_conv_html_dec_dtor,
+	mbfl_filt_conv_html_dec,
+	mbfl_filt_conv_html_dec_flush };
+
+static const struct mbfl_convert_vtbl vtbl_8bit_qprint = {
 	mbfl_no_encoding_8bit,
 	mbfl_no_encoding_qprint,
 	mbfl_filt_conv_common_ctor,
@@ -963,7 +1386,7 @@ static struct mbfl_convert_vtbl vtbl_8bit_qprint = {
 	mbfl_filt_conv_qprintenc,
 	mbfl_filt_conv_qprintenc_flush };
 
-static struct mbfl_convert_vtbl vtbl_qprint_8bit = {
+static const struct mbfl_convert_vtbl vtbl_qprint_8bit = {
 	mbfl_no_encoding_qprint,
 	mbfl_no_encoding_8bit,
 	mbfl_filt_conv_common_ctor,
@@ -971,7 +1394,7 @@ static struct mbfl_convert_vtbl vtbl_qprint_8bit = {
 	mbfl_filt_conv_qprintdec,
 	mbfl_filt_conv_qprintdec_flush };
 
-static struct mbfl_convert_vtbl vtbl_8bit_7bit = {
+static const struct mbfl_convert_vtbl vtbl_8bit_7bit = {
 	mbfl_no_encoding_8bit,
 	mbfl_no_encoding_7bit,
 	mbfl_filt_conv_common_ctor,
@@ -979,7 +1402,7 @@ static struct mbfl_convert_vtbl vtbl_8bit_7bit = {
 	mbfl_filt_conv_any_7bit,
 	mbfl_filt_conv_common_flush };
 
-static struct mbfl_convert_vtbl vtbl_7bit_8bit = {
+static const struct mbfl_convert_vtbl vtbl_7bit_8bit = {
 	mbfl_no_encoding_7bit,
 	mbfl_no_encoding_8bit,
 	mbfl_filt_conv_common_ctor,
@@ -987,7 +1410,7 @@ static struct mbfl_convert_vtbl vtbl_7bit_8bit = {
 	mbfl_filt_conv_pass,
 	mbfl_filt_conv_common_flush };
 
-static struct mbfl_convert_vtbl vtbl_ucs4_wchar = {
+static const struct mbfl_convert_vtbl vtbl_ucs4_wchar = {
 	mbfl_no_encoding_ucs4,
 	mbfl_no_encoding_wchar,
 	mbfl_filt_conv_common_ctor,
@@ -995,7 +1418,7 @@ static struct mbfl_convert_vtbl vtbl_ucs4_wchar = {
 	mbfl_filt_conv_ucs4_wchar,
 	mbfl_filt_conv_common_flush };
 
-static struct mbfl_convert_vtbl vtbl_wchar_ucs4 = {
+static const struct mbfl_convert_vtbl vtbl_wchar_ucs4 = {
 	mbfl_no_encoding_wchar,
 	mbfl_no_encoding_ucs4,
 	mbfl_filt_conv_common_ctor,
@@ -1003,7 +1426,7 @@ static struct mbfl_convert_vtbl vtbl_wchar_ucs4 = {
 	mbfl_filt_conv_wchar_ucs4be,
 	mbfl_filt_conv_common_flush };
 
-static struct mbfl_convert_vtbl vtbl_ucs4be_wchar = {
+static const struct mbfl_convert_vtbl vtbl_ucs4be_wchar = {
 	mbfl_no_encoding_ucs4be,
 	mbfl_no_encoding_wchar,
 	mbfl_filt_conv_common_ctor,
@@ -1011,7 +1434,7 @@ static struct mbfl_convert_vtbl vtbl_ucs4be_wchar = {
 	mbfl_filt_conv_byte4be_wchar,
 	mbfl_filt_conv_common_flush };
 
-static struct mbfl_convert_vtbl vtbl_wchar_ucs4be = {
+static const struct mbfl_convert_vtbl vtbl_wchar_ucs4be = {
 	mbfl_no_encoding_wchar,
 	mbfl_no_encoding_ucs4be,
 	mbfl_filt_conv_common_ctor,
@@ -1019,7 +1442,7 @@ static struct mbfl_convert_vtbl vtbl_wchar_ucs4be = {
 	mbfl_filt_conv_wchar_ucs4be,
 	mbfl_filt_conv_common_flush };
 
-static struct mbfl_convert_vtbl vtbl_ucs4le_wchar = {
+static const struct mbfl_convert_vtbl vtbl_ucs4le_wchar = {
 	mbfl_no_encoding_ucs4le,
 	mbfl_no_encoding_wchar,
 	mbfl_filt_conv_common_ctor,
@@ -1027,7 +1450,7 @@ static struct mbfl_convert_vtbl vtbl_ucs4le_wchar = {
 	mbfl_filt_conv_byte4le_wchar,
 	mbfl_filt_conv_common_flush };
 
-static struct mbfl_convert_vtbl vtbl_wchar_ucs4le = {
+static const struct mbfl_convert_vtbl vtbl_wchar_ucs4le = {
 	mbfl_no_encoding_wchar,
 	mbfl_no_encoding_ucs4le,
 	mbfl_filt_conv_common_ctor,
@@ -1035,7 +1458,7 @@ static struct mbfl_convert_vtbl vtbl_wchar_ucs4le = {
 	mbfl_filt_conv_wchar_ucs4le,
 	mbfl_filt_conv_common_flush };
 
-static struct mbfl_convert_vtbl vtbl_ucs2_wchar = {
+static const struct mbfl_convert_vtbl vtbl_ucs2_wchar = {
 	mbfl_no_encoding_ucs2,
 	mbfl_no_encoding_wchar,
 	mbfl_filt_conv_common_ctor,
@@ -1043,7 +1466,7 @@ static struct mbfl_convert_vtbl vtbl_ucs2_wchar = {
 	mbfl_filt_conv_ucs2_wchar,
 	mbfl_filt_conv_common_flush };
 
-static struct mbfl_convert_vtbl vtbl_wchar_ucs2 = {
+static const struct mbfl_convert_vtbl vtbl_wchar_ucs2 = {
 	mbfl_no_encoding_wchar,
 	mbfl_no_encoding_ucs2,
 	mbfl_filt_conv_common_ctor,
@@ -1051,7 +1474,7 @@ static struct mbfl_convert_vtbl vtbl_wchar_ucs2 = {
 	mbfl_filt_conv_wchar_ucs2be,
 	mbfl_filt_conv_common_flush };
 
-static struct mbfl_convert_vtbl vtbl_ucs2be_wchar = {
+static const struct mbfl_convert_vtbl vtbl_ucs2be_wchar = {
 	mbfl_no_encoding_ucs2be,
 	mbfl_no_encoding_wchar,
 	mbfl_filt_conv_common_ctor,
@@ -1059,7 +1482,7 @@ static struct mbfl_convert_vtbl vtbl_ucs2be_wchar = {
 	mbfl_filt_conv_byte2be_wchar,
 	mbfl_filt_conv_common_flush };
 
-static struct mbfl_convert_vtbl vtbl_wchar_ucs2be = {
+static const struct mbfl_convert_vtbl vtbl_wchar_ucs2be = {
 	mbfl_no_encoding_wchar,
 	mbfl_no_encoding_ucs2be,
 	mbfl_filt_conv_common_ctor,
@@ -1067,7 +1490,7 @@ static struct mbfl_convert_vtbl vtbl_wchar_ucs2be = {
 	mbfl_filt_conv_wchar_ucs2be,
 	mbfl_filt_conv_common_flush };
 
-static struct mbfl_convert_vtbl vtbl_ucs2le_wchar = {
+static const struct mbfl_convert_vtbl vtbl_ucs2le_wchar = {
 	mbfl_no_encoding_ucs2le,
 	mbfl_no_encoding_wchar,
 	mbfl_filt_conv_common_ctor,
@@ -1075,7 +1498,7 @@ static struct mbfl_convert_vtbl vtbl_ucs2le_wchar = {
 	mbfl_filt_conv_byte2le_wchar,
 	mbfl_filt_conv_common_flush };
 
-static struct mbfl_convert_vtbl vtbl_wchar_ucs2le = {
+static const struct mbfl_convert_vtbl vtbl_wchar_ucs2le = {
 	mbfl_no_encoding_wchar,
 	mbfl_no_encoding_ucs2le,
 	mbfl_filt_conv_common_ctor,
@@ -1083,7 +1506,7 @@ static struct mbfl_convert_vtbl vtbl_wchar_ucs2le = {
 	mbfl_filt_conv_wchar_ucs2le,
 	mbfl_filt_conv_common_flush };
 
-static struct mbfl_convert_vtbl vtbl_utf32_wchar = {
+static const struct mbfl_convert_vtbl vtbl_utf32_wchar = {
 	mbfl_no_encoding_utf32,
 	mbfl_no_encoding_wchar,
 	mbfl_filt_conv_common_ctor,
@@ -1091,7 +1514,7 @@ static struct mbfl_convert_vtbl vtbl_utf32_wchar = {
 	mbfl_filt_conv_ucs4_wchar,
 	mbfl_filt_conv_common_flush };
 
-static struct mbfl_convert_vtbl vtbl_wchar_utf32 = {
+static const struct mbfl_convert_vtbl vtbl_wchar_utf32 = {
 	mbfl_no_encoding_wchar,
 	mbfl_no_encoding_utf32,
 	mbfl_filt_conv_common_ctor,
@@ -1099,7 +1522,7 @@ static struct mbfl_convert_vtbl vtbl_wchar_utf32 = {
 	mbfl_filt_conv_wchar_ucs4be,
 	mbfl_filt_conv_common_flush };
 
-static struct mbfl_convert_vtbl vtbl_utf32be_wchar = {
+static const struct mbfl_convert_vtbl vtbl_utf32be_wchar = {
 	mbfl_no_encoding_utf32be,
 	mbfl_no_encoding_wchar,
 	mbfl_filt_conv_common_ctor,
@@ -1107,7 +1530,7 @@ static struct mbfl_convert_vtbl vtbl_utf32be_wchar = {
 	mbfl_filt_conv_byte4be_wchar,
 	mbfl_filt_conv_common_flush };
 
-static struct mbfl_convert_vtbl vtbl_wchar_utf32be = {
+static const struct mbfl_convert_vtbl vtbl_wchar_utf32be = {
 	mbfl_no_encoding_wchar,
 	mbfl_no_encoding_utf32be,
 	mbfl_filt_conv_common_ctor,
@@ -1115,7 +1538,7 @@ static struct mbfl_convert_vtbl vtbl_wchar_utf32be = {
 	mbfl_filt_conv_wchar_ucs4be,
 	mbfl_filt_conv_common_flush };
 
-static struct mbfl_convert_vtbl vtbl_utf32le_wchar = {
+static const struct mbfl_convert_vtbl vtbl_utf32le_wchar = {
 	mbfl_no_encoding_utf32le,
 	mbfl_no_encoding_wchar,
 	mbfl_filt_conv_common_ctor,
@@ -1123,7 +1546,7 @@ static struct mbfl_convert_vtbl vtbl_utf32le_wchar = {
 	mbfl_filt_conv_byte4le_wchar,
 	mbfl_filt_conv_common_flush };
 
-static struct mbfl_convert_vtbl vtbl_wchar_utf32le = {
+static const struct mbfl_convert_vtbl vtbl_wchar_utf32le = {
 	mbfl_no_encoding_wchar,
 	mbfl_no_encoding_utf32le,
 	mbfl_filt_conv_common_ctor,
@@ -1131,7 +1554,7 @@ static struct mbfl_convert_vtbl vtbl_wchar_utf32le = {
 	mbfl_filt_conv_wchar_ucs4le,
 	mbfl_filt_conv_common_flush };
 
-static struct mbfl_convert_vtbl vtbl_utf16_wchar = {
+static const struct mbfl_convert_vtbl vtbl_utf16_wchar = {
 	mbfl_no_encoding_utf16,
 	mbfl_no_encoding_wchar,
 	mbfl_filt_conv_common_ctor,
@@ -1139,7 +1562,7 @@ static struct mbfl_convert_vtbl vtbl_utf16_wchar = {
 	mbfl_filt_conv_utf16_wchar,
 	mbfl_filt_conv_common_flush };
 
-static struct mbfl_convert_vtbl vtbl_wchar_utf16 = {
+static const struct mbfl_convert_vtbl vtbl_wchar_utf16 = {
 	mbfl_no_encoding_wchar,
 	mbfl_no_encoding_utf16,
 	mbfl_filt_conv_common_ctor,
@@ -1147,7 +1570,7 @@ static struct mbfl_convert_vtbl vtbl_wchar_utf16 = {
 	mbfl_filt_conv_wchar_utf16be,
 	mbfl_filt_conv_common_flush };
 
-static struct mbfl_convert_vtbl vtbl_utf16be_wchar = {
+static const struct mbfl_convert_vtbl vtbl_utf16be_wchar = {
 	mbfl_no_encoding_utf16be,
 	mbfl_no_encoding_wchar,
 	mbfl_filt_conv_common_ctor,
@@ -1155,7 +1578,7 @@ static struct mbfl_convert_vtbl vtbl_utf16be_wchar = {
 	mbfl_filt_conv_utf16be_wchar,
 	mbfl_filt_conv_common_flush };
 
-static struct mbfl_convert_vtbl vtbl_wchar_utf16be = {
+static const struct mbfl_convert_vtbl vtbl_wchar_utf16be = {
 	mbfl_no_encoding_wchar,
 	mbfl_no_encoding_utf16be,
 	mbfl_filt_conv_common_ctor,
@@ -1163,7 +1586,7 @@ static struct mbfl_convert_vtbl vtbl_wchar_utf16be = {
 	mbfl_filt_conv_wchar_utf16be,
 	mbfl_filt_conv_common_flush };
 
-static struct mbfl_convert_vtbl vtbl_utf16le_wchar = {
+static const struct mbfl_convert_vtbl vtbl_utf16le_wchar = {
 	mbfl_no_encoding_utf16le,
 	mbfl_no_encoding_wchar,
 	mbfl_filt_conv_common_ctor,
@@ -1171,7 +1594,7 @@ static struct mbfl_convert_vtbl vtbl_utf16le_wchar = {
 	mbfl_filt_conv_utf16le_wchar,
 	mbfl_filt_conv_common_flush };
 
-static struct mbfl_convert_vtbl vtbl_wchar_utf16le = {
+static const struct mbfl_convert_vtbl vtbl_wchar_utf16le = {
 	mbfl_no_encoding_wchar,
 	mbfl_no_encoding_utf16le,
 	mbfl_filt_conv_common_ctor,
@@ -1179,7 +1602,7 @@ static struct mbfl_convert_vtbl vtbl_wchar_utf16le = {
 	mbfl_filt_conv_wchar_utf16le,
 	mbfl_filt_conv_common_flush };
 
-static struct mbfl_convert_vtbl vtbl_utf8_wchar = {
+static const struct mbfl_convert_vtbl vtbl_utf8_wchar = {
 	mbfl_no_encoding_utf8,
 	mbfl_no_encoding_wchar,
 	mbfl_filt_conv_common_ctor,
@@ -1187,7 +1610,7 @@ static struct mbfl_convert_vtbl vtbl_utf8_wchar = {
 	mbfl_filt_conv_utf8_wchar,
 	mbfl_filt_conv_common_flush };
 
-static struct mbfl_convert_vtbl vtbl_wchar_utf8 = {
+static const struct mbfl_convert_vtbl vtbl_wchar_utf8 = {
 	mbfl_no_encoding_wchar,
 	mbfl_no_encoding_utf8,
 	mbfl_filt_conv_common_ctor,
@@ -1195,7 +1618,7 @@ static struct mbfl_convert_vtbl vtbl_wchar_utf8 = {
 	mbfl_filt_conv_wchar_utf8,
 	mbfl_filt_conv_common_flush };
 
-static struct mbfl_convert_vtbl vtbl_utf7_wchar = {
+static const struct mbfl_convert_vtbl vtbl_utf7_wchar = {
 	mbfl_no_encoding_utf7,
 	mbfl_no_encoding_wchar,
 	mbfl_filt_conv_common_ctor,
@@ -1203,7 +1626,7 @@ static struct mbfl_convert_vtbl vtbl_utf7_wchar = {
 	mbfl_filt_conv_utf7_wchar,
 	mbfl_filt_conv_common_flush };
 
-static struct mbfl_convert_vtbl vtbl_wchar_utf7 = {
+static const struct mbfl_convert_vtbl vtbl_wchar_utf7 = {
 	mbfl_no_encoding_wchar,
 	mbfl_no_encoding_utf7,
 	mbfl_filt_conv_common_ctor,
@@ -1211,7 +1634,7 @@ static struct mbfl_convert_vtbl vtbl_wchar_utf7 = {
 	mbfl_filt_conv_wchar_utf7,
 	mbfl_filt_conv_wchar_utf7_flush };
 
-static struct mbfl_convert_vtbl vtbl_utf7imap_wchar = {
+static const struct mbfl_convert_vtbl vtbl_utf7imap_wchar = {
 	mbfl_no_encoding_utf7imap,
 	mbfl_no_encoding_wchar,
 	mbfl_filt_conv_common_ctor,
@@ -1219,7 +1642,7 @@ static struct mbfl_convert_vtbl vtbl_utf7imap_wchar = {
 	mbfl_filt_conv_utf7imap_wchar,
 	mbfl_filt_conv_common_flush };
 
-static struct mbfl_convert_vtbl vtbl_wchar_utf7imap = {
+static const struct mbfl_convert_vtbl vtbl_wchar_utf7imap = {
 	mbfl_no_encoding_wchar,
 	mbfl_no_encoding_utf7imap,
 	mbfl_filt_conv_common_ctor,
@@ -1227,7 +1650,7 @@ static struct mbfl_convert_vtbl vtbl_wchar_utf7imap = {
 	mbfl_filt_conv_wchar_utf7imap,
 	mbfl_filt_conv_wchar_utf7imap_flush };
 
-static struct mbfl_convert_vtbl vtbl_ascii_wchar = {
+static const struct mbfl_convert_vtbl vtbl_ascii_wchar = {
 	mbfl_no_encoding_ascii,
 	mbfl_no_encoding_wchar,
 	mbfl_filt_conv_common_ctor,
@@ -1235,7 +1658,7 @@ static struct mbfl_convert_vtbl vtbl_ascii_wchar = {
 	mbfl_filt_conv_pass,
 	mbfl_filt_conv_common_flush };
 
-static struct mbfl_convert_vtbl vtbl_wchar_ascii = {
+static const struct mbfl_convert_vtbl vtbl_wchar_ascii = {
 	mbfl_no_encoding_wchar,
 	mbfl_no_encoding_ascii,
 	mbfl_filt_conv_common_ctor,
@@ -1243,7 +1666,8 @@ static struct mbfl_convert_vtbl vtbl_wchar_ascii = {
 	mbfl_filt_conv_wchar_ascii,
 	mbfl_filt_conv_common_flush };
 
-static struct mbfl_convert_vtbl vtbl_eucjp_wchar = {
+#if defined(HAVE_MBSTR_JA)
+static const struct mbfl_convert_vtbl vtbl_eucjp_wchar = {
 	mbfl_no_encoding_euc_jp,
 	mbfl_no_encoding_wchar,
 	mbfl_filt_conv_common_ctor,
@@ -1251,7 +1675,7 @@ static struct mbfl_convert_vtbl vtbl_eucjp_wchar = {
 	mbfl_filt_conv_eucjp_wchar,
 	mbfl_filt_conv_common_flush };
 
-static struct mbfl_convert_vtbl vtbl_wchar_eucjp = {
+static const struct mbfl_convert_vtbl vtbl_wchar_eucjp = {
 	mbfl_no_encoding_wchar,
 	mbfl_no_encoding_euc_jp,
 	mbfl_filt_conv_common_ctor,
@@ -1259,7 +1683,7 @@ static struct mbfl_convert_vtbl vtbl_wchar_eucjp = {
 	mbfl_filt_conv_wchar_eucjp,
 	mbfl_filt_conv_common_flush };
 
-static struct mbfl_convert_vtbl vtbl_sjis_wchar = {
+static const struct mbfl_convert_vtbl vtbl_sjis_wchar = {
 	mbfl_no_encoding_sjis,
 	mbfl_no_encoding_wchar,
 	mbfl_filt_conv_common_ctor,
@@ -1267,7 +1691,7 @@ static struct mbfl_convert_vtbl vtbl_sjis_wchar = {
 	mbfl_filt_conv_sjis_wchar,
 	mbfl_filt_conv_common_flush };
 
-static struct mbfl_convert_vtbl vtbl_wchar_sjis = {
+static const struct mbfl_convert_vtbl vtbl_wchar_sjis = {
 	mbfl_no_encoding_wchar,
 	mbfl_no_encoding_sjis,
 	mbfl_filt_conv_common_ctor,
@@ -1275,7 +1699,7 @@ static struct mbfl_convert_vtbl vtbl_wchar_sjis = {
 	mbfl_filt_conv_wchar_sjis,
 	mbfl_filt_conv_common_flush };
 
-static struct mbfl_convert_vtbl vtbl_jis_wchar = {
+static const struct mbfl_convert_vtbl vtbl_jis_wchar = {
 	mbfl_no_encoding_jis,
 	mbfl_no_encoding_wchar,
 	mbfl_filt_conv_common_ctor,
@@ -1283,7 +1707,7 @@ static struct mbfl_convert_vtbl vtbl_jis_wchar = {
 	mbfl_filt_conv_jis_wchar,
 	mbfl_filt_conv_common_flush };
 
-static struct mbfl_convert_vtbl vtbl_wchar_jis = {
+static const struct mbfl_convert_vtbl vtbl_wchar_jis = {
 	mbfl_no_encoding_wchar,
 	mbfl_no_encoding_jis,
 	mbfl_filt_conv_common_ctor,
@@ -1291,7 +1715,7 @@ static struct mbfl_convert_vtbl vtbl_wchar_jis = {
 	mbfl_filt_conv_wchar_jis,
 	mbfl_filt_conv_any_jis_flush };
 
-static struct mbfl_convert_vtbl vtbl_2022jp_wchar = {
+static const struct mbfl_convert_vtbl vtbl_2022jp_wchar = {
 	mbfl_no_encoding_2022jp,
 	mbfl_no_encoding_wchar,
 	mbfl_filt_conv_common_ctor,
@@ -1299,7 +1723,7 @@ static struct mbfl_convert_vtbl vtbl_2022jp_wchar = {
 	mbfl_filt_conv_jis_wchar,
 	mbfl_filt_conv_common_flush };
 
-static struct mbfl_convert_vtbl vtbl_wchar_2022jp = {
+static const struct mbfl_convert_vtbl vtbl_wchar_2022jp = {
 	mbfl_no_encoding_wchar,
 	mbfl_no_encoding_2022jp,
 	mbfl_filt_conv_common_ctor,
@@ -1307,7 +1731,7 @@ static struct mbfl_convert_vtbl vtbl_wchar_2022jp = {
 	mbfl_filt_conv_wchar_2022jp,
 	mbfl_filt_conv_any_jis_flush };
 
-static struct mbfl_convert_vtbl vtbl_eucjpwin_wchar = {
+static const struct mbfl_convert_vtbl vtbl_eucjpwin_wchar = {
 	mbfl_no_encoding_eucjp_win,
 	mbfl_no_encoding_wchar,
 	mbfl_filt_conv_common_ctor,
@@ -1315,7 +1739,7 @@ static struct mbfl_convert_vtbl vtbl_eucjpwin_wchar = {
 	mbfl_filt_conv_eucjpwin_wchar,
 	mbfl_filt_conv_common_flush };
 
-static struct mbfl_convert_vtbl vtbl_wchar_eucjpwin = {
+static const struct mbfl_convert_vtbl vtbl_wchar_eucjpwin = {
 	mbfl_no_encoding_wchar,
 	mbfl_no_encoding_eucjp_win,
 	mbfl_filt_conv_common_ctor,
@@ -1323,7 +1747,7 @@ static struct mbfl_convert_vtbl vtbl_wchar_eucjpwin = {
 	mbfl_filt_conv_wchar_eucjpwin,
 	mbfl_filt_conv_common_flush };
 
-static struct mbfl_convert_vtbl vtbl_sjiswin_wchar = {
+static const struct mbfl_convert_vtbl vtbl_sjiswin_wchar = {
 	mbfl_no_encoding_sjis_win,
 	mbfl_no_encoding_wchar,
 	mbfl_filt_conv_common_ctor,
@@ -1331,15 +1755,201 @@ static struct mbfl_convert_vtbl vtbl_sjiswin_wchar = {
 	mbfl_filt_conv_sjiswin_wchar,
 	mbfl_filt_conv_common_flush };
 
-static struct mbfl_convert_vtbl vtbl_wchar_sjiswin = {
+static const struct mbfl_convert_vtbl vtbl_wchar_sjiswin = {
 	mbfl_no_encoding_wchar,
 	mbfl_no_encoding_sjis_win,
 	mbfl_filt_conv_common_ctor,
 	mbfl_filt_conv_common_dtor,
 	mbfl_filt_conv_wchar_sjiswin,
 	mbfl_filt_conv_common_flush };
+#endif /* HAVE_MBSTR_JA */
 
-static struct mbfl_convert_vtbl vtbl_cp1252_wchar = {
+#if defined(HAVE_MBSTR_CN)
+static const struct mbfl_convert_vtbl vtbl_euccn_wchar = {
+	mbfl_no_encoding_euc_cn,
+	mbfl_no_encoding_wchar,
+	mbfl_filt_conv_common_ctor,
+	mbfl_filt_conv_common_dtor,
+	mbfl_filt_conv_euccn_wchar,
+	mbfl_filt_conv_common_flush };
+
+static const struct mbfl_convert_vtbl vtbl_wchar_euccn = {
+	mbfl_no_encoding_wchar,
+	mbfl_no_encoding_euc_cn,
+	mbfl_filt_conv_common_ctor,
+	mbfl_filt_conv_common_dtor,
+	mbfl_filt_conv_wchar_euccn,
+	mbfl_filt_conv_common_flush };
+
+static const struct mbfl_convert_vtbl vtbl_cp936_wchar = {
+	mbfl_no_encoding_cp936,
+	mbfl_no_encoding_wchar,
+	mbfl_filt_conv_common_ctor,
+	mbfl_filt_conv_common_dtor,
+	mbfl_filt_conv_cp936_wchar,
+	mbfl_filt_conv_common_flush };
+
+static const struct mbfl_convert_vtbl vtbl_wchar_cp936 = {
+	mbfl_no_encoding_wchar,
+	mbfl_no_encoding_cp936,
+	mbfl_filt_conv_common_ctor,
+	mbfl_filt_conv_common_dtor,
+	mbfl_filt_conv_wchar_cp936,
+	mbfl_filt_conv_common_flush };
+
+static const struct mbfl_convert_vtbl vtbl_hz_wchar = {
+	mbfl_no_encoding_hz,
+	mbfl_no_encoding_wchar,
+	mbfl_filt_conv_common_ctor,
+	mbfl_filt_conv_common_dtor,
+	mbfl_filt_conv_hz_wchar,
+	mbfl_filt_conv_common_flush };
+
+static const struct mbfl_convert_vtbl vtbl_wchar_hz = {
+	mbfl_no_encoding_wchar,
+	mbfl_no_encoding_hz,
+	mbfl_filt_conv_common_ctor,
+	mbfl_filt_conv_common_dtor,
+	mbfl_filt_conv_wchar_hz,
+	mbfl_filt_conv_any_hz_flush };
+
+#endif /* HAVE_MBSTR_CN */
+
+#if defined(HAVE_MBSTR_TW)
+static const struct mbfl_convert_vtbl vtbl_euctw_wchar = {
+	mbfl_no_encoding_euc_tw,
+	mbfl_no_encoding_wchar,
+	mbfl_filt_conv_common_ctor,
+	mbfl_filt_conv_common_dtor,
+	mbfl_filt_conv_euctw_wchar,
+	mbfl_filt_conv_common_flush };
+
+static struct mbfl_convert_vtbl vtbl_wchar_euctw = {
+	mbfl_no_encoding_wchar,
+	mbfl_no_encoding_euc_tw,
+	mbfl_filt_conv_common_ctor,
+	mbfl_filt_conv_common_dtor,
+	mbfl_filt_conv_wchar_euctw,
+	mbfl_filt_conv_common_flush };
+
+static const struct mbfl_convert_vtbl vtbl_big5_wchar = {
+	mbfl_no_encoding_big5,
+	mbfl_no_encoding_wchar,
+	mbfl_filt_conv_common_ctor,
+	mbfl_filt_conv_common_dtor,
+	mbfl_filt_conv_big5_wchar,
+	mbfl_filt_conv_common_flush };
+
+static const struct mbfl_convert_vtbl vtbl_wchar_big5 = {
+	mbfl_no_encoding_wchar,
+	mbfl_no_encoding_big5,
+	mbfl_filt_conv_common_ctor,
+	mbfl_filt_conv_common_dtor,
+	mbfl_filt_conv_wchar_big5,
+	mbfl_filt_conv_common_flush };
+#endif /* HAVE_MBSTR_TW */
+
+#if defined(HAVE_MBSTR_KR)
+static const struct mbfl_convert_vtbl vtbl_euckr_wchar = {
+	mbfl_no_encoding_euc_kr,
+	mbfl_no_encoding_wchar,
+	mbfl_filt_conv_common_ctor,
+	mbfl_filt_conv_common_dtor,
+	mbfl_filt_conv_euckr_wchar,
+	mbfl_filt_conv_common_flush };
+
+static const struct mbfl_convert_vtbl vtbl_wchar_euckr = {
+	mbfl_no_encoding_wchar,
+	mbfl_no_encoding_euc_kr,
+	mbfl_filt_conv_common_ctor,
+	mbfl_filt_conv_common_dtor,
+	mbfl_filt_conv_wchar_euckr,
+	mbfl_filt_conv_common_flush };
+
+static const struct mbfl_convert_vtbl vtbl_uhc_wchar = {
+	mbfl_no_encoding_uhc,
+	mbfl_no_encoding_wchar,
+	mbfl_filt_conv_common_ctor,
+	mbfl_filt_conv_common_dtor,
+	mbfl_filt_conv_uhc_wchar,
+	mbfl_filt_conv_common_flush };
+
+static const struct mbfl_convert_vtbl vtbl_wchar_uhc = {
+	mbfl_no_encoding_wchar,
+	mbfl_no_encoding_uhc,
+	mbfl_filt_conv_common_ctor,
+	mbfl_filt_conv_common_dtor,
+	mbfl_filt_conv_wchar_uhc,
+	mbfl_filt_conv_common_flush };
+
+static const struct mbfl_convert_vtbl vtbl_wchar_2022kr = {
+	mbfl_no_encoding_wchar,
+	mbfl_no_encoding_2022kr,
+	mbfl_filt_conv_common_ctor,
+	mbfl_filt_conv_common_dtor,
+	mbfl_filt_conv_wchar_2022kr,
+	mbfl_filt_conv_any_2022kr_flush };
+
+static const struct mbfl_convert_vtbl vtbl_2022kr_wchar = {
+	mbfl_no_encoding_2022kr,
+	mbfl_no_encoding_wchar,
+	mbfl_filt_conv_common_ctor,
+	mbfl_filt_conv_common_dtor,
+	mbfl_filt_conv_2022kr_wchar,
+	mbfl_filt_conv_common_flush };
+#endif /* HAVE_MBSTR_KR */
+
+#if defined(HAVE_MBSTR_RU)
+static const struct mbfl_convert_vtbl vtbl_wchar_cp1251 = {
+	mbfl_no_encoding_wchar,
+	mbfl_no_encoding_cp1251,
+	mbfl_filt_conv_common_ctor,
+	mbfl_filt_conv_common_dtor,
+	mbfl_filt_conv_wchar_cp1251,
+	mbfl_filt_conv_common_flush };
+
+static const struct mbfl_convert_vtbl vtbl_cp1251_wchar = {
+	mbfl_no_encoding_cp1251,
+	mbfl_no_encoding_wchar,
+	mbfl_filt_conv_common_ctor,
+	mbfl_filt_conv_common_dtor,
+	mbfl_filt_conv_cp1251_wchar,
+	mbfl_filt_conv_common_flush };
+
+static const struct mbfl_convert_vtbl vtbl_wchar_cp866 = {
+	mbfl_no_encoding_wchar,
+	mbfl_no_encoding_cp866,
+	mbfl_filt_conv_common_ctor,
+	mbfl_filt_conv_common_dtor,
+	mbfl_filt_conv_wchar_cp866,
+	mbfl_filt_conv_common_flush };
+
+static const struct mbfl_convert_vtbl vtbl_cp866_wchar = {
+	mbfl_no_encoding_cp866,
+	mbfl_no_encoding_wchar,
+	mbfl_filt_conv_common_ctor,
+	mbfl_filt_conv_common_dtor,
+	mbfl_filt_conv_cp866_wchar,
+	mbfl_filt_conv_common_flush };
+
+static const struct mbfl_convert_vtbl vtbl_wchar_koi8r = {
+	mbfl_no_encoding_wchar,
+	mbfl_no_encoding_koi8r,
+	mbfl_filt_conv_common_ctor,
+	mbfl_filt_conv_common_dtor,
+	mbfl_filt_conv_wchar_koi8r,
+	mbfl_filt_conv_common_flush };
+
+static const struct mbfl_convert_vtbl vtbl_koi8r_wchar = {
+	mbfl_no_encoding_koi8r,
+	mbfl_no_encoding_wchar,
+	mbfl_filt_conv_common_ctor,
+	mbfl_filt_conv_common_dtor,
+	mbfl_filt_conv_koi8r_wchar,
+	mbfl_filt_conv_common_flush };
+#endif /* HAVE_MBSTR_RU */
+
+static const struct mbfl_convert_vtbl vtbl_cp1252_wchar = {
 	mbfl_no_encoding_cp1252,
 	mbfl_no_encoding_wchar,
 	mbfl_filt_conv_common_ctor,
@@ -1347,16 +1957,16 @@ static struct mbfl_convert_vtbl vtbl_cp1252_wchar = {
 	mbfl_filt_conv_cp1252_wchar,
 	mbfl_filt_conv_common_flush };
 
-static struct mbfl_convert_vtbl vtbl_wchar_cp1252 = {
-	mbfl_no_encoding_cp1252,
+static const struct mbfl_convert_vtbl vtbl_wchar_cp1252 = {
 	mbfl_no_encoding_wchar,
+	mbfl_no_encoding_cp1252,
 	mbfl_filt_conv_common_ctor,
 	mbfl_filt_conv_common_dtor,
 	mbfl_filt_conv_wchar_cp1252,
 	mbfl_filt_conv_common_flush };
 
 
-static struct mbfl_convert_vtbl vtbl_8859_1_wchar = {
+static const struct mbfl_convert_vtbl vtbl_8859_1_wchar = {
 	mbfl_no_encoding_8859_1,
 	mbfl_no_encoding_wchar,
 	mbfl_filt_conv_common_ctor,
@@ -1364,7 +1974,7 @@ static struct mbfl_convert_vtbl vtbl_8859_1_wchar = {
 	mbfl_filt_conv_pass,
 	mbfl_filt_conv_common_flush };
 
-static struct mbfl_convert_vtbl vtbl_wchar_8859_1 = {
+static const struct mbfl_convert_vtbl vtbl_wchar_8859_1 = {
 	mbfl_no_encoding_wchar,
 	mbfl_no_encoding_8859_1,
 	mbfl_filt_conv_common_ctor,
@@ -1372,7 +1982,7 @@ static struct mbfl_convert_vtbl vtbl_wchar_8859_1 = {
 	mbfl_filt_conv_wchar_8859_1,
 	mbfl_filt_conv_common_flush };
 
-static struct mbfl_convert_vtbl vtbl_8859_2_wchar = {
+static const struct mbfl_convert_vtbl vtbl_8859_2_wchar = {
 	mbfl_no_encoding_8859_2,
 	mbfl_no_encoding_wchar,
 	mbfl_filt_conv_common_ctor,
@@ -1380,7 +1990,7 @@ static struct mbfl_convert_vtbl vtbl_8859_2_wchar = {
 	mbfl_filt_conv_8859_2_wchar,
 	mbfl_filt_conv_common_flush };
 
-static struct mbfl_convert_vtbl vtbl_wchar_8859_2 = {
+static const struct mbfl_convert_vtbl vtbl_wchar_8859_2 = {
 	mbfl_no_encoding_wchar,
 	mbfl_no_encoding_8859_2,
 	mbfl_filt_conv_common_ctor,
@@ -1388,7 +1998,7 @@ static struct mbfl_convert_vtbl vtbl_wchar_8859_2 = {
 	mbfl_filt_conv_wchar_8859_2,
 	mbfl_filt_conv_common_flush };
 
-static struct mbfl_convert_vtbl vtbl_8859_3_wchar = {
+static const struct mbfl_convert_vtbl vtbl_8859_3_wchar = {
 	mbfl_no_encoding_8859_3,
 	mbfl_no_encoding_wchar,
 	mbfl_filt_conv_common_ctor,
@@ -1396,7 +2006,7 @@ static struct mbfl_convert_vtbl vtbl_8859_3_wchar = {
 	mbfl_filt_conv_8859_3_wchar,
 	mbfl_filt_conv_common_flush };
 
-static struct mbfl_convert_vtbl vtbl_wchar_8859_3 = {
+static const struct mbfl_convert_vtbl vtbl_wchar_8859_3 = {
 	mbfl_no_encoding_wchar,
 	mbfl_no_encoding_8859_3,
 	mbfl_filt_conv_common_ctor,
@@ -1404,7 +2014,7 @@ static struct mbfl_convert_vtbl vtbl_wchar_8859_3 = {
 	mbfl_filt_conv_wchar_8859_3,
 	mbfl_filt_conv_common_flush };
 
-static struct mbfl_convert_vtbl vtbl_8859_4_wchar = {
+static const struct mbfl_convert_vtbl vtbl_8859_4_wchar = {
 	mbfl_no_encoding_8859_4,
 	mbfl_no_encoding_wchar,
 	mbfl_filt_conv_common_ctor,
@@ -1412,7 +2022,7 @@ static struct mbfl_convert_vtbl vtbl_8859_4_wchar = {
 	mbfl_filt_conv_8859_4_wchar,
 	mbfl_filt_conv_common_flush };
 
-static struct mbfl_convert_vtbl vtbl_wchar_8859_4 = {
+static const struct mbfl_convert_vtbl vtbl_wchar_8859_4 = {
 	mbfl_no_encoding_wchar,
 	mbfl_no_encoding_8859_4,
 	mbfl_filt_conv_common_ctor,
@@ -1420,7 +2030,7 @@ static struct mbfl_convert_vtbl vtbl_wchar_8859_4 = {
 	mbfl_filt_conv_wchar_8859_4,
 	mbfl_filt_conv_common_flush };
 
-static struct mbfl_convert_vtbl vtbl_8859_5_wchar = {
+static const struct mbfl_convert_vtbl vtbl_8859_5_wchar = {
 	mbfl_no_encoding_8859_5,
 	mbfl_no_encoding_wchar,
 	mbfl_filt_conv_common_ctor,
@@ -1428,7 +2038,7 @@ static struct mbfl_convert_vtbl vtbl_8859_5_wchar = {
 	mbfl_filt_conv_8859_5_wchar,
 	mbfl_filt_conv_common_flush };
 
-static struct mbfl_convert_vtbl vtbl_wchar_8859_5 = {
+static const struct mbfl_convert_vtbl vtbl_wchar_8859_5 = {
 	mbfl_no_encoding_wchar,
 	mbfl_no_encoding_8859_5,
 	mbfl_filt_conv_common_ctor,
@@ -1436,7 +2046,7 @@ static struct mbfl_convert_vtbl vtbl_wchar_8859_5 = {
 	mbfl_filt_conv_wchar_8859_5,
 	mbfl_filt_conv_common_flush };
 
-static struct mbfl_convert_vtbl vtbl_8859_6_wchar = {
+static const struct mbfl_convert_vtbl vtbl_8859_6_wchar = {
 	mbfl_no_encoding_8859_6,
 	mbfl_no_encoding_wchar,
 	mbfl_filt_conv_common_ctor,
@@ -1444,7 +2054,7 @@ static struct mbfl_convert_vtbl vtbl_8859_6_wchar = {
 	mbfl_filt_conv_8859_6_wchar,
 	mbfl_filt_conv_common_flush };
 
-static struct mbfl_convert_vtbl vtbl_wchar_8859_6 = {
+static const struct mbfl_convert_vtbl vtbl_wchar_8859_6 = {
 	mbfl_no_encoding_wchar,
 	mbfl_no_encoding_8859_6,
 	mbfl_filt_conv_common_ctor,
@@ -1452,7 +2062,7 @@ static struct mbfl_convert_vtbl vtbl_wchar_8859_6 = {
 	mbfl_filt_conv_wchar_8859_6,
 	mbfl_filt_conv_common_flush };
 
-static struct mbfl_convert_vtbl vtbl_8859_7_wchar = {
+static const struct mbfl_convert_vtbl vtbl_8859_7_wchar = {
 	mbfl_no_encoding_8859_7,
 	mbfl_no_encoding_wchar,
 	mbfl_filt_conv_common_ctor,
@@ -1460,7 +2070,7 @@ static struct mbfl_convert_vtbl vtbl_8859_7_wchar = {
 	mbfl_filt_conv_8859_7_wchar,
 	mbfl_filt_conv_common_flush };
 
-static struct mbfl_convert_vtbl vtbl_wchar_8859_7 = {
+static const struct mbfl_convert_vtbl vtbl_wchar_8859_7 = {
 	mbfl_no_encoding_wchar,
 	mbfl_no_encoding_8859_7,
 	mbfl_filt_conv_common_ctor,
@@ -1468,7 +2078,7 @@ static struct mbfl_convert_vtbl vtbl_wchar_8859_7 = {
 	mbfl_filt_conv_wchar_8859_7,
 	mbfl_filt_conv_common_flush };
 
-static struct mbfl_convert_vtbl vtbl_8859_8_wchar = {
+static const struct mbfl_convert_vtbl vtbl_8859_8_wchar = {
 	mbfl_no_encoding_8859_8,
 	mbfl_no_encoding_wchar,
 	mbfl_filt_conv_common_ctor,
@@ -1476,7 +2086,7 @@ static struct mbfl_convert_vtbl vtbl_8859_8_wchar = {
 	mbfl_filt_conv_8859_8_wchar,
 	mbfl_filt_conv_common_flush };
 
-static struct mbfl_convert_vtbl vtbl_wchar_8859_8 = {
+static const struct mbfl_convert_vtbl vtbl_wchar_8859_8 = {
 	mbfl_no_encoding_wchar,
 	mbfl_no_encoding_8859_8,
 	mbfl_filt_conv_common_ctor,
@@ -1484,7 +2094,7 @@ static struct mbfl_convert_vtbl vtbl_wchar_8859_8 = {
 	mbfl_filt_conv_wchar_8859_8,
 	mbfl_filt_conv_common_flush };
 
-static struct mbfl_convert_vtbl vtbl_8859_9_wchar = {
+static const struct mbfl_convert_vtbl vtbl_8859_9_wchar = {
 	mbfl_no_encoding_8859_9,
 	mbfl_no_encoding_wchar,
 	mbfl_filt_conv_common_ctor,
@@ -1492,7 +2102,7 @@ static struct mbfl_convert_vtbl vtbl_8859_9_wchar = {
 	mbfl_filt_conv_8859_9_wchar,
 	mbfl_filt_conv_common_flush };
 
-static struct mbfl_convert_vtbl vtbl_wchar_8859_9 = {
+static const struct mbfl_convert_vtbl vtbl_wchar_8859_9 = {
 	mbfl_no_encoding_wchar,
 	mbfl_no_encoding_8859_9,
 	mbfl_filt_conv_common_ctor,
@@ -1500,7 +2110,7 @@ static struct mbfl_convert_vtbl vtbl_wchar_8859_9 = {
 	mbfl_filt_conv_wchar_8859_9,
 	mbfl_filt_conv_common_flush };
 
-static struct mbfl_convert_vtbl vtbl_8859_10_wchar = {
+static const struct mbfl_convert_vtbl vtbl_8859_10_wchar = {
 	mbfl_no_encoding_8859_10,
 	mbfl_no_encoding_wchar,
 	mbfl_filt_conv_common_ctor,
@@ -1508,7 +2118,7 @@ static struct mbfl_convert_vtbl vtbl_8859_10_wchar = {
 	mbfl_filt_conv_8859_10_wchar,
 	mbfl_filt_conv_common_flush };
 
-static struct mbfl_convert_vtbl vtbl_wchar_8859_10 = {
+static const struct mbfl_convert_vtbl vtbl_wchar_8859_10 = {
 	mbfl_no_encoding_wchar,
 	mbfl_no_encoding_8859_10,
 	mbfl_filt_conv_common_ctor,
@@ -1516,7 +2126,7 @@ static struct mbfl_convert_vtbl vtbl_wchar_8859_10 = {
 	mbfl_filt_conv_wchar_8859_10,
 	mbfl_filt_conv_common_flush };
 
-static struct mbfl_convert_vtbl vtbl_8859_13_wchar = {
+static const struct mbfl_convert_vtbl vtbl_8859_13_wchar = {
 	mbfl_no_encoding_8859_13,
 	mbfl_no_encoding_wchar,
 	mbfl_filt_conv_common_ctor,
@@ -1524,7 +2134,7 @@ static struct mbfl_convert_vtbl vtbl_8859_13_wchar = {
 	mbfl_filt_conv_8859_13_wchar,
 	mbfl_filt_conv_common_flush };
 
-static struct mbfl_convert_vtbl vtbl_wchar_8859_13 = {
+static const struct mbfl_convert_vtbl vtbl_wchar_8859_13 = {
 	mbfl_no_encoding_wchar,
 	mbfl_no_encoding_8859_13,
 	mbfl_filt_conv_common_ctor,
@@ -1532,7 +2142,7 @@ static struct mbfl_convert_vtbl vtbl_wchar_8859_13 = {
 	mbfl_filt_conv_wchar_8859_13,
 	mbfl_filt_conv_common_flush };
 
-static struct mbfl_convert_vtbl vtbl_8859_14_wchar = {
+static const struct mbfl_convert_vtbl vtbl_8859_14_wchar = {
 	mbfl_no_encoding_8859_14,
 	mbfl_no_encoding_wchar,
 	mbfl_filt_conv_common_ctor,
@@ -1540,7 +2150,7 @@ static struct mbfl_convert_vtbl vtbl_8859_14_wchar = {
 	mbfl_filt_conv_8859_14_wchar,
 	mbfl_filt_conv_common_flush };
 
-static struct mbfl_convert_vtbl vtbl_wchar_8859_14 = {
+static const struct mbfl_convert_vtbl vtbl_wchar_8859_14 = {
 	mbfl_no_encoding_wchar,
 	mbfl_no_encoding_8859_14,
 	mbfl_filt_conv_common_ctor,
@@ -1556,7 +2166,7 @@ static struct mbfl_convert_vtbl vtbl_8859_15_wchar = {
 	mbfl_filt_conv_8859_15_wchar,
 	mbfl_filt_conv_common_flush };
 
-static struct mbfl_convert_vtbl vtbl_wchar_8859_15 = {
+static const struct mbfl_convert_vtbl vtbl_wchar_8859_15 = {
 	mbfl_no_encoding_wchar,
 	mbfl_no_encoding_8859_15,
 	mbfl_filt_conv_common_ctor,
@@ -1565,9 +2175,10 @@ static struct mbfl_convert_vtbl vtbl_wchar_8859_15 = {
 	mbfl_filt_conv_common_flush };
 
 
-static struct mbfl_convert_vtbl *mbfl_convert_filter_list[] = {
+static const struct mbfl_convert_vtbl *mbfl_convert_filter_list[] = {
 	&vtbl_utf8_wchar,
 	&vtbl_wchar_utf8,
+#if defined(HAVE_MBSTR_JA)
 	&vtbl_eucjp_wchar,
 	&vtbl_wchar_eucjp,
 	&vtbl_sjis_wchar,
@@ -1580,6 +2191,37 @@ static struct mbfl_convert_vtbl *mbfl_convert_filter_list[] = {
 	&vtbl_wchar_eucjpwin,
 	&vtbl_sjiswin_wchar,
 	&vtbl_wchar_sjiswin,
+#endif
+#if defined(HAVE_MBSTR_CN)
+	&vtbl_euccn_wchar,
+	&vtbl_wchar_euccn,
+	&vtbl_cp936_wchar,
+	&vtbl_wchar_cp936,
+	&vtbl_hz_wchar,
+	&vtbl_wchar_hz,
+#endif
+#if defined(HAVE_MBSTR_TW)
+	&vtbl_euctw_wchar,
+	&vtbl_wchar_euctw,
+	&vtbl_big5_wchar,
+	&vtbl_wchar_big5,
+#endif
+#if defined(HAVE_MBSTR_KR)
+	&vtbl_euckr_wchar,
+	&vtbl_wchar_euckr,
+	&vtbl_uhc_wchar,
+	&vtbl_wchar_uhc,
+	&vtbl_2022kr_wchar,
+	&vtbl_wchar_2022kr,
+#endif
+#if defined(HAVE_MBSTR_RU)
+	&vtbl_cp1251_wchar,
+	&vtbl_wchar_cp1251,
+	&vtbl_cp866_wchar,
+	&vtbl_wchar_cp866,
+	&vtbl_koi8r_wchar,
+	&vtbl_wchar_koi8r,
+#endif
 	&vtbl_cp1252_wchar,
 	&vtbl_wchar_cp1252,
 	&vtbl_ascii_wchar,
@@ -1613,6 +2255,8 @@ static struct mbfl_convert_vtbl *mbfl_convert_filter_list[] = {
 	&vtbl_8bit_b64,
 	&vtbl_b64_8bit,
 	&vtbl_uuencode_8bit,
+	&vtbl_wchar_html,
+	&vtbl_html_wchar,
 	&vtbl_8bit_qprint,
 	&vtbl_qprint_8bit,
 	&vtbl_8bit_7bit,
@@ -1659,160 +2303,259 @@ static struct mbfl_convert_vtbl *mbfl_convert_filter_list[] = {
 
 
 /* identify filter function table */
-static struct mbfl_identify_vtbl vtbl_identify_ascii = {
+static const struct mbfl_identify_vtbl vtbl_identify_ascii = {
 	mbfl_no_encoding_ascii,
 	mbfl_filt_ident_common_ctor,
 	mbfl_filt_ident_common_dtor,
 	mbfl_filt_ident_ascii };
 
-static struct mbfl_identify_vtbl vtbl_identify_utf8 = {
+static const struct mbfl_identify_vtbl vtbl_identify_utf8 = {
 	mbfl_no_encoding_utf8,
 	mbfl_filt_ident_common_ctor,
 	mbfl_filt_ident_common_dtor,
 	mbfl_filt_ident_utf8 };
 
-static struct mbfl_identify_vtbl vtbl_identify_utf7 = {
+static const struct mbfl_identify_vtbl vtbl_identify_utf7 = {
 	mbfl_no_encoding_utf7,
 	mbfl_filt_ident_common_ctor,
 	mbfl_filt_ident_common_dtor,
 	mbfl_filt_ident_utf7 };
 
-static struct mbfl_identify_vtbl vtbl_identify_eucjp = {
+#if defined(HAVE_MBSTR_JA)
+static const struct mbfl_identify_vtbl vtbl_identify_eucjp = {
 	mbfl_no_encoding_euc_jp,
 	mbfl_filt_ident_common_ctor,
 	mbfl_filt_ident_common_dtor,
 	mbfl_filt_ident_eucjp };
 
-static struct mbfl_identify_vtbl vtbl_identify_eucjpwin = {
+static const struct mbfl_identify_vtbl vtbl_identify_eucjpwin = {
 	mbfl_no_encoding_eucjp_win,
 	mbfl_filt_ident_common_ctor,
 	mbfl_filt_ident_common_dtor,
 	mbfl_filt_ident_eucjp };
 
-static struct mbfl_identify_vtbl vtbl_identify_sjis = {
+static const struct mbfl_identify_vtbl vtbl_identify_sjis = {
 	mbfl_no_encoding_sjis,
 	mbfl_filt_ident_common_ctor,
 	mbfl_filt_ident_common_dtor,
 	mbfl_filt_ident_sjis };
 
-static struct mbfl_identify_vtbl vtbl_identify_sjiswin = {
+static const struct mbfl_identify_vtbl vtbl_identify_sjiswin = {
 	mbfl_no_encoding_sjis_win,
 	mbfl_filt_ident_common_ctor,
 	mbfl_filt_ident_common_dtor,
 	mbfl_filt_ident_sjiswin };
 
-static struct mbfl_identify_vtbl vtbl_identify_jis = {
+static const struct mbfl_identify_vtbl vtbl_identify_jis = {
 	mbfl_no_encoding_jis,
 	mbfl_filt_ident_common_ctor,
 	mbfl_filt_ident_common_dtor,
 	mbfl_filt_ident_jis };
 
-static struct mbfl_identify_vtbl vtbl_identify_2022jp = {
+static const struct mbfl_identify_vtbl vtbl_identify_2022jp = {
 	mbfl_no_encoding_2022jp,
 	mbfl_filt_ident_common_ctor,
 	mbfl_filt_ident_common_dtor,
 	mbfl_filt_ident_2022jp };
+#endif /* HAVE_MBSTR_JA */
 
-static struct mbfl_identify_vtbl vtbl_identify_cp1252 = {
+#if defined(HAVE_MBSTR_CN)
+static struct mbfl_identify_vtbl vtbl_identify_euccn = {
+	mbfl_no_encoding_euc_cn,
+	mbfl_filt_ident_common_ctor,
+	mbfl_filt_ident_common_dtor,
+	mbfl_filt_ident_euccn };
+
+static struct mbfl_identify_vtbl vtbl_identify_cp936 = {
+	mbfl_no_encoding_cp936,
+	mbfl_filt_ident_common_ctor,
+	mbfl_filt_ident_common_dtor,
+	mbfl_filt_ident_cp936 };
+
+static struct mbfl_identify_vtbl vtbl_identify_hz = {
+	mbfl_no_encoding_hz,
+	mbfl_filt_ident_common_ctor,
+	mbfl_filt_ident_common_dtor,
+	mbfl_filt_ident_hz };
+
+#endif /* HAVE_MBSTR_CN */
+
+#if defined(HAVE_MBSTR_TW)
+static struct mbfl_identify_vtbl vtbl_identify_euctw = {
+	mbfl_no_encoding_euc_tw,
+	mbfl_filt_ident_common_ctor,
+	mbfl_filt_ident_common_dtor,
+	mbfl_filt_ident_euctw };
+
+static struct mbfl_identify_vtbl vtbl_identify_big5 = {
+	mbfl_no_encoding_big5,
+	mbfl_filt_ident_common_ctor,
+	mbfl_filt_ident_common_dtor,
+	mbfl_filt_ident_big5 };
+#endif /* HAVE_MBSTR_TW */
+
+#if defined(HAVE_MBSTR_KR)
+static struct mbfl_identify_vtbl vtbl_identify_euckr = {
+	mbfl_no_encoding_euc_kr,
+	mbfl_filt_ident_common_ctor,
+	mbfl_filt_ident_common_dtor,
+	mbfl_filt_ident_euckr };
+
+static struct mbfl_identify_vtbl vtbl_identify_uhc = {
+	mbfl_no_encoding_uhc,
+	mbfl_filt_ident_common_ctor,
+	mbfl_filt_ident_common_dtor,
+	mbfl_filt_ident_uhc };
+
+static struct mbfl_identify_vtbl vtbl_identify_2022kr = {
+	mbfl_no_encoding_2022kr,
+	mbfl_filt_ident_common_ctor,
+	mbfl_filt_ident_common_dtor,
+	mbfl_filt_ident_2022kr };
+
+#endif /* HAVE_MBSTR_KR */
+
+#if defined(HAVE_MBSTR_RU)
+static struct mbfl_identify_vtbl vtbl_identify_cp1251 = {
+	mbfl_no_encoding_cp1251,
+	mbfl_filt_ident_common_ctor,
+	mbfl_filt_ident_common_dtor,
+	mbfl_filt_ident_cp1251 };
+
+static struct mbfl_identify_vtbl vtbl_identify_cp866 = {
+	mbfl_no_encoding_cp866,
+	mbfl_filt_ident_common_ctor,
+	mbfl_filt_ident_common_dtor,
+	mbfl_filt_ident_cp866 };
+
+static struct mbfl_identify_vtbl vtbl_identify_koi8r = {
+	mbfl_no_encoding_koi8r,
+	mbfl_filt_ident_common_ctor,
+	mbfl_filt_ident_common_dtor,
+	mbfl_filt_ident_koi8r };
+#endif /* HAVE_MBSTR_RU */
+
+static const struct mbfl_identify_vtbl vtbl_identify_cp1252 = {
 	mbfl_no_encoding_cp1252,
 	mbfl_filt_ident_common_ctor,
 	mbfl_filt_ident_common_dtor,
 	mbfl_filt_ident_cp1252 };
 
-static struct mbfl_identify_vtbl vtbl_identify_8859_1 = {
+static const struct mbfl_identify_vtbl vtbl_identify_8859_1 = {
 	mbfl_no_encoding_8859_1,
 	mbfl_filt_ident_common_ctor,
 	mbfl_filt_ident_common_dtor,
 	mbfl_filt_ident_true };
 
-static struct mbfl_identify_vtbl vtbl_identify_8859_2 = {
+static const struct mbfl_identify_vtbl vtbl_identify_8859_2 = {
 	mbfl_no_encoding_8859_2,
 	mbfl_filt_ident_common_ctor,
 	mbfl_filt_ident_common_dtor,
 	mbfl_filt_ident_true };
 
-static struct mbfl_identify_vtbl vtbl_identify_8859_3 = {
+static const struct mbfl_identify_vtbl vtbl_identify_8859_3 = {
 	mbfl_no_encoding_8859_3,
 	mbfl_filt_ident_common_ctor,
 	mbfl_filt_ident_common_dtor,
 	mbfl_filt_ident_true };
 
-static struct mbfl_identify_vtbl vtbl_identify_8859_4 = {
+static const struct mbfl_identify_vtbl vtbl_identify_8859_4 = {
 	mbfl_no_encoding_8859_4,
 	mbfl_filt_ident_common_ctor,
 	mbfl_filt_ident_common_dtor,
 	mbfl_filt_ident_true };
 
-static struct mbfl_identify_vtbl vtbl_identify_8859_5 = {
+static const struct mbfl_identify_vtbl vtbl_identify_8859_5 = {
 	mbfl_no_encoding_8859_5,
 	mbfl_filt_ident_common_ctor,
 	mbfl_filt_ident_common_dtor,
 	mbfl_filt_ident_true };
 
-static struct mbfl_identify_vtbl vtbl_identify_8859_6 = {
+static const struct mbfl_identify_vtbl vtbl_identify_8859_6 = {
 	mbfl_no_encoding_8859_6,
 	mbfl_filt_ident_common_ctor,
 	mbfl_filt_ident_common_dtor,
 	mbfl_filt_ident_true };
 
-static struct mbfl_identify_vtbl vtbl_identify_8859_7 = {
+static const struct mbfl_identify_vtbl vtbl_identify_8859_7 = {
 	mbfl_no_encoding_8859_7,
 	mbfl_filt_ident_common_ctor,
 	mbfl_filt_ident_common_dtor,
 	mbfl_filt_ident_true };
 
-static struct mbfl_identify_vtbl vtbl_identify_8859_8 = {
+static const struct mbfl_identify_vtbl vtbl_identify_8859_8 = {
 	mbfl_no_encoding_8859_8,
 	mbfl_filt_ident_common_ctor,
 	mbfl_filt_ident_common_dtor,
 	mbfl_filt_ident_true };
 
-static struct mbfl_identify_vtbl vtbl_identify_8859_9 = {
+static const struct mbfl_identify_vtbl vtbl_identify_8859_9 = {
 	mbfl_no_encoding_8859_9,
 	mbfl_filt_ident_common_ctor,
 	mbfl_filt_ident_common_dtor,
 	mbfl_filt_ident_true };
 
-static struct mbfl_identify_vtbl vtbl_identify_8859_10 = {
+static const struct mbfl_identify_vtbl vtbl_identify_8859_10 = {
 	mbfl_no_encoding_8859_10,
 	mbfl_filt_ident_common_ctor,
 	mbfl_filt_ident_common_dtor,
 	mbfl_filt_ident_true };
 
-static struct mbfl_identify_vtbl vtbl_identify_8859_13 = {
+static const struct mbfl_identify_vtbl vtbl_identify_8859_13 = {
 	mbfl_no_encoding_8859_13,
 	mbfl_filt_ident_common_ctor,
 	mbfl_filt_ident_common_dtor,
 	mbfl_filt_ident_true };
 
-static struct mbfl_identify_vtbl vtbl_identify_8859_14 = {
+static const struct mbfl_identify_vtbl vtbl_identify_8859_14 = {
 	mbfl_no_encoding_8859_14,
 	mbfl_filt_ident_common_ctor,
 	mbfl_filt_ident_common_dtor,
 	mbfl_filt_ident_true };
 
-static struct mbfl_identify_vtbl vtbl_identify_8859_15 = {
+static const struct mbfl_identify_vtbl vtbl_identify_8859_15 = {
 	mbfl_no_encoding_8859_15,
 	mbfl_filt_ident_common_ctor,
 	mbfl_filt_ident_common_dtor,
 	mbfl_filt_ident_true };
 
-static struct mbfl_identify_vtbl vtbl_identify_false = {
+static const struct mbfl_identify_vtbl vtbl_identify_false = {
 	mbfl_no_encoding_pass,
 	mbfl_filt_ident_false_ctor,
 	mbfl_filt_ident_common_dtor,
 	mbfl_filt_ident_false };
 
-static struct mbfl_identify_vtbl *mbfl_identify_filter_list[] = {
+static const struct mbfl_identify_vtbl *mbfl_identify_filter_list[] = {
 	&vtbl_identify_utf8,
 	&vtbl_identify_utf7,
 	&vtbl_identify_ascii,
+#if defined(HAVE_MBSTR_JA)
 	&vtbl_identify_eucjp,
 	&vtbl_identify_sjis,
 	&vtbl_identify_eucjpwin,
 	&vtbl_identify_sjiswin,
 	&vtbl_identify_jis,
 	&vtbl_identify_2022jp,
+#endif
+#if defined(HAVE_MBSTR_CN)
+	&vtbl_identify_euccn,
+	&vtbl_identify_cp936,
+	&vtbl_identify_hz,
+#endif
+#if defined(HAVE_MBSTR_TW)
+	&vtbl_identify_euctw,
+	&vtbl_identify_big5,
+#endif
+#if defined(HAVE_MBSTR_KR)
+	&vtbl_identify_euckr,
+	&vtbl_identify_uhc,
+	&vtbl_identify_2022kr,
+#endif
+#if defined(HAVE_MBSTR_RU)
+	&vtbl_identify_cp1251,
+	&vtbl_identify_cp866,
+	&vtbl_identify_koi8r,
+#endif
 	&vtbl_identify_cp1252,
 	&vtbl_identify_8859_1,
 	&vtbl_identify_8859_2,
@@ -1833,10 +2576,10 @@ static struct mbfl_identify_vtbl *mbfl_identify_filter_list[] = {
 
 
 /* language resolver */
-mbfl_language *
+const mbfl_language *
 mbfl_name2language(const char *name)
 {
-	mbfl_language *language;
+	const mbfl_language *language;
 	int i, j;
 
 	if (name == NULL) {
@@ -1874,10 +2617,10 @@ mbfl_name2language(const char *name)
 	return NULL;
 }
 
-mbfl_language *
+const mbfl_language *
 mbfl_no2language(enum mbfl_no_language no_language)
 {
-	mbfl_language *language;
+	const mbfl_language *language;
 	int i;
 
 	i = 0;
@@ -1893,7 +2636,7 @@ mbfl_no2language(enum mbfl_no_language no_language)
 enum mbfl_no_language
 mbfl_name2no_language(const char *name)
 {
-	mbfl_language *language;
+	const mbfl_language *language;
 
 	language = mbfl_name2language(name);
 	if (language == NULL) {
@@ -1906,7 +2649,7 @@ mbfl_name2no_language(const char *name)
 const char *
 mbfl_no_language2name(enum mbfl_no_language no_language)
 {
-	mbfl_language *language;
+	const mbfl_language *language;
 
 	language = mbfl_no2language(no_language);
 	if (language == NULL) {
@@ -1919,10 +2662,10 @@ mbfl_no_language2name(enum mbfl_no_language no_language)
 
 
 /* encoding resolver */
-mbfl_encoding *
+const mbfl_encoding *
 mbfl_name2encoding(const char *name)
 {
-	mbfl_encoding *encoding;
+	const mbfl_encoding *encoding;
 	int i, j;
 
 	if (name == NULL) {
@@ -1963,10 +2706,10 @@ mbfl_name2encoding(const char *name)
 	return NULL;
 }
 
-mbfl_encoding *
+const mbfl_encoding *
 mbfl_no2encoding(enum mbfl_no_encoding no_encoding)
 {
-	mbfl_encoding *encoding;
+	const mbfl_encoding *encoding;
 	int i;
 
 	i = 0;
@@ -1982,7 +2725,7 @@ mbfl_no2encoding(enum mbfl_no_encoding no_encoding)
 enum mbfl_no_encoding
 mbfl_name2no_encoding(const char *name)
 {
-	mbfl_encoding *encoding;
+	const mbfl_encoding *encoding;
 
 	encoding = mbfl_name2encoding(name);
 	if (encoding == NULL) {
@@ -1995,7 +2738,7 @@ mbfl_name2no_encoding(const char *name)
 const char *
 mbfl_no_encoding2name(enum mbfl_no_encoding no_encoding)
 {
-	mbfl_encoding *encoding;
+	const mbfl_encoding *encoding;
 
 	encoding = mbfl_no2encoding(no_encoding);
 	if (encoding == NULL) {
@@ -2008,7 +2751,7 @@ mbfl_no_encoding2name(enum mbfl_no_encoding no_encoding)
 const char *
 mbfl_no2preferred_mime_name(enum mbfl_no_encoding no_encoding)
 {
-	mbfl_encoding *encoding;
+	const mbfl_encoding *encoding;
 
 	encoding = mbfl_no2encoding(no_encoding);
 	if (encoding != NULL && encoding->mime_name != NULL && encoding->mime_name[0] != '\0') {
@@ -2021,7 +2764,7 @@ mbfl_no2preferred_mime_name(enum mbfl_no_encoding no_encoding)
 int
 mbfl_is_support_encoding(const char *name)
 {
-	mbfl_encoding *encoding;
+	const mbfl_encoding *encoding;
 
 	encoding = mbfl_name2encoding(name);
 	if (encoding == NULL) {
@@ -2037,7 +2780,7 @@ mbfl_is_support_encoding(const char *name)
  * memory device output functions
  */
 void
-mbfl_memory_device_init(mbfl_memory_device *device, int initsz, int allocsz)
+mbfl_memory_device_init(mbfl_memory_device *device, int initsz, int allocsz TSRMLS_DC)
 {
 	if (device) {
 		device->length = 0;
@@ -2058,7 +2801,7 @@ mbfl_memory_device_init(mbfl_memory_device *device, int initsz, int allocsz)
 }
 
 void
-mbfl_memory_device_realloc(mbfl_memory_device *device, int initsz, int allocsz)
+mbfl_memory_device_realloc(mbfl_memory_device *device, int initsz, int allocsz TSRMLS_DC)
 {
 	unsigned char *tmp;
 
@@ -2079,7 +2822,7 @@ mbfl_memory_device_realloc(mbfl_memory_device *device, int initsz, int allocsz)
 }
 
 void
-mbfl_memory_device_clear(mbfl_memory_device *device)
+mbfl_memory_device_clear(mbfl_memory_device *device TSRMLS_DC)
 {
 	if (device) {
 		if (device->buffer) {
@@ -2092,7 +2835,7 @@ mbfl_memory_device_clear(mbfl_memory_device *device)
 }
 
 void
-mbfl_memory_device_reset(mbfl_memory_device *device)
+mbfl_memory_device_reset(mbfl_memory_device *device TSRMLS_DC)
 {
 	if (device) {
 		device->pos = 0;
@@ -2100,7 +2843,7 @@ mbfl_memory_device_reset(mbfl_memory_device *device)
 }
 
 void
-mbfl_memory_device_unput(mbfl_memory_device *device)
+mbfl_memory_device_unput(mbfl_memory_device *device TSRMLS_DC)
 {
 	if (device->pos > 0) {
 		device->pos--;
@@ -2108,11 +2851,11 @@ mbfl_memory_device_unput(mbfl_memory_device *device)
 }
 
 mbfl_string *
-mbfl_memory_device_result(mbfl_memory_device *device, mbfl_string *result)
+mbfl_memory_device_result(mbfl_memory_device *device, mbfl_string *result TSRMLS_DC)
 {
 	if (device && result) {
 		result->len = device->pos;
-		mbfl_memory_device_output4('\0', device);
+		mbfl_memory_device_output4('\0', device TSRMLS_CC);
 		result->val = device->buffer;
 		device->buffer = (unsigned char *)0;
 		device->length = 0;
@@ -2129,7 +2872,7 @@ mbfl_memory_device_result(mbfl_memory_device *device, mbfl_string *result)
 }
 
 int
-mbfl_memory_device_output(int c, void *data)
+mbfl_memory_device_output(int c, void *data TSRMLS_DC)
 {
 	mbfl_memory_device *device = (mbfl_memory_device *)data;
 
@@ -2152,7 +2895,7 @@ mbfl_memory_device_output(int c, void *data)
 }
 
 int
-mbfl_memory_device_output2(int c, void *data)
+mbfl_memory_device_output2(int c, void *data TSRMLS_DC)
 {
 	mbfl_memory_device *device = (mbfl_memory_device *)data;
 
@@ -2177,7 +2920,7 @@ mbfl_memory_device_output2(int c, void *data)
 }
 
 int
-mbfl_memory_device_output4(int c, void* data)
+mbfl_memory_device_output4(int c, void* data TSRMLS_DC)
 {
 	mbfl_memory_device *device = (mbfl_memory_device *)data;
 
@@ -2204,14 +2947,14 @@ mbfl_memory_device_output4(int c, void* data)
 }
 
 int
-mbfl_memory_device_strcat(mbfl_memory_device *device, const char *psrc)
+mbfl_memory_device_strcat(mbfl_memory_device *device, const char *psrc TSRMLS_DC)
 {
 	int len;
 	unsigned char *w;
 	const unsigned char *p;
 
 	len = 0;
-	p = psrc;
+	p = (const unsigned char *)psrc;
 	while (*p) {
 		p++;
 		len++;
@@ -2228,7 +2971,7 @@ mbfl_memory_device_strcat(mbfl_memory_device *device, const char *psrc)
 		device->buffer = tmp;
 	}
 
-	p = psrc;
+	p = (const unsigned char *)psrc;
 	w = &device->buffer[device->pos];
 	device->pos += len;
 	while (len > 0) {
@@ -2240,7 +2983,7 @@ mbfl_memory_device_strcat(mbfl_memory_device *device, const char *psrc)
 }
 
 int
-mbfl_memory_device_strncat(mbfl_memory_device *device, const char *psrc, int len)
+mbfl_memory_device_strncat(mbfl_memory_device *device, const char *psrc, int len TSRMLS_DC)
 {
 	unsigned char *w;
 
@@ -2266,7 +3009,7 @@ mbfl_memory_device_strncat(mbfl_memory_device *device, const char *psrc, int len
 }
 
 int
-mbfl_memory_device_devcat(mbfl_memory_device *dest, mbfl_memory_device *src)
+mbfl_memory_device_devcat(mbfl_memory_device *dest, mbfl_memory_device *src TSRMLS_DC)
 {
 	int n;
 	unsigned char *p, *w;
@@ -2295,7 +3038,7 @@ mbfl_memory_device_devcat(mbfl_memory_device *dest, mbfl_memory_device *src)
 }
 
 void
-mbfl_wchar_device_init(mbfl_wchar_device *device)
+mbfl_wchar_device_init(mbfl_wchar_device *device TSRMLS_DC)
 {
 	if (device) {
 		device->buffer = (unsigned int *)0;
@@ -2306,7 +3049,7 @@ mbfl_wchar_device_init(mbfl_wchar_device *device)
 }
 
 void
-mbfl_wchar_device_clear(mbfl_wchar_device *device)
+mbfl_wchar_device_clear(mbfl_wchar_device *device TSRMLS_DC)
 {
 	if (device) {
 		if (device->buffer) {
@@ -2319,7 +3062,7 @@ mbfl_wchar_device_clear(mbfl_wchar_device *device)
 }
 
 int
-mbfl_wchar_device_output(int c, void *data)
+mbfl_wchar_device_output(int c, void *data TSRMLS_DC)
 {
 	mbfl_wchar_device *device = (mbfl_wchar_device *)data;
 
@@ -2391,14 +3134,14 @@ mbfl_string_clear(mbfl_string *string)
  * commonly used constructor and destructor
  */
 static void
-mbfl_filt_conv_common_ctor(mbfl_convert_filter *filter)
+mbfl_filt_conv_common_ctor(mbfl_convert_filter *filter TSRMLS_DC)
 {
 	filter->status = 0;
 	filter->cache = 0;
 }
 
 static int
-mbfl_filt_conv_common_flush(mbfl_convert_filter *filter)
+mbfl_filt_conv_common_flush(mbfl_convert_filter *filter TSRMLS_DC)
 {
 	filter->status = 0;
 	filter->cache = 0;
@@ -2406,29 +3149,29 @@ mbfl_filt_conv_common_flush(mbfl_convert_filter *filter)
 }
 
 static void
-mbfl_filt_conv_common_dtor(mbfl_convert_filter *filter)
+mbfl_filt_conv_common_dtor(mbfl_convert_filter *filter TSRMLS_DC)
 {
 	filter->status = 0;
 	filter->cache = 0;
 }
 
 static int
-mbfl_filt_conv_pass(int c, mbfl_convert_filter *filter)
+mbfl_filt_conv_pass(int c, mbfl_convert_filter *filter TSRMLS_DC)
 {
-	return (*filter->output_function)(c, filter->data);
+	return (*filter->output_function)(c, filter->data TSRMLS_CC);
 }
 
 static int
-mbfl_filt_conv_any_7bit(int c, mbfl_convert_filter *filter)
+mbfl_filt_conv_any_7bit(int c, mbfl_convert_filter *filter TSRMLS_DC)
 {
 	if (c >= 0 && c < 0x80) {
-		CK((*filter->output_function)(c, filter->data));
+		CK((*filter->output_function)(c, filter->data TSRMLS_CC));
 	} 
 	return c;
 }
 
 static int
-mbfl_filt_conv_byte2be_wchar(int c, mbfl_convert_filter *filter)
+mbfl_filt_conv_byte2be_wchar(int c, mbfl_convert_filter *filter TSRMLS_DC)
 {
 	int n;
 
@@ -2439,21 +3182,21 @@ mbfl_filt_conv_byte2be_wchar(int c, mbfl_convert_filter *filter)
 	} else {
 		filter->status = 0;
 		n = (c & 0xff) | filter->cache;
-		CK((*filter->output_function)(n, filter->data));
+		CK((*filter->output_function)(n, filter->data TSRMLS_CC));
 	}
 	return c;
 }
 
 static int
-mbfl_filt_conv_wchar_byte2be(int c, mbfl_convert_filter *filter)
+mbfl_filt_conv_wchar_byte2be(int c, mbfl_convert_filter *filter TSRMLS_DC)
 {
-	CK((*filter->output_function)((c >> 8) & 0xff, filter->data));
-	CK((*filter->output_function)(c & 0xff, filter->data));
+	CK((*filter->output_function)((c >> 8) & 0xff, filter->data TSRMLS_CC));
+	CK((*filter->output_function)(c & 0xff, filter->data TSRMLS_CC));
 	return c;
 }
 
 static int
-mbfl_filt_conv_byte2le_wchar(int c, mbfl_convert_filter *filter)
+mbfl_filt_conv_byte2le_wchar(int c, mbfl_convert_filter *filter TSRMLS_DC)
 {
 	int n;
 
@@ -2464,21 +3207,21 @@ mbfl_filt_conv_byte2le_wchar(int c, mbfl_convert_filter *filter)
 	} else {
 		filter->status = 0;
 		n = ((c & 0xff) << 8) | filter->cache;
-		CK((*filter->output_function)(n, filter->data));
+		CK((*filter->output_function)(n, filter->data TSRMLS_CC));
 	}
 	return c;
 }
 
 static int
-mbfl_filt_conv_wchar_byte2le(int c, mbfl_convert_filter *filter)
+mbfl_filt_conv_wchar_byte2le(int c, mbfl_convert_filter *filter TSRMLS_DC)
 {
-	CK((*filter->output_function)(c & 0xff, filter->data));
-	CK((*filter->output_function)((c >> 8) & 0xff, filter->data));
+	CK((*filter->output_function)(c & 0xff, filter->data TSRMLS_CC));
+	CK((*filter->output_function)((c >> 8) & 0xff, filter->data TSRMLS_CC));
 	return c;
 }
 
 static int
-mbfl_filt_conv_byte4be_wchar(int c, mbfl_convert_filter *filter)
+mbfl_filt_conv_byte4be_wchar(int c, mbfl_convert_filter *filter TSRMLS_DC)
 {
 	int n;
 
@@ -2497,23 +3240,23 @@ mbfl_filt_conv_byte4be_wchar(int c, mbfl_convert_filter *filter)
 	} else {
 		filter->status = 0;
 		n = (c & 0xff) | filter->cache;
-		CK((*filter->output_function)(n, filter->data));
+		CK((*filter->output_function)(n, filter->data TSRMLS_CC));
 	}
 	return c;
 }
 
 static int
-mbfl_filt_conv_wchar_byte4be(int c, mbfl_convert_filter *filter)
+mbfl_filt_conv_wchar_byte4be(int c, mbfl_convert_filter *filter TSRMLS_DC)
 {
-	CK((*filter->output_function)((c >> 24) & 0xff, filter->data));
-	CK((*filter->output_function)((c >> 16) & 0xff, filter->data));
-	CK((*filter->output_function)((c >> 8) & 0xff, filter->data));
-	CK((*filter->output_function)(c & 0xff, filter->data));
+	CK((*filter->output_function)((c >> 24) & 0xff, filter->data TSRMLS_CC));
+	CK((*filter->output_function)((c >> 16) & 0xff, filter->data TSRMLS_CC));
+	CK((*filter->output_function)((c >> 8) & 0xff, filter->data TSRMLS_CC));
+	CK((*filter->output_function)(c & 0xff, filter->data TSRMLS_CC));
 	return c;
 }
 
 static int
-mbfl_filt_conv_byte4le_wchar(int c, mbfl_convert_filter *filter)
+mbfl_filt_conv_byte4le_wchar(int c, mbfl_convert_filter *filter TSRMLS_DC)
 {
 	int n;
 
@@ -2532,18 +3275,18 @@ mbfl_filt_conv_byte4le_wchar(int c, mbfl_convert_filter *filter)
 	} else {
 		filter->status = 0;
 		n = ((c & 0xff) << 24) | filter->cache;
-		CK((*filter->output_function)(n, filter->data));
+		CK((*filter->output_function)(n, filter->data TSRMLS_CC));
 	}
 	return c;
 }
 
 static int
-mbfl_filt_conv_wchar_byte4le(int c, mbfl_convert_filter *filter)
+mbfl_filt_conv_wchar_byte4le(int c, mbfl_convert_filter *filter TSRMLS_DC)
 {
-	CK((*filter->output_function)(c & 0xff, filter->data));
-	CK((*filter->output_function)((c >> 8) & 0xff, filter->data));
-	CK((*filter->output_function)((c >> 16) & 0xff, filter->data));
-	CK((*filter->output_function)((c >> 24) & 0xff, filter->data));
+	CK((*filter->output_function)(c & 0xff, filter->data TSRMLS_CC));
+	CK((*filter->output_function)((c >> 8) & 0xff, filter->data TSRMLS_CC));
+	CK((*filter->output_function)((c >> 16) & 0xff, filter->data TSRMLS_CC));
+	CK((*filter->output_function)((c >> 24) & 0xff, filter->data TSRMLS_CC));
 	return c;
 }
 
@@ -2556,7 +3299,7 @@ enum { uudec_state_ground=0, uudec_state_inbegin,
 	uudec_state_size, uudec_state_a, uudec_state_b, uudec_state_c, uudec_state_d,
 	uudec_state_skip_newline};
 static int
-mbfl_filt_conv_uudec(int c, mbfl_convert_filter * filter)
+mbfl_filt_conv_uudec(int c, mbfl_convert_filter * filter TSRMLS_DC)
 {
 	int n;
 	
@@ -2623,11 +3366,11 @@ mbfl_filt_conv_uudec(int c, mbfl_convert_filter * filter)
 				C = (filter->cache) & 0xff;
 				n = (filter->cache >> 24) & 0xff;
 				if (n-- > 0)
-					CK((*filter->output_function)( (A << 2) | (B >> 4), filter->data));
+					CK((*filter->output_function)( (A << 2) | (B >> 4), filter->data TSRMLS_CC));
 				if (n-- > 0)
-					CK((*filter->output_function)( (B << 4) | (C >> 2), filter->data));
+					CK((*filter->output_function)( (B << 4) | (C >> 2), filter->data TSRMLS_CC));
 				if (n-- > 0)
-					CK((*filter->output_function)( (C << 6) | D, filter->data));
+					CK((*filter->output_function)( (C << 6) | D, filter->data TSRMLS_CC));
 				filter->cache = n << 24;
 
 				if (n == 0)
@@ -2663,7 +3406,7 @@ static const unsigned char mbfl_base64_table[] =
 #define MBFL_BASE64_STS_MIME_HEADER 0x1000000
 
 static int
-mbfl_filt_conv_base64enc(int c, mbfl_convert_filter *filter)
+mbfl_filt_conv_base64enc(int c, mbfl_convert_filter *filter TSRMLS_DC)
 {
 	int n;
 
@@ -2679,24 +3422,24 @@ mbfl_filt_conv_base64enc(int c, mbfl_convert_filter *filter)
 		if ((filter->status & MBFL_BASE64_STS_MIME_HEADER) == 0) {
 			n = (filter->status & 0xff00) >> 8;
 			if (n > 72) {
-				CK((*filter->output_function)(0x0d, filter->data));		/* CR */
-				CK((*filter->output_function)(0x0a, filter->data));		/* LF */
+				CK((*filter->output_function)(0x0d, filter->data TSRMLS_CC));		/* CR */
+				CK((*filter->output_function)(0x0a, filter->data TSRMLS_CC));		/* LF */
 				filter->status &= ~0xff00;
 			}
 			filter->status += 0x400;
 		}
 		n = filter->cache | (c & 0xff);
-		CK((*filter->output_function)(mbfl_base64_table[(n >> 18) & 0x3f], filter->data));
-		CK((*filter->output_function)(mbfl_base64_table[(n >> 12) & 0x3f], filter->data));
-		CK((*filter->output_function)(mbfl_base64_table[(n >> 6) & 0x3f], filter->data));
-		CK((*filter->output_function)(mbfl_base64_table[n & 0x3f], filter->data));
+		CK((*filter->output_function)(mbfl_base64_table[(n >> 18) & 0x3f], filter->data TSRMLS_CC));
+		CK((*filter->output_function)(mbfl_base64_table[(n >> 12) & 0x3f], filter->data TSRMLS_CC));
+		CK((*filter->output_function)(mbfl_base64_table[(n >> 6) & 0x3f], filter->data TSRMLS_CC));
+		CK((*filter->output_function)(mbfl_base64_table[n & 0x3f], filter->data TSRMLS_CC));
 	}
 
 	return c;
 }
 
 static int
-mbfl_filt_conv_base64enc_flush(mbfl_convert_filter *filter)
+mbfl_filt_conv_base64enc_flush(mbfl_convert_filter *filter TSRMLS_DC)
 {
 	int status, cache, len;
 
@@ -2709,18 +3452,18 @@ mbfl_filt_conv_base64enc_flush(mbfl_convert_filter *filter)
 	if (status >= 1) {
 		if ((filter->status & MBFL_BASE64_STS_MIME_HEADER) == 0) {
 			if (len > 72){
-				CK((*filter->output_function)(0x0d, filter->data));		/* CR */
-				CK((*filter->output_function)(0x0a, filter->data));		/* LF */
+				CK((*filter->output_function)(0x0d, filter->data TSRMLS_CC));		/* CR */
+				CK((*filter->output_function)(0x0a, filter->data TSRMLS_CC));		/* LF */
 			}
 		}
-		CK((*filter->output_function)(mbfl_base64_table[(cache >> 18) & 0x3f], filter->data));
-		CK((*filter->output_function)(mbfl_base64_table[(cache >> 12) & 0x3f], filter->data));
+		CK((*filter->output_function)(mbfl_base64_table[(cache >> 18) & 0x3f], filter->data TSRMLS_CC));
+		CK((*filter->output_function)(mbfl_base64_table[(cache >> 12) & 0x3f], filter->data TSRMLS_CC));
 		if (status == 1) {
-			CK((*filter->output_function)(0x3d, filter->data));		/* '=' */
-			CK((*filter->output_function)(0x3d, filter->data));		/* '=' */
+			CK((*filter->output_function)(0x3d, filter->data TSRMLS_CC));		/* '=' */
+			CK((*filter->output_function)(0x3d, filter->data TSRMLS_CC));		/* '=' */
 		} else {
-			CK((*filter->output_function)(mbfl_base64_table[(cache >> 6) & 0x3f], filter->data));
-			CK((*filter->output_function)(0x3d, filter->data));		/* '=' */
+			CK((*filter->output_function)(mbfl_base64_table[(cache >> 6) & 0x3f], filter->data TSRMLS_CC));
+			CK((*filter->output_function)(0x3d, filter->data TSRMLS_CC));		/* '=' */
 		}
 	}
 	return 0;
@@ -2730,7 +3473,7 @@ mbfl_filt_conv_base64enc_flush(mbfl_convert_filter *filter)
  * BASE64 => any
  */
 static int
-mbfl_filt_conv_base64dec(int c, mbfl_convert_filter *filter)
+mbfl_filt_conv_base64dec(int c, mbfl_convert_filter *filter TSRMLS_DC)
 {
 	int n;
 
@@ -2768,9 +3511,9 @@ mbfl_filt_conv_base64dec(int c, mbfl_convert_filter *filter)
 	default:
 		filter->status = 0;
 		n |= filter->cache;
-		CK((*filter->output_function)((n >> 16) & 0xff, filter->data));
-		CK((*filter->output_function)((n >> 8) & 0xff, filter->data));
-		CK((*filter->output_function)(n & 0xff, filter->data));
+		CK((*filter->output_function)((n >> 16) & 0xff, filter->data TSRMLS_CC));
+		CK((*filter->output_function)((n >> 8) & 0xff, filter->data TSRMLS_CC));
+		CK((*filter->output_function)(n & 0xff, filter->data TSRMLS_CC));
 		break;
 	}
 
@@ -2778,7 +3521,7 @@ mbfl_filt_conv_base64dec(int c, mbfl_convert_filter *filter)
 }
 
 static int
-mbfl_filt_conv_base64dec_flush(mbfl_convert_filter *filter)
+mbfl_filt_conv_base64dec_flush(mbfl_convert_filter *filter TSRMLS_DC)
 {
 	int status, cache;
 
@@ -2788,11 +3531,193 @@ mbfl_filt_conv_base64dec_flush(mbfl_convert_filter *filter)
 	filter->cache = 0;
 	/* flush fragments */
 	if (status >= 2) {
-		CK((*filter->output_function)((cache >> 16) & 0xff, filter->data));
+		CK((*filter->output_function)((cache >> 16) & 0xff, filter->data TSRMLS_CC));
 		if (status >= 3) {
-			CK((*filter->output_function)((cache >> 8) & 0xff, filter->data));
+			CK((*filter->output_function)((cache >> 8) & 0xff, filter->data TSRMLS_CC));
 		}
 	}
+	return 0;
+}
+
+/*
+ * any => HTML
+ */
+static int
+mbfl_filt_conv_html_enc(int c, mbfl_convert_filter *filter TSRMLS_DC)
+{
+	int tmp[10];
+	int i = 0, p = 0, e;
+	unsigned int uc;
+
+	if (c<256 && mblen_table_html[c]==1) {
+		CK((*filter->output_function)(c, filter->data TSRMLS_CC));
+	} else {
+		/*php_error_docref("ref.mbstring" TSRMLS_CC, E_NOTICE, "mbfl_filt_conv_html_enc(0x%08X = %d)", c, c);*/
+ 		CK((*filter->output_function)('&', filter->data TSRMLS_CC));
+		while (1) {
+		    e = mbfl_html_entity_list[i].code;
+			if (c < e || e == -1) {
+				break;
+			}
+			if (c == e) {
+				while(mbfl_html_entity_list[i].name[p]) {
+					CK((*filter->output_function)((int)mbfl_html_entity_list[i].name[p++], filter->data TSRMLS_CC));
+				}
+				break;
+			}
+			i++;
+		}
+		i=0;
+		if (!p) {
+			CK((*filter->output_function)('#', filter->data TSRMLS_CC));
+			uc = (unsigned int)c;
+			do {
+				tmp[i++] = '0'+uc%10;
+				uc /= 10;
+			} while (uc);
+			do {
+				CK((*filter->output_function)(tmp[--i], filter->data TSRMLS_CC));
+			} while (i);
+		}
+		CK((*filter->output_function)(';', filter->data TSRMLS_CC));
+	}
+	return c;
+}
+
+static int
+mbfl_filt_conv_html_enc_flush(mbfl_convert_filter *filter TSRMLS_DC)
+{
+	filter->status = 0;
+	filter->cache = 0;
+	return 0;
+}
+
+/*
+ * HTML => any
+ */
+#define html_enc_buffer_size	16
+static const char html_entity_chars[] = "#0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ";
+
+static void 
+mbfl_filt_conv_html_dec_ctor(mbfl_convert_filter *filter TSRMLS_DC)
+{
+	filter->status = 0;
+	filter->cache = (int)mbfl_malloc(html_enc_buffer_size+1);
+}
+	
+static void 
+mbfl_filt_conv_html_dec_dtor(mbfl_convert_filter *filter TSRMLS_DC)
+{
+	filter->status = 0;
+	if (filter->cache)
+	{
+		mbfl_free((void*)filter->cache);
+	}
+	filter->cache = 0;
+}
+
+static int
+mbfl_filt_conv_html_dec(int c, mbfl_convert_filter *filter TSRMLS_DC)
+{
+	int  pos, ent = 0;
+	const mbfl_html_entity *entity;
+	char *buffer = (char*)filter->cache;
+
+	if (!filter->status)
+	{
+		if (c == '&' )
+		{
+			filter->status = 1;
+			buffer[0] = '&';
+		}
+		else
+		{
+			CK((*filter->output_function)(c, filter->data TSRMLS_CC));
+		}
+	}
+	else
+	{
+		if (c == ';')
+		{
+			buffer[filter->status] = 0;
+			if (buffer[1]=='#')
+			{
+				/* numeric entity */
+				for (pos=2; pos<filter->status; pos++)
+					ent = ent*10 + (buffer[pos] - '0');
+				CK((*filter->output_function)(ent, filter->data TSRMLS_CC));
+				filter->status = 0;
+				/*php_error_docref("ref.mbstring" TSRMLS_CC, E_NOTICE, "mbstring decoded '%s'=%d", buffer, ent);*/
+			}
+			else
+			{
+				/* named entity */
+				entity = mbfl_html_entity_list;
+				while (entity->name) 
+				{
+					if (!strcmp(buffer+1, entity->name))	
+					{
+						ent = entity->code;
+						break;
+					}
+					entity++;
+				}
+				if (ent)
+				{
+					/* decoded */
+					CK((*filter->output_function)(ent, filter->data TSRMLS_CC));
+					filter->status = 0;
+					/*php_error_docref("ref.mbstring" TSRMLS_CC, E_NOTICE,"mbstring decoded '%s'=%d", buffer, ent);*/
+				}
+				else
+				{ 
+					/* failure */
+					buffer[filter->status++] = ';';
+					buffer[filter->status] = 0;
+					php_error_docref("ref.mbstring" TSRMLS_CC, E_WARNING, "mbstring cannot decode '%s'", buffer);
+					mbfl_filt_conv_html_dec_flush(filter TSRMLS_CC);
+				}
+			}
+		}
+		else
+		{
+			/* add character */
+			buffer[filter->status++] = c;
+			/* add character and check */
+			if (!strchr(html_entity_chars, c) || filter->status+1==html_enc_buffer_size || (c=='#' && filter->status>2))
+			{
+				/* illegal character or end of buffer */
+				if (c=='&')
+					filter->status--;
+				buffer[filter->status] = 0;
+				php_error_docref("ref.mbstring" TSRMLS_CC, E_WARNING, "mbstring cannot decode '%s'", buffer);
+				mbfl_filt_conv_html_dec_flush(filter TSRMLS_CC);
+				if (c=='&')
+				{
+					filter->status = 1;
+					buffer[0] = '&';
+				}
+			}
+		}
+	}
+	return c;
+}
+
+static int
+mbfl_filt_conv_html_dec_flush(mbfl_convert_filter *filter TSRMLS_DC)
+{
+	int status, pos = 0;
+	char *buffer;
+
+	buffer = (char*)filter->cache;
+	status = filter->status;
+	/* flush fragments */
+	while (status--)
+	{
+		CK((*filter->output_function)(buffer[pos++], filter->data TSRMLS_CC));
+	}
+	filter->status = 0;
+	/*filter->buffer = 0; of cause NOT*/
 	return 0;
 }
 
@@ -2802,7 +3727,7 @@ mbfl_filt_conv_base64dec_flush(mbfl_convert_filter *filter)
 #define MBFL_QPRINT_STS_MIME_HEADER 0x1000000
 
 static int
-mbfl_filt_conv_qprintenc(int c, mbfl_convert_filter *filter)
+mbfl_filt_conv_qprintenc(int c, mbfl_convert_filter *filter TSRMLS_DC)
 {
 	int s, n;
 
@@ -2817,15 +3742,15 @@ mbfl_filt_conv_qprintenc(int c, mbfl_convert_filter *filter)
 		n = (filter->status & 0xff00) >> 8;
 
 		if (s == 0) {		/* null */
-			CK((*filter->output_function)(s, filter->data));
+			CK((*filter->output_function)(s, filter->data TSRMLS_CC));
 			filter->status &= ~0xff00;
 			break;
 		}
 
 		if ((filter->status & MBFL_QPRINT_STS_MIME_HEADER) == 0) {
 			if (s == 0x0a || (s == 0x0d && c != 0x0a)) {	/* line feed */
-				CK((*filter->output_function)(0x0d, filter->data));		/* CR */
-				CK((*filter->output_function)(0x0a, filter->data));		/* LF */
+				CK((*filter->output_function)(0x0d, filter->data TSRMLS_CC));		/* CR */
+				CK((*filter->output_function)(0x0a, filter->data TSRMLS_CC));		/* LF */
 				filter->status &= ~0xff00;
 				break;
 			} else if (s == 0x0d) {
@@ -2834,9 +3759,9 @@ mbfl_filt_conv_qprintenc(int c, mbfl_convert_filter *filter)
 		}
 
 		if ((filter->status & MBFL_QPRINT_STS_MIME_HEADER) == 0  && n >= 72) {	/* soft line feed */
-			CK((*filter->output_function)(0x3d, filter->data));		/* '=' */
-			CK((*filter->output_function)(0x0d, filter->data));		/* CR */
-			CK((*filter->output_function)(0x0a, filter->data));		/* LF */
+			CK((*filter->output_function)(0x3d, filter->data TSRMLS_CC));		/* '=' */
+			CK((*filter->output_function)(0x0d, filter->data TSRMLS_CC));		/* CR */
+			CK((*filter->output_function)(0x0a, filter->data TSRMLS_CC));		/* LF */
 			filter->status &= ~0xff00;
 		}
 
@@ -2844,26 +3769,26 @@ mbfl_filt_conv_qprintenc(int c, mbfl_convert_filter *filter)
 		   || ((filter->status & MBFL_QPRINT_STS_MIME_HEADER) != 0 && 
 		       (mbfl_charprop_table[s] & MBFL_CHP_MMHQENC) != 0)) {
 			/* hex-octet */
-			CK((*filter->output_function)(0x3d, filter->data));		/* '=' */
+			CK((*filter->output_function)(0x3d, filter->data TSRMLS_CC));		/* '=' */
 			n = (s >> 4) & 0xf;
 			if (n < 10) {
 				n += 48;		/* '0' */
 			} else {
 				n += 55;		/* 'A' - 10 */
 			}
-			CK((*filter->output_function)(n, filter->data));
+			CK((*filter->output_function)(n, filter->data TSRMLS_CC));
 			n = s & 0xf;
 			if (n < 10) {
 				n += 48;
 			} else {
 				n += 55;
 			}
-			CK((*filter->output_function)(n, filter->data));
+			CK((*filter->output_function)(n, filter->data TSRMLS_CC));
 			if ((filter->status & MBFL_QPRINT_STS_MIME_HEADER) == 0) {
 				filter->status += 0x300;
 			}
 		} else {
-			CK((*filter->output_function)(s, filter->data));
+			CK((*filter->output_function)(s, filter->data TSRMLS_CC));
 			if ((filter->status & MBFL_QPRINT_STS_MIME_HEADER) == 0) {
 				filter->status += 0x100;
 			}
@@ -2875,10 +3800,10 @@ mbfl_filt_conv_qprintenc(int c, mbfl_convert_filter *filter)
 }
 
 static int
-mbfl_filt_conv_qprintenc_flush(mbfl_convert_filter *filter)
+mbfl_filt_conv_qprintenc_flush(mbfl_convert_filter *filter TSRMLS_DC)
 {
 	/* flush filter cache */
-	(*filter->filter_function)('\0', filter);
+	(*filter->filter_function)('\0', filter TSRMLS_CC);
 	filter->status &= ~0xffff;
 	filter->cache = 0;
 	return 0;
@@ -2888,7 +3813,7 @@ mbfl_filt_conv_qprintenc_flush(mbfl_convert_filter *filter)
  * Quoted-Printable => any
  */
 static int
-mbfl_filt_conv_qprintdec(int c, mbfl_convert_filter *filter)
+mbfl_filt_conv_qprintdec(int c, mbfl_convert_filter *filter TSRMLS_DC)
 {
 	int n;
 
@@ -2902,8 +3827,8 @@ mbfl_filt_conv_qprintdec(int c, mbfl_convert_filter *filter)
 		} else if (c == 0x0a) {	/* soft line feed */
 			filter->status = 0;
 		} else {
-			CK((*filter->output_function)(0x3d, filter->data));		/* '=' */
-			CK((*filter->output_function)(c, filter->data));
+			CK((*filter->output_function)(0x3d, filter->data TSRMLS_CC));		/* '=' */
+			CK((*filter->output_function)(c, filter->data TSRMLS_CC));
 			filter->status = 0;
 		}
 		break;
@@ -2920,16 +3845,16 @@ mbfl_filt_conv_qprintdec(int c, mbfl_convert_filter *filter)
 		} else if (c >= 0x41 && c <= 0x46) {	/* 'A' - 'F' */
 			n += (c - 55);
 		} else {
-			CK((*filter->output_function)(0x3d, filter->data));		/* '=' */
-			CK((*filter->output_function)(filter->cache, filter->data));
+			CK((*filter->output_function)(0x3d, filter->data TSRMLS_CC));		/* '=' */
+			CK((*filter->output_function)(filter->cache, filter->data TSRMLS_CC));
 			n = c;
 		}
-		CK((*filter->output_function)(n, filter->data));
+		CK((*filter->output_function)(n, filter->data TSRMLS_CC));
 		filter->status = 0;
 		break;
 	case 3:
 		if (c != 0x0a) {		/* LF */
-			CK((*filter->output_function)(c, filter->data));
+			CK((*filter->output_function)(c, filter->data TSRMLS_CC));
 		}
 		filter->status = 0;
 		break;
@@ -2937,7 +3862,7 @@ mbfl_filt_conv_qprintdec(int c, mbfl_convert_filter *filter)
 		if (c == 0x3d) {		/* '=' */
 			filter->status = 1;
 		} else {
-			CK((*filter->output_function)(c, filter->data));
+			CK((*filter->output_function)(c, filter->data TSRMLS_CC));
 		}
 		break;
 	}
@@ -2946,7 +3871,7 @@ mbfl_filt_conv_qprintdec(int c, mbfl_convert_filter *filter)
 }
 
 static int
-mbfl_filt_conv_qprintdec_flush(mbfl_convert_filter *filter)
+mbfl_filt_conv_qprintdec_flush(mbfl_convert_filter *filter TSRMLS_DC)
 {
 	int status, cache;
 
@@ -2956,10 +3881,10 @@ mbfl_filt_conv_qprintdec_flush(mbfl_convert_filter *filter)
 	filter->cache = 0;
 	/* flush fragments */
 	if (status == 1) {
-		CK((*filter->output_function)(0x3d, filter->data));		/* '=' */
+		CK((*filter->output_function)(0x3d, filter->data TSRMLS_CC));		/* '=' */
 	} else if (status == 2) {
-		CK((*filter->output_function)(0x3d, filter->data));		/* '=' */
-		CK((*filter->output_function)(cache, filter->data));
+		CK((*filter->output_function)(0x3d, filter->data TSRMLS_CC));		/* '=' */
+		CK((*filter->output_function)(cache, filter->data TSRMLS_CC));
 	}
 
 	return 0;
@@ -2970,7 +3895,7 @@ mbfl_filt_conv_qprintdec_flush(mbfl_convert_filter *filter)
  * UCS-4 => wchar
  */
 static int
-mbfl_filt_conv_ucs4_wchar(int c, mbfl_convert_filter *filter)
+mbfl_filt_conv_ucs4_wchar(int c, mbfl_convert_filter *filter TSRMLS_DC)
 {
 	int n, endian;
 
@@ -3016,10 +3941,10 @@ mbfl_filt_conv_ucs4_wchar(int c, mbfl_convert_filter *filter)
 			} else {
 				filter->status = 0x100;		/* little-endian */
 			}
-			CK((*filter->output_function)(0xfeff, filter->data));
+			CK((*filter->output_function)(0xfeff, filter->data TSRMLS_CC));
 		} else {
 			filter->status &= ~0xff;
-			CK((*filter->output_function)(n, filter->data));
+			CK((*filter->output_function)(n, filter->data TSRMLS_CC));
 		}
 		break;
 	}
@@ -3031,16 +3956,16 @@ mbfl_filt_conv_ucs4_wchar(int c, mbfl_convert_filter *filter)
  * wchar => UCS-4BE
  */
 static int
-mbfl_filt_conv_wchar_ucs4be(int c, mbfl_convert_filter *filter)
+mbfl_filt_conv_wchar_ucs4be(int c, mbfl_convert_filter *filter TSRMLS_DC)
 {
 	if (c >= 0 && c < MBFL_WCSGROUP_UCS4MAX) {
-		CK((*filter->output_function)((c >> 24) & 0xff, filter->data));
-		CK((*filter->output_function)((c >> 16) & 0xff, filter->data));
-		CK((*filter->output_function)((c >> 8) & 0xff, filter->data));
-		CK((*filter->output_function)(c & 0xff, filter->data));
+		CK((*filter->output_function)((c >> 24) & 0xff, filter->data TSRMLS_CC));
+		CK((*filter->output_function)((c >> 16) & 0xff, filter->data TSRMLS_CC));
+		CK((*filter->output_function)((c >> 8) & 0xff, filter->data TSRMLS_CC));
+		CK((*filter->output_function)(c & 0xff, filter->data TSRMLS_CC));
 	} else {
 		if (filter->illegal_mode != MBFL_OUTPUTFILTER_ILLEGAL_MODE_NONE) {
-			CK(mbfl_filt_conv_illegal_output(c, filter));
+			CK(mbfl_filt_conv_illegal_output(c, filter TSRMLS_CC));
 		}
 	}
 
@@ -3051,16 +3976,16 @@ mbfl_filt_conv_wchar_ucs4be(int c, mbfl_convert_filter *filter)
  * wchar => UCS-4LE
  */
 static int
-mbfl_filt_conv_wchar_ucs4le(int c, mbfl_convert_filter *filter)
+mbfl_filt_conv_wchar_ucs4le(int c, mbfl_convert_filter *filter TSRMLS_DC)
 {
 	if (c >= 0 && c < MBFL_WCSGROUP_UCS4MAX) {
-		CK((*filter->output_function)(c & 0xff, filter->data));
-		CK((*filter->output_function)((c >> 8) & 0xff, filter->data));
-		CK((*filter->output_function)((c >> 16) & 0xff, filter->data));
-		CK((*filter->output_function)((c >> 24) & 0xff, filter->data));
+		CK((*filter->output_function)(c & 0xff, filter->data TSRMLS_CC));
+		CK((*filter->output_function)((c >> 8) & 0xff, filter->data TSRMLS_CC));
+		CK((*filter->output_function)((c >> 16) & 0xff, filter->data TSRMLS_CC));
+		CK((*filter->output_function)((c >> 24) & 0xff, filter->data TSRMLS_CC));
 	} else {
 		if (filter->illegal_mode != MBFL_OUTPUTFILTER_ILLEGAL_MODE_NONE) {
-			CK(mbfl_filt_conv_illegal_output(c, filter));
+			CK(mbfl_filt_conv_illegal_output(c, filter TSRMLS_CC));
 		}
 	}
 
@@ -3071,7 +3996,7 @@ mbfl_filt_conv_wchar_ucs4le(int c, mbfl_convert_filter *filter)
  * UCS-2 => wchar
  */
 static int
-mbfl_filt_conv_ucs2_wchar(int c, mbfl_convert_filter *filter)
+mbfl_filt_conv_ucs2_wchar(int c, mbfl_convert_filter *filter TSRMLS_DC)
 {
 	int n, endian;
 
@@ -3099,10 +4024,10 @@ mbfl_filt_conv_ucs2_wchar(int c, mbfl_convert_filter *filter)
 			} else {
 				filter->status = 0x100;		/* little-endian */
 			}
-			CK((*filter->output_function)(0xfeff, filter->data));
+			CK((*filter->output_function)(0xfeff, filter->data TSRMLS_CC));
 		} else {
 			filter->status &= ~0xff;
-			CK((*filter->output_function)(n, filter->data));
+			CK((*filter->output_function)(n, filter->data TSRMLS_CC));
 		}
 		break;
 	}
@@ -3114,14 +4039,14 @@ mbfl_filt_conv_ucs2_wchar(int c, mbfl_convert_filter *filter)
  * wchar => UCS-2BE
  */
 static int
-mbfl_filt_conv_wchar_ucs2be(int c, mbfl_convert_filter *filter)
+mbfl_filt_conv_wchar_ucs2be(int c, mbfl_convert_filter *filter TSRMLS_DC)
 {
 	if (c >= 0 && c < MBFL_WCSPLANE_UCS2MAX) {
-		CK((*filter->output_function)((c >> 8) & 0xff, filter->data));
-		CK((*filter->output_function)(c & 0xff, filter->data));
+		CK((*filter->output_function)((c >> 8) & 0xff, filter->data TSRMLS_CC));
+		CK((*filter->output_function)(c & 0xff, filter->data TSRMLS_CC));
 	} else {
 		if (filter->illegal_mode != MBFL_OUTPUTFILTER_ILLEGAL_MODE_NONE) {
-			CK(mbfl_filt_conv_illegal_output(c, filter));
+			CK(mbfl_filt_conv_illegal_output(c, filter TSRMLS_CC));
 		}
 	}
 
@@ -3132,14 +4057,14 @@ mbfl_filt_conv_wchar_ucs2be(int c, mbfl_convert_filter *filter)
  * wchar => UCS-2LE
  */
 static int
-mbfl_filt_conv_wchar_ucs2le(int c, mbfl_convert_filter *filter)
+mbfl_filt_conv_wchar_ucs2le(int c, mbfl_convert_filter *filter TSRMLS_DC)
 {
 	if (c >= 0 && c < MBFL_WCSPLANE_UCS2MAX) {
-		CK((*filter->output_function)(c & 0xff, filter->data));
-		CK((*filter->output_function)((c >> 8) & 0xff, filter->data));
+		CK((*filter->output_function)(c & 0xff, filter->data TSRMLS_CC));
+		CK((*filter->output_function)((c >> 8) & 0xff, filter->data TSRMLS_CC));
 	} else {
 		if (filter->illegal_mode != MBFL_OUTPUTFILTER_ILLEGAL_MODE_NONE) {
-			CK(mbfl_filt_conv_illegal_output(c, filter));
+			CK(mbfl_filt_conv_illegal_output(c, filter TSRMLS_CC));
 		}
 	}
 
@@ -3151,7 +4076,7 @@ mbfl_filt_conv_wchar_ucs2le(int c, mbfl_convert_filter *filter)
  * UTF-16 => wchar
  */
 static int
-mbfl_filt_conv_utf16_wchar(int c, mbfl_convert_filter *filter)
+mbfl_filt_conv_utf16_wchar(int c, mbfl_convert_filter *filter TSRMLS_DC)
 {
 	int n, endian;
 
@@ -3180,7 +4105,7 @@ mbfl_filt_conv_utf16_wchar(int c, mbfl_convert_filter *filter)
 			} else {
 				filter->status = 0x100;		/* little-endian */
 			}
-			CK((*filter->output_function)(0xfeff, filter->data));
+			CK((*filter->output_function)(0xfeff, filter->data TSRMLS_CC));
 		} else if (n >= 0xd800 && n < 0xdc00) {
 			filter->cache = ((n & 0x3ff) << 16) + 0x400000;
 		} else if (n >= 0xdc00 && n < 0xe000) {
@@ -3188,15 +4113,15 @@ mbfl_filt_conv_utf16_wchar(int c, mbfl_convert_filter *filter)
 			n |= (filter->cache & 0xfff0000) >> 6;
 			filter->cache = 0;
 			if (n >= MBFL_WCSPLANE_SUPMIN && n < MBFL_WCSPLANE_SUPMAX) {
-				CK((*filter->output_function)(n, filter->data));
+				CK((*filter->output_function)(n, filter->data TSRMLS_CC));
 			} else {		/* illegal character */
 				n &= MBFL_WCSGROUP_MASK;
 				n |= MBFL_WCSGROUP_THROUGH;
-				CK((*filter->output_function)(n, filter->data));
+				CK((*filter->output_function)(n, filter->data TSRMLS_CC));
 			}
 		} else {
 			filter->cache = 0;
-			CK((*filter->output_function)(n, filter->data));
+			CK((*filter->output_function)(n, filter->data TSRMLS_CC));
 		}
 		break;
 	}
@@ -3208,7 +4133,7 @@ mbfl_filt_conv_utf16_wchar(int c, mbfl_convert_filter *filter)
  * UTF-16BE => wchar
  */
 static int
-mbfl_filt_conv_utf16be_wchar(int c, mbfl_convert_filter *filter)
+mbfl_filt_conv_utf16be_wchar(int c, mbfl_convert_filter *filter TSRMLS_DC)
 {
 	int n;
 
@@ -3228,15 +4153,15 @@ mbfl_filt_conv_utf16be_wchar(int c, mbfl_convert_filter *filter)
 			n |= (filter->cache & 0xfff0000) >> 6;
 			filter->cache = 0;
 			if (n >= MBFL_WCSPLANE_SUPMIN && n < MBFL_WCSPLANE_SUPMAX) {
-				CK((*filter->output_function)(n, filter->data));
+				CK((*filter->output_function)(n, filter->data TSRMLS_CC));
 			} else {		/* illegal character */
 				n &= MBFL_WCSGROUP_MASK;
 				n |= MBFL_WCSGROUP_THROUGH;
-				CK((*filter->output_function)(n, filter->data));
+				CK((*filter->output_function)(n, filter->data TSRMLS_CC));
 			}
 		} else {
 			filter->cache = 0;
-			CK((*filter->output_function)(n, filter->data));
+			CK((*filter->output_function)(n, filter->data TSRMLS_CC));
 		}
 		break;
 	}
@@ -3248,23 +4173,23 @@ mbfl_filt_conv_utf16be_wchar(int c, mbfl_convert_filter *filter)
  * wchar => UTF-16BE
  */
 static int
-mbfl_filt_conv_wchar_utf16be(int c, mbfl_convert_filter *filter)
+mbfl_filt_conv_wchar_utf16be(int c, mbfl_convert_filter *filter TSRMLS_DC)
 {
 	int n;
 
 	if (c >= 0 && c < MBFL_WCSPLANE_UCS2MAX) {
-		CK((*filter->output_function)((c >> 8) & 0xff, filter->data));
-		CK((*filter->output_function)(c & 0xff, filter->data));
+		CK((*filter->output_function)((c >> 8) & 0xff, filter->data TSRMLS_CC));
+		CK((*filter->output_function)(c & 0xff, filter->data TSRMLS_CC));
 	} else if (c >= MBFL_WCSPLANE_SUPMIN && c < MBFL_WCSPLANE_SUPMAX) {
 		n = ((c >> 10) - 0x40) | 0xd800;
-		CK((*filter->output_function)((n >> 8) & 0xff, filter->data));
-		CK((*filter->output_function)(n & 0xff, filter->data));
+		CK((*filter->output_function)((n >> 8) & 0xff, filter->data TSRMLS_CC));
+		CK((*filter->output_function)(n & 0xff, filter->data TSRMLS_CC));
 		n = (c & 0x3ff) | 0xdc00;
-		CK((*filter->output_function)((n >> 8) & 0xff, filter->data));
-		CK((*filter->output_function)(n & 0xff, filter->data));
+		CK((*filter->output_function)((n >> 8) & 0xff, filter->data TSRMLS_CC));
+		CK((*filter->output_function)(n & 0xff, filter->data TSRMLS_CC));
 	} else {
 		if (filter->illegal_mode != MBFL_OUTPUTFILTER_ILLEGAL_MODE_NONE) {
-			CK(mbfl_filt_conv_illegal_output(c, filter));
+			CK(mbfl_filt_conv_illegal_output(c, filter TSRMLS_CC));
 		}
 	}
 
@@ -3275,7 +4200,7 @@ mbfl_filt_conv_wchar_utf16be(int c, mbfl_convert_filter *filter)
  * UTF-16LE => wchar
  */
 static int
-mbfl_filt_conv_utf16le_wchar(int c, mbfl_convert_filter *filter)
+mbfl_filt_conv_utf16le_wchar(int c, mbfl_convert_filter *filter TSRMLS_DC)
 {
 	int n;
 
@@ -3295,15 +4220,15 @@ mbfl_filt_conv_utf16le_wchar(int c, mbfl_convert_filter *filter)
 			n |= (filter->cache & 0xfff0000) >> 6;
 			filter->cache = 0;
 			if (n >= MBFL_WCSPLANE_SUPMIN && n < MBFL_WCSPLANE_SUPMAX) {
-				CK((*filter->output_function)(n, filter->data));
+				CK((*filter->output_function)(n, filter->data TSRMLS_CC));
 			} else {		/* illegal character */
 				n &= MBFL_WCSGROUP_MASK;
 				n |= MBFL_WCSGROUP_THROUGH;
-				CK((*filter->output_function)(n, filter->data));
+				CK((*filter->output_function)(n, filter->data TSRMLS_CC));
 			}
 		} else {
 			filter->cache = 0;
-			CK((*filter->output_function)(n, filter->data));
+			CK((*filter->output_function)(n, filter->data TSRMLS_CC));
 		}
 		break;
 	}
@@ -3315,23 +4240,23 @@ mbfl_filt_conv_utf16le_wchar(int c, mbfl_convert_filter *filter)
  * wchar => UTF-16LE
  */
 static int
-mbfl_filt_conv_wchar_utf16le(int c, mbfl_convert_filter *filter)
+mbfl_filt_conv_wchar_utf16le(int c, mbfl_convert_filter *filter TSRMLS_DC)
 {
 	int n;
 
 	if (c >= 0 && c < MBFL_WCSPLANE_UCS2MAX) {
-		CK((*filter->output_function)(c & 0xff, filter->data));
-		CK((*filter->output_function)((c >> 8) & 0xff, filter->data));
+		CK((*filter->output_function)(c & 0xff, filter->data TSRMLS_CC));
+		CK((*filter->output_function)((c >> 8) & 0xff, filter->data TSRMLS_CC));
 	} else if (c >= MBFL_WCSPLANE_SUPMIN && c < MBFL_WCSPLANE_SUPMAX) {
 		n = ((c >> 10) - 0x40) | 0xd800;
-		CK((*filter->output_function)(n & 0xff, filter->data));
-		CK((*filter->output_function)((n >> 8) & 0xff, filter->data));
+		CK((*filter->output_function)(n & 0xff, filter->data TSRMLS_CC));
+		CK((*filter->output_function)((n >> 8) & 0xff, filter->data TSRMLS_CC));
 		n = (c & 0x3ff) | 0xdc00;
-		CK((*filter->output_function)(n & 0xff, filter->data));
-		CK((*filter->output_function)((n >> 8) & 0xff, filter->data));
+		CK((*filter->output_function)(n & 0xff, filter->data TSRMLS_CC));
+		CK((*filter->output_function)((n >> 8) & 0xff, filter->data TSRMLS_CC));
 	} else {
 		if (filter->illegal_mode != MBFL_OUTPUTFILTER_ILLEGAL_MODE_NONE) {
-			CK(mbfl_filt_conv_illegal_output(c, filter));
+			CK(mbfl_filt_conv_illegal_output(c, filter TSRMLS_CC));
 		}
 	}
 
@@ -3343,13 +4268,13 @@ mbfl_filt_conv_wchar_utf16le(int c, mbfl_convert_filter *filter)
  * UTF-8 => wchar
  */
 static int
-mbfl_filt_conv_utf8_wchar(int c, mbfl_convert_filter *filter)
+mbfl_filt_conv_utf8_wchar(int c, mbfl_convert_filter *filter TSRMLS_DC)
 {
 	int s;
 
 	if (c < 0x80) {
 		if (c >= 0) {
-			CK((*filter->output_function)(c, filter->data));
+			CK((*filter->output_function)(c, filter->data TSRMLS_CC));
 		}
 		filter->status = 0;
 	} else if (c < 0xc0) {
@@ -3362,7 +4287,7 @@ mbfl_filt_conv_utf8_wchar(int c, mbfl_convert_filter *filter)
 			filter->status = 0;
 			s = filter->cache | (c & 0x3f);
 			if (s >= 0x80) {
-				CK((*filter->output_function)(s, filter->data));
+				CK((*filter->output_function)(s, filter->data TSRMLS_CC));
 			}
 			break;
 		case 0x20: /* 3byte code 2nd char */
@@ -3418,40 +4343,40 @@ mbfl_filt_conv_utf8_wchar(int c, mbfl_convert_filter *filter)
  * wchar => UTF-8
  */
 static int
-mbfl_filt_conv_wchar_utf8(int c, mbfl_convert_filter *filter)
+mbfl_filt_conv_wchar_utf8(int c, mbfl_convert_filter *filter TSRMLS_DC)
 {
 	if (c >= 0 && c < MBFL_WCSGROUP_UCS4MAX) {
 		if (c < 0x80) {
-			CK((*filter->output_function)(c, filter->data));
+			CK((*filter->output_function)(c, filter->data TSRMLS_CC));
 		} else if (c < 0x800) {
-			CK((*filter->output_function)(((c >> 6) & 0x1f) | 0xc0, filter->data));
-			CK((*filter->output_function)((c & 0x3f) | 0x80, filter->data));
+			CK((*filter->output_function)(((c >> 6) & 0x1f) | 0xc0, filter->data TSRMLS_CC));
+			CK((*filter->output_function)((c & 0x3f) | 0x80, filter->data TSRMLS_CC));
 		} else if (c < 0x10000) {
-			CK((*filter->output_function)(((c >> 12) & 0x0f) | 0xe0, filter->data));
-			CK((*filter->output_function)(((c >> 6) & 0x3f) | 0x80, filter->data));
-			CK((*filter->output_function)((c & 0x3f) | 0x80, filter->data));
+			CK((*filter->output_function)(((c >> 12) & 0x0f) | 0xe0, filter->data TSRMLS_CC));
+			CK((*filter->output_function)(((c >> 6) & 0x3f) | 0x80, filter->data TSRMLS_CC));
+			CK((*filter->output_function)((c & 0x3f) | 0x80, filter->data TSRMLS_CC));
 		} else if (c < 0x200000) {
-			CK((*filter->output_function)(((c >> 18) & 0x07) | 0xf0, filter->data));
-			CK((*filter->output_function)(((c >> 12) & 0x3f) | 0x80, filter->data));
-			CK((*filter->output_function)(((c >> 6) & 0x3f) | 0x80, filter->data));
-			CK((*filter->output_function)((c & 0x3f) | 0x80, filter->data));
+			CK((*filter->output_function)(((c >> 18) & 0x07) | 0xf0, filter->data TSRMLS_CC));
+			CK((*filter->output_function)(((c >> 12) & 0x3f) | 0x80, filter->data TSRMLS_CC));
+			CK((*filter->output_function)(((c >> 6) & 0x3f) | 0x80, filter->data TSRMLS_CC));
+			CK((*filter->output_function)((c & 0x3f) | 0x80, filter->data TSRMLS_CC));
 		} else if (c < 0x4000000) {
-			CK((*filter->output_function)(((c >> 24) & 0x03) | 0xf8, filter->data));
-			CK((*filter->output_function)(((c >> 18) & 0x3f) | 0x80, filter->data));
-			CK((*filter->output_function)(((c >> 12) & 0x3f) | 0x80, filter->data));
-			CK((*filter->output_function)(((c >> 6) & 0x3f) | 0x80, filter->data));
-			CK((*filter->output_function)((c & 0x3f) | 0x80, filter->data));
+			CK((*filter->output_function)(((c >> 24) & 0x03) | 0xf8, filter->data TSRMLS_CC));
+			CK((*filter->output_function)(((c >> 18) & 0x3f) | 0x80, filter->data TSRMLS_CC));
+			CK((*filter->output_function)(((c >> 12) & 0x3f) | 0x80, filter->data TSRMLS_CC));
+			CK((*filter->output_function)(((c >> 6) & 0x3f) | 0x80, filter->data TSRMLS_CC));
+			CK((*filter->output_function)((c & 0x3f) | 0x80, filter->data TSRMLS_CC));
 		} else {
-			CK((*filter->output_function)(((c >> 30) & 0x01) | 0xfc, filter->data));
-			CK((*filter->output_function)(((c >> 24) & 0x3f) | 0x80, filter->data));
-			CK((*filter->output_function)(((c >> 18) & 0x3f) | 0x80, filter->data));
-			CK((*filter->output_function)(((c >> 12) & 0x3f) | 0x80, filter->data));
-			CK((*filter->output_function)(((c >> 6) & 0x3f) | 0x80, filter->data));
-			CK((*filter->output_function)((c & 0x3f) | 0x80, filter->data));
+			CK((*filter->output_function)(((c >> 30) & 0x01) | 0xfc, filter->data TSRMLS_CC));
+			CK((*filter->output_function)(((c >> 24) & 0x3f) | 0x80, filter->data TSRMLS_CC));
+			CK((*filter->output_function)(((c >> 18) & 0x3f) | 0x80, filter->data TSRMLS_CC));
+			CK((*filter->output_function)(((c >> 12) & 0x3f) | 0x80, filter->data TSRMLS_CC));
+			CK((*filter->output_function)(((c >> 6) & 0x3f) | 0x80, filter->data TSRMLS_CC));
+			CK((*filter->output_function)((c & 0x3f) | 0x80, filter->data TSRMLS_CC));
 		}
 	} else {
 		if (filter->illegal_mode != MBFL_OUTPUTFILTER_ILLEGAL_MODE_NONE) {
-			CK(mbfl_filt_conv_illegal_output(c, filter));
+			CK(mbfl_filt_conv_illegal_output(c, filter TSRMLS_CC));
 		}
 	}
 
@@ -3463,7 +4388,7 @@ mbfl_filt_conv_wchar_utf8(int c, mbfl_convert_filter *filter)
  * UTF-7 => wchar
  */
 static int
-mbfl_filt_conv_utf7_wchar(int c, mbfl_convert_filter *filter)
+mbfl_filt_conv_utf7_wchar(int c, mbfl_convert_filter *filter TSRMLS_DC)
 {
 	int s, n;
 
@@ -3483,14 +4408,14 @@ mbfl_filt_conv_utf7_wchar(int c, mbfl_convert_filter *filter)
 		if (n < 0 || n > 63) {
 			if (c == 0x2d) {
 				if (filter->status == 1) {		/* "+-" -> "+" */
-					CK((*filter->output_function)(0x2b, filter->data));
+					CK((*filter->output_function)(0x2b, filter->data TSRMLS_CC));
 				}
 			} else if (c >= 0 && c < 0x80) {	/* ASCII exclude '-' */
-				CK((*filter->output_function)(c, filter->data));
+				CK((*filter->output_function)(c, filter->data TSRMLS_CC));
 			} else {		/* illegal character */
 				s = c & MBFL_WCSGROUP_MASK;
 				s |= MBFL_WCSGROUP_THROUGH;
-				CK((*filter->output_function)(s, filter->data));
+				CK((*filter->output_function)(s, filter->data TSRMLS_CC));
 			}
 			filter->cache = 0;
 			filter->status = 0;
@@ -3504,11 +4429,11 @@ mbfl_filt_conv_utf7_wchar(int c, mbfl_convert_filter *filter)
 		if (c == 0x2b) {	/* '+'  shift character */
 			filter->status = 1;
 		} else if (c >= 0 && c < 0x80) {	/* ASCII */
-			CK((*filter->output_function)(c, filter->data));
+			CK((*filter->output_function)(c, filter->data TSRMLS_CC));
 		} else {		/* illegal character */
 			s = c & MBFL_WCSGROUP_MASK;
 			s |= MBFL_WCSGROUP_THROUGH;
-			CK((*filter->output_function)(s, filter->data));
+			CK((*filter->output_function)(s, filter->data TSRMLS_CC));
 		}
 		break;
 
@@ -3534,15 +4459,15 @@ mbfl_filt_conv_utf7_wchar(int c, mbfl_convert_filter *filter)
 			s |= (filter->cache & 0xfff0000) >> 6;
 			filter->cache = n;
 			if (s >= MBFL_WCSPLANE_SUPMIN && s < MBFL_WCSPLANE_SUPMAX) {
-				CK((*filter->output_function)(s, filter->data));
+				CK((*filter->output_function)(s, filter->data TSRMLS_CC));
 			} else {		/* illegal character */
 				s &= MBFL_WCSGROUP_MASK;
 				s |= MBFL_WCSGROUP_THROUGH;
-				CK((*filter->output_function)(s, filter->data));
+				CK((*filter->output_function)(s, filter->data TSRMLS_CC));
 			}
 		} else {
 			filter->cache = n;
-			CK((*filter->output_function)(s, filter->data));
+			CK((*filter->output_function)(s, filter->data TSRMLS_CC));
 		}
 		break;
 
@@ -3566,15 +4491,15 @@ mbfl_filt_conv_utf7_wchar(int c, mbfl_convert_filter *filter)
 			s |= (filter->cache & 0xfff0000) >> 6;
 			filter->cache = n;
 			if (s >= MBFL_WCSPLANE_SUPMIN && s < MBFL_WCSPLANE_SUPMAX) {
-				CK((*filter->output_function)(s, filter->data));
+				CK((*filter->output_function)(s, filter->data TSRMLS_CC));
 			} else {		/* illegal character */
 				s &= MBFL_WCSGROUP_MASK;
 				s |= MBFL_WCSGROUP_THROUGH;
-				CK((*filter->output_function)(s, filter->data));
+				CK((*filter->output_function)(s, filter->data TSRMLS_CC));
 			}
 		} else {
 			filter->cache = n;
-			CK((*filter->output_function)(s, filter->data));
+			CK((*filter->output_function)(s, filter->data TSRMLS_CC));
 		}
 		break;
 
@@ -3593,15 +4518,15 @@ mbfl_filt_conv_utf7_wchar(int c, mbfl_convert_filter *filter)
 			s |= (filter->cache & 0xfff0000) >> 6;
 			filter->cache = 0;
 			if (s >= MBFL_WCSPLANE_SUPMIN && s < MBFL_WCSPLANE_SUPMAX) {
-				CK((*filter->output_function)(s, filter->data));
+				CK((*filter->output_function)(s, filter->data TSRMLS_CC));
 			} else {		/* illegal character */
 				s &= MBFL_WCSGROUP_MASK;
 				s |= MBFL_WCSGROUP_THROUGH;
-				CK((*filter->output_function)(s, filter->data));
+				CK((*filter->output_function)(s, filter->data TSRMLS_CC));
 			}
 		} else {
 			filter->cache = 0;
-			CK((*filter->output_function)(s, filter->data));
+			CK((*filter->output_function)(s, filter->data TSRMLS_CC));
 		}
 		break;
 
@@ -3617,7 +4542,7 @@ mbfl_filt_conv_utf7_wchar(int c, mbfl_convert_filter *filter)
  * wchar => UTF-7
  */
 static int
-mbfl_filt_conv_wchar_utf7(int c, mbfl_convert_filter *filter)
+mbfl_filt_conv_wchar_utf7(int c, mbfl_convert_filter *filter TSRMLS_DC)
 {
 	int s, n;
 
@@ -3662,13 +4587,13 @@ mbfl_filt_conv_wchar_utf7(int c, mbfl_convert_filter *filter)
 		;
 	} else if (c >= MBFL_WCSPLANE_SUPMIN && c < MBFL_WCSPLANE_SUPMAX) {
 		s = ((c >> 10) - 0x40) | 0xd800;
-		CK((*filter->filter_function)(s, filter));
+		CK((*filter->filter_function)(s, filter TSRMLS_CC));
 		s = (c & 0x3ff) | 0xdc00;
-		CK((*filter->filter_function)(s, filter));
+		CK((*filter->filter_function)(s, filter TSRMLS_CC));
 		return c;
 	} else {
 		if (filter->illegal_mode != MBFL_OUTPUTFILTER_ILLEGAL_MODE_NONE) {
-			CK(mbfl_filt_conv_illegal_output(c, filter));
+			CK(mbfl_filt_conv_illegal_output(c, filter TSRMLS_CC));
 		}
 		return c;
 	}
@@ -3676,9 +4601,9 @@ mbfl_filt_conv_wchar_utf7(int c, mbfl_convert_filter *filter)
 	switch (filter->status) {
 	case 0:
 		if (n != 0) {	/* directly encode characters */
-			CK((*filter->output_function)(c, filter->data));
+			CK((*filter->output_function)(c, filter->data TSRMLS_CC));
 		} else {	/* Modified Base64 */
-			CK((*filter->output_function)(0x2b, filter->data));		/* '+' */
+			CK((*filter->output_function)(0x2b, filter->data TSRMLS_CC));		/* '+' */
 			filter->status++;
 			filter->cache = c;
 		}
@@ -3687,14 +4612,14 @@ mbfl_filt_conv_wchar_utf7(int c, mbfl_convert_filter *filter)
 	/* encode Modified Base64 */
 	case 1:
 		s = filter->cache;
-		CK((*filter->output_function)(mbfl_base64_table[(s >> 10) & 0x3f], filter->data));
-		CK((*filter->output_function)(mbfl_base64_table[(s >> 4) & 0x3f], filter->data));
+		CK((*filter->output_function)(mbfl_base64_table[(s >> 10) & 0x3f], filter->data TSRMLS_CC));
+		CK((*filter->output_function)(mbfl_base64_table[(s >> 4) & 0x3f], filter->data TSRMLS_CC));
 		if (n != 0) {
-			CK((*filter->output_function)(mbfl_base64_table[(s << 2) & 0x3c], filter->data));
+			CK((*filter->output_function)(mbfl_base64_table[(s << 2) & 0x3c], filter->data TSRMLS_CC));
 			if (n == 1) {
-				CK((*filter->output_function)(0x2d, filter->data));		/* '-' */
+				CK((*filter->output_function)(0x2d, filter->data TSRMLS_CC));		/* '-' */
 			}
-			CK((*filter->output_function)(c, filter->data));
+			CK((*filter->output_function)(c, filter->data TSRMLS_CC));
 			filter->status = 0;
 		} else {
 			filter->status++;
@@ -3704,15 +4629,15 @@ mbfl_filt_conv_wchar_utf7(int c, mbfl_convert_filter *filter)
 
 	case 2:
 		s = filter->cache;
-		CK((*filter->output_function)(mbfl_base64_table[(s >> 14) & 0x3f], filter->data));
-		CK((*filter->output_function)(mbfl_base64_table[(s >> 8) & 0x3f], filter->data));
-		CK((*filter->output_function)(mbfl_base64_table[(s >> 2) & 0x3f], filter->data));
+		CK((*filter->output_function)(mbfl_base64_table[(s >> 14) & 0x3f], filter->data TSRMLS_CC));
+		CK((*filter->output_function)(mbfl_base64_table[(s >> 8) & 0x3f], filter->data TSRMLS_CC));
+		CK((*filter->output_function)(mbfl_base64_table[(s >> 2) & 0x3f], filter->data TSRMLS_CC));
 		if (n != 0) {
-			CK((*filter->output_function)(mbfl_base64_table[(s << 4) & 0x30], filter->data));
+			CK((*filter->output_function)(mbfl_base64_table[(s << 4) & 0x30], filter->data TSRMLS_CC));
 			if (n == 1) {
-				CK((*filter->output_function)(0x2d, filter->data));		/* '-' */
+				CK((*filter->output_function)(0x2d, filter->data TSRMLS_CC));		/* '-' */
 			}
-			CK((*filter->output_function)(c, filter->data));
+			CK((*filter->output_function)(c, filter->data TSRMLS_CC));
 			filter->status = 0;
 		} else {
 			filter->status++;
@@ -3722,14 +4647,14 @@ mbfl_filt_conv_wchar_utf7(int c, mbfl_convert_filter *filter)
 
 	case 3:
 		s = filter->cache;
-		CK((*filter->output_function)(mbfl_base64_table[(s >> 12) & 0x3f], filter->data));
-		CK((*filter->output_function)(mbfl_base64_table[(s >> 6) & 0x3f], filter->data));
-		CK((*filter->output_function)(mbfl_base64_table[s & 0x3f], filter->data));
+		CK((*filter->output_function)(mbfl_base64_table[(s >> 12) & 0x3f], filter->data TSRMLS_CC));
+		CK((*filter->output_function)(mbfl_base64_table[(s >> 6) & 0x3f], filter->data TSRMLS_CC));
+		CK((*filter->output_function)(mbfl_base64_table[s & 0x3f], filter->data TSRMLS_CC));
 		if (n != 0) {
 			if (n == 1) {
-				CK((*filter->output_function)(0x2d, filter->data));		/* '-' */
+				CK((*filter->output_function)(0x2d, filter->data TSRMLS_CC));		/* '-' */
 			}
-			CK((*filter->output_function)(c, filter->data));
+			CK((*filter->output_function)(c, filter->data TSRMLS_CC));
 			filter->status = 0;
 		} else {
 			filter->status = 1;
@@ -3747,7 +4672,7 @@ mbfl_filt_conv_wchar_utf7(int c, mbfl_convert_filter *filter)
 }
 
 static int
-mbfl_filt_conv_wchar_utf7_flush(mbfl_convert_filter *filter)
+mbfl_filt_conv_wchar_utf7_flush(mbfl_convert_filter *filter TSRMLS_DC)
 {
 	int status, cache;
 
@@ -3758,25 +4683,25 @@ mbfl_filt_conv_wchar_utf7_flush(mbfl_convert_filter *filter)
 	/* flush fragments */
 	switch (status) {
 	case 1:
-		CK((*filter->output_function)(mbfl_base64_table[(cache >> 10) & 0x3f], filter->data));
-		CK((*filter->output_function)(mbfl_base64_table[(cache >> 4) & 0x3f], filter->data));
-		CK((*filter->output_function)(mbfl_base64_table[(cache << 2) & 0x3c], filter->data));
-		CK((*filter->output_function)(0x2d, filter->data));		/* '-' */
+		CK((*filter->output_function)(mbfl_base64_table[(cache >> 10) & 0x3f], filter->data TSRMLS_CC));
+		CK((*filter->output_function)(mbfl_base64_table[(cache >> 4) & 0x3f], filter->data TSRMLS_CC));
+		CK((*filter->output_function)(mbfl_base64_table[(cache << 2) & 0x3c], filter->data TSRMLS_CC));
+		CK((*filter->output_function)(0x2d, filter->data TSRMLS_CC));		/* '-' */
 		break;
 
 	case 2:
-		CK((*filter->output_function)(mbfl_base64_table[(cache >> 14) & 0x3f], filter->data));
-		CK((*filter->output_function)(mbfl_base64_table[(cache >> 8) & 0x3f], filter->data));
-		CK((*filter->output_function)(mbfl_base64_table[(cache >> 2) & 0x3f], filter->data));
-		CK((*filter->output_function)(mbfl_base64_table[(cache << 4) & 0x30], filter->data));
-		CK((*filter->output_function)(0x2d, filter->data));		/* '-' */
+		CK((*filter->output_function)(mbfl_base64_table[(cache >> 14) & 0x3f], filter->data TSRMLS_CC));
+		CK((*filter->output_function)(mbfl_base64_table[(cache >> 8) & 0x3f], filter->data TSRMLS_CC));
+		CK((*filter->output_function)(mbfl_base64_table[(cache >> 2) & 0x3f], filter->data TSRMLS_CC));
+		CK((*filter->output_function)(mbfl_base64_table[(cache << 4) & 0x30], filter->data TSRMLS_CC));
+		CK((*filter->output_function)(0x2d, filter->data TSRMLS_CC));		/* '-' */
 		break;
 
 	case 3:
-		CK((*filter->output_function)(mbfl_base64_table[(cache >> 12) & 0x3f], filter->data));
-		CK((*filter->output_function)(mbfl_base64_table[(cache >> 6) & 0x3f], filter->data));
-		CK((*filter->output_function)(mbfl_base64_table[cache & 0x3f], filter->data));
-		CK((*filter->output_function)(0x2d, filter->data));		/* '-' */
+		CK((*filter->output_function)(mbfl_base64_table[(cache >> 12) & 0x3f], filter->data TSRMLS_CC));
+		CK((*filter->output_function)(mbfl_base64_table[(cache >> 6) & 0x3f], filter->data TSRMLS_CC));
+		CK((*filter->output_function)(mbfl_base64_table[cache & 0x3f], filter->data TSRMLS_CC));
+		CK((*filter->output_function)(0x2d, filter->data TSRMLS_CC));		/* '-' */
 		break;
 	}
 	return 0;
@@ -3787,7 +4712,7 @@ mbfl_filt_conv_wchar_utf7_flush(mbfl_convert_filter *filter)
  * UTF7-IMAP => wchar
  */
 static int
-mbfl_filt_conv_utf7imap_wchar(int c, mbfl_convert_filter *filter)
+mbfl_filt_conv_utf7imap_wchar(int c, mbfl_convert_filter *filter TSRMLS_DC)
 {
 	int s, n;
 
@@ -3807,14 +4732,14 @@ mbfl_filt_conv_utf7imap_wchar(int c, mbfl_convert_filter *filter)
 		if (n < 0 || n > 63) {
 			if (c == 0x2d) {
 				if (filter->status == 1) {		/* "&-" -> "&" */
-					CK((*filter->output_function)(0x26, filter->data));
+					CK((*filter->output_function)(0x26, filter->data TSRMLS_CC));
 				}
 			} else if (c >= 0 && c < 0x80) {	/* ASCII exclude '-' */
-				CK((*filter->output_function)(c, filter->data));
+				CK((*filter->output_function)(c, filter->data TSRMLS_CC));
 			} else {		/* illegal character */
 				s = c & MBFL_WCSGROUP_MASK;
 				s |= MBFL_WCSGROUP_THROUGH;
-				CK((*filter->output_function)(s, filter->data));
+				CK((*filter->output_function)(s, filter->data TSRMLS_CC));
 			}
 			filter->cache = 0;
 			filter->status = 0;
@@ -3828,11 +4753,11 @@ mbfl_filt_conv_utf7imap_wchar(int c, mbfl_convert_filter *filter)
 		if (c == 0x26) {	/* '&'  shift character */
 			filter->status++;
 		} else if (c >= 0 && c < 0x80) {	/* ASCII */
-			CK((*filter->output_function)(c, filter->data));
+			CK((*filter->output_function)(c, filter->data TSRMLS_CC));
 		} else {		/* illegal character */
 			s = c & MBFL_WCSGROUP_MASK;
 			s |= MBFL_WCSGROUP_THROUGH;
-			CK((*filter->output_function)(s, filter->data));
+			CK((*filter->output_function)(s, filter->data TSRMLS_CC));
 		}
 		break;
 
@@ -3858,15 +4783,15 @@ mbfl_filt_conv_utf7imap_wchar(int c, mbfl_convert_filter *filter)
 			s |= (filter->cache & 0xfff0000) >> 6;
 			filter->cache = n;
 			if (s >= MBFL_WCSPLANE_SUPMIN && s < MBFL_WCSPLANE_SUPMAX) {
-				CK((*filter->output_function)(s, filter->data));
+				CK((*filter->output_function)(s, filter->data TSRMLS_CC));
 			} else {		/* illegal character */
 				s &= MBFL_WCSGROUP_MASK;
 				s |= MBFL_WCSGROUP_THROUGH;
-				CK((*filter->output_function)(s, filter->data));
+				CK((*filter->output_function)(s, filter->data TSRMLS_CC));
 			}
 		} else {
 			filter->cache = n;
-			CK((*filter->output_function)(s, filter->data));
+			CK((*filter->output_function)(s, filter->data TSRMLS_CC));
 		}
 		break;
 
@@ -3890,15 +4815,15 @@ mbfl_filt_conv_utf7imap_wchar(int c, mbfl_convert_filter *filter)
 			s |= (filter->cache & 0xfff0000) >> 6;
 			filter->cache = n;
 			if (s >= MBFL_WCSPLANE_SUPMIN && s < MBFL_WCSPLANE_SUPMAX) {
-				CK((*filter->output_function)(s, filter->data));
+				CK((*filter->output_function)(s, filter->data TSRMLS_CC));
 			} else {		/* illegal character */
 				s &= MBFL_WCSGROUP_MASK;
 				s |= MBFL_WCSGROUP_THROUGH;
-				CK((*filter->output_function)(s, filter->data));
+				CK((*filter->output_function)(s, filter->data TSRMLS_CC));
 			}
 		} else {
 			filter->cache = n;
-			CK((*filter->output_function)(s, filter->data));
+			CK((*filter->output_function)(s, filter->data TSRMLS_CC));
 		}
 		break;
 
@@ -3917,15 +4842,15 @@ mbfl_filt_conv_utf7imap_wchar(int c, mbfl_convert_filter *filter)
 			s |= (filter->cache & 0xfff0000) >> 6;
 			filter->cache = 0;
 			if (s >= MBFL_WCSPLANE_SUPMIN && s < MBFL_WCSPLANE_SUPMAX) {
-				CK((*filter->output_function)(s, filter->data));
+				CK((*filter->output_function)(s, filter->data TSRMLS_CC));
 			} else {		/* illegal character */
 				s &= MBFL_WCSGROUP_MASK;
 				s |= MBFL_WCSGROUP_THROUGH;
-				CK((*filter->output_function)(s, filter->data));
+				CK((*filter->output_function)(s, filter->data TSRMLS_CC));
 			}
 		} else {
 			filter->cache = 0;
-			CK((*filter->output_function)(s, filter->data));
+			CK((*filter->output_function)(s, filter->data TSRMLS_CC));
 		}
 		break;
 
@@ -3955,7 +4880,7 @@ static const unsigned char mbfl_utf7imap_base64_table[] =
  * wchar => UTF7-IMAP
  */
 static int
-mbfl_filt_conv_wchar_utf7imap(int c, mbfl_convert_filter *filter)
+mbfl_filt_conv_wchar_utf7imap(int c, mbfl_convert_filter *filter TSRMLS_DC)
 {
 	int n, s;
 
@@ -3968,13 +4893,13 @@ mbfl_filt_conv_wchar_utf7imap(int c, mbfl_convert_filter *filter)
 		;
 	} else if (c >= MBFL_WCSPLANE_SUPMIN && c < MBFL_WCSPLANE_SUPMAX) {
 		s = ((c >> 10) - 0x40) | 0xd800;
-		CK((*filter->filter_function)(s, filter));
+		CK((*filter->filter_function)(s, filter TSRMLS_CC));
 		s = (c & 0x3ff) | 0xdc00;
-		CK((*filter->filter_function)(s, filter));
+		CK((*filter->filter_function)(s, filter TSRMLS_CC));
 		return c;
 	} else {
 		if (filter->illegal_mode != MBFL_OUTPUTFILTER_ILLEGAL_MODE_NONE) {
-			CK(mbfl_filt_conv_illegal_output(c, filter));
+			CK(mbfl_filt_conv_illegal_output(c, filter TSRMLS_CC));
 		}
 		return c;
 	}
@@ -3982,12 +4907,12 @@ mbfl_filt_conv_wchar_utf7imap(int c, mbfl_convert_filter *filter)
 	switch (filter->status) {
 	case 0:
 		if (n != 0) {	/* directly encode characters */
-			CK((*filter->output_function)(c, filter->data));
+			CK((*filter->output_function)(c, filter->data TSRMLS_CC));
 			if (n == 1) {
-				CK((*filter->output_function)(0x2d, filter->data));		/* '-' */
+				CK((*filter->output_function)(0x2d, filter->data TSRMLS_CC));		/* '-' */
 			}
 		} else {	/* Modified Base64 */
-			CK((*filter->output_function)(0x26, filter->data));		/* '&' */
+			CK((*filter->output_function)(0x26, filter->data TSRMLS_CC));		/* '&' */
 			filter->status = 1;
 			filter->cache = c;
 		}
@@ -3996,14 +4921,14 @@ mbfl_filt_conv_wchar_utf7imap(int c, mbfl_convert_filter *filter)
 	/* encode Modified Base64 */
 	case 1:
 		s = filter->cache;
-		CK((*filter->output_function)(mbfl_utf7imap_base64_table[(s >> 10) & 0x3f], filter->data));
-		CK((*filter->output_function)(mbfl_utf7imap_base64_table[(s >> 4) & 0x3f], filter->data));
+		CK((*filter->output_function)(mbfl_utf7imap_base64_table[(s >> 10) & 0x3f], filter->data TSRMLS_CC));
+		CK((*filter->output_function)(mbfl_utf7imap_base64_table[(s >> 4) & 0x3f], filter->data TSRMLS_CC));
 		if (n != 0) {
-			CK((*filter->output_function)(mbfl_utf7imap_base64_table[(s << 2) & 0x3c], filter->data));
-			CK((*filter->output_function)(0x2d, filter->data));		/* '-' */
-			CK((*filter->output_function)(c, filter->data));
+			CK((*filter->output_function)(mbfl_utf7imap_base64_table[(s << 2) & 0x3c], filter->data TSRMLS_CC));
+			CK((*filter->output_function)(0x2d, filter->data TSRMLS_CC));		/* '-' */
+			CK((*filter->output_function)(c, filter->data TSRMLS_CC));
 			if (n == 1) {
-				CK((*filter->output_function)(0x2d, filter->data));		/* '-' */
+				CK((*filter->output_function)(0x2d, filter->data TSRMLS_CC));		/* '-' */
 			}
 			filter->status = 0;
 		} else {
@@ -4014,15 +4939,15 @@ mbfl_filt_conv_wchar_utf7imap(int c, mbfl_convert_filter *filter)
 
 	case 2:
 		s = filter->cache;
-		CK((*filter->output_function)(mbfl_utf7imap_base64_table[(s >> 14) & 0x3f], filter->data));
-		CK((*filter->output_function)(mbfl_utf7imap_base64_table[(s >> 8) & 0x3f], filter->data));
-		CK((*filter->output_function)(mbfl_utf7imap_base64_table[(s >> 2) & 0x3f], filter->data));
+		CK((*filter->output_function)(mbfl_utf7imap_base64_table[(s >> 14) & 0x3f], filter->data TSRMLS_CC));
+		CK((*filter->output_function)(mbfl_utf7imap_base64_table[(s >> 8) & 0x3f], filter->data TSRMLS_CC));
+		CK((*filter->output_function)(mbfl_utf7imap_base64_table[(s >> 2) & 0x3f], filter->data TSRMLS_CC));
 		if (n != 0) {
-			CK((*filter->output_function)(mbfl_utf7imap_base64_table[(s << 4) & 0x30], filter->data));
-			CK((*filter->output_function)(0x2d, filter->data));		/* '-' */
-			CK((*filter->output_function)(c, filter->data));
+			CK((*filter->output_function)(mbfl_utf7imap_base64_table[(s << 4) & 0x30], filter->data TSRMLS_CC));
+			CK((*filter->output_function)(0x2d, filter->data TSRMLS_CC));		/* '-' */
+			CK((*filter->output_function)(c, filter->data TSRMLS_CC));
 			if (n == 1) {
-				CK((*filter->output_function)(0x2d, filter->data));		/* '-' */
+				CK((*filter->output_function)(0x2d, filter->data TSRMLS_CC));		/* '-' */
 			}
 			filter->status = 0;
 		} else {
@@ -4033,14 +4958,14 @@ mbfl_filt_conv_wchar_utf7imap(int c, mbfl_convert_filter *filter)
 
 	case 3:
 		s = filter->cache;
-		CK((*filter->output_function)(mbfl_utf7imap_base64_table[(s >> 12) & 0x3f], filter->data));
-		CK((*filter->output_function)(mbfl_utf7imap_base64_table[(s >> 6) & 0x3f], filter->data));
-		CK((*filter->output_function)(mbfl_utf7imap_base64_table[s & 0x3f], filter->data));
+		CK((*filter->output_function)(mbfl_utf7imap_base64_table[(s >> 12) & 0x3f], filter->data TSRMLS_CC));
+		CK((*filter->output_function)(mbfl_utf7imap_base64_table[(s >> 6) & 0x3f], filter->data TSRMLS_CC));
+		CK((*filter->output_function)(mbfl_utf7imap_base64_table[s & 0x3f], filter->data TSRMLS_CC));
 		if (n != 0) {
-			CK((*filter->output_function)(0x2d, filter->data));		/* '-' */
-			CK((*filter->output_function)(c, filter->data));
+			CK((*filter->output_function)(0x2d, filter->data TSRMLS_CC));		/* '-' */
+			CK((*filter->output_function)(c, filter->data TSRMLS_CC));
 			if (n == 1) {
-				CK((*filter->output_function)(0x2d, filter->data));		/* '-' */
+				CK((*filter->output_function)(0x2d, filter->data TSRMLS_CC));		/* '-' */
 			}
 			filter->status = 0;
 		} else {
@@ -4059,7 +4984,7 @@ mbfl_filt_conv_wchar_utf7imap(int c, mbfl_convert_filter *filter)
 }
 
 static int
-mbfl_filt_conv_wchar_utf7imap_flush(mbfl_convert_filter *filter)
+mbfl_filt_conv_wchar_utf7imap_flush(mbfl_convert_filter *filter TSRMLS_DC)
 {
 	int status, cache;
 
@@ -4070,25 +4995,25 @@ mbfl_filt_conv_wchar_utf7imap_flush(mbfl_convert_filter *filter)
 	/* flush fragments */
 	switch (status) {
 	case 1:
-		CK((*filter->output_function)(mbfl_utf7imap_base64_table[(cache >> 10) & 0x3f], filter->data));
-		CK((*filter->output_function)(mbfl_utf7imap_base64_table[(cache >> 4) & 0x3f], filter->data));
-		CK((*filter->output_function)(mbfl_utf7imap_base64_table[(cache << 2) & 0x3c], filter->data));
-		CK((*filter->output_function)(0x2d, filter->data));		/* '-' */
+		CK((*filter->output_function)(mbfl_utf7imap_base64_table[(cache >> 10) & 0x3f], filter->data TSRMLS_CC));
+		CK((*filter->output_function)(mbfl_utf7imap_base64_table[(cache >> 4) & 0x3f], filter->data TSRMLS_CC));
+		CK((*filter->output_function)(mbfl_utf7imap_base64_table[(cache << 2) & 0x3c], filter->data TSRMLS_CC));
+		CK((*filter->output_function)(0x2d, filter->data TSRMLS_CC));		/* '-' */
 		break;
 
 	case 2:
-		CK((*filter->output_function)(mbfl_utf7imap_base64_table[(cache >> 14) & 0x3f], filter->data));
-		CK((*filter->output_function)(mbfl_utf7imap_base64_table[(cache >> 8) & 0x3f], filter->data));
-		CK((*filter->output_function)(mbfl_utf7imap_base64_table[(cache >> 2) & 0x3f], filter->data));
-		CK((*filter->output_function)(mbfl_utf7imap_base64_table[(cache << 4) & 0x30], filter->data));
-		CK((*filter->output_function)(0x2d, filter->data));		/* '-' */
+		CK((*filter->output_function)(mbfl_utf7imap_base64_table[(cache >> 14) & 0x3f], filter->data TSRMLS_CC));
+		CK((*filter->output_function)(mbfl_utf7imap_base64_table[(cache >> 8) & 0x3f], filter->data TSRMLS_CC));
+		CK((*filter->output_function)(mbfl_utf7imap_base64_table[(cache >> 2) & 0x3f], filter->data TSRMLS_CC));
+		CK((*filter->output_function)(mbfl_utf7imap_base64_table[(cache << 4) & 0x30], filter->data TSRMLS_CC));
+		CK((*filter->output_function)(0x2d, filter->data TSRMLS_CC));		/* '-' */
 		break;
 
 	case 3:
-		CK((*filter->output_function)(mbfl_utf7imap_base64_table[(cache >> 12) & 0x3f], filter->data));
-		CK((*filter->output_function)(mbfl_utf7imap_base64_table[(cache >> 6) & 0x3f], filter->data));
-		CK((*filter->output_function)(mbfl_utf7imap_base64_table[cache & 0x3f], filter->data));
-		CK((*filter->output_function)(0x2d, filter->data));		/* '-' */
+		CK((*filter->output_function)(mbfl_utf7imap_base64_table[(cache >> 12) & 0x3f], filter->data TSRMLS_CC));
+		CK((*filter->output_function)(mbfl_utf7imap_base64_table[(cache >> 6) & 0x3f], filter->data TSRMLS_CC));
+		CK((*filter->output_function)(mbfl_utf7imap_base64_table[cache & 0x3f], filter->data TSRMLS_CC));
+		CK((*filter->output_function)(0x2d, filter->data TSRMLS_CC));		/* '-' */
 		break;
 	}
 	return 0;
@@ -4099,13 +5024,13 @@ mbfl_filt_conv_wchar_utf7imap_flush(mbfl_convert_filter *filter)
  * wchar => ASCII
  */
 static int
-mbfl_filt_conv_wchar_ascii(int c, mbfl_convert_filter *filter)
+mbfl_filt_conv_wchar_ascii(int c, mbfl_convert_filter *filter TSRMLS_DC)
 {
 	if (c >= 0 && c < 0x80) {
-		CK((*filter->output_function)(c, filter->data));
+		CK((*filter->output_function)(c, filter->data TSRMLS_CC));
 	} else {
 		if (filter->illegal_mode != MBFL_OUTPUTFILTER_ILLEGAL_MODE_NONE) {
-			CK(mbfl_filt_conv_illegal_output(c, filter));
+			CK(mbfl_filt_conv_illegal_output(c, filter TSRMLS_CC));
 		}
 	}
 
@@ -4116,16 +5041,16 @@ mbfl_filt_conv_wchar_ascii(int c, mbfl_convert_filter *filter)
  * wchar => cp1252
  */
 static int
-mbfl_filt_conv_wchar_cp1252(int c, mbfl_convert_filter *filter)
+mbfl_filt_conv_wchar_cp1252(int c, mbfl_convert_filter *filter TSRMLS_DC)
 {
-	int s, n;
+	int s=-1, n;
 
 	if (c >= 0x100)	{
 		/* look it up from the cp1252 table */
 		s = -1;
-		n = 30;
+		n = 31;
 		while (n >= 0) {
-			if (c == cp1252_ucs_table[n]) {
+			if (c == cp1252_ucs_table[n] && c != 0xfffe) {
 				s = 0x80 + n;
 				break;
 			}
@@ -4140,10 +5065,10 @@ mbfl_filt_conv_wchar_cp1252(int c, mbfl_convert_filter *filter)
 		s = c;
 	}
 	if (s >= 0) {
-		CK((*filter->output_function)(s, filter->data));
+		CK((*filter->output_function)(s, filter->data TSRMLS_CC));
 	} else {
 		if (filter->illegal_mode != MBFL_OUTPUTFILTER_ILLEGAL_MODE_NONE) {
-			CK(mbfl_filt_conv_illegal_output(c, filter));
+			CK(mbfl_filt_conv_illegal_output(c, filter TSRMLS_CC));
 		}
 	}
 	return c;
@@ -4153,7 +5078,7 @@ mbfl_filt_conv_wchar_cp1252(int c, mbfl_convert_filter *filter)
  * cp1252 => wchar
  */
 static int
-mbfl_filt_conv_cp1252_wchar(int c, mbfl_convert_filter *filter)
+mbfl_filt_conv_cp1252_wchar(int c, mbfl_convert_filter *filter TSRMLS_DC)
 {
 	int s;
 
@@ -4163,7 +5088,7 @@ mbfl_filt_conv_cp1252_wchar(int c, mbfl_convert_filter *filter)
 		s = c;
 	}
 
-	CK((*filter->output_function)(s, filter->data));
+	CK((*filter->output_function)(s, filter->data TSRMLS_CC));
 
 	return c;
 }
@@ -4172,13 +5097,13 @@ mbfl_filt_conv_cp1252_wchar(int c, mbfl_convert_filter *filter)
  * wchar => ISO-8859-1
  */
 static int
-mbfl_filt_conv_wchar_8859_1(int c, mbfl_convert_filter *filter)
+mbfl_filt_conv_wchar_8859_1(int c, mbfl_convert_filter *filter TSRMLS_DC)
 {
 	if (c >= 0 && c < 0x100) {
-		CK((*filter->output_function)(c, filter->data));
+		CK((*filter->output_function)(c, filter->data TSRMLS_CC));
 	} else {
 		if (filter->illegal_mode != MBFL_OUTPUTFILTER_ILLEGAL_MODE_NONE) {
-			CK(mbfl_filt_conv_illegal_output(c, filter));
+			CK(mbfl_filt_conv_illegal_output(c, filter TSRMLS_CC));
 		}
 	}
 
@@ -4189,7 +5114,7 @@ mbfl_filt_conv_wchar_8859_1(int c, mbfl_convert_filter *filter)
  * ISO-8859-2 => wchar
  */
 static int
-mbfl_filt_conv_8859_2_wchar(int c, mbfl_convert_filter *filter)
+mbfl_filt_conv_8859_2_wchar(int c, mbfl_convert_filter *filter TSRMLS_DC)
 {
 	int s;
 
@@ -4208,7 +5133,7 @@ mbfl_filt_conv_8859_2_wchar(int c, mbfl_convert_filter *filter)
 		s |= MBFL_WCSGROUP_THROUGH;
 	}
 
-	CK((*filter->output_function)(s, filter->data));
+	CK((*filter->output_function)(s, filter->data TSRMLS_CC));
 
 	return c;
 }
@@ -4217,7 +5142,7 @@ mbfl_filt_conv_8859_2_wchar(int c, mbfl_convert_filter *filter)
  * wchar => ISO-8859-2
  */
 static int
-mbfl_filt_conv_wchar_8859_2(int c, mbfl_convert_filter *filter)
+mbfl_filt_conv_wchar_8859_2(int c, mbfl_convert_filter *filter TSRMLS_DC)
 {
 	int s, n;
 
@@ -4239,10 +5164,10 @@ mbfl_filt_conv_wchar_8859_2(int c, mbfl_convert_filter *filter)
 	}
 
 	if (s >= 0) {
-		CK((*filter->output_function)(s, filter->data));
+		CK((*filter->output_function)(s, filter->data TSRMLS_CC));
 	} else {
 		if (filter->illegal_mode != MBFL_OUTPUTFILTER_ILLEGAL_MODE_NONE) {
-			CK(mbfl_filt_conv_illegal_output(c, filter));
+			CK(mbfl_filt_conv_illegal_output(c, filter TSRMLS_CC));
 		}
 	}
 
@@ -4253,7 +5178,7 @@ mbfl_filt_conv_wchar_8859_2(int c, mbfl_convert_filter *filter)
  * ISO-8859-3 => wchar
  */
 static int
-mbfl_filt_conv_8859_3_wchar(int c, mbfl_convert_filter *filter)
+mbfl_filt_conv_8859_3_wchar(int c, mbfl_convert_filter *filter TSRMLS_DC)
 {
 	int s;
 
@@ -4272,7 +5197,7 @@ mbfl_filt_conv_8859_3_wchar(int c, mbfl_convert_filter *filter)
 		s |= MBFL_WCSGROUP_THROUGH;
 	}
 
-	CK((*filter->output_function)(s, filter->data));
+	CK((*filter->output_function)(s, filter->data TSRMLS_CC));
 
 	return c;
 }
@@ -4281,7 +5206,7 @@ mbfl_filt_conv_8859_3_wchar(int c, mbfl_convert_filter *filter)
  * wchar => ISO-8859-3
  */
 static int
-mbfl_filt_conv_wchar_8859_3(int c, mbfl_convert_filter *filter)
+mbfl_filt_conv_wchar_8859_3(int c, mbfl_convert_filter *filter TSRMLS_DC)
 {
 	int s, n;
 
@@ -4303,10 +5228,10 @@ mbfl_filt_conv_wchar_8859_3(int c, mbfl_convert_filter *filter)
 	}
 
 	if (s >= 0) {
-		CK((*filter->output_function)(s, filter->data));
+		CK((*filter->output_function)(s, filter->data TSRMLS_CC));
 	} else {
 		if (filter->illegal_mode != MBFL_OUTPUTFILTER_ILLEGAL_MODE_NONE) {
-			CK(mbfl_filt_conv_illegal_output(c, filter));
+			CK(mbfl_filt_conv_illegal_output(c, filter TSRMLS_CC));
 		}
 	}
 
@@ -4317,7 +5242,7 @@ mbfl_filt_conv_wchar_8859_3(int c, mbfl_convert_filter *filter)
  * ISO-8859-4 => wchar
  */
 static int
-mbfl_filt_conv_8859_4_wchar(int c, mbfl_convert_filter *filter)
+mbfl_filt_conv_8859_4_wchar(int c, mbfl_convert_filter *filter TSRMLS_DC)
 {
 	int s;
 
@@ -4336,7 +5261,7 @@ mbfl_filt_conv_8859_4_wchar(int c, mbfl_convert_filter *filter)
 		s |= MBFL_WCSGROUP_THROUGH;
 	}
 
-	CK((*filter->output_function)(s, filter->data));
+	CK((*filter->output_function)(s, filter->data TSRMLS_CC));
 
 	return c;
 }
@@ -4345,7 +5270,7 @@ mbfl_filt_conv_8859_4_wchar(int c, mbfl_convert_filter *filter)
  * wchar => ISO-8859-4
  */
 static int
-mbfl_filt_conv_wchar_8859_4(int c, mbfl_convert_filter *filter)
+mbfl_filt_conv_wchar_8859_4(int c, mbfl_convert_filter *filter TSRMLS_DC)
 {
 	int s, n;
 
@@ -4367,10 +5292,10 @@ mbfl_filt_conv_wchar_8859_4(int c, mbfl_convert_filter *filter)
 	}
 
 	if (s >= 0) {
-		CK((*filter->output_function)(s, filter->data));
+		CK((*filter->output_function)(s, filter->data TSRMLS_CC));
 	} else {
 		if (filter->illegal_mode != MBFL_OUTPUTFILTER_ILLEGAL_MODE_NONE) {
-			CK(mbfl_filt_conv_illegal_output(c, filter));
+			CK(mbfl_filt_conv_illegal_output(c, filter TSRMLS_CC));
 		}
 	}
 
@@ -4381,7 +5306,7 @@ mbfl_filt_conv_wchar_8859_4(int c, mbfl_convert_filter *filter)
  * ISO-8859-5 => wchar
  */
 static int
-mbfl_filt_conv_8859_5_wchar(int c, mbfl_convert_filter *filter)
+mbfl_filt_conv_8859_5_wchar(int c, mbfl_convert_filter *filter TSRMLS_DC)
 {
 	int s;
 
@@ -4400,7 +5325,7 @@ mbfl_filt_conv_8859_5_wchar(int c, mbfl_convert_filter *filter)
 		s |= MBFL_WCSGROUP_THROUGH;
 	}
 
-	CK((*filter->output_function)(s, filter->data));
+	CK((*filter->output_function)(s, filter->data TSRMLS_CC));
 
 	return c;
 }
@@ -4409,7 +5334,7 @@ mbfl_filt_conv_8859_5_wchar(int c, mbfl_convert_filter *filter)
  * wchar => ISO-8859-5
  */
 static int
-mbfl_filt_conv_wchar_8859_5(int c, mbfl_convert_filter *filter)
+mbfl_filt_conv_wchar_8859_5(int c, mbfl_convert_filter *filter TSRMLS_DC)
 {
 	int s, n;
 
@@ -4431,10 +5356,10 @@ mbfl_filt_conv_wchar_8859_5(int c, mbfl_convert_filter *filter)
 	}
 
 	if (s >= 0) {
-		CK((*filter->output_function)(s, filter->data));
+		CK((*filter->output_function)(s, filter->data TSRMLS_CC));
 	} else {
 		if (filter->illegal_mode != MBFL_OUTPUTFILTER_ILLEGAL_MODE_NONE) {
-			CK(mbfl_filt_conv_illegal_output(c, filter));
+			CK(mbfl_filt_conv_illegal_output(c, filter TSRMLS_CC));
 		}
 	}
 
@@ -4445,7 +5370,7 @@ mbfl_filt_conv_wchar_8859_5(int c, mbfl_convert_filter *filter)
  * ISO-8859-6 => wchar
  */
 static int
-mbfl_filt_conv_8859_6_wchar(int c, mbfl_convert_filter *filter)
+mbfl_filt_conv_8859_6_wchar(int c, mbfl_convert_filter *filter TSRMLS_DC)
 {
 	int s;
 
@@ -4464,7 +5389,7 @@ mbfl_filt_conv_8859_6_wchar(int c, mbfl_convert_filter *filter)
 		s |= MBFL_WCSGROUP_THROUGH;
 	}
 
-	CK((*filter->output_function)(s, filter->data));
+	CK((*filter->output_function)(s, filter->data TSRMLS_CC));
 
 	return c;
 }
@@ -4473,7 +5398,7 @@ mbfl_filt_conv_8859_6_wchar(int c, mbfl_convert_filter *filter)
  * wchar => ISO-8859-6
  */
 static int
-mbfl_filt_conv_wchar_8859_6(int c, mbfl_convert_filter *filter)
+mbfl_filt_conv_wchar_8859_6(int c, mbfl_convert_filter *filter TSRMLS_DC)
 {
 	int s, n;
 
@@ -4495,10 +5420,10 @@ mbfl_filt_conv_wchar_8859_6(int c, mbfl_convert_filter *filter)
 	}
 
 	if (s >= 0) {
-		CK((*filter->output_function)(s, filter->data));
+		CK((*filter->output_function)(s, filter->data TSRMLS_CC));
 	} else {
 		if (filter->illegal_mode != MBFL_OUTPUTFILTER_ILLEGAL_MODE_NONE) {
-			CK(mbfl_filt_conv_illegal_output(c, filter));
+			CK(mbfl_filt_conv_illegal_output(c, filter TSRMLS_CC));
 		}
 	}
 
@@ -4509,7 +5434,7 @@ mbfl_filt_conv_wchar_8859_6(int c, mbfl_convert_filter *filter)
  * ISO-8859-7 => wchar
  */
 static int
-mbfl_filt_conv_8859_7_wchar(int c, mbfl_convert_filter *filter)
+mbfl_filt_conv_8859_7_wchar(int c, mbfl_convert_filter *filter TSRMLS_DC)
 {
 	int s;
 
@@ -4528,7 +5453,7 @@ mbfl_filt_conv_8859_7_wchar(int c, mbfl_convert_filter *filter)
 		s |= MBFL_WCSGROUP_THROUGH;
 	}
 
-	CK((*filter->output_function)(s, filter->data));
+	CK((*filter->output_function)(s, filter->data TSRMLS_CC));
 
 	return c;
 }
@@ -4537,7 +5462,7 @@ mbfl_filt_conv_8859_7_wchar(int c, mbfl_convert_filter *filter)
  * wchar => ISO-8859-7
  */
 static int
-mbfl_filt_conv_wchar_8859_7(int c, mbfl_convert_filter *filter)
+mbfl_filt_conv_wchar_8859_7(int c, mbfl_convert_filter *filter TSRMLS_DC)
 {
 	int s, n;
 
@@ -4559,10 +5484,10 @@ mbfl_filt_conv_wchar_8859_7(int c, mbfl_convert_filter *filter)
 	}
 
 	if (s >= 0) {
-		CK((*filter->output_function)(s, filter->data));
+		CK((*filter->output_function)(s, filter->data TSRMLS_CC));
 	} else {
 		if (filter->illegal_mode != MBFL_OUTPUTFILTER_ILLEGAL_MODE_NONE) {
-			CK(mbfl_filt_conv_illegal_output(c, filter));
+			CK(mbfl_filt_conv_illegal_output(c, filter TSRMLS_CC));
 		}
 	}
 
@@ -4573,7 +5498,7 @@ mbfl_filt_conv_wchar_8859_7(int c, mbfl_convert_filter *filter)
  * ISO-8859-8 => wchar
  */
 static int
-mbfl_filt_conv_8859_8_wchar(int c, mbfl_convert_filter *filter)
+mbfl_filt_conv_8859_8_wchar(int c, mbfl_convert_filter *filter TSRMLS_DC)
 {
 	int s;
 
@@ -4592,7 +5517,7 @@ mbfl_filt_conv_8859_8_wchar(int c, mbfl_convert_filter *filter)
 		s |= MBFL_WCSGROUP_THROUGH;
 	}
 
-	CK((*filter->output_function)(s, filter->data));
+	CK((*filter->output_function)(s, filter->data TSRMLS_CC));
 
 	return c;
 }
@@ -4601,7 +5526,7 @@ mbfl_filt_conv_8859_8_wchar(int c, mbfl_convert_filter *filter)
  * wchar => ISO-8859-8
  */
 static int
-mbfl_filt_conv_wchar_8859_8(int c, mbfl_convert_filter *filter)
+mbfl_filt_conv_wchar_8859_8(int c, mbfl_convert_filter *filter TSRMLS_DC)
 {
 	int s, n;
 
@@ -4623,10 +5548,10 @@ mbfl_filt_conv_wchar_8859_8(int c, mbfl_convert_filter *filter)
 	}
 
 	if (s >= 0) {
-		CK((*filter->output_function)(s, filter->data));
+		CK((*filter->output_function)(s, filter->data TSRMLS_CC));
 	} else {
 		if (filter->illegal_mode != MBFL_OUTPUTFILTER_ILLEGAL_MODE_NONE) {
-			CK(mbfl_filt_conv_illegal_output(c, filter));
+			CK(mbfl_filt_conv_illegal_output(c, filter TSRMLS_CC));
 		}
 	}
 
@@ -4637,7 +5562,7 @@ mbfl_filt_conv_wchar_8859_8(int c, mbfl_convert_filter *filter)
  * ISO-8859-9 => wchar
  */
 static int
-mbfl_filt_conv_8859_9_wchar(int c, mbfl_convert_filter *filter)
+mbfl_filt_conv_8859_9_wchar(int c, mbfl_convert_filter *filter TSRMLS_DC)
 {
 	int s;
 
@@ -4656,7 +5581,7 @@ mbfl_filt_conv_8859_9_wchar(int c, mbfl_convert_filter *filter)
 		s |= MBFL_WCSGROUP_THROUGH;
 	}
 
-	CK((*filter->output_function)(s, filter->data));
+	CK((*filter->output_function)(s, filter->data TSRMLS_CC));
 
 	return c;
 }
@@ -4665,7 +5590,7 @@ mbfl_filt_conv_8859_9_wchar(int c, mbfl_convert_filter *filter)
  * wchar => ISO-8859-9
  */
 static int
-mbfl_filt_conv_wchar_8859_9(int c, mbfl_convert_filter *filter)
+mbfl_filt_conv_wchar_8859_9(int c, mbfl_convert_filter *filter TSRMLS_DC)
 {
 	int s, n;
 
@@ -4687,10 +5612,10 @@ mbfl_filt_conv_wchar_8859_9(int c, mbfl_convert_filter *filter)
 	}
 
 	if (s >= 0) {
-		CK((*filter->output_function)(s, filter->data));
+		CK((*filter->output_function)(s, filter->data TSRMLS_CC));
 	} else {
 		if (filter->illegal_mode != MBFL_OUTPUTFILTER_ILLEGAL_MODE_NONE) {
-			CK(mbfl_filt_conv_illegal_output(c, filter));
+			CK(mbfl_filt_conv_illegal_output(c, filter TSRMLS_CC));
 		}
 	}
 
@@ -4701,7 +5626,7 @@ mbfl_filt_conv_wchar_8859_9(int c, mbfl_convert_filter *filter)
  * ISO-8859-10 => wchar
  */
 static int
-mbfl_filt_conv_8859_10_wchar(int c, mbfl_convert_filter *filter)
+mbfl_filt_conv_8859_10_wchar(int c, mbfl_convert_filter *filter TSRMLS_DC)
 {
 	int s;
 
@@ -4720,7 +5645,7 @@ mbfl_filt_conv_8859_10_wchar(int c, mbfl_convert_filter *filter)
 		s |= MBFL_WCSGROUP_THROUGH;
 	}
 
-	CK((*filter->output_function)(s, filter->data));
+	CK((*filter->output_function)(s, filter->data TSRMLS_CC));
 
 	return c;
 }
@@ -4729,7 +5654,7 @@ mbfl_filt_conv_8859_10_wchar(int c, mbfl_convert_filter *filter)
  * wchar => ISO-8859-10
  */
 static int
-mbfl_filt_conv_wchar_8859_10(int c, mbfl_convert_filter *filter)
+mbfl_filt_conv_wchar_8859_10(int c, mbfl_convert_filter *filter TSRMLS_DC)
 {
 	int s, n;
 
@@ -4751,10 +5676,10 @@ mbfl_filt_conv_wchar_8859_10(int c, mbfl_convert_filter *filter)
 	}
 
 	if (s >= 0) {
-		CK((*filter->output_function)(s, filter->data));
+		CK((*filter->output_function)(s, filter->data TSRMLS_CC));
 	} else {
 		if (filter->illegal_mode != MBFL_OUTPUTFILTER_ILLEGAL_MODE_NONE) {
-			CK(mbfl_filt_conv_illegal_output(c, filter));
+			CK(mbfl_filt_conv_illegal_output(c, filter TSRMLS_CC));
 		}
 	}
 
@@ -4765,7 +5690,7 @@ mbfl_filt_conv_wchar_8859_10(int c, mbfl_convert_filter *filter)
  * ISO-8859-13 => wchar
  */
 static int
-mbfl_filt_conv_8859_13_wchar(int c, mbfl_convert_filter *filter)
+mbfl_filt_conv_8859_13_wchar(int c, mbfl_convert_filter *filter TSRMLS_DC)
 {
 	int s;
 
@@ -4784,7 +5709,7 @@ mbfl_filt_conv_8859_13_wchar(int c, mbfl_convert_filter *filter)
 		s |= MBFL_WCSGROUP_THROUGH;
 	}
 
-	CK((*filter->output_function)(s, filter->data));
+	CK((*filter->output_function)(s, filter->data TSRMLS_CC));
 
 	return c;
 }
@@ -4793,7 +5718,7 @@ mbfl_filt_conv_8859_13_wchar(int c, mbfl_convert_filter *filter)
  * wchar => ISO-8859-13
  */
 static int
-mbfl_filt_conv_wchar_8859_13(int c, mbfl_convert_filter *filter)
+mbfl_filt_conv_wchar_8859_13(int c, mbfl_convert_filter *filter TSRMLS_DC)
 {
 	int s, n;
 
@@ -4815,10 +5740,10 @@ mbfl_filt_conv_wchar_8859_13(int c, mbfl_convert_filter *filter)
 	}
 
 	if (s >= 0) {
-		CK((*filter->output_function)(s, filter->data));
+		CK((*filter->output_function)(s, filter->data TSRMLS_CC));
 	} else {
 		if (filter->illegal_mode != MBFL_OUTPUTFILTER_ILLEGAL_MODE_NONE) {
-			CK(mbfl_filt_conv_illegal_output(c, filter));
+			CK(mbfl_filt_conv_illegal_output(c, filter TSRMLS_CC));
 		}
 	}
 
@@ -4829,7 +5754,7 @@ mbfl_filt_conv_wchar_8859_13(int c, mbfl_convert_filter *filter)
  * ISO-8859-14 => wchar
  */
 static int
-mbfl_filt_conv_8859_14_wchar(int c, mbfl_convert_filter *filter)
+mbfl_filt_conv_8859_14_wchar(int c, mbfl_convert_filter *filter TSRMLS_DC)
 {
 	int s;
 
@@ -4848,7 +5773,7 @@ mbfl_filt_conv_8859_14_wchar(int c, mbfl_convert_filter *filter)
 		s |= MBFL_WCSGROUP_THROUGH;
 	}
 
-	CK((*filter->output_function)(s, filter->data));
+	CK((*filter->output_function)(s, filter->data TSRMLS_CC));
 
 	return c;
 }
@@ -4857,7 +5782,7 @@ mbfl_filt_conv_8859_14_wchar(int c, mbfl_convert_filter *filter)
  * wchar => ISO-8859-14
  */
 static int
-mbfl_filt_conv_wchar_8859_14(int c, mbfl_convert_filter *filter)
+mbfl_filt_conv_wchar_8859_14(int c, mbfl_convert_filter *filter TSRMLS_DC)
 {
 	int s, n;
 
@@ -4879,10 +5804,10 @@ mbfl_filt_conv_wchar_8859_14(int c, mbfl_convert_filter *filter)
 	}
 
 	if (s >= 0) {
-		CK((*filter->output_function)(s, filter->data));
+		CK((*filter->output_function)(s, filter->data TSRMLS_CC));
 	} else {
 		if (filter->illegal_mode != MBFL_OUTPUTFILTER_ILLEGAL_MODE_NONE) {
-			CK(mbfl_filt_conv_illegal_output(c, filter));
+			CK(mbfl_filt_conv_illegal_output(c, filter TSRMLS_CC));
 		}
 	}
 
@@ -4893,7 +5818,7 @@ mbfl_filt_conv_wchar_8859_14(int c, mbfl_convert_filter *filter)
  * ISO-8859-15 => wchar
  */
 static int
-mbfl_filt_conv_8859_15_wchar(int c, mbfl_convert_filter *filter)
+mbfl_filt_conv_8859_15_wchar(int c, mbfl_convert_filter *filter TSRMLS_DC)
 {
 	int s;
 
@@ -4912,7 +5837,7 @@ mbfl_filt_conv_8859_15_wchar(int c, mbfl_convert_filter *filter)
 		s |= MBFL_WCSGROUP_THROUGH;
 	}
 
-	CK((*filter->output_function)(s, filter->data));
+	CK((*filter->output_function)(s, filter->data TSRMLS_CC));
 
 	return c;
 }
@@ -4921,7 +5846,7 @@ mbfl_filt_conv_8859_15_wchar(int c, mbfl_convert_filter *filter)
  * wchar => ISO-8859-15
  */
 static int
-mbfl_filt_conv_wchar_8859_15(int c, mbfl_convert_filter *filter)
+mbfl_filt_conv_wchar_8859_15(int c, mbfl_convert_filter *filter TSRMLS_DC)
 {
 	int s, n;
 
@@ -4943,10 +5868,10 @@ mbfl_filt_conv_wchar_8859_15(int c, mbfl_convert_filter *filter)
 	}
 
 	if (s >= 0) {
-		CK((*filter->output_function)(s, filter->data));
+		CK((*filter->output_function)(s, filter->data TSRMLS_CC));
 	} else {
 		if (filter->illegal_mode != MBFL_OUTPUTFILTER_ILLEGAL_MODE_NONE) {
-			CK(mbfl_filt_conv_illegal_output(c, filter));
+			CK(mbfl_filt_conv_illegal_output(c, filter TSRMLS_CC));
 		}
 	}
 
@@ -4962,20 +5887,20 @@ mbfl_filt_conv_wchar_8859_15(int c, mbfl_convert_filter *filter)
  */
 
 static void
-mbfl_filt_ident_common_ctor(mbfl_identify_filter *filter)
+mbfl_filt_ident_common_ctor(mbfl_identify_filter *filter TSRMLS_DC)
 {
 	filter->status = 0;
 	filter->flag = 0;
 }
 
 static void
-mbfl_filt_ident_common_dtor(mbfl_identify_filter *filter)
+mbfl_filt_ident_common_dtor(mbfl_identify_filter *filter TSRMLS_DC)
 {
 	filter->status = 0;
 }
 
 static int
-mbfl_filt_ident_ascii(int c, mbfl_identify_filter *filter)
+mbfl_filt_ident_ascii(int c, mbfl_identify_filter *filter TSRMLS_DC)
 {
 	if (c >= 0x20 && c < 0x80) {
 		;
@@ -4989,7 +5914,7 @@ mbfl_filt_ident_ascii(int c, mbfl_identify_filter *filter)
 }
 
 static int
-mbfl_filt_ident_utf8(int c, mbfl_identify_filter *filter)
+mbfl_filt_ident_utf8(int c, mbfl_identify_filter *filter TSRMLS_DC)
 {
 	if (c < 0x80) {
 		if (c < 0) { 
@@ -5048,7 +5973,7 @@ mbfl_filt_ident_utf8(int c, mbfl_identify_filter *filter)
 }
 
 static int
-mbfl_filt_ident_utf7(int c, mbfl_identify_filter *filter)
+mbfl_filt_ident_utf7(int c, mbfl_identify_filter *filter TSRMLS_DC)
 {
 	int n;
 
@@ -5097,8 +6022,9 @@ mbfl_filt_ident_utf7(int c, mbfl_identify_filter *filter)
 	return c;
 }
 
+#if defined(HAVE_MBSTR_JA)
 static int
-mbfl_filt_ident_eucjp(int c, mbfl_identify_filter *filter)
+mbfl_filt_ident_eucjp(int c, mbfl_identify_filter *filter TSRMLS_DC)
 {
 	switch (filter->status) {
 	case  0:	/* latin */
@@ -5151,7 +6077,7 @@ mbfl_filt_ident_eucjp(int c, mbfl_identify_filter *filter)
 }
 
 static int
-mbfl_filt_ident_sjis(int c, mbfl_identify_filter *filter)
+mbfl_filt_ident_sjis(int c, mbfl_identify_filter *filter TSRMLS_DC)
 {
 	if (filter->status) {		/* kanji second char */
 		if (c < 0x40 || c > 0xfc || c == 0x7f) {	/* bad */
@@ -5172,7 +6098,7 @@ mbfl_filt_ident_sjis(int c, mbfl_identify_filter *filter)
 }
 
 static int
-mbfl_filt_ident_sjiswin(int c, mbfl_identify_filter *filter)
+mbfl_filt_ident_sjiswin(int c, mbfl_identify_filter *filter TSRMLS_DC)
 {
 	if (filter->status) {		/* kanji second char */
 		if (c < 0x40 || c > 0xfc || c == 0x7f) {	/* bad */
@@ -5193,7 +6119,7 @@ mbfl_filt_ident_sjiswin(int c, mbfl_identify_filter *filter)
 }
 
 static int
-mbfl_filt_ident_jis(int c, mbfl_identify_filter *filter)
+mbfl_filt_ident_jis(int c, mbfl_identify_filter *filter TSRMLS_DC)
 {
 retry:
 	switch (filter->status & 0xf) {
@@ -5290,6 +6216,325 @@ retry:
 
 	return c;
 }
+#endif /* HAVE_MBSTR_JA */
+
+#if defined(HAVE_MBSTR_CN)
+static int
+mbfl_filt_ident_euccn(int c, mbfl_identify_filter *filter TSRMLS_DC)
+{
+	switch (filter->status) {
+	case  0:	/* latin */
+		if (c >= 0 && c < 0x80) {	/* ok */
+			;
+		} else if (c > 0xa0 && c < 0xff) {	/* DBCS lead byte */
+			filter->status = 1;
+		} else {							/* bad */
+			filter->flag = 1;
+		}
+		break;
+
+	case  1:	/* got lead byte */
+		if (c < 0xa1 || c > 0xfe) {		/* bad */
+			filter->flag = 1;
+		}
+		filter->status = 0;
+		break;
+
+	default:
+		filter->status = 0;
+		break;
+	}
+
+	return c;
+}
+
+static int
+mbfl_filt_ident_cp936(int c, mbfl_identify_filter *filter TSRMLS_DC)
+{
+	if (filter->status) {		/* kanji second char */
+		if (c < 0x40 || c > 0xfe || c == 0x7f) {	/* bad */
+		    filter->flag = 1;
+		}
+		filter->status = 0;
+	} else if (c >= 0 && c < 0x80) {	/* latin  ok */
+		;
+	} else if (c > 0x80 && c < 0xff) {	/* DBCS lead byte */
+		filter->status = 1;
+	} else {							/* bad */
+		filter->flag = 1;
+	}
+
+	return c;
+}
+
+static int
+mbfl_filt_ident_hz(int c, mbfl_identify_filter *filter TSRMLS_DC)
+{
+	switch (filter->status & 0xf) {
+/*	case 0x00:	 ASCII */
+/*	case 0x10:	 GB2312 */
+	case 0:
+		if (c == 0x7e) {
+			filter->status += 2;
+		} else if (filter->status == 0x10 && c > 0x20 && c < 0x7f) {		/* DBCS first char */
+			filter->status += 1;
+		} else if (c >= 0 && c < 0x80) {		/* latin, CTLs */
+			;
+		} else {
+			filter->flag = 1;	/* bad */
+		}
+		break;
+
+/*	case 0x11:	 GB2312 second char */
+	case 1:
+		filter->status &= ~0xf;
+		if (c < 0x21 || c > 0x7e) {		/* bad */
+			filter->flag = 1;
+		}
+		break;
+
+	case 2:
+		if (c == 0x7d) {		/* '}' */
+			filter->status = 0;
+		} else if (c == 0x7b) {		/* '{' */
+			filter->status = 0x10;
+		} else if (c == 0x7e) {		/* '~' */
+			filter->status = 0;
+		} else {
+			filter->flag = 1;	/* bad */
+			filter->status &= ~0xf;
+		}
+		break;
+
+	default:
+		filter->status = 0;
+		break;
+	}
+
+	return c;
+}
+
+#endif /* HAVE_MBSTR_CN */
+
+#if defined(HAVE_MBSTR_TW)
+static int
+mbfl_filt_ident_euctw(int c, mbfl_identify_filter *filter TSRMLS_DC)
+{
+	switch (filter->status) {
+	case  0:	/* latin */
+		if (c >= 0 && c < 0x80) {	/* ok */
+			;
+		} else if (c > 0xa0 && c < 0xff) {	/* DBCS lead byte */
+			filter->status = 1;
+		} else if (c == 0x8e) {	/* DBCS lead byte */
+			filter->status = 2;
+		} else {							/* bad */
+			filter->flag = 1;
+		}
+		break;
+
+	case  1:	/* got lead byte */
+		if (c < 0xa1 || c > 0xfe) {		/* bad */
+			filter->flag = 1;
+		}
+		filter->status = 0;
+		break;
+
+	case  2:	/* got lead byte */
+		if (c >= 0xa1 && c < 0xaf) {	/* ok */
+			filter->status = 3;
+		} else {
+			filter->flag = 1; /* bad */
+		}
+		break;
+
+	case  3:	/* got lead byte */
+		if (c < 0xa1 || c > 0xfe) {		/* bad */
+			filter->flag = 1;
+		}
+		filter->status = 4;
+		break;
+
+	case  4:	/* got lead byte */
+		if (c < 0xa1 || c > 0xfe) {		/* bad */
+			filter->flag = 1;
+		}
+		filter->status = 0;
+		break;
+
+	default:
+		filter->status = 0;
+		break;
+	}
+
+	return c;
+}
+
+static int
+mbfl_filt_ident_big5(int c, mbfl_identify_filter *filter TSRMLS_DC)
+{
+	if (filter->status) {		/* kanji second char */
+		if (c < 0x40 || (c > 0x7e && c < 0xa1) ||c > 0xfe) {	/* bad */
+		    filter->flag = 1;
+		}
+		filter->status = 0;
+	} else if (c >= 0 && c < 0x80) {	/* latin  ok */
+		;
+	} else if (c > 0xa0 && c < 0xff) {	/* DBCS lead byte */
+		filter->status = 1;
+	} else {							/* bad */
+		filter->flag = 1;
+	}
+
+	return c;
+}
+
+#endif /* HAVE_MBSTR_TW */
+
+#if defined(HAVE_MBSTR_KR)
+static int
+mbfl_filt_ident_euckr(int c, mbfl_identify_filter *filter TSRMLS_DC)
+{
+	switch (filter->status) {
+	case  0:	/* latin */
+		if (c >= 0 && c < 0x80) {	/* ok */
+			;
+		} else if (c > 0xa0 && c < 0xff) {	/* DBCS lead byte */
+			filter->status = 1;
+		} else {							/* bad */
+			filter->flag = 1;
+		}
+		break;
+
+	case  1:	/* got lead byte */
+		if (c < 0xa1 || c > 0xfe) {		/* bad */
+			filter->flag = 1;
+		}
+		filter->status = 0;
+		break;
+
+	default:
+		filter->status = 0;
+		break;
+	}
+
+	return c;
+}
+
+static int
+mbfl_filt_ident_uhc(int c, mbfl_identify_filter *filter TSRMLS_DC)
+{
+	switch (filter->status) {
+	case 0: /* latin */
+		if (c >= 0 && c < 0x80) { /* ok */
+			;
+		} else if (c >= 0x81 && c <= 0xa0) {	/* dbcs first char */
+		    filter->status= 1;
+		} else if (c >= 0xa1 && c <= 0xc6) {	/* dbcs first char */
+		    filter->status= 2;
+		} else if (c >= 0xc7 && c <= 0xfe) {	/* dbcs first char */
+		    filter->status= 3;
+		} else { /* bad */
+			filter->flag = 1;
+		}		
+
+	case 1:
+	case 2:
+		if (c < 0x41 || (c > 0x5a && c < 0x61)
+			|| (c > 0x7a && c < 0x81) || c > 0xfe) {	/* bad */
+		    filter->flag = 1;
+		}
+		filter->status = 0;
+		break;
+
+	case 3:
+		if (c < 0xa1 || c > 0xfe) {	/* bad */
+		    filter->flag = 1;
+		}
+		filter->status = 0;
+		break;
+
+	default:
+		filter->status = 0;
+		break;
+	}
+
+	return c;
+}
+
+static int
+mbfl_filt_ident_2022kr(int c, mbfl_identify_filter *filter TSRMLS_DC)
+{
+retry:
+	switch (filter->status & 0xf) {
+/*	case 0x00:	 ASCII */
+/*	case 0x10:	 KSC5601 mode */
+/*	case 0x20:	 KSC5601 DBCS */
+/*	case 0x40:	 KSC5601 SBCS */
+	case 0:
+		if (!(filter->status & 0x10)) {
+			if (c == 0x1b)
+				filter->status += 2;
+		} else if (filter->status == 0x20 && c > 0x20 && c < 0x7f) {		/* kanji first char */
+			filter->status += 1;
+		} else if (c >= 0 && c < 0x80) {		/* latin, CTLs */
+			;
+		} else {
+			filter->flag = 1;	/* bad */
+		}
+		break;
+
+/*	case 0x21:	 KSC5601 second char */
+	case 1:
+		filter->status &= ~0xf;
+		if (c < 0x21 || c > 0x7e) {		/* bad */
+			filter->flag = 1;
+		}
+		break;
+
+	/* ESC */
+	case 2:
+		if (c == 0x24) {		/* '$' */
+			filter->status++;
+		} else {
+			filter->flag = 1;	/* bad */
+			filter->status &= ~0xf;
+			goto retry;
+		}
+		break;
+
+	/* ESC $ */
+	case 3:
+		if (c == 0x29) {		/* ')' */
+			filter->status++;
+		} else {
+			filter->flag = 1;	/* bad */
+			filter->status &= ~0xf;
+			goto retry;
+		}
+		break;
+
+	/* ESC $) */
+	case 5:
+		if (c == 0x43) {		/* 'C' */
+			filter->status = 0x10;
+		} else {
+			filter->flag = 1;	/* bad */
+			filter->status &= ~0xf;
+			goto retry;
+		}
+		break;
+
+	default:
+		filter->status = 0;
+		break;
+	}
+
+	return c;
+}
+
+#endif /* HAVE_MBSTR_KR */
+
 
 /* We only distinguish the MS extensions to ISO-8859-1.
  * Actually, this is pretty much a NO-OP, since the identification
@@ -5298,7 +6543,7 @@ retry:
  * The problem here is that cp1252 looks like SJIS for certain chars.
  * */
 static int
-mbfl_filt_ident_cp1252(int c, mbfl_identify_filter *filter)
+mbfl_filt_ident_cp1252(int c, mbfl_identify_filter *filter TSRMLS_DC)
 {
 	if (c >= 0x80 && c < 0xa0)
 		filter->flag = 0;
@@ -5307,8 +6552,41 @@ mbfl_filt_ident_cp1252(int c, mbfl_identify_filter *filter)
 	return c;	
 }
 
+#if defined(HAVE_MBSTR_RU)
+/* all of this is so ugly now! */
 static int
-mbfl_filt_ident_2022jp(int c, mbfl_identify_filter *filter)
+mbfl_filt_ident_cp1251(int c, mbfl_identify_filter *filter TSRMLS_DC)
+{
+	if (c >= 0x80 && c < 0xff)
+		filter->flag = 0;
+	else
+		filter->flag = 1; /* not it */
+	return c;	
+}
+
+static int
+mbfl_filt_ident_cp866(int c, mbfl_identify_filter *filter TSRMLS_DC)
+{
+	if (c >= 0x80 && c < 0xff)
+		filter->flag = 0;
+	else
+		filter->flag = 1; /* not it */
+	return c;	
+}
+
+static int
+mbfl_filt_ident_koi8r(int c, mbfl_identify_filter *filter TSRMLS_DC)
+{
+	if (c >= 0x80 && c < 0xff)
+		filter->flag = 0;
+	else
+		filter->flag = 1; /* not it */
+	return c;	
+}
+#endif /* HAVE_MBSTR_RU */
+
+static int
+mbfl_filt_ident_2022jp(int c, mbfl_identify_filter *filter TSRMLS_DC)
 {
 retry:
 	switch (filter->status & 0xf) {
@@ -5385,21 +6663,21 @@ retry:
 }
 
 static void
-mbfl_filt_ident_false_ctor(mbfl_identify_filter *filter)
+mbfl_filt_ident_false_ctor(mbfl_identify_filter *filter TSRMLS_DC)
 {
 	filter->status = 0;
 	filter->flag = 1;
 }
 
 static int
-mbfl_filt_ident_false(int c, mbfl_identify_filter *filter)
+mbfl_filt_ident_false(int c, mbfl_identify_filter *filter TSRMLS_DC)
 {
 	filter->flag = 1;	/* bad */
 	return c;
 }
 
 static int
-mbfl_filt_ident_true(int c, mbfl_identify_filter *filter)
+mbfl_filt_ident_true(int c, mbfl_identify_filter *filter TSRMLS_DC)
 {
 	return c;
 }
@@ -5412,7 +6690,7 @@ mbfl_filt_ident_true(int c, mbfl_identify_filter *filter)
 
 /* setup filter function table */
 static void
-mbfl_convert_filter_set_vtbl(mbfl_convert_filter *filter, struct mbfl_convert_vtbl *vtbl)
+mbfl_convert_filter_set_vtbl(mbfl_convert_filter *filter, const struct mbfl_convert_vtbl *vtbl)
 {
 	if (filter && vtbl) {
 		filter->filter_ctor = vtbl->filter_ctor;
@@ -5423,10 +6701,10 @@ mbfl_convert_filter_set_vtbl(mbfl_convert_filter *filter, struct mbfl_convert_vt
 }
 
 
-static struct mbfl_convert_vtbl *
+static const struct mbfl_convert_vtbl *
 mbfl_convert_filter_get_vtbl(enum mbfl_no_encoding from, enum mbfl_no_encoding to)
 {
-	struct mbfl_convert_vtbl *vtbl;
+	const struct mbfl_convert_vtbl *vtbl;
 	int i;
 
 	if (to == mbfl_no_encoding_base64 ||
@@ -5453,7 +6731,7 @@ mbfl_convert_filter_get_vtbl(enum mbfl_no_encoding from, enum mbfl_no_encoding t
 static void
 mbfl_convert_filter_select_vtbl(mbfl_convert_filter *filter)
 {
-	struct mbfl_convert_vtbl *vtbl;
+	const struct mbfl_convert_vtbl *vtbl;
 
 	vtbl = mbfl_convert_filter_get_vtbl(filter->from->no_encoding, filter->to->no_encoding);
 	if (vtbl == NULL) {
@@ -5465,16 +6743,16 @@ mbfl_convert_filter_select_vtbl(mbfl_convert_filter *filter)
 
 /* filter pipe */
 static int
-mbfl_filter_output_pipe(int c, void* data)
+mbfl_filter_output_pipe(int c, void* data TSRMLS_DC)
 {
 	mbfl_convert_filter *filter = (mbfl_convert_filter*)data;
-	return (*filter->filter_function)(c, filter);
+	return (*filter->filter_function)(c, filter TSRMLS_CC);
 }
 
 
 /* null output */
 static int
-mbfl_filter_output_null(int c, void* data)
+mbfl_filter_output_null(int c, void* data TSRMLS_DC)
 {
 	return c;
 }
@@ -5484,9 +6762,9 @@ mbfl_convert_filter *
 mbfl_convert_filter_new(
     enum mbfl_no_encoding from,
     enum mbfl_no_encoding to,
-    int (*output_function)(int, void*),
-    int (*flush_function)(void*),
-    void* data)
+    int (*output_function)(int, void*  TSRMLS_DC),
+    int (*flush_function)(void* TSRMLS_DC),
+    void* data TSRMLS_DC)
 {
 	mbfl_convert_filter * filter;
 
@@ -5520,41 +6798,41 @@ mbfl_convert_filter_new(
 	mbfl_convert_filter_select_vtbl(filter);
 
 	/* constructor */
-	(*filter->filter_ctor)(filter);
+	(*filter->filter_ctor)(filter TSRMLS_CC);
 
 	return filter;
 }
 
 void
-mbfl_convert_filter_delete(mbfl_convert_filter *filter)
+mbfl_convert_filter_delete(mbfl_convert_filter *filter TSRMLS_DC)
 {
 	if (filter) {
-		(*filter->filter_dtor)(filter);
+		(*filter->filter_dtor)(filter TSRMLS_CC);
 		mbfl_free((void*)filter);
 	}
 }
 
 int
-mbfl_convert_filter_feed(int c, mbfl_convert_filter *filter)
+mbfl_convert_filter_feed(int c, mbfl_convert_filter *filter TSRMLS_DC)
 {
-	return (*filter->filter_function)(c, filter);
+	return (*filter->filter_function)(c, filter TSRMLS_CC);
 }
 
 int
-mbfl_convert_filter_flush(mbfl_convert_filter *filter)
+mbfl_convert_filter_flush(mbfl_convert_filter *filter TSRMLS_DC)
 {
-	(*filter->filter_flush)(filter);
-	return (filter->flush_function ? (*filter->flush_function)(filter->data) : 0);
+	(*filter->filter_flush)(filter TSRMLS_CC);
+	return (filter->flush_function ? (*filter->flush_function)(filter->data TSRMLS_CC) : 0);
 }
 
 void
 mbfl_convert_filter_reset(
     mbfl_convert_filter *filter,
     enum mbfl_no_encoding from,
-    enum mbfl_no_encoding to)
+    enum mbfl_no_encoding to TSRMLS_DC)
 {
 	/* destruct old filter */
-	(*filter->filter_dtor)(filter);
+	(*filter->filter_dtor)(filter TSRMLS_CC);
 
 	/* resset filter member */
 	filter->from = mbfl_no2encoding(from);
@@ -5564,13 +6842,13 @@ mbfl_convert_filter_reset(
 	mbfl_convert_filter_select_vtbl(filter);
 
 	/* construct new filter */
-	(*filter->filter_ctor)(filter);
+	(*filter->filter_ctor)(filter TSRMLS_CC);
 }
 
 void
 mbfl_convert_filter_copy(
     mbfl_convert_filter *src,
-    mbfl_convert_filter *dist)
+    mbfl_convert_filter *dist TSRMLS_DC)
 {
 	dist->filter_ctor = src->filter_ctor;
 	dist->filter_dtor = src->filter_dtor;
@@ -5588,7 +6866,8 @@ mbfl_convert_filter_copy(
 }
 
 static int
-mbfl_convert_filter_devcat(mbfl_convert_filter *filter, mbfl_memory_device *src)
+mbfl_convert_filter_devcat(mbfl_convert_filter *filter, mbfl_memory_device *src 
+			   TSRMLS_DC)
 {
 	int n;
 	unsigned char *p;
@@ -5596,7 +6875,7 @@ mbfl_convert_filter_devcat(mbfl_convert_filter *filter, mbfl_memory_device *src)
 	p = src->buffer;
 	n = src->pos;
 	while (n > 0) {
-		if ((*filter->filter_function)(*p++, filter) < 0) {
+		if ((*filter->filter_function)(*p++, filter TSRMLS_CC) < 0) {
 			return -1;
 		}
 		n--;
@@ -5606,12 +6885,12 @@ mbfl_convert_filter_devcat(mbfl_convert_filter *filter, mbfl_memory_device *src)
 }
 
 static int
-mbfl_convert_filter_strcat(mbfl_convert_filter *filter, const unsigned char *p)
+mbfl_convert_filter_strcat(mbfl_convert_filter *filter, const unsigned char *p TSRMLS_DC)
 {
 	int c;
 
 	while ((c = *p++) != '\0') {
-		if ((*filter->filter_function)(c, filter) < 0) {
+		if ((*filter->filter_function)(c, filter TSRMLS_CC) < 0) {
 			return -1;
 		}
 	}
@@ -5621,10 +6900,11 @@ mbfl_convert_filter_strcat(mbfl_convert_filter *filter, const unsigned char *p)
 
 #if 0
 static int
-mbfl_convert_filter_strncat(mbfl_convert_filter *filter, const unsigned char *p, int n)
+mbfl_convert_filter_strncat(mbfl_convert_filter *filter, const unsigned char *p, 
+			    int n TSRMLS_DC)
 {
 	while (n > 0) {
-		if ((*filter->filter_function)(*p++, filter) < 0) {
+		if ((*filter->filter_function)(*p++, filter TSRMLS_CC) < 0) {
 			return -1;
 		}
 		n--;
@@ -5634,14 +6914,9 @@ mbfl_convert_filter_strncat(mbfl_convert_filter *filter, const unsigned char *p,
 }
 #endif
 
-/* hex character table "0123456789ABCDEF" */
-static char mbfl_hexchar_table[] = {
-	0x30,0x31,0x32,0x33,0x34,0x35,0x36,0x37,0x38,0x39,0x41,0x42,0x43,0x44,0x45,0x46
-};
-
 /* illegal character output function for conv-filter */
 int
-mbfl_filt_conv_illegal_output(int c, mbfl_convert_filter *filter)
+mbfl_filt_conv_illegal_output(int c, mbfl_convert_filter *filter TSRMLS_DC)
 {
 	int mode_backup, ret, n, m, r;
 
@@ -5650,35 +6925,35 @@ mbfl_filt_conv_illegal_output(int c, mbfl_convert_filter *filter)
 	filter->illegal_mode = MBFL_OUTPUTFILTER_ILLEGAL_MODE_NONE;
 	switch (mode_backup) {
 	case MBFL_OUTPUTFILTER_ILLEGAL_MODE_CHAR:
-		ret = (*filter->filter_function)(filter->illegal_substchar, filter);
+		ret = (*filter->filter_function)(filter->illegal_substchar, filter TSRMLS_CC);
 		break;
 	case MBFL_OUTPUTFILTER_ILLEGAL_MODE_LONG:
 		if (c >= 0) {
 			if (c < MBFL_WCSGROUP_UCS4MAX) {	/* unicode */
-				ret = mbfl_convert_filter_strcat(filter, "U+");
+				ret = mbfl_convert_filter_strcat(filter, (const unsigned char *)"U+" TSRMLS_CC);
 			} else {
 				if (c < MBFL_WCSGROUP_WCHARMAX) {
 					m = c & ~MBFL_WCSPLANE_MASK;
 					switch (m) {
 					case MBFL_WCSPLANE_JIS0208:
-						ret = mbfl_convert_filter_strcat(filter, "JIS+");
+						ret = mbfl_convert_filter_strcat(filter, (const unsigned char *)"JIS+" TSRMLS_CC);
 						break;
 					case MBFL_WCSPLANE_JIS0212:
-						ret = mbfl_convert_filter_strcat(filter, "JIS2+");
+						ret = mbfl_convert_filter_strcat(filter, (const unsigned char *)"JIS2+" TSRMLS_CC);
 						break;
 					case MBFL_WCSPLANE_WINCP932:
-						ret = mbfl_convert_filter_strcat(filter, "W932+");
+						ret = mbfl_convert_filter_strcat(filter, (const unsigned char *)"W932+" TSRMLS_CC);
 						break;
 					case MBFL_WCSPLANE_8859_1:
-						ret = mbfl_convert_filter_strcat(filter, "I8859_1+");
+						ret = mbfl_convert_filter_strcat(filter, (const unsigned char *)"I8859_1+" TSRMLS_CC);
 						break;
 					default:
-						ret = mbfl_convert_filter_strcat(filter, "?+");
+						ret = mbfl_convert_filter_strcat(filter, (const unsigned char *)"?+" TSRMLS_CC);
 						break;
 					}
 					c &= MBFL_WCSPLANE_MASK;
 				} else {
-					ret = mbfl_convert_filter_strcat(filter, "BAD+");
+					ret = mbfl_convert_filter_strcat(filter, (const unsigned char *)"BAD+" TSRMLS_CC);
 					c &= MBFL_WCSGROUP_MASK;
 				}
 			}
@@ -5689,7 +6964,7 @@ mbfl_filt_conv_illegal_output(int c, mbfl_convert_filter *filter)
 					n = (c >> r) & 0xf;
 					if (n || m) {
 						m = 1;
-						ret = (*filter->filter_function)(mbfl_hexchar_table[n], filter);
+						ret = (*filter->filter_function)(mbfl_hexchar_table[n], filter TSRMLS_CC);
 						if (ret < 0) {
 							break;
 						}
@@ -5697,7 +6972,7 @@ mbfl_filt_conv_illegal_output(int c, mbfl_convert_filter *filter)
 					r -= 4;
 				}
 				if (m == 0 && ret >= 0) {
-					ret = (*filter->filter_function)(mbfl_hexchar_table[0], filter);
+					ret = (*filter->filter_function)(mbfl_hexchar_table[0], filter TSRMLS_CC);
 				}
 			}
 		}
@@ -5716,7 +6991,7 @@ mbfl_filt_conv_illegal_output(int c, mbfl_convert_filter *filter)
  */
 
 static void
-mbfl_identify_filter_set_vtbl(mbfl_identify_filter *filter, struct mbfl_identify_vtbl *vtbl)
+mbfl_identify_filter_set_vtbl(mbfl_identify_filter *filter, const struct mbfl_identify_vtbl *vtbl)
 {
 	if (filter && vtbl) {
 		filter->filter_ctor = vtbl->filter_ctor;
@@ -5725,10 +7000,10 @@ mbfl_identify_filter_set_vtbl(mbfl_identify_filter *filter, struct mbfl_identify
 	}
 }
 
-static struct mbfl_identify_vtbl *
+static const struct mbfl_identify_vtbl * 
 mbfl_identify_filter_get_vtbl(enum mbfl_no_encoding encoding)
 {
-	struct mbfl_identify_vtbl *vtbl;
+	const struct mbfl_identify_vtbl * vtbl;
 	int i;
 
 	i = 0;
@@ -5744,7 +7019,7 @@ mbfl_identify_filter_get_vtbl(enum mbfl_no_encoding encoding)
 static void
 mbfl_identify_filter_select_vtbl(mbfl_identify_filter *filter)
 {
-	struct mbfl_identify_vtbl *vtbl;
+	const struct mbfl_identify_vtbl *vtbl;
 
 	vtbl = mbfl_identify_filter_get_vtbl(filter->encoding->no_encoding);
 	if (vtbl == NULL) {
@@ -5754,7 +7029,7 @@ mbfl_identify_filter_select_vtbl(mbfl_identify_filter *filter)
 }
 
 mbfl_identify_filter *
-mbfl_identify_filter_new(enum mbfl_no_encoding encoding)
+mbfl_identify_filter_new(enum mbfl_no_encoding encoding TSRMLS_DC)
 {
 	mbfl_identify_filter * filter;
 
@@ -5778,16 +7053,16 @@ mbfl_identify_filter_new(enum mbfl_no_encoding encoding)
 	mbfl_identify_filter_select_vtbl(filter);
 
 	/* constructor */
-	(*filter->filter_ctor)(filter);
+	(*filter->filter_ctor)(filter TSRMLS_CC);
 
 	return filter;
 }
 
 void
-mbfl_identify_filter_delete(mbfl_identify_filter *filter)
+mbfl_identify_filter_delete(mbfl_identify_filter *filter TSRMLS_DC)
 {
 	if (filter) {
-		(*filter->filter_dtor)(filter);
+		(*filter->filter_dtor)(filter TSRMLS_CC);
 		mbfl_free((void*)filter);
 	}
 }
@@ -5801,7 +7076,7 @@ mbfl_buffer_converter *
 mbfl_buffer_converter_new(
     enum mbfl_no_encoding from,
     enum mbfl_no_encoding to,
-    int buf_initsz)
+    int buf_initsz TSRMLS_DC)
 {
 	mbfl_buffer_converter *convd;
 
@@ -5825,13 +7100,13 @@ mbfl_buffer_converter_new(
 	convd->filter1 = NULL;
 	convd->filter2 = NULL;
 	if (mbfl_convert_filter_get_vtbl(convd->from->no_encoding, convd->to->no_encoding) != NULL) {
-		convd->filter1 = mbfl_convert_filter_new(convd->from->no_encoding, convd->to->no_encoding, mbfl_memory_device_output, 0, &convd->device);
+		convd->filter1 = mbfl_convert_filter_new(convd->from->no_encoding, convd->to->no_encoding, mbfl_memory_device_output, 0, &convd->device TSRMLS_CC);
 	} else {
-		convd->filter2 = mbfl_convert_filter_new(mbfl_no_encoding_wchar, convd->to->no_encoding, mbfl_memory_device_output, 0, &convd->device);
+		convd->filter2 = mbfl_convert_filter_new(mbfl_no_encoding_wchar, convd->to->no_encoding, mbfl_memory_device_output, 0, &convd->device TSRMLS_CC);
 		if (convd->filter2 != NULL) {
-			convd->filter1 = mbfl_convert_filter_new(convd->from->no_encoding, mbfl_no_encoding_wchar, (int (*)(int, void*))convd->filter2->filter_function, NULL, convd->filter2);
+			convd->filter1 = mbfl_convert_filter_new(convd->from->no_encoding, mbfl_no_encoding_wchar, (int (*)(int, void* TSRMLS_DC))convd->filter2->filter_function, NULL, convd->filter2 TSRMLS_CC);
 			if (convd->filter1 == NULL) {
-				mbfl_convert_filter_delete(convd->filter2);
+				mbfl_convert_filter_delete(convd->filter2 TSRMLS_CC);
 			}
 		}
 	}
@@ -5839,34 +7114,34 @@ mbfl_buffer_converter_new(
 		return NULL;
 	}
 
-	mbfl_memory_device_init(&convd->device, buf_initsz, buf_initsz/4);
+	mbfl_memory_device_init(&convd->device, buf_initsz, buf_initsz/4 TSRMLS_CC);
 
 	return convd;
 }
 
 void
-mbfl_buffer_converter_delete(mbfl_buffer_converter *convd)
+mbfl_buffer_converter_delete(mbfl_buffer_converter *convd TSRMLS_DC)
 {
 	if (convd != NULL) {
 		if (convd->filter1) {
-			mbfl_convert_filter_delete(convd->filter1);
+			mbfl_convert_filter_delete(convd->filter1 TSRMLS_CC);
 		}
 		if (convd->filter2) {
-			mbfl_convert_filter_delete(convd->filter2);
+			mbfl_convert_filter_delete(convd->filter2 TSRMLS_CC);
 		}
-		mbfl_memory_device_clear(&convd->device);
+		mbfl_memory_device_clear(&convd->device TSRMLS_CC);
 		mbfl_free((void*)convd);
 	}
 }
 
 void
-mbfl_buffer_converter_reset(mbfl_buffer_converter *convd)
+mbfl_buffer_converter_reset(mbfl_buffer_converter *convd TSRMLS_DC)
 {
-	mbfl_memory_device_reset(&convd->device);
+	mbfl_memory_device_reset(&convd->device TSRMLS_CC);
 }
 
 int
-mbfl_buffer_converter_illegal_mode(mbfl_buffer_converter *convd, int mode)
+mbfl_buffer_converter_illegal_mode(mbfl_buffer_converter *convd, int mode TSRMLS_DC)
 {
 	if (convd != NULL) {
 		if (convd->filter2 != NULL) {
@@ -5882,7 +7157,7 @@ mbfl_buffer_converter_illegal_mode(mbfl_buffer_converter *convd, int mode)
 }
 
 int
-mbfl_buffer_converter_illegal_substchar(mbfl_buffer_converter *convd, int substchar)
+mbfl_buffer_converter_illegal_substchar(mbfl_buffer_converter *convd, int substchar TSRMLS_DC)
 {
 	if (convd != NULL) {
 		if (convd->filter2 != NULL) {
@@ -5898,17 +7173,17 @@ mbfl_buffer_converter_illegal_substchar(mbfl_buffer_converter *convd, int substc
 }
 
 int
-mbfl_buffer_converter_strncat(mbfl_buffer_converter *convd, const unsigned char *p, int n)
+mbfl_buffer_converter_strncat(mbfl_buffer_converter *convd, const unsigned char *p, int n TSRMLS_DC)
 {
 	mbfl_convert_filter *filter;
-	int (*filter_function)(int c, mbfl_convert_filter *filter);
+	int (*filter_function)(int c, mbfl_convert_filter *filter TSRMLS_DC);
 
 	if (convd != NULL && p != NULL) {
 		filter = convd->filter1;
 		if (filter != NULL) {
 			filter_function = filter->filter_function;
 			while (n > 0) {
-				if ((*filter_function)(*p++, filter) < 0) {
+				if ((*filter_function)(*p++, filter TSRMLS_CC) < 0) {
 					break;
 				}
 				n--;
@@ -5920,17 +7195,17 @@ mbfl_buffer_converter_strncat(mbfl_buffer_converter *convd, const unsigned char 
 }
 
 int
-mbfl_buffer_converter_feed(mbfl_buffer_converter *convd, mbfl_string *string)
+mbfl_buffer_converter_feed(mbfl_buffer_converter *convd, mbfl_string *string TSRMLS_DC)
 {
 	int n;
 	unsigned char *p;
 	mbfl_convert_filter *filter;
-	int (*filter_function)(int c, mbfl_convert_filter *filter);
+	int (*filter_function)(int c, mbfl_convert_filter *filter TSRMLS_DC);
 
 	if (convd == NULL || string == NULL) {
 		return -1;
 	}
-	mbfl_memory_device_realloc(&convd->device, convd->device.pos + string->len, string->len/4);
+	mbfl_memory_device_realloc(&convd->device, convd->device.pos + string->len, string->len/4 TSRMLS_CC);
 	/* feed data */
 	n = string->len;
 	p = string->val;
@@ -5938,7 +7213,7 @@ mbfl_buffer_converter_feed(mbfl_buffer_converter *convd, mbfl_string *string)
 	if (filter != NULL) {
 		filter_function = filter->filter_function;
 		while (n > 0) {
-			if ((*filter_function)(*p++, filter) < 0) {
+			if ((*filter_function)(*p++, filter TSRMLS_CC) < 0) {
 				return -1;
 			}
 			n--;
@@ -5949,24 +7224,24 @@ mbfl_buffer_converter_feed(mbfl_buffer_converter *convd, mbfl_string *string)
 }
 
 int
-mbfl_buffer_converter_flush(mbfl_buffer_converter *convd)
+mbfl_buffer_converter_flush(mbfl_buffer_converter *convd TSRMLS_DC)
 {
 	if (convd == NULL) {
 		return -1;
 	}
 
 	if (convd->filter1 != NULL) {
-		mbfl_convert_filter_flush(convd->filter1);
+		mbfl_convert_filter_flush(convd->filter1 TSRMLS_CC);
 	}
 	if (convd->filter2 != NULL) {
-		mbfl_convert_filter_flush(convd->filter2);
+		mbfl_convert_filter_flush(convd->filter2 TSRMLS_CC);
 	}
 
 	return 0;
 }
 
 mbfl_string *
-mbfl_buffer_converter_getbuffer(mbfl_buffer_converter *convd, mbfl_string *result)
+mbfl_buffer_converter_getbuffer(mbfl_buffer_converter *convd, mbfl_string *result TSRMLS_DC)
 {
 	if (convd != NULL && result != NULL && convd->device.buffer != NULL) {
 		result->no_encoding = convd->to->no_encoding;
@@ -5980,30 +7255,31 @@ mbfl_buffer_converter_getbuffer(mbfl_buffer_converter *convd, mbfl_string *resul
 }
 
 mbfl_string *
-mbfl_buffer_converter_result(mbfl_buffer_converter *convd, mbfl_string *result)
+mbfl_buffer_converter_result(mbfl_buffer_converter *convd, mbfl_string *result TSRMLS_DC)
 {
 	if (convd == NULL || result == NULL) {
 		return NULL;
 	}
 	result->no_encoding = convd->to->no_encoding;
-	return mbfl_memory_device_result(&convd->device, result);
+	return mbfl_memory_device_result(&convd->device, result TSRMLS_CC);
 }
 
 mbfl_string *
-mbfl_buffer_converter_feed_result(mbfl_buffer_converter *convd, mbfl_string *string, mbfl_string *result)
+mbfl_buffer_converter_feed_result(mbfl_buffer_converter *convd, mbfl_string *string, 
+				  mbfl_string *result TSRMLS_DC)
 {
 	if (convd == NULL || string == NULL || result == NULL) {
 		return NULL;
 	}
-	mbfl_buffer_converter_feed(convd, string);
+	mbfl_buffer_converter_feed(convd, string TSRMLS_CC);
 	if (convd->filter1 != NULL) {
-		mbfl_convert_filter_flush(convd->filter1);
+		mbfl_convert_filter_flush(convd->filter1 TSRMLS_CC);
 	}
 	if (convd->filter2 != NULL) {
-		mbfl_convert_filter_flush(convd->filter2);
+		mbfl_convert_filter_flush(convd->filter2 TSRMLS_CC);
 	}
 	result->no_encoding = convd->to->no_encoding;
-	return mbfl_memory_device_result(&convd->device, result);
+	return mbfl_memory_device_result(&convd->device, result TSRMLS_CC);
 }
 
 
@@ -6011,7 +7287,7 @@ mbfl_buffer_converter_feed_result(mbfl_buffer_converter *convd, mbfl_string *str
  * encoding detector
  */
 mbfl_encoding_detector *
-mbfl_encoding_detector_new(enum mbfl_no_encoding *elist, int eliztsz)
+mbfl_encoding_detector_new(enum mbfl_no_encoding *elist, int eliztsz TSRMLS_DC)
 {
 	mbfl_encoding_detector *identd;
 
@@ -6037,7 +7313,7 @@ mbfl_encoding_detector_new(enum mbfl_no_encoding *elist, int eliztsz)
 	i = 0;
 	num = 0;
 	while (i < eliztsz) {
-		filter = mbfl_identify_filter_new(elist[i]);
+		filter = mbfl_identify_filter_new(elist[i] TSRMLS_CC);
 		if (filter != NULL) {
 			identd->filter_list[num] = filter;
 			num++;
@@ -6050,7 +7326,7 @@ mbfl_encoding_detector_new(enum mbfl_no_encoding *elist, int eliztsz)
 }
 
 void
-mbfl_encoding_detector_delete(mbfl_encoding_detector *identd)
+mbfl_encoding_detector_delete(mbfl_encoding_detector *identd TSRMLS_DC)
 {
 	int i;
 
@@ -6059,7 +7335,7 @@ mbfl_encoding_detector_delete(mbfl_encoding_detector *identd)
 			i = identd->filter_list_size;
 			while (i > 0) {
 				i--;
-				mbfl_identify_filter_delete(identd->filter_list[i]);
+				mbfl_identify_filter_delete(identd->filter_list[i] TSRMLS_CC);
 			}
 			mbfl_free((void *)identd->filter_list);
 		}
@@ -6068,7 +7344,7 @@ mbfl_encoding_detector_delete(mbfl_encoding_detector *identd)
 }
 
 int
-mbfl_encoding_detector_feed(mbfl_encoding_detector *identd, mbfl_string *string)
+mbfl_encoding_detector_feed(mbfl_encoding_detector *identd, mbfl_string *string TSRMLS_DC)
 {
 	int i, n, num, bad, res;
 	unsigned char *p;
@@ -6085,7 +7361,7 @@ mbfl_encoding_detector_feed(mbfl_encoding_detector *identd, mbfl_string *string)
 			bad = 0;
 			while (i < num) {
 				filter = identd->filter_list[i];
-				(*filter->filter_function)(*p, filter);
+				(*filter->filter_function)(*p, filter TSRMLS_CC);
 				if (filter->flag) {
 					bad++;
 				}
@@ -6103,7 +7379,7 @@ mbfl_encoding_detector_feed(mbfl_encoding_detector *identd, mbfl_string *string)
 	return res;
 }
 
-enum mbfl_no_encoding mbfl_encoding_detector_judge(mbfl_encoding_detector *identd)
+enum mbfl_no_encoding mbfl_encoding_detector_judge(mbfl_encoding_detector *identd TSRMLS_DC)
 {
 	mbfl_identify_filter *filter;
 	enum mbfl_no_encoding encoding;
@@ -6133,11 +7409,11 @@ mbfl_string *
 mbfl_convert_encoding(
     mbfl_string *string,
     mbfl_string *result,
-    enum mbfl_no_encoding toenc)
+    enum mbfl_no_encoding toenc TSRMLS_DC)
 {
 	int n;
 	unsigned char *p;
-	mbfl_encoding *encoding;
+	const mbfl_encoding *encoding;
 	mbfl_memory_device device;
 	mbfl_convert_filter *filter1;
 	mbfl_convert_filter *filter2;
@@ -6151,57 +7427,59 @@ mbfl_convert_encoding(
 	filter1 = NULL;
 	filter2 = NULL;
 	if (mbfl_convert_filter_get_vtbl(string->no_encoding, toenc) != NULL) {
-		filter1 = mbfl_convert_filter_new(string->no_encoding, toenc, mbfl_memory_device_output, 0, &device);
+		filter1 = mbfl_convert_filter_new(string->no_encoding, toenc, mbfl_memory_device_output, 0, &device TSRMLS_CC);
 	} else {
-		filter2 = mbfl_convert_filter_new(mbfl_no_encoding_wchar, toenc, mbfl_memory_device_output, 0, &device);
+		filter2 = mbfl_convert_filter_new(mbfl_no_encoding_wchar, toenc, mbfl_memory_device_output, 0, &device TSRMLS_CC);
 		if (filter2 != NULL) {
-			filter1 = mbfl_convert_filter_new(string->no_encoding, mbfl_no_encoding_wchar, (int (*)(int, void*))filter2->filter_function, NULL, filter2);
+			filter1 = mbfl_convert_filter_new(string->no_encoding, mbfl_no_encoding_wchar, (int (*)(int, void* TSRMLS_DC))filter2->filter_function, NULL, filter2 TSRMLS_CC);
 			if (filter1 == NULL) {
-				mbfl_convert_filter_delete(filter2);
+				mbfl_convert_filter_delete(filter2 TSRMLS_CC);
 			}
 		}
 	}
 	if (filter1 == NULL) {
 		return NULL;
 	}
-	filter2->illegal_mode = MBFL_OUTPUTFILTER_ILLEGAL_MODE_CHAR;
-	filter2->illegal_substchar = 0x3f;		/* '?' */
-	mbfl_memory_device_init(&device, string->len, (string->len >> 2) + 8);
+	if (filter2 != NULL) {
+		filter2->illegal_mode = MBFL_OUTPUTFILTER_ILLEGAL_MODE_CHAR;
+		filter2->illegal_substchar = 0x3f;		/* '?' */
+	}
+	mbfl_memory_device_init(&device, string->len, (string->len >> 2) + 8 TSRMLS_CC);
 
 	/* feed data */
 	n = string->len;
 	p = string->val;
 	if (p != NULL) {
 		while (n > 0) {
-			if ((*filter1->filter_function)(*p++, filter1) < 0) {
+			if ((*filter1->filter_function)(*p++, filter1 TSRMLS_CC) < 0) {
 				break;
 			}
 			n--;
 		}
 	}
 
-	mbfl_convert_filter_flush(filter1);
-	mbfl_convert_filter_delete(filter1);
+	mbfl_convert_filter_flush(filter1 TSRMLS_CC);
+	mbfl_convert_filter_delete(filter1 TSRMLS_CC);
 	if (filter2 != NULL) {
-		mbfl_convert_filter_flush(filter2);
-		mbfl_convert_filter_delete(filter2);
+		mbfl_convert_filter_flush(filter2 TSRMLS_CC);
+		mbfl_convert_filter_delete(filter2 TSRMLS_CC);
 	}
 
-	return mbfl_memory_device_result(&device, result);
+	return mbfl_memory_device_result(&device, result TSRMLS_CC);
 }
 
 
 /*
  * identify encoding
  */
-mbfl_encoding *
-mbfl_identify_encoding(mbfl_string *string, enum mbfl_no_encoding *elist, int eliztsz)
+const mbfl_encoding *
+mbfl_identify_encoding(mbfl_string *string, enum mbfl_no_encoding *elist, int eliztsz TSRMLS_DC)
 {
 	int i, n, num, bad;
 	unsigned char *p;
-	struct mbfl_identify_vtbl *vtbl;
+	const struct mbfl_identify_vtbl *vtbl;
 	mbfl_identify_filter *flist, *filter;
-	mbfl_encoding *encoding;
+	const mbfl_encoding *encoding;
 
 	/* initialize */
 	flist = (mbfl_identify_filter *)mbfl_calloc(eliztsz, sizeof(mbfl_identify_filter));
@@ -6217,7 +7495,7 @@ mbfl_identify_encoding(mbfl_string *string, enum mbfl_no_encoding *elist, int el
 				filter = &flist[num];
 				mbfl_identify_filter_set_vtbl(filter, vtbl);
 				filter->encoding = mbfl_no2encoding(vtbl->encoding);
-				(*filter->filter_ctor)(filter);
+				(*filter->filter_ctor)(filter TSRMLS_CC);
 				num++;
 			}
 			i++;
@@ -6233,7 +7511,7 @@ mbfl_identify_encoding(mbfl_string *string, enum mbfl_no_encoding *elist, int el
 			bad = 0;
 			while (i < num) {
 				filter = &flist[i];
-				(*filter->filter_function)(*p, filter);
+				(*filter->filter_function)(*p, filter TSRMLS_CC);
 				if (filter->flag) {
 					bad++;
 				}
@@ -6269,7 +7547,7 @@ mbfl_identify_encoding(mbfl_string *string, enum mbfl_no_encoding *elist, int el
 	i = 0;
 	while (i < num) {
 		filter = &flist[i];
-		(*filter->filter_dtor)(filter);
+		(*filter->filter_dtor)(filter TSRMLS_CC);
 		i++;
 	}
 	mbfl_free((void *)flist);
@@ -6278,11 +7556,11 @@ mbfl_identify_encoding(mbfl_string *string, enum mbfl_no_encoding *elist, int el
 }
 
 const char*
-mbfl_identify_encoding_name(mbfl_string *string, enum mbfl_no_encoding *elist, int eliztsz)
+mbfl_identify_encoding_name(mbfl_string *string, enum mbfl_no_encoding *elist, int eliztsz TSRMLS_DC)
 {
-	mbfl_encoding *encoding;
+	const mbfl_encoding *encoding;
 
-	encoding = mbfl_identify_encoding(string, elist, eliztsz);
+	encoding = mbfl_identify_encoding(string, elist, eliztsz TSRMLS_CC);
 	if (encoding != NULL &&
 	    encoding->no_encoding > mbfl_no_encoding_charset_min &&
 	    encoding->no_encoding < mbfl_no_encoding_charset_max) {
@@ -6292,12 +7570,12 @@ mbfl_identify_encoding_name(mbfl_string *string, enum mbfl_no_encoding *elist, i
 	}
 }
 
-enum mbfl_no_encoding
-mbfl_identify_encoding_no(mbfl_string *string, enum mbfl_no_encoding *elist, int eliztsz)
+const enum mbfl_no_encoding
+mbfl_identify_encoding_no(mbfl_string *string, enum mbfl_no_encoding *elist, int eliztsz TSRMLS_DC)
 {
-	mbfl_encoding *encoding;
+	const mbfl_encoding *encoding;
 
-	encoding = mbfl_identify_encoding(string, elist, eliztsz);
+	encoding = mbfl_identify_encoding(string, elist, eliztsz TSRMLS_CC);
 	if (encoding != NULL &&
 	    encoding->no_encoding > mbfl_no_encoding_charset_min &&
 	    encoding->no_encoding < mbfl_no_encoding_charset_max) {
@@ -6312,19 +7590,19 @@ mbfl_identify_encoding_no(mbfl_string *string, enum mbfl_no_encoding *elist, int
  *  strlen
  */
 static int
-filter_count_output(int c, void *data)
+filter_count_output(int c, void *data TSRMLS_DC)
 {
 	(*(int *)data)++;
 	return c;
 }
 
 int
-mbfl_strlen(mbfl_string *string)
+mbfl_strlen(mbfl_string *string TSRMLS_DC)
 {
 	int len, n, m, k;
 	unsigned char *p;
 	const unsigned char *mbtab;
-	mbfl_encoding *encoding;
+	const mbfl_encoding *encoding;
 
 	encoding = mbfl_no2encoding(string->no_encoding);
 	if (encoding == NULL || string == NULL) {
@@ -6357,7 +7635,7 @@ mbfl_strlen(mbfl_string *string)
 		mbfl_convert_filter *filter = mbfl_convert_filter_new(
 		  string->no_encoding, 
 		  mbfl_no_encoding_wchar,
-		  filter_count_output, 0, &len);
+		  filter_count_output, 0, &len TSRMLS_CC);
 		if (filter == NULL) {
 			return -1;
 		}
@@ -6366,17 +7644,63 @@ mbfl_strlen(mbfl_string *string)
 		p = string->val;
 		if (p != NULL) {
 			while (n > 0) {
-				(*filter->filter_function)(*p++, filter);
+				(*filter->filter_function)(*p++, filter TSRMLS_CC);
 				n--;
 			}
 		}
-		mbfl_convert_filter_delete(filter);
+		mbfl_convert_filter_delete(filter TSRMLS_CC);
 	}
 
 	return len;
 }
 
+#ifdef ZEND_MULTIBYTE
+/*
+ *	oddlen
+ */
+int
+mbfl_oddlen(mbfl_string *string)
+{
+	int len, n, m, k;
+	unsigned char *p;
+	const unsigned char *mbtab;
+	const mbfl_encoding *encoding;
 
+	encoding = mbfl_no2encoding(string->no_encoding);
+	if (encoding == NULL || string == NULL) {
+		return -1;
+	}
+
+	len = 0;
+	if (encoding->flag & MBFL_ENCTYPE_SBCS) {
+		return 0;
+	} else if (encoding->flag & (MBFL_ENCTYPE_WCS2BE | MBFL_ENCTYPE_WCS2LE)) {
+		return len % 2;
+	} else if (encoding->flag & (MBFL_ENCTYPE_WCS4BE | MBFL_ENCTYPE_WCS4LE)) {
+		return len % 4;
+	} else if (encoding->mblen_table != NULL) {
+ 		mbtab = encoding->mblen_table;
+ 		n = 0;
+		p = string->val;
+		k = string->len;
+		/* count */
+		if (p != NULL) {
+			while (n < k) {
+				m = mbtab[*p];
+				n += m;
+				p += m;
+			};
+		}
+		return n-k;
+	} else {
+		/* how can i do ? */
+		return 0;
+	}
+	/* NOT REACHED */
+}
+#endif /* ZEND_MULTIBYTE */
+ 
+ 
 /*
  *  strpos
  */
@@ -6392,13 +7716,13 @@ struct collector_strpos_data {
 };
 
 static int
-collector_strpos(int c, void* data)
+collector_strpos(int c, void* data TSRMLS_DC)
 {
 	int *p, *h, *m, n;
 	struct collector_strpos_data *pc = (struct collector_strpos_data*)data;
 
 	if (pc->output >= pc->start) {
-		if (c == pc->needle.buffer[pc->needle_pos]) {
+		if (c == (int)pc->needle.buffer[pc->needle_pos]) {
 			if (pc->needle_pos == 0) {
 				pc->found_pos = pc->output;			/* found position */
 			}
@@ -6410,12 +7734,12 @@ collector_strpos(int c, void* data)
 			}
 		} else if (pc->needle_pos != 0) {
 retry:
-			h = pc->needle.buffer;
+			h = (int *)pc->needle.buffer;
 			h++;
 			for (;;) {
 				pc->found_pos++;
 				p = h;
-				m = pc->needle.buffer;
+				m = (int *)pc->needle.buffer;
 				n = pc->needle_pos - 1;
 				while (n > 0 && *p == *m) {
 					n--;
@@ -6444,7 +7768,7 @@ mbfl_strpos(
     mbfl_string *haystack,
     mbfl_string *needle,
     int offset,
-    int reverse)
+    int reverse TSRMLS_DC)
 {
 	int n, result;
 	unsigned char *p;
@@ -6455,11 +7779,11 @@ mbfl_strpos(
 		return -8;
 	}
 	/* needle is converted into wchar */
-	mbfl_wchar_device_init(&pc.needle);
+	mbfl_wchar_device_init(&pc.needle TSRMLS_CC);
 	filter = mbfl_convert_filter_new(
 	  needle->no_encoding,
 	  mbfl_no_encoding_wchar,
-	  mbfl_wchar_device_output, 0, &pc.needle);
+	  mbfl_wchar_device_output, 0, &pc.needle TSRMLS_CC);
 	if (filter == NULL) {
 		return -4;
 	}
@@ -6467,29 +7791,29 @@ mbfl_strpos(
 	n = needle->len;
 	if (p != NULL) {
 		while (n > 0) {
-			if ((*filter->filter_function)(*p++, filter) < 0) {
+			if ((*filter->filter_function)(*p++, filter TSRMLS_CC) < 0) {
 				break;
 			}
 			n--;
 		}
 	}
-	mbfl_convert_filter_flush(filter);
-	mbfl_convert_filter_delete(filter);
+	mbfl_convert_filter_flush(filter TSRMLS_CC);
+	mbfl_convert_filter_delete(filter TSRMLS_CC);
 	pc.needle_len = pc.needle.pos;
 	if (pc.needle.buffer == NULL) {
 		return -4;
 	}
 	if (pc.needle_len <= 0) {
-		mbfl_wchar_device_clear(&pc.needle);
+		mbfl_wchar_device_clear(&pc.needle TSRMLS_CC);
 		return -2;
 	}
 	/* initialize filter and collector data */
 	filter = mbfl_convert_filter_new(
 	  haystack->no_encoding,
 	  mbfl_no_encoding_wchar,
-	  collector_strpos, 0, &pc);
+	  collector_strpos, 0, &pc TSRMLS_CC);
 	if (filter == NULL) {
-		mbfl_wchar_device_clear(&pc.needle);
+		mbfl_wchar_device_clear(&pc.needle TSRMLS_CC);
 		return -4;
 	}
 	pc.start = offset;
@@ -6503,7 +7827,7 @@ mbfl_strpos(
 	n = haystack->len;
 	if (p != NULL) {
 		while (n > 0) {
-			if ((*filter->filter_function)(*p++, filter) < 0) {
+			if ((*filter->filter_function)(*p++, filter TSRMLS_CC) < 0) {
 				pc.matched_pos = -4;
 				break;
 			}
@@ -6513,14 +7837,98 @@ mbfl_strpos(
 			n--;
 		}
 	}
-	mbfl_convert_filter_flush(filter);
+	mbfl_convert_filter_flush(filter TSRMLS_CC);
 	result = pc.matched_pos;
-	mbfl_convert_filter_delete(filter);
-	mbfl_wchar_device_clear(&pc.needle);
+	mbfl_convert_filter_delete(filter TSRMLS_CC);
+	mbfl_wchar_device_clear(&pc.needle TSRMLS_CC);
 
 	return result;
 }
 
+/*
+ *  substr_count
+ */
+
+int
+mbfl_substr_count(
+    mbfl_string *haystack,
+    mbfl_string *needle
+    TSRMLS_DC)
+{
+	int n, result = 0;
+	unsigned char *p;
+	mbfl_convert_filter *filter;
+	struct collector_strpos_data pc;
+
+	if (haystack == NULL || needle == NULL) {
+		return -8;
+	}
+	/* needle is converted into wchar */
+	mbfl_wchar_device_init(&pc.needle TSRMLS_CC);
+	filter = mbfl_convert_filter_new(
+	  needle->no_encoding,
+	  mbfl_no_encoding_wchar,
+	  mbfl_wchar_device_output, 0, &pc.needle TSRMLS_CC);
+	if (filter == NULL) {
+		return -4;
+	}
+	p = needle->val;
+	n = needle->len;
+	if (p != NULL) {
+		while (n > 0) {
+			if ((*filter->filter_function)(*p++, filter TSRMLS_CC) < 0) {
+				break;
+			}
+			n--;
+		}
+	}
+	mbfl_convert_filter_flush(filter TSRMLS_CC);
+	mbfl_convert_filter_delete(filter TSRMLS_CC);
+	pc.needle_len = pc.needle.pos;
+	if (pc.needle.buffer == NULL) {
+		return -4;
+	}
+	if (pc.needle_len <= 0) {
+		mbfl_wchar_device_clear(&pc.needle TSRMLS_CC);
+		return -2;
+	}
+	/* initialize filter and collector data */
+	filter = mbfl_convert_filter_new(
+	  haystack->no_encoding,
+	  mbfl_no_encoding_wchar,
+	  collector_strpos, 0, &pc TSRMLS_CC);
+	if (filter == NULL) {
+		mbfl_wchar_device_clear(&pc.needle TSRMLS_CC);
+		return -4;
+	}
+	pc.start = 0;
+	pc.output = 0;
+	pc.needle_pos = 0;
+	pc.found_pos = 0;
+	pc.matched_pos = -1;
+
+	/* feed data */
+	p = haystack->val;
+	n = haystack->len;
+	if (p != NULL) {
+		while (n > 0) {
+			if ((*filter->filter_function)(*p++, filter TSRMLS_CC) < 0) {
+				pc.matched_pos = -4;
+				break;
+			}
+			if (pc.matched_pos >= 0) {
+				++result;
+				pc.matched_pos = -1;
+			}
+			n--;
+		}
+	}
+	mbfl_convert_filter_flush(filter TSRMLS_CC);
+	mbfl_convert_filter_delete(filter TSRMLS_CC);
+	mbfl_wchar_device_clear(&pc.needle TSRMLS_CC);
+
+	return result;
+}
 
 /*
  *  substr
@@ -6533,7 +7941,7 @@ struct collector_substr_data {
 };
 
 static int
-collector_substr(int c, void* data)
+collector_substr(int c, void* data TSRMLS_DC)
 {
 	struct collector_substr_data *pc = (struct collector_substr_data*)data;
 
@@ -6542,7 +7950,7 @@ collector_substr(int c, void* data)
 	}
 
 	if (pc->output >= pc->start) {
-		(*pc->next_filter->filter_function)(c, pc->next_filter);
+		(*pc->next_filter->filter_function)(c, pc->next_filter TSRMLS_CC);
 	}
 
 	pc->output++;
@@ -6555,9 +7963,9 @@ mbfl_substr(
     mbfl_string *string,
     mbfl_string *result,
     int from,
-    int length)
+    int length TSRMLS_DC)
 {
-	mbfl_encoding *encoding;
+	const mbfl_encoding *encoding;
 	int n, m, k, len, start, end;
 	unsigned char *p, *w;
 	const unsigned char *mbtab;
@@ -6659,7 +8067,7 @@ mbfl_substr(
 		mbfl_convert_filter *decoder;
 		mbfl_convert_filter *encoder;
 
-		mbfl_memory_device_init(&device, length + 1, 0);
+		mbfl_memory_device_init(&device, length + 1, 0 TSRMLS_CC);
 		mbfl_string_init(result);
 		result->no_language = string->no_language;
 		result->no_encoding = string->no_encoding;
@@ -6667,15 +8075,15 @@ mbfl_substr(
 		decoder = mbfl_convert_filter_new(
 		    mbfl_no_encoding_wchar,
 		    string->no_encoding,
-		    mbfl_memory_device_output, 0, &device);
+		    mbfl_memory_device_output, 0, &device TSRMLS_CC);
 		/* wchar filter */
 		encoder = mbfl_convert_filter_new(
 		    string->no_encoding,
 		    mbfl_no_encoding_wchar,
-		    collector_substr, 0, &pc);
+		    collector_substr, 0, &pc TSRMLS_CC);
 		if (decoder == NULL || encoder == NULL) {
-			mbfl_convert_filter_delete(encoder);
-			mbfl_convert_filter_delete(decoder);
+			mbfl_convert_filter_delete(encoder TSRMLS_CC);
+			mbfl_convert_filter_delete(decoder TSRMLS_CC);
 			return NULL;
 		}
 		pc.next_filter = decoder;
@@ -6688,18 +8096,18 @@ mbfl_substr(
 		n = string->len;
 		if (p != NULL) {
 			while (n > 0) {
-				if ((*encoder->filter_function)(*p++, encoder) < 0) {
+				if ((*encoder->filter_function)(*p++, encoder TSRMLS_CC) < 0) {
 					break;
 				}
 				n--;
 			}
 		}
 
-		mbfl_convert_filter_flush(encoder);
-		mbfl_convert_filter_flush(decoder);
-		result = mbfl_memory_device_result(&device, result);
-		mbfl_convert_filter_delete(encoder);
-		mbfl_convert_filter_delete(decoder);
+		mbfl_convert_filter_flush(encoder TSRMLS_CC);
+		mbfl_convert_filter_flush(decoder TSRMLS_CC);
+		result = mbfl_memory_device_result(&device, result TSRMLS_CC);
+		mbfl_convert_filter_delete(encoder TSRMLS_CC);
+		mbfl_convert_filter_delete(decoder TSRMLS_CC);
 	}
 
 	return result;
@@ -6714,9 +8122,9 @@ mbfl_strcut(
     mbfl_string *string,
     mbfl_string *result,
     int from,
-    int length)
+    int length TSRMLS_DC)
 {
-	mbfl_encoding *encoding;
+	const mbfl_encoding *encoding;
 	int n, m, k, len, start, end;
 	unsigned char *p, *w;
 	const unsigned char *mbtab;
@@ -6730,6 +8138,13 @@ mbfl_strcut(
 	mbfl_string_init(result);
 	result->no_language = string->no_language;
 	result->no_encoding = string->no_encoding;
+
+	if (from > (int)string->len) {
+		result->len = 0;
+		result->val = mbfl_malloc(1);
+		result->val[0] = '\0';
+		return result; 
+	}
 
 	if ((encoding->flag & (MBFL_ENCTYPE_SBCS | MBFL_ENCTYPE_WCS2BE | MBFL_ENCTYPE_WCS2LE | MBFL_ENCTYPE_WCS4BE | MBFL_ENCTYPE_WCS4LE)) ||
 	   encoding->mblen_table != NULL) {
@@ -6767,7 +8182,7 @@ mbfl_strcut(
 				}
 				/* search end position */
 				k = start + length;
-				if (k >= string->len) {
+				if (k >= (int)string->len) {
 					end = string->len;
 				} else {
 					end = start;
@@ -6819,35 +8234,35 @@ mbfl_strcut(
 		encoder = mbfl_convert_filter_new(
 		  string->no_encoding,
 		  mbfl_no_encoding_wchar,
-		  mbfl_filter_output_null, 0, 0);
+		  mbfl_filter_output_null, 0, 0 TSRMLS_CC);
 		encoder_tmp = mbfl_convert_filter_new(
 		  string->no_encoding,
 		  mbfl_no_encoding_wchar,
-		  mbfl_filter_output_null, 0, 0);
+		  mbfl_filter_output_null, 0, 0 TSRMLS_CC);
 		/* output code filter */
 		decoder = mbfl_convert_filter_new(
 		  mbfl_no_encoding_wchar,
 		  string->no_encoding,
-		  mbfl_memory_device_output, 0, &device);
+		  mbfl_memory_device_output, 0, &device TSRMLS_CC);
 		decoder_tmp = mbfl_convert_filter_new(
 		  mbfl_no_encoding_wchar,
 		  string->no_encoding,
-		  mbfl_memory_device_output, 0, &device);
+		  mbfl_memory_device_output, 0, &device TSRMLS_CC);
 		if (encoder == NULL || encoder_tmp == NULL || decoder == NULL || decoder_tmp == NULL) {
-			mbfl_convert_filter_delete(encoder);
-			mbfl_convert_filter_delete(encoder_tmp);
-			mbfl_convert_filter_delete(decoder);
-			mbfl_convert_filter_delete(decoder_tmp);
+			mbfl_convert_filter_delete(encoder TSRMLS_CC);
+			mbfl_convert_filter_delete(encoder_tmp TSRMLS_CC);
+			mbfl_convert_filter_delete(decoder TSRMLS_CC);
+			mbfl_convert_filter_delete(decoder_tmp TSRMLS_CC);
 			return NULL;
 		}
-		mbfl_memory_device_init(&device, length + 8, 0);
+		mbfl_memory_device_init(&device, length + 8, 0 TSRMLS_CC);
 		k = 0;
 		n = 0;
 		p = string->val;
 		if (p != NULL) {
 			/* seartch start position */
 			while (n < from) {
-				(*encoder->filter_function)(*p++, encoder);
+				(*encoder->filter_function)(*p++, encoder TSRMLS_CC);
 				n++;
 			}
 			/* output a little shorter than "length" */
@@ -6856,44 +8271,44 @@ mbfl_strcut(
 			k = length - 20;
 			len = string->len;
 			while (n < len && device.pos < k) {
-				(*encoder->filter_function)(*p++, encoder);
+				(*encoder->filter_function)(*p++, encoder TSRMLS_CC);
 				n++;
 			}
 			/* detect end position */
 			for (;;) {
 				/* backup current state */
 				k = device.pos;
-				mbfl_convert_filter_copy(encoder, encoder_tmp);
-				mbfl_convert_filter_copy(decoder, decoder_tmp);
+				mbfl_convert_filter_copy(encoder, encoder_tmp TSRMLS_CC);
+				mbfl_convert_filter_copy(decoder, decoder_tmp TSRMLS_CC);
 				if (n >= len) {
 					break;
 				}
 				/* feed 1byte and flush */
-				(*encoder->filter_function)(*p, encoder);
-				(*encoder->filter_flush)(encoder);
-				(*decoder->filter_flush)(decoder);
+				(*encoder->filter_function)(*p, encoder TSRMLS_CC);
+				(*encoder->filter_flush)(encoder TSRMLS_CC);
+				(*decoder->filter_flush)(decoder TSRMLS_CC);
 				if (device.pos > length) {
 					break;
 				}
 				/* restore filter and re-feed data */
 				device.pos = k;
-				mbfl_convert_filter_copy(encoder_tmp, encoder);
-				mbfl_convert_filter_copy(decoder_tmp, decoder);
-				(*encoder->filter_function)(*p, encoder);
+				mbfl_convert_filter_copy(encoder_tmp, encoder TSRMLS_CC);
+				mbfl_convert_filter_copy(decoder_tmp, decoder TSRMLS_CC);
+				(*encoder->filter_function)(*p, encoder TSRMLS_CC);
 				p++;
 				n++;
 			}
 			device.pos = k;
-			mbfl_convert_filter_copy(encoder_tmp, encoder);
-			mbfl_convert_filter_copy(decoder_tmp, decoder);
-			mbfl_convert_filter_flush(encoder);
-			mbfl_convert_filter_flush(decoder);
+			mbfl_convert_filter_copy(encoder_tmp, encoder TSRMLS_CC);
+			mbfl_convert_filter_copy(decoder_tmp, decoder TSRMLS_CC);
+			mbfl_convert_filter_flush(encoder TSRMLS_CC);
+			mbfl_convert_filter_flush(decoder TSRMLS_CC);
 		}
-		result = mbfl_memory_device_result(&device, result);
-		mbfl_convert_filter_delete(encoder);
-		mbfl_convert_filter_delete(encoder_tmp);
-		mbfl_convert_filter_delete(decoder);
-		mbfl_convert_filter_delete(decoder_tmp);
+		result = mbfl_memory_device_result(&device, result TSRMLS_CC);
+		mbfl_convert_filter_delete(encoder TSRMLS_CC);
+		mbfl_convert_filter_delete(encoder_tmp TSRMLS_CC);
+		mbfl_convert_filter_delete(decoder TSRMLS_CC);
+		mbfl_convert_filter_delete(decoder_tmp TSRMLS_CC);
 	}
 
 	return result;
@@ -6904,7 +8319,7 @@ mbfl_strcut(
  *  strwidth
  */
 static int
-filter_count_width(int c, void* data)
+filter_count_width(int c, void* data TSRMLS_DC)
 {
 	if (c >= 0x20) {
 		if (c < 0x2000 || (c > 0xff60 && c < 0xffa0)) {
@@ -6918,7 +8333,7 @@ filter_count_width(int c, void* data)
 }
 
 int
-mbfl_strwidth(mbfl_string *string)
+mbfl_strwidth(mbfl_string *string TSRMLS_DC)
 {
 	int len, n;
 	unsigned char *p;
@@ -6930,9 +8345,9 @@ mbfl_strwidth(mbfl_string *string)
 		filter = mbfl_convert_filter_new(
 		    string->no_encoding,
 		    mbfl_no_encoding_wchar,
-		    filter_count_width, 0, &len);
+		    filter_count_width, 0, &len TSRMLS_CC);
 		if (filter == NULL) {
-			mbfl_convert_filter_delete(filter);
+			mbfl_convert_filter_delete(filter TSRMLS_CC);
 			return -1;
 		}
 
@@ -6940,12 +8355,12 @@ mbfl_strwidth(mbfl_string *string)
 		p = string->val;
 		n = string->len;
 		while (n > 0) {
-			(*filter->filter_function)(*p++, filter);
+			(*filter->filter_function)(*p++, filter TSRMLS_CC);
 			n--;
 		}
 
-		mbfl_convert_filter_flush(filter);
-		mbfl_convert_filter_delete(filter);
+		mbfl_convert_filter_flush(filter TSRMLS_CC);
+		mbfl_convert_filter_delete(filter TSRMLS_CC);
 	}
 
 	return len;
@@ -6968,13 +8383,13 @@ struct collector_strimwidth_data {
 };
 
 static int
-collector_strimwidth(int c, void* data)
+collector_strimwidth(int c, void* data TSRMLS_DC)
 {
 	struct collector_strimwidth_data *pc = (struct collector_strimwidth_data*)data;
 
 	switch (pc->status) {
 	case 10:
-		(*pc->decoder->filter_function)(c, pc->decoder);
+		(*pc->decoder->filter_function)(c, pc->decoder TSRMLS_CC);
 		break;
 	default:
 		if (pc->outchar >= pc->from) {
@@ -6988,13 +8403,13 @@ collector_strimwidth(int c, void* data)
 			if (pc->outwidth > pc->width) {
 				if (pc->status == 0) {
 					pc->endpos = pc->device.pos;
-					mbfl_convert_filter_copy(pc->decoder, pc->decoder_backup);
+					mbfl_convert_filter_copy(pc->decoder, pc->decoder_backup TSRMLS_CC);
 				}
 				pc->status++;
-				(*pc->decoder->filter_function)(c, pc->decoder);
+				(*pc->decoder->filter_function)(c, pc->decoder TSRMLS_CC);
 				c = -1;
 			} else {
-				(*pc->decoder->filter_function)(c, pc->decoder);
+				(*pc->decoder->filter_function)(c, pc->decoder TSRMLS_CC);
 			}
 		}
 		pc->outchar++;
@@ -7010,7 +8425,7 @@ mbfl_strimwidth(
     mbfl_string *marker,
     mbfl_string *result,
     int from,
-    int width)
+    int width TSRMLS_DC)
 {
 	struct collector_strimwidth_data pc;
 	mbfl_convert_filter *encoder;
@@ -7023,31 +8438,31 @@ mbfl_strimwidth(
 	mbfl_string_init(result);
 	result->no_language = string->no_language;
 	result->no_encoding = string->no_encoding;
-	mbfl_memory_device_init(&pc.device, width, 0);
+	mbfl_memory_device_init(&pc.device, width, 0 TSRMLS_CC);
 
 	/* output code filter */
 	pc.decoder = mbfl_convert_filter_new(
 	    mbfl_no_encoding_wchar,
 	    string->no_encoding,
-	    mbfl_memory_device_output, 0, &pc.device);
+	    mbfl_memory_device_output, 0, &pc.device TSRMLS_CC);
 	pc.decoder_backup = mbfl_convert_filter_new(
 	    mbfl_no_encoding_wchar,
 	    string->no_encoding,
-	    mbfl_memory_device_output, 0, &pc.device);
+	    mbfl_memory_device_output, 0, &pc.device TSRMLS_CC);
 	/* wchar filter */
 	encoder = mbfl_convert_filter_new(
 	    string->no_encoding,
 	    mbfl_no_encoding_wchar,
-	    collector_strimwidth, 0, &pc);
+	    collector_strimwidth, 0, &pc TSRMLS_CC);
 	if (pc.decoder == NULL || pc.decoder_backup == NULL || encoder == NULL) {
-		mbfl_convert_filter_delete(encoder);
-		mbfl_convert_filter_delete(pc.decoder);
-		mbfl_convert_filter_delete(pc.decoder_backup);
+		mbfl_convert_filter_delete(encoder TSRMLS_CC);
+		mbfl_convert_filter_delete(pc.decoder TSRMLS_CC);
+		mbfl_convert_filter_delete(pc.decoder_backup TSRMLS_CC);
 		return NULL;
 	}
 	mkwidth = 0;
 	if (marker) {
-		mkwidth = mbfl_strwidth(marker);
+		mkwidth = mbfl_strwidth(marker TSRMLS_CC);
 	}
 	pc.from = from;
 	pc.width = width - mkwidth;
@@ -7062,45 +8477,45 @@ mbfl_strimwidth(
 	if (p != NULL) {
 		while (n > 0) {
 			n--;
-			if ((*encoder->filter_function)(*p++, encoder) < 0) {
+			if ((*encoder->filter_function)(*p++, encoder TSRMLS_CC) < 0) {
 				break;
 			}
 		}
-		mbfl_convert_filter_flush(encoder);
+		mbfl_convert_filter_flush(encoder TSRMLS_CC);
 		if (pc.status != 0 && mkwidth > 0) {
 			pc.width += mkwidth;
 			while (n > 0) {
-				if ((*encoder->filter_function)(*p++, encoder) < 0) {
+				if ((*encoder->filter_function)(*p++, encoder TSRMLS_CC) < 0) {
 					break;
 				}
 				n--;
 			}
-			mbfl_convert_filter_flush(encoder);
+			mbfl_convert_filter_flush(encoder TSRMLS_CC);
 			if (pc.status != 1) {
 				pc.status = 10;
 				pc.device.pos = pc.endpos;
-				mbfl_convert_filter_copy(pc.decoder_backup, pc.decoder);
-				mbfl_convert_filter_reset(encoder, marker->no_encoding, mbfl_no_encoding_wchar);
+				mbfl_convert_filter_copy(pc.decoder_backup, pc.decoder TSRMLS_CC);
+				mbfl_convert_filter_reset(encoder, marker->no_encoding, mbfl_no_encoding_wchar TSRMLS_CC);
 				p = marker->val;
 				n = marker->len;
 				while (n > 0) {
-					if ((*encoder->filter_function)(*p++, encoder) < 0) {
+					if ((*encoder->filter_function)(*p++, encoder TSRMLS_CC) < 0) {
 						break;
 					}
 					n--;
 				}
-				mbfl_convert_filter_flush(encoder);
+				mbfl_convert_filter_flush(encoder TSRMLS_CC);
 			}
 		} else if (pc.status != 0) {
 			pc.device.pos = pc.endpos;
-			mbfl_convert_filter_copy(pc.decoder_backup, pc.decoder);
+			mbfl_convert_filter_copy(pc.decoder_backup, pc.decoder TSRMLS_CC);
 		}
-		mbfl_convert_filter_flush(pc.decoder);
+		mbfl_convert_filter_flush(pc.decoder TSRMLS_CC);
 	}
-	result = mbfl_memory_device_result(&pc.device, result);
-	mbfl_convert_filter_delete(encoder);
-	mbfl_convert_filter_delete(pc.decoder);
-	mbfl_convert_filter_delete(pc.decoder_backup);
+	result = mbfl_memory_device_result(&pc.device, result TSRMLS_CC);
+	mbfl_convert_filter_delete(encoder TSRMLS_CC);
+	mbfl_convert_filter_delete(pc.decoder TSRMLS_CC);
+	mbfl_convert_filter_delete(pc.decoder_backup TSRMLS_CC);
 
 	return result;
 }
@@ -7156,7 +8571,7 @@ static const unsigned char zenkana2hankana_table[84][2] = {
 };
 
 static int
-collector_hantozen(int c, void* data)
+collector_hantozen(int c, void* data TSRMLS_DC)
 {
 	int s, mode, n;
 	struct collector_hantozen_data *pc = (struct collector_hantozen_data*)data;
@@ -7218,7 +8633,7 @@ collector_hantozen(int c, void* data)
 				if (pc->status) {
 					n = (pc->cache - 0xff60) & 0x3f;
 					pc->status = 0;
-					(*pc->next_filter->filter_function)(0x3000 + hankana2zenkata_table[n], pc->next_filter);
+					(*pc->next_filter->filter_function)(0x3000 + hankana2zenkata_table[n], pc->next_filter TSRMLS_CC);
 				}
 			}
 		} else if ((mode & 0x200) && (mode & 0x800)) {	/* hankaku kana to zenkaku hirangana and glue voiced sound mark */
@@ -7245,7 +8660,7 @@ collector_hantozen(int c, void* data)
 				if (pc->status) {
 					n = (pc->cache - 0xff60) & 0x3f;
 					pc->status = 0;
-					(*pc->next_filter->filter_function)(0x3000 + hankana2zenhira_table[n], pc->next_filter);
+					(*pc->next_filter->filter_function)(0x3000 + hankana2zenhira_table[n], pc->next_filter TSRMLS_CC);
 				}
 			}
 		} else if ((mode & 0x100) && c >= 0xff61 && c <= 0xff9f) {	/* hankaku kana to zenkaku katakana */
@@ -7259,7 +8674,7 @@ collector_hantozen(int c, void* data)
 		if ((mode & 0x1000) && c >= 0x30a1 && c <= 0x30f4) {	/* Zenkaku katakana to hankaku kana */
 			n = c - 0x30a1;
 			if (zenkana2hankana_table[n][1] != 0) {
-				(*pc->next_filter->filter_function)(0xff00 + zenkana2hankana_table[n][0], pc->next_filter);
+				(*pc->next_filter->filter_function)(0xff00 + zenkana2hankana_table[n][0], pc->next_filter TSRMLS_CC);
 				s = 0xff00 + zenkana2hankana_table[n][1];
 			} else {
 				s = 0xff00 + zenkana2hankana_table[n][0];
@@ -7267,7 +8682,7 @@ collector_hantozen(int c, void* data)
 		} else if ((mode & 0x2000) && c >= 0x3041 && c <= 0x3093) {	/* Zenkaku hirangana to hankaku kana */
 			n = c - 0x3041;
 			if (zenkana2hankana_table[n][1] != 0) {
-				(*pc->next_filter->filter_function)(0xff00 + zenkana2hankana_table[n][0], pc->next_filter);
+				(*pc->next_filter->filter_function)(0xff00 + zenkana2hankana_table[n][0], pc->next_filter TSRMLS_CC);
 				s = 0xff00 + zenkana2hankana_table[n][1];
 			} else {
 				s = 0xff00 + zenkana2hankana_table[n][0];
@@ -7353,11 +8768,11 @@ collector_hantozen(int c, void* data)
 		}
 	}
 
-	return (*pc->next_filter->filter_function)(s, pc->next_filter);
+	return (*pc->next_filter->filter_function)(s, pc->next_filter TSRMLS_CC);
 }
 
 static int
-collector_hantozen_flush(struct collector_hantozen_data *pc)
+collector_hantozen_flush(struct collector_hantozen_data *pc TSRMLS_DC)
 {
 	int ret, n;
 
@@ -7365,9 +8780,9 @@ collector_hantozen_flush(struct collector_hantozen_data *pc)
 	if (pc->status) {
 		n = (pc->cache - 0xff60) & 0x3f;
 		if (pc->mode & 0x100) {	/* hankaku kana to zenkaku katakana */
-			ret = (*pc->next_filter->filter_function)(0x3000 + hankana2zenkata_table[n], pc->next_filter);
+			ret = (*pc->next_filter->filter_function)(0x3000 + hankana2zenkata_table[n], pc->next_filter TSRMLS_CC);
 		} else if (pc->mode & 0x200) {	/* hankaku kana to zenkaku hirangana */
-			ret = (*pc->next_filter->filter_function)(0x3000 + hankana2zenhira_table[n], pc->next_filter);
+			ret = (*pc->next_filter->filter_function)(0x3000 + hankana2zenhira_table[n], pc->next_filter TSRMLS_CC);
 		}
 		pc->status = 0;
 	}
@@ -7379,11 +8794,11 @@ mbfl_string *
 mbfl_ja_jp_hantozen(
     mbfl_string *string,
     mbfl_string *result,
-    int mode)
+    int mode TSRMLS_DC)
 {
 	int n;
 	unsigned char *p;
-	mbfl_encoding *encoding;
+	const mbfl_encoding *encoding;
 	mbfl_memory_device device;
 	struct collector_hantozen_data pc;
 	mbfl_convert_filter *decoder;
@@ -7397,21 +8812,21 @@ mbfl_ja_jp_hantozen(
 	if (encoding == NULL) {
 		return NULL;
 	}
-	mbfl_memory_device_init(&device, string->len, 0);
+	mbfl_memory_device_init(&device, string->len, 0 TSRMLS_CC);
 	mbfl_string_init(result);
 	result->no_language = string->no_language;
 	result->no_encoding = string->no_encoding;
 	decoder = mbfl_convert_filter_new(
 	  mbfl_no_encoding_wchar,
 	  string->no_encoding,
-	  mbfl_memory_device_output, 0, &device);
+	  mbfl_memory_device_output, 0, &device TSRMLS_CC);
 	encoder = mbfl_convert_filter_new(
 	  string->no_encoding,
 	  mbfl_no_encoding_wchar,
-	  collector_hantozen, 0, &pc);
+	  collector_hantozen, 0, &pc TSRMLS_CC);
 	if (decoder == NULL || encoder == NULL) {
-		mbfl_convert_filter_delete(encoder);
-		mbfl_convert_filter_delete(decoder);
+		mbfl_convert_filter_delete(encoder TSRMLS_CC);
+		mbfl_convert_filter_delete(decoder TSRMLS_CC);
 		return NULL;
 	}
 	pc.next_filter = decoder;
@@ -7424,19 +8839,19 @@ mbfl_ja_jp_hantozen(
 	n = string->len;
 	if (p != NULL) {
 		while (n > 0) {
-			if ((*encoder->filter_function)(*p++, encoder) < 0) {
+			if ((*encoder->filter_function)(*p++, encoder TSRMLS_CC) < 0) {
 				break;
 			}
 			n--;
 		}
 	}
 
-	mbfl_convert_filter_flush(encoder);
-	collector_hantozen_flush(&pc);
-	mbfl_convert_filter_flush(decoder);
-	result = mbfl_memory_device_result(&device, result);
-	mbfl_convert_filter_delete(encoder);
-	mbfl_convert_filter_delete(decoder);
+	mbfl_convert_filter_flush(encoder TSRMLS_CC);
+	collector_hantozen_flush(&pc TSRMLS_CC);
+	mbfl_convert_filter_flush(decoder TSRMLS_CC);
+	result = mbfl_memory_device_result(&device, result TSRMLS_CC);
+	mbfl_convert_filter_delete(encoder TSRMLS_CC);
+	mbfl_convert_filter_delete(decoder TSRMLS_CC);
 
 	return result;
 }
@@ -7466,7 +8881,7 @@ struct mime_header_encoder_data {
 };
 
 static int
-mime_header_encoder_block_collector(int c, void *data)
+mime_header_encoder_block_collector(int c, void *data TSRMLS_DC)
 {
 	int n;
 	struct mime_header_encoder_data *pe = (struct mime_header_encoder_data *)data;
@@ -7474,32 +8889,32 @@ mime_header_encoder_block_collector(int c, void *data)
 	switch (pe->status2) {
 	case 1:	/* encoded word */
 		pe->prevpos = pe->outdev.pos;
-		mbfl_convert_filter_copy(pe->conv2_filter, pe->conv2_filter_backup);
-		mbfl_convert_filter_copy(pe->encod_filter, pe->encod_filter_backup);
-		(*pe->conv2_filter->filter_function)(c, pe->conv2_filter);
-		(*pe->conv2_filter->filter_flush)(pe->conv2_filter);
-		(*pe->encod_filter->filter_flush)(pe->encod_filter);
+		mbfl_convert_filter_copy(pe->conv2_filter, pe->conv2_filter_backup TSRMLS_CC);
+		mbfl_convert_filter_copy(pe->encod_filter, pe->encod_filter_backup TSRMLS_CC);
+		(*pe->conv2_filter->filter_function)(c, pe->conv2_filter TSRMLS_CC);
+		(*pe->conv2_filter->filter_flush)(pe->conv2_filter TSRMLS_CC);
+		(*pe->encod_filter->filter_flush)(pe->encod_filter TSRMLS_CC);
 		n = pe->outdev.pos - pe->linehead + pe->firstindent;
 		pe->outdev.pos = pe->prevpos;
-		mbfl_convert_filter_copy(pe->conv2_filter_backup, pe->conv2_filter);
-		mbfl_convert_filter_copy(pe->encod_filter_backup, pe->encod_filter);
+		mbfl_convert_filter_copy(pe->conv2_filter_backup, pe->conv2_filter TSRMLS_CC);
+		mbfl_convert_filter_copy(pe->encod_filter_backup, pe->encod_filter TSRMLS_CC);
 		if (n >= 74) {
-			(*pe->conv2_filter->filter_flush)(pe->conv2_filter);
-			(*pe->encod_filter->filter_flush)(pe->encod_filter);
-			mbfl_memory_device_strncat(&pe->outdev, "\x3f\x3d", 2);			/* ?= */
-			mbfl_memory_device_strncat(&pe->outdev, pe->lwsp, pe->lwsplen);
+			(*pe->conv2_filter->filter_flush)(pe->conv2_filter TSRMLS_CC);
+			(*pe->encod_filter->filter_flush)(pe->encod_filter TSRMLS_CC);
+			mbfl_memory_device_strncat(&pe->outdev, "\x3f\x3d", 2 TSRMLS_CC);	/* ?= */
+			mbfl_memory_device_strncat(&pe->outdev, pe->lwsp, pe->lwsplen TSRMLS_CC);
 			pe->linehead = pe->outdev.pos;
 			pe->firstindent = 0;
-			mbfl_memory_device_strncat(&pe->outdev, pe->encname, pe->encnamelen);
-			c = (*pe->conv2_filter->filter_function)(c, pe->conv2_filter);
+			mbfl_memory_device_strncat(&pe->outdev, pe->encname, pe->encnamelen TSRMLS_CC);
+			c = (*pe->conv2_filter->filter_function)(c, pe->conv2_filter TSRMLS_CC);
 		} else {
-			c = (*pe->conv2_filter->filter_function)(c, pe->conv2_filter);
+			c = (*pe->conv2_filter->filter_function)(c, pe->conv2_filter TSRMLS_CC);
 		}
 		break;
 
 	default:
-		mbfl_memory_device_strncat(&pe->outdev, pe->encname, pe->encnamelen);
-		c = (*pe->conv2_filter->filter_function)(c, pe->conv2_filter);
+		mbfl_memory_device_strncat(&pe->outdev, pe->encname, pe->encnamelen TSRMLS_CC);
+		c = (*pe->conv2_filter->filter_function)(c, pe->conv2_filter TSRMLS_CC);
 		pe->status2 = 1;
 		break;
 	}
@@ -7508,47 +8923,47 @@ mime_header_encoder_block_collector(int c, void *data)
 }
 
 static int
-mime_header_encoder_collector(int c, void *data)
+mime_header_encoder_collector(int c, void *data TSRMLS_DC)
 {
 	int n;
 	struct mime_header_encoder_data *pe = (struct mime_header_encoder_data *)data;
 
 	switch (pe->status1) {
 	case 11:	/* encoded word */
-		(*pe->block_filter->filter_function)(c, pe->block_filter);
+		(*pe->block_filter->filter_function)(c, pe->block_filter TSRMLS_CC);
 		break;
 
 	default:	/* ASCII */
 		if (c >= 0x21 && c < 0x7f) {	/* ASCII exclude SPACE and CTLs */
-			mbfl_memory_device_output(c, &pe->tmpdev);
+			mbfl_memory_device_output(c, &pe->tmpdev TSRMLS_CC);
 			pe->status1 = 1;
 		} else if (pe->status1 == 0 && c == 0x20) {	/* repeat SPACE */
-			mbfl_memory_device_output(c, &pe->tmpdev);
+			mbfl_memory_device_output(c, &pe->tmpdev TSRMLS_CC);
 		} else {
 			if (pe->tmpdev.pos < 74 && c == 0x20) {
 				n = pe->outdev.pos - pe->linehead + pe->tmpdev.pos + pe->firstindent;
 				if (n > 74) {
-					mbfl_memory_device_strncat(&pe->outdev, pe->lwsp, pe->lwsplen);		/* LWSP */
+					mbfl_memory_device_strncat(&pe->outdev, pe->lwsp, pe->lwsplen TSRMLS_CC);		/* LWSP */
 					pe->linehead = pe->outdev.pos;
 					pe->firstindent = 0;
 				} else if (pe->outdev.pos > 0) {
-					mbfl_memory_device_output(0x20, &pe->outdev);
+					mbfl_memory_device_output(0x20, &pe->outdev TSRMLS_CC);
 				}
-				mbfl_memory_device_devcat(&pe->outdev, &pe->tmpdev);
-				mbfl_memory_device_reset(&pe->tmpdev);
+				mbfl_memory_device_devcat(&pe->outdev, &pe->tmpdev TSRMLS_CC);
+				mbfl_memory_device_reset(&pe->tmpdev TSRMLS_CC);
 				pe->status1 = 0;
 			} else {
 				n = pe->outdev.pos - pe->linehead + pe->encnamelen + pe->firstindent;
 				if (n > 60)  {
-					mbfl_memory_device_strncat(&pe->outdev, pe->lwsp, pe->lwsplen);		/* LWSP */
+					mbfl_memory_device_strncat(&pe->outdev, pe->lwsp, pe->lwsplen TSRMLS_CC);		/* LWSP */
 					pe->linehead = pe->outdev.pos;
 					pe->firstindent = 0;
 				} else if (pe->outdev.pos > 0)  {
-					mbfl_memory_device_output(0x20, &pe->outdev);
+					mbfl_memory_device_output(0x20, &pe->outdev TSRMLS_CC);
 				}
-				mbfl_convert_filter_devcat(pe->block_filter, &pe->tmpdev);
-				mbfl_memory_device_reset(&pe->tmpdev);
-				(*pe->block_filter->filter_function)(c, pe->block_filter);
+				mbfl_convert_filter_devcat(pe->block_filter, &pe->tmpdev TSRMLS_CC);
+				mbfl_memory_device_reset(&pe->tmpdev TSRMLS_CC);
+				(*pe->block_filter->filter_function)(c, pe->block_filter TSRMLS_CC);
 				pe->status1 = 11;
 			}
 		}
@@ -7559,40 +8974,40 @@ mime_header_encoder_collector(int c, void *data)
 }
 
 mbfl_string *
-mime_header_encoder_result(struct mime_header_encoder_data *pe, mbfl_string *result)
+mime_header_encoder_result(struct mime_header_encoder_data *pe, mbfl_string *result TSRMLS_DC)
 {
 	if (pe->status1 >= 10) {
-		(*pe->conv2_filter->filter_flush)(pe->conv2_filter);
-		(*pe->encod_filter->filter_flush)(pe->encod_filter);
-		mbfl_memory_device_strncat(&pe->outdev, "\x3f\x3d", 2);		/* ?= */
+		(*pe->conv2_filter->filter_flush)(pe->conv2_filter TSRMLS_CC);
+		(*pe->encod_filter->filter_flush)(pe->encod_filter TSRMLS_CC);
+		mbfl_memory_device_strncat(&pe->outdev, "\x3f\x3d", 2 TSRMLS_CC);		/* ?= */
 	} else if (pe->tmpdev.pos > 0) {
 		if (pe->outdev.pos > 0) {
 			if ((pe->outdev.pos - pe->linehead + pe->tmpdev.pos) > 74) {
-				mbfl_memory_device_strncat(&pe->outdev, pe->lwsp, pe->lwsplen);
+				mbfl_memory_device_strncat(&pe->outdev, pe->lwsp, pe->lwsplen TSRMLS_CC);
 			} else {
-				mbfl_memory_device_output(0x20, &pe->outdev);
+				mbfl_memory_device_output(0x20, &pe->outdev TSRMLS_CC);
 			}
 		}
-		mbfl_memory_device_devcat(&pe->outdev, &pe->tmpdev);
+		mbfl_memory_device_devcat(&pe->outdev, &pe->tmpdev TSRMLS_CC);
 	}
-	mbfl_memory_device_reset(&pe->tmpdev);
+	mbfl_memory_device_reset(&pe->tmpdev TSRMLS_CC);
 	pe->prevpos = 0;
 	pe->linehead = 0;
 	pe->status1 = 0;
 	pe->status2 = 0;
 
-	return mbfl_memory_device_result(&pe->outdev, result);
+	return mbfl_memory_device_result(&pe->outdev, result TSRMLS_CC);
 }
 
 struct mime_header_encoder_data*
 mime_header_encoder_new(
     enum mbfl_no_encoding incode,
     enum mbfl_no_encoding outcode,
-    enum mbfl_no_encoding transenc)
+    enum mbfl_no_encoding transenc TSRMLS_DC)
 {
 	int n;
 	const char *s;
-	mbfl_encoding *outencoding;
+	const mbfl_encoding *outencoding;
 	struct mime_header_encoder_data *pe;
 
 	/* get output encoding and check MIME charset name */
@@ -7606,8 +9021,8 @@ mime_header_encoder_new(
 		return NULL;
 	}
 
-	mbfl_memory_device_init(&pe->outdev, 0, 0);
-	mbfl_memory_device_init(&pe->tmpdev, 0, 0);
+	mbfl_memory_device_init(&pe->outdev, 0, 0 TSRMLS_CC);
+	mbfl_memory_device_init(&pe->tmpdev, 0, 0 TSRMLS_CC);
 	pe->prevpos = 0;
 	pe->linehead = 0;
 	pe->firstindent = 0;
@@ -7641,25 +9056,25 @@ mime_header_encoder_new(
 	pe->lwsplen = n;
 
 	/* transfer encode filter */
-	pe->encod_filter = mbfl_convert_filter_new(outcode, transenc, mbfl_memory_device_output, 0, &(pe->outdev));
-	pe->encod_filter_backup = mbfl_convert_filter_new(outcode, transenc, mbfl_memory_device_output, 0, &(pe->outdev));
+	pe->encod_filter = mbfl_convert_filter_new(outcode, transenc, mbfl_memory_device_output, 0, &(pe->outdev) TSRMLS_CC);
+	pe->encod_filter_backup = mbfl_convert_filter_new(outcode, transenc, mbfl_memory_device_output, 0, &(pe->outdev) TSRMLS_CC);
 
 	/* Output code filter */
-	pe->conv2_filter = mbfl_convert_filter_new(mbfl_no_encoding_wchar, outcode, mbfl_filter_output_pipe, 0, pe->encod_filter);
-	pe->conv2_filter_backup = mbfl_convert_filter_new(mbfl_no_encoding_wchar, outcode, mbfl_filter_output_pipe, 0, pe->encod_filter);
+	pe->conv2_filter = mbfl_convert_filter_new(mbfl_no_encoding_wchar, outcode, mbfl_filter_output_pipe, 0, pe->encod_filter TSRMLS_CC);
+	pe->conv2_filter_backup = mbfl_convert_filter_new(mbfl_no_encoding_wchar, outcode, mbfl_filter_output_pipe, 0, pe->encod_filter TSRMLS_CC);
 
 	/* encoded block filter */
-	pe->block_filter = mbfl_convert_filter_new(mbfl_no_encoding_wchar, mbfl_no_encoding_wchar, mime_header_encoder_block_collector, 0, pe);
+	pe->block_filter = mbfl_convert_filter_new(mbfl_no_encoding_wchar, mbfl_no_encoding_wchar, mime_header_encoder_block_collector, 0, pe TSRMLS_CC);
 
 	/* Input code filter */
-	pe->conv1_filter = mbfl_convert_filter_new(incode, mbfl_no_encoding_wchar, mime_header_encoder_collector, 0, pe);
+	pe->conv1_filter = mbfl_convert_filter_new(incode, mbfl_no_encoding_wchar, mime_header_encoder_collector, 0, pe TSRMLS_CC);
 
 	if (pe->encod_filter == NULL ||
 	    pe->encod_filter_backup == NULL ||
 	    pe->conv2_filter == NULL ||
 	    pe->conv2_filter_backup == NULL ||
 	    pe->conv1_filter == NULL) {
-		mime_header_encoder_delete(pe);
+		mime_header_encoder_delete(pe TSRMLS_CC);
 		return NULL;
 	}
 
@@ -7675,25 +9090,25 @@ mime_header_encoder_new(
 }
 
 void
-mime_header_encoder_delete(struct mime_header_encoder_data *pe)
+mime_header_encoder_delete(struct mime_header_encoder_data *pe TSRMLS_DC)
 {
 	if (pe) {
-		mbfl_convert_filter_delete(pe->conv1_filter);
-		mbfl_convert_filter_delete(pe->block_filter);
-		mbfl_convert_filter_delete(pe->conv2_filter);
-		mbfl_convert_filter_delete(pe->conv2_filter_backup);
-		mbfl_convert_filter_delete(pe->encod_filter);
-		mbfl_convert_filter_delete(pe->encod_filter_backup);
-		mbfl_memory_device_clear(&pe->outdev);
-		mbfl_memory_device_clear(&pe->tmpdev);
+		mbfl_convert_filter_delete(pe->conv1_filter TSRMLS_CC);
+		mbfl_convert_filter_delete(pe->block_filter TSRMLS_CC);
+		mbfl_convert_filter_delete(pe->conv2_filter TSRMLS_CC);
+		mbfl_convert_filter_delete(pe->conv2_filter_backup TSRMLS_CC);
+		mbfl_convert_filter_delete(pe->encod_filter TSRMLS_CC);
+		mbfl_convert_filter_delete(pe->encod_filter_backup TSRMLS_CC);
+		mbfl_memory_device_clear(&pe->outdev TSRMLS_CC);
+		mbfl_memory_device_clear(&pe->tmpdev TSRMLS_CC);
 		mbfl_free((void*)pe);
 	}
 }
 
 int
-mime_header_encoder_feed(int c, struct mime_header_encoder_data *pe)
+mime_header_encoder_feed(int c, struct mime_header_encoder_data *pe TSRMLS_DC)
 {
-	return (*pe->conv1_filter->filter_function)(c, pe->conv1_filter);
+	return (*pe->conv1_filter->filter_function)(c, pe->conv1_filter TSRMLS_CC);
 }
 
 mbfl_string *
@@ -7703,7 +9118,7 @@ mbfl_mime_header_encode(
     enum mbfl_no_encoding outcode,
     enum mbfl_no_encoding encoding,
     const char *linefeed,
-    int indent)
+    int indent TSRMLS_DC)
 {
 	int n;
 	unsigned char *p;
@@ -7713,7 +9128,7 @@ mbfl_mime_header_encode(
 	result->no_language = string->no_language;
 	result->no_encoding = mbfl_no_encoding_ascii;
 
-	pe = mime_header_encoder_new(string->no_encoding, outcode, encoding);
+	pe = mime_header_encoder_new(string->no_encoding, outcode, encoding TSRMLS_CC);
 	if (pe == NULL) {
 		return NULL;
 	}
@@ -7734,12 +9149,12 @@ mbfl_mime_header_encode(
 	n = string->len;
 	p = string->val;
 	while (n > 0) {
-		(*pe->conv1_filter->filter_function)(*p++, pe->conv1_filter);
+		(*pe->conv1_filter->filter_function)(*p++, pe->conv1_filter TSRMLS_CC);
 		n--;
 	}
 
-	result = mime_header_encoder_result(pe, result);
-	mime_header_encoder_delete(pe);
+	result = mime_header_encoder_result(pe, result TSRMLS_CC);
+	mime_header_encoder_delete(pe TSRMLS_CC);
 
 	return result;
 }
@@ -7762,26 +9177,26 @@ struct mime_header_decoder_data {
 };
 
 static int
-mime_header_decoder_collector(int c, void* data)
+mime_header_decoder_collector(int c, void* data TSRMLS_DC)
 {
-	mbfl_encoding *encoding;
+	const mbfl_encoding *encoding;
 	struct mime_header_decoder_data *pd = (struct mime_header_decoder_data*)data;
 
 	switch (pd->status) {
 	case 1:
 		if (c == 0x3f) {		/* ? */
-			mbfl_memory_device_output(c, &pd->tmpdev);
+			mbfl_memory_device_output(c, &pd->tmpdev TSRMLS_CC);
 			pd->cspos = pd->tmpdev.pos;
 			pd->status = 2;
 		} else {
-			mbfl_convert_filter_devcat(pd->conv1_filter, &pd->tmpdev);
-			mbfl_memory_device_reset(&pd->tmpdev);
+			mbfl_convert_filter_devcat(pd->conv1_filter, &pd->tmpdev TSRMLS_CC);
+			mbfl_memory_device_reset(&pd->tmpdev TSRMLS_CC);
 			if (c == 0x3d) {		/* = */
-				mbfl_memory_device_output(c, &pd->tmpdev);
+				mbfl_memory_device_output(c, &pd->tmpdev TSRMLS_CC);
 			} else if (c == 0x0d || c == 0x0a) {	/* CR or LF */
 				pd->status = 9;
 			} else {
-				(*pd->conv1_filter->filter_function)(c, pd->conv1_filter);
+				(*pd->conv1_filter->filter_function)(c, pd->conv1_filter TSRMLS_CC);
 				pd->status = 0;
 			}
 		}
@@ -7789,30 +9204,30 @@ mime_header_decoder_collector(int c, void* data)
 	case 2:		/* store charset string */
 		if (c == 0x3f) {		/* ? */
 			/* identify charset */
-			mbfl_memory_device_output('\0', &pd->tmpdev);
-			encoding = mbfl_name2encoding(&pd->tmpdev.buffer[pd->cspos]);
+			mbfl_memory_device_output('\0', &pd->tmpdev TSRMLS_CC);
+			encoding = mbfl_name2encoding((const char *)&pd->tmpdev.buffer[pd->cspos]);
 			if (encoding != NULL) {
 				pd->incode = encoding->no_encoding;
 				pd->status = 3;
 			}
-			mbfl_memory_device_unput(&pd->tmpdev);
-			mbfl_memory_device_output(c, &pd->tmpdev);
+			mbfl_memory_device_unput(&pd->tmpdev TSRMLS_CC);
+			mbfl_memory_device_output(c, &pd->tmpdev TSRMLS_CC);
 		} else {
-			mbfl_memory_device_output(c, &pd->tmpdev);
+			mbfl_memory_device_output(c, &pd->tmpdev TSRMLS_CC);
 			if (pd->tmpdev.pos > 100) {		/* too long charset string */
 				pd->status = 0;
 			} else if (c == 0x0d || c == 0x0a) {	/* CR or LF */
-				mbfl_memory_device_unput(&pd->tmpdev);
+				mbfl_memory_device_unput(&pd->tmpdev TSRMLS_CC);
 				pd->status = 9;
 			}
 			if (pd->status != 2) {
-				mbfl_convert_filter_devcat(pd->conv1_filter, &pd->tmpdev);
-				mbfl_memory_device_reset(&pd->tmpdev);
+				mbfl_convert_filter_devcat(pd->conv1_filter, &pd->tmpdev TSRMLS_CC);
+				mbfl_memory_device_reset(&pd->tmpdev TSRMLS_CC);
 			}
 		}
 		break;
 	case 3:		/* identify encoding */
-		mbfl_memory_device_output(c, &pd->tmpdev);
+		mbfl_memory_device_output(c, &pd->tmpdev TSRMLS_CC);
 		if (c == 0x42 || c == 0x62) {		/* 'B' or 'b' */
 			pd->encoding = mbfl_no_encoding_base64;
 			pd->status = 4;
@@ -7821,52 +9236,52 @@ mime_header_decoder_collector(int c, void* data)
 			pd->status = 4;
 		} else {
 			if (c == 0x0d || c == 0x0a) {	/* CR or LF */
-				mbfl_memory_device_unput(&pd->tmpdev);
+				mbfl_memory_device_unput(&pd->tmpdev TSRMLS_CC);
 				pd->status = 9;
 			} else {
 				pd->status = 0;
 			}
-			mbfl_convert_filter_devcat(pd->conv1_filter, &pd->tmpdev);
-			mbfl_memory_device_reset(&pd->tmpdev);
+			mbfl_convert_filter_devcat(pd->conv1_filter, &pd->tmpdev TSRMLS_CC);
+			mbfl_memory_device_reset(&pd->tmpdev TSRMLS_CC);
 		}
 		break;
 	case 4:		/* reset filter */
-		mbfl_memory_device_output(c, &pd->tmpdev);
+		mbfl_memory_device_output(c, &pd->tmpdev TSRMLS_CC);
 		if (c == 0x3f) {		/* ? */
 			/* charset convert filter */
-			mbfl_convert_filter_reset(pd->conv1_filter, pd->incode, mbfl_no_encoding_wchar);
+			mbfl_convert_filter_reset(pd->conv1_filter, pd->incode, mbfl_no_encoding_wchar TSRMLS_CC);
 			/* decode filter */
-			mbfl_convert_filter_reset(pd->deco_filter, pd->encoding, mbfl_no_encoding_8bit);
+			mbfl_convert_filter_reset(pd->deco_filter, pd->encoding, mbfl_no_encoding_8bit TSRMLS_CC);
 			pd->status = 5;
 		} else {
 			if (c == 0x0d || c == 0x0a) {	/* CR or LF */
-				mbfl_memory_device_unput(&pd->tmpdev);
+				mbfl_memory_device_unput(&pd->tmpdev TSRMLS_CC);
 				pd->status = 9;
 			} else {
 				pd->status = 0;
 			}
-			mbfl_convert_filter_devcat(pd->conv1_filter, &pd->tmpdev);
+			mbfl_convert_filter_devcat(pd->conv1_filter, &pd->tmpdev TSRMLS_CC);
 		}
-		mbfl_memory_device_reset(&pd->tmpdev);
+		mbfl_memory_device_reset(&pd->tmpdev TSRMLS_CC);
 		break;
 	case 5:		/* encoded block */
 		if (c == 0x3f) {		/* ? */
 			pd->status = 6;
 		} else {
-			(*pd->deco_filter->filter_function)(c, pd->deco_filter);
+			(*pd->deco_filter->filter_function)(c, pd->deco_filter TSRMLS_CC);
 		}
 		break;
 	case 6:		/* check end position */
 		if (c == 0x3d) {		/* = */
 			/* flush and reset filter */
-			(*pd->deco_filter->filter_flush)(pd->deco_filter);
-			(*pd->conv1_filter->filter_flush)(pd->conv1_filter);
-			mbfl_convert_filter_reset(pd->conv1_filter, mbfl_no_encoding_ascii, mbfl_no_encoding_wchar);
+			(*pd->deco_filter->filter_flush)(pd->deco_filter TSRMLS_CC);
+			(*pd->conv1_filter->filter_flush)(pd->conv1_filter TSRMLS_CC);
+			mbfl_convert_filter_reset(pd->conv1_filter, mbfl_no_encoding_ascii, mbfl_no_encoding_wchar TSRMLS_CC);
 			pd->status = 7;
 		} else {
-			(*pd->deco_filter->filter_function)(0x3f, pd->deco_filter);
+			(*pd->deco_filter->filter_function)(0x3f, pd->deco_filter TSRMLS_CC);
 			if (c != 0x3f) {		/* ? */
-				(*pd->deco_filter->filter_function)(c, pd->deco_filter);
+				(*pd->deco_filter->filter_function)(c, pd->deco_filter TSRMLS_CC);
 				pd->status = 5;
 			}
 		}
@@ -7875,12 +9290,12 @@ mime_header_decoder_collector(int c, void* data)
 		if (c == 0x0d || c == 0x0a) {	/* CR LF */
 			pd->status = 8;
 		} else {
-			mbfl_memory_device_output(c, &pd->tmpdev);
+			mbfl_memory_device_output(c, &pd->tmpdev TSRMLS_CC);
 			if (c == 0x3d) {		/* = */
 				pd->status = 1;
 			} else if (c != 0x20 && c != 0x09) {		/* not space */
-				mbfl_convert_filter_devcat(pd->conv1_filter, &pd->tmpdev);
-				mbfl_memory_device_reset(&pd->tmpdev);
+				mbfl_convert_filter_devcat(pd->conv1_filter, &pd->tmpdev TSRMLS_CC);
+				mbfl_memory_device_reset(&pd->tmpdev TSRMLS_CC);
 				pd->status = 0;
 			}
 		}
@@ -7890,17 +9305,17 @@ mime_header_decoder_collector(int c, void* data)
 		if (c != 0x0d && c != 0x0a && c != 0x20 && c != 0x09) {
 			if (c == 0x3d) {		/* = */
 				if (pd->status == 8) {
-					mbfl_memory_device_output(0x20, &pd->tmpdev);	/* SPACE */
+					mbfl_memory_device_output(0x20, &pd->tmpdev TSRMLS_CC);	/* SPACE */
 				} else {
-					(*pd->conv1_filter->filter_function)(0x20, pd->conv1_filter);
+					(*pd->conv1_filter->filter_function)(0x20, pd->conv1_filter TSRMLS_CC);
 				}
-				mbfl_memory_device_output(c, &pd->tmpdev);
+				mbfl_memory_device_output(c, &pd->tmpdev TSRMLS_CC);
 				pd->status = 1;
 			} else {
-				mbfl_memory_device_output(0x20, &pd->tmpdev);
-				mbfl_memory_device_output(c, &pd->tmpdev);
-				mbfl_convert_filter_devcat(pd->conv1_filter, &pd->tmpdev);
-				mbfl_memory_device_reset(&pd->tmpdev);
+				mbfl_memory_device_output(0x20, &pd->tmpdev TSRMLS_CC);
+				mbfl_memory_device_output(c, &pd->tmpdev TSRMLS_CC);
+				mbfl_convert_filter_devcat(pd->conv1_filter, &pd->tmpdev TSRMLS_CC);
+				mbfl_memory_device_reset(&pd->tmpdev TSRMLS_CC);
 				pd->status = 0;
 			}
 		}
@@ -7909,10 +9324,10 @@ mime_header_decoder_collector(int c, void* data)
 		if (c == 0x0d || c == 0x0a) {	/* CR LF */
 			pd->status = 9;
 		} else if (c == 0x3d) {		/* = */
-			mbfl_memory_device_output(c, &pd->tmpdev);
+			mbfl_memory_device_output(c, &pd->tmpdev TSRMLS_CC);
 			pd->status = 1;
 		} else {
-			(*pd->conv1_filter->filter_function)(c, pd->conv1_filter);
+			(*pd->conv1_filter->filter_function)(c, pd->conv1_filter TSRMLS_CC);
 		}
 		break;
 	}
@@ -7921,7 +9336,7 @@ mime_header_decoder_collector(int c, void* data)
 }
 
 mbfl_string *
-mime_header_decoder_result(struct mime_header_decoder_data *pd, mbfl_string *result)
+mime_header_decoder_result(struct mime_header_decoder_data *pd, mbfl_string *result TSRMLS_DC)
 {
 	switch (pd->status) {
 	case 1:
@@ -7931,23 +9346,23 @@ mime_header_decoder_result(struct mime_header_decoder_data *pd, mbfl_string *res
 	case 7:
 	case 8:
 	case 9:
-		mbfl_convert_filter_devcat(pd->conv1_filter, &pd->tmpdev);
+		mbfl_convert_filter_devcat(pd->conv1_filter, &pd->tmpdev TSRMLS_CC);
 		break;
 	case 5:
 	case 6:
-		(*pd->deco_filter->filter_flush)(pd->deco_filter);
-		(*pd->conv1_filter->filter_flush)(pd->conv1_filter);
+		(*pd->deco_filter->filter_flush)(pd->deco_filter TSRMLS_CC);
+		(*pd->conv1_filter->filter_flush)(pd->conv1_filter TSRMLS_CC);
 		break;
 	}
-	(*pd->conv2_filter->filter_flush)(pd->conv2_filter);
-	mbfl_memory_device_reset(&pd->tmpdev);
+	(*pd->conv2_filter->filter_flush)(pd->conv2_filter TSRMLS_CC);
+	mbfl_memory_device_reset(&pd->tmpdev TSRMLS_CC);
 	pd->status = 0;
 
-	return mbfl_memory_device_result(&pd->outdev, result);
+	return mbfl_memory_device_result(&pd->outdev, result TSRMLS_CC);
 }
 
 struct mime_header_decoder_data*
-mime_header_decoder_new(enum mbfl_no_encoding outcode)
+mime_header_decoder_new(enum mbfl_no_encoding outcode TSRMLS_DC)
 {
 	struct mime_header_decoder_data *pd;
 
@@ -7956,21 +9371,21 @@ mime_header_decoder_new(enum mbfl_no_encoding outcode)
 		return NULL;
 	}
 
-	mbfl_memory_device_init(&pd->outdev, 0, 0);
-	mbfl_memory_device_init(&pd->tmpdev, 0, 0);
+	mbfl_memory_device_init(&pd->outdev, 0, 0 TSRMLS_CC);
+	mbfl_memory_device_init(&pd->tmpdev, 0, 0 TSRMLS_CC);
 	pd->cspos = 0;
 	pd->status = 0;
 	pd->encoding = mbfl_no_encoding_pass;
 	pd->incode = mbfl_no_encoding_ascii;
 	pd->outcode = outcode;
 	/* charset convert filter */
-	pd->conv2_filter = mbfl_convert_filter_new(mbfl_no_encoding_wchar, pd->outcode, mbfl_memory_device_output, 0, &pd->outdev);
-	pd->conv1_filter = mbfl_convert_filter_new(pd->incode, mbfl_no_encoding_wchar, mbfl_filter_output_pipe, 0, pd->conv2_filter);
+	pd->conv2_filter = mbfl_convert_filter_new(mbfl_no_encoding_wchar, pd->outcode, mbfl_memory_device_output, 0, &pd->outdev TSRMLS_CC);
+	pd->conv1_filter = mbfl_convert_filter_new(pd->incode, mbfl_no_encoding_wchar, mbfl_filter_output_pipe, 0, pd->conv2_filter TSRMLS_CC);
 	/* decode filter */
-	pd->deco_filter = mbfl_convert_filter_new(pd->encoding, mbfl_no_encoding_8bit, mbfl_filter_output_pipe, 0, pd->conv1_filter);
+	pd->deco_filter = mbfl_convert_filter_new(pd->encoding, mbfl_no_encoding_8bit, mbfl_filter_output_pipe, 0, pd->conv1_filter TSRMLS_CC);
 
 	if (pd->conv1_filter == NULL || pd->conv2_filter == NULL || pd->deco_filter == NULL) {
-		mime_header_decoder_delete(pd);
+		mime_header_decoder_delete(pd TSRMLS_CC);
 		return NULL;
 	}
 
@@ -7978,29 +9393,29 @@ mime_header_decoder_new(enum mbfl_no_encoding outcode)
 }
 
 void
-mime_header_decoder_delete(struct mime_header_decoder_data *pd)
+mime_header_decoder_delete(struct mime_header_decoder_data *pd TSRMLS_DC)
 {
 	if (pd) {
-		mbfl_convert_filter_delete(pd->conv2_filter);
-		mbfl_convert_filter_delete(pd->conv1_filter);
-		mbfl_convert_filter_delete(pd->deco_filter);
-		mbfl_memory_device_clear(&pd->outdev);
-		mbfl_memory_device_clear(&pd->tmpdev);
+		mbfl_convert_filter_delete(pd->conv2_filter TSRMLS_CC);
+		mbfl_convert_filter_delete(pd->conv1_filter TSRMLS_CC);
+		mbfl_convert_filter_delete(pd->deco_filter TSRMLS_CC);
+		mbfl_memory_device_clear(&pd->outdev TSRMLS_CC);
+		mbfl_memory_device_clear(&pd->tmpdev TSRMLS_CC);
 		mbfl_free((void*)pd);
 	}
 }
 
 int
-mime_header_decoder_feed(int c, struct mime_header_decoder_data *pd)
+mime_header_decoder_feed(int c, struct mime_header_decoder_data *pd TSRMLS_DC)
 {
-	return mime_header_decoder_collector(c, pd);
+	return mime_header_decoder_collector(c, pd TSRMLS_CC);
 }
 
 mbfl_string *
 mbfl_mime_header_decode(
     mbfl_string *string,
     mbfl_string *result,
-    enum mbfl_no_encoding outcode)
+    enum mbfl_no_encoding outcode TSRMLS_DC)
 {
 	int n;
 	unsigned char *p;
@@ -8010,7 +9425,7 @@ mbfl_mime_header_decode(
 	result->no_language = string->no_language;
 	result->no_encoding = outcode;
 
-	pd = mime_header_decoder_new(outcode);
+	pd = mime_header_decoder_new(outcode TSRMLS_CC);
 	if (pd == NULL) {
 		return NULL;
 	}
@@ -8019,12 +9434,12 @@ mbfl_mime_header_decode(
 	n = string->len;
 	p = string->val;
 	while (n > 0) {
-		mime_header_decoder_collector(*p++, pd);
+		mime_header_decoder_collector(*p++, pd TSRMLS_CC);
 		n--;
 	}
 
-	result = mime_header_decoder_result(pd, result);
-	mime_header_decoder_delete(pd);
+	result = mime_header_decoder_result(pd, result TSRMLS_CC);
+	mime_header_decoder_delete(pd TSRMLS_CC);
 
 	return result;
 }
@@ -8044,7 +9459,7 @@ struct collector_htmlnumericentity_data {
 };
 
 static int
-collector_encode_htmlnumericentity(int c, void *data)
+collector_encode_htmlnumericentity(int c, void *data TSRMLS_DC)
 {
 	struct collector_htmlnumericentity_data *pc = (struct collector_htmlnumericentity_data *)data;
 	int f, n, s, r, d, size, *mapelm;
@@ -8057,8 +9472,8 @@ collector_encode_htmlnumericentity(int c, void *data)
 		if (c >= mapelm[0] && c <= mapelm[1]) {
 			s = (c + mapelm[2]) & mapelm[3];
 			if (s >= 0) {
-				(*pc->decoder->filter_function)(0x26, pc->decoder);		/* '&' */
-				(*pc->decoder->filter_function)(0x23, pc->decoder);		/* '#' */
+				(*pc->decoder->filter_function)(0x26, pc->decoder TSRMLS_CC);	/* '&' */
+				(*pc->decoder->filter_function)(0x23, pc->decoder TSRMLS_CC);	/* '#' */
 				r = 100000000;
 				s %= r;
 				while (r > 0) {
@@ -8066,15 +9481,15 @@ collector_encode_htmlnumericentity(int c, void *data)
 					if (d || f) {
 						f = 1;
 						s %= r;
-						(*pc->decoder->filter_function)(mbfl_hexchar_table[d], pc->decoder);
+						(*pc->decoder->filter_function)(mbfl_hexchar_table[d], pc->decoder TSRMLS_CC);
 					}
 					r /= 10;
 				}
 				if (!f) {
 					f = 1;
-					(*pc->decoder->filter_function)(mbfl_hexchar_table[0], pc->decoder);
+					(*pc->decoder->filter_function)(mbfl_hexchar_table[0], pc->decoder TSRMLS_CC);
 				}
-				(*pc->decoder->filter_function)(0x3b, pc->decoder);		/* ';' */
+				(*pc->decoder->filter_function)(0x3b, pc->decoder TSRMLS_CC);		/* ';' */
 			}
 		}
 		if (f) {
@@ -8083,14 +9498,14 @@ collector_encode_htmlnumericentity(int c, void *data)
 		n++;
 	}
 	if (!f) {
-		(*pc->decoder->filter_function)(c, pc->decoder);
+		(*pc->decoder->filter_function)(c, pc->decoder TSRMLS_CC);
 	}
 
 	return c;
 }
 
 static int
-collector_decode_htmlnumericentity(int c, void *data)
+collector_decode_htmlnumericentity(int c, void *data TSRMLS_DC)
 {
 	struct collector_htmlnumericentity_data *pc = (struct collector_htmlnumericentity_data *)data;
 	int f, n, s, r, d, size, *mapelm;
@@ -8101,8 +9516,8 @@ collector_decode_htmlnumericentity(int c, void *data)
 			pc->status = 2;
 		} else {
 			pc->status = 0;
-			(*pc->decoder->filter_function)(0x26, pc->decoder);		/* '&' */
-			(*pc->decoder->filter_function)(c, pc->decoder);
+			(*pc->decoder->filter_function)(0x26, pc->decoder TSRMLS_CC);		/* '&' */
+			(*pc->decoder->filter_function)(c, pc->decoder TSRMLS_CC);
 		}
 		break;
 	case 2:
@@ -8112,9 +9527,9 @@ collector_decode_htmlnumericentity(int c, void *data)
 			pc->digit = 1;
 		} else {
 			pc->status = 0;
-			(*pc->decoder->filter_function)(0x26, pc->decoder);		/* '&' */
-			(*pc->decoder->filter_function)(0x23, pc->decoder);		/* '#' */
-			(*pc->decoder->filter_function)(c, pc->decoder);
+			(*pc->decoder->filter_function)(0x26, pc->decoder TSRMLS_CC);		/* '&' */
+			(*pc->decoder->filter_function)(0x23, pc->decoder TSRMLS_CC);		/* '#' */
+			(*pc->decoder->filter_function)(c, pc->decoder TSRMLS_CC);
 		}
 		break;
 	case 3:
@@ -8141,9 +9556,9 @@ collector_decode_htmlnumericentity(int c, void *data)
 				d = s - mapelm[2];
 				if (d >= mapelm[0] && d <= mapelm[1]) {
 					f = 0;
-					(*pc->decoder->filter_function)(d, pc->decoder);
+					(*pc->decoder->filter_function)(d, pc->decoder TSRMLS_CC);
 					if (c != 0x3b) {	/* ';' */
-						(*pc->decoder->filter_function)(c, pc->decoder);
+						(*pc->decoder->filter_function)(c, pc->decoder TSRMLS_CC);
 					}
 					break;
 				}
@@ -8151,8 +9566,8 @@ collector_decode_htmlnumericentity(int c, void *data)
 			}
 		}
 		if (f) {
-			(*pc->decoder->filter_function)(0x26, pc->decoder);		/* '&' */
-			(*pc->decoder->filter_function)(0x23, pc->decoder);		/* '#' */
+			(*pc->decoder->filter_function)(0x26, pc->decoder TSRMLS_CC);		/* '&' */
+			(*pc->decoder->filter_function)(0x23, pc->decoder TSRMLS_CC);		/* '#' */
 			r = 1;
 			n = pc->digit;
 			while (n > 0) {
@@ -8165,16 +9580,16 @@ collector_decode_htmlnumericentity(int c, void *data)
 				d = s/r;
 				s %= r;
 				r /= 10;
-				(*pc->decoder->filter_function)(mbfl_hexchar_table[d], pc->decoder);
+				(*pc->decoder->filter_function)(mbfl_hexchar_table[d], pc->decoder TSRMLS_CC);
 			}
-			(*pc->decoder->filter_function)(c, pc->decoder);
+			(*pc->decoder->filter_function)(c, pc->decoder TSRMLS_CC);
 		}
 		break;
 	default:
 		if (c == 0x26) {	/* '&' */
 			pc->status = 1;
 		} else {
-			(*pc->decoder->filter_function)(c, pc->decoder);
+			(*pc->decoder->filter_function)(c, pc->decoder TSRMLS_CC);
 		}
 		break;
 	}
@@ -8188,7 +9603,7 @@ mbfl_html_numeric_entity(
     mbfl_string *result,
     int *convmap,
     int mapsize,
-    int type)
+    int type TSRMLS_DC)
 {
 	struct collector_htmlnumericentity_data pc;
 	mbfl_memory_device device;
@@ -8202,28 +9617,28 @@ mbfl_html_numeric_entity(
 	mbfl_string_init(result);
 	result->no_language = string->no_language;
 	result->no_encoding = string->no_encoding;
-	mbfl_memory_device_init(&device, string->len, 0);
+	mbfl_memory_device_init(&device, string->len, 0 TSRMLS_CC);
 
 	/* output code filter */
 	pc.decoder = mbfl_convert_filter_new(
 	    mbfl_no_encoding_wchar,
 	    string->no_encoding,
-	    mbfl_memory_device_output, 0, &device);
+	    mbfl_memory_device_output, 0, &device TSRMLS_CC);
 	/* wchar filter */
 	if (type == 0) {
 		encoder = mbfl_convert_filter_new(
 		    string->no_encoding,
 		    mbfl_no_encoding_wchar,
-		    collector_encode_htmlnumericentity, 0, &pc);
+		    collector_encode_htmlnumericentity, 0, &pc TSRMLS_CC);
 	} else {
 		encoder = mbfl_convert_filter_new(
 		    string->no_encoding,
 		    mbfl_no_encoding_wchar,
-		    collector_decode_htmlnumericentity, 0, &pc);
+		    collector_decode_htmlnumericentity, 0, &pc TSRMLS_CC);
 	}
 	if (pc.decoder == NULL || encoder == NULL) {
-		mbfl_convert_filter_delete(encoder);
-		mbfl_convert_filter_delete(pc.decoder);
+		mbfl_convert_filter_delete(encoder TSRMLS_CC);
+		mbfl_convert_filter_delete(pc.decoder TSRMLS_CC);
 		return NULL;
 	}
 	pc.status = 0;
@@ -8237,361 +9652,26 @@ mbfl_html_numeric_entity(
 	n = string->len;
 	if (p != NULL) {
 		while (n > 0) {
-			if ((*encoder->filter_function)(*p++, encoder) < 0) {
+			if ((*encoder->filter_function)(*p++, encoder TSRMLS_CC) < 0) {
 				break;
 			}
 			n--;
 		}
 	}
-	mbfl_convert_filter_flush(encoder);
-	mbfl_convert_filter_flush(pc.decoder);
-	result = mbfl_memory_device_result(&device, result);
-	mbfl_convert_filter_delete(encoder);
-	mbfl_convert_filter_delete(pc.decoder);
+	mbfl_convert_filter_flush(encoder TSRMLS_CC);
+	mbfl_convert_filter_flush(pc.decoder TSRMLS_CC);
+	result = mbfl_memory_device_result(&device, result TSRMLS_CC);
+	mbfl_convert_filter_delete(encoder TSRMLS_CC);
+	mbfl_convert_filter_delete(pc.decoder TSRMLS_CC);
 
 	return result;
 }
 
-
-
-
+#endif	/* HAVE_MBSTRING */
 
 /*
- * Unicode table
+ * Local variables:
+ * tab-width: 4
+ * c-basic-offset: 4
+ * End:
  */
-
-
-/* Windows CodePage 1252 - it's the same as iso-8859-1 but
- * defines extra symbols in the range 0x80-0x9f.
- * This table differs from the rest of the unicode tables below
- * as it only covers this range, while the rest cover 0xa0 onwards */
-static const unsigned short cp1252_ucs_table[] = {
- 0xfffe,0xfffe,0x201a,0x0192,0x201e,0x2026,0x2020,0x2021,
- 0x02c6,0x2030,0x0160,0x2039,0x0152,0xfffe,0xfffe,0xfffe,
- 0xfffe,0x2018,0x2019,0x201c,0x201d,0x2022,0x2013,0x02dc,
- 0x2122,0x0161,0x203a,0x0153,0xfffe,0xfffe,0x0178
-};
-
-
-static const unsigned short iso8859_2_ucs_table[] = {
- 0x00A0,0x0104,0x02D8,0x0141,0x00A4,0x013D,0x015A,0x00A7,
- 0x00A8,0x0160,0x015E,0x0164,0x0179,0x00AD,0x017D,0x017B,
- 0x00B0,0x0105,0x02DB,0x0142,0x00B4,0x013E,0x015B,0x02C7,
- 0x00B8,0x0161,0x015F,0x0165,0x017A,0x02DD,0x017E,0x017C,
- 0x0154,0x00C1,0x00C2,0x0102,0x00C4,0x0139,0x0106,0x00C7,
- 0x010C,0x00C9,0x0118,0x00CB,0x011A,0x00CD,0x00CE,0x010E,
- 0x0110,0x0143,0x0147,0x00D3,0x00D4,0x0150,0x00D6,0x00D7,
- 0x0158,0x016E,0x00DA,0x0170,0x00DC,0x00DD,0x0162,0x00DF,
- 0x0155,0x00E1,0x00E2,0x0103,0x00E4,0x013A,0x0107,0x00E7,
- 0x010D,0x00E9,0x0119,0x00EB,0x011B,0x00ED,0x00EE,0x010F,
- 0x0111,0x0144,0x0148,0x00F3,0x00F4,0x0151,0x00F6,0x00F7,
- 0x0159,0x016F,0x00FA,0x0171,0x00FC,0x00FD,0x0163,0x02D9
-};
-
-
-static const unsigned short iso8859_3_ucs_table[] = {
- 0x00A0,0x0126,0x02D8,0x00A3,0x00A4,0x0000,0x0124,0x00A7,
- 0x00A8,0x0130,0x015E,0x011E,0x0134,0x00AD,0x0000,0x017B,
- 0x00B0,0x0127,0x00B2,0x00B3,0x00B4,0x00B5,0x0125,0x00B7,
- 0x00B8,0x0131,0x015F,0x011F,0x0135,0x00BD,0x0000,0x017C,
- 0x00C0,0x00C1,0x00C2,0x0000,0x00C4,0x010A,0x0108,0x00C7,
- 0x00C8,0x00C9,0x00CA,0x00CB,0x00CC,0x00CD,0x00CE,0x00CF,
- 0x0000,0x00D1,0x00D2,0x00D3,0x00D4,0x0120,0x00D6,0x00D7,
- 0x011C,0x00D9,0x00DA,0x00DB,0x00DC,0x016C,0x015C,0x00DF,
- 0x00E0,0x00E1,0x00E2,0x0000,0x00E4,0x010B,0x0109,0x00E7,
- 0x00E8,0x00E9,0x00EA,0x00EB,0x00EC,0x00ED,0x00EE,0x00EF,
- 0x0000,0x00F1,0x00F2,0x00F3,0x00F4,0x0121,0x00F6,0x00F7,
- 0x011D,0x00F9,0x00FA,0x00FB,0x00FC,0x016D,0x015D,0x02D9
-};
-
-
-static const unsigned short iso8859_4_ucs_table[] = {
- 0x00A0,0x0104,0x0138,0x0156,0x00A4,0x0128,0x013B,0x00A7,
- 0x00A8,0x0160,0x0112,0x0122,0x0166,0x00AD,0x017D,0x00AF,
- 0x00B0,0x0105,0x02DB,0x0157,0x00B4,0x0129,0x013C,0x02C7,
- 0x00B8,0x0161,0x0113,0x0123,0x0167,0x014A,0x017E,0x014B,
- 0x0100,0x00C1,0x00C2,0x00C3,0x00C4,0x00C5,0x00C6,0x012E,
- 0x010C,0x00C9,0x0118,0x00CB,0x0116,0x00CD,0x00CE,0x012A,
- 0x0110,0x0145,0x014C,0x0136,0x00D4,0x00D5,0x00D6,0x00D7,
- 0x00D8,0x0172,0x00DA,0x00DB,0x00DC,0x0168,0x016A,0x00DF,
- 0x0101,0x00E1,0x00E2,0x00E3,0x00E4,0x00E5,0x00E6,0x012F,
- 0x010D,0x00E9,0x0119,0x00EB,0x0117,0x00ED,0x00EE,0x012B,
- 0x0111,0x0146,0x014D,0x0137,0x00F4,0x00F5,0x00F6,0x00F7,
- 0x00F8,0x0173,0x00FA,0x00FB,0x00FC,0x0169,0x016B,0x02D9
-};
-
-
-static const unsigned short iso8859_5_ucs_table[] = {
- 0x00A0,0x0401,0x0402,0x0403,0x0404,0x0405,0x0406,0x0407,
- 0x0408,0x0409,0x040A,0x040B,0x040C,0x00AD,0x040E,0x040F,
- 0x0410,0x0411,0x0412,0x0413,0x0414,0x0415,0x0416,0x0417,
- 0x0418,0x0419,0x041A,0x041B,0x041C,0x041D,0x041E,0x041F,
- 0x0420,0x0421,0x0422,0x0423,0x0424,0x0425,0x0426,0x0427,
- 0x0428,0x0429,0x042A,0x042B,0x042C,0x042D,0x042E,0x042F,
- 0x0430,0x0431,0x0432,0x0433,0x0434,0x0435,0x0436,0x0437,
- 0x0438,0x0439,0x043A,0x043B,0x043C,0x043D,0x043E,0x043F,
- 0x0440,0x0441,0x0442,0x0443,0x0444,0x0445,0x0446,0x0447,
- 0x0448,0x0449,0x044A,0x044B,0x044C,0x044D,0x044E,0x044F,
- 0x2116,0x0451,0x0452,0x0453,0x0454,0x0455,0x0456,0x0457,
- 0x0458,0x0459,0x045A,0x045B,0x045C,0x00A7,0x045E,0x045F
-};
-
-
-static const unsigned short iso8859_6_ucs_table[] = {
- 0x00A0,0x0000,0x0000,0x0000,0x00A4,0x0000,0x0000,0x0000,
- 0x0000,0x0000,0x0000,0x0000,0x060C,0x00AD,0x0000,0x0000,
- 0x0000,0x0000,0x0000,0x0000,0x0000,0x0000,0x0000,0x0000,
- 0x0000,0x0000,0x0000,0x061B,0x0000,0x0000,0x0000,0x061F,
- 0x0000,0x0621,0x0622,0x0623,0x0624,0x0625,0x0626,0x0627,
- 0x0628,0x0629,0x062A,0x062B,0x062C,0x062D,0x062E,0x062F,
- 0x0630,0x0631,0x0632,0x0633,0x0634,0x0635,0x0636,0x0637,
- 0x0638,0x0639,0x063A,0x0000,0x0000,0x0000,0x0000,0x0000,
- 0x0640,0x0641,0x0642,0x0643,0x0644,0x0645,0x0646,0x0647,
- 0x0648,0x0649,0x064A,0x064B,0x064C,0x064D,0x064E,0x064F,
- 0x0650,0x0651,0x0652,0x0000,0x0000,0x0000,0x0000,0x0000,
- 0x0000,0x0000,0x0000,0x0000,0x060C,0x00AD,0x0000,0x0000
-};
-
-
-static const unsigned short iso8859_7_ucs_table[] = {
- 0x00A0,0x2018,0x2019,0x00A3,0x0000,0x0000,0x00A6,0x00A7,
- 0x00A8,0x00A9,0x0000,0x00AB,0x00AC,0x00AD,0x0000,0x2015,
- 0x00B0,0x00B1,0x00B2,0x00B3,0x0384,0x0385,0x0386,0x00B7,
- 0x0388,0x0389,0x038A,0x00BB,0x038C,0x00BD,0x038E,0x038F,
- 0x0390,0x0391,0x0392,0x0393,0x0394,0x0395,0x0396,0x0397,
- 0x0398,0x0399,0x039A,0x039B,0x039C,0x039D,0x039E,0x039F,
- 0x03A0,0x03A1,0x0000,0x03A3,0x03A4,0x03A5,0x03A6,0x03A7,
- 0x03A8,0x03A9,0x03AA,0x03AB,0x03AC,0x03AD,0x03AE,0x03AF,
- 0x03B0,0x03B1,0x03B2,0x03B3,0x03B4,0x03B5,0x03B6,0x03B7,
- 0x03B8,0x03B9,0x03BA,0x03BB,0x03BC,0x03BD,0x03BE,0x03BF,
- 0x03C0,0x03C1,0x03C2,0x03C3,0x03C4,0x03C5,0x03C6,0x03C7,
- 0x03C8,0x03C9,0x03CA,0x03CB,0x03CC,0x03CD,0x03CE,0x0000
-};
-
-
-static const unsigned short iso8859_8_ucs_table[] = {
- 0x00A0,0x0000,0x00A2,0x00A3,0x00A4,0x00A5,0x00A6,0x00A7,
- 0x00A8,0x00A9,0x00D7,0x00AB,0x00AC,0x00AD,0x00AE,0x203E,
- 0x00B0,0x00B1,0x00B2,0x00B3,0x00B4,0x00B5,0x00B6,0x00B7,
- 0x00B8,0x00B9,0x00F7,0x00BB,0x00BC,0x00BD,0x00BE,0x0000,
- 0x0000,0x0000,0x0000,0x0000,0x0000,0x0000,0x0000,0x0000,
- 0x0000,0x0000,0x0000,0x0000,0x0000,0x0000,0x0000,0x0000,
- 0x0000,0x0000,0x0000,0x0000,0x0000,0x0000,0x0000,0x0000,
- 0x0000,0x0000,0x0000,0x0000,0x0000,0x0000,0x0000,0x2017,
- 0x05D0,0x05D1,0x05D2,0x05D3,0x05D4,0x05D5,0x05D6,0x05D7,
- 0x05D8,0x05D9,0x05DA,0x05DB,0x05DC,0x05DD,0x05DE,0x05DF,
- 0x05E0,0x05E1,0x05E2,0x05E3,0x05E4,0x05E5,0x05E6,0x05E7,
- 0x05E8,0x05E9,0x05EA,0x0000,0x0000,0x0000,0x0000,0x0000
-};
-
-
-static const unsigned short iso8859_9_ucs_table[] = {
- 0x00A0,0x00A1,0x00A2,0x00A3,0x00A4,0x00A5,0x00A6,0x00A7,
- 0x00A8,0x00A9,0x00AA,0x00AB,0x00AC,0x00AD,0x00AE,0x00AF,
- 0x00B0,0x00B1,0x00B2,0x00B3,0x00B4,0x00B5,0x00B6,0x00B7,
- 0x00B8,0x00B9,0x00BA,0x00BB,0x00BC,0x00BD,0x00BE,0x00BF,
- 0x00C0,0x00C1,0x00C2,0x00C3,0x00C4,0x00C5,0x00C6,0x00C7,
- 0x00C8,0x00C9,0x00CA,0x00CB,0x00CC,0x00CD,0x00CE,0x00CF,
- 0x011E,0x00D1,0x00D2,0x00D3,0x00D4,0x00D5,0x00D6,0x00D7,
- 0x00D8,0x00D9,0x00DA,0x00DB,0x00DC,0x0130,0x015E,0x00DF,
- 0x00E0,0x00E1,0x00E2,0x00E3,0x00E4,0x00E5,0x00E6,0x00E7,
- 0x00E8,0x00E9,0x00EA,0x00EB,0x00EC,0x00ED,0x00EE,0x00EF,
- 0x011F,0x00F1,0x00F2,0x00F3,0x00F4,0x00F5,0x00F6,0x00F7,
- 0x00F8,0x00F9,0x00FA,0x00FB,0x00FC,0x0131,0x015F,0x00FF
-};
-
-
-static const unsigned short iso8859_10_ucs_table[] = {
- 0x00A0,0x0104,0x0112,0x0122,0x0124,0x0128,0x0136,0x00A7,
- 0x013B,0x0110,0x0160,0x0166,0x017D,0x00AD,0x016A,0x014A,
- 0x00B0,0x0105,0x0113,0x0123,0x012B,0x0129,0x0137,0x00B7,
- 0x013C,0x0111,0x0161,0x0167,0x017E,0x2015,0x016B,0x014B,
- 0x0100,0x00C1,0x00C2,0x00C3,0x00C4,0x00C5,0x00C6,0x012E,
- 0x010C,0x00C9,0x0118,0x00CB,0x0116,0x00CD,0x00CE,0x00CF,
- 0x00D0,0x0145,0x014C,0x00D3,0x00D4,0x00D5,0x00D6,0x0168,
- 0x00D8,0x0172,0x00DA,0x00DB,0x00DC,0x00DD,0x00DE,0x00DF,
- 0x0101,0x00E1,0x00E2,0x00E3,0x00E4,0x00E5,0x00E6,0x012F,
- 0x010D,0x00E9,0x0119,0x00EB,0x0117,0x00ED,0x00EE,0x00EF,
- 0x00F0,0x0146,0x014D,0x00F3,0x00F4,0x00F5,0x00F6,0x0169,
- 0x00F8,0x0173,0x00FA,0x00FB,0x00FC,0x00FD,0x00FE,0x0138
-};
-
-
-static const unsigned short iso8859_13_ucs_table[] = {
- 0x00A0,0x201D,0x00A2,0x00A3,0x00A4,0x201E,0x00A6,0x00A7,
- 0x00D8,0x00A9,0x0156,0x00AB,0x00AC,0x00AD,0x00AE,0x00C6,
- 0x00B0,0x00B1,0x00B2,0x00B3,0x201C,0x00B5,0x00B6,0x00B7,
- 0x00F8,0x00B9,0x0157,0x00BB,0x00BC,0x00BD,0x00BE,0x00E6,
- 0x0104,0x012E,0x0100,0x0106,0x00C4,0x00C5,0x0118,0x0112,
- 0x010C,0x00C9,0x0179,0x0116,0x0122,0x0136,0x012A,0x013B,
- 0x0160,0x0143,0x0145,0x00D3,0x014C,0x00D5,0x00D6,0x00D7,
- 0x0172,0x0141,0x015A,0x016A,0x00DC,0x017B,0x017D,0x00DF,
- 0x0105,0x012F,0x0101,0x0107,0x00E4,0x00E5,0x0119,0x0113,
- 0x010D,0x00E9,0x017A,0x0117,0x0123,0x0137,0x012B,0x013C,
- 0x0161,0x0144,0x0146,0x00F3,0x014D,0x00F5,0x00F6,0x00F7,
- 0x0173,0x0142,0x015B,0x016B,0x00FC,0x017C,0x017E,0x2019
-};
-
-
-static const unsigned short iso8859_14_ucs_table[] = {
- 0x00A0,0x1E02,0x1E03,0x00A3,0x010A,0x010B,0x1E0A,0x00A7,
- 0x1E80,0x00A9,0x1E82,0x1E0B,0x1EF2,0x00AD,0x00AE,0x0178,
- 0x1E1E,0x1E1F,0x0120,0x0121,0x1E40,0x1E41,0x00B6,0x1E56,
- 0x1E81,0x1E57,0x1E83,0x1E60,0x1EF3,0x1E84,0x1E85,0x1E61,
- 0x00C0,0x00C1,0x00C2,0x00C3,0x00C4,0x00C5,0x00C6,0x00C7,
- 0x00C8,0x00C9,0x00CA,0x00CB,0x00CC,0x00CD,0x00CE,0x00CF,
- 0x0174,0x00D1,0x00D2,0x00D3,0x00D4,0x00D5,0x00D6,0x1E6A,
- 0x00D8,0x00D9,0x00DA,0x00DB,0x00DC,0x00DD,0x0176,0x00DF,
- 0x00E0,0x00E1,0x00E2,0x00E3,0x00E4,0x00E5,0x00E6,0x00E7,
- 0x00E8,0x00E9,0x00EA,0x00EB,0x00EC,0x00ED,0x00EE,0x00EF,
- 0x0175,0x00F1,0x00F2,0x00F3,0x00F4,0x00F5,0x00F6,0x1E6B,
- 0x00F8,0x00F9,0x00FA,0x00FB,0x00FC,0x00FD,0x0177,0x00FF
-};
-
-
-static const unsigned short iso8859_15_ucs_table[] = {
- 0x00A0,0x00A1,0x00A2,0x00A3,0x20AC,0x00A5,0x0160,0x00A7,
- 0x0161,0x00A9,0x00AA,0x00AB,0x00AC,0x00AD,0x00AE,0x00AF,
- 0x00B0,0x00B1,0x00B2,0x00B3,0x017D,0x00B5,0x00B6,0x00B7,
- 0x017E,0x00B9,0x00BA,0x00BB,0x0152,0x0153,0x0178,0x00BF,
- 0x00C0,0x00C1,0x00C2,0x00C3,0x00C4,0x00C5,0x00C6,0x00C7,
- 0x00C8,0x00C9,0x00CA,0x00CB,0x00CC,0x00CD,0x00CE,0x00CF,
- 0x00D0,0x00D1,0x00D2,0x00D3,0x00D4,0x00D5,0x00D6,0x00D7,
- 0x00D8,0x00D9,0x00DA,0x00DB,0x00DC,0x00DD,0x00DE,0x00DF,
- 0x00E0,0x00E1,0x00E2,0x00E3,0x00E4,0x00E5,0x00E6,0x00E7,
- 0x00E8,0x00E9,0x00EA,0x00EB,0x00EC,0x00ED,0x00EE,0x00EF,
- 0x00F0,0x00F1,0x00F2,0x00F3,0x00F4,0x00F5,0x00F6,0x00F7,
- 0x00F8,0x00F9,0x00FA,0x00FB,0x00FC,0x00FD,0x00FE,0x00FF
-};
-
-
-static const unsigned char mbfl_charprop_table[] = {
-/* NUL	0 */	MBFL_CHP_CTL | MBFL_CHP_MMHQENC,
-/* SCH	1 */	MBFL_CHP_CTL | MBFL_CHP_MMHQENC ,
-/* SIX	2 */	MBFL_CHP_CTL | MBFL_CHP_MMHQENC ,
-/* EIX	3 */	MBFL_CHP_CTL | MBFL_CHP_MMHQENC ,
-/* EOT	4 */	MBFL_CHP_CTL | MBFL_CHP_MMHQENC ,
-/* ENQ	5 */	MBFL_CHP_CTL | MBFL_CHP_MMHQENC ,
-/* ACK	6 */	MBFL_CHP_CTL | MBFL_CHP_MMHQENC ,
-/* BEL	7 */	MBFL_CHP_CTL | MBFL_CHP_MMHQENC ,
-/* BS	8 */	MBFL_CHP_CTL | MBFL_CHP_MMHQENC ,
-/* HI	9 */	MBFL_CHP_CTL | MBFL_CHP_MMHQENC ,
-/* LF	10 */	MBFL_CHP_CTL | MBFL_CHP_MMHQENC ,
-/* VI	11 */	MBFL_CHP_CTL | MBFL_CHP_MMHQENC ,
-/* FF	12 */	MBFL_CHP_CTL | MBFL_CHP_MMHQENC ,
-/* CR	13 */	MBFL_CHP_CTL | MBFL_CHP_MMHQENC ,
-/* SO	14 */	MBFL_CHP_CTL | MBFL_CHP_MMHQENC ,
-/* SI	15 */	MBFL_CHP_CTL | MBFL_CHP_MMHQENC ,
-/* SLE	16 */	MBFL_CHP_CTL | MBFL_CHP_MMHQENC ,
-/* CSI	17 */	MBFL_CHP_CTL | MBFL_CHP_MMHQENC ,
-/* DC2	18 */	MBFL_CHP_CTL | MBFL_CHP_MMHQENC ,
-/* DC3	19 */	MBFL_CHP_CTL | MBFL_CHP_MMHQENC ,
-/* DC4	20 */	MBFL_CHP_CTL | MBFL_CHP_MMHQENC ,
-/* NAK	21 */	MBFL_CHP_CTL | MBFL_CHP_MMHQENC ,
-/* SYN	22 */	MBFL_CHP_CTL | MBFL_CHP_MMHQENC ,
-/* EIB	23 */	MBFL_CHP_CTL | MBFL_CHP_MMHQENC ,
-/* CAN	24 */	MBFL_CHP_CTL | MBFL_CHP_MMHQENC ,
-/* EM	25 */	MBFL_CHP_CTL | MBFL_CHP_MMHQENC ,
-/* SLB	26 */	MBFL_CHP_CTL | MBFL_CHP_MMHQENC ,
-/* ESC	27 */	MBFL_CHP_CTL | MBFL_CHP_MMHQENC ,
-/* FS	28 */	MBFL_CHP_CTL | MBFL_CHP_MMHQENC ,
-/* GS	29 */	MBFL_CHP_CTL | MBFL_CHP_MMHQENC ,
-/* RS	30 */	MBFL_CHP_CTL | MBFL_CHP_MMHQENC ,
-/* US	31 */	MBFL_CHP_CTL | MBFL_CHP_MMHQENC ,
-/* SP	32 */	MBFL_CHP_MMHQENC ,
-/* !	33 */	0 ,
-/* "	34 */	MBFL_CHP_MMHQENC | MBFL_CHP_MSPECIAL ,
-/* #	35 */	MBFL_CHP_MMHQENC ,
-/* $	36 */	MBFL_CHP_MMHQENC ,
-/* %	37 */	MBFL_CHP_MMHQENC ,
-/* &	38 */	MBFL_CHP_MMHQENC ,
-/* '	39 */	MBFL_CHP_MMHQENC ,
-/* (	40 */	MBFL_CHP_MMHQENC | MBFL_CHP_MSPECIAL ,
-/* )	41 */	MBFL_CHP_MMHQENC | MBFL_CHP_MSPECIAL ,
-/* *	42 */	0 ,
-/* +	43 */	0 ,
-/* ,	44 */	MBFL_CHP_MMHQENC | MBFL_CHP_MSPECIAL ,
-/* -	45 */	0 ,
-/* .	46 */	MBFL_CHP_MMHQENC | MBFL_CHP_MSPECIAL ,
-/* /	47 */	0 ,
-/* 0	48 */	MBFL_CHP_DIGIT | MBFL_CHP_MMHQENC ,
-/* 1	49 */	MBFL_CHP_DIGIT | MBFL_CHP_MMHQENC ,
-/* 2	50 */	MBFL_CHP_DIGIT | MBFL_CHP_MMHQENC ,
-/* 3	51 */	MBFL_CHP_DIGIT | MBFL_CHP_MMHQENC ,
-/* 4	52 */	MBFL_CHP_DIGIT | MBFL_CHP_MMHQENC ,
-/* 5	53 */	MBFL_CHP_DIGIT | MBFL_CHP_MMHQENC ,
-/* 6	54 */	MBFL_CHP_DIGIT | MBFL_CHP_MMHQENC ,
-/* 7	55 */	MBFL_CHP_DIGIT | MBFL_CHP_MMHQENC ,
-/* 8	56 */	MBFL_CHP_DIGIT | MBFL_CHP_MMHQENC ,
-/* 9	57 */	MBFL_CHP_DIGIT | MBFL_CHP_MMHQENC ,
-/* :	58 */	MBFL_CHP_MMHQENC | MBFL_CHP_MSPECIAL ,
-/* ;	59 */	MBFL_CHP_MMHQENC | MBFL_CHP_MSPECIAL ,
-/* <	60 */	MBFL_CHP_MMHQENC | MBFL_CHP_MSPECIAL ,
-/* =	61 */	0 ,
-/* >	62 */	MBFL_CHP_MMHQENC | MBFL_CHP_MSPECIAL ,
-/* ?	63 */	MBFL_CHP_MMHQENC ,
-/* @	64 */	MBFL_CHP_MMHQENC | MBFL_CHP_MSPECIAL ,
-/* A	65 */	MBFL_CHP_UALPHA ,
-/* B	66 */	MBFL_CHP_UALPHA ,
-/* C	67 */	MBFL_CHP_UALPHA ,
-/* D	68 */	MBFL_CHP_UALPHA ,
-/* E	69 */	MBFL_CHP_UALPHA ,
-/* F	70 */	MBFL_CHP_UALPHA ,
-/* G	71 */	MBFL_CHP_UALPHA ,
-/* H	72 */	MBFL_CHP_UALPHA ,
-/* I	73 */	MBFL_CHP_UALPHA ,
-/* J	74 */	MBFL_CHP_UALPHA ,
-/* K	75 */	MBFL_CHP_UALPHA ,
-/* L	76 */	MBFL_CHP_UALPHA ,
-/* M	77 */	MBFL_CHP_UALPHA ,
-/* N	78 */	MBFL_CHP_UALPHA ,
-/* O	79 */	MBFL_CHP_UALPHA ,
-/* P	80 */	MBFL_CHP_UALPHA ,
-/* Q	81 */	MBFL_CHP_UALPHA ,
-/* R	82 */	MBFL_CHP_UALPHA ,
-/* S	83 */	MBFL_CHP_UALPHA ,
-/* T	84 */	MBFL_CHP_UALPHA ,
-/* U	85 */	MBFL_CHP_UALPHA ,
-/* V	86 */	MBFL_CHP_UALPHA ,
-/* W	87 */	MBFL_CHP_UALPHA ,
-/* X	88 */	MBFL_CHP_UALPHA ,
-/* Y	89 */	MBFL_CHP_UALPHA ,
-/* Z	90 */	MBFL_CHP_UALPHA ,
-/* [	91 */	MBFL_CHP_MMHQENC | MBFL_CHP_MSPECIAL ,
-/* \	92 */	MBFL_CHP_MMHQENC | MBFL_CHP_MSPECIAL ,
-/* ]	93 */	MBFL_CHP_MMHQENC | MBFL_CHP_MSPECIAL ,
-/* ^	94 */	MBFL_CHP_MMHQENC ,
-/* _	95 */	MBFL_CHP_MMHQENC ,
-/* `	96 */	MBFL_CHP_MMHQENC ,
-/* a	97 */	MBFL_CHP_LALPHA ,
-/* b	98 */	MBFL_CHP_LALPHA ,
-/* c	99 */	MBFL_CHP_LALPHA ,
-/* d	100 */	MBFL_CHP_LALPHA ,
-/* e	101 */	MBFL_CHP_LALPHA ,
-/* f	102 */	MBFL_CHP_LALPHA ,
-/* g	103 */	MBFL_CHP_LALPHA ,
-/* h	104 */	MBFL_CHP_LALPHA ,
-/* i	105 */	MBFL_CHP_LALPHA ,
-/* j	106 */	MBFL_CHP_LALPHA ,
-/* k	107 */	MBFL_CHP_LALPHA ,
-/* l	108 */	MBFL_CHP_LALPHA ,
-/* m	109 */	MBFL_CHP_LALPHA ,
-/* n	110 */	MBFL_CHP_LALPHA ,
-/* o	111 */	MBFL_CHP_LALPHA ,
-/* p	112 */	MBFL_CHP_LALPHA ,
-/* q	113 */	MBFL_CHP_LALPHA ,
-/* r	114 */	MBFL_CHP_LALPHA ,
-/* s	115 */	MBFL_CHP_LALPHA ,
-/* t	116 */	MBFL_CHP_LALPHA ,
-/* u	117 */	MBFL_CHP_LALPHA ,
-/* v	118 */	MBFL_CHP_LALPHA ,
-/* w	119 */	MBFL_CHP_LALPHA ,
-/* x	120 */	MBFL_CHP_LALPHA ,
-/* y	121 */	MBFL_CHP_LALPHA ,
-/* z	122 */	MBFL_CHP_LALPHA ,
-/* {	123 */	MBFL_CHP_MMHQENC ,
-/* |	124 */	MBFL_CHP_MMHQENC ,
-/* }	125 */	MBFL_CHP_MMHQENC ,
-/* ~	126 */	MBFL_CHP_MMHQENC ,
-/* DEL	127 */	MBFL_CHP_MMHQENC
-};

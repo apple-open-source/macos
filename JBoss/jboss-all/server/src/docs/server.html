@@ -1,0 +1,46 @@
+<HTML>
+<HEAD>
+<TITLE>
+jBoss 2.0 Server Documentation
+</TITLE>
+<LINK REL ="stylesheet" TYPE="text/css" HREF="styles.css" TITLE="Style">
+</HEAD>
+<BODY BGCOLOR="white">
+<H1>jBoss 2.0 Server</H1>
+<H2 >Description</H2>
+<P>This document contains general information about the usage and administration of the jBoss server.
+</P>
+
+<H2 >Documentation</H2>
+<H3 >Directory structure</H3>
+<P>The jBoss distribution has the following directory structure.
+</P>
+<UL>
+<LI><B>bin</B> - Contains the run.jar bootstrap executable JAR, and various OS-specifc scripts that can be used to invoke it.</LI>
+<LI><B>conf</B> - Contains the configuration files of jBoss and other components such as databases.</LI>
+<LI><B>db</B> - A directory which may be used to store database files. Components wishing to use this directory should locate the "db.properties" resource, which is available on the classpath. If another directory is to be used then move this file to that directory, and add it to classpath</LI>
+<LI><B>deploy</B> - Directory in which EJB-JAR files can be placed for deployment.</LI>
+<LI><B>docs</B> - Contains the documentation for the jBoss server.</LI>
+<LI><B>docs/api</B> - Contains the Javadoc documentation for the jBoss server.</LI>
+<LI><B>lib</B> - Contains the JMX files used by the bootstrap JAR.</LI>
+<LI><B>lib/ext</B> - Contains any additional JAR-files that should be used by the server. JAR's placed here are automatically added to the classpath of the server. No additional configuration steps are needed besides placing a JAR here.</LI>
+<LI><B>lib</B> - A directory which may be used to store log files. Components wishing to use this directory should locate the "log.properties" resource, which is available on the classpath. If another directory is to be used then move this file to that directory, and add it to classpath</LI>
+<LI><B>tmp</B> - A directory which may be used to store temporary files. Components wishing to use this directory should locate the "tmp.properties" resource, which is available on the classpath. If another directory is to be used then move this file to that directory, and add it to classpath</LI>
+</UL>
+</P>
+<H3 >JMX</H3>
+<P>jBoss 2.0 uses JMX (<a href="http://java.sun.com/products/JavaManagement/index.html">Java Management eXtension</a>) for management of the server. All JMX documentation applies to the jBoss server. The server is created by using a JMX MLet, which loads the configuration from the /conf/jboss.conf file. For more information about the structure of this file, please see the JMX documentation.
+</P>
+<H4 >Logging using JMX-notifications</H4>
+<P>
+jBoss uses the JMX Notification mechanism to perform logging. The org.jboss.logging.Logger component is used to publish these notifications. Log consumers that wishes to output log messages should subscribe to the logging component as is defined in the JMX specification. See the org.jboss.logging.FileLogging class for an example of this. Components wishing to log messages should use the org.jboss.logging.Log component to do this. Any messages sent to System.out or System.err will be redirected to this logging facility of the ConsoleLogging component is installed. See the various provided jBoss components for examples of how to use logging.
+
+<H3 >Classpaths</H3>
+<P>
+Classpaths in jBoss are managed as defined by the JMX specification, i.e. by specifying which JAR-files that each component wishes to use in the MLet configuration file. However, it is possible to extend the classpath automatically by using the org.jboss.util.ClassPathExtension component. This adds either a single JAR, or all JAR's in a directory to the MLet classloader, allowing the components loaded by it to access these JAR's. The default jBoss configuration adds a ClassPathExtension component which adds all JAR's located in the /lib/ext directory. Placing a JAR there will hence add it to the server classpath.
+</P>
+<H3 >Configuration files</H3>
+<P>jBoss server configuration is loaded from the /conf directory. The jboss.conf file is used by the run.jar bootstrap to instantiate and configure JMX MBeans as defined by the MLet component in JMX. The jboss.properties file contains system properties which will be loaded by the run.jar bootstrap on startup. Add any additional system settings that you require to this file. It also contains the security policy of jBoss in the server.policy file, and the JNDI settings in the jndi.properties file. The /conf directory is added to the classpath so all files are available through the getResource mechanism in the Class and ClassLoader classes.
+</P>
+</BODY>
+</HTML>

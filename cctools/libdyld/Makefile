@@ -18,7 +18,7 @@ ifeq "mwccppc" "$(notdir $(CC))"
   CFLAGS = $(PROFILING) $(OFLAG) -g \
      -I$(SRCROOT) -I$(SRCROOT)/../include -I$(OFILE_DIR) -I$(SRCROOT)/../dyld
 else
-  CFLAGS = $(PROFILING) $(OFLAG) -g -Wall -Wno-precomp  $(X_CFLAGS) \
+  CFLAGS = $(PROFILING) $(OFLAG) -g -Wall $(X_CFLAGS) \
      -I$(SRCROOT) -I$(SRCROOT)/../include -I$(OFILE_DIR) -I$(SRCROOT)/../dyld
 endif
 
@@ -326,17 +326,21 @@ macos_lib_ofiles_install: all
 	then								\
 	    install -c -m 444 dtmp_obj/libdyld.a			\
 		     $(DSTROOT)$(SYSTEMDIR)/libdyld.a;			\
+	    ranlib $(DSTROOT)$(SYSTEMDIR)/libdyld.a;			\
 	    (cd $(DSTROOT)$(SYSTEMDIR); 				\
 	    rm -f libdyld_debug.a; ln -s libdyld.a libdyld_debug.a);	\
 	    install -c -m 444 ptmp_obj/libdyld_pg.a 			\
 		     $(DSTROOT)$(SYSTEMDIR)/libdyld_profile.a;		\
+	    ranlib $(DSTROOT)$(SYSTEMDIR)/libdyld_profile.a;		\
 	else								\
 	    install -c -m 444 $(SYMROOT)/libdyld.a			\
 		     $(DSTROOT)$(SYSTEMDIR)/libdyld.a;			\
+	    ranlib $(DSTROOT)$(SYSTEMDIR)/libdyld.a;			\
 	    (cd $(DSTROOT)$(SYSTEMDIR); 				\
 	    rm -f libdyld_debug.a; ln -s libdyld.a libdyld_debug.a);	\
 	    install -c -m 444 $(SYMROOT)/libdyld_pg.a 			\
 		     $(DSTROOT)$(SYSTEMDIR)/libdyld_profile.a;		\
+	    ranlib $(DSTROOT)$(SYSTEMDIR)/libdyld_profile.a;		\
 	fi
 
 teflon_lib_ofiles_install nextstep_lib_ofiles_install:

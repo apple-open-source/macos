@@ -1,6 +1,8 @@
 /* Multiple source language support for GDB.
-   Copyright 1991, 1992, 1993, 1994, 1995, 1996, 1998, 1999, 2000, 2001, 2002
-   Free Software Foundation, Inc.
+
+   Copyright 1991, 1992, 1993, 1994, 1995, 1996, 1998, 1999, 2000,
+   2001, 2002, 2003 Free Software Foundation, Inc.
+
    Contributed by the Department of Computer Science at the State University
    of New York at Buffalo.
 
@@ -484,7 +486,7 @@ set_range_str (void)
 }
 
 static void
-set_case_str()
+set_case_str (void)
 {
    char *tmp = NULL, *prefix = "";
 
@@ -569,8 +571,6 @@ binop_result_type (struct value *v1, struct value *v2)
          not needed. */
       return l1 > l2 ? VALUE_TYPE (v1) : VALUE_TYPE (v2);
       break;
-    case language_chill:
-      error ("Missing Chill support in function binop_result_check.");	/*FIXME */
     }
   internal_error (__FILE__, __LINE__, "failed internal consistency check");
   return (struct type *) 0;	/* For lint */
@@ -597,34 +597,12 @@ local_hex_format_custom (char *pre)
   return form;
 }
 
-/* Converts a number to hexadecimal and stores it in a static
+/* Converts a LONGEST to custom hexadecimal and stores it in a static
    string.  Returns a pointer to this string. */
 char *
-local_hex_string (unsigned long num)
+local_hex_string (LONGEST num)
 {
-  static char res[50];
-
-  sprintf (res, local_hex_format (), num);
-  return res;
-}
-
-/* Converts a LONGEST number to hexadecimal and stores it in a static
-   string.  Returns a pointer to this string. */
-char *
-longest_local_hex_string (LONGEST num)
-{
-  return longest_local_hex_string_custom (num, "l");
-}
-
-/* Converts a number to custom hexadecimal and stores it in a static
-   string.  Returns a pointer to this string. */
-char *
-local_hex_string_custom (unsigned long num, char *pre)
-{
-  static char res[50];
-
-  sprintf (res, local_hex_format_custom (pre), num);
-  return res;
+  return local_hex_string_custom (num, "l");
 }
 
 /* Converts a LONGEST number to custom hexadecimal and stores it in a static
@@ -632,12 +610,11 @@ local_hex_string_custom (unsigned long num, char *pre)
    should end with "l", e.g. "08l" as with calls to local_hex_string_custom */
 
 char *
-longest_local_hex_string_custom (LONGEST num, char *width)
+local_hex_string_custom (LONGEST num, char *width)
 {
 #define RESULT_BUF_LEN 50
   static char res2[RESULT_BUF_LEN];
   char format[RESULT_BUF_LEN];
-#if !defined (PRINTF_HAS_LONG_LONG)
   int field_width;
   int num_len;
   int num_pad_chars;
@@ -645,24 +622,7 @@ longest_local_hex_string_custom (LONGEST num, char *width)
   int pad_on_left;
   char *parse_ptr;
   char temp_nbr_buf[RESULT_BUF_LEN];
-#endif
 
-#ifndef CC_HAS_LONG_LONG
-  /* If there is no long long, then LONGEST should be just long and we
-     can use local_hex_string_custom 
-   */
-  return local_hex_string_custom ((unsigned long) num, width);
-#elif defined (PRINTF_HAS_LONG_LONG)
-  /* Just use printf.  */
-  strcpy (format, local_hex_format_prefix ());	/* 0x */
-  strcat (format, "%");
-  strcat (format, width);	/* e.g. "08l" */
-  strcat (format, "l");		/* need "ll" for long long */
-  strcat (format, local_hex_format_specifier ());	/* "x" */
-  strcat (format, local_hex_format_suffix ());	/* "" */
-  sprintf (res2, format, num);
-  return res2;
-#else /* !defined (PRINTF_HAS_LONG_LONG) */
   /* Use phex_nz to print the number into a string, then
      build the result string from local_hex_format_prefix, padding and 
      the hex representation as indicated by "width".  */
@@ -689,7 +649,7 @@ longest_local_hex_string_custom (LONGEST num, char *width)
   if (strlen (local_hex_format_prefix ()) + num_len + num_pad_chars
       >= RESULT_BUF_LEN)		/* paranoia */
     internal_error (__FILE__, __LINE__,
-		    "longest_local_hex_string_custom: insufficient space to store result");
+		    "local_hex_string_custom: insufficient space to store result");
 
   strcpy (res2, local_hex_format_prefix ());
   if (pad_on_left)
@@ -710,9 +670,8 @@ longest_local_hex_string_custom (LONGEST num, char *width)
 	}
     }
   return res2;
-#endif
 
-}				/* longest_local_hex_string_custom */
+}				/* local_hex_string_custom */
 
 /* Returns the appropriate printf format for octal
    numbers. */
@@ -836,8 +795,6 @@ integral_type (struct type *type)
     case language_m2:
     case language_pascal:
       return TYPE_CODE (type) != TYPE_CODE_INT ? 0 : 1;
-    case language_chill:
-      error ("Missing Chill support in function integral_type.");	/*FIXME */
     default:
       error ("Language not supported.");
     }
@@ -866,7 +823,6 @@ character_type (struct type *type)
   CHECK_TYPEDEF (type);
   switch (current_language->la_language)
     {
-    case language_chill:
     case language_m2:
     case language_pascal:
       return TYPE_CODE (type) != TYPE_CODE_CHAR ? 0 : 1;
@@ -890,7 +846,6 @@ string_type (struct type *type)
   CHECK_TYPEDEF (type);
   switch (current_language->la_language)
     {
-    case language_chill:
     case language_m2:
     case language_pascal:
       return TYPE_CODE (type) != TYPE_CODE_STRING ? 0 : 1;
@@ -919,8 +874,9 @@ boolean_type (struct type *type)
     case language_cplus:
     case language_objc:
     case language_objcplus:
-      /* Might be more cleanly handled by having a TYPE_CODE_INT_NOT_BOOL
-         for CHILL and such languages, or a TYPE_CODE_INT_OR_BOOL for C.  */
+      /* Might be more cleanly handled by having a
+         TYPE_CODE_INT_NOT_BOOL for (the deleted) CHILL and such
+         languages, or a TYPE_CODE_INT_OR_BOOL for C.  */
       if (TYPE_CODE (type) == TYPE_CODE_INT)
 	return 1;
     default:
@@ -968,8 +924,6 @@ structured_type (struct type *type)
       return (TYPE_CODE (type) == TYPE_CODE_STRUCT) ||
 	(TYPE_CODE (type) == TYPE_CODE_SET) ||
 	(TYPE_CODE (type) == TYPE_CODE_ARRAY);
-    case language_chill:
-      error ("Missing Chill support in function structured_type.");	/*FIXME */
     default:
       return (0);
     }
@@ -983,8 +937,6 @@ lang_bool_type (void)
   struct type *type;
   switch (current_language->la_language)
     {
-    case language_chill:
-      return builtin_type_chill_bool;
     case language_fortran:
       sym = lookup_symbol ("logical", NULL, VAR_NAMESPACE, NULL, NULL);
       if (sym)
@@ -1214,11 +1166,6 @@ binop_type_check (struct value *arg1, struct value *arg2, int op)
 	       type_op_error ("Arguments to %s must be of integral type.",op);
 	    break;
 	 }
-#endif
-
-#ifdef _LANG_chill
-	case language_chill:
-	  error ("Missing Chill support in function binop_type_check.");	/*FIXME */
 #endif
 
 	}

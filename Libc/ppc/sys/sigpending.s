@@ -25,4 +25,3 @@
 #include "SYS.h"
 
 SYSCALL(sigpending, 1)
-	blr

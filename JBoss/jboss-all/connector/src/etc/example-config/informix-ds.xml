@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<!-- ===================================================================== -->
+<!--                                                                       -->
+<!--  JBoss Server Configuration                                           -->
+<!--                                                                       -->
+<!-- ===================================================================== -->
+
+<!-- $Id: informix-ds.xml,v 1.1 2002/07/22 22:57:24 d_jencks Exp $ -->
+
+
+<datasources>
+  <local-tx-datasource>
+    <jndi-name>InformixDS</jndi-name>
+    <connection-url>jdbc:informix-sqli://myhost.mydomain.com:1557/mydb:INFORMIXSERVER=myserver</connection-url>
+    <driver-class>com.informix.jdbc.IfxDriver</driver-class>
+    <user-name>x</user-name>
+    <password>y</password>
+  </local-tx-datasource>
+
+</datasources>

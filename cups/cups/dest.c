@@ -1,10 +1,10 @@
 /*
- * "$Id: dest.c,v 1.4 2002/06/10 23:47:27 jlovell Exp $"
+ * "$Id: dest.c,v 1.6 2003/09/05 01:14:50 jlovell Exp $"
  *
  *   User-defined destination (and option) support for the Common UNIX
  *   Printing System (CUPS).
  *
- *   Copyright 1997-2002 by Easy Software Products.
+ *   Copyright 1997-2003 by Easy Software Products.
  *
  *   These coded instructions, statements, and computer programs are the
  *   property of Easy Software Products and are protected by Federal
@@ -45,6 +45,9 @@
 #include <stdlib.h>
 #include <ctype.h>
 
+#ifdef HAVE_NOTIFY_H
+#  include <notify.h>
+#endif
 
 /*
  * Local functions...
@@ -496,6 +499,13 @@ cupsSetDests(int         num_dests,	/* I - Number of destinations */
   */
 
   fclose(fp);      
+
+#ifdef HAVE_NOTIFY_POST
+  /*
+   * Send a notification so that UI applications can know about the change.
+   */
+  notify_post("com.apple.printerListChange");
+#endif        /* HAVE_NOTIFY_POST */
 }
 
 
@@ -668,7 +678,7 @@ cups_get_sdests(ipp_op_t    op,		/* I - get-printers or get-classes */
   cups_lang_t	*language;		/* Default language */
   const char	*name;			/* printer-name attribute */
   char		job_sheets[1024];	/* job-sheets option */
-  static const char	*pattrs[] =	/* Attributes we're interested in */
+  static const char * const pattrs[] =	/* Attributes we're interested in */
 		{
 		  "printer-name",
 		  "job-sheets-default"
@@ -794,5 +804,5 @@ cups_get_sdests(ipp_op_t    op,		/* I - get-printers or get-classes */
 
 
 /*
- * End of "$Id: dest.c,v 1.4 2002/06/10 23:47:27 jlovell Exp $".
+ * End of "$Id: dest.c,v 1.6 2003/09/05 01:14:50 jlovell Exp $".
  */

@@ -1,8 +1,8 @@
 /*
    +----------------------------------------------------------------------+
-   | PHP version 4.0                                                      |
+   | PHP Version 4                                                        |
    +----------------------------------------------------------------------+
-   | Copyright (c) 1997-2001 The PHP Group                                |
+   | Copyright (c) 1997-2003 The PHP Group                                |
    +----------------------------------------------------------------------+
    | This source file is subject to version 2.02 of the PHP license,      |
    | that is bundled with this package in the file LICENSE, and is        |
@@ -12,11 +12,11 @@
    | obtain it through the world-wide-web, please send a note to          |
    | license@php.net so we can mail you a copy immediately.               |
    +----------------------------------------------------------------------+
-   | Authors: Stig Bakken <ssb@fast.no>                                   |
+   | Author: Stig Bakken <ssb@fast.no>                                    |
    +----------------------------------------------------------------------+
 */
 
-/* $Id: php_ticks.c,v 1.1.1.4 2001/12/14 22:13:50 zarzycki Exp $ */
+/* $Id: php_ticks.c,v 1.1.1.6 2003/07/18 18:07:49 zarzycki Exp $ */
 
 #include "php.h"
 #include "php_ticks.h"
@@ -52,7 +52,7 @@ PHPAPI void php_remove_tick_function(void (*func)(int))
 {
 	TSRMLS_FETCH();
 
-	zend_llist_del_element(&PG(tick_functions), func,
+	zend_llist_del_element(&PG(tick_functions), (void *)func,
 						   (int(*)(void*, void*))php_compare_tick_functions);
 }
 
@@ -76,6 +76,6 @@ void php_run_ticks(int count)
  * tab-width: 4
  * c-basic-offset: 4
  * End:
- * vim600: sw=4 ts=4 tw=78 fdm=marker
- * vim<600: sw=4 ts=4 tw=78
+ * vim600: sw=4 ts=4 fdm=marker
+ * vim<600: sw=4 ts=4
  */

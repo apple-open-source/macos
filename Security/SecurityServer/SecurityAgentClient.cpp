@@ -47,6 +47,10 @@
 #include <time.h>
 #include <signal.h>
 #include <CoreServices/../Frameworks/CarbonCore.framework/Headers/MacErrors.h>
+#include <Security/ktracecodes.h>
+
+#include <sys/types.h>
+#include <grp.h>
 
 // @@@ Should be in <time.h> but it isn't as of Puma5F22
 extern "C" int nanosleep(const struct timespec *rqtp, struct timespec *rmtp);
@@ -72,6 +76,9 @@ class Requestor {
 public:
 	Requestor(const OSXCode *code)	{ if (code) extForm = code->encode(); }
 	operator const char * () const	{ return extForm.c_str(); }
+
+	// use this for debugging only
+	const char *c_str() const		{ return extForm.empty() ? "(unknown)" : extForm.c_str(); }
 
 private:
 	string extForm;
@@ -158,7 +165,7 @@ static void getNoSA(char *buffer, size_t bufferSize, const char *fmt, ...)
 //
 // Initialize our CSSM interface
 //
-Client::Client() : mActive(false), mUsePBS(true), mKeepAlive(false), stage(mainStage)
+Client::Client() : mActive(false), desktopUid(0), mKeepAlive(false), stage(mainStage), mAgentName("com.apple.SecurityAgent")
 {
 }
 
@@ -169,12 +176,10 @@ Client::Client() : mActive(false), mUsePBS(true), mKeepAlive(false), stage(mainS
  * DiskCopy needs to be fixed to use the Security Server itself rather
  * than this library.
  */
-Client::Client(uid_t clientUID, Bootstrap clientBootstrap) :
-    mActive(false), desktopUid(clientUID), mUsePBS(false),
-    mClientBootstrap(clientBootstrap), mKeepAlive(false), stage(mainStage)
+Client::Client(uid_t clientUID, Bootstrap clientBootstrap, const char *agentName) :
+    mActive(false), desktopUid(clientUID),
+    mClientBootstrap(clientBootstrap), mKeepAlive(false), stage(mainStage), mAgentName(agentName)
 {
-	setClientGroupID();
-	debug("SAclnt", "Desktop: uid %d, gid %d", desktopUid, desktopGid);
 }
 
 Client::~Client()
@@ -186,10 +191,11 @@ Client::~Client()
 //
 // Activate a session
 //
-void Client::activate(const char *name)
+void Client::activate()
 {
 	if (!mActive) {
-        establishServer(name ? name : "SecurityAgent");
+
+		establishServer();
 		
 		// create reply port
 		mClientPort.allocate(MACH_PORT_RIGHT_RECEIVE);
@@ -253,31 +259,16 @@ void Client::cancel()
 // Start it if necessary (and possible). Throw an exception if we can't get to it.
 // Sets mServerPort on success.
 //
-void Client::establishServer(const char *name)
+void Client::establishServer()
 {
-    /*
-     * Once we wean ourselves off PBS we can eliminate "bootstrap" and use
-     * mClientBootstrap directly.  
-     */
-    if (mUsePBS)
-	locateDesktop();
-    else
-	pbsBootstrap = mClientBootstrap;
-
-    // If the userids don't match, that means you can't do user interaction
-    // @@@ Check session so we don't pop up UI in a non-UI context
-    // @@@ Expose this to caller so it can implement its own idea of getuid()!
-    if (desktopUid != getuid() && getuid() != 0)
-        CssmError::throwMe(CSSM_ERRCODE_NO_USER_INTERACTION);
-
     // if the server is already running, we're done
-    Bootstrap bootstrap(pbsBootstrap);
-    if (mServerPort = bootstrap.lookupOptional(name))
-	return;
+	if (mServerPort = mClientBootstrap.lookupOptional(mAgentName.c_str()))
+		return;
     
 #if defined(AGENTNAME) && defined(AGENTPATH)
     // switch the bootstrap port to that of the logged-in user
-    StBootstrap bootSaver(pbsBootstrap);
+	
+    StBootstrap bootSaver(mClientBootstrap);
 
     // try to start the agent
     switch (pid_t pid = fork()) {
@@ -288,13 +279,21 @@ void Client::establishServer(const char *name)
 		unsetenv("LOGNAME");
 		unsetenv("HOME");
 
-        debug("SAclnt", "setgid(%d)", desktopGid);
-        setgid(desktopGid);	// switch to login-user gid
-        debug("SAclnt", "setuid(%d)", desktopUid);
-		// Must be setuid and not seteuid since we do not want the agent to be able
-		// to call seteuid(0) successfully.
-        setuid(desktopUid);	// switch to login-user uid
+		// tell agent which name to register
+		setenv("AGENTNAME", mAgentName.c_str(), 1);
 
+		if (desktopUid) // if the user is running as root, or we're not told what uid to use, we stick with what we are
+		{
+			struct group *grent = getgrnam("nobody");
+			gid_t desktopGid = grent ? grent->gr_gid : unsigned(-2);	//@@@ questionable
+			endgrent();
+			secdebug("SAclnt", "setgid(%d)", desktopGid);
+			setgid(desktopGid);	// switch to login-user gid
+			secdebug("SAclnt", "setuid(%d)", desktopUid);
+			// Must be setuid and not seteuid since we do not want the agent to be able
+			// to call seteuid(0) successfully.
+			setuid(desktopUid);	// switch to login-user uid
+		}
         // close down any files that might have been open at this point
         int maxDescriptors = getdtablesize ();
         int i;
@@ -310,9 +309,9 @@ void Client::establishServer(const char *name)
         if (!path)
             path = AGENTPATH;
         snprintf(agentExecutable, sizeof(agentExecutable), "%s/Contents/MacOS/" AGENTNAME, path);
-        debug("SAclnt", "execl(%s)", agentExecutable);
+        secdebug("SAclnt", "execl(%s)", agentExecutable);
         execl(agentExecutable, agentExecutable, NULL);
-		debug("SAclnt", "execl of SecurityAgent failed, errno=%d", errno);
+		secdebug("SAclnt", "execl of SecurityAgent failed, errno=%d", errno);
 
         // Unconditional suicide follows.
 		// See comments below on why we can't use abort()
@@ -331,15 +330,15 @@ void Client::establishServer(const char *name)
         {
 			static const int timeout = 300;
 
-            debug("SAclnt", "Starting security agent (%d seconds timeout)", timeout);
+            secdebug("SAclnt", "Starting security agent (%d seconds timeout)", timeout);
 			struct timespec rqtp;
 			memset(&rqtp, 0, sizeof(rqtp));
 			rqtp.tv_nsec = 100000000; /* 10^8 nanaseconds = 1/10th of a second */
             for (int n = timeout; n > 0; nanosleep(&rqtp, NULL), n--) {
-                if (mServerPort = bootstrap.lookupOptional(name))
+                if (mServerPort = mClientBootstrap.lookupOptional(mAgentName.c_str()))
                     break;
                 int status;
-                switch (pid_t rc = waitpid(pid, &status, WNOHANG)) {
+                switch (IFDEBUG(pid_t rc =) waitpid(pid, &status, WNOHANG)) {
                 case 0:	// child still running
                     continue;
                 case -1:	// error
@@ -348,31 +347,31 @@ void Client::establishServer(const char *name)
                     case EAGAIN:	// transient
                         continue;
                     case ECHILD:	// no such child (dead; already reaped elsewhere)
-                        debug("SAclnt", "child is dead (reaped elsewhere)");
+                        secdebug("SAclnt", "child is dead (reaped elsewhere)");
                         CssmError::throwMe(CSSM_ERRCODE_NO_USER_INTERACTION);
                     default:
-                        debug("SAclnt", "waitpid failed: errno=%d", errno);
+                        secdebug("SAclnt", "waitpid failed: errno=%d", errno);
                         UnixError::throwMe();
                     }
                 default:
                     assert(rc == pid);
-                    debug("SAclnt", "child died without claiming the SecurityAgent port");
+                    secdebug("SAclnt", "child died without claiming the SecurityAgent port");
                     CssmError::throwMe(CSSM_ERRCODE_NO_USER_INTERACTION);
                 }
             }
 
             if (mServerPort == 0) {		// couldn't contact Security Agent
-				debug("SAclnt", "Autolaunch failed");
+				secdebug("SAclnt", "Autolaunch failed");
                 CssmError::throwMe(CSSM_ERRCODE_NO_USER_INTERACTION);
 			}
-            debug("SAclnt", "SecurityAgent located");
+            secdebug("SAclnt", "SecurityAgent located");
             return;
         }
     }
 #endif
 
     // well, this didn't work. Too bad
-	debug("SAclnt", "Cannot contact SecurityAgent");
+	secdebug("SAclnt", "Cannot contact SecurityAgent");
     CssmError::throwMe(CSSM_ERRCODE_NO_USER_INTERACTION);	//@@@ or INTERNAL_ERROR?
 }
 
@@ -453,7 +452,7 @@ void Client::retryUnlockDatabase(Reason reason, char passphrase[maxPassphraseLen
 // Ask for a (new) password for something.
 //
 void Client::queryNewPassphrase(const OSXCode *requestor, pid_t requestPid,
-    const char *database, Reason reason, char passphrase[maxPassphraseLength])
+    const char *database, Reason reason, char passphrase[maxPassphraseLength], char oldPassphrase[maxPassphraseLength])
 {
 	Requestor req(requestor);
 	
@@ -469,11 +468,11 @@ void Client::queryNewPassphrase(const OSXCode *requestor, pid_t requestPid,
 	activate();
 	check(secagent_client_queryNewPassphrase(mServerPort, mClientPort,
 		&status, req, requestPid, database, reason,
-        &mStagePort.port(), passphrase));
+        &mStagePort.port(), passphrase, oldPassphrase));
 	stage = newPassphraseStage;
 }
 
-void Client::retryNewPassphrase(Reason reason, char passphrase[maxPassphraseLength])
+void Client::retryNewPassphrase(Reason reason, char passphrase[maxPassphraseLength], char oldPassphrase[maxPassphraseLength])
 {
 	if (stage != newPassphraseStage)
 		CssmError::throwMe(CSSM_ERRCODE_INTERNAL_ERROR);	//@@@ invent a "state mismatch error"?
@@ -485,7 +484,7 @@ void Client::retryNewPassphrase(Reason reason, char passphrase[maxPassphraseLeng
 	}
 #endif
 	check(secagent_client_retryNewPassphrase(mStagePort, mClientPort,
-		&status, reason, passphrase));
+		&status, reason, passphrase, oldPassphrase));
 }
 
 
@@ -497,13 +496,15 @@ void Client::queryKeychainAccess(const OSXCode *requestor, pid_t requestPid,
 	const char *database, const char *itemName, AclAuthorization action,
 	bool needPassphrase, KeychainChoice &choice)
 {
+    Debug::trace (kSecTraceSecurityServerQueryKeychainAccess);
+    
 	Requestor req(requestor);
 
 #if defined(NOSA)
 	if (getenv("NOSA")) {
 		char answer[maxPassphraseLength+10];
-		getNoSA(answer, sizeof(answer), "Allow [someone] to do %d on %s in %s? [yn][g]%s ",
-			int(action), (itemName ? itemName : "[NULL item]"),
+		getNoSA(answer, sizeof(answer), "Allow %s to do %d on %s in %s? [yn][g]%s ",
+			req.c_str(), int(action), (itemName ? itemName : "[NULL item]"),
 			(database ? database : "[NULL database]"),
 			needPassphrase ? ":passphrase" : "");
 		// turn passphrase (no ':') into y:passphrase
@@ -523,8 +524,46 @@ void Client::queryKeychainAccess(const OSXCode *requestor, pid_t requestPid,
 	activate();
 	check(secagent_client_queryKeychainAccess(mServerPort, mClientPort,
 		&status, req, requestPid, (database ? database : ""), itemName, action, 
-		needPassphrase, &choice));
-    terminate();
+		needPassphrase, &mStagePort.port(), &choice));
+    
+    stage = queryKeychainAccessStage;
+}
+
+
+void Client::retryQueryKeychainAccess (Reason reason, Choice &choice)
+{
+	if (stage != queryKeychainAccessStage)
+		CssmError::throwMe(CSSM_ERRCODE_INTERNAL_ERROR);	//@@@ invent a "state mismatch error"?
+
+    check(secagent_client_retryQueryKeychainAccess (mStagePort, mClientPort, &status, reason, &choice));
+}
+
+
+
+//
+// Ask the user whether a somewhat (but not cleanly) matching code identity
+// should be accepted for access control purposes.
+//
+void Client::queryCodeIdentity(const OSXCode *requestor, pid_t requestPid,
+	const char *aclPath, KeychainChoice &choice)
+{
+	Requestor req(requestor);
+	
+#if defined(NOSA)
+	if (getenv("NOSA")) {
+		char answer[10];
+		getNoSA(answer, sizeof(answer),
+			"Allow %s to match an ACL for %s [yn][g]? ",
+			req.c_str(), aclPath ? aclPath : "(unknown)");
+		choice.allowAccess = answer[0] == 'y';
+		choice.continueGrantingToCaller = answer[1] == 'g';
+		return;
+	}
+#endif
+	activate();
+	check(secagent_client_queryCodeIdentity(mServerPort, mClientPort,
+		&status, req, requestPid, aclPath, &choice));
+	terminate();
 }
 
 
@@ -672,11 +711,19 @@ bool Client::retryAuthorizationAuthenticate(Reason reason, char user[maxUsername
 //
 // invokeMechanism old style
 //
-bool Client::invokeMechanism(const string &inPluginId, const string &inMechanismId, const AuthorizationValueVector *inArguments, const AuthorizationItemSet *inHints, const AuthorizationItemSet *inContext, AuthorizationResult *outResult, AuthorizationItemSet *&outHintsPtr, AuthorizationItemSet *&outContextPtr)
+bool Client::invokeMechanism(const string &inPluginId, const string &inMechanismId, const AuthValueVector &inArguments, AuthItemSet &inHints, AuthItemSet &inContext, AuthorizationResult *outResult)
 {
-    Copier<AuthorizationValueVector> inArgumentVector(inArguments);
-    Copier<AuthorizationItemSet> inHintsSet(inHints);
-    Copier<AuthorizationItemSet> inContextSet(inContext);
+	AuthorizationValueVector *inArgumentVector;
+	AuthorizationItemSet *inHintsSet, *inContextSet;
+	size_t inArgumentVectorLength, inHintsSetLength, inContextSetLength;
+	
+	CssmAllocator &alloc = CssmAllocator::standard();
+	inArguments.copy(&inArgumentVector, &inArgumentVectorLength);
+	CssmAutoPtr<AuthorizationValueVector> argGuard(alloc, inArgumentVector);
+	inHints.copy(inHintsSet, inHintsSetLength, alloc);
+	CssmAutoPtr<AuthorizationItemSet> hintGuard(alloc, inHintsSet);
+	inContext.copy(inContextSet, inContextSetLength, alloc);
+	CssmAutoPtr<AuthorizationItemSet> contextGuard(alloc, inContextSet);
 
     COPY_OUT_DECL(AuthorizationItemSet, outHintsSet);
     COPY_OUT_DECL(AuthorizationItemSet, outContextSet);
@@ -684,27 +731,25 @@ bool Client::invokeMechanism(const string &inPluginId, const string &inMechanism
     activate();
 
     // either noErr (user cancel, allow) or throws authInternal
-    check(secagent_client_invokeMechanism(mServerPort, mClientPort,
-                                            &status, &mStagePort.port(),
-                                        inPluginId.c_str(),
-                                        inMechanismId.c_str(),
-                                            COPY(inArgumentVector),
-                                            COPY(inHintsSet),
-                                            COPY(inContextSet),
-                                            outResult,
-                                            COPY_OUT(outHintsSet),
-                                            COPY_OUT(outContextSet)));
+	
+	check(secagent_client_invokeMechanism(mServerPort, mClientPort,
+		&status, &mStagePort.port(), inPluginId.c_str(), inMechanismId.c_str(),
+		inArgumentVector, inArgumentVectorLength, inArgumentVector,
+		inHintsSet, inHintsSetLength, inHintsSet,
+		inContextSet, inContextSetLength, inContextSet,
+		outResult,
+		COPY_OUT(outHintsSet),
+		COPY_OUT(outContextSet)));
+	
+	VMGuard _(outHintsSet, outHintsSetLength);
+	VMGuard _2(outContextSet, outContextSetLength);
 
     if (status != errAuthorizationDenied)
     {
         relocate(outHintsSet, outHintsSetBase);
-        Copier<AuthorizationItemSet> copyHints(outHintsSet);
-        // the auth engine releases this when done
-        outHintsPtr = copyHints.keep();
-        relocate(outContextSet, outContextSetBase);
-        Copier<AuthorizationItemSet> copyContext(outContextSet);
-        // the auth engine releases this when done
-        outContextPtr = copyContext.keep();
+		inHints = *outHintsSet;
+		relocate(outContextSet, outContextSetBase);
+		inContext = *outContextSet;
     }
 
     return (status == noErr);
@@ -713,108 +758,12 @@ bool Client::invokeMechanism(const string &inPluginId, const string &inMechanism
 
 void Client::terminateAgent()
 {
-    if (mUsePBS)
-        // find the right place to look
-        locateDesktop();
-
-    // make sure we're doing this for the right user
-    // @@@ Check session as well!
-    if (desktopUid != getuid() && getuid() != 0)
-        CssmError::throwMe(CSSM_ERRCODE_NO_USER_INTERACTION);
-    
-    // if the server is already running, it's time to kill it
-    bool agentRunning = false;
-    if (mUsePBS)
-    {
-        Bootstrap bootstrap(pbsBootstrap);
-        if (mServerPort = bootstrap.lookupOptional("SecurityAgent"))
-            agentRunning = true;
-    }
-    else
-    {
-	if (mServerPort = mClientBootstrap.lookupOptional("SecurityAgent"))
-	    agentRunning = true;
-    }
-    if (agentRunning)
+	// If the agent is (still) running, kill it
+	if (mClientBootstrap.lookupOptional(mAgentName.c_str()))
     {
         activate();
         check(secagent_client_terminate(mServerPort, mClientPort));
     }
-}
-
-#include <sys/types.h>
-#include <grp.h>
-
-void Client::setClientGroupID(const char *grpName)
-{
-    /*
-     * desktopGid is unsigned so the compiler warns about the conversion
-     * of -2.  
-     */
-    struct group *grent = getgrnam(grpName ? grpName : "nobody");
-    desktopGid = grent ? grent->gr_gid : -2;
-}
-
-//
-// Locate and identify the current desktop.
-// This is moderately atrocious code. There really ought to be a way to identify
-// the logged-in (graphics console) user (and whether there is one). As it stands,
-// we locate the "pbs" (pasteboard server) process and obtain its uid. No pbs, no
-// user interaction. (By all accounts, a dead pbs is a death sentence anyway.)
-//
-#include <sys/sysctl.h>
-#include <mach/mach_error.h>
-
-void Client::locateDesktop()
-{
-    int mib[3] = { CTL_KERN, KERN_PROC, KERN_PROC_ALL};
-    size_t bufSize;
-    struct kinfo_proc *procBuf;
-
-    if (sysctl(mib, 3, NULL, &bufSize, NULL, 0) < 0) {
-        perror("sysctl");
-        abort();
-    }
-
-    procBuf = (struct kinfo_proc *)malloc(bufSize);		//@@@ which allocator?
-    if (sysctl(mib, 3, procBuf, &bufSize, NULL, 0))
-        CssmError::throwMe(CSSM_ERRCODE_INTERNAL_ERROR);
-    int count = bufSize / sizeof(struct kinfo_proc);
-    struct kinfo_proc *pbsProc = NULL;
-    for (struct kinfo_proc *proc = procBuf; proc < procBuf + count; proc++) {
-        if (!strncmp(proc->kp_proc.p_comm, "pbs", MAXCOMLEN)) {
-            pbsProc = proc;
-            break;
-        }
-    }
-    
-    if (!pbsProc) {		// no pasteboard server -- user not logged in
-		debug("SAclnt", "No pasteboard server - no user logged in");
-        CssmError::throwMe(CSSM_ERRCODE_NO_USER_INTERACTION);
-	}
-
-    desktopUid = pbsProc->kp_eproc.e_ucred.cr_uid;
-    desktopGid = pbsProc->kp_eproc.e_ucred.cr_gid;
-	pid_t pbsPid = pbsProc->kp_proc.p_pid;
-
-    debug("SAclnt", "Desktop has uid %d", desktopUid);
-    free(procBuf);
-
-	kern_return_t result;
-	mach_port_t pbsTaskPort;
-	result = task_for_pid(mach_task_self(), pbsPid, &pbsTaskPort);
-	if (result)
-	{
-		mach_error("task_for_pid(pbs)", result);
-		CssmError::throwMe(CSSM_ERRCODE_NO_USER_INTERACTION);
-	}
-
-	result = task_get_bootstrap_port(pbsTaskPort, &pbsBootstrap);
-	if (result)
-	{
-		mach_error("task_get_bootstrap_port(pbs)", result);
-		CssmError::throwMe(CSSM_ERRCODE_NO_USER_INTERACTION);
-	}
 }
 
 } // end namespace SecurityAgent

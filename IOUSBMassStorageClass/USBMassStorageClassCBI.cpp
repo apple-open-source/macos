@@ -245,7 +245,14 @@ IOUSBMassStorageClass::CBIGetStatusEndpointStatus(
 						UInt32					nextExecutionState )
 {
 	IOReturn 			status;
-
+	
+	if( targetPipe == NULL )
+	{
+		// We need to check if the pipe is NULL
+		status = kIOReturnError;
+		goto ErrorExit;
+	}
+	
 	// Set the next state to be executed
 	cbiRequestBlock->currentState = nextExecutionState;
 	
@@ -254,6 +261,9 @@ IOUSBMassStorageClass::CBIGetStatusEndpointStatus(
    	STATUS_LOG(("%s: CBIGetStatusEndpointStatus returned %d\n", 
    				getName(), 
    				status));
+	
+ErrorExit:
+	
 	return status;
 }
 
@@ -270,6 +280,13 @@ IOUSBMassStorageClass::CBIClearFeatureEndpointStall(
 {
 	IOReturn 			status;
 	
+	if( targetPipe == NULL )
+	{
+		// We need to check if the pipe is NULL (ie if we are being terminated).
+		status = kIOReturnError;
+		goto ErrorExit;
+	}
+	
 	// Set the next state to be executed
 	cbiRequestBlock->currentState = nextExecutionState;
 	
@@ -278,6 +295,9 @@ IOUSBMassStorageClass::CBIClearFeatureEndpointStall(
    	STATUS_LOG(("%s: CBIClearFeatureEndpointStall returned %d\n", 
    				getName(), 
    				status));
+	
+ErrorExit:
+	
 	return status;
 }
 
@@ -295,6 +315,14 @@ IOUSBMassStorageClass::CBIProtocolCommandCompletion(
 	IOReturn 		status = kIOReturnError;
 	bool			commandInProgress = false;
 	
+	if( cbiRequestBlock->request == NULL )
+	{
+		// The request field is NULL, this appears to
+		// be a double callback, do nothing.
+		STATUS_LOG(("%s: cbiRequestBlock->request is NULL, returned %d\n", getName(), resultingStatus));
+		return;
+	}
+	
 	if ( GetInterfaceReference() == NULL )
 	{
 		// Our interface has been closed, probably because of an
@@ -305,7 +333,7 @@ IOUSBMassStorageClass::CBIProtocolCommandCompletion(
 		ReleaseCBIRequestBlock( cbiRequestBlock );
 		CompleteSCSICommand( request, status );
 		return;
-	}		
+	}
 	
 	switch( cbiRequestBlock->currentState )
 	{
@@ -430,14 +458,30 @@ IOUSBMassStorageClass::CBIProtocolCommandCompletion(
 			// a relevent error.
 			if ((resultingStatus == kIOReturnSuccess) && ((GetInterfaceSubclass() == kUSBStorageSFF8070iSubclass ) || ( GetInterfaceSubclass() == kUSBStorageUFISubclass )))
 			{
-				// Decide what error to return based on the Interrupt data
-				if (( cbiRequestBlock->cbiGetStatusBuffer[0] == 0x00 ) && ( cbiRequestBlock->cbiGetStatusBuffer[1] == 0x00 ))
+				if ( GetInterfaceSubclass() == kUSBStorageUFISubclass )
 				{
-					status = kIOReturnSuccess;
+					// Decide what error to return based on the Interrupt data
+					if (( cbiRequestBlock->cbiGetStatusBuffer[0] == 0x00 ) && ( cbiRequestBlock->cbiGetStatusBuffer[1] == 0x00 ))
+					{
+						status = kIOReturnSuccess;
+					}
+					else
+					{
+						status = kIOReturnError;
+					}
 				}
-				else
+				else // This is probably a kUSBStorageSFF8070iSubclass device but in the future may include others as well
 				{
-					status = kIOReturnError;
+					// As per the USB Mass Storage Class CBI Transport Specification 3.4.3.1.1 Common Interrupt Data Block
+					if ( ( cbiRequestBlock->cbiGetStatusBuffer[0] == 0x00 ) &&
+						 ( ( cbiRequestBlock->cbiGetStatusBuffer[1] & 0x3 ) != 0 ) )
+					{
+						status = kIOReturnError;
+					}
+					else
+					{
+						status = kIOReturnSuccess;
+					}
 				}
 			}
 			else

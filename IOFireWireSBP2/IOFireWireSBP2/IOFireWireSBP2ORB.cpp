@@ -136,7 +136,7 @@ void IOFireWireSBP2ORB::release() const
 
 void IOFireWireSBP2ORB::free( void )
 {
-    FWKLOG(( "IOFireWireSBP2ORB : free\n" ));
+    FWKLOG(( "IOFireWireSBP2ORB<0x%08lx> : free\n", (UInt32)this ));
 
     removeORB( this );
 
@@ -175,12 +175,12 @@ IOReturn IOFireWireSBP2ORB::allocateORB( UInt32 orbSize )
 
         IOPhysicalLength lengthOfSegment = 0;
         IOPhysicalAddress phys = fORBDescriptor->getPhysicalSegment( 0, &lengthOfSegment );
-        FWKLOG( ( "IOFireWireSBP2ORB : ORB segment length = %d\n", lengthOfSegment ) );
+        FWKLOG( ( "IOFireWireSBP2ORB<0x%08lx> : ORB segment length = %d\n", (UInt32)this, lengthOfSegment ) );
             
         if( lengthOfSegment != 0 )
         {
             fORBPhysicalAddress = phys;
-            FWKLOG( ( "IOFireWireSBP2ORB : ORB - phys = 0x%08lx\n", fORBPhysicalAddress ) );
+            FWKLOG( ( "IOFireWireSBP2ORB<0x%08lx> : ORB - phys = 0x%08lx\n", (UInt32)this, fORBPhysicalAddress ) );
         }
         else
         {
@@ -228,7 +228,7 @@ IOReturn IOFireWireSBP2ORB::allocateORB( UInt32 orbSize )
 		fORBPseudoAddress.addressHi &= 0xffff;	// Mask off nodeID part.
         status = fORBPseudoAddressSpace->activate();
 		
-		FWKLOG( ( "IOFireWireSBP2ORB : created orb at phys: 0x%04lx.%08lx psuedo: 0x%04lx.%08lx of size %d\n", 0, fORBPhysicalAddress, fORBPseudoAddress.addressHi, fORBPseudoAddress.addressLo, orbSize ) );
+		FWKLOG( ( "IOFireWireSBP2ORB<0x%08lx> : created orb at phys: 0x%04lx.%08lx psuedo: 0x%04lx.%08lx of size %d\n", (UInt32)this, 0, fORBPhysicalAddress, fORBPseudoAddress.addressHi, fORBPseudoAddress.addressLo, orbSize ) );
     }
 	
 	if( status != kIOReturnSuccess )
@@ -482,7 +482,7 @@ void IOFireWireSBP2ORB::startTimer( void )
 		{
 			IOReturn ORBtimeoutSubmitStatus;
 			
-			FWKLOG( ( "IOFireWireSBP2ORB : set timeout\n" ) );
+			FWKLOG( ( "IOFireWireSBP2ORB<0x%08lx> : set timeout\n", (UInt32)this ) );
 			
 			fTimeoutTimerSet = true;
 			ORBtimeoutSubmitStatus = fTimeoutCommand->submit();
@@ -507,7 +507,7 @@ bool IOFireWireSBP2ORB::isTimerSet( void )
 
 void IOFireWireSBP2ORB::cancelTimer( void )
 {
-    FWKLOG( ( "IOFireWireSBP2ORB : cancel timer\n" ) );
+    FWKLOG( ( "IOFireWireSBP2ORB<0x%08lx> : cancel timer\n", (UInt32)this ) );
 	
     // cancel timer
     if( fTimeoutTimerSet )
@@ -536,12 +536,12 @@ void IOFireWireSBP2ORB::orbTimeout( IOReturn status, IOFireWireBus *bus, IOFWBus
 	
     if( status == kIOReturnTimeout )
     {
-        FWKLOG( ( "IOFireWireSBP2ORB : orb timeout\n" ) );
+        FWKLOG( ( "IOFireWireSBP2ORB<0x%08lx> : orb timeout\n", (UInt32)this ) );
 		sendTimeoutNotification( this );
     }
     else
     {
-        FWKLOG( ( "IOFireWireSBP2ORB : orb timeout cancelled\n" ) );
+        FWKLOG( ( "IOFireWireSBP2ORB<0x%08lx> : orb timeout cancelled\n", (UInt32)this ) );
     }
 }
 
@@ -575,12 +575,12 @@ IOReturn IOFireWireSBP2ORB::allocatePageTable( UInt32 entryCount )
 
         IOPhysicalLength lengthOfSegment = 0;
         IOPhysicalAddress phys = fPageTableDescriptor->getPhysicalSegment( 0, &lengthOfSegment );
-    //    FWKLOG( ( "IOFireWireSBP2ORB : pageTable segment length = %d\n", lengthOfSegment ) );
+    //    FWKLOG( ( "IOFireWireSBP2ORB<0x%08lx> : pageTable segment length = %d\n", (UInt32)this, lengthOfSegment ) );
             
         if( lengthOfSegment != 0 )
         {
             fPageTablePhysicalAddress = phys;
- //           FWKLOG( ( "IOFireWireSBP2ORB : pageTable - phys = 0x%08lx\n", fPageTablePhysicalAddress ) );
+ //           FWKLOG( ( "IOFireWireSBP2ORB<0x%08lx> : pageTable - phys = 0x%08lx\n", (UInt32)this, fPageTablePhysicalAddress ) );
         }
         else
         {
@@ -763,7 +763,7 @@ IOReturn IOFireWireSBP2ORB::setCommandBuffers( IOMemoryDescriptor * memoryDescri
         // I occasionally get memory descriptors with bogus lengths
         UInt32 tempLength = memoryDescriptor->getLength();
 	if(length != tempLength)
-        FWKLOG( ( "IOFireWireSBP2ORB : ### buffer length = %d, memDescriptor length = %d ###\n", length, tempLength  ) );
+        FWKLOG( ( "IOFireWireSBP2ORB<0x%08lx> : ### buffer length = %d, memDescriptor length = %d ###\n", (UInt32)this, length, tempLength  ) );
         // length = tempLength;
 #endif
         
@@ -772,7 +772,7 @@ IOReturn IOFireWireSBP2ORB::setCommandBuffers( IOMemoryDescriptor * memoryDescri
             // get next segment
             phys = memoryDescriptor->getPhysicalSegment(pos, &lengthOfSegment);
 
- //           FWKLOG( ( "IOFireWireSBP2ORB : physical address = 0x%08lx, length = %d\n", phys, lengthOfSegment ) );
+ //           FWKLOG( ( "IOFireWireSBP2ORB<0x%08lx> : physical address = 0x%08lx, length = %d\n", phys, lengthOfSegment ) );
 
             // nothing more to map
             if( phys == 0 )
@@ -805,7 +805,7 @@ IOReturn IOFireWireSBP2ORB::setCommandBuffers( IOMemoryDescriptor * memoryDescri
             }
         }
 
-        FWKLOG( ( "IOFireWireSBP2ORB : number of required PTE's = %d\n", pte ) );
+        FWKLOG( ( "IOFireWireSBP2ORB<0x%08lx> : number of required PTE's = %d\n", (UInt32)this, pte ) );
 
         // make sure we have enough memory
         if( pte > fPageTableSize / sizeof(FWSBP2PTE) )
@@ -886,7 +886,7 @@ IOReturn IOFireWireSBP2ORB::setCommandBuffers( IOMemoryDescriptor * memoryDescri
 
 					fPageTableDescriptor->writeBytes( pte * sizeof(FWSBP2PTE), &entry, sizeof(FWSBP2PTE) );
 					
- //                   FWKLOG( ( "IOFireWireSBP2ORB : PTE = %d, size = %d\n", pte, toMap  ) );
+ //                   FWKLOG( ( "IOFireWireSBP2ORB<0x%08lx> : PTE = %d, size = %d\n", (UInt32)this, pte, toMap  ) );
 
                     // move to new page table entry and beginning of unmapped memory
                     pte++;

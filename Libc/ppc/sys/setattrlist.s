@@ -27,4 +27,3 @@
 #include "SYS.h"
 
 SYSCALL(setattrlist, 0)
-	blr

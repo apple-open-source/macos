@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1998-2000 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 1998-2003 Apple Computer, Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -35,7 +35,7 @@
 /*!
  * @defined kIOPartitionSchemeClass
  * @abstract
- * kIOPartitionSchemeClass is the name of the IOPartitionScheme class.
+ * The name of the IOPartitionScheme class.
  * @discussion
  * kIOPartitionSchemeClass is the name of the IOPartitionScheme class.
  */
@@ -45,17 +45,16 @@
 /*!
  * @defined kIOMediaPartitionIDKey
  * @abstract
- * kIOMediaPartitionIDKey is property of IOMedia objects.  It has an OSNumber
- * value.
+ * A property of IOMedia objects.
  * @discussion
- * The kIOMediaPartitionIDKey property is placed into each IOMedia instance
+ * The kIOMediaPartitionIDKey property has an OSNumber
+ * value and is placed into each IOMedia instance
  * created via the partition scheme.  It is an ID that differentiates one 
  * partition from the other (within a given scheme).  It is typically an index
  * into the on-disk partition table.
  */
 
 #define kIOMediaPartitionIDKey "Partition ID"
-#define kIOMediaPartitionID "Partition ID" ///d:deprecated
 
 #ifdef KERNEL
 #ifdef __cplusplus
@@ -70,7 +69,7 @@
 /*!
  * @class IOPartitionScheme
  * @abstract
- * The IOPartitionScheme class is the common base class for all partition scheme
+ * The common base class for all partition scheme
  * objects.
  * @discussion
  * The IOPartitionScheme class is the common base class for all partition scheme
@@ -136,7 +135,7 @@ protected:
      * @function handleIsOpen
      * @discussion
      * The handleIsOpen method determines whether the specified client, or any
-     * client if none is specificed, presently has an open on this object.
+     * client if none is specified, presently has an open on this object.
      *
      * This implementation replaces the IOService definition of handleIsOpen().
      * @param client

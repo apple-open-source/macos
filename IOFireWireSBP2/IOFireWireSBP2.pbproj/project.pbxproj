@@ -11,6 +11,7 @@
 				00F2509CFFCB3F9811CE233C,
 				F59DA0840357872A01444BF0,
 			);
+			hasScannedForEncodings = 1;
 			isa = PBXProject;
 			mainGroup = 00F0F432FFCA255711CE233C;
 			productRefGroup = 00F0F450FFCA255711CE233C;
@@ -89,13 +90,14 @@
 				KERNEL_MODULE = YES;
 				MODULE_IOKIT = YES;
 				MODULE_NAME = com.apple.iokit.IOFireWireSBP2;
-				MODULE_VERSION = 1.3.4;
+				MODULE_VERSION = 1.5.1;
 				OTHER_CFLAGS = "-Wno-format";
 				OTHER_LDFLAGS = "";
 				OTHER_REZFLAGS = "";
 				PRODUCT_NAME = IOFireWireSBP2;
 				SECTORDER_FLAGS = "";
-				WARNING_CFLAGS = "-Wmost -Wno-four-char-constants -Wno-unknown-pragmas";
+				WARNING_CFLAGS = "-W -Wall -Wno-unused-parameter -Wno-four-char-constants -Wno-unknown-pragmas";
+				WARNING_CPLUSPLUSFLAGS = "-W -Wall -Wno-unused-parameter -Wno-four-char-constants -Wno-unknown-pragmas -Wno-pmf-conversions";
 				WRAPPER_EXTENSION = kext;
 			};
 			dependencies = (
@@ -114,7 +116,7 @@
 	<key>CFBundleExecutable</key>
 	<string>IOFireWireSBP2</string>
 	<key>CFBundleGetInfoString</key>
-	<string>IOFireWireSBP2 version 1.3.4, Copyright 2003 Apple Computer, Inc.</string>
+	<string>IOFireWireSBP2 version 1.5.1, Copyright 2003 Apple Computer, Inc.</string>
 	<key>CFBundleIconFile</key>
 	<string></string>
 	<key>CFBundleIdentifier</key>
@@ -126,11 +128,11 @@
 	<key>CFBundlePackageType</key>
 	<string>KEXT</string>
 	<key>CFBundleShortVersionString</key>
-	<string>1.3.4</string>
+	<string>1.5.1</string>
 	<key>CFBundleSignature</key>
 	<string>????</string>
 	<key>CFBundleVersion</key>
-	<string>1.3.4</string>
+	<string>1.5.1</string>
 	<key>IOKitPersonalities</key>
 	<dict>
 		<key>IOFireWireSBP2</key>
@@ -186,7 +188,6 @@
 </dict>
 </plist>
 ";
-			shouldUseHeadermap = 0;
 		};
 		00F0F453FFCA255711CE233C = {
 			buildActionMask = 2147483647;
@@ -287,7 +288,6 @@
 			isa = PBXAggregateTarget;
 			name = all;
 			productName = all;
-			shouldUseHeadermap = 0;
 		};
 		00F0F469FFCA286D11CE233C = {
 			isa = PBXTargetDependency;
@@ -319,7 +319,8 @@
 				OTHER_REZFLAGS = "";
 				PRODUCT_NAME = IOFireWireSBP2Lib;
 				SECTORDER_FLAGS = "";
-				WARNING_CFLAGS = "-Wmost -Wno-four-char-constants -Wno-unknown-pragmas";
+				WARNING_CFLAGS = "-W -Wall -Wno-unused-parameter -Wno-four-char-constants -Wno-unknown-pragmas";
+				WARNING_CPLUSPLUSFLAGS = "-W -Wall -Wno-unused-parameter -Wno-four-char-constants -Wno-unknown-pragmas -Wno-pmf-conversions";
 				WRAPPER_EXTENSION = plugin;
 			};
 			dependencies = (
@@ -338,7 +339,7 @@
 	<key>CFBundleExecutable</key>
 	<string>IOFireWireSBP2Lib</string>
 	<key>CFBundleGetInfoString</key>
-	<string>IOFireWireSBP2 version 1.3.4, Copyright 2003 Apple Computer, Inc.</string>
+	<string>IOFireWireSBP2 version 1.5.1, Copyright 2003 Apple Computer, Inc.</string>
 	<key>CFBundleIconFile</key>
 	<string></string>
 	<key>CFBundleIdentifier</key>
@@ -350,11 +351,11 @@
 	<key>CFBundlePackageType</key>
 	<string>BNDL</string>
 	<key>CFBundleShortVersionString</key>
-	<string>1.3.4</string>
+	<string>1.5.1</string>
 	<key>CFBundleSignature</key>
 	<string>????</string>
 	<key>CFBundleVersion</key>
-	<string>1.3.4</string>
+	<string>1.5.1</string>
 	<key>CFPlugInDynamicRegistration</key>
 	<string>NO</string>
 	<key>CFPlugInFactories</key>
@@ -377,7 +378,6 @@
 </dict>
 </plist>
 ";
-			shouldUseHeadermap = 0;
 		};
 		00F0F472FFCA290111CE233C = {
 			buildActionMask = 2147483647;

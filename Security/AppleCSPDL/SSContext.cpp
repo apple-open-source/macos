@@ -25,7 +25,7 @@
 #include "SSKey.h"
 #include <Security/debugging.h>
 
-#define ssCryptDebug(args...)  debug("ssCrypt", ## args)
+#define ssCryptDebug(args...)  secdebug("ssCrypt", ## args)
 
 using namespace SecurityServer;
 
@@ -286,11 +286,14 @@ void SSSignatureContext::sign(CssmData &sig)
 			mDigestAlg);
 	}
 	else {
-		clientSession().generateSignature(tempContext,
-			mKeyHandle,
-			(*mDigest)(), 
-			sig,
-			mDigestAlg);
+		CssmAutoData d (mDigest->allocator ());
+			d.set((*mDigest) ());
+			
+			clientSession().generateSignature(tempContext,
+				mKeyHandle,
+				d, 
+				sig,
+				mDigestAlg);
 	}
 }
 
@@ -445,7 +448,7 @@ SSCryptContext::final(CssmData &out)
 	if(!inSize) return;
 
 	const CssmData in(const_cast<void *>(mNullDigest.digestPtr()), inSize);
-	unsigned origOutSize = out.length();
+	IFDEBUG(unsigned origOutSize = out.length());
 	if (encoding()) {
 		clientSession().encrypt(*mContext, mKeyHandle, in, out);
 	}

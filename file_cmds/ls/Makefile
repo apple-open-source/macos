@@ -18,6 +18,8 @@ CFILES = cmp.c ls.c print.c stat_flags.c util.c
 
 OTHERSRCS = Makefile Makefile.preamble Makefile.postamble ls.1
 
+OTHER_CFLAGS = -DCOLORLS
+OTHER_LDFLAGS = -lncurses
 
 MAKEFILEDIR = $(MAKEFILEPATH)/pb_makefiles
 CODE_GEN_STYLE = DYNAMIC

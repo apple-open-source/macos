@@ -1,0 +1,46 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<application>
+    <display-name>JBossTest Web Container Testsuite</display-name>
+
+    <module>
+    <web>
+        <description>A war to deploy to the default context</description>
+        <web-uri>root-web.war</web-uri>
+        <context-root>/</context-root>
+    </web>
+    </module>
+    <module>
+    <web>
+        <description>The testsuite war</description>
+        <web-uri>jbosstest-web.war</web-uri>
+        <context-root>/jbosstest</context-root>
+    </web>
+    </module>
+    <module>
+    <web>
+        <description>Another war to test context-root matching</description>
+        <web-uri>wars/notjbosstest-web.war</web-uri>
+        <context-root>/jbosstest-not</context-root>
+    </web>
+    </module>
+
+    <module>
+        <ejb>jbosstest-web-ejbs.jar</ejb>
+    </module>
+
+    <module>
+        <ejb>cts.jar</ejb>
+    </module>
+
+    <module>
+        <!--
+            An ejb module in a subdirectory to check whether the resolving
+            of 'ejb-link' elements of the form "subdir/some.jar#MyBean"
+            works correctly.
+        -->
+        <ejb>websubdir/relative.jar</ejb>
+    </module>
+
+</application>
+

@@ -79,7 +79,7 @@ proc tfind_cmd {command} {
   set err [catch {gdb_cmd $command} msg]
   if {$err || [regexp "Target failed to find requested trace frame" $msg]} {
     tk_messageBox -icon error -title "GDB" -type ok \
-      -modal task -message $msg
+      -message $msg
     gdbtk_idle
     return
   } else {
@@ -184,28 +184,6 @@ proc bp_exists {linespec} {
   return -1
 }
 
-
-# Scrolled Listbox - this could be in libgui,
-# but we'll probably just start using new iwidgets stuff 
-# soon so keep it here temporarily.  This is based on
-# code from Welch's book.
-
-proc CygScrolledListbox { win args } {
-  frame $win
-  # Create listbox attached to scrollbars, pass thru $args
-  eval {listbox $win.list -yscrollcommand [list $win.sy set]} $args
-  scrollbar $win.sy -orient vertical -command [list $win.list yview]
-  
-  # Create padding based on the scrollbar width and border
-  set pad [expr [$win.sy cget -width] + 2* \
-	     ([$win.sy cget -bd] + \
-		[$win.sy cget -highlightthickness])]
-
-  frame $win.pad -width $pad -height $pad
-  pack $win.sy -side right -fill y
-  pack $win.list -side left -fill both -expand true
-  return $win.list
-}
 
 # gridCGet - This provides the missing grid cget
 # command.

@@ -1,4 +1,28 @@
 /*
+ * Copyright (c) 2000-2003 Apple Computer, Inc. All rights reserved.
+ *
+ * @APPLE_LICENSE_HEADER_START@
+ * 
+ * Copyright (c) 1999-2003 Apple Computer, Inc.  All Rights Reserved.
+ * 
+ * This file contains Original Code and/or Modifications of Original Code
+ * as defined in and that are subject to the Apple Public Source License
+ * Version 2.0 (the 'License'). You may not use this file except in
+ * compliance with the License. Please obtain a copy of the License at
+ * http://www.opensource.apple.com/apsl/ and read it before using this
+ * file.
+ * 
+ * The Original Code and all software distributed under the License are
+ * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
+ * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
+ * INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY,
+ * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
+ * Please see the License for the specific language governing rights and
+ * limitations under the License.
+ * 
+ * @APPLE_LICENSE_HEADER_END@
+ */
+/*
  * Copyright 1996 1995 by Open Software Foundation, Inc. 1997 1996 1995 1994 1993 1992 1991  
  *              All Rights Reserved 
  *  
@@ -32,18 +56,11 @@
 
 
 #include <assert.h>
-#include <mach/port.h>
+#include <stddef.h>
+#include <stdint.h>
+#include <stdlib.h>
+#include <mach/mach.h>
 #include <mach/mach_error.h>
-#include <mach/message.h>
-#include <mach/machine/vm_types.h>
-#include <mach/std_types.h>
-#include <mach/policy.h>
-#include <mach/sync.h>
-#include <mach/sync_policy.h>
-#include <mach/mach_traps.h>
-#include <mach/thread_switch.h>
-#include <mach/mach_host.h>
-#include <mach/mach.h>			/* For generic MACH support */
 
 
 #ifndef __POSIX_LIB__
@@ -51,10 +68,13 @@
 #endif
 
 #include "posix_sched.h"		/* For POSIX scheduling policy & parameter */
+#include <sys/queue.h>		/* For POSIX scheduling policy & parameter */
 #include "pthread_machdep.h"		/* Machine-dependent definitions. */
+#include "pthread_spinlock.h"		/* spinlock definitions. */
 
-extern kern_return_t syscall_thread_switch(mach_port_name_t, int, mach_msg_timeout_t);
-
+LIST_HEAD(__pthread_list, _pthread);
+extern struct __pthread_list __pthread_head;        /* head of list of open files */
+extern pthread_lock_t _pthread_list_lock;
 /*
  * Compiled-in limits
  */
@@ -69,9 +89,12 @@ typedef struct _pthread
 	long	       sig;	      /* Unique signature for this structure */
 	struct _pthread_handler_rec *cleanup_stack;
 	pthread_lock_t lock;	      /* Used for internal mutex on structure */
-	int	       detached;
-	int	       inherit;
-	int	       policy;
+	u_int32_t	detached:8,
+			inherit:8,
+			policy:8,
+			pad:8;
+	size_t	       guardsize;	/* size in bytes to guard stack overflow */
+	int	       pad0;
 	struct sched_param param;
 	struct _pthread_mutex *mutexes;
 	struct _pthread *joiner;
@@ -88,9 +111,15 @@ typedef struct _pthread
         size_t         stacksize;      /* Size of the stack (is a multiple of vm_page_size and >= PTHREAD_STACK_MIN) */
 	mach_port_t    reply_port;     /* Cached MiG reply port */
         void           *cthread_self;  /* cthread_self() if somebody calls cthread_set_self() */
-        boolean_t      freeStackOnExit;/* Should we free the stack when we're done? */
+        boolean_t      freeStackOnExit; /* Should we free the stack when we're done? */
+	LIST_ENTRY(_pthread) plist;
 } *pthread_t;
 
+/*
+ * This will cause a compile-time failure if someone moved the tsd field
+ * and we need to change _PTHREAD_TSD_OFFSET in pthread_machdep.h
+ */
+typedef char _need_to_change_PTHREAD_TSD_OFFSET[(_PTHREAD_TSD_OFFSET == offsetof(struct _pthread, tsd[0])) ? 0 : -1] ;
 
 /*
  * Thread attributes
@@ -99,9 +128,12 @@ typedef struct
 {
 	long	       sig;	      /* Unique signature for this structure */
 	pthread_lock_t lock;	      /* Used for internal mutex on structure */
-	int	       detached;
-	int	       inherit;
-	int	       policy;
+	u_int32_t	detached:8,
+			inherit:8,
+			policy:8,
+			reserved1:8;
+	size_t	       guardsize;	/* size in bytes to guard stack overflow */
+	int	       reserved2;
 	struct sched_param param;
         void           *stackaddr;     /* Base of the stack (is aligned on vm_page_size boundary */
         size_t         stacksize;      /* Size of the stack (is a multiple of vm_page_size and >= PTHREAD_STACK_MIN) */
@@ -127,19 +159,18 @@ typedef struct _pthread_mutex
 {
 	long	       sig;	      /* Unique signature for this structure */
 	pthread_lock_t lock;	      /* Used for internal mutex on structure */
-	int	       waiters:30,      /* Count of threads waiting for this mutex */
-			def:1,
-			cond_lock:1;	/* Is there a condition locking me? */
+	u_int32_t      waiters;       /* Count of threads waiting for this mutex */
 	pthread_t      owner;	      /* Which thread has this mutex locked */
-	mach_port_t    sem;	      /* Semaphore used for waiting */
+	semaphore_t    sem;	      /* Semaphore used for waiting */
 	u_int32_t	 protocol:2,		/* protocol */
 		type:2,			/* mutex type */
 		rfu:12,
 		lock_count:16;
 	struct _pthread_mutex *next, *prev;  /* List of other mutexes he owns */
 	struct _pthread_cond *busy;   /* List of condition variables using this mutex */
-	int	       prioceiling;
-	int	       priority;      /* Priority to restore when mutex unlocked */
+	int16_t       prioceiling;
+	int16_t	       priority;      /* Priority to restore when mutex unlocked */
+	semaphore_t	order;
 } pthread_mutex_t;
 
 /*
@@ -158,10 +189,10 @@ typedef struct _pthread_cond
 {
 	long	       sig;	     /* Unique signature for this structure */
 	pthread_lock_t lock;	     /* Used for internal mutex on structure */
-	mach_port_t    sem;	     /* Kernel semaphore */
+	semaphore_t    sem;	     /* Kernel semaphore */
 	struct _pthread_cond *next, *prev;  /* List of condition variables using mutex */
 	struct _pthread_mutex *busy; /* mutex associated with variable */
-	int	       waiters:16,	/* Number of threads waiting */
+	u_int32_t	waiters:16,	/* Number of threads waiting */
 		   sigspending:16;	/* Number of outstanding signals */
 } pthread_cond_t;
 
@@ -217,40 +248,18 @@ typedef struct {
 #define _PTHREAD_CREATE_PARENT	     4
 #define _PTHREAD_EXITED		     8
 
+#if defined(DEBUG)
+#define _PTHREAD_MUTEX_OWNER_SELF	pthread_self()
+#else
+#define _PTHREAD_MUTEX_OWNER_SELF	(pthread_t)0x12141968
+#endif
+#define _PTHREAD_MUTEX_OWNER_SWITCHING	(pthread_t)(~0)
+
 #define _PTHREAD_CANCEL_STATE_MASK   0xFE
 #define _PTHREAD_CANCEL_TYPE_MASK    0xFD
 #define _PTHREAD_CANCEL_PENDING	     0x10  /* pthread_cancel() has been called for this thread */
 
 extern boolean_t swtch_pri(int);
-
-/* Number of times to spin when the lock is unavailable and we are on a
-   multiprocessor.  On a uniprocessor we yield the processor immediately.  */
-#define	MP_SPIN_TRIES	1000
-extern int _spin_tries;
-extern int __is_threaded;
-extern int _cpu_has_altivec;
-
-/* Internal mutex locks for data structures */
-#define TRY_LOCK(v) (!__is_threaded || _spin_lock_try((pthread_lock_t *)&(v)))
-#define LOCK(v)																\
-do {																		\
-	if (__is_threaded) {													\
-		int		tries = _spin_tries;										\
-																			\
-		while (!_spin_lock_try((pthread_lock_t *)&(v))) {					\
-			if (tries-- > 0)												\
-				continue;													\
-																			\
-			syscall_thread_switch(THREAD_NULL, SWITCH_OPTION_DEPRESS, 1);	\
-			tries = _spin_tries;											\
-		}																	\
-	}																		\
-} while (0)
-#define UNLOCK(v)								\
-do {											\
-	if (__is_threaded)							\
-		_spin_unlock((pthread_lock_t *)&(v));	\
-} while (0)
 
 #ifndef ESUCCESS
 #define ESUCCESS 0
@@ -265,9 +274,6 @@ do {											\
 /* Functions defined in machine-dependent files. */
 extern vm_address_t _sp(void);
 extern vm_address_t _adjust_sp(vm_address_t sp);
-extern void _spin_lock(pthread_lock_t *lockp);
-extern int  _spin_lock_try(pthread_lock_t *lockp);
-extern void _spin_unlock(pthread_lock_t *lockp);
 extern void _pthread_setup(pthread_t th, void (*f)(pthread_t), void *sp, int suspended, int needresume);
 
 extern void _pthread_tsd_cleanup(pthread_t self);

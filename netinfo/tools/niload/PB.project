@@ -2,26 +2,16 @@
     DYNAMIC_CODE_GEN = YES; 
     FILESTABLE = {
         CLASSES = (
-            FFAgent.m, 
             FFParser.m, 
-            Lock.m, 
-            LUAgent.m, 
             LUArray.m, 
-            LUDictionary.m, 
-            LUDictionaryExtras.m,
-			Root.m
+            LUDictionary.m
         ); 
         FRAMEWORKS = (); 
         H_FILES = (
-            FFAgent.h, 
             FFParser.h, 
-            Lock.h, 
-            LUAgent.h, 
             LUArray.h, 
             LUDictionary.h, 
             LUGlobal.h, 
-            LUDictionaryExtras.h,
-			Root.h,
             print.h 
         ); 
 	OTHER_LIBS = (objc);

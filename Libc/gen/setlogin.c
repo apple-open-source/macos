@@ -58,6 +58,8 @@
 
 #include <unistd.h>
 
+extern int _setlogin(const char* name);
+
 extern int _logname_valid;		/* shared with getlogin() */
 
 int setlogin(const char* name)

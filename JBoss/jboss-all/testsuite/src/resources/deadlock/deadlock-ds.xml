@@ -1,0 +1,11 @@
+<datasources>
+  <local-tx-datasource>
+    <jndi-name>DeadlockDS</jndi-name>
+    <!-- A totally in-memory db, not saved when jboss stops. -->
+    <connection-url>jdbc:hsqldb:.</connection-url>
+    <driver-class>org.hsqldb.jdbcDriver</driver-class>
+    <user-name>sa</user-name>
+    <password></password>
+    <min-pool-size>5</min-pool-size>
+  </local-tx-datasource>
+</datasources>

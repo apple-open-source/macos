@@ -1,10 +1,30 @@
 /*
- *  CNBPNodeLookupThread.cpp
- *  DSNBPPlugIn
+ * Copyright (c) 2002 Apple Computer, Inc. All rights reserved.
  *
- *  Created by imlucid on Wed Aug 27 2001.
- *  Copyright (c) 2001 Apple Computer. All rights reserved.
- *
+ * @APPLE_LICENSE_HEADER_START@
+ * 
+ * Copyright (c) 1999-2003 Apple Computer, Inc.  All Rights Reserved.
+ * 
+ * This file contains Original Code and/or Modifications of Original Code
+ * as defined in and that are subject to the Apple Public Source License
+ * Version 2.0 (the 'License'). You may not use this file except in
+ * compliance with the License. Please obtain a copy of the License at
+ * http://www.opensource.apple.com/apsl/ and read it before using this
+ * file.
+ * 
+ * The Original Code and all software distributed under the License are
+ * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
+ * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
+ * INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY,
+ * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
+ * Please see the License for the specific language governing rights and
+ * limitations under the License.
+ * 
+ * @APPLE_LICENSE_HEADER_END@
+ */
+ 
+/*!
+ *  @header CNBPNodeLookupThread
  */
 
 #include "CNBPPlugin.h"
@@ -61,7 +81,7 @@ void* CNBPNodeLookupThread::Run( void )
             status = ZIPGetZoneList( LOOKUP_ALL, mBuffer, bufferSize, &actualCount );
             if ( status == -1 )
             {
-                // so we don't have zones, who needs 'em?
+                // so we don't have zones
                 // But we do want to publish our * zone...
                 AddResult(kNoZoneLabel);
                 status = 0;
@@ -99,11 +119,11 @@ void* CNBPNodeLookupThread::Run( void )
         {
             DBGLOG("Going to call Manager notifier with new Zone: %s\n", curZonePtr);
             
-            // sns 1/3/02: The internal methods need some work. The c-str method for AddResult assumes
+            // The internal methods need some work. The c-str method for AddResult assumes
             // UTF8 which is wrong. The encoding is protocol-specific. However, I can't just fix the 
             // method because the CFStringRef version of AddResult feeds itself into the C-str version
             // which seems backwards. The only thing to do for now is to create the right string here.
-            CFStringRef nodeRef = CFStringCreateWithCString( NULL, curZonePtr, CFStringGetSystemEncoding() );
+            CFStringRef nodeRef = CFStringCreateWithCString( NULL, curZonePtr, NSLGetSystemEncoding() );
             if ( nodeRef )
             {
                 AddResult( nodeRef );
@@ -113,7 +133,7 @@ void* CNBPNodeLookupThread::Run( void )
                 DBGLOG("CNBPNodeLookupThread::Run() could not make a CFString!\n");
         }
     }
-
+	
     return NULL;
 }
 

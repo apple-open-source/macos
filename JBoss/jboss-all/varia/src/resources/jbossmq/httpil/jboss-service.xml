@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE server>
+<server>
+    <mbean code="org.jboss.mq.il.http.HTTPServerILService"
+	 name="jboss.mq:service=InvocationLayer,type=HTTP">
+    <depends optional-attribute-name="Invoker">jboss.mq:service=Invoker</depends>
+    <depends>jboss.web:service=WebServer</depends>
+    <attribute name="ConnectionFactoryJNDIRef">HTTPConnectionFactory</attribute>
+    <attribute name="XAConnectionFactoryJNDIRef">HTTPXAConnectionFactory</attribute>
+    <attribute name="PingPeriod">0</attribute>
+    <attribute name="TimeOut">60</attribute>
+    <attribute name="RestInterval">0</attribute>
+  </mbean>
+</server>

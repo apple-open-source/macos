@@ -30,6 +30,9 @@
 #ifndef _IOSCSIPARALLELCOMMAND_H
 #define _IOSCSIPARALLELCOMMAND_H
 
+#include "IOSCSICommand.h"
+#include "SCSIParallelTarget.h"
+
 class IOSCSIParallelDevice;
 class IOSCSIParallelCommand;
 class IOSyncer;

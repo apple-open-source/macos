@@ -1,0 +1,52 @@
+--- printf.3.orig	Thu Aug 21 18:19:02 2003
++++ printf.3	Thu Aug 21 18:17:44 2003
+@@ -287,6 +287,20 @@
+ .Xr localeconv 3 .
+ .El
+ .It
++An optional seperator character (
++.Cm \ , | \;  | \ : | _
++) used for seperating multiple values when printing an AltiVec vector,
++or other multi-value unit.
++.Pp
++NOTE: This is an AltiVec only extension onto the
++.Fn printf
++specification.
++Behaviour of these values for
++.Fn printf 
++is only defined for operating systems conforming to the 
++AltiVec Technology Programming Interface Manual.
++(At time of writing this includes only Mac OS X 10.2 and later.)
++.It
+ An optional decimal digit string specifying a minimum field width.
+ If the converted value has fewer characters than the field width, it will
+ be padded with spaces on the left (or right, if the left-adjustment
+@@ -377,6 +391,28 @@
+ .It Sy Modifier Ta Cm c Ta Cm s
+ .It Cm l No (ell) Ta Vt wint_t Ta Vt "wchar_t *"
+ .El
++.Pp
++The AltiVec Technology Programming Interface Manual also defines five additional length modifiers
++which can be used (in place of the conventional length modifiers) for the printing of AltiVec vectors:
++.Bl -tag -compact
++.It Cm v
++Treat the argument as a vector value, unit length will be determined by the conversion
++specifier (default = 16 8-bit units for all integer conversions, 
++4 32-bit units for floating point conversions).
++.It Cm vh, hv
++Treat the argument as a vector of 8 16-bit units.
++.It Cm vl, lv
++Treat the argument as a vector of 4 32-bit units.
++.El
++.Pp
++NOTE: The vector length specifiers are AltiVec only extensions onto the
++.Fn printf
++specification.
++Behaviour of these values for
++.Fn printf 
++is only defined for operating systems conforming to the 
++AltiVec Technology Programming Interface Manual.
++(At time of writing this includes only Mac OS X 10.2 and later.)
+ .It
+ A character that specifies the type of conversion to be applied.
+ .El

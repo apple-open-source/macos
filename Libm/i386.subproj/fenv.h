@@ -100,16 +100,16 @@ extern const fenv_t _FE_DFL_ENV;
 *     by its argument.                                                         *
 *******************************************************************************/
 
-extern void  feclearexcept(int excepts);
+extern void  feclearexcept(int);
 
 
 /*******************************************************************************
 *    The function "fegetexceptflag" stores a representation of the exception   *
-*     flags indicated by the argument "excepts" through the pointer argument   *
-*     "flagp".                                                                 *
+*     flags indicated by its integer argument through the fexcept_t pointer    *
+*     argument.                                                                *
 *******************************************************************************/
 
-extern void  fegetexceptflag(fexcept_t *flagp, int excepts);
+extern void  fegetexceptflag(fexcept_t *, int);
 
 
 /*******************************************************************************
@@ -117,30 +117,30 @@ extern void  fegetexceptflag(fexcept_t *flagp, int excepts);
 *     represented by its argument.                                             *
 *******************************************************************************/
 
-extern void  feraiseexcept(int excepts);
+extern void  feraiseexcept(int);
 
 
 /*******************************************************************************
 *     The function "fesetexceptflag" sets or clears the exception flags indicated  *
-*     by the int argument "excepts" according to the representation in the     *
-*     object pointed to by the pointer argument "flagp".  The value of         *
-*     "*flagp" must have been set by a previous call to "fegetexceptflag".         *
+*     by the its integer argument according to the representation in the       *
+*     object pointed to by the fexcept_t pointer argument.  The value of the   *
+*     object must have been set by a previous call to "fegetexceptflag".       *
 *     This function does not raise exceptions; it just sets the state of       *
 *     the flags.                                                               *
 *******************************************************************************/
 
-extern void  fesetexceptflag(const fexcept_t *flagp, int excepts);
+extern void  fesetexceptflag(const fexcept_t *, int);
 
 
 /*******************************************************************************
 *     The function "fetestexcept" determines which of the specified subset of  *
-*     the exception flags are currently set.  The argument "excepts" specifies *
+*     the exception flags are currently set.  The integer argument specifies   *
 *     the exception flags to be queried as a bitwise OR of the exception       *
 *     macros.  This function returns the bitwise OR of the exception macros    *
 *     corresponding to the currently set exceptions included in "excepts".     *
 *******************************************************************************/
 
-extern int  fetestexcept(int excepts);
+extern int  fetestexcept(int);
 
 
 /*******************************************************************************
@@ -162,7 +162,7 @@ extern int  fegetround(void);
 *     changed.                                                                 *
 *******************************************************************************/
 
-extern int  fesetround(int round);
+extern int  fesetround(int);
 
 
 /*******************************************************************************
@@ -170,10 +170,10 @@ extern int  fesetround(int round);
 *    flags and dynamic modes, as one entity.                                   *
 *******************************************************************************/
 
-extern void  fegetenv(fenv_t * envp);
-extern int  feholdexcept(fenv_t * envp);
-extern void  fesetenv(const fenv_t * envp);
-extern void  feupdateenv(const fenv_t * envp);
+extern void  fegetenv(fenv_t *);
+extern int   feholdexcept(fenv_t *);
+extern void  fesetenv(const fenv_t *);
+extern void  feupdateenv(const fenv_t *);
 
 
 #ifdef __cplusplus

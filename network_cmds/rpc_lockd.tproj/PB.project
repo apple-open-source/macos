@@ -1,0 +1,39 @@
+{
+    BUILDDIR = "";
+    BUILDTOOL = /bin/gnumake;
+    FILESTABLE = {
+        C_FILES = (); 
+        H_FILES = (
+            lockd.h, 
+            lockd_lock.h 
+        ); 
+        M_FILES = (); 
+        OTHER_LIBS = (); 
+        OTHER_LINKED = (
+            kern.c,
+            lock_proc.c,
+            lockd.c,
+            lockd_lock.c,
+	    nlm_prot_svc.c,
+	    nlm_prot_xdr.c,
+	    sm_inter_xdr.c
+	);
+        OTHER_SOURCES = (
+	    Makefile.dist,
+	    Makefile.preamble,
+	    Makefile,
+	    Makefile.postamble,
+	    test.c,
+	    rpc.lockd.8
+	);
+        SUBPROJECTS = (); 
+    }; 
+    LANGUAGE = English; 
+    LOCALIZABLE_FILES = {}; 
+    NEXTSTEP_INSTALLDIR = /usr/sbin; 
+    PDO_UNIX_INSTALLDIR = /usr/sbin; 
+    PROJECTNAME = rpc.lockd; 
+    PROJECTTYPE = Tool;
+    PROJECTVERSION = 2.6; 
+    WINDOWS_INSTALLDIR = /usr/sbin; 
+}

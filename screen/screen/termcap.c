@@ -1,4 +1,4 @@
-/* Copyright (c) 1993-2001
+/* Copyright (c) 1993-2002
  *      Juergen Weigert (jnweiger@immd4.informatik.uni-erlangen.de)
  *      Michael Schroeder (mlschroe@immd4.informatik.uni-erlangen.de)
  * Copyright (c) 1987 Oliver Laumann
@@ -22,7 +22,7 @@
  */
 
 #include "rcs.h"
-RCS_ID("$Id: termcap.c,v 1.1.1.1 2001/12/14 22:08:29 bbraun Exp $ FAU")
+RCS_ID("$Id: termcap.c,v 1.1.1.2 2003/03/19 21:16:19 landonf Exp $ FAU")
 
 #include <sys/types.h>
 #include "config.h"
@@ -214,7 +214,7 @@ int he;
 	}
       if (D_OP && InStr(D_OP, "\033[39;49m"))
         D_CAX = 1;
-      if (D_OP && InStr(D_OP, "\033[m") && InStr(D_OP, "\033[0m"))
+      if (D_OP && (InStr(D_OP, "\033[m") || InStr(D_OP, "\033[0m")))
         D_OP = 0;
       /* ISO2022 */
       if ((D_EA && InStr(D_EA, "\033(B")) || (D_AS && InStr(D_AS, "\033(0")))
@@ -414,21 +414,19 @@ int he;
   if (D_HS)
     {
       debug("oy! we have a hardware status line, says termcap\n");
-      if (D_WS <= 0)
-        D_WS = D_width;
+      if (D_WS < 0)
+        D_WS = 0;
     }
   D_has_hstatus = hardstatusemu & ~HSTATUS_ALWAYS;
   if (D_HS && !(hardstatusemu & HSTATUS_ALWAYS))
     D_has_hstatus = HSTATUS_HS;
 
-#ifdef KANJI
-  D_kanji = 0;
+#ifdef ENCODINGS
   if (D_CKJ)
     {
-      if (strcmp(D_CKJ, "euc") == 0)
-	D_kanji = EUC;
-      else if (strcmp(D_CKJ, "sjis") == 0)
-	D_kanji = SJIS;
+      int enc = FindEncoding(D_CKJ);
+      if (enc != -1)
+	D_encoding = enc;
     }
 #endif
   if (!D_tcs[T_NAVIGATE].str && D_tcs[T_NAVIGATE + 1].str)
@@ -707,13 +705,13 @@ char *s;
 {
   register int n;
 
-  if (tcLineLen + (n = strlen(s)) > 55 && Termcaplen < TERMCAP_BUFSIZE + 8 - 4)
+  if (tcLineLen + (n = strlen(s)) > 55 && Termcaplen < TERMCAP_BUFSIZE - 4 - 1)
     {
       strcpy(Termcap + Termcaplen, "\\\n\t:");
       Termcaplen += 4;
       tcLineLen = 0;
     }
-  if (Termcaplen + n < TERMCAP_BUFSIZE + 8)
+  if (Termcaplen + n < TERMCAP_BUFSIZE - 1)
     {
       strcpy(Termcap + Termcaplen, s);
       Termcaplen += n;
@@ -774,12 +772,22 @@ int aflag;
 	  if (e_tgetent(buf, p) == 1)
 	    break;
 	}
+#ifdef COLOR
+      if (nwin_default.bce)
+	{
+	  sprintf(p, "%s-bce", screenterm);
+          if (e_tgetent(buf, p) == 1)
+	    break;
+	}
+#endif
+#ifdef CHECK_SCREEN_W
       if (wi >= 132)
 	{
 	  sprintf(p, "%s-w", screenterm);
           if (e_tgetent(buf, p) == 1)
 	    break;
 	}
+#endif
       strcpy(p, screenterm);
       if (e_tgetent(buf, p) == 1)
 	break;
@@ -788,19 +796,19 @@ int aflag;
     }
   while (0);		/* Goto free programming... */
 
+#if 0
+#ifndef TERMINFO
   /* check for compatibility problems, displays == 0 after fork */
   if (found)
     {
       char xbuf[TERMCAP_BUFSIZE], *xbp = xbuf;
       if (tgetstr("im", &xbp) && tgetstr("ic", &xbp) && displays)
 	{
-#ifdef TERMINFO
-	  Msg(0, "Warning: smir and ich1 set in %s terminfo entry", p);
-#else
 	  Msg(0, "Warning: im and ic set in %s termcap entry", p);
-#endif
 	}
     }
+#endif
+#endif
 
   tcLineLen = 100;	/* Force NL */
   if (strlen(Term) > TERMCAP_BUFSIZE - 40)
@@ -868,6 +876,8 @@ int aflag;
   AddCap("vi=\\E[?25l:");
   AddCap("ve=\\E[34h\\E[?25h:");
   AddCap("vs=\\E[34l:");
+  AddCap("ti=\\E[?1049h:");
+  AddCap("te=\\E[?1049l:");
   if (display)
     {
       if (D_US)
@@ -947,6 +957,13 @@ int aflag;
 	      act = &umtab[i - T_CAPS];
 	      if (act->nr == RC_ILLEGAL)
 		act = &dmtab[i - T_CAPS];
+	    }
+	  if (act->nr == RC_ILLEGAL && (i == T_NAVIGATE + 1 || i == T_NAVIGATE + 3))
+	    {
+	      /* kh -> @1, kH -> @7 */
+	      act = &umtab[i - T_CAPS - 1];
+	      if (act->nr == RC_ILLEGAL)
+		act = &dmtab[i - T_CAPS - 1];
 	    }
 	  if (act->nr != RC_ILLEGAL)
 	    {

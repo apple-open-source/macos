@@ -39,7 +39,7 @@ static const struct name_value priorities[] =
 
 #define DEFAULT_SYSLOG_LEVEL         LOG_INFO
 
-char *msg_init(void)
+const char *msg_init(void)
 {
    xlog_h      xh ;
    int         fd ;
@@ -107,7 +107,7 @@ char *msg_init(void)
    if ( type_of_xlog == XLOG_FILELOG &&
             xlog_control( xh, XLOG_GETFD, &fd ) == XLOG_ENOERROR )
    {
-      if ( fcntl( fd, F_SETFD, 1 ) == -1 )
+      if ( fcntl( fd, F_SETFD, FD_CLOEXEC ) == -1 )
       {
          xlog_destroy( xh ) ;
          return( "can't set close-on-exec flag of log file" ) ;

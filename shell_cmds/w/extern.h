@@ -1,5 +1,3 @@
-/*	$NetBSD: extern.h,v 1.3 1996/06/07 01:39:16 thorpej Exp $	*/
-
 /*-
  * Copyright (c) 1993
  *	The Regents of the University of California.  All rights reserved.
@@ -33,11 +31,15 @@
  * SUCH DAMAGE.
  *
  *	@(#)extern.h	8.1 (Berkeley) 6/6/93
+ * $FreeBSD: src/usr.bin/w/extern.h,v 1.5 2002/03/22 01:42:43 imp Exp $
  */
 
-struct proc;
-void	fmt_puts __P((char *, int *));
-void	fmt_putc __P((int, int *));
-void	pr_attime __P((time_t *, time_t *));
-void	pr_idle __P((time_t));
-int	proc_compare __P((struct proc *, struct proc *));
+
+extern	int use_ampm;
+
+struct extern_proc;
+void	pr_attime(time_t *, time_t *);
+int	pr_idle(time_t);
+int	proc_compare(struct extern_proc *, struct extern_proc *);
+
+#define KI_PROC(ki) (&(ki)->kp->kp_proc)

@@ -3,21 +3,22 @@
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
- * "Portions Copyright (c) 1999 Apple Computer, Inc.  All Rights
- * Reserved.  This file contains Original Code and/or Modifications of
- * Original Code as defined in and that are subject to the Apple Public
- * Source License Version 1.0 (the 'License').  You may not use this file
- * except in compliance with the License.  Please obtain a copy of the
- * License at http://www.apple.com/publicsource and read it before using
- * this file.
+ * Copyright (c) 1999-2003 Apple Computer, Inc.  All Rights Reserved.
+ * 
+ * This file contains Original Code and/or Modifications of Original Code
+ * as defined in and that are subject to the Apple Public Source License
+ * Version 2.0 (the 'License'). You may not use this file except in
+ * compliance with the License. Please obtain a copy of the License at
+ * http://www.opensource.apple.com/apsl/ and read it before using this
+ * file.
  * 
  * The Original Code and all software distributed under the License are
  * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
  * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
  * INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY,
- * FITNESS FOR A PARTICULAR PURPOSE OR NON-INFRINGEMENT.  Please see the
- * License for the specific language governing rights and limitations
- * under the License."
+ * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
+ * Please see the License for the specific language governing rights and
+ * limitations under the License.
  * 
  * @APPLE_LICENSE_HEADER_END@
  */
@@ -36,20 +37,21 @@
 
 #define DSSTORE_VERSION 1
 
-#define DSSTORE_FLAGS_ACCESS_MASK		0x0001
-#define DSSTORE_FLAGS_ACCESS_READONLY	0x0000
-#define DSSTORE_FLAGS_ACCESS_READWRITE	0x0001
+#define DSSTORE_FLAGS_ACCESS_MASK      0x0001
+#define DSSTORE_FLAGS_ACCESS_READONLY  0x0000
+#define DSSTORE_FLAGS_ACCESS_READWRITE 0x0001
 
-#define DSSTORE_FLAGS_SERVER_MASK		0x0002
-#define DSSTORE_FLAGS_SERVER_CLONE		0x0000
-#define DSSTORE_FLAGS_SERVER_MASTER		0x0002
+#define DSSTORE_FLAGS_SERVER_MASK      0x0002
+#define DSSTORE_FLAGS_SERVER_CLONE     0x0000
+#define DSSTORE_FLAGS_SERVER_MASTER    0x0002
 
-#define DSSTORE_FLAGS_CACHE_MASK		0x0004
-#define DSSTORE_FLAGS_CACHE_ENABLED		0x0000
-#define DSSTORE_FLAGS_CACHE_DISABLED	0x0004
+#define DSSTORE_FLAGS_CACHE_MASK       0x0004
+#define DSSTORE_FLAGS_CACHE_ENABLED    0x0000
+#define DSSTORE_FLAGS_CACHE_DISABLED   0x0004
 
-#define DSSTORE_FLAGS_REMOTE_NETINFO	0x8000
-#define DSSTORE_FLAGS_OPEN_BY_TAG		0x4000
+#define DSSTORE_FLAGS_REMOTE_NETINFO   0x8000
+#define DSSTORE_FLAGS_OPEN_BY_TAG      0x4000
+#define DSSTORE_FLAGS_NOTIFY_CHANGES   0x0010
 
 typedef struct
 {
@@ -66,8 +68,12 @@ typedef struct
 	u_int32_t save_count;
 	u_int32_t remove_count;
 	u_int32_t index_count;
+	u_int32_t file_info_count;
 	u_int32_t dirty;
 	void **index;
+	void **file_info;
+	int notify_token;
+	char *notification_name;
 	void (*sync_delegate)(void *);
 	void *sync_private;
 } dsstore;
@@ -113,5 +119,7 @@ void dsstore_flush_cache(dsstore *s);
 void dsstore_reset(dsstore *s);
 
 void dsstore_set_sync_delegate(dsstore *, void (*)(void *), void *);
+void dsstore_set_notification_name(dsstore *, const char *);
+void dsstore_notify(dsstore *);
 
 #endif __DSSTORE_H__

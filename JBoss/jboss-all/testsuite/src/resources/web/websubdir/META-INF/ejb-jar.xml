@@ -1,0 +1,26 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE ejb-jar PUBLIC
+   "-//Sun Microsystems, Inc.//DTD Enterprise JavaBeans 2.0//EN"
+   "http://java.sun.com/dtd/ejb-jar_2_0.dtd">
+
+<ejb-jar>
+   <description>
+       Test for relative ejb-link elements of the form
+       "path/to/file.jar#MyBean"
+   </description>
+
+    <enterprise-beans>
+        <session>
+            <description>Simple Sample Session Bean</description>
+            <ejb-name>SessionBean</ejb-name>
+            <home>org.jboss.test.web.interfaces.StatelessSessionHome</home>
+            <remote>org.jboss.test.web.interfaces.StatelessSession</remote>
+            <local-home>org.jboss.test.web.interfaces.StatelessSessionLocalHome</local-home>
+            <local>org.jboss.test.web.interfaces.StatelessSessionLocal</local>
+            <ejb-class>org.jboss.test.web.ejb.StatelessSessionBean</ejb-class>
+            <session-type>Stateless</session-type>
+            <transaction-type>Container</transaction-type>
+        </session>
+    </enterprise-beans>
+
+</ejb-jar>

@@ -172,7 +172,6 @@ SSDLSession::Authenticate(CSSM_DB_HANDLE inDbHandle,
 						  CSSM_DB_ACCESS_TYPE inAccessRequest,
 						  const AccessCredentials &inAccessCred)
 {
-	// @@@ Use securityserver.
 	SSDatabase db = findDbHandle(inDbHandle);
 	db->authenticate(inAccessRequest, &inAccessCred);
 }
@@ -531,6 +530,14 @@ SSDLSession::PassThrough(CSSM_DB_HANDLE inDbHandle,
 			db->changePassphrase(params->accessCredentials);
 			break;
 		}
+		case CSSM_APPLECSPDL_DB_GET_HANDLE:
+		{
+			using SecurityServer::DbHandle;
+			Required(outOutputParams, CSSM_ERRCODE_INVALID_OUTPUT_POINTER);
+			DbHandle &dbHandle = *(DbHandle *)outOutputParams;
+			dbHandle = db->dbHandle();
+			break;
+		}
 		default:
 		{
 			CSSM_RETURN result = CSSM_DL_PassThrough(db->handle(), inPassThroughId, inInputParams, outOutputParams);
@@ -546,7 +553,7 @@ SSDLSession::makeDbHandle(SSDatabase &inDb)
 {
 	StLock<Mutex> _(mDbHandleLock);
 	CSSM_DB_HANDLE aDbHandle = inDb->handle().DBHandle;
-	bool inserted = mDbHandleMap.insert(DbHandleMap::value_type(aDbHandle, inDb)).second;
+	IFDEBUG(bool inserted =) mDbHandleMap.insert(DbHandleMap::value_type(aDbHandle, inDb)).second;
 	assert(inserted);
 	return aDbHandle;
 }
@@ -580,7 +587,7 @@ SSDLSession::makeSSUniqueRecord(SSUniqueRecord &uniqueId)
 {
 	StLock<Mutex> _(mSSUniqueRecordLock);
 	CSSM_HANDLE ref = CSSM_HANDLE(static_cast<CSSM_DB_UNIQUE_RECORD *>(uniqueId));
-	bool inserted = mSSUniqueRecordMap.insert(SSUniqueRecordMap::value_type(ref, uniqueId)).second;
+	IFDEBUG(bool inserted =) mSSUniqueRecordMap.insert(SSUniqueRecordMap::value_type(ref, uniqueId)).second;
 	assert(inserted);
 	return createUniqueRecord(ref);
 }

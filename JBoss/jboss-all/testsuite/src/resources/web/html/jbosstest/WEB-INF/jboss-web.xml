@@ -1,0 +1,38 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE jboss-web
+    PUBLIC "-//JBoss//DTD Web Application 2.3//EN"
+    "http://www.jboss.org/j2ee/dtds/jboss-web_3_2.dtd">
+
+<jboss-web>
+    <security-domain>java:/jaas/other</security-domain>
+
+
+
+   <ejb-ref>
+      <ejb-ref-name>ejb/bean3</ejb-ref-name>
+      <jndi-name>jbosstest/ejbs/UnsecuredEJB</jndi-name>
+   </ejb-ref>
+
+   <ejb-local-ref>
+      <ejb-ref-name>ejb/local/bean3</ejb-ref-name>
+      <local-jndi-name>jbosstest/ejbs/local/ENCBean1</local-jndi-name>
+   </ejb-local-ref>
+
+    <resource-ref>
+        <res-ref-name>jdbc/DefaultDS</res-ref-name>
+        <jndi-name>java:/DefaultDS</jndi-name>
+    </resource-ref>
+    <resource-ref>
+        <res-ref-name>mail/DefaultMail</res-ref-name>
+        <jndi-name>java:/Mail</jndi-name>
+    </resource-ref>
+    <resource-ref>
+        <res-ref-name>jms/QueFactory</res-ref-name>
+        <jndi-name>ConnectionFactory</jndi-name>
+    </resource-ref>
+    <resource-ref>
+        <res-ref-name>url/JBossHome</res-ref-name>
+        <res-url>http://www.jboss.org</res-url>
+    </resource-ref>
+
+</jboss-web>

@@ -1101,7 +1101,7 @@ select_thread (mach_port_t task, int thread_id, int flag)
       stop_pc = read_pc ();
       flush_cached_frames ();
 
-      select_frame (get_current_frame (), 0);
+      select_frame (get_current_frame ());
     }
 
   return KERN_SUCCESS;
@@ -4474,6 +4474,7 @@ init_m3_ops (void)
   m3_ops.to_terminal_init = terminal_init_inferior;
   m3_ops.to_terminal_inferior = terminal_inferior;
   m3_ops.to_terminal_ours_for_output = terminal_ours_for_output;
+  m3_ops.to_terminal_save_ours = terminal_save_ours;
   m3_ops.to_terminal_ours = terminal_ours;
   m3_ops.to_terminal_info = child_terminal_info;
   m3_ops.to_kill = m3_kill_inferior;

@@ -211,8 +211,9 @@ KeychainImpl::KeychainImpl(const Db &db)
 {
 }
 
-KeychainImpl::~KeychainImpl()
+KeychainImpl::~KeychainImpl() throw()
 {
+	globals().storageManager.removeKeychain(dLDbIdentifier(), this);
 }
 
 bool
@@ -251,18 +252,8 @@ KeychainImpl::create(UInt32 passwordLength, const void *inPassword)
 	// @@@ Share this instance
 
 	const CssmData password(const_cast<void *>(inPassword), passwordLength);
-        AclFactory::PasswordChangeCredentials pCreds (password, alloc);
-        const AccessCredentials* aa = pCreds;
-        
-	// @@@ Create a nice wrapper for building the default AclEntryPrototype. 
-	TypedList subject(alloc, CSSM_ACL_SUBJECT_TYPE_ANY);
-	AclEntryPrototype protoType(subject);
-	AuthorizationGroup &authGroup = protoType.authorization();
-	CSSM_ACL_AUTHORIZATION_TAG tag = CSSM_ACL_AUTHORIZATION_ANY;
-	authGroup.NumberOfAuthTags = 1;
-	authGroup.AuthTags = &tag;
-
-	const ResourceControlContext rcc(protoType, const_cast<AccessCredentials *>(aa));
+	AclFactory::PasswordChangeCredentials pCreds (password, alloc);
+	AclFactory::AnyResourceContext rcc(pCreds);
 	create(&rcc);
 }
 
@@ -277,25 +268,8 @@ void KeychainImpl::create(ConstStringPtr inPassword)
 void
 KeychainImpl::create()
 {
-	CssmAllocator &alloc = CssmAllocator::standard();
-	// @@@ Share this instance
-#ifdef OBSOLETE
-	KeychainAclFactory aclFactory(alloc);
-
-	const AccessCredentials *cred = aclFactory.keychainPromptUnlockCredentials();
-#endif
-        AclFactory aclFactor;
-        const AccessCredentials *cred = aclFactor.unlockCred ();
-        
-	// @@@ Create a nice wrapper for building the default AclEntryPrototype.
-	TypedList subject(alloc, CSSM_ACL_SUBJECT_TYPE_ANY);
-	AclEntryPrototype protoType(subject);
-	AuthorizationGroup &authGroup = protoType.authorization();
-	CSSM_ACL_AUTHORIZATION_TAG tag = CSSM_ACL_AUTHORIZATION_ANY;
-	authGroup.NumberOfAuthTags = 1;
-	authGroup.AuthTags = &tag;
-
-	const ResourceControlContext rcc(protoType, const_cast<AccessCredentials *>(cred));
+	AclFactory aclFactory;
+	AclFactory::AnyResourceContext rcc(aclFactory.unlockCred());
 	create(&rcc);
 }
 
@@ -317,6 +291,8 @@ KeychainImpl::create(const ResourceControlContext *rcc)
 	mDb->resourceControlContext(NULL);
 	mDb->dbInfo(NULL); // Clear the schema (to not break an open call later)
 	globals().storageManager.created(Keychain(this));
+
+    KCEventNotifier::PostKeychainEvent (kSecKeychainListChangedEvent, this, NULL);
 }
 
 void
@@ -541,7 +517,18 @@ KeychainImpl::makePrimaryKey(CSSM_DB_RECORDTYPE recordType, DbUniqueRecord &uniq
 const CssmAutoDbRecordAttributeInfo &
 KeychainImpl::primaryKeyInfosFor(CSSM_DB_RECORDTYPE recordType)
 {
-	return keychainSchema()->primaryKeyInfosFor(recordType);
+	try {
+		return keychainSchema()->primaryKeyInfosFor(recordType);
+	} catch (const CssmCommonError &error) {
+		switch (error.cssmError()) {
+		case errSecNoSuchClass:
+		case CSSMERR_DL_INVALID_RECORDTYPE:
+			resetSchema();
+			return keychainSchema()->primaryKeyInfosFor(recordType);
+		default:
+			throw;
+		}
+	}
 }
 
 void KeychainImpl::gatherPrimaryKeyAttributes(DbAttributes& primaryKeyAttrs)
@@ -557,17 +544,32 @@ void KeychainImpl::gatherPrimaryKeyAttributes(DbAttributes& primaryKeyAttrs)
 Item
 KeychainImpl::item(const PrimaryKey& primaryKey)
 {
+	// @@@ This retry code isn't really the right way to do this,
+	// we need to redo the locking structure here in the future.
+	bool tried = false;
+	for (;;)
 	{
-		StLock<Mutex> _(mDbItemMapLock);
-		DbItemMap::iterator it = mDbItemMap.find(primaryKey);
-		if (it != mDbItemMap.end())
 		{
-			return Item(it->second);
+			StLock<Mutex> _(mDbItemMapLock);
+			DbItemMap::iterator it = mDbItemMap.find(primaryKey);
+			if (it != mDbItemMap.end())
+			{
+				return Item(it->second);
+			}
+		}
+
+		try
+		{
+			// Create an item with just a primary key
+			return Item(this, primaryKey);
+		}
+		catch (const MacOSError &e)
+		{
+			if (tried || e.osStatus() != errSecDuplicateItem)
+				throw;
+			tried = true;
 		}
 	}
-
-	// Create an item with just a primary key
-    return Item(this, primaryKey);
 }
 
 Item
@@ -599,6 +601,12 @@ KeychainImpl::keychainSchema()
 	return mKeychainSchema;
 }
 
+void KeychainImpl::resetSchema()
+{
+	mKeychainSchema = NULL;	// re-fetch it from db next time
+}
+
+
 // Called from DbItemImpl's constructor (so it is only paritally constructed), add it to the map. 
 void
 KeychainImpl::addItem(const PrimaryKey &primaryKey, ItemImpl *dbItemImpl)
@@ -610,7 +618,7 @@ KeychainImpl::addItem(const PrimaryKey &primaryKey, ItemImpl *dbItemImpl)
 		// @@@ There is a race condition here when being called in multiple threads
 		// We might have added an item using add and received a notification at the same time
 		//assert(true);
-		throw errSecDuplicateItem;
+		MacOSError::throwMe(errSecDuplicateItem);
 		//mDbItemMap.erase(it);
 		// @@@ What to do here?
 	}
@@ -622,7 +630,7 @@ void
 KeychainImpl::didDeleteItem(const ItemImpl *inItemImpl)
 {
 	// Sent sent by CCallbackMgr.
-    debug("kcnotify", "%p notified that item %p was deleted", this, inItemImpl);
+    secdebug("kcnotify", "%p notified that item %p was deleted", this, inItemImpl);
 	PrimaryKey primaryKey = inItemImpl->primaryKey();
 	StLock<Mutex> _(mDbItemMapLock);
 	DbItemMap::iterator it = mDbItemMap.find(primaryKey);
@@ -643,7 +651,18 @@ KeychainImpl::removeItem(const PrimaryKey &primaryKey, const ItemImpl *inItemImp
 void
 KeychainImpl::getAttributeInfoForItemID(CSSM_DB_RECORDTYPE itemID, SecKeychainAttributeInfo **Info)
 {
-	keychainSchema()->getAttributeInfoForRecordType(itemID, Info);
+	try {
+		keychainSchema()->getAttributeInfoForRecordType(itemID, Info);
+	} catch (const CssmCommonError &error) {
+		switch (error.cssmError()) {
+		case errSecNoSuchClass:
+		case CSSMERR_DL_INVALID_RECORDTYPE:
+			resetSchema();
+			keychainSchema()->getAttributeInfoForRecordType(itemID, Info);
+		default:
+			throw;
+		}
+	}
 }
 
 void 
@@ -657,7 +676,18 @@ KeychainImpl::freeAttributeInfo(SecKeychainAttributeInfo *Info)
 CssmDbAttributeInfo
 KeychainImpl::attributeInfoFor(CSSM_DB_RECORDTYPE recordType, UInt32 tag)
 {
-	return keychainSchema()->attributeInfoFor(recordType, tag);
+	try {
+		return keychainSchema()->attributeInfoFor(recordType, tag);
+	} catch (const CssmCommonError &error) {
+		switch (error.cssmError()) {
+		case errSecNoSuchClass:
+		case CSSMERR_DL_INVALID_RECORDTYPE:
+			resetSchema();
+			return keychainSchema()->attributeInfoFor(recordType, tag);
+		default:
+			throw;
+		}
+	}
 
 }
 
@@ -665,8 +695,8 @@ Keychain
 Keychain::optional(SecKeychainRef handle)
 {
 	if (handle)
-		return gTypes().keychain.required(handle);
+		return KeychainImpl::required(handle);
 	else
-		return globals().defaultKeychain;
+		return globals().storageManager.defaultKeychain();
 }
 

@@ -3,19 +3,22 @@
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
- * The contents of this file constitute Original Code as defined in and
- * are subject to the Apple Public Source License Version 1.1 (the
- * "License").  You may not use this file except in compliance with the
- * License.  Please obtain a copy of the License at
- * http://www.apple.com/publicsource and read it before using this file.
+ * Copyright (c) 1999-2003 Apple Computer, Inc.  All Rights Reserved.
  * 
- * This Original Code and all software distributed under the License are
- * distributed on an "AS IS" basis, WITHOUT WARRANTY OF ANY KIND, EITHER
+ * This file contains Original Code and/or Modifications of Original Code
+ * as defined in and that are subject to the Apple Public Source License
+ * Version 2.0 (the 'License'). You may not use this file except in
+ * compliance with the License. Please obtain a copy of the License at
+ * http://www.opensource.apple.com/apsl/ and read it before using this
+ * file.
+ * 
+ * The Original Code and all software distributed under the License are
+ * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
  * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
  * INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY,
- * FITNESS FOR A PARTICULAR PURPOSE OR NON-INFRINGEMENT.  Please see the
- * License for the specific language governing rights and limitations
- * under the License.
+ * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
+ * Please see the License for the specific language governing rights and
+ * limitations under the License.
  * 
  * @APPLE_LICENSE_HEADER_END@
  */
@@ -1551,7 +1554,6 @@ process_firewall_out(struct mbuf **m_orig, struct ifnet	*ifp)
     struct ip			*ip;
     int					hlen;
     struct sockaddr_in 	sin, *dst = &sin;
-    struct sockaddr_in  *old = dst;
     int					off;
     struct ip_fw_chain	*rule = NULL;
     
@@ -1585,13 +1587,13 @@ process_firewall_out(struct mbuf **m_orig, struct ifnet	*ifp)
       * because we don't support DUMMYNET or IPFIREWALL_FORWARD
       * in the kernel.
       */
-    if (off == 0 && dst == old && *m_orig != NULL)
+    if (off >= 0 && (off < 0x10000 || (off & 0x10000) != 0) && *m_orig != NULL)
         return FIREWALL_ACCEPTED;
 	
     /* Firewall rejected (gobbled up) the packet. */
     if (*m_orig == NULL)
         return 1;
-#if DUMMYNET
+#if 0
     if (off & 0x10000) {
         /*
          * pass the pkt to dummynet. Need to include
@@ -1610,7 +1612,7 @@ process_firewall_out(struct mbuf **m_orig, struct ifnet	*ifp)
         return 2;
     }
 #endif
-#if IPDIVERT
+#if 0
     if (off > 0 && off < 0x10000) { /* Divert Packet */
         ip_divert_port = off & 0xffff;
         ip_porotox[IPPROTO_DIVERT]->pr_input(*m_orig, 0);
@@ -1668,21 +1670,12 @@ process_firewall_in(struct mbuf **m_orig)
       * Since we don't support DUMMYNET or IPFIREWALL_FORWARD
       * We'll just ignore "off"
       */
-    if (off == 0 && ip_fw_fwd_addr == NULL && *m_orig != NULL)
+    if (off >= 0 && (off < 0x10000 || (off & 0x10000) != 0) && *m_orig != NULL)
         return 0;
     /* Firewall rejected (gobbled up) the packet. */
     if (*m_orig == NULL)
         return 1;
-#if IPFIREWALL_FORWARD
-    /* Hack: We don't foward packets on their way to Classic */
-    /* This probably leaks packets */
-    if (ip_fw_fwd_addr) {
-#warning There is probably a leak here!
-        ip_fw_fwd_addr = NULL;
-        return 0;
-    }
-#endif
-#if DUMMYNET
+#if 0
     if (off & 0x10000) {
         /*
          * normally we would pass the pkt to dummynet.
@@ -1690,22 +1683,16 @@ process_firewall_in(struct mbuf **m_orig)
          * know it's supposed to go to classic, we don't support
          * this here.
          */
-/*      dummynet_io(off & 0xffff, DN_TO_IP_OUT, *m_orig,ifp,ro,hlen,rule);*/
-#if SIP_DEBUG_ERR
-        log(LOG_WARNING, "SharedIP: process_firewall_in, firewall wants to dummynet the packet!\n");
-#endif
+		dummynet_io(off & 0xffff, DN_TO_IP_OUT, *m_orig,ifp,ro,hlen,rule);
         m_freem(*m_orig);
         *m_orig = NULL;
         return 2;
     }
 #endif
-#if IPDIVERT
+#if 0
     if (off > 0 && off < 0x10000) { /* Divert Packet */
-/*      ip_divert_port = off & 0xffff; */
-/*      ip_porotox[IPPROTO_DIVERT]->pr_input(*m_orig, 0); */
-#if SIP_DEBUG_ERR
-        log(LOG_WARNING, "SharedIP: process_firewall_in, firewall wants to divert the packet!\n");
-#endif
+		ip_divert_port = off & 0xffff; */
+		ip_porotox[IPPROTO_DIVERT]->pr_input(*m_orig, 0); */
         *m_orig = NULL;
         return 3;
     }

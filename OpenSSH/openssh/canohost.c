@@ -12,7 +12,7 @@
  */
 
 #include "includes.h"
-RCSID("$OpenBSD: canohost.c,v 1.32 2002/06/11 08:11:45 itojun Exp $");
+RCSID("$OpenBSD: canohost.c,v 1.35 2002/11/26 02:38:54 stevesk Exp $");
 
 #include "packet.h"
 #include "xmalloc.h"
@@ -38,7 +38,7 @@ get_remote_hostname(int socket, int verify_reverse_mapping)
 	/* Get IP address of client. */
 	fromlen = sizeof(from);
 	memset(&from, 0, sizeof(from));
-	if (getpeername(socket, (struct sockaddr *) &from, &fromlen) < 0) {
+	if (getpeername(socket, (struct sockaddr *)&from, &fromlen) < 0) {
 		debug("getpeername failed: %.100s", strerror(errno));
 		fatal_cleanup();
 	}
@@ -59,11 +59,14 @@ get_remote_hostname(int socket, int verify_reverse_mapping)
 			memset(&from, 0, sizeof(from));
 
 			from4->sin_family = AF_INET;
+			fromlen = sizeof(*from4);
 			memcpy(&from4->sin_addr, &addr, sizeof(addr));
 			from4->sin_port = port;
 		}
 	}
 #endif
+	if (from.ss_family == AF_INET6)
+		fromlen = sizeof(struct sockaddr_in6);
 
 	if (getnameinfo((struct sockaddr *)&from, fromlen, ntop, sizeof(ntop),
 	    NULL, 0, NI_NUMERICHOST) != 0)
@@ -77,7 +80,9 @@ get_remote_hostname(int socket, int verify_reverse_mapping)
 	if (getnameinfo((struct sockaddr *)&from, fromlen, name, sizeof(name),
 	    NULL, 0, NI_NAMEREQD) != 0) {
 		/* Host name not found.  Use ip address. */
+#if 0
 		log("Could not reverse map address %.100s.", ntop);
+#endif
 		return xstrdup(ntop);
 	}
 
@@ -200,8 +205,8 @@ get_canonical_hostname(int verify_reverse_mapping)
 }
 
 /*
- * Returns the remote IP-address of socket as a string.  The returned
- * string must be freed.
+ * Returns the local/remote IP-address/hostname of socket as a string.
+ * The returned string must be freed.
  */
 static char *
 get_socket_address(int socket, int remote, int flags)
@@ -216,23 +221,22 @@ get_socket_address(int socket, int remote, int flags)
 
 	if (remote) {
 		if (getpeername(socket, (struct sockaddr *)&addr, &addrlen)
-		    < 0) {
-			debug("get_socket_ipaddr: getpeername failed: %.100s",
-			    strerror(errno));
+		    < 0)
 			return NULL;
-		}
 	} else {
 		if (getsockname(socket, (struct sockaddr *)&addr, &addrlen)
-		    < 0) {
-			debug("get_socket_ipaddr: getsockname failed: %.100s",
-			    strerror(errno));
+		    < 0)
 			return NULL;
-		}
 	}
+
+	/* Work around Linux IPv6 weirdness */
+	if (addr.ss_family == AF_INET6)
+		addrlen = sizeof(struct sockaddr_in6);
+
 	/* Get the address in ascii. */
 	if (getnameinfo((struct sockaddr *)&addr, addrlen, ntop, sizeof(ntop),
 	    NULL, 0, flags) != 0) {
-		error("get_socket_ipaddr: getnameinfo %d failed", flags);
+		error("get_socket_address: getnameinfo %d failed", flags);
 		return NULL;
 	}
 	return xstrdup(ntop);
@@ -241,13 +245,21 @@ get_socket_address(int socket, int remote, int flags)
 char *
 get_peer_ipaddr(int socket)
 {
-	return get_socket_address(socket, 1, NI_NUMERICHOST);
+	char *p;
+
+	if ((p = get_socket_address(socket, 1, NI_NUMERICHOST)) != NULL)
+		return p;
+	return xstrdup("UNKNOWN");
 }
 
 char *
 get_local_ipaddr(int socket)
 {
-	return get_socket_address(socket, 0, NI_NUMERICHOST);
+	char *p;
+
+	if ((p = get_socket_address(socket, 0, NI_NUMERICHOST)) != NULL)
+		return p;
+	return xstrdup("UNKNOWN");
 }
 
 char *
@@ -310,11 +322,16 @@ get_sock_port(int sock, int local)
 			return 0;
 		}
 	} else {
-		if (getpeername(sock, (struct sockaddr *) & from, &fromlen) < 0) {
+		if (getpeername(sock, (struct sockaddr *)&from, &fromlen) < 0) {
 			debug("getpeername failed: %.100s", strerror(errno));
 			fatal_cleanup();
 		}
 	}
+
+	/* Work around Linux IPv6 weirdness */
+	if (from.ss_family == AF_INET6)
+		fromlen = sizeof(struct sockaddr_in6);
+
 	/* Return port number. */
 	if (getnameinfo((struct sockaddr *)&from, fromlen, NULL, 0,
 	    strport, sizeof(strport), NI_NUMERICSERV) != 0)

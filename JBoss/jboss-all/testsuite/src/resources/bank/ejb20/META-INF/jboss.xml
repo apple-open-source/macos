@@ -1,0 +1,47 @@
+<?xml version="1.0"?>
+
+<!DOCTYPE jboss PUBLIC
+      "-//JBoss//DTD JBOSS 3.0//EN"
+      "http://www.jboss.org/j2ee/dtd/jboss_3_0.dtd">
+
+<jboss>
+   <enterprise-beans>
+      <session>
+         <ejb-name>Bank</ejb-name>
+         <jndi-name>bank/Bank</jndi-name>
+      </session>
+      <session>
+         <ejb-name>Teller</ejb-name>
+         <jndi-name>bank/Teller</jndi-name>
+         <ejb-ref>
+            <ejb-ref-name>ejb/Customer</ejb-ref-name>
+            <jndi-name></jndi-name>
+         </ejb-ref>
+         <ejb-ref>
+            <ejb-ref-name>ejb/Account</ejb-ref-name>
+            <jndi-name></jndi-name>
+         </ejb-ref>
+         <ejb-ref>
+            <ejb-ref-name>ejb/Bank</ejb-ref-name>
+            <jndi-name></jndi-name>
+         </ejb-ref>
+      </session>
+      <entity>
+         <ejb-name>Account</ejb-name>
+         <jndi-name>bank/Account</jndi-name>
+         <ejb-ref>
+            <ejb-ref-name>ejb/Customer</ejb-ref-name>
+            <jndi-name></jndi-name>
+         </ejb-ref>
+      </entity>
+      <entity>
+         <ejb-name>Customer</ejb-name>
+         <jndi-name>bank/Customer</jndi-name>
+         <ejb-ref>
+            <ejb-ref-name>ejb/Account</ejb-ref-name>
+            <jndi-name></jndi-name>
+         </ejb-ref>
+      </entity>
+      <secure>false</secure>
+   </enterprise-beans>
+</jboss>

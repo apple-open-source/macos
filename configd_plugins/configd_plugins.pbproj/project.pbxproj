@@ -1,0 +1,1539 @@
+// !$*UTF8*$!
+{
+	archiveVersion = 1;
+	classes = {
+	};
+	objectVersion = 38;
+	objects = {
+		156749A20461DB9600FBD364 = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			name = cache.c;
+			path = common/cache.c;
+			refType = 4;
+		};
+		156749A30461DB9600FBD364 = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			name = cache.h;
+			path = common/cache.h;
+			refType = 4;
+		};
+		156749A40461DB9600FBD364 = {
+			fileRef = 156749A20461DB9600FBD364;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		156749A50461DB9600FBD364 = {
+			fileRef = 156749A30461DB9600FBD364;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		157BBBF8041DABDA000001D9 = {
+			buildPhases = (
+			);
+			buildSettings = {
+				OTHER_CFLAGS = "";
+				OTHER_LDFLAGS = "";
+				OTHER_REZFLAGS = "";
+				PRODUCT_NAME = "PPC only";
+				SECTORDER_FLAGS = "";
+				WARNING_CFLAGS = "-Wmost -Wno-four-char-constants -Wno-unknown-pragmas";
+			};
+			dependencies = (
+				157BBBF9041DABE2000001D9,
+			);
+			isa = PBXAggregateTarget;
+			name = configd_plugins_ppc;
+			productName = "PPC only";
+		};
+		157BBBF9041DABE2000001D9 = {
+			isa = PBXTargetDependency;
+			target = E508527F04015689070001CD;
+		};
+		157BBBFA041DAC08000001D9 = {
+			buildPhases = (
+			);
+			buildSettings = {
+				OTHER_CFLAGS = "";
+				OTHER_LDFLAGS = "";
+				OTHER_REZFLAGS = "";
+				PRODUCT_NAME = All;
+				SECTORDER_FLAGS = "";
+				WARNING_CFLAGS = "-Wmost -Wno-four-char-constants -Wno-unknown-pragmas";
+			};
+			dependencies = (
+				157BBBFB041DAC0D000001D9,
+				157BBBFC041DAC10000001D9,
+			);
+			isa = PBXAggregateTarget;
+			name = all;
+			productName = All;
+		};
+		157BBBFB041DAC0D000001D9 = {
+			isa = PBXTargetDependency;
+			target = E508527304015689070001CD;
+		};
+		157BBBFC041DAC10000001D9 = {
+			isa = PBXTargetDependency;
+			target = 157BBBF8041DABDA000001D9;
+		};
+		1594906F04681C1600D1284F = {
+			children = (
+				156749A30461DB9600FBD364,
+				156749A20461DB9600FBD364,
+			);
+			isa = PBXGroup;
+			name = common;
+			refType = 4;
+		};
+		1594907004681CB900D1284F = {
+			fileRef = 156749A30461DB9600FBD364;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		1594907104681CB900D1284F = {
+			fileRef = 156749A20461DB9600FBD364;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+//150
+//151
+//152
+//153
+//154
+//E50
+//E51
+//E52
+//E53
+//E54
+		E508526F04015689070001CD = {
+			children = (
+				1594906F04681C1600D1284F,
+				E508527904015689070001CD,
+				E508529404015689070001CD,
+				E50852BB04015689070001CD,
+				E50852DC04015689070001CD,
+				E50852EE04015689070001CD,
+				E508530004015689070001CD,
+				E508531404015689070001CD,
+				E508532804015689070001CD,
+				E508528104015689070001CD,
+			);
+			isa = PBXGroup;
+			name = configd_plugins;
+			refType = 4;
+		};
+		E508527104015689070001CD = {
+			buildRules = (
+			);
+			buildSettings = {
+				COPY_PHASE_STRIP = NO;
+			};
+			isa = PBXBuildStyle;
+			name = Development;
+		};
+		E508527204015689070001CD = {
+			buildRules = (
+			);
+			buildSettings = {
+				COPY_PHASE_STRIP = YES;
+			};
+			isa = PBXBuildStyle;
+			name = Deployment;
+		};
+		E508527304015689070001CD = {
+			buildPhases = (
+				E508528304015689070001CD,
+			);
+			buildSettings = {
+				OTHER_CFLAGS = "";
+				OTHER_LDFLAGS = "";
+				OTHER_REZFLAGS = "";
+				PRODUCT_NAME = configd_plugins;
+				SECTORDER_FLAGS = "";
+				WARNING_CFLAGS = "-Wmost -Wno-four-char-constants -Wno-unknown-pragmas";
+			};
+			dependencies = (
+				E508529C04015689070001CD,
+				E50852C304015689070001CD,
+				E50852E404015689070001CD,
+				E50852F604015689070001CD,
+				E508530804015689070001CD,
+				E508531C04015689070001CD,
+			);
+			isa = PBXAggregateTarget;
+			name = configd_plugins;
+			productName = "configd_plugins (Aggregate)";
+		};
+		E508527904015689070001CD = {
+			children = (
+				E508528604015689070001CD,
+				E508528B04015689070001CD,
+				E508528904015689070001CD,
+			);
+			isa = PBXGroup;
+			name = ATconfig;
+			path = ATconfig.bproj;
+			refType = 4;
+		};
+		E508527A04015689070001CD = {
+			buildActionMask = 2147483647;
+			files = (
+				E508528704015689070001CD,
+				1594907004681CB900D1284F,
+			);
+			isa = PBXHeadersBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		E508527B04015689070001CD = {
+			buildActionMask = 2147483647;
+			files = (
+			);
+			isa = PBXResourcesBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		E508527C04015689070001CD = {
+			buildActionMask = 2147483647;
+			files = (
+				E508528A04015689070001CD,
+				E508528C04015689070001CD,
+				1594907104681CB900D1284F,
+			);
+			isa = PBXSourcesBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		E508527D04015689070001CD = {
+			buildActionMask = 2147483647;
+			files = (
+				E508532A04015689070001CD,
+				E508533404015689070001CD,
+				E508533C04015689070001CD,
+			);
+			isa = PBXFrameworksBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		E508527E04015689070001CD = {
+			buildActionMask = 2147483647;
+			files = (
+			);
+			isa = PBXRezBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		E508527F04015689070001CD = {
+			buildPhases = (
+				E508527A04015689070001CD,
+				E508527B04015689070001CD,
+				E508527C04015689070001CD,
+				E508527D04015689070001CD,
+				E508527E04015689070001CD,
+			);
+			buildSettings = {
+				FRAMEWORK_SEARCH_PATHS = "\"$(NEXT_ROOT)$(SYSTEM_LIBRARY_DIR)/PrivateFrameworks\"";
+				HEADER_SEARCH_PATHS = "";
+				INSTALL_PATH = "$(SYSTEM_LIBRARY_DIR)/SystemConfiguration";
+				LIBRARY_SEARCH_PATHS = "";
+				OTHER_CFLAGS = "";
+				OTHER_LDFLAGS = "";
+				OTHER_REZFLAGS = "";
+				PRODUCT_NAME = ATconfig;
+				SECTORDER_FLAGS = "";
+				WARNING_CFLAGS = "-Wall -Wno-four-char-constants -Wno-unknown-pragmas";
+				WRAPPER_EXTENSION = bundle;
+			};
+			dependencies = (
+			);
+			isa = PBXBundleTarget;
+			name = ATconfig;
+			productInstallPath = "$(SYSTEM_LIBRARY_DIR)/SystemConfiguration";
+			productName = "ATconfig (Bundle)";
+			productReference = E508528004015689070001CD;
+			productSettingsXML = "<?xml version=\"1.0\" encoding=\"UTF-8\"?>
+<!DOCTYPE plist PUBLIC \"-//Apple Computer//DTD PLIST 1.0//EN\" \"http://www.apple.com/DTDs/PropertyList-1.0.dtd\">
+<plist version=\"1.0\">
+<dict>
+	<key>CFBundleDevelopmentRegion</key>
+	<string>English</string>
+	<key>CFBundleExecutable</key>
+	<string>ATconfig</string>
+	<key>CFBundleGetInfoString</key>
+	<string></string>
+	<key>CFBundleIconFile</key>
+	<string></string>
+	<key>CFBundleIdentifier</key>
+	<string>com.apple.SystemConfiguration.ATconfig</string>
+	<key>CFBundleInfoDictionaryVersion</key>
+	<string>6.0</string>
+	<key>CFBundleName</key>
+	<string>SystemConfiguration</string>
+	<key>CFBundlePackageType</key>
+	<string>BNDL</string>
+	<key>CFBundleShortVersionString</key>
+	<string>1.4.0</string>
+	<key>CFBundleSignature</key>
+	<string>????</string>
+	<key>CFBundleVersion</key>
+	<string>0.0.1d1</string>
+	<key>Requires</key>
+	<array>
+		<string>com.apple.SystemConfiguration.InterfaceNamer</string>
+		<string>com.apple.SystemConfiguration.KernelEventMonitor</string>
+		<string>com.apple.SystemConfiguration.PreferencesMonitor</string>
+	</array>
+</dict>
+</plist>
+";
+		};
+		E508528004015689070001CD = {
+			isa = PBXBundleReference;
+			path = ATconfig.bundle;
+			refType = 3;
+		};
+		E508528104015689070001CD = {
+			children = (
+				E508528004015689070001CD,
+				E508529B04015689070001CD,
+				E50852C204015689070001CD,
+				E50852E304015689070001CD,
+				E50852F504015689070001CD,
+				E508530704015689070001CD,
+				E508531B04015689070001CD,
+			);
+			isa = PBXGroup;
+			name = Products;
+			refType = 4;
+		};
+		E508528304015689070001CD = {
+			buildActionMask = 2147483647;
+			dstPath = "";
+			dstSubfolderSpec = 7;
+			files = (
+				E508528404015689070001CD,
+				E508529D04015689070001CD,
+				E50852C404015689070001CD,
+				E50852E504015689070001CD,
+				E50852F704015689070001CD,
+				E508530904015689070001CD,
+				E508531D04015689070001CD,
+			);
+			isa = PBXCopyFilesBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		E508528404015689070001CD = {
+			fileRef = E508528004015689070001CD;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		E508528604015689070001CD = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			path = cfManager.h;
+			refType = 4;
+		};
+		E508528704015689070001CD = {
+			fileRef = E508528604015689070001CD;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		E508528904015689070001CD = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			path = atconfig.c;
+			refType = 4;
+		};
+		E508528A04015689070001CD = {
+			fileRef = E508528904015689070001CD;
+			isa = PBXBuildFile;
+			settings = {
+				ATTRIBUTES = (
+				);
+			};
+		};
+		E508528B04015689070001CD = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			path = cfManager.c;
+			refType = 4;
+		};
+		E508528C04015689070001CD = {
+			fileRef = E508528B04015689070001CD;
+			isa = PBXBuildFile;
+			settings = {
+				ATTRIBUTES = (
+				);
+			};
+		};
+		E508529404015689070001CD = {
+			children = (
+				E508529F04015689070001CD,
+				E50852A704015689070001CD,
+				E50852A104015689070001CD,
+				E50852A304015689070001CD,
+				E50852A504015689070001CD,
+				E50852AA04015689070001CD,
+				E50852B004015689070001CD,
+				E50852AC04015689070001CD,
+				E50852AE04015689070001CD,
+				E50852B204015689070001CD,
+			);
+			isa = PBXGroup;
+			name = KernelEventMonitor;
+			path = KernelEventMonitor.bproj;
+			refType = 4;
+		};
+		E508529504015689070001CD = {
+			buildActionMask = 2147483647;
+			files = (
+				E50852A004015689070001CD,
+				E50852A204015689070001CD,
+				E50852A404015689070001CD,
+				E50852A604015689070001CD,
+				E50852A804015689070001CD,
+				156749A50461DB9600FBD364,
+			);
+			isa = PBXHeadersBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		E508529604015689070001CD = {
+			buildActionMask = 2147483647;
+			files = (
+			);
+			isa = PBXResourcesBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		E508529704015689070001CD = {
+			buildActionMask = 2147483647;
+			files = (
+				E50852AB04015689070001CD,
+				E50852AD04015689070001CD,
+				E50852AF04015689070001CD,
+				E50852B104015689070001CD,
+				E50852B304015689070001CD,
+				156749A40461DB9600FBD364,
+			);
+			isa = PBXSourcesBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		E508529804015689070001CD = {
+			buildActionMask = 2147483647;
+			files = (
+				E508532B04015689070001CD,
+				E508533504015689070001CD,
+			);
+			isa = PBXFrameworksBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		E508529904015689070001CD = {
+			buildActionMask = 2147483647;
+			files = (
+			);
+			isa = PBXRezBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		E508529A04015689070001CD = {
+			buildPhases = (
+				E508529504015689070001CD,
+				E508529604015689070001CD,
+				E508529704015689070001CD,
+				E508529804015689070001CD,
+				E508529904015689070001CD,
+			);
+			buildSettings = {
+				FRAMEWORK_SEARCH_PATHS = "\"$(NEXT_ROOT)$(SYSTEM_LIBRARY_DIR)/PrivateFrameworks\"";
+				HEADER_SEARCH_PATHS = "";
+				INSTALL_PATH = "$(SYSTEM_LIBRARY_DIR)/SystemConfiguration";
+				LIBRARY_SEARCH_PATHS = "";
+				OTHER_CFLAGS = "";
+				OTHER_LDFLAGS = "";
+				OTHER_REZFLAGS = "";
+				PRODUCT_NAME = KernelEventMonitor;
+				SECTORDER_FLAGS = "";
+				WARNING_CFLAGS = "-Wall -Wno-four-char-constants -Wno-unknown-pragmas";
+				WRAPPER_EXTENSION = bundle;
+			};
+			dependencies = (
+			);
+			isa = PBXBundleTarget;
+			name = KernelEventMonitor;
+			productInstallPath = "$(SYSTEM_LIBRARY_DIR)/SystemConfiguration";
+			productName = "KernelEventMonitor (Bundle)";
+			productReference = E508529B04015689070001CD;
+			productSettingsXML = "<?xml version=\"1.0\" encoding=\"UTF-8\"?>
+<!DOCTYPE plist PUBLIC \"-//Apple Computer//DTD PLIST 1.0//EN\" \"http://www.apple.com/DTDs/PropertyList-1.0.dtd\">
+<plist version=\"1.0\">
+<dict>
+	<key>CFBundleDevelopmentRegion</key>
+	<string>English</string>
+	<key>CFBundleExecutable</key>
+	<string>KernelEventMonitor</string>
+	<key>CFBundleGetInfoString</key>
+	<string></string>
+	<key>CFBundleIconFile</key>
+	<string></string>
+	<key>CFBundleIdentifier</key>
+	<string>com.apple.SystemConfiguration.KernelEventMonitor</string>
+	<key>CFBundleInfoDictionaryVersion</key>
+	<string>6.0</string>
+	<key>CFBundleName</key>
+	<string>SystemConfiguration</string>
+	<key>CFBundlePackageType</key>
+	<string>BNDL</string>
+	<key>CFBundleShortVersionString</key>
+	<string>1.4.0</string>
+	<key>CFBundleSignature</key>
+	<string>????</string>
+	<key>CFBundleVersion</key>
+	<string>0.0.1d1</string>
+	<key>Requires</key>
+	<array>
+		<string>com.apple.SystemConfiguration.InterfaceNamer</string>
+	</array>
+</dict>
+</plist>
+";
+		};
+		E508529B04015689070001CD = {
+			isa = PBXBundleReference;
+			path = KernelEventMonitor.bundle;
+			refType = 3;
+		};
+		E508529C04015689070001CD = {
+			isa = PBXTargetDependency;
+			target = E508529A04015689070001CD;
+		};
+		E508529D04015689070001CD = {
+			fileRef = E508529B04015689070001CD;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		E508529F04015689070001CD = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			path = eventmon.h;
+			refType = 4;
+		};
+		E50852A004015689070001CD = {
+			fileRef = E508529F04015689070001CD;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		E50852A104015689070001CD = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			path = ev_appletalk.h;
+			refType = 4;
+		};
+		E50852A204015689070001CD = {
+			fileRef = E50852A104015689070001CD;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		E50852A304015689070001CD = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			path = ev_ipv4.h;
+			refType = 4;
+		};
+		E50852A404015689070001CD = {
+			fileRef = E50852A304015689070001CD;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		E50852A504015689070001CD = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			path = ev_ipv6.h;
+			refType = 4;
+		};
+		E50852A604015689070001CD = {
+			fileRef = E50852A504015689070001CD;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		E50852A704015689070001CD = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			path = ev_dlil.h;
+			refType = 4;
+		};
+		E50852A804015689070001CD = {
+			fileRef = E50852A704015689070001CD;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		E50852AA04015689070001CD = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			path = eventmon.c;
+			refType = 4;
+		};
+		E50852AB04015689070001CD = {
+			fileRef = E50852AA04015689070001CD;
+			isa = PBXBuildFile;
+			settings = {
+				ATTRIBUTES = (
+				);
+			};
+		};
+		E50852AC04015689070001CD = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			path = ev_appletalk.c;
+			refType = 4;
+		};
+		E50852AD04015689070001CD = {
+			fileRef = E50852AC04015689070001CD;
+			isa = PBXBuildFile;
+			settings = {
+				ATTRIBUTES = (
+				);
+			};
+		};
+		E50852AE04015689070001CD = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			path = ev_ipv4.c;
+			refType = 4;
+		};
+		E50852AF04015689070001CD = {
+			fileRef = E50852AE04015689070001CD;
+			isa = PBXBuildFile;
+			settings = {
+				ATTRIBUTES = (
+				);
+			};
+		};
+		E50852B004015689070001CD = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			path = ev_dlil.c;
+			refType = 4;
+		};
+		E50852B104015689070001CD = {
+			fileRef = E50852B004015689070001CD;
+			isa = PBXBuildFile;
+			settings = {
+				ATTRIBUTES = (
+				);
+			};
+		};
+		E50852B204015689070001CD = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			path = ev_ipv6.c;
+			refType = 4;
+		};
+		E50852B304015689070001CD = {
+			fileRef = E50852B204015689070001CD;
+			isa = PBXBuildFile;
+			settings = {
+				ATTRIBUTES = (
+				);
+			};
+		};
+		E50852BB04015689070001CD = {
+			children = (
+				E50852C604015689070001CD,
+				E50852C804015689070001CD,
+			);
+			isa = PBXGroup;
+			name = Kicker;
+			path = Kicker.bproj;
+			refType = 4;
+		};
+		E50852BC04015689070001CD = {
+			buildActionMask = 2147483647;
+			files = (
+			);
+			isa = PBXHeadersBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		E50852BD04015689070001CD = {
+			buildActionMask = 2147483647;
+			files = (
+				E50852CC04015689070001CD,
+				E50852D004015689070001CD,
+				E50852D204015689070001CD,
+			);
+			isa = PBXResourcesBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		E50852BE04015689070001CD = {
+			buildActionMask = 2147483647;
+			files = (
+				E50852C704015689070001CD,
+			);
+			isa = PBXSourcesBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		E50852BF04015689070001CD = {
+			buildActionMask = 2147483647;
+			files = (
+				E508532C04015689070001CD,
+				E508533604015689070001CD,
+			);
+			isa = PBXFrameworksBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		E50852C004015689070001CD = {
+			buildActionMask = 2147483647;
+			files = (
+			);
+			isa = PBXRezBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		E50852C104015689070001CD = {
+			buildPhases = (
+				E50852BC04015689070001CD,
+				E50852BD04015689070001CD,
+				E50852BE04015689070001CD,
+				E50852BF04015689070001CD,
+				E50852C004015689070001CD,
+			);
+			buildSettings = {
+				FRAMEWORK_SEARCH_PATHS = "\"$(NEXT_ROOT)$(SYSTEM_LIBRARY_DIR)/PrivateFrameworks\"";
+				HEADER_SEARCH_PATHS = "";
+				INSTALL_PATH = "$(SYSTEM_LIBRARY_DIR)/SystemConfiguration";
+				LIBRARY_SEARCH_PATHS = "";
+				OTHER_CFLAGS = "";
+				OTHER_LDFLAGS = "";
+				OTHER_REZFLAGS = "";
+				PRODUCT_NAME = Kicker;
+				SECTORDER_FLAGS = "";
+				WARNING_CFLAGS = "-Wall -Wno-four-char-constants -Wno-unknown-pragmas";
+				WRAPPER_EXTENSION = bundle;
+			};
+			dependencies = (
+			);
+			isa = PBXBundleTarget;
+			name = Kicker;
+			productInstallPath = "$(SYSTEM_LIBRARY_DIR)/SystemConfiguration";
+			productName = "Kicker (Bundle)";
+			productReference = E50852C204015689070001CD;
+			productSettingsXML = "<?xml version=\"1.0\" encoding=\"UTF-8\"?>
+<!DOCTYPE plist PUBLIC \"-//Apple Computer//DTD PLIST 1.0//EN\" \"http://www.apple.com/DTDs/PropertyList-1.0.dtd\">
+<plist version=\"1.0\">
+<dict>
+	<key>CFBundleDevelopmentRegion</key>
+	<string>English</string>
+	<key>CFBundleExecutable</key>
+	<string>Kicker</string>
+	<key>CFBundleGetInfoString</key>
+	<string></string>
+	<key>CFBundleIconFile</key>
+	<string></string>
+	<key>CFBundleIdentifier</key>
+	<string>com.apple.SystemConfiguration.Kicker</string>
+	<key>CFBundleInfoDictionaryVersion</key>
+	<string>6.0</string>
+	<key>CFBundleName</key>
+	<string>SystemConfiguration</string>
+	<key>CFBundlePackageType</key>
+	<string>BNDL</string>
+	<key>CFBundleShortVersionString</key>
+	<string>1.2.0</string>
+	<key>CFBundleSignature</key>
+	<string>????</string>
+	<key>CFBundleVersion</key>
+	<string>0.0.1d1</string>
+	<key>Requires</key>
+	<array>
+		<string>com.apple.SystemConfiguration.ATconfig</string>
+		<string>com.apple.SystemConfiguration.IPConfiguration</string>
+		<string>com.apple.SystemConfiguration.IPMonitor</string>
+	</array>
+</dict>
+</plist>
+";
+		};
+		E50852C204015689070001CD = {
+			isa = PBXBundleReference;
+			path = Kicker.bundle;
+			refType = 3;
+		};
+		E50852C304015689070001CD = {
+			isa = PBXTargetDependency;
+			target = E50852C104015689070001CD;
+		};
+		E50852C404015689070001CD = {
+			fileRef = E50852C204015689070001CD;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		E50852C604015689070001CD = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			path = kicker.c;
+			refType = 4;
+		};
+		E50852C704015689070001CD = {
+			fileRef = E50852C604015689070001CD;
+			isa = PBXBuildFile;
+			settings = {
+				ATTRIBUTES = (
+				);
+			};
+		};
+		E50852C804015689070001CD = {
+			children = (
+				E50852CB04015689070001CD,
+				E50852CF04015689070001CD,
+				E50852D104015689070001CD,
+			);
+			isa = PBXGroup;
+			name = Resources;
+			refType = 4;
+		};
+		E50852CB04015689070001CD = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			path = Kicker.xml;
+			refType = 4;
+		};
+		E50852CC04015689070001CD = {
+			fileRef = E50852CB04015689070001CD;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		E50852CF04015689070001CD = {
+			fileEncoding = 30;
+			isa = PBXExecutableFileReference;
+			path = "set-hostname";
+			refType = 4;
+		};
+		E50852D004015689070001CD = {
+			fileRef = E50852CF04015689070001CD;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		E50852D104015689070001CD = {
+			fileEncoding = 30;
+			isa = PBXExecutableFileReference;
+			path = "enable-network";
+			refType = 4;
+		};
+		E50852D204015689070001CD = {
+			fileRef = E50852D104015689070001CD;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		E50852DC04015689070001CD = {
+			children = (
+				E50852E704015689070001CD,
+			);
+			isa = PBXGroup;
+			name = InterfaceNamer;
+			path = InterfaceNamer.bproj;
+			refType = 4;
+		};
+		E50852DD04015689070001CD = {
+			buildActionMask = 2147483647;
+			files = (
+			);
+			isa = PBXHeadersBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		E50852DE04015689070001CD = {
+			buildActionMask = 2147483647;
+			files = (
+			);
+			isa = PBXResourcesBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		E50852DF04015689070001CD = {
+			buildActionMask = 2147483647;
+			files = (
+				E50852E804015689070001CD,
+			);
+			isa = PBXSourcesBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		E50852E004015689070001CD = {
+			buildActionMask = 2147483647;
+			files = (
+				E508532D04015689070001CD,
+				E508533204015689070001CD,
+				E508533704015689070001CD,
+			);
+			isa = PBXFrameworksBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		E50852E104015689070001CD = {
+			buildActionMask = 2147483647;
+			files = (
+			);
+			isa = PBXRezBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		E50852E204015689070001CD = {
+			buildPhases = (
+				E50852DD04015689070001CD,
+				E50852DE04015689070001CD,
+				E50852DF04015689070001CD,
+				E50852E004015689070001CD,
+				E50852E104015689070001CD,
+			);
+			buildSettings = {
+				FRAMEWORK_SEARCH_PATHS = "\"$(SYSTEM_LIBRARY_DIR)/PrivateFrameworks\"";
+				HEADER_SEARCH_PATHS = "";
+				INSTALL_PATH = "$(SYSTEM_LIBRARY_DIR)/SystemConfiguration";
+				LIBRARY_SEARCH_PATHS = "";
+				OTHER_CFLAGS = "";
+				OTHER_LDFLAGS = "";
+				OTHER_REZFLAGS = "";
+				PRODUCT_NAME = InterfaceNamer;
+				SECTORDER_FLAGS = "";
+				WARNING_CFLAGS = "-Wall -Wno-four-char-constants -Wno-unknown-pragmas";
+				WRAPPER_EXTENSION = bundle;
+			};
+			dependencies = (
+			);
+			isa = PBXBundleTarget;
+			name = InterfaceNamer;
+			productInstallPath = "$(SYSTEM_LIBRARY_DIR)/SystemConfiguration";
+			productName = "InterfaceNamer (Bundle)";
+			productReference = E50852E304015689070001CD;
+			productSettingsXML = "<?xml version=\"1.0\" encoding=\"UTF-8\"?>
+<!DOCTYPE plist PUBLIC \"-//Apple Computer//DTD PLIST 1.0//EN\" \"http://www.apple.com/DTDs/PropertyList-1.0.dtd\">
+<plist version=\"1.0\">
+<dict>
+	<key>CFBundleDevelopmentRegion</key>
+	<string>English</string>
+	<key>CFBundleExecutable</key>
+	<string>InterfaceNamer</string>
+	<key>CFBundleGetInfoString</key>
+	<string></string>
+	<key>CFBundleIconFile</key>
+	<string></string>
+	<key>CFBundleIdentifier</key>
+	<string>com.apple.SystemConfiguration.InterfaceNamer</string>
+	<key>CFBundleInfoDictionaryVersion</key>
+	<string>6.0</string>
+	<key>CFBundleName</key>
+	<string>SystemConfiguration</string>
+	<key>CFBundlePackageType</key>
+	<string>BNDL</string>
+	<key>CFBundleShortVersionString</key>
+	<string>1.2.0</string>
+	<key>CFBundleSignature</key>
+	<string>????</string>
+	<key>CFBundleVersion</key>
+	<string>0.0.1d1</string>
+</dict>
+</plist>
+";
+		};
+		E50852E304015689070001CD = {
+			isa = PBXBundleReference;
+			path = InterfaceNamer.bundle;
+			refType = 3;
+		};
+		E50852E404015689070001CD = {
+			isa = PBXTargetDependency;
+			target = E50852E204015689070001CD;
+		};
+		E50852E504015689070001CD = {
+			fileRef = E50852E304015689070001CD;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		E50852E704015689070001CD = {
+			fileEncoding = 30;
+			indentWidth = 4;
+			isa = PBXFileReference;
+			path = ifnamer.c;
+			refType = 4;
+		};
+		E50852E804015689070001CD = {
+			fileRef = E50852E704015689070001CD;
+			isa = PBXBuildFile;
+			settings = {
+				ATTRIBUTES = (
+				);
+			};
+		};
+		E50852EE04015689070001CD = {
+			children = (
+				E50852F904015689070001CD,
+			);
+			isa = PBXGroup;
+			name = IPMonitor;
+			path = IPMonitor.bproj;
+			refType = 4;
+		};
+		E50852EF04015689070001CD = {
+			buildActionMask = 2147483647;
+			files = (
+			);
+			isa = PBXHeadersBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		E50852F004015689070001CD = {
+			buildActionMask = 2147483647;
+			files = (
+			);
+			isa = PBXResourcesBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		E50852F104015689070001CD = {
+			buildActionMask = 2147483647;
+			files = (
+				E50852FA04015689070001CD,
+			);
+			isa = PBXSourcesBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		E50852F204015689070001CD = {
+			buildActionMask = 2147483647;
+			files = (
+				E508532E04015689070001CD,
+				E508533804015689070001CD,
+			);
+			isa = PBXFrameworksBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		E50852F304015689070001CD = {
+			buildActionMask = 2147483647;
+			files = (
+			);
+			isa = PBXRezBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		E50852F404015689070001CD = {
+			buildPhases = (
+				E50852EF04015689070001CD,
+				E50852F004015689070001CD,
+				E50852F104015689070001CD,
+				E50852F204015689070001CD,
+				E50852F304015689070001CD,
+			);
+			buildSettings = {
+				FRAMEWORK_SEARCH_PATHS = "\"$(NEXT_ROOT)$(SYSTEM_LIBRARY_DIR)/PrivateFrameworks\"";
+				HEADER_SEARCH_PATHS = "";
+				INSTALL_PATH = "$(SYSTEM_LIBRARY_DIR)/SystemConfiguration";
+				LIBRARY_SEARCH_PATHS = "";
+				OTHER_CFLAGS = "";
+				OTHER_LDFLAGS = "";
+				OTHER_REZFLAGS = "";
+				PRODUCT_NAME = IPMonitor;
+				SECTORDER_FLAGS = "";
+				WARNING_CFLAGS = "-Wall -Wno-four-char-constants -Wno-unknown-pragmas";
+				WRAPPER_EXTENSION = bundle;
+			};
+			dependencies = (
+			);
+			isa = PBXBundleTarget;
+			name = IPMonitor;
+			productInstallPath = "$(SYSTEM_LIBRARY_DIR)/SystemConfiguration";
+			productName = "IPMonitor (Bundle)";
+			productReference = E50852F504015689070001CD;
+			productSettingsXML = "<?xml version=\"1.0\" encoding=\"UTF-8\"?>
+<!DOCTYPE plist PUBLIC \"-//Apple Computer//DTD PLIST 1.0//EN\" \"http://www.apple.com/DTDs/PropertyList-1.0.dtd\">
+<plist version=\"1.0\">
+<dict>
+	<key>CFBundleDevelopmentRegion</key>
+	<string>English</string>
+	<key>CFBundleExecutable</key>
+	<string>IPMonitor</string>
+	<key>CFBundleGetInfoString</key>
+	<string></string>
+	<key>CFBundleIconFile</key>
+	<string></string>
+	<key>CFBundleIdentifier</key>
+	<string>com.apple.SystemConfiguration.IPMonitor</string>
+	<key>CFBundleInfoDictionaryVersion</key>
+	<string>6.0</string>
+	<key>CFBundleName</key>
+	<string>SystemConfiguration</string>
+	<key>CFBundlePackageType</key>
+	<string>BNDL</string>
+	<key>CFBundleShortVersionString</key>
+	<string>1.4.0</string>
+	<key>CFBundleSignature</key>
+	<string>????</string>
+	<key>CFBundleVersion</key>
+	<string>0.0.1d1</string>
+	<key>Requires</key>
+	<array>
+		<string>com.apple.SystemConfiguration.IPConfiguration</string>
+		<string>com.apple.SystemConfiguration.PreferencesMonitor</string>
+	</array>
+</dict>
+</plist>
+";
+		};
+		E50852F504015689070001CD = {
+			isa = PBXBundleReference;
+			path = IPMonitor.bundle;
+			refType = 3;
+		};
+		E50852F604015689070001CD = {
+			isa = PBXTargetDependency;
+			target = E50852F404015689070001CD;
+		};
+		E50852F704015689070001CD = {
+			fileRef = E50852F504015689070001CD;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		E50852F904015689070001CD = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			path = ip_plugin.c;
+			refType = 4;
+		};
+		E50852FA04015689070001CD = {
+			fileRef = E50852F904015689070001CD;
+			isa = PBXBuildFile;
+			settings = {
+				ATTRIBUTES = (
+				);
+			};
+		};
+		E508530004015689070001CD = {
+			children = (
+				E508530B04015689070001CD,
+			);
+			isa = PBXGroup;
+			name = LinkConfiguration;
+			path = LinkConfiguration.bproj;
+			refType = 4;
+		};
+		E508530104015689070001CD = {
+			buildActionMask = 2147483647;
+			files = (
+			);
+			isa = PBXHeadersBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		E508530204015689070001CD = {
+			buildActionMask = 2147483647;
+			files = (
+			);
+			isa = PBXResourcesBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		E508530304015689070001CD = {
+			buildActionMask = 2147483647;
+			files = (
+				E508530C04015689070001CD,
+			);
+			isa = PBXSourcesBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		E508530404015689070001CD = {
+			buildActionMask = 2147483647;
+			files = (
+				E508532F04015689070001CD,
+				E508533904015689070001CD,
+			);
+			isa = PBXFrameworksBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		E508530504015689070001CD = {
+			buildActionMask = 2147483647;
+			files = (
+			);
+			isa = PBXRezBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		E508530604015689070001CD = {
+			buildPhases = (
+				E508530104015689070001CD,
+				E508530204015689070001CD,
+				E508530304015689070001CD,
+				E508530404015689070001CD,
+				E508530504015689070001CD,
+			);
+			buildSettings = {
+				FRAMEWORK_SEARCH_PATHS = "";
+				HEADER_SEARCH_PATHS = "";
+				INSTALL_PATH = "$(SYSTEM_LIBRARY_DIR)/SystemConfiguration";
+				LIBRARY_SEARCH_PATHS = "";
+				OTHER_CFLAGS = "";
+				OTHER_LDFLAGS = "";
+				OTHER_REZFLAGS = "";
+				PRODUCT_NAME = LinkConfiguration;
+				SECTORDER_FLAGS = "";
+				WARNING_CFLAGS = "-Wall -Wno-four-char-constants -Wno-unknown-pragmas";
+				WRAPPER_EXTENSION = bundle;
+			};
+			dependencies = (
+			);
+			isa = PBXBundleTarget;
+			name = LinkConfiguration;
+			productInstallPath = "$(SYSTEM_LIBRARY_DIR)/SystemConfiguration";
+			productName = "LinkConfiguration (Bundle)";
+			productReference = E508530704015689070001CD;
+			productSettingsXML = "<?xml version=\"1.0\" encoding=\"UTF-8\"?>
+<!DOCTYPE plist PUBLIC \"-//Apple Computer//DTD PLIST 1.0//EN\" \"http://www.apple.com/DTDs/PropertyList-1.0.dtd\">
+<plist version=\"1.0\">
+<dict>
+	<key>CFBundleDevelopmentRegion</key>
+	<string>English</string>
+	<key>CFBundleExecutable</key>
+	<string>LinkConfiguration</string>
+	<key>CFBundleGetInfoString</key>
+	<string></string>
+	<key>CFBundleIconFile</key>
+	<string></string>
+	<key>CFBundleIdentifier</key>
+	<string>com.apple.SystemConfiguration.LinkConfiguration</string>
+	<key>CFBundleInfoDictionaryVersion</key>
+	<string>6.0</string>
+	<key>CFBundleName</key>
+	<string>SystemConfiguration</string>
+	<key>CFBundlePackageType</key>
+	<string>BNDL</string>
+	<key>CFBundleShortVersionString</key>
+	<string>1.3.0</string>
+	<key>CFBundleSignature</key>
+	<string>????</string>
+	<key>CFBundleVersion</key>
+	<string>0.0.1d1</string>
+	<key>Requires</key>
+	<array>
+		<string>com.apple.SystemConfiguration.InterfaceNamer</string>
+	</array>
+</dict>
+</plist>
+";
+		};
+		E508530704015689070001CD = {
+			isa = PBXBundleReference;
+			path = LinkConfiguration.bundle;
+			refType = 3;
+		};
+		E508530804015689070001CD = {
+			isa = PBXTargetDependency;
+			target = E508530604015689070001CD;
+		};
+		E508530904015689070001CD = {
+			fileRef = E508530704015689070001CD;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		E508530B04015689070001CD = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			path = linkconfig.c;
+			refType = 4;
+		};
+		E508530C04015689070001CD = {
+			fileRef = E508530B04015689070001CD;
+			isa = PBXBuildFile;
+			settings = {
+				ATTRIBUTES = (
+				);
+			};
+		};
+		E508531404015689070001CD = {
+			children = (
+				E508531F04015689070001CD,
+			);
+			isa = PBXGroup;
+			name = PreferencesMonitor;
+			path = PreferencesMonitor.bproj;
+			refType = 4;
+		};
+		E508531504015689070001CD = {
+			buildActionMask = 2147483647;
+			files = (
+			);
+			isa = PBXHeadersBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		E508531604015689070001CD = {
+			buildActionMask = 2147483647;
+			files = (
+			);
+			isa = PBXResourcesBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		E508531704015689070001CD = {
+			buildActionMask = 2147483647;
+			files = (
+				E508532004015689070001CD,
+			);
+			isa = PBXSourcesBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		E508531804015689070001CD = {
+			buildActionMask = 2147483647;
+			files = (
+				E508533004015689070001CD,
+				E508533A04015689070001CD,
+			);
+			isa = PBXFrameworksBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		E508531904015689070001CD = {
+			buildActionMask = 2147483647;
+			files = (
+			);
+			isa = PBXRezBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		E508531A04015689070001CD = {
+			buildPhases = (
+				E508531504015689070001CD,
+				E508531604015689070001CD,
+				E508531704015689070001CD,
+				E508531804015689070001CD,
+				E508531904015689070001CD,
+			);
+			buildSettings = {
+				FRAMEWORK_SEARCH_PATHS = "\"$(SYSTEM_LIBRARY_DIR)/PrivateFrameworks\"";
+				HEADER_SEARCH_PATHS = "";
+				INSTALL_PATH = "$(SYSTEM_LIBRARY_DIR)/SystemConfiguration";
+				LIBRARY_SEARCH_PATHS = "";
+				OTHER_CFLAGS = "";
+				OTHER_LDFLAGS = "";
+				OTHER_REZFLAGS = "";
+				PRODUCT_NAME = PreferencesMonitor;
+				SECTORDER_FLAGS = "";
+				WARNING_CFLAGS = "-Wall -Wno-four-char-constants -Wno-unknown-pragmas";
+				WRAPPER_EXTENSION = bundle;
+			};
+			dependencies = (
+			);
+			isa = PBXBundleTarget;
+			name = PreferencesMonitor;
+			productInstallPath = "$(SYSTEM_LIBRARY_DIR)/SystemConfiguration";
+			productName = "PreferencesMonitor (Bundle)";
+			productReference = E508531B04015689070001CD;
+			productSettingsXML = "<?xml version=\"1.0\" encoding=\"UTF-8\"?>
+<!DOCTYPE plist PUBLIC \"-//Apple Computer//DTD PLIST 1.0//EN\" \"http://www.apple.com/DTDs/PropertyList-1.0.dtd\">
+<plist version=\"1.0\">
+<dict>
+	<key>CFBundleDevelopmentRegion</key>
+	<string>English</string>
+	<key>CFBundleExecutable</key>
+	<string>PreferencesMonitor</string>
+	<key>CFBundleGetInfoString</key>
+	<string></string>
+	<key>CFBundleIconFile</key>
+	<string></string>
+	<key>CFBundleIdentifier</key>
+	<string>com.apple.SystemConfiguration.PreferencesMonitor</string>
+	<key>CFBundleInfoDictionaryVersion</key>
+	<string>6.0</string>
+	<key>CFBundleName</key>
+	<string>SystemConfiguration</string>
+	<key>CFBundlePackageType</key>
+	<string>BNDL</string>
+	<key>CFBundleShortVersionString</key>
+	<string>1.2.0</string>
+	<key>CFBundleSignature</key>
+	<string>????</string>
+	<key>CFBundleVersion</key>
+	<string>0.0.1d1</string>
+</dict>
+</plist>
+";
+		};
+		E508531B04015689070001CD = {
+			isa = PBXBundleReference;
+			path = PreferencesMonitor.bundle;
+			refType = 3;
+		};
+		E508531C04015689070001CD = {
+			isa = PBXTargetDependency;
+			target = E508531A04015689070001CD;
+		};
+		E508531D04015689070001CD = {
+			fileRef = E508531B04015689070001CD;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		E508531F04015689070001CD = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			path = prefsmon.c;
+			refType = 4;
+		};
+		E508532004015689070001CD = {
+			fileRef = E508531F04015689070001CD;
+			isa = PBXBuildFile;
+			settings = {
+				ATTRIBUTES = (
+				);
+			};
+		};
+		E508532804015689070001CD = {
+			children = (
+				E508532904015689070001CD,
+				E508533104015689070001CD,
+				E508533304015689070001CD,
+				E508533B04015689070001CD,
+			);
+			isa = PBXGroup;
+			name = "External Frameworks and Libraries";
+			refType = 4;
+		};
+		E508532904015689070001CD = {
+			isa = PBXFrameworkReference;
+			name = CoreFoundation.framework;
+			path = /System/Library/Frameworks/CoreFoundation.framework;
+			refType = 0;
+		};
+		E508532A04015689070001CD = {
+			fileRef = E508532904015689070001CD;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		E508532B04015689070001CD = {
+			fileRef = E508532904015689070001CD;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		E508532C04015689070001CD = {
+			fileRef = E508532904015689070001CD;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		E508532D04015689070001CD = {
+			fileRef = E508532904015689070001CD;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		E508532E04015689070001CD = {
+			fileRef = E508532904015689070001CD;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		E508532F04015689070001CD = {
+			fileRef = E508532904015689070001CD;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		E508533004015689070001CD = {
+			fileRef = E508532904015689070001CD;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		E508533104015689070001CD = {
+			isa = PBXFrameworkReference;
+			name = IOKit.framework;
+			path = /System/Library/Frameworks/IOKit.framework;
+			refType = 0;
+		};
+		E508533204015689070001CD = {
+			fileRef = E508533104015689070001CD;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		E508533304015689070001CD = {
+			isa = PBXFrameworkReference;
+			name = SystemConfiguration.framework;
+			path = /System/Library/Frameworks/SystemConfiguration.framework;
+			refType = 0;
+		};
+		E508533404015689070001CD = {
+			fileRef = E508533304015689070001CD;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		E508533504015689070001CD = {
+			fileRef = E508533304015689070001CD;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		E508533604015689070001CD = {
+			fileRef = E508533304015689070001CD;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		E508533704015689070001CD = {
+			fileRef = E508533304015689070001CD;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		E508533804015689070001CD = {
+			fileRef = E508533304015689070001CD;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		E508533904015689070001CD = {
+			fileRef = E508533304015689070001CD;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		E508533A04015689070001CD = {
+			fileRef = E508533304015689070001CD;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		E508533B04015689070001CD = {
+			isa = PBXFrameworkReference;
+			name = AppleTalk.framework;
+			path = /System/Library/Frameworks/AppleTalk.framework;
+			refType = 0;
+		};
+		E508533C04015689070001CD = {
+			fileRef = E508533B04015689070001CD;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		E508533E04015689070001CD = {
+			buildStyles = (
+				E508527104015689070001CD,
+				E508527204015689070001CD,
+			);
+			hasScannedForEncodings = 1;
+			isa = PBXProject;
+			mainGroup = E508526F04015689070001CD;
+			productRefGroup = E508528104015689070001CD;
+			projectDirPath = "";
+			targets = (
+				157BBBFA041DAC08000001D9,
+				E508527304015689070001CD,
+				157BBBF8041DABDA000001D9,
+				E508527F04015689070001CD,
+				E508529A04015689070001CD,
+				E50852C104015689070001CD,
+				E50852E204015689070001CD,
+				E50852F404015689070001CD,
+				E508530604015689070001CD,
+				E508531A04015689070001CD,
+			);
+		};
+	};
+	rootObject = E508533E04015689070001CD;
+}

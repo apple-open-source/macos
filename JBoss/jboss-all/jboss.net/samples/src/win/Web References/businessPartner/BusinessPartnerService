@@ -1,0 +1,153 @@
+<?xml version="1.0" encoding="utf-8"?>
+<definitions xmlns:s1="http://localhost/axis/services/BusinessPartnerService" xmlns:http="http://schemas.xmlsoap.org/wsdl/http/" xmlns:soap="http://schemas.xmlsoap.org/wsdl/soap/" xmlns:s="http://www.w3.org/2001/XMLSchema" xmlns:s0="http://net.jboss.org/samples/store" xmlns:soapenc="http://schemas.xmlsoap.org/soap/encoding/" xmlns:tm="http://microsoft.com/wsdl/mime/textMatching/" xmlns:mime="http://schemas.xmlsoap.org/wsdl/mime/" targetNamespace="http://localhost/axis/services/BusinessPartnerService" xmlns="http://schemas.xmlsoap.org/wsdl/">
+  <types>
+    <s:schema targetNamespace="http://net.jboss.org/samples/store">
+      <s:complexType name="BusinessPartner">
+        <s:sequence>
+          <s:element name="name" nillable="true" type="s:string" />
+          <s:element name="address" nillable="true" type="s0:Address" />
+        </s:sequence>
+      </s:complexType>
+      <s:complexType name="Address">
+        <s:sequence>
+          <s:element name="streetNum" type="s:int" />
+          <s:element name="streetName" nillable="true" type="s:string" />
+          <s:element name="city" nillable="true" type="s:string" />
+          <s:element name="state" nillable="true" type="s0:StateType" />
+          <s:element name="zip" type="s:int" />
+          <s:element name="phoneNumber" nillable="true" type="s0:Phone" />
+        </s:sequence>
+      </s:complexType>
+      <s:simpleType name="StateType">
+        <s:restriction base="s:string">
+          <s:enumeration value="TX" />
+          <s:enumeration value="IN" />
+          <s:enumeration value="OH" />
+        </s:restriction>
+      </s:simpleType>
+      <s:complexType name="Phone">
+        <s:sequence>
+          <s:element name="areaCode" type="s:int" />
+          <s:element name="exchange" nillable="true" type="s:string" />
+          <s:element name="number" nillable="true" type="s:string" />
+        </s:sequence>
+      </s:complexType>
+      <s:element name="BusinessPartner" nillable="true" type="s0:BusinessPartner" />
+    </s:schema>
+    <s:schema targetNamespace="http://localhost/axis/services/BusinessPartnerService">
+      <s:complexType name="ArrayOf_tns1_BusinessPartner">
+        <s:complexContent mixed="false">
+          <s:restriction base="soapenc:Array">
+            <s:attribute d7p1:arrayType="s0:BusinessPartner[]" ref="soapenc:arrayType" xmlns:d7p1="http://schemas.xmlsoap.org/wsdl/" />
+          </s:restriction>
+        </s:complexContent>
+      </s:complexType>
+      <s:element name="ArrayOf_tns1_BusinessPartner" nillable="true" type="s1:ArrayOf_tns1_BusinessPartner" />
+    </s:schema>
+  </types>
+  <message name="updateResponse" />
+  <message name="deleteResponse" />
+  <message name="findAllResponse">
+    <part name="return" type="s1:ArrayOf_tns1_BusinessPartner" />
+  </message>
+  <message name="createResponse">
+    <part name="return" type="s0:BusinessPartner" />
+  </message>
+  <message name="StoreException" />
+  <message name="createRequest">
+    <part name="in0" type="s:string" />
+  </message>
+  <message name="findAllRequest" />
+  <message name="findByNameRequest">
+    <part name="in0" type="s:string" />
+  </message>
+  <message name="updateRequest">
+    <part name="in0" type="s0:BusinessPartner" />
+  </message>
+  <message name="findByNameResponse">
+    <part name="return" type="s0:BusinessPartner" />
+  </message>
+  <message name="deleteRequest">
+    <part name="in0" type="s0:BusinessPartner" />
+  </message>
+  <portType name="BusinessPartnerService">
+    <operation name="create" parameterOrder="in0">
+      <input message="s1:createRequest" />
+      <output message="s1:createResponse" />
+      <fault name="StoreException" message="s1:StoreException" />
+    </operation>
+    <operation name="delete" parameterOrder="in0">
+      <input message="s1:deleteRequest" />
+      <output message="s1:deleteResponse" />
+      <fault name="StoreException" message="s1:StoreException" />
+    </operation>
+    <operation name="findAll">
+      <input message="s1:findAllRequest" />
+      <output message="s1:findAllResponse" />
+      <fault name="StoreException" message="s1:StoreException" />
+    </operation>
+    <operation name="update" parameterOrder="in0">
+      <input message="s1:updateRequest" />
+      <output message="s1:updateResponse" />
+      <fault name="StoreException" message="s1:StoreException" />
+    </operation>
+    <operation name="findByName" parameterOrder="in0">
+      <input message="s1:findByNameRequest" />
+      <output message="s1:findByNameResponse" />
+      <fault name="StoreException" message="s1:StoreException" />
+    </operation>
+  </portType>
+  <binding name="BusinessPartnerServiceSoapBinding" type="s1:BusinessPartnerService">
+    <soap:binding transport="http://schemas.xmlsoap.org/soap/http" style="rpc" />
+    <operation name="create">
+      <soap:operation soapAction="" />
+      <input>
+        <soap:body use="encoded" namespace="http://localhost/axis/services/BusinessPartnerService" encodingStyle="http://schemas.xmlsoap.org/soap/encoding/" />
+      </input>
+      <output>
+        <soap:body use="encoded" namespace="http://localhost/axis/services/BusinessPartnerService" encodingStyle="http://schemas.xmlsoap.org/soap/encoding/" />
+      </output>
+    </operation>
+    <operation name="delete">
+      <soap:operation soapAction="" />
+      <input>
+        <soap:body use="encoded" namespace="http://localhost/axis/services/BusinessPartnerService" encodingStyle="http://schemas.xmlsoap.org/soap/encoding/" />
+      </input>
+      <output>
+        <soap:body use="encoded" namespace="http://localhost/axis/services/BusinessPartnerService" encodingStyle="http://schemas.xmlsoap.org/soap/encoding/" />
+      </output>
+    </operation>
+    <operation name="findAll">
+      <soap:operation soapAction="" />
+      <input>
+        <soap:body use="encoded" namespace="http://localhost/axis/services/BusinessPartnerService" encodingStyle="http://schemas.xmlsoap.org/soap/encoding/" />
+      </input>
+      <output>
+        <soap:body use="encoded" namespace="http://localhost/axis/services/BusinessPartnerService" encodingStyle="http://schemas.xmlsoap.org/soap/encoding/" />
+      </output>
+    </operation>
+    <operation name="update">
+      <soap:operation soapAction="" />
+      <input>
+        <soap:body use="encoded" namespace="http://localhost/axis/services/BusinessPartnerService" encodingStyle="http://schemas.xmlsoap.org/soap/encoding/" />
+      </input>
+      <output>
+        <soap:body use="encoded" namespace="http://localhost/axis/services/BusinessPartnerService" encodingStyle="http://schemas.xmlsoap.org/soap/encoding/" />
+      </output>
+    </operation>
+    <operation name="findByName">
+      <soap:operation soapAction="" />
+      <input>
+        <soap:body use="encoded" namespace="http://localhost/axis/services/BusinessPartnerService" encodingStyle="http://schemas.xmlsoap.org/soap/encoding/" />
+      </input>
+      <output>
+        <soap:body use="encoded" namespace="http://localhost/axis/services/BusinessPartnerService" encodingStyle="http://schemas.xmlsoap.org/soap/encoding/" />
+      </output>
+    </operation>
+  </binding>
+  <service name="BusinessPartnerServiceService">
+    <port name="BusinessPartnerService" binding="s1:BusinessPartnerServiceSoapBinding">
+      <soap:address location="http://localhost/axis/services/BusinessPartnerService" />
+    </port>
+  </service>
+</definitions>

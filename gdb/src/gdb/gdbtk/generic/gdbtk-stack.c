@@ -67,10 +67,6 @@ Gdbtk_Stack_Init (Tcl_Interp *interp)
 			gdb_selected_frame, NULL);
   Tcl_CreateObjCommand (interp, "gdb_stack", gdbtk_call_wrapper, gdb_stack, NULL);
 
-  Tcl_LinkVar (interp, "gdb_selected_frame_level",
-	       (char *) &selected_frame_level,
-	       TCL_LINK_INT | TCL_LINK_READ_ONLY);
-
   return TCL_OK;
 }
 
@@ -99,13 +95,13 @@ gdb_block_vars (ClientData clientData, Tcl_Interp *interp,
     }
 
   Tcl_SetListObj (result_ptr->obj_ptr, 0, NULL);
-  if (selected_frame == NULL)
+  if (deprecated_selected_frame == NULL)
     return TCL_OK;
 
   start = string_to_core_addr (Tcl_GetStringFromObj (objv[1], NULL));
   end   = string_to_core_addr (Tcl_GetStringFromObj (objv[2], NULL));
   
-  block = get_frame_block (selected_frame, 0);
+  block = get_frame_block (deprecated_selected_frame, 0);
 
   while (block != 0)
     {
@@ -167,10 +163,10 @@ gdb_get_blocks (ClientData clientData, Tcl_Interp *interp,
 
   Tcl_SetListObj (result_ptr->obj_ptr, 0, NULL);
   
-  if (selected_frame != NULL)
+  if (deprecated_selected_frame != NULL)
     {
-      block = get_frame_block (selected_frame, 0);
-      pc = get_frame_pc (selected_frame);
+      block = get_frame_block (deprecated_selected_frame, 0);
+      pc = get_frame_pc (deprecated_selected_frame);
       while (block != 0)
 	{
 	  junk = 0;
@@ -313,10 +309,10 @@ gdb_get_vars_command (ClientData clientData, Tcl_Interp *interp,
   else
     {
       /* Specified currently selected frame */
-      if (selected_frame == NULL)
+      if (deprecated_selected_frame == NULL)
 	return TCL_OK;
 
-      block = get_frame_block (selected_frame, 0);
+      block = get_frame_block (deprecated_selected_frame, 0);
     }
 
   while (block != 0)
@@ -381,7 +377,7 @@ gdb_selected_block (ClientData clientData, Tcl_Interp *interp,
   char *start = NULL;
   char *end   = NULL;
 
-  if (selected_frame == NULL)
+  if (deprecated_selected_frame == NULL)
     {
       xasprintf (&start, "%s", "");
       xasprintf (&end, "%s", "");
@@ -389,7 +385,7 @@ gdb_selected_block (ClientData clientData, Tcl_Interp *interp,
   else
     {
       struct block *block;
-      block = get_frame_block (selected_frame, 0);
+      block = get_frame_block (deprecated_selected_frame, 0);
       xasprintf (&start, "0x%s", paddr_nz (BLOCK_START (block)));
       xasprintf (&end, "0x%s", paddr_nz (BLOCK_END (block)));
     }
@@ -421,10 +417,13 @@ gdb_selected_frame (ClientData clientData, Tcl_Interp *interp,
 {
   char *frame;
 
-  if (selected_frame == NULL)
+  if (deprecated_selected_frame == NULL)
     xasprintf (&frame, "%s","");
   else
-    xasprintf (&frame, "0x%s", paddr_nz (FRAME_FP (selected_frame)));
+    /* FIXME: cagney/2002-11-19: This should be using get_frame_id()
+       to identify the frame and *NOT* get_frame_base().  */
+    xasprintf (&frame, "0x%s",
+	       paddr_nz (get_frame_base (deprecated_selected_frame)));
 
   Tcl_SetStringObj (result_ptr->obj_ptr, frame, -1);
 
@@ -524,13 +523,13 @@ get_frame_name (Tcl_Interp *interp, Tcl_Obj *list, struct frame_info *fi)
   enum language funlang = language_unknown;
   Tcl_Obj *objv[1];
 
-  if (frame_in_dummy (fi))
+  if (get_frame_type (fi) == DUMMY_FRAME)
     {
       objv[0] = Tcl_NewStringObj ("<function called from gdb>\n", -1);
       Tcl_ListObjAppendElement (interp, list, objv[0]);
       return;
     }
-  if (fi->signal_handler_caller)
+  if ((get_frame_type (fi) == SIGTRAMP_FRAME))
     {
       objv[0] = Tcl_NewStringObj ("<signal handler called>\n", -1);
       Tcl_ListObjAppendElement (interp, list, objv[0]);
@@ -540,8 +539,8 @@ get_frame_name (Tcl_Interp *interp, Tcl_Obj *list, struct frame_info *fi)
   sal =
     find_pc_line (fi->pc,
 		  fi->next != NULL
-		  && !fi->next->signal_handler_caller
-		  && !frame_in_dummy (fi->next));
+		  && !(get_frame_type (fi) == SIGTRAMP_FRAME)
+		  && !(get_frame_type (fi) == DUMMY_FRAME));
 
   func = find_pc_function (fi->pc);
   if (func)

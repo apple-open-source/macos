@@ -6,13 +6,17 @@
 #include <sys/mman.h>
 #include <unistd.h>
 #include <libc.h>
+#include <mach-o/arch.h>
+#include <mach-o/fat.h>
 
 #include <mach/kmod.h>
 
 static const char * progname = "mkextunpack";
 static Boolean gVerbose = false;
 
-CFDictionaryRef extractEntriesFromMkext(char * mkextFileData);
+__private_extern__ u_int32_t local_adler32(u_int8_t *buffer, int32_t length);
+
+CFDictionaryRef extractEntriesFromMkext(char * mkextFileData, char * arch);
 Boolean uncompressMkextEntry(
     char * mkext_base_address,
     mkext_file * entry_address,
@@ -28,8 +32,9 @@ int getBundleIDAndVersion(CFDictionaryRef kextPlist, unsigned index,
 *
 *******************************************************************************/
 void usage(int num) {
-    fprintf(stderr, "usage: %s [-v] [-d output_dir] mkextfile\n", progname);
+    fprintf(stderr, "usage: %s [-v] [-a arch] [-d output_dir] mkextfile\n", progname);
     fprintf(stderr, "    -d output_dir: where to put kexts (must exist)\n");
+    fprintf(stderr, "    -a arch:  pick architecture from fat mkext file\n");
     fprintf(stderr, "    -v:  verbose output; list kexts in mkextfile\n");
     return;
 }
@@ -47,10 +52,11 @@ int main (int argc, const char * argv[]) {
     char * mkextFileContents = NULL;
     char optchar;
     CFDictionaryRef entries = NULL;
+    char *arch = NULL;
 
     progname = argv[0];
 
-    while ((optchar = getopt(argc, (char * const *)argv, "d:v")) != -1) {
+    while ((optchar = getopt(argc, (char * const *)argv, "d:va:")) != -1) {
         switch (optchar) {
           case 'd':
             if (!optarg) {
@@ -63,6 +69,21 @@ int main (int argc, const char * argv[]) {
             break;
           case 'v':
             gVerbose = true;
+            break;
+          case 'a':
+            if (arch != NULL) {
+                fprintf(stderr, "-a may be specified only once\n");
+                usage(0);
+                exit_code = 1;
+                goto finish;
+            }
+            if (!optarg) {
+                fprintf(stderr, "no argument for -a\n");
+                usage(0);
+                exit_code = 1;
+                goto finish;
+            }
+            arch = optarg;
             break;
         }
     }
@@ -144,6 +165,13 @@ int main (int argc, const char * argv[]) {
         goto finish;
     }
 
+    if (!stat_buf.st_size) {
+        fprintf(stderr, "%s is an empty file\n",
+            mkextFile);
+        exit_code = 1;
+        goto finish;
+    }
+
     mkextFileContents = mmap(0, stat_buf.st_size, PROT_READ, 
         MAP_FILE|MAP_PRIVATE, mkextFileFD, 0);
     if (mkextFileContents == (char *)-1) {
@@ -152,7 +180,7 @@ int main (int argc, const char * argv[]) {
         goto finish;
     }
 
-    entries = extractEntriesFromMkext(mkextFileContents);
+    entries = extractEntriesFromMkext(mkextFileContents, arch);
     if (!entries) {
         fprintf(stderr, "can't unpack file %s\n", mkextFile);
         exit_code = 1;
@@ -171,14 +199,16 @@ finish:
 /*******************************************************************************
 *
 *******************************************************************************/
-CFDictionaryRef extractEntriesFromMkext(char * mkextFileData)
+CFDictionaryRef extractEntriesFromMkext(char * mkextFileData, char * arch)
 {
     CFMutableDictionaryRef entries = NULL;  // returned
     Boolean error = false;
 
     u_int8_t      * crc_address = 0;
     u_int32_t       checksum;
+    struct fat_header *fat_data = 0; // don't free
     mkext_header  * mkext_data = 0;   // don't free
+    const NXArchInfo *arch_info;
 
     unsigned int    i;
 
@@ -199,6 +229,36 @@ CFDictionaryRef extractEntriesFromMkext(char * mkextFileData)
         goto finish;
     }
 
+    if (arch == NULL) {
+        arch_info = NXGetLocalArchInfo();
+    } else {
+        arch_info = NXGetArchInfoFromName(arch);
+    }
+    if (arch_info == NULL) {
+        fprintf(stderr, "unknown architecture '%s'\n", arch);
+        error = true;
+        goto finish;
+    }
+
+    fat_data = (struct fat_header *)mkextFileData;
+    if (NXSwapBigLongToHost(fat_data->magic) == FAT_MAGIC) {
+        int nfat = NXSwapBigLongToHost(fat_data->nfat_arch);
+        struct fat_arch *arch_data =
+            (struct fat_arch *)(((void *)mkextFileData) + sizeof(struct fat_header));
+        for (i=0; i<nfat; i++) {
+            if (NXSwapBigLongToHost(arch_data[i].cputype) == arch_info->cputype) {
+                break;
+            }
+        }
+        if (i == nfat) {
+            fprintf(stderr, "archive data for architecture '%s' not found\n",
+                    arch);
+            error = true;
+            goto finish;
+        }
+        mkextFileData = (char *)(mkextFileData + NXSwapBigLongToHost(arch_data[i].offset));
+    }
+
     mkext_data = (mkext_header *)mkextFileData;
 
     if (NXSwapBigLongToHost(mkext_data->magic) != MKEXT_MAGIC ||
@@ -209,7 +269,7 @@ CFDictionaryRef extractEntriesFromMkext(char * mkextFileData)
     }
 
     crc_address = (u_int8_t *)&mkext_data->version;
-    checksum = adler32(crc_address,
+    checksum = local_adler32(crc_address,
         (unsigned int)mkext_data +
         NXSwapBigLongToHost(mkext_data->length) - (unsigned int)crc_address);
 
@@ -598,16 +658,48 @@ CFStringRef createKextNameFromPlist(
 {
     CFStringRef result = NULL; // returned
     CFStringRef bundleName = NULL; // don't release
-    static unsigned int kextIndex = 1;
+    CFStringRef bundleID = NULL; // don't release
+    static unsigned int nameUnknownIndex = 1;
     unsigned int dupIndex = 1;
+    CFArrayRef idParts = NULL; // must release
 
+   /* First see if there's a CFBundleExecutable.
+    */
     bundleName = CFDictionaryGetValue(kextPlist, CFSTR("CFBundleExecutable"));
     if (!bundleName) {
-        result = CFStringCreateWithFormat(kCFAllocatorDefault,
-            NULL, CFSTR("NameUnknown-%d"), kextIndex);
-        kextIndex++;
-        goto finish;
-    } else if (CFDictionaryGetValue(entries, bundleName)) {
+
+       /* No? Try for CFBundleIdentifier and get the last component.
+        */
+        bundleID = CFDictionaryGetValue(kextPlist, CFSTR("CFBundleIdentifier"));
+        if (bundleID) {
+            CFIndex length;
+
+            idParts = CFStringCreateArrayBySeparatingStrings(
+            kCFAllocatorDefault, bundleID, CFSTR("."));
+            length = CFArrayGetCount(idParts);
+            bundleName = (CFStringRef)CFArrayGetValueAtIndex(idParts, length - 1);
+
+           /* Last compoonent of identifer null? Sigh, back to square one.
+            */
+            if (!CFStringGetLength(bundleName)) {
+                bundleName = NULL;
+            }
+        }
+
+       /* If we didn't find a name to use, conjure one up.
+        */
+        if (!bundleID) {
+            result = CFStringCreateWithFormat(kCFAllocatorDefault,
+                NULL, CFSTR("NameUnknown-%d"), nameUnknownIndex);
+            nameUnknownIndex++;
+            goto finish;
+        }
+    }
+
+   /* See if we already have the name found; if so, add numbers until we get
+    * a unique.
+    */
+    if (CFDictionaryGetValue(entries, bundleName)) {
         for ( ; ; dupIndex++) {
             result = CFStringCreateWithFormat(kCFAllocatorDefault,
                 NULL, CFSTR("%@-%d"), bundleName, dupIndex);
@@ -622,6 +714,7 @@ CFStringRef createKextNameFromPlist(
         goto finish;
     }
 finish:
+    if (idParts) CFRelease(idParts);
     return result;
 }
 
@@ -643,6 +736,10 @@ int getBundleIDAndVersion(CFDictionaryRef kextPlist, unsigned index,
         fprintf(stderr, "kext entry %d has no CFBundleIdentifier\n", index);
         result = 0;
         goto finish;
+    } else if (CFGetTypeID(bundleID) != CFStringGetTypeID()) {
+        fprintf(stderr, "kext entry %d, CFBundleIdentifier is not a string\n", index);
+        result = 0;
+        goto finish;
     } else {
         if (!CFStringGetCString(bundleID, bundle_id, sizeof(bundle_id) - 1,
             kCFStringEncodingMacRoman)) {
@@ -656,6 +753,10 @@ int getBundleIDAndVersion(CFDictionaryRef kextPlist, unsigned index,
         CFSTR("CFBundleVersion"));
     if (!bundleVersion) {
         fprintf(stderr, "kext entry %d has no CFBundleVersion\n", index);
+        result = 0;
+        goto finish;
+    } else if (CFGetTypeID(bundleVersion) != CFStringGetTypeID()) {
+        fprintf(stderr, "kext entry %d, CFBundleVersion is not a string\n", index);
         result = 0;
         goto finish;
     } else {
@@ -677,7 +778,6 @@ int getBundleIDAndVersion(CFDictionaryRef kextPlist, unsigned index,
 
 
 finish:
-    if (kextPlist) CFRelease(kextPlist);
 
     return result;
 }

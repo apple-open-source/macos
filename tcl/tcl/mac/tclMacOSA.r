@@ -8,7 +8,7 @@
  * See the file "license.terms" for information on usage and redistribution
  * of this file, and for a DISCLAIMER OF ALL WARRANTIES.
  *
- * RCS: @(#) $Id: tclMacOSA.r,v 1.1.1.3 2002/04/05 16:13:46 jevans Exp $
+ * RCS: @(#) $Id: tclMacOSA.r,v 1.1.1.4 2003/03/06 00:12:03 landonf Exp $
  */
 
 #include <Types.r>
@@ -29,22 +29,24 @@
 
 #if FINAL
 #   define MINOR_VERSION (SCRIPT_MINOR_VERSION * 16) + SCRIPT_RELEASE_SERIAL
+#   define RELEASE_CODE 0x00
 #else
 #   define MINOR_VERSION SCRIPT_MINOR_VERSION * 16
+#   define RELEASE_CODE SCRIPT_RELEASE_SERIAL
 #endif
 
 #define RELEASE_CODE 0x00
 
 resource 'vers' (1) {
 	SCRIPT_MAJOR_VERSION, MINOR_VERSION,
-	RELEASE_LEVEL, 0x00, verUS,
+	RELEASE_LEVEL, RELEASE_CODE, verUS,
 	SCRIPT_PATCH_LEVEL,
 	SCRIPT_PATCH_LEVEL ", by Jim Ingham © Cygnus Solutions" "\n" "© 2001 Tcl Core Team"
 };
 
 resource 'vers' (2) {
 	SCRIPT_MAJOR_VERSION, MINOR_VERSION,
-	RELEASE_LEVEL, 0x00, verUS,
+	RELEASE_LEVEL, RELEASE_CODE, verUS,
 	SCRIPT_PATCH_LEVEL,
 	"Tclapplescript " SCRIPT_PATCH_LEVEL " © 1996-2001"
 };

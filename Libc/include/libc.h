@@ -26,8 +26,8 @@
  * Copyright (c) 1995 NeXT Computer, Inc. All Rights Reserved
  */
 
-#ifndef LIBC_H
-#define LIBC_H
+#ifndef _LIBC_H
+#define _LIBC_H
 
 #include <stdio.h>
 #include <standards.h>
@@ -68,8 +68,11 @@ struct qelem {
         char *q_data;
 };
 
+#include <sys/cdefs.h>
+
+__BEGIN_DECLS
 extern kern_return_t map_fd(int fd, vm_offset_t offset,
         vm_offset_t *addr, boolean_t find_space, vm_size_t numbytes);
-
+__END_DECLS
 
 #endif  /* _LIBC_H */

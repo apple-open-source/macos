@@ -3,8 +3,6 @@
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
- * Copyright (c) 1999-2003 Apple Computer, Inc.  All Rights Reserved.
- * 
  * This file contains Original Code and/or Modifications of Original Code
  * as defined in and that are subject to the Apple Public Source License
  * Version 2.0 (the 'License'). You may not use this file except in
@@ -28,6 +26,7 @@
 #include <libc.h>
 #include <mach/mach.h>
 #include "stuff/openstep_mach.h"
+#include <stddef.h>
 #include <stdarg.h>
 #include <limits.h>
 #include <errno.h>
@@ -92,6 +91,12 @@ static enum check_type check_extend_format_1(
     unsigned long *member_name_size);
 static enum check_type check_Mach_O(
     struct ofile *ofile);
+static enum check_type check_dylib_module(
+    struct ofile *ofile,
+    struct symtab_command *st,
+    struct dysymtab_command *dyst,
+    char *strings,
+    unsigned long module_index);
 
 #ifndef OFI
 /*
@@ -230,7 +235,8 @@ void *cookie)
 			    else if(process_non_objects == TRUE ||
 				    ofile.arch_type == OFILE_Mach_O){
 				if(ofile.arch_type == OFILE_Mach_O &&
-				   ofile.mh->filetype == MH_DYLIB){
+				   (ofile.mh->filetype == MH_DYLIB ||
+				    ofile.mh->filetype == MH_DYLIB_STUB)){
 				    if(dylib_flat == TRUE){
 					processor(&ofile, arch_name, cookie);
 				    }
@@ -350,7 +356,8 @@ void *cookie)
 			else if(process_non_objects == TRUE ||
 				ofile.arch_type == OFILE_Mach_O){
 			    if(ofile.arch_type == OFILE_Mach_O &&
-			       ofile.mh->filetype == MH_DYLIB){
+			       (ofile.mh->filetype == MH_DYLIB ||
+				ofile.mh->filetype == MH_DYLIB_STUB)){
 				if(dylib_flat == TRUE){
 				    processor(&ofile, NULL, cookie);
 				}
@@ -446,7 +453,8 @@ void *cookie)
 		else if(process_non_objects == TRUE ||
 			ofile.arch_type == OFILE_Mach_O){
 		    if(ofile.arch_type == OFILE_Mach_O &&
-		       ofile.mh->filetype == MH_DYLIB){
+		       (ofile.mh->filetype == MH_DYLIB ||
+			ofile.mh->filetype == MH_DYLIB_STUB)){
 			if(dylib_flat == TRUE){
 			    processor(&ofile, ofile.arch_flag.name, cookie);
 			}
@@ -558,9 +566,9 @@ void *cookie)
 		    }
 #ifdef OTOOL
 		    if(ofile.mh->magic == SWAP_LONG(MH_MAGIC)){
-			if(SWAP_LONG(ofile.mh->cputype) ==
+			if((cpu_type_t)SWAP_LONG(ofile.mh->cputype) ==
 				arch_flags[i].cputype &&
-			   (SWAP_LONG(ofile.mh->cpusubtype) ==
+			   ((cpu_subtype_t)SWAP_LONG(ofile.mh->cpusubtype) ==
 				arch_flags[i].cpusubtype ||
 			    family == TRUE)){
 			    arch_found = TRUE;
@@ -581,7 +589,8 @@ void *cookie)
 		if(arch_found == FALSE)
 		    return;
 	    }
-	    if(ofile.mh->filetype == MH_DYLIB){
+	    if(ofile.mh->filetype == MH_DYLIB ||
+	       ofile.mh->filetype == MH_DYLIB_STUB){
 		if(dylib_flat == TRUE){
 		    processor(&ofile, NULL, cookie);
 		}
@@ -659,13 +668,9 @@ enum bool archives_with_fat_objects)
 {
     int fd;
     struct stat stat_buf;
-    unsigned long i, size, magic;
+    unsigned long size, magic;
     kern_return_t r;
     char *addr;
-    enum byte_sex host_byte_sex;
-    struct arch_flag host_arch_flag;
-    enum bool family;
-    const struct arch_flag *family_arch_flag;
 
 	magic = 0; /* to shut up the compiler warning message */
 	memset(ofile, '\0', sizeof(struct ofile));
@@ -699,7 +704,36 @@ enum bool archives_with_fat_objects)
 #ifdef OTOOL
 	if(otool_first_ofile_map && Wflag)
 	    printf("Modification time = %ld\n", (long int)stat_buf.st_mtime);
-#endif OTOOL
+#endif /* OTOOL */
+
+	return(ofile_map_from_memory(addr, size, file_name, arch_flag,
+			     object_name, ofile, archives_with_fat_objects));
+}
+
+/*
+ * ofile_map_from_memory() is the guts of ofile_map() but with an interface
+ * to pass the address and size of the file already mapped in.
+ */
+__private_extern__
+#ifdef OFI
+NSObjectFileImageReturnCode
+#else
+enum bool
+#endif
+ofile_map_from_memory(
+char *addr,
+unsigned long size,
+const char *file_name,
+const struct arch_flag *arch_flag,	/* can be NULL */
+const char *object_name,		/* can be NULL */
+struct ofile *ofile,
+enum bool archives_with_fat_objects)
+{
+    unsigned long i, magic;
+    enum byte_sex host_byte_sex;
+    struct arch_flag host_arch_flag;
+    enum bool family;
+    const struct arch_flag *family_arch_flag;
 
 	/* fill in the start of the ofile structure */
 	ofile->file_name = savestr(file_name);
@@ -1177,7 +1211,7 @@ unsigned long narch)
 	}
 
 #ifdef OTOOL
-	if(addr - ofile->file_addr > ofile->file_size){
+	if(addr - ofile->file_addr > (ptrdiff_t)ofile->file_size){
 	    error("fat file: %s offset to architecture %s extends past end "
 		  "of file", ofile->file_name, ofile->arch_flag.name);
 	    return(FALSE);
@@ -1328,7 +1362,7 @@ struct ofile *ofile)
 	    return(FALSE);
 	}
 #ifdef OTOOL
-	if((addr + SARMAG) - ofile->file_addr > ofile->file_size){
+	if((addr + SARMAG) - ofile->file_addr > (ptrdiff_t)ofile->file_size){
 	    archive_error(ofile, "offset to first member extends past the end "
 			  "of the file");
 	    return(FALSE);
@@ -1833,7 +1867,7 @@ cleanup:
 
 /*
  * ofile_first_module() set up the ofile structure (the dylib_module field)
- * for the first module of an MH_DYLIB file.
+ * for the first module of an MH_DYLIB or MH_DYLIB_STUB file.
  */
 __private_extern__
 enum bool
@@ -1857,7 +1891,8 @@ struct ofile *ofile)
 
 	if(ofile->file_type == OFILE_FAT){
 	    if(ofile->arch_type != OFILE_Mach_O &&
-	       ofile->mh->filetype != MH_DYLIB){
+	       (ofile->mh->filetype != MH_DYLIB &&
+	        ofile->mh->filetype != MH_DYLIB_STUB)){
 		error("ofile_first_module() called on fat file: %s with a "
 		      "non-MH_DYLIB architecture or no architecture selected\n",
 		      ofile->file_name);
@@ -1865,7 +1900,8 @@ struct ofile *ofile)
 	    }
 	}
 	else if(ofile->arch_type != OFILE_Mach_O &&
-	        ofile->mh->filetype != MH_DYLIB){
+	        (ofile->mh->filetype != MH_DYLIB &&
+	         ofile->mh->filetype != MH_DYLIB_STUB)){
 	    error("ofile_first_module() called and file type of %s is "
 		  "non-MH_DYLIB\n", ofile->file_name);
 	    return(FALSE);
@@ -1903,20 +1939,22 @@ struct ofile *ofile)
 	m = *ofile->dylib_module;
 	if(swapped)
 	    swap_dylib_module(&m, 1, host_byte_sex);
+	if(check_dylib_module(ofile, st, dyst, strings, 0) == CHECK_BAD)
+	    return(FALSE);
 	ofile->dylib_module_name = strings + m.module_name;
 	return(TRUE);
 }
 
 /*
  * ofile_next_module() set up the ofile structure (the dylib_module field)
- * for the next module of an MH_DYLIB file.
+ * for the next module of an MH_DYLIB or MH_DYLIB_STUB file.
  */
 __private_extern__
 enum bool
 ofile_next_module(
 struct ofile *ofile)
 {
-    unsigned long i;
+    unsigned long i, module_index;
     struct symtab_command *st;
     struct dysymtab_command *dyst;
     struct load_command *lc;
@@ -1927,7 +1965,8 @@ struct ofile *ofile)
 
 	if(ofile->file_type == OFILE_FAT){
 	    if(ofile->arch_type != OFILE_Mach_O &&
-	       ofile->mh->filetype != MH_DYLIB){
+	       (ofile->mh->filetype != MH_DYLIB &&
+	        ofile->mh->filetype != MH_DYLIB_STUB)){
 		error("ofile_next_module() called on fat file: %s with a "
 		      "non-MH_DYLIB architecture or no architecture selected\n",
 		      ofile->file_name);
@@ -1935,7 +1974,8 @@ struct ofile *ofile)
 	    }
 	}
 	else if(ofile->arch_type != OFILE_Mach_O &&
-	        ofile->mh->filetype != MH_DYLIB){
+	        (ofile->mh->filetype != MH_DYLIB &&
+	         ofile->mh->filetype != MH_DYLIB_STUB)){
 	    error("ofile_next_module() called and file type of %s is "
 		  "non-MH_DYLIB\n", ofile->file_name);
 	    return(FALSE);
@@ -1960,7 +2000,8 @@ struct ofile *ofile)
 	    return(FALSE);
 	}
 
-	if((ofile->dylib_module + 1) - ofile->modtab >= ofile->nmodtab)
+	module_index = (ofile->dylib_module + 1) - ofile->modtab;
+	if(module_index >= ofile->nmodtab)
 	    return(FALSE);
 
 	ofile->dylib_module++;
@@ -1970,13 +2011,17 @@ struct ofile *ofile)
 	m = *ofile->dylib_module;
 	if(swapped)
 	    swap_dylib_module(&m, 1, host_byte_sex);
+	if(check_dylib_module(ofile, st, dyst, strings, module_index) ==
+	   CHECK_BAD)
+	    return(FALSE);
 	ofile->dylib_module_name = strings + m.module_name;
 	return(TRUE);
 }
 
 /*
  * ofile_specific_module() set up the ofile structure (the dylib_module fields)
- * for the specified module, module_name, of an MH_DYLIB file.
+ * for the specified module, module_name, of an MH_DYLIB or an MH_DYLIB_STUB
+ * file.
  */
 __private_extern__
 enum bool
@@ -2001,7 +2046,8 @@ struct ofile *ofile)
 
 	if(ofile->file_type == OFILE_FAT){
 	    if(ofile->arch_type != OFILE_Mach_O &&
-	       ofile->mh->filetype != MH_DYLIB){
+	       (ofile->mh->filetype != MH_DYLIB &&
+	        ofile->mh->filetype != MH_DYLIB_STUB)){
 		error("ofile_specific_module() called on fat file: %s with a "
 		      "non-MH_DYLIB architecture or no architecture selected\n",
 		      ofile->file_name);
@@ -2009,7 +2055,8 @@ struct ofile *ofile)
 	    }
 	}
 	else if(ofile->arch_type != OFILE_Mach_O &&
-	        ofile->mh->filetype != MH_DYLIB){
+	        (ofile->mh->filetype != MH_DYLIB &&
+	         ofile->mh->filetype != MH_DYLIB_STUB)){
 	    error("ofile_specific_module() called and file type of %s is "
 		  "non-MH_DYLIB\n", ofile->file_name);
 	    return(FALSE);
@@ -2048,8 +2095,10 @@ struct ofile *ofile)
 	    m = *p;
 	    if(swapped)
 		swap_dylib_module(&m, 1, host_byte_sex);
+	    ofile->dylib_module = p;
+	    if(check_dylib_module(ofile, st, dyst, strings, i) == CHECK_BAD)
+		return(FALSE);
 	    if(strcmp(module_name, strings + m.module_name) == 0){
-		ofile->dylib_module = p;
 		ofile->dylib_module_name = strings + m.module_name;
 		return(TRUE);
 	    }
@@ -2521,10 +2570,12 @@ struct ofile *ofile)
 	    return(CHECK_BAD);
 	}
 	if(ofile->file_type == OFILE_FAT){
-	    if(ofile->fat_archs[ofile->narch].cputype != ofile->mh->cputype)
+	    if(ofile->fat_archs[ofile->narch].cputype != ofile->mh->cputype){
 		Mach_O_error(ofile, "malformed fat file (fat header "
 		    "architecture: %lu's cputype does not match "
 		    "object file's mach header)", ofile->narch);
+		return(CHECK_BAD);
+	    }
 	}
 	/*
 	 * Make a pass through the load commands checking them to the level
@@ -3094,7 +3145,8 @@ struct ofile *ofile)
 		    }
 		    break;
 		}
-	    	if(mh->cputype == CPU_TYPE_POWERPC){
+	    	if(mh->cputype == CPU_TYPE_POWERPC ||
+	    	   mh->cputype == CPU_TYPE_VEO){
 		    ppc_thread_state_t *nrw_cpu;
 
 		    nflavor = 0;
@@ -3595,55 +3647,73 @@ struct ofile *ofile)
 	    }
 	}
 	if(st == NULL){
-	    if(dyst != NULL)
+	    if(dyst != NULL){
 		Mach_O_error(ofile, "truncated or malformed object (contains "
 		  "LC_DYSYMTAB load command without a LC_SYMTAB load command)");
+		return(CHECK_BAD);
+	    }
 	}
 	else{
 	    if(dyst != NULL){
 		if(dyst->nlocalsym != 0 &&
-		   dyst->ilocalsym > st->nsyms)
+		   dyst->ilocalsym > st->nsyms){
 		    Mach_O_error(ofile, "truncated or malformed object "
 			"(ilocalsym in LC_DYSYMTAB load command extends past "
 			"the end of the symbol table)");
+		    return(CHECK_BAD);
+		}
 		if(dyst->nlocalsym != 0 &&
-		   dyst->ilocalsym + dyst->nlocalsym > st->nsyms)
+		   dyst->ilocalsym + dyst->nlocalsym > st->nsyms){
 		    Mach_O_error(ofile, "truncated or malformed object "
 			"(ilocalsym plus nlocalsym in LC_DYSYMTAB load command "
 			"extends past the end of the symbol table)");
+		    return(CHECK_BAD);
+		}
 
 		if(dyst->nextdefsym != 0 &&
-		   dyst->iextdefsym > st->nsyms)
+		   dyst->iextdefsym > st->nsyms){
 		    Mach_O_error(ofile, "truncated or malformed object "
 			"(iextdefsym in LC_DYSYMTAB load command extends past "
 			"the end of the symbol table)");
+		    return(CHECK_BAD);
+		}
 		if(dyst->nextdefsym != 0 &&
-		   dyst->iextdefsym + dyst->nextdefsym > st->nsyms)
+		   dyst->iextdefsym + dyst->nextdefsym > st->nsyms){
 		    Mach_O_error(ofile, "truncated or malformed object "
 			"(iextdefsym plus nextdefsym in LC_DYSYMTAB load "
 			"command extends past the end of the symbol table)");
+		    return(CHECK_BAD);
+		}
 
 		if(dyst->nundefsym != 0 &&
-		   dyst->iundefsym > st->nsyms)
+		   dyst->iundefsym > st->nsyms){
 		    Mach_O_error(ofile, "truncated or malformed object "
 			"(iundefsym in LC_DYSYMTAB load command extends past "
 			"the end of the symbol table)");
+		    return(CHECK_BAD);
+		}
 		if(dyst->nundefsym != 0 &&
-		   dyst->iundefsym + dyst->nundefsym > st->nsyms)
+		   dyst->iundefsym + dyst->nundefsym > st->nsyms){
 		    Mach_O_error(ofile, "truncated or malformed object "
 			"(iundefsym plus nundefsym in LC_DYSYMTAB load command "
 			"extends past the end of the symbol table)");
+		    return(CHECK_BAD);
+		}
 		if(rc != NULL){
-		    if(rc->init_module > dyst->nmodtab)
+		    if(rc->init_module > dyst->nmodtab){
 			Mach_O_error(ofile, "malformed object (init_module in "
 			    "LC_ROUTINES load command extends past the end of "
 			    "the module table)");
+			return(CHECK_BAD);
+		    }
 		}
 		if(hints != NULL){
-		    if(hints->nhints != dyst->nundefsym)
+		    if(hints->nhints != dyst->nundefsym){
 			Mach_O_error(ofile, "malformed object (nhints in "
 			    "LC_TWOLEVEL_HINTS load command not the same as "
 			    "nundefsym in LC_DYSYMTAB load command)");
+			return(CHECK_BAD);
+		    }
 		}
 	    }
 	}
@@ -3655,6 +3725,109 @@ struct ofile *ofile)
 	}
 
 	/* looks good return ok */
+	return(CHECK_GOOD);
+#endif /* OTOOL */
+}
+
+/*
+ * check_dylib_module() checks the object file's dylib_module as referenced
+ * by the dylib_module field in the ofile for correctness.
+ */
+static
+enum check_type
+check_dylib_module(
+struct ofile *ofile,
+struct symtab_command *st,
+struct dysymtab_command *dyst,
+char *strings,
+unsigned long module_index)
+{
+#ifdef OTOOL
+	return(CHECK_GOOD);
+#else /* !defined OTOOL */
+    unsigned long i;
+    enum byte_sex host_byte_sex;
+    enum bool swapped;
+    struct dylib_module m;
+
+	m = *ofile->dylib_module;
+	host_byte_sex = get_host_byte_sex();
+	swapped = (enum bool)(host_byte_sex != ofile->object_byte_sex);
+	if(swapped)
+	    swap_dylib_module(&m, 1, host_byte_sex);
+
+	if(m.module_name > st->strsize){
+	    Mach_O_error(ofile, "truncated or malformed object (module_name "
+		"of module table entry %lu past the end of the string table)",
+		module_index);
+	    return(CHECK_BAD);
+	}
+	for(i = m.module_name; i < st->strsize && strings[i] != '\0'; i++)
+		;
+	if(i >= st->strsize){
+	    Mach_O_error(ofile, "truncated or malformed object (module_name "
+		"of module table entry %lu extends past the end of the string "
+		"table)", module_index);
+	    return(CHECK_BAD);
+	}
+
+	if(m.nextdefsym != 0){
+	    if(m.iextdefsym > st->nsyms){
+		Mach_O_error(ofile, "truncated or malformed object (iextdefsym "
+		    "field of module table entry %lu past the end of the "
+		    "symbol table", module_index);
+		return(CHECK_BAD);
+	    }
+	    if(m.iextdefsym + m.nextdefsym > st->nsyms){
+		Mach_O_error(ofile, "truncated or malformed object (iextdefsym "
+		    "field of module table entry %lu plus nextdefsym field "
+		    "extends past the end of the symbol table", module_index);
+		return(CHECK_BAD);
+	    }
+	}
+	if(m.nlocalsym != 0){
+	    if(m.ilocalsym > st->nsyms){
+		Mach_O_error(ofile, "truncated or malformed object (ilocalsym "
+		    "field of module table entry %lu past the end of the "
+		    "symbol table", module_index);
+		return(CHECK_BAD);
+	    }
+	    if(m.ilocalsym + m.nlocalsym > st->nsyms){
+		Mach_O_error(ofile, "truncated or malformed object (ilocalsym "
+		    "field of module table entry %lu plus nlocalsym field "
+		    "extends past the end of the symbol table", module_index);
+		return(CHECK_BAD);
+	    }
+	}
+	if(m.nrefsym != 0){
+	    if(m.irefsym > dyst->nextrefsyms){
+		Mach_O_error(ofile, "truncated or malformed object (irefsym "
+		    "field of module table entry %lu past the end of the "
+		    "reference table", module_index);
+		return(CHECK_BAD);
+	    }
+	    if(m.irefsym + m.nrefsym > dyst->nextrefsyms){
+		Mach_O_error(ofile, "truncated or malformed object (irefsym "
+		    "field of module table entry %lu plus nrefsym field "
+		    "extends past the end of the reference table",module_index);
+		return(CHECK_BAD);
+	    }
+	}
+	if(m.nextrel != 0){
+	    if(m.iextrel > dyst->extreloff){
+		Mach_O_error(ofile, "truncated or malformed object (iextrel "
+		    "field of module table entry %lu past the end of the "
+		    "external relocation enrties", module_index);
+		return(CHECK_BAD);
+	    }
+	    if(m.iextrel + m.nextrel > dyst->extreloff){
+		Mach_O_error(ofile, "truncated or malformed object (iextrel "
+		    "field of module table entry %lu plus nextrel field "
+		    "extends past the end of the external relocation enrties",
+		    module_index);
+		return(CHECK_BAD);
+	    }
+	}
 	return(CHECK_GOOD);
 #endif /* OTOOL */
 }

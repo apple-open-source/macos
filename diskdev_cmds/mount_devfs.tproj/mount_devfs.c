@@ -84,6 +84,7 @@ main(argc, argv)
 	char *argv[];
 {
 	int ch, mntflags;
+	char dir[MAXPATHLEN];
 
 	mntflags = 0;
 	while ((ch = getopt(argc, argv, "o:")) != EOF)
@@ -101,7 +102,10 @@ main(argc, argv)
 	if (argc != 2)
 		usage();
 
-	if (mount("devfs", argv[1], mntflags, NULL))
+	if (realpath(argv[1], dir) == NULL)
+		err(1, "realpath %s", dir);
+
+	if (mount("devfs", dir, mntflags, NULL))
 		err(1, NULL);
 	exit(0);
 }

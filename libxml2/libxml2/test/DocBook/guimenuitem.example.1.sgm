@@ -1,0 +1,7 @@
+<!DOCTYPE para PUBLIC "-//OASIS//DTD DocBook V3.1//EN">
+<para>
+You can exit from GNU Emacs with the keyboard shortcut
+<keycombo><keysym>C-c</keysym><keysym>C-x</keysym></keycombo>
+or by selecting <guimenuitem>Exit Emacs</> from
+the <guimenu>Files</> menu.
+</para>

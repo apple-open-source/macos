@@ -3,8 +3,6 @@
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
- * Copyright (c) 1999-2003 Apple Computer, Inc.  All Rights Reserved.
- * 
  * This file contains Original Code and/or Modifications of Original Code
  * as defined in and that are subject to the Apple Public Source License
  * Version 2.0 (the 'License'). You may not use this file except in
@@ -175,7 +173,7 @@ struct scattered_relocation_info {
 
 /*
  * Relocation types used in a generic implementation.  Relocation entries for
- * nornal things use the generic relocation as discribed above and their r_type
+ * normal things use the generic relocation as discribed above and their r_type
  * is GENERIC_RELOC_VANILLA (a value of zero).
  *
  * Another type of generic relocation, GENERIC_RELOC_SECTDIFF, is to support

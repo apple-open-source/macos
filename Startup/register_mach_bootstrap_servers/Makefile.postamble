@@ -1,0 +1,11 @@
+include $(CoreOSMakefiles)/ProjectBuilder/Makefile.Postamble.Common
+
+after_install:
+	mkdir -p $(DSTROOT)/private/etc/mach_init.d
+	mkdir -p $(DSTROOT)/private/etc/mach_init_per_user.d
+	$(CC) $(CFLAGS) -DBUILD_LIB -c register_mach_bootstrap_servers.c -o /tmp/register_mach_bootstrap_servers.o
+	mkdir -p $(DSTROOT)/usr/local/include
+	mkdir -p $(DSTROOT)/usr/local/lib
+	$(AR) cruv $(DSTROOT)/usr/local/lib/libinitng.a /tmp/register_mach_bootstrap_servers.o
+	ranlib $(DSTROOT)/usr/local/lib/libinitng.a
+	install -m 444 initng.h $(DSTROOT)/usr/local/include

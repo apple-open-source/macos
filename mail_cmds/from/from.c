@@ -1,5 +1,3 @@
-/*	$NetBSD: from.c,v 1.8 1997/10/18 15:08:53 lukem Exp $	*/
-
 /*
  * Copyright (c) 1980, 1988, 1993
  *	The Regents of the University of California.  All rights reserved.
@@ -33,39 +31,41 @@
  * SUCH DAMAGE.
  */
 
-#include <sys/cdefs.h>
 #ifndef lint
-__COPYRIGHT("@(#) Copyright (c) 1980, 1988, 1993\n\
-	The Regents of the University of California.  All rights reserved.\n");
+static const char copyright[] =
+"@(#) Copyright (c) 1980, 1988, 1993\n\
+	The Regents of the University of California.  All rights reserved.\n";
 #endif /* not lint */
 
 #ifndef lint
 #if 0
 static char sccsid[] = "@(#)from.c	8.1 (Berkeley) 6/6/93";
 #endif
-__RCSID("$NetBSD: from.c,v 1.8 1997/10/18 15:08:53 lukem Exp $");
 #endif /* not lint */
+#include <sys/cdefs.h>
+__RCSID("$FreeBSD: src/usr.bin/from/from.c,v 1.14 2002/09/04 23:29:00 dwmalone Exp $");
 
 #include <sys/types.h>
 #include <ctype.h>
-#include <paths.h>
+#include <err.h>
 #include <pwd.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <paths.h>
 #include <string.h>
 #include <unistd.h>
 
-int	main __P((int, char **));
-int	match __P((char *, char *));
+int match(const char *, const char *);
+static void usage(void);
 
 int
-main(argc, argv)
-	int argc;
-	char **argv;
+main(int argc, char **argv)
 {
+	FILE *mbox;
 	struct passwd *pwd;
-	int ch, newline;
-	char *file, *sender, *p;
+	int ch, count, newline;
+	const char *file;
+	char *sender, *p;
 #if MAXPATHLEN > BUFSIZ
 	char buf[MAXPATHLEN];
 #else
@@ -73,8 +73,12 @@ main(argc, argv)
 #endif
 
 	file = sender = NULL;
-	while ((ch = getopt(argc, argv, "f:s:")) != -1)
-		switch((char)ch) {
+	count = -1;
+	while ((ch = getopt(argc, argv, "cf:s:")) != -1)
+		switch (ch) {
+		case 'c':
+			count = 0;
+			break;
 		case 'f':
 			file = optarg;
 			break;
@@ -86,61 +90,67 @@ main(argc, argv)
 			break;
 		case '?':
 		default:
-			fprintf(stderr, "usage: from [-f file] [-s sender] [user]\n");
-			exit(1);
+			usage();
 		}
+	argc -= optind;
 	argv += optind;
 
-	/*
-	 * We find the mailbox by:
-	 *	1 -f flag
-	 *	2 user
-	 *	2 MAIL environment variable
-	 *	3 _PATH_MAILDIR/file
-	 */
-	if (!file) {
-		if (!(file = *argv)) {
-			if (!(file = getenv("MAIL"))) {
-				if (!(pwd = getpwuid(getuid()))) {
-					(void)fprintf(stderr,
-				"from: no password file entry for you.\n");
-					exit(1);
-				}
-				if ((file = getenv("USER")) != NULL) {
-					(void)sprintf(buf, "%s/%s",
-					    _PATH_MAILDIR, file);
-					file = buf;
-				} else
-					(void)sprintf(file = buf, "%s/%s",
-					    _PATH_MAILDIR, pwd->pw_name);
-			}
+	if (file == NULL) {
+		if (argc) {
+			(void)snprintf(buf, sizeof(buf), "%s/%s", _PATH_MAILDIR, *argv);
+			file  = buf;
 		} else {
-			(void)sprintf(buf, "%s/%s", _PATH_MAILDIR, file);
-			file = buf;
+			if (!(file = getenv("MAIL"))) {
+				if (!(pwd = getpwuid(getuid())))
+					errx(1, "no password file entry for you");
+				file = pwd->pw_name;
+				(void)snprintf(buf, sizeof(buf),
+				    "%s/%s", _PATH_MAILDIR, file);
+				file = buf;
+			}
 		}
 	}
-	if (!freopen(file, "r", stdin)) {
-		(void)fprintf(stderr, "from: can't read %s.\n", file);
-		exit(1);
+
+	/* read from stdin */
+	if (strcmp(file, "-") == 0) {
+		mbox = stdin;
+	} 
+	else if ((mbox = fopen(file, "r")) == NULL) {
+		errx(1, "can't read %s", file);
 	}
-	for (newline = 1; fgets(buf, sizeof(buf), stdin);) {
+	for (newline = 1; fgets(buf, sizeof(buf), mbox);) {
 		if (*buf == '\n') {
 			newline = 1;
 			continue;
 		}
 		if (newline && !strncmp(buf, "From ", 5) &&
-		    (!sender || match(buf + 5, sender)))
-			printf("%s", buf);
+		    (!sender || match(buf + 5, sender))) {
+			if (count != -1)
+				count++;
+			else
+				printf("%s", buf);
+		}
 		newline = 0;
 	}
+	if (count != -1)
+		printf("There %s %d message%s in your incoming mailbox.\n",
+		    count == 1 ? "is" : "are", count, count == 1 ? "" : "s"); 
+	fclose(mbox);
 	exit(0);
 }
 
-int
-match(line, sender)
-	char *line, *sender;
+static void
+usage(void)
 {
-	char ch, pch, first, *p, *t;
+	fprintf(stderr, "usage: from [-c] [-f file] [-s sender] [user]\n");
+	exit(1);
+}
+
+int
+match(const char *line, const char *sender)
+{
+	char ch, pch, first;
+	const char *p, *t;
 
 	for (first = *sender++;;) {
 		if (isspace(ch = *line))

@@ -26,6 +26,10 @@
 #ifndef _IOKIT_IOGRAPHICSLIB_H
 #define _IOKIT_IOGRAPHICSLIB_H
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 #include <IOKit/IOKitLib.h>
 #include <IOKit/graphics/IOFramebufferShared.h>
 #include <IOKit/graphics/IOGraphicsInterface.h>
@@ -605,6 +609,9 @@ IOFBMemoryCopy( void * blitterRef,
 
 /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
 
+#ifdef __cplusplus
+}
+#endif
 
 #endif /* ! _IOKIT_IOGRAPHICSLIB_H */
 

@@ -58,9 +58,9 @@
 
 #include <stdio.h>
 #include <string.h>
+#include "apps.h"
 #include <openssl/pem.h>
 #include <openssl/err.h>
-#include "apps.h"
 
 #undef PROG
 #define PROG nseq_main
@@ -121,7 +121,7 @@ int MAIN(int argc, char **argv)
 		}
 	} else {
 		out = BIO_new_fp(stdout, BIO_NOCLOSE);
-#ifdef VMS
+#ifdef OPENSSL_SYS_VMS
 		{
 		BIO *tmpbio = BIO_new(BIO_f_linebuffer());
 		out = BIO_push(tmpbio, out);

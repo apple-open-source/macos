@@ -15,7 +15,7 @@
 # ------------------------------------------------------------------
 #  CONSTRUCTOR - create new source preferences window
 # ------------------------------------------------------------------
-body SrcPref::constructor {args} {
+itcl::body SrcPref::constructor {args} {
   window_name "Source Preferences"
   _init_var
   _build_win
@@ -24,7 +24,7 @@ body SrcPref::constructor {args} {
 # ------------------------------------------------------------------
 #  METHOD:  init_var - initialize preference variables
 # ------------------------------------------------------------------
-body SrcPref::_init_var {} {
+itcl::body SrcPref::_init_var {} {
   set vlist {gdb/src/PC_TAG gdb/src/STACK_TAG gdb/src/BROWSE_TAG
     gdb/src/run_attach gdb/src/run_load gdb/src/run_run
     gdb/src/run_cont gdb/src/bp_fg gdb/src/temp_bp_fg 
@@ -42,7 +42,7 @@ body SrcPref::_init_var {} {
 # ------------------------------------------------------------------
 #  METHOD:  build_win - build the dialog
 # ------------------------------------------------------------------
-body SrcPref::_build_win {} {
+itcl::body SrcPref::_build_win {} {
   frame $itk_interior.f
   frame $itk_interior.f.a
   frame $itk_interior.f.b
@@ -124,8 +124,8 @@ body SrcPref::_build_win {} {
   radiobutton $w.var_on -text "On " -variable [scope $var] -value 1
   radiobutton $w.var_off -text "Off" -variable [scope $var] -value 0
   pack $w.var_on $w.var_off -side top
-  grid $f.rmv.mode -sticky nsew -pady 5 -row 0 -col 0
-  grid $f.rmv.var -sticky nsew -pady 5 -row 0 -col 2
+  grid $f.rmv.mode -sticky nsew -pady 5 -row 0 -column 0
+  grid $f.rmv.var -sticky nsew -pady 5 -row 0 -column 2
   grid columnconfigure $f.rmv 0 -weight 1
   grid columnconfigure $f.rmv 1 -minsize 4
   grid columnconfigure $f.rmv 2 -weight 1
@@ -137,7 +137,7 @@ body SrcPref::_build_win {} {
   itk_component add size {
     iwidgets::spinint $f.x.size -labeltext "Tab Size" -range {1 16} \
       -step 1 -fixed 2 -width 2 -textvariable [scope _new(gdb/src/tab_size)] \
-      -wrap 0
+      -wrap 0 -textbackground $::Colors(textbg)
   }
   $f.x.size delete 0 end
   $f.x.size insert end $_saved(gdb/src/tab_size)
@@ -202,7 +202,7 @@ body SrcPref::_build_win {} {
 # ------------------------------------------------------------------
 #  METHOD:  apply - apply changes
 # ------------------------------------------------------------------
-body SrcPref::_apply {} {
+itcl::body SrcPref::_apply {} {
   foreach var [array names _new] {
     if {$_new($var) != [pref get $var]} {
       #debug "$var = $_new($var)"
@@ -216,14 +216,14 @@ body SrcPref::_apply {} {
   ManagedWin::restart
 }
 
-body SrcPref::cancel {} {
+itcl::body SrcPref::cancel {} {
   _save
 }
 
 # ------------------------------------------------------------------
 #  METHOD:  _cancel
 # ------------------------------------------------------------------
-body SrcPref::_cancel {} {
+itcl::body SrcPref::_cancel {} {
   set any_changed 0
   
   foreach elem [array names _saved] {
@@ -249,7 +249,7 @@ body SrcPref::_cancel {} {
 # ------------------------------------------------------------------
 #  METHOD:  save - apply changes and quit
 # ------------------------------------------------------------------
-body SrcPref::_save {} {
+itcl::body SrcPref::_save {} {
   _apply
   unpost
 }
@@ -258,7 +258,7 @@ body SrcPref::_save {} {
 #  METHOD:  _set_flavor - sets the disassembly flavor.  The set disassembly-flavor
 #           gdb command is already known to exist, so I don't have to check...
 # ------------------------------------------------------------------
-body SrcPref::_set_flavor {w new_mode} {
+itcl::body SrcPref::_set_flavor {w new_mode} {
   $w entryset $new_mode
   set _new_disassembly_flavor $new_mode
 }
@@ -267,7 +267,7 @@ body SrcPref::_set_flavor {w new_mode} {
 # ------------------------------------------------------------------
 #  METHOD:  pick - pick colors
 # ------------------------------------------------------------------
-body SrcPref::_pick {color win tag} {
+itcl::body SrcPref::_pick {color win tag} {
   set new_color [tk_chooseColor -initialcolor $color -title "Choose color"]
   if {$new_color != $color && $new_color != {}} {
     set _new(gdb/src/$tag) $new_color

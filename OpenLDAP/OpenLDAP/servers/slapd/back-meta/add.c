@@ -1,5 +1,5 @@
 /*
- * Copyright 1998-2002 The OpenLDAP Foundation, All Rights Reserved.
+ * Copyright 1998-2003 The OpenLDAP Foundation, All Rights Reserved.
  * COPYING RESTRICTIONS APPLY, see COPYRIGHT file
  *
  * Copyright 2001, Pierangelo Masarati, All rights reserved. <ando@sys-net.it>
@@ -92,8 +92,7 @@ meta_back_add(
 	struct berval mdn = { 0, NULL }, mapped;
 
 #ifdef NEW_LOGGING
-	LDAP_LOG(( "backend", LDAP_LEVEL_ENTRY, "meta_back_add: %s\n",
-			e->e_dn ));
+	LDAP_LOG( BACK_META, ENTRY, "meta_back_add: %s\n", e->e_dn, 0, 0 );
 #else /* !NEW_LOGGING */
 	Debug(LDAP_DEBUG_ARGS, "==> meta_back_add: %s\n%s%s", e->e_dn, "", "");
 #endif /* !NEW_LOGGING */
@@ -103,8 +102,9 @@ meta_back_add(
 	 */
 	lc = meta_back_getconn( li, conn, op, META_OP_REQUIRE_SINGLE,
 			&e->e_nname, &candidate );
-	if ( !lc || !meta_back_dobind( lc, op ) || !meta_back_is_valid( lc, candidate ) ) {
- 		send_ldap_result( conn, op, LDAP_OPERATIONS_ERROR,
+	if ( !lc || !meta_back_dobind( lc, op )
+			|| !meta_back_is_valid( lc, candidate ) ) {
+ 		send_ldap_result( conn, op, LDAP_OTHER,
  				NULL, NULL, NULL, NULL );
 		return -1;
 	}
@@ -122,9 +122,8 @@ meta_back_add(
 		}
 
 #ifdef NEW_LOGGING
-		LDAP_LOG(( "backend", LDAP_LEVEL_DETAIL1,
-				"[rw] addDn: \"%s\" -> \"%s\"\n",
-				e->e_dn, mdn.bv_val ));
+		LDAP_LOG( BACK_META, DETAIL1,
+			"[rw] addDn: \"%s\" -> \"%s\"\n", e->e_dn, mdn.bv_val, 0 );
 #else /* !NEW_LOGGING */
 		Debug( LDAP_DEBUG_ARGS, "rw> addDn: \"%s\" -> \"%s\"\n%s", 
 				e->e_dn, mdn.bv_val, "" );
@@ -133,12 +132,12 @@ meta_back_add(
  		
  	case REWRITE_REGEXEC_UNWILLING:
  		send_ldap_result( conn, op, LDAP_UNWILLING_TO_PERFORM,
- 				NULL, NULL, NULL, NULL );
+ 				NULL, "Operation not allowed", NULL, NULL );
 		return -1;
 	       	
 	case REWRITE_REGEXEC_ERR:
- 		send_ldap_result( conn, op, LDAP_OPERATIONS_ERROR,
- 				NULL, NULL, NULL, NULL );
+ 		send_ldap_result( conn, op, LDAP_OTHER,
+ 				NULL, "Rewrite error", NULL, NULL );
 		return -1;
 	}
 
@@ -150,28 +149,14 @@ meta_back_add(
 
 	for ( i = 0, a = e->e_attrs; a; a = a->a_next ) {
 		int j;
-		/*
-		 * lastmod should always be <off>, so that
-		 * creation/modification operational attrs
-		 * of the target directory are used, if available
-		 */
-#if 0
-		if ( !strcasecmp( a->a_desc->ad_cname.bv_val,
-			slap_schema.si_ad_creatorsName->ad_cname.bv_val )
-			|| !strcasecmp( a->a_desc->ad_cname.bv_val,
-			slap_schema.si_ad_createTimestamp->ad_cname.bv_val )
-			|| !strcasecmp(	a->a_desc->ad_cname.bv_val,
-			slap_schema.si_ad_modifiersName->ad_cname.bv_val )
-			|| !strcasecmp( a->a_desc->ad_cname.bv_val,
-			slap_schema.si_ad_modifyTimestamp->ad_cname.bv_val )
-		) {
+
+		if ( a->a_desc->ad_type->sat_no_user_mod  ) {
 			continue;
 		}
-#endif
-		
+
 		ldap_back_map( &li->targets[ candidate ]->at_map,
-				&a->a_desc->ad_cname, &mapped, 0);
-		if ( mapped.bv_val == NULL ) {
+				&a->a_desc->ad_cname, &mapped, BACKLDAP_MAP );
+		if ( mapped.bv_val == NULL || mapped.bv_val[0] == '\0' ) {
 			continue;
 		}
 
@@ -202,7 +187,7 @@ meta_back_add(
 	}
 	attrs[ i ] = NULL;
 
-	ldap_add_s( lc->conns[ candidate ]->ld, mdn.bv_val, attrs );
+	ldap_add_s( lc->conns[ candidate ].ld, mdn.bv_val, attrs );
 	for ( --i; i >= 0; --i ) {
 		free( attrs[ i ]->mod_vals.modv_bvals );
 		free( attrs[ i ] );

@@ -1,11 +1,18 @@
+BEFORE_BUILD += comm-page-symbols
 BEFORE_INSTALL += profile debug
 AFTER_INSTALL  += compat-next compat-bsd copy_plist
 
 PROFILE_BUILD_LIBS := $(foreach LIBS, $(LIBS), $(LIBS)_profile) -lcc_noc++
 DEBUG_BUILD_LIBS := $(foreach LIBS, $(LIBS), $(LIBS)_debug  ) -lcc_noc++
 
-OTHER_LIBTOOL_FLAGS = -L/usr/lib/system -sub_library libmathCommon -lmathCommon -sectorder __TEXT __text System.order
+# the _stub.o files need to come first to ensure that they override the default stubs
+OTHER_LIBTOOL_FLAGS = $(OFILE_DIR)/spinlock_stub.o \
+	$(OFILE_DIR)/spinlocktry_stub.o \
+	$(OFILE_DIR)/spinunlock_stub.o \
+	-L/usr/lib/system -sub_library libmathCommon \
+	-lmathCommon -sectorder __TEXT __text System.order \
+	-segcreate __DATA __commpage $(OFILE_DIR)/CommPageSymbols.o
 
-BSD_LIBS = c info kvm m pthread
+BSD_LIBS = c info kvm m pthread dbm poll dl rpcsvc
 
 include $(MAKEFILEPATH)/CoreOS/ProjectBuilder/Makefile.Preamble.Common

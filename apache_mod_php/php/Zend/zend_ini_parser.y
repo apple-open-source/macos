@@ -3,12 +3,12 @@
    +----------------------------------------------------------------------+
    | Zend Engine                                                          |
    +----------------------------------------------------------------------+
-   | Copyright (c) 1998-2001 Zend Technologies Ltd. (http://www.zend.com) |
+   | Copyright (c) 1998-2002 Zend Technologies Ltd. (http://www.zend.com) |
    +----------------------------------------------------------------------+
-   | This source file is subject to version 0.92 of the Zend license,     |
+   | This source file is subject to version 2.00 of the Zend license,     |
    | that is bundled with this package in the file LICENSE, and is        |
    | available at through the world-wide-web at                           |
-   | http://www.zend.com/license/0_92.txt.                                |
+   | http://www.zend.com/license/2_00.txt.                                |
    | If you did not receive a copy of the Zend license and are unable to  |
    | obtain it through the world-wide-web, please send a note to          |
    | license@zend.com so we can mail you a copy immediately.              |
@@ -18,7 +18,7 @@
 */
 
 
-/* $Id: zend_ini_parser.y,v 1.1.1.4 2002/03/20 03:19:21 zarzycki Exp $ */
+/* $Id: zend_ini_parser.y,v 1.1.1.7 2003/07/18 18:07:26 zarzycki Exp $ */
 
 #define DEBUG_CFG_PARSER 0
 #include "zend.h"
@@ -57,7 +57,6 @@ zval yylval;
 #ifndef ZTS
 extern int ini_lex(zval *ini_lval TSRMLS_DC);
 extern FILE *ini_in;
-extern int ini_lineno;
 extern void init_cfg_scanner(void);
 #endif
 
@@ -141,13 +140,13 @@ static void ini_error(char *str)
 		fprintf(stderr, "PHP:  %s", error_buf);
 #endif
 	} else {
-		zend_error(E_CORE_WARNING, error_buf);
+		zend_error(E_WARNING, error_buf);
 	}
 	efree(error_buf);
 }
 
 
-int zend_parse_ini_file(zend_file_handle *fh, zend_bool unbuffered_errors, zend_ini_parser_cb_t ini_parser_cb, void *arg)
+ZEND_API int zend_parse_ini_file(zend_file_handle *fh, zend_bool unbuffered_errors, zend_ini_parser_cb_t ini_parser_cb, void *arg)
 {
 	int retval;
 	zend_ini_parser_param ini_parser_param;

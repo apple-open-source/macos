@@ -1,27 +1,11 @@
 /*
- * Copyright (c) 1984,1985,1989,1994,1995,1996,1999  Mark Nudelman
- * All rights reserved.
+ * Copyright (C) 1984-2002  Mark Nudelman
  *
- * Redistribution and use in source and binary forms, with or without
- * modification, are permitted provided that the following conditions
- * are met:
- * 1. Redistributions of source code must retain the above copyright
- *    notice, this list of conditions and the following disclaimer.
- * 2. Redistributions in binary form must reproduce the above copyright
- *    notice in the documentation and/or other materials provided with 
- *    the distribution.
+ * You may distribute under the terms of either the GNU General Public
+ * License or the Less License, as specified in the README file.
  *
- * THIS SOFTWARE IS PROVIDED BY THE AUTHOR ``AS IS'' AND ANY
- * EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
- * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR 
- * PURPOSE ARE DISCLAIMED.  IN NO EVENT SHALL THE AUTHOR BE LIABLE
- * FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR 
- * CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT 
- * OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR 
- * BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, 
- * WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE 
- * OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN 
- * IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+ * For more information about less, or for information on how to 
+ * contact the author, see the README file.
  */
 
 
@@ -38,10 +22,13 @@
 #if HAVE_POSIX_REGCOMP
 #include <regex.h>
 #ifdef REG_EXTENDED
-#define	REGCOMP_FLAG	REG_EXTENDED
+#define	REGCOMP_FLAG	(more_mode ? 0 : REG_EXTENDED)
 #else
 #define	REGCOMP_FLAG	0
 #endif
+#endif
+#if HAVE_PCRE
+#include <pcre.h>
 #endif
 #if HAVE_RE_COMP
 char *re_comp();
@@ -65,6 +52,9 @@ extern int linenums;
 extern int sc_height;
 extern int jump_sline;
 extern int bs_mode;
+extern int more_mode;
+extern int ctldisp;
+extern int status_col;
 extern POSITION start_attnpos;
 extern POSITION end_attnpos;
 #if HILITE_SEARCH
@@ -94,6 +84,9 @@ static struct hilite hilite_anchor = { NULL, NULL_POSITION, NULL_POSITION };
 #if HAVE_POSIX_REGCOMP
 static regex_t *regpattern = NULL;
 #endif
+#if HAVE_PCRE
+pcre *regpattern = NULL;
+#endif
 #if HAVE_RE_COMP
 int re_pattern = 0;
 #endif
@@ -114,6 +107,8 @@ static char *last_pattern = NULL;
  */
 #define	CVT_TO_LC	01	/* Convert upper-case to lower-case */
 #define	CVT_BS		02	/* Do backspace processing */
+#define	CVT_CRLF	04	/* Remove CR after LF */
+#define	CVT_ANSI	010	/* Remove ANSI escape sequences */
 
 	static void
 cvt_text(odst, osrc, ops)
@@ -124,19 +119,51 @@ cvt_text(odst, osrc, ops)
 	register char *dst;
 	register char *src;
 
-	for (src = osrc, dst = odst;  *src != '\0';  src++, dst++)
+	for (src = osrc, dst = odst;  *src != '\0';  src++)
 	{
 		if ((ops & CVT_TO_LC) && isupper((unsigned char) *src))
 			/* Convert uppercase to lowercase. */
-			*dst = tolower((unsigned char) *src);
+			*dst++ = tolower((unsigned char) *src);
 		else if ((ops & CVT_BS) && *src == '\b' && dst > odst)
 			/* Delete BS and preceding char. */
-			dst -= 2;
-		else 
+			dst--;
+		else if ((ops & CVT_ANSI) && *src == ESC)
+		{
+			/* Skip to end of ANSI escape sequence. */
+			while (src[1] != '\0')
+				if (is_ansi_end(*++src))
+					break;
+		} else 
 			/* Just copy. */
-			*dst = *src;
+			*dst++ = *src;
 	}
+	if ((ops & CVT_CRLF) && dst > odst && dst[-1] == '\r')
+		dst--;
 	*dst = '\0';
+}
+
+/*
+ * Determine which conversions to perform.
+ */
+	static int
+get_cvt_ops(void)
+{
+	int ops = 0;
+	if (is_caseless || bs_mode == BS_SPECIAL)
+	{
+		if (is_caseless) 
+			ops |= CVT_TO_LC;
+		if (bs_mode == BS_SPECIAL)
+			ops |= CVT_BS;
+		if (bs_mode != BS_CONTROL)
+			ops |= CVT_CRLF;
+	} else if (bs_mode != BS_CONTROL)
+	{
+		ops |= CVT_CRLF;
+	}
+	if (ctldisp == OPT_ONPLUS)
+		ops |= CVT_ANSI;
+	return (ops);
 }
 
 /*
@@ -163,6 +190,9 @@ prev_pattern()
 	if (last_search_type & SRCH_NO_REGEX)
 		return (last_pattern != NULL);
 #if HAVE_POSIX_REGCOMP
+	return (regpattern != NULL);
+#endif
+#if HAVE_PCRE
 	return (regpattern != NULL);
 #endif
 #if HAVE_RE_COMP
@@ -314,6 +344,21 @@ compile_pattern(pattern, search_type)
 			regfree(regpattern);
 		regpattern = s;
 #endif
+#if HAVE_PCRE
+		pcre *comp;
+		const char *errstring;
+		int erroffset;
+		PARG parg;
+		comp = pcre_compile(pattern, 0,
+				&errstring, &erroffset, NULL);
+		if (comp == NULL)
+		{
+			parg.p_string = (char *) errstring;
+			error("%s", &parg);
+			return (-1);
+		}
+		regpattern = comp;
+#endif
 #if HAVE_RE_COMP
 		PARG parg;
 		if ((parg.p_string = re_comp(pattern)) != NULL)
@@ -371,6 +416,11 @@ uncompile_pattern()
 		regfree(regpattern);
 	regpattern = NULL;
 #endif
+#if HAVE_PCRE
+	if (regpattern != NULL)
+		pcre_free(regpattern);
+	regpattern = NULL;
+#endif
 #if HAVE_RE_COMP
 	re_pattern = 0;
 #endif
@@ -410,8 +460,25 @@ match_pattern(line, sp, ep, notbol)
 		matched = !regexec(regpattern, line, 1, &rm, flags);
 		if (!matched)
 			return (0);
+#ifndef __WATCOMC__
 		*sp = line + rm.rm_so;
 		*ep = line + rm.rm_eo;
+#else
+		*sp = rm.rm_sp;
+		*ep = rm.rm_ep;
+#endif
+	}
+#endif
+#if HAVE_PCRE
+	{
+		int flags = (notbol) ? PCRE_NOTBOL : 0;
+		int ovector[3];
+		matched = pcre_exec(regpattern, NULL, line, strlen(line),
+			0, flags, ovector, 3) >= 0;
+		if (!matched)
+			return (0);
+		*sp = line + ovector[0];
+		*ep = line + ovector[1];
 	}
 #endif
 #if HAVE_RE_COMP
@@ -476,7 +543,8 @@ is_hilited(pos, epos, nohide)
 {
 	struct hilite *hl;
 
-	if (start_attnpos != NULL_POSITION && 
+	if (!status_col &&
+	    start_attnpos != NULL_POSITION && 
 	    pos < end_attnpos &&
 	     (epos == NULL_POSITION || epos > start_attnpos))
 		/*
@@ -552,9 +620,10 @@ add_hilite(anchor, hl)
  * Adjust hl_startpos & hl_endpos to account for backspace processing.
  */
 	static void
-adj_hilite(anchor, linepos)
+adj_hilite(anchor, linepos, cvt_ops)
 	struct hilite *anchor;
 	POSITION linepos;
+	int cvt_ops;
 {
 	char *line;
 	struct hilite *hl;
@@ -596,18 +665,39 @@ adj_hilite(anchor, linepos)
 		}
 		if (*line == '\0')
 			break;
+		if (cvt_ops & CVT_ANSI)
+		{
+			while (line[0] == ESC)
+			{
+				/*
+				 * Found an ESC.  The file position moves
+				 * forward past the entire ANSI escape sequence.
+				 */
+				line++;
+				npos++;
+				while (*line != '\0')
+				{
+					npos++;
+					if (is_ansi_end(*line++))
+						break;
+				}
+			}
+		}
 		opos++;
 		npos++;
 		line++;
-		while (line[0] == '\b' && line[1] != '\0')
+		if (cvt_ops & CVT_BS)
 		{
-			/*
-			 * Found a backspace.  The file position moves
-			 * forward by 2 relative to the processed line
-			 * which was searched in hilite_line.
-			 */
-			npos += 2;
-			line += 2;
+			while (line[0] == '\b' && line[1] != '\0')
+			{
+				/*
+				 * Found a backspace.  The file position moves
+				 * forward by 2 relative to the processed line
+				 * which was searched in hilite_line.
+				 */
+				npos += 2;
+				line += 2;
+			}
 		}
 	}
 }
@@ -618,11 +708,12 @@ adj_hilite(anchor, linepos)
  * sp,ep delimit the first match already found.
  */
 	static void
-hilite_line(linepos, line, sp, ep)
+hilite_line(linepos, line, sp, ep, cvt_ops)
 	POSITION linepos;
 	char *line;
 	char *sp;
 	char *ep;
+	int cvt_ops;
 {
 	char *searchp;
 	struct hilite *hl;
@@ -671,15 +762,13 @@ hilite_line(linepos, line, sp, ep)
 			break;
 	} while (match_pattern(searchp, &sp, &ep, 1));
 
-	if (bs_mode == BS_SPECIAL) 
-	{
-		/*
-		 * If there were backspaces in the original line, they
-		 * were removed, and hl_startpos/hl_endpos are not correct.
-		 * {{ This is very ugly. }}
-		 */
-		adj_hilite(&hilites, linepos);
-	}
+	/*
+	 * If there were backspaces in the original line, they
+	 * were removed, and hl_startpos/hl_endpos are not correct.
+	 * {{ This is very ugly. }}
+	 */
+	adj_hilite(&hilites, linepos, cvt_ops);
+
 	/*
 	 * Now put the hilites into the real list.
 	 */
@@ -801,7 +890,23 @@ search_pos(search_type)
 		linenum = adjsline(jump_sline);
 		pos = position(linenum);
 		if (search_type & SRCH_FORW)
+		{
 			pos = forw_raw_line(pos, (char **)NULL);
+			while (pos == NULL_POSITION)
+			{
+				if (++linenum >= sc_height)
+					break;
+				pos = position(linenum);
+			}
+		} else 
+		{
+			while (pos == NULL_POSITION)
+			{
+				if (--linenum < 0)
+					break;
+				pos = position(linenum);
+			}
+		}
 	}
 	return (pos);
 }
@@ -823,6 +928,7 @@ search_range(pos, endpos, search_type, matches, maxlines, plinepos, pendpos)
 	int linenum;
 	char *sp, *ep;
 	int line_match;
+	int cvt_ops;
 	POSITION linepos, oldpos;
 
 	linenum = find_linenum(pos);
@@ -902,15 +1008,8 @@ search_range(pos, endpos, search_type, matches, maxlines, plinepos, pendpos)
 		 * If it's a caseless search, convert the line to lowercase.
 		 * If we're doing backspace processing, delete backspaces.
 		 */
-		if (is_caseless || bs_mode == BS_SPECIAL)
-		{
-			int ops = 0;
-			if (is_caseless) 
-				ops |= CVT_TO_LC;
-			if (bs_mode == BS_SPECIAL)
-				ops |= CVT_BS;
-			cvt_text(line, line, ops);
-		}
+		cvt_ops = get_cvt_ops();
+		cvt_text(line, line, cvt_ops);
 
 		/*
 		 * Test the next line to see if we have a match.
@@ -934,7 +1033,7 @@ search_range(pos, endpos, search_type, matches, maxlines, plinepos, pendpos)
 			 * hilite list and keep searching.
 			 */
 			if (line_match)
-				hilite_line(linepos, line, sp, ep);
+				hilite_line(linepos, line, sp, ep, cvt_ops);
 #endif
 		} else if (--matches <= 0)
 		{
@@ -951,7 +1050,7 @@ search_range(pos, endpos, search_type, matches, maxlines, plinepos, pendpos)
 				 */
 				clr_hilite();
 				if (line_match)
-					hilite_line(linepos, line, sp, ep);
+					hilite_line(linepos, line, sp, ep, cvt_ops);
 			}
 #endif
 			if (plinepos != NULL)
@@ -1282,24 +1381,6 @@ regerror(s)
 
 	parg.p_string = s;
 	error("%s", &parg);
-}
-#endif
-
-#if !HAVE_STRCHR
-/*
- * strchr is used by regexp.c.
- */
-	char *
-strchr(s, c)
-	char *s;
-	int c;
-{
-	for ( ;  *s != '\0';  s++)
-		if (*s == c)
-			return (s);
-	if (c == '\0')
-		return (s);
-	return (NULL);
 }
 #endif
 

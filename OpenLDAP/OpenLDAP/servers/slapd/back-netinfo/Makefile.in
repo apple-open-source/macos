@@ -3,15 +3,13 @@
 SRCS	= init.c config.c search.c bind.c add.c compare.c \
 		delete.c modify.c modrdn.c shim.c extended.c passwd.c \
 		attribute.c referral.c schemamap.c transforms.c \
-		authz.c filter.c operational.c tools.c group.c dsa.c \
-		psauth.c sasl.c key.c atomicio.c bsd-base64.c bufaux.c \
-		buffer.c cipher.c entropy.c rsa.c uuencode.c xmalloc.c 
+		authz.c filter.c operational.c tools.c group.c \
+		psauth.c
 OBJS	= init.lo config.lo search.lo bind.lo add.lo compare.lo \
 		delete.lo modify.lo modrdn.lo shim.lo extended.lo passwd.lo \
 		attribute.lo referral.lo schemamap.lo transforms.lo \
-		authz.lo filter.lo operational.lo tools.lo group.lo dsa.lo \
-		psauth.lo sasl.lo key.lo atomicio.lo bsd-base64.lo bufaux.lo \
-                buffer.lo cipher.lo entropy.lo rsa.lo uuencode.lo xmalloc.lo 
+		authz.lo filter.lo operational.lo tools.lo group.lo \
+		psauth.lo
 
 LDAP_INCDIR= ../../../include
 LDAP_LIBDIR= ../../../libraries

@@ -26,7 +26,7 @@ MFILES = Interactive.m lookup_proc.m lookupd.m
 CFILES = lu_xdr.c nettoa.c sys.c
 
 OTHERSRCS = Makefile.preamble Makefile Makefile.postamble lookup.defs\
-            lookupd.8 _lu_types.x
+            lookupd.8 lookupd.plist _lu_types.x
 
 MAKEFILEDIR = $(MAKEFILEPATH)/pb_makefiles
 CODE_GEN_STYLE = DYNAMIC
@@ -34,7 +34,7 @@ MAKEFILE = tool.make
 NEXTSTEP_INSTALLDIR = /usr/sbin
 WINDOWS_INSTALLDIR = /usr/etc
 PDO_UNIX_INSTALLDIR = /usr/etc
-LIBS = -lobjc
+LIBS = -lobjc -lresolv
 DEBUG_LIBS = $(LIBS)
 PROF_LIBS = $(LIBS)
 

@@ -3,7 +3,7 @@
     FILESTABLE = {
         FRAMEWORKS = (); 
         H_FILES = (pathnames.h); 
-        OTHER_LINKED = (xargs.c); 
+        OTHER_LINKED = (xargs.c, strnsubst.c); 
         OTHER_SOURCES = (Makefile, Makefile.preamble, Makefile.postamble, xargs.1); 
         SUBPROJECTS = (); 
     }; 

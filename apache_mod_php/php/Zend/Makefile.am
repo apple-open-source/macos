@@ -13,9 +13,10 @@ libZend_la_SOURCES=\
 	zend_opcode.c zend_operators.c zend_ptr_stack.c zend_stack.c \
 	zend_variables.c zend.c zend_API.c zend_extensions.c zend_hash.c \
 	zend_list.c zend_indent.c zend_builtin_functions.c zend_sprintf.c \
-	zend_ini.c
+	zend_ini.c zend_qsort.c zend_multibyte.c
 
-libZend_la_LDFLAGS = @EXTRA_LIBS@
+libZend_la_LDFLAGS = 
+libZend_la_LIBADD = @ZEND_EXTRA_LIBS@
 
 # automake isn't too clever about "non-standard" use of lex and yacc
 
@@ -45,5 +46,5 @@ zend_ini_parser.h: zend_ini_parser.c
 depend:
 
 zend_execute.lo: $(srcdir)/zend_execute.c
-	$(LIBTOOL) --mode=compile $(CC) $(DEFS) $(INCLUDES) $(CPPFLAGS) $(INLINE_CFLAGS) -c $(srcdir)/zend_execute.c
+	$(LIBTOOL) --mode=compile $(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(CPPFLAGS) $(INLINE_CFLAGS) -c $(srcdir)/zend_execute.c
 

@@ -1,0 +1,81 @@
+#!../expect -f
+
+# weather - Expect script to get the weather (courtesy University of Michigan)
+# Don Libes
+# Version 1.9
+
+# local weather is retrieved if no argument
+# argument is the National Weather Service designation for an area
+# I.e., WBC = Washington DC (oh yeah, that's obvious)
+
+exp_version -exit 5.0
+
+if {$argc>0} {set code $argv} else {set code "WBC"}
+
+proc timedout {} {
+	send_user "Weather server timed out.  Try again later when weather server is not so busy.\n"
+	exit 1
+}
+
+# delete special weather statement question
+proc delete_special {s} {
+	set x [string first "     ******" $s]
+	return [join [lrange [split $s ""] 0 $x] ""]
+}
+
+set timeout 60
+#log_user 0
+
+set env(TERM) vt100	;# actual value doesn't matter, just has to be set
+
+spawn telnet cirrus.sprl.umich.edu 3000
+match_max 100000
+while {1} {
+	expect timeout {
+		send_user "failed to contact weather server\n"
+		exit
+	} "Press Return to continue*" {
+               # this prompt used sometimes, eg, upon opening connection
+               send "\r"
+	} "Press Return for menu*" {
+               # this prompt used sometimes, eg, upon opening connection
+               send "\r"
+	} "M to display main menu*" {
+		# sometimes ask this if there is a weather watch in effect
+		send "M\r"
+	} "Change scrolling to screen*Selection:" {
+		break
+	} eof {
+		send_user "failed to telnet to weather server\n"
+		exit
+	}
+}
+send "C\r"
+expect timeout timedout "Selection:"
+send "4\r"
+expect timeout timedout "Selection:"
+send "1\r"
+expect timeout timedout "Selection:"
+send "1\r"
+expect timeout timedout "city code:"
+send "$code\r"
+expect $code		;# discard this
+
+while {1} {
+	expect timeout {
+		timedout
+	} "Press Return to continue*:*" {
+		send_user "\n[delete_special $expect_out(buffer)]\n"
+		send "\r"
+	} "Press Return to display statement, M for menu:*" {
+		send_user "\n[delete_special $expect_out(buffer)]\n"
+		send "\r"
+	} -re "(.*)CITY FORECAST MENU.*Selection:" {
+		send_user "\n$expect_out(1,string)\n"
+		break
+	}
+}
+
+send "X\r"
+expect
+

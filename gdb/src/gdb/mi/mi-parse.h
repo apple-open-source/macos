@@ -24,6 +24,12 @@
 
 /* MI parser */
 
+/* Timestamps for current command and last asynchronous command */
+struct mi_timestamp {
+    struct timeval wallclock;
+    struct rusage rusage;
+};
+
 enum mi_command_type
   {
     MI_COMMAND, CLI_COMMAND
@@ -35,6 +41,7 @@ struct mi_parse
     char *command;
     char *token;
     const struct mi_cmd *cmd;
+    struct mi_timestamp *cmd_start;
     char *args;
     char **argv;
     int argc;

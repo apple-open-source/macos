@@ -210,9 +210,7 @@ static void shsTransform( SHS_INFO *shsInfo )
     shsInfo->digest[ 4 ] += E;
 }
 
-/* __LITTLE_ENDIAN__ is in fact #defined on OS X on  PPC.... */
-//#ifdef __LITTLE_ENDIAN__
-#if 0
+#ifdef __LITTLE_ENDIAN__
 
 /* When run on a little-endian CPU we need to perform byte reversal on an
    array of longwords.  It is possible to make the code endianness-
@@ -311,5 +309,5 @@ void shsFinal(SHS_INFO *shsInfo)
     shsInfo->data[ 15 ] = lowBitcount;
 
     shsTransform( shsInfo );
-    byteReverse( shsInfo->data, SHS_DIGESTSIZE );
+    byteReverse( shsInfo->digest, SHS_DIGESTSIZE );
     }

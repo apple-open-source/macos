@@ -68,14 +68,14 @@ int     sig;
 /* rfc931 - return remote user name, given socket structures */
 
 void    rfc931(rmt_sin, our_sin, dest)
-struct sockaddr_in *rmt_sin;
-struct sockaddr_in *our_sin;
+struct sockaddr_gen *rmt_sin;
+struct sockaddr_gen *our_sin;
 char   *dest;
 {
     unsigned rmt_port;
     unsigned our_port;
-    struct sockaddr_in rmt_query_sin;
-    struct sockaddr_in our_query_sin;
+    struct sockaddr_gen rmt_query_sin;
+    struct sockaddr_gen our_query_sin;
     char    user[256];			/* XXX */
     char    buffer[512];		/* XXX */
     char   *cp;
@@ -92,7 +92,7 @@ char   *dest;
      * sockets.
      */
 
-    if ((fp = fsocket(AF_INET, SOCK_STREAM, 0)) != 0) {
+    if ((fp = fsocket(SGFAM(rmt_sin), SOCK_STREAM, 0)) != 0) {
 	setbuf(fp, (char *) 0);
 
 	/*
@@ -113,14 +113,14 @@ char   *dest;
 	     */
 
 	    our_query_sin = *our_sin;
-	    our_query_sin.sin_port = htons(ANY_PORT);
+	    SGPORT(&our_query_sin) = htons(ANY_PORT);
 	    rmt_query_sin = *rmt_sin;
-	    rmt_query_sin.sin_port = htons(RFC931_PORT);
+	    SGPORT(&rmt_query_sin) = htons(RFC931_PORT);
 
-	    if (bind(fileno(fp), (struct sockaddr *) & our_query_sin,
-		     sizeof(our_query_sin)) >= 0 &&
-		connect(fileno(fp), (struct sockaddr *) & rmt_query_sin,
-			sizeof(rmt_query_sin)) >= 0) {
+	    if (bind(fileno(fp), (struct sockaddr *) &our_query_sin,
+		     SGSOCKADDRSZ(&our_query_sin)) >= 0 &&
+		connect(fileno(fp), (struct sockaddr *) &rmt_query_sin,
+			SGSOCKADDRSZ(&rmt_query_sin)) >= 0) {
 
 		/*
 		 * Send query to server. Neglect the risk that a 13-byte
@@ -129,8 +129,8 @@ char   *dest;
 		 */
 
 		fprintf(fp, "%u,%u\r\n",
-			ntohs(rmt_sin->sin_port),
-			ntohs(our_sin->sin_port));
+			ntohs(SGPORT(rmt_sin)),
+			ntohs(SGPORT(our_sin)));
 		fflush(fp);
 
 		/*
@@ -144,8 +144,8 @@ char   *dest;
 		    && ferror(fp) == 0 && feof(fp) == 0
 		    && sscanf(buffer, "%u , %u : USERID :%*[^:]:%255s",
 			      &rmt_port, &our_port, user) == 3
-		    && ntohs(rmt_sin->sin_port) == rmt_port
-		    && ntohs(our_sin->sin_port) == our_port) {
+		    && ntohs(SGPORT(rmt_sin)) == rmt_port
+		    && ntohs(SGPORT(our_sin)) == our_port) {
 
 		    /*
 		     * Strip trailing carriage return. It is part of the

@@ -3,21 +3,22 @@
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
- * Portions Copyright (c) 1999 Apple Computer, Inc.  All Rights
- * Reserved.  This file contains Original Code and/or Modifications of
- * Original Code as defined in and that are subject to the Apple Public
- * Source License Version 1.1 (the "License").  You may not use this file
- * except in compliance with the License.  Please obtain a copy of the
- * License at http://www.apple.com/publicsource and read it before using
- * this file.
+ * Copyright (c) 1999-2003 Apple Computer, Inc.  All Rights Reserved.
+ * 
+ * This file contains Original Code and/or Modifications of Original Code
+ * as defined in and that are subject to the Apple Public Source License
+ * Version 2.0 (the 'License'). You may not use this file except in
+ * compliance with the License. Please obtain a copy of the License at
+ * http://www.opensource.apple.com/apsl/ and read it before using this
+ * file.
  * 
  * The Original Code and all software distributed under the License are
- * distributed on an "AS IS" basis, WITHOUT WARRANTY OF ANY KIND, EITHER
+ * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
  * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
  * INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY,
- * FITNESS FOR A PARTICULAR PURPOSE OR NON- INFRINGEMENT.  Please see the
- * License for the specific language governing rights and limitations
- * under the License.
+ * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
+ * Please see the License for the specific language governing rights and
+ * limitations under the License.
  * 
  * @APPLE_LICENSE_HEADER_END@
  */
@@ -64,19 +65,19 @@
 #if defined(LIBC_SCCS) && !defined(lint)
 static char sccsid[] = "@(#)getnetbyaddr.c	8.1 (Berkeley) 6/4/93";
 static char sccsid_[] = "from getnetnamadr.c	1.4 (Coimbra) 93/06/03";
-static char rcsid[] = "$Id: getnetnamadr.c,v 1.3.44.1 2002/11/19 01:20:51 bbraun Exp $";
+static char rcsid[] = "$Id: getnetnamadr.c,v 1.4 2003/02/18 17:29:23 majka Exp $";
 #endif /* LIBC_SCCS and not lint */
 
 #include <sys/param.h>
 #include <sys/socket.h>
 #include <netinet/in.h>
 #include <arpa/inet.h>
-#include <arpa/nameser.h>
+#include <arpa/nameser8_compat.h>
 
 #include <stdio.h>
 #include <stdlib.h>
 #include <netdb.h>
-#include <resolv.h>
+#include <resolv8_compat.h>
 #include <ctype.h>
 #include <errno.h>
 #include <string.h>
@@ -122,11 +123,10 @@ getnetanswer(answer, anslen, net_i)
 	register int n;
 	u_char *eom;
 	int type, class, buflen, ancount, qdcount, haveanswer, i, nchar;
-	char aux1[30], aux2[30], *in, *st, *pauxt, *bp, **ap,
+	char aux1[30], aux2[30], ans[30], *in, *st, *pauxt, *bp, **ap,
 		*paux1 = &aux1[0], *paux2 = &aux2[0], flag = 0;
-	static	struct netent net_entry;
-	static	char *net_aliases[MAXALIASES], *netbuf = NULL;
-	static	char ans[MAXDNAME];
+static	struct netent net_entry;
+static	char *net_aliases[MAXALIASES], *netbuf = NULL;
 
 	if (netbuf == NULL) {
 		netbuf = malloc(BUFSIZ+1);
@@ -162,14 +162,8 @@ getnetanswer(answer, anslen, net_i)
 			h_errno = TRY_AGAIN;
 		return (NULL);
 	}
-	while (qdcount-- > 0) {
-		n = __dn_skipname(cp, eom);
-		if (n < 0 || (cp + n + QFIXEDSZ) > eom) {
-			h_errno = NO_RECOVERY;
-			return(NULL);
-		}
-		cp += n + QFIXEDSZ;
-	}
+	while (qdcount-- > 0)
+		cp += __dn_skipname(cp, eom) + QFIXEDSZ;
 	ap = net_aliases;
 	*ap = NULL;
 	net_entry.n_aliases = net_aliases;
@@ -180,7 +174,7 @@ getnetanswer(answer, anslen, net_i)
 			break;
 		cp += n;
 		ans[0] = '\0';
-		(void)strcpy(ans, bp);
+		(void)strcpy(&ans[0], bp);
 		GETSHORT(type, cp);
 		GETSHORT(class, cp);
 		cp += INT32SZ;		/* TTL */
@@ -192,13 +186,11 @@ getnetanswer(answer, anslen, net_i)
 				return (NULL);
 			}
 			cp += n; 
-			if ((ap + 2) < &net_aliases[MAXALIASES]) {
-				*ap++ = bp;
-				bp += strlen(bp) + 1;
-				net_entry.n_addrtype =
-					(class == C_IN) ? AF_INET : AF_UNSPEC;
-				haveanswer++;
-			}
+			*ap++ = bp;
+			bp += strlen(bp) + 1;
+			net_entry.n_addrtype =
+				(class == C_IN) ? AF_INET : AF_UNSPEC;
+			haveanswer++;
 		}
 	}
 	if (haveanswer) {
@@ -209,35 +201,26 @@ getnetanswer(answer, anslen, net_i)
 			net_entry.n_net = 0L;
 			break;
 		case BYNAME:
-			ap = net_entry.n_aliases;
-		next_alias:
-			in = *ap++;
-			if (in == NULL) {
-				h_errno = HOST_NOT_FOUND;
-				return (NULL);
-			}
-			net_entry.n_name = ans;
+			in = *net_entry.n_aliases;
+			net_entry.n_name = &ans[0];
 			aux2[0] = '\0';
 			for (i = 0; i < 4; i++) {
 				for (st = in, nchar = 0;
-				     isdigit((unsigned char)*st);
+				     *st != '.';
 				     st++, nchar++)
 					;
-
-				if (*st != '.' || nchar == 0 || nchar > 3)
-					goto next_alias;
-				if (i != 0)
-					nchar++;
-				(void)strncpy(paux1, in, nchar);
-				paux1[nchar] = '\0';
-				pauxt = paux2;
-				paux2 = strcat(paux1, paux2);
-				paux1 = pauxt;
+				if (nchar != 1 || *in != '0' || flag) {
+					flag = 1;
+					(void)strncpy(paux1,
+						      (i==0) ? in : in-1,
+						      (i==0) ?nchar : nchar+1);
+					paux1[(i==0) ? nchar : nchar+1] = '\0';
+					pauxt = paux2;
+					paux2 = strcat(paux1, paux2);
+					paux1 = pauxt;
+				}
 				in = ++st;
 			}		  
-
-			if (strcasecmp(in, "IN-ADDR.ARPA") != 0)
-				goto next_alias;
 			net_entry.n_net = inet_network(paux2);
 			break;
 		}

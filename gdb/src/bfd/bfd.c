@@ -4,21 +4,21 @@
    Free Software Foundation, Inc.
    Written by Cygnus Support.
 
-This file is part of BFD, the Binary File Descriptor library.
+   This file is part of BFD, the Binary File Descriptor library.
 
-This program is free software; you can redistribute it and/or modify
-it under the terms of the GNU General Public License as published by
-the Free Software Foundation; either version 2 of the License, or
-(at your option) any later version.
+   This program is free software; you can redistribute it and/or modify
+   it under the terms of the GNU General Public License as published by
+   the Free Software Foundation; either version 2 of the License, or
+   (at your option) any later version.
 
-This program is distributed in the hope that it will be useful,
-but WITHOUT ANY WARRANTY; without even the implied warranty of
-MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-GNU General Public License for more details.
+   This program is distributed in the hope that it will be useful,
+   but WITHOUT ANY WARRANTY; without even the implied warranty of
+   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+   GNU General Public License for more details.
 
-You should have received a copy of the GNU General Public License
-along with this program; if not, write to the Free Software
-Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.  */
+   You should have received a copy of the GNU General Public License
+   along with this program; if not, write to the Free Software
+   Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.  */
 
 /*
 SECTION
@@ -36,6 +36,9 @@ CODE_FRAGMENT
 .
 .struct _bfd
 .{
+.  {* A unique identifier of the BFD  *}
+.  unsigned int id;
+.
 .  {* The filename the application opened the BFD with.  *}
 .  const char *filename;
 .
@@ -47,18 +50,19 @@ CODE_FRAGMENT
 .     and MTIME as a "long".  Their correct types, to which they
 .     are cast when used, are "FILE *" and "time_t".    The iostream
 .     is the result of an fopen on the filename.  However, if the
-.     BFD_IN_MEMORY flag is set, then iostream is actually a pointer
-.     to a bfd_in_memory struct.  *}
+.     BFD_IN_MEMORY or BFD_IO_FUNCS flags are set, then iostream is
+.     actually a pointer to a bfd_in_memory struct or bfd_io_functions,
+.     respectively.  *}
 .  PTR iostream;
 .
 .  {* Is the file descriptor being cached?  That is, can it be closed as
 .     needed, and re-opened when accessed later?  *}
-.  boolean cacheable;
+.  bfd_boolean cacheable;
 .
 .  {* Marks whether there was a default target specified when the
 .     BFD was opened. This is used to select which matching algorithm
 .     to use to choose the back end.  *}
-.  boolean target_defaulted;
+.  bfd_boolean target_defaulted;
 .
 .  {* The caching routines use these to maintain a
 .     least-recently-used list of BFDs.  *}
@@ -69,13 +73,13 @@ CODE_FRAGMENT
 .  ufile_ptr where;
 .
 .  {* ... and here: (``once'' means at least once).  *}
-.  boolean opened_once;
+.  bfd_boolean opened_once;
 .
 .  {* Set if we have a locally maintained mtime value, rather than
 .     getting it from the file each time.  *}
-.  boolean mtime_set;
+.  bfd_boolean mtime_set;
 .
-.  {* File modified time, if mtime_set is true.  *}
+.  {* File modified time, if mtime_set is TRUE.  *}
 .  long mtime;
 .
 .  {* Reserved for an unimplemented file locking extension.  *}
@@ -104,7 +108,7 @@ CODE_FRAGMENT
 .
 .  {* Remember when output has begun, to stop strange things
 .     from happening.  *}
-.  boolean output_has_begun;
+.  bfd_boolean output_has_begun;
 .
 .  {* A hash table for section names.  *}
 .  struct bfd_hash_table section_htab;
@@ -128,6 +132,9 @@ CODE_FRAGMENT
 .  {* Symbol table for output BFD (with symcount entries).  *}
 .  struct symbol_cache_entry  **outsymbols;
 .
+.  {* Used for slurped dynamic symbol tables.  *}
+.  unsigned int dynsymcount;
+.
 .  {* Pointer to structure which contains architecture information.  *}
 .  const struct bfd_arch_info *arch_info;
 .
@@ -136,7 +143,7 @@ CODE_FRAGMENT
 .  struct _bfd *my_archive;     {* The containing archive BFD.  *}
 .  struct _bfd *next;           {* The next BFD in the archive.  *}
 .  struct _bfd *archive_head;   {* The first BFD in the archive.  *}
-.  boolean has_armap;
+.  bfd_boolean has_armap;
 .
 .  {* A chain of BFD structures involved in a link.  *}
 .  struct _bfd *link_next;
@@ -198,6 +205,7 @@ CODE_FRAGMENT
 */
 
 #include "bfd.h"
+#include "bfdver.h"
 #include "sysdep.h"
 
 #ifdef ANSI_PROTOTYPES
@@ -655,7 +663,7 @@ FUNCTION
 	bfd_set_file_flags
 
 SYNOPSIS
-	boolean bfd_set_file_flags(bfd *abfd, flagword flags);
+	bfd_boolean bfd_set_file_flags(bfd *abfd, flagword flags);
 
 DESCRIPTION
 	Set the flag word in the BFD @var{abfd} to the value @var{flags}.
@@ -670,7 +678,7 @@ DESCRIPTION
 
 */
 
-boolean
+bfd_boolean
 bfd_set_file_flags (abfd, flags)
      bfd *abfd;
      flagword flags;
@@ -678,33 +686,32 @@ bfd_set_file_flags (abfd, flags)
   if (abfd->format != bfd_object)
     {
       bfd_set_error (bfd_error_wrong_format);
-      return false;
+      return FALSE;
     }
 
   if (bfd_read_p (abfd))
     {
       bfd_set_error (bfd_error_invalid_operation);
-      return false;
+      return FALSE;
     }
 
   bfd_get_file_flags (abfd) = flags;
   if ((flags & bfd_applicable_file_flags (abfd)) != flags)
     {
       bfd_set_error (bfd_error_invalid_operation);
-      return false;
+      return FALSE;
     }
 
-  return true;
+  return TRUE;
 }
 
 void
-bfd_assert (file, line, str)
+bfd_assert (file, line)
      const char *file;
      int line;
-     const char *str;	
 {
-  (*_bfd_error_handler) (_("bfd version %s: assertion failed on line %d of \"%s\": %s"),
-			 BFD_VERSION_STRING, line, file, str);
+  (*_bfd_error_handler) (_("BFD %s assertion fail %s:%d"),
+			 BFD_VERSION_STRING, file, line);
 }
 
 /* A more or less friendly abort message.  In libbfd.h abort is
@@ -755,7 +762,6 @@ bfd_get_arch_size (abfd)
   if (abfd->xvec->flavour == bfd_target_elf_flavour)
     return (get_elf_backend_data (abfd))->s->arch_size;
 
-  bfd_set_error (bfd_error_wrong_format);
   return -1;
 }
 
@@ -808,22 +814,22 @@ FUNCTION
 	bfd_set_start_address
 
 SYNOPSIS
- 	boolean bfd_set_start_address(bfd *abfd, bfd_vma vma);
+ 	bfd_boolean bfd_set_start_address(bfd *abfd, bfd_vma vma);
 
 DESCRIPTION
 	Make @var{vma} the entry point of output BFD @var{abfd}.
 
 RETURNS
-	Returns <<true>> on success, <<false>> otherwise.
+	Returns <<TRUE>> on success, <<FALSE>> otherwise.
 */
 
-boolean
+bfd_boolean
 bfd_set_start_address (abfd, vma)
      bfd *abfd;
      bfd_vma vma;
 {
   abfd->start_address = vma;
-  return true;
+  return TRUE;
 }
 
 /*
@@ -1011,11 +1017,11 @@ FUNCTION
 	bfd_copy_private_bfd_data
 
 SYNOPSIS
-	boolean bfd_copy_private_bfd_data(bfd *ibfd, bfd *obfd);
+	bfd_boolean bfd_copy_private_bfd_data(bfd *ibfd, bfd *obfd);
 
 DESCRIPTION
 	Copy private BFD information from the BFD @var{ibfd} to the
-	the BFD @var{obfd}.  Return <<true>> on success, <<false>> on error.
+	the BFD @var{obfd}.  Return <<TRUE>> on success, <<FALSE>> on error.
 	Possible error returns are:
 
 	o <<bfd_error_no_memory>> -
@@ -1032,12 +1038,12 @@ FUNCTION
 	bfd_merge_private_bfd_data
 
 SYNOPSIS
-	boolean bfd_merge_private_bfd_data(bfd *ibfd, bfd *obfd);
+	bfd_boolean bfd_merge_private_bfd_data(bfd *ibfd, bfd *obfd);
 
 DESCRIPTION
 	Merge private BFD information from the BFD @var{ibfd} to the
-	the output file BFD @var{obfd} when linking.  Return <<true>>
-	on success, <<false>> on error.  Possible error returns are:
+	the output file BFD @var{obfd} when linking.  Return <<TRUE>>
+	on success, <<FALSE>> on error.  Possible error returns are:
 
 	o <<bfd_error_no_memory>> -
 	Not enough memory exists to create private data for @var{obfd}.
@@ -1053,11 +1059,11 @@ FUNCTION
 	bfd_set_private_flags
 
 SYNOPSIS
-	boolean bfd_set_private_flags(bfd *abfd, flagword flags);
+	bfd_boolean bfd_set_private_flags(bfd *abfd, flagword flags);
 
 DESCRIPTION
 	Set private BFD flag information in the BFD @var{abfd}.
-	Return <<true>> on success, <<false>> on error.  Possible error
+	Return <<TRUE>> on success, <<FALSE>> on error.  Possible error
 	returns are:
 
 	o <<bfd_error_no_memory>> -
@@ -1111,6 +1117,9 @@ DESCRIPTION
 .#define bfd_merge_sections(abfd, link_info) \
 .	BFD_SEND (abfd, _bfd_merge_sections, (abfd, link_info))
 .
+.#define bfd_discard_group(abfd, sec) \
+.	BFD_SEND (abfd, _bfd_discard_group, (abfd, sec))
+.
 .#define bfd_link_hash_table_create(abfd) \
 .	BFD_SEND (abfd, _bfd_link_hash_table_create, (abfd))
 .
@@ -1119,6 +1128,9 @@ DESCRIPTION
 .
 .#define bfd_link_add_symbols(abfd, info) \
 .	BFD_SEND (abfd, _bfd_link_add_symbols, (abfd, info))
+.
+.#define bfd_link_just_syms(sec, info) \
+.	BFD_SEND (abfd, _bfd_link_just_syms, (sec, info))
 .
 .#define bfd_final_link(abfd, info) \
 .	BFD_SEND (abfd, _bfd_final_link, (abfd, info))
@@ -1144,7 +1156,7 @@ DESCRIPTION
 .extern bfd_byte *bfd_get_relocated_section_contents
 .	PARAMS ((bfd *, struct bfd_link_info *,
 .		  struct bfd_link_order *, bfd_byte *,
-.		  boolean, asymbol **));
+.		  bfd_boolean, asymbol **));
 .
 
 */
@@ -1156,12 +1168,12 @@ bfd_get_relocated_section_contents (abfd, link_info, link_order, data,
      struct bfd_link_info *link_info;
      struct bfd_link_order *link_order;
      bfd_byte *data;
-     boolean relocateable;
+     bfd_boolean relocateable;
      asymbol **symbols;
 {
   bfd *abfd2;
   bfd_byte *(*fn) PARAMS ((bfd *, struct bfd_link_info *,
-			   struct bfd_link_order *, bfd_byte *, boolean,
+			   struct bfd_link_order *, bfd_byte *, bfd_boolean,
 			   asymbol **));
 
   if (link_order->type == bfd_indirect_link_order)
@@ -1180,17 +1192,17 @@ bfd_get_relocated_section_contents (abfd, link_info, link_order, data,
 
 /* Record information about an ELF program header.  */
 
-boolean
+bfd_boolean
 bfd_record_phdr (abfd, type, flags_valid, flags, at_valid, at,
 		 includes_filehdr, includes_phdrs, count, secs)
      bfd *abfd;
      unsigned long type;
-     boolean flags_valid;
+     bfd_boolean flags_valid;
      flagword flags;
-     boolean at_valid;
+     bfd_boolean at_valid;
      bfd_vma at;
-     boolean includes_filehdr;
-     boolean includes_phdrs;
+     bfd_boolean includes_filehdr;
+     bfd_boolean includes_phdrs;
      unsigned int count;
      asection **secs;
 {
@@ -1198,22 +1210,22 @@ bfd_record_phdr (abfd, type, flags_valid, flags, at_valid, at,
   bfd_size_type amt;
 
   if (bfd_get_flavour (abfd) != bfd_target_elf_flavour)
-    return true;
+    return TRUE;
 
   amt = sizeof (struct elf_segment_map);
   amt += ((bfd_size_type) count - 1) * sizeof (asection *);
   m = (struct elf_segment_map *) bfd_alloc (abfd, amt);
   if (m == NULL)
-    return false;
+    return FALSE;
 
   m->next = NULL;
   m->p_type = type;
   m->p_flags = flags;
   m->p_paddr = at;
-  m->p_flags_valid = flags_valid;
-  m->p_paddr_valid = at_valid;
-  m->includes_filehdr = includes_filehdr;
-  m->includes_phdrs = includes_phdrs;
+  m->p_flags_valid = (unsigned int) flags_valid;
+  m->p_paddr_valid = (unsigned int) at_valid;
+  m->includes_filehdr = (unsigned int) includes_filehdr;
+  m->includes_phdrs = (unsigned int) includes_phdrs;
   m->count = count;
   if (count > 0)
     memcpy (m->sections, secs, count * sizeof (asection *));
@@ -1222,7 +1234,7 @@ bfd_record_phdr (abfd, type, flags_valid, flags, at_valid, at,
     ;
   *pm = m;
 
-  return true;
+  return TRUE;
 }
 
 void
@@ -1254,27 +1266,27 @@ FUNCTION
 	bfd_alt_mach_code
 
 SYNOPSIS
-	boolean bfd_alt_mach_code(bfd *abfd, int index);
+	bfd_boolean bfd_alt_mach_code(bfd *abfd, int alternative);
 
 DESCRIPTION
 
 	When more than one machine code number is available for the
 	same machine type, this function can be used to switch between
-	the preferred one (index == 0) and any others.  Currently,
+	the preferred one (alternative == 0) and any others.  Currently,
 	only ELF supports this feature, with up to two alternate
 	machine codes.
 */
 
-boolean
-bfd_alt_mach_code (abfd, index)
+bfd_boolean
+bfd_alt_mach_code (abfd, alternative)
      bfd *abfd;
-     int index;
+     int alternative;
 {
   if (bfd_get_flavour (abfd) == bfd_target_elf_flavour)
     {
       int code;
 
-      switch (index)
+      switch (alternative)
 	{
 	case 0:
 	  code = get_elf_backend_data (abfd)->elf_machine_code;
@@ -1283,23 +1295,150 @@ bfd_alt_mach_code (abfd, index)
 	case 1:
 	  code = get_elf_backend_data (abfd)->elf_machine_alt1;
 	  if (code == 0)
-	    return false;
+	    return FALSE;
 	  break;
 
 	case 2:
 	  code = get_elf_backend_data (abfd)->elf_machine_alt2;
 	  if (code == 0)
-	    return false;
+	    return FALSE;
 	  break;
 
 	default:
-	  return false;
+	  return FALSE;
 	}
 
       elf_elfheader (abfd)->e_machine = code;
 
-      return true;
+      return TRUE;
     }
 
-  return false;
+  return FALSE;
+}
+
+/*
+CODE_FRAGMENT
+
+.struct bfd_preserve
+.{
+.  PTR marker;
+.  PTR tdata;
+.  flagword flags;
+.  const struct bfd_arch_info *arch_info;
+.  struct sec *sections;
+.  struct sec **section_tail;
+.  unsigned int section_count;
+.  struct bfd_hash_table section_htab;
+.};
+.
+*/
+
+/*
+FUNCTION
+	bfd_preserve_save
+
+SYNOPSIS
+	bfd_boolean bfd_preserve_save (bfd *, struct bfd_preserve *);
+
+DESCRIPTION
+	When testing an object for compatibility with a particular
+	target back-end, the back-end object_p function needs to set
+	up certain fields in the bfd on successfully recognizing the
+	object.  This typically happens in a piecemeal fashion, with
+	failures possible at many points.  On failure, the bfd is
+	supposed to be restored to its initial state, which is
+	virtually impossible.  However, restoring a subset of the bfd
+	state works in practice.  This function stores the subset and
+	reinitializes the bfd.
+
+*/
+
+bfd_boolean
+bfd_preserve_save (abfd, preserve)
+     bfd *abfd;
+     struct bfd_preserve *preserve;
+{
+  preserve->tdata = abfd->tdata.any;
+  preserve->arch_info = abfd->arch_info;
+  preserve->flags = abfd->flags;
+  preserve->sections = abfd->sections;
+  preserve->section_tail = abfd->section_tail;
+  preserve->section_count = abfd->section_count;
+  preserve->section_htab = abfd->section_htab;
+
+  if (! bfd_hash_table_init (&abfd->section_htab, bfd_section_hash_newfunc))
+    return FALSE;
+
+  abfd->tdata.any = NULL;
+  abfd->arch_info = &bfd_default_arch_struct;
+  abfd->flags &= (BFD_IN_MEMORY | BFD_IO_FUNCS);
+  abfd->sections = NULL;
+  abfd->section_tail = &abfd->sections;
+  abfd->section_count = 0;
+
+  return TRUE;
+}
+
+/*
+FUNCTION
+	bfd_preserve_restore
+
+SYNOPSIS
+	void bfd_preserve_restore (bfd *, struct bfd_preserve *);
+
+DESCRIPTION
+	This function restores bfd state saved by bfd_preserve_save.
+	If MARKER is non-NULL in struct bfd_preserve then that block
+	and all subsequently bfd_alloc'd memory is freed.
+
+*/
+
+void
+bfd_preserve_restore (abfd, preserve)
+     bfd *abfd;
+     struct bfd_preserve *preserve;
+{
+  bfd_hash_table_free (&abfd->section_htab);
+
+  abfd->tdata.any = preserve->tdata;
+  abfd->arch_info = preserve->arch_info;
+  abfd->flags = preserve->flags;
+  abfd->section_htab = preserve->section_htab;
+  abfd->sections = preserve->sections;
+  abfd->section_tail = preserve->section_tail;
+  abfd->section_count = preserve->section_count;
+
+  /* bfd_release frees all memory more recently bfd_alloc'd than
+     its arg, as well as its arg.  */
+  if (preserve->marker != NULL)
+    {
+      bfd_release (abfd, preserve->marker);
+      preserve->marker = NULL;
+    }
+}
+
+/*
+FUNCTION
+	bfd_preserve_finish
+
+SYNOPSIS
+	void bfd_preserve_finish (bfd *, struct bfd_preserve *);
+
+DESCRIPTION
+	This function should be called when the bfd state saved by
+	bfd_preserve_save is no longer needed.  ie. when the back-end
+	object_p function returns with success.
+
+*/
+
+void
+bfd_preserve_finish (abfd, preserve)
+     bfd *abfd ATTRIBUTE_UNUSED;
+     struct bfd_preserve *preserve;
+{
+  /* It would be nice to be able to free more memory here, eg. old
+     tdata, but that's not possible since these blocks are sitting
+     inside bfd_alloc'd memory.  The section hash is on a separate
+     objalloc.  */
+  bfd_hash_table_free (&preserve->section_htab);
 }

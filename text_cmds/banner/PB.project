@@ -4,7 +4,7 @@
         FRAMEWORKS = (); 
         H_FILES = (banner.h); 
         OTHER_LINKED = (banner.c, chset.c); 
-        OTHER_SOURCES = (Makefile, Makefile.preamble, Makefile.postamble, banner.1); 
+        OTHER_SOURCES = (Makefile, Makefile.preamble, Makefile.postamble, banner.6); 
     }; 
     LANGUAGE = English; 
     LOCALIZABLE_FILES = {}; 

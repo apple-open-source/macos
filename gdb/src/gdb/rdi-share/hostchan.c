@@ -8,8 +8,8 @@
 
 /* -*-C-*-
  *
- * 1.1.1.2
- *     1999/11/02 04:44:26
+ * 1.2
+ *     2002/06/08 20:34:41
  *
  *
  * hostchan.c - Semi Synchronous Host side channel interface for Angel.
@@ -556,7 +556,7 @@ static unsigned long tv_diff(const struct timeval *time_now,
             - ((time_was->tv_sec * 1000000) + time_was->tv_usec) );
 }
 
-#if !defined(__unix) && !defined(__CYGWIN32__)
+#if !defined(__unix) && !defined(__CYGWIN__)
 static void gettimeofday( struct timeval *time_now, void *dummy )
 {
     time_t t = clock();

@@ -1,0 +1,94 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<!DOCTYPE ejb-jar PUBLIC "-//Sun Microsystems, Inc.//DTD Enterprise JavaBeans 2.0//EN" "http://java.sun.com/j2ee/dtds/ejb-jar_2_0.dtd">
+
+<ejb-jar>
+    <enterprise-beans>
+        
+       <session>
+            <description>Nextgen test bean stateless</description>
+            <ejb-name>nextgen.StatelessSession</ejb-name>
+            <home>org.jboss.test.deadlock.interfaces.StatelessSessionHome</home>
+            <remote>org.jboss.test.deadlock.interfaces.StatelessSession</remote>
+            <ejb-class>org.jboss.test.deadlock.bean.StatelessSessionBean</ejb-class>
+            <session-type>Stateless</session-type>
+            <transaction-type>Container</transaction-type>
+            <env-entry>
+                <env-entry-name>myNameProp</env-entry-name>
+                <env-entry-type>java.lang.String</env-entry-type>
+                <env-entry-value>marc</env-entry-value>
+            </env-entry>
+            <env-entry>
+                <env-entry-name>subContext/myNameProp</env-entry-name>
+                <env-entry-type>java.lang.String</env-entry-type>
+                <env-entry-value>marc with subContext</env-entry-value>
+            </env-entry>
+        </session>
+        <entity>
+            <description>Nextgen test bean entity </description>
+            <ejb-name>nextgenEnterpriseEntity</ejb-name>
+            <home>org.jboss.test.deadlock.interfaces.EnterpriseEntityHome</home>
+            <remote>org.jboss.test.deadlock.interfaces.EnterpriseEntity</remote>
+            <local-home>org.jboss.test.deadlock.interfaces.EnterpriseEntityLocalHome</local-home>
+            <local>org.jboss.test.deadlock.interfaces.EnterpriseEntityLocal</local>
+            <ejb-class>org.jboss.test.deadlock.bean.EnterpriseEntityBean</ejb-class>
+            <persistence-type>Container</persistence-type>
+            <prim-key-class>java.lang.String</prim-key-class>
+            <reentrant>False</reentrant>
+            <cmp-version>2.x</cmp-version>
+            <abstract-schema-name>EnterpriseEntity</abstract-schema-name>
+            <cmp-field>
+                <field-name>name</field-name>
+            </cmp-field>
+            <cmp-field>
+                <field-name>otherField</field-name>
+            </cmp-field>
+            <primkey-field>name</primkey-field>
+        </entity>
+    </enterprise-beans>
+
+   <relationships>
+      <ejb-relation>
+         <ejb-relation-name>Deadlock-relationship</ejb-relation-name>
+         <ejb-relationship-role>
+            <ejb-relationship-role-name>next</ejb-relationship-role-name>
+            <multiplicity>One</multiplicity>
+            <relationship-role-source>
+               <ejb-name>nextgenEnterpriseEntity</ejb-name>
+            </relationship-role-source>
+            <cmr-field>
+               <cmr-field-name>next</cmr-field-name>
+            </cmr-field>
+         </ejb-relationship-role>
+         <ejb-relationship-role>
+            <ejb-relationship-role-name>previous</ejb-relationship-role-name>
+            <multiplicity>One</multiplicity>
+            <relationship-role-source>
+               <ejb-name>nextgenEnterpriseEntity</ejb-name>
+            </relationship-role-source>
+         </ejb-relationship-role>
+      </ejb-relation>
+   </relationships>
+
+    <assembly-descriptor>
+        <container-transaction>
+            <method>
+                <ejb-name>nextgenEnterpriseEntity</ejb-name>
+                <method-name>*</method-name>
+            </method>
+            <method>
+                <ejb-name>nextgen.StatelessSession</ejb-name>
+                <method-name>*</method-name>
+            </method>
+            <trans-attribute>Required</trans-attribute>
+        </container-transaction>
+        <container-transaction>
+            <method>
+                <ejb-name>nextgen.StatelessSession</ejb-name>
+                <method-name>requiresNewTest</method-name>
+            </method>
+            <trans-attribute>RequiresNew</trans-attribute>
+        </container-transaction>
+    </assembly-descriptor>
+</ejb-jar>
+

@@ -32,7 +32,7 @@
 using namespace CssmClient;
 
 
-DatabaseCryptoCore::DatabaseCryptoCore() : mIsValid(false)
+DatabaseCryptoCore::DatabaseCryptoCore() : mHaveMaster(false), mIsValid(false)
 {
 }
 
@@ -44,19 +44,33 @@ DatabaseCryptoCore::~DatabaseCryptoCore()
 
 
 //
+// Forget the secrets
+//
+void DatabaseCryptoCore::invalidate()
+{
+	mMasterKey.release();
+	mHaveMaster = false;
+	
+	mEncryptionKey.release();
+	mSigningKey.release();
+	mIsValid = false;
+}
+
+
+//
 // Generate new secrets for this crypto core.
 //
 void DatabaseCryptoCore::generateNewSecrets()
 {
     // create a random DES3 key
     GenerateKey desGenerator(Server::csp(), CSSM_ALGID_3DES_3KEY_EDE, 24 * 8);
-    encryptionKey = desGenerator(KeySpec(CSSM_KEYUSE_WRAP | CSSM_KEYUSE_UNWRAP,
+    mEncryptionKey = desGenerator(KeySpec(CSSM_KEYUSE_WRAP | CSSM_KEYUSE_UNWRAP,
         CSSM_KEYATTR_RETURN_DATA | CSSM_KEYATTR_EXTRACTABLE));
     
-    // create a random 20 byte HMAC1/SHA1 signing "key"
+    // create a random 20 byte HMAC/SHA1 signing "key"
     GenerateKey signGenerator(Server::csp(), CSSM_ALGID_SHA1HMAC,
         sizeof(DbBlob::PrivateBlob::SigningKey) * 8);
-    signingKey = signGenerator(KeySpec(CSSM_KEYUSE_SIGN | CSSM_KEYUSE_VERIFY,
+    mSigningKey = signGenerator(KeySpec(CSSM_KEYUSE_SIGN | CSSM_KEYUSE_VERIFY,
         CSSM_KEYATTR_RETURN_DATA | CSSM_KEYATTR_EXTRACTABLE));
     
     // secrets established
@@ -64,28 +78,105 @@ void DatabaseCryptoCore::generateNewSecrets()
 }
 
 
+CssmClient::Key DatabaseCryptoCore::masterKey()
+{
+	assert(mHaveMaster);
+	return mMasterKey;
+}
+
+
+//
+// Establish the master secret as derived from a passphrase passed in.
+// If a DbBlob is passed, take the salt from it and remember it.
+// If a NULL DbBlob is passed, generate a new (random) salt.
+// Note that the passphrase is NOT remembered; only the master key.
+//
+void DatabaseCryptoCore::setup(const DbBlob *blob, const CssmData &passphrase)
+{
+	if (blob)
+		memcpy(mSalt, blob->salt, sizeof(mSalt));
+	else
+		Server::active().random(mSalt);
+    mMasterKey = deriveDbMasterKey(passphrase);
+	mHaveMaster = true;
+}
+
+
+//
+// Establish the master secret directly from a master key passed in.
+// We will copy the KeyData (caller still owns its copy).
+// Blob/salt handling as above.
+//
+void DatabaseCryptoCore::setup(const DbBlob *blob, CssmClient::Key master)
+{
+	// pre-screen the key
+	CssmKey::Header header = master.header();
+	if (header.keyClass() != CSSM_KEYCLASS_SESSION_KEY)
+		CssmError::throwMe(CSSMERR_CSP_INVALID_KEY_CLASS);
+	if (header.algorithm() != CSSM_ALGID_3DES_3KEY_EDE)
+		CssmError::throwMe(CSSMERR_CSP_INVALID_ALGORITHM);
+	
+	// accept it
+	if (blob)
+		memcpy(mSalt, blob->salt, sizeof(mSalt));
+	else
+		Server::active().random(mSalt);
+	mMasterKey = master;
+	mHaveMaster = true;
+}
+
+
+//
+// Given a putative passphrase, determine whether that passphrase
+// properly generates the database's master secret.
+// Return a boolean accordingly. Do not change our state.
+// The database must have a master secret (to compare with).
+// Note that any errors thrown by the cryptography here will actually
+// throw out of validatePassphrase, since they "should not happen" and
+// thus indicate a problem *beyond* (just) a bad passphrase.
+//
+bool DatabaseCryptoCore::validatePassphrase(const CssmData &passphrase)
+{
+	assert(hasMaster());
+	CssmClient::Key master = deriveDbMasterKey(passphrase);
+	
+	// to compare master with mMaster, see if they encrypt alike
+	StringData probe
+		("Now is the time for all good processes to come to the aid of their kernel.");
+	CssmData noRemainder((void *)1, 0);	// no cipher overflow
+	Encrypt cryptor(Server::csp(), CSSM_ALGID_3DES_3KEY_EDE);
+	cryptor.mode(CSSM_ALGMODE_CBCPadIV8);
+	cryptor.padding(CSSM_PADDING_PKCS1);
+	uint8 iv[8];	// leave uninitialized; pseudo-random is cool
+	cryptor.initVector(CssmData::wrap(iv));
+	
+	cryptor.key(master);
+	CssmAutoData cipher1(Server::csp().allocator());
+	cryptor.encrypt(probe, cipher1.get(), noRemainder);
+	
+	cryptor.key(mMasterKey);
+	CssmAutoData cipher2(Server::csp().allocator());
+	cryptor.encrypt(probe, cipher2.get(), noRemainder);
+	
+	return cipher1 == cipher2;
+}
+
+
 //
 // Encode a database blob from the core.
 //
 DbBlob *DatabaseCryptoCore::encodeCore(const DbBlob &blobTemplate,
-    const CssmData &passphrase,
     const CssmData &publicAcl, const CssmData &privateAcl) const
 {
     assert(isValid());		// must have secrets to work from
 
-    // make a new salt and IV
-    uint8 salt[20];
-    Server::active().random(salt);
+    // make a new IV
     uint8 iv[8];
     Server::active().random(iv);
     
-    // derive blob encryption key
-    CssmClient::Key blobCryptKey = deriveDbCryptoKey(passphrase,
-        CssmData(salt, sizeof(salt)));
-    
     // build the encrypted section blob
-    CssmData &encryptionBits = *encryptionKey;
-    CssmData &signingBits = *signingKey;
+    CssmData &encryptionBits = *mEncryptionKey;
+    CssmData &signingBits = *mSigningKey;
     CssmData incrypt[3];
     incrypt[0] = encryptionBits;
     incrypt[1] = signingBits;
@@ -94,7 +185,7 @@ DbBlob *DatabaseCryptoCore::encodeCore(const DbBlob &blobTemplate,
     Encrypt cryptor(Server::csp(), CSSM_ALGID_3DES_3KEY_EDE);
     cryptor.mode(CSSM_ALGMODE_CBCPadIV8);
     cryptor.padding(CSSM_PADDING_PKCS1);
-    cryptor.key(blobCryptKey);
+    cryptor.key(mMasterKey);
     CssmData ivd(iv, sizeof(iv)); cryptor.initVector(ivd);
     cryptor.encrypt(incrypt, 3, &cryptoBlob, 1, remData);
     
@@ -108,7 +199,7 @@ DbBlob *DatabaseCryptoCore::encodeCore(const DbBlob &blobTemplate,
     blob->randomSignature = blobTemplate.randomSignature;
     blob->sequence = blobTemplate.sequence;
     blob->params = blobTemplate.params;
-    memcpy(blob->salt, salt, sizeof(salt));
+	memcpy(blob->salt, mSalt, sizeof(blob->salt));
     memcpy(blob->iv, iv, sizeof(iv));
     memcpy(blob->publicAclBlob(), publicAcl, publicAcl.length());
     blob->startCryptoBlob = sizeof(DbBlob) + publicAcl.length();
@@ -122,7 +213,7 @@ DbBlob *DatabaseCryptoCore::encodeCore(const DbBlob &blobTemplate,
 	};
     CssmData signature(blob->blobSignature, sizeof(blob->blobSignature));
     GenerateMac signer(Server::csp(), CSSM_ALGID_SHA1HMAC_LEGACY);	//@@@!!! CRUD
-    signer.key(signingKey);
+    signer.key(mSigningKey);
     signer.sign(signChunk, 2, signature);
     assert(signature.length() == sizeof(blob->blobSignature));
     
@@ -134,20 +225,18 @@ DbBlob *DatabaseCryptoCore::encodeCore(const DbBlob &blobTemplate,
 
 //
 // Decode a database blob into the core.
-// Returns false if the decoding fails.
+// Throws exceptions if decoding fails.
+// Memory returned in privateAclBlob is allocated and becomes owned by caller.
 //
-void DatabaseCryptoCore::decodeCore(DbBlob *blob, const CssmData &passphrase,
-    void **privateAclBlob)
+void DatabaseCryptoCore::decodeCore(DbBlob *blob, void **privateAclBlob)
 {
-    // derive blob encryption key
-    CssmClient::Key blobCryptKey = deriveDbCryptoKey(passphrase,
-        CssmData(blob->salt, sizeof(blob->salt)));
+	assert(mHaveMaster);	// must have master key installed
     
     // try to decrypt the cryptoblob section
     Decrypt decryptor(Server::csp(), CSSM_ALGID_3DES_3KEY_EDE);
     decryptor.mode(CSSM_ALGMODE_CBCPadIV8);
     decryptor.padding(CSSM_PADDING_PKCS1);
-    decryptor.key(blobCryptKey);
+    decryptor.key(mMasterKey);
     CssmData ivd(blob->iv, sizeof(blob->iv)); decryptor.initVector(ivd);
     CssmData cryptoBlob(blob->cryptoBlob(), blob->cryptoBlobLength());
     CssmData decryptedBlob, remData;
@@ -155,10 +244,10 @@ void DatabaseCryptoCore::decodeCore(DbBlob *blob, const CssmData &passphrase,
     DbBlob::PrivateBlob *privateBlob = decryptedBlob.interpretedAs<DbBlob::PrivateBlob>();
     
     // tentatively establish keys
-    CssmClient::Key encryptionKey = makeRawKey(privateBlob->encryptionKey,
+    mEncryptionKey = makeRawKey(privateBlob->encryptionKey,
         sizeof(privateBlob->encryptionKey), CSSM_ALGID_3DES_3KEY_EDE,
         CSSM_KEYUSE_WRAP | CSSM_KEYUSE_UNWRAP);
-    CssmClient::Key signingKey = makeRawKey(privateBlob->signingKey,
+    mSigningKey = makeRawKey(privateBlob->signingKey,
         sizeof(privateBlob->signingKey), CSSM_ALGID_SHA1HMAC,
         CSSM_KEYUSE_SIGN | CSSM_KEYUSE_VERIFY);
     
@@ -169,16 +258,16 @@ void DatabaseCryptoCore::decodeCore(DbBlob *blob, const CssmData &passphrase,
 	};
     CSSM_ALGORITHMS verifyAlgorithm = CSSM_ALGID_SHA1HMAC;
 #if defined(COMPAT_OSX_10_0)
-    if (blob->version == blob->version_MacOS_10_0)
+    if (blob->version() == blob->version_MacOS_10_0)
         verifyAlgorithm = CSSM_ALGID_SHA1HMAC_LEGACY;	// BSafe bug compatibility
 #endif
     VerifyMac verifier(Server::csp(), verifyAlgorithm);
-    verifier.key(signingKey);
+    verifier.key(mSigningKey);
     verifier.verify(signChunk, 2, CssmData(blob->blobSignature, sizeof(blob->blobSignature)));
     
     // all checks out; start extracting fields
-    this->encryptionKey = encryptionKey;
-    this->signingKey = signingKey;
+    this->mEncryptionKey = mEncryptionKey;
+    this->mSigningKey = mSigningKey;
     if (privateAclBlob) {
         // extract private ACL blob as a separately allocated area
         uint32 blobLength = decryptedBlob.length() - sizeof(DbBlob::PrivateBlob);
@@ -208,10 +297,11 @@ KeyBlob *DatabaseCryptoCore::encodeKeyCore(const CssmKey &inKey,
     CssmKey key = inKey;
     uint32 heldAttributes = key.attributes() & managedAttributes;
     key.clearAttribute(managedAttributes);
+	key.setAttribute(forcedAttributes);
     
     // use a CMS wrap to encrypt the key
     WrapKey wrap(Server::csp(), CSSM_ALGID_3DES_3KEY_EDE);
-    wrap.key(encryptionKey);
+    wrap.key(mEncryptionKey);
     wrap.mode(CSSM_ALGMODE_CBCPadIV8);
     wrap.padding(CSSM_PADDING_PKCS1);
     CssmData ivd(iv, sizeof(iv)); wrap.initVector(ivd);
@@ -221,6 +311,7 @@ KeyBlob *DatabaseCryptoCore::encodeKeyCore(const CssmKey &inKey,
     wrap(key, wrappedKey, &privateAcl);
     
     // stick the held attribute bits back in
+	key.clearAttribute(forcedAttributes);
     key.setAttribute(heldAttributes);
     
     // allocate the final KeyBlob, uh, blob
@@ -232,6 +323,7 @@ KeyBlob *DatabaseCryptoCore::encodeKeyCore(const CssmKey &inKey,
     blob->initialize();
     memcpy(blob->iv, iv, sizeof(iv));
     blob->header = key.header();
+	h2ni(blob->header);	// endian-correct the header
     blob->wrappedHeader.blobType = wrappedKey.blobType();
     blob->wrappedHeader.blobFormat = wrappedKey.blobFormat();
     blob->wrappedHeader.wrapAlgorithm = wrappedKey.wrapAlgorithm();
@@ -248,7 +340,7 @@ KeyBlob *DatabaseCryptoCore::encodeKeyCore(const CssmKey &inKey,
 	};
     CssmData signature(blob->blobSignature, sizeof(blob->blobSignature));
     GenerateMac signer(Server::csp(), CSSM_ALGID_SHA1HMAC_LEGACY);	//@@@!!! CRUD
-    signer.key(signingKey);
+    signer.key(mSigningKey);
     signer.sign(signChunk, 2, signature);
     assert(signature.length() == sizeof(blob->blobSignature));
     
@@ -269,12 +361,13 @@ void DatabaseCryptoCore::decodeKeyCore(KeyBlob *blob,
     // Assemble the encrypted blob as a CSSM "wrapped key"
     CssmKey wrappedKey;
     wrappedKey.KeyHeader = blob->header;
+	h2ni(wrappedKey.KeyHeader);
     wrappedKey.blobType(blob->wrappedHeader.blobType);
     wrappedKey.blobFormat(blob->wrappedHeader.blobFormat);
     wrappedKey.wrapAlgorithm(blob->wrappedHeader.wrapAlgorithm);
     wrappedKey.wrapMode(blob->wrappedHeader.wrapMode);
     wrappedKey.KeyData = CssmData(blob->cryptoBlob(), blob->cryptoBlobLength());
-
+	
     // verify signature (check against corruption)
     CssmData signChunk[] = {
     	CssmData::wrap(blob, offsetof(KeyBlob, blobSignature)),
@@ -282,20 +375,20 @@ void DatabaseCryptoCore::decodeKeyCore(KeyBlob *blob,
 	};
     CSSM_ALGORITHMS verifyAlgorithm = CSSM_ALGID_SHA1HMAC;
 #if defined(COMPAT_OSX_10_0)
-    if (blob->version == blob->version_MacOS_10_0)
+    if (blob->version() == blob->version_MacOS_10_0)
         verifyAlgorithm = CSSM_ALGID_SHA1HMAC_LEGACY;	// BSafe bug compatibility
 #endif
     VerifyMac verifier(Server::csp(), verifyAlgorithm);
-    verifier.key(signingKey);
+    verifier.key(mSigningKey);
     CssmData signature(blob->blobSignature, sizeof(blob->blobSignature));
     verifier.verify(signChunk, 2, signature);
     
     // extract and hold some header bits the CSP does not want to see
-    uint32 heldAttributes = blob->header.attributes() & managedAttributes;
+    uint32 heldAttributes = n2h(blob->header.attributes()) & managedAttributes;
    
     // decrypt the key using an unwrapping operation
     UnwrapKey unwrap(Server::csp(), CSSM_ALGID_3DES_3KEY_EDE);
-    unwrap.key(encryptionKey);
+    unwrap.key(mEncryptionKey);
     unwrap.mode(CSSM_ALGMODE_CBCPadIV8);
     unwrap.padding(CSSM_PADDING_PKCS1);
     CssmData ivd(blob->iv, sizeof(blob->iv)); unwrap.initVector(ivd);
@@ -304,16 +397,18 @@ void DatabaseCryptoCore::decodeKeyCore(KeyBlob *blob,
     CssmData privAclData;
     wrappedKey.clearAttribute(managedAttributes);    //@@@ shouldn't be needed(?)
     unwrap(wrappedKey,
-        KeySpec(blob->header.usage(), blob->header.attributes() & ~managedAttributes),
+        KeySpec(n2h(blob->header.usage()),
+			(n2h(blob->header.attributes()) & ~managedAttributes) | forcedAttributes),
         key, &privAclData);
     
     // compare retrieved key headers with blob headers (sanity check)
     // @@@ this should probably be checked over carefully
     CssmKey::Header &real = key.header();
     CssmKey::Header &incoming = blob->header;
+	n2hi(incoming);
+
     if (real.HeaderVersion != incoming.HeaderVersion ||
-        real.cspGuid() != incoming.cspGuid() ||
-        real.blobFormat() != incoming.blobFormat())
+        real.cspGuid() != incoming.cspGuid())
         CssmError::throwMe(CSSMERR_CSP_INVALID_KEY);
     if (real.algorithm() != incoming.algorithm())
         CssmError::throwMe(CSSMERR_CSP_INVALID_ALGORITHM);
@@ -331,14 +426,13 @@ void DatabaseCryptoCore::decodeKeyCore(KeyBlob *blob,
 //
 // Derive the blob-specific database blob encryption key from the passphrase and the salt.
 //
-CssmClient::Key DatabaseCryptoCore::deriveDbCryptoKey(const CssmData &passphrase,
-    const CssmData &salt) const
+CssmClient::Key DatabaseCryptoCore::deriveDbMasterKey(const CssmData &passphrase) const
 {
     // derive an encryption key and IV from passphrase and salt
     CssmClient::DeriveKey makeKey(Server::csp(),
         CSSM_ALGID_PKCS5_PBKDF2, CSSM_ALGID_3DES_3KEY_EDE, 24 * 8);
     makeKey.iterationCount(1000);
-    makeKey.salt(salt);
+    makeKey.salt(CssmData::wrap(mSalt));
     CSSM_PKCS5_PBKDF2_PARAMS params;
     params.Passphrase = passphrase;
     params.PseudoRandomFunction = CSSM_PKCS5_PBKDF2_PRF_HMAC_SHA1;

@@ -1,0 +1,18 @@
+%(real_name)s 메일링 리스트 의뢰서를 아래의 주소로 보내십시오.
+	%(got_list_email)s
+
+WWW 을 통해서 가입 혹은 탈퇴를 하실려면 아래의 사이트를 방문하세요.
+
+	%(got_listinfo_url)s
+
+혹은 E메일을 통해서 하실려면 제목 혹은 본문에 'help' 를 넣어 아래의
+주소로 보내십시오.
+
+	%(got_request_email)s
+
+메일링 리스트의 주인장은 아래의 주소로 연락 하시면 됩니다.
+
+	%(got_owner_email)s
+
+답장을 쓰실때 제목을 "Re: Contents of %(real_name)s digest..." 보다
+간략히 하여 보내주시기 바랍니다.

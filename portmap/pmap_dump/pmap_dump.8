@@ -1,0 +1,26 @@
+.Dd December 12, 2002
+.Dt PMAP_DUMP 8
+.Os Darwin 6
+.Sh NAME
+.Nm pmap_dump
+.Nd print a list of all registered RPC programs
+.Sh SYNOPSIS
+.Nm
+.Sh DESCRIPTION
+The
+.Nm
+command can be used to restart a running portmapper or to print
+a list of all registered RPC programs on the local host. If you
+want to use the program to restart the portmapper you have to
+redirect the output of
+.Nm
+to a file. After this you can restart the portmapper and restore
+the list of the registered RPC programs by feeding the output
+of
+.Nm
+to the
+.B pmap_set
+command.
+.Sh SEE ALSO
+.Xr pmap_set 8 ,
+.Xr portmap 8

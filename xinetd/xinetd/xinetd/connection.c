@@ -79,7 +79,7 @@ static status_e get_connection( struct service *sp, connection_s *cp )
          int af = AF_INET;
          if( setsockopt(cp->co_descriptor, IPPROTO_IPV6,
                IPV6_ADDRFORM, &af, sizeof( af ) ) ) {
-            msg( LOG_WARNING, func, "service %s, IPV6_ADDRFORM", SVC_ID( sp) );
+            msg( LOG_WARNING, func, "service %s, IPV6_ADDRFORM setsockopt() failed: %m", SVC_ID( sp) );
          }
       }
 
@@ -182,10 +182,10 @@ void conn_free( connection_s *cp, int release_mem )
 /* This returns a pointer to a local static stack variable.
  * The behavior is a remnant of inet_ntoa() behavior.
  */ 
-char *conn_addrstr( const connection_s *cp )
+const char *conn_addrstr( const connection_s *cp )
 {
    static char name[NI_MAXHOST];
-   int len = 0;
+   unsigned int len = 0;
 
    if( !M_IS_SET( (cp)->co_flags, COF_HAVE_ADDRESS ) )
       return "<no address>";

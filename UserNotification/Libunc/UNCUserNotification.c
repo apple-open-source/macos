@@ -14,16 +14,23 @@
 
 #define MAX_STRING_LENGTH PATH_MAX
 #define MAX_STRING_COUNT 16
-#define NOTIFICATION_PORT_NAME "UNCUserNotification"
+#define MAX_PORT_NAME_LENGTH 63
+#define NOTIFICATION_PORT_NAME "com.apple.UNCUserNotification"
+#define NOTIFICATION_PORT_NAME_OLD "UNCUserNotification"
+#define NOTIFICATION_PORT_NAME_SUFFIX ".session."
 #define MESSAGE_TIMEOUT 100
 
 enum {
-    kUNCCancelFlag = (1 << 7)
+    kUNCCancelFlag = (1 << 3),
+    kUNCUpdateFlag = (1 << 4)
 };
 
 /* backward compatibility */
 extern const char kUNCTextFieldLabelsKey[];
 extern const char kUNCCheckBoxLabelsKey[];
+
+/* forward compatibility */
+extern const char kUNCSessionIDKey[];
 
 const char kUNCTokenKey[] = "Token";
 const char kUNCTimeoutKey[] = "Timeout";
@@ -37,12 +44,14 @@ const char kUNCDefaultButtonTitleKey[] = "DefaultButtonTitle";
 const char kUNCAlternateButtonTitleKey[] = "AlternateButtonTitle";
 const char kUNCOtherButtonTitleKey[] = "OtherButtonTitle";
 const char kUNCProgressIndicatorValueKey[] = "ProgressIndicatorValue";
+const char kUNCSessionIDKey[] = "SessionID";
 const char kUNCPopUpTitlesKey[] = "PopUpTitles";
 const char kUNCTextFieldTitlesKey[] = "TextFieldTitles";
 const char kUNCTextFieldLabelsKey[] = "TextFieldTitles";
 const char kUNCCheckBoxTitlesKey[] = "CheckBoxTitles";
 const char kUNCCheckBoxLabelsKey[] = "CheckBoxTitles";
 const char kUNCTextFieldValuesKey[] = "TextFieldValues";
+const char kUNCPopUpSelectionKey[] = "PopUpSelection";
 
 static const char *kUNCXMLPrologue = "<?xml version=\"1.0\" encoding=\"UTF-8\"?>";
 static const char *kUNCDoctypePrologue = "<!DOCTYPE plist SYSTEM \"file://localhost/System/Library/DTDs/PropertyList.dtd\">";
@@ -65,15 +74,17 @@ struct __UNCUserNotification {
     double _timeout;
     unsigned _requestFlags;
     unsigned _responseFlags;
+    char *_sessionID;
     mach_msg_base_t *_response;
     char **_responseContents;
 };
 
-static unsigned UNCPackContents(char *buffer, char **contents, int token, int itimeout, char *source) {
+static unsigned UNCPackContents(char *buffer, const char **contents, int token, int itimeout, char *source) {
     // if buffer is non-null, write XML into it; if buffer is null, return required size
     // should consider escape sequences
     unsigned keyLen, valLen;
-    char **p = contents, *b = buffer, *key = NULL, *val = NULL, *nextKey = NULL, *previousKey = NULL, tokenString[64], timeoutString[64];
+    const char **p = contents, *key = NULL, *val = NULL, *nextKey = NULL, *previousKey = NULL; 
+    char *b = buffer, tokenString[64], timeoutString[64];
 
     snprintf(tokenString, sizeof(tokenString)-1, "%d", token); tokenString[sizeof(tokenString)-1] = '\0';
     snprintf(timeoutString, sizeof(timeoutString)-1, "%d", itimeout); timeoutString[sizeof(timeoutString)-1] = '\0';
@@ -192,17 +203,40 @@ static unsigned UNCUnpackContents(char *buffer, char **contents) {
     return p - contents;
 }
 
+static const char *UNCSessionIDForContents(const char **contents) {
+    const char **p = contents, *retval = NULL; 
+    
+    while (!retval && p && *p) {
+        if (0 == strcmp(*p++, kUNCSessionIDKey)) retval = *p;
+        p++;
+    }
+    return retval;
+}
+
 extern char ***_NSGetArgv(void);
 
-static int UNCSendRequest(mach_port_t replyPort, int token, double timeout, unsigned flags, const char **contents) {
+static int UNCSendRequest(const char *sessionID, mach_port_t replyPort, int token, double timeout, unsigned flags, const char **contents) {
     int retval = ERR_SUCCESS, itimeout = (timeout > 0.0 && timeout < INT_MAX) ? (int)timeout : 0;
     mach_msg_base_t *msg = NULL;
     mach_port_t bootstrapPort = MACH_PORT_NULL, serverPort = MACH_PORT_NULL;
     unsigned size;
-    char *source = (*_NSGetArgv())[0], *p = source;
+    char namebuffer[MAX_PORT_NAME_LENGTH + 1], oldnamebuffer[MAX_PORT_NAME_LENGTH + 1], *source = (*_NSGetArgv())[0], *p = source;
     
+    strcpy(namebuffer, NOTIFICATION_PORT_NAME);
+    strcpy(oldnamebuffer, NOTIFICATION_PORT_NAME_OLD);
+    if (sessionID) {
+        strcat(namebuffer, NOTIFICATION_PORT_NAME_SUFFIX);
+        strncat(namebuffer, sessionID, MAX_PORT_NAME_LENGTH - sizeof(NOTIFICATION_PORT_NAME) - sizeof(NOTIFICATION_PORT_NAME_SUFFIX));
+        namebuffer[MAX_PORT_NAME_LENGTH] = '\0';
+        
+        strcat(oldnamebuffer, NOTIFICATION_PORT_NAME_SUFFIX);
+        strncat(oldnamebuffer, sessionID, MAX_PORT_NAME_LENGTH - sizeof(NOTIFICATION_PORT_NAME_OLD) - sizeof(NOTIFICATION_PORT_NAME_SUFFIX));
+        oldnamebuffer[MAX_PORT_NAME_LENGTH] = '\0';
+    }
+
     retval = task_get_bootstrap_port(mach_task_self(), &bootstrapPort);
-    if (ERR_SUCCESS == retval && MACH_PORT_NULL != bootstrapPort) retval = bootstrap_look_up(bootstrapPort, NOTIFICATION_PORT_NAME, &serverPort);
+    if (ERR_SUCCESS == retval && MACH_PORT_NULL != bootstrapPort) retval = bootstrap_look_up(bootstrapPort, namebuffer, &serverPort);
+    if (ERR_SUCCESS != retval || MACH_PORT_NULL == serverPort) retval = bootstrap_look_up(bootstrapPort, oldnamebuffer, &serverPort);
     if (ERR_SUCCESS == retval && MACH_PORT_NULL != serverPort) {
         while (*p) if ('/' == *p++) source = p;
         size = sizeof(mach_msg_base_t) + ((UNCPackContents(NULL, contents, token, itimeout, source) + 3) & (~0x3));
@@ -230,10 +264,12 @@ extern UNCUserNotificationRef UNCUserNotificationCreate(double timeout, unsigned
     int retval = ERR_SUCCESS;
     static unsigned short tokenCounter = 0;
     int token = ((getpid()<<16) | (tokenCounter++));
+    const char *sessionID = UNCSessionIDForContents(contents);
     mach_port_t replyPort = MACH_PORT_NULL;
+    size_t idlen;
 
     retval = mach_port_allocate(mach_task_self(), MACH_PORT_RIGHT_RECEIVE, &replyPort);
-    if (ERR_SUCCESS == retval && MACH_PORT_NULL != replyPort) retval = UNCSendRequest(replyPort, token, timeout, flags, contents);
+    if (ERR_SUCCESS == retval && MACH_PORT_NULL != replyPort) retval = UNCSendRequest(sessionID, replyPort, token, timeout, flags, contents);
     if (ERR_SUCCESS == retval) {
         userNotification = (UNCUserNotificationRef)malloc(sizeof(struct __UNCUserNotification));
         if (userNotification) {
@@ -243,8 +279,16 @@ extern UNCUserNotificationRef UNCUserNotificationCreate(double timeout, unsigned
             userNotification->_timeout = timeout;
             userNotification->_requestFlags = flags;
             userNotification->_responseFlags = 0;
+            userNotification->_sessionID = NULL;
             userNotification->_response = NULL;
             userNotification->_responseContents = NULL;
+            if (sessionID) {
+                idlen = strlen(sessionID);
+                if (idlen > MAX_PORT_NAME_LENGTH) idlen = MAX_PORT_NAME_LENGTH;
+                userNotification->_sessionID = (char *)malloc(idlen + 1);
+                strncpy(userNotification->_sessionID, sessionID, idlen);
+                userNotification->_sessionID[idlen] = '\0';
+            }
         } else {
             retval = unix_err(ENOMEM);
         }
@@ -305,13 +349,13 @@ extern const char *UNCUserNotificationGetResponseValue(UNCUserNotificationRef us
 }
 
 extern const char **UNCUserNotificationGetResponseContents(UNCUserNotificationRef userNotification) {
-    return userNotification ? userNotification->_responseContents : NULL;
+    return userNotification ? (const char **)(userNotification->_responseContents) : NULL;
 }
 
 extern int UNCUserNotificationUpdate(UNCUserNotificationRef userNotification, double timeout, unsigned flags, const char **contents) {
     int retval = ERR_SUCCESS;
     if (userNotification && MACH_PORT_NULL != userNotification->_replyPort) {
-        retval = UNCSendRequest(userNotification->_replyPort, userNotification->_token, timeout, flags, contents);
+        retval = UNCSendRequest(userNotification->_sessionID, userNotification->_replyPort, userNotification->_token, timeout, flags|kUNCUpdateFlag, contents);
     }
     return retval;
 }
@@ -319,7 +363,7 @@ extern int UNCUserNotificationUpdate(UNCUserNotificationRef userNotification, do
 extern int UNCUserNotificationCancel(UNCUserNotificationRef userNotification) {
     int retval = ERR_SUCCESS;
     if (userNotification && MACH_PORT_NULL != userNotification->_replyPort) {
-        retval = UNCSendRequest(userNotification->_replyPort, userNotification->_token, 0, kUNCCancelFlag, NULL);
+        retval = UNCSendRequest(userNotification->_sessionID, userNotification->_replyPort, userNotification->_token, 0, kUNCCancelFlag, NULL);
     }
     return retval;
 }
@@ -327,6 +371,7 @@ extern int UNCUserNotificationCancel(UNCUserNotificationRef userNotification) {
 extern void UNCUserNotificationFree(UNCUserNotificationRef userNotification) {
     if (userNotification) {
         if (MACH_PORT_NULL != userNotification->_replyPort) mach_port_destroy(mach_task_self(), userNotification->_replyPort);
+        if (userNotification->_sessionID) free(userNotification->_sessionID);
         if (userNotification->_responseContents) free(userNotification->_responseContents);
         if (userNotification->_response) free(userNotification->_response);
         free(userNotification);

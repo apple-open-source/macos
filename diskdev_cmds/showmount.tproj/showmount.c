@@ -75,39 +75,19 @@
 #include <string.h>
 #include <unistd.h>
 
-/* Constant defs */
-#define	ALL	1
-#define	DIRS	2
+#include "showmount.h"
 
-#define	DODUMP		0x1
-#define	DOEXPORTS	0x2
+struct mountlist *mntdump;
+struct exportslist *exports;
+int type = 0;
+int rpcs = 0, mntvers = 1;
 
-struct mountlist {
-	struct mountlist *ml_left;
-	struct mountlist *ml_right;
-	char	ml_host[RPCMNT_NAMELEN+1];
-	char	ml_dirp[RPCMNT_PATHLEN+1];
-};
-
-struct grouplist {
-	struct grouplist *gr_next;
-	char	gr_name[RPCMNT_NAMELEN+1];
-};
-
-struct exportslist {
-	struct exportslist *ex_next;
-	struct grouplist *ex_groups;
-	char	ex_dirp[RPCMNT_PATHLEN+1];
-};
-
-static struct mountlist *mntdump;
-static struct exportslist *exports;
-static int type = 0;
-
-void	print_dump __P((struct mountlist *));
-void	usage __P((void));
-int	xdr_mntdump __P((XDR *, struct mountlist **));
-int	xdr_exports __P((XDR *, struct exportslist **));
+void	print_dump(struct mountlist *);
+void	usage(void);
+int	xdr_mntdump(XDR *, struct mountlist **);
+int	xdr_exports(XDR *, struct exportslist **);
+void	do_print(char *host);
+extern void browse();
 
 /*
  * This command queries the NFS mount daemon for it's mount list and/or
@@ -121,13 +101,12 @@ main(argc, argv)
 	int argc;
 	char **argv;
 {
-	struct exportslist *exp;
-	struct grouplist *grp;
-	int estat, rpcs = 0, mntvers = 1;
 	char ch, *host;
+	int do_browse = 0;
 
-	while ((ch = getopt(argc, argv, "ade3")) != EOF)
+	while ((ch = getopt(argc, argv, "Aade3")) != EOF)
 		switch((char)ch) {
+		case 'A': do_browse = 1; break;
 		case 'a':
 			if (type == 0) {
 				type = ALL;
@@ -155,65 +134,17 @@ main(argc, argv)
 	argc -= optind;
 	argv += optind;
 
+	if( do_browse ) {
+		browse();
+		exit(0);
+	}
+
 	if (argc > 0)
 		host = *argv;
 	else
 		host = "localhost";
 
-	if (rpcs == 0)
-		rpcs = DODUMP;
-
-	if (rpcs & DODUMP)
-		if ((estat = callrpc(host, RPCPROG_MNT, mntvers,
-			RPCMNT_DUMP, xdr_void, (char *)0,
-			xdr_mntdump, (char *)&mntdump)) != 0) {
-			clnt_perrno(estat);
-			fprintf(stderr, ": Can't do Mountdump rpc\n");
-			exit(1);
-		}
-	if (rpcs & DOEXPORTS)
-		if ((estat = callrpc(host, RPCPROG_MNT, mntvers,
-			RPCMNT_EXPORT, xdr_void, (char *)0,
-			xdr_exports, (char *)&exports)) != 0) {
-			clnt_perrno(estat);
-			fprintf(stderr, ": Can't do Exports rpc\n");
-			exit(1);
-		}
-
-	/* Now just print out the results */
-	if (rpcs & DODUMP) {
-		switch (type) {
-		case ALL:
-			printf("All mount points on %s:\n", host);
-			break;
-		case DIRS:
-			printf("Directories on %s:\n", host);
-			break;
-		default:
-			printf("Hosts on %s:\n", host);
-			break;
-		};
-		print_dump(mntdump);
-	}
-	if (rpcs & DOEXPORTS) {
-		printf("Exports list on %s:\n", host);
-		exp = exports;
-		while (exp) {
-			printf("%-35s", exp->ex_dirp);
-			grp = exp->ex_groups;
-			if (grp == NULL) {
-				printf(" Everyone\n"); // allow space
-			} else {
-				while (grp) {
-					printf("%s ", grp->gr_name);
-					grp = grp->gr_next;
-				}
-				printf("\n");
-			}
-			exp = exp->ex_next;
-		}
-	}
-
+	do_print(host);
 	exit(0);
 }
 
@@ -375,4 +306,66 @@ print_dump(mp)
 	};
 	if (mp->ml_right)
 		print_dump(mp->ml_right);
+}
+
+void do_print(char *host)
+{
+	struct exportslist *exp;
+	struct grouplist *grp;
+	int estat;
+
+	if (rpcs == 0)
+		rpcs = DODUMP;
+
+	if (rpcs & DODUMP)
+		if ((estat = callrpc(host, RPCPROG_MNT, mntvers,
+			RPCMNT_DUMP, xdr_void, (char *)0,
+			xdr_mntdump, (char *)&mntdump)) != 0) {
+			clnt_perrno(estat);
+			fprintf(stderr, ": Can't do Mountdump rpc\n");
+			exit(1);
+		}
+	if (rpcs & DOEXPORTS)
+		if ((estat = callrpc(host, RPCPROG_MNT, mntvers,
+			RPCMNT_EXPORT, xdr_void, (char *)0,
+			xdr_exports, (char *)&exports)) != 0) {
+			clnt_perrno(estat);
+			fprintf(stderr, ": Can't do Exports rpc\n");
+			exit(1);
+		}
+
+	/* Now just print out the results */
+	if (rpcs & DODUMP) {
+		switch (type) {
+		case ALL:
+			printf("All mount points on %s:\n", host);
+			break;
+		case DIRS:
+			printf("Directories on %s:\n", host);
+			break;
+		default:
+			printf("Hosts on %s:\n", host);
+			break;
+		};
+		print_dump(mntdump);
+	}
+	if (rpcs & DOEXPORTS) {
+		printf("Exports list on %s:\n", host);
+		exp = exports;
+		while (exp) {
+			printf("%-35s", exp->ex_dirp);
+			grp = exp->ex_groups;
+			if (grp == NULL) {
+				printf(" Everyone\n"); // allow space
+			} else {
+				while (grp) {
+					printf("%s ", grp->gr_name);
+					grp = grp->gr_next;
+				}
+				printf("\n");
+			}
+			exp = exp->ex_next;
+		}
+	}
+
 }

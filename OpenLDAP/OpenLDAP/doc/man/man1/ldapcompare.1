@@ -1,6 +1,6 @@
-.TH LDAPCOMPARE 1 "28 January 2002" "OpenLDAP LDVERSION"
-.\" $OpenLDAP: pkg/ldap/doc/man/man1/ldapcompare.1,v 1.1 2002/01/29 06:33:12 kurt Exp $
-.\" Copyright 1998-2002 The OpenLDAP Foundation All Rights Reserved.
+.TH LDAPCOMPARE 1 "RELEASEDATE" "OpenLDAP LDVERSION"
+.\" $OpenLDAP: pkg/ldap/doc/man/man1/ldapcompare.1,v 1.1.2.5 2003/03/03 17:10:02 kurt Exp $
+.\" Copyright 1998-2003 The OpenLDAP Foundation All Rights Reserved.
 .\" Copying restrictions apply.  See COPYRIGHT/LICENSE.
 .SH NAME
 ldapcompare \- LDAP compare tool
@@ -25,7 +25,9 @@ ldapcompare \- LDAP compare tool
 [\c
 .BR \-W ]
 [\c
-.BI \-w \ bindpasswd\fR]
+.BI \-w \ passwd\fR]
+[\c
+.BI \-y \ passwdfile\fR]
 [\c
 .BI \-H \ ldapuri\fR]
 [\c
@@ -42,6 +44,8 @@ ldapcompare \- LDAP compare tool
 .BR \-Q ]
 [\c
 .BI \-U \ authcid\fR]
+[\c
+.BI \-R \ realm\fR]
 [\c
 .BR \-x ]
 [\c
@@ -111,8 +115,12 @@ Use the Distinguished Name \fIbinddn\fP to bind to the LDAP directory.
 Prompt for simple authentication.
 This is used instead of specifying the password on the command line.
 .TP
-.BI \-w \ bindpasswd
-Use \fIbindpasswd\fP as the password for simple authentication.
+.BI \-w \ passwd
+Use \fIpasswd\fP as the password for simple authentication.
+.TP
+.BI \-y \ passwdfile
+Use complete contents of \fIpasswdfile\fP as the password for
+simple authentication.
 .TP
 .BI \-H \ ldapuri
 Specify URI(s) referring to the ldap server(s).
@@ -142,8 +150,12 @@ Enable SASL Quiet mode.  Never prompt.
 Specify the authentication ID for SASL bind. The form of the ID
 depends on the actual SASL mechanism used.
 .TP
+.BI \-R \ realm
+Specify the realm of authentication ID for SASL bind. The form of the realm
+depends on the actual SASL mechanism used.
+.TP
 .BI \-X \ authzid
-Specify the requested authorization ID for SASL bind.
+Specify the proxy authorization ID for SASL bind.
 .I authzid
 must be one of the following formats:
 .B dn:\c

@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<!DOCTYPE ejb-jar PUBLIC "-//Sun Microsystems, Inc.//DTD Enterprise JavaBeans 2.0//EN" "http://java.sun.com/j2ee/dtds/ejb-jar_2_0.dtd">
+
+<ejb-jar>
+   <description>HelloWorld application</description>
+   <display-name>HelloWorld</display-name>
+   <enterprise-beans>
+      <session>
+         <display-name>Hello World</display-name>
+         <ejb-name>HelloWorld</ejb-name>
+         <home>org.jboss.test.hellojrmpiiop.interfaces.HelloHome</home>
+         <remote>org.jboss.test.hellojrmpiiop.interfaces.Hello</remote>
+         <ejb-class>org.jboss.test.hellojrmpiiop.ejb.HelloBean</ejb-class>
+         <session-type>Stateless</session-type>
+         <transaction-type>Container</transaction-type>
+      </session>
+   </enterprise-beans>
+</ejb-jar>

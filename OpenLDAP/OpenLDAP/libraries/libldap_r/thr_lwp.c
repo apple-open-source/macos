@@ -1,6 +1,6 @@
-/* $OpenLDAP: pkg/ldap/libraries/libldap_r/thr_lwp.c,v 1.13 2002/01/04 20:17:40 kurt Exp $ */
+/* $OpenLDAP: pkg/ldap/libraries/libldap_r/thr_lwp.c,v 1.13.2.2 2003/03/03 17:10:05 kurt Exp $ */
 /*
- * Copyright 1998-2002 The OpenLDAP Foundation, Redwood City, California, USA
+ * Copyright 1998-2003 The OpenLDAP Foundation, Redwood City, California, USA
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms are permitted only
@@ -358,6 +358,16 @@ int
 ldap_pvt_thread_cond_broadcast( ldap_pvt_thread_cond_t *cv )
 {
 	return( cv->lcv_created ? cv_broadcast( cv->lcv_cv ) : 0 );
+}
+
+ldap_pvt_thread_t
+ldap_pvt_thread_self( void )
+{
+	thread_t		mylwp;
+
+	lwp_self( &mylwp );
+
+	return mylwp;
 }
 
 #endif /* HAVE_LWP */

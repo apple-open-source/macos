@@ -25,5 +25,4 @@
 #include "SYS.h"
 
 SYSCALL(setprivexec, 3)
-	blr
 

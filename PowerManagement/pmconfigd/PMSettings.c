@@ -41,6 +41,7 @@
 #include <IOKit/IOMessage.h>
 
 #include "PMSettings.h"
+#include "PrivateLib.h"
  
 /* Power Management profile bits */
 enum {
@@ -68,27 +69,6 @@ static io_connect_t         gPowerManager;
 /* Tracking sleeping state */
 static unsigned long        deferredPSChangeNotify = 0;
 static unsigned long        _pmcfgd_impendingSleep = 0;
-
-static CFArrayRef
-copyBatteryInfo(void) 
-{
-    static mach_port_t 		master_device_port = 0;
-    kern_return_t       	kr;
-    int				ret;
-    
-    CFArrayRef			battery_info = NULL;
-    
-    if(!master_device_port) kr = IOMasterPort(bootstrap_port,&master_device_port);
-    
-    // PMCopyBatteryInfo
-    ret = IOPMCopyBatteryInfo(master_device_port, &battery_info);
-    if(ret != kIOReturnSuccess || !battery_info)
-    {
-        return NULL;
-    }
-    
-    return battery_info;
-}
 
 __private_extern__ void 
 PMSettingsSleepWakeNotification(natural_t messageType)
@@ -205,7 +185,7 @@ PMSettings_prime(void)
     /*
      * determine current power source for separate Battery/AC settings
      */
-    battery_info = isA_CFArray(copyBatteryInfo());
+    battery_info = isA_CFArray(_copyBatteryInfo());
     if(battery_info)
     {
         // Find out what the current power source is
@@ -242,22 +222,16 @@ PMSettings_prime(void)
  * from disk and transmit the new settings to the kernel.
  */
 __private_extern__ void 
-PMSettingsPrefsHaveChanged(SCDynamicStoreRef store, CFArrayRef changedKeys, CFStringRef EnergyPrefsKey) 
+PMSettingsPrefsHaveChanged(void) 
 {
-    CFRange array_range = CFRangeMake(0, CFArrayGetCount(changedKeys));
+    // re-read preferences into memory
+    CFRelease(systemEnergySettings);
+    systemEnergySettings = (CFMutableDictionaryRef)isA_CFDictionary(IOPMCopyPMPreferences());
 
-    // If Power Management Preferences file has changed
-    if(CFArrayContainsValue(changedKeys, array_range, EnergyPrefsKey))
-    {
-        // re-read preferences into memory
-        CFRelease(systemEnergySettings);
-        systemEnergySettings = (CFMutableDictionaryRef)isA_CFDictionary(IOPMCopyPMPreferences());
-
-        // push new preferences out to the kernel
-        //syslog(LOG_INFO, "PMConfigd: activating new preferences");
-        if(systemEnergySettings) activate_profiles(systemEnergySettings, currentPowerSource);
-    }
-
+    // push new preferences out to the kernel
+    //syslog(LOG_INFO, "PMConfigd: activating new preferences");
+    if(systemEnergySettings) activate_profiles(systemEnergySettings, currentPowerSource);
+    
     return;
 }
 
@@ -268,7 +242,8 @@ PMSettingsPrefsHaveChanged(SCDynamicStoreRef store, CFArrayRef changedKeys, CFSt
  * 
  */
 __private_extern__ void
-PMSettingsBatteryPollingTimer(CFArrayRef battery_info) {
+PMSettingsBatteriesHaveChanged(CFArrayRef battery_info)
+{
     CFStringRef				        oldPowerSource;
     CFBooleanRef			        rem_bool;
     int					        flags;

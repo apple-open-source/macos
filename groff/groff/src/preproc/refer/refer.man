@@ -674,7 +674,7 @@ of the form
 .B .]
 .LP
 is encountered,
-after all input files hve been processed,
+after all input files have been processed,
 and whenever
 .B .R1
 line is recognized.

@@ -26,8 +26,8 @@ SRCROOT=/tmp
 
 VPATH = $(OBJROOT):$(SYMROOT)
 
-# SUBDIRS = rcz util libsa libsaio sarld nasm boot2 boot1 boot0 strings
-SUBDIRS = rcz util libsa libsaio nasm boot2 boot1 boot0 strings
+# The order of building is important.
+SUBDIRS = rcz util libsa libsaio nasm boot2 boot1 boot1u boot0 cdboot strings
 
 all tags clean debug install installhdrs:
 	@for i in ${SUBDIRS}; \

@@ -22,15 +22,15 @@
  * 
  * @APPLE_LICENSE_HEADER_END@
  */
-#include "IOFireWireAVCUnit.h"
-#include "IOFireWireAVCCommand.h"
-#include "IOFireWireAVCConsts.h"
+#include <IOKit/avc/IOFireWireAVCUnit.h>
+#include <IOKit/avc/IOFireWireAVCCommand.h>
+#include <IOKit/avc/IOFireWireAVCConsts.h>
 #include <IOKit/IOMessage.h>
 #include <IOKit/IOKitKeys.h>
 #include <IOKit/firewire/IOFireWireUnit.h>
 #include <IOKit/firewire/IOFireWireBus.h>
 #include <IOKit/firewire/IOFWAddressSpace.h>
-#include "IOFireWirePCRSpace.h"
+#include <IOKit/avc/IOFireWirePCRSpace.h>
 
 const OSSymbol *gIOFireWireAVCUnitType;
 const OSSymbol *gIOFireWireAVCSubUnitType;
@@ -90,7 +90,7 @@ void IOFireWireAVCUnit::updateSubUnits(bool firstTime)
             IOSleep(10);
             continue;	// Try again
         }
-        else if(res == kIOReturnSuccess && response[kAVCOperand2] == 0xff) {
+        else if(res == kIOReturnSuccess && response[kAVCOperand1] == 0xff) {
             // Some devices initially say they have no subunits.
             IOSleep(10);
             continue;	// Try again
@@ -256,7 +256,7 @@ bool IOFireWireAVCUnit::start(IOService *provider)
     
     cmdLock = IOLockAlloc();
     if (cmdLock == NULL) {
-        IOLog("IOAVCUnit::start avcLock failed\n");
+        IOLog("IOAVCUnit::start cmdLock failed\n");
         return false;
     }
     
@@ -265,7 +265,7 @@ bool IOFireWireAVCUnit::start(IOService *provider)
     UInt32 size;
     UInt8 cmd[8],response[8];
 	UInt32 unitInfoRetryCount = 0;
-	
+
     cmd[kAVCCommandResponse] = kAVCStatusInquiryCommand;
     cmd[kAVCAddress] = kAVCUnitAddress;
     cmd[kAVCOpcode] = kAVCUnitInfoOpcode;
@@ -282,12 +282,12 @@ bool IOFireWireAVCUnit::start(IOService *provider)
 			res = AVCCommand(cmd, 8, response, &size);
 		}while((kIOReturnSuccess != res) && (unitInfoRetryCount <= 4));
     }
-	
-    if(kIOReturnSuccess != res || response[kAVCCommandResponse] != kAVCImplementedStatus)
+
+	if(kIOReturnSuccess != res || response[kAVCCommandResponse] != kAVCImplementedStatus)
         type = kAVCVideoCamera;	// Anything that doesn't implement AVC properly is probably a camcorder!
     else
         type = IOAVCType(response[kAVCOperand1]);
-	
+
     // Copy over matching properties from FireWire Unit
     prop = provider->getProperty(gFireWireVendor_ID);
     if(prop)

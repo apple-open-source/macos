@@ -1,0 +1,109 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<!DOCTYPE ejb-jar PUBLIC 
+      "-//Sun Microsystems, Inc.//DTD Enterprise JavaBeans 1.1//EN" 
+      "http://java.sun.com/j2ee/dtds/ejb-jar_1_1.dtd">
+
+
+<ejb-jar>
+     <description>jBoss test application </description>
+     <display-name>Test</display-name>
+     <enterprise-beans>
+       <session>
+	 <ejb-name>Teller</ejb-name>
+	 <home>org.jboss.test.bankiiop.interfaces.TellerHome</home>
+	 <remote>org.jboss.test.bankiiop.interfaces.Teller</remote>
+	 <ejb-class>org.jboss.test.bankiiop.ejb.TellerBean</ejb-class>
+	 <session-type>Stateless</session-type>
+	 <transaction-type>Bean</transaction-type>
+	 <ejb-ref>
+	   <ejb-ref-name>ejb/Bank</ejb-ref-name>
+	   <ejb-ref-type>Session</ejb-ref-type>
+	   <home>org.jboss.test.bankiiop.interfaces.BankHome</home>
+	   <remote>org.jboss.test.bankiiop.interfaces.Bank</remote>
+	 </ejb-ref>
+	 <ejb-ref>
+	   <ejb-ref-name>ejb/Account</ejb-ref-name>
+	   <ejb-ref-type>Entity</ejb-ref-type>
+	   <home>org.jboss.test.bankiiop.interfaces.AccountHome</home>
+	   <remote>org.jboss.test.bankiiop.interfaces.Account</remote>
+	 </ejb-ref>
+	 <ejb-ref>
+	   <ejb-ref-name>ejb/Customer</ejb-ref-name>
+	   <ejb-ref-type>Entity</ejb-ref-type>
+	   <home>org.jboss.test.bankiiop.interfaces.CustomerHome</home>
+	   <remote>org.jboss.test.bankiiop.interfaces.Customer</remote>
+	 </ejb-ref>
+       </session>
+       <session>
+	 <ejb-name>Bank</ejb-name>
+	 <home>org.jboss.test.bankiiop.interfaces.BankHome</home>
+	 <remote>org.jboss.test.bankiiop.interfaces.Bank</remote>
+	 <ejb-class>org.jboss.test.bankiiop.ejb.BankBean</ejb-class>
+	 <session-type>Stateless</session-type>
+	 <transaction-type>Bean</transaction-type>
+	 <env-entry>
+	   <env-entry-name>id</env-entry-name>
+	   <env-entry-type>java.lang.String</env-entry-type>
+	   <env-entry-value>5678</env-entry-value>
+	 </env-entry>
+       </session>
+       <entity>
+	 <display-name>Customer EJB</display-name>
+	 <ejb-name>Customer</ejb-name>
+	 <home>org.jboss.test.bankiiop.interfaces.CustomerHome</home>
+	 <remote>org.jboss.test.bankiiop.interfaces.Customer</remote>
+	 <ejb-class>org.jboss.test.bankiiop.ejb.CustomerBean</ejb-class>
+	 <persistence-type>Container</persistence-type>
+	 <prim-key-class>org.jboss.test.bankiiop.interfaces.CustomerPK</prim-key-class>
+	 <reentrant>True</reentrant>
+	 <cmp-field>
+	   <description>Customer Id</description>
+	   <field-name>id</field-name>
+	 </cmp-field>
+	 <cmp-field>
+	   <description>Customer name</description>
+	   <field-name>name</field-name>
+	 </cmp-field>
+	 <cmp-field>
+	   <description>Accounts</description>
+	   <field-name>accounts</field-name>
+	 </cmp-field>
+	 <ejb-ref>
+	   <ejb-ref-name>ejb/Account</ejb-ref-name>
+	   <ejb-ref-type>Entity</ejb-ref-type>
+	   <home>org.jboss.test.bankiiop.interfaces.AccountHome</home>
+	   <remote>org.jboss.test.bankiiop.interfaces.Account</remote>
+	 </ejb-ref>
+       </entity>
+       <entity>
+	 <display-name>Account EJB</display-name>
+	 <ejb-name>Account</ejb-name>
+	 <home>org.jboss.test.bankiiop.interfaces.AccountHome</home>
+	 <remote>org.jboss.test.bankiiop.interfaces.Account</remote>
+	 <ejb-class>org.jboss.test.bankiiop.ejb.AccountBeanCMP</ejb-class>
+	 <persistence-type>Container</persistence-type>
+	 <prim-key-class>java.lang.String</prim-key-class>
+	 <reentrant>True</reentrant>
+	 <cmp-field>
+	   <description>Account Id</description>
+	   <field-name>id</field-name>
+	 </cmp-field>
+	 <cmp-field>
+	   <description>Account owner name</description>
+	   <field-name>owner</field-name>
+	 </cmp-field>
+	 <cmp-field>
+	   <description>Account balance</description>
+	   <field-name>balance</field-name>
+	 </cmp-field>
+	 <primkey-field>id</primkey-field>
+	 <ejb-ref>
+	   <ejb-ref-name>ejb/Customer</ejb-ref-name>
+	   <ejb-ref-type>Entity</ejb-ref-type>
+	   <home>org.jboss.test.bankiiop.interfaces.CustomerHome</home>
+	   <remote>org.jboss.test.bankiiop.interfaces.Customer</remote>
+	 </ejb-ref>
+       </entity>
+     </enterprise-beans>
+   </ejb-jar>

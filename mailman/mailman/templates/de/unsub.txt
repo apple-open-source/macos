@@ -1,0 +1,27 @@
+Bitte um Rückbestätigung der Abbestellung der Mailing-Liste %(listname)s
+
+Wir haben eine Anfrage erhalten Ihre Email-Adresse
+"%(email)s" von der Mailingliste %(listaddr)s zu streichen.
+
+Wenn Sie Ihre e-mail-Adresse wirklich streichen lassen wollen, müssen Sie
+das bestätigen. Antworten Sie bitte in diesem Falle einfach auf diese Email, 
+wobei der angehängte Code im Betreff/Subject intakt bleiben muss.
+
+Wenn Sie sich *nicht* austragen lassen wollen, so ignorieren Sie diese
+Anfrage einfach. Sie bleiben dann Mitglied der Liste.
+
+Alternativ koennen Sie zur Bestätigung auch die Web-Seite:
+
+    %(confirmurl)s
+
+besuchen. EIne weiter Moeglichkeit besteht darin, die folgende Zeile (UND
+NUR die folgende Zeile!!) an %(requestaddr)s zu schicken:
+
+    confirm %(cookie)s
+
+Normalerweise reicht eine einfache Antwort aus diese e-mail voellig aus.
+Fügt Ihre Mailsoftware bei einer Antwort ein "Re:" oder "AW:" vor 
+den Betreff ein, so ist das übrigens kein Problem.
+
+Wenn Sie meinen, ungefragterweise auf diese Liste geraten zu sein
+oder andere Fragen haben, schicken Sie diese bitte an %(listadmin)s.

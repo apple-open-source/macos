@@ -1,7 +1,7 @@
 /* back-ldap.h - ldap backend header file */
-/* $OpenLDAP: pkg/ldap/servers/slapd/back-ldap/back-ldap.h,v 1.17 2002/01/14 00:43:21 hyc Exp $ */
+/* $OpenLDAP: pkg/ldap/servers/slapd/back-ldap/back-ldap.h,v 1.17.2.2 2003/02/09 16:31:38 kurt Exp $ */
 /*
- * Copyright 1998-2002 The OpenLDAP Foundation, All Rights Reserved.
+ * Copyright 1998-2003 The OpenLDAP Foundation, All Rights Reserved.
  * COPYING RESTRICTIONS APPLY, see COPYRIGHT file
  */
 /* This is an altered version */
@@ -53,6 +53,7 @@ struct slap_op;
 struct ldapconn {
 	struct slap_conn	*conn;
 	LDAP		*ld;
+	struct berval	cred;
 	struct berval 	bound_dn;
 	int		bound;
 };
@@ -74,11 +75,12 @@ struct ldapinfo {
 	char *binddn;
 	char *bindpw;
 	ldap_pvt_thread_mutex_t		conn_mutex;
+	int savecred;
 	Avlnode *conntree;
 #ifdef ENABLE_REWRITE
 	struct rewrite_info *rwinfo;
 #else /* !ENABLE_REWRITE */
-	struct berval **suffix_massage;
+	BerVarray suffix_massage;
 #endif /* !ENABLE_REWRITE */
 
 	struct ldapmap oc_map;
@@ -104,6 +106,8 @@ int mapping_dup (void *, void *);
 void ldap_back_map_init ( struct ldapmap *lm, struct ldapmapping ** );
 void ldap_back_map ( struct ldapmap *map, struct berval *s, struct berval *m,
 	int remap );
+#define BACKLDAP_MAP	0
+#define BACKLDAP_REMAP	1
 char *
 ldap_back_map_filter(
 		struct ldapmap *at_map,
@@ -118,13 +122,15 @@ ldap_back_map_attrs(
 		int remap
 );
 
-extern void mapping_free ( struct ldapmapping *mapping );
+extern void mapping_free ( void *mapping );
 
 #ifdef ENABLE_REWRITE
-extern int suffix_massage_config( struct rewrite_info *info, int argc, char **argv );
+extern int suffix_massage_config( struct rewrite_info *info,
+		struct berval *pvnc, struct berval *nvnc,
+		struct berval *prnc, struct berval *nrnc);
 extern int ldap_dnattr_rewrite( struct rewrite_info *rwinfo, BerVarray a_vals, void *cookie );
 #endif /* ENABLE_REWRITE */
 
 LDAP_END_DECL
 
-#endif
+#endif /* SLAPD_LDAP_H */

@@ -1,7 +1,0 @@
-#!/bin/sh -e
-
-for patch in debian/patches/*.patch; do
-	patch -p1 < $patch
-done
-
-exit 0

@@ -37,7 +37,7 @@
  * SUCH DAMAGE.
  *
  *
- * $Id: ops_TEMPLATE.c,v 1.1.1.1 2002/05/15 01:21:56 jkh Exp $
+ * $Id: ops_TEMPLATE.c,v 1.1.1.2 2002/07/15 19:42:38 zarzycki Exp $
  *
  */
 
@@ -90,7 +90,9 @@ am_ops foofs_ops =
   foofs_umounted,		/* after-umount extra actions */
   foofs_ffserver,		/* find a file server */
   FS_MKMNT | FS_BACKGROUND | FS_AMQINFO,	/* nfs_fs_flags */
-  FS_MKMNT | FS_BACKGROUND | FS_AMQINFO		/* autofs_fs_flags */
+#ifdef HAVE_FS_AUTOFS
+  AUTOFS_TEMPLATE_FS_FLAGS,
+#endif /* HAVE_FS_AUTOFS */
 };
 
 

@@ -1,9 +1,11 @@
-.TH LDAP_ERROR 3 "23 July 2001" "OpenLDAP LDVERSION"
-.\" $OpenLDAP: pkg/ldap/doc/man/man3/ldap_error.3,v 1.10 2002/01/04 20:17:34 kurt Exp $
-.\" Copyright 1998-2002 The OpenLDAP Foundation All Rights Reserved.
+.TH LDAP_ERROR 3 "RELEASEDATE" "OpenLDAP LDVERSION"
+.\" $OpenLDAP: pkg/ldap/doc/man/man3/ldap_error.3,v 1.10.2.5 2003/03/03 17:10:02 kurt Exp $
+.\" Copyright 1998-2003 The OpenLDAP Foundation All Rights Reserved.
 .\" Copying restrictions apply.  See COPYRIGHT/LICENSE.
 .SH NAME
 ldap_perror, ld_errno, ldap_result2error, ldap_errlist, ldap_err2string \- LDAP protocol error handling routines
+.SH LIBRARY
+OpenLDAP LDAP (libldap, -lldap)
 .SH SYNOPSIS
 .nf
 .ft B
@@ -193,16 +195,15 @@ An invalid filter was supplied to ldap_search() (e.g., unbalanced
 parentheses).
 .TP
 .SM LDAP_PARAM_ERROR
-An ldap routine was called with a bad parameter (e.g., a NULL ld
-pointer, etc.).
+An ldap routine was called with a bad parameter.
 .TP
 .SM LDAP_NO_MEMORY
 An memory allocation (e.g., malloc(3) or other dynamic memory
 allocator) call failed in an ldap
 library routine.
 .SH SEE ALSO
-.BR ldap(3),
-.BR perror(3)
+.BR ldap (3),
+.BR perror (3)
 .SH ACKNOWLEDGEMENTS
 .B	OpenLDAP
 is developed and maintained by The OpenLDAP Project (http://www.openldap.org/).

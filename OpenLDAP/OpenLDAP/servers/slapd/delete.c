@@ -1,6 +1,6 @@
-/* $OpenLDAP: pkg/ldap/servers/slapd/delete.c,v 1.69 2002/01/14 00:43:19 hyc Exp $ */
+/* $OpenLDAP: pkg/ldap/servers/slapd/delete.c,v 1.69.2.9 2003/04/17 22:49:05 ando Exp $ */
 /*
- * Copyright 1998-2002 The OpenLDAP Foundation, All Rights Reserved.
+ * Copyright 1998-2003 The OpenLDAP Foundation, All Rights Reserved.
  * COPYING RESTRICTIONS APPLY, see COPYRIGHT file
  */
 /*
@@ -25,6 +25,10 @@
 #include "ldap_pvt.h"
 #include "slap.h"
 
+#ifdef LDAP_SLAPI
+#include "slapi.h"
+#endif
+
 int
 do_delete(
     Connection	*conn,
@@ -39,9 +43,13 @@ do_delete(
 	int rc;
 	int manageDSAit;
 
+#ifdef LDAP_SLAPI
+	Slapi_PBlock *pb = op->o_pb;
+#endif
+
 #ifdef NEW_LOGGING
-	LDAP_LOG(( "operation", LDAP_LEVEL_ENTRY,
-		"do_delete: conn %d\n", conn->c_connid ));
+	LDAP_LOG( OPERATION, ENTRY, 
+		"do_delete: conn %d\n", conn->c_connid, 0, 0 );
 #else
 	Debug( LDAP_DEBUG_TRACE, "do_delete\n", 0, 0, 0 );
 #endif
@@ -54,8 +62,8 @@ do_delete(
 
 	if ( ber_scanf( op->o_ber, "m", &dn ) == LBER_ERROR ) {
 #ifdef NEW_LOGGING
-		LDAP_LOG(( "operation", LDAP_LEVEL_ERR,
-			"do_delete: conn: %d  ber_scanf failed\n", conn->c_connid ));
+		LDAP_LOG( OPERATION, ERR, 
+			"do_delete: conn: %d  ber_scanf failed\n", conn->c_connid, 0, 0 );
 #else
 		Debug( LDAP_DEBUG_ANY, "ber_scanf failed\n", 0, 0, 0 );
 #endif
@@ -66,8 +74,8 @@ do_delete(
 
 	if( ( rc = get_ctrls( conn, op, 1 ) ) != LDAP_SUCCESS ) {
 #ifdef NEW_LOGGING
-		LDAP_LOG(( "oepration", LDAP_LEVEL_ERR,
-			"do_delete: conn %d  get_ctrls failed\n", conn->c_connid ));
+		LDAP_LOG( OPERATION, ERR, 
+			"do_delete: conn %d  get_ctrls failed\n", conn->c_connid, 0, 0 );
 #else
 		Debug( LDAP_DEBUG_ANY, "do_delete: get_ctrls failed\n", 0, 0, 0 );
 #endif
@@ -77,9 +85,9 @@ do_delete(
 	rc = dnPrettyNormal( NULL, &dn, &pdn, &ndn );
 	if( rc != LDAP_SUCCESS ) {
 #ifdef NEW_LOGGING
-		LDAP_LOG(( "operation", LDAP_LEVEL_INFO,
+		LDAP_LOG( OPERATION, INFO, 
 			"do_delete: conn %d  invalid dn (%s)\n",
-			conn->c_connid, dn.bv_val ));
+			conn->c_connid, dn.bv_val, 0 );
 #else
 		Debug( LDAP_DEBUG_ANY,
 			"do_delete: invalid dn (%s)\n", dn.bv_val, 0, 0 );
@@ -91,8 +99,9 @@ do_delete(
 
 	if( ndn.bv_len == 0 ) {
 #ifdef NEW_LOGGING
-		LDAP_LOG(( "operation", LDAP_LEVEL_INFO, "do_delete: conn %d: "
-			"Attempt to delete root DSE.\n", conn->c_connid ));
+		LDAP_LOG( OPERATION, INFO, 
+			"do_delete: conn %d: Attempt to delete root DSE.\n", 
+			conn->c_connid, 0, 0 );
 #else
 		Debug( LDAP_DEBUG_ANY, "do_delete: root dse!\n", 0, 0, 0 );
 #endif
@@ -101,12 +110,10 @@ do_delete(
 			NULL, "cannot delete the root DSE", NULL, NULL );
 		goto cleanup;
 
-#ifdef SLAPD_SCHEMA_DN
-
-	} else if ( strcasecmp( ndn.bv_val, SLAPD_SCHEMA_DN ) == 0 ) {
+	} else if ( bvmatch( &ndn, &global_schemandn ) ) {
 #ifdef NEW_LOGGING
-		LDAP_LOG(( "operation", LDAP_LEVEL_INFO, "do_delete: conn %d: "
-			"Attempt to delete subschema subentry.\n", conn->c_connid ));
+		LDAP_LOG( OPERATION, INFO, "do_delete: conn %d: "
+			"Attempt to delete subschema subentry.\n", conn->c_connid, 0, 0 );
 #else
 		Debug( LDAP_DEBUG_ANY, "do_delete: subschema subentry!\n", 0, 0, 0 );
 #endif
@@ -114,11 +121,9 @@ do_delete(
 		send_ldap_result( conn, op, rc = LDAP_UNWILLING_TO_PERFORM,
 			NULL, "cannot delete the root DSE", NULL, NULL );
 		goto cleanup;
-
-#endif
 	}
 
-	Statslog( LDAP_DEBUG_STATS, "conn=%ld op=%d DEL dn=\"%s\"\n",
+	Statslog( LDAP_DEBUG_STATS, "conn=%lu op=%lu DEL dn=\"%s\"\n",
 		op->o_connid, op->o_opid, pdn.bv_val, 0, 0 );
 
 	manageDSAit = get_manageDSAit( op );
@@ -132,10 +137,17 @@ do_delete(
 		BerVarray ref = referral_rewrite( default_referral,
 			NULL, &pdn, LDAP_SCOPE_DEFAULT );
 
-		send_ldap_result( conn, op, rc = LDAP_REFERRAL,
-			NULL, NULL, ref ? ref : default_referral, NULL );
+		if ( ref == NULL ) ref = default_referral;
+		if ( ref != NULL ) {
+			send_ldap_result( conn, op, rc = LDAP_REFERRAL,
+			NULL, NULL, ref, NULL );
 
-		ber_bvarray_free( ref );
+			if ( ref != default_referral ) ber_bvarray_free( ref );
+		} else {
+			send_ldap_result( conn, op,
+					rc = LDAP_UNWILLING_TO_PERFORM,
+					NULL, "referral missing", NULL, NULL );
+		}
 		goto cleanup;
 	}
 
@@ -153,8 +165,31 @@ do_delete(
 		goto cleanup;
 	}
 
-	/* deref suffix alias if appropriate */
-	suffix_alias( be, &ndn );
+#if defined( LDAP_SLAPI )
+	slapi_x_backend_set_pb( pb, be );
+	slapi_x_connection_set_pb( pb, conn );
+	slapi_x_operation_set_pb( pb, op );
+	slapi_pblock_set( pb, SLAPI_DELETE_TARGET, (void *)dn.bv_val );
+	slapi_pblock_set( pb, SLAPI_MANAGEDSAIT, (void *)manageDSAit );
+
+	rc = doPluginFNs( be, SLAPI_PLUGIN_PRE_DELETE_FN, pb );
+	if ( rc != 0 ) {
+		/*
+		 * A preoperation plugin failure will abort the
+		 * entire operation.
+		 */
+#ifdef NEW_LOGGING
+		LDAP_LOG( OPERATION, INFO, "do_delete: delete preoperation plugin "
+				"failed\n", 0, 0, 0 );
+#else
+		Debug (LDAP_DEBUG_TRACE, "do_delete: delete preoperation plugin failed.\n",
+				0, 0, 0);
+#endif
+		if ( slapi_pblock_get( pb, SLAPI_RESULT_CODE, (void *)&rc ) != 0 )
+			rc = LDAP_OTHER;
+		goto cleanup;
+	}
+#endif /* defined( LDAP_SLAPI ) */
 
 	/*
 	 * do the delete if 1 && (2 || 3)
@@ -181,20 +216,41 @@ do_delete(
 		} else {
 			BerVarray defref = be->be_update_refs
 				? be->be_update_refs : default_referral;
-			BerVarray ref = referral_rewrite( default_referral,
-				NULL, &pdn, LDAP_SCOPE_DEFAULT );
+			if ( defref != NULL ) {
+				BerVarray ref = referral_rewrite( defref,
+					NULL, &pdn, LDAP_SCOPE_DEFAULT );
 
-			send_ldap_result( conn, op, rc = LDAP_REFERRAL, NULL, NULL,
-				ref ? ref : defref, NULL );
+				send_ldap_result( conn, op, rc = LDAP_REFERRAL,
+						NULL, NULL,
+						ref ? ref : defref, NULL );
 
-			ber_bvarray_free( ref );
+				ber_bvarray_free( ref );
+			} else {
+				send_ldap_result( conn, op,
+						rc = LDAP_UNWILLING_TO_PERFORM,
+						NULL, "referral missing",
+						NULL, NULL );
+			}
 #endif
 		}
 
 	} else {
 		send_ldap_result( conn, op, rc = LDAP_UNWILLING_TO_PERFORM,
-			NULL, "operation not supported within namingContext", NULL, NULL );
+			NULL, "operation not supported within namingContext",
+			NULL, NULL );
 	}
+
+#if defined( LDAP_SLAPI )
+	if ( doPluginFNs( be, SLAPI_PLUGIN_POST_DELETE_FN, pb ) != 0) {
+#ifdef NEW_LOGGING
+		LDAP_LOG( OPERATION, INFO, "do_delete: delete postoperation plugins "
+				"failed\n", 0, 0, 0 );
+#else
+		Debug(LDAP_DEBUG_TRACE, "do_delete: delete postoperation plugins "
+				"failed.\n", 0, 0, 0);
+#endif
+	}
+#endif /* defined( LDAP_SLAPI ) */
 
 cleanup:
 	free( pdn.bv_val );

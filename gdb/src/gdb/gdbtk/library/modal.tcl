@@ -23,7 +23,7 @@
 #
 # ----------------------------------------------------------------------
 
-class ModalDialog {
+itcl::class ModalDialog {
   # This is the variable we vwait on when the dialog is posted.  
   # It is set to 1 in the unpost method, and to -1 in the destructor.
   

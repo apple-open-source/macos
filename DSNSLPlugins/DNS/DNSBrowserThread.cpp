@@ -1,24 +1,47 @@
 /*
- *  DNSBrowserThread.cpp
- *  DSNSLPlugins
+ * Copyright (c) 2002 Apple Computer, Inc. All rights reserved.
  *
- *  Created by Kevin Arnold on Tue Feb 26 2002.
- *  Copyright (c) 2002 Apple Computer. All rights reserved.
- *
+ * @APPLE_LICENSE_HEADER_START@
+ * 
+ * Copyright (c) 1999-2003 Apple Computer, Inc.  All Rights Reserved.
+ * 
+ * This file contains Original Code and/or Modifications of Original Code
+ * as defined in and that are subject to the Apple Public Source License
+ * Version 2.0 (the 'License'). You may not use this file except in
+ * compliance with the License. Please obtain a copy of the License at
+ * http://www.opensource.apple.com/apsl/ and read it before using this
+ * file.
+ * 
+ * The Original Code and all software distributed under the License are
+ * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
+ * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
+ * INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY,
+ * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
+ * Please see the License for the specific language governing rights and
+ * limitations under the License.
+ * 
+ * @APPLE_LICENSE_HEADER_END@
  */
-
-/*
-    Currently, we are going to have this thread just monitor the local. domain (local) and keep track of things that are
-    registered or not.
-*/
+ 
+/*!
+ *  @header DNSBrowserThread
+ *  Currently, we are going to have this thread just monitor the local. domain (local) and keep track of things that are
+ *  registered or not.
+ */
+ 
 #include "mDNSPlugin.h"
 #include "DNSBrowserThread.h"
+#include "CNSLTimingUtils.h"
+
+const CFStringRef	kDNSBrowserThreadSAFE_CFSTR = CFSTR("DNSBrowserThread");
+const CFStringRef	kCDNSNotifierCopyDesctriptionCallbackSAFE_CFSTR = CFSTR("CDNSNotifierCopyDesctriptionCallback");
+
 static void BrowserCallBack(CFNetServiceBrowserRef browser, CFOptionFlags flags, CFTypeRef domainOrEntity, CFStreamError* error, void* info);
-CFStringRef CopyBrowserDescription( void* info );
+CFStringRef CopyBrowserDescription( const void* info );
 
 CFStringRef CDNSNotifierCopyDesctriptionCallback( const void *item )
 {
-    return CFSTR("Blah");
+    return kCDNSNotifierCopyDesctriptionCallbackSAFE_CFSTR;
 }
 
 Boolean CDNSNotifierEqualCallback( const void *item1, const void *item2 )
@@ -35,7 +58,6 @@ void CancelBrowse(CFRunLoopTimerRef timer, void *info)
 }
 
 DNSBrowserThread::DNSBrowserThread( mDNSPlugin* parentPlugin )
-//    : DSLThread()
 {
     mParentPlugin = parentPlugin;
     mRunLoopRef = 0;
@@ -51,6 +73,7 @@ DNSBrowserThread::~DNSBrowserThread()
 
 	if ( mDomainSearchingBrowserRef )
 	{
+		CFNetServiceBrowserUnscheduleFromRunLoop( mDomainSearchingBrowserRef, mRunLoopRef, kCFRunLoopDefaultMode );
 		CFNetServiceBrowserInvalidate( mDomainSearchingBrowserRef );
 		CFRelease( mDomainSearchingBrowserRef );
 		mDomainSearchingBrowserRef = NULL;
@@ -58,6 +81,7 @@ DNSBrowserThread::~DNSBrowserThread()
 
 	if ( mLocalDomainSearchingBrowserRef )
 	{
+		CFNetServiceBrowserUnscheduleFromRunLoop( mLocalDomainSearchingBrowserRef, mRunLoopRef, kCFRunLoopDefaultMode );
 		CFNetServiceBrowserInvalidate( mLocalDomainSearchingBrowserRef );
 		CFRelease( mLocalDomainSearchingBrowserRef );
 		mLocalDomainSearchingBrowserRef = NULL;
@@ -70,6 +94,7 @@ void DNSBrowserThread::Cancel( void )
     
 	if ( mDomainSearchingBrowserRef )
 	{
+		CFNetServiceBrowserUnscheduleFromRunLoop( mDomainSearchingBrowserRef, mRunLoopRef, kCFRunLoopDefaultMode );
 		CFNetServiceBrowserInvalidate( mDomainSearchingBrowserRef );
 		CFRelease( mDomainSearchingBrowserRef );
 		mDomainSearchingBrowserRef = NULL;
@@ -77,15 +102,11 @@ void DNSBrowserThread::Cancel( void )
 
 	if ( mLocalDomainSearchingBrowserRef )
 	{
+		CFNetServiceBrowserUnscheduleFromRunLoop( mLocalDomainSearchingBrowserRef, mRunLoopRef, kCFRunLoopDefaultMode );
 		CFNetServiceBrowserInvalidate( mLocalDomainSearchingBrowserRef );
 		CFRelease( mLocalDomainSearchingBrowserRef );
 		mLocalDomainSearchingBrowserRef = NULL;
 	}
-
-/*    if ( mRunLoopRef )
-        CFRunLoopStop( mRunLoopRef );
-	mRunLoopRef = NULL;
-*/
 }
 
 void DNSBrowserThread::Initialize( CFRunLoopRef idleRunLoopRef )
@@ -101,24 +122,6 @@ void DNSBrowserThread::Initialize( CFRunLoopRef idleRunLoopRef )
 	mRunLoopRef = idleRunLoopRef;
 }
 
-/*
-void* DNSBrowserThread::Resume( void )
-{
-    // We just want to set up and do a CFRunLoop
-    DBGLOG("DNSBrowserThread::Run called, just going to start up a CFRunLoop\n" );
-    mRunLoopRef = CFRunLoopGetCurrent();
-    
-    CFRunLoopTimerContext 	c = {0, this, NULL, NULL, NULL};
-    CFRunLoopTimerRef 			timer = CFRunLoopTimerCreate(NULL, 1.0e20, 0, 0, 0, CancelBrowse, (CFRunLoopTimerContext*)&c);
-    CFRunLoopAddTimer(mRunLoopRef, timer, kCFRunLoopDefaultMode);
-    
-    CFRunLoopRun();
-    
-    DBGLOG("DNSBrowserThread::Run, CFRunLoop finished - exiting thread\n" );
-    
-    return NULL;
-}
-*/
 sInt32 DNSBrowserThread::StartNodeLookups( Boolean onlyLookForRegistrationDomains )
 {
     sInt32				siResult			= eDSNoErr;
@@ -129,22 +132,24 @@ sInt32 DNSBrowserThread::StartNodeLookups( Boolean onlyLookForRegistrationDomain
         if ( mCanceled )
             return siResult;
             
-        usleep(100000);
+        SmartSleep(100000);
     }
     
 	if ( mLocalDomainSearchingBrowserRef && onlyLookForRegistrationDomains )
 	{
+		CFNetServiceBrowserUnscheduleFromRunLoop( mLocalDomainSearchingBrowserRef, mRunLoopRef, kCFRunLoopDefaultMode );
 		CFNetServiceBrowserInvalidate( mLocalDomainSearchingBrowserRef );
 		CFRelease( mLocalDomainSearchingBrowserRef );
 		mLocalDomainSearchingBrowserRef = NULL;
 	}
 	else if ( mDomainSearchingBrowserRef && !onlyLookForRegistrationDomains )
 	{
+		CFNetServiceBrowserUnscheduleFromRunLoop( mDomainSearchingBrowserRef, mRunLoopRef, kCFRunLoopDefaultMode );
 		CFNetServiceBrowserInvalidate( mDomainSearchingBrowserRef );
 		CFRelease( mDomainSearchingBrowserRef );
 		mDomainSearchingBrowserRef = NULL;
 	}
-	
+		
     CFStreamError 				error = {(CFStreamErrorDomain)0, 0};
     CFNetServiceClientContext 	c = {0, this, NULL, NULL, CopyBrowserDescription};
     CFNetServiceBrowserRef 		searchingBrowser = CFNetServiceBrowserCreate(NULL, BrowserCallBack, &c);
@@ -162,9 +167,11 @@ sInt32 DNSBrowserThread::StartNodeLookups( Boolean onlyLookForRegistrationDomain
 		
 		if (error.error)
 		{
-			DBGLOG( "mDNSServiceLookupThread::StartServiceLookup, CFNetServiceBrowserSearchForDomains returned (%d, %ld)\n", error.domain, error.error);
+			DBGLOG( "mDNSServiceLookupThread::StartNodeLookups, CFNetServiceBrowserSearchForDomains returned (%d, %ld)\n", error.domain, error.error);
 			siResult = error.error;
 		}
+		else
+			DBGLOG( "mDNSServiceLookupThread::StartNodeLookups, CFNetServiceBrowserSearchForDomains returned status ok\n");		
     }
 	
     return siResult;
@@ -184,15 +191,12 @@ sInt32 DNSBrowserThread::StartServiceLookup( CFStringRef domain, CFStringRef ser
     while (!mRunLoopRef)
     {
         DBGLOG("StartServiceLookup, waiting for mRunLoopRef\n");
-        usleep(500000);
+        SmartSleep(500000);
     }
         
     CFStreamError 				error = {(CFStreamErrorDomain)0, 0};
     CFNetServiceClientContext 	c = {0, this, NULL, NULL, CopyBrowserDescription};
-//    CFRunLoopTimerRef 			timer = CFRunLoopTimerCreate(NULL, CFAbsoluteTimeGetCurrent() + 10, 0, 0, 0, CancelBrowse, (CFRunLoopTimerContext*)&c);
     CFNetServiceBrowserRef 		searchingBrowser = CFNetServiceBrowserCreate(NULL, BrowserCallBack, &c);
-    
-//    CFArrayAppendValue( mListOfSearches, searchingBrowser );
 
     DBGLOG("Run StartServiceLookup called, searchingBrowser:%ld, mRunLoopRef:%ld\n", (UInt32)searchingBrowser, (UInt32)mRunLoopRef );
     CFNetServiceBrowserScheduleWithRunLoop(searchingBrowser, mRunLoopRef, kCFRunLoopDefaultMode);
@@ -200,8 +204,6 @@ sInt32 DNSBrowserThread::StartServiceLookup( CFStringRef domain, CFStringRef ser
     DBGLOG("Run StartServiceLookup calling, CFNetServiceBrowserSearchForServices\n" );
     CFNetServiceBrowserSearchForServices(searchingBrowser, domain, serviceType, &error);
     DBGLOG("Run StartServiceLookup returning from CFNetServiceBrowserSearchForServices\n" );
-    
-//    CFRunLoopAddTimer(mRunLoopRef, timer, kCFRunLoopDefaultMode);
     
     if (error.error)
     {
@@ -229,7 +231,7 @@ static void BrowserCallBack(CFNetServiceBrowserRef browser, CFOptionFlags flags,
         {
             if ( CFGetTypeID(domainOrEntity) == CFStringGetTypeID() )
             {
-                if ( CFStringHasSuffix( (CFStringRef)domainOrEntity, CFSTR(".") ) )
+                if ( CFStringHasSuffix( (CFStringRef)domainOrEntity, kDotSAFE_CFSTR ) )
                 {
                     CFMutableStringRef	modifiedStringRef = CFStringCreateMutableCopy( NULL, 0, (CFStringRef)domainOrEntity );
                     CFStringDelete( modifiedStringRef, CFRangeMake(CFStringGetLength(modifiedStringRef)-1, 1) );
@@ -256,7 +258,7 @@ static void BrowserCallBack(CFNetServiceBrowserRef browser, CFOptionFlags flags,
         {
             if ( CFGetTypeID(domainOrEntity) == CFStringGetTypeID() )
             {
-                if ( CFStringHasSuffix( (CFStringRef)domainOrEntity, CFSTR(".") ) )
+                if ( CFStringHasSuffix( (CFStringRef)domainOrEntity, kDotSAFE_CFSTR ) )
                 {
                     CFMutableStringRef	modifiedStringRef = CFStringCreateMutableCopy( NULL, 0, (CFStringRef)domainOrEntity );
                     CFStringDelete( modifiedStringRef, CFRangeMake(CFStringGetLength(modifiedStringRef)-1, 1) );
@@ -298,18 +300,14 @@ static void BrowserCallBack(CFNetServiceBrowserRef browser, CFOptionFlags flags,
         if ( !(flags & kCFNetServiceFlagMoreComing) )
         {
             // this search is done as far as our clients are concerned...
-
         }
     }
 }
 
-CFStringRef CopyBrowserDescription( void* info )
+CFStringRef CopyBrowserDescription( const void* info )
 {
-//    DNSBrowserThread*	browserThread = (DNSBrowserThread*)info;
     DBGLOG( "CopyBrowserDescription called\n" );
     
-    CFStringRef		description = CFStringCreateCopy( NULL, CFSTR("DNSBrowserThread") );
+    CFStringRef		description = CFStringCreateCopy( NULL, kDNSBrowserThreadSAFE_CFSTR );
     return description;
 }
-
-

@@ -3,19 +3,22 @@
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
- * The contents of this file constitute Original Code as defined in and
- * are subject to the Apple Public Source License Version 1.1 (the
- * "License").  You may not use this file except in compliance with the
- * License.  Please obtain a copy of the License at
- * http://www.apple.com/publicsource and read it before using this file.
+ * Copyright (c) 1999-2003 Apple Computer, Inc.  All Rights Reserved.
  * 
- * This Original Code and all software distributed under the License are
- * distributed on an "AS IS" basis, WITHOUT WARRANTY OF ANY KIND, EITHER
+ * This file contains Original Code and/or Modifications of Original Code
+ * as defined in and that are subject to the Apple Public Source License
+ * Version 2.0 (the 'License'). You may not use this file except in
+ * compliance with the License. Please obtain a copy of the License at
+ * http://www.opensource.apple.com/apsl/ and read it before using this
+ * file.
+ * 
+ * The Original Code and all software distributed under the License are
+ * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
  * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
  * INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY,
- * FITNESS FOR A PARTICULAR PURPOSE OR NON-INFRINGEMENT.  Please see the
- * License for the specific language governing rights and limitations
- * under the License.
+ * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
+ * Please see the License for the specific language governing rights and
+ * limitations under the License.
  * 
  * @APPLE_LICENSE_HEADER_END@
  */
@@ -148,8 +151,10 @@ struct fatcache {
  * Set a slot in the fat cache.
  */
 #define	fc_setcache(dep, slot, frcn, fsrcn) \
+        do { \
 	(dep)->de_fc[slot].fc_frcn = frcn; \
-	(dep)->de_fc[slot].fc_fsrcn = fsrcn;
+	(dep)->de_fc[slot].fc_fsrcn = fsrcn; \
+        } while(0)
 
 /*
  * This is the in memory variant of a dos directory entry.  It is usually
@@ -230,6 +235,18 @@ struct denode {
 	 putulong((dp)->deFileSize,			\
 	     ((dep)->de_Attributes & ATTR_DIRECTORY) ? 0 : (dep)->de_FileSize), \
 	 putushort((dp)->deHighClust, (dep)->de_StartCluster >> 16))
+
+/*
+ * DE_EXTERNALIZE_ROOT is used to write the root directory's dates to the
+ * volume label entry (if any).
+ */
+#define DE_EXTERNALIZE_ROOT(dp, dep)				\
+	((dp)->deCHundredth = (dep)->de_CHun,		\
+	 putushort((dp)->deCTime, (dep)->de_CTime),	\
+	 putushort((dp)->deCDate, (dep)->de_CDate),	\
+	 putushort((dp)->deADate, (dep)->de_ADate),	\
+	 putushort((dp)->deMTime, (dep)->de_MTime),	\
+	 putushort((dp)->deMDate, (dep)->de_MDate))
 
 #define	de_forw		de_chain[0]
 #define	de_back		de_chain[1]
@@ -321,4 +338,6 @@ int deupdat __P((struct denode *dep, int waitfor));
 int removede __P((struct denode *pdep, struct denode *dep));
 int detrunc __P((struct denode *dep, u_long length, int flags, struct ucred *cred, struct proc *p));
 int doscheckpath __P(( struct denode *source, struct denode *target));
+int findslots __P((struct denode *dep, struct componentname *cnp));
+u_long defileid(struct denode *dep);
 #endif	/* KERNEL */

@@ -1,8 +1,10 @@
-dnl $Id: config.m4,v 1.1.1.2 2001/12/14 22:13:41 zarzycki Exp $
+dnl
+dnl $Id: config.m4,v 1.1.1.4 2003/03/11 01:09:35 zarzycki Exp $
+dnl
 
 PHP_ARG_WITH(yaz,for YAZ support,
-[  --with-yaz[=DIR]        Include YAZ support (ANSI/NISO Z39.50). DIR is
-                          the YAZ bin install directory])
+[  --with-yaz[=DIR]        Include YAZ support (ANSI/NISO Z39.50). 
+                          DIR is the YAZ bin install directory.])
 
 
 if test "$PHP_YAZ" != "no"; then
@@ -20,10 +22,37 @@ if test "$PHP_YAZ" != "no"; then
   if test -f $yazconfig; then
     AC_DEFINE(HAVE_YAZ,1,[Whether you have YAZ])
     . $yazconfig
-    YAZLIB=`echo $YAZLIB|sed 's%/.libs%%'`
-    PHP_EVAL_LIBLINE($YAZLIB, YAZ_SHARED_LIBADD)
+
+    dnl Check version (1.9 or greater required)
+    AC_MSG_CHECKING([for YAZ version])
+    yaz_version=`echo $YAZVERSION | awk 'BEGIN { FS = "."; } { printf "%d", ($1 * 1000 + $2) * 1000 + $3;}'`
+    if test "$yaz_version" -ge 1009000; then
+      AC_MSG_RESULT([$YAZVERSION])
+    else
+      AC_MSG_ERROR([YAZ version 1.9 or later required.])
+    fi
+
+    dir=""
+    for c in $YAZLIB; do
+      case $c in
+       -L*)
+         dir=`echo $c|cut -c 3-|sed 's%/\.libs%%g'`
+        ;;
+       -lyaz*)
+        ;;
+       *)
+       PHP_EVAL_LIBLINE($c, YAZ_SHARED_LIBADD)
+        ;;
+      esac
+    done
+    if test -n "$dir"; then
+      PHP_ADD_LIBPATH($dir,YAZ_SHARED_LIBADD)
+    fi
+    PHP_ADD_LIBRARY_DEFER(yaz,1,YAZ_SHARED_LIBADD)
     PHP_EVAL_INCLINE($YAZINC)
     PHP_SUBST(YAZ_SHARED_LIBADD)
-    PHP_EXTENSION(yaz, $ext_shared)
+    PHP_NEW_EXTENSION(yaz, php_yaz.c, $ext_shared)
+  else
+    AC_MSG_ERROR([YAZ not found (missing $yazconfig)])
   fi
 fi

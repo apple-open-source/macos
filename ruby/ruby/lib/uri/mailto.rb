@@ -1,5 +1,5 @@
 #
-# $Id: mailto.rb,v 1.1.1.1 2002/05/27 17:59:49 jkh Exp $
+# $Id: mailto.rb,v 1.1.1.2 2003/05/14 13:58:50 melville Exp $
 #
 # Copyright (c) 2001 akira yamada <akira@ruby-lang.org>
 # You can redistribute it and/or modify it under the same term as Ruby.
@@ -46,17 +46,18 @@ module URI
     # hname      =  *urlc
     # hvalue     =  *urlc
     # header     =  hname "=" hvalue
-    HEADER_REGEXP = "(?:[^?=&]*=[^?=&]*)".freeze
+    HEADER_PATTERN = "(?:[^?=&]*=[^?=&]*)".freeze
+    HEADER_REGEXP  = Regexp.new(HEADER_PATTERN, 'N').freeze
     # headers    =  "?" header *( "&" header )
     # to         =  #mailbox
     # mailtoURL  =  "mailto:" [ to ] [ headers ]
-    MAILBOX_REGEXP = "(?:[^(),%?=&]|#{PATTERN::ESCAPED})".freeze
+    MAILBOX_PATTERN = "(?:#{PATTERN::ESCAPED}|[^(),%?=&])".freeze
     MAILTO_REGEXP = Regexp.new("
       \\A
-      (#{MAILBOX_REGEXP}*?)                         (?# 1: to)
+      (#{MAILBOX_PATTERN}*?)                          (?# 1: to)
       (?:
         \\?
-        (#{HEADER_REGEXP}(?:\\&#{HEADER_REGEXP})*)  (?# 2: headers)
+        (#{HEADER_PATTERN}(?:\\&#{HEADER_PATTERN})*)  (?# 2: headers)
       )?
       \\z
     ", Regexp::EXTENDED, 'N').freeze
@@ -127,7 +128,8 @@ module URI
 	  set_to($1)
 	  set_headers($2)
 	end
-      elsif arg[-1]
+
+      else
 	raise InvalidComponentError,
 	  "unrecognised opaque part for mailtoURL: #{@opaque}"
       end
@@ -153,7 +155,7 @@ module URI
       return true unless v
       return true if v.size == 0
 
-      if OPAQUE !~ v || /\A#{MAILBOX_REGEXP}*\z/o !~ v
+      if OPAQUE !~ v || /\A#{MAILBOX_PATTERN}*\z/o !~ v
 	raise InvalidComponentError,
 	  "bad component(expected opaque component): #{v}"
       end
@@ -189,7 +191,7 @@ module URI
       return true if v.size == 0
 
       if OPAQUE !~ v || 
-	  /\A(#{HEADER_REGEXP}(?:\&#{HEADER_REGEXP})*)\z/o !~ v
+	  /\A(#{HEADER_PATTERN}(?:\&#{HEADER_PATTERN})*)\z/o !~ v
 	raise InvalidComponentError,
 	  "bad component(expected opaque component): #{v}"
       end

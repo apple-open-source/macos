@@ -38,8 +38,8 @@
 extern "C" {
 #endif
 
-/* Apple CSP doesn't support D-H yet */
-#define APPLE_DH		0
+/* Diffie-Hellman support */
+#define APPLE_DH		1
 
 /* 
  * For ease of porting, we'll keep this around for internal use.
@@ -69,11 +69,8 @@ typedef enum
 
 typedef enum
 {   
-	/* These values never appear in the actual protocol */
+	/* This value never appears in the actual protocol */
 	SSL_Version_Undetermined = 0,
-    SSL_Version_3_0_With_2_0_Hello = 100,
-    SSL_Version_3_0_Only = 101,
-	TLS_Version_1_0_Only = 202,
 	/* actual protocol values */
     SSL_Version_2_0 = 0x0002,
     SSL_Version_3_0 = 0x0300,

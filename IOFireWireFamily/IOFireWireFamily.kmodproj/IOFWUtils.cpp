@@ -158,3 +158,28 @@ UInt32 SubtractFWCycleTimeFromFWCycleTime( UInt32 cycleTime1, UInt32 cycleTime2)
     return (cycleTime);
 }
 
+// findOffsetInRanges:
+// takes a pointer and a list of ranges, and finds the offset of the pointer into 
+// the range array
+bool
+findOffsetInRanges ( IOVirtualAddress address, unsigned rangeCount, IOVirtualRange ranges[], IOByteCount & outOffset )
+{
+	UInt32			index			= 0 ;
+	IOByteCount		distanceInRange ;
+	bool			found			= false ;
+
+	outOffset = 0 ;
+	while ( ! found && index < rangeCount )
+	{
+		distanceInRange = address - ranges[index].address ;
+		if ( found = ( distanceInRange < ranges[ index ].length ) )
+			outOffset += distanceInRange ;
+		else
+			outOffset += ranges[ index ].length ;
+		
+		++index ;
+	}
+	
+	return found ;
+}
+

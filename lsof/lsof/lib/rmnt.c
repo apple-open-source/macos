@@ -37,7 +37,7 @@
 # if	!defined(lint)
 static char copyright[] =
 "@(#) Copyright 1997 Purdue Research Foundation.\nAll rights reserved.\n";
-static char *rcsid = "$Id: rmnt.c,v 1.8 2000/03/18 05:58:05 abe Exp $";
+static char *rcsid = "$Id: rmnt.c,v 1.9 2002/06/24 19:20:15 abe Exp $";
 # endif	/* !defined(lint) */
 
 #include "../lsof.h"
@@ -139,6 +139,8 @@ readmnt()
 		(void) free((FREE_P *)dn);
 		dn = ln;
 	    }
+	    if (*dn != '/')
+		continue;
 	/*
 	 * Stat() the directory.
 	 */

@@ -74,6 +74,7 @@ util.c
 variable.c
 version.c
 version.h
+bin/irb
 djgpp/README.djgpp
 djgpp/config.hin
 djgpp/config.sed
@@ -221,7 +222,6 @@ missing/strchr.c
 missing/strerror.c
 missing/strftime.c
 missing/strstr.c
-missing/strtod.c
 missing/strtol.c
 missing/strtoul.c
 missing/vsnprintf.c
@@ -249,7 +249,6 @@ sample/from.rb
 sample/fullpath.rb
 sample/getopts.test
 sample/goodfriday.rb
-sample/irb.rb
 sample/less.rb
 sample/list.rb
 sample/list2.rb

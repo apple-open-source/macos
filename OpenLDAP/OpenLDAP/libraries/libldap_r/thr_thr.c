@@ -1,6 +1,6 @@
-/* $OpenLDAP: pkg/ldap/libraries/libldap_r/thr_thr.c,v 1.10 2002/01/04 20:17:40 kurt Exp $ */
+/* $OpenLDAP: pkg/ldap/libraries/libldap_r/thr_thr.c,v 1.10.2.3 2003/03/03 17:10:05 kurt Exp $ */
 /*
- * Copyright 1998-2002 The OpenLDAP Foundation, Redwood City, California, USA
+ * Copyright 1998-2003 The OpenLDAP Foundation, Redwood City, California, USA
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms are permitted only
@@ -57,9 +57,8 @@ ldap_pvt_thread_create( ldap_pvt_thread_t * thread,
 	void *(*start_routine)( void *),
 	void *arg)
 {
-	return( thr_create( NULL, 0, start_routine, arg,
-		detach ? THR_DETACHED : 0,
-		thread ) );
+	return( thr_create( NULL, LDAP_PVT_THREAD_STACK_SIZE, start_routine,
+		arg, detach ? THR_DETACHED : 0, thread ) );
 }
 
 void 
@@ -147,6 +146,12 @@ int
 ldap_pvt_thread_mutex_trylock( ldap_pvt_thread_mutex_t *mp )
 {
 	return( mutex_trylock( mp ) );
+}
+
+ldap_pvt_thread_t
+ldap_pvt_thread_self( void )
+{
+	return thr_self();
 }
 
 #endif /* HAVE_THR */

@@ -1,0 +1,7 @@
+$ $Id$
+$ vms.termcap.c
+$set 31 
+1 Nie mogê otworzyæ TERMCAP: [%s]\n
+2 Nie mogê otworzyæ %s.\n
+3 Znaleziono %s w %s.\n
+4 Nie znaleziono %s w pliku %s\n

@@ -1,8 +1,8 @@
 /*
    +----------------------------------------------------------------------+
-   | PHP version 4.0                                                      |
+   | PHP Version 4                                                        |
    +----------------------------------------------------------------------+
-   | Copyright (c) 1997-2001 The PHP Group                                |
+   | Copyright (c) 1997-2003 The PHP Group                                |
    +----------------------------------------------------------------------+
    | This source file is subject to version 2.02 of the PHP license,      |
    | that is bundled with this package in the file LICENSE, and is        |
@@ -12,11 +12,11 @@
    | obtain it through the world-wide-web, please send a note to          |
    | license@php.net so we can mail you a copy immediately.               |
    +----------------------------------------------------------------------+
-   | Authors: Rasmus Lerdorf <rasmus@lerdorf.on.ca>                       |
+   | Author: Rasmus Lerdorf <rasmus@lerdorf.on.ca>                        |
    +----------------------------------------------------------------------+
 */
 
-/* $Id: md5.h,v 1.1.1.3 2001/07/19 00:20:16 zarzycki Exp $ */
+/* $Id: md5.h,v 1.1.1.5 2003/07/18 18:07:43 zarzycki Exp $ */
 
 #ifndef MD5_H
 #define MD5_H
@@ -54,10 +54,12 @@ typedef struct {
 	unsigned char buffer[64];	/* input buffer */
 } PHP_MD5_CTX;
 
-void PHP_MD5Init(PHP_MD5_CTX *);
-void PHP_MD5Update(PHP_MD5_CTX *, const unsigned char *, unsigned int);
-void PHP_MD5Final(unsigned char[16], PHP_MD5_CTX *);
+PHPAPI void make_digest(char *md5str, unsigned char *digest);
+PHPAPI void PHP_MD5Init(PHP_MD5_CTX *);
+PHPAPI void PHP_MD5Update(PHP_MD5_CTX *, const unsigned char *, unsigned int);
+PHPAPI void PHP_MD5Final(unsigned char[16], PHP_MD5_CTX *);
 
 PHP_NAMED_FUNCTION(php_if_md5);
+PHP_NAMED_FUNCTION(php_if_md5_file);
 
 #endif

@@ -1,0 +1,485 @@
+From rusty@rustcorp.com.au Wed Apr  3 17:18:42 2002
+Return-Path: <rusty@rustcorp.com.au>
+Delivered-To: mbp@samba.org
+Received: from wagner.rustcorp.com.au (sydney1.au.ibm.com [202.135.142.193])
+	by lists.samba.org (Postfix) with ESMTP id EA7B849DC
+	for <mbp@samba.org>; Tue,  2 Apr 2002 23:06:29 -0800 (PST)
+Received: from wagner.rustcorp.com.au ([127.0.0.1] helo=rustcorp.com.au)
+	by wagner.rustcorp.com.au with esmtp (Exim 3.35 #1 (Debian))
+	id 16set7-0000pL-00
+	for <mbp@samba.org>; Wed, 03 Apr 2002 17:08:57 +1000
+From: Rusty Russell <rusty@rustcorp.com.au>
+To: Martin Pool <mbp@samba.org>
+Subject: Re: gzip patch 
+In-reply-to: Your message of "Wed, 03 Apr 2002 12:04:59 +1000."
+             <20020403020455.GC18851@samba.org> 
+Date: Wed, 03 Apr 2002 17:08:57 +1000
+Sender: rusty@rustcorp.com.au
+Message-Id: <E16set7-0000pL-00@wagner.rustcorp.com.au>
+Status: RO
+X-Status: A
+Content-Length: 12810
+Lines: 461
+
+In message <20020403020455.GC18851@samba.org> you write:
+> Hi,
+> 
+> I think you said the other day that you had a working --rsyncable
+> patch for gzip.  Could I have it please?
+
+Hi Martin,
+
+	Just got your mail, sorry for the delay.  Found old patch on
+google, and updated it for 2.5.4 (I know, but that's what apt-get
+source gave me).
+
+Compiles, otherwise untested.
+Rusty.
+--
+  Anyone who quotes me in their sig is an idiot. -- Rusty Russell.
+
+diff -urN rsync-2.5.4/Makefile.in rsync-2.5.4-fuzzy/Makefile.in
+--- rsync-2.5.4/Makefile.in	Tue Feb 26 05:48:25 2002
++++ rsync-2.5.4-fuzzy/Makefile.in	Wed Apr  3 16:35:55 2002
+@@ -28,7 +28,7 @@
+ ZLIBOBJ=zlib/deflate.o zlib/infblock.o zlib/infcodes.o zlib/inffast.o \
+ 	zlib/inflate.o zlib/inftrees.o zlib/infutil.o zlib/trees.o \
+ 	zlib/zutil.o zlib/adler32.o 
+-OBJS1=rsync.o generator.o receiver.o cleanup.o sender.o exclude.o util.o main.o checksum.o match.o syscall.o log.o backup.o
++OBJS1=rsync.o generator.o receiver.o cleanup.o sender.o exclude.o util.o main.o checksum.o match.o syscall.o log.o backup.o alternate.o
+ OBJS2=options.o flist.o io.o compat.o hlink.o token.o uidlist.o socket.o fileio.o batch.o \
+ 	clientname.o
+ DAEMON_OBJ = params.o loadparm.o clientserver.o access.o connection.o authenticate.o
+diff -urN rsync-2.5.4/alternate.c rsync-2.5.4-fuzzy/alternate.c
+--- rsync-2.5.4/alternate.c	Thu Jan  1 10:00:00 1970
++++ rsync-2.5.4-fuzzy/alternate.c	Wed Apr  3 17:04:15 2002
+@@ -0,0 +1,117 @@
++#include "rsync.h"
++
++extern char *compare_dest;
++extern int verbose;
++
++/* Alternate methods for opening files, if local doesn't exist */
++/* Sanity check that we are about to open regular file */
++int do_open_regular(char *fname)
++{
++	STRUCT_STAT st;
++
++	if (do_stat(fname, &st) == 0 && S_ISREG(st.st_mode))
++		return do_open(fname, O_RDONLY, 0);
++
++	return -1;
++}
++
++static void split_names(char *fname, char **dirname, char **basename)
++{
++	char *slash;
++
++	slash = strrchr(fname, '/');
++	if (slash) {
++		*dirname = fname;
++		*slash = '\0';
++		*basename = slash+1;
++	} else {
++		*basename = fname;
++		*dirname = ".";
++	}
++}
++
++static unsigned int measure_name(const char *name,
++				 const char *basename,
++				 const char *ext)
++{
++	int namelen = strlen(name);
++	int extlen = strlen(ext);
++	unsigned int score = 0;
++
++	/* Extensions must match */
++	if (namelen <= extlen || strcmp(name+namelen-extlen, ext) != 0)
++		return 0;
++
++	/* Now score depends on similarity of prefix */
++	for (; *name==*basename && *name; name++, basename++)
++		score++;
++	return score;
++}
++
++int open_alternate_base_fuzzy(const char *fname)
++{
++	DIR *d;
++	struct dirent *di;
++	char *basename, *dirname;
++	char mangled_name[MAXPATHLEN];
++	char bestname[MAXPATHLEN];
++	unsigned int bestscore = 0;
++	const char *ext;
++
++	/* FIXME: can we assume fname fits here? */
++	strcpy(mangled_name, fname);
++
++	split_names(mangled_name, &dirname, &basename);
++	d = opendir(dirname);
++	if (!d) {
++		rprintf(FERROR,"recv_generator opendir(%s): %s\n",
++			dirname,strerror(errno));
++		return -1;
++	}
++
++	/* Get final extension, eg. .gz; never full basename though. */
++	ext = strrchr(basename + 1, '.');
++	if (!ext)
++		ext = basename + strlen(basename); /* ext = "" */
++
++	while ((di = readdir(d)) != NULL) {
++		const char *dname = d_name(di);
++		unsigned int score;
++
++		if (strcmp(dname,".")==0 ||
++		    strcmp(dname,"..")==0)
++			continue;
++		
++		score = measure_name(dname, basename, ext);
++		if (verbose > 4)
++			rprintf(FINFO,"fuzzy score for %s = %u\n",
++				dname, score);
++		if (score > bestscore) {
++			strcpy(bestname, dname); 
++			bestscore = score;
++		}
++	}
++	closedir(d);
++
++	/* Found a candidate. */
++	if (bestscore != 0) {
++		char fuzzyname[MAXPATHLEN];
++
++		snprintf(fuzzyname,MAXPATHLEN,"%s/%s", dirname, bestname);
++		if (verbose > 2)
++			rprintf(FINFO,"fuzzy match %s->%s\n",
++				fname, fuzzyname);
++		return do_open_regular(fuzzyname);
++	}
++	return -1;
++}
++
++int open_alternate_base_comparedir(const char *fname)
++{
++	char fnamebuf[MAXPATHLEN];
++	/* try the file at compare_dest instead */
++	snprintf(fnamebuf,MAXPATHLEN,"%s/%s",compare_dest,fname);
++
++	/* FIXME: now follows symlinks... */
++	return do_open_regular(fnamebuf);
++}
+diff -urN rsync-2.5.4/generator.c rsync-2.5.4-fuzzy/generator.c
+--- rsync-2.5.4/generator.c	Fri Feb  8 03:36:12 2002
++++ rsync-2.5.4-fuzzy/generator.c	Wed Apr  3 17:00:06 2002
+@@ -42,11 +42,12 @@
+ extern int always_checksum;
+ extern int modify_window;
+ extern char *compare_dest;
++extern int fuzzy;
+ 
+ 
+ /* choose whether to skip a particular file */
+ static int skip_file(char *fname,
+-		     struct file_struct *file, STRUCT_STAT *st)
++		     struct file_struct *file, const STRUCT_STAT *st)
+ {
+ 	if (st->st_size != file->length) {
+ 		return 0;
+@@ -185,7 +186,61 @@
+ 	return s;
+ }
+ 
++/* Returns -1 for can't open (null file), -2 for skip */
++static int open_base_file(struct file_struct *file,
++			  char *fname, 
++			  int statret, 
++			  STRUCT_STAT *st)
++{
++	int fd = -1;
++
++	if (statret == 0) {
++		if (S_ISREG(st->st_mode)) {
++			if (update_only
++			    && cmp_modtime(st->st_mtime, file->modtime) > 0) {
++				if (verbose > 1)
++					rprintf(FINFO,"%s is newer\n",fname);
++				return -2;
++			}
++			if (skip_file(fname, file, st)) {
++				set_perms(fname, file, st, 1);
++				return -2;
++			}
++		 	fd = do_open(fname, O_RDONLY, 0);
++			if (fd == -1) {
++				rprintf(FERROR,"failed to open %s, continuing : %s\n",fname,strerror(errno));
++				return -1;
++			} else
++				return fd;
++		} else {
++			/* Try to use symlink contents */
++			if (S_ISLNK(st->st_mode)) {
++				fd = do_open_regular(fname);
++				/* Don't delete yet; receiver will need it */
++			} else {
++				if (delete_file(fname) != 0) {
++					if (fd != -1)
++						close(fd);
++					return -2;
++				}
++			}
++		}
++	}
++
++	if (fd == -1 && compare_dest != NULL)
++		fd = open_alternate_base_comparedir(fname);
+ 
++	if (fd == -1 && fuzzy)
++		fd = open_alternate_base_fuzzy(fname);
++
++	/* Update stat to understand size */
++	if (fd != -1) {
++		if (do_fstat(fd, st) != 0)
++			rprintf(FERROR,"fstat %s : %s\n",fname,strerror(errno));
++	}
++
++	return fd;
++}
+ 
+ /*
+  * Acts on file number I from FLIST, whose name is fname.
+@@ -203,9 +258,6 @@
+ 	struct sum_struct *s;
+ 	int statret;
+ 	struct file_struct *file = flist->files[i];
+-	char *fnamecmp;
+-	char fnamecmpbuf[MAXPATHLEN];
+-	extern char *compare_dest;
+ 	extern int list_only;
+ 	extern int preserve_perms;
+ 	extern int only_existing;
+@@ -341,82 +393,29 @@
+ 		return;
+ 	}
+ 
+-	fnamecmp = fname;
+-
+-	if ((statret == -1) && (compare_dest != NULL)) {
+-		/* try the file at compare_dest instead */
+-		int saveerrno = errno;
+-		snprintf(fnamecmpbuf,MAXPATHLEN,"%s/%s",compare_dest,fname);
+-		statret = link_stat(fnamecmpbuf,&st);
+-		if (!S_ISREG(st.st_mode))
+-			statret = -1;
+-		if (statret == -1)
+-			errno = saveerrno;
+-		else
+-			fnamecmp = fnamecmpbuf;
+-	}
+-
+-	if (statret == -1) {
+-		if (errno == ENOENT) {
+-			write_int(f_out,i);
+-			if (!dry_run) send_sums(NULL,f_out);
+-		} else {
+-			if (verbose > 1)
+-				rprintf(FERROR, RSYNC_NAME
+-					": recv_generator failed to open \"%s\": %s\n",
+-					fname, strerror(errno));
+-		}
+-		return;
+-	}
+-
+-	if (!S_ISREG(st.st_mode)) {
+-		if (delete_file(fname) != 0) {
+-			return;
+-		}
+-
+-		/* now pretend the file didn't exist */
+-		write_int(f_out,i);
+-		if (!dry_run) send_sums(NULL,f_out);    
+-		return;
+-	}
+-
+-	if (opt_ignore_existing && fnamecmp == fname) { 
+-		if (verbose > 1)
+-			rprintf(FINFO,"%s exists\n",fname);
+-		return;
+-	} 
+-
+-	if (update_only && cmp_modtime(st.st_mtime,file->modtime)>0 && fnamecmp == fname) {
++	/* Failed to stat for some other reason. */
++	if (statret == -1 && errno != ENOENT) {
+ 		if (verbose > 1)
+-			rprintf(FINFO,"%s is newer\n",fname);
++			rprintf(FERROR, RSYNC_NAME
++				": recv_generator failed to open \"%s\": %s\n",
++				fname, strerror(errno));
+ 		return;
+ 	}
+ 
+-	if (skip_file(fname, file, &st)) {
+-		if (fnamecmp == fname)
+-			set_perms(fname,file,&st,1);
+-		return;
+-	}
+-
+-	if (dry_run) {
+-		write_int(f_out,i);
++	fd = open_base_file(file, fname, statret, &st);
++	if (fd == -2)
+ 		return;
+-	}
+-
+-	if (whole_file) {
+-		write_int(f_out,i);
+-		send_sums(NULL,f_out);    
+-		return;
+-	}
+-
+-	/* open the file */  
+-	fd = do_open(fnamecmp, O_RDONLY, 0);
+ 
+-	if (fd == -1) {
+-		rprintf(FERROR,RSYNC_NAME": failed to open \"%s\", continuing : %s\n",fnamecmp,strerror(errno));
+-		/* pretend the file didn't exist */
++	if ((whole_file || dry_run) && fd != -1) {
++		close(fd);
++		fd = -1;
++ 	}
++ 
++ 	if (fd == -1) {
++		/* the file didn't exist, or we can pretend it doesn't */
+ 		write_int(f_out,i);
+-		send_sums(NULL,f_out);
++		if (!dry_run)
++			send_sums(NULL,f_out);
+ 		return;
+ 	}
+ 
+@@ -427,7 +426,7 @@
+ 	}
+ 
+ 	if (verbose > 3)
+-		rprintf(FINFO,"gen mapped %s of size %.0f\n",fnamecmp,(double)st.st_size);
++		rprintf(FINFO,"gen mapped %s of size %.0f\n",fname,(double)st.st_size);
+ 
+ 	s = generate_sums(buf,st.st_size,adapt_block_size(file, block_size));
+ 
+diff -urN rsync-2.5.4/options.c rsync-2.5.4-fuzzy/options.c
+--- rsync-2.5.4/options.c	Thu Feb 28 09:49:57 2002
++++ rsync-2.5.4-fuzzy/options.c	Wed Apr  3 16:43:54 2002
+@@ -73,6 +73,7 @@
+ #else
+ int modify_window=0;
+ #endif
++int fuzzy=0;
+ int blocking_io=-1;
+ 
+ /** Network address family. **/
+@@ -245,6 +246,7 @@
+   rprintf(F,"     --bwlimit=KBPS          limit I/O bandwidth, KBytes per second\n");
+   rprintf(F,"     --write-batch=PREFIX    write batch fileset starting with PREFIX\n");
+   rprintf(F,"     --read-batch=PREFIX     read batch fileset starting with PREFIX\n");
++  rprintf(F,"     --fuzzy	          use similar file as basis if it does't exist\n");
+   rprintf(F," -h, --help                  show this help screen\n");
+ #ifdef INET6
+   rprintf(F," -4                          prefer IPv4\n");
+@@ -340,6 +342,7 @@
+   {"hard-links",      'H', POPT_ARG_NONE,   &preserve_hard_links},
+   {"read-batch",       0,  POPT_ARG_STRING, &batch_prefix, OPT_READ_BATCH},
+   {"write-batch",      0,  POPT_ARG_STRING, &batch_prefix, OPT_WRITE_BATCH},
++  {"fuzzy",	       0,  POPT_ARG_NONE,   &fuzzy},
+ #ifdef INET6
+   {0,		      '4', POPT_ARG_VAL,    &default_af_hint,   AF_INET },
+   {0,		      '6', POPT_ARG_VAL,    &default_af_hint,   AF_INET6 },
+@@ -757,7 +760,9 @@
+ 		args[ac++] = "--compare-dest";
+ 		args[ac++] = compare_dest;
+ 	}
+-
++	
++	if (fuzzy && am_sender)
++		args[ac++] = "--fuzzy";
+ 
+ 	*argc = ac;
+ }
+diff -urN rsync-2.5.4/proto.h rsync-2.5.4-fuzzy/proto.h
+--- rsync-2.5.4/proto.h	Sat Feb 23 11:05:06 2002
++++ rsync-2.5.4-fuzzy/proto.h	Wed Apr  3 16:35:25 2002
+@@ -256,3 +256,6 @@
+ int cmp_modtime(time_t file1, time_t file2);
+ int _Insure_trap_error(int a1, int a2, int a3, int a4, int a5, int a6);
+ int sys_gettimeofday(struct timeval *tv);
++int do_open_regular(char *fname);
++int open_alternate_base_fuzzy(const char *fname);
++int open_alternate_base_comparedir(const char *fname);
+diff -urN rsync-2.5.4/receiver.c rsync-2.5.4-fuzzy/receiver.c
+--- rsync-2.5.4/receiver.c	Thu Feb 14 05:42:20 2002
++++ rsync-2.5.4-fuzzy/receiver.c	Wed Apr  3 16:46:46 2002
+@@ -36,6 +36,7 @@
+ extern char *compare_dest;
+ extern int make_backups;
+ extern char *backup_suffix;
++extern int fuzzy;
+ 
+ static struct delete_list {
+ 	DEV64_T dev;
+@@ -307,8 +308,6 @@
+ 	char *fname;
+ 	char template[MAXPATHLEN];
+ 	char fnametmp[MAXPATHLEN];
+-	char *fnamecmp;
+-	char fnamecmpbuf[MAXPATHLEN];
+ 	struct map_struct *buf;
+ 	int i;
+ 	struct file_struct *file;
+@@ -366,28 +365,24 @@
+ 		if (verbose > 2)
+ 			rprintf(FINFO,"recv_files(%s)\n",fname);
+ 
+-		fnamecmp = fname;
+-
+ 		/* open the file */  
+-		fd1 = do_open(fnamecmp, O_RDONLY, 0);
++		fd1 = do_open(fname, O_RDONLY, 0);
+ 
+-		if ((fd1 == -1) && (compare_dest != NULL)) {
+-			/* try the file at compare_dest instead */
+-			snprintf(fnamecmpbuf,MAXPATHLEN,"%s/%s",
+-						compare_dest,fname);
+-			fnamecmp = fnamecmpbuf;
+-			fd1 = do_open(fnamecmp, O_RDONLY, 0);
+-		}
++		if (fd1 == -1 && compare_dest != NULL)
++			fd1 = open_alternate_base_comparedir(fname);
++
++		if (fd1 == -1 && fuzzy)
++			fd1 = open_alternate_base_fuzzy(fname);
+ 
+ 		if (fd1 != -1 && do_fstat(fd1,&st) != 0) {
+-			rprintf(FERROR,"fstat %s : %s\n",fnamecmp,strerror(errno));
++			rprintf(FERROR,"fstat %s : %s\n",fname,strerror(errno));
+ 			receive_data(f_in,NULL,-1,NULL,file->length);
+ 			close(fd1);
+ 			continue;
+ 		}
+ 
+ 		if (fd1 != -1 && !S_ISREG(st.st_mode)) {
+-			rprintf(FERROR,"%s : not a regular file (recv_files)\n",fnamecmp);
++			rprintf(FERROR,"%s : not a regular file (recv_files)\n",fname);
+ 			receive_data(f_in,NULL,-1,NULL,file->length);
+ 			close(fd1);
+ 			continue;
+@@ -403,7 +398,7 @@
+ 		if (fd1 != -1 && st.st_size > 0) {
+ 			buf = map_file(fd1,st.st_size);
+ 			if (verbose > 2)
+-				rprintf(FINFO,"recv mapped %s of size %.0f\n",fnamecmp,(double)st.st_size);
++				rprintf(FINFO,"recv mapped %s of size %.0f\n",fname,(double)st.st_size);
+ 		} else {
+ 			buf = NULL;
+ 		}
+

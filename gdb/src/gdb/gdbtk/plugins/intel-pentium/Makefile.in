@@ -1,0 +1,6 @@
+# Plugin definitions
+PLUGIN 			= intel-pentium
+PLUGIN_INSTALL_SRCDIR 	= cpuinfo.tcl \
+			  msrselection.ith \
+			  msrselection.itb
+

@@ -1,0 +1,4 @@
+appendQueue [appendTestCaseID \
+	[locateFile tc002 examples] English=A]
+appendQueue [appendArguments [appendTestCaseID \
+	[locateFile tc002 examples] Dutch=A] "{MSG=Hallo Wereld}"]

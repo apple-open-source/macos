@@ -1,9 +1,9 @@
 /*
- * "$Id: mime.c,v 1.4 2002/06/10 23:47:32 jlovell Exp $"
+ * "$Id: mime.c,v 1.1.1.8 2003/04/11 21:07:49 jlovell Exp $"
  *
  *   MIME database file routines for the Common UNIX Printing System (CUPS).
  *
- *   Copyright 1997-2002 by Easy Software Products, all rights reserved.
+ *   Copyright 1997-2003 by Easy Software Products, all rights reserved.
  *
  *   These coded instructions, statements, and computer programs are the
  *   property of Easy Software Products and are protected by Federal
@@ -41,12 +41,12 @@
 
 #include <cups/string.h>
 #include "mime.h"
-#include "cupsd.h"
 
 #ifdef WIN32
 #  include <windows.h>
 #elif HAVE_DIRENT_H
 #  include <dirent.h>
+typedef struct dirent DIRENT;
 #  define NAMLEN(dirent) strlen((dirent)->d_name)
 #else
 #  if HAVE_SYS_NDIR_H
@@ -58,6 +58,7 @@
 #  if HAVE_NDIR_H
 #    include <ndir.h>
 #  endif
+typedef struct direct DIRENT;
 #  define NAMLEN(dirent) (dirent)->d_namlen
 #endif
 
@@ -291,7 +292,7 @@ static void
 load_types(mime_t     *mime,		/* I - MIME database */
            const char *filename)	/* I - Types file to load */
 {
-  FILE		*fp;			/* Types file */
+  cups_file_t	*fp;			/* Types file */
   int		linelen;		/* Length of line */
   char		line[65536],		/* Input line from file */
 		*lineptr,		/* Current position in line */
@@ -305,51 +306,38 @@ load_types(mime_t     *mime,		/* I - MIME database */
   * First try to open the file...
   */
 
-  if ((fp = fopen(filename, "r")) == NULL)
+  if ((fp = cupsFileOpen(filename, "r")) == NULL)
     return;
 
  /*
   * Then read each line from the file, skipping any comments in the file...
   */
 
-  while (fgets(line, sizeof(line), fp) != NULL)
+  while (cupsFileGets(fp, line, sizeof(line)) != NULL)
   {
-    linelen = strlen(line);
+   /*
+    * Skip blank lines and lines starting with a #...
+    */
+
+    if (!line[0] || line[0] == '#')
+      continue;
 
    /*
     * While the last character in the line is a backslash, continue on to the
     * next line (and the next, etc.)
     */
 
-    if (line[linelen - 1] == '\n')
-    {
-      line[linelen - 1] = '\0';
-      linelen --;
-    }
+    linelen = strlen(line);
 
     while (line[linelen - 1] == '\\')
     {
       linelen --;
 
-      if (fgets(line + linelen, sizeof(line) - linelen, fp) == NULL)
+      if (cupsFileGets(fp, line + linelen, sizeof(line) - linelen) == NULL)
         line[linelen] = '\0';
       else
-      {
         linelen += strlen(line + linelen);
-	if (line[linelen - 1] == '\n')
-	{
-	  line[linelen - 1] = '\0';
-	  linelen --;
-	}
-      }
     }
-
-   /*
-    * Skip blank lines and lines starting with a #...
-    */
-
-    if (line[0] == '\n' || line[0] == '#')
-      continue;
 
    /*
     * Extract the super-type and type names from the beginning of the line.
@@ -384,7 +372,7 @@ load_types(mime_t     *mime,		/* I - MIME database */
     mimeAddTypeRule(typeptr, lineptr);
   }
 
-  fclose(fp);
+  cupsFileClose(fp);
 }
 
 
@@ -398,7 +386,7 @@ load_convs(mime_t     *mime,		/* I - MIME database */
            const char *filterpath)	/* I - Directory to load */
 {
   int		i;			/* Looping var */
-  FILE		*fp;			/* Convs file */
+  cups_file_t	*fp;			/* Convs file */
   char		line[1024],		/* Input line from file */
 		*lineptr,		/* Current position in line */
 		super[MIME_MAX_SUPER],	/* Super-type name */
@@ -415,20 +403,20 @@ load_convs(mime_t     *mime,		/* I - MIME database */
   * First try to open the file...
   */
 
-  if ((fp = fopen(filename, "r")) == NULL)
+  if ((fp = cupsFileOpen(filename, "r")) == NULL)
     return;
 
  /*
   * Then read each line from the file, skipping any comments in the file...
   */
 
-  while (fgets(line, sizeof(line), fp) != NULL)
+  while (cupsFileGets(fp, line, sizeof(line)) != NULL)
   {
    /*
     * Skip blank lines and lines starting with a #...
     */
 
-    if (line[0] == '\n' || line[0] == '#')
+    if (!line[0] || line[0] == '#')
       continue;
 
    /*
@@ -501,21 +489,19 @@ load_convs(mime_t     *mime,		/* I - MIME database */
     filter = lineptr;
 
 #ifndef WIN32
-   /*
-    * Verify that the filter exists and is executable...
-    */
     if (strcmp(filter, "-") != 0)
-	{
+    {
+     /*
+      * Verify that the filter exists and is executable...
+      */
+
       if (filter[0] == '/')
-        strlcpy(filterprog, filter, sizeof(filterprog));
+	strlcpy(filterprog, filter, sizeof(filterprog));
       else
-        snprintf(filterprog, sizeof(filterprog), "%s/%s", filterpath, filter);
+	snprintf(filterprog, sizeof(filterprog), "%s/%s", filterpath, filter);
 
       if (access(filterprog, X_OK))
-      {
-        LogMessage(L_ERROR, "Filter \"%s\" cannot be found!", filter);
-        continue;
-      }
+	continue;
     }
 #endif /* !WIN32 */
 
@@ -565,7 +551,7 @@ load_convs(mime_t     *mime,		/* I - MIME database */
 	mimeAddFilter(mime, *temptype, dsttype, cost, filter);
   }
 
-  fclose(fp);
+  cupsFileClose(fp);
 }
 
 
@@ -597,5 +583,5 @@ delete_rules(mime_magic_t *rules)	/* I - Rules to free */
 
 
 /*
- * End of "$Id: mime.c,v 1.4 2002/06/10 23:47:32 jlovell Exp $".
+ * End of "$Id: mime.c,v 1.1.1.8 2003/04/11 21:07:49 jlovell Exp $".
  */

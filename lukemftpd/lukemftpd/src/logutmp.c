@@ -45,7 +45,7 @@ static int topslot = -1;
  */
 
 void
-login(const UTMP *ut)
+ftp_login(const UTMP *ut)
 {
 	UTMP ubuf;
 
@@ -85,7 +85,7 @@ login(const UTMP *ut)
 }
 
 int
-logout(const char *line)
+ftp_logout(const char *line)
 {
 	UTMP ut;
 	int rval;

@@ -1,0 +1,13 @@
+Mailmani listi kohaletoimetustõrke info:
+
+    List:       %(listname)s
+    Tellija:    %(addr)s
+    Tegevus:    tellimine %(negative)s%(did)s.
+    Põhjus:     tõrked kirjade kättetoimetamisel 
+    %(but)s
+
+%(reenable)s
+Lähem info tõrke põhjuste kohta on kirjale lisatud.
+
+Küsimusi?
+Mailmani haldajaga saab kontakti aadressil %(owneraddr)s.

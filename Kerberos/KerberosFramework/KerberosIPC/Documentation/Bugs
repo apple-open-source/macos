@@ -1,0 +1,23 @@
+========================================================================
+KerberosIPC Bug List
+========================================================================
+Current version: 1.1fc2
+Date:            August 22, 2003
+Author:          lxs@mit.edu
+========================================================================
+
+========================================================================
+Bug #       Bug description                                     Fixed in
+========================================================================
+
+[RT 1764] Framework should use CFStringGetMaximumSizeForEncoding()      1.1fc2
+[RT 1670] Use AppKit and HIToolbox to determine if process is a GUI app 1.1fc1
+[RT 1638] KfM should use CoreGraphics to determine if GUI is available  1.1a6
+[RT 1461] KerberosIPC shouldn't assume window server is /dev/console    1.1a5
+[RT 1494] Avoid checking TERM because it has too many valid values      1.1a5
+[RT 1457] Double free in mach_client_lookup_server breaks AppleEvents   1.1a4
+[RT 1425] Server names should include Security Session                  1.1a3
+[RT 1331] KLS leaves zombies                                            1.1a2
+[RT 1294] KfM Mach service names contain the user's terminal            1.1a1
+[RT 1299] Login session APIs should check if ttyname returns NULL       1.1a1
+[BZ 747]  Mach IPC servers should only rename if seteuid succeeds       1.0a1

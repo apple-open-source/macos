@@ -453,4 +453,4 @@ that make setuid shell scripts unsafe on some operating systems
 are generally safe).
 .SH "SEE ALSO"
 .IX Header "SEE ALSO"
-\&\fIstat\fR\|(2), \fIlogin_cap\fR\|(3), \fIsudoers\fR\|(@mansectform@), \fIpasswd\fR\|(5), \fIvisudo\fR\|(@mansectsu@), \fIgrep\fR\|(1), \fIsu\fR\|(1).
+\&\fIstat\fR\|(2), \fIsudoers\fR\|(@mansectform@), \fIpasswd\fR\|(5), \fIvisudo\fR\|(@mansectsu@), \fIgrep\fR\|(1), \fIsu\fR\|(1).

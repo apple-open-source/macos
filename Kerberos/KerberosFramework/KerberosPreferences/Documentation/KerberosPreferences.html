@@ -1,0 +1,102 @@
+<!-- #include "header.html"
+  #PAGETITLE#="Kerberos Preferences Library API Documentation"
+  #BASEHREF#="" 
+-->
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.0 Transitional//EN">
+<HTML> 
+<HEAD>  
+	<TITLE> Kerberos Preferences Library API Documentation </TITLE>
+</HEAD>
+<BODY BGCOLOR="#FFFFFF" TEXT="#000000" LINK="#0000FF" VLINK="#663399">
+<CENTER>
+	<TABLE BORDER=0 CELLSPACING=8>
+		<TR> 
+			<TD><IMG SRC="http://web.mit.edu/macdev/www/is-logo.gif" ALT="MIT Information Systems"></TD>
+			<TD><BR><H1>Macintosh Development</H1></TD> 
+		</TR>
+	</TABLE> <P>
+	[<A HREF="http://web.mit.edu/macdev/www/macdev.html">Home</A>]
+	[<A HREF="http://web.mit.edu/macdev/www/about.html">About Us</A>]
+	[<A HREF="http://web.mit.edu/macdev/www/people.html">People</A>]
+	[<A HREF="http://web.mit.edu/macdev/www/support.html">MIT Support Library</A>]
+	[<A HREF="http://web.mit.edu/macdev/www/kerberos.html">MIT Kerberos for Macintosh</A>] <BR>
+	[<A HREF="http://web.mit.edu/macdev/www/applications.html">Applications</A>]
+	[<A HREF="http://web.mit.edu/macdev/www/macosx.html">Mac OS X</A>]
+	[<A HREF="http://web.mit.edu/macdev/www/documentation.html">Miscellaneous Documentation</A>]
+	[<A HREF="http://web.mit.edu/is/">Information Systems</A>] </P> 
+</CENTER> <HR>
+<!-- end include -->
+		<table border="0" cellspacing="4">
+			<tr>
+				<td><img src="../../Common/Documentation/graphics/MITKerberosLib.gif"></td>
+				<td><font size="6"><b>Kerberos Preferences library API 1.0</b></font></td>
+			</tr>
+		</table>
+		</p>
+		<blockquote>
+			<p>The Kerberos Preferences library provides an easy way to locate and initialize Kerberos Preferences files. It should not be directly used by applications other than administrative applications; all other applications should access Kerberos preferences via the appropriate call in the Kerberos API they are using (krb_get_profile, krb5_get_profile, or KClientGetProfileHandle), or via the Login Library API.</p>
+			<h2>Locating Kerberos Preferences files</h2>
+			<pre><code>OSErr KPGetListOfPreferencesFiles (</code>
+<code>    UInt32 inUserSystemFlags,</code>
+<code>    FSSpecPtr* thePrefFiles);</code>
+<code>    UInt32*    outNumberOfPrefsFiles</code></pre>
+			<p>The <code>KPGetListOfPreferencesFiles()</code> function returns a list of file system specifiers for the preferences files. The number of preferences files in the list is returned in <code>outNumberOfPrefsFiles</code>.</p>
+			<p>Each specifier in the list describes a possible location for the preferences files, even if no files exist at some of those locations. For example, if there is no Kerberos Preferences file in the Preferences folder, a file specifier for it will be returned nonetheless.</p>
+			<p>If the <code>inUserSystemFlags</code> argument is <code>kpUserPreferences</code>, only user preferences files' specifiers are returned; on Mac OS 8 and 9, these files reside in the user's Preferences folder. If the <code>inUserSystemFlags</code> argument is <code>kpSystemPreferences</code>, only system preferences files' specifiers are returned; on Mac OS 8 and 9, these files reside in the Application Support folder. If the <code>inUserSystemFlags</code> argument is <code>kpUserPreferences | kpSystemPreferences</code>, both user and system preferences files' specifiers are returned.</p>
+			<p>The files are already returned in overridding order; i.e. the first file in the list should be read or written before any other ones.</p>
+			<p><code>KPGetListOfPreferencesFiles()</code> may create some of the folders that might contain a preferences files, but exactly which ones are created varies. Do not depend on a particular behavior, and use <code>KPCreatePreferencesFile()</code> to correctly create a preferences file.</p>
+			<p>The list returned by <code>KPGetListOfPreferencesFiles()</code> should be freed with <code>KPFreeListOfPreferencesFiles()</code>.</p>
+			<p><code>KPGetListOfPreferencesFiles</code> returns <code>noErr</code> if it succeeds, <code>memFullErr</code>&nbsp;if it can't allocate the file list, <code>fnfErr</code> if it can't locate the preferences files' parent folders, and <code>dupFNErr</code> if the preferences files' folders can't be created because there are already files in their locations.</p>
+			<h2>Inspecting Kerberos Preferences files</h2>
+			<pre><code>OSErr KPPreferencesFileIsReadable (</code>
+<code>    const FSSpec* inPrefsFile);</code>
+<code>OSErr KPPreferencesFileIsWritable (</code>
+<code>    const FSSpec* inPrefsFile);</code></pre>
+			<p><code>KPPreferencesFileIsReadable()</code>&nbsp;and <code>KPPreferencesFileIsWritable()</code> return <code>noErr</code> if the preferences file passed in is readable or writable. A readable file exists and its data and resource forks can be opened for reading. A writable file either exists and is not locked nor in a locked folder or on a locked volume, or it does not exist, and the folder in which it would be created is not locked and not on a locked volume.</p>
+			<p>If the preferences file is not readable or writable, the functions return an appropriate File or Resource manager error, such as <code>fnfErr</code>, <code>dupFnErr</code>, <code>nsvErr</code>, <code>fLckdErr</code>, <code>vLckdErr</code>, <code>opWrErr</code>, <code>afpLockErr</code>, <code>afpAccessDenied</code>, <code>afpVolLocked</code>, <code>afpObjectLocked</code>, and others.</p>
+			<h2>Creating Kerberos Preferences files</h2>
+			<pre><code>OSErr KPCreatePreferencesFile (</code>
+<code>    const FSSpec* inPrefsFile);</code></pre>
+			<p><code>KPCreatePreferencesFile</code><code>()</code> creates a preferences file in the given location, with the correct type and creator. It returns <code>noErr</code> on success, or a File, Memory, or Resource manager error on failure. Some of the possible errors are <code>fnfErr</code>, <code>dupFnErr</code>, <code>nsvErr</code>, <code>fLckdErr</code>, <code>vLckdErr</code>, <code>opWrErr</code>, <code>afpLockErr</code>, <code>afpAccessDenied</code>, <code>afpVolLocked</code>, <code>afpObjectLocked</code>.</p>
+			<p>The data and resource forks of the newly created file exist but are empty.</p>
+			<h2>Initialiazing Kerberos library preferences files</h2>
+			<pre><code>OSErr KPInitializeWithDefaultKerberosLibraryPreferences (</code>
+<code>    const FSSpec* prefLocation);</code></pre>
+			<p>Given the specifier of a preferences file, <code>KPInitializeWithDefaultKerberosLibraryPreferences</code> initializes it with default Kerberos library preferences. On success, <code>noErr</code>&nbsp;is returned. On failure, an appropriate File, Resource, or Memory Manager error is returned.</p>
+			<p><b>This function should only be used by Kerberos libraries. </b>Applications should never use this function; a preferences file will be created by the Kerberos library as necessary.</p>
+			<h1>Using Kerberos Preferences library</h1>
+			<h2>Initializing a profile handle</h2>
+			<p>To initialize a profile handle with the file list returned from <code>KPGetListOfFiles()</code>, copy the list into an array of <code>FSSpec</code>s, terminating the array as required by the profile library, and pass it to <code>profile_init()</code>.</p>
+			<h2>Locating a preferences file to read</h2>
+			<p>To locate a preferences file to read, get the list of user and system preferences files from <code>KPGetListOfFiles()</code>&nbsp;and use the first one for which <code>KPPreferencesFileIsReadable()</code> returns <code>noErr</code>.</p>
+			<h2>Locating a preferences file to write</h2>
+			<p>To locate a preferences file to write, get the list of user preferences files from <code>KPGetListOfFiles()</code>. Then, for every file in the list, do the following:</p>
+			<pre><code>with (f in listOfFiles) {
+    if (f is writable) {
+        if (f is not readable) {
+            create f
+        }
+        write preferences to f and return
+    } else if (f is readable and f already contains preferences belonging to your program) {
+        can't write: return and alert the user;
+    }
+}
+
+can't write: return and alert the user</code></pre>
+			<p>The reason why you must abort when you encounter a readable and non-writable file that already contains your preferences is that if you write to any file that follows it in the list, you will never reach those preferences when reading them (they would always be overridden by the readable and non-writable file).</p>
+		</blockquote>
+		<p><!-- #include "footer.html" -->
+<HR> 
+<P> 
+	<FONT SIZE="+1"> <B> 
+		Questions or comments? Send mail to <A HREF="mailto:macdev@mit.edu">macdev@mit.edu</A> 
+	</B> </FONT> <BR>
+	Last updated on $Date: 2001/03/07 21:25:05 $ <BR> 
+	Last modified by $Author: lxs $<BR>
+
+</P>
+<!-- Begin MIT-use only web reporting counter -->
+	<IMG SRC="//counter.mit.edu/tally" WIDTH=1 HEIGHT=1 ALT="">
+<!-- End MIT-use only web reporting counter -->
+</BODY> </HTML>
+<!-- end include -->

@@ -9,12 +9,20 @@
 
 // the controls 
 
+#define USEFIRELOG 0
 #define FWDIAGNOSTICS 0
 #define FWLOGGING 0
 #define LSILOGGING 0
 #define LSIALLOCLOGGING 0
+#define PANIC_ON_DOUBLE_APPEND 0
 
 ///////////////////////////////////////////
+
+#if USEFIRELOG
+	#if KERNEL
+	#include <IOKit/firewire/IOFireLog.h>
+	#endif
+#endif
 
 #if FWLOGGING
 #define FWLOG(x) printf x
@@ -23,7 +31,11 @@
 #endif
 
 #if FWLOGGING
-#define FWKLOG(x) IOLog x
+	#if USEFIRELOG
+	#define FWKLOG(x) FireLog x
+	#else
+	#define FWKLOG(x) IOLog x
+	#endif
 #else
 #define FWKLOG(x) do {} while (0)
 #endif

@@ -1,5 +1,7 @@
 /* Dynamic architecture support for GDB, the GNU debugger.
-   Copyright 1998, 1999, 2000, 2001 Free Software Foundation, Inc.
+
+   Copyright 1998, 1999, 2000, 2001, 2002, 2003 Free Software Foundation,
+   Inc.
 
    This file is part of GDB.
 
@@ -27,7 +29,6 @@
 #else
 /* Just include everything in sight so that the every old definition
    of macro is visible. */
-#include "gdb_string.h"
 #include "symtab.h"
 #include "frame.h"
 #include "inferior.h"
@@ -38,8 +39,10 @@
 #include "target.h"
 #include "annotate.h"
 #endif
+#include "gdb_string.h"
 #include "regcache.h"
 #include "gdb_assert.h"
+#include "sim-regno.h"
 
 #include "version.h"
 
@@ -55,7 +58,7 @@
    and optionally adjust the pc to point to the correct memory location
    for inserting the breakpoint.  */
 
-unsigned char *
+const unsigned char *
 legacy_breakpoint_from_pc (CORE_ADDR * pcptr, int *lenptr)
 {
   /* {BIG_,LITTLE_}BREAKPOINT is the sequence of bytes we insert for a
@@ -88,6 +91,46 @@ legacy_breakpoint_from_pc (CORE_ADDR * pcptr, int *lenptr)
   return NULL;
 }
 
+/* Implementation of extract return value that grubs around in the
+   register cache.  */
+void
+legacy_extract_return_value (struct type *type, struct regcache *regcache,
+			     void *valbuf)
+{
+  char *registers = deprecated_grub_regcache_for_registers (regcache);
+  bfd_byte *buf = valbuf;
+  DEPRECATED_EXTRACT_RETURN_VALUE (type, registers, buf); /* OK */
+}
+
+/* Implementation of store return value that grubs the register cache.
+   Takes a local copy of the buffer to avoid const problems.  */
+void
+legacy_store_return_value (struct type *type, struct regcache *regcache,
+			   const void *buf)
+{
+  bfd_byte *b = alloca (TYPE_LENGTH (type));
+  gdb_assert (regcache == current_regcache);
+  memcpy (b, buf, TYPE_LENGTH (type));
+  DEPRECATED_STORE_RETURN_VALUE (type, b);
+}
+
+
+int
+legacy_register_sim_regno (int regnum)
+{
+  /* Only makes sense to supply raw registers.  */
+  gdb_assert (regnum >= 0 && regnum < NUM_REGS);
+  /* NOTE: cagney/2002-05-13: The old code did it this way and it is
+     suspected that some GDB/SIM combinations may rely on this
+     behavour.  The default should be one2one_register_sim_regno
+     (below).  */
+  if (REGISTER_NAME (regnum) != NULL
+      && REGISTER_NAME (regnum)[0] != '\0')
+    return regnum;
+  else
+    return LEGACY_SIM_REGNO_IGNORE;
+}
+
 int
 generic_frameless_function_invocation_not (struct frame_info *fi)
 {
@@ -106,8 +149,20 @@ generic_skip_trampoline_code (CORE_ADDR pc)
   return 0;
 }
 
+CORE_ADDR
+generic_dynamic_trampoline_nextpc (CORE_ADDR pc)
+{
+  return 0;
+}
+
 int
 generic_in_solib_call_trampoline (CORE_ADDR pc, char *name)
+{
+  return 0;
+}
+
+int
+generic_in_solib_return_trampoline (CORE_ADDR pc, char *name)
 {
   return 0;
 }
@@ -118,7 +173,7 @@ generic_in_function_epilogue_p (struct gdbarch *gdbarch, CORE_ADDR pc)
   return 0;
 }
 
-char *
+const char *
 legacy_register_name (int i)
 {
 #ifdef REGISTER_NAMES
@@ -152,11 +207,7 @@ generic_remote_translate_xfer_address (CORE_ADDR gdb_addr, int gdb_len,
 int
 generic_prologue_frameless_p (CORE_ADDR ip)
 {
-#ifdef SKIP_PROLOGUE_FRAMELESS_P
-  return ip == SKIP_PROLOGUE_FRAMELESS_P (ip);
-#else
   return ip == SKIP_PROLOGUE (ip);
-#endif
 }
 
 /* New/multi-arched targets should use the correct gdbarch field
@@ -225,19 +276,6 @@ default_double_format (struct gdbarch *gdbarch)
     }
 }
 
-void
-default_print_float_info (void)
-{
-#ifdef FLOAT_INFO
-#if GDB_MULTI_ARCH > GDB_MULTI_ARCH_PARTIAL
-#error "FLOAT_INFO defined in multi-arch"
-#endif
-  FLOAT_INFO;
-#else
-  printf_filtered ("No floating point info available for this processor.\n");
-#endif
-}
-
 /* Misc helper functions for targets. */
 
 int
@@ -269,13 +307,6 @@ generic_cannot_extract_struct_value_address (char *dummy)
   return 0;
 }
 
-int
-default_register_sim_regno (int num)
-{
-  return num;
-}
-
-
 CORE_ADDR
 core_addr_identity (CORE_ADDR addr)
 {
@@ -286,13 +317,6 @@ int
 no_op_reg_to_regnum (int reg)
 {
   return reg;
-}
-
-/* For use by frame_args_address and frame_locals_address.  */
-CORE_ADDR
-default_frame_address (struct frame_info *fi)
-{
-  return fi->frame;
 }
 
 /* Default prepare_to_procced().  */
@@ -340,7 +364,7 @@ generic_prepare_to_proceed (int select_it)
 	      flush_cached_frames ();
 	      registers_changed ();
 	      stop_pc = wait_pc;
-	      select_frame (get_current_frame (), 0);
+	      select_frame (get_current_frame ());
 	    }
           /* We return 1 to indicate that there is a breakpoint here,
              so we need to step over it before continuing to avoid
@@ -355,21 +379,22 @@ generic_prepare_to_proceed (int select_it)
   
 }
 
-void
+CORE_ADDR
 init_frame_pc_noop (int fromleaf, struct frame_info *prev)
 {
-  return;
+  /* Do nothing, implies return the same PC value.  */
+  return get_frame_pc (prev);
 }
 
-void
+CORE_ADDR
 init_frame_pc_default (int fromleaf, struct frame_info *prev)
 {
   if (fromleaf)
-    prev->pc = SAVED_PC_AFTER_CALL (prev->next);
-  else if (prev->next != NULL)
-    prev->pc = FRAME_SAVED_PC (prev->next);
+    return SAVED_PC_AFTER_CALL (get_next_frame (prev));
+  else if (get_next_frame (prev) != NULL)
+    return FRAME_SAVED_PC (get_next_frame (prev));
   else
-    prev->pc = read_pc ();
+    return read_pc ();
 }
 
 void
@@ -398,27 +423,80 @@ legacy_virtual_frame_pointer (CORE_ADDR pc,
 			      int *frame_regnum,
 			      LONGEST *frame_offset)
 {
-  gdb_assert (FP_REGNUM >= 0);
-  *frame_regnum = FP_REGNUM;
+  /* FIXME: cagney/2002-09-13: This code is used when identifying the
+     frame pointer of the current PC.  It is assuming that a single
+     register and an offset can determine this.  I think it should
+     instead generate a byte code expression as that would work better
+     with things like Dwarf2's CFI.  */
+  if (FP_REGNUM >= 0 && FP_REGNUM < NUM_REGS)
+    *frame_regnum = FP_REGNUM;
+  else if (SP_REGNUM >= 0 && SP_REGNUM < NUM_REGS)
+    *frame_regnum = SP_REGNUM;
+  else
+    /* Should this be an internal error?  I guess so, it is reflecting
+       an architectural limitation in the current design.  */
+    internal_error (__FILE__, __LINE__, "No virtual frame pointer available");
   *frame_offset = 0;
 }
 
-/* Assume the world is flat.  Every register is large enough to fit a
-   target integer.  */
+/* Assume the world is sane, every register's virtual and real size
+   is identical.  */
 
 int
-generic_register_raw_size (int regnum)
+generic_register_size (int regnum)
 {
   gdb_assert (regnum >= 0 && regnum < NUM_REGS + NUM_PSEUDO_REGS);
-  return TARGET_INT_BIT / HOST_CHAR_BIT;
+  return TYPE_LENGTH (REGISTER_VIRTUAL_TYPE (regnum));
 }
 
-/* Assume the virtual size corresponds to the virtual type.  */
+/* Assume all registers are adjacent.  */
 
 int
-generic_register_virtual_size (int regnum)
+generic_register_byte (int regnum)
 {
-  return TYPE_LENGTH (REGISTER_VIRTUAL_TYPE (regnum));
+  int byte;
+  int i;
+  gdb_assert (regnum >= 0 && regnum < NUM_REGS + NUM_PSEUDO_REGS);
+  byte = 0;
+  for (i = 0; i < regnum; i++)
+    {
+      byte += TYPE_LENGTH (REGISTER_VIRTUAL_TYPE (i));
+    }
+  return byte;
+}
+
+
+int
+legacy_pc_in_sigtramp (CORE_ADDR pc, char *name)
+{
+#if !defined (IN_SIGTRAMP)
+  if (SIGTRAMP_START_P ())
+    return (pc) >= SIGTRAMP_START (pc) && (pc) < SIGTRAMP_END (pc);
+  else
+    return name && strcmp ("_sigtramp", name) == 0;
+#else
+  return IN_SIGTRAMP (pc, name);
+#endif
+}
+
+int
+legacy_convert_register_p (int regnum)
+{
+  return REGISTER_CONVERTIBLE (regnum);
+}
+
+void
+legacy_register_to_value (int regnum, struct type *type,
+			  char *from, char *to)
+{
+  REGISTER_CONVERT_TO_VIRTUAL (regnum, type, from, to);
+}
+
+void
+legacy_value_to_register (struct type *type, int regnum,
+			  char *from, char *to)
+{
+  REGISTER_CONVERT_TO_RAW (type, regnum, from, to);
 }
 
 
@@ -841,6 +919,7 @@ gdbarch_info_init (struct gdbarch_info *info)
 {
   memset (info, 0, sizeof (struct gdbarch_info));
   info->byte_order = BFD_ENDIAN_UNKNOWN;
+  info->osabi = GDB_OSABI_UNINITIALIZED;
 }
 
 /* */

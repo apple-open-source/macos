@@ -13,7 +13,7 @@ StartService ()
 	if [ "${NETWORKUP}" = "-NO-" ]; then exit; fi
 
 	ConsoleMessage "Starting Apple File Service"
-	AppleFileServer &
+	/usr/sbin/AppleFileServer
     fi
 }
 

@@ -3,21 +3,22 @@
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
- * Portions Copyright (c) 1999 Apple Computer, Inc.  All Rights
- * Reserved.  This file contains Original Code and/or Modifications of
- * Original Code as defined in and that are subject to the Apple Public
- * Source License Version 1.1 (the "License").  You may not use this file
- * except in compliance with the License.  Please obtain a copy of the
- * License at http://www.apple.com/publicsource and read it before using
- * this file.
+ * Copyright (c) 1999-2003 Apple Computer, Inc.  All Rights Reserved.
+ * 
+ * This file contains Original Code and/or Modifications of Original Code
+ * as defined in and that are subject to the Apple Public Source License
+ * Version 2.0 (the 'License'). You may not use this file except in
+ * compliance with the License. Please obtain a copy of the License at
+ * http://www.opensource.apple.com/apsl/ and read it before using this
+ * file.
  * 
  * The Original Code and all software distributed under the License are
- * distributed on an "AS IS" basis, WITHOUT WARRANTY OF ANY KIND, EITHER
+ * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
  * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
  * INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY,
- * FITNESS FOR A PARTICULAR PURPOSE OR NON- INFRINGEMENT.  Please see the
- * License for the specific language governing rights and limitations
- * under the License.
+ * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
+ * Please see the License for the specific language governing rights and
+ * limitations under the License.
  * 
  * @APPLE_LICENSE_HEADER_END@
  */
@@ -67,7 +68,8 @@ enum {
     funcGetSetDisplayStart   = 0x4F07,
     funcGetSetPaletteFormat  = 0x4F08,
     funcGetSetPaletteData    = 0x4F09,
-    funcGetProtModeInterdace = 0x4F0A
+    funcGetProtModeInterdace = 0x4F0A,
+    funcGetSetPixelClock     = 0x4F0B
 };
 
 enum {
@@ -217,8 +219,48 @@ enum {
  * Get/Set VBE Mode parameters
  */
 enum {
+    kCustomRefreshRateBit  =  (1 << 11),
     kLinearFrameBufferBit  =  (1 << 14),
     kPreserveMemoryBit     =  (1 << 15)
+};
+
+/*
+ * CRTC information block passed to function 4F02
+ * to override default refresh rate.
+ */
+#pragma pack(1)
+
+typedef struct {
+    unsigned short  HTotal;
+    unsigned short  HSyncStart;
+    unsigned short  HSyncEnd;
+    unsigned short  VTotal;
+    unsigned short  VSyncStart;
+    unsigned short  VSyncEnd;
+    unsigned char   Flags;
+    unsigned long   PixelClock;    /* in Hz            */
+    unsigned short  RefreshRate;   /* units of 0.01 Hz */
+    unsigned char   Reserved[40];
+} VBECRTCInfoBlock;
+
+#pragma options align=reset
+
+/*
+ * Defined flags for 'Flags' field in VBECRTCInfoBlock.
+ */
+enum {
+    kCRTCDoubleScannedMode       = (1 << 0),
+    kCRTCInterlacedMode          = (1 << 1),
+    kCRTCNegativeHorizontalSync  = (1 << 2),
+    kCRTCNegativeVerticalSync    = (1 << 3)
+};
+
+/*
+ * The type of paramter passed to generateCRTCTimings().
+ */
+enum {
+    kCRTCParamRefreshRate,
+    kCRTCParamPixelClock
 };
 
 /*
@@ -232,7 +274,13 @@ extern int getVBEDACFormat(unsigned char *format);
 extern int setVBEDACFormat(unsigned char format);
 extern int setVBEPalette(void *palette);
 extern int getVBEPalette(void *palette);
-extern int setVBEMode(unsigned short mode);
+extern int setVBEMode(unsigned short mode, const VBECRTCInfoBlock *timing);
 extern int getVBECurrentMode(unsigned short *mode);
+extern int getVBEPixelClock(unsigned short mode, unsigned long *pixelClock);
+extern int generateCRTCTiming(unsigned short     width,
+                              unsigned short     height,
+                              unsigned long      paramValue,
+                              int                paramType,
+                              VBECRTCInfoBlock * timing);
 
 #endif /* !__LIBSAIO_VBE_H */

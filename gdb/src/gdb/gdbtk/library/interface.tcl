@@ -255,8 +255,23 @@ proc gdbtk_quit_check {} {
 # ------------------------------------------------------------------
 proc gdbtk_quit {} {
   if {[gdbtk_quit_check]} {
-    gdb_force_quit
+    gdbtk_force_quit
   }
+}
+
+# ------------------------------------------------------------------
+#  PROCEDURE:  gdbtk_force_quit - Quit the debugger immediately
+# ------------------------------------------------------------------
+proc gdbtk_force_quit {} {
+  # If we don't delete source windows, GDB hooks will
+  # try to update them as we exit
+  foreach win [ManagedWin::find SrcWin] {
+    delete object $win
+  }
+  # Calling gdb_force_quit is probably not necessary here
+  # because it should have been called when the source window(s)
+  # were deleted, but just in case...
+  gdb_force_quit
 }
 
 # ------------------------------------------------------------------
@@ -331,7 +346,7 @@ proc gdbtk_tcl_query {message {default yes}} {
     # question.
     set r [tk_messageBox -icon warning -default $default \
 	     -message $message -title $title \
-	     -type yesno -modal $modal -parent .]
+	     -type yesno -parent .]
   }
 
   update idletasks
@@ -383,7 +398,7 @@ proc show_warning {message} {
   } else {
     set r [tk_messageBox -icon warning -default ok \
              -message $message -title $title \
-             -type ok -modal $modal -parent .]
+             -type ok -parent .]
   }
 } 
 
@@ -439,10 +454,22 @@ proc gdbtk_tcl_fputs_log {message} {
 # PROC: gdbtk_tcl_fputs_target - write target output
 # ------------------------------------------------------------------
 proc gdbtk_tcl_fputs_target {message} {
-  if {$::gdbtk_state(console) != ""} {
-    $::gdbtk_state(console) insert $message target_tag
-    update
+  if {$::gdbtk_state(console) == ""} {
+    ManagedWin::open Console -force
   }
+  $::gdbtk_state(console) insert $message target_tag
+  update
+}
+
+
+# ------------------------------------------------------------------
+# PROC: gdbtk_tcl_fputs_target_err - write target error output
+# ------------------------------------------------------------------
+proc gdbtk_tcl_fputs_target_err {message} {
+  if {$::gdbtk_state(console) == ""} {
+    ManagedWin::open Console -force
+  }  
+  $::gdbtk_state(console) insert $message err_tag
 }
 
 # ------------------------------------------------------------------
@@ -862,7 +889,7 @@ proc set_exe {} {
       return
     } elseif {[string match {*no debugging symbols found*} $msg]} {
       tk_messageBox -icon error -default ok \
-	-title "GDB" -type ok -modal system \
+	-title "GDB" -type ok \
 	-message "This executable has no debugging information."
     }
 
@@ -1060,8 +1087,8 @@ proc set_target_name {{prompt 1}} {
 # ------------------------------------------------------------------
 proc set_target {} {
   global gdb_target_cmd gdb_target_changed gdb_pretty_name gdb_target_name
-#  debug "gdb_target_changed=$gdb_target_changed gdb_target_cmd=\"$gdb_target_cmd\""
-#  debug "gdb_target_name=$gdb_target_name"
+  #debug "gdb_target_changed=$gdb_target_changed gdb_target_cmd=\"$gdb_target_cmd\""
+  #debug "gdb_target_name=$gdb_target_name"
   if {$gdb_target_cmd == "" && ![TargetSelection::native_debugging]} {
     if {$gdb_target_name == ""} {
       set prompt 1
@@ -1084,8 +1111,10 @@ proc set_target {} {
     update
     catch {gdb_cmd "detach"}
     debug "CONNECTING TO TARGET: $gdb_target_cmd"
+    gdbtk_busy
     set err [catch {gdb_immediate "target $gdb_target_cmd"} msg ]
     $srcWin set_status
+    gdbtk_idle
 
     if {$err} {
       if {[string first "Program not killed" $msg] != -1} {
@@ -1095,7 +1124,7 @@ proc set_target {} {
       set dialog_title "GDB"
       set debugger_name "GDB"
       tk_messageBox -icon error -title $dialog_title -type ok \
-	-modal task -message "$msg\n\n$debugger_name cannot connect to the target board\
+	-message "$msg\n\n$debugger_name cannot connect to the target board\
 using [lindex $gdb_target_cmd 1].\nVerify that the board is securely connected and, if\
 necessary,\nmodify the port setting with the debugger preferences."
       return ERROR
@@ -1146,7 +1175,8 @@ proc run_executable { {auto_start 1} } {
 
     # Attach
     if {$gdb_target_name == "" || [pref get gdb/src/run_attach]} {
-      if {[gdbtk_attach_remote] == "ATTACH_CANCELED"} {
+      set r [gdbtk_attach_remote]
+      if {$r == "ATTACH_CANCELED" || $r == "ATTACH_ERROR"} {
 	return
       }
     }
@@ -1533,6 +1563,14 @@ proc gdbtk_detach {} {
 #  PROC: gdbtk_run
 # ------------------------------------------------------------------
 proc gdbtk_run {} {
+  if {$::gdb_running == 1} {
+    set msg "A program is currently being debugged.\n"
+    append msg "Do you want to restart?"
+    if {![gdbtk_tcl_query $msg no]} {
+      # NO
+      return
+    }
+  }
   run_executable
 }
 
@@ -1763,4 +1801,15 @@ proc gdbtk_tcl_architecture_changed {} {
   set e [ArchChangedEvent \#auto]
   GDBEventHandler::dispatch $e
   delete object $e
+}
+
+proc gdbtk_console_read {} {
+  if {$::gdbtk_state(console) == ""} {
+    ManagedWin::open Console -force
+  } else {
+    raise [namespace tail $::gdbtk_state(console)]
+  }
+  set result [$::gdbtk_state(console) gets]
+  debug "result=$result"
+  return $result
 }

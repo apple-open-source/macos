@@ -80,6 +80,7 @@
  * other
  */
 #define	VIS_NOSLASH	0x40	/* inhibit printing '\' */
+#define	VIS_HTTPSTYLE	0x80	/* http-style escape % HEX HEX */
 
 /*
  * unvis return codes
@@ -98,11 +99,12 @@
 #include <sys/cdefs.h>
 
 __BEGIN_DECLS
-char	*vis __P((char *, int, int, int));
-int	strvis __P((char *, const char *, int));
-int	strvisx __P((char *, const char *, size_t, int));
-int	strunvis __P((char *, const char *));
-int	unvis __P((char *, int, int *, int));
+char	*vis(char *, int, int, int);
+int	strvis(char *, const char *, int);
+int	strvisx(char *, const char *, size_t, int);
+int	strunvis(char *, const char *);
+int	strunvisx(char *, const char *, int);
+int	unvis(char *, int, int *, int);
 __END_DECLS
 
 #endif /* !_VIS_H_ */

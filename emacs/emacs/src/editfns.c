@@ -33,6 +33,8 @@ Boston, MA 02111-1307, USA.  */
 #include <unistd.h>
 #endif
 
+#include <ctype.h>
+
 #include "lisp.h"
 #include "intervals.h"
 #include "buffer.h"
@@ -3943,7 +3945,7 @@ syms_of_editfns ()
   staticpro (&Qbuffer_access_fontify_functions);
 
   DEFVAR_LISP ("inhibit-field-text-motion", &Vinhibit_field_text_motion,
-    "Non-nil means.text motion commands don't notice fields.");
+    "Non-nil means text motion commands don't notice fields.");
   Vinhibit_field_text_motion = Qnil;
 
   DEFVAR_LISP ("buffer-access-fontify-functions",

@@ -44,6 +44,9 @@
 #include "breakpoint.h"
 #include "frame.h"
 #include "command.h"
+#include "inferior.h"
+#include "target.h"
+#include "top.h"
 
 #include "tui.h"
 #include "tuiData.h"
@@ -51,49 +54,205 @@
 #include "tuiGeneralWin.h"
 #include "tuiSource.h"
 #include "tuiSourceWin.h"
+#include "tui-file.h"
 
 
-/*****************************************
-** STATIC LOCAL FUNCTIONS FORWARD DECLS    **
-******************************************/
+/* Get a printable name for the function at the address.
+   The symbol name is demangled if demangling is turned on.
+   Returns a pointer to a static area holding the result.  */
+static char* tui_get_function_from_frame (struct frame_info *fi);
 
-static char *_getFuncNameFromFrame (struct frame_info *);
-static void _tuiUpdateLocation_command (char *, int);
+/* Set the filename portion of the locator.  */
+static void tui_set_locator_filename (const char *filename);
 
+/* Update the locator, with the provided arguments.  */
+static void tui_set_locator_info (const char *filename, const char *procname,
+                                  int lineno, CORE_ADDR addr);
 
+static void tui_update_command (char *, int);
+
 
-/*****************************************
-** PUBLIC FUNCTION                        **
-******************************************/
-
-/*
-   ** tuiClearLocatorDisplay()
- */
-void
-tuiClearLocatorDisplay (void)
+/* Create the status line to display as much information as we
+   can on this single line: target name, process number, current
+   function, current line, current PC, SingleKey mode.  */
+static char*
+tui_make_status_line (TuiLocatorElement* loc)
 {
-  TuiGenWinInfoPtr locator = locatorWinInfoPtr ();
-  int i;
+  char* string;
+  char line_buf[50], *pname;
+  char* buf;
+  int status_size;
+  int i, proc_width;
+  const char* pid_name;
+  const char* pc_buf;
+  int target_width;
+  int pid_width;
+  int line_width;
+  int pc_width;
+  struct ui_file *pc_out;
 
-  if (locator->handle != (WINDOW *) NULL)
+  if (ptid_equal (inferior_ptid, null_ptid))
+    pid_name = "No process";
+  else
+    pid_name = target_pid_to_str (inferior_ptid);
+
+  target_width = strlen (target_shortname);
+  if (target_width > MAX_TARGET_WIDTH)
+    target_width = MAX_TARGET_WIDTH;
+
+  pid_width = strlen (pid_name);
+  if (pid_width > MAX_PID_WIDTH)
+    pid_width = MAX_PID_WIDTH;
+
+  status_size = termWidth ();  
+  string = (char *) xmalloc (status_size + 1);
+  buf = (char*) alloca (status_size + 1);
+
+  /* Translate line number and obtain its size.  */
+  if (loc->lineNo > 0)
+    sprintf (line_buf, "%d", loc->lineNo);
+  else
+    strcpy (line_buf, "??");
+  line_width = strlen (line_buf);
+  if (line_width < MIN_LINE_WIDTH)
+    line_width = MIN_LINE_WIDTH;
+
+  /* Translate PC address.  */
+  pc_out = tui_sfileopen (128);
+  print_address_numeric (loc->addr, 1, pc_out);
+  pc_buf = tui_file_get_strbuf (pc_out);
+  pc_width = strlen (pc_buf);
+  
+  /* First determine the amount of proc name width we have available.
+     The +1 are for a space separator between fields.
+     The -1 are to take into account the \0 counted by sizeof.  */
+  proc_width = (status_size
+                - (target_width + 1)
+                - (pid_width + 1)
+                - (sizeof (PROC_PREFIX) - 1 + 1)
+                - (sizeof (LINE_PREFIX) - 1 + line_width + 1)
+                - (sizeof (PC_PREFIX) - 1 + pc_width + 1)
+                - (tui_current_key_mode == tui_single_key_mode
+                   ? (sizeof (SINGLE_KEY) - 1 + 1)
+                   : 0));
+
+  /* If there is no room to print the function name, try by removing
+     some fields.  */
+  if (proc_width < MIN_PROC_WIDTH)
     {
-      /* No need to werase, since writing a line of
-         * blanks which we do below, is equivalent.
-       */
-      /* werase(locator->handle); */
-      wmove (locator->handle, 0, 0);
-      wstandout (locator->handle);
-      for (i = 0; i < locator->width; i++)
-	waddch (locator->handle, ' ');
-      wstandend (locator->handle);
-      tuiRefreshWin (locator);
-      wmove (locator->handle, 0, 0);
-      locator->contentInUse = FALSE;
+      proc_width += target_width + 1;
+      target_width = 0;
+      if (proc_width < MIN_PROC_WIDTH)
+        {
+          proc_width += pid_width + 1;
+          pid_width = 0;
+          if (proc_width <= MIN_PROC_WIDTH)
+            {
+              proc_width += pc_width + sizeof (PC_PREFIX) - 1 + 1;
+              pc_width = 0;
+              if (proc_width < 0)
+                {
+                  proc_width += line_width + sizeof (LINE_PREFIX) - 1 + 1;
+                  line_width = 0;
+                  if (proc_width < 0)
+                    proc_width = 0;
+                }
+            }
+        }
     }
 
-  return;
-}				/* tuiClearLocatorDisplay */
+  /* Now convert elements to string form */
+  pname = loc->procName;
 
+  /* Now create the locator line from the string version
+     of the elements.  We could use sprintf() here but
+     that wouldn't ensure that we don't overrun the size
+     of the allocated buffer.  strcat_to_buf() will.  */
+  *string = (char) 0;
+
+  if (target_width > 0)
+    {
+      sprintf (buf, "%*.*s ",
+               -target_width, target_width, target_shortname);
+      strcat_to_buf (string, status_size, buf);
+    }
+  if (pid_width > 0)
+    {
+      sprintf (buf, "%*.*s ",
+               -pid_width, pid_width, pid_name);
+      strcat_to_buf (string, status_size, buf);
+    }
+  
+  /* Show whether we are in SingleKey mode.  */
+  if (tui_current_key_mode == tui_single_key_mode)
+    {
+      strcat_to_buf (string, status_size, SINGLE_KEY);
+      strcat_to_buf (string, status_size, " ");
+    }
+
+  /* procedure/class name */
+  if (proc_width > 0)
+    {
+      if (strlen (pname) > proc_width)
+        sprintf (buf, "%s%*.*s* ", PROC_PREFIX,
+                 1 - proc_width, proc_width - 1, pname);
+      else
+        sprintf (buf, "%s%*.*s ", PROC_PREFIX,
+                 -proc_width, proc_width, pname);
+      strcat_to_buf (string, status_size, buf);
+    }
+
+  if (line_width > 0)
+    {
+      sprintf (buf, "%s%*.*s ", LINE_PREFIX,
+               -line_width, line_width, line_buf);
+      strcat_to_buf (string, status_size, buf);
+    }
+  if (pc_width > 0)
+    {
+      strcat_to_buf (string, status_size, PC_PREFIX);
+      strcat_to_buf (string, status_size, pc_buf);
+    }
+  
+  
+  for (i = strlen (string); i < status_size; i++)
+    string[i] = ' ';
+  string[status_size] = (char) 0;
+
+  ui_file_delete (pc_out);
+  return string;
+}
+
+/* Get a printable name for the function at the address.
+   The symbol name is demangled if demangling is turned on.
+   Returns a pointer to a static area holding the result.  */
+static char*
+tui_get_function_from_frame (struct frame_info *fi)
+{
+  static char name[256];
+  struct ui_file *stream = tui_sfileopen (256);
+  char *p;
+
+  print_address_symbolic (fi->pc, stream, demangle, "");
+  p = tui_file_get_strbuf (stream);
+
+  /* Use simple heuristics to isolate the function name.  The symbol can
+     be demangled and we can have function parameters.  Remove them because
+     the status line is too short to display them.  */
+  if (*p == '<')
+    p++;
+  strncpy (name, p, sizeof (name));
+  p = strchr (name, '(');
+  if (!p)
+    p = strchr (name, '>');
+  if (p)
+    *p = 0;
+  p = strchr (name, '+');
+  if (p)
+    *p = 0;
+  ui_file_delete (stream);
+  return name;
+}
 
 /*
    ** tuiShowLocatorContent()
@@ -108,196 +267,74 @@ tuiShowLocatorContent (void)
 
   if (m_genWinPtrNotNull (locator) && locator->handle != (WINDOW *) NULL)
     {
-      string = displayableWinContentAt (locator, 0);
-      if (string != (char *) NULL)
-	{
-	  wmove (locator->handle, 0, 0);
-	  wstandout (locator->handle);
-	  waddstr (locator->handle, string);
-	  wstandend (locator->handle);
-	  tuiRefreshWin (locator);
-	  wmove (locator->handle, 0, 0);
-	  if (string != nullStr ())
-	    tuiFree (string);
-	  locator->contentInUse = TRUE;
-	}
+      TuiWinElementPtr element;
+
+      element = (TuiWinElementPtr) locator->content[0];
+
+      string = tui_make_status_line (&element->whichElement.locator);
+      wmove (locator->handle, 0, 0);
+      wstandout (locator->handle);
+      waddstr (locator->handle, string);
+      wclrtoeol (locator->handle);
+      wstandend (locator->handle);
+      tuiRefreshWin (locator);
+      wmove (locator->handle, 0, 0);
+      xfree (string);
+      locator->contentInUse = TRUE;
     }
-
-  return;
-}				/* tuiShowLocatorContent */
-
-
-/* Update the locator, with the provided arguments.  */
-void
-tuiSetLocatorInfo (char *fname, char *procname, int lineNo,
-                   CORE_ADDR addr, TuiLocatorElementPtr element)
-{
-  element->fileName[0] = (char) 0;
-  element->procName[0] = (char) 0;
-  strcat_to_buf (element->fileName, MAX_LOCATOR_ELEMENT_LEN, fname);
-  strcat_to_buf (element->procName, MAX_LOCATOR_ELEMENT_LEN, procname);
-  element->lineNo = lineNo;
-  element->addr = addr;
 }
 
 
-/*
-   ** tuiUpdateLocatorFilename().
-   **        Update only the filename portion of the locator.
- */
-void
-tuiUpdateLocatorFilename (const char *fileName)
+/* Set the filename portion of the locator.  */
+static void
+tui_set_locator_filename (const char *filename)
 {
   TuiGenWinInfoPtr locator = locatorWinInfoPtr ();
+  TuiLocatorElementPtr element;
 
   if (locator->content[0] == (Opaque) NULL)
-    tuiSetLocatorContent ((struct frame_info *) NULL);
-  ((TuiWinElementPtr) locator->content[0])->whichElement.locator.fileName[0] = (char) 0;
-  strcat_to_buf (((TuiWinElementPtr) locator->content[0])->whichElement.locator.fileName,
-		 MAX_LOCATOR_ELEMENT_LEN,
-		 fileName);
-
-  tuiShowLocatorContent ();
-
-  return;
-}				/* tuiUpdateLocatorFilename */
-
-/*
-   ** tuiSwitchFilename().
-   **   Update the filename portion of the locator. Clear the other info in locator.
-   ** (elz)
- */
-void
-tuiSwitchFilename (char *fileName)
-{
-  TuiGenWinInfoPtr locator = locatorWinInfoPtr ();
-
-  if (locator->content[0] == (Opaque) NULL)
-    tuiSetLocatorContent ((struct frame_info *) NULL);
-  ((TuiWinElementPtr) locator->content[0])->whichElement.locator.fileName[0] = (char) 0;
-
-  tuiSetLocatorInfo (fileName,
-		     (char *) NULL,
-		     0,
-		     (CORE_ADDR) 0,
-	   &((TuiWinElementPtr) locator->content[0])->whichElement.locator);
-
-  tuiShowLocatorContent ();
-
-  return;
-}				/* tuiSwitchFilename */
-
-
-/*
-   ** tuiGetLocatorFilename().
-   **   Get the filename portion of the locator.
-   ** (elz)
- */
-void
-tuiGetLocatorFilename (TuiGenWinInfoPtr locator, char **filename)
-{
-
-  /* the current filename could be non known, in which case the xmalloc would
-     allocate no memory, because the length would be 0 */
-  if (((TuiWinElementPtr) locator->content[0])->whichElement.locator.fileName)
     {
-      int name_length =
-      strlen (((TuiWinElementPtr) locator->content[0])->whichElement.locator.fileName);
-
-      (*filename) = (char *) xmalloc (name_length + 1);
-      strcpy ((*filename),
-	      ((TuiWinElementPtr) locator->content[0])->whichElement.locator.fileName);
+      tui_set_locator_info (filename, NULL, 0, 0);
+      return;
     }
 
-  return;
-}				/* tuiGetLocatorFilename */
+  element = &((TuiWinElementPtr) locator->content[0])->whichElement.locator;
+  element->fileName[0] = 0;
+  strcat_to_buf (element->fileName, MAX_LOCATOR_ELEMENT_LEN, filename);
+}
 
-
-/*
-   ** tuiUpdateLocatorInfoFromFrame().
-   **        Function to update the locator, with the information extracted from frameInfo
- */
-void
-tuiUpdateLocatorInfoFromFrame (struct frame_info *frameInfo,
-                               TuiLocatorElementPtr element)
-{
-  struct symtab_and_line symtabAndLine;
-
-  /* now get the new info */
-  symtabAndLine = find_pc_line (frameInfo->pc,
-			   (frameInfo->next != (struct frame_info *) NULL &&
-			    !frameInfo->next->signal_handler_caller &&
-			    !frame_in_dummy (frameInfo->next)));
-  if (symtabAndLine.symtab && symtabAndLine.symtab->filename)
-    tuiSetLocatorInfo (symtabAndLine.symtab->filename,
-		       _getFuncNameFromFrame (frameInfo),
-		       symtabAndLine.line,
-		       frameInfo->pc,
-		       element);
-  else
-    tuiSetLocatorInfo ((char *) NULL,
-		       _getFuncNameFromFrame (frameInfo),
-		       0,
-		       frameInfo->pc,
-		       element);
-
-  return;
-}				/* tuiUpdateLocatorInfoFromFrame */
-
-
-/*
-   ** tuiSetLocatorContent().
-   **        Function to set the content of the locator
- */
-void
-tuiSetLocatorContent (struct frame_info *frameInfo)
+/* Update the locator, with the provided arguments.  */
+static void
+tui_set_locator_info (const char *filename, const char *procname, int lineno,
+                      CORE_ADDR addr)
 {
   TuiGenWinInfoPtr locator = locatorWinInfoPtr ();
-  TuiWinElementPtr element;
-  struct symtab_and_line symtabAndLine;
+  TuiLocatorElementPtr element;
 
-  /* Allocate the element if necessary */
+  /* Allocate the locator content if necessary.  */
   if (locator->contentSize <= 0)
     {
-      TuiWinContent contentPtr;
-
-      if ((locator->content = (OpaquePtr) allocContent (1, locator->type)) == (OpaquePtr) NULL)
-	error ("Unable to Allocate Memory to Display Location.");
+      locator->content = (OpaquePtr) allocContent (1, locator->type);
       locator->contentSize = 1;
     }
 
-  if (frameInfo != (struct frame_info *) NULL)
-    tuiUpdateLocatorInfoFromFrame (frameInfo,
-	   &((TuiWinElementPtr) locator->content[0])->whichElement.locator);
-  else
-    tuiSetLocatorInfo ((char *) NULL,
-		       (char *) NULL,
-		       0,
-		       (CORE_ADDR) 0,
-	   &((TuiWinElementPtr) locator->content[0])->whichElement.locator);
-  return;
-}				/* tuiSetLocatorContent */
+  element = &((TuiWinElementPtr) locator->content[0])->whichElement.locator;
+  element->procName[0] = (char) 0;
+  strcat_to_buf (element->procName, MAX_LOCATOR_ELEMENT_LEN, procname);
+  element->lineNo = lineno;
+  element->addr = addr;
+  tui_set_locator_filename (filename);
+}
 
-
-/*
-   ** tuiUpdateLocatorDisplay().
-   **        Function to update the locator display
- */
+/* Update only the filename portion of the locator.  */
 void
-tuiUpdateLocatorDisplay (struct frame_info *frameInfo)
+tuiUpdateLocatorFilename (const char *filename)
 {
-  tuiClearLocatorDisplay ();
-  tuiSetLocatorContent (frameInfo);
+  tui_set_locator_filename (filename);
   tuiShowLocatorContent ();
+}
 
-  return;
-}				/* tuiUpdateLocatorDisplay */
-
-
-/*
-   ** tuiShowFrameInfo().
-   **        Function to print the frame inforrmation for the TUI.
- */
+/* Function to print the frame information for the TUI.  */
 void
 tuiShowFrameInfo (struct frame_info *fi)
 {
@@ -307,19 +344,21 @@ tuiShowFrameInfo (struct frame_info *fi)
   if (fi)
     {
       register int startLine, i;
-      register struct symtab *s;
       CORE_ADDR low;
       TuiGenWinInfoPtr locator = locatorWinInfoPtr ();
       int sourceAlreadyDisplayed;
+      struct symtab_and_line sal;
 
+      find_frame_sal (fi, &sal);
 
-      s = find_pc_symtab (fi->pc);
-      if (s == 0)
-        return;
-
+      sourceAlreadyDisplayed = sal.symtab != 0
+        && tuiSourceIsDisplayed (sal.symtab->filename);
+      tui_set_locator_info (sal.symtab == 0 ? "??" : sal.symtab->filename,
+                            tui_get_function_from_frame (fi),
+                            sal.line,
+                            fi->pc);
+      tuiShowLocatorContent ();
       startLine = 0;
-      sourceAlreadyDisplayed = tuiSourceIsDisplayed (s->filename);
-      tuiUpdateLocatorDisplay (fi);
       for (i = 0; i < (sourceWindows ())->count; i++)
 	{
 	  TuiWhichElement *item;
@@ -347,7 +386,7 @@ tuiShowFrameInfo (struct frame_info *fi)
 	      l.lineNo = startLine;
 	      if (!(sourceAlreadyDisplayed
 		    && tuiLineIsDisplayed (item->locator.lineNo, winInfo, TRUE)))
-		tuiUpdateSourceWindow (winInfo, s, l, TRUE);
+		tuiUpdateSourceWindow (winInfo, sal.symtab, l, TRUE);
 	      else
 		{
 		  l.lineNo = item->locator.lineNo;
@@ -361,7 +400,7 @@ tuiShowFrameInfo (struct frame_info *fi)
 		  TuiLineOrAddress a;
 		  a.addr = low;
 		  if (!tuiAddrIsDisplayed (item->locator.addr, winInfo, TRUE))
-		    tuiUpdateSourceWindow (winInfo, s, a, TRUE);
+		    tuiUpdateSourceWindow (winInfo, sal.symtab, a, TRUE);
 		  else
 		    {
 		      a.addr = item->locator.addr;
@@ -374,7 +413,8 @@ tuiShowFrameInfo (struct frame_info *fi)
     }
   else
     {
-      tuiUpdateLocatorDisplay (fi);
+      tui_set_locator_info (NULL, NULL, 0, (CORE_ADDR) 0);
+      tuiShowLocatorContent ();
       for (i = 0; i < (sourceWindows ())->count; i++)
 	{
 	  winInfo = (TuiWinInfoPtr) (sourceWindows ())->list[i];
@@ -382,70 +422,23 @@ tuiShowFrameInfo (struct frame_info *fi)
 	  tuiUpdateExecInfo (winInfo);
 	}
     }
+}
 
-  return;
-}				/* tuiShowFrameInfo */
-
-/*
-   ** _initialize_tuiStack().
-   **      Function to initialize gdb commands, for tui window stack manipulation.
- */
+/* Function to initialize gdb commands, for tui window stack manipulation.  */
 void
 _initialize_tuiStack (void)
 {
-  add_com ("update", class_tui, _tuiUpdateLocation_command,
-           "Update the source window and locator to display the current execution point.\n");
+  add_com ("update", class_tui, tui_update_command,
+           "Update the source window and locator to display the current "
+           "execution point.\n");
 }
 
-
-/*****************************************
-** STATIC LOCAL FUNCTIONS                 **
-******************************************/
-
-/*
-   **    _getFuncNameFromFrame().
- */
-static char *
-_getFuncNameFromFrame (struct frame_info *frameInfo)
-{
-  char *funcName = (char *) NULL;
-
-  find_pc_partial_function (frameInfo->pc,
-			    &funcName,
-			    (CORE_ADDR *) NULL,
-			    (CORE_ADDR *) NULL);
-  return funcName;
-}				/* _getFuncNameFromFrame */
-
-
-/*
-   ** _tuiUpdateLocation_command().
-   **        Command to update the display with the current execution point
- */
+/* Command to update the display with the current execution point.  */
 static void
-_tuiUpdateLocation_command (char *arg, int fromTTY)
+tui_update_command (char *arg, int from_tty)
 {
-#ifndef TRY
-extern void frame_command (char *, int);
-  frame_command ("0", FALSE);
-#else
-  struct frame_info *curFrame;
+  char cmd[sizeof("frame 0")];
 
-  /* Obtain the current execution point */
-  if ((curFrame = get_current_frame ()) != (struct frame_info *) NULL)
-    {
-      struct frame_info *frame;
-      int curLevel = 0;
-
-      for (frame = get_prev_frame (curLevel);
-	   (frame != (struct frame_info *) NULL && (frame != curFrame));
-	   frame = get_prev_frame (frame))
-	curLevel++;
-
-      if (curFrame != (struct frame_info *) NULL)
-	print_frame_info (frame, curLevel, 0, 1);
-    }
-#endif
-
-  return;
-}				/* _tuiUpdateLocation_command */
+  strcpy (cmd, "frame 0");
+  execute_command (cmd, from_tty);
+}

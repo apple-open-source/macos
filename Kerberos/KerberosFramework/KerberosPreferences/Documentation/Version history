@@ -1,0 +1,203 @@
+==============================================================================
+Kerberos Preferences Library Version History
+==============================================================================
+Current version: 1.3fc1
+Date           : July 16, 2003
+Author         : mjv@mit.edu, meeroh@mit.edu, lxs@mit.edu
+========================================================================
+
+	Kerberos Preferences 1.3fc1
+	July 16, 2003
+
+	Moved to final candidate
+			
+	========================================================================
+	Kerberos Preferences 1.3a1
+	March 11, 2003
+
+	[RT 1378] KerberosPreferences should use same paths as krb5
+			
+	========================================================================
+
+Kerberos Preferences Library 1.2
+Feb 19, 2002
+
+========================================================================
+
+	Kerberos Preferences 1.2fc1
+	Feb 7, 2001
+
+	Moved to final candidate
+			
+	========================================================================
+
+	Kerberos Preferences 1.2b3
+	Dec 13, 2001
+
+	Removed version strings from the Mac OS X project
+			
+	========================================================================
+
+	Kerberos Preferences 1.2b2
+	Dec 3, 2001
+
+	Bugs fixed in thie release:
+	 - [BZ 674]	Calling KPPrefsFileIs* resets the idle sleep timer
+			
+	========================================================================
+
+	Kerberos Preferences 1.2b1
+	Nov 7, 2001
+
+	Documentation update
+			
+	========================================================================
+
+	Kerberos Preferences 1.2a2
+	Aug 7, 2001
+
+	Fixed missing default prefs
+			
+	========================================================================
+
+	Kerberos Preferences 1.2a1
+	Aug 7, 2001
+
+	Read the defaults from a flat file on Mac OS X
+			
+	========================================================================
+
+Kerberos Preferences Library 1.1
+June 25, 2001
+
+Carbon, CWP 6
+========================================================================
+
+	Kerberos Preferences 1.1fc1
+	June 13, 2001
+
+	Final candidate for 3.5
+	
+	Build fixes for B&I
+			
+	========================================================================
+
+	Kerberos Preferences 1.1b2
+	April 30, 2001
+
+	Fixed ShlibResourcesLib header paths
+			
+	========================================================================
+
+	Kerberos Preferences 1.1b1
+	April 2, 2001
+
+	Moved to beta
+			
+	========================================================================
+
+	Kerberos Preferences 1.1a3
+	March 21, 2001
+
+	Project update for new header layout
+			
+	========================================================================
+
+	Kerberos Preferences 1.1a2
+	March 16, 2001
+
+	Documentation update
+	Project update for new header layout
+			
+	========================================================================
+
+	Kerberos Preferences 1.1a1
+	December 9, 2000
+
+	Alpha
+			
+	========================================================================
+
+	Kerberos Preferences 1.1d4
+	October 27, 2000
+
+	First Mach-O release
+			
+	========================================================================
+
+	Kerberos Preferences 1.1d3
+	October 16, 2000
+
+	Conditionalized for Mach-O builds
+			
+	========================================================================
+
+	Kerberos Preferences 1.1d2
+	September 28, 2000
+
+	Rebuilt with fixed CWP 6 fcntl.h
+			
+	========================================================================
+
+	Kerberos Preferences 1.1d1
+	September 26, 2000
+
+	Carbonized and moved to CWP 6
+			
+	========================================================================
+
+Kerberos Preferences Library 1.0
+June 30, 2000
+
+First public release.
+========================================================================
+
+	Kerberos Preferences 1.0fc2
+	June 28, 2000
+
+	Bugs fixed in this release:
+		[BZ 365]	Moved strings into code section
+			
+	========================================================================
+
+	Kerberos Preferences 1.0fc1
+	June 16, 2000
+
+	Use library folder instead of App Support [BZ 350]
+			
+	========================================================================
+
+	Kerberos Preferences 1.0b2
+	June 13, 2000
+
+	Bugs fixed in this release:	
+		[BZ 326]	znol in MacZephyr too slow
+			
+	========================================================================
+
+	Kerberos Preferences 1.0b1
+	June 10, 2000
+
+	Bugs fixed in this release:	
+		[BZ 305]	Fails to detect locked files
+		[BZ 306]	Need a function to create an empty prefs file
+		[BZ 307]	Initialize should not put in KM and KLL prefs
+		[BZ 308]	Rename KPGetListOfFiles to KPGetListOfPreferencesFiles
+		[BZ 318]	Initializing fails because default data is missing
+		[BZ 319]	Use creator and type search
+		[BZ 299]	Change name of generated binaries
+			
+	========================================================================
+
+	Kerberos Preferences 1.0a2
+	June 3, 2000
+	
+	Added KPPreferencesFileIsWritable, KPPreferencesFileIsReadable,
+	implemented KPInitializeWithDefaultPreferences, fixed KPGetListOfFiles
+	
+	========================================================================
+
+	Kerberos Preferences 1.2a1
+	May 22, 2000
+	
+	First release

@@ -3,8 +3,6 @@
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
- * Copyright (c) 1999-2003 Apple Computer, Inc.  All Rights Reserved.
- * 
  * This file contains Original Code and/or Modifications of Original Code
  * as defined in and that are subject to the Apple Public Source License
  * Version 2.0 (the 'License'). You may not use this file except in
@@ -56,7 +54,7 @@
 #undef _malloc_fork_child
 #undef _malloc_fork_parent
 #undef _malloc_fork_prepare
-#endif SHLIB
+#endif /* SHLIB */
 
 #ifdef TESTING
 #define valloc _new_valloc

@@ -1,0 +1,632 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01//EN">
+<HTML
+><HEAD
+><TITLE
+>A first remote test</TITLE
+><META
+NAME="GENERATOR"
+CONTENT="Modular DocBook HTML Stylesheet Version 1.64
+"><LINK
+REL="HOME"
+TITLE="DejaGnu"
+HREF="book1.html"><LINK
+REL="UP"
+TITLE="Getting DejaGnu up and running"
+HREF="gettingup.html"><LINK
+REL="PREVIOUS"
+TITLE="Our first automated tests"
+HREF="x276.html"><LINK
+REL="NEXT"
+TITLE="Running Tests"
+HREF="runningtests.html"></HEAD
+><BODY
+CLASS="SECT1"
+BGCOLOR="#FFFFFF"
+TEXT="#000000"
+LINK="#0000FF"
+VLINK="#840084"
+ALINK="#0000FF"
+><DIV
+CLASS="NAVHEADER"
+><TABLE
+WIDTH="100%"
+BORDER="0"
+CELLPADDING="0"
+CELLSPACING="0"
+><TR
+><TH
+COLSPAN="3"
+ALIGN="center"
+>DejaGnu: The GNU Testing Framework</TH
+></TR
+><TR
+><TD
+WIDTH="10%"
+ALIGN="left"
+VALIGN="bottom"
+><A
+HREF="x276.html"
+>&#60;&#60;&#60; Previous</A
+></TD
+><TD
+WIDTH="80%"
+ALIGN="center"
+VALIGN="bottom"
+>Getting DejaGnu up and running</TD
+><TD
+WIDTH="10%"
+ALIGN="right"
+VALIGN="bottom"
+><A
+HREF="runningtests.html"
+>Next &#62;&#62;&#62;</A
+></TD
+></TR
+></TABLE
+><HR
+ALIGN="LEFT"
+WIDTH="100%"></DIV
+><DIV
+CLASS="SECT1"
+><H1
+CLASS="SECT1"
+><A
+NAME="AEN319"
+>A first remote test</A
+></H1
+><P
+>Testing remote targets is a lot trickier especially if you are using an
+ embedded target
+which has no built in support for things like a compiler, ftp server or a Bash-shell. 
+Before you can test calc on a remote target you have to acquire a few basics skills.</P
+><DIV
+CLASS="SECT2"
+><H2
+CLASS="SECT2"
+><A
+NAME="AEN322"
+>Setup telnet to your own host</A
+></H2
+><P
+>The easiest remote host is usually the host you are working on. 
+In this example we will use telnet to login in your own workstation. 
+For security reason you should never have a telnet deamon running on 
+machine connected on the internet, as password and usernames are transmitted
+ in clear text. 
+We assume you know how to setup your machine for a telnet daemon.</P
+><P
+>Next try whether you may login in your own host by issuing the 
+command &#8220;telnet localhost.1&#8221;. In order to be able to 
+distinguish between a normal session an a telnet login add the following lines to /home/dgt/.bashrc.</P
+><TABLE
+BORDER="0"
+BGCOLOR="#E0E0E0"
+WIDTH="100%"
+><TR
+><TD
+><PRE
+CLASS="PROGRAMLISTING"
+>if [ "$REMOTEHOST" ]
+then 
+   PS1='remote:\w\$ ' 
+fi</PRE
+></TD
+></TR
+></TABLE
+><P
+>Now on the machine a &#8220;remote&#8221; login looks like this:</P
+><DIV
+CLASS="EXAMPLE"
+><A
+NAME="AEN328"
+></A
+><P
+><B
+>Example 11. Sample log of a telnet login to localhost</B
+></P
+><TABLE
+BORDER="0"
+BGCOLOR="#E0E0E0"
+WIDTH="100%"
+><TR
+><TD
+><PRE
+CLASS="PROGRAMLISTING"
+>dgt:~/dejagnu.test$ telnet localhost
+Trying 127.0.0.1... 
+Connected to 127.0.0.1. 
+Escape character is '^]'. 
+Debian GNU/Linux testing/unstable Linux 
+K6Linux login: dgt
+Password: 
+Last login: Sun Nov 25 22:46:34 2001 from localhost on pts/4 
+Linux K6Linux 2.4.14 #1 Fre Nov 16 19:28:25 CET 2001 i586 unknown 
+No mail. 
+remote:~$ exit
+logout 
+Connection closed by foreign host.</PRE
+></TD
+></TR
+></TABLE
+></DIV
+></DIV
+><DIV
+CLASS="SECT2"
+><H2
+CLASS="SECT2"
+><A
+NAME="AEN331"
+>A test case for login via telnet</A
+></H2
+><P
+>In order to define a correct setup we have add a line containing 
+&#8220;set target unix&#8221; either to ~/.dejagnurc or to ~/my_dejagnu.exp. 
+In ~/boards/standard.exp add the following four lines to define a few patterns for the DejaGnu telnet login procedure.</P
+><DIV
+CLASS="EXAMPLE"
+><A
+NAME="AEN334"
+></A
+><P
+><B
+>Example 12. Defining a remote target board</B
+></P
+><TABLE
+BORDER="0"
+BGCOLOR="#E0E0E0"
+WIDTH="100%"
+><TR
+><TD
+><PRE
+CLASS="PROGRAMLISTING"
+>set_board_info shell_prompt    "remote:" 
+set_board_info telnet_username "dgt" 
+set_board_info telnet_password "top_secret" 
+set_board_info hostname        "localhost"&#13;</PRE
+></TD
+></TR
+></TABLE
+></DIV
+><P
+>As DejaGnu will be parsing the telnet session output for some well 
+known pattern the output there are a lot of things that can go wrong. 
+If you have any problems verify your setup:</P
+><P
+></P
+><UL
+><LI
+><P
+>Is <TT
+CLASS="FILENAME"
+>/etc/motd</TT
+> empty?</P
+></LI
+><LI
+><P
+>Is <TT
+CLASS="FILENAME"
+>/etc/issue.net</TT
+> empty?</P
+></LI
+><LI
+><P
+>Exists a empty <TT
+CLASS="FILENAME"
+>~/.hushlogin</TT
+>?</P
+></LI
+><LI
+><P
+>The LANG environment variable must be either empty or set to &#8220;C&#8221;. </P
+></LI
+></UL
+><P
+>To test the login via telnet write a sample test case. 
+Create the file ~/dejagnu.test/testsuite/calc.test/remote_echo.exp and 
+add the following few lines:</P
+><DIV
+CLASS="EXAMPLE"
+><A
+NAME="AEN351"
+></A
+><P
+><B
+>Example 13. DejaGnu script for logging in into a remote target</B
+></P
+><TABLE
+BORDER="0"
+BGCOLOR="#E0E0E0"
+WIDTH="100%"
+><TR
+><TD
+><PRE
+CLASS="PROGRAMLISTING"
+>puts "this is remote_echo.exp target for $target "
+target_info $target 
+#set verbose 9 
+set shell_id [remote_open $target] 
+set test "Remote login to $target" 
+#set verbose 0
+puts "Spawn id for remote shell is $shell_id"
+if { $shell_id &#62; 0 } { 
+   pass "$test" 
+} else { 
+   fail "Remote open to $target" 
+}</PRE
+></TD
+></TR
+></TABLE
+></DIV
+><P
+>In the runtest output you should find something like:</P
+><TABLE
+BORDER="0"
+BGCOLOR="#E0E0E0"
+WIDTH="100%"
+><TR
+><TD
+><PRE
+CLASS="PROGRAMLISTING"
+>Running ./testsuite/calc.test/local_echo.exp ... 
+Running ./testsuite/calc.test/remote_echoo.exp ... 
+this is remote_echo.exp target is unix 
+Spawn id for remote shell is exp7</PRE
+></TD
+></TR
+></TABLE
+><P
+>Have again a look at calc.log to get a feeling how DejaGnu and expect
+parse the input. </P
+></DIV
+><DIV
+CLASS="SECT2"
+><H2
+CLASS="SECT2"
+><A
+NAME="AEN357"
+>Remote testing &#8220;Hello world&#8221;</A
+></H2
+><P
+>Next you will transform the above &#8220;hello world&#8221; example to 
+its remote equivalent. 
+This can be done by adding the following lines to our file remote_echo.exp.</P
+><DIV
+CLASS="EXAMPLE"
+><A
+NAME="AEN360"
+></A
+><P
+><B
+>Example 14. A first (local) remote "Hello world" test</B
+></P
+><TABLE
+BORDER="0"
+BGCOLOR="#E0E0E0"
+WIDTH="100%"
+><TR
+><TD
+><PRE
+CLASS="PROGRAMLISTING"
+>set test "Remote_send Hello World" 
+set status [remote_send $target "echo \"Hello World\"\n" ]
+pass "$test"
+set test "Remote_expect Hello World" 
+remote_expect $target 5 { 
+   -re "Hello World"  { pass "$test" } 
+}</PRE
+></TD
+></TR
+></TABLE
+></DIV
+><P
+>Call make check. The output should contain
+&#8220;# of expected passes 9&#8221; and &#8220;# of unexcpected failures 1&#8221;.</P
+><P
+>Have a look at the procedures in /usr/share/dejagnu/remote.exp to have an overview of the offered procedures and their features. </P
+><P
+>Now setup a real target. 
+In the following example we assume as target a PowerBook running Debian. 
+As above add a test user "dgt", install telnet and FTP servers. 
+In order to distinguish it from the host add the line 
+<TABLE
+BORDER="0"
+BGCOLOR="#E0E0E0"
+WIDTH="100%"
+><TR
+><TD
+><PRE
+CLASS="PROGRAMLISTING"
+>PS1='test:&#62;'</PRE
+></TD
+></TR
+></TABLE
+> to /home/dgt/.bash_profile. 
+Also add a corresponding entry "powerbook" to /etc/hosts and verify that you 
+are able to ping, telnet and ftp to the target "powerbook".</P
+><P
+>In order to let runtest run its test on the "powerbook" target change the following lines in ~/boards/standard.exp:</P
+><DIV
+CLASS="EXAMPLE"
+><A
+NAME="AEN368"
+></A
+><P
+><B
+>Example 15. Board definition for a remote target</B
+></P
+><TABLE
+BORDER="0"
+BGCOLOR="#E0E0E0"
+WIDTH="100%"
+><TR
+><TD
+><PRE
+CLASS="PROGRAMLISTING"
+>set_board_info protocol        "telnet"
+set_board_info telnet_username "dgt"
+set_board_info telnet_password "top_secret"
+set_board_info shell_prompt    "test:&#62; "
+set_board_info hostname        "powerbook"</PRE
+></TD
+></TR
+></TABLE
+></DIV
+><P
+>Now call runtest again with the same arguments and verify whether all went okay by taking a close look at calc.log.</P
+></DIV
+><DIV
+CLASS="SECT2"
+><H2
+CLASS="SECT2"
+><A
+NAME="AEN372"
+>Transferring files from/to the target</A
+></H2
+><P
+>A simple procedure like this will do the job for you:</P
+><DIV
+CLASS="EXAMPLE"
+><A
+NAME="AEN375"
+></A
+><P
+><B
+>Example 16. Test script to transfer a file to a remote target</B
+></P
+><TABLE
+BORDER="0"
+BGCOLOR="#E0E0E0"
+WIDTH="100%"
+><TR
+><TD
+><PRE
+CLASS="PROGRAMLISTING"
+>set test "Remote_download"
+puts "Running Remote_download"
+# set verbose 9
+set remfile /home/dgt/dejagnu2
+
+set status [remote_download $target /home/dgt/.dejagnurc $remfile]
+if { "$status" == "" } {
+     fail "Remote download to $remfile on $target"
+} else {
+   pass "$test"
+}
+
+puts "status of remote_download ist $status"
+# set verbose 0</PRE
+></TD
+></TR
+></TABLE
+></DIV
+><P
+>After running runtest again, check whether the file dejagnu2 exists on the target. 
+
+This example will only work if the rcp command works with your target.
+
+If you have a working FTP-server on the target you can use it by adding the 
+following lines to ~/boards/standard.exp:</P
+><DIV
+CLASS="EXAMPLE"
+><A
+NAME="AEN379"
+></A
+><P
+><B
+>Example 17. Defining a board to use FTP as file transport</B
+></P
+><TABLE
+BORDER="0"
+BGCOLOR="#E0E0E0"
+WIDTH="100%"
+><TR
+><TD
+><PRE
+CLASS="PROGRAMLISTING"
+>set_board_info file_transfer   "ftp"
+set_board_info ftp_username    "dgt"
+set_board_info ftp_password    "1234"</PRE
+></TD
+></TR
+></TABLE
+></DIV
+></DIV
+><DIV
+CLASS="SECT2"
+><H2
+CLASS="SECT2"
+><A
+NAME="AEN382"
+>Preparing for crosscompilation</A
+></H2
+><P
+>For crosscompiling you need working binutils, gcc and a base library like
+libc or glib for your target. 
+It is beyond the scope of this document to describe how to get it working. 
+The following examples assume a cross compiler for PowerPC which is called linux-powerpc-gcc.</P
+><P
+>Add AC_CANONICAL_TARGET in dejagnu.test/configure.in at the following location. Copy config.guess from /usr/share/automake to dejagnu.test.</P
+><TABLE
+BORDER="0"
+BGCOLOR="#E0E0E0"
+WIDTH="100%"
+><TR
+><TD
+><PRE
+CLASS="PROGRAMLISTING"
+>AM_CONFIG_HEADER(calc.h)
+AC_CANONICAL_TARGET([]) 
+AM_INIT_AUTOMAKE(calc, 1.1)</PRE
+></TD
+></TR
+></TABLE
+><P
+>You need to run automake 2.5 or later. 
+Depending on your installation calling autoconf2.5 instead of autoconf is not needed. 
+The sequence to regenerate all files is:</P
+><DIV
+CLASS="EXAMPLE"
+><A
+NAME="AEN388"
+></A
+><P
+><B
+>Example 18. Using autotools for cross development</B
+></P
+><TABLE
+BORDER="0"
+BGCOLOR="#E0E0E0"
+WIDTH="100%"
+><TR
+><TD
+><PRE
+CLASS="PROGRAMLISTING"
+>$ autoconf2.5
+$ autoheader
+$ automake
+$ ./configure --host=powerpc-linux --target=powerpc-linux 
+configure: WARNING: If you wanted to set the --build type, don't use --host.
+    If a cross compiler is detected then cross compile mode will be used.
+checking build system type... ./config.guess: ./config.guess: No such file or directory
+configure: error: cannot guess build type; you must specify one
+$ cp /usr/share/automake/config.guess .
+$ ./configure --host=powerpc-linux --target=powerpc-linux 
+configure: WARNING: If you wanted to set the --build type, don't use --host.
+If a cross compiler is detected then cross compile mode will be used. \
+checking build system type... i586-pc-linux-gnu
+checking host system type... powerpc-unknown-linux-gnu
+&#60;...&#62;
+checking whether we are cross compiling... yes
+&#60;...&#62;
+Configuration:
+Source code location: .
+C Compiler: powerpc-linux-gcc
+C Compiler flags: -g -O2&#13;</PRE
+></TD
+></TR
+></TABLE
+></DIV
+><P
+>Everything should be ready to recompile for the target:</P
+><TABLE
+BORDER="0"
+BGCOLOR="#E0E0E0"
+WIDTH="100%"
+><TR
+><TD
+><PRE
+CLASS="PROGRAMLISTING"
+>$ make
+powerpc-linux-gcc -DHAVE_CONFIG_H -I. -I. -I. -g -O2 -c calc.c 
+powerpc-linux-gcc -g -O2 -o calc calc.o&#13;</PRE
+></TD
+></TR
+></TABLE
+></DIV
+><DIV
+CLASS="SECT2"
+><H2
+CLASS="SECT2"
+><A
+NAME="AEN393"
+>Remote testing of calc</A
+></H2
+><P
+>Not yet written, as I have problem getting libc6-dev-powerpc to work. Probably I first have to build my cross compiler. </P
+></DIV
+><DIV
+CLASS="SECT2"
+><H2
+CLASS="SECT2"
+><A
+NAME="AEN396"
+>Using WindowsNT as host and vxWorks as target</A
+></H2
+><P
+>A more thorough walk-through will be written in a few weeks.</P
+><P
+>In order to test the vxWorks as a target I changed boards/standards.exp to reflect my settings (IP, username, password). Then I reconfigured vxWorks to include a FTP and telnet server (using the same username/password combination ad in boards/standard.exp).</P
+><P
+>With this setup and some minor modification (e.g. replacing echo by printf) in my test cases I could test my vxWorks system. It sure does not seem to be a correct setup by DejaGnu standard. For instance, it still loading /usr/share/dejagnu/baseboards/unix.exp instead of vxWorks. In any case I found that (at least under WindowsNT) I did not find out how the command line would let me override settings in my personal config files.</P
+></DIV
+></DIV
+><DIV
+CLASS="NAVFOOTER"
+><HR
+ALIGN="LEFT"
+WIDTH="100%"><TABLE
+WIDTH="100%"
+BORDER="0"
+CELLPADDING="0"
+CELLSPACING="0"
+><TR
+><TD
+WIDTH="33%"
+ALIGN="left"
+VALIGN="top"
+><A
+HREF="x276.html"
+>&#60;&#60;&#60; Previous</A
+></TD
+><TD
+WIDTH="34%"
+ALIGN="center"
+VALIGN="top"
+><A
+HREF="book1.html"
+>Home</A
+></TD
+><TD
+WIDTH="33%"
+ALIGN="right"
+VALIGN="top"
+><A
+HREF="runningtests.html"
+>Next &#62;&#62;&#62;</A
+></TD
+></TR
+><TR
+><TD
+WIDTH="33%"
+ALIGN="left"
+VALIGN="top"
+>Our first automated tests</TD
+><TD
+WIDTH="34%"
+ALIGN="center"
+VALIGN="top"
+><A
+HREF="gettingup.html"
+>Up</A
+></TD
+><TD
+WIDTH="33%"
+ALIGN="right"
+VALIGN="top"
+>Running Tests</TD
+></TR
+></TABLE
+></DIV
+></BODY
+></HTML
+>

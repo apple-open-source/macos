@@ -16,6 +16,7 @@
  */
 
 #include <Security/SecKey.h>
+#include <Security/KeyItem.h>
 
 #include "SecBridge.h"
 
@@ -28,7 +29,7 @@ SecKeyGetTypeID(void)
 {
 	BEGIN_SECAPI
 
-	return gTypes().keyItem.typeId;
+	return gTypes().KeyItem.typeID;
 
 	END_SECAPI1(_kCFRuntimeNotATypeID)
 }
@@ -50,8 +51,8 @@ SecKeyCreatePair(
 	BEGIN_SECAPI
 
 	Keychain keychain = Keychain::optional(keychainRef);
-	RefPointer<Access> theAccess(initialAccess ? gTypes().access.required(initialAccess) : new Access("<key>"));
-	RefPointer<KeyItem> pubItem, privItem;
+	SecPointer<Access> theAccess(initialAccess ? Access::required(initialAccess) : new Access("<key>"));
+	SecPointer<KeyItem> pubItem, privItem;
 
 	KeyItem::createPair(keychain,
         algorithm,
@@ -67,9 +68,9 @@ SecKeyCreatePair(
 
 	// Return the generated keys.
 	if (publicKeyRef)
-		*publicKeyRef = gTypes().keyItem.handle(*pubItem);
+		*publicKeyRef = pubItem->handle();
 	if (privateKeyRef)
-		*privateKeyRef = gTypes().keyItem.handle(*privItem);
+		*privateKeyRef = privItem->handle();
 
 	END_SECAPI
 }
@@ -79,7 +80,7 @@ SecKeyGetCSSMKey(SecKeyRef key, const CSSM_KEY **cssmKey)
 {
 	BEGIN_SECAPI
 
-	Required(cssmKey) = &gTypes().keyItem.required(key)->cssmKey();
+	Required(cssmKey) = KeyItem::required(key)->key();
 
 	END_SECAPI
 }
@@ -90,6 +91,39 @@ SecKeyGetCSSMKey(SecKeyRef key, const CSSM_KEY **cssmKey)
 //
 
 OSStatus
+SecKeyGetCSPHandle(SecKeyRef keyRef, CSSM_CSP_HANDLE *cspHandle)
+{
+    BEGIN_SECAPI
+
+	SecPointer<KeyItem> keyItem(KeyItem::required(keyRef));
+	Required(cspHandle) = keyItem->csp()->handle();
+
+	END_SECAPI
+}
+
+OSStatus
+SecKeyGetAlgorithmID(SecKeyRef keyRef, const CSSM_X509_ALGORITHM_IDENTIFIER **algid)
+{
+    BEGIN_SECAPI
+
+	SecPointer<KeyItem> keyItem(KeyItem::required(keyRef));
+	Required(algid) = &keyItem->algorithmIdentifier();
+
+	END_SECAPI
+}
+
+OSStatus
+SecKeyGetStrengthInBits(SecKeyRef keyRef, const CSSM_X509_ALGORITHM_IDENTIFIER *algid, unsigned int *strength)
+{
+    BEGIN_SECAPI
+
+	SecPointer<KeyItem> keyItem(KeyItem::required(keyRef));
+	Required(strength) = keyItem->strengthInBits(algid);
+
+	END_SECAPI
+}
+
+OSStatus
 SecKeyGetCredentials(
 	SecKeyRef keyRef,
 	CSSM_ACL_AUTHORIZATION_TAG operation,
@@ -98,7 +132,7 @@ SecKeyGetCredentials(
 {
 	BEGIN_SECAPI
 
-	RefPointer<KeyItem> keyItem(gTypes().keyItem.required(keyRef));
+	SecPointer<KeyItem> keyItem(KeyItem::required(keyRef));
 	Required(outCredentials) = keyItem->getCredentials(operation, credentialType);
 
 	END_SECAPI
@@ -116,8 +150,8 @@ SecKeyImportPair(
 	BEGIN_SECAPI
 
 	Keychain keychain = Keychain::optional(keychainRef);
-	RefPointer<Access> theAccess(initialAccess ? gTypes().access.required(initialAccess) : new Access("<key>"));
-	RefPointer<KeyItem> pubItem, privItem;
+	SecPointer<Access> theAccess(initialAccess ? Access::required(initialAccess) : new Access("<key>"));
+	SecPointer<KeyItem> pubItem, privItem;
 
 	KeyItem::importPair(keychain,
 		Required(publicCssmKey),
@@ -128,9 +162,63 @@ SecKeyImportPair(
 
 	// Return the generated keys.
 	if (publicKey)
-		*publicKey = gTypes().keyItem.handle(*pubItem);
+		*publicKey = pubItem->handle();
 	if (privateKey)
-		*privateKey = gTypes().keyItem.handle(*privItem);
+		*privateKey = privItem->handle();
+
+	END_SECAPI
+}
+
+OSStatus
+SecKeyGenerate(
+	SecKeychainRef keychainRef,
+	CSSM_ALGORITHMS algorithm,
+	uint32 keySizeInBits,
+	CSSM_CC_HANDLE contextHandle,
+	CSSM_KEYUSE keyUsage,
+	uint32 keyAttr,
+	SecAccessRef initialAccess,
+	SecKeyRef* keyRef)
+{
+	BEGIN_SECAPI
+
+	Keychain keychain;
+	SecPointer<Access> theAccess;
+
+	if (keychainRef)
+		keychain = KeychainImpl::required(keychainRef);
+	if (initialAccess)
+		theAccess = Access::required(initialAccess);
+
+	KeyItem *item = KeyItem::generate(keychain,
+        algorithm,
+        keySizeInBits,
+        contextHandle,
+        keyUsage,
+        keyAttr,
+        theAccess);
+
+	// Return the generated key.
+	if (keyRef)
+		*keyRef = item->handle();
+
+	END_SECAPI
+}
+
+
+OSStatus SecKeyCreate(const CSSM_KEY *cssmKey,
+		SecKeyRef* keyRef)
+{
+	BEGIN_SECAPI
+
+	Required(cssmKey);
+	CssmClient::CSP csp(cssmKey->KeyHeader.CspId);
+	CssmClient::Key key(csp, *cssmKey);
+	KeyItem *item = new KeyItem(key);
+
+	// Return the generated key.
+	if (keyRef)
+		*keyRef = item->handle();
 
 	END_SECAPI
 }

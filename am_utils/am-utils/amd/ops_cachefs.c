@@ -37,7 +37,7 @@
  * SUCH DAMAGE.
  *
  *
- * $Id: ops_cachefs.c,v 1.1.1.1 2002/05/15 01:21:55 jkh Exp $
+ * $Id: ops_cachefs.c,v 1.1.1.2 2002/07/15 19:42:38 zarzycki Exp $
  *
  */
 
@@ -76,7 +76,9 @@ am_ops cachefs_ops =
   0,				/* post-umount actions */
   find_amfs_auto_srvr,
   FS_MKMNT | FS_NOTIMEOUT | FS_UBACKGROUND | FS_AMQINFO, /* nfs_fs_flags */
-  FS_MKMNT | FS_NOTIMEOUT | FS_UBACKGROUND | FS_AMQINFO	 /* autofs_fs_flags */
+#ifdef HAVE_FS_AUTOFS
+  AUTOFS_CACHEFS_FS_FLAGS,
+#endif /* HAVE_FS_AUTOFS */
 };
 
 
@@ -125,7 +127,7 @@ cachefs_init(mntfs *mf)
  * cachedir is the cache directory ($cachedir)
  */
 static int
-mount_cachefs(char *mntpt, char *backdir, char *cachedir,
+mount_cachefs(char *mntdir, char *real_mntdir, char *backdir, char *cachedir,
 	      char *opts, int on_autofs)
 {
   cachefs_args_t ca;
@@ -140,7 +142,7 @@ mount_cachefs(char *mntpt, char *backdir, char *cachedir,
    * Fill in the mount structure
    */
   memset((voidp) &mnt, 0, sizeof(mnt));
-  mnt.mnt_dir = mntpt;
+  mnt.mnt_dir = mntdir;
   mnt.mnt_fsname = backdir;
   mnt.mnt_type = MNTTAB_TYPE_CACHEFS;
   mnt.mnt_opts = opts;
@@ -173,7 +175,7 @@ mount_cachefs(char *mntpt, char *backdir, char *cachedir,
   /* CFS fscdir name */
   memset(ca.cfs_cacheid, 0, sizeof(ca.cfs_cacheid));
   /* append cacheid and mountpoint */
-  sprintf(ca.cfs_cacheid, "%s:%s", ca.cfs_fsid, mntpt);
+  sprintf(ca.cfs_cacheid, "%s:%s", ca.cfs_fsid, mntdir);
   /* convert '/' to '_' (Solaris does that...) */
   cp = ca.cfs_cacheid;
   while ((cp = strpbrk(cp, "/")) != NULL)
@@ -194,7 +196,7 @@ mount_cachefs(char *mntpt, char *backdir, char *cachedir,
   /*
    * Call generic mount routine
    */
-  return mount_fs(&mnt, flags, (caddr_t) &ca, 0, type, 0, NULL, mnttab_file_name);
+  return mount_fs2(&mnt, real_mntdir, flags, (caddr_t) &ca, 0, type, 0, NULL, mnttab_file_name);
 }
 
 
@@ -204,6 +206,7 @@ cachefs_mount(am_node *am, mntfs *mf)
   int error;
 
   error = mount_cachefs(mf->mf_mount,
+			mf->mf_real_mount,
 			mf->mf_fo->opt_rfs,
 			mf->mf_fo->opt_cachedir,
 			mf->mf_mopts,
@@ -227,7 +230,7 @@ cachefs_umount(am_node *am, mntfs *mf)
 {
   int error;
 
-  error = UMOUNT_FS(mf->mf_mount, mnttab_file_name);
+  error = UMOUNT_FS(mf->mf_mount, mf->mf_real_mount, mnttab_file_name);
 
   /*
    * In the case of cachefs, we must fsck the cache directory.  Otherwise,

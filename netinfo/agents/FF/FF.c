@@ -3,21 +3,22 @@
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
- * "Portions Copyright (c) 1999 Apple Computer, Inc.  All Rights
- * Reserved.  This file contains Original Code and/or Modifications of
- * Original Code as defined in and that are subject to the Apple Public
- * Source License Version 1.0 (the 'License').  You may not use this file
- * except in compliance with the License.  Please obtain a copy of the
- * License at http://www.apple.com/publicsource and read it before using
- * this file.
+ * Copyright (c) 1999-2003 Apple Computer, Inc.  All Rights Reserved.
+ * 
+ * This file contains Original Code and/or Modifications of Original Code
+ * as defined in and that are subject to the Apple Public Source License
+ * Version 2.0 (the 'License'). You may not use this file except in
+ * compliance with the License. Please obtain a copy of the License at
+ * http://www.opensource.apple.com/apsl/ and read it before using this
+ * file.
  * 
  * The Original Code and all software distributed under the License are
  * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
  * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
  * INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY,
- * FITNESS FOR A PARTICULAR PURPOSE OR NON-INFRINGEMENT.  Please see the
- * License for the specific language governing rights and limitations
- * under the License."
+ * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
+ * Please see the License for the specific language governing rights and
+ * limitations under the License.
  * 
  * @APPLE_LICENSE_HEADER_END@
  */
@@ -30,6 +31,7 @@
 #include <stdio.h>
 #include <string.h>
 #include <stdlib.h>
+#include <notify.h>
 #include <sys/param.h>
 #include <sys/stat.h>
 #include <NetInfo/config.h>
@@ -41,10 +43,25 @@
 #include <NetInfo/DynaAPI.h>
 
 #define DEFAULT_FF_DIR "/etc"
+#define NOTIFY_PREFIX "com.apple.system.lookupd.FF"
+#define BUFSIZE 8192
+
+extern uint32_t notify_monitor_file(int token, const char *name, int flags);
+
+typedef struct ff_cache_s
+{
+	int notify_token;
+	pthread_mutex_t lock;
+	long modtime;
+	dsrecord *crecord;
+} ff_cache_t;
+
+static ff_cache_t host_cache = {-1, PTHREAD_MUTEX_INITIALIZER, 0, NULL};
 
 typedef struct
 {
 	char *dir;
+	int flags;
 	dynainfo *dyna;
 } agent_private;
 
@@ -72,6 +89,59 @@ char *categoryFilename[] =
 	NULL,
 	NULL
 };
+
+static void
+add_validation(dsrecord *r, char *fname, long ts)
+{
+	char *str;
+	dsdata *d;
+	dsattribute *a;
+
+	if (r == NULL) return;
+
+	d = cstring_to_dsdata("lookup_validation");
+	dsrecord_remove_key(r, d, SELECT_META_ATTRIBUTE);
+
+	a = dsattribute_new(d);
+	dsrecord_append_attribute(r, a, SELECT_META_ATTRIBUTE);
+
+	dsdata_release(d);
+
+	asprintf(&str, "%s %lu", fname, ts);
+
+	d = cstring_to_dsdata(str);
+	dsattribute_append(a, d);
+	dsdata_release(d);
+	free(str);
+
+	dsattribute_release(a);
+}
+
+char *
+getLineFromFile(FILE *fp)
+{
+	char s[BUFSIZE];
+	char *out;
+	int len;
+
+	s[0] = '\0';
+
+	fgets(s, BUFSIZE, fp);
+	if (s == NULL || s[0] == '\0') return NULL;
+
+	if (s[0] == '#')
+	{
+		out = copyString("#");
+		return out;
+	}
+
+	len = strlen(s);
+	if (s[len] == '\n') len--;
+	s[len] = '\0';
+
+	out = copyString(s);
+	return out;
+}
 
 static dsrecord *
 parse(char *data, int cat)
@@ -102,31 +172,143 @@ parse(char *data, int cat)
 	return NULL;
 }
 
-#define BUFSIZE 8192
-
-char *
-getLineFromFile(FILE *fp)
+static ff_cache_t *
+load_cache(int cat, ff_cache_t *cache)
 {
-	char s[BUFSIZE];
-	char *out;
-	int len;
+	dsrecord *lastrec;
+	char *fname;
+	FILE *fp;
+	char *line;
+	dsrecord *item = NULL;
+	char *fpath;
+	int status;
+	struct stat sb;
 
-    s[0] = '\0';
+	if (cache == NULL) return NULL;
 
-    fgets(s, BUFSIZE, fp);
-    if (s == NULL || s[0] == '\0') return NULL;
+	dsrecord_release(cache->crecord);
+	cache->crecord = NULL;
 
-	if (s[0] == '#')
+	fname = categoryFilename[cat];
+	if (fname == NULL) return NULL;
+
+	asprintf(&fpath, "%s/%s", DEFAULT_FF_DIR, fname);
+
+	memset(&sb, 0, sizeof(struct stat));
+	status = stat(fpath, &sb);
+	if (status < 0)
 	{
-		out = copyString("#");
-		return out;
+		free(fpath);
+		return NULL;
 	}
 
-	len = strlen(s) - 1;
-	s[len] = '\0';
+	cache->modtime = sb.st_mtime;
 
-	out = copyString(s);
-	return out;
+	fp = fopen(fpath, "r");
+	if (fp == NULL)
+	{
+		free(fpath);
+		return NULL;
+	}
+
+	/* bootptab entries start after a "%%" line */
+	if (cat == LUCategoryBootp)
+	{
+		while (NULL != (line = getLineFromFile(fp)))
+		{
+			if (!strncmp(line, "%%", 2)) break;
+			freeString(line);
+			line = NULL;
+		}
+
+		if (line == NULL)
+		{
+			fclose(fp);
+			free(fpath);
+			return 0;
+		}
+
+		freeString(line);
+		line = NULL;
+	}
+
+	lastrec = NULL;
+
+	while (NULL != (line = getLineFromFile(fp)))	
+	{
+		if (line[0] == '#')
+		{
+			freeString(line);
+			line = NULL;
+			continue;
+		}
+
+		item = parse(line, cat);
+
+		freeString(line);
+		line = NULL;
+
+		if (item == NULL) continue;
+
+		add_validation(item, fpath, cache->modtime);
+
+		if (cache->crecord == NULL) cache->crecord = item;
+		if (lastrec != NULL) lastrec->next = item;
+		lastrec = item;
+	}
+
+	free(fpath);
+	fclose(fp);
+
+	return cache;
+}
+
+static ff_cache_t *
+prep_cache(int cat, ff_cache_t *cache)
+{
+	u_int32_t status, check;
+	char *s;
+	ff_cache_t *c;
+
+	if (cache == NULL) return NULL;
+
+	if (cache->notify_token == -1)
+	{
+		s = NULL;
+		asprintf(&s, "%s.%s", NOTIFY_PREFIX, categoryFilename[cat]);
+		status = notify_register_check(s, &(cache->notify_token));
+		free(s);
+		if (status != NOTIFY_STATUS_OK) return NULL;
+
+		s = NULL;
+		asprintf(&s, "%s/%s", DEFAULT_FF_DIR, categoryFilename[cat]);
+		status = notify_monitor_file(cache->notify_token, s, 0);
+		free(s);
+		if (status != NOTIFY_STATUS_OK) return NULL;
+	}
+
+	pthread_mutex_lock(&(cache->lock));
+	check = 1;
+	if (cache->modtime != 0) 
+	{
+		status = notify_check(cache->notify_token, &check);
+		if ((status == NOTIFY_STATUS_OK) && (check == 0))
+		{
+			pthread_mutex_unlock(&(cache->lock));
+			return cache;
+		}
+	}
+
+	c = load_cache(cat, cache);
+	pthread_mutex_unlock(&(cache->lock));
+	return c;
+}
+
+static ff_cache_t *
+cache_for_category(int cat)
+{
+	if (cat == LUCategoryHost) return prep_cache(LUCategoryHost, &host_cache);
+	return NULL;
 }
 
 u_int32_t
@@ -135,11 +317,19 @@ FF_new(void **c, char *args, dynainfo *d)
 	agent_private *ap;
 
 	if (c == NULL) return 1;
-	ap = (agent_private *)malloc(sizeof(agent_private));
+	ap = (agent_private *)calloc(1, sizeof(agent_private));
 	*c = ap;
 
-	if (args == NULL) ap->dir = copyString(DEFAULT_FF_DIR);
-	else ap->dir = copyString(args);
+	if (args == NULL)
+	{
+		ap->dir = copyString(DEFAULT_FF_DIR);
+		ap->flags = 0;
+	}
+	else
+	{
+		ap->dir = copyString(args);
+		ap->flags = 1;
+	}
 
 	ap->dyna = d;
 
@@ -168,32 +358,78 @@ FF_free(void *c)
 	return 0;
 }
 
-static void
-add_validation(dsrecord *r, char *fname, long ts)
+u_int32_t
+cache_query(ff_cache_t *cache, u_int32_t cat, int single_item, dsrecord *pattern, dsrecord **list)
 {
-	char *str;
-	dsdata *d;
+	dsrecord *item, *host, *lastrec;
+	int match;
+	dsdata *k, *k4, *k6;
 	dsattribute *a;
 
-	if (r == NULL) return;
+	lastrec = NULL;
 
-	d = cstring_to_dsdata("lookup_validation");
-	dsrecord_remove_key(r, d, SELECT_META_ATTRIBUTE);
+	for (item = cache->crecord; item != NULL; item = item->next)
+	{
+		match = dsrecord_match_select(item, pattern, SELECT_ATTRIBUTE);
+		if (match == 1)
+		{
+			if (*list == NULL) 
+			{
+				*list = dsrecord_copy(item);
+				lastrec = *list;
+			}
+			else
+			{
+				lastrec->next = dsrecord_copy(item);
+				lastrec = lastrec->next;
+			}
 
-	a = dsattribute_new(d);
-	dsrecord_append_attribute(r, a, SELECT_META_ATTRIBUTE);
+			lastrec->next = NULL;
+		
+			if (cat == LUCategoryHost)
+			{
+			}
+			else if (single_item == 1)
+			{
+				break;
+			}
+		}
+	}
 
-	dsdata_release(d);
+	if ((cat == LUCategoryHost) && (single_item == 1))
+	{
+		if ((*list) == NULL) return 0;
+		if ((*list)->next == NULL) return 0;
 
-	str = malloc(strlen(fname) + 64);
-	sprintf(str, "%s %lu", fname, ts);
+		k = cstring_to_dsdata("name");
+		k4 = cstring_to_dsdata("ip_address");
+		k6 = cstring_to_dsdata("ipv6_address");
+		host = *list;
 
-	d = cstring_to_dsdata(str);
-	dsattribute_append(a, d);
-	dsdata_release(d);
-	free(str);
+		for (item = host->next; item != NULL; item = item->next)
+		{
+			a = dsrecord_attribute(item, k, SELECT_ATTRIBUTE);
+			dsrecord_merge_attribute(host, a, SELECT_ATTRIBUTE);
+			dsattribute_release(a);
 
-	dsattribute_release(a);
+			a = dsrecord_attribute(item, k4, SELECT_ATTRIBUTE);
+			dsrecord_merge_attribute(host, a, SELECT_ATTRIBUTE);
+			dsattribute_release(a);
+
+			a = dsrecord_attribute(item, k6, SELECT_ATTRIBUTE);
+			dsrecord_merge_attribute(host, a, SELECT_ATTRIBUTE);
+			dsattribute_release(a);
+		}
+
+		dsdata_release(k);
+		dsdata_release(k4);
+		dsdata_release(k6);
+
+		dsrecord_release(host->next);
+		host->next = NULL;
+	}
+
+	return 0;
 }
 
 u_int32_t
@@ -209,11 +445,11 @@ FF_query(void *c, dsrecord *pattern, dsrecord **list)
 	char *line;
 	dsrecord *item = NULL;
 	dsrecord *host = NULL;
-	char fpath[MAXPATHLEN + 1];
-	int match;
-	struct stat st;
+	char *fpath;
 	long ts;
-	int single_item = 0;
+	int match, single_item, stamp;
+	ff_cache_t *cache;
+	struct stat sb;
 
 	if (c == NULL) return 1;
 	if (pattern == NULL) return 1;
@@ -221,6 +457,8 @@ FF_query(void *c, dsrecord *pattern, dsrecord **list)
 
 	*list = NULL;
 	lastrec = NULL;
+	single_item = 0;
+	stamp = 0;
 
 	ap = (agent_private *)c;
 
@@ -237,6 +475,16 @@ FF_query(void *c, dsrecord *pattern, dsrecord **list)
 	fname = categoryFilename[cat];
 	if (fname == NULL) return 1;
 
+	k = cstring_to_dsdata(STAMP_KEY);
+	a = dsrecord_attribute(pattern, k, SELECT_META_ATTRIBUTE);
+	dsdata_release(k);
+	if (a != NULL)
+	{
+		dsrecord_remove_attribute(pattern, a, SELECT_META_ATTRIBUTE);
+		stamp = 1;
+	}
+	dsattribute_release(a);
+
 	k = cstring_to_dsdata(SINGLE_KEY);
 	a = dsrecord_attribute(pattern, k, SELECT_META_ATTRIBUTE);
 	dsdata_release(k);
@@ -246,15 +494,43 @@ FF_query(void *c, dsrecord *pattern, dsrecord **list)
 		single_item = 1;
 	}
 
+	asprintf(&fpath, "%s/%s", ap->dir, fname);
+
 	ts = 0;
+	cache = NULL;
+	if (ap->flags == 0) cache = cache_for_category(cat);
+	if (cache != NULL)
+	{
+		ts = cache->modtime;
+	}
+	else
+	{
+		memset(&sb, 0, sizeof(struct stat));
+		if (stat(fpath, &sb) < 0) ts = 0;
+		else ts = sb.st_mtime;
+	}
 
-	sprintf(fpath, "%s/%s", ap->dir, fname);
+	if (stamp == 1)
+	{
+		item = dsrecord_new();
+		add_validation(item, fpath, ts);
+		*list = item;
+		free(fpath);
+		return 0;
+	}
 
-	if (stat(fpath, &st) < 0) return 1;
-	ts = st.st_mtime;
+	if (cache != NULL)
+	{
+		free(fpath);
+		return cache_query(cache, cat, single_item, pattern, list);
+	}
 
 	fp = fopen(fpath, "r");
-	if (fp == NULL) return 1;
+	if (fp == NULL)
+	{
+		free(fpath);
+		return 1;
+	}
 
 	/* bootptab entries start after a "%%" line */
 	if (cat == LUCategoryBootp)
@@ -268,6 +544,7 @@ FF_query(void *c, dsrecord *pattern, dsrecord **list)
 		if (line == NULL)
 		{
 			fclose(fp);
+			free(fpath);
 			return 0;
 		}
 
@@ -314,6 +591,7 @@ FF_query(void *c, dsrecord *pattern, dsrecord **list)
 		dsrecord_release(item);
 	}
 
+	free(fpath);
 	fclose(fp);
 
 	if ((cat == LUCategoryHost) && (single_item == 1))
@@ -357,7 +635,7 @@ FF_validate(void *c, char *v)
 {
 	agent_private *ap;
 	int n;
-	u_int32_t ts;
+	u_int32_t ts, status, check;
 	struct stat st;
 	char fpath[MAXPATHLEN + 1];
 
@@ -368,7 +646,15 @@ FF_validate(void *c, char *v)
 
 	n = sscanf(v, "%s %u", fpath, &ts);
 	if (n != 2) return 0;
-	
+
+	if ((!strcmp(fpath, "/etc/hosts")) && (host_cache.notify_token != -1))
+	{
+		check = 1;
+		status = notify_check(host_cache.notify_token, &check);
+		if ((status == NOTIFY_STATUS_OK) && (check == 0)) return 1;
+		host_cache.modtime = 0;
+	}
+
 	if (stat(fpath, &st) < 0) return 0;
 	if (ts == st.st_mtime) return 1;
 

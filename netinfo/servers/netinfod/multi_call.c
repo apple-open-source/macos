@@ -3,21 +3,22 @@
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
- * "Portions Copyright (c) 1999 Apple Computer, Inc.  All Rights
- * Reserved.  This file contains Original Code and/or Modifications of
- * Original Code as defined in and that are subject to the Apple Public
- * Source License Version 1.0 (the 'License').  You may not use this file
- * except in compliance with the License.  Please obtain a copy of the
- * License at http://www.apple.com/publicsource and read it before using
- * this file.
+ * Copyright (c) 1999-2003 Apple Computer, Inc.  All Rights Reserved.
+ * 
+ * This file contains Original Code and/or Modifications of Original Code
+ * as defined in and that are subject to the Apple Public Source License
+ * Version 2.0 (the 'License'). You may not use this file except in
+ * compliance with the License. Please obtain a copy of the License at
+ * http://www.opensource.apple.com/apsl/ and read it before using this
+ * file.
  * 
  * The Original Code and all software distributed under the License are
  * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
  * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
  * INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY,
- * FITNESS FOR A PARTICULAR PURPOSE OR NON-INFRINGEMENT.  Please see the
- * License for the specific language governing rights and limitations
- * under the License."
+ * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
+ * Please see the License for the specific language governing rights and
+ * limitations under the License.
  * 
  * @APPLE_LICENSE_HEADER_END@
  */
@@ -37,15 +38,17 @@
 #include <rpc/pmap_prot.h>
 #include <sys/socket.h>
 #include <sys/param.h>
+#include <netinfo/ni.h>
 #include <NetInfo/socket_lock.h>
 #include "multi_call.h"
 #include "ni_globals.h"
+#include "getstuff.h"
 #include <NetInfo/system.h>
 #include <NetInfo/system_log.h>
 
-#define NRETRIES 5
+#define NRETRIES 3
 #define USECS_PER_SEC 1000000
-#define MAX_RETRY_TIMEOUT 8
+#define MAX_RETRY_TIMEOUT 2
 
 extern int alert_aborted(void);
 extern void xdr_free();
@@ -258,8 +261,9 @@ ni_multi_call(unsigned naddrs, struct in_addr *addrs, unsigned prognum, unsigned
 		/*
 		 * Check for cancel by user
 		 */
-		if (alert_aborted() != 0)
+		if ((alert_aborted() != 0) || (get_binding_status() == NI_FAILED))
 		{
+			system_log(LOG_DEBUG, "multi_call aborted");
 			socket_lock();
 			close(s);
 			socket_unlock();

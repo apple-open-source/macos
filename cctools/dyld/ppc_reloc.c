@@ -3,8 +3,6 @@
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
- * Copyright (c) 1999-2003 Apple Computer, Inc.  All Rights Reserved.
- * 
  * This file contains Original Code and/or Modifications of Original Code
  * as defined in and that are subject to the Apple Public Source License
  * Version 2.0 (the 'License'). You may not use this file except in
@@ -240,8 +238,8 @@ struct image *image)
 			link_edit_error(DYLD_OTHER_ERROR, DYLD_RELOCATION,
 					image->name);
 		    }
-		    if((immediate & 0xfffe0000) != 0xfffe0000 &&
-		       (immediate & 0xfffe0000) != 0x00000000){
+		    if((immediate & 0xffff8000) != 0xffff8000 &&
+		       (immediate & 0xffff8000) != 0x00000000){
 			error("relocation overflow (local relocation in %s "
 			    "relocation entry %lu displacement too large)",
 			    image->name, i);
@@ -512,8 +510,8 @@ char *module_name)
 			link_edit_error(DYLD_OTHER_ERROR, DYLD_RELOCATION,
 					image->name);
 		    }
-		    if((immediate & 0xfffe0000) != 0xfffe0000 &&
-		       (immediate & 0xfffe0000) != 0x00000000){
+		    if((immediate & 0xffff8000) != 0xffff8000 &&
+		       (immediate & 0xffff8000) != 0x00000000){
 			set_error_string("dyld: relocation error (external "
 			    "relocation for symbol %s in ", symbol_name);
 			if(library_name != NULL)
@@ -840,8 +838,8 @@ char *module_name)
 			link_edit_error(DYLD_OTHER_ERROR, DYLD_RELOCATION,
 					image->name);
 		    }
-		    if((immediate & 0xfffe0000) != 0xfffe0000 &&
-		       (immediate & 0xfffe0000) != 0x00000000){
+		    if((immediate & 0xffff8000) != 0xffffe000 &&
+		       (immediate & 0xffff8000) != 0x00000000){
 			set_error_string("dyld: relocation error (external "
 			    "relocation for symbol %s in ", symbol_name);
 			if(library_name != NULL)

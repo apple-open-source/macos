@@ -10,11 +10,15 @@
  * See the file "license.terms" for information on usage and redistribution
  * of this file, and for a DISCLAIMER OF ALL WARRANTIES.
  *
- * RCS: @(#) $Id: tclUnixPipe.c,v 1.1.1.5 2002/04/05 16:14:09 jevans Exp $
+ * RCS: @(#) $Id: tclUnixPipe.c,v 1.1.1.6 2003/03/06 00:15:32 landonf Exp $
  */
 
 #include "tclInt.h"
 #include "tclPort.h"
+
+#ifdef USE_VFORK
+#define fork vfork
+#endif
 
 /*
  * The following macros convert between TclFile's and fd's.  The conversion
@@ -55,7 +59,7 @@ static int	PipeGetHandleProc _ANSI_ARGS_((ClientData instanceData,
 static int	PipeInputProc _ANSI_ARGS_((ClientData instanceData,
 		    char *buf, int toRead, int *errorCode));
 static int	PipeOutputProc _ANSI_ARGS_((
-		    ClientData instanceData, char *buf, int toWrite,
+		    ClientData instanceData, CONST char *buf, int toWrite,
 		    int *errorCode));
 static void	PipeWatchProc _ANSI_ARGS_((ClientData instanceData, int mask));
 static void	RestoreSignals _ANSI_ARGS_((void));
@@ -136,11 +140,11 @@ TclpOpenFile(fname, mode)
     int mode;			/* In what mode to open the file? */
 {
     int fd;
-    char *native;
+    CONST char *native;
     Tcl_DString ds;
 
     native = Tcl_UtfToExternalDString(NULL, fname, -1, &ds);
-    fd = open(native, mode, 0666);			/* INTL: Native. */
+    fd = TclOSopen(native, mode, 0666);			/* INTL: Native. */
     Tcl_DStringFree(&ds);
     if (fd != -1) {
         fcntl(fd, F_SETFD, FD_CLOEXEC);
@@ -151,7 +155,7 @@ TclpOpenFile(fname, mode)
 	 */
 
 	if (mode & O_WRONLY) {
-	    lseek(fd, (off_t) 0, SEEK_END);
+	    TclOSseek(fd, (Tcl_SeekOffset) 0, SEEK_END);
 	}
 
 	/*
@@ -186,19 +190,21 @@ TclFile
 TclpCreateTempFile(contents)
     CONST char *contents;	/* String to write into temp file, or NULL. */
 {
-    char fileName[L_tmpnam], *native;
+    char fileName[L_tmpnam + 9];
+    CONST char *native;
     Tcl_DString dstring;
     int fd;
 
     /*
-     * Linux says we should use mkstemp, but Solaris prefers tmpnam.
      * We should also check against making more then TMP_MAX of these.
      */
 
-    if (tmpnam(fileName) == NULL) {			/* INTL: Native. */
-	return NULL;
+    strcpy(fileName, P_tmpdir);				/* INTL: Native. */
+    if (fileName[strlen(fileName) - 1] != '/') {
+	strcat(fileName, "/");				/* INTL: Native. */
     }
-    fd = open(fileName, O_RDWR|O_CREAT|O_EXCL, 0666);	/* INTL: Native. */
+    strcat(fileName, "tclXXXXXX");
+    fd = mkstemp(fileName);				/* INTL: Native. */
     if (fd == -1) {
 	return NULL;
     }
@@ -213,9 +219,53 @@ TclpCreateTempFile(contents)
 	    return NULL;
 	}
 	Tcl_DStringFree(&dstring);
-	lseek(fd, (off_t) 0, SEEK_SET);
+	TclOSseek(fd, (Tcl_SeekOffset) 0, SEEK_SET);
     }
     return MakeFile(fd);
+}
+
+/*
+ *----------------------------------------------------------------------
+ *
+ * TclpTempFileName --
+ *
+ *	This function returns unique filename.
+ *
+ * Results:
+ *	Returns a valid Tcl_Obj* with refCount 0, or NULL on failure.
+ *
+ * Side effects:
+ *	None.
+ *
+ *----------------------------------------------------------------------
+ */
+
+Tcl_Obj* 
+TclpTempFileName()
+{
+    char fileName[L_tmpnam + 9];
+    Tcl_Obj *result = NULL;
+    int fd;
+
+    /*
+     * We should also check against making more then TMP_MAX of these.
+     */
+
+    strcpy(fileName, P_tmpdir);		/* INTL: Native. */
+    if (fileName[strlen(fileName) - 1] != '/') {
+	strcat(fileName, "/");		/* INTL: Native. */
+    }
+    strcat(fileName, "tclXXXXXX");
+    fd = mkstemp(fileName);		/* INTL: Native. */
+    if (fd == -1) {
+	return NULL;
+    }
+    fcntl(fd, F_SETFD, FD_CLOEXEC);
+    unlink(fileName);			/* INTL: Native. */
+
+    result = TclpNativeToNormalized((ClientData) fileName);
+    close (fd);
+    return result;
 }
 
 /*
@@ -322,7 +372,7 @@ TclpCreateProcess(interp, argc, argv, inputFile, outputFile, errorFile,
 				 * Error messages from the child process
 				 * itself are sent to errorFile. */
     int argc;			/* Number of arguments in following array. */
-    char **argv;		/* Array of argument strings in UTF-8.
+    CONST char **argv;		/* Array of argument strings in UTF-8.
 				 * argv[0] contains the name of the executable
 				 * translated using Tcl_TranslateFileName
 				 * call).  Additional arguments have not been
@@ -378,7 +428,7 @@ TclpCreateProcess(interp, argc, argv, inputFile, outputFile, errorFile,
 	newArgv[i] = Tcl_UtfToExternalDString(NULL, argv[i], -1, &dsArray[i]);
     }
 
-    joinThisError = (errorFile == outputFile);
+    joinThisError = errorFile && (errorFile == outputFile);
     pid = fork();
     if (pid == 0) {
 	fd = GetFd(errPipeOut);
@@ -996,7 +1046,7 @@ PipeInputProc(instanceData, buf, toRead, errorCodePtr)
 static int
 PipeOutputProc(instanceData, buf, toWrite, errorCodePtr)
     ClientData instanceData;		/* Pipe state. */
-    char *buf;				/* The data buffer. */
+    CONST char *buf;			/* The data buffer. */
     int toWrite;			/* How many bytes to write? */
     int *errorCodePtr;			/* Where to store error code. */
 {

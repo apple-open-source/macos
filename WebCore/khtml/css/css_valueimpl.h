@@ -19,7 +19,7 @@
  * the Free Software Foundation, Inc., 59 Temple Place - Suite 330,
  * Boston, MA 02111-1307, USA.
  *
- * $Id: css_valueimpl.h,v 1.13 2003/04/03 19:07:38 darin Exp $
+ * $Id: css_valueimpl.h,v 1.16 2003/07/23 22:36:07 hyatt Exp $
  */
 #ifndef _CSS_css_valueimpl_h_
 #define _CSS_css_valueimpl_h_
@@ -43,7 +43,6 @@ class CSSRuleImpl;
 class CSSValueImpl;
 class NodeImpl;
 class CounterImpl;
-
 
 class CSSStyleDeclarationImpl : public StyleBaseImpl
 {
@@ -179,7 +178,8 @@ public:
      */
     int computeLength( khtml::RenderStyle *style, QPaintDeviceMetrics *devMetrics );
     int computeLength( khtml::RenderStyle *style, QPaintDeviceMetrics *devMetrics, double multiplier );
-    double computeLengthFloat( khtml::RenderStyle *style, QPaintDeviceMetrics *devMetrics );
+    double computeLengthFloat( khtml::RenderStyle *style, QPaintDeviceMetrics *devMetrics,
+                               bool applyZoomFactor = true );
 
     // use with care!!!
     void setPrimitiveType(unsigned short type) { m_type = type; }
@@ -319,6 +319,22 @@ public:
     CSSValueListImpl *family;
 };
 
+// Used for text-shadow and box-shadow
+class ShadowValueImpl : public CSSValueImpl
+{
+public:
+    ShadowValueImpl(CSSPrimitiveValueImpl* _x, CSSPrimitiveValueImpl* _y,
+                    CSSPrimitiveValueImpl* _blur, CSSPrimitiveValueImpl* _color);
+    virtual ~ShadowValueImpl();
+
+    virtual unsigned short cssValueType() const { return CSSValue::CSS_CUSTOM; }
+
+    CSSPrimitiveValueImpl* x;
+    CSSPrimitiveValueImpl* y;
+    CSSPrimitiveValueImpl* blur;
+    CSSPrimitiveValueImpl* color;
+};
+    
 // ------------------------------------------------------------------------------
 
 // another helper class

@@ -1,0 +1,45 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE server>
+<!-- $Id: scheduler-service.xml,v 1.4.2.1 2003/05/23 14:42:25 starksm Exp $ -->
+
+<server>
+
+  <!-- ==================================================================== -->
+  <!-- Scheduler Service                                                    -->
+  <!-- ==================================================================== -->
+
+  <!--
+     | This example shows how to use a pluggable Schedulable impl
+
+  <mbean code="org.jboss.varia.scheduler.Scheduler" 
+	 name=":service=Scheduler">
+    <attribute name="StartAtStartup">true</attribute>
+    <attribute name="SchedulableClass">org.jboss.varia.scheduler.example.SchedulableExample</attribute>
+    <attribute name="SchedulableArguments">Schedulabe Test,12345</attribute>
+    <attribute name="SchedulableArgumentTypes">java.lang.String,int</attribute>
+    <attribute name="InitialStartDate">0</attribute>
+    <attribute name="SchedulePeriod">10000</attribute>
+    <attribute name="InitialRepetitions">-1</attribute>
+  </mbean>
+  
+  -->
+
+  <!--
+     | This example shows how to use a target MBean
+
+  <mbean code="org.jboss.varia.scheduler.example.SchedulableMBeanExample" 
+	 name=":name=SchedulableMBeanExample">
+  </mbean>
+  <mbean code="org.jboss.varia.scheduler.Scheduler" 
+	 name=":service=Scheduler,name=SchedulableMBeanExample">
+    <attribute name="StartAtStartup">true</attribute>
+    <attribute name="SchedulableMBean">:name=SchedulableMBeanExample</attribute>
+    <attribute name="SchedulableMBeanMethod">hit( NOTIFICATION, DATE, REPETITIONS, SCHEDULER_NAME, java.lang.String )</attribute>
+    <attribute name="InitialStartDate">NOW</attribute>
+    <attribute name="SchedulePeriod">10000</attribute>
+    <attribute name="InitialRepetitions">10</attribute>
+  </mbean>
+
+  -->
+
+</server>

@@ -1,3 +1,13 @@
+Changes for the 5.12 release (the cctools-464 release):
+- Made changes to build cleanly with gcc3.3
+  - Removed -Wno-precomp from the Makefile
+  - Fixed warnings for "comparison between signed and unsigned" in file.c,
+    softmagic.c, is_tar.c, print.c and readfat.c .
+
+Changes for the 5.10 release (the cctools-462 release):
+- Added the MH_DYLIB_STUB filetype (9) to magdir/mach (note this is the not the
+  file(1) command is used by Mac OS X).  Radar bug #3193744.
+
 Changes for the 5.10 release (the cctools-400 release):
 - Changed the Makefile back to again use the -dependency-file with gcc.
 

@@ -2,21 +2,24 @@
  * Copyright (c) 2000 Apple Computer, Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
- *
- * The contents of this file constitute Original Code as defined in and
- * are subject to the Apple Public Source License Version 1.1 (the
- * "License").  You may not use this file except in compliance with the
- * License.  Please obtain a copy of the License at
- * http://www.apple.com/publicsource and read it before using this file.
- *
- * This Original Code and all software distributed under the License are
- * distributed on an "AS IS" basis, WITHOUT WARRANTY OF ANY KIND, EITHER
+ * 
+ * Copyright (c) 1999-2003 Apple Computer, Inc.  All Rights Reserved.
+ * 
+ * This file contains Original Code and/or Modifications of Original Code
+ * as defined in and that are subject to the Apple Public Source License
+ * Version 2.0 (the 'License'). You may not use this file except in
+ * compliance with the License. Please obtain a copy of the License at
+ * http://www.opensource.apple.com/apsl/ and read it before using this
+ * file.
+ * 
+ * The Original Code and all software distributed under the License are
+ * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
  * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
  * INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY,
- * FITNESS FOR A PARTICULAR PURPOSE OR NON-INFRINGEMENT.  Please see the
- * License for the specific language governing rights and limitations
- * under the License.
- *
+ * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
+ * Please see the License for the specific language governing rights and
+ * limitations under the License.
+ * 
  * @APPLE_LICENSE_HEADER_END@
  */
 
@@ -42,8 +45,8 @@ includes
 #include "ppp_msg.h"
 #include "../Family/if_ppplink.h"
 #include "ppp_client.h"
-#include "ppp_option.h"
 #include "ppp_manager.h"
+#include "ppp_option.h"
 
 /* -----------------------------------------------------------------------------
 definitions
@@ -64,11 +67,7 @@ definitions
 Forward Declarations
 ----------------------------------------------------------------------------- */
 
-static __inline__ CFTypeRef isA_CFType(CFTypeRef obj, CFTypeID type);
-static __inline__ CFTypeRef isA_CFDictionary(CFTypeRef obj);
-static __inline__ void my_CFRelease(CFTypeRef obj);
 static CFStringRef parse_component(CFStringRef key, CFStringRef prefix);
-static u_int32_t CFStringAddrToLong(CFStringRef string);
 
 static void reorder_services();
 static int process_servicestate(CFStringRef serviceID);
@@ -92,13 +91,14 @@ int options_init_all()
     CFStringRef         key = NULL, setup = NULL;
     CFMutableArrayRef	keys = NULL, patterns = NULL;
     CFArrayRef		services = NULL;
-    int 		i, ret = 0;
+    int 		i, nb, ret = 0;
     CFRunLoopSourceRef	rls = NULL;
     CFStringRef         notifs[] = {
         kSCEntNetPPP,
         kSCEntNetModem,
         kSCEntNetInterface,
     	kSCEntNetIPv4,
+    	kSCEntNetIPv6,
         kSCEntNetDNS,
         NULL,
     };
@@ -158,7 +158,8 @@ int options_init_all()
     if (services == NULL)
         goto done;	// no PPP service setup
 
-    for (i = 0; i < CFArrayGetCount(services); i++) {
+    nb = CFArrayGetCount(services);
+    for (i = 0; i < nb; i++) {
         CFStringRef serviceID;
         if (serviceID = parse_component(CFArrayGetValueAtIndex(services, i), setup)) {
             process_servicesetup(serviceID);            
@@ -170,16 +171,16 @@ int options_init_all()
     ppp_postupdatesetup();
     //ppp_printlist();
 done:    
-    my_CFRelease(services);
-    my_CFRelease(key);
-    my_CFRelease(setup);
-    my_CFRelease(keys);
-    my_CFRelease(patterns);
+    if (services) CFRelease(services);
+    if (key) CFRelease(key);
+    if (setup) CFRelease(setup);
+    if (keys) CFRelease(keys);
+    if (patterns) CFRelease(patterns);
     return ret;
 fail:
     SCLog(TRUE, LOG_ERR, CFSTR("PPPController options_init_all : allocation failed, error = %s\n"),
                 SCErrorString(SCError()));
-    my_CFRelease(gCfgCache);
+    if (gCfgCache) CFRelease(gCfgCache);
     ret = 1;
     goto done;
 }
@@ -237,8 +238,8 @@ int process_servicesetup(CFStringRef serviceID)
     ppp_updatesetup(ppp, service);
        
 done:            
-    my_CFRelease(interface);
-    my_CFRelease(service);
+    if (interface) CFRelease(interface);
+    if (service) CFRelease(service);
     return 0;
 }
 
@@ -272,7 +273,7 @@ void reorder_services()
     CFDictionaryRef	ip_dict = NULL;
     CFStringRef		key, serviceID;
     CFArrayRef		serviceorder;
-    int 		i;
+    int 		i, nb;
     struct ppp		*ppp;
 
     key = CREATEGLOBALSETUP(kSCEntNetIPv4);
@@ -281,7 +282,8 @@ void reorder_services()
         if (ip_dict) {
             serviceorder = CFDictionaryGetValue(ip_dict, kSCPropNetServiceOrder);        
             if (serviceorder) {
-                for (i = 0; i < CFArrayGetCount(serviceorder); i++) {
+  	        nb = CFArrayGetCount(serviceorder);
+	        for (i = 0; i < nb; i++) {
                     serviceID = CFArrayGetValueAtIndex(serviceorder, i);                    
                     if (ppp = ppp_findbyserviceID(serviceID))
                         ppp_setorder(ppp, 0xffff);
@@ -299,7 +301,7 @@ the configd cache/setup has changed
 void cache_notifier(SCDynamicStoreRef session, CFArrayRef changedKeys, void *info)
 {
     CFStringRef		setup, state, userkey, ipkey;
-    u_long		i, doreorder = 0, dopostsetup = 0;
+    u_long		i, nb, doreorder = 0, dopostsetup = 0;
 
     //SCLog(TRUE, LOG_ERR, CFSTR("PPPController cache_notifier \n"));
     
@@ -316,7 +318,8 @@ void cache_notifier(SCDynamicStoreRef session, CFArrayRef changedKeys, void *inf
         goto done;
     }
 
-    for (i = 0; i < CFArrayGetCount(changedKeys); i++) {
+    nb = CFArrayGetCount(changedKeys);
+    for (i = 0; i < nb; i++) {
 
         CFStringRef	change, serviceID;
         
@@ -324,11 +327,15 @@ void cache_notifier(SCDynamicStoreRef session, CFArrayRef changedKeys, void *inf
 
         // --------- Check for change of console user --------- 
         if (CFEqual(change, userkey)) {
-            my_CFRelease(gLoggedInUser);
-            if (gLoggedInUser = SCDynamicStoreCopyConsoleUser(session, 0, 0)) 
-                ppp_login();	// key appeared, user logged in
-            else 
+            CFStringRef olduser = gLoggedInUser;
+            gLoggedInUser = SCDynamicStoreCopyConsoleUser(session, 0, 0);
+            if (gLoggedInUser == 0)
                 ppp_logout();	// key disappeared, user logged out
+            else if (olduser == 0)
+                ppp_login();	// key appeared, user logged in
+            else
+                ppp_logswitch();	// key changed, user has switched
+            if (olduser) CFRelease(olduser);
             continue;
         }
 
@@ -365,39 +372,10 @@ void cache_notifier(SCDynamicStoreRef session, CFArrayRef changedKeys, void *inf
         ppp_postupdatesetup();
 
 done:
-    my_CFRelease(setup);
-    my_CFRelease(state);
-    my_CFRelease(userkey);
-    my_CFRelease(ipkey);
-    return;
-}
-
-/* -----------------------------------------------------------------------------
------------------------------------------------------------------------------ */
-static __inline__ CFTypeRef isA_CFType(CFTypeRef obj, CFTypeID type)
-{
-    if (obj == NULL)
-        return (NULL);
-
-    if (CFGetTypeID(obj) != type)
-        return (NULL);
-    return (obj);
-}
-
-/* -----------------------------------------------------------------------------
------------------------------------------------------------------------------ */
-static __inline__ CFTypeRef isA_CFDictionary(CFTypeRef obj)
-{
-    return (isA_CFType(obj, CFDictionaryGetTypeID()));
-}
-
-
-/* -----------------------------------------------------------------------------
------------------------------------------------------------------------------ */
-static __inline__ void my_CFRelease(CFTypeRef obj)
-{
-    if (obj)
-        CFRelease(obj);
+    if (setup) CFRelease(setup);
+    if (state) CFRelease(state);
+    if (userkey) CFRelease(userkey);
+    if (ipkey) CFRelease(ipkey);
     return;
 }
 
@@ -432,7 +410,64 @@ static CFStringRef parse_component(CFStringRef key, CFStringRef prefix)
 
 /* -----------------------------------------------------------------------------
 ----------------------------------------------------------------------------- */
-CFTypeRef copyEntity(CFStringRef domain, CFStringRef serviceID, CFStringRef entity)
+CFDictionaryRef copyService(CFStringRef domain, CFStringRef serviceID)
+{
+    CFTypeRef		data = NULL;
+    CFMutableDictionaryRef	service = NULL;
+    CFStringRef		key = NULL;
+    int			i;
+    CFStringRef         copy[] = {
+        kSCEntNetPPP,
+        kSCEntNetModem,
+        kSCEntNetInterface,
+    	kSCEntNetIPv4,
+    	kSCEntNetIPv6,
+        kSCEntNetDNS,
+        kSCEntNetL2TP,
+        kSCEntNetPPTP,
+        NULL,
+    };
+
+    key = SCDynamicStoreKeyCreate(0, CFSTR("%@/%@/%@/%@"), domain, kSCCompNetwork, kSCCompService, serviceID);
+    if (key == 0)
+        goto fail;
+        
+    data = SCDynamicStoreCopyValue(gCfgCache, key);
+    if (data == 0)
+        goto fail;
+        
+    CFRelease(key);
+        
+    service = CFDictionaryCreateMutableCopy(NULL, 0, data);
+    if (service == 0)
+        goto fail;
+        
+    CFRelease(data);
+
+    for (i = 0; copy[i]; i++) {   
+        data = copyEntity(domain, serviceID, copy[i]);
+        if (data) {
+        
+            CFDictionaryAddValue(service, copy[i], data);
+            CFRelease(data);
+        }
+    }
+
+    return service;
+
+fail:
+    if (key) 
+        CFRelease(key);
+    if (data)
+        CFRelease(data);
+    if (service)
+        CFRelease(service);
+    return 0;
+}
+
+/* -----------------------------------------------------------------------------
+----------------------------------------------------------------------------- */
+CFDictionaryRef copyEntity(CFStringRef domain, CFStringRef serviceID, CFStringRef entity)
 {
     CFTypeRef		data = NULL;
     CFStringRef		key;
@@ -450,6 +485,21 @@ CFTypeRef copyEntity(CFStringRef domain, CFStringRef serviceID, CFStringRef enti
 }
 
 /* -----------------------------------------------------------------------------
+----------------------------------------------------------------------------- */
+int existEntity(CFStringRef domain, CFStringRef serviceID, CFStringRef entity)
+{
+    CFTypeRef		data;
+
+    data = copyEntity(domain, serviceID, entity);
+    if (data) {
+        CFRelease(data);
+        return 1;
+    }
+    
+    return 0;
+}
+
+/* -----------------------------------------------------------------------------
 get a string from the dictionnary, in service/property
 ----------------------------------------------------------------------------- */
 int getString(CFDictionaryRef service, CFStringRef property, u_char *str, u_int16_t maxlen)
@@ -462,7 +512,7 @@ int getString(CFDictionaryRef service, CFStringRef property, u_char *str, u_int1
     if (ref) {
         if (CFGetTypeID(ref) == CFStringGetTypeID()) {
            CFStringGetCString((CFStringRef)ref, str, maxlen, kCFStringEncodingUTF8);
-            return 0;
+            return 1;
         }
         else if (CFGetTypeID(ref) == CFDataGetTypeID()) {
            string = CFStringCreateWithCharacters(NULL, 
@@ -470,11 +520,11 @@ int getString(CFDictionaryRef service, CFStringRef property, u_char *str, u_int1
            if (string) {
                 CFStringGetCString(string, str, maxlen, kCFStringEncodingUTF8);
                 CFRelease(string);
-            	return 0;
+            	return 1;
             }
         }
     }
-    return -1;
+    return 0;
 }
 
 /* -----------------------------------------------------------------------------
@@ -487,9 +537,9 @@ int getNumber(CFDictionaryRef dict, CFStringRef property, u_int32_t *outval)
     ref  = CFDictionaryGetValue(dict, property);
     if (ref && (CFGetTypeID(ref) == CFNumberGetTypeID())) {
         CFNumberGetValue(ref, kCFNumberSInt32Type, outval);
-        return 0;
+        return 1;
     }
-    return -1;
+    return 0;
 }
 
 /* -----------------------------------------------------------------------------
@@ -498,13 +548,13 @@ int getNumberFromEntity(CFStringRef domain, CFStringRef serviceID,
         CFStringRef entity, CFStringRef property, u_int32_t *outval)
 {
     CFTypeRef		data;
-    int 		err = -1;
+    int 		ok = 0;
 
     if (data = copyEntity(domain, serviceID, entity)) {
-        err = getNumber(data, property, outval);
+        ok = getNumber(data, property, outval);
         CFRelease(data);
     }
-    return err;
+    return ok;
 }
 
 /* -----------------------------------------------------------------------------
@@ -513,14 +563,35 @@ int getStringFromEntity(CFStringRef domain, CFStringRef serviceID,
         CFStringRef entity, CFStringRef property, u_char *str, u_int16_t maxlen)
 {
     CFTypeRef		data;
-    int 		err = -1;
+    int 		ok = 0;
 
     data = copyEntity(domain, serviceID, entity);
     if (data) {
-        err = getString(data, property, str, maxlen);
+        ok = getString(data, property, str, maxlen);
         CFRelease(data);
     }
-    return err;
+    return ok;
+}
+
+/* -----------------------------------------------------------------------------
+----------------------------------------------------------------------------- */
+CFStringRef copyCFStringFromEntity(CFStringRef domain, CFStringRef serviceID, 
+        CFStringRef entity, CFStringRef property)
+{
+    CFTypeRef		data;
+    CFStringRef		string, ret = 0;
+
+    data = copyEntity(domain, serviceID, entity);
+    if (data) {
+        string  = CFDictionaryGetValue(data, property);
+        if (string && (CFGetTypeID(string) == CFStringGetTypeID())) {
+            CFRetain(string);
+            ret = string;
+        }
+
+        CFRelease(data);
+    }
+    return ret; 
 }
 
 /* -----------------------------------------------------------------------------
@@ -544,7 +615,7 @@ int getAddressFromEntity(CFStringRef domain, CFStringRef serviceID,
         CFStringRef entity, CFStringRef property, u_int32_t *outval)
 {
     CFTypeRef		data;
-    int 		err = -1;
+    int 		ok = 0;
     CFArrayRef		array;
 
     data = copyEntity(domain, serviceID, entity);
@@ -552,26 +623,9 @@ int getAddressFromEntity(CFStringRef domain, CFStringRef serviceID,
         array = CFDictionaryGetValue(data, property);
         if (array && CFArrayGetCount(array)) {
             *outval = CFStringAddrToLong(CFArrayGetValueAtIndex(array, 0));
-            err = 0;
+            ok = 1;
         }
         CFRelease(data);
     }
-    return err;
+    return ok;
 }
-
-
-/* -----------------------------------------------------------------------------
------------------------------------------------------------------------------ */
-int getServiceName(CFStringRef serviceID, u_char *str, u_int16_t maxlen)
-{
-    CFTypeRef		data;
-    int 		err = -1;
-
-    data = copyEntity(kSCDynamicStoreDomainSetup, serviceID, 0);
-    if (data) {
-        err = getString(data, kSCPropUserDefinedName, str, maxlen);
-        CFRelease(data);
-    }
-    return err;
-}
-

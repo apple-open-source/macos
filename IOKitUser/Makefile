@@ -46,11 +46,12 @@ DEBUG_LIBS = $(LIBS)
 PROF_LIBS = $(LIBS)
 
 
-HEADER_PATHS = -I/System/Library/Frameworks/Kernel.framework/Headers
-NEXTSTEP_PB_CFLAGS = -Wall -Wno-four-char-constants -DAPPLE -DIOKIT -D_ANSI_C_SOURCE -Dvolatile=__volatile
-NEXTSTEP_PB_LDFLAGS = -prebind  -seg_addr_table $(NEXT_ROOT)$(APPLE_INTERNAL_DEVELOPER_DIR)/seg_addr_table
+# HEADER_PATHS = -I/System/Library/Frameworks/Kernel.framework/Headers
+NEXTSTEP_PB_CFLAGS = -Wall -Wno-four-char-constants -DAPPLE -DIOKIT -D_ANSI_C_SOURCE -Dvolatile=__volatile  -fpascal-strings
+NEXTSTEP_PB_LDFLAGS = -prebind  -seg_addr_table $(NEXT_ROOT)$(APPLE_INTERNAL_DEVELOPER_DIR)/seg_addr_table -F/System/Library/PrivateFrameworks 
 FRAMEWORKS = -framework CoreFoundation \
-             -framework SystemConfiguration
+             -framework SystemConfiguration \
+             -framework Bom
 PUBLIC_HEADERS = IOKitLib.h IOCFUnserialize.h IOCFSerialize.h\
                  IOCFPlugIn.h IOCFURLAccess.h IOCFBundle.h\
                  IODataQueueClient.h iokitmig.h
@@ -59,6 +60,7 @@ PROJECT_HEADERS = IOKitLib.h IOCFSerialize.h IOCFUnserialize.h\
                   IOKitLibPrivate.h IOCFURLAccess.h IOCFBundle.h\
                   IODataQueueClient.h iokitmig.h
 
+PRIVATE_HEADERS = IOKitLibPrivate.h
 
 
 NEXTSTEP_BUILD_OUTPUT_DIR = /$(USER)/build/$(NAME)

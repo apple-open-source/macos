@@ -1,0 +1,54 @@
+_KClientGetVersion
+
+# session initialization / destruction
+_KClientNewClientSession
+_KClientNewServerSession
+_KClientDisposeSession
+
+# session property accessors
+_KClientGetClientPrincipal
+_KClientSetClientPrincipal
+_KClientGetServerPrincipal
+_KClientSetServerPrincipal
+_KClientGetLocalAddress
+_KClientSetLocalAddress
+_KClientGetRemoteAddress
+_KClientSetRemoteAddress
+_KClientGetSessionKey
+_KClientGetExpirationTime
+_KClientSetKeyFile
+
+# client login / authentication
+_KClientLogin
+_KClientPasswordLogin
+_KClientKeyFileLogin
+#_KClientKeyLogin
+_KClientLogout
+_KClientGetTicketForService
+_KClientGetAuthenticatorForService
+_KClientVerifyEncryptedServiceReply
+_KClientVerifyProtectedServiceReply
+
+# server authentication
+_KClientGetServiceKey
+_KClientAddServiceKey
+_KClientVerifyAuthenticator
+_KClientGetEncryptedServiceReply
+_KClientGetProtectedServiceReply
+
+# client / server encryption and protection
+_KClientEncrypt
+_KClientDecrypt
+_KClientProtectIntegrity
+_KClientVerifyIntegrity
+
+# misc session access
+#_KClientPasswordToKey
+_KClientGetCCacheReference
+#_KClientGetProfileHandle
+
+# principals
+_KClientV4StringToPrincipal
+_KClientPrincipalToV4String
+_KClientPrincipalToV4Triplet
+_KClientDisposePrincipal

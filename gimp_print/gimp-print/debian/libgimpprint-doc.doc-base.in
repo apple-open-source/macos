@@ -1,0 +1,15 @@
+Document: libgimpprint#LIBRARY_VERSION#-doc
+Title: The libgimpprint Reference Manual
+Author: The GIMP-Print Project
+Abstract: The gimpprint library routines give programmers an interface to
+ print high quality bitmap images on most modern printers.  It includes drivers
+ which provide printing quality for UNIX/Linux on a par with proprietary
+ vendor-supplied drivers in many cases, and can be used for many of the most
+ demanding printing tasks.  This manual covers developing programs that use
+ libgimpprint for printing, as well as the programs that are distributed with
+ GIMP-Print.
+Section: Apps/Programming
+
+Format: HTML
+Index: /usr/share/doc/libgimpprint#LIBRARY_VERSION#-doc/html/gimpprint_toc.html
+Files: /usr/share/doc/libgimpprint#LIBRARY_VERSION#-doc/html/*.html

@@ -1,0 +1,247 @@
+<HTML>
+<HEAD>
+<!-- This HTML file has been created by texi2html 1.51
+     from .././gimpprint.texi on 22 January 2003 -->
+
+<TITLE>GIMP-Print - Oversampling</TITLE>
+</HEAD>
+<BODY>
+Go to the <A HREF="gimpprint_1.html">first</A>, <A HREF="gimpprint_32.html">previous</A>, <A HREF="gimpprint_34.html">next</A>, <A HREF="gimpprint_47.html">last</A> section, <A HREF="gimpprint_toc.html">table of contents</A>.
+<P><HR><P>
+
+
+<H3><A NAME="SEC48" HREF="gimpprint_toc.html#TOC48">B.2.5  Oversampling</A></H3>
+<P>
+<A NAME="IDX189"></A>
+
+</P>
+<P>
+By oversampling, we mean printing on the same row more than once.
+There are two reasons for oversampling: to increase the horizontal
+resolution of the printout and to reduce banding.
+
+</P>
+<P>
+Oversampling to increase horizontal resolution is necessary because,
+although the printer might be able to position an ink drop to, for
+example, 1/1440" horizontally, it may not be able to lay down two such
+drops 1/1440" apart.  If it can print two drops 1/720" apart, 2x
+oversampling will be necessary to get a 1/1440" horizontal resolution.
+If it can only print two drops 1/360" apart, 4x oversampling will be
+necessary for a 1/1440" horizontal resolution.  The printer enforces
+this "drop spacing" by only accepting raster passes with a horizontal
+resolution matching the spacing with which it can print dots, so we
+must print passes at different horizontal positions if we are to
+obtain a higher horizontal resolution.  (Another reason it does this
+may be to reduce the amount of memory needed in the printer.)
+
+</P>
+<P>
+Oversampling can also be done to decrease the banding apparent in an
+image.  By splitting a row into two or more sets of dots ("lines") and
+printing each line on the same row, but with a different nozzle for
+each line, we can get a smoother print.
+
+</P>
+<P>
+To quantify these two kinds of oversampling, we'll introduce two new
+constants: @math{H} shows how many different horizontal offsets we want
+to print at (the "horizontal oversampling") while @math{O} shows how
+many times we want to print each row, over and above the number of times
+necessary for horizontal oversampling (the "extra oversampling").
+
+</P>
+<P>
+It is necessary for all the lines printed by a given pass to have the
+same horizontal offset, but there need not be any relation between
+them in terms of extra oversampling.  For the moment, however, we will
+treat all oversampling as potentially requiring this alignment; all
+lines in one pass must be derived from the original row data in the
+same way.  Thus, we'll assume @math{O=1} for now.
+
+</P>
+<P>
+So, how do we do this oversampling?  In fact, it can be done easily:
+advance the paper by a factor of @math{H} less between each pass.  We'll
+define a new variable, @math{A}, to show how much we advance the paper
+between passes.  Previously, we'd have defined @math{A=J}; we now let
+@math{A=J/H}.  This also affects our pass blocks.  Printing one pass
+block used to involve advancing the paper @math{S*J} rows; it now
+advances the paper @math{S*J/H} rows.  We therefore name a group of
+@math{H} pass blocks a "band".  Printing one band involves advancing
+the paper @math{S*J} rows, as a pass block did before.
+
+</P>
+<P>
+To keep our weave pattern working correctly, so that overprinting does
+not occur within a pass block, we also have to redefine @math{G} as
+@math{GCD(S,A)}.  Here's an example of an oversampled weave pattern:
+
+</P>
+<P>
+@math{S=4}, @math{J=10}, @math{H=2}, @math{A=J/H=10/2=5},
+@math{G=GCD(4,5)=1},
+<BR>passesperblock=@math{S}=4,
+<BR>passespersubblock=@math{S/G}=4/1=4:
+
+</P>
+
+<PRE>
+0 *---*---*---*---*---*---*---*---*---*
+1      *---*---*---*---*---*---*---*---*---*
+2           *---*---*---*---*---*---*---*---*---*
+3                *---*---*---*---*---*---*---*---*---*
+4                     *---*---*---*---*---*---*---*---*---*
+5                          *---*---*---*---*---*---*---*---*---*
+6                               *---*---*---*---*---*---*---*---*---*
+7                                    *---*---*---*---*---*---*---*---*---*
+8                                         *---*---*---*---*---*---*---*---*---*
+9                                              *---*---*---*---*---*---*---*---*
+10                                                  *---*---*---*---*---*---*---
+11                                                       *---*---*---*---*---*--
+12                                                            *---*---*---*---*-
+13                                                                 *---*---*---*
+14                                                                      *---*---
+15                                                                           *--
+</PRE>
+
+<P>
+Now we have to determine which line is printed by each jet on each
+pass.  If we number each line generated as we split up a row, we can
+use these numbers.  We'll number the lines in our diagram by replacing
+the <SAMP>`*'</SAMP>s with integers in the range [0...@math{H-1}].
+
+</P>
+<P>
+Overprinting occurs once per pass block, so we can simply print pass
+block 0 with line 0, pass block 1 with line 1, pass block 2 with line
+2, etc, wrapping to 0 when we've run out of lines:
+
+</P>
+
+<PRE>
+0 0--0---0--0---0--0---0--0---0--0
+1      0--0---0--0---0--0---0--0---0--0
+2           0--0---0--0---0--0---0--0---0--0
+3                0--0---0--0---0--0---0--0---0--0
+4                     1--1---1--1---1--1---1--1---1--1
+5                          1--1---1--1---1--1---1--1---1--1
+6                               1--1---1--1---1--1---1--1---1--1
+7                                    1--1---1--1---1--1---1--1---1--1
+8                                         0--0---0--0---0--0---0--0---0--0
+9                                              0--0---0--0---0--0---0--0---0
+10                                                  0--0---0--0---0--0---0---
+11                                                       0--0---0--0---0--0--
+12                                                            1--1---1--1---1-
+13                                                                 1--1---1--1
+14                                                                      1--1---
+15                                                                           1--
+</PRE>
+
+<P>
+@math{S=4},  @math{J=12},  @math{H=2},  @math{A=J/H=12/2=6},  @math{G=GCD(4,6)=2},
+<BR>passesperblock=@math{S}=4,
+<BR>passespersubblock=@math{S/G}=4/2=2:
+
+</P>
+
+<PRE>
+0 0--0---0--0---0--0---0--0---0--0---0--0
+1       0--0---0--0---0--0---0--0---0--0---0--0
+2              0--0---0--0---0--0---0--0---0--0---0--0
+3                    0--0---0--0---0--0---0--0---0--0---0--0
+4                         1--1---1--1---1--1---1--1---1--1---1--1
+5                               1--1---1--1---1--1---1--1---1--1---1--1
+6                                      1--1---1--1---1--1---1--1---1--1---1
+7                                            1--1---1--1---1--1---1--1---1--
+8                                                 0--0---0--0---0--0---0--0-
+9                                                       0--0---0--0---0--0---
+10                                                             0--0---0--0---0
+11                                                                   0--0---0--
+12                                                                        1--1-
+</PRE>
+
+<P>
+But what do we do if @math{J} is not an exact multiple of @math{H}?
+This is a difficult problem, which I struggled with for quite a few days
+before giving in and taking the easy (but less elegant) way out.  The
+easy solution is to round @math{J/H} down, then add on the accumulated
+error at the end of each band.
+
+</P>
+<P>
+@math{S=4},  @math{J=11},  @math{H=2}  @math{A=floor(J/H)=floor(11/2)=5},  @math{G=GCD(4,5)},
+<BR>passesperblock=@math{S}=4,
+<BR>passespersubblock=@math{S/G}=4/1=4
+
+</P>
+
+<PRE>
+Band 0:
+0 0--0---0--0---0--0---0--0---0--0---0
+1      0--0---0--0---0--0---0--0---0--0---0
+2           0--0---0--0---0--0---0--0---0--0---0
+3                0--0---0--0---0--0---0--0---0--0---0
+4                     1--1---1--1---1--1---1--1---1--1---1
+5                          1--1---1--1---1--1---1--1---1--1---1
+6                               1--1---1--1---1--1---1--1---1--1---1
+7                                    1--1---1--1---1--1---1--1---1--1---
+
+Band 1:
+8 |                                           0--0---0--0---0--0---0--0---0-
+9  \-----------------------------------------/     0--0---0--0---0--0---0--0
+10                   S*J rows                           0--0---0--0---0--0---
+11                                                           0--0---0--0---0--
+12                                                                1--1---1--1-
+13                                                                     1--1---1
+14                                                                          1---
+</PRE>
+
+<P>
+We can calculate the starting row and subpass number of a given pass
+in this scheme as follows:
+
+</P>
+
+<PRE>
+A = floor(J / H)
+subblocksperblock = gcd(S, A)
+subpassblock = floor((p % S) * subblocksperblock / S)
+if subpassblock * 2 &#60; subblocksperblock
+    subblockoffset = 2*subpassblock
+else
+    subblockoffset = 2*(subblocksperblock-subpassblock)-1
+band = floor(P / (S * H))
+passinband = P % (S * H)
+startingrow = band * S * J + passinband * A + subblockoffset
+subpass = passinband / S
+</PRE>
+
+<P>
+So the row number of jet @math{j} of pass @math{p} is
+
+</P>
+
+<PRE>
+A = floor(J / H)
+subblocksperblock = gcd(S, A)
+
+subblockoffset(p)
+    = 2*subpassblock       , if subpassblock * 2 &#60; subblocksperblock
+    = 2*(subblocksperblock-subpassblock)-1      , otherwise
+      where
+      subpassblock = floor((p % S) * subblocksperblock / S)
+
+band(p) = floor(p / (S * H))
+passinband(p) = p % (S * H)
+
+row(j, p) = band(p) * S * J + passinband(p) * A + subblockoffset(p) + j * S
+row(j, p) = p * J + subblockoffset(p) + j * S
+</PRE>
+
+<P>
+To be continued@enddots{}
+<P><HR><P>
+Go to the <A HREF="gimpprint_1.html">first</A>, <A HREF="gimpprint_32.html">previous</A>, <A HREF="gimpprint_34.html">next</A>, <A HREF="gimpprint_47.html">last</A> section, <A HREF="gimpprint_toc.html">table of contents</A>.
+</BODY>
+</HTML>

@@ -1,0 +1,5 @@
+# Tcl autoload index file: each line identifies a Tcl
+
+::tc002::Benchmark examples/lib/benchmark.itcl
+::tc002::English examples/lib/benchmark.itcl
+::tc002::Dutch examples/lib/benchmark.itcl

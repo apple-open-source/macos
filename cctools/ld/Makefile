@@ -21,7 +21,7 @@ ifeq "macos" "$(RC_OS)"
 endif
 
 ifneq "mwccppc" "$(notdir $(CC))"
-  GCC_FLAGS = -Wall -Wno-precomp $(X_CFLAGS)
+  GCC_FLAGS = -Wall $(X_CFLAGS)
 endif
 
 USE_DEPENDENCY_FILE := $(shell if [ "$(notdir $(CC))" != "mwccppc" ]; then \
@@ -107,12 +107,12 @@ ld_build:	$(OBJROOT)/ld_dir $(SYMROOT)/ld_dir
 		OFILE_DIR=. SRCROOT=.. RC_CFLAGS="$(RC_CFLAGS)"		\
 		LIBSTUFF="-L../../libstuff -lstuff"			\
 		VERS_STRING_FLAGS="$(VERS_STRING_FLAGS)"		\
-		MAKEINCDIR=`pwd` COPTS="-DDEBUG" CC="$(CC)";		\
+		MAKEINCDIR="`pwd`" COPTS="-DDEBUG" CC="$(CC)";		\
 	else								\
 	    cd $(OBJROOT)/ld_dir; $(MAKE) -f $(SRCROOT)/Makefile ld.NEW	\
 		VPATH=$(SRCROOT) OFILE_DIR=$(OBJROOT)/ld_dir		\
 		SYMROOT=$(SYMROOT)/ld_dir SRCROOT=$(SRCROOT)		\
-		MAKEINCDIR=`pwd` COPTS="-DDEBUG"			\
+		MAKEINCDIR="`pwd`" COPTS="-DDEBUG"			\
 		LIBSTUFF="-L$(SYMROOT)/../libstuff -lstuff"		\
 		VERS_STRING_FLAGS="$(VERS_STRING_FLAGS)"		\
 		RC_CFLAGS="$(RC_CFLAGS)" CC="$(CC)";			\
@@ -120,19 +120,19 @@ ld_build:	$(OBJROOT)/ld_dir $(SYMROOT)/ld_dir
 
 ld_g_build: ld_g_dir
 	cd ld_g_dir; $(MAKE) -f ../Makefile ld_g.NEW VPATH=.. OFILE_DIR=. \
-		SRCROOT=.. MAKEINCDIR=`pwd` COPTS="-DDEBUG" OFLAG=""	\
+		SRCROOT=.. MAKEINCDIR="`pwd`" COPTS="-DDEBUG" OFLAG=""	\
 		LIBSTUFF="-L../../libstuff -lstuff"
 
 ld_p_build: ld_p_dir
 	cd ld_p_dir; $(MAKE) -f ../Makefile ld.NEW VPATH=.. OFILE_DIR=. \
-		SRCROOT=.. MAKEINCDIR=`pwd` COPTS="-pg -DDEBUG"		\
+		SRCROOT=.. MAKEINCDIR="`pwd`" COPTS="-pg -DDEBUG"		\
 		LIBSTUFF="-L../../libstuff -lstuff_p"
 
 shlib_ofiles: $(OBJROOT)/shlib_obj $(SYMROOT)/ld_dir
 	@if [ $(SRCROOT) = . ];						\
 	then								\
 	    (cd shlib_obj; $(MAKE) -f ../Makefile librld.o VPATH=.. 	\
-		MAKEINCDIR=`pwd` OFILE_DIR=. SRCROOT=.. 		\
+		MAKEINCDIR="`pwd`" OFILE_DIR=. SRCROOT=.. 		\
 		COPTS="-static -DRLD -DSHLIB -I/LocalDeveloper/Headers/libsys" \
 		LIBSTUFF="-L../../libstuff -lstuff_s"			\
 		VERS_STRING_FLAGS="$(VERS_STRING_FLAGS)" CC="$(CC)"	\
@@ -147,7 +147,7 @@ shlib_ofiles: $(OBJROOT)/shlib_obj $(SYMROOT)/ld_dir
 		COPTS="-static -DRLD -DSHLIB -I/LocalDeveloper/Headers/libsys" \
 		LIBSTUFF="-L$(SYMROOT)/../libstuff -lstuff_s"		\
 		VERS_STRING_FLAGS="$(VERS_STRING_FLAGS)"		\
-		MAKEINCDIR=`pwd` RC_ARCHS="$(RC_ARCHS)");		\
+		MAKEINCDIR="`pwd`" RC_ARCHS="$(RC_ARCHS)");		\
 	    rm -f $(OBJROOT)/shlib_obj/librld.ofileList;		\
 	    cp librld.ofileList $(OBJROOT)/shlib_obj;			\
 	fi
@@ -156,7 +156,7 @@ profile_ofiles:	$(OBJROOT)/profile_obj $(OBJROOT)/ptmp_obj $(SYMROOT)/ld_dir
 	@if [ $(SRCROOT) = . ];						\
 	then								\
 	    (cd ptmp_obj; $(MAKE) -f ../Makefile librld_pg.a VPATH=.. 	\
-		MAKEINCDIR=`pwd` OFILE_DIR=. SRCROOT=.. 		\
+		MAKEINCDIR="`pwd`" OFILE_DIR=. SRCROOT=.. 		\
 		LIBSTUFF="-L../../libstuff -lstuff_p"			\
 		VERS_STRING_FLAGS="$(VERS_STRING_FLAGS)" CC="$(CC)"	\
 		RC_CFLAGS="$(RC_CFLAGS)" COPTS="-dynamic -DRLD -pg");	\
@@ -173,7 +173,7 @@ profile_ofiles:	$(OBJROOT)/profile_obj $(OBJROOT)/ptmp_obj $(SYMROOT)/ld_dir
 		RC_CFLAGS="$(RC_CFLAGS)" CC="$(CC)"			\
 		LIBSTUFF="-L$(SYMROOT)/../libstuff -lstuff_p"		\
 		VERS_STRING_FLAGS="$(VERS_STRING_FLAGS)"		\
-		MAKEINCDIR=`pwd` COPTS="-dynamic -DRLD -pg");		\
+		MAKEINCDIR="`pwd`" COPTS="-dynamic -DRLD -pg");		\
 	    rm -f $(OBJROOT)/profile_obj/librld.o; 			\
 	    rm -f $(OBJROOT)/profile_obj/librld.ofileList;		\
 	    cp $(OBJROOT)/ptmp_obj/librld.o $(OBJROOT)/profile_obj/librld.o; \
@@ -186,7 +186,7 @@ optimized_ofiles: $(OBJROOT)/optimized_obj $(OBJROOT)/otmp_obj $(SYMROOT)/ld_dir
 	@if [ $(SRCROOT) = . ];						\
 	then								\
 	    (cd otmp_obj; $(MAKE) -f ../Makefile librld_static.a VPATH=.. \
-		MAKEINCDIR=`pwd` OFILE_DIR=. SRCROOT=.. 		\
+		MAKEINCDIR="`pwd`" OFILE_DIR=. SRCROOT=.. 		\
 		LIBSTUFF="-L../../libstuff -lstuff" CC="$(CC)"		\
 		VERS_STRING_FLAGS="$(VERS_STRING_FLAGS)"		\
 		RC_CFLAGS="$(RC_CFLAGS)" COPTS="-static -DRLD");	\
@@ -204,7 +204,7 @@ optimized_ofiles: $(OBJROOT)/optimized_obj $(OBJROOT)/otmp_obj $(SYMROOT)/ld_dir
 		RC_CFLAGS="$(RC_CFLAGS)" CC="$(CC)"			\
 		LIBSTUFF="-L$(SYMROOT)/../libstuff -lstuff"		\
 		VERS_STRING_FLAGS="$(VERS_STRING_FLAGS)"		\
-		MAKEINCDIR=`pwd` COPTS="-static -DRLD");		\
+		MAKEINCDIR="`pwd`" COPTS="-static -DRLD");		\
 	    rm -f $(OBJROOT)/optimized_obj/librld.o; 			\
 	    rm -f $(OBJROOT)/optimized_obj/librld.ofileList;		\
 	    cp $(OBJROOT)/otmp_obj/librld.o $(OBJROOT)/optimized_obj/librld.o;\
@@ -217,7 +217,7 @@ dynamic_ofiles: $(OBJROOT)/dynamic_obj $(OBJROOT)/dtmp_obj $(SYMROOT)/ld_dir
 	@if [ $(SRCROOT) = . ];						\
 	then								\
 	    (cd dtmp_obj; $(MAKE) -f ../Makefile librld.a VPATH=.. 	\
-		MAKEINCDIR=`pwd` OFILE_DIR=. SRCROOT=.. 		\
+		MAKEINCDIR="`pwd`" OFILE_DIR=. SRCROOT=.. 		\
 		LIBSTUFF="-L../../libstuff -lstuff" CC="$(CC)"		\
 		VERS_STRING_FLAGS="$(VERS_STRING_FLAGS)"		\
 		RC_CFLAGS="$(RC_CFLAGS)" COPTS="-dynamic -DRLD");	\
@@ -232,7 +232,7 @@ dynamic_ofiles: $(OBJROOT)/dynamic_obj $(OBJROOT)/dtmp_obj $(SYMROOT)/ld_dir
 		RC_CFLAGS="$(RC_CFLAGS)" CC="$(CC)"			\
 		LIBSTUFF="-L$(SYMROOT)/../libstuff -lstuff"		\
 		VERS_STRING_FLAGS="$(VERS_STRING_FLAGS)"		\
-		MAKEINCDIR=`pwd` COPTS="-dynamic -DRLD");		\
+		MAKEINCDIR="`pwd`" COPTS="-dynamic -DRLD");		\
 	    rm -f $(OBJROOT)/dynamic_obj/librld.o; 			\
 	    rm -f $(OBJROOT)/dynamic_obj/librld.ofileList;		\
 	    cp $(OBJROOT)/dtmp_obj/librld.o $(OBJROOT)/dynamic_obj/librld.o;\
@@ -243,7 +243,7 @@ sarld_build: $(OBJROOT)/sarld_dir $(SYMROOT)/ld_dir
 	@if [ $(SRCROOT) = . ];						\
 	then								\
 	    cd sarld_dir; $(MAKE) -f ../Makefile libsarld.a VPATH=..	\
-		MAKEINCDIR=`pwd` OFILE_DIR=. SRCROOT=.. 		\
+		MAKEINCDIR="`pwd`" OFILE_DIR=. SRCROOT=.. 		\
 		COPTS="-static -DRLD -DSA_RLD" CC="$(CC)"		\
 		LIBSTUFF="-L../../libstuff -lstuff"			\
 		VERS_STRING_FLAGS="$(VERS_STRING_FLAGS)"		\
@@ -255,14 +255,14 @@ sarld_build: $(OBJROOT)/sarld_dir $(SYMROOT)/ld_dir
 		COPTS="-static -DRLD -DSA_RLD" RC_CFLAGS="$(RC_CFLAGS)"	\
 		LIBSTUFF="-L$(SYMROOT)/../libstuff -lstuff"		\
 		VERS_STRING_FLAGS="$(VERS_STRING_FLAGS)"		\
-		MAKEINCDIR=`pwd` RC_ARCHS="$(RC_ARCHS)";		\
+		MAKEINCDIR="`pwd`" RC_ARCHS="$(RC_ARCHS)";		\
 	fi
 
 kld_build: $(OBJROOT)/dynamic_kld $(OBJROOT)/static_kld $(SYMROOT)/ld_dir
 	@if [ $(SRCROOT) = . ];						\
 	then								\
 	    cd dynamic_kld; $(MAKE) -f ../Makefile libkld.dylib VPATH=.. \
-		MAKEINCDIR=`pwd` OFILE_DIR=. SRCROOT=.. 		\
+		MAKEINCDIR="`pwd`" OFILE_DIR=. SRCROOT=.. 		\
 		COPTS="-DRLD -DKLD" CC="$(CC)"				\
 		LIBSTUFF="-L../../libstuff -lstuff"			\
 		VERS_STRING_FLAGS="$(VERS_STRING_FLAGS)"		\
@@ -274,12 +274,12 @@ kld_build: $(OBJROOT)/dynamic_kld $(OBJROOT)/static_kld $(SYMROOT)/ld_dir
 		COPTS="-DRLD -DKLD" RC_CFLAGS="$(RC_CFLAGS)"		\
 		LIBSTUFF="-L$(SYMROOT)/../libstuff -lstuff"		\
 		VERS_STRING_FLAGS="$(VERS_STRING_FLAGS)"		\
-		MAKEINCDIR=`pwd` RC_ARCHS="$(RC_ARCHS)";		\
+		MAKEINCDIR="`pwd`" RC_ARCHS="$(RC_ARCHS)";		\
 	fi
 	@if [ $(SRCROOT) = . ];						\
 	then								\
 	    cd static_kld; $(MAKE) -f ../Makefile libkld.a VPATH=.. \
-		MAKEINCDIR=`pwd` OFILE_DIR=. SRCROOT=.. 		\
+		MAKEINCDIR="`pwd`" OFILE_DIR=. SRCROOT=.. 		\
 		COPTS="-static -DRLD -DKLD $(KERN)" CC="$(CC)"		\
 		LIBSTUFF="-L../../libstuff -lstuff" PRIVATE_IFLAG=""	\
 		LIBMACHO="-L../../libmacho/otmp_obj -lmacho_static"	\
@@ -293,7 +293,7 @@ kld_build: $(OBJROOT)/dynamic_kld $(OBJROOT)/static_kld $(SYMROOT)/ld_dir
 		LIBSTUFF="-L$(SYMROOT)/../libstuff -lstuff"		\
 		LIBMACHO="-L$(SYMROOT)/../libmacho -lmacho_static"	\
 		VERS_STRING_FLAGS="$(VERS_STRING_FLAGS)" PRIVATE_IFLAG="" \
-		MAKEINCDIR=`pwd` RC_ARCHS="$(RC_ARCHS)";		\
+		MAKEINCDIR="`pwd`" RC_ARCHS="$(RC_ARCHS)";		\
 	fi
 
 ld.NEW:	$(OBJS) ld_vers.o makeUser.o

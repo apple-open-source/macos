@@ -1,2 +1,0 @@
-sudo rm -rf /System/Library/Frameworks/DirectoryService.framework/Resources/Plugins/NIS.dsplug
-sudo cp -r ./build/NIS.dsplug /System/Library/Frameworks/DirectoryService.framework/Resources/Plugins/

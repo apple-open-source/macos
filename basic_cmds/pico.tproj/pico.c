@@ -1,5 +1,5 @@
 #if	!defined(lint) && !defined(DOS)
-static char rcsid[] = "$Id: pico.c,v 1.2 2002/01/03 22:16:42 jevans Exp $";
+static char rcsid[] = "$Id: pico.c,v 1.3 2003/01/12 01:48:11 bbraun Exp $";
 #endif
 /*
  * Program:	Main Pine Composer routines

@@ -1,0 +1,31 @@
+A lista %(listname)s acabou de sofrer uma grande alteração. Passou a correr 
+um outro programa de gestão chamado "Mailman". Esperamos que possa solucionar
+muitos dos problemas administrativos que esta lista teve.
+
+Como é que isto o afecta?
+
+1) Mensagens destinadas a toda a lista devem ser enviadas para:: %(listaddr)s.
+
+2) Foi-lhe atribuída uma password arbitrária para evitar que outrso possam
+anular a sua inscrição sem que saiba. Foi-lhe já enviada num email separado,
+o qual já recebeu. Não se preocupe se se esquecer da password; ela 
+ser-lhe-á enviada por email todos os meses.
+
+3) Se tem acesso à internet pode utilizá-la para anular a sua inscrição, 
+alterar o modo como recebe as suas mensagens, ver mensagens antigas (que
+estarão disponíveis um ou dois dias depois de a lista começar a funcionar), 
+etc. O endereço para aceder a estes recursos é:
+
+    %(listinfo_url)s
+
+4) Se não tem acesso www pode executar as mesmas tarefas por email. Envie
+uma mensagem para %(requestaddr)s tendo como assunto (ou conteúdo) 
+unicamente a palavra "help/ajuda???????" (sem aspas). Receberá uma 
+resposta automática com mais instruções.
+
+Por favor dirija quaisquer questões ou problemas relacionados com este
+novo funcionamento a: %(adminaddr)s.
+
+Esta mensagem foi gerada automaticamente pelo Mailman %(version)s. Para
+ter mais informações sobre o programa  Mailman visite a home page do Mailman 
+em http://www.list.org/

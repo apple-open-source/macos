@@ -1,5 +1,5 @@
 #
-# $Id: generic.rb,v 1.1.1.1 2002/05/27 17:59:49 jkh Exp $
+# $Id: generic.rb,v 1.1.1.2 2003/05/14 13:58:50 melville Exp $
 #
 # Copyright (c) 2001 akira yamada <akira@ruby-lang.org>
 # You can redistribute it and/or modify it under the same term as Ruby.
@@ -20,6 +20,7 @@ Object
 =end
 
   class Generic
+    include URI
     include REGEXP
 
 =begin
@@ -36,7 +37,7 @@ Object
     end
 
     def default_port
-      self.type.default_port
+      self.class.default_port
     end
 
 =begin
@@ -121,7 +122,7 @@ Object
 	end
       else
 	raise ArgumentError, 
-	  "expected Array of or Hash of compornents of #{self.type} (#{self.type.component.join(', ')})"
+	  "expected Array of or Hash of components of #{self.class} (#{self.class.component.join(', ')})"
       end
 
       tmp << true
@@ -183,6 +184,18 @@ Object
     attr_reader :opaque
     attr_reader :fragment
 
+    # replace self by other URI object
+    def replace!(oth)
+      if self.class != oth.class
+	raise ArgumentError, "expected #{self.class} object"
+      end
+
+      component.each do |c|
+	self.__send__("#{c}=", oth.__send__(c))
+      end
+    end
+    private :replace!
+
 =begin
 
 === Instance Methods
@@ -195,7 +208,7 @@ Object
 
 =end
     def component
-      self.type.component
+      self.class.component
     end
 
     # set_XXX method sets value to @XXX instance variable with no check, 
@@ -296,9 +309,12 @@ Object
     end
     private :check_password
 
-    def userinfo=(user, password = nil)
-      check_userinfo(user, password)
-      set_userinfo(user, password)
+    def userinfo=(userinfo)
+      if userinfo.nil?
+	return nil
+      end
+      check_userinfo(*userinfo)
+      set_userinfo(*userinfo)
     end
 
     def user=(user)
@@ -312,21 +328,25 @@ Object
     end
 
     def set_userinfo(user, password = nil)
-      if !password
+      unless password 
 	user, password = split_userinfo(user)
       end
       @user     = user
-      @password = password
+      @password = password if password
+
+      [@user, @password]
     end
     protected :set_userinfo
 
     def set_user(v)
       set_userinfo(v, @password)
+      v
     end
     protected :set_user
 
     def set_password(v)
       set_userinfo(@user, v)
+      v
     end
     protected :set_password
 
@@ -429,7 +449,13 @@ Object
     private :check_port
 
     def set_port(v)
-      v = v.to_i if v && !v.kind_of?(Fixnum)
+      unless !v || v.kind_of?(Fixnum)
+	if v.empty?
+	  v = nil
+	else
+	  v = v.to_i
+	end
+      end
       @port = v
     end
     protected :set_port
@@ -676,6 +702,7 @@ Object
 =begin
 
 --- URI::Generic#merge(rel)
+--- URI::Generic#merge!(rel)
 --- URI::Generic#+(rel)
 
 =end
@@ -742,6 +769,16 @@ Object
       end
     end
     private :merge_path
+
+    def merge!(oth)
+      t = merge(oth)
+      if self == t
+	nil
+      else
+	replace!(t)
+	self
+      end
+    end
 
     # abs(self) + rel(oth) => abs(new)
     def merge(oth)
@@ -1049,7 +1086,7 @@ Object
       end
 
       if self.class == oth.class
-	self.normalize.to_ary == oth.normalize.to_ary
+	self.normalize.component_ary == oth.normalize.component_ary
       else
 	false
       end
@@ -1065,22 +1102,32 @@ Object
 #    end
 
 =begin
---- URI::Generic#to_a
 =end
-    def to_ary
+    def component_ary
       component.collect do |x|
 	self.send(x)
       end
     end
+    protected :component_ary
 
-    def to_a
-      to_ary
+=begin
+--- URI::Generic#select(*components)
+=end
+    def select(*components)
+      components.collect do |c|
+	if component.include?(c)
+	  self.send(c)
+	else
+	  raise ArgumentError, 
+	    "expected of components of #{self.class} (#{self.class.component.join(', ')})"
+	end
+      end
     end
 
 =begin
 =end
     def inspect
-      sprintf("#<%s:0x%x URL:%s>", self.type.to_s, self.id, self.to_s)
+      sprintf("#<%s:0x%x URL:%s>", self.class.to_s, self.id, self.to_s)
     end
 
 =begin

@@ -1,5 +1,5 @@
 /* TUI display source/assembly window.
-   Copyright 1998, 1999, 2000, 2001 Free Software Foundation, Inc.
+   Copyright 1998, 1999, 2000, 2001, 2002 Free Software Foundation, Inc.
    Contributed by Hewlett-Packard Company.
 
    This file is part of GDB.
@@ -22,38 +22,38 @@
 #ifndef _TUI_SOURCEWIN_H
 #define _TUI_SOURCEWIN_H
 
-extern void tuiDisplayMainFunction (void);
+/* Update the execution windows to show the active breakpoints.
+   This is called whenever a breakpoint is inserted, removed or
+   has its state changed.  */
+extern void tui_update_all_breakpoint_info (void);
+
+/* Scan the source window and the breakpoints to update the
+   hasBreak information for each line.
+   Returns 1 if something changed and the execution window
+   must be refreshed.  */
+extern int tui_update_breakpoint_info (TuiWinInfoPtr win, int current_only);
+
+/* Function to display the "main" routine.  */
+extern void tui_display_main (void);
 extern void tuiUpdateSourceWindow (TuiWinInfoPtr, struct symtab *, TuiLineOrAddress,
 				   int);
 extern void tuiUpdateSourceWindowAsIs (TuiWinInfoPtr, struct symtab *, TuiLineOrAddress,
 				       int);
 extern void tuiUpdateSourceWindowsWithAddr (CORE_ADDR);
 extern void tuiUpdateSourceWindowsWithLine (struct symtab *, int);
-extern void tuiUpdateSourceWindowsFromLocator (void);
 extern void tuiClearSourceContent (TuiWinInfoPtr, int);
-extern void tuiClearAllSourceWinsContent (int);
 extern void tuiEraseSourceContent (TuiWinInfoPtr, int);
-extern void tuiEraseAllSourceWinsContent (int);
 extern void tuiSetSourceContentNil (TuiWinInfoPtr, char *);
 extern void tuiShowSourceContent (TuiWinInfoPtr);
-extern void tuiShowAllSourceWinsContent (void);
 extern void tuiHorizontalSourceScroll (TuiWinInfoPtr, TuiScrollDirection,
 				       int);
-extern void tuiUpdateOnEnd (void);
-
 extern TuiStatus tuiSetExecInfoContent (TuiWinInfoPtr);
 extern void tuiShowExecInfoContent (TuiWinInfoPtr);
-extern void tuiShowAllExecInfosContent (void);
 extern void tuiEraseExecInfoContent (TuiWinInfoPtr);
-extern void tuiEraseAllExecInfosContent (void);
 extern void tuiClearExecInfoContent (TuiWinInfoPtr);
-extern void tuiClearAllExecInfosContent (void);
 extern void tuiUpdateExecInfo (TuiWinInfoPtr);
-extern void tuiUpdateAllExecInfos (void);
 
 extern void tuiSetIsExecPointAt (TuiLineOrAddress, TuiWinInfoPtr);
-extern void tuiSetHasBreakAt (struct breakpoint *, TuiWinInfoPtr, int);
-extern void tuiAllSetHasBreakAt (struct breakpoint *, int);
 extern TuiStatus tuiAllocSourceBuffer (TuiWinInfoPtr);
 extern int tuiLineIsDisplayed (int, TuiWinInfoPtr, int);
 extern int tuiAddrIsDisplayed (CORE_ADDR, TuiWinInfoPtr, int);

@@ -38,24 +38,30 @@ class IOFWUserIsochChannel: public IOFWIsochChannel
 {
 	OSDeclareDefaultStructors(IOFWUserIsochChannel)
 	
- public:
-    virtual IOReturn 				allocateChannel();
-    virtual IOReturn 				releaseChannel();
-    virtual IOReturn 				start();
-    virtual IOReturn 				stop();
+	public :
 	
- public:
-	virtual IOReturn	userAllocateChannelBegin(
-								IOFWSpeed	inSpeed,
-								UInt32		inAllowedChansHi,
-								UInt32		inAllowedChansLo,
-//								UInt64		inAllowedChans,
-								IOFWSpeed*	outActualSpeed,
-								UInt32*		outActualChannel) ;
-	virtual IOReturn	userReleaseChannelComplete() ;
-	virtual IOReturn	allocateListenerPorts() ;
-	virtual IOReturn	allocateTalkerPort() ;
+		// IOFWIsochChannel
+		virtual IOReturn 				allocateChannel();
+		virtual IOReturn 				releaseChannel();
+		virtual IOReturn 				start();
+		virtual IOReturn 				stop();
+		
+		// me
+		IOReturn						userAllocateChannelBegin(
+														IOFWSpeed	inSpeed,
+														UInt32		inAllowedChansHi,
+														UInt32		inAllowedChansLo,
+														IOFWSpeed*	outActualSpeed,
+														UInt32*		outActualChannel) ;
+		IOReturn						userReleaseChannelComplete() ;
+		IOReturn						allocateListenerPorts() ;
+		IOReturn						allocateTalkerPort() ;
+		static void						s_exporterCleanup( IOFWUserIsochChannel * channel ) ;
+		
+		inline natural_t *				getAsyncRef()									{ return (natural_t*)fStopRefCon ; }
+		inline void						setAsyncRef( OSAsyncReference asyncRef )		{ fStopRefCon = asyncRef ; }
+		
+	protected:
 	
- protected:
-	Boolean			fBandwidthAllocated ;
+		bool			fBandwidthAllocated ;
 } ;

@@ -1,0 +1,1386 @@
+#
+#
+#
+#
+# unknown -- called by expect if a proc is called that doesn't exist
+#
+
+# Set auto_load to take BLUEGNULIB first on search path
+#
+set auto_path "$env(BLUEGNULIB) $auto_path"
+
+# find tclIndex file in the test suite directory structure
+# $env(TESTSUITEROOT) and in the path up to the root
+#
+if {! [info exists env(TESTSUITEROOT)]} {
+    set env(TESTSUITEROOT) [exec /bin/sh -c pwd]
+}
+set PWD $env(TESTSUITEROOT)
+
+if {[info exists env(TESTSETS)]} {
+    if {[lsearch -exact [split $env(TESTSETS) ":"] $PWD] < 0} {
+	set env(TESTSETS) $PWD:$env(TESTSETS)
+    }
+} else {
+    set env(TESTSETS) $PWD
+}
+cd $PWD
+
+
+# First thing to do is calculate the verbose level and the debug flag
+# as well as the definition of the associated procedures:
+#      verbose and debug.
+#
+# Check the Debug level
+if [info exists env(DEBUG)] {
+    switch -regexp [string toupper $env(DEBUG)] {
+	1 - ^T(R(U(E)?)?)?$ - ^Y(E(S)?)?$ {
+	    set bDebug 1
+	}
+	default {
+	    set bDebug 0
+	}
+    }
+} else {
+    set bDebug 0
+}
+
+# Calculate verbose level
+# Complete a first path over the argument list
+#    Calculate the Verbose Level
+set verbose 0
+foreach __arg $argv {
+    switch -regexp -- $__arg {
+	{^-[-]?v(e(r(b(o(s(e)?)?)?)?)?)?$} {
+	    incr verbose
+	}
+	default {
+	    lappend __lArgs $__arg
+	}
+    }
+}
+if {[catch {set argv $__lArgs}]} {
+    set argv {}
+}
+
+# Define the procedures: verbose & debug
+#
+# verbose [-n] [-log] [--] message [level]
+#
+# Print MESSAGE if the verbose level is >= LEVEL.
+# The default value of LEVEL is 1.
+# "-n" says to not print a trailing newline.
+# "-log" says to add the text to the log file even if it won't be printed.
+# Note that the apparent behaviour of `send_user' dictates that if the message
+# is printed it is also added to the log file.
+# Use "--" if MESSAGE begins with "-".
+#
+# This is defined here rather than in framework.exp so we can use it
+# while still loading in the support files.
+#
+proc verbose {args} {
+    debug {======= verbose $args} 3
+    global verbose
+
+    set newline 1
+    set logfile 0
+
+    set i 0
+    if {[string index [lindex $args 0] 0] == "-"} {
+	for { set i 0 } { $i < [llength $args] } { incr i } {
+	    if { [lindex $args $i] == "--" } {
+		incr i
+		break
+	    } elseif { [lindex $args $i] == "-n" } {
+		set newline 0
+	    } elseif { [lindex $args $i] == "-log" } {
+		set logfile 1
+	    } elseif { [string index [lindex $args $i] 0] == "-" } {
+		return [::BlueGnu::clone_output "ERROR: verbose:\
+			illegal argument: [lindex $args $i]"]
+	    } else {
+		break
+	    }
+	}
+    }
+    if {[llength $args] == $i} {
+	return [::BlueGnu::clone_output "ERROR: verbose: nothing to print"]
+    }
+
+
+    set level 1
+    if {[llength $args] == $i + 2} {
+	if [catch {set level [expr [lindex $args [expr $i+1]]]} szErrMsg] {
+	    return [::BlueGnu::clone_output "ERROR: verbose: level number\
+		    >$szErrMsg<"]
+	}
+    } elseif {[llength $args] > $i + 2} {
+	return [::BlueGnu::clone_output "ERROR: verbose: Too many arguments"]
+    }
+    set message [lindex $args $i]
+    
+    if {$level <= $verbose} {
+	# There is no need for the "--" argument here, but play it safe.
+	# We assume send_user also sends the text to the log file (which
+	# appears to be the case though the docs aren't clear on this).
+	if 0 {
+	    if {[string compare \
+		    [namespace eval ::BlueGnu \
+		    {set ::BlueGnu::sum_file}] stdout] != 0} {
+		set szCmd [list uplevel puts [namespace eval ::BlueGnu \
+			{set ::BlueGnu::sum_file}]]
+		lappend szCmd "\"$message\""
+		debug {==## 1 >$szCmd<} 9
+		if {[catch {eval $szCmd}]} {
+		    puts [namespace eval ::BlueGnu \
+			    {set ::BlueGnu::sum_file}] $message
+		}
+	    }
+	}
+	if [catch {set message \
+		"[uplevel set __szTmp \"$message\"]"} szErrMsg] {
+	    set message "$message == ERROR: >$szErrMsg<"
+	}
+	if {$newline} {
+	    #append message "\n"
+	}
+	debug {$message} 0
+	return [::BlueGnu::clone_output "$message"]
+    } elseif {$logfile} {
+	if [catch {set message \
+		"[uplevel set __szTmp \"$message\"]"} szErrMsg] {
+	    set message "$message == ERROR: >$szErrMsg<"
+	}
+	if {$newline} {
+	    append message "\n"
+	}
+	debug {$message} 0
+	return [send_log $message]
+    }
+    return ""
+}
+
+if {$bDebug} {
+    proc debug {text {level 1}} {
+	global verbose
+
+	if {$level <= $verbose} {
+	    set szCmd [list uplevel ::BlueGnu::clone_output]
+	    set szA $level; set iMax [uplevel info level]
+	    for {set i 0} {$i < $iMax} \
+		    {incr i} {append szA ">"}
+	    lappend szCmd "\"$szA$text\""
+	    eval $szCmd
+	}
+    }
+} else {
+    proc debug {text {level 1}} {
+    }
+}
+
+# This procedure will find a file in the directory structure
+# any where below the current working directory
+# any where on the search path
+# or up the directory tree
+#
+proc locateFile {szFileName {szSubDirectory "."}} {
+    debug {======= locateFile $szFileName $szSubDirectory} 3
+    global env
+    # remove a trailing "/" from sub directory name
+    regexp {(.*)/$} $szSubDirectory dummy szSubDirectory
+
+    set newList {}
+    set searchList {.}
+    set tmpDir [pwd]
+    while {[string compare [set dir [file dirname $tmpDir]] "/"] != 0} {
+	lappend searchList $dir
+	set tmpDir $dir
+    }
+    foreach dir [split $env(TESTSETS) ":"] {
+	lappend searchList $dir
+    }
+    foreach dirList $searchList {
+	foreach test [searchForFile $szFileName $dirList $szSubDirectory] {
+	    # only files that are readable and
+	    # not a directory, symbolic link or device
+	    # are added to the list
+	    if {[file isfile $test] && [file readable $test]} {
+		# add only if not already exists in list
+		if {[lsearch -exact $newList $test] < 0} {
+		    lappend newList $test
+		}
+	    }
+	}
+    }
+    debug {======= returning newList: >$newList<} 4
+    return $newList
+}
+
+proc locateDir {szFileName {szSubDirectory "."}} {
+    debug {======= locateDir $szFileName $szSubDirectory} 3
+    global env
+    # remove a trailing "/" from sub directory name
+    regexp {(.*)/$} $szSubDirectory dummy szSubDirectory
+
+    set newList {}
+    set searchList {.}
+    set tmpDir [pwd]
+    while {[string compare [set dir [file dirname $tmpDir]] "/"] != 0} {
+	lappend searchList $dir
+	set tmpDir $dir
+    }
+    foreach dir [split $env(TESTSETS) ":"] {
+	lappend searchList $dir
+    }
+    foreach dirList $searchList {
+	foreach test [searchForFile $szFileName $dirList $szSubDirectory] {
+	    # only files that are directories
+	    # are added to the list
+	    if {[file isdirectory $test]} {
+		# add only if not already exists in list
+		if {[lsearch -exact $newList $test] < 0} {
+		    lappend newList $test
+		}
+	    }
+	}
+    }
+    debug {======= returning newList: >$newList<} 4
+    return $newList
+}
+
+proc searchForFile {szFileName dirList szSubDirectory} {
+    debug {======= searchForFile $szFileName $dirList $szSubDirectory} 3
+    # find sub directory in or below the current working directory
+    set szDirSrc ""
+    foreach file [file split $szSubDirectory] {
+	if {[string compare $file "."] == 0} {
+	    if {! [info exists newList]} {
+		set newList {}
+	    }
+	    continue
+	} else {
+	    foreach dir $dirList {
+		catch {unset newList}
+		foreach newDir [findFile $dir $file] {
+		    lappend newList $newDir
+		}
+	    }
+	}
+	if {[catch {set dirList $newList}]} {
+	    set dirList {}
+	}
+    }
+    debug {        dirList = >$dirList<} 4
+    set fileList {}
+    foreach dir $dirList {
+	set newList [findFile $dir $szFileName]
+	if {[llength $newList] > 0} {
+	    set fileList [concat $fileList $newList]
+	}
+    }
+    debug {        fileList = >$fileList<} 4
+    if {[llength $fileList] != 0} {
+	# NO test found, next step in searching
+	#return $fileList
+    }
+
+    set newList {}
+    set PWD [pwd]
+    foreach dir $fileList {
+	debug {        dir = >$dir<} 4
+	cd [file dirname $dir]
+	lappend newList "[pwd]/[file tail $dir]"
+	cd $PWD
+    }
+
+    debug {        newList = >$newList<} 4
+    return $newList
+}
+
+proc findFile {szDirectory szFileName} {
+    global locatedFile env
+
+    debug {======= findFile $szDirectory $szFileName} 3
+    if {! [info exists locatedFile($szDirectory/$szFileName)]} {
+	if {[file readable $szDirectory/$szFileName]} {
+	    set locatedFile($szDirectory/$szFileName) $szDirectory/$szFileName
+	} else {
+	    if {$szDirectory == "." || \
+		    [lsearch -exact [split $env(TESTSETS) ":"] \
+		    $szDirectory] >= 0} {
+		set locatedFile($szDirectory/$szFileName) \
+			[split [exec find $szDirectory -name $szFileName \
+			-print] "\n"]
+	    } else {
+		return {}
+	    }
+	}
+    }
+    return $locatedFile($szDirectory/$szFileName)
+}
+
+# appendArguments
+#
+# This procedure will append the string pathed in arguments to every
+# element of fileList
+# return a list with the same number of element in which each
+# element has the arguments appended
+#
+proc appendArguments {fileList arguments} {
+    set newList {}
+    debug {======= appendArguments $fileList $arguments} 3
+    debug {        length argument list: >[llength $arguments]<} 4
+    if {[string length $arguments] > 0} {
+	foreach file $fileList {
+	    regexp {([^[=]+)([[][^]]*[]])?(.*)} $file dummy szT szID szA
+	    debug {dummy: >$dummy<} 4
+	    debug {szT  : >$szT<} 4
+	    if {[string length $szID] > 0} {
+		#regexp {[[]([^]]+)[]]} $szID dummy szID
+	    }
+	    debug {szID : >$szID<} 4
+	    if {[string length $szA] > 0} {
+		regexp {=(.*)} $szA dummy szA
+	    }
+	    debug {szA  : >$szA<} 4
+	    #set lFile [split $file "="]
+	    if {[string length $szA] > 0} {
+		set szSep " "
+	    } else {
+		set szSep "="
+	    }
+	    lappend newList ${file}${szSep}$arguments
+	}
+	return $newList
+    }
+    return $fileList
+}
+
+# appendTestCaseID
+#
+# This procedure will append the string pathed in arguments to every
+# element of fileList
+# return a list with the same number of element in which each
+# element has the arguments appended
+#
+proc appendTestCaseID {fileList {szTestCaseID ""}} {
+    set newList {}
+    debug {======= appendTestCaseID $fileList >$szTestCaseID<} 3
+    set bMultiFiles [expr [llength $fileList] > 1]
+    set i 1
+    foreach file $fileList {
+	regexp {([^[=]+)([[][^]]*[]])?(.*)} $file dummy szT szID szA
+	debug {dummy: >$dummy<} 4
+	debug {szT  : >$szT<} 4
+	if {[string length $szID] > 0} {
+	    regexp {[[]([^]]+)[]]} $szID dummy szID
+	}
+	debug {szID : >$szID<} 4
+	if {[string length $szA] > 0} {
+	    #regexp {=(.*)} $szA dummy szA
+	}
+	debug {szA  : >$szA<} 4
+	if {[string length $szID] > 0} {
+	    set szID [string trim "${szID}${szTestCaseID}"]
+	} else {
+	    set szID ${szTestCaseID}
+	}
+	if {[llength [split $szID "="]] > 1} {
+	    set szSep " "
+	} else {
+	    set szSep "="
+	}
+	if {[string length $szID] == 0} {
+		lappend newList "${szT}$szA"
+		continue
+	}
+	if {$bMultiFiles} {
+	    set szI [format "${szSep}seqNr=%03d" $i]
+	} else {
+	    set szI ""
+	}
+	lappend newList "${szT}\[${szID}${szI}\]$szA"
+	incr i
+    }
+    return $newList
+}
+
+# processArgs
+#
+# This procedure expect all optional arguments to be name=value pairs
+# It will set all variable named to the value given within 
+# the procedure body
+# It will return an empty list or a list of all remaining not name=value
+# pair in the argument list
+#
+proc processArgs {args} {
+    debug {======= processArgs $args} 3
+
+    set llArgs $args
+    set args {}
+
+    # set default errorCode=NONE
+    uplevel set errorCode NONE
+    # now process all name=value pair arguments
+    ####### There may be a better way to do this see pre 8.0 code
+    foreach lArgs $llArgs {
+	foreach arg $lArgs {
+	    set NVP [split $arg "="]
+	    if {[llength $NVP] > 1} {
+		debug {uplevel set [lindex $NVP 0] \
+			[list [join [lrange $NVP 1 end] "="]]} 3
+		uplevel set [lindex $NVP 0] \
+			[list [join [lrange $NVP 1 end] "="]]
+	    } else {
+		lappend args $arg
+	    }
+	}
+    }
+    debug {        processArgs returns: $args} 3
+    return $args
+}
+
+# processInternalArgs
+#
+# This procedure expect all optional arguments to be {name value} pairs
+# It will set all variable named to the value given within 
+# the procedure body
+# It will return an empty list or a list of all remaining not name=value
+# pair in the argument list
+#
+proc processInternalArgs {lArgs} {
+    debug {======= processInternalArgs $lArgs} 3
+    set arglist {}
+
+    # set default errorCode=NONE
+    uplevel set errorCode NONE
+    # now process all {name value} pair arguments
+    foreach arg $lArgs {
+	if {[llength $arg] == 2} {
+	    debug {uplevel set [lindex $arg 0] \
+		    [list [join [lrange $arg 1 end] "="]]} 3
+	    uplevel set [lindex $arg 0] \
+		    [list [join [lrange $arg 1 end] "="]]
+	} else {
+	    lappend arglist $arg
+	}
+    }
+    debug {processInternalArgs returns: $arglist} 3
+    return $arglist
+}
+
+# processTestScriptArgs
+#
+# This procedure expect all optional arguments to be {name value} pairs
+# It will set all variable named to the value given within 
+# the procedure body
+# It will return an empty list or a list of all remaining not name=value
+# pair in the argument list
+#
+# This is a copy of the procedure "processInternalArgs" without an argument
+# however this procedure may become different
+#
+#
+proc processTestScriptArgs {} {
+    upvar lArgs lArgs
+    set arglist {}
+
+    # set default errorCode=NONE
+    uplevel set errorCode NONE
+    debug {======= processTestScriptArgs $lArgs} 3
+    # now process all {name value} pair arguments
+    foreach arg $lArgs {
+	if {[llength $arg] == 2} {
+	    debug {uplevel set [lindex $arg 0] \
+		    [list [join [lrange $arg 1 end] "="]]} 4
+	    uplevel set [lindex $arg 0] \
+		    [list [join [lrange $arg 1 end] "="]]
+	} else {
+	    lappend arglist $arg
+	}
+    }
+    debug {        processInternalArgs returns: $arglist} 4
+    return $arglist
+}
+
+# Command execution command
+# This command is like the catch command, however it can do some additional
+# testing and in case of an error it will return a error class.
+#
+proc doCmd {szCmd args} {
+    global errorInfo errorCode
+    if {! [info exists errorInfo]} {
+	set errorInfo "<errorInfo has not been defined>"
+    }
+
+    debug {======= doCmd >$szCmd< >$args<} 3
+    foreach arg $args {
+	set vv [split $arg "="]
+	if {[llength $vv] == 2} {
+	    debug {   ==>> Expected value: [lindex $vv 0]=[eval list \
+		    [lindex $vv 1]]} 5
+	    set [lindex $vv 0] [eval list [lindex $vv 1]]
+	} elseif {[llength $vv] == 1} {
+	    if {! [info exists errorObj]} {
+		debug {   ==>> upvar $vv errorObj} 5
+		if "! [uplevel info exists $vv]" {
+		    debug {   ==>> creating: $vv (uplevel)} 5
+		    uplevel [list set $vv {}]
+		}
+		upvar $vv errorObj
+	    }
+	}
+    }
+    if {[catch {uplevel 1 $szCmd} szErrMsg]} {
+	debug {======= ErrMsg : \n$szErrMsg\n======= from:\n$szCmd} 5
+	set errorObj ""
+	if {[string compare $errorCode NONE] == 0} {
+	    set errorCode UNDEFINED
+	}
+	set errorInfoSave $errorInfo
+	set errorCodeSave $errorCode
+	catch {set errorObj [uplevel infoWhich \{$szErrMsg\}]}
+	set errorInfo $errorInfoSave
+	set errorCode $errorCodeSave
+	debug {   ==>> errorObj: >$errorObj<} 5
+	if {[string compare $errorObj ""] == 0} {
+	    set errorObj [uplevel \
+		    ::BlueGnu::Error #auto \{$errorCode\} \
+		    \{$szErrMsg\} \{$errorInfo\}]
+	    debug {errorObj: >$errorObj<} 5
+	    set errorObj [uplevel infoWhich \{$errorObj\}]
+	    debug {errorObj: >$errorObj<} 5
+	    debug {Command: [string trim $szCmd]} 5
+	    debug {ErrMsg : \n$szErrMsg} 5
+	    debug {====================} 5
+	    global errorInfo
+	    debug {ErrInfo: $errorInfo\n====================} 5
+	}
+	set bReturn 1
+	if {[info exists errorCode]} {
+	    debug {        errorCode= $errorCode} 5
+	    debug {            Class= [$errorObj info class]} 5
+	    catch {debug {       isa BC_RTN= [$errorObj isa BC_RTN]} 5}
+	    catch {debug {        isa ERROR= [$errorObj isa Error]} 5}
+	    catch {
+		if [$errorObj isa BC_RTN] {
+		    if {[set i \
+			    [lsearch -exact $errorCode \
+			    [list [$errorObj SEVERITY] \
+			    [$errorObj FACILITY] [$errorObj CODE]]]] >= 0} {
+			setup_xfail
+			set bReturn 0
+		    }
+		    fail "Expected errorCode=$errorCode, got:\
+			    [$errorObj getShortMsg]\
+			    \{[$errorObj SEVERITY] [$errorObj FACILITY]\
+			    [$errorObj CODE]\} for >$szCmd<"
+		    #verbose { errorCode: [$errorObj errorCode]}
+		    #verbose {       why: [$errorObj why]}
+		    #verbose {verboseWhy: [$errorObj verboseWhy]} 2
+		}
+	    }
+	    catch {
+		if [$errorObj isa Error] {
+		    debug {            Error= [$errorObj errorCode]} 5
+		    if {[set i \
+			    [lsearch -exact $errorCode \
+			    [$errorObj errorCode]]] >= 0} {
+			setup_xfail
+			set bReturn 0
+		    }
+		    fail "Expected errorCode=$errorCode, got:\
+			    [$errorObj errorCode] for >$szCmd<"
+		    verbose { errorCode: [$errorObj errorCode]}
+		    verbose {       why: [$errorObj why]}
+		    verbose {verboseWhy: [$errorObj verboseWhy]} 2
+		}
+	    }
+	}
+	return $bReturn
+    } else {
+	set bReturn 0
+	set NOT ""
+	if {[info exists errorCode]} {
+	    if {[lsearch -exact $errorCode "NONE"] < 0} {
+		setup_xfail
+		set NOT "not "
+		set bReturn 1
+	    }
+	    pass "errorCode=NONE ${NOT}found in expected set\
+		    of errorCodes=\{$errorCode\} for >$szCmd<"
+	}
+	if {[info exists return]} {
+	    debug {Return: >$return<} 3
+	    set bResult 0
+	    set iFalse 0
+	    set iFalseFound 0
+	    set iTrue 0
+	    set iTrueFound 0
+	    foreach lResult $return {
+		if {[llength $lResult] == 2} {
+		    set bFlag [string toupper [lindex $lResult 0]]
+		    set szResult [lindex $lResult 1]
+		} else {
+		    set bFlag ""
+		    set szResult [lindex $lResult 0]
+		}
+		debug {Checking >$szErrMsg< against $bFlag >$szResult<} 3
+		switch $bFlag {
+		    0 - NOT - NO - FALSE {
+			# no matches allowed
+			incr iFalse
+			debug {Should not match >$szErrMsg< != >$szResult<} 4
+			if {[string compare $szErrMsg $szResult] != 0} {
+			    pass "The NOT Expected Result >$szResult<\
+				    was not found for >$szCmd<"
+			    incr iFalseFound
+			} else {
+			    fail "The NOT Expected Result >$szResult<\
+				    was found for >$szCmd<"
+			}
+		    }
+		    1 - {} - YES - TRUE {
+			# only one match allowed
+			incr iTrue
+			debug {Should match >$szErrMsg< == >$szResult<} 4
+			if {[string compare $szErrMsg $szResult] == 0} {
+			    pass "Expected Result >$szResult<\
+				    found for >$szCmd<"
+			    incr iTrueFound
+			}
+		    }
+		    default {
+			perror "doCmd result flag: 1, 0, <empty>,\
+				NOT, YES, NO, TRUE, FALSE"
+		    }
+		}
+	    }
+	    set bResult [expr $iFalse == $iFalseFound]
+	    if {$iTrue > 0} {
+		set bResult [expr $bResult && ($iTrueFound == 1)]
+	    }
+	    if {! $bResult} {
+		fail "Expected Result(s) >$return<\n     \
+			 did not match with: >$szErrMsg< for >$szCmd<"
+		set bReturn 1
+	    }
+	}
+	if {[info exists errorObj]} {
+	    set errorObj $szErrMsg
+	}
+    }
+    return $bReturn
+}
+
+
+# deleteObjects
+#
+# This procedure takes multiple arguments each can be a single object
+# or a list of objects
+# it will delete all these object
+# No return value
+#
+proc deleteObjects {args} {
+    debug {======= deleteObjects $args} 3
+    foreach arg $args {
+	foreach object $arg {
+	    debug "        delete object >$object<" 4
+    	    delete object $object
+	}
+    }
+    return {}
+}
+
+# isObject
+# This procedure accepts a fully qualified object name as argument
+# and checks if that object exists
+proc isObject {object} {
+    debug {======= isObject $object} 3
+    set tmp [namespace tail $object]
+    return [expr [lsearch [namespace eval [namespace qualifier $object] {
+	::itcl::find objects
+    }
+    ] $tmp] >= 0]
+}
+
+# checkObject
+# This procedure takes an object and a class name is argument
+# It checks if the object exists, has a counter part in C++ and
+# is of the correct class
+#
+proc checkObject {object szClassName} {
+    debug {======= checkObject $object $szClassName} 3
+    if {! [catch {
+	set class [uplevel "$object info class"]
+	if {[catch {[findObject $object] isa $szClassName} bCl]} {
+	    if {[string compare [namespace tail $class] \
+		    [namespace tail $szClassName]] == 0} {
+		debug {Class [namespace tail $szClassName]\
+			match class of object} 4
+	    } else {
+		error "Miss match"
+	    }
+	} elseif {! $bCl} {
+	    error 1
+	}
+    } iRet]} {
+	return 1
+    }
+
+    set obj [findObject $object]
+    set class [findClass $szClassName]
+    if {[string length $obj] > 0 && [string length $class] > 0} {
+	debug {   ==>> object and class passed do exists} 4
+	if {[catch {set bISA [$obj isa $class]}]} {
+	    debug {Class $szClassName is not inscope to match $object} 4
+	    return 0
+	}
+	if {! $bISA} {
+	    debug {$object is not of Class $szClassName} 4
+	    return 0
+	}
+    } else {
+	debug {$object and/or $szClassName have not been found!} 4
+	return 0
+    }
+    return 1
+}
+
+# findObject
+# This procedure take the name of an object, possibly without any qualifier
+# and search all namespaces to find the object.
+# When a qualifier is specified, it will check if it is complete
+# The procedure return the fully qualified name of the object if it exists or
+# an empty string otherwise.
+#
+proc findObject {object {namespace ::}} {
+    debug {======= findObject $object $namespace} 3
+    set ns [namespace qualifier $object]
+    set obj [namespace tail $object]
+    set objs [namespace eval $namespace {::itcl::find objects}]
+    if {[lsearch $objs $obj] >= 0} {
+	regsub "::$" $namespace "" namespace
+	return ${namespace}::$obj
+    } else {
+	set result ""
+	foreach cns [namespace children $namespace] {
+	    set result [findObject $obj $cns]
+	    if {[string length $result] > 0} break
+	}
+    }
+    return $result
+}
+
+# findClass
+# This procedure take the name of an class, possibly without any qualifier
+# and search all namespaces to find the class.
+# When a qualifier is specified, it will check if it is complete
+# The procedure return the fully qualified name of the Class if it exists or
+# an empty string otherwise.
+#
+proc findClass {class {namespace ::}} {
+    debug {======= findClass $class $namespace} 3
+    set ns [namespace qualifier $class]
+    set obj [namespace tail $class]
+    set objs [namespace eval $namespace {::itcl::find classes}]
+    if {[lsearch $objs $obj] >= 0} {
+	regsub "::$" $namespace "" namespace
+	return ${namespace}::$obj
+    } else {
+	set result ""
+	foreach cns [namespace children $namespace] {
+	    set result [findClass $obj $cns]
+	    if {[string length $result] > 0} break
+	}
+    }
+    return $result
+}
+
+# The parseTest command will validate the argument as an existing
+# test including testCaseID and arguments.
+# It will return a list of all acceptable test script
+#
+proc parseTest {args} {
+    global szCurrentTestDirectory
+    debug {======= parseTest $args} 3
+
+    foreach arg $args {
+	foreach szTest $arg {
+	    regexp {([^[=]+)([[][^]]*[]])?(.*)} $szTest dummy szT szID szA
+	    debug {dummy: >$dummy<} 4
+	    debug {szT  : >$szT<} 4
+	    if {[string length $szID] > 0} {
+		#regexp {[[]([^]]+)[]]} $szID dummy szID
+	    }
+	    debug {szID : >$szID<} 4
+	    if {[string length $szA] > 0} {
+		#regexp {=(.*)} $szA dummy szA
+	    }
+	    debug {szA  : >$szA<} 4
+	    set szFileName $szT
+	    set szDname [file dirname $szFileName]
+	    set szFname [file tail $szFileName]
+				
+	    if {[file exist [set test [file join \
+		    $szCurrentTestDirectory \
+		    $szFileName]]]} {
+		# file should be a test
+		debug {    is a test: >$test<!} 3
+		lappend testList [file join $szCurrentTestDirectory $szTest]
+	    } elseif {[llength [set tests \
+		    [locateFile $szFname $szDname]]] > 0} {
+		foreach test $tests {
+		    if {[file exists $test]} {
+			# file should be a test
+			debug {       is a test: >$test<!!} 3
+			lappend testList ${test}${szID}${szA}
+		    } else {
+			warning "Test >$test< can't be found"
+		    }
+		}
+	    } else {
+		perror "$szFileName is not a test!\
+			Does not exists!"
+	    }
+	}
+    }
+    if [info exists testList] {
+	if [llength $testList] {
+	    return $testList
+	}
+    }
+    return [list]
+}
+
+# The global available runtest procedure
+# this procedure will find the current environment
+# and execute the runTest procedure in that environment
+
+proc runtest {args} {
+    global objCurrentEnvironment szCurrentTestDirectory
+    debug {======= runtest $args} 3
+    set elResult [list]
+
+    if {[llength $args] > 0} {
+	set Env [lindex $args 0]
+	debug {   Checking for environment: >$Env<} 3
+	debug {      >[infoWhich $Env]<} 5
+	debug {   Current Test Directory: >$szCurrentTestDirectory<} 5
+	if {[string compare [infoWhich $Env] ""] == 0} {
+	    debug {      not an environment} 4
+	    if {[info exist objCurrentEnvironment] && \
+		    [string compare \
+		    [infoWhich $objCurrentEnvironment] ""] != 0} {
+		debug {      Found Current Environment\
+			>$objCurrentEnvironment<} 5
+		set Env $objCurrentEnvironment
+	    } else {
+		error "NO default environent"
+	    }
+	} else {
+	    debug {     is an environment} 3
+	    set args [lrange $args 1 end]
+	}
+	set T [lindex $args 0]
+	set A [lindex $args 1]
+	set I [lindex $args 2]
+	foreach t [appendTestCaseID [appendArguments [parseTest $T] $A] $I] {
+	    debug {   ==>> $objCurrentEnvironment\
+		    runTest $t} 3
+	    lappend elResult \
+		    [$Env runTest $t]
+	}
+    } else {
+	warning "No tests have been passed to runtest procedure!"
+    }
+    return $elResult
+}
+
+proc appendQueue {args} {
+    global objCurrentQueue szCurrentTestDirectory
+    debug {======= appendQueue $args} 3
+
+    set iRun 0
+    set Queue [lindex $args 0]
+    if {[string compare [infoWhich $Queue] ""] == 0} {
+	if {[info exist objCurrentQueue]} {
+	    set Queue $objCurrentQueue
+	} else {
+	    error "NO default queue"
+	}
+    } else {
+	set args [lrange $args 1 end]
+    }
+    set T [lindex $args 0]
+    set A [lindex $args 1]
+    set I [lindex $args 2]
+    foreach t [appendTestCaseID [appendArguments [parseTest $T] $A] $I] {
+	debug {   ==>> $Queue append $t} 3
+	incr iRun
+	$Queue append $t
+    }
+    if {$iRun == 0} {
+	warning "NO argument to appendQueue have been processed"
+    }
+}
+
+proc prependQueue {args} {
+    global objCurrentQueue szCurrentTestDirectory
+    debug {======= prependQueue $args} 3
+
+    set iRun 0
+    set Queue [lindex $args 0]
+    if {[string compare [infoWhich [lindex $args 0]] ""] == 0} {
+	if {[info exist objCurrentQueue]} {
+	    set Queue $objCurrentQueue
+	} else {
+	    error "NO default queue"
+	}
+    } else {
+	set args [lrange $args 1 end]
+    } 
+    set T [lindex $args 0]
+    set A [lindex $args 1]
+    set I [lindex $args 2]
+    foreach t [appendTestCaseID [appendArguments [parseTest $T] $A] $I] {
+	incr iRun
+	lappend comList $t
+    }
+    debug {   ==>> $Queue prepend $comList} 3
+    eval $Queue prepend $comList
+
+    if {$iRun == 0} {
+	warning "NO argument to appendQueu have been processed"
+    }
+}
+
+proc perror {args} {
+    global errorInfo
+    global objCurrentTest
+    global objCurrentEnvironment
+
+    # save errorInfo
+    set errorInfoSave $errorInfo
+
+    if { [llength $args] > 1 } {
+	set $::BlueGnu::errcnt [lindex [uplevel set args] 1]
+    } else {
+	incr ::BlueGnu::errcnt
+    }
+
+    while 1 {
+	set szMsg [lindex $args 0]
+
+	if {[catch {$objCurrentTest perror $szMsg} \
+		szErrMsg]} {
+	    if {[info exists objCurrentTest]} {
+		debug {No current test: >$szErrMsg<:\
+			current test >$objCurrentTest< message:\n    \
+			$szMsg} 3
+	    } else {
+		debug {PERROR: No current test: >$szErrMsg<:\
+			current test >DOES NOT EXIST< message:\n    \
+			$szMsg} 3
+		debug {        info: >>>$errorInfo<<<} 4
+	    }
+	} else {
+	    break
+	}
+	catch {
+	    set szCmd [concat \"$objCurrentEnvironment\" record_test \
+		    ERROR \$szMsg]
+	}
+	if {[catch {eval $szCmd} szErrMsg]} {
+	    verbose {No current environment (ERROR): >$szErrMsg<} 3
+	} else {
+	    break
+	}
+
+	::BlueGnu::clone_output "ERROR: $szMsg"
+	namespace eval ::BlueGnu {
+	    set errno "ERROR: [uplevel set szMsg]"
+	}
+	break
+    }
+
+    # restore errorInfo
+    set errorInfo $errorInfoSave
+}
+
+proc warning {args} {
+    global errorInfo
+    global objCurrentTest
+    global objCurrentEnvironment
+
+    # save errorInfo
+    set errorInfoSave $errorInfo
+
+    if { [llength $args] > 1 } {
+	namespace eval ::BlueGnu {
+	    set warncnt [lindex [uplevel set args] 1]
+	}
+    } else {
+	namespace eval ::BlueGnu {
+	    incr warncnt
+	}
+    }
+
+    while 1 {
+	set szMsg [lindex $args 0]
+
+	if {[catch {$objCurrentTest warning $szMsg} \
+		szErrMsg]} {
+	    if {[info exists objCurrentTest]} {
+		verbose {No current test: >$szErrMsg<:\
+			current test >$objCurrentTest< message:\n    \
+			$szMsg} 3
+	    } else {
+		verbose {WARNING: No current test: >$szErrMsg<:\
+			current test >DOES NOT EXIST< message:\n    \
+			$szMsg} 3
+	    }
+	} else {
+	    break
+	}
+	catch {
+	    set szCmd [concat \"$objCurrentEnvironment\" record_test \
+		    WARNING \$szMsg]
+	}
+	if {[catch {eval $szCmd} szErrMsg]} {
+	    verbose {No current environment (WARNING): >$szErrMsg<} 3
+	} else {
+	    break
+	}
+    
+	set szMsg [lindex $args 0]
+	::BlueGnu::clone_output "WARNING: $szMsg"
+	namespace eval ::BlueGnu {
+	    set errno "WARNING: [uplevel set szMsg]"
+	}
+	break
+    }
+    if 0 {
+	uplevel #0 {
+	    verbose {uplevel #0 to remove errorInfo}
+	    if [info exists errorInfo] {
+		unset errorInfo
+	    }
+	}
+    }
+    # restore errorInfo
+    set errorInfo $errorInfoSave
+}
+
+proc note {szMsg} {
+    global objCurrentTest
+
+    $objCurrentTest note $szMsg
+}
+
+proc pass {szMsg} {
+    global objCurrentTest
+
+    $objCurrentTest pass $szMsg
+}
+
+proc fail {szMsg} {
+    global objCurrentTest
+
+    $objCurrentTest fail $szMsg
+}
+
+proc unresolved {szMsg} {
+    global objCurrentTest
+
+    $objCurrentTest unresolved $szMsg
+}
+
+proc untested {szMsg} {
+    global objCurrentTest
+
+    $objCurrentTest untested $szMsg
+}
+
+proc unsupported {szMsg} {
+    global objCurrentTest
+
+    $objCurrentTest unsupported $szMsg
+}
+
+proc get_warning_threshold {} {
+    return [namespace eval ::BlueGnu {set warning_threshold}]
+}
+
+proc set_warning_threshold {threshold} {
+    namespace eval ::BlueGnu {
+	set warning_threshold [uplevel set threshold]
+    }
+}
+
+proc setup_xfail {args} {
+    namespace eval ::BlueGnu {set xfail_flag 1}
+}
+
+proc clear_xfail {args} {
+    namespace eval ::BlueGnu {set xfail_flag 0}
+}
+
+proc benchmark {benchmarkFunction args} {
+    debug {======= benchmark $benchmarkFunction $args}
+    global objCurrentTest
+    global errorInfo
+
+    if 0 {
+	debug {[foreach var [info vars] {
+	    verbose {local var: >$var<}}]
+	}
+	uplevel {
+	    debug {[foreach var [info vars] {
+		verbose {uplevel local var: >$var<}}]
+	    }
+	}
+	debug {[foreach var [info globals] {
+	    verbose {global var: >$var<}}]
+	}
+    }
+
+    set errorInfo ""
+    set szID [$objCurrentTest ID]
+    set szTestCaseID [$objCurrentTest testCaseID]
+    set benchmarkObject [$objCurrentTest benchmarkObject]
+    set benchmarkClassName [$objCurrentTest benchmarkClassName]
+    debug {   ==>>      test ID: >$szID<} 3
+    debug {        test case ID: >$szTestCaseID<} 3
+    debug {   check test object: >$benchmarkObject<} 3
+    if {$benchmarkObject == ""} {
+	warning "NO Benchmark Class defines for >$benchmarkClassName<"
+	set bResult 0
+    } else {
+	if [catch {
+	    set bResult [eval $benchmarkObject benchmark \
+		    $benchmarkFunction $args]
+	} errMsg] {
+	    warning "NO checking has been done for\
+		    ${benchmarkClassName}::benchmark $benchmarkFunction $args"
+	    debug {[perror "BenchmarkFunction: >$benchmarkFunction<\
+		    has not been defined\
+		    in class $benchmarkClassName\n### Error Msg: $errMsg"]} 0
+	    debug {### Error Info: $errorInfo} 0
+	    set bResult 0
+	}
+    }
+    return $bResult
+}
+
+proc envPATH {szAction szDir} {
+    debug {======= envPATH $szAction $szDir} 3
+
+    global env
+    if [file isdirectory $szDir] {
+	# remove directory from Path if it exists
+	set envPATH $env(PATH)
+	while {[regsub :?$szDir:? $envPATH {:} envPATH]} {
+	}
+	regsub {^:} $envPATH {} envPATH
+	regsub {:$} $envPATH {} envPATH
+	set env(PATH) $envPATH
+	switch $szAction {
+	    prefix -
+	    prepend {
+		set env(PATH) "$szDir:$env(PATH)"
+	    }
+	    append {
+		append env(PATH) ":$szDir"
+	    }
+	    default {
+	    }
+	}
+    }
+}
+
+# replacement for info which commaond
+#
+proc infoWhich {name {namespace ::}} {
+    debug {======= infoWhich $name $namespace} 3
+    if [catch {uplevel set infoWhich__name $name} szErrMsg] {
+	debug {        error: $szErrMsg}
+	return ""
+    }
+    uplevel {
+	debug {         objects: >[::itcl::find objects]<} 4
+	debug {       namespace: >[namespace current]<} 4
+	infoWhichYYY
+    }
+    set name [uplevel set infoWhich__name]
+    uplevel unset infoWhich__name
+    debug {infoWhich return: >$name<} 4
+    return $name
+}
+proc infoWhichXXX {} {
+    uplevel {
+	set i [lsearch -regexp [::itcl::find objects] "[namespace tail \
+		$infoWhich__name]"]
+	if {$i < 0} {
+	    set infoWhich__name ""
+	} else {
+	    set infoWhich__name [lindex [::itcl::find objects] $i]
+	    if {! [string match ::* $infoWhich__name]} {
+		set infoWhich__name [namespace current]::$infoWhich__name
+	    }
+	    regsub "^::::" $infoWhich__name "::" infoWhich__name
+	}
+    }
+}
+proc infoWhichYYY {} {
+    uplevel {
+	if [catch {infoWhichXXX} szErrMsg] {
+	    verbose "infoWhichYYY error Msg: $szErrMsg"
+	    set infoWhich__name ""
+	}
+    }
+}
+
+namespace eval ::BlueGnu {
+    variable warning_threshold 0
+
+    variable sum_file stdout
+    variable all_flag 0
+
+    variable xfail_flag 0
+    variable xfail_prms {}
+    #
+    # Print output to stdout (or stderr) and to log file
+    #
+    # If the --all flag (-a) option was used then all messages
+    # go the the screen.
+    # Without this, all messages that start with a keyword are
+    # written only to the
+    # detail log file.  All messages that go to the screen will
+    # also appear in the
+    # detail log.  This should only be used by the framework itself using pass,
+    # fail, xpass, xfail, warning, perror, note, untested, unresolved, or
+    # unsupported procedures.
+    #
+    proc clone_output {message} {
+	variable sum_file
+	variable all_flag
+
+	#everything goes in the summary file
+	#
+	puts $sum_file "$message"
+
+	# Depending on the type of message, the message is send
+	# to other resources
+	#
+	case [lindex [split $message] 0] in {
+	    {"FAIL:" "XPASS:" "UNRESOLVED:" "UNSUPPORTED:" "UNTESTED:"} {
+		send_user "$message\n"
+		send_log "$message\n"
+	    }
+	    {"PASS:" "XFAIL:"} {
+		if $all_flag {
+		    send_user "$message\n"
+		}
+		send_log "$message\n"
+	    }
+	    "ERROR:" {
+		#send_user "$message\n"
+		send_error "$message\n"
+		send_log "$message\n"
+	    }
+	    {"WARNING:" "NOTE:"} {
+		if $all_flag {
+		    send_error "$message\n"
+		}
+		send_log "$message\n"
+	    }
+	    "*******" {
+		send_user "$message\n"
+		#send_log "$message\n"
+		#send_error "$message\n"
+	    }
+	    default {
+		send_user "$message\n"
+	    }
+	}
+
+	# we always return turn the message unchanged
+	#
+	return "$message"
+    }
+}
+
+proc createTarget {args} {
+    verbose {In: createTarget >$args<} 3
+    set szCmd "::BlueGnu::Target #auto "
+    set bID 0
+    set bEnv 0
+    set bQueue 0
+    foreach item $args {
+	if {[string compare \
+		[lindex [split $item "="] 0] szID] == 0} {
+	    set bID 1
+	}
+	if {[string compare \
+		[lindex [split $item "="] 0] objEnvironment] == 0} {
+	    set bEnv 1
+	}
+	if {[string compare \
+		[lindex [split $item "="] 0] objQueue] == 0} {
+	    set bQueue 1
+	}
+	append szCmd "\{$item\} "
+    }
+    if {! $bID} {
+	append szCmd "szID=Default "
+    }
+    if {! $bEnv} {
+	append szCmd "objEnvironment=[infoWhich \
+		[::BlueGnu::Environment #auto]] "
+    }
+    if {! $bQueue} {
+	append szCmd "objQueue=[infoWhich [::BlueGnu::Queue #auto]] "
+    }
+    verbose {Command: >$szCmd<} 3
+    set target [uplevel #0 "eval $szCmd"]
+    verbose {Created target: >$target<} 3
+    verbose {              >>>[$target <<]<<<} 4
+    verbose {              >>>[[infoWhich $target] <<]<<<} 4
+    verbose {    == [join [$target <<] "\n    == "]} 3
+    return [infoWhich $target]
+}
+
+# Initialize all global variables not yet initialized
+#
+set szCurrentTestDirectory $env(TESTSUITEROOT)
+
+# Remove all temporary variables from the global space
+catch {eval unset [info globals __*]}
+debug {Global variables available:\
+	\n   [join [lsort [info globals]] "\n   "]} 9
+debug {Global procedures available:\
+	\n   [join [lsort [info procs]] "\n   "]} 9
+
+foreach dir [split $env(TESTSETS) ":"] {
+    if {[string compare $dir $PWD] == 0} {
+	foreach indexFile [locateFile tclIndex] {
+	    set indexDir [file dirname $indexFile]
+	    if {[lsearch -exact [split $auto_path] $indexDir] < 0} {
+		set auto_path "$indexDir $auto_path"
+	    }
+	}
+	foreach indexFile [locateFile tclIndex lib] {
+	    set indexDir [file dirname $indexFile]
+	    if {[lsearch -exact [split $auto_path] $indexDir] < 0} {
+		set auto_path "$indexDir $auto_path"
+	    }
+	}
+    } else {
+	if {[file exists $dir/tclIndex]} {
+	    set auto_path "$dir $auto_path"
+	}
+    }
+}
+debug {auto_path has been intialize to:\n      [join $auto_path "\n      "]} 3
+verbose {TESTSETS: >$env(TESTSETS)<} 3

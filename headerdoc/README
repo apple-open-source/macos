@@ -1,0 +1,16 @@
+
+README for HeaderDoc
+
+HeaderDoc is a text processing engine designed to pull specially-formatted
+comments out of source code and header files.
+
+HeaderDoc comes pre-installed in Mac OS X.  If you are installing on a
+non-Mac OS X computer, or if you are installing an updated version of
+HeaderDoc on a Mac OS X computer, you can quickly install by simply typing:
+
+	sudo make realinstall
+
+For additional documentation on headerdoc, look at the HTML files in the
+Documentation directory and at the man pages for gatherheaderdoc and
+headerdoc2html.
+

@@ -257,6 +257,7 @@ bool IOFramebufferSharedUserClient::start( IOService * _owner )
         return (false);
 
     owner = (IOFramebuffer *) _owner;
+    owner->sharedConnect = this;
 
     bcopy( methodTemplate, externals, sizeof( methodTemplate ));
 
@@ -265,16 +266,13 @@ bool IOFramebufferSharedUserClient::start( IOService * _owner )
 
 void IOFramebufferSharedUserClient::free( void )
 {
-    retain();
-    retain();
     owner->sharedConnect = 0;
-    detach( owner);
     super::free();
 }
 
 void IOFramebufferSharedUserClient::release() const
 {
-    super::release(2);
+    super::release();
 }
 
 IOReturn IOFramebufferSharedUserClient::clientClose( void )

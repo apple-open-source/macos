@@ -1,42 +1,46 @@
 /*  -*- c-file-style: "linux" -*-
-    
-    Copyright (C) 1996-2000 by Andrew Tridgell 
-    Copyright (C) Paul Mackerras 1996
-    Copyright (C) 2001, 2002 by Martin Pool <mbp@samba.org>
-   
-   This program is free software; you can redistribute it and/or modify
-   it under the terms of the GNU General Public License as published by
-   the Free Software Foundation; either version 2 of the License, or
-   (at your option) any later version.
-   
-   This program is distributed in the hope that it will be useful,
-   but WITHOUT ANY WARRANTY; without even the implied warranty of
-   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-   GNU General Public License for more details.
-   
-   You should have received a copy of the GNU General Public License
-   along with this program; if not, write to the Free Software
-   Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
-*/
+ * 
+ * Copyright (C) 1996-2000 by Andrew Tridgell 
+ * Copyright (C) Paul Mackerras 1996
+ * Copyright (C) 2001, 2002 by Martin Pool <mbp@samba.org>
+ * 
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation; either version 2 of the License, or
+ * (at your option) any later version.
+ * 
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ * 
+ * You should have received a copy of the GNU General Public License
+ * along with this program; if not, write to the Free Software
+ * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
+ */
 
-/*
-  Utilities used in rsync 
+/**
+ * @file
+ *
+ * Utilities used in rsync 
+ **/
 
-  tridge, June 1996
-  */
 #include "rsync.h"
 
 extern int verbose;
 
+int sanitize_paths = 0;
 
-/****************************************************************************
-Set a fd into nonblocking mode
-****************************************************************************/
+
+
+/**
+ * Set a fd into nonblocking mode
+ **/
 void set_nonblocking(int fd)
 {
 	int val;
 
-	if((val = fcntl(fd, F_GETFL, 0)) == -1)
+	if ((val = fcntl(fd, F_GETFL, 0)) == -1)
 		return;
 	if (!(val & NONBLOCK_FLAG)) {
 		val |= NONBLOCK_FLAG;
@@ -44,14 +48,14 @@ void set_nonblocking(int fd)
 	}
 }
 
-/****************************************************************************
-Set a fd into blocking mode
-****************************************************************************/
+/**
+ * Set a fd into blocking mode
+ **/
 void set_blocking(int fd)
 {
 	int val;
 
-	if((val = fcntl(fd, F_GETFL, 0)) == -1)
+	if ((val = fcntl(fd, F_GETFL, 0)) == -1)
 		return;
 	if (val & NONBLOCK_FLAG) {
 		val &= ~NONBLOCK_FLAG;
@@ -60,10 +64,11 @@ void set_blocking(int fd)
 }
 
 
-/* create a file descriptor pair - like pipe() but use socketpair if
-   possible (because of blocking issues on pipes)
-
-   always set non-blocking
+/**
+ * Create a file descriptor pair - like pipe() but use socketpair if
+ * possible (because of blocking issues on pipes).
+ * 
+ * Always set non-blocking.
  */
 int fd_pair(int fd[2])
 {
@@ -79,14 +84,14 @@ int fd_pair(int fd[2])
 		set_nonblocking(fd[0]);
 		set_nonblocking(fd[1]);
 	}
-	
+
 	return ret;
 }
 
 
 void print_child_argv(char **cmd)
 {
-	rprintf(FINFO, RSYNC_NAME ": open connection using ");
+	rprintf(FINFO, "opening connection using ");
 	for (; *cmd; cmd++) {
 		/* Look for characters that ought to be quoted.  This
 		* is not a great quoting algorithm, but it's
@@ -104,128 +109,6 @@ void print_child_argv(char **cmd)
 }
 
 
-/* this is derived from CVS code 
-
-   note that in the child STDIN is set to blocking and STDOUT
-   is set to non-blocking. This is necessary as rsh relies on stdin being blocking
-   and ssh relies on stdout being non-blocking
-
-   if blocking_io is set then use blocking io on both fds. That can be
-   used to cope with badly broken rsh implementations like the one on
-   solaris.
- */
-pid_t piped_child(char **command, int *f_in, int *f_out)
-{
-	pid_t pid;
-	int to_child_pipe[2];
-	int from_child_pipe[2];
-	extern int blocking_io;
-	
-	if (verbose > 0) {
-		print_child_argv(command);
-	}
-
-	if (fd_pair(to_child_pipe) < 0 || fd_pair(from_child_pipe) < 0) {
-		rprintf(FERROR, "pipe: %s\n", strerror(errno));
-		exit_cleanup(RERR_IPC);
-	}
-
-
-	pid = do_fork();
-	if (pid == -1) {
-		rprintf(FERROR, "fork: %s\n", strerror(errno));
-		exit_cleanup(RERR_IPC);
-	}
-
-	if (pid == 0) {
-		extern int orig_umask;
-		if (dup2(to_child_pipe[0], STDIN_FILENO) < 0 ||
-		    close(to_child_pipe[1]) < 0 ||
-		    close(from_child_pipe[0]) < 0 ||
-		    dup2(from_child_pipe[1], STDOUT_FILENO) < 0) {
-			rprintf(FERROR, "Failed to dup/close : %s\n",
-				strerror(errno));
-			exit_cleanup(RERR_IPC);
-		}
-		if (to_child_pipe[0] != STDIN_FILENO)
-			close(to_child_pipe[0]);
-		if (from_child_pipe[1] != STDOUT_FILENO)
-			close(from_child_pipe[1]);
-		umask(orig_umask);
-		set_blocking(STDIN_FILENO);
-		if (blocking_io) {
-			set_blocking(STDOUT_FILENO);
-		}
-		execvp(command[0], command);
-		rprintf(FERROR, "Failed to exec %s : %s\n",
-			command[0], strerror(errno));
-		exit_cleanup(RERR_IPC);
-	}
-
-	if (close(from_child_pipe[1]) < 0 || close(to_child_pipe[0]) < 0) {
-		rprintf(FERROR, "Failed to close : %s\n", strerror(errno));
-		exit_cleanup(RERR_IPC);
-	}
-
-	*f_in = from_child_pipe[0];
-	*f_out = to_child_pipe[1];
-
-	return pid;
-}
-
-pid_t local_child(int argc, char **argv,int *f_in,int *f_out)
-{
-	pid_t pid;
-	int to_child_pipe[2];
-	int from_child_pipe[2];
-	extern int read_batch;  /* dw */
-
-	if (fd_pair(to_child_pipe) < 0 ||
-	    fd_pair(from_child_pipe) < 0) {
-		rprintf(FERROR,"pipe: %s\n",strerror(errno));
-		exit_cleanup(RERR_IPC);
-	}
-
-
-	pid = do_fork();
-	if (pid == -1) {
-		rprintf(FERROR,"fork: %s\n",strerror(errno));
-		exit_cleanup(RERR_IPC);
-	}
-
-	if (pid == 0) {
-		extern int am_sender;
-		extern int am_server;
-
-		am_sender = read_batch ? 0 : !am_sender;
-		am_server = 1;		
-
-		if (dup2(to_child_pipe[0], STDIN_FILENO) < 0 ||
-		    close(to_child_pipe[1]) < 0 ||
-		    close(from_child_pipe[0]) < 0 ||
-		    dup2(from_child_pipe[1], STDOUT_FILENO) < 0) {
-			rprintf(FERROR,"Failed to dup/close : %s\n",strerror(errno));
-			exit_cleanup(RERR_IPC);
-		}
-		if (to_child_pipe[0] != STDIN_FILENO) close(to_child_pipe[0]);
-		if (from_child_pipe[1] != STDOUT_FILENO) close(from_child_pipe[1]);
-		start_server(STDIN_FILENO, STDOUT_FILENO, argc, argv);
-	}
-
-	if (close(from_child_pipe[1]) < 0 ||
-	    close(to_child_pipe[0]) < 0) {
-		rprintf(FERROR,"Failed to close : %s\n",strerror(errno));   
-		exit_cleanup(RERR_IPC);
-	}
-
-	*f_in = from_child_pipe[0];
-	*f_out = to_child_pipe[1];
-  
-	return pid;
-}
-
-
-
 void out_of_memory(char *str)
 {
   rprintf(FERROR,"ERROR: out of memory in %s\n",str);
@@ -240,10 +123,18 @@ void overflow(char *str)
 
 
 
-int set_modtime(char *fname,time_t modtime)
+int set_modtime(char *fname, time_t modtime)
 {
 	extern int dry_run;
-	if (dry_run) return 0;
+	if (dry_run)
+		return 0;
+
+	if (verbose > 2) {
+		rprintf(FINFO, "set modtime of %s to (%ld) %s",
+			fname, (long) modtime,
+			asctime(localtime(&modtime)));
+	}
+	
 	{
 #ifdef HAVE_UTIMBUF
 		struct utimbuf tbuf;  
@@ -267,14 +158,13 @@ int set_modtime(char *fname,time_t modtime)
 }
 
 
-/****************************************************************************
-create any necessary directories in fname. Unfortunately we don't know
-what perms to give the directory when this is called so we need to rely
-on the umask
-****************************************************************************/
-int create_directory_path(char *fname)
+/**
+   Create any necessary directories in fname. Unfortunately we don't know
+   what perms to give the directory when this is called so we need to rely
+   on the umask
+**/
+int create_directory_path(char *fname, int base_umask)
 {
-	extern int orig_umask;
 	char *p;
 
 	while (*fname == '/') fname++;
@@ -283,7 +173,7 @@ int create_directory_path(char *fname)
 	p = fname;
 	while ((p=strchr(p,'/'))) {
 		*p = 0;
-		do_mkdir(fname,0777 & ~orig_umask); 
+		do_mkdir(fname, 0777 & ~base_umask); 
 		*p = '/';
 		p++;
 	}
@@ -291,11 +181,16 @@ int create_directory_path(char *fname)
 }
 
 
-/* Write LEN bytes at PTR to descriptor DESC, retrying if interrupted.
-   Return LEN upon success, write's (negative) error code otherwise.  
-
-   derived from GNU C's cccp.c.
-*/
+/**
+ * Write @p len bytes at @p ptr to descriptor @p desc, retrying if
+ * interrupted.
+ *
+ * @retval len upon success
+ *
+ * @retval <0 write's (negative) error code
+ *
+ * Derived from GNU C's cccp.c.
+ */
 static int full_write(int desc, char *ptr, size_t len)
 {
 	int total_written;
@@ -317,11 +212,18 @@ static int full_write(int desc, char *ptr, size_t len)
 	return total_written;
 }
 
-/* Read LEN bytes at PTR from descriptor DESC, retrying if interrupted.
-   Return the actual number of bytes read, zero for EOF, or negative
-   for an error.  
 
-   derived from GNU C's cccp.c. */
+/**
+ * Read @p len bytes at @p ptr from descriptor @p desc, retrying if
+ * interrupted.
+ *
+ * @retval >0 the actual number of bytes read
+ *
+ * @retval 0 for EOF
+ *
+ * @retval <0 for an error.
+ *
+ * Derived from GNU C's cccp.c. */
 static int safe_read(int desc, char *ptr, size_t len)
 {
 	int n_chars;
@@ -341,7 +243,9 @@ static int safe_read(int desc, char *ptr, size_t len)
 }
 
 
-/* copy a file - this is used in conjunction with the --temp-dir option */
+/** Copy a file.
+ *
+ * This is used in conjunction with the --temp-dir option */
 int copy_file(char *source, char *dest, mode_t mode)
 {
 	int ifd;
@@ -392,18 +296,20 @@ int copy_file(char *source, char *dest, mode_t mode)
 	return 0;
 }
 
-/*
-  Robust unlink: some OS'es (HPUX) refuse to unlink busy files, so
-  rename to <path>/.rsyncNNN instead. Note that successive rsync runs
-  will shuffle the filenames around a bit as long as the file is still
-  busy; this is because this function does not know if the unlink call
-  is due to a new file coming in, or --delete trying to remove old
-  .rsyncNNN files, hence it renames it each time.
-*/
 /* MAX_RENAMES should be 10**MAX_RENAMES_DIGITS */
 #define MAX_RENAMES_DIGITS 3
 #define MAX_RENAMES 1000
 
+/**
+ * Robust unlink: some OS'es (HPUX) refuse to unlink busy files, so
+ * rename to <path>/.rsyncNNN instead.
+ *
+ * Note that successive rsync runs will shuffle the filenames around a
+ * bit as long as the file is still busy; this is because this function
+ * does not know if the unlink call is due to a new file coming in, or
+ * --delete trying to remove old .rsyncNNN files, hence it renames it
+ * each time.
+ **/
 int robust_unlink(char *fname)
 {
 #ifndef ETXTBSY
@@ -470,28 +376,48 @@ int robust_rename(char *from, char *to)
 static pid_t all_pids[10];
 static int num_pids;
 
-/* fork and record the pid of the child */
+/** Fork and record the pid of the child. **/
 pid_t do_fork(void)
 {
 	pid_t newpid = fork();
 	
-	if (newpid) {
+	if (newpid != 0  &&  newpid != -1) {
 		all_pids[num_pids++] = newpid;
 	}
 	return newpid;
 }
 
-/* kill all children */
+/**
+ * Kill all children.
+ *
+ * @todo It would be kind of nice to make sure that they are actually
+ * all our children before we kill them, because their pids may have
+ * been recycled by some other process.  Perhaps when we wait for a
+ * child, we should remove it from this array.  Alternatively we could
+ * perhaps use process groups, but I think that would not work on
+ * ancient Unix versions that don't support them.
+ **/
 void kill_all(int sig)
 {
 	int i;
-	for (i=0;i<num_pids;i++) {
-		if (all_pids[i] != getpid())
-			kill(all_pids[i], sig);
+
+	for (i = 0; i < num_pids; i++) {
+		/* Let's just be a little careful where we
+		 * point that gun, hey?  See kill(2) for the
+		 * magic caused by negative values. */
+		pid_t p = all_pids[i];
+
+		if (p == getpid())
+			continue;
+		if (p <= 0)
+			continue;
+
+		kill(p, sig);
 	}
 }
 
-/* turn a user name into a uid */
+
+/** Turn a user name into a uid */
 int name_to_uid(char *name, uid_t *uid)
 {
 	struct passwd *pass;
@@ -504,7 +430,7 @@ int name_to_uid(char *name, uid_t *uid)
 	return 0;
 }
 
-/* turn a group name into a gid */
+/** Turn a group name into a gid */
 int name_to_gid(char *name, gid_t *gid)
 {
 	struct group *grp;
@@ -518,7 +444,7 @@ int name_to_gid(char *name, gid_t *gid)
 }
 
 
-/* lock a byte range in a open file */
+/** Lock a byte range in a open file */
 int lock_range(int fd, int offset, int len)
 {
 	struct flock lock;
@@ -600,13 +526,14 @@ void glob_expand(char *base1, char **argv, int *argc, int maxargs)
 	free(base);
 }
 
-/*******************************************************************
-  convert a string to lower case
-********************************************************************/
+/**
+ * Convert a string to lower case
+ **/
 void strlower(char *s)
 {
 	while (*s) {
-		if (isupper(*s)) *s = tolower(*s);
+		if (isupper(* (unsigned char *) s))
+			*s = tolower(* (unsigned char *) s);
 		s++;
 	}
 }
@@ -660,16 +587,22 @@ void clean_fname(char *name)
 	}
 }
 
-/*
+/**
  * Make path appear as if a chroot had occurred:
- *    1. remove leading "/" (or replace with "." if at end)
- *    2. remove leading ".." components (except those allowed by "reldir")
- *    3. delete any other "<dir>/.." (recursively)
+ *
+ * @li 1. remove leading "/" (or replace with "." if at end)
+ *
+ * @li 2. remove leading ".." components (except those allowed by @p reldir)
+ *
+ * @li 3. delete any other "<dir>/.." (recursively)
+ *
  * Can only shrink paths, so sanitizes in place.
+ *
  * While we're at it, remove double slashes and "." components like
- *   clean_fname does(), but DON'T remove a trailing slash because that
+ *   clean_fname() does, but DON'T remove a trailing slash because that
  *   is sometimes significant on command line arguments.
- * If "reldir" is non-null, it is a sanitized directory that the path will be
+ *
+ * If @p reldir is non-null, it is a sanitized directory that the path will be
  *    relative to, so allow as many ".." at the beginning of the path as
  *    there are components in reldir.  This is used for symbolic link targets.
  *    If reldir is non-null and the path began with "/", to be completely like
@@ -677,9 +610,9 @@ void clean_fname(char *name)
  *    path, but that would blow the assumption that the path doesn't grow and
  *    it is not likely to end up being a valid symlink anyway, so just do
  *    the normal removal of the leading "/" instead.
+ *
  * Contributed by Dave Dykstra <dwd@bell-labs.com>
  */
-
 void sanitize_path(char *p, char *reldir)
 {
 	char *start, *sanp;
@@ -768,8 +701,10 @@ void sanitize_path(char *p, char *reldir)
 
 static char curr_dir[MAXPATHLEN];
 
-/* like chdir() but can be reversed with pop_dir() if save is set. It
-   is also much faster as it remembers where we have been */
+/**
+ * Like chdir() but can be reversed with pop_dir() if @p save is set.
+ * It is also much faster as it remembers where we have been.
+ **/
 char *push_dir(char *dir, int save)
 {
 	char *ret = curr_dir;
@@ -800,7 +735,7 @@ char *push_dir(char *dir, int save)
 	return ret;
 }
 
-/* reverse a push_dir call */
+/** Reverse a push_dir() call */
 int pop_dir(char *dir)
 {
 	int ret;
@@ -818,7 +753,7 @@ int pop_dir(char *dir)
 	return 0;
 }
 
-/* we need to supply our own strcmp function for file list comparisons
+/** We need to supply our own strcmp function for file list comparisons
    to ensure that signed/unsigned usage is consistent between machines. */
 int u_strcmp(const char *cs1, const char *cs2)
 {
@@ -832,145 +767,75 @@ int u_strcmp(const char *cs1, const char *cs2)
 	return (int)*s1 - (int)*s2;
 }
 
-static OFF_T  last_ofs;
-static struct timeval print_time;
-static struct timeval start_time;
-static OFF_T  start_ofs;
-
-static unsigned long msdiff(struct timeval *t1, struct timeval *t2)
-{
-    return (t2->tv_sec - t1->tv_sec) * 1000
-        + (t2->tv_usec - t1->tv_usec) / 1000;
-}
 
 
 /**
- * @param ofs Current position in file
- * @param size Total size of file
- * @param is_last True if this is the last time progress will be
- * printed for this file, so we should output a newline.  (Not
- * necessarily the same as all bytes being received.)
+ * Determine if a symlink points outside the current directory tree.
+ * This is considered "unsafe" because e.g. when mirroring somebody
+ * else's machine it might allow them to establish a symlink to
+ * /etc/passwd, and then read it through a web server.
+ *
+ * Null symlinks and absolute symlinks are always unsafe.
+ *
+ * Basically here we are concerned with symlinks whose target contains
+ * "..", because this might cause us to walk back up out of the
+ * transferred directory.  We are not allowed to go back up and
+ * reenter.
+ *
+ * @param dest Target of the symlink in question.
+ *
+ * @param src Top source directory currently applicable.  Basically this
+ * is the first parameter to rsync in a simple invocation, but it's
+ * modified by flist.c in slightly complex ways.
+ *
+ * @retval True if unsafe
+ * @retval False is unsafe
+ *
+ * @sa t_unsafe.c
  **/
-static void rprint_progress(OFF_T ofs, OFF_T size, struct timeval *now,
-			    int is_last)
+int unsafe_symlink(const char *dest, const char *src)
 {
-    int           pct  = (ofs == size) ? 100 : (int)((100.0*ofs)/size);
-    unsigned long diff = msdiff(&start_time, now);
-    double        rate = diff ? (double) (ofs-start_ofs) * 1000.0 / diff / 1024.0 : 0;
-    const char    *units;
-    double        remain = rate ? (double) (size-ofs) / rate / 1000.0: 0.0;
-    int 	  remain_h, remain_m, remain_s;
-
-    if (rate > 1024*1024) {
-	    rate /= 1024.0 * 1024.0;
-	    units = "GB/s";
-    } else if (rate > 1024) {
-	    rate /= 1024.0;
-	    units = "MB/s";
-    } else {
-	    units = "kB/s";
-    }
-
-    remain_s = (int) remain % 60;
-    remain_m = (int) (remain / 60.0) % 60;
-    remain_h = (int) (remain / 3600.0);
-    
-    rprintf(FINFO, "%12.0f %3d%% %7.2f%s %4d:%02d:%02d%s",
-	    (double) ofs, pct, rate, units,
-	    remain_h, remain_m, remain_s,
-	    is_last ? "\n" : "\r");
-}
-
-void end_progress(OFF_T size)
-{
-	extern int do_progress, am_server;
-
-	if (do_progress && !am_server) {
-        	struct timeval now;
-                gettimeofday(&now, NULL);
-                rprint_progress(size, size, &now, True);
-	}
-	last_ofs   = 0;
-        start_ofs  = 0;
-        print_time.tv_sec  = print_time.tv_usec  = 0;
-        start_time.tv_sec  = start_time.tv_usec  = 0;
-}
-
-void show_progress(OFF_T ofs, OFF_T size)
-{
-	extern int do_progress, am_server;
-        struct timeval now;
-
-        gettimeofday(&now, NULL);
-
-        if (!start_time.tv_sec && !start_time.tv_usec) {
-        	start_time.tv_sec  = now.tv_sec;
-                start_time.tv_usec = now.tv_usec;
-                start_ofs          = ofs;
-        }
-
-	if (do_progress
-            && !am_server
-            && ofs > last_ofs + 1000
-            && msdiff(&print_time, &now) > 250) {
-        	rprint_progress(ofs, size, &now, False);
-                last_ofs = ofs;
-                print_time.tv_sec  = now.tv_sec;
-                print_time.tv_usec = now.tv_usec;
-	}
-}
-
-/* determine if a symlink points outside the current directory tree */
-int unsafe_symlink(char *dest, char *src)
-{
-	char *tok;
+	const char *name, *slash;
 	int depth = 0;
 
 	/* all absolute and null symlinks are unsafe */
-	if (!dest || !(*dest) || (*dest == '/')) return 1;
-
-	src = strdup(src);
-	if (!src) out_of_memory("unsafe_symlink");
+	if (!dest || !*dest || *dest == '/') return 1;
 
 	/* find out what our safety margin is */
-	for (tok=strtok(src,"/"); tok; tok=strtok(NULL,"/")) {
-		if (strcmp(tok,"..") == 0) {
+	for (name = src; (slash = strchr(name, '/')) != 0; name = slash+1) {
+		if (strncmp(name, "../", 3) == 0) {
 			depth=0;
-		} else if (strcmp(tok,".") == 0) {
+		} else if (strncmp(name, "./", 2) == 0) {
 			/* nothing */
 		} else {
 			depth++;
 		}
 	}
-	free(src);
+	if (strcmp(name, "..") == 0)
+		depth = 0;
 
-	/* drop by one to account for the filename portion */
-	depth--;
-
-	dest = strdup(dest);
-	if (!dest) out_of_memory("unsafe_symlink");
-
-	for (tok=strtok(dest,"/"); tok; tok=strtok(NULL,"/")) {
-		if (strcmp(tok,"..") == 0) {
-			depth--;
-		} else if (strcmp(tok,".") == 0) {
+	for (name = dest; (slash = strchr(name, '/')) != 0; name = slash+1) {
+		if (strncmp(name, "../", 3) == 0) {
+			/* if at any point we go outside the current directory
+			   then stop - it is unsafe */
+			if (--depth < 0)
+				return 1;
+		} else if (strncmp(name, "./", 2) == 0) {
 			/* nothing */
 		} else {
 			depth++;
 		}
-		/* if at any point we go outside the current directory then
-		   stop - it is unsafe */
-		if (depth < 0) break;
 	}
+	if (strcmp(name, "..") == 0)
+		depth--;
 
-	free(dest);
 	return (depth < 0);
 }
 
 
-/****************************************************************************
-  return the date and time as a string
-****************************************************************************/
+/**
+ * Return the date and time as a string
+ **/
 char *timestring(time_t t)
 {
 	static char TimeBuf[200];
@@ -1020,12 +885,17 @@ int msleep(int t)
 }
 
 
-/*******************************************************************
- Determine if two file modification times are equivalent (either exact 
- or in the modification timestamp window established by --modify-window) 
- Returns 0 if the times should be treated as the same, 1 if the 
- first is later and -1 if the 2nd is later
- *******************************************************************/
+/**
+ * Determine if two file modification times are equivalent (either
+ * exact or in the modification timestamp window established by
+ * --modify-window).
+ *
+ * @retval 0 if the times should be treated as the same
+ *
+ * @retval +1 if the first is later
+ *
+ * @retval -1 if the 2nd is later
+ **/
 int cmp_modtime(time_t file1, time_t file2)
 {
 	extern int modify_window;
@@ -1042,11 +912,11 @@ int cmp_modtime(time_t file1, time_t file2)
 #ifdef __INSURE__XX
 #include <dlfcn.h>
 
-/*******************************************************************
-This routine is a trick to immediately catch errors when debugging
-with insure. A xterm with a gdb is popped up when insure catches
-a error. It is Linux specific.
-********************************************************************/
+/**
+   This routine is a trick to immediately catch errors when debugging
+   with insure. A xterm with a gdb is popped up when insure catches
+   a error. It is Linux specific.
+**/
 int _Insure_trap_error(int a1, int a2, int a3, int a4, int a5, int a6)
 {
 	static int (*fn)();

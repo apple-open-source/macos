@@ -32,7 +32,7 @@
 #include <CryptKit/feeFunctions.h>
 #include <CryptKit/feePublicKey.h>
 
-#define feeMiscDebug(args...)	debug("feeMisc", ## args)
+#define feeMiscDebug(args...)	secdebug("feeMisc", ## args)
 
 /* Given a FEE error, throw appropriate CssmError */
 void CryptKit::throwCryptKit(
@@ -105,6 +105,7 @@ feePubKey CryptKit::contextToFeeKey(
 		CssmError::throwMe(CSSMERR_CSP_INVALID_KEY_CLASS);
 	}
 	cspValidateIntendedKeyUsage(&hdr, usage);
+	cspVerifyKeyTimes(hdr);
 	return cssmKeyToFee(cssmKey, session, mallocdKey);
 }
 

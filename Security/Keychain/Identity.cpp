@@ -20,26 +20,44 @@
 //
 #include <Security/Identity.h>
 
+#include <Security/KeySchema.h>
+#include <Security/KCCursor.h>
+
 using namespace KeychainCore;
 
-Identity::Identity(const RefPointer<KeyItem> &privateKey,
-		const RefPointer<Certificate> &certificate) :
+Identity::Identity(const SecPointer<KeyItem> &privateKey,
+		const SecPointer<Certificate> &certificate) :
 	mPrivateKey(privateKey),
 	mCertificate(certificate)
 {
 }
 
-Identity::~Identity()
+Identity::Identity(const StorageManager::KeychainList &keychains, const SecPointer<Certificate> &certificate) :
+	mCertificate(certificate)
+{
+	// Find a key whose label matches the publicKeyHash of the public key in the certificate.
+	KCCursor keyCursor(keychains, CSSM_DL_DB_RECORD_PRIVATE_KEY, NULL);
+	keyCursor->add(CSSM_DB_EQUAL, KeySchema::Label, certificate->publicKeyHash());
+
+	Item key;
+	if (!keyCursor->next(key))
+		MacOSError::throwMe(errSecItemNotFound);
+
+	SecPointer<KeyItem> keyItem(static_cast<KeyItem *>(&*key));
+	mPrivateKey = keyItem;
+}
+
+Identity::~Identity() throw()
 {
 }
 
-RefPointer<KeyItem>
+SecPointer<KeyItem>
 Identity::privateKey() const
 {
 	return mPrivateKey;
 }
 
-RefPointer<Certificate>
+SecPointer<Certificate>
 Identity::certificate() const
 {
 	return mCertificate;

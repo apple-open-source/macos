@@ -1,0 +1,40 @@
+This is a Demo of a Flash 6 client using SOAP to communicate using JBoss.
+
+Currently you must have the Flash modified jboss-net.sar deployed instead of
+the standard configuration.  This means comment/uncomment out the servlet
+specified in install-axis.xml, and rebuild jboss.net.  You must also build the
+Hello World sample separately using the build.sh or build.bat in this
+directory.
+
+Copy both the ./jboss.net/output/lib/jboss-net.sar and the
+./jboss.net/samples/Hello/output/lib/hello.ear to the
+./jboss/server/default/deploy directory.
+
+This sample requires the Flash 6 player, which if you don't have installed,
+the sample will prompt you to install.  The sample is invoked via the URL:
+http://localhost:8080/hello or whatever your host and port number are.
+
+The application is made up of a .war, a simple EJB .jar, a .wsr, all bundled
+into an .ear.  The .war contains the required Flash files.  You will need
+Macromedia Flash MX in order to view the HelloWorldForm.fla file.  Several
+Actionscript files are included in the Flash layers.  SOAP.as includes
+SoapTarget.as, SoapOperation.as, and SoapParms.as.  lf-shadow.as contains
+a utility function to give buttons and scroll bars a more 3D look and feel.
+All of these Actionscript files should be considered library functions in
+respect to the LGPL, and thus do not require you to release your source code,
+only improvements and corrections to the library routines.
+
+This sample project also utilizes a single build.xml that generates all the
+required deployment descriptors, Java interface source files, compiles, and
+builds all the required archives.  The jboss.net project builds a required
+jboss-net-taglib.jar which is bundled into the hello.war.
+
+Special Humour Note:
+--------------------
+The Hello animation in the upper right corner is actually an intended cognitive
+joke.  Try it someone.  Pretend you are yelling out across the Grand Canyon
+and the words are echoing back at you.  Say "HELLO!...ECHO... echo... Echo...".
+Most people won't get it.
+
+"Frederick N. Brier" <fbrier@multideck.com>
+July 10, 2002

@@ -1,7 +1,8 @@
-.TH KLD 3 "May 24, 2001" "Apple Computer, Inc."
+.TH KLD 3 "May 28, 2003" "Apple Computer, Inc."
 .SH NAME
 kld_load, kld_load_from_memory, kld_lookup, kld_forget_symbol, kld_unload_all,
-kld_load_basefile, kld_load_basefile_from_memory, kld_address_func
+kld_load_basefile, kld_load_basefile_from_memory,
+kld_address_func, kld_set_link_options
 \- programmatically link edit and load driver object files
 .SH SYNOPSIS
 .nf
@@ -11,11 +12,6 @@ kld_load_basefile, kld_load_basefile_from_memory, kld_address_func
 #ifdef __DYNAMIC__
 __private_extern__ long kld_load_basefile(
 	const char *base_filename);
-.PP
-__private_extern__ long kld_load_basefile_from_memory(
-	const char *base_filename,
-	char *base_addr,
-	long base_size);
 .PP
 __private_extern__ long kld_load(
 	struct mach_header **header_addr,
@@ -38,6 +34,11 @@ __private_extern__ long kld_load_from_memory(
 	long *object_size);
 #endif /* __STATIC__ */
 .PP
+__private_extern__ long kld_load_basefile_from_memory(
+	const char *base_filename,
+	char *base_addr,
+	long base_size);
+.PP
 __private_extern__ long kld_lookup(
 	const char *symbol_name,
 	unsigned long *value);
@@ -50,6 +51,12 @@ __private_extern__ long kld_unload_all(
 .PP
 __private_extern__ void kld_address_func(
 	unsigned long (*func)(unsigned long size, unsigned long headers_size));
+.PP
+#define KLD_STRIP_ALL	0x00000000
+#define KLD_STRIP_NONE	0x00000001
+.PP
+__private_extern__ void kld_set_link_options(
+    unsigned long link_options);
 .fi
 .SH DESCRIPTION
 The kld package is designed for loading kernel drivers both by the kernel for
@@ -68,8 +75,10 @@ flag the
 linker flag will link the library libkld.dylib.
 .PP
 For the kernel the
+.I kld_load_basefile_from_memory,
+and
 .I kld_load_from_memory
-API is provided in the library libkld.a compiled with the
+APIs are provided in the library libkld.a compiled with the
 .B \-static
 compiler flag.  Using this library one must define the following variable:
 .nf
@@ -284,6 +293,21 @@ is
 intended to be used when a program is dynamically loading objects into a
 program other than itself; the function allows it to pick the place in the
 address space of the target program.
+.PP
+.I kld_set_link_options
+is passed a mask of options,
+.IR link_options ,
+that are used to control some aspects of the following
+.I kld_load
+operations. Passing 
+.I KLD_STRIP_NONE
+will stop kld from stripping symbols from the output in all cases. By default
+all symbols are stripped for kernel loads and when 
+.I output_filename
+is NULL for 
+.I kld_load()
+and
+.I kld_load_from_memory()
 
 .SH "FAT FILE SUPPORT"
 All functions that accept object files or archives also accept ``fat'' files,

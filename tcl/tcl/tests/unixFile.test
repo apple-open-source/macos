@@ -9,7 +9,7 @@
 # See the file "license.terms" for information on usage and redistribution
 # of this file, and for a DISCLAIMER OF ALL WARRANTIES.
 #
-# RCS: @(#) $Id: unixFile.test,v 1.1.1.4 2000/12/06 23:04:20 wsanchez Exp $
+# RCS: @(#) $Id: unixFile.test,v 1.1.1.5 2003/03/06 00:13:17 landonf Exp $
 
 if {[lsearch [namespace children] ::tcltest] == -1} {
     package require tcltest
@@ -23,12 +23,14 @@ if {[info commands testobj] == {}} {
     return
 }
 
+set oldpwd [pwd]
+cd [temporaryDirectory]
+
 catch {
     set oldPath $env(PATH)
-    close [open junk w]
-    file attributes junk -perm 0777
+    file attributes [makeFile "" junk] -perm 0777
 }
-set absPath [file join [pwd] junk]
+set absPath [file join [temporaryDirectory] junk]
 
 test unixFile-1.1 {Tcl_FindExecutable} {unixOnly} {
     set env(PATH) ""
@@ -61,18 +63,7 @@ test unixFile-1.7 {Tcl_FindExecutable} {unixOnly} {
 
 # cleanup
 catch {set env(PATH) $oldPath}
-file delete junk
+removeFile junk
+cd $oldpwd
 ::tcltest::cleanupTests
 return
-
-
-
-
-
-
-
-
-
-
-
-

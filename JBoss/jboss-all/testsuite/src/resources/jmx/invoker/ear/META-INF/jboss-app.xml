@@ -1,0 +1,6 @@
+<jboss-app>
+   <loader-repository>jboss.test:loader=invoker-adaptor-test.ear</loader-repository>
+   <module>
+      <service>invoker-adaptor-test.sar</service>
+   </module>
+</jboss-app>

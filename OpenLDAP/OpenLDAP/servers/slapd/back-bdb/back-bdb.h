@@ -1,7 +1,7 @@
 /* back-bdb.h - bdb back-end header file */
-/* $OpenLDAP: pkg/ldap/servers/slapd/back-bdb/back-bdb.h,v 1.54 2002/02/02 05:26:06 kurt Exp $ */
+/* $OpenLDAP: pkg/ldap/servers/slapd/back-bdb/back-bdb.h,v 1.54.2.15 2003/03/29 15:45:43 kurt Exp $ */
 /*
- * Copyright 2000-2002 The OpenLDAP Foundation, All Rights Reserved.
+ * Copyright 2000-2003 The OpenLDAP Foundation, All Rights Reserved.
  * COPYING RESTRICTIONS APPLY, see COPYRIGHT file
  */
 
@@ -9,13 +9,11 @@
 #define _BACK_BDB_H_
 
 #include <portable.h>
-#include <db.h>
-
 #include "slap.h"
+#include <db.h>
 
 LDAP_BEGIN_DECL
 
-#define BDB_IDL_MULTI		1
 /* #define BDB_HIER		1 */
 
 #define DN_BASE_PREFIX		SLAP_INDEX_EQUALITY_PREFIX
@@ -28,12 +26,14 @@ LDAP_BEGIN_DECL
 #define bv2DBT(bv,t)		((t)->data = (bv)->bv_val, \
 								(t)->size = (bv)->bv_len )
 
-#define BDB_TXN_RETRIES	16
+#define BDB_TXN_RETRIES		16
+
+#define BDB_MAX_ADD_LOOP	30
 
 #ifdef BDB_SUBDIRS
-#define BDB_TMP_SUBDIR	LDAP_DIRSEP "tmp"
-#define BDB_LG_SUBDIR	LDAP_DIRSEP "log"
-#define BDB_DATA_SUBDIR	LDAP_DIRSEP "data"
+#define BDB_TMP_SUBDIR	"tmp"
+#define BDB_LG_SUBDIR	"log"
+#define BDB_DATA_SUBDIR	"data"
 #endif
 
 #define BDB_SUFFIX		".bdb"
@@ -48,25 +48,34 @@ LDAP_BEGIN_DECL
 /* The bdb on-disk entry format is pretty space-inefficient. Average
  * sized user entries are 3-4K each. You need at least two entries to
  * fit into a single database page, more is better. 64K is BDB's
- * upper bound. The same issues arise with IDLs in the index databases,
- * but it's nearly impossible to avoid overflows there.
- *
- * When using BDB_IDL_MULTI, the IDL size is no longer an issue. Smaller
- * pages are better for concurrency.
+ * upper bound. Smaller pages are better for concurrency.
  */
 #ifndef BDB_ID2ENTRY_PAGESIZE
 #define	BDB_ID2ENTRY_PAGESIZE	16384
 #endif
 
 #ifndef BDB_PAGESIZE
-#ifdef BDB_IDL_MULTI
 #define	BDB_PAGESIZE	4096	/* BDB's original default */
-#else
-#define	BDB_PAGESIZE	16384
-#endif
 #endif
 
 #define DEFAULT_CACHE_SIZE     1000
+
+/* The default search IDL stack cache depth */
+#define DEFAULT_SEARCH_STACK_DEPTH	16
+
+/* for the IDL cache */
+#define SLAP_IDL_CACHE	1
+
+#ifdef SLAP_IDL_CACHE
+typedef struct bdb_idl_cache_entry_s {
+	struct berval kstr;
+	ldap_pvt_thread_rdwr_t idl_entry_rwlock;
+	ID      *idl;
+	DB      *db;
+	struct bdb_idl_cache_entry_s* idl_lru_prev;
+	struct bdb_idl_cache_entry_s* idl_lru_next;
+} bdb_idl_cache_entry_t;
+#endif
 
 /* for the in-core cache of entries */
 typedef struct bdb_cache {
@@ -76,7 +85,8 @@ typedef struct bdb_cache {
         Avlnode         *c_idtree;
         Entry           *c_lruhead;     /* lru - add accessed entries here */
         Entry           *c_lrutail;     /* lru - rem lru entries from here */
-        ldap_pvt_thread_mutex_t c_mutex;
+        ldap_pvt_thread_rdwr_t c_rwlock;
+        ldap_pvt_thread_mutex_t lru_mutex;
 } Cache;
  
 #define CACHE_READ_LOCK                0
@@ -100,31 +110,38 @@ struct bdb_info {
 
 	int			bi_ndatabases;
 	struct bdb_db_info **bi_databases;
-	ldap_pvt_thread_mutex_t	bi_database_mutex;
 	int		bi_db_opflags;	/* db-specific flags */
 
 	slap_mask_t	bi_defaultmask;
 	Cache		bi_cache;
 	Avlnode		*bi_attrs;
+	void		*bi_search_stack;
+	int		bi_search_stack_depth;
 #ifdef BDB_HIER
 	Avlnode		*bi_tree;
 	ldap_pvt_thread_rdwr_t	bi_tree_rdwr;
 	void		*bi_troot;
-	int		bi_nrdns;
 #endif
 
 	int			bi_txn_cp;
 	u_int32_t	bi_txn_cp_min;
 	u_int32_t	bi_txn_cp_kbyte;
 
-#ifndef NO_THREADS
 	int			bi_lock_detect;
-	int			bi_lock_detect_seconds;
-	ldap_pvt_thread_t	bi_lock_detect_tid;
-#endif
 
 	ID			bi_lastid;
 	ldap_pvt_thread_mutex_t	bi_lastid_mutex;
+#if defined(LDAP_CLIENT_UPDATE) || defined(LDAP_SYNC)
+	LDAP_LIST_HEAD(pl, slap_op) psearch_list;
+#endif
+#ifdef SLAP_IDL_CACHE
+	int		bi_idl_cache_max_size;
+	int		bi_idl_cache_size;
+	Avlnode		*bi_idl_tree;
+	bdb_idl_cache_entry_t	*bi_idl_lru_head;
+	bdb_idl_cache_entry_t	*bi_idl_lru_tail;
+	ldap_pvt_thread_mutex_t bi_idl_tree_mutex;
+#endif
 };
 
 #define bi_id2entry	bi_databases[BDB_ID2ENTRY]
@@ -137,27 +154,56 @@ struct bdb_info {
 struct bdb_op_info {
 	BackendDB*	boi_bdb;
 	DB_TXN*		boi_txn;
-	int			boi_err;
+	u_int32_t	boi_err;
+	u_int32_t	boi_locker;
+	int		boi_acl_cache;
 };
+
+#define	DB_OPEN(db, txn, file, name, type, flags, mode) \
+	(db)->open(db, file, name, type, flags, mode)
 
 #if DB_VERSION_MAJOR < 4
 #define LOCK_DETECT(env,f,t,a)		lock_detect(env, f, t, a)
 #define LOCK_GET(env,i,f,o,m,l)		lock_get(env, i, f, o, m, l)
+#define LOCK_PUT(env,l)			lock_put(env, l)
 #define TXN_CHECKPOINT(env,k,m,f)	txn_checkpoint(env, k, m, f)
 #define TXN_BEGIN(env,p,t,f)		txn_begin((env), p, t, f)
 #define TXN_PREPARE(txn,gid)		txn_prepare((txn), (gid))
 #define TXN_COMMIT(txn,f)			txn_commit((txn), (f))
 #define	TXN_ABORT(txn)				txn_abort((txn))
 #define TXN_ID(txn)					txn_id(txn)
+#define XLOCK_ID(env, locker)		lock_id(env, locker)
+#define XLOCK_ID_FREE(env, locker)	lock_id_free(env, locker)
 #else
 #define LOCK_DETECT(env,f,t,a)		(env)->lock_detect(env, f, t, a)
 #define LOCK_GET(env,i,f,o,m,l)		(env)->lock_get(env, i, f, o, m, l)
+#define LOCK_PUT(env,l)			(env)->lock_put(env, l)
 #define TXN_CHECKPOINT(env,k,m,f)	(env)->txn_checkpoint(env, k, m, f)
 #define TXN_BEGIN(env,p,t,f)		(env)->txn_begin((env), p, t, f)
 #define TXN_PREPARE(txn,g)			(txn)->prepare((txn), (g))
 #define TXN_COMMIT(txn,f)			(txn)->commit((txn), (f))
 #define TXN_ABORT(txn)				(txn)->abort((txn))
 #define TXN_ID(txn)					(txn)->id(txn)
+#define XLOCK_ID(env, locker)		(env)->lock_id(env, locker)
+#define XLOCK_ID_FREE(env, locker)	(env)->lock_id_free(env, locker)
+
+/* BDB 4.1.17 adds txn arg to db->open */
+#if DB_VERSION_MINOR > 1 || DB_VERSION_PATCH >= 17
+#undef DB_OPEN
+#define	DB_OPEN(db, txn, file, name, type, flags, mode) \
+	(db)->open(db, txn, file, name, type, flags, mode)
+#endif
+
+#define BDB_REUSE_LOCKERS
+
+#ifdef BDB_REUSE_LOCKERS
+#define	LOCK_ID_FREE(env, locker)
+#define	LOCK_ID(env, locker)	bdb_locker_id(op, env, locker)
+#else
+#define	LOCK_ID_FREE(env, locker)	XLOCK_ID_FREE(env, locker)
+#define	LOCK_ID(env, locker)		XLOCK_ID(env, locker)
+#endif
+
 #endif
 
 LDAP_END_DECL

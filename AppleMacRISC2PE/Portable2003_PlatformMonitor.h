@@ -68,7 +68,8 @@ enum {
 };
 
 enum {
-    kPB52MachineType = 1,
+    kPB62MachineType = 1,
+    kPB52MachineType = 2,
     kPB53MachineType = 3,
     kMaxMachineTypes
 };
@@ -102,6 +103,7 @@ private:
 	OSDictionary			*dictClamshellOpen, *dictClamshellClosed;
         MacRISC2PE			*macRISC2PE;
         int				machineType;
+        bool				goingToSleep;
 
 protected:
 

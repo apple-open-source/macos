@@ -803,9 +803,9 @@ Command Index
 * mh-do-pick-search:                     Searching.
 * mh-edit-again:                         Old Drafts.
 * mh-edit-mhn:                           Sending MIME.
-* mh-execute-commands <1>:               Customizing Incorporating.
-* mh-execute-commands <2>:               Finishing Up.
-* mh-execute-commands:                   Customizing Finishing Up.
+* mh-execute-commands <1>:               Customizing Finishing Up.
+* mh-execute-commands <2>:               Customizing Incorporating.
+* mh-execute-commands:                   Finishing Up.
 * mh-extract-rejected-mail:              Old Drafts.
 * mh-first-msg:                          Moving Around.
 * mh-forward:                            Forwarding.
@@ -816,8 +816,8 @@ Command Index
 * mh-insert-letter:                      Inserting Messages.
 * mh-insert-signature:                   Signature.
 * mh-insert-signature, example:          Customizing Sending.
-* mh-kill-folder <1>:                    Organizing.
-* mh-kill-folder:                        Customizing Reading.
+* mh-kill-folder <1>:                    Customizing Reading.
+* mh-kill-folder:                        Organizing.
 * mh-last-msg:                           Moving Around.
 * mh-list-folders:                       Organizing.
 * mh-list-sequences:                     Sequences.
@@ -839,31 +839,31 @@ Command Index
 * mh-put-msg-in-seq:                     Sequences.
 * mh-quit:                               Finishing Up.
 * mh-redistribute:                       Redistributing.
-* mh-refile-msg <1>:                     Organizing.
-* mh-refile-msg:                         Customizing Organizing.
+* mh-refile-msg <1>:                     Customizing Organizing.
+* mh-refile-msg:                         Organizing.
 * mh-refile-or-write-again:              Organizing.
 * mh-reply:                              Replying.
 * mh-rescan-folder:                      Organizing.
 * mh-rescan-folder, example:             Customizing Incorporating.
 * mh-revert-mhn-edit:                    Sending MIME.
 * mh-rmail <1>:                          Finishing Up.
-* mh-rmail <2>:                          Reading Mail Tour.
-* mh-rmail:                              Reading Mail.
+* mh-rmail <2>:                          Reading Mail.
+* mh-rmail:                              Reading Mail Tour.
 * mh-rmail, example:                     Customizing Reading.
 * mh-search-folder:                      Searching.
 * mh-send:                               Sending Mail.
 * mh-send-letter:                        Sending Message.
 * mh-show:                               Viewing.
 * mh-show, example:                      Customizing Incorporating.
-* mh-smail <1>:                          Sending Mail Tour.
-* mh-smail <2>:                          Sending Mail.
-* mh-smail:                              Processing Mail Tour.
+* mh-smail <1>:                          Sending Mail.
+* mh-smail <2>:                          Processing Mail Tour.
+* mh-smail:                              Sending Mail Tour.
 * mh-smail-other-window:                 Sending Mail.
-* mh-sort-folder <1>:                    Organizing.
-* mh-sort-folder:                        Customizing Organizing.
+* mh-sort-folder <1>:                    Customizing Organizing.
+* mh-sort-folder:                        Organizing.
 * mh-store-buffer:                       Customizing Files and Pipes.
-* mh-store-msg <1>:                      Files and Pipes.
-* mh-store-msg:                          Customizing Files and Pipes.
+* mh-store-msg <1>:                      Customizing Files and Pipes.
+* mh-store-msg:                          Files and Pipes.
 * mh-to-fcc <1>:                         Customizing Organizing.
 * mh-to-fcc:                             Header.
 * mh-to-field <1>:                       Searching.
@@ -937,9 +937,9 @@ Variable Index
 * mh-partial-folder-mode-line-annotation: Customizing Searching.
 * mh-pick-mode-hook:                     Customizing Searching.
 * mh-print-background:                   Customizing Printing.
-* mh-progs <1>:                          Customizing Incorporating.
-* mh-progs <2>:                          Customizing Reading.
-* mh-progs:                              Customizing Scan Line Formats.
+* mh-progs <1>:                          Customizing Scan Line Formats.
+* mh-progs <2>:                          Customizing Incorporating.
+* mh-progs:                              Customizing Reading.
 * mh-progs, example:                     Getting Started.
 * mh-quit-hook:                          Customizing Finishing Up.
 * mh-recenter-summary-p:                 Customizing Moving Around.
@@ -949,8 +949,8 @@ Variable Index
 * mh-refiled-msg-regexp:                 Customizing Scan Line Formats.
 * mh-repl-formfile:                      Customizing Sending.
 * mh-reply-default-reply-to:             Customizing Replying.
-* mh-scan-prog <1>:                      Customizing Incorporating.
-* mh-scan-prog:                          Customizing Scan Line Formats.
+* mh-scan-prog <1>:                      Customizing Scan Line Formats.
+* mh-scan-prog:                          Customizing Incorporating.
 * mh-send-prog:                          Customizing Sending Message.
 * mh-show-buffer-mode-line-buffer-id:    Customizing Viewing.
 * mh-show-hook:                          Customizing Viewing.

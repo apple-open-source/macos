@@ -1,0 +1,1965 @@
+#!/usr/bin/env bash
+#!/bin/sh
+# APPLE LOCAL file build machinery
+#############################################################################
+#############################################################################
+#
+## Implementation of the main B&I build targets for the top-level GNUmakefile
+## executed by the 'buildit' tool.
+##
+## This implements the guts of the GNUmakefile targets for "build" and
+## "install_no_src".  A "clean" target is implemented too but currently
+## that is handled explicitly by the GNUmakefile.
+##
+## Copyright Apple Computer, Inc., 2002
+#
+#############################################################################
+#############################################################################
+#
+## build_gcc_main - main build_gcc control function
+#
+build_gcc_main()
+{
+    #
+    # Force the execution search path while running this script...
+    #
+    export PATH=/bin:/usr/bin
+    
+    #
+    # What host we should produce executables for (where the compiler is going to be
+    # run)...
+    #
+    arch=`arch`
+    
+    #
+    # Process arguments to determine what we need to do (obviously!)...
+    #
+    getargs "$@"
+    
+    #
+    # Normally $TEMP will be /tmp.  But we treat it as an environment variable where
+    # it can point to any other directory.  You might want to do this, for example,
+    # if there wasn't enough space in the real /tmp.
+    #
+    TEMP=${TEMP:-/tmp}
+    if [ ! -d $TEMP ]; then
+      echo "The temporary directory '$TEMP' does not exist!"
+      exit 1
+    fi
+    
+    #
+    # The host on which we are running on now (what machine is being used to build
+    # compiler)...
+    #
+    BUILD=$arch
+    
+    gcc_version=`fgrep version_string < $SRCROOT/gcc/version.c | \
+                 sed -e 's/.*\"\([^ \"]*\)[ \"].*/\1/'`
+    
+    #
+    # What compilers to configure and build...
+    #
+    ENABLE_LANGUAGES="c++,c,objc,objc++"
+    COMPILERS="cpp cc1 cc1plus cc1obj cc1objplus"
+    # Suffix to add to the tools.  ("3" for 10.2 installed version)
+    SUFFIX=-${gcc_version}
+    # Name (and install_name!) of libstdc++.dylib to build (if any.)
+    LIBSTDCPP_DYLIB=libstdc++.dylib
+    LIBSTDCPP_DYLIB_VERSION=A
+    LIBRARIES="libgcc.a libcc_kext.a libgcc_static.a libsupc++.a $LIBSTDCPP_DYLIB libstdc++.a libcc_noc++.a"
+    TOOLS="gcc$SUFFIX g++$SUFFIX c++$SUFFIX gcov$SUFFIX cpp$SUFFIX" # c++3 must be after g++3 in the list
+    CRTS="crt2.o"
+    RANLIB_FOR_TARGET=`whereis ranlib`
+    
+    # uncomment to speed up testing
+    #ENABLE_LANGUAGES="c++,c"
+    #COMPILERS="cpp cc1 cc1plus"
+    
+    COMPILERS="$COMPILERS gcov"
+    LANGUAGES="`echo $ENABLE_LANGUAGES | sed -e 's/,/ /g'`"
+    
+    #
+    # CPP_INCLUDE_DIR is where we want to install the C++ headers...
+    #
+    CPP_INCLUDE_DIR="$DSTROOT/$PREFIX/include/gcc/darwin/$gcc_version/c++"
+
+    # Paddy McHackery
+    #box_title "WARNING -- HACK ALERT!  Build & Install libstdc++ stuff"
+    #DO_SYMLINKS=yes
+    #$n build_libstdcpp
+    #$n install_fat 
+    #exit -1
+
+    #
+    # Note, NEXT_ROOT points to the hdrs and libs that are actually to be used
+    # to build the compiler.  This may be different that what is currently 
+    # installed on the machine being used to build the compiler.
+    # Example: I have a 10.0 system that I want to build on but I want to
+    #          build a compiler for 10.1.  So I can point NEXT_ROOT to
+    #          a 10.1 system.  The variable is a pathname to the root (/)
+    #          of the desired system.
+    #
+    
+    box_title "Building Apple GCC $gcc_version Compiler(s) (languages = $ENABLE_LANGUAGES) for $result" \
+	      +-					\
+	      "BUILDHOST       = `hostname` -- a $arch"	\
+	      "HOSTS           = $HOSTS" 		\
+	      "TARGETS         = $TARGETS"		\
+	      "SRCROOT         = $SRCROOT"		\
+	      "OBJROOT         = $OBJROOT"		\
+	      "SYMROOT         = $SYMROOT"		\
+	      "DSTROOT         = $DSTROOT"		\
+	      "RC_RELEASE      = $RC_RELEASE"		\
+	      "CFLAGS          = `echo \"$CFLAGS\" | sed -e 's/^[ ]*//'`" \
+	      "OPT_OVERRIDE    = $OPT_OVERRIDE"		\
+	      "NEXT_ROOT       = $NEXT_ROOT"		\
+	      "BUILD           = $BUILD"		\
+	      "BOOTSTRAP       = $BOOTSTRAP"		\
+	      "PREFIX          = $PREFIX"		\
+	      "DO_SYMLINKS     = $DO_SYMLINKS"		\
+	      "ENABLE_CHECKING = $ENABLE_CHECKING"	\
+	      "Default cc      = `\cc -v 2>&1 | fgrep 'gcc version' | \
+	                          sed -e 's/.*version \([^ ,]*\),.*version \([^ ]*\).*/version \2, \1/'`" \
+	      "Curr. Hdrs.     = `\ls -l /usr/include/gcc/darwin/default | sed -e 's,.*-> \(.*\),\1,'`" \
+	      +-					\
+	      "`date +'%x %X %Z'`"
+    
+    #
+    # Clean obj's if the 'result' indicates that's what we're to do...
+    #
+    if [ "$result" = "clean" ]; then
+	$nc clean_gcc
+	box_title "Clean is done at `date +'%x %X %Z'`"
+	exit 0
+    fi
+    
+    #
+    # Check that cross compilers are available, i.e., make sure we have a
+    # compiler to build with that can generated code for the desired TARGETS.
+    # For example, trying to build a native i386 compiler on a ppc machine.
+    #
+    $nc check_for_cross_compilers
+    
+    #
+    # Configure gcc for all hosts and targets...
+    #
+    # If all we're doing is running buildit to do a configure then we're done
+    # after the configure.
+    #
+    $nc configure_gcc
+    if [ "$result" = "configure" ]; then
+	box_title "Configure is done at `date +'%x %X %Z'`"
+	exit 0
+    fi
+    
+    #
+    # Note, it would be nice if we could configure libstdc++-v3 at this
+    # point because then we could install the c++ headers during buildit's
+    # installhdrs step by simply doing these configures at installhdrs
+    # time.  But we cannot for two reasons:
+    #
+    # 1. The configure for libstdc++-v3 uses the just-built compiler to do
+    #    its configuration tests.  But since we haven't built the compiler
+    #    yet, we can't do that.  For example, the configure checks the
+    #    exception model.  If 2.95.2 is the default compiler, with an
+    #    incompatible exception model, configure would fail here.
+    #
+    # 2. Due to the layout complexity, the number of c++ headers, and the
+    #    fact that some of the headers need to be dynamically created by
+    #    the libstdc++-v3 makefile rules, we need to execute the gnumake
+    #    install using the libstdc++-v3 makefile.  But if nothing is built
+    #    yet the makefile will try to build libstdc++-v3, again using the
+    #    wrong compiler.
+    #
+    # Now it could be set up so that the libstdc++-v3 used the default cc
+    # IF we knew that that cc was a compatible gcc compiler.  But we do
+    # not want to make that assumption since gcc3 is so "dynamic" (lots
+    # of ongoing FSF contributions).  Gcc2 did make that assumption and
+    # it's c++ headers, both in number and layout, could be treated as
+    # boilerplate to simply be installed at installhdrs time.  We just
+    # can't do that for gcc3 and beyond.
+    #
+
+    #
+    # Build libiberty before we build the compiler(s)...
+    #
+    $nc configure_and_build_libiberty
+   
+    #
+    # Build the compiler(s)...
+    #
+    $nc build_compiler
+    
+    #
+    # If not cross-build to a different OS then we can use the compiler we just built
+    # to build the libraries.
+    #
+    if [ ! "$NEXT_ROOT" ]; then
+	$nc build_libgcc_and_specs
+    fi
+
+    	#
+	# Configure libstdc++-v3...
+    	#
+    	$nc configure_libstdcpp
+    
+    if [ ! "$NEXT_ROOT" ]; then
+	$nc build_libstdcpp
+	$nc build_libgcc_kext
+    fi
+    
+    #
+    # Create and install fat components...
+    #
+    if [ "$result" != "thins" ]; then
+    	$nc install_fat
+    	$nc install_cpp_headers
+    fi
+    
+    #
+    # Install HTML documentation
+    $nc install_html
+
+    if [ ! "$n" ]; then
+    	box_title "build_gcc script completed at `date +'%x %X %Z'`"
+    fi
+}
+
+#############################################################################
+#############################################################################
+#
+## Process build_gcc's options and arguments...
+#
+getargs()
+{
+    SRCROOT=			# where the sources reside
+    OBJROOT=			# where to do the build (assumes enough space)
+    SYMROOT=			# where to put binaries with debugger symbols
+    DSTROOT=			# where to put files that are supposed to be installed
+    
+    TARGETS=$arch		# what targets to produce compilers to
+    				# (i.e., target code generated by compiler)
+    
+    HOSTS=$arch			# what host we should produce executables for
+    
+    BOOTSTRAP=			# whether to bootstrap or not
+    
+    ENABLE_CHECKING=		# enable/disable tree and rtl access checks
+    
+    CFLAGS="-g"			# flags to use when compiling the compiler (FIXME?)
+    OPT_OVERRIDE=		# build compiler with this opt level
+    
+    ENABLE_THREADS=--enable-threads=posix # enable multi-threads!
+
+    BUILD=$arch			# host on which we are running at now 
+    				# (i.e., what machine is being used to build compiler)
+    
+    PREFIX=/usr			# configure --prefix directory
+    
+    DO_SYMLINKS=no		# generate $PREFIX/lib and $PREFIX/bin sym links
+    
+    result=fats			# what to do
+    
+    n=				# these are used for the -n option
+    nc=
+    q=
+    nc_depth=0
+    indnt=
+    SET="command set"
+    
+    for arg; do
+	case $next_arg in
+	    --srcroot)
+		SRCROOT=$arg
+		next_arg=
+		;;
+	    --objroot)
+		OBJROOT=$arg
+		next_arg=
+		;;
+	    --dstroot)
+		DSTROOT=$arg
+		next_arg=
+		;;
+	    --symroot)
+		SYMROOT=$arg
+		next_arg=
+		;;
+	    --host*)
+		HOSTS=$arg
+		next_arg=
+		;;
+	    --targets | --target)
+		TARGETS=$arg
+		next_arg=
+		;;
+	    --bootstrap)
+		BOOTSTRAP=yes
+		next_arg=
+		;;
+	    --cflags)
+		CFLAGS=$arg
+		next_arg= 
+		;;
+	    --prefix)
+		PREFIX=$arg
+		next_arg=
+		;;
+	    --symlink*)
+		DO_SYMLINKS=$arg
+		next_arg=
+		;;
+	    *)
+		case $arg in
+		    --srcroot=*)
+			SRCROOT=`echo $arg | sed 's/-*s[a-z]*=//'`
+			;;
+		    --objroot=*)
+			OBJROOT=`echo $arg | sed 's/-*o[a-z]*=//'`
+			;;
+		    --dstroot=*)
+			DSTROOT=`echo $arg | sed 's/-*d[a-z]*=//'`
+			;;
+		    --symroot=*)
+			SYMROOT=`echo $arg | sed 's/-*s[a-z]*=//'`
+			;;
+		    --hosts=* | --host=*)
+			HOSTS=`echo $arg | sed 's/-*h[a-z]*=//'`
+			;;
+		    --targets=* | --target=*)
+			TARGETS=`echo $arg | sed 's/-*t[a-z]*=//'`
+			;;
+		    --bootstrap=*)
+			if [ `echo $arg | sed 's/-*b[a-z]*=//'` = yes ]; then
+			    BOOTSTRAP=yes
+			else
+			    BOOTSTRAP=
+			fi
+			;;
+		    --bootstrap)
+			BOOTSTRAP=yes
+			;;
+		    --no-bootstrap)
+			BOOTSTRAP=
+			;;
+		    --enable-threads)
+			ENABLE_THREADS=--enable-threads=posix
+			;;
+		    --disable-threads)
+			ENABLE_THREADS=--disable-threads
+			;;
+		    --enable-checking)
+			ENABLE_CHECKING=--enable-checking
+			;;
+		    --disable-checking)
+			ENABLE_CHECKING=--disable-checking
+		    	;;
+		    --cflags=*)
+			CFLAGS=`echo $arg | sed 's/-*c[a-z]*=//'`
+			;;
+		    --prefix=*)
+			PREFIX=`echo $arg | sed 's/-*p[a-z]*=//'`
+			;;
+		    --symlinks=* | --symlink=*)
+			DO_SYMLINKS=`echo $arg | sed 's/-*s[a-z]*=//'`
+			;;
+		    --optimize=*)
+		    	OPT_OVERRIDE="`echo $arg | sed 's/-*o[a-z]*=//'`"
+			if [ "$OPT_OVERRIDE" = "yes" ]; then
+			  OPT_OVERRIDE=-O2
+			elif [ "$OPT_OVERRIDE" = "no" ]; then
+			  OPT_OVERRIDE=-O0
+			elif [ "$OPT_OVERRIDE" ]; then
+			    OPT_OVERRIDE="`echo $OPT_OVERRIDE | grep '[-]O[0-3s]'`"
+			    if [ ! "$OPT_OVERRIDE" ]; then
+			    	echo 'Invalid --optimize setting: '"$OPT_OVERRIDE"
+			    	echo "Expected yes, no, -On where n = 0, 1, 2, 3, or s."
+			    	exit 1
+			    fi
+			fi
+			;;
+		    --no-optimize)
+			OPT_OVERRIDE=-O0
+			;;
+		    --fat | --fats)
+			result=fats
+			;;
+		    --thin | --thins)
+			result=thins
+			;;
+		    --clean)
+			result=clean
+			;;
+		    --configure)
+			result=configure
+			;;
+		    --optimize)
+			OPT_OVERRIDE=-O2
+			;;
+		    --lib_ofiles)
+			# used for cross-building - when we build on one os that is to run
+			# on another os.  We probably can toos this.
+			result=lib_ofiles
+			;;
+		    -n)
+			n="echo -e"
+			nc=trace_script_call
+			nc_depth=0
+			q='"'
+			indnt=
+			SET=:
+			;;
+		    --*)
+			next_arg=$arg
+			;;
+		    *)
+			echo unknown option $arg
+			exit 1
+			;;
+		esac
+	esac
+    done
+    
+    #
+    # Make sure $SYMROOT, $OBJROOT, and $DSTROOT are all directories...
+    #
+    if [ ! -d $SYMROOT ]; then
+	echo "\$SYMROOT directory $SYMROOT does not exist or is not a directory!"
+	exit 1
+    fi
+    
+    if [ ! -d $OBJROOT ]; then
+	echo "\$OBJROOT directory $OBJROOT does not exist or is not a directory!"
+	exit 1
+    fi
+    
+    if [ ! -d $DSTROOT ]; then
+	echo "\$DSTROOT directory $DSTROOT does not exist or is not a directory!"
+	exit 1
+    fi
+    
+    #
+    # Make sure of the -symlinks option...
+    #
+    DO_SYMLINKS="${DO_SYMLINKS:-yes}"
+    if [ "$DO_SYMLINKS" != "yes" -a "$DO_SYMLINKS" != "no" ]; then
+	echo "Invalid -symlinks option ($DO_SYMLINKS) -- must be 'yes' or 'no'"
+	exit 1
+    fi
+    
+    #
+    # Remove any -arch flags from CFLAGS...
+    # Also save a copy of these original CFLAGS for places were we temporarily
+    # clobber CFLAGS and need to restore them (e.g., configure_libstdcpp).
+    #
+    CFLAGS=`echo $CFLAGS | sed -e 's/-arch [a-z0-9]*//g' | sed -e 's/^[ ]*//'`
+    ORIG_CFLAGS="$CFLAGS"
+    
+    #
+    # Make the build host the first item in $HOSTS in order to prevent any
+    # potential problems in trying to build a C++ cross compiler for a new
+    # target (e.g., trying to build a ppc lib while building the i386 to
+    # ppc cross compiler when we don't have the ppc native compiler).
+    #
+    HOSTS=`echo $HOSTS | fgrep "$arch" >/dev/null && echo -n "$arch "; echo $HOSTS | sed "s/$arch//"`
+
+    #
+    # Do the same for the targets too so that nested loops of all the hosts
+    # and targets are in a predictible order.
+    #
+    TARGETS=`echo $TARGETS | fgrep "$arch" >/dev/null && echo -n "$arch "; echo $TARGETS | sed "s/$arch//"`
+}
+
+#############################################################################
+#############################################################################
+#
+## Check that cross compilers are available, i.e., make sure we have a
+## compiler to build with that can generated code for the desired TARGETS.
+## For example, trying to build a native i386 compiler on a ppc machine.
+#
+check_for_cross_compilers()
+{
+    missing_cross=
+    
+    for host in $HOSTS; do 
+	if [ ! -d /usr/libexec/gcc/darwin/$host -a \
+	     ! -d /usr/local/libexec/gcc/darwin/$host ]; then
+	    box_title -? "The directory /usr/libexec/gcc/darwin/$host is missing!!!" \
+			 "Please install a compiler that generates code for $host."
+	    missing_cross=yes
+	fi
+    done  
+
+    for host in $HOSTS; do
+	if echo $TARGETS | grep $host >/dev/null 2>&1; then
+	    true;
+	else
+	    box_title -? "Host type $host should also be a target"
+	    #missing_cross=yes FIXME why commented out?
+	fi    
+    done
+
+    if [ "$missing_cross" = "yes" ]; then
+	exit 1
+    fi
+}
+
+#---------------------------------------------------------------------------#
+#
+## configure_gcc - configure for all hosts and targets...
+##
+## Here we are only doing gcc/configure.  Thus we are NOT doing the configures
+## "one up" i.e., directories lib libstdc++-v3.  We do this
+## because the top-level configure cannot configure for fat builds.
+#
+configure_gcc() 
+{
+    for target in $TARGETS; do
+	for host in $HOSTS; do
+	    $n mkdir -p $OBJROOT/cc-$target-on-$host
+	    $n cd $OBJROOT/cc-$target-on-$host
+	
+	    #
+	    # Try to prevent a reconfigure if the Makefile is already built
+	    # in the obj dir.
+	    #
+	    source=bad
+	    if [ -f make.id ]; then
+		if [ "`cat make.id`" = "$SRCROOT/gcc:$arch" ]; then
+		    source=ok
+		fi
+	    fi
+	
+	    if [ "$source" = "ok" -a -f Makefile ]; then
+		box_title -+ "Updating Makefile for cc-$target-on-$host" "buildhost = $arch"
+		$SET -x
+		$n gnumake Makefile
+		status=$?
+		$SET +x
+		check_status $status "*** gnumake failed just running the top level Makefile ***"
+	    else
+		box_title -+ "Configuring cc-$target-on-$host" \
+			     +- \
+			     "buildhost       = $arch" \
+			     "cwd             = `pwd`" \
+			     "Default cc      = `\cc -v 2>&1 | fgrep 'gcc version' | \
+						 sed -e 's/.*version \([^ ,]*\),.*version \([^ ]*\).*/version \2, \1/'`" \
+			     "Curr. hdrs      = `\ls -l /usr/include/gcc/darwin/default | sed -e 's,.*-> \(.*\),\1,'`" \
+			     "ENABLE_CHECKING = ${ENABLE_CHECKING:---enable-checking}"
+		$n rm -f make.id
+		$n echo $SRCROOT/gcc:$arch > make.id
+		$n rm -f rtl.o # FIXME what is this for?
+		
+		#
+		# The configure for the compiler from build_gcc specifies
+		# --enable-build-gcc to cause auto-host.h to #define PHAT.
+		# It is PHAT that makes causes the various search paths to
+		# be diffferent from notmal FSF-style builds so that the
+		# compiler will be found and look for stuff in the expected
+		# Apple installation directories descended from the PREFIX.
+		# 
+		
+		$SET -x
+		$n $SRCROOT/gcc/configure --host=$host-darwin \
+					  --target=$target-darwin \
+					  --build=$BUILD-darwin \
+					  --srcdir=$SRCROOT/gcc \
+					  $ENABLE_THREADS \
+					  --enable-languages=$q"$ENABLE_LANGUAGES"$q \
+					  ${ENABLE_CHECKING:---enable-checking} \
+					  --prefix=$PREFIX \
+					  --enable-build-gcc
+		$SET +x
+	    fi
+	done
+    done
+}
+
+#---------------------------------------------------------------------------#
+#
+## Configure and build all of libiberty.
+#
+configure_and_build_libiberty()
+{
+    local hosts=
+    
+    buildhost=$arch
+
+    $n mkdir -p $OBJROOT/libiberty
+    $n cd $OBJROOT/libiberty
+    
+    box_title -+ "Configuring libiberty" \
+    		 +- \
+    		 "cwd        = `pwd`" \
+    		 "Curr. hdrs = `\ls -l /usr/include/gcc/darwin/default | sed -e 's,.*-> \(.*\),\1,'`"
+    
+    if [ -f "$OBJROOT/libiberty/config.status" ] &&  \
+       [ ! "$SRCROOT/libiberty/configure" -nt "$OBJROOT/libiberty/config.status" ]; then
+	echo "### libiberty does not need to be reconfigured."
+    else
+	#
+	# Do only a single configure for the host machine.  We can get away with
+	# doing this here because in the libiberty case the config will work for
+	# all our desired host machines.
+	#
+	$n $SRCROOT/libiberty/configure --host=$BUILD-darwin \
+					--target=$BUILD-darwin \
+					--build=$BUILD-darwin \
+					--srcdir=$SRCROOT/libiberty \
+					--prefix=$PREFIX
+    fi
+    
+    box_title -+ "Building libiberty" \
+    		 +- \
+    		 "cwd = `pwd`"
+    
+    #
+    # We will build libiberty for all possible hosts wint the one make call...
+    #
+    hosts="-arch $buildhost"
+    for host in $HOSTS; do
+    	hosts="$hosts -arch $host"
+    done
+    
+    $SET -x
+    $n gnumake srcdir=$SRCROOT/libiberty \
+	       BUILD_PREFIX="$buildhost-" BUILD_PREFIX_1="$buildhost-" \
+	       HOST_CC="${NEXT_ROOT:+NEXT_ROOT=} cc -arch $buildhost -no-cpp-precomp" \
+	       CFLAGS="$OPT_OVERRIDE $CFLAGS" \
+	       GCC_CFLAGS="-no-cpp-precomp $CFLAGS" \
+	       BOOT_CFLAGS="${OPT_OVERRIDE:--O2} $CFLAGS -no-cpp-precomp -mdynamic-no-pic" \
+	       CC="cc $hosts -no-cpp-precomp $CFLAGS"
+    status=$?
+    $SET +x
+    check_status $status "*** gnumake failed building libiberty ***"
+}
+
+#---------------------------------------------------------------------------#
+#
+## Build the compilers for all combinations of hosts and targets.
+#
+build_compiler()
+{
+    local no_boot_opt_flag HOST_CC
+    
+    buildhost=$arch
+    
+    #
+    # If the arch is a ppc (i.e., we're building the compilers ona a ppc) and
+    # we are building both the i386 host and targets we want to use the ppc
+    # compiler we build first for the ppc host to build the i386 compilers.
+    # Here's a summary of who builds what:
+    #
+    #                                             target
+    #                        ppc                    |              i386
+    #      =====+===================================+===================================+
+    #       ppc | cc             -> cc-ppc-on-ppc   | cc-ppc-on-ppc  -> cc-i386-on-ppc  |
+    # host -----+-----------------------------------+-----------------------------------+
+    #      i386 | cc-i386-on-ppc -> cc-ppc-on-i386  | cc-i386-on-ppc -> cc-i386-on-i386 |
+    #      -----+-----------------------------------+-----------------------------------+
+    #
+    # In other words use the system installed cc compiler to build cc-ppc-on-ppc,
+    # cc-ppc-on-ppc to build cc-i386-on-ppc, and cc-i386-on-ppc to build both native
+    # i386 compilers. 
+    #
+    # Similarly if the arch is i386 we have,
+    #
+    #                                             target
+    #                        i386                   |              ppc
+    #      =====+===================================+===================================+
+    #      i386 | cc             -> cc-i386-on-i386 | cc-i386-on-i386 -> cc-ppc-on-i386 |
+    # host -----+-----------------------------------+-----------------------------------+
+    #       ppc | cc-ppc-on-i386 -> cc-i386-on-ppc  | cc-ppc-on-i386  -> cc-ppc-on-ppc  |
+    #      -----+-----------------------------------+-----------------------------------+
+    #
+    # Note that both $HOSTS and $TARGETS have been canonicalized so that build host (the
+    # arch) always comes first when both arch's are specified.
+    #
+
+    for host in $HOSTS; do
+	for target in $TARGETS; do
+	    if [ ! "$BOOTSTRAP" -o $host != $target -o $BUILD != $host -o "$NEXT_ROOT" ]; then
+		bootstrap=
+		
+	    else
+		bootstrap=bootstrap
+	    fi
+	    
+	    #
+	    # Define $HOST_CC according to the above tables...
+	    #
+	    if [ "$buildhost" = "$host" ]; then
+	    	if [ "$host" = "$target" ]; then
+	    	    HOST_CC=cc
+	    	else
+	    	    HOST_CC="$OBJROOT/cc-$buildhost-on-$buildhost/xgcc -B$OBJROOT/cc-$buildhost-on-$buildhost/"
+	    	fi
+	    else
+	    	HOST_CC="$OBJROOT/cc-$host-on-$buildhost/xgcc -B$OBJROOT/cc-$host-on-$buildhost/"
+	    fi
+	    # The above settings of HOST_CC don't work if the same
+	    # compiler is not already installed, because the
+	    # just-built compilers need crtbegin.o etc which haven't
+	    # been built yet.  So override until somebody figures this
+	    # out. -sts 2002-09-08
+	    HOST_CC=cc
+
+	    $n cd $OBJROOT/cc-$target-on-$host
+	    
+	    #
+	    # Determine the makefile target(s)...
+	    #
+	    bootstrap=${bootstrap:+bootstrap-lean gnucompare}
+	    	    
+	    if [ "$bootstrap" != "" ]; then
+	    	make_target="$bootstrap gcov"
+	    else
+		### c++filt now comes from binutils
+	    	make_target="html specs start.encap gcov"
+	    fi
+	    
+	    #
+	    # If we are not doing a bootstrap (generally because we're
+	    # building a cross compiler) but we asked for a bootstrap
+	    # build then make sure we build the compiler as -O2.
+	    #
+	    
+	    if [ "$bootstrap" = "" -a "$BOOTSTRAP" ]; then
+		no_boot_opt_flag=-O2
+	    else
+		no_boot_opt_flag=
+	    fi
+	    
+	    #
+	    # Build the compilers...
+	    #	  
+	    box_title -+ "Building compilers for cc-$target-on-$host" \
+	    		  +- \
+	    		 "make target(s) = $make_target" \
+			 "buildhost      = $buildhost" \
+			 "target         = $target" \
+			 "host           = $host" \
+			 "HOST_CC        = $HOST_CC" \
+			 "cwd            = `pwd`"
+	    
+	    #
+	    # This will build the compilers
+	    #
+	    $SET -x
+	    $n gnumake $make_target \
+		       srcdir=$SRCROOT/gcc \
+		       LANGUAGES="$LANGUAGES" \
+		       BUILD_PREFIX="$buildhost-" \
+		       BUILD_PREFIX_1="$buildhost-" \
+		       HOST_CC="${NEXT_ROOT:+NEXT_ROOT=} cc -arch $buildhost -no-cpp-precomp" \
+		       GCC_FOR_TARGET="`if [ "$NEXT_ROOT" ]; then \
+					    echo cc -no-cpp-precomp; \
+					elif [ $BUILD != $host ]; then \
+					    if [ -f ../cc-$target-on-$BUILD/xgcc ]; then \
+						echo ../cc-$target-on-$BUILD/xgcc -arch $target \
+						     -B../cc-$target-on-$BUILD/ -no-cpp-precomp;\
+					    else echo cc -arch $target -no-cpp-precomp; fi; \
+					else echo ./xgcc -B./ -no-cpp-precomp; fi`" \
+		       BISON=bison \
+		       CFLAGS="$no_boot_opt_flag $OPT_OVERRIDE $CFLAGS" \
+		       GCC_CFLAGS="-no-cpp-precomp $CFLAGS" \
+		       BOOT_CFLAGS="${OPT_OVERRIDE:--O2} $CFLAGS -no-cpp-precomp -mdynamic-no-pic" \
+		       BOOT_LDFLAGS= \
+		       CC="$HOST_CC -arch $host -no-cpp-precomp ${bootstrap:+"$CFLAGS"}"
+	    status=$?
+	    $SET +x
+	    check_status $status "*** gnumake failed building compiler ***"
+	    
+	    #
+	    # Copy pertinent sources and executables into the $sym dir...
+	    #
+	    sym=$SYMROOT/$host
+	    srcdir=$sym/src/$target
+	    bindir=$sym/$PREFIX/bin
+	    libdir=$sym/lib/$target
+	
+	    $n mkdir -p $srcdir
+	    $n mkdir -p $bindir
+	    $n mkdir -p $libdir
+	
+	    box_title -+ "Installing compilers in SYMROOT" \
+	    		 +- \
+	                 "From: cc-$target-on-$host" \
+	                 "To:   $libdir/$file"
+	    
+	    for file in $COMPILERS; do
+		$nc install_newer "-m 555" $file $libdir/$file 		
+	    done
+	    
+	    #
+	    # Copy all sources in the obj dir to the sym dir.  We use tar to preserve
+	    # all the permissions and time stamps.
+	    #
+	    if [ "$n" ]; then
+	    	$n "gnutar cf - *.c *.h *.y cp/*.c cp/*.h cp/*.y | (cd $srcdir; gnutar xvf -)"
+	    else
+	    	gnutar cf - *.c *.h *.y cp/*.c cp/*.h cp/*.y | (cd $srcdir; gnutar xvf -)
+	    fi
+	done
+	
+	box_title -+ "Installing $TOOLS in SYMROOT" \
+		     +- \
+	             "From: cc-$target-on-$host" \
+	             "To:   $bindir/$tool"
+	
+	if echo $TARGETS | grep $host >/dev/null; then
+	    for tool in $TOOLS; do
+	    	if [ "$tool" = "gcc$SUFFIX" ]; then
+		    actual_tool=xgcc
+		else
+		    actual_tool="`echo $tool | sed -e s/$SUFFIX$//`"
+		fi
+		#
+		# If c++ exists and is not a sym link we treat it like
+		# the others.  If it is a sym link skip it here.  We'll
+		# eventually install a sym link when we build a fat g++3.
+		# We detect that case by its absence in $bindir.
+		#
+		if [ "$actual_tool" = "c++" ]; then
+		    if [ -e "$OBJROOT/cc-$host-on-$host/$actual_tool" ] && \
+		       [ ! -L "$OBJROOT/cc-$host-on-$host/$actual_tool" ]; then
+			$nc install_newer "-m 555" "$OBJROOT/cc-$host-on-$host/$actual_tool" "$bindir/$tool"
+		    fi
+		else
+		    $nc install_newer "-m 555" "$OBJROOT/cc-$host-on-$host/$actual_tool" "$bindir/$tool"
+		fi
+	    done
+	fi    
+    done
+}
+
+#---------------------------------------------------------------------------#
+#
+## Run the libstdc++-v3/configure for each target.
+## Only need targets because its a lib which will get linked into executables.
+#
+configure_libstdcpp()
+{
+    for target in $TARGETS; do
+    	box_title -+ "Configuring libstdc++-v3" \
+    		     +- \
+    	             "target      = $target" \
+    	             "cwd         = $OBJROOT/$target/libstdc++-v3" \
+		     "Default cc  = `\cc -v 2>&1 | fgrep 'gcc version' | \
+				     sed -e 's/.*version \([^ ,]*\),.*version \([^ ]*\).*/version \2, \1/'`" \
+    	             "Curr. Hdrs. = `\ls -l /usr/include/gcc/darwin/default | sed -e 's,.*-> \(.*\),\1,'`"
+ 	
+ 	#
+ 	# Try to avoid reconfiguring libstdc++-v3 if at all possible...
+ 	#
+    	if [ -f "$OBJROOT/$target/libstdc++-v3/config.status" ] && \
+    	   [ ! "$SRCROOT/libstdc++-v3/configure" -nt "$OBJROOT/$target/libstdc++-v3/config.status" ]; then
+            echo "### libstdc++-v3 does not need to be reconfigured."
+            return
+    	fi
+   	
+    	#
+	# Create libstdc++-v3 subdirs; ignore error if they already exist.
+	#
+	safe_exec mkdir -p $OBJROOT/$target/libstdc++-v3
+	
+	#
+	# Configure the library directories...
+	# (Configure cares about current directory.)
+	#
+	$n cd $OBJROOT/$target/libstdc++-v3
+	
+	export CC="$OBJROOT/cc-$target-on-$arch/xgcc -B$OBJROOT/cc-$target-on-$arch/"
+	export CXX="$OBJROOT/cc-$target-on-$arch/g++ -B$OBJROOT/cc-$target-on-$arch/"
+	export CFLAGS="-arch $target -no-cpp-precomp  $OPT_OVERRIDE $CFLAGS"
+	export CXXFLAGS="-arch $target $OPT_OVERRIDE $CFLAGS"
+	
+	#
+	# Configure with "<cpu>-darwin", omitting "-apple".
+	# The "-darwin" is required to get the OS-specific ctype.h/os_defines.h stuff,
+	# and of course, <cpu> is required ;-) .
+	# Omiting "-apple" shortens the path to these files in the installed image
+	# (e.g., "/usr/include/gcc/darwin/VERSION/c++/ppc-darwin/...").
+	#
+	$SET -x
+	$n $SRCROOT/configure --srcdir=$SRCROOT/libstdc++-v3 \
+			      --host="$host-darwin" \
+			      --target="$target-darwin" \
+	    		      --with-gxx-include-dir="$CPP_INCLUDE_DIR" \
+			      $ENABLE_THREADS
+	$SET +x
+	
+	CFLAGS="$ORIG_CFLAGS"
+    done
+}
+
+#---------------------------------------------------------------------------#
+#
+## Build the various flavors of libgcc runtime libraries and also specs.
+## This builds the kext, static, and dynamic versions of libgcc.
+#
+build_libgcc_and_specs()
+{
+    #
+    # Make sure -static and -dynamic are removed from CFLAGS if it's there.
+    #
+    CFLAGS=`echo $CFLAGS | sed 's/-dynamic//' | sed 's/-static//'`
+    
+    #
+    # Only need to build for targets since these are libs to be used on those
+    # targets.
+    #
+    for target in $TARGETS; do 
+	host=$arch
+	$n mkdir -p $OBJROOT/cc-$target-on-$host
+	$n cd $OBJROOT/cc-$target-on-$host
+      	
+      	#
+	# The buildhost is in hosts..
+	# Determine which compiler to use.  Use the native to build native libs
+	# or cross to build the libs for the target.
+	#
+	if echo $HOSTS | grep $host >/dev/null; then
+	    compiler='./xgcc -B./'
+	    specs=specs
+	else
+	    #
+	    # If the list of hosts does not include the machine we're 
+	    # building on then run the following.
+	    # FIXME This probably needs to be removed, at the very least changed.
+	    # Example build ONLY for i386 on my ppc machine.
+	    #
+	    if [ -d /lib/$target ]; then
+	    	#
+		# Get version of installed $target compiler...
+		#
+		$n cc -arch $target -v 2> $TEMP/tmp.$$
+		target_vers=`cat $TEMP/tmp.$$ \
+			     | grep 'version' \
+			     | sed 's/, gcc.*$//' \
+			     | sed 's/^.*version //'`
+		rm $TEMP/tmp.$$
+	
+		if [ "$target_vers" != "$CCVERS" ]; then
+		    install_new_cc
+		fi
+	
+		compiler=cc
+		
+		$n rm -f specs
+		$n cp /lib/$target/specs specs
+		specs=
+	    else
+		install_new_cc
+	    fi
+	fi
+      	
+	#
+	# Now, build the gcc specs and runtime libraries ...
+	#
+	local v="`$compiler -v 2>&1 | grep -i version`"
+	if [ ! "$v" ]; then
+	    v="<unknown version>"
+	fi
+	box_title -+ "Building runtime libraries using new compiler" \
+		     +- \
+		     "target = $target" \
+		     "cwd    = `pwd`" \
+		     "$v"
+        
+        # FIXME?
+        # We may be able to use the fact that a bootstrap build creates
+        # a (dynamic) libgcc.a as part of the build.  But for now we'll
+        # rebuild it.
+        #
+	$n rm -f libgcc.a
+	libgcc_rebuilt=
+        
+        $nc build_libgcc static  "$compiler" $specs $target
+        $nc build_libgcc dynamic "$compiler" $specs $target
+        
+        if [ "$libgcc_rebuilt" = "" ]; then
+            echo "### None of the $target libgcc libraries needed to be rebuilt."
+            continue
+        fi
+         
+        $n cd $OBJROOT/cc-$target-on-$host
+       
+	box_title -+ "Installing libgcc libs in SYMROOT" \
+		     +- \
+	             "From: cc-$target-on-$host" \
+	             "To:   $sym/lib/$target"
+      
+	for host in $HOSTS; do
+	    sym=$SYMROOT/$host
+	    
+	    $n mkdir -p $sym/lib/$target
+	    
+	    $nc install_newer "-m 444" specs 	    	$sym/lib/$target/specs
+	    
+	    $nc install_newer "-m 444" libgcc_static.a  $sym/lib/$target/libgcc_static.a
+	    $n ranlib   			    	$sym/lib/$target/libgcc_static.a
+
+	    # libgcc_noc++.a should be libgcc_dynamic.a MINUS unwind*.o
+	    $n cp -p libgcc_dynamic.a libgcc_noc++.a
+	    #$n ar -d libgcc_noc++.a unwind-dw2.o unwind-dw2-fde.o
+	    $n ranlib libgcc_noc++.a
+	    $nc install_newer "-m 444" libgcc_noc++.a $sym/lib/$target/libcc_noc++.a 
+	    $n ranlib $sym/lib/$target/libcc_noc++.a
+
+	    #
+	    # Unlike the 2.x build we're giving the dynamic lib the "common" name.
+	    #
+	    $nc install_newer "-m 444" libgcc_dynamic.a $sym/lib/$target/libgcc.a
+	    $n ranlib   			    	$sym/lib/$target/libgcc.a
+	done
+    done
+}
+
+# libgcc_kext must happen after libstdc++ exists.  This can remerge
+# with build_libgcc_and_specs if we figure out how to preinstall
+# libstdc++ headers.
+
+build_libgcc_kext()
+{
+    #
+    # Make sure -static and -dynamic are removed from CFLAGS if it's there.
+    #
+    CFLAGS=`echo $CFLAGS | sed 's/-dynamic//' | sed 's/-static//'`
+    
+    #
+    # Only need to build for targets since these are libs to be used on those
+    # targets.
+    #
+    for target in $TARGETS; do 
+	host=$arch
+	$n mkdir -p $OBJROOT/cc-$target-on-$host
+	$n cd $OBJROOT/cc-$target-on-$host
+      	
+      	#
+	# The buildhost is in hosts..
+	# Determine which compiler to use.  Use the native to build native libs
+	# or cross to build the libs for the target.
+	#
+	if echo $HOSTS | grep $host >/dev/null; then
+	    compiler='./xgcc -B./'
+	    specs=specs
+	else
+	    #
+	    # If the list of hosts does not include the machine we're 
+	    # building on then run the following.
+	    # FIXME This probably needs to be removed, at the very least changed.
+	    # Example build ONLY for i386 on my ppc machine.
+	    #
+	    if [ -d /lib/$target ]; then
+	    	#
+		# Get version of installed $target compiler...
+		#
+		$n cc -arch $target -v 2> $TEMP/tmp.$$
+		target_vers=`cat $TEMP/tmp.$$ \
+			     | grep 'version' \
+			     | sed 's/, gcc.*$//' \
+			     | sed 's/^.*version //'`
+		rm $TEMP/tmp.$$
+	
+		if [ "$target_vers" != "$CCVERS" ]; then
+		    install_new_cc
+		fi
+	
+		compiler=cc
+		
+		$n rm -f specs
+		$n cp /lib/$target/specs specs
+		specs=
+	    else
+		install_new_cc
+	    fi
+	fi
+      	
+	#
+	# Now, build the gcc specs and runtime libraries ...
+	#
+	local v="`$compiler -v 2>&1 | grep -i version`"
+	if [ ! "$v" ]; then
+	    v="<unknown version>"
+	fi
+	box_title -+ "Building kext runtime libraries using new compiler" \
+		     +- \
+		     "target = $target" \
+		     "cwd    = `pwd`" \
+		     "$v"
+        
+        # FIXME?
+        # We may be able to use the fact that a bootstrap build creates
+        # a (dynamic) libgcc.a as part of the build.  But for now we'll
+        # rebuild it.
+        #
+	$n rm -f libgcc.a
+	libgcc_rebuilt=
+        
+        $nc build_libgcc kext    "$compiler" $specs $target
+        
+        if [ "$libgcc_rebuilt" = "" ]; then
+            echo "### None of the $target libgcc libraries needed to be rebuilt."
+            continue
+        fi
+         
+        $n cd $OBJROOT/cc-$target-on-$host
+       
+	box_title -+ "Installing libgcc libs in SYMROOT" \
+		     +- \
+	             "From: cc-$target-on-$host" \
+	             "To:   $sym/lib/$target"
+      
+	#
+	# List of modules in libgcc.a need to removed from libcc_kext.a...
+	# Used by build_libgcc_and_specs.
+	# Probably want to remove unwind-dw2.o and friends also,
+	# need to check on possibility of exceptions in a kext.
+	#
+	unneeded_kext_modules="_bb.o _exit.o"
+        
+	for host in $HOSTS; do
+	    sym=$SYMROOT/$host
+	    
+	    $n mkdir -p $sym/lib/$target
+	    
+	    #$n ar -d libgcc_kext.a $unneeded_kext_modules
+	    $nc install_newer "-m 444" libgcc_kext.a    $sym/lib/$target/libcc_kext.a
+	    $n ranlib    			   	$sym/lib/$target/libcc_kext.a
+  	done
+    done
+}
+
+#
+## build_libgcc kind compiler specs target
+##
+## kind     = 'kext' | 'dynamic' | 'static'
+## compiler = 'cc' | ''./xgcc -B./'
+## spec     = 'specs' | <null>
+## target   = 'ppc' | 'i386'
+##
+## Builds a kext, static, or dynamic version of libgcc.  Also may build
+## specs.
+##
+## This factors out the common make build line from build_libgcc_and_specs.
+## It has to build all the libgcc's for all targets.  Only a few arguments
+## are different in each case.  We determine them here.
+#
+build_libgcc()
+{
+    local kind="$1"
+    local compiler="$2"
+    local specs="$3"
+    local target="$4"
+    local extra_args=
+    local libname 
+    local ukind=`echo $kind | tr "[:lower:]" "[:upper:]"`
+    
+    #
+    # We have our own time stamp to try to avoid needlessly rebuilding these
+    # libraries.
+    #
+    if [ -e stmp-libgcc-$kind ]; then
+    	return
+    fi
+    
+    #
+    # The extra_args is the only thing that is different among the various kinds
+    # of libgcc libraries...
+    #
+    # Note the kext version of libgcc is a distinct target in the makefile
+    # called libcc_kext.a.  Here $libname carries the target which is normally
+    # libgcc.a in all but the kext case.
+    #
+    if [ "$target" = "ppc" ]; then
+	extra_args="$extra_args -force_cpusubtype_ALL"
+    fi
+    
+    case $kind in
+    	kext)
+	    libname=libcc_kext.a
+    	    extra_args="-static $extra_args"
+    	    if [ "$target" = "ppc" ]; then
+    	    	extra_args="$extra_args -mlong-branch"
+    	    fi
+    	    ;;
+    	static)
+	    libname=libgcc.a
+    	    extra_args="-static $extra_args"
+    	    ;;
+    	dynamic)
+	    libname=libgcc.a
+    	    ;;
+    esac
+    
+    box_title -+ "Building lib[g]cc_$ukind.a" \
+    		 +- \
+		 "target = $target" \
+		 "cwd    = `pwd`"
+    
+    $SET -x
+    if [ "$kind" != "kext" ]; then
+	if [ -f libgcc_$kind.a ]; then
+	    $n mv -f libgcc_$kind.a $libname
+	fi
+	rm -rf libgcc
+	if [ -d libgcc-$kind ]; then
+	    $n mv -f libgcc-$kind libgcc
+	fi
+    fi
+    
+    #
+    # Note, in the following make, PHAT must be explicitly defined in the
+    # TARGET_LIBGCC2_CFLAGS to override inhibit_libc so that libgcc2.c will
+    # generate __eprintf(). The libgcc2.c includes tconfig.h, not config.h
+    # and thus won't see auto-host.h like the compiler files.  If it did
+    # we wouldn't need the explicit -DPHAT here.  
+    #
+    
+    $n gnumake $specs $libname \
+	       srcdir=$SRCROOT/gcc \
+	       LANGUAGES="$LANGUAGES" \
+	       GCC_FOR_TARGET="$compiler" \
+	       ARCH_NAME="$arch" \
+	       BUILD_PREFIX="$arch-" \
+	       BUILD_PREFIX_1="$arch-" \
+	       HOST_CC="cc -arch $arch -no-cpp-precomp" \
+	       CFLAGS="${OPT_OVERRIDE:--O2} $CFLAGS" \
+	       AR_FOR_TARGET=ar \
+	       RANLIB_FOR_TARGET=${RANLIB_FOR_TARGET} \
+	       CC="cc -arch $host -no-cpp-precomp" \
+	       LIBGCC2_INCLUDES=-I$SRCROOT/gcc/cp/inc \
+	       LIBGCC2_OPT="${OPT_OVERRIDE:--O2}" \
+	       TARGET_LIBGCC2_CFLAGS="-DIN_GCC \
+				      -DPRIVATE_EXTERN=__private_extern__ \
+				      -DPRIVATE_EXTERN_ASM_OP=\\\".private_extern\\\" \
+				      $extra_args -DPHAT"
+    status=$?
+    $SET +x
+    check_status $status "*** gnumake failed building specs and libgcc ***"
+
+    $SET -x    
+
+    #
+    # Save the objects in a differnet name so that the libgcc directory
+    # no longer exists to confuse the make for the next variant of
+    # libgcc.  We also need to remove the stmp-dirs file.
+    #
+    # Note, the kludge to build the kext version of libgcc ends up already
+    # putting its objects in a dir called libcc_kext/.  For some reason
+    # there is an empty libgcc/ dir laying around after that.
+    #
+    $n mv -f $libname libgcc_$kind.a
+    if [ "$kind" != "kext" ]; then
+	$n mv -f libgcc libgcc-$kind
+	$n rm -f stmp-dirs
+    fi
+    # Add a stamp file to avoid needlessly rebuilding this stuff if
+    # we can avoid it.
+    #
+    touch stmp-libgcc-$kind
+    libgcc_rebuilt="$libgcc_rebuilt $kind"
+    $SET +x
+}
+
+#
+## Report an error if the list of hosts does not include a compiler for the
+## machine we're building on.   Example build ONLY for i386 on my ppc machine.
+#
+install_new_cc()
+{
+    box_title -? "You must have the most recent version of the compiler" \
+    		 "(host=$arch, target=$target) installed" \
+    		 "on the build host to finish this build...  " \
+    		 "OR have $host as one of the RC_HOSTS elements."
+    exit 1
+}
+
+#---------------------------------------------------------------------------#
+#
+## Build libstdc++.a
+#
+build_libstdcpp()
+{
+    #
+    # Make sure -static and -dynamic are removed from CFLAGS if it's there.
+    #
+    CFLAGS=`echo $CFLAGS | sed 's/-dynamic//' | sed 's/-static//'`
+    
+    #
+    # Only need to build for targets since these are libs to be used on those
+    # targets.
+    #
+    for target in $TARGETS; do 
+	$n cd $OBJROOT/$target/libstdc++-v3
+	
+    	box_title -+ "Building libstdc++-v3" \
+    		     +- \
+    	             "target = $target" \
+		     "cwd    = `pwd`"
+	
+	$SET -x
+	# can't expand a make-var on cmdline: "gnumake FOO=blort "BAR=double $FOO" will NOT expand to "BAR=double blort"
+	# it *may* be possible to have gnumake expand these, but such requires complex escaping conventions
+	# expand these in my own environment so they are fully expanded before passing to gnumake
+	local MY_CXXLIB="$OBJROOT/$target/libstdc++-v3/src/.libs"
+	local MY_CXXLIB_2="$OBJROOT/$target/soft-float/libstdc++-v3/src/.libs"
+	local MY_CFLAGS="-arch $target -no-cpp-precomp -B$OBJROOT/cc-$target-on-$arch/ ${OPT_OVERRIDE:--O2} $CFLAGS"
+	local MY_CXXFLAGS="-arch $target -B$OBJROOT/cc-$target-on-$arch/ ${OPT_OVERRIDE:--O2} -L$MY_CXXLIB -L$MY_CXXLIB_2 $MY_1_CFLAGS"
+		$n gnumake CC=$OBJROOT/cc-$target-on-$arch/xgcc \
+		   CXX="$OBJROOT/cc-$target-on-$arch/g++" \
+		   CFLAGS="$MY_CFLAGS" \
+		   CXXFLAGS="$MY_CXXFLAGS" \
+	           CPPFLAGS="-no-cpp-precomp"
+	status=$?
+	$SET +x
+	check_status $status "*** gnumake failed building libstdc++-v3 ***"
+      	       
+	box_title -+ "Installing libstdc++.a and libsupc++.a in SYMROOT" \
+		     +- \
+		     "From: $target" \
+		     "To:   $sym/lib/$target"
+	
+	#
+	# Reminder for future reference: May need ...ppc/libstdc++-v3/libsupc++/libsupc++convenience.a
+	#
+	for host in $HOSTS; do
+	    sym=$SYMROOT/$host
+	    $n mkdir -p $sym/lib/$target
+	    
+	    $nc install_newer  "-m 444" $OBJROOT/$target/libstdc++-v3/src/.libs/libstdc++.a       $sym/lib/$target/libstdc++.a
+	    $n ranlib    						              	          $sym/lib/$target/libstdc++.a
+
+	    # keep a "clean" copy which never gets 'nmedit -p'
+	    if [ "$LIBSTDCPP_DYLIB" != "" ]; then
+		$nc install_newer "" $OBJROOT/$target/libstdc++-v3/src/.libs/libstdc++.a          $sym/lib/$target/libstdc++.clean.a
+	    fi
+
+	    $nc install_newer  "-m 444" $OBJROOT/$target/libstdc++-v3/libsupc++/.libs/libsupc++.a $sym/lib/$target/libsupc++.a
+	    $n ranlib						              		          $sym/lib/$target/libsupc++.a
+	done
+    done
+}
+
+#---------------------------------------------------------------------------#
+#
+## Combine the thin compilers, libraries, and tools into fat versions and install
+## then into the DSTROOT.  Also install the c++ headers.
+##
+## Current gcc3 installation layout: (---> means a sym link to right path,
+##                                    <arch> means 'ppc' or 'i386')
+##
+## /usr/bin/cc      --> /usr/bin/gcc3
+##         /gcc     --> /usr/bin/gcc3
+##         /g++     --> /usr/bin/g++3
+##         /c++     --> /usr/bin/c++3 [--> /usr/bin/g++3]
+##         /gcov    --> /usr/bin/gcov3
+##         /cpp3
+## 
+## /usr/libexec/gcc/darwin/<arch>/as
+##                               /cpp-precomp
+##                               /VERSION/cc1*
+##                                       /specs
+##                                       /cpp
+##                               /default --> VERSION
+## 
+## /usr/lib/gcc/darwin/VERSION/libstdc++.a
+##                            /libsupc++.a
+##                            /libcc_kext.a
+##                            /libcc_noc++.a
+##                            /libgcc_static.a
+##                            /libgcc.a
+##                            /crtbegin.o
+##			      /libstdc++.dylib
+##                    /default --> VERSION
+## 
+## /usr/lib/libstdc++.a     --> gcc/darwin/default/libstdc++.a
+##         /libsupc++.a     --> gcc/darwin/default/libsupc++.a
+##         /libcc_kext.a    --> gcc/darwin/default/libcc_kext.a
+##         /libgcc_static.a --> gcc/darwin/default/libgcc_static.a
+##         /libgcc.a        --> gcc/darwin/default/libgcc.a
+##         /libcc_dynamic.a --> gcc/darwin/default/libgcc.a
+##
+## /usr/local/lib/libcc_noc++.a  --> ../lib/gcc/darwin/default/libcc_noc++.a
+##         
+## /usr/include/gcc/darwin/VERSION/assert.h
+##                                /float.h
+##                                /intypes.h
+##                                /stdarg.h
+##                                /stdbool.h
+##                                /stdint.h
+##                                /varargs.h
+##                                /machine/limits.h
+##                         /default --> VERSION
+##             /assert.h  -----------> gcc/darwin/default/assert.h
+##             /float.h   -----------> gcc/darwin/default/float.h
+##             /intypes.h -----------> gcc/darwin/default/intypes.h
+##             /stdarg.h  -----------> gcc/darwin/default/stdarg.h
+##             /stdbool.h -----------> gcc/darwin/default/stdbool.h
+##             /stdint.h  -----------> gcc/darwin/default/stdint.h
+##             /varargs.h -----------> gcc/darwin/default/varargs.h
+##             /machine/limits.h ----> ../gcc/darwin/default/machine/limits.h
+##             /c++/backward/*.h
+##                 /bits/*.h
+##                 /ext/*.h
+##                 /<arch>-darwin/*.h
+##                 /*.h
+## 
+## Not every sym link is done here.  Some are done in the GNUmakefile.
+#
+install_fat()
+{
+    box_title "Building fat binaries" \
+    	      +- \
+    	      "HOSTS   = $HOSTS" \
+    	      "targets = $TARGETS"
+    
+    fat=$DSTROOT
+    sym=$SYMROOT
+    lib=$PREFIX/lib/gcc/darwin/$gcc_version
+    privatelib=$lib/private/$LIBSTDCPP_DYLIB_VERSION
+    libexec=$PREFIX/libexec/gcc/darwin
+    
+    $n mkdir -p $fat
+    $n mkdir -p $fat/$PREFIX/bin
+    $n mkdir -p $fat/$lib
+    $n mkdir -p $privatelib
+    $n mkdir -p $fat/$libexec
+    
+    for target in $TARGETS; do
+	$n mkdir -p $fat/$libexec/$target/$gcc_version
+        
+        #
+	# In the following loop(s) $host is left set to one of the hosts being
+	# used (e.g., "ppc").  This is being mentioned because whatever it is
+	# is used in some of the statements following these loops to install
+	# specs and later the libraries.  It doesn't matter what the value is
+	# because the files being installed are host independent so it doesn't
+	# matter which ones we grab.
+	#
+	
+	#
+	# Make the fat compilers...
+	#
+	for file in $COMPILERS; do
+	    thin_files=
+	    for host in $HOSTS; do
+		thin_files="$thin_files $sym/$host/lib/$target/$file"
+	    done
+	    
+	    fat_file="$fat/$libexec/$target/$gcc_version/$file"
+	    $n rm -f "$fat_file"
+	    
+	    box_title -+ "Creating fat $target compiler" \
+		         "$fat_file"
+	    
+	    # lipo makes tools fat...
+	    exec_cmds_using_make "$fat_file" "$thin_files"			\
+	    			 "rm -f $fat_file"				\
+	    			 "lipo -create -output $fat_file $thin_files"	\
+	    			 "strip $fat_file"				\
+	    			 "chmod 555 $fat_file"
+	done
+      
+	$nc install_newer "-m 444" $sym/$host/lib/$target/specs $fat/$libexec/$target/$gcc_version/specs
+    done
+    
+    #
+    # Make the fat crt objects...
+    #
+    if [ ! "$NEXT_ROOT" ]; then
+	for file in $CRTS; do
+	    thin_files=
+	    for target in $TARGETS; do
+		thin_files="$thin_files $OBJROOT/cc-$target-on-$BUILD/$file"
+		# Change all global public data into private externs.
+		#$n nmedit -p $OBJROOT/cc-$target-on-$BUILD/$file
+	    done
+	    
+	    fat_file="$fat/$lib/$file"
+	    $n rm -f "$fat_file"
+	    
+	    box_title -+ "Creating fat crt" \
+		         "$fat_file"
+	    
+	    # libtool makes libraries fat...
+	    exec_cmds_using_make "$fat_file" "$thin_files" 			\
+				 "rm -f $fat_file" 				\
+	    			 "lipo -create -output $fat_file $thin_files"	\
+				 "strip -S $fat_file" 				\
+				 "chmod 444 $fat_file"
+	done
+	
+    fi
+    
+    #
+    # Make the fat libs...
+    #
+    if [ ! "$NEXT_ROOT" ]; then
+	for file in $LIBRARIES; do
+	    thin_files=
+	    for target in $TARGETS; do
+		if [ "$file" = "$LIBSTDCPP_DYLIB" ]; then
+		    # Keep a "clean" (non-nmedited) copy of libstdc++.a.
+		    thin_files="$thin_files $sym/$host/lib/$target/libstdc++.clean.a"
+		    fat_file="$fat/$privatelib/$file"
+		else
+		    thin_files="$thin_files $sym/$host/lib/$target/$file"
+		    # Change all global public data into private externs.
+		    $n nmedit -p $sym/$host/lib/$target/$file
+		    # touch the 'clean' copy to make it *newer* than the nmedit-ed version
+		    $n touch $sym/$host/lib/$target/libstdc++.clean.a
+		    fat_file="$fat/$lib/$file"
+		fi
+	    done
+	    
+	    $n rm -f "$fat_file"
+	    
+	    box_title -+ "Creating fat library" \
+		         "$fat_file"
+
+	    libtool_cmd="libtool -o $fat_file $thin_files"
+
+	    #
+	    # Creating dylib uses different libtool command...
+	    #
+	    if [ "$file" = "$LIBSTDCPP_DYLIB" ]; then
+		#
+		# Only if we have a fat libSystem.B.dylib can we be fat.
+		#
+		if [ "`file /usr/lib/libSystem.B.dylib | grep i386`" = "" ]; then
+		    libtool_cmd="libtool -o $fat_file -arch_only ppc $sym/$host/lib/ppc/libstdc++.clean.a"
+		fi
+
+		libtool_cmd="mkdir -p $fat/$privatelib && $libtool_cmd -dynamic -L$fat/$lib -lSystem -lgcc -install_name $privatelib/$LIBSTDCPP_DYLIB -v -current_version 1 -compatibility_version 1"
+	    fi
+
+	    # libtool makes libraries fat...
+	    exec_cmds_using_make "$fat_file" "$thin_files" 		\
+				 "rm -f $fat_file" 			\
+				 "$libtool_cmd"				\
+				 "strip -S $fat_file" 			\
+				 "chmod 444 $fat_file"
+
+	    if [ "$DO_SYMLINKS" = "yes" ]; then
+		if [ "$file" = "libcc_noc++.a" ]; then
+		    $n ln -s ../../lib/gcc/darwin/default/libcc_noc++.a \
+			     $fat/$PREFIX/local/lib/libcc_noc++.a
+		else
+		    $n ln -s gcc/darwin/default/$file $fat/$PREFIX/lib/$file
+		fi
+		if [ "$file" = "libgcc.a" ]; then
+		    $n ln -s gcc/darwin/default/libgcc.a $fat/$PREFIX/lib/libcc_dynamic.a
+		fi
+	    fi
+	    if [ "$file" = "$LIBSTDCPP_DYLIB" ] ; then
+		# Make libstdc++.dylib point at libstdc++.dylib.
+		# (that comment no longer makes sense.)
+		# Note this file "belongs" to the OS; it should NOT routinely change when a new compiler is installed.
+		$n ln -s $LIBSTDCPP_DYLIB_VERSION/$LIBSTDCPP_DYLIB $fat/$privatelib/../libstdc++.dylib
+	    fi
+	done
+	
+	if false; then
+	    #
+	    # We need to move libcc_noc++.a to $fat/$PREFIX/local/lib.  It's
+	    # currently in $fat/$PREFIX/lib/gcc/darwin/$gcc_version.
+	    #
+	    # Once libSystem is built with gcc3 then we don't need libcc_noc++.a
+	    # and it should be changed to link with libgcc.a.
+	    #
+	    # If we have to keep a libcc_noc++.a then we can make it a sym link
+	    # to libgcc_dynamic.a.
+	    #
+	    $n mkdir -p $fat/$PREFIX/local/lib
+	    $n /bin/rm -f $fat/$PREFIX/local/lib/libcc_noc++.a
+	    $n mv -f $fat/$lib/libcc_noc++.a $fat/$PREFIX/local/lib/
+	    
+	    #
+	    # The libgcc_static.a belongs in $fat/$PREFIX...
+	    #
+	    $n rm -f $fat/$PREFIX/lib/libgcc_static.a
+	    $n mv -f $fat/$lib/libgcc_static.a $fat/$PREFIX/lib
+        fi
+    fi
+
+    #
+    # Make the fat tools...
+    #
+    for tool in $TOOLS; do
+    	file=$PREFIX/bin/$tool
+	thin_files=
+	for host in $HOSTS; do
+	    #
+	    # Use only the native versions of the tools...
+	    #
+	    if echo $TARGETS | grep $host >/dev/null; then
+	    	# c++3 might not be there
+	        if [ -e $sym/$host/$file ]; then
+		    thin_files="$thin_files $sym/$host/$file"
+		fi
+	    else
+	    	box_title -? "Host type $host must also be a target in order to properly" \
+	    	             "create fat binaries such as cc."
+		exit 1
+	    fi
+	done
+	
+	box_title -+ "Creating fat $file"
+	
+	if [ "$thin_files" ]; then
+	    $n rm -f $fat/$file
+	    exec_cmds_using_make "$fat/$file" "$thin_files" 			\
+				 "rm -f $fat/$file" 				\
+				 "lipo -create -output $fat/$file $thin_files" 	\
+				 "strip $fat/$file" 				\
+				 "chmod 555 $fat/$file"
+    	else
+            echo "### $tool was not built (not thin files for it)"
+    	fi
+    	
+    	#
+    	# Create c++3 as a sym link to g++3 if c++ wasn't built.
+    	#
+	if [ "$tool" = "c++$SUFFIX" ] && [ ! -e $fat/$file ]; then
+	    ln -s g++$SUFFIX $fat/$file
+	    echo "### Creating sym link for c++$SUFFIX to g++$SUFFIX."
+    	fi
+    	
+    	if [ "$DO_SYMLINKS" = "yes" ]; then
+	    ln -s $tool $fat/$PREFIX/bin/"`echo $tool | sed -e s/$SUFFIX$//`"
+	    if [ "$tool" = "gcc$SUFFIX" ]; then
+	    	ln -s gcc$SUFFIX $fat/$PREFIX/bin/cc
+	    fi
+	fi
+    done
+}
+  
+#---------------------------------------------------------------------------#
+#
+## Install the c++ headers...
+##
+## This mimics what the libstdc++-v3 Makefile install rules end up doing but
+## selectively, i.e., it does a make install specifying on the include and
+## libsupc++ subdirectories by overriding the makefile's SUBDIRS macro.  No
+## building is going on for this so we only need to specify where we want the
+## stuff placed (the prefix).
+##
+## Note that we can install these headers any time but of course since we
+## need the configured makefiles it must be done after libstdc++-v3 is
+## configured.  For that reason we cannot do it as part of the buildit
+## installhdrs phase.  This causes sequencing problems for B&I if the
+## headers change, and should be fixed someday.
+#
+install_cpp_headers()
+{
+    for target in $TARGETS; do
+       $n cd $OBJROOT/$target/libstdc++-v3
+       
+       box_title -+ "Installing c++ headers" \
+       		    +- \
+		    "target = $target" \
+		    "cwd    = `pwd`"
+       
+       $SET -x
+       $n gnumake install prefix="$CPP_INCLUDE_DIR" SUBDIRS="include libsupc++"
+       status=$?
+       $SET +x
+       check_status $status "*** gnumake failed installing c++ headers ***"
+    done
+
+    # FIXME A bizarre hack necessitated by the prefix setting above,
+    # which itself seems to be needed to prevent other failures...
+    #
+    # A byproduct of installing libsupc++ us that it creates a lib 
+    # directory containing a libsupc++.la and libsupc++.a.  I don't
+    # think we need the libsupc++.la (I hope) and install_fat()
+    # installs libsupc++.a since it's part of the standard library
+    # installs done there.  So, all we need to to is clobber this
+    # lib directory.
+    #
+    $n rm -rf $CPP_INCLUDE_DIR/lib
+}
+
+#---------------------------------------------------------------------------#
+#
+## clean_gcc - clean the object directories
+#
+clean_gcc()
+{
+    box_title -+ "Cleaning Apple GCC compiler(s)"
+    
+    for target in $TARGETS; do
+	for host in $HOSTS; do
+	    if [ -d $OBJROOT/cc-$target-on-$host ]; then
+		echo "Cleaning: $OBJROOT/cc-$target-on-$host"
+		$n rm -Rf $OBJROOT/cc-$target-on-$host
+	    fi
+	done
+    done
+    
+    for host in $HOSTS; do
+	if [ -d $SYMROOT/$host ]; then
+	    echo "Cleaning: $SYMROOT/$host"
+	    $n rm -rf $SYMROOT/$host
+	fi
+    done
+    
+    if [ "$DSTROOT" != "$SRCROOT" ]; then
+	if [ -d $DSTROOT ]; then
+	    echo "Cleaning: $DSTROOT"
+	    $n rm -rf $DSTROOT
+	fi
+    fi
+}
+
+# Install the HTML documentation
+install_html()
+{
+    if [ -d $OBJROOT/cc-$buildhost-on-$buildhost/HTML ]; then
+	mkdir -p $DSTROOT/Developer/Documentation/DeveloperTools
+	cp -r $OBJROOT/cc-$buildhost-on-$buildhost/HTML/* $DSTROOT/Developer/Documentation/DeveloperTools
+    fi
+}
+
+#############################################################################
+#############################################################################
+#
+## box_title [-c] line1 line2 ...
+##
+## Echoes all the specified lines to stdout with a box around them.
+## The box is made up of *'s by default or 'c' if -c is specified.
+##
+## Note, a line of the form +c is expanded to a line of c characters that extends
+## across the entire width of the box (i.e., a line equal to the length of the
+## longest "real" line.  To have a "real" line looking like +c pass it as
+## ++c.  The leading + is then removed.
+##
+#
+box_title()
+{
+    local prefix= c="*" d a_line fill top_bottom blank_line longest_line max_len
+    
+    if [ "$indnt" != "" ]; then
+    	prefix="$indnt "
+    fi
+    
+    if echo "$1" | grep ^- >/dev/null 2>&1; then
+      c=`echo "$1" | sed 's,^-,,'`
+      shift
+    fi
+    
+    max_len=0
+    for a_line; do
+    	if echo "$a_line" | grep ^+ >/dev/null 2>&1 && [ ${#a_line} -eq 2 ]; then
+    	    :
+    	elif [ "`echo \"$a_line\" | sed 's,^++,+,'`" != "$a_line" ]; then
+    	    a_line="`echo \"$a_line\" | sed 's,^++,+,'`"
+    	    max_len=${#a_line}
+    	    longest_line="$a_line"
+    	elif [ ${#a_line} -gt $max_len ]; then
+    	    max_len=${#a_line}
+    	    longest_line="$a_line"
+    	fi
+    done
+
+    fill=`echo "$longest_line" | sed "s/./$c/g"`
+    top_bottom="$c$c$fill$c$c"
+    blank_line=`echo "$fill" | sed 's/./ /g'`
+        
+    echo
+    echo -e "$prefix""$top_bottom"
+    
+    blank_line="`echo \"$longest_line\" | tr \"[\\ -~]\" \" \"`"
+    for a_line; do
+    	if echo "$a_line" | grep ^+ >/dev/null 2>&1 && [ ${#a_line} -eq 2 ]; then
+    	    d=`echo "$a_line" | sed 's,^+,,'`
+    	    a_line=`echo "$fill" | sed 's/./'$d'/g'`
+    	elif [ "`echo \"$a_line\" | sed 's,^++,+,'`" != "$a_line" ]; then
+    	    a_line="`echo \"$a_line\" | sed 's,^++,+,'`"
+    	fi
+    	printf "%b%s %-*s %s\n" "$prefix" "$c" $max_len "$a_line" "$c"
+    done
+    echo -e "$prefix""$top_bottom"
+    echo
+}
+
+test1()
+{
+    n="echo -e"
+    nc=trace_script_call
+    nc_depth=0
+    q='"'
+    indnt=
+    box_title "in test1"
+    $nc test2
+}
+test2()
+{
+    box_title -+ "in test2"
+}
+
+#---------------------------------------------------------------------------#
+#
+## trace_script_call cmd args...
+##
+## Used whenever one of the script commands are to be called.  The call is done
+## from here so that we may trace it if the -n option was specified.
+##
+## All script command calls take the form: $n1 cmd args...
+##
+## If -n is specified then $nc is 'trace_script_call', otherwise it's null and
+## the command is called directly.
+#
+trace_script_call()
+{
+    local n0="$n"
+    local indnt0="$indnt"
+    
+    : $((nc_depth++))
+    
+    cmd="$1"
+    shift
+    
+    if [ "$n" ]; then
+        i=0
+        while [ $((i++)) -lt $nc_depth ]; do
+            indnt="$indnt""\040\040"
+        done
+        
+        n="echo -e ""$indnt"
+        
+        if [ "$first_cmd" == "" ]; then
+            first_cmd=1
+        else
+	    echo
+	fi
+    	$n0 $cmd "$@"
+    fi
+    
+    $cmd "$@"
+    
+    if [ "$n" ]; then
+    	n="$n0"
+    	indnt="$indnt0"
+    fi
+    
+    : $((nc_depth--))
+}
+
+#---------------------------------------------------------------------------#
+#
+## save_exec cmd args ... - execute cmd args ... and return only if cmd succeeds.
+#
+safe_exec() 
+{
+    if [ "$n" ]; then
+        $n "$@"
+    elif ($*); then
+        true
+    else
+    	box_title "*** Build failed at `date +'%x %X %Z'`! ***"
+        exit 1
+    fi
+}
+
+#---------------------------------------------------------------------------#
+#
+## check_status status msg - check the status of the most recent command.
+##
+## The status is checked and the msg displayed not 0.
+## Execution is terminated if the msg is displayed.
+#
+check_status()
+{
+    if [ $1 != 0 ]; then
+    	box_title "$2"
+    	exit 1
+    fi
+} 
+
+#---------------------------------------------------------------------------#
+#
+## exec_cmds_using_make target prerequisite cmd ...
+##
+## This takes the target, prerequisite, and a sequence of commands and creats a
+## makefile from it that looks as follows:
+##
+## target: prerequisite
+##    cmd1
+##    cmd2
+##    ...
+##
+## It makefiles is created in /tmp and executed.  We call this in various places
+## to handle the entire command sequence as a atomic operation for error checking
+## and also to make the execution option depending on the target/prerequisite
+## dates.
+##
+## Doing this from one place here isolates it to this one place and allows us to
+## better trace it.
+#
+exec_cmds_using_make()
+{
+    local target="$1"
+    local prereq="$2"
+    
+    shift 2
+    
+    if [ "$n" ]; then
+    	echo
+    fi
+    
+    $n rm -f $TEMP/make.$$
+    $n touch -f $TEMP/make.$$
+    
+    if [ "$n" ]; then
+    	$n echo \""$target: $prereq"\" ">>" "$TEMP/make.$$"
+	for arg; do
+	    $n echo \""\t""$arg"\" ">>" "$TEMP/make.$$"
+	done
+    else
+    	echo "$target: $prereq" >> $TEMP/make.$$
+	for arg; do
+	    echo "	$arg" >> $TEMP/make.$$
+	done
+    fi
+    
+    $SET -x
+    $n gnumake -f $TEMP/make.$$
+    status=$?
+    $SET +x
+    check_status $status "*** gnumake failed building for $target: $prereq ***"
+     
+    $n rm -f $TEMP/make.$$
+    
+    if [ "$n" ]; then
+    	echo
+    fi
+}
+
+#---------------------------------------------------------------------------#
+#
+## install-newer mode what where-dir - install 'what' ind directory 'where' giving
+##				       it the speified mode
+##
+#
+install_newer()
+{
+    local mode="$1"
+    local what="$2"
+    local where="$3"
+    
+    if [ -f "$what" ]; then
+    	exec_cmds_using_make "$where" "$what" 	\
+    			     "rm -f $where"	\
+    			     "install -c $mode $what $where"
+    else
+	box_title -? " build_gcc install: $what: no such file"
+    fi
+}
+
+#############################################################################
+#############################################################################
+
+build_gcc_main "$@"

@@ -1,7 +1,7 @@
 /* delete.c - ldap backend delete function */
-/* $OpenLDAP: pkg/ldap/servers/slapd/back-ldap/delete.c,v 1.11 2002/01/04 20:17:51 kurt Exp $ */
+/* $OpenLDAP: pkg/ldap/servers/slapd/back-ldap/delete.c,v 1.11.2.4 2003/03/03 17:10:09 kurt Exp $ */
 /*
- * Copyright 1998-2002 The OpenLDAP Foundation, All Rights Reserved.
+ * Copyright 1998-2003 The OpenLDAP Foundation, All Rights Reserved.
  * COPYING RESTRICTIONS APPLY, see COPYRIGHT file
  */
 /* This is an altered version */
@@ -75,8 +75,8 @@ ldap_back_delete(
 			mdn.bv_val = ( char * )dn->bv_val;
 		}
 #ifdef NEW_LOGGING
-	LDAP_LOG(( "backend", LDAP_LEVEL_DETAIL1,
-			"[rw] deleteDn: \"%s\" -> \"%s\"\n", dn->bv_val, mdn.bv_val ));
+	LDAP_LOG( BACK_LDAP, DETAIL1, 
+		"[rw] deleteDn: \"%s\" -> \"%s\"\n", dn->bv_val, mdn.bv_val, 0 );
 #else /* !NEW_LOGGING */
 	Debug( LDAP_DEBUG_ARGS, "rw> deleteDn: \"%s\" -> \"%s\"\n%s",
 			dn->bv_val, mdn.bv_val, "" );
@@ -85,12 +85,12 @@ ldap_back_delete(
 		
 	case REWRITE_REGEXEC_UNWILLING:
 		send_ldap_result( conn, op, LDAP_UNWILLING_TO_PERFORM,
-				NULL, "Unwilling to perform", NULL, NULL );
+				NULL, "Operation not allowed", NULL, NULL );
 		return( -1 );
 
 	case REWRITE_REGEXEC_ERR:
-		send_ldap_result( conn, op, LDAP_OPERATIONS_ERROR,
-				NULL, "Operations error", NULL, NULL );
+		send_ldap_result( conn, op, LDAP_OTHER,
+				NULL, "Rewrite error", NULL, NULL );
 		return( -1 );
 	}
 #else /* !ENABLE_REWRITE */

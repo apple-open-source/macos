@@ -265,7 +265,7 @@ static int _initBootImageContext (DisplayContext aDisplayContext)
 	    CGSGetRegionBounds(anImageRegion, &anImageRect);
             if (anImageRegion)
 	      {
-                (void) CGSReleaseRegion(anImageRegion); 
+                (void) CGSReleaseRegion(anImageRegion);
               }
 	    aDisplayContext->bootImageRect = anImageRect;
 

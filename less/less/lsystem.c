@@ -1,27 +1,11 @@
 /*
- * Copyright (c) 1984,1985,1989,1994,1995,1996,1999  Mark Nudelman
- * All rights reserved.
+ * Copyright (C) 1984-2002  Mark Nudelman
  *
- * Redistribution and use in source and binary forms, with or without
- * modification, are permitted provided that the following conditions
- * are met:
- * 1. Redistributions of source code must retain the above copyright
- *    notice, this list of conditions and the following disclaimer.
- * 2. Redistributions in binary form must reproduce the above copyright
- *    notice in the documentation and/or other materials provided with 
- *    the distribution.
+ * You may distribute under the terms of either the GNU General Public
+ * License or the Less License, as specified in the README file.
  *
- * THIS SOFTWARE IS PROVIDED BY THE AUTHOR ``AS IS'' AND ANY
- * EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
- * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR 
- * PURPOSE ARE DISCLAIMED.  IN NO EVENT SHALL THE AUTHOR BE LIABLE
- * FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR 
- * CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT 
- * OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR 
- * BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, 
- * WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE 
- * OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN 
- * IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+ * For more information about less, or for information on how to 
+ * contact the author, see the README file.
  */
 
 
@@ -30,8 +14,8 @@
  * Necessarily very OS dependent.
  */
 
-#include <signal.h>
 #include "less.h"
+#include <signal.h>
 #include "position.h"
 
 #if MSDOS_COMPILER
@@ -87,9 +71,9 @@ lsystem(cmd, donemsg)
 	/*
 	 * Working directory is global on MSDOS.
 	 * The child might change the working directory, so we
-	 * must save and restore CWD across calls to `system',
+	 * must save and restore CWD across calls to "system",
 	 * or else we won't find our file when we return and
-	 * try to `reedit_ifile' it.
+	 * try to "reedit_ifile" it.
 	 */
 	getcwd(cwd, FILENAME_MAX);
 #endif
@@ -123,7 +107,12 @@ lsystem(cmd, donemsg)
 	 */
 	inp = dup(0);
 	close(0);
+#if OS2
+	/* The __open() system call translates "/dev/tty" to "con". */
+	if (__open("/dev/tty", OPEN_READ) < 0)
+#else
 	if (open("/dev/tty", OPEN_READ) < 0)
+#endif
 		dup(inp);
 #endif
 
@@ -141,9 +130,14 @@ lsystem(cmd, donemsg)
 			p = save(shell);
 		else
 		{
-			p = (char *) ecalloc(strlen(shell) + strlen(cmd) + 7, 
-					sizeof(char));
-			sprintf(p, "%s -c \"%s\"", shell, cmd);
+			char *esccmd = shell_quote(cmd);
+			if (esccmd != NULL)
+			{
+				p = (char *) ecalloc(strlen(shell) +
+					strlen(esccmd) + 5, sizeof(char));
+				sprintf(p, "%s %s %s", shell, shell_coption(), esccmd);
+				free(esccmd);
+			}
 		}
 	}
 	if (p == NULL)
@@ -153,11 +147,14 @@ lsystem(cmd, donemsg)
 		else
 			p = save(cmd);
 	}
-
 	system(p);
 	free(p);
 #else
 #if MSDOS_COMPILER==DJGPPC
+	/*
+	 * Make stdin of the child be in cooked mode.
+	 */
+	setmode(0, O_TEXT);
 	/*
 	 * We don't need to catch signals of the child (it
 	 * also makes trouble with some DPMI servers).

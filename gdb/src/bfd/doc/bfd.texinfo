@@ -207,6 +207,7 @@ IEEE-695.
 @node BFD front end, BFD back ends, Overview, Top
 @chapter BFD front end
 @include bfdt.texi
+@include bfdio.texi
 
 @menu
 * Memory Usage::

@@ -24,7 +24,7 @@ ARCHLESS_RC_CFLAGS=`echo $(RC_CFLAGS) | sed 's/-arch [a-z0-9]*//g'`
 
 VPATH = $(OBJROOT):$(SYMROOT)
 
-GENERIC_SUBDIRS = gen
+GENERIC_SUBDIRS =
 
 #
 # Currently builds for i386

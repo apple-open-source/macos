@@ -32,7 +32,7 @@
 #include <CoreFoundation/CoreFoundation.h>
 
 // IOSCSIArchitectureModelFamily includes
-#include <IOKit/scsi-commands/SCSICmds_INQUIRY_Definitions.h>
+#include <IOKit/scsi/SCSICmds_INQUIRY_Definitions.h>
 
 // Private includes
 #include "SCSITaskDeviceClass.h"

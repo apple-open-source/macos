@@ -1,0 +1,26 @@
+Ihre Mitgliedschaft in der Mailingliste %(listname)s wurde wegen
+wiederholter Unzustellbarkeit vorübergehend ausgesetzt. Sie werden so lange
+keine Nachrichten dieser Liste mehr erhalten, bis Ihre Mitgliedschaft
+reaktiviert wird. Nach %(noticesleft)s weiteren Mitteilungen wie dieser wird
+Ihre Mitgliedschaft komplett gelöscht werden.
+
+Um Ihre Mitgliedschaft zu reaktivieren können Sie einfach auf diese
+Nachricht antworten (ohne die Betreff bzw. Subject-Zeile zu verändern), oder
+Sie besuchen die Rückmeldungsseite unter
+
+    %(confirmurl)s
+
+Sie können auch Ihre Mitgliedschafts-Seite besuchen:
+
+    %(optionsurl)s
+
+Dort können Sie verschiedenste Einstellungen, wie den Empfang von
+Nachrichtensammlungen oder Ihre Emailadresse, konfigurieren.
+Zur Erinnerung: Ihr Passwort für diese Liste lautet
+
+    %(password)s
+
+Bei Fragen oder Problemen wenden Sie sich bitte an den Betreiber dieser
+Liste, erreichbar unter:
+
+    %(owneraddr)s

@@ -1,0 +1,373 @@
+To: rsync@lists.samba.org
+Subject: Rsync performance increase through buffering
+From: Craig Barratt <craig@atheros.com>
+Message-ID: <auto-000002369223@atheros.com>
+Date: Sun, 08 Dec 2002 23:48:57 -0800
+
+I've been studying the read and write buffering in rsync and it turns
+out most I/O is done just a couple of bytes at a time.  This means there
+are lots of system calls, and also most network traffic comprises lots
+of small packets.  The behavior is most extreme when sending/receiving
+file deltas of identical files.
+
+The main case where I/O is buffered is writes from the server (when
+io multiplexing is on). These are usually buffered in 4092 byte
+chunks with a 4 byte header. However, reading of these packets is
+usually unbuffered, and writes from the client are generally not
+buffered.  For example: when receiving 1st phase checksums (6 bytes
+per block), 2 reads are done: one of 4 bytes and one of 2 bytes,
+meaning there are 4 system calls (select/read/select/read) per 6
+bytes of checksum data).
+
+One cost of this is some performance, but a significant issue is that
+unbuffered writes generate very short (and very many) ethernet packets,
+which means the overhead is quite large on slow network connections.
+
+The initial file_list writing is typically buffered, but reading it on
+the client is not.
+
+There are some other unneeded system calls:
+
+  - One example is that show_progress() calls gettimeofday() even
+    if do_progress is not set.  show_progress() is called on every
+    block, so there is an extra system call per (700 byte) block.
+
+  - Another example is that file_write writes each matching (700 byte)
+    block without buffering, so that's another system call per block.
+
+To study this behavior I used rsync-2.5.6cvs and had a benchmark area
+comprising around 7800 files of total size 530MB.
+
+Here are some results doing sends and receives via rsyncd, all on the
+same machine, with identical source and destination files.  In each
+case --ignore-times (-I) is set, so that every file is processed:
+
+  - Send test:
+  
+        strace -f rsync -Ir . localhost::test |& wc
+
+    shows there are about 2,488,775 system calls.
+
+  - Receive test:
+
+        strace -f rsync -Ir localhost::test . |& wc
+
+    shows there are about 1,615,931 system calls.
+
+  - Rsyncd has a roughly similar numbers of system calls.
+
+  - Send test from another machine (cygwin/WinXP laptop):
+
+        tcpdump port 873 |& wc
+
+    shows there are about 701,111 ethernet packets (many of them only
+    have a 4 byte payload).
+
+Since the source and dest files are the same, the send test only
+wrote 1,738,797 bytes and read 2,139,848 bytes.
+
+These results are similar to rsync 2.5.5.
+
+Below is a patch to a few files that adds read and write buffering in
+the places where the I/O was unbuffered, adds buffering to write_file()
+and removes the unneeded gettimeofday() system call in show_progress().
+
+The results with the patch are:
+
+  - Send test: 46,835 system calls, versus 2,488,775.
+  
+  - Receive test: 138,367 system calls, versus 1,615,931.
+
+  - Send test from another machine: 5,255 ethernet packets, versus 701,111.
+    If the tcp/ip/udp/802.3 per-packet overhead is around 60 bytes, that
+    means the base case transfers an extra 42MB of data, even though the
+    useful data is only around 2MB.
+
+The absolute running time on the local rsyncd test isn't much different,
+probably because the test is really disk io limited and system calls on
+an unloaded linux system are pretty fast.
+
+However, on a network test doing a send from cygwin/WinXP to rsyncd
+on rh-linux the running time improves from about 700 seconds to 215
+seconds (with a cpu load of around 17% versus 58%, if you believe
+cygwin's cpu stats).  This is probably an extreme case since the system
+call penalty in cygwin is high.  But I would suspect a significant
+improvement is possible with a slow network connection, since a lot
+less data is being sent.
+
+Note also that without -I rsync is already very fast, since it skips
+(most) files based on attributes.
+
+With or without this patch the test suite passes except for
+daemon-gzip-upload.  One risk of buffering is the potential for
+a bug caused by a missing io_flush: deadlock is possible, so try
+the patch at your own risk...
+
+Craig
+
+###########################################################################
+diff -bur rsync/fileio.c rsync-craig/fileio.c
+--- rsync/fileio.c	Fri Jan 25 15:07:34 2002
++++ rsync-craig/fileio.c	Sat Dec  7 22:21:10 2002
+@@ -76,7 +76,35 @@
+ 	int ret = 0;
+ 
+ 	if (!sparse_files) {
+-		return write(f,buf,len);
++		static char *writeBuf;
++		static size_t writeBufSize;
++		static size_t writeBufCnt;
++
++		if ( !writeBuf ) {
++		    writeBufSize = MAX_MAP_SIZE;
++		    writeBufCnt  = 0;
++		    writeBuf = (char*)malloc(MAX_MAP_SIZE);
++		    if (!writeBuf) out_of_memory("write_file");
++		}
++		ret = len;
++		do {
++		    if ( buf && writeBufCnt < writeBufSize ) {
++			size_t copyLen = len;
++			if ( copyLen > writeBufSize - writeBufCnt ) {
++			    copyLen = writeBufSize - writeBufCnt;
++			}
++			memcpy(writeBuf + writeBufCnt, buf, copyLen);
++			writeBufCnt += copyLen;
++			buf += copyLen;
++			len -= copyLen;
++		    }
++		    if ( !buf || writeBufCnt == writeBufSize ) {
++			int thisRet = write(f, writeBuf, writeBufCnt);
++			if ( thisRet < 0 ) return thisRet;
++			writeBufCnt = 0;
++		    }
++		} while ( buf && len > 0 );
++		return ret;
+ 	}
+ 
+ 	while (len>0) {
+diff -bur rsync/flist.c rsync-craig/flist.c
+--- rsync/flist.c	Sat Jul 27 11:01:21 2002
++++ rsync-craig/flist.c	Sun Dec  8 16:28:14 2002
+@@ -889,7 +889,7 @@
+ 	flist = flist_new();
+ 
+ 	if (f != -1) {
+-		io_start_buffering(f);
++		io_start_buffering_out(f);
+ 	}
+ 
+ 	for (i = 0; i < argc; i++) {
+diff -bur rsync/io.c rsync-craig/io.c
+--- rsync/io.c	Wed Apr 10 19:11:50 2002
++++ rsync-craig/io.c	Sun Dec  8 17:54:23 2002
+@@ -41,8 +41,8 @@
+ 
+ static int io_multiplexing_out;
+ static int io_multiplexing_in;
+-static int multiplex_in_fd;
+-static int multiplex_out_fd;
++static int multiplex_in_fd = -1;
++static int multiplex_out_fd = -1;
+ static time_t last_io;
+ static int no_flush;
+ 
+@@ -286,17 +286,31 @@
+ 	static size_t remaining;
+ 	int tag, ret = 0;
+ 	char line[1024];
++        static char *buffer;
++        static size_t bufferIdx = 0;
++        static size_t bufferSz;
+ 
+-	if (!io_multiplexing_in || fd != multiplex_in_fd)
++	if (fd != multiplex_in_fd)
+ 		return read_timeout(fd, buf, len);
+ 
++	if (!io_multiplexing_in && remaining == 0) {
++		if (!buffer) {
++			bufferSz = 2 * IO_BUFFER_SIZE;
++			buffer   = malloc(bufferSz);
++			if (!buffer) out_of_memory("read_unbuffered");
++		}
++		remaining = read_timeout(fd, buffer, bufferSz);
++                bufferIdx = 0;
++        }
++
+ 	while (ret == 0) {
+ 		if (remaining) {
+ 			len = MIN(len, remaining);
+-			read_loop(fd, buf, len);
++			memcpy(buf, buffer + bufferIdx, len);
++			bufferIdx += len;
+ 			remaining -= len;
+ 			ret = len;
+-			continue;
++			break;
+ 		}
+ 
+ 		read_loop(fd, line, 4);
+@@ -305,8 +319,16 @@
+ 		remaining = tag & 0xFFFFFF;
+ 		tag = tag >> 24;
+ 
+-		if (tag == MPLEX_BASE)
++		if (tag == MPLEX_BASE) {
++			if (!buffer || remaining > bufferSz) {
++				buffer = Realloc(buffer, remaining);
++				if (!buffer) out_of_memory("read_unbuffered");
++				bufferSz = remaining;
++			}
++			read_loop(fd, buffer, remaining);
++                        bufferIdx = 0;
+ 			continue;
++                }
+ 
+ 		tag -= MPLEX_BASE;
+ 
+@@ -327,7 +349,9 @@
+ 		rprintf((enum logcode) tag, "%s", line);
+ 		remaining = 0;
+ 	}
+-
++        if (remaining == 0) {
++		io_flush();
++	}
+ 	return ret;
+ }
+ 
+@@ -344,8 +368,6 @@
+ 	size_t total=0;  
+ 	
+ 	while (total < N) {
+-		io_flush();
+-
+ 		ret = read_unbuffered (fd, buffer + total, N-total);
+ 		total += ret;
+ 	}
+@@ -531,7 +553,7 @@
+ static char *io_buffer;
+ static int io_buffer_count;
+ 
+-void io_start_buffering(int fd)
++void io_start_buffering_out(int fd)
+ {
+ 	if (io_buffer) return;
+ 	multiplex_out_fd = fd;
+@@ -540,6 +562,11 @@
+ 	io_buffer_count = 0;
+ }
+ 
++void io_start_buffering_in(int fd)
++{
++	multiplex_in_fd = fd;
++}
++
+ /**
+  * Write an message to a multiplexed stream. If this fails then rsync
+  * exits.
+@@ -726,7 +753,7 @@
+ {
+ 	multiplex_out_fd = fd;
+ 	io_flush();
+-	io_start_buffering(fd);
++	io_start_buffering_out(fd);
+ 	io_multiplexing_out = 1;
+ }
+ 
+diff -bur rsync/main.c rsync-craig/main.c
+--- rsync/main.c	Thu Aug  1 13:46:59 2002
++++ rsync-craig/main.c	Sun Dec  8 17:39:07 2002
+@@ -346,6 +346,8 @@
+ 		exit_cleanup(0);
+ 	}
+ 
++        io_start_buffering_in(f_in);
++        io_start_buffering_out(f_out);
+ 	send_files(flist,f_out,f_in);
+ 	io_flush();
+ 	report(f_out);
+@@ -421,7 +423,7 @@
+ 	close(error_pipe[1]);
+ 	if (f_in != f_out) close(f_in);
+ 
+-	io_start_buffering(f_out);
++	io_start_buffering_out(f_out);
+ 
+ 	io_set_error_fd(error_pipe[0]);
+ 
+@@ -476,6 +478,7 @@
+ 		}    
+ 	}
+ 
++        io_start_buffering_in(f_in);
+ 	if (delete_mode && !delete_excluded)
+ 		recv_exclude_list(f_in);
+ 
+@@ -569,6 +572,7 @@
+ 		extern int cvs_exclude;
+ 		extern int delete_mode;
+ 		extern int delete_excluded;
++                io_start_buffering_out(f_out);
+ 		if (cvs_exclude)
+ 			add_cvs_excludes();
+ 		if (delete_mode && !delete_excluded) 
+@@ -578,7 +582,10 @@
+ 		if (verbose > 3) 
+ 			rprintf(FINFO,"file list sent\n");
+ 
++                io_flush();
++                io_start_buffering_out(f_out);
+ 		send_files(flist,f_out,f_in);
++                io_flush();
+ 		if (remote_version >= 24) {
+ 			/* final goodbye message */		
+ 			read_int(f_in);
+@@ -590,6 +597,7 @@
+ 			wait_process(pid, &status);
+ 		}
+ 		report(-1);
++		io_flush();
+ 		exit_cleanup(status);
+ 	}
+ 
+diff -bur rsync/progress.c rsync-craig/progress.c
+--- rsync/progress.c	Sun Apr  7 22:28:57 2002
++++ rsync-craig/progress.c	Sat Dec  7 18:57:19 2002
+@@ -97,6 +97,8 @@
+ 	extern int do_progress, am_server;
+         struct timeval now;
+ 
++	if (!do_progress) return;
++
+         gettimeofday(&now, NULL);
+ 
+         if (!start_time.tv_sec && !start_time.tv_usec) {
+diff -bur rsync/proto.h rsync-craig/proto.h
+--- rsync/proto.h	Wed Jul 31 17:37:02 2002
++++ rsync-craig/proto.h	Sun Dec  8 16:27:55 2002
+@@ -102,7 +102,8 @@
+ void read_buf(int f,char *buf,size_t len);
+ void read_sbuf(int f,char *buf,size_t len);
+ unsigned char read_byte(int f);
+-void io_start_buffering(int fd);
++void io_start_buffering_out(int fd);
++void io_start_buffering_in(int fd);
+ void io_flush(void);
+ void io_end_buffering(void);
+ void write_int(int f,int32 x);
+diff -bur rsync/receiver.c rsync-craig/receiver.c
+--- rsync/receiver.c	Tue May 28 08:42:51 2002
++++ rsync-craig/receiver.c	Sat Dec  7 22:09:04 2002
+@@ -273,6 +273,11 @@
+ 		offset += len;
+ 	}
+ 
++	/*
++	 * do a write flush
++	 */
++	write_file(fd, NULL, 0);
++
+ 	end_progress(total_size);
+ 
+ 	if (fd != -1 && offset > 0 && sparse_end(fd) != 0) {

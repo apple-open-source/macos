@@ -37,8 +37,6 @@ gdb_result GDB_val_print (struct type *type, char *valaddr,
 			  int format, int deref_ref, int recurse,
 			  enum val_prettyprint pretty);
 
-gdb_result GDB_select_frame (struct frame_info *, int);
-
 gdb_result GDB_value_equal (value_ptr, value_ptr, int *);
 
 gdb_result GDB_parse_exp_1 (char **stringptr, struct block *block, int comma,
@@ -52,9 +50,6 @@ gdb_result GDB_block_innermost_frame (struct block *block,
 				      struct frame_info **result);
 
 gdb_result GDB_reinit_frame_cache (void);
-
-gdb_result GDB_find_frame_addr_in_frame_chain (CORE_ADDR addr,
-					       struct frame_info **result);
 
 gdb_result GDB_value_ind (value_ptr val, value_ptr * rval);
 
@@ -97,8 +92,6 @@ static int wrap_value_fetch_lazy (char *);
 
 static int wrap_val_print (char *);
 
-static int wrap_select_frame (char *);
-
 static int wrap_value_equal (char *);
 
 static int wrap_parse_exp_1 (char *opaque_arg);
@@ -110,8 +103,6 @@ static int wrap_block_for_pc (char *opaque_arg);
 static int wrap_block_innermost_frame (char *opaque_arg);
 
 static int wrap_reinit_frame_cache (char *opaque_arg);
-
-static int wrap_find_frame_addr_in_frame_chain (char *opaque_arg);
 
 static int wrap_value_ind (char *opaque_arg);
 
@@ -261,28 +252,6 @@ wrap_evaluate_expression (char *a)
 
   (*args)->result =
     (char *) evaluate_expression ((struct expression *) (*args)->args[0]);
-  return 1;
-}
-
-gdb_result
-GDB_select_frame (struct frame_info *fi, int level)
-{
-  struct gdb_wrapper_arguments args;
-
-  args.args[0] = (char *) fi;
-  args.args[1] = (char *) &level;
-
-  return call_wrapped_function ((catch_errors_ftype *) wrap_select_frame, &args);
-}
-
-static int
-wrap_select_frame (char *a)
-{
-  struct gdb_wrapper_arguments **args = (struct gdb_wrapper_arguments **) a;
-  int level = *(int *) (*args)->args[1];
-  struct frame_info *fi = (struct frame_info *) (*args)->args[0];
-
-  select_frame (fi, level);
   return 1;
 }
 
@@ -451,34 +420,6 @@ static int
 wrap_reinit_frame_cache (char *opaque_arg)
 {
   reinit_frame_cache ();
-  return 1;
-}
-
-gdb_result
-GDB_find_frame_addr_in_frame_chain (CORE_ADDR addr, 
-				    struct frame_info **result)
-{
-  struct gdb_wrapper_arguments args;
-  gdb_result r;
-
-  args.args[0] = (char *) &addr;
-
-  r = call_wrapped_function ((catch_errors_ftype *) wrap_find_frame_addr_in_frame_chain, &args);
-  if (r != GDB_OK)
-    return r;
-
-  *result = (struct frame_info *) args.result;
-  return GDB_OK;
-}
-
-static int
-wrap_find_frame_addr_in_frame_chain (char *opaque_arg)
-{
-  struct gdb_wrapper_arguments **args = (struct gdb_wrapper_arguments **) opaque_arg;
-  CORE_ADDR addr;
-
-  addr = *(CORE_ADDR *) (*args)->args[0];
-  (*args)->result = (char *) find_frame_addr_in_frame_chain (addr);
   return 1;
 }
 
@@ -668,7 +609,7 @@ wrap_get_frame_block (char *opaque_arg)
   struct frame_info *fi;
 
   fi = (struct frame_info *) (*args)->args[0];
-  (*args)->result = (char *) get_frame_block (fi);
+  (*args)->result = (char *) get_frame_block (fi, NULL);
 
   return 1;
 }

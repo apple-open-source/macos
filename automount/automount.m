@@ -3,24 +3,26 @@
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
- * "Portions Copyright (c) 1999 Apple Computer, Inc.  All Rights
- * Reserved.  This file contains Original Code and/or Modifications of
- * Original Code as defined in and that are subject to the Apple Public
- * Source License Version 1.0 (the 'License').  You may not use this file
- * except in compliance with the License.  Please obtain a copy of the
- * License at http://www.apple.com/publicsource and read it before using
- * this file.
+ * Copyright (c) 1999-2003 Apple Computer, Inc.  All Rights Reserved.
+ * 
+ * This file contains Original Code and/or Modifications of Original Code
+ * as defined in and that are subject to the Apple Public Source License
+ * Version 2.0 (the 'License'). You may not use this file except in
+ * compliance with the License. Please obtain a copy of the License at
+ * http://www.opensource.apple.com/apsl/ and read it before using this
+ * file.
  * 
  * The Original Code and all software distributed under the License are
  * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
  * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
  * INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY,
- * FITNESS FOR A PARTICULAR PURPOSE OR NON-INFRINGEMENT.  Please see the
- * License for the specific language governing rights and limitations
- * under the License."
+ * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
+ * Please see the License for the specific language governing rights and
+ * limitations under the License.
  * 
  * @APPLE_LICENSE_HEADER_END@
  */
+#import <notify.h>
 #import <stdio.h>
 #import <fcntl.h>
 #import <unistd.h>
@@ -35,11 +37,11 @@
 #import <sys/wait.h>
 #import <sys/time.h>
 #import <sys/resource.h>
+#import "automount.h"
 #import "AMVnode.h"
 #import "Controller.h"
 #import "AMString.h"
 #import "log.h"
-#import "NIMap.h"
 #import "AMVersion.h"
 #import "systhread.h"
 #import "NSLMap.h"
@@ -55,6 +57,7 @@ int debug_select = 0;
 int debug_mount = DEBUG_SYSLOG;
 int debug_proc = 0;
 int debug_options = 0;
+int debug_nsl = 0;
 int debug;
 int doing_timeout = 0;
 
@@ -70,6 +73,17 @@ unsigned int GlobalTimeToLive = 10000;
 
 int run_select_loop = 0;
 int running_select_loop = 0;
+CFRunLoopRef gMainRunLoop;
+CFRunLoopTimerRef gRunLoopTimer;
+int runloop_prepared = 0;
+
+
+int gWakeupFDs[2] = { -1, -1 };
+
+static BOOL gReinitializationSuspended = FALSE;
+static BOOL gReinitDeferred = FALSE;
+static BOOL gNetworkChangeDeferred = FALSE;
+static BOOL gUserLogoutDeferred = FALSE;
 
 static struct timeval last_timeout;
 
@@ -86,8 +100,14 @@ BOOL gForkedMount = NO;
 BOOL gBlockedMountDependency = NO;
 unsigned long gBlockingMountTransactionID;
 int gMountResult;
+int gVolumeUnmountToken;
+BOOL gTerminating = FALSE;
 
-#define DefaultMountDir "/private"
+BOOL gUserLoggedIn = NO;
+
+NSLMapList gNSLMapList = LIST_HEAD_INITIALIZER(&gNSLMapList);
+
+#define DefaultMountDir "/private/var/automount"
 
 static char gForkedExecutionFlag[] = "-f";
 static char gAutomounterPath[] = "/usr/sbin/automount";
@@ -96,6 +116,9 @@ struct debug_fdset
 {
 	unsigned int i[8];
 };
+
+static void child_exit(void);
+static void shutdown_server(void);
 
 #ifndef __APPLE__ 
 int
@@ -138,6 +161,184 @@ fdtoc(fd_set *f)
 	return str;
 }
 
+void
+enqueue_reinit_request(void) {
+	char request_code[1] ={  REQ_REINIT };
+
+	if (gReinitializationSuspended) {
+		sys_msg(debug, LOG_ERR, "deferring re-init while init is in progress...");
+		gReinitDeferred = TRUE;
+	} else {
+		if (gWakeupFDs[1] != -1) {
+			(void)write(gWakeupFDs[1], request_code, sizeof(request_code));
+		} else {
+			sys_msg(debug, LOG_ERR, "enqueue_reinit_request: gWakeupFDs[1] uninitialized.");
+		};
+	};
+}
+
+void
+enqueue_networkchange_notification(void) {
+	char request_code[1] ={  REQ_NETWORKCHANGE };
+
+	if (gReinitializationSuspended) {
+		sys_msg(debug, LOG_ERR, "deferring network change notification while init is in progress...");
+		gNetworkChangeDeferred = TRUE;
+	} else {
+		if (gWakeupFDs[1] != -1) {
+			(void)write(gWakeupFDs[1], request_code, sizeof(request_code));
+		} else {
+			sys_msg(debug, LOG_ERR, "enqueue_networkchange_notification: gWakeupFDs[1] uninitialized.");
+		};
+	};
+}
+
+void
+enqueue_userlogout_notification(void) {
+	char request_code[1] ={  REQ_USERLOGOUT };
+
+	sys_msg(debug, LOG_ERR, "logout notification received.");
+	if (gReinitializationSuspended) {
+		sys_msg(debug, LOG_ERR, "deferring user logout notification while init is in progress...");
+		gUserLogoutDeferred = TRUE;
+	} else {
+		if (gWakeupFDs[1] != -1) {
+			sys_msg(debug, LOG_ERR, "requesting logout processing.");
+			(void)write(gWakeupFDs[1], request_code, sizeof(request_code));
+		} else {
+			sys_msg(debug, LOG_ERR, "enqueue_userlogout_notification: gWakeupFDs[1] uninitialized.");
+		};
+	};
+}
+
+void
+suspend_reinitialization(void) {
+	/* Stop the actual enqueueing of requests that can interfere with an initialization in progress: */
+	gReinitializationSuspended = TRUE;
+}
+
+void
+reenable_reinitialization(void) {
+	/* Open the floodgates for incoming re-initialization requests: */
+	gReinitializationSuspended = FALSE;
+	
+	/* Deferred SIGHUP or other reinitialization request? */
+	if (gReinitDeferred) {
+		enqueue_reinit_request();
+		gReinitDeferred = FALSE;
+	};
+	
+	/* Deferred network change notification? */
+	if (gNetworkChangeDeferred) {
+		enqueue_networkchange_notification();
+		gNetworkChangeDeferred = FALSE;
+	};
+	
+	/* Deferred user logout? */
+	if (gUserLogoutDeferred) {
+		sys_msg(debug, LOG_ERR, "reposting deferred logout notification.");
+		enqueue_userlogout_notification();
+		gUserLogoutDeferred = FALSE;
+	};
+}
+
+void
+handle_enqueued_requests(char request_code) {
+	struct NSLMapListEntry *mapListEntry;
+
+	switch (request_code) {
+	  case REQ_MOUNTCOMPLETE:
+		sys_msg(debug, LOG_DEBUG, "handle_deferred_requests: completing forked mount.");
+        child_exit();
+		break;
+		
+	  case REQ_REINIT:
+		sys_msg(debug, LOG_DEBUG, "handle_deferred_requests: re-initializing automounter.");
+		[controller reInit];
+		break;
+		
+	  case REQ_SHUTDOWN:
+		sys_msg(debug, LOG_DEBUG, "handle_deferred_requests: shutting down automounter service.");
+        shutdown_server();
+        exit(0);
+		
+		/* NOT REACHED */
+		break;
+
+	  case REQ_NETWORKCHANGE:
+		sys_msg(debug, LOG_DEBUG, "handle_deferred_requests: network changed.");
+		// validate maps
+		if (gTerminating) {
+			sys_msg(debug_nsl, LOG_DEBUG, "handle_deferred_requests: ignoring network change at shutdown.");
+		} else {
+			[controller validate];
+		};
+		break;
+	  
+	  case REQ_USERLOGOUT:
+		sys_msg(debug, LOG_ERR, "handle_deferred_requests: user logged out.");
+	    // unmount (no force)
+	    [controller unmountAutomounts:0];
+		break;
+	  
+	  case REQ_PROCESS_RESULTS:
+		sys_msg(debug_nsl, LOG_DEBUG, "handle_deferred_requests: new search results to be processed.");
+		if (gTerminating) {
+			sys_msg(debug_nsl, LOG_DEBUG, "handle_deferred_requests: ignoring new search at shutdown.");
+		} else {
+			LIST_FOREACH(mapListEntry, &gNSLMapList, mle_link) {
+				[mapListEntry->mle_map processNewSearchResults];
+			};
+		};
+		break;
+	  
+	  case REQ_ALARM:
+		sys_msg(debug, LOG_DEBUG, "handle_deferred_requests: triggering deferred notifications...");
+		LIST_FOREACH(mapListEntry, &gNSLMapList, mle_link) {
+			[mapListEntry->mle_map triggerDeferredNotifications];
+		};
+		break;
+
+	  case REQ_UNMOUNT:
+		sys_msg(debug, LOG_DEBUG, "handle_deferred_requests: volume unmounted.");
+		[controller checkForUnmounts];
+		break;
+
+	  case REQ_USR2:
+		sys_msg(debug, LOG_DEBUG, "handle_deferred_requests: printing mount tree on SIGUSR2.");
+		[controller printTree];
+		break;
+		
+	  default:
+	    sys_msg(debug, LOG_DEBUG, "handle_enqueued_requests: Unknown request code '%c'?!", request_code);
+		break;
+	};
+};
+
+/*
+ * Check that a proposed value to load into the .tv_sec or
+ * .tv_usec part of an interval timer is acceptable, and fix
+ * it to have at least minimal value (i.e. absent direct access
+ * to 'tick', if it is less than 0.1 Sec, round it up to 0.1 Sec.)
+ */
+#define TIMEQUANTUM (100*1000) /* 100mSec. (10Hz) - reasonable default */
+#define ONEMILLION (1000*1000)
+#define TIMEOUTLIMIT (604800) /* A week, in seconds */
+void
+cleanuptimeout(tv)
+	struct timeval *tv;
+{
+	if (tv->tv_sec < 0) tv->tv_sec = 0;
+	if (tv->tv_usec != 0) {
+		if (tv->tv_usec < TIMEQUANTUM) tv->tv_usec = TIMEQUANTUM;
+		if (tv->tv_usec >= ONEMILLION) {
+			tv->tv_sec += tv->tv_usec / ONEMILLION;
+			tv->tv_usec = tv->tv_usec % ONEMILLION;
+		};
+	};
+	if (tv->tv_sec > TIMEOUTLIMIT) tv->tv_sec = TIMEOUTLIMIT;
+}
+
 int
 do_select(struct timeval *tv)
 {
@@ -145,11 +346,15 @@ do_select(struct timeval *tv)
 	fd_set x;
 
 	x = svc_fdset;
+	if (gWakeupFDs[0] != -1) {
+		FD_SET(gWakeupFDs[0], &x);	/* This allows writing to gWakeupFDs[1] to wake up the select() */
+	};
 
 	if (tv) {
 		sys_msg(debug_select, LOG_DEBUG, "select timeout %d %d", tv->tv_sec, tv->tv_usec);
 	};
 
+	cleanuptimeout(tv);
 	n = select(FD_SETSIZE, &x, NULL, NULL, tv);
 
 	if (n != 0)
@@ -158,8 +363,18 @@ do_select(struct timeval *tv)
 	if (n < 0)
 		sys_msg(debug_select, LOG_DEBUG, "select: %s", strerror(errno));
 
-	if (n != 0) svc_getreqset(&x);
-	
+	if (n > 0) {
+		if ((gWakeupFDs[0] != -1) && FD_ISSET(gWakeupFDs[0], &x)) {
+			char request_code[1];
+			
+			(void)read(gWakeupFDs[0], request_code, sizeof(request_code));
+			handle_enqueued_requests(request_code[0]);
+			return 0;
+		};
+
+		svc_getreqset(&x);
+	};
+
 	if (gForkedMount) exit((gMountResult < 128) ? gMountResult : ECANCELED);
 	
 	return n;
@@ -204,8 +419,7 @@ auto_run(struct timeval *t)
 
 	tv.tv_usec = 0;
 	tv.tv_sec = t->tv_sec;
-
-	if (tv.tv_sec <= 0) tv.tv_sec = 86400;
+	cleanuptimeout(&tv);
 
 	delta.tv_sec = tv.tv_sec;
 	delta.tv_usec = 0;
@@ -225,13 +439,14 @@ auto_run(struct timeval *t)
 			}
 
 			last_timeout = now;
-			delta.tv_sec = tv.tv_sec;
+            delta.tv_sec = tv.tv_sec;
 		}
 		else
 		{
 			delta.tv_sec = tv.tv_sec - (now.tv_sec - last_timeout.tv_sec);
 			if (delta.tv_sec <= 0) delta.tv_sec = 1;
 		}
+		cleanuptimeout(&delta);
 	}
 }
 
@@ -291,13 +506,14 @@ usage(void)
 	fprintf(stderr, "                ");
 	fprintf(stderr, "type may be \"mount\", \"proc\", \"select\"\n");
 	fprintf(stderr, "                ");
-	fprintf(stderr, "\"options\", or \"all\".\n");
+	fprintf(stderr, "\"options\", \"nsl\", or \"all\".\n");
 	fprintf(stderr, "                ");
 	fprintf(stderr, "Multiple -D options may be specified.\n");
 	fprintf(stderr, "\n");
 
-	fprintf(stderr, "  -m dir map    ");
+	fprintf(stderr, "  -m dir map [-mnt dir]");
 	fprintf(stderr, "Mount map on directory dir.\n");
+	fprintf(stderr, "Optionally followed by specification of private mount dir.\n");
 	fprintf(stderr, "                ");
 	fprintf(stderr, "map may be a file (must be an absolute path),\n");
 	fprintf(stderr, "                ");
@@ -307,55 +523,99 @@ usage(void)
 	fprintf(stderr, "\n");
 }
 
+static void
+alarm_sighandler(int x)
+{
+	if (gWakeupFDs[1] != -1) {
+		char request_code[1] = { REQ_ALARM };
+		
+		(void)write(gWakeupFDs[1], request_code, sizeof(request_code));
+	};
+}
+
 void
 parentexit(int x)
 {
 	_exit(0);
 }
 
-void
-shutdown_server(int x)
+static void
+shutdown_server(void)
 {
 	sys_msg(debug, LOG_ERR, "Shutting down.");
 
+	gTerminating = TRUE;
+
+	notify_cancel(gVolumeUnmountToken);
+	
 	[controller release];
 	[dot release];
 	[dotdot release];
 }
 
-void shutdown_server_sighandler(int x)
+static void
+shutdown_server_sighandler(int x)
 {
-	shutdown_server(x);
-	_exit(0);
+	if (gWakeupFDs[1] != -1) {
+		char request_code[1] = { REQ_SHUTDOWN };
+		
+		(void)write(gWakeupFDs[1], request_code, sizeof(request_code));
+	} else {
+		sys_msg(debug, LOG_ERR, "shutdown_server_sighandler: gWakeupFDs[1] uninitialized.");
+	};
 }
 
-void
-child_exit(int x)
+static void
+child_exit(void)
 {
 	int result;
 	pid_t pid;
 
 	while ((((pid = wait4((pid_t)-1, &result, WNOHANG, NULL)) != 0) && (pid != -1)) ||
-           (errno == EINTR)) {
+           ((pid == -1) && (errno == EINTR))) {
 		if ((pid != 0) && (pid != -1)) {
 			[controller completeMountInProgressBy:pid exitStatus:result];
 		};
 	};
 }
 
-void
-reinit(int x)
+static void
+child_exit_sighandler(int x)
 {
-	[controller reInit];
+	if (gWakeupFDs[1] != -1) {
+		char request_code[1] = { REQ_MOUNTCOMPLETE };
+		
+		(void)write(gWakeupFDs[1], request_code, sizeof(request_code));
+	} else {
+		sys_msg(debug, LOG_ERR, "child_exit_sighandler: gWakeupFDs[1] uninitialized.");
+	};
+}
+
+static void
+reinit_sighandler(int x)
+{
+	enqueue_reinit_request();
 }
 
 void
-print_tree(int x)
+usr1_signhandler(int x)
 {
-	[controller printTree];
+    enqueue_networkchange_notification();
 }
 
-void
+static void
+usr2_sighandler(int x)
+{
+	if (gWakeupFDs[1] != -1) {
+		char request_code[1] ={  REQ_USR2 };
+		
+		(void)write(gWakeupFDs[1], request_code, sizeof(request_code));
+	} else {
+		sys_msg(debug, LOG_ERR, "usr2_sighandler: gWakeupFDs[1] uninitialized.");
+	};
+}
+
+static void
 print_host_info(void)
 {
 	char banner[1024];
@@ -384,72 +644,62 @@ print_host_info(void)
 // *********************************************************************
 
 #include <SystemConfiguration/SystemConfiguration.h>
-#include <SystemConfiguration/v1Compatibility.h>
 
 static SCDynamicStoreRef	store = NULL;
 static CFRunLoopSourceRef	rls;
 static CFStringRef		userChangedKey;
-static CFStringRef		networkChangedKey;
 static CFStringRef		netinfoChangedKey;
+static CFStringRef		searchPolicyChangedKey;
+
+/* The following constant was stolen from <DirectoryService/DirServicesPriv.h> */
+#ifndef		kDSStdNotifySearchPolicyChanged
+#define		kDSStdNotifySearchPolicyChanged		"com.apple.DirectoryService.NotifyTypeStandard:SearchPolicyChanged"
+#endif
 
 void
 systemConfigHasChanged(SCDynamicStoreRef store, CFArrayRef changedKeys, void *info)
 {
 	int i, count;
 	CFStringRef key, user;
-	BOOL userLogOut = NO;
-	BOOL networkChange = NO;
+	BOOL networkChanged = NO;
     
 	count = CFArrayGetCount(changedKeys);
 	for (i=0; i < count; i++) {
 	    key = CFArrayGetValueAtIndex(changedKeys, i);
 	    
 	    if (CFStringCompare(key, userChangedKey, 0) == kCFCompareEqualTo) {
-		user = SCDynamicStoreCopyConsoleUser(store, NULL, NULL);
-		if (user) {
-			sys_msg(debug, LOG_DEBUG, "the console user is logged in\n");
-			CFRelease(user);
-		} else {
-			sys_msg(debug, LOG_DEBUG, "the console user has logged out\n");
-			userLogOut = YES;
+			user = SCDynamicStoreCopyConsoleUser(store, NULL, NULL);
+			if (user) {
+				sys_msg(debug, LOG_DEBUG, "the console user is logged in\n");
+				gUserLoggedIn = YES;		/* One-shot, never cleared */
+				if (gUserLogoutDeferred) {
+					sys_msg(debug, LOG_ERR, "canceling deferred logout notification...");
+					gUserLogoutDeferred = NO;
+				};
+				CFRelease(user);
+			} else {
+				sys_msg(debug, LOG_DEBUG, "the console user has logged out\n");
+				enqueue_userlogout_notification();
+			}
+			continue;
 		}
-		continue;
-	    }
-
-	    if (CFStringCompare(key, networkChangedKey, 0) == kCFCompareEqualTo) {
-		sys_msg(debug, LOG_DEBUG, "the network environment has changed\n");
-		networkChange = YES;
-		continue;
-	    }
 
 	    if (CFStringCompare(key, netinfoChangedKey, 0) == kCFCompareEqualTo) {
 		sys_msg(debug, LOG_DEBUG, "the netinfo configuration has changed\n");
-		networkChange = YES;
+		networkChanged = YES;
 		continue;
 	    }
-
-	    // since we don't know what matched our pattern we can not just do
-	    // a simple string compare for the networkChangedPattern case, instead
-	    // we just default to this after checking for the other keys above.
-	    {
-		sys_msg(debug, LOG_DEBUG, "a network service has changed\n");
-		networkChange = YES;
+	    
+	    if (CFStringCompare(key, searchPolicyChangedKey, 0) == kCFCompareEqualTo) {
+		sys_msg(debug, LOG_DEBUG, "directory services search policy changed\n");
+		networkChanged = YES;
 		continue;
 	    }
 	}
-
-	if (userLogOut) {
-
-	    // unmount (no force)
-	    [controller unmountAutomounts:0];
-	}
-
-	if (networkChange) {
-
-	    // flush maps
-	    [controller flushMaps];
-	    // unmount (force?)
-//	    [controller unmountAutomounts:1];
+	
+	if (networkChanged) {
+		/* Reschedule the next validation for 1 second from now. */
+		CFRunLoopTimerSetNextFireDate(gRunLoopTimer, CFAbsoluteTimeGetCurrent()+1.0);
 	}
 }
 
@@ -457,14 +707,8 @@ void
 watchForSystemConfigChanges()
 {
 	CFMutableArrayRef	keys;
-	CFMutableArrayRef	patterns;
-	CFStringRef		networkChangedPattern;
-	SCDynamicStoreContext	context = { 0, store, NULL, NULL, NULL };
 
-	store = SCDynamicStoreCreate(NULL,
-				     CFSTR("watchForSystemConfigChanges"),
-				     systemConfigHasChanged,
-				     &context);
+	store = SCDynamicStoreCreate(NULL, CFSTR("automount"), systemConfigHasChanged, NULL);
 	if (!store) {
 		sys_msg(debug, LOG_ERR, "could not open session with configd\n");
 		sys_msg(debug, LOG_ERR, "error = %s\n", SCErrorString(SCError()));
@@ -472,55 +716,35 @@ watchForSystemConfigChanges()
 	}
 
 	keys     = CFArrayCreateMutable(NULL, 0, &kCFTypeArrayCallBacks);
-	patterns = CFArrayCreateMutable(NULL, 0, &kCFTypeArrayCallBacks);
 
 	/*
 	 * establish and register dynamic store keys to watch
-	 *   - global IPv4 configuration changes (e.g. new default route)
 	 *   - netinfo configuration changes
-	 *   - per-service IPv4 state changes (IP service added/removed/...)
-	 *   - apple talk configuration changes
+	 *	 - directory services search policy changes
 	 */
-	networkChangedKey = SCDynamicStoreKeyCreateNetworkGlobalEntity(NULL,
-							 kSCCacheDomainState,
-							 kSCEntNetIPv4);
-	CFArrayAppendValue(keys, networkChangedKey);
-
 	netinfoChangedKey = SCDynamicStoreKeyCreateNetworkGlobalEntity(NULL,
-							   kSCCacheDomainState,
+							   kSCDynamicStoreDomainState,
 							   kSCEntNetNetInfo);
 	CFArrayAppendValue(keys, netinfoChangedKey);
-
-	networkChangedPattern = SCDynamicStoreKeyCreateNetworkServiceEntity(NULL,
-							  kSCCacheDomainState,
-							  kSCCompAnyRegex,
-							  kSCEntNetIPv4);
-	CFArrayAppendValue(patterns, networkChangedPattern);
-	CFRelease(networkChangedPattern);
-
-	networkChangedPattern = SCDynamicStoreKeyCreateNetworkServiceEntity(NULL,
-                                                          kSCCacheDomainState,
-                                                          kSCCompAnyRegex,
-                                                          kSCEntNetAppleTalk);
-        CFArrayAppendValue(patterns, networkChangedPattern);
-	CFRelease(networkChangedPattern);
+	
+	searchPolicyChangedKey = SCDynamicStoreKeyCreate(NULL,
+								CFSTR(kDSStdNotifySearchPolicyChanged));
+	CFArrayAppendValue(keys, searchPolicyChangedKey);
 
 	/*
 	 * establish and register dynamic store keys to watch console user login/logouts
 	 */
 	userChangedKey = SCDynamicStoreKeyCreateConsoleUser(NULL);
-	CFArrayAppendValue(patterns, userChangedKey);
+	CFArrayAppendValue(keys, userChangedKey);
 
-	if (!SCDynamicStoreSetNotificationKeys(store, keys, patterns)) {
+	if (!SCDynamicStoreSetNotificationKeys(store, keys, NULL)) {
 		sys_msg(debug, LOG_ERR, "could not register notification keys\n");
 		sys_msg(debug, LOG_ERR, "error = %s\n", SCErrorString(SCError()));
 		CFRelease(store);
 		CFRelease(keys);
-		CFRelease(patterns);
 		return;
 	}
 	CFRelease(keys);
-	CFRelease(patterns);
 
 	/* add a callback */
 	rls = SCDynamicStoreCreateRunLoopSource(NULL, store, 0);
@@ -534,10 +758,85 @@ watchForSystemConfigChanges()
 	CFRunLoopAddSource(CFRunLoopGetCurrent(), rls, kCFRunLoopDefaultMode);
 }
 
+void VolumeUnmounted(CFMachPortRef port, void *msg, CFIndex size, void *info)
+{
+	char request_code[1];
+	sys_msg(debug, LOG_DEBUG, "Volume unmounted notification");
+
+	request_code[0] = REQ_UNMOUNT;
+	if (gWakeupFDs[1] != -1) {
+		(void)write(gWakeupFDs[1], request_code, sizeof(request_code));
+	} else {
+		sys_msg(debug, LOG_ERR, "VolumeUnmounted: gWakeupFDs[1] uninitialized.");
+	}
+}
+
+void WatchForVolumeUnmounts()
+{
+	mach_port_t port = MACH_PORT_NULL;
+	CFMachPortRef machPortRef = NULL;
+	CFRunLoopSourceRef notifySource = NULL;
+	CFMachPortContext context = { 0, NULL, NULL, NULL, NULL };
+	
+	if (notify_register_mach_port(
+		"com.apple.system.kernel.unmount",
+		&port,
+		0,
+		&gVolumeUnmountToken) != NOTIFY_STATUS_OK)
+	{
+		sys_msg(debug, LOG_ERR, "WatchForVolumeUnmounts: could not register");
+		return;
+	}
+	
+	machPortRef = CFMachPortCreateWithPort(NULL, port, VolumeUnmounted, &context, NULL);
+	if (machPortRef == NULL)
+	{
+		sys_msg(debug, LOG_ERR, "WatchForVolumeUnmounts: could not create CFMachPort");
+		goto cleanup;
+	}
+
+	notifySource = CFMachPortCreateRunLoopSource(NULL, machPortRef, 0);
+	if (notifySource == NULL)
+	{
+		sys_msg(debug, LOG_ERR, "WatchForVolumeUnmounts: could not create CFRunLoopSource");
+		goto cleanup;
+	}
+
+	CFRunLoopAddSource(CFRunLoopGetCurrent(), notifySource, kCFRunLoopDefaultMode);
+	port = MACH_PORT_NULL;		/* The port will be reclaimed on process exit */
+
+cleanup:
+	if (notifySource != NULL)
+		CFRelease(notifySource);
+	if (machPortRef != NULL)
+		CFRelease(machPortRef);
+}
+
+static void
+TimerExpired(CFRunLoopTimerRef timer, void *info)
+{
+	sys_msg(debug, LOG_DEBUG, "TimerExpired: requesting network change");
+	enqueue_networkchange_notification();
+}
+
 static void
 mainRunLoop() {
-
+	CFTimeInterval longTime = 10000000000.0;	// About 300 years, in seconds
+	CFRunLoopTimerContext context = { 0, NULL, NULL, NULL, NULL };
+	
 	watchForSystemConfigChanges();
+	WatchForVolumeUnmounts();
+	gMainRunLoop = CFRunLoopGetCurrent();
+	gRunLoopTimer = CFRunLoopTimerCreate(
+		kCFAllocatorDefault,
+		longTime,
+		longTime,
+		0,
+		0,
+		TimerExpired,
+		&context);
+	CFRunLoopAddTimer(gMainRunLoop, gRunLoopTimer, kCFRunLoopCommonModes);
+	runloop_prepared = 1;
 	CFRunLoopRun();
 }
 
@@ -549,6 +848,7 @@ main(int argc, char *argv[])
 	String *mapName;
 	String *mapDir;
 	char *mntdir;
+	String *mountDir;
 	int pid, i, nmaps, result;
 	struct timeval timeout;
 	BOOL becomeDaemon, forkedExecution, printVers, staticMode;
@@ -632,6 +932,8 @@ main(int argc, char *argv[])
 				debug_select = DEBUG_SYSLOG;
 			if ((!strcmp(argv[i], "options")) || (!strcmp(argv[i], "all")))
 				debug_options = DEBUG_SYSLOG;
+			if ((!strcmp(argv[i], "nsl")) || (!strcmp(argv[i], "all")))
+				debug_nsl = DEBUG_SYSLOG;
 		}
 		else if (!strcmp(argv[i], "-m"))
 		{
@@ -641,6 +943,15 @@ main(int argc, char *argv[])
 				exit(1);
 			}
 			i += 2;
+			if (!strcmp(argv[i], "-mnt"))
+			{
+				if ((argc - (i + 1)) < 2)
+				{
+					usage();
+					exit(1);
+				}
+				i += 2;
+			};
 			nmaps++;
 		}			
 		else if (!strcmp(argv[i], "-a"))
@@ -734,19 +1045,29 @@ main(int argc, char *argv[])
 		err(1, "execv() failed");
 	}
 
+	if (daemon_argv) free(daemon_argv);
+	
 	rlim.rlim_cur = rlim.rlim_max = RLIM_INFINITY;
 	setrlimit(RLIMIT_CORE, &rlim);
 
 	sys_openlog("automount", LOG_NDELAY | LOG_PID, LOG_DAEMON);
-
 	sys_msg(debug, LOG_ERR, "automount version %s", version);
 
-	signal(SIGHUP, reinit);
-	signal(SIGUSR2, print_tree);
+	result = pipe(gWakeupFDs);
+	if (result) {
+		sys_msg(debug, LOG_ERR, "Couldn't open internal wakeup pipe: %s?!", strerror(errno));
+		gWakeupFDs[0] = -1;
+		gWakeupFDs[1] = -1;
+	};
+	
+	signal(SIGHUP, reinit_sighandler);
+	signal(SIGUSR1, usr1_signhandler);
+	signal(SIGUSR2, usr2_sighandler);
 	signal(SIGINT, shutdown_server_sighandler);
 	signal(SIGQUIT, shutdown_server_sighandler);
 	signal(SIGTERM, shutdown_server_sighandler);
-	signal(SIGCHLD, child_exit);
+	signal(SIGCHLD, child_exit_sighandler);    /* Depends on 'controller' being set up... */
+	signal(SIGALRM, alarm_sighandler);
 
 	/*
 	 * Replace stdin, which might be a TTY, with /dev/null to prevent
@@ -768,23 +1089,33 @@ main(int argc, char *argv[])
 	runLoop = systhread_new();
 	systhread_run(runLoop, mainRunLoop, NULL);
 	systhread_yield();
-		
+	
 	run_select_loop = 1;
 	rpcLoop = systhread_new();
 	systhread_run(rpcLoop, select_loop, NULL);
 	systhread_yield();
 
+	/* Wait to make sure the main event loop is prepared in case some maps
+	   use CFRunLoop event sources, like NSLMap */
+	while (!runloop_prepared) {
+		usleep(100*1000);			/* Sleep for 0.1 Sec. */
+	};
+	
 	if (nmaps == 0)
 	{
-		if ([NIMap loadNetInfoMaps] != 0)
-		{
-			fprintf(stderr, "No maps to mount!\n");
-			if (becomeDaemon || forkedExecution) kill(getppid(), SIGTERM);
-			else usage();
-			exit(0);
-		}
+		fprintf(stderr, "No maps to mount!\n");
+		if (becomeDaemon || forkedExecution) kill(getppid(), SIGTERM);
+		else usage();
+		exit(0);
 	}
 
+	/*
+	   Hold of running re-inits in do_select on separate select thread (rpcLoop)
+	   until initialization of all maps is complete and the re-init code won't
+	   race along in parallel with the main thread initializing the maps:
+	 */
+	suspend_reinitialization();
+	
 	for (i = 1; i < argc; i++)
 	{
 		if (!strcmp(argv[i], "-tl")) i++;
@@ -793,10 +1124,18 @@ main(int argc, char *argv[])
 		{
 			mapDir = [String uniqueString:argv[i+1]];
 			mapName = [String uniqueString:argv[i+2]];
-			[controller mountmap:mapName directory:mapDir];
+			i += 2;
+			if ((argc > (i+1)) && !strcmp(argv[i+1], "-mnt"))
+			{
+				mountDir = [String uniqueString:argv[i+2]];
+				i += 2;
+			} else {
+				mountDir = nil;
+			};
+			[controller mountmap:mapName directory:mapDir mountdirectory:mountDir];
+			if (mountDir) [mountDir release];
 			[mapName release];
 			[mapDir release];
-			i += 2;
 		}
 	}
 
@@ -810,12 +1149,17 @@ main(int argc, char *argv[])
 		usleep(1000*100);
 	}
 
+	/*
+	   It's now OK to enqueue reinitialization requests, since they'll be
+	   handled on this main thread: */
+	reenable_reinitialization();
+	
 	sys_msg(debug, LOG_DEBUG, "Starting service");
 	if (becomeDaemon || forkedExecution) kill(getppid(), SIGTERM);
 
 	if (staticMode) auto_run_no_timeout(NULL);
 	else auto_run(&timeout);
 
-	shutdown_server(0);
+	shutdown_server();
 	exit(0);
 }

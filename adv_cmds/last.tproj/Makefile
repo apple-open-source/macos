@@ -14,7 +14,7 @@ PROJECT_TYPE = Tool
 
 CFILES = last.c
 
-OTHERSRCS = Makefile.preamble Makefile last.1
+OTHERSRCS = Makefile.preamble Makefile Makefile.postamble last.1
 
 
 MAKEFILEDIR = $(MAKEFILEPATH)/pb_makefiles

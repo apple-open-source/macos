@@ -1,9 +1,8 @@
-
 /*
    +----------------------------------------------------------------------+
-   | PHP version 4.0                                                      |
+   | PHP Version 4                                                        |
    +----------------------------------------------------------------------+
-   | Copyright (c) 1997, 1998, 1999, 2000, 2001 The PHP Group             |
+   | Copyright (c) 1997-2003 The PHP Group                                |
    +----------------------------------------------------------------------+
    | This source file is subject to version 2.02 of the PHP license,      |
    | that is bundled with this package in the file LICENSE, and is        |
@@ -13,24 +12,24 @@
    | obtain it through the world-wide-web, please send a note to          |
    | license@php.net so we can mail you a copy immediately.               |
    +----------------------------------------------------------------------+
-   | Authors: Jason Greene <jason@inetgurus.net>                          |
+   | Author: Jason Greene <jason@inetgurus.net>                           |
    +----------------------------------------------------------------------+
 */
 
-/* $Id: php_signal.c,v 1.1.1.1 2001/12/14 22:12:56 zarzycki Exp $ */
+/* $Id: php_signal.c,v 1.1.1.4 2003/07/18 18:07:39 zarzycki Exp $ */
 
 #include "php_signal.h"
 
-/* php_signal using sigaction is taken verbatim from Advanced Programing
+/* php_signal using sigaction is derrived from Advanced Programing
  * in the Unix Environment by W. Richard Stevens p 298. */
-Sigfunc *php_signal(int signo, Sigfunc *func)
+Sigfunc *php_signal(int signo, Sigfunc *func, int restart)
 {
  
 	struct sigaction act,oact;
 	act.sa_handler = func;
 	sigemptyset(&act.sa_mask);
 	act.sa_flags = 0;
-	if (signo == SIGALRM) {
+	if (signo == SIGALRM || (! restart)) {
 #ifdef SA_INTERRUPT
 		act.sa_flags |= SA_INTERRUPT; /* SunOS */
 #endif

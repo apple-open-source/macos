@@ -1,0 +1,842 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01//EN" "http://www.w3.org/TR/html4/strict.dtd">
+<html xmlns="http://www.w3.org/TR/xhtml1/strict">
+<head>
+<title>FAQ</title>
+<meta content="1999-2002 The Apache Software Foundation" name="copyright"/>
+<meta content="$Date: 2002/11/19 15:21:09 $" name="last-changed"/>
+<meta content="Henri Gomez" name="author"/>
+<meta content="hgomez@apache.org" name="email"/>
+<link href="./style.css" type="text/css" rel="stylesheet"/>
+<link href="images/tomcat.ico" rel="shortcut icon"/>
+</head>
+<body link="#525D76" vlink="#525D76" alink="#525D76" text="#000000" bgcolor="#ffffff">
+<a name="TOP"/>
+<table width="100%" cellpadding="0" cellspacing="0" border="0">
+<tr height="1">
+<td class="nil" height="1" bgcolor="#ffffff" width="150">
+<img hspace="0" vspace="0" height="1" width="150" border="0" src="images/pixel.gif"/>
+</td>
+<td class="nil" height="1" bgcolor="#ffffff" width="*">
+<img hspace="0" vspace="0" height="1" width="370" border="0" src="images/pixel.gif"/>
+</td>
+</tr>
+<tr>
+<td width="*" colspan="2" class="logo" bgcolor="#ffffff">
+<table width="100%" cellpadding="0" cellspacing="0" border="0">
+<tr>
+<td align="left">
+<img align="left" height="48" width="505" border="0" src="images/jakarta.gif"/>
+</td>
+<td align="right">
+<img align="right" border="0" src="images/mod_jk.jpg"/>
+</td>
+</tr>
+</table>
+</td>
+</tr>
+<tr>
+<td colspan="2" width="*" align="right" class="head" bgcolor="#999999">
+<nobr>
+<a href="http://www.apache.org/" class="head">Apache Software Foundation</a> |
+                <a href="http://jakarta.apache.org/" class="head">Jakarta Project</a> |
+                <a href="http://jakarta.apache.org/tomcat/" class="head">Apache Tomcat</a>
+</nobr>
+</td>
+</tr>
+<tr>
+<td valign="top" width="150" bgcolor="#ffffff">
+<table class="menu" cellpadding="0" cellspacing="0" width="150" border="0">
+<tr height="1">
+<td class="nil" height="1" bgcolor="#cccccc" width="10">
+<img hspace="0" vspace="0" height="1" width="10" border="0" src="images/pixel.gif"/>
+</td>
+<td class="nil" height="1" bgcolor="#cccccc" width="140">
+<img hspace="0" vspace="0" height="1" width="140" border="0" src="images/pixel.gif"/>
+</td>
+</tr>
+<tr height="6">
+<td colspan="2" width="150" bgcolor="#d0d0d0">Presentation</td>
+</tr>
+<tr>
+<td colspan="2" width="150" bgcolor="#cccccc">
+<nobr>
+<a class="menu" href="index.html">Overview</a>
+</nobr>
+</td>
+</tr>
+<tr height="2"/>
+<tr height="6"/>
+<tr height="6">
+<td colspan="2" width="150" bgcolor="#d0d0d0">Commons</td>
+</tr>
+<tr>
+<td colspan="2" width="150" bgcolor="#cccccc">
+<nobr>
+<a class="menu" href="common/AJPv13.html">AJPv13</a>
+</nobr>
+</td>
+</tr>
+<tr height="2"/>
+<tr>
+<td colspan="2" width="150" bgcolor="#cccccc">
+<nobr>
+<a class="menu" href="common/AJPv13-extensions-proposal.html">AJPv13 extensions Proposal</a>
+</nobr>
+</td>
+</tr>
+<tr height="2"/>
+<tr>
+<td colspan="2" width="150" bgcolor="#cccccc">
+<nobr>
+<a class="menu" href="faq.html">FAQ</a>
+</nobr>
+</td>
+</tr>
+<tr height="2"/>
+<tr>
+<td width="10" bgcolor="#cccccc"/>
+<td width="140" bgcolor="#cccccc">
+<a href="#General" class="menu">General</a>
+</td>
+</tr>
+<tr height="1"/>
+<tr>
+<td width="10" bgcolor="#cccccc"/>
+<td width="140" bgcolor="#cccccc">
+<a href="#Apache" class="menu">Apache</a>
+</td>
+</tr>
+<tr height="1"/>
+<tr>
+<td width="10" bgcolor="#cccccc"/>
+<td width="140" bgcolor="#cccccc">
+<a href="#IIS" class="menu">IIS</a>
+</td>
+</tr>
+<tr height="1"/>
+<tr>
+<td width="10" bgcolor="#cccccc"/>
+<td width="140" bgcolor="#cccccc">
+<a href="#NES/iPlanet" class="menu">NES/iPlanet</a>
+</td>
+</tr>
+<tr height="1"/>
+<tr height="6"/>
+<tr height="6">
+<td colspan="2" width="150" bgcolor="#d0d0d0">JK</td>
+</tr>
+<tr>
+<td colspan="2" width="150" bgcolor="#cccccc">
+<nobr>
+<a class="menu" href="jk/quickhowto.html">Quick Start HowTo</a>
+</nobr>
+</td>
+</tr>
+<tr height="2"/>
+<tr>
+<td colspan="2" width="150" bgcolor="#cccccc">
+<nobr>
+<a class="menu" href="jk/aphowto.html">Apache HowTo</a>
+</nobr>
+</td>
+</tr>
+<tr height="2"/>
+<tr>
+<td colspan="2" width="150" bgcolor="#cccccc">
+<nobr>
+<a class="menu" href="jk/domhowto.html">Domino HowTo</a>
+</nobr>
+</td>
+</tr>
+<tr height="2"/>
+<tr>
+<td colspan="2" width="150" bgcolor="#cccccc">
+<nobr>
+<a class="menu" href="jk/iishowto.html">IIS HowTo</a>
+</nobr>
+</td>
+</tr>
+<tr height="2"/>
+<tr>
+<td colspan="2" width="150" bgcolor="#cccccc">
+<nobr>
+<a class="menu" href="jk/neshowto.html">Netscape/iPlanet HowTo</a>
+</nobr>
+</td>
+</tr>
+<tr height="2"/>
+<tr>
+<td colspan="2" width="150" bgcolor="#cccccc">
+<nobr>
+<a class="menu" href="jk/workershowto.html">Workers HowTo</a>
+</nobr>
+</td>
+</tr>
+<tr height="2"/>
+<tr height="6"/>
+<tr height="6">
+<td colspan="2" width="150" bgcolor="#d0d0d0">JK2</td>
+</tr>
+<tr height="6"/>
+<tr height="6">
+<td colspan="2" width="150" bgcolor="#d0d0d0">Configuration in the Tomcat</td>
+</tr>
+<tr>
+<td colspan="2" width="150" bgcolor="#cccccc">
+<nobr>
+<a class="menu" href="jk2/configtc.html">Configuration options</a>
+</nobr>
+</td>
+</tr>
+<tr height="2"/>
+<tr>
+<td colspan="2" width="150" bgcolor="#cccccc">
+<nobr>
+<a class="menu" href="jk2/configtcex.html">Examples</a>
+</nobr>
+</td>
+</tr>
+<tr height="2"/>
+<tr height="6"/>
+<tr height="6">
+<td colspan="2" width="150" bgcolor="#d0d0d0">Configuration in the Web Server</td>
+</tr>
+<tr>
+<td colspan="2" width="150" bgcolor="#cccccc">
+<nobr>
+<a class="menu" href="jk2/configweb.html">Configuration file</a>
+</nobr>
+</td>
+</tr>
+<tr height="2"/>
+<tr>
+<td colspan="2" width="150" bgcolor="#cccccc">
+<nobr>
+<a class="menu" href="jk2/configwebcom.html">Components</a>
+</nobr>
+</td>
+</tr>
+<tr height="2"/>
+<tr>
+<td colspan="2" width="150" bgcolor="#cccccc">
+<nobr>
+<a class="menu" href="jk2/configwebex.html">Examples</a>
+</nobr>
+</td>
+</tr>
+<tr height="2"/>
+<tr height="6"/>
+<tr height="6">
+<td colspan="2" width="150" bgcolor="#d0d0d0">Installation</td>
+</tr>
+<tr>
+<td colspan="2" width="150" bgcolor="#cccccc">
+<nobr>
+<a class="menu" href="jk2/installhowto.html">Installation of jk2 in the Web Server</a>
+</nobr>
+</td>
+</tr>
+<tr height="2"/>
+<tr height="6"/>
+<tr height="6">
+<td colspan="2" width="150" bgcolor="#d0d0d0">Howto</td>
+</tr>
+<tr>
+<td colspan="2" width="150" bgcolor="#cccccc">
+<nobr>
+<a class="menu" href="jk2/confighowto.html">Quick Start JK2 Configuration Guide</a>
+</nobr>
+</td>
+</tr>
+<tr height="2"/>
+<tr height="6"/>
+</table>
+</td>
+<td class="body" valign="top" width="*" bgcolor="#ffffff">
+<a name="General">
+<table width="100%" cellpadding="0" cellspacing="0" border="0">
+<tr>
+<td align="left" valign="top" class="section" bgcolor="#525D76">
+<img border="0" vspace="0" hspace="0" align="left" valign="top" src="images/corner.gif"/>General</td>
+</tr>
+</table>
+</a>
+<p class="section">
+General Informations and FAQ about JK
+</p>
+<a name="sub_Where can I get help/support for JK ?">
+<table width="100%" cellpadding="0" cellspacing="0" border="0">
+<tr>
+<td align="left" valign="top" class="subsection" bgcolor="#828DA6">
+<img border="0" vspace="0" hspace="0" align="left" valign="top" src="images/corner.gif"/>Where can I get help/support for JK ?</td>
+</tr>
+</table>
+</a>
+<p class="section">
+The primary mechanism for support is through the JK 
+documentation included in the doc directory.
+Documentation is also available on the Apache Jakarta web site devoted to the
+<b>
+<a href="http://jakarta.apache.org/builds/jakarta-tomcat-connectors/jk/doc/index.html">
+Jakarta Tomcat Connectors Project</a>
+</b>
+For additional help, the best resource is the Tomcat Users Discussion list.  
+You should start by searching
+<b>
+<a href="http://mikal.org/interests/java/tomcat/index.html">
+the mail list archive</a>
+</b>
+before you post questions to the list.  
+If you are unable to locate the answer to your question in the archive, 
+you can post questions about JK to the user list for assistance.  
+Make sure that you include the version of your Webserver, 
+that you are using as well as the platform you are running on
+and go 
+<b>
+<a href="http://jakarta.apache.org/site/mail.html">
+here</a>
+</b>
+to determine how to subscribe to tomcat mailing list.
+</p>
+<br/>
+<a name="sub_I can't find JK anywhere. Where is it?">
+<table width="100%" cellpadding="0" cellspacing="0" border="0">
+<tr>
+<td align="left" valign="top" class="subsection" bgcolor="#828DA6">
+<img border="0" vspace="0" hspace="0" align="left" valign="top" src="images/corner.gif"/>I can't find JK anywhere. Where is it?</td>
+</tr>
+</table>
+</a>
+<p class="section">
+Now that JK moved to the <b>
+<font color="#333333">jakarta-tomcat-connectors</font>
+</b> repository, 
+the source and binaries for JK are present 
+in the <b>
+<a href="http://jakarta.apache.org/builds/jakarta-tomcat-connectors/jk/release/">
+jakarta-tomcat-connectors directory</a>
+</b>
+</p>
+<br/>
+<a name="sub_What's the difference between JK and mod_jk ?">
+<table width="100%" cellpadding="0" cellspacing="0" border="0">
+<tr>
+<td align="left" valign="top" class="subsection" bgcolor="#828DA6">
+<img border="0" vspace="0" hspace="0" align="left" valign="top" src="images/corner.gif"/>What's the difference between JK and mod_jk ?</td>
+</tr>
+</table>
+</a>
+<p class="section">
+<b>
+<font color="#333333">JK</font>
+</b> is a project covering web-servers to Tomcat connectors,
+whereas <b>
+<font color="#333333">mod_jk</font>
+</b> is the <b>
+<a href="jk/aphowto.html">Apache module</a>
+</b> developped in JK.
+</p>
+<p class="section">
+<b>
+<a href="jk/domhowto.html">Domino webserver</a>
+</b> support is implemented on JK, using a redirector
+called <b>
+<font color="#333333">dsapi redirector</font>
+</b>.
+</p>
+<p class="section">
+<b>
+<a href="jk/iishowto.html">IIS webserver</a>
+</b>support is implemented on JK, using a redirector
+called <b>
+<font color="#333333">isapi redirector</font>
+</b>.
+</p>
+<p class="section">
+<b>
+<a href="jk/neshowto.html">Netscape/iPlanet webserver</a>
+</b>webserver support is implemented on JK, using a redirector
+called <b>
+<font color="#333333">nsapi redirector</font>
+</b>.
+</p>
+<br/>
+<a name="sub_Where can I get more information ?">
+<table width="100%" cellpadding="0" cellspacing="0" border="0">
+<tr>
+<td align="left" valign="top" class="subsection" bgcolor="#828DA6">
+<img border="0" vspace="0" hspace="0" align="left" valign="top" src="images/corner.gif"/>Where can I get more information ?</td>
+</tr>
+</table>
+</a>
+<p class="section">
+For <b>
+<font color="#333333">JK 1.2.x</font>
+</b>, you should read :
+</p>
+<ul>
+<li>
+<b>
+<a href="jk/quickhowto.html">For the impatients</a>
+</b>
+</li>
+<li>
+<b>
+<a href="jk/aphowto.html">Apache and JK</a>
+</b>
+</li>
+<li>
+<b>
+<a href="jk/domhowto.html">Domino and JK</a>
+</b>
+</li>
+<li>
+<b>
+<a href="jk/iishowto.html">IIS and JK</a>
+</b>
+</li>
+<li>
+<b>
+<a href="jk/neshowto.html">Netscape/iPlanet and JK</a>
+</b>
+</li>
+<li>
+<b>
+<a href="jk/workershowto.html">Workers configuration</a>
+</b>
+</li>
+</ul>
+<p class="section">
+For <b>
+<font color="#333333">JK 2.0.x</font>
+</b> the <b>
+<a href="jk2/configtc.html">
+config tomcat</a>
+</b> and <b>
+<a href="jk2/configweb.html">config webserver</a>
+</b>
+documents have considerably more in-depth information.
+It's worth a look. 
+You could also try searching the mailing list archives for "JK" or look at the source.
+</p>
+<br/>
+<a name="sub_Which protocol should I use? Ajp12 or Ajp13?">
+<table width="100%" cellpadding="0" cellspacing="0" border="0">
+<tr>
+<td align="left" valign="top" class="subsection" bgcolor="#828DA6">
+<img border="0" vspace="0" hspace="0" align="left" valign="top" src="images/corner.gif"/>Which protocol should I use? Ajp12 or Ajp13?</td>
+</tr>
+</table>
+</a>
+<p class="section">
+<b>
+<a href="common/AJPv13.html">Ajp13</a>
+</b> is a newer protocol, it's faster, and it works better with SSL. 
+You almost certainly want to use it now that ajp12 is deprecated.
+</p>
+<p class="section"> 
+Also ajp13 is supported by all Apache Tomcat including 3.2.x , 3.3.x, 4.0.x, 4.1.x and the new tomcat 5. 
+</p>
+<p class="section">
+Others Servlet engines like <b>
+<font color="#333333">jetty</font>
+</b> have support for Ajp13.
+</p>
+<br/>
+<a name="sub_I've got a firewall between my WebServer and Tomcat who drop ajp13 connections after some times">
+<table width="100%" cellpadding="0" cellspacing="0" border="0">
+<tr>
+<td align="left" valign="top" class="subsection" bgcolor="#828DA6">
+<img border="0" vspace="0" hspace="0" align="left" valign="top" src="images/corner.gif"/>I've got a firewall between my WebServer and Tomcat who drop ajp13 connections after some times</td>
+</tr>
+</table>
+</a>
+<p class="section">
+Ajp13 use persistant connections where the traffic could be null if there is no request to be sent to Tomcat. 
+Firewall used to drop inactive connections and will make your WebServer and Tomcat think the connection is valid. 
+</p>
+<p class="section">
+Starting with JK 1.2.0, a <b>
+<font color="#333333">socket_keepalive</font>
+</b> property as been added to ajp13 settings, and you should take a look at 
+it in <b>
+<a href="jk/workershowto.html">Workers HowTo</a>
+</b>.
+</p>
+<br/>
+<a name="sub_Under heavy load, I've got many threads in Tomcat even if my Apache Web Server handle much of the load">
+<table width="100%" cellpadding="0" cellspacing="0" border="0">
+<tr>
+<td align="left" valign="top" class="subsection" bgcolor="#828DA6">
+<img border="0" vspace="0" hspace="0" align="left" valign="top" src="images/corner.gif"/>Under heavy load, I've got many threads in Tomcat even if my Apache Web Server handle much of the load</td>
+</tr>
+</table>
+</a>
+<p class="section">
+Under heavy load, Apache WebServer create many childs to handle the load, which will in turn create many connections 
+to Tomcat to forward the requests they should handle. 
+Apache WebServer will normally kill the childs/threads when the load decrease. But if the load is still there and 
+even if only Apache handle the requests, ie static contents, the childs are kept and with them the ajp13 connections, 
+even if they are no more used. 
+</p>
+<p class="section">
+Since JK 1.2.0, <b>
+<font color="#333333">cache_timeout</font>
+</b> and <b>
+<font color="#333333">socket_timeout</font>
+</b> properties as been added to close 
+connections after some time of inactivity, for more informations refer to <b>
+<a href="jk/workershowto.html">Workers HowTo</a>
+</b>.
+</p>
+<br/>
+<br/>
+<a name="Apache">
+<table width="100%" cellpadding="0" cellspacing="0" border="0">
+<tr>
+<td align="left" valign="top" class="section" bgcolor="#525D76">
+<img border="0" vspace="0" hspace="0" align="left" valign="top" src="images/corner.gif"/>Apache</td>
+</tr>
+</table>
+</a>
+<p class="section">
+Informations and FAQ about mod_jk and Apache Web Servers. 
+</p>
+<a name="sub_Whenever I restart Tomcat, Apache locks up!">
+<table width="100%" cellpadding="0" cellspacing="0" border="0">
+<tr>
+<td align="left" valign="top" class="subsection" bgcolor="#828DA6">
+<img border="0" vspace="0" hspace="0" align="left" valign="top" src="images/corner.gif"/>Whenever I restart Tomcat, Apache locks up!</td>
+</tr>
+</table>
+</a>
+<p class="section">
+The Ajp13 protocol keeps an open socket between Tomcat and Apache. Release of mod_jk present in J-T-C handle the network failure. 
+But with previous release of mod_jk, you may have to restart Apache as well.
+</p>
+<br/>
+<a name="sub_Why did exist two files mod_jk.so (-eapi ad -noeapi) in download dir for Linux ?">
+<table width="100%" cellpadding="0" cellspacing="0" border="0">
+<tr>
+<td align="left" valign="top" class="subsection" bgcolor="#828DA6">
+<img border="0" vspace="0" hspace="0" align="left" valign="top" src="images/corner.gif"/>Why did exist two files mod_jk.so (-eapi ad -noeapi) in download dir for Linux ?</td>
+</tr>
+</table>
+</a>
+<p class="section">
+Many versions of Apache use of modified API, known at Extended API, developped for use with the
+<b>
+<a href="http://www.modssl.org">mod_ssl module</a>
+</b>.
+</p>
+<p class="section">
+For example, Apache present in certains recent Linux distributions include the
+<b>
+<font color="#333333">mod_ssl</font>
+</b> module.
+</p>
+<p class="section">
+So if you got such 'Extended Apache', you need to use <b>
+<font color="#333333">mod_jk.so-eapi</font>
+</b>.
+</p>
+<p class="section"> 
+You should use <b>
+<font color="#333333">mod_jk.so-noeapi</font>
+</b> only for 'Standard Apache' (ie without mod_ssl).
+</p>
+<p class="section">
+It's wise to avoid using EAPI modules on STD API Apache or to use standard API modules on EAPI Apache. 
+Allways be sure to have the <b>
+<font color="#333333">mod_jk.so</font>
+</b> witch match your version of Apache
+</p>
+<br/>
+<a name="sub_What's that message about 'garbled DSO ?'">
+<table width="100%" cellpadding="0" cellspacing="0" border="0">
+<tr>
+<td align="left" valign="top" class="subsection" bgcolor="#828DA6">
+<img border="0" vspace="0" hspace="0" align="left" valign="top" src="images/corner.gif"/>What's that message about 'garbled DSO ?'</td>
+</tr>
+</table>
+</a>
+<p class="section">
+It's related to Apache EAPI, the message <b class="code">'mod_jk.so is garbled - perhaps this is not an Apache module DSO ?'</b> 
+just told you, that your're trying to install a mod_jk.so DSO module that was compiled on an Apache using EAPI, 
+like apache-mod_ssl or apache from Redhat distro 6.2/7.0 but your system use the standard apache with normal API.
+</p>
+<br/>
+<a name="sub_And the message about 'module might crash under EAPI!">
+<table width="100%" cellpadding="0" cellspacing="0" border="0">
+<tr>
+<td align="left" valign="top" class="subsection" bgcolor="#828DA6">
+<img border="0" vspace="0" hspace="0" align="left" valign="top" src="images/corner.gif"/>And the message about 'module might crash under EAPI!</td>
+</tr>
+</table>
+</a>
+<p class="section">
+Also related to EAPI, the message <b class="code">'[warn] Loaded DSO /usr/lib/apache/mod_jk.so uses plain Apache 1.3 API, 
+this module might crash under EAPI! (please recompile it with -DEAPI)'</b>, the mod_jk.so was compiled under normal 
+Apache with standard API and you try to install the module on an Apache using EAPI.
+</p>
+<br/>
+<a name="sub_APXS is getting an error during the build of mod_jk, like rc=0 or rc=255.  I tried all of the steps in the build section, what do I do now ?">
+<table width="100%" cellpadding="0" cellspacing="0" border="0">
+<tr>
+<td align="left" valign="top" class="subsection" bgcolor="#828DA6">
+<img border="0" vspace="0" hspace="0" align="left" valign="top" src="images/corner.gif"/>APXS is getting an error during the build of mod_jk, like rc=0 or rc=255.  I tried all of the steps in the build section, what do I do now ?</td>
+</tr>
+</table>
+</a>
+<p class="section">
+APXS is a Perl script that is created when you build the Apache web server from source.  
+Chances are that if you are getting these errors and you obtained Apache as a binary distribution, 
+that APXS is not configured correctly for your system.  
+Your best bet is to get the Apache source from http://httpd.apache.org and build it yourself.  
+Use the following for a basic build (read the Apache docs for other options):
+<p class="screen">
+<div align="center">
+<table bgcolor="#cccccc" cellpadding="2" cellspacing="0" border="1" width="80%">
+<tr>
+<td align="left" bgcolor="#cccccc">
+<code>
+<nobr>
+<em class="screen">[user@host] ~ $ </em>
+<b class="screen">cd /usr/local/src</b>
+</nobr>
+</code>
+<br/>
+<code>
+<nobr>
+<em class="screen">[user@host] ~ $ </em>
+<b class="screen">gzip -dc apache_1.3.19.tar.gz|tar xvf -</b>
+</nobr>
+</code>
+<br/>
+<code>
+<nobr>
+<em class="screen">[user@host] ~ $ </em>
+<b class="screen">cd apache_1.3.19</b>
+</nobr>
+</code>
+<br/>
+<code>
+<nobr>
+<em class="screen">[user@host] ~ $ </em>
+<b class="screen">./configure --prefix=/usr/local/apache \</b>
+</nobr>
+</code>
+<br/>
+<code>
+<nobr>
+<em class="screen">[user@host] ~ $ </em>
+<b class="screen">            --enable-module=most \</b>
+</nobr>
+</code>
+<br/>
+<code>
+<nobr>
+<em class="screen">[user@host] ~ $ </em>
+<b class="screen">            --enable-shared=max</b>
+</nobr>
+</code>
+<br/>
+<code>
+<nobr>
+<em class="screen">[user@host] ~ $ </em>
+<b class="screen">make</b>
+</nobr>
+</code>
+<br/>
+<code>
+<nobr>
+<em class="screen">[user@host] ~ $ </em>
+<b class="screen">make install</b>
+</nobr>
+</code>
+<br/>
+</td>
+</tr>
+</table>
+</div>
+</p>
+</p>
+<p class="section">
+Note: The above steps assume that you downloaded the Apache source and placed it in your /usr/local/src directory.
+</p>
+<br/>
+<a name="sub_Apache 2.0 complains about incorrect module version">
+<table width="100%" cellpadding="0" cellspacing="0" border="0">
+<tr>
+<td align="left" valign="top" class="subsection" bgcolor="#828DA6">
+<img border="0" vspace="0" hspace="0" align="left" valign="top" src="images/corner.gif"/>Apache 2.0 complains about incorrect module version</td>
+</tr>
+</table>
+</a>
+<p class="section">
+Since Apache 2.0 API still change often, the Apache 2.0 teams decide to put in headers of compiled modules the 
+Apache 2.0 version used to compile the module. This check is called Magic Module Number bump.
+</p>
+<p class="section">
+At start time Apache 2.0 check that version in modules headers and stop if it detect that a module was compiled 
+for another Apache 2.0 version. As such you should allways use modules compiled for the same Apache 2.0 version. 
+This check may be removed if the future.
+</p>
+<br/>
+<a name="sub_JNI didn't works with Apache 1.3">
+<table width="100%" cellpadding="0" cellspacing="0" border="0">
+<tr>
+<td align="left" valign="top" class="subsection" bgcolor="#828DA6">
+<img border="0" vspace="0" hspace="0" align="left" valign="top" src="images/corner.gif"/>JNI didn't works with Apache 1.3</td>
+</tr>
+</table>
+</a>
+<p class="section">
+JNI support require a multi-threaded environment which is not the general case for Apache 1.3. 
+You should verify if Apache 1.3 has been build with thread support and if not you could add the 
+the pthreads library to your <b>
+<font color="#333333">httpd.conf</font>
+</b> file. 
+</p>
+<p class="screen">
+<div align="center">
+<table bgcolor="#cccccc" cellpadding="2" cellspacing="0" border="1" width="80%">
+<tr>
+<td align="left" bgcolor="#cccccc">
+<div class="screen"># Add pthread to Apache in httpd.conf</div>
+<code class="screen">
+<nobr>LoadModule "/usr/lib/libpthreads.so"</nobr>
+</code>
+<br/>
+</td>
+</tr>
+</table>
+</div>
+</p>
+<p class="section">
+Also keep in mind that JNI is suited for multi-threaded servers and you should consider upgrading 
+to Apache 2.0 to support JNI.
+</p>
+<br/>
+<a name="sub_JNI report that JVM couldn't be started under Linux">
+<table width="100%" cellpadding="0" cellspacing="0" border="0">
+<tr>
+<td align="left" valign="top" class="subsection" bgcolor="#828DA6">
+<img border="0" vspace="0" hspace="0" align="left" valign="top" src="images/corner.gif"/>JNI report that JVM couldn't be started under Linux</td>
+</tr>
+</table>
+</a>
+<p class="section">
+Under Linux, you should set some environment variables BEFORE launching your Apache server :
+</p>
+<p class="screen">
+<div align="center">
+<table bgcolor="#cccccc" cellpadding="2" cellspacing="0" border="1" width="80%">
+<tr>
+<td align="left" bgcolor="#cccccc">
+<code class="screen">
+<nobr>export LD_LIBRARY_PATH=$jre/bin:$jre/bin/classic:$LD_LIBRARY_PATH</nobr>
+</code>
+<br/>
+</td>
+</tr>
+</table>
+</div>
+</p>
+<p class="section">
+Also some Linux distributions have enabled a GLIBC feature called 'floating stacks' which may not works with kernel 
+less than 2.4.10 on SMP machines. You should disable floating stacks by exporting an environment variable :
+</p>
+<p class="screen">
+<div align="center">
+<table bgcolor="#cccccc" cellpadding="2" cellspacing="0" border="1" width="80%">
+<tr>
+<td align="left" bgcolor="#cccccc">
+<code class="screen">
+<nobr>export LD_ASSUME_KERNEL=2.2.5</nobr>
+</code>
+<br/>
+</td>
+</tr>
+</table>
+</div>
+</p>
+<p class="section">
+You could have to update your service scripts, ie <b>
+<font color="#333333">/etc/rc.d/init.d/httpd</font>
+</b>, to set these env vars 
+before your httpd server starts.
+</p>
+<br/>
+<a name="sub_Mixed errors when building via configure">
+<table width="100%" cellpadding="0" cellspacing="0" border="0">
+<tr>
+<td align="left" valign="top" class="subsection" bgcolor="#828DA6">
+<img border="0" vspace="0" hspace="0" align="left" valign="top" src="images/corner.gif"/>Mixed errors when building via configure</td>
+</tr>
+</table>
+</a>
+<p class="section">
+configure assume you have some GNU tools allready installed and configured for your system, and ad minima <b>
+<font color="#333333">libtool</font>
+</b>.
+</p>
+<p class="section">
+Also some systems may have mixed cc and gcc setup which may make you puzzled when trying to link an Apache built with native
+c compiler with a jk/jk2 build with gcc.
+</p>
+<p class="section">
+In fine some native make didn't works as expect so you should use a GNU make <b>
+<font color="#333333">gmake</font>
+</b>.
+</p>
+<br/>
+<a name="sub_JK2 build report error about missing FIONBIO on Solaris 8">
+<table width="100%" cellpadding="0" cellspacing="0" border="0">
+<tr>
+<td align="left" valign="top" class="subsection" bgcolor="#828DA6">
+<img border="0" vspace="0" hspace="0" align="left" valign="top" src="images/corner.gif"/>JK2 build report error about missing FIONBIO on Solaris 8</td>
+</tr>
+</table>
+</a>
+<p class="section">
+In JK2 before v2.0.2, you should add <pre class="section">#define BSD_COMP</pre> in top
+of jk/native2/common/jk_channel_socket.c to have Solaris build succeed.
+</p>
+<br/>
+<br/>
+<a name="IIS">
+<table width="100%" cellpadding="0" cellspacing="0" border="0">
+<tr>
+<td align="left" valign="top" class="section" bgcolor="#525D76">
+<img border="0" vspace="0" hspace="0" align="left" valign="top" src="images/corner.gif"/>IIS</td>
+</tr>
+</table>
+</a>
+<p class="section">
+Informations and FAQ about JK and IIS Web Servers. 
+</p>
+<p class="todo">
+      This paragraph has not been written yet, but <b>you</b> can contribute to it.
+      </p>
+<br/>
+<a name="NES/iPlanet">
+<table width="100%" cellpadding="0" cellspacing="0" border="0">
+<tr>
+<td align="left" valign="top" class="section" bgcolor="#525D76">
+<img border="0" vspace="0" hspace="0" align="left" valign="top" src="images/corner.gif"/>NES/iPlanet</td>
+</tr>
+</table>
+</a>
+<p class="section">
+Informations and FAQ about JK and NES/iPlanet Web Servers. 
+</p>
+<p class="todo">
+      This paragraph has not been written yet, but <b>you</b> can contribute to it.
+      </p>
+<br/>
+</td>
+</tr>
+</table>
+</body>
+</html>

@@ -56,7 +56,7 @@ enum
 #include <IOKit/IOSyncer.h>
 
 // SCSI Architecture Model Family includes
-#include <IOKit/scsi-commands/IOSCSIProtocolServices.h>
+#include <IOKit/scsi/IOSCSIProtocolServices.h>
 
 
 // Forward definitions for internal use only classes.

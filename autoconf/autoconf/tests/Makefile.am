@@ -1,7 +1,7 @@
 ## Process this file with automake to create Makefile.in. -*-Makefile-*-
 
 ## Makefile for Autoconf testsuite.
-## Copyright 2000, 2001 Free Software Foundation, Inc.
+## Copyright (C) 2000, 2001, 2002 Free Software Foundation, Inc.
 
 ## This program is free software; you can redistribute it and/or modify
 ## it under the terms of the GNU General Public License as published by
@@ -18,79 +18,131 @@
 ## Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA
 ## 02111-1307, USA.
 
-AUTOMAKE_OPTIONS = gnits
-
-SUITE = suite.at \
-        m4sugar.at m4sh.at \
-        base.at tools.at torture.at compile.at semantics.at \
-	acgeneral.at acspecific.at acfunctions.at aclang.at acheaders.at \
-	actypes.at \
-	foreign.at
-
 # We don't actually distribute the testsuite, since one only
 # needs m4 to build it, m4 being required anyway to install Autoconf.
-EXTRA_DIST = README \
-             atgeneral.m4 atspecific.m4 aclocal.m4 \
-             $(SUITE) mktests.sh
+EXTRA_DIST = $(TESTSUITE_AT) atspecific.m4 mktests.sh \
+             atlocal.in package.m4 wrapper.as
 
-check-local: atconfig testsuite
-	$(SHELL) testsuite
+# Running the uninstalled scripts.
+check_SCRIPTS = autoconf autoheader autoreconf autom4te autoscan autoupdate ifnames
 
-testsuite: $(top_srcdir)/m4sugar.m4 $(top_srcdir)/m4sh.m4 \
-           atgeneral.m4 atspecific.m4 \
-           $(SUITE)
-	$(M4) -I $(srcdir) -I $(top_srcdir) atspecific.m4 suite.at | \
-          sed -e 's/[ 	]*$$//' | \
-	  sed -e '/^$$/N;/\n$$/D' >$@.tmp
-	chmod +x $@.tmp
+DISTCLEANFILES = atconfig atlocal $(TESTSUITE) $(check_SCRIPTS)
+
+# Import the dependencies on Autotest and M4sh.
+include ../lib/freeze.mk
+
+
+## ------------ ##
+## package.m4.  ##
+## ------------ ##
+
+$(srcdir)/package.m4: $(top_srcdir)/configure.ac
+	{					\
+	  echo '# Signature of the current package.'; \
+	  echo 'm4_define([AT_PACKAGE_NAME],      [@PACKAGE_NAME@])'; \
+	  echo 'm4_define([AT_PACKAGE_TARNAME],   [@PACKAGE_TARNAME@])'; \
+	  echo 'm4_define([AT_PACKAGE_VERSION],   [@PACKAGE_VERSION@])'; \
+	  echo 'm4_define([AT_PACKAGE_STRING],    [@PACKAGE_STRING@])'; \
+	  echo 'm4_define([AT_PACKAGE_BUGREPORT], [@PACKAGE_BUGREPORT@])'; \
+	} >$(srcdir)/package.m4
+
+
+
+## ---------- ##
+## Wrappers.  ##
+## ---------- ##
+
+$(srcdir)/wrapper.in: $(srcdir)/wrapper.as
+	./autom4te --language=M4sh $(srcdir)/wrapper.as -o $@
+
+
+
+## ------------ ##
+## Test suite.  ##
+## ------------ ##
+
+TESTSUITE_GENERATED_AT = \
+	aclang.at acc.at acfortran.at \
+	acgeneral.at acstatus.at \
+	acautoheader.at acautoupdate.at \
+	acspecific.at acfunctions.at acheaders.at actypes.at \
+	aclibs.at acprograms.at
+
+TESTSUITE_HAND_AT = \
+	suite.at \
+        m4sugar.at m4sh.at \
+        base.at tools.at torture.at \
+	compile.at c.at fortran.at \
+	semantics.at \
+	foreign.at
+
+TESTSUITE_AT = $(TESTSUITE_GENERATED_AT) $(TESTSUITE_HAND_AT)
+TESTSUITE = ./testsuite
+
+# Run the non installed autom4te.
+# Don't use AUTOM4TE since `make alpha' makes it unavailable although
+# we are allowed to use it (since we ship it).
+AUTOTEST = ./autom4te --language=autotest
+$(TESTSUITE): $(srcdir)/package.m4 \
+	      atspecific.m4 \
+              $(TESTSUITE_AT) \
+	      $(autotest_m4f_dependencies)
+	$(AUTOTEST) -I $(srcdir) suite.at -o $@.tmp
 	mv $@.tmp $@
 
+atconfig: $(top_builddir)/config.status
+	cd $(top_builddir) && ./config.status tests/$@
 
-# The files which contains macro we check for syntax.  Don't use $(top_srcdir)
-# here since below we explicitly `cd' to $srcdir.  As for the dependencies,
-# thanks God for VPATH.  Hm...
-MACRO_FILES = ../acgeneral.m4 \
-              ../acspecific.m4 \
-              ../acfunctions.m4 \
-              ../aclang.m4 \
-              ../acheaders.m4 \
-              ../actypes.m4
+clean-local:
+	test ! -f $(TESTSUITE) || $(SHELL) $(TESTSUITE) --clean
+	rm -f *.tmp
+	rm -rf autom4te.cache
 
-acgeneral.at: mktests.sh $(MACRO_FILES)
-	cd $(srcdir) && ./mktests.sh $(MACRO_FILES)
+check-local: atconfig atlocal $(TESTSUITE)
+	$(SHELL) $(TESTSUITE)
 
-acspecific.at: mktests.sh $(MACRO_FILES)
-	cd $(srcdir) && ./mktests.sh $(MACRO_FILES)
+# Run the test suite on the *installed* tree.
+installcheck-local:
+	$(SHELL) $(TESTSUITE) AUTOTEST_PATH=$(exec_prefix)/bin
 
-acfunctions.at: mktests.sh $(MACRO_FILES)
-	cd $(srcdir) && ./mktests.sh $(MACRO_FILES)
-
-aclang.at: mktests.sh $(MACRO_FILES)
-	cd $(srcdir) && ./mktests.sh $(MACRO_FILES)
-
-acheaders.at: mktests.sh $(MACRO_FILES)
-	cd $(srcdir) && ./mktests.sh $(MACRO_FILES)
-
-actypes.at: mktests.sh $(MACRO_FILES)
-	cd $(srcdir) && ./mktests.sh $(MACRO_FILES)
-
-CLEANFILES = debug-*.sh macro configure configure.in configure.ac \
-             config.status config.cache config.log config.h.in config.h \
-             config.hin state-* at-* \
-             stderr stdout empty \
-	     config.guess config.sub expr libtool ltconfig ltmain.sh install-sh
-DISTCLEANFILES = atconfig testsuite
 
 
 ## ------------------ ##
 ## Maintainer rules.  ##
 ## ------------------ ##
 
+MAINTAINERCLEANFILES = Makefile.in $(TESTSUITE_GENERATED_AT)
+
+## Producing the test files.
+
+# The files which contains macro we check for syntax.  Don't use $(top_srcdir)
+# here since below we explicitly `cd' to $srcdir.  As for the dependencies,
+# thanks God for VPATH.  Hm...
+autoconfdir = $(top_srcdir)/lib/autoconf
+AUTOCONF_FILES = $(autoconfdir)/general.m4 \
+                 $(autoconfdir)/status.m4 \
+                 $(autoconfdir)/autoheader.m4 \
+                 $(autoconfdir)/autoupdate.m4 \
+                 $(autoconfdir)/specific.m4 \
+                 $(autoconfdir)/functions.m4 \
+                 $(autoconfdir)/lang.m4 \
+                 $(autoconfdir)/c.m4 \
+                 $(autoconfdir)/fortran.m4 \
+                 $(autoconfdir)/headers.m4 \
+                 $(autoconfdir)/libs.m4 \
+                 $(autoconfdir)/types.m4	\
+                 $(autoconfdir)/programs.m4
+
+$(TESTSUITE_GENERATED_AT): mktests.sh $(AUTOCONF_FILES)
+	cd $(srcdir) && ./mktests.sh $(AUTOCONF_FILES)
+
+
 ## maintainer-check ##
 
 maintainer-check: maintainer-check-posix maintainer-check-c++
 
 # The hairy heredoc is more robust than using echo.
+CLEANFILES = expr
 expr:
 	echo '#! $(SHELL)'            >expr
 	echo 'result=`@EXPR@ "$$@"`' >>expr

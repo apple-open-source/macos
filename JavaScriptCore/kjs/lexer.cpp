@@ -51,7 +51,7 @@ static Lexer *currLexer = 0;
 
 #include "lexer.lut.h"
 
-extern YYLTYPE yylloc; // global bison variable holding token info
+extern YYLTYPE kjsyylloc; // global bison variable holding token info
 
 // a bridge for yacc from the C world to C++
 int kjsyylex()
@@ -481,8 +481,8 @@ int Lexer::lex()
 
   restrKeyword = false;
   delimited = false;
-  yylloc.first_line = yylineno; // ???
-  yylloc.last_line = yylineno;
+  kjsyylloc.first_line = yylineno; // ???
+  kjsyylloc.last_line = yylineno;
 
   switch (state) {
   case Eof:
@@ -499,7 +499,6 @@ int Lexer::lex()
       // Apply anonymous-function hack below (eat the identifier)
       if (eatNextIdentifier) {
         eatNextIdentifier = false;
-        UString debugstr(buffer16, pos16); fprintf(stderr,"Anonymous function hack: eating identifier %s\n",debugstr.ascii());
         token = lex();
         break;
       }

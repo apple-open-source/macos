@@ -31,7 +31,6 @@
 #include "khtml_part.h"
 
 #include "rendering/render_frames.h"
-#include "rendering/render_body.h"
 #include "css/cssstyleselector.h"
 #include "css/css_stylesheetimpl.h"
 #include "css/cssproperties.h"
@@ -178,17 +177,6 @@ void HTMLBodyElementImpl::insertedIntoDocument()
         addCSSProperty(CSS_PROP_COLOR, "#000000");
 
     getDocument()->updateStyleSelector();
-}
-
-RenderObject *HTMLBodyElementImpl::createRenderer(RenderArena *arena, RenderStyle *style)
-{
-    return new (arena) RenderBody(this);
-}
-
-void HTMLBodyElementImpl::attach()
-{
-    createRendererIfNeeded();
-    NodeBaseImpl::attach();
 }
 
 // -------------------------------------------------------------------------
@@ -350,7 +338,14 @@ void HTMLFrameElementImpl::parseAttribute(AttributeImpl *attr)
             scrolling = QScrollView::AlwaysOff;
         // FIXME: If we are already attached, this has no effect.
         // FIXME: Is this falling through on purpose, or do we want a break here?
-
+    case ATTR_ONLOAD:
+        setHTMLEventListener(EventImpl::LOAD_EVENT,
+                                getDocument()->createHTMLEventListener(attr->value().string()));
+        break;
+    case ATTR_ONUNLOAD:
+        setHTMLEventListener(EventImpl::UNLOAD_EVENT,
+                                getDocument()->createHTMLEventListener(attr->value().string()));
+        break;
     default:
         HTMLElementImpl::parseAttribute(attr);
     }
@@ -669,6 +664,9 @@ void HTMLIFrameElementImpl::parseAttribute(AttributeImpl *attr )
     case ATTR_SRC:
       needWidgetUpdate = true; // ### do this for scrolling, margins etc?
       HTMLFrameElementImpl::parseAttribute( attr );
+      break;
+    case ATTR_ALIGN:
+      addHTMLAlignment( attr->value() );
       break;
     default:
       HTMLFrameElementImpl::parseAttribute( attr );

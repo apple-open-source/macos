@@ -545,6 +545,9 @@ static void fix_pc_area_if_necessary(unsigned long address)
     unsigned long pc;
     
     if (macsbug_screen && gdb_target_running()) {
+      /* This is a hack.  Sometimes gdb leaves the deprecated_selected_frame 
+         null, but still uses it.  get_selected_frame will force it to get set. */
+      get_selected_frame ();
     	pc = gdb_get_int("$pc");
 	if (address >= pc && address < address + (4*pc_area_lines))
 	    force_pc_area_update();

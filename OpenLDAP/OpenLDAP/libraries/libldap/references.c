@@ -1,6 +1,6 @@
-/* $OpenLDAP: pkg/ldap/libraries/libldap/references.c,v 1.16 2002/01/04 20:17:39 kurt Exp $ */
+/* $OpenLDAP: pkg/ldap/libraries/libldap/references.c,v 1.16.2.3 2003/03/03 17:10:05 kurt Exp $ */
 /*
- * Copyright 1998-2002 The OpenLDAP Foundation, All Rights Reserved.
+ * Copyright 1998-2003 The OpenLDAP Foundation, All Rights Reserved.
  * COPYING RESTRICTIONS APPLY, see COPYRIGHT file
  */
 /*
@@ -24,11 +24,7 @@ ldap_first_reference( LDAP *ld, LDAPMessage *chain )
 {
 	assert( ld != NULL );
 	assert( LDAP_VALID( ld ) );
-	assert( chain !=  NULL );
-
-	if ( ld == NULL || chain == NULL ) {
-		return NULL;
-	}
+	assert( chain != NULL );
 
 	return chain->lm_msgtype == LDAP_RES_SEARCH_REFERENCE
 		? chain
@@ -40,11 +36,7 @@ ldap_next_reference( LDAP *ld, LDAPMessage *ref )
 {
 	assert( ld != NULL );
 	assert( LDAP_VALID( ld ) );
-	assert( ref !=  NULL );
-
-	if ( ld == NULL || ref == NULL ) {
-		return NULL;
-	}
+	assert( ref != NULL );
 
 	for (
 		ref = ref->lm_chain;
@@ -66,13 +58,7 @@ ldap_count_references( LDAP *ld, LDAPMessage *chain )
 
 	assert( ld != NULL );
 	assert( LDAP_VALID( ld ) );
-	assert( chain !=  NULL );
 
-	if ( ld == NULL ) {
-		return -1;
-	}
-
-	
 	for ( i = 0; chain != NULL; chain = chain->lm_chain ) {
 		if( chain->lm_msgtype == LDAP_RES_SEARCH_REFERENCE ) {
 			i++;
@@ -98,9 +84,7 @@ ldap_parse_reference(
 	assert( LDAP_VALID( ld ) );
 	assert( ref !=  NULL );
 
-	if( ld == NULL || ref == NULL ||
-		ref->lm_msgtype != LDAP_RES_SEARCH_REFERENCE )
-	{
+	if( ref->lm_msgtype != LDAP_RES_SEARCH_REFERENCE ) {
 		return LDAP_PARAM_ERROR;
 	}
 

@@ -38,6 +38,7 @@
 #include "gdbthread.h"
 #include "regcache.h"
 #include "symfile.h"
+#include <readline/readline.h>
 
 #ifndef O_BINARY
 #define O_BINARY 0
@@ -57,12 +58,12 @@ static struct core_fns *core_vec = NULL;
 static void core_files_info (struct target_ops *);
 
 #ifdef SOLIB_ADD
-static int solib_add_stub (PTR);
+static int solib_add_stub (void *);
 #endif
 
 static struct core_fns *sniff_core_bfd (bfd *);
 
-static boolean gdb_check_format (bfd *);
+static int gdb_check_format (bfd *);
 
 static void core_open (char *, int);
 
@@ -74,7 +75,7 @@ static void core_close_cleanup (void *ignore);
 
 static void get_core_registers (int);
 
-static void add_to_thread_list (bfd *, asection *, PTR);
+static void add_to_thread_list (bfd *, asection *, void *);
 
 static int ignore (CORE_ADDR, char *);
 
@@ -160,7 +161,7 @@ default_check_format (bfd *abfd)
 
 /* Attempt to recognize core file formats that BFD rejects. */
 
-static boolean 
+static int
 gdb_check_format (bfd *abfd)
 {
   struct core_fns *cf;
@@ -202,9 +203,8 @@ core_close (int quitting)
       core_bfd = NULL;
       if (core_ops.to_sections)
 	{
-	  xfree (core_ops.to_sections);
-	  core_ops.to_sections = NULL;
-	  core_ops.to_sections_end = NULL;
+	  target_resize_to_sections
+	    (&core_ops, core_ops.to_sections_end - core_ops.to_sections);
 	}
     }
   core_vec = NULL;
@@ -221,7 +221,7 @@ core_close_cleanup (void *ignore)
    is really an int * which points to from_tty.  */
 
 static int
-solib_add_stub (PTR from_ttyp)
+solib_add_stub (void *from_ttyp)
 {
   SOLIB_ADD (NULL, *(int *) from_ttyp, &current_target, auto_solib_add);
   re_enable_breakpoints_in_shlibs (0);
@@ -233,7 +233,7 @@ solib_add_stub (PTR from_ttyp)
    list of threads in a core file.  */
 
 static void
-add_to_thread_list (bfd *abfd, asection *asect, PTR reg_sect_arg)
+add_to_thread_list (bfd *abfd, asection *asect, void *reg_sect_arg)
 {
   int thread_id;
   asection *reg_sect = (asection *) reg_sect_arg;
@@ -321,7 +321,12 @@ core_open (char *filename, int from_tty)
     error ("\"%s\": Can't find sections: %s",
 	   bfd_get_filename (core_bfd), bfd_errmsg (bfd_get_error ()));
 
-  set_gdbarch_from_file (core_bfd);
+  /* If we have no exec file, try to set the architecture from the
+     core file.  We don't do this unconditionally since an exec file
+     typically contains more information that helps us determine the
+     architecture than a core file.  */
+  if (!exec_bfd)
+    set_gdbarch_from_file (core_bfd);
 
   ontop = !push_target (&core_ops);
   discard_cleanups (old_chain);
@@ -358,8 +363,9 @@ core_open (char *filename, int from_tty)
 
       /* Now, set up the frame cache, and print the top of stack.  */
       flush_cached_frames ();
-      select_frame (get_current_frame (), 0);
-      print_stack_frame (selected_frame, selected_frame_level, 1);
+      select_frame (get_current_frame ());
+      print_stack_frame (deprecated_selected_frame,
+			 frame_relative_level (deprecated_selected_frame), 1);
     }
   else
     {
@@ -460,7 +466,7 @@ get_core_registers (int regno)
   get_core_register_section (".reg2", 2, "floating-point", 0);
   get_core_register_section (".reg-xfp", 3, "extended floating-point", 0);
 
-  registers_fetched ();
+  deprecated_registers_fetched ();
 }
 
 static void
@@ -503,16 +509,13 @@ init_core_ops (void)
   core_ops.to_open = core_open;
   core_ops.to_close = core_close;
   core_ops.to_attach = find_default_attach;
-  core_ops.to_require_attach = find_default_require_attach;
   core_ops.to_detach = core_detach;
-  core_ops.to_require_detach = find_default_require_detach;
   core_ops.to_fetch_registers = get_core_registers;
   core_ops.to_xfer_memory = xfer_memory;
   core_ops.to_files_info = core_files_info;
   core_ops.to_insert_breakpoint = ignore;
   core_ops.to_remove_breakpoint = ignore;
   core_ops.to_create_inferior = find_default_create_inferior;
-  core_ops.to_clone_and_follow_inferior = find_default_clone_and_follow_inferior;
   core_ops.to_thread_alive = core_file_thread_alive;
   core_ops.to_stratum = core_stratum;
   core_ops.to_has_memory = 1;

@@ -29,7 +29,7 @@
  * OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
  * SUCH DAMAGE.
  *
- * $Id: ctx.c,v 1.14 2002/05/03 17:20:38 lindak Exp $
+ * $Id: ctx.c,v 1.21 2003/09/08 23:45:26 lindak Exp $
  */
 #include <sys/param.h>
 #include <sys/sysctl.h>
@@ -58,7 +58,19 @@ extern uid_t real_uid, eff_uid;
 #include <netsmb/netbios.h>
 #include <netsmb/nb_lib.h>
 #include <netsmb/smb_conn.h>
+
 #include <cflib.h>
+
+#include <spnego.h>
+#include "derparse.h"
+extern MECH_OID g_stcMechOIDList [];
+
+#include <com_err.h>
+#include <krb5.h>
+
+extern char *__progname;
+
+#define POWEROF2(x) (((x) & ((x)-1)) == 0)
 
 /*
  * Prescan command line for [-U user] argument
@@ -70,11 +82,12 @@ smb_ctx_init(struct smb_ctx *ctx, int argc, char *argv[],
 {
 	int  opt, error = 0;
 	const char *arg, *cp;
+	struct passwd *pw;
 
-	bzero(ctx,sizeof(*ctx));
+	bzero(ctx, sizeof(*ctx));
 #ifdef APPLE
 	if (sharetype == SMB_ST_DISK)
-        	ctx->ct_flags |= SMBCF_BROWSEOK;
+		ctx->ct_flags |= SMBCF_BROWSEOK;
 #endif
 	error = nb_ctx_create(&ctx->ct_nb);
 	if (error)
@@ -101,7 +114,11 @@ smb_ctx_init(struct smb_ctx *ctx, int argc, char *argv[],
 	ctx->ct_sh.ioc_group = SMBM_ANY_GROUP;
 
 	nb_ctx_setscope(ctx->ct_nb, "");
-	smb_ctx_setuser(ctx, getpwuid(geteuid())->pw_name);
+	pw = getpwuid(geteuid());
+	/* if cannot get current user name, don't crash */
+	if (pw != NULL)
+		/* if the user name is not specified some other way, use the current user name */
+		smb_ctx_setuser(ctx, pw->pw_name);
 	endpwent();
 	if (argv == NULL)
 		return 0;
@@ -148,6 +165,10 @@ smb_ctx_done(struct smb_ctx *ctx)
 		free(ctx->ct_srvaddr);
 	if (ctx->ct_nb)
 		nb_ctx_done(ctx->ct_nb);
+	if (ctx->ct_secblob)
+		free(ctx->ct_secblob);
+        if (ctx->ct_origshare)
+		free(ctx->ct_origshare);
 }
 
 static int
@@ -166,10 +187,53 @@ getsubstring(const char *p, u_char sep, char *dest, int maxlen, const char **nex
 	return 0;
 }
 
+
+unsigned
+xtoi(unsigned u)
+{
+	if (isdigit(u))
+		return (u - '0');
+	else if (islower(u))
+		return (10 + u - 'a');
+	else if (isupper(u))
+		return (10 + u - 'A');
+	return (16);
+}
+
+
+/*
+ * Removes the "%" escape sequences from a URL component.
+ * See IETF RFC 2396.
+ */
+char *
+unpercent(char * component)
+{
+	unsigned char c, *s;
+	unsigned hi, lo;
+
+	if (component)
+		for (s = component; (c = *s); s++) {
+			if (c != '%')
+				continue;
+			if ((hi = xtoi(s[1])) > 15 || (lo = xtoi(s[2])) > 15)
+				continue; /* ignore invalid escapes */
+			s[0] = hi*16 + lo;
+			/*
+			 * This was strcpy(s + 1, s + 3);
+			 * But nowadays leftward overlapping copies are
+			 * officially undefined in C.  Ours seems to
+			 * work or not depending upon alignment.
+			 */
+			memmove(s+1, s+3, strlen(s+3) + 1);
+		}
+	return (component);
+}
+
+
 #ifdef APPLE
 /*
  * Here we expect something like
- *   "//[workgroup;][user[:password]@]host[/share][/path]"
+ *   "//[workgroup;][user[:password]@]host[/share[/path]]"
  * See http://ietf.org/internet-drafts/draft-crhertel-smb-url-01.txt
  */
 #else
@@ -199,7 +263,7 @@ smb_ctx_parseunc(struct smb_ctx *ctx, const char *unc, int sharetype,
 			smb_error("empty workgroup name", 0);
 			return EINVAL;
 		}
-		error = smb_ctx_setworkgroup(ctx, tmp);
+		error = smb_ctx_setworkgroup(ctx, unpercent(tmp));
 		if (error)
 			return error;
 	}
@@ -214,7 +278,7 @@ smb_ctx_parseunc(struct smb_ctx *ctx, const char *unc, int sharetype,
 		p1 = strchr(tmp, ':');
 		if (p1) {
 			*p1++ = (char)0;
-			error = smb_ctx_setpassword(ctx, p1);
+			error = smb_ctx_setpassword(ctx, unpercent(p1));
 			if (error)
 				return error;
 		}
@@ -224,7 +288,7 @@ smb_ctx_parseunc(struct smb_ctx *ctx, const char *unc, int sharetype,
 			smb_error("empty user name", 0);
 			return EINVAL;
 		}
-		error = smb_ctx_setuser(ctx, tmp);
+		error = smb_ctx_setuser(ctx, unpercent(tmp));
 		if (error)
 			return error;
 		ctx->ct_parsedlevel = SMBL_VC;
@@ -241,7 +305,7 @@ smb_ctx_parseunc(struct smb_ctx *ctx, const char *unc, int sharetype,
 		smb_error("empty server name", 0);
 		return EINVAL;
 	}
-	error = smb_ctx_setserver(ctx, tmp);
+	error = smb_ctx_setserver(ctx, unpercent(tmp));
 	if (error)
 		return error;
 	if (sharetype == SMB_ST_NONE) {
@@ -272,7 +336,7 @@ smb_ctx_parseunc(struct smb_ctx *ctx, const char *unc, int sharetype,
 	*next = p;
 	if (*p1 == 0)
 		return 0;
-	error = smb_ctx_setshare(ctx, p1, sharetype);
+	error = smb_ctx_setshare(ctx, unpercent(p1), sharetype);
 	return error;
 }
 
@@ -348,7 +412,7 @@ smb_ctx_getnbname(struct smb_ctx *ctx, struct sockaddr *sap)
 	server[0] = workgroup[0] = '\0';
 	error = nbns_getnodestatus(sap, ctx->ct_nb, server, workgroup);
 	if (error == 0) {
-		if (workgroup[0])
+		if (workgroup[0] && !ctx->ct_ssn.ioc_workgroup[0])
 			smb_ctx_setworkgroup(ctx, workgroup);
 		if (server[0])
 			smb_ctx_setserver(ctx, server);
@@ -441,7 +505,11 @@ smb_ctx_setshare(struct smb_ctx *ctx, const char *share, int stype)
 		smb_error("share name '%s' too long", 0, share);
 		return ENAMETOOLONG;
 	}
-	nls_str_upper(ctx->ct_sh.ioc_share, share);
+        if (ctx->ct_origshare)
+                free(ctx->ct_origshare);
+        if ((ctx->ct_origshare = strdup(share)) == NULL)
+		return ENOMEM;
+	nls_str_upper(ctx->ct_sh.ioc_share, share); 
 	if (share[0] != 0)
 		ctx->ct_parsedlevel = SMBL_SHARE;
 	ctx->ct_sh.ioc_stype = stype;
@@ -707,9 +775,13 @@ smb_ctx_resolve(struct smb_ctx *ctx)
 	ssn->ioc_lolen = salocal->snb_len;
 	ssn->ioc_svlen = saserver->snb_len;
 
+	error = smb_ctx_negotiate(ctx, SMBL_SHARE, SMBLK_CREATE);
+	if (error)
+		return (error);
 #ifdef APPLE
 	ctx->ct_flags &= ~SMBCF_AUTHREQ;
-	if (browseok && !sh->ioc_share[0] && !(ctx->ct_flags & SMBCF_XXX)) {
+	if (!ctx->ct_secblob && browseok && !sh->ioc_share[0] &&
+	    !(ctx->ct_flags & SMBCF_XXX)) {
 		/* assert: anon share list is subset of overall server shares */
 		error = smb_browse(ctx, 1);
 		if (error) /* user cancel or other error? */
@@ -719,8 +791,9 @@ smb_ctx_resolve(struct smb_ctx *ctx)
 		 * or anon-authentication failed getting browse list.
 		 */
 	}
-	if (ctx->ct_flags & SMBCF_AUTHREQ ||
-	    (ssn->ioc_password[0] == 0 && (ctx->ct_flags & SMBCF_NOPWD) == 0)) {
+	if (!ctx->ct_secblob && (ctx->ct_flags & SMBCF_AUTHREQ ||
+				 (ssn->ioc_password[0] == 0 &&
+				  !(ctx->ct_flags & SMBCF_NOPWD)))) {
 reauth:
 		cp = password;
 		error = smb_get_authentication(ssn->ioc_workgroup,
@@ -738,6 +811,16 @@ reauth:
 		error = smb_ctx_setpassword(ctx, cp);
 		if (error)
 			return error;
+	}
+	/*
+	 * if we have a session it is either anonymous
+	 * or from a stale authentication.  re-negotiating
+	 * gets us ready for a fresh session
+	 */
+	if (ctx->ct_flags & SMBCF_SSNACTIVE) {
+		error = smb_ctx_negotiate(ctx, SMBL_SHARE, SMBLK_CREATE);
+		if (error)
+			return (error);
 	}
 #ifdef APPLE
 	if (browseok && !sh->ioc_share[0]) {
@@ -770,6 +853,11 @@ smb_ctx_gethandle(struct smb_ctx *ctx)
 	int fd, i;
 	char buf[20];
 
+	if (ctx->ct_fd != -1) {
+		close(ctx->ct_fd);
+		ctx->ct_fd = -1;
+		ctx->ct_flags &= ~SMBCF_SSNACTIVE;
+	}
 	/*
 	 * First try to open as clone
 	 */
@@ -782,51 +870,413 @@ smb_ctx_gethandle(struct smb_ctx *ctx)
 	 * well, no clone capabilities available - we have to scan
 	 * all devices in order to get free one
 	 */
-	 for (i = 0; i < 1024; i++) {
-	         snprintf(buf, sizeof(buf), "/dev/%s%d", NSMB_NAME, i);
-		 fd = open(buf, O_RDWR);
-		 if (fd >= 0) {
+	for (i = 0; i < 1024; i++) {
+		snprintf(buf, sizeof(buf), "/dev/%s%d", NSMB_NAME, i);
+		fd = open(buf, O_RDWR);
+		if (fd >= 0) {
 			ctx->ct_fd = fd;
 			return 0;
-		 }
+		}
+		if (i && POWEROF2(i+1))
+			smb_error("%d failures to open smb device", errno, i+1);
 	 }
 #ifndef APPLE
 	 /*
 	  * This is a compatibility with old /dev/net/nsmb device
 	  */
 	 for (i = 0; i < 1024; i++) {
-	         snprintf(buf, sizeof(buf), "/dev/net/%s%d", NSMB_NAME, i);
+		 snprintf(buf, sizeof(buf), "/dev/net/%s%d", NSMB_NAME, i);
 		 fd = open(buf, O_RDWR);
 		 if (fd >= 0) {
 			ctx->ct_fd = fd;
 			return 0;
 		 }
 		 if (errno == ENOENT)
-		         return ENOENT;
+			return ENOENT;
 	 }
 #endif /* APPLE */
 	 return ENOENT;
 }
 
 int
-smb_ctx_lookup(struct smb_ctx *ctx, int level, int flags)
+smb_ctx_ioctl(struct smb_ctx *ctx, int inum, struct smbioc_lookup *rqp)
 {
-	struct smbioc_lookup rq;
-	int error;
+	size_t	siz = DEF_SEC_TOKEN_LEN;
+	int	rc = 0;
 
+	if (rqp->ioc_ssn.ioc_outtok)
+		free(rqp->ioc_ssn.ioc_outtok);
+	rqp->ioc_ssn.ioc_outtok = (size_t *)malloc(sizeof(size_t) + siz);
+	if (!rqp->ioc_ssn.ioc_outtok) {
+		smb_error("smb_ctx_ioctl malloc failed", 0);
+		return (ENOMEM);
+	}
+	*rqp->ioc_ssn.ioc_outtok = siz;
+#ifdef APPLE
+	seteuid(eff_uid); /* restore setuid root briefly */
+#endif
+	if (ioctl(ctx->ct_fd, inum, rqp) == -1) {
+		rc = errno;
+		goto out;
+	}
+	if (*rqp->ioc_ssn.ioc_outtok <= siz)
+		goto out;
+	/*
+	 * Operation completed, but our output token wasn't large enough.
+	 * The re-call below only pulls the token from the kernel.
+	 */
+	siz = *rqp->ioc_ssn.ioc_outtok;
+	free(rqp->ioc_ssn.ioc_outtok);
+	rqp->ioc_ssn.ioc_outtok = (size_t *)malloc(sizeof(size_t) + siz);
+	*rqp->ioc_ssn.ioc_outtok = siz;
+	if (ioctl(ctx->ct_fd, inum, rqp) == -1)
+		rc = errno;
+out:;
+#ifdef APPLE
+	seteuid(real_uid); /* and back to real user */
+#endif
+	return (rc);
+}
+
+
+/*
+ * adds a GSSAPI wrapper
+ */
+char *
+smb_ctx_tkt2gtok(u_char *tkt, u_long tktlen, u_char **gtokp, u_long *gtoklenp)
+{
+	u_long		bloblen = tktlen;
+	u_long		len;
+	u_char		krbapreq[2] = "\x01\x00"; /* see RFC 1964 */
+	char *		failure;
+	u_char *	blob = NULL;		/* result */
+	u_char *	b;
+
+	bloblen += sizeof krbapreq;
+	bloblen += g_stcMechOIDList[spnego_mech_oid_Kerberos_V5].iLen;
+	len = bloblen;
+	bloblen = ASNDerCalcTokenLength(bloblen, bloblen);
+	failure = "smb_ctx_tkt2gtok malloc";
+	if (!(blob = malloc(bloblen)))
+		goto out;
+	b = blob;
+	b += ASNDerWriteToken(b, SPNEGO_NEGINIT_APP_CONSTRUCT, NULL, len);
+	b += ASNDerWriteOID(b, spnego_mech_oid_Kerberos_V5);
+	memcpy(b, krbapreq, sizeof krbapreq);
+	b += sizeof krbapreq;
+	failure = "smb_ctx_tkt2gtok insanity check";
+	if (b + tktlen != blob + bloblen)
+		goto out;
+	memcpy(b, tkt, tktlen);
+	*gtoklenp = bloblen;
+	*gtokp = blob;
+	failure = NULL;
+out:;
+	if (blob && failure)
+		free(blob);
+	return (failure);
+}
+
+
+/*
+ * See "Windows 2000 Kerberos Interoperability" paper by
+ * Christopher Nebergall.  RC4 HMAC is the W2K default but
+ * I don't think Samba is supporting it yet.
+ *
+ * Only session enc type should matter, not ticket enc type,
+ * per Sam Hartman on krbdev.
+ *
+ * Preauthentication failure topics in krb-protocol may help here...
+ * try "John Brezak" and/or "Clifford Neuman" too.
+ */
+static krb5_enctype kenctypes[] = {
+#ifdef XXX
+	ENCTYPE_ARCFOUR_HMAC,
+#endif
+#if 0
+	ENCTYPE_ARCFOUR_HMAC_EXP, /* exportable */
+#endif
+	ENCTYPE_DES_CBC_MD5,
+	ENCTYPE_DES_CBC_CRC,
+	ENCTYPE_NULL
+};
+
+/*
+ * Obtain a kerberos ticket...
+ * (if TLD != "gov" then pray first)
+ */
+char *
+smb_ctx_principal2tkt(char *prin, u_char **tktp, u_long *tktlenp)
+{
+	char *		failure;
+	krb5_context	kctx = NULL;
+	krb5_error_code	kerr;
+	krb5_ccache	kcc = NULL;
+	krb5_principal	kprin = NULL;
+	krb5_creds	kcreds, *kcredsp = NULL;
+	krb5_auth_context	kauth = NULL;
+	krb5_data	kdata, kdata0;
+	char *		tkt;
+
+	memset((char *)&kcreds, 0, sizeof(kcreds));
+	kdata0.length = 0;
+
+	failure = "krb5_init_context";
+	if ((kerr = krb5_init_context(&kctx)))
+		 goto out;
+	/* non-default would instead use krb5_cc_resolve */
+	failure = "krb5_cc_default";
+	if ((kerr = krb5_cc_default(kctx, &kcc)))
+		 goto out;
+	failure = "krb5_set_default_tgs_enctypes";
+	if ((kerr = krb5_set_default_tgs_enctypes(kctx, kenctypes)))
+		goto out;
+	/* 
+	 * The following is an unrolling of krb5_mk_req.  Something like:
+	 * krb5_mk_req(kctx, &kauth, 0, service(prin), hostname(prin), &kdata0
+	 *	       kcc, &kdata);)
+	 * ...except we needed krb5_parse_name not krb5_sname_to_principal.
+	 */
+	failure = "krb5_parse_name";
+	if ((kerr = krb5_parse_name(kctx, prin, &kprin)))
+		 goto out;
+	failure = "krb5_copy_principal";
+	if ((kerr = krb5_copy_principal(kctx, kprin, &kcreds.server)))
+		 goto out;
+	failure = "krb5_cc_get_principal";
+	if ((kerr = krb5_cc_get_principal(kctx, kcc, &kcreds.client)))
+		 goto out;
+	failure = "krb5_get_credentials";
+	if ((kerr = krb5_get_credentials(kctx, 0, kcc, &kcreds, &kcredsp)))
+		 goto out;
+	failure = "krb5_mk_req_extended";
+	if ((kerr = krb5_mk_req_extended(kctx, &kauth, 0, &kdata0, kcredsp,
+					 &kdata)))
+		 goto out;
+	failure = "malloc";
+	if (!(tkt = malloc(kdata.length))) {
+		krb5_free_data_contents(kctx, &kdata);
+		goto out;
+	}
+	*tktlenp = kdata.length;
+	memcpy(tkt, kdata.data, kdata.length);
+	krb5_free_data_contents(kctx, &kdata);
+	*tktp = tkt;
+	failure = NULL;
+out:;
+	if (kerr) {
+		if (!failure)
+			failure = "smb_ctx_principal2tkt";
+		com_err(__progname, kerr, failure);
+	}
+	if (kauth)
+		krb5_auth_con_free(kctx, kauth);
+	if (kcredsp)
+		krb5_free_creds(kctx, kcredsp);
+	if (kcreds.server || kcreds.client)
+		krb5_free_cred_contents(kctx, &kcreds);
+	if (kprin)
+		krb5_free_principal(kctx, kprin);
+	if (kctx)
+		krb5_free_context(kctx);
+	return (failure);
+}
+
+char *
+smb_ctx_principal2blob(size_t **blobp, char *prin, size_t plen)
+{
+#pragma unused(plen)
+	int		rc = 0;
+	char *		failure;
+	u_char *	tkt = NULL;
+	u_long		tktlen;
+	u_char *	gtok = NULL;		/* gssapi token */
+	u_long		gtoklen;		/* gssapi token length*/
+	SPNEGO_TOKEN_HANDLE  stok = NULL;	/* spnego token */
+	size_t *	blob = NULL;		/* result */
+	u_long		bloblen;		/* result length */
+
+	if ((failure = smb_ctx_principal2tkt(prin, &tkt, &tktlen)))
+		goto out;
+	if ((failure = smb_ctx_tkt2gtok(tkt, tktlen, &gtok, &gtoklen)))
+		goto out;
+	/*
+	 * RFC says to send NegTokenTarg now.  So does MS docs.  But
+	 * win2k gives ERRbaduid if we do...  we must send
+	 * another NegTokenInit now!
+	 */ 
+	failure = "spnegoCreateNegTokenInit";
+	if ((rc = spnegoCreateNegTokenInit(spnego_mech_oid_Kerberos_V5_Legacy,
+					   0, gtok, gtoklen, NULL, 0, &stok)))
+		goto out;
+	failure = "spnegoTokenGetBinary(NULL)";
+	rc = spnegoTokenGetBinary(stok, NULL, &bloblen);
+	if (rc != SPNEGO_E_BUFFER_TOO_SMALL)
+		goto out;
+	failure = "malloc";
+	if (!(blob = (size_t *)malloc(sizeof(size_t) + bloblen)))
+		goto out;
+	*blob = bloblen;
+	failure = "spnegoTokenGetBinary";
+	if ((rc = spnegoTokenGetBinary(stok, (u_char *)(blob+1), &bloblen)))
+		goto out;
+	*blobp = blob;
+	failure = NULL;
+out:;
+	if (rc) {
+		/* XXX better is to embed rc in failure */
+		smb_error("spnego principal2blob error %d", 0, -rc);
+		if (!failure)
+			failure = "spnego";
+	}
+	if (blob && failure)
+		free(blob);
+	if (stok)
+		spnegoFreeData(stok);
+	if (gtok)
+		free(gtok);
+	if (tkt)
+		free(tkt);
+	return (failure);
+}
+
+
+#if 0
+void
+prblob(u_char *b, size_t len)
+{
+	while (len--)
+		fprintf(stderr, "%02x", *b++);
+	fprintf(stderr, "\n");
+}
+#endif
+
+
+/*
+ * We navigate the SPNEGO & ASN1 encoding to find a kerberos principal
+ */
+char *
+smb_ctx_blob2principal(size_t *blob, u_char **prinp, size_t *plenp)
+{
+	size_t		len = *blob - SMB_GUIDLEN;
+	u_char *	start = (char *)blob + sizeof(size_t) + SMB_GUIDLEN;
+	int		rc = 0;
+	SPNEGO_TOKEN_HANDLE	stok = NULL;
+	int		indx = 0;
+	char *		failure;
+	u_char		flags = 0;
+	unsigned long	plen = 0;
+	u_char *	prin;
+
+#if 0
+	fprintf(stderr, "blob from negotiate:\n");
+	prblob(start, len);
+#endif
+	failure = "spnegoInitFromBinary";
+	if ((rc = spnegoInitFromBinary(start, len, &stok)))
+		goto out;
+	/*
+	 * Needn't use new Kerberos OID - the Legacy one is fine.
+	 */
+	failure = "spnegoIsMechTypeAvailable";
+	if (spnegoIsMechTypeAvailable(stok, spnego_mech_oid_Kerberos_V5_Legacy,
+				      &indx))
+		goto out;
+	/*
+	 * Ignoring optional context flags for now.  May want to pass
+	 * them to krb5 layer.  XXX
+	 */
+	if (!spnegoGetContextFlags(stok, &flags))
+		fprintf(stderr, "spnego context flags 0x%x\n", flags);
+	failure = "spnegoGetMechListMIC(NULL)";
+	rc = spnegoGetMechListMIC(stok, NULL, &plen);
+	if (rc != SPNEGO_E_BUFFER_TOO_SMALL)
+		goto out;
+	failure = "malloc";
+	if (!(prin = malloc(plen)))
+		goto out;
+	failure = "spnegoGetMechListMIC";
+	if ((rc = spnegoGetMechListMIC(stok, prin, &plen))) {
+		free(prin);
+		goto out;
+	}
+	*prinp = prin;
+	*plenp = plen;
+	failure = NULL;
+out:;
+	if (stok)
+		spnegoFreeData(stok);
+	if (rc) {
+		/* XXX better is to embed rc in failure */
+		smb_error("spnego blob2principal error %d", 0, -rc);
+		if (!failure)
+			failure = "spnego";
+	}
+	return (failure);
+}
+
+
+int
+smb_ctx_negotiate(struct smb_ctx *ctx, int level, int flags)
+{
+	struct smbioc_lookup	rq;
+	int	error = 0;
+	char *	failure = NULL;
+	u_char	*principal = NULL;
+	size_t	prinlen;
+
+	/*
+	 * We leave ct_secblob set iff extended security
+	 * negotiation succeeds.
+	 */
+	if (ctx->ct_secblob) {
+		free(ctx->ct_secblob);
+		ctx->ct_secblob = NULL;
+	}
+#ifdef XXX
 	if ((ctx->ct_flags & SMBCF_RESOLVED) == 0) {
 		smb_error("smb_ctx_lookup() data is not resolved", 0);
 		return EINVAL;
 	}
-	if (ctx->ct_fd != -1) {
-		close(ctx->ct_fd);
-		ctx->ct_fd = -1;
+#endif
+	if ((error = smb_ctx_gethandle(ctx)))
+		return (error);
+	bzero(&rq, sizeof(rq));
+	bcopy(&ctx->ct_ssn, &rq.ioc_ssn, sizeof(struct smbioc_ossn));
+	bcopy(&ctx->ct_sh, &rq.ioc_sh, sizeof(struct smbioc_oshare));
+	rq.ioc_flags = flags;
+	rq.ioc_level = level;
+	rq.ioc_ssn.ioc_opt |= SMBVOPT_EXT_SEC;
+	if ((error = smb_ctx_ioctl(ctx, SMBIOC_NEGOTIATE, &rq)))
+		failure = "negotiate failed";
+	else if (*rq.ioc_ssn.ioc_outtok < SMB_GUIDLEN)
+		failure = "small blob"; /* XXX */
+	else if (*rq.ioc_ssn.ioc_outtok == SMB_GUIDLEN)
+		failure = "NTLMSSP unsupported";	/* XXX */
+	else if (!(failure = smb_ctx_blob2principal(rq.ioc_ssn.ioc_outtok,
+						    &principal, &prinlen)) &&
+		 !(failure = smb_ctx_principal2blob(&rq.ioc_ssn.ioc_intok,
+						    principal, prinlen))) {
+		ctx->ct_secblob = rq.ioc_ssn.ioc_intok;
+		rq.ioc_ssn.ioc_intok = NULL;
 	}
-	error = smb_ctx_gethandle(ctx);
-	if (error) {
-		smb_error("can't get handle to requester (no /dev/nsmb* device)", 0);
-		return EINVAL;
-	}
+	if (principal)
+		free(principal);
+	if (rq.ioc_ssn.ioc_intok)
+		free(rq.ioc_ssn.ioc_intok);
+	if (rq.ioc_ssn.ioc_outtok)
+		free(rq.ioc_ssn.ioc_outtok);
+	if (!failure)
+		return (0);
+	/*
+	 * Avoid spew for anticipated failure modes
+	 * but (XXX) enable this with command line debug flag
+	 */
+#if 0
+	smb_error("%s (extended security negotiate)", error, failure);
+#endif
+	if ((error = smb_ctx_gethandle(ctx)))
+		return (error);
 	bzero(&rq, sizeof(rq));
 	bcopy(&ctx->ct_ssn, &rq.ioc_ssn, sizeof(struct smbioc_ossn));
 	bcopy(&ctx->ct_sh, &rq.ioc_sh, sizeof(struct smbioc_oshare));
@@ -835,21 +1285,113 @@ smb_ctx_lookup(struct smb_ctx *ctx, int level, int flags)
 #ifdef APPLE
 	seteuid(eff_uid); /* restore setuid root briefly */
 #endif
-	if (ioctl(ctx->ct_fd, SMBIOC_LOOKUP, &rq) == -1) {
+	if (ioctl(ctx->ct_fd, SMBIOC_NEGOTIATE, &rq) == -1)
 		error = errno;
 #ifdef APPLE
-		seteuid(real_uid); /* and back to real user */
+	seteuid(real_uid); /* and back to real user */
 #endif
-		if (flags & SMBLK_CREATE)
-			smb_error("unable to open connection", error);
-		return error;
+	if (error) {
+		smb_error("negotiate phase failed", error);
+		close(ctx->ct_fd);
+		ctx->ct_fd = -1;
+	}
+	return (error);
+}
+
+
+int
+smb_ctx_tdis(struct smb_ctx *ctx)
+{
+	struct smbioc_lookup rq; /* XXX may be used, someday */
+	int error = 0;
+
+	if (ctx->ct_fd < 0) {
+		smb_error("tdis w/o handle?!", 0);
+		return EINVAL;
+	}
+	if (!(ctx->ct_flags & SMBCF_SSNACTIVE)) {
+		smb_error("tdis w/o session?!", 0);
+		return EINVAL;
+	}
+	bzero(&rq, sizeof(rq));
+	bcopy(&ctx->ct_ssn, &rq.ioc_ssn, sizeof(struct smbioc_ossn));
+	bcopy(&ctx->ct_sh, &rq.ioc_sh, sizeof(struct smbioc_oshare));
+	if (ioctl(ctx->ct_fd, SMBIOC_TDIS, &rq) == -1) {
+		error = errno;
+		smb_error("tree disconnect failed", error);
+	}
+	return (error);
+}
+
+
+int
+smb_ctx_lookup(struct smb_ctx *ctx, int level, int flags)
+{
+	struct smbioc_lookup rq;
+	int error = 0;
+	char *	failure = NULL;
+
+	if ((ctx->ct_flags & SMBCF_RESOLVED) == 0) {
+		smb_error("smb_ctx_lookup() data is not resolved", 0);
+		return EINVAL;
+	}
+	if (ctx->ct_fd < 0) {
+		smb_error("handle from smb_ctx_nego() gone?!", 0);
+		return EINVAL;
+	}
+	if (!(flags & SMBLK_CREATE))
+		return (0);
+	bzero(&rq, sizeof(rq));
+	bcopy(&ctx->ct_ssn, &rq.ioc_ssn, sizeof(struct smbioc_ossn));
+	bcopy(&ctx->ct_sh, &rq.ioc_sh, sizeof(struct smbioc_oshare));
+	rq.ioc_flags = flags;
+	rq.ioc_level = level;
+	if (ctx->ct_secblob) {
+		rq.ioc_ssn.ioc_opt |= SMBVOPT_EXT_SEC;
+		if (!(ctx->ct_flags & SMBCF_SSNACTIVE)) {
+			rq.ioc_ssn.ioc_intok = ctx->ct_secblob;
+			error = smb_ctx_ioctl(ctx, SMBIOC_SSNSETUP, &rq);
+		}
+		rq.ioc_ssn.ioc_intok = NULL;
+		if (error) {
+			failure = "session setup failed";
+		} else {
+			ctx->ct_flags |= SMBCF_SSNACTIVE;
+			if ((error = smb_ctx_ioctl(ctx, SMBIOC_TCON, &rq)))
+				failure = "tree connect failed";
+		}
+		if (rq.ioc_ssn.ioc_intok)
+			free(rq.ioc_ssn.ioc_intok);
+		if (rq.ioc_ssn.ioc_outtok)
+			free(rq.ioc_ssn.ioc_outtok);
+		if (!failure)
+			return (0);
+		smb_error("%s (extended security lookup2)", error, failure);
+		/* unwise to failback to NTLM now */
+		return (error);
+	}
+#ifdef APPLE
+	seteuid(eff_uid); /* restore setuid root briefly */
+#endif
+	if (!(ctx->ct_flags & SMBCF_SSNACTIVE) &&
+	    ioctl(ctx->ct_fd, SMBIOC_SSNSETUP, &rq) == -1)
+		failure = "session setup";
+	else {
+		ctx->ct_flags |= SMBCF_SSNACTIVE;
+		if (ioctl(ctx->ct_fd, SMBIOC_TCON, &rq) == -1)
+			failure = "tree connect";
 	}
 #ifdef APPLE
 	seteuid(real_uid); /* and back to real user */
 #endif
-	return 0;
+	if (failure) {
+		error = errno;
+		smb_error("%s phase failed", error, failure);
+	}
+	return error;
 }
 
+#ifndef APPLE
 int
 smb_ctx_login(struct smb_ctx *ctx)
 {
@@ -861,15 +1403,9 @@ smb_ctx_login(struct smb_ctx *ctx)
 		smb_error("smb_ctx_resolve() should be called first", 0);
 		return EINVAL;
 	}
-	if (ctx->ct_fd != -1) {
-		close(ctx->ct_fd);
-		ctx->ct_fd = -1;
-	}
 	error = smb_ctx_gethandle(ctx);
-	if (error) {
-		smb_error("can't get handle to requester", 0);
+	if (error)
 		return EINVAL;
-	}
 	if (ioctl(ctx->ct_fd, SMBIOC_OPENSESSION, ssn) == -1) {
 		error = errno;
 		smb_error("can't open session to server %s", error, ssn->ioc_srvname);
@@ -900,6 +1436,7 @@ smb_ctx_setflags(struct smb_ctx *ctx, int level, int mask, int flags)
 		return errno;
 	return 0;
 }
+#endif /* !APPLE */
 
 /*
  * level values:
@@ -993,7 +1530,7 @@ smb_ctx_readrc(struct smb_ctx *ctx)
 	if (ctx->ct_sh.ioc_share[0] != 0) {
 		/*
 		 * SERVER:USER:SHARE parameters
-	         */
+		 */
 		snprintf(sname, sizeof(sname), "%s:%s:%s", ctx->ct_ssn.ioc_srvname,
 		    ctx->ct_ssn.ioc_user, ctx->ct_sh.ioc_share);
 		smb_ctx_readrcsection(ctx, sname, 3);

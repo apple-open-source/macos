@@ -44,8 +44,3 @@ else !%?MORE-THAN-ONE%
 	  mv y.output %BASE%.output; \
 	fi
 endif !%?MORE-THAN-ONE%
-
-## Also generate a dependency for the .h file.
-if !%?GENERIC%
-%BASE%.h: %OBJ%
-endif !%?GENERIC%

@@ -2,21 +2,24 @@
  * Copyright (c) 2000 Apple Computer, Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
- *
- * The contents of this file constitute Original Code as defined in and
- * are subject to the Apple Public Source License Version 1.1 (the
- * "License").  You may not use this file except in compliance with the
- * License.  Please obtain a copy of the License at
- * http://www.apple.com/publicsource and read it before using this file.
- *
- * This Original Code and all software distributed under the License are
- * distributed on an "AS IS" basis, WITHOUT WARRANTY OF ANY KIND, EITHER
+ * 
+ * Copyright (c) 1999-2003 Apple Computer, Inc.  All Rights Reserved.
+ * 
+ * This file contains Original Code and/or Modifications of Original Code
+ * as defined in and that are subject to the Apple Public Source License
+ * Version 2.0 (the 'License'). You may not use this file except in
+ * compliance with the License. Please obtain a copy of the License at
+ * http://www.opensource.apple.com/apsl/ and read it before using this
+ * file.
+ * 
+ * The Original Code and all software distributed under the License are
+ * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
  * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
  * INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY,
- * FITNESS FOR A PARTICULAR PURPOSE OR NON-INFRINGEMENT.  Please see the
- * License for the specific language governing rights and limitations
- * under the License.
- *
+ * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
+ * Please see the License for the specific language governing rights and
+ * limitations under the License.
+ * 
  * @APPLE_LICENSE_HEADER_END@
  */
 
@@ -34,6 +37,7 @@ includes
 #include <unistd.h>
 #include <net/dlil.h>
 #include <sys/param.h>
+#include <sys/fcntl.h>
 #include <CoreFoundation/CoreFoundation.h>
 #include <SystemConfiguration/SystemConfiguration.h>
 //#include <SystemConfiguration/SCPrivate.h>      // for SCLog()
@@ -42,8 +46,8 @@ includes
 #include "ppp_msg.h"
 #include "ppp_privmsg.h"
 #include "ppp_client.h"
-#include "ppp_option.h"
 #include "ppp_manager.h"
+#include "ppp_option.h"
 #include "ppp_command.h"
 
 /* -----------------------------------------------------------------------------
@@ -51,7 +55,8 @@ definitions
 ----------------------------------------------------------------------------- */
 
 enum {
-    do_process = 0,
+    do_nothing = 0,
+    do_process,
     do_close,
     do_error
 };
@@ -78,7 +83,6 @@ void clientCallBack(CFSocketRef s, CFSocketCallBackType type,
 globals
 ----------------------------------------------------------------------------- */
 
-struct msg 		gMsg;
 CFStringRef 		gPluginsDir = 0;
 CFBundleRef 		gBundleRef = 0;
 CFURLRef 		gBundleURLRef = 0;
@@ -87,7 +91,7 @@ CFStringRef 		gInternetConnectRef = 0;
 CFURLRef 		gIconURLRef = 0;
 
 /* -----------------------------------------------------------------------------
-plugin entry point, called by configd
+plugin entry points, called by configd
 ----------------------------------------------------------------------------- */
 void load(CFBundleRef bundle, Boolean debug)
 {
@@ -99,10 +103,13 @@ void load(CFBundleRef bundle, Boolean debug)
         return;
     if (client_init_all())
         return;
-    if (ppp_init_all())
-        return;
 
     CFRetain(bundle);
+}
+
+void prime()
+{
+    ppp_init_all();
 }
 
 /* -----------------------------------------------------------------------------
@@ -187,7 +194,7 @@ void listenCallBack(CFSocketRef inref, CFSocketCallBackType type,
                      CFDataRef address, const void *data, void *info)
 {
     struct sockaddr_un	addr;
-    int			s, len;//, flags;
+    int			s, len, flags;
     CFSocketRef		ref;
     CFRunLoopSourceRef	rls;
     CFSocketContext	context = { 0, NULL, NULL, NULL, NULL };
@@ -198,10 +205,10 @@ void listenCallBack(CFSocketRef inref, CFSocketCallBackType type,
         
     PRINTF(("Accepted connection...\n"));
 
-//       if ((flags = fcntl(connfd, F_GETFL)) == -1
-//           || fcntl(connfd, F_SETFL, flags | O_NONBLOCK) == -1) {
-//           printf("Couldn't set accepting socket in non-blocking mode, errno = %d\n", errno);
-//       }
+    if ((flags = fcntl(s, F_GETFL)) == -1
+	|| fcntl(s, F_SETFL, flags | O_NONBLOCK) == -1) {
+        SCLog(TRUE, LOG_INFO, CFSTR("Couldn't set accepting socket in non-blocking mode, errno = %d\n"), errno);
+    }
         
     if ((ref = CFSocketCreateWithNative(NULL, s, 
                     kCFSocketReadCallBack, clientCallBack, &context)) == 0) {
@@ -229,124 +236,184 @@ fail:
 
 /* -----------------------------------------------------------------------------
 ----------------------------------------------------------------------------- */
+int
+readn(int ref, void *data, int len)
+{
+    int 	n, left = len;
+    void 	*p = data;
+    
+    while (left > 0) {
+        if ((n = read(ref, p, left)) < 0) {
+            if (errno == EWOULDBLOCK) 
+                return (len - left);
+            if (errno != EINTR) 
+                return -1;
+            n = 0;
+        }
+        else if (n == 0)
+            return -1; /* EOF */
+            
+        left -= n;
+        p += n;
+    }
+    return (len - left);
+}        
+
+/* -----------------------------------------------------------------------------
+----------------------------------------------------------------------------- */
+int
+writen(int ref, void *data, int len)
+{	
+    int 	n, left = len;
+    void 	*p = data;
+    
+    while (left > 0) {
+        if ((n = write(ref, p, left)) <= 0) {
+            if (errno != EINTR) 
+                return -1;
+            n = 0;
+        }
+        left -= n;
+        p += n;
+    }
+    return len;
+}        
+
+/* -----------------------------------------------------------------------------
+----------------------------------------------------------------------------- */
 void clientCallBack(CFSocketRef inref, CFSocketCallBackType type,
                      CFDataRef address, const void *data, void *info)
 {
     int 		s = CFSocketGetNative(inref);
-    int			action, len;
+    int			action = do_nothing;
     ssize_t		n;
     struct client 	*client;
 
     client = client_findbysocketref(inref);
-    if (client) {
-
-        action = do_process;
-        if ((n = read(s, &gMsg, sizeof(struct ppp_msg_hdr))) == 0) {
-            action = do_close;
-        } else {
-            PRINTF(("Data to process... len = %d\n", gMsg.hdr.m_len));
-            len = 0;
-            if ((gMsg.hdr.m_flags & USE_SERVICEID)
-                && gMsg.hdr.m_link) {
-                len = gMsg.hdr.m_link;
-                if (gMsg.hdr.m_link > MAXDATASIZE) {
-                    action = do_error;
+    if (client == 0)
+        return;
+            
+    /* first read the header part of the message */
+    if (client->msglen < sizeof(struct ppp_msg_hdr)) {
+        n = readn(s, &((u_int8_t *)&client->msghdr)[client->msglen], sizeof(struct ppp_msg_hdr) - client->msglen);
+        switch (n) {
+            case -1:
+                action = do_close;
+                break;
+            default:
+                client->msglen += n;
+                if (client->msglen == sizeof(struct ppp_msg_hdr)) {
+                    client->msgtotallen = client->msglen
+                        + client->msghdr.m_len
+                        + (client->msghdr.m_flags & USE_SERVICEID ? client->msghdr.m_link : 0);
+                    client->msg = CFAllocatorAllocate(NULL, client->msgtotallen + 1, 0);
+                    if (client->msg == 0)
+                        action = do_error;
+                    else {
+                        bcopy(&client->msghdr, client->msg, sizeof(struct ppp_msg_hdr));
+                        // let's end the message with a null byte
+                        client->msg[client->msgtotallen] = 0;
+                    }
                 }
-                else if (read(s, &gMsg.data[0], gMsg.hdr.m_link) != gMsg.hdr.m_link) {
-                    action = do_close;
-                }
-            }
-           if ((action == do_process) && gMsg.hdr.m_len) {
-                if ((len + gMsg.hdr.m_len) > MAXDATASIZE) {
-                    action = do_error;
-                }
-                else if (read(s, &gMsg.data[len], gMsg.hdr.m_len) != gMsg.hdr.m_len) {
-                    action = do_close;
-                }
-            }
         }
-
-        switch (action) {
-            case do_close:
-                PRINTF(("Connection closed...\n"));
-                /* connection closed by client */
-                CFSocketInvalidate(inref);
-                client_dispose(client);
+    }
+     
+    /* first read the data part of the message, including serviceid */
+    if (client->msglen >= sizeof(struct ppp_msg_hdr)) {
+        n = readn(s, &client->msg[client->msglen], client->msgtotallen - client->msglen);
+        switch (n) {
+            case -1:
+                action = do_close;
                 break;
-            case do_error:
-                PRINTF(("Connection length error...\n"));
-                break;
-            case do_process:
-                // process client request
-                processRequest(client, &gMsg);
-                break;
+            default:
+                client->msglen += n;
+                if (client->msglen == client->msgtotallen) {
+                    action = do_process;
+                }
         }
-   }
+    }
+
+    /* perform action */
+    switch (action) {
+        case do_nothing:
+            break;
+        case do_error:
+        case do_close:
+            PRINTF(("Connection closed...\n"));
+            /* connection closed by client */
+            CFSocketInvalidate(inref);
+            client_dispose(client);
+            break;
+
+        case do_process:
+            // process client request
+            processRequest(client, (struct msg *)client->msg);
+            CFAllocatorDeallocate(NULL, client->msg);
+            client->msg = 0;
+            client->msglen = 0;
+            client->msgtotallen = 0;
+            break;
+    }
 }
+
+typedef u_long (*msg_function)(struct client *client, struct msg *msg, void **reply);
+
+msg_function requests[] = {
+    NULL,			/* */
+    ppp_version, 		/* PPP_VERSION */
+    ppp_status, 		/* PPP_STATUS */
+    ppp_connect, 		/* PPP_CONNECT */
+    NULL,			/* */
+    ppp_disconnect, 		/* PPP_DISCONNECT */
+    ppp_getoption, 		/* PPP_GETOPTION */
+    ppp_setoption, 		/* PPP_SETOPTION */
+    ppp_enable_event, 		/* PPP_ENABLE_EVENT */
+    ppp_disable_event,		/* PPP_DISABLE_EVENT */
+    NULL,	 		/* PPP_EVENT */
+    ppp_getnblinks, 		/* PPP_GETNBLINKS */
+    ppp_getlinkbyindex, 	/* PPP_GETLINKBYINDEX */
+    ppp_getlinkbyserviceid, 	/* PPP_GETLINKBYSERVICEID */
+    ppp_getlinkbyifname, 	/* PPP_GETLINKBYIFNAME */
+    ppp_suspend, 		/* PPP_SUSPEND */
+    ppp_resume, 		/* PPP_RESUME */
+    ppp_extendedstatus, 	/* PPP_EXTENDEDSTATUS */
+    ppp_getconnectdata 		/* PPP_GETCONNECTDATA */
+};
+#define LAST_REQUEST PPP_GETCONNECTDATA
 
 /* -----------------------------------------------------------------------------
 ----------------------------------------------------------------------------- */
 u_long processRequest (struct client *client, struct msg *msg)
 {
-
+    void		*reply = 0;
+    msg_function	func; 
+    
     PRINTF(("process_request : type = %x, len = %d\n", msg->hdr.m_type, msg->hdr.m_len));
 
-    switch (msg->hdr.m_type) {
-        case PPP_VERSION:
-            ppp_version(client, msg);
-            break;
-        case PPP_STATUS:
-            ppp_status(client, msg);
-            break;
-        case PPP_GETOPTION:
-            ppp_getoption(client, msg);
-            break;
-        case PPP_SETOPTION:
-            ppp_setoption(client, msg);
-            break;
-        case PPP_CONNECT:
-            ppp_connect(client, msg);
-            break;
-        case PPP_DISCONNECT:
-            ppp_disconnect(client, msg);
-            break;
-        case PPP_ENABLE_EVENT:
-            ppp_enable_event(client, msg);
-            break;
-        case PPP_DISABLE_EVENT:
-            ppp_disable_event(client, msg);
-            break;
-        case PPP_GETNBLINKS:
-            ppp_getnblinks(client, msg);
-            break;
-        case PPP_GETLINKBYINDEX:
-            ppp_getlinkbyindex(client, msg);
-            break;
-        case PPP_GETLINKBYSERVICEID:
-            ppp_getlinkbyserviceid(client, msg);
-            break;
-        case PPP_GETLINKBYIFNAME:
-            ppp_getlinkbyifname(client, msg);
-            break;
-        case PPP_SUSPEND:
-            ppp_suspend(client, msg);
-            break;
-        case PPP_RESUME:
-            ppp_resume(client, msg);
-            break;
-
-        // private pppd event
-        case PPPD_EVENT:
-            ppp_event(client, msg);
-            break;
-
+    if (msg->hdr.m_type <= LAST_REQUEST) {
+        
+        func = requests[msg->hdr.m_type];
+        if (func)
+            (*func)(client, msg, &reply);
+    }
+    else {
+        switch (msg->hdr.m_type) { 
+            // private pppd event
+            case PPPD_EVENT:
+                ppp_event(client, msg);
+                break;
+        }
     }
 
     if (msg->hdr.m_len != 0xFFFFFFFF) {
 
-        write(CFSocketGetNative(client->ref), msg, sizeof(struct ppp_msg_hdr) + msg->hdr.m_len + 
+        writen(CFSocketGetNative(client->ref), msg, sizeof(struct ppp_msg_hdr) + 
             (msg->hdr.m_flags & USE_SERVICEID ? msg->hdr.m_link : 0));
-        
+
+       if (msg->hdr.m_len) {
+            writen(CFSocketGetNative(client->ref), reply, msg->hdr.m_len);
+            CFAllocatorDeallocate(NULL, reply);
+        }
         PRINTF(("process_request : m_type = 0x%x, result = 0x%x, cookie = 0x%x, link = 0x%x, len = 0x%x\n",
                 msg->hdr.m_type, msg->hdr.m_result, msg->hdr.m_cookie, msg->hdr.m_link, msg->hdr.m_len));
 #if 0

@@ -1,4 +1,4 @@
-/*	$KAME: remoteconf.c,v 1.28 2001/10/02 03:46:41 sakane Exp $	*/
+/*	$KAME: remoteconf.c,v 1.29 2001/12/07 08:39:39 sakane Exp $	*/
 
 /*
  * Copyright (C) 1995, 1996, 1997, and 1998 WIDE Project.
@@ -180,6 +180,15 @@ delrmconf(rmconf)
 		oakley_dhgrp_free(rmconf->dhgrp);
 	if (rmconf->proposal)
 		delisakmpsa(rmconf->proposal);
+	if (rmconf->idv)
+		vfree(rmconf->idv);
+	if (rmconf->idv_p)
+		vfree(rmconf->idv_p);
+	if (rmconf->remote)
+		racoon_free(rmconf->remote);
+	if (rmconf->shared_secret)
+		vfree(rmconf->shared_secret);
+
 	racoon_free(rmconf);
 }
 

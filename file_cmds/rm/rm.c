@@ -77,8 +77,6 @@ void	usage __P((void));
 char * flags_to_string(u_long, char *);
 #define fflagstostr(x) flags_to_string((x), NULL)
 
-/* We're missing this prototype */
-int undelete __P((char *));
 #endif
 
 /*

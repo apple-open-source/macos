@@ -37,7 +37,9 @@ static dsattribute *attribute_to_dsattribute LDAP_P ((BackendDB *be, u_int32_t d
 
 /*
  * Return the dsdata type for a particular attribute type,
- * based on syntax or matching rule.
+ * based on syntax or matching rule. This routine is not
+ * particularly efficient but it appears to be the only
+ * solution at this stage.
  */
 u_int32_t ad_to_dsdata_type(AttributeDescription *ad)
 {
@@ -87,7 +89,7 @@ u_int32_t ad_to_dsdata_type(AttributeDescription *ad)
 	}
 
 #ifdef NEW_LOGGING
-	LDAP_LOG(("backend", LDAP_LEVEL_ARGS, "ad_to_dsdata_type %s %s\n", ad->ad_cname.bv_val, printableType));
+	LDAP_LOG((BACK_NETINFO, ARGS, "ad_to_dsdata_type %s %s\n", ad->ad_cname.bv_val, printableType));
 #else
 	Debug(LDAP_DEBUG_TRACE, "<=> ad_to_dsdata_type attribute=%s type=%s\n", ad->ad_cname.bv_val, printableType, 0);
 #endif
@@ -144,16 +146,14 @@ dsdata *berval_to_dsdata(struct berval *bv, u_int32_t type)
 		d->type = type;
 		d->retain = 1;
 
-		assert(d->data != NULL);
 		memmove(d->data, bv->bv_val, bv->bv_len);
 		d->data[bv->bv_len] = '\0';
 	}
 	else
 	{
 		d = dsdata_new(type, bv->bv_len, bv->bv_val);
+		assert(d != NULL);
 	}
-
-	assert(d != NULL);
 
 	return d;
 }
@@ -195,10 +195,7 @@ dsstatus dsrecord_to_entry(BackendDB *be, dsrecord *rec, Entry **pEntry)
 	Entry *ent;
 	Attribute *attr, **attrp;
 	int i;
-	struct dsinfo *di = (struct dsinfo *)be->be_private;
 	dsstatus status;
-
-	assert(di != NULL);
 
 	ent = (Entry *)ch_calloc(1, sizeof(Entry));
 	ent->e_id = (ID)rec->dsid;
@@ -225,7 +222,7 @@ dsstatus dsrecord_to_entry(BackendDB *be, dsrecord *rec, Entry **pEntry)
 	ent->e_private = (void *)rec;
 
 #ifdef NEW_LOGGING
-	LDAP_LOG(("backend", LDAP_LEVEL_ARGS, "dsrecord_to_entry: dSID %u DN %s\n",
+	LDAP_LOG((BACK_NETINFO, ARGS, "dsrecord_to_entry: dSID %u DN %s\n",
 		rec->dsid, ent->e_name.bv_val));
 #else
 	Debug(LDAP_DEBUG_TRACE, "==> dsrecord_to_entry dsid=%u dn=%s\n", rec->dsid, ent->e_name.bv_val, 0);
@@ -260,7 +257,7 @@ dsstatus dsrecord_to_entry(BackendDB *be, dsrecord *rec, Entry **pEntry)
 	schemamap_add_objectclasses(be, SUPER(rec), ent);
 
 #ifdef NEW_LOGGING
-	LDAP_LOG(("backend", LDAP_LEVEL_INFO, "dsrecord_to_entry: done\n"));
+	LDAP_LOG((BACK_NETINFO, INFO, "dsrecord_to_entry: done\n"));
 #else
 	Debug(LDAP_DEBUG_TRACE, "<== dsrecord_to_entry\n", 0, 0, 0);
 #endif
@@ -481,7 +478,7 @@ dsstatus dsattribute_to_bervals(BackendDB *be, BerVarray *pvals, dsattribute *a,
 	int i, j;
 	BerVarray vals;
 
-	/* Empty values not allowed by LDAP. */
+	/* An LDAP attribute must have at least one value. */
 	if (a->count == 0)
 		return DSStatusInvalidKey;
 
@@ -496,7 +493,7 @@ dsstatus dsattribute_to_bervals(BackendDB *be, BerVarray *pvals, dsattribute *a,
 
 	if (j == 0)
 	{
-		/* Empty values not allowed by LDAP. */
+		/* An LDAP attribute must have at least one value. */
 		ch_free(vals);
 		return DSStatusInvalidKey;
 	}
@@ -519,14 +516,11 @@ dsstatus dsattribute_to_bervals(BackendDB *be, BerVarray *pvals, dsattribute *a,
 static Attribute *dsattribute_to_attribute(BackendDB *be, dsrecord *rec, dsattribute *a, u_int32_t sel)
 {
 	Attribute *attr;
-	struct dsinfo *di = (struct dsinfo *)be->be_private;
 	dsstatus status;
 	struct atmap map;
 
-	assert(di != NULL);
-
 #ifdef NEW_LOGGING
-	LDAP_LOG(("backend", LDAP_LEVEL_ARGS, "dsattribute_to_attribute: dSID %d NetInfo attribute %s\n", rec->dsid, dsdata_to_cstring(a->key)));
+	LDAP_LOG((BACK_NETINFO, ARGS, "dsattribute_to_attribute: dSID %d NetInfo attribute %s\n", rec->dsid, dsdata_to_cstring(a->key)));
 #else
 	Debug(LDAP_DEBUG_TRACE, "==> dsattribute_to_attribute rec=%d key=%s\n", rec->dsid, dsdata_to_cstring(a->key), 0);
 #endif
@@ -535,7 +529,7 @@ static Attribute *dsattribute_to_attribute(BackendDB *be, dsrecord *rec, dsattri
 	if (status != DSStatusOK) 
 	{
 #ifdef NEW_LOGGING
-		LDAP_LOG(("backend", LDAP_LEVEL_INFO, "dsattribute_to_attribute: could not map attribute\n"));
+		LDAP_LOG((BACK_NETINFO, INFO, "dsattribute_to_attribute: could not map attribute\n"));
 #else
 		Debug(LDAP_DEBUG_TRACE, "<== dsattribute_to_attribute: could not map attribute\n", 0, 0, 0);
 #endif
@@ -548,11 +542,11 @@ static Attribute *dsattribute_to_attribute(BackendDB *be, dsrecord *rec, dsattri
 
 	if (dsattribute_to_bervals(be, &attr->a_vals, a, &map) != DSStatusOK)
 	{
-		/* empty valued attributes disallowed */
+		/* An LDAP attribute must have at least one value. */
 		ch_free(attr);
 		schemamap_atmap_release(&map);
 #ifdef NEW_LOGGING
-		LDAP_LOG(("backend", LDAP_LEVEL_INFO, "dsattribute_to_attribute: no values\n"));
+		LDAP_LOG((BACK_NETINFO, INFO, "dsattribute_to_attribute: no values\n"));
 #else
 		Debug(LDAP_DEBUG_TRACE, "<== dsattribute_to_attribute no values\n", 0, 0, 0);
 #endif
@@ -562,7 +556,7 @@ static Attribute *dsattribute_to_attribute(BackendDB *be, dsrecord *rec, dsattri
 	schemamap_atmap_release(&map);
 
 #ifdef NEW_LOGGING
-	LDAP_LOG(("backend", LDAP_LEVEL_INFO, "dsattribute_to_attribute: X.500 attribute %s flags %d\n",
+	LDAP_LOG((BACK_NETINFO, INFO, "dsattribute_to_attribute: X.500 attribute %s flags %d\n",
 		attr->a_desc->ad_cname.bv_val, attr->a_desc->ad_flags, 0));
 #else
 	Debug(LDAP_DEBUG_TRACE, "<== dsattribute_to_attribute cname=%s flags=%d\n",
@@ -585,13 +579,10 @@ dsattribute *attribute_to_dsattribute(BackendDB *be, u_int32_t dsid, Attribute *
 	dsstatus status;
 	dsattribute *a;
 	struct berval *bvp;
-	struct dsinfo *di = (struct dsinfo *)be->be_private;
 	struct atmap map;
 
-	assert(di != NULL);
-
 #ifdef NEW_LOGGING
-	LDAP_LOG(("backend", LDAP_LEVEL_ARGS, "attribute_to_dsattribute: X.500 attribute %s dSID %u\n", attr->a_desc->ad_cname.bv_val, dsid));
+	LDAP_LOG((BACK_NETINFO, ARGS, "attribute_to_dsattribute: X.500 attribute %s dSID %u\n", attr->a_desc->ad_cname.bv_val, dsid));
 #else
 	Debug(LDAP_DEBUG_TRACE, "==> attribute_to_dsattribute %s dsid=%u\n", attr->a_desc->ad_cname.bv_val, dsid, 0);
 #endif
@@ -625,7 +616,7 @@ dsattribute *attribute_to_dsattribute(BackendDB *be, u_int32_t dsid, Attribute *
 	schemamap_atmap_release(&map);
 
 #ifdef NEW_LOGGING
-	LDAP_LOG(("backend", LDAP_LEVEL_INFO, "attribute_to_dsattribute: done\n"));
+	LDAP_LOG((BACK_NETINFO, INFO, "attribute_to_dsattribute: done\n"));
 #else
 	Debug(LDAP_DEBUG_TRACE, "<== attribute_to_dsattribute\n", 0, 0, 0);
 #endif
@@ -697,10 +688,15 @@ int netinfo_back_op_result(BackendDB *be, Connection *conn, Operation *op, dssta
 	struct dsinfo *di = (struct dsinfo *)be->be_private;
 	BerVarray refs;
 
+	refs = NULL;
+
 	if (status == DSStatusPathNotLocal)
-		refs = (di->parent != NULL) ? di->parent->refs : NULL;
-	else
-		refs = NULL;
+	{
+		if (di->parent != NULL)
+			refs = di->parent->refs;
+		else
+			status = DSStatusInvalidPath;
+	}
 	rc = dsstatus_to_ldap_err(status);
 
 	statusMessage = dsstatus_message(status);
@@ -708,7 +704,7 @@ int netinfo_back_op_result(BackendDB *be, Connection *conn, Operation *op, dssta
 	sprintf(message, "DSA%04u: %s", status, statusMessage);
 
 #ifdef NEW_LOGGING
-	LDAP_LOG(("backend", LDAP_LEVEL_ARGS, "netinfo_back_op_result: status %d\n", status));
+	LDAP_LOG((BACK_NETINFO, ARGS, "netinfo_back_op_result: status %d\n", status));
 #else
 	Debug(LDAP_DEBUG_TRACE, "==> netinfo_back_op_result dsstatus=%d rc=%d msg=%s\n",
 		status, rc, message);
@@ -719,7 +715,7 @@ int netinfo_back_op_result(BackendDB *be, Connection *conn, Operation *op, dssta
 	ch_free(message);
 
 #ifdef NEW_LOGGING
-	LDAP_LOG(("backend", LDAP_LEVEL_INFO, "netinfo_back_op_result: result code %d message %s\n", rc, message));
+	LDAP_LOG((BACK_NETINFO, INFO, "netinfo_back_op_result: result code %d message %s\n", rc, message));
 #else
 	Debug(LDAP_DEBUG_TRACE, "<== netinfo_back_op_result\n", 0, 0, 0);
 #endif
@@ -741,7 +737,6 @@ dsstatus dnMakeLocal(BackendDB *be, struct berval *localDN, struct berval *ndn)
 	struct dsinfo *di = (struct dsinfo *)be->be_private;
 	struct berval *nsuffix;
 
-	assert(di != NULL);
 	assert(di->nsuffix.bv_val != NULL);
 
 	nsuffix = NULL;
@@ -755,7 +750,7 @@ dsstatus dnMakeLocal(BackendDB *be, struct berval *localDN, struct berval *ndn)
 	}
 
 #ifdef NEW_LOGGING
-	LDAP_LOG(("backend", LDAP_LEVEL_ARGS, "dnMakeLocal DN %s\n", ndn->bv_val));
+	LDAP_LOG((BACK_NETINFO, ARGS, "dnMakeLocal DN %s\n", ndn->bv_val));
 #else
 	Debug(LDAP_DEBUG_TRACE, "==> dnMakeLocal dn=%s\n", ndn->bv_val, 0, 0);
 #endif
@@ -764,13 +759,13 @@ dsstatus dnMakeLocal(BackendDB *be, struct berval *localDN, struct berval *ndn)
 	{
 		nsuffix = &di->nsuffix;
 	}
-	else if (be->be_nsuffix != NULL)
+	else
 	{
-		for (i = 0; be->be_nsuffix[i] != NULL; i++)
+		for (i = 0; be->be_nsuffix[i].bv_val != NULL; i++)
 		{
-			if (be->be_nsuffix[i]->bv_len > 0 && dnIsSuffix(ndn, be->be_nsuffix[i]))
+			if (be->be_nsuffix[i].bv_len > 0 && dnIsSuffix(ndn, &be->be_nsuffix[i]))
 			{
-				nsuffix = be->be_nsuffix[i];
+				nsuffix = &be->be_nsuffix[i];
 				break;
 			}
 		}
@@ -780,7 +775,7 @@ dsstatus dnMakeLocal(BackendDB *be, struct berval *localDN, struct berval *ndn)
 	{
 		/* Not mastered by this store. Sorry! */
 #ifdef NEW_LOGGING
-		LDAP_LOG(("backend", LDAP_LEVEL_INFO, "dnMakeLocal: not local to store\n"));
+		LDAP_LOG((BACK_NETINFO, INFO, "dnMakeLocal: not local to store\n"));
 #else
 		Debug(LDAP_DEBUG_TRACE, "<== dnMakeLocal (not local to store)\n", 0, 0, 0);
 #endif
@@ -820,7 +815,7 @@ dsstatus dnMakeLocal(BackendDB *be, struct berval *localDN, struct berval *ndn)
 	}
 
 #ifdef NEW_LOGGING
-	LDAP_LOG(("backend", LDAP_LEVEL_INFO, "dnMakeLocal: DN %s normalized suffix %s\n", (localDN->bv_val ? localDN->bv_val : ""), nsuffix->bv_val));
+	LDAP_LOG((BACK_NETINFO, INFO, "dnMakeLocal: DN %s normalized suffix %s\n", (localDN->bv_val ? localDN->bv_val : ""), nsuffix->bv_val));
 #else
 	Debug(LDAP_DEBUG_TRACE, "<== dnMakeLocal dn=%s nsuffix=%s\n", (localDN->bv_val ? localDN->bv_val : ""), nsuffix->bv_val, 0);
 #endif
@@ -836,7 +831,6 @@ dsstatus dnMakeGlobal(BackendDB *be, struct berval *globalDN, struct berval *loc
 {
 	struct dsinfo *di = (struct dsinfo *)be->be_private;
 
-	assert(di != NULL);
 	assert(di->suffix.bv_val != NULL);
 
 	if (localDN->bv_len > 0)
@@ -1080,7 +1074,7 @@ netinfo_back_parse_dn(BackendDB *be, struct berval *path, dsrecord **pr)
 	dsattribute *a;
 	struct dsinfo *di = (struct dsinfo *)be->be_private;
 	u_int32_t dsid;
-	dsstatus status;
+	dsstatus status = DSStatusOK;
 
 	if (ldap_bv2dn(path, &dn, LDAP_DN_FORMAT_LDAP) != LDAP_SUCCESS)
 		return DSStatusInvalidPath;
@@ -1215,8 +1209,7 @@ dsstatus netinfo_back_dn_pathmatch(BackendDB *be, struct berval *ndn, u_int32_t 
 	struct dsinfo *di = (struct dsinfo *)be->be_private;
 	struct berval localDN;
 	dsrecord *path;
-
-	assert(di != NULL);
+	size_t n;
 
 	status = dnMakeLocal(be, &localDN, ndn);
 	if (status != DSStatusOK)
@@ -1232,11 +1225,12 @@ dsstatus netinfo_back_dn_pathmatch(BackendDB *be, struct berval *ndn, u_int32_t 
 	}
 
 	/* Check for shortcut */
-	if (strncasecmp(localDN.bv_val, "DSID=", 5) == 0)
+	if (strncasecmp(localDN.bv_val, "dSID=", (n = (sizeof("dSID=") - 1))) == 0 ||
+	    strncmp(localDN.bv_val, "1.3.6.1.4.1.5322.14.1.1=", (n = (sizeof("1.3.6.1.4.1.5322.14.1.1=") - 1))) == 0)
 	{
 		char *p = NULL;
 
-		*match = strtoul(localDN.bv_val + 5, &p, 10);
+		*match = strtoul(localDN.bv_val + n, &p, 10);
 		if (p == NULL || (*p != ',' && *p != '\0'))
 			status = DSStatusInvalidPath;
 		ch_free(localDN.bv_val);
@@ -1269,8 +1263,6 @@ dsstatus netinfo_back_dn_pathcreate(BackendDB *be, struct berval *ndn, u_int32_t
 	struct dsinfo *di = (struct dsinfo *)be->be_private;
 	struct berval localDN;
 	dsrecord *path;
-
-	assert(di != NULL);
 
 	status = dnMakeLocal(be, &localDN, ndn);
 	if (status != DSStatusOK)
@@ -1311,8 +1303,6 @@ dsstatus netinfo_back_send_referrals(BackendDB *be, Connection *conn, Operation 
 	return DSStatusInvalidPath;
 #endif
 
-	assert(di != NULL);
-
 	if (di->children == NULL)
 		return DSStatusInvalidPath;
 
@@ -1345,8 +1335,6 @@ dsstatus netinfo_back_send_references(BackendDB *be, Connection *conn, Operation
 	int i;
 	BerVarray refs;
 	BerVarray v2refs;
-
-	assert(di != NULL);
 
 	if (scope == LDAP_SCOPE_BASE)
 		return DSStatusOK;
@@ -1447,8 +1435,6 @@ int netinfo_back_entry_release(
 {
 	
 	struct dsinfo *di = (struct dsinfo *)be->be_private;
-
-	assert(di != NULL);
 
 	/* lock engine in case cache is being modified */
 

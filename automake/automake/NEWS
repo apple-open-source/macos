@@ -1,3 +1,21 @@
+New in 1.6.3:
+* Support for AM_INIT_GETTEXT([external])
+* Bug fixes, including:
+  - Fix Automake's own `make install' so it works even if `ln' doesn't.
+  - nobase_ programs and scripts honor --program-transform correctly.
+  - Erase configure.lineno during `make distclean'.
+  - Erase YACC and LEX outputs during `make maintainer-clean'.
+
+New in 1.6.2:
+* Many bug fixes, including:
+  - Requiring the current version works.
+  - Fix "$@" portability issues (for Zsh).
+  - Fix output of dummy dependency files in presence of post-processed
+    Makefile.in's.
+  - Don't compute dependencies in background to avoid races with libtool.
+  - Fix handling of _OBJECTS variables for targets sharing source variables.
+  - Check dependency mode for Java when AM_PROG_GCJ is used.
+
 New in 1.6.1:
 * automake --output-dir is deprecated
 * Many bug fixes, including:
@@ -9,6 +27,8 @@ New in 1.6.1:
 
 New in 1.6:
 * Autoconf 2.52 is required.
+* automake no longer run libtoolize.
+  This is the job of autoreconf (from GNU Autoconf).
 * `dist' generates all the archive flavors, as did `dist-all'.
 * `dist-gzip' generates the Gzip tar file only.
 * Combining Automake Makefile conditionals no longer lead to a combinatorial

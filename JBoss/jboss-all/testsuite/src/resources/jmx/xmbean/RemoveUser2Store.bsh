@@ -1,0 +1,39 @@
+/** A BeanShell script service that removes the
+*/
+import java.io.File;
+import org.jboss.system.ServiceMBeanSupport;
+import org.jboss.util.Strings;
+
+ServiceMBeanSupport ctx = null;
+
+void setCtx(ServiceMBeanSupport wrapper)
+{
+   global.ctx = wrapper;
+   System.out.println("setCtx: "+ctx);
+}
+
+void create()
+{
+   String storeFile = "${jboss.server.data.dir}/User2XMBean.ser";
+   storeFile = Strings.replaceProperties(storeFile);
+   File file = new File(storeFile);
+   boolean removed = file.delete();
+   ctx.log.info("Removed store file: "+file.getAbsolutePath()+" removed: "+removed);
+}
+
+void start()
+{
+}
+
+void stop()
+{
+}
+
+void destroy()
+{
+   String storeFile = "${jboss.server.data.dir}/User2XMBean.ser";
+   storeFile = Strings.replaceProperties(storeFile);
+   File file = new File(storeFile);
+   boolean removed = file.delete();
+   ctx.log.info("Removed store file: "+file.getAbsolutePath()+" removed: "+removed);
+}

@@ -1,6 +1,6 @@
-/* $OpenLDAP: pkg/ldap/libraries/liblunicode/ucdata/ucgendat.c,v 1.15.2.3 2002/07/10 01:22:46 kurt Exp $ */
+/* $OpenLDAP: pkg/ldap/libraries/liblunicode/ucdata/ucgendat.c,v 1.15.2.7 2003/02/08 23:50:39 kurt Exp $ */
 /*
- * Copyright 2000-2002 The OpenLDAP Foundation, All Rights Reserved.
+ * Copyright 2000-2003 The OpenLDAP Foundation, All Rights Reserved.
  * COPYING RESTRICTIONS APPLY, see COPYRIGHT file
  */
 /*
@@ -24,7 +24,7 @@
  * OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR
  * THE USE OR OTHER DEALINGS IN THE SOFTWARE.
  */
-/* $Id: ucgendat.c,v 1.2 2002/07/15 23:45:14 majka Exp $" */
+/* $Id: ucgendat.c,v 1.4 2003/07/18 01:10:28 jtownsen Exp $" */
 
 #include "portable.h"
 #include "ldap_config.h"
@@ -33,6 +33,10 @@
 #include <ac/stdlib.h>
 #include <ac/string.h>
 #include <ac/unistd.h>
+
+#include <ac/bytes.h>
+
+#include <lutil.h>
 
 #undef ishdigit
 #define ishdigit(cc) (((cc) >= '0' && (cc) <= '9') ||\
@@ -804,8 +808,8 @@ read_cdata(FILE *in)
     char line[512], *s, *e;
 
     lineno = skip = 0;
-    while (!feof(in)) {
-		if( fscanf(in, "%[^\n]\n", line) != 1) break;
+    while (fgets(line, sizeof(line), in)) {
+	if( (s=strchr(line, '\n')) ) *s = '\0';
         lineno++;
 
         /*
@@ -1143,8 +1147,9 @@ expand_decomp(void)
 }
 
 static int
-cmpcomps(_comp_t *comp1, _comp_t *comp2)
+cmpcomps(const void *v_comp1, const void *v_comp2)
 {
+	const _comp_t *comp1 = v_comp1, *comp2 = v_comp2;
     long diff = comp1->code1 - comp2->code1;
 
     if (!diff)
@@ -1163,8 +1168,8 @@ read_compexdata(FILE *in)
 
     (void) memset((char *) compexs, 0, sizeof(unsigned long) << 11);
 
-    while (!feof(in)) {
-		if( fscanf(in, "%[^\n]\n", line) != 1) break;
+    while (fgets(line, sizeof(line), in)) {
+	if( (s=strchr(line, '\n')) ) *s = '\0';
         /*
          * Skip blank lines and lines that start with a '#'.
          */
@@ -1208,15 +1213,15 @@ create_comps(void)
 	cu++;
     }
     comps_used = cu;
-    qsort(comps, comps_used, sizeof(_comp_t),
-	  (int (*)(const void *, const void *)) cmpcomps);
+    qsort(comps, comps_used, sizeof(_comp_t), cmpcomps);
 }
 
 static void
 write_cdata(char *opath)
 {
     FILE *out;
-    unsigned long i, idx, bytes, nprops;
+	ac_uint4 bytes;
+    unsigned long i, idx, nprops;
     unsigned short casecnt[2];
     char path[BUFSIZ];
 
@@ -1229,7 +1234,7 @@ write_cdata(char *opath)
     /*
      * Open the ctype.dat file.
      */
-    sprintf(path, "%s%sctype.dat", opath, LDAP_DIRSEP);
+    snprintf(path, sizeof path, "%s" LDAP_DIRSEP "ctype.dat", opath);
     if ((out = fopen(path, "wb")) == 0)
       return;
 
@@ -1268,7 +1273,7 @@ write_cdata(char *opath)
     /*
      * Write the header.
      */
-    fwrite((char *) hdr, sizeof(unsigned short), 2, out);
+    fwrite((char *) hdr, sizeof(ac_uint2), 2, out);
 
     /*
      * Write the byte count.
@@ -1300,7 +1305,7 @@ write_cdata(char *opath)
     /*
      * Open the case.dat file.
      */
-    sprintf(path, "%s%scase.dat", opath, LDAP_DIRSEP);
+    snprintf(path, sizeof path, "%s" LDAP_DIRSEP "case.dat", opath);
     if ((out = fopen(path, "wb")) == 0)
       return;
 
@@ -1355,7 +1360,7 @@ write_cdata(char *opath)
     /*
      * Open the comp.dat file.
      */
-    sprintf(path, "%s%scomp.dat", opath, LDAP_DIRSEP);
+    snprintf(path, sizeof path, "%s" LDAP_DIRSEP "comp.dat", opath);
     if ((out = fopen(path, "wb")) == 0)
 	return;
     
@@ -1393,7 +1398,7 @@ write_cdata(char *opath)
     /*
      * Open the decomp.dat file.
      */
-    sprintf(path, "%s%sdecomp.dat", opath, LDAP_DIRSEP);
+    snprintf(path, sizeof path, "%s" LDAP_DIRSEP "decomp.dat", opath);
     if ((out = fopen(path, "wb")) == 0)
       return;
 
@@ -1447,7 +1452,7 @@ write_cdata(char *opath)
     /*
      * Open the kdecomp.dat file.
      */
-    sprintf(path, "%s%skdecomp.dat", opath, LDAP_DIRSEP);
+    snprintf(path, sizeof path, "%s" LDAP_DIRSEP "kdecomp.dat", opath);
     if ((out = fopen(path, "wb")) == 0)
       return;
 
@@ -1507,7 +1512,7 @@ write_cdata(char *opath)
     /*
      * Open the cmbcl.dat file.
      */
-    sprintf(path, "%s%scmbcl.dat", opath, LDAP_DIRSEP);
+    snprintf(path, sizeof path, "%s" LDAP_DIRSEP "cmbcl.dat", opath);
     if ((out = fopen(path, "wb")) == 0)
       return;
 
@@ -1545,7 +1550,7 @@ write_cdata(char *opath)
     /*
      * Open the num.dat file.
      */
-    sprintf(path, "%s%snum.dat", opath, LDAP_DIRSEP);
+    snprintf(path, sizeof path, "%s" LDAP_DIRSEP "num.dat", opath);
     if ((out = fopen(path, "wb")) == 0)
       return;
 
@@ -1598,10 +1603,7 @@ main(int argc, char *argv[])
     FILE *in;
     char *prog, *opath;
 
-    if ((prog = strrchr(argv[0], *LDAP_DIRSEP)) != 0)
-      prog++;
-    else
-      prog = argv[0];
+    prog = lutil_progname( "ucgendat", argc, argv );
 
     opath = 0;
     in = stdin;

@@ -1,3 +1,25 @@
+/*
+ * Copyright (c) 2003 Apple Computer, Inc. All rights reserved.
+ *
+ * @APPLE_LICENSE_HEADER_START@
+ * 
+ * This file contains Original Code and/or Modifications of Original Code
+ * as defined in and that are subject to the Apple Public Source License
+ * Version 2.0 (the 'License'). You may not use this file except in
+ * compliance with the License. Please obtain a copy of the License at
+ * http://www.opensource.apple.com/apsl/ and read it before using this
+ * file.
+ * 
+ * The Original Code and all software distributed under the License are
+ * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
+ * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
+ * INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY,
+ * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
+ * Please see the License for the specific language governing rights and
+ * limitations under the License.
+ * 
+ * @APPLE_LICENSE_HEADER_END@
+ */
 #include <stdio.h>
 #include <stdlib.h>
 #include <strings.h>
@@ -27,6 +49,12 @@
 #define DEFAULT_SEG1ADDR_X10_2		0x8fe00000 /* high to low allocation */
 #define DEFAULT_READ_ONLY_ADDR_X10_2	0x90000000
 #define DEFAULT_READ_WRITE_ADDR_X10_2	0xa0000000
+
+/*
+ * Starting in 10.3, we will put all the debug and profile libraries together,
+ * low in the flat region (and assigned in descending order)
+ */
+#define DEFAULT_DEBUG_ADDR_X10_3        0x40000000
 
 /*
  * The 256meg regions can only have at most 128meg allocated from them leaving
@@ -90,6 +118,7 @@ struct layout_info {
     char *image_file_name;
     struct max_sizes max_sizes;
     enum bool split;
+    enum bool use_debug_region;
     /* used only for flat layouts */
     enum bool assigned;
     char *short_name;
@@ -128,6 +157,9 @@ struct info {
     unsigned long next_flat_line;
     enum bool allocate_flat_increasing;
 
+    /* Address in the flat region where debug/profile libs will be placed */
+    unsigned long debug_seg1addr;
+    
     /* read-only and read-write segment addresses for split images*/
     unsigned long start_segs_read_only_addr;
     unsigned long start_segs_read_write_addr;
@@ -197,6 +229,10 @@ static unsigned long next_flat_seg1addr(
     struct info *info,
     unsigned long size);
 
+static unsigned long next_debug_seg1addr(
+    struct info *info,
+    unsigned long size);
+
 static char * get_image_file_name(
     struct info *info,
     char *install_name,
@@ -235,7 +271,8 @@ int argc,
 char **argv,
 char **envp)
 {
-    unsigned long i, j, used, max, size;
+    int a;
+    unsigned long i, j, used, max, size, seg1addr;
     char *endp, *user, *dylib_table_name, *base_name, *short_name,
 	 *image_file_name;
     struct dylib_table *dylib_table;
@@ -248,7 +285,7 @@ char **envp)
 	      segs_read_write_addr_specified, relayout, update, create,
 	      checkonly, update_overlaps, allocate_flat_specified,
 	      relayout_nonsplit;
-    enum bool found, is_framework, next_flat, next_split;
+    enum bool found, is_framework, next_flat, next_split, next_debug;
     enum bool operation_specified, from_dylib_table, create_dylib_table;
     char *install_name, *has_suffix;
     struct stat stat_buf;
@@ -314,11 +351,13 @@ char **envp)
 	info.start_segs_read_only_addr = info.segs_read_only_addr;
 	info.start_segs_read_write_addr = info.segs_read_write_addr;
 
+	info.debug_seg1addr = DEFAULT_DEBUG_ADDR_X10_3;
+
 	info.release_name = NULL;
 
-	for(i = 1; i < argc; i++){
-	    if(argv[i][0] == '-'){
-		if(strcmp(argv[i], "-relayout") == 0){
+	for(a = 1; a < argc; a++){
+	    if(argv[a][0] == '-'){
+		if(strcmp(argv[a], "-relayout") == 0){
 		    if(operation_specified == TRUE){
 			error("more than one operation specified");
 			usage();
@@ -326,7 +365,7 @@ char **envp)
 		    operation_specified = TRUE;
 		    relayout = TRUE;
 		}
-		else if(strcmp(argv[i], "-update") == 0){
+		else if(strcmp(argv[a], "-update") == 0){
 		    if(operation_specified == TRUE){
 			error("more than one operation specified");
 			usage();
@@ -334,7 +373,7 @@ char **envp)
 		    operation_specified = TRUE;
 		    update = TRUE;
 		}
-		else if(strcmp(argv[i], "-checkonly") == 0){
+		else if(strcmp(argv[a], "-checkonly") == 0){
 		    if(operation_specified == TRUE){
 			error("more than one operation specified");
 			usage();
@@ -342,7 +381,7 @@ char **envp)
 		    operation_specified = TRUE;
 		    checkonly = TRUE;
 		}
-		else if(strcmp(argv[i], "-update_overlaps") == 0){
+		else if(strcmp(argv[a], "-update_overlaps") == 0){
 		    if(operation_specified == TRUE &&
 		       relayout_nonsplit == FALSE){
 			error("more than one operation specified");
@@ -351,7 +390,7 @@ char **envp)
 		    operation_specified = TRUE;
 		    update_overlaps = TRUE;
 		}
-		else if(strcmp(argv[i], "-create") == 0){
+		else if(strcmp(argv[a], "-create") == 0){
 		    if(operation_specified == TRUE){
 			error("more than one operation specified");
 			usage();
@@ -359,7 +398,7 @@ char **envp)
 		    operation_specified = TRUE;
 		    create = TRUE;
 		}
-		else if(strcmp(argv[i], "-relayout_nonsplit") == 0){
+		else if(strcmp(argv[a], "-relayout_nonsplit") == 0){
 		    if(operation_specified == TRUE && update_overlaps == FALSE){
 			error("more than one operation specified");
 			usage();
@@ -367,7 +406,7 @@ char **envp)
 		    operation_specified = TRUE;
 	 	    relayout_nonsplit = TRUE;
 		}
-		else if(strcmp(argv[i], "-from_dylib_table") == 0){
+		else if(strcmp(argv[a], "-from_dylib_table") == 0){
 		    if(operation_specified == TRUE){
 			error("more than one operation specified");
 			usage();
@@ -375,7 +414,7 @@ char **envp)
 		    operation_specified = TRUE;
 		    from_dylib_table = TRUE;
 		}
-		else if(strcmp(argv[i], "-create_dylib_table") == 0){
+		else if(strcmp(argv[a], "-create_dylib_table") == 0){
 		    if(operation_specified == TRUE){
 			error("more than one operation specified");
 			usage();
@@ -383,172 +422,172 @@ char **envp)
 		    operation_specified = TRUE;
 		    create_dylib_table = TRUE;
 		}
-		else if(strcmp(argv[i], "-seg_addr_table") == 0){
-		    if(i + 1 == argc){
-			error("missing argument(s) to %s option", argv[i]);
+		else if(strcmp(argv[a], "-seg_addr_table") == 0){
+		    if(a + 1 == argc){
+			error("missing argument(s) to %s option", argv[a]);
 			usage();
 		    }
 		    if(info.seg_addr_table != NULL){
-			error("more than one: %s option", argv[i]);
+			error("more than one: %s option", argv[a]);
 			usage();
 		    }
-		    info.seg_addr_table_name = argv[i+1];
-		    info.seg_addr_table = parse_seg_addr_table(argv[i+1],
-					  argv[i], argv[i+1], &info.table_size);
-		    i++;
+		    info.seg_addr_table_name = argv[a+1];
+		    info.seg_addr_table = parse_seg_addr_table(argv[a+1],
+					  argv[a], argv[a+1], &info.table_size);
+		    a++;
 		}
-		else if(strcmp(argv[i], "-dylib_table") == 0){
-		    if(i + 1 == argc){
-			error("missing argument(s) to %s option", argv[i]);
+		else if(strcmp(argv[a], "-dylib_table") == 0){
+		    if(a + 1 == argc){
+			error("missing argument(s) to %s option", argv[a]);
 			usage();
 		    }
 		    if(dylib_table_name != NULL){
-			error("more than one: %s option", argv[i]);
+			error("more than one: %s option", argv[a]);
 			usage();
 		    }
-		    dylib_table_name = argv[i+1];
-		    dylib_table = parse_dylib_table(argv[i+1], argv[i],
-						    argv[i+1]);
-		    i++;
+		    dylib_table_name = argv[a+1];
+		    dylib_table = parse_dylib_table(argv[a+1], argv[a],
+						    argv[a+1]);
+		    a++;
 		}
 		/* specify the address (in hex) of the first segment
 		   -seg1addr <address> */
-		else if(strcmp(argv[i], "-seg1addr") == 0){
-		    if(i + 1 >= argc){
-			error("%s: argument missing", argv[i]);
+		else if(strcmp(argv[a], "-seg1addr") == 0){
+		    if(a + 1 >= argc){
+			error("%s: argument missing", argv[a]);
 			usage();
 		    }
 		    if(seg1addr_specified == TRUE){
-			error("more than one: %s option", argv[i]);
+			error("more than one: %s option", argv[a]);
 			usage();
 		    }
-		    info.seg1addr = strtoul(argv[i+1], &endp, 16);
+		    info.seg1addr = strtoul(argv[a+1], &endp, 16);
 		    if(*endp != '\0')
 			fatal("address for %s %s not a proper "
-			      "hexadecimal number", argv[i], argv[i+1]);
+			      "hexadecimal number", argv[a], argv[a+1]);
 		    seg1addr_specified = TRUE;
-		    i++;
+		    a++;
 		}
 		/* specify which way to allocate flat libraries
 		   -allocate_flat increasing
 			or
 		   -allocate_flat decreasing */
-		else if(strcmp(argv[i], "-allocate_flat") == 0){
-		    if(i + 1 >= argc){
-			error("%s: argument missing", argv[i]);
+		else if(strcmp(argv[a], "-allocate_flat") == 0){
+		    if(a + 1 >= argc){
+			error("%s: argument missing", argv[a]);
 			usage();
 		    }
 		    if(allocate_flat_specified == TRUE){
-			error("more than one: %s option", argv[i]);
+			error("more than one: %s option", argv[a]);
 			usage();
 		    }
-		    if(strcmp(argv[i+1], "increasing") == 0)
+		    if(strcmp(argv[a+1], "increasing") == 0)
 			info.allocate_flat_increasing = TRUE;
-		    else if(strcmp(argv[i+1], "decreasing") == 0)
+		    else if(strcmp(argv[a+1], "decreasing") == 0)
 			info.allocate_flat_increasing = FALSE;
 		    else
 			fatal("argument: %s for %s not valid (can be either "
-			      "increasing or decreasing)", argv[i+1], argv[i]);
+			      "increasing or decreasing)", argv[a+1], argv[a]);
 		    allocate_flat_specified = TRUE;
-		    i++;
+		    a++;
 		}
 		/* specify the address (in hex) of the read-only segments
 		   -segs_read_only_addr <address> */
-		else if(strcmp(argv[i], "-segs_read_only_addr") == 0){
-		    if(i + 1 >= argc){
-			error("%s: argument missing", argv[i]);
+		else if(strcmp(argv[a], "-segs_read_only_addr") == 0){
+		    if(a + 1 >= argc){
+			error("%s: argument missing", argv[a]);
 			usage();
 		    }
 		    if(segs_read_only_addr_specified == TRUE){
-			error("more than one: %s option", argv[i]);
+			error("more than one: %s option", argv[a]);
 			usage();
 		    }
 		    info.segs_read_only_addr =
-			strtoul(argv[i+1], &endp, 16);
+			strtoul(argv[a+1], &endp, 16);
 		    info.start_segs_read_only_addr = info.segs_read_only_addr;
 		    if(*endp != '\0')
 			fatal("address for %s %s not a proper "
-			      "hexadecimal number", argv[i], argv[i+1]);
+			      "hexadecimal number", argv[a], argv[a+1]);
 		    segs_read_only_addr_specified = TRUE;
-		    i++;
+		    a++;
 		}
 		/* specify the address (in hex) of the read-write segments
 		   -segs_read_write_addr <address> */
-		else if(strcmp(argv[i], "-segs_read_write_addr") == 0){
-		    if(i + 1 >= argc){
-			error("%s: argument missing", argv[i]);
+		else if(strcmp(argv[a], "-segs_read_write_addr") == 0){
+		    if(a + 1 >= argc){
+			error("%s: argument missing", argv[a]);
 			usage();
 		    }
 		    if(segs_read_write_addr_specified == TRUE){
-			error("more than one: %s option", argv[i]);
+			error("more than one: %s option", argv[a]);
 			usage();
 		    }
 		    info.segs_read_write_addr =
-			strtoul(argv[i+1], &endp, 16);
+			strtoul(argv[a+1], &endp, 16);
 		    info.start_segs_read_write_addr = info.segs_read_write_addr;
 		    if(*endp != '\0')
 			fatal("address for %s %s not a proper "
-			      "hexadecimal number", argv[i], argv[i+1]);
+			      "hexadecimal number", argv[a], argv[a+1]);
 		    segs_read_write_addr_specified = TRUE;
-		    i++;
+		    a++;
 		}
-		else if(strcmp(argv[i], "-arch") == 0){
-		    if(i + 1 == argc){
-			error("missing argument(s) to %s option", argv[i]);
+		else if(strcmp(argv[a], "-arch") == 0){
+		    if(a + 1 == argc){
+			error("missing argument(s) to %s option", argv[a]);
 			usage();
 		    }
-		    if(strcmp("all", argv[i+1]) == 0){
+		    if(strcmp("all", argv[a+1]) == 0){
 			info.all_archs = TRUE;
 		    }
 		    else{
 			info.arch_flags = reallocate(info.arch_flags,
 						     (info.narch_flags + 1) *
 						     sizeof(struct arch_flag));
-			if(get_arch_from_flag(argv[i+1],
+			if(get_arch_from_flag(argv[a+1],
 				      info.arch_flags + info.narch_flags) == 0){
 			    error("unknown architecture specification flag: "
-				  "%s %s", argv[i], argv[i+1]);
+				  "%s %s", argv[a], argv[a+1]);
 			    arch_usage();
 			    usage();
 			}
 			info.narch_flags++;
 		    }
-		    i++;
+		    a++;
 		}
-		else if(strcmp(argv[i], "-o") == 0){
-		    if(i + 1 == argc){
-			error("missing argument(s) to %s option", argv[i]);
+		else if(strcmp(argv[a], "-o") == 0){
+		    if(a + 1 == argc){
+			error("missing argument(s) to %s option", argv[a]);
 			usage();
 		    }
 		    if(info.output_file_name != NULL){
-			error("more than one: %s %s option", argv[i],argv[i+1]);
+			error("more than one: %s %s option", argv[a],argv[a+1]);
 			usage();
 		    }
-		    info.output_file_name = argv[i+1];
-		    i++;
+		    info.output_file_name = argv[a+1];
+		    a++;
 		}
-		else if(strcmp(argv[i], "-release") == 0){
-		    if(i + 1 == argc){
-			error("missing argument(s) to %s option", argv[i]);
+		else if(strcmp(argv[a], "-release") == 0){
+		    if(a + 1 == argc){
+			error("missing argument(s) to %s option", argv[a]);
 			usage();
 		    }
 		    if(info.release_name != NULL){
-			error("more than one: %s option", argv[i]);
+			error("more than one: %s option", argv[a]);
 			usage();
 		    }
-		    info.release_name = argv[i+1];
-		    i++;
+		    info.release_name = argv[a+1];
+		    a++;
 		}
-		else if(strcmp(argv[i], "-disablewarnings") == 0){
+		else if(strcmp(argv[a], "-disablewarnings") == 0){
 		    info.disablewarnings = TRUE;
 		}
 		else{
-		    error("unknown option: %s\n", argv[i]);
+		    error("unknown option: %s\n", argv[a]);
 		    usage();
 		}
 	    }
 	    else{
-		error("unknown argument: %s\n", argv[i]);
+		error("unknown argument: %s\n", argv[a]);
 		usage();
 	    }
 	}
@@ -682,10 +721,12 @@ char **envp)
 	 * If the -update, -update_overlap or -checkonly options are 
 	 * specified then pick up the next addresses
 	 * to assign.  The addresses are assigned starting at the
-	 * NEXT_FLAT_ADDRESS_TO_ASSIGN and NEXT_SPLIT_ADDRESS_TO_ASSIGN.
+	 * NEXT_FLAT_ADDRESS_TO_ASSIGN, NEXT_SPLIT_ADDRESS_TO_ASSIGN and
+	 * NEXT_DEBUG_ADDRESS_TO_ASSIGN.
 	 */
 	if(update == TRUE || checkonly == TRUE || update_overlaps == TRUE){
 	    next_flat = FALSE;
+	    next_debug = FALSE;
 	    next_split = FALSE;
 	    for(i = 0 ; i < info.table_size; i++){
 		entry = info.seg_addr_table + i;
@@ -719,6 +760,20 @@ char **envp)
 		    info.segs_read_write_addr = entry->segs_read_write_addr;
 		    info.next_split_line = entry->line;
 		}
+		else if(strcmp(entry->install_name,
+			       NEXT_DEBUG_ADDRESS_TO_ASSIGN) == 0){
+		    if(next_debug == TRUE)
+			fatal("segment address table: %s has more than one "
+			      "entry for %s", info.seg_addr_table_name,
+			      NEXT_DEBUG_ADDRESS_TO_ASSIGN);
+		    if(entry->split == TRUE)
+			fatal("segment address table: %s entry for %s is not "
+			      "a single address", info.seg_addr_table_name,
+			      NEXT_SPLIT_ADDRESS_TO_ASSIGN);
+		    next_debug = TRUE;
+		    if(relayout_nonsplit == FALSE)
+                        info.debug_seg1addr = entry->seg1addr;
+		}
 	    }
 	    if(next_flat == FALSE)
 		error("segment address table: %s does not have an entry for %s",
@@ -726,6 +781,9 @@ char **envp)
 	    if(next_split == FALSE)
 		error("segment address table: %s does not have an entry for %s",
 		      info.seg_addr_table_name, NEXT_SPLIT_ADDRESS_TO_ASSIGN);
+	    if(next_debug == FALSE)
+		error("segment address table: %s does not have an entry for %s",
+		      info.seg_addr_table_name, NEXT_DEBUG_ADDRESS_TO_ASSIGN);
 	    if(errors != 0)
 		exit(EXIT_FAILURE);
 	}
@@ -818,7 +876,9 @@ char **envp)
 		if(strcmp(entry->install_name,
 			  NEXT_FLAT_ADDRESS_TO_ASSIGN) == 0 ||
 		   strcmp(entry->install_name,
-			  NEXT_SPLIT_ADDRESS_TO_ASSIGN) == 0)
+			  NEXT_SPLIT_ADDRESS_TO_ASSIGN) == 0 ||
+		   strcmp(entry->install_name,
+			  NEXT_DEBUG_ADDRESS_TO_ASSIGN) == 0)
 		    continue;
 		/*
 		 * Convert fixed address and size regions to flat entries using
@@ -892,9 +952,17 @@ char **envp)
 						  &has_suffix);
 		    if(short_name == NULL)
 			short_name = base_name;
+                    if((has_suffix != NULL) &&
+                       (strcmp(has_suffix, "_debug") == 0 ||
+                        strcmp(has_suffix, "_profile") == 0))
+                        layout_info[used].use_debug_region = TRUE;
+                    else
+                        layout_info[used].use_debug_region = FALSE;                    
 		    found = FALSE;
 		    for(j = 0; j < used; j++){
 			if(layout_info[j].short_name != NULL &&
+                           (layout_info[used].use_debug_region ==
+                            layout_info[j].use_debug_region) &&
 			   strncmp(layout_info[j].install_name,
 				   entry->install_name,
 				   base_name - entry->install_name) == 0 &&
@@ -987,6 +1055,10 @@ char **envp)
 		 * the next address to be assigned.  If
 		 * info.allocate_flat_increasing is TRUE we need to also check.
 		 */
+		if(info.sorted_flat_layout_info[i]->use_debug_region == FALSE)
+                    seg1addr = info.seg1addr;
+		else
+                    seg1addr = info.debug_seg1addr;
 		if((info.allocate_flat_increasing == FALSE) &&
 		   (update == TRUE || checkonly == TRUE ||
 		    update_overlaps == TRUE) &&
@@ -994,8 +1066,8 @@ char **envp)
 			  FIXED_ADDRESS_AND_SIZE) != 0 &&
 		   info.sorted_flat_layout_info[i]->current_entry->seg1addr -
 		   info.sorted_flat_layout_info[i]->max_sizes.all <
-		   info.seg1addr &&
-		   info.sorted_flat_layout_info[i]->seg1addr < info.seg1addr){
+		   seg1addr &&
+		   info.sorted_flat_layout_info[i]->seg1addr < seg1addr){
 		    if(update_overlaps == TRUE)
 			/* Zero out the address for the overlap */
 			info.sorted_flat_layout_info[i]->
@@ -1158,15 +1230,23 @@ char **envp)
 		    if(info.layout_info[i]->assigned == FALSE){
 			size = round(info.layout_info[i]->max_sizes.all <<
 				     info.factor, info.round);
-			info.seg1addr = next_flat_seg1addr(&info, size);
-			if(info.allocate_flat_increasing == TRUE){
-			    info.layout_info[i]->seg1addr = info.seg1addr;
-			    info.seg1addr += size;
-			}
-			else{
-			    info.layout_info[i]->seg1addr = info.seg1addr;
-			    info.seg1addr -= size;
-			}
+			if(info.layout_info[i]->use_debug_region == FALSE){
+                            info.seg1addr = next_flat_seg1addr(&info, size);
+                            if(info.allocate_flat_increasing == TRUE){
+                                info.layout_info[i]->seg1addr = info.seg1addr;
+                                info.seg1addr += size;
+                            }
+                            else{
+                                info.layout_info[i]->seg1addr = info.seg1addr;
+                                info.seg1addr -= size;
+                            }
+                        }
+                        else{
+                            info.debug_seg1addr = 
+                                        next_debug_seg1addr(&info, size);
+                            info.layout_info[i]->seg1addr = info.debug_seg1addr;
+                            info.debug_seg1addr -= size;
+                        }
 			info.layout_info[i]->assigned = TRUE;
 			if(info.seg1addr > MAX_ADDR)
 			    error("address assignment: 0x%x plus size 0x%x for "
@@ -1191,7 +1271,7 @@ char **envp)
 		    info.segs_read_write_addr += size;
 		    if((info.layout_info[i]->segs_read_only_addr &
 			SPLIT_OVERFLOW_MASK) !=
-		       (info.segs_read_only_addr & SPLIT_OVERFLOW_MASK))
+		       (info.default_read_only_addr & SPLIT_OVERFLOW_MASK))
 			error("read-only address assignment: 0x%x plus size "
 			      "0x%x for %s overflows area to be allocated",
 			      (unsigned int)
@@ -1200,7 +1280,7 @@ char **envp)
 			      entry->install_name);
 		    if((info.layout_info[i]->segs_read_write_addr &
 			SPLIT_OVERFLOW_MASK) !=
-		       (info.segs_read_write_addr & SPLIT_OVERFLOW_MASK))
+		       (info.default_read_write_addr & SPLIT_OVERFLOW_MASK))
 			error("read-write address assignment: 0x%x plus size "
 			      "0x%x for %s overflows area to be allocated",
 			      (unsigned int)
@@ -1209,7 +1289,7 @@ char **envp)
 			      entry->install_name);
                 }
             }
-	    if(update_overlaps == FALSE){
+	    if(update_overlaps == FALSE && relayout == FALSE){
 		next_split = FALSE;
 		for(i = 0 ; i < info.table_size; i++){
 		    entry = info.seg_addr_table + i;
@@ -1271,6 +1351,11 @@ char **envp)
 		fprintf(out_fp, "0x%08x\t%s\n",
 		       (unsigned int)info.seg1addr,
 		       NEXT_FLAT_ADDRESS_TO_ASSIGN);
+		fprintf(out_fp, "#%s: Do not remove the following line, "
+		  	    "it is used by the %s tool\n", progname, progname);
+		fprintf(out_fp, "0x%08x\t%s\n",
+		       (unsigned int)info.debug_seg1addr,
+		       NEXT_DEBUG_ADDRESS_TO_ASSIGN);
 	    }
 	}
 
@@ -1278,8 +1363,9 @@ char **envp)
 	 * If the -update or the -update_overlaps option is specified
 	 * then only layout the images in
 	 * the seg_addr_table which had an address of zero.  The addresses are
-	 * assigned starting at the NEXT_FLAT_ADDRESS_TO_ASSIGN and
-	 * NEXT_SPLIT_ADDRESS_TO_ASSIGN and were picked up above.
+	 * assigned starting at the NEXT_FLAT_ADDRESS_TO_ASSIGN, 
+	 * NEXT_DEBUG_ADDRESS_TO_ASSIGN and NEXT_SPLIT_ADDRESS_TO_ASSIGN and 
+	 * were picked up above.
 	 */
 	if(update == TRUE || update_overlaps == TRUE){
 	    /*
@@ -1297,6 +1383,8 @@ char **envp)
 		   strcmp(entry->install_name,
 			  NEXT_SPLIT_ADDRESS_TO_ASSIGN) == 0 ||
 		   strcmp(entry->install_name,
+			  NEXT_DEBUG_ADDRESS_TO_ASSIGN) == 0 ||
+		   strcmp(entry->install_name,
 			  FIXED_ADDRESS_AND_SIZE) == 0)
 		    continue;
 		if(info.layout_info[i] == NULL)
@@ -1306,15 +1394,23 @@ char **envp)
 		    if(info.layout_info[i]->assigned == FALSE){
 			size = round(info.layout_info[i]->max_sizes.all <<
 				     info.factor, info.round);
-			info.seg1addr = next_flat_seg1addr(&info, size);
-			if(info.allocate_flat_increasing == TRUE){
-			    info.layout_info[i]->seg1addr = info.seg1addr;
-			    info.seg1addr += size;
-			}
-			else{
-			    info.layout_info[i]->seg1addr = info.seg1addr;
-			    info.seg1addr -= size;
-			}
+			if(info.layout_info[i]->use_debug_region == FALSE){
+                            info.seg1addr = next_flat_seg1addr(&info, size);
+                            if(info.allocate_flat_increasing == TRUE){
+                                info.layout_info[i]->seg1addr = info.seg1addr;
+                                info.seg1addr += size;
+                            }
+                            else{
+                                info.layout_info[i]->seg1addr = info.seg1addr;
+                                info.seg1addr -= size;
+                            }
+                        }
+                        else{
+                            info.debug_seg1addr = 
+                                        next_debug_seg1addr(&info, size);
+                            info.layout_info[i]->seg1addr = info.debug_seg1addr;
+                            info.debug_seg1addr -= size;
+                        }
 			info.layout_info[i]->assigned = TRUE;
 			if(info.seg1addr > MAX_ADDR)
 			    error("address assignment: 0x%x plus size 0x%x for "
@@ -1352,7 +1448,7 @@ char **envp)
 		    info.segs_read_write_addr += size;
 		    if((info.layout_info[i]->segs_read_only_addr &
 			SPLIT_OVERFLOW_MASK) !=
-		       (info.segs_read_only_addr & SPLIT_OVERFLOW_MASK))
+		       (info.default_read_only_addr & SPLIT_OVERFLOW_MASK))
 			error("read-only address assignment: 0x%x plus size "
 			      "0x%x for %s overflows area to be allocated",
 			      (unsigned int)
@@ -1361,7 +1457,7 @@ char **envp)
 			      entry->install_name);
 		    if((info.layout_info[i]->segs_read_write_addr &
 			SPLIT_OVERFLOW_MASK) !=
-		       (info.segs_read_write_addr & SPLIT_OVERFLOW_MASK))
+		       (info.default_read_write_addr & SPLIT_OVERFLOW_MASK))
 			error("read-write address assignment: 0x%x plus size "
 			      "0x%x for %s overflows area to be allocated",
 			      (unsigned int)
@@ -1405,6 +1501,11 @@ char **envp)
 	    fprintf(out_fp, "0x%08x\t%s\n",
 		    (unsigned int)info.seg1addr,
 		    NEXT_FLAT_ADDRESS_TO_ASSIGN);
+	    fprintf(out_fp, "#%s: Do not remove the following line, "
+		    "it is used by the %s tool\n", progname, progname);
+	    fprintf(out_fp, "0x%08x\t%s\n",
+		    (unsigned int)info.debug_seg1addr,
+		    NEXT_DEBUG_ADDRESS_TO_ASSIGN);
 	}
 
 	if(out_fp != NULL){
@@ -1661,7 +1762,8 @@ struct info *info,
 unsigned long size)
 {
     unsigned long seg1addr, start, end;
-    long i;
+    unsigned long i;
+    long j;
 
 	if(info->allocate_flat_increasing == TRUE){
 	    seg1addr = info->seg1addr;
@@ -1675,7 +1777,8 @@ unsigned long size)
 		start = info->sorted_flat_layout_info[i]->seg1addr;
 		end = start + info->sorted_flat_layout_info[i]->max_sizes.all;
 		if((seg1addr <= start && seg1addr + size > start) ||
-		   (seg1addr < end && seg1addr + size > end)){
+		   (seg1addr < end && seg1addr + size > end) ||
+		   (seg1addr >= start && seg1addr + size <= end)){
 #ifdef DEBUG
 printf("next_flat_seg1addr() stepping over region start = 0x%x  end = 0x%x\n",
        (unsigned int)start, (unsigned int)end);
@@ -1692,11 +1795,12 @@ printf("next_flat_seg1addr() stepping over region start = 0x%x  end = 0x%x\n",
 	     * past that region.  When all regions have been checked then
 	     * return the seg1addr to be used.
 	     */
-	    for(i = info->nsorted_flat-1 ; i >= 0; i--){
-		start = info->sorted_flat_layout_info[i]->seg1addr;
-		end = start + info->sorted_flat_layout_info[i]->max_sizes.all;
+	    for(j = info->nsorted_flat-1 ; j >= 0; j--){
+		start = info->sorted_flat_layout_info[j]->seg1addr;
+		end = start + info->sorted_flat_layout_info[j]->max_sizes.all;
 		if((seg1addr <= start && seg1addr + size > start) ||
-		   (seg1addr < end && seg1addr + size > end)){
+		   (seg1addr < end && seg1addr + size > end) ||
+		   (seg1addr >= start && seg1addr + size <= end)){
 #ifdef DEBUG
 printf("next_flat_seg1addr() stepping back over region start = 0x%x "
        "end = 0x%x\n", (unsigned int)start, (unsigned int)end);
@@ -1710,6 +1814,50 @@ printf("next_flat_seg1addr() returning seg1addr = 0x%x\n",
        (unsigned int)seg1addr);
 #endif
 	return(seg1addr);
+}
+
+
+/*
+ * next_debug_seg1addr() uses the info->debug_seg1addr as the starting point
+ * to try to find the next address of a flat library to assign for 'size'.  It
+ * goes through the sorted libraries and finds the next place big enough to put
+ * 'size' if info->debug_seg1addr of 'size' overlaps a library.
+ */
+static
+unsigned long
+next_debug_seg1addr(
+struct info *info,
+unsigned long size)
+{
+    unsigned long seg1addr, start, end;
+    long j;
+
+    seg1addr = info->debug_seg1addr - size;
+    /*
+     * Go through the flat libraries sorted by address to see if
+     * seg1addr for size overlaps with anything.  If so move seg1addr
+     * past that region.  When all regions have been checked then
+     * return the seg1addr to be used.
+     */
+    for(j = info->nsorted_flat-1 ; j >= 0; j--){
+        start = info->sorted_flat_layout_info[j]->seg1addr;
+        end = start + info->sorted_flat_layout_info[j]->max_sizes.all;
+        if((seg1addr <= start && seg1addr + size > start) ||
+            (seg1addr < end && seg1addr + size > end) || 
+            (seg1addr >= start && seg1addr + size <= end)){
+#ifdef DEBUG
+            printf("next_debug_seg1addr() stepping back over region "
+                    "start = 0x%x end = 0x%x\n", 
+                    (unsigned int)start, (unsigned int)end);
+#endif
+            seg1addr = start;
+        }
+    }
+#ifdef DEBUG
+printf("next_debug_seg1addr() returning seg1addr = 0x%x\n",
+    (unsigned int)seg1addr);
+#endif
+    return(seg1addr);
 }
 
 
@@ -1793,7 +1941,8 @@ void *cookie)
 	 * will be set last in the routine that create the output file.
 	 */
 	if(strcmp(entry->install_name, NEXT_FLAT_ADDRESS_TO_ASSIGN) == 0 ||
-	   strcmp(entry->install_name, NEXT_SPLIT_ADDRESS_TO_ASSIGN) == 0)
+	   strcmp(entry->install_name, NEXT_SPLIT_ADDRESS_TO_ASSIGN) == 0 ||
+	   strcmp(entry->install_name, NEXT_DEBUG_ADDRESS_TO_ASSIGN) == 0)
 	    return;
 
 	if(strcmp(entry->install_name, FIXED_ADDRESS_AND_SIZE) == 0){
@@ -1947,7 +2096,8 @@ void *cookie)
 	 * will be set last in the routine that create the output file.
 	 */
 	if(strcmp(entry->install_name, NEXT_FLAT_ADDRESS_TO_ASSIGN) == 0 ||
-	   strcmp(entry->install_name, NEXT_SPLIT_ADDRESS_TO_ASSIGN) == 0)
+	   strcmp(entry->install_name, NEXT_SPLIT_ADDRESS_TO_ASSIGN) == 0 ||
+	   strcmp(entry->install_name, NEXT_DEBUG_ADDRESS_TO_ASSIGN) == 0)
 	    return;
 
 	info = (struct info *)cookie;

@@ -1,27 +1,4 @@
 /*
- * Copyright (c) 1999 Apple Computer, Inc. All rights reserved.
- *
- * @APPLE_LICENSE_HEADER_START@
- * 
- * "Portions Copyright (c) 1999 Apple Computer, Inc.  All Rights
- * Reserved.  This file contains Original Code and/or Modifications of
- * Original Code as defined in and that are subject to the Apple Public
- * Source License Version 1.0 (the 'License').  You may not use this file
- * except in compliance with the License.  Please obtain a copy of the
- * License at http://www.apple.com/publicsource and read it before using
- * this file.
- * 
- * The Original Code and all software distributed under the License are
- * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
- * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
- * INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY,
- * FITNESS FOR A PARTICULAR PURPOSE OR NON-INFRINGEMENT.  Please see the
- * License for the specific language governing rights and limitations
- * under the License."
- * 
- * @APPLE_LICENSE_HEADER_END@
- */
-/*
  * Copyright (c) 1989, 1993
  *	The Regents of the University of California.  All rights reserved.
  *
@@ -54,18 +31,26 @@
  * SUCH DAMAGE.
  */
 
+#include <sys/cdefs.h>
+
+
+#ifndef lint
+static const char sccsid[] = "@(#)ttymsg.c	8.2 (Berkeley) 11/16/93";
+#endif
 
 #include <sys/types.h>
 #include <sys/uio.h>
-#include <signal.h>
-#include <fcntl.h>
 #include <dirent.h>
 #include <errno.h>
+#include <fcntl.h>
 #include <paths.h>
-#include <unistd.h>
+#include <signal.h>
 #include <stdio.h>
 #include <string.h>
 #include <stdlib.h>
+#include <unistd.h>
+
+#include "ttymsg.h"
 
 /*
  * Display the contents of a uio structure on a terminal.  Used by wall(1),
@@ -74,27 +59,25 @@
  * error; string is not newline-terminated.  Various "normal" errors are
  * ignored (exclusive-use, lack of permission, etc.).
  */
-char *
-ttymsg(iov, iovcnt, line, tmout)
-	struct iovec *iov;
-	int iovcnt;
-	char *line;
-	int tmout;
+const char *
+ttymsg(struct iovec *iov, int iovcnt, const char *line, int tmout)
 {
+	struct iovec localiov[7];
+	ssize_t left, wret;
+	int cnt, fd;
 	static char device[MAXNAMLEN] = _PATH_DEV;
 	static char errbuf[1024];
-	register int cnt, fd, left, wret;
-	struct iovec localiov[6];
-	int forked = 0;
+	int forked;
 
-	if (iovcnt > sizeof(localiov) / sizeof(localiov[0]))
+	forked = 0;
+	if (iovcnt > (int)(sizeof(localiov) / sizeof(localiov[0])))
 		return ("too many iov's (change code in wall/ttymsg.c)");
 
-	(void) strcpy(device + sizeof(_PATH_DEV) - 1, line);
+	strlcpy(device + sizeof(_PATH_DEV) - 1, line, sizeof(device));
 	if (strchr(device + sizeof(_PATH_DEV) - 1, '/')) {
 		/* A slash is an attempt to break security... */
-		(void) snprintf(errbuf, sizeof(errbuf), "'/' in \"%s\"",
-		    device);
+		(void) snprintf(errbuf, sizeof(errbuf),
+		    "Too many '/' in \"%s\"", device);
 		return (errbuf);
 	}
 
@@ -105,12 +88,12 @@ ttymsg(iov, iovcnt, line, tmout)
 	if ((fd = open(device, O_WRONLY|O_NONBLOCK, 0)) < 0) {
 		if (errno == EBUSY || errno == EACCES)
 			return (NULL);
-		(void) snprintf(errbuf, sizeof(errbuf),
-		    "%s: %s", device, strerror(errno));
+		(void) snprintf(errbuf, sizeof(errbuf), "%s: %s", device,
+		    strerror(errno));
 		return (errbuf);
 	}
 
-	for (cnt = left = 0; cnt < iovcnt; ++cnt)
+	for (cnt = 0, left = 0; cnt < iovcnt; ++cnt)
 		left += iov[cnt].iov_len;
 
 	for (;;) {
@@ -120,23 +103,23 @@ ttymsg(iov, iovcnt, line, tmout)
 		if (wret >= 0) {
 			left -= wret;
 			if (iov != localiov) {
-				bcopy(iov, localiov,
+				bcopy(iov, localiov, 
 				    iovcnt * sizeof(struct iovec));
 				iov = localiov;
 			}
-			for (cnt = 0; wret >= iov->iov_len; ++cnt) {
+			for (cnt = 0; (size_t)wret >= iov->iov_len; ++cnt) {
 				wret -= iov->iov_len;
 				++iov;
 				--iovcnt;
 			}
 			if (wret) {
-				iov->iov_base += wret;
+				iov->iov_base = (char *)iov->iov_base + wret;
 				iov->iov_len -= wret;
 			}
 			continue;
 		}
 		if (errno == EWOULDBLOCK) {
-			int cpid, off = 0;
+			int cpid;
 
 			if (forked) {
 				(void) close(fd);
@@ -159,7 +142,7 @@ ttymsg(iov, iovcnt, line, tmout)
 			(void) signal(SIGTERM, SIG_DFL); /* XXX */
 			(void) sigsetmask(0);
 			(void) alarm((u_int)tmout);
-			(void) fcntl(fd, O_NONBLOCK, &off);
+			(void) fcntl(fd, F_SETFL, 0);	/* clear O_NONBLOCK */
 			continue;
 		}
 		/*

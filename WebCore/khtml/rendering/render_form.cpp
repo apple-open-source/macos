@@ -67,12 +67,12 @@ RenderFormElement::~RenderFormElement()
 {
 }
 
-short RenderFormElement::baselinePosition( bool f ) const
+short RenderFormElement::baselinePosition( bool f, bool isRootLineBox ) const
 {
 #if APPLE_CHANGES
     return marginTop() + widget()->baselinePosition();
 #else
-    return RenderWidget::baselinePosition( f ) - 2 - style()->fontMetrics().descent();
+    return RenderWidget::baselinePosition( f, isRootLineBox ) - 2 - style()->fontMetrics().descent();
 #endif
 }
 
@@ -196,6 +196,9 @@ void RenderFormElement::setStyle(RenderStyle* _style)
     if (canHaveIntrinsicMargins())
         addIntrinsicMarginsIfAllowed(_style);
     RenderWidget::setStyle(_style);
+
+    // Do not paint a background or border for Aqua form elements
+    setShouldPaintBackgroundOrBorder(false);
 }
 #endif
 
@@ -206,12 +209,12 @@ RenderButton::RenderButton(HTMLGenericFormElementImpl *element)
 {
 }
 
-short RenderButton::baselinePosition( bool f ) const
+short RenderButton::baselinePosition( bool f, bool isRootLineBox ) const
 {
 #if APPLE_CHANGES
-    return RenderFormElement::baselinePosition( f );
+    return RenderFormElement::baselinePosition( f, isRootLineBox );
 #else
-    return RenderWidget::baselinePosition( f ) - 2;
+    return RenderWidget::baselinePosition( f, isRootLineBox ) - 2;
 #endif
 }
 
@@ -386,9 +389,9 @@ QString RenderSubmitButton::defaultLabel()
 #endif
 }
 
-short RenderSubmitButton::baselinePosition( bool f ) const
+short RenderSubmitButton::baselinePosition( bool f, bool isRootLineBox ) const
 {
-    return RenderFormElement::baselinePosition( f );
+    return RenderFormElement::baselinePosition( f, isRootLineBox );
 }
 
 // -------------------------------------------------------------------------------
@@ -547,10 +550,14 @@ void RenderLineEdit::updateFromElement()
     if ( w->maxLength() != ml )
         w->setMaxLength( ml );
 
+    // Call w->text() before calling element()->value(), because in the case of inline
+    // input such as Hiragana, w->text() has a side effect of sending the notification
+    // that we use in slotTextChanged to update element()->m_value
+    QString widgetText = w->text();
     QString newText = element()->value().string();
     newText.replace('\\', backslashAsCurrencySymbol());
 
-    if (newText != w->text()) {
+    if (newText != widgetText) {
         w->blockSignals(true);
         int pos = w->cursorPosition();
 
@@ -716,6 +723,18 @@ void RenderFieldset::paintBorderMinusLegend(QPainter *p, int _tx, int _ty, int w
                    ignore_top?0:style->borderTopWidth(),
                    ignore_bottom?0:style->borderBottomWidth());
     }
+}
+
+void RenderFieldset::setStyle(RenderStyle* _style)
+{
+    RenderBlock::setStyle(_style);
+
+    // WinIE renders fieldsets with display:inline like they're inline-blocks.  For us,
+    // an inline-block is just a block element with replaced set to true and inline set
+    // to true.  Ensure that if we ended up being inline that we set our replaced flag
+    // so that we're treated like an inline-block.
+    if (isInline())
+        setReplaced(true);
 }
 
 // -------------------------------------------------------------------------
@@ -1028,12 +1047,12 @@ void RenderSelect::updateFromElement()
 
 #if APPLE_CHANGES
 // Override to deal with our widget.
-short RenderSelect::baselinePosition( bool f ) const
+short RenderSelect::baselinePosition( bool f, bool isRootLineBox ) const
 {
     if (!m_useListBox) {
-        return RenderFormElement::baselinePosition( f );
+        return RenderFormElement::baselinePosition( f, isRootLineBox );
     } else {
-        return RenderWidget::baselinePosition( f ) - 7;
+        return RenderWidget::baselinePosition( f, isRootLineBox ) - 7;
     }
 }
 #endif
@@ -1311,7 +1330,7 @@ void RenderTextArea::detach(RenderArena *arena)
 void RenderTextArea::handleFocusOut()
 {
     TextAreaWidget* w = static_cast<TextAreaWidget*>(m_widget);
-    if ( w && element()->m_dirtyvalue ) {
+    if ( w && element() && element()->m_dirtyvalue ) {
         element()->m_value = text();
         element()->m_dirtyvalue = false;
         element()->onChange();
@@ -1352,9 +1371,14 @@ void RenderTextArea::updateFromElement()
     TextAreaWidget* w = static_cast<TextAreaWidget*>(m_widget);
     w->setReadOnly(element()->readOnly());
     w->setAlignment(style()->direction() == RTL ? Qt::AlignRight : Qt::AlignLeft);
+    
+    // Call w->text() before calling element()->value(), because in the case of inline
+    // input such as Hiragana, w->text() has a side effect of sending the notification
+    // that we use in slotTextChanged to update element()->m_value
+    QString widgetText = w->text();
     QString text = element()->value().string();
     text.replace('\\', backslashAsCurrencySymbol());
-    if (w->text() != text) {
+    if (widgetText != text) {
         w->blockSignals(true);
         int line, col;
         w->getCursorPosition( &line, &col );

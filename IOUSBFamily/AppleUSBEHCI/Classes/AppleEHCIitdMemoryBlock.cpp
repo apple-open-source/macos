@@ -22,6 +22,7 @@
  * 
  * @APPLE_LICENSE_HEADER_END@
  */
+
 #include <IOKit/usb/IOUSBLog.h>
 
 #include "AppleEHCIitdMemoryBlock.h"
@@ -95,4 +96,3 @@ void
 AppleEHCIitdMemoryBlock::SetNextBlock(AppleEHCIitdMemoryBlock* next)
 {
     _nextBlock = next;
-}

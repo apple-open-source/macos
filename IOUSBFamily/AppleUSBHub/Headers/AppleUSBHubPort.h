@@ -1,5 +1,4 @@
 /*
- * Copyright (c) 1998-2002 Apple Computer, Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -22,6 +21,7 @@
  * 
  * @APPLE_LICENSE_HEADER_END@
  */
+
 #ifndef _IOKIT_APPLEUSBHUBPORT_H
 #define _IOKIT_APPLEUSBHUBPORT_H
 
@@ -125,6 +125,7 @@ public:
     IOReturn 		AddDevice(void);
     void 		RemoveDevice(void);
     IOReturn		ResetPort();
+    IOReturn		ClearTT(bool multiTTs, UInt32 options);
     bool 		StatusChanged(void);
 
     void 		InitPortVectors(void);

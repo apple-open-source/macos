@@ -1,3 +1,25 @@
+/*
+ * Copyright (c) 2003 Apple Computer, Inc. All rights reserved.
+ *
+ * @APPLE_LICENSE_HEADER_START@
+ * 
+ * This file contains Original Code and/or Modifications of Original Code
+ * as defined in and that are subject to the Apple Public Source License
+ * Version 2.0 (the 'License'). You may not use this file except in
+ * compliance with the License. Please obtain a copy of the License at
+ * http://www.opensource.apple.com/apsl/ and read it before using this
+ * file.
+ * 
+ * The Original Code and all software distributed under the License are
+ * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
+ * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
+ * INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY,
+ * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
+ * Please see the License for the specific language governing rights and
+ * limitations under the License.
+ * 
+ * @APPLE_LICENSE_HEADER_END@
+ */
 #define REDO_PREBINDING_VERSION 2
 #include <mach/machine.h>
 /*
@@ -38,6 +60,21 @@ const char *file_name,
 const char *program_name,
 char **error_message);
 
+/*
+ * install_name() takes a file_name of a binary and returns a malloc(3)'ed
+ * pointer to a NULL terminated string containing the install_name value for
+ * the binary. If unsuccessful install_name() returns NULL.  In particular,
+ * NULL is returned if the binary is not a dylib and there is no error_message
+ * set.  If the all of the arch's are dylibs but all the install names don't
+ * match NULL is returned and a error_message is set.  If some but not all of
+ * the archs are dylibs NULL is returned and a error_message is set.
+ */ 
+extern
+char *
+install_name(
+const char *file_name,
+const char *program_name,
+char **error_message);
 
 /* return values for redo_prebinding() */
 enum redo_prebinding_retval {

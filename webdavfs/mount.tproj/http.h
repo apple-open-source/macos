@@ -26,7 +26,7 @@
  * OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
  * SUCH DAMAGE.
  *
- *	$Id: http.h,v 1.5 2002/06/06 20:30:28 lutherj Exp $
+ *	$Id: http.h,v 1.6 2003/09/08 18:31:15 lutherj Exp $
  */
 
 #ifndef http_h
@@ -48,6 +48,7 @@ extern int http_stat(struct fetch_state *fs, void * arg);
 extern int http_statfs(struct fetch_state *fs, void * arg);
 extern int http_mount(struct fetch_state *fs, void * arg);
 extern int http_put(struct fetch_state *fs, void * arg);
+extern int http_getlastmodified(struct fetch_state *fs, void *arg);
 extern int http_delete(struct fetch_state *fs, void * arg);
 extern int http_lock (struct fetch_state *fs, void *arg);
 extern int http_unlock (struct fetch_state *fs, void *arg);

@@ -18,3 +18,5 @@ install-files:
 	$(_v) $(INSTALL_DIRECTORY) "$(Destination)"
 	$(_v) $(INSTALL_FILE) -c -m 644 local		 "$(Destination)/local"
 	$(_v) $(LN) -s local              "$(Destination)/254.169.in-addr.arpa"
+	$(_v) $(LN) -s local              "$(Destination)/0.8.e.f.ip6.arpa"
+	$(_v) $(LN) -s local              "$(Destination)/0.8.e.f.ip6.int"

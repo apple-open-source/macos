@@ -12,7 +12,7 @@ NAME = uuencode
 PROJECTVERSION = 2.8
 PROJECT_TYPE = Tool
 
-CFILES = uuencode.c
+CFILES = uuencode.c base64.c
 
 OTHERSRCS = Makefile.preamble Makefile uuencode.5 uuencode.1\
             Makefile.postamble

@@ -1,5 +1,3 @@
-/*	$NetBSD: chflags.c,v 1.5 1997/10/18 12:39:54 lukem Exp $	*/
-
 /*
  * Copyright (c) 1992, 1993, 1994
  *	The Regents of the University of California.  All rights reserved.
@@ -33,19 +31,20 @@
  * SUCH DAMAGE.
  */
 
-#include <sys/cdefs.h>
 #ifndef lint
-__COPYRIGHT("@(#) Copyright (c) 1992, 1993, 1994\n\
-	The Regents of the University of California.  All rights reserved.\n");
-#endif /* not lint */
-
-#ifndef lint
-#if 0
-static char sccsid[] = "from: @(#)chflags.c	8.5 (Berkeley) 4/1/94";
-#else
-__RCSID("$NetBSD: chflags.c,v 1.5 1997/10/18 12:39:54 lukem Exp $");
+static const char copyright[] =
+"@(#) Copyright (c) 1992, 1993, 1994\n\
+	The Regents of the University of California.  All rights reserved.\n";
 #endif
-#endif /* not lint */
+
+#if 0
+#ifndef lint
+static char sccsid[] = "@(#)chflags.c	8.5 (Berkeley) 4/1/94";
+#endif
+#endif
+
+#include <sys/cdefs.h>
+__RCSID("$FreeBSD: src/usr.bin/chflags/chflags.c,v 1.16 2002/09/04 23:28:58 dwmalone Exp $");
 
 #include <sys/types.h>
 #include <sys/stat.h>
@@ -58,14 +57,10 @@ __RCSID("$NetBSD: chflags.c,v 1.5 1997/10/18 12:39:54 lukem Exp $");
 #include <string.h>
 #include <unistd.h>
 
-int	main __P((int, char **));
-u_long	string_to_flags __P((char **, u_long *, u_long *));
-void	usage __P((void));
+void	usage(void);
 
 int
-main(argc, argv)
-	int argc;
-	char *argv[];
+main(int argc, char *argv[])
 {
 	FTS *ftsp;
 	FTSENT *p;
@@ -102,15 +97,16 @@ main(argc, argv)
 	if (argc < 2)
 		usage();
 
-	fts_options = FTS_PHYSICAL;
 	if (Rflag) {
+		fts_options = FTS_PHYSICAL;
 		if (Hflag)
 			fts_options |= FTS_COMFOLLOW;
 		if (Lflag) {
 			fts_options &= ~FTS_PHYSICAL;
 			fts_options |= FTS_LOGICAL;
 		}
-	}
+	} else
+		fts_options = FTS_LOGICAL;
 
 	flags = *argv;
 	if (*flags >= '0' && *flags <= '7') {
@@ -125,14 +121,14 @@ main(argc, argv)
 		set = val;
                 oct = 1;
 	} else {
-		if (string_to_flags(&flags, &set, &clear))
+		if (strtofflags(&flags, &set, &clear))
                         errx(1, "invalid flag: %s", flags);
 		clear = ~clear;
 		oct = 0;
 	}
 
 	if ((ftsp = fts_open(++argv, fts_options , 0)) == NULL)
-		err(1, "fts_open `%s'", argv[0]); 
+		err(1, NULL);
 
 	for (rval = 0; (p = fts_read(ftsp)) != NULL;) {
 		switch (p->fts_info) {
@@ -167,7 +163,7 @@ main(argc, argv)
 		} else {
 			p->fts_statp->st_flags |= set;
 			p->fts_statp->st_flags &= clear;
-			if (!chflags(p->fts_accpath, p->fts_statp->st_flags))
+			if (!chflags(p->fts_accpath, (u_long)p->fts_statp->st_flags))
 				continue;
 		}
 		warn("%s", p->fts_path);
@@ -179,7 +175,7 @@ main(argc, argv)
 }
 
 void
-usage()
+usage(void)
 {
 	(void)fprintf(stderr,
 	    "usage: chflags [-R [-H | -L | -P]] flags file ...\n");

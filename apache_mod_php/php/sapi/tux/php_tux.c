@@ -1,8 +1,8 @@
 /*
    +----------------------------------------------------------------------+
-   | PHP version 4.0                                                      |
+   | PHP Version 4                                                        |
    +----------------------------------------------------------------------+
-   | Copyright (c) 1997-2001 The PHP Group                                |
+   | Copyright (c) 1997-2003 The PHP Group                                |
    +----------------------------------------------------------------------+
    | This source file is subject to version 2.02 of the PHP license,      |
    | that is bundled with this package in the file LICENSE, and is        |
@@ -52,7 +52,8 @@ static php_tux_globals tux_globals;
 static int sapi_tux_ub_write(const char *str, uint str_length TSRMLS_DC)
 {
 	int n;
-	uint sent = 0;	
+	int m;
+	const char *estr;
 	
 	/* combine headers and body */
 	if (TG(number_vec)) {
@@ -62,15 +63,21 @@ static int sapi_tux_ub_write(const char *str, uint str_length TSRMLS_DC)
 		vec[n].iov_base = (void *) str;
 		vec[n++].iov_len = str_length;
 		
-		if (writev(TG(req)->sock, vec, n) == -1 && errno == EPIPE)
+		/* XXX: this might need more complete error handling */
+		if ((m = writev(TG(req)->sock, vec, n)) == -1 && errno == EPIPE)
 			php_handle_aborted_connection();
+
+		if (m > 0)
+			TG(req)->bytes_sent += str_length;
 
 		TG(number_vec) = 0;
 		return str_length;
 	}
+
+	estr = str + str_length;
 	
-	while (str_length > 0) {
-		n = send(TG(req)->sock, str, str_length, 0);
+	while (str < estr) {
+		n = send(TG(req)->sock, str, estr - str, 0);
 
 		if (n == -1 && errno == EPIPE)
 			php_handle_aborted_connection();
@@ -79,20 +86,21 @@ static int sapi_tux_ub_write(const char *str, uint str_length TSRMLS_DC)
 		if (n <= 0) 
 			return n;
 
-		TG(req)->bytes_sent += n;
 		str += n;
-		sent += n;
-		str_length -= n;
 	}
 
-	return sent;
+	n = str_length - (estr - str);
+	
+	TG(req)->bytes_sent += n;
+
+	return n;
 }
 
 static int sapi_tux_send_headers(sapi_headers_struct *sapi_headers)
 {
 	char buf[1024];
 	struct iovec *vec;
-	int n = 0;
+	int n;
 	int max_headers;
 	zend_llist_position pos;
 	sapi_header_struct *h;
@@ -102,15 +110,18 @@ static int sapi_tux_send_headers(sapi_headers_struct *sapi_headers)
 	TSRMLS_FETCH();
 	
 	max_headers = 30;
-	snprintf(buf, 1023, "HTTP/1.1 %d NA\r\n", SG(sapi_headers).http_response_code);
+	n = 1;
 	
 	vec = malloc(sizeof(struct iovec) * max_headers);
+	status_line = malloc(30);
 	
-	vec[n].iov_base = strdup(buf);
-	vec[n++].iov_len = strlen(buf);
+	/* safe sprintf use */
+	len = sprintf(status_line, "HTTP/1.1 %d NA\r\n", SG(sapi_headers).http_response_code);
+	
+	vec[0].iov_base = status_line;
+	vec[0].iov_len = len;
 	
 	TG(req)->http_status = SG(sapi_headers).http_response_code;
-	TG(req)->bytes_sent += len;
 
 	if (TG(tux_action) == TUX_ACTION_FINISH_CLOSE_REQ && TG(req)->http_version == HTTP_1_1)
 		locate_cl = 1;
@@ -181,10 +192,12 @@ static void sapi_tux_register_variables(zval *track_vars_array TSRMLS_DC)
 {
 	char buf[BUF_SIZE + 1];
 	char *p;
-
+	sapi_header_line ctr = {0};
 	
-	sprintf(buf, "Server: %s", TUXAPI_version);
-	sapi_add_header_ex(buf, strlen(buf), 1, 0 TSRMLS_CC);
+	ctr.line = buf;
+	ctr.line_len = sprintf(buf, "Server: %s", TUXAPI_version);
+	sapi_header_op(SAPI_HEADER_REPLACE, &ctr TSRMLS_CC);
+	
 	php_register_variable("PHP_SELF", SG(request_info).request_uri, track_vars_array TSRMLS_CC);
 	php_register_variable("SERVER_SOFTWARE", TUXAPI_version, track_vars_array TSRMLS_CC);
 	php_register_variable("GATEWAY_INTERFACE", "CGI/1.1", track_vars_array TSRMLS_CC);
@@ -239,11 +252,21 @@ static void sapi_tux_register_variables(zval *track_vars_array TSRMLS_DC)
 #endif
 }
 
+
+static int php_tux_startup(sapi_module_struct *sapi_module)
+{
+	if (php_module_startup(sapi_module, NULL, 0)==FAILURE) {
+		return FAILURE;
+	} else {
+		return SUCCESS;
+	}
+}
+
 static sapi_module_struct tux_sapi_module = {
 	"tux",
 	"tux",
 	
-	php_module_startup,
+	php_tux_startup,
 	php_module_shutdown_wrapper,
 	
 	NULL,									/* activate */
@@ -296,7 +319,8 @@ static void tux_request_ctor(TSRMLS_D)
 	size_t cwd_len;
 	smart_str s = {0};
 	char *p;
-	
+
+	TG(number_vec) = 0;	
 	TG(header_vec) = NULL;
 	SG(request_info).query_string = strdup(TG(req)->query);
 
@@ -316,7 +340,7 @@ static void tux_request_ctor(TSRMLS_D)
 	SG(request_info).request_method = CGI_REQUEST_METHOD(TG(req));
 	SG(sapi_headers).http_response_code = 200;
 	SG(request_info).content_type = TG(req)->content_type;
-	SG(request_info).content_length = 0; // TG(req)->contentlength;
+	SG(request_info).content_length = 0; /* TG(req)->contentlength; */
 
 #if 0
 	php_handle_auth_data(TG(hc)->authorization TSRMLS_CC);
@@ -325,8 +349,11 @@ static void tux_request_ctor(TSRMLS_D)
 
 static void tux_request_dtor(TSRMLS_D)
 {
-	if (TG(header_vec))
+	if (TG(header_vec)) {
+		/* free status_line */
+		free(TG(header_vec)[0].iov_base);
 		free(TG(header_vec));
+	}
 	if (SG(request_info).query_string)
 		free(SG(request_info).query_string);
 	free(SG(request_info).request_uri);
@@ -342,7 +369,7 @@ static void *separate_thread(void *bla)
 	fd = (int) bla;
 
 	while (i++ < 5) {
-		send(fd, "test<br>\n", 9, 0);
+		send(fd, "test<br />\n", 9, 0);
 		sleep(1);
 	}
 	
@@ -424,6 +451,6 @@ void doesnotmatter_fini(void)
  * tab-width: 4
  * c-basic-offset: 4
  * End:
- * vim600: sw=4 ts=4 tw=78 fdm=marker
- * vim<600: sw=4 ts=4 tw=78
+ * vim600: sw=4 ts=4 fdm=marker
+ * vim<600: sw=4 ts=4
  */

@@ -1,3 +1,30 @@
+.\" $NetBSD: pthread_mutexattr.3,v 1.3 2003/07/04 08:36:06 wiz Exp $
+.\"
+.\" Copyright (c) 2002 The NetBSD Foundation, Inc.
+.\" All rights reserved.
+.\" Redistribution and use in source and binary forms, with or without
+.\" modification, are permitted provided that the following conditions
+.\" are met:
+.\" 1. Redistributions of source code must retain the above copyright
+.\"    notice, this list of conditions and the following disclaimer.
+.\" 2. Redistributions in binary form must reproduce the above copyright
+.\"    notice, this list of conditions and the following disclaimer in the
+.\"    documentation and/or other materials provided with the distribution.
+.\" 3. Neither the name of The NetBSD Foundation nor the names of its
+.\"    contributors may be used to endorse or promote products derived
+.\"    from this software without specific prior written permission.
+.\" THIS SOFTWARE IS PROVIDED BY THE NETBSD FOUNDATION, INC. AND CONTRIBUTORS
+.\" ``AS IS'' AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED
+.\" TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR
+.\" PURPOSE ARE DISCLAIMED.  IN NO EVENT SHALL THE FOUNDATION OR CONTRIBUTORS
+.\" BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR
+.\" CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF
+.\" SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
+.\" INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN
+.\" CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
+.\" ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
+.\" POSSIBILITY OF SUCH DAMAGE.
+.\"
 .\" Copyright (C) 2000 Jason Evans <jasone@FreeBSD.org>.
 .\" All rights reserved.
 .\"
@@ -25,8 +52,8 @@
 .\" OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE,
 .\" EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 .\"
-.\" $FreeBSD: src/lib/libc_r/man/pthread_mutexattr.3,v 1.2.2.5 2001/08/17 15:42:52 ru Exp $
-.Dd May 1, 2000
+.\" $FreeBSD: src/lib/libpthread/man/pthread_mutexattr.3,v 1.8 2002/09/16 19:29:29 mini Exp $
+.Dd January 30, 2003
 .Dt PTHREAD_MUTEXATTR 3
 .Os
 .Sh NAME
@@ -76,6 +103,67 @@ function destroys
 .Fa attr .
 .Pp
 The
+.Fn pthread_mutexattr_settype
+functions set the mutex type value of the attribute.  Valid mutex types are:
+.Dv PTHREAD_MUTEX_NORMAL ,
+.Dv PTHREAD_MUTEX_ERRORCHECK ,
+.Dv PTHREAD_MUTEX_RECURSIVE ,
+and
+.Dv PTHREAD_MUTEX_DEFAULT .
+The default mutex type for
+.Fn pthread_mutexaddr_init
+is
+.Dv PTHREAD_MUTEX_DEFAULT .
+.Pp
+.Dv PTHREAD_MUXEX_NORMAL
+mutexes do not check for usage errors.
+.Dv PTHREAD_MUTEX_NORMAL
+mutexes will deadlock if reentered, and result in undefined behavior if a
+locked mutex is unlocked by another thread.  Attempts to unlock an already
+unlocked
+.Dv PTHREAD_MUTEX_NORMAL
+mutex will result in undefined behavior.
+.Pp
+.Dv PTHREAD_MUTEX_ERRORCHECK
+mutexes do check for usage errors.
+If an attempt is made to relock a
+.Dv PTHREAD_MUTEX_ERRORCHECK
+mutex without first dropping the lock an error will be returned.  If a thread
+attempts to unlock a
+.Dv PTHREAD_MUTEX_ERRORCHECK
+mutex that is locked by another thread, an error will be returned.  If a
+thread attemps to unlock a
+.Dv PTHREAD_MUTEX_ERRORCHECK
+thread that is unlocked, an error will be
+returned.
+.Pp
+.Dv PTHREAD_MUTEX_RECURSIVE
+mutexes allow recursive locking.
+An attempt to relock a
+.Dv PTHREAD_MUTEX_RECURSIVE
+mutex that is already locked by the same thread succeeds.  An equivalent
+number of
+.Xr pthread_mutex_unlock 3
+calls are needed before the mutex will wake another thread waiting on this
+lock.  If a thread attempts to unlock a
+.Dv PTHREAD_MUTEX_RECURSIVE
+mutex that is locked by another thread, an error will be returned.  If a thread attemps to unlock a
+.Dv PTHREAD_MUTEX_RECURSIVE
+thread that is unlocked, an error will be returned.
+.Pp
+.Dv PTHREAD_MUTEX_DEFAULT
+mutexes result in undefined behavior if reentered.
+Unlocking a
+.Dv PTHREAD_MUTEX_DEFAULT
+mutex locked by another thread will result in undefined behavior.  Attempts to unlock an already
+unlocked
+.Dv PTHREAD_MUTEX_DEFAULT
+mutex will result in undefined behavior.
+.Pp
+.Fn pthread_mutexattr_gettype
+functions copy the type value of the attribute to the location pointed to by the second parameter.
+.Pp
+The
 .Fn pthread_mutexattr_set*
 functions set the attribute that corresponds to each function name.
 .Pp
@@ -85,7 +173,7 @@ functions copy the value of the attribute that corresponds to each function name
 to the location pointed to by the second function parameter.
 .Sh RETURN VALUES
 If successful, these functions return 0.
-Otherwise, an error number is returned to indicacte the error.
+Otherwise, an error number is returned to indicate the error.
 .Sh ERRORS
 .Fn pthread_mutexattr_init
 will fail if:

@@ -1,4 +1,4 @@
-/*	$KAME: proposal.c,v 1.45 2001/11/16 04:08:10 sakane Exp $	*/
+/*	$KAME: proposal.c,v 1.48 2002/05/07 09:32:50 sakane Exp $	*/
 
 /*
  * Copyright (C) 1995, 1996, 1997, and 1998 WIDE Project.
@@ -54,6 +54,7 @@
 #include "pfkey.h"
 #include "isakmp_var.h"
 #include "isakmp.h"
+#include "isakmp_natd.h"
 #include "ipsec_doi.h"
 #include "algorithm.h"
 #include "proposal.h"
@@ -937,7 +938,8 @@ set_proposal_from_policy(iph2, sp_main, sp_sub)
 	encmodesv = IPSEC_MODE_TRANSPORT;
 	for (req = sp_main->req; req; req = req->next) {
 		if (req->saidx.mode == IPSEC_MODE_TUNNEL) {
-			encmodesv = pfkey2ipsecdoi_mode(req->saidx.mode);
+			encmodesv = pfkey2ipsecdoi_mode(req->saidx.mode,
+							iph2->ph1 && natd_hasnat(iph2->ph1));
 			break;
 		}
 	}
@@ -979,11 +981,15 @@ set_proposal_from_policy(iph2, sp_main, sp_sub)
 		newpr->proto_id = ipproto2doi(req->saidx.proto);
 		newpr->spisize = 4;
 		if (lcconf->complex_bundle)
-			newpr->encmode = pfkey2ipsecdoi_mode(req->saidx.mode);
+			newpr->encmode = pfkey2ipsecdoi_mode(req->saidx.mode,
+								iph2->ph1 && natd_hasnat(iph2->ph1));
 		else
 			newpr->encmode = encmodesv;
 
-		newpr->reqid_out = req->saidx.reqid;
+		if (iph2->side == INITIATOR)
+			newpr->reqid_out = req->saidx.reqid;
+		else
+			newpr->reqid_in = req->saidx.reqid;
 
 		if (set_satrnsbysainfo(newpr, iph2->sainfo) < 0) {
 			plog(LLV_ERROR, LOCATION, NULL,
@@ -1002,7 +1008,10 @@ set_proposal_from_policy(iph2, sp_main, sp_sub)
 		req = sp_sub->req;
 		pr = newpp->head;
 		while (req && pr) {
-			pr->reqid_in = req->saidx.reqid;
+			if (iph2->side == INITIATOR)
+				pr->reqid_in = req->saidx.reqid;
+			else
+				pr->reqid_out = req->saidx.reqid;
 			pr = pr->next;
 			req = req->next;
 		}
@@ -1031,7 +1040,7 @@ int
 set_proposal_from_proposal(iph2)
 	struct ph2handle *iph2;
 {
-        struct saprop *newpp = NULL, *pp0, *pp_peer;
+        struct saprop *newpp = NULL, *pp0, *pp_peer = NULL;
 	struct saproto *newpr = NULL, *pr;
 	struct prop_pair **pair;
 	int error = -1;
@@ -1108,6 +1117,8 @@ end:
 	if (error && newpp)
 		flushsaprop(newpp);
 
+	if (pp_peer)
+		flushsaprop(pp_peer);
 	free_proppair(pair);
 	return error;
 }

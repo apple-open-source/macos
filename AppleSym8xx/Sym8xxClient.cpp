@@ -3,22 +3,19 @@
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
- * Copyright (c) 1999-2003 Apple Computer, Inc.  All Rights Reserved.
+ * The contents of this file constitute Original Code as defined in and
+ * are subject to the Apple Public Source License Version 1.1 (the
+ * "License").  You may not use this file except in compliance with the
+ * License.  Please obtain a copy of the License at
+ * http://www.apple.com/publicsource and read it before using this file.
  * 
- * This file contains Original Code and/or Modifications of Original Code
- * as defined in and that are subject to the Apple Public Source License
- * Version 2.0 (the 'License'). You may not use this file except in
- * compliance with the License. Please obtain a copy of the License at
- * http://www.opensource.apple.com/apsl/ and read it before using this
- * file.
- * 
- * The Original Code and all software distributed under the License are
- * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
+ * This Original Code and all software distributed under the License are
+ * distributed on an "AS IS" basis, WITHOUT WARRANTY OF ANY KIND, EITHER
  * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
  * INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY,
- * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
- * Please see the License for the specific language governing rights and
- * limitations under the License.
+ * FITNESS FOR A PARTICULAR PURPOSE OR NON-INFRINGEMENT.  Please see the
+ * License for the specific language governing rights and limitations
+ * under the License.
  * 
  * @APPLE_LICENSE_HEADER_END@
  */
@@ -26,9 +23,6 @@
 /* Sym8xxClient.m created by russb2 on Sat 30-May-1998 */
 
 #include "Sym8xxController.h"
-
-extern pmap_t 	        kernel_pmap;
-
 
 /*-----------------------------------------------------------------------------*
  *
@@ -42,28 +36,44 @@ void Sym8xxSCSIController::executeCommand( IOSCSIParallelCommand *scsiCommand )
     Nexus                       *nexusPhys;  
     UInt32                      len;  
     bool                        isWrite;                
+    IOMemoryDescriptor		* iomd;
 
     srb = (SRB *) scsiCommand->getCommandData();
     bzero( srb, sizeof(SRB) );
 
-    srb->srbPhys = (SRB *) pmap_extract( kernel_pmap, (vm_offset_t) srb );
     srb->scsiCommand = scsiCommand;
 
     scsiCommand->getCDB( &scsiCDB );
     scsiCommand->getTargetLun( &targetLun );
-
-    nexus            = &srb->nexus;
-    nexusPhys        = &srb->srbPhys->nexus;
     
     srb->target      = targetLun.target;
     srb->lun         = targetLun.lun;
     srb->srbCDBFlags = scsiCDB.cdbFlags;
 
+    // 1 IOMD per target, since only 1 transaction possible with current architecture
+    iomd             = SCSI_IOMDs[(int) srb->target ];
+    srb->srbIOMD     = iomd;
+    // ::initWithAddress() causes any previous IOMDs to be ::complete()'d
+    if ( iomd->initWithAddress( srb, sizeof( SRB ), kIODirectionOutIn ) )
+    {
+	iomd->prepare();
+	srb->srbPhys = (SRB *) iomd->getPhysicalAddress();
+    }
+    else
+    {
+	// this should never happen, as we have allocated enough
+	// IOMDs for MAX_SCSI_TARGETS plus 1 extra for reset
+	panic( "Sym8xxSCSIController::executeCommand - IOMemoryDescriptor reinitialization failed" );
+    }
+
     /*
      * Setup the Nexus struct. This part of the SRB is read/written both by the
      * script and the driver.
      */
-    nexus->targetParms.target    = srb->target;
+
+    nexus                     = &srb->nexus;
+    nexusPhys                 = &srb->srbPhys->nexus;
+    nexus->targetParms.target = srb->target;
 
 //    printf( "SCSI(Symbios8xx): executeCommand: T/L = %d:%d Cmd = %08x CmdType = %d\n\r", 
 //                        targetLun.target, targetLun.lun, (int)scsiCommand, scsiCommand->getCmdType() );
@@ -112,14 +122,30 @@ void Sym8xxSCSIController::executeCommand( IOSCSIParallelCommand *scsiCommand )
  *-----------------------------------------------------------------------------*/
 void Sym8xxSCSIController::resetCommand( IOSCSIParallelCommand *scsiCommand )
 {
-    SRB		*srb;
+    SRB			* srb;
+    IOMemoryDescriptor	* iomd;
 
 //    printf( "SCSI(Symbios8xx): resetCommand\n\r" ); 
 
     srb = (SRB *) scsiCommand->getCommandData();
     bzero( srb, sizeof(SRB) );
 
-    srb->srbPhys = (SRB *) pmap_extract( kernel_pmap, (vm_offset_t) srb );
+    iomd          = SCSI_IOMDs[ SCSI_RESET_IOMD ];	// special "target" for reset
+    srb->srbIOMD  = iomd;		// save in SRB for later ->complete() call
+    // ::initWithAddress() causes any previous contents of IOMD to be ::complete()'d
+    if ( iomd->initWithAddress( srb, sizeof( SRB ), kIODirectionOutIn ) )
+    {
+	iomd->prepare();
+	srb->srbPhys = (SRB *) iomd->getPhysicalAddress();
+    }
+    else
+    {
+	// this should never happen, as we have allocated enough
+	// IOMDs for MAX_SCSI_TARGETS plus 2 extra for reset and
+	// a "fudge factor" just in case.
+	panic( "Sym8xxSCSIController::resetCommand - IOMemoryDescriptor reinitialization failed" );
+    }
+
     srb->scsiCommand = scsiCommand;
 
     Sym8xxSCSIBusReset( srb );
@@ -450,4 +476,3 @@ bool Sym8xxSCSIController::Sym8xxUpdateSGList( SRB *srb )
 
     return rc;
 }
-

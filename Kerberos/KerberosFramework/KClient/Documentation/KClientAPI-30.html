@@ -1,0 +1,576 @@
+<!-- #include "header.html"
+  #PAGETITLE#="KClient 3.0 API Specification""
+  #BASEHREF#="" 
+-->
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.0 Transitional//EN">
+<HTML> 
+<HEAD>  
+	<TITLE> KClient 3.0 API Specification </TITLE>
+</HEAD>
+<BODY BGCOLOR="#FFFFFF" TEXT="#000000" LINK="#0000FF" VLINK="#663399">
+<CENTER>
+	<TABLE BORDER=0 CELLSPACING=8>
+		<TR> 
+			<TD><IMG SRC="http://web.mit.edu/macdev/www/is-logo.gif" ALT="MIT Information Systems"></TD>
+			<TD><BR><H1>Macintosh Development</H1></TD> 
+		</TR>
+	</TABLE> <P>
+	[<A HREF="http://web.mit.edu/macdev/www/macdev.html">Home</A>]
+	[<A HREF="http://web.mit.edu/macdev/www/about.html">About Us</A>]
+	[<A HREF="http://web.mit.edu/macdev/www/people.html">People</A>]
+	[<A HREF="http://web.mit.edu/macdev/www/support.html">MIT Support Library</A>]
+	[<A HREF="http://web.mit.edu/macdev/www/kerberos.html">MIT Kerberos for Macintosh</A>] <BR>
+	[<A HREF="http://web.mit.edu/macdev/www/applications.html">Applications</A>]
+	[<A HREF="http://web.mit.edu/macdev/www/macosx.html">Mac OS X</A>]
+	[<A HREF="http://web.mit.edu/macdev/www/documentation.html">Miscellaneous Documentation</A>]
+	[<A HREF="http://web.mit.edu/is/">Information Systems</A>] </P> 
+</CENTER> <HR>
+<!-- end include -->
+		<table border="0" cellspacing="4">
+			<tr>
+				<td><img src="../../../Common/Documentation/graphics/ThreeHeadsAndKey.gif"></td>
+				<td><font size="6"><b>KClient 3.0 API Specification</b></font></td>
+			</tr>
+		</table>
+		</p>
+		<blockquote>
+			<p>The KClient API provides a flexible interface to Kerberos v4 that is suitable for graphical user interface environments, in which it is necessary to consider the possibility that applications might need to access Kerberos tickets for several different principals at the same time, without any special actions on the users' part. The Kerberos v4 API does not provide such functionality; the KClient API builds on the Kerberos v4 API by providing additional features.</p>
+			<h2>API Overview</h2>
+			<p>The fundamental concept in the KClient API is a session. A session represents the authentication context in which a client authenticates to a service on behalf of a user. Once a session is created, it provides facilities for authenticating (for a client) and verifying authentication (for a server), constructing authentication response (for a server), verifying authentication response (for a client), encrypting and decrypting data, etc.</p>
+			<p>The KClient API can be used both by server and client applications. For a client application, a typical sequence of operations would be:</p>
+			<ol>
+				<li>create a new session (<code>KClientNewClientSession()</code>)
+				<li>if using mutual authentication, set local and remote addresses (<code>KClientSetLocalAddress()</code> and <code>KClientSetRemoteAddress()</code>)
+				<li>get the authenticator for a service from the session (<code>KClientGetAuthenticatorForService()</code>)
+				<li>send the authenticator to the server
+				<li>if using mutual authentication, receive authentication reply from the server
+				<li>if using mutual authentication, verify the authentication reply from the server (<code>KClientVerifyEncryptedServiceReply()</code> or <code>KClientVerifyProtectedServiceReply()</code>)
+				<li>if using encryption, encrypt data and send it to the server (<code>KClientEncrypt()</code>)
+				<li>if using encryption, receive data from the server and decrypt it (<code>KClientDecrypt()</code>)
+				<li>destroy the session (<code>KClientDisposeSession()</code>)
+			</ol>
+			<p>For a server application, a typical sequence of operations would be:</p>
+			<ol>
+				<li>create a new session (<code>KClientNewServerSession()</code>)
+				<li>receive the authenticator from the client
+				<li>if using mutual authentication, set the local and the remote address (<code>KClientSetLocalAddress()</code> and <code>KClientSetRemoteAddress()</code>)
+				<li>verify the authenticator (<code>KClientVerifyAuthenticator()</code>)
+				<li>if using mutual authentication, create an authentication response (<code>KClientGetEncryptedServiceReply()</code> or <code>KClientGetProtectedServiceReply()</code>)
+				<li>if using mutual authentication, send the authentication response to the client
+				<li>if using encryption, encrypt data and send it to the client (<code>KClientEncrypt()</code>)
+				<li>if using encryption, receive data from the client and decrypt it (<code>KClientDecrypt()</code>)
+				<li>destroy the session (<code>KClientDisposeSession()</code>)
+			</ol>
+			<h1>API Specification</h1>
+			<h2>Types</h2>
+			<h3>Integer types</h3>
+			<p>KClient API uses the following integer types:</p>
+			<ul>
+				<li><code>UInt16</code>: an unsigned integer type at least 16 bits wide
+				<li><code>UInt32</code>: an unsigned integer type at least 32 bits wide
+				<li><code>SInt16</code>: a signed integer type at least 16 bits wide
+				<li><code>SInt32</code>: a signed integer type at least 32 bits wide
+			</ul>
+			<h3>Transparent types</h3>
+			<h4>KClientFile</h4>
+			<p><code>KClientFile</code> is a platform-specific unique file identifier. On Mac OS, it is the same as the file manager <code>FSSpec</code> type.</p>
+			<h4>KClientKey</h4>
+			<p><code>KClientKey</code> is a type that represents a DES key. It contains a <code>des_key_block</code>, but using a struct rather than an array typedef makes it easier to correctly pass DES keys into functions.</p>
+			<h4>KClientKeySchedule</h4>
+			<p><code>KClientKeySchedule</code> is a type that represents a DES key schedule. It contains a <code>des_key_sched</code>; as with KClientKey, using a struct makes it easier to correctly pass this type into functions.</p>
+			<h4>KClientAddress</h4>
+			<p><code>KClientAddress</code> is a type that represents an IP v4 network address and a port number.</p>
+			<h3>Opaque types</h3>
+			<h4>KClientSession</h4>
+			<p><code>KClientSession</code> is an opaque type which represents a KClient session. It is used both by server or client applications; clients need to create the session with <code>KClientNewClientSession()</code>, and servers with <code>KClientNewServerSession()</code>. After the session is created, it can be used to authenticate the client to a server and to encrypt or decrypt data. Finally, the session must be destroyed with <code>KClientDisposeSession()</code> when it is no longer needed.</p>
+			<p>A session must have a client principal and a server principal.</p>
+			<p>For a client session, the server principal is explicitly set using <code>KClientSetServerPrincipal()</code>. The client principal can either be set explicitly, by calling <code>KClientSetClientPrincipal()</code>, or it is set implicitly, by calling <code>KClientLogin()</code>, <code>KClientPasswordLogin()</code>, <code>KClientGetTicketForService()</code>, or <code>KClientGetAuthenticatorForService()</code>. Once the client principal is set (explicitly or implicitly), it can be changed by calling <code>KClientSetClientPrincipal()</code>. When the client principal is set for a session, any calls that require the user to enter a password will only allow the user to enter the password for the client principal. For example, if <code>KClientGetTicketForService()</code> is successfully called for a session, and then called again for the same sessioin after the tickets expire, the second call will not allow the user to enter a different principal in the login dialog. This behavior is different from the old KClient behavior; if you want the old behavior (and you probably shouldn't), you need to get a new KClient session every time you need to allow the user to change the principal.</p>
+			<p>For a server session, the server principal has to be explicitly set when the session is created. The client principal can be set explicitly, by calling <code>KClientSetClientPrincipal()</code>, in which case the session will only allow communication with the specified principal, or it can be set implicitly, by calling <code>KClientVerifyAuthenticator()</code>, in which case the session will accept any valid authenticator, but can subsequently only be used to communicate with the same principal (unless <code>KClientSetClientPrincipal()</code> is called). Note that this means that server session cannot be recycled for communication with multiple clients.</p>
+			<p>A session that is used for mutual authentication or encryption must have a local address and a remote address. They are set explicitly with <code>KClientSetLocalAddress()</code> and <code>KClientSetRemoteAddress()</code>.</p>
+			<p>A session must have a session key. The session key is the cryptographic key used for encryption, decryption, and integrity protection. It can be retrieved by calling <code>KClientGetSessionKey()</code>. For a client session, it is implicitly set by calls to <code>KClientGetTicketForService()</code> or <code>KClientGetAuthentictorForService()</code>; for a server session, it's implicitly set by calls to <code>KClientVerifyAutenticator()</code>.</p>
+			<h4>KClientPrincipal</h4>
+			<p><code>KClientPrincipal()</code> is an opaque type which represents a Kerberos principal. It is used to manipulate client and server principals for a KClient session. A <code>KClientPrincipal()</code> can be created from a single string (a quoted Kerberos principal), or a triplet of strings (unquoted components of a Kerberos principal); likewise, it can be converted into a single string or a triplet of strings. When a <code>KClientPrincipal()</code> is no longer needed, it must be destroyed with <code>KClientDisposePrincipal()</code>.</p>
+			<h1>API behavior</h1>
+			<h2>Error handling</h2>
+			<p>The calls in the KClient API never modify any of the arguments passed by reference when an error other than <code>kcNoError</code> is returned.</p>
+			<p>KClient API functions can return one of three kinds of errors: a KClient error, a Login library error, or a Kerberos v4 error.</p>
+			<h4>KClient errors</h4>
+			<p>KClient errors returned by the KClient 3.0 API are:</p>
+			<p>
+			<table border="4" cellpadding="0" cellspacing="2" width="614">
+				<tr>
+					<td><code>kcNoError</code></td>
+					<td>0</td>
+					<td>No error has occurred</td>
+				</tr>
+				<tr>
+					<td><code>kcErrBadParam</code></td>
+					<td>23001</td>
+					<td>A bad parameter was passed to the function (e.g. a nil pointer where nil is not allowed)</td>
+				</tr>
+				<tr>
+					<td><code>kcErrNoMemory</code></td>
+					<td>23000</td>
+					<td>The KClient library doesn't have enough memory to complete the request</td>
+				</tr>
+				<tr>
+					<td><code>kcErrInvalidPrincipal</code></td>
+					<td>23011</td>
+					<td>An invalid principal was passed to a function</td>
+				</tr>
+				<tr>
+					<td><code>kcErrInvalidSession</code></td>
+					<td>23010</td>
+					<td>An invalid session was passed to a function</td>
+				</tr>
+				<tr>
+					<td><code>kcErrNoClientPrincipal</code></td>
+					<td>23020</td>
+					<td>A client principal has not been set, but is required</td>
+				</tr>
+				<tr>
+					<td><code>kcErrNoServerPrincipal</code></td>
+					<td>23021</td>
+					<td>A server principal has not been set, but is required</td>
+				</tr>
+				<tr>
+					<td><code>kcErrInvalidAddress</code></td>
+					<td>23012</td>
+					<td>An invalid network address was passed to a function</td>
+				</tr>
+				<tr>
+					<td><code>kcErrNoLocalAddress</code></td>
+					<td>23022</td>
+					<td>A local address has not been set, but is required</td>
+				</tr>
+				<tr>
+					<td><code>kcErrNoRemoteAddress</code></td>
+					<td>23023</td>
+					<td>A remote address has not been set, but is required</td>
+				</tr>
+				<tr>
+					<td><code>kcErrNoSessionKey</code></td>
+					<td>23024</td>
+					<td>A session key has not been set, but is required</td>
+				</tr>
+				<tr>
+					<td><code>kcErrNoServiceKey</code></td>
+					<td>23025</td>
+					<td>A service key has not been set, but is required</td>
+				</tr>
+				<tr>
+					<td><code>kcErrNotLoggedIn</code></td>
+					<td>23030</td>
+					<td>No user is currently authenticated to Kerberos</td>
+				</tr>
+				<tr>
+					<td><code>kcErrInvalidFile</code></td>
+					<td>23013</td>
+					<td>An invalid file was passed to a function</td>
+				</tr>
+				<tr>
+					<td><code>kcErrKeyFileAccess</code></td>
+					<td>23041</td>
+					<td>The key file could not be accessed</td>
+				</tr>
+				<tr>
+					<td><code>kcErrNoChecksum</code></td>
+					<td>23026</td>
+					<td>A checksum has not been set, but is required</td>
+				</tr>
+				<tr>
+					<td><code>kcErrUserCancelled</code></td>
+					<td>23031</td>
+					<td>User cancelled the operation</td>
+				</tr>
+				<tr>
+					<td><code>kcErrIncorrectPassword</code></td>
+					<td>23032</td>
+					<td>Password was incorrect</td>
+				</tr>
+				<tr>
+					<td><code>kcErrBufferTooSmall</code></td>
+					<td>23040</td>
+					<td>The buffer passed into a function is was too small</td>
+				</tr>
+				<tr>
+					<td><code>kcErrFileNotFound</code></td>
+					<td>23042</td>
+					<td>The key file couldn't be found</td>
+				</tr>
+				<tr>
+					<td><code>kcErrInvalidPreferences</code></td>
+					<td>23043</td>
+					<td>The preferences file was invalid</td>
+				</tr>
+				<tr>
+					<td><code>kcErrChecksumMismatch</code></td>
+					<td>23044</td>
+					<td>The checksum did not match the expected value</td>
+				</tr>
+			</table>
+			</p>
+			<h4>Login library errors</h4>
+			<p>Some KClient calls can return Login library errors; exactly which calls return Login library errors is documented for each function below. Login library errors are always returned unchanged, and you can refer to the <a href="../../LoginLib/Documentation/API.html">Login library API</a> for details on those errors.</p>
+			<h4>Kerberos v4 library errors</h4>
+			<p>Some KClient calls can return Kerberos v4 library errors; exactly which calls return Kerberos v4 library errors is documented for each function below. Kerberos v4 library error range is changed by adding <code>kcFirstKerberosError</code> to each Kerberos v4 error before returning it. For example, KClient will return <code>RD_AP_MODIFIED</code> + <code>kcFirstKerberosError</code> when trying to decrypt or verify a modified message.</p>
+			<h1>Functions<a name="Anchor-46282"></a></h1>
+			<h2>General</h2>
+			<pre>OSStatus KClientGetVersion (
+   UInt16*                   outMajorVersion, 
+   UInt16*                   outMinorVersion, 
+   const char**              outVersionString);</pre>
+			<p><code>KClientGetVersion()</code> returns the version of KClient libraries. The major version is returned in <code>outMajorVersion</code>, and the minor version in <code>outMinorVersion</code>. The version string identifying the library implementation is returned in <code>outVersionString</code>. If <code>outMinorVersion</code> or outVersionString are <code>nil</code>, the minor version and the version string are not returned; the major version is always returned. The API described in this document is distinguished by major version equal to <code>KClientAPIVersion3</code>.</p>
+			<p>If any of the arguments is not a valid pointer, or if <code>outMajorVersion</code> is nil, <code>kcErrBadParam</code> is returned.</p>
+			<p>Possible return values: <code>kcNoError</code>, <code>kcErrBadParam</code></p>
+			<h2>KClientSession functions</h2>
+			<h3>Creating and destroying sessions</h3>
+			<pre>OSStatus KClientNewClientSession (
+    KClientSession*          outSession);</pre>
+			<p>Used by clients.</p>
+			<p><code>KClientNewClientSession()</code> creates a new client session. This is used by any client application (an application which intends to authenticate to a service on behalf of a user).</p>
+			<p>If the session will be used for mutual authentication, the client and the server address must be set using <code>KClientSetLocalAddress()</code> and <code>KClientSetRemoteAddress()</code>, as described below.</p>
+			<p>The session returned by <code>KClientNewClientSession()</code> must be destroyed by calling <code>KClientDisposeSession()</code>.</p>
+			<p>Possible return values: <code>kcNoError</code>, <code>kcErrBadParam</code>, <code>kcErrNoMemory</code></p>
+			<pre>
+<hr>
+
+OSStatus KClientNewServerSession (
+    KClientSession*          outSession,
+    KClientPrincipal         inServicePrincipal);</pre>
+			<p>Used by servers. Sets the server principal.</p>
+			<p><code>KClientNewServerSession()</code> creates a new server session. This is used by any server application (an application which intends to authenticate clients to a service).</p>
+			<p>The principal of the service to which clients will be authenticated has to be specified. See the <code>KClientPrincipal()</code> functions for information on creating and destroying KClient principals.</p>
+			<p>Possible return values: <code>kcNoError</code>, <code>kcErrBadParam</code>, <code>kcErrNoMemory</code>, <code>kcErrBadPrincipal</code>.</p>
+			<pre>
+<hr>
+
+OSStatus KClientDisposeSession (
+    KClientSession           inSession);</pre>
+			<p>Used by clients and servers.</p>
+			<p><code>KClientDisposeSession()</code> must be used to destroy a session obtained from <code>KClientNewClientSession()</code> or <code>KClientNewServerSession()</code>. After a session is disposed, it is no longer valid and passing it to any KClient API function will result in an error.</p>
+			<p>Possible return values: <code>kcNoError</code>, <code>kcErrInvalidSession</code>.</p>
+			<h3>Accessing session information</h3>
+			<pre>OSStatus KClientSetClientPrincipal (
+    KClientSession           inSession,
+    KClientPrincipal         inPrincipal);</pre>
+			<p>Used by clients and servers. Sets the client principal.</p>
+			<p><code>KClientSetClientPrincipal()</code> sets the client principal for a session.</p>
+			<p>For a client session, setting a principal will make all subsequent operations on that session operate on the specified principal. For example, calling <code>KClientLogin()</code> for the session will require from the user to authenticate as the specified principal; see descriptions of individual functions to see what the effects are of having an explicitly set session principal. If the principal for a session is not set, then the session operates on the principal associated with the credentials cache which is the default cache at the time the session is created.</p>
+			<p>For a server session, setting the principal determines which principal will be authenticated. This is useful when the server process wants to verify that an authenticator is valid and belongs to a specific Kerberos principal. If the client principal is not set for a server session, it will be determined the first time an authenticator is verified, and can subsequently be retrieved with <code>KClientGetClientPrincipal()</code>.</p>
+			<p>Possible return values: <code>kcNoError</code>, <code>kcErrInvalidSession</code>, <code>kcErrInvalidPrincipal</code>, <code>kcErrNoMemory</code></p>
+			<pre>
+<hr>
+
+OSStatus KClientGetClientPrincipal (
+    KClientSession           inSession,
+    KClientPrincipal*        outPrincipal);</pre>
+			<p>Used by clients and servers.</p>
+			<p>Returns the client principal for a session. Requires the client principal to be set.</p>
+			<p>For a client session, returns the client principal, which is set explicitly by <code>KClientSetClientPrincipal()</code> and implicitly by <code>KClientLogin()</code>, <code>KClientGetTicketForService()</code>, and <code>KClientGetAuthenticatorForService()</code>. If no client principal is set, returns <code>kcErrNoClientPrincipal</code>. Note, in particular, that this means that <code>KClientGetClientPrincipal()</code> will return an error for a new session. This is different from the KClient 1.x API, in which the default username displayed in the login dialog was returned.</p>
+			<p>For a server session, if the client principal is not explicitly set, then it is determined at the time an authenticator is verified. Otherwise, the principal returned is the principal set with <code>KClientSetClientPrincipal()</code>. If no authenticator has been verified in the session, nor has a principal been explicitly set, the <code>kcErrNoClientPrincipal</code> is returned.</p>
+			<p>Possible return values: <code>kcNoError</code>, <code>kcErrInvalidSession</code>, <code>kcErrBadParam</code>, <code>kcErrNoClientPrincipal</code>, <code>kcErrNoMemory</code></p>
+			<pre>
+<hr>
+
+OSStatus KClientSetServerPrincipal (
+    KClientSession           inSession,
+    KClientPrincipal         inPrincipal);</pre>
+			<p>Used by clients and servers. Sets the server principal.</p>
+			<p>Sets the server principal for a session.</p>
+			<p>For a client session, setting the server principal determines which service the session will authenticate to. The server principal has to be set before tickets or authenticators for a service can be acquired for the session.</p>
+			<p>For a server session, setting the server principal determines which service the session with authenticate for. The server principal can be set using <code>KClientSetServerPrincipal()</code>, but it is better to set it directly in the call to <code>KClientNewServerSession().</code></p>
+			<p>Possible return values: <code>kcNoError</code>, <code>kcErrInvalidSession</code>, <code>kcErrNoSessionKey</code>, <code>kcErrNoMemory</code></p>
+			<pre>
+<hr>
+
+OSStatus KClientGetServerPrincipal (
+    KClientSession           inSession,
+    KClientPrincipal*        outPrincipal);</pre>
+			<p>Used by clients and servers. Requires the server principal to be set.</p>
+			<p>Returns the server principal for a session.</p>
+			<p>For a client session, the principal returned is the principal set by <code>KClientSetServerPrincipal()</code>. If no server principal has been set, <code>kcErrNoServerPrincipal</code> is returned.</p>
+			<p>For a server session, the principal returned is the principal set by <code>KClientSetServerPrincipal()</code> or the principal specified to <code>KClientNewServerSession()</code> when the session is created.</p>
+			<p>Possible return values: <code>kcNoError</code>, <code>kcErrInvalidSession</code>, <code>kcErrBadParam</code>, <code>kcErrNoServerPrincipal</code>, <code>kcErrNoMemory</code></p>
+			<pre>
+<hr>
+
+OSStatus KClientSetLocalAddress (
+    KClientSession           inSession,
+    const KClientAddress*    inLocalAddress);</pre>
+			<p>Used by clients and servers. Sets the local address.</p>
+			<p>Sets the local address for the session.</p>
+			<p>For both client and server sessions, the local address has to be set before encryption, decryption, integrity protection, and integrity verification will work.</p>
+			<p>For client sessions, the local address has to be set for <code>KClientVerifyEncryptedServiceResponse()</code> and <code>KClientVerifyProtectedServiceResponse()</code> to work. The address must be set to the network address of the network interface which is used to communicate with the server. The local address doesn't need to be set for one-sided authentication to work.</p>
+			<p>For server sessions, the local address also has to be set for <code>KClientVerifyAuthenticator()</code>, <code>KClientGetEncryptedServiceResponse()</code> and <code>KClientGetProtectedService()</code> to work. The address is set explicitly by calling <code>KClientSetLocalAddress()</code> after the session is created, and should be set to the address of the interface on which communication with the client will occur.</p>
+			<p>Possible return values: <code>kcNoError</code>, <code>kcErrInvalidSession</code>, <code>kcErrInvalidAddress</code>, <code>kcErrNoMemory</code></p>
+			<pre>
+<hr>
+
+OSStatus KClientGetLocalAddress (
+    KClientSession           inSession,
+    KClientAddress*          outLocalAddress);</pre>
+			<p>Used by clients and servers. Requires the local address to be set.</p>
+			<p>Returns the address set by <code>KClientSetLocalAddress()</code>, or <code>kcErrNoLocalAddress</code> if none has been set.</p>
+			<p>Possible return values: <code>kcNoError</code>, <code>kcErrInvalidSession</code>, <code>kcErrBadParam</code>, <code>kcErrNoMemory</code>, <code>kcErrNoLocalAddress</code></p>
+			<pre>
+<hr>
+
+OSStatus KClientSetRemoteAddress (
+    KClientSession           inSession,
+    const KClientAddress*    inRemoteAddress);</pre>
+			<p>Used by clients and server. Sets the remote address.</p>
+			<p>Sets the remote address for the session.</p>
+			<p>For both client and server sessions, the remote address has to be set before encryption, decryption, integrity protection, and integrity verification will work.</p>
+			<p>For client sessions, the remote address has to be set before attempting mutual authentication by calling <code>KClientVerifyEncryptedServiceReply()</code> or <code>KClientVerifyProtectedServiceReply()</code>. The remote address does not need to be set for one-sided authentication.</p>
+			<p>For server sessions, the remote address also has to be set for <code>KClientVerifyAuthenticator()</code>, <code>KClientGetEncryptedServiceResponse()</code> and <code>KClientGetProtectedServiceReply()</code> to work.</p>
+			<p>Possible return values: <code>kcNoError</code>, <code>kcErrInvalidSession</code>, <code>kcErrInvalidAddress</code>, <code>kcErrNoMemory</code></p>
+			<pre>
+<hr>
+
+OSStatus KClientGetRemoteAddress (
+    KClientSession			        inSession,
+   	KClientAddress*			       outRemoteAddress);</pre>
+			<p>Used by clients and servers. Requires the remote address to be set.</p>
+			<p>Returns the address set by <code>KClientSetRemoteAddress()</code>, or <code>kcErrNoRemoteAddress</code> if none has been set.</p>
+			<p>Possible return values: <code>kcNoError</code>, <code>kcErrInvalidSession</code>, <code>kcErrBadParam</code>, <code>kcErrNoMemory</code>, <code>kcErrNoRemoteAddress</code></p>
+			<pre>
+<hr>
+
+OSStatus KClientGetSessionKey (
+    KClientSession     inSession,
+    KClientKey*        outPrivateKey);</pre>
+			<p>Used by clients and servers. Requires the session key to be set.</p>
+			<p>Retrieves the session key for the session.</p>
+			<p>For a client session, returns the session key for the of the session. The session key has to be set, for example by <code>KClientGetTicketsForService()</code>.</p>
+			<p>Note that if the service tickets are renewed, <code>KClientGetSessionKey()</code> will return the new key. Therefore, you should only call <code>KClientGetSessionKey()</code> repeatedly if you expressly want to take advantage of this; otherwise, you should only call it once, and remember the key. This is important depending on what kind of service you are using; for services which use the service key to maintain a session indefinitely (such as telnet or CVS), the session key should obtained from KClient once and remembered by the client. For services which want the current session key frequently (so as to avoid using a session key from expired tickets -- FTP or Zephyr, for example), the client should call <code>KClientGetSessionKey()</code> repeatedly to always retrieve the session key for the current service tickets.</p>
+			<p>For a server session, return the session key of the session. The session key has to be set, for example by <code>KClientVerifyAuthenticator()</code>.</p>
+			<p>Possible return values: <code>kcNoError</code>, <code>kcErrInvalidSession</code>, <code>kcErrBadParam</code>, <code>kcErrNoServiceKey</code>, or any error from <code>KClientLogin()</code></p>
+			<pre>
+<hr>
+
+OSStatus KClientGetExpirationTime (
+    KClientSession     inSession,
+    UInt32*            outExpirationTime);</pre>
+			<p>Used by clients and servers. For client sessions, uses the client principal if set. For server sessions, requires the session key to be set.</p>
+			<p>Returns the time of expiration of the session's tickets.</p>
+			<p>For a client session, returns the time when the ticket-granting ticket for the client principal expires, in seconds since 00:00 January 1, 1970. If the credentials cache contains no valid ticket-granting ticket, (the cache does not exist, or the ticket exists, but is not valid), <code>kcErrNotLoggedIn</code> is returned.</p>
+			<p>For a server session, returns expiration time of the service ticket for the client principal. If no client has been authenticated yet, returns <code>kcErrNoClientPrincipal</code>.</p>
+			<p>Possible return values: <code>kcNoError</code>, <code>kcErrInvalidSession</code>, <code>kcBadParam</code>, <code>kcErrNotLoggedIn</code>, <code>kcErrNoClientPrincipal</code>.</p>
+			<pre>
+<hr>
+
+OSStatus KClientSetKeyFile (
+    KClientSession     inSession,
+    const KClientFile* inKeyFile);</pre>
+			<p>Used by servers. Sets the key file.</p>
+			<p>Sets the key file used by the session, for retrieval of service keys. This function does not verify that the specified key file can be read.</p>
+			<p>Unless <code>KClientSetKeyFile()</code> is called, a KClient server session uses the default key file to locate the service keys.</p>
+			<p>Possible return values: <code>kcNoError</code>, <code>kcErrInvalidSession</code>, <code>kcErrInvalidFile</code>, <code>kcErrNoMemory</code></p>
+			<h3>Logging in and out (client)</h3>
+			<pre>OSStatus KClientLogin (
+    KClientSession     inSession);</pre>
+			<p>Used by clients. Requires the server principal to be set. Sets the client principal.</p>
+			<p>Acquires the ticket-granting ticket for the client principal, if necessary.</p>
+			<p>If the client principal is not set for the session, and there are no valid tickets in the default credentials cache, then <code>KClientLogin()</code> displays a login dialog, acquires the tickets, and puts them in the default credentials cache. If the client principal is not set, but there are valid tickets in the default credentials cache, then <code>KClientLogin()</code> does nothing. In either case, <code>KClientLogin()</code> sets the principal of the session to the principal of the tickets in the default credentials cache.</p>
+			<p>If the client principal is set for the session, and there are no valid tickets for that principal in any credentials cache, then <code>KClientLogin()</code> displays a login dialog, requiring the password for that principal, and then acquires the tickets and puts them in a new credentials cache. If the tickets for the specified principal exist, <code>KClientLogin()</code> does nothing.</p>
+			<p>After <code>KClientLogin()</code> returns successfully, valid tickets for the specified principal (if specified), or for a user-selected principal (if no client principal was specified), exist in a credentials cache, and can be used to acquire service tickets.</p>
+			<p>Possible return values: <code>kcNoError</code>, <code>kcErrInvalidSession</code>, <code>kcErrNoMemory</code>, or any Login library error</p>
+			<pre>
+<hr>
+
+OSStatus KClientPasswordLogin (
+    KClientSession     inSession,
+    const char*        inPassword);</pre>
+			<p>Used by clients. Requires the client and the server principal to be set.</p>
+			<p>Acquires the ticket-granting ticket for the client principal, if necessary, without displaying a login dialog.</p>
+			<p>The <code>KClientPasswordLogin()</code> function behaves the same as the <code>KClientLogin()</code> function, except that it never presents a login dialog; instead, if it needs to acquire new tickets for the principal, it uses the provided password.</p>
+			<p>Possible return values: <code>kcNoError</code>, <code>kcErrInvalidSession</code>, <code>kcErrNoMemory</code>, or any login library error</p>
+			<pre>
+<hr>
+
+OSStatus KClientLogout (
+    KClientSession     inSession);</pre>
+			<p>Used by clients. Uses the client principal, if set.</p>
+			<p>Destroys all tickets for the client principal of the session. If no principal is specified for the session, destroys all the tickets in the default credentials cache.</p>
+			<p>Possible return values: <code>kcNoError</code>, <code>kcErrInvalidSession</code>, or any Login library error</p>
+			<h3>Accessing service keys (server)</h3>
+			<pre>OSStatus KClientGetServiceKey (
+    KClientSession     inSession,
+    UInt32             inVersion,
+    KClientKey*        outKey);</pre>
+			<p>Used by servers. Requires the service principal to be set. Uses the key file, if set.</p>
+			<p>Retrieves a service key from the key file. The service must be set with <code>KClientSetServerPrincipal()</code> before calling <code>KClientGetServiceKey()</code>. The inVersion argument should be the key version number to be retrieved, or zero. If it is zero, the first key in the key file will be returned.</p>
+			<p><code>KClientGetServiceKey()</code> uses the default key file, unless some other key file has been set with <code>KClientSetKeyFile()</code>.</p>
+			<p>If the key file of the key cannot be read, <code>kcErrKeyFileAccess</code> is returned.</p>
+			<p>Possible return values: <code>kcNoError</code>, <code>kcErrInvalidSession</code>, <code>kcBadParam</code>, <code>kcErrKeyFileAccess</code></p>
+			<pre>
+<hr>
+
+OSStatus KClientAddServiceKey (
+    KClientSession     inSession,
+    UInt32             inVersion,
+    const KClientKey*  inKey);</pre>
+			<p>Used by servers. Requires the server principal to be set. Uses the key file, if set.</p>
+			<p>Adds a service key to the key file. The service must be set with <code>KClientSetServerPrincipal()</code> before calling <code>KClientAddServiceKey()</code>. The key is written to the server key file; if a key for the same service with the same version number already exists, it is replaced.</p>
+			<p><code>KClientAddServiceKey()</code> uses the default key file, unless some other key file has been set with <code>KClientSetKeyFile()</code>.</p>
+			<p>If the key file cannot be written, <code>kcErrKeyFileAccess</code> is returned.</p>
+			<p>Possible return values: <code>kcNoError</code>, <code>kcErrInvalidSession</code>, <code>kcBadParam</code>, <code>kcErrKeyFileAccess</code></p>
+			<h3>Authenticating to a service</h3>
+			<pre>OSStatus KClientGetTicketForService (
+    KClientSession     inSession,
+    void*              ioBuffer,
+    UInt32*            ioBufferLength);</pre>
+			<p>Used by clients. Requires the server principal to be set. Uses the client principal, if set, and sets the client principal otherwise. Sets the session key and the checksum.</p>
+			<p>Returns the ticket for the service of the session. The service has to be set by <code>KClientSetServicePrincipal()</code> before calling <code>KClientGetTicketForService()</code>, or else <code>kcErrNoServerPrincipal</code> is returned. The ticket is returned in the provided buffer, whose size should be passed in the location pointed to by <code>ioBufferLength</code>. The size of the ticket is returned in the same location.</p>
+			<p>If no valid ticket-granting ticket for the client principal of the session can be found, <code>KClientGetTicketForService()</code> will present a login dialog before acquiring and returning the ticket.</p>
+			<p>On return, <code>ioBuffer</code> does not contain the length of the ticket, just the ticket itself.</p>
+			<p>Possible return values: <code>kcNoError</code>, <code>kcErrInvalidSession</code>, <code>kcBadParam</code>, <code>kcErrBufferTooSmall</code>, <code>kcErrNoServerPrincipal</code>, or any return value from <code>KClientLogin()</code>, or any KClient Kerberos error.</p>
+			<pre>
+<hr>
+
+OSStatus KClientGetAuthenticatorForService (
+    KClientSession     inSession,
+    void*              ioBuffer,
+    UInt32*            ioBufferLength,
+    UInt32             inChecksum,
+    char*              inApplicationVersion);</pre>
+			<p>Used by clients. Requires the server principal to be set. Uses the client principal, if set, and sets the client principal otherwise. Sets the session key and the checksum.</p>
+			<p>Returns an authenticator for the service of the session. The service has to be set by <code>KClientSetServicePrincipal()</code> before calling <code>KClientGetAuthenticatorForService()</code>. The authenticator is returned in <code>ioBuffer</code>, whose size should be passed in the location pointed to by <code>ioBufferLength</code>. The size of the authenticator is returned in <code>ioBufferLength</code>.</p>
+			<p>If no valid ticket-granting ticket for the client principal of the session can be found, <code>KClientGetAuthenticatorForService()</code> will present a login dialog before acquiring and returning the authenticator.</p>
+			<p>Possible return values: <code>kcNoError</code>, <code>kcErrInvalidSession</code>, <code>kcBadParam</code>, <code>kcErrBufferTooSmall</code>, or any return value from <code>KClientLogin()</code>, or any KClient Kerberos error.</p>
+			<pre>
+<hr>
+
+OSStatus KClientVerifyEncryptedServiceReply (
+    KClientSession     inSession,
+    const void*        inBuffer,
+    UInt32             inBufferLength);</pre>
+			<p>Used by clients. Requires the client principal, the server principal, the local address, the remote address, and the checksum to be set.</p>
+			<p>Verifies an encrypted authenticator reply returned by a server. The authenticator should be in the buffer pointed to by <code>inBuffer</code>, and the length of the authenticator should be in <code>inBufferLength</code>. The buffer should only contain the server response, not the length of the response.</p>
+			<p>This function should only be used if the protocol uses encryption in authentication. If integrity protection is used instead, use <code>KClientVerifyProtectedServiceReply()</code>.</p>
+			<p>Possible return values: <code>kcNoError</code>, <code>kcErrInvalidSession</code>, <code>kcBadParam</code>, or any KClient Kerberos error.</p>
+			<pre>
+<hr>
+
+OSStatus KClientVerifyProtectedServiceReply (
+    KClientSession     inSession,
+    const void*        inBuffer,
+    UInt32             inBufferLength);</pre>
+			<p>Used by clients. Requires the client principal, the server principal, the local address, the remote address, and the checksum to be set.</p>
+			<p>Verifies a protected authenticator reply returned by a server. The authenticator should be in the buffer pointed to by <code>inBuffer</code>, and the length of the authenticator should be in <code>inBufferLength</code>. The buffer should only contain the server response, not the length of the response.</p>
+			<p>This function should only be used if the protocol uses integrity protection in authentication. If encryption is used instead, use <code>KClientVerifyEncryptedServiceReply()</code>.</p>
+			<p>Possible return values: <code>kcNoError</code>, <code>kcErrInvalidSession</code>, <code>kcBadParam</code>, or any KClient Kerberos error.</p>
+			<h3>Authenticating a client</h3>
+			<pre>OSStatus KClientVerifyAuthenticator (
+    KClientSession     inSession,
+    const void*        inBuffer,
+    UInt32             inBufferLength);</pre>
+			<p>Used by servers. Requires the server principal to be set. Uses the client principal and the remote address, if set. Sets the client principal, the remote address, the session key, and the checksum.</p>
+			<p>Verifies an authenticator received from the client. The authenticator should be in the buffer pointed to by <code>inBuffer</code>, and the length of the authenticator should be in <code>inBufferLength</code>. The buffer should only contain the authenticator data, not the length of the authenticator. The checksum is read from the authenticator and used on subsequent calls to <code>KClientGetEncryptedServiceReply()</code> and <code>KClientGetProtectedServiceReply()</code>.</p>
+			<p>If the client principal is set for the session (either by calling <code>KClientSetClientPrincipal()</code>, or by calling <code>KClientVerifyAuthenticator()</code>), the authenticator will be rejected unless the principal in the authenticator matches the session principal.</p>
+			<p>Possible return values: <code>kcNoError</code>, <code>kcErrInvalidSession</code>, <code>kcBadParam</code>, or any KClient Kerberos error</p>
+			<pre>
+<hr>
+
+OSStatus KClientGetEncryptedServiceReply (
+    KClientSession     inSession,
+    void*              ioBuffer,
+    UInt32*            ioBufferLength);</pre>
+			<p>Used by servers. Requires the server principal, the client principal, the local address, the remote address, and the checksum to be set.</p>
+			<p>Create an encrypted authentication response. The response is stored in the provided buffer (pointed to by <code>ioBuffer</code>), and the length of the response is returned in the location pointed to by <code>ioBufferLength</code>. <code>KClientVerifyAuthenticator()</code> has to be called first, to set the session checksum used to generate the reply.</p>
+			<p>Possible return values: <code>kcNoError</code>, <code>kcErrInvalidSession</code>, <code>kcBadParam</code>, or any KClient Kerberos error.</p>
+			<pre>
+<hr>
+
+OSStatus KClientGetProtectedServiceReply (
+    KClientSession     inSession,
+    void*              ioBuffer,
+    UInt32*            ioBufferLength);</pre>
+			<p>Used by servers. Requires the server principal, the client principal, the local address, the remote address, and the checksum to be set.</p>
+			<p>Create an integrity-protected authentication response. The response is stored in the provided buffer (pointed to by <code>ioBuffer</code>), and the length of the response is returned in the location pointed to by <code>ioBufferLength</code>. <code>KClientVerifyAuthenticator()</code> has to be called first, to obtain the checksum used to generate the reply.</p>
+			<p>Possible return values: <code>kcNoError</code>, <code>kcErrInvalidSession</code>, <code>kcBadParam</code>, <code>kcErrBufferTooSmall</code>, or any KClient Kerberos error.</p>
+			<h3>Communicating with a service or a client</h3>
+			<pre>OSStatus KClientEncrypt (
+    KClientSession     inSession,
+    const void*        inPlainBuffer,
+    UInt32             inPlainBufferLength,
+    void*              outEncryptedBuffer,
+    UInt32*            ioEncryptedBufferLength);</pre>
+			<p>Used by clients and servers. Requires the local address, the remote address, and the session key to be set.</p>
+			<p>Encrypts data. The data should be in the buffer pointed to by <code>inPlainBuffer</code>, and its length should be in <code>inPlainBufferLength</code>. The data will be encrypted into the buffer pointed to by <code>outEncryptedBuffer</code>, whose maximum length should be passed in location pointed to by <code>ioEncryptedBufferLength</code>. On success, the length of the encrypted data is returned in the location pointed to by <code>ioEncryptedBufferLength</code>.</p>
+			<p>Before <code>KClientEncrypt()</code> can be called, both the client and the server principal have to be set, and both the remote and the local address have to be set for the session.</p>
+			<p>Possible return values: <code>kcNoError</code>, <code>kcErrInvalidSession</code>, <code>kcBadParam</code>, <code>kcErrBufferTooSmall</code>, or any KClient Kerberos error.</p>
+			<pre>
+<hr>
+
+OSStatus KClientDecrypt (
+    KClientSession     inSession,
+    const void*        ioBuffer,
+    UInt32             inEncryptedDataLength,
+    UInt32*            outPlainDataOffset,
+    UInt32*            outPlainDataLength);</pre>
+			<p>Used by clients and servers. Requires the local address, the remote address, and the session key to be set.</p>
+			<p>Decrypts data. The data should be in the buffer pointed to by <code>ioBuffer</code>, and its length should be in <code>inEncryptedDataLength</code>; the data is decrypted in place, and returned in the buffer pointed to by <code>ioBuffer</code>, at the offset <code>outPlainDataOffset</code>, with the length of <code>outPlainDataLength</code> from that offset.</p>
+			<p>Before <code>KClientDecrypt()</code> can be called, both the client and the server principal have to be set, and both the remote and the local address have to be set for the session.</p>
+			<p>Possible return values: <code>kcNoError</code>, <code>kcErrInvalidSession</code>, <code>kcBadParam</code>, or any KClient Kerberos error.</p>
+			<pre>
+<hr>
+
+OSStatus KClientProtectIntegrity (
+    KClientSession     inSession,
+    const void*        inPlainBuffer,
+    UInt32             inPlainBufferLength,
+    void*              outProtectedBuffer,
+    UInt32*            ioProtectedBufferLength);</pre>
+			<p>Used by clients and servers. Requires the local address, the remote address, and the session key to be set.</p>
+			<p>Integrity-protects data. The data should be in the buffer pointed to by <code>inPlainBuffer</code>, and its length should be in <code>inPlainBufferLength</code>; the data will be integrity-protected into the buffer pointed to by <code>outProtectedBuffer</code>, whose maximum length should be passed in the location pointed to by <code>ioProtectedBufferLength</code>. On success, the length of the encrypted data is returned in the location pointed to by <code>ioProtectedBufferLength</code>.</p>
+			<p>Before <code>KClientProtectIntegrity()</code> can be called, both the client and the server principal have to be set, and both the remote and the local address have to be set for the session.</p>
+			<p>Possible return values: <code>kcNoError</code>, <code>kcErrInvalidSession</code>, <code>kcBadParam</code>, <code>kcErrBufferTooSmall</code>, or any KClient Kerberos error.</p>
+			<pre>
+<hr>
+
+OSStatus KClientVerifyIntegrity (
+    KClientSession     inSession,
+    const void*        ioBuffer,
+    UInt32             inProtectedDataLength,
+    UInt32*            outPlainDataOffset,
+    UInt32*            outPlainDataLength);</pre>
+			<p>Used by clients and servers. Requires the local address, the remote address, and the session key to be set.</p>
+			<p>Verifies the integrity of data. The data should be in the buffer pointed to by <code>ioBuffer</code>, and its length should be in <code>inProtectedDataLength</code>; the data is verified in place, and returned in the buffer pointed to by <code>ioBuffer</code>, at the offset <code>outPlainDataOffset</code>, with the length of <code>outPlainDataLength</code> from that offset.</p>
+			<p>Before <code>KClientVerifyIntegrity()</code> can be called, both the client and the server principal have to be set, and both the remote and the local address have to be set for the session.</p>
+			<p>Possible return values: <code>kcNoError</code>, <code>kcErrInvalidSession</code>, <code>kcBadParam</code>, or any KClient Kerberos error.</p>
+			<h2>Getting to other APIs</h2>
+			<pre>OSStatus KClientGetCCacheReference (
+    KClientSession     inSession,
+    cc_ccache_t*       outCCacheReference);</pre>
+			<p>Used by clients.</p>
+			<p>Returns a CCache API ccache reference for the credentials cache used by the session. For a session for which no client principal has been set, this is the default credentials cache; for a session for which a client principal has been set, this is the credentials cache for that principal, if such a credentials cache exists.</p>
+			<p>The returned ccache reference is owned by the caller, and should be disposed by calling <code>cc_ccache_release()</code> on it when it's no longer needed (which may be before or after <code>inSession</code> is diposed with <code>KClientDisposeSession()</code>).</p>
+			<p>Possible return values: <code>kcNoError</code>, <code>kcErrInvalidSession</code>, <code>kcBadParam</code>, <code>kcNoMemory</code>.</p>
+			<pre>
+<hr>
+
+OSStatus KClientGetProfileHandle (
+    KClientSession     inSession,
+    profile_t*         outProfileHandle);</pre>
+			<p>Used by clients and servers.</p>
+			<p>Returns a Kerberos Profile API handle for the Kerberos profile used by the session.</p>
+			<p>The returned handle is owned by the caller and should be disposed with <code>profile_abandon()</code> or <code>profile_release()</code> when it's no longer needed.</p>
+			<p>Possible return values: <code>kcNoError</code>, <code>kcErrInvalidSession</code>, <code>kcBadParam</code>, <code>kcNoMemory</code>.</p>
+		</blockquote>
+<!-- #include "footer.html" -->
+<HR> 
+<P> 
+	<FONT SIZE="+1"> <B> 
+		Questions or comments? Send mail to <A HREF="mailto:macdev@mit.edu">macdev@mit.edu</A> 
+	</B> </FONT> <BR>
+	Last updated on $Date: 2003/09/29 17:55:08 $ <BR> 
+	Last modified by $Author: smcguire $<BR>
+
+</P>
+<!-- Begin MIT-use only web reporting counter -->
+	<IMG SRC="//counter.mit.edu/tally" WIDTH=1 HEIGHT=1 ALT="">
+<!-- End MIT-use only web reporting counter -->
+</BODY> </HTML>
+<!-- end include -->

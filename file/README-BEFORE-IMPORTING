@@ -1,0 +1,6 @@
+In order to support case-insensitive file systems & CVS, I had to make one small change to this project BEFORE 
+importing the source distribution into CVS.
+
+Namely, I had to rename the file "file/magic/Magdir/cvs" to "file/magic/Magdir/cvs-magic" and change the 
+corresponding entry in the "file/magic/Makefile.am" file.  I *DID NOT* regenerate Makefile.in to correspond 
+with the new change, as that could produce many more changes than should be necessary. 

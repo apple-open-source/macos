@@ -1,13 +1,14 @@
-This is screen.info, produced by makeinfo version 4.0 from
+This is screen.info, produced by makeinfo version 4.2 from
 ./screen.texinfo.
 
+INFO-DIR-SECTION General Commands
 START-INFO-DIR-ENTRY
 * Screen: (screen).             Full-screen window manager.
 END-INFO-DIR-ENTRY
 
    This file documents the `Screen' virtual terminal manager.
 
-   Copyright (c) 1993-1995 Free Software Foundation, Inc.
+   Copyright (c) 1993-2003 Free Software Foundation, Inc.
 
    Permission is granted to make and distribute verbatim copies of this
 manual provided the copyright notice and this permission notice are
@@ -22,6 +23,119 @@ permission notice identical to this one.
 manual into another language, under the above conditions for modified
 versions, except that this permission notice may be stated in a
 translation approved by the Foundation.
+
+
+File: screen.info,  Node: Info,  Next: Redisplay,  Prev: Clear,  Up: Virtual Terminal
+
+Info
+====
+
+ - Command: info
+     (`C-a i', `C-a C-i')
+     Uses the message line to display some information about the current
+     window: the cursor position in the form `(COLUMN,ROW)' starting
+     with `(1,1)', the terminal width and height plus the size of the
+     scrollback buffer in lines, like in `(80,24)+50', the current
+     state of window XON/XOFF flow control is shown like this (*note
+     Flow Control::):
+            +flow     automatic flow control, currently on.
+            -flow     automatic flow control, currently off.
+            +(+)flow  flow control enabled. Agrees with automatic control.
+            -(+)flow  flow control disabled. Disagrees with automatic control.
+            +(-)flow  flow control enabled. Disagrees with automatic control.
+            -(-)flow  flow control disabled. Agrees with automatic control.
+
+     The current line wrap setting (`+wrap' indicates enabled, `-wrap'
+     not) is also shown. The flags `ins', `org', `app', `log', `mon'
+     and `nored' are displayed when the window is in insert mode,
+     origin mode, application-keypad mode, has output logging, activity
+     monitoring or partial redraw enabled.
+
+     The currently active character set (`G0', `G1', `G2', or `G3'),
+     and in square brackets the terminal character sets that are
+     currently designated as `G0' through `G3'.  If the window is in
+     UTF-8 mode, the string `UTF-8' is shown instead.  Additional modes
+     depending on the type of the window are displayed at the end of
+     the status line (*note Window Types::).
+
+     If the state machine of the terminal emulator is in a non-default
+     state, the info line is started with a string identifying the
+     current state.
+
+     For system information use `time'.
+
+ - Command: dinfo
+     (none)
+     Show what screen thinks about your terminal. Useful if you want to
+     know why features like color or the alternate charset don't work.
+
+
+File: screen.info,  Node: Redisplay,  Next: Wrap,  Prev: Info,  Up: Virtual Terminal
+
+Redisplay
+=========
+
+ - Command: allpartial state
+     (none)
+     If set to on, only the current cursor line is refreshed on window
+     change.  This affects all windows and is useful for slow terminal
+     lines. The previous setting of full/partial refresh for each
+     window is restored with `allpartial off'. This is a global flag
+     that immediately takes effect on all windows overriding the
+     `partial' settings. It does not change the default redraw behavior
+     of newly created windows.
+
+ - Command: altscreen state
+     (none)
+     If set to on, "alternate screen" support is enabled in virtual
+     terminals, just like in xterm.  Initial setting is `off'.
+
+ - Command: partial state
+     (none)
+     Defines whether the display should be refreshed (as with
+     `redisplay') after switching to the current window. This command
+     only affects the current window.  To immediately affect all
+     windows use the `allpartial' command.  Default is `off', of
+     course.  This default is fixed, as there is currently no
+     `defpartial' command.
+
+ - Command: redisplay
+     (`C-a l', `C-a C-l')
+     Redisplay the current window.  Needed to get a full redisplay in
+     partial redraw mode.
+
+
+File: screen.info,  Node: Wrap,  Next: Reset,  Prev: Redisplay,  Up: Virtual Terminal
+
+Wrap
+====
+
+ - Command: wrap state
+     (`C-a r', `C-a C-r')
+     Sets the line-wrap setting for the current window.  When line-wrap
+     is on, the second consecutive printable character output at the
+     last column of a line will wrap to the start of the following
+     line.  As an added feature, backspace (^H) will also wrap through
+     the left margin to the previous line.  Default is `on'.
+
+ - Command: defwrap state
+     (none)
+     Same as the `wrap' command except that the default setting for new
+     windows is changed. Initially line-wrap is on and can be toggled
+     with the `wrap' command (`C-a r') or by means of "C-a : wrap
+     on|off".
+
+
+File: screen.info,  Node: Reset,  Next: Window Size,  Prev: Wrap,  Up: Virtual Terminal
+
+Reset
+=====
+
+ - Command: reset
+     (`C-a Z')
+     Reset the virtual terminal to its "power-on" values. Useful when
+     strange settings (like scroll regions or graphics character set)
+     are left over from an application.
 
 
 File: screen.info,  Node: Window Size,  Next: Character Processing,  Prev: Reset,  Up: Virtual Terminal
@@ -76,16 +190,23 @@ Character Processing
      be displayed in the current background color.  Otherwise the
      default background color is used.
 
- - Command: kanji wtype [dtype]
+ - Command: encoding enc [denc]
      (none)
-     Tell screen how to process kanji input/output. WTYPE and DTYPE
-     must be one of the strings `jis', `euc' or `sjis'. The first
-     argument sets the kanji type of the current window. Each window
-     can emulate a different type. The optional second parameter tells
-     screen how to write the kanji codes to the connected terminal. The
-     preferred method of setting the display type is to use the `KJ'
-     termcap entry. *Note Special Capabilities::.  See also `defkanji',
-     which changes the default setting of a new window.
+     Tell screen how to interpret the input/output. The first argument
+     sets the encoding of the current window.  Each window can emulate
+     a different encoding. The optional second parameter overwrites the
+     encoding of the connected terminal.  It should never be needed as
+     screen uses the locale setting to detect the encoding.  There is
+     also a way to select a terminal encoding depending on the terminal
+     type by using the `KJ' termcap entry. *Note Special Capabilities::.
+
+     Supported encodings are `eucJP', `SJIS', `eucKR', `eucCN', `Big5',
+     `GBK', `KOI8-R', `CP1251', `UTF-8', `ISO8859-2', `ISO8859-3',
+     `ISO8859-4', `ISO8859-5', `ISO8859-6', `ISO8859-7', `ISO8859-8',
+     `ISO8859-9', `ISO8859-10', `ISO8859-15', `jis'.
+
+     See also `defencoding', which changes the default setting of a new
+     window.
 
  - Command: charset set
      (none)
@@ -96,7 +217,7 @@ Character Processing
      `.' may be used to indicate that the corresponding charset/mapping
      should not be changed (SET is padded to six characters internally
      by appending `.' chars). New windows have `BBBB02' as default
-     charset, unless a `kanji' command is active.
+     charset, unless a `encoding' command is active.
 
      The current setting can be viewed with the *Note Info:: command.
 
@@ -124,10 +245,11 @@ Character Processing
      Same as the `bce' command except that the default setting for new
      windows is changed. Initial setting is `off'.
 
- - Command: defkanji wtype
+ - Command: defencoding enc
      (none)
-     Same as the `kanji' command except that the default setting for
-     new windows is changed. Initial setting is `off', i.e. `jis'.
+     Same as the `encoding' command except that the default setting for
+     new windows is changed. Initial setting is the encoding taken from
+     the terminal.
 
  - Command: defcharset [set]
      Like the `charset' command except that the default setting for new
@@ -155,7 +277,7 @@ windowing systems.
 * Copy::                        Copy from scrollback to buffer
 * Paste::                       Paste from buffer into window
 * Registers::                   Longer-term storage
-* Screen-Exchange::             Sharing data between screen users
+* Screen Exchange::             Sharing data between screen users
 * History::                     Recalling previous input
 
 
@@ -214,7 +336,7 @@ Scrollback
 
  - Command: compacthist [state]
      (none)
-     This tells screen weather to suppress trailing blank lines when
+     This tells screen whether to suppress trailing blank lines when
      scrolling up text into the history buffer. Turn compacting `on' to
      hold more useful lines in your scrollback buffer.
 
@@ -259,6 +381,8 @@ previous line.
 `|' moves to the specified absolute column.
 
 `w', `b', `e' move the cursor word by word.
+
+`B', `E' move the cursor WORD by WORD (as in vi).
 
 `C-u' and `C-d' scroll the display up/down by the specified amount of
 lines while preserving the cursor position. (Default: half screenfull).
@@ -313,6 +437,11 @@ Searching
 
 `C-r' `emacs' style reverse i-search.
 
+ - Command: ignorecase [state]
+     (none)
+     Tell screen to ignore the case of characters in searches. Default
+     is `off'.
+
 
 File: screen.info,  Node: Specials,  Prev: Searching,  Up: Copy
 
@@ -352,7 +481,7 @@ of the paste buffer will not be overwritten, but appended to.
 
 `>' sets the (second) mark and writes the contents of the paste buffer
 to the screen-exchange file (`/tmp/screen-exchange' per default) once
-copy-mode is finished.  *Note Screen-Exchange::.
+copy-mode is finished.  *Note Screen Exchange::.
 This example demonstrates how to dump the whole scrollback buffer to
 that file:
 `C-a [ g SPACE G $ >'.
@@ -392,9 +521,16 @@ Paste
      attached), as the registers are a global resource. The paste
      buffer exists once for every user.
 
+ - Command: stuff string
+     (none)
+     Stuff the string STRING in the input buffer of the current window.
+     This is like the `paste' command, but with much less overhead.
+     You cannot paste large buffers with the `stuff' command. It is most
+     useful for key bindings. *Note Bindkey::.
+
  - Command: pastefont [state]
      Tell screen to include font information in the paste buffer. The
-     default is not to do so. This command is especially usefull for
+     default is not to do so. This command is especially useful for
      multi character fonts like kanji.
 
  - Command: slowpaste msec
@@ -408,22 +544,23 @@ Paste
      control problems while pasting large amounts of text.
      `defslowpaste' specifies the default for new windows.
 
- - Command: readreg [register [filename]]
+ - Command: readreg [-e encoding] [register [filename]]
      (none)
      Does one of two things, dependent on number of arguments: with
      zero or one arguments it it duplicates the paste buffer contents
      into the register specified or entered at the prompt. With two
      arguments it reads the contents of the named file into the
      register, just as `readbuf' reads the screen-exchange file into
-     the paste buffer.  The following example will paste the system's
-     password file into the screen window (using register p, where a
-     copy remains):
+     the paste buffer.  You can tell screen the encoding of the file
+     via the `-e' option.  The following example will paste the
+     system's password file into the screen window (using register p,
+     where a copy remains):
 
           C-a : readreg p /etc/passwd
           C-a : paste p
 
 
-File: screen.info,  Node: Registers,  Next: Screen-Exchange,  Prev: Paste,  Up: Copy and Paste
+File: screen.info,  Node: Registers,  Next: Screen Exchange,  Prev: Paste,  Up: Copy and Paste
 
 Registers
 =========
@@ -444,25 +581,18 @@ Registers
      the user's keyboard. This command can be used to bind multiple
      actions to a single key.
 
- - Command: register key string
+ - Command: register [-e encoding] key string
      (none)
-     Save the specified STRING to the register KEY.
-
- - Command: stuff string
-     (none)
-     Stuff the string STRING in the input buffer of the current window.
-     This is like the `paste' command, but with much less overhead.
-     You cannot paste large buffers with the `stuff' command. It is most
-     useful for key bindings. *Note Bindkey::.
-
+     Save the specified STRING to the register KEY.  The encoding of
+     the string can be specified via the `-e' option.
 
 
-File: screen.info,  Node: Screen-Exchange,  Next: History,  Prev: Registers,  Up: Copy and Paste
+File: screen.info,  Node: Screen Exchange,  Next: History,  Prev: Registers,  Up: Copy and Paste
 
-Screen-Exchange
+Screen Exchange
 ===============
 
- - Command: bufferfile [exchange-file]
+ - Command: bufferfile [EXCHANGE-FILE]
      (none)
      Change the filename used for reading and writing with the paste
      buffer.  If the EXCHANGE-FILE parameter is omitted, `screen'
@@ -474,25 +604,27 @@ Screen-Exchange
           C-a < C-a ]
           C-a : bufferfile
 
- - Command: readbuf [filename]
+ - Command: readbuf [-e ENCODING] [FILENAME]
      (`C-a <')
      Reads the contents of the specified file into the paste buffer.
+     You can tell screen the encoding of the file via the `-e' option.
      If no file is specified, the screen-exchange filename is used.
 
  - Command: removebuf
      (`C-a =')
      Unlinks the screen-exchange file.
 
- - Command: writebuf [filename]
+ - Command: writebuf [-e ENCODING] [FILENAME]
      (`C-a >')
      Writes the contents of the paste buffer to the specified file, or
      the public accessible screen-exchange file if no filename is given.
      This is thought of as a primitive means of communication between
-     `screen' users on the same host. See also `C-a <ESC>' (*note
-     Copy::).
+     `screen' users on the same host.  If an encoding is specified the
+     paste buffer is recoded on the fly to match the encoding.  See also
+     `C-a <ESC>' (*note Copy::).
 
 
-File: screen.info,  Node: History,  Prev: Screen-Exchange,  Up: Copy and Paste
+File: screen.info,  Node: History,  Prev: Screen Exchange,  Up: Copy and Paste
 
 History
 =======
@@ -635,7 +767,7 @@ File: screen.info,  Node: Bind,  Next: Bind Examples,  Up: Key Binding
 The `bind' command
 ==================
 
- - Command: bind key [command [args]]
+ - Command: bind [-c class] key [command [args]]
      (none)
      Bind a command to a key.  The KEY argument is either a single
      character, a two-character sequence of the form `^x' (meaning
@@ -645,6 +777,11 @@ The `bind' command
      if you like.  If no further argument is given, any previously
      established binding for this key is removed.  The COMMAND argument
      can be any command (*note Command Index::).
+
+     If a command class is specified via the `-c' option, the key is
+     bound for the specified class.  Use the `command' command to
+     activate a class. Command classes can be used to create multiple
+     command keys or multi-character bindings.
 
      By default, most suitable commands are bound to one or more keys
      (*note Default Key Bindings::; for instance, the command to create
@@ -669,6 +806,18 @@ available as `C-a space'), bind `C-f' to the command "create a window
 with a TELNET connection to foobar", and bind <ESC> to the command that
 creates an non-login window with title `root' in slot #9, with a
 superuser shell and a scrollback buffer of 1000 lines.
+
+     bind -c demo1 0 select 10
+     bind -c demo1 1 select 11
+     bind -c demo1 2 select 12
+     bindkey "^B" command -c demo1
+   makes `C-b 0' select window 10, `C-b 1' window 11, etc.
+
+     bind -c demo2 0 select 10
+     bind -c demo2 1 select 11
+     bind -c demo2 2 select 12
+     bind - command -c demo2
+   makes `C-a - 0' select window 10, `C-a - 1' window 11, etc.
 
 
 File: screen.info,  Node: Command Character,  Next: Help,  Prev: Bind Examples,  Up: Key Binding
@@ -702,11 +851,12 @@ Command Character
      the `-e' command line switch (*note Invoking Screen::), or the
      `escape' .screenrc directive.
 
- - Command: command
+ - Command: command [-c CLASS]
      (none)
      This command has the same effect as typing the screen escape
      character (`C-a'). It is probably only useful for key bindings.
-     *Note Bindkey::.
+     If the `-c' option is given, select the specified command class.
+     *Note Bind::, *Note Bindkey::.
 
 
 File: screen.info,  Node: Help,  Next: Bindkey,  Prev: Command Character,  Up: Key Binding
@@ -720,8 +870,9 @@ Help
      pages list all the internal commands followed by their bindings.
      Subsequent pages will display the custom commands, one command per
      key.  Press space when you're done reading each page, or return to
-     exit early.  All other characters are ignored.  *Note Default Key
-     Bindings::.
+     exit early.  All other characters are ignored.  If the `-c' option
+     is given, display all bound commands for the specified command
+     class.  *Note Default Key Bindings::.
 
 
 File: screen.info,  Node: Bindkey,  Next: Bindkey Examples,  Prev: Help,  Up: Key Binding
@@ -1033,6 +1184,9 @@ session is reattached on a different terminal, as the value of
 `screen' to include all capabilities in `$TERMCAP' with the `-a'
 command-line option (*note Invoking Screen::).
 
+   The "alternate screen" capability is not enabled by default.  Set
+the `altscreen' `.screenrc' command to enable it.
+
 
 File: screen.info,  Node: Dump Termcap,  Next: Termcap Syntax,  Prev: Window Termcap,  Up: Termcap
 
@@ -1093,199 +1247,4 @@ uses to perform certain functions.  Specify a null string to leave this
 unchanged (e.g. "").  The second (optional) tweak modifies all the
 window termcaps, and should contain definitions that screen understands
 (*note Virtual Terminal::).
-
-
-File: screen.info,  Node: Termcap Examples,  Next: Special Capabilities,  Prev: Termcap Syntax,  Up: Termcap
-
-Termcap Examples
-================
-
-   Some examples:
-
-     termcap xterm*  xn:hs@
-
-Informs `screen' that all terminals that begin with `xterm' have firm
-auto-margins that allow the last position on the screen to be updated
-(xn), but they don't really have a status line (no 'hs' - append `@' to
-turn entries off).  Note that we assume `xn' for all terminal names
-that start with `vt', but only if you don't specify a termcap command
-for that terminal.
-
-     termcap vt*  xn
-     termcap vt102|vt220  Z0=\E[?3h:Z1=\E[?3l
-
-Specifies the firm-margined `xn' capability for all terminals that
-begin with `vt', and the second line will also add the escape-sequences
-to switch into (Z0) and back out of (Z1) 132-character-per-line mode if
-this is a VT102 or VT220.  (You must specify Z0 and Z1 in your termcap
-to use the width-changing commands.)
-
-     termcap vt100  ""  l0=PF1:l1=PF2:l2=PF3:l3=PF4
-
-This leaves your vt100 termcap alone and adds the function key labels to
-each window's termcap entry.
-
-     termcap h19|z19  am@:im=\E@:ei=\EO  dc=\E[P
-
-Takes a h19 or z19 termcap and turns off auto-margins (am@) and enables
-the insert mode (im) and end-insert (ei) capabilities (the `@' in the
-`im' string is after the `=', so it is part of the string).  Having the
-`im' and `ei' definitions put into your terminal's termcap will cause
-screen to automatically advertise the character-insert capability in
-each window's termcap.  Each window will also get the delete-character
-capability (dc) added to its termcap, which screen will translate into
-a line-update for the terminal (we're pretending it doesn't support
-character deletion).
-
-   If you would like to fully specify each window's termcap entry, you
-should instead set the `$SCREENCAP' variable prior to running `screen'.
-*Note Virtual Terminal::, for the details of the `screen' terminal
-emulation.  *Note Termcap: (termcap)Top, for more information on
-termcap definitions.
-
-
-File: screen.info,  Node: Special Capabilities,  Next: Autonuke,  Prev: Termcap Examples,  Up: Termcap
-
-Special Terminal Capabilities
-=============================
-
-   The following table describes all terminal capabilities that are
-recognized by `screen' and are not in the termcap manual (*note
-Termcap: (termcap)Top.).  You can place these capabilities in your
-termcap entries (in `/etc/termcap') or use them with the commands
-`termcap', `terminfo' and `termcapinfo' in your `screenrc' files. It is
-often not possible to place these capabilities in the terminfo database.
-`LP'
-     (bool)
-     Terminal has VT100 style margins (`magic margins'). Note that this
-     capability is obsolete -- `screen' now uses the standard `xn'
-     instead.
-
-`Z0'
-     (str)
-     Change width to 132 columns.
-
-`Z1'
-     (str)
-     Change width to 80 columns.
-
-`WS'
-     (str)
-     Resize display. This capability has the desired width and height as
-     arguments.  SunView(tm) example: `\E[8;%d;%dt'.
-
-`NF'
-     (bool)
-     Terminal doesn't need flow control. Send ^S and ^Q direct to the
-     application. Same as `flow off'. The opposite of this capability
-     is `nx'.
-
-`G0'
-     (bool)
-     Terminal can deal with ISO 2022 font selection sequences.
-
-`S0'
-     (str)
-     Switch charset `G0' to the specified charset. Default is `\E(%.'.
-
-`E0'
-     (str)
-     Switch charset `G0' back to standard charset. Default is `\E(B'.
-
-`C0'
-     (str)
-     Use the string as a conversion table for font 0. See the `ac'
-     capability for more details.
-
-`CS'
-     (str)
-     Switch cursor-keys to application mode.
-
-`CE'
-     (str)
-     Switch cursor-keys to cursor mode.
-
-`AN'
-     (bool)
-     Enable autonuke for displays of this terminal type.  (*note
-     Autonuke::).
-
-`OL'
-     (num)
-     Set the output buffer limit. See the `obuflimit' command (*note
-     Obuflimit::) for more details.
-
-`KJ'
-     (str)
-     Set the kanji type of the terminal. Valid strings are `jis', `euc'
-     and `sjis'.
-
-`AF'
-     (str)
-     Change character foreground color in an ANSI conform way. This
-     capability will almost always be set to `\E[3%dm' (`\E[3%p1%dm' on
-     terminfo machines).
-
-`AB'
-     (str)
-     Same as `AF', but change background color.
-
-`AX'
-     (bool)
-     Does understand ANSI set default fg/bg color (`\E[39m / \E[49m').
-
-`XC'
-     (str)
-     Describe a translation of characters to strings depending on the
-     current font.  (*note Character Translation::).
-
-`XT'
-     (bool)
-     Terminal understands special xterm sequences (OSC, mouse tracking).
-
-`TF'
-     (bool)
-     Add missing capabilities to the termcap/info entry. (Set by
-     default).
-
-
-File: screen.info,  Node: Autonuke,  Next: Obuflimit,  Prev: Special Capabilities,  Up: Termcap
-
-Autonuke
-========
-
- - Command: autonuke STATE
-     (none)
-     Sets whether a clear screen sequence should nuke all the output
-     that has not been written to the terminal. *Note Obuflimit::.
-     This property is set per display, not per window.
-
- - Command: defautonuke STATE
-     (none)
-     Same as the `autonuke' command except that the default setting for
-     new displays is also changed. Initial setting is `off'.  Note that
-     you can use the special `AN' terminal capability if you want to
-     have a terminal type dependent setting.
-
-
-File: screen.info,  Node: Obuflimit,  Next: Character Translation,  Prev: Autonuke,  Up: Termcap
-
-Obuflimit
-=========
-
- - Command: obuflimit [LIMIT]
-     (none)
-     If the output buffer contains more bytes than the specified limit,
-     no more data will be read from the windows. The default value is
-     256. If you have a fast display (like `xterm'), you can set it to
-     some higher value. If no argument is specified, the current
-     setting is displayed.  This property is set per display, not per
-     window.
-
- - Command: defobuflimit LIMIT
-     (none)
-     Same as the `obuflimit' command except that the default setting
-     for new displays is also changed. Initial setting is 256 bytes.
-     Note that you can use the special `OL' terminal capability if you
-     want to have a terminal type dependent limit.
 

@@ -1,14 +1,16 @@
-# $OpenLDAP: pkg/ldap/clients/tools/Makefile.in,v 1.29 2002/02/10 21:42:52 kurt Exp $
+# $OpenLDAP: pkg/ldap/clients/tools/Makefile.in,v 1.29.2.4 2003/03/29 15:45:43 kurt Exp $
 ##
 ## Makefile for LDAP tools
 ##
 SRCS	= ldapsearch.c ldapmodify.c ldapdelete.c ldapmodrdn.c \
-		ldappasswd.c ldapwhoami.c
+		ldappasswd.c ldapwhoami.c ldapcompare.c common.c
 OBJS	= ldapsearch.o ldapmodify.o ldapdelete.o ldapmodrdn.o \
-		ldappasswd.o ldapwhoami.o
+		ldappasswd.o ldapwhoami.o ldapcompare.o common.o
 
 LDAP_INCDIR= ../../include       
 LDAP_LIBDIR= ../../libraries
+
+MKVOPTS = -s
 
 XLIBS =  $(LDAP_LIBLDIF_A) $(LDAP_L)
 XXLIBS	= $(SECURITY_LIBS) $(LDIF_LIBS) $(LUTIL_LIBS)
@@ -16,64 +18,72 @@ XXLIBS	= $(SECURITY_LIBS) $(LDIF_LIBS) $(LUTIL_LIBS)
 XSRCS	= ldsversion.c ldmversion.c lddversion.c ldrversion.c \
 	ldpversion.c ldwversion.c ldcversion.c
 
-PROGRAMS = ldapsearch ldapmodify ldapdelete ldapmodrdn ldapadd \
+PROGRAMS = ldapsearch ldapmodify ldapdelete ldapmodrdn \
 	ldappasswd ldapwhoami ldapcompare
 
 
 ldapsearch:	ldsversion.o
-	$(LTLINK) -o $@ ldapsearch.o ldsversion.o $(LIBS)
+	$(LTLINK) -o $@ ldapsearch.o common.o ldsversion.o $(LIBS)
 
 ldapmodify:	ldmversion.o
-	$(LTLINK) -o $@ ldapmodify.o ldmversion.o $(LIBS)
+	$(LTLINK) -o $@ ldapmodify.o common.o ldmversion.o $(LIBS)
 
 ldapdelete:	lddversion.o
-	$(LTLINK) -o $@ ldapdelete.o lddversion.o $(LIBS)
+	$(LTLINK) -o $@ ldapdelete.o common.o lddversion.o $(LIBS)
 
 ldapmodrdn:	ldrversion.o
-	$(LTLINK) -o $@ ldapmodrdn.o ldrversion.o $(LIBS)
+	$(LTLINK) -o $@ ldapmodrdn.o common.o ldrversion.o $(LIBS)
 
 ldappasswd:	ldpversion.o
-	$(LTLINK) -o $@ ldappasswd.o ldpversion.o $(LIBS)
+	$(LTLINK) -o $@ ldappasswd.o common.o ldpversion.o $(LIBS)
 
 ldapwhoami:	ldwversion.o
-	$(LTLINK) -o $@ ldapwhoami.o ldwversion.o $(LIBS)
+	$(LTLINK) -o $@ ldapwhoami.o common.o ldwversion.o $(LIBS)
 
 ldapcompare: ldcversion.o
-	$(LTLINK) -o $@ ldapcompare.o ldcversion.o $(LIBS)
+	$(LTLINK) -o $@ ldapcompare.o common.o ldcversion.o $(LIBS)
 
-ldapadd:	ldapmodify
-	@-$(RM) $@$(EXEEXT)
-	$(LN_H) ldapmodify$(EXEEXT) ldapadd$(EXEEXT)
-
-
-ldsversion.c: ldapsearch.o $(XLIBS)
+ldsversion.c: Makefile
 	@-$(RM) $@
-	$(MKVERSION) ldapsearch > $@
+	$(MKVERSION) $(MKVOPTS) ldapsearch > $@
 
-ldmversion.c: ldapmodify.o $(XLIBS)
+ldsversion.o: ldapsearch.o common.o $(XLIBS)
+
+ldmversion.c: Makefile
 	@-$(RM) $@
-	$(MKVERSION) ldapmodify > $@
+	$(MKVERSION) $(MKVOPTS) ldapmodify > $@
 
-lddversion.c: ldapdelete.o $(XLIBS)
+ldmversion.o: ldapmodify.o common.o $(XLIBS)
+
+lddversion.c: Makefile
 	@-$(RM) $@
-	$(MKVERSION) ldapdelete > $@
+	$(MKVERSION) $(MKVOPTS) ldapdelete > $@
 
-ldpversion.c: ldappasswd.o $(XLIBS)
+lddversion.o: ldapdelete.o common.o $(XLIBS)
+
+ldpversion.c: Makefile
 	@-$(RM) $@
-	$(MKVERSION) ldappasswd > $@
+	$(MKVERSION) $(MKVOPTS) ldappasswd > $@
 
-ldrversion.c: ldapmodrdn.o $(XLIBS)
+ldpversion.o: ldappasswd.o common.o $(XLIBS)
+
+ldrversion.c: Makefile
 	@-$(RM) $@
-	$(MKVERSION) ldapmodrdn > $@
+	$(MKVERSION) $(MKVOPTS) ldapmodrdn > $@
 
-ldwversion.c: ldapwhoami.o $(XLIBS)
+ldrversion.o: ldapmodrdn.o common.o $(XLIBS)
+
+ldwversion.c: Makefile
 	@-$(RM) $@
-	$(MKVERSION) ldapwhoami > $@
+	$(MKVERSION) $(MKVOPTS) ldapwhoami > $@
 
-ldcversion.c: ldapcompare.o $(XLIBS)
+ldwversion.o: ldapwhoami.o common.o $(XLIBS)
+
+ldcversion.c: Makefile
 	@-$(RM) $@
-	$(MKVERSION) ldapcompare > $@
+	$(MKVERSION) $(MKVOPTS) ldapcompare > $@
 
+ldcversion.o: ldapcompare.o common.o $(XLIBS)
 
 install-local:	FORCE
 	-$(MKDIR) $(DESTDIR)$(bindir)

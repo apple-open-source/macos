@@ -1,25 +1,49 @@
+/* PEF support for BFD.
+   Copyright 1999, 2000, 2001, 2002
+   Free Software Foundation, Inc.
+
+   This file is part of BFD, the Binary File Descriptor library.
+
+   This program is free software; you can redistribute it and/or modify
+   it under the terms of the GNU General Public License as published by
+   the Free Software Foundation; either version 2 of the License, or
+   (at your option) any later version.
+
+   This program is distributed in the hope that it will be useful,
+   but WITHOUT ANY WARRANTY; without even the implied warranty of
+   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+   GNU General Public License for more details.
+
+   You should have received a copy of the GNU General Public License
+   along with this program; if not, write to the Free Software
+   Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.  */
+
 #include "bfd.h"
 
-struct bfd_pef_header {
- unsigned long tag1;
- unsigned long tag2;
- unsigned long architecture;
- unsigned long format_version;
- unsigned long timestamp;
- unsigned long old_definition_version;
- unsigned long old_implementation_version;
- unsigned long current_version;
- unsigned short section_count;
- unsigned short instantiated_section_count;
- unsigned long reserved;
+#include <stdio.h>
+
+struct bfd_pef_header
+{
+  unsigned long tag1;
+  unsigned long tag2;
+  unsigned long architecture;
+  unsigned long format_version;
+  unsigned long timestamp;
+  unsigned long old_definition_version;
+  unsigned long old_implementation_version;
+  unsigned long current_version;
+  unsigned short section_count;
+  unsigned short instantiated_section_count;
+  unsigned long reserved;
 };
 typedef struct bfd_pef_header bfd_pef_header;
 
-struct bfd_pef_loader_header {
+struct bfd_pef_loader_header
+{
   long main_section;
   unsigned long main_offset;
   long init_section;
-  unsigned long init_offset; 
+  unsigned long init_offset;
   long term_section;
   unsigned long term_offset;
   unsigned long imported_library_count;
@@ -33,7 +57,8 @@ struct bfd_pef_loader_header {
 };
 typedef struct bfd_pef_loader_header bfd_pef_loader_header;
 
-struct bfd_pef_imported_library {
+struct bfd_pef_imported_library
+{
   unsigned long name_offset;
   unsigned long old_implementation_version;
   unsigned long current_version;
@@ -45,33 +70,37 @@ struct bfd_pef_imported_library {
 };
 typedef struct bfd_pef_imported_library bfd_pef_imported_library;
 
-enum bfd_pef_imported_library_options {
-  BFD_PEF_WEAK_IMPORT_LIB = 0x40,
-  BFD_PEF_INIT_LIB_BEFORE = 0x80
-};
+enum bfd_pef_imported_library_options
+  {
+    BFD_PEF_WEAK_IMPORT_LIB = 0x40,
+    BFD_PEF_INIT_LIB_BEFORE = 0x80
+  };
 
-struct bfd_pef_imported_symbol {
+struct bfd_pef_imported_symbol
+{
   unsigned char class;
   unsigned long name;
 };
 typedef struct bfd_pef_imported_symbol bfd_pef_imported_symbol;
 
-enum bfd_pef_imported_symbol_class {
-  BFD_PEF_CODE_SYMBOL = 0x00,
-  BFD_PEF_DATA_SYMBOL = 0x01,
-  BFD_PEF_TVECTOR_SYMBOL = 0x02,
-  BFD_PEF_TOC_SYMBOL = 0x03,
-  BFD_PEF_GLUE_SYMBOL = 0x04,
-  BFD_PEF_UNDEFINED_SYMBOL = 0x0F,
-  BFD_PEF_WEAK_IMPORT_SYMBOL_MASK = 0x80
-};
+enum bfd_pef_imported_symbol_class
+  {
+    BFD_PEF_CODE_SYMBOL = 0x00,
+    BFD_PEF_DATA_SYMBOL = 0x01,
+    BFD_PEF_TVECTOR_SYMBOL = 0x02,
+    BFD_PEF_TOC_SYMBOL = 0x03,
+    BFD_PEF_GLUE_SYMBOL = 0x04,
+    BFD_PEF_UNDEFINED_SYMBOL = 0x0F,
+    BFD_PEF_WEAK_IMPORT_SYMBOL_MASK = 0x80
+  };
 
 #define BFD_PEF_TAG1 0x4A6F7921 /* 'Joy!' */
 #define BFD_PEF_TAG2 0x70656666 /* 'peff' */
 
 #define BFD_PEF_VERSION 0x00000001
 
-struct bfd_pef_section {
+struct bfd_pef_section
+{
   long name_offset;
   unsigned long header_offset;
   unsigned long default_address;
@@ -101,7 +130,8 @@ typedef struct bfd_pef_section bfd_pef_section;
 #define BFD_PEF_SHARE_GLOBAL 4
 #define BFD_PEF_SHARE_PROTECTED 5
 
-struct bfd_pef_data_struct {
+struct bfd_pef_data_struct
+{
   bfd_pef_header header;
   bfd_pef_section *sections;
   bfd *ibfd;
@@ -114,8 +144,8 @@ typedef struct bfd_pef_data_struct bfd_pef_data_struct;
 
 #define BFD_PEF_XLIB_VERSION 0x00000001
 
-struct bfd_pef_xlib_header {
-
+struct bfd_pef_xlib_header
+{
   unsigned long tag1;
   unsigned long tag2;
   unsigned long current_format;
@@ -140,7 +170,17 @@ struct bfd_pef_xlib_header {
 };
 typedef struct bfd_pef_xlib_header bfd_pef_xlib_header;
 
-struct bfd_pef_xlib_data_struct {
+struct bfd_pef_xlib_data_struct
+{
   bfd_pef_xlib_header header;
 };
 typedef struct bfd_pef_xlib_data_struct bfd_pef_xlib_data_struct;
+
+int  bfd_pef_parse_loader_header    PARAMS ((bfd *, unsigned char *, size_t, bfd_pef_loader_header *));
+int  bfd_pef_print_loader_section   PARAMS ((bfd *, FILE *));
+void bfd_pef_print_loader_header    PARAMS ((bfd *, bfd_pef_loader_header *, FILE *));
+int  bfd_pef_parse_imported_library PARAMS ((bfd *, unsigned char *, size_t, bfd_pef_imported_library *));
+int  bfd_pef_parse_imported_symbol  PARAMS ((bfd *, unsigned char *, size_t, bfd_pef_imported_symbol *));
+int  bfd_pef_scan_section           PARAMS ((bfd *, bfd_pef_section *));
+int  bfd_pef_scan_start_address     PARAMS ((bfd *));
+int  bfd_pef_scan                   PARAMS ((bfd *, bfd_pef_header *, bfd_pef_data_struct *));

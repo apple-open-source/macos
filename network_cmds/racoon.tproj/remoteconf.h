@@ -1,4 +1,4 @@
-/*	$KAME: remoteconf.h,v 1.26 2001/09/26 05:30:35 sakane Exp $	*/
+/*	$KAME: remoteconf.h,v 1.27 2001/12/07 08:39:39 sakane Exp $	*/
 
 /*
  * Copyright (C) 1995, 1996, 1997, and 1998 WIDE Project.
@@ -52,6 +52,9 @@ struct remoteconf {
 	vchar_t *idv;			/* my identifier */
 	int idvtype_p;			/* peer's identifier type */
 	vchar_t *idv_p;			/* peer's identifier */
+
+	int secrettype;			/* type of secret [use, key, keychain] */
+	vchar_t *shared_secret;		/* shared secret */
 
 	int certtype;			/* certificate type if need */
 	char *mycertfile;		/* file name of my certificate */

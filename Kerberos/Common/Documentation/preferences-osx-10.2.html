@@ -1,0 +1,283 @@
+<!-- #include "header.html"
+  #PAGETITLE#="Kerberos Preferences on Mac OS X 10.2 Documentation"
+  #BASEHREF#="" 
+-->
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.0 Transitional//EN">
+<HTML> 
+<HEAD>  
+	<TITLE> Kerberos Preferences on Mac OS X 10.2 Documentation </TITLE>
+</HEAD>
+<BODY BGCOLOR="#FFFFFF" TEXT="#000000" LINK="#0000FF" VLINK="#663399">
+<CENTER>
+	<TABLE BORDER=0 CELLSPACING=8>
+		<TR> 
+			<TD><IMG SRC="http://web.mit.edu/macdev/www/is-logo.gif" ALT="MIT Information Systems"></TD>
+			<TD><BR><H1>Macintosh Development</H1></TD> 
+		</TR>
+	</TABLE> <P>
+	[<A HREF="http://web.mit.edu/macdev/www/macdev.html">Home</A>]
+	[<A HREF="http://web.mit.edu/macdev/www/about.html">About Us</A>]
+	[<A HREF="http://web.mit.edu/macdev/www/people.html">People</A>]
+	[<A HREF="http://web.mit.edu/macdev/www/support.html">MIT Support Library</A>]
+	[<A HREF="http://web.mit.edu/macdev/www/kerberos.html">MIT Kerberos for Macintosh</A>] <BR>
+	[<A HREF="http://web.mit.edu/macdev/www/applications.html">Applications</A>]
+	[<A HREF="http://web.mit.edu/macdev/www/macosx.html">Mac OS X</A>]
+	[<A HREF="http://web.mit.edu/macdev/www/documentation.html">Miscellaneous Documentation</A>]
+	[<A HREF="http://web.mit.edu/is/">Information Systems</A>] </P> 
+</CENTER> <HR>
+<!-- end include -->
+<TABLE BORDER=0 CELLSPACING=4>
+  <TR> 
+    <TD><IMG SRC="graphics/KerberosPreferences.gif" ALT="Document icon"></TD>
+    <TD><B><FONT SIZE="+3">Kerberos Preferences on Mac OS X 10.2 Documentation</FONT></B></TD>
+  </TR>
+</TABLE>
+<BLOCKQUOTE>
+
+<P>
+This web page discusses the <CODE>edu.mit.Kerberos</CODE> (Kerberos configuration)
+file: what's in it, where it goes, and how to configure it for distribution at
+your site.
+</P>
+
+<P>
+The information on this page applies to <B>Mac OS X 10.2 only</B>. For links to preferences
+documentation for other Mac OS versions, click <a href="preferences.html">here</a>.
+</P>
+
+</BLOCKQUOTE>
+<HR>
+<BLOCKQUOTE>
+	<P><B><FONT SIZE="+2"><A HREF="#about">About the edu.mit.Kerberos File</A></FONT></B></P>
+	<P><B><FONT SIZE="+2"><A HREF="#quickguide">Setting up a Configuration File Quick Guide</A></FONT></B></P>
+	<P><B><FONT SIZE="+2"><A HREF="#locations">edu.mit.Kerberos File Locations</FONT> (or, "Why are there two edu.mit.Kerberos files?")</A></B></P>
+	<P><B><FONT SIZE="+2"><A HREF="#install">What to Install Where</A></FONT></B></P>
+	<P><B><FONT SIZE="+2"><A HREF="#pfdf">About Kerberos Configuration Information</A></FONT></B></P>
+</BLOCKQUOTE>
+<HR>
+
+<P><B><FONT SIZE="+2"><A NAME="about">About the edu.mit.Kerberos File</A></FONT></B></P>
+<BLOCKQUOTE>
+<P>
+The <CODE>edu.mit.Kerberos</CODE> file is where the Kerberos v4 and v5 configuration information is
+stored on Mac OS X.  (Formerly the Kerberos Login Library and Kerberos management application
+preferences were stored in it, but they now have their own preference files: <CODE>edu.mit.Kerberos.KerberosLogin.plist</CODE>
+and <CODE>edu.mit.Kerberos.KerberosApp.plist</CODE>.)
+</P>
+
+<P>
+The <CODE>edu.mit.Kerberos</CODE> file stores this information in its data
+fork, which contains the realm and server configuration
+information (the info that would be found in the <CODE>krb5.conf</CODE> file on
+Unix). See the <A HREF="#pfdf">Kerberos Configuration</A> section for more
+information.
+</P>
+
+<P>
+On some systems there may be two <CODE>edu.mit.Kerberos</CODE> files.  See the
+<A HREF="#locations">edu.mit.Kerberos File Locations</A> section for more
+information about why this is so.
+</P>
+
+</BLOCKQUOTE>
+
+<P><B><FONT SIZE="+2"><A NAME="quickguide">Setting up a Configuration File Quick Guide</A></FONT></B></P>
+
+<BLOCKQUOTE>
+<P>
+We recommend that you read this entire page.  However, if you are in a hurry to
+get Kerberos for Macintosh up and working:
+</P>
+
+<P>
+You need to create an <CODE>edu.mit.Kerberos</CODE> file in the
+<CODE>/Library/Preferences</CODE> directory which contains the realm and server
+configuration information for your site, although:
+</P>
+
+<UL>
+	<LI>if you upgraded from Mac OS X 10.1 with Kerberos for Macintosh 4.0, you probably
+	already have a properly configured file and no changes are necessary to use it
+	under Mac OS X 10.2;</LI>
+
+	<LI>if you've run the Mac OS X 10.2 Kerberos Extras installer,
+	you will already have a file in the correct place,
+	but which contains MIT configuration information (which is provided as a guideline);</LI>
+
+	<LI>if you have a functioning Mac OS 9.x Kerberos installation, you can simply copy
+	the <CODE>Kerberos Preferences</CODE> file from the <CODE>Kerberos</CODE> folder
+	in <CODE>Application Support</CODE> from your Mac OS 9 volume to the
+	<CODE>/Library/Preferences</CODE> on your Mac OS X volume, and rename it to
+	<CODE>edu.mit.Kerberos</CODE>.</LI>
+</UL>
+
+<P>
+Otherwise:
+</P>
+
+<OL>
+	<LI>Create a file named <CODE>edu.mit.Kerberos</CODE> in <CODE>/Library/Preferences</CODE>,
+		using BBEdit, emacs, or Codewarrior (it must be a plain text file);</LI>
+	<LI>Place Kerberos realm and server configuration in the data fork of this file.  See the
+		<A HREF="#pfdf">Kerberos Configuration</A> section for the proper format.</LI>
+</OL>
+
+<P>
+Note - while there may also be an <CODE>edu.mit.Kerberos</CODE> file in your
+<CODE>/Users/username/Library/Preferences</CODE> directory, you should place
+your configuration information in the <CODE>/Library/Preferences</CODE>
+location. (See <A HREF="#locations">edu.mit.Kerberos File Locations</A> for more
+details.)
+</P>
+
+</BLOCKQUOTE>
+
+<P><B><FONT SIZE="+2"><A NAME="locations">edu.mit.Kerberos File Locations</FONT> (or, "Why are there two edu.mit.Kerberos files?")</A></B></P>
+<BLOCKQUOTE>
+
+<P>
+Kerberos for Macintosh supports and looks for two copies of the
+<CODE>edu.mit.Kerberos</CODE> file - a "system"
+<CODE>edu.mit.Kerberos</CODE> file that contains the configuration to be used by all
+users of the computer, and a "user" <CODE>edu.mit.Kerberos</CODE>
+file, containing additional configuration for an individual user.
+</P>
+
+<P>
+The user <CODE>edu.mit.Kerberos</CODE> is located in
+<CODE>/Users/username/Library/Preferences</CODE> (where "username" is the name
+of the user), and the system <CODE>edu.mit.Kerberos</CODE> is located in
+<CODE>/Library/Preferences</CODE> .
+</P>
+
+<P>
+When KfM reads the configuration file, it first looks for it in the user
+location, and if it doesn't find it, then looks for one in
+the system location.
+</P>
+
+<P>
+The typical case is to have the Kerberos
+configuration information in the system configuration file, and no user configuration
+file. However there may be circumstances where a user wants to have additional
+realm and server information not shared with other users on the same machine.
+You can add any additional realm and server configuration information to the
+user configuration file, and KfM will meld the two sets of information
+together.  You should be careful to avoid duplicate entries - if you have the same
+entry with different information it is not guaranteed that the user config
+file will override the system config file (we hope to fix this in a future release),
+or you may see the same realm listed twice if it is in both files.  
+</P>
+
+<P>Having just a user
+configuration file and no system configuration file to fall back on is permitted,
+but not recommended.
+</P>
+</BLOCKQUOTE>
+
+<P><B><FONT SIZE="+2"><A NAME="install">What To Install Where</A></FONT></B></P>
+<BLOCKQUOTE>
+
+<P>
+On Mac OS X, the system Kerberos configuration file <CODE>edu.mit.Kerberos</CODE>
+should be placed in <CODE>/Library/Preferences</CODE> .
+</P>
+
+</BLOCKQUOTE>
+
+<P><B><FONT SIZE="+2"><A NAME="pfdf">About Kerberos Configuration Information</A></FONT></B></P>
+<BLOCKQUOTE>
+	<P> The Kerberos v4 and v5 configurations are stored in the data fork of <CODE>edu.mit.Kerberos</CODE>.
+	
+	<P>This text is similar to that of <CODE>krb5.conf</CODE> on Unix machines or <CODE>krb5.ini</CODE> on Windows machines.  
+	The configuration tells Kerberos for Macintosh what realms exist,
+	what Kerberos versions are supported by them, and where to find the servers.  You should
+	edit this file for your site by opening the <CODE>edu.mit.Kerberos</CODE> file in a text editor that 
+	will save the file as pure text again (ie: BBEdit, emacs, or CodeWarrior; but not TextEdit or 
+	Microsoft Word).</P>
+	
+	<P>Once you are done editing the <CODE>edu.mit.Kerberos</CODE> file, you should reboot or log out,
+	and then you need to use the <a href="../../KerberosManager/Documentation/using.html#addrem">"Edit Favorite Realms"</a>
+	feature of the Kerberos management application to add your realms to the pop-up menu in the Login dialog. </P>
+	
+	<P> Here is an example Kerberos configuration: </P>
+	
+<PRE>
+	[libdefaults]
+		default_realm = ATHENA.MIT.EDU
+		noaddresses = TRUE
+
+	[realms]
+	        ATHENA.MIT.EDU = {
+	                kdc = kerberos.mit.edu.:88
+	                kdc = kerberos-1.mit.edu.:88
+	                kdc = kerberos-2.mit.edu.:88
+	                admin_server = kerberos.mit.edu.
+	                default_domain = mit.edu
+	        }
+	        MEDIA-LAB.MIT.EDU = {
+	                kdc = kerberos.media.mit.edu.
+	                admin_server = kerberos.media.mit.edu.
+	        }
+
+	[domain_realm]
+		.mit.edu = ATHENA.MIT.EDU
+		mit.edu = ATHENA.MIT.EDU
+		.media.mit.edu = MEDIA-LAB.MIT.EDU
+		media.mit.edu = MEDIA-LAB.MIT.EDU
+
+	[v4 realms]
+	        ATHENA.MIT.EDU = {
+	                kdc = kerberos.mit.edu.
+	                kdc = kerberos-1.mit.edu.
+	                kdc = kerberos-2.mit.edu.
+	                admin_server = kerberos.mit.edu.
+	                default_domain = mit.edu
+	                string_to_key_type = mit_string_to_key
+	        }
+	        UMICH.EDU = {
+	                kdc = kerberos.umich.edu.
+	                admin_server = kerberos.umich.edu.
+	                default_domain = umich.edu
+	                string_to_key_type = afs_string_to_key
+	        }
+
+	[v4 domain_realm]
+		.mit.edu = ATHENA.MIT.EDU
+		mit.edu = ATHENA.MIT.EDU
+		.umich.edu = UMICH.EDU
+		umich.edu = UMICH.EDU</PRE>
+		
+	<P>The <CODE>[libdefaults]</CODE> section describes what the default behavior of the Kerberos 
+	libraries should be.  You should always fill in the default realm.  If you have Kerberos 
+	v5 at your site, you should also copy any other <CODE>[libdefaults]</CODE> from your site's
+	<CODE>krb5.conf</CODE> or <CODE>krb5.ini</CODE>.</P>
+	
+	<P>The <CODE>[realms]</CODE> and <CODE>[domain_realm]</CODE> sections refer to Kerberos v5 realms.
+	If your site is v4-only you should omit these sections.  Otherwise just copy these sections from
+	your site's <CODE>krb5.conf</CODE> or <CODE>krb5.ini</CODE>.</P>
+	
+	<P>The <CODE>[v4 realms]</CODE> and <CODE>[v4 domain_realm]</CODE> sections refer to Kerberos v4 
+	realms.  If your site is v5-only you should omit these sections.  Otherwise you will need to
+	create entries for each of the Kerberos v4 realms at your site.  You must supply 
+	a Kerberos v4 <CODE>string_to_key_type</CODE> for each realm.  Currently the type can be 
+	either <CODE>mit_string_to_key</CODE> or <CODE>afs_string_to_key</CODE>.  If your site uses a 
+	different string_to_key function, please send us mail at 
+	<A HREF="mailto:krbdev@mit.edu">krbdev@mit.edu</A>.</P>
+</BLOCKQUOTE>
+
+<!-- #include "footer.html" -->
+<HR> 
+<P> 
+	<FONT SIZE="+1"> <B> 
+		Questions or comments? Send mail to <A HREF="mailto:macdev@mit.edu">macdev@mit.edu</A> 
+	</B> </FONT> <BR>
+	Last updated on $Date: 2003/10/03 21:29:47 $ <BR> 
+	Last modified by $Author: smcguire $<BR>
+
+</P>
+<!-- Begin MIT-use only web reporting counter -->
+	<IMG SRC="http://counter.mit.edu/tally" WIDTH=1 HEIGHT=1 ALT="">
+<!-- End MIT-use only web reporting counter -->
+</BODY> </HTML>
+<!-- end include -->

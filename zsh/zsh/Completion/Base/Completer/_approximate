@@ -10,7 +10,7 @@
 
 [[ _matcher_num -gt 1 || "${#:-$PREFIX$SUFFIX}" -le 1 ]] && return 1
 
-local _comp_correct _correct_expl comax cfgacc match
+local _comp_correct _correct_expl _correct_group comax cfgacc match
 local oldcontext="${curcontext}" opm="$compstate[pattern_match]"
 
 if [[ "$1" = -a* ]]; then
@@ -49,15 +49,20 @@ _tags corrections original
 
 if (( ! $+functions[compadd] )); then
   compadd() {
+    local ppre="$argv[(I)-p]"
+
     [[ ${argv[(I)-[a-zA-Z]#U[a-zA-Z]#]} -eq 0 &&
        "${#:-$PREFIX$SUFFIX}" -le _comp_correct ]] && return
 
-    ### This distinction doesn't seem to be needed anymore
-    # if [[ "$PREFIX" = \~*/* ]]; then
-    #   PREFIX="${PREFIX%%/*}/(#a${_comp_correct})${PREFIX#*/}"
-    # else
+    if [[ "$PREFIX" = \~* && ( ppre -eq 0 || "$argv[ppre+1]" != \~* ) ]]; then
+      PREFIX="~(#a${_comp_correct})${PREFIX[2,-1]}"
+    else
       PREFIX="(#a${_comp_correct})$PREFIX"
-    # fi
+    fi
+
+    (( $_correct_group && ${${argv[1,(r)-(|-)]}[(I)-*[JV]]} )) &&
+        _correct_expl[_correct_group]=${argv[1,(r)-(-|)][(R)-*[JV]]}
+
     builtin compadd "$_correct_expl[@]" "$@"
   }
   trap 'unfunction compadd' EXIT INT
@@ -72,6 +77,8 @@ while [[ _comp_correct -le comax ]]; do
 
   _description corrections _correct_expl corrections \
                "e:$_comp_correct" "o:$PREFIX$SUFFIX"
+
+  _correct_group="$_correct_expl[(I)-*[JV]]"
 
   if _complete; then
     if zstyle -t ":completion:${curcontext}:" insert-unambiguous &&

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1999-2001 Ion Badulescu
+ * Copyright (c) 1999-2002 Ion Badulescu
  * Copyright (c) 1997-2002 Erez Zadok
  * Copyright (c) 1990 Jan-Simon Pendry
  * Copyright (c) 1990 Imperial College of Science, Technology & Medicine
@@ -38,7 +38,7 @@
  * SUCH DAMAGE.
  *
  *
- * $Id: autofs_linux.c,v 1.1.1.1 2002/05/15 01:22:05 jkh Exp $
+ * $Id: autofs_linux.c,v 1.1.1.2 2002/07/15 19:42:49 zarzycki Exp $
  *
  */
 
@@ -95,6 +95,7 @@ static void hash_init(void)
     hash[i] = 0, list[i] = -1;
 }
 
+
 static void hash_insert(int fd, am_node *mp)
 {
   if (hash[fd] != 0)
@@ -104,6 +105,7 @@ static void hash_insert(int fd, am_node *mp)
   list[numfds] = fd;
   numfds++;
 }
+
 
 static void hash_delete(int fd)
 {
@@ -120,6 +122,7 @@ static void hash_delete(int fd)
       break;
     }
 }
+
 
 autofs_fh_t *
 autofs_get_fh(am_node *mp)
@@ -139,17 +142,21 @@ autofs_get_fh(am_node *mp)
   fh->fd = fds[0];
   fh->kernelfd = fds[1];
   fh->ioctlfd = -1;
-  fh->pending = NULL;
+  fh->pending_mounts = NULL;
+  fh->pending_umounts = NULL;
 
   hash_insert(fh->fd, mp);
 
   return fh;
 }
 
+
 void
-autofs_mounted(mntfs *mf)
+autofs_mounted(am_node *mp)
 {
+  mntfs *mf = mp->am_mnt;
   autofs_fh_t *fh = mf->mf_autofs_fh;
+  unsigned long timeout = gopt.am_timeo;
 
   close(fh->kernelfd);
   fh->kernelfd = -1;
@@ -169,7 +176,15 @@ autofs_mounted(mntfs *mf)
     amfs_host_ops.nfs_fs_flags &= ~FS_AUTOFS;
     amfs_host_ops.autofs_fs_flags &= ~FS_AUTOFS;
   }
+
+  /* set expiration timeout */
+  if (ioctl(fh->ioctlfd, AUTOFS_IOC_SETTIMEOUT, &timeout) < 0)
+    plog(XLOG_ERROR, "AUTOFS_IOC_SETTIMEOUT: %s", strerror(errno));
+
+  /* tell the daemon to call us for expirations */
+  mp->am_ttl = clocktime() + gopt.am_timeo_w;
 }
+
 
 void
 autofs_release_fh(autofs_fh_t *fh)
@@ -199,6 +214,7 @@ autofs_release_fh(autofs_fh_t *fh)
   }
 }
 
+
 void
 autofs_add_fdset(fd_set *readfds)
 {
@@ -206,6 +222,7 @@ autofs_add_fdset(fd_set *readfds)
   for (i = 0; i < numfds; i++)
     FD_SET(list[i], readfds);
 }
+
 
 static int
 autofs_get_pkt(int fd, char *buf, int bytes)
@@ -227,12 +244,32 @@ autofs_get_pkt(int fd, char *buf, int bytes)
 
 
 static void
+send_fail(int fd, unsigned long token)
+{
+  if (token == 0)
+    return;
+  if (ioctl(fd, AUTOFS_IOC_FAIL, token) < 0)
+    plog(XLOG_ERROR, "AUTOFS_IOC_FAIL: %s", strerror(errno));
+}
+
+
+static void
+send_ready(int fd, unsigned long token)
+{
+  if (token == 0)
+    return;
+  if (ioctl(fd, AUTOFS_IOC_READY, token) < 0)
+    plog(XLOG_ERROR, "AUTOFS_IOC_READY: %s", strerror(errno));
+}
+
+
+static void
 autofs_lookup_failed(am_node *mp, char *name)
 {
   autofs_fh_t *fh = mp->am_mnt->mf_autofs_fh;
   struct autofs_pending_mount **pp, *p;
 
-  pp = &fh->pending;
+  pp = &fh->pending_mounts;
   while (*pp && !STREQ((*pp)->name, name))
     pp = &(*pp)->next;
 
@@ -242,8 +279,7 @@ autofs_lookup_failed(am_node *mp, char *name)
 
   p = *pp;
   plog(XLOG_INFO, "autofs: lookup of %s failed", name);
-  if ( ioctl(fh->ioctlfd, AUTOFS_IOC_FAIL, p->wait_queue_token) < 0 )
-    plog(XLOG_ERROR, "AUTOFS_IOC_FAIL: %s", strerror(errno));
+  send_fail(fh->ioctlfd, p->wait_queue_token);
 
   XFREE(p->name);
   *pp = p->next;
@@ -251,11 +287,65 @@ autofs_lookup_failed(am_node *mp, char *name)
 }
 
 
-/* XXX not implemented */
+static void
+autofs_expire_one(am_node *mp, char *name, unsigned long token)
+{
+  autofs_fh_t *fh;
+  am_node *ap;
+  struct autofs_pending_umount *p;
+  char *ap_path;
+
+  fh = mp->am_mnt->mf_autofs_fh;
+
+  ap_path = str3cat(NULL, mp->am_path, "/", name);
+  amuDebug(D_TRACE)
+    plog(XLOG_DEBUG, "\tumount(%s)", ap_path);
+
+  p = fh->pending_umounts;
+  while (p && p->wait_queue_token != token)
+    p = p->next;
+
+  if (p) {
+    /* already pending */
+    dlog("Umounting of %s already pending", ap_path);
+    amd_stats.d_drops++;
+    goto out;
+  }
+
+  ap = find_ap(ap_path);
+  if (ap == NULL) {
+    /* not found??? not sure what to do here... */
+    send_fail(fh->ioctlfd, token);
+    goto out;
+  }
+
+  p = ALLOC(struct autofs_pending_umount);
+  p->wait_queue_token = token;
+  p->name = strdup(name);
+  p->next = fh->pending_umounts;
+  fh->pending_umounts = p;
+
+  unmount_mp(ap);
+
+out:
+  XFREE(ap_path);
+}
+
+
 static void
 autofs_handle_expire(am_node *mp, struct autofs_packet_expire *pkt)
 {
+  autofs_expire_one(mp, pkt->name, 0);
 }
+
+
+#ifdef autofs_ptype_expire_multi
+static void
+autofs_handle_expire_multi(am_node *mp, struct autofs_packet_expire_multi *pkt)
+{
+  autofs_expire_one(mp, pkt->name, pkt->wait_queue_token);
+}
+#endif /* autofs_packet_expire_multi */
 
 
 static void
@@ -270,7 +360,7 @@ autofs_handle_missing(am_node *mp, struct autofs_packet_missing *pkt)
   mf = mp->am_mnt;
   fh = mf->mf_autofs_fh;
 
-  p = fh->pending;
+  p = fh->pending_mounts;
   while (p && p->wait_queue_token != pkt->wait_queue_token)
     p = p->next;
 
@@ -285,8 +375,8 @@ autofs_handle_missing(am_node *mp, struct autofs_packet_missing *pkt)
   p = ALLOC(struct autofs_pending_mount);
   p->wait_queue_token = pkt->wait_queue_token;
   p->name = strdup(pkt->name);
-  p->next = fh->pending;
-  fh->pending = p;
+  p->next = fh->pending_mounts;
+  fh->pending_mounts = p;
 
   amuDebug(D_TRACE)
     plog(XLOG_DEBUG, "\tlookup(%s, %s)", mp->am_path, pkt->name);
@@ -305,6 +395,7 @@ autofs_handle_missing(am_node *mp, struct autofs_packet_missing *pkt)
   }
   mp->am_stats.s_lookup++;
 }
+
 
 int
 autofs_handle_fdset(fd_set *readfds, int nsel)
@@ -334,6 +425,10 @@ autofs_handle_fdset(fd_set *readfds, int nsel)
     case autofs_ptype_expire:
       autofs_handle_expire(mp, &pkt.expire);
       break;
+#ifdef autofs_ptype_expire_multi
+    case autofs_ptype_expire_multi:
+      autofs_handle_expire_multi(mp, &pkt.expire_multi);
+#endif /* autofs_handle_expire_multi */
     default:
       plog(XLOG_ERROR, "Unknown autofs packet type %d",
 	   pkt.hdr.type);
@@ -341,6 +436,7 @@ autofs_handle_fdset(fd_set *readfds, int nsel)
   }
   return nsel;
 }
+
 
 int
 create_autofs_service(void)
@@ -351,17 +447,14 @@ create_autofs_service(void)
   if (linux_version_code() < KERNEL_VERSION(2,4,0))
     bind_works = 0;
 
-  /* we need to turn on FS_MKMNT for amfs_auto */
-  amfs_auto_ops.autofs_fs_flags |= FS_MKMNT;
-  /* we also need to turn on FS_MBACKGROUND for amfs_link */
-  amfs_link_ops.autofs_fs_flags |= FS_MBACKGROUND;
-
   return 0;
 }
+
 
 int
 destroy_autofs_service(void)
 {
+  /* Nothing to do */
   return 0;
 }
 
@@ -387,7 +480,7 @@ autofs_link_mount(am_node *mp)
      * WARNING: we will deadlock if this function is called from the master
      * amd process and it happens to trigger another auto mount. Therefore,
      * this function should be called only from a child amd process, or
-     * at the very least is should not be called from the parent unless we
+     * at the very least it should not be called from the parent unless we
      * know for sure that it won't cause a recursive mount. We refuse to
      * cause the recursive mount anyway if called from the parent amd.
      */
@@ -429,6 +522,7 @@ use_symlink:
   return 0;
 }
 
+
 int
 autofs_link_umount(am_node *mp)
 {
@@ -441,6 +535,10 @@ autofs_link_umount(am_node *mp)
   if (S_ISDIR(buf.st_mode)) {
     plog(XLOG_INFO, "autofs: un-bind-mounting %s", mp->am_path);
     err = umount_fs(mp->am_path, mnttab_file_name);
+    if (err)
+      plog(XLOG_INFO, "autofs: unmounting %s failed: %m", mp->am_path);
+    else
+      rmdir(mp->am_path);
   } else {
     plog(XLOG_INFO, "autofs: deleting symlink %s", mp->am_path);
     err = unlink(mp->am_path);
@@ -450,26 +548,56 @@ autofs_link_umount(am_node *mp)
   return err;
 }
 
+
 int
 autofs_umount_succeeded(am_node *mp)
 {
-  /*
-   * If we remove the mount point of a pending mount, any queued access
-   * to it will fail. So don't do it.
-   */
-  if (!(mp->am_flags & AMF_REMOUNT)) {
-    plog(XLOG_INFO, "autofs: removing mountpoint directory %s", mp->am_path);
-    rmdirs(mp->am_path);
-  }
+  autofs_fh_t *fh = mp->am_parent->am_mnt->mf_autofs_fh;
+  struct autofs_pending_umount **pp, *p;
+
+  pp = &fh->pending_umounts;
+  while (*pp && !STREQ((*pp)->name, mp->am_name))
+    pp = &(*pp)->next;
+
+  /* sanity check */
+  if (*pp == NULL)
+    return -1;
+
+  p = *pp;
+  plog(XLOG_INFO, "autofs: unmounting %s succeeded", mp->am_path);
+  send_ready(fh->ioctlfd, p->wait_queue_token);
+
+  XFREE(p->name);
+  *pp = p->next;
+  XFREE(p);
   return 0;
 }
+
 
 int
 autofs_umount_failed(am_node *mp)
 {
-  /* nothing to do */
+  autofs_fh_t *fh = mp->am_parent->am_mnt->mf_autofs_fh;
+  struct autofs_pending_umount **pp, *p;
+
+  pp = &fh->pending_umounts;
+  while (*pp && !STREQ((*pp)->name, mp->am_name))
+    pp = &(*pp)->next;
+
+  /* sanity check */
+  if (*pp == NULL)
+    return -1;
+
+  p = *pp;
+  plog(XLOG_INFO, "autofs: unmounting %s failed", mp->am_path);
+  send_fail(fh->ioctlfd, p->wait_queue_token);
+
+  XFREE(p->name);
+  *pp = p->next;
+  XFREE(p);
   return 0;
 }
+
 
 void
 autofs_mount_succeeded(am_node *mp)
@@ -477,7 +605,10 @@ autofs_mount_succeeded(am_node *mp)
   autofs_fh_t *fh = mp->am_parent->am_mnt->mf_autofs_fh;
   struct autofs_pending_mount **pp, *p;
 
-  pp = &fh->pending;
+  /* don't expire the entries -- the kernel will do it for us */
+  mp->am_flags |= AMF_NOTIMEOUT;
+
+  pp = &fh->pending_mounts;
   while (*pp && !STREQ((*pp)->name, mp->am_name))
     pp = &(*pp)->next;
 
@@ -487,13 +618,13 @@ autofs_mount_succeeded(am_node *mp)
 
   p = *pp;
   plog(XLOG_INFO, "autofs: mounting %s succeeded", mp->am_path);
-  if ( ioctl(fh->ioctlfd, AUTOFS_IOC_READY, p->wait_queue_token) < 0 )
-    plog(XLOG_ERROR, "AUTOFS_IOC_READY: %s", strerror(errno));
+  send_ready(fh->ioctlfd, p->wait_queue_token);
 
   XFREE(p->name);
   *pp = p->next;
   XFREE(p);
 }
+
 
 void
 autofs_mount_failed(am_node *mp)
@@ -501,7 +632,7 @@ autofs_mount_failed(am_node *mp)
   autofs_fh_t *fh = mp->am_parent->am_mnt->mf_autofs_fh;
   struct autofs_pending_mount **pp, *p;
 
-  pp = &fh->pending;
+  pp = &fh->pending_mounts;
   while (*pp && !STREQ((*pp)->name, mp->am_name))
     pp = &(*pp)->next;
 
@@ -509,17 +640,15 @@ autofs_mount_failed(am_node *mp)
   if (*pp == NULL)
     return;
 
-  rmdirs(mp->am_path);
-
   p = *pp;
   plog(XLOG_INFO, "autofs: mounting %s failed", mp->am_path);
-  if ( ioctl(fh->ioctlfd, AUTOFS_IOC_FAIL, p->wait_queue_token) < 0 )
-    plog(XLOG_ERROR, "AUTOFS_IOC_FAIL: %s", strerror(errno));
+  send_fail(fh->ioctlfd, p->wait_queue_token);
 
   XFREE(p->name);
   *pp = p->next;
   XFREE(p);
 }
+
 
 void
 autofs_get_opts(char *opts, autofs_fh_t *fh)
@@ -528,8 +657,44 @@ autofs_get_opts(char *opts, autofs_fh_t *fh)
 	  fh->kernelfd, AUTOFS_MIN_VERSION, AUTOFS_MAX_VERSION);
 }
 
+
 int
 autofs_compute_mount_flags(mntent_t *mnt)
 {
   return 0;
+}
+
+
+#ifdef autofs_ptype_expire_multi
+static int autofs_timeout_mp_task(void *arg)
+{
+  am_node *mp = (am_node *)arg;
+  autofs_fh_t *fh = mp->am_mnt->mf_autofs_fh;
+  int now = 0;
+
+  while (ioctl(fh->ioctlfd, AUTOFS_IOC_EXPIRE_MULTI, &now) == 0);
+  return 0;
+}
+#endif /* autofs_ptype_expire_multi */
+
+
+void autofs_timeout_mp(am_node *mp)
+{
+  autofs_fh_t *fh = mp->am_mnt->mf_autofs_fh;
+  time_t now = clocktime();
+
+  /* update the ttl, but only if we're not going down */
+  if (mp->am_flags & AMF_NOTIMEOUT)
+    mp->am_ttl = now + gopt.am_timeo_w;
+
+  if (fh->version < 4) {
+    struct autofs_packet_expire pkt;
+    while (ioctl(fh->ioctlfd, AUTOFS_IOC_EXPIRE, &pkt) == 0)
+      autofs_handle_expire(mp, &pkt);
+    return;
+  }
+
+#ifdef autofs_ptype_expire_multi
+  run_task(autofs_timeout_mp_task, mp, NULL, NULL);
+#endif /* autofs_ptype_expire_multi */
 }

@@ -1,21 +1,24 @@
 /*
- * Copyright (c) 1998-2002 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 1998-2003 Apple Computer, Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
- * The contents of this file constitute Original Code as defined in and
- * are subject to the Apple Public Source License Version 1.1 (the
- * "License").  You may not use this file except in compliance with the
- * License.  Please obtain a copy of the License at
- * http://www.apple.com/publicsource and read it before using this file.
+ * Copyright (c) 1999-2003 Apple Computer, Inc.  All Rights Reserved.
  * 
- * This Original Code and all software distributed under the License are
- * distributed on an "AS IS" basis, WITHOUT WARRANTY OF ANY KIND, EITHER
+ * This file contains Original Code and/or Modifications of Original Code
+ * as defined in and that are subject to the Apple Public Source License
+ * Version 2.0 (the 'License'). You may not use this file except in
+ * compliance with the License. Please obtain a copy of the License at
+ * http://www.opensource.apple.com/apsl/ and read it before using this
+ * file.
+ * 
+ * The Original Code and all software distributed under the License are
+ * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
  * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
  * INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY,
- * FITNESS FOR A PARTICULAR PURPOSE OR NON-INFRINGEMENT.  Please see the
- * License for the specific language governing rights and limitations
- * under the License.
+ * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
+ * Please see the License for the specific language governing rights and
+ * limitations under the License.
  * 
  * @APPLE_LICENSE_HEADER_END@
  */
@@ -50,6 +53,13 @@ bool AppleADBButtons::start ( IOService * theNub )
     adbDevice = (IOADBDevice *)theNub;
 
     register_for_button = OSSymbol::withCString("register_for_button");
+    _initial_handler_id = adbDevice->handlerID();
+    if (_initial_handler_id == 0xc0)
+    {
+        return false;   //Don't allow Apple A/V monitor buttons to generate
+                        // ADB button data since monitor is already in LOCAL mode,
+                        // courtesy of AppleADBDisplay.kext
+    }
 
     if( !super::start(theNub))
         return false;
@@ -61,10 +71,11 @@ bool AppleADBButtons::start ( IOService * theNub )
 
     addNotification( gIOPublishNotification,serviceMatching("IODisplayWrangler"),	// look for the display wrangler
                      (IOServiceNotificationHandler)displayWranglerFound, this, 0 );
-    _initial_handler_id = adbDevice->handlerID();
     _eject_released = true;  //initially assume eject button is released
     _peject_timer = thread_call_allocate((thread_call_func_t)check_eject_held, (thread_call_param_t)this);
-    
+    _get_handler_id = OSSymbol::withCString("get_handler_id");
+    _get_device_flags = OSSymbol::withCString("get_device_flags");
+
     return true;
 }
 
@@ -119,16 +130,24 @@ UInt32 AppleADBButtons::deviceType()
 	return xml_handlerID->unsigned32BitValue();
     }
 
-    //If initial id is 31 then this is a post-WallStreet PowerBook, so 
-    // pretend it is on an ANSI keyboard.  If the real keyboard is JIS or
-    // ISO then any keypresses from there will load the correct system
-    // resources automatically.  Returning a nonexistent keyboard id
-    // prevents language resources from loading properly.
+    //If initial id is 31 then this is a post-WallStreet PowerBook
     if (_initial_handler_id == 31)
     {
-	return 195; //Gestalt.h domestic (ANSI) Powerbook keyboard
-    }
-    else
+	mach_timespec_t     	t;
+	unsigned 		fake_ID;
+	
+	t.tv_sec = 2; //Wait for keyboard driver for up to 2 seconds
+	t.tv_nsec = 0;
+	_pADBKeyboard = waitForService(serviceMatching("AppleADBKeyboard"), &t);
+	if (_pADBKeyboard)
+	{	    
+	    _pADBKeyboard->callPlatformFunction(_get_handler_id, false, 
+		(void *)&fake_ID, 0, 0, 0);
+	    return fake_ID;
+	}
+        else return 195; //Gestalt.h domestic (ANSI) Powerbook keyboard
+    } 
+    
     return adbDevice->handlerID();
 }
 
@@ -204,25 +223,6 @@ void AppleADBButtons::dispatchButtonEvent (unsigned int keycode, bool down )
     int i;
     AbsoluteTime now;
 
-    if (_initial_handler_id == 0xc0)  //For Apple ADB AV and ColorSync monitors
-    {
-	switch (keycode)
-	{
-	    case kVolume_up_AV:
-		keycode = kVolume_up;
-		break;
-	    case kVolume_down_AV:
-		keycode = kVolume_down;
-		break;
-	    case kMute_AV:
-		keycode = kMute;
-		break;
-	    default:
-		//No other volume codes are available for OS X
-		break;
-	}
-    }
-
     clock_get_uptime(&now);
     
     for ( i = 0; i < kMax_registrations; i++ ) {
@@ -247,11 +247,8 @@ void AppleADBButtons::dispatchButtonEvent (unsigned int keycode, bool down )
 	t.tv_nsec = 0;
 	_pADBKeyboard = waitForService(serviceMatching("AppleADBKeyboard"), &t);
 	if (_pADBKeyboard)
-	{
-	    const OSSymbol 	*get_device_flags;
-	    
-	    get_device_flags = OSSymbol::withCString("get_device_flags");
-	    _pADBKeyboard->callPlatformFunction(get_device_flags, false, 
+	{	    
+	    _pADBKeyboard->callPlatformFunction(_get_device_flags, false, 
 		(void *)&adb_keyboard_flags, 0, 0, 0);
 	    super::setDeviceFlags(adb_keyboard_flags);
 	}

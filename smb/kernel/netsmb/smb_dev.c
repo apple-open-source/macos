@@ -29,7 +29,7 @@
  * OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
  * SUCH DAMAGE.
  *
- * $Id: smb_dev.c,v 1.5.182.1 2003/01/08 03:24:41 lindak Exp $
+ * $Id: smb_dev.c,v 1.13 2003/08/19 01:34:17 lindak Exp $
  */
 #include <sys/param.h>
 #include <sys/kernel.h>
@@ -41,8 +41,8 @@
 #include <sys/mbuf.h>
 #include <sys/proc.h>
 #ifdef APPLE
-#include <sys/filedesc.h>
-#warning XXX xnu needs to install poll.h into kernel framework!
+	#include <sys/filedesc.h>
+	/* XXX xnu needs to install poll.h into kernel framework! */
 #endif
 #include <sys/fcntl.h>
 #include <sys/file.h>
@@ -85,12 +85,7 @@ int smb_minor_hiwat = -1;
 
 static d_open_t	 nsmb_dev_open;
 static d_close_t nsmb_dev_close;
-static d_read_t	 nsmb_dev_read;
-static d_write_t nsmb_dev_write;
 static d_ioctl_t nsmb_dev_ioctl;
-#ifndef APPLE
-static d_poll_t	 nsmb_dev_poll;
-#endif
 
 #ifdef MODULE_DEPEND
 MODULE_DEPEND(netsmb, libiconv, 1, 1, 1);
@@ -121,12 +116,12 @@ int smb_dev_queue(struct smb_dev *ndp, struct smb_rq *rqp, int prio);
 */
 
 static struct cdevsw nsmb_cdevsw = {
-	/* open */	nsmb_dev_open,
-	/* close */	nsmb_dev_close,
-	/* read */	nsmb_dev_read,
-	/* write */	nsmb_dev_write,
-	/* ioctl */ 	nsmb_dev_ioctl,
+	nsmb_dev_open,
+	nsmb_dev_close,
 #ifdef APPLE
+	/* read */	eno_rdwrt,
+	/* write */	eno_rdwrt,
+	nsmb_dev_ioctl,
 	eno_stop,
 	eno_reset,
 	0,
@@ -137,15 +132,9 @@ static struct cdevsw nsmb_cdevsw = {
 	eno_putc,
 	0
 #else
-	/* poll */	nsmb_dev_poll,
-	/* mmap */	nommap,
-	/* strategy */	nostrategy,
-	/* name */	NSMB_NAME,
-	/* maj */	NSMB_MAJOR,
-	/* dump */	nodump,
-	/* psize */	nopsize,
-	/* flags */	0,
-	/* bmaj */	-1
+	nsmb_dev_ioctl,
+	NSMB_NAME,
+	NSMB_MAJOR,
 #endif
 };
 
@@ -177,6 +166,7 @@ nsmb_dev_open_nolock(dev_t dev, int oflags, int devtype, struct proc *p)
 nsmb_dev_open(dev_t dev, int oflags, int devtype, struct proc *p)
 #endif /* APPLE */
 {
+	#pragma unused(oflags, devtype)
 	struct smb_dev *sdp;
 	struct ucred *cred = p->p_ucred;
 	int s;
@@ -185,9 +175,7 @@ nsmb_dev_open(dev_t dev, int oflags, int devtype, struct proc *p)
 	if (sdp && (sdp->sd_flags & NSMBFL_OPEN))
 		return EBUSY;
 #ifdef APPLE
-	if (!sdp)
-		panic("smb: device in fs but not in dtab array");
-	if (minor(dev) == 0) {
+	if (!sdp || minor(dev) == 0) {
 		int	avail_minor;
 
 		for (avail_minor = 1; avail_minor < SMBMINORS; avail_minor++)
@@ -213,8 +201,6 @@ nsmb_dev_open(dev_t dev, int oflags, int devtype, struct proc *p)
 		sdp = malloc(sizeof(*sdp), M_NSMBDEV, M_WAITOK);
 		dev->si_drv1 = (void*)sdp;
 	}
-#endif
-#ifndef APPLE
 	/*
 	 * XXX: this is just crazy - make a device for an already passed device...
 	 * someone should take care of it.
@@ -256,6 +242,7 @@ nsmb_dev_close_nolock(dev_t dev, int flag, int fmt, struct proc *p)
 nsmb_dev_close(dev_t dev, int flag, int fmt, struct proc *p)
 #endif /* APPLE */
 {
+	#pragma unused(flag, fmt)
 	struct smb_dev *sdp;
 	struct smb_vc *vcp;
 	struct smb_share *ssp;
@@ -280,8 +267,8 @@ nsmb_dev_close(dev_t dev, int flag, int fmt, struct proc *p)
 	smb_flushq(&sdp->sd_rplist);
 */
 #ifdef APPLE
+	devfs_remove(sdp->sd_devfs); /* first disallow opens */
 	SMB_GETDEV(dev) = NULL;
-	devfs_remove(sdp->sd_devfs);
 	free(sdp, M_NSMBDEV);
 #else
 #if __FreeBSD_version > 400001
@@ -313,6 +300,7 @@ nsmb_dev_close(dev_t dev, int flag, int fmt, struct proc *p)
 static int
 nsmb_dev_ioctl(dev_t dev, u_long cmd, caddr_t data, int flag, struct proc *p)
 {
+	#pragma unused(flag)
 	struct smb_dev *sdp;
 	struct smb_vc *vcp;
 	struct smb_share *ssp;
@@ -325,6 +313,7 @@ nsmb_dev_ioctl(dev_t dev, u_long cmd, caddr_t data, int flag, struct proc *p)
 
 	smb_makescred(&scred, p, NULL);
 	switch (cmd) {
+#ifndef APPLE
 	    case SMBIOC_OPENSESSION:
 		if (sdp->sd_vc)
 			return EISCONN;
@@ -349,6 +338,7 @@ nsmb_dev_ioctl(dev_t dev, u_long cmd, caddr_t data, int flag, struct proc *p)
 		smb_share_unlock(ssp, 0, p);
 		sdp->sd_level = SMBL_SHARE;
 		break;
+#endif /* !APPLE */
 	    case SMBIOC_REQUEST:
 		if (sdp->sd_share == NULL)
 			return ENOTCONN;
@@ -361,6 +351,7 @@ nsmb_dev_ioctl(dev_t dev, u_long cmd, caddr_t data, int flag, struct proc *p)
 		error = smb_usr_t2request(sdp->sd_share,
 		    (struct smbioc_t2rq*)data, &scred);
 		break;
+#ifndef APPLE
 	    case SMBIOC_SETFLAGS: {
 		struct smbioc_flags *fl = (struct smbioc_flags*)data;
 		int on;
@@ -425,6 +416,71 @@ nsmb_dev_ioctl(dev_t dev, u_long cmd, caddr_t data, int flag, struct proc *p)
 			sdp->sd_level = SMBL_SHARE;
 		}
 		break;
+#endif /* !APPLE */
+	    case SMBIOC_NEGOTIATE:
+		if (sdp->sd_vc || sdp->sd_share)
+			return EISCONN;
+		vcp = NULL;
+		ssp = NULL;
+		error = smb_usr_negotiate((struct smbioc_lookup*)data, &scred,
+					  &vcp, &ssp);
+		if (error)
+			break;
+		if (vcp) {
+			sdp->sd_vc = vcp;
+			smb_vc_unlock(vcp, 0, p);
+			sdp->sd_level = SMBL_VC;
+		}
+		if (ssp) {
+			sdp->sd_share = ssp;
+			smb_share_unlock(ssp, 0, p);
+			sdp->sd_level = SMBL_SHARE;
+		}
+		break;
+	    case SMBIOC_SSNSETUP:
+		if (sdp->sd_share)
+			return EISCONN;
+		if (!sdp->sd_vc)
+			return ENOTCONN;
+		vcp = sdp->sd_vc;
+		ssp = NULL;
+		error = smb_usr_ssnsetup((struct smbioc_lookup*)data, &scred,
+					 vcp, &ssp);
+		if (error)
+			break;
+		smb_vc_put(vcp, &scred);
+		if (ssp) {
+			sdp->sd_share = ssp;
+			smb_share_unlock(ssp, 0, p);
+			sdp->sd_level = SMBL_SHARE;
+		}
+		break;
+	    case SMBIOC_TDIS:
+		if (sdp->sd_share == NULL)
+			return ENOTCONN;
+		smb_share_rele(sdp->sd_share, &scred);
+		sdp->sd_share = NULL;
+		sdp->sd_level = SMBL_VC;
+		break;
+	    case SMBIOC_TCON:
+		if (sdp->sd_share)
+			return EISCONN;
+		if (!sdp->sd_vc)
+			return ENOTCONN;
+		vcp = sdp->sd_vc;
+		ssp = NULL;
+		error = smb_usr_tcon((struct smbioc_lookup*)data, &scred,
+				     vcp, &ssp);
+		if (error)
+			break;
+		smb_vc_put(vcp, &scred);
+		if (ssp) {
+			sdp->sd_share = ssp;
+			smb_share_unlock(ssp, 0, p);
+			sdp->sd_level = SMBL_SHARE;
+		}
+		break;
+#ifndef APPLE
 	    case SMBIOC_READ: case SMBIOC_WRITE: {
 		struct smbioc_rw *rwrq = (struct smbioc_rw*)data;
 		struct uio auio;
@@ -447,45 +503,27 @@ nsmb_dev_ioctl(dev_t dev, u_long cmd, caddr_t data, int flag, struct proc *p)
 		if (cmd == SMBIOC_READ)
 			error = smb_read(ssp, rwrq->ioc_fh, &auio, &scred);
 		else
-			error = smb_write(ssp, rwrq->ioc_fh, &auio, &scred);
+			error = smb_write(ssp, rwrq->ioc_fh, &auio, &scred,
+					  SMBWRTTIMO);
 		rwrq->ioc_cnt -= auio.uio_resid;
 		break;
 	    }
+#endif /* !APPLE */
 	    default:
 		error = ENODEV;
 	}
 	return error;
 }
 
-static int
-nsmb_dev_read(dev_t dev, struct uio *uio, int flag)
-{
-#warning XXX Q4BP: why EACCES not ENODEV?
-	return EACCES;
-}
 
-static int
-nsmb_dev_write(dev_t dev, struct uio *uio, int flag)
-{
-#warning XXX Q4BP: why EACCES not ENODEV?
-	return EACCES;
-}
-
-#ifndef APPLE
-static int
-nsmb_dev_poll(dev_t dev, int events, struct proc *p)
-{
-	return ENODEV;
-}
-#endif /* APPLE */
-
-#ifdef APPLE
-int /* so we can call this from smbfs_module_start in smbfs_vfsops.c */
-#else
-static int
+PRIVSYM
+#ifndef APPLE /* so we can call from smbfs_module_start in smbfs_vfsops.c */
+static
 #endif
+int
 nsmb_dev_load(module_t mod, int cmd, void *arg)
 {
+	#pragma unused(mod, arg)
 	int error = 0;
 
 	switch (cmd) {
@@ -587,7 +625,7 @@ nsmb_getfp(struct filedesc* fdp, int fd, int flag)
 {
 	struct file* fp;
 
-	if (((u_int)fd) >= fdp->fd_nfiles ||
+	if (fd >= fdp->fd_nfiles ||
 	    (fp = fdp->fd_ofiles[fd]) == NULL ||
 	    (fp->f_flag & flag) == 0)
 		return (NULL);
@@ -598,12 +636,12 @@ int
 smb_dev2share(int fd, int mode, struct smb_cred *scred,
 	struct smb_share **sspp)
 {
+	#pragma unused(mode)
 	struct file *fp;
 	struct vnode *vp;
 	struct smb_dev *sdp;
 	struct smb_share *ssp;
 	dev_t dev;
-	int error;
 
 	if ((fp = nsmb_getfp(scred->scr_p->p_fd, fd, FREAD | FWRITE)) == NULL)
 		return EBADF;
@@ -617,9 +655,13 @@ smb_dev2share(int fd, int mode, struct smb_cred *scred,
 	ssp = sdp->sd_share;
 	if (ssp == NULL)
 		return ENOTCONN;
-	error = smb_share_get(ssp, LK_EXCLUSIVE, scred);
-	if (error)
-		return error;
+	/*
+	 * The share is already locked and referenced by the TCON ioctl
+	 * We NULL to hand off share to caller (mount)
+	 * This allows further ioctls against connection, for instance
+	 * another tree connect and mount, in the automounter case
+	 */
+	sdp->sd_share = NULL;
 	*sspp = ssp;
 	return 0;
 }

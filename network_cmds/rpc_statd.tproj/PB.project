@@ -1,0 +1,36 @@
+{
+    BUILDDIR = ""; 
+    BUILDTOOL = /bin/gnumake; 
+    FILESTABLE = {
+        C_FILES = ();
+        H_FILES = ( statd.h );
+        M_FILES = (); 
+        OTHER_LIBS = (); 
+        OTHER_LINKED = (
+            file.c,
+            procs.c,
+            statd.c,
+	    sm_inter_svc.c,
+	    sm_inter_xdr.c
+	);
+        OTHER_SOURCES = (
+	    Makefile.dist,
+	    Makefile.preamble,
+	    Makefile,
+	    Makefile.postamble,
+	    test.c,
+	    rpc.statd.8
+	);
+        SUBPROJECTS = (); 
+    }; 
+    LANGUAGE = English; 
+    LOCALIZABLE_FILES = {}; 
+    COMPILEROPTIONS = ""; 
+    LINKEROPTIONS = ""; 
+    NEXTSTEP_INSTALLDIR = /usr/sbin; 
+    PDO_UNIX_INSTALLDIR = /usr/sbin; 
+    PROJECTNAME = rpc.statd; 
+    PROJECTTYPE = Tool; 
+    PROJECTVERSION = 2.6; 
+    WINDOWS_INSTALLDIR = /usr/sbin; 
+}

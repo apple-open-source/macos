@@ -100,11 +100,16 @@ SSCSPSession::setupContext(CSPContext * &cspCtx,
 SSDatabase
 SSCSPSession::getDatabase(const Context &context)
 {
-	CSSM_DL_DB_HANDLE *aDLDbHandle = context.get<CSSM_DL_DB_HANDLE>(CSSM_ATTRIBUTE_DL_DB_HANDLE);
-	if (!aDLDbHandle)
-		return SSDatabase();
+	return getDatabase(context.get<CSSM_DL_DB_HANDLE>(CSSM_ATTRIBUTE_DL_DB_HANDLE));
+}
 
-	return findSession<SSDLSession>(aDLDbHandle->DLHandle).findDbHandle(aDLDbHandle->DBHandle);
+SSDatabase
+SSCSPSession::getDatabase(CSSM_DL_DB_HANDLE *aDLDbHandle)
+{
+	if (aDLDbHandle)
+		return findSession<SSDLSession>(aDLDbHandle->DLHandle).findDbHandle(aDLDbHandle->DBHandle);
+	else
+		return SSDatabase();
 }
 
 
@@ -227,8 +232,20 @@ SSCSPSession::DeriveKey(CSSM_CC_HANDLE ccHandle,
 	KeyHandle contextKeyHandle =
 		keyInContext ? lookupKey(*keyInContext).keyHandle() : noKey;
 	KeyHandle keyHandle;
-	clientSession().deriveKey(database.dbHandle(), context, contextKeyHandle, keyUsage,
+	switch(context.algorithm()) {
+	case CSSM_ALGID_KEYCHAIN_KEY:
+		{
+			// special interpretation: take DLDBHandle -> DbHandle from params
+			clientSession().extractMasterKey(database.dbHandle(), context,
+				getDatabase(param.interpretedAs<CSSM_DL_DB_HANDLE>(CSSMERR_CSP_INVALID_ATTR_DL_DB_HANDLE)).dbHandle(),
+				keyUsage, keyAttr, cred, owner, keyHandle, derivedKey.header());
+		}
+		break;
+	default:
+		clientSession().deriveKey(database.dbHandle(), context, contextKeyHandle, keyUsage,
 					keyAttr, param, cred, owner, keyHandle, derivedKey.header());
+		break;
+	}
 	makeReferenceKey(keyHandle, derivedKey, database, keyAttr, keyLabel);
 }
 
@@ -283,6 +300,15 @@ SSCSPSession::GenerateKeyPair(CSSM_CC_HANDLE ccHandle,
 		owner = &AclEntryInput::overlay(credAndAclEntry->InitialAclEntry);
 	}
 
+	/* 
+	 * Public keys must be extractable in the clear - that's the Apple
+	 * policy. The raw CSP is unable to enforce the extractable
+	 * bit since it always sees that as true (it's managed and forced
+	 * true by the SecurityServer). So...
+	 */
+	if(!(publicKeyAttr & CSSM_KEYATTR_EXTRACTABLE)) {
+			CssmError::throwMe(CSSMERR_CSP_INVALID_KEYATTR_MASK);
+	}
 	KeyHandle pubKeyHandle, privKeyHandle;
 	clientSession().generateKey(database.dbHandle(), context,
 							   publicKeyUsage, publicKeyAttr,
@@ -330,6 +356,7 @@ SSCSPSession::FreeKey(const AccessCredentials *accessCred,
 
 		// Find the key in the map.  Tell tell the key to free itself
 		// (when the auto_ptr deletes the key it removes itself from the map). 
+	    secdebug("freeKey", "CSPDL FreeKey");
 		auto_ptr<SSKey> ssKey(&mSSCSPDLSession.find<SSKey>(ioKey));
 		ssKey->free(accessCred, ioKey, deleteKey);
 	}
@@ -502,16 +529,68 @@ SSCSPSession::ChangeLoginAcl(const AccessCredentials &AccessCred,
 
 
 //
-// Passthroughs (by default, unimplemented)
+// Passthroughs
 //
 void
 SSCSPSession::PassThrough(CSSM_CC_HANDLE CCHandle,
-						  const Context &Context,
-						  uint32 PassThroughId,
-						  const void *InData,
-						  void **OutData)
+						  const Context &context,
+						  uint32 passThroughId,
+						  const void *inData,
+						  void **outData)
 {
-	unimplemented();
+    checkOperation(context.type(), CSSM_ALGCLASS_NONE);
+	switch (passThroughId) {
+	case CSSM_APPLESCPDL_CSP_GET_KEYHANDLE:
+	{
+		// inData unused, must be NULL
+		if (inData)
+			CssmError::throwMe(CSSM_ERRCODE_INVALID_INPUT_POINTER);
+
+		// outData required, must be pointer-to-pointer-to-KeyHandle
+		KeyHandle &result = Required(reinterpret_cast<KeyHandle *>(outData));
+
+		// we'll take the key from the context
+		const CssmKey &key =
+			context.get<const CssmKey>(CSSM_ATTRIBUTE_KEY,  CSSMERR_CSP_MISSING_ATTR_KEY);
+
+		// all ready
+		result = lookupKey(key).keyHandle();
+		break;
+	}
+	case CSSM_APPLECSP_KEYDIGEST:
+	{
+		// inData unused, must be NULL
+		if (inData)
+			CssmError::throwMe(CSSM_ERRCODE_INVALID_INPUT_POINTER);
+
+		// outData required
+		Required(outData);
+
+		// take the key from the context, convert to KeyHandle
+		const CssmKey &key =
+			context.get<const CssmKey>(CSSM_ATTRIBUTE_KEY,  CSSMERR_CSP_MISSING_ATTR_KEY); 
+		KeyHandle keyHandle = lookupKey(key).keyHandle();
+
+		// allocate digest holder on app's behalf
+		CSSM_DATA *digest = alloc<CSSM_DATA>(sizeof(CSSM_DATA));
+		digest->Data = NULL;
+		digest->Length = 0;
+				
+		// go
+		try {
+			clientSession().getKeyDigest(keyHandle, CssmData::overlay(*digest));
+		}
+		catch(...) {
+			free(digest);
+			throw;
+		}
+		*outData = digest;
+		break;
+	}
+	
+	default:
+		CssmError::throwMe(CSSM_ERRCODE_INVALID_PASSTHROUGH_ID);
+	}
 }
 
 /* Validate requested key attr flags for newly generated keys */

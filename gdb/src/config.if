@@ -46,7 +46,7 @@ if [ -z "${libc_interface}" ]
 then
   case ${target_os} in
   *linux*libc1*|*linux*libc5*)
-    case ${target_alias} in
+    case ${target} in
     *alpha*|*powerpc*)
       libc_interface=-libc5.9-
       ;;
@@ -57,7 +57,7 @@ then
     ;;
   *linux*gnu*)
     # We have to work harder to figure it out.
-    if [ ${target_alias} = ${build_alias} ]
+    if [ "${target}" = "${build}" ]
     then
       dummy=if$$
       cat >$dummy.c <<EOF

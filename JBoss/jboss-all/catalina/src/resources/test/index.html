@@ -1,0 +1,21 @@
+<!doctype html public "-//w3c//dtd html 4.0 transitional//en">
+<html>
+<head>
+   <meta http-equiv="Content-Type" content="text/html; charset=iso-8859-1">
+   <title>Servlet / EJB  example</title>
+</head>
+<body bgcolor="#FFFFFF">
+<h1>Servlet / EJB example</h1>
+Congratulations!  You seem to have successfully deployed the example.
+
+<p>This example is a very simple servlet which calls a very simple StatelessSession bean. The bean is deployed twice: once using Non Optimized calls (ie RMI), and once with the inVM optimization, so you can see the difference.</p>
+
+<a href="servlet/HelloEJB">Execute the example</a><br>
+<a href="servlet/HelloEJB?trace">Execute the example with tracing</a><br>
+<a href="servlet/HelloEJB?speed">Execute the example with speed test</a><br>
+<p>For better results in the speed test, I recommend to turn off debug logging: edit your jboss.conf file and find the ConsoleLogging entry: set the first ARG to "Information,Warning,Error".<br>Note that all tomcat logging is seen as "Information".</p>
+<p>If you use a hotspot JVM, it will also get much faster after a while (click on "reload")</p>
+
+
+</body>
+</html>

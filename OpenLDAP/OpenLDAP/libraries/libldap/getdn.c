@@ -1,6 +1,6 @@
-/* $OpenLDAP: pkg/ldap/libraries/libldap/getdn.c,v 1.94.2.1 2002/02/23 23:24:43 kurt Exp $ */
+/* $OpenLDAP: pkg/ldap/libraries/libldap/getdn.c,v 1.94.2.9 2003/03/03 17:10:04 kurt Exp $ */
 /*
- * Copyright 1998-2002 The OpenLDAP Foundation, All Rights Reserved.
+ * Copyright 1998-2003 The OpenLDAP Foundation, All Rights Reserved.
  * COPYING RESTRICTIONS APPLY, see COPYRIGHT file
  */
 /*  Portions
@@ -84,12 +84,15 @@ ldap_get_dn( LDAP *ld, LDAPMessage *entry )
 	char		*dn;
 	BerElement	tmp;
 
+#ifdef NEW_LOGGING
+	LDAP_LOG ( OPERATION, ENTRY, "ldap_get_dn\n", 0, 0, 0 );
+#else
 	Debug( LDAP_DEBUG_TRACE, "ldap_get_dn\n", 0, 0, 0 );
+#endif
 
-	if ( entry == NULL ) {
-		ld->ld_errno = LDAP_PARAM_ERROR;
-		return( NULL );
-	}
+	assert( ld != NULL );
+	assert( LDAP_VALID(ld) );
+	assert( entry != NULL );
 
 	tmp = *entry->lm_ber;	/* struct copy */
 	if ( ber_scanf( &tmp, "{a" /*}*/, &dn ) == LBER_ERROR ) {
@@ -100,6 +103,57 @@ ldap_get_dn( LDAP *ld, LDAPMessage *entry )
 	return( dn );
 }
 
+int
+ldap_get_dn_ber( LDAP *ld, LDAPMessage *entry, BerElement **berout,
+	BerValue *dn )
+{
+	BerElement	tmp, *ber;
+	ber_len_t	len = 0;
+	int rc = LDAP_SUCCESS;
+
+#ifdef NEW_LOGGING
+	LDAP_LOG ( OPERATION, ENTRY, "ldap_get_dn_ber\n", 0, 0, 0 );
+#else
+	Debug( LDAP_DEBUG_TRACE, "ldap_get_dn_ber\n", 0, 0, 0 );
+#endif
+
+	assert( ld != NULL );
+	assert( LDAP_VALID(ld) );
+	assert( entry != NULL );
+	assert( dn != NULL );
+
+	dn->bv_val = NULL;
+	dn->bv_len = 0;
+
+	if ( berout ) {
+		*berout = NULL;
+		ber = ldap_alloc_ber_with_options( ld );
+		if( ber == NULL ) {
+			return LDAP_NO_MEMORY;
+		}
+		*berout = ber;
+	} else {
+		ber = &tmp;
+	}
+		
+	*ber = *entry->lm_ber;	/* struct copy */
+	if ( ber_scanf( ber, "{ml{" /*}*/, dn, &len ) == LBER_ERROR ) {
+		rc = ld->ld_errno = LDAP_DECODING_ERROR;
+	}
+	if ( rc == LDAP_SUCCESS ) {
+		/* set the length to avoid overrun */
+		rc = ber_set_option( ber, LBER_OPT_REMAINING_BYTES, &len );
+		if( rc != LBER_OPT_SUCCESS ) {
+			rc = ld->ld_errno = LDAP_LOCAL_ERROR;
+		}
+	}
+	if ( rc != LDAP_SUCCESS && berout ) {
+		ber_free( ber, 0 );
+		*berout = NULL;
+	}
+	return rc;
+}
+
 /*
  * RFC 1823 ldap_dn2ufn
  */
@@ -108,7 +162,11 @@ ldap_dn2ufn( LDAP_CONST char *dn )
 {
 	char	*out = NULL;
 
+#ifdef NEW_LOGGING
+	LDAP_LOG ( OPERATION, ENTRY, "ldap_dn2ufn\n", 0, 0, 0 );
+#else
 	Debug( LDAP_DEBUG_TRACE, "ldap_dn2ufn\n", 0, 0, 0 );
+#endif
 
 	( void )ldap_dn_normalize( dn, LDAP_DN_FORMAT_LDAP, 
 		&out, LDAP_DN_FORMAT_UFN );
@@ -127,7 +185,11 @@ ldap_explode_dn( LDAP_CONST char *dn, int notypes )
 	int	iRDN;
 	unsigned flag = notypes ? LDAP_DN_FORMAT_UFN : LDAP_DN_FORMAT_LDAPV3;
 	
+#ifdef NEW_LOGGING
+	LDAP_LOG ( OPERATION, ENTRY, "ldap_explode_dn\n", 0, 0, 0 );
+#else
 	Debug( LDAP_DEBUG_TRACE, "ldap_explode_dn\n", 0, 0, 0 );
+#endif
 
 	if ( ldap_str2dn( dn, &tmpDN, LDAP_DN_FORMAT_LDAP ) 
 			!= LDAP_SUCCESS ) {
@@ -167,7 +229,11 @@ ldap_explode_rdn( LDAP_CONST char *rdn, int notypes )
 	const char 	*p;
 	int		iAVA;
 	
+#ifdef NEW_LOGGING
+	LDAP_LOG ( OPERATION, ENTRY, "ldap_explode_rdn\n", 0, 0, 0 );
+#else
 	Debug( LDAP_DEBUG_TRACE, "ldap_explode_rdn\n", 0, 0, 0 );
+#endif
 
 	/*
 	 * we only parse the first rdn
@@ -248,7 +314,11 @@ ldap_dn2dcedn( LDAP_CONST char *dn )
 {
 	char	*out = NULL;
 
+#ifdef NEW_LOGGING
+	LDAP_LOG ( OPERATION, ENTRY, "ldap_dn2dcedn\n", 0, 0, 0 );
+#else
 	Debug( LDAP_DEBUG_TRACE, "ldap_dn2dcedn\n", 0, 0, 0 );
+#endif
 
 	( void )ldap_dn_normalize( dn, LDAP_DN_FORMAT_LDAP, 
 				   &out, LDAP_DN_FORMAT_DCE );
@@ -261,7 +331,11 @@ ldap_dcedn2dn( LDAP_CONST char *dce )
 {
 	char	*out = NULL;
 
+#ifdef NEW_LOGGING
+	LDAP_LOG ( OPERATION, ENTRY, "ldap_dcedn2dn\n", 0, 0, 0 );
+#else
 	Debug( LDAP_DEBUG_TRACE, "ldap_dcedn2dn\n", 0, 0, 0 );
+#endif
 
 	( void )ldap_dn_normalize( dce, LDAP_DN_FORMAT_DCE, &out, LDAP_DN_FORMAT_LDAPV3 );
 
@@ -273,7 +347,11 @@ ldap_dn2ad_canonical( LDAP_CONST char *dn )
 {
 	char	*out = NULL;
 
+#ifdef NEW_LOGGING
+	LDAP_LOG ( OPERATION, ENTRY, "ldap_dn2ad_canonical\n", 0, 0, 0 );
+#else
 	Debug( LDAP_DEBUG_TRACE, "ldap_dn2ad_canonical\n", 0, 0, 0 );
+#endif
 
 	( void )ldap_dn_normalize( dn, LDAP_DN_FORMAT_LDAP, 
 		       &out, LDAP_DN_FORMAT_AD_CANONICAL );
@@ -305,7 +383,11 @@ ldap_dn_normalize( LDAP_CONST char *dnin,
 	int	rc;
 	LDAPDN	*tmpDN = NULL;
 
+#ifdef NEW_LOGGING
+	LDAP_LOG ( OPERATION, ENTRY, "ldap_dn_normalize\n", 0, 0, 0 );
+#else
 	Debug( LDAP_DEBUG_TRACE, "ldap_dn_normalize\n", 0, 0, 0 );
+#endif
 
 	assert( dnout );
 
@@ -628,7 +710,11 @@ ldap_bv2dn( struct berval *bv, LDAPDN **dn, unsigned flags )
 	assert( bv->bv_val );
 	assert( dn );
 
+#ifdef NEW_LOGGING
+	LDAP_LOG ( OPERATION, ARGS, "ldap_bv2dn(%s,%u)\n%s", str, flags, "" );
+#else
 	Debug( LDAP_DEBUG_TRACE, "=> ldap_bv2dn(%s,%u)\n%s", str, flags, "" );
+#endif
 
 	*dn = NULL;
 
@@ -800,7 +886,12 @@ return_result:;
 		LDAP_FREE( tmpDN );
 	}
 
+#ifdef NEW_LOGGING
+	LDAP_LOG ( OPERATION, RESULTS, "<= ldap_bv2dn(%s,%u)=%d\n", 
+		str, flags, rc );
+#else
 	Debug( LDAP_DEBUG_TRACE, "<= ldap_bv2dn(%s,%u)=%d\n", str, flags, rc );
+#endif
 	*dn = newDN;
 	
 	return( rc );
@@ -1711,7 +1802,7 @@ quotedIA52strval( const char *str, struct berval *val, const char **next, unsign
 	}
 
 	len = endPos - startPos - escapes;
-	assert( len >= 0 );
+	assert( endPos >= startPos + escapes );
 	val->bv_len = len;
 	if ( escapes == 0 ) {
 		val->bv_val = LDAP_STRNDUP( startPos, len );
@@ -2836,7 +2927,7 @@ ldap_rdn2bv( LDAPRDN *rdn, struct berval *bv, unsigned flags )
 		break;
 
 	default:
-		return( LDAP_PARAM_ERROR );
+		return LDAP_PARAM_ERROR;
 	}
 
 	bv->bv_val = LDAP_MALLOC( l + 1 );
@@ -2925,7 +3016,12 @@ int ldap_dn2bv( LDAPDN *dn, struct berval *bv, unsigned flags )
 	bv->bv_len = 0;
 	bv->bv_val = NULL;
 
+#ifdef NEW_LOGGING
+	LDAP_LOG ( OPERATION, ARGS, "=> ldap_dn2bv(%u)\n%s%s", 
+		flags, "", "" );
+#else
 	Debug( LDAP_DEBUG_TRACE, "=> ldap_dn2bv(%u)\n%s%s", flags, "", "" );
+#endif
 
 	/* 
 	 * a null dn means an empty dn string 
@@ -3232,10 +3328,214 @@ int ldap_dn2bv( LDAPDN *dn, struct berval *bv, unsigned flags )
 		return LDAP_PARAM_ERROR;
 	}
 
+#ifdef NEW_LOGGING
+	LDAP_LOG ( OPERATION, RESULTS, "<= ldap_dn2bv(%s,%u)=%d\n", 
+		bv->bv_val, flags, rc );
+#else
 	Debug( LDAP_DEBUG_TRACE, "<= ldap_dn2bv(%s,%u)=%d\n",
 		bv->bv_val, flags, rc );
+#endif
 
 return_results:;
 	return( rc );
 }
+
+#ifdef HAVE_TLS
+#include <openssl/x509.h>
+#include <openssl/err.h>
+
+/* Convert a structured DN from an X.509 certificate into an LDAPV3 DN.
+ * x509_name must be an (X509_NAME *). If func is non-NULL, the
+ * constructed DN will use numeric OIDs to identify attributeTypes,
+ * and the func() will be invoked to rewrite the DN with the given
+ * flags.
+ *
+ * Otherwise the DN will use shortNames as defined in the OpenSSL
+ * library.
+ *
+ * It's preferable to let slapd do the OID to attributeType mapping,
+ * because the OpenSSL tables are known to have many typos in versions
+ * up to (at least) 0.9.6c. However, the LDAP client has no schema tables,
+ * so we're forced to use OpenSSL's mapping there.
+ *  -- Howard Chu 2002-04-18
+ */
+
+int
+ldap_X509dn2bv( void *x509_name, struct berval *bv, LDAPDN_rewrite_func *func,
+	unsigned flags )
+{
+	LDAPDN	*newDN;
+	LDAPRDN	*newRDN;
+	LDAPAVA *newAVA, *baseAVA;
+	X509_NAME_ENTRY *ne;
+	ASN1_OBJECT *obj;
+	ASN1_STRING *str;
+	char oids[8192], *oidptr = oids, *oidbuf = NULL;
+	void *ptrs[2048];
+	int i, j, k = 0, navas, nrdns, rc = LDAP_SUCCESS;
+	int set = -1;
+	size_t dnsize, oidrem = sizeof(oids), oidsize = 0;
+	int csize;
+
+	struct berval	Val;
+
+	assert( bv );
+	bv->bv_len = 0;
+	bv->bv_val = NULL;
+
+	/* Get the number of AVAs. This is not necessarily the same as
+	 * the number of RDNs.
+	 */
+	navas = X509_NAME_entry_count( x509_name );
+
+	/* Get the last element, to see how many RDNs there are */
+	ne = X509_NAME_get_entry( x509_name, navas - 1 );
+	nrdns = ne->set + 1;
+
+	/* Allocate the DN/RDN/AVA stuff as a single block */    
+	dnsize = sizeof(LDAPDN) + sizeof(LDAPRDN *) * (nrdns+1);
+	dnsize += sizeof(LDAPRDN) * nrdns + sizeof(LDAPAVA *) * (navas+nrdns);
+	dnsize += sizeof(LDAPAVA) * navas;
+	if (dnsize > sizeof(ptrs)) {
+		newDN = (LDAPDN *)LDAP_MALLOC( dnsize );
+		if ( newDN == NULL )
+			return LDAP_NO_MEMORY;
+	} else {
+		newDN = (LDAPDN *)ptrs;
+	}
+	
+	newDN[0] = (LDAPRDN**)(newDN+1);
+	newDN[0][nrdns] = NULL;
+	newRDN = (LDAPRDN*)(newDN[0] + nrdns+1);
+	newAVA = (LDAPAVA*)(newRDN + navas + nrdns*2);
+	baseAVA = newAVA;
+
+	/* Retrieve RDNs in reverse order; LDAP is backwards from X.500. */
+	for ( i = nrdns - 1, j = 0; i >= 0; i-- ) {
+		ne = X509_NAME_get_entry( x509_name, i );
+		obj = X509_NAME_ENTRY_get_object( ne );
+		str = X509_NAME_ENTRY_get_data( ne );
+
+		/* If set changed, move to next RDN */
+		if ( set != ne->set ) {
+			/* If this is not the first time, end the
+			 * previous RDN and advance.
+			 */
+			if ( j > 0 ) {
+				newRDN[0][k] = NULL;
+				newRDN = (LDAPRDN*)(newRDN[0]+k+1);
+			}
+			newDN[0][j++] = newRDN;
+
+			newRDN[0] = (LDAPAVA**)(newRDN+1);
+			k = 0;
+			set = ne->set;
+		}
+		newAVA->la_private = NULL;
+		newAVA->la_flags = LDAP_AVA_STRING;
+
+		if ( !func ) {
+			int n = OBJ_obj2nid( obj );
+
+			if (n == NID_undef)
+				goto get_oid;
+			newAVA->la_attr.bv_val = (char *)OBJ_nid2sn( n );
+			newAVA->la_attr.bv_len = strlen( newAVA->la_attr.bv_val );
+#ifdef HAVE_EBCDIC
+			newAVA->la_attr.bv_val = LDAP_STRDUP( newAVA->la_attr.bv_val );
+			__etoa( newAVA->la_attr.bv_val );
+#endif
+		} else {
+get_oid:		newAVA->la_attr.bv_val = oidptr;
+			newAVA->la_attr.bv_len = OBJ_obj2txt( oidptr, oidrem, obj, 1 );
+#ifdef HAVE_EBCDIC
+			__etoa( newAVA->la_attr.bv_val );
+#endif
+			oidptr += newAVA->la_attr.bv_len + 1;
+			oidrem -= newAVA->la_attr.bv_len + 1;
+
+			/* Running out of OID buffer space? */
+			if (oidrem < 128) {
+				if ( oidsize == 0 ) {
+					oidsize = sizeof(oids) * 2;
+					oidrem = oidsize;
+					oidbuf = LDAP_MALLOC( oidsize );
+					if ( oidbuf == NULL ) goto nomem;
+					oidptr = oidbuf;
+				} else {
+					char *old = oidbuf;
+					oidbuf = LDAP_REALLOC( oidbuf, oidsize*2 );
+					if ( oidbuf == NULL ) goto nomem;
+					/* Buffer moved! Fix AVA pointers */
+					if ( old != oidbuf ) {
+						LDAPAVA *a;
+						long dif = oidbuf - old;
+
+						for (a=baseAVA; a<=newAVA; a++){
+							if (a->la_attr.bv_val >= old &&
+								a->la_attr.bv_val <= (old + oidsize))
+								a->la_attr.bv_val += dif;
+						}
+					}
+					oidptr = oidbuf + oidsize - oidrem;
+					oidrem += oidsize;
+					oidsize *= 2;
+				}
+			}
+		}
+		Val.bv_val = str->data;
+		Val.bv_len = str->length;
+		switch( str->type ) {
+		case V_ASN1_UNIVERSALSTRING:
+			/* This uses 32-bit ISO 10646-1 */
+			csize = 4; goto to_utf8;
+		case V_ASN1_BMPSTRING:
+			/* This uses 16-bit ISO 10646-1 */
+			csize = 2; goto to_utf8;
+		case V_ASN1_T61STRING:
+			/* This uses 8-bit, assume ISO 8859-1 */
+			csize = 1;
+to_utf8:		rc = ldap_ucs_to_utf8s( &Val, csize, &newAVA->la_value );
+			if (rc != LDAP_SUCCESS) goto nomem;
+			newAVA->la_flags = LDAP_AVA_NONPRINTABLE;
+			break;
+		case V_ASN1_UTF8STRING:
+			newAVA->la_flags = LDAP_AVA_NONPRINTABLE;
+			/* This is already in UTF-8 encoding */
+		case V_ASN1_IA5STRING:
+		case V_ASN1_PRINTABLESTRING:
+			/* These are always 7-bit strings */
+			ber_dupbv( &newAVA->la_value, &Val );
+		default:
+			;
+		}
+		newRDN[0][k] = newAVA;
+		newAVA++;
+		k++;
+	}
+	newRDN[0][k] = NULL;
+
+	if ( func ) {
+		rc = func( newDN, flags );
+		if ( rc != LDAP_SUCCESS )
+			goto nomem;
+	}
+
+	rc = ldap_dn2bv( newDN, bv, LDAP_DN_FORMAT_LDAPV3 );
+
+nomem:
+	for (;baseAVA < newAVA; baseAVA++) {
+		LDAP_FREE( baseAVA->la_value.bv_val );
+#ifdef HAVE_EBCDIC
+		if ( !func ) LDAP_FREE( baseAVA->la_attr.bv_val );
+#endif
+	}
+
+	if ( oidsize != 0 )
+		LDAP_FREE( oidbuf );
+	if ( newDN != (LDAPDN*) ptrs )
+		LDAP_FREE( newDN );
+	return rc;
+}
+#endif /* HAVE_TLS */
 

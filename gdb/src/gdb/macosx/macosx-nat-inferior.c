@@ -211,7 +211,8 @@ macosx_handle_signal (macosx_signal_thread_message *msg,
 
   if (msg->pid != macosx_status->pid) 
     {
-      warning ("macosx_handle_signal: signal message was for pid %d, not for inferior process (pid %d)\n", 
+      warning ("macosx_handle_signal: signal message was for pid %d, "
+	       "not for inferior process (pid %d)\n", 
 	       msg->pid, macosx_status->pid);
       return;
     }
@@ -256,10 +257,7 @@ macosx_handle_exception (macosx_exception_thread_message *msg,
       CHECK_FATAL (! macosx_status->stopped_in_ptrace);
     }
 
-  if (inferior_debug_flag) 
-    {
-      inferior_debug (2, "macosx_handle_exception: received exception message\n");
-    }
+  inferior_debug (2, "macosx_handle_exception: received exception message\n");
   
   if (msg->task_port != macosx_status->task)
     {
@@ -285,8 +283,6 @@ macosx_handle_exception (macosx_exception_thread_message *msg,
   kret = macosx_inferior_suspend_mach (macosx_status);
   MACH_CHECK_ERROR (kret);
 
-  macosx_check_new_threads ();
-  
   prepare_threads_after_stop (macosx_status);
 
   status->kind = TARGET_WAITKIND_STOPPED;
@@ -520,7 +516,7 @@ macosx_service_event (enum macosx_source_type source,
     }
   else if (source == NEXT_SOURCE_SIGNAL) 
     {
-      inferior_debug (2, "macosx_service_events: got signal message\n");
+      inferior_debug (1, "macosx_service_events: got signal message\n");
       macosx_handle_signal ((macosx_signal_thread_message *) buf, status);
       CHECK_FATAL (status->kind != TARGET_WAITKIND_SPURIOUS);
       if (!inferior_handle_all_events_flag) 
@@ -618,7 +614,10 @@ void macosx_check_new_threads ()
   for (i = 0; i < nthreads; i++) {
     ptid_t ptid = ptid_build (macosx_status->pid, 0, thread_list[i]);
     if (! in_thread_list (ptid)) {
-      add_thread (ptid);
+      struct thread_info *tp;
+      tp = add_thread (ptid);
+      tp->private = (struct private_thread_info *) xmalloc (sizeof (struct private_thread_info));
+      tp->private->app_thread_port = get_application_thread_port (thread_list[i]);
     }
   }
 
@@ -649,17 +648,19 @@ macosx_child_resume (ptid_t ptid, int step, enum target_signal signal)
 {
   int nsignal = target_signal_to_host (signal);
   struct target_waitstatus status;
-
+  int stop_others = 1;
   int pid;
   thread_t thread;
 
   if (ptid_equal (ptid, minus_one_ptid))
-    ptid = inferior_ptid;
+    {
+      ptid = inferior_ptid;
+      stop_others = 0;
+    }
 
   pid = ptid_get_pid (ptid);
   thread = ptid_get_tid (ptid);
 
-  CHECK_FATAL (tm_print_insn != NULL);
   CHECK_FATAL (macosx_status != NULL);
 
   macosx_inferior_check_stopped (macosx_status);
@@ -697,7 +698,7 @@ macosx_child_resume (ptid_t ptid, int step, enum target_signal signal)
   if (step)
     prepare_threads_before_run (macosx_status, step, thread, 1);
   else
-    prepare_threads_before_run (macosx_status, 0, THREAD_NULL, 0);
+    prepare_threads_before_run (macosx_status, 0, thread, stop_others);
 
   macosx_inferior_resume_mach (macosx_status, -1);
 
@@ -800,18 +801,10 @@ static void macosx_mourn_inferior ()
      state without all the bad effects of the full function. */
 
 #if 0
-  if (symfile_objfile != NULL) 
-    {
-      CHECK_FATAL (symfile_objfile->obfd != NULL);
-      macosx_init_dyld_symfile (symfile_objfile->obfd);
-    } 
-  else 
-    {
-      macosx_init_dyld_symfile (NULL); 
-    }
+  macosx_init_dyld_symfile (symfile_objfile, exec_bfd);
 #endif
 
-  macosx_clear_pending_events();
+  macosx_clear_pending_events ();
 }
 
 void macosx_fetch_task_info (struct kinfo_proc **info, size_t *count)
@@ -1051,19 +1044,16 @@ macosx_set_auto_start_dyld (char *args, int from_tty,
   if (ptid_equal (inferior_ptid, null_ptid))
     return;
 
-  macosx_dyld_update (1);
-  macosx_set_start_breakpoint (exec_bfd);
-  macosx_dyld_update (0);
-  
+  macosx_solib_add (NULL, 0, NULL, 0);
 }
 
 static void macosx_child_attach (char *args, int from_tty)
 {
-  struct target_waitstatus w;
   task_t itask;
   int pid;
   int ret;
   kern_return_t kret;
+  char *exec_file = NULL;
 
   if (args == NULL) {
     error_no_arg ("process-id to attach");
@@ -1080,6 +1070,14 @@ static void macosx_child_attach (char *args, int from_tty)
 
   CHECK_FATAL (macosx_status != NULL);
   macosx_inferior_destroy (macosx_status);
+
+  exec_file = get_exec_file (0);
+  if (exec_file)
+    printf_filtered ("Attaching to program: `%s', %s.\n", 
+		     exec_file, target_pid_to_str (pid_to_ptid (pid)));
+  else
+    printf_filtered ("Attaching to %s.\n",
+		     target_pid_to_str (pid_to_ptid (pid)));
 
   macosx_create_inferior_for_task (macosx_status, itask, pid);
 
@@ -1125,17 +1123,18 @@ static void macosx_child_attach (char *args, int from_tty)
   push_target (&macosx_child_ops);
 
   if (macosx_status->attached_in_ptrace) {
+
     /* read attach notification */
-    macosx_wait (macosx_status, &w, NULL);
+    stop_soon_quietly = 1;
+    wait_for_inferior ();
 
     macosx_signal_thread_create (&macosx_status->signal_status, macosx_status->pid);
-    macosx_wait (macosx_status, &w, NULL);
+    stop_soon_quietly = 1;
+    wait_for_inferior ();
   }
   
   if (inferior_auto_start_dyld_flag) {
-    macosx_dyld_update (1);
-    macosx_set_start_breakpoint (exec_bfd);
-    macosx_dyld_update (0);
+    macosx_solib_add (NULL, 0, NULL, 0);
   }
 }
 
@@ -1147,6 +1146,16 @@ static void macosx_child_detach (char *args, int from_tty)
 
   if (ptid_equal (inferior_ptid, null_ptid)) {
     return;
+  }
+
+  if (from_tty) {
+    char *exec_file = get_exec_file (0);
+    if (exec_file)
+      printf_filtered ("Detaching from program: `%s', %s.\n", 
+		       exec_file, target_pid_to_str (inferior_ptid));
+    else
+      printf_filtered ("Detaching from %s.\n",
+		       target_pid_to_str (inferior_ptid));
   }
 
   if (! macosx_inferior_valid (macosx_status)) {
@@ -1161,7 +1170,7 @@ static void macosx_child_detach (char *args, int from_tty)
       && (! macosx_status->stopped_in_ptrace)
       && (! macosx_status->stopped_in_softexc)) {
     macosx_inferior_suspend_ptrace (macosx_status);
-    CHECK_FATAL (macosx_status->stopped_in_ptrace);
+    CHECK_FATAL (macosx_status->stopped_in_ptrace || macosx_status->stopped_in_softexc);
   }
 
   if (inferior_bind_exception_port_flag) {
@@ -1329,13 +1338,20 @@ static void macosx_ptrace_him (int pid)
 
 static void macosx_child_create_inferior (char *exec_file, char *allargs, char **env)
 {
+  if ((exec_bfd != NULL) &&
+      (exec_bfd->xvec->flavour == bfd_target_pef_flavour
+       || exec_bfd->xvec->flavour == bfd_target_pef_xlib_flavour))
+    {
+      error ("Can't run a PEF binary - use LaunchCFMApp as the executable file.");
+    }
+
   fork_inferior (exec_file, allargs, env, macosx_ptrace_me, macosx_ptrace_him, NULL, NULL);
   if (ptid_equal (inferior_ptid, null_ptid))
-    return;
+      return;
 
   macosx_clear_start_breakpoint ();
   if (inferior_auto_start_dyld_flag) {
-    macosx_set_start_breakpoint (exec_bfd);
+    macosx_dyld_init (&macosx_status->dyld_status, exec_bfd);
   }
 
   attach_flag = 0;
@@ -1357,9 +1373,18 @@ static char *macosx_pid_to_str (ptid_t ptid)
 {
   static char buf[128];
   int pid = ptid_get_pid (ptid);
-  thread_t thread = ptid_get_tid (ptid);
+  struct thread_info *tp;
   
-  sprintf (buf, "process %d thread 0x%lx", pid, (unsigned long) thread);
+  tp = find_thread_pid (ptid);
+  if (tp->private == NULL || tp->private->app_thread_port == 0)
+    {
+      thread_t thread = ptid_get_tid (ptid);
+      sprintf (buf, "process %d local thread 0x%lx", pid, (unsigned long) thread);
+    }
+  else
+      sprintf (buf, "process %d thread 0x%lx", pid, 
+	       (unsigned long) tp->private->app_thread_port);
+
   return buf;
 }
 
@@ -1556,6 +1581,255 @@ macosx_async (void (*callback) (enum inferior_event_type event_type,
     }
 }
 
+struct sal_chain
+{
+  struct sal_chain *next;
+  struct symtab_and_line sal;
+};
+
+/* On some platforms, you need to turn on the exception callback
+   to hit the catchpoints for exceptions.  Not on Mac OS X. */
+
+int
+macosx_enable_exception_callback (enum exception_event_kind kind, 
+				     int enable)
+{
+  return 1;
+}
+
+/* The MacOS X implemenatation of the find_exception_catchpoints
+   target vector entry.  Relies on the __cxa_throw and 
+   __cxa_begin_catch functions from libsupc++.  */
+
+struct symtabs_and_lines *
+macosx_find_exception_catchpoints (enum exception_event_kind kind, 
+				   struct objfile *restrict_objfile)
+{
+  struct symtabs_and_lines *return_sals;
+  char *symbol_name;
+  struct objfile *objfile;
+  struct minimal_symbol *msymbol;
+  unsigned int hash;
+  struct sal_chain *sal_chain = 0;
+
+  switch (kind)
+    {
+    case EX_EVENT_THROW:
+      symbol_name = "__cxa_throw";
+      break;
+    case EX_EVENT_CATCH:
+      symbol_name = "__cxa_begin_catch";
+      break;
+    default:
+      error ("We currently only handle \"throw\" and \"catch\"");
+    }
+
+  hash = msymbol_hash (symbol_name) % MINIMAL_SYMBOL_HASH_SIZE;
+
+  ALL_OBJFILES (objfile)
+    {    
+      for (msymbol = objfile->msymbol_hash[hash];
+	   msymbol != NULL;
+	   msymbol = msymbol->hash_next)
+	if (MSYMBOL_TYPE (msymbol) == mst_text
+	    && SYMBOL_MATCHES_NAME (msymbol, symbol_name))
+	  {
+	    /* We found one, add it here... */
+	    CORE_ADDR catchpoint_address;
+	    CORE_ADDR past_prologue;
+
+	    struct sal_chain *next 
+	      = (struct sal_chain *) alloca (sizeof (struct sal_chain));
+	    
+	    next->next = sal_chain;
+	    init_sal (&next->sal);
+	    next->sal.symtab = NULL;
+
+	    catchpoint_address = SYMBOL_VALUE_ADDRESS (msymbol);
+	    past_prologue = SKIP_PROLOGUE (catchpoint_address);
+
+	    next->sal.pc = past_prologue;
+	    next->sal.line = 0;
+	    next->sal.end = past_prologue;
+	    
+	    sal_chain = next;
+	    
+	  }
+    }
+
+  if (sal_chain)
+    {
+      int index = 0;
+      struct sal_chain *temp;
+
+      for (temp = sal_chain; temp != NULL; temp = temp->next)
+	index++;
+      
+      return_sals = (struct symtabs_and_lines *) 
+	xmalloc (sizeof (struct symtabs_and_lines));
+      return_sals->nelts = index;
+      return_sals->sals = (struct symtab_and_line *) xmalloc (index * sizeof (struct symtab_and_line));
+
+      for (index = 0; sal_chain; sal_chain = sal_chain->next, index++)
+	return_sals->sals[index] = sal_chain->sal;	
+      return return_sals;
+    }
+  else
+    return NULL;
+
+}
+
+/* Returns data about the current exception event */
+
+struct exception_event_record *
+macosx_get_current_exception_event ()
+{
+  static struct exception_event_record *exception_event = NULL;
+  struct frame_info *curr_frame;
+  struct frame_info *fi;
+  CORE_ADDR pc;
+  int stop_func_found;
+  char *stop_name;
+  char *typeinfo_str;
+
+  if (exception_event == NULL) 
+    {
+      exception_event = (struct exception_event_record *) 
+	xmalloc (sizeof (struct exception_event_record));
+      exception_event->exception_type = NULL;
+    }
+  
+  curr_frame = get_current_frame ();
+  if (!curr_frame)
+    return (struct exception_event_record *) NULL;
+
+  pc = get_frame_pc (curr_frame);
+  stop_func_found = find_pc_partial_function (pc, &stop_name, NULL, NULL);
+  if (!stop_func_found)
+    return (struct exception_event_record *) NULL;
+
+  if (strcmp (stop_name, "__cxa_throw") == 0) 
+    {
+
+      fi = get_prev_frame (curr_frame);
+      if (!fi)
+	return (struct exception_event_record *) NULL;
+      
+      exception_event->throw_sal = find_pc_line (fi->pc, 1);
+      
+      /* FIXME: We don't know the catch location when we
+	 have just intercepted the throw.  Can we walk the
+	 stack and redo the runtimes exception matching
+	 to figure this out? */
+      exception_event->catch_sal.pc = 0x0;
+      exception_event->catch_sal.line = 0;
+
+      exception_event->kind = EX_EVENT_THROW;
+
+    }
+  else if (strcmp (stop_name, "__cxa_begin_catch") == 0) 
+    {
+      fi = get_prev_frame (curr_frame);
+      if (!fi)
+	return (struct exception_event_record *) NULL;
+      
+      exception_event->catch_sal = find_pc_line (fi->pc, 1);
+      
+      /* By the time we get here, we have totally forgotten
+         where we were thrown from... */
+      exception_event->throw_sal.pc = 0x0;
+      exception_event->throw_sal.line = 0;
+
+      exception_event->kind = EX_EVENT_CATCH;
+
+
+    }
+
+#ifdef THROW_CATCH_FIND_TYPEINFO
+  typeinfo_str = THROW_CATCH_FIND_TYPEINFO (curr_frame, exception_event->kind);
+#else
+  typeinfo_str = NULL;
+#endif
+
+  if (exception_event->exception_type != NULL)
+    xfree (exception_event->exception_type);
+  
+  if (typeinfo_str == NULL)
+    {
+      exception_event->exception_type = NULL;
+    }
+  else
+    {
+      exception_event->exception_type 
+	= xstrdup (typeinfo_str);
+    }
+
+  return exception_event;
+}
+
+char *
+macosx_filename_in_bundle (const char *filename, int mainline)
+{
+  char *wrapper_name, *wrapped_filename, *app_str;
+  int filename_len = strlen (filename);
+  int wrapper_name_len, wrapped_filename_len;
+  int has_final_slash = 0;
+  
+  /* FIXME: For now, only do apps, if somebody has more energy
+     later, then can do the !mainline case, and handle .framework
+     and .bundle.  */
+
+  if (!mainline)
+    return NULL;
+
+  wrapper_name = strrchr (filename, '/');
+  if (wrapper_name == NULL)
+    wrapper_name = filename;
+  else
+    {
+      
+      wrapper_name = wrapper_name + 1;
+      /* Somebody might have passed us "Foo/Foo.app/" */
+      if (*wrapper_name == '\0')
+	{
+	  has_final_slash = 1;
+	  wrapper_name -= 2;
+	  while (wrapper_name != filename)
+	    {
+	      if (*wrapper_name == '/')
+		{
+		  wrapper_name += 1;
+		  break;
+		}
+	      wrapper_name -= 1;
+	    }
+	}
+    }
+  
+  app_str = strstr (wrapper_name, ".app");
+  if (app_str != NULL)
+    {
+      wrapper_name_len = app_str - wrapper_name;
+    }
+  else
+    {
+      wrapper_name_len = strlen (wrapper_name) - has_final_slash;
+    }
+  
+  wrapped_filename_len = filename_len + (1 - has_final_slash) + strlen ("Contents/MacOS/")
+    + wrapper_name_len + 1;
+  wrapped_filename = xmalloc (wrapped_filename_len);
+  memcpy (wrapped_filename, filename, filename_len + 1);
+  if (has_final_slash)
+    wrapped_filename = strcat (wrapped_filename, "Contents/MacOS/");
+  else
+    wrapped_filename = strcat (wrapped_filename, "/Contents/MacOS/");
+  
+  wrapped_filename = strncat (wrapped_filename, wrapper_name, wrapper_name_len);
+
+  return wrapped_filename;
+}
+
 void 
 _initialize_macosx_inferior ()
 {
@@ -1584,6 +1858,14 @@ _initialize_macosx_inferior ()
   macosx_exec_ops.to_can_async_p = standard_can_async_p;
   macosx_exec_ops.to_is_async_p = standard_is_async_p;
 
+  exec_ops.to_find_exception_catchpoints 
+    = macosx_find_exception_catchpoints;
+  exec_ops.to_enable_exception_callback 
+    = macosx_enable_exception_callback;
+  exec_ops.to_get_current_exception_event 
+    = macosx_get_current_exception_event;
+  exec_ops.to_has_thread_control = tc_schedlock | tc_switch;
+
   macosx_child_ops.to_shortname = "macos-child";
   macosx_child_ops.to_longname = "Mac OS X child process";
   macosx_child_ops.to_doc = "Mac OS X child process (started by the \"run\" command).";
@@ -1607,6 +1889,13 @@ _initialize_macosx_inferior ()
   macosx_child_ops.to_async = macosx_async; 
   macosx_child_ops.to_async_mask_value = 1;
   macosx_child_ops.to_bind_function = dyld_lookup_and_bind_function;
+  macosx_child_ops.to_find_exception_catchpoints 
+    = macosx_find_exception_catchpoints;
+  macosx_child_ops.to_enable_exception_callback 
+    = macosx_enable_exception_callback;
+  macosx_child_ops.to_get_current_exception_event 
+    = macosx_get_current_exception_event;
+  macosx_child_ops.to_has_thread_control = tc_schedlock | tc_switch;
 
   add_target (&macosx_exec_ops);
   add_target (&macosx_child_ops);

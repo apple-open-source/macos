@@ -795,6 +795,12 @@ void ssl_init_ConfigureServer(server_rec *s, pool *p, SSLSrvConfigRec *sc)
                     cpVHostID);
             ssl_die();
         }
+        if (!RSA_blinding_on(sc->pPrivateKey[SSL_AIDX_RSA]->pkey.rsa, NULL)) {
+            ssl_log(s, SSL_LOG_ERROR|SSL_ADD_SSLERR,
+                    "Init: (%s) Unable to enable RSA blinding (probably PRNG failure)",
+                    cpVHostID);
+            ssl_die();
+        }
         if (SSL_CTX_use_PrivateKey(ctx, sc->pPrivateKey[SSL_AIDX_RSA]) <= 0) {
             ssl_log(s, SSL_LOG_ERROR|SSL_ADD_SSLERR,
                     "Init: (%s) Unable to configure RSA server private key",

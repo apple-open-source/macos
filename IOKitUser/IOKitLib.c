@@ -232,6 +232,7 @@ IOServiceGetMatchingServices(
 {
     kern_return_t	kr;
     CFDataRef		data;
+    CFIndex		dataLen;
 
     masterPort = (NULL == masterPort) ? __IOGetDefaultMasterPort() : masterPort;
 
@@ -242,8 +243,19 @@ IOServiceGetMatchingServices(
     if( !data)
 	return( kIOReturnUnsupported );
 
-    kr = io_service_get_matching_services( masterPort,
-		(char *) CFDataGetBytePtr(data), existing );
+    dataLen = CFDataGetLength(data);
+
+    if (dataLen < sizeof(io_string_t))
+	kr = io_service_get_matching_services( masterPort,
+		    (char *) CFDataGetBytePtr(data), existing );
+    else {
+	kern_return_t result;
+
+	kr = io_service_get_matching_services_ool( masterPort,
+		    (char *) CFDataGetBytePtr(data), dataLen, &result, existing );
+	if (KERN_SUCCESS == kr)
+	    kr = result;
+    }
 
     CFRelease( data );
     CFRelease( matching );
@@ -257,6 +269,7 @@ IOServiceMatchPropertyTable( io_service_t service, CFDictionaryRef matching,
 {
     kern_return_t	kr;
     CFDataRef		data;
+    CFIndex		dataLen;
 
     if( !matching)
 	return( kIOReturnBadArgument);
@@ -265,8 +278,20 @@ IOServiceMatchPropertyTable( io_service_t service, CFDictionaryRef matching,
     if( !data)
 	return( kIOReturnUnsupported );
 
-    kr = io_service_match_property_table( service,
-		(char *) CFDataGetBytePtr(data), matches );
+
+    dataLen = CFDataGetLength(data);
+
+    if (dataLen < sizeof(io_string_t))
+	kr = io_service_match_property_table( service,
+		    (char *) CFDataGetBytePtr(data), matches );
+    else {
+	kern_return_t result;
+
+	kr = io_service_match_property_table_ool( service,
+		    (char *) CFDataGetBytePtr(data), dataLen, &result, matches );
+	if (KERN_SUCCESS == kr)
+	    kr = result;
+    }
 
     CFRelease( data );
 
@@ -284,6 +309,7 @@ IOServiceAddNotification(
 {
     kern_return_t	kr;
     CFDataRef		data;
+    CFIndex		dataLen;
 
     masterPort = (NULL == masterPort) ? __IOGetDefaultMasterPort() : masterPort;
 
@@ -294,9 +320,21 @@ IOServiceAddNotification(
     if( !data)
 	return( kIOReturnUnsupported );
 
-    kr = io_service_add_notification( masterPort, (char *) notificationType,
-		(char *) CFDataGetBytePtr(data),
-		wakePort, &reference, 1, notification );
+    dataLen = CFDataGetLength(data);
+
+    if (dataLen < sizeof(io_string_t))
+	kr = io_service_add_notification( masterPort, (char *) notificationType,
+		    (char *) CFDataGetBytePtr(data),
+		    wakePort, &reference, 1, notification );
+    else {
+	kern_return_t result;
+
+	kr = io_service_add_notification_ool( masterPort, (char *) notificationType,
+		    (char *) CFDataGetBytePtr(data), dataLen,
+		    wakePort, &reference, 1, &result, notification );
+	if (KERN_SUCCESS == kr)
+	    kr = result;
+    }
 
     CFRelease( data );
     CFRelease( matching );
@@ -315,6 +353,7 @@ IOServiceAddMatchingNotification(
 {
     kern_return_t	kr;
     CFDataRef		data;
+    CFIndex		dataLen;
     natural_t		asyncRef[kIOMatchingCalloutCount];
 
     if( !matching)
@@ -326,12 +365,26 @@ IOServiceAddMatchingNotification(
 
     asyncRef[kIOMatchingCalloutFuncIndex] = (natural_t) callback;
     asyncRef[kIOMatchingCalloutRefconIndex] = (natural_t) refcon;
-    
-    kr = io_service_add_notification( notifyPort->masterPort,
-                (char *) notificationType,
-		(char *) CFDataGetBytePtr(data),
-		notifyPort->wakePort,
-                asyncRef, kIOMatchingCalloutCount, notification );
+
+    dataLen = CFDataGetLength(data);
+
+    if (dataLen < sizeof(io_string_t))
+	kr = io_service_add_notification( notifyPort->masterPort,
+		    (char *) notificationType,
+		    (char *) CFDataGetBytePtr(data),
+		    notifyPort->wakePort,
+		    asyncRef, kIOMatchingCalloutCount, notification );
+    else {
+	kern_return_t result;
+
+	kr = io_service_add_notification_ool( notifyPort->masterPort,
+		    (char *) notificationType,
+		    (char *) CFDataGetBytePtr(data), dataLen,
+		    notifyPort->wakePort,
+		    asyncRef, kIOMatchingCalloutCount, &result, notification );
+	if (KERN_SUCCESS == kr)
+	    kr = result;
+    }
 
     CFRelease( data );
     CFRelease( matching );
@@ -519,8 +572,11 @@ IOBSDNameMatching(
 	unsigned int	options,
 	const char *	name )
 {
-    return( IOMakeMatching( masterPort, kIOBSDNameMatching, options,
+    if (name == NULL) { return 0; }
+    else { 
+        return( IOMakeMatching( masterPort, kIOBSDNameMatching, options,
 				(void *)name, strlen( name) + 1));
+    }
 }
 
 CFMutableDictionaryRef
@@ -584,86 +640,121 @@ IODispatchCalloutFromMessage(void *cfPort, mach_msg_header_t *msg, void *info)
 void
 IODispatchCalloutFromCFMessage(CFMachPortRef port, void *_msg, CFIndex size, void *info)
 {
-    int leftOver;
-    mach_msg_header_t *msg = (mach_msg_header_t *)_msg;
-    OSNotificationHeader *header;
-    
+    struct ComplexMsg {
+        mach_msg_header_t		msgHdr;
+	mach_msg_body_t			msgBody;
+	mach_msg_port_descriptor_t	ports[1];
+    } *					complexMsg = NULL;
+    mach_msg_header_t *			msg = (mach_msg_header_t *)_msg;
+    OSNotificationHeader *		header;
+    io_iterator_t			notifier = MACH_PORT_NULL;
+    io_service_t			service = MACH_PORT_NULL;
+    int					leftOver;
+    boolean_t				deliver = TRUE;
+
     if( msg->msgh_id != kOSNotificationMessageID)
 	return;
-    header = (OSNotificationHeader *) (msg + 1);
+
+    if( MACH_MSGH_BITS_COMPLEX & msg->msgh_bits) {
+
+	complexMsg = (struct ComplexMsg *)_msg;
+
+	if( complexMsg->msgBody.msgh_descriptor_count)
+	    service = complexMsg->ports[0].name;
+	header = (OSNotificationHeader *) &complexMsg->ports[complexMsg->msgBody.msgh_descriptor_count];
     
-    switch( header->type ) {
-        
-      case kIOAsyncCompletionNotificationType:
+    } else
+	header = (OSNotificationHeader *) (msg + 1);
+
+    leftOver = msg->msgh_size - (((vm_address_t) (header + 1)) - ((vm_address_t) msg));
+
+    // remote port is the notification (an iterator_t) that fired
+    notifier = msg->msgh_remote_port;
+
+    if( MACH_PORT_NULL != notifier) {
+	kern_return_t kr;
+	mach_port_urefs_t urefs;
+
+	kr = mach_port_get_refs( mach_task_self(), msg->msgh_remote_port, MACH_PORT_RIGHT_SEND, &urefs);
+	if( (KERN_SUCCESS != kr) || (urefs < 2)) {
+	    // one ref carried by the message - < 2 means owner has released the notifier
+	    deliver = false;
+	}
+    }
+    if(deliver)
+    {
+      switch( header->type )
       {
-        IOAsyncCompletionContent *asyncHdr;
-          
-        asyncHdr = (IOAsyncCompletionContent *)(header + 1);
-        leftOver = (msg->msgh_size
-                    - sizeof(*msg)
-                    - sizeof(*header)
-                    - sizeof(*asyncHdr) ) / sizeof(void *);
-        switch (leftOver) {
-            case 0:
-                ((IOAsyncCallback0 )header->reference[kIOAsyncCalloutFuncIndex])(
-                    (void *) header->reference[kIOAsyncCalloutRefconIndex],
-                    asyncHdr->result);
-                break;
-            case 1:
-                ((IOAsyncCallback1 )header->reference[kIOAsyncCalloutFuncIndex])(
-                    (void *) header->reference[kIOAsyncCalloutRefconIndex],
-                    asyncHdr->result,
-                    asyncHdr->args[0]);
-                break;
-            case 2:
-                ((IOAsyncCallback2 )header->reference[kIOAsyncCalloutFuncIndex])(
-                    (void *) header->reference[kIOAsyncCalloutRefconIndex],
-                    asyncHdr->result,
-                    asyncHdr->args[0], asyncHdr->args[1]);
-                break;
-            default:
-                ((IOAsyncCallback )header->reference[kIOAsyncCalloutFuncIndex])(
-                    (void *) header->reference[kIOAsyncCalloutRefconIndex],
-                    asyncHdr->result,
-                    asyncHdr->args, leftOver);
-                break;
-        }
-        break;
-      }          
-      case kIOServiceMessageNotificationType:
-      {    
-        IOServiceInterestContent * interestHdr;
-        void * arg;
-        
-        interestHdr = (IOServiceInterestContent *)(header + 1);
-        leftOver = (msg->msgh_size
-                    - sizeof(*msg)
-                    - sizeof(*header)
-                    - sizeof(*interestHdr) ) / sizeof(void *);
-        if (leftOver <= 1)
-            arg = interestHdr->messageArgument[0];
-        else
-            arg = &interestHdr->messageArgument[0];
-        ((IOServiceInterestCallback)header->reference[kIOInterestCalloutFuncIndex])(
-            (void *) header->reference[kIOInterestCalloutRefconIndex],
-            (io_service_t) header->reference[kIOInterestCalloutServiceIndex],
-            interestHdr->messageType, arg );
-        break;
-          
-      case kIOServicePublishNotificationType:
-      case kIOServiceMatchedNotificationType:
-      case kIOServiceTerminatedNotificationType:
-          
-        ((IOServiceMatchingCallback)header->reference[kIOMatchingCalloutFuncIndex])(
-            (void *) header->reference[kIOMatchingCalloutRefconIndex],
-            // remote port is the notification (an iterator_t) that fired
-            (io_iterator_t) msg->msgh_remote_port);
-        break;
+	case kIOAsyncCompletionNotificationType:
+	{
+	    IOAsyncCompletionContent *asyncHdr;
+	    
+	    asyncHdr = (IOAsyncCompletionContent *)(header + 1);
+	    leftOver = (leftOver - sizeof(*asyncHdr)) / sizeof(void *);
+	    switch (leftOver) {
+		case 0:
+		    ((IOAsyncCallback0 )header->reference[kIOAsyncCalloutFuncIndex])(
+			(void *) header->reference[kIOAsyncCalloutRefconIndex],
+			asyncHdr->result);
+		    break;
+		case 1:
+		    ((IOAsyncCallback1 )header->reference[kIOAsyncCalloutFuncIndex])(
+			(void *) header->reference[kIOAsyncCalloutRefconIndex],
+			asyncHdr->result,
+			asyncHdr->args[0]);
+		    break;
+		case 2:
+		    ((IOAsyncCallback2 )header->reference[kIOAsyncCalloutFuncIndex])(
+			(void *) header->reference[kIOAsyncCalloutRefconIndex],
+			asyncHdr->result,
+			asyncHdr->args[0], asyncHdr->args[1]);
+		    break;
+		default:
+		    ((IOAsyncCallback )header->reference[kIOAsyncCalloutFuncIndex])(
+			(void *) header->reference[kIOAsyncCalloutRefconIndex],
+			asyncHdr->result,
+			asyncHdr->args, leftOver);
+		    break;
+	    }
+	    break;
+	}          
+	case kIOServiceMessageNotificationType:
+	{    
+	    IOServiceInterestContent * interestHdr;
+	    void * arg;
+	    
+	    interestHdr = (IOServiceInterestContent *)(header + 1);
+	    leftOver = (leftOver - sizeof(*interestHdr) + sizeof(interestHdr->messageArgument)) / sizeof(void *);
+	    if (leftOver <= 1)
+		arg = interestHdr->messageArgument[0];
+	    else
+		arg = &interestHdr->messageArgument[0];
+
+	    ((IOServiceInterestCallback)header->reference[kIOInterestCalloutFuncIndex])(
+		(void *) header->reference[kIOInterestCalloutRefconIndex],
+		service ? service :  (io_service_t) header->reference[kIOInterestCalloutServiceIndex],
+		interestHdr->messageType, arg );
+	    break;
+	}
+	case kIOServicePublishNotificationType:
+	case kIOServiceMatchedNotificationType:
+	case kIOServiceTerminatedNotificationType:
+	    
+	    ((IOServiceMatchingCallback)header->reference[kIOMatchingCalloutFuncIndex])(
+		(void *) header->reference[kIOMatchingCalloutRefconIndex],
+		notifier);
+	    break;
       }
     }
 
-    if( MACH_PORT_NULL != msg->msgh_remote_port)
-	mach_port_deallocate( mach_task_self(), msg->msgh_remote_port );
+    if( MACH_PORT_NULL != notifier)
+	mach_port_deallocate( mach_task_self(), notifier );
+    if( complexMsg)
+    {
+	unsigned int i;
+	for( i = 0; i < complexMsg->msgBody.msgh_descriptor_count; i++)
+	    mach_port_deallocate( mach_task_self(), complexMsg->ports[i].name );
+    }
 }
 
 /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
@@ -679,6 +770,21 @@ IOServiceGetBusyState(
 
     if( kr != KERN_SUCCESS)
 	*busyState = 0;
+
+    return( kr );
+}
+
+kern_return_t
+IOServiceGetState(
+	io_service_t    service,
+	uint64_t *	state )
+{
+    kern_return_t	kr;
+
+    kr = io_service_get_state( service, state );
+
+    if( kr != KERN_SUCCESS)
+	*state = 0;
 
     return( kr );
 }
@@ -765,8 +871,7 @@ IOServiceClose(
     kern_return_t	kr;
 
     kr = io_service_close( connect);
-    if( kr == KERN_SUCCESS)
-	IOObjectRelease( connect );
+    IOObjectRelease( connect );
 
     return( kr );
 }
@@ -1225,7 +1330,7 @@ IORegistryEntryCreateCFProperties(
     *properties = (CFMutableDictionaryRef)
                         IOCFUnserialize(propertiesBuffer, allocator,
 					0, &errorString);
-    if (!(*properties)) {
+    if (!(*properties) && errorString) {
 
         if ((cstr = CFStringGetCStringPtr(errorString,
 					kCFStringEncodingMacRoman)))
@@ -1276,7 +1381,7 @@ IORegistryEntryCreateCFProperty(
     type = (CFMutableDictionaryRef)
                         IOCFUnserialize(propertiesBuffer, allocator,
 					0, &errorString);
-    if (!type) {
+    if (!type && errorString) {
 
         if ((cStr = CFStringGetCStringPtr(errorString,
 					kCFStringEncodingMacRoman)))
@@ -1329,7 +1434,7 @@ IORegistryEntrySearchCFProperty(
     type = (CFMutableDictionaryRef)
                         IOCFUnserialize(propertiesBuffer, allocator,
 					0, &errorString);
-    if (!type) {
+    if (!type && errorString) {
 
         if ((cStr = CFStringGetCStringPtr(errorString,
 					kCFStringEncodingMacRoman)))

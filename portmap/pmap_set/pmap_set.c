@@ -21,6 +21,9 @@ static const char rcsid[] =
 #endif
 #include <rpc/rpc.h>
 #include <rpc/pmap_clnt.h>
+#include <string.h>
+
+extern void get_myaddress(struct sockaddr_in *);
 
 static int parse_line __P((char *, u_long *, u_long *, int *, unsigned *));
 

@@ -23,9 +23,18 @@
 
 time_t starttime = 0;
 
-struct stats stats;
-
+extern struct stats stats;
 extern int verbose;
+
+/* there's probably never more than at most 2 outstanding child processes,
+ * but set it higher just in case.
+ */
+#define MAXCHILDPROCS 5
+
+struct pid_status {
+	pid_t pid;
+	int   status;
+} pid_stat_table[MAXCHILDPROCS];
 
 static void show_malloc_stats(void);
 
@@ -34,11 +43,27 @@ wait for a process to exit, calling io_flush while waiting
 ****************************************************************************/
 void wait_process(pid_t pid, int *status)
 {
-	while (waitpid(pid, status, WNOHANG) == 0) {
+	pid_t waited_pid;
+	int cnt;
+
+	while ((waited_pid = waitpid(pid, status, WNOHANG)) == 0) {
 		msleep(20);
 		io_flush();
 	}
         
+	if ((waited_pid == -1) && (errno == ECHILD)) {
+		/* status of requested child no longer available.
+		 * check to see if it was processed by the sigchld_handler.
+		 */
+		for (cnt = 0;  cnt < MAXCHILDPROCS; cnt++) {
+			if (pid == pid_stat_table[cnt].pid) {
+				*status = pid_stat_table[cnt].status;
+				pid_stat_table[cnt].pid = 0;
+				break;
+			}
+		}
+	}
+
         /* TODO: If the child exited on a signal, then log an
          * appropriate error message.  Perhaps we should also accept a
          * message describing the purpose of the child.  Also indicate
@@ -172,12 +197,14 @@ static pid_t do_cmd(char *cmd,char *machine,char *user,char *path,int *f_in,int 
 	int i,argc=0;
 	pid_t ret;
 	char *tok,*dir=NULL;
+	int dash_l_set = 0;
 	extern int local_server;
 	extern char *rsync_path;
 	extern int blocking_io;
+	extern int daemon_over_rsh;
 	extern int read_batch;
 
-	if (!read_batch && !local_server) { /* dw -- added read_batch */
+	if (!read_batch && !local_server) {
 		if (!cmd)
 			cmd = getenv(RSYNC_RSH_ENV);
 		if (!cmd)
@@ -190,15 +217,22 @@ static pid_t do_cmd(char *cmd,char *machine,char *user,char *path,int *f_in,int 
 			args[argc++] = tok;
 		}
 
+		/* check to see if we've already been given '-l user' in 
+		   the remote-shell command */
+		for (i = 0; i < argc-1; i++) {
+			if (!strcmp(args[i], "-l") && args[i+1][0] != '-')
+				dash_l_set = 1;
+		}
+
 #if HAVE_REMSH
 		/* remsh (on HPUX) takes the arguments the other way around */
 		args[argc++] = machine;
-		if (user) {
+		if (user && !(daemon_over_rsh && dash_l_set)) {
 			args[argc++] = "-l";
 			args[argc++] = user;
 		}
 #else
-		if (user) {
+		if (user && !(daemon_over_rsh && dash_l_set)) {
 			args[argc++] = "-l";
 			args[argc++] = user;
 		}
@@ -207,15 +241,16 @@ static pid_t do_cmd(char *cmd,char *machine,char *user,char *path,int *f_in,int 
 
 		args[argc++] = rsync_path;
 
+		if ((blocking_io == -1) && (strcmp(cmd, RSYNC_RSH) == 0))
+			blocking_io = 1;
+
 		server_options(args,&argc);
 
-
-		if (strcmp(cmd, RSYNC_RSH) == 0) blocking_io = 1;
 	}
 
 	args[argc++] = ".";
 
-	if (path && *path) 
+	if (!daemon_over_rsh && path && *path) 
 		args[argc++] = path;
 
 	args[argc] = NULL;
@@ -229,8 +264,8 @@ static pid_t do_cmd(char *cmd,char *machine,char *user,char *path,int *f_in,int 
 
 	if (local_server) {
 		if (read_batch)
-		    create_flist_from_batch();
-		ret = local_child(argc, args, f_in, f_out);
+		    create_flist_from_batch(); /* sets batch_flist */
+		ret = local_child(argc, args, f_in, f_out, child_main);
 	} else {
 		ret = piped_child(args,f_in,f_out);
 	}
@@ -279,7 +314,8 @@ static char *get_local_name(struct file_list *flist,char *name)
 		return name;
 
 	if (do_mkdir(name,0777 & ~orig_umask) != 0) {
-		rprintf(FERROR,"mkdir %s : %s (1)\n",name,strerror(errno));
+		rprintf(FERROR, RSYNC_NAME ": mkdir %s: %s\n",
+			name, strerror(errno));
 		exit_cleanup(RERR_FILEIO);
 	} else {
 		if (verbose > 0)
@@ -287,8 +323,8 @@ static char *get_local_name(struct file_list *flist,char *name)
 	}
 
 	if (!push_dir(name, 0)) {
-		rprintf(FERROR,"push_dir %s : %s (2)\n",
-			name,strerror(errno));
+		rprintf(FERROR, RSYNC_NAME ": push_dir %s: %s\n",
+			name, strerror(errno));
 		exit_cleanup(RERR_FILESELECT);
 	}
 
@@ -425,6 +461,7 @@ static int do_recv(int f_in,int f_out,struct file_list *flist,char *local_name)
 	}
 	io_flush();
 
+	io_set_error_fd(-1);
 	kill(pid, SIGUSR2);
 	wait_process(pid, &status);
 	return status;
@@ -442,8 +479,8 @@ static void do_server_recv(int f_in, int f_out, int argc,char *argv[])
 	extern int am_daemon;
 	extern int module_id;
 	extern int am_sender;
-	extern int read_batch;   /* dw */
-	extern struct file_list *batch_flist;  /* dw */
+	extern int read_batch;
+	extern struct file_list *batch_flist;
 
 	if (verbose > 2)
 		rprintf(FINFO,"server_recv(%d) starting pid=%d\n",argc,(int)getpid());
@@ -469,7 +506,7 @@ static void do_server_recv(int f_in, int f_out, int argc,char *argv[])
 	if (delete_mode && !delete_excluded)
 		recv_exclude_list(f_in);
 
-	if (read_batch) /*  dw  */
+	if (read_batch)
 	    flist = batch_flist;
 	else
 	    flist = recv_file_list(f_in);
@@ -491,12 +528,19 @@ static void do_server_recv(int f_in, int f_out, int argc,char *argv[])
 }
 
 
+int child_main(int argc, char *argv[])
+{
+	start_server(STDIN_FILENO, STDOUT_FILENO, argc, argv);
+	return 0;
+}
+
+
 void start_server(int f_in, int f_out, int argc, char *argv[])
 {
 	extern int cvs_exclude;
 	extern int am_sender;
 	extern int remote_version;
-	extern int read_batch; /* dw */
+	extern int read_batch;
 
 	setup_protocol(f_out, f_in);
 
@@ -507,7 +551,7 @@ void start_server(int f_in, int f_out, int argc, char *argv[])
 		io_start_multiplex_out(f_out);
 
 	if (am_sender) {
-		if (!read_batch) { /* dw */
+		if (!read_batch) {
 		    recv_exclude_list(f_in);
 		    if (cvs_exclude)
 			add_cvs_excludes();
@@ -526,19 +570,19 @@ void start_server(int f_in, int f_out, int argc, char *argv[])
  */
 int client_run(int f_in, int f_out, pid_t pid, int argc, char *argv[])
 {
-	struct file_list *flist;
+	struct file_list *flist = NULL;
 	int status = 0, status2 = 0;
 	char *local_name = NULL;
 	extern int am_sender;
 	extern int remote_version;
 	extern pid_t cleanup_child_pid;
-	extern int write_batch; /* dw */
-	extern int read_batch; /* dw */
-	extern struct file_list *batch_flist; /*  dw */
+	extern int write_batch;
+	extern int read_batch;
+	extern struct file_list *batch_flist;
 
 	cleanup_child_pid = pid;
 	if (read_batch)
-	    flist = batch_flist;  /* dw */
+	    flist = batch_flist;
 
 	set_nonblocking(f_in);
 	set_nonblocking(f_out);
@@ -581,7 +625,7 @@ int client_run(int f_in, int f_out, pid_t pid, int argc, char *argv[])
 		list_only = 1;
 	}
 	
-	if (!write_batch) /* dw */
+	if (!write_batch)
 	    send_exclude_list(f_out);
 	
 	flist = recv_file_list(f_in);
@@ -638,11 +682,14 @@ static int copy_argv (char *argv[])
 }
 
 
-/*
+/**
  * Start a client for either type of remote connection.  Work out
  * whether the arguments request a remote shell or rsyncd connection,
  * and call the appropriate connection function, then run_client.
- */
+ *
+ * Calls either start_socket_client (for sockets) or do_cmd and
+ * client_run (for ssh).
+ **/
 static int start_client(int argc, char *argv[])
 {
 	char *p;
@@ -656,15 +703,16 @@ static int start_client(int argc, char *argv[])
 	extern int am_sender;
 	extern char *shell_cmd;
 	extern int rsync_port;
-	extern int whole_file;
+	extern int daemon_over_rsh;
 	extern int read_batch;
 	int rc;
 
 	/* Don't clobber argv[] so that ps(1) can still show the right
            command line. */
-	if ((rc = copy_argv (argv)))
+	if ((rc = copy_argv(argv)))
 		return rc;
 
+	/* rsync:// always uses rsync server over direct socket connection */
 	if (strncasecmp(URL_PREFIX, argv[0], strlen(URL_PREFIX)) == 0) {
 		char *host, *path;
 
@@ -674,7 +722,7 @@ static int start_client(int argc, char *argv[])
 			*p = 0;
 			path = p+1;
 		} else {
-			path="";
+			path = "";
 		}
 		p = strchr(host,':');
 		if (p) {
@@ -684,13 +732,18 @@ static int start_client(int argc, char *argv[])
 		return start_socket_client(host, path, argc-1, argv+1);
 	}
 
-	if (!read_batch) { /* dw */
-	    p = find_colon(argv[0]);
+	if (!read_batch) {
+		p = find_colon(argv[0]);
 
 	if (p) {
-		if (p[1] == ':') {
+		if (p[1] == ':') { /* double colon */
 			*p = 0;
-			return start_socket_client(argv[0], p+2, argc-1, argv+1);
+			if (!shell_cmd) {
+				return start_socket_client(argv[0], p+2,
+							   argc-1, argv+1);
+			}
+			p++;
+			daemon_over_rsh = 1;
 		}
 
 		if (argc < 1) {
@@ -707,14 +760,37 @@ static int start_client(int argc, char *argv[])
 	} else {
 		am_sender = 1;
 
+		/* rsync:// destination uses rsync server over direct socket */
+		if (strncasecmp(URL_PREFIX, argv[argc-1], strlen(URL_PREFIX)) == 0) {
+			char *host, *path;
+
+			host = argv[argc-1] + strlen(URL_PREFIX);
+			p = strchr(host,'/');
+			if (p) {
+				*p = 0;
+				path = p+1;
+			} else {
+				path = "";
+			}
+			p = strchr(host,':');
+			if (p) {
+				rsync_port = atoi(p+1);
+				*p = 0;
+			}
+			return start_socket_client(host, path, argc-1, argv);
+		}
+
 		p = find_colon(argv[argc-1]);
 		if (!p) {
 			local_server = 1;
-			/* disable "rsync algorithm" when both sides local */
-			whole_file = 1;
-		} else if (p[1] == ':') {
+		} else if (p[1] == ':') { /* double colon */
 			*p = 0;
-			return start_socket_client(argv[argc-1], p+2, argc-1, argv);
+			if (!shell_cmd) {
+				return start_socket_client(argv[argc-1], p+2,
+							   argc-1, argv);
+			}
+			p++;
+			daemon_over_rsh = 1;
 		}
 
 		if (argc < 2) {
@@ -733,9 +809,9 @@ static int start_client(int argc, char *argv[])
 		argc--;
 	}
 	} else {
-	    am_sender = 1;  /*  dw */
-	    local_server = 1;  /* dw */
-	    shell_path = argv[argc-1];  /* dw */
+	    am_sender = 1;
+	    local_server = 1;
+	    shell_path = argv[argc-1];
 	}
 
 	if (shell_machine) {
@@ -765,8 +841,19 @@ static int start_client(int argc, char *argv[])
 		list_only = 1;
 	}
 	
-	pid = do_cmd(shell_cmd,shell_machine,shell_user,shell_path,&f_in,&f_out);
-	
+	pid = do_cmd(shell_cmd,shell_machine,shell_user,shell_path,
+		     &f_in,&f_out);
+
+	/* if we're running an rsync server on the remote host over a
+	   remote shell command, we need to do the RSYNCD protocol first */
+	if (daemon_over_rsh) {
+		int tmpret;
+		tmpret = start_inband_exchange(shell_user, shell_path,
+					       f_in, f_out, argc);
+		if (tmpret < 0)
+			return tmpret;
+	}
+
 	ret = client_run(f_in, f_out, pid, argc, argv);
 
 	fflush(stdout);
@@ -776,21 +863,90 @@ static int start_client(int argc, char *argv[])
 }
 
 
-static RETSIGTYPE sigusr1_handler(int val) {
+static RETSIGTYPE sigusr1_handler(int UNUSED(val)) {
 	exit_cleanup(RERR_SIGNAL);
 }
 
-static RETSIGTYPE sigusr2_handler(int val) {
+static RETSIGTYPE sigusr2_handler(int UNUSED(val)) {
 	extern int log_got_error;
 	if (log_got_error) _exit(RERR_PARTIAL);
 	_exit(0);
 }
 
-static RETSIGTYPE sigchld_handler(int val) {
+static RETSIGTYPE sigchld_handler(int UNUSED(val)) {
 #ifdef WNOHANG
-	while (waitpid(-1, NULL, WNOHANG) > 0) ;
+	int cnt, status;
+	pid_t pid;
+	/* An empty waitpid() loop was put here by Tridge and we could never
+	 * get him to explain why he put it in, so rather than taking it 
+	 * out we're instead saving the child exit statuses for later use.
+	 * The waitpid() loop presumably eliminates all possibility of leaving
+	 * zombie children, maybe that's why he did it.
+	 */
+	while ((pid = waitpid(-1, &status, WNOHANG)) > 0) {
+		 /* save the child's exit status */
+		 for (cnt = 0; cnt < MAXCHILDPROCS; cnt++) {
+			  if (pid_stat_table[cnt].pid == 0) {
+				   pid_stat_table[cnt].pid = pid;
+				   pid_stat_table[cnt].status = status;
+				   break;
+			  }
+		 }
+	}
 #endif
 }
+
+
+/**
+ * This routine catches signals and tries to send them to gdb.
+ *
+ * Because it's called from inside a signal handler it ought not to
+ * use too many library routines.
+ *
+ * @todo Perhaps use "screen -X" instead/as well, to help people
+ * debugging without easy access to X.  Perhaps use an environment
+ * variable, or just call a script?
+ *
+ * @todo The /proc/ magic probably only works on Linux (and
+ * Solaris?)  Can we be more portable?
+ **/
+#ifdef MAINTAINER_MODE
+const char *get_panic_action(void)
+{
+	const char *cmd_fmt = getenv("RSYNC_PANIC_ACTION");
+
+	if (cmd_fmt)
+		return cmd_fmt;
+	else
+		return "xterm -display :0 -T Panic -n Panic "
+			"-e gdb /proc/%d/exe %d";
+}
+
+
+/**
+ * Handle a fatal signal by launching a debugger, controlled by $RSYNC_PANIC_ACTION.
+ *
+ * This signal handler is only installed if we were configured with
+ * --enable-maintainer-mode.  Perhaps it should always be on and we
+ * should just look at the environment variable, but I'm a bit leery
+ * of a signal sending us into a busy loop.
+ **/
+static RETSIGTYPE rsync_panic_handler(int UNUSED(whatsig))
+{
+	char cmd_buf[300];
+	int ret;
+
+	sprintf(cmd_buf, get_panic_action(),
+		getpid(), getpid());
+
+	/* Unless we failed to execute gdb, we allow the process to
+	 * continue.  I'm not sure if that's right. */
+	ret = system(cmd_buf);
+	if (ret)
+		_exit(ret);
+}
+#endif
+
 
 int main(int argc,char *argv[])
 {       
@@ -800,18 +956,22 @@ int main(int argc,char *argv[])
 	extern int am_daemon;
 	extern int am_server;
 	int ret;
-	extern int read_batch;   /*  dw */
-	extern int write_batch;  /*  dw */
-	extern char *batch_ext;   /*  dw */
-	int orig_argc;  /* dw */
+	extern int write_batch;
+	int orig_argc;
 	char **orig_argv;
 
-	orig_argc = argc;   /* dw */
+	orig_argc = argc;
 	orig_argv = argv;
 
 	signal(SIGUSR1, sigusr1_handler);
 	signal(SIGUSR2, sigusr2_handler);
 	signal(SIGCHLD, sigchld_handler);
+#ifdef MAINTAINER_MODE
+	signal(SIGSEGV, rsync_panic_handler);
+	signal(SIGFPE, rsync_panic_handler);
+	signal(SIGABRT, rsync_panic_handler);
+	signal(SIGBUS, rsync_panic_handler);
+#endif /* def MAINTAINER_MODE */
 
 	starttime = time(NULL);
 	am_root = (getuid() == 0);
@@ -835,9 +995,12 @@ int main(int argc,char *argv[])
 	}
 
 	signal(SIGINT,SIGNAL_CAST sig_int);
-	signal(SIGPIPE,SIGNAL_CAST sig_int);
 	signal(SIGHUP,SIGNAL_CAST sig_int);
 	signal(SIGTERM,SIGNAL_CAST sig_int);
+
+	/* Ignore SIGPIPE; we consistently check error codes and will
+	 * see the EPIPE. */
+	signal(SIGPIPE, SIG_IGN);
 
 	/* Initialize push_dir here because on some old systems getcwd
 	   (implemented by forking "pwd" and reading its output) doesn't
@@ -845,18 +1008,12 @@ int main(int argc,char *argv[])
 	   that implement getcwd that way "pwd" can't be found after chroot. */
 	push_dir(NULL,0);
 
-	if (write_batch) { /* dw */
-	    create_batch_file_ext();
+	if (write_batch && !am_server) {
 	    write_batch_argvs_file(orig_argc, orig_argv);
 	}
 
-	if (read_batch) { /* dw */
-	    set_batch_file_ext(batch_ext);
-	}
-
-	if (am_daemon) {
+	if (am_daemon && !am_server)
 		return daemon_main();
-	}
 
 	if (argc < 1) {
 		usage(FERROR);
@@ -876,11 +1033,17 @@ int main(int argc,char *argv[])
 	if (am_server) {
 		set_nonblocking(STDIN_FILENO);
 		set_nonblocking(STDOUT_FILENO);
+		if (am_daemon)
+			return start_daemon(STDIN_FILENO, STDOUT_FILENO);
 		start_server(STDIN_FILENO, STDOUT_FILENO, argc, argv);
 	}
 
 	ret = start_client(argc, argv);
-	exit_cleanup(ret);
-	return ret;
-}
+	if (ret == -1) 
+		exit_cleanup(RERR_STARTCLIENT);
+	else
+		exit_cleanup(ret);
 
+	exit(ret);
+	/* NOTREACHED */
+}

@@ -10,7 +10,7 @@
 # See the file "license.terms" for information on usage and redistribution
 # of this file, and for a DISCLAIMER OF ALL WARRANTIES.
 #
-# RCS: @(#) $Id: winFCmd.test,v 1.1.1.5 2002/04/05 16:13:59 jevans Exp $
+# RCS: @(#) $Id: winFCmd.test,v 1.1.1.6 2003/03/06 00:13:20 landonf Exp $
 #
 
 if {[lsearch [namespace children] ::tcltest] == -1} {
@@ -36,7 +36,7 @@ proc cleanup {args} {
     foreach p ". $args" {
 	set x ""
 	catch {
-	    set x [glob [file join $p tf*] [file join $p td*]]
+	    set x [glob -directory $p tf* td*]
 	}
 	if {$x != ""} {
 	    catch {eval file delete -force -- $x}
@@ -47,15 +47,15 @@ proc cleanup {args} {
 if {[string equal $tcl_platform(platform) "windows"]} {
     if {[string equal $tcl_platform(os) "Windows NT"] \
       && [string equal [string index $tcl_platform(osVersion) 0] "5"]} {
-	set tcltest::testConstraints(win2000) 1
-	set tcltest::testConstraints(notWin2000) 0
+	tcltest::testConstraint win2000orXP 1
+	tcltest::testConstraint winOlderThan2000 0
     } else {
-	set tcltest::testConstraints(win2000) 0
-	set tcltest::testConstraints(notWin2000) 1
+	tcltest::testConstraint win2000orXP 0
+	tcltest::testConstraint winOlderThan2000 1
     }
 } else {
-    set tcltest::testConstraints(win2000) 0
-    set tcltest::testConstraints(notWin2000) 0
+    tcltest::testConstraint win2000orXP 0
+    tcltest::testConstraint winOlderThan2000 0
 }
 
 set ::tcltest::testConstraints(cdrom) 0
@@ -202,20 +202,20 @@ test winFCmd-1.12 {TclpRenameFile: errno: EACCES} {pcOnly} {
     close $fd
     set msg
 } {1 EACCES}
-test winFCmd-1.13 {TclpRenameFile: errno: EACCES} {win2000} {
+test winFCmd-1.13 {TclpRenameFile: errno: EACCES} {pcOnly win2000orXP} {
     cleanup
     list [catch {testfile mv nul tf1} msg] $msg
 } {1 EINVAL}
-test winFCmd-1.13.1 {TclpRenameFile: errno: EACCES} {notWin2000} {
+test winFCmd-1.13.1 {TclpRenameFile: errno: EACCES} {pcOnly winOlderThan2000} {
     cleanup
     list [catch {testfile mv nul tf1} msg] $msg
 } {1 EACCES}
-test winFCmd-1.14 {TclpRenameFile: errno: EACCES} {95} {
+test winFCmd-1.14 {TclpRenameFile: errno: EACCES} {pcOnly 95} {
     cleanup
     createfile tf1
     list [catch {testfile mv tf1 nul} msg] $msg
 } {1 EACCES}
-test winFCmd-1.15 {TclpRenameFile: errno: EEXIST} {nt} {
+test winFCmd-1.15 {TclpRenameFile: errno: EEXIST} {pcOnly nt} {
     cleanup
     createfile tf1
     list [catch {testfile mv tf1 nul} msg] $msg
@@ -234,15 +234,15 @@ test winFCmd-1.18 {TclpRenameFile: srcAttr == -1} {pcOnly} {
     cleanup
     list [catch {testfile mv tf1 tf2} msg] $msg
 } {1 ENOENT} 
-test winFCmd-1.19 {TclpRenameFile: errno == EACCES} {win2000} {
+test winFCmd-1.19 {TclpRenameFile: errno == EACCES} {pcOnly win2000orXP} {
     cleanup
     list [catch {testfile mv nul tf1} msg] $msg
 } {1 EINVAL}
-test winFCmd-1.19.1 {TclpRenameFile: errno == EACCES} {notWin2000} {
+test winFCmd-1.19.1 {TclpRenameFile: errno == EACCES} {pcOnly winOlderThan2000} {
     cleanup
     list [catch {testfile mv nul tf1} msg] $msg
 } {1 EACCES}
-test winFCmd-1.20 {TclpRenameFile: src is dir} {nt} {
+test winFCmd-1.20 {TclpRenameFile: src is dir} {pcOnly nt} {
     # under 95, this would actually succeed and move the current dir out from 
     # under the current process!
     cleanup
@@ -288,7 +288,7 @@ test winFCmd-1.28 {TclpRenameFile: errno == EEXIST} {pcOnly} {
     createfile tf1
     createfile tf2
     testfile mv tf1 tf2
-    list [file exist tf1] [file exist tf2]
+    list [file exists tf1] [file exists tf2]
 } {0 1}
 test winFCmd-1.29 {TclpRenameFile: src is dir} {pcOnly} {
     cleanup
@@ -313,7 +313,7 @@ test winFCmd-1.32 {TclpRenameFile: TclpRemoveDirectory succeeds} {pcOnly} {
     file mkdir td1/td2
     file mkdir td2
     testfile mv td1 td2
-    list [file exist td1] [file exist td2] [file exist td2/td2]
+    list [file exists td1] [file exists td2] [file exists td2/td2]
 } {0 1 1}
 test winFCmd-1.33 {TclpRenameFile: After removing dst dir, MoveFile fails} \
 	{pcOnly exdev} {
@@ -375,7 +375,7 @@ test winFCmd-2.6 {TclpCopyFile: errno: ENOENT} {pcOnly} {
     createfile tf1
     list [catch {testfile cp tf1 ""} msg] $msg
 } {1 ENOENT}
-test winFCmd-2.7 {TclpCopyFile: errno: EACCES} {95} {
+test winFCmd-2.7 {TclpCopyFile: errno: EACCES} {pcOnly 95} {
     cleanup
     createfile tf1
     set fd [open tf2 w]
@@ -383,15 +383,15 @@ test winFCmd-2.7 {TclpCopyFile: errno: EACCES} {95} {
     close $fd
     set msg
 } {1 EACCES}
-test winFCmd-2.8 {TclpCopyFile: errno: EACCES} {win2000} {
+test winFCmd-2.8 {TclpCopyFile: errno: EACCES} {pcOnly win2000orXP} {
     cleanup
     list [catch {testfile cp nul tf1} msg] $msg
 } {1 EINVAL}
-test winFCmd-2.8.1 {TclpCopyFile: errno: EACCES} {nt notWin2000} {
+test winFCmd-2.8.1 {TclpCopyFile: errno: EACCES} {pcOnly nt winOlderThan2000} {
     cleanup
     list [catch {testfile cp nul tf1} msg] $msg
 } {1 EACCES}
-test winFCmd-2.9 {TclpCopyFile: errno: ENOENT} {95} {
+test winFCmd-2.9 {TclpCopyFile: errno: ENOENT} {pcOnly 95} {
     cleanup
     list [catch {testfile cp nul tf1} msg] $msg
 } {1 ENOENT}
@@ -445,7 +445,7 @@ test winFCmd-2.17 {TclpCopyFile: dst is readonly} {pcOnly} {
     testfile cp tf1 tf2
     list [file writable tf2] [contents tf2]
 } {1 tf1}
-test winFCmd-2.18 {TclpCopyFile: still can't copy onto dst} {95} {
+test winFCmd-2.18 {TclpCopyFile: still can't copy onto dst} {pcOnly 95} {
     cleanup
     createfile tf1
     createfile tf2
@@ -487,7 +487,7 @@ test winFCmd-3.7 {TclpDeleteFile: DeleteFile succeeds} {pcOnly} {
     cleanup
     createfile tf1
     testfile rm tf1
-    file exist tf1
+    file exists tf1
 } {0}
 test winFCmd-3.8 {TclpDeleteFile: DeleteFile fails} {pcOnly} {
     cleanup
@@ -517,10 +517,10 @@ test winFCmd-3.11 {TclpDeleteFile: still can't remove path} {pcOnly} {
     set msg
 } {1 EACCES}
 
-test winFCmd-4.1 {TclpCreateDirectory: errno: EACCES} {nt cdrom} {
+test winFCmd-4.1 {TclpCreateDirectory: errno: EACCES} {pcOnly nt cdrom} {
     list [catch {testfile mkdir $cdrom/dummy~~.dir} msg] $msg
 } {1 EACCES}
-test winFCmd-4.2 {TclpCreateDirectory: errno: EACCES} {95 cdrom} {
+test winFCmd-4.2 {TclpCreateDirectory: errno: EACCES} {pcOnly 95 cdrom} {
     list [catch {testfile mkdir $cdrom/dummy~~.dir} msg] $msg
 } {1 ENOSPC}
 test winFCmd-4.3 {TclpCreateDirectory: errno: EEXIST} {pcOnly} {
@@ -550,12 +550,12 @@ test winFCmd-6.1 {TclpRemoveDirectory: errno: EACCES} {pcOnly} {
     file mkdir td1
     testchmod 000 td1
     testfile rmdir td1
-    file exist td1
+    file exists td1
 } {0}
 test winFCmd-6.2 {TclpRemoveDirectory: errno: EEXIST} {pcOnly} {
     cleanup
     file mkdir td1/td2
-    list [catch {testfile rmdir td1} msg] $msg
+    list [catch {testfile rmdir td1} msg] [file tail $msg]
 } {1 {td1 EEXIST}}
 test winFCmd-6.3 {TclpRemoveDirectory: errno: EACCES} {pcOnly} {
     # can't test this w/o removing everything on your hard disk first!
@@ -563,7 +563,7 @@ test winFCmd-6.3 {TclpRemoveDirectory: errno: EACCES} {pcOnly} {
 } {}
 test winFCmd-6.4 {TclpRemoveDirectory: errno: ENOENT} {pcOnly} {
     cleanup
-    list [catch {testfile rmdir td1} msg] $msg
+    list [catch {testfile rmdir td1} msg] [file tail $msg]
 } {1 {td1 ENOENT}}
 test winFCmd-6.5 {TclpRemoveDirectory: errno: ENOENT} {pcOnly} {
     cleanup
@@ -572,7 +572,7 @@ test winFCmd-6.5 {TclpRemoveDirectory: errno: ENOENT} {pcOnly} {
 test winFCmd-6.6 {TclpRemoveDirectory: errno: ENOTDIR} {pcOnly} {
     cleanup
     createfile tf1
-    list [catch {testfile rmdir tf1} msg] $msg
+    list [catch {testfile rmdir tf1} msg] [file tail $msg]
 } {1 {tf1 ENOTDIR}}
 test winFCmd-6.7 {TclpRemoveDirectory: RemoveDirectory succeeds} {pcOnly} {
     cleanup
@@ -583,7 +583,7 @@ test winFCmd-6.7 {TclpRemoveDirectory: RemoveDirectory succeeds} {pcOnly} {
 test winFCmd-6.8 {TclpRemoveDirectory: RemoveDirectory fails} {pcOnly} {
     cleanup
     createfile tf1
-    list [catch {testfile rmdir tf1} msg] $msg
+    list [catch {testfile rmdir tf1} msg] [file tail $msg]
 } {1 {tf1 ENOTDIR}}
 test winFCmd-6.9 {TclpRemoveDirectory: errno == EACCES} {pcOnly} {
     cleanup
@@ -592,15 +592,15 @@ test winFCmd-6.9 {TclpRemoveDirectory: errno == EACCES} {pcOnly} {
     testfile rmdir td1
     file exists td1
 } {0}
-test winFCmd-6.10 {TclpRemoveDirectory: attr == -1} {95} {
+test winFCmd-6.10 {TclpRemoveDirectory: attr == -1} {pcOnly 95} {
     cleanup
     list [catch {testfile rmdir nul} msg] $msg
 } {1 {nul EACCES}}
-test winFCmd-6.11 {TclpRemoveDirectory: attr == -1} {nt} {
+test winFCmd-6.11 {TclpRemoveDirectory: attr == -1} {pcOnly nt} {
     cleanup
     list [catch {testfile rmdir /} msg] $msg
-} {1 {\ EACCES}}
-test winFCmd-6.12 {TclpRemoveDirectory: errno == EACCES} {95} {
+} {1 {/ EACCES}}
+test winFCmd-6.12 {TclpRemoveDirectory: errno == EACCES} {pcOnly 95} {
     cleanup
     createfile tf1
     list [catch {testfile rmdir tf1} msg] $msg
@@ -612,7 +612,7 @@ test winFCmd-6.13 {TclpRemoveDirectory: write-protected} {pcOnly} {
     testfile rmdir td1
     file exists td1
 } {0}
-test winFCmd-6.14 {TclpRemoveDirectory: check if empty dir} {95} {
+test winFCmd-6.14 {TclpRemoveDirectory: check if empty dir} {pcOnly 95} {
     cleanup
     file mkdir td1/td2
     list [catch {testfile rmdir td1} msg] $msg
@@ -620,7 +620,7 @@ test winFCmd-6.14 {TclpRemoveDirectory: check if empty dir} {95} {
 test winFCmd-6.15 {TclpRemoveDirectory: !recursive} {pcOnly} {
     cleanup
     file mkdir td1/td2
-    list [catch {testfile rmdir td1} msg] $msg
+    list [catch {testfile rmdir td1} msg] [file tail $msg]
 } {1 {td1 EEXIST}}
 test winFCmd-6.16 {TclpRemoveDirectory: recursive, but errno != EEXIST} {pcOnly} {
     cleanup
@@ -678,12 +678,13 @@ test winFCmd-7.7 {TraverseWinTree: append \ to source if necessary} {pcOnly} {
     testfile cpdir td1 td2
     contents td2/tf1
 } {tf1}    
-test winFCmd-7.8 {TraverseWinTree: append \ to source if necessary} {95 cdrom} {
-    list [catch {testfile rmdir $cdrom/} msg] $msg
-} "1 {$cdrom\\ EEXIST}"
-test winFCmd-7.9 {TraverseWinTree: append \ to source if necessary} {nt cdrom} {
-    list [catch {testfile rmdir $cdrom/} msg] $msg
-} "1 {$cdrom\\ EACCES}"
+test winFCmd-7.8 {TraverseWinTree: append \ to source if necessary} {pcOnly 95 cdrom} {
+    # cdrom can return either d:\ or D:/, but we only care about the errcode
+    list [catch {testfile rmdir $cdrom/} msg] [lindex $msg 1]
+} {1 EEXIST}
+test winFCmd-7.9 {TraverseWinTree: append \ to source if necessary} {pcOnly nt cdrom} {
+    list [catch {testfile rmdir $cdrom/} msg]  [lindex $msg 1]
+} {1 EACCES}
 test winFCmd-7.10 {TraverseWinTree: can't read directory: handle == INVALID} \
 	{pcOnly} {
     # can't make it happen
@@ -710,16 +711,16 @@ test winFCmd-7.13 {TraverseWinTree: append \ to target if necessary} {pcOnly} {
     testfile cpdir td1 td2
     contents td2/tf1
 } {tf1}    
-test winFCmd-7.14 {TraverseWinTree: append \ to target if necessary} {95} {
+test winFCmd-7.14 {TraverseWinTree: append \ to target if necessary} {pcOnly 95} {
     cleanup
     file mkdir td1
     list [catch {testfile cpdir td1 /} msg] $msg
-} {1 {\ EEXIST}}
-test winFCmd-7.15 {TraverseWinTree: append \ to target if necessary} {nt} {
+} {1 {/ EEXIST}}
+test winFCmd-7.15 {TraverseWinTree: append \ to target if necessary} {pcOnly nt} {
     cleanup
     file mkdir td1
     list [catch {testfile cpdir td1 /} msg] $msg
-} {1 {\ EACCES}}
+} {1 {/ EACCES}}
 test winFCmd-7.16 {TraverseWinTree: recurse on files: no files} {pcOnly} {
     cleanup
     file mkdir td1
@@ -789,7 +790,7 @@ test winFCmd-9.1 {TraversalDelete: DOTREE_F} {pcOnly} {
     createfile td1/tf1
     testfile rmdir -force td1
 } {}
-test winFCmd-9.2 {TraversalDelete: DOTREE_F} {95} {
+test winFCmd-9.2 {TraversalDelete: DOTREE_F} {pcOnly 95} {
     cleanup
     file mkdir td1
     set fd [open td1/tf1 w]
@@ -839,7 +840,7 @@ test winFCmd-11.4 {GetWinFileAttributes} {pcOnly} {
     close [open td1 w]
     list [catch {file attributes td1 -system} msg] $msg [cleanup]
 } {0 0 {}}
-test winfcmd-11.5 {GetWinFileAttributes} {pcOnly} {
+test winFCmd-11.5 {GetWinFileAttributes} {pcOnly} {
     # attr of relative paths that resolve to root was failing
     # don't care about answer, just that test runs.
 
@@ -850,6 +851,9 @@ test winfcmd-11.5 {GetWinFileAttributes} {pcOnly} {
     file attr . 
     cd $old
 } {}
+test winFCmd-11.6 {GetWinFileAttributes} {pcOnly} {
+    file attr c:/ -hidden
+} {0}
 
 test winFCmd-12.1 {ConvertFileNameFormat} {pcOnly} {
     cleanup
@@ -961,6 +965,9 @@ test winFCmd-15.10 {SetWinFileAttributes - failing} {pcOnly cdrom} {
     cleanup
     catch {file attributes $cdfile -archive 1}
 } {1}
+test winFCmd-16.1 {Windows file normalization} {pcOnly} {
+    list [file normalize c:/] [file normalize C:/]
+} {C:/ C:/}
 
 # This block of code used to occur after the "return" call, so I'm
 # commenting it out and assuming that this code is still under construction.
@@ -993,15 +1000,3 @@ test winFCmd-15.10 {SetWinFileAttributes - failing} {pcOnly cdrom} {
 cleanup
 ::tcltest::cleanupTests
 return
-
-
-
-
-
-
-
-
-
-
-
-

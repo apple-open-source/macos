@@ -911,11 +911,10 @@ void HTMLTokenizer::parseTag(DOMStringIt &src)
                     finish = true;
                     break;
                 }
-                // this is a nasty performance trick. will work for the A-Z
-                // characters, but not for others. if it contains one,
-                // we fail anyway
-                char cc = curchar;
-                cBuffer[cBufferPos++] = cc | 0x20;
+                // Use tolower() instead of | 0x20 to lowercase the char because there is no 
+                // performance gain in using | 0x20 since tolower() is optimized and 
+                // | 0x20 turns characters such as '_' into junk.
+                cBuffer[cBufferPos++] = tolower(curchar);
                 ++src;
             }
 
@@ -936,11 +935,14 @@ void HTMLTokenizer::parseTag(DOMStringIt &src)
                 else
                     // Start Tag
                     beginTag = true;
-                    
-                // Accept empty xml tags like <br/>
+
+                // Accept empty xml tags like <br/>.  We trim off the "/" so that when we call
+                // getTagID, we'll look up "br" as the tag name and not "br/".
                 if(len > 1 && ptr[len-1] == '/' )
                     ptr[--len] = '\0';
 
+                // Look up the tagID for the specified tag name (now that we've shaved off any
+                // invalid / that might have followed the name).
                 uint tagID = khtml::getTagID(ptr, len);
                 if (!tagID) {
 #ifdef TOKEN_DEBUG
@@ -1013,6 +1015,15 @@ void HTMLTokenizer::parseTag(DOMStringIt &src)
                         else {
                             attrName = QString::fromLatin1(QCString(cBuffer, cBufferPos+1).data());
                             attrNamePresent = !attrName.isEmpty();
+
+                            // This is a deliberate quirk to match Mozilla and Opera.  We have to do this
+                            // since sites that use the "standards-compliant" path sometimes send
+                            // <script src="foo.js"/>.  Both Moz and Opera will honor this, despite it
+                            // being bogus HTML.  They do not honor the "/" for other tags.  This behavior
+                            // also deviates from WinIE, but in this case we'll just copy Moz and Opera.
+                            if (currToken.id == ID_SCRIPT && curchar == '>' &&
+                                attrName == "/")
+                                currToken.flat = true;
                         }
                         
                         dest = buffer;
@@ -1028,7 +1039,10 @@ void HTMLTokenizer::parseTag(DOMStringIt &src)
                         break;
                     }
                 }
-                cBuffer[cBufferPos++] = (char) curchar | 0x20;
+                // Use tolower() instead of | 0x20 to lowercase the char because there is no 
+                // performance gain in using | 0x20 since tolower() is optimized and 
+                // | 0x20 turns characters such as '_' into junk.
+                cBuffer[cBufferPos++] = tolower(curchar);
                 ++src;
             }
             if ( cBufferPos == CBUFLEN ) {

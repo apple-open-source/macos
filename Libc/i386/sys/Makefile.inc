@@ -16,6 +16,17 @@ SRCS+=  ATPgetreq.s \
 	acct.s \
 	add_profil.s \
 	adjtime.s \
+	aio_cancel.s \
+	aio_error.s \
+	aio_fsync.s \
+	aio_read.s \
+	aio_return.s \
+	aio_suspend.s \
+	aio_write.s \
+	audit.s \
+	auditctl.s \
+	auditon.s \
+	auditsvc.s \
 	bind.s \
 	cerror.s \
 	chdir.s \
@@ -35,9 +46,11 @@ SRCS+=  ATPgetreq.s \
 	fchmod.s \
 	fchown.s \
 	fcntl.s \
+	fhopen.s \
 	flock.s \
 	fork.s \
 	fpathconf.s \
+	fsctl.s \
 	fstat.s \
 	fstatfs.s \
 	fstatv.s \
@@ -45,6 +58,9 @@ SRCS+=  ATPgetreq.s \
 	ftruncate.s \
 	futimes.s \
 	getattrlist.s \
+	getaudit.s \
+	getaudit_addr.s \
+	getauid.s \
 	getdirentries.s \
 	getdirentriesattr.s \
 	getegid.s \
@@ -68,9 +84,14 @@ SRCS+=  ATPgetreq.s \
 	getuid.s \
 	ioctl.s \
 	issetugid.s \
+	kevent.s \
 	kill.s \
+	kqueue.s \
+	kqueue_from_portset_np.s \
+	kqueue_portset_np.s \
 	ktrace.s \
 	link.s \
+	lio_listio.s \
 	listen.s \
 	load_shared_file.s \
 	lseek.s \
@@ -98,6 +119,7 @@ SRCS+=  ATPgetreq.s \
 	munlockall.s \
 	munmap.s \
 	new_system_shared_regions.s \
+	nfsclnt.s \
 	nfssvc.s \
 	open.s \
 	pathconf.s \
@@ -126,10 +148,8 @@ SRCS+=  ATPgetreq.s \
 	sem_destroy.s \
 	sem_getvalue.s \
 	sem_init.s \
-	sem_open.s \
 	sem_post.s \
 	sem_trywait.s \
-	sem_unlink.s \
 	sem_wait.s \
 	semconfig.s \
 	semctl.s \
@@ -139,6 +159,9 @@ SRCS+=  ATPgetreq.s \
 	sendmsg.s \
 	sendto.s \
 	setattrlist.s \
+	setaudit.s \
+	setaudit_addr.s \
+	setauid.s \
 	setegid.s \
 	seteuid.s \
 	setgid.s \
@@ -154,8 +177,6 @@ SRCS+=  ATPgetreq.s \
 	setsockopt.s \
 	settimeofday.s \
 	setuid.s \
-	shm_open.s \
-	shm_unlink.s \
 	shmat.s \
 	shmctl.s \
 	shmdt.s \

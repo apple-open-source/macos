@@ -1,5 +1,3 @@
-/*	$NetBSD: utils.c,v 1.15 1998/08/19 01:29:11 thorpej Exp $	*/
-
 /*-
  * Copyright (c) 1991, 1993, 1994
  *	The Regents of the University of California.  All rights reserved.
@@ -33,60 +31,45 @@
  * SUCH DAMAGE.
  */
 
-#include <sys/cdefs.h>
 #ifndef lint
 #if 0
 static char sccsid[] = "@(#)utils.c	8.3 (Berkeley) 4/1/94";
-#else
-__RCSID("$NetBSD: utils.c,v 1.15 1998/08/19 01:29:11 thorpej Exp $");
 #endif
 #endif /* not lint */
+#include <sys/cdefs.h>
+__RCSID("$FreeBSD: src/bin/cp/utils.c,v 1.38 2002/07/31 16:52:16 markm Exp $");
 
 #include <sys/param.h>
 #include <sys/stat.h>
+#ifdef VM_AND_BUFFER_CACHE_SYNCHRONIZED
 #include <sys/mman.h>
-#include <sys/time.h>
+#endif
 
 #include <err.h>
 #include <errno.h>
 #include <fcntl.h>
 #include <fts.h>
+#include <limits.h>
 #include <stdio.h>
 #include <stdlib.h>
-#include <string.h>
+#include <sysexits.h>
 #include <unistd.h>
 
 #include "extern.h"
 
 int
-set_utimes(file, fs)
-	const char * file;
-	struct stat * fs;
-{
-    static struct timeval tv[2];
-
-    TIMESPEC_TO_TIMEVAL(&tv[0], &fs->st_atimespec);
-    TIMESPEC_TO_TIMEVAL(&tv[1], &fs->st_mtimespec);
-
-    if (utimes(file, tv)) {
-	warn("utimes: %s", file);
-	return (1);
-    }
-    return (0);
-}
-
-int
-copy_file(entp, dne)
-	FTSENT *entp;
-	int dne;
+copy_file(FTSENT *entp, int dne)
 {
 	static char buf[MAXBSIZE];
-	struct stat to_stat, *fs;
-	int ch, checkch, from_fd, rcount, rval, to_fd, wcount;
+	struct stat *fs;
+	int ch, checkch, from_fd, rcount, rval, to_fd;
+	ssize_t wcount;
+	size_t wresid;
+	char *bufp;
 #ifdef VM_AND_BUFFER_CACHE_SYNCHRONIZED
 	char *p;
 #endif
-	
+
 	if ((from_fd = open(entp->fts_path, O_RDONLY, 0)) == -1) {
 		warn("%s", entp->fts_path);
 		return (1);
@@ -103,149 +86,136 @@ copy_file(entp, dne)
 	 * modified by the umask.)
 	 */
 	if (!dne) {
-		if (iflag) {
-			(void)fprintf(stderr, "overwrite %s? ", to.p_path);
+#define YESNO "(y/n [n]) "
+		if (nflag) {
+			if (vflag)
+				printf("%s not overwritten\n", to.p_path);
+			return (0);
+		} else if (iflag) {
+			(void)fprintf(stderr, "overwrite %s? %s", 
+					to.p_path, YESNO);
 			checkch = ch = getchar();
 			while (ch != '\n' && ch != EOF)
 				ch = getchar();
 			if (checkch != 'y' && checkch != 'Y') {
 				(void)close(from_fd);
-				return (0);
+				(void)fprintf(stderr, "not overwritten\n");
+				return (1);
 			}
 		}
-		/* overwrite existing destination file name */
-		to_fd = open(to.p_path, O_WRONLY | O_TRUNC, 0);
+		
+		if (fflag) {
+		    /* remove existing destination file name, 
+		     * create a new file  */
+		    (void)unlink(to.p_path);
+		    to_fd = open(to.p_path, O_WRONLY | O_TRUNC | O_CREAT,
+				 fs->st_mode & ~(S_ISUID | S_ISGID));
+		} else 
+		    /* overwrite existing destination file name */
+		    to_fd = open(to.p_path, O_WRONLY | O_TRUNC, 0);
 	} else
 		to_fd = open(to.p_path, O_WRONLY | O_TRUNC | O_CREAT,
 		    fs->st_mode & ~(S_ISUID | S_ISGID));
 
-	if (to_fd == -1 && fflag) {
-		/*
-		 * attempt to remove existing destination file name and
-		 * create a new file
-		 */
-		(void)unlink(to.p_path);
-		to_fd = open(to.p_path, O_WRONLY | O_TRUNC | O_CREAT,
-			     fs->st_mode & ~(S_ISUID | S_ISGID));
-	}
-
 	if (to_fd == -1) {
 		warn("%s", to.p_path);
 		(void)close(from_fd);
-		return (1);;
+		return (1);
 	}
 
 	rval = 0;
 
 	/*
-	 * There's no reason to do anything other than close the file
-	 * now if it's empty, so let's not bother.
+	 * Mmap and write if less than 8M (the limit is so we don't totally
+	 * trash memory on big files.  This is really a minor hack, but it
+	 * wins some CPU back.
 	 */
-	if (fs->st_size > 0) {
-		/*
-		 * Mmap and write if less than 8M (the limit is so we don't totally
-		 * trash memory on big files).  This is really a minor hack, but it
-		 * wins some CPU back.
-		 */
 #ifdef VM_AND_BUFFER_CACHE_SYNCHRONIZED
-		if (fs->st_size <= 8 * 1048576) {
-			if ((p = mmap(NULL, (size_t)fs->st_size, PROT_READ,
-			    MAP_FILE|MAP_SHARED, from_fd, (off_t)0)) == (char *)-1) {
-				warn("%s", entp->fts_path);
-				rval = 1;
-			} else {
-				if (write(to_fd, p, fs->st_size) != fs->st_size) {
-					warn("%s", to.p_path);
-					rval = 1;
-				}
-				/* Some systems don't unmap on close(2). */
-				if (munmap(p, fs->st_size) < 0) {
-					warn("%s", entp->fts_path);
-					rval = 1;
-				}
-			}
-		} else
-#endif
-		{
-			while ((rcount = read(from_fd, buf, MAXBSIZE)) > 0) {
-				wcount = write(to_fd, buf, rcount);
-				if (rcount != wcount || wcount == -1) {
-					warn("%s", to.p_path);
-					rval = 1;
+	if (S_ISREG(fs->st_mode) && fs->st_size <= 8 * 1048576) {
+		if ((p = mmap(NULL, (size_t)fs->st_size, PROT_READ,
+		    MAP_SHARED, from_fd, (off_t)0)) == MAP_FAILED) {
+			warn("%s", entp->fts_path);
+			rval = 1;
+		} else {
+			for (bufp = p, wresid = fs->st_size; ;
+			    bufp += wcount, wresid -= (size_t)wcount) {
+				wcount = write(to_fd, bufp, wresid);
+				if (wcount >= (ssize_t)wresid || wcount <= 0)
 					break;
-				}
 			}
-			if (rcount < 0) {
+			if (wcount != (ssize_t)wresid) {
+				warn("%s", to.p_path);
+				rval = 1;
+			}
+			/* Some systems don't unmap on close(2). */
+			if (munmap(p, fs->st_size) < 0) {
 				warn("%s", entp->fts_path);
 				rval = 1;
 			}
 		}
+	} else
+#endif
+	{
+		while ((rcount = read(from_fd, buf, MAXBSIZE)) > 0) {
+			for (bufp = buf, wresid = rcount; ;
+			    bufp += wcount, wresid -= wcount) {
+				wcount = write(to_fd, bufp, wresid);
+				if (wcount >= (ssize_t)wresid || wcount <= 0)
+					break;
+			}
+			if (wcount != (ssize_t)wresid) {
+				warn("%s", to.p_path);
+				rval = 1;
+				break;
+			}
+		}
+		if (rcount < 0) {
+			warn("%s", entp->fts_path);
+			rval = 1;
+		}
 	}
 
-	if (rval == 1) {
-		(void)close(from_fd);
-		(void)close(to_fd);
-		return (1);
-	}
+	/*
+	 * Don't remove the target even after an error.  The target might
+	 * not be a regular file, or its attributes might be important,
+	 * or its contents might be irreplaceable.  It would only be safe
+	 * to remove it if we created it and its length is 0.
+	 */
 
 	if (pflag && setfile(fs, to_fd))
 		rval = 1;
-	/*
-	 * If the source was setuid or setgid, lose the bits unless the
-	 * copy is owned by the same user and group.
-	 */
-#define	RETAINBITS \
-	(S_ISUID | S_ISGID | S_ISVTX | S_IRWXU | S_IRWXG | S_IRWXO)
-	else if (fs->st_mode & (S_ISUID | S_ISGID) && fs->st_uid == myuid) {
-		if (fstat(to_fd, &to_stat)) {
-			warn("%s", to.p_path);
-			rval = 1;
-		} else if (fs->st_gid == to_stat.st_gid &&
-		    fchmod(to_fd, fs->st_mode & RETAINBITS & ~myumask)) {
-			warn("%s", to.p_path);
-			rval = 1;
-		}
-	}
 	(void)close(from_fd);
 	if (close(to_fd)) {
 		warn("%s", to.p_path);
 		rval = 1;
 	}
-	/* set the mod/access times now after close of the fd */
-	if (pflag && set_utimes(to.p_path, fs)) { 
-	    rval = 1;
-	}
 	return (rval);
 }
 
 int
-copy_link(p, exists)
-	FTSENT *p;
-	int exists;
+copy_link(FTSENT *p, int exists)
 {
 	int len;
-	char target[MAXPATHLEN];
+	char llink[PATH_MAX];
 
-	if ((len = readlink(p->fts_path, target, sizeof(target))) == -1) {
+	if ((len = readlink(p->fts_path, llink, sizeof(llink) - 1)) == -1) {
 		warn("readlink: %s", p->fts_path);
 		return (1);
 	}
-	target[len] = '\0';
+	llink[len] = '\0';
 	if (exists && unlink(to.p_path)) {
 		warn("unlink: %s", to.p_path);
 		return (1);
 	}
-	if (symlink(target, to.p_path)) {
-		warn("symlink: %s", target);
+	if (symlink(llink, to.p_path)) {
+		warn("symlink: %s", llink);
 		return (1);
 	}
-	return (pflag ? setfile(p->fts_statp, 0) : 0);
+	return (0);
 }
 
 int
-copy_fifo(from_stat, exists)
-	struct stat *from_stat;
-	int exists;
+copy_fifo(struct stat *from_stat, int exists)
 {
 	if (exists && unlink(to.p_path)) {
 		warn("unlink: %s", to.p_path);
@@ -259,9 +229,7 @@ copy_fifo(from_stat, exists)
 }
 
 int
-copy_special(from_stat, exists)
-	struct stat *from_stat;
-	int exists;
+copy_special(struct stat *from_stat, int exists)
 {
 	if (exists && unlink(to.p_path)) {
 		warn("unlink: %s", to.p_path);
@@ -274,83 +242,69 @@ copy_special(from_stat, exists)
 	return (pflag ? setfile(from_stat, 0) : 0);
 }
 
-
-/*
- * Function: setfile
- *
- * Purpose:
- *   Set the owner/group/permissions for the "to" file to the information
- *   in the stat structure.  If fd is zero, also call set_utimes() to set
- *   the mod/access times.  If fd is non-zero, the caller must do a utimes
- *   itself after close(fd).
- */
 int
-setfile(fs, fd)
-	struct stat *fs;
-	int fd;
+setfile(struct stat *fs, int fd)
 {
-	int rval, islink;
+	static struct timeval tv[2];
+	struct stat ts;
+	int rval;
+	int gotstat;
 
 	rval = 0;
-	islink = S_ISLNK(fs->st_mode);
-	fs->st_mode &= S_ISUID | S_ISGID | S_IRWXU | S_IRWXG | S_IRWXO;
+	fs->st_mode &= S_ISUID | S_ISGID | S_ISVTX |
+		       S_IRWXU | S_IRWXG | S_IRWXO;
 
+	TIMESPEC_TO_TIMEVAL(&tv[0], &fs->st_atimespec);
+	TIMESPEC_TO_TIMEVAL(&tv[1], &fs->st_mtimespec);
+	if (utimes(to.p_path, tv)) {
+		warn("utimes: %s", to.p_path);
+		rval = 1;
+	}
+	if (fd ? fstat(fd, &ts) : stat(to.p_path, &ts))
+		gotstat = 0;
+	else {
+		gotstat = 1;
+		ts.st_mode &= S_ISUID | S_ISGID | S_ISVTX |
+			      S_IRWXU | S_IRWXG | S_IRWXO;
+	}
 	/*
 	 * Changing the ownership probably won't succeed, unless we're root
 	 * or POSIX_CHOWN_RESTRICTED is not set.  Set uid/gid before setting
 	 * the mode; current BSD behavior is to remove all setuid bits on
 	 * chown.  If chown fails, lose setuid/setgid bits.
 	 */
-	if (fd ? fchown(fd, fs->st_uid, fs->st_gid) :
-#ifdef __APPLE__
-	    chown(to.p_path, fs->st_uid, fs->st_gid)) {
-#else
-	    lchown(to.p_path, fs->st_uid, fs->st_gid)) {
-#endif
-		if (errno != EPERM) {
-			warn("chown: %s", to.p_path);
-			rval = 1;
-		}
-		fs->st_mode &= ~(S_ISUID | S_ISGID);
-	}
-#ifdef __APPLE__
-	if (fd ? fchmod(fd, fs->st_mode) : chmod(to.p_path, fs->st_mode)) {
-#else
-	if (fd ? fchmod(fd, fs->st_mode) : lchmod(to.p_path, fs->st_mode)) {
-#endif
-		warn("chmod: %s", to.p_path);
-		rval = 1;
-	}
-
-	if (!islink) {
-		/*
-		 * XXX
-		 * NFS doesn't support chflags; ignore errors unless
-		 * there's reason to believe we're losing bits.
-		 * (Note, this still won't be right if the server
-		 * supports flags and we were trying to *remove* flags
-		 * on a file that we copied, i.e., that we didn't create.)
-		 */
-		errno = 0;
-		if (fd ? fchflags(fd, fs->st_flags) :
-		    chflags(to.p_path, fs->st_flags))
-			if (errno != EOPNOTSUPP || fs->st_flags != 0) {
-				warn("chflags: %s", to.p_path);
+	if (!gotstat || fs->st_uid != ts.st_uid || fs->st_gid != ts.st_gid)
+		if (fd ? fchown(fd, fs->st_uid, fs->st_gid) :
+		    chown(to.p_path, fs->st_uid, fs->st_gid)) {
+			if (errno != EPERM) {
+				warn("chown: %s", to.p_path);
 				rval = 1;
 			}
-	}
-	/* if fd is non-zero, caller must call set_utimes() after close() */
-	if (fd == 0 && set_utimes(to.p_path, fs))
-	    rval = 1;
+			fs->st_mode &= ~(S_ISUID | S_ISGID);
+		}
+
+	if (!gotstat || fs->st_mode != ts.st_mode)
+		if (fd ? fchmod(fd, fs->st_mode) : chmod(to.p_path, fs->st_mode)) {
+			warn("chmod: %s", to.p_path);
+			rval = 1;
+		}
+
+	if (!gotstat || fs->st_flags != ts.st_flags)
+		if (fd ?
+		    fchflags(fd, fs->st_flags) : chflags(to.p_path, fs->st_flags)) {
+			warn("chflags: %s", to.p_path);
+			rval = 1;
+		}
+
 	return (rval);
 }
 
 void
-usage()
+usage(void)
 {
+
 	(void)fprintf(stderr, "%s\n%s\n",
-	    "usage: cp [-R [-H | -L | -P]] [-f | -i] [-p] src target",
-	    "       cp [-R [-H | -L | -P]] [-f | -i] [-p] src1 ... srcN directory");
-	exit(1);
-	/* NOTREACHED */
+"usage: cp [-R [-H | -L | -P]] [-f | -i | -n] [-pv] src target",
+"       cp [-R [-H | -L | -P]] [-f | -i | -n] [-pv] src1 ... srcN directory");
+	exit(EX_USAGE);
 }

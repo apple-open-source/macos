@@ -1,8 +1,8 @@
 /*
    +----------------------------------------------------------------------+
-   | PHP version 4.0                                                      |
+   | PHP Version 4                                                        |
    +----------------------------------------------------------------------+
-   | Copyright (c) 1997-2001 The PHP Group                                |
+   | Copyright (c) 1997-2003 The PHP Group                                |
    +----------------------------------------------------------------------+
    | This source file is subject to version 2.02 of the PHP license,      |
    | that is bundled with this package in the file LICENSE, and is        |
@@ -12,7 +12,7 @@
    | obtain it through the world-wide-web, please send a note to          |
    | license@php.net so we can mail you a copy immediately.               |
    +----------------------------------------------------------------------+
-   | Authors: Sterling Hughes <sterling@php.net>                          |
+   | Author: Sterling Hughes <sterling@php.net>                           |
    +----------------------------------------------------------------------+
  */
 
@@ -26,10 +26,14 @@
 extern zend_module_entry zip_module_entry;
 #define phpext_zip_ptr &zip_module_entry
 
+#define PHP_ZZIPLIB_API
 #ifdef PHP_WIN32
+#undef PHP_ZZIPLIB_API
+#ifdef ZIP_EXPORTS
 #define PHP_ZZIPLIB_API __declspec(dllexport)
 #else
-#define PHP_ZZIPLIB_API
+#define PHP_ZZIPLIB_API __declspec(dllimport)
+#endif
 #endif
 
 PHP_MINIT_FUNCTION(zip);

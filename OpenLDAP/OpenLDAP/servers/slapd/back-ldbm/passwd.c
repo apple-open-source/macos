@@ -1,7 +1,7 @@
 /* passwd.c - ldbm backend password routines */
-/* $OpenLDAP: pkg/ldap/servers/slapd/back-ldbm/passwd.c,v 1.40 2002/01/29 16:58:36 kurt Exp $ */
+/* $OpenLDAP: pkg/ldap/servers/slapd/back-ldbm/passwd.c,v 1.40.2.5 2003/03/24 03:54:12 kurt Exp $ */
 /*
- * Copyright 1998-2002 The OpenLDAP Foundation, All Rights Reserved.
+ * Copyright 1998-2003 The OpenLDAP Foundation, All Rights Reserved.
  * COPYING RESTRICTIONS APPLY, see COPYRIGHT file
  */
 
@@ -31,15 +31,15 @@ ldbm_back_exop_passwd(
 )
 {
 	struct ldbminfo *li = (struct ldbminfo *) be->be_private;
-	int rc, locked=0;
+	int rc;
 	Entry *e = NULL;
 	struct berval hash = { 0, NULL };
 
 	struct berval id = { 0, NULL };
 	struct berval new = { 0, NULL };
 
-	struct berval dn;
-	struct berval ndn;
+	struct berval dn = { 0, NULL };
+	struct berval ndn = { 0, NULL };
 
 	assert( reqoid != NULL );
 	assert( strcmp( LDAP_EXOP_MODIFY_PASSWD, reqoid ) == 0 );
@@ -48,9 +48,8 @@ ldbm_back_exop_passwd(
 		&id, NULL, &new, text );
 
 #ifdef NEW_LOGGING
-	LDAP_LOG(( "backend", LDAP_LEVEL_ENTRY,
-		   "ldbm_back_exop_passwd: \"%s\"\n",
-		   id.bv_val ? id.bv_val : "" ));
+	LDAP_LOG( BACK_LDBM, ENTRY,
+		   "ldbm_back_exop_passwd: \"%s\"\n", id.bv_val ? id.bv_val : "", 0,0 );
 #else
 	Debug( LDAP_DEBUG_ARGS, "==> ldbm_back_exop_passwd: \"%s\"\n",
 		id.bv_val ? id.bv_val : "", 0, 0 );
@@ -88,9 +87,9 @@ ldbm_back_exop_passwd(
 	}
 
 #ifdef NEW_LOGGING
-	LDAP_LOG(( "backend", LDAP_LEVEL_DETAIL1,
+	LDAP_LOG( BACK_LDBM, DETAIL1,
 		"ldbm_back_exop_passwd: \"%s\"%s\n",
-		dn.bv_val, id.bv_len ? " (proxy)" : "" ));
+		dn.bv_val, id.bv_len ? " (proxy)" : "", 0 );
 #else
 	Debug( LDAP_DEBUG_TRACE, "passwd: \"%s\"%s\n",
 		dn.bv_val, id.bv_len ? " (proxy)" : "", 0 );
@@ -98,7 +97,7 @@ ldbm_back_exop_passwd(
 
 	if( dn.bv_len == 0 ) {
 		*text = "No password is associated with the Root DSE";
-		rc = LDAP_OPERATIONS_ERROR;
+		rc = LDAP_UNWILLING_TO_PERFORM;
 		goto done;
 	}
 
@@ -126,7 +125,7 @@ ldbm_back_exop_passwd(
 		goto done;
 	}
 
-	rc = LDAP_OPERATIONS_ERROR;
+	rc = LDAP_OTHER;
 
 	if( is_entry_referral( e ) ) {
 		/* entry is an referral, don't allow operation */

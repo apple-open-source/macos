@@ -1,21 +1,23 @@
 /*
- * Copyright (c) 2000 Apple Computer, Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
- * The contents of this file constitute Original Code as defined in and
- * are subject to the Apple Public Source License Version 1.1 (the
- * "License").  You may not use this file except in compliance with the
- * License.  Please obtain a copy of the License at
- * http://www.apple.com/publicsource and read it before using this file.
+ * Copyright (c) 1999-2003 Apple Computer, Inc.  All Rights Reserved.
  * 
- * This Original Code and all software distributed under the License are
- * distributed on an "AS IS" basis, WITHOUT WARRANTY OF ANY KIND, EITHER
+ * This file contains Original Code and/or Modifications of Original Code
+ * as defined in and that are subject to the Apple Public Source License
+ * Version 2.0 (the 'License'). You may not use this file except in
+ * compliance with the License. Please obtain a copy of the License at
+ * http://www.opensource.apple.com/apsl/ and read it before using this
+ * file.
+ * 
+ * The Original Code and all software distributed under the License are
+ * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
  * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
  * INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY,
- * FITNESS FOR A PARTICULAR PURPOSE OR NON-INFRINGEMENT.  Please see the
- * License for the specific language governing rights and limitations
- * under the License.
+ * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
+ * Please see the License for the specific language governing rights and
+ * limitations under the License.
  * 
  * @APPLE_LICENSE_HEADER_END@
  */
@@ -28,8 +30,6 @@
 
 #include "IOHIDIUnknown.h"
 
-#define IOHID_PSEUDODEVICE	0
-
 class IOHIDQueueClass;
 
 struct IOHIDElementStruct
@@ -41,13 +41,9 @@ struct IOHIDElementStruct
     long		usage;
     long		usagePage;
     long		bytes;
-#if IOHID_PSEUDODEVICE
-    long		currentValue;
-    long		pauseCount;
-    long		increment;
-#else
     unsigned long	valueLocation;
-#endif
+    CFDictionaryRef	elementDictionaryRef;
+    CFDictionaryRef	parentElementDictionaryRef;
 };
 typedef struct IOHIDElementStruct IOHIDElementStruct;
 
@@ -67,8 +63,8 @@ protected:
     IOHIDDeviceClass();
     virtual ~IOHIDDeviceClass();
 
-    static IOCFPlugInInterface	sIOCFPlugInInterfaceV1;
-    static IOHIDDeviceInterface	sHIDDeviceInterfaceV1;
+    static IOCFPlugInInterface		sIOCFPlugInInterfaceV1;
+    static IOHIDDeviceInterface122	sHIDDeviceInterfaceV122;
 
     struct InterfaceMap 	fHIDDevice;
     io_service_t 		fService;
@@ -80,13 +76,16 @@ protected:
     bool 			fIsOpen;
     bool 			fIsLUNZero;
     bool			fIsTerminated;
+    bool			fIsSeized;
+    UInt32			fCachedFlags;
     
     IOHIDCallbackFunction 	fRemovalCallback;
     void *			fRemovalTarget;
     void *			fRemovalRefcon;
     
     CFMutableSetRef		fQueues;
-
+    CFDictionaryRef		fDeviceProperties;
+    
     // ptr to shared memory for current values of elements
     vm_address_t 	fCurrentValuesMappedMemory;
     vm_size_t		fCurrentValuesMappedMemorySize;
@@ -94,6 +93,18 @@ protected:
     // array of leaf elements (those that can be used in get value)
     long fElementCount;
     IOHIDElementStruct * fElements;
+
+    // array of report handler elements (those that can be used in get value)
+    long 				fReportHandlerElementCount;
+    IOHIDElementStruct * 		fReportHandlerElements;
+    
+    IOHIDQueueInterface **		fReportHandlerQueue;
+    
+    IOHIDReportCallbackFunction		fInputReportCallback;
+    void *				fInputReportTarget;
+    void *				fInputReportRefcon;
+    void *				fInputReportBuffer;
+    UInt32				fInputReportBufferSize;   
 
     // routines to create owned classes
     HRESULT queryInterfaceQueue (void **ppv);
@@ -113,11 +124,14 @@ protected:
                         
     // Call back methods
     static void _hidReportCallback(void *refcon, IOReturn result, UInt32 bufferSize);
-
+    
     static void _deviceNotification( void *refCon,
                                     io_service_t service,
                                     natural_t messageType,
                                     void *messageArgument );
+
+    static void _hidReportHandlerCallback(void * target, IOReturn result, void * refcon, void * sender);
+                           
 public:
     // add/remove a queue 
     HRESULT attachQueue (IOHIDQueueClass * iohidQueue);
@@ -178,8 +192,8 @@ public:
                                 void * 				callbackTarget,
                                 void *				callbackRefcon);
 
-    virtual IOReturn startAllQueues();
-    virtual IOReturn stopAllQueues();
+    virtual IOReturn startAllQueues(bool deviceInitiated = false);
+    virtual IOReturn stopAllQueues(bool deviceInitiated = false);
 
     virtual IOHIDQueueInterface ** allocQueue();
     
@@ -204,6 +218,17 @@ public:
                                 IOHIDReportCallbackFunction	callback,
                                 void * 				callbackTarget,
                                 void *				callbackRefcon);
+                                
+    virtual IOReturn copyMatchingElements(
+                                CFDictionaryRef 		matchingDict, 
+                                CFArrayRef * 			elements);
+    
+    virtual IOReturn setInterruptReportHandlerCallback(
+                                void *				reportBuffer,
+                                UInt32				reportBufferSize,
+                                IOHIDReportCallbackFunction 	callback, 
+                                void * 				callbackTarget, 
+                                void * 				callbackRefcon);
 
 /*
  * Routing gumf for CFPlugIn interfaces
@@ -316,19 +341,34 @@ protected:
                                 IOHIDReportCallbackFunction	callback,
                                 void * 				callbackTarget,
                                 void *				callbackRefcon);
+                                
+    static IOReturn deviceCopyMatchingElements(void * 		self, 
+                                CFDictionaryRef			matchingDict, 
+                                CFArrayRef * 			elements);
+    
+    static IOReturn deviceSetInterruptReportHandlerCallback(void * 	self, 
+                                void *				reportBuffer,
+                                UInt32				reportBufferSize,
+                                IOHIDReportCallbackFunction 	callback, 
+                                void * 				callbackTarget, 
+                                void * 				callbackRefcon);
 
 /*
  * Internal functions
  */
     
-    static void		StaticCountLeafElements (const void * value, void * parameter);
+    static void		StaticCountElements (const void * value, void * parameter);
     static void		StaticCreateLeafElements (const void * value, void * parameter);
 
     kern_return_t	BuildElements (CFDictionaryRef properties);
-    long		CountLeafElements (CFDictionaryRef properties, CFTypeRef element);
+    long		CountElements (CFDictionaryRef properties, CFTypeRef element, CFStringRef key);
     kern_return_t	CreateLeafElements (CFDictionaryRef properties, 
                                             CFTypeRef element, 
-                                            long * allocatedElementCount);
+                                            long * allocatedElementCount,
+                                            CFStringRef key,
+                                            IOHIDElementStruct *elements);
+                                            
+    kern_return_t	FindReportHandlers(CFDictionaryRef properties);
 };
 
 #endif /* !_IOKIT_IOHIDDeviceClass_H */

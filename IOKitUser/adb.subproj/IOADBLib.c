@@ -23,7 +23,7 @@
  * @APPLE_LICENSE_HEADER_END@
  */
 
-#include <IOKit/adb/IOADBLib.h>
+#include <Kernel/IOKit/adb/IOADBLib.h>
 
 
 //*************************************************************************************************************

@@ -37,7 +37,7 @@
 # if	!defined(lint)
 static char copyright[] =
 "@(#) Copyright 1997 Purdue Research Foundation.\nAll rights reserved.\n";
-static char *rcsid = "$Id: prfp.c,v 1.7 2000/08/02 12:53:00 abe Exp $";
+static char *rcsid = "$Id: prfp.c,v 1.8 2003/03/21 17:43:28 abe Exp $";
 # endif	/* !defined(lint) */
 
 #include "../lsof.h"
@@ -152,6 +152,12 @@ process_file(fp)
 	    case DTYPE_SOCKET:
 		process_socket((KA_T)f.f_data);
 		return;
+
+#if	defined(HASKQUEUE)
+	    case DTYPE_KQUEUE:
+		process_kqueue((KA_T)f.f_data);
+		return;
+#endif	/* defined(HASKQUEUE) */
 
 #if	defined(HASPRIVFILETYPE)
 	    case PRIVFILETYPE:

@@ -1,0 +1,19 @@
+<!DOCTYPE sect1 PUBLIC "-//OASIS//DTD DocBook V3.1//EN">
+<sect1><title>An Example Section</title>
+
+<para>
+Some narrative text.
+</para>
+
+<sidebar><title>A Sidebar</title>
+<para>
+Sidebar content.
+</para>
+</sidebar>
+
+<para>
+The continuing flow of the narrative text, as if the
+sidebar was not present.
+</para>
+
+</sect1>

@@ -8,7 +8,7 @@
  * See the file "license.terms" for information on usage and redistribution
  * of this file, and for a DISCLAIMER OF ALL WARRANTIES.
  *
- * RCS: @(#) $Id: tclResult.c,v 1.1.1.2 2000/04/12 02:01:35 wsanchez Exp $
+ * RCS: @(#) $Id: tclResult.c,v 1.1.1.4 2003/07/22 23:11:08 landonf Exp $
  */
 
 #include "tclInt.h"
@@ -198,8 +198,7 @@ Tcl_DiscardResult(statePtr)
     if (statePtr->result == statePtr->appendResult) {
 	ckfree(statePtr->appendResult);
     } else if (statePtr->freeProc) {
-	if ((statePtr->freeProc == TCL_DYNAMIC)
-	        || (statePtr->freeProc == (Tcl_FreeProc *) free)) {
+	if (statePtr->freeProc == TCL_DYNAMIC) {
 	    ckfree(statePtr->result);
 	} else {
 	    (*statePtr->freeProc)(statePtr->result);
@@ -265,8 +264,7 @@ Tcl_SetResult(interp, string, freeProc)
      */
 
     if (oldFreeProc != 0) {
-	if ((oldFreeProc == TCL_DYNAMIC)
-		|| (oldFreeProc == (Tcl_FreeProc *) free)) {
+	if (oldFreeProc == TCL_DYNAMIC) {
 	    ckfree(oldResult);
 	} else {
 	    (*oldFreeProc)(oldResult);
@@ -297,7 +295,7 @@ Tcl_SetResult(interp, string, freeProc)
  *----------------------------------------------------------------------
  */
 
-char *
+CONST char *
 Tcl_GetStringResult(interp)
      register Tcl_Interp *interp; /* Interpreter whose result to return. */
 {
@@ -359,8 +357,7 @@ Tcl_SetObjResult(interp, objPtr)
      */
 
     if (iPtr->freeProc != NULL) {
-	if ((iPtr->freeProc == TCL_DYNAMIC)
-	        || (iPtr->freeProc == (Tcl_FreeProc *) free)) {
+	if (iPtr->freeProc == TCL_DYNAMIC) {
 	    ckfree(iPtr->result);
 	} else {
 	    (*iPtr->freeProc)(iPtr->result);
@@ -413,8 +410,7 @@ Tcl_GetObjResult(interp)
 	TclInitStringRep(objResultPtr, iPtr->result, length);
 	
 	if (iPtr->freeProc != NULL) {
-	    if ((iPtr->freeProc == TCL_DYNAMIC)
-	            || (iPtr->freeProc == (Tcl_FreeProc *) free)) {
+	    if (iPtr->freeProc == TCL_DYNAMIC) {
 		ckfree(iPtr->result);
 	    } else {
 		(*iPtr->freeProc)(iPtr->result);
@@ -751,8 +747,7 @@ Tcl_FreeResult(interp)
     register Interp *iPtr = (Interp *) interp;
     
     if (iPtr->freeProc != NULL) {
-	if ((iPtr->freeProc == TCL_DYNAMIC)
-	        || (iPtr->freeProc == (Tcl_FreeProc *) free)) {
+	if (iPtr->freeProc == TCL_DYNAMIC) {
 	    ckfree(iPtr->result);
 	} else {
 	    (*iPtr->freeProc)(iPtr->result);
@@ -791,8 +786,7 @@ Tcl_ResetResult(interp)
 
     ResetObjResult(iPtr);
     if (iPtr->freeProc != NULL) {
-	if ((iPtr->freeProc == TCL_DYNAMIC)
-	        || (iPtr->freeProc == (Tcl_FreeProc *) free)) {
+	if (iPtr->freeProc == TCL_DYNAMIC) {
 	    ckfree(iPtr->result);
 	} else {
 	    (*iPtr->freeProc)(iPtr->result);

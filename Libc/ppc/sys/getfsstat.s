@@ -25,5 +25,4 @@
 #include "SYS.h"
 
 SYSCALL(getfsstat, 3)
-	blr
 

@@ -2,12 +2,12 @@
    +----------------------------------------------------------------------+
    | Zend Engine                                                          |
    +----------------------------------------------------------------------+
-   | Copyright (c) 1998-2001 Zend Technologies Ltd. (http://www.zend.com) |
+   | Copyright (c) 1998-2003 Zend Technologies Ltd. (http://www.zend.com) |
    +----------------------------------------------------------------------+
-   | This source file is subject to version 0.92 of the Zend license,     |
+   | This source file is subject to version 2.00 of the Zend license,     |
    | that is bundled with this package in the file LICENSE, and is        |
    | available at through the world-wide-web at                           |
-   | http://www.zend.com/license/0_92.txt.                                |
+   | http://www.zend.com/license/2_00.txt.                                |
    | If you did not receive a copy of the Zend license and are unable to  |
    | obtain it through the world-wide-web, please send a note to          |
    | license@zend.com so we can mail you a copy immediately.              |
@@ -53,8 +53,26 @@ ZEND_API void (*zend_unblock_interruptions)(void);
 ZEND_API void (*zend_ticks_function)(int ticks);
 ZEND_API void (*zend_error_cb)(int type, const char *error_filename, const uint error_lineno, const char *format, va_list args);
 
+void (*zend_on_timeout)(int seconds TSRMLS_DC);
+
 static void (*zend_message_dispatcher_p)(long message, void *data);
 static int (*zend_get_configuration_directive_p)(char *name, uint name_length, zval *contents);
+
+
+static ZEND_INI_MH(OnUpdateErrorReporting)
+{
+	if (!new_value) {
+		EG(error_reporting) = E_ALL & ~E_NOTICE;
+	} else {
+		EG(error_reporting) = atoi(new_value);
+	}
+	return SUCCESS;
+}
+
+
+ZEND_INI_BEGIN()
+	ZEND_INI_ENTRY("error_reporting",			NULL,		ZEND_INI_ALL,		OnUpdateErrorReporting)
+ZEND_INI_END()
 
 
 #ifdef ZTS
@@ -67,14 +85,14 @@ HashTable *global_constants_table;
 HashTable *global_auto_globals_table;
 #endif
 
-zend_utility_values zend_uv;
+ZEND_API zend_utility_values zend_uv;
 
 ZEND_API zval zval_used_for_init; /* True global variable */
 
 /* version information */
 static char *zend_version_info;
 static uint zend_version_info_length;
-#define ZEND_CORE_VERSION_INFO	"Zend Engine v" ZEND_VERSION ", Copyright (c) 1998-2001 Zend Technologies\n"
+#define ZEND_CORE_VERSION_INFO	"Zend Engine v" ZEND_VERSION ", Copyright (c) 1998-2003 Zend Technologies\n"
 
 
 #define PRINT_ZVAL_INDENT 4
@@ -152,6 +170,11 @@ ZEND_API void zend_make_printable_zval(zval *expr, zval *expr_copy, int *use_cop
 			expr_copy->value.str.len = sizeof("Object")-1;
 			expr_copy->value.str.val = estrndup("Object", expr_copy->value.str.len);
 			break;
+		case IS_DOUBLE: 
+			*expr_copy = *expr;
+			zval_copy_ctor(expr_copy);
+			zend_locale_sprintf_double(expr_copy ZEND_FILE_LINE_CC);
+			break;	
 		default:
 			*expr_copy = *expr;
 			zval_copy_ctor(expr_copy);
@@ -205,7 +228,7 @@ ZEND_API void zend_print_zval_r_ex(zend_write_func_t write_func, zval *expr, int
 			ZEND_PUTS("Array\n");
 			if (++expr->value.ht->nApplyCount>1) {
 				ZEND_PUTS(" *RECURSION*");
-				expr->value.ht->nApplyCount=0;
+				expr->value.ht->nApplyCount--;
 				return;
 			}
 			print_hash(expr->value.ht, indent);
@@ -217,7 +240,7 @@ ZEND_API void zend_print_zval_r_ex(zend_write_func_t write_func, zval *expr, int
 
 				if (++object->properties->nApplyCount>1) {
 					ZEND_PUTS(" *RECURSION*");
-					object->properties->nApplyCount=0;
+					object->properties->nApplyCount--;
 					return;
 				}
 				zend_printf("%s Object\n", object->ce->name);
@@ -288,10 +311,6 @@ static void compiler_globals_ctor(zend_compiler_globals *compiler_globals TSRMLS
 
 	CG(interactive) = 0;
 
-	compiler_globals->class_table = (HashTable *) malloc(sizeof(HashTable));
-	zend_hash_init_ex(compiler_globals->class_table, 10, NULL, ZEND_CLASS_DTOR, 1, 0);
-	zend_hash_copy(compiler_globals->class_table, global_class_table, (copy_ctor_func_t) zend_class_add_ref, &tmp_class, sizeof(zend_class_entry));
-
 	compiler_globals->auto_globals = (HashTable *) malloc(sizeof(HashTable));
 	zend_hash_init_ex(compiler_globals->auto_globals, 8, NULL, NULL, 1, 0);
 	zend_hash_copy(compiler_globals->auto_globals, global_auto_globals_table, NULL, NULL, sizeof(void *) /* empty element */);
@@ -325,6 +344,7 @@ static void executor_globals_ctor(zend_executor_globals *executor_globals TSRMLS
 	EG(lambda_count)=0;
 	EG(user_error_handler) = NULL;
 	EG(in_execution) = 0;
+	EG(current_execute_data) = NULL;
 }
 
 
@@ -353,7 +373,7 @@ static void alloc_globals_ctor(zend_alloc_globals *alloc_globals_p TSRMLS_DC)
 
 static void alloc_globals_dtor(zend_alloc_globals *alloc_globals_p TSRMLS_DC)
 {
-	shutdown_memory_manager(0, 1);
+	shutdown_memory_manager(0, 1 TSRMLS_CC);
 }
 
 
@@ -373,7 +393,9 @@ static void scanner_globals_ctor(zend_scanner_globals *scanner_globals_p TSRMLS_
 	scanner_globals_p->yy_out = NULL;
 	scanner_globals_p->_yy_more_flag = 0;
 	scanner_globals_p->_yy_more_len = 0;
-
+	scanner_globals_p->yy_start_stack_ptr = 0;
+	scanner_globals_p->yy_start_stack_depth = 0;
+	scanner_globals_p->yy_start_stack = 0;
 }
 
 
@@ -416,9 +438,11 @@ int zend_startup(zend_utility_functions *utility_functions, char **extensions, i
 	zend_unblock_interruptions = utility_functions->unblock_interruptions;
 	zend_get_configuration_directive_p = utility_functions->get_configuration_directive;
 	zend_ticks_function = utility_functions->ticks_function;
+	zend_on_timeout = utility_functions->on_timeout;
 
 	zend_compile_file = compile_file;
 	zend_execute = execute;
+	zend_execute_internal = NULL; /* saves one function call if the zend_execute_internal is not used */
 
 	/* set up version */
 	zend_version_info = strdup(ZEND_CORE_VERSION_INFO);
@@ -482,6 +506,30 @@ int zend_startup(zend_utility_functions *utility_functions, char **extensions, i
 }
 
 
+void zend_register_standard_ini_entries(TSRMLS_D)
+{
+	int module_number = 0;
+
+	REGISTER_INI_ENTRIES();
+}
+
+
+#ifdef ZTS
+/* Unlink the global (r/o) copies of the class, function and constant tables,
+ * and use a fresh r/w copy for the startup thread
+ */
+void zend_post_startup(TSRMLS_D)
+{
+	zend_compiler_globals *compiler_globals = ts_resource(compiler_globals_id);
+
+	compiler_globals_ctor(compiler_globals, tsrm_ls);
+	zend_startup_constants(TSRMLS_C);
+	zend_copy_constants(EG(zend_constants), global_constants_table);
+	zend_new_thread_end_handler(tsrm_thread_id() TSRMLS_CC);
+}
+#endif
+
+
 void zend_shutdown(TSRMLS_D)
 {
 #ifdef ZEND_WIN32
@@ -491,7 +539,7 @@ void zend_shutdown(TSRMLS_D)
 	zend_destroy_rsrc_list(&EG(persistent_list) TSRMLS_CC);
 #endif
 	zend_destroy_rsrc_list_dtors();
-	zend_hash_destroy(&module_registry);
+	zend_hash_graceful_reverse_destroy(&module_registry);
 	zend_hash_destroy(GLOBAL_FUNCTION_TABLE);
 	free(GLOBAL_FUNCTION_TABLE);
 	zend_hash_destroy(GLOBAL_CLASS_TABLE);
@@ -531,6 +579,7 @@ ZEND_API void _zend_bailout(char *filename, uint lineno)
 	}
 	CG(unclean_shutdown) = 1;
 	CG(in_compilation) = EG(in_execution) = 0;
+	EG(current_execute_data) = NULL;
 	longjmp(EG(bailout), FAILURE);
 }
 END_EXTERN_C()
@@ -704,12 +753,16 @@ ZEND_API void zend_error(int type, const char *format, ...)
 			z_error_message->value.str.val = (char *) emalloc(ZEND_ERROR_BUFFER_SIZE);
 
 #ifdef HAVE_VSNPRINTF
-			z_error_message->value.str.len = vsnprintf(z_error_message->value.str.val, ZEND_ERROR_BUFFER_SIZE, format, args);
-			if (z_error_message->value.str.len > ZEND_ERROR_BUFFER_SIZE-1) {
-				z_error_message->value.str.len = ZEND_ERROR_BUFFER_SIZE-1;
-			}
+			vsnprintf(z_error_message->value.str.val, ZEND_ERROR_BUFFER_SIZE, format, args);
+			/* this MUST be revisited, but for now handle ALL implementation 
+			 * out there correct. Since this is inside an error handler the 
+			 * performance loss by strlne is irrelevant. */
+			z_error_message->value.str.val[ZEND_ERROR_BUFFER_SIZE - 1] = '\0';
+			z_error_message->value.str.len = strlen(z_error_message->value.str.val);
 #else
-			strncpy(z_error_message->value.str.val, format, ZEND_ERROR_BUFFER_SIZE);
+			strncpy(z_error_message->value.str.val, va_arg(format, char *), ZEND_ERROR_BUFFER_SIZE);
+			z_error_message->value.str.val[ZEND_ERROR_BUFFER_SIZE - 1] = '\0';
+			z_error_message->value.str.len = strlen(z_error_message->value.str.val);
 			/* This is risky... */
 			/* z_error_message->value.str.len = vsprintf(z_error_message->value.str.val, format, args); */
 #endif
@@ -729,7 +782,8 @@ ZEND_API void zend_error(int type, const char *format, ...)
 
 			z_context->value.ht = EG(active_symbol_table);
 			z_context->type = IS_ARRAY;
-			ZVAL_ADDREF(z_context);  /* we don't want this one to be freed */
+			z_context->is_ref = 1;
+			z_context->refcount = 2; /* we don't want this one to be freed */
 
 			params = (zval ***) emalloc(sizeof(zval **)*5);
 			params[0] = &z_error_type;
@@ -762,6 +816,7 @@ ZEND_API void zend_error(int type, const char *format, ...)
 	va_end(args);
 
 	if (type==E_PARSE) {
+		EG(exit_status) = 255;
 		zend_init_compiler_data_structures(TSRMLS_C);
 	}
 }

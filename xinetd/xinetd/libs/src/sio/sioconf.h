@@ -6,7 +6,7 @@
 
 
 /*
- * $Id: sioconf.h,v 1.1.1.2 2002/10/02 21:07:08 bbraun Exp $
+ * $Id: sioconf.h,v 1.1.1.3 2003/05/22 01:16:35 rbraun Exp $
  */
 
 /*
@@ -14,7 +14,7 @@
  *		1. a OS-specific section
  *		2. a CPU/compiler-specific section
  *
- * You can override/redefing any of the constants/macros in this file.
+ * You can override/redefine any of the constants/macros in this file.
  * by uncommenting the inclusion of customconf.h and placing your own
  * definitions in that file.
  */
@@ -27,7 +27,7 @@
  * OS-specific section.
  *
  * Features here use the flag HAVE_<feature>.
- * List of flags (check the following for macros that can be overriden):
+ * List of flags (check the following for macros that can be overridden):
  *
  *			HAVE_MMAP (overridable macros)
  *
@@ -81,19 +81,15 @@
 
 #endif	/* HAVE_MMAP */
 
-#define N_SIO_DESCRIPTORS 0
-
 /*
  * N_SIO_DESCRIPTORS is the maximum number of file descriptors
  * supported by the OS
  */
-#ifndef N_SIO_DESCRIPTORS
 #include <sys/param.h>
 #ifdef OPEN_MAX
 #define N_SIO_DESCRIPTORS		OPEN_MAX
 #else
 #define N_SIO_DESCRIPTORS		NOFILE
-#endif
 #endif
 
 
@@ -152,7 +148,7 @@
 
 /*
  * Support for the isatty(3) function. This function identifies if a 
- * desciptor refers to a terminal.
+ * descriptor refers to a terminal.
  *
  * Case 1: isatty(3) is in the C library
  *		--> define HAVE_ISATTY

@@ -5,7 +5,7 @@
 #
 #
 # Author: Matt Morse (matt@apple.com)
-# Last Updated: $Date: 2001/11/30 22:43:17 $
+# Last Updated: $Date: 2003/07/15 18:55:08 $
 # 
 # Copyright (c) 1999-2001 Apple Computer, Inc.  All Rights Reserved.
 # The contents of this file constitute Original Code as defined in and are
@@ -94,15 +94,106 @@ sub _getCompositePageString {
     $contentString= $self->_getMethodDetailString();
     if (length($contentString)) {
 	    $compositePageString .= "<h2>Methods</h2>\n";
+		$contentString = $self->stripAppleRefs($contentString);
+	    $compositePageString .= $contentString;
+    }
+
+    $contentString= $self->_getVarDetailString();
+    if (length($contentString)) {
+	    $compositePageString .= "<h2>Variables</h2>\n";
+		$contentString = $self->stripAppleRefs($contentString);
 	    $compositePageString .= $contentString;
     }
 
     $contentString= $self->_getConstantDetailString();
     if (length($contentString)) {
 	    $compositePageString .= "<h2>Constants</h2>\n";
+		$contentString = $self->stripAppleRefs($contentString);
 	    $compositePageString .= $contentString;
     }
     
+    return $compositePageString;
+}
+
+sub XMLdocumentationBlock {
+    my $self = shift;
+    my $compositePageString = "";
+    my $name = $self->name();    
+    my $abstract = $self->abstract();
+    my $discussion = $self->discussion();
+    my $contentString;
+
+    if ($self->tocTitlePrefix() eq "Class:") {
+	$compositePageString .= "<class type=\"objC\">";
+    } else {
+	$compositePageString .= "<category type=\"objC\">";
+    }
+
+    if (length($name)) {
+	$compositePageString .= "<name>$name</name>\n";
+    }
+
+    if (length($abstract)) {
+	$compositePageString .= "<abstract>$abstract</abstract>\n";
+    }
+    if (length($discussion)) {
+	$compositePageString .= "<discussion>$discussion</discussion>\n";
+    }
+
+    $contentString= $self->_getFunctionXMLDetailString();
+    if (length($contentString)) {
+	$contentString = $self->stripAppleRefs($contentString);
+	$compositePageString .= "<functions>$contentString</functions>\n";
+    }
+
+    $contentString= $self->_getMethodXMLDetailString();
+    if (length($contentString)) {
+	$contentString = $self->stripAppleRefs($contentString);
+	$compositePageString .= "<methods>$contentString</methods>\n";
+    }
+
+    $contentString= $self->_getVarXMLDetailString();
+    if (length($contentString)) {
+	$contentString = $self->stripAppleRefs($contentString);
+	$compositePageString .= "<globals>$contentString</globals>\n";
+    }
+
+    $contentString= $self->_getConstantXMLDetailString();
+    if (length($contentString)) {
+	$contentString = $self->stripAppleRefs($contentString);
+	$compositePageString .= "<constants>$contentString</constants>\n";
+    }
+   
+    $contentString= $self->_getTypedefXMLDetailString();
+    if (length($contentString)) {      
+	$contentString = $self->stripAppleRefs($contentString);
+	$compositePageString .= "<typedefs>$contentString</typedefs>";
+    }
+
+    $contentString= $self->_getStructXMLDetailString();
+    if (length($contentString)) {
+	$contentString = $self->stripAppleRefs($contentString);
+	$compositePageString .= "<structs>$contentString</structs>";
+    }
+
+    $contentString= $self->_getEnumXMLDetailString();
+    if (length($contentString)) {
+	$contentString = $self->stripAppleRefs($contentString);
+	$compositePageString .= "<enums>$contentString</enums>";
+    }
+
+    $contentString= $self->_getPDefineXMLDetailString();
+    if (length($contentString)) {
+	$contentString = $self->stripAppleRefs($contentString);
+	$compositePageString .= "<defines>$contentString</defines>";
+    }
+
+    if ($self->tocTitlePrefix() eq "Class:") {
+	$compositePageString .= "</class>";
+    } else {
+	$compositePageString .= "</category>";
+    }
+
     return $compositePageString;
 }
 
@@ -115,10 +206,11 @@ sub tocString {
     $contentFrameName = $contentFrameName . ".html";
     my $header = $self->headerObject();
     my @meths = $self->methods();
+    my @vars = $self->vars();
 	my $compositePageName = HeaderDoc::APIOwner->compositePageName();
 	my $defaultFrameName = HeaderDoc::APIOwner->defaultFrameName();
     
-    my $tocString = "<h3><a href=\"$contentFrameName\" target =\"doc\">Introduction</a></h3>\n";
+    my $tocString = "<nobr>&nbsp;<a href=\"$contentFrameName\" target=\"doc\">Introduction</a>\n";
 
     # output list of functions as TOC
     if (@meths) {
@@ -141,7 +233,7 @@ sub tocString {
 		    foreach my $obj (sort objName @classMethods) {
 	        	my $name = $obj->name();
 	        	my $prefix = $self->getMethodPrefix($obj);
-	        	$tocString .= "<nobr>&nbsp;<a href = \"Methods/Methods.html#$name\" target =\"doc\">$prefix$name</a></nobr><br>\n";
+	        	$tocString .= "<nobr>&nbsp;<a href=\"Methods/Methods.html#$name\" target=\"doc\">$prefix$name</a></nobr><br>\n";
 	        }
 	    }
 	    if (@instanceMethods) {
@@ -149,13 +241,61 @@ sub tocString {
 		    foreach my $obj (sort objName @instanceMethods) {
 	        	my $name = $obj->name();
 	        	my $prefix = $self->getMethodPrefix($obj);
-	        	$tocString .= "<nobr>&nbsp;<a href = \"Methods/Methods.html#$name\" target =\"doc\">$prefix$name</a></nobr><br>\n";
+	        	$tocString .= "<nobr>&nbsp;<a href=\"Methods/Methods.html#$name\" target=\"doc\">$prefix$name</a></nobr><br>\n";
 	        }
 	    }
     }
+
+    if (@vars) {
+        my @publics;
+        my @protecteds;
+        my @privates;
+
+            if ($self->outputformat eq "hdxml") {
+                $tocString .= "XMLFIX<br><h4>Member Data</h4><hr>\n";
+            } elsif ($self->outputformat eq "html") {
+                $tocString .= "<br><h4>Member Data</h4><hr>\n";
+            } else {
+            }
+            foreach my $obj (sort byAccessControl @vars) {
+                my $access = $obj->accessControl();
+
+                if ($access =~ /public/){
+                    push (@publics, $obj);
+                } elsif ($access =~ /protected/){
+                    push (@protecteds, $obj);
+                } elsif ($access =~ /private/){
+                    push (@privates, $obj);
+                }
+            }
+            if (@publics) {
+                $tocString .= "<h5>Public</h5>\n";
+                    foreach my $obj (sort objName @publics) {
+                        my $name = $obj->name();
+                        $tocString .= "<nobr>&nbsp;<a href=\"Vars/Vars.html#$name\" target=\"doc\"
+>$name</a></nobr><br>\n";
+                }
+            }
+            if (@protecteds) {
+                $tocString .= "<h5>Protected</h5>\n";
+                    foreach my $obj (sort objName @protecteds) {
+                        my $name = $obj->name();
+                        $tocString .= "<nobr>&nbsp;<a href=\"Vars/Vars.html#$name\" target=\"doc\"
+>$name</a></nobr><br>\n";
+                }
+            }
+            if (@privates) {
+                $tocString .= "<h5>Private</h5>\n";
+                    foreach my $obj (sort objName @privates) {
+                        my $name = $obj->name();
+                        $tocString .= "<nobr>&nbsp;<a href=\"Vars/Vars.html#$name\" target=\"doc\"
+>$name</a></nobr><br>\n";
+                }
+            }
+        }
 	$tocString .= "<br><h4>Other Reference</h4><hr>\n";
-	$tocString .= "<nobr>&nbsp;<a href = \"../../$defaultFrameName\" target =\"_top\">Header</a></nobr><br>\n";
-    $tocString .= "<br><hr><a href=\"$compositePageName\" target =\"_blank\">[Printable HTML Page]</a>\n";
+	$tocString .= "<nobr>&nbsp;<a href=\"../../$defaultFrameName\" target=\"_top\">Header</a></nobr><br>\n";
+    $tocString .= "<br><hr><a href=\"$compositePageName\" target=\"_blank\">[Printable HTML Page]</a>\n";
     return $tocString;
 }
 
@@ -182,7 +322,7 @@ sub docNavigatorComment {
     my $self = shift;
     my $name = $self->name();
     
-    return "<-- headerDoc=cl; name=$name-->";
+    return "<!-- headerDoc=cl; name=$name-->";
 }
 
 ################## Misc Functions ###################################
@@ -190,12 +330,31 @@ sub objName { # used for sorting
    my $obj1 = $a;
    my $obj2 = $b;
    return ($obj1->name() cmp $obj2->name());
+   if ($HeaderDoc::sort_entries) {
+        return ($obj1->name() cmp $obj2->name());
+   } else {
+        return (1 cmp 2);
+   }
 }
 
 sub byMethodType { # used for sorting
    my $obj1 = $a;
    my $obj2 = $b;
-   return ($obj1->isInstanceMethod() cmp $obj2->isInstanceMethod());
+   if ($HeaderDoc::sort_entries) {
+        return ($obj1->isInstanceMethod() cmp $obj2->isInstanceMethod());
+   } else {
+        return (1 cmp 2);
+   }
+}
+
+sub byAccessControl { # used for sorting
+   my $obj1 = $a;
+   my $obj2 = $b;
+   if ($HeaderDoc::sort_entries) {       
+        return ($obj1->accessControl() cmp $obj2->accessControl());
+   } else {
+        return (1 cmp 2);
+   }
 }
 
 ##################### Debugging ####################################

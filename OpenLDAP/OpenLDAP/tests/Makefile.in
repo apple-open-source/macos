@@ -1,11 +1,12 @@
-# $OpenLDAP: pkg/ldap/tests/Makefile.in,v 1.33 2002/01/15 16:26:51 kurt Exp $
-## Copyright 1998-2002 The OpenLDAP Foundation, All Rights Reserved.
+# $OpenLDAP: pkg/ldap/tests/Makefile.in,v 1.33.2.2 2003/03/03 17:10:11 kurt Exp $
+## Copyright 1998-2003 The OpenLDAP Foundation, All Rights Reserved.
 ## COPYING RESTRICTIONS APPLY, see COPYRIGHT file
 ##
 ## tests Makefile.in for OpenLDAP
 SUBDIRS= progs
 BUILD_LDBM=@BUILD_LDBM@
 BUILD_BDB=@BUILD_BDB@
+BUILD_MONITOR=@BUILD_MONITOR@
 
 test: tests
 tests: bdb ldbm
@@ -18,7 +19,7 @@ test-bdb:	FORCE
 	@if test "$(BUILD_BDB)" = "yes" ; then \
 		echo "Initiating LDAP tests for BDB..." ; \
 		$(MKDIR) test-db test-repl || true; \
-		$(srcdir)/scripts/all $(srcdir) bdb ; \
+		$(srcdir)/scripts/all $(srcdir) bdb $(BUILD_MONITOR) ; \
 	else \
 		echo "run configure with --enable-bdb" ; \
 	fi
@@ -31,7 +32,7 @@ test-ldbm:	FORCE
 	@if test "$(BUILD_LDBM)" = "yes" ; then \
 		echo "Initiating LDAP tests for LDBM..." ; \
 		$(MKDIR) test-db test-repl || true; \
-		$(srcdir)/scripts/all $(srcdir) ldbm ; \
+		$(srcdir)/scripts/all $(srcdir) ldbm $(BUILD_MONITOR); \
 	else \
 		echo "run configure with --enable-ldbm" ; \
 	fi

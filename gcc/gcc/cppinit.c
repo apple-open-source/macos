@@ -1,5 +1,6 @@
 /* CPP Library.
-   Copyright (C) 1986, 87, 89, 92-98, 1999 Free Software Foundation, Inc.
+   Copyright (C) 1986, 1987, 1989, 1992, 1993, 1994, 1995, 1996, 1997, 1998,
+   1999, 2000, 2001, 2002 Free Software Foundation, Inc.
    Contributed by Per Bothner, 1994-95.
    Based on CCCP program by Paul Rubin, June 1986
    Adapted to ANSI C, Richard Stallman, Jan 1987
@@ -20,164 +21,81 @@ Foundation, 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.  */
 
 #include "config.h"
 #include "system.h"
-
-#define FAKE_CONST
 #include "cpplib.h"
 #include "cpphash.h"
-#include "output.h"
 #include "prefix.h"
 #include "intl.h"
+#include "mkdeps.h"
+#include "cppdefault.h"
+/* APPLE LOCAL begin flag_objc */
+/* FIXME cpplib shouldn't be including language headers */
+#include "tree.h"
+#include "c-common.h"
+/* APPLE LOCAL end flag_objc */
 
-/* XXX Should be in a header file. */
-extern char *version_string;
+/* APPLE LOCAL begin -header-mapfile */
+#include <ctype.h>
 
-/* Predefined symbols, built-in macros, and the default include path. */
-
-#ifndef GET_ENV_PATH_LIST
-#define GET_ENV_PATH_LIST(VAR,NAME)	do { (VAR) = getenv (NAME); } while (0)
-#endif
-
-/* By default, colon separates directories in a path.  */
-#ifndef PATH_SEPARATOR
-#define PATH_SEPARATOR ':'
-#endif
-
-#ifndef STANDARD_INCLUDE_DIR
-#define STANDARD_INCLUDE_DIR "/usr/include"
-#endif
-
-/* We let tm.h override the types used here, to handle trivial differences
-   such as the choice of unsigned int or long unsigned int for size_t.
-   When machines start needing nontrivial differences in the size type,
-   it would be best to do something here to figure out automatically
-   from other information what type to use.  */
-
-/* The string value for __SIZE_TYPE__.  */
-
-#ifndef SIZE_TYPE
-#define SIZE_TYPE "long unsigned int"
-#endif
-
-/* The string value for __PTRDIFF_TYPE__.  */
-
-#ifndef PTRDIFF_TYPE
-#define PTRDIFF_TYPE "long int"
-#endif
-
-/* The string value for __WCHAR_TYPE__.  */
-
-#ifndef WCHAR_TYPE
-#define WCHAR_TYPE "int"
-#endif
-#define CPP_WCHAR_TYPE(PFILE) \
-	(CPP_OPTIONS (PFILE)->cplusplus ? "__wchar_t" : WCHAR_TYPE)
-
-/* The string value for __USER_LABEL_PREFIX__ */
-
-#ifndef USER_LABEL_PREFIX
-#define USER_LABEL_PREFIX ""
-#endif
-
-/* The string value for __REGISTER_PREFIX__ */
-
-#ifndef REGISTER_PREFIX
-#define REGISTER_PREFIX ""
-#endif
-
-/* Suffix for object files, and known input-file extensions. */
-static char *known_suffixes[] =
-{
-  ".c",  ".C",   ".s",   ".S",   ".m",
-  ".cc", ".cxx", ".cpp", ".cp",  ".c++",
-  NULL
+/* APPLE LOCAL begin framework headers */
+#ifdef FRAMEWORK_HEADERS
+struct { const char *path; int u1; }
+framework_paths_defaults_array [] = {
+  {"/System/Library/Frameworks", 0},
+  {"/Library/Frameworks", 0},
+  {"/Local/Library/Frameworks", 0},
+  {NULL, 0}
 };
+#endif /* FRAMEWORK_HEADERS */
+/* APPLE LOCAL end framework headers */
 
-#ifndef OBJECT_SUFFIX
-# ifdef VMS
-#  define OBJECT_SUFFIX ".obj"
-# else
-#  define OBJECT_SUFFIX ".o"
-# endif
-#endif
-
-
-/* This is the default list of directories to search for include files.
-   It may be overridden by the various -I and -ixxx options.
-
-   #include "file" looks in the same directory as the current file,
-   then this list. 
-   #include <file> just looks in this list.
-
-   All these directories are treated as `system' include directories
-   (they are not subject to pedantic warnings in some cases).  */
-
-static struct default_include
-{
-  char *fname;			/* The name of the directory.  */
-  char *component;		/* The component containing the directory
-				   (see update_path in prefix.c) */
-  int cplusplus;		/* Only look here if we're compiling C++.  */
-  int cxx_aware;		/* Includes in this directory don't need to
-				   be wrapped in extern "C" when compiling
-				   C++.  This is not used anymore.  */
-}
-include_defaults_array[]
-#ifdef INCLUDE_DEFAULTS
-= INCLUDE_DEFAULTS;
+/* Windows does not natively support inodes, and neither does MSDOS.
+   Cygwin's emulation can generate non-unique inodes, so don't use it.
+   VMS has non-numeric inodes.  */
+#ifdef VMS
+# define INO_T_EQ(A, B) (!memcmp (&(A), &(B), sizeof (A)))
+# define INO_T_COPY(DEST, SRC) memcpy(&(DEST), &(SRC), sizeof (SRC))
 #else
-= {
-    /* Pick up GNU C++ specific include files.  */
-    { GPLUSPLUS_INCLUDE_DIR, "G++", 1, 1 },
-#ifdef CROSS_COMPILE
-    /* This is the dir for fixincludes.  Put it just before
-       the files that we fix.  */
-    { GCC_INCLUDE_DIR, "GCC", 0, 0 },
-    /* For cross-compilation, this dir name is generated
-       automatically in Makefile.in.  */
-    { CROSS_INCLUDE_DIR, "GCC", 0, 0 },
-#ifdef TOOL_INCLUDE_DIR
-    /* This is another place that the target system's headers might be.  */
-    { TOOL_INCLUDE_DIR, "BINUTILS", 0, 1 },
+# if (defined _WIN32 && ! defined (_UWIN)) || defined __MSDOS__
+#  define INO_T_EQ(A, B) 0
+# else
+#  define INO_T_EQ(A, B) ((A) == (B))
+# endif
+# define INO_T_COPY(DEST, SRC) (DEST) = (SRC)
 #endif
-#else /* not CROSS_COMPILE */
-#ifdef LOCAL_INCLUDE_DIR
-    /* This should be /usr/local/include and should come before
-       the fixincludes-fixed header files.  */
-    { LOCAL_INCLUDE_DIR, 0, 0, 1 },
-#endif
-#ifdef TOOL_INCLUDE_DIR
-    /* This is here ahead of GCC_INCLUDE_DIR because assert.h goes here.
-       Likewise, behind LOCAL_INCLUDE_DIR, where glibc puts its assert.h.  */
-    { TOOL_INCLUDE_DIR, "BINUTILS", 0, 1 },
-#endif
-    /* This is the dir for fixincludes.  Put it just before
-       the files that we fix.  */
-    { GCC_INCLUDE_DIR, "GCC", 0, 0 },
-    /* Some systems have an extra dir of include files.  */
-#ifdef SYSTEM_INCLUDE_DIR
-    { SYSTEM_INCLUDE_DIR, 0, 0, 0 },
-#endif
-#ifndef STANDARD_INCLUDE_COMPONENT
-#define STANDARD_INCLUDE_COMPONENT 0
-#endif
-    { STANDARD_INCLUDE_DIR, STANDARD_INCLUDE_COMPONENT, 0, 0 },
-#endif /* not CROSS_COMPILE */
-    { 0, 0, 0, 0 }
-  };
-#endif /* no INCLUDE_DEFAULTS */
 
-/* Internal structures and prototypes. */
+/* Internal structures and prototypes.  */
 
-/* A `struct pending_option' remembers one -D, -A, -U, -include, or -imacros
-   switch.  There are four lists: one for -D and -U, one for -A, one
-   for -include, one for -imacros.  `undef' is set for -U, clear for
-   -D, ignored for the others.
-   (Future: add an equivalent of -U for -A) */
+/* A `struct pending_option' remembers one -D, -A, -U, -include, or
+   -imacros switch.  */
+typedef void (* cl_directive_handler) PARAMS ((cpp_reader *, const char *));
 struct pending_option
 {
   struct pending_option *next;
-  char *arg;
-  int undef;
+  const char *arg;
+  cl_directive_handler handler;
+};
+
+/* The `pending' structure accumulates all the options that are not
+   actually processed until we hit cpp_read_main_file.  It consists of
+   several lists, one for each type of option.  We keep both head and
+   tail pointers for quick insertion.  */
+struct cpp_pending
+{
+  struct pending_option *directive_head, *directive_tail;
+
+  struct search_path *quote_head, *quote_tail;
+  struct search_path *brack_head, *brack_tail;
+  struct search_path *systm_head, *systm_tail;
+  struct search_path *after_head, *after_tail;
+  /* APPLE LOCAL begin framework headers */
+#ifdef FRAMEWORK_HEADERS
+  struct search_path *framework_system_head, *framework_system_tail;
+  struct search_path *framework_head, *framework_tail;
+#endif
+  /* APPLE LOCAL end framework headers */
+
+  struct pending_option *imacros_head, *imacros_tail;
+  struct pending_option *include_head, *include_tail;
 };
 
 #ifdef __STDC__
@@ -194,196 +112,97 @@ struct pending_option
   } while (0)
 #endif
 
-static void initialize_char_syntax	PARAMS ((int));
-static void print_help                  PARAMS ((void));
 static void path_include		PARAMS ((cpp_reader *,
-						 struct cpp_pending *,
 						 char *, int));
-static void initialize_builtins		PARAMS ((cpp_reader *));
+static void init_library		PARAMS ((void));
+static void init_builtins		PARAMS ((cpp_reader *));
+static void mark_named_operators	PARAMS ((cpp_reader *));
 static void append_include_chain	PARAMS ((cpp_reader *,
-						 struct cpp_pending *,
-						 char *, int));
+						 char *, int, int));
+static struct search_path * remove_dup_dir	PARAMS ((cpp_reader *,
+						 struct search_path *,
+						 struct search_path **));
+static struct search_path * remove_dup_nonsys_dirs PARAMS ((cpp_reader *,
+						 struct search_path **,
+						 struct search_path *));
+static struct search_path * remove_dup_dirs PARAMS ((cpp_reader *,
+						 struct search_path **));
+static void merge_include_chains	PARAMS ((cpp_reader *));
+static bool push_include		PARAMS ((cpp_reader *,
+						 struct pending_option *));
+static void free_chain			PARAMS ((struct pending_option *));
+static void init_standard_includes	PARAMS ((cpp_reader *));
+/* APPLE LOCAL begin framework headers */
+#ifdef FRAMEWORK_HEADERS
+static void init_standard_frameworks	PARAMS ((cpp_reader *));
+#endif 
+/* APPLE LOCAL end framework headers */
+static void read_original_filename	PARAMS ((cpp_reader *));
+/* APPLE LOCAL - PCH distcc debugging mrs  */
+static void read_original_directory	PARAMS ((cpp_reader *));
+static void new_pending_directive	PARAMS ((struct cpp_pending *,
+						 const char *,
+						 cl_directive_handler));
+static int parse_option			PARAMS ((const char *));
+static void post_options		PARAMS ((cpp_reader *));
 
-/* Last argument to append_include_chain: chain to use */
-enum { QUOTE = 0, BRACKET, SYSTEM, AFTER };
+/* APPLE LOCAL begin -header-mapfile */
+static inline uint32 hmap_hash_string 		PARAMS ((const char *));
+static inline unsigned hmap_compare_strings 	PARAMS ((const char *, 
+							 const char *));
+static struct hmap_header_map * hmap_load_header_map PARAMS ((const char *));
+static void hmap_free_header_map		PARAMS ((cpp_reader *));
+/* APPLE LOCAL end -header-mapfile */
 
-/* If gcc is in use (stage2/stage3) we can make these tables initialized
-   data. */
-#if defined __GNUC__ && (__GNUC__ > 2 \
-			 || (__GNUC__ == 2 && __GNUC_MINOR__ > 6))
-/* Table to tell if a character is legal as the second or later character
-   of a C identifier. */
-U_CHAR is_idchar[256] =
-{
-  ['a'] = 1, ['b'] = 1, ['c'] = 1,  ['d'] = 1, ['e'] = 1, ['f'] = 1,
-  ['g'] = 1, ['h'] = 1, ['i'] = 1,  ['j'] = 1, ['k'] = 1, ['l'] = 1,
-  ['m'] = 1, ['n'] = 1, ['o'] = 1,  ['p'] = 1, ['q'] = 1, ['r'] = 1,
-  ['s'] = 1, ['t'] = 1, ['u'] = 1,  ['v'] = 1, ['w'] = 1, ['x'] = 1,
-  ['y'] = 1, ['z'] = 1,
+/* APPLE LOCAL begin -inclusion-log-file */
+static FILE *ilog_open			PARAMS ((const char *));
+static void ilog_close			PARAMS ((cpp_reader *));
+/* APPLE LOCAL end -inclusion-log-file */
 
-  ['A'] = 1, ['B'] = 1, ['C'] = 1,  ['D'] = 1, ['E'] = 1, ['F'] = 1,
-  ['G'] = 1, ['H'] = 1, ['I'] = 1,  ['J'] = 1, ['K'] = 1, ['L'] = 1,
-  ['M'] = 1, ['N'] = 1, ['O'] = 1,  ['P'] = 1, ['Q'] = 1, ['R'] = 1,
-  ['S'] = 1, ['T'] = 1, ['U'] = 1,  ['V'] = 1, ['W'] = 1, ['X'] = 1,
-  ['Y'] = 1, ['Z'] = 1,
+/* Fourth argument to append_include_chain: chain to use.
+   Note it's never asked to append to the quote chain.  */
+/* APPLE LOCAL framework headers */
+/* APPLE LOCAL -header-mapfile */
+enum { BRACKET = 0, SYSTEM, AFTER, FRAMEWORK, FRAMEWORK_SYSTEM, HMAPFILE };
 
-  ['1'] = 1, ['2'] = 1, ['3'] = 1,  ['4'] = 1, ['5'] = 1, ['6'] = 1,
-  ['7'] = 1, ['8'] = 1, ['9'] = 1,  ['0'] = 1,
+/* If we have designated initializers (GCC >2.7) these tables can be
+   initialized, constant data.  Otherwise, they have to be filled in at
+   runtime.  */
+#if HAVE_DESIGNATED_INITIALIZERS
 
-  ['_']  = 1,
-};
+#define init_trigraph_map()  /* Nothing.  */
+#define TRIGRAPH_MAP \
+__extension__ const uchar _cpp_trigraph_map[UCHAR_MAX + 1] = {
 
-/* Table to tell if a character is legal as the first character of
-   a C identifier. */
-U_CHAR is_idstart[256] =
-{
-  ['a'] = 1, ['b'] = 1, ['c'] = 1,  ['d'] = 1, ['e'] = 1, ['f'] = 1,
-  ['g'] = 1, ['h'] = 1, ['i'] = 1,  ['j'] = 1, ['k'] = 1, ['l'] = 1,
-  ['m'] = 1, ['n'] = 1, ['o'] = 1,  ['p'] = 1, ['q'] = 1, ['r'] = 1,
-  ['s'] = 1, ['t'] = 1, ['u'] = 1,  ['v'] = 1, ['w'] = 1, ['x'] = 1,
-  ['y'] = 1, ['z'] = 1,
+#define END };
+#define s(p, v) [p] = v,
 
-  ['A'] = 1, ['B'] = 1, ['C'] = 1,  ['D'] = 1, ['E'] = 1, ['F'] = 1,
-  ['G'] = 1, ['H'] = 1, ['I'] = 1,  ['J'] = 1, ['K'] = 1, ['L'] = 1,
-  ['M'] = 1, ['N'] = 1, ['O'] = 1,  ['P'] = 1, ['Q'] = 1, ['R'] = 1,
-  ['S'] = 1, ['T'] = 1, ['U'] = 1,  ['V'] = 1, ['W'] = 1, ['X'] = 1,
-  ['Y'] = 1, ['Z'] = 1,
+#else
 
-  ['_']  = 1,
-};
+#define TRIGRAPH_MAP uchar _cpp_trigraph_map[UCHAR_MAX + 1] = { 0 }; \
+ static void init_trigraph_map PARAMS ((void)) { \
+ unsigned char *x = _cpp_trigraph_map;
 
-/* Table to tell if a character is horizontal space.
-   \r is magical, so it is not in here.  */
-U_CHAR is_hor_space[256] =
-{
-  [' '] = 1, ['\t'] = 1, ['\v'] = 1, ['\f'] = 1,
-};
-/* table to tell if a character is horizontal or vertical space.  */
-U_CHAR is_space[256] =
-{
-  [' '] = 1, ['\t'] = 1, ['\v'] = 1, ['\f'] = 1, ['\n'] = 1,
-};
-/* Table to handle trigraph conversion, which occurs before all other
-   processing, everywhere in the file.  (This is necessary since one
-   of the trigraphs encodes backslash.)  Note it's off by default.
+#define END }
+#define s(p, v) x[p] = v;
 
-	from	to	from	to	from	to
-	?? =	#	?? )	]	?? !	|
-	?? (	[	?? '	^	?? >	}
-	?? /	\	?? <	{	?? -	~
+#endif
 
-   There is not a space between the ?? and the third char.  I put spaces
-   there to avoid warnings when compiling this file. */
-U_CHAR trigraph_table[256] =
-{
-  ['='] = '#',  [')'] = ']',  ['!'] = '|',
-  ['('] = '[',  ['\''] = '^', ['>'] = '}',
-  ['/'] = '\\', ['<'] = '{',  ['-'] = '~',
-};
+TRIGRAPH_MAP
+  s('=', '#')	s(')', ']')	s('!', '|')
+  s('(', '[')	s('\'', '^')	s('>', '}')
+  s('/', '\\')	s('<', '{')	s('-', '~')
+END
 
-/* This function will be entirely removed soon. */
-static inline void
-initialize_char_syntax (dollar_in_ident)
-     int dollar_in_ident;
-{
-  is_idchar['$'] = dollar_in_ident;
-  is_idstart['$'] = dollar_in_ident;
-}
-
-#else /* Not GCC. */
-
-U_CHAR is_idchar[256] = { 0 };
-U_CHAR is_idstart[256] = { 0 };
-U_CHAR is_hor_space[256] = { 0 };
-U_CHAR is_space[256] = { 0 };
-U_CHAR trigraph_table[256] = { 0 };
-
-/* Initialize syntactic classifications of characters. */
-static void
-initialize_char_syntax (dollar_in_ident)
-     int dollar_in_ident;
-{
-  is_idstart['a'] = 1; is_idstart['b'] = 1; is_idstart['c'] = 1;
-  is_idstart['d'] = 1; is_idstart['e'] = 1; is_idstart['f'] = 1;
-  is_idstart['g'] = 1; is_idstart['h'] = 1; is_idstart['i'] = 1;
-  is_idstart['j'] = 1; is_idstart['k'] = 1; is_idstart['l'] = 1;
-  is_idstart['m'] = 1; is_idstart['n'] = 1; is_idstart['o'] = 1;
-  is_idstart['p'] = 1; is_idstart['q'] = 1; is_idstart['r'] = 1;
-  is_idstart['s'] = 1; is_idstart['t'] = 1; is_idstart['u'] = 1;
-  is_idstart['v'] = 1; is_idstart['w'] = 1; is_idstart['x'] = 1;
-  is_idstart['y'] = 1; is_idstart['z'] = 1;
-
-  is_idstart['A'] = 1; is_idstart['B'] = 1; is_idstart['C'] = 1;
-  is_idstart['D'] = 1; is_idstart['E'] = 1; is_idstart['F'] = 1;
-  is_idstart['G'] = 1; is_idstart['H'] = 1; is_idstart['I'] = 1;
-  is_idstart['J'] = 1; is_idstart['K'] = 1; is_idstart['L'] = 1;
-  is_idstart['M'] = 1; is_idstart['N'] = 1; is_idstart['O'] = 1;
-  is_idstart['P'] = 1; is_idstart['Q'] = 1; is_idstart['R'] = 1;
-  is_idstart['S'] = 1; is_idstart['T'] = 1; is_idstart['U'] = 1;
-  is_idstart['V'] = 1; is_idstart['W'] = 1; is_idstart['X'] = 1;
-  is_idstart['Y'] = 1; is_idstart['Z'] = 1;
-
-  is_idstart['_'] = 1;
-
-  is_idchar['a'] = 1; is_idchar['b'] = 1; is_idchar['c'] = 1;
-  is_idchar['d'] = 1; is_idchar['e'] = 1; is_idchar['f'] = 1;
-  is_idchar['g'] = 1; is_idchar['h'] = 1; is_idchar['i'] = 1;
-  is_idchar['j'] = 1; is_idchar['k'] = 1; is_idchar['l'] = 1;
-  is_idchar['m'] = 1; is_idchar['n'] = 1; is_idchar['o'] = 1;
-  is_idchar['p'] = 1;  is_idchar['q'] = 1; is_idchar['r'] = 1;
-  is_idchar['s'] = 1; is_idchar['t'] = 1;  is_idchar['u'] = 1;
-  is_idchar['v'] = 1; is_idchar['w'] = 1; is_idchar['x'] = 1;
-  is_idchar['y'] = 1; is_idchar['z'] = 1;
-
-  is_idchar['A'] = 1; is_idchar['B'] = 1; is_idchar['C'] = 1;
-  is_idchar['D'] = 1; is_idchar['E'] = 1; is_idchar['F'] = 1;
-  is_idchar['G'] = 1; is_idchar['H'] = 1; is_idchar['I'] = 1;
-  is_idchar['J'] = 1; is_idchar['K'] = 1; is_idchar['L'] = 1;
-  is_idchar['M'] = 1; is_idchar['N'] = 1; is_idchar['O'] = 1;
-  is_idchar['P'] = 1; is_idchar['Q'] = 1; is_idchar['R'] = 1;
-  is_idchar['S'] = 1; is_idchar['T'] = 1;  is_idchar['U'] = 1;
-  is_idchar['V'] = 1; is_idchar['W'] = 1; is_idchar['X'] = 1;
-  is_idchar['Y'] = 1; is_idchar['Z'] = 1;
-
-  is_idchar['1'] = 1; is_idchar['2'] = 1; is_idchar['3'] = 1;
-  is_idchar['4'] = 1; is_idchar['5'] = 1; is_idchar['6'] = 1;
-  is_idchar['7'] = 1; is_idchar['8'] = 1; is_idchar['9'] = 1;
-  is_idchar['0'] = 1;
-
-  is_idchar['_']  = 1;
-
-  is_idchar['$']  = dollar_in_ident;
-  is_idstart['$'] = dollar_in_ident;
-
-  /* white space tables */
-  is_hor_space[' '] = 1;
-  is_hor_space['\t'] = 1;
-  is_hor_space['\v'] = 1;
-  is_hor_space['\f'] = 1;
-
-  is_space[' '] = 1;
-  is_space['\t'] = 1;
-  is_space['\v'] = 1;
-  is_space['\f'] = 1;
-  is_space['\n'] = 1;
-
-  /* trigraph conversion */
-  trigraph_table['='] = '#';  trigraph_table[')'] = ']';
-  trigraph_table['!'] = '|';  trigraph_table['('] = '[';
-  trigraph_table['\''] = '^'; trigraph_table['>'] = '}';
-  trigraph_table['/'] = '\\'; trigraph_table['<'] = '{';
-  trigraph_table['-'] = '~';
-}
-
-#endif /* Not GCC. */
+#undef s
+#undef END
+#undef TRIGRAPH_MAP
 
 /* Given a colon-separated list of file names PATH,
    add all the names to the search path for include files.  */
-
 static void
-path_include (pfile, pend, list, path)
+path_include (pfile, list, path)
      cpp_reader *pfile;
-     struct cpp_pending *pend;
      char *list;
      int path;
 {
@@ -411,7 +230,7 @@ path_include (pfile, pend, list, path)
 	  name[q - p] = 0;
 	}
 
-      append_include_chain (pfile, pend, name, path);
+      append_include_chain (pfile, name, path, path == SYSTEM);
 
       /* Advance past this name.  */
       if (*q == 0)
@@ -421,707 +240,1312 @@ path_include (pfile, pend, list, path)
   while (1);
 }
 
-/* Find the base name of a (partial) pathname FNAME.
-   Returns a pointer into the string passed in.
-   Accepts Unix (/-separated) paths on all systems,
-   DOS and VMS paths on those systems.  */
-static char *
-base_name (fname)
-     const char *fname;
-{
-  char *s = (char *)fname;
-  char *p;
-#if defined (HAVE_DOS_BASED_FILE_SYSTEM)
-  if (ISALPHA (s[0]) && s[1] == ':') s += 2;
-  if ((p = rindex (s, '\\'))) s = p + 1;
-#elif defined VMS
-  if ((p = rindex (s, ':'))) s = p + 1; /* Skip device.  */
-  if ((p = rindex (s, ']'))) s = p + 1; /* Skip directory.  */
-  if ((p = rindex (s, '>'))) s = p + 1; /* Skip alternate (int'n'l) dir.  */
-#endif
-  if ((p = rindex (s, '/'))) s = p + 1;
-  return s;
-}
-     
-
-/* Append DIR to include path PATH.  DIR must be permanently allocated
-   and writable. */
+/* Append DIR to include path PATH.  DIR must be allocated on the
+   heap; this routine takes responsibility for freeing it.  CXX_AWARE
+   is nonzero if the header contains extern "C" guards for C++,
+   otherwise it is zero.  */
 static void
-append_include_chain (pfile, pend, dir, path)
+append_include_chain (pfile, dir, path, cxx_aware)
      cpp_reader *pfile;
-     struct cpp_pending *pend;
      char *dir;
      int path;
+     int cxx_aware;
 {
-  struct file_name_list *new;
+  struct cpp_pending *pend = CPP_OPTION (pfile, pending);
+  struct search_path *new;
   struct stat st;
   unsigned int len;
 
-  simplify_pathname (dir);
+  /* APPLE LOCAL begin -header-mapfile */
+  if (path == HMAPFILE && CPP_OPTION (pfile, hmap_path))
+    {
+      free (CPP_OPTION (pfile, hmap_path));
+      CPP_OPTION (pfile, hmap_path) = 0; 
+    }
+  /* APPLE LOCAL end -header-mapfile */
+
+  if (*dir == '\0')
+    {
+      free (dir);
+      dir = xstrdup (".");
+    }
+  _cpp_simplify_pathname (dir);
+
   if (stat (dir, &st))
     {
-      /* Dirs that don't exist are silently ignored. */
+      /* Dirs that don't exist are silently ignored.  */
       if (errno != ENOENT)
-	cpp_perror_with_name (pfile, dir);
-      else if (CPP_OPTIONS (pfile)->verbose)
-	cpp_notice ("ignoring nonexistent directory `%s'\n", dir);
+	cpp_errno (pfile, DL_ERROR, dir);
+      else if (CPP_OPTION (pfile, verbose))
+	fprintf (stderr, _("ignoring nonexistent directory \"%s\"\n"), dir);
+      free (dir);
       return;
     }
 
   if (!S_ISDIR (st.st_mode))
     {
-      cpp_message (pfile, 1, "%s: %s: Not a directory", progname, dir);
+      cpp_error_with_line (pfile, DL_ERROR, 0, 0, "%s: Not a directory", dir);
+      free (dir);
       return;
     }
 
   len = strlen (dir);
   if (len > pfile->max_include_len)
     pfile->max_include_len = len;
-  
-  new = (struct file_name_list *)xmalloc (sizeof (struct file_name_list));
+
+  new = (struct search_path *) xmalloc (sizeof (struct search_path));
   new->name = dir;
-  new->nlen = len;
-  new->ino  = st.st_ino;
+  new->len = len;
+  INO_T_COPY (new->ino, st.st_ino);
   new->dev  = st.st_dev;
-  new->sysp = (path == SYSTEM);
+  /* Both systm and after include file lists should be treated as system
+     include files since these two lists are really just a concatenation
+     of one "system" list.  */
+/* APPLE LOCAL begin framework headers */
+/* APPLE LOCAL begin handle -Wno-system-headers (2910306)  ilr */
+#ifdef FRAMEWORK_HEADERS
+  if (path == SYSTEM || path == AFTER || path == FRAMEWORK_SYSTEM)
+#else
+  if (path == SYSTEM || path == AFTER)
+#endif
+/* APPLE LOCAL end handle -Wno-system-headers (2910306)  ilr */
+/* APPLE LOCAL end framework headers */
+    new->sysp = cxx_aware ? 1 : 2;
+  else
+    new->sysp = 0;
   new->name_map = NULL;
+  new->next = NULL;
 
   switch (path)
     {
-    case QUOTE:		APPEND (pend, quote, new); break;
     case BRACKET:	APPEND (pend, brack, new); break;
     case SYSTEM:	APPEND (pend, systm, new); break;
     case AFTER:		APPEND (pend, after, new); break;
+    /* APPLE LOCAL begin framework headers */
+#ifdef FRAMEWORK_HEADERS
+    case FRAMEWORK_SYSTEM:	APPEND (pend, framework_system, new); break;
+    case FRAMEWORK:	APPEND (pend, framework, new); break;
+#endif
+    /* APPLE LOCAL end framework headers */
+    /* APPLE LOCAL begin -header-mapfile */
+    case HMAPFILE: 
+	new->next = CPP_OPTION (pfile, bracket_include);  
+	CPP_OPTION (pfile, hmap_path) = new;
+	break;
     }
+    /* APPLE LOCAL end -header-mapfile */
 }
 
-
-/* Write out a #define command for the special named MACRO_NAME
-   to PFILE's token_buffer.  */
-
-static void
-dump_special_to_buffer (pfile, macro_name)
+/* Handle a duplicated include path.  PREV is the link in the chain
+   before the duplicate, or NULL if the duplicate is at the head of
+   the chain.  The duplicate is removed from the chain and freed.
+   Returns PREV.  */
+static struct search_path *
+remove_dup_dir (pfile, prev, head_ptr)
      cpp_reader *pfile;
-     char *macro_name;
+     struct search_path *prev;
+     struct search_path **head_ptr;
 {
-  static char define_directive[] = "#define ";
-  int macro_name_length = strlen (macro_name);
-  output_line_command (pfile, same_file);
-  CPP_RESERVE (pfile, sizeof(define_directive) + macro_name_length);
-  CPP_PUTS_Q (pfile, define_directive, sizeof(define_directive)-1);
-  CPP_PUTS_Q (pfile, macro_name, macro_name_length);
-  CPP_PUTC_Q (pfile, ' ');
-  cpp_expand_to_buffer (pfile, macro_name, macro_name_length);
-  CPP_PUTC (pfile, '\n');
-}
+  struct search_path *cur;
 
-/* Initialize a cpp_options structure. */
-void
-cpp_options_init (opts)
-     cpp_options *opts;
-{
-  bzero ((char *) opts, sizeof (struct cpp_options));
-
-  opts->dollars_in_ident = 1;
-  opts->cplusplus_comments = 1;
-  opts->warn_import = 1;
-
-  opts->pending = (struct cpp_pending *) xmalloc (sizeof (struct cpp_pending));
-  bzero ((char *) opts->pending, sizeof (struct cpp_pending));
-}
-
-/* Initialize a cpp_reader structure. */
-void
-cpp_reader_init (pfile)
-     cpp_reader *pfile;
-{
-  bzero ((char *) pfile, sizeof (cpp_reader));
-#if 0
-  pfile->get_token = cpp_get_token;
-#endif
-
-  pfile->token_buffer_size = 200;
-  pfile->token_buffer = (U_CHAR *) xmalloc (pfile->token_buffer_size);
-  CPP_SET_WRITTEN (pfile, 0);
-
-  pfile->hashtab = (HASHNODE **) xcalloc (HASHSIZE, sizeof (HASHNODE *));
-}
-
-/* Free resources used by PFILE.
-   This is the cpp_reader 'finalizer' or 'destructor' (in C++ terminology).  */
-void
-cpp_cleanup (pfile)
-     cpp_reader *pfile;
-{
-  int i;
-  while (CPP_BUFFER (pfile) != CPP_NULL_BUFFER (pfile))
-    cpp_pop_buffer (pfile);
-
-  if (pfile->token_buffer)
+  if (prev != NULL)
     {
-      free (pfile->token_buffer);
-      pfile->token_buffer = NULL;
+      cur = prev->next;
+      prev->next = cur->next;
     }
-
-  if (pfile->deps_buffer)
-    {
-      free (pfile->deps_buffer);
-      pfile->deps_buffer = NULL;
-      pfile->deps_allocated_size = 0;
-    }
-
-  if (pfile->input_buffer)
-    {
-      free (pfile->input_buffer);
-      free (pfile->input_speccase);
-      pfile->input_buffer = pfile->input_speccase = NULL;
-      pfile->input_buffer_len = 0;
-    }
-
-  while (pfile->if_stack)
-    {
-      IF_STACK_FRAME *temp = pfile->if_stack;
-      pfile->if_stack = temp->next;
-      free (temp);
-    }
-
-  for (i = ALL_INCLUDE_HASHSIZE; --i >= 0; )
-    {
-      struct include_hash *imp = pfile->all_include_files[i];
-      while (imp)
-	{
-	  struct include_hash *next = imp->next;
-#if 0
-	  /* This gets freed elsewhere - I think. */
-	  free (imp->name);
-#endif
-	  free (imp);
-	  imp = next;
-	}
-      pfile->all_include_files[i] = 0;
-    }
-
-  for (i = HASHSIZE; --i >= 0;)
-    {
-      while (pfile->hashtab[i])
-	delete_macro (pfile->hashtab[i]);
-    }
-  free (pfile->hashtab);
-}
-
-
-/* Initialize the built-in macros.  */
-static void
-initialize_builtins (pfile)
-     cpp_reader *pfile;
-{
-#define NAME(str) (U_CHAR *)str, sizeof str - 1
-  cpp_install (pfile, NAME("__TIME__"),		  T_TIME,	0, -1);
-  cpp_install (pfile, NAME("__DATE__"),		  T_DATE,	0, -1);
-  cpp_install (pfile, NAME("__FILE__"),		  T_FILE,	0, -1);
-  cpp_install (pfile, NAME("__BASE_FILE__"),	  T_BASE_FILE,	0, -1);
-  cpp_install (pfile, NAME("__LINE__"),		  T_SPECLINE,	0, -1);
-  cpp_install (pfile, NAME("__INCLUDE_LEVEL__"),  T_INCLUDE_LEVEL, 0, -1);
-  cpp_install (pfile, NAME("__VERSION__"),	  T_VERSION,	0, -1);
-#ifndef NO_BUILTIN_SIZE_TYPE
-  cpp_install (pfile, NAME("__SIZE_TYPE__"),	  T_CONST, SIZE_TYPE, -1);
-#endif
-#ifndef NO_BUILTIN_PTRDIFF_TYPE
-  cpp_install (pfile, NAME("__PTRDIFF_TYPE__ "),  T_CONST, PTRDIFF_TYPE, -1);
-#endif
-  cpp_install (pfile, NAME("__WCHAR_TYPE__"),	  T_CONST, WCHAR_TYPE, -1);
-  cpp_install (pfile, NAME("__USER_LABEL_PREFIX__"), T_CONST, user_label_prefix, -1);
-  cpp_install (pfile, NAME("__REGISTER_PREFIX__"),  T_CONST, REGISTER_PREFIX, -1);
-  cpp_install (pfile, NAME("__HAVE_BUILTIN_SETJMP__"), T_CONST, "1", -1);
-  if (!CPP_TRADITIONAL (pfile))
-    {
-      cpp_install (pfile, NAME("__STDC__"),	  T_STDC,  0, -1);
-#if 0
-      if (CPP_OPTIONS (pfile)->c9x)
-	cpp_install (pfile, NAME("__STDC_VERSION__"),T_CONST, "199909L", -1);
-      else
-#endif
-	cpp_install (pfile, NAME("__STDC_VERSION__"),T_CONST, "199409L", -1);
-    }
-#undef NAME
-
-  if (CPP_OPTIONS (pfile)->debug_output)
-    {
-      dump_special_to_buffer (pfile, "__BASE_FILE__");
-      dump_special_to_buffer (pfile, "__VERSION__");
-#ifndef NO_BUILTIN_SIZE_TYPE
-      dump_special_to_buffer (pfile, "__SIZE_TYPE__");
-#endif
-#ifndef NO_BUILTIN_PTRDIFF_TYPE
-      dump_special_to_buffer (pfile, "__PTRDIFF_TYPE__");
-#endif
-      dump_special_to_buffer (pfile, "__WCHAR_TYPE__");
-      dump_special_to_buffer (pfile, "__DATE__");
-      dump_special_to_buffer (pfile, "__TIME__");
-      if (!CPP_TRADITIONAL (pfile))
-	dump_special_to_buffer (pfile, "__STDC__");
-    }
-}
-
-/* Another subroutine of cpp_start_read.  This one sets up to do
-   dependency-file output. */
-static void
-initialize_dependency_output (pfile)
-     cpp_reader *pfile;
-{
-  cpp_options *opts = CPP_OPTIONS (pfile);
-  char *spec, *s, *output_file;
-  
-  /* Either of two environment variables can specify output of deps.
-     Its value is either "OUTPUT_FILE" or "OUTPUT_FILE DEPS_TARGET",
-     where OUTPUT_FILE is the file to write deps info to
-     and DEPS_TARGET is the target to mention in the deps.  */
-
-  if (opts->print_deps == 0)
-    {
-      spec = getenv ("DEPENDENCIES_OUTPUT");
-      if (spec)
-	opts->print_deps = 1;
-      else
-	{
-	  spec = getenv ("SUNPRO_DEPENDENCIES");
-	  if (spec)
-	    opts->print_deps = 2;
-	  else
-	    return;
-	}
-
-      /* Find the space before the DEPS_TARGET, if there is one.  */
-      s = strchr (spec, ' ');
-      if (s)
-	{
-	  opts->deps_target = s + 1;
-	  output_file = (char *) xmalloc (s - spec + 1);
-	  memcpy (output_file, spec, s - spec);
-	  output_file[s - spec] = 0;
-	}
-      else
-	{
-	  opts->deps_target = 0;
-	  output_file = spec;
-	}
-
-      opts->deps_file = output_file;
-      opts->print_deps_append = 1;
-    }
-
-  /* Print the expected object file name as the target of this Make-rule.  */
-  pfile->deps_allocated_size = 200;
-  pfile->deps_buffer = (char *) xmalloc (pfile->deps_allocated_size);
-  pfile->deps_buffer[0] = 0;
-  pfile->deps_size = 0;
-  pfile->deps_column = 0;
-
-  if (opts->deps_target)
-    deps_output (pfile, opts->deps_target, ':');
-  else if (*opts->in_fname == 0)
-    deps_output (pfile, "-", ':');
   else
     {
-      char *p, *q, *r;
-      int len, x;
+      cur = *head_ptr;
+      *head_ptr = cur->next;
+    }
 
-      /* Discard all directory prefixes from filename.  */
-      q = base_name (opts->in_fname);
+  if (CPP_OPTION (pfile, verbose))
+    fprintf (stderr, _("ignoring duplicate directory \"%s\"\n"), cur->name);
 
-      /* Copy remainder to mungable area.  */
-      len = strlen (q);
-      p = (char *) alloca (len + 8);
-      strcpy (p, q);
+  free ((PTR) cur->name);
+  free (cur);
 
-      /* Output P, but remove known suffixes.  */
-      q = p + len;
-      /* Point to the filename suffix.  */
-      r = rindex (p, '.');
-      /* Compare against the known suffixes.  */
-      for (x = 0; known_suffixes[x]; x++)
+  return prev;
+}
+
+/* Remove duplicate non-system directories for which there is an equivalent
+   system directory latter in the chain.  The range for removal is between
+   *HEAD_PTR and END.  Returns the directory before END, or NULL if none.
+   This algorithm is quadratic in the number system directories, which is
+   acceptable since there aren't usually that many of them.  */
+static struct search_path *
+remove_dup_nonsys_dirs (pfile, head_ptr, end)
+     cpp_reader *pfile;
+     struct search_path **head_ptr;
+     struct search_path *end;
+{
+  int sysdir = 0;
+  struct search_path *prev = NULL, *cur, *other;
+
+  for (cur = *head_ptr; cur; cur = cur->next)
+    {
+      if (cur->sysp)
 	{
-	  if (strncmp (known_suffixes[x], r, q - r) == 0)
+	  sysdir = 1;
+	  for (other = *head_ptr, prev = NULL;
+	       other != end;
+	       other = other ? other->next : *head_ptr)
 	    {
-	      /* Make q point to the bit we're going to overwrite
-		 with an object suffix.  */
-	      q = r;
-	      break;
+	      if (!other->sysp
+		  && INO_T_EQ (cur->ino, other->ino)
+		  && cur->dev == other->dev)
+		{
+		  other = remove_dup_dir (pfile, prev, head_ptr);
+		  if (CPP_OPTION (pfile, verbose))
+		    fprintf (stderr,
+  _("  as it is a non-system directory that duplicates a system directory\n"));
+		}
+	      prev = other;
 	    }
 	}
+    }
 
-      /* Supply our own suffix.  */
-      strcpy (q, OBJECT_SUFFIX);
+  if (!sysdir)
+    for (cur = *head_ptr; cur != end; cur = cur->next)
+      prev = cur;
 
-      deps_output (pfile, p, ':');
-      deps_output (pfile, opts->in_fname, ' ');
+  return prev;
+}
+
+/* Remove duplicate directories from a chain.  Returns the tail of the
+   chain, or NULL if the chain is empty.  This algorithm is quadratic
+   in the number of -I switches, which is acceptable since there
+   aren't usually that many of them.  */
+static struct search_path *
+remove_dup_dirs (pfile, head_ptr)
+     cpp_reader *pfile;
+     struct search_path **head_ptr;
+{
+  struct search_path *prev = NULL, *cur, *other;
+
+  for (cur = *head_ptr; cur; cur = cur->next)
+    {
+      for (other = *head_ptr; other != cur; other = other->next)
+	if (INO_T_EQ (cur->ino, other->ino) && cur->dev == other->dev)
+	  {
+	    cur = remove_dup_dir (pfile, prev, head_ptr);
+	    break;
+	  }
+      prev = cur;
+    }
+
+  return prev;
+}
+
+/* Merge the four include chains together in the order quote, bracket,
+   system, after.  Remove duplicate dirs (as determined by
+   INO_T_EQ()).  The system_include and after_include chains are never
+   referred to again after this function; all access is through the
+   bracket_include path.  */
+/* APPLE LOCAL framework headers
+   Merge System Framework and User Framework into framework_include chain.  */
+static void
+merge_include_chains (pfile)
+     cpp_reader *pfile;
+{
+  struct search_path *quote, *brack, *systm, *qtail;
+
+  struct cpp_pending *pend = CPP_OPTION (pfile, pending);
+
+  quote = pend->quote_head;
+  brack = pend->brack_head;
+  systm = pend->systm_head;
+  qtail = pend->quote_tail;
+
+  /* Paste together bracket, system, and after include chains.  */
+  if (systm)
+    pend->systm_tail->next = pend->after_head;
+  else
+    systm = pend->after_head;
+
+  if (brack)
+    pend->brack_tail->next = systm;
+  else
+    brack = systm;
+
+  /* This is a bit tricky.  First we drop non-system dupes of system
+     directories from the merged bracket-include list.  Next we drop
+     dupes from the bracket and quote include lists.  Then we drop
+     non-system dupes from the merged quote-include list.  Finally,
+     if qtail and brack are the same directory, we cut out brack and
+     move brack up to point to qtail.
+
+     We can't just merge the lists and then uniquify them because
+     then we may lose directories from the <> search path that should
+     be there; consider -Ifoo -Ibar -I- -Ifoo -Iquux.  It is however
+     safe to treat -Ibar -Ifoo -I- -Ifoo -Iquux as if written
+     -Ibar -I- -Ifoo -Iquux.  */
+
+  remove_dup_nonsys_dirs (pfile, &brack, systm);
+  remove_dup_dirs (pfile, &brack);
+
+  if (quote)
+    {
+      qtail = remove_dup_dirs (pfile, &quote);
+      qtail->next = brack;
+
+      qtail = remove_dup_nonsys_dirs (pfile, &quote, brack);
+
+      /* If brack == qtail, remove brack as it's simpler.  */
+      if (qtail && brack && INO_T_EQ (qtail->ino, brack->ino)
+	  && qtail->dev == brack->dev)
+	brack = remove_dup_dir (pfile, qtail, &quote);
+    }
+  else
+    quote = brack;
+
+  CPP_OPTION (pfile, quote_include) = quote;
+  CPP_OPTION (pfile, bracket_include) = brack;
+
+  /* APPLE LOCAL begin framework headers */
+#ifdef FRAMEWORK_HEADERS
+  if (pend->framework_head)
+    pend->framework_tail->next = pend->framework_system_head;
+  else
+    pend->framework_head = pend->framework_system_head;
+  CPP_OPTION (pfile, framework_include) = pend->framework_head;
+#endif
+  /* APPLE LOCAL end framework headers */
+}
+
+/* A set of booleans indicating what CPP features each source language
+   requires.  */
+struct lang_flags
+{
+  char c99;
+  char cplusplus;
+  char extended_numbers;
+  char std;
+  char dollars_in_ident;
+  char cplusplus_comments;
+  char digraphs;
+};
+
+/* ??? Enable $ in identifiers in assembly? */
+static const struct lang_flags lang_defaults[] =
+{ /*              c99 c++ xnum std dollar c++comm digr  */
+  /* GNUC89 */  { 0,  0,  1,   0,   1,     1,      1     },
+  /* GNUC99 */  { 1,  0,  1,   0,   1,     1,      1     },
+  /* STDC89 */  { 0,  0,  0,   1,   0,     0,      0     },
+  /* STDC94 */  { 0,  0,  0,   1,   0,     0,      1     },
+  /* STDC99 */  { 1,  0,  1,   1,   0,     1,      1     },
+  /* GNUCXX */  { 0,  1,  1,   0,   1,     1,      1     },
+  /* CXX98  */  { 0,  1,  1,   1,   0,     1,      1     },
+  /* APPLE LOCAL Enable $ in identifiers in assembly.  */
+#ifdef CONFIG_DARWIN_H
+  /* ASM    */  { 0,  0,  1,   0,   1,     1,      0     }
+#else
+  /* ASM    */  { 0,  0,  1,   0,   0,     1,      0     }
+#endif
+};
+
+/* Sets internal flags correctly for a given language.  */
+void
+cpp_set_lang (pfile, lang)
+     cpp_reader *pfile;
+     enum c_lang lang;
+{
+  const struct lang_flags *l = &lang_defaults[(int) lang];
+
+  CPP_OPTION (pfile, lang) = lang;
+
+  /* APPLE LOCAL flag_objc */
+  CPP_OPTION (pfile, objc) = flag_objc;
+  CPP_OPTION (pfile, c99)		 = l->c99;
+  CPP_OPTION (pfile, cplusplus)		 = l->cplusplus;
+  CPP_OPTION (pfile, extended_numbers)	 = l->extended_numbers;
+  CPP_OPTION (pfile, std)		 = l->std;
+  CPP_OPTION (pfile, trigraphs)		 = l->std;
+  CPP_OPTION (pfile, dollars_in_ident)	 = l->dollars_in_ident;
+  CPP_OPTION (pfile, cplusplus_comments) = l->cplusplus_comments;
+  CPP_OPTION (pfile, digraphs)		 = l->digraphs;
+}
+
+#ifdef HOST_EBCDIC
+static int opt_comp PARAMS ((const void *, const void *));
+
+/* Run-time sorting of options array.  */
+static int
+opt_comp (p1, p2)
+     const void *p1, *p2;
+{
+  return strcmp (((struct cl_option *) p1)->opt_text,
+		 ((struct cl_option *) p2)->opt_text);
+}
+#endif
+
+/* init initializes library global state.  It might not need to
+   do anything depending on the platform and compiler.  */
+static void
+init_library ()
+{
+  static int initialized = 0;
+
+  if (! initialized)
+    {
+      initialized = 1;
+
+#ifdef HOST_EBCDIC
+      /* For non-ASCII hosts, the cl_options array needs to be sorted at
+	 runtime.  */
+      qsort (cl_options, N_OPTS, sizeof (struct cl_option), opt_comp);
+#endif
+
+      /* Set up the trigraph map.  This doesn't need to do anything if
+	 we were compiled with a compiler that supports C99 designated
+	 initializers.  */
+      init_trigraph_map ();
     }
 }
 
-/* This is called after options have been processed.
- * Check options for consistency, and setup for processing input
- * from the file named FNAME.  (Use standard input if FNAME==NULL.)
- * Return 1 on success, 0 on failure.
- */
-
-int
-cpp_start_read (pfile, fname)
-     cpp_reader *pfile;
-     char *fname;
+/* Initialize a cpp_reader structure.  */
+cpp_reader *
+cpp_create_reader (lang)
+     enum c_lang lang;
 {
-  struct cpp_options *opts = CPP_OPTIONS (pfile);
-  struct pending_option *p, *q;
-  int f;
-  cpp_buffer *fp;
-  struct include_hash *ih_fake;
+  cpp_reader *pfile;
 
-  /* -MG doesn't select the form of output and must be specified with one of
-     -M or -MM.  -MG doesn't make sense with -MD or -MMD since they don't
-     inhibit compilation.  */
-  if (opts->print_deps_missing_files
-      && (opts->print_deps == 0 || !opts->no_output))
+  /* Initialize this instance of the library if it hasn't been already.  */
+  init_library ();
+
+  pfile = (cpp_reader *) xcalloc (1, sizeof (cpp_reader));
+
+  cpp_set_lang (pfile, lang);
+  /* APPLE LOCAL begin #import not deprecated 2001-07-26 zll */
+  /* #import is *not* deprecated on Mac OS X :).  */
+  CPP_OPTION (pfile, warn_import) = 0;
+  /* APPLE LOCAL end #import not deprecated 2001-07-26 zll */
+  /* APPLE LOCAL begin -Wpragma-once 2001-08-01 sts */
+  /* Suppress #pragma once warnings by default, so more Apple builds
+     succeed.  */
+  CPP_OPTION (pfile, warn_pragma_once) = 0;
+  /* APPLE LOCAL end -Wpragma-once 2001-08-01 sts */
+  /* APPLE LOCAL begin -Wextra-tokens 2001-08-01 sts */
+  /* Suppress warnings about extra tokens after #endif etc.  */
+  CPP_OPTION (pfile, warn_extra_tokens) = 0;
+  /* APPLE LOCAL end -Wextra-tokens 2001-08-01 sts */
+  /* APPLE LOCAL begin -Wnewline-eof 2001-08-23 sts */
+  /* Suppress warnings about missing newlines at ends of files.  */
+  CPP_OPTION (pfile, warn_newline_at_eof) = 0;
+  /* APPLE LOCAL end -Wnewline-eof 2001-08-23 sts */
+  /* APPLE LOCAL begin -Wfour-char-constants  */
+  /* Warn about 4-char constants everywhere except on Macs.  */
+  CPP_OPTION (pfile, warn_four_char_constants) = WARN_FOUR_CHAR_CONSTANTS;
+  /* APPLE LOCAL end -Wfour-char-constants  */
+  CPP_OPTION (pfile, warn_multichar) = 1;
+  CPP_OPTION (pfile, discard_comments) = 1;
+  CPP_OPTION (pfile, discard_comments_in_macro_exp) = 1;
+  CPP_OPTION (pfile, show_column) = 1;
+  CPP_OPTION (pfile, tabstop) = 8;
+  CPP_OPTION (pfile, operator_names) = 1;
+  /* APPLE LOCAL begin -Wextra-tokens */
+  /* Suppress warnings about extra tokens after #endif etc.  */
+  CPP_OPTION (pfile, warn_endif_labels) = 0;
+  /* APPLE LOCAL end -Wextra-tokens */
+  CPP_OPTION (pfile, warn_long_long) = !CPP_OPTION (pfile, c99);
+
+  CPP_OPTION (pfile, pending) =
+    (struct cpp_pending *) xcalloc (1, sizeof (struct cpp_pending));
+
+  /* Default CPP arithmetic to something sensible for the host for the
+     benefit of dumb users like fix-header.  */
+  CPP_OPTION (pfile, precision) = CHAR_BIT * sizeof (long);
+  CPP_OPTION (pfile, char_precision) = CHAR_BIT;
+  CPP_OPTION (pfile, wchar_precision) = CHAR_BIT * sizeof (int);
+  CPP_OPTION (pfile, int_precision) = CHAR_BIT * sizeof (int);
+  CPP_OPTION (pfile, unsigned_char) = 0;
+  CPP_OPTION (pfile, unsigned_wchar) = 1;
+
+  /* Initialize the line map.  Start at logical line 1, so we can use
+     a line number of zero for special states.  */
+  init_line_maps (&pfile->line_maps);
+  pfile->line = 1;
+
+  /* Initialize lexer state.  */
+  pfile->state.save_comments = ! CPP_OPTION (pfile, discard_comments);
+
+  /* Set up static tokens.  */
+  pfile->avoid_paste.type = CPP_PADDING;
+  pfile->avoid_paste.val.source = NULL;
+  pfile->eof.type = CPP_EOF;
+  pfile->eof.flags = 0;
+
+  /* Create a token buffer for the lexer.  */
+  _cpp_init_tokenrun (&pfile->base_run, 250);
+  pfile->cur_run = &pfile->base_run;
+  pfile->cur_token = pfile->base_run.base;
+
+  /* Initialize the base context.  */
+  pfile->context = &pfile->base_context;
+  pfile->base_context.macro = 0;
+  pfile->base_context.prev = pfile->base_context.next = 0;
+
+  /* Aligned and unaligned storage.  */
+  pfile->a_buff = _cpp_get_buff (pfile, 0);
+  pfile->u_buff = _cpp_get_buff (pfile, 0);
+
+  /* The expression parser stack.  */
+  _cpp_expand_op_stack (pfile);
+
+  /* Initialize the buffer obstack.  */
+  gcc_obstack_init (&pfile->buffer_ob);
+
+  _cpp_init_includes (pfile);
+
+  return pfile;
+}
+
+/* Free resources used by PFILE.  Accessing PFILE after this function
+   returns leads to undefined behavior.  Returns the error count.  */
+void
+cpp_destroy (pfile)
+     cpp_reader *pfile;
+{
+  struct search_path *dir, *dirn;
+  cpp_context *context, *contextn;
+  tokenrun *run, *runn;
+
+  free_chain (CPP_OPTION (pfile, pending)->include_head);
+  free (CPP_OPTION (pfile, pending));
+  free (pfile->op_stack);
+
+  while (CPP_BUFFER (pfile) != NULL)
+    _cpp_pop_buffer (pfile);
+
+  if (pfile->out.base)
+    free (pfile->out.base);
+
+  if (pfile->macro_buffer)
     {
-      cpp_fatal (pfile, "-MG must be specified with one of -M or -MM");
-      return 0;
+      free ((PTR) pfile->macro_buffer);
+      pfile->macro_buffer = NULL;
+      pfile->macro_buffer_len = 0;
     }
 
-  /* Chill should not be used with -trigraphs. */
-  if (opts->chill && opts->trigraphs)
+  if (pfile->deps)
+    deps_free (pfile->deps);
+  obstack_free (&pfile->buffer_ob, 0);
+
+  _cpp_destroy_hashtable (pfile);
+  _cpp_cleanup_includes (pfile);
+
+  _cpp_free_buff (pfile->a_buff);
+  _cpp_free_buff (pfile->u_buff);
+  _cpp_free_buff (pfile->free_buffs);
+
+  for (run = &pfile->base_run; run; run = runn)
     {
-      cpp_warning (pfile, "-lang-chill and -trigraphs are mutually exclusive");
-      opts->trigraphs = 0;
+      runn = run->next;
+      free (run->base);
+      if (run != &pfile->base_run)
+	free (run);
     }
 
-  /* Set this if it hasn't been set already. */
-  if (user_label_prefix == NULL)
-    user_label_prefix = USER_LABEL_PREFIX;
-  
-  /* Now that we know dollars_in_ident, we can initialize the syntax
-     tables. */
-  initialize_char_syntax (opts->dollars_in_ident);
-
-  /* Do partial setup of input buffer for the sake of generating
-     early #line directives (when -g is in effect).  */
-  fp = cpp_push_buffer (pfile, NULL, 0);
-  if (!fp)
-    return 0;
-  if (opts->in_fname == NULL || *opts->in_fname == 0)
+  for (dir = CPP_OPTION (pfile, quote_include); dir; dir = dirn)
     {
-      opts->in_fname = fname;
-      if (opts->in_fname == NULL)
-	opts->in_fname = "";
-    }
-  fp->nominal_fname = fp->fname = opts->in_fname;
-  fp->lineno = 0;
-
-  /* Install __LINE__, etc.  Must follow initialize_char_syntax
-     and option processing.  */
-  initialize_builtins (pfile);
-
-  /* Do -U's, -D's and -A's in the order they were seen.  */
-  p = opts->pending->define_head;
-  while (p)
-    {
-      if (opts->debug_output)
-	output_line_command (pfile, same_file);
-      if (p->undef)
-	cpp_undef (pfile, p->arg);
-      else
-	cpp_define (pfile, p->arg);
-
-      q = p->next;
-      free (p);
-      p = q;
+      dirn = dir->next;
+      free ((PTR) dir->name);
+      free (dir);
     }
 
-  p = opts->pending->assert_head;
-  while (p)
+  for (context = pfile->base_context.next; context; context = contextn)
     {
-      if (opts->debug_output)
-	output_line_command (pfile, same_file);
-      if (p->undef)
-	cpp_unassert (pfile, p->arg);
-      else
-	cpp_assert (pfile, p->arg);
-
-      q = p->next;
-      free (p);
-      p = q;
+      contextn = context->next;
+      free (context);
     }
-  
-  opts->done_initializing = 1;
+
+  free_line_maps (&pfile->line_maps);
+  free (pfile);
+}
+
+/* This structure defines one built-in identifier.  A node will be
+   entered in the hash table under the name NAME, with value VALUE.
+
+   There are two tables of these.  builtin_array holds all the
+   "builtin" macros: these are handled by builtin_macro() in
+   cppmacro.c.  Builtin is somewhat of a misnomer -- the property of
+   interest is that these macros require special code to compute their
+   expansions.  The value is a "builtin_type" enumerator.
+
+   operator_array holds the C++ named operators.  These are keywords
+   which act as aliases for punctuators.  In C++, they cannot be
+   altered through #define, and #if recognizes them as operators.  In
+   C, these are not entered into the hash table at all (but see
+   <iso646.h>).  The value is a token-type enumerator.  */
+struct builtin
+{
+  const uchar *name;
+  unsigned short len;
+  unsigned short value;
+};
+
+#define B(n, t)    { DSC(n), t }
+static const struct builtin builtin_array[] =
+{
+  B("__TIME__",		 BT_TIME),
+  B("__DATE__",		 BT_DATE),
+  B("__FILE__",		 BT_FILE),
+  B("__BASE_FILE__",	 BT_BASE_FILE),
+  B("__LINE__",		 BT_SPECLINE),
+  B("__INCLUDE_LEVEL__", BT_INCLUDE_LEVEL),
+  /* Keep builtins not used for -traditional-cpp at the end, and
+     update init_builtins() if any more are added.  */
+  B("_Pragma",		 BT_PRAGMA),
+  B("__STDC__",		 BT_STDC),
+};
+
+static const struct builtin operator_array[] =
+{
+  B("and",	CPP_AND_AND),
+  B("and_eq",	CPP_AND_EQ),
+  B("bitand",	CPP_AND),
+  B("bitor",	CPP_OR),
+  B("compl",	CPP_COMPL),
+  B("not",	CPP_NOT),
+  B("not_eq",	CPP_NOT_EQ),
+  B("or",	CPP_OR_OR),
+  B("or_eq",	CPP_OR_EQ),
+  B("xor",	CPP_XOR),
+  B("xor_eq",	CPP_XOR_EQ)
+};
+#undef B
+
+/* Mark the C++ named operators in the hash table.  */
+static void
+mark_named_operators (pfile)
+     cpp_reader *pfile;
+{
+  const struct builtin *b;
+
+  for (b = operator_array;
+       b < (operator_array + ARRAY_SIZE (operator_array));
+       b++)
+    {
+      cpp_hashnode *hp = cpp_lookup (pfile, b->name, b->len);
+      hp->flags |= NODE_OPERATOR;
+      hp->value.operator = b->value;
+    }
+}
+
+/* Subroutine of cpp_read_main_file; reads the builtins table above and
+   enters them, and language-specific macros, into the hash table.  */
+static void
+init_builtins (pfile)
+     cpp_reader *pfile;
+{
+  const struct builtin *b;
+  size_t n = ARRAY_SIZE (builtin_array);
+
+  if (CPP_OPTION (pfile, traditional))
+    n -= 2;
+
+  for(b = builtin_array; b < builtin_array + n; b++)
+    {
+      cpp_hashnode *hp = cpp_lookup (pfile, b->name, b->len);
+      hp->type = NT_MACRO;
+      hp->flags |= NODE_BUILTIN | NODE_WARN;
+      hp->value.builtin = b->value;
+    }
+
+  if (CPP_OPTION (pfile, cplusplus))
+    _cpp_define_builtin (pfile, "__cplusplus 1");
+  else if (CPP_OPTION (pfile, lang) == CLK_ASM)
+    _cpp_define_builtin (pfile, "__ASSEMBLER__ 1");
+  else if (CPP_OPTION (pfile, lang) == CLK_STDC94)
+    _cpp_define_builtin (pfile, "__STDC_VERSION__ 199409L");
+  else if (CPP_OPTION (pfile, c99))
+    _cpp_define_builtin (pfile, "__STDC_VERSION__ 199901L");
+
+  if (CPP_OPTION (pfile, objc))
+    _cpp_define_builtin (pfile, "__OBJC__ 1");
+
+  if (pfile->cb.register_builtins)
+    (*pfile->cb.register_builtins) (pfile);
+}
+
+/* And another subroutine.  This one sets up the standard include path.  */
+static void
+init_standard_includes (pfile)
+     cpp_reader *pfile;
+{
+  char *path;
+  const struct default_include *p;
+  const char *specd_prefix = CPP_OPTION (pfile, include_prefix);
 
   /* Several environment variables may add to the include search path.
      CPATH specifies an additional list of directories to be searched
      as if specified with -I, while C_INCLUDE_PATH, CPLUS_INCLUDE_PATH,
      etc. specify an additional list of directories to be searched as
-     if specified with -isystem, for the language indicated.
+     if specified with -isystem, for the language indicated.  */
 
-     These variables are ignored if -nostdinc is on.  */
-  if (! opts->no_standard_includes)
+  GET_ENVIRONMENT (path, "CPATH");
+  if (path != 0 && *path != 0)
+    path_include (pfile, path, BRACKET);
+
+  /* APPLE LOCAL flag_objc */
+  switch ((CPP_OPTION (pfile, objc) ? 2 : 0) + CPP_OPTION (pfile, cplusplus))
     {
-      char *path;
-      GET_ENV_PATH_LIST (path, "CPATH");
-      if (path != 0 && *path != 0)
-	path_include (pfile, opts->pending, path, BRACKET);
-
-      switch ((opts->objc << 1) + opts->cplusplus)
-	{
-	case 0:
-	  GET_ENV_PATH_LIST (path, "C_INCLUDE_PATH");
-	  break;
-	case 1:
-	  GET_ENV_PATH_LIST (path, "CPLUS_INCLUDE_PATH");
-	  break;
-	case 2:
-	  GET_ENV_PATH_LIST (path, "OBJC_INCLUDE_PATH");
-	  break;
-	case 3:
-	  GET_ENV_PATH_LIST (path, "OBJCPLUS_INCLUDE_PATH");
-	  break;
-	}
-      if (path != 0 && *path != 0)
-	path_include (pfile, opts->pending, path, SYSTEM);
+    case 0:
+      GET_ENVIRONMENT (path, "C_INCLUDE_PATH");
+      break;
+    case 1:
+      GET_ENVIRONMENT (path, "CPLUS_INCLUDE_PATH");
+      break;
+    case 2:
+      GET_ENVIRONMENT (path, "OBJC_INCLUDE_PATH");
+      break;
+    case 3:
+      GET_ENVIRONMENT (path, "OBJCPLUS_INCLUDE_PATH");
+      break;
     }
+  if (path != 0 && *path != 0)
+    path_include (pfile, path, SYSTEM);
 
-  /* Unless -nostdinc, add the compiled-in include path to the list,
-     translating prefixes. */
-  if (!opts->no_standard_includes)
+  /* Search "translated" versions of GNU directories.
+     These have /usr/local/lib/gcc... replaced by specd_prefix.  */
+  if (specd_prefix != 0 && cpp_GCC_INCLUDE_DIR_len)
     {
-      struct default_include *p = include_defaults_array;
-      char *specd_prefix = opts->include_prefix;
+      /* Remove the `include' from /usr/local/lib/gcc.../include.
+	 GCC_INCLUDE_DIR will always end in /include.  */
+      int default_len = cpp_GCC_INCLUDE_DIR_len;
+      char *default_prefix = (char *) alloca (default_len + 1);
+      int specd_len = strlen (specd_prefix);
 
-      /* Search "translated" versions of GNU directories.
-	 These have /usr/local/lib/gcc... replaced by specd_prefix.  */
-      if (specd_prefix != 0)
-	{
-	  char *default_prefix = alloca (sizeof GCC_INCLUDE_DIR - 7);
-	  /* Remove the `include' from /usr/local/lib/gcc.../include.
-	     GCC_INCLUDE_DIR will always end in /include. */
-	  int default_len = sizeof GCC_INCLUDE_DIR - 8;
-	  int specd_len = strlen (specd_prefix);
+      memcpy (default_prefix, cpp_GCC_INCLUDE_DIR, default_len);
+      default_prefix[default_len] = '\0';
 
-	  default_len = sizeof GCC_INCLUDE_DIR - 8;
-	  memcpy (default_prefix, GCC_INCLUDE_DIR, default_len);
-	  default_prefix[default_len] = '\0';
-
-	  for (p = include_defaults_array; p->fname; p++)
-	    {
-	      /* Some standard dirs are only for C++.  */
-	      if (!p->cplusplus
-		  || (opts->cplusplus
-		      && !opts->no_standard_cplusplus_includes))
-		{
-		  /* Does this dir start with the prefix?  */
-		  if (!strncmp (p->fname, default_prefix, default_len))
-		    {
-		      /* Yes; change prefix and add to search list.  */
-		      int flen = strlen (p->fname);
-		      int this_len = specd_len + flen - default_len;
-		      char *str = (char *) xmalloc (this_len + 1);
-		      memcpy (str, specd_prefix, specd_len);
-		      memcpy (str + specd_len,
-			      p->fname + default_len,
-			      flen - default_len + 1);
-
-		      append_include_chain (pfile, opts->pending,
-					    str, SYSTEM);
-		    }
-		}
-	    }
-	}
-
-      /* Search ordinary names for GNU include directories.  */
-      for (p = include_defaults_array; p->fname; p++)
+      for (p = cpp_include_defaults; p->fname; p++)
 	{
 	  /* Some standard dirs are only for C++.  */
 	  if (!p->cplusplus
-	      || (opts->cplusplus
-		  && !opts->no_standard_cplusplus_includes))
+	      || (CPP_OPTION (pfile, cplusplus)
+		  && !CPP_OPTION (pfile, no_standard_cplusplus_includes)))
 	    {
-	      char *str = (char *) update_path (p->fname, p->component);
-	      str = xstrdup (str);  /* XXX Potential memory leak! */
-	      append_include_chain (pfile, opts->pending, str, SYSTEM);
+	      /* Does this dir start with the prefix?  */
+	      if (!strncmp (p->fname, default_prefix, default_len))
+		{
+		  /* Yes; change prefix and add to search list.  */
+		  int flen = strlen (p->fname);
+		  int this_len = specd_len + flen - default_len;
+		  char *str = (char *) xmalloc (this_len + 1);
+		  memcpy (str, specd_prefix, specd_len);
+		  memcpy (str + specd_len,
+			  p->fname + default_len,
+			  flen - default_len + 1);
+
+		  append_include_chain (pfile, str, SYSTEM, p->cxx_aware);
+		}
 	    }
 	}
     }
 
-  merge_include_chains (opts);
-
-  /* With -v, print the list of dirs to search.  */
-  if (opts->verbose)
+  /* Search ordinary names for GNU include directories.  */
+  for (p = cpp_include_defaults; p->fname; p++)
     {
-      struct file_name_list *p;
-      cpp_message (pfile, -1, "#include \"...\" search starts here:\n");
-      for (p = opts->quote_include; p; p = p->next)
+      /* Some standard dirs are only for C++.  */
+      if (!p->cplusplus
+	  || (CPP_OPTION (pfile, cplusplus)
+	      && !CPP_OPTION (pfile, no_standard_cplusplus_includes)))
 	{
-	  if (p == opts->bracket_include)
-	    cpp_message (pfile, -1, "#include <...> search starts here:\n");
-	  fprintf (stderr, " %s\n", p->name);
+	  char *str = update_path (p->fname, p->component);
+	  append_include_chain (pfile, str, SYSTEM, p->cxx_aware);
 	}
-      cpp_message (pfile, -1, "End of search list.\n");
     }
 
-  /* Open the main input file.
-     We do this in nonblocking mode so we don't get stuck here if
-     someone clever has asked cpp to process /dev/rmt0;
-     finclude() will check that we have a real file to work with.  */
-  if (fname == NULL || *fname == 0)
-    {
-      fname = "";
-      f = 0;
-    }
-  else if ((f = open (fname, O_RDONLY|O_NONBLOCK|O_NOCTTY, 0666)) < 0)
-    cpp_pfatal_with_name (pfile, fname);
-
-  initialize_dependency_output (pfile);
-
-  /* Must call finclude() on the main input before processing
-     -include switches; otherwise the -included text winds up
-     after the main input. */
-  ih_fake = (struct include_hash *) xmalloc (sizeof (struct include_hash));
-  ih_fake->next = 0;
-  ih_fake->next_this_file = 0;
-  ih_fake->foundhere = ABSOLUTE_PATH;  /* well sort of ... */
-  ih_fake->name = fname;
-  ih_fake->control_macro = 0;
-  ih_fake->buf = (char *)-1;
-  ih_fake->limit = 0;
-  if (!finclude (pfile, f, ih_fake))
-    return 0;
-  output_line_command (pfile, same_file);
-  pfile->only_seen_white = 2;
-
-  /* The -imacros files can be scanned now, but the -include files
-     have to be pushed onto the include stack and processed later,
-     in the main loop calling cpp_get_token.  */
-  
-  pfile->no_record_file++;
-  opts->no_output++;
-  p = opts->pending->imacros_head;
-  while (p)
-    {
-      int fd = open (p->arg, O_RDONLY|O_NONBLOCK|O_NOCTTY, 0666);
-      if (fd < 0)
-	{
-	  cpp_perror_with_name (pfile, p->arg);
-	  return 0;
-	}
-      if (!cpp_push_buffer (pfile, NULL, 0))
-	return 0;
-
-      ih_fake = (struct include_hash *)
-	xmalloc (sizeof (struct include_hash));
-      ih_fake->next = 0;
-      ih_fake->next_this_file = 0;
-      ih_fake->foundhere = ABSOLUTE_PATH;  /* well sort of ... */
-      ih_fake->name = p->arg;
-      ih_fake->control_macro = 0;
-      ih_fake->buf = (char *)-1;
-      ih_fake->limit = 0;
-      if (!finclude (pfile, fd, ih_fake))
-	cpp_scan_buffer (pfile);
-      free (ih_fake);
-
-      q = p->next;
-      free (p);
-      p = q;
-    }
-
-  opts->no_output--;
-
-  p = opts->pending->include_head;
-  while (p)
-    {
-      int fd = open (p->arg, O_RDONLY|O_NONBLOCK|O_NOCTTY, 0666);
-      if (fd < 0)
-	{
-	  cpp_perror_with_name (pfile, p->arg);
-	  return 0;
-	}
-      if (!cpp_push_buffer (pfile, NULL, 0))
-	return 0;
-
-      ih_fake = (struct include_hash *)
-	xmalloc (sizeof (struct include_hash));
-      ih_fake->next = 0;
-      ih_fake->next_this_file = 0;
-      ih_fake->foundhere = ABSOLUTE_PATH;  /* well sort of ... */
-      ih_fake->name = p->arg;
-      ih_fake->control_macro = 0;
-      ih_fake->buf = (char *)-1;
-      ih_fake->limit = 0;
-      if (finclude (pfile, fd, ih_fake))
-	output_line_command (pfile, enter_file);
-
-      q = p->next;
-      free (p);
-      p = q;
-    }
-  pfile->no_record_file--;
-
-  free (opts->pending);
-  opts->pending = NULL;
-
-  return 1;
+/* APPLE LOCAL begin framework headers */
+#ifdef FRAMEWORK_HEADERS
+  init_standard_frameworks (pfile);
+#endif
+/* APPLE LOCAL begin framework headers */
 }
 
-/* This is called at the end of preprocessing.  It pops the
-   last buffer and writes dependency output.  It should also
-   clear macro definitions, such that you could call cpp_start_read
-   with a new filename to restart processing. */
-void
-cpp_finish (pfile)
+/* APPLE LOCAL begin framework headers */
+#ifdef FRAMEWORK_HEADERS
+static void 
+init_standard_frameworks (pfile)
      cpp_reader *pfile;
 {
-  struct cpp_options *opts = CPP_OPTIONS (pfile);
-
-  if (CPP_PREV_BUFFER (CPP_BUFFER (pfile)) != CPP_NULL_BUFFER (pfile))
-    cpp_fatal (pfile,
-	       "cpplib internal error: buffers still stacked in cpp_finish");
-  cpp_pop_buffer (pfile);
-  
-  if (opts->print_deps)
+  /* Setup default search path for frameworks.  */
+  int i = 0;
+  const char *path;
+  char *next_root = getenv ("NEXT_ROOT");
+  if (next_root && *next_root && next_root[strlen (next_root) - 1] == '/')
+    next_root[strlen (next_root) - 1] = '\0';
+  while ((path = framework_paths_defaults_array[i++].path))
     {
-      /* Stream on which to print the dependency information.  */
-      FILE *deps_stream;
-
-      /* Don't actually write the deps file if compilation has failed.  */
-      if (pfile->errors == 0)
+      char *new_fname = NULL;
+      if (next_root && *next_root)
+	new_fname = (char *) xmalloc (strlen (next_root) + strlen (path) + 1);
+      if (new_fname)
+	sprintf (new_fname, "%s%s", next_root, path);
+      else
 	{
-	  char *deps_mode = opts->print_deps_append ? "a" : "w";
-	  if (opts->deps_file == 0)
-	    deps_stream = stdout;
-	  else if ((deps_stream = fopen (opts->deps_file, deps_mode)) == 0)
-	    cpp_pfatal_with_name (pfile, opts->deps_file);
-	  fputs (pfile->deps_buffer, deps_stream);
-	  putc ('\n', deps_stream);
-	  if (opts->deps_file)
+	  new_fname = (char *) xmalloc (strlen (path) + 1);
+	  strcpy (new_fname, path);
+	}
+      /* System Framework headers are cxx aware.  */
+      append_include_chain (pfile, new_fname, FRAMEWORK_SYSTEM, 1); 
+    }  
+}       
+#endif    
+/* APPLE LOCAL end framework headers */
+
+/* Pushes a command line -imacro and -include file indicated by P onto
+   the buffer stack.  Returns nonzero if successful.  */
+static bool
+push_include (pfile, p)
+     cpp_reader *pfile;
+     struct pending_option *p;
+{
+  cpp_token header;
+
+  /* APPLE LOCAL begin Symbol Separation */
+  /* Find separate symbol repository for this header, if available.  */
+  if (CPP_OPTION (pfile, use_ss))
+    find_include_cinfo (pfile, p->arg);
+  /* APPLE LOCAL end Symbol Separation */
+
+  /* Later: maybe update this to use the #include "" search path
+     if cpp_read_file fails.  */
+  header.type = CPP_STRING;
+  header.val.str.text = (const unsigned char *) p->arg;
+  header.val.str.len = strlen (p->arg);
+  /* Make the command line directive take up a line.  */
+  pfile->line++;
+
+  return _cpp_execute_include (pfile, &header, IT_CMDLINE);
+}
+
+/* Frees a pending_option chain.  */
+static void
+free_chain (head)
+     struct pending_option *head;
+{
+  struct pending_option *next;
+
+  while (head)
+    {
+      next = head->next;
+      free (head);
+      head = next;
+    }
+}
+
+/* Sanity-checks are dependent on command-line options, so it is
+   called as a subroutine of cpp_read_main_file ().  */
+#if ENABLE_CHECKING
+static void sanity_checks PARAMS ((cpp_reader *));
+static void sanity_checks (pfile)
+     cpp_reader *pfile;
+{
+  cppchar_t test = 0;
+  size_t max_precision = 2 * CHAR_BIT * sizeof (cpp_num_part);
+
+  /* Sanity checks for assumptions about CPP arithmetic and target
+     type precisions made by cpplib.  */
+  test--;
+  if (test < 1)
+    cpp_error (pfile, DL_ICE, "cppchar_t must be an unsigned type");
+
+  if (CPP_OPTION (pfile, precision) > max_precision)
+    cpp_error (pfile, DL_ICE,
+	       "preprocessor arithmetic has maximum precision of %lu bits; target requires %lu bits",
+	       (unsigned long) max_precision,
+	       (unsigned long) CPP_OPTION (pfile, precision));
+
+  if (CPP_OPTION (pfile, precision) < CPP_OPTION (pfile, int_precision))
+    cpp_error (pfile, DL_ICE,
+	       "CPP arithmetic must be at least as precise as a target int");
+
+  if (CPP_OPTION (pfile, char_precision) < 8)
+    cpp_error (pfile, DL_ICE, "target char is less than 8 bits wide");
+
+  if (CPP_OPTION (pfile, wchar_precision) < CPP_OPTION (pfile, char_precision))
+    cpp_error (pfile, DL_ICE,
+	       "target wchar_t is narrower than target char");
+
+  if (CPP_OPTION (pfile, int_precision) < CPP_OPTION (pfile, char_precision))
+    cpp_error (pfile, DL_ICE,
+	       "target int is narrower than target char");
+
+  /* This is assumed in eval_token() and could be fixed if necessary.  */
+  if (sizeof (cppchar_t) > sizeof (cpp_num_part))
+    cpp_error (pfile, DL_ICE, "CPP half-integer narrower than CPP character");
+
+  if (CPP_OPTION (pfile, wchar_precision) > BITS_PER_CPPCHAR_T)
+    cpp_error (pfile, DL_ICE,
+	       "CPP on this host cannot handle wide character constants over %lu bits, but the target requires %lu bits",
+	       (unsigned long) BITS_PER_CPPCHAR_T,
+	       (unsigned long) CPP_OPTION (pfile, wchar_precision));
+}
+#else
+# define sanity_checks(PFILE)
+#endif
+
+/* Add a dependency target.  Can be called any number of times before
+   cpp_read_main_file().  If no targets have been added before
+   cpp_read_main_file(), then the default target is used.  */
+void
+cpp_add_dependency_target (pfile, target, quote)
+     cpp_reader *pfile;
+     const char *target;
+     int quote;
+{
+  if (!pfile->deps)
+    pfile->deps = deps_init ();
+
+  deps_add_target (pfile->deps, target, quote);
+}
+
+/* This is called after options have been parsed, and partially
+   processed.  Setup for processing input from the file named FNAME,
+   or stdin if it is the empty string.  Return the original filename
+   on success (e.g. foo.i->foo.c), or NULL on failure.  */
+const char *
+cpp_read_main_file (pfile, fname, table)
+     cpp_reader *pfile;
+     const char *fname;
+     hash_table *table;
+{
+  sanity_checks (pfile);
+
+  post_options (pfile);
+
+  /* The front ends don't set up the hash table until they have
+     finished processing the command line options, so initializing the
+     hashtable is deferred until now.  */
+  _cpp_init_hashtable (pfile, table);
+
+  /* Set up the include search path now.  */
+  if (! CPP_OPTION (pfile, no_standard_includes))
+    init_standard_includes (pfile);
+
+  merge_include_chains (pfile);
+
+  /* With -v, print the list of dirs to search.  */
+  if (CPP_OPTION (pfile, verbose))
+    {
+      struct search_path *l;
+      fprintf (stderr, _("#include \"...\" search starts here:\n"));
+      for (l = CPP_OPTION (pfile, quote_include); l; l = l->next)
+	{
+	  if (l == CPP_OPTION (pfile, bracket_include))
+	    fprintf (stderr, _("#include <...> search starts here:\n"));
+	  fprintf (stderr, " %s\n", l->name);
+	}
+      fprintf (stderr, _("End of search list.\n"));
+      /* APPLE LOCAL begin framework headers */
+#ifdef FRAMEWORK_HEADERS
+      fprintf (stderr, _("Framework search starts here:\n"));
+      for (l = CPP_OPTION (pfile, framework_include); l; l = l->next)
+	{
+	  fprintf (stderr, " %s\n", l->name);
+	}
+      fprintf (stderr, _("End of framework search list.\n"));
+#endif /* FRAMEWORK_HEADERS */
+      /* APPLE LOCAL end framework headers */
+    }
+
+  if (CPP_OPTION (pfile, deps.style) != DEPS_NONE)
+    {
+      if (!pfile->deps)
+	pfile->deps = deps_init ();
+
+      /* Set the default target (if there is none already).  */
+      deps_add_default_target (pfile->deps, fname);
+    }
+
+  /* Open the main input file.  */
+  if (!_cpp_read_file (pfile, fname))
+    return NULL;
+
+  /* APPLE LOCAL begin Symbol Separation */
+  /* If creating PCH file then main input file is a header and it is a candidate
+     for separate symbol repository. Find one if available.  */
+  if (CPP_OPTION (pfile, making_pch) && CPP_OPTION (pfile, use_ss))
+    find_include_cinfo (pfile, fname);
+
+  /* APPLE LOCAL end Symbol Separation */
+
+  /* Set this here so the client can change the option if it wishes,
+     and after stacking the main file so we don't trace the main
+     file.  */
+  pfile->line_maps.trace_includes = CPP_OPTION (pfile, print_include_names);
+
+  /* APPLE LOCAL BEGIN - PCH distcc debugging mrs  */
+  if (pfile->print.outf
+      && ! CPP_OPTION (pfile, no_output)
+      && ! CPP_OPTION (pfile, preprocessed)
+      && CPP_OPTION (pfile, lang) != CLK_ASM)
+    {
+      char *buf = getpwd ();
+      int len = strlen (buf);
+      char *buf2 = alloca (len * 4 + 4);
+      char *buf3;
+
+      buf3 = cpp_quote_string (buf2, (const unsigned char *) buf, len);
+      *buf3 = '\0';
+      
+      fprintf (pfile->print.outf, "#pragma GCC set_debug_pwd \"%s\"\n",
+	       buf2);
+
+      pfile->print.line++;
+      pfile->print.printed = 0;
+    }
+  /* APPLE LOCAL END - PCH distcc debugging mrs  */
+
+  /* For foo.i, read the original filename foo.c now, for the benefit
+     of the front ends.  */
+  if (CPP_OPTION (pfile, preprocessed))
+    read_original_filename (pfile);
+
+  /* APPLE LOCAL BEGIN - PCH distcc debugging mrs  */
+  /* For foo.i, read the original directory now, for the benefit
+     of the debugging back ends.  */
+  if (CPP_OPTION (pfile, preprocessed))
+    read_original_directory (pfile);
+  /* APPLE LOCAL END - PCH distcc debugging mrs  */
+
+  return pfile->map->to_file;
+}
+
+/* APPLE LOCAL BEGIN - PCH distcc debugging mrs  */
+/* For preprocessed files, if the first tokens are of the form # NUM.
+   handle the directive so we know the original file name.  This will
+   generate file_change callbacks, which the front ends must handle
+   appropriately given their state of initialization.  */
+static void
+read_original_directory (pfile)
+     cpp_reader *pfile;
+{
+  const cpp_token *token, *token1;
+
+  /* Lex ahead; if the first tokens are of the form # pragma GCC set_debug_pwd, then
+     process the directive, otherwise back up.  */
+  if (pfile->lookaheads)
+    token = _cpp_lex_token (pfile);
+  else
+    token = _cpp_lex_direct (pfile);
+
+  if (token->type == CPP_HASH)
+    {
+      token1 = _cpp_lex_direct (pfile);
+      _cpp_backup_tokens (pfile, 1);
+
+      /* If it's a #pragma directive, handle it.  */
+      if (token1->type == CPP_NAME
+	  && token1->val.node->directive_index
+	  && token1->val.node->ident.len == 6
+	  && strcmp (token1->val.node->ident.str, "pragma") == 0)
+	{
+	  _cpp_handle_directive (pfile, token->flags & PREV_WHITE);
+	  return;
+	}
+    }
+
+  /* Backup as if nothing happened.  */
+  _cpp_backup_tokens (pfile, 1);
+}
+/* APPLE LOCAL END - PCH distcc debugging mrs  */
+
+/* For preprocessed files, if the first tokens are of the form # NUM.
+   handle the directive so we know the original file name.  This will
+   generate file_change callbacks, which the front ends must handle
+   appropriately given their state of initialization.  */
+static void
+read_original_filename (pfile)
+     cpp_reader *pfile;
+{
+  const cpp_token *token, *token1;
+
+  /* Lex ahead; if the first tokens are of the form # NUM, then
+     process the directive, otherwise back up.  */
+  token = _cpp_lex_direct (pfile);
+  if (token->type == CPP_HASH)
+    {
+      token1 = _cpp_lex_direct (pfile);
+      _cpp_backup_tokens (pfile, 1);
+
+      /* If it's a #line directive, handle it.  */
+      if (token1->type == CPP_NUMBER)
+	{
+	  _cpp_handle_directive (pfile, token->flags & PREV_WHITE);
+	  return;
+	}
+    }
+
+  /* Backup as if nothing happened.  */
+  _cpp_backup_tokens (pfile, 1);
+}
+
+/* Handle pending command line options: -D, -U, -A, -imacros and
+   -include.  This should be called after debugging has been properly
+   set up in the front ends.  */
+void
+cpp_finish_options (pfile)
+     cpp_reader *pfile;
+{
+  /* Mark named operators before handling command line macros.  */
+  if (CPP_OPTION (pfile, cplusplus) && CPP_OPTION (pfile, operator_names))
+    mark_named_operators (pfile);
+
+  /* Install builtins and process command line macros etc. in the order
+     they appeared, but only if not already preprocessed.  */
+  if (! CPP_OPTION (pfile, preprocessed))
+    {
+      struct pending_option *p;
+
+      _cpp_do_file_change (pfile, LC_RENAME, _("<built-in>"), 1, 0);
+      init_builtins (pfile);
+      _cpp_do_file_change (pfile, LC_RENAME, _("<command line>"), 1, 0);
+      for (p = CPP_OPTION (pfile, pending)->directive_head; p; p = p->next)
+	(*p->handler) (pfile, p->arg);
+
+      /* Scan -imacros files after -D, -U, but before -include.
+	 pfile->next_include_file is NULL, so _cpp_pop_buffer does not
+	 push -include files.  */
+      for (p = CPP_OPTION (pfile, pending)->imacros_head; p; p = p->next)
+	if (push_include (pfile, p))
+	  cpp_scan_nooutput (pfile);
+
+      pfile->next_include_file = &CPP_OPTION (pfile, pending)->include_head;
+      _cpp_maybe_push_include_file (pfile);
+    }
+
+  pfile->first_unused_line = pfile->line;
+
+  free_chain (CPP_OPTION (pfile, pending)->imacros_head);
+  free_chain (CPP_OPTION (pfile, pending)->directive_head);
+
+  /* APPLE LOCAL begin Symbol Separation */
+  if (pfile->cinfo_state == CINFO_FOUND)
+    {
+      if (c_valid_cinfo (pfile, pfile->cinfo_candidate_file))
+	{
+	  pfile->cinfo_state = CINFO_READ;
+	  if (pfile->cb.clear_write_symbols)
+	    pfile->cb.clear_write_symbols (pfile->cinfo_src_file, cpp_get_stabs_checksum ());
+	}
+    }
+  /* APPLE LOCAL end Symbol Separation */
+
+}
+
+/* Push the next buffer on the stack given by -include, if any.  */
+void
+_cpp_maybe_push_include_file (pfile)
+     cpp_reader *pfile;
+{
+  if (pfile->next_include_file)
+    {
+      struct pending_option *head = *pfile->next_include_file;
+
+      while (head && !push_include (pfile, head))
+	head = head->next;
+
+      if (head)
+	pfile->next_include_file = &head->next;
+      else
+	{
+	  /* All done; restore the line map from <command line>.  */
+	  _cpp_do_file_change (pfile, LC_RENAME,
+			       pfile->line_maps.maps[0].to_file, 1, 0);
+	  /* Don't come back here again.  */
+	  pfile->next_include_file = NULL;
+	}
+    }
+}
+
+/* This is called at the end of preprocessing.  It pops the last
+   buffer and writes dependency output, and returns the number of
+   errors.
+ 
+   Maybe it should also reset state, such that you could call
+   cpp_start_read with a new filename to restart processing.  */
+int
+cpp_finish (pfile, deps_stream)
+     cpp_reader *pfile;
+     FILE *deps_stream;
+{
+  /* Warn about unused macros before popping the final buffer.  */
+  if (CPP_OPTION (pfile, warn_unused_macros))
+    cpp_forall_identifiers (pfile, _cpp_warn_if_unused_macro, NULL);
+
+  /* cpplex.c leaves the final buffer on the stack.  This it so that
+     it returns an unending stream of CPP_EOFs to the client.  If we
+     popped the buffer, we'd dereference a NULL buffer pointer and
+     segfault.  It's nice to allow the client to do worry-free excess
+     cpp_get_token calls.  */
+  while (pfile->buffer)
+    _cpp_pop_buffer (pfile);
+
+  /* Don't write the deps file if there are errors.  */
+  if (CPP_OPTION (pfile, deps.style) != DEPS_NONE
+      && deps_stream && pfile->errors == 0)
+    {
+      deps_write (pfile->deps, deps_stream, 72);
+
+      if (CPP_OPTION (pfile, deps.phony_targets))
+	deps_phony_targets (pfile->deps, deps_stream);
+    }
+
+  /* Report on headers that could use multiple include guards.  */
+  if (CPP_OPTION (pfile, print_include_names))
+    _cpp_report_missing_guards (pfile);
+
+  /* APPLE LOCAL -inclusion-log-file */
+  if (CPP_OPTION (pfile, inclusion_log_file))
+    ilog_close (pfile);
+
+  return pfile->errors;
+}
+
+/* Add a directive to be handled later in the initialization phase.  */
+static void
+new_pending_directive (pend, text, handler)
+     struct cpp_pending *pend;
+     const char *text;
+     cl_directive_handler handler;
+{
+  struct pending_option *o = (struct pending_option *)
+    xmalloc (sizeof (struct pending_option));
+
+  o->arg = text;
+  o->next = NULL;
+  o->handler = handler;
+  APPEND (pend, directive, o);
+}
+
+/* Irix6 "cc -n32" and OSF4 cc have problems with char foo[] = ("string");
+   I.e. a const string initializer with parens around it.  That is
+   what N_("string") resolves to, so we make no_* be macros instead.  */
+#define no_ass N_("assertion missing after %s")
+#define no_dir N_("directory name missing after %s")
+#define no_fil N_("file name missing after %s")
+#define no_mac N_("macro name missing after %s")
+#define no_pth N_("path name missing after %s")
+/* APPLE LOCAL fat builds */
+#define no_tgt N_("target missing after %s")
+
+/* This is the list of all command line options, with the leading
+   "-" removed.  It must be sorted in ASCII collating order.  */
+#define COMMAND_LINE_OPTIONS                                                  \
+  DEF_OPT("A",                        no_ass, OPT_A)                          \
+  DEF_OPT("D",                        no_mac, OPT_D)                          \
+  /* APPLE LOCAL framework headers */  \
+  DEF_OPT("F",                        no_dir, OPT_F)                          \
+  DEF_OPT("I",                        no_dir, OPT_I)                          \
+  DEF_OPT("U",                        no_mac, OPT_U)                          \
+  /* APPLE LOCAL fat builds */  \
+  DEF_OPT("arch",                     no_tgt, OPT_arch)                       \
+  /* APPLE LOCAL -header-mapfile */  \
+  DEF_OPT("header-mapfile",           no_fil, OPT_header_mapfile)             \
+  DEF_OPT("idirafter",                no_dir, OPT_idirafter)                  \
+  /* APPLE LOCAL framework headers */  \
+  DEF_OPT("iframework",               no_dir, OPT_iframework)                 \
+  DEF_OPT("imacros",                  no_fil, OPT_imacros)                    \
+  DEF_OPT("include",                  no_fil, OPT_include)                    \
+  /* APPLE LOCAL -inclusion-log-file */  \
+  DEF_OPT("inclusion-log-file",	      no_fil, OPT_inclusion_log_file)         \
+  DEF_OPT("iprefix",                  no_pth, OPT_iprefix)                    \
+  DEF_OPT("isystem",                  no_dir, OPT_isystem)                    \
+  DEF_OPT("iwithprefix",              no_dir, OPT_iwithprefix)                \
+  DEF_OPT("iwithprefixbefore",        no_dir, OPT_iwithprefixbefore)	      \
+  /* APPLE LOCAL -precomp-trustfile */  \
+  DEF_OPT("precomp-trustfile",        no_fil, OPT_precomp_trustfile)
+
+#define DEF_OPT(text, msg, code) code,
+enum opt_code
+{
+  COMMAND_LINE_OPTIONS
+  N_OPTS
+};
+#undef DEF_OPT
+
+struct cl_option
+{
+  const char *opt_text;
+  const char *msg;
+  size_t opt_len;
+  enum opt_code opt_code;
+};
+
+#define DEF_OPT(text, msg, code) { text, msg, sizeof(text) - 1, code },
+#ifdef HOST_EBCDIC
+static struct cl_option cl_options[] =
+#else
+static const struct cl_option cl_options[] =
+#endif
+{
+  COMMAND_LINE_OPTIONS
+};
+#undef DEF_OPT
+#undef COMMAND_LINE_OPTIONS
+
+/* Perform a binary search to find which, if any, option the given
+   command-line matches.  Returns its index in the option array,
+   negative on failure.  Complications arise since some options can be
+   suffixed with an argument, and multiple complete matches can occur,
+   e.g. -pedantic and -pedantic-errors.  */
+static int
+parse_option (input)
+     const char *input;
+{
+  unsigned int md, mn, mx;
+  size_t opt_len;
+  int comp;
+
+  mn = 0;
+  mx = N_OPTS;
+
+  while (mx > mn)
+    {
+      md = (mn + mx) / 2;
+
+      opt_len = cl_options[md].opt_len;
+      comp = strncmp (input, cl_options[md].opt_text, opt_len);
+
+      if (comp > 0)
+	mn = md + 1;
+      else if (comp < 0)
+	mx = md;
+      else
+	{
+	  if (input[opt_len] == '\0')
+	    return md;
+	  /* We were passed more text.  If the option takes an argument,
+	     we may match a later option or we may have been passed the
+	     argument.  The longest possible option match succeeds.
+	     If the option takes no arguments we have not matched and
+	     continue the search (e.g. input="stdc++" match was "stdc").  */
+	  mn = md + 1;
+	  if (cl_options[md].msg)
 	    {
-	      if (ferror (deps_stream) || fclose (deps_stream) != 0)
-		cpp_fatal (pfile, "I/O error on output");
+	      /* Scan forwards.  If we get an exact match, return it.
+		 Otherwise, return the longest option-accepting match.
+		 This loops no more than twice with current options.  */
+	      mx = md;
+	      for (; mn < (unsigned int) N_OPTS; mn++)
+		{
+		  opt_len = cl_options[mn].opt_len;
+		  if (strncmp (input, cl_options[mn].opt_text, opt_len))
+		    break;
+		  if (input[opt_len] == '\0')
+		    return mn;
+		  if (cl_options[mn].msg)
+		    mx = mn;
+		}
+	      return mx;
 	    }
 	}
     }
 
-  if (opts->dump_macros == dump_only)
-    {
-      int i;
-      HASHNODE *h;
-      MACRODEF m;
-      for (i = HASHSIZE; --i >= 0;)
-	{
-	  for (h = pfile->hashtab[i]; h; h = h->next)
-	    if (h->type == T_MACRO)
-	      {
-		m.defn = h->value.defn;
-		m.symnam = h->name;
-		m.symlen = h->length;
-		dump_definition (pfile, m);
-		CPP_PUTC (pfile, '\n');
-	      }
-	}
-    }
+  return -1;
 }
 
 /* Handle one command-line option in (argc, argv).
@@ -1133,562 +1557,207 @@ cpp_handle_option (pfile, argc, argv)
      int argc;
      char **argv;
 {
-  struct cpp_options *opts = CPP_OPTIONS (pfile);
   int i = 0;
+  struct cpp_pending *pend = CPP_OPTION (pfile, pending);
 
-  if (argv[i][0] != '-')
     {
-      if (opts->out_fname != NULL)
-	{
-	  print_help ();
-	  cpp_fatal (pfile, "Too many arguments");
-	}
-      else if (opts->in_fname != NULL)
-	opts->out_fname = argv[i];
-      else
-	opts->in_fname = argv[i];
-    }
-  else
-    switch (argv[i][1])
-      {
-      case 'f':
-	if (!strcmp (argv[i], "-fleading-underscore"))
-	  user_label_prefix = "_";
-	else if (!strcmp (argv[i], "-fno-leading-underscore"))
-	  user_label_prefix = "";
-	break;
+      enum opt_code opt_code;
+      int opt_index;
+      const char *arg = 0;
 
-      case 'I':			/* Add directory to path for includes.  */
-	if (!strcmp (argv[i] + 2, "-"))
-	  {
-	    /* -I- means:
-	       Use the preceding -I directories for #include "..."
-	       but not #include <...>.
-	       Don't search the directory of the present file
-	       for #include "...".  (Note that -I. -I- is not the same as
-	       the default setup; -I. uses the compiler's working dir.)  */
-	    if (! opts->ignore_srcdir)
-	      {
-		opts->ignore_srcdir = 1;
-		opts->pending->quote_head = opts->pending->brack_head;
-		opts->pending->quote_tail = opts->pending->brack_tail;
-		opts->pending->brack_head = 0;
-		opts->pending->brack_tail = 0;
-	      }
-	    else
-	      {
-		cpp_fatal (pfile, "-I- specified twice");
-		return argc;
-	      }
-	  }
-	else
-	  {
-	    char *fname;
-	    if (argv[i][2] != 0)
-	      fname = argv[i] + 2;
-	    else if (i + 1 == argc)
-	      goto missing_dirname;
-	    else
-	      fname = argv[++i];
-	    append_include_chain (pfile, opts->pending,
-				  xstrdup (fname), BRACKET);
-	  }
-	break;
-
-      case 'i':
-	/* Add directory to beginning of system include path, as a system
-	   include directory. */
-	if (!strcmp (argv[i], "-isystem"))
-	  {
-	    if (i + 1 == argc)
-	      goto missing_filename;
-	    append_include_chain (pfile, opts->pending,
-				  xstrdup (argv[++i]), SYSTEM);
-	  }
-	else if (!strcmp (argv[i], "-include"))
-	  {
-	    if (i + 1 == argc)
-	      goto missing_filename;
-	    else
-	      {
-		struct pending_option *o = (struct pending_option *)
-		  xmalloc (sizeof (struct pending_option));
-		o->arg = argv[++i];
-
-		/* This list has to be built in reverse order so that
-		   when cpp_start_read pushes all the -include files onto
-		   the buffer stack, they will be scanned in forward order.  */
-		o->next = opts->pending->include_head;
-		opts->pending->include_head = o;
-	      }
-	  }
-	else if (!strcmp (argv[i], "-imacros"))
-	  {
-	    if (i + 1 == argc)
-	      goto missing_filename;
-	    else
-	      {
-		struct pending_option *o = (struct pending_option *)
-		  xmalloc (sizeof (struct pending_option));
-		o->arg = argv[++i];
-		o->next = NULL;
-
-		APPEND (opts->pending, imacros, o);
-	      }
-	  }
-	/* Add directory to end of path for includes,
-	   with the default prefix at the front of its name.  */
-	else if (!strcmp (argv[i], "-iwithprefix"))
-	  {
-	    char *fname;
-	    int len;
-	    if (i + 1 == argc)
-	      goto missing_dirname;
-	    ++i;
-	    len = strlen (argv[i]);
-
-	    if (opts->include_prefix != 0)
-	      {
-		fname = xmalloc (opts->include_prefix_len + len + 1);
-		memcpy (fname, opts->include_prefix, opts->include_prefix_len);
-		memcpy (fname + opts->include_prefix_len, argv[i], len + 1);
-	      }
-	    else
-	      {
-		fname = xmalloc (sizeof GCC_INCLUDE_DIR - 8 + len);
-		memcpy (fname, GCC_INCLUDE_DIR, sizeof GCC_INCLUDE_DIR - 9);
-		memcpy (fname + sizeof GCC_INCLUDE_DIR - 9, argv[i], len + 1);
-	      }
-	  
-	    append_include_chain (pfile, opts->pending, fname, SYSTEM);
-	  }
-	/* Add directory to main path for includes,
-	   with the default prefix at the front of its name.  */
-	else if (!strcmp (argv[i], "-iwithprefixbefore"))
-	  {
-	    char *fname;
-	    int len;
-	    if (i + 1 == argc)
-	      goto missing_dirname;
-	    ++i;
-	    len = strlen (argv[i]);
-
-	    if (opts->include_prefix != 0)
-	      {
-		fname = xmalloc (opts->include_prefix_len + len + 1);
-		memcpy (fname, opts->include_prefix, opts->include_prefix_len);
-		memcpy (fname + opts->include_prefix_len, argv[i], len + 1);
-	      }
-	    else
-	      {
-		fname = xmalloc (sizeof GCC_INCLUDE_DIR - 8 + len);
-		memcpy (fname, GCC_INCLUDE_DIR, sizeof GCC_INCLUDE_DIR - 9);
-		memcpy (fname + sizeof GCC_INCLUDE_DIR - 9, argv[i], len + 1);
-	      }
-	  
-	    append_include_chain (pfile, opts->pending, fname, BRACKET);
-	  }
-	/* Add directory to end of path for includes.  */
-	else if (!strcmp (argv[i], "-idirafter"))
-	  {
-	    if (i + 1 == argc)
-	      goto missing_dirname;
-	    append_include_chain (pfile, opts->pending,
-				  xstrdup (argv[++i]), AFTER);
-	  }
-	else if (!strcmp (argv[i], "-iprefix"))
-	  {
-	    if (i + 1 == argc)
-	      goto missing_filename;
-	    else
-	      {
-		opts->include_prefix = argv[++i];
-		opts->include_prefix_len = strlen (argv[i]);
-	      }
-	  }
-	else if (!strcmp (argv[i], "-ifoutput"))
-	  opts->output_conditionals = 1;
-
-	break;
-      
-      case 'o':
-	if (opts->out_fname != NULL)
-	  {
-	    cpp_fatal (pfile, "Output filename specified twice");
-	    return argc;
-	  }
-	if (i + 1 == argc)
-	  goto missing_filename;
-	opts->out_fname = argv[++i];
-	if (!strcmp (opts->out_fname, "-"))
-	  opts->out_fname = "";
-	break;
-      
-      case 'p':
-	if (!strcmp (argv[i], "-pedantic"))
-	  CPP_PEDANTIC (pfile) = 1;
-	else if (!strcmp (argv[i], "-pedantic-errors"))
-	  {
-	    CPP_PEDANTIC (pfile) = 1;
-	    opts->pedantic_errors = 1;
-	  }
-#if 0
-	else if (!strcmp (argv[i], "-pcp")) {
-	  char *pcp_fname = argv[++i];
-	  pcp_outfile = ((pcp_fname[0] != '-' || pcp_fname[1] != '\0')
-			 ? fopen (pcp_fname, "w")
-			 : fdopen (dup (fileno (stdout)), "w"));
-	  if (pcp_outfile == 0)
-	    cpp_pfatal_with_name (pfile, pcp_fname);
-	  no_precomp = 1;
-	}
-#endif
-	break;
-      
-      case 't':
-	if (!strcmp (argv[i], "-traditional"))
-	  {
-	    opts->traditional = 1;
-	    opts->cplusplus_comments = 0;
-	  }
-	else if (!strcmp (argv[i], "-trigraphs"))
-	  opts->trigraphs = 1;
-	break;
-      
-      case 'l':
-	if (! strcmp (argv[i], "-lang-c"))
-	  opts->cplusplus = 0, opts->cplusplus_comments = 1, opts->c89 = 0,
-	    opts->c9x = 1, opts->objc = 0;
-	if (! strcmp (argv[i], "-lang-c89"))
-	  opts->cplusplus = 0, opts->cplusplus_comments = 0, opts->c89 = 1,
-	    opts->c9x = 0, opts->objc = 0;
-	if (! strcmp (argv[i], "-lang-c++"))
-	  opts->cplusplus = 1, opts->cplusplus_comments = 1, opts->c89 = 0,
-	    opts->c9x = 0, opts->objc = 0;
-	if (! strcmp (argv[i], "-lang-objc"))
-	  opts->cplusplus = 0, opts->cplusplus_comments = 1, opts->c89 = 0,
-	    opts->c9x = 0, opts->objc = 1;
-	if (! strcmp (argv[i], "-lang-objc++"))
-	  opts->cplusplus = 1, opts->cplusplus_comments = 1, opts->c89 = 0,
-	    opts->c9x = 0, opts->objc = 1;
-	if (! strcmp (argv[i], "-lang-asm"))
-	  opts->lang_asm = 1;
-	if (! strcmp (argv[i], "-lint"))
-	  opts->for_lint = 1;
-	if (! strcmp (argv[i], "-lang-chill"))
-	  opts->objc = 0, opts->cplusplus = 0, opts->chill = 1,
-	    opts->traditional = 1;
-	break;
-      
-      case '+':
-	opts->cplusplus = 1, opts->cplusplus_comments = 1;
-	break;
-
-      case 's':
-	if (!strcmp (argv[i], "-std=iso9899:1990")
-	    || !strcmp (argv[i], "-std=iso9899:199409")
-	    || !strcmp (argv[i], "-std=c89")
-	    || !strcmp (argv[i], "-std=gnu89"))
-	  opts->cplusplus = 0, opts->cplusplus_comments = 0,
-	    opts->c89 = 1, opts->c9x = 0, opts->objc = 0;
-	else if (!strcmp (argv[i], "-std=iso9899:199x")
-		 || !strcmp (argv[i], "-std=c9x")
-		 || !strcmp (argv[i], "-std=gnu9x"))
-	  opts->cplusplus = 0, opts->cplusplus_comments = 1, opts->c89 = 0,
-	    opts->c9x = 1, opts->objc = 0;
-	break;
-
-      case 'w':
-	opts->inhibit_warnings = 1;
-	break;
-      
-      case 'W':
-	if (!strcmp (argv[i], "-Wtrigraphs"))
-	  opts->warn_trigraphs = 1;
-	else if (!strcmp (argv[i], "-Wno-trigraphs"))
-	  opts->warn_trigraphs = 0;
-	else if (!strcmp (argv[i], "-Wcomment"))
-	  opts->warn_comments = 1;
-	else if (!strcmp (argv[i], "-Wno-comment"))
-	  opts->warn_comments = 0;
-	else if (!strcmp (argv[i], "-Wcomments"))
-	  opts->warn_comments = 1;
-	else if (!strcmp (argv[i], "-Wno-comments"))
-	  opts->warn_comments = 0;
-	else if (!strcmp (argv[i], "-Wtraditional"))
-	  opts->warn_stringify = 1;
-	else if (!strcmp (argv[i], "-Wno-traditional"))
-	  opts->warn_stringify = 0;
-	else if (!strcmp (argv[i], "-Wundef"))
-	  opts->warn_undef = 1;
-	else if (!strcmp (argv[i], "-Wno-undef"))
-	  opts->warn_undef = 0;
-	else if (!strcmp (argv[i], "-Wimport"))
-	  opts->warn_import = 1;
-	else if (!strcmp (argv[i], "-Wno-import"))
-	  opts->warn_import = 0;
-	else if (!strcmp (argv[i], "-Werror"))
-	  opts->warnings_are_errors = 1;
-	else if (!strcmp (argv[i], "-Wno-error"))
-	  opts->warnings_are_errors = 0;
-	else if (!strcmp (argv[i], "-Wall"))
-	  {
-	    opts->warn_trigraphs = 1;
-	    opts->warn_comments = 1;
-	  }
-	break;
-      
-      case 'M':
-	/* The style of the choices here is a bit mixed.
-	   The chosen scheme is a hybrid of keeping all options in one string
-	   and specifying each option in a separate argument:
-	   -M|-MM|-MD file|-MMD file [-MG].  An alternative is:
-	   -M|-MM|-MD file|-MMD file|-MG|-MMG; or more concisely:
-	   -M[M][G][D file].  This is awkward to handle in specs, and is not
-	   as extensible.  */
-	/* ??? -MG must be specified in addition to one of -M or -MM.
-	   This can be relaxed in the future without breaking anything.
-	   The converse isn't true.  */
-      
-	/* -MG isn't valid with -MD or -MMD.  This is checked for later.  */
-	if (!strcmp (argv[i], "-MG"))
-	  {
-	    opts->print_deps_missing_files = 1;
-	    break;
-	  }
-	if (!strcmp (argv[i], "-M"))
-	  opts->print_deps = 2;
-	else if (!strcmp (argv[i], "-MM"))
-	  opts->print_deps = 1;
-	else if (!strcmp (argv[i], "-MD"))
-	  opts->print_deps = 2;
-	else if (!strcmp (argv[i], "-MMD"))
-	  opts->print_deps = 1;
-	/* For -MD and -MMD options, write deps on file named by next arg.  */
-	if (!strcmp (argv[i], "-MD") || !strcmp (argv[i], "-MMD"))
-	  {
-	    if (i+1 == argc)
-	      goto missing_filename;
-	    opts->deps_file = argv[++i];
-	  }
-	else
-	  {
-	    /* For -M and -MM, write deps on standard output
-	       and suppress the usual output.  */
-	    opts->no_output = 1;
-	  }	  
-	break;
-      
-      case 'd':
-	{
-	  char *p = argv[i] + 2;
-	  char c;
-	  while ((c = *p++) != 0)
-	    {
-	      /* Arg to -d specifies what parts of macros to dump */
-	      switch (c)
-		{
-		case 'M':
-		  opts->dump_macros = dump_only;
-		  opts->no_output = 1;
-		  break;
-		case 'N':
-		  opts->dump_macros = dump_names;
-		  break;
-		case 'D':
-		  opts->dump_macros = dump_definitions;
-		  break;
-		case 'I':
-		  opts->dump_includes = 1;
-		  break;
-		}
-	    }
-	}
-	break;
-    
-      case 'g':
-	if (argv[i][2] == '3')
-	  opts->debug_output = 1;
-	break;
-      
-      case '-':
-	if (!strcmp (argv[i], "--help"))
-	  print_help ();
-	else if (!strcmp (argv[i], "--version"))
-	  cpp_notice ("GNU CPP version %s\n", version_string);
-	exit (0);  /* XXX */
-	break;
-	
-      case 'v':
-	cpp_notice ("GNU CPP version %s", version_string);
-#ifdef TARGET_VERSION
-	TARGET_VERSION;
-#endif
-	fputc ('\n', stderr);
-	opts->verbose = 1;
-	break;
-      
-      case 'H':
-	opts->print_include_names = 1;
-	break;
-      
-      case 'D':
-	{
-	  struct pending_option *o = (struct pending_option *)
-	    xmalloc (sizeof (struct pending_option));
-	  if (argv[i][2] != 0)
-	    o->arg = argv[i] + 2;
-	  else if (i + 1 == argc)
-	    {
-	      cpp_fatal (pfile, "Macro name missing after -D option");
-	      return argc;
-	    }
-	  else
-	    o->arg = argv[++i];
-
-	  o->next = NULL;
-	  o->undef = 0;
-	  APPEND (opts->pending, define, o);
-	}
-	break;
-      
-      case 'A':
-	{
-	  char *p;
-	
-	  if (argv[i][2] != 0)
-	    p = argv[i] + 2;
-	  else if (i + 1 == argc)
-	    {
-	      cpp_fatal (pfile, "Assertion missing after -A option");
-	      return argc;
-	    }
-	  else
-	    p = argv[++i];
-	
-	  if (strcmp (p, "-"))
-	    {
-	      struct pending_option *o = (struct pending_option *)
-		xmalloc (sizeof (struct pending_option));
-
-	      o->arg = p;
-	      o->next = NULL;
-	      o->undef = 0;
-	      APPEND (opts->pending, assert, o);
-	    }
-	  else
-	    {
-	      /* -A- eliminates all predefined macros and assertions.
-		 Let's include also any that were specified earlier
-		 on the command line.  That way we can get rid of any
-		 that were passed automatically in from GCC.  */
-	      struct pending_option *o1, *o2;
-
-	      o1 = opts->pending->define_head;
-	      while (o1)
-		{
-		  o2 = o1->next;
-		  free (o1);
-		  o1 = o2;
-		}
-	      o1 = opts->pending->assert_head;
-	      while (o1)
-		{
-		  o2 = o1->next;
-		  free (o1);
-		  o1 = o2;
-		}
-	      opts->pending->assert_head = NULL;
-	      opts->pending->assert_tail = NULL;
-	      opts->pending->define_head = NULL;
-	      opts->pending->define_tail = NULL;
-	    }
-	}
-	break;
-    
-      case 'U':
-	{
-	  struct pending_option *o = (struct pending_option *)
-	    xmalloc (sizeof (struct pending_option));
-	  
-	  if (argv[i][2] != 0)
-	    o->arg = argv[i] + 2;
-	  else if (i + 1 == argc)
-	    {
-	      cpp_fatal (pfile, "Macro name missing after -U option");
-	      return argc;
-	    }
-	  else
-	    o->arg = argv[++i];
-
-	  o->next = NULL;
-	  o->undef = 1;
-	  APPEND (opts->pending, define, o);
-	}
-	break;
-      
-      case 'C':
-	opts->put_out_comments = 1;
-	break;
-      
-      case 'E':			/* -E comes from cc -E; ignore it.  */
-	break;
-      
-      case 'P':
-	opts->no_line_commands = 1;
-	break;
-      
-      case '$':			/* Don't include $ in identifiers.  */
-	opts->dollars_in_ident = 0;
-	break;
-      
-      case 'n':
-	if (!strcmp (argv[i], "-nostdinc"))
-	  /* -nostdinc causes no default include directories.
-	     You must specify all include-file directories with -I.  */
-	  opts->no_standard_includes = 1;
-	else if (!strcmp (argv[i], "-nostdinc++"))
-	  /* -nostdinc++ causes no default C++-specific include directories. */
-	  opts->no_standard_cplusplus_includes = 1;
-#if 0
-	else if (!strcmp (argv[i], "-noprecomp"))
-	  no_precomp = 1;
-#endif
-	break;
-      
-      case 'r':
-	if (!strcmp (argv[i], "-remap"))
-	  opts->remap = 1;
-	break;
-      
-      case '\0': /* JF handle '-' as file name meaning stdin or stdout */
-	if (opts->in_fname == NULL)
-	  opts->in_fname = "";
-	else if (opts->out_fname == NULL)
-	  opts->out_fname = "";
-	else
-	  return i;  /* error */
-	break;
-
-      default:
+      /* Skip over '-'.  */
+      opt_index = parse_option (&argv[i][1]);
+      if (opt_index < 0)
 	return i;
-      }
 
+      opt_code = cl_options[opt_index].opt_code;
+      if (cl_options[opt_index].msg)
+	{
+	  arg = &argv[i][cl_options[opt_index].opt_len + 1];
+	  if (arg[0] == '\0')
+	    {
+	      arg = argv[++i];
+	      if (!arg)
+		{
+		  cpp_error (pfile, DL_ERROR,
+			     cl_options[opt_index].msg, argv[i - 1]);
+		  return argc;
+		}
+	    }
+	}
+
+      switch (opt_code)
+	{
+	case N_OPTS: /* Shut GCC up.  */
+	  break;
+
+	  /* APPLE LOCAL begin fat builds */
+	case OPT_arch:
+	  break;
+	  /* APPLE LOCAL end fat builds */
+
+	case OPT_D:
+	  new_pending_directive (pend, arg, cpp_define);
+	  break;
+	case OPT_iprefix:
+	  CPP_OPTION (pfile, include_prefix) = arg;
+	  CPP_OPTION (pfile, include_prefix_len) = strlen (arg);
+	  break;
+
+	case OPT_A:
+	  if (arg[0] == '-')
+	    {
+	      /* -A with an argument beginning with '-' acts as
+		 #unassert on whatever immediately follows the '-'.
+		 If "-" is the whole argument, we eliminate all
+		 predefined macros and assertions, including those
+		 that were specified earlier on the command line.
+		 That way we can get rid of any that were passed
+		 automatically in from GCC.  */
+
+	      if (arg[1] == '\0')
+		{
+		  free_chain (pend->directive_head);
+		  pend->directive_head = NULL;
+		  pend->directive_tail = NULL;
+		}
+	      else
+		new_pending_directive (pend, arg + 1, cpp_unassert);
+	    }
+	  else
+	    new_pending_directive (pend, arg, cpp_assert);
+	  break;
+	case OPT_U:
+	  new_pending_directive (pend, arg, cpp_undef);
+	  break;
+	case OPT_I:           /* Add directory to path for includes.  */
+	  if (!strcmp (arg, "-"))
+	    {
+	      /* -I- means:
+		 Use the preceding -I directories for #include "..."
+		 but not #include <...>.
+		 Don't search the directory of the present file
+		 for #include "...".  (Note that -I. -I- is not the same as
+		 the default setup; -I. uses the compiler's working dir.)  */
+	      if (! CPP_OPTION (pfile, ignore_srcdir))
+		{
+		  pend->quote_head = pend->brack_head;
+		  pend->quote_tail = pend->brack_tail;
+		  pend->brack_head = 0;
+		  pend->brack_tail = 0;
+		  CPP_OPTION (pfile, ignore_srcdir) = 1;
+		}
+	      else
+		{
+		  cpp_error (pfile, DL_ERROR, "-I- specified twice");
+		  return argc;
+		}
+	    }
+	  else
+	    append_include_chain (pfile, xstrdup (arg), BRACKET, 0);
+	  break;
+	case OPT_isystem:
+	  /* Add directory to beginning of system include path, as a system
+	     include directory.  */
+	  append_include_chain (pfile, xstrdup (arg), SYSTEM, 0);
+	  break;
+        /* APPLE LOCAL begin framework headers */
+#ifdef FRAMEWORK_HEADERS
+	case OPT_F:           
+	case OPT_iframework:
+	  /* Add directory to beginning of system include path, as a system
+	     include directory.  */
+	  append_include_chain (pfile, xstrdup (arg), FRAMEWORK, 0);
+	  break;
+#endif
+        /* APPLE LOCAL end framework headers */
+	case OPT_include:
+	case OPT_imacros:
+	  {
+	    struct pending_option *o = (struct pending_option *)
+	      xmalloc (sizeof (struct pending_option));
+	    o->arg = arg;
+	    o->next = NULL;
+
+	    if (opt_code == OPT_include)
+	      APPEND (pend, include, o);
+	    else
+	      APPEND (pend, imacros, o);
+	  }
+	  break;
+	case OPT_iwithprefix:
+	  /* Add directory to end of path for includes,
+	     with the default prefix at the front of its name.  */
+	  /* fall through */
+	case OPT_iwithprefixbefore:
+	  /* Add directory to main path for includes,
+	     with the default prefix at the front of its name.  */
+	  {
+	    char *fname;
+	    int len;
+
+	    len = strlen (arg);
+
+	    if (CPP_OPTION (pfile, include_prefix) != 0)
+	      {
+		size_t ipl = CPP_OPTION (pfile, include_prefix_len);
+		fname = xmalloc (ipl + len + 1);
+		memcpy (fname, CPP_OPTION (pfile, include_prefix), ipl);
+		memcpy (fname + ipl, arg, len + 1);
+	      }
+	    else if (cpp_GCC_INCLUDE_DIR_len)
+	      {
+		fname = xmalloc (cpp_GCC_INCLUDE_DIR_len + len + 1);
+		memcpy (fname, cpp_GCC_INCLUDE_DIR, cpp_GCC_INCLUDE_DIR_len);
+		memcpy (fname + cpp_GCC_INCLUDE_DIR_len, arg, len + 1);
+	      }
+	    else
+	      fname = xstrdup (arg);
+
+	    append_include_chain (pfile, fname,
+			  opt_code == OPT_iwithprefix ? SYSTEM: BRACKET, 0);
+	  }
+	  break;
+	case OPT_idirafter:
+	  /* Add directory to end of path for includes.  */
+	  append_include_chain (pfile, xstrdup (arg), AFTER, 0);
+	  break;
+
+	  /* APPLE LOCAL begin -header-mapfile */
+	case OPT_header_mapfile:
+	  if (CPP_OPTION (pfile, header_map) != NULL)
+	    cpp_error (pfile, DL_ERROR,
+		       "more than one `-header-mapfile' option specified; "
+		       "only one is allowed");
+	  else
+	    CPP_OPTION (pfile, header_map) = hmap_load_header_map (arg);
+	  break;
+	  /* APPLE LOCAL end -header-mapfile */
+
+	  /* APPLE LOCAL begin -inclusion-log-file */
+	case OPT_inclusion_log_file:
+	  if (CPP_OPTION (pfile, inclusion_log_file) != NULL)
+	    cpp_error (pfile, DL_ERROR,
+		       "more than one `-inclusion-log-file' option specified; "
+		       "only one is allowed");
+	  else
+	    CPP_OPTION (pfile, inclusion_log_file) = ilog_open (arg);
+	  break;
+	  /* APPLE LOCAL end -inclusion-log-file */
+
+	  /* APPLE LOCAL begin -precomp-trustfile */
+	case OPT_precomp_trustfile:
+	  break;
+	  /* APPLE LOCAL end -precomp-trustfile */
+	}
+    }
   return i + 1;
-
- missing_filename:
-  cpp_fatal (pfile, "Filename missing after `%s' option", argv[i]);
-  return argc;
- missing_dirname:
-  cpp_fatal (pfile, "Directory name missing after `%s' option", argv[i]);
-  return argc;
 }
 
 /* Handle command-line options in (argc, argv).
    Can be called multiple times, to handle multiple sets of options.
    Returns if an unrecognized option is seen.
    Returns number of strings consumed.  */
-
 int
 cpp_handle_options (pfile, argc, argv)
      cpp_reader *pfile;
@@ -1697,83 +1766,262 @@ cpp_handle_options (pfile, argc, argv)
 {
   int i;
   int strings_processed;
+
   for (i = 0; i < argc; i += strings_processed)
     {
       strings_processed = cpp_handle_option (pfile, argc - i, argv + i);
       if (strings_processed == 0)
 	break;
     }
+
   return i;
 }
 
 static void
-print_help ()
+post_options (pfile)
+     cpp_reader *pfile;
 {
-  cpp_notice ("Usage: %s [switches] input output\n", progname);
-  fputs (_("\
-Switches:\n\
-  -include <file>           Include the contents of <file> before other files\n\
-  -imacros <file>           Accept definition of macros in <file>\n\
-  -iprefix <path>           Specify <path> as a prefix for next two options\n\
-  -iwithprefix <dir>        Add <dir> to the end of the system include path\n\
-  -iwithprefixbefore <dir>  Add <dir> to the end of the main include path\n\
-  -isystem <dir>            Add <dir> to the start of the system include path\n\
-  -idirafter <dir>          Add <dir> to the end of the system include path\n\
-  -I <dir>                  Add <dir> to the end of the main include path\n\
-  -nostdinc                 Do not search system include directories\n\
-                             (dirs specified with -isystem will still be used)\n\
-  -nostdinc++               Do not search system include directories for C++\n\
-  -o <file>                 Put output into <file>\n\
-  -pedantic                 Issue all warnings demanded by strict ANSI C\n\
-  -traditional              Follow K&R pre-processor behaviour\n\
-  -trigraphs                Support ANSI C trigraphs\n\
-  -lang-c                   Assume that the input sources are in C\n\
-  -lang-c89                 Assume that the input sources are in C89\n\
-  -lang-c++                 Assume that the input sources are in C++\n\
-  -lang-objc                Assume that the input sources are in ObjectiveC\n\
-  -lang-objc++              Assume that the input sources are in ObjectiveC++\n\
-  -lang-asm                 Assume that the input sources are in assembler\n\
-  -lang-chill               Assume that the input sources are in Chill\n\
-  -std=<std name>           Specify the conformance standard; one of:\n\
-                            gnu89, gnu9x, c89, c9x, iso9899:1990,\n\
-                            iso9899:199409, iso9899:199x\n\
-  -+                        Allow parsing of C++ style features\n\
-  -w                        Inhibit warning messages\n\
-  -Wtrigraphs               Warn if trigraphs are encountered\n\
-  -Wno-trigraphs            Do not warn about trigraphs\n\
-  -Wcomment{s}              Warn if one comment starts inside another\n\
-  -Wno-comment{s}           Do not warn about comments\n\
-  -Wtraditional             Warn if a macro argument is/would be turned into\n\
-                             a string if -traditional is specified\n\
-  -Wno-traditional          Do not warn about stringification\n\
-  -Wundef                   Warn if an undefined macro is used by #if\n\
-  -Wno-undef                Do not warn about testing undefined macros\n\
-  -Wimport                  Warn about the use of the #import directive\n\
-  -Wno-import               Do not warn about the use of #import\n\
-  -Werror                   Treat all warnings as errors\n\
-  -Wno-error                Do not treat warnings as errors\n\
-  -Wall                     Enable all preprocessor warnings\n\
-  -M                        Generate make dependencies\n\
-  -MM                       As -M, but ignore system header files\n\
-  -MD                       As -M, but put output in a .d file\n\
-  -MMD                      As -MD, but ignore system header files\n\
-  -MG                       Treat missing header file as generated files\n\
-  -g                        Include #define and #undef directives in the output\n\
-  -D<macro>                 Define a <macro> with string '1' as its value\n\
-  -D<macro>=<val>           Define a <macro> with <val> as its value\n\
-  -A<question> (<answer>)   Assert the <answer> to <question>\n\
-  -U<macro>                 Undefine <macro> \n\
-  -v                        Display the version number\n\
-  -H                        Print the name of header files as they are used\n\
-  -C                        Do not discard comments\n\
-  -dM                       Display a list of macro definitions active at end\n\
-  -dD                       Preserve macro definitions in output\n\
-  -dN                       As -dD except that only the names are preserved\n\
-  -dI                       Include #include directives in the output\n\
-  -ifoutput                 Describe skipped code blocks in output \n\
-  -P                        Do not generate #line directives\n\
-  -$                        Do not allow '$' in identifiers\n\
-  -remap                    Remap file names when including files.\n\
-  -h or --help              Display this information\n\
-"), stdout);
+  /* -Wtraditional is not useful in C++ mode.  */
+  if (CPP_OPTION (pfile, cplusplus))
+    CPP_OPTION (pfile, warn_traditional) = 0;
+
+  /* Permanently disable macro expansion if we are rescanning
+     preprocessed text.  Read preprocesed source in ISO mode.  */
+  if (CPP_OPTION (pfile, preprocessed))
+    {
+      pfile->state.prevent_expansion = 1;
+      CPP_OPTION (pfile, traditional) = 0;
+    }
+
+  /* Traditional CPP does not accurately track column information.  */
+  if (CPP_OPTION (pfile, traditional))
+    CPP_OPTION (pfile, show_column) = 0;
 }
+
+/* APPLE LOCAL begin -header-mapfile */
+/* Private function that hashes the contents of the string between
+   'str_beg' and 'str_end' in a case-insensitive way.  */
+
+static inline 
+uint32 hmap_hash_string (str)
+     const char *str;
+{
+  const char *sp;
+  unsigned hash_code = 0;
+
+  for (sp = str; *sp; sp++)
+    hash_code += tolower (*(const unsigned char *)sp) * 13;
+  return hash_code;
+}
+
+/* Private function that case-insensitively compares the string
+   bounded by 'str1_beg' and 'str1_end' with the null-terminated
+   string 'str2'. Returns 1 if equal, 0 if not.  */
+
+static inline unsigned 
+hmap_compare_strings (str1, str2)
+     const char *str1;
+     const char *str2;
+{
+  const char *s1p;
+  const char *s2p;
+
+  for (s1p = str1, s2p = str2; *s1p && *s2p; s1p++, s2p++)
+    {
+      if (tolower (*s1p) != tolower (*s2p))
+	return 0;
+    }
+  return (*s1p == '\0' && *s2p == '\0');
+}
+
+/* Loads a header map from the 'filename', and returns a pointer to
+   it. Returns NULL if for any reason the header map cannot be
+   loaded. Header maps allocated using this function should eventually
+   be deallocated using hmap_free_header_map().  */
+
+static struct 
+hmap_header_map *hmap_load_header_map (filename)
+     const char *filename;
+{
+  struct hmap_header_map *headermap = NULL;
+
+  if (filename != NULL && filename[0] != '\0')
+    {
+      FILE *        f;
+      struct stat   f_info;
+
+      f = fopen (filename, "rb");
+      if (f != NULL)
+        {
+	  if (fstat (fileno (f), &f_info) == 0)
+            {
+	      unsigned   headermap_size = f_info.st_size;
+
+	      headermap = (struct hmap_header_map *) xmalloc (headermap_size);
+	      if (fread (headermap, 1, headermap_size, f) != headermap_size)
+                {
+		  perror (filename);
+		  free (headermap);
+		  headermap = NULL;
+                }
+	      if (headermap->magic == HMAP_OPPOSITE_ENDIANNESS_MAGIC)
+                {
+		  fprintf (stderr,
+			   "headermap \"%s\" has incompatible endianness\n",
+			   filename);
+		  free (headermap);
+		  headermap = NULL;
+                }
+	      else if (headermap->magic != HMAP_SAME_ENDIANNESS_MAGIC)
+                {
+		  fprintf (stderr,
+			   "\"%s\" is not a headermap file (bad magic: 0x%08lx)\n",
+			   filename, headermap->magic);
+		  free (headermap);
+		  headermap = NULL;
+                }
+            }
+	  else
+	    perror (filename);
+	  fclose (f);
+        }
+      else
+	perror (filename);
+    }
+  return headermap;
+}
+
+/* Deallocates a header map that's been allocated using
+   hmap_load_header_map(). */
+
+static void 
+hmap_free_header_map (pfile)
+     cpp_reader *pfile;
+{
+  struct hmap_header_map *headermap = CPP_OPTION (pfile, header_map);
+
+  if (headermap != NULL)
+    free (headermap);
+  if (CPP_OPTION (pfile, hmap_path))
+    free (CPP_OPTION (pfile, hmap_path));
+}
+
+/* Looks up the header named 'filename_beg' in the header map
+   'headermap'. If it is found, this function places the corresponding
+   null-terminated header path into an internal buffer, and sets
+   'filename_beg' and 'filename_end' to point to the start and end of
+   it. Otherwise, 'filename_beg' and 'filename_end' are left as they
+   are.  Because this function uses an internal buffer for the
+   returned string, the result of one lookup is only guaranteed to be
+   valid until the next lookup. */
+
+struct search_path * 
+hmap_lookup_path (pfile, filename_beg)
+     cpp_reader *pfile;
+     const char **filename_beg;
+{
+  struct hmap_header_map *headermap = CPP_OPTION (pfile, header_map);
+
+  const char *strings;
+  struct hmap_bucket *buckets;
+  uint32 bucket_mask;
+  uint32 i;
+  uint32 key_offset;
+
+  strings = ((const char *)headermap) + headermap->strings_offset;
+  buckets = headermap->buckets;
+  bucket_mask = headermap->capacity-1;
+  i = hmap_hash_string (*filename_beg) & bucket_mask;
+  while ((key_offset = buckets[i].key) != HMAP_NOT_A_KEY)
+    {
+      if (hmap_compare_strings (*filename_beg, strings+key_offset))
+        {
+	  static char *hmap_path_result_buffer = NULL;
+	  const char *sp;
+	  char *dp;
+	  char *last_slash;
+
+	  if (hmap_path_result_buffer == NULL)
+	    hmap_path_result_buffer =
+	      xmalloc (headermap->max_value_length + 1);
+	  last_slash = dp = hmap_path_result_buffer;
+	  sp = strings + buckets[i].value.prefix;
+	  while (*sp != '\0')
+	    {
+	      if (*sp == '/') 
+		last_slash = dp;  
+              *dp++ = *sp++;
+	    }
+	  sp = strings + buckets[i].value.suffix;
+	  while (*sp != '\0')
+	    {
+	      if (*sp == '/') 
+		last_slash = dp;  
+              *dp++ = *sp++;
+	    } 
+	  *dp = '\0';
+	  if (*last_slash == '/') 
+	    *last_slash++ = '\0';  /* we're not interested in the file itself! */
+	  /* construct a special search_path struct for this path.  */
+	  append_include_chain (pfile, xstrdup (hmap_path_result_buffer), 
+				HMAPFILE, 0);
+	  if (!CPP_OPTION (pfile, hmap_path))
+	    break;
+	  /* clobber file name with what we've mapped to.  this is not
+	     the cleanest solution; should the opening of the
+	     mapped-to header fail, the file name will remain screwed
+	     up (without any leading directories) for the system path
+	     searches.  */
+	  *filename_beg = last_slash;  
+	  return CPP_OPTION (pfile, hmap_path);
+        }
+      i = (i + 1) & bucket_mask;
+    }
+  /* didn't find header in header map -- fall back to system paths.  */
+  return CPP_OPTION (pfile, bracket_include);
+}
+/* APPLE LOCAL end -header-mapfile */
+
+/* APPLE LOCAL begin -inclusion-log-file */
+
+static FILE *
+ilog_open (ilog_name)
+     const char *ilog_name;
+{     
+    FILE *inclusion_log_file = ((ilog_name[0] != '-' || ilog_name[1] != '\0')
+				? fopen (ilog_name, "w")
+				: fdopen (dup (fileno (stdout)), "w"));
+    if (!inclusion_log_file)
+      perror (ilog_name);
+      
+    return inclusion_log_file;  
+}
+
+static void
+ilog_close (pfile)
+     cpp_reader *pfile;
+{
+  /* Obviously, what follows should eventually be removed... */
+  if (CPP_OPTION (pfile, inclusion_log_file))
+    ilog_printf (pfile, "The `-inclusion-log-file' option has not been\n"
+			"implemented in GCC3 just yet.  Our apologies.\n");
+			
+  if (CPP_OPTION (pfile, inclusion_log_file) 
+      && CPP_OPTION (pfile, inclusion_log_file) != stdout
+      && (ferror (CPP_OPTION (pfile, inclusion_log_file)) 
+	  || fclose (CPP_OPTION (pfile, inclusion_log_file)) != 0))
+    cpp_error (pfile, DL_ERROR, "I/O error on `-inclusion-log-file' output");
+}
+     
+void 
+ilog_printf (cpp_reader *pfile, const char * format, ...)
+{
+    va_list   ap;
+
+    va_start(ap, format);
+    if (CPP_OPTION (pfile, inclusion_log_file))
+        vfprintf(CPP_OPTION (pfile, inclusion_log_file), format, ap);
+    va_end(ap);
+}
+
+/* APPLE LOCAL end -inclusion-log-file */

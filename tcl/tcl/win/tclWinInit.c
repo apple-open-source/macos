@@ -7,12 +7,13 @@
  * Copyright (c) 1998-1999 by Scriptics Corporation.
  * All rights reserved.
  *
- * RCS: @(#) $Id: tclWinInit.c,v 1.1.1.5 2002/04/05 16:14:15 jevans Exp $
+ * RCS: @(#) $Id: tclWinInit.c,v 1.1.1.6 2003/03/06 00:15:46 landonf Exp $
  */
 
 #include "tclWinInt.h"
 #include <winnt.h>
 #include <winbase.h>
+#include <lmcons.h>
 
 /*
  * The following declaration is a workaround for some Microsoft brain damage.
@@ -172,10 +173,10 @@ TclpInitLibraryPath(path)
 {
 #define LIBRARY_SIZE	    32
     Tcl_Obj *pathPtr, *objPtr;
-    char *str;
+    CONST char *str;
     Tcl_DString ds;
     int pathc;
-    char **pathv;
+    CONST char **pathv;
     char installLib[LIBRARY_SIZE], developLib[LIBRARY_SIZE];
 
     Tcl_DStringInit(&ds);
@@ -189,8 +190,7 @@ TclpInitLibraryPath(path)
      */
 
     sprintf(installLib, "lib/tcl%s", TCL_VERSION);
-    sprintf(developLib, "../tcl%s/library",
-	    ((TCL_RELEASE_LEVEL < 2) ? TCL_PATCH_LEVEL : TCL_VERSION));
+    sprintf(developLib, "../tcl%s/library", TCL_PATCH_LEVEL);
 
     /*
      * Look for the library relative to default encoding dir.
@@ -226,17 +226,17 @@ TclpInitLibraryPath(path)
      * This code looks in the following directories:
      *
      *	<bindir>/../<installLib>
-     *		(e.g. /usr/local/bin/../lib/tcl8.2)
+     *	  (e.g. /usr/local/bin/../lib/tcl8.4)
      *	<bindir>/../../<installLib>
-     *		(e.g. /usr/local/TclPro/solaris-sparc/bin/../../lib/tcl8.2)
+     * 	  (e.g. /usr/local/TclPro/solaris-sparc/bin/../../lib/tcl8.4)
      *	<bindir>/../library
-     *		(e.g. /usr/src/tcl8.2/unix/../library)
+     * 	  (e.g. /usr/src/tcl8.4.0/unix/../library)
      *	<bindir>/../../library
-     *		(e.g. /usr/src/tcl8.2/unix/solaris-sparc/../../library)
+     *	  (e.g. /usr/src/tcl8.4.0/unix/solaris-sparc/../../library)
      *	<bindir>/../../<developLib>
-     *		(e.g. /usr/src/tcl8.2/unix/../../tcl8.2/library)
-     *	<bindir>/../../../<devlopLib>
-     *		(e.g. /usr/src/tcl8.2/unix/solaris-sparc/../../../tcl8.2/library)
+     *	  (e.g. /usr/src/tcl8.4.0/unix/../../tcl8.4.0/library)
+     *	<bindir>/../../../<developLib>
+     *	   (e.g. /usr/src/tcl8.4.0/unix/solaris-sparc/../../../tcl8.4.0/library)
      */
      
     /*
@@ -334,9 +334,8 @@ AppendEnvironment(
     WCHAR wBuf[MAX_PATH];
     char buf[MAX_PATH * TCL_UTF_MAX];
     Tcl_Obj *objPtr;
-    char *str;
     Tcl_DString ds;
-    char **pathv;
+    CONST char **pathv;
 
     /*
      * The "L" preceeding the TCL_LIBRARY string is used to tell VC++
@@ -363,6 +362,7 @@ AppendEnvironment(
 	 */
 
 	if ((pathc > 0) && (lstrcmpiA(lib + 4, pathv[pathc - 1]) != 0)) {
+	    CONST char *str;
 	    /*
 	     * TCL_LIBRARY is set but refers to a different tcl
 	     * installation than the current version.  Try fiddling with the
@@ -371,7 +371,7 @@ AppendEnvironment(
 	     * version string.
 	     */
 	    
-	    pathv[pathc - 1] = (char *) (lib + 4);
+	    pathv[pathc - 1] = (lib + 4);
 	    Tcl_DStringInit(&ds);
 	    str = Tcl_JoinPath(pathc, pathv, &ds);
 	    objPtr = Tcl_NewStringObj(str, Tcl_DStringLength(&ds));
@@ -462,7 +462,36 @@ ToUtf(
     *dst = '\0';
     return (int) (dst - start);
 }
+
+/*
+ *---------------------------------------------------------------------------
+ *
+ * TclWinEncodingsCleanup --
+ *
+ *	Reset information to its original state in finalization to
+ *	allow for reinitialization to be possible.  This must not
+ *	be called until after the filesystem has been finalised, or
+ *	exit crashes may occur when using virtual filesystems.
+ *
+ * Results:
+ *	None.
+ *
+ * Side effects:
+ *	Static information reset to startup state.
+ *
+ *---------------------------------------------------------------------------
+ */
 
+void
+TclWinEncodingsCleanup()
+{
+    TclWinResetInterfaceEncodings();
+    libraryPathEncodingFixed = 0;
+    if (binaryEncoding != NULL) {
+	Tcl_FreeEncoding(binaryEncoding);
+	binaryEncoding = NULL;
+    }
+}
 
 /*
  *---------------------------------------------------------------------------
@@ -563,12 +592,14 @@ void
 TclpSetVariables(interp)
     Tcl_Interp *interp;		/* Interp to initialize. */	
 {	    
-    char *ptr;
+    CONST char *ptr;
     char buffer[TCL_INTEGER_SPACE * 2];
     SYSTEM_INFO sysInfo;
     OemId *oemId;
     OSVERSIONINFOA osInfo;
     Tcl_DString ds;
+    TCHAR szUserName[ UNLEN+1 ];
+    DWORD dwUserNameLen = sizeof(szUserName);
 
     osInfo.dwOSVersionInfoSize = sizeof(OSVERSIONINFOA);
     GetVersionExA(&osInfo);
@@ -635,11 +666,12 @@ TclpSetVariables(interp)
      * faster than asking the system.
      */
 
-    Tcl_DStringSetLength(&ds, 100);
+    Tcl_DStringInit( &ds );
     if (TclGetEnv("USERNAME", &ds) == NULL) {
-	if (GetUserName(Tcl_DStringValue(&ds), (LPDWORD) &Tcl_DStringLength(&ds)) == 0) {
-	    Tcl_DStringSetLength(&ds, 0);
-	}
+
+	if ( GetUserName( szUserName, &dwUserNameLen ) != 0 ) {
+	    Tcl_WinTCharToUtf( szUserName, dwUserNameLen, &ds );
+	}	
     }
     Tcl_SetVar2(interp, "tcl_platform", "user", Tcl_DStringValue(&ds),
 	    TCL_GLOBAL_ONLY);
@@ -792,14 +824,14 @@ Tcl_SourceRCFile(interp)
     Tcl_Interp *interp;		/* Interpreter to source rc file into. */
 {
     Tcl_DString temp;
-    char *fileName;
+    CONST char *fileName;
     Tcl_Channel errChannel;
 
     fileName = Tcl_GetVar(interp, "tcl_rcFileName", TCL_GLOBAL_ONLY);
 
     if (fileName != NULL) {
         Tcl_Channel c;
-	char *fullName;
+	CONST char *fullName;
 
         Tcl_DStringInit(&temp);
 	fullName = Tcl_TranslateFileName(interp, fileName, &temp);

@@ -1,7 +1,5 @@
 # Host: PowerPC running Mac OS X
 
-TERMCAP = -lcurses
-
 SER_HARDWIRE = ser-unix.o ser-tcp.o
 
 XM_FILE = xm-ppc-macosx.h
@@ -11,22 +9,23 @@ XDEPFILES = \
 	macosx-xdep.o
 
 MACOSX_FILES = \
-        macosx-nat-watchpoint.o \
-        macosx-nat-dyld.o \
-        macosx-nat-dyld-path.o \
-        macosx-nat-dyld-info.o \
-        macosx-nat-dyld-process.o \
-        macosx-nat-dyld-io.o \
-        macosx-nat-inferior.o \
-        macosx-nat-inferior-stubs.o \
-        macosx-nat-inferior-util.o \
-        macosx-nat-inferior-debug.o \
-        macosx-nat-sigthread.o \
-        macosx-nat-excthread.o \
-        macosx-nat-mutils.o \
-        macosx-nat-threads.o \
+	macosx-nat-watchpoint.o \
+	macosx-nat-dyld.o \
+	macosx-nat-dyld-path.o \
+	macosx-nat-dyld-info.o \
+	macosx-nat-dyld-process.o \
+	macosx-nat-dyld-io.o \
+	macosx-nat-inferior.o \
+	macosx-nat-inferior-stubs.o \
+	macosx-nat-inferior-util.o \
+	macosx-nat-inferior-debug.o \
+	macosx-nat-sigthread.o \
+	macosx-nat-excthread.o \
+	macosx-nat-mutils.o \
+	macosx-nat-threads.o \
 	macosx-nat-infthread.o \
-        macosx-nat-info.o \
+	macosx-nat-info.o \
+	macosx-nat.o \
 	excServer.o \
 	excUser.o
 
@@ -43,22 +42,19 @@ NATDEPFILES = \
 
 XM_CLIBS = $(CFM_LIBS)
 
-MH_CFLAGS = \
-	-DNS_TARGET_MAJOR=5 \
-	-I$(srcdir)/macosx \
-	$(CFM_CFLAGS)
+MH_CFLAGS = -I$(srcdir)/macosx $(CFM_CFLAGS)
 
 CFM_FILES = \
 	macosx-nat-cfm.o \
 	macosx-nat-cfm-io.o \
-        macosx-nat-cfmthread.o \
+	macosx-nat-cfmthread.o \
 	macosx-metrowerks.o
 
 CFM_CFLAGS = -DWITH_CFM=1
 
 CFM_LIBS = 
 
-MH_CFLAGS += -DUSE_PTHREADS=1
+MH_CFLAGS += -DUSE_PTHREADS=1 -Wall -Wimplicit -Wno-long-double
 
 _all: all
 

@@ -13,7 +13,7 @@
 
 
 /*
- * $Id: parse.h,v 1.1.1.1 2002/01/31 07:09:05 zarzycki Exp $
+ * $Id: parse.h,v 1.1.1.3 2003/06/15 17:31:44 rbraun Exp $
  */
 
 typedef enum { NO_ENTRY, 
@@ -28,24 +28,24 @@ enum assign_op { SET_EQ, PLUS_EQ, MINUS_EQ } ;
 
 struct attribute
 {
-   char		*a_name ;            /* name of attribute							*/
-   unsigned a_id ;               /* attribute id								*/
-   int		a_nvalues ;				/* number of values							*/
-   status_e (*a_parser)() ;		/* function that parses the attribute	*/
+   const char  *a_name ;        /* name of attribute   */
+   unsigned     a_id ;          /* attribute id	       */
+   int		a_nvalues ;	/* number of values    */
+   status_e    (*a_parser)() ;	/* function that parses the attribute	*/
 } ;
 
 
 #define ENTRY_BEGIN              '{'
 #define ENTRY_END                '}'
 #define COMMENT_BEGIN            '#'
-#define KW_SERVICE					"service"
-#define KW_DEFAULTS					"defaults"
-#define KW_INCLUDE					"include"
-#define KW_INCLUDEDIR				"includedir"
+#define KW_SERVICE		"service"
+#define KW_DEFAULTS		"defaults"
+#define KW_INCLUDE		"include"
+#define KW_INCLUDEDIR		"includedir"
 
 extern int line_count;
 
-char *attr_name_lookup(int id);
+const char *attr_name_lookup(unsigned int id);
 void parse_end(void);
 void parse_conf_file(int fd,struct configuration *confp);
 

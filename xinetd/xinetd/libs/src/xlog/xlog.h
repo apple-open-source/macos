@@ -8,7 +8,7 @@
 #define __XLOG_H
 
 /*
- * $Id: xlog.h,v 1.1.1.2 2002/06/17 22:51:13 zarzycki Exp $
+ * $Id: xlog.h,v 1.1.1.3 2003/05/22 01:16:36 rbraun Exp $
  */
 
 /*
@@ -30,6 +30,7 @@
 #define XLOG_EOPEN					2
 #define XLOG_EFSTAT					3
 #define XLOG_ENOMEM					4
+#define XLOG_EWRITE					5
 
 /*
  * Interface

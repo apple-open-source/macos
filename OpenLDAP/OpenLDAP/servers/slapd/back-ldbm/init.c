@@ -1,7 +1,7 @@
 /* init.c - initialize ldbm backend */
-/* $OpenLDAP: pkg/ldap/servers/slapd/back-ldbm/init.c,v 1.76 2002/02/02 05:24:47 kurt Exp $ */
+/* $OpenLDAP: pkg/ldap/servers/slapd/back-ldbm/init.c,v 1.76.2.6 2003/02/09 16:31:38 kurt Exp $ */
 /*
- * Copyright 1998-2002 The OpenLDAP Foundation, All Rights Reserved.
+ * Copyright 1998-2003 The OpenLDAP Foundation, All Rights Reserved.
  * COPYING RESTRICTIONS APPLY, see COPYRIGHT file
  */
 
@@ -37,6 +37,7 @@ ldbm_back_initialize(
 {
 	static char *controls[] = {
 		LDAP_CONTROL_MANAGEDSAIT,
+		LDAP_CONTROL_VALUESRETURNFILTER,
 		NULL
 	};
 
@@ -70,6 +71,7 @@ ldbm_back_initialize(
 	bi->bi_acl_attribute = ldbm_back_attribute;
 	bi->bi_chk_referrals = ldbm_back_referrals;
 	bi->bi_operational = ldbm_back_operational;
+	bi->bi_has_subordinates = ldbm_back_hasSubordinates;
 
 	/*
 	 * hooks for slap tools
@@ -127,7 +129,9 @@ ldbm_back_db_init(
 	struct ldbminfo	*li;
 
 	/* indicate system schema supported */
-	be->be_flags |= SLAP_BFLAG_ALIASES|SLAP_BFLAG_REFERRALS;
+	be->be_flags |= 
+		SLAP_BFLAG_ALIASES |
+		SLAP_BFLAG_REFERRALS;
 
 	/* allocate backend-database-specific stuff */
 	li = (struct ldbminfo *) ch_calloc( 1, sizeof(struct ldbminfo) );
@@ -200,8 +204,13 @@ ldbm_back_db_open(
 
 		if ( rc != 0 )
 		{
+#ifdef NEW_LOGGING
+			LDAP_LOG ( BACK_LDBM, ERR, "ldbm_back_db_open: sync "
+				"ldap_pvt_thread_create failed (%d)\n", rc, 0, 0 );
+#else	
 			Debug(	LDAP_DEBUG_ANY,
 				"sync ldap_pvt_thread_create failed (%d)\n", rc, 0, 0 );
+#endif
 			return 1;
 		}
 	}

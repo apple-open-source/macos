@@ -1,5 +1,5 @@
 #   Copyright 1988, 1990, 1991, 1992, 1994, 1995, 1996, 1997, 1998, 1999,
-#   2000
+#   2000, 2002, 2003
 #   Free Software Foundation, Inc.
 
 # This program is free software; you can redistribute it and/or modify
@@ -84,6 +84,13 @@ gdb_test "break main" \
     "breakpoint function"
 
 #
+# test break at quoted function
+#
+gdb_test "break \"marker2\"" \
+    "Breakpoint.*at.* file .*$srcfile, line.*" \
+    "breakpoint quoted function"
+
+#
 # test break at function in file
 #
 gdb_test "break $srcfile:factorial" \
@@ -147,9 +154,11 @@ if {$hp_aCC_compiler} {
 } else {
     set proto ""
 }
+
 gdb_test "info break" \
     "Num Type\[ \]+Disp Enb Address\[ \]+What.*
 \[0-9\]+\[\t \]+breakpoint     keep y.* in main at .*$srcfile:$main_line.*
+\[0-9\]+\[\t \]+breakpoint     keep y.* in marker2 at .*$srcfile:4\[49\].*
 \[0-9\]+\[\t \]+breakpoint     keep y.* in factorial$proto at .*$srcfile:96.*
 \[0-9\]+\[\t \]+breakpoint     keep y.* in main at .*$srcfile:79.*
 \[0-9\]+\[\t \]+breakpoint     keep y.* in main at .*$srcfile:79.*
@@ -157,7 +166,6 @@ gdb_test "info break" \
 \[0-9\]+\[\t \]+breakpoint     keep y.* in multi_line_if_conditional at .*$srcfile:109.*
 \[0-9\]+\[\t \]+breakpoint     keep y.* in multi_line_while_conditional at .*$srcfile:124" \
     "breakpoint info"
-
 
 # FIXME: The rest of this test doesn't work with anything that can't
 # handle arguments.
@@ -208,6 +216,11 @@ for {set i 6} {$i >= 1} {incr i -1} {
 			"run until file:function($i) breakpoint"
 }
 
+#
+# Run until the breakpoint set at a quoted function
+#
+gdb_test continue "Continuing\\..*Breakpoint \[0-9\]+, (0x\[0-9a-f\]+ in )?marker2 \\(a=43\\) at .*$srcfile:4\[49\].*" \
+		"run until quoted breakpoint"
 #
 # run until the file:function breakpoint at a line number in a file
 #
@@ -350,29 +363,6 @@ gdb_expect {
   timeout {fail "(timeout) $name"}
 }
 
-# Verify that "until <location>" works.  (This is really just syntactic
-# sugar for "tbreak <location>; continue".)
-#
-send_gdb "until 79\n"
-gdb_expect {
-  -re "main .* at .*:79.*$gdb_prompt $"\
-          {pass "until 79"}
-  -re "$gdb_prompt $"\
-          {fail "until 79"}
-  timeout {fail "(timeout) until 79"}
-}
-
-# Verify that a malformed "until" is gracefully caught.
-#
-send_gdb "until 80 then stop\n"
-gdb_expect {
-  -re "Junk at end of arguments..*$gdb_prompt $"\
-          {pass "malformed until"}
-  -re "$gdb_prompt $"\
-          {fail "malformed until"}
-  timeout {fail "(timeout) malformed until"}
-}
-
 # Verify that GDB responds gracefully when asked to set a breakpoint
 # on a nonexistent source line.
 #
@@ -384,6 +374,12 @@ gdb_expect {
           {fail "break on non-existent source line"}
   timeout {fail "(timeout) break on non-existent source line"}
 }
+
+# Run to the desired default location. If not positioned here, the
+# tests below don't work.
+#
+gdb_test "until 79" "main .* at .*:79.*" "until 79"
+
 
 # Verify that GDB allows one to just say "break", which is treated
 # as the "default" breakpoint.  Note that GDB gets cute when printing
@@ -427,7 +423,9 @@ gdb_expect {
 }
 
 # Verify that a "silent" breakpoint can be set, and that GDB is indeed
-# "silent" about its triggering.
+# "silent" about its triggering.  Include multiple nested calls to the
+# inferior in the user-commands for the breakpoint, to verify that the
+# cleanup code isn't trashing stop_bpstat.
 #
 if ![runto_main] then { fail "break tests suppressed" }
 
@@ -442,6 +440,7 @@ gdb_expect {
 
 send_gdb "commands $expect_out(1,string)\n"
 send_gdb "silent\n"
+send_gdb "call (int) printf (\"PREFIXbobo\\n\" + (int) strlen (\"PREFIXbobo\\n\") - 5)\n"
 send_gdb "end\n"
 gdb_expect {
   -re ".*$gdb_prompt $"\
@@ -459,7 +458,7 @@ gdb_expect {
 }
 send_gdb "continue\n"
 gdb_expect {
-  -re "Continuing.\r\n$gdb_prompt $"\
+  -re "Continuing.\r\nbobo\r\n\\\$\[0-9\]* = 5\r\n$gdb_prompt $"\
           {pass "hit silent break 79"}
   -re "$gdb_prompt $"\
           {fail "hit silent break 79"}
@@ -589,6 +588,13 @@ gdb_expect {
           {fail "set breakpoint on to-be-called function"}
   timeout {fail "(timeout) set breakpoint on to-be-called function"}
 }
+
+# save the breakpoint identifier for future use
+#
+set marker2_bpnum $expect_out(1,string)
+
+# Call the function.
+#
 send_gdb "print marker2(99)\n"
 gdb_expect {
   -re "The program being debugged stopped while in a function called from GDB.\r\nWhen the function .marker2$proto. is done executing, GDB will silently\r\nstop .instead of continuing to evaluate the expression containing\r\nthe function call...*$gdb_prompt $"\
@@ -613,6 +619,46 @@ gdb_expect {
     -re "$gdb_prompt $"\
             {fail "backtrace while in called function"}
     timeout {fail "(timeout) backtrace while in called function"}
+}
+
+# Return from the called function.  For remote targets, it's important to do
+# this before runto_main, which otherwise may silently stop on the dummy
+# breakpoint inserted by GDB at the program's entry point.
+#
+send_gdb "finish\n"
+gdb_expect {
+    -re "Run till exit from .*marker2.* at .*4\[49\]\r\n.* in _sr4export.*$gdb_prompt $"\
+            {pass "finish from called function"}
+    -re "Run till exit from .*marker2.* at .*4\[49\]\r\n.*function called from gdb.*$gdb_prompt $"\
+            {pass "finish from called function"}
+    -re "Run till exit from .*marker2.* at .*4\[49\]\r\n.*Value returned.*$gdb_prompt $"\
+            {pass "finish from called function"}
+    -re "$gdb_prompt $"\
+            {fail "finish from called function"}
+    timeout {fail "(timeout) finish from called function"}
+}
+
+# Add a user-command that calls the inferior to the breakpoint for marker2.
+#
+send_gdb "commands $marker2_bpnum\n"
+send_gdb "silent\n"
+send_gdb "call (int) printf (\"PREFIXbobo\\n\" + (int) strlen (\"PREFIXbobo\\n\") - 5)\n"
+send_gdb "end\n"
+gdb_expect {
+  -re ".*$gdb_prompt $"\
+          {pass "set printf break marker2"}
+  timeout {fail "(timeout) set printf break marker2"}
+}
+
+# Call the function again.
+#
+send_gdb "print marker2(99)\n"
+gdb_expect {
+    -re "The program being debugged stopped while in a function called from GDB.\r\nWhen the function .marker2$proto. is done executing, GDB will silently\r\nstop .instead of continuing to evaluate the expression containing\r\nthe function call...*bobo.*$gdb_prompt $"\
+	{pass "called user-defined function on breakpoint in called function"}
+    -re "$gdb_prompt $"\
+	{fail "called user-defined function on breakpoint in called function"}
+    timeout {fail "called user-defined function on breakpoint in called function"}
 }
 
 # Return from the called function.  For remote targets, it's important to do

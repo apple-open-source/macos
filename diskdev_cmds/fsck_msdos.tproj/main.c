@@ -76,6 +76,7 @@ int alwaysno;		/* assume "no" for all questions */
 int alwaysyes;		/* assume "yes" for all questions */
 int preen;		/* set when preening */
 int quick;		/* set to quickly check if volume is dirty */
+int quiet;		/* set to supress most messages */
 int rdonly;		/* device is opened read only (supersedes above) */
 
 static void usage __P((void));
@@ -173,7 +174,8 @@ ask(def, fmt, va_alist)
 #endif
 	vsnprintf(prompt, sizeof(prompt), fmt, ap);
 	if (alwaysyes || rdonly) {
-		printf("%s? %s\n", prompt, rdonly ? "no" : "yes");
+		if (!quiet)
+			printf("%s? %s\n", prompt, rdonly ? "no" : "yes");
 		return !rdonly;
 	}
 	do {

@@ -1,5 +1,5 @@
 /*
- * Copyright 1998-2002 The OpenLDAP Foundation, All Rights Reserved.
+ * Copyright 1998-2003 The OpenLDAP Foundation, All Rights Reserved.
  * COPYING RESTRICTIONS APPLY, see COPYRIGHT file
  */
 /* Portions
@@ -21,6 +21,7 @@
 #include <sys/types.h>
 
 #include <ac/stdlib.h>
+#include <ac/string.h>	/* get memcmp() */
 
 #ifdef HAVE_UUID_TO_STR
 #  include <sys/uuid.h>
@@ -97,7 +98,7 @@ lutil_eaddr( void )
 	free(buf);
 	return NULL;
 
-#elif defined (SIOCGIFADDR)
+#elif defined( SIOCGIFADDR ) && defined( AFLINK )
 	char buf[sizeof(struct ifreq) * 32];
 	struct ifconf ifc;
 	struct ifreq *ifr;
@@ -156,7 +157,7 @@ lutil_eaddr( void )
 	if (memcmp(eaddr, zero, sizeof(eaddr)) == 0) {
 		/* XXX - who knows? */
 		lutil_entropy( eaddr, sizeof(eaddr) );
-		eaddr[0] |= 0x80; /* turn it into a mutlicast address */
+		eaddr[0] |= 0x80; /* turn it into a multicast address */
 	}
 
 	return eaddr;
@@ -228,7 +229,7 @@ lutil_uuidstr( char *buf, size_t len )
 	}
 
 	strncpy( buf, uuidstr, len );
-	free( uuidstr );
+	RpcStringFree( &uuidstr );
 
 	return uuidlen;
  
@@ -273,7 +274,7 @@ lutil_uuidstr( char *buf, size_t len )
 		(unsigned) nl[2], (unsigned) nl[3],
 		(unsigned) nl[4], (unsigned) nl[5] );
 
-	return (t1 < len) ? t1 : 0;
+	return (0 < t1 && t1 < len) ? t1 : 0;
 #endif
 }
 

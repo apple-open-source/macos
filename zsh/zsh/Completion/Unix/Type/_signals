@@ -4,25 +4,25 @@
 #
 # -a  use all signals (even the pseudo-signals)
 # -p  needs a `-' prefix
+# -s  SIG prefix allowed
 #
 # A `-' or `--' as the first argument is ignored.
 
-local expl last=-3 minus
+local expl last minus pre sigs
 
-while [[ "$1" = -[ap] ]]; do
-  if [[ "$1" = -a ]]; then
-    last=-1
-  else
-    minus=-
-  fi
-  shift
-done
+zparseopts -D -K -E 'p=minus' 'a=last' 's=pre'
+if [[ -z "$last" ]]; then
+  last=-3
+else
+  last=-1
+fi
+[[ -n "$minus" ]] && minus='-'
 
 [[ "$1" = -(|-) ]] && shift
 
 if [[ -z "$minus" ]] ||
    ! zstyle -T ":completion:${curcontext}:signals" prefix-needed ||
-   [[ "$PREFIX" = -* ]]; then
+   [[ -prefix -* ]]; then
   local disp tmp
 
   if zstyle -t ":completion:${curcontext}:signals" prefix-hidden; then
@@ -31,7 +31,15 @@ if [[ -z "$minus" ]] ||
   else
     disp=()
   fi
+
+  if [[ -n "$pre" && $PREFIX = ${minus}S* ]]; then
+    sigs=( "${minus}SIG${(@)^signals[1,last]}" )
+    (( $#disp )) && tmp=( "$tmp[@]" "${(@)signals[1,last]}" )
+  else
+    sigs=()
+  fi
+
   _wanted signals expl signal \
       compadd "$@" "$disp[@]" -M 'm:{a-z}={A-Z}' - \
-              "${minus}${(@)^signals[1,last]}"
+              "${minus}${(@)^signals[1,last]}" "$sigs[@]"
 fi

@@ -24,12 +24,19 @@
 #include <windows.h>
 #include <winbase.h>
 #include <wincon.h>
+#ifdef __MINGW32__
+#include <mswsock.h>
+#endif
 #include "win32.h"
 #include "dir.h"
 #ifndef index
 #define index(x, y) strchr((x), (y))
 #endif
 #define isdirsep(x) ((x) == '/' || (x) == '\\')
+
+#undef fclose
+#undef close
+#undef setsockopt
 
 #ifndef bool
 #define bool int
@@ -738,7 +745,9 @@ char *cmd;
     int status = -1;
     char *shell, *cmd2;
     int mode = NtSyncProcess ? P_WAIT : P_NOWAIT;
+    char **env = NULL;
 
+    env = win32_get_environ();
     /* save an extra exec if possible */
     if ((shell = getenv("RUBYSHELL")) != 0) {
 	if (NtHasRedirection(cmd)) {
@@ -762,15 +771,17 @@ char *cmd;
 	    argv[1] = "-c";
 	    argv[2] = cmdline;
 	    argv[4] = NULL;
-	    status = spawnvpe(mode, argv[0], argv, environ);
+	    status = spawnvpe(mode, argv[0], argv, env);
 	    /* return spawnle(mode, shell, shell, "-c", cmd, (char*)0, environ); */
 	    free(cmdline);
+	    if (env) win32_free_environ(env);
 	    return (int)((status & 0xff) << 8);
 	} 
     }
     else if ((shell = getenv("COMSPEC")) != 0) {
 	if (NtHasRedirection(cmd) /* || isInternalCmd(cmd) */) {
-	    status = spawnle(mode, shell, shell, "/c", cmd, (char*)0, environ);
+	    status = spawnle(mode, shell, shell, "/c", cmd, (char*)0, env);
+	    if (env) win32_free_environ(env);
 	    return (int)((status & 0xff) << 8);
 	}
     }
@@ -789,14 +800,16 @@ char *cmd;
     }
     *a = NULL;
     if (argv[0]) {
-	if ((status = spawnvpe(mode, argv[0], argv, environ)) == -1) {
+	if ((status = spawnvpe(mode, argv[0], argv, env)) == -1) {
 	    free(argv);
 	    free(cmd2);
+	    if (env) win32_free_environ(env);
 	    return -1;
 	}
     }
     free(cmd2);
     free(argv);
+    if (env) win32_free_environ(env);
     return (int)((status & 0xff) << 8);
 }
 
@@ -921,9 +934,10 @@ typedef struct {
 } ListInfo;
 
 static void
-insert(char *path, ListInfo *listinfo)
+insert(const char *path, VALUE vinfo)
 {
     NtCmdLineElement *tmpcurr;
+    ListInfo *listinfo = (ListInfo *)vinfo;
 
     tmpcurr = ALLOC(NtCmdLineElement);
     MEMZERO(tmpcurr, NtCmdLineElement, 1);
@@ -1301,8 +1315,8 @@ opendir(const char *filename)
     char            scannamespc[PATHLEN];
     char	   *scanname = scannamespc;
     struct stat	    sbuf;
-    WIN32_FIND_DATA FindData;
-    HANDLE          fh;
+    struct _finddata_t fd;
+    long               fh;
     char            root[PATHLEN];
     char            volname[PATHLEN];
     DWORD           serial, maxname, flags;
@@ -1341,8 +1355,8 @@ opendir(const char *filename)
     // do the FindFirstFile call
     //
 
-    fh = FindFirstFile (scanname, &FindData);
-    if (fh == INVALID_HANDLE_VALUE) {
+    fh = _findfirst(scanname, &fd);
+    if (fh == -1) {
 	return NULL;
     }
 
@@ -1351,9 +1365,9 @@ opendir(const char *filename)
     // filenames that we find.
     //
 
-    idx = strlen(FindData.cFileName)+1;
+    idx = strlen(fd.name)+1;
     p->start = ALLOC_N(char, idx);
-    strcpy (p->start, FindData.cFileName);
+    strcpy(p->start, fd.name);
     p->nfiles++;
     
     //
@@ -1362,8 +1376,8 @@ opendir(const char *filename)
     // the variable idx should point one past the null terminator
     // of the previous string found.
     //
-    while (FindNextFile(fh, &FindData)) {
-	len = strlen (FindData.cFileName);
+    while (_findnext(fh, &fd) == 0) {
+	len = strlen(fd.name);
 
 	//
 	// bump the string table size by enough for the
@@ -1376,11 +1390,11 @@ opendir(const char *filename)
 	if (p->start == NULL) {
             rb_fatal ("opendir: malloc failed!\n");
 	}
-	strcpy(&p->start[idx], FindData.cFileName);
+	strcpy(&p->start[idx], fd.name);
 	p->nfiles++;
 	idx += len+1;
     }
-    FindClose(fh);
+    _findclose(fh);
     p->size = idx;
     p->curr = p->start;
     return p;
@@ -1753,27 +1767,6 @@ is_socket(SOCKET fd)
     return TRUE;
 }
 
-int
-myfddup (int fd)
-{
-    SOCKET s = TO_SOCKET(fd);
-
-    if (s == -1)
-	return -1;
-
-    return my_open_osfhandle(s, O_RDWR|O_BINARY);
-}
-
-
-void
-myfdclose(FILE *fp)
-{
-#if !defined MSVCRT_THREADS
-    _free_osfhnd(fileno(fp));
-#endif
-    fclose(fp);
-}
-
 
 //
 // Since the errors returned by the socket error function 
@@ -1973,7 +1966,7 @@ myselect (int nfds, fd_set *rd, fd_set *wr, fd_set *ex,
 #endif /* USE_INTERRUPT_WINSOCK */
     int file_nfds;
 
-    if (!NtSocketsInitialized++) {
+    if (!NtSocketsInitialized) {
 	StartSockets();
     }
     r = 0;
@@ -2024,7 +2017,7 @@ StartSockets ()
     WORD version;
     WSADATA retdata;
     int ret;
-	int iSockOpt;
+    int iSockOpt;
     
     //
     // initalize the winsock interface and insure that it\'s
@@ -2054,6 +2047,7 @@ StartSockets ()
     interrupted_event = CreateSignal();
     if (!interrupted_event)
 	rb_fatal("Unable to create interrupt event!\n");
+    NtSocketsInitialized = 1;
 }
 
 #undef accept
@@ -2063,7 +2057,7 @@ myaccept (SOCKET s, struct sockaddr *addr, int *addrlen)
 {
     SOCKET r;
 
-    if (!NtSocketsInitialized++) {
+    if (!NtSocketsInitialized) {
 	StartSockets();
     }
     if ((r = accept (TO_SOCKET(s), addr, addrlen)) == INVALID_SOCKET)
@@ -2078,7 +2072,7 @@ mybind (SOCKET s, struct sockaddr *addr, int addrlen)
 {
     int r;
 
-    if (!NtSocketsInitialized++) {
+    if (!NtSocketsInitialized) {
 	StartSockets();
     }
     if ((r = bind (TO_SOCKET(s), addr, addrlen)) == SOCKET_ERROR)
@@ -2092,7 +2086,7 @@ int
 myconnect (SOCKET s, struct sockaddr *addr, int addrlen)
 {
     int r;
-    if (!NtSocketsInitialized++) {
+    if (!NtSocketsInitialized) {
 	StartSockets();
     }
     if ((r = connect (TO_SOCKET(s), addr, addrlen)) == SOCKET_ERROR)
@@ -2107,7 +2101,7 @@ int
 mygetpeername (SOCKET s, struct sockaddr *addr, int *addrlen)
 {
     int r;
-    if (!NtSocketsInitialized++) {
+    if (!NtSocketsInitialized) {
 	StartSockets();
     }
     if ((r = getpeername (TO_SOCKET(s), addr, addrlen)) == SOCKET_ERROR)
@@ -2121,7 +2115,7 @@ int
 mygetsockname (SOCKET s, struct sockaddr *addr, int *addrlen)
 {
     int r;
-    if (!NtSocketsInitialized++) {
+    if (!NtSocketsInitialized) {
 	StartSockets();
     }
     if ((r = getsockname (TO_SOCKET(s), addr, addrlen)) == SOCKET_ERROR)
@@ -2133,7 +2127,7 @@ int
 mygetsockopt (SOCKET s, int level, int optname, char *optval, int *optlen)
 {
     int r;
-    if (!NtSocketsInitialized++) {
+    if (!NtSocketsInitialized) {
 	StartSockets();
     }
     if ((r = getsockopt (TO_SOCKET(s), level, optname, optval, optlen)) == SOCKET_ERROR)
@@ -2147,7 +2141,7 @@ int
 myioctlsocket (SOCKET s, long cmd, u_long *argp)
 {
     int r;
-    if (!NtSocketsInitialized++) {
+    if (!NtSocketsInitialized) {
 	StartSockets();
     }
     if ((r = ioctlsocket (TO_SOCKET(s), cmd, argp)) == SOCKET_ERROR)
@@ -2161,7 +2155,7 @@ int
 mylisten (SOCKET s, int backlog)
 {
     int r;
-    if (!NtSocketsInitialized++) {
+    if (!NtSocketsInitialized) {
 	StartSockets();
     }
     if ((r = listen (TO_SOCKET(s), backlog)) == SOCKET_ERROR)
@@ -2175,7 +2169,7 @@ int
 myrecv (SOCKET s, char *buf, int len, int flags)
 {
     int r;
-    if (!NtSocketsInitialized++) {
+    if (!NtSocketsInitialized) {
 	StartSockets();
     }
     if ((r = recv (TO_SOCKET(s), buf, len, flags)) == SOCKET_ERROR)
@@ -2190,7 +2184,7 @@ myrecvfrom (SOCKET s, char *buf, int len, int flags,
 		struct sockaddr *from, int *fromlen)
 {
     int r;
-    if (!NtSocketsInitialized++) {
+    if (!NtSocketsInitialized) {
 	StartSockets();
     }
     if ((r = recvfrom (TO_SOCKET(s), buf, len, flags, from, fromlen)) == SOCKET_ERROR)
@@ -2204,7 +2198,7 @@ int
 mysend (SOCKET s, char *buf, int len, int flags)
 {
     int r;
-    if (!NtSocketsInitialized++) {
+    if (!NtSocketsInitialized) {
 	StartSockets();
     }
     if ((r = send (TO_SOCKET(s), buf, len, flags)) == SOCKET_ERROR)
@@ -2219,7 +2213,7 @@ mysendto (SOCKET s, char *buf, int len, int flags,
 		struct sockaddr *to, int tolen)
 {
     int r;
-    if (!NtSocketsInitialized++) {
+    if (!NtSocketsInitialized) {
 	StartSockets();
     }
     if ((r = sendto (TO_SOCKET(s), buf, len, flags, to, tolen)) == SOCKET_ERROR)
@@ -2233,7 +2227,7 @@ int
 mysetsockopt (SOCKET s, int level, int optname, char *optval, int optlen)
 {
     int r;
-    if (!NtSocketsInitialized++) {
+    if (!NtSocketsInitialized) {
 	StartSockets();
     }
     if ((r = setsockopt (TO_SOCKET(s), level, optname, optval, optlen))
@@ -2248,7 +2242,7 @@ int
 myshutdown (SOCKET s, int how)
 {
     int r;
-    if (!NtSocketsInitialized++) {
+    if (!NtSocketsInitialized) {
 	StartSockets();
     }
     if ((r = shutdown (TO_SOCKET(s), how)) == SOCKET_ERROR)
@@ -2262,7 +2256,7 @@ SOCKET
 mysocket (int af, int type, int protocol)
 {
     SOCKET s;
-    if (!NtSocketsInitialized++) {
+    if (!NtSocketsInitialized) {
 	StartSockets();
     }
     if ((s = socket (af, type, protocol)) == INVALID_SOCKET) {
@@ -2278,7 +2272,7 @@ struct hostent *
 mygethostbyaddr (char *addr, int len, int type)
 {
     struct hostent *r;
-    if (!NtSocketsInitialized++) {
+    if (!NtSocketsInitialized) {
 	StartSockets();
     }
     if ((r = gethostbyaddr (addr, len, type)) == NULL)
@@ -2292,7 +2286,7 @@ struct hostent *
 mygethostbyname (char *name)
 {
     struct hostent *r;
-    if (!NtSocketsInitialized++) {
+    if (!NtSocketsInitialized) {
 	StartSockets();
     }
     if ((r = gethostbyname (name)) == NULL)
@@ -2306,7 +2300,7 @@ int
 mygethostname (char *name, int len)
 {
     int r;
-    if (!NtSocketsInitialized++) {
+    if (!NtSocketsInitialized) {
 	StartSockets();
     }
     if ((r = gethostname (name, len)) == SOCKET_ERROR)
@@ -2320,7 +2314,7 @@ struct protoent *
 mygetprotobyname (char *name)
 {
     struct protoent *r;
-    if (!NtSocketsInitialized++) {
+    if (!NtSocketsInitialized) {
 	StartSockets();
     }
     if ((r = getprotobyname (name)) == NULL)
@@ -2334,7 +2328,7 @@ struct protoent *
 mygetprotobynumber (int num)
 {
     struct protoent *r;
-    if (!NtSocketsInitialized++) {
+    if (!NtSocketsInitialized) {
 	StartSockets();
     }
     if ((r = getprotobynumber (num)) == NULL)
@@ -2348,7 +2342,7 @@ struct servent *
 mygetservbyname (char *name, char *proto)
 {
     struct servent *r;
-    if (!NtSocketsInitialized++) {
+    if (!NtSocketsInitialized) {
 	StartSockets();
     }
     if ((r = getservbyname (name, proto)) == NULL)
@@ -2362,7 +2356,7 @@ struct servent *
 mygetservbyport (int port, char *proto)
 {
     struct servent *r;
-    if (!NtSocketsInitialized++) {
+    if (!NtSocketsInitialized) {
 	StartSockets();
     }
     if ((r = getservbyport (port, proto)) == NULL)
@@ -2622,10 +2616,11 @@ int
 win32_stat(const char *path, struct stat *st)
 {
     const char *p;
-    char *buf1 = ALLOCA_N(char, strlen(path) + 1);
+    char *buf1 = ALLOCA_N(char, strlen(path) + 2);
     char *buf2 = ALLOCA_N(char, MAXPATHLEN);
     char *s;
     int len;
+    int ret;
 
     for (p = path, s = buf1; *p; p++, s++) {
 	if (*p == '/')
@@ -2634,15 +2629,25 @@ win32_stat(const char *path, struct stat *st)
 	    *s = *p;
     }
     *s = '\0';
-    len = strlen(buf1);
+    len = s - buf1;
+    if (!len || '\"' == *(--s)) {
+	errno = ENOENT;
+	return -1;
+    }
     p = CharPrev(buf1, buf1 + len);
+
     if (isUNCRoot(buf1)) {
 	if (*p != '\\')
 	    strcat(buf1, "\\");
     } else if (*p == '\\' || *p == ':')
 	strcat(buf1, ".");
-    if (_fullpath(buf2, buf1, MAXPATHLEN))
-	return stat(buf2, st);
+    if (_fullpath(buf2, buf1, MAXPATHLEN)) {
+	ret = stat(buf2, st);
+	if (ret == 0) {
+	    st->st_mode &= ~(S_IWGRP | S_IWOTH);
+	}
+	return ret;
+    }
     else
 	return -1;
 }
@@ -2994,4 +2999,38 @@ void win32_free_environ(char **env)
 
     while (*t) free(*t++);
     free(env);
+}
+
+int
+win32_fclose(FILE *fp)
+{
+    int fd = fileno(fp);
+    SOCKET sock = TO_SOCKET(fd);
+
+    if (fflush(fp)) return -1;
+    if (!is_socket(sock)) {
+	return fclose(fp);
+    }
+    _set_osfhnd(fd, (SOCKET)INVALID_HANDLE_VALUE);
+    fclose(fp);
+    if (closesocket(sock) == SOCKET_ERROR) {
+	errno = WSAGetLastError();
+	return -1;
+    }
+    return 0;
+}
+
+int
+win32_close(int fd)
+{
+    SOCKET sock = TO_SOCKET(fd);
+
+    if (!is_socket(sock)) {
+	return _close(fd);
+    }
+    if (closesocket(sock) == SOCKET_ERROR) {
+	errno = WSAGetLastError();
+	return -1;
+    }
+    return 0;
 }

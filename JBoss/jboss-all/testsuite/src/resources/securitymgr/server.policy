@@ -1,0 +1,26 @@
+// The Java2 security policy for the securitymgr tests
+// Install with -Djava.security.policy==server.policy
+// and -Djboss.home=path_to_jboss_distribution
+
+// Trusted core Java code
+grant codeBase "file:${java.home}/lib/ext/*" {
+   permission java.security.AllPermission;
+};
+
+// Trusted core Jboss code
+grant codeBase "file:${jboss.home.dir}/bin/-" {
+   permission java.security.AllPermission;
+};
+grant codeBase "file:${jboss.home.dir}/lib/-" {
+   permission java.security.AllPermission;
+};
+grant codeBase "file:${jboss.server.home.dir}/deploy/-" {
+   permission java.security.AllPermission;
+};
+
+// Minimal permissions are allowed to everyone else
+grant {
+   permission java.util.PropertyPermission "*", "read";
+   permission java.lang.RuntimePermission "queuePrintJob";
+   permission java.net.SocketPermission "*", "connect";
+};

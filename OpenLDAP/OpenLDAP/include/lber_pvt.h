@@ -1,6 +1,6 @@
-/* $OpenLDAP: pkg/ldap/include/lber_pvt.h,v 1.19 2002/02/14 20:10:13 ando Exp $ */
+/* $OpenLDAP: pkg/ldap/include/lber_pvt.h,v 1.19.2.3 2003/03/03 17:10:03 kurt Exp $ */
 /*
- * Copyright 1998-2002 The OpenLDAP Foundation, Redwood City, California, USA
+ * Copyright 1998-2003 The OpenLDAP Foundation, Redwood City, California, USA
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -85,6 +85,9 @@ ber_pvt_socket_set_nonblock LDAP_P(( ber_socket_t sd, int nb ));
 
 #define ber_bvchr(bv,c) \
 	memchr( (bv)->bv_val, (c), (bv)->bv_len )
+
+#define BER_BVC(x)	{ sizeof( (x) ) - 1, (x) }
+#define BER_BVNULL	{ 0L, NULL }
 
 LDAP_END_DECL
 

@@ -1,0 +1,17 @@
+这是一封提醒您如何取消订阅或变更 "%(user)s"  在 %(listname)s 
+订阅的设定值 . 您必须有密码才能进行上述的变更 . 您在 %(listname)s 
+的密码是 :
+
+    %(password)s
+
+欲变更您订阅的相关设定 , 请在下列的网页中输入密码后自行变更 :
+
+    %(options_url)s
+
+您也可经由 email 变更选项 . 您需 email 到:
+
+    %(requestaddr)s
+
+信件标题或内文请填入 "help" , 您可以收到 email 的指示.
+
+我们欢迎任何问题或建议 ! 请 email 给 %(adminaddr)s.

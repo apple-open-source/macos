@@ -1,8 +1,8 @@
 /*
    +----------------------------------------------------------------------+
-   | PHP version 4.0                                                      |
+   | PHP Version 4                                                        |
    +----------------------------------------------------------------------+
-   | Copyright (c) 1997-2001 The PHP Group                                |
+   | Copyright (c) 1997-2003 The PHP Group                                |
    +----------------------------------------------------------------------+
    | This source file is subject to version 2.02 of the PHP license,      |
    | that is bundled with this package in the file LICENSE, and is        |
@@ -12,11 +12,11 @@
    | obtain it through the world-wide-web, please send a note to          |
    | license@php.net so we can mail you a copy immediately.               |
    +----------------------------------------------------------------------+
-   | Authors: Sterling Hughes <sterling@php.net>                          |
+   | Author: Sterling Hughes <sterling@php.net>                           |
    +----------------------------------------------------------------------+
  */
 
-/* $Id: cyrus.c,v 1.1.1.1 2001/12/14 22:12:08 zarzycki Exp $ */
+/* $Id: cyrus.c,v 1.1.1.4 2003/07/18 18:07:30 zarzycki Exp $ */
 
 #ifdef HAVE_CONFIG_H
 #include "config.h"
@@ -85,9 +85,9 @@ PHP_MINIT_FUNCTION(cyrus)
 	le_cyrus = zend_register_list_destructors_ex(cyrus_free, NULL, 
 	                                             le_cyrus_name, module_number);
 
-	REGISTER_LONG_CONSTANT("CYRUS_CONN_NOSYNCLITERAL", 
-	                       IMCLIENT_CONN_NOSYNCLITERAL,
-	                       CONST_CS_ | CONST_PERSISTENT);
+	REGISTER_LONG_CONSTANT("CYRUS_CONN_NONSYNCLITERAL", 
+	                       IMCLIENT_CONN_NONSYNCLITERAL,
+	                       CONST_CS | CONST_PERSISTENT);
 	REGISTER_LONG_CONSTANT("CYRUS_CONN_INITIALRESPONSE", 
 	                       IMCLIENT_CONN_INITIALRESPONSE,
 	                       CONST_CS | CONST_PERSISTENT);
@@ -102,15 +102,17 @@ PHP_MINIT_FUNCTION(cyrus)
 PHP_MINFO_FUNCTION(cyrus)
 {
 	php_info_print_table_start();
-	php_info_print_table_header(2, "Cyrus IMAP support", "enabled");
+	php_info_print_table_row(2, "Cyrus IMAP support", "enabled");
 	php_info_print_table_end();
 }
 
 extern void fatal(char *s, int exit)
 {
-	php_error(E_ERROR, s);
+	php_error(E_ERROR, "%s", s);
 }
 
+/* {{{ proto resource cyrus_connect([ string host [, string port [, int flags]]])
+   Connect to a Cyrus IMAP server */
 PHP_FUNCTION(cyrus_connect)
 {
 	zval            **z_host;
@@ -165,17 +167,19 @@ PHP_FUNCTION(cyrus_connect)
 		break;
 
 	case -1:
-		php_error(E_WARNING, "Invalid hostname: %s", host);
+		php_error(E_WARNING, "%s(): Invalid hostname: %s", get_active_function_name(TSRMLS_C), host);
 		RETURN_FALSE;
 	
 	case -2:
-		php_error(E_WARNING, "Invalid port: %d", port);
+		php_error(E_WARNING, "%s(): Invalid port: %d", get_active_function_name(TSRMLS_C), port);
 		RETURN_FALSE;
 	}
 
 	ZEND_REGISTER_RESOURCE(return_value, conn, le_cyrus);
 	conn->id = Z_LVAL_P(return_value);
 }
+/* }}} */
+
 
 static void cyrus_capable_callback(struct imclient *client, void *rock, 
                                    struct imclient_reply *reply)
@@ -197,6 +201,9 @@ static void cyrus_capable_callback(struct imclient *client, void *rock,
 	}
 }
 
+
+/* {{{ proto bool cyrus_authenticate( resource connection [, string mechlist [, string service [, string user [, int minssf [, int maxssf]]]]])
+   Authenticate agaings a Cyrus IMAP server */
 PHP_FUNCTION(cyrus_authenticate)
 {
 	zval        **z_conn;
@@ -268,17 +275,17 @@ PHP_FUNCTION(cyrus_authenticate)
 	}
 	else {
 		/* XXX: UGLY, but works, determines the username to use */
-		user = sapi_getenv("USER", 4);
+		user = (char *) sapi_getenv("USER", 4);
 		if (! user) {
-		user = getenv("USER");
+		user = (char *) getenv("USER");
 		if (! user) {
-			user = sapi_getenv("LOGNAME", 7);
+			user = (char *) sapi_getenv("LOGNAME", 7);
 			if (! user) {
-			user = getenv("LOGNAME");
+			user = (char *) getenv("LOGNAME");
 			if (! user) {
 				struct passwd *pwd = getpwuid(getuid());
 				if (! pwd) {
-				php_error(E_WARNING, "Couldn't determine user id");
+				php_error(E_WARNING, "%s(): Couldn't determine user id", get_active_function_name(TSRMLS_C));
 				RETURN_FALSE;
 				}
 			
@@ -314,6 +321,8 @@ PHP_FUNCTION(cyrus_authenticate)
 	efree(service);
 	efree(user);
 }
+/* }}} */
+
 
 static void cyrus_generic_callback(struct imclient *client, 
                                    void *rock, 
@@ -348,9 +357,9 @@ static void cyrus_generic_callback(struct imclient *client,
 		argv[3] = &msgno;
 
 		if (call_user_function_ex(EG(function_table), NULL, callback->function, 
-                                  &retval, 4, argv, 0, NULL) == FAILURE) {
-			php_error(E_WARNING, "Couldn't call the %s handler", 
-			          callback->trigger);
+                                  &retval, 4, argv, 0, NULL TSRMLS_CC) == FAILURE) {
+			php_error(E_WARNING, "%s(): Couldn't call the %s handler",
+			          get_active_function_name(TSRMLS_C), callback->trigger);
 		}
 
 		zval_ptr_dtor(argv[0]);
@@ -366,7 +375,8 @@ static void cyrus_generic_callback(struct imclient *client,
 }
 
 	
-
+/* {{{ proto bool cyrus_bind( resource connection, array callbacks) 
+ Bind callbacks to a Cyrus IMAP connection */
 PHP_FUNCTION(cyrus_bind)
 {
 	zval                  **z_conn;
@@ -378,8 +388,8 @@ PHP_FUNCTION(cyrus_bind)
 	char                  *string_key;
 	ulong                  num_key;
 
-	if (ZEND_NUM_ARGS() != 3 ||
-	    zend_get_parameters_ex(3, &z_conn, &z_callback) == FAILURE) {
+	if (ZEND_NUM_ARGS() != 2 ||
+	    zend_get_parameters_ex(2, &z_conn, &z_callback) == FAILURE) {
 		WRONG_PARAM_COUNT;
 	}
 
@@ -388,7 +398,7 @@ PHP_FUNCTION(cyrus_bind)
 	hash = HASH_OF(*z_callback);
 	if (! hash) {
 		php_error(E_WARNING, 
-		          "Second argument to cyrus_bind() must be an array or object");
+		          "%s(): Second argument must be an array or object", get_active_function_name(TSRMLS_C));
 		RETURN_FALSE;
 	}
 
@@ -415,12 +425,12 @@ PHP_FUNCTION(cyrus_bind)
 	}
 
 	if (! callback.trigger) {
-		php_error(E_WARNING, "You must specify a trigger in your callback");
+		php_error(E_WARNING, "%s(): You must specify a trigger in your callback", get_active_function_name(TSRMLS_C));
 		RETURN_FALSE;
 	}
 
 	if (! callback.function) {
-		php_error(E_WARNING, "You must specify a function in your callback");
+		php_error(E_WARNING, "%s(): You must specify a function in your callback", get_active_function_name(TSRMLS_C));
 		RETURN_FALSE;
 	}
 
@@ -431,7 +441,10 @@ PHP_FUNCTION(cyrus_bind)
 
 	RETURN_TRUE;
 }
+/* }}} */
 
+/* {{{ proto bool cyrus_unbind( resource connection, string trigger_name)
+   Unbind ... */
 PHP_FUNCTION(cyrus_unbind)
 {
 	zval        **z_conn;
@@ -450,7 +463,10 @@ PHP_FUNCTION(cyrus_unbind)
 
 	RETURN_TRUE;
 }
+/* }}} */
 
+/* {{{ proto bool cyrus_query( resource connection, string query) 
+   Send a query to a Cyrus IMAP server */
 PHP_FUNCTION(cyrus_query)
 {
 	zval               **z_conn;
@@ -464,13 +480,14 @@ PHP_FUNCTION(cyrus_query)
 	ZEND_FETCH_RESOURCE(conn, php_cyrus *, z_conn, -1, le_cyrus_name, le_cyrus);
 	convert_to_string_ex(query);
 
-	if (imclient_send(conn->client, NULL, NULL, Z_STRVAL_PP(query)) != 0) 
-		RETURN_FALSE;
+	imclient_send(conn->client, NULL, NULL, Z_STRVAL_PP(query)); 
 
 	RETURN_TRUE;
 }
+/* }}} */
 
-
+/* {{{ proto bool cyrus_close( resource connection)
+   Close connection to a cyrus server */
 PHP_FUNCTION(cyrus_close)
 {
 	zval      **z_conn;
@@ -486,7 +503,7 @@ PHP_FUNCTION(cyrus_close)
 
 	RETURN_TRUE;
 }
-
+/* }}} */
 #endif
 
 

@@ -1,0 +1,51 @@
+#
+#
+#
+
+proc EvalServer {port {interp {}} {openCmd EvalOpenProc}} {
+    puts "in EvalServer"
+    socket -server [list EvalAccept $interp $openCmd] $port
+}
+
+proc EvalAccept {interp openCmd newsock addr port} {
+    global eval
+
+    puts "in EvalAccept"
+    set eval(cmdbuf,$newsock) {}
+    puts "[fconfigure $newsock]"
+    fconfigure $newsock -buffering line
+    fileevent $newsock readable [list EvalRead $newsock $interp]
+    puts "in EvalAccept: got fileevent"
+    if [catch {
+	interp eval $interp $openCmd $newsock $addr $port
+    }] {
+	close $newsock
+    }
+}
+
+proc EvalOpenProc {sock addr port} {
+    puts "in EvalOpenProc"
+    # dummy
+}
+
+proc EvalRead {sock interp} {
+    global eval errorInfo errorCode
+
+    puts "in EvalRead"
+    if [eof $sock] {
+	close $sock
+    } else {
+	gets $sock line
+	append eval(cmdbuf,$sock) "$line\n"
+	if {[string length $eval(cmdbuf,$sock)] && \
+		[info complete $eval(cmdbuf,$sock)]} {
+	    puts ">$eval(cmdbuf,$sock)<"
+	}
+	set reply "Done\n"
+	puts $sock 1
+	puts -nonewline $sock $reply
+	flush $sock
+	set eval(cmdbuf,$sock) {}
+    }
+}
+

@@ -3,21 +3,22 @@
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
- * Portions Copyright (c) 1999 Apple Computer, Inc.  All Rights
- * Reserved.  This file contains Original Code and/or Modifications of
- * Original Code as defined in and that are subject to the Apple Public
- * Source License Version 1.1 (the "License").  You may not use this file
- * except in compliance with the License.  Please obtain a copy of the
- * License at http://www.apple.com/publicsource and read it before using
- * this file.
+ * Copyright (c) 1999-2003 Apple Computer, Inc.  All Rights Reserved.
+ * 
+ * This file contains Original Code and/or Modifications of Original Code
+ * as defined in and that are subject to the Apple Public Source License
+ * Version 2.0 (the 'License'). You may not use this file except in
+ * compliance with the License. Please obtain a copy of the License at
+ * http://www.opensource.apple.com/apsl/ and read it before using this
+ * file.
  * 
  * The Original Code and all software distributed under the License are
- * distributed on an "AS IS" basis, WITHOUT WARRANTY OF ANY KIND, EITHER
+ * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
  * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
  * INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY,
- * FITNESS FOR A PARTICULAR PURPOSE OR NON- INFRINGEMENT.  Please see the
- * License for the specific language governing rights and limitations
- * under the License.
+ * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
+ * Please see the License for the specific language governing rights and
+ * limitations under the License.
  * 
  * @APPLE_LICENSE_HEADER_END@
  */
@@ -43,6 +44,15 @@
 #include "lookup.h"
 #include "lu_utils.h"
 #include "lu_overrides.h"
+
+#define GROUP_CACHE_SIZE 10
+#define DEFAULT_GROUP_CACHE_TTL 10
+
+static pthread_mutex_t _group_cache_lock = PTHREAD_MUTEX_INITIALIZER;
+static void *_group_cache[GROUP_CACHE_SIZE] = { NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL };
+static unsigned int _group_cache_best_before[GROUP_CACHE_SIZE] = { 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 };
+static unsigned int _group_cache_index = 0;
+static unsigned int _group_cache_ttl = DEFAULT_GROUP_CACHE_TTL;
 
 static pthread_mutex_t _group_lock = PTHREAD_MUTEX_INITIALIZER;
 
@@ -141,9 +151,10 @@ extract_group(XDR *xdr)
 			g->gr_passwd = vals[0];
 			j = 1;
 		}
-		else if ((g->gr_gid == -2) && (!strcmp("gid", key)))
+		else if ((g->gr_gid == (gid_t)-2) && (!strcmp("gid", key)))
 		{
 			g->gr_gid = atoi(vals[0]);
+			if ((g->gr_gid == 0) && (strcmp(vals[0], "0"))) g->gr_gid = -2;
 		}
 		else if ((g->gr_mem == NULL) && (!strcmp("users", key)))
 		{
@@ -306,6 +317,128 @@ recycle_group(struct lu_thread_info *tdata, struct group *in)
 	free(in);
 }
 
+__private_extern__ unsigned int
+get_group_cache_ttl()
+{
+	return _group_cache_ttl;
+}
+
+__private_extern__ void
+set_group_cache_ttl(unsigned int ttl)
+{
+	int i;
+
+	pthread_mutex_lock(&_group_cache_lock);
+
+	_group_cache_ttl = ttl;
+
+	if (ttl == 0)
+	{
+		for (i = 0; i < GROUP_CACHE_SIZE; i++)
+		{
+			if (_group_cache[i] == NULL) continue;
+
+			free_group((struct group *)_group_cache[i]);
+			_group_cache[i] = NULL;
+			_group_cache_best_before[i] = 0;
+		}
+	}
+
+	pthread_mutex_unlock(&_group_cache_lock);
+}
+
+static void
+cache_group(struct group *gr)
+{
+	struct timeval now;
+	struct group *grcache;
+
+	if (_group_cache_ttl == 0) return;
+	if (gr == NULL) return;
+
+	pthread_mutex_lock(&_group_cache_lock);
+
+	grcache = copy_group(gr);
+
+	gettimeofday(&now, NULL);
+
+	if (_group_cache[_group_cache_index] != NULL)
+		free_group((struct group *)_group_cache[_group_cache_index]);
+
+	_group_cache[_group_cache_index] = grcache;
+	_group_cache_best_before[_group_cache_index] = now.tv_sec + _group_cache_ttl;
+	_group_cache_index = (_group_cache_index + 1) % GROUP_CACHE_SIZE;
+
+	pthread_mutex_unlock(&_group_cache_lock);
+}
+
+static struct group *
+cache_getgrnam(const char *name)
+{
+	int i;
+	struct group *gr, *res;
+	struct timeval now;
+
+	if (_group_cache_ttl == 0) return NULL;
+	if (name == NULL) return NULL;
+
+	pthread_mutex_lock(&_group_cache_lock);
+
+	gettimeofday(&now, NULL);
+
+	for (i = 0; i < GROUP_CACHE_SIZE; i++)
+	{
+		if (_group_cache_best_before[i] == 0) continue;
+		if ((unsigned int)now.tv_sec > _group_cache_best_before[i]) continue;
+
+		gr = (struct group *)_group_cache[i];
+
+		if (gr->gr_name == NULL) continue;
+
+		if (!strcmp(name, gr->gr_name))
+		{
+			res = copy_group(gr);
+			pthread_mutex_unlock(&_group_cache_lock);
+			return res;
+		}
+	}
+
+	pthread_mutex_unlock(&_group_cache_lock);
+	return NULL;
+}
+
+static struct group *
+cache_getgrgid(int gid)
+{
+	int i;
+	struct group *gr, *res;
+	struct timeval now;
+
+	if (_group_cache_ttl == 0) return NULL;
+
+	pthread_mutex_lock(&_group_cache_lock);
+
+	gettimeofday(&now, NULL);
+
+	for (i = 0; i < GROUP_CACHE_SIZE; i++)
+	{
+		if (_group_cache_best_before[i] == 0) continue;
+		if ((unsigned int)now.tv_sec > _group_cache_best_before[i]) continue;
+
+		gr = (struct group *)_group_cache[i];
+
+		if ((gid_t)gid == gr->gr_gid)
+		{
+			res = copy_group(gr);
+			pthread_mutex_unlock(&_group_cache_lock);
+			return res;
+		}
+	}
+
+	pthread_mutex_unlock(&_group_cache_lock);
+	return NULL;
+}
+
 static struct group *
 lu_getgrgid(int gid)
 {
@@ -425,8 +558,56 @@ lu_getgrnam(const char *name)
 	return g;
 }
 
+int
+_old_getgrouplist(const char *uname, int agroup, int *groups, int *grpcnt)
+{
+	struct group *grp;
+	int i, ngroups;
+	int ret, maxgroups;
+
+	ret = 0;
+	ngroups = 0;
+	maxgroups = *grpcnt;
+
+	/*
+	 * When installing primary group, duplicate it;
+	 * the first element of groups is the effective gid
+	 * and will be overwritten when a setgid file is executed.
+	 */
+	groups[ngroups++] = agroup;
+	if (maxgroups > 1) groups[ngroups++] = agroup;
+
+	/*
+	 * Scan the group file to find additional groups.
+	 */
+	setgrent();
+
+	while ((grp = getgrent()))
+	{
+		if (grp->gr_gid == (gid_t)agroup) continue;
+		for (i = 0; grp->gr_mem[i]; i++)
+		{
+			if (!strcmp(grp->gr_mem[i], uname))
+			{
+				if (ngroups >= maxgroups)
+				{
+					ret = -1;
+					break;
+				}
+
+				groups[ngroups++] = grp->gr_gid;
+				break;
+			}
+		}
+	}
+
+	endgrent();
+	*grpcnt = ngroups;
+	return ret;
+}
+
 static int
-lu_initgroups(const char *name, int basegid)
+lu_getgrouplist(const char *name, int basegid, int *groups, int *grpcnt, int dupbase)
 {
 	unsigned int datalen;
 	XDR outxdr;
@@ -434,13 +615,24 @@ lu_initgroups(const char *name, int basegid)
 	static int proc = -1;
 	char *lookup_buf;
 	char namebuf[_LU_MAXLUSTRLEN + BYTES_PER_XDR_UNIT];
-	int groups[NGROUPS];
 	int ngroups;
 	int a_group;
 	int i, j, count;
 
-	groups[0] = basegid;
-	
+	if (groups == NULL) return -1;
+	if (*grpcnt == 0) return -1;
+
+	ngroups = 0;
+	groups[ngroups++] = basegid;
+	if (*grpcnt == 1) return 0;
+
+	if (dupbase != 0)
+	{
+		/* getgrouplist duplicates the primary group! */
+		groups[ngroups++] = basegid;
+		if (*grpcnt == 2) return 0;
+	}
+
 	if (proc < 0)
 	{
 		if (_lookup_link(_lu_port, "initgroups", &proc) != KERN_SUCCESS)
@@ -481,23 +673,50 @@ lu_initgroups(const char *name, int basegid)
 		return -1;
 	}
 
-	if (count > NGROUPS) count = NGROUPS;
-
-	ngroups = 0;
-
 	for (i = 0; i < count; i++)
 	{
 		if (!xdr_int(&inxdr, &a_group)) break;
 
-		for (j = 0; j < ngroups; j++)
+		j = 0;
+		if (dupbase != 0) j = 1;
+		for (; j < ngroups; j++)
 		{
 			if (groups[j] == a_group) break;
 		}
-		if (j >= ngroups) groups[ngroups++] = a_group;
-		
+
+		if (j >= ngroups)
+		{
+			groups[ngroups++] = a_group;
+			if (ngroups == *grpcnt) break;
+		}
 	}
+
 	xdr_destroy(&inxdr);
 	vm_deallocate(mach_task_self(), (vm_address_t)lookup_buf, datalen);
+
+	*grpcnt = ngroups;
+	return 0;
+}
+
+int
+getgrouplist(const char *uname, int agroup, int *groups, int *grpcnt)
+{
+	if (_lu_running())
+	{
+		return lu_getgrouplist(uname, agroup, groups, grpcnt, 1);
+	}
+
+	return _old_getgrouplist(uname, agroup, groups, grpcnt);
+}
+
+static int
+lu_initgroups(const char *name, int basegid)
+{
+	int status, ngroups, groups[NGROUPS];
+
+	ngroups = NGROUPS;
+	status = lu_getgrouplist(name, basegid, groups, &ngroups, 0);
+	if (status < 0) return status;
 
 	return setgroups(ngroups, groups);
 }
@@ -531,7 +750,7 @@ lu_getgrent()
 		tdata = (struct lu_thread_info *)calloc(1, sizeof(struct lu_thread_info));
 		_lu_data_set_key(_lu_data_key_group, tdata);
 	}
-
+	
 	if (tdata->lu_vm == NULL)
 	{
 		if (proc < 0)
@@ -589,8 +808,27 @@ static struct group *
 getgr_internal(const char *name, gid_t gid, int source)
 {
 	struct group *res = NULL;
+	int from_cache;
 
-	if (_lu_running())
+	from_cache = 0;
+	res = NULL;
+
+	switch (source)
+	{
+		case GR_GET_NAME:
+			res = cache_getgrnam(name);
+			break;
+		case GR_GET_GID:
+			res = cache_getgrgid(gid);
+			break;
+		default: res = NULL;
+	}
+
+	if (res != NULL)
+	{
+		from_cache = 1;
+	}
+	else if (_lu_running())
 	{
 		switch (source)
 		{
@@ -624,6 +862,8 @@ getgr_internal(const char *name, gid_t gid, int source)
 		}
 		pthread_mutex_unlock(&_group_lock);
 	}
+
+	if (from_cache == 0) cache_group(res);
 
 	return res;
 }

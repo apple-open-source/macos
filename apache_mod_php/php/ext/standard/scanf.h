@@ -1,8 +1,8 @@
 /* 
    +----------------------------------------------------------------------+
-   | PHP version 4.0                                                      |
+   | PHP Version 4                                                        |
    +----------------------------------------------------------------------+
-   | Copyright (c) 1997-2001 The PHP Group                                |
+   | Copyright (c) 1997-2003 The PHP Group                                |
    +----------------------------------------------------------------------+
    | This source file is subject to version 2.02 of the PHP license,      |
    | that is bundled with this package in the file LICENSE, and is        |
@@ -12,11 +12,11 @@
    | obtain it through the world-wide-web, please send a note to          |
    | license@php.net so we can mail you a copy immediately.               |
    +----------------------------------------------------------------------+
-   | Authors: clayton collie <clcollie@mindspring.com>                    |
+   | Author: Clayton Collie <clcollie@mindspring.com>                     |
    +----------------------------------------------------------------------+
 */
 
-/* $Id: scanf.h,v 1.1.1.4 2001/12/14 22:13:28 zarzycki Exp $ */
+/* $Id: scanf.h,v 1.1.1.6 2003/07/18 18:07:44 zarzycki Exp $ */
 
 #ifndef  SCANF_H
 #define  SCANF_H

@@ -1,6 +1,6 @@
-/* $OpenLDAP: pkg/ldap/servers/slapd/back-ldbm/external.h,v 1.37 2002/01/04 20:17:52 kurt Exp $ */
+/* $OpenLDAP: pkg/ldap/servers/slapd/back-ldbm/external.h,v 1.37.2.2 2003/02/09 16:31:38 kurt Exp $ */
 /*
- * Copyright 1998-2002 The OpenLDAP Foundation, All Rights Reserved.
+ * Copyright 1998-2003 The OpenLDAP Foundation, All Rights Reserved.
  * COPYING RESTRICTIONS APPLY, see COPYRIGHT file
  */
 
@@ -42,6 +42,8 @@ extern BI_acl_group	ldbm_back_group;
 extern BI_acl_attribute	ldbm_back_attribute;
 
 extern BI_operational	ldbm_back_operational;
+
+extern BI_has_subordinates	ldbm_back_hasSubordinates;
 
 /* hooks for slap tools */
 extern BI_tool_entry_open	ldbm_tool_entry_open;

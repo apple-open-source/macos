@@ -1,8 +1,8 @@
 /*
    +----------------------------------------------------------------------+
-   | PHP version 4.0                                                      |
+   | PHP Version 4                                                        |
    +----------------------------------------------------------------------+
-   | Copyright (c) 1997-2001 The PHP Group                                |
+   | Copyright (c) 1997-2003 The PHP Group                                |
    +----------------------------------------------------------------------+
    | This source file is subject to version 2.02 of the PHP license,      |
    | that is bundled with this package in the file LICENSE, and is        |
@@ -19,7 +19,7 @@
    +----------------------------------------------------------------------+
  */
 
-/* $Id: ii.h,v 1.1.1.4 2001/12/14 22:12:27 zarzycki Exp $ */
+/* $Id: ii.h,v 1.1.1.6 2003/07/18 18:07:34 zarzycki Exp $ */
 
 #ifndef II_H
 #define II_H
@@ -43,13 +43,13 @@ static int ii_success(IIAPI_GENPARM *genParm);
 #define II_OK 1
 #define II_NO_DATA 2
 static int _close_statement(II_LINK *link);
-static int _rollback_transaction(II_LINK *link);
+static int _rollback_transaction(II_LINK *link TSRMLS_DC);
 static void _close_ii_link(II_LINK *link TSRMLS_DC);
 static void _close_ii_plink(zend_rsrc_list_entry *link TSRMLS_DC);
 static int php_ii_get_default_link(INTERNAL_FUNCTION_PARAMETERS);
 static void php_ii_set_default_link(int id TSRMLS_DC);
 static void php_ii_do_connect(INTERNAL_FUNCTION_PARAMETERS, int persistent);
-static char *php_ii_field_name(II_LINK *ii_link, int index);
+static char *php_ii_field_name(II_LINK *ii_link, int index TSRMLS_DC);
 static void php_ii_field_info(INTERNAL_FUNCTION_PARAMETERS, int info_type);
 static void php_ii_fetch(INTERNAL_FUNCTION_PARAMETERS, II_LINK *ii_link, int result_type);
 

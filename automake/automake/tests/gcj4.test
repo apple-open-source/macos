@@ -1,0 +1,35 @@
+#! /bin/sh
+
+# Make sure dependency tracking works for Java.
+
+required=gcj
+. $srcdir/defs || exit 1
+
+cat >> configure.in << 'END'
+AM_PROG_GCJ
+AC_OUTPUT
+END
+
+cat > Makefile.am << 'END'
+bin_PROGRAMS = convert
+convert_SOURCES = convert.java
+END
+
+set -e
+
+$ACLOCAL
+$AUTOCONF
+$AUTOMAKE
+./configure GCJ=gcj >stdout
+cat stdout
+
+# Configure must be checking the dependency style of gcj ...
+grep 'dependency style of gcj' stdout >filt
+cat filt
+
+# ... only once.
+test `wc -l < filt` = 1
+
+# Accept any outcome but `none'
+# (at the time of writing it should be gcc or gcc3).
+grep -v none filt

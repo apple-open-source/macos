@@ -1,5 +1,8 @@
 /* A tar (tape archiver) program.
-   Copyright (C) 1988, 92,93,94,95,96,97, 1999 Free Software Foundation, Inc.
+
+   Copyright (C) 1988, 1992, 1993, 1994, 1995, 1996, 1997, 1999, 2000, 2001
+   Free Software Foundation, Inc.
+
    Written by John Gilmore, starting 1985-08-25.
 
    This program is free software; you can redistribute it and/or modify it
@@ -18,6 +21,7 @@
 
 #include "system.h"
 
+#include <fnmatch.h>
 #include <getopt.h>
 
 #include <signal.h>
@@ -28,11 +32,15 @@
 /* The following causes "common.h" to produce definitions of all the global
    variables, rather than just "extern" declarations of them.  GNU tar does
    depend on the system loader to preset all GLOBAL variables to neutral (or
-   zero) values, explicit initialisation is usually not done.  */
+   zero) values; explicit initialization is usually not done.  */
 #define GLOBAL
 #include "common.h"
 
-#include "xstrtol.h"
+#include <print-copyr.h>
+#include <localedir.h>
+#include <prepargs.h>
+#include <quotearg.h>
+#include <xstrtol.h>
 
 time_t get_date ();
 
@@ -46,17 +54,14 @@ time_t get_date ();
 # define DEFAULT_BLOCKING 20
 #endif
 
-static void usage PARAMS ((int));
+static void usage PARAMS ((int)) __attribute__ ((noreturn));
 
 /* Miscellaneous.  */
 
-/*----------------------------------------------.
-| Doesn't return if stdin already requested.    |
-`----------------------------------------------*/
-
 /* Name of option using stdin.  */
-static const char *stdin_used_by = NULL;
+static const char *stdin_used_by;
 
+/* Doesn't return if stdin already requested.  */
 void
 request_stdin (const char *option)
 {
@@ -67,40 +72,45 @@ request_stdin (const char *option)
   stdin_used_by = option;
 }
 
-/*--------------------------------------------------------.
-| Returns true if and only if the user typed 'y' or 'Y'.  |
-`--------------------------------------------------------*/
-
+/* Returns true if and only if the user typed 'y' or 'Y'.  */
 int
 confirm (const char *message_action, const char *message_name)
 {
-  static FILE *confirm_file = NULL;
+  static FILE *confirm_file;
+  static int confirm_file_EOF;
 
   if (!confirm_file)
     {
       if (archive == 0 || stdin_used_by)
-	confirm_file = fopen (TTY_NAME, "r");
+	{
+	  confirm_file = fopen (TTY_NAME, "r");
+	  if (! confirm_file)
+	    open_fatal (TTY_NAME);
+	}
       else
 	{
 	  request_stdin ("-w");
 	  confirm_file = stdin;
 	}
-
-      if (!confirm_file)
-	FATAL_ERROR ((0, 0, _("Cannot read confirmation from user")));
     }
 
-  fprintf (stdlis, "%s %s?", message_action, message_name);
+  fprintf (stdlis, "%s %s?", message_action, quote (message_name));
   fflush (stdlis);
 
   {
-    int reply = getc (confirm_file);
+    int reply = confirm_file_EOF ? EOF : getc (confirm_file);
     int character;
 
     for (character = reply;
-	 character != '\n' && character != EOF;
+	 character != '\n';
 	 character = getc (confirm_file))
-      continue;
+      if (character == EOF)
+	{
+	  confirm_file_EOF = 1;
+	  fputc ('\n', stdlis);
+	  fflush (stdlis);
+	  break;
+	}
     return reply == 'y' || reply == 'Y';
   }
 }
@@ -116,14 +126,21 @@ confirm (const char *message_action, const char *message_name)
 
 enum
 {
-  BACKUP_OPTION = CHAR_MAX + 1,
+  ANCHORED_OPTION = CHAR_MAX + 1,
+  BACKUP_OPTION,
   DELETE_OPTION,
   EXCLUDE_OPTION,
   GROUP_OPTION,
+  IGNORE_CASE_OPTION,
   MODE_OPTION,
   NEWER_MTIME_OPTION,
-  NO_RECURSE_OPTION,
+  NO_ANCHORED_OPTION,
+  NO_IGNORE_CASE_OPTION,
+  NO_WILDCARDS_OPTION,
+  NO_WILDCARDS_MATCH_SLASH_OPTION,
   NULL_OPTION,
+  OVERWRITE_OPTION,
+  OVERWRITE_DIR_OPTION,
   OWNER_OPTION,
   POSIX_OPTION,
   PRESERVE_OPTION,
@@ -132,6 +149,8 @@ enum
   SUFFIX_OPTION,
   USE_COMPRESS_PROGRAM_OPTION,
   VOLNO_FILE_OPTION,
+  WILDCARDS_OPTION,
+  WILDCARDS_MATCH_SLASH_OPTION,
 
   /* Some cleanup is being made in GNU tar long options.  Using old names is
      allowed for a while, but will also send a warning to stderr.  Take old
@@ -147,110 +166,121 @@ enum
 };
 
 /* If nonzero, display usage information and exit.  */
-static int show_help = 0;
+static int show_help;
 
 /* If nonzero, print the version on standard output and exit.  */
-static int show_version = 0;
+static int show_version;
 
-struct option long_options[] =
+static struct option long_options[] =
 {
-  {"absolute-names", no_argument, NULL, 'P'},
-  {"absolute-paths", no_argument, NULL, OBSOLETE_ABSOLUTE_NAMES},
-  {"after-date", required_argument, NULL, 'N'},
-  {"append", no_argument, NULL, 'r'},
+  {"absolute-names", no_argument, 0, 'P'},
+  {"absolute-paths", no_argument, 0, OBSOLETE_ABSOLUTE_NAMES},
+  {"after-date", required_argument, 0, 'N'},
+  {"anchored", no_argument, 0, ANCHORED_OPTION},
+  {"append", no_argument, 0, 'r'},
   {"atime-preserve", no_argument, &atime_preserve_option, 1},
-  {"backup", optional_argument, NULL, BACKUP_OPTION},
-  {"block-compress", no_argument, NULL, OBSOLETE_BLOCK_COMPRESS},
-  {"block-number", no_argument, NULL, 'R'},
-  {"block-size", required_argument, NULL, OBSOLETE_BLOCKING_FACTOR},
-  {"blocking-factor", required_argument, NULL, 'b'},
-  {"catenate", no_argument, NULL, 'A'},
+  {"backup", optional_argument, 0, BACKUP_OPTION},
+  {"block-compress", no_argument, 0, OBSOLETE_BLOCK_COMPRESS},
+  {"block-number", no_argument, 0, 'R'},
+  {"block-size", required_argument, 0, OBSOLETE_BLOCKING_FACTOR},
+  {"blocking-factor", required_argument, 0, 'b'},
+  {"bzip2", no_argument, 0, 'j'},
+  {"catenate", no_argument, 0, 'A'},
   {"checkpoint", no_argument, &checkpoint_option, 1},
-  {"compare", no_argument, NULL, 'd'},
-  {"compress", no_argument, NULL, 'Z'},
-  {"concatenate", no_argument, NULL, 'A'},
-  {"confirmation", no_argument, NULL, 'w'},
+  {"compare", no_argument, 0, 'd'},
+  {"compress", no_argument, 0, 'Z'},
+  {"concatenate", no_argument, 0, 'A'},
+  {"confirmation", no_argument, 0, 'w'},
   /* FIXME: --selective as a synonym for --confirmation?  */
-  {"create", no_argument, NULL, 'c'},
-  {"delete", no_argument, NULL, DELETE_OPTION},
-  {"dereference", no_argument, NULL, 'h'},
-  {"diff", no_argument, NULL, 'd'},
-  {"directory", required_argument, NULL, 'C'},
-  {"exclude", required_argument, NULL, EXCLUDE_OPTION},
-  {"exclude-from", required_argument, NULL, 'X'},
-  {"extract", no_argument, NULL, 'x'},
-  {"file", required_argument, NULL, 'f'},
-  {"files-from", required_argument, NULL, 'T'},
+  {"create", no_argument, 0, 'c'},
+  {"delete", no_argument, 0, DELETE_OPTION},
+  {"dereference", no_argument, 0, 'h'},
+  {"diff", no_argument, 0, 'd'},
+  {"directory", required_argument, 0, 'C'},
+  {"exclude", required_argument, 0, EXCLUDE_OPTION},
+  {"exclude-from", required_argument, 0, 'X'},
+  {"extract", no_argument, 0, 'x'},
+  {"file", required_argument, 0, 'f'},
+  {"files-from", required_argument, 0, 'T'},
   {"force-local", no_argument, &force_local_option, 1},
-  {"get", no_argument, NULL, 'x'},
-  {"group", required_argument, NULL, GROUP_OPTION},
-  {"gunzip", no_argument, NULL, 'z'},
-  {"gzip", no_argument, NULL, 'z'},
+  {"get", no_argument, 0, 'x'},
+  {"group", required_argument, 0, GROUP_OPTION},
+  {"gunzip", no_argument, 0, 'z'},
+  {"gzip", no_argument, 0, 'z'},
   {"help", no_argument, &show_help, 1},
+  {"ignore-case", no_argument, 0, IGNORE_CASE_OPTION},
   {"ignore-failed-read", no_argument, &ignore_failed_read_option, 1},
-  {"ignore-zeros", no_argument, NULL, 'i'},
+  {"ignore-zeros", no_argument, 0, 'i'},
   /* FIXME: --ignore-end as a new name for --ignore-zeros?  */
-  {"incremental", no_argument, NULL, 'G'},
-  {"info-script", required_argument, NULL, 'F'},
-  {"interactive", no_argument, NULL, 'w'},
-  {"keep-old-files", no_argument, NULL, 'k'},
-  {"label", required_argument, NULL, 'V'},
-  {"list", no_argument, NULL, 't'},
-  {"listed-incremental", required_argument, NULL, 'g'},
-  {"mode", required_argument, NULL, MODE_OPTION},
-  {"modification-time", no_argument, NULL, OBSOLETE_TOUCH},
-  {"multi-volume", no_argument, NULL, 'M'},
-  {"new-volume-script", required_argument, NULL, 'F'},
-  {"newer", required_argument, NULL, 'N'},
-  {"newer-mtime", required_argument, NULL, NEWER_MTIME_OPTION},
-  {"null", no_argument, NULL, NULL_OPTION},
-  {"no-recursion", no_argument, NULL, NO_RECURSE_OPTION},
+  {"incremental", no_argument, 0, 'G'},
+  {"info-script", required_argument, 0, 'F'},
+  {"interactive", no_argument, 0, 'w'},
+  {"keep-old-files", no_argument, 0, 'k'},
+  {"label", required_argument, 0, 'V'},
+  {"list", no_argument, 0, 't'},
+  {"listed-incremental", required_argument, 0, 'g'},
+  {"mode", required_argument, 0, MODE_OPTION},
+  {"modification-time", no_argument, 0, OBSOLETE_TOUCH},
+  {"multi-volume", no_argument, 0, 'M'},
+  {"new-volume-script", required_argument, 0, 'F'},
+  {"newer", required_argument, 0, 'N'},
+  {"newer-mtime", required_argument, 0, NEWER_MTIME_OPTION},
+  {"null", no_argument, 0, NULL_OPTION},
+  {"no-anchored", no_argument, 0, NO_ANCHORED_OPTION},
+  {"no-ignore-case", no_argument, 0, NO_IGNORE_CASE_OPTION},
+  {"no-wildcards", no_argument, 0, NO_WILDCARDS_OPTION},
+  {"no-wildcards-match-slash", no_argument, 0, NO_WILDCARDS_MATCH_SLASH_OPTION},
+  {"no-recursion", no_argument, &recursion_option, 0},
+  {"no-same-owner", no_argument, &same_owner_option, -1},
+  {"no-same-permissions", no_argument, &same_permissions_option, -1},
   {"numeric-owner", no_argument, &numeric_owner_option, 1},
-  {"old-archive", no_argument, NULL, 'o'},
-  {"one-file-system", no_argument, NULL, 'l'},
-  {"owner", required_argument, NULL, OWNER_OPTION},
-  {"portability", no_argument, NULL, 'o'},
-  {"posix", no_argument, NULL, POSIX_OPTION},
-  {"preserve", no_argument, NULL, PRESERVE_OPTION},
-  {"preserve-order", no_argument, NULL, 's'},
-  {"preserve-permissions", no_argument, NULL, 'p'},
+  {"old-archive", no_argument, 0, 'o'},
+  {"one-file-system", no_argument, 0, 'l'},
+  {"overwrite", no_argument, 0, OVERWRITE_OPTION},
+  {"overwrite-dir", no_argument, 0, OVERWRITE_DIR_OPTION},
+  {"owner", required_argument, 0, OWNER_OPTION},
+  {"portability", no_argument, 0, 'o'},
+  {"posix", no_argument, 0, POSIX_OPTION},
+  {"preserve", no_argument, 0, PRESERVE_OPTION},
+  {"preserve-order", no_argument, 0, 's'},
+  {"preserve-permissions", no_argument, 0, 'p'},
+  {"recursion", no_argument, &recursion_option, FNM_LEADING_DIR},
   {"recursive-unlink", no_argument, &recursive_unlink_option, 1},
-  {"read-full-blocks", no_argument, NULL, OBSOLETE_READ_FULL_RECORDS},
-  {"read-full-records", no_argument, NULL, 'B'},
+  {"read-full-blocks", no_argument, 0, OBSOLETE_READ_FULL_RECORDS},
+  {"read-full-records", no_argument, 0, 'B'},
   /* FIXME: --partial-blocks might be a synonym for --read-full-records?  */
-  {"record-number", no_argument, NULL, OBSOLETE_BLOCK_NUMBER},
-  {"record-size", required_argument, NULL, RECORD_SIZE_OPTION},
+  {"record-number", no_argument, 0, OBSOLETE_BLOCK_NUMBER},
+  {"record-size", required_argument, 0, RECORD_SIZE_OPTION},
   {"remove-files", no_argument, &remove_files_option, 1},
-  {"rsh-command", required_argument, NULL, RSH_COMMAND_OPTION},
-  {"same-order", no_argument, NULL, 's'},
+  {"rsh-command", required_argument, 0, RSH_COMMAND_OPTION},
+  {"same-order", no_argument, 0, 's'},
   {"same-owner", no_argument, &same_owner_option, 1},
-  {"same-permissions", no_argument, NULL, 'p'},
+  {"same-permissions", no_argument, 0, 'p'},
   {"show-omitted-dirs", no_argument, &show_omitted_dirs_option, 1},
-  {"sparse", no_argument, NULL, 'S'},
-  {"starting-file", required_argument, NULL, 'K'},
-  {"suffix", required_argument, NULL, SUFFIX_OPTION},
-  {"tape-length", required_argument, NULL, 'L'},
-  {"to-stdout", no_argument, NULL, 'O'},
+  {"sparse", no_argument, 0, 'S'},
+  {"starting-file", required_argument, 0, 'K'},
+  {"suffix", required_argument, 0, SUFFIX_OPTION},
+  {"tape-length", required_argument, 0, 'L'},
+  {"to-stdout", no_argument, 0, 'O'},
   {"totals", no_argument, &totals_option, 1},
-  {"touch", no_argument, NULL, 'm'},
-  {"uncompress", no_argument, NULL, 'Z'},
-  {"ungzip", no_argument, NULL, 'z'},
-  {"unlink-first", no_argument, NULL, 'U'},
-  {"update", no_argument, NULL, 'u'},
-  {"use-compress-program", required_argument, NULL, USE_COMPRESS_PROGRAM_OPTION},
-  {"verbose", no_argument, NULL, 'v'},
-  {"verify", no_argument, NULL, 'W'},
+  {"touch", no_argument, 0, 'm'},
+  {"uncompress", no_argument, 0, 'Z'},
+  {"ungzip", no_argument, 0, 'z'},
+  {"unlink-first", no_argument, 0, 'U'},
+  {"update", no_argument, 0, 'u'},
+  {"use-compress-program", required_argument, 0, USE_COMPRESS_PROGRAM_OPTION},
+  {"verbose", no_argument, 0, 'v'},
+  {"verify", no_argument, 0, 'W'},
   {"version", no_argument, &show_version, 1},
-  {"version-control", required_argument, NULL, OBSOLETE_VERSION_CONTROL},
-  {"volno-file", required_argument, NULL, VOLNO_FILE_OPTION},
+  {"version-control", required_argument, 0, OBSOLETE_VERSION_CONTROL},
+  {"volno-file", required_argument, 0, VOLNO_FILE_OPTION},
+  {"wildcards", no_argument, 0, WILDCARDS_OPTION},
+  {"wildcards-match-slash", no_argument, 0, WILDCARDS_MATCH_SLASH_OPTION},
 
   {0, 0, 0, 0}
 };
 
-/*---------------------------------------------.
-| Print a usage message and exit with STATUS.  |
-`---------------------------------------------*/
-
+/* Print a usage message and exit with STATUS.  */
 static void
 usage (int status)
 {
@@ -263,7 +293,13 @@ usage (int status)
 GNU `tar' saves many files together into a single tape or disk archive, and\n\
 can restore individual files from the archive.\n"),
 	     stdout);
-      printf (_("\nUsage: %s [OPTION]... [FILE]...\n"), program_name);
+      printf (_("\nUsage: %s [OPTION]... [FILE]...\n\
+\n\
+Examples:\n\
+  %s -cf archive.tar foo bar  # Create archive.tar from files foo and bar.\n\
+  %s -tvf archive.tar         # List all files in archive.tar verbosely.\n\
+  %s -xf archive.tar          # Extract all files from archive.tar.\n"),
+	     program_name, program_name, program_name, program_name);
       fputs (_("\
 \n\
 If a long option shows an argument as mandatory, then it is mandatory\n\
@@ -287,13 +323,16 @@ Main operation mode:\n\
 Operation modifiers:\n\
   -W, --verify               attempt to verify the archive after writing it\n\
       --remove-files         remove files after adding them to the archive\n\
-  -k, --keep-old-files       don't overwrite existing files when extracting\n\
+  -k, --keep-old-files       don't replace existing files when extracting\n\
+      --overwrite            overwrite existing files when extracting\n\
+      --overwrite-dir        overwrite directory metadata when extracting\n\
   -U, --unlink-first         remove each file prior to extracting over it\n\
       --recursive-unlink     empty hierarchies prior to extracting directory\n\
   -S, --sparse               handle sparse files efficiently\n\
   -O, --to-stdout            extract files to standard output\n\
   -G, --incremental          handle old GNU-format incremental backup\n\
-  -g, --listed-incremental   handle new GNU-format incremental backup\n\
+  -g, --listed-incremental=FILE\n\
+                             handle new GNU-format incremental backup\n\
       --ignore-failed-read   do not exit with nonzero on unreadable files\n"),
 	     stdout);
       fputs (_("\
@@ -305,8 +344,10 @@ Handling of file attributes:\n\
       --atime-preserve         don't change access times on dumped files\n\
   -m, --modification-time      don't extract file modified time\n\
       --same-owner             try extracting files with the same ownership\n\
+      --no-same-owner          extract files as yourself\n\
       --numeric-owner          always use numbers for user/group names\n\
-  -p, --same-permissions       extract all protection information\n\
+  -p, --same-permissions       extract permissions information\n\
+      --no-same-permissions    do not extract permissions information\n\
       --preserve-permissions   same as -p\n\
   -s, --same-order             sort names to extract to match archive\n\
       --preserve-order         same as -s\n\
@@ -339,7 +380,8 @@ Archive format selection:\n\
   -V, --label=NAME                   create archive with volume name NAME\n\
               PATTERN                at list/extract time, a globbing PATTERN\n\
   -o, --old-archive, --portability   write a V7 format archive\n\
-      --posix                        write a POSIX conformant archive\n\
+      --posix                        write a POSIX format archive\n\
+  -j, --bzip2                        filter the archive through bzip2\n\
   -z, --gzip, --ungzip               filter the archive through gzip\n\
   -Z, --compress, --uncompress       filter the archive through compress\n\
       --use-compress-program=PROG    filter through PROG (must accept -d)\n"),
@@ -350,8 +392,16 @@ Local file selection:\n\
   -C, --directory=DIR          change to directory DIR\n\
   -T, --files-from=NAME        get names to extract or create from file NAME\n\
       --null                   -T reads null-terminated names, disable -C\n\
-      --exclude=PATTERN        exclude files, given as a globbing PATTERN\n\
-  -X, --exclude-from=FILE      exclude globbing patterns listed in FILE\n\
+      --exclude=PATTERN        exclude files, given as a PATTERN\n\
+  -X, --exclude-from=FILE      exclude patterns listed in FILE\n\
+      --anchored               exclude patterns match file name start (default)\n\
+      --no-anchored            exclude patterns match after any /\n\
+      --ignore-case            exclusion ignores case\n\
+      --no-ignore-case         exclusion is case sensitive (default)\n\
+      --wildcards              exclude patterns use wildcards (default)\n\
+      --no-wildcards           exclude patterns are plain strings\n\
+      --wildcards-match-slash  exclude pattern wildcards match '/' (default)\n\
+      --no-wildcards-match-slash exclude pattern wildcards do not match '/'\n\
   -P, --absolute-names         don't strip leading `/'s from file names\n\
   -h, --dereference            dump instead the files symlinks point to\n\
       --no-recursion           avoid descending automatically in directories\n\
@@ -361,13 +411,13 @@ Local file selection:\n\
 #if !MSDOS
       fputs (_("\
   -N, --newer=DATE             only store files newer than DATE\n\
-      --newer-mtime            compare date and time when data changed only\n\
+      --newer-mtime=DATE       compare date and time when data changed only\n\
       --after-date=DATE        same as -N\n"),
 	     stdout);
 #endif
       fputs (_("\
       --backup[=CONTROL]       backup before removal, choose version control\n\
-      --suffix=SUFFIX          backup before removel, override usual suffix\n"),
+      --suffix=SUFFIX          backup before removal, override usual suffix\n"),
 	     stdout);
       fputs (_("\
 \n\
@@ -395,28 +445,29 @@ The version control may be set with --backup or VERSION_CONTROL, values are:\n\
 GNU tar cannot read nor produce `--posix' archives.  If POSIXLY_CORRECT\n\
 is set in the environment, GNU extensions are disallowed with `--posix'.\n\
 Support for POSIX is only partially implemented, don't count on it yet.\n\
-ARCHIVE may be FILE, HOST:FILE or USER@HOST:FILE; and FILE may be a file\n\
-or a device.  *This* `tar' defaults to `-f%s -b%d'.\n"),
+ARCHIVE may be FILE, HOST:FILE or USER@HOST:FILE; DATE may be a textual date\n\
+or a file name starting with `/' or `.', in which case the file's date is used.\n\
+*This* `tar' defaults to `-f%s -b%d'.\n"),
 	      DEFAULT_ARCHIVE, DEFAULT_BLOCKING);
-      fputs (_("\
-\n\
-Report bugs to <tar-bugs@gnu.org>.\n"),
-	       stdout);
+      fputs (_("\nReport bugs to <bug-tar@gnu.org>.\n"), stdout);
     }
   exit (status);
 }
 
-/*----------------------------.
-| Parse the options for tar.  |
-`----------------------------*/
+/* Parse the options for tar.  */
 
-/* Available option letters are DEHIJQY and aejnqy.  Some are reserved:
+/* Available option letters are DEHIJQY and aenqy.  Some are reserved:
 
+   e  exit immediately with a nonzero exit status if unexpected errors occur
+   E  use extended headers (draft POSIX headers, that is)
+   I  same as T (for compatibility with Solaris tar)
+   n  the archive is quickly seekable, so don't worry about random seeks
+   q  stop after extracting the first occurrence of the named file
    y  per-file gzip compression
    Y  per-block gzip compression */
 
 #define OPTION_STRING \
-  "-01234567ABC:F:GK:L:MN:OPRST:UV:WX:Zb:cdf:g:hiklmoprstuvwxz"
+  "-01234567ABC:F:GIK:L:MN:OPRST:UV:WX:Zb:cdf:g:hijklmoprstuvwxyz"
 
 static void
 set_subcommand_option (enum subcommand subcommand)
@@ -439,12 +490,13 @@ set_use_compress_program_option (const char *string)
 }
 
 static void
-decode_options (int argc, char *const *argv)
+decode_options (int argc, char **argv)
 {
   int optchar;			/* option letter */
   int input_files;		/* number of input files */
   const char *backup_suffix_string;
-  const char *version_control_string = NULL;
+  const char *version_control_string = 0;
+  int exclude_options = EXCLUDE_WILDCARDS;
 
   /* Set some default option values.  */
 
@@ -453,6 +505,8 @@ decode_options (int argc, char *const *argv)
   blocking_factor = DEFAULT_BLOCKING;
   record_size = DEFAULT_BLOCKING * BLOCKSIZE;
   excluded = new_exclude ();
+  newer_mtime_option = TYPE_MINIMUM (time_t);
+  recursion_option = FNM_LEADING_DIR;
 
   owner_option = -1;
   group_option = -1;
@@ -480,7 +534,7 @@ decode_options (int argc, char *const *argv)
       /* Allocate a new argument array, and copy program name in it.  */
 
       new_argc = argc - 1 + strlen (argv[1]);
-      new_argv = (char **) xmalloc (new_argc * sizeof (char *));
+      new_argv = xmalloc (new_argc * sizeof (char *));
       in = argv;
       out = new_argv;
       *out++ = *in++;
@@ -518,8 +572,10 @@ decode_options (int argc, char *const *argv)
 
   input_files = 0;
 
-  while (optchar = getopt_long (argc, argv, OPTION_STRING, long_options, NULL),
-	 optchar != EOF)
+  prepend_default_options (getenv ("TAR_OPTIONS"), &argc, &argv);
+
+  while (optchar = getopt_long (argc, argv, OPTION_STRING, long_options, 0),
+	 optchar != -1)
     switch (optchar)
       {
       case '?':
@@ -530,7 +586,7 @@ decode_options (int argc, char *const *argv)
 
       case 1:
 	/* File name or non-parsed option, because of RETURN_IN_ORDER
-	   ordering triggerred by the leading dash in OPTION_STRING.  */
+	   ordering triggered by the leading dash in OPTION_STRING.  */
 
 	name_add (optarg);
 	input_files++;
@@ -550,12 +606,13 @@ decode_options (int argc, char *const *argv)
 
       case 'b':
 	{
-	  long l;
-	  if (! (xstrtol (optarg, (char **) 0, 10, &l, "") == LONGINT_OK
-		 && l == (blocking_factor = l)
+	  uintmax_t u;
+	  if (! (xstrtoumax (optarg, 0, 10, &u, "") == LONGINT_OK
+		 && u == (blocking_factor = u)
 		 && 0 < blocking_factor
-		 && l == (record_size = l * (size_t) BLOCKSIZE) / BLOCKSIZE))
-	    USAGE_ERROR ((0, 0, _("Invalid blocking factor")));
+		 && u == (record_size = u * BLOCKSIZE) / BLOCKSIZE))
+	    USAGE_ERROR ((0, 0, "%s: %s", quotearg_colon (optarg),
+			  _("Invalid blocking factor")));
 	}
 	break;
 
@@ -592,7 +649,7 @@ decode_options (int argc, char *const *argv)
 	if (archive_names == allocated_archive_names)
 	  {
 	    allocated_archive_names *= 2;
-	    archive_name_array = (const char **)
+	    archive_name_array =
 	      xrealloc (archive_name_array,
 			sizeof (const char *) * allocated_archive_names);
 	  }
@@ -609,6 +666,7 @@ decode_options (int argc, char *const *argv)
 
       case 'g':
 	listed_incremental_option = optarg;
+	after_date_option = 1;
 	/* Fall through.  */
 
       case 'G':
@@ -633,15 +691,24 @@ decode_options (int argc, char *const *argv)
 	ignore_zeros_option = 1;
 	break;
 
-      case 'k':
-	/* Don't overwrite existing files.  */
+      case 'I':
+	USAGE_ERROR ((0, 0,
+		      _("Warning: the -I option is not supported;"
+			" perhaps you meant -j or -T?")));
+	break;
 
-	keep_old_files_option = 1;
+      case 'j':
+	set_use_compress_program_option ("bzip2");
+	break;
+
+      case 'k':
+	/* Don't replace existing files.  */
+	old_files_option = KEEP_OLD_FILES;
 	break;
 
       case 'K':
 	starting_file_option = 1;
-	addname (optarg);
+	addname (optarg, 0);
 	break;
 
       case 'l':
@@ -653,12 +720,11 @@ decode_options (int argc, char *const *argv)
 
       case 'L':
 	{
-	  unsigned long u;
-	  if (xstrtoul (optarg, (char **) 0, 10, &u, "") != LONG_MAX)
-	    USAGE_ERROR ((0, 0, _("Invalid tape length")));
-	  clear_tarlong (tape_length_option);
-	  add_to_tarlong (tape_length_option, u);
-	  mult_tarlong (tape_length_option, 1024);
+	  uintmax_t u;
+	  if (xstrtoumax (optarg, 0, 10, &u, "") != LONGINT_OK)
+	    USAGE_ERROR ((0, 0, "%s: %s", quotearg_colon (optarg),
+			  _("Invalid tape length")));
+	  tape_length_option = 1024 * (tarlong) u;
 	  multi_volume_option = 1;
 	}
 	break;
@@ -684,12 +750,28 @@ decode_options (int argc, char *const *argv)
 	/* Fall through.  */
 
       case NEWER_MTIME_OPTION:
-	if (newer_mtime_option)
+	if (newer_mtime_option != TYPE_MINIMUM (time_t))
 	  USAGE_ERROR ((0, 0, _("More than one threshold date")));
 
-	newer_mtime_option = get_date (optarg, (voidstar) 0);
-	if (newer_mtime_option == (time_t) -1)
-	  USAGE_ERROR ((0, 0, _("Invalid date format `%s'"), optarg));
+	if (FILESYSTEM_PREFIX_LEN (optarg) != 0
+	    || ISSLASH (*optarg)
+	    || *optarg == '.')
+	  {
+	    struct stat st;
+	    if (deref_stat (dereference_option, optarg, &st) != 0)
+	      {
+		stat_error (optarg);
+		USAGE_ERROR ((0, 0, _("Date file not found")));
+	      }
+	    newer_mtime_option = st.st_mtime;
+	  }
+	else
+	  {
+	    newer_mtime_option = get_date (optarg, 0);
+	    if (newer_mtime_option == (time_t) -1)
+	      WARN ((0, 0, _("Substituting %s for unknown date format %s"),
+		     tartime (newer_mtime_option), quote (optarg)));
+	  }
 
 	break;
 #endif /* not MSDOS */
@@ -760,7 +842,7 @@ decode_options (int argc, char *const *argv)
 	break;
 
       case 'U':
-	unlink_first_option = 1;
+	old_files_option = UNLINK_FIRST_OLD_FILES;
 	break;
 
       case 'v':
@@ -784,8 +866,19 @@ decode_options (int argc, char *const *argv)
 	break;
 
       case 'X':
-	if (add_exclude_file (excluded, optarg, '\n') != 0)
-	  FATAL_ERROR ((0, errno, "%s", optarg));
+	if (add_exclude_file (add_exclude, excluded, optarg,
+			      exclude_options | recursion_option, '\n')
+	    != 0)
+	  {
+	    int e = errno;
+	    FATAL_ERROR ((0, e, "%s", quotearg_colon (optarg)));
+	  }
+	break;
+
+      case 'y':
+	USAGE_ERROR ((0, 0,
+		      _("Warning: the -y option is not supported;"
+			" perhaps you meant -j?")));
 	break;
 
       case 'z':
@@ -800,6 +893,10 @@ decode_options (int argc, char *const *argv)
 	WARN ((0, 0, _("Obsolete option name replaced by --backup")));
 	/* Fall through.  */
 
+      case ANCHORED_OPTION:
+	exclude_options |= EXCLUDE_ANCHORED;
+	break;
+
       case BACKUP_OPTION:
 	backup_option = 1;
 	if (optarg)
@@ -811,7 +908,11 @@ decode_options (int argc, char *const *argv)
 	break;
 
       case EXCLUDE_OPTION:
-	add_exclude (excluded, optarg);
+	add_exclude (excluded, optarg, exclude_options | recursion_option);
+	break;
+
+      case IGNORE_CASE_OPTION:
+	exclude_options |= FNM_CASEFOLD;
 	break;
 
       case GROUP_OPTION:
@@ -819,11 +920,12 @@ decode_options (int argc, char *const *argv)
 	       && gname_to_gid (optarg, &group_option)))
 	  {
 	    uintmax_t g;
-	    if (xstrtoumax (optarg, (char **) 0, 10, &g, "") == LONGINT_OK
+	    if (xstrtoumax (optarg, 0, 10, &g, "") == LONGINT_OK
 		&& g == (gid_t) g)
 	      group_option = g;
 	    else
-	      ERROR ((TAREXIT_FAILURE, 0, _("Invalid group given on option")));
+	      FATAL_ERROR ((0, 0, "%s: %s", quotearg_colon (optarg),
+			    _("%s: Invalid group")));
 	  }
 	break;
 
@@ -832,17 +934,37 @@ decode_options (int argc, char *const *argv)
 	  = mode_compile (optarg,
 			  MODE_MASK_EQUALS | MODE_MASK_PLUS | MODE_MASK_MINUS);
 	if (mode_option == MODE_INVALID)
-	  ERROR ((TAREXIT_FAILURE, 0, _("Invalid mode given on option")));
+	  FATAL_ERROR ((0, 0, _("Invalid mode given on option")));
 	if (mode_option == MODE_MEMORY_EXHAUSTED)
-	  ERROR ((TAREXIT_FAILURE, 0, _("Memory exhausted")));
+	  xalloc_die ();
 	break;
 
-      case NO_RECURSE_OPTION:
-	no_recurse_option = 1;
+      case NO_ANCHORED_OPTION:
+	exclude_options &= ~ EXCLUDE_ANCHORED;
+	break;
+
+      case NO_IGNORE_CASE_OPTION:
+	exclude_options &= ~ FNM_CASEFOLD;
+	break;
+
+      case NO_WILDCARDS_OPTION:
+	exclude_options &= ~ EXCLUDE_WILDCARDS;
+	break;
+
+      case NO_WILDCARDS_MATCH_SLASH_OPTION:
+	exclude_options |= FNM_FILE_NAME;
 	break;
 
       case NULL_OPTION:
 	filename_terminator = '\0';
+	break;
+
+      case OVERWRITE_OPTION:
+	old_files_option = OVERWRITE_OLD_FILES;
+	break;
+
+      case OVERWRITE_DIR_OPTION:
+	old_files_option = OVERWRITE_OLD_DIRS;
 	break;
 
       case OWNER_OPTION:
@@ -850,11 +972,12 @@ decode_options (int argc, char *const *argv)
 	       && uname_to_uid (optarg, &owner_option)))
 	  {
 	    uintmax_t u;
-	    if (xstrtoumax (optarg, (char **) 0, 10, &u, "") == LONGINT_OK
+	    if (xstrtoumax (optarg, 0, 10, &u, "") == LONGINT_OK
 		&& u == (uid_t) u)
 	      owner_option = u;
 	    else
-	      ERROR ((TAREXIT_FAILURE, 0, _("Invalid owner given on option")));
+	      FATAL_ERROR ((0, 0, "%s: %s", quotearg_colon (optarg),
+			    _("Invalid owner")));
 	  }
 	break;
 
@@ -880,9 +1003,10 @@ decode_options (int argc, char *const *argv)
       case RECORD_SIZE_OPTION:
 	{
 	  uintmax_t u;
-	  if (! (xstrtoumax (optarg, (char **) 0, 10, &u, "") == LONG_MAX
+	  if (! (xstrtoumax (optarg, 0, 10, &u, "") == LONGINT_OK
 		 && u == (size_t) u))
-	    USAGE_ERROR ((0, 0, _("Invalid record size")));
+	    USAGE_ERROR ((0, 0, "%s: %s", quotearg_colon (optarg),
+			  _("Invalid record size")));
 	  record_size = u;
 	  if (record_size % BLOCKSIZE != 0)
 	    USAGE_ERROR ((0, 0, _("Record size must be a multiple of %d."),
@@ -900,12 +1024,20 @@ decode_options (int argc, char *const *argv)
 	backup_suffix_string = optarg;
 	break;
 
+      case USE_COMPRESS_PROGRAM_OPTION:
+	set_use_compress_program_option (optarg);
+	break;
+
       case VOLNO_FILE_OPTION:
 	volno_file_option = optarg;
 	break;
 
-      case USE_COMPRESS_PROGRAM_OPTION:
-	set_use_compress_program_option (optarg);
+      case WILDCARDS_OPTION:
+	exclude_options |= EXCLUDE_WILDCARDS;
+	break;
+
+      case WILDCARDS_MATCH_SLASH_OPTION:
+	exclude_options &= ~ FNM_FILE_NAME;
 	break;
 
       case '0':
@@ -924,7 +1056,7 @@ decode_options (int argc, char *const *argv)
 	  static char buf[sizeof DEVICE_PREFIX + 10];
 	  char *cursor;
 
-	  density = getopt_long (argc, argv, "lmh", NULL, NULL);
+	  density = getopt_long (argc, argv, "lmh", 0, 0);
 	  strcpy (buf, DEVICE_PREFIX);
 	  cursor = buf + strlen (buf);
 
@@ -968,7 +1100,7 @@ decode_options (int argc, char *const *argv)
 	  if (archive_names == allocated_archive_names)
 	    {
 	      allocated_archive_names *= 2;
-	      archive_name_array = (const char **)
+	      archive_name_array =
 		xrealloc (archive_name_array,
 			  sizeof (const char *) * allocated_archive_names);
 	    }
@@ -987,23 +1119,26 @@ decode_options (int argc, char *const *argv)
 #endif /* not DEVICE_PREFIX */
       }
 
+  /* Handle operands after any "--" argument.  */
+  for (; optind < argc; optind++)
+    {
+      name_add (argv[optind]);
+      input_files++;
+    }
+
   /* Process trivial options.  */
 
   if (show_version)
     {
       printf ("tar (GNU %s) %s\n", PACKAGE, VERSION);
-      fputs (_("\
-\n\
-Copyright (C) 1988, 92,93,94,95,96,97,98, 1999 Free Software Foundation, Inc.\n"),
-	     stdout);
-      fputs (_("\
-This is free software; see the source for copying conditions.  There is NO\n\
-warranty; not even for MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.\n"),
-	     stdout);
-      fputs (_("\
-\n\
-Written by John Gilmore and Jay Fenlason.\n"),
-	     stdout);
+      print_copyright ("2001 Free Software Foundation, Inc.");
+      puts (_("\
+This program comes with NO WARRANTY, to the extent permitted by law.\n\
+You may redistribute it under the terms of the GNU General Public License;\n\
+see the file named COPYING for details."));
+
+      puts (_("Written by John Gilmore and Jay Fenlason."));
+
       exit (TAREXIT_SUCCESS);
     }
 
@@ -1024,7 +1159,7 @@ Written by John Gilmore and Jay Fenlason.\n"),
   if (archive_format == GNU_FORMAT && getenv ("POSIXLY_CORRECT"))
     archive_format = POSIX_FORMAT;
 
-  if ((volume_label_option != NULL
+  if ((volume_label_option
        || incremental_option || multi_volume_option || sparse_option)
       && archive_format != OLDGNU_FORMAT && archive_format != GNU_FORMAT)
     USAGE_ERROR ((0, 0,
@@ -1037,7 +1172,7 @@ Written by John Gilmore and Jay Fenlason.\n"),
 
       archive_names = 1;
       archive_name_array[0] = getenv ("TAPE");
-      if (archive_name_array[0] == NULL)
+      if (! archive_name_array[0])
 	archive_name_array[0] = DEFAULT_ARCHIVE;
     }
 
@@ -1047,9 +1182,32 @@ Written by John Gilmore and Jay Fenlason.\n"),
     USAGE_ERROR ((0, 0,
 		  _("Multiple archive files requires `-M' option")));
 
+  if (listed_incremental_option
+      && newer_mtime_option != TYPE_MINIMUM (time_t))
+    USAGE_ERROR ((0, 0,
+		  _("Cannot combine --listed-incremental with --newer")));
+
+  if (volume_label_option)
+    {
+      size_t volume_label_max_len =
+	(sizeof current_header->header.name
+	 - 1 /* for trailing '\0' */
+	 - (multi_volume_option
+	    ? (sizeof " Volume "
+	       - 1 /* for null at end of " Volume " */
+	       + INT_STRLEN_BOUND (int) /* for volume number */
+	       - 1 /* for sign, as 0 <= volno */)
+	    : 0));
+      if (volume_label_max_len < strlen (volume_label_option))
+	USAGE_ERROR ((0, 0,
+		      _("%s: Volume label is too long (limit is %lu bytes)"),
+		      quotearg_colon (volume_label_option),
+		      (unsigned long) volume_label_max_len));
+    }
+
   /* If ready to unlink hierarchies, so we are for simpler files.  */
   if (recursive_unlink_option)
-    unlink_first_option = 1;
+    old_files_option = UNLINK_FIRST_OLD_FILES;
 
   /* Forbid using -c with no input files whatsoever.  Check that `-f -',
      explicit or implied, is used correctly.  */
@@ -1099,13 +1257,14 @@ Written by John Gilmore and Jay Fenlason.\n"),
 
 /* Tar proper.  */
 
-/*-----------------------.
-| Main routine for tar.	 |
-`-----------------------*/
-
+/* Main routine for tar.  */
 int
-main (int argc, char *const *argv)
+main (int argc, char **argv)
 {
+#if HAVE_CLOCK_GETTIME
+  if (clock_gettime (CLOCK_REALTIME, &start_timespec) != 0)
+#endif
+    start_time = time (0);
   program_name = argv[0];
   setlocale (LC_ALL, "");
   bindtextdomain (PACKAGE, LOCALEDIR);
@@ -1113,11 +1272,12 @@ main (int argc, char *const *argv)
 
   exit_status = TAREXIT_SUCCESS;
   filename_terminator = '\n';
+  set_quoting_style (0, escape_quoting_style);
 
   /* Pre-allocate a few structures.  */
 
   allocated_archive_names = 10;
-  archive_name_array = (const char **)
+  archive_name_array =
     xmalloc (sizeof (const char *) * allocated_archive_names);
   archive_names = 0;
 
@@ -1155,9 +1315,6 @@ main (int argc, char *const *argv)
       break;
 
     case CREATE_SUBCOMMAND:
-      if (totals_option)
-	init_total_written ();
-
       create_archive ();
       name_close ();
 
@@ -1168,6 +1325,7 @@ main (int argc, char *const *argv)
     case EXTRACT_SUBCOMMAND:
       extr_init ();
       read_and (extract_archive);
+      extract_finish ();
       break;
 
     case LIST_SUBCOMMAND:
@@ -1188,6 +1346,8 @@ main (int argc, char *const *argv)
   free (archive_name_array);
   name_term ();
 
+  if (stdlis == stdout && (ferror (stdout) || fclose (stdout) != 0))
+    FATAL_ERROR ((0, 0, _("Error in writing to standard output")));
   if (exit_status == TAREXIT_FAILURE)
     error (0, 0, _("Error exit delayed from previous errors"));
   exit (exit_status);

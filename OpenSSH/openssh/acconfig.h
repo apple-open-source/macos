@@ -1,4 +1,4 @@
-/* $Id: acconfig.h,v 1.1.1.14 2002/06/26 18:33:00 zarzycki Exp $ */
+/* $Id: acconfig.h,v 1.2 2003/05/20 22:38:37 nicolai Exp $ */
 
 #ifndef _CONFIG_H
 #define _CONFIG_H
@@ -150,6 +150,9 @@
 /* Define if you don't want to use lastlog */
 #undef DISABLE_LASTLOG
 
+/* Define if you don't want to use lastlog in session.c */
+#undef NO_SSH_LASTLOG
+
 /* Define if you don't want to use utmp */
 #undef DISABLE_UTMP
 
@@ -198,6 +201,9 @@
 /* Define if compiler implements __func__ */
 #undef HAVE___func__
 
+/* Define this is you want GSSAPI support in the version 2 protocol */
+#undef GSSAPI
+
 /* Define if you want Kerberos 5 support */
 #undef KRB5
 
@@ -209,6 +215,9 @@
 
 /* Define if you want AFS support */
 #undef AFS
+
+/* Define if you want GSI/Globus authentication support */
+#undef GSI
 
 /* Define if you want S/Key support */
 #undef SKEY
@@ -310,6 +319,9 @@
 /* Define if X11 doesn't support AF_UNIX sockets on that system */
 #undef NO_X11_UNIX_SOCKETS
 
+/* Define if the concept of ports only accessible to superusers isn't known */
+#undef NO_IPPORT_RESERVED_CONCEPT
+
 /* Needed for SCO and NeXT */
 #undef BROKEN_SAVED_UIDS
 
@@ -355,11 +367,21 @@
 /* Path that unprivileged child will chroot() to in privep mode */
 #undef PRIVSEP_PATH
 
-/* Define if you have the `mmap' function that supports MAP_ANON|SHARED */
-#undef HAVE_MMAP_ANON_SHARED
+/* Define if your platform needs to skip post auth file descriptor passing */
+#undef DISABLE_FD_PASSING
 
-/* Define if sendmsg()/recvmsg() has problems passing file descriptors */
-#undef BROKEN_FD_PASSING
+/* Silly mkstemp() */
+#undef HAVE_STRICT_MKSTEMP
+
+/* Setproctitle emulation */
+#undef SETPROCTITLE_STRATEGY
+#undef SETPROCTITLE_PS_PADDING
+
+/* Some systems put this outside of libc */
+#undef HAVE_NANOSLEEP
+
+/* Pushing STREAMS modules incorrectly acquires a controlling TTY */
+#undef STREAMS_PUSH_ACQUIRES_CTTY
 
 @BOTTOM@
 

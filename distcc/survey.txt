@@ -1,0 +1,25 @@
+If you find distcc useful, please take a little time to fill out this
+survey and mail it to {mbp at samba org}.  
+
+Don't stress too much about getting scientifically rigorous numbers:
+rough numbers are more useful than none at all.  Ideally, complete the
+survey for one large application that you work on, where compile speed
+is important.
+
+0. What version of distcc are you using?
+
+1. Your name and email address:
+
+2. OK to publish this?  Yes/no/yes, but anonymously:
+
+3. Your codebase: lines of code (by wc -l), and language:
+
+4. Your machines: number, OS, processor, memory, network connectivity:
+
+5. Time to compile, with and without distcc:
+
+6. Any other observations:
+
+
+Thanks!
+Martin

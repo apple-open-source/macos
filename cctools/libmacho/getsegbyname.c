@@ -3,8 +3,6 @@
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
- * Copyright (c) 1999-2003 Apple Computer, Inc.  All Rights Reserved.
- * 
  * This file contains Original Code and/or Modifications of Original Code
  * as defined in and that are subject to the Apple Public Source License
  * Version 2.0 (the 'License'). You may not use this file except in
@@ -62,7 +60,7 @@ getsegbyname(
 {
 	static struct mach_header *mhp = NULL;
 	struct segment_command *sgp;
-	long i;
+	unsigned long i;
 #ifndef __OPENSTEP__
 	if (mhp == NULL) {
 		mhp = _NSGetMachExecuteHeader();

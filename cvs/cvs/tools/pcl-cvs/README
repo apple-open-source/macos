@@ -1,4 +1,4 @@
-This is the readme file for pcl-cvs, release 1.05-CVS-$Name: cvs-29 $.
+This is the readme file for pcl-cvs, release 1.05-CVS-$Name: cvs-30 $.
 
 Pcl-cvs is a front-end to CVS versions 1.5 through 1.7.  It integrates
 the most frequently used CVS commands into an emacs interface.
@@ -22,4 +22,4 @@ Per Cederqvist
 
 -- 
 #OrigId	"@(#) Id: README,v 1.14 1993/05/31 22:43:36 ceder Exp "
-#ident	"@(#)cvs/contrib/pcl-cvs:$Name: cvs-29 $:$Id: README,v 1.3 2002/03/01 00:33:14 zarzycki Exp $"
+#ident	"@(#)cvs/contrib/pcl-cvs:$Name: cvs-30 $:$Id: README,v 1.3 2002/03/01 00:33:14 zarzycki Exp $"

@@ -67,3 +67,12 @@ $MAKE distcheck
 # foo.c must be shipped.
 gunzip am_lex_bug-0.1.1.tar.gz
 tar tf am_lex_bug-0.1.1.tar | fgrep foo.c
+
+# While we are at it, make sure that foo.c is erased by
+# maintainer-clean, and not by distclean.
+test -f foo.c
+$MAKE distclean
+test -f foo.c
+./configure
+$MAKE maintainer-clean
+test ! -f foo.c

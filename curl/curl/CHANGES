@@ -4,2098 +4,1342 @@
                             | (__| |_| |  _ <| |___ 
                              \___|\___/|_| \_\_____|
 
-                               History of Changes
+                                  Changelog
 
-Version 7.7.2
 
-Daniel (22 April 2001)
-- Rosimildo da Silva updated the Makefiles for Borland/Windows.
+Version 7.10.2 (18 Nov 2002)
 
-- Eric Rautman pointed out a problem with persistent connections that would
-  lead to broken Host: headers in the second HTTP request.
+Daniel (11 Nov 2002)
+- Dave Halbakken added curl_version_info to lib/libcurl.def to make libcurl
+  properly build with MSVC on Windows.
 
-Daniel (20 April 2001)
-- Added man pages for the curl_strequal() and curl_mprintf() families. Wrote
-  a 'libcurl overview' man page.
+Daniel (8 Nov 2002)
+- Doing HTTP PUT without a specified file size now makes libcurl use
+  Transfer-Encoding: chunked.
 
-- Spell-fixed some documents.
+Daniel (7 Nov 2002)
+- Bug report #634625 identified how curl returned timeout immediately when
+  CURLOPT_CONNECTTIMEOUT was used and provided a fix.
 
-- S. Moonesamy corrected mistakes in the man page.
+Version 7.10.2-pre4 (6 Nov 2002)
 
-- Cris Bailiff fixed the curl_slists options in the perl interface, present
-  separately in the Curl::easy 1.1.4 package.
+Daniel (5 Nov 2002)
+- Lehel Bernadt found out and fixed. libcurl sent error message to the debug
+  output when it stored the error message.
 
-Daniel (19 April 2001)
-- Linus Nielsen Feltzing removed the decimals from the size variables in the
-  --write-out output. We hardly ever get fraction of bytes! :-)
+- Avery Fay found some problems with the DNS cache (when the cache time was
+  set to 0 we got a memory leak, but when the leak was fixed he got a crash
+  when he used the CURLOPT_INTERFACE with that) that had me do some real
+  restructuring so that we now have a reference counter in the dns cache
+  entries to prevent an entry to get flushed while still actually in use.
 
-Version 7.7.2-pre1
+  I also detected that we previously didn't update the time stamp when we
+  extracted an entry from the cache so that must've been a reason for some
+  very weird dns cache bugs.
 
-Daniel (19 April 2001)
+Version 7.10.2-pre3
 
-- Albert Chin provided a configure patch for the AC_SYS_LARGEFILE macro.
+Daniel (31 Oct 2002)
+- Downgraded automake to 1.6.3 in an attempt to fix cygwin problems. (It
+  turned out this didn't help though.)
 
-Daniel (18 April 2001)
-- Input from Michael Mealling made me add --feature to curl-config. It
-  displays a list of features that have been built-in in the current
-  libcurl. The currently available features that can be listed are: SSL, KRB4
-  and IPv6.
+- Disable the DNS cache (by setting the timeout to 0) made libcurl leak
+  memory. Avery Fay brought the example code that proved this.
 
-- I committed Cris and Georg's perl interface work. They've got callbacks
-  working and options that receives those slist pointers.
+Version 7.10.2-pre2
 
-- Puneet Pawaia detected a problem with resumed downloads that use persistent
-  connections and I made a rather large writeup to correct this. It is
-  important that all session-data is stored in the connectdata struct and not
-  in the main struct as this previously did.
+Daniel (28 Oct 2002)
+- Upgraded to autoconf 2.54 and automake 1.7 on the release-build host.
 
-Daniel (17 April 2001)
-- Frederic Lepied fixed a ftp resumed download problem and introduced a new
-  error code that lets applications be able to detect when a resumed download
-  actually didn't download anything since the whole file is already present.
-  Should this return OK instead?
+- Kevin Roth made the command line tool check for a CURL_CA_BUNDLE environment
+  variable (if --cacert isn't used) and if not set, the Windows version will
+  check for a file named "curl-ca-bundle.crt" in the current directory or the
+  directory where curl is located. That file is then used as CA root cert
+  bundle.
 
-- I added 'curl-config.in' to the root dir and configure script. Now, a
-  curl-config script is made when curl is built. The script can be used to
-  figure out compile time options used when libcurl was built, which in turn
-  should be options YOU should use to build applications that use libcurl.
+- Avery Fay pointed out that curl's configure scrip didn't get right if you
+  used autoconf newer than 2.52. This was due to some badly quoted code.
 
-  This *-config style is not a new idea, but something that has been used
-  successfully in other (library based) projects.
+Version 7.10.2-pre1
 
-- Phil Karn pointed out that libcurl wrongly did not always use GMT time zone
-  for the If-Modified-Since style headers.
+Daniel (23 Oct 2002)
+- Emiliano Ida confirmed that we now build properly with the Borland C++
+  compiler too. We needed yet another fix for the ISO cpp check in the curl.h
+  header file.
 
-- Georg Schwarz pointed out an extra needed #include file needed in src/main.c
-  for curl to build on Ultrix.
+- Yet another fix was needed to get the HTTP download without headers to work.
+  This time it was needed if the first "believed header" was read all in the
+  first read. Test 306 has not run properly since the 11th october fix.
 
-Daniel (11 April 2001)
-- Cris Bailiff pointed out two problems that I corrected. First, libcurl's use
-  of the environment variable HTTP_PROXY in uppercase may become a security
-  hazard when people use libcurl in a server/cgi situation where the server
-  sets the HTTP_*-variables according to incoming headers in the HTTP
-  request. Thus, a "Proxy:"-header would set that environment variable!
+Daniel (21 Oct 2002)
+- Zvi Har'El pointed out a problem with curl's name resolving on Redhat 8
+  machines (running IPv6 disabled). Mats Lidell let me use an account on his
+  machine and I could verify that gethostbyname_r() has been changed to return
+  EAGAIN instead of ERANGE when the given buffer size is too small. This is
+  glibc 2.2.93.
 
-  Then, invoking curl_easy_perform() without having an URL set caused a crash.
-
-- S. Moonesamy brought a patch that make curl use non-blocking connects on
-  windows when connection timeout is set, as it allows windows users to set
-  that timeout!
-
-- Hirotaka Matsuyuki wrote a Ruby interface to libcurl!
-
-- Cris Bailiff, Forrest Cahoon and Georg Horn work on the Perl interface.
-
-- I've written a first shot at a Java interface to libcurl. Many thanks to
-  Daniel Marell for tirelessly answering to all my basic Java questions. It
-  works, but it is still very basic.
-
-Daniel (10 April 2001)
-- The progress display could get silly when doing multiple file transfers, as
-  it wasn't properly reset between transfers!
-
-- Discussions with Cris Bailiff who writes a Perl interface to libcurl, made
-  me add CURLOPT_HEADERFUNCTION. It can be used to set a separate callback
-  function for writing headers. Previously you could only set a different FILE
-  * when headers are written from within libcurl.
-
-Daniel (7 April 2001)
-- Andrés García fixed a problem in curl_escape() and pointed out a flaw in
-  the curl_easy_setopt man page.
-
-Daniel (6 April 2001)
-- Adjusted the version code to properly display OpenSSL 0.9.6a. They sure
-  change their version define format often...
-
-- curl_formfree() now accepts a NULL pointer without crashing!
-
-Version 7.7.1
-
-Daniel (3 April 2001)
-- Puneet Pawaia pointed out two serious problems. Libcurl would attempt to
-  read bad memory during situations when an (ftp) connection attempt failed.
-  Also, the lib/Makefile.vc6 was corrected.
-
-- More investigations in the Location: following code made me realize that
-  it was not clean enough to work transparantly with persistent and non-
-  persistent connections. I think I've fixed it now.
-
-Daniel (29 March 2001)
-- Georg Horn mailed me some corrections for the Curl::easy perl interface.
-
-- Experimental ftps:// support added. It is basically FTP over SSL for the
-  control connection. It still makes all data transfers going over unencrypted
-  connections. Rainer Weikusat's ftpd-ssl server hack supports this and I used
-  that to verify the functionality.
-
-Daniel (27 March 2001)
-- Guenole Bescon discovered that if you set a CURLOPT_TIMEOUT and then tried
-  to get a file from a site and it fails, the SIGALRM would still be sent
-  after the timeout-time, quite inexpectedly!
-
-- I added an ftp transfer example to docs/examples/ and I also wrote a tiny
-  example makefile that can be used as a start when building one of the
-  examples.
-
-Version 7.7.1-beta1
-
-Daniel (26 March 2001)
-- Mohamed Lrhazi reported problems with 7.6.1 and persistent HTTP/1.0
-  connections (when the server replied a Connection: Keep-Alive) and this
-  problem was not properly dealt with in 7.7 either. A patch was posted to the
-  curl-and-php mailing list.
-
-Daniel (24 March 2001)
-- Colin Watson reported about a problem and brought a patch that corrected it,
-  which was about the man page and lines starting with a single quote (') in a
-  way that gnroff doesn't like.
-
-Daniel (23 March 2001)
-- Peter Bray reported correctly that the root makefile used make instead of
-  $(MAKE) for the test target.
-
-- Corrected the Curl::easy perl interface to use curl_easy_setopt() and not
-  curl_setopt() which was removed in 7.7!
-
-- S. Moonesamy provided updates on three documents (MANUAL, INSTALL and FAQ).
-
-- When following a Location:, libcurl would sometimes write to the URL string
-  in a way it shouldn't. As the pointer is passed-in to libcurl from an
-  application, we can't be allowed to write to it. The particular bug report
-  from 'nk' that brought this up was because he had a read-only URL that then
-  caused a libcurl crash!
-
-- No longer reads HEAD responses longer than to the last header. Previously,
-  curl would read the full reply if the connection was a "close" one.
-
-- libcurl did re-use connections way too much. Doing "curl
-  http://www.{microsoft,ibm}.com" would make it re-use the connection which
-  made the second request return very odd results.
-
-Daniel (22 March 2001)
-- Edin Kadribasic made me aware that curl should not re-send POST requests
-  when following 302-redirects. I made 302 work like 303 which means curl uses
-  GET in the following request(s).
-
-- libcurl now reset the "followed-location" counter on each invoke of
-  curl_easy_perform() as it otherwise would sum up all redirects on the same
-  connection and thus could reach the maxredirs counter wrongly.
-
-- Jim Drash suggested curl_escape() should not re-encode what already looks
-  like an encoded sequence and I think that's a fair suggestion.
-
-Version 7.7
-
-Daniel (22 March 2001)
-- The configure script now fails with an error message if gethostbyname_r() is
-  detected but it couldn't figure out how to invoke it (what amount of
-  arguments it is supposed to get). Reports from Andrés García made me aware
-  of this need.
-
-- Talking with Jim Drash made me finally put the curl_escape and curl_unescape
-  functions in the curl.h include file and write man pages for them. The
-  escape function was modified to use the same interface as the unescape one
-  had.
-
-- No bug reports at all on the latest betas. Release time coming up.
-
-Version 7.7-beta5
-
-Daniel (19 March 2001)
-- Georg Ottinger reported problems with using -C together with -L in the sense
-  that the -C info got lost when it was redirected. I could not repeat this
-  problem on the 7.7 branch why I leave this for the moment. Test case 39 was
-  added to do exactly this, and it seems to do right.
-
-- Christian Robottom Reis reported how his 7.7 beta didn't successfully do
-  form posts as elegantly as 7.6.1 did. Indeed, this was a flaw in the header
-  engine, as HTTP 1.1 has introduced a new 100 "transient" return code for PUT
-  and POST operations that I need to add support for. Section 8.2.3 in RFC2616
-  has all the details. Seems to work now!
-
-Daniel (16 March 2001)
-- After having experienced another machine break-down, we're back.
-
-- Georg Horn's perl interface Curl::easy is now included in the curl release
-  archive. The perl/ directory is now present. Please help me with docs,
-  examples and updates you think fit.
-
-- Made a new php/ directory in the release archive and moved the PHP examples
-  into a subdirectory in there. Not much PHP info yet, but I plan to. Please
-  help me here as well!
-
-- Made libcurl return error if a transfer is aborted in the middle of a
-  "chunk". It actually enables libcurl to discover premature transfer aborts
-  even if the Content-Length: size is unknown.
-
-Daniel (15 March 2001)
-- Added --connect-timeout to curl, which sets the new CURLOPT_CONNECTTIMEOUT
-  option in libcurl. It limits the time curl is allowed to spend in the
-  connection phase. This differs from -m/--max-time that limits the entire
-  file transfer operation. Requested by Larry Fahnoe and others.
-
-  I also updated the curl.1 and curl_easy_setopt.3 man pages and removed the
-  item from the TODO.
-
-Version 7.7-beta4
-
-Daniel (14 March 2001)
-- Made curl grok IPv6 with HTTP proxies and got everything to compile nicely
-  again when ENABLE_IPV6 is set.
-
-  I need to remake things in the test suite. I can't test the FTP parts with
-  curl built for IPv6 as it uses a different set of FTP commands then!
-
-- I fell onto a bug report on php.net (posted by Lars Torben Wilson) that was
-  a report meant for our project. Anyway, it said the .netrc parsing didn't
-  work as supposed, and as I agreed with Lars, I made the netrc parser use
-  getpwuid() to figure out the home directory of the effective user and try
-  that netrc. It still uses the environment variable HOME for those that don't
-  have that function or if the user doesn't return valid pwd info.
-
-- Edin Kadribaic posted a bug report where he got a crash when a fetch with
-  user+password in the URL followed a Location: to a second URL (absolute,
-  without name+password). This bug has been around for a long while and
-  crashes due to a read at address zero. Fixed now. Wrote test case 38, that
-  tests this.
-
-- Modified the test suite's httpserver slightly to append all client request
-  data to its log file so that the test script now better can verify a range
-  of requests and not only the last one, as it did previously.
-
-- Updated the curl man page with --random-file and --egd-file details.
-
-Version 7.7-beta3
-
-Daniel (14 March 2001)
-- Björn Stenberg provided similar fixes as Jörn did and some additional patches
-  for non-SSL compiles.
-
-- I increased the interface number for libcurl as I've removed the low level
-  functions from the interface. I also took this opportunity to rename the
-  Curl_strequal function to curl_strequal and Curl_strnequal to
-  curl_strnequal, as they're public libcurl functions (even if they're still
-  undocumented).
-
-  This will make older programs not capable of using the new libcurl with
-  just a drop-in replacement.
-
-- Jörn Hartroth updated stuff for win32 compiles:
-  o config-win32.h was fixed for socklen_t
-  o lib/ssluse.c had a bad #endif placement
-  o lib/file.c was made to compile on win32 again
-  o lib/Makefile.m32 was updated with the new files
-  o lib/libcurl.def matches the current interface state
-
-Daniel (13 March 2001)
-- It only took an hour or so before Jörn Hartroth found a problem in the
-  chunked transfer-encoding. Given his fine example-site, I could easily spot
-  the problem and when I re-read the spec (the part I have pasted in the top
-  of the http_chunks.h file), I realized I had made my state-machine slightly
-  wrong and didn't expect/handle the trailing CRLF that comes after the data
-  in each chunk (and those extra two bytes sure feel wasted).
-
-  Had to modify test case 34 to match this as well.
-
-Version 7.7-beta2
-
-Daniel (13 March 2001)
-- Added the policy stuff to the curl_easy_setopt man page for the two supported
-  policies.
-
-- Implemented some support for the CURLOPT_CLOSEPOLICY option. The policies
-  CURLCLOSEPOLICY_LEAST_RECENTLY_USED and CURLCLOSEPOLICY_OLDEST are now
-  supported, and the "least recently used" is used as default if no policy
-  is chosen.
-
-Daniel (12 March 2001)
-- Added CURLOPT_RANDOM_FILE and CURLOPT_EGDSOCKET to libcurl for seeding the
-  SSL random engine. The random seeding support was also brought to the curl
-  client with the new options --random-file <file> and --egd-file <file>. I
-  need some people to really test this to know they work as supposed. Remember
-  that libcurl now informs (if verbose is on) if the random seed is considered
-  weak (HTTPS connections).
-
-- Made the chunked transfer-encoding engine detected bad formatted data length
-  and return error if so (we can't possibly extract sensible data if this is
-  the case). Added a test case that detects this. Number 36. Now there are 60
-  test cases.
-
-- Added 5 new libcurl options to curl/curl.h that can be used to control the
-  persistent connection support in libcurl. They're also documented (fairly
-  thoroughly) in the curl_easy_setopt.3 man page. Three of them are now
-  implemented, although not really tested at this point... Anyway, the new
-  implemented options are named CURLOPT_MAXCONNECTS, CURLOPT_FRESH_CONNECT,
-  CURLOPT_FORBID_REUSE. The ones still left to write code for are:
-  CURLOPT_CLOSEPOLICY and its related option CURLOPT_CLOSEFUNCTION.
-
-- Made curl (the actual command line tool) use the new libcurl 7.7 persistent
-  connection support by re-using the same curl handle for every specified file
-  transfer and after some more test case tweaking we have 100% test case OK.
-  I made some test cases return HTTP/1.0 now to make sure that works as well.
-
-- Had to add 'Connection: close' to the headers of a bunch of test cases so
-  that curl behaves "old-style" since the test http server doesn't do multiple
-  connections... Now I get 100% test case OK.
-
-- The curl.haxx.se site, the main curl mailing list and my personal email are
-  all dead today due to power blackout in the area where the main servers are
-  located. Horrible.
-
-- I've made persistance work over a squid HTTP proxy. I find it disturbing
-  that it uses headers that aren't present in any HTTP standard though
-  (Proxy-Connection:) and that makes me feel that I'm now on the edge of what
-  the standard actually defines. I need to get this code excercised on a lot
-  of different HTTP proxies before I feel safe.
-
-  Now I'm facing the problem with my test suite servers (both FTP and HTTP)
-  not supporting persistent connections and libcurl is doing them now. I have
-  to fix the test servers to get all the test cases do OK.
-
-Daniel (8 March 2001)
-- Guenole Bescon reported that libcurl did output errors to stderr even if
-  MUTE and NOPROGRESS was set. It turned out to be a bug and happens if
-  there's an error and no ERRORBUFFER is set. This is now corrected.
-
-Version 7.7-beta1
-
-Daniel (8 March 2001)
-- "Transfer-Encoding: chunked" is no longer any trouble for libcurl. I've
-  added two source files and I've run some test downloads that look fine.
-
-- HTTP HEAD works too, even on 1.1 servers.
-
-Daniel (5 March 2001)
-- The current 57 test cases now pass OK. It would suggest that libcurl works
-  using the old-style with one connection per handle. The test suite doesn't
-  handle multiple connections yet so there are no test cases for this.
-
-- I patched the telnet.c heavily to not use any global variables anymore. It
-  should make it a lot nicer library-wise.
-
-- The file:// support was modified slightly to use the internal connect-first-
-  then-do approach.
-
-Daniel (4 March 2001)
-- More bugs erased.
-
-Version 7.7-alpha2
-
-Daniel (4 March 2001)
-- Now, there's even a basic check that a re-used connection is still alive
-  before it is assumed so. A few first tests have proven that libcurl will
-  then re-connect instead of re-use the dead connection!
-
-Daniel (2 March 2001)
-- Now they work intermixed as well. Major coolness!
-
-- More fiddling around, my 'tiny' client I have for testing purposes now has
-  proved to download both FTP and HTTP with persistent connections. They do
-  not work intermixed yet though.
-
-Daniel (1 March 2001)
-- Wilfredo Sanchez pointed out a minor spelling mistake in a man page and that
-  curl_slist_append() should take a const char * as second argument. It does
-  now.
-
-Daniel (22 February 2001)
-- The persistent connections start to look good for HTTP. On a subsequent
-  request, it seems that libcurl now can pick an already existing connection
-  if a suitable one exists, or it opens a new one.
-
-- Douglas R. Horner mailed me corrections to the curl_formparse() man page
-  that I applied.
-
-Daniel (20 February 2001)
-- Added the docs/examples/win32sockets.c file for our windows friends.
-
-- Linus Nielsen Feltzing provided brand new TELNET functionality and
-  improvements:
-
-  * Negotiation is now passive. Curl does not negotiate until the peer does.
-  * Possibility to set negotiation options on the command line, currently only
-    XDISPLOC, TTYPE and NEW_ENVIRON (called NEW_ENV).
-  * Now sends the USER environment variable if the -u switch is used.
-  * Use -t to set telnet options (Linus even updated the man page, awesome!)
-
-- Haven't done this big changes to curl for a while. Moved around a lot of
-  struct fields and stuff to make multiple connections get connection specific
-  data in separate structs so that they can co-exist in a nice way. See the
-  mailing lists for discussions around how this is gonna be implemented. Docs
-  and more will follow.
-
-  Studied the HTTP RFC to find out better how persistent connections should
-  work. Seems cool enough.
-
-Daniel (19 February 2001)
-- Bob Schader brought me two files that help set up a MS VC++ libcurl project
-  easier. He also provided me with an up-to-date libcurl.def file.
-
-- I moved a bunch of prototypes from the public <curl/curl.h> file to the
-  library private urldata.h. This is because of the upcoming changes. The
-  low level interface is no longer being planned to become reality.
-
-Daniel (15 February 2001)
-- CURLOPT_POST is not required anymore. Just setting the POST string with
-  CURLOPT_POSTFIELDS will switch on the HTTP POST. Most other things in
-  libcurl already works this way, i.e they require only the parameter to
-  switch on a feature so I think this works well with the rest. Setting a NULL
-  string switches off the POST again.
-
-- Excellent suggestions from Rich Gray, Rick Jones, Johan Nilsson and Bjorn
-  Reese helped me define a way how to incorporate persistent connections into
-  libcurl in a very smooth way. If done right, no change may have to be made
-  to older programs and they will just start using persistent connections when
-  applicable!
-
-Daniel (13 February 2001)
-- Changed the word 'timeouted' to 'timed out' in two different error messages.
-  Suggested by Larry Fahnoe.
-
-Version 7.6.1
-
-Daniel (9 February 2001)
-- Frank Reid and Cain Hopwood provided information and research around a HTTPS
-  PUT/upload problem we seem to have. No solution found yet.
-
-Daniel (8 February 2001)
-- An interesting discussion is how to specify an empty password without having
-  curl ask for it interactively? The current implmentation takes an empty
-  password as a request for a password prompt. However, I still want to
-  support a blank user field. Thus, today if you enter "-u :" (without user
-  and password) curl will prompt for the password. Tricky. How would you
-  specify you want the prompt otherwise?
-
-- Made the netrc parse result possible to use for other protocols than FTP and
-  HTTP (such as the upcoming TELNET fixes).
-
-- The previously mentioned "MSVC++ problems" turned out to be a non-issue.
-
-- Added a HTTP file upload code example in the docs/examples/ section on
-  request.
-
-- Adjusted the FTP response fix slightly.
-
-Version 7.6.1-pre3
-
-Daniel (7 February 2001)
-- S. Moonesamy found a flaw in the response reading function for FTP that
-  could make libcurl not get out of the loop properly when it should, if
-  libcurl got -1 returned when reading the socket.
-
-- I found a similar mistake in http.c when using a proxy and reading the
-  results from the proxy connection.
-
-Daniel (6 February 2001)
-- S. Moonesamy pointed out that the VC makefile in src/ needed the libpath set
-  for the debug build to work.
-
-- Daniel Gehriger stepped in to assist with the VC++ stuff Robert Weaver
-  brought up yesterday.
-
-Daniel (5 February 2001)
-- Jun-ichiro itojun Hagino brought a big patch that brings IPv6-awareness to
-  a bunch of different areas within libcurl.
-
-- Robert Weaver told me about the problems the MS VC++ 6.0 compiler has with
-  the 'static' keyword on a number of libcurl functions. I might need to add a
-  patch that redefines static when libcurl is compiled with that compiler.
-  How do I know when VC++ compiles, anyone?
-
-Daniel (4 February 2001)
-- curl_getinfo() was extended with two new options:
-  CURLINFO_CONTENT_LENGTH_DOWNLOAD and CURLINFO_CONTENT_LENGTH_UPLOAD. They
-  return the full assumed content length of the transfer in the given
-  direction. The CURLINFO_CONTENT_LENGTH_DOWNLOAD will be the Content-Length:
-  size of a HTTP download. Added descriptions to the man page as well. This
-  was done after discussions with Bob Schader.
-
-Daniel (3 February 2001)
-- Ingo Ralf Blum provided another fix that makes curl build under the more
-  recent cygwin installations. It seems they've changed the preset defines to
-  not include WIN32 anymore.
-
-Version 7.6.1-pre2
-
-Daniel (31 January 2001)
-- Curl_read() and curl_read() now return a ssize_t for the size, as it had to
-  be able to return -1. The telnet support crashed due to this and there was a
-  possibility to weird behaviour all over. Linus Nielsen Feltzing helped me
-  find this.
-
-- Added a configure.in check for a working getaddrinfo() if IPv6 is requested.
-  I also made the configure script feature --enable-debug which sets a couple
-  of compiler options when used. It assumes gcc.
-
-Daniel (30 January 2001)
-- I finally took a stab at the long-term FIXME item I've had on myself, and
-  now libcurl will properly work when doing a HTTP range-request that follows
-  a Location:. Previously that would make libcurl fail saying that the server
-  doesn't seem to support range requests.
-
-Daniel (29 January 2001)
-- I added a test case for the HTTP PUT resume thing (test case 33).
-
-Version 7.6.1-pre1
-
-Daniel (29 January 2001)
-- Yet another Content-Range change. Ok now? Bob Schader checks from his end 
-  and it works for him.
-
-Daniel (27 January 2001)
-- So the HTTP PUT resume fix wasn't good. There should appearantly be a
-  Content-Range header when resuming a PUT.
-
-- I noticed I broke the download-check that verifies that a resumed HTTP
-  download is actually resumed. It got broke because my new 'httpreq' field
-  in the main curl struct. I should get slapped. I added a test case for
-  this now, so I won't be able to ruin this again without noticing.
-
-- Added a test case for content-length verifying when downloading HTTP.
-
-- Made the progress meter title say if the transfer is being transfered. It
-  makes the output slightly better for resumes.
-
-- When dealing with Location: and HTTP return codes, libcurl will not attempt
-  to follow the spirit of RFC2616 better. It means that when POSTing to a
-  URL that is being following to a second place, the standard will judge on
-  what to do. All HTTP codes except 303 and 305 will cause curl to make a
-  second POST operation. 303 will make a GET and 305 is not yet supported.
-
-  I also wrote two test cases for this POST/GET/Location stuff.
-
-Version 7.6
-
-Daniel (26 January 2001)
-- Lots of mails back and forth with Bob Schader finally made me add a small
-  piece of code in the HTTP engine so that HTTP upload resume works. You can
-  now do an operation like 'curl -T file -C <offset> <URL>' and curl will PUT
-  the ending part of the file starting at given offet to the specified URL.
-
-Version 7.6-pre4
-
-Daniel (25 January 2001)
-- I took hold of Rick Jones' question why we don't use recv() and send() for
-  reading/writing to the sockets and I've now modified the sread() and
-  swrite() macros to use them instead. If nothing else, they could be tested
-  in the next beta-round coming right up.
-
-- Jeff Morrow found a problem with libcurl's usage of SSL_read() and supplied
-  his research results in how to fix this. It turns out we have to invoke the
-  function several times in some cases. The same goes for the SSL_write().
-
-  I made some rather drastic changes all over libcurl to make all writes and
-  reads get done on one single place so that this repeated-attempts thing
-  would only have to be implemented at one point.
-
-- Rick Jones spotted that the 'total time' counter really didn't measure the
-  total time very accurate on subsecond levels.
-
-- Johan Nilsson pointed out the need to more clearly specify that the timeout
-  value you set for a download is for the *entire* download. There's currently
-  no option available that sets a timeout for the connection phase only.
-
-Daniel (24 January 2001)
-- Ingo Ralf Blum submitted a series of patches required to get curl to compile
-  properly with cygwin.
-
-- Robert Weaver posted a fix for the win32 section of the curl_getenv() code
-  that corrected a potential memory leak.
-
-- Added comments in a few files in a sudden attempt to make the sources more
-  easy to read and understand!
-
-Daniel (23 January 2001)
-- Added simple IPv6 detection in the configure script and made the version
-  string add 'ipv6' to the enable section in that case. ENABLE_IPV6 will be
-  set if curl is compiled with IPv6 support enabled.
-
-- Added a parser for IPv6-style specified IP-addresses in a URL. Thus, when
-  IPv6 gets enabled soon, we can use URLs like '[0::1]:80'...
-
-- Made the URL globbing in the client possible to fail silently if there's an
-  error in the globbing. It makes it almost intuitive, so when you don't
-  follow the syntax rules, globbing is simply switched off and the raw string
-  is used instead.
-
-  I still think we'll get problems with IPv6-style IP-addresses when we *want*
-  globbing on parts of the URL as the initial part of the URL will for sure
-  seriously confuse the globber.
-
-Daniel (22 January 2001)
-- Björn Stenberg supplied a progress meter patch that makes it look better even
-  during slow starts. Previously it made some silly assumptions...
-
-- Added two FTP tests for -Q and -Q - stuff since it was being discussed on
-  the mailing list. Had to correct the ftpserver.pl too as it bugged slightly.
-
-Daniel (19 January 2001)
-- Made the Location: parsers deal with any-length URLs. Thus I removed the last
-  code that restricts the length of URLs that curl supports.
-
-- Added a --globoff test case (#28) and it quickly identified a memory problem
-  in src/main.c that I took care of.
-
-Version 7.6-pre3
-
-Daniel (17 January 2001)
-- Made the two former files lib/download.c and lib/highlevel.c become the new
-  lib/transfer.c which makes more sense. I also did the rename from Transfer()
-  to Curl_Transfer() in the other source files that use the transfer function
-  in the spirit of using Curl_ prefix for library-scoped global symbols.
-
-Daniel (11 January 2001)
-- Added -g/--globoff that switches OFF the URL globbing and thus enables {}[]
-  letters to be part of the URL. Do note that RFC2396 section 2.4.3 explicitly
-  mention these letters to be escaped. This was posted as a feature request by
-  Jorge Gutierrez and as a bug by Terry.
-
-- Short options to curl that requires parameters can now be specified without
-  having the option and its parameter space separated. -ofile works as good as
-  -o file. -m20 is equal to -m 20. Do note that this goes for single-letter
-  options only, verbose --long-style options still must be separated with
-  space from their parameters.
-
-Daniel (8 January 2001)
-- Francis Dagenais reported that the SCO compiler still fails when compiling
-  curl due to that getpass_r() prototype. I've now put it around #ifndef
-  HAVE_GETPASS_R in an attempt to please the SCO systems.
-
-- Made some minor corrections to get the client to cleanup properly and I made
-  the separator work again when getting multiple globbed URLs to stdout.
-
-- Worked with Loic Dachary to get the make dist and make distcheck work
-  correctly. The 'maketgz' script is now using the automake generated 'make
-  dist' when creating release archives. Loic successfully made 'make rpms'
-  automatically build RPMs!
-
-Loic Dachary (6 January 2001)
-- Automated generation of rpm packages, no need to be root.
-
-- make distcheck generates a proper distribution (EXTRA_DIST
-  in all Makefile.am modified to match FILES).
-
-Daniel (5 January 2001)
-- Huge client-side hack: now multiple URLs are supported. Any number of URLs
-  can be specified on the command line, and they'll all be downloaded. There
-  must be a corresponding -o or -O for each URL or the data will be written to
-  stdout. This needs more testing, time to release a 7.6-pre package.
-
-- The krb4 support was broken in the release. Fixed now.
-
-- Huge internal symbol rename operation. All non-static but still lib-internal
-  symbols should now be prefixed with 'Curl_' to prevent collisions with other
-  libs. All public symbols should be prefixed with 'curl_' and the rest should
-  be static and thus invisible to the outside world. I updated the INTERNALS
-  document to say this as well.
-
-Version 7.5.2
-
-Daniel (4 January 2001)
-- As Kevin P Roth suggested, I've added text to the man page for every command
-  line option and what happens when you specify that option more than
-  once. That hasn't been exactly crystal clear before.
-
-- Made the configure script possible to run from outside the source-tree. For
-  odd reasons I can't build curl properly outside though. It has to do with
-  curl's dependencies on libcurl...
-
-- Cut off all older (dated 1999 and earlier) CHANGES entries from this file.
-  The older piece is named CHANGES.0 and is added to the CVS repository in
-  case anyone would need it.
-
-- I added another file 'CVS-INFO' to the CVS. It contains information about
-  files in the CVS that aren't included in release archives and how to build
-  curl when you get the sources off CVS.
-
-- Updated CONTRIBUTE and FAQ due to the new license.
-
-Daniel (3 January 2001)
-- Renamed README.libcurl to LIBCURL
-
-- Changed headers in all sources files to the new dual license concept of
-  curl: use the MIT/X derivate license *or* MPL. The LEGAL file was updated
-  accordingly and the MPL 1.1 and MIT/X derivate licenses are now part of the
-  release archive.
-
-Daniel (30 December 2000)
-- Made all FTP commands get sent with the trailing CRLF in one single write()
-  as splitting them up seems to confuse at least some firewalls (FW-1 being
-  one major).
-
-Daniel (19 December 2000)
-- Added file desrciptor and FILE handle leak detection to the memdebug system
-  and thus I found and removed a file descriptor leakage in the ftp parts
-  that happened when you did PORTed downloads.
-
-- Added an include <stdio.h> in <curl/curl.h> since it uses FILE *.
-
-Daniel (12 December 2000)
-- Multiple URL downloads with -O was still bugging. Not anymore I think or
-  hope, or at least I've tried... :-O
-
-- Francois Petitjean fixed another -O problem
-
-Version 7.5.1
-
-Daniel (11 December 2000)
-- Cleaned up a few of the makefiles to use unix-style newlines only. As Kevin
-  P Roth found out, at least one CVS client behaved wrongly when it found
-  different newline conventions within the same file.
-
-- Albert Chin-A-Young corrected the LDFLAGS use in the configure script for
-  the SSL stuff.
-
-Daniel (6 December 2000)
-- Massimo Squillace correctly described how libcurl could use session ids when
-  doing SSL connections.
-
-- James Griffiths found out that curl would crash if the file you specify with
-  -o is shorter than the URL! This took some hours to fully hunt down, but it
-  is fixed now.
-
-Daniel (5 December 2000)
-- Jaepil Kim sent us makefiles that build curl using the free windows borland
-  compiler. The root makefile now accepts 'make borland' to build curl with
-  that compiler.
-
-- Stefan Radman pointed out that the test makefiles didn't use the PERL
-  variable that the configure scripts figure out. Actually, you still need
-  perl in the path for the test suite to run ok.
-
-- Rich Gray found numerous portability problems:
-  * The SCO compiler got an error on the getpass_r() prototype in getpass.h
-    since the curl one differed from the SCO one
-  * The HPUX compiler got an error because of how curl did the sigaction
-    stuff and used a define HPUX doesn't have (or need).
-  * A few more problems remain to be researched.
-
-- Paul Harrington experienced a core dump using https. Not much details yet.
-
-Daniel (4 December 2000)
-- Jörn Hartroth fixed a problem with multiple URLs and -o/-O.
-
-Version 7.5
-
-Daniel (1 December 2000)
-- Craig Davison gave us his updates on the VC++ makefiles, so now curl should
-  build fine with the Microsoft compiler on windows too.
-
-- Fixed the libcurl versioning so that we don't ruin old programs when
-  releasing new shared library interfaces.
-
-Daniel (30 November 2000)
-- Renamed docs/README.curl to docs/MANUAL to better reflect what the document
-  actually contains.
-
-Daniel (29 November 2000)
-- I removed a bunch of '#if 0' sections from the code. They only make things
-  harder to follow. After all, we do have all older versions in the CVS.
-
-Version 7.5-pre5
-
-Daniel (28 November 2000)
-- I filled in more error codes in the man page error code list that had been
-  lagging.
-
-- James Griffiths mailed me a fine patch that introduces the CURLOPT_MAXREDIRS
-  libcurl option. When used, it'll prevent location following more than the
-  set number of times. It is useful to break out of endless redirect-loops.
-
-Daniel (27 November 2000)
-- Added two test cases for file://.
-
-Daniel (22 November 2000)
-- Added the libcurl CURLOPT_FILETIME setopt, when set it tries to get the
-  modified time of the remote document. This is a special option since it
-  involves an extra set of commands on FTP servers. (Using the MDTM command
-  which is not in the RFC959)
-
-  curl_easy_getinfo() got a corresponding CURLINFO_FILETIME to get the time
-  after a transfer. It'll return a zero if CURLOPT_FILETIME wasn't used or if
-  the time wasn't possible to get.
-
-  --head/-I used on a FTP server will now present a 'Last-Modified:' header
-  if curl could get the time of the specified file.
-
-- Added the option '--cacert [file]' to curl, which allows a specified PEM
-  file to be used to verify the peer's certificate when doing HTTPS
-  connections. This has been requested, rather recently by Hulka Bohuslav but
-  others have asked for it before as well.
-
-Daniel (21 November 2000)
-- Numerous fixes the test suite has brought into the daylight:
-
-   * curl_unescape() could return a too long string
-   * on ftp transfer failures, there could be memory leaks
-   * ftp CWD could use bad directory names
-   * memdebug now uses the mprintf() routines for better portability
-   * free(NULL) removed when doing resumed transfers
-
-- Added a bunch of test cases for FTP.
-
-- General cleanups to make less warnings with gcc -Wall -pedantic.
-
-- I made the tests/ftpserver.pl work with the most commonly used ftp
-  operations. PORT, PASV, RETR, STOR, LIST, SIZE, USER, PASS all work now. Now
-  all I have to do is integrate the ftp server doings in the runtests.pl
-  script so that ftp tests can be run the same way http tests already run.
-
-Daniel (20 November 2000)
-- Made libcurl capable of dealing with any-length URLs. The former limit of
-  4096 bytes was a bit annoying when people wanted to use curl to really make
-  life tough on a web server. Now, the command line limit is the most annoying
-  but that can be circumvented by using a config file.
-
-  NOTE: there is still a 4096-byte limit on URLs extracted from Location:
-  headers.
-
-- Corrected the spelling of 'resolve' in two error messages.
-
-- Alexander Kourakos posted a bug report and a patch that corrected it! It
-  turned out that lynx and wget support lowercase environment variable names
-  where curl only looked for the uppercase versions. Now curl will use the
-  lowercase versions if they exist, but if they don't, it'll use the uppercase
-  versions.
-
-Daniel (17 November 2000)
-- curl_formfree() was added. How come no one missed that one before? I ran the
-  test suite with the malloc debug enabled and got lots of "nice" warnings on
-  memory leaks. The most serious one was this. There were also leaks in the
-  cookie handling, and a few errors when curl failed to connect and similar
-  things. More tests cases were added to cover up and to verify that these
-  problems have been removed.
-
-- Mucho updated config file parser (I'm dead tired of all the bug reports and
-  weird behaviour I get on the former one). It works slightly differently now,
-  although I doubt many people will notice the differences. The main
-  difference being that if you use options that require parameters, they must
-  both be specified on the same line. With this new parser, you can also
-  specify long options without '--' and you may separate options and
-  parameters with : or =. It makes a config file line could look like:
-
-        user-agent = "foobar and something"
-
-  Parameters within quotes may contain spaces. Without quotes, they're
-  expected to be a single non-space word.
-
-  Had to patch the command line argument parser a little to make this work.
-
-- Added --url as an option to allow the URL to be specified this way. It makes
-  way nicer config files. The previous way of specifying URLs in the config
-  file doesn't work anymore.
-
-Daniel (15 November 2000)
-- Using certain characters in usernames or passwords for HTTP authentication
-  failed. This was due to the mprintf() that had a silly check for letters,
-  and if they weren't isprint() they weren't outputed "as-is". This caused
-  passwords and usernames using '§' (for example) to fail.
-
-Version 7.4.2
-
-Daniel (15 November 2000)
-- 'tests/runtests.pl' now sorts the test cases properly when 'all' is used.
-
-Daniel (14 November 2000)
-- I fell over the draft-ietf-ftpext-mlst-12.txt Internet Draft titled
-  "Extensions to FTP" that contains a defined way how the ftp command SIZE
-  could be assumed to work.
-
-- Laurent Papier posted a bug report about using "-C -" and FTP uploading a
-  file that isn't prsent on the server. The server might then return a 550 and
-  curl will fail. Should it instead as Laurent Papier suggests, start
-  uploading from the beginning as a normal upload?
-
-Daniel (13 November 2000)
-- Fixed a crash with the followlocation counter.
-
-- While writing test cases for the test suite, I discovered an old limitation
-  that prevented -o and -T to be used at the same time. I removed this
-  immediately as this has no relevance in the current libcurl.
+- Albert Chin helped me get the -no-undefined option corrected in
+  lib/Makefile.am since Cygwin builds want it there while Solaris builds don't
+  want it present. Kevin Roth helped me try it out on cygwin.
   
-- Chris Faherty fixed a free-twice problem in lib/file.c
+- Nikita Schmidt provided a bug fix for a FOLLOWLOCATION bug introduced when
+  the ../ support got in (7.10.1).
 
-- I fixed the perl http server problem in the test suite.
+Daniel (18 Oct 2002)
+- Fabrizio Ammollo pointed out a remaining problem with FOLLOWLOCATION in
+  the multi interface.
 
-Version 7.4.2 pre4
+Daniel (17 Oct 2002)
+- Richard Cooper's experimenting proved that -j (CURLOPT_COOKIESESSION) didn't
+  work quite as supposed. You needed to set it *before* you use
+  CURLOPT_COOKIEFILE, and we dont' want that kind of dependencies.
 
-Daniel (10 November 2000)
-- I've (finally) started working on the curl test suite. It is in the new
-  tests/ directory. It requires sh and perl. There's a TCP server in perl and
-  most of the other stuff running a pretty simple shell script.
+Daniel (15 Oct 2002)
+- Andrés García provided corrections for erratas in four libcurl man pages.
 
-  I've only made four test cases so far, but it proves the system can work.
+Daniel (13 Oct 2002)
+- Starting now, we generate and include PDF versions of all the docs in the
+  release archives.
 
-- Laurent Papier noticed that curl didn't set TYPE when doing --head checks
-  for sizes on FTP servers. Some servers seem to return different sizes
-  depending on whether ASCII or BINARY is used!
+Daniel (12 Oct 2002)
+- Trying to connect to a host on a bad port number caused the multi interface
+  to never return failure and it appeared to keep on trying forever (it just
+  didn't do anything).
 
-- Laurent Papier detected that if you appended a FTP upload and everything was
-  already uploaded, curl would hang.
+Daniel (11 Oct 2002)
+- Downloading HTTP without headers didn't work 100%, some of the initial data
+  got written twice. Kevin Roth reported.
 
-- Angus Mackay's getpass_r() in lib/getpass.c is now compliant with the
-  getpass_r() function it seems some systems actually have.
+- Kevin Roth found out the "config file" parser in the client code could
+  segfault, like if DOS newlines were used.
+
+Version 7.10.1 (11 Oct 2002)
+
+Daniel (10 Oct 2002)
+- Jeff Lawson fixed a few problems with connection re-use that remained when
+  you set CURLOPT_PROXY to "".
+
+Daniel (9 Oct 2002)
+- Craig Davison found a terrible flaw and Cris Bailiff helped out in the
+  search. Getting HTTP data from servers when the headers are split up in
+  multiple reads, could cause junk data to get inserted among the saved
+  headers. This only concerns HTTP(S) headers.
+
+Daniel (8 Oct 2002)
+- Vincent Penquerc'h gave us the good suggestion that when the ERRRORBUFFER
+  is set internally, the error text is sent to the debug function as well.
+
+- I fixed the telnet code to timeout properly as the option tells it to. On
+  non-windows platforms.
+
+Daniel (7 Oct 2002)
+- John Crow pointed out that libcurl-the-guide wasn't included in the release
+  tarball!
+
+- Kevin Roth pointed out that make install didn't do right if build outside
+  the source tree (ca-bundle wise).
+
+- FOLLOWLOCATION bugfix for the multi interface
+
+Daniel (4 Oct 2002)
+- Kevin Roth got problems with his cygwin build with -no-undefined was not
+  present in lib/Makefile.am so I put it back in there again. The poor one who
+  needs to remove it again must write a configure script to detect that need.
+
+- Ralph Mitchell pointed out that curl was a bit naive and didn't deal with ./
+  or ../ stuff in the string passed back in a Location: header when following
+  locations.
+
+- Albert Chin helped me to work out a better configure.in check for zlib, and
+  both --without-zlib and -with-zlib seem to work rather well right now.
+
+- Zvi Har'El improvied the OpenSSL ENGINE check in the configure script to
+  become more accurate.
+
+Daniel (1 Oct 2002)
+- Detlef Schmier pointed out the lack of a --without-libz option to configure,
+  so I added one.
+
+Version 7.10 (1 Oct 2002)
+
+Daniel (30 Sep 2002)
+- Modified the curl_version_info() proto and returned struct once again, and
+  updated the man page accordingly.
+
+- Cris Bailiff found out that the pre-releases crashed on name lookups on
+  names such as "a:" or "baz:" (on Linux versions not being ipv6-enabled) due
+  to some weird return codes from gethostbyname_r(). I'll blame the complete
+  lack of docs in that department. Cris provided a fix, which I modified only
+  slightly.
+
+Daniel (27 Sep 2002)
+- After a suggestion from Christian Kurz to Debian curl package maintainer
+  Domenico Andreoli, I made it possible to override the proxy environment
+  variables better. Now, by setting -x "" you can explicitly tell libcurl to
+  not use a proxy, no matter whan the environment variables say.
+
+Version 7.10-pre4
+
+Daniel (26 Sep 2002)
+- Extended curl_version_info() more and wrote a man page for it.
+
+Daniel (25 Sep 2002)
+- libcurl could leak memory when downloading multiple files using http ranges,
+  reported and fixed by Jean-Luc Guevel.
+
+- Walter J. Mack provided code and docs for the new curl_free() function that
+  shall be used to free memory that is allocated by libcurl and returned back
+  to the application, as curl_escape() and curl_unescape() do.
+
+- Yarram Sunil pointed out a flaw in the multi interface where a failed
+  connection didn't close down properly and thus a second transfer using the
+  same handle failed.
+
+- Andrés García fixed a flaw that made (among other things) dict-fetches
+  return a random value.
+
+Daniel (24 Sep 2002)
+- Wez Furlong brought his initial patch that introduced curl_version_info().
+  We might need to tweak it somewhat before release.
+
+Daniel (20 Sep 2002)
+- Craig Markwardt fixed another Tru64 IP resolve problem.
+
+Daniel (19 Sep 2002)
+- Dolbneff A.V and Spiridonoff A.V made the file:// code work with resumes
+  in the same style other code does.
+
+- Ilguiz Latypov fixed a flaw in the client code when fetching multiple URLs
+  and -C - was used. The first file's resume position was then accidentally
+  reused on all the other files too.
+
+Daniel (18 Sep 2002)
+- The curl_easy_setopt.3 man page was greatly modified and the options have
+  now been grouped in logical groups so that it should be somewhat easier to
+  read it and find things you search for.
+
+Daniel (13 Sep 2002)
+- Kevin Roth pinpointed a scary flaw in libcurl, when the HTTP server doesn't
+  send any headers back, only raw content. Right, that is a violation of the
+  standard but still happens at times and we need to deal with it. Test case
+  306 was added to verify that we do right now.
+
+Version 7.10-pre3
+
+Daniel (11 Sep 2002)
+- Lukasz Czekierda found out that curl didn't send a correct HTTP Host: header
+  when you specified the URL with an IPv6 IP-address.
+
+Daniel (4 Sep 2002)
+- Sven Neuhaus made --silent being acknowledged even when multiple URLs
+  were used. It used to output "[1/2]: http://host/a.html.de --> a.html.d" etc
+  even when told to shut up.
+
+Daniel (3 Sep 2002)
+- Updated all source code headers to use MIT-license references only, and
+  point to the COPYING file and the http://curl.haxx.se/docs/copyright.html
+  URL. I've cut out all references to MPL that I could find.
+
+- Corected the makefiles to not always use -lz when linking
+
+Version 7.10-pre2
+
+Daniel (2 Sep 2002)
+- James Gallagher added Content-Encoding support to libcurl so now curl and
+  libcurl-using apps can request compressed contents using the 'deflate'
+  method. See the special file lib/README.encoding for details.
+
+  curl --compressed is now used to request compressed contents.
+
+  curl-config --feature will include 'libz' if this feature was around when
+  the library was built.
+
+Daniel (30 Aug 2002)
+- Applied an anonymous SOCKS5-proxy patch. Not properly working in all
+  situations though, as all getaddrinfo()-using libcurls will fail on this.
+  This is because of the somewhat naive way the current code tries to extract
+  the IP address of the proxy.
+
+- Fixed up the SSL cert fixes from the other day even more after more inputs
+  from Cris. Added three new SSL error codes to make the
+  CURLE_SSL_CONNECT_ERROR slightly less overloaded.
+
+Daniel (27 Aug 2002)
+- After lots of talk with Tom Zerucha, Nick Gimbrone and Cris Bailiff I
+  decided to talk the bold path and I now made libcurl do CA certificate
+  verification by default. Thus library users need to explicitly turn this off
+  if you want to connect to sites without proper checking. We also install a
+  CA cert bundle on 'make install' now.
+
+  The curl tool now requires the -k/--insecure option in order to allow
+  connections and operations on SSL sites that aren't properly verified with
+  -cafile or --capath.
+
+  curl-config --ca displays the built-in path to the CA cert bundle.
+
+Daniel (26 Aug 2002)
+- Andrew Francis cleaned up some code that now compiles fine without the need
+  for ugly MSVC pragmas.
+
+- Keith MacDonald found a minor bug in src/main.c that made it close stdin
+  instead of the actual file handle. It shouldn't have resulted in much
+  trouble as most operating systems close all file handles on process exit
+  anyway.
+
+Daniel (22 Aug 2002)
+- Markus Oberhumer provided some documentation for his previously provided
+  CURLOPT_NOSIGNAL fix.
+
+- Patched the lib/Makefile.am to hopefully no longer complain on undefined
+  symbols that seemed to occur on builds with shared OpenSSL libraries on
+  Solaris lately...
+
+Daniel (20 Aug 2002)
+- Fixed compiler warnings on MSCV++ compiles. We're looking for help here:
+  remove the pragmas from lib/config-win32.h and adjust the sources where
+  the warnings occur. Hiding them with pragmas like this is not the correct
+  way of dealing with compiler warnings.
+
+Daniel (13 Aug 2002)
+- Ulrich Zadow made the global include files in curl/* include themselves
+  using "curl.h" instead of <curl/curl.h> which thus allows people to more
+  freely decide how to include curl and how to setup their include paths.
+
+- Sterling Hughes added the curl_share* interface, somewhat as discussed
+  previously.
+
+- Jörn Hartroth pointed out that poll() was used in the pre1 source code and
+  it isn't very portable, so now I check for it in the configure script and
+  work around it.
+
+Version 7.9.9-pre1
+
+Daniel (12 Aug 2002)
+- Applied my initial take on making the multi stuff more asynchronous. Connects
+  should now return back without "hanging" until it has connected for real.
+  This should also be the case for FTP-PASV connects.
+
+Daniel (9 Aug 2002)
+- Applied Markus F.X.J. Oberhumer's patch that introduces CURLOPT_NOSIGNAL,
+  which effectively prevents libcurl from doing anything that may cause
+  signals to get sent. This is basicly for multi-threaded applications that
+  now can use timeouts properly, without risking any signals to burst in and
+  ruin the party.
   
-- Venkataramana Mokkapati detected a bug in the cookie parser and corrected
-  it.  If the cookie was set for the full host name (domain=full.host.com),
-  the cookie was never sent back because of a faulty length comparison between
-  the set domain length and the current host name.
-
-Daniel (9 November 2000)
-- Added a configure check for gethostbyname in -lsocket (OS/2 seems to need
-  it). Added a check for RSAglue/rsaref for the cases where libcrypto is found
-  but libssl isn't. I haven't verified this fix yet though, as I have no
-  system that requires those libs to build.
-  
-Version 7.4.2 pre3
-
-Daniel (7 November 2000)
-- Removed perror() outputs from getpass.c. Angus Mackay also agreed to a
-  slightly modified license of the getpass.c file as the prototype was changed.
-
-Daniel (6 November 2000)
-- Added possibility to set a password callback to use instead of the built-in.
-  They're controled with curl_easy_setopt() of course, the tags are
-  CURLOPT_PASSWDFUNCTION and CURLOPT_PASSWDDATA.
-
-- Used T. Bharath's thinking and fixed the timers that showed terribly wrong
-  times when location: headers were followed.
-
-- Emmanuel Tychon discovered that curl didn't really like user names only in
-  the URL. I corrected this and I also fixed the since long living problem
-  with URL encoded user names and passwords in the URLs. They should work now.
-  
-Daniel (2 November 2000)
-- When I added --interface, the new error code that was added with it was
-  inserted in the wrong place and thus all error codes from 35 and upwards got
-  increased one step. This is now corrected, we're back at the previous
-  numbers. All new exit codes should be added at the end.
-
-Daniel (1 November 2000)
-- Added a check for signal() in the configure script so that if sigaction()
-  isn't present, we can use signal() instead.
-
-- I'm having a license discussion going on privately. The issue is yet again
-  GPL-licensed programs that have problems with MPL. I am leaning towards
-  making a kind of dual-license that will solve this once and for all...
-
-Daniel (31 October 2000)
-- Added the packages/ directory. I intend to let this contain some docs and
-  templates on how to generate custom-format packages for various platforms.
-  I've now removed the RPM related curl.spec files from the archive root.
-
-Daniel (30 October 2000)
-- T. Bharath brought a set of patches that bring new functionality to
-  curl_easy_getinfo() and curl_easy_setopt(). Now you can request peer
-  certificate verification with the *setopt() CURLOPT_SSL_VERIFYPEER option
-  and then use the CURLOPT_CAINFO to set the certificate to verify the remote
-  peer against. After an such an operation with a verification request, the
-  *_getinfo() option CURLINFO_SSL_VERIFYRESULT will return information about
-  whether the verification succeeded or not.  
-
-Daniel (27 October 2000)
-- Georg Horn brought us a splendid patch that solves the long-standing
-  annoying problem with timeouts that made curl exit with silly exit codes
-  (which as been commented out lately). This solution is sigaction() based and
-  of course then only works for unixes (and only those unixes that actually
-  have the sigaction() function).
-
-Daniel (26 October 2000)
-- Björn Stenberg supplied a patch that fixed the flaw mentioned by Kevin Roth
-  that made the password get echoed when prompted for interactively. The
-  getpass() function (now known as my_getpass()) was also fixed to not use any
-  static buffers. This also means we cannot use the "standard" getpass()
-  function even for those systems that have it, since it isn't thread-safe.
-  
-- Kevin Roth found out that if you'd write a config file with '-v url', the
-  url would not be used as "default URL" as documented, although if you wrote
-  it 'url -v' it worked! This has been corrected now.
-
-- Kevin Roth's idea of using multiple -d options on the same command line was
-  just brilliant, and I couldn't really think of any reason why we shouldn't
-  support it! The append function always append '&' and then the new -d
-  chunk. This enables constructs like the following:
-
-        curl -d name=daniel -d age=unknown foobarsite.com
-
-Daniel (24 October 2000)
-- I fixed the lib/memdebug.c source so that it compiles on Linux and other
-  systems. It will be useful one day when someone else but me wants to run the
-  memory debugging system.
-
-Daniel (23 October 2000)
-- I modified the maketgz and configure scripts, so that the configure script
-  will fetch the version number from the include/curl/curl.h header files, and
-  then the maketgz doesn't have to rebuild the configure script when I build
-  release-archives.
-
-- Björn Stenberg and Linus Nielsen correctly pointed out that curl was silly
-  enough to not allow @-letters in passwords when they were specified with the
-  -u or -U flags (CURLOPT_USERPWD and CURLOPT_PROXYUSERPWD). This also
-  suggests that curl probably should url-decode the password piece of an URL
-  so that you could pass an encoded @-letter there...
-  
-Daniel (20 October 2000)
-- Yet another http server barfed on curl's request that include the port
-  number in the Host: header always. I now only include the port number if it
-  isn't the default (80 for HTTP, 443 for HTTPS). www.perl.com turned out to
-  run one of those nasty servers.
-
-- The PHP4 module for curl had problems with referer that seems to have been
-  corrected just yesterday. (Sterling Hughes of the PHP team confirmed this)
-
-Daniel (17 October 2000)
-- Vladimir Oblomov reported that the -Y and -y options didn't work. They
-  didn't work for me either. This once again proves we should have that test
-  suite...
-  
-- I finally changed the error message libcurl returns if you try a https://
-  URL when the library wasn't build with SSL enabled. It will now return this
-  error:
-        "libcurl was built with SSL disabled, https: not supported!"
-
-  I really hope it will make it a bit clearer to users where the actual
-  problem lies.
-
-Version 7.4.1
-
-Daniel (16 October 2000)
-- I forgot to remove some of the malloc debug defines from the makefiles in
-  the release archive (of course).
-
-Version 7.4
-
-Daniel (16 October 2000)
-- The buffer overflow mentioned below was posted to bugtraq on Friday 13th.
-
-Daniel (12 October 2000)
-- Colin Robert Phipps elegantly corrected a buffer overflow. It could be used
-  by an evil ftp server to crash curl. I took the opportunity of replacing a
-  few other sprintf()s into snprintf()s as well.
-
-Daniel (11 October 2000)
-- Found some more memory leaks. This new simple memory debugger has turned out
-  really useful!
-
-Version 7.4 pre6
-
-Daniel (9 October 2000)
-- Florian Koenig pointed out that the bool typedef in the curl/curl.h include
-  file was breaking PHP 4.0.3 compiling. The bool typedef is not used in the
-  public interface and was wrongly inserted in that header file.
-
-- Jörg Hartroth corrected a minor memory leak in the src/urlglob.c stuff. It
-  didn't harm anyone since the memory is free()ed on exit anyway.
-
-- Corrected the src/main.c. We use the _MPRINTF_REPLACE #define to use our
-  libcurl-printf() functions. This gives us snprintf() et al on all
-  platforms. I converted the allocated useragent string to one that uses a
-  local buffer.
-
-- I've set an #if 0 section around the Content-Transfer-Encoding header
-  generated in lib/formdata.c. This will hopefully make curl do more
-  PHP-friendly multi-part posts.
-
-Version 7.4 pre5
-
-Daniel (9 October 2000)
-- Nico Baggus found out that curl's ability to force a ASCII download when
-  using FTP was no longer working! I corrected this. This problem was probably
-  introduced when I redesigned libcurl for version 7.
-
-- Georg Horn provided a source example that proved a memory leak in libcurl.
-  I added simple memory debugging facilities and now we can make libcurl log
-  all memory fiddling functions. An additional perl script is used to analyze
-  the output logfile and to match malloc()s with free()s etc. The memory leak
-  Georg found turned out to be the main cookie struct that cookie_cleanup()
-  didn't free! The perl script is named memanalyze.pl and it is available in
-  the CVS respository, not in the release archive.
-
-Daniel (8 October 2000)
-- Georg Horn found a GetHost() problem. It turned out it never assigned the
-  pointer in the third argument properly! This could make a crash, or at best
-  a memory leak!
-
-Version 7.4 pre4
-
-Daniel (6 October 2000)
-- Is the -F post following the RFC 1867 spec? We had this dicussion on the
-  mailing list since it appears curl can't post -F form posts to a PHP
-  receiver... I've been in touch with the PHP developers about this.
-
-- Domenico Andreoli found out that the long option '--proxy' wasn't working
-  anymore! The option parser got confused when I added the --proxytunnel for
-  7.3. This was indeed a very old flaw that hasn't turned up until now...
-
-- Jörn Hartroth provided patches, updated makefiles and two new files for DLL
-  stuff on win32. He also pointed out that lib source files were compiled with
-  -I../src which isn't only wrong but plain stupid!
-
-- Troels Walsted Hansen fixed a problem with HTTP resume. Curl previously used
-  a local variable badly, that could lead to crashes.
-
-Version 7.4 pre3
-
-Daniel (4 October 2000)
-- More docs written. The curl_easy_getinfo.3 man page is now pretty accurate,
-  as is the -w section in curl.1. I added two options to enable the user to
-  get information about the received headers' size and the size of the HTTP
-  request. T. Bharath requested them.
-  
-Daniel (3 October 2000)
-- Corrected a sever free() before use in the new add_buffer_send()! ;-)
-
-Version 7.4 pre2
-
-Daniel (3 October 2000)
-- Jason S. Priebe sent me patches that changed the way curl issues HTTP
-  requests. The entire request is now issued in one single shot. It didn't do
-  this previously, and it has turned out that since the common browsers do it
-  this way, some sites have turned out to work with browsers but not with
-  curl! Although this is not a client-side problem, we want to be able to
-  fully emulate browsers, and thus we have now adjusted the networking layer
-  to slightly more appear as a browser. I adjusted Jason's patch, the faults
-  are probably mine.
-
-Daniel (2 October 2000)
-- Anyone who ever uploaded data with curl on a slow link has noticed that the
-  progess meter is updated very infrequently. That is due to the large buffer
-  size curl is using. It reads 50Kb and sends it, updates the progress meter
-  and loops. 50Kb is very much on a slow link, although it is pretty neat to
-  use on a fast one.
-
-  I've now made an adjustment that makes curl use a 2Kb buffer for uploads to
-  start with. If curl's average upload speed is faster than buffer size bytes
-  per second, curl will increase the used buffer size up to max 50Kb. It
-  should make the progress meter work better.
-  
-Version 7.4 pre1
-
-Daniel (29 September 2000)
-- Ripped out the -w stuff from the library and put in the curl tool. It gets
-  all the relevant info from the library using the new curl_easy_getinfo()
-  function.
-
-- brad at openbsd.org mailed me a patch that corrected my kerberos mistake and
-  removed a compiler warning from hostip.c that OpenBSD people get.
-
-Daniel (28 September 2000)
-- Of course (I should probably get punished somehow) I didn't properly correct
-  the #include lines for the base64 stuff in the kerberos sources in the just
-  released 7.3 package. They still include the *_krb.h files! Now, the error
-  is sooo very easy to spot and fix so I won't bother with a quick bug fix
-  release. I'll post a patch whenever one is needed instead. It'll be
-  available in the CVS in a few minutes anyway.
-
-Version 7.3
-
-Daniel (28 September 2000)
-- Removed the base64_krb.[ch] files. They've now replaced the former
-  base64.[ch] files.
-
-Daniel (26 September 2000)
-- Updated some docs.
-
-- I changed the OpenSSL fix to work with older versions as well. The posted
-  patch was only working with 0.9.6 and no older ones.
-  
-Version 7.3-pre8
-
-Daniel (25 September 2000)
-- Erdmut Pfeifer informed us that curl didn't build with OpenSSL 0.9.6 and
-  showed us what needed to get patched in order to make it build properly
-  again.
-
-- Dirk Kruschewski found a bug in the cookie parser. I made an alternative
-  approach to the solution Dirk himself suggested. The bug made a cookie
-  header that didn't end with a trailing semicolon to not get parsed.
-
-- I've marked -c and -t deprecated now. If you use any of them, curl will tell
-  you to use "-C -" or "-T -" instead. I don't think occupying two letters for
-  nearly identical functions is good use. Also, -T - kind of follows the curl
-  tradition of using - for stdin where a file name is expected.
-
-Daniel (23 September 2000)
-- Martin Hedenfalk provided the patch that finally made the krb4 ftp upload
+Daniel (5 Aug 2002)
+- Lukasz Czekierda reported that RFC2732-style literal IPv6 addresses didn't
+  work. When did that code vanish? Anyway, it's back again now and seems to
   work!
 
-Daniel (21 September 2000)
-- The kerberos code is not quite thread-safe yet. There are a few more globals
-  that need to be take care of. Let's get the upload working first!
+- Jonatan Lander found out that POSTing an empty string didn't work with the
+  command line tool.
 
-Daniel (20 September 2000)
-- Richard Prescott solved another name lookup buffer size problem. I took this
-  opportunity to rewrite the GetHost() function. With these large buffer
-  sizes, I think keeping them as local arrays quickly turn ugly. I now use
-  malloc() to get the buffer memory. Thanks to this, I now can realloc() to a
-  large buffer in case of demand (errno == ERANGE) in case a solution like
-  that would become necessary. I still want to avoid that kind of nastiness.
+Daniel (3 Aug 2002)
+- Jörn Hartroth fixed the libcurl.def file to build the windows DLL with
+  the multi interface enabled.
 
-- Tried to compile and run curl on Linux for alpha and FreeBSD for alpha. Went
-  as smooth as it could.
+Daniel (1 Aug 2002)
+- The ftp PORT command now uses a better default IP address, as it will
+  extract and use the local IP address used by the control connection.
 
-- Added a docs/examples directory with two tiny example sources that show how
-  to use libcurl. I hope users will supply me with more useful examples
-  further on.
+- Modified the #include lines in curl/multi.h to work better on more
+  platforms.
 
-- Applied a patch by Jörn Hartroth to no longer use the word 'inteface' in the
-  config struct in the src/main.c file since certain compilers have that word
-  "reservered".  I figure that is some kind of C++ decease.
+Daniel (31 Jul 2002)
+- Attempted a fix for Ray DeGennaro's reported HP-UX host name resolve
+  problems.
 
-- Updated the curl.1 man page with --interface and --krb4.
+Daniel (30 Jul 2002)
+- Priya Ramakrishnan and Ryan Jones compiles curl/curl.h with a C++ compiler
+  and don't get __STDC__ defined, which required us to extend the preprocessor
+  check for the ## operator usage.
 
-- Modified the base64Encode() function to work like the kerberos one, so that
-  I could remove the use of that. There is no need for *two* base64 encoding
-  functions! ;-)
+- Correct the description for CURLOPT_PASSWDFUNCTION, if set to NULL the
+  internal default function will be put back.
 
-Version 7.3pre5
+- danfuzz at milk.com found out that libcurl badly assumed a space after
+  'Set-Cookie:' so if it wasn't present, it caused the first letter of the
+  cookie name to fall off!
 
-Daniel (19 September 2000)
-- The kerberos4-layer source code that is much "influenced" by the original
-  krb4 source code, through yafc into curl, was using quite a lot of global
-  variables. libcurl can't work properly with globals like that why I had to
-  clean up almost every function in the new security.c to make them use
-  connection specific variables instead of the globals. I just hope I didn't
-  destroy anything now... :-) configure updated, version string now reflects
-  krb4 built-in. It almost works now. Only uploads are still being naughty.
+Daniel (29 Jul 2002)
+- The password prompt asking for user password used stdout and now uses
+  stderr instead to better allow redirecting. It also leaked a fopen() file
+  handle that is now fixed.
 
-Version 7.3pre3
+Daniel (28 Jul 2002)
+- HAVE_SETVBUF was left out from src/main.c which made -N not work. Found out
+  by M T.
 
-Daniel (18 September 2000)
-- Martin Hedenfalk supplied a major patch that introduces krb4-ftp support to
-  curl. Martin is the primary author of the ftp client named yafc and he did
-  not hesitate to help us implement this when I asked him. Many and sincere
-  thanks to a splendid effort. It didn't even take many hours!
+Daniel (26 Jun 2002)
+- Glen Nakamura solved a crash in the name resolving function for IP-only
+  addresses on Alpha Linux (at least).
 
-- Stephen Kick supplied a big patch that introduces the --interface flag to
-  the curl tool and CURLOPT_INTERFACE for libcurl. It allows you to specify an
-  outgoing interface to use for your request. This may not work on all
-  platforms. This needs testing.
+- T. Bharath corrected the high resolution timer introduced in 7.9.8.
 
-- Richard Prescott noticed that curl on Tru64 unix could core dumped if the
-  name didn't resolve properly. This was due to the GetHost() function not
-  returning an error even though it failed on some platforms!
+Daniel (22 Jun 2002)
+- Andrés García pointed out man page errors in curl_formadd.3. I fixed.
 
-Daniel (15 September 2000)
-- Updated all sorts of documents in regards to the new proxytunnel support.
+Daniel (19 Jun 2002)
+- Chris Combes pointed out a flaw in curl_escape(). I fixed. We no longer
+  tries to generate nor parse '+' in URLs. Spaces become %20, and only %-codes
+  are translated by curl_unescape().
 
-Version 7.3pre2
+Daniel (15 Jun 2002)
+- Added --limit-rate to the curl tool. Allows the user to set a maxmimum
+  upper limit to how much bandwidth to use for transfers.
 
-Daniel (15 September 2000)
-- Kai-Uwe Rommel pointed out a problem in the httpproxytunnel stuff for ftp.
-  Adjusted it. Added better info message when setting up the tunnel and the
-  pasv message when doing the second connect.
+- CURLOPT_BUFFERSIZE was added to libcurl. This sets a prefered size for the
+  receive buffer in libcurl. The main point of this would be that the write
+  callback gets called more often and with smaller chunks.
+
+Daniel (14 Jun 2002)
+- Yarram Sunil found out that the SocketIsDead() function performed a lot
+  faster on Windows when removing the 1 microsecond timeout.
+
+- Hanno L. Kranzhoff fixed the VC++ project files.
+
+- Tom Mattison found out that ftp transfers closed the connection a little
+  too often.
+
+- Miklos Nemeth posted a VC++ makefile fix and some INSTALL comments on how
+  to disable specific protocols when building for Windows.
+
+Version 7.9.8
+
+Daniel (13 Jun 2002)
+- Time to let this baby go.
+
+Daniel (12 Jun 2002)
+- Chris Combes added three new options for curl_formadd(): CURLFORM_BUFFER,
+  CURLFORM_BUFFERPTR, CURLFORM_BUFFERLENGTH.  They are used to create a
+  multipart that appears as a regular file upload, but the data is provided
+  with a pointer and length.
   
-Version 7.3pre1
-
-Daniel (15 September 2000)
-- libcurl now allows "httpproxytunnel" to an arbitrary host and port name. The
-  second connection on ftp needed that.
-
-- TheArtOfHTTPScripting was corrected all over. I both type and spell really
-  bad at times!
-  
-Daniel (14 September 2000)
-- -p/--proxytunnel was added to 'curl'. It uses the new
-  CURLOPT_HTTPPROXYTUNNEL libcurl option that allows "any" protocol to tunnel
-  through the specified http proxy. At the moment, this should work with ftp.
-
-Daniel (13 September 2000)
-- Jochen Schaeuble found that file:// didn't work as expected. Corrected this
-  and mailed the patch to the mailing list.
-
-Daniel (7 September 2000)
-- I changed the #define T() in curl.h since it turned out it wasn't really
-  a good symbol to use (when you compiled PHP with curl as a module, that
-  define collided with some IMAP define or something). This was posted to the
-  PHP bug tracker.
-
-- I added extern "C" stuff in two header files to better allow libcurl usage
-  in C++ sorces. Discussions on the libcurl list with Danny Horswell lead to
-  this.
-
-Version 7.2.1
-
-Daniel (31 August 2000)
-- Albert Chin-A-Young fixed the configure script *again* and now it seems to
-  detect Linux name resolving properly! (heard that before?)
-
-- Troels Walsted Hansen pointed out that downloading a file containing the
-  letter '+' from an ftp server didn't work. It did work from HTTP though and
-  the reason was my lame URL decoder.
-
-- I happened to notice that -I didn't at all work on ftp anymore. I corrected
-  that.
-
-Version 7.2
-
-Daniel (30 August 2000)
-- Understanding AIX is a hard task. I believe I'll never figure out why they
-  solve things so differently from the other unixes. Now, I'm left with the
-  AIX 4.3 run-time warnings about duplicate symbols that according to this
-  article (http://www.geocrawler.com/archives/3/405/1999/9/0/2593428/) is a
-  libtool flaw. I tried the mentioned patch, although that stops the linking
-  completely.
-
-  So, if I select to ignore the ld warnings there are compiler warnings that
-  fill the screen pretty bad when curl compiles. It turns out that if I want
-  to '#include <arpa/inet.h>', I can get tid of the warnings by include the
-  following three include files before that one:
-
-        #include <net/if_dl.h>
-        #include <sys/mbuf.h>
-        #include <netinet/if_ether.h>
-
-  Now, is it really sane to add those include files before arpa/inet.h in all
-  the source files that include it?
-
-  Thanks to Albert Chin-A-Young at thewrittenword.com who gave me the AIX
-  login to try everything on.
-
-Daniel (24 August 2000)
-- Jan Schmidt supplied us a new VC6 makefile for Windows as the previous one
-  was not up to date but lacked several object files.
-
-- More work on the naming.
-
-- Albert Chin-A-Young provided a configure-check for large file support, as
-  some systems seem to need that for them to work. Had to change the position
-  for the config.h include file in every .c file in the libcurl dir...
-
-- As suggested on the mailing list (by Troy Engel), I did use a --data-binary
-  option instead of the messy way I've left described below. It seems to
-  work. The libcurl fix remained the same as yesterday.
-
-Daniel (23 August 2000)
-- Back on the -d stripping newlines thing. The 'plain post' thing was added
-  when I had no thought of that one could actually post binary data with
-  it. Now, I have to add this functionality in a graceful manner and I think
-  I've managed to come up with a way: '-d @file;binary' will thus post the
-  file binary, exactly as its contents are. It is implemented with a new
-  *setopt() option (CURLOPT_POSTFIELDSIZE) to set the postfield size, since
-  libcurl can't strlen() the data in these cases.
-
-- Albert Chin-A-Young made some very serious efforts and all the name
-  resolving problems seem to have been sorted out now on all the platforms
-  that previously showed them. I'll make another release now anyday because of
-  this.
-
-- The FAQ was much enhanced when it comes to the licensing issues thanks to
-  Bjorn Reese.
-
-Daniel (21 August 2000)
-- Rick Welykochy pointed out a problem when you use -d to post and you want to
-  keep the newlines, as curl strips them off as a bonus before posting...
-  This needs to be addressed.
-
-Version 7.1.1
-
-Daniel (21 August 2000)
-- Got more people involved in the gethostbyname_r() mess. Caolan McNamara sent
-  me configure-code that turned out to be very similar to my existing tests
-  which only make me more sure I'm on the right path. I changed the order of
-  the tests slightly, as it seems that some compilers don't yell error if a
-  function is used with too many parameters. Thus, the first tested function
-  will seem ok... Let's hope more compilers think of too-few parameters as bad
-  manners, as we're now trying the functions in that order; fewer first. I
-  should also add that Lars Hecking mailed me and volunteered to run tests on
-  a few odd systems. Coalan is keeping his work over at
-  http://www.csn.ul.ie/~caolan/publink/gethostbyname_r/. Might be handy in the
-  future as well.
-
-Daniel (18 August 2000)
-- I noticed I hadn't increased the name lookup buffer in lib/ftp.c. I don't
-  think this is the reason for the continued trouble though.
-
-Daniel (17 August 2000)
-- Fred Noz corrected my stupid mistakes in the gethostbyname_r() fluff. It
-  should affect some AIX, Digital Unix and HPUX 10 systems.
-
-Daniel (15 August 2000)
-- Mathieu Legare compiled and build 7.1 without errors on both AIX 4.2 as well
-  as AIX 4.3. Now why did problems occur before?
-
-- Fred Noz reported a -w/--write-out bug that caused it to malfunction when
-  used combined with multiple URL retrievales. All but the first display got
-  screwed up!
-
-Daniel (11 August 2000)
-- Jason Priebe and an anonymous friend found some host names the Linux version
-  of curl could not resolve. It turned out the buffer used to retrieve that
-  information was too small. Fixed. One could argue about the usefulness of
-  not having the slightest trace of a man page for gethostbyname_r() on my
-  Linux Redhat installation...
-
-Daniel (10 August 2000)
-- Balaji S Rao was first in line to note the missing possibility to replace
-  the Content-Type: and Content-Length: headers when doing -d posts. I added
-  the possibility just now. It seems some people wants to do standard posts
-  using custom Content-Types.
-
-Daniel (8 August 2000)
-- Mike Dowell correctly discovered that curl did not approve of URLs with no
-  user name but password. As in 'http://:foo@haxx.se'. I corrected this.
-
-Version 7.1
-
-Daniel (7 August 2000)
-- My AIX 4 fix does not work. I need help from a AIX 4 hacker.
-
-- I added my new document in the docs directory. It is aimed to become a sort
-  of tutorial on how to do HTTP scripting with curl.
-
-Daniel (4 August 2000)
-- Working with Rich Gray on compiling curl for lots of different platforms.
-  My fix for AIX 3.2 was not good enough and was slightly changed, I had to
-  move an include file before another, as is now described in the source.
-
-  AIX 4.2 (4.X?) has different gethostbyname_r() and gethostbyaddr_r()
-  functions that the configure script didn't check for and thus the compile
-  broke with an error. I have now changed the gethostbyname_r() check in the
-  configure file to support all three versions of both these functions. My
-  implementation that uses the AIX-style is though not yet verified and I may
-  get problems to fix it if it turns out to bug since I don't have access to
-  any system using that.
-
-  For problems like that, I made the configure script allow --disable-thread
-  to completely switch off the check for threadsafe versions of a few
-  functions and thus go with the "good old versions" that tend to work
-  although will break thread-safeness for libcurl. Most people won't use
-  libcurl for other things than curl though, and curl doesn't need a
-  thread-safe lib.
-
-- Working on my big tutorial about HTTP scripting with curl.
-
-Daniel (1 August 2000)
-- Rich Gray spotted a problem in src/setup.h caused by a #define strequal()
-  that was just a left-over from passed times. The strequal() is now a true
-  function supplied by libcurl for a portable case insensitive string
-  comparison. I added the prototypes in include/curl.h and removed the
-  now obsolete #define.
-
-- Igor Khristophorov made a fix to allow resumed download from Sun's
-  JavaWebServer/1.1.1. It seems that their server sends bad Content-Range
-  headers.
-
-- The makefiles forced a static library build, which is bad since we now use
-  libtool and thus have excellent shared library support! Albert Chin-A-Young
-  found out.
-
-Version 7.0.11beta
-
-Daniel (1 August 2000)
-- Albert Chin-A-Young pointed out that 'make install' did not properly create
-  the header include directory, why it failed to install the header files as
-  it should. Automake isn't really equipped to deal with subdirectories
-  without Makefiles in any nice way. I had to run ahead and add Makefiles in
-  both include and include/curl before I managed to create a top-level
-  makefile that succeeds in install everything properly!
-
-- Ok, no more "features" added now. Let's just verify that there's no major
-  flaws added now.
-
-Daniel (31 July 2000)
-- Both Jeff Schasny and Ketil Froyn asked me how to tell curl not to send one
-  of those internally generated headers. They didn't settle with the blank
-  ones you could tell curl to use. I rewrote the header-replace stuff a
-  little. Now, if you replace an internal header with your own and that new
-  one is a blank header you will only remove the internal one and not get any
-  blank. I couldn't figure out any case when you want that blank header.
-
-Daniel (29 July 2000)
-- It struck me that the lib used localtime() which is not thread-safe, so now
-  I use localtime_r() in the systems that has it.
-
-- I went through this entire document and removed all email addresses and left
-  names only. I've really made an effort to always note who brought be bug
-  reports or fixes, but more and more people ask me to remove the email
-  addresses since they become victims for spams this way. Gordon Beaton got me
-  working on this.
-
-Daniel (27 July 2000)
-- Jörn Hartroth found out that when you specified a HTTP proxy in an
-  environment variable and used -L, curl failed in the second fetch. I
-  corrected this problem and posted a patch to the list. No need for an extra
-  beta release just for this.
-
-Version 7.0.10beta
-
-Daniel (27 July 2000)
-- So, libtool replaced two of my files with symbolic links and I forgot to add
-  the two new libtool files to the release archive (and they were added as
-  symlinks as well!) This of course lead to that the configure script failed
-  on 7.0.9...
-
-Version 7.0.9beta
-
-Daniel (25 July 2000)
-- Kristian Köhntopp <kris at koehntopp.de> brought a fix that makes libcurl
-  libtoolified, just as we've wanted for a while now. He also made the
-  recently added man pages get installed properly on 'make install' and some
-  other nice cleanups.
-
-- In a discussion with Eetu Ojanen it struck me that if we use curl to get a
-  page using a password, and that page then sends a Location: to another
-  server that curl follows, curl will send the user name and password to that
-  server as well.
-
-  Now, I'll never be able to make curl do Location: following all that perfect
-  and you're all sooner or later required to write a script to do several
-  fetches when you're doing advanced stuff, but now I've modified curl to at
-  least *only* send the user name and password to the original server. Which
-  means that if get a page from server A with a password, that forwards curl
-  to server B, curl won't use the password there. If server B then forwards
-  curl back to server A again, the password will be used again.
-
-  This is not a perfect implementation, as in a browser case it would only use
-  the password if the left-prefix of the first path is the same. I just think
-  that this fix prevents a somewhat lurky "security hole".
-
-  As a side-note in this subject: HTTP passwords are sent in cleartext and
-  will never be considered to be safe or secure. Use HTTPS for that.
-
-- As discussed on the mailing list, I converted the FTP response reading
-  function into using select() which then allows timeouts (even under win32!)
-  if the command-reply session gets too slow or dies completely. I made a
-  default timeout on 3600 seconds unless anything else is specified, since I
-  don't think anyone wants to wait more than that for a single character to
-  get received...
-
-- Torsten Foertsch <torsten.foertsch at gmx.net> brought a set of fixes for
-  the rfc1867 form posts. He introduced 'name=<file' which brings a means to
-  suuply very large text chunks read from the given file name. It differs from
-  'name=@file' in the way that this latter thing is marked in the uploaded
-  contents as a file upload, while the first is just text (as in a input or
-  textarea field). Torsten also corrected a bug that would happen if you used
-  %s or similar in a -F file name.
-
-- As discovered by Nico Baggus <Nico.Baggus at mail.ing.nl>, when transferring
-  files to/from FTP using type ASCII curl should not expect the transfer to be
-  the exact size reported by the server as the file size. Since ASCII may very
-  well mean that the content is translated while transfered, the final size
-  may very well differ. Therefor, curl now ignores the file size when doing
-  ASCII transfers in FTP.
-
-Daniel (24 July 2000)
-- Added CURLOPT_PROXYPORT to the curl_easy_setopt() call to allow the proxy
-  port number to be set separately from the proxy host name.
-
-- Andrew <andrew at ugh.net.au> pointed out a netrc manual bug.
-
-- The FTP transfer code now accepts a 250-code as well as the previously
-  accepted 226, after a successful file transfer. Mohan <mnair at
-  evergreen-funds.com> pointed this out.
-
-- The check for *both* nsl and socket was never added in the v7 configure.in
-  when I moved the main branch. I re-added that check to configure.in. This was
-  discovered by Rich Gray.
-
-- Howard, Blaise <Blaise.Howard at factiva.com> pointed out a missing free() in
-  curl_disconnect() which of course meant libcurl ate memory.
-
-- Brian E. Gallew noted that the HTTP 'Host:' header curl sent did not
-  properly include the port number if non-default ports were used. This should
-  now have been fixed.
-
-- HTTP connect errors now return errors earlier. This was most notably causing
-  problems when the HTTPS certificate had problems and later caused a crash.
-  Many thanks to Gregory Nicholls <gnicholls at level8.com> for discovering
-  and suggesting a fix...
-
-Daniel (21 June 2000)
-- After a "bug report" I received where the user was using both -F and -I in a
-  HTTP request (it severly confused the library I should add), I added some
-  checks to src/main.c that prevents setting more than one HTTP request
-  command, no matter what the user wants! ;-)
-
-Version 7.0.8beta
-
-Daniel (20 June 2000)
-- I did a major replace in many files to use the new curl domain haxx.se
-  instead of the previous one.
-
-- As Eetu Ojanen suggested, I finally took the step and now libcurl no longer
-  makes a POST after it has followed a location. When the initial POST has
-  been done, it'll turned into a GET for the further requests. This is only
-  interesting when using -L/--location *and* doing a POST at the same time.
-
-  While messing with this, I added another weird feature I call 'auto
-  referer'. If you append ';auto' to the right of a given referer string (or
-  only use that string as referer), libcurl will automatically set the
-  previoud URL as refered when it follows a Location: and gets a succeeding
-  document.
-
-- My hero Rich Gray found the very obscure FTP bug that happened to him only
-  when passing through a particular firewall and using the PORT command. It
-  turned out that PORT was the only command in the lib/ftp.c source that
-  didn't send a proper \r\n sequence but instead used the faulty \n which as
-  it seemed is supported by most major ftp servers... :-O
-
-Version 7.0.7beta
-
-Daniel (16 June 2000)
-- I had avoided this long enough now, so I moved the alternative progress bar
-  stuff from the lib and added it to the client code. This is now using the
-  recently added progress callback and it seems to work pretty much like
-  before. Since it is only one progress bar and you and download and upload at
-  the same time, this bar shows the combined progress of both directions. This
-  code was just ported from the old place to this, Lars is still our saviour!
-  ;-) This also made the documentation more accurate since I never removed
-  this function from any docs! Although I now removed the CURLOPT_PROGRESSMODE
-  from the library since the lib has only one internal progress meter and it
-  will never get another. It is although likely that the internal one also
-  will be moved to the client code in the future (when I have other means of
-  getting the writeout data and move that too to the client).
-
-- I took the opportunity to verify that standard progress meter works and I
-  found out it didn't get inited properly. Grrr. I corrected that as well.
-
-Daniel (15 June 2000)
-- I thought I'd better verify that the -F option still works in v7 and of
-  course it didn't... :-/ Anyway, I had the problems I could discover
-  corrected. About one month of beta testing and not a single person has used
-  this feature with v7?
-
-- Björn correctly pointed out that the --progress-bar still doesn't work in
-  v7. Hm.
-
-Daniel (14 June 2000)
-- Tim Tassonis discovered that curl 7 didn't handle normal http POST as it
-  should. I corrected this.
-
-Version 7.0.6beta
-
-Daniel (14 June 2000)
-- Björn Stenberg pointed out several problems (related to win32 compiling):
-  lib/strequal.c had a bad #ifdef for one of the string comparisons (win32)
-  src/main.c had several minor problems
-  lib/makefile.m32 had getpass.[co] twice
-  src/config-win32.h lacked the HAVE_FCNTL_H define
-  both config-win32.h files now only set the HAVE_UNISTD_H define if the
-  define MINGW32 is set, and I modified src/makefile.m32 and lib/makefile.m32
-  to set it.
-
-Version 7.0.5beta
-
-Daniel (14 June 2000)
-- Applied Luong Dinh Dung's comments about a few win32 compile problems.
-
-- Applied Björn Stenberg's suggested fix that turns the win32 stdout to
-  binary. It won't do it if the -B / --use-ascii option is used. That option
-  is now an extended version of the previous -B /--ftp--ascii. The flag was
-  already in use be the ldap as well so the new name fits pretty good. The
-  libcyrl CURLOPT_TRANSFERTEXT was also introduced as an alias to the now
-  obsolete CURLOPT_FTPASCII. Can't verify this fix myself as I have no win32
-  compiler around.
-
-Daniel (13 June 2000)
-- Luong Dinh Dung <dung at sch.bme.hu> found a problem in curl_easy_cleanup()
-  since it free()ed the main curl struct *twice*. This is now corrected.
-
-Daniel (9 June 2000)
-- Updated the RESOURCES file, added a README.win32 file.
-
-Daniel (8 June 2000)
-- So I finally added the progress callback to the *setopt() options and it
-  should work now. I don't have the energy to write any test program for it
-  right now.
-- Made the callback function typedefs public in curl/curl.h for comfort. Just
-  in case anyone wanna fiddle with such pointers.
-- Updated the curl_easy_setopt() man page accordingly.
-
-Version 7.0.4beta
-
-Daniel (2 June 2000)
-- I noticed that when doing Location: following, we lost custom headers in all
-  but the first request.
-- Removed the 'HttpPost' struct and moved the header stuff to the more generic
-  curl_slist.
-- Added some better slist-cleanups in src/main.c
-
-Version 7.0.3beta
-
-Daniel (31 May 2000)
-- So I discovered that I released the 7.0.2beta without it being able to
-  compile under Linux. gethostbyname_r() and gethostbyaddr_r() turned out to
-  feature a different amount of arguments on different systems so I had to add
-  a configure check for this and adjust the code slightly.
-
-Version 7.0.2beta
-
-Daniel (29 May 2000)
-- Corrected the bits.* assignments when using CURLOPT options that only
-  toggles one of those bits.
-
-- Applied the huge patches from David LeBlanc <dleblanc at qnx.com> that add
-  usage of the gethostbyname_r() and similar functions in case they're around,
-  since that make libcurl much better threadsafe in many systems (such as
-  solaris). I added the checks for these functions to the configure script.
-
-  I can't explain why, but the inet_ntoa_r() function did not appear in my
-  Solaris include files, I had to add my own include file for this for now.
-
-Daniel (22 May 2000)
-- Jörn Hartroth brought me fixes to make the win32 version compile properly as
-  well as a rename of the 'interface' field in the urldata struct, as it seems
-  to be reserved in some gcc versions!
-
-- Rich Gray struck back with yet some portability reports. Data General DG/UX
-  needed a little fix in lib/ldap.c since it doesn't have RTLD_GLOBAL defined.
-  More fixes are expected as a result of Richies very helpful work.
-
-Version 7.0.1beta
-
-Daniel (21 May 2000)
-- Updated lots of #defines, enums and variable type names in the library. No
-  more weird URG or URLTAG prefixes. All types and names should be curl-
-  prefixed to avoid name space clashes. The FLAGS-parameter to the former
-  curl_urlget() has been converted into a bunch of flags to use in separate
-  setopt calls. I'm still focusing on the easy-interface, as the curl tool is
-  now using that.
-
-- Bjorn Reese has provided me with an asynchronous name resolver that I plan
-  to use in upcoming versions of curl to be able to gracefully timeout name
-  lookups.
-
-Version 7.0beta
-
-Daniel (18 May 2000)
-- Introduced LIBCURL_VERSION_NUM to the curl.h include file to better allow
-  source codes to be dependent on the lib version. This define is now set to
-  a dexadecimal number, with 8 bits each for major number, minor number and
-  patch number. In other words, version 1.2.3 would make it 0x010203. It also
-  makes a larger number a newer version.
-
-Daniel (17 May 2000)
-- Martin Kammerhofer correctly pointed out several flaws in the FTP range
-  option. I corrected them.
-- Removed the win32 winsock init crap from the lib to the src/main.c file
-  in the application instead. They can't be in the lib, especially not for
-  multithreaded purposes.
-
-Daniel (16 May 2000)
-- Rewrote the src/main.c source to use the new easy-interface to libcurl 7.
-  There is still more work to do, but the first step is now taken.
-  <curl/easy.h> is the include file to use.
-
-Daniel (14 May 2000)
-- FTP URLs are now treated slightly different, more according to RFC 1738.
-- FTP sessions are now performed differently, with CWD commands to change
-  directory instead of RETR/STOR/LIST with the full path. Discussions with
-  Rich Gray made me notice these problems.
-- Janne Johansson discovered and corrected a buffer overflow in the
-  src/usrglob.c file.
-- I had to add a lib/strequal.c file for doing case insensitive string
-  compares on all platforms.
-
-Daniel (8 May 2000):
-- Been working lots on the new lib.
-- Together with Rich Gray, I've tried to adjust the configure script to work
-  better on the NCR MP-RAS Unix.
-
-Daniel (2 May 2000):
-- Albert Chin-A-Young pointed out that I had a few too many instructions in
-  configure.in that didn't do any good.
-
-Daniel (24 April 2000):
-- Added a new paragraph to the FAQ about what to do when configure can't
-  find OpenSSL even though it is installed. Supplied by Bob Allison
-
-Daniel (12 April 2000):
-- Started messing around big-time to convert the old library interface to a
-  better one...
-
-Daniel (8 April 2000):
-- Made the progress bar look better for file sizes between 9999 kilobytes
-  and 100 megabytes. They're now displayed XX.XM.
-- I also noticed that ftp fetches through HTTP proxies didn't add the user
-  agent string. It does now.
-- Habibie <habibie at MailandNews.com> supplied a pretty good way to build RPMs
-  on a Linux machine. It still a) requires me to be root to do it, b) leaves
-  the rpm packages laying at some odd place on my disk c) doesn't work to
-  build the ssl version of curl since I didn't install openssl from an rpm
-  package so now the rpm crap thinks I don't have openssl and refuses to build
-  a package that depends on ssl... Did I mention I don't get along with RPM?
-- Once again I received a bug report about autoconf not setting -L prior to -l
-  on the command line when checking for libs. In this case it made the native
-  cc compiler on Solaris 7 to fail the OpenSSL check. This has previously been
-  reported to cause problems on HP-UX and is a known flaw in autoconf 2.13. It
-  is a pity there's no newer release around...
-
-Daniel (4 April 2000):
-- Marco G. Salvagno supplied me with two fixes that
-  appearantly makes the OS/2 port work better with multiple URLs.
-
-Daniel (2 April 2000):
-- Another Location: fix. This time, when curl connected to a port and then
-  followed a location with an absolute URL to another port, it misbehaved.
-
-Daniel (27 March 2000):
-- H. Daphne Luong pointed out that curl was wrongly
-  messing up the proxy string when fetching a document through a http proxy,
-  which screwed up multiple fetches such as in location: followings.
-
-Daniel (23 March 2000):
-- Marco G. Salvagno corrected my badly applied patch he
-  actually already told me about!
-
-- H. Daphne Luong brought me a fix that now makes curl
-  ignore select() errors in the download if errno is EINTR, which turns out to
-  happen every now and then when using libcurl multi-threaded...
-
-Daniel (22 March 2000):
-- Wham Bang supplied a couple of win32 fixes. HAVE_UNAME
-  was accidentally #defined in config-win32.h, which it shouldn't have been.
-  The HAVE_UNISTD_H is not defined when compiling with the Makefile.vc6
-  makefile for MS VC++.
-
-Daniel (21 March 2000):
-- I removed the AC_PROG_INSTALL macro from configure.in, since it appears that
-  one of the AM_* macros searches for a BSD compatible install already. Janne
-  Johansson made me aware of this.
-
-Version 6.5.2
-
-Daniel (21 March 2000):
-- Paul Harrington quickly pointed out to me that 6.5.1
-  crashes hard. I upload 6.5.2 now as quickly as possible! The problem was
-  the -D adjustments in src/main.c.
-
-Version 6.5.1
-
-Daniel (20 March 2000):
-- An anonymous post on sourceforge correctly pointed out a possible buffer
-  overflow in the curl_unescape() function for URL conversions. The main
-  problem with this bug is that the ftp download uses that function and this
-  single- byte overflow could lead to very odd bugs (as one reported by Janne
-  Johansson).
-
-Daniel (19 March 2000):
-- Marco G. Salvagno supplied me with a series of patches
-  that now allows curl to get compiled on OS/2. It even includes a section in
-  the INSTALL file. Very nice job!
-
-Daniel (17 March 2000):
-- Wham Bang supplied a patch for the lib/Makefile.vc6
-  file. We still need some fixes for the config-win32.h since it appears that
-  VC++ and mingw32 have different opinions about (at least) unistd.h's
-  existence.
-
-Daniel (15 March 2000):
-- I modified the -D/--dump-header workings so that it doesn't write anything
-  to the file until it needs to. This way, you can actually use -b and -D
-  on the same file if you want repeated invokes to store and read the cookies
-  in that one single file.
-
-- Poked around in lots of texts. Added the BUGS file for bug reporting stuff.
-  Added the classic HTTP POST question to the FAQ, removed some #ifdef WIN32
-  stuff from the sources (they're covered by the config-win32.h now).
-
-- Pascal Gaudette fixed a missing ldap.c problem in the
-  Makefile.vc6 file. He also addressed a problem in src/config-win32.h.
-
-Daniel (14 March 2000):
-- Paul Harrington pointed out that the 'http_code' variable in the -w output
-  was never written. I fixed it now.
-
-- Janne Johansson reported the complaints that OpenBSD does
-  when getdate.c #includes malloc.h. It claims stdlib.h should be included
-  instead. I added #ifdef HAVE_MALLOC_H code in getdate.y and two checks in
-  the configure.in for malloc.h and stdlib.h.
-
-Version 6.5
-
-Daniel (13 March 2000):
-- <curl at spam.wolvesbane.net> pointed out that the way curl sent cookies in a
-  single line wasn't enjoyed by IIS4.0 servers. In my view, that is not what
-  the standards say, but I added a white space between the name/value pairs to
-  perhaps make them work better.
-
-- Added the perl check back in the configure.in again since the mkhelp.pl
-  script needs it!
-
-- Made some beautifications in the curl man page.
-
-Daniel (3 March 2000):
-- Jörn helped me update the config-win32.h files with HAVE_SETVBUF and
-  HAVE_STRDUP.
-
-Daniel (3 March 2000):
-- Uploaded the 6.5pre2 package.
-
-Daniel (2 March 2000):
-- Removed the perl-programs from the distribution, they never made many people
-  happy and I'll still keep them available on the web.
-
-- Added the -w and -N stuff to the man page. Documented the new progress meter
-  display in README.curl.
-
-- Jörn Hartroth, Chris <cbayliss at csc.come> and Ulf
-  Möller from the openssl development team helped bringing me the details for
-  fixing an OpenSSL usage flaw. It became apparent when they released openssl
-  0.9.5 since that barfed on curl's bad behavior (not seeding a random number
-  thing).
-
-- Yet another option: -N/--no-buffer disables buffering in the output stream.
-  Probably most useful for very slow transfers when you really want to get
-  every byte curl receives within some preferred time. Andrew <tmr at gci.net>
-  suggested this.
-
-- Damien Adant mailed me his fixes for making curl compile on Ultrix.
-
-Daniel (24 February 2000):
-- Applied Jörn Hartroth's fixes for config-win32.h and lib/Makefile.w32.
-
-  I should also make a note here, if nothing else to myself, that when using
-  the %-syntax for variables in DOS command prompts, you must use two %-
-  letters for each one since that is an escape letter there! Maybe I should
-  use another letter instead!
-
-- Added more variables to -w:
-
-  'http_code'
-  'time_namelookup'
-  'time_connect'
-  'time_pretransfer'
-  'url_effective'
-
-- Made -w@filename read the syntax from a file and -w@- reads the syntax from
-  stdin in the good old "standard" curl way.
-
-Daniel (22 February 2000):
-- Released a 6.5pre1 version to get some test and user feedback.
-
-Daniel (21 February 2000):
-
-- I added the -w/--write-out flag and some variables to go with it. -w is a
-  single string, whatever you enter there will be written out when curl has
-  completed a successful request. There are some variable substitutions and
-  they are specified as '%{variable}' (without the quotes). Variables that
-  exist as of this moment are:
-
-        total_time     - total transfer time in seconds (with 2 decimals)
-        size_download  - total downloaded amount of bytes
-        size_upload    - total uploaded amount of bytes
-        speed_download - the average speed of the entire download
-        speed_upload   - the average speed of the entire upload
-
-  I will of course add more variables, but I need input on these and others.
-
-- It struck me that the -# progress bar will be hard to just apply on the new
-  progress bar concept. I need some feedback on this before that'll get re-
-  introduced! :-/
-
-Daniel (16 February 2000):
-- Jörn Hartroth brought me some fixes for the progress meter and I continued
-  working on it. It seems to work for http download, http post, ftp download
-  and ftp upload. It should be a pretty good test it works generally good.
-
-- Still need to add the -# progress bar into the new style progress interface.
-
-- Gonna have a go at my new output option parameter next.
-
-Daniel (15 February 2000):
-- The progress meter stuff is slowly taking place. There's more left before it
-  is working ok and everything is tested, but we're reaching there. Slowly!
-
-Daniel (11 February 2000):
-- Paul Marquis fixed the config file parsing of curl to
-  deal with any-length lines, removing the previous limit of 4K.
-
-- Eetu Ojanen's suggestion of supporting the @-style for -b
-  is implemented. Now -b@<filename> works as well as the old style. -b@- also
-  similarly reads the cookies from stdin.
-
-- Reminder: -D should not write to the file until it needs to, in the same way
-  -o does. That would enable curl to use -b and -D on the same file...
-
-- Ellis Pritchard made getdate.y work for MacOS X.
-
-- Paul Harrington helped me out finding the crash in the
-  cookie parser. He also pointed out curl's habit of sending empty cookies to
-  the server.
-
-Daniel (8 February 2000):
- - Ron Zapp corrected a problem in src/urlglob.c that
-   prevented curl from getting compiled on sunos 4. The problem had to do
-   with the difference in sprintf() return code types.
-
- - Transfer() should now be able to download and upload simultaneously. Let's
-   do some progress meter fixes later this week.
-
-Daniel (31 January 2000):
- - Paul Harrington found another core dump in the cookie
-   parser. Curl doesn't properly recognize the 'version' keyword and I think
-   that is what caused this. I need to refresh some specs on cookies and see
-   what else curl lacks to improve this a bit more once and for all.
-
-   RFC 2109 clearly specifies how cookies should be dealt with when they are
-   compliant with that spec. I don't think many servers are though...
-
- - Mark W. Eichin found that while curl is uploading a form
-   to a web site, it doesn't read incoming data why it'll hang after a while
-   since the socket "pipe" becomes full.
-
-   It took me two hours to rewrite Download() and Upload() into the new
-   single function Transfer(). It even seems to work! More testing is required
-   of course... I should get the header-sending together in a kind of queue
-   and let them get "uploaded" in Transfer() as well.
-
- - Zhibiao Wu pointed out a curl bug in the location: area,
-   although I did not get a reproducible way to do this why I have to wait
-   with fixing anything.
-
- - Bob Schader suggested I should implement resume
-   support for the HTTP PUT operation, and as I think it is a valid suggestion
-   I'll work on it.
-
-Daniel (25 January 2000):
- - M Travis Obenhaus pointed out a manual mixup with -y and -Y that was
-   corrected.
-
- - Jens Schleusener pointed out a problem to compile
-   curl on AIX 4.1.4 and gave me a solution. This problem was already fixed
-   by Jörn's recent #include modifications!
-
-Daniel (19 January 2000):
- - Oskar Liljeblad pointed out and corrected a problem
-   in the Location: following system that made curl following a location: to a
-   different protocol to fail.
-
-   At January 31st I re-considered this fix and the surrounding source code. I
-   could not really see that the patch did any difference, why I removed it
-   again for further research and debugging. (It disabled location: following
-   on server not running on default ports.)
-
- - Jörn Hartroth brought a fix that once again
-   made it possible to select progress bar.
-
- - Jörn also fixed a few include problems.
-
-Version 6.4
-
-Daniel (17 January 2000):
- - Based on suggestions from Björn Stenberg, I made the
-   progress deal better with larger files and added a "Time" field which shows
-   the time spent on the download so far.
- - I'm now using the CVS repository on sourceforge.net, which also allows web
-   browsing. See http://curl.haxx.nu.
-
-Daniel (10 January 2000):
- - Renumbered some enums in curl/curl.h since tag number 35 was used twice!
- - Added "postquote" support to the ftp section that enables post-ftp-transfer
-   quote commands.
- - Now made the -Q/--quote parameter recognize '-' as a prefix, which means
-   that command will be issued AFTER a successful ftp transfer. This can of
-   course be used to delete or rename a file after it has been uploaded or
-   downloaded. Use your imagination! ;-)
- - Since I do the main development on solaris 2.6 now, I had to download and
-   install GNU groff to generate the hugehelp.c file. The solaris nroff cores
-   on the man page! So, in order to make the solaris configure script find a
-   better result I made gnroff get checked prior to the regular nroff.
- - Added all the curl exit codes to the man page.
- - Jim Gallagher properly tracked down a bug in autoconf
-   2.13. The AC_CHECK_LIB() macro wrongfully uses the -l flag before the -L
-   flag to 'ld' which causes the HP-UX 10.20 flavour to fail on all libchecks
-   and therefore you can't make the configure script find the openssl libs!
+- Nico Baggus made the VMS version use sigsetjmp() too.
+
+- Jörn Hartroth fixed the mingw32 build using the mm lib.
+
+- Applied patches by Kris Kennaway that correct format string problems in
+  lib/ftp.c and lib/ldap.c.
+
+Version 7.9.8-pre3
+
+Daniel (11 Jun 2002)
+- James Cone brought the idea of using sigsetjmp() in the signal handler to
+  make the time-out of name lookups to work, even when the underlying name
+  resolver library traps EINTR. The use of sigsetjmp() and siglongjmp() for
+  this may be a bit drastic, and also not likely to exist on all platforms.  I
+  added careful checking for this in the configure script, even checks for it
+  being a macro (which seems to be the case in for example Linux).
 
+  sigsetjmp() seems to be mentioned in the Single Unix specification.
+
+- Miklos Nemeth brought a patch that allows libcurl to get built with specific
+  protocols disabled. This is done by running ./configure
+  --disable-[protocol].
+
+- FTP range downloads could make CURLE_FTP_WRITE_ERROR get returned. We now
+  make precautions to not return this for range downloads.
+
+  Added test case 135 that makes an ftp range download. Had to tweak the
+  runtests.pl script a bit too.
+
+- Bug report #566835 identified a strlen() on a NULL pointer. Added additional
+  check to prevent this.
+
+Daniel (10 Jun 2002)
+- Found and corrected a connect failure problem that didn't create a human
+  error text.
+
+- Added code to compile with OpenSSL 0.9.7. Based on patch from Jacob Meuser
+  and comments from Götz Babin-Ebell.
+
+- Gautam Mani found a socket descriptor leak that happened when FTP transfers
+  failed and you reinvoked curl_easy_perform().
+
+Daniel (5 Jun 2002)
+- Gustaf Hui corrected curl_multi_remove_handle() so that it won't crash no
+  matter when you decide to remove the CURL handle.
+
+- HAVE_RAND_STATUS was added to lib/config-win32.h by Andreas Olsson, as it
+  makes windows builds stop complaining about "weak seeding" when it in fact
+  isn't.
+
+- Another 64bit architecture crash that was introduced in 7.9.7 was now
+  removed, as bug report #564585 clarified. This happened due to our attempts
+  to only allocate only as much memory as is actually needed for name
+  resolving (using realloc) which called for a function that could 'move' a
+  hostent struct in memory.
+
+Version 7.9.8-pre2
+
+Daniel (3 Jun 2002)
+- T. Bharath fixed the CURLINFO_REDIRECT_TIME to return a correct time and
+  made the CURLINFO_REQUEST_SIZE return the correct total request size. He
+  also made the win32 timers use higher resolution than before.
+
+Daniel (29 May 2002)
+- Renaud Chaillat made me aware of the fact that libcurl returned an error if
+  you tried to get an empty FTP file. This seemed like a wrong thing to do, so
+  now it no longer does that! I just hope that no one built anything fancy
+  upon this unexpected behavior...
+
+Daniel (28 May 2002)
+- Cris Bailiff brought CURLOPT_CAPATH that works like CURLOPT_CAINFO but
+  specifies a path to a directory with certificates rather than a single file
+  with them all concatenated. --capath was added to the command line tool
+  for the same function.
+
+  Windows users need to pay attention that the directory should be setup with
+  the c_rehash tool of the OpenSSL package, and that creates symlinks by
+  default that need to be replaced with actual copies to work on Windows.
+
+- Gustaf Hui provided new code that changes how curl_multi_info_read()
+  messages are stored, so that they don't have to be kept around for the multi
+  handle's entire life time. He also made it return failure codes properly
+  which it didn't do before.
+
+Daniel (27 May 2002)
+- Gustaf Hui pointed out that running curl_multi_perform() without doing
+  curl_multi_fdset() first was not really a working combo. I added an internal
+  check for this and have some extra select() code without timeout to make the
+  library internals work identically nevertheless. We might need to somehow
+  either document that once you've used the *_fdset() you should remain using
+  them in select() or you should blank them somehow so that libcurl won't go
+  crazy.
+
+Version 7.9.8-pre1
+
+Daniel (22 May 2002)
+- James Cone brought an excellent patch, including several tests and docs!
+  CURLOPT_NETRC now takes an enum as argument instead of the previous boolean.
+  --netrc-optional was introduced as an addition to --netrc to allow the
+  command line client to take use of all that new netrc stuff.
+
+- Bug report #558888 showed a case where libcurl re-used the previous host
+  name when a connection over a proxy was re-used but to a different target
+  host.
+
+Daniel (21 May 2002)
+- Edin Kadribasic helped me sort out a problem to made libcurl crash when
+  trying to HTTP POST an empty string.
+
+- Clarified that Juergen Wilke donated the original tests/server/sws.c code.
+
+- Jean-Philippe Barrette-LaPierre made curl_formadd() return a typedef named
+  CURLFORMcode instead of the previous 'int', and the various return codes are
+  now globally exported. It allows applications to better figure out what goes
+  wrong when curl_formadd() returns errors.
+
+Daniel (20 May 2002)
+- Roland Zimmermann pointed out that SSL_CTX_use_certificate_chain_file()
+  is prefered to SSL_CTX_use_certificate_file().
+
+Daniel (17 May 2002)
+- Bug report #556869 pointed out that src/writeout.c didn't compile on freebsd
+  after my AIX fixes the other week.
+
+- Bug report #556930 pointed out a FreeBSD core dump introduced in 7.9.7 in
+  the DNS struct realloc stuff. Actually, this crash could happen on all
+  systems that made the pack_hostent() function get invoked.
+
+- I removed several compiler warnings in the test suite's HTTP server.
+
+Version 7.9.7
+
+Daniel (10 May 2002)
+- Kevin Roth adjusted the --trace-ascii output slightly.
+
+- Paul Harrington found out that src/writeout.c needed an additional header
+  file included for AIX builds
+
+Version 7.9.7-pre2
+
+Daniel (7 May 2002)
+- Updated the man page with --trace-ascii and -j/--junk-session-cookies.
+
+- Made --trace-ascii do pretty much the same as --trace but without the hex
+  part in the output.
+
+- Added CURLOPT_COOKIESESSION that when enabled makes libcurl ignore session
+  cookies read from a file. This option is enforced by the curl command line
+  tool using the new -j/--junk-session-cookies option. After discussions with
+  Kevin Roth. This makes it easier to use curl to fully emulate a browser's
+  behavior, even when it comes to "session cookies". Session cookies are
+  cookies that a normal browser discards when the browser is shut
+  down. They're identified by not having any expire date/time.
+
+- When CURLOPT_DEBUGDATA was set, it ruined the CURLOPT_STDERR setting and
+  this was discovered when --trace was made to crash.
+
+- Using -v and --trace at the same time confused matters. -v is now pretty
+  much ignored when --trace or --trace-ascii is used.
+
+- Made --trace (and --trace-ascii) support - as file name to pass output to
+  stdout instead. It makes it consistent with how other options work.
+
+Version 7.9.7-pre1
+
+Daniel (6 May 2002)
+- Added multi-post.c to the examples directory. I got the basic source for
+  this from Gustaf Hui.
+
+Daniel (3 May 2002)
+- CURL_MAX_WRITE_SIZE is now an exported #define in the curl/curl.h header and
+  can be used to figure out the maximum buffer size your write callback can
+  get.
+
+- CURLOPT_READDATA is now an alias for CURLOPT_INFILE and CURLOPT_WRITEDATE is
+  an alias for CURLOPT_FILE. These two were added for conformity. Most other
+  callback function's userdata are provided with options using a similar name-
+  scheme.
+
+- Added "--trace [file]" to the command line tool. It makes a very detailed
+  trace dump get stored, with a full protocol dump that includes all received
+  and transmitted data. This could be a very effective tool for debugging what
+  goes wrong. This dump includes every byte the way it is sent to/received
+  from the server. The dump is the plain-text version, so SSL transfers will
+  still be readable.
+
+- I found out that the DEBUGFUNCTION was not called properly everywhere as we
+  wanted it to. I fixed it.
+
+- -D now stores all headers to the same file if multiple URLs are given on the
+  command line! Kevin Roth made me aware of that it didn't already do this!
+
+- Gustaf Hui wrote an excellent formpost example that used the multi
+  interface.  Unfortunately, it didn't work due to several bugs in how
+  transfers were made when the multi interface was used.
+
+Daniel (2 May 2002)
+- Hanno Kranzhoff found out that when doing multiple transfers on the same
+  easy handle, the progress meter would show a bad "currently downloaded
+  value" when the transfer starts.
+
+Daniel (1 May 2002)
+- Applied another patch by Jacky Lam to make the name resolve info realloc()
+  stuff work properly.
+
+Daniel (28 April 2002)
+- curl_multi_info_read() is now implemented!
+
+Daniel (27 April 2002)
+- Updated BUGS, TODO, FAQ, INSTALL and added BINDINGS.
+
+- I think I fixed the DNS cache prune crach Jacky Lam found and reported.
+
+- I cleaned up the name prefix stuff in the hash and llist modules.
+
+- FTP responses should now be better on timing out properly. The timeout value
+  is maximum timeout for the entire request operation, but before this, the
+  timeout was used as a maximum allowed time between two reads...
+
+Daniel (26 April 2002)
+- Fixed the test suite http server to not use snprintf() anymore due to better
+  portability.
+
+Daniel (25 April 2002)
+- With Sterling Hughes' new DNS pruning, Jacky Lam asked if this wouldn't
+  cause problems since the pruning is only checking the entry time, and it
+  sure could cause problems. Therefor, I've now added and changed code so that
+  this should not be a problem. Nowhere in the code will be store name
+  resolved information around so that a sunsequent DNS cache prune should
+  cause a problem. This of course called for some mild internal changes.
+
+Daniel (23 April 2002)
+- Improved the 'no_proxy' check, as using port numbers in the URL confused it
+  previously. Reported by Erwan Legrand in bug report #547484.
+
+- The --interface option now works even on IPv6 enabled builds. Reported by
+  'thor'.
+
+Daniel (22 April 2002)
+- The #defines names starting with TIMECOND now has CURL_ prefixes. (The old
+  names are still #defined too.) Pointed out by Robert Olson.
+
+- Jacky Lam brought code that lets the name resolve function only use as much
+  memory as it actually needs. This only works on certain operating systems,
+  but is totally transparant to all users.
+
+Daniel (19 April 2002)
+- Bjorn Reese fixed pack_hostent to work properly with 64 bit pointers.
+
+Daniel (18 April 2002)
+- Sterling Hughes added code to prune old DNS cache entries, since Jacky Lam
+  experienced very big caches.
+
+Daniel (17 April 2002)
+- Dirk Manske patched the 301 response to work against the RFC but more like
+  common browsers do. If a POST get a 301 back, it'll switch to GET in the
+  next request (if location-following is enabled).
+
+Daniel (16 April 2002)
+- Dirk Manske posted a patch originally written by Ingo Wilken that introduced
+  two new CURLINFO_* values: CURLINFO_REDIRECT_TIME and
+  CURLINFO_REDIRECT_COUNT.
+
+Daniel (15 April 2002)
+- Jonatan Lander patched the verbose text 'Disables POST, goes with GET' to
+  reflect reality better, like when the first request isn't POST and when
+  the second isn't GET... :-)
+
+- Craig Davison pointed out that when curl_formadd()ing a file that doesn't
+  exist, libcurl doesn't return error. Now, curl_easy_perform() will return
+  CURLE_READ_ERROR if that is the case. Test 41 was added to verify this.
+
+Version 7.9.6
+
+Daniel (14 April 2002)
+- Dirk Manske brought a fix that makes libcurl strip off white spaces from the
+  beginning of cookie contents.
+
+- Had to patch include/curl/curl.h since MSVC doesn't set the __STDC__ define.
+  Moonesamy pointed out the problem, Bjorn Reese the solution.
+
+Version 7.9.6-pre5
+
+Daniel (12 April 2002)
+- Fixed the TIMER_CONNECT to be more accurate for FTP transfers. Previously
+  FTP transfers got the "connect done" time set after the initial FTP commands
+  and not directly after the TCP/IP connect as it should.
+
+  I also made the time stamp get set even if the connect itself fails, which
+  it didn't do previously.
+
+- Jean-Philippe Barrette-LaPierre provided his patch that introduces
+  CURLOPT_DEBUGFUNCTION and CURLOPT_DEBUGDATA. They allow a program to a set a
+  callback to receive debug/information data. That includes headers and data
+  that is received and sent. CURLOPT_VERBOSE still controls it.
+
+  By default, there is an internal debugfunction that will make things look
+  and work as before if not changed.
+
+Daniel (10 April 2002)
+- Sebastien Willemijns found out that -x didn't use the default port number as
+  is documented. It does now.
+
+- libcurl-errors.3 is a new man page attempting to document all libcurl error
+  codes
+
+- Added two new error codes and changed the behaviour of two old ones
+  slightly:
+
+  CURLE_WRITE_ERROR
+   This error was returned *both* for errors that occured when writing
+   received data to a local file, as well as when we get problems writing data
+   to a remote server. CURLE_SEND_ERROR has now been added for the latter
+   error.
+
+  CURLE_READ_ERROR
+   This error was similarly returned *both* for errors when reading a local
+   file, as well as when getting problems when reading network data.
+   CURLE_RECV_ERROR has now been added for the latter error.
+
+ (Two test cases were adjusted accordingly.)
+
+Daniel (9 April 2002)
+- runtests.pl now sets the HOME variable before running curl, to prevent any
+  actual ~/.curlrc file to fool the tests!
+
+Version 7.9.6-pre4
+
+Daniel (8 April 2002)
+- Michael Curtis provided new functionality for curl on some platforms. Using
+  the --environment option, curl will *set* a bunch of environment variables
+  to values. The names are the same ones as for the -w/--writeout option.
+
+  For now, this only works on the RISC OS version, as this feature relies on
+  both OS support and that it matches OS paradigms.
+
+- Jacky Lam provided a fix for getting headers-only when the reply is HTTP/1.0
+  and 304, I edited it slightly.
+
+Daniel (5 April 2002)
+- As requested by Jay Graves, the '.curlrc' file (or _curlrc as it is called
+  when used in windows), is now loaded from the current directory if the HOME
+  environment variable isn't set (or if it is too long). I also enlarged the
+  array used to store the full file path in, to 512 bytes.
+
+- Kevin Roth pointed out to me why the "19 March" change regarding -G and -I
+  was stupid and the change was reverted. Added test case 48 to verify the
+  functionality.
+
+Version 7.9.6-pre3
+
+Daniel (4 April 2002)
+- Jonatan Lander brought a patch that makes curl/curl.h compile nicely on
+  pre-ISO compilers, like when using gcc -traditional.
+
+Daniel (3 April 2002)
+- Jacky Lam identified a glitch when getting headers-only, where libcurl would
+  "hang" 1 second in vain in the select() loop before returning back.
+
+- Tor Arntsen brought a patch for multipart formposts. It turned out that the
+  "CGI_Lite Perl package" makes some bad assumptions on what letters that may
+  be used in boundary strings and thus curl could confuse it by including '+'
+  and '/'. While this is standards-compliant, we change the behavior to work
+  smoothly with existing software based on that package.
+
+Daniel (2 April 2002)
+- Gerhard Herre filed bug report #536238 where he pointed out a crash in
+  verbose FTP passive transfers for AIX.
+
+- Clarence Gardner pointed out a minor flaw in how libcurl didn't properly
+  take care of all errors that SSL_read() could return.
+
+- Jacky Lam fixed a MALLOCDEBUG problem in lib/getinfo.c
+
+Daniel (27 March 2002)
+- T. Bharath pointed out a flaw in the connection re-use function that didn't
+  check proxy connections properly for "deadness" before they were re-used.
+
+- Pedro Neves found out that HTTP POSTing with --data-binary did not properly
+  work under Windows as the file specified wasn't read fully binary!
+
+Daniel (25 March 2002)
+- Jacky Lam brought a fix that improves treatment of cookies using identical
+  domains but with leading dots properly.
+
+Daniel (22 March 2002)
+- Miklos Nemeth updated the windows section of the docs/INSTALL file and the
+  windows makefiles.
+
+- Jon Dillon provided us with several good-looking curl images for
+  promotion. View them here http://curl.haxx.se/icons.html
+
+Daniel (20 March 2002)
+- Peter Verhas found out that CRLF replacement in uploads was not working. I
+  fixed it, and added test case 128 that verifies the functionality.
+
+- The list formerly known as curl-main is now named curl-users and is hosted
+  by sourceforge. Susbcribe to the new list, get off the old one.
+
+Version 7.9.6-pre2
+
+Daniel (19 March 2002)
+- Made -G and -I on the same command line cause an error.
+
+- Moved the multi.h file to the "public" include directory and made it get
+  included by curl.h so that no extra include files will be necessary to use
+  it.
+
+  Added docs and man pages for the multi interface to the release archive.
+  Added the three example source codes too.
+
+  Necessary steps in my campaign to sneak in the multi interface... ;-)
+
+- Updated the year in all copyright notices in all C and H files.
+
+Daniel (18 March 2002)
+- Tomas Szepe found out that -d and -G didn't mix as they should. I broke this
+  in 7.9.5... Added test case 32 for this.
+
+Version 7.9.6-pre1
+
+Daniel (16 March 2002)
+- Peter Verhas pointed out that the curl_escape and curl_unscape man pages
+  contained factual errors.
+
+- Albert Choy found and corrected a problem with the verbose output when doing
+  PASV ftp transfers. It could make libcurl crash.
+
+  Details in bug report #530562:
+  http://sourceforge.net/tracker/?func=detail&atid=100976&aid=530562&group_id=976
+
+Daniel (15 March 2002)
+- Jun-ichiro itojun Hagino filed bug report #530204 that clearly pointed out
+  the PF_INET fix from February 19 as a not-very-good fix as it broke IPv6
+  capability! That patch is now reverted.
+
+  The problem with slow name lookups with getaddrinfo() on non-IPv6 enabled
+  hosts are instead made by first checking if the stack is IPv6-enabled and if
+  not, the PF_INET is used and otherwise we go with the full PF_UNSPEC.
+
+- T. Bharath pointed out that when we return an "error" from a WRITEFUNCTION
+  as described in the man page, libcurl did not return the documented error
+  code (CURLE_WRITE_ERROR) but would instead return CURLE_READ_ERROR. This is
+  now corrected.
+
+Daniel (14 March 2002)
+- Setting CURLOPT_POST without setting CURLOPT_POSTFIELDS now read the POST-
+  data from the callback.
+
+- The GOPHER support seems to be broken. I don't think I'll even start fixing
+  it until someone else finds out... :-)
+
+Daniel (13 March 2002)
+- Trying 'curl -I ftp.sunet.se' or similar did a SIZE on a silly "(nil)"
+  string. If such a file would be present, curl returned the size of it! Now
+  we prevent this.
+
+- Curl_sendf() was fixed to deal with situation where Curl_write() would've
+  blocked and thus return -1.
+
+- Setting CURLOPT_PROGRESSFUNCTION to NULL now restores the internal function.
+
+- All CURLFORM_* options can now be used in a CURLFORM_ARRAY except the
+  CURLFORM_ARRAY itself. This was necessary since we couldn't expand the
+  CURLFORM_* list proprely and unrestricted until this was the case. It was
+  also a bit peculiar to users why some options could be used in an array
+  while others couldn't.
+
+- Removed some silly CRLF lines that had accidentally slipped into src/main.c
+  Nico Baggus pointed them out to me.
+
+Daniel (11 March 2002)
+- CURLFORM_FILENAME was added. This can be set when creating a file upload
+  part, to set the 'filename' field to a custom value. If this isn't used,
+  the actually used filename will be included instead (as libcurl always has
+  done). curl was adjusted accordingly, and now -F accepts a 'filename=' field
+  too, and allows constructs such as:
+
+    -F 'name=@filename;filename=/dev/null'
+
+  and this can be combined with type= too, in a manner similar to:
+
+   -F "file=@log/test39.txt;filename=fakerfile;type=moo/foobar"
+
+  Test case 39 was added to verify this functionality.
+
+- The struct formerly known as HttpPost is now named curl_httppost to properly
+  use the curl name space. I added a #define for the old name to make existing
+  programs compile even when this new include file is used.
+
+Daniel (8 March 2002)
+- Clifford also discovered that if the client code failed early, as when doing
+  "curl -O" only, it would do fclose(NULL) which caused a segmentation fault
+  on some systems.
+
+- Clifford Wolf provided a patch that made --progress-bar work again.
+
+- I closed bug report #527032 by making sure that we add a newline after a
+  transfer when --progress-bar has been used. Before, without the newline, it
+  made the subsequent text come out wrong.
+
+Version 7.9.5
+
+Daniel (7 March 2002)
+- Added docs/KNOWN_BUGS to the release archive.
+
+Daniel (6 March 2002)
+- Kevin Roth corrected a flaw in the curl client globbing code that made it
+  mess up backslashes. This was most notable on windows (cygwin) machines when
+  using file://.
+
+- Brad provided another fix for building outside the source-tree.
+
+- Ralph Mitchell patched away a few compiler warnings in tests/server/sws.c
+
+Daniel (5 March 2002)
+- I noticed that the typedef in curl.h for the progress callback prototype was
+  wrong and thus applications that used it would not get the proper input
+  data. It used size_t where the implementation actually uses doubles!
+
+  I wish I could blame someone else, but this was my fault. Again.
+
+Version 7.9.5-pre6
+
+Daniel (4 March 2002)
+- Cut off the changes done during 2001 from this changelog file and put them
+  in a separate file (CHANGES.2001), available from CVS of course.
+
+- I removed the multi directory. The example sources were moved to the
+  docs/examples directory where they belong.
+
+- Wrote 7 new man pages for the current functions in the new multi interface.
+  They're all still pretty basic, but we can use them as a start and add more
+  contents to them when we figure out what to write. The large amount of man
+  pages for libcurl now present made me decide to put them in a new separate
+  subdirectory in the docs directory. Named libcurl.
+
+- Giuseppe Corbelli provided a template file for the EPM package manager, it
+  gets generated nicely by the configure script now.
+
+Version 7.9.5-pre5
+
+Daniel (1 March 2002)
+- Moved the memanalyze.pl script into the tests/ dir and added it to the
+  release archives. It was previously only present in the CVS tree.
+
+- Modified the February 17th Host: fix, as bug report #523718 pointed out that
+  it caused crashes!
+
+- Nico Baggus added more error codes to the VMS stuff.
+
+- Wesley Laxton brought the code that introduced the new CURLOPT_PREQUOTE
+  option. It is just another FTP quote option that allows the user to specify
+  a list of FTP commands to issue *just before* the transfer command (RETR or
+  STOR etc). It has turned up a few systems that really need this.
+
+  The curl command line tool can also take advantage of this by prefixing the
+  quote commands with a plus (+) in similar style that post transfer quote
+  commands are specified.
+
+  This is not yet documented. There is no test case for this yet.
+
+Daniel (28 February 2002)
+- Ralph Mitchell made some serious efforts and put a lot of sweat in setting
+  up scripts and things for me to be able to repeat his problems, and I
+  finally could.  I found a problem with the header byte counter that wasn't
+  increased properly and thus we could return CURLE_GOT_NOTHING when we in
+  fact had received data.
+
+Daniel (27 February 2002)
+- I had to revert the non-space parsing cookie fix I posted to the mailing
+  list. Expire dates do have spaces and still need to get parsed properly!
+  Instead we just ignore trailing white space and it seems to work...
+
+Daniel (26 February 2002)
+- Made the cookie property 'Max-Age' work, just since we already tried to
+  support it, it is better to do it right. No one uses this anyway.
+
+- The cookie parser could crash if a really weird (illegal) cookie line was
+  received. I also made it better discard really oddly formatted lines better.
+
+  Made the cookie jar store the second field from the left using the syntax
+  that Netscape and Mozilla probably like. Curl itself ignores it.
+
+  Added test case 31 for these cases.
+
+  Clay Loveless' email regarding some cookie issues started my cleanup.
+
+- Kevin Roth pointed out that my automake fiddles broke the ability to build
+  outside the source-tree and I posted a patch to the mailing list that brings
+  this ability back.
+
+Version 7.9.5-pre4
+
+Daniel (25 February 2002)
+- Fiddled with the automake files to make all source files in the lib
+  directory not have ../src in the include path, and the src sources shouldn't
+  have ../lib!
+
+- All 79 test cases ran OK under Linux and Solaris using the new HTTP server
+  in the test suite. The new HTTP server was first donated by Georg Horn and
+  subsequently modified to work with the test suite. It is currently still not
+  portable enough to run on "all over" but this is a start and I can run all
+  curl tests on my machines. This is an important requirement for the upcoming
+  public release.
+
+- Using -d and -I on the same command line now reports an error, as it implies
+  two different HTTP requests that can't be mixed.
+
+- Jeffrey Pohlmeyer provided a patch that made the -w/--write-out option
+  support %{content_type} to get the content type of the recent download.
+
+- Kevin Roth reported that pre2 and pre3 didn't compile properly on cygwin,
+  and this was because I used #ifdef HAVE_WINSOCK_H in lib/multi.h to figure
+  out if we could include winsock.h which turns out not to be a wise choice to
+  do on cygwin since it has the file but can't include it!
+
+Daniel (22 February 2002)
+- Added src/config-vms.h to the release archive.
+
+- Fixed the connection timeout value again, the change from February 18 wasn't
+  complete.
+
+Version 7.9.5-pre3
+
+Daniel (21 February 2002)
+- Kevin Roth and Andrés García both found out that lib/config.h.in was missing
+  in the pre-release archive and thus the configure script failed.
+
+Version 7.9.5-pre2
+
+Daniel (20 February 2002)
+- Andrés García provided a solution to bug report #515228. the total time
+  counter was not set correctly when -I was used during some conditions (all
+  headers were read in one single read).
+
+- Nico Baggus provided a huge patch with minor tweaks all over to make curl
+  compile nicely on VMS.
+
+Daniel (19 February 2002)
+- Rick Richardson found out that by replacing PF_UNSPEC with PF_INET in the
+  getaddrinfo() calls, he could speed up some name resolving calls with an
+  order of magnitudes on his Redhat Linux 7.2.
+
+- Philip Gladstone found a second INADDR_NONE problem where we used long
+  intead of in_addr_t which caused 64bit problemos. We really shouldn't define
+  that on two different places.
+
+Daniel (18 February 2002)
+- Philip Gladstone found a problem in how HTTP requests were sent if the
+  request couldn't be sent all at once.
+
+- Emil found and corrected a bad connection timeout comparison that made curl
+  use the longest of connect-timeout and timout as a timeout value, instead of
+  the shortest as it was supposed to!
+
+- Aron Roberts provided updated information about LDAP URL syntax to go into
+  the manual as a replacement for the old references.
+
+Daniel (17 February 2002)
+- Philip Gladstone pointed out two missing include files that made curl core
+  dump on 64bit architectures. We need to pay more attention on these details.
+  It is *lethal* to for example forget the malloc() prototype, as 'int' is
+  32bit and malloc() must return a 64bit pointer on these platforms.
+
+- Giaslas Georgios fixed a problem with Host: headers on repeated requests on
+  the same handle using a proxy.
+
+Daniel (8 February 2002)
+- Hanno L. Kranzhoff accurately found out that disabling the Expect: header
+  when doing multipart formposts didn't work very well. It disabled other
+  parts of the request header too, resulting in a broken header. When I fixed
+  this, I also noticed that the Content-Type wasn't possible to disable. It is
+  now, even though it probably is really stupid to try to do this (because of
+  the boundary string that is included in the internally generated header,
+  used as form part separator.)
+
+Daniel (7 February 2002)
+- I moved the config*.h files from the root directory to the lib/ directory.
+
+- I've added the new test suite HTTP server to the CVS repository, It seems to
+  work pretty good now, but we must make it get used by the test scripts
+  properly and then we need to make sure that it compiles, builds and runs on
+  most operating systems.
+
+Version 7.9.5-pre1
+
+Daniel (6 February 2002)
+- Miklos Nemeth provided updated windows makefiles and INSTALL docs.
+
+- Mr Larry Fahnoe found a problem with formposts and I managed to track down
+  and patch this bug. This was actually two bugs, as the posted size was also
+  said to be two bytes too large.
+
+- Brent Beardsley found out and brought a correction for the
+  CURLINFO_CONTENT_TYPE parser that was off one byte. This was my fault, I
+  accidentaly broke Giaslas Georgios' patch.
+
+Daniel (5 February 2002)
+- Kevin Roth found yet another SSL download problem.
+
+Version 7.9.4
+
+- no changes since pre-release
+
+Version 7.9.4-pre2
+
+Daniel (3 February 2002)
+- Eric Melville provided a few spelling corrections in the curl man page.
+
+Daniel (1 February 2002)
+- Andreas Damm corrected the unconditional use of gmtime() in getdate, it now
+  uses gmtime_r() on all hosts that have it.
+
+Daniel (31 January 2002)
+- An anonymous bug report identified a problem in the DNS caching which made it
+  sometimes allocate one byte too little to store the cache entry in. This
+  happened when the port number started with 1!
+
+- Albert Chin provided a patch that improves the gethostbyname_r() configure
+  check on HP-UX 11.00.
+
+Version 7.9.4-pre1
+
+Daniel (30 January 2002)
+- Georg Horn found another way the SSL reading failed due to the non-blocking
+  state of the sockets! I fixed.
+
+Daniel (29 January 2002)
+- Multipart formposts now send the full request properly, including the CRLF.
+  They were previously treated as part of the post data.
+
+- The upload byte counter bugged.
+
+- T. Bharath pointed out that we seed SSL on every connect, which is a time-
+  consuming operation that should only be needed to do once. We patched
+  libcurl to now only seed on the first connect when unseeded. The seeded
+  status is global so it'll now only happen once during a program's life time.
+
+  If the random_file or egdsocket is set, the seed will be re-made though.
+
+- Giaslas Georgios introduced CURLINFO_CONTENT_TYPE that lets
+  curl_easy_getinfo() read the content-type from the previous request.
+
+Daniel (28 January 2002)
+- Kjetil Jacobsen found a way to crash curl and after much debugging, it
+  turned out it was a IPv4-linux only problem introduced in 7.9.3 related to
+  name resolving.
+
+- Andreas Damm posted a huge patch that made the curl_getdate() function fully
+  reentrant!
+
+- Steve Marx pointed out that you couldn't mix CURLOPT_CUSTOMREQUEST with
+  CURLOPT_POSTFIELDS. You can now!
+
+Daniel (25 January 2002)
+- Krishnendu Majumdar pointed out that the header length counter was not reset
+  between multiple requests on the same handle.
+
+- Pedro Neves rightfully questioned why curl always append \r\n to the data
+  that is sent in HTTP POST requests. Unfortunately, this broke the test suite
+  as the test HTTP server is lame enough not to deal with this... :-O
+
+- Following Location: headers when the connection didn't close didn't work as
+  libcurl didn't properly stop reading. This problem was added in 7.9.3 due to
+  the restructured internals. 'Frank' posted a bug report about this.
+
+Daniel (24 January 2002)
+- Kevin Roth very quickly spotted that we wrongly installed the example
+  programs that were built in the multi directory, when 'make install' was
+  used. :-/
+
+Version 7.9.3
+
+Daniel (23 January 2002)
+- Andrés García found a persistancy problem when doing HTTP HEAD, that made
+  curl "hang" until the connection was closed by the server. This problem has
+  been introduced in 7.9.3 due to internal rewrites, this was not present in
+  7.9.2.
+
+Version 7.9.3-pre4
+
+Daniel (19 January 2002)
+- Antonio filed bug report #505514 and provided a fix! When doing multipart
+  formposts, libcurl would include an error text in the actual post if a
+  specified file wasn't found. This is not libcurl's job. Instead we add an
+  empty part.
+
+Daniel (18 January 2002)
+- Played around with stricter compiler warnings for gcc (when ./configure
+  --enable-debug is used) and changed some minor things to stop the warnings.
+
+- Commented out the 'long long' and 'long double' checks in configure.in, as
+  we don't currently use them anyway and the code in lib/mprintf.c that use
+  them causes warnings.
+
+- Saul Good and jonatan pointed out Mac OS X build problems with pre3 and how
+  to correct them. Two compiler warnings were removed as well.
+
+- Andrés García fixed two minor mingw32 building problems.
+
+Version 7.9.3-pre3
+
+Daniel (17 January 2002)
+- docs/libcurl-the-guide is a new tutorial for our libcurl programming
+  friends.
+
+- Richard Archer brought back the ability to compile and build with OpenSSL
+  versions before 0.9.5.
+  [http://sourceforge.net/tracker/?func=detail&atid=100976&aid=504163&group_id=976]
+
+- The DNS cache code didn't take the port number into account, which made it
+  work rather bad on IPv6-enabled hosts (especially when doing passive
+  FTP). Sterling fixed it.
+
+Daniel (16 January 2002)
+- Georg Horn could make a transfer time-out without error text. I found it and
+  corrected it.
+
+- SSL writes didn't work, they return an uninitialized value that caused
+  havoc all over. Georg Horn experienced this.
+
+- Kevin Roth patched the curl_version() function to use the proper OpenSSL
+  function for version information. This way, curl will report the version of
+  the SSL library actually running right now, not the one that had its headers
+  installed when libcurl was built. Mainly intersting when running with shared
+  OpenSSL libraries.  
+
+Version 7.9.3-pre2
+
+Daniel (16 January 2002)
+- Mofied the main transfer loop and related stuff to deal with non-blocking
+  sockets in the upload section. While doing this, I've now separated the
+  connection oriented buffers to have one for downloads and one for uploads
+  (as two can happen simultaneously). I also shrunk the buffers to 20K
+  each. As we have a scratch buffer twice the size of the upload buffer, we
+  arrived at 80K for buffers compared with the previous 150K.
+
+- Added the --cc option to curl-config command as it enables so very cool
+  one-liners. Have a go a this one, building the simple.c example:
+
+        $ `curl-config --cc --cflags --libs` -o example simple.c
+
+Daniel (14 January 2002)
+- I made all socket reads (recv) handle EWOULDBLOCK. I hope nicely. Now we
+  only need to address all writes (send) too and then I'm ready for another
+  pre-release...
+
+- Stoned Elipot patched the in_addr_t configure test to make it work better on
+  more platforms.
+
+Daniel (9 January 2002)
+- Cris Bailiff found out that filling up curl's SSL session cache caused a
+  crash!
+
+- Posted the curl questionnaire on the web site. If you haven't posted your
+  opinions there yet, go there and do it now while it is still there:
+
+        http://curl.haxx.se/q/
+
+- Georg Horn quickly found out that the SSL reading no longer worked as
+  supposed since the switch to non-blocking sockets. I've made a quick patch
+  (for reading only) but we should improve it even further.
+
+Version 7.9.3-pre1
+
+Daniel (7 January 2002)
+- I made the 'bool' typedef use an "unsigned char". It makes it the same on
+  all platforms, no matter what the platform thinks the default format for
+  char is. This was noticed since we made a silly comparison involving such a
+  bool variable, and only one compiler/platform combination (on Debian Linux)
+  complained about it (that happened to have its char unsigned by default).
+
+- Bug report #495290 identified a cookie parsing problem that was corrected.
+  When a Set-Cookie: line is received without a trailing semicolon, libcurl
+  didn't read the last "name=value" pair of the line, leading to confusions...
+
+- Sterling committed his updated DNS cache code.
+
+- I worked with Georg Horn and comments from Götz Babin-Ebell and switched
+  curl's socket operations completely over to non-blocking for the entire
+  operation (previously we used non-blocking only for the connection phase).
+  We had to do this to make the SSL connection phase timeout properly without
+  the use of signals. A little extra code to deal with this was added.
+
+- T. Bharath pointed out a slightly obscure cookie engine flaw.
+
+- Pete Su pointed out that libcurl didn't treat HTTP code 204 as it should.
+  204-replies never provides a response-body. This resulted in bad persistant
+  behavior when 204 was received.
+
+Daniel (5 January 2002)
+- SM updated the VC++ library Makefiles for the new source files.
+
+Daniel (4 January 2002)
+- I discovered that we wrongly used inet_ntoa() (instead of inet_ntoa_r() in
+  two places in the source code). One happened with VERBOSE set on connects,
+  and the other when VERBOSE was on and krb4 over nat was used... I honestly
+  don't think anyone has suffered from these mistakes.
+
+- I replaced a lot of silly occurances of printf() to instead use the more
+  appropriate Curl_infof() or Curl_failf(). The krb4 and telnet code were
+  affected.
+
+- Philip Gladstone found a few more problems with 64-bit archs (the 64-bit
+  sparc on solaris 8).
+
+- After discussions on the libcurl list with Raoul Cridlig, I just made FTP
+  response lines get passed to the header callback if such a one is
+  registered. It'll make it possible for any application to get all the
+  responses an FTP server sends to libcurl.
+
+Daniel (3 January 2002)
+- Sterling Hughes brought a few buckets of code. Now, libcurl will
+  automatically cache DNS lookups and re-use the previous results first if any
+  such is available. It greatly improves speed when doing many repeated
+  operations to the same host.
+
+- As the test case uses --include and then --head, I had to modify src/main.c
+  to deal with this situation slightly better than previously. When done, we
+  have 100% good tests again in the main branch.
+
+Daniel (2 January 2002)
+- Made test case 25 run again in the multi-dev branch. But it seems that the
+  changes done on dec-20 made test case 104 cease to work (in both branches).
+
+- Philip Gladstone pointed out a few portability problems in the source code
+  that didn't compile on 64-bit sparcs using Sun's native 

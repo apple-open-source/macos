@@ -1,0 +1,40 @@
+<?xml version="1.0"?>
+<mbeans-descriptors>
+
+  <mbean         name="Log4jLogger"
+          description="Implementation of Logger that appends log messages to a
+                       file"
+               domain="Catalina"
+                group="Logger"
+                 type="org.jboss.web.catalina.Log4jLogger">
+
+    <attribute   name="className"
+          description="Fully qualified class name of the managed object"
+                 type="java.lang.String"
+            writeable="false"/>
+
+    <attribute   name="category"
+          description="The logger category"
+                 type="java.lang.String"/>
+
+    <attribute   name="verbosityLevel"
+          description="The verbosity level for above which log messages may be
+                       filtered"
+                 type="int"/>
+
+  </mbean>
+
+  <mbean         name="JBossSecurityMgrRealm"
+          description="JBoss realm"
+               domain="Catalina"
+                group="Realm"
+                 type="org.jboss.web.catalina.security.JBossSecurityMgrRealm">
+
+    <attribute   name="className"
+          description="Fully qualified class name of the managed object"
+                 type="java.lang.String"
+            writeable="false"/>
+
+  </mbean>
+
+</mbeans-descriptors>

@@ -1,39 +1,82 @@
 %{
-/*
- * Copyright (c) 1995 NeXT Computer, Inc. All Rights Reserved
- *
+/*-
  * Copyright (c) 1993
  *	The Regents of the University of California.  All rights reserved.
  *
  * This code is derived from software contributed to Berkeley by
  * Paul Borman at Krystal Technologies.
  *
- * The NEXTSTEP Software License Agreement specifies the terms
- * and conditions for redistribution.
+ * Redistribution and use in source and binary forms, with or without
+ * modification, are permitted provided that the following conditions
+ * are met:
+ * 1. Redistributions of source code must retain the above copyright
+ *    notice, this list of conditions and the following disclaimer.
+ * 2. Redistributions in binary form must reproduce the above copyright
+ *    notice, this list of conditions and the following disclaimer in the
+ *    documentation and/or other materials provided with the distribution.
+ * 3. All advertising materials mentioning features or use of this software
+ *    must display the following acknowledgement:
+ *	This product includes software developed by the University of
+ *	California, Berkeley and its contributors.
+ * 4. Neither the name of the University nor the names of its contributors
+ *    may be used to endorse or promote products derived from this software
+ *    without specific prior written permission.
  *
- *	@(#)yacc.y	8.1 (Berkeley) 6/6/93
+ * THIS SOFTWARE IS PROVIDED BY THE REGENTS AND CONTRIBUTORS ``AS IS'' AND
+ * ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+ * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
+ * ARE DISCLAIMED.  IN NO EVENT SHALL THE REGENTS OR CONTRIBUTORS BE LIABLE
+ * FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
+ * DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS
+ * OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION)
+ * HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT
+ * LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY
+ * OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
+ * SUCH DAMAGE.
  */
 
+#ifndef lint
+#if 0
+static char sccsid[] = "@(#)yacc.y	8.1 (Berkeley) 6/6/93";
+#endif /* 0 */
+#endif /* not lint */
+
+#include <sys/cdefs.h>
+__FBSDID("$FreeBSD: src/usr.bin/mklocale/yacc.y,v 1.15 2002/12/21 11:37:05 tjr Exp $");
+
+#include <arpa/inet.h>
 
 #include <ctype.h>
+#include <err.h>
 #include <rune.h>
 #include <stddef.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
+#include <unistd.h>
 
 #include "ldef.h"
+#include "extern.h"
 
-char	*locale_file = "<stdout>";
+static void *xmalloc(unsigned int sz);
+static unsigned long *xlalloc(unsigned int sz);
+void yyerror(const char *s);
+static unsigned long *xrelalloc(unsigned long *old, unsigned int sz);
+static void dump_tables(void);
+static void cleanout(void);
 
-rune_map	maplower = { 0, };
-rune_map	mapupper = { 0, };
-rune_map	types = { 0, };
+const char	*locale_file = "<stdout>";
 
-_RuneLocale	new_locale = { 0, };
+rune_map	maplower = { { 0 }, NULL };
+rune_map	mapupper = { { 0 }, NULL };
+rune_map	types = { { 0 }, NULL };
 
-void set_map __P((rune_map *, rune_list *, u_long));
-void set_digitmap __P((rune_map *, rune_list *));
-void add_map __P((rune_map *, rune_list *, u_long));
+_RuneLocale	new_locale = { "", "", NULL, NULL, 0, {}, {}, {},
+	{0, NULL}, {0, NULL}, {0, NULL}, NULL, 0 };
+
+void set_map(rune_map *, rune_list *, unsigned long);
+void set_digitmap(rune_map *, rune_list *);
+void add_map(rune_map *, rune_list *, unsigned long);
 %}
 
 %union	{
@@ -80,7 +123,9 @@ entry	:	ENCODING STRING
 		  strcpy((char *)new_locale.variable, $1);
 		}
 	|	INVALID RUNE
-		{ new_locale.invalid_rune = $2; }
+		{ warnx("the INVALID keyword is deprecated");
+		  new_locale.invalid_rune = $2;
+		}
 	|	LIST list
 		{ set_map(&types, $2, $1); }
 	|	MAPLOWER map
@@ -156,17 +201,24 @@ map	:	LBRK RUNE RUNE RBRK
 	;
 %%
 
-int debug = 0;
-FILE *fp = stdout;
+int debug;
+FILE *fp;
 
-main(ac, av)
-	int ac;
-	char *av[];
+static void
+cleanout(void)
+{
+    if (fp != NULL)
+	unlink(locale_file);
+}
+
+int
+main(int ac, char *av[])
 {
     int x;
 
     extern char *optarg;
     extern int optind;
+    fp = stdout;
 
     while ((x = getopt(ac, av, "do:")) != EOF) {
 	switch(x) {
@@ -179,10 +231,11 @@ main(ac, av)
 		perror(locale_file);
 		exit(1);
 	    }
+	    atexit(cleanout);
 	    break;
 	default:
 	usage:
-	    fprintf(stderr, "Usage: mklocale [-d] [-o output] [source]\n");
+	    fprintf(stderr, "usage: mklocale [-d] [-o output] [source]\n");
 	    exit(1);
 	}
     }
@@ -207,47 +260,51 @@ main(ac, av)
     memcpy(new_locale.magic, _RUNE_MAGIC_1, sizeof(new_locale.magic));
 
     yyparse();
+
+    return(0);
 }
 
+void
 yyerror(s)
-	char *s;
+	const char *s;
 {
     fprintf(stderr, "%s\n", s);
 }
 
-void *
+static void *
 xmalloc(sz)
 	unsigned int sz;
 {
     void *r = malloc(sz);
     if (!r) {
 	perror("xmalloc");
-	abort();
+	exit(1);
     }
     return(r);
 }
 
-u_long *
+static unsigned long *
 xlalloc(sz)
 	unsigned int sz;
 {
-    u_long *r = (u_long *)malloc(sz * sizeof(u_long));
+    unsigned long *r = (unsigned long *)malloc(sz * sizeof(unsigned long));
     if (!r) {
 	perror("xlalloc");
-	abort();
+	exit(1);
     }
     return(r);
 }
 
-u_long *
+static unsigned long *
 xrelalloc(old, sz)
-	u_long *old;
+	unsigned long *old;
 	unsigned int sz;
 {
-    u_long *r = (u_long *)realloc((char *)old, sz * sizeof(u_long));
+    unsigned long *r = (unsigned long *)realloc((char *)old,
+						sz * sizeof(unsigned long));
     if (!r) {
 	perror("xrelalloc");
-	abort();
+	exit(1);
     }
     return(r);
 }
@@ -256,7 +313,7 @@ void
 set_map(map, list, flag)
 	rune_map *map;
 	rune_list *list;
-	u_long flag;
+	unsigned long flag;
 {
     while (list) {
 	rune_list *nlist = list->next;
@@ -291,7 +348,7 @@ void
 add_map(map, list, flag)
 	rune_map *map;
 	rune_list *list;
-	u_long flag;
+	unsigned long flag;
 {
     rune_t i;
     rune_list *lr = 0;
@@ -454,7 +511,7 @@ add_map(map, list, flag)
 	    for (i = r->max+1; i <= list->max; ++i)
 		r->types[i - r->min] = flag;
 	}
-	r->max = r->max;
+	r->max = list->max;
 	free(list);
     }
 
@@ -496,10 +553,10 @@ add_map(map, list, flag)
     }
 }
 
-void
+static void
 dump_tables()
 {
-    int x;
+    int x, first_d, curr_d;
     rune_list *list;
 
     /*
@@ -508,11 +565,40 @@ dump_tables()
     for(list = types.root; list; list = list->next) {
 	list->map = list->types[0];
 	for (x = 1; x < list->max - list->min + 1; ++x) {
-	    if (list->types[x] != list->map) {
+	    if ((rune_t)list->types[x] != list->map) {
 		list->map = 0;
 		break;
 	    }
 	}
+    }
+
+    first_d = -1;
+    for (x = 0; x < _CACHED_RUNES; ++x) {
+	unsigned long r = types.map[x];
+
+	if (r & _CTYPE_D) {
+		if (first_d < 0)
+			first_d = curr_d = x;
+		else if (x != curr_d + 1) {
+			fprintf(stderr, "Error: DIGIT range is not contiguous\n");
+			exit(1);
+		} else if (x - first_d > 9) {
+			fprintf(stderr, "Error: DIGIT range is too big\n");
+			exit(1);
+		} else
+			curr_d++;
+		if (!(r & _CTYPE_X)) {
+			fprintf(stderr, "Error: DIGIT range is not a subset of XDIGIT range\n");
+			exit(1);
+		}
+	}
+    }
+    if (first_d < 0) {
+	fprintf(stderr, "Error: no DIGIT range defined in the single byte area\n");
+	exit(1);
+    } else if (curr_d - first_d < 9) {
+	fprintf(stderr, "Error: DIGIT range is too small in the single byte area\n");
+	exit(1);
     }
 
     new_locale.invalid_rune = htonl(new_locale.invalid_rune);
@@ -636,8 +722,9 @@ dump_tables()
 	    list->types[x] = htonl(list->types[x]);
 
 	if (!list->map) {
-	    if (fwrite((char *)&list->types,
-		(list->max - list->min + 1)*sizeof(u_long), 1, fp) != 1) {
+	    if (fwrite((char *)list->types,
+		       (list->max - list->min + 1) * sizeof(unsigned long),
+		       1, fp) != 1) {
 		perror(locale_file);
 		exit(1);
 	    }
@@ -652,7 +739,11 @@ dump_tables()
 	perror(locale_file);
 	exit(1);
     }
-    fclose(fp);
+    if (fclose(fp) != 0) {
+	perror(locale_file);
+	exit(1);
+    }
+    fp = NULL;
 
     if (!debug)
 	return;
@@ -660,15 +751,15 @@ dump_tables()
     if (new_locale.encoding[0])
 	fprintf(stderr, "ENCODING	%s\n", new_locale.encoding);
     if (new_locale.variable)
-	fprintf(stderr, "VARIABLE	%s\n", new_locale.variable);
+	fprintf(stderr, "VARIABLE	%s\n", (char *)new_locale.variable);
 
     fprintf(stderr, "\nMAPLOWER:\n\n");
 
     for (x = 0; x < _CACHED_RUNES; ++x) {
 	if (isprint(maplower.map[x]))
-	    fprintf(stderr, " '%c'", maplower.map[x]);
+	    fprintf(stderr, " '%c'", (int)maplower.map[x]);
 	else if (maplower.map[x])
-	    fprintf(stderr, "%04x", maplower.map[x]);
+	    fprintf(stderr, "%04lx", maplower.map[x]);
 	else
 	    fprintf(stderr, "%4x", 0);
 	if ((x & 0xf) == 0xf)
@@ -685,9 +776,9 @@ dump_tables()
 
     for (x = 0; x < _CACHED_RUNES; ++x) {
 	if (isprint(mapupper.map[x]))
-	    fprintf(stderr, " '%c'", mapupper.map[x]);
+	    fprintf(stderr, " '%c'", (int)mapupper.map[x]);
 	else if (mapupper.map[x])
-	    fprintf(stderr, "%04x", mapupper.map[x]);
+	    fprintf(stderr, "%04lx", mapupper.map[x]);
 	else
 	    fprintf(stderr, "%4x", 0);
 	if ((x & 0xf) == 0xf)
@@ -704,95 +795,96 @@ dump_tables()
     fprintf(stderr, "\nTYPES:\n\n");
 
     for (x = 0; x < _CACHED_RUNES; ++x) {
-	u_long r = types.map[x];
+	unsigned long r = types.map[x];
 
 	if (r) {
 	    if (isprint(x))
-		fprintf(stderr, " '%c': %2d", x, r & 0xff);
+		fprintf(stderr, " '%c': %2d", x, (int)(r & 0xff));
 	    else
-		fprintf(stderr, "%04x: %2d", x, r & 0xff);
+		fprintf(stderr, "%04x: %2d", x, (int)(r & 0xff));
 
-	    fprintf(stderr, " %4s", (r & _A) ? "alph" : "");
-	    fprintf(stderr, " %4s", (r & _C) ? "ctrl" : "");
-	    fprintf(stderr, " %4s", (r & _D) ? "dig" : "");
-	    fprintf(stderr, " %4s", (r & _G) ? "graf" : "");
-	    fprintf(stderr, " %4s", (r & _L) ? "low" : "");
-	    fprintf(stderr, " %4s", (r & _P) ? "punc" : "");
-	    fprintf(stderr, " %4s", (r & _S) ? "spac" : "");
-	    fprintf(stderr, " %4s", (r & _U) ? "upp" : "");
-	    fprintf(stderr, " %4s", (r & _X) ? "xdig" : "");
-	    fprintf(stderr, " %4s", (r & _B) ? "blnk" : "");
-	    fprintf(stderr, " %4s", (r & _R) ? "prnt" : "");
-	    fprintf(stderr, " %4s", (r & _I) ? "ideo" : "");
-	    fprintf(stderr, " %4s", (r & _T) ? "spec" : "");
-	    fprintf(stderr, " %4s", (r & _Q) ? "phon" : "");
+	    fprintf(stderr, " %4s", (r & _CTYPE_A) ? "alph" : "");
+	    fprintf(stderr, " %4s", (r & _CTYPE_C) ? "ctrl" : "");
+	    fprintf(stderr, " %4s", (r & _CTYPE_D) ? "dig" : "");
+	    fprintf(stderr, " %4s", (r & _CTYPE_G) ? "graf" : "");
+	    fprintf(stderr, " %4s", (r & _CTYPE_L) ? "low" : "");
+	    fprintf(stderr, " %4s", (r & _CTYPE_P) ? "punc" : "");
+	    fprintf(stderr, " %4s", (r & _CTYPE_S) ? "spac" : "");
+	    fprintf(stderr, " %4s", (r & _CTYPE_U) ? "upp" : "");
+	    fprintf(stderr, " %4s", (r & _CTYPE_X) ? "xdig" : "");
+	    fprintf(stderr, " %4s", (r & _CTYPE_B) ? "blnk" : "");
+	    fprintf(stderr, " %4s", (r & _CTYPE_R) ? "prnt" : "");
+	    fprintf(stderr, " %4s", (r & _CTYPE_I) ? "ideo" : "");
+	    fprintf(stderr, " %4s", (r & _CTYPE_T) ? "spec" : "");
+	    fprintf(stderr, " %4s", (r & _CTYPE_Q) ? "phon" : "");
 	    fprintf(stderr, "\n");
 	}
     }
 
     for (list = types.root; list; list = list->next) {
 	if (list->map && list->min + 3 < list->max) {
-	    u_long r = list->map;
+	    unsigned long r = list->map;
 
-	    fprintf(stderr, "%04x: %2d", list->min, r & 0xff);
+	    fprintf(stderr, "%04lx: %2d",
+		(unsigned long)list->min, (int)(r & 0xff));
 
-	    fprintf(stderr, " %4s", (r & _A) ? "alph" : "");
-	    fprintf(stderr, " %4s", (r & _C) ? "ctrl" : "");
-	    fprintf(stderr, " %4s", (r & _D) ? "dig" : "");
-	    fprintf(stderr, " %4s", (r & _G) ? "graf" : "");
-	    fprintf(stderr, " %4s", (r & _L) ? "low" : "");
-	    fprintf(stderr, " %4s", (r & _P) ? "punc" : "");
-	    fprintf(stderr, " %4s", (r & _S) ? "spac" : "");
-	    fprintf(stderr, " %4s", (r & _U) ? "upp" : "");
-	    fprintf(stderr, " %4s", (r & _X) ? "xdig" : "");
-	    fprintf(stderr, " %4s", (r & _B) ? "blnk" : "");
-	    fprintf(stderr, " %4s", (r & _R) ? "prnt" : "");
-	    fprintf(stderr, " %4s", (r & _I) ? "ideo" : "");
-	    fprintf(stderr, " %4s", (r & _T) ? "spec" : "");
-	    fprintf(stderr, " %4s", (r & _Q) ? "phon" : "");
+	    fprintf(stderr, " %4s", (r & _CTYPE_A) ? "alph" : "");
+	    fprintf(stderr, " %4s", (r & _CTYPE_C) ? "ctrl" : "");
+	    fprintf(stderr, " %4s", (r & _CTYPE_D) ? "dig" : "");
+	    fprintf(stderr, " %4s", (r & _CTYPE_G) ? "graf" : "");
+	    fprintf(stderr, " %4s", (r & _CTYPE_L) ? "low" : "");
+	    fprintf(stderr, " %4s", (r & _CTYPE_P) ? "punc" : "");
+	    fprintf(stderr, " %4s", (r & _CTYPE_S) ? "spac" : "");
+	    fprintf(stderr, " %4s", (r & _CTYPE_U) ? "upp" : "");
+	    fprintf(stderr, " %4s", (r & _CTYPE_X) ? "xdig" : "");
+	    fprintf(stderr, " %4s", (r & _CTYPE_B) ? "blnk" : "");
+	    fprintf(stderr, " %4s", (r & _CTYPE_R) ? "prnt" : "");
+	    fprintf(stderr, " %4s", (r & _CTYPE_I) ? "ideo" : "");
+	    fprintf(stderr, " %4s", (r & _CTYPE_T) ? "spec" : "");
+	    fprintf(stderr, " %4s", (r & _CTYPE_Q) ? "phon" : "");
 	    fprintf(stderr, "\n...\n");
 
-	    fprintf(stderr, "%04x: %2d", list->max, r & 0xff);
+	    fprintf(stderr, "%04lx: %2d",
+		(unsigned long)list->max, (int)(r & 0xff));
 
-	    fprintf(stderr, " %4s", (r & _A) ? "alph" : "");
-	    fprintf(stderr, " %4s", (r & _C) ? "ctrl" : "");
-	    fprintf(stderr, " %4s", (r & _D) ? "dig" : "");
-	    fprintf(stderr, " %4s", (r & _G) ? "graf" : "");
-	    fprintf(stderr, " %4s", (r & _L) ? "low" : "");
-	    fprintf(stderr, " %4s", (r & _P) ? "punc" : "");
-	    fprintf(stderr, " %4s", (r & _S) ? "spac" : "");
-	    fprintf(stderr, " %4s", (r & _U) ? "upp" : "");
-	    fprintf(stderr, " %4s", (r & _X) ? "xdig" : "");
-	    fprintf(stderr, " %4s", (r & _B) ? "blnk" : "");
-	    fprintf(stderr, " %4s", (r & _R) ? "prnt" : "");
-	    fprintf(stderr, " %4s", (r & _I) ? "ideo" : "");
-	    fprintf(stderr, " %4s", (r & _T) ? "spec" : "");
-	    fprintf(stderr, " %4s", (r & _Q) ? "phon" : "");
+	    fprintf(stderr, " %4s", (r & _CTYPE_A) ? "alph" : "");
+	    fprintf(stderr, " %4s", (r & _CTYPE_C) ? "ctrl" : "");
+	    fprintf(stderr, " %4s", (r & _CTYPE_D) ? "dig" : "");
+	    fprintf(stderr, " %4s", (r & _CTYPE_G) ? "graf" : "");
+	    fprintf(stderr, " %4s", (r & _CTYPE_L) ? "low" : "");
+	    fprintf(stderr, " %4s", (r & _CTYPE_P) ? "punc" : "");
+	    fprintf(stderr, " %4s", (r & _CTYPE_S) ? "spac" : "");
+	    fprintf(stderr, " %4s", (r & _CTYPE_U) ? "upp" : "");
+	    fprintf(stderr, " %4s", (r & _CTYPE_X) ? "xdig" : "");
+	    fprintf(stderr, " %4s", (r & _CTYPE_B) ? "blnk" : "");
+	    fprintf(stderr, " %4s", (r & _CTYPE_R) ? "prnt" : "");
+	    fprintf(stderr, " %4s", (r & _CTYPE_I) ? "ideo" : "");
+	    fprintf(stderr, " %4s", (r & _CTYPE_T) ? "spec" : "");
+	    fprintf(stderr, " %4s", (r & _CTYPE_Q) ? "phon" : "");
 	    fprintf(stderr, "\n");
 	} else 
 	for (x = list->min; x <= list->max; ++x) {
-	    u_long r = ntohl(list->types[x - list->min]);
+	    unsigned long r = ntohl(list->types[x - list->min]);
 
 	    if (r) {
-		fprintf(stderr, "%04x: %2d", x, r & 0xff);
+		fprintf(stderr, "%04x: %2d", x, (int)(r & 0xff));
 
-		fprintf(stderr, " %4s", (r & _A) ? "alph" : "");
-		fprintf(stderr, " %4s", (r & _C) ? "ctrl" : "");
-		fprintf(stderr, " %4s", (r & _D) ? "dig" : "");
-		fprintf(stderr, " %4s", (r & _G) ? "graf" : "");
-		fprintf(stderr, " %4s", (r & _L) ? "low" : "");
-		fprintf(stderr, " %4s", (r & _P) ? "punc" : "");
-		fprintf(stderr, " %4s", (r & _S) ? "spac" : "");
-		fprintf(stderr, " %4s", (r & _U) ? "upp" : "");
-		fprintf(stderr, " %4s", (r & _X) ? "xdig" : "");
-		fprintf(stderr, " %4s", (r & _B) ? "blnk" : "");
-		fprintf(stderr, " %4s", (r & _R) ? "prnt" : "");
-		fprintf(stderr, " %4s", (r & _I) ? "ideo" : "");
-		fprintf(stderr, " %4s", (r & _T) ? "spec" : "");
-		fprintf(stderr, " %4s", (r & _Q) ? "phon" : "");
+		fprintf(stderr, " %4s", (r & _CTYPE_A) ? "alph" : "");
+		fprintf(stderr, " %4s", (r & _CTYPE_C) ? "ctrl" : "");
+		fprintf(stderr, " %4s", (r & _CTYPE_D) ? "dig" : "");
+		fprintf(stderr, " %4s", (r & _CTYPE_G) ? "graf" : "");
+		fprintf(stderr, " %4s", (r & _CTYPE_L) ? "low" : "");
+		fprintf(stderr, " %4s", (r & _CTYPE_P) ? "punc" : "");
+		fprintf(stderr, " %4s", (r & _CTYPE_S) ? "spac" : "");
+		fprintf(stderr, " %4s", (r & _CTYPE_U) ? "upp" : "");
+		fprintf(stderr, " %4s", (r & _CTYPE_X) ? "xdig" : "");
+		fprintf(stderr, " %4s", (r & _CTYPE_B) ? "blnk" : "");
+		fprintf(stderr, " %4s", (r & _CTYPE_R) ? "prnt" : "");
+		fprintf(stderr, " %4s", (r & _CTYPE_I) ? "ideo" : "");
+		fprintf(stderr, " %4s", (r & _CTYPE_T) ? "spec" : "");
+		fprintf(stderr, " %4s", (r & _CTYPE_Q) ? "phon" : "");
 		fprintf(stderr, "\n");
 	    }
 	}
     }
 }
-

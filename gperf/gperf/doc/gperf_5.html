@@ -1,0 +1,348 @@
+<HTML>
+<HEAD>
+<!-- This HTML file has been created by texi2html 1.51
+     from gperf.texi on 26 September 2000 -->
+
+<TITLE>Perfect Hash Function Generator - 3  High-Level Description of GNU gperf</TITLE>
+</HEAD>
+<BODY>
+Go to the <A HREF="gperf_1.html">first</A>, <A HREF="gperf_4.html">previous</A>, <A HREF="gperf_6.html">next</A>, <A HREF="gperf_11.html">last</A> section, <A HREF="gperf_toc.html">table of contents</A>.
+<P><HR><P>
+
+
+<H1><A NAME="SEC7" HREF="gperf_toc.html#TOC7">3  High-Level Description of GNU <CODE>gperf</CODE></A></H1>
+
+<P>
+The perfect hash function generator <CODE>gperf</CODE> reads a set of
+"keywords" from a <STRONG>keyfile</STRONG> (or from the standard input by
+default).  It attempts to derive a perfect hashing function that
+recognizes a member of the <STRONG>static keyword set</STRONG> with at most a
+single probe into the lookup table.  If <CODE>gperf</CODE> succeeds in
+generating such a function it produces a pair of C source code routines
+that perform hashing and table lookup recognition.  All generated C code
+is directed to the standard output.  Command-line options described
+below allow you to modify the input and output format to <CODE>gperf</CODE>.
+
+</P>
+<P>
+By default, <CODE>gperf</CODE> attempts to produce time-efficient code, with
+less emphasis on efficient space utilization.  However, several options
+exist that permit trading-off execution time for storage space and vice
+versa.  In particular, expanding the generated table size produces a
+sparse search structure, generally yielding faster searches.
+Conversely, you can direct <CODE>gperf</CODE> to utilize a C <CODE>switch</CODE>
+statement scheme that minimizes data space storage size.  Furthermore,
+using a C <CODE>switch</CODE> may actually speed up the keyword retrieval time
+somewhat.  Actual results depend on your C compiler, of course.
+
+</P>
+<P>
+In general, <CODE>gperf</CODE> assigns values to the characters it is using
+for hashing until some set of values gives each keyword a unique value.
+A helpful heuristic is that the larger the hash value range, the easier
+it is for <CODE>gperf</CODE> to find and generate a perfect hash function.
+Experimentation is the key to getting the most from <CODE>gperf</CODE>.
+
+</P>
+
+
+<H2><A NAME="SEC8" HREF="gperf_toc.html#TOC8">3.1  Input Format to <CODE>gperf</CODE></A></H2>
+<P>
+<A NAME="IDX4"></A>
+<A NAME="IDX5"></A>
+<A NAME="IDX6"></A>
+<A NAME="IDX7"></A>
+You can control the input keyfile format by varying certain command-line
+arguments, in particular the <SAMP>`-t'</SAMP> option.  The input's appearance
+is similar to GNU utilities <CODE>flex</CODE> and <CODE>bison</CODE> (or UNIX
+utilities <CODE>lex</CODE> and <CODE>yacc</CODE>).  Here's an outline of the general
+format:
+
+</P>
+
+<PRE>
+declarations
+%%
+keywords
+%%
+functions
+</PRE>
+
+<P>
+<EM>Unlike</EM> <CODE>flex</CODE> or <CODE>bison</CODE>, all sections of
+<CODE>gperf</CODE>'s input are optional.  The following sections describe the
+input format for each section.
+
+</P>
+
+
+
+<H3><A NAME="SEC9" HREF="gperf_toc.html#TOC9">3.1.1  <CODE>struct</CODE> Declarations and C Code Inclusion</A></H3>
+
+<P>
+The keyword input file optionally contains a section for including
+arbitrary C declarations and definitions, as well as provisions for
+providing a user-supplied <CODE>struct</CODE>.  If the <SAMP>`-t'</SAMP> option
+<EM>is</EM> enabled, you <EM>must</EM> provide a C <CODE>struct</CODE> as the last
+component in the declaration section from the keyfile file.  The first
+field in this struct must be a <CODE>char *</CODE> or <CODE>const char *</CODE>
+identifier called <SAMP>`name'</SAMP>, although it is possible to modify this
+field's name with the <SAMP>`-K'</SAMP> option described below.
+
+</P>
+<P>
+Here is a simple example, using months of the year and their attributes as
+input:
+
+</P>
+
+<PRE>
+struct months { char *name; int number; int days; int leap_days; };
+%%
+january,   1, 31, 31
+february,  2, 28, 29
+march,     3, 31, 31
+april,     4, 30, 30
+may,       5, 31, 31
+june,      6, 30, 30
+july,      7, 31, 31
+august,    8, 31, 31
+september, 9, 30, 30
+october,  10, 31, 31
+november, 11, 30, 30
+december, 12, 31, 31
+</PRE>
+
+<P>
+<A NAME="IDX8"></A>
+Separating the <CODE>struct</CODE> declaration from the list of keywords and
+other fields are a pair of consecutive percent signs, <SAMP>`%%'</SAMP>,
+appearing left justified in the first column, as in the UNIX utility
+<CODE>lex</CODE>.
+
+</P>
+<P>
+<A NAME="IDX9"></A>
+<A NAME="IDX10"></A>
+Using a syntax similar to GNU utilities <CODE>flex</CODE> and <CODE>bison</CODE>, it
+is possible to directly include C source text and comments verbatim into
+the generated output file.  This is accomplished by enclosing the region
+inside left-justified surrounding <SAMP>`%{'</SAMP>, <SAMP>`%}'</SAMP> pairs.  Here is
+an input fragment based on the previous example that illustrates this
+feature:
+
+</P>
+
+<PRE>
+%{
+#include &#60;assert.h&#62;
+/* This section of code is inserted directly into the output. */
+int return_month_days (struct months *months, int is_leap_year);
+%}
+struct months { char *name; int number; int days; int leap_days; };
+%%
+january,   1, 31, 31
+february,  2, 28, 29
+march,     3, 31, 31
+...
+</PRE>
+
+<P>
+It is possible to omit the declaration section entirely.  In this case
+the keyfile begins directly with the first keyword line, e.g.:
+
+</P>
+
+<PRE>
+january,   1, 31, 31
+february,  2, 28, 29
+march,     3, 31, 31
+april,     4, 30, 30
+...
+</PRE>
+
+
+
+<H3><A NAME="SEC10" HREF="gperf_toc.html#TOC10">3.1.2  Format for Keyword Entries</A></H3>
+
+<P>
+The second keyfile format section contains lines of keywords and any
+associated attributes you might supply.  A line beginning with <SAMP>`#'</SAMP>
+in the first column is considered a comment.  Everything following the
+<SAMP>`#'</SAMP> is ignored, up to and including the following newline.
+
+</P>
+<P>
+The first field of each non-comment line is always the key itself.  It
+can be given in two ways: as a simple name, i.e., without surrounding
+string quotation marks, or as a string enclosed in double-quotes, in
+C syntax, possibly with backslash escapes like <CODE>\"</CODE> or <CODE>\234</CODE>
+or <CODE>\xa8</CODE>. In either case, it must start right at the beginning
+of the line, without leading whitespace.
+In this context, a "field" is considered to extend up to, but
+not include, the first blank, comma, or newline.  Here is a simple
+example taken from a partial list of C reserved words:
+
+</P>
+
+<PRE>
+# These are a few C reserved words, see the c.gperf file 
+# for a complete list of ANSI C reserved words.
+unsigned
+sizeof
+switch
+signed
+if
+default
+for
+while
+return
+</PRE>
+
+<P>
+Note that unlike <CODE>flex</CODE> or <CODE>bison</CODE> the first <SAMP>`%%'</SAMP> marker
+may be elided if the declaration section is empty.
+
+</P>
+<P>
+Additional fields may optionally follow the leading keyword.  Fields
+should be separated by commas, and terminate at the end of line.  What
+these fields mean is entirely up to you; they are used to initialize the
+elements of the user-defined <CODE>struct</CODE> provided by you in the
+declaration section.  If the <SAMP>`-t'</SAMP> option is <EM>not</EM> enabled
+these fields are simply ignored.  All previous examples except the last
+one contain keyword attributes.
+
+</P>
+
+
+<H3><A NAME="SEC11" HREF="gperf_toc.html#TOC11">3.1.3  Including Additional C Functions</A></H3>
+
+<P>
+The optional third section also corresponds closely with conventions
+found in <CODE>flex</CODE> and <CODE>bison</CODE>.  All text in this section,
+starting at the final <SAMP>`%%'</SAMP> and extending to the end of the input
+file, is included verbatim into the generated output file.  Naturally,
+it is your responsibility to ensure that the code contained in this
+section is valid C.
+
+</P>
+
+
+<H2><A NAME="SEC12" HREF="gperf_toc.html#TOC12">3.2  Output Format for Generated C Code with <CODE>gperf</CODE></A></H2>
+<P>
+<A NAME="IDX11"></A>
+
+</P>
+<P>
+Several options control how the generated C code appears on the standard 
+output.  Two C function are generated.  They are called <CODE>hash</CODE> and 
+<CODE>in_word_set</CODE>, although you may modify their names with a command-line 
+option.  Both functions require two arguments, a string, <CODE>char *</CODE> 
+<VAR>str</VAR>, and a length parameter, <CODE>int</CODE> <VAR>len</VAR>.  Their default 
+function prototypes are as follows:
+
+</P>
+<P>
+<DL>
+<DT><U>Function:</U> unsigned int <B>hash</B> <I>(const char * <VAR>str</VAR>, unsigned int <VAR>len</VAR>)</I>
+<DD><A NAME="IDX12"></A>
+By default, the generated <CODE>hash</CODE> function returns an integer value
+created by adding <VAR>len</VAR> to several user-specified <VAR>str</VAR> key
+positions indexed into an <STRONG>associated values</STRONG> table stored in a
+local static array.  The associated values table is constructed
+internally by <CODE>gperf</CODE> and later output as a static local C array
+called <SAMP>`hash_table'</SAMP>; its meaning and properties are described below
+(see section <A HREF="gperf_9.html#SEC22">7  Implementation Details of GNU <CODE>gperf</CODE></A>). The relevant key positions are specified via
+the <SAMP>`-k'</SAMP> option when running <CODE>gperf</CODE>, as detailed in the
+<EM>Options</EM> section below(see section <A HREF="gperf_6.html#SEC14">4  Invoking <CODE>gperf</CODE></A>).
+</DL>
+
+</P>
+<P>
+<DL>
+<DT><U>Function:</U>  <B>in_word_set</B> <I>(const char * <VAR>str</VAR>, unsigned int <VAR>len</VAR>)</I>
+<DD><A NAME="IDX13"></A>
+If <VAR>str</VAR> is in the keyword set, returns a pointer to that
+keyword. More exactly, if the option <SAMP>`-t'</SAMP> was given, it returns
+a pointer to the matching keyword's structure. Otherwise it returns
+<CODE>NULL</CODE>.
+</DL>
+
+</P>
+<P>
+If the option <SAMP>`-c'</SAMP> is not used, <VAR>str</VAR> must be a NUL terminated
+string of exactly length <VAR>len</VAR>. If <SAMP>`-c'</SAMP> is used, <VAR>str</VAR> must
+simply be an array of <VAR>len</VAR> characters and does not need to be NUL
+terminated.
+
+</P>
+<P>
+The code generated for these two functions is affected by the following
+options:
+
+</P>
+<DL COMPACT>
+
+<DT><SAMP>`-t'</SAMP>
+<DD>
+<DT><SAMP>`--struct-type'</SAMP>
+<DD>
+Make use of the user-defined <CODE>struct</CODE>.
+
+<DT><SAMP>`-S <VAR>total-switch-statements</VAR>'</SAMP>
+<DD>
+<DT><SAMP>`--switch=<VAR>total-switch-statements</VAR>'</SAMP>
+<DD>
+<A NAME="IDX14"></A>
+Generate 1 or more C <CODE>switch</CODE> statement rather than use a large,
+(and potentially sparse) static array.  Although the exact time and
+space savings of this approach vary according to your C compiler's
+degree of optimization, this method often results in smaller and faster
+code.
+</DL>
+
+<P>
+If the <SAMP>`-t'</SAMP> and <SAMP>`-S'</SAMP> options are omitted, the default action
+is to generate a <CODE>char *</CODE> array containing the keys, together with
+additional null strings used for padding the array.  By experimenting
+with the various input and output options, and timing the resulting C
+code, you can determine the best option choices for different keyword
+set characteristics.
+
+</P>
+
+
+<H2><A NAME="SEC13" HREF="gperf_toc.html#TOC13">3.3  Use of NUL characters</A></H2>
+<P>
+<A NAME="IDX15"></A>
+
+</P>
+<P>
+By default, the code generated by <CODE>gperf</CODE> operates on zero
+terminated strings, the usual representation of strings in C. This means
+that the keywords in the input file must not contain NUL characters,
+and the <VAR>str</VAR> argument passed to <CODE>hash</CODE> or <CODE>in_word_set</CODE>
+must be NUL terminated and have exactly length <VAR>len</VAR>.
+
+</P>
+<P>
+If option <SAMP>`-c'</SAMP> is used, then the <VAR>str</VAR> argument does not need
+to be NUL terminated. The code generated by <CODE>gperf</CODE> will only
+access the first <VAR>len</VAR>, not <VAR>len+1</VAR>, bytes starting at <VAR>str</VAR>.
+However, the keywords in the input file still must not contain NUL
+characters.
+
+</P>
+<P>
+If option <SAMP>`-l'</SAMP> is used, then the hash table performs binary
+comparison. The keywords in the input file may contain NUL characters,
+written in string syntax as <CODE>\000</CODE> or <CODE>\x00</CODE>, and the code
+generated by <CODE>gperf</CODE> will treat NUL like any other character.
+Also, in this case the <SAMP>`-c'</SAMP> option is ignored.
+
+</P>
+<P><HR><P>
+Go to the <A HREF="gperf_1.html">first</A>, <A HREF="gperf_4.html">previous</A>, <A HREF="gperf_6.html">next</A>, <A HREF="gperf_11.html">last</A> section, <A HREF="gperf_toc.html">table of contents</A>.
+</BODY>
+</HTML>

@@ -1,7 +1,8 @@
 /* Perform arithmetic and other operations on values, for GDB.
+
    Copyright 1986, 1988, 1989, 1990, 1991, 1992, 1993, 1994, 1995,
-   1996, 1997, 1998, 1999, 2000, 2001, 2002
-   Free Software Foundation, Inc.
+   1996, 1997, 1998, 1999, 2000, 2001, 2002, 2003 Free Software
+   Foundation, Inc.
 
    This file is part of GDB.
 
@@ -276,6 +277,7 @@ value_subscripted_rvalue (struct value *array, struct value *idx, int lowerbound
     VALUE_LVAL (v) = VALUE_LVAL (array);
   VALUE_ADDRESS (v) = VALUE_ADDRESS (array);
   VALUE_OFFSET (v) = VALUE_OFFSET (array) + elt_offs;
+  VALUE_REGNO (v) = VALUE_REGNO (array);
   return v;
 }
 
@@ -859,7 +861,7 @@ value_binop (struct value *arg1, struct value *arg2, enum exp_opcode op)
     /* Integral operations here.  */
     /* FIXME:  Also mixed integral/booleans, with result an integer. */
     /* FIXME: This implements ANSI C rules (also correct for C++).
-       What about FORTRAN and chill?  */
+       What about FORTRAN and (the deleted) chill ?  */
     {
       unsigned int promoted_len1 = TYPE_LENGTH (type1);
       unsigned int promoted_len2 = TYPE_LENGTH (type2);
@@ -946,12 +948,6 @@ value_binop (struct value *arg1, struct value *arg2, enum exp_opcode op)
 	    case BINOP_MOD:
 	      /* Knuth 1.2.4, integer only.  Note that unlike the C '%' op,
 	         v1 mod 0 has a defined value, v1. */
-	      /* Chill specifies that v2 must be > 0, so check for that. */
-	      if (current_language->la_language == language_chill
-		  && value_as_long (arg2) <= 0)
-		{
-		  error ("Second operand of MOD must be greater than zero.");
-		}
 	      if (v2 == 0)
 		{
 		  v = v1;
@@ -1070,12 +1066,6 @@ value_binop (struct value *arg1, struct value *arg2, enum exp_opcode op)
 	    case BINOP_MOD:
 	      /* Knuth 1.2.4, integer only.  Note that unlike the C '%' op,
 	         X mod 0 has a defined value, X. */
-	      /* Chill specifies that v2 must be > 0, so check for that. */
-	      if (current_language->la_language == language_chill
-		  && v2 <= 0)
-		{
-		  error ("Second operand of MOD must be greater than zero.");
-		}
 	      if (v2 == 0)
 		{
 		  v = v1;
@@ -1338,8 +1328,8 @@ value_neg (struct value *arg1)
     return value_from_double (result_type, -value_as_double (arg1));
   else if (TYPE_CODE (type) == TYPE_CODE_INT || TYPE_CODE (type) == TYPE_CODE_BOOL)
     {
-      /* Perform integral promotion for ANSI C/C++.
-         FIXME: What about FORTRAN and chill ?  */
+      /* Perform integral promotion for ANSI C/C++.  FIXME: What about
+         FORTRAN and (the deleted) chill ?  */
       if (TYPE_LENGTH (type) < TYPE_LENGTH (builtin_type_int))
 	result_type = builtin_type_int;
 

@@ -1,0 +1,247 @@
+From rsync-admin@lists.samba.org  Thu Apr 18 20:05:33 2002
+Return-Path: <rsync-admin@lists.samba.org>
+Delivered-To: mbp@samba.org
+Received: from va.samba.org (localhost [127.0.0.1])
+	by lists.samba.org (Postfix) with ESMTP
+	id 8AD0349D4; Thu, 18 Apr 2002 20:05:32 -0700 (PDT)
+Delivered-To: rsync@lists.samba.org
+Received: from ctmsg01.corp.fitlinxx.com (mail.fitlinxx.com [208.247.212.10])
+	by lists.samba.org (Postfix) with ESMTP id 12ED449C6
+	for <rsync@lists.samba.org>; Thu, 18 Apr 2002 20:05:00 -0700 (PDT)
+Received: by ctmsg01.corp.fitlinxx.com with Internet Mail Service (5.5.2653.19)
+	id <JCL2B4NB>; Thu, 18 Apr 2002 23:04:07 -0400
+Message-ID: <926F937512224245A616323693D3F16B1C0022@ctmsg01.corp.fitlinxx.com>
+From: David Bolen <db3l@fitlinxx.com>
+To: 'Peter Tattam' <peter@jazz-1.trumpet.com.au>
+Cc: rsync@lists.samba.org
+Subject: RE: mixed case file systems.
+MIME-Version: 1.0
+X-Mailer: Internet Mail Service (5.5.2653.19)
+Content-Type: text/plain;
+	charset="iso-8859-1"
+Sender: rsync-admin@lists.samba.org
+Errors-To: rsync-admin@lists.samba.org
+X-BeenThere: rsync@lists.samba.org
+X-Mailman-Version: 2.0.8
+Precedence: bulk
+List-Help: <mailto:rsync-request@lists.samba.org?subject=help>
+List-Post: <mailto:rsync@lists.samba.org>
+List-Subscribe: <http://lists.samba.org/mailman/listinfo/rsync>,
+	<mailto:rsync-request@lists.samba.org?subject=subscribe>
+List-Id: rsync user list <rsync.lists.samba.org>
+List-Unsubscribe: <http://lists.samba.org/mailman/listinfo/rsync>,
+	<mailto:rsync-request@lists.samba.org?subject=unsubscribe>
+List-Archive: <http://lists.samba.org/pipermail/rsync/>
+X-Original-Date: Thu, 18 Apr 2002 23:04:06 -0400
+Date: Thu, 18 Apr 2002 23:04:06 -0400
+Status: RO
+X-Status: A
+Content-Length: 6452
+Lines: 205
+
+Peter Tattam [peter@jazz-1.trumpet.com.au] writes:
+
+> I believe a suitable workaround would be to ignore case for file names
+> when the rsync process is undertaken.  Is this facility available or
+> planned in the near future?
+
+I've attached a context diff for some changes I made to our local copy
+a while back to add an "--ignore-case" option just for this purpose.
+In our case it came up in the context of disting between NTFS and FAT
+remote systems.  I think we ended up not needing it, but it does make
+rsync match filenames in a case insensitive manner, so it might at
+least be worth trying to see if it resolves your issue.
+
+A few caveats - both ends have to support the option - I couldn't make
+it backwards compatible because both ends exchange information about a
+sorted file list that has to sort the same way on either side (which
+very subtly bit me when I first did this).  I also didn't bump the
+protocol in this patch (wasn't quite sure it was appropriate just for an
+incompatible command line option) since since it was for local use.
+
+The patch is based on a 2.4.x series rsync, but if it doesn't apply
+cleanly to 2.5.x, it's should be simple enough to just apply manually.
+
+-- David
+
+/-----------------------------------------------------------------------\
+ \               David Bolen            \   E-mail: db3l@fitlinxx.com  /
+  |             FitLinxx, Inc.            \  Phone: (203) 708-5192    |
+ /  860 Canal Street, Stamford, CT  06902   \  Fax: (203) 316-5150     \
+\-----------------------------------------------------------------------/
+
+	  - - - - - - - - - - - - - - - - - - - - - - - - -
+
+Index: options.c
+===================================================================
+RCS file: e:/binaries/cvs/ni/bin/rsync/options.c,v
+retrieving revision 1.5
+retrieving revision 1.7
+diff -c -r1.5 -r1.7
+*** options.c	2000/12/28 00:30:18	1.5
+--- options.c	2001/06/20 19:25:24	1.7
+***************
+*** 72,77 ****
+--- 72,78 ----
+  #else
+  int modify_window=0;
+  #endif /* _WIN32 */
++ int ignore_case=0;
+  int modify_window_set=0;
+  int delete_sent=0;
+  
+***************
+*** 162,167 ****
+--- 164,170 ----
+    rprintf(F,"     --exclude-from=FILE     exclude patterns listed in
+FILE\n");
+    rprintf(F,"     --include=PATTERN       don't exclude files matching
+PATTERN\n");
+    rprintf(F,"     --include-from=FILE     don't exclude patterns listed in
+FILE\n");
++   rprintf(F,"     --ignore-case           ignore case when comparing
+filenames\n");
+    rprintf(F,"     --version               print version number\n");  
+    rprintf(F,"     --daemon                run as a rsync daemon\n");  
+    rprintf(F,"     --address               bind to the specified
+address\n");  
+***************
+*** 186,194 ****
+        OPT_PROGRESS, OPT_COPY_UNSAFE_LINKS, OPT_SAFE_LINKS,
+OPT_COMPARE_DEST,
+        OPT_LOG_FORMAT, OPT_PASSWORD_FILE, OPT_SIZE_ONLY, OPT_ADDRESS,
+        OPT_DELETE_AFTER, OPT_EXISTING, OPT_MAX_DELETE, OPT_BACKUP_DIR, 
+!       OPT_IGNORE_ERRORS, OPT_MODIFY_WINDOW, OPT_DELETE_SENT};
+  
+! static char *short_options = "oblLWHpguDCtcahvqrRIxnSe:B:T:zP";
+  
+  static struct option long_options[] = {
+    {"version",     0,     0,    OPT_VERSION},
+--- 189,198 ----
+        OPT_PROGRESS, OPT_COPY_UNSAFE_LINKS, OPT_SAFE_LINKS,
+OPT_COMPARE_DEST,
+        OPT_LOG_FORMAT, OPT_PASSWORD_FILE, OPT_SIZE_ONLY, OPT_ADDRESS,
+        OPT_DELETE_AFTER, OPT_EXISTING, OPT_MAX_DELETE, OPT_BACKUP_DIR, 
+!       OPT_IGNORE_ERRORS, OPT_MODIFY_WINDOW, OPT_DELETE_SENT,
+!       OPT_IGNORE_CASE};
+  
+! static char *short_options = "oblLWHpguDCtcahvqrRIxnSe:B:T:zP";
+  
+  static struct option long_options[] = {
+    {"version",     0,     0,    OPT_VERSION},
+***************
+*** 204,209 ****
+--- 208,214 ----
+    {"exclude-from",1,     0,    OPT_EXCLUDE_FROM},
+    {"include",     1,     0,    OPT_INCLUDE},
+    {"include-from",1,     0,    OPT_INCLUDE_FROM},
++   {"ignore-case", 0,     0,    OPT_IGNORE_CASE},
+    {"rsync-path",  1,     0,    OPT_RSYNC_PATH},
+    {"password-file", 1,	0,     OPT_PASSWORD_FILE},
+    {"one-file-system",0,  0,    'x'},
+***************
+*** 401,406 ****
+--- 406,415 ----
+  			add_exclude_file(optarg,1, 1);
+  			break;
+  
++ 		case OPT_IGNORE_CASE:
++ 		        ignore_case=1;
++ 			break;
++ 		      
+  		case OPT_COPY_UNSAFE_LINKS:
+  			copy_unsafe_links=1;
+  			break;
+***************
+*** 712,717 ****
+--- 727,736 ----
+  	        slprintf(mwindow,sizeof(mwindow),"--modify-window=%d",
+  			 modify_window);
+  		args[ac++] = mwindow;
++ 	}
++ 
++ 	if (ignore_case) {
++ 	   args[ac++] = "--ignore-case";
+  	}
+  
+  	if (keep_partial)
+Index: exclude.c
+===================================================================
+RCS file: e:/binaries/cvs/ni/bin/rsync/exclude.c,v
+retrieving revision 1.1.1.1
+retrieving revision 1.2
+diff -c -r1.1.1.1 -r1.2
+*** exclude.c	2000/05/30 18:08:19	1.1.1.1
+--- exclude.c	2001/06/14 04:30:17	1.2
+***************
+*** 31,36 ****
+--- 31,37 ----
+  static struct exclude_struct *make_exclude(char *pattern, int include)
+  {
+  	struct exclude_struct *ret;
++ 	extern int ignore_case;
+  
+  	ret = (struct exclude_struct *)malloc(sizeof(*ret));
+  	if (!ret) out_of_memory("make_exclude");
+***************
+*** 72,77 ****
+--- 73,82 ----
+  
+  	if (!strchr(ret->pattern,'/')) {
+  		ret->local = 1;
++ 	}
++ 
++ 	if (ignore_case) {
++ 	   ret->fnmatch_flags |= FNM_CASEFOLD;
+  	}
+  
+  	return ret;
+Index: util.c
+===================================================================
+RCS file: e:/binaries/cvs/ni/bin/rsync/util.c,v
+retrieving revision 1.2
+retrieving revision 1.3
+diff -c -r1.2 -r1.3
+*** util.c	2000/07/07 03:23:40	1.2
+--- util.c	2001/06/14 04:30:17	1.3
+***************
+*** 838,849 ****
+  {
+  	const uchar *s1 = (const uchar *)cs1;
+  	const uchar *s2 = (const uchar *)cs2;
+  
+! 	while (*s1 && *s2 && (*s1 == *s2)) {
+! 		s1++; s2++;
+  	}
+- 	
+- 	return (int)*s1 - (int)*s2;
+  }
+  
+  static OFF_T last_ofs;
+--- 836,856 ----
+  {
+  	const uchar *s1 = (const uchar *)cs1;
+  	const uchar *s2 = (const uchar *)cs2;
++ 	extern int ignore_case;
++ 	
++ 	if (ignore_case) {
++ 		while (*s1 && *s2 && (toupper(*s1) == toupper(*s2))) {
++ 			s1++; s2++;
++ 		}
++ 
++ 		return (int)toupper(*s1) - (int)toupper(*s2);
++ 	} else {
++ 		while (*s1 && *s2 && (*s1 == *s2)) {
++ 			s1++; s2++;
++ 		}
+  
+! 		return (int)*s1 - (int)*s2;
+  	}
+  }
+  
+  static OFF_T last_ofs;
+
+-- 
+To unsubscribe or change options: http://lists.samba.org/mailman/listinfo/rsync
+Before posting, read: http://www.tuxedo.org/~esr/faqs/smart-questions.html
+

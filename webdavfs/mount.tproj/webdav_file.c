@@ -57,6 +57,142 @@
 
 /*****************************************************************************/
 
+pthread_mutex_t webdav_cachefile_lock;
+int	webdav_cachefile;	/* file descriptor for an empty, unlinked cache file or -1 */
+
+/*****************************************************************************/
+
+int webdav_cachefile_init(void)
+{
+	pthread_mutexattr_t mutexattr;
+	int error;
+	
+	webdav_cachefile = -1;	/* closed */
+				
+	/* set up the lock on the queues */
+	error = pthread_mutexattr_init(&mutexattr);
+	if (error)
+	{
+		syslog(LOG_ERR, "webdav_cachefiles_init: pthread_mutexattr_init() failed: %s", strerror(error));
+		goto done;
+	}
+
+	error = pthread_mutex_init(&webdav_cachefile_lock, &mutexattr);
+	if (error)
+	{
+		syslog(LOG_ERR, "webdav_cachefiles_init: pthread_mutex_init() failed: %s", strerror(error));
+		goto done;
+	}
+	
+done:
+	
+	return ( error );
+}
+
+/*****************************************************************************/
+
+/* get_cachefile returns the fd for a cache file. If webdav_cachefile is not
+ * storing a cache file fd, open/create a new temp file and return it.
+ * Otherwise, return the stored cache file fd.
+ */
+static int get_cachefile(char *name, int *fd)
+{
+	int error, mutexerror;
+	
+	error = 0;
+	
+	mutexerror = pthread_mutex_lock(&webdav_cachefile_lock);
+	if (mutexerror)
+	{
+		syslog(LOG_ERR, "get_cachefile: pthread_mutex_lock(): %s", strerror(mutexerror));
+		goto die;
+	}
+	
+	/* did a previous call leave a cache file for us to use? */
+	if ( webdav_cachefile < 0 )
+	{
+		/* no, so create a temp file */
+		*fd = mkstemp(name);
+		if ( *fd != -1 )
+		{
+			/* unlink it so the last close will delete it */
+			(void)unlink(name);
+		}
+		else
+		{
+			syslog(LOG_ERR, "get_cachefile: mkstemp(): %s", strerror(errno));
+			error = errno;
+		}
+	}
+	else
+	{
+		/* yes, so grab it */
+		*fd = webdav_cachefile;
+		webdav_cachefile = -1;
+	}
+	
+	mutexerror = pthread_mutex_unlock(&webdav_cachefile_lock);
+	if (mutexerror)
+	{
+		syslog(LOG_ERR, "get_cachefile: pthread_mutex_unlock(): %s", strerror(mutexerror));
+		goto die;
+	}
+	
+	return (error);
+	
+die:
+
+	webdav_kill(-1);	/* tell the main select loop to force unmount */
+	return ( mutexerror );
+}
+
+/*****************************************************************************/
+
+/* save_cachefile saves a cache file fd that wasn't needed. If there is already
+ * stored a cache file fd, then the input fd is closed (closing will only
+ * happen when there there is a race between multiple open requests so it
+ * should be rare).
+ */
+static void save_cachefile(int fd)
+{
+	int mutexerror;
+	
+	mutexerror = pthread_mutex_lock(&webdav_cachefile_lock);
+	if (mutexerror)
+	{
+		syslog(LOG_ERR, "save_cachefile: pthread_mutex_lock(): %s", strerror(mutexerror));
+		goto die;
+	}
+	
+	/* are we already storing a cache file that wasn't used? */
+	if ( webdav_cachefile < 0 )
+	{
+		/* no, so store this one */
+		webdav_cachefile = fd;
+	}
+	else
+	{
+		/* yes, so close this one */
+		close(fd);
+	}
+
+	mutexerror = pthread_mutex_unlock(&webdav_cachefile_lock);
+	if (mutexerror)
+	{
+		syslog(LOG_ERR, "save_cachefile: pthread_mutex_unlock(): %s", strerror(mutexerror));
+		goto die;
+	}
+	
+	return;
+	
+die:
+
+	webdav_kill(-1);	/* tell the main select loop to force unmount */
+	return;
+}
+
+/*****************************************************************************/
+
 void name_tempfile(buf, seed_prefix)
 	char *buf;			/* buf must be of size MAXPATHLEN */
 	char *seed_prefix;	/* seed_prefix must be a pointer to a null-terminated string (or a NULL pointer) */
@@ -81,6 +217,50 @@ void name_tempfile(buf, seed_prefix)
 
 /*****************************************************************************/
 
+static
+int getfrommemcache(char *key, struct fetch_state *volatile fs,
+	struct file_array_element *file_array_elem)
+{
+	struct vattr statbuf;
+	char appledoubleheader[APPLEDOUBLEHEADER_LENGTH];
+	ssize_t size;
+	int32_t lastvalidtime;
+	
+	if ( webdav_memcache_retrieve(fs->fs_uid, key,
+		&gmemcache_header, &statbuf, appledoubleheader, &lastvalidtime) )
+	{
+		/* we found the AppleDouble header in memcache */
+		size = write(file_array_elem->fd, (void *)&appledoubleheader, APPLEDOUBLEHEADER_LENGTH);
+		if (size != APPLEDOUBLEHEADER_LENGTH)
+		{
+			if (size == -1)
+			{
+				syslog(LOG_ERR, "getfrommemcache: write(): %s", strerror(errno));
+			}
+			else
+			{
+				syslog(LOG_ERR, "getfrommemcache: write() was short");
+			}
+			/* seek back to start of file */
+			(void) lseek(file_array_elem->fd, (off_t)0, SEEK_SET);
+			return FALSE;
+		}
+		else
+		{
+			file_array_elem->download_status = WEBDAV_DOWNLOAD_FINISHED;
+			file_array_elem->lastvalidtime = lastvalidtime;
+			return TRUE;
+		}
+	}
+	else
+	{
+		return FALSE;
+	}
+}
+
+
+/*****************************************************************************/
+
 int webdav_open(proxy_ok, pcr, key, a_socket, so, fdp, file_type, a_file_handle)
 	int proxy_ok;
 	struct webdav_cred *pcr;
@@ -91,14 +271,16 @@ int webdav_open(proxy_ok, pcr, key, a_socket, so, fdp, file_type, a_file_handle)
 	webdav_filetype_t file_type;
 	webdav_filehandle_t *a_file_handle;
 {
+	#pragma unused(so)
 	char pbuf[MAXPATHLEN];
 	char *utf8_key;
 	struct webdav_lock_struct lock_struct;
 	int error, error2;
-	int i, arrayelem = -1;
+	int i = 0, arrayelem = -1;
 	struct fetch_state fs;
 	struct timeval tv;
 	struct timezone tz;
+	int theCacheFile;
 
 	lock_struct.refresh = 0;
 	lock_struct.locktoken = NULL;
@@ -146,6 +328,13 @@ int webdav_open(proxy_ok, pcr, key, a_socket, so, fdp, file_type, a_file_handle)
 	name_tempfile(pbuf, fs.fs_outputfile);
 	fs.fs_outputfile = pbuf;
 
+	/* get a cache file */
+	error = get_cachefile(fs.fs_outputfile, &theCacheFile);
+	if ( error )
+	{
+		return (error);
+	}
+
 #ifdef DEBUG
 	fprintf(stderr, "Output file for open is %s, glast=%d\n", fs.fs_outputfile, glast_array_element);
 #endif
@@ -153,6 +342,8 @@ int webdav_open(proxy_ok, pcr, key, a_socket, so, fdp, file_type, a_file_handle)
 	error = pthread_mutex_lock(&garray_lock);
 	if (error)
 	{
+		syslog(LOG_ERR, "webdav_open: pthread_mutex_lock(): %s", strerror(error));
+		webdav_kill(-1);	/* tell the main select loop to force unmount */
 		free(utf8_key);
 		return (error);
 	}
@@ -170,20 +361,27 @@ int webdav_open(proxy_ok, pcr, key, a_socket, so, fdp, file_type, a_file_handle)
 			error2 = pthread_mutex_unlock(&garray_lock);
 			if (error2)
 			{
+				syslog(LOG_ERR, "webdav_open: pthread_mutex_unlock(): %s", strerror(error2));
+				webdav_kill(-1);	/* tell the main select loop to force unmount */
 				error = error2;
-				/* *** fatal error for mount_webdav ??? *** */
 			}
+			
+			/* save the cache file */
+			save_cachefile(theCacheFile);
+			
 			return (error);
 		}
 	}
 
 	if ((arrayelem != -1) &&
-		(gfile_array[arrayelem].fd != 0) &&
+		(gfile_array[arrayelem].fd != -1) &&
 		gfile_array[arrayelem].cachetime && /* *** just for now *** */
 		gfile_array[arrayelem].file_type == WEBDAV_FILE_TYPE &&
 		(!memcmp(utf8_key, gfile_array[arrayelem].uri, strlen(utf8_key))))
 	{
-
+		/* save the cache file */
+		save_cachefile(theCacheFile);
+		
 #ifdef NOT_YET
 		if (!gfile_array[arrayelem].cachetime)
 		{
@@ -242,7 +440,7 @@ int webdav_open(proxy_ok, pcr, key, a_socket, so, fdp, file_type, a_file_handle)
 			  and update our counters.	 Otherwise we have too many open files
 			  and we should return an error, unless we can steal a closed file
 			  which has been cached */
-			if (gfile_array[i].fd == 0)
+			if (gfile_array[i].fd == -1)
 			{
 				goto success;
 			}
@@ -265,7 +463,7 @@ int webdav_open(proxy_ok, pcr, key, a_socket, so, fdp, file_type, a_file_handle)
 			/* Of course we know that there aren't any unused fd's at this 
 			  point, or we wouldn't be here, but since the macro depends 
 			  on it, check whether the fd is set. */
-			if (gfile_array[i].fd)
+			if (gfile_array[i].fd != -1)
 			{
 				DEL_EXPIRED_CACHE(i, tv.tv_sec, WEBDAV_CACHE_LOW_TIMEOUT);
 			}
@@ -279,7 +477,7 @@ int webdav_open(proxy_ok, pcr, key, a_socket, so, fdp, file_type, a_file_handle)
 			  and update our counters.	 Otherwise we have too many open files
 			  and we should return an error, unless we can steal a closed file
 			  which has been cached */
-			if (gfile_array[i].fd == 0)
+			if (gfile_array[i].fd == -1)
 			{
 				goto success;
 			}
@@ -299,7 +497,7 @@ int webdav_open(proxy_ok, pcr, key, a_socket, so, fdp, file_type, a_file_handle)
 		i = arrayelem;
 		do
 		{
-			if (gfile_array[i].fd && gfile_array[i].cachetime)
+			if ((gfile_array[i].fd != -1) && gfile_array[i].cachetime)
 			{
 				error = webdav_set_file_handle(gfile_array[i].uri, strlen(gfile_array[i].uri), -1);
 				if (!error || (error == ENOENT))
@@ -325,45 +523,20 @@ int webdav_open(proxy_ok, pcr, key, a_socket, so, fdp, file_type, a_file_handle)
 		} while (i != arrayelem);
 
 		/* we never found an entry */
+		syslog(LOG_ERR, "webdav_open: gfile_array has no free entries");
 		error = EMFILE;							/* too many open files */
+		
+		/* save the cache file */
+		save_cachefile(theCacheFile);
+		
 		goto free_unlock_done;
 
 success:
 
 		glast_array_element = arrayelem = i;
 
-		/* Now open the file and squirrel the file descriptor
-		 * in the file_array.
-		 */
-		gfile_array[arrayelem].fd = mkstemp(fs.fs_outputfile);
-		if (gfile_array[arrayelem].fd == -1)
-		{
-			gfile_array[arrayelem].fd = 0;
-
-			/* Clear out all of the cache files that have been closed for a while */
-			gettimeofday(&tv, &tz);
-			for (i = 0; i < WEBDAV_MAX_OPEN_FILES; ++i)
-			{
-				if (gfile_array[i].fd)
-				{
-					DEL_EXPIRED_CACHE(i, tv.tv_sec, WEBDAV_CACHE_LOW_TIMEOUT);
-				}
-			}
-
-			/* Try again */
-			gfile_array[arrayelem].fd = mkstemp(fs.fs_outputfile);
-			if (gfile_array[arrayelem].fd == -1)
-			{
-				gfile_array[arrayelem].fd = 0;
-				error = errno;
-				goto free_unlock_done;
-			}
-		}
-
-		/* Get rid of that file. */
-		(void)unlink(fs.fs_outputfile);
-
 		/* Fill in the file array. */
+		gfile_array[arrayelem].fd = theCacheFile;
 		gfile_array[arrayelem].cachetime = 0;
 		gfile_array[arrayelem].lastvalidtime = 0;
 		gfile_array[arrayelem].uri = utf8_key;
@@ -402,8 +575,9 @@ success:
 			*/
 			if (((pcr->pcr_flag) - 1) & O_TRUNC)
 			{
-				if (ftruncate(gfile_array[arrayelem].fd, 0))
+				if (ftruncate(gfile_array[arrayelem].fd, 0LL))
 				{
+					syslog(LOG_ERR, "webdav_open: ftruncate(): %s", strerror(errno));
 					error = errno;
 					goto clear_free_unlock_done;
 				}
@@ -424,40 +598,49 @@ success:
 			 (gfile_array[arrayelem].download_status != WEBDAV_DOWNLOAD_FINISHED) ||
 			 (gfile_array[arrayelem].lastvalidtime + WEBDAV_CACHE_VALID_TIMEOUT < tv.tv_sec) )
 		{
-			/* Ok, now put the file descriptor in to the fs for get to use */
-			fs.fs_fd = dup(gfile_array[arrayelem].fd);
-			if (fs.fs_fd == -1)
+			if (!getfrommemcache(key, &fs, &gfile_array[arrayelem]))
 			{
-				
-				/* Clear out all of the cache files that have been closed for a while */
-				gettimeofday(&tv, &tz);
-				for (i = 0; i < WEBDAV_MAX_OPEN_FILES; ++i)
-				{
-					if (gfile_array[i].fd)
-					{
-						DEL_EXPIRED_CACHE(i, tv.tv_sec, WEBDAV_CACHE_LOW_TIMEOUT);
-					}
-				}
-	
-				/* Try again */
+				/* Ok, now put the file descriptor in to the fs for get to use */
 				fs.fs_fd = dup(gfile_array[arrayelem].fd);
 				if (fs.fs_fd == -1)
 				{
-					error = errno;
+					
+					/* Clear out all of the cache files that have been closed for a while */
+					gettimeofday(&tv, &tz);
+					for (i = 0; i < WEBDAV_MAX_OPEN_FILES; ++i)
+					{
+						if (gfile_array[i].fd != -1)
+						{
+							DEL_EXPIRED_CACHE(i, tv.tv_sec, WEBDAV_CACHE_LOW_TIMEOUT);
+						}
+					}
+		
+					/* Try again */
+					fs.fs_fd = dup(gfile_array[arrayelem].fd);
+					if (fs.fs_fd == -1)
+					{
+						syslog(LOG_ERR, "webdav_open: dup(): %s", strerror(errno));
+						error = errno;
+						goto clear_free_unlock_done;
+					}
+				}
+				
+				error = get(&fs, &(gfile_array[arrayelem].download_status));
+				if (error)
+				{
+#ifdef DEBUG
+					fprintf(stderr, "webdav_open: get returned error %d\n", error);
+#endif
 					goto clear_free_unlock_done;
 				}
+				
+				gfile_array[arrayelem].lastvalidtime = tv.tv_sec;
 			}
-			
-			error = get(&fs, &(gfile_array[arrayelem].download_status));
-			if (error)
+			else
 			{
-#ifdef DEBUG
-				fprintf(stderr, "webdav_open: get returned error %d\n", error);
-#endif
-				goto clear_free_unlock_done;
+				/* we skipped the get, so we have to free up the memory allocated by http_parse */
+				fs.fs_close(&fs);
 			}
-			
-			gfile_array[arrayelem].lastvalidtime = tv.tv_sec;
 		}
 		else
 		{
@@ -507,6 +690,7 @@ get_finished:
 		}
 		else
 		{
+			syslog(LOG_ERR, "webdav_open: invalid file_type");
 			error = EFTYPE;
 			goto clear_free_unlock_done;
 		}
@@ -578,7 +762,7 @@ free_unlock_done:
 			gettimeofday(&tv, &tz);
 			for (i = 0; i < WEBDAV_MAX_OPEN_FILES; ++i)
 			{
-				if (gfile_array[i].fd)
+				if (gfile_array[i].fd != -1)
 				{
 					DEL_EXPIRED_CACHE(i, tv.tv_sec, WEBDAV_CACHE_LOW_TIMEOUT);
 				}
@@ -588,6 +772,7 @@ free_unlock_done:
 			*fdp = dup(gfile_array[arrayelem].fd);
 			if (*fdp == -1)
 			{
+				syslog(LOG_ERR, "webdav_open: dup() #2: %s", strerror(errno));
 				error = errno;
 				CLEAR_GFILE_ENTRY(arrayelem);
 			}
@@ -605,10 +790,11 @@ free_unlock_done:
 	error2 = pthread_mutex_unlock(&garray_lock);
 	if (error2)
 	{
+		syslog(LOG_ERR, "webdav_open: pthread_mutex_unlock() #2: %s", strerror(error2));
+		webdav_kill(-1);	/* tell the main select loop to force unmount */
 		if (!error)
 		{
 			error = error2;
-			/* *** fatal error for mount_webdav ??? *** */
 		}
 	}
 
@@ -643,18 +829,20 @@ int webdav_close(proxy_ok, file_handle, a_socket)
 	error = pthread_mutex_lock(&garray_lock);
 	if (error)
 	{
+		syslog(LOG_ERR, "webdav_close: pthread_mutex_lock(): %s", strerror(error));
+		webdav_kill(-1);	/* tell the main select loop to force unmount */
 		goto done;
 	}
 
-	if (!gfile_array[file_handle].fd)
+	if (gfile_array[file_handle].fd == -1)
 	{
 		/* Trying to close something we did not open
 		 * uh oh
 		 */
+		syslog(LOG_ERR, "webdav_close: fd is already closed");
 		error = EBADF;
 		goto unlock_finish;
 	}
-
 
 	/* Kill any threads that may be downloading data for this file */
 	/* XXX CHW. This needs to be an atomic test and set which I will do */
@@ -750,6 +938,7 @@ int webdav_close(proxy_ok, file_handle, a_socket)
 		newerror = close(gfile_array[file_handle].fd);
 		if (newerror)
 		{
+			syslog(LOG_ERR, "webdav_close: close(): %s", strerror(newerror));
 			error = newerror;					/*close error supercedes memcache remove error */
 		}
 
@@ -763,7 +952,7 @@ int webdav_close(proxy_ok, file_handle, a_socket)
 			}
 		}
 
-		gfile_array[file_handle].fd = 0;		/* since it's already closed */
+		gfile_array[file_handle].fd = -1;		/* since it's already closed */
 
 		CLEAR_GFILE_ENTRY(file_handle)
 
@@ -775,6 +964,8 @@ unlock_finish:
 	newerror = pthread_mutex_unlock(&garray_lock);
 	if (newerror)
 	{
+		syslog(LOG_ERR, "webdav_close: pthread_mutex_unlock(): %s", strerror(newerror));
+		webdav_kill(-1);	/* tell the main select loop to force unmount */
 		if (!error)
 		{
 			error = newerror;
@@ -855,9 +1046,10 @@ int webdav_stat(proxy_ok, pcr, key, a_socket, so, statbuf)
 	int so;
 	struct vattr *statbuf;
 {
+	#pragma unused(so)
 	char pbuf[MAXPATHLEN];
 	char *utf8_key;
-	int error, error2;
+	int error;
 	struct fetch_state fs;
 	struct webdav_stat_struct statstruct;
 
@@ -872,7 +1064,7 @@ int webdav_stat(proxy_ok, pcr, key, a_socket, so, statbuf)
 	  we have this one already we look using the pretranslated uri to
 	  save time */
 
-	if ( webdav_memcache_retrieve(pcr->pcr_uid, key, &gmemcache_header, statbuf) )
+	if ( webdav_memcache_retrieve(pcr->pcr_uid, key, &gmemcache_header, statbuf, NULL, NULL) )
 	{
 		return (0);
 	}
@@ -906,17 +1098,9 @@ int webdav_stat(proxy_ok, pcr, key, a_socket, so, statbuf)
 
 	statstruct.orig_uri = key;
 	statstruct.statbuf = statbuf;
+	statstruct.uid = pcr->pcr_uid;
 
-	error = make_request(&fs, http_stat, (void *) & statstruct, WEBDAV_FS_CLOSE);
-	if (error)
-	{
-		goto done;
-	}
-
-	/* we didn't get an error so add the result to the cache. Ignore errors from
-	  the cache insert.  If we can't cache it, we don't really care */
-
-	error2 = webdav_memcache_insert(pcr->pcr_uid, key, &gmemcache_header, statbuf);
+	error = make_request(&fs, http_stat, (void *) &statstruct, WEBDAV_FS_CLOSE);
 
 done:
 
@@ -934,6 +1118,7 @@ int webdav_statfs(proxy_ok, pcr, key, a_socket, so, statfsbuf)
 	int so;
 	struct statfs *statfsbuf;
 {
+	#pragma unused(so)
 	char pbuf[MAXPATHLEN];
 	char *utf8_key;
 	int error;
@@ -1040,7 +1225,7 @@ int webdav_mount(proxy_ok, key, a_socket, a_mount_args)
 	cred.pcr_ngroups = 0;
 
 
-	fs.fs_uid = cred.pcr_uid;					/* mount with callers permisions*/
+	fs.fs_uid = cred.pcr_uid;					/* mount with callers permissions */
 
 	error = http_parse(&fs, utf8_key, proxy_ok);
 	if (error)
@@ -1062,13 +1247,28 @@ int webdav_mount(proxy_ok, key, a_socket, a_mount_args)
 	error = make_request(&fs, http_mount, (void *)a_mount_args, WEBDAV_FS_CLOSE);
 	if (error)
 	{
+		/* error will logged by http_mount */
 		goto done;
 	}
 
 	/* Now make sure that this is a directory and that the URI is valid */
 	error = webdav_lookupinfo(proxy_ok, &cred, key, a_socket, &file_type);
-	if (error || (file_type != WEBDAV_DIR_TYPE))
+	if (error)
 	{
+		/* This message will be in addition to error message from http_lookup
+		 * so that we can tell it happened during the mount.
+		 * EACCES is passed back because it will be translated to ECANCELED in main().
+		 */
+		if (error != EACCES)
+		{
+			syslog(LOG_ERR, "webdav_mount: PROPFIND failed");
+			error = ENOENT;
+		}
+	}
+	else if (file_type != WEBDAV_DIR_TYPE)
+	{
+		/* the PROFIND was successful, but the URL was to a file, not a collection */
+		syslog(LOG_ERR, "webdav_mount: URL is not a collection resource (directory)");
 		error = ENOENT;
 	}
 
@@ -1130,6 +1330,13 @@ int webdav_create(proxy_ok, pcr, key, a_socket, file_type)
 		error = make_request(&fs, http_put, (void *) - 1, WEBDAV_FS_CLOSE);
 		if (error)
 		{
+			/* This message will be in addition to error message from http_put
+			 * so that we can tell it happened during a create.
+			 */
+			if ( error != EPERM )
+			{
+				syslog(LOG_ERR, "webdav_create: http_put failed");
+			}
 			goto error;
 		}
 	}
@@ -1245,6 +1452,9 @@ first_free:
 
 /*****************************************************************************/
 
+/* XXX The error handling of this function doesn't back out very gracefully
+ * and should be fixed when 2770728 is fixed.
+ */
 int webdav_rename(proxy_ok, pcr, key, a_socket)
 	int proxy_ok;
 	struct webdav_cred *pcr;
@@ -1259,7 +1469,7 @@ int webdav_rename(proxy_ok, pcr, key, a_socket)
 	struct fetch_state fs;
 	int length;
 	struct http_state *https;
-	u_int32_t inode = 0;
+	int inode = 0;
 
 	/* What we are starting with is a pathname - the http part
 	  in the key variable.  Someday that may change but this is
@@ -1307,7 +1517,7 @@ int webdav_rename(proxy_ok, pcr, key, a_socket)
 		error = ENOMEM;
 		goto first_free;
 	}
-
+	
 	error = make_request(&fs, http_move, (void *)t_utf8_key, WEBDAV_FS_CLOSE);
 	if (error)
 	{
@@ -1324,6 +1534,8 @@ int webdav_rename(proxy_ok, pcr, key, a_socket)
 	error = pthread_mutex_lock(&garray_lock);
 	if (error)
 	{
+		syslog(LOG_ERR, "webdav_rename: pthread_mutex_lock(): %s", strerror(error));
+		webdav_kill(-1);	/* tell the main select loop to force unmount */
 		goto done;
 	}
 
@@ -1335,7 +1547,7 @@ int webdav_rename(proxy_ok, pcr, key, a_socket)
 		{
 			if (from_gindex != -1)
 			{
-				if ((gfile_array[from_gindex].fd == 0) ||
+				if ((gfile_array[from_gindex].fd == -1) ||
 					(memcmp(f_utf8_key, gfile_array[from_gindex].uri, strlen(f_utf8_key))))
 				{
 					/* nevermind, it didn't match */
@@ -1362,7 +1574,7 @@ int webdav_rename(proxy_ok, pcr, key, a_socket)
 	{
 		if (to_gindex != -1)
 		{
-			if (gfile_array[to_gindex].fd == 0 ||
+			if (gfile_array[to_gindex].fd == -1 ||
 				(memcmp(t_utf8_key, gfile_array[to_gindex].uri, strlen(t_utf8_key))))
 			{
 				/* nevermind, it didn't match */
@@ -1382,6 +1594,18 @@ int webdav_rename(proxy_ok, pcr, key, a_socket)
 			(void)free(gfile_array[from_gindex].uri);
 		}
 		gfile_array[from_gindex].uri = malloc(strlen(t_utf8_key) + 1);
+		if (gfile_array[from_gindex].uri == NULL)
+		{
+			syslog(LOG_ERR, "webdav_rename: gfile_array[from_gindex].uri could not be allocated");
+			error = ENOMEM;
+			error2 = pthread_mutex_unlock(&garray_lock);
+			if (error2)
+			{
+				syslog(LOG_ERR, "webdav_rename: pthread_mutex_unlock() #2: %s", strerror(error2));
+				webdav_kill(-1);	/* tell the main select loop to force unmount */
+			}
+			goto done;
+		}
 		strcpy(gfile_array[from_gindex].uri, t_utf8_key);
 	}
 
@@ -1414,6 +1638,8 @@ int webdav_rename(proxy_ok, pcr, key, a_socket)
 	error = pthread_mutex_unlock(&garray_lock);
 	if (error)
 	{
+		syslog(LOG_ERR, "webdav_rename: pthread_mutex_unlock(): %s", strerror(error));
+		webdav_kill(-1);	/* tell the main select loop to force unmount */
 		goto done;
 	}
 
@@ -1497,40 +1723,40 @@ int webdav_delete(proxy_ok, pcr, key, a_socket, file_type)
 			goto done;
 		}
 	}
-	else
+	else if (file_type == WEBDAV_DIR_TYPE)
 	{
-		if (file_type == WEBDAV_DIR_TYPE)
+		error = make_request(&fs, http_delete_dir, (void *)0, WEBDAV_FS_CLOSE);
+		if (error)
 		{
-			error = make_request(&fs, http_delete_dir, (void *)0, WEBDAV_FS_CLOSE);
-			if (error)
-			{
-				goto done;
-			}
-		}
-		else
-		{
-			error = EFTYPE;
 			goto done;
 		}
 	}
+	else
+	{
+		syslog(LOG_ERR, "webdav_delete: file_type is invalid");
+		error = EFTYPE;
+		goto done;
+	}
 
 	/* Since we sucessfully deleted this thing, get it out of the cache.
-	  First, get it out of the inode hash.	 It it is in the inode hash
+	  First, get it out of the inode hash. If it is in the inode hash
 	  and the stat cache, the stat cache will prevail and the file will
-	  just look like it hasn't been deleted yet.  That's an acceptable
-	  race.  */
+	  just look like it hasn't been deleted yet. That's an acceptable
+	  race. */
 
 	/* take the gfile_array lock, to avoid a conflict with webdav_open */
 	error = pthread_mutex_lock(&garray_lock);
 	if (error)
 	{
+		syslog(LOG_ERR, "webdav_delete: pthread_mutex_lock(): %s", strerror(error));
+		webdav_kill(-1);	/* tell the main select loop to force unmount */
 		goto done;
 	}
 
 	/* take the entry out of the gfile_array */
 	if (!webdav_get_file_handle(key, strlen(key), &arrayelem))
 	{
-		if ((arrayelem != -1) && (gfile_array[arrayelem].fd != 0) && (!memcmp(utf8_key, gfile_array[arrayelem].uri, strlen(utf8_key))))
+		if ((arrayelem != -1) && (gfile_array[arrayelem].fd != -1) && (!memcmp(utf8_key, gfile_array[arrayelem].uri, strlen(utf8_key))))
 		{
 			if (!gfile_array[arrayelem].cachetime)
 			{
@@ -1556,6 +1782,8 @@ int webdav_delete(proxy_ok, pcr, key, a_socket, file_type)
 	error = pthread_mutex_unlock(&garray_lock);
 	if (error)
 	{
+		syslog(LOG_ERR, "webdav_delete: pthread_mutex_unlock(): %s", strerror(error));
+		webdav_kill(-1);	/* tell the main select loop to force unmount */
 		goto done;
 	}
 
@@ -1593,14 +1821,17 @@ int webdav_fsync(proxy_ok, pcr, file_handle, a_socket)
 	error = pthread_mutex_lock(&garray_lock);
 	if (error)
 	{
+		syslog(LOG_ERR, "webdav_fsync: pthread_mutex_lock(): %s", strerror(error));
+		webdav_kill(-1);	/* tell the main select loop to force unmount */
 		goto done;
 	}
 
-	if (!gfile_array[file_handle].fd)
+	if (gfile_array[file_handle].fd == -1)
 	{
 		/* Trying to close something we did not open
 		 * uh oh
 		 */
+		syslog(LOG_ERR, "webdav_fsync: fd is closed");
 		error = EBADF;
 		goto unlock_finish;
 	}
@@ -1640,10 +1871,12 @@ int webdav_fsync(proxy_ok, pcr, file_handle, a_socket)
 	error = pthread_mutex_unlock(&garray_lock);
 	if (error)
 	{
+		syslog(LOG_ERR, "webdav_fsync: pthread_mutex_unlock(): %s", strerror(error));
+		webdav_kill(-1);	/* tell the main select loop to force unmount */
 		goto done;
 	}
 
-	error = make_request(&fs, http_put, (void *) &putinfo, WEBDAV_FS_CLOSE);
+	error = make_request(&fs, http_put, (void *) &putinfo, WEBDAV_FS_DONT_CLOSE);
 	if (error)
 	{
 		goto done;
@@ -1653,29 +1886,47 @@ int webdav_fsync(proxy_ok, pcr, file_handle, a_socket)
 	 * the server
 	 */
 	gstatfstime = 0;
-
-	/* Since we just wrote the file out to the server, update our internal
-	  idea of the modtime, for use in the get-if-modified-since when the 
-	  file is re-opened.
-	*/
-	/* *** it would be better to use the date from the response *** */
-	gettimeofday(&tv, &tz);
+	
+	/* Did the server return the last modified time for PUT? */
+	if ( fs.fs_st_mtime == 0 )
+	{
+		/* no, so ask for the last modified time with PROPFIND -- ignore errors */
+		(void) make_request(&fs, http_getlastmodified, (void *)0, WEBDAV_FS_CLOSE);
+	}
+	else
+	{
+		/* didn't need to call http_getlastmodified, so have to free up the memory allocated by http_parse */
+		fs.fs_close(&fs);
+	}
+	
+	/* Did we get the last modified time? */
+	if ( fs.fs_st_mtime == 0 )
+	{
+		/* no, so use the local time (which may not be in sync with the server) :( */
+		gettimeofday(&tv, &tz);
+	}
 	
 	/* grab the lock again */
 	error = pthread_mutex_lock(&garray_lock);
 	if (error)
 	{
+		syslog(LOG_ERR, "webdav_fsync: pthread_mutex_lock() #2: %s", strerror(error));
+		webdav_kill(-1);	/* tell the main select loop to force unmount */
 		goto done;
 	}
 	
-	/* change the modtime */
-	gfile_array[file_handle].modtime = tv.tv_sec;
+	/* The file was sent to the server. if the server returned a last-modified header,
+	 * use that time for modtime; otherwise use the current time for modtime.
+	 */
+	gfile_array[file_handle].modtime = (fs.fs_st_mtime != 0) ? fs.fs_st_mtime : tv.tv_sec;
 
 unlock_finish:
 
 	newerror = pthread_mutex_unlock(&garray_lock);
 	if (newerror)
 	{
+		syslog(LOG_ERR, "webdav_fsync: pthread_mutex_unlock() #3: %s", strerror(newerror));
+		webdav_kill(-1);	/* tell the main select loop to force unmount */
 		if (!error)
 		{
 			error = newerror;
@@ -1695,25 +1946,30 @@ done:
 
 /*****************************************************************************/
 
-int webdav_refreshdir(proxy_ok, pcr, file_handle, a_socket)
+int webdav_refreshdir(proxy_ok, pcr, file_handle, a_socket, cache_appledoubleheader)
 	int proxy_ok;
 	struct webdav_cred *pcr;
 	webdav_filehandle_t file_handle;
 	int *a_socket;
+	int cache_appledoubleheader;
 {
 	int error, newerror;
 	struct fetch_state fs;
 	char pbuf[MAXPATHLEN];
+	struct webdav_refreshdir_struct refreshdirstruct;
 
 	error = pthread_mutex_lock(&garray_lock);
 	if (error)
 	{
+		syslog(LOG_ERR, "webdav_refreshdir: pthread_mutex_lock(): %s", strerror(error));
+		webdav_kill(-1);	/* tell the main select loop to force unmount */
 		goto done;
 	}
 
-	if (!gfile_array[file_handle].fd)
+	if (gfile_array[file_handle].fd == -1)
 	{
 		/* Trying to refresh something we did not open -- uh oh */
+		syslog(LOG_ERR, "webdav_refreshdir: fd is closed");
 		error = EBADF;
 		goto unlock_finish;
 	}
@@ -1739,7 +1995,9 @@ int webdav_refreshdir(proxy_ok, pcr, file_handle, a_socket)
 	name_tempfile(pbuf, fs.fs_outputfile);
 	fs.fs_outputfile = pbuf;
 
-	error = make_request(&fs, http_refreshdir, (void *) & gfile_array[file_handle], WEBDAV_FS_CLOSE);
+	refreshdirstruct.file_array_elem = &gfile_array[file_handle];
+	refreshdirstruct.cache_appledoubleheader = cache_appledoubleheader;
+	error = make_request(&fs, http_refreshdir, (void *) &refreshdirstruct, WEBDAV_FS_CLOSE);
 	if (error)
 	{
 		goto unlock_finish;
@@ -1750,6 +2008,8 @@ unlock_finish:
 	newerror = pthread_mutex_unlock(&garray_lock);
 	if (newerror)
 	{
+		syslog(LOG_ERR, "webdav_refreshdir: pthread_mutex_unlock(): %s", strerror(newerror));
+		webdav_kill(-1);	/* tell the main select loop to force unmount */
 		if (!error)
 		{
 			error = newerror;
@@ -1790,6 +2050,52 @@ int webdav_lock(proxy_ok, file_array_elem, a_socket)
 	error = make_request(&fs, http_lock, (void *) & (file_array_elem->lockdata), WEBDAV_FS_CLOSE);
 	if (error)
 	{
+		goto done;
+	}
+
+done:
+
+	return (error);
+}
+
+/*****************************************************************************/
+
+int webdav_invalidate_caches(void)
+{
+	int error, newerror;
+	int index;
+	
+	error = pthread_mutex_lock(&garray_lock);
+	if (error)
+	{
+		syslog(LOG_ERR, "webdav_refreshdir: pthread_mutex_lock(): %s", strerror(error));
+		webdav_kill(-1);	/* tell the main select loop to force unmount */
+		goto done;
+	}
+	
+	/* Find any open cache files and clear their lastvalidtime so the next open
+	 * request will force a check with the server.
+	 */
+	for (index = 0; index < WEBDAV_MAX_OPEN_FILES; ++index)
+	{
+		if (gfile_array[index].fd != -1)
+		{
+			gfile_array[index].lastvalidtime = 0;
+		}
+	}
+
+	/* Tell the memcache to invalidate all of its elements */
+	error = webdav_memcache_invalidate(&gmemcache_header);
+
+	newerror = pthread_mutex_unlock(&garray_lock);
+	if (newerror)
+	{
+		syslog(LOG_ERR, "webdav_refreshdir: pthread_mutex_unlock(): %s", strerror(newerror));
+		webdav_kill(-1);	/* tell the main select loop to force unmount */
+		if (!error)
+		{
+			error = newerror;
+		}
 		goto done;
 	}
 

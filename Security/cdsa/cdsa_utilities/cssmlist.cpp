@@ -98,6 +98,16 @@ const CssmList &ListElement::list() const
 	return CssmList::overlay(Element.Sublist);
 }
 
+TypedList &ListElement::typedList()
+{
+	return static_cast<TypedList &>(list());
+}
+
+const TypedList &ListElement::typedList() const
+{
+	return static_cast<const TypedList &>(list());
+}
+
 CSSM_WORDID_TYPE ListElement::word() const
 {
 	assert(type() == CSSM_LIST_ELEMENT_WORDID);
@@ -269,4 +279,10 @@ TypedList::TypedList(CssmAllocator &alloc, CSSM_WORDID_TYPE type, ListElement *e
 bool TypedList::isProper() const
 {
 	return first() && first()->type() == CSSM_LIST_ELEMENT_WORDID;
+}
+
+void TypedList::checkProper(CSSM_RETURN error) const
+{
+	if (!isProper())
+		CssmError::throwMe(error);
 }

@@ -1,0 +1,15 @@
+2002-12-08  Klee Dienes  <kdienes@apple.com>
+
+        * stabs.texinfo (Coalesced Symbol Blocks): Update.
+
+2002-12-07  Klee Dienes  <kdienes@apple.com>
+
+	* Makefile.in (MAKEINFO): Set to makeinfo, not echo.
+	* gdb.texinfo: Remove Display PostScript debugging entries.
+	Fix minor node/menu errors in the Apple-local documentation.
+
+2002-11-18  Klee Dienes  <kdienes@apple.com>
+
+        * stabs.texinfo (Relocatable Symbol Blocks): New section, covering
+        Mac OS X coalesced symbol block markers.  Added to the "Program
+        Structure" section.

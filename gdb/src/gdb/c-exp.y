@@ -46,12 +46,12 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.  */
 #include "parser-defs.h"
 #include "language.h"
 #include "c-lang.h"
-#include "objc-lang.h"
 #include "bfd.h" /* Required by objfiles.h.  */
 #include "symfile.h" /* Required by objfiles.h.  */
 #include "objfiles.h" /* For have_full_symbols and have_partial_symbols */
-#include "top.h"
+#include "charset.h"
 #include "completer.h"
+#include "objc-lang.h" /* For ObjC language constructs. */
 
 /* Flag indicating we're dealing with HP-compiled objects */ 
 extern int hp_som_som_object_present;
@@ -92,6 +92,8 @@ extern int hp_som_som_object_present;
 #define	yylloc	c_lloc
 #define yyreds	c_reds		/* With YYDEBUG defined */
 #define yytoks	c_toks		/* With YYDEBUG defined */
+#define yyname	c_name		/* With YYDEBUG defined */
+#define yyrule	c_rule		/* With YYDEBUG defined */
 #define yylhs	c_yylhs
 #define yylen	c_yylen
 #define yydefred c_yydefred
@@ -103,8 +105,10 @@ extern int hp_som_som_object_present;
 #define yycheck	 c_yycheck
 
 #ifndef YYDEBUG
-#define	YYDEBUG	0		/* Default to no yydebug support */
+#define	YYDEBUG 1		/* Default to yydebug support */
 #endif
+
+#define YYFPRINTF parser_fprintf
 
 int yyparse (void);
 
@@ -172,11 +176,11 @@ static int parse_number (char *, int, int, YYSTYPE *);
    nonterminal "name", which matches either NAME or TYPENAME.  */
 
 %token <sval> STRING
-%token <sval> NSSTRING		/* Objc Foundation "NSString" literal */ 
-%token <sval> SELECTOR		/* ObjC "@selector" pseudo-operator   */ 
-%token <ssym> NAME		/* BLOCKNAME defined below to give it higher precedence. */
+%token <sval> OBJC_NSSTRING /* ObjC Foundation "NSString" literal */ 
+%token <sval> OBJC_SELECTOR /* ObjC "@selector" pseudo-operator   */ 
+%token <class> OBJC_CLASSNAME /* ObjC Class name */ 
+%token <ssym> NAME /* BLOCKNAME defined below to give it higher precedence. */
 %token <tsym> TYPENAME
-%token <class> CLASSNAME	/* Objc Class name */ 
 %type <sval> name
 %type <ssym> name_not_typename
 %type <tsym> typename
@@ -201,7 +205,6 @@ static int parse_number (char *, int, int, YYSTYPE *);
 %token <opcode> ASSIGN_MODIFY
 
 /* C++ */
-%token THIS
 %token TRUEKEYWORD
 %token FALSEKEYWORD
 
@@ -250,9 +253,11 @@ exp1	:	exp
 /* Expressions, not including the comma operator.  */
 exp	:	'*' exp    %prec UNARY
 			{ write_exp_elt_opcode (UNOP_IND); }
+	;
 
 exp	:	'&' exp    %prec UNARY
 			{ write_exp_elt_opcode (UNOP_ADDR); }
+	;
 
 exp	:	'-' exp    %prec UNARY
 			{ write_exp_elt_opcode (UNOP_NEG); }
@@ -326,10 +331,8 @@ exp	:	exp '[' exp1 ']'
 			{ write_exp_elt_opcode (BINOP_SUBSCRIPT); }
 	;
 
-/*
- * The rules below parse ObjC message calls of the form:
- *	'[' target selector {':' argument}* ']'
- */
+/* The rules below parse ObjC message calls of the form:
+   '[' target selector {':' argument}* ']' */
 
 exp	: 	'[' TYPENAME
 			{
@@ -346,13 +349,13 @@ exp	: 	'[' TYPENAME
 			  start_msglist();
 			}
 		msglist ']'
-			{ write_exp_elt_opcode (OP_MSGCALL);
+			{ write_exp_elt_opcode (OP_OBJC_MSGCALL);
 			  end_msglist();
-			  write_exp_elt_opcode (OP_MSGCALL); 
+			  write_exp_elt_opcode (OP_OBJC_MSGCALL); 
 			}
 	;
 
-exp	:	'[' CLASSNAME
+exp	:	'[' OBJC_CLASSNAME
 			{
 			  write_exp_elt_opcode (OP_LONG);
 			  write_exp_elt_type (builtin_type_int);
@@ -361,18 +364,18 @@ exp	:	'[' CLASSNAME
 			  start_msglist();
 			}
 		msglist ']'
-			{ write_exp_elt_opcode (OP_MSGCALL);
+			{ write_exp_elt_opcode (OP_OBJC_MSGCALL);
 			  end_msglist();
-			  write_exp_elt_opcode (OP_MSGCALL); 
+			  write_exp_elt_opcode (OP_OBJC_MSGCALL); 
 			}
 	;
 
 exp	:	'[' exp
 			{ start_msglist(); }
 		msglist ']'
-			{ write_exp_elt_opcode (OP_MSGCALL);
+			{ write_exp_elt_opcode (OP_OBJC_MSGCALL);
 			  end_msglist();
-			  write_exp_elt_opcode (OP_MSGCALL); 
+			  write_exp_elt_opcode (OP_OBJC_MSGCALL); 
 			}
 	;
 
@@ -387,9 +390,9 @@ msgarglist :	msgarg
 
 msgarg	:	name ':' exp
 			{ add_msglist(&$1, 1); }
-	|	':' exp	/* unnamed arg */
+	|	':' exp	/* Unnamed argument. */
 			{ add_msglist(0, 1);   }
-	|	',' exp	/* variable number of args */
+	|	',' exp	/* Variable number of arguments. */
 			{ add_msglist(0, 0);   }
 	;
  
@@ -568,11 +571,11 @@ exp	:	VARIABLE
 			/* Already written by write_dollar_variable. */
 	;
 
-exp	:	SELECTOR 
+exp	:	OBJC_SELECTOR 
 			{
-			  write_exp_elt_opcode (OP_SELECTOR);
+			  write_exp_elt_opcode (OP_OBJC_SELECTOR);
 			  write_exp_string ($1);
-			  write_exp_elt_opcode (OP_SELECTOR); }
+			  write_exp_elt_opcode (OP_OBJC_SELECTOR); }
 
 
 exp	:	SIZEOF '(' type ')'	%prec UNARY
@@ -607,20 +610,15 @@ exp	:	STRING
 			  write_exp_elt_opcode (OP_ARRAY); }
 	;
 
-exp     :	NSSTRING	/* ObjC NextStep NSString constant
-				 * of the form '@' '"' string '"'
+exp     :	OBJC_NSSTRING	/* ObjC NextStep NSString constant
+				 * of the form '@' '"' string '"'.
 				 */
-			{ write_exp_elt_opcode (OP_NSSTRING);
+			{ write_exp_elt_opcode (OP_OBJC_NSSTRING);
 			  write_exp_string ($1);
-			  write_exp_elt_opcode (OP_NSSTRING); }
+			  write_exp_elt_opcode (OP_OBJC_NSSTRING); }
 	;
 
 /* C++.  */
-exp	:	THIS
-			{ write_exp_elt_opcode (OP_THIS);
-			  write_exp_elt_opcode (OP_THIS); }
-	;
-
 exp     :       TRUEKEYWORD    
                         { write_exp_elt_opcode (OP_LONG);
                           write_exp_elt_type (builtin_type_bool);
@@ -743,7 +741,7 @@ variable:	qualified_name
 						 builtin_type_int);
 			    }
 			  else
-			    if (!have_full_symbols () && !have_partial_symbols () && !have_minimal_symbols ())
+			    if (!have_full_symbols () && !have_partial_symbols ())
 			      error ("No symbol table is loaded.  Use the \"file\" command.");
 			    else
 			      error ("No symbol \"%s\" in current context.", name);
@@ -787,8 +785,8 @@ variable:	name_not_typename
 			      else if (current_language->la_language == language_objc
 				       || current_language->la_language == language_objcplus)
 				{
-				  write_exp_elt_opcode (OP_SELF);
-				  write_exp_elt_opcode (OP_SELF);
+				  write_exp_elt_opcode (OP_OBJC_SELF);
+				  write_exp_elt_opcode (OP_OBJC_SELF);
 				}
 			      write_exp_elt_opcode (STRUCTOP_PTR);
 			      write_exp_string ($1.stoken);
@@ -807,7 +805,7 @@ variable:	name_not_typename
 						     lookup_function_type (builtin_type_int),
 						     builtin_type_int);
 				}
-			      else if (!have_full_symbols () && !have_partial_symbols () && !have_minimal_symbols ())
+			      else if (!have_full_symbols () && !have_partial_symbols ())
 				error ("No symbol table is loaded.  Use the \"file\" command.");
 			      else
 				error ("No symbol \"%s\" in current context.",
@@ -897,7 +895,7 @@ type	:	ptype
 typebase  /* Implements (approximately): (type-qualifier)* type-specifier */
 	:	TYPENAME
 			{ $$ = $1.type; }
-	|	CLASSNAME
+	|	OBJC_CLASSNAME
 			{
 			  if ($1.type == NULL)
 			    error ("No symbol \"%s\" in current context.", 
@@ -913,15 +911,35 @@ typebase  /* Implements (approximately): (type-qualifier)* type-specifier */
 			{ $$ = builtin_type_short; }
 	|	LONG INT_KEYWORD
 			{ $$ = builtin_type_long; }
+	|	LONG SIGNED_KEYWORD INT_KEYWORD
+			{ $$ = builtin_type_long; }
+	|	LONG SIGNED_KEYWORD
+			{ $$ = builtin_type_long; }
+	|	SIGNED_KEYWORD LONG INT_KEYWORD
+			{ $$ = builtin_type_long; }
 	|	UNSIGNED LONG INT_KEYWORD
+			{ $$ = builtin_type_unsigned_long; }
+	|	LONG UNSIGNED INT_KEYWORD
+			{ $$ = builtin_type_unsigned_long; }
+	|	LONG UNSIGNED
 			{ $$ = builtin_type_unsigned_long; }
 	|	LONG LONG
 			{ $$ = builtin_type_long_long; }
 	|	LONG LONG INT_KEYWORD
 			{ $$ = builtin_type_long_long; }
+	|	LONG LONG SIGNED_KEYWORD INT_KEYWORD
+			{ $$ = builtin_type_long_long; }
+	|	LONG LONG SIGNED_KEYWORD
+			{ $$ = builtin_type_long_long; }
+	|	SIGNED_KEYWORD LONG LONG
+			{ $$ = builtin_type_long_long; }
 	|	UNSIGNED LONG LONG
 			{ $$ = builtin_type_unsigned_long_long; }
 	|	UNSIGNED LONG LONG INT_KEYWORD
+			{ $$ = builtin_type_unsigned_long_long; }
+	|	LONG LONG UNSIGNED
+			{ $$ = builtin_type_unsigned_long_long; }
+	|	LONG LONG UNSIGNED INT_KEYWORD
 			{ $$ = builtin_type_unsigned_long_long; }
 	|	SIGNED_KEYWORD LONG LONG
 			{ $$ = lookup_signed_typename ("long long"); }
@@ -929,7 +947,15 @@ typebase  /* Implements (approximately): (type-qualifier)* type-specifier */
 			{ $$ = lookup_signed_typename ("long long"); }
 	|	SHORT INT_KEYWORD
 			{ $$ = builtin_type_short; }
+	|	SHORT SIGNED_KEYWORD INT_KEYWORD
+			{ $$ = builtin_type_short; }
+	|	SHORT SIGNED_KEYWORD
+			{ $$ = builtin_type_short; }
 	|	UNSIGNED SHORT INT_KEYWORD
+			{ $$ = builtin_type_unsigned_short; }
+	|	SHORT UNSIGNED 
+			{ $$ = builtin_type_unsigned_short; }
+	|	SHORT UNSIGNED INT_KEYWORD
 			{ $$ = builtin_type_unsigned_short; }
 	|	DOUBLE_KEYWORD
 			{ $$ = builtin_type_double; }
@@ -1024,8 +1050,8 @@ const_or_volatile_noopt:  	const_and_volatile
 name	:	NAME { $$ = $1.stoken; }
 	|	BLOCKNAME { $$ = $1.stoken; }
 	|	TYPENAME { $$ = $1.stoken; }
-	|	CLASSNAME { $$ = $1.stoken; }
-	|	NAME_OR_INT { $$ = $1.stoken; }
+	|	OBJC_CLASSNAME { $$ = $1.stoken; }
+	|	NAME_OR_INT  { $$ = $1.stoken; }
 	;
 
 name_not_typename :	NAME
@@ -1311,9 +1337,9 @@ static int
 yylex ()
 {
   int c;
+  int tokchar;
   int namelen;
   unsigned int i;
-  int tokchr;
   char *tokstart;
   char *tokptr;
   int tempbufindex;
@@ -1326,6 +1352,18 @@ yylex ()
    
  retry:
 
+  /* Check if this is a macro invocation that we need to expand.  */
+  if (! scanning_macro_expansion ())
+    {
+      char *expanded = macro_expand_next (&lexptr,
+                                          expression_macro_lookup_func,
+                                          expression_macro_lookup_baton);
+
+      if (expanded)
+        scan_macro_expansion (expanded);
+    }
+
+  prev_lexptr = lexptr;
   unquoted_expr = 1;
 
   tokstart = lexptr;
@@ -1347,10 +1385,20 @@ yylex ()
 	return tokentab2[i].token;
       }
 
-  switch (tokchr = *tokstart)
+  switch (tokchar = c = *tokstart)
     {
     case 0:
-      return 0;
+      /* If we were just scanning the result of a macro expansion,
+         then we need to resume scanning the original text.
+         Otherwise, we were already scanning the original text, and
+         we're really done.  */
+      if (scanning_macro_expansion ())
+        {
+          finished_macro_expansion ();
+          goto retry;
+        }
+      else
+        return 0;
 
     case ' ':
     case '\t':
@@ -1368,6 +1416,15 @@ yylex ()
 	c = parse_escape (&lexptr);
       else if (c == '\'')
 	error ("Empty character constant.");
+      else if (! host_char_to_target (c, &c))
+        {
+          int toklen = lexptr - tokstart + 1;
+          char *tok = alloca (toklen + 1);
+          memcpy (tok, tokstart, toklen);
+          tok[toklen] = '\0';
+          error ("There is no character corresponding to %s in the target "
+                 "character set `%s'.", tok, target_charset ());
+        }
 
       yylval.typed_val_int.val = c;
       yylval.typed_val_int.type = builtin_type_char;
@@ -1375,8 +1432,7 @@ yylex ()
       c = *lexptr++;
       if (c != '\'')
 	{
-	  namelen = skip_quoted (tokstart, gdb_completer_word_break_characters)
-	    - tokstart;
+	  namelen = skip_quoted (tokstart) - tokstart;
 	  if (namelen > 2)
 	    {
 	      lexptr = tokstart + namelen;
@@ -1394,20 +1450,22 @@ yylex ()
     case '(':
       paren_depth++;
       lexptr++;
-      return '(';
+      return c;
 
     case ')':
       if (paren_depth == 0)
 	return 0;
       paren_depth--;
       lexptr++;
-      return ')';
+      return c;
 
     case ',':
-      if (comma_terminates && paren_depth == 0)
+      if (comma_terminates
+          && paren_depth == 0
+          && ! scanning_macro_expansion ())
 	return 0;
       lexptr++;
-      return ',';
+      return c;
 
     case '.':
       /* Might be a floating point number.  */
@@ -1427,23 +1485,19 @@ yylex ()
     case '9':
       {
 	/* It's a number.  */
-	int got_dot = 0, got_e = 0, toktype = FLOAT;
-	/* initialize toktype to anything other than ERROR. */
+	int got_dot = 0, got_e = 0, toktype;
 	register char *p = tokstart;
 	int hex = input_radix > 10;
-	int local_radix = input_radix;
 
-	if (tokchr == '0' && (p[1] == 'x' || p[1] == 'X'))
+	if (c == '0' && (p[1] == 'x' || p[1] == 'X'))
 	  {
 	    p += 2;
 	    hex = 1;
-	    local_radix = 16;
 	  }
-	else if (tokchr == '0' && (p[1]=='t' || p[1]=='T' || p[1]=='d' || p[1]=='D'))
+	else if (c == '0' && (p[1]=='t' || p[1]=='T' || p[1]=='d' || p[1]=='D'))
 	  {
 	    p += 2;
 	    hex = 0;
-	    local_radix = 10;
 	  }
 
 	for (;; ++p)
@@ -1451,42 +1505,25 @@ yylex ()
 	    /* This test includes !hex because 'e' is a valid hex digit
 	       and thus does not indicate a floating point number when
 	       the radix is hex.  */
-
-	    if (!hex && (*p == 'e' || *p == 'E'))
-	      if (got_e)
-		toktype = ERROR;	/* only one 'e' in a float */
-	      else
-		got_e = 1;
+	    if (!hex && !got_e && (*p == 'e' || *p == 'E'))
+	      got_dot = got_e = 1;
 	    /* This test does not include !hex, because a '.' always indicates
 	       a decimal floating point number regardless of the radix.  */
-	    else if (*p == '.')
-	      if (got_dot)
-		toktype = ERROR;	/* only one '.' in a float */
-	      else
-		got_dot = 1;
-	    else if (got_e && (p[-1] == 'e' || p[-1] == 'E') &&
-		    (*p == '-' || *p == '+'))
+	    else if (!got_dot && *p == '.')
+	      got_dot = 1;
+	    else if (got_e && (p[-1] == 'e' || p[-1] == 'E')
+		     && (*p == '-' || *p == '+'))
 	      /* This is the sign of the exponent, not the end of the
 		 number.  */
 	      continue;
-	    /* Always take decimal digits; parse_number handles radix error */
-	    else if (*p >= '0' && *p <= '9')
-	      continue;
-	    /* We will take letters only if hex is true, and only 
-	       up to what the input radix would permit.  FSF was content
-	       to rely on parse_number to validate; but it leaks. */
-	    else if (*p >= 'a' && *p <= 'z') {
-	      if (!hex || *p >= ('a' + local_radix - 10))
-		toktype = ERROR;
-	    }
-	    else if (*p >= 'A' && *p <= 'Z') {
-	      if (!hex || *p >= ('A' + local_radix - 10))
-		toktype = ERROR;
-	    }
-	    else break;
+	    /* We will take any letters or digits.  parse_number will
+	       complain if past the radix, or if L or U are not final.  */
+	    else if ((*p < '0' || *p > '9')
+		     && ((*p < 'a' || *p > 'z')
+				  && (*p < 'A' || *p > 'Z')))
+	      break;
 	  }
-	if (toktype != ERROR)
-	  toktype = parse_number (tokstart, p - tokstart, got_dot|got_e, &yylval);
+	toktype = parse_number (tokstart, p - tokstart, got_dot|got_e, &yylval);
         if (toktype == ERROR)
 	  {
 	    char *err_copy = (char *) alloca (p - tokstart + 1);
@@ -1520,18 +1557,17 @@ yylex ()
     case '}':
     symbol:
       lexptr++;
-      return tokchr;
+      return c;
 
     case '@':
-      if (strncmp(tokstart, "@selector", 9) == 0)
+      if (strncmp (tokstart, "@selector", 9) == 0)
 	{
-	  tokptr = strchr(tokstart, '(');
+	  tokptr = strchr (tokstart, '(');
 	  if (tokptr == NULL)
-	    {
-	      error ("Missing '(' in @selector(...)");
-	    }
+	    error ("Missing '(' in @selector(...)");
 	  tempbufindex = 0;
-	  tokptr++;	/* skip the '(' */
+	  /* skip the '(' */
+	  tokptr++;
 	  do {
 	    /* Grow the static temp buffer if necessary, including allocating
 	       the first one on demand. */
@@ -1542,21 +1578,19 @@ yylex ()
 	    tempbuf[tempbufindex++] = *tokptr++;
 	  } while ((*tokptr != ')') && (*tokptr != '\0'));
 	  if (*tokptr++ != ')')
-	    {
-	      error ("Missing ')' in @selector(...)");
-	    }
+	    error ("Missing ')' in @selector(...)");
 	  tempbuf[tempbufindex] = '\0';
 	  yylval.sval.ptr = tempbuf;
 	  yylval.sval.length = tempbufindex;
 	  lexptr = tokptr;
-	  return SELECTOR;
+	  return OBJC_SELECTOR;
 	}
       if (tokstart[1] != '"')
         {
           lexptr++;
-          return tokchr;
+          return c;
         }
-      /* ObjC NextStep NSString constant: fall thru and parse like STRING */
+      /* ObjC NSString constant: fall through and parse like STRING. */
       tokstart++;
 
     case '"':
@@ -1570,10 +1604,12 @@ yylex ()
 	 string instead.  This allows gdb to handle C strings (as well
 	 as strings in other languages) with embedded null bytes */
 
-      tokptr = ++tokstart;
+      tokptr = tokstart + 1;
       tempbufindex = 0;
 
       do {
+        char *char_start_pos = tokptr;
+
 	/* Grow the static temp buffer if necessary, including allocating
 	   the first one on demand. */
 	if (tempbufindex + 1 >= tempbufsize)
@@ -1596,7 +1632,19 @@ yylex ()
 	    tempbuf[tempbufindex++] = c;
 	    break;
 	  default:
-	    tempbuf[tempbufindex++] = *tokptr++;
+	    c = *tokptr++;
+            if (! host_char_to_target (c, &c))
+              {
+                int len = tokptr - char_start_pos;
+                char *copy = alloca (len + 1);
+                memcpy (copy, char_start_pos, len);
+                copy[len] = '\0';
+
+                error ("There is no character corresponding to `%s' "
+                       "in the target character set `%s'.",
+                       copy, target_charset ());
+              }
+            tempbuf[tempbufindex++] = c;
 	    break;
 	  }
       } while ((*tokptr != '"') && (*tokptr != '\0'));
@@ -1608,11 +1656,11 @@ yylex ()
       yylval.sval.ptr = tempbuf;
       yylval.sval.length = tempbufindex;
       lexptr = tokptr;
-      return (tokchr == '@' ? NSSTRING : STRING);
+      return (tokchar == '@' ? OBJC_NSSTRING : STRING);
     }
 
-  if (!(tokchr == '_' || tokchr == '$' || 
-       (tokchr >= 'a' && tokchr <= 'z') || (tokchr >= 'A' && tokchr <= 'Z')))
+  if (!(c == '_' || c == '$'
+	|| (c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z')))
     /* We must have come across a bad character (e.g. ';').  */
     error ("Invalid character '%c' in expression.", c);
 
@@ -1640,9 +1688,13 @@ yylex ()
       c = tokstart[++namelen];
     }
 
-  /* The token "if" terminates the expression and is NOT 
-     removed from the input stream.  */
-  if (namelen == 2 && tokstart[0] == 'i' && tokstart[1] == 'f')
+  /* The token "if" terminates the expression and is NOT removed from
+     the input stream.  It doesn't count if it appears in the
+     expansion of a macro.  */
+  if (namelen == 2
+      && tokstart[0] == 'i'
+      && tokstart[1] == 'f'
+      && ! scanning_macro_expansion ())
     {
       return 0;
     }
@@ -1697,17 +1749,6 @@ yylex ()
           {
             if (STREQN (tokstart, "true", 4))
               return TRUEKEYWORD;
-
-            if (STREQN (tokstart, "this", 4))
-              {
-                static const char this_name[] =
-                { CPLUS_MARKER, 't', 'h', 'i', 's', '\0' };
-                
-                if (lookup_symbol (this_name, expression_context_block,
-                                   VAR_NAMESPACE, (int *) NULL,
-                                   (struct symtab **) NULL))
-                  return THIS;
-              }
           }
       break;
     case 3:
@@ -1754,8 +1795,8 @@ yylex ()
     char *tmp = copy_name (yylval.sval);
     struct symbol *sym;
     int is_a_field_of_this = 0;
-    int *need_this;
     int hextype;
+    int *need_this;
 
     if (current_language->la_language == language_cplus
 	|| current_language->la_language == language_objc
@@ -1763,13 +1804,13 @@ yylex ()
       need_this = &is_a_field_of_this;
     else
       need_this = (int *) NULL;
-
+    
     sym = lookup_symbol (tmp, expression_context_block,
 			 VAR_NAMESPACE, need_this,
 			 (struct symtab **) NULL);
     /* Call lookup_symtab, not lookup_partial_symtab, in case there are
        no psymtabs (coff, xcoff, or some future change to blow away the
-       psymtabs once symbols are read).  */
+       psymtabs once once symbols are read).  */
     if (sym && SYMBOL_CLASS (sym) == LOC_BLOCK)
       {
 	yylval.ssym.sym = sym;
@@ -1882,7 +1923,7 @@ yylex ()
     if ((yylval.tsym.type = lookup_primitive_typename (tmp)) != 0)
       return TYPENAME;
 
-    /* see if it's an ObjC classname */
+    /* See if it's an ObjC classname. */
     if (!sym && should_lookup_objc_class ())  
       {
 	extern struct symbol *lookup_struct_typedef ();
@@ -1894,7 +1935,7 @@ yylex ()
 	      {
 		yylval.class.class = Class;
 		yylval.class.type = SYMBOL_TYPE (sym);
-		return CLASSNAME;
+		return OBJC_CLASSNAME;
 	      }
 	  }
       }
@@ -1927,8 +1968,8 @@ void
 yyerror (msg)
      char *msg;
 {
-  if (*lexptr == '\0')
-    error("A %s near end of expression.",  (msg ? msg : "error"));
-  else
-    error ("A %s in expression, near `%s'.", (msg ? msg : "error"), lexptr);
+  if (prev_lexptr)
+    lexptr = prev_lexptr;
+
+  error ("A %s in expression, near `%s'.", (msg ? msg : "error"), lexptr);
 }

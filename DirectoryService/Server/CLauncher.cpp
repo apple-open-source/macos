@@ -3,19 +3,22 @@
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
- * The contents of this file constitute Original Code as defined in and
- * are subject to the Apple Public Source License Version 1.1 (the
- * "License").  You may not use this file except in compliance with the
- * License.  Please obtain a copy of the License at
- * http://www.apple.com/publicsource and read it before using this file.
+ * Copyright (c) 1999-2003 Apple Computer, Inc.  All Rights Reserved.
  * 
- * This Original Code and all software distributed under the License are
- * distributed on an "AS IS" basis, WITHOUT WARRANTY OF ANY KIND, EITHER
+ * This file contains Original Code and/or Modifications of Original Code
+ * as defined in and that are subject to the Apple Public Source License
+ * Version 2.0 (the 'License'). You may not use this file except in
+ * compliance with the License. Please obtain a copy of the License at
+ * http://www.opensource.apple.com/apsl/ and read it before using this
+ * file.
+ * 
+ * The Original Code and all software distributed under the License are
+ * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
  * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
  * INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY,
- * FITNESS FOR A PARTICULAR PURPOSE OR NON-INFRINGEMENT.  Please see the
- * License for the specific language governing rights and limitations
- * under the License.
+ * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
+ * Please see the License for the specific language governing rights and
+ * limitations under the License.
  * 
  * @APPLE_LICENSE_HEADER_END@
  */
@@ -50,19 +53,23 @@
 // --------------------------------------------------------------------------------
 // * Externs
 // --------------------------------------------------------------------------------
-extern CFRunLoopRef		gServerRunLoop;
+extern CFRunLoopRef			gServerRunLoop;
+extern CPluginConfig	   *gPluginConfig;
 
 //--------------------------------------------------------------------------------------------------
 // * CLauncher()
 //
 //--------------------------------------------------------------------------------------------------
 
-CLauncher::CLauncher ( CServerPlugin *inPlugin )
-	: DSCThread( kTSLauncherThread )
+CLauncher::CLauncher ( CServerPlugin *inPlugin ) : CInternalDispatchThread(kTSLauncherThread)
 {
 	fThreadSignature = kTSLauncherThread;
 
-	if ( inPlugin == nil ) throw((sInt32)eParameterError);
+	if ( inPlugin == nil )
+	{
+		ERRORLOG( kLogApplication, "Launcher failed create with no plugin pointer provided" );
+		throw((sInt32)eParameterError);
+	}
 
 	fPlugin = inPlugin;
 
@@ -88,12 +95,13 @@ CLauncher::~CLauncher()
 
 void CLauncher::StartThread ( void )
 {
-	if ( this == nil ) throw((sInt32)eMemoryError);
+	if ( this == nil )
+	{
+		ERRORLOG( kLogApplication, "Launcher StartThread failed with memory error on itself" );
+		throw((sInt32)eMemoryError);
+	}
 
 	this->Resume();
-
-	SetThreadRunState( kThreadRun );		// Tell our thread it's running
-
 } // StartThread
 
 
@@ -105,7 +113,11 @@ void CLauncher::StartThread ( void )
 
 void CLauncher::StopThread ( void )
 {
-	if ( this == nil ) throw((sInt32)eMemoryError);
+	if ( this == nil )
+	{
+		ERRORLOG( kLogApplication, "Launcher StopThread failed with memory error on itself" );
+		throw((sInt32)eMemoryError);
+	}
 
 	// Check that the current thread context is not our thread context
 
@@ -128,12 +140,9 @@ long CLauncher::ThreadMain ( void )
     volatile	uInt32		uiWaitTime 	= 1;
 				sHeader		aHeader;
 				ePluginState		pluginState	= kUnknownState;
-				CPluginConfig		pluginConfig;
- 
+
 	if ( gPlugins != nil )
 	{
-		pluginConfig.Initialize();
-
 		while ( !done )
 		{
 			uiCntr++;
@@ -149,7 +158,7 @@ long CLauncher::ThreadMain ( void )
 			{
 				DBGLOG2( kLogApplication, "Initialization of plug-in %s succeeded with #%l attempt.", fPlugin->GetPluginName(), uiCntr );
 
-				gPlugins->SetState( fPlugin->GetPluginName(), kInitalized );
+				gPlugins->SetState( fPlugin->GetPluginName(), kInitialized );
 
 				//provide the CFRunLoop to the plugins that need it
 				if (gServerRunLoop != NULL)
@@ -160,7 +169,7 @@ long CLauncher::ThreadMain ( void )
 					siResult = fPlugin->ProcessRequest( (void*)&aHeader ); //don't handle return
 				}
 
-				pluginState = pluginConfig.GetPluginState( fPlugin->GetPluginName() );
+				pluginState = gPluginConfig->GetPluginState( fPlugin->GetPluginName() );
 				if ( pluginState == kInactive )
 				{
 					siResult = fPlugin->SetPluginState( kInactive );
@@ -177,17 +186,17 @@ long CLauncher::ThreadMain ( void )
 				}
 				else
 				{
-				siResult = fPlugin->SetPluginState( kActive );
-				if ( siResult == eDSNoErr )
-				{
-					SRVRLOG1( kLogApplication, "Plug-in %s state is now active.", fPlugin->GetPluginName() );
-
-					gPlugins->SetState( fPlugin->GetPluginName(), kActive );
-				}
-				else
-				{
-					ERRORLOG2( kLogApplication, "Unable to set %s plug-in state to active.  Received error %l.", fPlugin->GetPluginName(), siResult );
-				}
+					siResult = fPlugin->SetPluginState( kActive );
+					if ( siResult == eDSNoErr )
+					{
+						SRVRLOG1( kLogApplication, "Plug-in %s state is now active.", fPlugin->GetPluginName() );
+	
+						gPlugins->SetState( fPlugin->GetPluginName(), kActive );
+					}
+					else
+					{
+						ERRORLOG2( kLogApplication, "Unable to set %s plug-in state to active.  Received error %l.", fPlugin->GetPluginName(), siResult );
+					}
 				}
 				
 				done = true;

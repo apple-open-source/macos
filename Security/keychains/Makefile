@@ -1,12 +1,16 @@
 #
-#	Makefile to install the system-startup code for SecurityServer
+#	Makefile to install built-in roots and certificates
 #
 KEYCHAINS_SRC=$(SRCROOT)/keychains
 
 SYSTEM_LIBRARY_DIR=$(DSTROOT)/System/Library
 KEYCHAINS_DIR=$(SYSTEM_LIBRARY_DIR)/Keychains
-X509ANCHORS=$(KEYCHAINS_DIR)/X509Anchors
+X509KEYCHAINS=X509Anchors X509Certificates
 
+#
+# world-writable directory we need to create for CRL cache
+#
+CRL_CACHE_DIR=$(DSTROOT)/private/var/db/crls
 
 #
 # The other phases do nothing
@@ -39,7 +43,13 @@ install:
 		chown root.admin $(KEYCHAINS_DIR); \
 		chmod 755 $(KEYCHAINS_DIR); \
 	fi
-	cp $(KEYCHAINS_SRC)/X509Anchors $(X509ANCHORS)
-	chown root.admin $(X509ANCHORS)
-	chmod 664 $(X509ANCHORS)
-	ls -l $(X509ANCHORS)
+	cd $(KEYCHAINS_SRC); cp $(X509KEYCHAINS) $(KEYCHAINS_DIR)
+	cd $(KEYCHAINS_DIR); \
+	chown root.admin $(X509KEYCHAINS); \
+	chmod 664 $(X509KEYCHAINS); \
+	ls -l $(X509KEYCHAINS)
+	if [ ! -d $(CRL_CACHE_DIR) ]; then \
+		mkdir -p $(CRL_CACHE_DIR); \
+		chown root.wheel $(CRL_CACHE_DIR); \
+		chmod 777 $(CRL_CACHE_DIR); \
+	fi

@@ -1,0 +1,29 @@
+#!/bin/sh
+
+. /etc/rc.common
+
+StartService ()
+{
+    if [ "${MAILMAN:=-NO-}" = "-YES-" ]; then
+            ConsoleMessage "Starting Mailman mailng list services"
+	    /usr/share/mailman/bin/mailmanctl start
+    fi
+}
+
+StopService ()
+{
+	ConsoleMessage "Stopping Mailman mailing list services"
+	/usr/share/mailman/bin/mailmanctl stop
+}
+
+RestartService ()
+{
+    if [ "${MAILMAN:=-NO-}" = "-YES-" ]; then
+	ConsoleMessage "Reloading Mailman configuration"
+	/usr/share/mailman/bin/mailmanctl reload
+    else
+	StopService
+    fi
+}
+
+RunService "$1"

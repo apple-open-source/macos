@@ -1,4 +1,4 @@
-// $Header: /cvs/Darwin/flex/flex/FlexLexer.h,v 1.1.1.1 1999/04/23 00:46:29 wsanchez Exp $
+// $Header: /cvs/root/flex/flex/FlexLexer.h,v 1.2 2003/07/29 23:09:28 landonf Exp $
 
 // FlexLexer.h -- define interfaces for lexical analyzer classes generated
 //		  by flex
@@ -44,9 +44,10 @@
 #ifndef __FLEX_LEXER_H
 // Never included before - need to define base class.
 #define __FLEX_LEXER_H
-#include <iostream.h>
 
 extern "C++" {
+
+#include <iostream.h>
 
 struct yy_buffer_state;
 typedef int yy_state_type;

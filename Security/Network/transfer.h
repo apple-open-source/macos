@@ -145,4 +145,4 @@ private:
 }	// end namespace Security
 
 
-#endif _H_TRANSFER
+#endif /* _H_TRANSFER */

@@ -24,4 +24,4 @@ Install_Target = install
 Version := $(shell sed -n -e '/VERSION "/s/.*"\(.*\)".*/\1/p' < $(Sources)/zlib.h)
 
 strip:
-	$(STRIP) -S $(DSTROOT)$(USRLIBDIR)/libz.$(Version).dylib
+	$(STRIP) -S $(DSTROOT)$(USRLIBDIR)/libz.1.dylib

@@ -183,6 +183,10 @@ SOURCE=.\zend_llist.c
 # End Source File
 # Begin Source File
 
+SOURCE=.\zend_multibyte.c
+# End Source File
+# Begin Source File
+
 SOURCE=.\zend_opcode.c
 # End Source File
 # Begin Source File
@@ -192,6 +196,10 @@ SOURCE=.\zend_operators.c
 # Begin Source File
 
 SOURCE=.\zend_ptr_stack.c
+# End Source File
+# Begin Source File
+
+SOURCE=.\zend_qsort.c
 # End Source File
 # Begin Source File
 
@@ -299,11 +307,19 @@ SOURCE=.\zend_modules.h
 # End Source File
 # Begin Source File
 
+SOURCE=.\zend_multibyte.h
+# End Source File
+# Begin Source File
+
 SOURCE=.\zend_operators.h
 # End Source File
 # Begin Source File
 
 SOURCE=.\zend_ptr_stack.h
+# End Source File
+# Begin Source File
+
+SOURCE=.\zend_qsort.h
 # End Source File
 # Begin Source File
 

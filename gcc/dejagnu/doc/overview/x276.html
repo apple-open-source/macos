@@ -1,0 +1,440 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01//EN">
+<HTML
+><HEAD
+><TITLE
+>Our first automated tests</TITLE
+><META
+NAME="GENERATOR"
+CONTENT="Modular DocBook HTML Stylesheet Version 1.64
+"><LINK
+REL="HOME"
+TITLE="DejaGnu"
+HREF="book1.html"><LINK
+REL="UP"
+TITLE="Getting DejaGnu up and running"
+HREF="gettingup.html"><LINK
+REL="PREVIOUS"
+TITLE="Create a minimal project, e.g. calc"
+HREF="x227.html"><LINK
+REL="NEXT"
+TITLE="A first remote test"
+HREF="x319.html"></HEAD
+><BODY
+CLASS="SECT1"
+BGCOLOR="#FFFFFF"
+TEXT="#000000"
+LINK="#0000FF"
+VLINK="#840084"
+ALINK="#0000FF"
+><DIV
+CLASS="NAVHEADER"
+><TABLE
+WIDTH="100%"
+BORDER="0"
+CELLPADDING="0"
+CELLSPACING="0"
+><TR
+><TH
+COLSPAN="3"
+ALIGN="center"
+>DejaGnu: The GNU Testing Framework</TH
+></TR
+><TR
+><TD
+WIDTH="10%"
+ALIGN="left"
+VALIGN="bottom"
+><A
+HREF="x227.html"
+>&#60;&#60;&#60; Previous</A
+></TD
+><TD
+WIDTH="80%"
+ALIGN="center"
+VALIGN="bottom"
+>Getting DejaGnu up and running</TD
+><TD
+WIDTH="10%"
+ALIGN="right"
+VALIGN="bottom"
+><A
+HREF="x319.html"
+>Next &#62;&#62;&#62;</A
+></TD
+></TR
+></TABLE
+><HR
+ALIGN="LEFT"
+WIDTH="100%"></DIV
+><DIV
+CLASS="SECT1"
+><H1
+CLASS="SECT1"
+><A
+NAME="AEN276"
+>Our first automated tests</A
+></H1
+><DIV
+CLASS="SECT2"
+><H2
+CLASS="SECT2"
+><A
+NAME="AEN278"
+>Running the test for the calc example</A
+></H2
+><P
+>Now we are ready to call the automated tests </P
+><DIV
+CLASS="EXAMPLE"
+><A
+NAME="AEN281"
+></A
+><P
+><B
+>Example 7. Sample output of runtest in a configured directory</B
+></P
+><TABLE
+BORDER="0"
+BGCOLOR="#E0E0E0"
+WIDTH="100%"
+><TR
+><TD
+><PRE
+CLASS="PROGRAMLISTING"
+>dgt:~/dejagnu.test$ make check 
+make check-DEJAGNU 
+make[1]: Entering directory `/home/dgt/dejagnu.test' srcdir=`cd . &#38;&#38; pwd`; export srcdir; \ 
+EXPECT=expect; export EXPECT; \ runtest=runtest; \ 
+if /bin/sh -c "$runtest --version" &#62; /dev/null 2&#62;&#38;1; then \
+$runtest --tool calc CALC=`pwd`/calc --srcdir ./testsuite ; \ 
+else echo "WARNING: could not find \`runtest'" 1&#62;&#38;2; :;\ 
+fi 
+WARNING: Couldn't find the global config file. 
+WARNING: Couldn't find tool init file 
+Test Run By dgt on Sun Nov 25 21:42:21 2001 
+Native configuration is i586-pc-linux-gnu
+
+       === calc tests ===
+
+Schedule of variations: 
+   unix
+
+Running target unix 
+Using /usr/share/dejagnu/baseboards/unix.exp as board description file for target. 
+Using /usr/share/dejagnu/config/unix.exp as generic interface file for target. 
+Using ./testsuite/config/unix.exp as tool-and-target-specific interface file.
+Running ./testsuite/calc.test/calc.exp ... 
+FAIL: multiply2 (bad match)
+
+=== calc Summary ===
+
+# of expected passes 5 
+# of unexpected failures 1 
+/home/Dgt/dejagnu.test/calc version Version: 1.1
+make[1]: *** [check-DEJAGNU] Fehler 1 
+make[1]: Leaving directory `/home/Dgt/dejagnu.test' make: *** [check-am] Fehler 2</PRE
+></TD
+></TR
+></TABLE
+></DIV
+><P
+>Did you see the  line &#8220;FAIL:&#8220;? The test cases for calc catch the bug in the calc.c file. Fix the error in calc.c later as the following examples assume a unchanged calc.c.</P
+><P
+>Examine the output files calc.sum and calc.log. 
+Try to understand the testcases written in ~/dejagnu.test/testsuite/calc.test/calc.exp.
+To understand Expect you might take a look at the book "Exploring Expect",
+which is an excellent resource for learning and using Expect. (Pub: O'Reilly, ISBN 1-56592-090-2) 
+The book contains hundreds of examples and also includes a tutorial on Tcl. 
+Exploring Expect is 602 pages long. </P
+></DIV
+><DIV
+CLASS="SECT2"
+><H2
+CLASS="SECT2"
+><A
+NAME="AEN286"
+>The various config files or how to avoid warnings</A
+></H2
+><P
+>DejaGnu may be customized by each user. It first searches for a file called ~/.dejagnurc. Create the file ~/.dejagnurc and insert the following line:</P
+><TABLE
+BORDER="0"
+BGCOLOR="#E0E0E0"
+WIDTH="100%"
+><TR
+><TD
+><PRE
+CLASS="PROGRAMLISTING"
+>puts "I am ~/.dejagnurc"</PRE
+></TD
+></TR
+></TABLE
+><P
+>Rerun make check. Test whether the output contains "I am ~/.dejagnurc". 
+Create ~/my_dejagnu.exp and insert the following line:</P
+><TABLE
+BORDER="0"
+BGCOLOR="#E0E0E0"
+WIDTH="100%"
+><TR
+><TD
+><PRE
+CLASS="PROGRAMLISTING"
+>puts "I am ~/my_dejagnu.exp"</PRE
+></TD
+></TR
+></TABLE
+><P
+>In a Bash-Shell enter</P
+><TABLE
+BORDER="0"
+BGCOLOR="#E0E0E0"
+WIDTH="100%"
+><TR
+><TD
+><PRE
+CLASS="PROGRAMLISTING"
+>dgt:~/dejagnu.test$ export DEJAGNU=~/my_dejagnu.exp</PRE
+></TD
+></TR
+></TABLE
+><P
+>Run &#8220;make check&#8221; again. The output should not contain 
+&#8220;WARNING: Couldn't find the global config file.&#8221;. 
+Create the sub-directory lib. Create the file &#8220;calc.exp&#8221; in it and insert the following line:</P
+><TABLE
+BORDER="0"
+BGCOLOR="#E0E0E0"
+WIDTH="100%"
+><TR
+><TD
+><PRE
+CLASS="PROGRAMLISTING"
+>puts "I am lib/calc.exp"</PRE
+></TD
+></TR
+></TABLE
+><P
+>The last warning &#8220;WARNING: Couldn't find tool init file&#8221; 
+should not be part of the output of make check. 
+Create the directory &#732;/boards. Create the file &#732;/boards/standard.exp and insert the following line:</P
+><TABLE
+BORDER="0"
+BGCOLOR="#E0E0E0"
+WIDTH="100%"
+><TR
+><TD
+><PRE
+CLASS="PROGRAMLISTING"
+>puts "I am boards/standard.exp"</PRE
+></TD
+></TR
+></TABLE
+><P
+>If the variable DEJAGNU is still not empty then the (abbreviated) output of &#8220;make check&#8221; should look like this:</P
+><DIV
+CLASS="EXAMPLE"
+><A
+NAME="AEN299"
+></A
+><P
+><B
+>Example 8. Sample output of runtest with the usual configuration files</B
+></P
+><TABLE
+BORDER="0"
+BGCOLOR="#E0E0E0"
+WIDTH="100%"
+><TR
+><TD
+><PRE
+CLASS="PROGRAMLISTING"
+>dgt:~/dejagnu.test$ make check 
+&#60;...&#62;
+fi 
+I am ~/.dejagnurc 
+I am ~/my_dejagnu.exp 
+I am lib/calc.exp 
+Test Run By dgt on Sun Nov 25 22:19:14 2001 
+Native configuration is i586-pc-linux-gnu
+
+     === calc tests ===
+Using /home/Dgt/boards/standard.exp as standard board description\
+file for build. 
+I am ~/boards/standard.exp 
+Using /home/Dgt/boards/standard.exp as standard board description\
+ file for host. 
+I am ~/boards/standard.exp 
+
+Schedule of variations: 
+  unix
+
+Running target unix 
+Using /home/Dgt/boards/standard.exp as standard board description\
+ file for target. 
+I am ~/boards/standard.exp 
+Using /usr/share/dejagnu/baseboards/unix.exp as board description file\
+for target. 
+&#60;...&#62;</PRE
+></TD
+></TR
+></TABLE
+></DIV
+><P
+>It is up to you to decide when and where to use any of the above
+mentioned config files for customizing. 
+This chapters showed you where and in which order the different config 
+files are run.</P
+></DIV
+><DIV
+CLASS="SECT2"
+><H2
+CLASS="SECT2"
+><A
+NAME="AEN303"
+>When trouble strikes</A
+></H2
+><P
+>Calling runtest with the '-v'-flag shows you in even more details which files are searched in which order. Passing it several times gives more and more details. </P
+><DIV
+CLASS="EXAMPLE"
+><A
+NAME="AEN306"
+></A
+><P
+><B
+>Example 9. Displaying details about runtest execution</B
+></P
+><TABLE
+BORDER="0"
+BGCOLOR="#E0E0E0"
+WIDTH="100%"
+><TR
+><TD
+><PRE
+CLASS="PROGRAMLISTING"
+>runtest -v -v -v --tool calc CALC=`pwd`/calc --srcdir ./testsuite</PRE
+></TD
+></TR
+></TABLE
+></DIV
+><P
+>Calling runtest with the '--debug'-flag logs a lot of details to dbg.log where you can analyse it afterwards. </P
+><P
+>In all test cases you can temporary adjust the verbosity of information by adding the following Tcl-command:</P
+><TABLE
+BORDER="0"
+BGCOLOR="#E0E0E0"
+WIDTH="100%"
+><TR
+><TD
+><PRE
+CLASS="PROGRAMLISTING"
+>set verbose 9</PRE
+></TD
+></TR
+></TABLE
+></DIV
+><DIV
+CLASS="SECT2"
+><H2
+CLASS="SECT2"
+><A
+NAME="AEN312"
+>Testing &#8220;Hello world&#8221; locally</A
+></H2
+><P
+>This test checks, whether the built-in shell command &#8220;echo Hello world&#8221;
+ will really write &#8220;Hello world&#8221; on the console. 
+Create the file ~/dejagnu.test/testsuite/calc.test/local_echo.exp. 
+It should contain the following lines</P
+><DIV
+CLASS="EXAMPLE"
+><A
+NAME="AEN315"
+></A
+><P
+><B
+>Example 10. A first (local) test case</B
+></P
+><TABLE
+BORDER="0"
+BGCOLOR="#E0E0E0"
+WIDTH="100%"
+><TR
+><TD
+><PRE
+CLASS="PROGRAMLISTING"
+>set test "Local Hello World" 
+send "echo Hello World" 
+expect { 
+   -re "Hello World"  { pass "$test" } 
+}</PRE
+></TD
+></TR
+></TABLE
+></DIV
+><P
+>Run runtest again and verify the output &#8220;calc.log&#8221;</P
+></DIV
+></DIV
+><DIV
+CLASS="NAVFOOTER"
+><HR
+ALIGN="LEFT"
+WIDTH="100%"><TABLE
+WIDTH="100%"
+BORDER="0"
+CELLPADDING="0"
+CELLSPACING="0"
+><TR
+><TD
+WIDTH="33%"
+ALIGN="left"
+VALIGN="top"
+><A
+HREF="x227.html"
+>&#60;&#60;&#60; Previous</A
+></TD
+><TD
+WIDTH="34%"
+ALIGN="center"
+VALIGN="top"
+><A
+HREF="book1.html"
+>Home</A
+></TD
+><TD
+WIDTH="33%"
+ALIGN="right"
+VALIGN="top"
+><A
+HREF="x319.html"
+>Next &#62;&#62;&#62;</A
+></TD
+></TR
+><TR
+><TD
+WIDTH="33%"
+ALIGN="left"
+VALIGN="top"
+>Create a minimal project, e.g. calc</TD
+><TD
+WIDTH="34%"
+ALIGN="center"
+VALIGN="top"
+><A
+HREF="gettingup.html"
+>Up</A
+></TD
+><TD
+WIDTH="33%"
+ALIGN="right"
+VALIGN="top"
+>A first remote test</TD
+></TR
+></TABLE
+></DIV
+></BODY
+></HTML
+>

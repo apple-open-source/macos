@@ -37,7 +37,7 @@
  * SUCH DAMAGE.
  *
  *
- * $Id: hlfsd.c,v 1.1.1.1 2002/05/15 01:22:19 jkh Exp $
+ * $Id: hlfsd.c,v 1.1.1.2 2002/07/15 19:43:05 zarzycki Exp $
  *
  * HLFSD was written at Columbia University Computer Science Department, by
  * Erez Zadok <ezk@cs.columbia.edu> and Alexander Dupuy <dupuy@cs.columbia.edu>
@@ -552,6 +552,7 @@ main(int argc, char *argv[])
   compute_nfs_args(&nfs_args,
 		   &mnt,
 		   genflags,
+		   NULL,
 		   &localsocket,
 		   NFS_VERSION, /* version 2 */
 		   "udp",	/* XXX: shouldn't this be "udp"? */
@@ -586,14 +587,14 @@ main(int argc, char *argv[])
  */
   amuDebug(D_DAEMON) {	/* asked for -D daemon */
     plog(XLOG_INFO, "parent NFS mounting hlfsd service points");
-    if (mount_fs(&mnt, genflags, (caddr_t) &nfs_args, retry, type, 0, NULL, mnttab_file_name) < 0)
+    if (mount_fs2(&mnt, dir_name, genflags, (caddr_t) &nfs_args, retry, type, 0, NULL, mnttab_file_name) < 0)
       fatal("nfsmount: %m");
   } else {			/* asked for -D nodaemon */
     if (fork() == 0) {		/* child runs mount */
       am_set_mypid();
       foreground = 0;
       plog(XLOG_INFO, "child NFS mounting hlfsd service points");
-      if (mount_fs(&mnt, genflags, (caddr_t) &nfs_args, retry, type, 0, NULL, mnttab_file_name) < 0) {
+      if (mount_fs2(&mnt, dir_name, genflags, (caddr_t) &nfs_args, retry, type, 0, NULL, mnttab_file_name) < 0) {
 	fatal("nfsmount: %m");
       }
       exit(0);			/* all went well */
@@ -603,7 +604,7 @@ main(int argc, char *argv[])
   }
 #else /* not DEBUG */
   plog(XLOG_INFO, "normal NFS mounting hlfsd service points");
-  if (mount_fs(&mnt, genflags, (caddr_t) &nfs_args, retry, type, 2, "udp", mnttab_file_name) < 0)
+  if (mount_fs2(&mnt, dir_name, genflags, (caddr_t) &nfs_args, retry, type, 2, "udp", mnttab_file_name) < 0)
     fatal("nfsmount: %m");
 #endif /* not DEBUG */
 
@@ -864,7 +865,7 @@ cleanup(int signum)
   am_set_mypid();
 
   for (;;) {
-    while ((umount_result = UMOUNT_FS(dir_name, mnttab_file_name)) == EBUSY) {
+    while ((umount_result = UMOUNT_FS(dir_name, dir_name, mnttab_file_name)) == EBUSY) {
 #ifdef DEBUG
       dlog("cleanup(): umount delaying for 10 seconds");
 #endif /* DEBUG */

@@ -22,6 +22,7 @@
 
 #include "AppleX509CLSession.h"
 #include "DecodedCert.h"
+#include "DecodedCrl.h"
 #include "CLCachedEntry.h"
 #include "cldebugging.h"
 #include <Security/oidscert.h>
@@ -40,7 +41,7 @@ AppleX509CLSession::CertGetAllFields(
 	uint32 &NumberOfFields,
 	CSSM_FIELD_PTR &CertFields)
 {
-	class DecodedCert decodedCert(*this, Cert);
+	DecodedCert decodedCert(*this, Cert);
 	decodedCert.getAllParsedCertFields(NumberOfFields, CertFields);
 }
 
@@ -105,6 +106,10 @@ AppleX509CLSession::CertGetNextFieldValue(
 	/* fetch & validate the query */
 	CLQuery *query = queryMap.lookupEntry(ResultsHandle);
 	if(query == NULL) {
+		CssmError::throwMe(CSSMERR_CL_INVALID_RESULTS_HANDLE);
+	}
+	if(query->queryType() != CLQ_Cert) {
+		clErrorLog("CertGetNextFieldValue: bad queryType (%d)", (int)query->queryType());
 		CssmError::throwMe(CSSMERR_CL_INVALID_RESULTS_HANDLE);
 	}
 	if(query->nextIndex() >= query->numFields()) {
@@ -199,7 +204,7 @@ AppleX509CLSession::CertAbortCache(
 	/* fetch the associated cached cert, remove from map, delete it */
 	CLCachedCert *cachedCert = lookupCachedCert(CertHandle);
 	if(cachedCert == NULL) {
-		errorLog0("CertAbortCache: cachedCert not found\n");
+		clErrorLog("CertAbortCache: cachedCert not found");
 		CssmError::throwMe(CSSMERR_CL_INVALID_CACHE_HANDLE);
 	}
 	cacheMap.removeEntry(cachedCert->handle());
@@ -218,13 +223,17 @@ AppleX509CLSession::CertAbortQuery(
 	if(query == NULL) {
 		CssmError::throwMe(CSSMERR_CL_INVALID_RESULTS_HANDLE);
 	}
-
+	if(query->queryType() != CLQ_Cert) {
+		clErrorLog("CertAbortQuery: bad queryType (%d)", (int)query->queryType());
+		CssmError::throwMe(CSSMERR_CL_INVALID_RESULTS_HANDLE);
+	}
+	
 	if(!query->fromCache()) {
 		/* the associated cached cert was created just for this query; dispose */
 		CLCachedCert *cachedCert = lookupCachedCert(query->cachedObject());
 		if(cachedCert == NULL) {
 			/* should never happen */
-			errorLog0("CertAbortQuery: cachedCert not found\n");
+			clErrorLog("CertAbortQuery: cachedCert not found");
 			CssmError::throwMe(CSSMERR_CL_INTERNAL_ERROR);
 		}
 		cacheMap.removeEntry(cachedCert->handle());
@@ -254,7 +263,7 @@ AppleX509CLSession::CertCreateTemplate(
 	 * when we sign the cert; maybe we should do it here. */
 	
 	/* 
-	 * We have the CertificateToSign in snacc format. Encode.
+	 * We have the CertificateToSign in NSS format. Encode.
 	 */
 	CssmRemoteData rData(*this, CertTemplate);
 	cert.encodeTbs(rData);
@@ -287,14 +296,18 @@ AppleX509CLSession::FreeFields(
 		thisOid = &thisField->FieldOid;
 		
 		/* oid-specific handling of value */
-		/* TBD - if this fails, call tbd DecodedCRL::freeCertFieldData */
 		/* BUG - the CssmRemoteData constructor clears the referent,
 		 * iff the referent is a CSSSM_DATA (as opposed to a CssmData).
 		 */
 		CssmData &cData = CssmData::overlay(thisField->FieldValue);
 		CssmRemoteData rData(*this, cData);
-		DecodedCert::freeCertFieldData(CssmOid::overlay(*thisOid), rData);
-		
+		try {
+			DecodedCert::freeCertFieldData(CssmOid::overlay(*thisOid), rData);
+		}
+		catch(...) {
+			/* CRL field? */
+			DecodedCrl::freeCrlFieldData(CssmOid::overlay(*thisOid), rData);
+		}
 		/* and the oid itself */
 		free(thisOid->Data);
 		thisOid->Data = NULL;
@@ -306,15 +319,17 @@ AppleX509CLSession::FreeFields(
 void
 AppleX509CLSession::FreeFieldValue(
 	const CssmData &CertOrCrlOid,
-	CssmData *Value)
+	CssmData &Value)
 {
-	if(Value == NULL) {
-		CssmError::throwMe(CSSM_ERRCODE_INVALID_FIELD_POINTER);
+	CssmRemoteData cd(*this, Value);
+	try {
+		DecodedCert::freeCertFieldData(CertOrCrlOid, cd);
 	}
-	CssmRemoteData cd(*this, *Value);
-	/* TBD - if this fails, call tbd DecodedCRL::freeCertFieldData */
-	DecodedCert::freeCertFieldData(CertOrCrlOid, cd);
-	free(Value);
+	catch(...) {
+		/* CRL field? */
+		DecodedCrl::freeCrlFieldData(CertOrCrlOid, cd);
+	}
+	free(&Value);
 }
 
 void
@@ -350,8 +365,8 @@ AppleX509CLSession::PassThrough(
 			/*
 			 * Create a Cert Signing Request (CSR).
 			 * Input is a CSSM_APPLE_CL_CSR_REQUEST.
-			 * Output is a PEM-encoded CertSigningRequest (SNACC type
-			 * CertificationRequest from pkcs10). 
+			 * Output is a PEM-encoded CertSigningRequest (NSS type
+			 * NSS_SignedCertRequest from pkcs10). 
 			 */
 			if(InputParams == NULL) {
 				CssmError::throwMe(CSSMERR_CL_INVALID_INPUT_POINTER);

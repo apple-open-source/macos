@@ -1,6 +1,6 @@
 /* Include file for stabs debugging format support functions.
    Copyright 1986, 1987, 1988, 1989, 1990, 1991, 1992, 1993, 1994, 1995,
-   1996, 1997, 1999, 2000 Free Software Foundation, Inc.
+   1996, 1997, 1999, 2000, 2001, 2002, 2003 Free Software Foundation, Inc.
 
    This file is part of GDB.
 
@@ -128,14 +128,11 @@ EXTERN int n_this_object_header_files;
 
 EXTERN int n_allocated_this_object_header_files;
 
-extern struct complaint unknown_symtype_complaint;
-extern struct complaint unknown_symchar_complaint;
-
 extern struct type *read_type (char **, struct objfile *);
 
 extern void cleanup_undefined_types (void);
 
-extern struct type **dbx_lookup_type (int[2]);
+extern struct type **dbx_lookup_type (int[2], struct objfile *objfile);
 
 extern long read_number (char **, int);
 
@@ -153,9 +150,6 @@ extern void start_stabs (void);
 extern void end_stabs (void);
 
 extern void finish_global_stabs (struct objfile *objfile);
-
-
-EXTERN int os9k_stabs;
 
 /* COFF files can have multiple .stab sections, if they are linked
    using --split-by-reloc.  This linked list is used to pass the
@@ -186,11 +180,11 @@ extern void
 process_one_symbol (int, int, CORE_ADDR, char *, const char *,
 		    struct section_offsets *, struct objfile *);
 
-extern void elfstab_build_psymtabs
-  (struct objfile *objfile,
-   int mainline,
-   file_ptr staboff, unsigned int stabsize,
-   file_ptr stabstroffset, unsigned int stabstrsize);
+extern void elfstab_build_psymtabs (struct objfile *objfile,
+				    int mainline,
+				    file_ptr staboff, unsigned int stabsize,
+				    file_ptr stabstroffset,
+				    unsigned int stabstrsize);
 
 extern void coffstab_build_psymtabs
   (struct objfile *objfile,
@@ -208,9 +202,11 @@ extern void stabsect_build_psymtabs
 extern void elfstab_offset_sections (struct objfile *,
 				     struct partial_symtab *);
 
-extern void process_later
-  (struct symbol *, char *,
-   int (*f) (struct objfile *, struct symbol *, char *));
+#if 0 /* OBSOLETE CFront */
+// OBSOLETE extern void process_later
+// OBSOLETE   (struct symbol *, char *,
+// OBSOLETE    int (*f) (struct objfile *, struct symbol *, char *));
+#endif /* OBSOLETE CFront */
 
 extern int symbol_reference_defined (char **);
 
@@ -218,13 +214,14 @@ extern void ref_add (int, struct symbol *, char *, CORE_ADDR);
 
 extern struct symbol *ref_search (int);
 
-extern int resolve_cfront_continuation
-  (struct objfile *objfile, struct symbol *sym, char *p);
-
-extern char *stabsread_objc_colon (char *name);
-
+#if 0 /* OBSOLETE CFront */
+// OBSOLETE extern int resolve_cfront_continuation
+// OBSOLETE   (struct objfile *objfile, struct symbol *sym, char *p);
+#endif /* OBSOLETE CFront */
 extern void free_header_files (void);
 
 extern void init_header_files (void);
+
+extern char *find_name_end (char *name);
 
 #undef EXTERN

@@ -1,4 +1,28 @@
 /*
+ * Copyright (c) 2003 Apple Computer, Inc. All rights reserved.
+ *
+ * @APPLE_LICENSE_HEADER_START@
+ * 
+ * Copyright (c) 1999-2003 Apple Computer, Inc.  All Rights Reserved.
+ * 
+ * This file contains Original Code and/or Modifications of Original Code
+ * as defined in and that are subject to the Apple Public Source License
+ * Version 2.0 (the 'License'). You may not use this file except in
+ * compliance with the License. Please obtain a copy of the License at
+ * http://www.opensource.apple.com/apsl/ and read it before using this
+ * file.
+ * 
+ * The Original Code and all software distributed under the License are
+ * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
+ * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
+ * INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY,
+ * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
+ * Please see the License for the specific language governing rights and
+ * limitations under the License.
+ * 
+ * @APPLE_LICENSE_HEADER_END@
+ */
+/*
  * chap.h - Challenge Handshake Authentication Protocol definitions.
  *
  * Copyright (c) 1993 The Australian National University.
@@ -30,7 +54,7 @@
  * IMPLIED WARRANTIES, INCLUDING, WITHOUT LIMITATION, THE IMPLIED
  * WARRANTIES OF MERCHANTIBILITY AND FITNESS FOR A PARTICULAR PURPOSE.
  *
- * $Id: chap.h,v 1.2 2002/03/13 22:44:30 callie Exp $
+ * $Id: chap.h,v 1.4 2003/08/14 00:00:29 callie Exp $
  */
 
 #ifndef __CHAP_INCLUDE__
@@ -45,21 +69,61 @@
 #define CHAP_DIGEST_MD5		5	/* use MD5 algorithm */
 #define MD5_SIGNATURE_SIZE	16	/* 16 bytes in a MD5 message digest */
 #define CHAP_MICROSOFT		0x80	/* use Microsoft-compatible alg. */
-#define MS_CHAP_RESPONSE_LEN	49	/* Response length for MS-CHAP */
-#define CHAP_MICROSOFT_V2	0x81	/* use MS-CHAP v2 */
+#define CHAP_MICROSOFT_V2	0x81	/* use Microsoft-compatible alg. */
+
+/*
+ * Digest type and selection.
+ */
+
+/* bitmask of supported algorithms */
+#define MDTYPE_MICROSOFT_V2	0x1
+#define MDTYPE_MICROSOFT	0x2
+#define MDTYPE_MD5		0x4
+
+#ifdef CHAPMS
+#define MDTYPE_ALL (MDTYPE_MICROSOFT_V2 | MDTYPE_MICROSOFT | MDTYPE_MD5)
+#else
+#define MDTYPE_ALL (MDTYPE_MD5)
+#endif
+#define MDTYPE_NONE 0
+
+/* Return the digest alg. ID for the most preferred digest type. */
+#define CHAP_DIGEST(mdtype) \
+    ((mdtype) & MDTYPE_MICROSOFT_V2)? CHAP_MICROSOFT_V2: \
+    ((mdtype) & MDTYPE_MICROSOFT)? CHAP_MICROSOFT: \
+    ((mdtype) & MDTYPE_MD5)? CHAP_DIGEST_MD5: \
+    0
+
+/* Return the bit flag (lsb set) for our most preferred digest type. */
+#define CHAP_MDTYPE(mdtype) ((mdtype) ^ ((mdtype) - 1)) & (mdtype)
+
+/* Return the bit flag for a given digest algorithm ID. */
+#define CHAP_MDTYPE_D(digest) \
+    ((digest) == CHAP_MICROSOFT_V2)? MDTYPE_MICROSOFT_V2: \
+    ((digest) == CHAP_MICROSOFT)? MDTYPE_MICROSOFT: \
+    ((digest) == CHAP_DIGEST_MD5)? MDTYPE_MD5: \
+    0
+
+/* Can we do the requested digest? */
+#define CHAP_CANDIGEST(mdtype, digest) \
+    ((digest) == CHAP_MICROSOFT_V2)? (mdtype) & MDTYPE_MICROSOFT_V2: \
+    ((digest) == CHAP_MICROSOFT)? (mdtype) & MDTYPE_MICROSOFT: \
+    ((digest) == CHAP_DIGEST_MD5)? (mdtype) & MDTYPE_MD5: \
+    0
 
 #define CHAP_CHALLENGE		1
 #define CHAP_RESPONSE		2
 #define CHAP_SUCCESS		3
 #define CHAP_FAILURE    	4
-#define CHAP_SUCCESS_R		13	/* Send response, not text message */
 
 /*
  *  Challenge lengths (for challenges we send) and other limits.
  */
 #define MIN_CHALLENGE_LENGTH	16
-#define MAX_CHALLENGE_LENGTH	24
+#define MAX_CHALLENGE_LENGTH	24	/* sufficient for MS-CHAP Peer Chal. */
 #define MAX_RESPONSE_LENGTH	64	/* sufficient for MD5 or MS-CHAP */
+#define MS_AUTH_RESPONSE_LENGTH	40	/* MS-CHAPv2 authenticator response, */
+					/* as ASCII */
 
 /*
  * Each interface is described by a chap structure.
@@ -81,12 +145,19 @@ typedef struct chap_state {
     int chal_transmits;		/* Number of transmissions of challenge */
     int resp_transmits;		/* Number of transmissions of response */
     u_char response[MAX_RESPONSE_LENGTH];	/* Response to send */
+    char saresponse[MS_AUTH_RESPONSE_LENGTH+1];	/* Auth response to send */
+    char earesponse[MS_AUTH_RESPONSE_LENGTH+1];	/* Auth response expected */
+						/* +1 for null terminator */
+    u_char resp_flags;		/* flags from MS-CHAPv2 auth response */
     u_char resp_length;		/* length of response */
     u_char resp_id;		/* ID for response messages */
     u_char resp_type;		/* hash algorithm for responses */
     char *resp_name;		/* Our name to send with response */
 } chap_state;
 
+/* We need the declaration of chap_state to use this prototype */
+extern int (*chap_auth_hook) __P((char *user, u_char *remmd,
+				  int remmd_len, chap_state *cstate));
 
 /*
  * Client (peer) states.
@@ -119,9 +190,6 @@ extern chap_state chap[];
 
 void ChapAuthWithPeer __P((int, char *, int));
 void ChapAuthPeer __P((int, char *, int));
-void ChapGenChallenge __P((chap_state *));
-
-int reqchap(char **);
 
 extern struct protent chap_protent;
 

@@ -1,0 +1,216 @@
+#
+#
+#
+
+set szApplName [file dirname $argv0]/[file root [file tail $argv0]]
+
+# puts "MAIA TK application: $szApplName"
+
+source ${szApplName}Utils.itcl
+
+if [file exists ~/.[file tail ${szApplName}]rc] {
+    puts stderr "Using Resource ~/.[file tail ${szApplName}]rc"
+    if [catch {option readfile ~/.[file tail ${szApplName}]rc} szErrMsg] {
+	puts stderr "error in ~/.[file tail ${szApplName}]rc: $szErrMsg"
+    }
+} elseif [file exists ${szApplName}.rc] {
+    puts stderr "Using Resource ${szApplName}.rc"
+    if [catch {option readfile ${szApplName}.rc} szErrMsg] {
+	puts stderr "error in ${szApplName}.rc: $szErrMsg"
+    }
+}
+
+wm title . "BlueGnu Tk"
+set iLabelWidth 25
+
+frame .options -borderwidth 3
+pack .options -side top -fill both -expand true
+# puts "grid: [grid columnconfigure .options 1 -weight 1]"
+
+set iRow 0
+label .options.lCmd -text "BlueGnu Command Line:" -padx 0 -width $iLabelWidth -anchor e
+entry .options.cmd -relief sunken -textvariable szCommand -width 60
+set wRun [button .options.run -text "Run it" -command run]
+button .options.quit -text Quit -command exit
+grid .options.lCmd -row $iRow -column 0 -sticky w
+grid .options.cmd -row $iRow -column 1 -columnspan 4 -sticky ew
+grid .options.run -row $iRow -column 5 -sticky ew
+grid .options.quit -row $iRow -column 6 -sticky ew
+bind .options.cmd <Return> run
+bind .options.cmd <Control-c> stop
+focus .options.cmd
+
+incr iRow
+set szPWD [exec /bin/sh -c pwd]
+set wPWDentry [entry .options.pwdText -textvariable szPWD]
+set wPWDlabel [label .options.pwdLabel -text "Current Working Dir:" -padx 0 \
+	-width $iLabelWidth -anchor e]
+set wPWD [menubutton .options.pwd -text "Subdirectories" \
+	-menu .options.pwd.menu -relief raised]
+set wPWDmenu [menu .options.pwd.menu -tearoff 0]
+$wPWDmenu add command -label "." -command {setPWD "."}
+$wPWDmenu add command -label ".." -command {setPWD ".."}
+$wPWDmenu add command -label "dummy" -command {setPWD "dummy"}
+setPWD "."
+grid .options.pwdLabel -row $iRow -column 0 -sticky w
+grid .options.pwdText -row $iRow -column 1  -columnspan 4 -sticky ew
+grid .options.pwd -row $iRow -column 5 -columnspan 2 -sticky ew
+set iRowPWD $iRow
+
+incr iRow
+set wEXPECTentry [entry .options.expectEntry \
+	-textvariable szEXPECT -state disabled]
+set wEXPECTlabel [label .options.expectLabel -text env(EXPECT): \
+	-padx 0 -width $iLabelWidth -anchor e]
+set wEXPECT [menubutton .options.expect -text "EXPECT choices" \
+	-menu .options.expect.menu -relief raised]
+set wEXPECTmenu [menu .options.expect.menu -tearoff 0]
+set lTesters [option get $wEXPECTmenu choices {}]
+if [info exists env(EXPECT)] {
+    setEXPECT $env(EXPECT)
+    if {[lsearch -exact $lTesters $szExpect] < 0} {
+	$wEXPECTmenu add command -label "$szExpect" \
+		-command [list setEXPECT "$szExpect"]
+    }
+} else {
+    setEXPECT {}
+}
+foreach szTester $lTesters {
+    #puts "tester choice: >$szTester<"
+    $wEXPECTmenu add command -label "$szTester" \
+	    -command [list setEXPECT "$szTester"]
+}
+$wEXPECTmenu add command -label "" \
+	-command [list setEXPECT ""]
+grid .options.expectLabel -row $iRow -column 0 -sticky w
+grid .options.expectEntry -row $iRow -column 1  -columnspan 4 -sticky ew
+grid .options.expect -row $iRow -column 5 -columnspan 2 -sticky ew
+
+incr iRow
+label .options.targetLabel -text Target: -padx 0 -width $iLabelWidth -anchor e
+label .options.targetChoice -textvariable szTarget -relief sunken -anchor w
+menubutton .options.target -text "Target choices" \
+	-menu .options.target.menu -relief raised
+menu .options.target.menu -tearoff 0
+set lChoices [option get .options.target.menu choices {}]
+foreach szChoice $lChoices {
+    .options.target.menu add command -label $szChoice \
+	    -command [list set szTarget $szChoice]
+}
+.options.target.menu add command -label "" \
+	-command [list set szTarget ""]
+grid .options.targetLabel -row $iRow -column 0 -sticky w
+grid .options.targetChoice -row $iRow -column 1 -columnspan 4 -sticky ew -padx 2
+grid .options.target -row $iRow -column 5 -columnspan 2 -sticky ew
+
+incr iRow
+label .options.viewLabel -text view: -padx 0 -width $iLabelWidth \
+	-anchor e
+label .options.viewChoice -textvariable szView -relief sunken -anchor w
+menubutton .options.view -text "View choices" \
+	-menu .options.view.menu -relief raised
+menu .options.view.menu -tearoff 0
+set lChoices [option get .options.view.menu choices {}]
+foreach szChoice $lChoices {
+    .options.view.menu add command -label $szChoice \
+	    -command [list set szView $szChoice]
+}
+.options.view.menu add command -label "" \
+	-command [list set szView ""]
+grid .options.viewLabel -row $iRow -column 0 -sticky w
+grid .options.viewChoice -row $iRow -column 1 -columnspan 4 -sticky ew -padx 2
+grid .options.view -row $iRow -column 5 -columnspan 2 -sticky ew
+
+incr iRow
+label .options.xipcLabel -text XIPCINSTANCE: \
+	-padx 0 -width $iLabelWidth -anchor e
+label .options.xipcChoice -textvariable szXipc -relief sunken -anchor w
+menubutton .options.xipc -text "XIPCINSTANCE choices" \
+	-menu .options.xipc.menu -relief raised
+menu .options.xipc.menu -tearoff 0
+set lChoices [option get .options.xipc.menu choices {}]
+foreach szChoice $lChoices {
+    .options.xipc.menu add command -label $szChoice \
+	    -command [list set szXipc $szChoice]
+}
+.options.xipc.menu add command -label "" \
+	-command [list set szXipc ""]
+grid .options.xipcLabel -row $iRow -column 0 -sticky w
+grid .options.xipcChoice -row $iRow -column 1 -columnspan 4 -sticky ew -padx 2
+grid .options.xipc -row $iRow -column 5 -columnspan 2 -sticky ew
+
+set szTestScript "tools/xterm"
+#set szArguments "\{title=\"\$szTarget -- \$szView\"\}"
+
+incr iRow
+set wTSentry [entry .options.tsText -textvariable szTS -state disabled]
+set wTSlabel [label .options.tsLabel -text "Current Test Scripts Dir:" \
+	-padx 0 \
+	-width $iLabelWidth -anchor e]
+set wTS [menubutton .options.ts -text "Subdirectories" \
+	-menu .options.ts.menu -relief raised]
+set wTSmenu [menu .options.ts.menu -tearoff 0]
+$wTSmenu add command -label "." -command {setTS "."}
+$wTSmenu add command -label ".." -command {setTS ".."}
+setTS "."
+grid .options.tsLabel -row $iRow -column 0 -sticky w
+grid .options.tsText -row $iRow -column 1  -columnspan 4 -sticky ew
+grid .options.ts -row $iRow -column 5 -columnspan 2 -sticky ew
+set iRowTS $iRow
+
+incr iRow
+set wTSLlabel [label .options.tslLabel -text "Selected Test Scripts:" \
+	-padx 0 \
+	-width $iLabelWidth -anchor e]
+frame .options.lists -background blue
+#grid rowconfigure .options.lists 0 -weight 1
+#grid columnconfigure .options.lists 0 -weight 1
+grid .options.lists -row $iRow -column 1 -columnspan 6 -sticky news
+set wLL [scrolledListBox .options.lists.fl]
+set wLR [scrolledListBox .options.lists.fr]
+grid .options.tslLabel -row $iRow -column 0 -sticky wn
+grid rowconfigure .options.lists 0 -weight 1
+grid columnconfigure .options.lists 0 -weight 1
+grid .options.lists.fl -row 0 -column 0 -sticky news
+#grid rowconfigure .options.lists.fr 0 -weight 1
+grid columnconfigure .options.lists 1 -weight 1
+grid .options.lists.fr -row 0 -column 1 -sticky news
+bind $wLR <ButtonRelease-3> [list listTransferSelected %W $wLL]
+bind $wLL <ButtonRelease-1> [list listTransferData %W]
+bind $wLL <ButtonRelease-3> [list listTransferRemoved %W $wLR]
+insertTests $wLR
+
+incr iRow
+set wArguments [entry .options.arguments -textvariable szArguments -width 40]
+label .options.argumentsLabel -text "Arguments:" -padx 0 \
+	-width $iLabelWidth -anchor e
+grid .options.argumentsLabel -row $iRow -column 0 -sticky w
+grid .options.arguments -row $iRow -column 1 -columnspan 6 -sticky ew
+
+incr iRow
+set wTestcase [entry .options.testcase -textvariable szTestcase -width 40]
+label .options.testcaseLabel -text "Testcase ID:" -padx 0 \
+	-width $iLabelWidth -anchor e
+grid .options.testcaseLabel -row $iRow -column 0 -sticky w
+grid .options.testcase -row $iRow -column 1 -columnspan 6 -sticky ew
+
+set szTestcase ""
+lostSelection $wLL
+
+frame .txt
+set wLog [text .txt.log -width 80 -height 10 -borderwidth 2 -relief raised \
+	-setgrid true -yscrollcommand {.txt.scroll set}]
+scrollbar .txt.scroll -command {.txt.log yview}
+pack .txt.scroll -side right -fill y
+pack .txt.log -side left -fill both -expand true
+pack .txt -side top -fill both -expand true
+
+trace variable szPWD w setPWDoverwrite
+trace variable szExpect w setExpect
+trace variable szTarget w cmdUpdate
+trace variable szView w cmdUpdate
+trace variable szXipc w cmdUpdate
+trace variable szTS w setTSoverwrite
+trace variable szArguments w cmdUpdate
+trace variable szTestcase w cmdUpdate
+

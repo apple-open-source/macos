@@ -1,10 +1,10 @@
 /*
- * "$Id: cert.c,v 1.1.1.3.2.1 2002/12/13 22:54:13 jlovell Exp $"
+ * "$Id: cert.c,v 1.1.1.10 2003/04/11 21:07:48 jlovell Exp $"
  *
  *   Authentication certificate routines for the Common UNIX
  *   Printing System (CUPS).
  *
- *   Copyright 1997-2002 by Easy Software Products.
+ *   Copyright 1997-2003 by Easy Software Products.
  *
  *   These coded instructions, statements, and computer programs are the
  *   property of Easy Software Products and are protected by Federal
@@ -53,7 +53,7 @@ AddCert(int        pid,			/* I - Process ID */
   int		fd;			/* Certificate file */
   char		filename[1024];		/* Certificate filename */
   struct group	*grp;			/* System group */
-  static const char *hex = "0123456789ABCDEF";
+  static const char hex[] = "0123456789ABCDEF";
 					/* Hex constants... */
 
 
@@ -247,7 +247,7 @@ FindCert(const char *certificate)	/* I - Certificate */
 void
 InitCerts(void)
 {
-  FILE		*fp;			/* /dev/random file */
+  cups_file_t	*fp;			/* /dev/random file */
   unsigned	seed;			/* Seed for random number generator */
   struct timeval tod;			/* Time of day */
 
@@ -257,7 +257,7 @@ InitCerts(void)
   * the current time, as available...
   */
 
-  if ((fp = fopen("/dev/urandom", "rb")) == NULL)
+  if ((fp = cupsFileOpen("/dev/urandom", "rb")) == NULL)
   {
    /*
     * Get the time in usecs and use it as the initial seed...
@@ -274,12 +274,12 @@ InitCerts(void)
     * them as the seed...
     */
 
-    seed = getc(fp);
-    seed = (seed << 8) | getc(fp);
-    seed = (seed << 8) | getc(fp);
-    seed = (seed << 8) | getc(fp);
+    seed = cupsFileGetChar(fp);
+    seed = (seed << 8) | cupsFileGetChar(fp);
+    seed = (seed << 8) | cupsFileGetChar(fp);
+    seed = (seed << 8) | cupsFileGetChar(fp);
 
-    fclose(fp);
+    cupsFileClose(fp);
   }
 
   srandom(seed);
@@ -293,5 +293,5 @@ InitCerts(void)
 
 
 /*
- * End of "$Id: cert.c,v 1.1.1.3.2.1 2002/12/13 22:54:13 jlovell Exp $".
+ * End of "$Id: cert.c,v 1.1.1.10 2003/04/11 21:07:48 jlovell Exp $".
  */

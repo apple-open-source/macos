@@ -42,7 +42,7 @@ configure:: $(ConfigStamp2)
 
 $(ConfigStamp2): $(ConfigStamp)
 	$(_v) $(CAT) $(LSOF_MAKEFILE) |			\
-		$(SED)	-e 's@^\(DEBUG=\).*@\1 -O3@'	\
+		$(SED)	-e 's@^\(DEBUG=\).*@\1 -Os@'	\
 		> /tmp/build.lsof.$(UNIQUE)
 	$(_v) $(MV) -f /tmp/build.lsof.$(UNIQUE) $(LSOF_MAKEFILE)
 	$(_v) $(CAT) $(LSOF_MACHINE_H) |					\

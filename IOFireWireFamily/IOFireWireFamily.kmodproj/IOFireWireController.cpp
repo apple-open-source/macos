@@ -38,7 +38,7 @@
 #import <IOKit/firewire/IOFireWireDevice.h>
 #import <IOKit/firewire/IOFWLocalIsochPort.h>
 #import <IOKit/firewire/IOFWDCLProgram.h>
-#include <IOKit/firewire/IOFireWirePowerManager.h>
+#import <IOKit/firewire/IOFireWirePowerManager.h>
 
 // protected
 #import <IOKit/firewire/IOFWWorkLoop.h>
@@ -46,10 +46,13 @@
 
 // private
 #import "FWDebugging.h"
-#import "IOFireLogPriv.h"
 #import "IOFireWireLocalNode.h"
 #import "IOFWQEventSource.h"
 #import "IOFireWireIRM.h"
+
+#if FIRELOGCORE
+#import "IOFireLogPriv.h"
+#endif
 
 // system
 #import <IOKit/IOKitKeys.h>
@@ -65,6 +68,12 @@
 // 100 mSec delay after bus reset before scanning bus
 // to make first generation Sony cameras happy
 #define kScanBusDelay				100	
+
+// 1000 mSec delay for a bus reset to occur after one was requested
+#define kBusResetTimeout			1000
+
+// 100 mSec delay for self ids to arrive after a bus reset
+#define kSelfIDTimeout				1000
 
 // 1000 mSec delay before pruning devices
 // this will end up being kNormalDevicePruneDelay + kRepeatResetDelay because of gap count optimization
@@ -106,6 +115,7 @@ const OSSymbol *gFireWire_GUID;
 const OSSymbol *gFireWireSpeed;
 const OSSymbol *gFireWireVendor_Name;
 const OSSymbol *gFireWireProduct_Name;
+const OSSymbol *gFireWireModel_ID;
 
 const IORegistryPlane * IOFireWireBus::gIOFireWirePlane = NULL;
 
@@ -138,6 +148,8 @@ OSMetaClassDefineReservedUnused(IOFireWireControllerAux, 7);
 bool IOFireWireControllerAux::init( IOFireWireController * primary )
 {
 	bool success = true;		// assume success
+
+	success = IOFireWireBusAux::init();
 	
 	fPrimary = primary;
 	
@@ -150,6 +162,13 @@ bool IOFireWireControllerAux::init( IOFireWireController * primary )
 
 void IOFireWireControllerAux::free()
 {	    
+	IOFireWireBusAux::free();
+}
+
+IOFWDCLPool *
+IOFireWireControllerAux :: createDCLPool ( unsigned capacity ) const
+{
+	return fPrimary->getLink()->createDCLPool( capacity ) ;
 }
 
 #pragma mark -
@@ -195,6 +214,7 @@ bool IOFireWireController::init( IOFireWireLink *fwim )
     gFireWireSpeed = OSSymbol::withCString("FireWire Speed");
     gFireWireVendor_Name = OSSymbol::withCString("FireWire Vendor Name");
     gFireWireProduct_Name = OSSymbol::withCString("FireWire Product Name");
+	gFireWireModel_ID = OSSymbol::withCString("Model_ID");
 
     if(NULL == gIOFireWirePlane) 
 	{
@@ -278,40 +298,75 @@ void IOFireWireController::free()
 		fBusPowerManager = NULL;
 	}
 	
-    if(fROMAddrSpace) {
+    if( fROMAddrSpace != NULL ) 
+	{
         fROMAddrSpace->release();
-    }
+		fROMAddrSpace = NULL;
+	}
 
-    if(fRootDir)
-        fRootDir->release();
-        
-    if(fBadReadResponse)
-        fBadReadResponse->release();
-        
-    if(fDelayedStateChangeCmd)
+    if( fRootDir != NULL )
+    {
+	    fRootDir->release();
+		fRootDir = NULL;
+	}
+	    
+    if( fBadReadResponse != NULL )
+    {
+	    fBadReadResponse->release();
+		fBadReadResponse = NULL;
+	}
+	    
+    if( fDelayedStateChangeCmd != NULL )
+	{
         fDelayedStateChangeCmd->release();
-        
-    if(fBusResetStateChangeCmd)
+		fDelayedStateChangeCmd = NULL;
+	}
+	
+    if( fBusResetStateChangeCmd != NULL )
+	{
         fBusResetStateChangeCmd->release();
-        
-    if(fSpaceIterator) {
+		fBusResetStateChangeCmd = NULL;
+	}
+	
+    if( fSpaceIterator != NULL ) 
+	{
         fSpaceIterator->release();
+		fSpaceIterator = NULL;
     }
         
-    if(fLocalAddresses)
+    if( fLocalAddresses != NULL )
+	{
         fLocalAddresses->release();
-        
-    if(fAllocChannelIterator) {
+		fLocalAddresses = NULL;
+	}
+	
+    if( fAllocChannelIterator != NULL ) 
+	{
         fAllocChannelIterator->release();
-    }
+		fAllocChannelIterator = NULL;
+	}
 
-    if(fAllocatedChannels)
+    if( fAllocatedChannels != NULL )
+	{
         fAllocatedChannels->release();
-    
+		fAllocatedChannels = NULL;
+    }
+	
 	destroyTimeoutQ();
 	destroyPendingQ();
 	
-    fWorkLoop->release();
+	if( fWorkLoop != NULL )
+	{
+		fWorkLoop->release();
+		fWorkLoop = NULL;
+	}
+	
+	if( fAuxiliary != NULL )
+	{
+		fAuxiliary->release();
+		fAuxiliary = NULL;
+	}
+	
     IOFireWireBus::free();
 }
 
@@ -412,6 +467,8 @@ bool IOFireWireController::start(IOService *provider)
     // Create local node
     IOFireWireLocalNode *localNode = new IOFireWireLocalNode;
     
+	localNode->setConfigDirectory( fRootDir );
+	
     OSDictionary *propTable;
     do {
         OSObject * prop;
@@ -432,7 +489,7 @@ bool IOFireWireController::start(IOService *provider)
     if(propTable)
         propTable->release();	// done with it after init
 
-#if FIRELOG
+#if FIRELOGCORE
     // enable FireLog
     fFireLogPublisher = IOFireLogPublisher::create( this );
 	
@@ -493,7 +550,7 @@ bool IOFireWireController::finalize( IOOptionBits options )
 {
     bool res;
 
-#if FIRELOG
+#if FIRELOGCORE
     if( fFireLogPublisher )
     {
         fFireLogPublisher->release();
@@ -602,8 +659,7 @@ IOReturn IOFireWireController::setPowerState( unsigned long powerStateOrdinal,
     // Update power state, keep gate closed while we sleep.
     if(powerStateOrdinal == 0) {
         // Pretend we had a bus reset - we'll have a real one when we wake up.
-        //processBusReset();
-        if( fBusState == kWaitingPrune || fBusState == kWaitingScan )
+        if( delayedStateCommandInUse() )
         {
 			fDelayedStateChangeCmdNeedAbort = true;
 		}
@@ -738,7 +794,36 @@ void IOFireWireController::doBusReset( void )
 	FWKLOG(( "IOFireWireController::doBusReset\n" ));
 
 	fBusResetState = kResetStateResetting;
+	
+	//
+	// start bus reset timer
+	//
+	
+	if( delayedStateCommandInUse() )
+	{
+		fDelayedStateChangeCmd->cancel(kIOReturnAborted);
+	}
+	
+	fBusState = kWaitingBusReset;
+	fDelayedStateChangeCmd->reinit(1000 * kBusResetTimeout, delayedStateChange, NULL);
+    fDelayedStateChangeCmd->submit();
+	
 	status = fFWIM->resetBus( useIBR );
+}
+
+// enterBusResetDisabledState
+//
+//
+
+void IOFireWireController::enterBusResetDisabledState( )
+{	
+	if( fBusResetState == kResetStateDisabled )
+		fBusResetStateChangeCmd->cancel( kIOReturnAborted );
+	
+	// start the reset disabled state
+	fBusResetState = kResetStateDisabled;
+	fBusResetStateChangeCmd->reinit( 1000 * kRepeatResetDelay, resetStateChange, NULL );
+    fBusResetStateChangeCmd->submit();
 }
 
 // disableSoftwareBusResets
@@ -843,9 +928,23 @@ void IOFireWireController::delayedStateChange(void *refcon, IOReturn status,
                                 IOFireWireBus *bus, IOFWBusCommand *fwCmd)
 {
     IOFireWireController *me = (IOFireWireController *)bus;
+
     if(status == kIOReturnTimeout) {
         switch (me->fBusState) {
-        case kWaitingScan:
+		case kWaitingBusReset:
+			// timed out waiting for a bus reset
+//			IOLog( "IOFireWireController::delayedStateChange - timed out waiting for a bus reset - resetting bus\n" );
+			me->enterBusResetDisabledState();
+			me->fBusState = kRunning;
+			me->resetBus();
+			break;
+		case kWaitingSelfIDs:
+			// timed out waiting for self ids
+//			IOLog( "IOFireWireController::delayedStateChange - timed out waiting for self ids - resetting bus\n" );
+			me->fBusState = kRunning;
+			me->resetBus();
+			break;
+		case kWaitingScan:
             me->fBusState = kScanning;
             me->startBusScan();
             break;
@@ -869,6 +968,15 @@ bool IOFireWireController::scanningBus() const
 	return fBusState == kWaitingSelfIDs || fBusState == kWaitingScan || fBusState == kScanning;
 }
 
+// delayedStateCommandInUse
+//
+//
+
+bool IOFireWireController::delayedStateCommandInUse() const
+{
+	return (fBusState == kWaitingBusReset) || (fBusState == kWaitingSelfIDs) || (fBusState == kWaitingScan) || (fBusState == kWaitingPrune);
+}
+
 // getResetTime
 //
 //
@@ -878,9 +986,11 @@ const AbsoluteTime * IOFireWireController::getResetTime() const
 	return &fResetTime;
 }
 
+// processBusReset
 //
 // Hardware detected a bus reset.
 // At this point we don't know what the hardware addresses are
+
 void IOFireWireController::processBusReset()
 {
 	FWKLOG(( "IOFireWireController::processBusReset\n" ));
@@ -889,60 +999,88 @@ void IOFireWireController::processBusReset()
 	
 	// we got our bus reset, cancel any reset work in progress
 	fBusResetScheduled = false;
-	if( fBusResetState == kResetStateDisabled )
-		fBusResetStateChangeCmd->cancel( kIOReturnAborted );
+
+	enterBusResetDisabledState();
 	
-	// start the reset disabled state
-	fBusResetState = kResetStateDisabled;
-	fBusResetStateChangeCmd->reinit( 1000 * kRepeatResetDelay, resetStateChange, NULL );
-    fBusResetStateChangeCmd->submit();
-	
-    if(fBusState != kWaitingSelfIDs) {
-        if(fBusState == kWaitingPrune || fBusState == kWaitingScan )
+	if( fBusState == kWaitingSelfIDs )
+	{
+		//
+		// if we're already in the kWaitingSelfIDs state then we only need to
+		// push the timer ahead.  cancel it here.  it will be restarted at 
+		// the end of this method
+		//
+		
+		fDelayedStateChangeCmd->cancel( kIOReturnAborted );
+	}
+	else
+	{
+		//
+		// the following processing only needs to be done if we're not already in
+		// the kWaitingSelfIDs state.  ie. on the first bus reset before self ids
+		//
+		
+        if( delayedStateCommandInUse() )
+		{
             fDelayedStateChangeCmd->cancel(kIOReturnAborted);
-        fBusState = kWaitingSelfIDs;
+        }
+		
+		fBusState = kWaitingSelfIDs;
+		
         unsigned int i;
         UInt32 oldgen = fBusGeneration;
-        // Set all current device nodeIDs to something invalid
+    
+		// Set all current device nodeIDs to something invalid
         fBusGeneration++;
-        OSIterator *childIterator;
-        childIterator = getClientIterator();
-        if( childIterator) {
+        OSIterator * childIterator = getClientIterator();
+        if( childIterator ) 
+		{
             OSObject * child;
-            while( (child = childIterator->getNextObject())) {
+            while( (child = childIterator->getNextObject()) ) 
+			{
                 IOFireWireDevice * found = OSDynamicCast(IOFireWireDevice, child);
-                if(found && !found->isTerminated())
-                    found->setNodeROM(oldgen, kFWBadNodeID, NULL);
-                else if(OSDynamicCast(IOFireWireLocalNode, child)) {
+                if( found && !found->isTerminated() )
+				{
+                    found->setNodeROM( oldgen, kFWBadNodeID, NULL );
+                }
+				else if( OSDynamicCast(IOFireWireLocalNode, child) ) 
+				{
                     ((IOFireWireLocalNode *)child)->messageClients(kIOMessageServiceIsSuspended);
                 }
             }
+
             childIterator->release();
         }
 
 		// reset physical filters if necessary
 		physicalAccessProcessBusReset();
 
-        // Invalidate current topology and speed map
-//IOLog("FireWire Bus Generation now %d\n", fBusGeneration);
-        bzero(fSpeedCodes, sizeof(fSpeedCodes));
-		bzero(fHopCounts, sizeof(fHopCounts));
+		// IOLog("FireWire Bus Generation now %d\n", fBusGeneration);
+        
+		// Invalidate current topology and speed map
+		bzero( fSpeedCodes, sizeof(fSpeedCodes) );
+		bzero(fHopCounts, sizeof(fHopCounts) );
 		
         // Zap all outstanding async requests
-        for(i=0; i<kMaxPendingTransfers; i++) {
+        for( i=0; i<kMaxPendingTransfers; i++ ) 
+		{
             AsyncPendingTrans *t = &fTrans[i];
-            if(t->fHandler) {
+            if( t->fHandler ) 
+			{
                 IOFWAsyncCommand * cmd = t->fHandler;
                 cmd->gotPacket(kFWResponseBusResetError, NULL, 0);
             }
         }
 
         // Clear out the old firewire plane
-        if(fNodes[fRootNodeID]) {
+        if( fNodes[fRootNodeID] ) 
+		{
             fNodes[fRootNodeID]->detachAll(gIOFireWirePlane);
         }
-        for(i=0; i<=fRootNodeID; i++) {
-            if(fNodes[i]) {
+		
+        for( i=0; i<=fRootNodeID; i++ ) 
+		{
+            if(fNodes[i]) 
+			{
                 fNodes[i]->release();
                 fNodes[i] = NULL;
             }
@@ -951,6 +1089,12 @@ void IOFireWireController::processBusReset()
         // Cancel all commands in timeout queue that want to complete on bus reset
         fTimeoutQ.busReset();
     }
+
+	// state will be set to kWaitingSelfIDs by now
+	
+	// set a timer
+	fDelayedStateChangeCmd->reinit(1000 * kSelfIDTimeout, delayedStateChange, NULL);
+    fDelayedStateChangeCmd->submit();
 }
 
 // processSelfIDs
@@ -975,11 +1119,28 @@ for(i=0; i<numIDs; i++)
 for(i=0; i<numOwnIDs; i++)
     IOLog("Own ID %d: 0x%x <-> 0x%x\n", i, ownIDs[2*i], ~ownIDs[2*i+1]);
 #endif
-    // If not processing a reset, then we should be
-    // This can happen if we get two resets in quick succession
-    if(fBusState != kWaitingSelfIDs)
+
+	if( fBusState != kWaitingSelfIDs )
+	{
+		// If not processing a reset, then we should be
+		// This can happen if we get two resets in quick successio
         processBusReset();
-    fBusState = kWaitingScan;
+    }
+	
+	// we should now be in the kWaitingSelfIDs state
+	
+	if( fBusState != kWaitingSelfIDs )
+	{
+		IOLog( "IOFireWireController::processSelfIDs - fBusState != kWaitingSelfIDs\n" );
+	}
+	
+	if( fBusState == kWaitingSelfIDs )
+	{
+		// cancel self id timeout
+		fDelayedStateChangeCmd->cancel( kIOReturnAborted );
+	}
+
+	fBusState = kWaitingScan;
                       
     // Initialize root node to be our node, we'll update it below to be the highest node ID.
     fRootNodeID = ourID = (*ownIDs & kFWPhyPacketPhyID) >> kFWPhyPacketPhyIDPhase;
@@ -1579,7 +1740,7 @@ void IOFireWireController::finishedBusScan()
 			}
 			childIterator->release();
 		}
-
+		
 		//
 		// if we found all of our devices, set the prune delay to normal
 		//
@@ -1591,8 +1752,8 @@ void IOFireWireController::finishedBusScan()
 			// count optimization.  
 			
 			fDevicePruneDelay = kOnlyNodeDevicePruneDelay;
-		}
-		
+		}	
+				
 		if( !wouldTerminateDevice )
 		{
 			fDevicePruneDelay = kNormalDevicePruneDelay;
@@ -1616,7 +1777,8 @@ void IOFireWireController::finishedBusScan()
 
     // Anything on queue now is associated with a device not on the bus, I think...
     IOFWCommand *cmd;
-    while(cmd = resetQ.fHead) {
+    while( (cmd = resetQ.fHead) ) 
+	{
         cmd->cancel(kIOReturnTimeout);
     }
 
@@ -2079,7 +2241,7 @@ void IOFireWireController::initSecurity( void )
 		if( iterator != NULL )
 		{
 			OSObject * obj = NULL;
-			if( obj = iterator->getNextObject() )
+			if( (obj = iterator->getNextObject()) )
 			{
 				IOService *	service = (IOService*)obj;
 				keyswitchState = OSDynamicCast( OSBoolean, service->getProperty( "Keyswitch" ) );
@@ -3651,17 +3813,25 @@ IOFireWireDevice * IOFireWireController::nodeIDtoDevice(UInt32 generation, UInt1
     IOFireWireDevice * found = NULL;
 
     if(!checkGeneration(generation))
-        return NULL;
-    
+    {
+	    return NULL;
+    }
+
     childIterator = getClientIterator();
 
-    if( childIterator) {
+    if( childIterator) 
+	{
         OSObject *child;
-        while( (child = childIterator->getNextObject())) {
+        while( (child = childIterator->getNextObject())) 
+		{
             found = OSDynamicCast(IOFireWireDevice, child);
-            if(found && !found->isTerminated() && found->fNodeID == nodeID)
-		break;
-        }
+            if( found && 
+				!found->isTerminated() && 
+				found->fNodeID == nodeID )
+			{
+				break;
+			}
+		}
         childIterator->release();
     }
     return found;
@@ -3704,6 +3874,21 @@ IOReturn IOFireWireController::getIRMNodeID(UInt32 &generation, UInt16 &id) cons
 	generation = fBusGeneration; 
 	id = fIRMNodeID; 
 	return kIOReturnSuccess;
+}
+
+IOReturn IOFireWireController::clipMaxRec2K(Boolean clipMaxRec )
+{
+    IOReturn res;
+
+	closeGate();
+    
+	//IOLog("IOFireWireController::clipMaxRec2K\n");
+
+	res = fFWIM->clipMaxRec2K(clipMaxRec);
+    
+	openGate();
+	
+	return res;
 }
 
 // makeRoot

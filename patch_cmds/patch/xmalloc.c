@@ -1,5 +1,5 @@
 /* xmalloc.c -- malloc with out of memory checking
-   Copyright (C) 1990-1997, 98, 99 Free Software Foundation, Inc.
+   Copyright (C) 1990-1999, 2000, 2002 Free Software Foundation, Inc.
 
    This program is free software; you can redistribute it and/or modify
    it under the terms of the GNU General Public License as published by
@@ -40,6 +40,7 @@ void free ();
 #define N_(Text) Text
 
 #include "error.h"
+#include "exitfail.h"
 #include "xalloc.h"
 
 #ifndef EXIT_FAILURE
@@ -47,30 +48,30 @@ void free ();
 #endif
 
 #ifndef HAVE_DONE_WORKING_MALLOC_CHECK
-you must run the autoconf test for a properly working malloc -- see malloc.m4
+"you must run the autoconf test for a properly working malloc -- see malloc.m4"
 #endif
 
 #ifndef HAVE_DONE_WORKING_REALLOC_CHECK
-you must run the autoconf test for a properly working realloc -- see realloc.m4
+"you must run the autoconf test for a properly working realloc --see realloc.m4"
 #endif
 
-/* Exit value when the requested amount of memory is not available.
-   The caller may set it to some other value.  */
-int xalloc_exit_failure = EXIT_FAILURE;
-
 /* If non NULL, call this function when memory is exhausted. */
-void (*xalloc_fail_func) () = 0;
+void (*xalloc_fail_func) PARAMS ((void)) = 0;
 
 /* If XALLOC_FAIL_FUNC is NULL, or does return, display this message
    before exiting when memory is exhausted.  Goes through gettext. */
-char *const xalloc_msg_memory_exhausted = N_("Memory exhausted");
+char const xalloc_msg_memory_exhausted[] = N_("memory exhausted");
 
-static void
-xalloc_fail (void)
+void
+xalloc_die (void)
 {
   if (xalloc_fail_func)
     (*xalloc_fail_func) ();
-  error (xalloc_exit_failure, 0, "%s", _(xalloc_msg_memory_exhausted));
+  error (exit_failure, 0, "%s", _(xalloc_msg_memory_exhausted));
+  /* The `noreturn' cannot be given to error, since it may return if
+     its first argument is 0.  To help compilers understand the
+     xalloc_die does terminate, call exit. */
+  exit (EXIT_FAILURE);
 }
 
 /* Allocate N bytes of memory dynamically, with error checking.  */
@@ -82,20 +83,19 @@ xmalloc (size_t n)
 
   p = malloc (n);
   if (p == 0)
-    xalloc_fail ();
+    xalloc_die ();
   return p;
 }
 
 /* Change the size of an allocated block of memory P to N bytes,
-   with error checking.
-   If P is NULL, run xmalloc.  */
+   with error checking.  */
 
 void *
 xrealloc (void *p, size_t n)
 {
   p = realloc (p, n);
   if (p == 0)
-    xalloc_fail ();
+    xalloc_die ();
   return p;
 }
 
@@ -108,6 +108,6 @@ xcalloc (size_t n, size_t s)
 
   p = calloc (n, s);
   if (p == 0)
-    xalloc_fail ();
+    xalloc_die ();
   return p;
 }

@@ -62,6 +62,24 @@
 char e1[] = ": ";
 char e2[] = ":,";
 
+#ifdef DIRECTORY_SERVICE
+ENTRY list[] = {
+	{ "login",		d_login,        p_login,  0,   5, e1,   },
+	{ "password",		d_passwd,       p_passwd, 0,   8, e1,   },
+	{ "uid",		d_uid,          p_uid,    0,   3, e1,   },
+	{ "gid",		d_gid,          p_gid,    0,   3, e1,   },
+	{ "change",		d_change,       p_change, 0,   6, NULL, },
+	{ "expire",		d_expire,       p_expire, 0,   6, NULL, },
+	{ "class",		d_class,        p_class,  0,   5, e1,   },
+	{ "home directory",	d_hdir,         p_hdir,   0,  14, e1,   },
+	{ "shell",		d_shell,        p_shell,  0,   5, e1,   },
+	{ "full name",		d_fullname,     p_gecos,  0,   9, e2,   },
+	{ "location",		d_location,     p_gecos,  0,   8, e2,   },
+	{ "office phone",	d_officephone,  p_gecos,  0,  12, e2,   },
+	{ "home phone",		d_homephone,    p_gecos,  0,  10, e2,   },
+	{ NULL },
+};
+#else /* DIRECTORY_SERVICE */
 ENTRY list[] = {
 	{ "login",		p_login,  1,   5, e1,   },
 	{ "password",		p_passwd, 1,   8, e1,   },
@@ -78,3 +96,4 @@ ENTRY list[] = {
 	{ "shell",		p_shell,  0,   5, e1,   },
 	{ NULL, 0, },
 };
+#endif /* DIRECTORY_SERVICE */

@@ -18,10 +18,18 @@
  * WARRANTIES, INCLUDING, WITHOUT LIMITATION, THE IMPLIED WARRANTIES OF
  * MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE.
  *
- * @(#) $Header: /cvs/Darwin/src/live/tcpdump/tcpdump/decnet.h,v 1.1.1.1 2001/07/07 00:50:53 bbraun Exp $ (LBL)
+ * @(#) $Header: /cvs/root/tcpdump/tcpdump/decnet.h,v 1.1.1.2 2003/03/17 18:42:16 rbraun Exp $ (LBL)
  */
 
+#ifndef WIN32
 typedef u_int8_t byte[1];		/* single byte field */
+#else
+/*
+ * the keyword 'byte' generates conflicts in Windows
+ */
+typedef unsigned char Byte[1];		/* single byte field */
+#define byte Byte
+#endif /* WIN32 */
 typedef u_int8_t word[2];		/* 2 byte field */
 typedef u_int8_t longword[4];		/* 4 bytes field */
 

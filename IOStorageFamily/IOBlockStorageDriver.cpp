@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1998-2000 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 1998-2003 Apple Computer, Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -24,6 +24,7 @@
  */
 
 #include <IOKit/assert.h>
+#include <IOKit/IODeviceTreeSupport.h>
 #include <IOKit/IOKitKeys.h>
 #include <IOKit/IOLib.h>
 #include <IOKit/IOMemoryDescriptor.h>
@@ -41,7 +42,7 @@ const UInt32 kPollerInterval = 1000;                           // (ms, 1 second)
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
-#define isMediaRemovable() (_removable)
+#define isMediaRemovable() _removable
 
 #define kIOPropertyProtocolCharacteristicsKey      "Protocol Characteristics"
 #define kIOPropertyPhysicalInterconnectLocationKey "Physical Interconnect Location"
@@ -99,7 +100,7 @@ IOBlockStorageDevice * IOBlockStorageDriver::getProvider() const
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
-bool IOBlockStorageDriver::init(OSDictionary * properties = 0)
+bool IOBlockStorageDriver::init(OSDictionary * properties)
 {
     //
     // Initialize this object's minimal state.
@@ -655,10 +656,15 @@ void IOBlockStorageDriver::prepareRequestCompletion(void *   target,
     
     isWrite = (context->original.buffer->getDirection() == kIODirectionOut);
 
-    // State our assumptions.
+    // Update the error state, on a short transfer.
 
-    assert(status                                != kIOReturnSuccess ||
-           context->original.buffer->getLength() == actualByteCount);
+    if (actualByteCount < context->original.buffer->getLength())
+    {
+        if (status == kIOReturnSuccess)
+        {
+            status = kIOReturnUnderrun;
+        }
+    }
 
     // Update the dirtied state.
 
@@ -824,8 +830,57 @@ IOBlockStorageDriver::acceptNewMedia(void)
         if (getProperty(kIOMediaIconKey, gIOServicePlane)) {
             _mediaObject->removeProperty(kIOMediaIconKey);
         }
-        ok = _mediaObject->attach(this);       		/* attach media object above us */
+        ok = _mediaObject->attach(this);	/* attach media object above us */
         if (ok) {
+            IOService *parent = this;
+            OSNumber *unit = NULL;
+            OSNumber *unitLUN = NULL;
+            OSString *unitName = NULL;
+
+            /* Wire the media object to the device tree. */
+
+            while ((parent = parent->getProvider())) {
+                if (!unit) {
+                    unit = OSDynamicCast(OSNumber, parent->getProperty("IOUnit"));
+                }
+                if (!unitLUN) {
+                    unitLUN = OSDynamicCast(OSNumber, parent->getProperty("IOUnitLUN"));
+                }
+                if (!unitName) {
+                    unitName = OSDynamicCast(OSString, parent->getProperty("IOUnitName"));
+                }
+                if (parent->inPlane(gIODTPlane)) {
+                    IORegistryEntry *child;
+                    IORegistryIterator *children;
+                    if (!unit || !parent->getProvider()) {
+                        break;
+                    }
+
+                    children = IORegistryIterator::iterateOver(parent, gIODTPlane);
+                    if (!children) {
+                        break;
+                    }
+                    while ((child = children->getNextObject())) {
+                        if (!OSDynamicCast(IOMedia, child)) {
+                            child->detachAll(gIODTPlane);
+                        }
+                    }
+                    children->release();
+
+                    if (_mediaObject->attachToParent(parent, gIODTPlane)) {
+                        char location[ 32 ];
+                        if (unitLUN && unitLUN->unsigned32BitValue()) {
+                            sprintf(location, "%x,%x:0", unit->unsigned32BitValue(), unitLUN->unsigned32BitValue());
+                        } else {
+                            sprintf(location, "%x:0", unit->unsigned32BitValue());
+                        }
+                        _mediaObject->setLocation(location, gIODTPlane);
+                        _mediaObject->setName(unitName ? unitName->getCStringNoCopy() : "", gIODTPlane);
+                    }
+                    break;
+                }
+            }
+
             _mediaPresent = true;
             _mediaObject->registerService();		/* enable matching */
         } else {
@@ -949,6 +1004,14 @@ IOBlockStorageDriver::decommissionMedia(bool forcible)
          */
         if ((forcible || !_openClients->containsObject(_mediaObject)) &&
             (isInactive() || _mediaObject->terminate() || forcible)) {
+            IORegistryEntry * parent;
+
+            /* Unwire the media object from the device tree. */
+
+            if ( (parent = _mediaObject->getParentEntry(gIODTPlane)) ) {
+                _mediaObject->detachFromParent(parent, gIODTPlane);
+            }
+
             _mediaObject->release();
             _mediaObject = 0;
 
@@ -1063,11 +1126,27 @@ IOBlockStorageDriver::executeRequest(UInt64                          byteStart,
 IOReturn
 IOBlockStorageDriver::formatMedia(UInt64 byteCapacity)
 {
-    if (!_mediaPresent) {
-        return(kIOReturnNoMedia);
+    IOReturn result;
+
+    IOLockLock(_mediaStateLock);
+
+    lockForArbitration();
+    result = decommissionMedia(false);	/* try to teardown */
+    unlockForArbitration();
+
+    if (result == kIOReturnSuccess) {	/* format */
+        result = getProvider()->doFormatMedia(byteCapacity);
+
+        if (result == kIOReturnSuccess) {
+            result = mediaStateHasChanged(kIOMediaStateOnline);
+        } else {
+            (void)mediaStateHasChanged(kIOMediaStateOnline);
+        }
     }
 
-    return(getProvider()->doFormatMedia(byteCapacity));
+    IOLockUnlock(_mediaStateLock);
+
+    return(result);
 }
 
 const char *
@@ -1114,6 +1193,9 @@ IOBlockStorageDriver::handlePowerEvent(void *target,void *refCon,
                 if (driver->_mediaPresent) {
                     if (driver->_mediaDirtied) {
                         driver->synchronizeCache(driver);
+                    }
+                    if (!driver->isMediaRemovable()) {
+                        driver->getProvider()->doEjectMedia();
                     }
                 }
             }
@@ -1417,7 +1499,7 @@ IOBlockStorageDriver::instantiateMediaObject(UInt64 base,UInt64 byteSize,
         		"");			/* content hint */
 
     if (result) {
-        char *picture = NULL;
+        char *picture = "External.icns";
 
         if (_removable) {
             picture = "Removable.icns";
@@ -2642,7 +2724,10 @@ UInt64 IOBreaker::getBreakSize(
 
             segment     = 0;
             segmentSize = 0;
+        }
 
+        if ( segment == 0 )
+        {
             // Constrain segment byte count.
 
             if ( withMaximumSegmentByteCount )
@@ -2653,26 +2738,25 @@ UInt64 IOBreaker::getBreakSize(
                     segmentSize = chunkSize - withMaximumSegmentByteCount;
 
                     breakSize  -= segmentSize;
+                    chunkSize  -= segmentSize;
                 }
             }
-        }
 
-        // Constrain byte count.
+            // Constrain byte count.
 
-        if ( withMaximumByteCount )
-        {
-            if ( breakSize >= withMaximumByteCount )
+            if ( withMaximumByteCount )
             {
-                breakSize = withMaximumByteCount;
-                break;
+                if ( breakSize >= withMaximumByteCount )
+                {
+                    breakSize = withMaximumByteCount;
+                    break;
+                }
             }
         }
 
         // Process a coalesced segment.
 
-///m:workaround:commented:start
-//        if ( segment )
-///m:workaround:commented:stop
+        if ( segment )
         {
             // Constrain segment count.
 

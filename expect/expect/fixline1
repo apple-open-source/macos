@@ -1,0 +1,22 @@
+#!expect --
+# Synopsis: fixline1 newpath < input > output
+# Author: Don Libes
+
+# Description: change first line of script to reflect new binary
+# try to match any of the following first lines
+#!expect ...
+#!../expect ...
+#!expectk ...
+#!foo/bar/expectk ...
+#
+if {0} {
+    # Original scheme, but this can wire in a platform-specific path
+    regsub "^#!(.*/)*(.*)" [gets stdin] "#!$argv/\\2" line1
+} else {
+    set header "#!/bin/sh\n"
+    append header "# \\\n"
+    append header {exec expect "$0" ${1+"$@"}}
+
+    regsub "^#!(.*/)*(.*)" [gets stdin] $header line1
+}
+puts -nonewline "$line1\n[read stdin]"

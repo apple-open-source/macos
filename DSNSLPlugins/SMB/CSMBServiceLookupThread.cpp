@@ -1,13 +1,31 @@
 /*
- *  CSMBServiceLookupThread.cpp
- *  DSSMBPlugIn
+ * Copyright (c) 2002 Apple Computer, Inc. All rights reserved.
  *
- *  Created by imlucid on Wed Aug 27 2001.
- *  Copyright (c) 2001 Apple Computer. All rights reserved.
- *
+ * @APPLE_LICENSE_HEADER_START@
+ * 
+ * Copyright (c) 1999-2003 Apple Computer, Inc.  All Rights Reserved.
+ * 
+ * This file contains Original Code and/or Modifications of Original Code
+ * as defined in and that are subject to the Apple Public Source License
+ * Version 2.0 (the 'License'). You may not use this file except in
+ * compliance with the License. Please obtain a copy of the License at
+ * http://www.opensource.apple.com/apsl/ and read it before using this
+ * file.
+ * 
+ * The Original Code and all software distributed under the License are
+ * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
+ * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
+ * INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY,
+ * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
+ * Please see the License for the specific language governing rights and
+ * limitations under the License.
+ * 
+ * @APPLE_LICENSE_HEADER_END@
  */
-
-//#include <Carbon/Carbon.h>
+ 
+/*!
+ *  @header CSMBServiceLookupThread
+ */
 
 #include <stdio.h>
 #include <string.h>
@@ -15,329 +33,206 @@
 
 #include "CommandLineUtilities.h"
 #include "CNSLHeaders.h"
+#include "LMBDiscoverer.h"
 #include "CSMBPlugin.h"
 #include "CSMBServiceLookupThread.h"
 
-#ifdef __APPLE_NMBLOOKUP_HACK_2987131
-CFStringEncoding GetWindowsSystemEncodingEquivalent( void );
-#endif
+const CFStringRef	kSMBColonSlashSlashSAFE_CFSTR = CFSTR("smb://");
+const CFStringRef	kColonSAFE_CFSTR = CFSTR(";");
 
-CSMBServiceLookupThread::CSMBServiceLookupThread( CNSLPlugin* parentPlugin, char* serviceType, CNSLDirNodeRep* nodeDirRep )
+CSMBServiceLookupThread::CSMBServiceLookupThread( CNSLPlugin* parentPlugin, char* serviceType, CNSLDirNodeRep* nodeDirRep, CFStringRef lmbNameRef )
     : CNSLServiceLookupThread( parentPlugin, serviceType, nodeDirRep )
 {
 	DBGLOG( "CSMBServiceLookupThread::CSMBServiceLookupThread\n" );
+	mLMBNameRef = lmbNameRef;
+	if ( mLMBNameRef )
+		CFRetain( mLMBNameRef );
 }
 
 CSMBServiceLookupThread::~CSMBServiceLookupThread()
 {
 	DBGLOG( "CSMBServiceLookupThread::~CSMBServiceLookupThread\n" );
+	if ( mLMBNameRef )
+		CFRelease( mLMBNameRef );
 }
 
 void* CSMBServiceLookupThread::Run( void )
 {
-	DBGLOG( "CSMBServiceLookupThread::Run\n" );
-
-    char		command[255];
-    char*		resultPtr = NULL;
-    char*		curPtr = NULL;
-    char*		curResult = NULL;
-    Boolean		canceled = false;
     char		workgroup[20] = {0};
-	const char*	argv[6] = {0};
 
-	if ( !::CFStringGetCString(GetNodeName(), workgroup, sizeof(workgroup), kCFStringEncodingUTF8) )
+	DBGLOG( "CSMBServiceLookupThread::Run\n" );
+	if ( !::CFStringGetCString(GetNodeName(), workgroup, sizeof(workgroup), GetWindowsSystemEncodingEquivalent()) )
 		return NULL;
 	
-    if ( ((CSMBPlugin*)GetParentPlugin())->IsWINSWorkgroup( workgroup ) )
+	GetWorkgroupServers( workgroup );
+	
+	return NULL;
+}
+
+void CSMBServiceLookupThread::GetWorkgroupServers( char* workgroup )
+{
+    char*		resultPtr = NULL;
+	const char*	argv[9] = {0};
+	char		lmbName[256] = {0,};
+	CFStringRef	workgroupRef = GetNodeName();
+//	CFStringRef	workgroupRef = CFStringCreateWithCString( NULL, workgroup, NSLGetSystemEncoding() );
+    Boolean		canceled = false;
+	
+	if ( !mLMBNameRef )
 	{
-		sprintf( command, "/usr/bin/nmblookup -U %s -T %s", ((CSMBPlugin*)GetParentPlugin())->GetWinsServer(), workgroup );
-		argv[0] = "/usr/bin/nmblookup";
-		argv[1] = "-U";
-		argv[2] = ((CSMBPlugin*)GetParentPlugin())->GetWinsServer();
-		argv[3] = "-T";
-		argv[4] = workgroup;
+		DBGLOG( "CSMBServiceLookupThread::GetWorkgroupServers, couldn't get lmb for workgroup: %s\n", workgroup );
 	}
 	else
 	{
-		sprintf( command, "/usr/bin/nmblookup -T %s", workgroup );
-		argv[0] = "/usr/bin/nmblookup";
-		if ( ((CSMBPlugin*)GetParentPlugin())->GetBroadcastAdddress() )
-		{
-			argv[1] = "-B";
-			argv[2] = ((CSMBPlugin*)GetParentPlugin())->GetBroadcastAdddress();
-			argv[3] = "-T";
-			argv[4] = workgroup;
-		}
-		else
-		{
-			DBGLOG( "CSMBNodeLookupThread::Run, no broadcast address skipping lookup\n" );
-			return NULL;
-		}
-	}
+		CFStringGetCString( mLMBNameRef, lmbName, sizeof(lmbName), GetWindowsSystemEncodingEquivalent() );
+//		CFStringGetCString( mLMBNameRef, lmbName, sizeof(lmbName), NSLGetSystemEncoding() );
+			
+		argv[0] = "/usr/bin/smbclient";
+		argv[1] = "-W";
+		argv[2] = workgroup;
+		argv[3] = "-NL";
+		argv[4] = lmbName;
+		argv[5] = "-U%";
+		argv[6] = "-s";
+		argv[7] = kBrowsingConfFilePath;
 	
-    if ( myexecutecommandas( NULL, "/usr/bin/nmblookup", argv, false, kTimeOutVal, &resultPtr, &canceled, getuid(), getgid() ) < 0 )
-    {
-        DBGLOG( "CSMBServiceLookupThread %s failed\n", command );
-    }
-    else if ( resultPtr )
-    {
-        DBGLOG( "CSMBServiceLookupThread::Run, resultPtr = 0x%lx\n", (UInt32)resultPtr );
-        DBGLOG( "%s\n", resultPtr );
-        
-        if ( !ExceptionInResult(resultPtr) )
-        {        
-			
-            curPtr = resultPtr;
-            curResult = curPtr;
-			
-            while( (curResult = GetNextMachine(&curPtr)) != NULL )
-            {
-				SMBServiceLookupNotifier( curResult );
-				free( curResult );
-            }
-
-            DBGLOG( "CSMBServiceLookupThread finished reading\n" );
-        }
-        
-        free( resultPtr );
-    }
-
-    return NULL;
-}
-
-char* CSMBServiceLookupThread::GetNextMachine( char** buffer )
-{
-	if ( !buffer || !(*buffer) )
-		return NULL;
-		
-	char*	nextLine = strstr( *buffer, "\n" );
-	char*	machineName = NULL;
-	char	testString[1024];
-	char*	curPtr = *buffer;
-	
-	DBGLOG( "CSMBServiceLookupThread::GetNextMachine, parsing %s\n", *buffer );
-	while ( !machineName )
-	{
-		if ( nextLine )
+		DBGLOG( "CSMBServiceLookupThread::GetWorkgroupServers calling smbclient -W %s -NL %s -U\%\n", workgroup, lmbName );
+		if ( myexecutecommandas( NULL, "/usr/bin/smbclient", argv, false, kLMBGoodTimeOutVal, &resultPtr, &canceled, getuid(), getgid() ) < 0 )
 		{
-			*nextLine = '\0';
-			nextLine++;
+			DBGLOG( "CSMBServiceLookupThread::GetWorkgroupServers smbclient -W %s -NL %s -U\%\n", workgroup, lmbName );
 		}
-		
-		if ( sscanf( curPtr, "%s", testString ) )
+		else if ( resultPtr )
 		{
-			long	ignore;
-
-			DBGLOG( "CSMBServiceLookupThread::GetNextMachine, testing %s to see if its an IPAddress\n", testString );
-			if ( testString[strlen(testString)-1] == ',' )
-				testString[strlen(testString)-1] = '\0';			// nmblookup puts a comma at the end of this name
+			DBGLOG( "CSMBServiceLookupThread::GetWorkgroupServers, resultPtr = 0x%lx, length = %ld\n", (UInt32)resultPtr, strlen(resultPtr) );
+			DBGLOG( "%s\n", resultPtr );
 			
-			if ( IsDNSName(testString) || IsIPAddress( testString, &ignore ) )
+			if ( ExceptionInResult(resultPtr) )
 			{
-				machineName = (char*)malloc(strlen(testString)+1);
-				sprintf( machineName, testString );
-				
-				*buffer = nextLine;
-				if ( *buffer )
-					*buffer++;
-				break;
-			}
-		}
-		
-		curPtr = nextLine;
-		if ( curPtr )
-		{
-			nextLine = strstr( curPtr, "\n" );	// look for next line
-			DBGLOG( "CSMBServiceLookupThread::GetNextMachine, try next line: %s\n", curPtr );
-		}
-		else
-			break;
-	}
-
-	return machineName;
-}
-
-char* CSMBServiceLookupThread::GetMachineName( char* machineAddress )
-{
-    FILE*		lookupFP;
-    char		resultBuffer[1024] = {0};
-    char		result[256];
-    char*		curPtr;
-    char		command[255];
-    OSStatus	status = noErr;
-    int			scanResult;
-    
-    DBGLOG( "CSMBServiceLookupThread::GetMachineName: %s\n", machineAddress );
-    sprintf( command, "nmblookup -A %s", machineAddress );
-    lookupFP = popen( command, "r" );
-    
-    if ( lookupFP <= 0 )
-        printf( "popen failed\n" );
-    else
-    {
-        char	curChar[2] = {0};
-        
-        while( !mCanceled && !status && fread(curChar, 1, 1, lookupFP ) > 0 )
-        {
-            if ( curChar[0] == '\n' )
-            {
-                // ok, we have a full line of data in our resultBuffer...
-                curPtr = strstr( resultBuffer, "of" );
-                
-                if ( !curPtr )	// skip if we are in the first line (containing "of")
-                {
-                    curPtr = resultBuffer;
-                    
-                    while ( isblank( *curPtr ) && *curPtr != '\n' )
-                        curPtr++;
-                    
-                    scanResult = sscanf( resultBuffer, "%s", result );
-                    
-                    // now we want to see if this machine has file services running
-                    if ( scanResult > 0 && strstr( resultBuffer, "<20>" ) )
-                    {
-                        scanResult = sscanf( curPtr, "%s\n", result );
-                        
-                        if ( scanResult > 0 && result[0] != '\0' )
-                        {
-							char*		returnResult = (char*)malloc( strlen(result) + 1 );
-							strcpy( returnResult, result );
-
-							pclose( lookupFP );
-							return returnResult;
-//                            status = SMBServiceLookupNotifier( result );
-                        }
-                    }
-                }
-                
-                resultBuffer[0] = '\0';
-            }
-            else
-            {
-                strcat( resultBuffer, curChar );
-            }
-        }
-        
-        pclose( lookupFP );
-    }
-    
-    return NULL;
-}
-
-
-OSStatus CSMBServiceLookupThread::SMBServiceLookupNotifier( char* machineName )
-{
-    OSStatus		status = noErr;
-    char			smbURL[1024];
-    
-    if ( !AreWeCanceled() && machineName )
-    {
-        CNSLResult* newResult = new CNSLResult();
-        
-        sprintf( smbURL, "smb://%s", machineName );
-        DBGLOG( "SMBServiceLookupNotifier creating new result with url:%s\n", smbURL );
-
-        newResult->SetURL( smbURL );
-        newResult->SetServiceType( "smb" );
-        newResult->AddAttribute( kDSNAttrDNSName, machineName );		// set the host name so that we can filter this out if needed
-
-		// now for the name, just make it the hostname
-		long	ipAdrs;
-		if ( IsIPAddress( machineName, &ipAdrs ) )
-		{
-			// oops, no dns name.  We can either just return the IP address, or do another lookup and get the SMB name
-			// go with IP for now.
-			char* name = GetMachineName( machineName );
-			
-			if ( name )
-			{
-#ifdef __APPLE_NMBLOOKUP_HACK_2987131
-				// we are asking for raw bytes and we will try and figure out the encoding
-				CFStringRef		nameRef = CFStringCreateWithCString( NULL, name, GetWindowsSystemEncodingEquivalent() );
-				
-				if ( !nameRef )
-				{
-					// this wasn't the encoding needed.  Try ASCII, non-7bit are treated as utf8
-					nameRef = CFStringCreateWithCString( NULL, name, kCFStringEncodingASCII );
-				}
-				
-				if ( nameRef )
-				{
-					newResult->AddAttribute( CFSTR(kDSNAttrRecordName), nameRef );		// this should be what is displayed
-					CFRelease( nameRef );
-				}
-				else
-					newResult->AddAttribute( kDSNAttrRecordName, machineName );	// just use the IP address
-#else
-				newResult->AddAttribute( kDSNAttrRecordName, name );		// this should be what is displayed
-#endif				
-				free( name );
+				syslog( LOG_INFO, "Unable to browse contents of workgroup (%s) due to %s returning an error\n", workgroup, lmbName );
+				DBGLOG( "CSMBServiceLookupThread::GetWorkgroupServers, got an error, clearing cached lmb results\n" );
+				((CSMBPlugin*)GetParentPlugin())->OurLMBDiscoverer()->MarkLMBAsBad( mLMBNameRef );
+				((CSMBPlugin*)GetParentPlugin())->OurLMBDiscoverer()->ClearLMBForWorkgroup(workgroupRef, mLMBNameRef);
 			}
 			else
-				newResult->AddAttribute( kDSNAttrRecordName, machineName );	// just use the IP address
+			{        
+				char*		resultPtrCurrent = NULL;
+				CFArrayRef 	results = ParseOutStringsFromSMBClientResult( resultPtr, "Server", "Comment", &resultPtrCurrent );
 
-			AddResult( newResult );
-		}
-		else
-		{
-			char*	firstDot = strstr( machineName, "." );
-			if ( firstDot )
-				*firstDot = '\0';
+				if ( results )
+				{
+					for ( CFIndex i=CFArrayGetCount(results)-2; i>=0; i-=2 )
+					{
+						AddServiceResult( workgroupRef, (CFStringRef)CFArrayGetValueAtIndex(results, i), (CFStringRef)CFArrayGetValueAtIndex(results, i+1) );	// adding workgroup as key, lmb as value
+					}
+					
+					CFRelease( results );
+				}
+				else if ( strstr(resultPtr, "NT_STATUS_ACCESS_DENIED") )
+				{
+					syslog( LOG_INFO, "Unable to browse contents of workgroup (%s) due to %s returning NT_STATUS_ACCESS_DENIED\n", workgroup, lmbName );
+					((CSMBPlugin*)GetParentPlugin())->OurLMBDiscoverer()->MarkLMBAsBad( mLMBNameRef );
+					// at least add the LMB itself?
+//					AddServiceResult( workgroupRef, mLMBNameRef, kEmptySAFE_CFSTR );	// adding workgroup as key, lmb as value
+				}
+
+				// now parse out the lmb results while we have the data!
+				CFArrayRef lmbResults = ParseOutStringsFromSMBClientResult( resultPtrCurrent, "Workgroup", "Master" );
+				
+				if ( lmbResults )
+				{
+					DBGLOG( "CSMBServiceLookupThread::GetWorkgroupServers is now parsing out the %d results for workgroups and their masters\n", CFArrayGetCount(lmbResults)/2 );
+					for ( CFIndex i=CFArrayGetCount(lmbResults)-2; i>=0; i-=2 )
+					{
+						CFStringRef		workgroupRef = (CFStringRef)CFArrayGetValueAtIndex(lmbResults, i);
+						CFStringRef		lmbNameRef = (CFStringRef)CFArrayGetValueAtIndex(lmbResults, i+1);
+						
+						if ( workgroupRef && CFStringGetLength( workgroupRef ) > 0 && lmbNameRef && CFStringGetLength( lmbNameRef ) > 0 && !((CSMBPlugin*)GetParentPlugin())->OurLMBDiscoverer()->IsLMBKnown( workgroupRef, lmbNameRef ) )		// do we already know about this workgroup?
+						{
+							((CSMBPlugin*)GetParentPlugin())->OurLMBDiscoverer()->AddToCachedResults( workgroupRef, lmbNameRef );		// if this is valid, add it to our list - don't fire off new threads
+/*							LMBInterrogationThread*		interrogator = new LMBInterrogationThread();
+							interrogator->Initialize( ((CSMBPlugin*)GetParentPlugin())->OurLMBDiscoverer(), lmbNameRef, workgroupRef );
+							
+							interrogator->Resume();
+*/
+						}
+					}
+					
+					CFRelease( lmbResults );
+				}
+			}
 			
-			newResult->AddAttribute( kDSNAttrRecordName, machineName );		// this should be what is displayed
-			AddResult( newResult );
+			free( resultPtr );
+			resultPtr = NULL;
 		}
-    }
-
-    return status;
-}
-
-#ifdef __APPLE_NMBLOOKUP_HACK_2987131
-CFStringEncoding GetWindowsSystemEncodingEquivalent( void )
-{
-	// So we want to try and map our Mac System encoding to what the equivalent windows encoding would be on the
-	// same network  (i.e. kCFStringEncodingMacJapanese to kCFStringEncodingShiftJIS)
-	CFStringEncoding	encoding = NSLGetSystemEncoding();		// use our version due to bug where CFGetSystemEncoding doesn't work for boot processes
-	
-	switch ( encoding )
-	{
-		case	kCFStringEncodingMacRoman:
-			encoding = kCFStringEncodingISOLatin1;
-		break;
-		
-		case kCFStringEncodingMacJapanese:
-			encoding = kCFStringEncodingShiftJIS;
-		break;
-		
-		case kCFStringEncodingMacChineseSimp:
-			encoding = kCFStringEncodingHZ_GB_2312;
-		break;
-		
-		case kCFStringEncodingMacChineseTrad:
-			encoding = kCFStringEncodingBig5_HKSCS_1999;
-		break;
-		
-		case kCFStringEncodingMacKorean:
-			encoding = kCFStringEncodingKSC_5601_92_Johab;
-		break;
-		
-		case kCFStringEncodingMacArabic:
-			encoding = kCFStringEncodingWindowsArabic;
-		break;
-		
-		case kCFStringEncodingMacHebrew:
-			encoding = kCFStringEncodingWindowsHebrew;
-		break;
-		
-		case kCFStringEncodingMacGreek:
-			encoding = kCFStringEncodingWindowsGreek;
-		break;
-		
-		case kCFStringEncodingMacCyrillic:
-			encoding = kCFStringEncodingWindowsCyrillic;
-		break;
 	}
 	
-	return encoding;
+/*	if ( workgroupRef )
+		CFRelease( workgroupRef );
+	workgroupRef = NULL;
+*/
 }
+
+void CSMBServiceLookupThread::AddServiceResult( CFStringRef workgroupRef, CFStringRef netBIOSRef, CFStringRef commentRef )
+{
+	if ( netBIOSRef && commentRef )
+	{
+		CNSLResult*				newResult = new CNSLResult();
+		CFMutableStringRef		smbURLRef = CFStringCreateMutable( NULL, 0 );
+		
+		newResult->AddAttribute( kDSNAttrRecordNameSAFE_CFSTR, netBIOSRef );		// this should be what is displayed
+		newResult->AddAttribute( kDS1AttrCommentSAFE_CFSTR, commentRef );			// additional information
+	
+		if ( smbURLRef )
+		{
+			CFStringRef             escapedWorkgroup = CFURLCreateStringByAddingPercentEscapes(NULL, workgroupRef, NULL, NULL, GetWindowsSystemEncodingEquivalent());
+			CFStringRef             escapedName = CFURLCreateStringByAddingPercentEscapes(NULL, netBIOSRef, NULL, NULL, GetWindowsSystemEncodingEquivalent());
+			
+			if ( escapedWorkgroup && escapedName )
+			{
+				CFStringAppend( smbURLRef, kSMBColonSlashSlashSAFE_CFSTR );
+				CFStringAppend( smbURLRef, escapedWorkgroup );
+				CFStringAppend( smbURLRef, kColonSAFE_CFSTR );
+				CFStringAppend( smbURLRef, escapedName );
+
+				newResult->SetURL( smbURLRef );
+				newResult->SetServiceType( "smb" );
+				
+#ifdef LOG_TO_FILE
+	#warning "DEBUG CODE, DO NOT SUBMIT!!!!"
+	// let's dump this out to a file
+	char	name[256];
+	char	workgroup[256];
+	char	url[256];
+	
+	CFStringGetCString( netBIOSRef, name, sizeof(name), GetWindowsSystemEncodingEquivalent() );
+	CFStringGetCString( workgroupRef, workgroup, sizeof(workgroup), GetWindowsSystemEncodingEquivalent() );
+	CFStringGetCString( smbURLRef, url, sizeof(url), GetWindowsSystemEncodingEquivalent() );
+	
+	FILE* destFP = fopen( "/tmp/myexecutecommandas.out", "a" );
+	char				headerString[1024];
+	
+	if ( destFP )
+	{
+		sprintf( headerString, "\n**** AddServiceResult ****\n\tNetBIOS Name: %s\n\tWorkgroup: %s\n\tEncoded URL: %s", name, workgroup, url);
+		fputs( headerString, destFP );
+		fputs( "\n**** endof results *****\n\n", destFP );
+		fclose( destFP );
+	}
+	else
+		syslog( LOG_ALERT, "COULD NOT OPEN /tmp/myexecutecommandas.out!\n" );
 #endif
+			}
+			
+			if ( escapedWorkgroup )
+				CFRelease( escapedWorkgroup );
+			
+			if ( escapedName )
+				CFRelease( escapedName );
+				
+			CFRelease( smbURLRef );
+		}
+	
+		AddResult( newResult );
+	}
+}
+

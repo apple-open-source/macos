@@ -1,5 +1,5 @@
 /* Functions for the X window system.
-   Copyright (C) 1989, 92, 93, 94, 95, 96, 1997, 1998, 1999, 2000, 2001
+   Copyright (C) 1989, 92, 93, 94, 95, 96, 1997, 1998, 1999, 2000, 2001, 2002
      Free Software Foundation.
 
 This file is part of GNU Emacs.
@@ -23,6 +23,10 @@ Boston, MA 02111-1307, USA.  */
 #include <signal.h>
 #include <stdio.h>
 #include <math.h>
+
+#ifdef HAVE_UNISTD_H
+#include <unistd.h>
+#endif
 
 /* This makes the fields of a Display accessible, in Xlib header files.  */
 
@@ -1938,6 +1942,8 @@ x_set_internal_border_width (f, arg, oldval)
       SET_FRAME_GARBAGED (f);
       do_pending_window_change (0);
     }
+  else
+    SET_FRAME_GARBAGED (f);
 }
 
 void
@@ -2190,6 +2196,10 @@ x_set_scroll_bar_background (f, value, oldval)
    CODING_SYSTEM, and return a newly allocated memory area which
    should be freed by `xfree' by a caller.
 
+   SELECTIONP non-zero means the string is being encoded for an X
+   selection, so it is safe to run pre-write conversions (which
+   may run Lisp code).
+
    Store the byte length of resulting text in *TEXT_BYTES.
 
    If the text contains only ASCII and Latin-1, store 1 in *STRING_P,
@@ -2198,9 +2208,10 @@ x_set_scroll_bar_background (f, value, oldval)
    the result should be `COMPOUND_TEXT'.  */
 
 unsigned char *
-x_encode_text (string, coding_system, text_bytes, stringp)
+x_encode_text (string, coding_system, selectionp, text_bytes, stringp)
      Lisp_Object string, coding_system;
      int *text_bytes, *stringp;
+     int selectionp;
 {
   unsigned char *str = XSTRING (string)->data;
   int chars = XSTRING (string)->size;
@@ -2220,6 +2231,15 @@ x_encode_text (string, coding_system, text_bytes, stringp)
     }
 
   setup_coding_system (coding_system, &coding);
+  if (selectionp
+      && SYMBOLP (coding.pre_write_conversion)
+      && !NILP (Ffboundp (coding.pre_write_conversion)))
+    {
+      string = run_pre_post_conversion_on_str (string, &coding, 1);
+      str = XSTRING (string)->data;
+      chars = XSTRING (string)->size;
+      bytes = STRING_BYTES (XSTRING (string));
+    }
   coding.src_multibyte = 1;
   coding.dst_multibyte = 0;
   coding.mode |= CODING_MODE_LAST_BLOCK;
@@ -2303,7 +2323,7 @@ x_set_name (f, name, explicit)
 	coding_system = Vlocale_coding_system;
 	if (NILP (coding_system))
 	  coding_system = Qcompound_text;
-	text.value = x_encode_text (name, coding_system, &bytes, &stringp);
+	text.value = x_encode_text (name, coding_system, 0, &bytes, &stringp);
 	text.encoding = (stringp ? XA_STRING
 			 : FRAME_X_DISPLAY_INFO (f)->Xatom_COMPOUND_TEXT);
 	text.format = 8;
@@ -2315,7 +2335,7 @@ x_set_name (f, name, explicit)
 	  }
 	else
 	  {
-	    icon.value = x_encode_text (f->icon_name, coding_system,
+	    icon.value = x_encode_text (f->icon_name, coding_system, 0,
 					&bytes, &stringp);
 	    icon.encoding = (stringp ? XA_STRING
 			     : FRAME_X_DISPLAY_INFO (f)->Xatom_COMPOUND_TEXT);
@@ -2410,7 +2430,7 @@ x_set_title (f, name, old_name)
 	coding_system = Vlocale_coding_system;
 	if (NILP (coding_system))
 	  coding_system = Qcompound_text;
-	text.value = x_encode_text (name, coding_system, &bytes, &stringp);
+	text.value = x_encode_text (name, coding_system, 0, &bytes, &stringp);
 	text.encoding = (stringp ? XA_STRING
 			 : FRAME_X_DISPLAY_INFO (f)->Xatom_COMPOUND_TEXT);
 	text.format = 8;
@@ -2422,7 +2442,7 @@ x_set_title (f, name, old_name)
 	  }
 	else
 	  {
-	    icon.value = x_encode_text (f->icon_name, coding_system,
+	    icon.value = x_encode_text (f->icon_name, coding_system, 0,
 					&bytes, &stringp);
 	    icon.encoding = (stringp ? XA_STRING
 			     : FRAME_X_DISPLAY_INFO (f)->Xatom_COMPOUND_TEXT);
@@ -4963,7 +4983,7 @@ XScreenNumberOfScreen (scr)
   int i;
 
   for (i = 0; i < dpy->nscreens; ++i)
-    if (scr == dpy->screens[i])
+    if (scr == dpy->screens + i)
       break;
 
   return i;
@@ -8053,11 +8073,9 @@ x_build_heuristic_mask (f, img, how)
   
   if (CONSP (how))
     {
-      int rgb[3], i = 0;
+      int rgb[3], i;
 
-      while (i < 3
-	     && CONSP (how)
-	     && NATNUMP (XCAR (how)))
+      for (i = 0; i < 3 && CONSP (how) && NATNUMP (XCAR (how)); ++i)
 	{
 	  rgb[i] = XFASTINT (XCAR (how)) & 0xffff;
 	  how = XCDR (how);
@@ -8066,17 +8084,9 @@ x_build_heuristic_mask (f, img, how)
       if (i == 3 && NILP (how))
 	{
 	  char color_name[30];
-	  XColor exact, color;
-	  Colormap cmap;
-
 	  sprintf (color_name, "#%04x%04x%04x", rgb[0], rgb[1], rgb[2]);
-	  
-	  cmap = FRAME_X_COLORMAP (f);
-	  if (XLookupColor (dpy, cmap, color_name, &exact, &color))
-	    {
-	      bg = color.pixel;
-	      look_at_corners_p = 0;
-	    }
+	  bg = x_alloc_image_color (f, img, build_string (color_name), 0);
+	  look_at_corners_p = 0;
 	}
     }
   
@@ -9798,8 +9808,8 @@ gif_load (f, img)
       return 0;
     }
 
-  width = img->width = gif->SWidth;
-  height = img->height = gif->SHeight;
+  width = img->width = max (gif->SWidth, gif->Image.Left + gif->Image.Width);
+  height = img->height = max (gif->SHeight, gif->Image.Top + gif->Image.Height);
 
   /* Create the X image and pixmap.  */
   if (!x_create_x_image_and_pixmap (f, width, height, 0, &ximg, &img->pixmap))

@@ -1,9 +1,9 @@
 #
-# "$Id: mime.types,v 1.1.1.3 2002/04/08 07:19:13 jlovell Exp $"
+# "$Id: mime.types,v 1.1.1.9 2003/04/11 21:07:16 jlovell Exp $"
 #
 #   MIME types file for the Common UNIX Printing System (CUPS).
 #
-#   Copyright 1997-2002 by Easy Software Products.
+#   Copyright 1997-2003 by Easy Software Products.
 #
 #   These coded instructions, statements, and computer programs are the
 #   property of Easy Software Products and are protected by Federal
@@ -41,6 +41,8 @@
 #   printable(offset,length)		True if bytes are printable 8-bit chars
 #					(CR, NL, TAB, BS, 32-126, 128-254)
 #   string(offset,"string")		True if bytes are identical to string
+#   istring(offset,"string")		True if bytes are identical to
+#                                       case-insensitive string
 #   char(offset,value)			True if byte is identical
 #   short(offset,value)			True if 16-bit integer is identical
 #   int(offset,value)			True if 32-bit integer is identical
@@ -68,17 +70,21 @@
 # Application-generated files...
 #
 
-application/msword		doc string(0,<D0CF11E0A1B11AE1>)
+#application/msword		doc string(0,<D0CF11E0A1B11AE1>)
 application/pdf			pdf string(0,%PDF)
-application/postscript		ai eps ps string(0,%!) string(0,<04>%!)
+application/postscript		ai eps ps string(0,%!) string(0,<04>%!) \
+				contains(0,128,<1B>%-12345X) + \
+				(contains(0,1024,"LANGUAGE=POSTSCRIPT") \
+				 contains(0,1024,"LANGUAGE = Postscript") \
+				 contains(0,1024,"LANGUAGE = POSTSCRIPT"))
 application/vnd.hp-HPGL		hpgl string(0,<1B>&)\
 				string(0,<1B>E<1B>%0B) \
 				string(0,<1B>%-1B) string(0,<201B>)\
 				string(0,BP;) string(0,IN;) string(0,DF;) \
 				string(0,BPINPS;) \
 				(contains(0,128,<1B>%-12345X) + \
-				 (contains(9,512,"LANGUAGE=HPGL") \
-				  contains(9,512,"LANGUAGE = HPGL")))
+				 (contains(0,1024,"LANGUAGE=HPGL") \
+				  contains(0,1024,"LANGUAGE = HPGL")))
 
 ########################################################################
 #
@@ -101,7 +107,7 @@ image/x-portable-pixmap		ppm string(0,P3) string(0,P6)
 image/x-sgi-rgb			rgb sgi bw icon short(0,474)
 image/x-xbitmap			xbm
 image/x-xpixmap			xpm ascii(0,1024) + string(3,"XPM")
-image/x-xwindowdump		xwd
+#image/x-xwindowdump		xwd string(4,<00000007>)
 image/x-sun-raster		ras string(0,<59a66a95>)
 
 #image/fpx			fpx
@@ -114,7 +120,7 @@ image/x-bitmap			bmp string(0,BM) && !printable(2,14)
 #
 
 text/html			html htm printable(0,1024) +\
-				(string(0,"<HTML>") string(0,"<!DOCTYPE"))
+				(istring(0,"<HTML>") istring(0,"<!DOCTYPE"))
 application/x-cshell		csh printable(0,1024) + string(0,#!) +\
 				(contains(2,80,/csh) contains(2,80,/tcsh))
 application/x-perl		pl printable(0,1024) + string(0,#!) +\
@@ -129,17 +135,15 @@ text/plain			txt printable(0,1024)
 # CUPS-specific types...
 #
 
+application/vnd.cups-command	string(0,'#CUPS-COMMAND')
 application/vnd.cups-form	string(0,"<CUPSFORM>")
-application/vnd.cups-postscript	contains(0,128,<1B>%-12345X) + \
-				(contains(9,512,"LANGUAGE=POSTSCRIPT") \
-				 contains(9,512,"LANGUAGE = Postscript") \
-				 contains(9,512,"LANGUAGE = POSTSCRIPT"))
+application/vnd.cups-postscript
 application/vnd.cups-raster	string(0,"RaSt") string(0,"tSaR")
 application/vnd.cups-raw	(string(0,<1B>E) + !string(2,<1B>%0B)) \
 				string(0,<1B>@) \
 				(contains(0,128,<1B>%-12345X) + \
-				 (contains(9,512,"LANGUAGE=PCL") \
-				  contains(9,512,"LANGUAGE = PCL")))
+				 (contains(0,1024,"LANGUAGE=PCL") \
+				  contains(0,1024,"LANGUAGE = PCL")))
 
 ########################################################################
 #
@@ -153,5 +157,5 @@ application/vnd.cups-raw	(string(0,<1B>E) + !string(2,<1B>%0B)) \
 #application/octet-stream
 
 #
-# End of "$Id: mime.types,v 1.1.1.3 2002/04/08 07:19:13 jlovell Exp $".
+# End of "$Id: mime.types,v 1.1.1.9 2003/04/11 21:07:16 jlovell Exp $".
 #

@@ -78,9 +78,9 @@ static void closelog()
 static int syslog_init( xlog_s *xp, va_list ap )
 {
    struct syslog_parms   *slp = &parms ;
-   struct syslog                  *sp ;
+   struct syslog_s                 *sp ;
 
-   sp = NEW( struct syslog ) ;
+   sp = NEW( struct syslog_s ) ;
    if ( sp == NULL )
       return( XLOG_ENOMEM ) ;
    sp->sl_facility = va_arg( ap, int ) ;

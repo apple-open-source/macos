@@ -1,6 +1,6 @@
 /*
- * Marko Kiiskila carnil@cs.tut.fi 
- * 
+ * Marko Kiiskila carnil@cs.tut.fi
+ *
  * Tampere University of Technology - Telecommunications Laboratory
  *
  * Permission to use, copy, modify and distribute this
@@ -12,17 +12,17 @@
  * documentation, and that the use of this software is
  * acknowledged in any publications resulting from using
  * the software.
- * 
+ *
  * TUT ALLOWS FREE USE OF THIS SOFTWARE IN ITS "AS IS"
  * CONDITION AND DISCLAIMS ANY LIABILITY OF ANY KIND FOR
  * ANY DAMAGES WHATSOEVER RESULTING FROM THE USE OF THIS
  * SOFTWARE.
- * 
+ *
  */
 
 #ifndef lint
 static const char rcsid[] =
-    "@(#) $Header: /cvs/Darwin/src/live/tcpdump/tcpdump/print-cip.c,v 1.1.1.2 2002/05/29 00:05:34 landonf Exp $ (LBL)";
+    "@(#) $Header: /cvs/root/tcpdump/tcpdump/print-cip.c,v 1.1.1.3 2003/03/17 18:42:16 rbraun Exp $ (LBL)";
 #endif
 
 #ifdef HAVE_CONFIG_H
@@ -31,13 +31,7 @@ static const char rcsid[] =
 
 #include <string.h>
 
-#include <sys/param.h>
-#include <sys/time.h>
-#include <sys/types.h>
-#include <sys/socket.h>
-
-
-#include <netinet/in.h>
+#include <tcpdump-stdinc.h>
 
 #include <stdio.h>
 #include <pcap.h>
@@ -47,7 +41,7 @@ static const char rcsid[] =
 #include "ethertype.h"
 #include "ether.h"
 
-#define RFC1483LLC_LEN	8 
+#define RFC1483LLC_LEN	8
 
 static unsigned char rfcllc[] = {
 	0xaa,	/* DSAP: non-ISO */
@@ -58,7 +52,7 @@ static unsigned char rfcllc[] = {
 	0x00 };
 
 static inline void
-cip_print(register const u_char *bp, int length)
+cip_print(int length)
 {
 	/*
 	 * There is no MAC-layer header, so just print the length.
@@ -67,36 +61,25 @@ cip_print(register const u_char *bp, int length)
 }
 
 /*
- * This is the top level routine of the printer.  'p' is the points
- * to the raw header of the packet, 'tvp' is the timestamp,
- * 'length' is the length of the packet off the wire, and 'caplen'
+ * This is the top level routine of the printer.  'p' points
+ * to the LLC/SNAP or raw header of the packet, 'h->ts' is the timestamp,
+ * 'h->length' is the length of the packet off the wire, and 'h->caplen'
  * is the number of bytes actually captured.
  */
-void
-cip_if_print(u_char *user, const struct pcap_pkthdr *h, const u_char *p)
+u_int
+cip_if_print(const struct pcap_pkthdr *h, const u_char *p)
 {
 	u_int caplen = h->caplen;
 	u_int length = h->len;
 	u_short extracted_ethertype;
 
-	++infodelay;
-	ts_print(&h->ts);
-
 	if (memcmp(rfcllc, p, sizeof(rfcllc))==0 && caplen < RFC1483LLC_LEN) {
 		printf("[|cip]");
-		goto out;
+		return (0);
 	}
 
 	if (eflag)
-		cip_print(p, length);
-
-	/*
-	 * Some printers want to get back at the ethernet addresses,
-	 * and/or check that they're not walking off the end of the packet.
-	 * Rather than pass them all the way down, we set these globals.
-	 */
-	packetp = p;
-	snapend = p + caplen;
+		cip_print(length);
 
 	if (memcmp(rfcllc, p, sizeof(rfcllc)) == 0) {
 		/*
@@ -106,7 +89,7 @@ cip_if_print(u_char *user, const struct pcap_pkthdr *h, const u_char *p)
 		    &extracted_ethertype) == 0) {
 			/* ether_type not known, print raw packet */
 			if (!eflag)
-				cip_print(p, length);
+				cip_print(length);
 			if (extracted_ethertype) {
 				printf("(LLC %s) ",
 			       etherproto_string(htons(extracted_ethertype)));
@@ -121,11 +104,5 @@ cip_if_print(u_char *user, const struct pcap_pkthdr *h, const u_char *p)
 		ip_print(p, length);
 	}
 
-	if (xflag)
-		default_print(p, caplen);
- out:
-	putchar('\n');
-	--infodelay;
-	if (infoprint)
-		info(0);
+	return (0);
 }

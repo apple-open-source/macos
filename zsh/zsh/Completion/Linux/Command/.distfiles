@@ -1,0 +1,4 @@
+DISTFILES_SRC='
+.distfiles
+_losetup _modutils _mondo _uml _valgrind
+'

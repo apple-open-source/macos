@@ -1,0 +1,793 @@
+# Makefile.in generated automatically by automake 1.4 from Makefile.am
+
+# Copyright (C) 1994, 1995-8, 1999 Free Software Foundation, Inc.
+# This Makefile.in is free software; the Free Software Foundation
+# gives unlimited permission to copy and/or distribute it,
+# with or without modifications, as long as this notice is preserved.
+
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY, to the extent permitted by law; without
+# even the implied warranty of MERCHANTABILITY or FITNESS FOR A
+# PARTICULAR PURPOSE.
+
+
+SHELL = @SHELL@
+
+srcdir = @srcdir@
+top_srcdir = @top_srcdir@
+VPATH = @srcdir@
+prefix = @prefix@
+exec_prefix = @exec_prefix@
+sbindir = @sbindir@
+libexecdir = @libexecdir@
+datadir = @datadir@
+sysconfdir = @sysconfdir@
+sharedstatedir = @sharedstatedir@
+localstatedir = @localstatedir@
+libdir = @libdir@
+infodir = @infodir@
+mandir = @mandir@
+includedir = @includedir@
+oldincludedir = /usr/include
+
+DESTDIR = $(DSTROOT)
+pkgincludedir = $(includedir)/@PACKAGE@
+
+top_builddir = ../..
+
+ACLOCAL = @ACLOCAL@
+AUTOCONF = @AUTOCONF@
+AUTOMAKE = @AUTOMAKE@
+AUTOHEADER = @AUTOHEADER@
+
+INSTALL = @INSTALL@
+INSTALL_PROGRAM = @INSTALL_PROGRAM@ $(AM_INSTALL_PROGRAM_FLAGS)
+INSTALL_DATA = @INSTALL_DATA@
+INSTALL_SCRIPT = @INSTALL_SCRIPT@
+transform = @program_transform_name@
+
+NORMAL_INSTALL = :
+PRE_INSTALL = :
+POST_INSTALL = :
+NORMAL_UNINSTALL = :
+PRE_UNINSTALL = :
+POST_UNINSTALL = :
+host_alias = @host_alias@
+host_triplet = @host@
+ALL_LINGUAS = @ALL_LINGUAS@
+AS = @AS@
+AWK = @AWK@
+BISON_PROG = @BISON_PROG@
+BUILD_INCLUDED_LIBINTL = @BUILD_INCLUDED_LIBINTL@
+CATALOGS = @CATALOGS@
+CATOBJEXT = @CATOBJEXT@
+CC = @CC@
+CONVERT = @CONVERT@
+CUPS_CFLAGS = @CUPS_CFLAGS@
+CUPS_CONFIG = @CUPS_CONFIG@
+CUPS_INSTALL = @CUPS_INSTALL@
+CUPS_MAN = @CUPS_MAN@
+CUPS_PPD_PS_LEVEL = @CUPS_PPD_PS_LEVEL@
+DATADIRNAME = @DATADIRNAME@
+DB2HTML = @DB2HTML@
+DB2PDF = @DB2PDF@
+DB2PS = @DB2PS@
+DLLTOOL = @DLLTOOL@
+DVIPDF = @DVIPDF@
+DVIPS = @DVIPS@
+ECHO = @ECHO@
+ESCPUTIL_BIN = @ESCPUTIL_BIN@
+ESCPUTIL_MAN = @ESCPUTIL_MAN@
+EXEEXT = @EXEEXT@
+FOOMATIC_3_NOINST_BIN = @FOOMATIC_3_NOINST_BIN@
+FOOMATIC_CONFIGURE = @FOOMATIC_CONFIGURE@
+FOOMATIC_INSTALL = @FOOMATIC_INSTALL@
+FOOMATIC_KITLOAD = @FOOMATIC_KITLOAD@
+FOOMATIC_NOINST_BIN = @FOOMATIC_NOINST_BIN@
+FOOMATIC_PPDFILE = @FOOMATIC_PPDFILE@
+GENCAT = @GENCAT@
+GIMPPRINT_BINARY_AGE = @GIMPPRINT_BINARY_AGE@
+GIMPPRINT_CFLAGS = @GIMPPRINT_CFLAGS@
+GIMPPRINT_CONFIG = @GIMPPRINT_CONFIG@
+GIMPPRINT_CURRENT_INTERFACE = @GIMPPRINT_CURRENT_INTERFACE@
+GIMPPRINT_DEPLIBS = @GIMPPRINT_DEPLIBS@
+GIMPPRINT_INTERFACE_AGE = @GIMPPRINT_INTERFACE_AGE@
+GIMPPRINT_LIBS = @GIMPPRINT_LIBS@
+GIMPPRINT_MAJOR_VERSION = @GIMPPRINT_MAJOR_VERSION@
+GIMPPRINT_MICRO_VERSION = @GIMPPRINT_MICRO_VERSION@
+GIMPPRINT_MINOR_VERSION = @GIMPPRINT_MINOR_VERSION@
+GIMPPRINT_VERSION = @GIMPPRINT_VERSION@
+GIMPTOOL = @GIMPTOOL@
+GIMP_BIN = @GIMP_BIN@
+GIMP_CFLAGS = @GIMP_CFLAGS@
+GIMP_CFLAGS_NOUI = @GIMP_CFLAGS_NOUI@
+GIMP_CONFIG = @GIMP_CONFIG@
+GIMP_DATA_DIR = @GIMP_DATA_DIR@
+GIMP_LIBS = @GIMP_LIBS@
+GIMP_LIBS_NOUI = @GIMP_LIBS_NOUI@
+GIMP_PLUGIN_DIR = @GIMP_PLUGIN_DIR@
+GIMP_PRINT_H = @GIMP_PRINT_H@
+GLIBC21 = @GLIBC21@
+GLIB_CFLAGS = @GLIB_CFLAGS@
+GLIB_CONFIG = @GLIB_CONFIG@
+GLIB_LIBS = @GLIB_LIBS@
+GMOFILES = @GMOFILES@
+GMSGFMT = @GMSGFMT@
+GNUCFLAGS = @GNUCFLAGS@
+GTK_CFLAGS = @GTK_CFLAGS@
+GTK_CONFIG = @GTK_CONFIG@
+GTK_LIBS = @GTK_LIBS@
+IJS_BIN = @IJS_BIN@
+IJS_CFLAGS = @IJS_CFLAGS@
+IJS_CONFIG = @IJS_CONFIG@
+IJS_INSTALL = @IJS_INSTALL@
+IJS_LIBS = @IJS_LIBS@
+INSTOBJEXT = @INSTOBJEXT@
+INTLBISON = @INTLBISON@
+INTLLIBS = @INTLLIBS@
+INTLOBJS = @INTLOBJS@
+INTL_LIBTOOL_SUFFIX_PREFIX = @INTL_LIBTOOL_SUFFIX_PREFIX@
+LEX = @LEX@
+LIBGIMPPRINT_LIBS = @LIBGIMPPRINT_LIBS@
+LIBICONV = @LIBICONV@
+LIBREADLINE_DEPS = @LIBREADLINE_DEPS@
+LIBTOOL = @LIBTOOL@
+LIBTOOL_DEPS = @LIBTOOL_DEPS@
+LN_S = @LN_S@
+LTALLOCA = @LTALLOCA@
+LTLIBOBJS = @LTLIBOBJS@
+LT_AGE = @LT_AGE@
+LT_CURRENT = @LT_CURRENT@
+LT_RELEASE = @LT_RELEASE@
+LT_REVISION = @LT_REVISION@
+MAINT = @MAINT@
+MAINTAINER_CFLAGS = @MAINTAINER_CFLAGS@
+MAIN_BIN = @MAIN_BIN@
+MAIN_DAT = @MAIN_DAT@
+MAIN_MAN = @MAIN_MAN@
+MAIN_SCR = @MAIN_SCR@
+MAKEINFO = @MAKEINFO@
+MKINSTALLDIRS = @MKINSTALLDIRS@
+MSGFMT = @MSGFMT@
+OBJDUMP = @OBJDUMP@
+OBJEXT = @OBJEXT@
+PERL = @PERL@
+PLUG_IN_PATH = @PLUG_IN_PATH@
+POFILES = @POFILES@
+POSUB = @POSUB@
+PRINT_VASPRINTF = @PRINT_VASPRINTF@
+RANLIB = @RANLIB@
+RELEASE_DATE = @RELEASE_DATE@
+RM = @RM@
+SAMPLE_IMAGES = @SAMPLE_IMAGES@
+STRIP = @STRIP@
+TESTPATTERN_BIN = @TESTPATTERN_BIN@
+TEST_BIN = @TEST_BIN@
+TEXI2HTML = @TEXI2HTML@
+USER_GUIDE = @USER_GUIDE@
+USE_INCLUDED_LIBINTL = @USE_INCLUDED_LIBINTL@
+USE_NLS = @USE_NLS@
+VERSION = @VERSION@
+YACC = @YACC@
+YACC_PROG = @YACC_PROG@
+cups_bindir = @cups_bindir@
+cups_conf_datadir = @cups_conf_datadir@
+cups_conf_serverbin = @cups_conf_serverbin@
+cups_conf_serverroot = @cups_conf_serverroot@
+cups_exec_prefix = @cups_exec_prefix@
+cups_prefix = @cups_prefix@
+gimp_plug_indir = @gimp_plug_indir@
+gimpprint_cflags = @gimpprint_cflags@
+gimpprint_libs = @gimpprint_libs@
+
+AUTOMAKE_OPTIONS = 1.4 gnu
+
+MAINT_CHARSET = latin1
+
+PACKAGE = cups
+
+bindir = @cups_bindir@
+
+pkgdatadir = $(cups_conf_datadir)
+pkglibdir = $(cups_conf_serverbin)
+pkgsysconfdir = $(cups_conf_serverroot)
+
+cupsexec_backenddir = $(pkglibdir)/backend
+cupsexec_filterdir = $(pkglibdir)/filter
+cups_modeldir = $(pkgdatadir)/model
+
+AM_CFLAGS = $(GNUCFLAGS)
+DEFS = @CUPS_CFLAGS@ @DEFS@ -I. -I$(srcdir) -I../.. -DCUPS_DATADIR=\"$(pkgdatadir)\" -DGIMP_PRINT_VERSION=\"$(VERSION)\"
+INCLUDES = @INCLUDES@ $(LIBGIMPPRINT_CFLAGS)
+LIBPRINTUT = $(top_builddir)/lib/libprintut.la
+LIBS = $(INTLLIBS) @LIBS@
+
+CUPS_BIN = cups-calibrate
+CUPS_BACKEND_BIN = epson canon
+CUPS_FILTER_BIN = rastertoprinter commandtoepson commandtocanon
+CUPS_NOINST_BIN = genppd
+
+bin_PROGRAMS = @CUPS_BIN@
+cupsexec_backend_PROGRAMS = @CUPS_BACKEND_BIN@
+cupsexec_filter_PROGRAMS = @CUPS_FILTER_BIN@
+noinst_PROGRAMS = @CUPS_NOINST_BIN@
+
+EXTRA_PROGRAMS = cups-calibrate commandtoepson epson genppd rastertoprinter commandtocanon canon
+
+CUPS_LIBS = @CUPS_LIBS@
+
+cups_calibrate_SOURCES = cups-calibrate.c
+cups_calibrate_LDADD = $(LIBPRINTUT) -lm
+
+commandtoepson_SOURCES = commandtoepson.c
+commandtoepson_LDADD = $(LIBPRINTUT) $(CUPS_LIBS)
+
+canon_SOURCES = canon.c
+canon_LDADD = $(LIBPRINTUT) $(CUPS_LIBS)
+
+epson_SOURCES = epson.c
+epson_LDADD = $(LIBPRINTUT) $(CUPS_LIBS)
+
+genppd_SOURCES = genppd.c
+genppd_LDADD = $(LIBPRINTUT) $(CUPS_LIBS) $(LIBGIMPPRINT_LIBS)
+genppd_DEPENDENCIES = $(LIBGIMPPRINT_LIBS)
+
+rastertoprinter_SOURCES = rastertoprinter.c
+rastertoprinter_LDADD = $(LIBPRINTUT) $(CUPS_LIBS) $(LIBGIMPPRINT_LIBS)
+rastertoprinter_DEPENDENCIES = $(LIBGIMPPRINT_LIBS)
+
+CUPS_PKG = calibrate.ppm
+CUPS_CONF = command.types
+
+pkgdata_DATA = @CUPS_PKG@
+pkgsysconf_DATA = @CUPS_CONF@
+
+@BUILD_CUPS_TRUE@INSTALL_DATA_LOCAL_DEPS = ppd
+
+@BUILD_TRANSLATED_PPDS_TRUE@PPD_NLS = $(PPD_NLS_1)
+@BUILD_TRANSLATED_PPDS_TRUE@LINGUAS = $(ALL_LINGUAS)
+
+@USE_NLS_TRUE@PPD_NLS_1 = ppd-nls
+
+CLEANFILES = $(EXTRA_PROGRAMS) ppd-stamp
+MAINTAINERCLEANFILES = Makefile.in
+
+EXTRA_DIST =  	COPYING 	README 	calibrate.ppm 	command.txt 	command.types
+
+mkinstalldirs = $(SHELL) $(top_srcdir)/scripts/mkinstalldirs
+CONFIG_HEADER = ../../config.h
+CONFIG_CLEAN_FILES = 
+bin_PROGRAMS =  @CUPS_BIN@
+cupsexec_backend_PROGRAMS =  @CUPS_BACKEND_BIN@
+cupsexec_filter_PROGRAMS =  @CUPS_FILTER_BIN@
+noinst_PROGRAMS =  @CUPS_NOINST_BIN@
+PROGRAMS =  $(bin_PROGRAMS) $(cupsexec_backend_PROGRAMS) \
+$(cupsexec_filter_PROGRAMS) $(noinst_PROGRAMS)
+
+CPPFLAGS = @CPPFLAGS@
+LDFLAGS = @LDFLAGS@
+cups_calibrate_OBJECTS =  cups-calibrate.$(OBJEXT)
+cups_calibrate_DEPENDENCIES =  $(top_builddir)/lib/libprintut.la
+cups_calibrate_LDFLAGS = 
+commandtoepson_OBJECTS =  commandtoepson.$(OBJEXT)
+commandtoepson_DEPENDENCIES =  $(top_builddir)/lib/libprintut.la
+commandtoepson_LDFLAGS = 
+epson_OBJECTS =  epson.$(OBJEXT)
+epson_DEPENDENCIES =  $(top_builddir)/lib/libprintut.la
+epson_LDFLAGS = 
+genppd_OBJECTS =  genppd.$(OBJEXT)
+genppd_LDFLAGS = 
+rastertoprinter_OBJECTS =  rastertoprinter.$(OBJEXT)
+rastertoprinter_LDFLAGS = 
+commandtocanon_SOURCES = commandtocanon.c
+commandtocanon_OBJECTS =  commandtocanon.$(OBJEXT)
+commandtocanon_LDADD = $(LDADD)
+commandtocanon_DEPENDENCIES = 
+commandtocanon_LDFLAGS = 
+canon_OBJECTS =  canon.$(OBJEXT)
+canon_DEPENDENCIES =  $(top_builddir)/lib/libprintut.la
+canon_LDFLAGS = 
+CFLAGS = @CFLAGS@
+COMPILE = $(CC) $(DEFS) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS)
+LTCOMPILE = $(LIBTOOL) --mode=compile $(CC) $(DEFS) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS)
+CCLD = $(CC)
+LINK = $(LIBTOOL) --mode=link $(CCLD) $(AM_CFLAGS) $(CFLAGS) $(LDFLAGS) -o $@
+DATA =  $(pkgdata_DATA) $(pkgsysconf_DATA)
+
+DIST_COMMON =  README COPYING Makefile.am Makefile.in
+
+
+DISTFILES = $(DIST_COMMON) $(SOURCES) $(HEADERS) $(TEXINFOS) $(EXTRA_DIST)
+
+TAR = tar
+GZIP_ENV = --best
+SOURCES = $(cups_calibrate_SOURCES) $(commandtoepson_SOURCES) $(epson_SOURCES) $(genppd_SOURCES) $(rastertoprinter_SOURCES) commandtocanon.c $(canon_SOURCES)
+OBJECTS = $(cups_calibrate_OBJECTS) $(commandtoepson_OBJECTS) $(epson_OBJECTS) $(genppd_OBJECTS) $(rastertoprinter_OBJECTS) commandtocanon.$(OBJEXT) $(canon_OBJECTS)
+
+all: all-redirect
+.SUFFIXES:
+.SUFFIXES: .S .c .lo .o .obj .s
+$(srcdir)/Makefile.in: @MAINTAINER_MODE_TRUE@ Makefile.am $(top_srcdir)/configure.in $(ACLOCAL_M4) 
+	cd $(top_srcdir) && $(AUTOMAKE) --gnu --include-deps src/cups/Makefile
+
+Makefile: $(srcdir)/Makefile.in  $(top_builddir)/config.status
+	cd $(top_builddir) \
+	  && CONFIG_FILES=$(subdir)/$@ CONFIG_HEADERS= $(SHELL) ./config.status
+
+
+mostlyclean-binPROGRAMS:
+
+clean-binPROGRAMS:
+	-test -z "$(bin_PROGRAMS)" || rm -f $(bin_PROGRAMS)
+
+distclean-binPROGRAMS:
+
+maintainer-clean-binPROGRAMS:
+
+install-binPROGRAMS: $(bin_PROGRAMS)
+	@$(NORMAL_INSTALL)
+	$(mkinstalldirs) $(DESTDIR)$(bindir)
+	@list='$(bin_PROGRAMS)'; for p in $$list; do \
+	  if test -f $$p; then \
+	    echo " $(LIBTOOL)  --mode=install $(INSTALL_PROGRAM) $$p $(DESTDIR)$(bindir)/`echo $$p|sed 's/$(EXEEXT)$$//'|sed '$(transform)'|sed 's/$$/$(EXEEXT)/'`"; \
+	    $(LIBTOOL)  --mode=install $(INSTALL_PROGRAM) $$p $(DESTDIR)$(bindir)/`echo $$p|sed 's/$(EXEEXT)$$//'|sed '$(transform)'|sed 's/$$/$(EXEEXT)/'`; \
+	  else :; fi; \
+	done
+
+uninstall-binPROGRAMS:
+	@$(NORMAL_UNINSTALL)
+	list='$(bin_PROGRAMS)'; for p in $$list; do \
+	  rm -f $(DESTDIR)$(bindir)/`echo $$p|sed 's/$(EXEEXT)$$//'|sed '$(transform)'|sed 's/$$/$(EXEEXT)/'`; \
+	done
+
+mostlyclean-cupsexec_backendPROGRAMS:
+
+clean-cupsexec_backendPROGRAMS:
+	-test -z "$(cupsexec_backend_PROGRAMS)" || rm -f $(cupsexec_backend_PROGRAMS)
+
+distclean-cupsexec_backendPROGRAMS:
+
+maintainer-clean-cupsexec_backendPROGRAMS:
+
+install-cupsexec_backendPROGRAMS: $(cupsexec_backend_PROGRAMS)
+	@$(NORMAL_INSTALL)
+	$(mkinstalldirs) $(DESTDIR)$(cupsexec_backenddir)
+	@list='$(cupsexec_backend_PROGRAMS)'; for p in $$list; do \
+	  if test -f $$p; then \
+	    echo " $(LIBTOOL)  --mode=install $(INSTALL_PROGRAM) $$p $(DESTDIR)$(cupsexec_backenddir)/`echo $$p|sed 's/$(EXEEXT)$$//'|sed '$(transform)'|sed 's/$$/$(EXEEXT)/'`"; \
+	    $(LIBTOOL)  --mode=install $(INSTALL_PROGRAM) $$p $(DESTDIR)$(cupsexec_backenddir)/`echo $$p|sed 's/$(EXEEXT)$$//'|sed '$(transform)'|sed 's/$$/$(EXEEXT)/'`; \
+	  else :; fi; \
+	done
+
+uninstall-cupsexec_backendPROGRAMS:
+	@$(NORMAL_UNINSTALL)
+	list='$(cupsexec_backend_PROGRAMS)'; for p in $$list; do \
+	  rm -f $(DESTDIR)$(cupsexec_backenddir)/`echo $$p|sed 's/$(EXEEXT)$$//'|sed '$(transform)'|sed 's/$$/$(EXEEXT)/'`; \
+	done
+
+mostlyclean-cupsexec_filterPROGRAMS:
+
+clean-cupsexec_filterPROGRAMS:
+	-test -z "$(cupsexec_filter_PROGRAMS)" || rm -f $(cupsexec_filter_PROGRAMS)
+
+distclean-cupsexec_filterPROGRAMS:
+
+maintainer-clean-cupsexec_filterPROGRAMS:
+
+install-cupsexec_filterPROGRAMS: $(cupsexec_filter_PROGRAMS)
+	@$(NORMAL_INSTALL)
+	$(mkinstalldirs) $(DESTDIR)$(cupsexec_filterdir)
+	@list='$(cupsexec_filter_PROGRAMS)'; for p in $$list; do \
+	  if test -f $$p; then \
+	    echo " $(LIBTOOL)  --mode=install $(INSTALL_PROGRAM) $$p $(DESTDIR)$(cupsexec_filterdir)/`echo $$p|sed 's/$(EXEEXT)$$//'|sed '$(transform)'|sed 's/$$/$(EXEEXT)/'`"; \
+	    $(LIBTOOL)  --mode=install $(INSTALL_PROGRAM) $$p $(DESTDIR)$(cupsexec_filterdir)/`echo $$p|sed 's/$(EXEEXT)$$//'|sed '$(transform)'|sed 's/$$/$(EXEEXT)/'`; \
+	  else :; fi; \
+	done
+
+uninstall-cupsexec_filterPROGRAMS:
+	@$(NORMAL_UNINSTALL)
+	list='$(cupsexec_filter_PROGRAMS)'; for p in $$list; do \
+	  rm -f $(DESTDIR)$(cupsexec_filterdir)/`echo $$p|sed 's/$(EXEEXT)$$//'|sed '$(transform)'|sed 's/$$/$(EXEEXT)/'`; \
+	done
+
+mostlyclean-noinstPROGRAMS:
+
+clean-noinstPROGRAMS:
+	-test -z "$(noinst_PROGRAMS)" || rm -f $(noinst_PROGRAMS)
+
+distclean-noinstPROGRAMS:
+
+maintainer-clean-noinstPROGRAMS:
+
+.c.o:
+	$(COMPILE) -c $<
+
+# FIXME: We should only use cygpath when building on Windows,
+# and only if it is available.
+.c.obj:
+	$(COMPILE) -c `cygpath -w $<`
+
+.s.o:
+	$(COMPILE) -c $<
+
+.S.o:
+	$(COMPILE) -c $<
+
+mostlyclean-compile:
+	-rm -f *.o core *.core
+	-rm -f *.$(OBJEXT)
+
+clean-compile:
+
+distclean-compile:
+	-rm -f *.tab.c
+
+maintainer-clean-compile:
+
+.c.lo:
+	$(LIBTOOL) --mode=compile $(COMPILE) -c $<
+
+.s.lo:
+	$(LIBTOOL) --mode=compile $(COMPILE) -c $<
+
+.S.lo:
+	$(LIBTOOL) --mode=compile $(COMPILE) -c $<
+
+mostlyclean-libtool:
+	-rm -f *.lo
+
+clean-libtool:
+	-rm -rf .libs _libs
+
+distclean-libtool:
+
+maintainer-clean-libtool:
+
+cups-calibrate$(EXEEXT): $(cups_calibrate_OBJECTS) $(cups_calibrate_DEPENDENCIES)
+	@rm -f cups-calibrate$(EXEEXT)
+	$(LINK) $(cups_calibrate_LDFLAGS) $(cups_calibrate_OBJECTS) $(cups_calibrate_LDADD) $(LIBS)
+
+commandtoepson$(EXEEXT): $(commandtoepson_OBJECTS) $(commandtoepson_DEPENDENCIES)
+	@rm -f commandtoepson$(EXEEXT)
+	$(LINK) $(commandtoepson_LDFLAGS) $(commandtoepson_OBJECTS) $(commandtoepson_LDADD) $(LIBS)
+
+epson$(EXEEXT): $(epson_OBJECTS) $(epson_DEPENDENCIES)
+	@rm -f epson$(EXEEXT)
+	$(LINK) $(epson_LDFLAGS) $(epson_OBJECTS) $(epson_LDADD) $(LIBS)
+
+genppd$(EXEEXT): $(genppd_OBJECTS) $(genppd_DEPENDENCIES)
+	@rm -f genppd$(EXEEXT)
+	$(LINK) $(genppd_LDFLAGS) $(genppd_OBJECTS) $(genppd_LDADD) $(LIBS)
+
+rastertoprinter$(EXEEXT): $(rastertoprinter_OBJECTS) $(rastertoprinter_DEPENDENCIES)
+	@rm -f rastertoprinter$(EXEEXT)
+	$(LINK) $(rastertoprinter_LDFLAGS) $(rastertoprinter_OBJECTS) $(rastertoprinter_LDADD) $(LIBS)
+
+commandtocanon$(EXEEXT): $(commandtocanon_OBJECTS) $(commandtocanon_DEPENDENCIES)
+	@rm -f commandtocanon$(EXEEXT)
+	$(LINK) $(commandtocanon_LDFLAGS) $(commandtocanon_OBJECTS) $(commandtocanon_LDADD) $(LIBS)
+
+canon$(EXEEXT): $(canon_OBJECTS) $(canon_DEPENDENCIES)
+	@rm -f canon$(EXEEXT)
+	$(LINK) $(canon_LDFLAGS) $(canon_OBJECTS) $(canon_LDADD) $(LIBS)
+
+install-pkgdataDATA: $(pkgdata_DATA)
+	@$(NORMAL_INSTALL)
+	$(mkinstalldirs) $(DESTDIR)$(pkgdatadir)
+	@list='$(pkgdata_DATA)'; for p in $$list; do \
+	  if test -f $(srcdir)/$$p; then \
+	    echo " $(INSTALL_DATA) $(srcdir)/$$p $(DESTDIR)$(pkgdatadir)/$$p"; \
+	    $(INSTALL_DATA) $(srcdir)/$$p $(DESTDIR)$(pkgdatadir)/$$p; \
+	  else if test -f $$p; then \
+	    echo " $(INSTALL_DATA) $$p $(DESTDIR)$(pkgdatadir)/$$p"; \
+	    $(INSTALL_DATA) $$p $(DESTDIR)$(pkgdatadir)/$$p; \
+	  fi; fi; \
+	done
+
+uninstall-pkgdataDATA:
+	@$(NORMAL_UNINSTALL)
+	list='$(pkgdata_DATA)'; for p in $$list; do \
+	  rm -f $(DESTDIR)$(pkgdatadir)/$$p; \
+	done
+
+install-pkgsysconfDATA: $(pkgsysconf_DATA)
+	@$(NORMAL_INSTALL)
+	$(mkinstalldirs) $(DESTDIR)$(pkgsysconfdir)
+	@list='$(pkgsysconf_DATA)'; for p in $$list; do \
+	  if test -f $(srcdir)/$$p; then \
+	    echo " $(INSTALL_DATA) $(srcdir)/$$p $(DESTDIR)$(pkgsysconfdir)/$$p"; \
+	    $(INSTALL_DATA) $(srcdir)/$$p $(DESTDIR)$(pkgsysconfdir)/$$p; \
+	  else if test -f $$p; then \
+	    echo " $(INSTALL_DATA) $$p $(DESTDIR)$(pkgsysconfdir)/$$p"; \
+	    $(INSTALL_DATA) $$p $(DESTDIR)$(pkgsysconfdir)/$$p; \
+	  fi; fi; \
+	done
+
+uninstall-pkgsysconfDATA:
+	@$(NORMAL_UNINSTALL)
+	list='$(pkgsysconf_DATA)'; for p in $$list; do \
+	  rm -f $(DESTDIR)$(pkgsysconfdir)/$$p; \
+	done
+
+tags: TAGS
+
+ID: $(HEADERS) $(SOURCES) $(LISP)
+	list='$(SOURCES) $(HEADERS)'; \
+	unique=`for i in $$list; do echo $$i; done | \
+	  awk '    { files[$$0] = 1; } \
+	       END { for (i in files) print i; }'`; \
+	here=`pwd` && cd $(srcdir) \
+	  && mkid -f$$here/ID $$unique $(LISP)
+
+TAGS:  $(HEADERS) $(SOURCES)  $(TAGS_DEPENDENCIES) $(LISP)
+	tags=; \
+	here=`pwd`; \
+	list='$(SOURCES) $(HEADERS)'; \
+	unique=`for i in $$list; do echo $$i; done | \
+	  awk '    { files[$$0] = 1; } \
+	       END { for (i in files) print i; }'`; \
+	test -z "$(ETAGS_ARGS)$$unique$(LISP)$$tags" \
+	  || (cd $(srcdir) && etags $(ETAGS_ARGS) $$tags  $$unique $(LISP) -o $$here/TAGS)
+
+mostlyclean-tags:
+
+clean-tags:
+
+distclean-tags:
+	-rm -f TAGS ID
+
+maintainer-clean-tags:
+
+distdir = $(top_builddir)/$(PACKAGE)-$(VERSION)/$(subdir)
+
+subdir = src/cups
+
+distdir: $(DISTFILES)
+	@for file in $(DISTFILES); do \
+	  d=$(srcdir); \
+	  if test -d $$d/$$file; then \
+	    cp -pr $$/$$file $(distdir)/$$file; \
+	  else \
+	    test -f $(distdir)/$$file \
+	    || ln $$d/$$file $(distdir)/$$file 2> /dev/null \
+	    || cp -p $$d/$$file $(distdir)/$$file || :; \
+	  fi; \
+	done
+	$(MAKE) $(AM_MAKEFLAGS) top_distdir="$(top_distdir)" distdir="$(distdir)" dist-hook
+canon.o: canon.c
+commandtocanon.o: commandtocanon.c
+commandtoepson.o: commandtoepson.c
+cups-calibrate.o: cups-calibrate.c
+epson.o: epson.c ../../config.h
+genppd.o: genppd.c ../../config.h ../../include/gimp-print/gimp-print.h \
+	../../include/gimp-print/gimp-print-intl.h \
+	../../lib/libprintut.h ../../lib/xmalloc.h
+rastertoprinter.o: rastertoprinter.c \
+	../../include/gimp-print/gimp-print.h ../../lib/libprintut.h \
+	../../config.h ../../lib/xmalloc.h
+
+info-am:
+info: info-am
+dvi-am:
+dvi: dvi-am
+check-am: all-am
+check: check-am
+installcheck-am:
+installcheck: installcheck-am
+install-exec-am: install-binPROGRAMS install-cupsexec_backendPROGRAMS \
+		install-cupsexec_filterPROGRAMS
+install-exec: install-exec-am
+
+install-data-am: install-pkgdataDATA install-pkgsysconfDATA \
+		install-data-local
+	@$(NORMAL_INSTALL)
+	$(MAKE) $(AM_MAKEFLAGS) install-data-hook
+install-data: install-data-am
+
+install-am: all-am
+	@$(MAKE) $(AM_MAKEFLAGS) install-exec-am install-data-am
+install: install-am
+uninstall-am: uninstall-binPROGRAMS uninstall-cupsexec_backendPROGRAMS \
+		uninstall-cupsexec_filterPROGRAMS uninstall-pkgdataDATA \
+		uninstall-pkgsysconfDATA uninstall-local
+uninstall: uninstall-am
+all-am: Makefile $(PROGRAMS) $(DATA) all-local
+all-redirect: all-am
+install-strip:
+	$(MAKE) $(AM_MAKEFLAGS) AM_INSTALL_PROGRAM_FLAGS=-s install
+installdirs:
+	$(mkinstalldirs)  $(DESTDIR)$(bindir) $(DESTDIR)$(cupsexec_backenddir) \
+		$(DESTDIR)$(cupsexec_filterdir) $(DESTDIR)$(pkgdatadir) \
+		$(DESTDIR)$(pkgsysconfdir)
+
+
+mostlyclean-generic:
+
+clean-generic:
+	-test -z "$(CLEANFILES)" || rm -f $(CLEANFILES)
+
+distclean-generic:
+	-rm -f Makefile $(CONFIG_CLEAN_FILES)
+	-rm -f config.cache config.log stamp-h stamp-h[0-9]*
+
+maintainer-clean-generic:
+	-test -z "$(MAINTAINERCLEANFILES)" || rm -f $(MAINTAINERCLEANFILES)
+mostlyclean-am:  mostlyclean-binPROGRAMS \
+		mostlyclean-cupsexec_backendPROGRAMS \
+		mostlyclean-cupsexec_filterPROGRAMS \
+		mostlyclean-noinstPROGRAMS mostlyclean-compile \
+		mostlyclean-libtool mostlyclean-tags \
+		mostlyclean-generic
+
+mostlyclean: mostlyclean-am
+
+clean-am:  clean-binPROGRAMS clean-cupsexec_backendPROGRAMS \
+		clean-cupsexec_filterPROGRAMS clean-noinstPROGRAMS \
+		clean-compile clean-libtool clean-tags clean-generic \
+		mostlyclean-am clean-local
+
+clean: clean-am
+
+distclean-am:  distclean-binPROGRAMS distclean-cupsexec_backendPROGRAMS \
+		distclean-cupsexec_filterPROGRAMS \
+		distclean-noinstPROGRAMS distclean-compile \
+		distclean-libtool distclean-tags distclean-generic \
+		clean-am
+	-rm -f libtool
+
+distclean: distclean-am
+
+maintainer-clean-am:  maintainer-clean-binPROGRAMS \
+		maintainer-clean-cupsexec_backendPROGRAMS \
+		maintainer-clean-cupsexec_filterPROGRAMS \
+		maintainer-clean-noinstPROGRAMS \
+		maintainer-clean-compile maintainer-clean-libtool \
+		maintainer-clean-tags maintainer-clean-generic \
+		distclean-am
+	@echo "This command is intended for maintainers to use;"
+	@echo "it deletes files that may require special tools to rebuild."
+
+maintainer-clean: maintainer-clean-am
+
+.PHONY: mostlyclean-binPROGRAMS distclean-binPROGRAMS clean-binPROGRAMS \
+maintainer-clean-binPROGRAMS uninstall-binPROGRAMS install-binPROGRAMS \
+mostlyclean-cupsexec_backendPROGRAMS distclean-cupsexec_backendPROGRAMS \
+clean-cupsexec_backendPROGRAMS \
+maintainer-clean-cupsexec_backendPROGRAMS \
+uninstall-cupsexec_backendPROGRAMS install-cupsexec_backendPROGRAMS \
+mostlyclean-cupsexec_filterPROGRAMS distclean-cupsexec_filterPROGRAMS \
+clean-cupsexec_filterPROGRAMS maintainer-clean-cupsexec_filterPROGRAMS \
+uninstall-cupsexec_filterPROGRAMS install-cupsexec_filterPROGRAMS \
+mostlyclean-noinstPROGRAMS distclean-noinstPROGRAMS \
+clean-noinstPROGRAMS maintainer-clean-noinstPROGRAMS \
+mostlyclean-compile distclean-compile clean-compile \
+maintainer-clean-compile mostlyclean-libtool distclean-libtool \
+clean-libtool maintainer-clean-libtool uninstall-pkgdataDATA \
+install-pkgdataDATA uninstall-pkgsysconfDATA install-pkgsysconfDATA \
+tags mostlyclean-tags distclean-tags clean-tags maintainer-clean-tags \
+distdir info-am info dvi-am dvi check check-am installcheck-am \
+installcheck install-exec-am install-exec install-data-local \
+install-data-am install-data install-am install uninstall-local \
+uninstall-am uninstall all-local all-redirect all-am all installdirs \
+mostlyclean-generic distclean-generic clean-generic \
+maintainer-clean-generic clean mostlyclean distclean maintainer-clean
+
+
+@SET_MAKE@
+
+install-data-local: $(INSTALL_DATA_LOCAL_DEPS)
+	if test -n "$(INSTALL_DATA_LOCAL_DEPS)" ; then \
+	  $(mkinstalldirs) $(DESTDIR)$(cups_modeldir); \
+	  cd ppd ; \
+	  for language in * ; do \
+	    cd ..; \
+	    $(mkinstalldirs) $(DESTDIR)$(cups_modeldir)/$$language; \
+	    cd ppd/$$language; \
+	    for ppdfile in * ; do \
+	      (cd ../..; $(INSTALL_DATA) ppd/$$language/$$ppdfile $(DESTDIR)$(cups_modeldir)/$$language) ; \
+	    done; \
+	  cd ..; \
+	  done \
+	fi
+
+uninstall-local: $(INSTALL_DATA_LOCAL_DEPS)
+	if test -n "$(INSTALL_DATA_LOCAL_DEPS)" ; then \
+	  for language in C $(LINGUAS) ; do \
+	    echo "Removing $$language locale PPD files..." ; \
+	    for ppdfile in ppd/$$language/* ; do \
+	      if test -f "$(DESTDIR)$(cups_modeldir)/$$language/`basename $$ppdfile`" ; then \
+	        $(RM) -f $(DESTDIR)$(cups_modeldir)/$$language/`basename $$ppdfile` ; \
+	      fi ; \
+	    done; \
+	  done \
+	fi
+
+refresh-data-local: ppd
+	cd ppd ; \
+	files=`find . -name '*.ppd*' -exec basename '{}' \; | sort | uniq` ; \
+	for language in . de en es fr it ; do \
+	  for f in $$files ; do \
+	    ff="$(DESTDIR)/$(cups_modeldir)/$$language/$$f" ; \
+	    if [ -f "$$ff" ] ; then \
+	      echo "Removing $$ff" ; \
+	      $(RM) "$$ff" ; \
+	    fi ; \
+	    if [ -f "$$ff" ] ; then \
+	      echo "Unable to remove $$ff" 1>&2 ; \
+	      exit 1 ; \
+	    fi ; \
+	  done; \
+	done
+
+install-data-hook:
+# Remove unused directories in install tree
+	-@echo 'Expect a number of "rmdir: Directory not empty" warnings'
+	-@echo 'These messages are harmless and should be ignored.'
+	-rmdir $(DESTDIR)$(cups_modeldir)
+	-rmdir $(DESTDIR)$(pkgdatadir)
+	-rmdir $(DESTDIR)$(cupsexec_backenddir)
+	-rmdir $(DESTDIR)$(cupsexec_filterdir)
+	-rmdir $(DESTDIR)$(bindir)
+	-rmdir $(DESTDIR)$(pkglibdir)
+	-rmdir $(DESTDIR)$(pkgsysconfdir)
+	-rmdir `dirname $(DESTDIR)$(pkgdatadir)`
+	-rmdir `dirname $(DESTDIR)$(pkglibdir)`
+	-rmdir `dirname $(DESTDIR)$(pkgsysconfdir)`
+
+.PHONY: ppd ppd-stamp-pre ppd-stamp-nonls ppd-stamp-nls ppd-stamp-phony
+
+all-local: $(INSTALL_DATA_LOCAL_DEPS)
+
+ppd: ppd-stamp
+
+ppd-stamp: genppd
+	$(MAKE) ppd-stamp-phony
+	touch ppd-stamp
+
+ppd-stamp-phony: ppd-stamp-pre ppd-nonls $(PPD_NLS)
+
+ppd-stamp-pre:
+	-$(RM) -r ppd
+	-mkdir ppd
+
+ppd-nonls: genppd
+	for language in C ; do \
+	  mkdir ppd/$$language ; \
+	  echo "$$language:" ; \
+	 ./genppd --prefix=ppd/$$language ; \
+	done
+
+ppd-nls: genppd
+	wdir=`pwd` ; \
+	cd $(top_builddir)/po ; \
+	$(MAKE) ; \
+	$(MAKE) DESTDIR= prefix=$${wdir}/catalog datadir=$${wdir}/catalog/share install
+	for language in $(LINGUAS) ; do \
+	  mkdir ppd/$$language ; \
+	  echo "$$language:" ; \
+	  LANGUAGE=$$language ./genppd --prefix=ppd/$$language --catalog=`pwd`/catalog/share/locale ; \
+	done
+	$(RM) -r catalog
+
+$(LIBGIMPPRINT_LIBS):
+	cd ../main ; \
+	$(MAKE)
+
+dist-hook:
+	for dir in commands ; do \
+	  if test -d $(srcdir)/$$dir ; then \
+	    mkdir $(distdir)/$$dir; \
+	    for dirfile in $(srcdir)/$$dir/*; do \
+	      if test -f $$dirfile ; then \
+	        cp -p $$dirfile $(distdir)/$$dir; \
+	      fi \
+	    done \
+	  fi \
+	done
+
+clean-local:
+	-$(RM) -r ppd
+
+# Tell versions [3.59,3.63) of GNU make to not export all variables.
+# Otherwise a system limit (for SysV at least) may be exceeded.
+.NOEXPORT:

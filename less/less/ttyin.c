@@ -1,27 +1,11 @@
 /*
- * Copyright (c) 1984,1985,1989,1994,1995,1996,1999  Mark Nudelman
- * All rights reserved.
+ * Copyright (C) 1984-2002  Mark Nudelman
  *
- * Redistribution and use in source and binary forms, with or without
- * modification, are permitted provided that the following conditions
- * are met:
- * 1. Redistributions of source code must retain the above copyright
- *    notice, this list of conditions and the following disclaimer.
- * 2. Redistributions in binary form must reproduce the above copyright
- *    notice in the documentation and/or other materials provided with 
- *    the distribution.
+ * You may distribute under the terms of either the GNU General Public
+ * License or the Less License, as specified in the README file.
  *
- * THIS SOFTWARE IS PROVIDED BY THE AUTHOR ``AS IS'' AND ANY
- * EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
- * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR 
- * PURPOSE ARE DISCLAIMED.  IN NO EVENT SHALL THE AUTHOR BE LIABLE
- * FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR 
- * CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT 
- * OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR 
- * BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, 
- * WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE 
- * OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN 
- * IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+ * For more information about less, or for information on how to 
+ * contact the author, see the README file.
  */
 
 
@@ -30,13 +14,17 @@
  */
 
 #include "less.h"
+#if OS2
+#include "cmd.h"
+#include "pckeys.h"
+#endif
 #if MSDOS_COMPILER==WIN32C
 #include "windows.h"
 extern char WIN32getch();
 static DWORD console_mode;
 #endif
 
-static int tty;
+public int tty;
 extern int sigs;
 
 /*
@@ -58,7 +46,7 @@ open_getchr()
 	/* Make sure we get Ctrl+C events. */
 	SetConsoleMode((HANDLE)tty, ENABLE_PROCESSED_INPUT);
 #else
-#if MSDOS_COMPILER || OS2
+#if MSDOS_COMPILER
 	extern int fd0;
 	/*
 	 * Open a new handle to CON: in binary mode 
@@ -81,7 +69,12 @@ open_getchr()
 	 * which in Unix is usually attached to the screen,
 	 * but also usually lets you read from the keyboard.
 	 */
+#if OS2
+	/* The __open() system call translates "/dev/tty" to "con". */
+	tty = __open("/dev/tty", OPEN_READ);
+#else
 	tty = open("/dev/tty", OPEN_READ);
+#endif
 	if (tty < 0)
 		tty = 2;
 #endif
@@ -127,30 +120,6 @@ getchr()
 		if (c == '\003')
 			return (READ_INTR);
 #else
-#if OS2
-	{
-		static int scan = -1;
-		flush();
-		if (scan >= 0)
-		{
-			c = scan;
-			scan = -1;
-		} else
-		{
-			if ((c = _read_kbd(0, 1, 0)) == -1)
-				return (READ_INTR);
-			if (c == '\0')
-			{
-				/*
-				 * Zero is usually followed by another byte,
-				 * since certain keys send two bytes.
-				 */
-				scan = _read_kbd(0, 0, 0);
-			}
-		}
-		result = 1;
-	}
-#else
 		result = iread(tty, &c, sizeof(char));
 		if (result == READ_INTR)
 			return (READ_INTR);
@@ -162,7 +131,6 @@ getchr()
 			 */
 			quit(QUIT_ERROR);
 		}
-#endif
 #endif
 		/*
 		 * Various parts of the program cannot handle

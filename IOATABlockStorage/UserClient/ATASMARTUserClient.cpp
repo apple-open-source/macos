@@ -1,21 +1,24 @@
 /*
- * Copyright (c) 2002 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 2002-2003 Apple Computer, Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
- * The contents of this file constitute Original Code as defined in and
- * are subject to the Apple Public Source License Version 1.1 (the
- * "License").  You may not use this file except in compliance with the
- * License.  Please obtain a copy of the License at
- * http://www.apple.com/publicsource and read it before using this file.
+ * Copyright (c) 1999-2003 Apple Computer, Inc.  All Rights Reserved.
  * 
- * This Original Code and all software distributed under the License are
- * distributed on an "AS IS" basis, WITHOUT WARRANTY OF ANY KIND, EITHER
+ * This file contains Original Code and/or Modifications of Original Code
+ * as defined in and that are subject to the Apple Public Source License
+ * Version 2.0 (the 'License'). You may not use this file except in
+ * compliance with the License. Please obtain a copy of the License at
+ * http://www.opensource.apple.com/apsl/ and read it before using this
+ * file.
+ * 
+ * The Original Code and all software distributed under the License are
+ * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
  * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
  * INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY,
- * FITNESS FOR A PARTICULAR PURPOSE OR NON-INFRINGEMENT.  Please see the
- * License for the specific language governing rights and limitations
- * under the License.
+ * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
+ * Please see the License for the specific language governing rights and
+ * limitations under the License.
  * 
  * @APPLE_LICENSE_HEADER_END@
  */
@@ -30,6 +33,7 @@
 #include "ATASMARTLib.h"
 
 // IOKit includes
+#include <IOKit/IOBufferMemoryDescriptor.h>
 #include <IOKit/IOCommandGate.h>
 #include <IOKit/IOWorkLoop.h>
 
@@ -204,6 +208,14 @@ ATASMARTUserClient::sMethods[kIOATASMARTMethodCount] =
 		kIOUCScalarIStructI,
 		0,
 		sizeof ( ATASMARTWriteLogStruct )
+	},
+	{
+		// Method #8 GetIdentifyData
+		0,
+		( IOMethod ) &ATASMARTUserClient::GetIdentifyData,
+		kIOUCStructIStructO,
+		sizeof ( ATAGetIdentifyDataStruct ),
+		sizeof ( UInt32 )
 	}
 	
 };
@@ -247,8 +259,8 @@ bool
 ATASMARTUserClient::start ( IOService * provider )
 {
 	
-	IOWorkLoop *	workLoop;
-
+	IOWorkLoop *	workLoop = NULL;
+	
 	STATUS_LOG ( ( "ATASMARTUserClient::start\n" ) );
 	
 	if ( fProvider != NULL )
@@ -294,6 +306,7 @@ ATASMARTUserClient::start ( IOService * provider )
 		ERROR_LOG ( ( "workLoop == NULL\n" ) );
 		fCommandGate->release ( );
 		fCommandGate = NULL;
+		return false;
 		
 	}
 	
@@ -301,7 +314,6 @@ ATASMARTUserClient::start ( IOService * provider )
 	workLoop->addEventSource ( fCommandGate );
 	
 	STATUS_LOG ( ( "Opening provider\n" ) );
-	
 	if ( !fProvider->open ( this, kIOATASMARTUserClientAccessMask, 0 ) )
 	{
 		
@@ -311,6 +323,8 @@ ATASMARTUserClient::start ( IOService * provider )
 		return false;
 		
 	}
+	
+	fWorkLoop = workLoop;
 	
 	STATUS_LOG ( ( "start done\n" ) );
 	
@@ -351,32 +365,12 @@ ATASMARTUserClient::clientClose ( void )
 	
 	STATUS_LOG ( ( "clientClose called\n" ) );
 	
-	HandleTerminate ( fProvider );
-		
+	if ( fProvider != NULL )
+		HandleTerminate ( fProvider );
+	
 	STATUS_LOG ( ( "Done\n" ) );
 	
-	return kIOReturnSuccess;
-	
-}
-
-
-//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
-//	¥ clientClose - Same thing as clientClose, unless we were terminated by
-//					a hotunplug event.								[PUBLIC]
-//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
-
-IOReturn
-ATASMARTUserClient::clientDied ( void )
-{
-	
-	STATUS_LOG ( ( "ATASMARTUserClient::clientDied called\n" ) );
-	
-	if ( isInactive ( ) == false )
-	{
-		return clientClose ( );
-	}
-	
-	return kIOReturnSuccess;
+	return super::clientClose ( );
 	
 }
 
@@ -389,6 +383,16 @@ void
 ATASMARTUserClient::free ( void )
 {
 	
+	// Remove the command gate from the workloop
+	if ( fWorkLoop != NULL )
+	{
+		
+		fWorkLoop->removeEventSource ( fCommandGate );
+		fWorkLoop = NULL;
+		
+	}
+	
+	// Release the command gate
 	if ( fCommandGate != NULL )
 	{
 		
@@ -396,6 +400,8 @@ ATASMARTUserClient::free ( void )
 		fCommandGate = NULL;
 		
 	}
+	
+	super::free ( );
 	
 }
 
@@ -1290,6 +1296,186 @@ ErrorExit:
 }
 
 
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+//	¥ GetIdentifyData - Gets identify data.							   [PUBLIC]
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+
+IOReturn
+ATASMARTUserClient::GetIdentifyData ( ATAGetIdentifyDataStruct *	identifyData,
+									  UInt32 *						bytesTransferred,
+									  UInt32						inStructSize,
+									  UInt32 *						outStructSize )
+{
+	
+	IOReturn					status 			= kIOReturnSuccess;
+	IOATACommand *				command			= NULL;
+	IOMemoryDescriptor *		userBuffer		= NULL;
+	IOBufferMemoryDescriptor *	buffer			= NULL;
+	UInt8 *						identifyDataPtr	= NULL;
+	
+	STATUS_LOG ( ( "GetIdentifyData called\n" ) );
+	
+	if ( inStructSize != sizeof ( ATAGetIdentifyDataStruct ) )
+		return kIOReturnBadArgument;
+	
+	if ( *outStructSize != sizeof ( UInt32 ) )
+		return kIOReturnBadArgument;
+	
+	*outStructSize		= 0;
+	*bytesTransferred	= 0;
+	
+	fOutstandingCommands++;
+	
+	if ( isInactive ( ) )
+	{
+		
+		status = kIOReturnNoDevice;
+		goto ErrorExit;
+		
+	}
+	
+	fProvider->retain ( );
+	
+	command = AllocateCommand ( );
+	if ( command == NULL )
+	{
+		
+		status = kIOReturnNoResources;
+		goto ReleaseProvider;
+		
+	}
+	
+	buffer = IOBufferMemoryDescriptor::withCapacity ( kATADefaultSectorSize, kIODirectionIn, false );
+	if ( buffer == NULL )
+	{
+		
+		status = kIOReturnNoResources;
+		goto ReleaseCommand;
+		
+	}
+	
+	identifyDataPtr = ( UInt8 * ) buffer->getBytesNoCopy ( );
+	
+	status = buffer->prepare ( );
+	if ( status != kIOReturnSuccess )
+	{
+		
+		goto ReleaseBuffer;
+		
+	}
+
+	userBuffer = IOMemoryDescriptor::withAddress ( ( vm_address_t ) identifyData->buffer,
+												   identifyData->bufferSize,
+												   kIODirectionIn,
+												   fTask );
+	
+	if ( userBuffer == NULL )
+	{
+		
+		status = kIOReturnNoResources;
+		goto ReleaseBufferPrepared;
+		 
+	}
+	
+	status = userBuffer->prepare ( );
+	if ( status != kIOReturnSuccess )
+	{
+		
+		goto ReleaseUserBuffer;
+		
+	}
+	
+	command->setBuffer 				( buffer );
+	command->setByteCount 			( kATADefaultSectorSize );
+	command->setTransferChunkSize 	( kATADefaultSectorSize );
+	command->setOpcode				( kATAFnExecIO );
+	command->setTimeoutMS			( kATAThirtySecondTimeoutInMS );
+	command->setCommand				( kATAcmdDriveIdentify );
+	command->setFlags 				( mATAFlagIORead ); 
+	command->setRegMask				( ( ataRegMask ) ( mATAErrFeaturesValid | mATAStatusCmdValid ) );
+	
+	status = SendSMARTCommand ( command );
+	if ( status == kIOReturnSuccess )
+	{
+
+		UInt8 *		bufferToCopy = identifyDataPtr;
+		
+		#if defined(__BIG_ENDIAN__)
+		
+		// The identify device info needs to be byte-swapped on big-endian (ppc) 
+		// systems becuase it is data that is produced by the drive, read across a 
+		// 16-bit little-endian PCI interface, directly into a big-endian system.
+		// Regular data doesn't need to be byte-swapped because it is written and 
+		// read from the host and is intrinsically byte-order correct.			
+		
+		IOByteCount		index;
+		UInt8			temp;
+		UInt8 *			firstBytePtr;
+		
+		*bytesTransferred = command->getActualTransfer ( );
+		
+		for ( index = 0; index < buffer->getLength ( ); index += 2 )
+		{
+			
+			firstBytePtr 		= identifyDataPtr;		// save pointer
+			temp 				= *identifyDataPtr++;	// Save Byte0, point to Byte1
+			*firstBytePtr 		= *identifyDataPtr;		// Byte0 = Byte1
+			*identifyDataPtr++	= temp;					// Byte1 = Byte0
+			
+		}
+		
+		#endif
+		
+		userBuffer->writeBytes ( 0, bufferToCopy, userBuffer->getLength ( ) );
+		
+		*outStructSize = sizeof ( UInt32 );
+		
+	}
+	
+	userBuffer->complete ( );
+	
+	
+ReleaseUserBuffer:
+	
+	userBuffer->release ( );
+	userBuffer = NULL;
+	
+	
+ReleaseBufferPrepared:
+	
+	buffer->complete ( );
+	
+	
+ReleaseBuffer:
+	
+	
+	buffer->release ( );
+	buffer = NULL;
+	
+	
+ReleaseCommand:
+	
+	
+	DeallocateCommand ( command );
+	command = NULL;
+	
+	
+ReleaseProvider:
+	
+	
+	fProvider->release ( );
+	
+	
+ErrorExit:
+	
+	
+	fOutstandingCommands--;
+	
+	return status;
+	
+}
+
+
 #if 0
 #pragma mark -
 #pragma mark Protected Methods
@@ -1363,29 +1549,28 @@ IOReturn
 ATASMARTUserClient::HandleTerminate ( IOService * provider )
 {
 	
-	IOReturn		status 		= kIOReturnSuccess;
-	IOWorkLoop *	workLoop	= NULL;
+	IOReturn	status = kIOReturnSuccess;
 	
 	STATUS_LOG ( ( "HandleTerminate called\n" ) );
-	
+
+	while ( fOutstandingCommands != 0 )
+	{
+		IOSleep ( 10 );
+	}
+
+	// Check if we have our provider open.	
 	if ( provider->isOpen ( this ) )
 	{
 		
-		while ( fOutstandingCommands != 0 )
-		{
-			IOSleep ( 10 );
-		}
-		
+		// Yes we do, so close the connection
 		STATUS_LOG ( ( "Closing provider\n" ) );
 		provider->close ( this, kIOATASMARTUserClientAccessMask );
 		
 	}
-		
-	detach ( provider );
 	
-	workLoop = getWorkLoop ( );
-	if ( workLoop != NULL )
-		workLoop->removeEventSource ( fCommandGate );
+	// Decouple us from the IORegistry.
+	detach ( provider );
+	fProvider = NULL;
 	
 	return status;
 	

@@ -1,7 +1,8 @@
 /*  man.c: How to read and format man files.
-    $Id: man.c,v 1.1.1.1 2002/04/19 01:00:25 jkh Exp $
+    $Id: man.c,v 1.2 2003/07/25 18:37:06 jkh Exp $
 
-   Copyright (C) 1995, 97, 98, 99, 2000 Free Software Foundation, Inc.
+   Copyright (C) 1995, 1997, 1998, 1999, 2000, 2002, 2003 Free Software
+   Foundation, Inc.
 
    This program is free software; you can redistribute it and/or modify
    it under the terms of the GNU General Public License as published by
@@ -159,7 +160,7 @@ create_manpage_file_buffer ()
   file_buffer->filesize = 0;
   file_buffer->contents = (char *)NULL;
   file_buffer->flags = (N_IsInternal | N_CannotGC | N_IsManPage);
-  
+
   return (file_buffer);
 }
 
@@ -400,7 +401,7 @@ clean_manpage (manpage)
       /* A malformed man page could have a \b as its first character,
          in which case decrementing j by 2 will cause us to write into
          newpage[-1], smashing the hidden info stored there by malloc.  */
-      if (manpage[i] == '\b' || manpage[i] == '\f' && j > 0)
+      if (manpage[i] == '\b' || (manpage[i] == '\f' && j > 0))
         j -= 2;
       else if (!raw_escapes_p)
 	{

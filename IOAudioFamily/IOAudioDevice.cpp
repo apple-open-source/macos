@@ -72,8 +72,8 @@ OSDefineMetaClassAndStructors(IOAudioDevice, IOService)
 OSMetaClassDefineReservedUsed(IOAudioDevice, 0);
 OSMetaClassDefineReservedUsed(IOAudioDevice, 1);
 OSMetaClassDefineReservedUsed(IOAudioDevice, 2);
+OSMetaClassDefineReservedUsed(IOAudioDevice, 3);
 
-OSMetaClassDefineReservedUnused(IOAudioDevice, 3);
 OSMetaClassDefineReservedUnused(IOAudioDevice, 4);
 OSMetaClassDefineReservedUnused(IOAudioDevice, 5);
 OSMetaClassDefineReservedUnused(IOAudioDevice, 6);
@@ -151,16 +151,24 @@ void IOAudioDevice::scheduleIdleAudioSleep(void)
 	if (reserved->idleSleepDelayTime == 0) {
 		// For backwards compatibility, or drivers that don't care, tell them about idle right away.
 		initiatePowerStateChange();
-	}
-
-	if (reserved->idleTimer && reserved->idleSleepDelayTime != kNoIdleAudioPowerDown) {
-		// If the driver wants to know about idle sleep after a specific amount of time, then set the timer to tell them at that time.
-		// If idleSleepDelayTime == 0xffffffff then don't ever tell the driver about going idle
-		clock_get_uptime(&fireTime);
-		absolutetime_to_nanoseconds(fireTime, &nanos);
-		nanos += reserved->idleSleepDelayTime;
-		nanoseconds_to_absolutetime(nanos, &fireTime);
-		reserved->idleTimer->wakeAtTime(fireTime);		// will call idleAudioSleepHandlerTimer
+	} else {
+		if (!reserved->idleTimer && reserved->idleSleepDelayTime != kNoIdleAudioPowerDown) {
+			reserved->idleTimer = IOTimerEventSource::timerEventSource(this, idleAudioSleepHandlerTimer);
+			if (!reserved->idleTimer) {
+				return;
+			}
+			workLoop->addEventSource(reserved->idleTimer);
+		}
+	
+		if (reserved->idleSleepDelayTime != kNoIdleAudioPowerDown) {
+			// If the driver wants to know about idle sleep after a specific amount of time, then set the timer to tell them at that time.
+			// If idleSleepDelayTime == 0xffffffff then don't ever tell the driver about going idle
+			clock_get_uptime(&fireTime);
+			absolutetime_to_nanoseconds(fireTime, &nanos);
+			nanos += reserved->idleSleepDelayTime;
+			nanoseconds_to_absolutetime(nanos, &fireTime);
+			reserved->idleTimer->wakeAtTime(fireTime);		// will call idleAudioSleepHandlerTimer
+		}
 	}
 
 	return;
@@ -183,6 +191,17 @@ void IOAudioDevice::idleAudioSleepHandlerTimer(OSObject *owner, IOTimerEventSour
 	}
 
 	return;
+}
+
+void IOAudioDevice::setConfigurationApplicationBundle(const char *bundleID)
+{
+#ifdef DEBUG_CALLS
+    IOLog("IOAudioDevice[%p]::setConfigurationApplicationBundle(%p)\n", this, bundleID);
+#endif
+
+    if (bundleID) {
+        setProperty(kIOAudioDeviceConfigurationAppKey, bundleID);
+    }
 }
 
 // Original code here...
@@ -321,7 +340,11 @@ bool IOAudioDevice::start(IOService *provider)
     if (!super::start(provider)) {
         return false;
     }
-    
+
+	if (provider->getProperty("preserveIODeviceTree") != 0) {		// [3206968]
+		provider->callPlatformFunction("mac-io-publishChildren", 0, (void*)this, (void*)0, (void*)0, (void*)0);
+	}
+
     assert(workLoop);
     
     commandGate = IOCommandGate::commandGate(this);
@@ -345,12 +368,6 @@ bool IOAudioDevice::start(IOService *provider)
             changePowerStateTo(1);
             duringStartup = false;
         }
-
-		reserved->idleTimer = IOTimerEventSource::timerEventSource(this, idleAudioSleepHandlerTimer);
-		if (!reserved->idleTimer) {
-			return false;
-		}
-		workLoop->addEventSource(reserved->idleTimer);
     }
 
     registerService();
@@ -401,6 +418,27 @@ void IOAudioDevice::stop(IOService *provider)
     }
 
     super::stop(provider);
+}
+
+bool IOAudioDevice::willTerminate(IOService *provider, IOOptionBits options)
+{
+#ifdef DEBUG_CALLS
+    IOLog("IOAudioDevice[%p]::willTerminate(%p, %lx)\n", this, provider, options);
+#endif
+
+    OSCollectionIterator *engineIterator;
+    
+    engineIterator = OSCollectionIterator::withCollection(audioEngines);
+    if (engineIterator) {
+        IOAudioEngine *audioEngine;
+        
+        while (audioEngine = OSDynamicCast(IOAudioEngine, engineIterator->getNextObject())) {
+            audioEngine->setState(kIOAudioEngineStopped);
+        }
+        engineIterator->release();
+    }
+
+	return super::willTerminate(provider, options);
 }
 
 void IOAudioDevice::setFamilyManagePower(bool manage)
@@ -685,6 +723,10 @@ void IOAudioDevice::audioEngineStarting()
             pendingPowerState = kIOAudioDeviceActive;
             
             initiatePowerStateChange();
+
+            if (asyncPowerStateChangeInProgress) {	// Sleep if there is a transition in progress
+                waitForPendingPowerStateChange();
+            }
         } else if (getPendingPowerState () != kIOAudioDeviceSleep) {
 			// Make sure that when the idle timer fires that we won't go to sleep.
             pendingPowerState = kIOAudioDeviceActive;

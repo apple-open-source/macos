@@ -1,8 +1,8 @@
 /*
    +----------------------------------------------------------------------+
-   | PHP version 4.0                                                      |
+   | PHP Version 4                                                        |
    +----------------------------------------------------------------------+
-   | Copyright (c) 1997-2001 The PHP Group                                |
+   | Copyright (c) 1997-2003 The PHP Group                                |
    +----------------------------------------------------------------------+
    | This source file is subject to version 2.02 of the PHP license,      |
    | that is bundled with this package in the file LICENSE, and is        |
@@ -17,65 +17,35 @@
    | PHP 4.0 patches by Zeev Suraski <zeev@zend.com>                      |
    +----------------------------------------------------------------------+
  */
-/* $Id: mod_php4.c,v 1.1.1.5 2001/12/14 22:15:14 zarzycki Exp $ */
+/* $Id: mod_php4.c,v 1.1.1.8 2003/07/18 18:07:50 zarzycki Exp $ */
 
-#define NO_REGEX_EXTRA_H
-#ifdef WIN32
-#include <winsock2.h>
-#include <stddef.h>
+#include "php_apache_http.h"
+#include "http_conf_globals.h"
+
+#ifdef NETWARE
+#define SIGPIPE SIGINT
 #endif
 
-#include "zend.h"
-#include "php.h"
-#include "php_variables.h"
-
-#include "httpd.h"
-#include "http_config.h"
-#if MODULE_MAGIC_NUMBER > 19980712
-# include "ap_compat.h"
-#else
-# if MODULE_MAGIC_NUMBER > 19980324
-#  include "compat.h"
-# endif
-#endif
-#include "http_core.h"
-#include "http_main.h"
-#include "http_protocol.h"
-#include "http_request.h"
-#include "http_log.h"
-
-#include "php_ini.h"
-#include "php_globals.h"
-#include "SAPI.h"
-#include "php_main.h"
-
-#include "zend_compile.h"
-#include "zend_execute.h"
-#include "zend_highlight.h"
-#include "zend_indent.h"
-
-#include "ext/standard/php_standard.h"
-
-#include "util_script.h"
-
-#include "mod_php4.h"
+#if defined(ZEND_MULTIBYTE) && defined(HAVE_MBSTRING)
+#include "ext/mbstring/mbstring.h"
+#endif /* defined(ZEND_MULTIBYTE) && defined(HAVE_MBSTRING) */
 
 #undef shutdown
 
 /* {{{ Prototypes
  */
 int apache_php_module_main(request_rec *r, int display_source_mode TSRMLS_DC);
-void php_save_umask(void);
-void php_restore_umask(void);
-int sapi_apache_read_post(char *buffer, uint count_bytes TSRMLS_DC);
-char *sapi_apache_read_cookies(TSRMLS_D);
-int sapi_apache_header_handler(sapi_header_struct *sapi_header, sapi_headers_struct *sapi_headers TSRMLS_DC);
-int sapi_apache_send_headers(sapi_headers_struct *sapi_headers TSRMLS_DC);
+static void php_save_umask(void);
+static void php_restore_umask(void);
+static int sapi_apache_read_post(char *buffer, uint count_bytes TSRMLS_DC);
+static char *sapi_apache_read_cookies(TSRMLS_D);
+static int sapi_apache_header_handler(sapi_header_struct *sapi_header, sapi_headers_struct *sapi_headers TSRMLS_DC);
+static int sapi_apache_send_headers(sapi_headers_struct *sapi_headers TSRMLS_DC);
 static int send_php(request_rec *r, int display_source_mode, char *filename);
 static int send_parsed_php(request_rec * r);
 static int send_parsed_php_source(request_rec * r);
-int php_xbithack_handler(request_rec * r);
-void php_init_handler(server_rec *s, pool *p);
+static int php_xbithack_handler(request_rec * r);
+static void php_init_handler(server_rec *s, pool *p);
 /* }}} */
 
 #if MODULE_MAGIC_NUMBER >= 19970728
@@ -87,12 +57,12 @@ static void php_child_exit_handler(server_rec *s, pool *p);
 #else
 #define CONST_PREFIX
 #endif
-CONST_PREFIX char *php_apache_value_handler_ex(cmd_parms *cmd, HashTable *conf, char *arg1, char *arg2, int mode);
-CONST_PREFIX char *php_apache_value_handler(cmd_parms *cmd, HashTable *conf, char *arg1, char *arg2);
-CONST_PREFIX char *php_apache_admin_value_handler(cmd_parms *cmd, HashTable *conf, char *arg1, char *arg2);
-CONST_PREFIX char *php_apache_flag_handler(cmd_parms *cmd, HashTable *conf, char *arg1, char *arg2);
-CONST_PREFIX char *php_apache_flag_handler_ex(cmd_parms *cmd, HashTable *conf, char *arg1, char *arg2, int mode);
-CONST_PREFIX char *php_apache_admin_flag_handler(cmd_parms *cmd, HashTable *conf, char *arg1, char *arg2);
+static CONST_PREFIX char *php_apache_value_handler_ex(cmd_parms *cmd, HashTable *conf, char *arg1, char *arg2, int mode);
+static CONST_PREFIX char *php_apache_value_handler(cmd_parms *cmd, HashTable *conf, char *arg1, char *arg2);
+static CONST_PREFIX char *php_apache_admin_value_handler(cmd_parms *cmd, HashTable *conf, char *arg1, char *arg2);
+static CONST_PREFIX char *php_apache_flag_handler(cmd_parms *cmd, HashTable *conf, char *arg1, char *arg2);
+static CONST_PREFIX char *php_apache_flag_handler_ex(cmd_parms *cmd, HashTable *conf, char *arg1, char *arg2, int mode);
+static CONST_PREFIX char *php_apache_admin_flag_handler(cmd_parms *cmd, HashTable *conf, char *arg1, char *arg2);
 
 /* ### these should be defined in mod_php4.h or somewhere else */
 #define USE_PATH 1
@@ -115,7 +85,7 @@ typedef struct _php_per_dir_entry {
 
 /* {{{ php_save_umask
  */
-void php_save_umask(void)
+static void php_save_umask(void)
 {
 	saved_umask = umask(077);
 	umask(saved_umask);
@@ -154,12 +124,22 @@ static void sapi_apache_flush(void *server_context)
 
 /* {{{ sapi_apache_read_post
  */
-int sapi_apache_read_post(char *buffer, uint count_bytes TSRMLS_DC)
+static int sapi_apache_read_post(char *buffer, uint count_bytes TSRMLS_DC)
 {
 	uint total_read_bytes=0, read_bytes;
 	request_rec *r = (request_rec *) SG(server_context);
 	void (*handler)(int);
 
+	/*
+	 * This handles the situation where the browser sends a Expect: 100-continue header
+	 * and needs to recieve confirmation from the server on whether or not it can send
+	 * the rest of the request. RFC 2616
+	 *
+	 */
+	if (!SG(read_post_bytes) && !ap_should_client_block(r)) {
+		return total_read_bytes;
+	}
+ 
 	handler = signal(SIGPIPE, SIG_IGN);
 	while (total_read_bytes<count_bytes) {
 		hard_timeout("Read POST information", r); /* start timeout timer */
@@ -177,7 +157,7 @@ int sapi_apache_read_post(char *buffer, uint count_bytes TSRMLS_DC)
 
 /* {{{ sapi_apache_read_cookies
  */
-char *sapi_apache_read_cookies(TSRMLS_D)
+static char *sapi_apache_read_cookies(TSRMLS_D)
 {
 	return (char *) table_get(((request_rec *) SG(server_context))->subprocess_env, "HTTP_COOKIE");
 }
@@ -185,15 +165,20 @@ char *sapi_apache_read_cookies(TSRMLS_D)
 
 /* {{{ sapi_apache_header_handler
  */
-int sapi_apache_header_handler(sapi_header_struct *sapi_header, sapi_headers_struct *sapi_headers TSRMLS_DC)
+static int sapi_apache_header_handler(sapi_header_struct *sapi_header, sapi_headers_struct *sapi_headers TSRMLS_DC)
 {
 	char *header_name, *header_content, *p;
 	request_rec *r = (request_rec *) SG(server_context);
 
+	if(!r) {
+		efree(sapi_header->header);
+		return 0;
+	}
 	header_name = sapi_header->header;
 
 	header_content = p = strchr(header_name, ':');
 	if (!p) {
+		efree(sapi_header->header);
 		return 0;
 	}
 
@@ -206,8 +191,10 @@ int sapi_apache_header_handler(sapi_header_struct *sapi_header, sapi_headers_str
 		r->content_type = pstrdup(r->pool, header_content);
 	} else if (!strcasecmp(header_name, "Set-Cookie")) {
 		table_add(r->headers_out, header_name, header_content);
-	} else {
+	} else if (sapi_header->replace) {
 		table_set(r->headers_out, header_name, header_content);
+	} else {
+		table_add(r->headers_out, header_name, header_content);
 	}
 
 	*p = ':';  /* a well behaved header handler shouldn't change its original arguments */
@@ -220,7 +207,7 @@ int sapi_apache_header_handler(sapi_header_struct *sapi_header, sapi_headers_str
 
 /* {{{ sapi_apache_send_headers
  */
-int sapi_apache_send_headers(sapi_headers_struct *sapi_headers TSRMLS_DC)
+static int sapi_apache_send_headers(sapi_headers_struct *sapi_headers TSRMLS_DC)
 {
 	if(SG(server_context) == NULL) { /* server_context is not here anymore */
 		return SAPI_HEADER_SEND_FAILED;
@@ -276,8 +263,7 @@ static void sapi_apache_register_server_variables(zval *track_vars_array TSRMLS_
  */
 static int php_apache_startup(sapi_module_struct *sapi_module)
 {
-	if (php_module_startup(sapi_module) == FAILURE
-		|| zend_startup_module(&apache_module_entry) == FAILURE) {
+	if (php_module_startup(sapi_module, &apache_module_entry, 1) == FAILURE) {
 		return FAILURE;
 	} else {
 		return SUCCESS;
@@ -311,11 +297,14 @@ static void php_apache_request_shutdown(void *dummy)
 	TSRMLS_FETCH();
 
 	php_output_set_status(0 TSRMLS_CC);
-	SG(server_context) = NULL; /* The server context (request) is invalid by the time run_cleanups() is called */
 	if (AP(in_request)) {
 		AP(in_request) = 0;
 		php_request_shutdown(dummy);
 	}
+	SG(server_context) = NULL; 
+	/* The server context (request) is NOT invalid by the time 
+	 * run_cleanups() is called 
+	 */
 }
 /* }}} */
 
@@ -362,6 +351,52 @@ static char *php_apache_getenv(char *name, size_t name_len TSRMLS_DC)
 }
 /* }}} */
 
+/* {{{ sapi_apache_get_fd
+ */
+static int sapi_apache_get_fd(int *nfd TSRMLS_DC)
+{
+#if PHP_APACHE_HAVE_CLIENT_FD
+	request_rec *r = SG(server_context);
+	int fd;
+
+	fd = r->connection->client->fd;
+	
+	if (fd >= 0) {
+		if (nfd) *nfd = fd;
+		return SUCCESS;
+	}
+#endif
+	return FAILURE;
+}
+/* }}} */
+
+/* {{{ sapi_apache_force_http_10
+ */
+static int sapi_apache_force_http_10(TSRMLS_D)
+{
+	request_rec *r = SG(server_context);
+	
+	r->proto_num = HTTP_VERSION(1,0);
+	
+	return SUCCESS;
+}
+
+/* {{{ sapi_apache_get_target_uid
+ */
+static int sapi_apache_get_target_uid(uid_t *obj TSRMLS_DC)
+{
+	*obj = ap_user_id;
+	return SUCCESS;
+}
+
+/* {{{ sapi_apache_get_target_gid
+ */
+static int sapi_apache_get_target_gid(gid_t *obj TSRMLS_DC)
+{
+	*obj = ap_group_id;
+	return SUCCESS;
+}
+
 /* {{{ sapi_module_struct apache_sapi_module
  */
 static sapi_module_struct apache_sapi_module = {
@@ -391,7 +426,7 @@ static sapi_module_struct apache_sapi_module = {
 	sapi_apache_register_server_variables,		/* register server variables */
 	php_apache_log_message,			/* Log message */
 
-	NULL,					/* php.ini path override */
+	NULL,							/* php.ini path override */
 
 #ifdef PHP_WIN32
 	NULL,
@@ -401,13 +436,20 @@ static sapi_module_struct apache_sapi_module = {
 	unblock_alarms,					/* Unblock interruptions */
 #endif
 
-	STANDARD_SAPI_MODULE_PROPERTIES
+	NULL,							/* default post reader */
+	NULL,							/* treat data */
+	NULL,							/* exe location */
+	0,								/* ini ignore */
+	sapi_apache_get_fd,
+	sapi_apache_force_http_10,
+	sapi_apache_get_target_uid,
+	sapi_apache_get_target_gid
 };
 /* }}} */
 
 /* {{{ php_restore_umask
  */
-void php_restore_umask(void)
+static void php_restore_umask(void)
 {
 	umask(saved_umask);
 }
@@ -434,7 +476,7 @@ static void init_request_info(TSRMLS_D)
 		authorization = table_get(r->headers_in, "Authorization");
 	}
 	if (authorization
-/* 		&& !auth_type(r) */
+		&& (!PG(safe_mode) || (PG(safe_mode) && !auth_type(r)))
 		&& !strcasecmp(getword(r->pool, &authorization, ' '), "Basic")) {
 		tmp = uudecode(r->pool, authorization);
 		SG(request_info).auth_user = getword_nulls_nc(r->pool, &tmp, ':');
@@ -498,16 +540,16 @@ static int send_php(request_rec *r, int display_source_mode, char *filename)
 		fh.opened_path = NULL;
 		fh.free_filename = 0;
 		fh.type = ZEND_HANDLE_FILENAME;
+
+#if defined(ZEND_MULTIBYTE) && defined(HAVE_MBSTRING)
+		php_mb_set_zend_encoding(TSRMLS_C);
+#endif /* defined(ZEND_MULTIBYTE) && defined(HAVE_MBSTRING) */
+
 		zend_execute_scripts(ZEND_INCLUDE TSRMLS_CC, NULL, 1, &fh);
 		return OK;
 	}
 
 	zend_first_try {
-		/* We don't accept OPTIONS requests, but take everything else */
-		if (r->method_number == M_OPTIONS) {
-			r->allowed |= (1 << METHODS) - 1;
-			return DECLINED;
-		}
 
 		/* Make sure file exists */
 		if (filename == NULL && r->finfo.st_mode == 0) {
@@ -518,7 +560,7 @@ static int send_php(request_rec *r, int display_source_mode, char *filename)
 		if (per_dir_conf) {
 			zend_hash_apply((HashTable *) per_dir_conf, (apply_func_t) php_apache_alter_ini_entries TSRMLS_CC);
 		}
-
+		
 		/* If PHP parser engine has been turned off with an "engine off"
 		 * directive, then decline to handle this request
 		 */
@@ -587,17 +629,17 @@ static int send_php(request_rec *r, int display_source_mode, char *filename)
  */
 static int send_parsed_php(request_rec * r)
 {
-	int result =  send_php(r, 0, NULL);
+	int result = send_php(r, 0, NULL);
 
 #if MEMORY_LIMIT
-    {
-        char mem_usage[ 32 ];
-        TSRMLS_FETCH();
+	{
+		char *mem_usage;
+		TSRMLS_FETCH();
  
-        sprintf(mem_usage,"%u", (int) AG(allocated_memory_peak));
-		AG(allocated_memory_peak)=0;
-        ap_table_setn(r->notes, "mod_php_memory_usage", ap_pstrdup(r->pool, mem_usage));
-    }
+		mem_usage = ap_psprintf(r->pool, "%u", AG(allocated_memory_peak));
+		AG(allocated_memory_peak) = 0;
+		ap_table_setn(r->notes, "mod_php_memory_usage", mem_usage);
+	}
 #endif
 
 	return result;
@@ -666,7 +708,7 @@ static void *php_create_dir(pool *p, char *dummy)
 	HashTable *per_dir_info;
 
 	per_dir_info = (HashTable *) malloc(sizeof(HashTable));
-	zend_hash_init(per_dir_info, 5, NULL, (void (*)(void *)) destroy_per_dir_entry, 1);
+	zend_hash_init_ex(per_dir_info, 5, NULL, (void (*)(void *)) destroy_per_dir_entry, 1, 0);
 	register_cleanup(p, (void *) per_dir_info, (void (*)(void *)) php_destroy_per_dir_info, (void (*)(void *)) zend_hash_destroy);
 
 	return per_dir_info;
@@ -685,7 +727,7 @@ static void *php_merge_dir(pool *p, void *basev, void *addv)
 
 /* {{{ php_apache_value_handler_ex
  */
-CONST_PREFIX char *php_apache_value_handler_ex(cmd_parms *cmd, HashTable *conf, char *arg1, char *arg2, int mode)
+static CONST_PREFIX char *php_apache_value_handler_ex(cmd_parms *cmd, HashTable *conf, char *arg1, char *arg2, int mode)
 {
 	php_per_dir_entry per_dir_entry;
 
@@ -714,14 +756,14 @@ CONST_PREFIX char *php_apache_value_handler_ex(cmd_parms *cmd, HashTable *conf, 
 	memcpy(per_dir_entry.value, arg2, per_dir_entry.value_length);
 	per_dir_entry.value[per_dir_entry.value_length] = 0;
 
-	zend_hash_update((HashTable *) conf, per_dir_entry.key, per_dir_entry.key_length, &per_dir_entry, sizeof(php_per_dir_entry), NULL);
+	zend_hash_update(conf, per_dir_entry.key, per_dir_entry.key_length, &per_dir_entry, sizeof(php_per_dir_entry), NULL);
 	return NULL;
 }
 /* }}} */
 
 /* {{{ php_apache_value_handler
  */
-CONST_PREFIX char *php_apache_value_handler(cmd_parms *cmd, HashTable *conf, char *arg1, char *arg2)
+static CONST_PREFIX char *php_apache_value_handler(cmd_parms *cmd, HashTable *conf, char *arg1, char *arg2)
 {
 	return php_apache_value_handler_ex(cmd, conf, arg1, arg2, PHP_INI_PERDIR);
 }
@@ -729,7 +771,7 @@ CONST_PREFIX char *php_apache_value_handler(cmd_parms *cmd, HashTable *conf, cha
 
 /* {{{ php_apache_admin_value_handler
  */
-CONST_PREFIX char *php_apache_admin_value_handler(cmd_parms *cmd, HashTable *conf, char *arg1, char *arg2)
+static CONST_PREFIX char *php_apache_admin_value_handler(cmd_parms *cmd, HashTable *conf, char *arg1, char *arg2)
 {
 	return php_apache_value_handler_ex(cmd, conf, arg1, arg2, PHP_INI_SYSTEM);
 }
@@ -737,11 +779,11 @@ CONST_PREFIX char *php_apache_admin_value_handler(cmd_parms *cmd, HashTable *con
 
 /* {{{ php_apache_flag_handler_ex
  */
-CONST_PREFIX char *php_apache_flag_handler_ex(cmd_parms *cmd, HashTable *conf, char *arg1, char *arg2, int mode)
+static CONST_PREFIX char *php_apache_flag_handler_ex(cmd_parms *cmd, HashTable *conf, char *arg1, char *arg2, int mode)
 {
 	char bool_val[2];
 
-	if (!strcasecmp(arg2, "On")) {
+	if (!strcasecmp(arg2, "On") || (arg2[0] == '1' && arg2[1] == '\0')) {
 		bool_val[0] = '1';
 	} else {
 		bool_val[0] = '0';
@@ -754,7 +796,7 @@ CONST_PREFIX char *php_apache_flag_handler_ex(cmd_parms *cmd, HashTable *conf, c
 
 /* {{{ php_apache_flag_handler
  */
-CONST_PREFIX char *php_apache_flag_handler(cmd_parms *cmd, HashTable *conf, char *arg1, char *arg2)
+static CONST_PREFIX char *php_apache_flag_handler(cmd_parms *cmd, HashTable *conf, char *arg1, char *arg2)
 {
 	return php_apache_flag_handler_ex(cmd, conf, arg1, arg2, PHP_INI_PERDIR);
 }
@@ -762,7 +804,7 @@ CONST_PREFIX char *php_apache_flag_handler(cmd_parms *cmd, HashTable *conf, char
 
 /* {{{ php_apache_admin_flag_handler
  */
-CONST_PREFIX char *php_apache_admin_flag_handler(cmd_parms *cmd, HashTable *conf, char *arg1, char *arg2)
+static CONST_PREFIX char *php_apache_admin_flag_handler(cmd_parms *cmd, HashTable *conf, char *arg1, char *arg2)
 {
 	return php_apache_flag_handler_ex(cmd, conf, arg1, arg2, PHP_INI_SYSTEM);
 }
@@ -770,16 +812,20 @@ CONST_PREFIX char *php_apache_admin_flag_handler(cmd_parms *cmd, HashTable *conf
 
 /* {{{ int php_xbithack_handler(request_rec * r)
  */
-int php_xbithack_handler(request_rec * r)
+static int php_xbithack_handler(request_rec * r)
 {
-	php_apache_info_struct *conf;
+	HashTable *per_dir_conf;
+	TSRMLS_FETCH();
 
-	conf = (php_apache_info_struct *) get_module_config(r->per_dir_config, &php4_module);
 	if (!(r->finfo.st_mode & S_IXUSR)) {
 		r->allowed |= (1 << METHODS) - 1;
 		return DECLINED;
 	}
-	if (conf->xbithack == 0) {
+	per_dir_conf = (HashTable *) get_module_config(r->per_dir_config, &php4_module);
+	if (per_dir_conf) {
+		zend_hash_apply((HashTable *) per_dir_conf, (apply_func_t) php_apache_alter_ini_entries TSRMLS_CC);
+	}
+	if(!AP(xbithack)) {
 		r->allowed |= (1 << METHODS) - 1;
 		return DECLINED;
 	}
@@ -824,7 +870,7 @@ static void php_child_exit_handler(server_rec *s, pool *p)
 
 /* {{{ void php_init_handler(server_rec *s, pool *p)
  */
-void php_init_handler(server_rec *s, pool *p)
+static void php_init_handler(server_rec *s, pool *p)
 {
 	register_cleanup(p, NULL, (void (*)(void *))apache_php_module_shutdown_wrapper, (void (*)(void *))php_module_shutdown_for_exec);
 	if (!apache_php_initialized) {
@@ -908,6 +954,6 @@ module MODULE_VAR_EXPORT php4_module =
  * tab-width: 4
  * c-basic-offset: 4
  * End:
- * vim600: sw=4 ts=4 tw=78 fdm=marker
- * vim<600: sw=4 ts=4 tw=78
+ * vim600: sw=4 ts=4 fdm=marker
+ * vim<600: sw=4 ts=4
  */

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1999 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 1999,2003 Apple Computer, Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -77,112 +77,8 @@
 
 #include <CoreFoundation/CFBase.h>
 #include <IOKit/IOKitLib.h>
+#include <IOKit/storage/IOCDMedia.h>
 #include "../disklib/mntopts.h"
-
-struct mntopt mopts[] = {
-	MOPT_STDOPTS,
-	MOPT_UPDATE,
-	{ "extatt", 0, ISOFSMNT_EXTATT, 1 },
-	{ "gens", 0, ISOFSMNT_GENS, 1 },
-	{ "rrip", 1, ISOFSMNT_NORRIP, 1 },
-	{ "joliet", 1, ISOFSMNT_NOJOLIET, 1 },
-	{ NULL }
-};
-
-typedef struct ISOVolumeDescriptor
-{
-	char		type[1];
-	char		id[5];			// should be "CD001"
-	char		version[1];
-	char		filler[33];
-	char		volumeID[32];
-	char		filler2[1976];
-} ISOVolumeDescriptor, *ISOVolumeDescriptorPtr;
-
-
-#define	CDROM_BLOCK_SIZE		2048
-#define ISO_STANDARD_ID 		"CD001"
-#define ISO_VD_PRIMARY 			0x01  // for ISOVolumeDescriptor.type when it's a primary descriptor
-
-void	usage __P((void));
-
-static int	get_ssector(const char *devpath);
-static u_char *	get_cdtoc(const char * devpath);
-
-static u_char *	CreateBufferFromCFData(CFDataRef theData);
-
-int
-main(int argc, char **argv)
-{
-	struct iso_args args;
-	int ch, mntflags, opts;
-	char *dev, *dir;
-	int altflg;
-	
-	mntflags = opts = 0;
-	memset(&args, 0, sizeof args);
-	args.ssector = -1;
-	while ((ch = getopt(argc, argv, "egjo:rs:")) != EOF)
-		switch (ch) {
-		case 'e':
-			opts |= ISOFSMNT_EXTATT;
-			break;
-		case 'g':
-			opts |= ISOFSMNT_GENS;
-			break;
-		case 'j':
-			opts |= ISOFSMNT_NOJOLIET;
-			break;
-		case 'o':
-			getmntopts(optarg, mopts, &mntflags, &altflg);
-			break;
-		case 'r':
-			opts |= ISOFSMNT_NORRIP;
-			break;
-		case 's':
-			args.ssector = atoi(optarg);
-			break;
-		case '?':
-		default:
-			usage();
-		}
-	argc -= optind;
-	argv += optind;
-
-	if (argc != 2)
-		usage();
-
-	dev = argv[0];
-	dir = argv[1];
-
-#define DEFAULT_ROOTUID	-2
-	/*
-	 * ISO 9660 filesystems are not writeable.
-	 */
-	mntflags |= MNT_RDONLY;
-	args.export.ex_flags = MNT_EXRDONLY;
-	args.fspec = dev;
-	args.export.ex_root = DEFAULT_ROOTUID;
-	args.flags = opts;
-
-	/* obtain starting session if neccessary */
-	if (args.ssector == -1)
-		args.ssector = get_ssector(dev);
-
-        if (mount("cd9660", dir, mntflags, &args) < 0)
-		err(1, NULL);
-
-	exit(0);
-}
-
-void
-usage()
-{
-	(void)fprintf(stderr,
-		"usage: mount_cd9660 [-egjr] [-o options]  [-s startsector] special node\n");
-	exit(1);
-}
-
 
 /*
  * Minutes, Seconds, Frames (M:S:F)
@@ -224,22 +120,147 @@ struct CDTOC {
 #define CD_CTRL_DATA          0x4
 #define CD_CTRL_AUDIO         0x8
 
-#define IOKIT_CDMEDIA_TOC    "TOC"
-
-
 #define MSF_TO_LBA(msf)		\
 	(((((msf).minute * 60UL) + (msf).second) * 75UL) + (msf).frame - 150)
 
+struct mntopt mopts[] = {
+	MOPT_STDOPTS,
+	MOPT_UPDATE,
+	{ "extatt", 0, ISOFSMNT_EXTATT, 1 },
+	{ "gens", 0, ISOFSMNT_GENS, 1 },
+	{ "rrip", 1, ISOFSMNT_NORRIP, 1 },
+	{ "joliet", 1, ISOFSMNT_NOJOLIET, 1 },
+	{ NULL }
+};
+
+typedef struct ISOVolumeDescriptor
+{
+	char		type[1];
+	char		id[5];			// should be "CD001"
+	char		version[1];
+	char		filler[33];
+	char		volumeID[32];
+	char		filler2[1976];
+} ISOVolumeDescriptor, *ISOVolumeDescriptorPtr;
+
+
+#define	CDROM_BLOCK_SIZE		2048
+#define ISO_STANDARD_ID 		"CD001"
+#define ISO_VD_PRIMARY 			0x01  // for ISOVolumeDescriptor.type when it's a primary descriptor
+
+void	usage __P((void));
+
+static int	get_ssector(char *devpath);
+static u_char *	get_cdtoc(char * devpath);
+
+static u_char *	CreateBufferFromCFData(CFDataRef theData);
+
+struct CDTOC *toc = NULL;
+
+int
+main(int argc, char **argv)
+{
+	struct iso_args args;
+	int ch, mntflags, opts;
+	char *dev, dir[MAXPATHLEN];
+	int altflg;
+	
+	mntflags = opts = 0;
+	memset(&args, 0, sizeof args);
+	args.ssector = -1;
+	while ((ch = getopt(argc, argv, "egjo:rs:")) != EOF)
+		switch (ch) {
+		case 'e':
+			opts |= ISOFSMNT_EXTATT;
+			break;
+		case 'g':
+			opts |= ISOFSMNT_GENS;
+			break;
+		case 'j':
+			opts |= ISOFSMNT_NOJOLIET;
+			break;
+		case 'o':
+			getmntopts(optarg, mopts, &mntflags, &altflg);
+			break;
+		case 'r':
+			opts |= ISOFSMNT_NORRIP;
+			break;
+		case 's':
+			args.ssector = atoi(optarg);
+			break;
+		case '?':
+		default:
+			usage();
+		}
+	argc -= optind;
+	argv += optind;
+
+	if (argc != 2)
+		usage();
+
+	dev = argv[0];
+
+	if (realpath(argv[1], dir) == NULL)
+		err(1, "realpath %s", dir);
+
+#define DEFAULT_ROOTUID	-2
+	/*
+	 * ISO 9660 filesystems are not writeable.
+	 */
+	mntflags |= MNT_RDONLY;
+	args.export.ex_flags = MNT_EXRDONLY;
+	args.fspec = dev;
+	args.export.ex_root = DEFAULT_ROOTUID;
+	args.flags = opts;
+
+	toc = (struct CDTOC *) get_cdtoc(dev);
+
+	/* obtain starting session if neccessary */
+	if (args.ssector == -1)
+		args.ssector = get_ssector(dev);
+
+	/*
+	 * toc->length is the length of the CDTOC, not including the
+	 * length field itself.  But args.toc_length is the number of
+	 * bytes that the kernel must copy, so adjust it to include the
+	 * length field, too.
+	 */
+	if (toc) {
+		args.toc_length = toc->length + sizeof(toc->length);
+		args.toc = toc;
+		args.flags |= ISOFSMNT_TOC;
+	}
+
+	if (mount("cd9660", dir, mntflags, &args) < 0)
+		err(1, NULL);
+
+	if (toc)
+		free(toc);
+
+	exit(0);
+}
+
+void
+usage()
+{
+	(void)fprintf(stderr,
+		"usage: mount_cd9660 [-egjr] [-o options]  [-s startsector] special node\n");
+	exit(1);
+}
+
+
 /*
- * Determine the start of the last session.  If we can
+ * Determine the start of the last session.  If we
  * successfully read the TOC of a CD-ROM, use the last
  * data track we find.  Otherwise, just use 0, in order
  * to probe the very first session.
+ *
+ * NOTE: The TOC (if any) has already been read into the
+ * global "toc" by get_cdtoc().
  */
 static int
-get_ssector(const char *devpath)
+get_ssector(char *devpath)
 {
-	struct CDTOC * toc_p;
 	struct CDTOC_Desc *toc_desc;
 	struct ISOVolumeDescriptor *isovdp;
 	char iobuf[CDROM_BLOCK_SIZE];
@@ -252,15 +273,15 @@ get_ssector(const char *devpath)
 	ssector = 0;
 	isovdp = (struct ISOVolumeDescriptor *)iobuf;
 
+	if (toc == NULL)
+		goto exit;
+
 	devfd = open(devpath, O_RDONLY | O_NDELAY , 0);
 	if (devfd <= 0)
 		goto exit;
 
-	if ((toc_p = (struct CDTOC *)get_cdtoc(devpath)) == NULL)
-		goto exit_close;
-
-	count = (toc_p->length - 2) / sizeof(struct CDTOC_Desc);
-	toc_desc = toc_p->trackdesc;
+	count = (toc->length - 2) / sizeof(struct CDTOC_Desc);
+	toc_desc = toc->trackdesc;
 
 	for (i = count - 1; i >= 0; i--) {
 		track = toc_desc[i].point;
@@ -318,7 +339,6 @@ get_ssector(const char *devpath)
 		}
 	}
 	
-	free(toc_p);
 exit_close:
 	close(devfd);
 exit:
@@ -327,20 +347,16 @@ exit:
 
 
 static u_char *
-get_cdtoc(const char * devpath)
+get_cdtoc(char * devpath)
 {
 	u_char *  result;
-	io_iterator_t  iterator;
 	io_registry_entry_t  service;
-	mach_port_t  port;
+	io_registry_entry_t	 parent;
 	CFDataRef  data;
-	CFDictionaryRef  properties;
 	char *  devname;
 
-	iterator = 0;
 	service = 0;
-	port = 0;
-	properties = 0;
+	parent = 0;
 	data = 0;
 	result = NULL;
 
@@ -353,45 +369,30 @@ get_cdtoc(const char * devpath)
 	/* unraw device name */
 	if (*devname == 'r')
 		++devname;
-		
-	if ( IOMasterPort(bootstrap_port, &port) != KERN_SUCCESS )
-		goto Exit;
-		
-	if ( IOServiceGetMatchingServices(port, IOBSDNameMatching(port,0,devname),
-	                                  &iterator) != KERN_SUCCESS ) {
-		goto Exit;
-	}		
-	service = IOIteratorNext(iterator);
-	(void) IOObjectRelease(iterator);
-	iterator = 0;
+
+	/* Find the corresponding IOKit object */
+	service = IOServiceGetMatchingService(kIOMasterPortDefault,
+		IOBSDNameMatching(kIOMasterPortDefault,0,devname));
 
 	/* Find the root-level media object */
 	while (service && !IOObjectConformsTo(service, "IOCDMedia")) {
-		if ( IORegistryEntryGetParentIterator(service, kIOServicePlane,
-		                                      &iterator) != KERN_SUCCESS ) {
+		if (IORegistryEntryGetParentEntry(service, kIOServicePlane, &parent))
 			goto Exit;
-		}
-
-		(void) IOObjectRelease(service);
-		service = IOIteratorNext(iterator);
-		(void) IOObjectRelease(iterator);
+		IOObjectRelease(service);
+		service = parent;
+		parent = 0;
 	}
-
 	if (service == NULL)
 		goto Exit;
 	
-	if ( IORegistryEntryCreateCFProperties(service,
-	                                       &properties,
-	                                       kCFAllocatorDefault,
-	                                       kNilOptions) != KERN_SUCCESS ) {
-		goto Exit;
-	}
-
-	/* Get the Table of Contents (TOC) */
-	data = (CFDataRef) CFDictionaryGetValue(properties, CFSTR(IOKIT_CDMEDIA_TOC));
+	data = IORegistryEntryCreateCFProperty(
+		service,
+		CFSTR(kIOCDMediaTOCKey),
+		kCFAllocatorDefault,
+		0);
 	if (data != NULL) {
 		result = CreateBufferFromCFData(data);
-		CFRelease(properties);
+		CFRelease(data);
 	}
 
 Exit:

@@ -1,0 +1,28 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<server>
+
+  <!-- The SSL domain setup -->
+  <mbean code="org.jboss.security.plugins.JaasSecurityDomain"
+      name="jboss.security:service=JaasSecurityDomain,domain=RMI+SSL">
+    <constructor>
+       <arg type="java.lang.String" value="RMI+SSL"/>
+    </constructor>
+    <attribute name="KeyStoreURL">file:///Library/JBoss/3.2/lib/jboss.keystore</attribute>
+    <attribute name="KeyStorePass">rmi+ssl</attribute>
+  </mbean>
+
+  <mbean code="org.jboss.invocation.jrmp.server.JRMPInvoker" 
+         name="jboss:service=invoker,type=jrmp,socketType=SSL">
+    <attribute name="RMIObjectPort">4445</attribute>
+    <attribute name="RMIClientSocketFactory">
+      org.jboss.security.ssl.RMISSLClientSocketFactory
+    </attribute>
+    <attribute name="RMIServerSocketFactory">
+      org.jboss.security.ssl.RMISSLServerSocketFactory
+    </attribute>
+    <attribute name="SecurityDomain">java:/jaas/RMI+SSL</attribute>
+    <depends>jboss.security:service=JaasSecurityDomain,domain=RMI+SSL</depends>
+  </mbean>
+
+</server>

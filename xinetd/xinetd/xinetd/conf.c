@@ -99,7 +99,7 @@ status_e cnf_init( struct configuration *confp, int *fdp, psi_h *iterp )
    if ( ( pset = pset_create( 0, 0 ) ) == NULL )
    {
       msg( LOG_CRIT, func, "can't create service table" ) ;
-      (void) close( fd ) ;
+      (void) Sclose( fd ) ;
       return( FAILED ) ;
    }
 
@@ -107,7 +107,7 @@ status_e cnf_init( struct configuration *confp, int *fdp, psi_h *iterp )
    {
       msg( LOG_ERR, func, "can't allocate defaults service" ) ;
       pset_destroy( pset ) ;
-      (void) close( fd ) ;
+      (void) Sclose( fd ) ;
       return( FAILED ) ;
    }
 
@@ -116,7 +116,7 @@ status_e cnf_init( struct configuration *confp, int *fdp, psi_h *iterp )
       msg( LOG_ERR, func, "can't create service table iterator" ) ;
       sc_free( scp ) ;
       pset_destroy( pset ) ;
-      (void) close( fd ) ;
+      (void) Sclose( fd ) ;
       return( FAILED ) ;
    }
 

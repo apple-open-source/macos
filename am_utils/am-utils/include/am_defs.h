@@ -37,7 +37,7 @@
  * SUCH DAMAGE.
  *
  *
- * $Id: am_defs.h,v 1.1.1.1 2002/05/15 01:22:19 jkh Exp $
+ * $Id: am_defs.h,v 1.1.1.2 2002/07/15 19:43:05 zarzycki Exp $
  *
  */
 
@@ -1451,11 +1451,10 @@ extern bool_t xdr_opaque_auth(XDR *xdrs, struct opaque_auth *auth);
 #ifdef THIS_HEADER_FILE_IS_INCLUDED_ABOVE
 # include <amu_nfs_prot.h>
 #endif /* THIS_HEADER_FILE_IS_INCLUDED_ABOVE */
+#include <am_compat.h>
 #include <am_utils.h>
 #include <amq_defs.h>
 #include <aux_conf.h>
-/* compatibility with old amd, while autoconfiscating it */
-#include <am_compat.h>
 
 
 /****************************************************************************/

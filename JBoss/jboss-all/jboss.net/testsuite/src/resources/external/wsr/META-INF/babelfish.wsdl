@@ -1,0 +1,34 @@
+<?xml version="1.0"?>
+<definitions name="BabelFishService" xmlns:tns="http://www.xmethods.net/sd/BabelFishService.wsdl" targetNamespace="http://www.xmethods.net/sd/BabelFishService.wsdl" xmlns:xsd="http://www.w3.org/2001/XMLSchema" xmlns:soap="http://schemas.xmlsoap.org/wsdl/soap/" xmlns="http://schemas.xmlsoap.org/wsdl/">
+	<message name="BabelFishRequest">
+		<part name="translationmode" type="xsd:string"/>
+		<part name="sourcedata" type="xsd:string"/>
+	</message>
+	<message name="BabelFishResponse">
+		<part name="return" type="xsd:string"/>
+	</message>
+	<portType name="BabelFishPortType">
+		<operation name="BabelFish">
+			<input message="tns:BabelFishRequest" />
+			<output message="tns:BabelFishResponse" />
+		</operation>
+	</portType>
+	<binding name="BabelFishBinding" type="tns:BabelFishPortType">
+		<soap:binding style="rpc" transport="http://schemas.xmlsoap.org/soap/http"/>
+		<operation name="BabelFish">
+			<soap:operation soapAction="urn:xmethodsBabelFish#BabelFish"/>
+			<input>
+				<soap:body use="encoded" namespace="urn:xmethodsBabelFish" encodingStyle="http://schemas.xmlsoap.org/soap/encoding/"/>
+			</input>
+			<output>
+				<soap:body use="encoded" namespace="urn:xmethodsBabelFish" encodingStyle="http://schemas.xmlsoap.org/soap/encoding/"/>
+			</output>
+		</operation>
+	</binding>
+	<service name="BabelFishService">
+		<documentation>Translates text of up to 5k in length, between a variety of languages.</documentation>
+		<port name="BabelFishPort" binding="tns:BabelFishBinding">
+			<soap:address location="http://services.xmethods.net:80/perl/soaplite.cgi"/>
+		</port>
+	</service>
+</definitions>

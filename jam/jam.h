@@ -289,6 +289,10 @@ int unlink( char *f ); 	/* In filevms.c */
 
 /* Jam private definitions below. */
 
+#ifdef APPLE_EXTENSIONS
+# include "timingdata.h"    // for TIMING_ENTRY definition
+#endif
+
 # define DEBUG_MAX	10
 
 struct globs {
@@ -298,7 +302,14 @@ struct globs {
 #ifdef APPLE_EXTENSIONS
 	int	apple_jam_extensions;
 	int	parsable_output;
+	int     ascii_output_annotation;
+	int	debug_parsable_output;
 	const char ** cmdline_defines;
+	int	enable_timings; /* timing switch and data */
+	TIMING_ENTRY * timing_entry; /* a timing entry for jam internals */
+	double	header_scanning_time;
+	int	headers_scanned; /* header scan data */
+	int     num_targets_to_update;
 #endif
 	char	debug[DEBUG_MAX];
 } ;
@@ -308,6 +319,8 @@ extern struct globs globs;
 #ifdef APPLE_EXTENSIONS
 # define APPLE_JAM_EXTENSIONS ( globs.apple_jam_extensions )    /* should we enable Apple's Jam syntax extensions? */
 # define PARSABLE_OUTPUT ( globs.parsable_output )    /* should we annotate our output to make parsing easier? */
+# define ASCII_OUTPUT_ANNOTATION ( globs.ascii_output_annotation )       /* should we use ASCII-only ouput annotation? */
+# define DEBUG_PARSABLE_OUTPUT ( globs.debug_parsable_output )    /* should we debug the Jam annotations? */
 #endif
 
 # define DEBUG_MAKE	( globs.debug[ 1 ] )	/* show actions when executed */

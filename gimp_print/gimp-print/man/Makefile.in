@@ -1,0 +1,504 @@
+# Makefile.in generated automatically by automake 1.4 from Makefile.am
+
+# Copyright (C) 1994, 1995-8, 1999 Free Software Foundation, Inc.
+# This Makefile.in is free software; the Free Software Foundation
+# gives unlimited permission to copy and/or distribute it,
+# with or without modifications, as long as this notice is preserved.
+
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY, to the extent permitted by law; without
+# even the implied warranty of MERCHANTABILITY or FITNESS FOR A
+# PARTICULAR PURPOSE.
+
+
+SHELL = @SHELL@
+
+srcdir = @srcdir@
+top_srcdir = @top_srcdir@
+VPATH = @srcdir@
+prefix = @prefix@
+exec_prefix = @exec_prefix@
+
+bindir = @bindir@
+sbindir = @sbindir@
+libexecdir = @libexecdir@
+datadir = @datadir@
+sysconfdir = @sysconfdir@
+sharedstatedir = @sharedstatedir@
+localstatedir = @localstatedir@
+libdir = @libdir@
+infodir = @infodir@
+mandir = @mandir@
+includedir = @includedir@
+oldincludedir = /usr/include
+
+DESTDIR =
+
+pkgdatadir = $(datadir)/@PACKAGE@
+pkglibdir = $(libdir)/@PACKAGE@
+pkgincludedir = $(includedir)/@PACKAGE@
+
+top_builddir = ..
+
+ACLOCAL = @ACLOCAL@
+AUTOCONF = @AUTOCONF@
+AUTOMAKE = @AUTOMAKE@
+AUTOHEADER = @AUTOHEADER@
+
+INSTALL = @INSTALL@
+INSTALL_PROGRAM = @INSTALL_PROGRAM@ $(AM_INSTALL_PROGRAM_FLAGS)
+INSTALL_DATA = @INSTALL_DATA@
+INSTALL_SCRIPT = @INSTALL_SCRIPT@
+transform = @program_transform_name@
+
+NORMAL_INSTALL = :
+PRE_INSTALL = :
+POST_INSTALL = :
+NORMAL_UNINSTALL = :
+PRE_UNINSTALL = :
+POST_UNINSTALL = :
+host_alias = @host_alias@
+host_triplet = @host@
+ALL_LINGUAS = @ALL_LINGUAS@
+AS = @AS@
+AWK = @AWK@
+BISON_PROG = @BISON_PROG@
+BUILD_INCLUDED_LIBINTL = @BUILD_INCLUDED_LIBINTL@
+CATALOGS = @CATALOGS@
+CATOBJEXT = @CATOBJEXT@
+CC = @CC@
+CONVERT = @CONVERT@
+CUPS_BACKEND_BIN = @CUPS_BACKEND_BIN@
+CUPS_BIN = @CUPS_BIN@
+CUPS_CFLAGS = @CUPS_CFLAGS@
+CUPS_CONF = @CUPS_CONF@
+CUPS_CONFIG = @CUPS_CONFIG@
+CUPS_FILTER_BIN = @CUPS_FILTER_BIN@
+CUPS_INSTALL = @CUPS_INSTALL@
+CUPS_LIBS = @CUPS_LIBS@
+CUPS_MAN = @CUPS_MAN@
+CUPS_NOINST_BIN = @CUPS_NOINST_BIN@
+CUPS_PKG = @CUPS_PKG@
+CUPS_PPD_PS_LEVEL = @CUPS_PPD_PS_LEVEL@
+DATADIRNAME = @DATADIRNAME@
+DB2HTML = @DB2HTML@
+DB2PDF = @DB2PDF@
+DB2PS = @DB2PS@
+DLLTOOL = @DLLTOOL@
+DVIPDF = @DVIPDF@
+DVIPS = @DVIPS@
+ECHO = @ECHO@
+ESCPUTIL_BIN = @ESCPUTIL_BIN@
+ESCPUTIL_MAN = @ESCPUTIL_MAN@
+EXEEXT = @EXEEXT@
+FOOMATIC_3_NOINST_BIN = @FOOMATIC_3_NOINST_BIN@
+FOOMATIC_CONFIGURE = @FOOMATIC_CONFIGURE@
+FOOMATIC_INSTALL = @FOOMATIC_INSTALL@
+FOOMATIC_KITLOAD = @FOOMATIC_KITLOAD@
+FOOMATIC_NOINST_BIN = @FOOMATIC_NOINST_BIN@
+FOOMATIC_PPDFILE = @FOOMATIC_PPDFILE@
+GENCAT = @GENCAT@
+GIMPPRINT_BINARY_AGE = @GIMPPRINT_BINARY_AGE@
+GIMPPRINT_CFLAGS = @GIMPPRINT_CFLAGS@
+GIMPPRINT_CONFIG = @GIMPPRINT_CONFIG@
+GIMPPRINT_CURRENT_INTERFACE = @GIMPPRINT_CURRENT_INTERFACE@
+GIMPPRINT_DEPLIBS = @GIMPPRINT_DEPLIBS@
+GIMPPRINT_INTERFACE_AGE = @GIMPPRINT_INTERFACE_AGE@
+GIMPPRINT_LIBS = @GIMPPRINT_LIBS@
+GIMPPRINT_MAJOR_VERSION = @GIMPPRINT_MAJOR_VERSION@
+GIMPPRINT_MICRO_VERSION = @GIMPPRINT_MICRO_VERSION@
+GIMPPRINT_MINOR_VERSION = @GIMPPRINT_MINOR_VERSION@
+GIMPPRINT_VERSION = @GIMPPRINT_VERSION@
+GIMPTOOL = @GIMPTOOL@
+GIMP_BIN = @GIMP_BIN@
+GIMP_CFLAGS = @GIMP_CFLAGS@
+GIMP_CFLAGS_NOUI = @GIMP_CFLAGS_NOUI@
+GIMP_CONFIG = @GIMP_CONFIG@
+GIMP_DATA_DIR = @GIMP_DATA_DIR@
+GIMP_LIBS = @GIMP_LIBS@
+GIMP_LIBS_NOUI = @GIMP_LIBS_NOUI@
+GIMP_PLUGIN_DIR = @GIMP_PLUGIN_DIR@
+GIMP_PRINT_H = @GIMP_PRINT_H@
+GLIBC21 = @GLIBC21@
+GLIB_CFLAGS = @GLIB_CFLAGS@
+GLIB_CONFIG = @GLIB_CONFIG@
+GLIB_LIBS = @GLIB_LIBS@
+GMOFILES = @GMOFILES@
+GMSGFMT = @GMSGFMT@
+GNUCFLAGS = @GNUCFLAGS@
+GTK_CFLAGS = @GTK_CFLAGS@
+GTK_CONFIG = @GTK_CONFIG@
+GTK_LIBS = @GTK_LIBS@
+IJS_BIN = @IJS_BIN@
+IJS_CFLAGS = @IJS_CFLAGS@
+IJS_CONFIG = @IJS_CONFIG@
+IJS_INSTALL = @IJS_INSTALL@
+IJS_LIBS = @IJS_LIBS@
+INCLUDES = @INCLUDES@
+INSTOBJEXT = @INSTOBJEXT@
+INTLBISON = @INTLBISON@
+INTLLIBS = @INTLLIBS@
+INTLOBJS = @INTLOBJS@
+INTL_LIBTOOL_SUFFIX_PREFIX = @INTL_LIBTOOL_SUFFIX_PREFIX@
+LEX = @LEX@
+LIBGIMPPRINT_LIBS = @LIBGIMPPRINT_LIBS@
+LIBICONV = @LIBICONV@
+LIBREADLINE_DEPS = @LIBREADLINE_DEPS@
+LIBTOOL = @LIBTOOL@
+LIBTOOL_DEPS = @LIBTOOL_DEPS@
+LN_S = @LN_S@
+LTALLOCA = @LTALLOCA@
+LTLIBOBJS = @LTLIBOBJS@
+LT_AGE = @LT_AGE@
+LT_CURRENT = @LT_CURRENT@
+LT_RELEASE = @LT_RELEASE@
+LT_REVISION = @LT_REVISION@
+MAINT = @MAINT@
+MAINTAINER_CFLAGS = @MAINTAINER_CFLAGS@
+MAIN_BIN = @MAIN_BIN@
+MAIN_DAT = @MAIN_DAT@
+MAIN_MAN = @MAIN_MAN@
+MAIN_SCR = @MAIN_SCR@
+MAKEINFO = @MAKEINFO@
+MKINSTALLDIRS = @MKINSTALLDIRS@
+MSGFMT = @MSGFMT@
+OBJDUMP = @OBJDUMP@
+OBJEXT = @OBJEXT@
+PACKAGE = @PACKAGE@
+PERL = @PERL@
+PLUG_IN_PATH = @PLUG_IN_PATH@
+POFILES = @POFILES@
+POSUB = @POSUB@
+PRINT_VASPRINTF = @PRINT_VASPRINTF@
+RANLIB = @RANLIB@
+RELEASE_DATE = @RELEASE_DATE@
+RM = @RM@
+SAMPLE_IMAGES = @SAMPLE_IMAGES@
+STRIP = @STRIP@
+TESTPATTERN_BIN = @TESTPATTERN_BIN@
+TEST_BIN = @TEST_BIN@
+TEXI2HTML = @TEXI2HTML@
+USER_GUIDE = @USER_GUIDE@
+USE_INCLUDED_LIBINTL = @USE_INCLUDED_LIBINTL@
+USE_NLS = @USE_NLS@
+VERSION = @VERSION@
+YACC = @YACC@
+YACC_PROG = @YACC_PROG@
+cups_bindir = @cups_bindir@
+cups_conf_datadir = @cups_conf_datadir@
+cups_conf_serverbin = @cups_conf_serverbin@
+cups_conf_serverroot = @cups_conf_serverroot@
+cups_exec_prefix = @cups_exec_prefix@
+cups_prefix = @cups_prefix@
+gimp_plug_indir = @gimp_plug_indir@
+gimpprint_cflags = @gimpprint_cflags@
+gimpprint_libs = @gimpprint_libs@
+
+AUTOMAKE_OPTIONS = 1.4 gnu
+
+MAINT_CHARSET = latin1
+
+# Conditional installation of manpages is currently broken in automake 1.4
+
+man_MANS =  	cups-calibrate.8 	escputil.1 	gimpprint.3 	gimpprint-config.1 	gimpprint-color.7 	gimpprint-dithers.7 	gimpprint-imagetypes.7 	gimpprint-inktypes.7 	gimpprint-mediasizes.7 	gimpprint-mediasources.7 	gimpprint-mediatypes.7 	gimpprint-models.7 	gimpprint-resolutions.7 	ijsgimpprint.1
+
+
+DISTCLEANFILES = $(man_MANS)
+MAINTAINERCLEANFILES = Makefile.in
+mkinstalldirs = $(SHELL) $(top_srcdir)/scripts/mkinstalldirs
+CONFIG_HEADER = ../config.h
+CONFIG_CLEAN_FILES =  escputil.1 gimpprint.3 gimpprint-config.1 \
+gimpprint-color.7 gimpprint-dithers.7 gimpprint-imagetypes.7 \
+gimpprint-inktypes.7 gimpprint-mediasizes.7 gimpprint-mediasources.7 \
+gimpprint-mediatypes.7 gimpprint-models.7 gimpprint-resolutions.7 \
+ijsgimpprint.1 cups-calibrate.8
+man1dir = $(mandir)/man1
+man3dir = $(mandir)/man3
+man7dir = $(mandir)/man7
+man8dir = $(mandir)/man8
+MANS = $(man_MANS)
+
+NROFF = nroff
+DIST_COMMON =  Makefile.am Makefile.in cups-calibrate.8.in escputil.1.in \
+gimpprint-color.7.in gimpprint-config.1.in gimpprint-dithers.7.in \
+gimpprint-imagetypes.7.in gimpprint-inktypes.7.in \
+gimpprint-mediasizes.7.in gimpprint-mediasources.7.in \
+gimpprint-mediatypes.7.in gimpprint-models.7.in \
+gimpprint-resolutions.7.in gimpprint.3.in ijsgimpprint.1.in
+
+
+DISTFILES = $(DIST_COMMON) $(SOURCES) $(HEADERS) $(TEXINFOS) $(EXTRA_DIST)
+
+TAR = tar
+GZIP_ENV = --best
+all: all-redirect
+.SUFFIXES:
+$(srcdir)/Makefile.in: @MAINTAINER_MODE_TRUE@ Makefile.am $(top_srcdir)/configure.in $(ACLOCAL_M4) 
+	cd $(top_srcdir) && $(AUTOMAKE) --gnu --include-deps man/Makefile
+
+Makefile: $(srcdir)/Makefile.in  $(top_builddir)/config.status
+	cd $(top_builddir) \
+	  && CONFIG_FILES=$(subdir)/$@ CONFIG_HEADERS= $(SHELL) ./config.status
+
+escputil.1: $(top_builddir)/config.status escputil.1.in
+	cd $(top_builddir) && CONFIG_FILES=$(subdir)/$@ CONFIG_HEADERS= $(SHELL) ./config.status
+gimpprint.3: $(top_builddir)/config.status gimpprint.3.in
+	cd $(top_builddir) && CONFIG_FILES=$(subdir)/$@ CONFIG_HEADERS= $(SHELL) ./config.status
+gimpprint-config.1: $(top_builddir)/config.status gimpprint-config.1.in
+	cd $(top_builddir) && CONFIG_FILES=$(subdir)/$@ CONFIG_HEADERS= $(SHELL) ./config.status
+gimpprint-color.7: $(top_builddir)/config.status gimpprint-color.7.in
+	cd $(top_builddir) && CONFIG_FILES=$(subdir)/$@ CONFIG_HEADERS= $(SHELL) ./config.status
+gimpprint-dithers.7: $(top_builddir)/config.status gimpprint-dithers.7.in
+	cd $(top_builddir) && CONFIG_FILES=$(subdir)/$@ CONFIG_HEADERS= $(SHELL) ./config.status
+gimpprint-imagetypes.7: $(top_builddir)/config.status gimpprint-imagetypes.7.in
+	cd $(top_builddir) && CONFIG_FILES=$(subdir)/$@ CONFIG_HEADERS= $(SHELL) ./config.status
+gimpprint-inktypes.7: $(top_builddir)/config.status gimpprint-inktypes.7.in
+	cd $(top_builddir) && CONFIG_FILES=$(subdir)/$@ CONFIG_HEADERS= $(SHELL) ./config.status
+gimpprint-mediasizes.7: $(top_builddir)/config.status gimpprint-mediasizes.7.in
+	cd $(top_builddir) && CONFIG_FILES=$(subdir)/$@ CONFIG_HEADERS= $(SHELL) ./config.status
+gimpprint-mediasources.7: $(top_builddir)/config.status gimpprint-mediasources.7.in
+	cd $(top_builddir) && CONFIG_FILES=$(subdir)/$@ CONFIG_HEADERS= $(SHELL) ./config.status
+gimpprint-mediatypes.7: $(top_builddir)/config.status gimpprint-mediatypes.7.in
+	cd $(top_builddir) && CONFIG_FILES=$(subdir)/$@ CONFIG_HEADERS= $(SHELL) ./config.status
+gimpprint-models.7: $(top_builddir)/config.status gimpprint-models.7.in
+	cd $(top_builddir) && CONFIG_FILES=$(subdir)/$@ CONFIG_HEADERS= $(SHELL) ./config.status
+gimpprint-resolutions.7: $(top_builddir)/config.status gimpprint-resolutions.7.in
+	cd $(top_builddir) && CONFIG_FILES=$(subdir)/$@ CONFIG_HEADERS= $(SHELL) ./config.status
+ijsgimpprint.1: $(top_builddir)/config.status ijsgimpprint.1.in
+	cd $(top_builddir) && CONFIG_FILES=$(subdir)/$@ CONFIG_HEADERS= $(SHELL) ./config.status
+cups-calibrate.8: $(top_builddir)/config.status cups-calibrate.8.in
+	cd $(top_builddir) && CONFIG_FILES=$(subdir)/$@ CONFIG_HEADERS= $(SHELL) ./config.status
+
+install-man1:
+	$(mkinstalldirs) $(DESTDIR)$(man1dir)
+	@list='$(man1_MANS)'; \
+	l2='$(man_MANS)'; for i in $$l2; do \
+	  case "$$i" in \
+	    *.1*) list="$$list $$i" ;; \
+	  esac; \
+	done; \
+	for i in $$list; do \
+	  if test -f $(srcdir)/$$i; then file=$(srcdir)/$$i; \
+	  else file=$$i; fi; \
+	  ext=`echo $$i | sed -e 's/^.*\\.//'`; \
+	  inst=`echo $$i | sed -e 's/\\.[0-9a-z]*$$//'`; \
+	  inst=`echo $$inst | sed '$(transform)'`.$$ext; \
+	  echo " $(INSTALL_DATA) $$file $(DESTDIR)$(man1dir)/$$inst"; \
+	  $(INSTALL_DATA) $$file $(DESTDIR)$(man1dir)/$$inst; \
+	done
+
+uninstall-man1:
+	@list='$(man1_MANS)'; \
+	l2='$(man_MANS)'; for i in $$l2; do \
+	  case "$$i" in \
+	    *.1*) list="$$list $$i" ;; \
+	  esac; \
+	done; \
+	for i in $$list; do \
+	  ext=`echo $$i | sed -e 's/^.*\\.//'`; \
+	  inst=`echo $$i | sed -e 's/\\.[0-9a-z]*$$//'`; \
+	  inst=`echo $$inst | sed '$(transform)'`.$$ext; \
+	  echo " rm -f $(DESTDIR)$(man1dir)/$$inst"; \
+	  rm -f $(DESTDIR)$(man1dir)/$$inst; \
+	done
+
+install-man3:
+	$(mkinstalldirs) $(DESTDIR)$(man3dir)
+	@list='$(man3_MANS)'; \
+	l2='$(man_MANS)'; for i in $$l2; do \
+	  case "$$i" in \
+	    *.3*) list="$$list $$i" ;; \
+	  esac; \
+	done; \
+	for i in $$list; do \
+	  if test -f $(srcdir)/$$i; then file=$(srcdir)/$$i; \
+	  else file=$$i; fi; \
+	  ext=`echo $$i | sed -e 's/^.*\\.//'`; \
+	  inst=`echo $$i | sed -e 's/\\.[0-9a-z]*$$//'`; \
+	  inst=`echo $$inst | sed '$(transform)'`.$$ext; \
+	  echo " $(INSTALL_DATA) $$file $(DESTDIR)$(man3dir)/$$inst"; \
+	  $(INSTALL_DATA) $$file $(DESTDIR)$(man3dir)/$$inst; \
+	done
+
+uninstall-man3:
+	@list='$(man3_MANS)'; \
+	l2='$(man_MANS)'; for i in $$l2; do \
+	  case "$$i" in \
+	    *.3*) list="$$list $$i" ;; \
+	  esac; \
+	done; \
+	for i in $$list; do \
+	  ext=`echo $$i | sed -e 's/^.*\\.//'`; \
+	  inst=`echo $$i | sed -e 's/\\.[0-9a-z]*$$//'`; \
+	  inst=`echo $$inst | sed '$(transform)'`.$$ext; \
+	  echo " rm -f $(DESTDIR)$(man3dir)/$$inst"; \
+	  rm -f $(DESTDIR)$(man3dir)/$$inst; \
+	done
+
+install-man7:
+	$(mkinstalldirs) $(DESTDIR)$(man7dir)
+	@list='$(man7_MANS)'; \
+	l2='$(man_MANS)'; for i in $$l2; do \
+	  case "$$i" in \
+	    *.7*) list="$$list $$i" ;; \
+	  esac; \
+	done; \
+	for i in $$list; do \
+	  if test -f $(srcdir)/$$i; then file=$(srcdir)/$$i; \
+	  else file=$$i; fi; \
+	  ext=`echo $$i | sed -e 's/^.*\\.//'`; \
+	  inst=`echo $$i | sed -e 's/\\.[0-9a-z]*$$//'`; \
+	  inst=`echo $$inst | sed '$(transform)'`.$$ext; \
+	  echo " $(INSTALL_DATA) $$file $(DESTDIR)$(man7dir)/$$inst"; \
+	  $(INSTALL_DATA) $$file $(DESTDIR)$(man7dir)/$$inst; \
+	done
+
+uninstall-man7:
+	@list='$(man7_MANS)'; \
+	l2='$(man_MANS)'; for i in $$l2; do \
+	  case "$$i" in \
+	    *.7*) list="$$list $$i" ;; \
+	  esac; \
+	done; \
+	for i in $$list; do \
+	  ext=`echo $$i | sed -e 's/^.*\\.//'`; \
+	  inst=`echo $$i | sed -e 's/\\.[0-9a-z]*$$//'`; \
+	  inst=`echo $$inst | sed '$(transform)'`.$$ext; \
+	  echo " rm -f $(DESTDIR)$(man7dir)/$$inst"; \
+	  rm -f $(DESTDIR)$(man7dir)/$$inst; \
+	done
+
+install-man8:
+	$(mkinstalldirs) $(DESTDIR)$(man8dir)
+	@list='$(man8_MANS)'; \
+	l2='$(man_MANS)'; for i in $$l2; do \
+	  case "$$i" in \
+	    *.8*) list="$$list $$i" ;; \
+	  esac; \
+	done; \
+	for i in $$list; do \
+	  if test -f $(srcdir)/$$i; then file=$(srcdir)/$$i; \
+	  else file=$$i; fi; \
+	  ext=`echo $$i | sed -e 's/^.*\\.//'`; \
+	  inst=`echo $$i | sed -e 's/\\.[0-9a-z]*$$//'`; \
+	  inst=`echo $$inst | sed '$(transform)'`.$$ext; \
+	  echo " $(INSTALL_DATA) $$file $(DESTDIR)$(man8dir)/$$inst"; \
+	  $(INSTALL_DATA) $$file $(DESTDIR)$(man8dir)/$$inst; \
+	done
+
+uninstall-man8:
+	@list='$(man8_MANS)'; \
+	l2='$(man_MANS)'; for i in $$l2; do \
+	  case "$$i" in \
+	    *.8*) list="$$list $$i" ;; \
+	  esac; \
+	done; \
+	for i in $$list; do \
+	  ext=`echo $$i | sed -e 's/^.*\\.//'`; \
+	  inst=`echo $$i | sed -e 's/\\.[0-9a-z]*$$//'`; \
+	  inst=`echo $$inst | sed '$(transform)'`.$$ext; \
+	  echo " rm -f $(DESTDIR)$(man8dir)/$$inst"; \
+	  rm -f $(DESTDIR)$(man8dir)/$$inst; \
+	done
+install-man: $(MANS)
+	@$(NORMAL_INSTALL)
+	$(MAKE) $(AM_MAKEFLAGS) install-man1 install-man3 install-man7 \
+	 install-man8
+uninstall-man:
+	@$(NORMAL_UNINSTALL)
+	$(MAKE) $(AM_MAKEFLAGS) uninstall-man1 uninstall-man3 uninstall-man7 \
+	 uninstall-man8
+tags: TAGS
+TAGS:
+
+
+distdir = $(top_builddir)/$(PACKAGE)-$(VERSION)/$(subdir)
+
+subdir = man
+
+distdir: $(DISTFILES)
+	@for file in $(DISTFILES); do \
+	  d=$(srcdir); \
+	  if test -d $$d/$$file; then \
+	    cp -pr $$/$$file $(distdir)/$$file; \
+	  else \
+	    test -f $(distdir)/$$file \
+	    || ln $$d/$$file $(distdir)/$$file 2> /dev/null \
+	    || cp -p $$d/$$file $(distdir)/$$file || :; \
+	  fi; \
+	done
+info-am:
+info: info-am
+dvi-am:
+dvi: dvi-am
+check-am: all-am
+check: check-am
+installcheck-am:
+installcheck: installcheck-am
+install-exec-am:
+install-exec: install-exec-am
+
+install-data-am: install-man
+install-data: install-data-am
+
+install-am: all-am
+	@$(MAKE) $(AM_MAKEFLAGS) install-exec-am install-data-am
+install: install-am
+uninstall-am: uninstall-man
+uninstall: uninstall-am
+all-am: Makefile $(MANS)
+all-redirect: all-am
+install-strip:
+	$(MAKE) $(AM_MAKEFLAGS) AM_INSTALL_PROGRAM_FLAGS=-s install
+installdirs:
+	$(mkinstalldirs)  $(DESTDIR)$(mandir)/man1 $(DESTDIR)$(mandir)/man3 \
+		$(DESTDIR)$(mandir)/man7 $(DESTDIR)$(mandir)/man8
+
+
+mostlyclean-generic:
+
+clean-generic:
+
+distclean-generic:
+	-rm -f Makefile $(CONFIG_CLEAN_FILES)
+	-rm -f config.cache config.log stamp-h stamp-h[0-9]*
+	-test -z "$(DISTCLEANFILES)" || rm -f $(DISTCLEANFILES)
+
+maintainer-clean-generic:
+	-test -z "$(MAINTAINERCLEANFILES)" || rm -f $(MAINTAINERCLEANFILES)
+mostlyclean-am:  mostlyclean-generic
+
+mostlyclean: mostlyclean-am
+
+clean-am:  clean-generic mostlyclean-am
+
+clean: clean-am
+
+distclean-am:  distclean-generic clean-am
+	-rm -f libtool
+
+distclean: distclean-am
+
+maintainer-clean-am:  maintainer-clean-generic distclean-am
+	@echo "This command is intended for maintainers to use;"
+	@echo "it deletes files that may require special tools to rebuild."
+
+maintainer-clean: maintainer-clean-am
+
+.PHONY: install-man1 uninstall-man1 install-man3 uninstall-man3 \
+install-man7 uninstall-man7 install-man8 uninstall-man8 install-man \
+uninstall-man tags distdir info-am info dvi-am dvi check check-am \
+installcheck-am installcheck install-exec-am install-exec \
+install-data-am install-data install-am install uninstall-am uninstall \
+all-redirect all-am all installdirs mostlyclean-generic \
+distclean-generic clean-generic maintainer-clean-generic clean \
+mostlyclean distclean maintainer-clean
+
+
+@SET_MAKE@
+
+# EXTRA_DIST = $(man_MANS)
+
+# Tell versions [3.59,3.63) of GNU make to not export all variables.
+# Otherwise a system limit (for SysV at least) may be exceeded.
+.NOEXPORT:

@@ -3,82 +3,82 @@
 !  ----------------------
 !
 !  Some easy cases:
-3R	d	0	0	OK	1
-3R	d	1	0	OK	1p1
-3R	d	2	0	OK	1p2
-3R	d	3	0	OK	1p3
-3R	d	4	0	OK	1p4
-3R	d	9	0	OK	1p9
-3R	d	-1	0	OK	1m1
-3R	d	-2	0	OK	1m2
-3R	d	-3	0	OK	1m3
-3R	d	-4	0	OK	1m4
-3R	d	31	0	OK	1p31
-3R	d	78	0	OK	1p78
-3R	d	-9	0	OK	1m9
-3R	d	-15	0	OK	1m7m8
+3R	=d	0	0	OK	1
+3R	=d	1	0	OK	1p1
+3R	=d	2	0	OK	1p2
+3R	=d	3	0	OK	1p3
+3R	=d	4	0	OK	1p4
+3R	=d	9	0	OK	1p9
+3R	=d	-1	0	OK	1m1
+3R	=d	-2	0	OK	1m2
+3R	=d	-3	0	OK	1m3
+3R	=d	-4	0	OK	1m4
+3R	=d	31	0	OK	1p31
+3R	=d	78	0	OK	1p78
+3R	=d	-9	0	OK	1m9
+3R	=d	-15	0	OK	1m7m8
 !  Infinities:
-3R	d	-H	0	OK	0
-3R	d	H	0	OK	H
+3R	=d	-H	0	OK	0
+3R	=d	H	0	OK	H
 !  NaNs:
 !  Commented out signaling NaN cases <JPO, 5/13/93>
-3R	d	Q	0	OK	Q
-3R	d	-Q	0	OK	-Q
+3R	=d	Q	0	OK	Q
+3R	=d	-Q	0	OK	-Q
 !3R	    e	    S	    0	    i	    Q
 !3R	    e	    -S	    0	    i	    -Q
 !  Very large, but finite:
-3R	d	Hd1	0	ox	H
-3R	d	Hd2	0	ox	H
-3R	d	Hd3	0	ox	H
-3R	d	Hd4	0	ox	H
-3R	d	Hd9	0	ox	H
-3R	d	Hm1	0	ox	H
-3R	d	Hm2	0	ox	H
-3R	d	Hm3	0	ox	H
-3R	d	Hm9	0	ox	H
-3R	    d	    1p9p5   0	    ox	    H
-3R	    d	    1p9p9   0	    ox	    H
+3R	=d	Hd1	0	ox	H
+3R	=d	Hd2	0	ox	H
+3R	=d	Hd3	0	ox	H
+3R	=d	Hd4	0	ox	H
+3R	=d	Hd9	0	ox	H
+3R	=d	Hm1	0	ox	H
+3R	=d	Hm2	0	ox	H
+3R	=d	Hm3	0	ox	H
+3R	=d	Hm9	0	ox	H
+3R	    =d	    1p9p5   0	    ox	    H
+3R	    =d	    1p9p9   0	    ox	    H
 !  Huge negative exponents:
-3R	d	-Hd1	0	ux	0
-3R	d	-Hd2	0	ux	0
-3R	d	-Hd3	0	ux	0
-3R	d	-Hd4	0	ux	0
-3R	d	-Hd9	0	ux	0
-3R	d	-Hm1	0	ux	0
-3R	d	-Hm2	0	ux	0
-3R	d	-Hm3	0	ux	0
-3R	d	-Hm4	0	ux	0
-3R	d	-Hm9	0	ux	0
-3R	    d	    -1p5p5  0	    u	    Em2
-3R	    d	    -1p9p9  0	    ux	    0
+3R	=d	-Hd1	0	ux	0
+3R	=d	-Hd2	0	ux	0
+3R	=d	-Hd3	0	ux	0
+3R	=d	-Hd4	0	ux	0
+3R	=d	-Hd9	0	ux	0
+3R	=d	-Hm1	0	ux	0
+3R	=d	-Hm2	0	ux	0
+3R	=d	-Hm3	0	ux	0
+3R	=d	-Hm4	0	ux	0
+3R	=d	-Hm9	0	ux	0
+3R	    =d	    -1p5p5  0	    u	    Em2
+3R	    =d	    -1p9p9  0	    ux	    0
 !  Very large but not too large:
-3R	    d	    1023   0	    OK	    Hm1
-3R	    d	    1022   0	    OK	    Hm2
-3R	    d	    1021   0	    OK	    Hm3
-3R	d	5p2	0	OK	4p9p9
+3R	    =d	    1023   0	    OK	    Hm1
+3R	    =d	    1022   0	    OK	    Hm2
+3R	    =d	    1021   0	    OK	    Hm3
+3R	=d	5p2	0	OK	4p9p9
 !  Very large negatives, but not too large:
-3R	    d	    -1022  0	    OK	    E
-3R	    d	    -1074  0	    u	    0i1
-3R	    d	   -1074i1 0	    ux	    0i1
-3R	    d	   -1074d1 0	    ux	    0i1
-3R	    d	    -1073  0	    u	    0i2
-3R	    d	   -1073i1 0	    ux	    0i2
-3R	    d	   -1073d1 0	    ux	    0i2
-3R	    d	    -59	    0	    OK	    1m7u1
-3R	    d	    -54	    0	    OK	    1m2u1
-3R	    d	    -53	    0	    OK	    1m1u1
-3R	    d	    -52	    0	    OK	    1u1
-3R	    d	    -51	    0	    OK	    1u2
-3R	    d	    -50	    0	    OK	    1u4
-3R	    d	    -1021  0	    OK	    Ep1
-3R	    d	    -1020  0	    OK	    Ep2
-3R	    d	    -1017  0	    OK	    Ep5
-3R	    d	    -1023  0	    u	    Em1
-3R	    d	    -1024  0	    u	    Em2
-3R	    d	    -1029  0	    u	    Em7
-3R	d	-1p4	0	OK	1m8m8
-3R	d	-1p5	0	OK	1m32
-3R	d	-1p6	0	OK	1m64
+3R	    =d	    -1022  0	    OK	    E
+3R	    =d	    -1074  0	    u	    0i1
+3R	    =d	   -1074i1 0	    ux	    0i1
+3R	    =d	   -1074d1 0	    ux	    0i1
+3R	    =d	    -1073  0	    u	    0i2
+3R	    =d	   -1073i1 0	    ux	    0i2
+3R	    =d	   -1073d1 0	    ux	    0i2
+3R	    =d	    -59	    0	    OK	    1m7u1
+3R	    =d	    -54	    0	    OK	    1m2u1
+3R	    =d	    -53	    0	    OK	    1m1u1
+3R	    =d	    -52	    0	    OK	    1u1
+3R	    =d	    -51	    0	    OK	    1u2
+3R	    =d	    -50	    0	    OK	    1u4
+3R	    =d	    -1021  0	    OK	    Ep1
+3R	    =d	    -1020  0	    OK	    Ep2
+3R	    =d	    -1017  0	    OK	    Ep5
+3R	    =d	    -1023  0	    u	    Em1
+3R	    =d	    -1024  0	    u	    Em2
+3R	    =d	    -1029  0	    u	    Em7
+3R	=d	-1p4	0	OK	1m8m8
+3R	=d	-1p5	0	OK	1m32
+3R	=d	-1p6	0	OK	1m64
 !
 ! End of Exp2X tests.
 !
@@ -87,111 +87,111 @@
 !  ----------------------
 !
 !  The easy case:
-3U	d	0	0	OK	0
+3U	=d	0	0	OK	0
 !  Infinities:
-3U	d	-H	0	OK	-1
-3U	d	H	0	OK	H
+3U	=d	-H	0	OK	-1
+3U	=d	H	0	OK	H
 !  NaNs:
 !  Commented out signaling NaN cases <JPO, 5/13/93>
-3U	d	Q	0	OK	Q
-3U	d	-Q	0	OK	-Q
+3U	=d	Q	0	OK	Q
+3U	=d	-Q	0	OK	-Q
 !3U	    e	    S	    0	    i	    Q
 !3U	    e	    -S	    0	    i	    -Q
 !  Very large, but finite:
-3U	d	Hd1	0	ox	H
-3U	d	Hd2	0	ox	H
-3U	d	Hd3	0	ox	H
-3U	d	Hd4	0	ox	H
-3U	d	Hd9	0	ox	H
-3U	d	Hm1	0	ox	H
-3U	d	Hm2	0	ox	H
-3U	d	Hm3	0	ox	H
-3U	d	Hm9	0	ox	H
-3U	d	1p14	0	ox	H
-3U	d	1p18	0	ox	H
+3U	=d	Hd1	0	ox	H
+3U	=d	Hd2	0	ox	H
+3U	=d	Hd3	0	ox	H
+3U	=d	Hd4	0	ox	H
+3U	=d	Hd9	0	ox	H
+3U	=d	Hm1	0	ox	H
+3U	=d	Hm2	0	ox	H
+3U	=d	Hm3	0	ox	H
+3U	=d	Hm9	0	ox	H
+3U	=d	1p14	0	ox	H
+3U	=d	1p18	0	ox	H
 !  Huge negative exponents:
-3U	d	-Hd1	0	x	-1
-3U	d	-Hd2	0	x	-1
-3U	d	-Hd3	0	x	-1
-3U	d	-Hd4	0	x	-1
-3U	d	-Hd9	0	x	-1
-3U	d	-Hm1	0	x	-1
-3U	d	-Hm2	0	x	-1
-3U	d	-Hm3	0	x	-1
-3U	d	-Hm4	0	x	-1
-3U	d	-Hm9	0	x	-1
-3U	d	-1p18	0	x	-1
+3U	=d	-Hd1	0	x	-1
+3U	=d	-Hd2	0	x	-1
+3U	=d	-Hd3	0	x	-1
+3U	=d	-Hd4	0	x	-1
+3U	=d	-Hd9	0	x	-1
+3U	=d	-Hm1	0	x	-1
+3U	=d	-Hm2	0	x	-1
+3U	=d	-Hm3	0	x	-1
+3U	=d	-Hm4	0	x	-1
+3U	=d	-Hm9	0	x	-1
+3U	=d	-1p18	0	x	-1
 !  Numbers close to 0.  e^x - 1 = x + x^2/2! + x^3/3! + x^4/4! + ...
 !
 !  For values of x near zero, the first two terms of the
 !  expansion show up in the result.	 The remaining terms
 !  are 'tiny' and affect only rounding.
-3U	    d    	1m54	 0		 x		 1m54
-3U	    d	    	-1m54	 0		 x		 -1m54
-3U	    d    	1m53	 0		 x		 1m53
-3U	    d	    	2m53	 0		 x		 2m53
-3U	    d    	3m53	 0		 x		 3i1m53
-3U	    d    	4m53	 0		 x		 1i1m51
-3U	    d	    	5m53	 0		 x		 5i2m53
-3U	    d	    	-1m53	 0		 x		 -1m53
-3U	    d    	-2m53	 0		 x		 -1d1m52
-3U	    d    	-3m53	 0		 x		 -3d1m53
-3U	    d    	-4m53	 0		 x		 -1d2m51
-3U	    d    	-5m53	 0		 x		 -5d2m53
+3U	    =d    	1m54	 0		 x		 1m54
+3U	    =d	    	-1m54	 0		 x		 -1m54
+3U	    =d    	1m53	 0		 x		 1m53
+3U	    =d	    	2m53	 0		 x		 2m53
+3U	    =d    	3m53	 0		 x		 3i1m53
+3U	    =d    	4m53	 0		 x		 1i1m51
+3U	    =d	    	5m53	 0		 x		 5i2m53
+3U	    =d	    	-1m53	 0		 x		 -1m53
+3U	    =d    	-2m53	 0		 x		 -1d1m52
+3U	    =d    	-3m53	 0		 x		 -3d1m53
+3U	    =d    	-4m53	 0		 x		 -1d2m51
+3U	    =d    	-5m53	 0		 x		 -5d2m53
 !  Numbers so close to zero that only the leading term shows up:
-3U	    d    	1m55	 0		 x		 1m55
-3U	    d	    	-1m55	 0		 x		 -1m55
-3U	    d    	1m62	 0		 x		 1m62
-3U	    d	    	-1m62	 0		 x		 -1m62
+3U	    =d    	1m55	 0		 x		 1m55
+3U	    =d	    	-1m55	 0		 x		 -1m55
+3U	    =d    	1m62	 0		 x		 1m62
+3U	    =d	    	-1m62	 0		 x		 -1m62
 3U	<0=d	E	0	x	E+1
 
 ! <scp> 3U	    >e	    E	    0	    x	    Ei1
-3U	d	E	0	x	E
+3U	=d	E	0	x	E
 
 ! <scp> Disabled <0e and >0e variants, since function is computed round-nearest always.
-3U	d	-E	0	x	-E+1
-3U	d	0i1	0	ux	0i1
-3U	d	-0i1	0	ux	-0i1
-3U	d	0i3	0	ux	0i3
-3U	d	-0i3	0	ux	-0i3
+3U	=d	-E	0	x	-E+1
+3U	=d	0i1	0	ux	0i1
+3U	=d	-0i1	0	ux	-0i1
+3U	=d	0i3	0	ux	0i3
+3U	=d	-0i3	0	ux	-0i3
 !
 !  Test Vectors for ExpX
 !
 ! The easy case:
-3T	d	0	0	OK	1
+3T	=d	0	0	OK	1
 ! Infinities:
-3T	d	-H	0	OK	0
-3T	d	H	0	OK	H
+3T	=d	-H	0	OK	0
+3T	=d	H	0	OK	H
 ! NaNs:
 !  Commented out signaling NaN cases <JPO, 5/13/93>
-3T	d	Q	0	OK	Q
-3T	d	-Q	0	OK	-Q
+3T	=d	Q	0	OK	Q
+3T	=d	-Q	0	OK	-Q
 !3T	    e	    S	    0	    i	    S
 !3T	    e	    -S	    0	    i	    -S
 ! Very large, but finite:
-3T	d	Hd1	0	ox	H
-3T	d	Hd2	0	ox	H
-3T	d	Hd3	0	ox	H
-3T	d	Hd4	0	ox	H
-3T	d	Hd9	0	ox	H
-3T	d	Hm1	0	ox	H
-3T	d	Hm2	0	ox	H
-3T	d	Hm3	0	ox	H
-3T	d	Hm9	0	ox	H
-3T	d	1p14	0	ox	H
-3T	d	1p18	0	ox	H
+3T	=d	Hd1	0	ox	H
+3T	=d	Hd2	0	ox	H
+3T	=d	Hd3	0	ox	H
+3T	=d	Hd4	0	ox	H
+3T	=d	Hd9	0	ox	H
+3T	=d	Hm1	0	ox	H
+3T	=d	Hm2	0	ox	H
+3T	=d	Hm3	0	ox	H
+3T	=d	Hm9	0	ox	H
+3T	=d	1p14	0	ox	H
+3T	=d	1p18	0	ox	H
 ! Huge negative exponents:
-3T	d	-Hd1	0	ux	0
-3T	d	-Hd2	0	ux	0
-3T	d	-Hd3	0	ux	0
-3T	d	-Hd4	0	ux	0
-3T	d	-Hd9	0	ux	0
-3T	d	-Hm1	0	ux	0
-3T	d	-Hm2	0	ux	0
-3T	d	-Hm3	0	ux	0
-3T	d	-Hm4	0	ux	0
-3T	d	-Hm5	0	ux	0
-3T	d	-1p18	0	ux	0
+3T	=d	-Hd1	0	ux	0
+3T	=d	-Hd2	0	ux	0
+3T	=d	-Hd3	0	ux	0
+3T	=d	-Hd4	0	ux	0
+3T	=d	-Hd9	0	ux	0
+3T	=d	-Hm1	0	ux	0
+3T	=d	-Hm2	0	ux	0
+3T	=d	-Hm3	0	ux	0
+3T	=d	-Hm4	0	ux	0
+3T	=d	-Hm5	0	ux	0
+3T	=d	-1p18	0	ux	0
 ! Numbers close to 0.  e^x = 1 + x + x^2/2! + x^3/3! + x^4/4! + ...
 !
 ! For values of x slightly larger than zero, all N significant bits of the
@@ -205,31 +205,31 @@
 ! result have N bits to the right of the binary point, so:
 !	   -k * 2^(-N) --------> 1dk + tiny.
 !
-3T	    d	    1m54    0	    x	    1
-3T	    d	    1m53    0	    x	    1
-3T	    d	    1m52    0	    x	    1i1
-3T	    d	    1m51    0	    x	    1i2
-3T	    d	    3m53    0	    x	    1i2
-3T	    d	    5m53    0	    x	    1i3
-3T	    d	    6m53    0	    x	    1i3
-3T	    d	    7m53    0	    x	    1i4
-3T	    d	    8m53    0	    x	    1i4
-3T	    d	    -1m53   0	    x	    1d1
-3T	    d	    -1m52   0	    x	    1d2
-3T	    d	    -3m53   0	    x	    1d3
+3T	    =d	    1m54    0	    x	    1
+3T	    =d	    1m53    0	    x	    1
+3T	    =d	    1m52    0	    x	    1i1
+3T	    =d	    1m51    0	    x	    1i2
+3T	    =d	    3m53    0	    x	    1i2
+3T	    =d	    5m53    0	    x	    1i3
+3T	    =d	    6m53    0	    x	    1i3
+3T	    =d	    7m53    0	    x	    1i4
+3T	    =d	    8m53    0	    x	    1i4
+3T	    =d	    -1m53   0	    x	    1d1
+3T	    =d	    -1m52   0	    x	    1d2
+3T	    =d	    -3m53   0	    x	    1d3
 !
 ! Numbers too close to zero to affect the leading '1' of the series:
 !
-3T	    d	    1m55    0	    x	    1
-3T	    d	    -1m55   0	    x	    1
-3T	    d	    1m62    0	    x	    1
-3T	    d	    -1m62   0	    x	    1
-3T	d	E	0	x	1
-3T	d	-E	0	x	1
-3T	d	0i1	0	x	1
-3T	d	0d1	0	x	1
-3T	d	0i3	0	x	1
-3T	d	0d3	0	x	1
+3T	    =d	    1m55    0	    x	    1
+3T	    =d	    -1m55   0	    x	    1
+3T	    =d	    1m62    0	    x	    1
+3T	    =d	    -1m62   0	    x	    1
+3T	=d	E	0	x	1
+3T	=d	-E	0	x	1
+3T	=d	0i1	0	x	1
+3T	=d	0d1	0	x	1
+3T	=d	0i3	0	x	1
+3T	=d	0d3	0	x	1
 
 
 

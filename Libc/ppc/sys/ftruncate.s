@@ -25,5 +25,4 @@
 #include "SYS.h"
 
 SYSCALL(ftruncate, 2)
-	blr
 

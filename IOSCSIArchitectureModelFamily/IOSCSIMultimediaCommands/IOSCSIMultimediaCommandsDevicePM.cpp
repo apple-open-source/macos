@@ -29,7 +29,7 @@
 //ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
 
 // SCSI Architecture Model Family includes
-#include <IOKit/scsi-commands/SCSITask.h>
+#include <IOKit/scsi/SCSITask.h>
 #include <IOKit/IOMessage.h>
 #include <IOKit/pwr_mgt/RootDomain.h>
 #include "IOSCSIMultimediaCommandsDevice.h"
@@ -338,6 +338,8 @@ IOSCSIMultimediaCommandsDevice::TicklePowerManager ( void )
 	// Also, if the drive was asleep, it might need a reset which could put it
 	// in standby mode anyway, so we usually request the max state from the power
 	// manager 
+	
+	STATUS_LOG ( ( "IOSCSIMultimediaCommandsDevice::TicklePowerManager called\n" ) );
 	( void ) super::TicklePowerManager ( kMMCPowerStateActive );
 	
 }
@@ -450,9 +452,16 @@ IOSCSIMultimediaCommandsDevice::HandlePowerChange ( void )
 				else
 				{
 					
-					STATUS_LOG ( ( "Calling EnablePolling\n" ) );
-					fPollingMode = kPollingMode_NewMedia;
-					EnablePolling ( );
+					// Check to see if someone had us open exclusively before going to
+					// sleep. If so, don't start polling!
+					if ( HandleGetUserClientExclusivityState ( ) == false )
+					{
+						
+						STATUS_LOG ( ( "Calling EnablePolling\n" ) );
+						fPollingMode = kPollingMode_NewMedia;
+						EnablePolling ( );
+						
+					}
 					
 				}
 				
@@ -464,6 +473,11 @@ IOSCSIMultimediaCommandsDevice::HandlePowerChange ( void )
 		{
 			
 			case kMMCPowerStateSystemSleep:
+			{
+				
+				bool		shouldSleepDrive	= true;
+				bool		driveIsAsleep 		= false;
+				OSString *	prop				= NULL;
 							
 				STATUS_LOG ( ( "case kMMCPowerStateSystemSleep\n" ) );
 				
@@ -526,56 +540,78 @@ IOSCSIMultimediaCommandsDevice::HandlePowerChange ( void )
 				if ( START_STOP_UNIT ( request, 0, 0, 1, 1, 0 ) == true )
 				{
 					( void ) SendCommand ( request, kTenSecondTimeoutInMS );
+					check ( GetTaskStatus ( request ) == kSCSITaskStatus_GOOD );
 				}
 				
-				// If the device supports the power conditions mode page, and we haven't already
-				// put it to sleep using the START_STOP_UNIT command, issue one to the drive.
-				if ( fDeviceSupportsPowerConditions )
+				prop = OSDynamicCast ( OSString, getProperty ( "No Sleep" ) );
+				if ( prop != NULL )
 				{
-					
-					STATUS_LOG ( ( "Sending DVD sleep command\n" ) );
-					
-					if ( START_STOP_UNIT ( request, 0, kMMCPowerConditionsSleep, 0, 0, 0 ) == true )
+					shouldSleepDrive = false;
+				}
+				
+				if ( shouldSleepDrive == true )
+				{
+				
+					// If the device supports the power conditions mode page, and we haven't already
+					// put it to sleep using the START_STOP_UNIT command, issue one to the drive.
+					if ( fDeviceSupportsPowerConditions )
 					{
 						
-						( void ) SendCommand ( request, 0 );
+						STATUS_LOG ( ( "Sending DVD sleep command\n" ) );
+						
+						if ( START_STOP_UNIT ( request, 0, kMMCPowerConditionsSleep, 0, 0, 0 ) == true )
+						{
+							
+							( void ) SendCommand ( request, 0 );
+							check ( GetTaskStatus ( request ) == kSCSITaskStatus_GOOD );
+							driveIsAsleep = true;
+							
+						}
+												
+					}
+						
+					else if ( IsProtocolServiceSupported ( kSCSIProtocolFeature_ProtocolSpecificSleepCommand, NULL ) )
+					{
+						
+						STATUS_LOG ( ( "Sending ATA sleep command\n" ) );
+						
+						features = true;
+						( void ) HandleProtocolServiceFeature (
+									kSCSIProtocolFeature_ProtocolSpecificSleepCommand,
+									( void * ) &features );
+						driveIsAsleep = true;
 						
 					}
-											
-				}
 					
-				else if ( IsProtocolServiceSupported ( kSCSIProtocolFeature_ProtocolSpecificSleepCommand, NULL ) )
-				{
-					
-					STATUS_LOG ( ( "Sending ATA sleep command\n" ) );
-					
-					features = true;
-					( void ) HandleProtocolServiceFeature (
-								kSCSIProtocolFeature_ProtocolSpecificSleepCommand,
-								( void * ) &features );
-					
-				}
+				}				
 				
-				else
+				if ( driveIsAsleep == false )
 				{
 					
 					STATUS_LOG ( ( "Device does NOT have protocol specific sleep command.\n" ) );
 					STATUS_LOG ( ( "Spinning down drive.\n" ) );
-
+					
 					// At a minimum, make sure the drive is spun down
 					if ( START_STOP_UNIT ( request, 0, 0, 0, 0, 0 ) == true )
 					{
 						
 						( void ) SendCommand ( request, 0 );
+						check ( GetTaskStatus ( request ) == kSCSITaskStatus_GOOD );
 						
 					}
-				
+					
 				}
 				
 				break;
 				
+			}
+				
 			case kMMCPowerStateSleep:
 			{
+				
+				bool		shouldSleepDrive	= true;
+				bool		driveIsAsleep 		= false;
+				OSString *	prop				= NULL;
 				
 				STATUS_LOG ( ( "case kMMCPowerStateSleep\n" ) );
 
@@ -611,6 +647,7 @@ IOSCSIMultimediaCommandsDevice::HandlePowerChange ( void )
 					if ( START_STOP_UNIT ( request, 0, 0, 1, 1, 0 ) == true )
 					{
 						( void ) SendCommand ( request, 0 );
+						check ( GetTaskStatus ( request ) == kSCSITaskStatus_GOOD );
 					}
 					
 					// does the device support low power polling?
@@ -625,6 +662,7 @@ IOSCSIMultimediaCommandsDevice::HandlePowerChange ( void )
 						{
 							
 							( void ) SendCommand ( request, 0 );
+							check ( GetTaskStatus ( request ) == kSCSITaskStatus_GOOD );
 							
 						}
 						
@@ -647,31 +685,61 @@ IOSCSIMultimediaCommandsDevice::HandlePowerChange ( void )
 				
 				STATUS_LOG ( ( "fDeviceSupportsLowPowerPolling  | fMediaPresent\n" ) );
 				
-				// If the device supports the power conditions mode page, and we haven't already
-				// put it to sleep using the START_STOP_UNIT command, issue one to the drive.
-				if ( fDeviceSupportsPowerConditions )
+				prop = OSDynamicCast ( OSString, getProperty ( "No Sleep" ) );
+				if ( prop != NULL )
+				{
+					shouldSleepDrive = false;
+				}
+				
+				if ( shouldSleepDrive == true )
 				{
 					
-					STATUS_LOG ( ( "Sending START_STOP_UNIT to drive to turn it off\n" ) );
+					// If the device supports the power conditions mode page, and we haven't already
+					// put it to sleep using the START_STOP_UNIT command, issue one to the drive.
+					if ( fDeviceSupportsPowerConditions == true )
+					{
+						
+						STATUS_LOG ( ( "Sending START_STOP_UNIT to drive to turn it off\n" ) );
+						
+						if ( START_STOP_UNIT ( request, 0, kMMCPowerConditionsSleep, 0, 0, 0 ) == true )
+						{
+							
+							( void ) SendCommand ( request, 0 );
+							check ( GetTaskStatus ( request ) == kSCSITaskStatus_GOOD );
+							driveIsAsleep = true;
+							
+						}
+						
+					}
 					
-					if ( START_STOP_UNIT ( request, 0, 0x05, 0, 0, 0 ) == true )
+					else
+					{
+						
+						STATUS_LOG ( ( "Calling protocol layer to sleep drive\n" ) );
+						
+						features = true;
+						( void ) HandleProtocolServiceFeature (
+									kSCSIProtocolFeature_ProtocolSpecificSleepCommand,
+									( void * ) &features );
+						driveIsAsleep = true;
+						
+					}
+					
+				}
+				
+				if ( driveIsAsleep == false )
+				{
+					
+					STATUS_LOG ( ( "Spinning down drive, since it is broken with sleep/wake.\n" ) );
+					
+					// At a minimum, make sure the drive is spun down
+					if ( START_STOP_UNIT ( request, 0, 0, 0, 0, 0 ) == true )
 					{
 						
 						( void ) SendCommand ( request, 0 );
+						check ( GetTaskStatus ( request ) == kSCSITaskStatus_GOOD );
 						
 					}
-											
-				}
-					
-				else
-				{
-											
-					STATUS_LOG ( ( "Calling protocol layer to sleep drive\n" ) );
-					
-					features = true;
-					( void ) HandleProtocolServiceFeature (
-								kSCSIProtocolFeature_ProtocolSpecificSleepCommand,
-								( void * ) &features );
 					
 				}
 				
@@ -717,6 +785,7 @@ IOSCSIMultimediaCommandsDevice::HandlePowerChange ( void )
 						{
 							
 							( void ) SendCommand ( request, 0 );
+							check ( GetTaskStatus ( request ) == kSCSITaskStatus_GOOD );
 							
 						}
 						
@@ -753,6 +822,7 @@ IOSCSIMultimediaCommandsDevice::HandlePowerChange ( void )
 						{
 							
 							( void ) SendCommand ( request, 0 );
+							check ( GetTaskStatus ( request ) == kSCSITaskStatus_GOOD );
 							
 						}
 						
@@ -1040,7 +1110,7 @@ IOSCSIMultimediaCommandsDevice::GetCurrentPowerStateOfDrive ( UInt32 * powerStat
 	
 	if ( GET_EVENT_STATUS_NOTIFICATION ( request,
 										 bufferDesc,
-										 0,
+										 1,
 										 0x02,
 										 kPowerStatusBufferSize,
 										 0 ) == true )

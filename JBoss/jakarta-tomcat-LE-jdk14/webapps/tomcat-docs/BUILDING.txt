@@ -1,0 +1,500 @@
+$Id: BUILDING.txt,v 1.33 2002/07/29 19:06:09 patrickl Exp $
+
+
+               Building The Tomcat 4.0 Servlet/JSP Container
+               =============================================
+
+This subproject contains the source code Tomcat 4.0, a server that implements
+the Servlet 2.3 and JSP 1.2 Specifications from Java Software.  In order to
+build a binary distribution version of the container from a source
+distribution, you must have a Java Development Kit (JDK) for version 1.3 (or
+later) downloaded and installed (version 1.3.1 recommended), and do the
+following:
+
+
+(0) Download and Install a Java Development Kit
+
+* Download a Java Development Kit (JDK) release (version 1.3 or later) from:
+
+    http://java.sun.com/j2se/
+
+* Install the JDK according to the instructions included with the release.
+
+* Set an environment variable JAVA_HOME to the pathname of the directory
+  into which you installed the JDK release.
+
+
+(1) Download and Install the Ant Binary Distribution
+
+NOTE: Previous versions of Tomcat 4.0 relied on Ant 1.3 for the build
+process. The 1.5 release is now required.
+
+* Download a binary distribution of Ant 1.5 from:
+
+    http://jakarta.apache.org/builds/jakarta-ant/release/v1.5/bin/
+
+  On a Windows platform, you will need:
+    jakarta-ant-1.5-bin.zip
+
+  On a Unix platform, you will need:
+    jakarta-ant-1.5-bin.tar.gz
+
+* Unpack the binary distribution into a convenient location so that the
+  Ant release resides in its own directory (conventionally named
+  "jakarta-ant-1.5").  For the purposes of the remainder of this document,
+  the symbolic name "${ant.home}" is used to refer to the full pathname of
+  the release directory.
+
+* Modify the PATH environment variable to include directory
+  "${ant.home}/bin" in its list.  This makes the "ant" command line script
+  available, which will be used to actually perform the build.
+
+
+(2) Download and Install the Java XML Pack Binary Distribution
+
+* Download a binary distribution of Java XML Pack:
+
+    http://java.sun.com/xml/downloads/javaxmlpack.html
+
+* Unpack the binary distribution into a convenient location so that the
+  Java XML Pack release resides in its own directory (the JAXP libraries
+  reside in the jaxp-1.1.3 subdirectory).  For the purposes of the 
+  remainder of this document, the symbolic name "${jaxp.home}" is used 
+  to refer to the full pathname to the jaxp-1.1.3 subdirectory of the 
+  Java XML Pack release directory.
+
+* Make the "xalan.jar" file of this distribution available to Ant (so that
+  it can be used with the <style> tag) by copying it to "${ant.home}/lib".
+
+* This is optional with JDK 1.4 or later.
+
+
+(3) Download and Install the JNDI 1.2.1 Reference Implementation
+
+* Download the Java Naming and Directory Interface (JNDI) package,
+  (version 1.2.1 or later) from
+
+    http://java.sun.com/products/jndi/
+
+* Unpack the reference implementation into a convenient location so that
+  it resides in its own subdirectory.
+
+* You will also need the LDAP Service Provider Maintenance package,
+  (version 1.2.3 or later) available on the same download page. Be sure
+  that you unpack "ldap.jar" and "jaas.jar" into the "lib" subdirectory of
+  the JNDI directory, parallel to "jndi.jar".
+
+* This is optional with JDK 1.3 or later.
+
+
+(4) Download and Install the Xerces 1 or 2 Distribution
+
+* Download a binary distribution from:
+
+  http://xml.apache.org/dist/xerces-j/
+
+  (Tomcat was tested with "Xerces-J-bin.1.4.3.zip")
+
+* Unpack the binary distribution into a convenient location so that the
+  distribution resides in its own directory (conventionally named
+  "xerces-x_y_z").
+
+* In your build.properties file, you will need to set properties differently
+  based on which version of Xerces you are using:
+  - For versions 1.3.1 up through and including 2.0.0beta3,
+    set the "xerces.jar" property to point at the full
+    pathname of the corresponding file.
+  - For version 2.0.0beta4 and later, set the "xmlParserAPIs.jar"
+    and "xercesImpl.jar" properties to point at the corresponding
+    files
+  - If you have defined both sets of properties, the newer (two files)
+    packaging will be loaded into the Tomcat you are building
+
+* This is optional with JDK 1.4 or later.
+
+
+(5) Download and Install Subproject Source Code
+
+* Use Anonymous CVS (as described on the Jakarta web site at
+  <http://jakarta.apache.org/site/cvsindex.html>, or
+  download a source distribution from:
+
+    http://jakarta.apache.org/builds/jakarta-tomcat-4.0/nightly/src/
+
+  On a Windows platform, you will need:
+    jakarta-tomcat-4.0-src-YYYYMMDD.zip
+
+  On a Unix platform, you will need:
+    jakarta-tomcat-4.0-src-YYYYMMDD.tar.gz
+
+  (NOTE:  Alternatively, you can grab the source distribution from a
+  formal release, if you wish, by following links on the Jakarta web site).
+
+* Unpack the source distribution into a convenient location so that the
+  distribution resides in its own directory (conventionally named
+  "jakarta-tomcat-4.0").  For the purposes of the remainder of this document,
+  the symbolic name "${tomcat.source}" is used to refer to the full
+  pathname of the release directory.
+
+* Use Anonymous CVS (as described on the Jakarta web site at
+  <http://jakarta.apache.org/site/cvsindex.html>, or
+  download a source distribution of the "jakarta-tomcat-connectors" repository.
+
+* Unpack the source distribution into a convenient location so that the
+  distribution resides in its own directory (conventionally named
+  "jakarta-tomcat-connectors").  By default, the build system will try to find
+  this repository in the "${tomcat.source}/../jakarta-tomcat-connectors"
+  directory.  Set the "jtc.home" property in the build.properties file 
+  described below (see 26) if it resides in a different directory.
+
+
+(6) Download and Install the Servlet API Binary Distribution
+
+NOTE:  Alternatively, you can download the sources of the
+"jakarta-servletapi-4" subproject, and build a binary distribution yourself,
+or use the binary distribution that is available with binary distributions
+of Tomcat 4.0.
+
+* Download a binary distribution from:
+
+    http://jakarta.apache.org/builds/jakarta-servletapi-4/nightly/
+
+  On a Windows platform, you will need:
+    jakarta-servletapi-4-YYYYMMDD.zip
+
+  On a Unix platform, you will need:
+    jakarta-servletapi-4-YYYYMMDD.tar.gz
+
+* Unpack the binary distribution into a convenient location so that the
+  distribution resides in its own directory.
+
+
+(7) Download and Install the Commons Beanutils Binary Distribution
+
+* Download a binary distribution of Version 1.1 or later from:
+
+    http://jakarta.apache.org/builds/jakarta-commons/release/commons-beanutils
+
+  On a Windows platform, you will need:
+    commons-beanutils-X.Y.zip
+
+  On a Unix platform, you will need:
+    commons-beanutils-X.Y.tar.gz
+
+* Unpack the binary distribution into a convenient location so that the
+  distribution resides in its own directory.
+
+
+(8) Download and Install the Commons Collections Binary Distribution
+
+* Download a binary distribution of Version 1.0 or later from:
+
+   http://jakarta.apache.org/builds/jakarta-commons/release/commons-collections
+
+  On a Windows platform, you will need:
+    commons-collections-X.Y.zip
+
+  On a Unix platform, you will need:
+    commons-collections-X.Y.tar.gz
+
+* Unpack the binary distribution into a convenient location so that the
+  distribution resides in its own directory.
+
+
+(9) Download and Install the Commons Digester Binary Distribution
+
+* Download a binary distribution of Version 1.1.1 or later from:
+
+    http://jakarta.apache.org/builds/jakarta-commons/release/commons-digester
+
+  On a Windows platform, you will need:
+    commons-digester-X.Y.zip
+
+  On a Unix platform, you will need:
+    commons-digester-X.Y.tar.gz
+
+* Unpack the binary distribution into a convenient location so that the
+  distribution resides in its own directory.
+
+
+(10) Download and Install the Commons Logging Binary Distribution
+
+* Download a binary distribution (nightly build for now) from:
+
+    http://jakarta.apache.org/builds/jakarta-commons/nightly/commons-logging
+
+  On a Windows platform, you will need:
+    commons-logging-YYYYMMDD.zip
+
+  On a Unix platform, you will need:
+    commons-logging-YYYYMMDD.tar.gz
+
+* Unpack the binary distribution into a convenient location so that the
+  distribution resides in its own directory.
+
+
+(11) Download and Install the Regexp Binary Distribution
+
+* Download a binary distribution of Version 1.2 or later from:
+
+    http://jakarta.apache.org/builds/jakarta-regexp/release/
+
+  On a Windows platform, you will need:
+    jakarta-regexp-X.Y.zip
+
+  On a Unix platform, you will need:
+    jakarta-regexp-X.Y.tar.gz
+
+* Unpack the binary distribution into a convenient location so that the
+  distribution resides in its own directory.
+
+
+(12) Steps (13)-(25) are optional, but are necessary to build a complete binary
+     distribution of Tomcat 4.0. Set the "full.dist" property to "on" in the
+     build.properties file (see step (26)) to build a complete distribution.
+     Regular contributors to Tomcat are encouraged to use the complete build 
+     option.
+
+
+(13) Download and Install JDBC Optional Package API Binary Distribution
+
+* Download the JDBC Optional Pacakge API package (version 2.0) from:
+
+    http://java.sun.com/products/jdbc/download.html
+
+* Place the jar in a convenient location.
+
+
+(14) Download and Install an implementation of the JMX 1.0 specification. This
+     can be either MX4J (http://mx4j.sourceforge.net) or Sun JMX 1.0 Reference 
+     Implementation.
+
+NOTE:  This step is only required if you wish to build the Config/Admin
+web application.
+
+NOTE:  The Tomcat binaries are distrbuted with MX4J.
+
+* Download MX4J (version 1.0 or later) from
+
+    http://sourceforge.net/project/showfiles.php?group_id=47745
+
+* Alternately, download the JMX Instrumentation and Agent Reference 
+  Implementation (version 1.0 or later) from
+
+    http://java.sun.com/products/JavaManagement/download.html
+
+* Unpack MX4J or the reference implementation into a convenient location 
+  so that it resides in its own subdirectory.
+
+(15) Download and Install the Java Activation Framework 1.0.1
+
+* Download the Java Activation Framework package (version 1.0.1 or later) from
+
+    http://java.sun.com/products/javabeans/glasgow/jaf.html
+
+* Unpack the package into a convenient location so that it
+  resides in its own subdirectory.
+
+
+(16) Download and Install JavaMail 1.2
+
+* Download the JavaMail package (version 1.2 or later) from
+
+    http://java.sun.com/products/javamail/index.html
+
+* Unpack the package into a convenient location so that
+  it resides in its own subdirectory.
+
+
+(17) Download and Install the JSSE 1.0.2 Reference Implementation
+
+* Download the Java Secure Sockets Extension (JSSE) package,
+  (version 1.0.2 or later) from
+
+    http://java.sun.com/products/jsse/
+
+* Unpack the reference implementation into a convenient location so that
+  it resides in its own subdirectory.
+
+
+(18) Download and Install the Java Transaction APIs
+
+* Download the Java Transaction API (JTA) package (version 1.0.1) from:
+
+    http://java.sun.com/products/jta/
+
+* Unpack the package into a convenient location so that it resides in its
+  own subdirectory.
+
+
+(19) Download and Install the Struts Binary Distribution
+
+* Download a binary distribution of Struts 1.0.1 from:
+
+    http://jakarta.apache.org/builds/jakarta-struts/release/v1.0.1/
+
+  On a Windows platform, you will need:
+    jakarta-struts-1.0.1.zip
+
+  On a Unix platform, you will need:
+    jakarta-struts-1.0.1.tar.gz
+
+* Unpack the binary distribution into a convenient location so that the
+  distribution resides in its own directory.
+
+
+(20) Download and Install the Tyrex Data Source Package
+
+NOTE:  This step is only required if you wish to build the Tyrex connection
+pool implementation for JNDI-accessed data sources.
+
+* Download the Tyrex JAR or release (version 1.0) from:
+
+    http://tyrex.exolab.org/download.html
+
+* Unpack the package into a convenient location so that it resides in its
+  own subdirectory.
+
+
+(21) Download and Install the JUnit Testing Package (OPTIONAL)
+
+NOTE:  This step is only required if you wish to build and execute the unit
+tests that are part of the Tomcat 4.0 source base.
+
+* Download the JUnit unit test package (version 3.7 or later) from:
+
+    http://www.junit.org/
+
+* Unpack the package into a convenient location so that it resides in its
+  own subdirectory.
+
+
+(22) Download and Install the Commons Modeler Binary Distribution
+
+NOTE:  This step is only required if you wish to build the Config/Admin
+web application.
+
+* Download a binary distribution of version 20020117 or later from:
+
+    http://jakarta.apache.org/builds/jakarta-commons/nightly/commons-modeler
+
+  On a Windows platform, you will need:
+    commons-modeler-YYYYMMDD.zip
+
+  On a Unix platform, you will need:
+    commons-modeler-YYYYMMDD.tar.gz
+
+* Unpack the binary distribution into a convenient location so that the
+  distribution resides in its own directory.
+
+
+(23) Download and Install the Commons DBCP Binary Distribution
+
+NOTE:  This step is only required if you wish to use the database JDBC data
+source factory.
+
+* Download a binary distribution of version 20011030 or later from:
+
+    http://jakarta.apache.org/builds/jakarta-commons/nightly/commons-dbcp
+
+  On a Windows platform, you will need:
+    commons-dbcp-YYYYMMDD.zip
+
+  On a Unix platform, you will need:
+    commons-dbcp-YYYYMMDD.tar.gz
+
+* Unpack the binary distribution into a convenient location so that the
+  distribution resides in its own directory.
+
+
+(24) Download and Install the Commons Pool Binary Distribution
+
+NOTE:  This step is only required if you wish to use the database JDBC data
+source factory.
+
+* Download a binary distribution of version 1.0 or later from:
+
+    http://jakarta.apache.org/builds/jakarta-commons/release/commons-pool/v1.0/
+
+  On a Windows platform, you will need:
+    commons-pool-1.0.zip
+
+  On a Unix platform, you will need:
+    commons-pool-1.0.tar.gz
+
+* Unpack the binary distribution into a convenient location so that the
+  distribution resides in its own directory.
+
+
+(25) Download and Install the Commons Daemon Binary Distribution
+
+NOTE:  This step is only required if you wish to build the classes needed to
+run Tomcat as a native operating system daemon using commons-daemon.
+
+* Download a binary distribution of version 20020730 or later from:
+
+    http://jakarta.apache.org/builds/jakarta-commons/nightly/commons-daemon
+
+  On a Windows platform, you will need:
+    commons-daemon-YYYYMMDD.zip
+
+  On a Unix platform, you will need:
+    commons-daemon-YYYYMMDD.tar.gz
+
+* Unpack the binary distribution into a convenient location so that the
+  distribution resides in its own directory.
+
+
+(26) Customize Build Properties For This Subproject
+
+Most Jakarta subprojects allow you to customize Ant properties (with default
+values defined in the "build.xml" file.  This is done by creating a text file
+named "build.properties" in the source distribution directory (for property
+definitions local to this subproject) and/or your user home directory (for
+property definitions shared across subprojects).  You can use the included
+"build.properties.sample" file as a starting point for this.
+
+Tomcat has many external dependencies that are satisfied by configuring
+appropriate values in your build.properties file.  The easiest
+way to satisfy these dependencies is to copy the "build.properties.sample"
+file (in the top-level Tomcat source directory) to "build.properties", and
+then edit it to suit your environment.  On Unix, this would be done as:
+
+  cd ${tomcat.source}
+  cp build.properties.sample build.properties
+  emacs build.properties
+
+NOTE:  Be *sure* that you do not check "build.properties" in to the CVS
+repository.  This file is local to your own development environment, and
+each developer will have their own version.
+
+
+(27) Build A Binary Distribution
+
+Open a command line shell, and issue the following commands:
+
+  cd ${tomcat.source}
+  ant -projecthelp
+
+If everything is installed correctly, you should see a list of the Ant
+"targets" that represent different commands you might wish to build.
+
+You can check that all dependencies are correctly installed by using 
+the following commands:
+
+  cd ${tomcat.source}
+  ant detect
+
+By convention, the "dist" target creates a complete binary distribution.  To
+execute it, type the following commands:
+
+  cd ${tomcat.source}
+  ant dist
+
+This will create a complete binary distribution of the subproject (equivalent
+in structure to the corresponding binary distribution downloadable from the
+Jakarta web site), in the "${tomcat.source}/dist" directory.  It will have
+the contents described in the corresponding "README.txt" file.
+
+See the document RUNNING.txt for instructions on how to start up and shut down
+the servlet/JSP container.

@@ -73,4 +73,4 @@ private:
 }	// end namespace Security
 
 
-#endif _H_PROTOCOL
+#endif /* _H_PROTOCOL */

@@ -39,7 +39,7 @@
 
 #include <sys/types.h>
 #include <sys/file.h>
-#include <dev/disk.h>
+#include <sys/disk.h>
 #include <errno.h>
 #include <stdio.h>
 #include <string.h>
@@ -64,7 +64,7 @@ long dksecsize (dev)
     else
           return (0);
 
-    if (ioctl(fd, DKIOCBLKSIZE, &devblklen) < 0) {
+    if (ioctl(fd, DKIOCGETBLOCKSIZE, &devblklen) < 0) {
 	(void)close(fd);
         return (0);
     }

@@ -1,7 +1,7 @@
 XCOMM
-XCOMM $Id: Imakefile,v 1.1.1.2 2001/06/28 23:10:48 bbraun Exp $
+XCOMM $Id: Imakefile,v 1.1.1.3 2003/01/17 03:41:09 nicolai Exp $
 XCOMM
-XCOMM Imakefile for tcsh 6.10
+XCOMM Imakefile for tcsh 6.12
 XCOMM Marc Horowitz, MIT SIPB
 XCOMM
 
@@ -480,7 +480,7 @@ LDLIBS = MyLibs
 #endif
 
 SUF = o
-VERSION = 6.10
+VERSION = 6.12
 
 SHSRCS=	sh.c sh.dir.c sh.dol.c sh.err.c sh.exec.c sh.char.c \
 	sh.exp.c sh.file.c sh.func.c sh.glob.c sh.hist.c sh.init.c \

@@ -58,12 +58,11 @@
 
 #include <stdio.h>
 #include <string.h>
-#include <assert.h>
 #include "cryptlib.h"
 #include <openssl/crypto.h>
 #include <openssl/safestack.h>
 
-#if defined(WIN32) || defined(WIN16)
+#if defined(OPENSSL_SYS_WIN32) || defined(OPENSSL_SYS_WIN16)
 static double SSLeay_MSVC5_hack=0.0; /* and for VC1.5 */
 #endif
 
@@ -75,7 +74,7 @@ static const char* lock_names[CRYPTO_NUM_LOCKS] =
 	{
 	"<<ERROR>>",
 	"err",
-	"err_hash",
+	"ex_data",
 	"x509",
 	"x509_info",
 	"x509_pkey",
@@ -90,7 +89,7 @@ static const char* lock_names[CRYPTO_NUM_LOCKS] =
 	"ssl_session",
 	"ssl_sess_cert",
 	"ssl",
-	/* "ssl_method", */
+	"ssl_method",
 	"rand",
 	"rand2",
 	"debug_malloc",
@@ -103,7 +102,10 @@ static const char* lock_names[CRYPTO_NUM_LOCKS] =
 	"debug_malloc2",
 	"dso",
 	"dynlock",
-#if CRYPTO_NUM_LOCKS != 29
+	"engine",
+	"ui",
+	"hwcrhk",		/* This is a HACK which will disappear in 0.9.8 */
+#if CRYPTO_NUM_LOCKS != 33
 # error "Inconsistency between crypto.h and cryptlib.c"
 #endif
 	};
@@ -135,11 +137,11 @@ int CRYPTO_get_new_lockid(char *name)
 	char *str;
 	int i;
 
+#if defined(OPENSSL_SYS_WIN32) || defined(OPENSSL_SYS_WIN16)
 	/* A hack to make Visual C++ 5.0 work correctly when linking as
 	 * a DLL using /MT. Without this, the application cannot use
 	 * and floating point printf's.
 	 * It also seems to be needed for Visual C 1.5 (win16) */
-#if defined(WIN32) || defined(WIN16)
 	SSLeay_MSVC5_hack=(double)name[0]*(double)name[1];
 #endif
 
@@ -367,9 +369,9 @@ unsigned long CRYPTO_thread_id(void)
 
 	if (id_callback == NULL)
 		{
-#ifdef WIN16
+#ifdef OPENSSL_SYS_WIN16
 		ret=(unsigned long)GetCurrentTask();
-#elif defined(WIN32)
+#elif defined(OPENSSL_SYS_WIN32)
 		ret=(unsigned long)GetCurrentThreadId();
 #elif defined(GETPID_IS_MEANINGLESS)
 		ret=1L;
@@ -414,7 +416,7 @@ void CRYPTO_lock(int mode, int type, const char *file, int line)
 			struct CRYPTO_dynlock_value *pointer
 				= CRYPTO_get_dynlock_value(type);
 
-			assert(pointer != NULL);
+			OPENSSL_assert(pointer != NULL);
 
 			dynlock_lock_callback(mode, pointer, file, line);
 
@@ -477,7 +479,7 @@ const char *CRYPTO_get_lock_name(int type)
 	}
 
 #ifdef _DLL
-#ifdef WIN32
+#ifdef OPENSSL_SYS_WIN32
 
 /* All we really need to do is remove the 'error' state when a thread
  * detaches */
@@ -502,3 +504,11 @@ BOOL WINAPI DLLEntryPoint(HINSTANCE hinstDLL, DWORD fdwReason,
 #endif
 
 #endif
+
+void OpenSSLDie(const char *file,int line,const char *assertion)
+	{
+	fprintf(stderr,
+		"%s(%d): OpenSSL internal error, assertion failed: %s\n",
+		file,line,assertion);
+	abort();
+	}

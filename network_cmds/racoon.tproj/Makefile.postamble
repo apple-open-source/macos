@@ -106,5 +106,7 @@ install-man-page:
 
 install-config-files:
 	install -d $(DSTROOT)/private/etc/racoon
+	install -d $(DSTROOT)/private/etc/racoon/remote
 	install -c -m 644 racoon.conf $(DSTROOT)/private/etc/racoon/racoon.conf
+	install -c -m 600 anonymous.conf $(DSTROOT)/private/etc/racoon/remote/anonymous.conf
 	install -c -m 600 psk.txt $(DSTROOT)/private/etc/racoon/psk.txt

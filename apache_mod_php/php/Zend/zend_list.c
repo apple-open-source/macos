@@ -2,12 +2,12 @@
    +----------------------------------------------------------------------+
    | Zend Engine                                                          |
    +----------------------------------------------------------------------+
-   | Copyright (c) 1998-2001 Zend Technologies Ltd. (http://www.zend.com) |
+   | Copyright (c) 1998-2003 Zend Technologies Ltd. (http://www.zend.com) |
    +----------------------------------------------------------------------+
-   | This source file is subject to version 0.92 of the Zend license,     |
+   | This source file is subject to version 2.00 of the Zend license,     |
    | that is bundled with this package in the file LICENSE, and is        | 
    | available at through the world-wide-web at                           |
-   | http://www.zend.com/license/0_92.txt.                                |
+   | http://www.zend.com/license/2_00.txt.                                |
    | If you did not receive a copy of the Zend license and are unable to  |
    | obtain it through the world-wide-web, please send a note to          |
    | license@zend.com so we can mail you a copy immediately.              |
@@ -117,12 +117,12 @@ ZEND_API void *zend_fetch_resource(zval **passed_id TSRMLS_DC, int default_id, c
 	if (default_id==-1) { /* use id */
 		if (!passed_id) {
 			if (resource_type_name) {
-				zend_error(E_WARNING, "No %s resource supplied", resource_type_name);
+				zend_error(E_WARNING, "%s(): no %s resource supplied", get_active_function_name(TSRMLS_C), resource_type_name);
 			}
 			return NULL;
 		} else if ((*passed_id)->type != IS_RESOURCE) {
 			if (resource_type_name) {
-				zend_error(E_WARNING, "Supplied argument is not a valid %s resource", resource_type_name);
+				zend_error(E_WARNING, "%s(): supplied argument is not a valid %s resource", get_active_function_name(TSRMLS_C), resource_type_name);
 			}
 			return NULL;
 		}
@@ -134,7 +134,7 @@ ZEND_API void *zend_fetch_resource(zval **passed_id TSRMLS_DC, int default_id, c
 	resource = zend_list_find(id, &actual_resource_type);
 	if (!resource) {
 		if (resource_type_name) {
-			zend_error(E_WARNING, "%d is not a valid %s resource", id, resource_type_name);
+			zend_error(E_WARNING, "%s(): %d is not a valid %s resource", get_active_function_name(TSRMLS_C), id, resource_type_name);
 		}
 		return NULL;
 	}
@@ -152,7 +152,7 @@ ZEND_API void *zend_fetch_resource(zval **passed_id TSRMLS_DC, int default_id, c
 	va_end(resource_types);
 
 	if (resource_type_name) {
-		zend_error(E_WARNING, "Supplied resource is not a valid %s resource", resource_type_name);
+		zend_error(E_WARNING, "%s(): supplied resource is not a valid %s resource", get_active_function_name(TSRMLS_C), resource_type_name);
 	}
 
 	return NULL;
@@ -230,32 +230,8 @@ int zend_init_rsrc_plist(TSRMLS_D)
 
 void zend_destroy_rsrc_list(HashTable *ht TSRMLS_DC)
 {
-	Bucket *p, *q;
-
-	while (1) {
-		p = ht->pListTail;
-		if (!p) {
-			break;
-		}
-		q = p->pListLast;
-		if (q) {
-			q->pListNext = NULL;
-		}
-		ht->pListTail = q;
-
-		if (ht->pDestructor) {
-			zend_try {
-				ht->pDestructor(p->pData);
-			} zend_end_try();
-		}
-		if (!p->pDataPtr && p->pData) {
-			pefree(p->pData, ht->persistent);
-		}
-		pefree(p, ht->persistent);
-	}
-	pefree(ht->arBuckets, ht->persistent);
+	zend_hash_graceful_reverse_destroy(ht);
 }
-
 
 static int clean_module_resource(zend_rsrc_list_entry *le, int *resource_id TSRMLS_DC)
 {

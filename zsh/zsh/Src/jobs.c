@@ -30,6 +30,12 @@
 #include "zsh.mdh"
 #include "jobs.pro"
 
+/* the process group of the shell at startup (equal to mypgprp, except
+   when we started without being process group leader */
+
+/**/
+mod_export pid_t origpgrp;
+
 /* the process group of the shell */
 
 /**/
@@ -54,6 +60,12 @@ mod_export int prevjob;
  
 /**/
 mod_export struct job jobtab[MAXJOB];
+
+/* If we have entered a subshell, the original shell's job table. */
+static struct job *oldjobtab;
+
+/* The size of that. */
+static int oldmaxjob;
 
 /* shell timings */
  
@@ -118,20 +130,34 @@ makerunning(Job jn)
 
 /**/
 int
-findproc(pid_t pid, Job *jptr, Process *pptr)
+findproc(pid_t pid, Job *jptr, Process *pptr, int aux)
 {
     Process pn;
     int i;
 
     for (i = 1; i < MAXJOB; i++)
-	for (pn = jobtab[i].procs; pn; pn = pn->next)
+    {
+	for (pn = aux ? jobtab[i].auxprocs : jobtab[i].procs;
+	     pn; pn = pn->next)
 	    if (pn->pid == pid) {
 		*pptr = pn;
 		*jptr = jobtab + i;
 		return 1;
 	    }
+    }
 
     return 0;
+}
+
+/* Does the given job number have any processes? */
+
+/**/
+int
+hasprocs(int job)
+{
+    Job jn = jobtab + job;
+
+    return jn->procs || jn->auxprocs;
 }
 
 /* Find the super-job of a sub-job. */
@@ -156,7 +182,7 @@ handle_sub(int job, int fg)
 {
     Job jn = jobtab + job, sj = jobtab + jn->other;
 
-    if ((sj->stat & STAT_DONE) || !sj->procs) {
+    if ((sj->stat & STAT_DONE) || (!sj->procs && !sj->auxprocs)) {
 	struct process *p;
 		    
 	for (p = sj->procs; p; p = p->next)
@@ -244,6 +270,10 @@ update_job(Job jn)
     int job;
     int val = 0, status = 0;
     int somestopped = 0, inforeground = 0;
+
+    for (pn = jn->auxprocs; pn; pn = pn->next)
+	if (pn->status == SP_RUNNING)
+	    return;
 
     for (pn = jn->procs; pn; pn = pn->next) {
 	if (pn->status == SP_RUNNING)      /* some processes in this job are running       */
@@ -612,12 +642,17 @@ void
 printjob(Job jn, int lng, int synch)
 {
     Process pn;
-    int job = jn - jobtab, len = 9, sig, sflag = 0, llen;
+    int job, len = 9, sig, sflag = 0, llen;
     int conted = 0, lineleng = columns, skip = 0, doputnl = 0;
     FILE *fout = (synch == 2) ? stdout : shout;
 
     if (jn->stat & STAT_NOPRINT)
 	return;
+
+    if (jn < jobtab || jn >= jobtab + MAXJOB)
+	job = jn - oldjobtab;
+    else
+	job = jn - jobtab;
 
     if (lng < 0) {
 	conted = 1;
@@ -655,11 +690,14 @@ printjob(Job jn, int lng, int synch)
 	}
     }
 
-/* print if necessary */
+/* print if necessary: ignore option state on explicit call to `jobs'. */
 
-    if (interact && jobbing && ((jn->stat & STAT_STOPPED) || sflag ||
-				job != thisjob)) {
+    if (synch == 2 || 
+	(interact && jobbing &&
+	 ((jn->stat & STAT_STOPPED) || sflag || job != thisjob))) {
 	int len2, fline = 1;
+	/* use special format for current job, except in `jobs' */
+	int thisfmt = job == thisjob && synch != 2;
 	Process qn;
 
 	if (!synch)
@@ -667,7 +705,7 @@ printjob(Job jn, int lng, int synch)
 	if (doputnl && !synch)
 	    putc('\n', fout);
 	for (pn = jn->procs; pn;) {
-	    len2 = ((job == thisjob) ? 5 : 10) + len;	/* 2 spaces */
+	    len2 = (thisfmt ? 5 : 10) + len;	/* 2 spaces */
 	    if (lng & 3)
 		qn = pn->next;
 	    else
@@ -678,10 +716,10 @@ printjob(Job jn, int lng, int synch)
 			break;
 		    len2 += strlen(qn->text) + 2;
 		}
-	    if (job != thisjob) {
+	    if (!thisfmt) {
 		if (fline)
 		    fprintf(fout, "[%ld]  %c ",
-			    (long)(jn - jobtab),
+			    (long)job,
 			    (job == curjob) ? '+'
 			    : (job == prevjob) ? '-' : ' ');
 		else
@@ -775,14 +813,9 @@ deletefilelist(LinkList file_list)
 
 /**/
 void
-deletejob(Job jn)
+freejob(Job jn, int deleting)
 {
     struct process *pn, *nx;
-
-    if (jn->stat & STAT_ATTACH) {
-	attachtty(mypgrp);
-	adjustwinsize(0);
-    }
 
     pn = jn->procs;
     jn->procs = NULL;
@@ -790,29 +823,62 @@ deletejob(Job jn)
 	nx = pn->next;
 	zfree(pn, sizeof(struct process));
     }
-    deletefilelist(jn->filelist);
+
+    pn = jn->auxprocs;
+    jn->auxprocs = NULL;
+    for (; pn; pn = nx) {
+	nx = pn->next;
+	zfree(pn, sizeof(struct process));
+    }
 
     if (jn->ty)
 	zfree(jn->ty, sizeof(struct ttyinfo));
     if (jn->pwd)
 	zsfree(jn->pwd);
     jn->pwd = NULL;
-    if (jn->stat & STAT_WASSUPER)
-	deletejob(jobtab + jn->other);
+    if (jn->stat & STAT_WASSUPER) {
+	if (deleting)
+	    deletejob(jobtab + jn->other);
+	else
+	    freejob(jobtab + jn->other, 0);
+    }
     jn->gleader = jn->other = 0;
     jn->stat = jn->stty_in_env = 0;
-    jn->procs = NULL;
     jn->filelist = NULL;
     jn->ty = NULL;
 }
 
-/* add a process to the current job */
+/*
+ * We are actually finished with this job, rather
+ * than freeing it to make space.
+ */
 
 /**/
 void
-addproc(pid_t pid, char *text)
+deletejob(Job jn)
 {
-    Process pn;
+    deletefilelist(jn->filelist);
+    if (jn->stat & STAT_ATTACH) {
+	attachtty(mypgrp);
+	adjustwinsize(0);
+    }
+
+    freejob(jn, 1);
+}
+
+/*
+ * Add a process to the current job.
+ * The third argument is 1 if we are adding a process which is not
+ * part of the main pipeline but an auxiliary process used for
+ * handling MULTIOS or process substitution.  We will wait for it
+ * but not display job information about it.
+ */
+
+/**/
+void
+addproc(pid_t pid, char *text, int aux)
+{
+    Process pn, *pnlist;
     struct timezone dummy_tz;
 
     pn = (Process) zcalloc(sizeof *pn);
@@ -821,25 +887,30 @@ addproc(pid_t pid, char *text)
 	strcpy(pn->text, text);
     else
 	*pn->text = '\0';
-    gettimeofday(&pn->bgtime, &dummy_tz);
     pn->status = SP_RUNNING;
     pn->next = NULL;
 
-    /* if this is the first process we are adding to *
-     * the job, then it's the group leader.          */
-    if (!jobtab[thisjob].gleader)
-	jobtab[thisjob].gleader = pid;
+    if (!aux)
+    {
+	gettimeofday(&pn->bgtime, &dummy_tz);
+	/* if this is the first process we are adding to *
+	 * the job, then it's the group leader.          */
+	if (!jobtab[thisjob].gleader)
+	    jobtab[thisjob].gleader = pid;
+	/* attach this process to end of process list of current job */
+	pnlist = &jobtab[thisjob].procs;
+    }
+    else
+	pnlist = &jobtab[thisjob].auxprocs;
 
-    /* attach this process to end of process list of current job */
-    if (jobtab[thisjob].procs) {
+    if (*pnlist) {
 	Process n;
 
-	for (n = jobtab[thisjob].procs; n->next; n = n->next);
-	pn->next = NULL;
+	for (n = *pnlist; n->next; n = n->next);
 	n->next = pn;
     } else {
 	/* first process for this job */
-	jobtab[thisjob].procs = pn;
+	*pnlist = pn;
     }
     /* If the first process in the job finished before any others were *
      * added, maybe STAT_DONE got set incorrectly.  This can happen if *
@@ -902,7 +973,7 @@ zwaitjob(int job, int sig)
 
     dont_queue_signals();
     child_block();		 /* unblocked during child_suspend() */
-    if (jn->procs) {		 /* if any forks were done         */
+    if (jn->procs || jn->auxprocs) { /* if any forks were done         */
 	jn->stat |= STAT_LOCKED;
 	if (jn->stat & STAT_CHANGED)
 	    printjob(jn, !!isset(LONGLISTJOBS), 1);
@@ -942,7 +1013,7 @@ waitjobs(void)
 {
     Job jn = jobtab + thisjob;
 
-    if (jn->procs)
+    if (jn->procs || jn->auxprocs)
 	zwaitjob(thisjob, 0);
     else {
 	deletejob(jn);
@@ -956,13 +1027,28 @@ waitjobs(void)
 
 /**/
 mod_export void
-clearjobtab(void)
+clearjobtab(int monitor)
 {
     int i;
 
-    for (i = 1; i < MAXJOB; i++)
-	if (jobtab[i].ty)
-	    zfree(jobtab[i].ty, sizeof(struct ttyinfo));
+    for (i = 1; i < MAXJOB; i++) {
+	/*
+	 * See if there is a jobtable worth saving.
+	 * We never free the saved version; it only happens
+	 * once for each subshell of a shell with job control,
+	 * so doesn't create a leak.
+	 */
+	if (monitor && jobtab[i].stat)
+	    oldmaxjob = i+1;
+	else if (jobtab[i].stat & STAT_INUSE)
+	    freejob(jobtab + i, 0);
+    }
+
+    if (monitor && oldmaxjob) {
+	int sz = oldmaxjob * sizeof(struct job);
+	oldjobtab = (struct job *)zalloc(sz);
+	memcpy(oldjobtab, jobtab, sz);
+    }
 
     memset(jobtab, 0, sizeof(jobtab)); /* zero out table */
 }
@@ -978,8 +1064,10 @@ initjob(void)
     for (i = 1; i < MAXJOB; i++)
 	if (!jobtab[i].stat) {
 	    jobtab[i].stat = STAT_INUSE;
-	    if (jobtab[i].pwd)
+	    if (jobtab[i].pwd) {
 		zsfree(jobtab[i].pwd);
+		jobtab[i].pwd = NULL;
+	    }
 	    jobtab[i].gleader = 0;
 	    return i;
 	}
@@ -1022,7 +1110,7 @@ spawnjob(void)
 	    fflush(stderr);
 	}
     }
-    if (!jobtab[thisjob].procs)
+    if (!hasprocs(thisjob))
 	deletejob(jobtab + thisjob);
     else
 	jobtab[thisjob].stat |= STAT_LOCKED;
@@ -1213,11 +1301,11 @@ init_hackzero(char **argv, char **envp)
 
 /**/
 int
-bin_fg(char *name, char **argv, char *ops, int func)
+bin_fg(char *name, char **argv, Options ops, int func)
 {
-    int job, lng, firstjob = -1, retval = 0;
+    int job, lng, firstjob = -1, retval = 0, ofunc = func;
 
-    if (ops['Z']) {
+    if (OPT_ISSET(ops,'Z')) {
 	int len;
 
 	if(isset(RESTRICTED)) {
@@ -1238,8 +1326,8 @@ bin_fg(char *name, char **argv, char *ops, int func)
 	return 0;
     }
 
-    lng = (ops['l']) ? 1 : (ops['p']) ? 2 : 0;
-    if (ops['d'])
+    lng = (OPT_ISSET(ops,'l')) ? 1 : (OPT_ISSET(ops,'p')) ? 2 : 0;
+    if (OPT_ISSET(ops,'d'))
 	lng |= 4;
     
     if ((func == BIN_FG || func == BIN_BG) && !jobbing) {
@@ -1253,7 +1341,8 @@ bin_fg(char *name, char **argv, char *ops, int func)
     if (unset(NOTIFY))
 	scanjobs();
 
-    setcurjob();
+    if (func != BIN_JOBS || isset(MONITOR) || !oldmaxjob)
+	setcurjob();
 
     if (func == BIN_JOBS)
         /* If you immediately type "exit" after "jobs", this      *
@@ -1274,13 +1363,25 @@ bin_fg(char *name, char **argv, char *ops, int func)
 	    firstjob = curjob;
 	} else if (func == BIN_JOBS) {
 	    /* List jobs. */
-	    for (job = 0; job != MAXJOB; job++)
-		if (job != thisjob && jobtab[job].stat) {
-		    if ((!ops['r'] && !ops['s']) ||
-			(ops['r'] && ops['s']) ||
-			(ops['r'] && !(jobtab[job].stat & STAT_STOPPED)) ||
-			(ops['s'] && jobtab[job].stat & STAT_STOPPED))
-			printjob(job + jobtab, lng, 2);
+	    struct job *jobptr;
+	    int maxjob, ignorejob;
+	    if (unset(MONITOR) && oldmaxjob) {
+		jobptr = oldjobtab;
+		maxjob = oldmaxjob;
+		ignorejob = 0;
+	    } else {
+		jobptr = jobtab;
+		maxjob = MAXJOB;
+		ignorejob = thisjob;
+	    }
+	    for (job = 0; job != maxjob; job++, jobptr++)
+		if (job != ignorejob && jobptr->stat) {
+		    if ((!OPT_ISSET(ops,'r') && !OPT_ISSET(ops,'s')) ||
+			(OPT_ISSET(ops,'r') && OPT_ISSET(ops,'s')) ||
+			(OPT_ISSET(ops,'r') && 
+			 !(jobptr->stat & STAT_STOPPED)) ||
+			(OPT_ISSET(ops,'s') && jobptr->stat & STAT_STOPPED))
+			printjob(jobptr, lng, 2);
 		}
 	    unqueue_signals();
 	    return 0;
@@ -1299,13 +1400,15 @@ bin_fg(char *name, char **argv, char *ops, int func)
     for (; (firstjob != -1) || *argv; (void)(*argv && argv++)) {
 	int stopped, ocj = thisjob;
 
+        func = ofunc;
+
 	if (func == BIN_WAIT && isanum(*argv)) {
 	    /* wait can take a pid; the others can't. */
 	    pid_t pid = (long)atoi(*argv);
 	    Job j;
 	    Process p;
 
-	    if (findproc(pid, &j, &p))
+	    if (findproc(pid, &j, &p, 0))
 		waitforpid(pid);
 	    else
 		zwarnnam(name, "pid %d is not a child of this shell", 0, pid);
@@ -1326,6 +1429,13 @@ bin_fg(char *name, char **argv, char *ops, int func)
 	    unqueue_signals();
 	    return 1;
 	}
+        /* If AUTO_CONTINUE is set (automatically make stopped jobs running
+         * on disown), we actually do a bg and then delete the job table entry. */
+
+        if (isset(AUTOCONTINUE) && func == BIN_DISOWN &&
+            jobtab[job].stat & STAT_STOPPED)
+            func = BIN_BG;
+
 	/* We have a job number.  Now decide what to do with it. */
 	switch (func) {
 	case BIN_FG:
@@ -1386,20 +1496,43 @@ bin_fg(char *name, char **argv, char *ops, int func)
 	    if (func != BIN_BG) {
 		waitjobs();
 		retval = lastval2;
-	    }
+	    } else if (ofunc == BIN_DISOWN)
+	        deletejob(jobtab + job);
 	    break;
 	case BIN_JOBS:
 	    printjob(job + jobtab, lng, 2);
 	    break;
 	case BIN_DISOWN:
-	    if (jobtab[job].stat & STAT_STOPPED)
+	    if (jobtab[job].stat & STAT_STOPPED) {
+		char buf[20], *pids = "";
+
+		if (jobtab[job].stat & STAT_SUPERJOB) {
+		    Process pn;
+
+		    for (pn = jobtab[jobtab[job].other].procs; pn; pn = pn->next) {
+			sprintf(buf, " -%d", pn->pid);
+			pids = dyncat(pids, buf);
+		    }
+		    for (pn = jobtab[job].procs; pn->next; pn = pn->next) {
+			sprintf(buf, " %d", pn->pid);
+			pids = dyncat(pids, buf);
+		    }
+		    if (!jobtab[jobtab[job].other].procs && pn) {
+			sprintf(buf, " %d", pn->pid);
+			pids = dyncat(pids, buf);
+		    }
+		} else {
+		    sprintf(buf, " -%d", jobtab[job].gleader);
+		    pids = buf;
+		}
                 zwarnnam(name,
 #ifdef USE_SUSPENDED
-                         "warning: job is suspended",
+                         "warning: job is suspended, use `kill -CONT%s' to resume",
 #else
-                         "warning: job is stopped",
+                         "warning: job is stopped, use `kill -CONT%s' to resume",
 #endif
-                         NULL, 0);
+                         pids, 0);
+	    }
 	    deletejob(jobtab + job);
 	    break;
 	}
@@ -1415,7 +1548,7 @@ bin_fg(char *name, char **argv, char *ops, int func)
 
 /**/
 int
-bin_kill(char *nam, char **argv, char *ops, int func)
+bin_kill(char *nam, char **argv, Options ops, int func)
 {
     int sig = SIGTERM;
     int returnval = 0;
@@ -1468,24 +1601,49 @@ bin_kill(char *nam, char **argv, char *ops, int func)
 		putchar('\n');
 		return 0;
 	    }
-	    if ((*argv)[1] == 's' && (*argv)[2] == '\0')
-		signame = *++argv;
-	    else
-		signame = *argv + 1;
 
-	    /* check for signal matching specified name */
-	    for (sig = 1; sig <= SIGCOUNT; sig++)
-		if (!cstrpcmp(sigs + sig, &signame))
-		    break;
-	    if (*signame == '0' && !signame[1])
-		sig = 0;
-	    if (sig > SIGCOUNT) {
-		zwarnnam(nam, "unknown signal: SIG%s", signame, 0);
-		zwarnnam(nam, "type kill -l for a List of signals", NULL, 0);
-		return 1;
+    	    if ((*argv)[1] == 'n' && (*argv)[2] == '\0') {
+	    	char *endp;
+
+	    	if (!*++argv) {
+		    zwarnnam(nam, "-n: argument expected", NULL, 0);
+		    return 1;
+		}
+		sig = zstrtol(*argv, &endp, 10);
+		if (*endp) {
+		    zwarnnam(nam, "invalid signal number", signame, 0);
+		    return 1;
+		}
+	    } else {
+		if (!((*argv)[1] == 's' && (*argv)[2] == '\0'))
+		    signame = *argv + 1;
+		else if (!(*++argv)) {
+		    zwarnnam(nam, "-s: argument expected", NULL, 0);
+		    return 1;
+		} else
+		    signame = *argv;
+		makeuppercase(&signame);
+		if (!strncmp(signame, "SIG", 3)) signame+=3;
+
+		/* check for signal matching specified name */
+		for (sig = 1; sig <= SIGCOUNT; sig++)
+		    if (!strcmp(*(sigs + sig), signame))
+			break;
+		if (*signame == '0' && !signame[1])
+		    sig = 0;
+		if (sig > SIGCOUNT) {
+		    zwarnnam(nam, "unknown signal: SIG%s", signame, 0);
+		    zwarnnam(nam, "type kill -l for a List of signals", NULL, 0);
+		    return 1;
+		}
 	    }
 	}
 	argv++;
+    }
+
+    if (!*argv) {
+    	zwarnnam(nam, "not enough arguments", NULL, 0);
+	return 1;
     }
 
     queue_signals();
@@ -1534,10 +1692,10 @@ bin_kill(char *nam, char **argv, char *ops, int func)
 
 /**/
 int
-bin_suspend(char *name, char **argv, char *ops, int func)
+bin_suspend(char *name, char **argv, Options ops, int func)
 {
     /* won't suspend a login shell, unless forced */
-    if (islogin && !ops['f']) {
+    if (islogin && !OPT_ISSET(ops,'f')) {
 	zwarnnam(name, "can't suspend login shell", NULL, 0);
 	return 1;
     }
@@ -1546,16 +1704,16 @@ bin_suspend(char *name, char **argv, char *ops, int func)
 	signal_default(SIGTTIN);
 	signal_default(SIGTSTP);
 	signal_default(SIGTTOU);
+
+	/* Move ourselves back to the process group we came from */
+	release_pgrp();
     }
+
     /* suspend ourselves with a SIGTSTP */
-    kill(0, SIGTSTP);
+    killpg(origpgrp, SIGTSTP);
+
     if (jobbing) {
-	/* stay suspended */
-	while (gettygrp() != mypgrp) {
-	    sleep(1);
-	    if (gettygrp() != mypgrp)
-		kill(0, SIGTTIN);
-	}
+	acquire_pgrp();
 	/* restore signal handling */
 	signal_ignore(SIGTTOU);
 	signal_ignore(SIGTSTP);
@@ -1578,4 +1736,60 @@ findjobnam(char *s)
 	    jobtab[jobnum].procs->text && strpfx(s, jobtab[jobnum].procs->text))
 	    return jobnum;
     return -1;
+}
+
+
+/* make sure we are a process group leader by creating a new process
+   group if necessary */
+
+/**/
+void
+acquire_pgrp(void)
+{
+    long ttpgrp;
+    sigset_t blockset, oldset;
+
+    if ((mypgrp = GETPGRP()) > 0) {
+	sigemptyset(&blockset);
+	sigaddset(&blockset, SIGTTIN);
+	sigaddset(&blockset, SIGTTOU);
+	sigaddset(&blockset, SIGTSTP);
+	oldset = signal_block(blockset);
+	while ((ttpgrp = gettygrp()) != -1 && ttpgrp != mypgrp) {
+	    mypgrp = GETPGRP();
+	    if (mypgrp == mypid) {
+		signal_setmask(oldset);
+		attachtty(mypgrp); /* Might generate SIGT* */
+		signal_block(blockset);
+	    }
+	    if (mypgrp == gettygrp())
+		break;
+	    signal_setmask(oldset);
+	    read(0, NULL, 0); /* Might generate SIGT* */
+	    signal_block(blockset);
+	    mypgrp = GETPGRP();
+	}
+	if (mypgrp != mypid) {
+	    if (setpgrp(0, 0) == 0) {
+		mypgrp = mypid;
+		attachtty(mypgrp);
+	    } else
+		opts[MONITOR] = 0;
+	}
+	signal_setmask(oldset);
+    } else
+	opts[MONITOR] = 0;
+}
+
+/* revert back to the process group we came from (before acquire_pgrp) */
+
+/**/
+void
+release_pgrp(void)
+{
+    if (origpgrp != mypgrp) {
+	attachtty(origpgrp);
+	setpgrp(0, origpgrp);
+	mypgrp = origpgrp;
+    }
 }

@@ -1,0 +1,46 @@
+<HTML>
+<HEAD>
+<TITLE>
+jBoss 2.0 EJB development Documentation
+</TITLE>
+<LINK REL ="stylesheet" TYPE="text/css" HREF="styles.css" TITLE="Style">
+</HEAD>
+<BODY BGCOLOR="white">
+<H1>jBoss 2.0 EJB development</H1>
+<H2 >Description</H2>
+<P>jBoss contains an implementation of EJB 1.1. This document describes how to develop beans and deploy them on jBoss.<P/>
+
+<H2 >Documentation</H2>
+<H3 >The beans</H3>
+<P>
+The jBoss EJB implementation follows the EJB 1.1 specification. It does not introduce any proprietary API's. Hence, you should not have to make any code-dependencies in your EJB's if you follow the EJB 1.1 specification during development. However, some of the plugin implementations may be so clever (heh) that jBoss is the only server that provides the specific functionality. If your beans are reliant on such implementations in order to function well, your beans may be difficult to port to other EJB containers. 
+</P>
+
+<H3 >Configuring your beans for jBoss deployment</H3>
+<P>
+jBoss uses XML to add deployment information that is specific to jBoss, such as which plugins to use, which JNDI-names to bind the homes to, etc. The configuration must be located in the file META-INF/jboss.xml, next to the ejb-jar.xml file containing the EJB 1.1 XML descriptor file. This file could be edited manually, but it is recommended that it is done through the EJX XML editor. The EJX editor is bundled with jBoss, and can be started by executing the /bin/ejx.jar executable JAR-file. EJX is a generic XML editor framework, which supports plugins for specific XML types. jBoss provides two plugins for EJX. These are located in the /lib/ext/ejxjboss.jar and /lib/ext/ejxjaws.jar files, and are used automatically by EJX, since EJX scans the /lib/ext directory for plugins.
+</P>
+<P>
+Once you have created the EJB 1.1 XML descriptor for your beans, either by manual editing of the ejb-jar.xml file, or by using the EJB 1.1 support provided in the EJX editor, it is time to add the jBoss specific configuration information. This is done by opening the ejb-jar.xml file as a jBoss configuration file. This will load the information in ejb-jar.xml, and also construct a GUI where additional settings may be made. These additional settings will be stored in jboss.xml when you select Save in the GUI. 
+</P>
+<P>
+There are two main categories of information in the jBoss XML file: container configurations and bean configurations. A container configuration is a selection of plugins, and settings for those plugins. For example, you may choose to make a configuration for EntityBeans that uses a particular instance cache that suits your needs, and a persistence manager that supports your backing store. These plugins may then be configured to behave in a certain way. Once you have created a configuration one or more beans may be configured to use this configuration. This allows you to have one configuration for all beans (i.e. one size fits all), or one configuration for each bean. Both options are possible. A couple of default configurations are loaded automatically when you create a new jBoss descriptor. Below is a screenshot showing a container configuration being constructed.
+</P>
+<img src="images/confgui.gif">
+<P>
+Besides container configurations you may also add information that is specific for each bean, such as which JNDI-name to bind a bean to. Below is a screenshot showing a bean being configured.
+</P>
+<img src="images/jbossgui.gif">
+<P>
+If any of your beans use the JAWS CMP plugin, you should repeat the above but instead select JAWS when opening the ejb-jar.xml file. This will allow you to set the database settings for your CMP beans. Below is a screenshot of the JAWS GUI plugin.
+</P>
+<img src="images/jawsgui.gif">
+<H3 >Deploying your beans</H3>
+<P>
+Once you have configured your beans, you may deploy them. You can do this manually, or automatically. The manual way is to use some management console to invoke the container factory to deploy the EJB-JAR. You can deploy your beans automatically by using the AutoDeployer component. The AutoDeployer component can be set to watch the modification timestamp of an individual EJB-JAR, or watch the contents of a given directory. In the latter case, if a valid EJB-JAR is added to the directory it will be automatically deployed into the server. Any updates to the JAR will result in a re-deployment. When a re-deployment is made the currently constructed containers are first stopped and undeployed, and the new JAR is then deployed. Any changed classes will be reloaded if they have been loaded by the container classloader. Any helper classes loaded by the server classloader will, of course, not be reloaded.
+</P>
+<P>
+For development purposes you may also place a directory in the directory that is watched by the AutoDeployer. If its structure is the same as that of a valid EJB-JAR (i.e. it contains a META-INF sub-directory with deployment descriptors) it will get deployed in the server. Instead of watching the timestamp of the directory the AutoDeployer watches the timestamp of the META-INF/ejb-jar.xml file. This is very useful during development as you can code and recompile your beans, and then redeploy them as many times as you want by simple opening the ejb-jar.xml file in an editor and storing it again.
+</P>
+</BODY>
+</HTML>

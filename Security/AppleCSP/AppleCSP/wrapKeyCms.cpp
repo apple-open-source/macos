@@ -22,8 +22,8 @@
 
 #include "AppleCSPSession.h"
 #include "AppleCSPUtils.h"
+#include "AppleCSPKeys.h"
 #include "cspdebugging.h"
-#include "pkcs_7_8.h"
 
 /*
  *
@@ -451,7 +451,9 @@ void AppleCSPSession::UnwrapKeyCms(
 	if(keyStorage == CKS_Ref) {
 		BinaryKey *binKey = NULL;
 		CSPKeyInfoProvider *provider = infoProvider(UnwrappedKey);
-		provider->CssmKeyToBinary(&binKey);
+		/* optional parameter-bearing key */
+		CssmKey *paramKey = Context.get<CssmKey>(CSSM_ATTRIBUTE_PARAM_KEY);
+		provider->CssmKeyToBinary(paramKey, UnwrappedKey.KeyHeader.KeyAttr, &binKey);
 		addRefKey(*binKey, UnwrappedKey);
 		delete provider;
 	}

@@ -1,6 +1,6 @@
 /* database.c - deals with database subsystem */
 /*
- * Copyright 1998-2002 The OpenLDAP Foundation, All Rights Reserved.
+ * Copyright 1998-2003 The OpenLDAP Foundation, All Rights Reserved.
  * COPYING RESTRICTIONS APPLY, see COPYRIGHT file
  */
 /*
@@ -38,6 +38,11 @@
 #include "slap.h"
 #include "back-monitor.h"
 
+#if defined(LDAP_SLAPI)
+#include "slapi.h"
+static int monitor_back_add_plugin( Backend *be, Entry *e );
+#endif /* defined(LDAP_SLAPI) */
+
 int
 monitor_subsys_database_init(
 	BackendDB	*be
@@ -48,6 +53,7 @@ monitor_subsys_database_init(
 	int			i;
 	struct monitorentrypriv	*mp;
 	AttributeDescription 	*ad_nc = slap_schema.si_ad_namingContexts;
+	AttributeDescription 	*ad_mc = slap_schema.si_ad_monitorContext;
 	AttributeDescription 	*ad_seeAlso = NULL;
 	const char		*text = NULL;
 
@@ -60,10 +66,10 @@ monitor_subsys_database_init(
 				&monitor_subsys[SLAPD_MONITOR_DATABASE].mss_ndn, 
 				&e_database ) ) {
 #ifdef NEW_LOGGING
-		LDAP_LOG(( "operation", LDAP_LEVEL_CRIT,
+		LDAP_LOG( OPERATION, CRIT,
 			"monitor_subsys_database_init: "
 			"unable to get entry '%s'\n",
-			monitor_subsys[SLAPD_MONITOR_DATABASE].mss_ndn.bv_val ));
+			monitor_subsys[SLAPD_MONITOR_DATABASE].mss_ndn.bv_val, 0, 0 );
 #else
 		Debug( LDAP_DEBUG_ANY,
 			"monitor_subsys_database_init: "
@@ -75,6 +81,17 @@ monitor_subsys_database_init(
 	}
 
 	if ( slap_str2ad( "seeAlso", &ad_seeAlso, &text ) != LDAP_SUCCESS ) {
+#ifdef NEW_LOGGING
+		LDAP_LOG( OPERATION, CRIT,
+			"monitor_subsys_database_init: "
+			"unable to find 'seeAlso' attribute description\n",
+			0, 0, 0 );
+#else
+		Debug( LDAP_DEBUG_ANY,
+			"monitor_subsys_database_init: "
+			"unable to find 'seeAlso' attribute description\n",
+			0, 0, 0 );
+#endif
 		return( -1 );
 	}
 
@@ -84,6 +101,11 @@ monitor_subsys_database_init(
 		int j;
 
 		be = &backendDB[i];
+
+		/* Subordinates are not exposed as their own naming context */
+		if ( SLAP_GLUE_SUBORDINATE( be ) ) {
+			continue;
+		}
 
 		snprintf( buf, sizeof( buf ),
 				"dn: cn=Database %d,%s\n"
@@ -98,11 +120,10 @@ monitor_subsys_database_init(
 		e = str2entry( buf );
 		if ( e == NULL ) {
 #ifdef NEW_LOGGING
-			LDAP_LOG(( "operation", LDAP_LEVEL_CRIT,
+			LDAP_LOG( OPERATION, CRIT,
 				"monitor_subsys_database_init: "
 				"unable to create entry 'cn=Database %d,%s'\n",
-				i, 
-				monitor_subsys[SLAPD_MONITOR_DATABASE].mss_ndn.bv_val ));
+				i, monitor_subsys[SLAPD_MONITOR_DATABASE].mss_ndn.bv_val, 0 );
 #else
 			Debug( LDAP_DEBUG_ANY,
 				"monitor_subsys_database_init: "
@@ -114,32 +135,24 @@ monitor_subsys_database_init(
 			return( -1 );
 		}
 		
-		for ( j = 0; be->be_suffix[j]; j++ ) {
-			struct berval 		bv[ 2 ];
-
-			bv[ 0 ] = *be->be_suffix[ j ];
-			bv[ 1 ].bv_val = NULL;
-
-			attr_merge( e, ad_nc, bv );
-			attr_merge( e_database, ad_nc, bv );
+		if ( be->be_flags & SLAP_BFLAG_MONITOR ) {
+			attr_merge( e, ad_mc, be->be_suffix );
+			attr_merge( e_database, ad_mc, be->be_suffix );
+		} else {
+			attr_merge( e, ad_nc, be->be_suffix );
+			attr_merge( e_database, ad_nc, be->be_suffix );
 		}
 
 		for ( j = nBackendInfo; j--; ) {
-			if ( &backendInfo[ j ] == be->bd_info ) {
-				struct berval 		bv[ 2 ];
-
-				/* we check the pointer; the test on the
-				 * string should be more reliable */
-				assert( strcasecmp( backendInfo[ j ].bi_type,
-					be->bd_info->bi_type ) == 0 );
+			if ( backendInfo[ j ].bi_type == be->bd_info->bi_type ) {
+				struct berval 		bv;
 
 				snprintf( buf, sizeof( buf ), 
 					"cn=Backend %d,%s", 
 					j, monitor_subsys[SLAPD_MONITOR_BACKEND].mss_dn.bv_val );
-				bv[ 0 ].bv_val = buf;
-				bv[ 0 ].bv_len = strlen( buf );
-				bv[ 1 ].bv_val = NULL;
-				attr_merge( e, ad_seeAlso, bv );
+				bv.bv_val = buf;
+				bv.bv_len = strlen( buf );
+				attr_merge_one( e, ad_seeAlso, &bv );
 				break;
 			}
 		}
@@ -156,11 +169,10 @@ monitor_subsys_database_init(
 
 		if ( monitor_cache_add( mi, e ) ) {
 #ifdef NEW_LOGGING
-			LDAP_LOG(( "operation", LDAP_LEVEL_CRIT,
+			LDAP_LOG( OPERATION, CRIT,
 				"monitor_subsys_database_init: "
 				"unable to add entry 'cn=Database %d,%s'\n",
-				i, 
-				monitor_subsys[SLAPD_MONITOR_DATABASE].mss_ndn.bv_val ));
+				i, monitor_subsys[SLAPD_MONITOR_DATABASE].mss_ndn.bv_val, 0 );
 #else
 			Debug( LDAP_DEBUG_ANY,
 				"monitor_subsys_database_init: "
@@ -171,6 +183,10 @@ monitor_subsys_database_init(
 #endif
 			return( -1 );
 		}
+
+#if defined(LDAP_SLAPI)
+		monitor_back_add_plugin( be, e );
+#endif /* defined(LDAP_SLAPI) */
 
 		e_tmp = e;
 	}
@@ -183,3 +199,54 @@ monitor_subsys_database_init(
 	return( 0 );
 }
 
+#if defined(LDAP_SLAPI)
+static int
+monitor_back_add_plugin( Backend *be, Entry *e_database )
+{
+	Slapi_PBlock		*pCurrentPB; 
+	int			i, rc = LDAP_SUCCESS;
+
+	if ( slapi_x_pblock_get_first( be, &pCurrentPB ) != LDAP_SUCCESS ) {
+		/*
+		 * LDAP_OTHER is returned if no plugins are installed
+		 */
+		rc = LDAP_OTHER;
+		goto done;
+	}
+
+	i = 0;
+	do {
+		Slapi_PluginDesc	*srchdesc;
+		char			buf[1024];
+		struct berval		bv;
+
+		rc = slapi_pblock_get( pCurrentPB, SLAPI_PLUGIN_DESCRIPTION,
+				&srchdesc );
+		if ( rc != LDAP_SUCCESS ) {
+			goto done;
+		}
+
+		snprintf( buf, sizeof(buf),
+				"plugin %d name: %s; "
+				"vendor: %s; "
+				"version: %s; "
+				"description: %s", 
+				i,
+				srchdesc->spd_id,
+				srchdesc->spd_vendor,
+				srchdesc->spd_version,
+				srchdesc->spd_description );
+
+		bv.bv_val = buf;
+		bv.bv_len = strlen( buf );
+		attr_merge_one( e_database, monitor_ad_desc, &bv );
+
+		i++;
+
+	} while ( ( slapi_x_pblock_get_next( &pCurrentPB ) == LDAP_SUCCESS )
+			&& ( pCurrentPB != NULL ) );
+
+done:
+	return rc;
+}
+#endif /* defined(LDAP_SLAPI) */

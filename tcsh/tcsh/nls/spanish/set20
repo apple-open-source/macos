@@ -1,4 +1,4 @@
-$ $Id: set20,v 1.1.1.2 2001/06/28 23:11:22 bbraun Exp $
+$ $Id: set20,v 1.1.1.3 2003/01/17 03:42:08 nicolai Exp $
 $ tc.bind.c
 $set 20 
 1 Nombre de tecla no válido `%S'\n
@@ -39,4 +39,3 @@ $set 20
 36 uso: bind [TECLA | COMANDO TECLA | "emacs" | "vi" | "-a"]\n
 37 función no válida
 38  %s\t\tno está definida\n
-

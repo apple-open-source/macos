@@ -1,0 +1,117 @@
+/*
+ * Context.defs
+ *
+ * Mach Interface specifications for Credentials Cache IPC
+ *
+ */
+ 
+#include "CCache.types.defs"
+
+import "CCache.MachIPC.h";
+
+routine		CCacheIPC_Destroy (
+                        inServerPort		: mach_port_t;
+                        inCCache		: CCacheID;
+                    out	outResult		: CCIResult);
+
+routine		CCacheIPC_SetDefault (
+                        inServerPort		: mach_port_t;
+                        inCCache		: CCacheID;
+                    out	outResult		: CCIResult);
+
+routine		CCacheIPC_GetCredentialsVersion (
+                        inServerPort		: mach_port_t;
+                        inCCache		: CCacheID;
+                    out	outCredentialsVersion	: CCIUInt32;
+                    out	outResult		: CCIResult);
+
+routine		CCacheIPC_GetPrincipal (
+                        inServerPort		: mach_port_t;
+                        inCCache		: CCacheID;
+                        inVersion		: CCIUInt32;		
+                    out	outCCachePrincipal	: CCacheOutPrincipal, dealloc;
+                    out	outResult		: CCIResult);
+                    
+routine		CCacheIPC_GetName (
+                        inServerPort		: mach_port_t;
+                        inCCache		: CCacheID;
+                    out	outCCacheName		: CCacheOutName, dealloc;
+                    out	outResult		: CCIResult);
+                    
+routine		CCacheIPC_SetPrincipal (
+                        inServerPort		: mach_port_t;
+                        inCCache		: CCacheID;
+                        inVersion		: CCIUInt32;
+                        inCCachePrincipal	: CCacheInPrincipal;
+                    out	outResult		: CCIResult);
+                    
+routine		CCacheIPC_CompatSetPrincipal (
+                        inServerPort		: mach_port_t;
+                        inCCache		: CCacheID;
+                        inVersion		: CCIUInt32;
+                        inCCachePrincipal	: CCacheInPrincipal;
+                    out	outResult		: CCIResult);
+                        
+routine		CCacheIPC_StoreCredentials (
+                        inServerPort		: mach_port_t;
+                        inCCache		: CCacheID;
+                        inCredentials		: FlattenedInCredentials;
+                    out	outResult		: CCIResult;
+            UserSecToken outToken		: security_token_t);
+                    
+routine		CCacheIPC_RemoveCredentials (
+                        inServerPort		: mach_port_t;
+                        inCCache		: CCacheID;
+                        inCredentials		: CredentialsID;
+                    out	outResult		: CCIResult);
+                    
+routine		CCacheIPC_GetLastDefaultTime (
+                        inServerPort		: mach_port_t;
+                        inCCache		: CCacheID;
+                    out outLastDefaultTime	: CCITime;
+                    out	outResult		: CCIResult);
+
+routine		CCacheIPC_GetChangeTime (
+                        inServerPort		: mach_port_t;
+                        inCCache		: CCacheID;
+                    out outChangeTime		: CCITime;
+                    out	outResult		: CCIResult);
+
+routine		CCacheIPC_Move (
+                        inServerPort		: mach_port_t;
+                        inSourceCCache		: CCacheID;
+                    	inDestinationCCache	: CCacheID;
+                    out	outResult		: CCIResult);
+
+routine		CCacheIPC_GetCredentialsIDs (
+                        inServerPort		: mach_port_t;
+                        inCCache		: CCacheID;
+                    out outCredentialsIDs	: CredentialsIDArray, dealloc;
+                    out	outResult		: CCIResult);
+
+routine		CCacheIPC_Compare (
+                        inServerPort		: mach_port_t;
+                        inCCache		: CCacheID;
+                        inCompareTo		: CCacheID;
+                    out outEqual		: CCIUInt32;
+                    out outResult		: CCIResult);
+                    
+routine		CCacheIPC_GetKDCTimeOffset (
+                        inServerPort	: mach_port_t;
+                        inCCache		: CCacheID;
+                        inVersion		: CCIUInt32;
+                    out	outTimeOffset	: CCITime;
+                    out	outResult		: CCIResult);
+                    
+routine		CCacheIPC_SetKDCTimeOffset (
+                        inServerPort	: mach_port_t;
+                        inCCache		: CCacheID;
+                        inVersion		: CCIUInt32;
+                    	inTimeOffset	: CCITime;
+                    out	outResult		: CCIResult);
+
+routine		CCacheIPC_ClearKDCTimeOffset (
+                        inServerPort	: mach_port_t;
+                        inCCache		: CCacheID;
+                        inVersion		: CCIUInt32;
+                    out	outResult		: CCIResult);

@@ -31,6 +31,7 @@
  * SUCH DAMAGE.
  *
  *	@(#)locale.h	8.1 (Berkeley) 6/2/93
+ * $FreeBSD: /repoman/r/ncvs/src/include/locale.h,v 1.7 2002/10/09 09:19:27 tjr Exp $
  */
 
 #ifndef _LOCALE_H_
@@ -55,6 +56,12 @@ struct lconv {
 	char	n_sep_by_space;
 	char	p_sign_posn;
 	char	n_sign_posn;
+	char	int_p_cs_precedes;
+	char	int_n_cs_precedes;
+	char	int_p_sep_by_space;
+	char	int_n_sep_by_space;
+	char	int_p_sign_posn;
+	char	int_n_sign_posn;
 };
 
 #ifndef NULL
@@ -74,8 +81,8 @@ struct lconv {
 #include <sys/cdefs.h>
 
 __BEGIN_DECLS
-struct lconv	*localeconv __P((void));
-char		*setlocale __P((int, const char *));
+struct lconv	*localeconv(void);
+char		*setlocale(int, const char *);
 __END_DECLS
 
 #endif /* _LOCALE_H_ */

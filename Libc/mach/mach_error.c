@@ -62,6 +62,8 @@
 #include <mach/boolean.h>
 #include "errorlib.h"
 
+int fprintf_stderr(const char *format, ...);
+
 void
 mach_error( str, err )	
 	char	*str;

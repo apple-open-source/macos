@@ -25,6 +25,7 @@
 #else
 #include "defs.h"
 #include "target.h"
+#include "gdb_string.h"
 #endif
 
 #include <signal.h>
@@ -180,7 +181,11 @@ static struct {
   {"SIG126", "Real-time event 126"},
   {"SIG127", "Real-time event 127"},
 
-#if defined(MACH) || defined(__MACH__)
+  {"SIGINFO", "Information request"},
+
+  {NULL, "Unknown signal"},
+  {NULL, "Internal error: printing TARGET_SIGNAL_DEFAULT"},
+
   /* Mach exceptions */
   {"EXC_BAD_ACCESS", "Could not access memory"},
   {"EXC_BAD_INSTRUCTION", "Illegal instruction/operand"},
@@ -188,11 +193,6 @@ static struct {
   {"EXC_EMULATION", "Emulation instruction"},
   {"EXC_SOFTWARE", "Software generated exception"},
   {"EXC_BREAKPOINT", "Breakpoint"},
-#endif
-  {"SIGINFO", "Information request"},
-
-  {NULL, "Unknown signal"},
-  {NULL, "Internal error: printing TARGET_SIGNAL_DEFAULT"},
 
   /* Last entry, used to check whether the table is the right size.  */
   {NULL, "TARGET_SIGNAL_MAGIC"}
@@ -237,9 +237,10 @@ target_signal_from_name (char *name)
 
   /* This ugly cast brought to you by the native VAX compiler.  */
   for (sig = TARGET_SIGNAL_HUP;
-       signals[sig].name != NULL;
+       sig < TARGET_SIGNAL_LAST;
        sig = (enum target_signal) ((int) sig + 1))
-    if (strcmp (name, signals[sig].name) == 0)
+    if (signals[sig].name != NULL
+	&& strcmp (name, signals[sig].name) == 0)
       return sig;
   return TARGET_SIGNAL_UNKNOWN;
 }
@@ -498,8 +499,11 @@ target_signal_from_host (int hostsig)
       if (33 <= hostsig && hostsig <= 63)
 	return (enum target_signal)
 	  (hostsig - 33 + (int) TARGET_SIGNAL_REALTIME_33);
-      else if (hostsig == 64)
-	return TARGET_SIGNAL_REALTIME_64;
+      else if (hostsig == 32)
+	return TARGET_SIGNAL_REALTIME_32;
+      else if (64 <= hostsig && hostsig <= 127)
+	return (enum target_signal)
+	  (hostsig - 64 + (int) TARGET_SIGNAL_REALTIME_64);
       else
 	error ("GDB bug: target.c (target_signal_from_host): unrecognized real-time signal");
     }
@@ -784,8 +788,21 @@ do_target_signal_to_host (enum target_signal oursig,
 	  if (retsig >= SIGRTMIN && retsig <= SIGRTMAX)
 	    return retsig;
 	}
-      else if (oursig == TARGET_SIGNAL_REALTIME_64)
-	return 64;
+      else if (oursig == TARGET_SIGNAL_REALTIME_32)
+	{
+	  /* TARGET_SIGNAL_REALTIME_32 isn't contiguous with
+             TARGET_SIGNAL_REALTIME_33.  It is 32 by definition.  */
+	  return 32;
+	}
+      else if (oursig >= TARGET_SIGNAL_REALTIME_64
+	  && oursig <= TARGET_SIGNAL_REALTIME_127)
+	{
+	  /* This block of signals is continuous, and
+             TARGET_SIGNAL_REALTIME_64 is 64 by definition.  */
+	  int retsig =
+	    (int) oursig - (int) TARGET_SIGNAL_REALTIME_64 + 64;
+	  return retsig;
+	}
 #endif
       *oursig_ok = 0;
       return 0;

@@ -1,0 +1,10 @@
+Följande ansökan om att få bli medlem av en lista måste utvärderas av dig:
+
+    För:   %(username)s
+    Lista: %(listname)s@%(hostname)s
+
+När du får tid, gå in på:
+
+    %(admindb_url)s
+
+för att godkänna eller avslå ansökan.

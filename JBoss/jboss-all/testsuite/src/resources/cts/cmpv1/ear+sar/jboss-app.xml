@@ -1,0 +1,6 @@
+<jboss-app>
+   <loader-repository>jboss.test.cts:loader=cts-cmp2v1-sar.ear</loader-repository>
+   <module>
+      <service>cts-v1cmp.sar</service>
+   </module>
+</jboss-app>

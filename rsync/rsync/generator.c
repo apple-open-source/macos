@@ -32,7 +32,6 @@ extern int preserve_devices;
 extern int preserve_hard_links;
 extern int update_only;
 extern int opt_ignore_existing;
-extern int whole_file;
 extern int block_size;
 extern int csum_length;
 extern int ignore_times;
@@ -42,6 +41,7 @@ extern int remote_version;
 extern int always_checksum;
 extern int modify_window;
 extern char *compare_dest;
+extern int link_dest;
 
 
 /* choose whether to skip a particular file */
@@ -51,6 +51,15 @@ static int skip_file(char *fname,
 	if (st->st_size != file->length) {
 		return 0;
 	}
+	if (link_dest) {
+		if((st->st_mode & ~_S_IFMT) !=  (file->mode & ~_S_IFMT)) {
+			return 0;
+		}
+		if (st->st_uid != file->uid || st->st_gid != file->gid) {
+			return 0;
+		}
+	}
+
 	
 	/* if always checksum is set then we use the checksum instead 
 	   of the file time to determine whether to sync */
@@ -101,106 +110,110 @@ static int adapt_block_size(struct file_struct *file, int bsize)
 
 
 /*
-  send a sums struct down a fd
+  send a header that says "we have no checksums" down the f_out fd
   */
-static void send_sums(struct sum_struct *s, int f_out)
+static void send_null_sums(int f_out)
 {
-	if (s) {
-		size_t i;
-
-		/* tell the other guy how many we are going to be
-		   doing and how many bytes there are in the last
-		   chunk */
-		write_int(f_out, s->count);
-		write_int(f_out, s->n);
-		write_int(f_out, s->remainder);
-
-		for (i = 0; i < s->count; i++) {
-			write_int(f_out, s->sums[i].sum1);
-			write_buf(f_out, s->sums[i].sum2, csum_length);
-		}
-	} else {
-		/* we don't have checksums */
-		write_int(f_out, 0);
-		write_int(f_out, block_size);
-		write_int(f_out, 0);
-	}
+	write_int(f_out, 0);
+	write_int(f_out, block_size);
+	write_int(f_out, 0);
 }
 
-/*
-  generate a stream of signatures/checksums that describe a buffer
 
-  generate approximately one checksum every n bytes
-  */
-static struct sum_struct *generate_sums(struct map_struct *buf,OFF_T len,int n)
+
+/**
+ * Perhaps we want to just send an empty checksum set for this file,
+ * which will force the whole thing to be literally transferred.
+ *
+ * When do we do this?  If the user's explicitly said they
+ * want the whole thing, or if { they haven't explicitly
+ * requested a delta, and it's local but not batch mode.}
+ *
+ * Whew. */
+static BOOL disable_deltas_p(void)
 {
-	int i;
-	struct sum_struct *s;
-	int count;
-	int block_len = n;
-	int remainder = (len%block_len);
+	extern int whole_file, no_whole_file;
+	extern int local_server;
+	extern int write_batch;
+
+	assert(whole_file == 0 || whole_file == 1);
+
+	/* whole_file and no_whole_file are never both on at the same time */
+
+	if (whole_file)
+		return True;
+	else if (no_whole_file)
+		return False;
+	else if (write_batch)
+		return False;
+	else
+		return local_server;
+}
+
+
+/*
+ * Generate and send a stream of signatures/checksums that describe a buffer
+ *
+ * Generate approximately one checksum every block_len bytes.
+ */
+static void generate_and_send_sums(struct map_struct *buf, OFF_T len,
+				   int block_len, int f_out)
+{
+	size_t i;
+	struct sum_struct sum;
 	OFF_T offset = 0;
 
-	count = (len+(block_len-1))/block_len;
+	sum.count = (len + (block_len - 1)) / block_len;
+	sum.remainder = (len % block_len);
+	sum.n = block_len;
+	sum.flength = len;
+	/* not needed here  sum.sums = NULL; */
 
-	s = (struct sum_struct *)malloc(sizeof(*s));
-	if (!s) out_of_memory("generate_sums");
-
-	s->count = count;
-	s->remainder = remainder;
-	s->n = n;
-	s->flength = len;
-
-	if (count==0) {
-		s->sums = NULL;
-		return s;
+	if (sum.count && verbose > 3) {
+		rprintf(FINFO, "count=%ld rem=%ld n=%ld flength=%.0f\n",
+			(long) sum.count, (long) sum.remainder,
+			(long) sum.n, (double) sum.flength);
 	}
 
-	if (verbose > 3)
-		rprintf(FINFO,"count=%d rem=%d n=%d flength=%.0f\n",
-			s->count,s->remainder,s->n,(double)s->flength);
+	write_int(f_out, sum.count);
+	write_int(f_out, sum.n);
+	write_int(f_out, sum.remainder);
 
-	s->sums = (struct sum_buf *)malloc(sizeof(s->sums[0])*s->count);
-	if (!s->sums) out_of_memory("generate_sums");
-  
-	for (i=0;i<count;i++) {
-		int n1 = MIN(len,n);
-		char *map = map_ptr(buf,offset,n1);
+	for (i = 0; i < sum.count; i++) {
+		int n1 = MIN(len, block_len);
+		char *map = map_ptr(buf, offset, n1);
+		uint32 sum1 = get_checksum1(map, n1);
+		char sum2[SUM_LENGTH];
 
-		s->sums[i].sum1 = get_checksum1(map,n1);
-		get_checksum2(map,n1,s->sums[i].sum2);
+		get_checksum2(map, n1, sum2);
 
-		s->sums[i].offset = offset;
-		s->sums[i].len = n1;
-		s->sums[i].i = i;
-
-		if (verbose > 3)
-			rprintf(FINFO,"chunk[%d] offset=%.0f len=%d sum1=%08x\n",
-				i,(double)s->sums[i].offset,s->sums[i].len,s->sums[i].sum1);
-
+		if (verbose > 3) {
+			rprintf(FINFO,
+				"chunk[%d] offset=%.0f len=%d sum1=%08lx\n",
+				i, (double) offset, n1, (unsigned long) sum1);
+		}
+		write_int(f_out, sum1);
+		write_buf(f_out, sum2, csum_length);
 		len -= n1;
 		offset += n1;
 	}
-
-	return s;
 }
 
 
 
-/*
- * Acts on file number I from FLIST, whose name is fname.
+/**
+ * Acts on file number @p i from @p flist, whose name is @p fname.
  *
  * First fixes up permissions, then generates checksums for the file.
  *
- * (This comment was added later by mbp who was trying to work it out;
- * it might be wrong.)
- */ 
-void recv_generator(char *fname,struct file_list *flist,int i,int f_out)
+ * @note This comment was added later by mbp who was trying to work it
+ * out.  It might be wrong.
+ **/ 
+void recv_generator(char *fname, struct file_list *flist, int i, int f_out)
 {  
 	int fd;
 	STRUCT_STAT st;
 	struct map_struct *buf;
-	struct sum_struct *s;
 	int statret;
 	struct file_struct *file = flist->files[i];
 	char *fnamecmp;
@@ -209,6 +222,7 @@ void recv_generator(char *fname,struct file_list *flist,int i,int f_out)
 	extern int list_only;
 	extern int preserve_perms;
 	extern int only_existing;
+	extern int orig_umask;
 
 	if (list_only) return;
 
@@ -219,8 +233,7 @@ void recv_generator(char *fname,struct file_list *flist,int i,int f_out)
 
 	if (only_existing && statret == -1 && errno == ENOENT) {
 		/* we only want to update existing files */
-		if (verbose > 1) rprintf(FINFO, RSYNC_NAME
-					 ": not creating new file \"%s\"\n",fname);
+		if (verbose > 1) rprintf(FINFO, "not creating new file \"%s\"\n",fname);
 		return;
 	}
 
@@ -252,7 +265,7 @@ void recv_generator(char *fname,struct file_list *flist,int i,int f_out)
 		}
 		if (statret != 0 && do_mkdir(fname,file->mode) != 0 && errno != EEXIST) {
 			if (!(relative_paths && errno==ENOENT && 
-			      create_directory_path(fname)==0 && 
+			      create_directory_path(fname, orig_umask)==0 && 
 			      do_mkdir(fname,file->mode)==0)) {
 				rprintf(FERROR, RSYNC_NAME ": recv_generator: mkdir \"%s\": %s (2)\n",
 					fname,strerror(errno));
@@ -273,7 +286,7 @@ void recv_generator(char *fname,struct file_list *flist,int i,int f_out)
 
 		if (safe_symlinks && unsafe_symlink(file->link, fname)) {
 			if (verbose) {
-				rprintf(FINFO,RSYNC_NAME ": ignoring unsafe symlink \"%s\" -> \"%s\"\n",
+				rprintf(FINFO,"ignoring unsafe symlink \"%s\" -> \"%s\"\n",
 					fname,file->link);
 			}
 			return;
@@ -301,8 +314,7 @@ void recv_generator(char *fname,struct file_list *flist,int i,int f_out)
 		} else {
 			set_perms(fname,file,NULL,0);
 			if (verbose) {
-				rprintf(FINFO,RSYNC_NAME": %s -> %s\n",
-					fname,file->link);
+				rprintf(FINFO,"%s -> %s\n", fname,file->link);
 			}
 		}
 #endif
@@ -334,14 +346,12 @@ void recv_generator(char *fname,struct file_list *flist,int i,int f_out)
 
 	if (preserve_hard_links && check_hard_link(file)) {
 		if (verbose > 1)
-			rprintf(FINFO, RSYNC_NAME
-				": \"%s\" is a hard link\n",f_name(file));
+			rprintf(FINFO, "recv_generator: \"%s\" is a hard link\n",f_name(file));
 		return;
 	}
 
 	if (!S_ISREG(file->mode)) {
-		rprintf(FINFO, RSYNC_NAME
-			": skipping non-regular file \"%s\"\n",fname);
+		rprintf(FINFO, "skipping non-regular file \"%s\"\n",fname);
 		return;
 	}
 
@@ -356,6 +366,18 @@ void recv_generator(char *fname,struct file_list *flist,int i,int f_out)
 			statret = -1;
 		if (statret == -1)
 			errno = saveerrno;
+#if HAVE_LINK
+		else if (link_dest && !dry_run) {
+			if (do_link(fnamecmpbuf, fname) != 0) {
+				if (verbose > 0)
+					rprintf(FINFO,"link %s => %s : %s\n",
+						fnamecmpbuf,
+						fname,
+						strerror(errno));
+			}
+			fnamecmp = fnamecmpbuf;
+		}
+#endif
 		else
 			fnamecmp = fnamecmpbuf;
 	}
@@ -363,7 +385,7 @@ void recv_generator(char *fname,struct file_list *flist,int i,int f_out)
 	if (statret == -1) {
 		if (errno == ENOENT) {
 			write_int(f_out,i);
-			if (!dry_run) send_sums(NULL,f_out);
+			if (!dry_run) send_null_sums(f_out);
 		} else {
 			if (verbose > 1)
 				rprintf(FERROR, RSYNC_NAME
@@ -380,7 +402,7 @@ void recv_generator(char *fname,struct file_list *flist,int i,int f_out)
 
 		/* now pretend the file didn't exist */
 		write_int(f_out,i);
-		if (!dry_run) send_sums(NULL,f_out);    
+		if (!dry_run) send_null_sums(f_out);
 		return;
 	}
 
@@ -407,9 +429,9 @@ void recv_generator(char *fname,struct file_list *flist,int i,int f_out)
 		return;
 	}
 
-	if (whole_file) {
+	if (disable_deltas_p()) {
 		write_int(f_out,i);
-		send_sums(NULL,f_out);    
+		send_null_sums(f_out);
 		return;
 	}
 
@@ -420,7 +442,7 @@ void recv_generator(char *fname,struct file_list *flist,int i,int f_out)
 		rprintf(FERROR,RSYNC_NAME": failed to open \"%s\", continuing : %s\n",fnamecmp,strerror(errno));
 		/* pretend the file didn't exist */
 		write_int(f_out,i);
-		send_sums(NULL,f_out);
+		send_null_sums(f_out);
 		return;
 	}
 
@@ -433,18 +455,15 @@ void recv_generator(char *fname,struct file_list *flist,int i,int f_out)
 	if (verbose > 3)
 		rprintf(FINFO,"gen mapped %s of size %.0f\n",fnamecmp,(double)st.st_size);
 
-	s = generate_sums(buf,st.st_size,adapt_block_size(file, block_size));
-
 	if (verbose > 2)
-		rprintf(FINFO,"sending sums for %d\n",i);
+		rprintf(FINFO, "generating and sending sums for %d\n", i);
 
 	write_int(f_out,i);
-	send_sums(s,f_out);
+	generate_and_send_sums(buf, st.st_size,
+			       adapt_block_size(file, block_size), f_out);
 
 	close(fd);
 	if (buf) unmap_file(buf);
-
-	free_sums(s);
 }
 
 
@@ -458,6 +477,13 @@ void generate_files(int f,struct file_list *flist,char *local_name,int f_recv)
 		rprintf(FINFO,"generator starting pid=%d count=%d\n",
 			(int)getpid(),flist->count);
 
+	if (verbose >= 2) {
+		rprintf(FINFO,
+			disable_deltas_p() 
+			? "delta-transmission disabled for local transfer or --whole-file\n"
+			: "delta transmission enabled\n");
+	}
+	
 	/* we expect to just sit around now, so don't exit on a
 	   timeout. If we really get a timeout then the other process should
 	   exit */

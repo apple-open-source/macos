@@ -6,11 +6,18 @@
 # lookupd gets information from NetInfo, so this file will not be consulted
 # unless you have changed lookupd's configuration.
 ##
-nobody:*:-2:-2::0:0:Unprivileged User:/dev/null:/dev/null
-root:*:0:0::0:0:System Administrator:/var/root:/bin/tcsh
-daemon:*:1:1::0:0:System Services:/var/root:/dev/null
-unknown:*:99:99::0:0:Unknown User:/dev/null:/dev/null
-smmsp:*:25:25::0:0:Sendmail User:/private/etc/mail:/dev/null
-www:*:70:70::0:0:World Wide Web Server:/Library/WebServer:/dev/null
-mysql:*:74:74::0:0:MySQL Server:/dev/null:/dev/null
-sshd:*:75:75::0:0:sshd Privilege separation:/var/empty:/dev/null
+nobody:*:-2:-2::0:0:Unprivileged User:/var/empty:/usr/bin/false
+root:*:0:0::0:0:System Administrator:/var/root:/bin/sh
+daemon:*:1:1::0:0:System Services:/var/root:/usr/bin/false
+unknown:*:99:99::0:0:Unknown User:/var/empty:/usr/bin/false
+smmsp:*:25:25::0:0:Sendmail User:/private/etc/mail:/usr/bin/false
+lp:*:26:26::0:0:Printing Services:/var/spool/cups:/usr/bin/false
+postfix:*:27:27::0:0:Postfix User:/var/spool/postfix:/usr/bin/false
+www:*:70:70::0:0:World Wide Web Server:/Library/WebServer:/usr/bin/false
+eppc:*:71:71::0:0:Apple Events User:/var/empty:/usr/bin/false
+mysql:*:74:74::0:0:MySQL Server:/var/empty:/usr/bin/false
+sshd:*:75:75::0:0:sshd Privilege separation:/var/empty:/usr/bin/false
+qtss:*:76:76::0:0:QuickTime Streaming Server:/var/empty:/usr/bin/false
+cyrus:*:77:6::0:0:Cyrus User:/var/imap:/usr/bin/false
+mailman:*:78:78::0:0:Mailman user:/var/empty:/usr/bin/false
+appserver:*:79:79::0:0:Application Server:/var/empty:/usr/bin/false

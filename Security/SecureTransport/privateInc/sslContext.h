@@ -112,35 +112,38 @@ struct SSLContext
     IOContext           ioCtx;
     
 	/* 
-	 * For the first two, SSL_Version_Undetermined means "get the best we
-	 * can, up to macProtocolVersion".
+	 * Prior to successful protocol negotiation, negProtocolVersion
+	 * is SSL_Version_Undetermined. Subsequent to successful
+	 * negotiation, negProtocolVersion contains the actual over-the-wire
+	 * protocol value. 
+	 *
+	 * The Boolean versionEnable flags are set by 
+	 * SSLSetProtocolVersionEnabled or SSLSetProtocolVersion and
+	 * remain invariant once negotiation has started. If there
+	 * were a large number of these and/or we were adding new
+	 * protocol versions on a regular basis, we'd probably want
+	 * to implement these as a word of flags. For now, in the 
+	 * real world, this is the most straightfoprward implementation. 
 	 */
-    SSLProtocolVersion  reqProtocolVersion;	/* requested by app */
     SSLProtocolVersion  negProtocolVersion;	/* negotiated */
-    SSLProtocolVersion  maxProtocolVersion;	/* max allowed by app */
-    SSLProtocolSide     protocolSide;
+    SSLProtocolVersion  clientReqProtocol;	/* requested by client in hello msg */
+	Boolean				versionSsl2Enable;
+	Boolean				versionSsl3Enable;
+	Boolean				versionTls1Enable;
+    SSLProtocolSide     protocolSide;		
+	
     const struct _SslTlsCallouts *sslTslCalls; /* selects between SSLv3 and TLSv1 */
 	
     /* crypto state in CDSA-centric terms */
     
-    CSSM_KEY_PTR		signingPrivKey;/* our private signing key */
+    CSSM_KEY_PTR		signingPrivKey;	/* our private signing key */
     CSSM_KEY_PTR		signingPubKey;	/* our public signing key */
     CSSM_CSP_HANDLE		signingKeyCsp;	/* associated DL/CSP */
-	#if 	ST_KC_KEYS_NEED_REF
-	SecKeychainRef		signingKeyRef;	/* for signingPrivKey */
-	#else
-	void				*signingKeyRef;	/* TBD */
-	#endif	/* ST_KC_KEYS_NEED_REF */
 	
-    CSSM_KEY_PTR		encryptPrivKey;/* our private encrypt key, for 
+    CSSM_KEY_PTR		encryptPrivKey;	/* our private encrypt key, for 
     									 * server-initiated key exchange */
     CSSM_KEY_PTR		encryptPubKey;	/* public version of above */
     CSSM_CSP_HANDLE		encryptKeyCsp;
-	#if 	ST_KC_KEYS_NEED_REF
-	SecKeychainRef		encryptKeyRef;	/* for signingPrivKey */
-	#else
-	void				*encryptKeyRef;	/* TBD */
-	#endif	/* ST_KC_KEYS_NEED_REF */
 	
     CSSM_KEY_PTR		peerPubKey;
     CSSM_CSP_HANDLE		peerPubKeyCsp;	/* may not be needed, we figure this
@@ -154,6 +157,9 @@ struct SSLContext
     SSLCertificate		*encryptCert;
     SSLCertificate      *peerCert;
     
+	/* peer certs as SecTrustRef */
+	SecTrustRef			peerSecTrust;
+	
     /* 
      * trusted root certs; specific to this implementation, we'll store
      * them conveniently...these will be used as AnchorCerts in a TP
@@ -162,15 +168,6 @@ struct SSLContext
     uint32				numTrustedCerts;
     CSSM_DATA_PTR		trustedCerts;
     
-    /*
-     * Keychain to which newly encountered root certs are attempted
-     * to be added. AccessCreds untyped for now.
-     */
-	#if		ST_MANAGES_TRUSTED_ROOTS
-    SecKeychainRef		newRootCertKc;
-    void				*accessCreds;
-    #endif	/* ST_MANAGES_TRUSTED_ROOTS */
-	
     /* for symmetric cipher and RNG */
     CSSM_CSP_HANDLE		cspHand;
     
@@ -178,20 +175,21 @@ struct SSLContext
     CSSM_TP_HANDLE		tpHand;
     CSSM_CL_HANDLE		clHand;
     
-    /* FIXME - how will we represent this? */
-    void         		*dhAnonParams;
-    void         		*peerDHParams;
+	#if		APPLE_DH
+	SSLBuffer			dhParamsPrime;
+	SSLBuffer			dhParamsGenerator;
+	SSLBuffer			dhParamsEncoded;	/* prime + generator */
+    SSLBuffer			dhPeerPublic;
+    SSLBuffer 			dhExchangePublic;
+	CSSM_KEY_PTR		dhPrivate;
+	#endif	/* APPLE_DH */
         
 	Boolean				allowExpiredCerts;
 	Boolean				allowExpiredRoots;
 	Boolean				enableCertVerify;
 	
     SSLBuffer		    sessionID;
-    
-    SSLBuffer			dhPeerPublic;
-    SSLBuffer 			dhExchangePublic;
-    SSLBuffer 			dhPrivate;
-    
+	
     SSLBuffer			peerID;
     SSLBuffer			resumableSession;
     
@@ -235,7 +233,7 @@ struct SSLContext
     
     unsigned            ssl2ChallengeLength;
     unsigned			ssl2ConnectionIDLength;
-    unsigned            ssl2SessionMatch;
+    unsigned            sessionMatch;
     
 	/* Record layer fields */
     SSLBuffer    		partialReadBuffer;
@@ -247,6 +245,8 @@ struct SSLContext
     uint32              receivedDataPos;
     
     Boolean				allowAnyRoot;		// don't require known roots
+	Boolean				sentFatalAlert;		// this session terminated by fatal alert
+	Boolean				rsaBlindingEnable;
 };
 
 #ifdef __cplusplus

@@ -1,4 +1,28 @@
 /*
+ * Copyright (c) 2003 Apple Computer, Inc. All rights reserved.
+ *
+ * @APPLE_LICENSE_HEADER_START@
+ * 
+ * Copyright (c) 1999-2003 Apple Computer, Inc.  All Rights Reserved.
+ * 
+ * This file contains Original Code and/or Modifications of Original Code
+ * as defined in and that are subject to the Apple Public Source License
+ * Version 2.0 (the 'License'). You may not use this file except in
+ * compliance with the License. Please obtain a copy of the License at
+ * http://www.opensource.apple.com/apsl/ and read it before using this
+ * file.
+ * 
+ * The Original Code and all software distributed under the License are
+ * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
+ * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
+ * INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY,
+ * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
+ * Please see the License for the specific language governing rights and
+ * limitations under the License.
+ * 
+ * @APPLE_LICENSE_HEADER_END@
+ */
+/*
  * mslp_util.c : Utilities used by the minimal SLP implementation.
  *
  * Version: 1.13
@@ -23,6 +47,9 @@
  *
  * (c) Sun Microsystems, 1998, All Rights Reserved.
  * Author: Erik Guttman
+ */
+ /*
+	Portions Copyright (c) 2002 Apple Computer, Inc. All rights reserved.
  */
  
 #include <stdio.h>
@@ -121,7 +148,7 @@ EXPORT char * safe_malloc(int size, const char *pcCpyInto, int iCpyLen)
         return NULL;
     }
     
-    if (size > MAX_REPLY_LENGTH)
+    if ((unsigned int)size > MAX_REPLY_LENGTH)
     {
         SLP_LOG( SLP_LOG_ERR,"SAFE_MALLOC got size too large (%ld), return NULL", size );
         return NULL;
@@ -178,7 +205,7 @@ int IsIPAddress(const char* adrsStr, long *ipAdrs)
 	accum = 0;
 	lastDotPos = -1;
 	for (i = 0; localCopy[i] != 0; i++)	{	// loop 'til it hits the NUL
-		c = localCopy[i];					// pulled this out of the comparison part of the for so that it is more obvious	// KA - 5/29/97
+		c = localCopy[i];					// pulled this out of the comparison part of the for so that it is more obvious
 		if (c == '.')	{
 			if (i - lastDotPos <= 1)	return 0;	// no digits
 			if (accum > 255) 			return 0;	// only 8 bits, guys
@@ -317,7 +344,6 @@ EXPORT SLPInternalError get_sin_from_url(const char *pcURL, int iLen,
 	{
       char*	endPtr = NULL;
 	  psin->sin_port = (unsigned short)(0xFFFF & strtol(pcPort,&endPtr,10));
-//	  psin->sin_port = (unsigned short)(0xFFFF & atoi(pcPort));
 	}
   } else {
     free(pcBase);
@@ -447,25 +473,6 @@ EXPORT SLPInternalError add_sht(char *pcBuf, int iBufSz, int iVal, int *piLen)
     return SLP_OK;
 }
     
-#if 0
-EXPORT SLPInternalError add_long(char *pcBuf, int iBufSz, long iVal, int *piLen) 
-{    
-    if (!pcBuf || !piLen) 
-        return SLP_PARAMETER_BAD;
-        
-    if ((*piLen + 2) > iBufSz) 
-        return SLP_BUFFER_OVERFLOW;
-    
-    pcBuf[(*piLen)++] = (unsigned char) ((iVal & 0xFF000000) >> 32);
-    pcBuf[(*piLen)++] = (unsigned char) ((iVal & 0x00FF0000) >> 16);
-    pcBuf[(*piLen)++] = (unsigned char) ((iVal & 0x0000FF00) >> 8);
-    pcBuf[(*piLen)++] = (unsigned char) ( iVal & 0x000000FF);
-
-    return SLP_OK;
-}
-
-#endif /* MAC_OS_X */
-
 /* get_sht
  *
  * This routine safely reads a 2 byte value, converts it to an unsigned
@@ -683,7 +690,6 @@ EXPORT const char * slp_strerror(SLPInternalError slpe) {
  *            is added for this parameter.
  *
  */
-//#include <syslog.h>
 
 int gLastLogOption = 0;
             
@@ -720,8 +726,6 @@ EXPORT void mslplog(LogLevel lev, const char *pcMsg, const char *pcSysMsg)
     */
     if (/*(lev & SLP_LOG_ERR)  ||*/ /* always log these two log levels */
         /*(lev & SLP_LOG_FAIL) ||*/
-//        (lev & SLP_LOG_RADMIN) ||
-//        (lev & SLP_LOG_STATE) ||
         /* if traceAll!=true, don't log*/
         (SLPGetProperty("com.sun.slp.traceAll") && 
             !SDstrcasecmp(SLPGetProperty("com.sun.slp.traceAll"),"true")) ||
@@ -817,7 +821,6 @@ EXPORT void mslplog(LogLevel lev, const char *pcMsg, const char *pcSysMsg)
             case SLP_LOG_DA:    
                 pcLogName = "DA"; 
                 priority = LOG_ERR;
-//                priority = LOG_INFO;
             break;
 
             case SLP_LOG_SA:    
@@ -828,7 +831,6 @@ EXPORT void mslplog(LogLevel lev, const char *pcMsg, const char *pcSysMsg)
             case SLP_LOG_REG:   
                 pcLogName = "REG"; 
                 priority = LOG_ERR;
-//                priority = LOG_INFO;
             break;
 
             case SLP_LOG_MSG:   
@@ -854,13 +856,11 @@ EXPORT void mslplog(LogLevel lev, const char *pcMsg, const char *pcSysMsg)
             case SLP_LOG_RADMIN:
                 pcLogName = "ServerAdmin"; 
                 priority = LOG_ERR;
-//                priority = LOG_INFO;
             break;
 
             case SLP_LOG_EXP:
                 pcLogName = "EXP"; 
                 priority = LOG_ERR;
-//                priority = LOG_INFO;
             break;
 
             case SLP_LOG_SR:
@@ -871,7 +871,6 @@ EXPORT void mslplog(LogLevel lev, const char *pcMsg, const char *pcSysMsg)
             case SLP_LOG_STATE:
                 pcLogName = "STATE";
                 priority = LOG_ERR;
-//                priority = LOG_INFO;
             break;
             
             case SLP_LOG_CONFIG:
@@ -902,31 +901,9 @@ EXPORT void mslplog(LogLevel lev, const char *pcMsg, const char *pcSysMsg)
             gLastLogOption = logOption;
         }
         
-/*        if ( pcSysMsg )
-            syslog( priority, "%s: %s: %s\n", pcLogName, pcMsg, pcSysMsg );
-        else
-*/            syslog( priority, "%s: %s\n", pcLogName, pcMsg );
+		syslog( priority, "%s: %s\n", pcLogName, pcMsg );
 
         pthread_mutex_unlock( &sysLogLock );
-//        closelog();
-/*        if ( SLPGetProperty("com.apple.slp.logfile") )
-            fp = fopen( SLPGetProperty("com.apple.slp.logfile"), "a" );	// just append to the end of the log file
-    
-        if ( fp )
-        {
-            if ( pcSysMsg )
-                fprintf( fp, "%s: %s: %s\n", pcLogName, pcMsg, pcSysMsg );
-            else
-                fprintf( fp, "%s: %s\n", pcLogName, pcMsg );
-        
-            fclose( fp );
-        }
-    
-        if (lev == SLP_LOG_FAIL)
-        {
-            fprintf( stdout, "slp encountered a critical error, check the log file:%s for more details.\n", SLPGetProperty("com.apple.slp.logfile") );
-        }
-*/
     } 
 }
 

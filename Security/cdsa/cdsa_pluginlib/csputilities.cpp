@@ -22,6 +22,8 @@
 #include <Security/CSPsession.h>
 #include <Security/cssmplugin.h>
 #include <Security/memutils.h>
+#include <Security/cssmdates.h>
+
 #include <stdio.h>	//@@@ debug
 
 using LowLevelMemoryUtilities::increment;
@@ -89,7 +91,7 @@ void CSPFullPluginSession::Writer::use(size_t used)
             vec++;
         } else if (vec > lastVec) {
             assert(false);				// 2nd try to overflow end
-#endif !NDEBUG
+#endif /* !NDEBUG */
         } else {
             currentBuffer = NULL;		// no more output buffer
             currentSize = 0;
@@ -132,6 +134,15 @@ void CSPFullPluginSession::setKey(CssmKey &key,
     key.KeyHeader.KeyClass = keyClass;
     key.KeyHeader.KeyUsage = use;
     key.KeyHeader.KeyAttr = attrs;
+
+	CssmDate *theDate = context.get<CssmDate>(CSSM_ATTRIBUTE_START_DATE);
+	if(theDate) {
+		key.KeyHeader.StartDate = *theDate;
+	}
+	theDate = context.get<CssmDate>(CSSM_ATTRIBUTE_END_DATE);
+	if(theDate) {
+		key.KeyHeader.EndDate = *theDate;
+	}
 
     // defaults (change as needed)
     key.KeyHeader.WrapAlgorithmId = CSSM_ALGID_NONE;

@@ -1,7 +1,4 @@
-/* src/config.h.  Generated automatically by configure.  */
-/* Define if you have the strcasecmp function.  */
-/*#define HAVE_STRCASECMP 1*/
-
+/* src/config-win32.h.  manually created to look like a config.h.  */
 /* Define if you have the stricmp function.  */
 #define HAVE_STRICMP 1
 
@@ -16,6 +13,12 @@
 
 /* Define if you have the <fcntl.h> header file.  */
 #define HAVE_FCNTL_H 1
+
+/* Define if you have utime() */
+#define HAVE_UTIME 1
+
+/* Define if you have the <sys/utime.h> header file */
+#define HAVE_SYS_UTIME_H 1
 
 /*************************************************
  * This section is for compiler specific defines.*

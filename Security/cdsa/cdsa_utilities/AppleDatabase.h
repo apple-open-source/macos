@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000-2001 Apple Computer, Inc. All Rights Reserved.
+ * Copyright (c) 2000-2001, 2003 Apple Computer, Inc. All Rights Reserved.
  * 
  * The contents of this file constitute Original Code as defined in and are
  * subject to the Apple Public Source License Version 1.2 (the 'License').
@@ -71,18 +71,6 @@ public:
 
     Table(const ReadSection &inTableSection);
 	~Table();
-#if 0
-    Table(const CSSM_DB_RECORD_ATTRIBUTE_INFO &inInfo) :
-		mMetaRecord (inInfo) {}
-    Table(Id inTableId, const string &inTableName,
-		  uint32 inNumberOfAttributes,
-		  const CSSM_DB_SCHEMA_ATTRIBUTE_INFO *inAttributeInfo,
-		  uint32 inNumberOfIndexes, 
-		  const CSSM_DB_SCHEMA_INDEX_INFO *inIndexInfo) :
-		mMetaRecord(inTableId, inTableName,
-				    inNumberOfAttributes, inAttributeInfo)
-		{ /* XXX Use inIndexInfo */ }
-#endif
 
 	// Return a newly created cursor satisfying inQuery on the receiving table
 	// The returned Cursor may or may not use indexes depending on their availability.
@@ -152,7 +140,7 @@ public:
 
 	// Mark the record with inRecordId as deleted.
     void deleteRecord(const RecordId &inRecordId);
-    const RecordId insertRecord(AtomicFile::VersionId inVersionId,
+    const RecordId insertRecord(uint32 inVersionId,
 								const CSSM_DB_RECORD_ATTRIBUTE_DATA *inAttributes,
 								const CssmData *inData);
     const RecordId updateRecord(const RecordId &inRecordId,
@@ -167,7 +155,7 @@ public:
 	DbMutableIndex &findIndex(uint32 indexId, const MetaRecord &metaRecord, bool isUniqueIndex);
 
 	// Write this table to inOutputFile at inSectionOffset and return the new offset.
-    uint32 writeTable(AtomicFile &inOutputFile, uint32 inSectionOffset);
+    uint32 writeTable(AtomicTempFile &inAtomicTempFile, uint32 inSectionOffset);
 
 private:
 	// Return the next available record number for this table.
@@ -244,14 +232,10 @@ class DbVersion : public Metadata, public RefCount
 {
 	NOCOPY(DbVersion)
 public:
-    DbVersion(AtomicFile &inDatabaseFile, const class AppleDatabase &db);
+    DbVersion(const class AppleDatabase &db, const RefPointer <AtomicBufferedFile> &inAtomicBufferedFile);
     ~DbVersion();
 
-    // Return true if the file on which this DbVersion is based
-	// has been modified.
-    bool isDirty() const;
-
-	AtomicFile::VersionId getVersionId() const { return mVersionId; }
+	uint32 getVersionId() const { return mVersionId; }
 	const RecordId getRecord(Table::Id inTableId, const RecordId &inRecordId,
 							 CSSM_DB_RECORD_ATTRIBUTE_DATA *inoutAttributes,
 							 CssmData *inoutData, CssmAllocator &inAllocator) const;
@@ -264,13 +248,13 @@ private:
     void open(); // Part of constructor contract.
 
 	ReadSection mDatabase;
-	AtomicFile *mDatabaseFile;
-    AtomicFile::VersionId mVersionId;
+    uint32 mVersionId;
 
 	friend class DbModifier; // XXX Fixme
     typedef map<Table::Id, Table *> TableMap;
     TableMap mTableMap;
 	const class AppleDatabase &mDb;
+	RefPointer<AtomicBufferedFile> mBufferedFile;
 
 public:
 	typedef Table value_type;
@@ -413,13 +397,14 @@ public:
 
 	// Whole database affecting members.
     void createDatabase(const CSSM_DBINFO &inDbInfo,
-						const CSSM_ACL_ENTRY_INPUT *inInitialAclEntry);
+						const CSSM_ACL_ENTRY_INPUT *inInitialAclEntry,
+						mode_t mode);
 	void openDatabase(); // This is optional right now.
 	void closeDatabase();
 	void deleteDatabase();
 
     void commit();
-    void rollback();
+    void rollback() throw();
 
 	// Record changing members
 	void deleteRecord(Table::Id inTableId, const RecordId &inRecordId);
@@ -469,9 +454,8 @@ private:
 	Mutex mDbVersionLock;
 
     AtomicFile &mAtomicFile;
-    AtomicFile::VersionId mVersionId;
-    AtomicFile::FileRef mFileRef;
-    bool mWriting;
+    uint32 mVersionId;
+	RefPointer<AtomicTempFile> mAtomicTempFile;
 
     typedef map<Table::Id, ModifiedTable *> ModifiedTableMap;
     ModifiedTableMap mModifiedTableMap;
@@ -506,9 +490,11 @@ public:
 	virtual ~AppleDbContext();
 	bool autoCommit() const { return mAutoCommit; }
 	void autoCommit(bool on) { mAutoCommit = on; }
-	
+	mode_t mode() const { return mMode; }
+
 private:
 	bool mAutoCommit;
+	mode_t mMode;
 };
 
 //

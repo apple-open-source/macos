@@ -18,7 +18,7 @@
  * WARRANTIES, INCLUDING, WITHOUT LIMITATION, THE IMPLIED WARRANTIES OF
  * MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE.
  *
- * @(#) $Header: /cvs/Darwin/src/live/tcpdump/tcpdump/setsignal.h,v 1.1.1.1 2001/07/07 00:50:54 bbraun Exp $ (LBL)
+ * @(#) $Header: /cvs/root/tcpdump/tcpdump/setsignal.h,v 1.1.1.1 2001/07/07 00:50:54 bbraun Exp $ (LBL)
  */
 #ifndef setsignal_h
 #define setsignal_h

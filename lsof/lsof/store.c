@@ -32,7 +32,7 @@
 #ifndef lint
 static char copyright[] =
 "@(#) Copyright 1994 Purdue Research Foundation.\nAll rights reserved.\n";
-static char *rcsid = "$Id: store.c,v 1.28 2001/10/17 19:24:37 abe Exp $";
+static char *rcsid = "$Id: store.c,v 1.30 2003/03/21 17:25:46 abe Exp $";
 #endif
 
 
@@ -59,9 +59,10 @@ struct clone *Clone = (struct clone *)NULL;
 				/* clone device list */
 #endif	/* defined(HAS_STD_CLONE) */
 
+int CmdColW;			/* COMMAND column width */
 struct str_lst *Cmdl = (struct str_lst *)NULL;
 				/* command names selected with -c */
-int CmdColW;			/* COMMAND column width */
+int CmdLim = CMDL;		/* COMMAND column width limit */
 lsof_rx_t *CmdRx = (lsof_rx_t *)NULL;
 				/* command regular expression table */
 
@@ -174,6 +175,9 @@ int Fxopt = HASXOPT_VALUE;	/* -X option status */
 
 struct fd_lst *Fdl = (struct fd_lst *)NULL;
 				/* file descriptors selected with -d */
+int FdlTy = -1;			/* Fdl[] type: -1 == none
+				 *		0 == include
+				 *		1 == exclude */
 
 struct fieldsel FieldSel[] = {
     { LSOF_FID_ACCESS, 0,  LSOF_FNM_ACCESS, NULL,     0		 }, /*  0 */

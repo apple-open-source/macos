@@ -1,6 +1,6 @@
-/* $OpenLDAP: pkg/ldap/libraries/libldap/string.c,v 1.15 2002/01/04 20:17:40 kurt Exp $ */
+/* $OpenLDAP: pkg/ldap/libraries/libldap/string.c,v 1.15.2.3 2003/03/03 17:10:05 kurt Exp $ */
 /*
- * Copyright 1998-2002 The OpenLDAP Foundation, All Rights Reserved.
+ * Copyright 1998-2003 The OpenLDAP Foundation, All Rights Reserved.
  * COPYING RESTRICTIONS APPLY, see COPYRIGHT file
  */
 
@@ -103,11 +103,33 @@ ldap_pvt_str2upper( char *str )
 	char    *s;
 
 	/* to upper */
-	for ( s = str; *s; s++ ) {
-		*s = TOUPPER( (unsigned char) *s );
+	if ( str ) {
+		for ( s = str; *s; s++ ) {
+			*s = TOUPPER( (unsigned char) *s );
+		}
 	}
 
 	return( str );
+}
+
+struct berval *
+ldap_pvt_str2upperbv( char *str, struct berval *bv )
+{
+	char    *s = NULL;
+
+	assert( bv );
+
+	/* to upper */
+	if ( str ) {
+		for ( s = str; *s; s++ ) {
+			*s = TOUPPER( (unsigned char) *s );
+		}
+	}
+
+	bv->bv_val = str;
+	bv->bv_len = (ber_len_t)(s - str);
+	
+	return( bv );
 }
 
 char *
@@ -116,9 +138,31 @@ ldap_pvt_str2lower( char *str )
 	char    *s;
 
 	/* to lower */
-	for ( s = str; *s; s++ ) {
-		*s = TOLOWER( (unsigned char) *s );
+	if ( str ) {
+		for ( s = str; *s; s++ ) {
+			*s = TOLOWER( (unsigned char) *s );
+		}
 	}
 
 	return( str );
+}
+
+struct berval *
+ldap_pvt_str2lowerbv( char *str, struct berval *bv )
+{
+	char    *s = NULL;
+
+	assert( bv );
+
+	/* to lower */
+	if ( str ) {
+		for ( s = str; *s; s++ ) {
+			*s = TOLOWER( (unsigned char) *s );
+		}
+	}
+
+	bv->bv_val = str;
+	bv->bv_len = (ber_len_t)(s - str);
+
+	return( bv );
 }

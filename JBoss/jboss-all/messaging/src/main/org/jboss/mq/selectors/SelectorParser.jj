@@ -1,0 +1,449 @@
+/*
+ * JBossMQ, the OpenSource JMS implementation
+ *
+ * Distributable under LGPL license.
+ * See terms of license at gnu.org.
+ */
+
+options {
+   LOOKAHEAD=3;
+/*
+   DEBUG_PARSER=true;
+   DEBUG_LOOKAHEAD=true;
+   DEBUG_TOKEN_MANAGER=true;
+*/
+}
+
+PARSER_BEGIN(SelectorParser)
+   
+package org.jboss.mq.selectors;
+
+import java.io.StringReader;
+
+import java.util.HashSet;
+import java.util.HashMap;
+
+/**
+ * A JavaCC 2.0 grammar for the JMS 1.0.2 message selectors.
+ * 
+ * @see http://www.webgain.com/products/metamata/java_doc.html
+ * 
+ * @author Scott.Stark@jboss.org
+ * @version $Revision: 1.8 $
+ */
+public class SelectorParser
+   implements ISelectorParser
+{
+   private HashMap identifierMap;
+
+   public SelectorParser()
+   {
+      // keep the parser from feaking out, init using one of
+      // the JavaCC generated constructor
+      this(new StringReader(""));
+   }
+
+   public Object parse(String selector, HashMap identifierMap)
+      throws ParseException
+   {
+      return parse(selector, identifierMap, false);
+   }
+   
+   public Object parse(String selector, HashMap identifierMap, boolean trace)
+      throws ParseException
+   {
+      StringReader sr = new StringReader(selector);
+      ReInit(sr);
+
+      // This will have no effect unless the debugging options are true      
+      if (trace)
+      {
+         this.enable_tracing();
+      }
+      else
+      {
+         this.disable_tracing();
+      }
+
+      this.identifierMap = identifierMap;
+      return this.expression();
+   }
+
+   /**
+    * Strip off the leading and trailing (quote) chars from the given string
+    * and return it.  Does not actually check to make sure they are '\'' chars.
+    */
+   private String stripQuotes(String image)
+   {
+      return image.substring(1, image.length() - 1);
+   }
+   
+   public static Object doParse(String selector, HashMap identifierMap)
+      throws ParseException
+   {
+      return doParse(selector, identifierMap, false);
+   }
+   
+   public static Object doParse(String selector, HashMap identifierMap, boolean trace)
+      throws ParseException
+   {
+      SelectorParser parser = new SelectorParser();
+      return parser.parse(selector, identifierMap, trace);
+   }
+}
+
+PARSER_END(SelectorParser)
+
+/* IGNORE WHITESPACE */
+   
+SKIP :
+{
+    " "
+  | "\r"
+  | "\t"
+  | "\n"
+}
+
+
+/* RESERVED WORDS AND LITERALS */
+
+TOKEN [IGNORE_CASE]:
+{
+    < TRUE:      "TRUE" >
+  | < FALSE:     "FALSE" >
+  | < NULL:      "NULL" >
+  | < AND:       "AND" >
+  | < NOT:       "NOT" >
+  | < OR:        "OR" >
+  | < BETWEEN:   "BETWEEN" >
+  | < LIKE:      "LIKE" >
+  | < IN:        "IN" >
+  | < IS:        "IS" >
+  | < ESCAPE:    "ESCAPE" >
+  | < LPAREN:    "(" >
+  | < RPAREN:    ")" >
+  | < SEMICOLON: ";" >
+  | < COMMA:     "," >
+
+}
+
+/* OPERATORS */
+
+TOKEN :
+{
+    < MULT:  "*" >
+  | < DIV:   "/" >
+  | < MINUS: "-" >
+  | < PLUS:  "+" >
+  | < GT:    ">" >
+  | < GE:    ">=" >
+  | < LT:    "<" >
+  | < LE:    "<=" >
+  | < NE:    "<>" >
+  | < EQ:    "=" >
+
+}
+
+/* Literals */
+
+TOKEN :
+{
+    < LONG: ( ["0" - "9"] )+ >
+  | < DOUBLE: <FLOAT>
+	    | <FLOAT> ( ["e","E"] ([ "-","+"])? <LONG> )?
+    >
+  | < #FLOAT: <LONG> ( "." (<LONG>)? )
+	    | "." <LONG>
+    >
+  | < STRING:
+      "'"
+      (   (~["'","\n","\r"])
+        | ("''")
+      )*
+      "'"
+    >
+}
+
+/* Function names */
+
+TOKEN : 
+{
+  < IDENTIFIER: <LETTER> (<LETTER>|<DIGIT>)* >
+|
+  < #LETTER: [ "_","$", "a"-"z", "A"-"Z" ]
+  >
+|
+  < #DIGIT: ["0" - "9"]
+  >
+}
+
+/** Start of the grammar */
+
+Object expression() :
+{
+   Object exp1 = null;
+}
+{
+   exp1 = logicExpression() <EOF>
+   {
+      return exp1;
+   }
+}
+
+Object logicExpression() :
+{
+   Object exp1 = null;
+   Object exp2 = null;
+}
+{
+   exp1=notExpression()
+   (
+      <AND> exp2=notExpression()
+      {
+         exp1 = new Operator(Operator.AND, exp1, exp2);
+      }
+      | <OR> exp2=notExpression()
+      {
+         exp1 = new Operator(Operator.OR, exp1, exp2);
+      }
+   )*
+   { return exp1; }
+}
+
+Object notExpression() :
+{
+   Object exp1 = null;
+}
+{
+  exp1=relationalExpression()
+   { return exp1; }
+  | <NOT> exp1=relationalExpression()
+      {
+         exp1 = new Operator(Operator.NOT, exp1);
+      }
+   { return exp1; }
+}
+
+Object relationalExpression() :
+{
+   Object exp1 = null;
+   Object exp2 = null;
+}
+{
+  exp1=orEqualExpression()
+  (
+      <LT> exp2=orEqualExpression()
+      {
+         exp1 = new Operator(Operator.LT, exp1, exp2);
+      }
+
+      | <GT> exp2=orEqualExpression()
+      {
+         exp1 = new Operator(Operator.GT, exp1, exp2);
+      }
+  )*
+   { return exp1; }
+}
+
+Object orEqualExpression() :
+{
+   Object exp1 = null;
+   Object exp2 = null;
+}
+{
+  exp1=equalExpression()
+  (
+    ( <LE> exp2=equalExpression()
+      {
+         exp1 = new Operator(Operator.LE, exp1, exp2);
+      }
+    )
+	|
+    ( <GE> exp2=equalExpression()
+      {
+         exp1 = new Operator(Operator.GE, exp1, exp2);
+      }
+    )
+   )*
+   { return exp1; }
+}
+
+
+Object equalExpression() :
+{
+   Object exp1 = null;
+   Object exp2 = null;
+   Object exp3 = null;
+   HashSet set = null;
+}
+{
+   exp1=additiveExpression()
+   (  <NE> exp2=additiveExpression()
+      {
+         exp1 = new Operator(Operator.DIFFERENT, exp1, exp2);
+      }
+	| <EQ> exp2=additiveExpression()
+      {
+         exp1 = new Operator(Operator.EQUAL, exp1, exp2);
+      }
+      | <IS> exp1=nullExp(exp1)
+      | <BETWEEN> exp2=additiveExpression() <AND> exp3=additiveExpression()
+      {
+         exp1 = new Operator(Operator.BETWEEN, exp1, exp2, exp3);
+      }
+      | <IS> exp1=nullExp(exp1)
+      | <NOT> <BETWEEN> exp2=additiveExpression() <AND> exp3=additiveExpression()
+      {
+         exp1 = new Operator(Operator.BETWEEN, exp1, exp2, exp3);
+         exp1 = new Operator(Operator.NOT, exp1);
+      }
+      | <LIKE> exp1=likeExp(exp1)
+      | <NOT> <LIKE> exp1=likeExp(exp1)
+      {
+         exp1 = new Operator(Operator.NOT, exp1);
+      }
+      | <IN> <LPAREN> { set = new HashSet(); } stringList(set) <RPAREN>
+      {
+         exp1 = new Operator(Operator.IN, exp1, set);
+      }
+      | <NOT> <IN> <LPAREN> { set = new HashSet(); } stringList(set) <RPAREN>
+      {
+         exp1 = new Operator(Operator.IN, exp1, set);
+         exp1 = new Operator(Operator.NOT, exp1);
+      }
+   )*
+   { return exp1; }
+}
+
+
+Object additiveExpression() :
+{
+   Object exp1 = null;
+   Object exp2 = null;
+}
+{
+  exp1=multiplicativeExpression()
+  (
+    ( <PLUS> exp2=multiplicativeExpression()
+      {
+         exp1 = new Operator(Operator.ADD, exp1, exp2);
+      }
+    )
+    |
+    ( <MINUS> exp2=multiplicativeExpression()
+      {
+         exp1 = new Operator(Operator.SUB, exp1, exp2);
+      }
+    )
+  )*
+  { return exp1; }
+}
+
+Object multiplicativeExpression() :
+{
+   Object exp1 = null;
+   Object exp2 = null;
+}
+{
+   exp1=unaryExpression()
+   (
+      ( <MULT> exp2=unaryExpression()
+         {
+            exp1 = new Operator(Operator.MUL, exp1, exp2);
+         }
+       )
+   |
+      ( <DIV> exp2=unaryExpression()
+         {
+            exp1 = new Operator(Operator.DIV, exp1, exp2);
+         }
+      )
+   )*
+   { return exp1; }
+}
+
+Object unaryExpression() :
+{
+   Object exp1 = null;
+}
+{
+   <PLUS> exp1=unaryExpression()
+      { return exp1; }
+   | <MINUS> exp1=unaryExpression()
+      { return new Operator(Operator.NEG, exp1); }
+   | exp1=unaryExpressionNotPlusMinus()
+      { return exp1; }
+}
+
+
+Object unaryExpressionNotPlusMinus() :
+{
+   Token t = null;
+   Object exp = null;
+}
+{
+   t=<IDENTIFIER>
+      {
+         Identifier id = (Identifier)identifierMap.get(t.image);
+	 if( id == null ) {
+            id = new Identifier(t.image);
+            identifierMap.put(t.image, id);
+	 }
+         return id;
+      }
+   | t=<STRING>  { return stripQuotes(t.image); }
+   | t=<DOUBLE>  { return Double.valueOf(t.image); }
+   | t=<LONG>    { return Long.valueOf(t.image); }
+   | t=<TRUE> { return Boolean.TRUE; }
+   | t=<FALSE> { return Boolean.FALSE; }
+   | <LPAREN> exp=logicExpression() <RPAREN>
+      { return exp; }
+}
+
+Operator nullExp(Object exp1) :
+{
+   Token not = null;
+}
+{
+   [ not=<NOT> ] <NULL>
+   {
+      int opCode = not == null ? Operator.IS_NULL : Operator.IS_NOT_NULL;
+      return new Operator(opCode, exp1);
+   }
+}
+
+Operator likeExp(Object exp1) :
+{
+   Object exp2 = null;
+   Object exp3 = null;
+   Token esc = null;
+}
+{
+   exp2=additiveExpression()
+   [ esc=<ESCAPE> exp3=additiveExpression() ]
+      {
+         Operator op = null;
+         if( esc == null )
+            op = new Operator(Operator.LIKE, exp1, exp2);
+         else
+            op = new Operator(Operator.LIKE_ESCAPE, exp1, exp2, exp3);
+         return op;
+      }
+}
+
+
+void stringList(HashSet set):
+{}
+{
+    stringToken(set) ( <COMMA> stringToken(set))*
+}
+
+void stringToken(HashSet set) :
+{
+   Token t = null;
+}
+{
+   [ t=<STRING> ]
+      { if( t != null ) set.add(stripQuotes(t.image)); }
+}
+

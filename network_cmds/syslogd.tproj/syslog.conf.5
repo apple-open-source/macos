@@ -29,7 +29,8 @@
 .\" OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
 .\" SUCH DAMAGE.
 .\"
-.\"     @(#)syslog.conf.5	8.1 (Berkeley) 6/9/93
+.\"     from: @(#)syslog.conf.5	8.1 (Berkeley) 6/9/93
+.\"	$NetBSD: syslog.conf.5,v 1.4 1996/01/02 17:41:46 perry Exp $
 .\"
 .Dd June 9, 1993
 .Dt SYSLOG.CONF 5
@@ -91,7 +92,7 @@ The
 .Em level
 describes the severity of the message, and is a keyword from the
 following ordered list (higher to lower): emerg, alert, crit, err,
-warning, notice and debug.
+warning, notice, info and debug.
 These keywords correspond to the
 similar
 .Pq Dv LOG_
@@ -222,3 +223,10 @@ the level of ``err'' or higher, not at the level of ``crit'' or higher.
 .Sh SEE ALSO
 .Xr syslog 3 ,
 .Xr syslogd 8
+.Sh HISTORY
+The
+.Nm
+file appeared in
+.Bx 4.3 ,
+along with
+.Xr syslogd 8 .

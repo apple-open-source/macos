@@ -3,6 +3,7 @@
 #include <IOKit/IOKitLib.h>
 #include <IOKit/IOKitServer.h>
 #include <IOKit/IOCFURLAccess.h>
+#include <IOKit/IOCFUnserialize.h>
 #include <mach/mach.h>
 #include <mach/mach_host.h>
 #include <mach/mach_error.h>
@@ -22,7 +23,9 @@
 * Globals set from invocation arguments.
 *******************************************************************************/
 
-static const char * KEXTD_SERVER_NAME = "Kernel Extension Server";
+static const char * KEXTD_SERVER_NAME = "com.apple.KernelExtensionServer";
+
+#define kKXROMExtensionsFolder        "/System/Library/Caches/com.apple.romextensions/"
 
 char * progname = "(unknown)";  // don't free
 Boolean use_repository_caches = true;
@@ -50,7 +53,7 @@ CFRunLoopSourceRef gRescanRunLoopSource = NULL;        // must release
 CFRunLoopSourceRef gKernelRequestRunLoopSource = NULL; // must release
 CFRunLoopSourceRef gClientRequestRunLoopSource = NULL; // must release
 #ifndef NO_CFUserNotification
-CFRunLoopSourceRef gNonsecureKextRunLoopSource = NULL;     // must release
+CFRunLoopSourceRef gNotificationQueueRunLoopSource = NULL;     // must release
 #endif /* NO_CFUserNotification */
 
 const char * default_kernel_file = "/mach";
@@ -74,16 +77,12 @@ void kextd_handle_sigterm(int signum);
 void kextd_handle_sighup(int signum);
 void kextd_handle_sighup_in_runloop(void * info);
 
+static Boolean kextd_find_rom_mkexts(void);
 static Boolean kextd_download_personalities(void);
-
-static Boolean kextd_process_ndrvs(CFArrayRef repositoryDirectories);
 
 static void usage(int level);
 
 char * CFURLCopyCString(CFURLRef anURL);
-
-__private_extern__ 
-void IOLoadPEFsFromURL( CFURLRef url, io_service_t service );
 
 /*******************************************************************************
 *******************************************************************************/
@@ -92,7 +91,8 @@ int main (int argc, const char * argv[]) {
     int exit_status = 0;
     KXKextManagerError result = kKXKextManagerErrorNone;
     int optchar;
-    CFIndex count, i;
+    CFIndex count, i, rom_repository_idx = -1;
+    Boolean have_rom_mkexts = FALSE;
 
     CFMutableArrayRef repositoryDirectories = NULL;  // -f; must free
 
@@ -126,25 +126,18 @@ int main (int argc, const char * argv[]) {
 
 #ifndef NO_CFUserNotification
 
-    gPendedNonsecureKexts = CFArrayCreateMutable(kCFAllocatorDefault, 0,
+    gPendedNonsecureKextPaths = CFArrayCreateMutable(kCFAllocatorDefault, 0,
         &kCFTypeArrayCallBacks);
-    if (!gPendedNonsecureKexts) {
+    if (!gPendedNonsecureKextPaths) {
         fprintf(stderr, "%s: memory allocation failure\n", progname);
         exit_status = 1;
         goto finish;
     }
 
-    gPendedKextloadOperations = CFArrayCreateMutable(kCFAllocatorDefault, 0,
-        &kCFTypeArrayCallBacks);
-    if (!gPendedKextloadOperations) {
-        fprintf(stderr, "%s: memory allocation failure\n", progname);
-        exit_status = 1;
-        goto finish;
-    }
-
-    gScheduledNonsecureKexts = CFArrayCreateMutable(kCFAllocatorDefault, 0,
-        &kCFTypeArrayCallBacks);
-    if (!gScheduledNonsecureKexts) {
+    gNotifiedNonsecureKextPaths = CFDictionaryCreateMutable(kCFAllocatorDefault, 0,
+        &kCFTypeDictionaryKeyCallBacks,
+        &kCFTypeDictionaryValueCallBacks);
+    if (!gNotifiedNonsecureKextPaths) {
         fprintf(stderr, "%s: memory allocation failure\n", progname);
         exit_status = 1;
         goto finish;
@@ -291,6 +284,8 @@ int main (int argc, const char * argv[]) {
             // FIXME: ... program to trigger KLD unload?
             // FIXME: should kextd exit in this case?
         }
+
+	have_rom_mkexts = kextd_find_rom_mkexts();
     } 
 
    /*****
@@ -298,14 +293,14 @@ int main (int argc, const char * argv[]) {
     */
     CFArrayInsertValueAtIndex(repositoryDirectories, 0,
         kKXSystemExtensionsFolder);
-
    /*****
-    * Send those NDRVs down to the kernel.
+    * Make sure we scan the ROM Extensions folder.
     */
-    if (!kextd_process_ndrvs(repositoryDirectories)) {
-        // kextd_process_ndrvs() logged an error message
-        exit_status = 1;
-        goto finish;
+    if (have_rom_mkexts)
+    {
+	rom_repository_idx = 1;
+	CFArrayInsertValueAtIndex(repositoryDirectories, rom_repository_idx,
+	    CFSTR(kKXROMExtensionsFolder));
     }
 
    /*****
@@ -369,16 +364,18 @@ int main (int argc, const char * argv[]) {
 
         result = KXKextManagerAddRepositoryDirectory(gKextManager,
             directoryURL, true /* scanForAdditions */,
-            use_repository_caches, NULL);
+            (use_repository_caches && (i != rom_repository_idx)),
+	    NULL);
         if (result != kKXKextManagerErrorNone) {
             kextd_error_log("can't add repository (%s).",
                 KXKextManagerErrorStaticCStringForError(result));
-            exit_status = 1;
-            goto finish;
         }
         CFRelease(directoryURL);
         directoryURL = NULL;
     }
+
+    CFRelease(repositoryDirectories);
+    repositoryDirectories = NULL;
 
     KXKextManagerEnableClearRelationships(gKextManager);
 
@@ -415,13 +412,118 @@ finish:
     if (gMainRunLoop)                 CFRelease(gMainRunLoop);
 
 #ifndef NO_CFUserNotification
-    if (gPendedNonsecureKexts)         CFRelease(gPendedNonsecureKexts);
-    if (gPendedKextloadOperations)     CFRelease(gPendedKextloadOperations);
-    if (gScheduledNonsecureKexts)      CFRelease(gScheduledNonsecureKexts);
+    if (gPendedNonsecureKextPaths)     CFRelease(gPendedNonsecureKextPaths);
+    if (gNotifiedNonsecureKextPaths)   CFRelease(gNotifiedNonsecureKextPaths);
 #endif /* NO_CFUserNotification */
 
     exit(exit_status);
     return exit_status;
+}
+
+/*******************************************************************************
+*
+*******************************************************************************/
+
+#define TEMP_FILE		"/tmp/com.apple.iokit.kextd.XX"
+#define MKEXTUNPACK_COMMAND	"/usr/sbin/mkextunpack "	\
+				"-d "kKXROMExtensionsFolder" "
+
+static kern_return_t process_mkext(const UInt8 * bytes, CFIndex length)
+{
+    kern_return_t	err;
+    char		temp_file[1 + strlen(TEMP_FILE)];
+    char		mkextunpack_cmd[1 + strlen(TEMP_FILE) + strlen(MKEXTUNPACK_COMMAND)];
+    const char *	rom_ext_dir = kKXROMExtensionsFolder;
+    int 		outfd = -1;
+    struct stat		stat_buf;
+    
+    strcpy(temp_file, TEMP_FILE);
+    mktemp(temp_file);
+    outfd = open(temp_file, O_WRONLY|O_CREAT|O_TRUNC, 0666);
+    if (-1 == outfd) {
+	kextd_error_log("can't create %s - %s\n", temp_file,
+	    strerror(errno));
+	err = kKXKextManagerErrorFileAccess;
+	goto finish;
+    }
+
+    if (length != write(outfd, bytes, length))
+        err = kKXKextManagerErrorDiskFull;
+    else
+        err = kKXKextManagerErrorNone;
+
+    if (kKXKextManagerErrorNone != err) {
+        kextd_error_log("couldn't write output");
+	goto finish;
+    }
+
+    close(outfd);
+    outfd = -1;
+
+    if (-1 == stat(rom_ext_dir, &stat_buf))
+    {
+	if (0 != mkdir(rom_ext_dir, 0755))
+	{
+	    kextd_error_log("mkdir(%s) failed: %s\n", rom_ext_dir, strerror(errno));
+	    err = kKXKextManagerErrorFileAccess;
+	    goto finish;
+	}
+    }
+
+    strcpy(mkextunpack_cmd, MKEXTUNPACK_COMMAND);
+    strcat(mkextunpack_cmd, temp_file);
+
+    if (0 != system(mkextunpack_cmd))
+    {
+	kextd_error_log(mkextunpack_cmd);
+	kextd_error_log("failed");
+	err = kKXKextManagerErrorChildTask;
+        goto finish;
+    }
+
+finish:
+    if (-1 != outfd)
+	close(outfd);
+    unlink(temp_file);
+
+    return err;
+}
+
+static Boolean kextd_find_rom_mkexts(void)
+{
+    kern_return_t	kr;
+    CFSetRef		set = NULL;
+    CFDataRef *		mkexts = NULL;
+    CFIndex		count, idx;
+    char *		propertiesBuffer;
+    int			loaded_bytecount;
+    enum {		_kIOCatalogGetROMMkextList = 4  };
+
+    kr = IOCatalogueGetData(MACH_PORT_NULL, _kIOCatalogGetROMMkextList,
+			    &propertiesBuffer, &loaded_bytecount);
+    if (kIOReturnSuccess == kr)
+    { 
+	set = (CFSetRef)
+		IOCFUnserialize(propertiesBuffer, kCFAllocatorDefault, 0, 0);
+	vm_deallocate(mach_task_self(), (vm_address_t) propertiesBuffer, loaded_bytecount);
+    }
+    if (!set)
+	return false;
+
+    count  = CFSetGetCount(set);
+    if (count)
+    {
+	mkexts = (CFDataRef *) calloc(count, sizeof(CFDataRef));
+	CFSetGetValues(set, (const void **) mkexts);
+	for (idx = 0; idx < count; idx++)
+	{
+	    process_mkext(CFDataGetBytePtr(mkexts[idx]), CFDataGetLength(mkexts[idx]));
+	}
+	free(mkexts);
+    }
+    CFRelease(set);
+
+    return (count > 0);
 }
 
 /*******************************************************************************
@@ -526,6 +628,7 @@ int kextd_fork(void)
         {
             /* parent: wait for signal, then exit */
             int status;
+	    kextd_openlog("kextd-parent");  // should that arg be progname?
 
             wait4(pid, (int *)&status, 0, 0);
             if (WIFEXITED(status)) {
@@ -634,15 +737,15 @@ static Boolean kextd_set_up_server(void)
 
 #ifndef NO_CFUserNotification
 
-    sourceContext.perform = kextd_handle_pended_kextload;
-    gNonsecureKextRunLoopSource = CFRunLoopSourceCreate(kCFAllocatorDefault,
+    sourceContext.perform = kextd_check_notification_queue;
+    gNotificationQueueRunLoopSource = CFRunLoopSourceCreate(kCFAllocatorDefault,
         sourcePriority++, &sourceContext);
-    if (!gNonsecureKextRunLoopSource) {
-       kextd_error_log("couldn't create pended kextload run loop source");
+    if (!gNotificationQueueRunLoopSource) {
+       kextd_error_log("couldn't create alert run loop source");
         result = false;
         goto finish;
     }
-    CFRunLoopAddSource(gMainRunLoop, gNonsecureKextRunLoopSource,
+    CFRunLoopAddSource(gMainRunLoop, gNotificationQueueRunLoopSource,
         kCFRunLoopDefaultMode);
 
 #endif /* NO_CFUserNotification */
@@ -676,7 +779,7 @@ finish:
     if (gKernelRequestRunLoopSource)  CFRelease(gKernelRequestRunLoopSource);
     if (gClientRequestRunLoopSource)  CFRelease(gClientRequestRunLoopSource);
 #ifndef NO_CFUserNotification
-    if (gNonsecureKextRunLoopSource)  CFRelease(gNonsecureKextRunLoopSource);
+    if (gNotificationQueueRunLoopSource) CFRelease(gNotificationQueueRunLoopSource);
 #endif /* NO_CFUserNotification */
     if (kextdMachPort)                CFRelease(kextdMachPort);
 
@@ -713,13 +816,12 @@ void kextd_handle_sigterm(int signum)
 
     kern_result = IOKitWaitQuiet(g_io_master_port, &waitTime);
     if (kern_result == kIOReturnTimeout) {
-        kextd_error_log("IOKitWaitQuiet() timed out",
-        kern_result);
+        kextd_error_log("IOKitWaitQuiet() timed out");
     } else if (kern_result != kIOReturnSuccess) {
         kextd_error_log("IOKitWaitQuiet() failed with result code %lx",
         kern_result);
     }
-    exit(0);
+    _exit(0);
     return;
 }
 
@@ -742,35 +844,46 @@ void kextd_handle_sighup(int signum)
     return;
 }
 
+#ifndef NO_CFUserNotification
+/*******************************************************************************
+*
+*******************************************************************************/
+void kextd_clear_all_notifications(void)
+{
+    CFArrayRemoveAllValues(gPendedNonsecureKextPaths);
+
+   /* Release any reference to the current user notification.
+    */
+    if (gCurrentNotification) {
+        CFUserNotificationCancel(gCurrentNotification);
+        CFRelease(gCurrentNotification);
+        gCurrentNotification = NULL;
+    }
+
+    if (gCurrentNotificationRunLoopSource) {
+        CFRunLoopRemoveSource(gMainRunLoop, gCurrentNotificationRunLoopSource,
+            kCFRunLoopDefaultMode);
+        CFRelease(gCurrentNotificationRunLoopSource);
+        gCurrentNotificationRunLoopSource = NULL;
+    }
+
+   /* Clear the record of which kexts the user has been told are insecure.
+    * They'll get all the same warnings upon logging in again.
+    */
+    CFDictionaryRemoveAllValues(gNotifiedNonsecureKextPaths);
+
+    return;
+}
+#endif /* NO_CFUserNotification */
+
+
 /*******************************************************************************
 *
 *******************************************************************************/
 void kextd_rescan(void)
 {
 #ifndef NO_CFUserNotification
-   /* Dump all nonsecure kexts awaiting load by kextd. We're rescanning so
-    * this will all get retriggered.
-    */
-    CFArrayRemoveAllValues(gPendedNonsecureKexts);
-    CFArrayRemoveAllValues(gScheduledNonsecureKexts);
-
-   /* Clear any security alert awaiting user input. Don't clear a kextload
-    * operation awaiting user input, however, as that would likely never
-    * get retriggered, and it doesn't access the kextmanager data set.
-    */
-    if (gSecurityNotification) {
-        CFUserNotificationCancel(gSecurityNotification);
-        CFRelease(gSecurityNotification);
-        gSecurityNotification = NULL;
-    }
-    if (gFailureNotification) {
-        CFUserNotificationCancel(gFailureNotification);
-        CFRelease(gFailureNotification);
-        gFailureNotification = NULL;
-    }
-    gSecurityAlertKext = NULL;
-    gResendSecurityAlertKextPersonalities = false;
-
+    kextd_clear_all_notifications();
 #endif /* NO_CFUserNotification */
 
     KXKextManagerResetAllRepositories(gKextManager);
@@ -827,59 +940,6 @@ finish:
 
     return result;
 }
-
-/*******************************************************************************
-*
-*******************************************************************************/
-static Boolean kextd_process_ndrvs(CFArrayRef repositoryDirectories)
-{
-    Boolean     result = true;
-    CFIndex     repositoryCount, r;
-    CFStringRef thisPath = NULL;        // don't release
-    CFURLRef    repositoryURL = NULL;   // must release
-    CFURLRef    ndrvDirURL = NULL;      // must release
-
-    repositoryCount = CFArrayGetCount(repositoryDirectories);
-    for (r = 0; r < repositoryCount; r++) {
-
-       /* Clean up at top of loop in case of a continue.
-        */
-        if (repositoryURL) {
-            CFRelease(repositoryURL);
-            repositoryURL = NULL;
-        }
-        if (ndrvDirURL) {
-            CFRelease(ndrvDirURL);
-            ndrvDirURL = NULL;
-        }
-
-        thisPath = (CFStringRef)CFArrayGetValueAtIndex(
-            repositoryDirectories, r);
-        repositoryURL = CFURLCreateWithFileSystemPath(kCFAllocatorDefault,
-            thisPath, kCFURLPOSIXPathStyle, true);
-        if (!repositoryURL) {
-            kextd_error_log("memory allocation failure");
-            result = 0;
-            goto finish;
-        }
-        ndrvDirURL = CFURLCreateCopyAppendingPathComponent(kCFAllocatorDefault,
-            repositoryURL, CFSTR("AppleNDRV"), true);
-        if (!ndrvDirURL) {
-            kextd_error_log("memory allocation failure");
-            result = 0;
-            goto finish;
-        }
-
-	IOLoadPEFsFromURL( ndrvDirURL, MACH_PORT_NULL );
-    }
-
-finish:
-    if (repositoryURL)   CFRelease(repositoryURL);
-    if (ndrvDirURL)      CFRelease(ndrvDirURL);
-
-    return result;
-}
-
 
 /*******************************************************************************
 *

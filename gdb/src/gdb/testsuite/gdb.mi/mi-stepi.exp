@@ -1,4 +1,4 @@
-#   Copyright 1999, 2000 Free Software Foundation, Inc.
+# Copyright 1999, 2000, 2002 Free Software Foundation, Inc.
 
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -29,6 +29,12 @@
 load_lib mi-support.exp
 set MIFLAGS "-i=mi"
 
+# APPLE LOCAL: For now, ignore all non-mi1 tests.
+if [istarget "*-apple-darwin*"] then {
+  gdb_suppress_entire_file "Not testing non-mi1 on Darwin at this time."
+  return
+}
+
 gdb_exit
 if [mi_gdb_start] {
     continue
@@ -46,29 +52,6 @@ mi_gdb_reinitialize_dir $srcdir/$subdir
 mi_gdb_reinitialize_dir $srcdir/$subdir
 mi_gdb_load ${binfile}
 
-proc test_running_to_main {} {
-    global mi_gdb_prompt
-    global hex
-
-    mi_gdb_test "200-break-insert main" \
-             "200\\^done,bkpt=\{number=\"1\",type=\"breakpoint\",disp=\"keep\",enabled=\"y\",addr=\"$hex\",func=\"main\",file=\".*basics.c\",line=\"32\",times=\"0\"\}" \
-             "break-insert operation"
-
-    mi_run_cmd
-
-    gdb_expect {
-	-re "000\\*stopped,reason=\"breakpoint-hit\",bkptno=\"1\",thread-id=\"\[0-9\]\",frame=\{addr=\"$hex\",func=\"main\",args=\\\[\\\],file=\".*basics.c\",line=\"32\"\}\r\n$mi_gdb_prompt$" {
-	    pass "run to main"
-	}
-	-re ".*$mi_gdb_prompt$" {
-	    fail "run to main (2)"
-	}
-	timeout {
-	    fail "run to main (timeout)"
-	}
-    }
-}
-
 proc test_stepi_nexti {} {
     global mi_gdb_prompt
     global hex
@@ -77,6 +60,9 @@ proc test_stepi_nexti {} {
     gdb_expect {
 	-re "111\\^running\r\n${mi_gdb_prompt}111\\*stopped,reason=\"end-stepping-range\",thread-id=\"\[0-9]\",frame=\{addr=\"$hex\",func=\"main\",args=\\\[\\\],file=\".*basics.c\",line=\"3.\"\}\r\n$mi_gdb_prompt$" {
 	    pass "step-instruction at main"
+	}
+	-re ".*$mi_gdb_prompt$" {
+	    fail "step-instruction at main (2)"
 	}
 	timeout {
 	    fail "step-instruction at main (timeout)"
@@ -87,6 +73,9 @@ proc test_stepi_nexti {} {
 	-re "222\\^running\r\n${mi_gdb_prompt}222\\*stopped,reason=\"end-stepping-range\",thread-id=\"\[0-9\]\",frame=\{addr=\"$hex\",func=\"main\",args=\\\[\\\],file=\".*basics.c\",line=\"3.\"\}\r\n$mi_gdb_prompt$" {
 	    pass "next-instruction at main"
 	}
+	-re ".*$mi_gdb_prompt$" {
+	    fail "next-instruction at main (2)"
+	}
 	timeout {
 	    fail "next-instruction at main (timeout)"
 	}
@@ -94,15 +83,18 @@ proc test_stepi_nexti {} {
     send_gdb "333-exec-next-instruction\n"
     gdb_expect {
 	-re "333\\^running\r\n${mi_gdb_prompt}333\\*stopped,reason=\"end-stepping-range\",thread-id=\"\[0-9\]\",frame=\{addr=\"$hex\",func=\"main\",args=\\\[\\\],file=\".*basics.c\",line=\"3.\"\}\r\n$mi_gdb_prompt$" {
-	    pass "next-instruction at main"
+	    pass "exec-next-instruction at main"
+	}
+	-re ".*$mi_gdb_prompt$" {
+	    fail "exec-next-instruction at main (2)"
 	}
 	timeout {
-	    fail "next-instruction at main (timeout)"
+	    fail "exec-next-instruction at main (timeout)"
 	}
     }
 }
 
-test_running_to_main
+mi_run_to_main
 test_stepi_nexti
 
 mi_gdb_exit

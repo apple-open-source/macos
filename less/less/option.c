@@ -1,27 +1,11 @@
 /*
- * Copyright (c) 1984,1985,1989,1994,1995,1996,1999  Mark Nudelman
- * All rights reserved.
+ * Copyright (C) 1984-2002  Mark Nudelman
  *
- * Redistribution and use in source and binary forms, with or without
- * modification, are permitted provided that the following conditions
- * are met:
- * 1. Redistributions of source code must retain the above copyright
- *    notice, this list of conditions and the following disclaimer.
- * 2. Redistributions in binary form must reproduce the above copyright
- *    notice in the documentation and/or other materials provided with 
- *    the distribution.
+ * You may distribute under the terms of either the GNU General Public
+ * License or the Less License, as specified in the README file.
  *
- * THIS SOFTWARE IS PROVIDED BY THE AUTHOR ``AS IS'' AND ANY
- * EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
- * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR 
- * PURPOSE ARE DISCLAIMED.  IN NO EVENT SHALL THE AUTHOR BE LIABLE
- * FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR 
- * CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT 
- * OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR 
- * BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, 
- * WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE 
- * OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN 
- * IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+ * For more information about less, or for information on how to 
+ * contact the author, see the README file.
  */
 
 
@@ -37,7 +21,7 @@
 #include "less.h"
 #include "option.h"
 
-static struct option *pendopt;
+static struct loption *pendopt;
 public int plusoption = FALSE;
 
 static char *propt();
@@ -55,7 +39,7 @@ extern char *every_first_cmd;
 scan_option(s)
 	char *s;
 {
-	register struct option *o;
+	register struct loption *o;
 	register int optc;
 	char *optname;
 	char *printopt;
@@ -69,14 +53,24 @@ scan_option(s)
 		return;
 
 	/*
-	 * If we have a pending string-valued option, handle it now.
+	 * If we have a pending option which requires an argument,
+	 * handle it now.
 	 * This happens if the previous option was, for example, "-P"
 	 * without a following string.  In that case, the current
-	 * option is simply the string for the previous option.
+	 * option is simply the argument for the previous option.
 	 */
 	if (pendopt != NULL)
 	{
-		(*pendopt->ofunc)(INIT, s);
+		switch (pendopt->otype & OTYPE)
+		{
+		case STRING:
+			(*pendopt->ofunc)(INIT, s);
+			break;
+		case NUMBER:
+			printopt = propt(pendopt->oletter);
+			*(pendopt->ovar) = getnum(&s, printopt, (int*)NULL);
+			break;
+		}
 		pendopt = NULL;
 		return;
 	}
@@ -122,11 +116,11 @@ scan_option(s)
 			 * EVERY input file.
 			 */
 			plusoption = TRUE;
-			if (*s == '+')
-				every_first_cmd = save(++s);
+			s = optstring(s, &str, propt('+'), NULL);
+			if (*str == '+')
+				every_first_cmd = save(++str);
 			else
-				ungetsc(s);
-			s = optstring(s, printopt);
+				ungetsc(str);
 			continue;
 		case '0':  case '1':  case '2':  case '3':  case '4':
 		case '5':  case '6':  case '7':  case '8':  case '9':
@@ -156,7 +150,8 @@ scan_option(s)
 			lc = SIMPLE_IS_LOWER(optname[0]);
 			o = findopt_name(&optname, NULL, &err);
 			s = optname;
-			if (*s == '\0')
+			optname = NULL;
+			if (*s == '\0' || *s == ' ')
 			{
 				/*
 				 * The option name matches exactly.
@@ -167,7 +162,9 @@ scan_option(s)
 				/*
 				 * The option name is followed by "=value".
 				 */
-				if (o != NULL && (o->otype & OTYPE) != STRING)
+				if (o != NULL &&
+				    (o->otype & OTYPE) != STRING &&
+				    (o->otype & OTYPE) != NUMBER)
 				{
 					parg.p_string = printopt;
 					error("The %s option should not be followed by =",
@@ -227,10 +224,16 @@ scan_option(s)
 			 * All processing of STRING options is done by 
 			 * the handling function.
 			 */
-			str = s;
-			s = optstring(s, printopt);
+			while (*s == ' ')
+				s++;
+			s = optstring(s, &str, printopt, o->odesc[1]);
 			break;
 		case NUMBER:
+			if (*s == '\0')
+			{
+				pendopt = o;
+				return;
+			}
 			*(o->ovar) = getnum(&s, printopt, (int*)NULL);
 			break;
 		}
@@ -257,7 +260,7 @@ toggle_option(c, s, how_toggle)
 	char *s;
 	int how_toggle;
 {
-	register struct option *o;
+	register struct loption *o;
 	register int num;
 	int no_prompt;
 	int err;
@@ -379,7 +382,7 @@ toggle_option(c, s, how_toggle)
 			switch (how_toggle)
 			{
 			case OPT_TOGGLE:
-				num = getnum(&s, '\0', &err);
+				num = getnum(&s, NULL, &err);
 				if (!err)
 					*(o->ovar) = num;
 				break;
@@ -477,7 +480,7 @@ propt(c)
 single_char_option(c)
 	int c;
 {
-	register struct option *o;
+	register struct loption *o;
 
 	o = findopt(c);
 	if (o == NULL)
@@ -493,7 +496,7 @@ single_char_option(c)
 opt_prompt(c)
 	int c;
 {
-	register struct option *o;
+	register struct loption *o;
 
 	o = findopt(c);
 	if (o == NULL || (o->otype & (STRING|NUMBER)) == 0)
@@ -523,7 +526,7 @@ nostring(printopt)
 {
 	PARG parg;
 	parg.p_string = printopt;
-	error("String is required after %s", &parg);
+	error("Value is required after %s", &parg);
 }
 
 /*
@@ -541,9 +544,11 @@ nopendopt()
  * Return a pointer to the remainder of the string, if any.
  */
 	static char *
-optstring(s, printopt)
+optstring(s, p_str, printopt, validchars)
 	char *s;
+	char **p_str;
 	char *printopt;
+	char *validchars;
 {
 	register char *p;
 
@@ -552,12 +557,29 @@ optstring(s, printopt)
 		nostring(printopt);
 		quit(QUIT_ERROR);
 	}
+	*p_str = s;
 	for (p = s;  *p != '\0';  p++)
-		if (*p == END_OPTION_STRING)
+	{
+		if (*p == END_OPTION_STRING ||
+		    (validchars != NULL && strchr(validchars, *p) == NULL))
 		{
-			*p = '\0';
-			return (p+1);
+			switch (*p)
+			{
+			case END_OPTION_STRING:
+			case ' ':  case '\t':  case '-':
+				/* Replace the char with a null to terminate string. */
+				*p++ = '\0';
+				break;
+			default:
+				/* Cannot replace char; make a copy of the string. */
+				*p_str = (char *) ecalloc(p-s+1, sizeof(char));
+				strncpy(*p_str, s, p-s);
+				(*p_str)[p-s] = '\0';
+				break;
+			}
+			break;
 		}
+	}
 	return (p);
 }
 
@@ -591,8 +613,11 @@ getnum(sp, printopt, errp)
 			*errp = TRUE;
 			return (-1);
 		}
-		parg.p_string = printopt;
-		error("Number is required after %s", &parg);
+		if (printopt != NULL)
+		{
+			parg.p_string = printopt;
+			error("Number is required after %s", &parg);
+		}
 		quit(QUIT_ERROR);
 	}
 

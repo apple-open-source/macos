@@ -1,9 +1,9 @@
 /*
- * "$Id: client.h,v 1.1.1.2 2002/02/10 04:51:32 jlovell Exp $"
+ * "$Id: client.h,v 1.1.1.10 2003/07/23 02:33:37 jlovell Exp $"
  *
  *   Client definitions for the Common UNIX Printing System (CUPS) scheduler.
  *
- *   Copyright 1997-2002 by Easy Software Products, all rights reserved.
+ *   Copyright 1997-2003 by Easy Software Products, all rights reserved.
  *
  *   These coded instructions, statements, and computer programs are the
  *   property of Easy Software Products and are protected by Federal
@@ -37,8 +37,8 @@ typedef struct
   char		username[33],		/* Username from Authorization: line */
 		password[33],		/* Password from Authorization: line */
 		uri[HTTP_MAX_URI],	/* Localized URL/URI for GET/PUT */
-		filename[HTTP_MAX_URI],	/* Filename of output file */
-		command[HTTP_MAX_URI],	/* Command to run */
+		*filename,		/* Filename of output file */
+		*command,		/* Command to run */
 		*options;		/* Options for command */
   int		file;			/* Input/output file */
   int		pipe_pid;		/* Pipe process ID (or 0 if not a pipe) */
@@ -66,16 +66,21 @@ typedef struct
  * Globals...
  */
 
-VAR int			ListenBackLog	VALUE(SOMAXCONN);
+VAR int			ListenBackLog	VALUE(SOMAXCONN),
+					/* Max backlog of pending connections */
+			LocalPort	VALUE(631);
+					/* Local port to use */
 VAR int			NumListeners	VALUE(0);
 					/* Number of listening sockets */
-VAR listener_t		Listeners[MAX_LISTENERS];
+VAR listener_t		*Listeners	VALUE(NULL);
 					/* Listening sockets */
 VAR int			NumClients	VALUE(0);
 					/* Number of HTTP clients */
 VAR client_t		*Clients	VALUE(NULL);
 					/* HTTP clients */
 VAR struct sockaddr_in	ServerAddr;	/* Server IP address */
+VAR int			CGIPipes[2]	VALUE2(-1,-1);
+					/* Pipes for CGI error/debug output */
 
 
 /*
@@ -86,8 +91,10 @@ extern void	AcceptClient(listener_t *lis);
 extern void	CloseAllClients(void);
 extern void	CloseClient(client_t *con);
 extern int	EncryptClient(client_t *con);
+extern int	IsCGI(client_t *con, const char *filename,
+		      struct stat *filestats, mime_type_t *type);
 extern void	PauseListening(void);
-extern void	ProcessIPPRequest(client_t *con);
+extern int	ProcessIPPRequest(client_t *con);
 extern int	ReadClient(client_t *con);
 extern void	ResumeListening(void);
 extern int	SendCommand(client_t *con, char *command, char *options);
@@ -95,10 +102,12 @@ extern int	SendError(client_t *con, http_status_t code);
 extern int	SendFile(client_t *con, http_status_t code, char *filename,
 		         char *type, struct stat *filestats);
 extern int	SendHeader(client_t *con, http_status_t code, char *type);
+extern void	ShutdownClient(client_t *con);
 extern void	StartListening(void);
 extern void	StopListening(void);
+extern void	UpdateCGI(void);
 extern int	WriteClient(client_t *con);
 
 /*
- * End of "$Id: client.h,v 1.1.1.2 2002/02/10 04:51:32 jlovell Exp $".
+ * End of "$Id: client.h,v 1.1.1.10 2003/07/23 02:33:37 jlovell Exp $".
  */

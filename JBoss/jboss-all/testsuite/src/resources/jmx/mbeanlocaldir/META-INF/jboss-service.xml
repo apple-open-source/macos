@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<!-- Local directory copy test -->
+
+<server>
+
+  <local-directory path="local-directory"/>
+  <mbean code="org.jboss.test.jmx.mbean.TestDeployer"
+	 name="test:name=TestCopyLocalDir"/>
+
+</server>

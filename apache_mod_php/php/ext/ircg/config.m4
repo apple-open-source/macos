@@ -1,14 +1,26 @@
-AC_ARG_WITH(ircg-config,
-[  --with-ircg-config      Path to the ircg-config script],
-[ IRCG_CONFIG=$withval ],
-[ IRCG_CONFIG=ircg-config ])
+dnl
+dnl $Id: config.m4,v 1.1.1.5 2003/07/18 18:07:34 zarzycki Exp $
+dnl
 
-PHP_ARG_WITH(ircg, for ircg support,
-[  --with-ircg             Include ircg support])
+PHP_ARG_WITH(ircg, for IRCG support,
+[  --with-ircg             Include IRCG support])
+
+AC_ARG_WITH(ircg-config,
+[  --with-ircg-config=PATH   IRCG: Path to the ircg-config script],
+[ IRCG_CONFIG=$withval ],
+[
+if test "$with_ircg" != "yes" && test "$with_ircg" != "no"; then
+  IRCG_CONFIG=$with_ircg/bin/ircg-config
+else
+  IRCG_CONFIG=ircg-config
+fi
+])
 
 if test "$PHP_IRCG" != "no"; then
-  $IRCG_CONFIG --ldflags
-  if test "$?" != "0"; then
+
+  IRCG_PREFIX=`$IRCG_CONFIG --prefix`
+  
+  if test -z "$IRCG_PREFIX"; then
     AC_MSG_ERROR([I cannot run the ircg-config script which should have been installed by IRCG. Please ensure that the script is in your PATH or point --with-ircg-config to the path of the script.])
   fi
   
@@ -18,7 +30,9 @@ if test "$PHP_IRCG" != "no"; then
   PHP_ADD_INCLUDE($PHP_IRCG/include)
   if test "$PHP_SAPI" = "thttpd"; then
     AC_DEFINE(IRCG_WITH_THTTPD, 1, [Whether thttpd is available])
+    PHP_DISABLE_CLI
   fi
   AC_DEFINE(HAVE_IRCG, 1, [Whether you want IRCG support])
-  PHP_EXTENSION(ircg, $ext_shared)
+  PHP_NEW_EXTENSION(ircg, ircg.c ircg_scanner.c, $ext_shared)
+  PHP_ADD_MAKEFILE_FRAGMENT
 fi

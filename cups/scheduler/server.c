@@ -1,9 +1,9 @@
 /*
- * "$Id: server.c,v 1.1.1.2 2002/02/10 04:51:42 jlovell Exp $"
+ * "$Id: server.c,v 1.1.1.8 2003/04/11 21:07:49 jlovell Exp $"
  *
  *   Server start/stop routines for the Common UNIX Printing System (CUPS).
  *
- *   Copyright 1997-2002 by Easy Software Products, all rights reserved.
+ *   Copyright 1997-2003 by Easy Software Products, all rights reserved.
  *
  *   These coded instructions, statements, and computer programs are the
  *   property of Easy Software Products and are protected by Federal
@@ -31,14 +31,10 @@
  * Include necessary headers...
  */
 
+#include <cups/http-private.h>
 #include "cupsd.h"
 
 #include <grp.h>
-
-#ifdef HAVE_LIBSSL
-#  include <openssl/ssl.h>
-#  include <openssl/rand.h>
-#endif /* HAVE_LIBSSL */
 
 
 /*
@@ -75,6 +71,14 @@ StartServer(void)
     data[i] = rand(); /* Yes, this is a poor source of random data... */
 
   RAND_seed(&data, sizeof(data));
+#elif defined(HAVE_GNUTLS)
+ /*
+  * Initialize the encryption libraries...
+  */
+
+  gnutls_global_init();
+#elif defined(HAVE_CDSASSL)
+  ServerCertificatesArray = CDSAGetServerCerts();
 #endif /* HAVE_LIBSSL */
 
  /*
@@ -86,16 +90,13 @@ StartServer(void)
   StartPolling();
 
  /*
-  * If the administrator has configured the server to run as an unpriviledged
-  * user, change to that user now...
+  * Create a pipe for CGI processes...
   */
 
-  if (RunAsUser)
-  {
-    setgid(Group);
-    setgroups(0, NULL);
-    setuid(User);
-  }
+  pipe(CGIPipes);
+
+  LogMessage(L_DEBUG2, "StartServer: Adding fd %d to InputSet...", CGIPipes[0]);
+  FD_SET(CGIPipes[0], InputSet);
 }
 
 
@@ -121,7 +122,35 @@ StopServer(void)
     Clients = NULL;
   }
 
-  StopAllJobs();
+#if defined(HAVE_SSL) && defined(HAVE_CDSASSL)
+ /*
+  * Free all of the certificates...
+  */
+
+  if (ServerCertificatesArray)
+  {
+    CFRelease(ServerCertificatesArray);
+    ServerCertificatesArray = NULL;
+  }
+#endif /* HAVE_SSL && HAVE_CDSASSL */
+
+ /*
+  * Close the pipe for CGI processes...
+  */
+
+  if (CGIPipes[0] >= 0)
+  {
+    close(CGIPipes[0]);
+    close(CGIPipes[1]);
+
+    LogMessage(L_DEBUG2, "StopServer: Removing fd %d from InputSet...",
+               CGIPipes[0]);
+
+    FD_CLR(CGIPipes[0], InputSet);
+
+    CGIPipes[0] = -1;
+    CGIPipes[1] = -1;
+  }
 
  /*
   * Close all log files...
@@ -129,34 +158,27 @@ StopServer(void)
 
   if (AccessFile != NULL)
   {
-    fclose(AccessFile);
+    cupsFileClose(AccessFile);
 
     AccessFile = NULL;
   }
 
   if (ErrorFile != NULL)
   {
-    fclose(ErrorFile);
+    cupsFileClose(ErrorFile);
 
     ErrorFile = NULL;
   }
 
   if (PageFile != NULL)
   {
-    fclose(PageFile);
+    cupsFileClose(PageFile);
 
     PageFile = NULL;
   }
-
- /*
-  * Clear the input and output sets...
-  */
-
-  FD_ZERO(&InputSet);
-  FD_ZERO(&OutputSet);
 }
 
 
 /*
- * End of "$Id: server.c,v 1.1.1.2 2002/02/10 04:51:42 jlovell Exp $".
+ * End of "$Id: server.c,v 1.1.1.8 2003/04/11 21:07:49 jlovell Exp $".
  */

@@ -1,4 +1,4 @@
-This is ../info/efaq, produced by makeinfo version 4.0 from faq.texi.
+This is ../info/efaq, produced by makeinfo version 4.0f from faq.texi.
 
 INFO-DIR-SECTION Emacs
 START-INFO-DIR-ENTRY
@@ -30,7 +30,7 @@ unless that work itself allows free copying and redistribution.
 
 File: efaq,  Node: Top,  Next: FAQ notation,  Prev: (dir),  Up: (dir)
 
-   This is the GNU Emacs FAQ, last updated on 5 October 2001.
+   This is the GNU Emacs FAQ, last updated on 16 March 2002.
 
    The FAQ is maintained as a Texinfo document, allowing us to create
 HTML, Info, and TeX documents from a single source file, and is slowly
@@ -936,7 +936,7 @@ File: efaq,  Node: Latest version of Emacs,  Next: New in Emacs 20,  Prev: Origi
 What is the latest version of Emacs?
 ====================================
 
-   Emacs 21.1 is the current version as of this writing.
+   Emacs 21.2 is the current version as of this writing.
 
 
 File: efaq,  Node: New in Emacs 20,  Next: New in Emacs 21,  Prev: Latest version of Emacs,  Up: Status of Emacs
@@ -1071,13 +1071,14 @@ File: efaq,  Node: Colors on a TTY,  Next: Debugging a customization file,  Prev
 How do I get colors and syntax highlighting on a TTY?
 =====================================================
 
-   As of Emacs 21.1, colors and faces are supported in non-windowed
-mode, i.e. on Unix and GNU/Linux text-only terminals and consoles, and
-when invoked as `emacs -nw' on X and MS-Windows.  (Colors and faces were
-supported in the MS-DOS port since Emacs 19.29.)  Emacs automatically
-detects color support at startup and uses it if available.  If you think
-that your terminal supports colors, but Emacs won't use them, check the
-`termcap' entry for your display type for color-related capabilities.
+   In Emacs 21.1 and later, colors and faces are supported in
+non-windowed mode, i.e. on Unix and GNU/Linux text-only terminals and
+consoles, and when invoked as `emacs -nw' on X and MS-Windows.  (Colors
+and faces were supported in the MS-DOS port since Emacs 19.29.)  Emacs
+automatically detects color support at startup and uses it if
+available.  If you think that your terminal supports colors, but Emacs
+won't use them, check the `termcap' entry for your display type for
+color-related capabilities.
 
    The command `M-x list-colors-display' pops up a window which
 exhibits all the colors Emacs knows about on the current display.

@@ -1,22 +1,25 @@
 /*
- * Copyright (c) 2000-2002 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 2000-2003 Apple Computer, Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
- *
- * The contents of this file constitute Original Code as defined in and
- * are subject to the Apple Public Source License Version 1.1 (the
- * "License").  You may not use this file except in compliance with the
- * License.  Please obtain a copy of the License at
- * http://www.apple.com/publicsource and read it before using this file.
- *
- * This Original Code and all software distributed under the License are
- * distributed on an "AS IS" basis, WITHOUT WARRANTY OF ANY KIND, EITHER
+ * 
+ * Copyright (c) 1999-2003 Apple Computer, Inc.  All Rights Reserved.
+ * 
+ * This file contains Original Code and/or Modifications of Original Code
+ * as defined in and that are subject to the Apple Public Source License
+ * Version 2.0 (the 'License'). You may not use this file except in
+ * compliance with the License. Please obtain a copy of the License at
+ * http://www.opensource.apple.com/apsl/ and read it before using this
+ * file.
+ * 
+ * The Original Code and all software distributed under the License are
+ * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
  * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
  * INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY,
- * FITNESS FOR A PARTICULAR PURPOSE OR NON-INFRINGEMENT.  Please see the
- * License for the specific language governing rights and limitations
- * under the License.
- *
+ * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
+ * Please see the License for the specific language governing rights and
+ * limitations under the License.
+ * 
  * @APPLE_LICENSE_HEADER_END@
  */
 
@@ -37,8 +40,6 @@
 #include <SystemConfiguration/SCPrivate.h>
 #include "SCDynamicStoreInternal.h"
 #include "config.h"		/* MiG generated file */
-
-#include "v1Compatibility.h"
 
 static void
 informCallback(CFMachPortRef port, void *msg, CFIndex size, void *info)
@@ -75,22 +76,22 @@ informCallback(CFMachPortRef port, void *msg, CFIndex size, void *info)
 #endif	/* DEBUG */
 
 	/* remove the run loop source */
-	CFRunLoopRemoveSource(CFRunLoopGetCurrent(),
+	CFRunLoopRemoveSource(storePrivate->callbackRunLoop,
 			      storePrivate->callbackRunLoopSource,
 			      kCFRunLoopDefaultMode);
 	CFRelease(storePrivate->callbackRunLoopSource);
+	storePrivate->callbackRunLoop		= NULL;
+	storePrivate->callbackRunLoopSource	= NULL;
 
 	/* invalidate port */
 	CFMachPortInvalidate(storePrivate->callbackPort);
 	CFRelease(storePrivate->callbackPort);
+	storePrivate->callbackPort     		= NULL;
 
 	/* disable notifier */
 	storePrivate->notifyStatus     		= NotifierNotRegistered;
 	storePrivate->callbackArgument 		= NULL;
 	storePrivate->callbackFunction 		= NULL;
-	storePrivate->callbackPort     		= NULL;
-	storePrivate->callbackRunLoop		= NULL;
-	storePrivate->callbackRunLoopSource	= NULL;
 
 	return;
 }
@@ -244,7 +245,7 @@ rlsPortInvalidate(CFMachPortRef mp, void *info) {
 
 	// A simple deallocate won't get rid of all the references we've accumulated
 	SCLog(_sc_verbose, LOG_DEBUG, CFSTR("  invalidate = %d"), port);
-	mach_port_destroy(mach_task_self(), port);
+	(void)mach_port_mod_refs(mach_task_self(), port, MACH_PORT_RIGHT_RECEIVE, -1);
 }
 
 
@@ -322,7 +323,10 @@ rlsSchedule(void *info, CFRunLoopRef rl, CFStringRef mode)
 		storePrivate->callbackRunLoopSource = CFMachPortCreateRunLoopSource(NULL, storePrivate->callbackPort, 0);
 	}
 
-	CFRunLoopAddSource(rl, storePrivate->callbackRunLoopSource, mode);
+	if (storePrivate->callbackRunLoopSource) {
+		CFRunLoopAddSource(rl, storePrivate->callbackRunLoopSource, mode);
+	}
+
 	return;
 }
 
@@ -335,7 +339,9 @@ rlsCancel(void *info, CFRunLoopRef rl, CFStringRef mode)
 
 	SCLog(_sc_verbose, LOG_DEBUG, CFSTR("cancel notifications for mode %@"), mode);
 
-	CFRunLoopRemoveSource(rl, storePrivate->callbackRunLoopSource, mode);
+	if (storePrivate->callbackRunLoopSource) {
+		CFRunLoopRemoveSource(rl, storePrivate->callbackRunLoopSource, mode);
+	}
 
 	if (--storePrivate->rlsRefs == 0) {
 		int		sc_status;
@@ -343,26 +349,33 @@ rlsCancel(void *info, CFRunLoopRef rl, CFStringRef mode)
 
 		SCLog(_sc_verbose, LOG_DEBUG, CFSTR("  cancel callback runloop source"));
 
-		/* remove the run loop source */
-		CFRelease(storePrivate->callbackRunLoopSource);
-		storePrivate->callbackRunLoopSource = NULL;
+		if (storePrivate->callbackRunLoopSource) {
+			/* remove the run loop source */
+			CFRelease(storePrivate->callbackRunLoopSource);
+			storePrivate->callbackRunLoopSource = NULL;
+		}
 
-		/* invalidate port */
-		CFMachPortInvalidate(storePrivate->callbackPort);
-		CFRelease(storePrivate->callbackPort);
-		storePrivate->callbackPort = NULL;
+		if (storePrivate->callbackPort) {
+			/* invalidate port */
+			CFMachPortInvalidate(storePrivate->callbackPort);
+			CFRelease(storePrivate->callbackPort);
+			storePrivate->callbackPort = NULL;
+		}
 
-		status = notifycancel(storePrivate->server, (int *)&sc_status);
-		if (status != KERN_SUCCESS) {
-			if (status != MACH_SEND_INVALID_DEST)
+		if (storePrivate->server) {
+			status = notifycancel(storePrivate->server, (int *)&sc_status);
+			if (status != KERN_SUCCESS) {
+				if (status != MACH_SEND_INVALID_DEST)
 				SCLog(_sc_verbose, LOG_INFO, CFSTR("notifycancel(): %s"), mach_error_string(status));
-			(void) mach_port_destroy(mach_task_self(), storePrivate->server);
-			storePrivate->server = MACH_PORT_NULL;
-			return;
+				(void) mach_port_destroy(mach_task_self(), storePrivate->server);
+				storePrivate->server = MACH_PORT_NULL;
+				return;
+			}
 		}
 	}
 	return;
 }
+
 
 static void
 rlsPerform(void *info)
@@ -416,6 +429,7 @@ rlsRetain(CFTypeRef cf)
 
 	return cf;
 }
+
 
 static void
 rlsRelease(CFTypeRef cf)

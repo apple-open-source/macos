@@ -3,21 +3,22 @@
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
- * "Portions Copyright (c) 1999 Apple Computer, Inc.  All Rights
- * Reserved.  This file contains Original Code and/or Modifications of
- * Original Code as defined in and that are subject to the Apple Public
- * Source License Version 1.0 (the 'License').  You may not use this file
- * except in compliance with the License.  Please obtain a copy of the
- * License at http://www.apple.com/publicsource and read it before using
- * this file.
+ * Copyright (c) 1999-2003 Apple Computer, Inc.  All Rights Reserved.
+ * 
+ * This file contains Original Code and/or Modifications of Original Code
+ * as defined in and that are subject to the Apple Public Source License
+ * Version 2.0 (the 'License'). You may not use this file except in
+ * compliance with the License. Please obtain a copy of the License at
+ * http://www.opensource.apple.com/apsl/ and read it before using this
+ * file.
  * 
  * The Original Code and all software distributed under the License are
  * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
  * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
  * INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY,
- * FITNESS FOR A PARTICULAR PURPOSE OR NON-INFRINGEMENT.  Please see the
- * License for the specific language governing rights and limitations
- * under the License."
+ * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
+ * Please see the License for the specific language governing rights and
+ * limitations under the License.
  * 
  * @APPLE_LICENSE_HEADER_END@
  */
@@ -37,6 +38,7 @@
 #import "automount.h"
 #import "log.h"
 #import <syslog.h>
+#include "Controller.h"
 
 @implementation Vnode
 
@@ -44,7 +46,8 @@
 {
 	[super init];
 
-	path = nil;
+	relpath = nil;
+	fullpath = nil;
 	name = nil;
 	link = nil;
 	src = nil;
@@ -55,6 +58,7 @@
 	mounted = NO;
 	fake = NO;
 	mountPathCreated = NO;
+	marked = NO;
 
 	supernode = nil;
 	subnodes = [[Array alloc] init];
@@ -85,7 +89,8 @@
 	forcedNFSVersion = 0;
 	forcedProtocol = 0;
 
-	urlString = [String uniqueString:""];
+	urlString = nil;
+	authenticated_urlString = nil;
 
 	bzero(&nfsArgs, sizeof(struct nfs_args));
 #ifdef __APPLE__
@@ -118,13 +123,21 @@
 
 - (void)dealloc
 {
-	if (path != nil) [path release];
+	if ([controller vnodeIsRegistered:self]) {
+		sys_msg(debug, LOG_ERR, "Hey?! vnode being deallocated is still registered?!");
+	};
+	if (mountInProgress) {
+		sys_msg(debug, LOG_DEBUG, "Hey?! vnode being deallocated has mount in progress?!");
+	};
+	if (relpath != nil) [relpath release];
+	if (fullpath != nil) [fullpath release];
 	if (name != nil) [name release];
 	if (src != nil) [src release];
 	if (link != nil) [link release];
 	if (server != nil) [server release];
 	if (vfsType != nil) [vfsType release];
 	if (urlString != nil) [urlString release];
+	if (authenticated_urlString != nil) [authenticated_urlString release];
 	if (supernode != nil) [supernode release];
 	if (subnodes != nil) [subnodes release];
 
@@ -142,8 +155,11 @@
 
 	[name release];
 	name = [n retain];
-	if (path != nil) [path release];
-	path = nil;
+	
+	if (relpath != nil) [relpath release];
+	relpath = nil;
+	if (fullpath != nil) [fullpath release];
+	fullpath = nil;
 }
 
 - (String *)source
@@ -216,14 +232,42 @@
 	[urlString retain];
 }
 
+- (void)setAuthenticatedUrlString:(String *)n
+{
+	if (authenticated_urlString != nil) [authenticated_urlString release];
+	authenticated_urlString = n;
+	[authenticated_urlString retain];
+}
+
 - (String *)urlString
 {
-	return urlString;
+	static String *defaultURLString = NULL;
+	
+	if (authenticated_urlString) return authenticated_urlString;
+	if (urlString) return urlString;
+	if (defaultURLString) return defaultURLString;
+	defaultURLString = [String uniqueString:""];
+	return defaultURLString;
+}
+
+- (String *)debugURLString
+{
+	return authenticated_urlString ? authenticated_urlString : urlString;
 }
 
 - (struct fattr)attributes
 {
-	return attributes;
+	struct fattr attrs;
+	
+	attrs = attributes;
+	if (attrs.mode & S_ISVTX) {
+		if ([self serverMounted])
+			attrs.mode |= S_ISUID;
+		if ([self needsAuthentication])
+			attrs.mode |= S_ISGID;
+	}
+	
+	return attrs;
 }
 
 - (void)setAttributes:(struct fattr)a
@@ -266,6 +310,23 @@
 {
 	gettimeofday((struct timeval *)&attributes.atime, (struct timezone *)0);
 	attributes.mtime = attributes.atime;
+}
+
+- (void)markDirectoryChanged
+{
+	struct timeval now;
+
+	do {
+		gettimeofday(&now, NULL);
+	} while ((now.tv_sec == attributes.mtime.seconds) && (now.tv_usec == attributes.mtime.useconds));
+	
+	attributes.mtime.seconds = now.tv_sec;
+	attributes.mtime.useconds = now.tv_usec;
+	attributes.ctime = attributes.mtime;
+	attributes.atime = attributes.mtime;
+	
+	sys_msg(debug, LOG_DEBUG, "markDirectoryChanged: new mtime for '%s' is %d.%06d...",
+									[[self path] value], attributes.mtime.seconds, attributes.mtime.useconds);
 }
 
 - (void)resetAllTimes
@@ -343,6 +404,11 @@
 		else if (!strcmp(s, "conn")) nfsArgs.flags &= (~NFSMNT_NOCONN);
 		else if (!strcmp(s, "-c")) nfsArgs.flags |= NFSMNT_NOCONN;
 		else if (!strcmp(s, "noconn")) nfsArgs.flags |= NFSMNT_NOCONN;
+		else if (!strcmp(s, "locks")) nfsArgs.flags &= (~NFSMNT_NOLOCKS);
+		else if (!strcmp(s, "lockd")) nfsArgs.flags &= (~NFSMNT_NOLOCKS);
+		else if (!strcmp(s, "-L")) nfsArgs.flags |= NFSMNT_NOLOCKS;
+		else if (!strcmp(s, "nolocks")) nfsArgs.flags |= NFSMNT_NOLOCKS;
+		else if (!strcmp(s, "nolockd")) nfsArgs.flags |= NFSMNT_NOLOCKS;
 		else if (!strcmp(s, "-q")) nfsArgs.flags |= NFSMNT_NQNFS;
 		else if (!strcmp(s, "nqnfs")) nfsArgs.flags |= NFSMNT_NQNFS;
 		else if (!strcmp(s, "-2"))
@@ -494,6 +560,20 @@
 			if (x < 0) x = GlobalTimeToLive;
 			timeToLive = x;
 		}
+		else if (!strncmp(s, URL_KEY_STRING, sizeof(URL_KEY_STRING)-1))
+		{
+			String *url = [String uniqueString:(s+sizeof(URL_KEY_STRING)-1)];;
+			sys_msg(debug, LOG_DEBUG, "***** Found url string %s", [url value]);
+			[self setUrlString:url];
+			[url release];
+		}
+		else if (!strncmp(s, AUTH_URL_KEY_STRING, sizeof(AUTH_URL_KEY_STRING)-1))
+		{
+			String *url = [String uniqueString:(s+sizeof(AUTH_URL_KEY_STRING)-1)];
+			sys_msg(debug, LOG_DEBUG, "***** Found authenticated url string %s", [urlString value]);
+			[self setAuthenticatedUrlString:url];
+			[url release];
+		}
 		else if (!strncmp(s, "arch==", 6)) {}
 		else if (!strncmp(s, "arch!=", 6)) {}
 		else if (!strncmp(s, "endian==", 8)) {}
@@ -514,8 +594,6 @@
 		else if (!strncmp(s, "osvers<=", 8)) {}
 		else if (!strncmp(s, "osvers>", 7)) {}
 		else if (!strncmp(s, "osvers>=", 8)) {}
-		else if (!strncmp(s, "url==", 5)) {}
-
 		else if (!strcmp(s, "noquota")) {}
 		else if (!strcmp(s, "grpid")) {}
 
@@ -547,47 +625,147 @@
 	attributes.fileid = n;
 }
 
+#define STATFSARRAY_SIZE_MARGIN 25
+#define MAX_STATFSARRAY_SIZE 10000
+static int statfs_array_size = 0;
+static struct statfs *statfs_array = NULL;
+
+int resize_statfs_array(int newentrycount)
+{
+	if (statfs_array) {
+		statfs_array = realloc(statfs_array, sizeof(struct statfs) * newentrycount);
+	} else {
+		statfs_array = malloc(sizeof(struct statfs) * newentrycount);
+	};
+	if (statfs_array == NULL) return ENOMEM;
+	statfs_array_size = newentrycount;
+	
+	return 0;
+}
+
 - (BOOL)checkPathIsMount:(char *)apath
 {
-	struct stat statbuf, rootbuf;
-	static dev_t rootDevNode = 0;
-
+	int fs_count, i;
+	
+	if (apath == NULL) return NO;
+	
 	sys_msg(debug_mount, LOG_DEBUG, "Checking path %s", apath);
 
-	if (rootDevNode == 0)
-	{
-		stat("/", &rootbuf);
-		rootDevNode = rootbuf.st_dev;
-	}
-
-	if (stat(apath, &statbuf) == 0)
-	{
-		if (statbuf.st_dev != rootDevNode) return YES;
-	}
-	else
-	{
-		sys_msg(debug_mount, LOG_DEBUG, "%s stat failed, %s", apath, strerror(errno));
-	}
-
+fsstat_loop:
+	if (statfs_array_size == 0) {
+		fs_count = -1;				/* Fall into error handling loop, below */
+	} else {
+		fs_count = getfsstat(statfs_array, statfs_array_size * sizeof(struct statfs), MNT_NOWAIT);
+	};
+	if ((fs_count == -1) || (fs_count >= statfs_array_size)) {
+		/* The only way to be sure ALL mounted filesystems have been included is
+		 * to see the system return a value less than the available buffer space:
+		 */
+		fs_count = getfsstat(NULL, 0, MNT_NOWAIT);
+		if (fs_count > MAX_STATFSARRAY_SIZE)  return NO;
+		if (resize_statfs_array(fs_count + STATFSARRAY_SIZE_MARGIN) != 0) return NO;
+		
+		/* statfs_array_size SHOULD always be >0 now, but would be infinite loop otherwise... */
+		if (statfs_array_size == 0) return NO;
+		
+		goto fsstat_loop;
+	};
+	
+	for (i = 0; i < fs_count; ++i) {
+		/* Test to see whether f_mntonname starts with 'apath': */
+		if (strncmp(statfs_array[i].f_mntonname, apath, strlen(apath)) == 0) return YES;
+	};
+	
 	return NO;
 }
 
 - (BOOL)mounted
 {
+	/* This code exists for two reason:
+	 *
+	 * 1. In support of pre-mounted AFP home directories. At login time, LoginWindow
+	 * logs on to the AFP server using the user's name and password, and mounts the
+	 * volume with the home directory on the same private directory that automount would
+	 * use.  This code detects when such a volume has magically appeared, and proceeds
+	 * as if automount had triggered the mount itself.  This way, automount does not
+	 * try to mount the AFP server using guest access.
+	 *
+	 * When automount starts responding to volume mount/unmount notifications, this
+	 * code will probably not be needed (since the notification should be able to
+	 * update the mounted status of all automount points).
+	 *
+	 * 2. In support of changing network/directory configurations.  It's possible that
+	 * the network or directory configuration gets changed to remove a server from view.
+	 * If that server is currently mounted, however, it will be left mounted without a
+	 * Vnode that references it.  If the directory or network configuration is changed
+	 * to return the server to view, this code will detect the mount that endured and
+	 * return the system to its state prior to the server's disappearance.
+	 *
+	 * You can use -descendantMounted to recursively check for the mounted flag being set.
+	 */
+
+	if (mounted) return YES;
+	if (([self link] == NULL) || ([[self link] value] == NULL)) return NO;
+	
+	sys_msg(debug_mount, LOG_DEBUG, "Checking for mounts on %s...", [[self link] value]);
+	mounted = [self checkPathIsMount:[[self link] value]];
+	if (!mounted) [self setMountPathCreated:NO]; 
+
+	return mounted;
+}
+
+- (BOOL)descendantMounted
+{
+	int i, len;
+	Array *kids;
+	Vnode *child;
+	BOOL answer;
+
+	answer = NO;
+	kids = [self children];
+	len = 0;
+	if (kids != nil)
+		len = [kids count];
+	for (i=0; i<len; ++i)
+	{
+		child = [kids objectAtIndex:i];
+		answer = child->mounted;
+		if (answer)
+			break;
+		answer = [child descendantMounted];
+		if (answer)
+			break;
+	}
+	
+	return answer;
+}
+
+- (BOOL)serverMounted
+{
+	BOOL answer;
 	String *urlMountType = [String uniqueString:"url"];
 	String *nslEntrySource = [String uniqueString:"*"];
 
+	answer = [self mounted];
+	
 	if ([[self vfsType] equal:urlMountType] && !([[self source] equal:nslEntrySource]))	/* Don't try this for mount-all vnodes */
 	{
-		sys_msg(debug_mount, LOG_DEBUG, "Checking type %s for %s", [[self vfsType] value], [[self link] value]);
-		mounted = [self checkPathIsMount:[[self link] value]];
-		if (!mounted) [self setMountPathCreated:NO]; 
+		/*
+		 *	For non-NSL mounts using a URL (such as an AFP server in fstab/NetInfo),
+		 *	the mounted flag seems to always be false (since the server's sticky symlink
+		 *	points to a local directory which is not a mount point).
+		 *
+		 *	I think that is a bug.  It may be a workaround for URL mounts apparently failing
+		 *	the first time they are triggered.  In any case, we have to recursively walk the
+		 *	server's hierarchy to see if anything is mounted.
+		 */
+		if ([self descendantMounted]) answer = YES;
 	}
 
 	[nslEntrySource release];
 	[urlMountType release];
 
-	return mounted;
+	return answer;
 }
 
 - (void)resetMountTime
@@ -611,6 +789,7 @@
 {
 	mounted = m;
 	[self resetMountTime];
+	[self resetTime];	/* Reset time so NFS client will refetch symlink */
 }
 
 - (BOOL)mountInProgress
@@ -692,7 +871,12 @@
 	return nil;
 }
 
-- (int)symlinkWithName:(char *)from to:(char *)to attributes:(struct nfsv2_sattr *)attributes;
+- (int)symlinkWithName:(char *)from to:(char *)to attributes:(struct nfsv2_sattr *)attributes
+{
+	return NFSERR_ROFS;
+}
+
+- (int)remove:(String *)name
 {
 	return NFSERR_ROFS;
 }
@@ -708,8 +892,11 @@
 
 	if (supernode != nil) [supernode release];
 	supernode = [p retain];
-	if (path != nil) [path release];
-	path = nil;
+	
+	if (relpath != nil) [relpath release];
+	relpath = nil;
+	if (fullpath != nil) [fullpath release];
+	fullpath = nil;
 }
 
 - (Array *)children
@@ -740,6 +927,15 @@
 	[subnodes removeObject:child];
 }
 
+/* A convenience function to detect whether a node has any children */
+- (BOOL)hasChildren
+{
+	if (subnodes == NULL)
+		return NO;
+	
+	return ([subnodes count] != 0);
+}
+
 - (Array *)dirlist
 {
 	int i, count;
@@ -760,17 +956,44 @@
 	return list;
 }
 
+- (String *)relativepath
+{
+	String *n;
+	char *s;
+
+	if (relpath != nil) return relpath;
+	if (self == [map root]) return [String uniqueString:""];
+	if (supernode == nil) return [String uniqueString:"/"];
+
+	n = [supernode relativepath];
+	if (!strcmp([n value], "/"))
+	{
+		s = malloc(1 + [name length] + 1);
+		sprintf(s, "/%s", [name value]);
+	}
+	else
+	{
+		s = malloc([n length] + 1 + [name length] + 1);
+		sprintf(s, "%s/%s", [n value], [name value]);
+	}
+
+	relpath = [String uniqueString:s];
+	free(s);
+
+	return relpath;
+}
+
 - (String *)path
 {
 	String *n;
 	char *s;
 
-	if (path != nil) return path;
+	if (fullpath != nil) return fullpath;
 
 	if (supernode == nil)
 	{
-		path = [String uniqueString:"/"];
-		return path;
+		fullpath = [String uniqueString:"/"];
+		return fullpath;
 	}
 
 	n = [supernode path];
@@ -785,10 +1008,10 @@
 		sprintf(s, "%s/%s", [n value], [name value]);
 	}
 
-	path = [String uniqueString:s];
+	fullpath = [String uniqueString:s];
 	free(s);
 
-	return path;
+	return fullpath;
 }
 
 - (void)invalidateRecursively:(BOOL)invalidateDescendants
@@ -796,6 +1019,100 @@
     return;
 }
 
+/*
+ * Return YES if the node's server may require authentication.
+ *
+ * This should be lightweight because it is called as the result of
+ * an NFS getattr call.  A simple parse of a URL or options would
+ * be appropriate.  Searching the keychain for an entry corresponding
+ * to the server would probably be too costly.
+ */
+- (BOOL)needsAuthentication
+{
+	/* Assumes normal automount points do not require authentication. */
+	return NO;
+}
+
+- (BOOL)marked
+{
+	return marked;
+}
+
+- (void)setMarked:(BOOL)m
+{
+	marked = m;
+}
+
+/*
+ * Returns YES if there was an unmount in the node's hierarchy.
+ * Along the way, it updates the .mounted variable to reflect the
+ * current mounted status -- if it was previously marked mounted,
+ * but is now unmounted.  For any node whose mounted status is changed,
+ * that node's time is updated, as is the time of its parent.
+ */
+- (BOOL)checkForUnmount
+{
+	int i, len;
+	Array *kids;
+	BOOL result = NO;
+	
+	kids = [self children];
+	len = 0;
+	if (kids != nil)
+		len = [kids count];
+
+	if (len == 0)
+	{
+		/*
+		 * This is a potential mount point.  Has it been unmounted?
+		 */
+		if (mounted && ![self fakeMount] && [self link] != nil && [self server] != nil && ![self checkPathIsMount: [[self link] value]])
+		{
+			sys_msg(debug, LOG_DEBUG, "%s has been unmounted.", [[self link] value]);
+			[self setMounted: NO];
+			[self resetTime];
+			if ([self parent] != nil)
+				[[self parent] resetTime];
+			result = YES;
+		}
+	}
+	else
+	{
+		for (i=0; i<len; ++i)
+		{
+			if ([[kids objectAtIndex: i] checkForUnmount])
+				result = YES;
+		}
+
+		/*
+		 * We need to detect when the last of a server's volumes become
+		 * unmounted so we can reset the server to the unmounted state
+		 * so that it will properly trigger the next time the symlink
+		 * is read.
+		 *
+		 * Note that there are some Vnodes that are mounted, but are
+		 * not servers.  They will either be marked as fake mounts,
+		 * or won't have an associated server (i.e. server == nil).
+		 * The checks below match -[Controller unmountMaps].
+		 */
+		if (mounted && ![self fakeMount] && [self server] != nil && ![self descendantMounted])
+		{
+			/*
+			 * The last descendant for this node is now unmounted.
+			 * Mark this node unmounted, and return that we
+			 * detected an unmount.
+			 */
+			sys_msg(debug, LOG_DEBUG, "Last unmount for server %s", [[self path] value]);
+			[self setMounted: NO];
+			[self resetTime];
+			if ([self parent] != nil)
+				[[self parent] resetTime];
+			result = YES;
+		}
+	}
+	
+	return result;
+}
 
 @end
 

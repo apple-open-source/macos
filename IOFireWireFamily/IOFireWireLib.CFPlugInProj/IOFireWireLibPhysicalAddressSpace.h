@@ -31,12 +31,12 @@
 *
 */
 
+#import "IOFireWireLibIUnknown.h"
 #import "IOFireWireLibPriv.h"
-
-#import <IOKit/IOKitLib.h>
 
 namespace IOFireWireLib {
 
+	class Device ;
 	class PhysicalAddressSpace: IOFireWireIUnknown
 	{
 		typedef ::IOFireWirePhysicalAddressSpaceInterface	Interface ;
@@ -62,7 +62,7 @@ namespace IOFireWireLib {
 			// static allocator
 			static IUnknownVTbl**		Alloc(
 											Device&	inUserClient,
-											KernPhysicalAddrSpaceRef inKernPhysicalAddrSpaceRef,
+											UserObjectHandle inKernPhysicalAddrSpaceRef,
 											UInt32 					inSize, 
 											void* 					inBackingStore, 
 											UInt32 					inFlags) ;
@@ -93,7 +93,7 @@ namespace IOFireWireLib {
 			// --- constructor/destructor ------------------
 									PhysicalAddressSpace(
 											Device& inUserClient,
-											KernPhysicalAddrSpaceRef    inKernPhysicalAddrSpaceRef,
+											UserObjectHandle    inKernPhysicalAddrSpaceRef,
 											UInt32 					inSize, 
 											void* 					inBackingStore, 
 											UInt32 					inFlags) ;
@@ -111,7 +111,7 @@ namespace IOFireWireLib {
 		protected:
 			// --- member data -----------------------------
 			Device&	mUserClient ;
-			KernPhysicalAddrSpaceRef		mKernPhysicalAddrSpaceRef ;
+			UserObjectHandle		mKernPhysicalAddrSpaceRef ;
 			UInt32							mSize ;
 			void*							mBackingStore ;
 			FWAddress						mFWAddress ;

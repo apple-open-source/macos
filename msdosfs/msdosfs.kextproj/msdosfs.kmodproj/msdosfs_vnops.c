@@ -3,19 +3,22 @@
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
- * The contents of this file constitute Original Code as defined in and
- * are subject to the Apple Public Source License Version 1.1 (the
- * "License").  You may not use this file except in compliance with the
- * License.  Please obtain a copy of the License at
- * http://www.apple.com/publicsource and read it before using this file.
+ * Copyright (c) 1999-2003 Apple Computer, Inc.  All Rights Reserved.
  * 
- * This Original Code and all software distributed under the License are
- * distributed on an "AS IS" basis, WITHOUT WARRANTY OF ANY KIND, EITHER
+ * This file contains Original Code and/or Modifications of Original Code
+ * as defined in and that are subject to the Apple Public Source License
+ * Version 2.0 (the 'License'). You may not use this file except in
+ * compliance with the License. Please obtain a copy of the License at
+ * http://www.opensource.apple.com/apsl/ and read it before using this
+ * file.
+ * 
+ * The Original Code and all software distributed under the License are
+ * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
  * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
  * INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY,
- * FITNESS FOR A PARTICULAR PURPOSE OR NON-INFRINGEMENT.  Please see the
- * License for the specific language governing rights and limitations
- * under the License.
+ * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
+ * Please see the License for the specific language governing rights and
+ * limitations under the License.
  * 
  * @APPLE_LICENSE_HEADER_END@
  */
@@ -135,6 +138,7 @@ static int msdosfs_pathconf __P((struct vop_pathconf_args *ap));
 static int msdosfs_advlock(struct vop_advlock_args *ap);
 
 int msdosfs_getattrlist(struct vop_getattrlist_args *ap);	/* In msdosfs_attrlist.c */
+int msdosfs_setattrlist(struct vop_setattrlist_args *ap);	/* In msdosfs_attrlist.c */
 
 /*
  * Some general notes:
@@ -153,6 +157,21 @@ int msdosfs_getattrlist(struct vop_getattrlist_args *ap);	/* In msdosfs_attrlist
  * retreive the correct block from the buffer cache since the hash value is
  * based upon the vnode address and the desired block number.
  */
+
+
+/*
+ * Return the owning user ID for a given volume.  If the volume was mounted
+ * with "unknown permissions", then the user ID making the request is the
+ * owner.  This is the "everyone is an owner" model.
+ */
+__private_extern__ uid_t
+get_pmuid(struct msdosfsmount *pmp, uid_t current_user)
+{
+	if (pmp->pm_mountp->mnt_flag & MNT_UNKNOWNPERMISSIONS)
+		return current_user;
+	else
+		return pmp->pm_uid;
+}
 
 /*
  * Create a regular file. On entry the directory to contain the file being
@@ -324,7 +343,6 @@ msdosfs_access(ap)
 	int i;
 
 	file_mode = ALLPERMS & pmp->pm_mask;
-    set_pmuid(pmp);
     
 	/*
 	 * Disallow write attempts on read-only file systems;
@@ -355,8 +373,8 @@ msdosfs_access(ap)
 	mask = 0;
 
 	/* Otherwise, check the owner. */
-	/* And allow for console */
-	if (cred->cr_uid == pmp->pm_uid) {
+	/* And allow for unkown permissions (everyone is the owner) */
+	if (cred->cr_uid == get_pmuid(pmp, cred->cr_uid)) {
 		if (mode & VEXEC)
 			mask |= S_IXUSR;
 		if (mode & VREAD)
@@ -401,31 +419,14 @@ msdosfs_getattr(ap)
 	struct msdosfsmount *pmp = dep->de_pmp;
 	struct vattr *vap = ap->a_vap;
 	struct timespec ts;
-	u_long dirsperblk = pmp->pm_BytesPerSec / sizeof(struct direntry);
-	u_long fileid;
 
 	getnanotime(&ts);
 	DETIMES(dep, &ts, &ts, &ts);
 	vap->va_fsid = dep->de_dev;
-    set_pmuid(pmp);
-	/*
-	 * The following computation of the fileid must be the same as that
-	 * used in msdosfs_readdir() to compute d_fileno. If not, pwd
-	 * doesn't work.
-	 */
-	if (dep->de_Attributes & ATTR_DIRECTORY) {
-		fileid = cntobn(pmp, dep->de_StartCluster) * dirsperblk;
-		if (dep->de_StartCluster == MSDOSFSROOT)
-			fileid = 1;
-	} else {
-		fileid = cntobn(pmp, dep->de_dirclust) * dirsperblk;
-		if (dep->de_dirclust == MSDOSFSROOT)
-			fileid = roottobn(pmp, 0) * dirsperblk;
-		fileid += dep->de_diroffset / sizeof(struct direntry);
-	}
-	vap->va_fileid = fileid;
+
+	vap->va_fileid = defileid(dep);
 	vap->va_mode = ALLPERMS & pmp->pm_mask;
-	vap->va_uid = pmp->pm_uid;
+	vap->va_uid = get_pmuid(pmp, ap->a_cred->cr_uid);
 	vap->va_gid = pmp->pm_gid;
 	vap->va_nlink = 1;
 	vap->va_rdev = 0;
@@ -467,6 +468,7 @@ msdosfs_setattr(ap)
 	struct vattr *vap = ap->a_vap;
 	struct ucred *cred = ap->a_cred;
 	struct proc *p = ap->a_p;
+	uid_t pmuid;	// Effective owner during this call
 	int error = 0;
 
 #ifdef MSDOSFS_DEBUG
@@ -493,12 +495,12 @@ msdosfs_setattr(ap)
 		return (EINVAL);
 	}
 
-    set_pmuid(pmp);
-
+	pmuid = get_pmuid(pmp, cred->cr_uid);
+	
     if (vap->va_flags != VNOVAL) {
 		if (vp->v_mount->mnt_flag & MNT_RDONLY)
 			return (EROFS);
-		if (cred->cr_uid != pmp->pm_uid &&
+		if (cred->cr_uid != pmuid &&
 		    (error = suser(cred, &p->p_acflag)))
 			return (error);
 		/*
@@ -541,20 +543,20 @@ msdosfs_setattr(ap)
 	if (vap->va_uid != (uid_t)VNOVAL || vap->va_gid != (gid_t)VNOVAL) {
 		uid_t uid;
 		gid_t gid;
-		
+
 		if (vp->v_mount->mnt_flag & MNT_RDONLY)
 			return (EROFS);
 		uid = vap->va_uid;
 		if (uid == (uid_t)VNOVAL)
-			uid = pmp->pm_uid;
+			uid = pmuid;
 		gid = vap->va_gid;
 		if (gid == (gid_t)VNOVAL)
 			gid = pmp->pm_gid;
-		if ((cred->cr_uid != pmp->pm_uid || uid != pmp->pm_uid ||
+		if ((cred->cr_uid != pmuid || uid != pmuid ||
 		    (gid != pmp->pm_gid && !groupmember(gid, cred))) &&
 		    (error = suser(cred, &p->p_acflag)))
 			return error;
-		if (uid != pmp->pm_uid || gid != pmp->pm_gid)
+		if (uid != pmuid || gid != pmp->pm_gid)
 			return EINVAL;
 	}
 
@@ -583,7 +585,7 @@ msdosfs_setattr(ap)
 	if (vap->va_atime.tv_sec != VNOVAL || vap->va_mtime.tv_sec != VNOVAL) {
 		if (vp->v_mount->mnt_flag & MNT_RDONLY)
 			return (EROFS);
-		if (cred->cr_uid != pmp->pm_uid &&
+		if (cred->cr_uid != pmuid &&
 		    (error = suser(cred, &p->p_acflag)) &&
 		    ((vap->va_vaflags & VA_UTIMES_NULL) == 0 ||
 		    (error = VOP_ACCESS(ap->a_vp, VWRITE, cred, ap->a_p))))
@@ -611,14 +613,9 @@ msdosfs_setattr(ap)
 	if (vap->va_mode != (mode_t)VNOVAL) {
 		if (vp->v_mount->mnt_flag & MNT_RDONLY)
 			return (EROFS);
-		if (cred->cr_uid != pmp->pm_uid &&
+		if (cred->cr_uid != pmuid &&
 		    (error = suser(cred, &p->p_acflag)))
 			return (error);
-        
-        /*
-         * DOS can't store modes.  Should we return an error (which one?)
-         * if the requested mode is different from the volume's default mode?
-         */
 	}
 	return (deupdat(dep, 1));
 }
@@ -633,7 +630,7 @@ msdosfs_read(ap)
 	} */ *ap;
 {
 	int error = 0;
-	int blsize;
+	u_long blsize;
 	int isadir;
 	int orig_resid;
 	u_int n;
@@ -684,13 +681,13 @@ msdosfs_read(ap)
 		 */
 		if (isadir) {
 			/* convert cluster # to block # */
-			error = pcbmap(dep, lbn, &lbn, 0, &blsize);
+			error = pcbmap(dep, lbn, 1, &lbn, NULL, &blsize);
 			if (error == E2BIG) {
 				error = EINVAL;
 				break;
 			} else if (error)
 				break;
-                        error = meta_bread(pmp->pm_devvp, lbn, blsize, NOCRED, &bp);
+            error = meta_bread(pmp->pm_devvp, lbn, blsize, NOCRED, &bp);
 		} else {
 			blsize = pmp->pm_bpcluster;
 			rablock = lbn + 1;
@@ -893,8 +890,8 @@ msdosfs_write(ap)
 			 * for the fat table. (see msdosfs_strategy)
 			 */
 			if (bp->b_blkno == bp->b_lblkno) {
-				error = pcbmap(dep, bp->b_lblkno, &bp->b_blkno, 
-				     0, 0);
+				error = pcbmap(dep, bp->b_lblkno, 1,
+                    &bp->b_blkno, 0, 0);
 				if (error)
 					bp->b_blkno = -1;
 			}
@@ -1211,6 +1208,7 @@ msdosfs_rename(ap)
 	u_long from_diroffset, to_diroffset;
 	u_char to_count;
 	int doingdirectory = 0, newparent = 0;
+    int change_case;
 	int error;
 	u_long cn;
 	daddr_t bn = 0;
@@ -1258,9 +1256,24 @@ abortit:
 	/*
 	 * If source and dest are the same, do nothing.
 	 */
+    change_case = 0;
 	if (tvp == fvp) {
-		error = 0;
-		goto abortit;
+        /* Pretend the destination doesn't exist. */
+        vput(tvp);
+        tvp = NULL;
+        
+        /* Remember we're changing case, so we can skip uniqdosname() */
+        change_case = 1;
+        
+        /*
+         * Lookup left tdvp's de_fndoffset and de_fndcnt pointing at
+         * the existing name (fvp).  We need to find some unused space
+         * in the directory so createde() can create the new name without
+         * overwriting the old name.
+         */
+        error = findslots(tddep, ap->a_tcnp);
+        if (error)
+            goto abortit;
 	}
 
     /* [2877546] Make sure the destination vnode (if any) can be deleted */
@@ -1385,10 +1398,18 @@ abortit:
 	 * Convert the filename in tcnp into a dos filename. We copy this
 	 * into the denode and directory entry for the destination
 	 * file/directory.
+     *
+     * NOTE: uniqdosname also makes sure that the short name does not
+     * already exist in the destination directory.  When changing case,
+     * that short name already exists (for the source object), so we
+     * have to skip the call to uniqdosname.  If we're changing case,
+     * we will set up the short name after we relookup the source.
 	 */
-	error = uniqdosname(VTODE(tdvp), tcnp, toname);
-	if (error)
-		goto abortit;
+    if (!change_case) {
+        error = uniqdosname(VTODE(tdvp), tcnp, toname);
+        if (error)
+            goto abortit;
+    }
 
 	/*
 	 * Since from wasn't locked at various places above,
@@ -1418,6 +1439,40 @@ abortit:
 	zp = VTODE(fdvp);
 	from_diroffset = zp->de_fndoffset;
 
+    if (change_case) {
+    	/*
+         * Since we're just changing case, the short name should stay
+         * the same, and we couldn't call uniqdosname() above to set
+         * up "toname".  So, set it up now.
+         *
+         * For a file, the short name is already in the denode, and
+         * we can just copy it.  But for a directory, the denode actually
+         * points at the "." entry in the directory, and the name stored
+         * is ".".  So, for a directory, we have to go read in the
+         * short name entry as it exists in the parent directory.
+         */
+        if (doingdirectory)
+        {
+        	u_long blsize;
+        	struct direntry *direntp;
+        	
+        	error = pcbmap(zp, de_cluster(pmp, from_diroffset), 1, &bn, NULL, &blsize);
+        	if (error)
+        		goto abortit;
+        	error = meta_bread(pmp->pm_devvp, bn, blsize, NOCRED, &bp);
+        	if (error) {
+        		brelse(bp);
+        		goto abortit;
+        	}
+        	bcopy(bptoep(pmp, bp, from_diroffset), toname, 11);
+        	brelse(bp);
+        }
+        else
+        {
+			bcopy(xp->de_Name, toname, 11);
+		}
+	}
+
 	/*
 	 * Ensure that the directory entry still exists and has not
 	 * changed till now. If the source is a file the entry may
@@ -1445,6 +1500,12 @@ abortit:
 		 * chain for its new location in the filesystem.  And, if
 		 * we moved a directory, then update its .. entry to point
 		 * to the new parent directory.
+		 *
+		 * The name in the denode is updated for files.  For
+		 * directories, the denode points at the "." entry in
+		 * the directory, so temporarily change the name in
+		 * the denode, and restore it; otherwise the "." entry
+		 * may be overwritten.
 		 */
 		bcopy(ip->de_Name, oldname, 11);
 		bcopy(toname, ip->de_Name, 11);	/* update denode */
@@ -1458,6 +1519,9 @@ abortit:
 			VOP_UNLOCK(fvp, 0, p);
 			goto bad;
 		}
+		/* For directories, restore the name to "." */
+		if (doingdirectory)
+			bcopy(oldname, ip->de_Name, 11);	/* Change it back to "." */
 		ip->de_refcnt++;
 		zp->de_fndoffset = from_diroffset;
 		error = removede(zp, ip);
@@ -1469,8 +1533,8 @@ abortit:
 			goto bad;
 		}
 		if (!doingdirectory) {
-			error = pcbmap(dp, de_cluster(pmp, to_diroffset), 0,
-				       &ip->de_dirclust, 0);
+			error = pcbmap(dp, de_cluster(pmp, to_diroffset), 1,
+                        NULL, &ip->de_dirclust, NULL);
 			if (error) {
 				/* XXX should really panic here, fs is corrupt */
 				if (newparent)
@@ -1772,7 +1836,7 @@ msdosfs_readdir(ap)
 	int error = 0;
 	int diff;
 	long n;
-	int blsize;
+	u_long blsize;
 	long on;
 	u_long cn;
 	u_long fileno;
@@ -1849,12 +1913,7 @@ msdosfs_readdir(ap)
 		if (offset < bias) {
 			for (n = (int)offset / sizeof(struct direntry);
 			     n < 2; n++) {
-				if (FAT32(pmp))
-					dirbuf.d_fileno = cntobn(pmp,
-								 pmp->pm_rootdirblk)
-							  * dirsperblk;
-				else
-					dirbuf.d_fileno = 1;
+                dirbuf.d_fileno = defileid(dep);
 				dirbuf.d_type = DT_DIR;
 				switch (n) {
 				case 0:
@@ -1893,7 +1952,7 @@ msdosfs_readdir(ap)
 		if (diff <= 0)
 			break;
 		n = min(n, diff);
-		error = pcbmap(dep, lbn, &bn, &cn, &blsize);
+		error = pcbmap(dep, lbn, 1, &bn, &cn, &blsize);
 		if (error)
 			break;
 		error = meta_bread(pmp->pm_devvp, bn, blsize, NOCRED, &bp);
@@ -1949,29 +2008,26 @@ msdosfs_readdir(ap)
 			}
 			/*
 			 * This computation of d_fileno must match
-			 * the computation of va_fileid in
-			 * msdosfs_getattr.
-			 */
+			 * the computation in defileid().
+             */
+            fileno = getushort(dentp->deStartCluster);
+            if (FAT32(pmp))
+                fileno |= getushort(dentp->deHighClust) << 16;
 			if (dentp->deAttributes & ATTR_DIRECTORY) {
-				fileno = getushort(dentp->deStartCluster);
-				if (FAT32(pmp))
-					fileno |= getushort(dentp->deHighClust) << 16;
-				/* if this is the root directory */
-				if (fileno == MSDOSFSROOT)
-					if (FAT32(pmp))
-						fileno = cntobn(pmp,
-								pmp->pm_rootdirblk)
-							 * dirsperblk;
-					else
-						fileno = 1;
-				else
-					fileno = cntobn(pmp, fileno) * dirsperblk;
-				dirbuf.d_fileno = fileno;
+            	if (fileno == MSDOSFSROOT) {
+                    /* if this is the root directory */
+                    if (FAT32(pmp))
+                        fileno = pmp->pm_rootdirblk;
+                    else
+                        fileno = FILENO_ROOT;
+                }
 				dirbuf.d_type = DT_DIR;
 			} else {
-				dirbuf.d_fileno = offset / sizeof(struct direntry);
+                if (fileno == 0)
+                    fileno = FILENO_EMPTY;	/* constant for empty files */
 				dirbuf.d_type = DT_REG;
 			}
+            dirbuf.d_fileno = fileno;
 			if (chksum != winChksum(dentp->deName)) {
 				unichars = dos2unicodefn(dentp->deName, ucfn,
 				    dentp->deLowerCase |
@@ -2061,7 +2117,7 @@ msdosfs_bmap(ap)
 		*ap->a_runp = 0;
 	}
 
-	return (pcbmap(dep, ap->a_bn, ap->a_bnp, 0, 0));
+	return (pcbmap(dep, ap->a_bn, 1, ap->a_bnp, NULL, NULL));
 }
 
 /* blktooff converts a logical block number to a file offset */
@@ -2108,21 +2164,28 @@ struct vop_cmap_args /* {
 	void *a_poff;
 } */ *ap;
 {
-	int blksiz;
+	u_long runsize;
 	int error;
 	struct denode *dep = VTODE(ap->a_vp);
     struct msdosfsmount *pmp = dep->de_pmp;
     u_long		cn;
+    u_long		numclusters;
     daddr_t		bn;
     
 	if (ap->a_bpn == NULL)
 		return (0);
 
+    if (ap->a_size == 0)
+        panic("msdosfs_cmap: a_size == 0");
+
     /* Find the cluster that contains the given file offset */
     cn = de_cluster(pmp, ap->a_foffset);
     
+    /* Determine number of clusters occupied by the given range */
+    numclusters = de_cluster(pmp, ap->a_foffset + ap->a_size - 1) - cn + 1;
+    
     /* Find the physical (device) block where that cluster starts */
-    error = pcbmap(dep, cn, &bn, 0, &blksiz);
+    error = pcbmap(dep, cn, numclusters, &bn, NULL, &runsize);
 #ifdef DEBUG
     printf("msdosfs cmap...off 0x%lx bn1 0x%lx",
            (u_long)ap->a_foffset, bn);
@@ -2130,14 +2193,14 @@ struct vop_cmap_args /* {
 
     /* Add the offset in physical (device) blocks from the start of the cluster */
     bn += (((u_long)ap->a_foffset - de_cn2off(pmp, cn)) >> pmp->pm_bnshift);
-    blksiz -= ((u_long)ap->a_foffset - (de_cn2off(pmp, cn)));
+    runsize -= ((u_long)ap->a_foffset - (de_cn2off(pmp, cn)));
     
     *ap->a_bpn = bn;
 	if (error == 0 && ap->a_run) {
-		if (blksiz > ap->a_size)
+		if (runsize > ap->a_size)
 			* ap->a_run = ap->a_size;
 		else
-			* ap->a_run = blksiz;
+			* ap->a_run = runsize;
 	}
 	if (ap->a_poff)
 		*(int *)ap->a_poff = 0;
@@ -2474,7 +2537,7 @@ static struct vnodeopv_entry_desc msdosfs_vnodeop_entries[] = {
 	{ &vop_offtoblk_desc,		(vop_t *) msdosfs_offtoblk },
   	{ &vop_cmap_desc,			(vop_t *) msdosfs_cmap },
     { &vop_getattrlist_desc,	(vop_t *) msdosfs_getattrlist },  /* getattrlist */
-//  { &vop_setattrlist_desc,	(vop_t *) msdosfs_setattrlist },  /* setattrlist */
+    { &vop_setattrlist_desc,	(vop_t *) msdosfs_setattrlist },  /* setattrlist */
 	{ NULL, NULL }
 };
 

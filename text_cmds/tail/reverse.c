@@ -1,5 +1,3 @@
-/*	$NetBSD: reverse.c,v 1.10 1998/02/20 07:35:00 mycroft Exp $	*/
-
 /*-
  * Copyright (c) 1991, 1993
  *	The Regents of the University of California.  All rights reserved.
@@ -36,28 +34,30 @@
  * SUCH DAMAGE.
  */
 
-#include <sys/cdefs.h>
-#ifndef lint
 #if 0
+#ifndef lint
 static char sccsid[] = "@(#)reverse.c	8.1 (Berkeley) 6/6/93";
-#endif
-__RCSID("$NetBSD: reverse.c,v 1.10 1998/02/20 07:35:00 mycroft Exp $");
 #endif /* not lint */
+#endif
+
+#include <sys/cdefs.h>
 
 #include <sys/param.h>
 #include <sys/stat.h>
 #include <sys/mman.h>
 
-#include <limits.h>
+#include <err.h>
 #include <errno.h>
-#include <unistd.h>
+#include <limits.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <unistd.h>
+
 #include "extern.h"
 
-static void r_buf __P((FILE *));
-static void r_reg __P((FILE *, enum STYLE, long, struct stat *));
+static void r_buf(FILE *);
+static void r_reg(FILE *, enum STYLE, off_t, struct stat *);
 
 /*
  * reverse -- display input in reverse order by line.
@@ -81,7 +81,7 @@ void
 reverse(fp, style, off, sbp)
 	FILE *fp;
 	enum STYLE style;
-	long off;
+	off_t off;
 	struct stat *sbp;
 {
 	if (style != REVERSE && off == 0)
@@ -114,46 +114,67 @@ static void
 r_reg(fp, style, off, sbp)
 	FILE *fp;
 	enum STYLE style;
-	long off;
+	off_t off;
 	struct stat *sbp;
 {
-	off_t size;
-	int llen;
-	char *p;
-	char *start;
+	struct mapinfo map;
+	off_t curoff, size, lineend;
+	int i;
 
 	if (!(size = sbp->st_size))
 		return;
 
-	if (size > SIZE_T_MAX) {
-		err(0, "%s: %s", fname, strerror(EFBIG));
-		return;
-	}
+	map.start = NULL;
+	map.mapoff = map.maxoff = size;
+	map.fd = fileno(fp);
 
-	if ((start = mmap(NULL, (size_t)size, PROT_READ,
-	    MAP_FILE|MAP_SHARED, fileno(fp), (off_t)0)) == (caddr_t)-1) {
-		err(0, "%s: %s", fname, strerror(EFBIG));
-		return;
-	}
-	p = start + size - 1;
-
-	if (style == RBYTES && off < size)
-		size = off;
-
-	/* Last char is special, ignore whether newline or not. */
-	for (llen = 1; --size; ++llen)
-		if (*--p == '\n') {
-			WR(p + 1, llen);
-			llen = 0;
-			if (style == RLINES && !--off) {
-				++p;
-				break;
+	/*
+	 * Last char is special, ignore whether newline or not. Note that
+	 * size == 0 is dealt with above, and size == 1 sets curoff to -1.
+	 */
+	curoff = size - 2;
+	lineend = size;
+	while (curoff >= 0) {
+		if (curoff < map.mapoff || curoff >= map.mapoff + map.maplen) {
+			if (maparound(&map, curoff) != 0) {
+				ierr();
+				return;
 			}
 		}
-	if (llen)
-		WR(p, llen);
-	if (munmap(start, (size_t)sbp->st_size))
-		err(0, "%s: %s", fname, strerror(errno));
+		for (i = curoff - map.mapoff; i >= 0; i--) {
+			if (style == RBYTES && --off == 0)
+				break;
+			if (map.start[i] == '\n')
+				break;
+		}
+		/* `i' is either the map offset of a '\n', or -1. */
+		curoff = map.mapoff + i;
+		if (i < 0)
+			continue;
+
+		/* Print the line and update offsets. */
+		if (mapprint(&map, curoff + 1, lineend - curoff - 1) != 0) {
+			ierr();
+			return;
+		}
+		lineend = curoff + 1;
+		curoff--;
+
+		if (style == RLINES)
+			off--;
+
+		if (off == 0 && style != REVERSE) {
+			/* Avoid printing anything below. */
+			curoff = 0;
+			break;
+		}
+	}
+	if (curoff < 0 && mapprint(&map, 0, lineend) != 0) {
+		ierr();
+		return;
+	}
+	if (map.start != NULL && munmap(map.start, map.maplen))
+		ierr();
 }
 
 typedef struct bf {
@@ -178,12 +199,11 @@ r_buf(fp)
 	FILE *fp;
 {
 	BF *mark, *tl, *tr;
-	int ch=0, len, llen;
+	int ch, len, llen;
 	char *p;
 	off_t enomem;
 
 #define	BSZ	(128 * 1024)
-	tl =  NULL;
 	for (mark = NULL, enomem = 0;;) {
 		/*
 		 * Allocate a new block and link it into place in a doubly
@@ -193,7 +213,7 @@ r_buf(fp)
 		if (enomem || (tl = malloc(sizeof(BF))) == NULL ||
 		    (tl->l = malloc(BSZ)) == NULL) {
 			if (!mark)
-				err(1, "%s", strerror(errno));
+				err(1, "malloc");
 			tl = enomem ? tl->next : mark;
 			enomem += tl->len;
 		} else if (mark) {
@@ -210,6 +230,11 @@ r_buf(fp)
 		for (p = tl->l, len = 0;
 		    len < BSZ && (ch = getc(fp)) != EOF; ++len)
 			*p++ = ch;
+
+		if (ferror(fp)) {
+			ierr();
+			return;
+		}
 
 		/*
 		 * If no input data for this block and we tossed some data,
@@ -228,8 +253,7 @@ r_buf(fp)
 	}
 
 	if (enomem) {
-		(void)fprintf(stderr,
-		    "tail: warning: %qd bytes discarded\n", (long long)enomem);
+		warnx("warning: %qd bytes discarded", enomem);
 		rval = 1;
 	}
 

@@ -29,7 +29,7 @@
  * OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
  * SUCH DAMAGE.
  *
- * $Id: smbfs_vnops.c,v 1.30.18.3 2003/03/14 00:14:46 lindak Exp $
+ * $Id: smbfs_vnops.c,v 1.54 2003/09/21 20:53:11 lindak Exp $
  */
 #include <sys/param.h>
 #include <sys/systm.h>
@@ -61,6 +61,7 @@
 #ifdef APPLE
 #include <sys/syslog.h>
 #include <sys/smb_apple.h>
+#include <sys/attr.h>
 #endif
 #include <netsmb/smb.h>
 #include <netsmb/smb_conn.h>
@@ -69,8 +70,11 @@
 #include <fs/smbfs/smbfs.h>
 #include <fs/smbfs/smbfs_node.h>
 #include <fs/smbfs/smbfs_subr.h>
+#include <fs/smbfs/smbfs_lockf.h>
 
 #include <sys/buf.h>
+
+extern void lockmgr_printinfo(struct lock__bsd__ *lkp);
 
 /*
  * Prototypes for SMBFS vnode operations
@@ -114,6 +118,7 @@ static int smbfs_pageout(struct vop_pageout_args *);
 static int smbfs_lock(struct vop_lock_args *);
 static int smbfs_unlock(struct vop_unlock_args *);
 static int smbfs_islocked(struct vop_islocked_args *);
+static int smbfs_getattrlist(struct vop_getattrlist_args *);
 #else /* APPLE */
 #ifndef FB_RELENG3
 static int smbfs_getextattr(struct vop_getextattr_args *ap);
@@ -186,6 +191,7 @@ static struct vnodeopv_entry_desc smbfs_vnodeop_entries[] = {
 	{ &vop_abortop_desc,	(vop_t *) nop_abortop },
 	{ &vop_searchfs_desc,	(vop_t *) err_searchfs },
 	{ &vop_copyfile_desc,	(vop_t *) err_copyfile },
+	{ &vop_getattrlist_desc, (vop_t *) smbfs_getattrlist},
 	{ &vop_offtoblk_desc,	(vop_t *) smbfs_offtoblk },
 	{ &vop_blktooff_desc,	(vop_t *) smbfs_blktooff },
 	{ &vop_cmap_desc,	(vop_t *) err_cmap }, /* as in nfs */
@@ -212,6 +218,49 @@ int smbtraceindx = 0;
 struct smbtracerec smbtracebuf[SMBTBUFSIZ] = {{0,0,0,0}};
 uint smbtracemask = 0x00000000;
 #endif /* APPLE */
+
+/*
+ * smbfs_down is called when either an smb_rq_simple or smb_t2_request call
+ * has a request time out. It uses vfs_event_signal() to tell interested
+ * parties the connection with the server is "down".
+ * 
+ * Note our UE Timeout is what triggers being here.  The operation
+ * timeout may be much longer.  XXX If a connection has responded to
+ * any request in the last UETIMEOUT seconds then we do not label it "down"
+ * We probably need a different event & dialogue for the case of a
+ * connection being responsive to at least one but not all operations.
+ */
+void
+smbfs_down(struct smbmount *smp)
+{
+	if (!smp || (smp->sm_status & SM_STATUS_TIMEO))
+		return;
+	vfs_event_signal(&smp->sm_mp->mnt_stat.f_fsid, VQ_NOTRESP, 0);
+	smp->sm_status |= SM_STATUS_TIMEO;
+}
+
+/*
+ * smbfs_up is called when smb_rq_simple or smb_t2_request has successful
+ * communication with a server. It uses vfs_event_signal() to tell interested
+ * parties the connection is OK again if the connection was having problems.
+ */
+void
+smbfs_up(struct smbmount *smp)
+{
+	if (!smp || !(smp->sm_status & SM_STATUS_TIMEO))
+		return;
+	smp->sm_status &= ~SM_STATUS_TIMEO;
+	vfs_event_signal(&smp->sm_mp->mnt_stat.f_fsid, VQ_NOTRESP, 1);
+}
+
+void
+smbfs_dead(struct smbmount *smp)
+{
+	if (!smp || (smp->sm_status & SM_STATUS_DEAD))
+		return;
+	vfs_event_signal(&smp->sm_mp->mnt_stat.f_fsid, VQ_DEAD, 0);
+	smp->sm_status |= SM_STATUS_DEAD;
+}
 
 static int
 smbfs_access(ap)
@@ -264,6 +313,8 @@ smbfs_open(ap)
 	struct vattr vattr;
 	int mode = ap->a_mode;
 	int error, accmode;
+	int attrcacheupdated = 0;
+	u_int16_t old_fid;
 
 	SMBVDEBUG("%s,%d\n", np->n_name, np->n_opencount);
 	if (vp->v_type != VREG && vp->v_type != VDIR) { 
@@ -278,7 +329,7 @@ smbfs_open(ap)
 		if ((error = smbfs_vinvalbuf(vp, V_SAVE, ap->a_cred,
 					     ap->a_p, 1)) == EINTR)
 			return error;
-		smbfs_attr_cacheremove(vp);
+		smbfs_attr_cacheremove(np);
 		error = VOP_GETATTR(vp, &vattr, ap->a_cred, ap->a_p);
 		if (error)
 			return error;
@@ -295,9 +346,34 @@ smbfs_open(ap)
 			np->n_mtime.tv_sec = vattr.va_mtime.tv_sec;
 		}
 	}
+	/*
+	 * Just do a read-only open if we're not opening for writing.
+	 * If we are opening for writing, open read/write - and, if we
+	 * already have it open read-only, close that open if the read/
+	 * write open succeeds.
+	 */
 	if (np->n_opencount) {
-		np->n_opencount++;
-		return 0;
+		if (mode & FWRITE) {
+			/*
+			 * We're opening read/write, and we already have
+			 * it open - do we have it open read/write?
+			 */
+			if ((np->n_rwstate & SMB_AM_OPENMODE) == SMB_AM_OPENRW) {
+				/*
+				 * Yes - just bump the open count.
+				 */
+				np->n_opencount++;
+				return 0;
+			}
+		} else {
+			/*
+			 * We're opening read-only, and we already have
+			 * it open either read-only or read/write;
+			 * just bump the open count.
+			 */
+			np->n_opencount++;
+			return 0;
+		}
 	}
 	/*
 	 * Use DENYNONE to give unixy semantics of permitting
@@ -306,22 +382,38 @@ smbfs_open(ap)
 	 * advisory locks for further control.
 	 */
 	accmode = SMB_SM_DENYNONE|SMB_AM_OPENREAD;
-	if ((vp->v_mount->mnt_flag & MNT_RDONLY) == 0)
+	/*
+	 * If this is on a file system mounted read-only, we shouldn't
+	 * get here with FWRITE set - the layers above us should've
+	 * checked for that (e.g., by calling VOP_ACCESS, thus calling
+	 * "smbfs_access()", which rejects write access to file systems
+	 * mounted read-only), so we might be able to skip the check
+	 * for MNT_RDONLY, but we'll be paranoid for now.
+	 */
+	if ((mode & FWRITE) && (vp->v_mount->mnt_flag & MNT_RDONLY) == 0)
 		accmode = SMB_SM_DENYNONE|SMB_AM_OPENRW;
 	smb_makescred(&scred, ap->a_p, ap->a_cred);
-	error = smbfs_smb_open(np, accmode, &scred);
-	if (error) {
-		if (mode & FWRITE)
-			return EACCES;
-		else if ((vp->v_mount->mnt_flag & MNT_RDONLY) == 0) {
-			accmode = SMB_SM_DENYNONE|SMB_AM_OPENREAD;
-			error = smbfs_smb_open(np, accmode, &scred);
-		}
-	}
+	old_fid = np->n_fid;
+	error = smbfs_smb_open(np, accmode, &scred, &attrcacheupdated);
 	if (!error) {
+		if (np->n_opencount != 0) {
+			/*
+			 * We already had it open (presumably because it
+			 * was open read-only and we're now opening it
+			 * read/write); close the old open.
+			 * XXX - what if the close fails?
+			 */
+			smbfs_smb_close(np->n_mount->sm_share, old_fid, 
+			    &np->n_mtime, &scred);
+		}
 		np->n_opencount++;
 	}
-	smbfs_attr_cacheremove(vp);
+	if (error || !attrcacheupdated) {
+		/* remove this from the attr_cache if open could not
+		 * update the existing cached entry
+		 */
+		smbfs_attr_cacheremove(np);
+	}
 	return error;
 }
 
@@ -344,9 +436,8 @@ smbfs_closel(struct vop_close_args *ap)
 #endif
 		return 0;
 	}
-	np->n_opencount--;
 	if (vp->v_type == VDIR) {
-		if (np->n_opencount)
+		if (--np->n_opencount)
 			return 0;
 		if (np->n_dirseq) {
 			smbfs_findclose(np->n_dirseq, &scred);
@@ -355,8 +446,15 @@ smbfs_closel(struct vop_close_args *ap)
 		error = 0;
 	} else {
 		error = smbfs_vinvalbuf(vp, V_SAVE, ap->a_cred, p, 1);
-		if (np->n_opencount)
+		if (--np->n_opencount)
 			return error;
+		/*
+		 * XXX - if we have the file open for reading and writing,
+		 * and we're closing the last open for writing, it'd be
+		 * nice if we could open for reading and close for reading
+		 * and writing, so we give up our write access and stop
+		 * blocking other clients from doing deny-write opens.
+		 */
 #ifdef APPLE
 		/*
 		 * VOP_GETATTR removed due to ubc_invalidate panic when ubc
@@ -366,14 +464,24 @@ smbfs_closel(struct vop_close_args *ap)
 		 * server side effects explain this, as the getattr will
 		 * often hit the cache, sending no rpcs.
 		 */
-		if (ubc_isinuse(vp, 1))
+		if (ubc_isinuse(vp, 1)) {
 			np->n_opencount = 1;	/* wait for inactive to close */
-		else
+			if (UBCINFOEXISTS(vp) && ubc_issetflags(vp, UI_WASMAPPED)) {
+				/* set the "do not cache" bit so that inactive gets 
+				 * called immediately after the last mmap reference
+				 * is gone
+				 */
+				ubc_uncache(vp);
+			}
+		} else
 #endif /* APPLE */
-		error = smbfs_smb_close(np->n_mount->sm_share, np->n_fid, 
+		{
+			error = smbfs_smb_close(np->n_mount->sm_share, np->n_fid, 
 			   &np->n_mtime, &scred);
+		}
 	}
-	smbfs_attr_cacheremove(vp);
+	if (np->n_flag & NATTRCHANGED)
+		smbfs_attr_cacheremove(np);
 	return error;
 }
 
@@ -420,12 +528,17 @@ smbfs_getattr(ap)
 	} */ *ap;
 {
 	struct vnode *vp = ap->a_vp;
-	struct smbnode *np = VTOSMB(vp);
+	struct smbnode *np;
+	u_long vid;
 	struct vattr *va=ap->a_vap;
 	struct smbfattr fattr;
 	struct smb_cred scred;
 	int error;
 
+	if (SMB_STALEVP(vp, 0))
+		return (EIO);
+	vid = vp->v_id;
+	np = VTOSMB(vp);
 	SMBVDEBUG("%lx: '%s' %d\n", (long)vp, np->n_name, (vp->v_flag & VROOT) != 0);
 	error = smbfs_attr_cachelookup(vp, va);
 	if (!error)
@@ -437,6 +550,13 @@ smbfs_getattr(ap)
 		SMBVDEBUG("error %d\n", error);
 		return error;
 	}
+	/*
+	 * we may have lost the vnode during the lookup.  we return EIO,
+	 * but if we knew whether this was a stat (vs fstat) it is arguably
+	 * better to return ENOENT (or EBADF).
+	 */
+	if (SMB_STALEVP(vp, vid))
+		return (EIO);
 	smbfs_attr_cacheenter(vp, &fattr);
 	smbfs_attr_cachelookup(vp, va);
 	return 0;
@@ -453,19 +573,21 @@ smbfs_setattr(ap)
 {
 	struct vnode *vp = ap->a_vp;
 	struct smbnode *np = VTOSMB(vp);
+	struct smbmount *smp = VTOSMBFS(vp);
 	struct vattr *vap = ap->a_vap;
 	struct timespec *mtime, *atime;
 	struct smb_cred scred;
 	struct smb_share *ssp = np->n_mount->sm_share;
 	struct smb_vc *vcp = SSTOVC(ssp);
 	u_quad_t tsize = 0;
-	int isreadonly, doclose, error = 0;
+	int isreadonly, doclose, error = 0, savefid, saverwstate;
+	int attrcacheupdated;
 #ifdef APPLE
 	off_t newround;
 #endif
 
 	SMBVDEBUG("\n");
-	if (vap->va_flags != VNOVAL)
+	if (vap->va_flags != (u_long)VNOVAL)
 		return EOPNOTSUPP;
 	isreadonly = (vp->v_mount->mnt_flag & MNT_RDONLY);
 	/*
@@ -476,7 +598,7 @@ smbfs_setattr(ap)
 	     vap->va_mode != (mode_t)VNOVAL) && isreadonly)
 		return EROFS;
 	smb_makescred(&scred, ap->a_p, ap->a_cred);
-	if (vap->va_size != VNOVAL) {
+	if (vap->va_size != (u_quad_t)VNOVAL) {
  		switch (vp->v_type) {
  		    case VDIR:
  			return EISDIR;
@@ -491,7 +613,7 @@ smbfs_setattr(ap)
  		tsize = np->n_size;
 #ifdef APPLE
 		newround = round_page_64((off_t)vap->va_size);
-		if (tsize > newround) {
+		if ((off_t)tsize > newround) {
 			if (!ubc_invalidate(vp, newround,
 					    (size_t)(tsize - newround)))
 				panic("smbfs_setattr: ubc_invalidate");
@@ -503,10 +625,32 @@ smbfs_setattr(ap)
 		 */
 		smbfs_setsize(vp, (off_t)vap->va_size);
 
-		if (np->n_opencount == 0) {
+		savefid = -1;
+		saverwstate = np->n_rwstate;
+		if (np->n_opencount == 0 ||
+		    (np->n_rwstate & SMB_AM_OPENMODE) == SMB_AM_OPENREAD) {
+			/*
+			 * We don't have an open FID for it, or we have
+			 * one but it's open read-only, not read/write;
+			 * we'll need a read/write FID to set the size.
+			 *
+			 * XXX - if we're using a dialect with
+			 * a "set path info" call, we could use it.
+			 */
+			if (np->n_opencount != 0) {
+				/*
+				 * Save the existing read-only FID,
+				 * and put it back when we're done;
+				 * "smbfs_smb_open()" will overwrite
+				 * it.
+				 *
+				 * The vnode is locked, so that's safe.
+				 */
+				savefid = np->n_fid;
+			}
 			error = smbfs_smb_open(np,
 					       SMB_SM_DENYNONE|SMB_AM_OPENRW,
-					       &scred);
+					       &scred, &attrcacheupdated);
 			if (error == 0)
 				doclose = 1;
 		}
@@ -515,13 +659,28 @@ smbfs_setattr(ap)
 #ifdef APPLE
 		if (!error && tsize < vap->va_size)
 			error = smbfs_0extend(vp, tsize, vap->va_size, &scred,
-					      ap->a_p);
+					      ap->a_p, SMBWRTTIMO);
 #endif /* APPLE */
-		if (doclose)
+		if (doclose) {
+			/*
+			 * Close the new FID.
+			 */
 			smbfs_smb_close(ssp, np->n_fid, NULL, &scred);
+			if (savefid > 0) {
+				/*
+				 * Put back the saved FID, and the
+				 * saved "granted mode" flags.
+				 */
+				np->n_fid = savefid;
+				np->n_rwstate = saverwstate;
+			}
+		}
 		if (error) {
 			smbfs_setsize(vp, (off_t)tsize);
 			return error;
+		} else 	 {
+			/* if success, blow away statfs cache */
+			smp->sm_statfstime = 0;
 		}
   	}
 	mtime = atime = NULL;
@@ -537,10 +696,12 @@ smbfs_setattr(ap)
 			atime = &np->n_atime;
 #endif
 		/*
-		 * If file is opened, then we can use handle based calls.
-		 * If not, use path based ones.
+		 * If file is opened for writing, then we can use handle-based
+		 * calls.
+		 * If not, use path-based ones.
 		 */
-		if (np->n_opencount == 0) {
+		if (np->n_opencount == 0 ||
+		    (np->n_rwstate & SMB_AM_OPENMODE) == SMB_AM_OPENREAD) {
 			if (vcp->vc_flags & SMBV_WIN95) {
 				error = VOP_OPEN(vp, FWRITE, ap->a_cred,
 						 ap->a_p);
@@ -572,9 +733,14 @@ smbfs_setattr(ap)
 				/*
 				 * I have no idea how to handle this for core
 				 * level servers. The possible solution is to
-				 * update mtime after file is closed.
+				 * update mtime when the FID is closed, as
+				 * that can be set in an SMB close operation.
+				 *
+				 * Or should we us "smbfs_smb_setpattr()"?
+				 * That uses Set File Attributes, which is
+				 * in the core protocol.
 				 */
-				 SMBERROR("can't update times on an opened file\n");
+				SMBERROR("can't update times on an opened file\n");
 			}
 		}
 	}
@@ -582,7 +748,7 @@ smbfs_setattr(ap)
 	 * Invalidate attribute cache in case if server doesn't set
 	 * required attributes.
 	 */
-	smbfs_attr_cacheremove(vp);	/* invalidate cache */
+	smbfs_attr_cacheremove(np);	/* invalidate cache */
 	VOP_GETATTR(vp, vap, ap->a_cred, ap->a_p);
 	np->n_mtime.tv_sec = vap->va_mtime.tv_sec;
 	return error;
@@ -646,6 +812,8 @@ smbfs_read(ap)
 	/*
  	 * FreeBSD vs Darwin VFS difference; we can get VOP_READ without
  	 * preceeding VOP_OPEN via the exec path, so do it implicitly.
+	 *
+	 * XXX - when is the implied open closed?
  	 */
  	if (np->n_opencount == 0) {
  		error = VOP_OPEN(vp, FREAD, ap->a_cred, uio->uio_procp);
@@ -709,6 +877,7 @@ smbfs_write(ap)
 	} */ *ap;
 {
 	struct vnode *vp = ap->a_vp;
+	struct smbmount *smp = VTOSMBFS(vp);
 	struct uio *uio = ap->a_uio;
 #ifdef APPLE
 	off_t soff, eoff;
@@ -716,6 +885,7 @@ smbfs_write(ap)
 	int error, remaining, xfersize;
 	struct smbnode *np = VTOSMB(vp);
 #endif /* APPLE */
+	int timo = SMBWRTTIMO;
 
 	SMBVDEBUG("%d,ofs=%d,sz=%d\n",vp->v_type, (int)uio->uio_offset, uio->uio_resid);
 	if (vp->v_type != VREG)
@@ -726,9 +896,16 @@ smbfs_write(ap)
  	 * VOP_OPEN, so do it implicitly.  The log message is because we
 	 * anticipate only READ VOPs before OPEN.  If this becomes
 	 * an expected code path then remove the "log".
+	 *
+	 * We also force an open for writing if it's not already open
+	 * for writing.
+	 *
+	 * XXX - when is the implied open closed?
  	 */
- 	if (np->n_opencount == 0) {
-		log(LOG_NOTICE, "smbfs_write: implied open\n");
+ 	if (np->n_opencount == 0 ||
+	    (np->n_rwstate & SMB_AM_OPENMODE) != SMB_AM_OPENRW) {
+		log(LOG_NOTICE, "smbfs_write: implied open: opencount %d, rwstate 0x%x\n",
+		    np->n_opencount, np->n_rwstate);
  		error = VOP_OPEN(vp, FWRITE, ap->a_cred, uio->uio_procp);
  		if (error)
  			return (error);
@@ -758,7 +935,9 @@ smbfs_write(ap)
 			break;
 		uio->uio_resid = xfersize;
 		/* do the wire transaction */
-		error = smbfs_writevnode(vp, uio, ap->a_cred, ap->a_ioflag);
+		error = smbfs_writevnode(vp, uio, ap->a_cred, ap->a_ioflag,
+					 timo);
+		timo = 0;
 		/* dump the pages */
 		if (ubc_upl_abort(upl, UPL_ABORT_DUMP_PAGES))
 			panic("smbfs_write: ubc_upl_abort");
@@ -766,10 +945,13 @@ smbfs_write(ap)
 		if (uio->uio_resid == remaining) /* nothing transferred? */
 			break;
 	}
-	return (error);
 #else
- 	return smbfs_writevnode(vp, uio, ap->a_cred,ap->a_ioflag);
+ 	error = smbfs_writevnode(vp, uio, ap->a_cred,ap->a_ioflag, timo);
 #endif /* APPLE */
+	/* if success, blow away statfs cache */
+	if (!error)
+		smp->sm_statfstime = 0;
+	return (error);
 }
 
 /*
@@ -793,11 +975,12 @@ smbfs_create(ap)
 	struct vnode **vpp=ap->a_vpp;
 	struct componentname *cnp = ap->a_cnp;
 	struct smbnode *dnp = VTOSMB(dvp);
+	struct smbmount *smp = VTOSMBFS(dvp);
 	struct vnode *vp;
 	struct vattr vattr;
 	struct smbfattr fattr;
 	struct smb_cred scred;
-	char *name = cnp->cn_nameptr;
+	const char *name = cnp->cn_nameptr;
 	int nmlen = cnp->cn_namelen;
 	int error;
 	
@@ -816,7 +999,7 @@ smbfs_create(ap)
 	error = smbfs_smb_lookup(dnp, &name, &nmlen, &fattr, &scred);
 	if (error)
 		return error;
-	smbfs_attr_touchdir(dvp);
+	smbfs_attr_touchdir(dnp);
 	error = smbfs_nget(VTOVFS(dvp), dvp, name, nmlen, &fattr, &vp);
 	if (error)
 		goto bad;
@@ -829,7 +1012,7 @@ smbfs_create(ap)
 	} else if (cnp->cn_flags & MAKEENTRY) {
 		struct componentname cn = *cnp;
 
-		cn.cn_nameptr = name;
+		cn.cn_nameptr = (char *)name;
 		cn.cn_namelen = nmlen;
 #ifdef APPLE
 		{
@@ -849,18 +1032,21 @@ smbfs_create(ap)
 bad:
 	if (name != cnp->cn_nameptr)
 		smbfs_name_free(name);
+	/* if success, blow away statfs cache */
+	if (!error)
+		smp->sm_statfstime = 0;
 	return error;
 }
 
 #ifdef APPLE
 static int
 smbfs_create0(ap)
-        struct vop_create_args /* {
-                struct vnode *a_dvp;
-                struct vnode **a_vpp;
-                struct componentname *a_cnp;
-                struct vattr *a_vap;
-        } */ *ap; 
+	struct vop_create_args /* {
+		struct vnode *a_dvp;
+		struct vnode **a_vpp;
+		struct componentname *a_cnp;
+		struct vattr *a_vap;
+	} */ *ap; 
 {
 	int error;
 
@@ -881,9 +1067,11 @@ smbfs_remove(ap)
 	} */ *ap;
 {
 	struct vnode *vp = ap->a_vp;
-/*	struct vnode *dvp = ap->a_dvp;*/
+	struct smbnode *dnp = VTOSMB(ap->a_dvp);
 	struct componentname *cnp = ap->a_cnp;
+	struct proc *p = cnp->cn_proc;
 	struct smbnode *np = VTOSMB(vp);
+	struct smbmount *smp = VTOSMBFS(vp);
 	struct smb_cred scred;
 	int error;
 
@@ -902,7 +1090,7 @@ smbfs_remove(ap)
 	if (!ubc_invalidate(vp, (off_t)0, (size_t)np->n_size))
 		panic("smbfs_remove: ubc_invalidate");
 	smbfs_setsize(vp, (off_t)0);
-	smb_makescred(&scred, cnp->cn_proc, cnp->cn_cred);
+	smb_makescred(&scred, p, cnp->cn_cred);
 	if (np->n_opencount) {
  		if (np->n_opencount > 1)
 			log(LOG_WARNING, "smbfs_remove: n_opencount=%d\n",
@@ -918,23 +1106,30 @@ smbfs_remove(ap)
 	/* freebsd bug: as in smbfs_rename EBUSY better for open file case */
 	if (vp->v_type == VDIR || np->n_opencount || vp->v_usecount != 1)
 		return EPERM;
-	smb_makescred(&scred, cnp->cn_proc, cnp->cn_cred);
+	smb_makescred(&scred, p, cnp->cn_cred);
 #endif /* APPLE */
 	error = smbfs_smb_delete(np, &scred);
-	smb_vhashrem(vp, cnp->cn_proc);
-	smbfs_attr_touchdir(ap->a_dvp);
+	smb_vhashrem(np, p);
+	smbfs_attr_touchdir(dnp);
 	cache_purge(vp);
 #ifdef APPLE
-#warning XXX Q4BP: Ought above cache_purge preceed rpc as in nfs?
+	/* XXX Q4BP: Ought above cache_purge preceed rpc as in nfs? */
 out:
+	if (error == EBUSY)
+		SMBERROR("warning: pid %d(%.*s) unlink open file(%.*s)\n",
+			 p->p_pid, sizeof(p->p_comm), p->p_comm,
+			 np->n_nmlen, np->n_name);
 	if (ap->a_dvp != vp)
-		VOP_UNLOCK(vp, 0, cnp->cn_proc);
-#warning XXX ufs calls ubc_uncache even for errors, but we follow hfs precedent
+		VOP_UNLOCK(vp, 0, p);
+	/* XXX ufs calls ubc_uncache even for errors, but we follow hfs precedent */
 	if (!error)
 		(void) ubc_uncache(vp);
 	vrele(vp);
 	vput(ap->a_dvp);
 #endif /* APPLE */
+	/* if success, blow away statfs cache */
+	if (!error)
+		smp->sm_statfstime = 0;
 	return error;
 }
 
@@ -956,13 +1151,18 @@ smbfs_rename(ap)
 	struct vnode *tvp = ap->a_tvp;
 	struct vnode *fdvp = ap->a_fdvp;
 	struct vnode *tdvp = ap->a_tdvp;
+	struct smbmount *smp = VTOSMBFS(fvp);
 	struct componentname *tcnp = ap->a_tcnp;
 	struct componentname *fcnp = ap->a_fcnp;
+	struct proc *p = tcnp->cn_proc;
 	struct smb_cred scred;
 	u_int16_t flags = 6;
 	int error=0;
 	int hiderr;
 	struct smbnode *fnp = VTOSMB(fvp);
+	struct smbnode *tnp = tvp ? VTOSMB(tvp) : NULL;
+	struct smbnode *tdnp = VTOSMB(tdvp);
+	struct smbnode *fdnp = VTOSMB(fdvp);
 
 	/* Check for cross-device rename */
 	if ((fvp->v_mount != tdvp->v_mount) ||
@@ -971,6 +1171,10 @@ smbfs_rename(ap)
 		goto out;
 #ifdef APPLE
 out:
+		if (error == EBUSY)
+			SMBERROR("warning: pid %d(%.*s) rename open file(%.*s)\n",
+				 p->p_pid, sizeof(p->p_comm), p->p_comm,
+				 fnp->n_nmlen, fnp->n_name);
 		nop_rename(ap);
 		return (error);
 #endif /* APPLE */
@@ -999,13 +1203,13 @@ out:
 		error = EINVAL;
 		goto out;
 	}
-	smb_makescred(&scred, tcnp->cn_proc, tcnp->cn_cred);
+	smb_makescred(&scred, p, tcnp->cn_cred);
 #ifdef notnow
 	/*
 	 * Samba doesn't implement SMB_COM_MOVE call...
 	 */
 	if (SMB_DIALECT(SSTOCN(smp->sm_share)) >= SMB_DIALECT_LANMAN1_0) {
-		error = smbfs_smb_move(fnp, VTOSMB(tdvp), tcnp->cn_nameptr,
+		error = smbfs_smb_move(fnp, tdnp, tcnp->cn_nameptr,
 				       tcnp->cn_namelen, flags, &scred);
 	} else
 #endif
@@ -1016,13 +1220,13 @@ out:
 		 */
 		if (tvp && tvp != fvp) {
 			cache_purge(tvp);
-			error = smbfs_smb_delete(VTOSMB(tvp), &scred);
+			error = smbfs_smb_delete(tnp, &scred);
 			if (error)
 				goto out;
-			smb_vhashrem(tvp, tcnp->cn_proc);
+			smb_vhashrem(tnp, p);
 		}
 		cache_purge(fvp);
-		error = smbfs_smb_rename(fnp, VTOSMB(tdvp), tcnp->cn_nameptr,
+		error = smbfs_smb_rename(fnp, tdnp, tcnp->cn_nameptr,
 					 tcnp->cn_namelen, &scred);
 #ifdef APPLE
 		/*
@@ -1041,7 +1245,7 @@ out:
 				log(LOG_WARNING,
 				    "smbfs_rename: n_opencount=%d!\n",
 			 	    fnp->n_opencount);
-			error = smb_flushvp(fvp, tcnp->cn_proc, tcnp->cn_cred,
+			error = smb_flushvp(fvp, p, tcnp->cn_cred,
 					    1); /* with invalidate */
  			if (error)
 				log(LOG_WARNING,
@@ -1053,14 +1257,14 @@ out:
  			if (error)
 				log(LOG_WARNING,
 				    "smbfs_rename: close error=%d\n", error);
-			error = smbfs_smb_rename(fnp, VTOSMB(tdvp),
+			error = smbfs_smb_rename(fnp, tdnp,
 	 					 tcnp->cn_nameptr,
 	 					 tcnp->cn_namelen, &scred);
 		}
 #endif /* APPLE */
 	}
 	if (!error)
-		smb_vhashrem(fvp, tcnp->cn_proc);
+		smb_vhashrem(fnp, p);
 #ifdef APPLE
 	/*
 	 *	Source			Target
@@ -1074,12 +1278,12 @@ out:
 	 *	NoDot	Unhidden	NoDot	UNHIDE
 	 */
 	if (!error && tcnp->cn_nameptr[0] == '.') {
-		if ((hiderr = smbfs_smb_hideit(VTOSMB(tdvp), tcnp->cn_nameptr,
+		if ((hiderr = smbfs_smb_hideit(tdnp, tcnp->cn_nameptr,
 					       tcnp->cn_namelen, &scred)))
 			SMBERROR("hiderr %d", hiderr);
 	} else if (!error && tcnp->cn_nameptr[0] != '.' &&
 		   fcnp->cn_nameptr[0] == '.') {
-		if ((hiderr = smbfs_smb_unhideit(VTOSMB(tdvp), tcnp->cn_nameptr,
+		if ((hiderr = smbfs_smb_unhideit(tdnp, tcnp->cn_nameptr,
 					       tcnp->cn_namelen, &scred)))
 			SMBERROR("(un)hiderr %d", hiderr);
 	}
@@ -1093,6 +1297,10 @@ out:
 #ifndef APPLE
 out:
 #endif /* APPLE */
+	if (error == EBUSY)
+		SMBERROR("warning: pid %d(%.*s) rename open file(%.*s)\n",
+			 p->p_pid, sizeof(p->p_comm), p->p_comm,
+			 fnp->n_nmlen, fnp->n_name);
 	if (tdvp == tvp)
 		vrele(tdvp);
 	else
@@ -1101,9 +1309,12 @@ out:
 		vput(tvp);
 	vrele(fdvp);
 	vrele(fvp);
-	smbfs_attr_touchdir(fdvp);
+	smbfs_attr_touchdir(fdnp);
 	if (tdvp != fdvp)
-		smbfs_attr_touchdir(tdvp);
+		smbfs_attr_touchdir(tdnp);
+	/* if success, blow away statfs cache */
+	if (!error)
+		smp->sm_statfstime = 0;
 	return error;
 }
 
@@ -1113,11 +1324,17 @@ out:
 static int
 smbfs_link(ap)
 	struct vop_link_args /* {
-		struct vnode *a_tdvp;
 		struct vnode *a_vp;
+		struct vnode *a_tdvp;
 		struct componentname *a_cnp;
 	} */ *ap;
 {
+	struct proc *p = ap->a_cnp->cn_proc;
+	struct smbnode *np = VTOSMB(ap->a_vp);
+
+	SMBERROR("warning: pid %d(%.*s) hardlink(%.*s)\n",
+		 p->p_pid, sizeof(p->p_comm), p->p_comm,
+		 np->n_nmlen, np->n_name);
 #ifdef APPLE
 	return (err_link(ap));
 #else
@@ -1127,7 +1344,6 @@ smbfs_link(ap)
 
 /*
  * smbfs_symlink link create call.
- * XXX interoperate with Sharity "symlinks"
  */
 static int
 smbfs_symlink(ap)
@@ -1139,6 +1355,11 @@ smbfs_symlink(ap)
 		char *a_target;
 	} */ *ap;
 {
+	struct proc *p = ap->a_cnp->cn_proc;
+
+	SMBERROR("warning: pid %d(%.*s) symlink(%.*s)\n",
+		 p->p_pid, sizeof(p->p_comm), p->p_comm,
+		 ap->a_cnp->cn_namelen, ap->a_cnp->cn_nameptr);
 #ifdef APPLE
 	return (err_symlink(ap));
 #else
@@ -1149,8 +1370,17 @@ smbfs_symlink(ap)
 static int
 smbfs_mknod(ap) 
 	struct vop_mknod_args /* {
+		struct vnode *a_dvp;
+		struct vnode **a_vpp;
+		struct componentname *a_cnp;
+		struct vattr *a_vap;
 	} */ *ap;
 {
+	struct proc *p = ap->a_cnp->cn_proc;
+
+	SMBERROR("warning: pid %d(%.*s) mknod(%.*s)\n",
+		 p->p_pid, sizeof(p->p_comm), p->p_comm,
+		 ap->a_cnp->cn_namelen, ap->a_cnp->cn_nameptr);
 #ifdef APPLE
 	return (err_mknod(ap));
 #else
@@ -1172,10 +1402,11 @@ smbfs_mkdir(ap)
 	struct vnode *vp;
 	struct componentname *cnp = ap->a_cnp;
 	struct smbnode *dnp = VTOSMB(dvp);
+	struct smbmount *smp = VTOSMBFS(dvp);
 	struct vattr vattr;
 	struct smb_cred scred;
 	struct smbfattr fattr;
-	char *name = cnp->cn_nameptr;
+	const char *name = cnp->cn_nameptr;
 	int len = cnp->cn_namelen;
 	int error, hiderr;
 
@@ -1191,7 +1422,7 @@ smbfs_mkdir(ap)
 	error = smbfs_smb_lookup(dnp, &name, &len, &fattr, &scred);
 	if (error)
 		return error;
-	smbfs_attr_touchdir(dvp);
+	smbfs_attr_touchdir(dnp);
 	error = smbfs_nget(VTOVFS(dvp), dvp, name, len, &fattr, &vp);
 	if (error)
 		goto bad;
@@ -1204,7 +1435,9 @@ smbfs_mkdir(ap)
 bad:
 	if (name != cnp->cn_nameptr)
 		smbfs_name_free(name);
-	return 0;
+	/* if success, blow away statfs cache */
+	smp->sm_statfstime = 0;
+	return (error);
 }
 
 #ifdef APPLE
@@ -1240,7 +1473,7 @@ smbfs_rmdir(ap)
 	struct vnode *vp = ap->a_vp;
 	struct vnode *dvp = ap->a_dvp;
 	struct componentname *cnp = ap->a_cnp;
-/*	struct smbmount *smp = VTOSMBFS(vp);*/
+	struct smbmount *smp = VTOSMBFS(vp);
 	struct smbnode *dnp = VTOSMB(dvp);
 	struct smbnode *np = VTOSMB(vp);
 	struct smb_cred scred;
@@ -1248,7 +1481,7 @@ smbfs_rmdir(ap)
 
 	if (dvp == vp)
 #ifdef APPLE
-#warning XXX other OSX fs test fs nodes here, not vnodes. Why?
+	/* XXX other OSX fs test fs nodes here, not vnodes. Why? */
 	{
 		error = EINVAL;
 		vrele(dvp);
@@ -1267,16 +1500,19 @@ smbfs_rmdir(ap)
 	}
 #endif /* APPLE */
 	dnp->n_flag |= NMODIFIED;
-	smbfs_attr_touchdir(dvp);
-#warning XXX Q4BP: nfs purges dvp.  Why was this commented out?
+	smbfs_attr_touchdir(dnp);
+	/* XXX Q4BP: nfs purges dvp.  Why was this commented out? */
 /*	cache_purge(dvp); */
 	cache_purge(vp);
-	smb_vhashrem(vp, cnp->cn_proc);
+	smb_vhashrem(np, cnp->cn_proc);
 #ifdef APPLE
 	vput(dvp);
 bad:
 	vput(vp);
 #endif /* APPLE */
+	/* if success, blow away statfs cache */
+	if (!error)
+		smp->sm_statfstime = 0;
 	return error;
 }
 
@@ -1325,6 +1561,8 @@ smbfs_fsync(ap)
 	int error;
 
 	error = smb_flushvp(ap->a_vp, ap->a_p, ap->a_cred, 0);
+	if (!error)
+		VTOSMBFS(ap->a_vp)->sm_statfstime = 0;
 	nop_fsync(ap);
 	return (error);
 #else
@@ -1454,6 +1692,7 @@ smbfs_ioctl(ap)
 		struct proc *p;
 	} */ *ap;
 {
+	#pragma unused(ap)
 	return EINVAL;
 }
 
@@ -1499,11 +1738,21 @@ smbfs_getextattr(struct vop_getextattr_args *ap)
 }
 #endif /* APPLE */
 
-
-/*
- * Since we expected to support F_GETLK (and SMB protocol has no such function),
- * it is necessary to use lf_advlock(). It would be nice if this function had
- * a callback mechanism because it will help to improve a level of consistency.
+/* SMB locks do not map to POSIX.1 advisory locks in several ways:
+ * 1 - SMB provides no way to find an existing lock on the server.
+ *     So, the F_GETLK operation can only report locks created by processes
+ *     on this client. 
+ * 2 - SMB locks cannot overlap an existing locked region of a file. So,
+ *     F_SETLK/F_SETLKW operations that establish locks cannot extend an
+ *     existing lock.
+ * 3 - When unlocking a SMB locked region, the region to unlock must correspond
+ *     exactly to an existing locked region. So, F_SETLK F_UNLCK operations
+ *     cannot split an existing lock or unlock more than was locked (this is
+ *     especially important because file files are closed, we recieve a request
+ *     to unlock the entire file: l_whence and l_start point to the beginning
+ *     of the file, and l_len is zero).
+ * The result... SMB cannot support POSIX.1 advisory locks. It can however
+ * support BSD flock() locks, so that's what this implementation will allow. 
  */
 int
 smbfs_advlock(ap)
@@ -1516,123 +1765,292 @@ smbfs_advlock(ap)
 	} */ *ap;
 {
 	struct vnode *vp = ap->a_vp;
-	struct smbnode *np = VTOSMB(vp);
+	caddr_t id = ap->a_id;
+	int operation = ap->a_op;
 	struct flock *fl = ap->a_fl;
-	caddr_t id = (caddr_t)1 /* ap->a_id */;
 	int flags = ap->a_flags;
+	struct smbmount *smp = VFSTOSMBFS(vp->v_mount);
+	struct smb_share *ssp = smp->sm_share;
+	struct smbnode *np = VTOSMB(vp);
 	struct proc *p = curproc;
-	struct smb_cred scred;
-	off_t start, end, size;
-	int error, lkop;
-
-	if (vp->v_type == VDIR) {
-		/*
-		 * SMB protocol have no support for directory locking.
-		 * Although locks can be processed on local machine, I don't
-		 * think that this is a good idea, because some programs
-		 * can work wrong assuming directory is locked. So, we just
-		 * return 'operation not supported
-		 */
-		 return EOPNOTSUPP;
+ 	struct smb_cred scred;
+	off_t start, end;
+	u_int64_t len;
+	struct smbfs_lockf *lock;
+	int error;
+	/* Since the pid passed to the SMB server is only 16 bits and a_id
+	 * is 32 bits, and since we are negotiating locks between local processes
+	 * with the code in smbfs_lockf.c, just pass a 1 for our pid to the server.
+	 */
+	caddr_t smbid = (caddr_t)1;
+	int largelock = (SSTOVC(ssp)->vc_sopt.sv_caps & SMB_CAP_LARGE_FILES) != 0;
+	u_int32_t timeout;
+	
+	/* Only regular files can have locks */
+	if (vp->v_type != VREG)
+		return (EISDIR);
+	
+	/* No support for F_POSIX style locks */
+	if (flags & F_POSIX)
+		return (err_advlock(ap));
+    
+	/*
+	 * Avoid the common case of unlocking when smbnode has no locks.
+	 */
+	if (np->smb_lockf == (struct smbfs_lockf *)0) {
+		if (operation != F_SETLK) {
+			fl->l_type = F_UNLCK;
+			return (0);
+		}
 	}
-	size = np->n_size;
+	
+	/*
+	 * Convert the flock structure into a start, end, and len.
+	 */
+	start = 0;
 	switch (fl->l_whence) {
-	    case SEEK_SET:
-	    case SEEK_CUR:
+	case SEEK_SET:
+	case SEEK_CUR:
+		/*
+		 * Caller is responsible for adding any necessary offset
+		 * when SEEK_CUR is used.
+		 */
 		start = fl->l_start;
 		break;
-	    case SEEK_END:
-		start = fl->l_start + size;
-	    default:
-		return EINVAL;
+	case SEEK_END:
+		start = np->n_size + fl->l_start;
+		break;
+	default:
+		return (EINVAL);
 	}
+
 	if (start < 0)
-		return EINVAL;
-	if (fl->l_len == 0)
-		end = -1;
-	else {
+		return (EINVAL);
+	if (!largelock && (start & 0xffffffff00000000LL))
+		return (EINVAL);
+	if (fl->l_len == 0) {
+		/* lock from start to EOF */
+ 		end = -1;
+		if (!largelock)
+			/* maximum file size 2^32 - 1 bytes */
+			len = 0x00000000ffffffffULL - start;
+		else
+			/* maximum file size 2^64 - 1 bytes */
+			len = 0xffffffffffffffffULL - start;
+	} else {
+		/* lock fl->l_len bytes from start */
 		end = start + fl->l_len - 1;
-		if (end < start)
-			return EINVAL;
+		len = fl->l_len;
 	}
+
+	/* F_FLOCK style locks only use F_SETLK and F_UNLCK,
+	 * and always lock the entire file.
+	 */
+	if ((operation != F_SETLK && operation != F_UNLCK) ||
+		start != 0 || end != -1) {
+		return (EINVAL);
+	}
+	
+	/*
+	 * Create the lockf structure
+	 */
+	MALLOC(lock, struct smbfs_lockf *, sizeof *lock, M_LOCKF, M_WAITOK);
+	lock->lf_start = start;
+	lock->lf_end = end;
+	lock->lf_id = id;
+	lock->lf_smbnode = np;
+	lock->lf_type = fl->l_type;
+	lock->lf_next = (struct smbfs_lockf *)0;
+	TAILQ_INIT(&lock->lf_blkhd);
+	lock->lf_flags = flags;
+
 	smb_makescred(&scred, p, p ? p->p_ucred : NULL);
-	switch (ap->a_op) {
-	    case F_SETLK:
-		switch (fl->l_type) {
-		    case F_WRLCK:
-			lkop = SMB_LOCK_EXCL;
-			break;
-		    case F_RDLCK:
-			lkop = SMB_LOCK_SHARED;
-			break;
-		    case F_UNLCK:
-			lkop = SMB_LOCK_RELEASE;
-			break;
-		    default:
-			return EINVAL;
+	timeout = (flags & F_WAIT) ? -1 : 0;
+
+	/*
+	 * Do the requested operation.
+	 */
+	switch(operation) {
+	case F_SETLK:
+		/* get local lock */
+		error = smbfs_setlock(lock);
+		if (!error) {
+			/* get remote lock */
+			error = smbfs_smb_lock(np, SMB_LOCK_EXCL, smbid, start, len, largelock, &scred, timeout);
+			if (error) {
+				/* remote lock failed */
+				/* Create another lockf structure for the clear */
+				MALLOC(lock, struct smbfs_lockf *, sizeof *lock, M_LOCKF, M_WAITOK);
+				lock->lf_start = start;
+				lock->lf_end = end;
+				lock->lf_id = id;
+				lock->lf_smbnode = np;
+				lock->lf_type = F_UNLCK;
+				lock->lf_next = (struct smbfs_lockf *)0;
+				TAILQ_INIT(&lock->lf_blkhd);
+				lock->lf_flags = flags;
+				/* clear local lock (this will always be successful) */
+				(void) smbfs_clearlock(lock);
+				FREE(lock, M_LOCKF);
+			}
 		}
-		error = lf_advlock(ap, &np->n_lockf, size);
-		if (error)
-			break;
-		lkop = SMB_LOCK_EXCL;
-		error = smbfs_smb_lock(np, lkop, id, start, end, &scred);
-		if (error) {
-			ap->a_op = F_UNLCK;
-			lf_advlock(ap, &np->n_lockf, size);
-		}
 		break;
-	    case F_UNLCK:
-		lf_advlock(ap, &np->n_lockf, size);
-		error = smbfs_smb_lock(np, SMB_LOCK_RELEASE, id, start, end, &scred);
-#warning XXX Q4BP: why not undo local unlock when server release fails?
+	case F_UNLCK:
+		/* clear local lock (this will always be successful) */
+		error = smbfs_clearlock(lock);
+		FREE(lock, M_LOCKF);
+		/* clear remote lock */
+		error = smbfs_smb_lock(np, SMB_LOCK_RELEASE, smbid, start, len, largelock, &scred, timeout);
 		break;
-	    case F_GETLK:
-		error = lf_advlock(ap, &np->n_lockf, size);
-#ifdef APPLE
-#warning XXX F_GETLK shouldnt return EOPNOTSUPP!
-		error = EOPNOTSUPP;
-#endif
+	case F_GETLK:
+		error = smbfs_getlock(lock, fl);
+		FREE(lock, M_LOCKF);
 		break;
-	    default:
-		return EINVAL;
+	default:
+		error = EINVAL;
+		_FREE(lock, M_LOCKF);
+		break;
 	}
+	
 	if (error == EDEADLK && !(flags & F_WAIT))
 		error = EAGAIN;
-	return error;
+
+	return (error);
 }
 
 static int
 smbfs_pathcheck(struct smbmount *smp, const char *name, int nmlen, int nameiop)
 {
-	static const char *badchars = "*/\[]:<>=;?";
-	static const char *badchars83 = " +|,";
-	const char *cp;
-	int i, error;
+	const char *cp, *endp;
+	int error;
 
+	/* Check name only if CREATE, DELETE, or RENAME */
 	if (nameiop == LOOKUP)
 		return 0;
-	error = ENOENT;
+
+	/*
+	 * Normally, we'd return EINVAL when the name is syntactically invalid,
+	 * but ENAMETOOLONG makes it clear that the name is the problem (and
+	 * allows Carbon to return a more meaningful error).
+	 */
+	error = ENAMETOOLONG;
+
+	/*
+	 * Note: This code does not prevent the smb file system client
+	 * from creating filenames which are difficult to use with
+	 * other clients. For example, you can create "  foo  " or
+	 * "foo..." which cannot be moved, renamed, or deleted by some
+	 * other clients.
+	 */
+	if (!nmlen)
+		return error;
 	if (SMB_DIALECT(SSTOVC(smp->sm_share)) < SMB_DIALECT_LANMAN2_0) {
 		/*
-		 * Name should conform 8.3 format
+		 * Name should conform short 8.3 format
 		 */
-		if (nmlen > 12)
-			return ENAMETOOLONG;
+
+		/* Look for optional period */
 		cp = index(name, '.');
-		if (cp == NULL)
-			return error;
-		if (cp == name || (cp - name) > 8)
-			return error;
-		cp = index(cp + 1, '.');
-		if (cp != NULL)
-			return error;
-		for (cp = name, i = 0; i < nmlen; i++, cp++)
-			if (index(badchars83, *cp) != NULL)
+		if (cp != NULL) {
+			/*
+			 * If there's a period, then:
+			 *   1 - the main part of the name must be 1 to 8 chars long
+			 *   2 - the extension must be 1 to 3 chars long
+			 *   3 - there cannot be more than one period
+			 * On a DOS volume, a trailing period in a name is ignored,
+			 * so we don't want to create "foo." and confuse programs
+			 * when the file actually created is "foo"
+			 */
+			if ((cp == name) ||	/* no name chars */
+				(cp - name > 8) || /* name is too long */
+				((nmlen - ((long)(cp - name) + 1)) > 3) || /* extension is too long */
+				(nmlen == ((long)(cp - name) + 1)) || /* no extension chars */
+				(index(cp + 1, '.') != NULL)) { /* multiple periods */
 				return error;
-	}
-	for (cp = name, i = 0; i < nmlen; i++, cp++)
-		if (index(badchars, *cp) != NULL)
+			}
+		} else {
+			/*
+			 * There is no period, so main part of the name
+			 * must be no longer than 8 chars.
+			 */
+			if (nmlen > 8)
+				return error;
+		}
+		/* check for illegal characters */
+		for (cp = name, endp = name + nmlen; cp < endp; ++cp) {
+			/*
+			 * check for other 8.3 illegal characters, wildcards,
+			 * and separators.
+			 *
+			 * According to the FAT32 File System spec, the following
+			 * characters are illegal in 8.3 file names: Values less than 0x20,
+			 * and the values 0x22, 0x2A, 0x2B, 0x2C, 0x2E, 0x2F, 0x3A, 0x3B,
+			 * 0x3C, 0x3D, 0x3E, 0x3F, 0x5B, 0x5C, 0x5D, and 0x7C.
+			 * The various SMB specs say the same thing with the additional
+			 * illegal character 0x20 -- control characters (0x00...0x1f)
+			 * are not mentioned. So, we'll add the space character and
+			 * won't filter out control characters unless we find they cause
+			 * interoperability problems.
+			 */
+			switch (*cp) {
+			case 0x20:	/* space */
+			case 0x22:	/* "     */
+			case 0x2A:	/* *     */
+			case 0x2B:	/* +     */
+			case 0x2C:	/* ,     */
+						/* 0x2E (period) was handled above */
+			case 0x2F:	/* /     */
+			case 0x3A:	/* :     */
+			case 0x3B:	/* ;     */
+			case 0x3C:	/* <     */
+			case 0x3D:	/* =     */
+			case 0x3E:	/* >     */
+			case 0x3F:	/* ?     */
+			case 0x5B:	/* [     */
+			case 0x5C:	/* \     */
+			case 0x5D:	/* ]     */
+			case 0x7C:	/* |     */
+				/* illegal character found */
+				return error;
+				break;
+			default:
+				break;
+			}
+		}
+	} else {
+		/*
+		 * Long name format
+		 */
+
+		/* make sure the name isn't too long */
+		if (nmlen > 255)
 			return error;
+		/* check for illegal characters */
+		for (cp = name, endp = name + nmlen; cp < endp; ++cp) {
+			/*
+			 * The set of illegal characters in long names is the same as
+			 * 8.3 except the characters 0x20, 0x2b, 0x2c, 0x3b, 0x3d, 0x5b,
+			 * and 0x5d are now legal, and the restrictions on periods was
+			 * removed.
+			 */
+			switch (*cp) {
+			case 0x22:	/* "     */
+			case 0x2A:	/* *     */
+			case 0x2F:	/* /     */
+			case 0x3A:	/* :     */
+			case 0x3C:	/* <     */
+			case 0x3E:	/* >     */
+			case 0x3F:	/* ?     */
+			case 0x5C:	/* \     */
+			case 0x7C:	/* |     */
+				/* illegal character found */
+				return error;
+				break;
+			default:
+				break;
+			}
+		}
+	}
 	return 0;
 }
 
@@ -1662,7 +2080,7 @@ smbfs_lookup(ap)
 	struct smbnode *dnp;
 	struct smbfattr fattr, *fap;
 	struct smb_cred scred;
-	char *name = cnp->cn_nameptr;
+	const char *name = cnp->cn_nameptr;
 	int flags = cnp->cn_flags;
 	int nameiop = cnp->cn_nameiop;
 	int nmlen = cnp->cn_namelen;
@@ -1700,9 +2118,11 @@ smbfs_lookup(ap)
 	isdot = (nmlen == 1 && name[0] == '.');
 
 	error = smbfs_pathcheck(smp, cnp->cn_nameptr, cnp->cn_namelen, nameiop);
-
+	if (error)
+		SMBERROR("warning: pid %d(%.*s) bad filename(%.*s)\n",
+			 p->p_pid, sizeof(p->p_comm), p->p_comm, nmlen, name);
 	if (error) 
-		return ENOENT;
+		return ENOENT; /* XXX use "error" as is? */
 
 	error = cache_lookup(dvp, vpp, cnp);
 	SMBVDEBUG("cache_lookup returned %d\n", error);
@@ -1710,7 +2130,7 @@ smbfs_lookup(ap)
 		return error;
 	if (error) {		/* name was found */
 		struct vattr vattr;
-		int vpid;
+		u_long vpid;
 
 		vp = *vpp;
 		vpid = vp->v_id;
@@ -1872,7 +2292,7 @@ smbfs_lookup(ap)
 		struct componentname cn = *cnp;
 
 /*		VTOSMB(*vpp)->n_ctime = VTOSMB(*vpp)->n_vattr.va_ctime.tv_sec;*/
-		cn.cn_nameptr = name;
+		cn.cn_nameptr = (char *)name;
 		cn.cn_namelen = nmlen;
 #ifdef APPLE
 		{
@@ -1897,6 +2317,163 @@ out:
 
 
 #ifdef APPLE
+
+/*
+ * getattrlist -- Return attributes about files, directories, and volumes.
+ * This is a minimal implementation that only returns volume capabilities
+ * so clients (like Carbon) can tell which interfaces and features are
+ * supported by the volume.
+ *
+ * #
+ * #% getattrlist	vp	= = =
+ * #
+ * vop_getattrlist {
+ *	IN struct vnode *vp;
+ *	IN struct attrlist *alist;
+ *	INOUT struct uio *uio;
+ *	IN struct ucred *cred;
+ *	IN struct proc *p;
+ * };
+ */
+static int
+smbfs_getattrlist(ap)
+	struct vop_getattrlist_args /* {
+		struct vnode *a_vp;
+		struct attrlist *a_alist
+		struct uio *a_uio;
+		struct ucred *a_cred;
+		struct proc *a_p;
+	} */ *ap;
+{
+	struct vnode *vp = ap->a_vp;
+	struct attrlist *alist = ap->a_alist;
+	size_t attrbufsize;	/* Actual buffer size */
+	int error;
+	struct {
+		u_long buffer_size;
+		vol_capabilities_attr_t capabilities;
+	} results;
+
+	/*
+	 * Reject requests that have an invalid bitmap count (indicating
+	 * a change in the headers that this code isn't prepared
+	 * to handle).
+	 *
+	 * NOTE: we don't use ATTR_BIT_MAP_COUNT, because that could
+	 * change in the header without this code changing.
+	 */
+	if (alist->bitmapcount != 5)
+		return EINVAL;
+
+	/*
+	 * Reject requests that ask for non-existent attributes.
+	 */
+	if (((alist->commonattr & ~ATTR_CMN_VALIDMASK) != 0) ||
+	    ((alist->volattr & ~ATTR_VOL_VALIDMASK) != 0) ||
+	    ((alist->dirattr & ~ATTR_DIR_VALIDMASK) != 0) ||
+	    ((alist->fileattr & ~ATTR_FILE_VALIDMASK) != 0) ||
+	    ((alist->forkattr & ~ATTR_FORK_VALIDMASK) != 0))
+		return EINVAL;
+
+	/*
+	 * Requesting volume information requires setting the
+	 * ATTR_VOL_INFO bit. Also, volume info requests are
+	 * mutually exclusive with all other info requests.
+	 */
+	if ((alist->volattr != 0) &&
+	    (((alist->volattr & ATTR_VOL_INFO) == 0) ||
+	     (alist->dirattr != 0) || (alist->fileattr != 0)))
+		return EINVAL;
+
+	/*
+	 * Reject requests that ask for anything other than volume
+	 * capabilities.  We return EOPNOTSUPP for this, as Carbon
+	 * expects to get that if requests for ATTR_CMN_ values
+	 * aren't supported by the file system.
+	 */
+	if ((alist->commonattr != 0) ||
+	    (alist->volattr != (ATTR_VOL_INFO | ATTR_VOL_CAPABILITIES)) ||
+	    (alist->dirattr != 0) ||
+	    (alist->fileattr != 0) ||
+	    (alist->forkattr != 0)) {
+		return EOPNOTSUPP;
+	}
+
+	/*
+	 * Volume requests, including volume capabilities, requires using
+	 * the volume's root vnode.  Since we only handle volume requests,
+	 * this is always required.
+	 */
+	if ((vp->v_flag & VROOT) == 0)
+		return EINVAL;
+
+	/*
+	 * A general implementation would calculate the maximum size of
+	 * all requested attributes, allocate a buffer to hold them,
+	 * and then pack them all in bitmap order.  Since we support
+	 * just one attribute, this trivially uses a local structure.
+	 */
+	attrbufsize = MIN(ap->a_uio->uio_resid, (int)sizeof results);
+	results.buffer_size = attrbufsize;
+	
+	/* The capabilities[] array defines what this volume supports. */
+	results.capabilities.capabilities[VOL_CAPABILITIES_FORMAT] =
+		VOL_CAP_FMT_NO_ROOT_TIMES |
+		VOL_CAP_FMT_FAST_STATFS;
+	results.capabilities.capabilities[VOL_CAPABILITIES_INTERFACES] =
+		VOL_CAP_INT_FLOCK;
+	results.capabilities.capabilities[VOL_CAPABILITIES_RESERVED1] = 0;
+	results.capabilities.capabilities[VOL_CAPABILITIES_RESERVED2] = 0;
+
+	/*
+	 * The valid[] array defines which bits this code understands
+	 * the meaning of (whether the volume has that capability or not).
+	 * Any zero bits here means "I don't know what you're asking about"
+	 * and the caller cannot tell whether that capability is
+	 * present or not.
+	 */
+	results.capabilities.valid[VOL_CAPABILITIES_FORMAT] =
+		VOL_CAP_FMT_PERSISTENTOBJECTIDS |
+		VOL_CAP_FMT_SYMBOLICLINKS |
+		VOL_CAP_FMT_HARDLINKS |
+		VOL_CAP_FMT_JOURNAL |
+		VOL_CAP_FMT_JOURNAL_ACTIVE |
+		VOL_CAP_FMT_NO_ROOT_TIMES |
+		VOL_CAP_FMT_SPARSE_FILES |
+		VOL_CAP_FMT_ZERO_RUNS |
+		/* While the SMB file system is case sensitive and case preserving,
+		 * not all SMB/CIFS servers are case sensitive and case preserving.
+		 * That's because the volume used for storage on a SMB/CIFS server
+		 * may not be case sensitive or case preserving. So, rather than
+		 * providing a wrong yes or no answer for VOL_CAP_FMT_CASE_SENSITIVE
+		 * and VOL_CAP_FMT_CASE_PRESERVING, we'll deny knowledge of those
+		 * volume attributes.
+		 */
+#if 0
+		VOL_CAP_FMT_CASE_SENSITIVE |
+		VOL_CAP_FMT_CASE_PRESERVING |
+#endif
+		VOL_CAP_FMT_FAST_STATFS;
+	results.capabilities.valid[VOL_CAPABILITIES_INTERFACES] =
+		VOL_CAP_INT_SEARCHFS |
+		VOL_CAP_INT_ATTRLIST |
+		VOL_CAP_INT_NFSEXPORT |
+		VOL_CAP_INT_READDIRATTR |
+		VOL_CAP_INT_EXCHANGEDATA |
+		VOL_CAP_INT_COPYFILE |
+		VOL_CAP_INT_ALLOCATE |
+		VOL_CAP_INT_VOL_RENAME |
+		VOL_CAP_INT_ADVLOCK |
+		VOL_CAP_INT_FLOCK;
+	results.capabilities.valid[VOL_CAPABILITIES_RESERVED1] = 0;
+	results.capabilities.valid[VOL_CAPABILITIES_RESERVED2] = 0;
+
+	/* Copy the results to the caller. */
+	error = uiomove((caddr_t) &results, attrbufsize, ap->a_uio);
+	
+	return error;
+}
+
 
 /* offtoblk converts a file offset to a logical block number */
 static int 
@@ -1964,7 +2541,7 @@ smbfs_pagein(ap)
 		panic("smbfs_pagein: No mapping: vp=0x%x", vp);
 	nocommit = ap->a_flags & UPL_NOCOMMIT;
 	np = VTOSMB(vp);
-	if (size <= 0 || f_offset < 0 || f_offset >= np->n_size ||
+	if (size <= 0 || f_offset < 0 || f_offset >= (off_t)np->n_size ||
 	    f_offset & PAGE_MASK_64 || size & PAGE_MASK) {
 		error = EINVAL;
 		goto exit;
@@ -1981,6 +2558,8 @@ smbfs_pagein(ap)
  	 * VOP_OPEN, so do it implicitly.  The log message is because we
 	 * anticipate only READ VOPs before OPEN.  If this becomes
 	 * an expected code path then remove the "log".
+	 *
+	 * XXX - when is the implied open closed?
  	 */
  	if (np->n_opencount == 0) {
 		log(LOG_NOTICE, "smbfs_pagein: implied open\n");
@@ -1996,7 +2575,7 @@ smbfs_pagein(ap)
 	uio.uio_segflg = UIO_SYSSPACE;
 	uio.uio_rw = UIO_READ;
 	uio.uio_procp = p;
-	if (f_offset + size > np->n_size) { /* stop at EOF */
+	if (f_offset + size > (off_t)np->n_size) { /* stop at EOF */
 		size -= PAGE_SIZE;
 		size += np->n_size & PAGE_MASK_64;
 	}
@@ -2065,6 +2644,7 @@ smbfs_pageout(ap)
 	pl = ap->a_pl;
 	pl_offset = ap->a_pl_offset;
 	vp = ap->a_vp;
+	smp = VFSTOSMBFS(vp->v_mount);
 	if (UBCINVALID(vp))     
 		panic("smbfs_pageout: ubc invalid vp=0x%x", vp);
 	if (UBCINFOMISSING(vp)) 
@@ -2073,7 +2653,7 @@ smbfs_pageout(ap)
 	if (pl == (upl_t)NULL)
 		panic("smbfs_pageout: no upl");
 	np = VTOSMB(vp);
-	if (size <= 0 || f_offset < 0 || f_offset >= np->n_size ||
+	if (size <= 0 || f_offset < 0 || f_offset >= (off_t)np->n_size ||
 	    f_offset & PAGE_MASK_64 || size & PAGE_MASK) {
 		error = EINVAL;
 		goto exit;
@@ -2094,9 +2674,16 @@ smbfs_pageout(ap)
  	 * VOP_OPEN, so do it implicitly.  The log message is because we
 	 * anticipate only READ VOPs before OPEN.  If this becomes
 	 * an expected code path then remove the "log".
- 	 */
- 	if (np->n_opencount == 0) {
-		log(LOG_NOTICE, "smbfs_pageout: implied open\n");
+	 *
+	 * We also force an open for writing if it's not already open
+	 * for writing.
+	 *
+	 * XXX - when is the implied open closed?
+	 */
+ 	if (np->n_opencount == 0 ||
+	    (np->n_rwstate & SMB_AM_OPENMODE) != SMB_AM_OPENRW) {
+		log(LOG_NOTICE, "smbfs_pageout: implied open: opencount %d, rwstate 0x%x\n",
+		    np->n_opencount, np->n_rwstate);
  		error = VOP_OPEN(vp, FWRITE, cred, p);
  		if (error)
  			goto unmapexit;
@@ -2109,7 +2696,7 @@ smbfs_pageout(ap)
 	uio.uio_segflg = UIO_SYSSPACE;
 	uio.uio_rw = UIO_WRITE;
 	uio.uio_procp = p;
-	if (f_offset + size > np->n_size) { /* stop at EOF */
+	if (f_offset + size > (off_t)np->n_size) { /* stop at EOF */
 		size -= PAGE_SIZE;
 		size += np->n_size & PAGE_MASK_64;
 	}
@@ -2117,11 +2704,10 @@ smbfs_pageout(ap)
 	iov.iov_len  = uio.uio_resid;
 	iov.iov_base = (caddr_t)(ioaddr + pl_offset);
 
-	smp = VFSTOSMBFS(vp->v_mount);
 	vp->v_numoutput++;
 	SMBVDEBUG("ofs=%d, resid=%d\n", (int)uio.uio_offset, uio.uio_resid);
-	error = smb_write(smp->sm_share, np->n_fid, &uio, &scred);
-	np->n_flag |= NFLUSHWIRE;
+	error = smb_write(smp->sm_share, np->n_fid, &uio, &scred, SMBWRTTIMO);
+	np->n_flag |= (NFLUSHWIRE | NATTRCHANGED);
 	vp->v_numoutput--;
 unmapexit:
 	kret = ubc_upl_unmap(pl);
@@ -2130,6 +2716,10 @@ unmapexit:
 exit:
 	if (error)
 		log(LOG_WARNING, "smbfs_pageout: write error=%d\n", error);
+	else {
+		/* if success, blow away statfs cache */
+		smp->sm_statfstime = 0;
+	}
 	if (nocommit)
 		return (error);
 	if (error) {

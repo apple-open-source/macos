@@ -61,6 +61,16 @@ RSA *cssmKeyToRsa(
 RSA *rawCssmKeyToRsa(
 	const CssmKey	&cssmKey);
 
+/*
+ * Given a partially formed DSA public key (with no p, q, or g) and a 
+ * CssmKey representing a supposedly fully-formed DSA key, populate
+ * the public key's p, g, and q with values from the fully formed key.
+ */
+CSSM_RETURN dsaGetParamsFromKey(
+	DSA 			*partialKey,
+	const CssmKey	&paramKey,
+	AppleCSPSession	&session);
+
 /* 
  * Given a Context:
  * -- obtain CSSM key (there must only be one)
@@ -89,7 +99,17 @@ DSA *cssmKeyToDsa(
  * Convert a raw CssmKey to a newly alloc'd DSA *.
  */
 DSA *rawCssmKeyToDsa(
-	const CssmKey	&cssmKey);
+	const CssmKey	&cssmKey,
+	AppleCSPSession	&session,
+	const CssmKey	*paramKey);		// optional
+
+/*
+ * Given a DSA private key, calculate its public component if it 
+ * doesn't already exist. Used for calculating the key digest of 
+ * an incoming raw private key.
+ */
+void dsaKeyPrivToPub(
+	DSA *dsaKey);
 
 #ifdef	__cplusplus
 }

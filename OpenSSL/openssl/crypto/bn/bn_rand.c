@@ -224,6 +224,7 @@ int     BN_bntest_rand(BIGNUM *rnd, int bits, int top, int bottom)
 	}
 #endif
 
+
 /* random number r:  0 <= r < range */
 static int bn_rand_range(int pseudo, BIGNUM *r, BIGNUM *range)
 	{

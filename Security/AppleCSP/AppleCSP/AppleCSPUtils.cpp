@@ -24,6 +24,7 @@
 #include <Security/cssmerr.h>
 #include <Security/utilities.h>
 #include <Security/cssmalloc.h>
+#include <Security/cssmdates.h>
 #include <string.h>
 #include <CryptKitCSP/FEECSPUtils.h>
 #include <MiscCSPAlgs/SHA1_MD5_Object.h>
@@ -464,6 +465,29 @@ void copyData(
 }
 
 /*
+ * Compare two CSSM_DATAs, return CSSM_TRUE if identical.
+ */
+CSSM_BOOL cspCompareCssmData(
+	const CSSM_DATA *data1,
+	const CSSM_DATA *data2)
+{	
+	if((data1 == NULL) || (data1->Data == NULL) || 
+	   (data2 == NULL) || (data2->Data == NULL) ||
+	   (data1->Length != data2->Length)) {
+		return CSSM_FALSE;
+	}
+	if(data1->Length != data2->Length) {
+		return CSSM_FALSE;
+	}
+	if(memcmp(data1->Data, data2->Data, data1->Length) == 0) {
+		return CSSM_TRUE;
+	}
+	else {
+		return CSSM_FALSE;
+	}
+}
+
+/*
  * This takes care of mallocing the KeyLabel field. 
  */
 void copyCssmHeader(
@@ -559,3 +583,98 @@ void cspGenSha1Hash(
 	sha1.digestUpdate(inData, inDataLen);
 	sha1.digestFinal(out);
 }
+
+/*
+ * Convert a CSSM_DATE to a CssmUniformDate, or NULL if the CSSM_DATE
+ * is empty.
+ */
+static CssmUniformDate *cspGetUniformDate(
+	const CSSM_DATE &cdate)
+{
+	bool isZero = true;
+	unsigned char *cp = (unsigned char *)&cdate;
+	for(unsigned i=0; i<sizeof(cdate); i++) {
+		if(*cp++ != 0) {
+			isZero = false;
+			break;
+		}
+	}
+	if(isZero) {
+		return NULL;
+	}
+	else {
+		return new CssmUniformDate(CssmDate::overlay(cdate));
+	}
+}
+
+/*
+ * Get "now" as a CssmUniformDate.
+ */
+static CssmUniformDate *cspNow()
+{
+	CFAbsoluteTime cfTime = CFAbsoluteTimeGetCurrent();
+	return new CssmUniformDate(cfTime);
+}
+
+#define keyDateDebug(args...)	secdebug("keyDate", ## args) 
+
+/*
+ * Verify temporal validity of specified key. 
+ * An empty (all zero) time field means "ignore this".
+ * Throws CSSMERR_CSP_APPLE_INVALID_KEY_START_DATE or 
+ * CSSMERR_CSP_APPLE_INVALID_KEY_END_DATE as appropriate. 
+ */
+void cspVerifyKeyTimes(
+	const CSSM_KEYHEADER &hdr)
+{
+	CSSM_RETURN err = CSSM_OK;
+	CssmUniformDate *now = NULL;	// evaluate lazily
+	CssmUniformDate *end = NULL;	// ditto
+	CssmUniformDate *start = cspGetUniformDate(hdr.StartDate);
+
+	if(start) {
+		now = cspNow();
+		if(*now < *start) {
+			keyDateDebug("Invalid start date");
+			err = CSSMERR_CSP_APPLE_INVALID_KEY_START_DATE;
+		}
+		else {
+			keyDateDebug("Valid start date");
+		}
+	}
+	else {
+		keyDateDebug("Empty start date");
+	}
+
+	if(!err) {
+		end = cspGetUniformDate(hdr.EndDate);
+		if(end) {
+			if(now == NULL) {
+				now = cspNow();
+			}
+			if(*now > *end) {
+				keyDateDebug("Invalid end date");
+				err = CSSMERR_CSP_APPLE_INVALID_KEY_END_DATE;
+			}
+			else {
+				keyDateDebug("Valid end date");
+			}
+		}
+		else {
+			keyDateDebug("Empty end date");
+		}
+	}
+	if(now) {
+		delete now;
+	}
+	if(end) {
+		delete end;
+	}
+	if(start) {
+		delete start;
+	}
+	if(err) {
+		CssmError::throwMe(err);
+	}
+}
+

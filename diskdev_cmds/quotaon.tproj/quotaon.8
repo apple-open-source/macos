@@ -33,7 +33,7 @@
 .\"
 .\"     @(#)quotaon.8	8.2 (Berkeley) 12/11/93
 .\"
-.Dd March 28, 2002
+.Dd October 17, 2002
 .Dt QUOTAON 8
 .Os BSD 4.2
 .Sh NAME
@@ -72,9 +72,9 @@ turned off.
 The filesystem must be mounted and it
 must have the
 appropriate mount option file located at its root, the
-.Pa .quota.opts.user
+.Pa .quota.ops.user
 file for user quota configuration, and the
-.Pa .quota.opts.group
+.Pa .quota.ops.group
 file for group quota configuration.
 .Nm Quotaon
 also expects each filesystem to have the appropriate
@@ -106,12 +106,12 @@ specifies the types of quotas that are to be configured.
 .It Fl g
 Only group quotas will be enabled/disabled.
 The mount option file,
-.Pa .quota.opts.group ,
+.Pa .quota.ops.group ,
 must exist at the root of the filesystem.
 .It Fl u
 Only user quotas will be enabled/disabled.
 The mount option file,
-.Pa .quota.opts.user ,
+.Pa .quota.ops.user ,
 must exist at the root of the filesystem.
 .It Fl v
 Causes

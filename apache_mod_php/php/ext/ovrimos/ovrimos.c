@@ -1,10 +1,10 @@
 /*
    +----------------------------------------------------------------------+
-   | PHP version 4.0                                                      |
+   | PHP Version 4                                                        |
    +----------------------------------------------------------------------+
-   | Copyright (c) 1997-2001 The PHP Group                                |
+   | Copyright (c) 1997-2003 The PHP Group                                |
    +----------------------------------------------------------------------+
-   | This source file is subject to version 2.02 of the PHP license,	  |
+   | This source file is subject to version 2.02 of the PHP license,	    |
    | that is bundled with this package in the file LICENSE, and is        |
    | available at through the world-wide-web at                           |
    | http://www.php.net/license/2_02.txt.                                 |
@@ -19,7 +19,7 @@
    +----------------------------------------------------------------------+
 */
 
-/* $Id: ovrimos.c,v 1.1.1.3 2001/12/14 22:12:55 zarzycki Exp $ */
+/* $Id: ovrimos.c,v 1.1.1.5 2003/07/18 18:07:39 zarzycki Exp $ */
 
 #include <php.h>
 #include <php_globals.h>
@@ -36,7 +36,7 @@
 
 PHP_MINFO_FUNCTION(ovrimos)
 {
-	php_printf("&quot;Ovrimos&quot; module<br>\n");
+	php_printf("&quot;Ovrimos&quot; module<br />\n");
 }
 
 /* Main User Functions 
@@ -96,8 +96,8 @@ PHP_FUNCTION(ovrimos_connect)
 	convert_to_string(arg4);
 
 	if (!sqlConnect
-	    (arg1->value.str.val, arg2->value.str.val, arg3->value.str.val,
-	     arg4->value.str.val, &conn, 0)) {
+	    (Z_STRVAL_P(arg1), Z_STRVAL_P(arg2), Z_STRVAL_P(arg3),
+	     Z_STRVAL_P(arg4), &conn, 0)) {
 		RETURN_LONG(0);
 	}
 	
@@ -122,11 +122,11 @@ PHP_FUNCTION(ovrimos_close)
 	PCON_STATE state;
 
 	if (ARG_COUNT(ht) != 1 || getParameters(ht, 1, &arg1) == FAILURE
-	    || arg1->type != IS_LONG) {
+	    || Z_TYPE_P(arg1) != IS_LONG) {
 		WRONG_PARAM_COUNT;
 	}
 
-	state = (PCON_STATE) arg1->value.lval;
+	state = (PCON_STATE) Z_LVAL_P(arg1);
 
 	/* free all the statements associated with 
 	 * the connection. (called results in php)
@@ -165,9 +165,9 @@ PHP_FUNCTION(ovrimos_longreadlen)
 	convert_to_long(arg1);
 	convert_to_long(arg2);
 
-	stmt = (PSTATEMENT) arg1->value.lval;
+	stmt = (PSTATEMENT) Z_LVAL_P(arg1);
 
-	stmt->longreadlen = arg2->value.lval;
+	stmt->longreadlen = Z_LVAL_P(arg2);
 	RETURN_TRUE;
 }
 
@@ -250,10 +250,10 @@ PHP_FUNCTION(ovrimos_prepare)
 	convert_to_long(arg1);
 	convert_to_string(arg2);
 	
-	state = (PCON_STATE) arg1->value.lval;
+	state = (PCON_STATE) Z_LVAL_P(arg1);
 
 	conn = (SQLH) state->connection;
-	query = arg2->value.str.val;
+	query = Z_STRVAL_P(arg2);
 
 	if (!local_sqlAllocStmt( state, conn, &stmt, &pstmt)) {
 		RETURN_FALSE;
@@ -299,7 +299,7 @@ PHP_FUNCTION(ovrimos_execute)
 	}
 
 	convert_to_long(arg1);
-	pstmt = (PSTATEMENT) arg1->value.lval;
+	pstmt = (PSTATEMENT) Z_LVAL_P(arg1);
 
 	stmt = pstmt->statement;
 	colnb = sqlGetParamNb(stmt);
@@ -308,12 +308,12 @@ PHP_FUNCTION(ovrimos_execute)
 		pval **tmp;
 		int arr_elem;
 
-		if (arg2->type != IS_ARRAY) {
+		if (Z_TYPE_P(arg2) != IS_ARRAY) {
 			php_error(E_WARNING,
 				  "Not an array in call to ovrimos_execute()");
 			RETURN_FALSE;
 		}
-		arr_elem = zend_hash_num_elements(arg2->value.ht);
+		arr_elem = zend_hash_num_elements(Z_ARRVAL_P(arg2));
 		if (arr_elem < colnb) {
 			php_error(E_WARNING,
 				  "Not enough parameters in call to ovrimos_execute(): %d instead of %d",
@@ -321,7 +321,7 @@ PHP_FUNCTION(ovrimos_execute)
 			RETURN_FALSE;
 		}
 
-		zend_hash_internal_pointer_reset(arg2->value.ht);
+		zend_hash_internal_pointer_reset(Z_ARRVAL_P(arg2));
 
 		for (icol = 0; icol < colnb; icol++) {
 			int len;
@@ -333,14 +333,14 @@ PHP_FUNCTION(ovrimos_execute)
 			sql_type from_type;
 
 			if (zend_hash_get_current_data
-			    (arg2->value.ht, (void **) &tmp) == FAILURE) {
+			    (Z_ARRVAL_P(arg2), (void **) &tmp) == FAILURE) {
 				php_error(E_WARNING,
 					  "Error getting parameter %d in call to ovrimos_execute()",
 					  icol);
 				RETURN_FALSE;
 			}
 			convert_to_string(*tmp);
-			if ((*tmp)->type != IS_STRING) {
+			if (Z_TYPE_PP(tmp) != IS_STRING) {
 				php_error(E_WARNING,
 					  "Error converting parameter %d to string in call to ovrimos_execute()",
 					  icol);
@@ -348,11 +348,11 @@ PHP_FUNCTION(ovrimos_execute)
 			}
 
 			/* PHP data to param type */
-			from_type.type = T_VARCHAR;
-			from_type.u.length = (*tmp)->value.str.len;
+			Z_TYPE(from_type) = T_VARCHAR;
+			from_type.u.length = Z_STRLEN_PP(tmp);
 
 			*buffer = 0;
-			memcpy(buffer + 1, (*tmp)->value.str.val,
+			memcpy(buffer + 1, Z_STRVAL_PP(tmp),
 			       from_type.u.length);
 			buffer[from_type.u.length + 1] = 0;
 
@@ -420,7 +420,7 @@ PHP_FUNCTION(ovrimos_cursor)
 	}
 	convert_to_long(arg1);
 
-	pstmt = (PSTATEMENT) arg1->value.lval;
+	pstmt = (PSTATEMENT) Z_LVAL_P(arg1);
 	stmt = pstmt->statement;
 
 	if (!sqlGetCursorName(stmt, cname)) {
@@ -456,9 +456,9 @@ PHP_FUNCTION(ovrimos_exec)
 	convert_to_long(arg1);
 	convert_to_string(arg2);
 
-	state = (PCON_STATE) arg1->value.lval;
+	state = (PCON_STATE) Z_LVAL_P(arg1);
 	conn = state->connection;
-	query = arg2->value.str.val;
+	query = Z_STRVAL_P(arg2);
 
 	if (!local_sqlAllocStmt( state, conn, &stmt, &pstmt)) {
 		RETURN_FALSE;
@@ -654,17 +654,17 @@ PHP_FUNCTION(ovrimos_fetch_into)
 	}
 
 	convert_to_long(arg_id);
-	pstmt = (PSTATEMENT) arg_id->value.lval;
+	pstmt = (PSTATEMENT) Z_LVAL_P(arg_id);
 
 	stmt = pstmt->statement;
 
 	if (arg_how != 0) {
-		if (arg_how->type != IS_STRING) {
+		if (Z_TYPE_P(arg_how) != IS_STRING) {
 			php_error(E_WARNING,
 				  "Third argument not string in ovrimos_fetch_into()");
 			RETURN_FALSE;
 		}
-		s_how = arg_how->value.str.val;
+		s_how = Z_STRVAL_P(arg_how);
 		if (stricmp(s_how, "next") == 0) {
 			how = h_next;
 		} else if (stricmp(s_how, "prev") == 0) {
@@ -687,7 +687,7 @@ PHP_FUNCTION(ovrimos_fetch_into)
 		}
 		if (arg_row != 0) {
 			convert_to_long(arg_row);
-			rownum = arg_row->value.lval;
+			rownum = Z_LVAL_P(arg_row);
 			switch (how) {
 			case h_next:
 			case h_prev:
@@ -699,7 +699,7 @@ PHP_FUNCTION(ovrimos_fetch_into)
 		}
 	}
 
-	if (arr->type != IS_ARRAY) {
+	if (Z_TYPE_P(arr) != IS_ARRAY) {
 		if (array_init(arr) == FAILURE) {
 			php_error(E_WARNING,
 				  "Can't convert to type Array");
@@ -731,16 +731,16 @@ PHP_FUNCTION(ovrimos_fetch_into)
 		char buffer[10240];
 		tmp = (pval *) emalloc(sizeof(pval));
 		tmp->refcount = 1;
-		tmp->type = IS_STRING;
-		tmp->value.str.len = 0;
+		Z_TYPE_P(tmp) = IS_STRING;
+		Z_STRLEN_P(tmp) = 0;
 
 		/* Produce column value in 'tmp' ... */
 
 		column_to_string(stmt, icol, buffer, &len, pstmt);
-		tmp->value.str.len = len;
-		tmp->value.str.val = estrndup(buffer, len);
+		Z_STRLEN_P(tmp) = len;
+		Z_STRVAL_P(tmp) = estrndup(buffer, len);
 
-		zend_hash_index_update(arr->value.ht, icol, &tmp,
+		zend_hash_index_update(Z_ARRVAL_P(arr), icol, &tmp,
 				       sizeof(pval *), NULL);
 	}
 
@@ -785,16 +785,16 @@ PHP_FUNCTION(ovrimos_fetch_row)
 
 	convert_to_long(arg_id);
 
-	pstmt = (PSTATEMENT) arg_id->value.lval;
+	pstmt = (PSTATEMENT) Z_LVAL_P(arg_id);
 	stmt = (SQLS) pstmt->statement;
 
 	if (arg_how != 0) {
-		if (arg_how->type != IS_STRING) {
+		if (Z_TYPE_P(arg_how) != IS_STRING) {
 			php_error(E_WARNING,
 				  "Second argument not string in ovrimos_fetch_row()");
 			RETURN_FALSE;
 		}
-		s_how = arg_how->value.str.val;
+		s_how = Z_STRVAL_P(arg_how);
 		if (stricmp(s_how, "next") == 0) {
 			how = h_next;
 		} else if (stricmp(s_how, "prev") == 0) {
@@ -817,7 +817,7 @@ PHP_FUNCTION(ovrimos_fetch_row)
 		}
 		if (arg_row != 0) {
 			convert_to_long(arg_row);
-			rownum = arg_row->value.lval;
+			rownum = Z_LVAL_P(arg_row);
 			switch (how) {
 			case h_next:
 			case h_prev:
@@ -869,23 +869,23 @@ PHP_FUNCTION(ovrimos_result)
 			     &arg_field) == FAILURE) WRONG_PARAM_COUNT;
 
 	convert_to_long(arg_id);
-	pstmt = (PSTATEMENT) arg_id->value.lval;
+	pstmt = (PSTATEMENT) Z_LVAL_P(arg_id);
 	stmt = (SQLS) pstmt->statement;
 
 	colnb = sqlGetOutputColNb(stmt);
 
-	if (arg_field->type == IS_STRING) {
+	if (Z_TYPE_P(arg_field) == IS_STRING) {
 		int i;
 		for (i = 0; i < colnb; i++) {
 			if (!stricmp
-			    (arg_field->value.str.val,
+			    (Z_STRVAL_P(arg_field),
 			     sqlGetOutputColName(stmt, i))) {
 				icol = i;
 				break;
 			}
 		}
-	} else if (arg_field->type == IS_LONG) {
-		icol = arg_field->value.lval - 1;
+	} else if (Z_TYPE_P(arg_field) == IS_LONG) {
+		icol = Z_LVAL_P(arg_field) - 1;
 	} else {
 		php_error(E_WARNING,
 			  "Second argument neither number nor string in ovrimos_result()");
@@ -925,7 +925,7 @@ PHP_FUNCTION(ovrimos_result_all)
 	}
 
 	convert_to_long(arg1);
-	pstmt = (PSTATEMENT) arg1->value.lval;
+	pstmt = (PSTATEMENT) Z_LVAL_P(arg1);
 	stmt = (SQLS) pstmt->statement;
 
 	colnb = sqlGetOutputColNb(stmt);
@@ -935,7 +935,7 @@ PHP_FUNCTION(ovrimos_result_all)
 		php_printf("<table><tr>");
 	} else {
 		convert_to_string(arg2);
-		php_printf("<table %s ><tr>", arg2->value.str.val);
+		php_printf("<table %s ><tr>", Z_STRVAL_P(arg2));
 	}
 
 	for (icol = 0; icol < colnb; icol++) {
@@ -974,7 +974,7 @@ PHP_FUNCTION(ovrimos_free_result)
 		WRONG_PARAM_COUNT;
 	}
 	convert_to_long(arg1);
-	pstmt = (PSTATEMENT) arg1->value.lval;
+	pstmt = (PSTATEMENT) Z_LVAL_P(arg1);
 	stmt = (SQLS) pstmt->statement;
 
 	sqlCloseCursor( stmt);
@@ -998,7 +998,7 @@ PHP_FUNCTION(ovrimos_num_rows)
 	}
 
 	convert_to_long(arg1);
-	pstmt = (PSTATEMENT) arg1->value.lval;
+	pstmt = (PSTATEMENT) Z_LVAL_P(arg1);
 	stmt = (SQLS) pstmt->statement;
 
 
@@ -1021,7 +1021,7 @@ PHP_FUNCTION(ovrimos_num_fields)
 	}
 
 	convert_to_long(arg1);
-	pstmt = (PSTATEMENT) arg1->value.lval;
+	pstmt = (PSTATEMENT) Z_LVAL_P(arg1);
 
 	stmt = (SQLS) pstmt->statement;
 
@@ -1045,18 +1045,18 @@ PHP_FUNCTION(ovrimos_field_name)
 
 	convert_to_long(arg1);
 	convert_to_long(arg2);
-	pstmt = (PSTATEMENT) arg1->value.lval;
+	pstmt = (PSTATEMENT) Z_LVAL_P(arg1);
 
 	stmt = (SQLS) pstmt->statement;
 
 
-	if (arg2->value.lval < 1) {
+	if (Z_LVAL_P(arg2) < 1) {
 		php_error(E_WARNING,
 			  "Field numbering starts at 1! in call to ovrimos_field_name()");
 		RETURN_FALSE;
 	}
 
-	field = arg2->value.lval - 1;
+	field = Z_LVAL_P(arg2) - 1;
 
 	if (field >= sqlGetOutputColNb(stmt)) {
 		php_error(E_WARNING,
@@ -1085,17 +1085,17 @@ PHP_FUNCTION(ovrimos_field_type)
 
 	convert_to_long(arg1);
 	convert_to_long(arg2);
-	pstmt = (PSTATEMENT) arg1->value.lval;
+	pstmt = (PSTATEMENT) Z_LVAL_P(arg1);
 
 	stmt = (SQLS) pstmt->statement;
 
-	if (arg2->value.lval < 1) {
+	if (Z_LVAL_P(arg2) < 1) {
 		php_error(E_WARNING,
 			  "Field numbering starts at 1! in call to ovrimos_field_type()");
 		RETURN_FALSE;
 	}
 
-	field = arg2->value.lval - 1;
+	field = Z_LVAL_P(arg2) - 1;
 
 	if (field >= sqlGetOutputColNb(stmt)) {
 		php_error(E_WARNING,
@@ -1125,19 +1125,19 @@ PHP_FUNCTION(ovrimos_field_len)
 
 	convert_to_long(arg1);
 	convert_to_long(arg2);
-	pstmt = (PSTATEMENT) arg1->value.lval;
+	pstmt = (PSTATEMENT) Z_LVAL_P(arg1);
 
 	longreadlen = pstmt->longreadlen;
 
 	stmt = (SQLS) pstmt->statement;
 
-	if (arg2->value.lval < 1) {
+	if (Z_LVAL_P(arg2) < 1) {
 		php_error(E_WARNING,
 			  "Field numbering starts at 1! in call to ovrimos_field_len()");
 		RETURN_FALSE;
 	}
 
-	field = arg2->value.lval - 1;
+	field = Z_LVAL_P(arg2) - 1;
 
 	if (field >= sqlGetOutputColNb(stmt)) {
 		php_error(E_WARNING,
@@ -1167,17 +1167,17 @@ PHP_FUNCTION(ovrimos_field_num)
 	PSTATEMENT pstmt;
 
 	if (getParameters(ht, 2, &arg1, &arg2) == FAILURE
-	    || arg2->type != IS_STRING) {
+	    || Z_TYPE_P(arg2) != IS_STRING) {
 		WRONG_PARAM_COUNT;
 	}
 	convert_to_long(arg1);
-	pstmt = (PSTATEMENT) arg1->value.lval;
+	pstmt = (PSTATEMENT) Z_LVAL_P(arg1);
 	stmt = (SQLS) pstmt->statement;
 
 	n = sqlGetOutputColNb(stmt);
 	for (i = 0; i < n; i++) {
 		if (!strcmp
-		    (arg2->value.str.val, sqlGetOutputColName(stmt, i))) {
+		    (Z_STRVAL_P(arg2), sqlGetOutputColName(stmt, i))) {
 			RETURN_LONG(i + 1);
 		}
 	}
@@ -1207,12 +1207,12 @@ PHP_FUNCTION(ovrimos_commit)
 	PCON_STATE state;
 	
 	if (ARG_COUNT(ht) != 1 || getParameters(ht, 1, &arg1) == FAILURE
-	    || arg1->type != IS_LONG) {
+	    || Z_TYPE_P(arg1) != IS_LONG) {
 		WRONG_PARAM_COUNT;
 	}
 
 	convert_to_long( arg1);
-	state = (PCON_STATE) arg1->value.lval;
+	state = (PCON_STATE) Z_LVAL_P(arg1);
 
 	for (i=0;i<state->nstatements;i++) {
 		stmt = state->statements[ i].statement;
@@ -1238,12 +1238,12 @@ PHP_FUNCTION(ovrimos_rollback)
 	PCON_STATE state;
 	
 	if (ARG_COUNT(ht) != 1 || getParameters(ht, 1, &arg1) == FAILURE
-	    || arg1->type != IS_LONG) {
+	    || Z_TYPE_P(arg1) != IS_LONG) {
 		WRONG_PARAM_COUNT;
 	}
 
 	convert_to_long( arg1);
-	state = (PCON_STATE) arg1->value.lval;
+	state = (PCON_STATE) Z_LVAL_P(arg1);
 
 	for (i=0;i<state->nstatements;i++) {
 		stmt = (SQLS) state->statements[ i].statement;
@@ -1321,6 +1321,6 @@ DLEXPORT zend_module_entry *get_module()
  * tab-width: 4
  * c-basic-offset: 4
  * End:
- * vim600: sw=4 ts=4 tw=78 fdm=marker
- * vim<600: sw=4 ts=4 tw=78
+ * vim600: sw=4 ts=4 fdm=marker
+ * vim<600: sw=4 ts=4
  */

@@ -1,0 +1,248 @@
+
+These code examples are the one provided by SUN.
+They have been configured so you can run them with JBossMQ.  
+Most of them work!
+
+----------------------------------------------------------------------------
+JAVA(TM) MESSAGE SERVICE CODE EXAMPLES
+
+
+The Java Message Service (JMS) code examples show how to write a simple 
+application using JMS.  They demonstrate most of the important features of JMS.
+
+The JMS examples are divided into three groups: 
+
+ - Basic examples provide a simple introduction to JMS.  They show how to send
+   and synchronously receive a single message using either a queue or a topic.
+
+ - Intermediate examples demonstrate somewhat more complex features of JMS:
+     - using message listeners for asynchronous receiving of messages
+     - using the five supported message formats
+     
+ - Advanced examples demonstrate still more advanced features of JMS:
+     - using message headers
+     - using message selectors
+     - using durable subscriptions
+     - using acknowledgement modes
+     - using transactions
+     - using the request/reply facility
+
+You can run these examples using any JMS implementation.   Small changes to 
+have been made to the file SampleUtilities.java so that they would work 
+with the default distribution of JBossMQ.  By default, SampleUtilities.java is 
+configured to use the Java Naming and Directory Interface (JNDI) to look up 
+the JMS administered objects (connection factories and destinations).  The 
+default JNDI connection factory names used by the application are 
+"TopicConnectionFactory" and "QueueConnectionFactory".  In the 
+interest of not requiring JNDI in order to run the sample applications, you can 
+easily modify SampleUtilities.java to directly call the JMS-Provider-specific 
+method for creating a connection factory.
+
+You can run the simpler queue examples in pairs, each program in a separate 
+terminal window.  This allows you to simulate two separate applications, one
+sending a message, the other receiving it.
+
+For the other examples, the sender and receiver (or the publisher and the
+subscriber, for topic examples) are each a separate class within the overall
+program class.  When you run these examples, the two classes use threads to
+send and receive messages within the same program.  
+
+
+Before You Start
+================
+
+Before you begin, start the JBossMQ server.  The queues and topics 
+need to run the examples come pre-configured in the default JBossMQ
+distribution.  Most of the examples take either a queue name or a 
+topic name as an argument.  You could used the 'testQueue' and 'testTopic'
+names as those arguments respectivly.
+      
+The sample programs should allready be compiled in the examples/ 
+directory of the JBossMQ distribution.  If you would like to compile 
+them from the source, obtain the JBossMQ source, and run the build 
+script.
+
+To run the sample programs, you can use the included run.bat or run.sh 
+file that is in the examples/ directory.  It will start the java interpreter
+with the CLASSPATH set so that the examples work in the default JBossMQ 
+distribution.  It is recomended that you used the provided 'run' script 
+in place of the 'java' command when starting the examples.
+
+What All the Examples Have in Common
+====================================
+
+All the examples use the utility class SampleUtilities.java.  It contains the
+following methods:
+  
+  - The methods getQueueConnectionFactory, getTopicConnectionFactory, getQueue, 
+    and getTopic, which obtain a connection factory or destination either by
+    calling the method jndiLookup or, if you choose not to use JNDI, by a
+    call to createTopic or createQueue or by some other vendor-specific method 
+    that you may fill in.
+    
+  - The methods sendSynchronizeMessage and receiveSynchronizeMessages, which
+    are used to ensure that a publisher does not publish messages until its
+    subscriber or subscribers are ready for message delivery.  These methods
+    use a queue named "controlQueue".
+    
+  - The class DoneLatch, which allows a program to synchronize between an
+    asynchronous consumer and another thread in the receiving class.
+    
+  - An exit method that all the examples call.
+
+Most of the JMS examples execute the same basic setup steps:
+
+  1.  They read a topic or queue name from the command line.  The topic or 
+      queue should have been created previously using an administrative tool.
+  
+  2.  They look up a connection factory and the topic or queue using the
+      jndiLookup method in the class SampleUtilities.
+  
+  3.  They use the connection factory to create a connection.
+
+  4.  They use the connection to create a session.
+    
+  5.  They use the session to create message producers and/or consumers for 
+      the topic or queue.
+
+The publish/subscribe examples begin by calling the sendSynchronizeMessage and 
+receiveSynchronizeMessages methods to ensure that the subscriber gets all the
+messages the publisher sends.  The subscriber calls sendSynchronizeMessage when
+it is ready to receive messages.  The publisher waits for the synchronize
+message; when the message arrives, the publisher starts sending its messages. 
+
+Most of the message-producing examples send an empty message at the end of the 
+program to indicate that they have finished sending messages.  The 
+message-consuming examples use this message as a signal to stop reading 
+messages.  The asynchronous message consumers use the DoneLatch class to pass 
+this signal from the message listener to the consuming class.
+
+Each example contains comments that provide details on what it does and how it
+works.
+
+
+Basic Examples
+==============
+
+The most basic JMS examples do the following:
+
+  - SenderToQueue.java and SynchQueueReceiver.java can be used to send and  
+    synchronously receive a single text message using a queue.
+    
+    If you run these programs in two different windows, the order in which you 
+    start them does not matter.  If you run them in the same window, run
+    SenderToQueue first.  Each program takes a queue name as a command-line
+    argument.
+    
+    The output of SenderToQueue looks like this (the queue name is SQ):
+
+      % java SenderToQueue SQ
+      Queue name is SQ
+      Sending message: Here is a message 1
+
+    The output of SynchQueueReceiver looks like this:
+
+      % java SynchQueueReceiver SQ
+      Queue name is SQ
+      Reading message: Here is a message
+
+  - SynchTopicExample.java uses a publisher class and a subscriber class to 
+    publish and synchronously receive a single text message using a topic.  The
+    program takes a topic name as a command-line argument.
+
+    The output of SynchTopicExample looks like this (the topic name is ST):
+
+      % java SynchTopicExample ST
+      Topic name is ST
+      PUBLISHER THREAD: Publishing message: Here is a message 1
+      SUBSCRIBER THREAD: Reading message: Here is a message 1
+
+These examples contain more detailed explanatory comments than the others.
+
+
+Intermediate Examples
+=====================
+
+The intermediate JMS examples do the following:
+
+  - SenderToQueue.java and AsynchQueueReceiver.java send a specified number of
+    text messages to a queue and asynchronously receive them using a message 
+    listener (TextListener), which is in the file TextListener.java.
+    
+    To use SenderToQueue to send more than one message, specify a number after
+    the queue name when you run the program.  For example:
+    
+      % java SenderToQueue SQ 3
+
+    If you run these programs in two different windows, the order in which you 
+    start them does not matter.  If you run them in the same window, run
+    SenderToQueue first.
+
+  - AsynchTopicExample.java uses a publisher class and a subscriber class to
+    publish five text messages to a topic and asynchronously get them using a 
+    message listener (TextListener).
+
+  - MessageFormats.java writes and reads messages in the five supported message 
+    formats.  The messages are not sent, so you do not need to specify a queue
+    or topic argument when you run the program.
+    
+  - MessageConversion.java shows that for some message formats, you can write 
+    a message using one data type and read it using another.  The StreamMessage 
+    format allows conversion between String objects and other data types.  The
+    BytesMessage format allows more limited conversions.  You do not need to 
+    specify a queue or topic argument.
+    
+  - ObjectMessages.java shows that objects are copied into messages, not passed
+    by reference: once you create a message from a given object, you can change
+    the original object, but the contents of the message do not change.  You do 
+    not need to specify a queue or topic argument.
+    
+  - BytesMessages.java shows how to write, then read, a BytesMessage of
+    indeterminate length.  It reads the message content from a text file, but 
+    the same basic technique can be used with any kind of file, including a 
+    binary one.  Specify a text file on the command line when you run the 
+    program:
+    
+      % java BytesMessages <filename>
+
+
+Advanced Examples
+=================
+
+The advanced examples do the following:
+
+  - MessageHeadersTopic.java illustrates the use of the JMS message header
+    fields.  It displays the values of the header fields both before and after 
+    a message is sent, and shows how the publish method sets the fields.
+
+  - TopicSelectors.java shows how to use message header fields as message 
+    selectors.  The program consists of one publisher and several subscribers. 
+    Each subscriber uses a message selector to receive a subset of the messages 
+    sent by the publisher.
+
+  - DurableSubscriberExample.java shows how you can create a durable subscriber
+    that retains messages published to a topic while the subscriber is inactive.
+  
+  - AckEquivExample.java shows that to ensure that a message will not be 
+    acknowledged until processing is complete, you can use either of the 
+    following methods: 
+    
+    * An asynchronous receiver (message listener) in an AUTO_ACKNOWLEDGE session
+    * A synchronous receiver in a CLIENT_ACKNOWLEDGE session
+    
+    This example takes both a queue name and a topic name as arguments.
+  
+  - TransactedExample.java demonstrates the use of transactions in a simulated 
+    e-commerce application.  The classes within the example commit a transaction
+    only after they have received messages they were expecting and have sent 
+    appropriate messages as a result.  This example takes an integer argument 
+    (the number of items being ordered).  It uses five queues named A, B, C, 
+    D, and E, which you must create in order to run the program.
+
+  - RequestReplyQueue.java uses the JMS request/reply facility, which supports 
+    situations in which every message sent requires a response.  The sending 
+    application creates a QueueRequestor, which encapsulates the creation and 
+    use of a destination where a reply is sent.
+
+
+

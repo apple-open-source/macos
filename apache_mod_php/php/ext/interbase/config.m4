@@ -1,4 +1,6 @@
-dnl $Id: config.m4,v 1.1.1.2 2001/07/19 00:19:18 zarzycki Exp $
+dnl
+dnl $Id: config.m4,v 1.1.1.5 2003/07/18 18:07:34 zarzycki Exp $
+dnl
 
 PHP_ARG_WITH(interbase,for InterBase support,
 [  --with-interbase[=DIR]  Include InterBase support.  DIR is the InterBase base
@@ -12,10 +14,26 @@ if test "$PHP_INTERBASE" != "no"; then
     IBASE_INCDIR=$PHP_INTERBASE/include
     IBASE_LIBDIR=$PHP_INTERBASE/lib
   fi
-  PHP_ADD_LIBRARY_WITH_PATH(gds, $IBASE_LIBDIR, INTERBASE_SHARED_LIBADD)
+
+  PHP_CHECK_LIBRARY(gds, isc_detach_database,
+  [
+    IBASE_LIBNAME=gds
+  ], [
+    PHP_CHECK_LIBRARY(ib_util, isc_detach_database,
+    [
+      IBASE_LIBNAME=ib_util
+    ], [
+      AC_MSG_ERROR([libgds or libib_util not found! Check config.log for more information.])
+    ], [
+      -L$IBASE_LIBDIR
+    ])
+  ], [
+    -L$IBASE_LIBDIR
+  ])
+
+  PHP_ADD_LIBRARY_WITH_PATH($IBASE_LIBNAME, $IBASE_LIBDIR, INTERBASE_SHARED_LIBADD)
   PHP_ADD_INCLUDE($IBASE_INCDIR)
   AC_DEFINE(HAVE_IBASE,1,[ ])
-dnl  AC_CHECK_LIB(c, strptime, [AC_DEFINE(HAVE_STRPTIME,1,[])])
-  PHP_EXTENSION(interbase, $ext_shared)
+  PHP_NEW_EXTENSION(interbase, interbase.c, $ext_shared)
   PHP_SUBST(INTERBASE_SHARED_LIBADD)
 fi

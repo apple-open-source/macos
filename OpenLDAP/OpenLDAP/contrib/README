@@ -11,11 +11,11 @@ Current contributions:
 		LDAP C++ API
 		Contributed by SuSE Gmbh.
 
-	ldaptcl
-		LDAP TCL API
-		Contributed by NeoSoft
+	ldapsasl
+		LDAP SASL auxprop plugin
+		Contributed by Symas Corp.
 
 Please submit your contributions using the OpenLDAP Issue Tracking
 System <http://www.openldap.org/>.
 
-$OpenLDAP: pkg/ldap/contrib/README,v 1.10 2002/01/20 21:25:11 kurt Exp $
+$OpenLDAP: pkg/ldap/contrib/README,v 1.10.2.2 2003/03/12 18:35:21 kurt Exp $

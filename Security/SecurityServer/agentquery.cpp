@@ -28,22 +28,37 @@ using namespace SecurityAgent;
 
 
 //
+// The default Mach service name for SecurityAgent
+//
+const char SecurityAgentQuery::defaultName[] = "com.apple.SecurityAgent";
+
+
+//
 // Construct a query object
 //
+SecurityAgentQuery::SecurityAgentQuery() :
+    SecurityAgent::Client(Server::active().connection().process.uid(),
+		Server::active().connection().process.session.bootstrapPort(),
+		defaultName),
+	mClientSession(Server::active().connection().process.session)
+{
+}
+
 SecurityAgentQuery::SecurityAgentQuery(uid_t clientUID,
-                                       Session &clientSession) :
-    SecurityAgent::Client(clientUID, clientSession.bootstrapPort()),
+                                       Session &clientSession,
+                                       const char *agentName) :
+    SecurityAgent::Client(clientUID, clientSession.bootstrapPort(), agentName),
 	mClientSession(clientSession)
 {
 }
 
 SecurityAgentQuery::~SecurityAgentQuery()
 {
-	// SecurityAgent::Client::~SecurityAgent already calls terminate().
+	terminate();
 }
 
 void
-SecurityAgentQuery::activate(const char *bootstrapName = NULL)
+SecurityAgentQuery::activate()
 {
 	if (isActive())
 		return;
@@ -54,9 +69,14 @@ SecurityAgentQuery::activate(const char *bootstrapName = NULL)
 
 	// this may take a while
 	Server::active().longTermActivity();
-	Server::connection().useAgent(this);
+        Server::connection().useAgent(this);
 
-	SecurityAgent::Client::activate(bootstrapName);
+	try {
+		SecurityAgent::Client::activate();
+	} catch (...) {
+		Server::connection().useAgent(NULL);	// guess not
+		throw;
+	}
 }
 
 void
@@ -65,7 +85,8 @@ SecurityAgentQuery::terminate()
 	if (!isActive())
 		return;
 
-	Server::connection(true).useAgent(NULL);
+        Server::connection(true).useAgent(NULL);
+        
 	SecurityAgent::Client::terminate();
 }
 
@@ -73,12 +94,49 @@ SecurityAgentQuery::terminate()
 //
 // Perform the "rogue app" access query dialog
 //
-void QueryKeychainUse::operator () (const char *database, const char *description,
+void QueryKeychainUse::queryUser (const Database *db, const char *database, const char *description,
 	AclAuthorization action)
 {
-	queryKeychainAccess(Server::connection().process.clientCode(),
+    Reason reason;
+    int retryCount = 0;
+    queryKeychainAccess(Server::connection().process.clientCode(),
         Server::connection().process.pid(),
 		database, description, action, needPassphrase, *this);
+
+    CssmData data (passphrase, strlen (passphrase));
+    
+    
+    if (needPassphrase) {
+        while (reason = (const_cast<Database*>(db)->decode(data) ? noReason : invalidPassphrase)) {
+            if (++retryCount > kMaximumAuthorizationTries) {
+                cancelStagedQuery(tooManyTries);
+                return;
+            }
+            else {
+                retryQueryKeychainAccess (reason, *this);
+                data = CssmData (passphrase, strlen (passphrase));
+            }
+        }
+        
+        finishStagedQuery (); // since we are only staged if we needed a passphrase
+    }
+    
+}
+
+QueryKeychainUse::~QueryKeychainUse()
+{
+	// clear passphrase component (sensitive)
+	memset(passphrase, 0, sizeof(passphrase));
+}
+
+
+//
+// Perform code signature ACL access adjustment dialogs
+//
+void QueryCodeCheck::operator () (const char *aclPath)
+{
+	queryCodeIdentity(Server::connection().process.clientCode(),
+        Server::connection().process.pid(), aclPath, *this);
 }
 
 
@@ -87,42 +145,34 @@ void QueryKeychainUse::operator () (const char *database, const char *descriptio
 // or we can't get another passphrase. Accept() should consume the passphrase
 // if it is accepted. If no passphrase is acceptable, throw out of here.
 //
-void QueryPassphrase::query(const AccessCredentials *cred, CSSM_SAMPLE_TYPE sampleType)
+Reason QueryUnlock::query()
 {
 	CssmAutoData passphrase(CssmAllocator::standard(CssmAllocator::sensitive));
-	if (SecurityServerAcl::getBatchPassphrase(cred, sampleType, passphrase)) {
-		// batch use - try the one and only, fail if unacceptable
-		if (accept(passphrase, false) == noReason)
-			return;
-		else
-			CssmError::throwMe(CSSMERR_CSP_INVALID_ATTR_PASSPHRASE);	//@@@ not ideal
-	} else {
-		// interactive use - run a try/retry loop
-		unsigned int retryCount = 0;
-		queryInteractive(passphrase);
-		while (Reason reason = accept(passphrase, true)) {
-			if (++retryCount > maxRetries) {
-				cancelStagedQuery(tooManyTries);
-				CssmError::throwMe(CSSMERR_CSP_INVALID_ATTR_PASSPHRASE);	//@@@ not ideal
-			} else {
-				retryInteractive(passphrase, reason);
-			}
+	int retryCount = 0;
+	queryInteractive(passphrase);
+	while (Reason reason = accept(passphrase)) {
+		if (++retryCount > maxTries) {
+			cancelStagedQuery(tooManyTries);
+			return reason;
+		} else {
+			retryInteractive(passphrase, reason);
 		}
-		// accepted
-		finishStagedQuery();
 	}
+	// accepted
+	finishStagedQuery();
+	return noReason;
 }
 
 
 //
 // Get existing passphrase (unlock) Query
 //
-void QueryUnlock::operator () (const AccessCredentials *cred)
+Reason QueryUnlock::operator () ()
 {
-	query(cred, CSSM_SAMPLE_TYPE_KEYCHAIN_LOCK);
+	return query();
 }
 
-Reason QueryUnlock::accept(CssmManagedData &passphrase, bool)
+Reason QueryUnlock::accept(CssmManagedData &passphrase)
 {
 	return database.decode(passphrase) ? noReason : invalidPassphrase;
 }
@@ -145,56 +195,81 @@ void QueryUnlock::retryInteractive(CssmOwnedData &passphrase, Reason reason)
 
 
 //
-// Get new passphrase Query
+// Obtain passphrases and submit them to the accept() method until it is accepted
+// or we can't get another passphrase. Accept() should consume the passphrase
+// if it is accepted. If no passphrase is acceptable, throw out of here.
 //
-void QueryNewPassphrase::operator () (const AccessCredentials *cred, CssmOwnedData &passphrase)
+Reason QueryNewPassphrase::query()
 {
-	query(cred, CSSM_SAMPLE_TYPE_KEYCHAIN_CHANGE_LOCK);
-	passphrase = mPassphrase;
+	CssmAutoData passphrase(CssmAllocator::standard(CssmAllocator::sensitive));
+	CssmAutoData oldPassphrase(CssmAllocator::standard(CssmAllocator::sensitive));
+	int retryCount = 0;
+	queryInteractive(passphrase, oldPassphrase);
+	while (Reason reason = accept(passphrase,
+		(initialReason == changePassphrase) ? &oldPassphrase.get() : NULL)) {
+		if (++retryCount > maxTries) {
+			cancelStagedQuery(tooManyTries);
+			return reason;
+		} else {
+			retryInteractive(passphrase, oldPassphrase, reason);
+		}
+	}
+	// accepted
+	finishStagedQuery();
+	return noReason;
 }
 
-Reason QueryNewPassphrase::accept(CssmManagedData &passphrase, bool canRetry)
+
+//
+// Get new passphrase Query
+//
+Reason QueryNewPassphrase::operator () (CssmOwnedData &passphrase)
+{
+	if (Reason result = query())
+		return result;	// failed
+	passphrase = mPassphrase;
+	return noReason;	// success
+}
+
+Reason QueryNewPassphrase::accept(CssmManagedData &passphrase, CssmData *oldPassphrase)
 {
 	//@@@ acceptance criteria are currently hardwired here
 	//@@@ This validation presumes ASCII - UTF8 might be more lenient
 	
-	// if we can't retry (i.e. batch environment), accept it rather than fail terminally
-	if (!canRetry) {
-		mPassphrase = passphrase;
-		return noReason;
-	}
+	// if we have an old passphrase, check it
+	if (oldPassphrase && !database.validatePassphrase(*oldPassphrase))
+		return oldPassphraseWrong;
 	
-	// if the user insists (re-enters the same passphrase), allow it
-	if (mPassphraseValid && passphrase.get() == mPassphrase)
-		return noReason;
-
-	// check simple criteria
-	mPassphrase = passphrase;
-    mPassphraseValid = true;
-	if (mPassphrase.length() == 0)
-		return passphraseIsNull;
-	const char *passString = mPassphrase;
-	if (strlen(passString) < 6)
-		return passphraseTooSimple;
+	// sanity check the new passphrase (but allow user override)
+	if (!(mPassphraseValid && passphrase.get() == mPassphrase)) {
+		mPassphrase = passphrase;
+		mPassphraseValid = true;
+		if (mPassphrase.length() == 0)
+			return passphraseIsNull;
+		if (mPassphrase.length() < 6)
+			return passphraseTooSimple;
+	}
 	
 	// accept this
 	return noReason;
 }
 
-void QueryNewPassphrase::queryInteractive(CssmOwnedData &passphrase)
+void QueryNewPassphrase::queryInteractive(CssmOwnedData &passphrase, CssmOwnedData &oldPassphrase)
 {
-    char passString[maxPassphraseLength];
+    char passString[maxPassphraseLength], oldPassString[maxPassphraseLength];
 	queryNewPassphrase(Server::connection().process.clientCode(),
         Server::connection().process.pid(),
-		dbCommon.dbName(), initialReason, passString);
+		database.dbName(), initialReason, passString, oldPassString);
 	passphrase.copy(passString, strlen(passString));
+	oldPassphrase.copy(oldPassString, strlen(oldPassString));
 }
 
-void QueryNewPassphrase::retryInteractive(CssmOwnedData &passphrase, Reason reason)
+void QueryNewPassphrase::retryInteractive(CssmOwnedData &passphrase, CssmOwnedData &oldPassphrase, Reason reason)
 {
-    char passString[maxPassphraseLength];
-	retryNewPassphrase(reason, passString);
+    char passString[maxPassphraseLength], oldPassString[maxPassphraseLength];
+	retryNewPassphrase(reason, passString, oldPassString);
 	passphrase.copy(passString, strlen(passString));
+	oldPassphrase.copy(oldPassString, strlen(oldPassString));
 }
 
 
@@ -202,7 +277,7 @@ void QueryNewPassphrase::retryInteractive(CssmOwnedData &passphrase, Reason reas
 // Authorize by group membership
 //
 QueryAuthorizeByGroup::QueryAuthorizeByGroup(uid_t clientUID, const AuthorizationToken &auth) :
-  SecurityAgentQuery(clientUID, auth.session),
+  SecurityAgentQuery(Server::active().connection().process.uid(), auth.session),
   authorization(auth), mActive(false) { }
 
 
@@ -240,20 +315,16 @@ bool QueryAuthorizeByGroup::operator () (const char *group, const char *candidat
     }
 }
 
-QueryInvokeMechanism::QueryInvokeMechanism(uid_t clientUID, const AuthorizationToken &auth) :
-	SecurityAgentQuery(clientUID, auth.session) {}
+QueryInvokeMechanism::QueryInvokeMechanism(uid_t clientUID, const AuthorizationToken &auth, const char *agentName) :
+	SecurityAgentQuery(clientUID, auth.session, agentName) {}
 
-bool QueryInvokeMechanism::operator () (const string &inPluginId, const string &inMechanismId, const AuthorizationValueVector *inArguments, const AuthItemSet &inHints, const AuthItemSet &inContext, AuthorizationResult *outResult, AuthorizationItemSet *&outHintsPtr, AuthorizationItemSet *&outContextPtr)
+bool QueryInvokeMechanism::operator () (const string &inPluginId, const string &inMechanismId, const AuthValueVector &inArguments, AuthItemSet &inHints, AuthItemSet &inContext, AuthorizationResult *outResult)
 {
-    bool result = invokeMechanism(inPluginId, inMechanismId, inArguments, inHints, inContext, outResult, outHintsPtr, outContextPtr);
-        return result;
+	bool result = invokeMechanism(inPluginId, inMechanismId, inArguments, inHints, inContext, outResult);
+	return result;
 }
 
-QueryTerminateAgent::QueryTerminateAgent(uid_t clientUID, const AuthorizationToken &auth) :
-  SecurityAgentQuery(clientUID, auth.session) {}
-
-void QueryTerminateAgent::operator () ()
+void QueryInvokeMechanism::terminateAgent()
 {
-    terminateAgent(); 
+    SecurityAgentQuery::terminateAgent();
 }
-

@@ -1,0 +1,11 @@
+<?xml version="1.0" ?>
+
+<application>
+   <display-name>PerfTest MBean</display-name>
+
+   <module>
+      <ejb>perf.jar</ejb>
+   </module>
+
+</application>
+

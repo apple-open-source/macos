@@ -1,6 +1,6 @@
-/* $OpenLDAP: pkg/ldap/servers/slapd/ava.c,v 1.26 2002/01/06 05:11:01 hyc Exp $ */
+/* $OpenLDAP: pkg/ldap/servers/slapd/ava.c,v 1.26.2.3 2003/03/03 17:10:07 kurt Exp $ */
 /*
- * Copyright 1998-2002 The OpenLDAP Foundation, All Rights Reserved.
+ * Copyright 1998-2003 The OpenLDAP Foundation, All Rights Reserved.
  * COPYING RESTRICTIONS APPLY, see COPYRIGHT file
  */
 /* ava.c - routines for dealing with attribute value assertions */
@@ -36,15 +36,15 @@ get_ava(
 )
 {
 	int rc;
+	ber_tag_t rtag;
 	struct berval type, value;
 	AttributeAssertion *aa;
 
-	rc = ber_scanf( ber, "{mm}", &type, &value );
+	rtag = ber_scanf( ber, "{mm}", &type, &value );
 
-	if( rc == LBER_ERROR ) {
+	if( rtag == LBER_ERROR ) {
 #ifdef NEW_LOGGING
-		LDAP_LOG(( "filter", LDAP_LEVEL_ERR,
-			   "get_ava:  ber_scanf failure\n" ));
+		LDAP_LOG( FILTER, ERR, "get_ava:  ber_scanf failure\n", 0, 0, 0 );
 #else
 		Debug( LDAP_DEBUG_ANY, "  get_ava ber_scanf\n", 0, 0, 0 );
 #endif
@@ -63,7 +63,8 @@ get_ava(
 		return rc;
 	}
 
-	rc = value_normalize( aa->aa_desc, usage, &value, &aa->aa_value, text );
+	rc = value_validate_normalize( aa->aa_desc, usage,
+		&value, &aa->aa_value, text );
 
 	if( rc != LDAP_SUCCESS ) {
 		ch_free( aa );

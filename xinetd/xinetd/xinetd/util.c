@@ -113,7 +113,7 @@ char **argv_alloc( unsigned count )
       out_of_memory( func ) ;
       return( NULL ) ;
    }
-   (void) memset( (char *)argv, 0, (int) argv_size ) ;
+   (void) memset( (char *)argv, 0, argv_size ) ;
    return( argv ) ;
 }
 
@@ -153,7 +153,7 @@ status_e copy_pset( const pset_h from, pset_h *to, unsigned size )
       }
 
       if ( size != 0 )
-         (void) memcpy( new_s, p, (int) size ) ;
+         (void) memcpy( new_s, p, size ) ;
 
       if ( pset_add( *to, new_s ) == NULL )
       {
@@ -181,7 +181,7 @@ void no_control_tty(void)
    {
       if ( ioctl( fd, TIOCNOTTY, (caddr_t)0 ) == -1 )
          msg( LOG_WARNING, func, "ioctl on /dev/tty failed: %m" ) ;
-      (void) close( fd ) ;
+      (void) Sclose( fd ) ;
    }
    (void) setpgrp( getpid(), 0 ) ;
 #else
@@ -226,14 +226,28 @@ void tabprint( int fd, int tab_level, const char *fmt, ...)
 
 
 /*
- * Receive a single IP packet worth of data.
+ * Empty the socket receive buffers of all data.
  */
 void drain( int sd )
 {
-   char buf[ 1 ] ;
+   char buf[ 256 ] ; /* This size is arbitrarily chosen */
    char cc ;
+   int old_val ;
 
-   cc = recv( sd, buf, sizeof( buf ), 0 ) ;
+   /* Put in non-blocking mode so we don't hang. */
+   old_val = fcntl( sd, F_GETFL, FNDELAY );
+   fcntl( sd, F_SETFL, FNDELAY );
+
+   do {
+      cc = recv( sd, buf, sizeof( buf ), 0 ) ;
+   } while (cc > 0);
+
+   /* Restore the value since the connection will be freed, not closed. */
+   if (old_val >= 0)
+      fcntl( sd, F_SETFL, old_val );
+
+   if ( debug.on )
+      msg( LOG_DEBUG, "drain", "Socket should be empty" ) ;
 }
 
 /*

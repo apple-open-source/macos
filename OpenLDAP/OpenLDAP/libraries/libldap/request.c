@@ -1,6 +1,6 @@
-/* $OpenLDAP: pkg/ldap/libraries/libldap/request.c,v 1.77 2002/01/04 20:17:39 kurt Exp $ */
+/* $OpenLDAP: pkg/ldap/libraries/libldap/request.c,v 1.77.2.8 2003/03/03 17:10:05 kurt Exp $ */
 /*
- * Copyright 1998-2002 The OpenLDAP Foundation, All Rights Reserved.
+ * Copyright 1998-2003 The OpenLDAP Foundation, All Rights Reserved.
  * COPYING RESTRICTIONS APPLY, see COPYRIGHT file
  */
 /*  Portions
@@ -25,6 +25,10 @@
  * Modification to OpenLDAP source by Novell, Inc.
  * April 2000 sfs  Added code to chase V3 referrals
  *  request.c - sending of ldap requests; handling of referrals
+ */
+/* Note: A verbatim copy of version 2.0.1 of the OpenLDAP Public License 
+ * can be found in the file "build/LICENSE-2.0.1" in this distribution
+ * of OpenLDAP Software.
  */
 
 #include "portable.h"
@@ -83,7 +87,11 @@ ldap_send_initial_request(
 	LDAPURLDesc	*servers;
 	int rc;
 
+#ifdef NEW_LOGGING
+	LDAP_LOG ( OPERATION, ENTRY, "ldap_send_initial_request\n", 0, 0, 0 );
+#else
 	Debug( LDAP_DEBUG_TRACE, "ldap_send_initial_request\n", 0, 0, 0 );
+#endif
 
 	if ( ber_sockbuf_ctrl( ld->ld_sb, LBER_SB_OPT_GET_FD, NULL ) == -1 ) {
 		/* not connected yet */
@@ -94,9 +102,15 @@ ldap_send_initial_request(
 			return( -1 );
 		}
 
+#ifdef NEW_LOGGING
+		LDAP_LOG ( OPERATION, DETAIL1, 
+			"ldap_send_initial_request: ldap_open_defconn: successful\n" , 
+			0, 0, 0);
+#else
 		Debug( LDAP_DEBUG_TRACE,
 			"ldap_open_defconn: successful\n",
 			0, 0, 0 );
+#endif
 	}
 
 	{
@@ -127,6 +141,39 @@ ldap_send_initial_request(
 }
 
 
+int
+ldap_int_flush_request(
+	LDAP *ld,
+	LDAPRequest *lr
+)
+{
+	LDAPConn *lc = lr->lr_conn;
+
+	if ( ber_flush( lc->lconn_sb, lr->lr_ber, 0 ) != 0 ) {
+		if ( errno == EAGAIN ) {
+			/* need to continue write later */
+			lr->lr_status = LDAP_REQST_WRITING;
+			ldap_mark_select_write( ld, lc->lconn_sb );
+			ld->ld_errno = LDAP_BUSY;
+			return -2;
+		} else {
+			ld->ld_errno = LDAP_SERVER_DOWN;
+			ldap_free_request( ld, lr );
+			ldap_free_connection( ld, lc, 0, 0 );
+			return( -1 );
+		}
+	} else {
+		if ( lr->lr_parent == NULL ) {
+			lr->lr_ber->ber_end = lr->lr_ber->ber_ptr;
+			lr->lr_ber->ber_ptr = lr->lr_ber->ber_buf;
+		}
+		lr->lr_status = LDAP_REQST_INPROGRESS;
+
+		/* sent -- waiting for a response */
+		ldap_mark_select_read( ld, lc->lconn_sb );
+	}
+	return 0;
+}
 
 int
 ldap_send_server_request(
@@ -141,7 +188,11 @@ ldap_send_server_request(
 	LDAPRequest	*lr;
 	int incparent;
 
+#ifdef NEW_LOGGING
+	LDAP_LOG ( OPERATION, ENTRY, "ldap_send_server_request\n", 0, 0, 0 );
+#else
 	Debug( LDAP_DEBUG_TRACE, "ldap_send_server_request\n", 0, 0, 0 );
+#endif
 
 	incparent = 0;
 	ld->ld_errno = LDAP_SUCCESS;	/* optimistic */
@@ -175,6 +226,18 @@ ldap_send_server_request(
 	}
 
 	use_connection( ld, lc );
+
+	/* If we still have an incomplete write, try to finish it before
+	 * dealing with the new request. If we don't finish here, return
+	 * LDAP_BUSY and let the caller retry later. We only allow a single
+	 * request to be in WRITING state.
+	 */
+	if ( ld->ld_requests &&
+		ld->ld_requests->lr_status == LDAP_REQST_WRITING &&
+		ldap_int_flush_request( ld, ld->ld_requests ) < 0 ) {
+		return -1;
+	}
+
 	if (( lr = (LDAPRequest *)LDAP_CALLOC( 1, sizeof( LDAPRequest ))) ==
 	    NULL ) {
 		ld->ld_errno = LDAP_NO_MEMORY;
@@ -211,30 +274,8 @@ ldap_send_server_request(
 	ld->ld_requests = lr;
 	lr->lr_prev = NULL;
 
-	if ( ber_flush( lc->lconn_sb, ber, 0 ) != 0 ) {
-#ifdef notyet
-		if ( errno == EWOULDBLOCK ) {
-			/* need to continue write later */
-			lr->lr_status = LDAP_REQST_WRITING;
-			ldap_mark_select_write( ld, lc->lconn_sb );
-		} else {
-#else /* notyet */
-			ld->ld_errno = LDAP_SERVER_DOWN;
-			ldap_free_request( ld, lr );
-			ldap_free_connection( ld, lc, 0, 0 );
-			return( -1 );
-#endif /* notyet */
-#ifdef notyet
-		}
-#endif /* notyet */
-	} else {
-		if ( parentreq == NULL ) {
-			ber->ber_end = ber->ber_ptr;
-			ber->ber_ptr = ber->ber_buf;
-		}
-
-		/* sent -- waiting for a response */
-		ldap_mark_select_read( ld, lc->lconn_sb );
+	if ( ldap_int_flush_request( ld, lr ) == -1 ) {
+		return -1;
 	}
 
 	ld->ld_errno = LDAP_SUCCESS;
@@ -249,7 +290,11 @@ ldap_new_connection( LDAP *ld, LDAPURLDesc *srvlist, int use_ldsb,
 	LDAPURLDesc	*srv;
 	Sockbuf		*sb = NULL;
 
+#ifdef NEW_LOGGING
+	LDAP_LOG ( OPERATION, ENTRY, "ldap_new_connection\n", 0, 0, 0 );
+#else
 	Debug( LDAP_DEBUG_TRACE, "ldap_new_connection\n", 0, 0, 0 );
+#endif
 	/*
 	 * make a new LDAP server connection
 	 * XXX open connection synchronously for now
@@ -311,7 +356,13 @@ ldap_new_connection( LDAP *ld, LDAPURLDesc *srvlist, int use_ldsb,
 				++lc->lconn_refcnt;	/* avoid premature free */
 				ld->ld_defconn = lc;
 
+#ifdef NEW_LOGGING
+				LDAP_LOG ( OPERATION, DETAIL1, 
+					"ldap_new_connection: Call application rebind_proc\n", 
+					0, 0, 0 );
+#else
 				Debug( LDAP_DEBUG_TRACE, "Call application rebind_proc\n", 0, 0, 0);
+#endif
 				err = (*ld->ld_rebind_proc)( ld,
 					bind->ri_url, bind->ri_request, bind->ri_msgid,
 					ld->ld_rebind_params );
@@ -331,7 +382,13 @@ ldap_new_connection( LDAP *ld, LDAPURLDesc *srvlist, int use_ldsb,
 			++lc->lconn_refcnt;	/* avoid premature free */
 			ld->ld_defconn = lc;
 
+#ifdef NEW_LOGGING
+			LDAP_LOG ( OPERATION, DETAIL1, 
+				"ldap_new_connection: anonymous rebind via ldap_bind_s\n", 
+				0, 0, 0 );
+#else
 			Debug( LDAP_DEBUG_TRACE, "anonymous rebind via ldap_bind_s\n", 0, 0, 0);
+#endif
 			if ( ldap_bind_s( ld, "", "", LDAP_AUTH_SIMPLE ) != LDAP_SUCCESS ) {
 				err = -1;
 			}
@@ -394,7 +451,11 @@ ldap_free_connection( LDAP *ld, LDAPConn *lc, int force, int unbind )
 {
 	LDAPConn	*tmplc, *prevlc;
 
+#ifdef NEW_LOGGING
+	LDAP_LOG ( OPERATION, ENTRY, "ldap_free_connection\n", 0, 0, 0 );
+#else
 	Debug( LDAP_DEBUG_TRACE, "ldap_free_connection\n", 0, 0, 0 );
+#endif
 
 	if ( force || --lc->lconn_refcnt <= 0 ) {
 		if ( lc->lconn_status == LDAP_CONNST_CONNECTED ) {
@@ -440,12 +501,22 @@ ldap_free_connection( LDAP *ld, LDAPConn *lc, int force, int unbind )
 			LDAP_FREE( lc->lconn_rebind_queue);
 		}
 		LDAP_FREE( lc );
+#ifdef NEW_LOGGING
+		LDAP_LOG ( OPERATION, RESULTS, 
+			"ldap_free_connection: actually freed\n", 0, 0, 0 );
+#else
 		Debug( LDAP_DEBUG_TRACE, "ldap_free_connection: actually freed\n",
 		    0, 0, 0 );
+#endif
 	} else {
 		lc->lconn_lastused = time( NULL );
+#ifdef NEW_LOGGING
+		LDAP_LOG ( OPERATION, RESULTS, "ldap_free_connection: refcnt %d\n", 
+			lc->lconn_refcnt, 0, 0 );
+#else
 		Debug( LDAP_DEBUG_TRACE, "ldap_free_connection: refcnt %d\n",
 		    lc->lconn_refcnt, 0, 0 );
+#endif
 	}
 }
 
@@ -570,18 +641,23 @@ ldap_free_request( LDAP *ld, LDAPRequest *lr )
 {
 	LDAPRequest     **ttmplr;
 
+#ifdef NEW_LOGGING
+	LDAP_LOG ( OPERATION, ARGS, "ldap_free_request (origid %d, msgid %d)\n",
+		lr->lr_origid, lr->lr_msgid, 0 );
+#else
 	Debug( LDAP_DEBUG_TRACE, "ldap_free_request (origid %d, msgid %d)\n",
 		lr->lr_origid, lr->lr_msgid, 0 );
+#endif
+
+	/* free all referrals (child requests) */
+	while ( lr->lr_child )
+		ldap_free_request( ld, lr->lr_child );
 
 	if ( lr->lr_parent != NULL ) {
 		--lr->lr_parent->lr_outrefcnt;
 		for ( ttmplr = &lr->lr_parent->lr_child; *ttmplr && *ttmplr != lr; ttmplr = &(*ttmplr)->lr_refnext ); 
 		if ( *ttmplr == lr )  
 			*ttmplr = lr->lr_refnext;
-	} else {
-		/* free all referrals (child requests) */
-		while ( lr->lr_child )
-			ldap_free_request( ld, lr->lr_child );
 	}
 	ldap_free_request_int( ld, lr );
 }
@@ -617,7 +693,11 @@ ldap_chase_v3referrals( LDAP *ld, LDAPRequest *lr, char **refs, int sref, char *
 	ld->ld_errno = LDAP_SUCCESS;	/* optimistic */
 	*hadrefp = 0;
 
+#ifdef NEW_LOGGING
+	LDAP_LOG ( OPERATION, ENTRY, "ldap_chase_v3referrals\n", 0, 0, 0 );
+#else
 	Debug( LDAP_DEBUG_TRACE, "ldap_chase_v3referrals\n", 0, 0, 0 );
+#endif
 
 	unfollowed = NULL;
 	rc = count = 0;
@@ -630,8 +710,14 @@ ldap_chase_v3referrals( LDAP *ld, LDAPRequest *lr, char **refs, int sref, char *
 
 	/* Check for hop limit exceeded */
 	if ( lr->lr_parentcnt >= ld->ld_refhoplimit ) {
+#ifdef NEW_LOGGING
+		LDAP_LOG ( OPERATION, DETAIL1, 
+			"ldap_chase_v3referrals: more than %d referral hops (dropping)\n",
+			ld->ld_refhoplimit, 0, 0 );
+#else
 		Debug( LDAP_DEBUG_ANY,
 		    "more than %d referral hops (dropping)\n", ld->ld_refhoplimit, 0, 0 );
+#endif
 		ld->ld_errno = LDAP_REFERRAL_LIMIT_EXCEEDED;
 	    rc = -1;
 		goto done;
@@ -679,9 +765,15 @@ ldap_chase_v3referrals( LDAP *ld, LDAPRequest *lr, char **refs, int sref, char *
 				 * if two search references come in one behind the other
 				 * for the same server with different contexts.
 				 */
+#ifdef NEW_LOGGING
+				LDAP_LOG ( OPERATION, DETAIL1, 
+					"ldap_chase_v3referrals: queue referral \"%s\"\n",
+					refarray[i], 0, 0 );
+#else
 				Debug( LDAP_DEBUG_TRACE,
 					"ldap_chase_v3referrals: queue referral \"%s\"\n",
 					refarray[i], 0, 0);
+#endif
 				if( lc->lconn_rebind_queue == NULL ) {
 					/* Create a referral list */
 					lc->lconn_rebind_queue =
@@ -743,9 +835,15 @@ ldap_chase_v3referrals( LDAP *ld, LDAPRequest *lr, char **refs, int sref, char *
 			goto done;
 		}
 
+#ifdef NEW_LOGGING
+		LDAP_LOG ( OPERATION, DETAIL1, 
+			"ldap_chase_v3referrals: msgid %d, url \"%s\"\n",
+			lr->lr_msgid, refarray[i], 0 );
+#else
 		Debug( LDAP_DEBUG_TRACE,
 			"ldap_chase_v3referral: msgid %d, url \"%s\"\n",
 			lr->lr_msgid, refarray[i], 0);
+#endif
 
 		/* Send the new request to the server - may require a bind */
 		rinfo.ri_msgid = origreq->lr_origid;
@@ -753,8 +851,14 @@ ldap_chase_v3referrals( LDAP *ld, LDAPRequest *lr, char **refs, int sref, char *
 		if ( (rc = ldap_send_server_request( ld, ber, ld->ld_msgid,
 		    	origreq, srv, NULL, &rinfo )) < 0 ) {
 			/* Failure, try next referral in the list */
+#ifdef NEW_LOGGING
+			LDAP_LOG ( OPERATION, ERR, 
+			"ldap_chase_v3referrals: Unable to chase referral \"%s\" (%s)\n",
+			refarray[i], ldap_err2string( ld->ld_errno ), 0 );
+#else
 			Debug( LDAP_DEBUG_ANY, "Unable to chase referral \"%s\" (%s)\n", 
 				refarray[i], ldap_err2string( ld->ld_errno ), 0);
+#endif
 			unfollowedcnt += ldap_append_referral( ld, &unfollowed, refarray[i]);
 			ldap_free_urllist(srv);
 			srv = NULL;
@@ -824,14 +928,19 @@ ldap_chase_referrals( LDAP *ld,
 	int sref,
 	int *hadrefp )
 {
-	int		rc, count, len;
+	int		rc, count;
+	unsigned	len;
 	char		*p, *ref, *unfollowed;
 	LDAPRequest	*origreq;
 	LDAPURLDesc	*srv;
 	BerElement	*ber;
 	LDAPreqinfo  rinfo;
 
+#ifdef NEW_LOGGING
+	LDAP_LOG ( OPERATION, ENTRY, "ldap_chase_referrals\n", 0, 0, 0 );
+#else
 	Debug( LDAP_DEBUG_TRACE, "ldap_chase_referrals\n", 0, 0, 0 );
+#endif
 
 	ld->ld_errno = LDAP_SUCCESS;	/* optimistic */
 	*hadrefp = 0;
@@ -854,9 +963,15 @@ ldap_chase_referrals( LDAP *ld,
 	}
 
 	if ( lr->lr_parentcnt >= ld->ld_refhoplimit ) {
+#ifdef NEW_LOGGING
+		LDAP_LOG ( OPERATION, ENTRY, 
+			"ldap_chase_referrals: more than %d referral hops (dropping)\n",
+			ld->ld_refhoplimit, 0, 0 );
+#else
 		Debug( LDAP_DEBUG_ANY,
 		    "more than %d referral hops (dropping)\n",
 		    ld->ld_refhoplimit, 0, 0 );
+#endif
 		    /* XXX report as error in ld->ld_errno? */
 		    return( 0 );
 	}
@@ -881,8 +996,14 @@ ldap_chase_referrals( LDAP *ld,
 		rc = ldap_url_parse_ext( ref, &srv );
 
 		if ( rc != LDAP_URL_SUCCESS ) {
+#ifdef NEW_LOGGING
+			LDAP_LOG ( OPERATION, DETAIL1, 
+				"ldap_chase_referrals: ignoring unknown referral <%s>\n",
+				ref, 0, 0 );
+#else
 			Debug( LDAP_DEBUG_TRACE,
 			    "ignoring unknown referral <%s>\n", ref, 0, 0 );
+#endif
 			rc = ldap_append_referral( ld, &unfollowed, ref );
 			*hadrefp = 1;
 			continue;
@@ -893,8 +1014,13 @@ ldap_chase_referrals( LDAP *ld,
 			srv->lud_dn = NULL;
 		}
 
+#ifdef NEW_LOGGING
+		LDAP_LOG ( OPERATION, DETAIL1, 
+			"ldap_chase_referrals: chasing LDAP referral <%s>\n", ref, 0, 0 );
+#else
 		Debug( LDAP_DEBUG_TRACE,
 		    "chasing LDAP referral: <%s>\n", ref, 0, 0 );
+#endif
 
 		*hadrefp = 1;
 
@@ -918,9 +1044,15 @@ ldap_chase_referrals( LDAP *ld,
 		if( rc >= 0 ) {
 			++count;
 		} else {
+#ifdef NEW_LOGGING
+			LDAP_LOG ( OPERATION, ERR, 
+				"ldap_chase_referrals: Unable to chase referral <%s>\n", 
+				ldap_err2string( ld->ld_errno), 0, 0 );
+#else
 			Debug( LDAP_DEBUG_ANY,
 			    "Unable to chase referral (%s)\n", 
 			    ldap_err2string( ld->ld_errno ), 0, 0 );
+#endif
 			rc = ldap_append_referral( ld, &unfollowed, ref );
 		}
 
@@ -979,6 +1111,7 @@ re_encode_request( LDAP *ld,
 	 */
 	ber_int_t	along;
 	ber_tag_t	tag;
+	ber_tag_t	rtag;
 	ber_int_t	ver;
 	ber_int_t	scope;
 	int		rc;
@@ -986,10 +1119,17 @@ re_encode_request( LDAP *ld,
 	char		*orig_dn;
 	char		*dn;
 
+#ifdef NEW_LOGGING
+	LDAP_LOG ( OPERATION, ARGS, 
+		"re_encode_request: new msgid %ld, new dn <%s>\n",
+		(long) msgid, 
+		( srv == NULL || srv->lud_dn == NULL ) ? "NONE" : srv->lud_dn, 0 );
+#else
 	Debug( LDAP_DEBUG_TRACE,
 	    "re_encode_request: new msgid %ld, new dn <%s>\n",
 	    (long) msgid,
 		( srv == NULL || srv->lud_dn == NULL) ? "NONE" : srv->lud_dn, 0 );
+#endif
 
 	tmpber = *origber;
 
@@ -999,9 +1139,9 @@ re_encode_request( LDAP *ld,
 	 * tagged with the operation code.  For delete, the provided DN
 	 * is not wrapped by a sequence.
 	 */
-	rc = ber_scanf( &tmpber, "{it", /*}*/ &along, &tag );
+	rtag = ber_scanf( &tmpber, "{it", /*}*/ &along, &tag );
 
-	if ( rc == LBER_ERROR ) {
+	if ( rtag == LBER_ERROR ) {
 		ld->ld_errno = LDAP_DECODING_ERROR;
 		return( NULL );
 	}
@@ -1009,15 +1149,15 @@ re_encode_request( LDAP *ld,
 	assert( tag != 0);
 	if ( tag == LDAP_REQ_BIND ) {
 		/* bind requests have a version number before the DN & other stuff */
-		rc = ber_scanf( &tmpber, "{ia" /*}*/, &ver, &orig_dn );
+		rtag = ber_scanf( &tmpber, "{ia" /*}*/, &ver, &orig_dn );
 
 	} else if ( tag == LDAP_REQ_DELETE ) {
 		/* delete requests don't have a DN wrapping sequence */
-		rc = ber_scanf( &tmpber, "a", &orig_dn );
+		rtag = ber_scanf( &tmpber, "a", &orig_dn );
 
 	} else if ( tag == LDAP_REQ_SEARCH ) {
 		/* search requests need to be re-scope-ed */
-		rc = ber_scanf( &tmpber, "{ae" /*"}"*/, &orig_dn, &scope );
+		rtag = ber_scanf( &tmpber, "{ae" /*"}"*/, &orig_dn, &scope );
 
 		if( srv->lud_scope != LDAP_SCOPE_DEFAULT ) {
 			/* use the scope provided in reference */
@@ -1032,10 +1172,10 @@ re_encode_request( LDAP *ld,
 		}
 
 	} else {
-		rc = ber_scanf( &tmpber, "{a" /*}*/, &orig_dn );
+		rtag = ber_scanf( &tmpber, "{a" /*}*/, &orig_dn );
 	}
 
-	if( rc == LBER_ERROR ) {
+	if( rtag == LBER_ERROR ) {
 		ld->ld_errno = LDAP_DECODING_ERROR;
 		return NULL;
 	}
@@ -1080,8 +1220,13 @@ re_encode_request( LDAP *ld,
 
 #ifdef LDAP_DEBUG
 	if ( ldap_debug & LDAP_DEBUG_PACKETS ) {
+#ifdef NEW_LOGGING
+		LDAP_LOG ( OPERATION, DETAIL1, 
+			"re_encode_request: new request is:\n", 0, 0, 0 );
+#else
 		Debug( LDAP_DEBUG_ANY, "re_encode_request new request is:\n",
 		    0, 0, 0 );
+#endif
 		ber_log_dump( LDAP_DEBUG_BER, ldap_debug, ber, 0 );
 	}
 #endif /* LDAP_DEBUG */

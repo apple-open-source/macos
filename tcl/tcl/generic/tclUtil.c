@@ -6,11 +6,12 @@
  *
  * Copyright (c) 1987-1993 The Regents of the University of California.
  * Copyright (c) 1994-1998 Sun Microsystems, Inc.
+ * Copyright (c) 2001 by Kevin B. Kenny.  All rights reserved.
  *
  * See the file "license.terms" for information on usage and redistribution
  * of this file, and for a DISCLAIMER OF ALL WARRANTIES.
  *
- *  RCS: @(#) $Id: tclUtil.c,v 1.1.1.4 2002/04/05 16:13:27 jevans Exp $
+ *  RCS: @(#) $Id: tclUtil.c,v 1.1.1.7 2003/07/22 23:11:09 landonf Exp $
  */
 
 #include "tclInt.h"
@@ -61,6 +62,30 @@ static char precisionFormat[10] = "%.12g";
 				/* The format string actually used in calls
 				 * to sprintf. */
 TCL_DECLARE_MUTEX(precisionMutex)
+
+/*
+ * Prototypes for procedures defined later in this file.
+ */
+
+static void UpdateStringOfEndOffset _ANSI_ARGS_((Tcl_Obj* objPtr));
+static int SetEndOffsetFromAny _ANSI_ARGS_((Tcl_Interp* interp,
+					    Tcl_Obj* objPtr));
+
+/*
+ * The following is the Tcl object type definition for an object
+ * that represents a list index in the form, "end-offset".  It is
+ * used as a performance optimization in TclGetIntForIndex.  The
+ * internal rep is an integer, so no memory management is required
+ * for it.
+ */
+
+Tcl_ObjType tclEndOffsetType = {
+    "end-offset",			/* name */
+    (Tcl_FreeInternalRepProc*) NULL,    /* freeIntRepProc */
+    (Tcl_DupInternalRepProc*) NULL,     /* dupIntRepProc */
+    UpdateStringOfEndOffset,		/* updateStringProc */
+    SetEndOffsetFromAny    
+};
 
 
 /*
@@ -318,11 +343,11 @@ TclFindElement(interp, list, listLength, elementPtr, nextPtr, sizePtr,
  *	Copy a string and eliminate any backslashes that aren't in braces.
  *
  * Results:
- *	There is no return value. Count characters get copied from src to
- *	dst. Along the way, if backslash sequences are found outside braces,
- *	the backslashes are eliminated in the copy. After scanning count
- *	chars from source, a null character is placed at the end of dst.
- *	Returns the number of characters that got copied.
+ *	Count characters get copied from src to	dst. Along the way, if
+ *	backslash sequences are found outside braces, the backslashes are
+ *	eliminated in the copy. After scanning count chars from source, a
+ *	null character is placed at the end of dst.  Returns the number
+ *	of characters that got copied.
  *
  * Side effects:
  *	None.
@@ -395,10 +420,10 @@ Tcl_SplitList(interp, list, argcPtr, argvPtr)
     CONST char *list;		/* Pointer to string with list structure. */
     int *argcPtr;		/* Pointer to location to fill in with
 				 * the number of elements in the list. */
-    char ***argvPtr;		/* Pointer to place to store pointer to
+    CONST char ***argvPtr;	/* Pointer to place to store pointer to
 				 * array of pointers to list elements. */
 {
-    char **argv;
+    CONST char **argv;
     CONST char *l;
     char *p;
     int length, size, i, result, elSize, brace;
@@ -417,7 +442,7 @@ Tcl_SplitList(interp, list, argcPtr, argvPtr)
 	}
     }
     size++;			/* Leave space for final NULL pointer. */
-    argv = (char **) ckalloc((unsigned)
+    argv = (CONST char **) ckalloc((unsigned)
 	    ((size * sizeof(char *)) + (l - list) + 1));
     length = strlen(list);
     for (i = 0, p = ((char *) argv) + size*sizeof(char *);
@@ -822,7 +847,7 @@ Tcl_ConvertCountedElement(src, length, dst, flags)
 char *
 Tcl_Merge(argc, argv)
     int argc;			/* How many strings to merge. */
-    char **argv;		/* Array of string values. */
+    CONST char * CONST *argv;	/* Array of string values. */
 {
 #   define LOCAL_SIZE 20
     int localFlags[LOCAL_SIZE], *flagPtr;
@@ -899,7 +924,7 @@ Tcl_Backslash(src, readPtr)
     Tcl_UniChar ch;
 
     Tcl_UtfBackslash(src, readPtr, buf);
-    Tcl_UtfToUniChar(buf, &ch);
+    TclUtfToUniChar(buf, &ch);
     return (char) ch;
 }
 
@@ -925,7 +950,7 @@ Tcl_Backslash(src, readPtr)
 char *
 Tcl_Concat(argc, argv)
     int argc;			/* Number of strings to concatenate. */
-    char **argv;		/* Array of strings to concatenate. */
+    CONST char * CONST *argv;	/* Array of strings to concatenate. */
 {
     int totalSize, i;
     char *p;
@@ -940,7 +965,7 @@ Tcl_Concat(argc, argv)
 	return result;
     }
     for (p = result, i = 0; i < argc; i++) {
-	char *element;
+	CONST char *element;
 	int length;
 
 	/*
@@ -1072,7 +1097,7 @@ Tcl_ConcatObj(objc, objv)
 	    objPtr = objv[i];
 	    element = Tcl_GetStringFromObj(objPtr, &elemLength);
 	    while ((elemLength > 0) && (UCHAR(*element) < 127)
-		    && (isspace(UCHAR(*element)))) { /* INTL: ISO space. */
+		    && isspace(UCHAR(*element))) { /* INTL: ISO C space. */
 	         element++;
 		 elemLength--;
 	    }
@@ -1084,7 +1109,7 @@ Tcl_ConcatObj(objc, objv)
 	     */
 
 	    while ((elemLength > 0) && (UCHAR(element[elemLength-1]) < 127)
-		    && isspace(UCHAR(element[elemLength-1])) /* INTL: ISO space. */
+		    && isspace(UCHAR(element[elemLength-1])) /* INTL: ISO C space. */
 		    && ((elemLength < 2) || (element[elemLength-2] != '\\'))) {
 		elemLength--;
 	    }
@@ -1136,131 +1161,7 @@ Tcl_StringMatch(string, pattern)
     CONST char *pattern;	/* Pattern, which may contain special
 				 * characters. */
 {
-    int p, s;
-    CONST char *pstart = pattern;
-    
-    while (1) {
-	p = *pattern;
-	s = *string;
-	
-	/*
-	 * See if we're at the end of both the pattern and the string.  If
-	 * so, we succeeded.  If we're at the end of the pattern but not at
-	 * the end of the string, we failed.
-	 */
-	
-	if (p == '\0') {
-	    if (s == '\0') {
-		return 1;
-	    } else {
-		return 0;
-	    }
-	}
-	if ((s == '\0') && (p != '*')) {
-	    return 0;
-	}
-
-	/* Check for a "*" as the next pattern character.  It matches
-	 * any substring.  We handle this by calling ourselves
-	 * recursively for each postfix of string, until either we
-	 * match or we reach the end of the string.
-	 */
-	
-	if (p == '*') {
-	    pattern++;
-	    if (*pattern == '\0') {
-		return 1;
-	    }
-	    while (1) {
-		if (Tcl_StringMatch(string, pattern)) {
-		    return 1;
-		}
-		if (*string == '\0') {
-		    return 0;
-		}
-		string++;
-	    }
-	}
-
-	/* Check for a "?" as the next pattern character.  It matches
-	 * any single character.
-	 */
-
-	if (p == '?') {
-	    Tcl_UniChar ch;
-	    
-	    pattern++;
-	    string += Tcl_UtfToUniChar(string, &ch);
-	    continue;
-	}
-
-	/* Check for a "[" as the next pattern character.  It is followed
-	 * by a list of characters that are acceptable, or by a range
-	 * (two characters separated by "-").
-	 */
-	
-	if (p == '[') {
-	    Tcl_UniChar ch, startChar, endChar;
-
-	    pattern++;
-	    string += Tcl_UtfToUniChar(string, &ch);
-
-	    while (1) {
-		if ((*pattern == ']') || (*pattern == '\0')) {
-		    return 0;
-		}
-		pattern += Tcl_UtfToUniChar(pattern, &startChar);
-		if (*pattern == '-') {
-		    pattern++;
-		    if (*pattern == '\0') {
-			return 0;
-		    }
-		    pattern += Tcl_UtfToUniChar(pattern, &endChar);
-		    if (((startChar <= ch) && (ch <= endChar))
-			    || ((endChar <= ch) && (ch <= startChar))) {
-			/*
-			 * Matches ranges of form [a-z] or [z-a].
-			 */
-
-			break;
-		    }
-		} else if (startChar == ch) {
-		    break;
-		}
-	    }
-	    while (*pattern != ']') {
-		if (*pattern == '\0') {
-		    pattern = Tcl_UtfPrev(pattern, pstart);
-		    break;
-		}
-		pattern++;
-	    }
-	    pattern++;
-	    continue;
-	}
-    
-	/* If the next pattern character is '\', just strip off the '\'
-	 * so we do exact matching on the character that follows.
-	 */
-	
-	if (p == '\\') {
-	    pattern++;
-	    p = *pattern;
-	    if (p == '\0') {
-		return 0;
-	    }
-	}
-
-	/* There's no special character.  Just make sure that the next
-	 * bytes of each string match.
-	 */
-	
-	if (s != p) {
-	    return 0;
-	}
-	pattern++;
-	string++;
-    }
+    return Tcl_StringCaseMatch(string, pattern, 0);
 }
 
 /*
@@ -1290,13 +1191,12 @@ Tcl_StringCaseMatch(string, pattern, nocase)
 				 * characters. */
     int nocase;			/* 0 for case sensitive, 1 for insensitive */
 {
-    int p, s;
+    int p, charLen;
     CONST char *pstart = pattern;
     Tcl_UniChar ch1, ch2;
     
     while (1) {
 	p = *pattern;
-	s = *string;
 	
 	/*
 	 * See if we're at the end of both the pattern and the string.  If
@@ -1305,73 +1205,140 @@ Tcl_StringCaseMatch(string, pattern, nocase)
 	 */
 	
 	if (p == '\0') {
-	    return (s == '\0');
+	    return (*string == '\0');
 	}
-	if ((s == '\0') && (p != '*')) {
+	if ((*string == '\0') && (p != '*')) {
 	    return 0;
 	}
 
-	/* Check for a "*" as the next pattern character.  It matches
+	/*
+	 * Check for a "*" as the next pattern character.  It matches
 	 * any substring.  We handle this by calling ourselves
 	 * recursively for each postfix of string, until either we
 	 * match or we reach the end of the string.
 	 */
 	
 	if (p == '*') {
-	    pattern++;
-	    if (*pattern == '\0') {
+	    /*
+	     * Skip all successive *'s in the pattern
+	     */
+	    while (*(++pattern) == '*') {}
+	    p = *pattern;
+	    if (p == '\0') {
 		return 1;
 	    }
+	    /*
+	     * This is a special case optimization for single-byte utf.
+	     */
+	    if (UCHAR(*pattern) < 0x80) {
+		ch2 = (Tcl_UniChar)
+		    (nocase ? tolower(UCHAR(*pattern)) : UCHAR(*pattern));
+	    } else {
+		Tcl_UtfToUniChar(pattern, &ch2);
+		if (nocase) {
+		    ch2 = Tcl_UniCharToLower(ch2);
+		}
+	    }
 	    while (1) {
+		/*
+		 * Optimization for matching - cruise through the string
+		 * quickly if the next char in the pattern isn't a special
+		 * character
+		 */
+		if ((p != '[') && (p != '?') && (p != '\\')) {
+		    if (nocase) {
+			while (*string) {
+			    charLen = TclUtfToUniChar(string, &ch1);
+			    if (ch2==ch1 || ch2==Tcl_UniCharToLower(ch1)) {
+				break;
+			    }
+			    string += charLen;
+			}
+		    } else {
+			/*
+			 * There's no point in trying to make this code
+			 * shorter, as the number of bytes you want to
+			 * compare each time is non-constant.
+			 */
+			while (*string) {
+			    charLen = TclUtfToUniChar(string, &ch1);
+			    if (ch2 == ch1) {
+				break;
+			    }
+			    string += charLen;
+			}
+		    }
+		}
 		if (Tcl_StringCaseMatch(string, pattern, nocase)) {
 		    return 1;
 		}
 		if (*string == '\0') {
 		    return 0;
 		}
-		string++;
+		string += TclUtfToUniChar(string, &ch1);
 	    }
 	}
 
-	/* Check for a "?" as the next pattern character.  It matches
+	/*
+	 * Check for a "?" as the next pattern character.  It matches
 	 * any single character.
 	 */
 
 	if (p == '?') {
 	    pattern++;
-	    string += Tcl_UtfToUniChar(string, &ch1);
+	    string += TclUtfToUniChar(string, &ch1);
 	    continue;
 	}
 
-	/* Check for a "[" as the next pattern character.  It is followed
+	/*
+	 * Check for a "[" as the next pattern character.  It is followed
 	 * by a list of characters that are acceptable, or by a range
 	 * (two characters separated by "-").
 	 */
-	
+
 	if (p == '[') {
 	    Tcl_UniChar startChar, endChar;
 
 	    pattern++;
-	    string += Tcl_UtfToUniChar(string, &ch1);
-	    if (nocase) {
-		ch1 = Tcl_UniCharToLower(ch1);
+	    if (UCHAR(*string) < 0x80) {
+		ch1 = (Tcl_UniChar)
+		    (nocase ? tolower(UCHAR(*string)) : UCHAR(*string));
+		string++;
+	    } else {
+		string += Tcl_UtfToUniChar(string, &ch1);
+		if (nocase) {
+		    ch1 = Tcl_UniCharToLower(ch1);
+		}
 	    }
 	    while (1) {
 		if ((*pattern == ']') || (*pattern == '\0')) {
 		    return 0;
 		}
-		pattern += Tcl_UtfToUniChar(pattern, &startChar);
-		if (nocase) {
-		    startChar = Tcl_UniCharToLower(startChar);
+		if (UCHAR(*pattern) < 0x80) {
+		    startChar = (Tcl_UniChar)
+			(nocase ? tolower(UCHAR(*pattern)) : UCHAR(*pattern));
+		    pattern++;
+		} else {
+		    pattern += Tcl_UtfToUniChar(pattern, &startChar);
+		    if (nocase) {
+			startChar = Tcl_UniCharToLower(startChar);
+		    }
 		}
 		if (*pattern == '-') {
 		    pattern++;
 		    if (*pattern == '\0') {
 			return 0;
 		    }
-		    pattern += Tcl_UtfToUniChar(pattern, &endChar);
-		    if (nocase) {
-			endChar = Tcl_UniCharToLower(endChar);
+		    if (UCHAR(*pattern) < 0x80) {
+			endChar = (Tcl_UniChar)
+			    (nocase ? tolower(UCHAR(*pattern))
+				    : UCHAR(*pattern));
+			pattern++;
+		    } else {
+			pattern += Tcl_UtfToUniChar(pattern, &endChar);
+			if (nocase) {
+			    endChar = Tcl_UniCharToLower(endChar);
+			}
 		    }
 		    if (((startChar <= ch1) && (ch1 <= endChar))
 			    || ((endChar <= ch1) && (ch1 <= startChar))) {
@@ -1395,25 +1362,26 @@ Tcl_StringCaseMatch(string, pattern, nocase)
 	    pattern++;
 	    continue;
 	}
-    
-	/* If the next pattern character is '\', just strip off the '\'
+
+	/*
+	 * If the next pattern character is '\', just strip off the '\'
 	 * so we do exact matching on the character that follows.
 	 */
-	
+
 	if (p == '\\') {
 	    pattern++;
-	    p = *pattern;
-	    if (p == '\0') {
+	    if (*pattern == '\0') {
 		return 0;
 	    }
 	}
 
-	/* There's no special character.  Just make sure that the next
+	/*
+	 * There's no special character.  Just make sure that the next
 	 * bytes of each string match.
 	 */
-	
-	string  += Tcl_UtfToUniChar(string, &ch1);
-	pattern += Tcl_UtfToUniChar(pattern, &ch2);
+
+	string  += TclUtfToUniChar(string, &ch1);
+	pattern += TclUtfToUniChar(pattern, &ch2);
 	if (nocase) {
 	    if (Tcl_UniCharToLower(ch1) != Tcl_UniCharToLower(ch2)) {
 		return 0;
@@ -1547,10 +1515,12 @@ Tcl_DStringAppendElement(dsPtr, string)
     CONST char *string;		/* String to append.  Must be
 				 * null-terminated. */
 {
-    int newSize, flags;
+    int newSize, flags, strSize;
     char *dst;
 
-    newSize = Tcl_ScanElement(string, &flags) + dsPtr->length + 1;
+    strSize = ((string == NULL) ? 0 : strlen(string));
+    newSize = Tcl_ScanCountedElement(string, strSize, &flags)
+	+ dsPtr->length + 1;
 
     /*
      * Allocate a larger buffer for the string if the current one isn't
@@ -1587,7 +1557,7 @@ Tcl_DStringAppendElement(dsPtr, string)
 	dst++;
 	dsPtr->length++;
     }
-    dsPtr->length += Tcl_ConvertElement(string, dst, flags);
+    dsPtr->length += Tcl_ConvertCountedElement(string, strSize, dst, flags);
     return dsPtr->string;
 }
 
@@ -1774,8 +1744,7 @@ Tcl_DStringGetResult(interp, dsPtr)
 
     dsPtr->length = strlen(iPtr->result);
     if (iPtr->freeProc != NULL) {
-	if ((iPtr->freeProc == TCL_DYNAMIC)
-		|| (iPtr->freeProc == (Tcl_FreeProc *) free)) {
+	if (iPtr->freeProc == TCL_DYNAMIC) {
 	    dsPtr->string = iPtr->result;
 	    dsPtr->spaceAvl = dsPtr->length+1;
 	} else {
@@ -1896,11 +1865,16 @@ Tcl_PrintDouble(interp, value, dst)
      * If the ASCII result looks like an integer, add ".0" so that it
      * doesn't look like an integer anymore.  This prevents floating-point
      * values from being converted to integers unintentionally.
+     * Check for ASCII specifically to speed up the function.
      */
 
     for (p = dst; *p != 0; ) {
-	p += Tcl_UtfToUniChar(p, &ch);
-	c = UCHAR(ch);
+	if (UCHAR(*p) < 0x80) {
+	    c = *p++;
+	} else {
+	    p += Tcl_UtfToUniChar(p, &ch);
+	    c = UCHAR(ch);
+	}
 	if ((c == '.') || isalpha(UCHAR(c))) {	/* INTL: ISO only. */
 	    return;
 	}
@@ -1935,11 +1909,12 @@ char *
 TclPrecTraceProc(clientData, interp, name1, name2, flags)
     ClientData clientData;	/* Not used. */
     Tcl_Interp *interp;		/* Interpreter containing variable. */
-    char *name1;		/* Name of variable. */
-    char *name2;		/* Second part of variable name. */
+    CONST char *name1;		/* Name of variable. */
+    CONST char *name2;		/* Second part of variable name. */
     int flags;			/* Information about what happened. */
 {
-    char *value, *end;
+    CONST char *value;
+    char *end;
     int prec;
 
     /*
@@ -2022,10 +1997,12 @@ TclPrecTraceProc(clientData, interp, name1, name2, flags)
 
 int
 TclNeedSpace(start, end)
-    char *start;		/* First character in string. */
-    char *end;			/* End of string (place where space will
+    CONST char *start;		/* First character in string. */
+    CONST char *end;		/* End of string (place where space will
 				 * be added, if appropriate). */
 {
+    Tcl_UniChar ch;
+
     /*
      * A space is needed unless either
      * (a) we're at the start of the string, or
@@ -2039,10 +2016,14 @@ TclNeedSpace(start, end)
     if (end == start) {
 	return 0;
     }
-    end--;
+    end = Tcl_UtfPrev(end, start);
     if (*end != '{') {
-	if (isspace(UCHAR(*end)) /* INTL: ISO space. */
-		&& ((end == start) || (end[-1] != '\\'))) {
+	Tcl_UtfToUniChar(end, &ch);
+	/*
+	 * Direct char comparison on next line is safe as it is with
+	 * a character in the ASCII subset, and so single-byte in UTF8.
+	 */
+	if (Tcl_UniCharIsSpace(ch) && ((end == start) || (end[-1] != '\\'))) {
 	    return 0;
 	}
 	return 1;
@@ -2051,9 +2032,10 @@ TclNeedSpace(start, end)
 	if (end == start) {
 	    return 0;
 	}
-	end--;
+	end = Tcl_UtfPrev(end, start);
     } while (*end == '{');
-    if (isspace(UCHAR(*end))) {	/* INTL: ISO space. */
+    Tcl_UtfToUniChar(end, &ch);
+    if (Tcl_UniCharIsSpace(ch)) {
 	return 0;
     }
     return 1;
@@ -2167,44 +2149,34 @@ TclFormatInt(buffer, n)
 
 int
 TclLooksLikeInt(bytes, length)
-    register char *bytes;	/* Points to first byte of the string. */
+    register CONST char *bytes;	/* Points to first byte of the string. */
     int length;			/* Number of bytes in the string. If < 0
 				 * bytes up to the first null byte are
 				 * considered (if they may appear in an 
 				 * integer). */
 {
-    register char *p, *end;
+    register CONST char *p;
+
+    if ((bytes == NULL) && (length > 0)) {
+	Tcl_Panic("TclLooksLikeInt: cannot scan %d bytes from NULL", length);
+    }
 
     if (length < 0) {
-	length = (bytes? strlen(bytes) : 0);
+        length = (bytes? strlen(bytes) : 0);
     }
-    end = (bytes + length);
 
     p = bytes;
-    while ((p < end) && isspace(UCHAR(*p))) { /* INTL: ISO space. */
-	p++;
+    while (length && isspace(UCHAR(*p))) { /* INTL: ISO space. */
+	length--; p++;
     }
-    if (p == end) {
-	return 0;
+    if (length == 0) {
+        return 0;
     }
-    
     if ((*p == '+') || (*p == '-')) {
-	p++;
+        p++; length--;
     }
-    if ((p == end) || !isdigit(UCHAR(*p))) { /* INTL: digit */
-	return 0;
-    }
-    p++;
-    while ((p < end) && isdigit(UCHAR(*p))) { /* INTL: digit */
-	p++;
-    }
-    if (p == end) {
-	return 1;
-    }
-    if ((*p != '.') && (*p != 'e') && (*p != 'E')) {
-	return 1;
-    }
-    return 0;
+
+    return (0 != TclParseInteger(p, length));
 }
 
 /*
@@ -2228,7 +2200,7 @@ TclLooksLikeInt(bytes, length)
  *
  * Side effects:
  *	The object referenced by "objPtr" might be converted to an
- *	integer object.
+ *	integer, wide integer, or end-based-index object.
  *
  *----------------------------------------------------------------------
  */
@@ -2246,46 +2218,216 @@ TclGetIntForIndex(interp, objPtr, endValue, indexPtr)
 				 * representing an index. */
 {
     char *bytes;
-    int length, offset;
+    int offset;
+    Tcl_WideInt wideOffset;
+
+    /*
+     * If the object is already an integer, use it.
+     */
 
     if (objPtr->typePtr == &tclIntType) {
 	*indexPtr = (int)objPtr->internalRep.longValue;
 	return TCL_OK;
     }
 
-    bytes = Tcl_GetStringFromObj(objPtr, &length);
+    /*
+     * If the object is already a wide-int, and it is not out of range
+     * for an integer, use it. [Bug #526717]
+     */
+    if (objPtr->typePtr == &tclWideIntType) {
+	TclGetWide(wideOffset,objPtr);
+	if (wideOffset >= Tcl_LongAsWide(INT_MIN)
+	    && wideOffset <= Tcl_LongAsWide(INT_MAX)) {
+	    *indexPtr = (int) Tcl_WideAsLong(wideOffset);
+	    return TCL_OK;
+	}
+    }
 
-    if ((*bytes != 'e') || (strncmp(bytes, "end",
-	    (size_t)((length > 3) ? 3 : length)) != 0)) {
-	if (Tcl_GetIntFromObj(NULL, objPtr, &offset) != TCL_OK) {
-	    goto intforindex_error;
+    if (SetEndOffsetFromAny(NULL, objPtr) == TCL_OK) {
+	/*
+	 * If the object is already an offset from the end of the
+	 * list, or can be converted to one, use it.
+	 */
+
+	*indexPtr = endValue + objPtr->internalRep.longValue;
+
+    } else if (Tcl_GetWideIntFromObj(NULL, objPtr, &wideOffset) == TCL_OK) {
+	/*
+	 * If the object can be converted to a wide integer, use
+	 * that. [Bug #526717]
+	 */
+
+	offset = (int) Tcl_WideAsLong(wideOffset);
+	if (Tcl_LongAsWide(offset) == wideOffset) {
+	    /*
+	     * But it is representable as a narrow integer, so we
+	     * prefer that (so preserving old behaviour in the
+	     * majority of cases.)
+	     */
+	    objPtr->typePtr = &tclIntType;
+	    objPtr->internalRep.longValue = offset;
 	}
 	*indexPtr = offset;
+
+    } else {
+	/*
+	 * Report a parse error.
+	 */
+
+	if (interp != NULL) {
+	    bytes = Tcl_GetString(objPtr);
+	    /*
+	     * The result might not be empty; this resets it which
+	     * should be both a cheap operation, and of little problem
+	     * because this is an error-generation path anyway.
+	     */
+	    Tcl_ResetResult(interp);
+	    Tcl_AppendStringsToObj(Tcl_GetObjResult(interp),
+				   "bad index \"", bytes,
+				   "\": must be integer or end?-integer?",
+				   (char *) NULL);
+	    if (!strncmp(bytes, "end-", 3)) {
+		bytes += 3;
+	    }
+	    TclCheckBadOctal(interp, bytes);
+	}
+
+	return TCL_ERROR;
+    }
+	    
+    return TCL_OK;
+}
+
+/*
+ *----------------------------------------------------------------------
+ *
+ * UpdateStringOfEndOffset --
+ *
+ *	Update the string rep of a Tcl object holding an "end-offset"
+ *	expression.
+ *
+ * Results:
+ *	None.
+ *
+ * Side effects:
+ *	Stores a valid string in the object's string rep.
+ *
+ * This procedure does NOT free any earlier string rep.  If it is
+ * called on an object that already has a valid string rep, it will
+ * leak memory.
+ *
+ *----------------------------------------------------------------------
+ */
+
+static void
+UpdateStringOfEndOffset(objPtr)
+    register Tcl_Obj* objPtr;
+{
+    char buffer[TCL_INTEGER_SPACE + sizeof("end") + 1];
+    register int len;
+
+    strcpy(buffer, "end");
+    len = sizeof("end") - 1;
+    if (objPtr->internalRep.longValue != 0) {
+	buffer[len++] = '-';
+	len += TclFormatInt(buffer+len, -(objPtr->internalRep.longValue));
+    }
+    objPtr->bytes = ckalloc((unsigned) (len+1));
+    strcpy(objPtr->bytes, buffer);
+    objPtr->length = len;
+}
+
+/*
+ *----------------------------------------------------------------------
+ *
+ * SetEndOffsetFromAny --
+ *
+ *	Look for a string of the form "end-offset" and convert it
+ *	to an internal representation holding the offset.
+ *
+ * Results:
+ *	Returns TCL_OK if ok, TCL_ERROR if the string was badly formed.
+ *
+ * Side effects:
+ *	If interp is not NULL, stores an error message in the
+ *	interpreter result.
+ *
+ *----------------------------------------------------------------------
+ */
+
+static int
+SetEndOffsetFromAny(interp, objPtr)
+     Tcl_Interp* interp;	/* Tcl interpreter or NULL */
+     Tcl_Obj* objPtr;		/* Pointer to the object to parse */
+{
+    int offset;			/* Offset in the "end-offset" expression */
+    Tcl_ObjType* oldTypePtr = objPtr->typePtr;
+				/* Old internal rep type of the object */
+    register char* bytes;	/* String rep of the object */
+    int length;			/* Length of the object's string rep */
+
+    /* If it's already the right type, we're fine. */
+
+    if (objPtr->typePtr == &tclEndOffsetType) {
 	return TCL_OK;
     }
 
-    if (length <= 3) {
-	*indexPtr = endValue;
-    } else if (bytes[3] == '-') {
-	/*
-	 * This is our limited string expression evaluator
-	 */
-	if (Tcl_GetInt(interp, bytes+3, &offset) != TCL_OK) {
-	    return TCL_ERROR;
-	}
-	*indexPtr = endValue + offset;
-    } else {
-	intforindex_error:
-	if ((Interp *)interp != NULL) {
+    /* Check for a string rep of the right form. */
+
+    bytes = Tcl_GetStringFromObj(objPtr, &length);
+    if ((*bytes != 'e') || (strncmp(bytes, "end",
+	    (size_t)((length > 3) ? 3 : length)) != 0)) {
+	if (interp != NULL) {
+	    Tcl_ResetResult(interp);
 	    Tcl_AppendStringsToObj(Tcl_GetObjResult(interp),
-		    "bad index \"", bytes,
-		    "\": must be integer or end?-integer?", (char *) NULL);
-	    TclCheckBadOctal(interp, bytes);
+				   "bad index \"", bytes,
+				   "\": must be end?-integer?",
+				   (char*) NULL);
 	}
 	return TCL_ERROR;
     }
+
+    /* Convert the string rep */
+
+    if (length <= 3) {
+	offset = 0;
+    } else if ((length > 4) && (bytes[3] == '-')) {
+	/*
+	 * This is our limited string expression evaluator.  Pass everything
+	 * after "end-" to Tcl_GetInt, then reverse for offset.
+	 */
+	if (Tcl_GetInt(interp, bytes+4, &offset) != TCL_OK) {
+	    return TCL_ERROR;
+	}
+	offset = -offset;
+    } else {
+	/*
+	 * Conversion failed.  Report the error.
+	 */
+	if (interp != NULL) {
+	    Tcl_ResetResult(interp);
+	    Tcl_AppendStringsToObj(Tcl_GetObjResult(interp),
+				   "bad index \"", bytes,
+				   "\": must be integer or end?-integer?",
+				   (char *) NULL);
+	}
+	return TCL_ERROR;
+    }
+
+    /*
+     * The conversion succeeded. Free the old internal rep and set
+     * the new one.
+     */
+
+    if ((oldTypePtr != NULL) && (oldTypePtr->freeIntRepProc != NULL)) {
+	oldTypePtr->freeIntRepProc(objPtr);
+    }
+    
+    objPtr->internalRep.longValue = offset;
+    objPtr->typePtr = &tclEndOffsetType;
+
     return TCL_OK;
-}
+}    
 
 /*
  *----------------------------------------------------------------------
@@ -2309,9 +2451,9 @@ TclCheckBadOctal(interp, value)
     Tcl_Interp *interp;		/* Interpreter to use for error reporting. 
 				 * If NULL, then no error message is left
 				 * after errors. */
-    char *value;		/* String to check. */
+    CONST char *value;		/* String to check. */
 {
-    register char *p = value;
+    register CONST char *p = value;
 
     /*
      * A frequent mistake is invalid octal values due to an unwanted
@@ -2334,6 +2476,10 @@ TclCheckBadOctal(interp, value)
 	if (*p == '\0') {
 	    /* Reached end of string */
 	    if (interp != NULL) {
+		/*
+		 * Don't reset the result here because we want this result
+		 * to be added to an existing error message as extra info.
+		 */
 		Tcl_AppendResult(interp, " (looks like invalid octal number)",
 			(char *) NULL);
 	    }
@@ -2367,105 +2513,31 @@ TclCheckBadOctal(interp, value)
 CONST char *
 Tcl_GetNameOfExecutable()
 {
-    return (tclExecutableName);
+    return tclExecutableName;
 }
 
 /*
  *----------------------------------------------------------------------
  *
- * Tcl_GetCwd --
+ * TclpGetTime --
  *
- *	This function replaces the library version of getcwd().
+ *	Deprecated synonym for Tcl_GetTime.
  *
  * Results:
- *	The result is a pointer to a string specifying the current
- *	directory, or NULL if the current directory could not be
- *	determined.  If NULL is returned, an error message is left in the
- *	interp's result.  Storage for the result string is allocated in
- *	bufferPtr; the caller must call Tcl_DStringFree() when the result
- *	is no longer needed.
- *
- * Side effects:
  *	None.
  *
- *----------------------------------------------------------------------
- */
-
-char *
-Tcl_GetCwd(interp, cwdPtr)
-    Tcl_Interp *interp;
-    Tcl_DString *cwdPtr;
-{
-    return TclpGetCwd(interp, cwdPtr);
-}
-
-/*
- *----------------------------------------------------------------------
- *
- * Tcl_Chdir --
- *
- *	This function replaces the library version of chdir().
- *
- * Results:
- *	See chdir() documentation.
- *
  * Side effects:
- *	See chdir() documentation.  
+ *	Stores current time in the buffer designated by "timePtr"
+ *
+ * This procedure is provided for the benefit of extensions written
+ * before Tcl_GetTime was exported from the library.
  *
  *----------------------------------------------------------------------
  */
 
-int
-Tcl_Chdir(dirName)
-    CONST char *dirName;
+void
+TclpGetTime(timePtr)
+    Tcl_Time* timePtr;
 {
-    return TclpChdir(dirName);
-}
-
-/*
- *----------------------------------------------------------------------
- *
- * Tcl_Access --
- *
- *	This function replaces the library version of access().
- *
- * Results:
- *	See access() documentation.
- *
- * Side effects:
- *	See access() documentation.
- *
- *----------------------------------------------------------------------
- */
-
-int
-Tcl_Access(path, mode)
-    CONST char *path;		/* Path of file to access (UTF-8). */
-    int mode;			/* Permission setting. */
-{
-    return TclAccess(path, mode);
-}
-
-/*
- *----------------------------------------------------------------------
- *
- * Tcl_Stat --
- *
- *	This function replaces the library version of stat().
- *
- * Results:
- *	See stat() documentation.
- *
- * Side effects:
- *	See stat() documentation.
- *
- *----------------------------------------------------------------------
- */
-
-int
-Tcl_Stat(path, bufPtr)
-    CONST char *path;		/* Path of file to stat (in UTF-8). */
-    struct stat *bufPtr;	/* Filled with results of stat call. */
-{
-    return TclStat(path, bufPtr);
+    Tcl_GetTime(timePtr);
 }

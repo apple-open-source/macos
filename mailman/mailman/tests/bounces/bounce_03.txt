@@ -1,0 +1,109 @@
+Received: from tele-punt-22.mail.demon.net ([194.217.242.7])
+	by mail.python.org with esmtp (Exim 4.05)
+	id 18GwM4-0000D4-00
+	for mailman-users-admin@python.org; Wed, 27 Nov 2002 02:11:28 -0500
+Received: from root by tele-punt-22.mail.demon.net with local (Exim 2.12 #1)
+	id 18GwLf-0003ka-00
+	for mailman-users-admin@python.org; Wed, 27 Nov 2002 07:11:03 +0000
+Subject: Mail delivery failure
+Message-Id: <E18GwLf-0003ka-00@tele-punt-22.mail.demon.net>
+From: Mail Delivery System <Mailer-Daemon@tele-punt-22.mail.demon.net>
+To: mailman-users-admin@python.org
+Date: Wed, 27 Nov 2002 07:11:03 +0000
+X-Spam-Status: No, hits=-2.5 required=5.0
+	tests=FROM_MAILER_DAEMON,MAILER_DAEMON,MAILTO_WITH_SUBJ,SPAM_PHRASE_03_05
+X-Spam-Level: 
+
+This message was created automatically by mail delivery
+software. A message that you sent could not be delivered
+to all of its recipients.
+
+The following message, addressed to 'james@jeborall.demon.co.uk',
+failed because it has not been collected after 30 days
+
+Here is a copy of the first part of the message, including
+all headers.
+
+---- START OF RETURNED MESSAGE ----
+Received: from punt-2.mail.demon.net by mailstore for james@jeborall.demon.co.uk
+          id 1035738253:20:01723:229; Sun, 27 Oct 2002 17:04:13 GMT
+Received: from mail.python.org ([12.155.117.29]) by punt-2.mail.demon.net
+           id aa2004462; 27 Oct 2002 17:02 GMT
+Received: from localhost.localdomain ([127.0.0.1] helo=mail.python.org)
+	by mail.python.org with esmtp (Exim 4.05)
+	id 185qn2-0007ru-00; Sun, 27 Oct 2002 12:01:28 -0500
+Date: Sun, 27 Oct 2002 12:00:04 -0500
+Message-ID: <20021027170004.27298.9909.Mailman@mail.python.org>
+From: mailman-users-request@python.org
+Subject: Mailman-Users digest, Vol 1 #2344 - 14 msgs
+Reply-to: mailman-users@python.org
+X-Mailer: Mailman v2.0.13 (101270)
+MIME-version: 1.0
+Content-type: multipart/mixed; boundary=10.0.11.1.506.27298.1035738004.364.17787
+To: mailman-users@python.org
+Sender: mailman-users-admin@python.org
+Errors-To: mailman-users-admin@python.org
+X-BeenThere: mailman-users@python.org
+X-Mailman-Version: 2.0.13 (101270)
+Precedence: bulk
+List-Help: <mailto:mailman-users-request@python.org?subject=help>
+List-Post: <mailto:mailman-users@python.org>
+List-Subscribe: <http://mail.python.org/mailman/listinfo/mailman-users>,
+	<mailto:mailman-users-request@python.org?subject=subscribe>
+List-Id: Mailman mailing list management users <mailman-users.python.org>
+List-Unsubscribe: <http://mail.python.org/mailman/listinfo/mailman-users>,
+	<mailto:mailman-users-request@python.org?subject=unsubscribe>
+List-Archive: <http://mail.python.org/pipermail/mailman-users/>
+
+--10.0.11.1.506.27298.1035738004.364.17787
+Content-type: text/plain; charset=us-ascii
+Content-description: Masthead (Mailman-Users digest, Vol 1 #2344)
+
+Send Mailman-Users mailing list submissions to
+	mailman-users@python.org
+
+To subscribe or unsubscribe via the World Wide Web, visit
+	http://mail.python.org/mailman/listinfo/mailman-users
+or, via email, send a message with subject or body 'help' to
+	mailman-users-request@python.org
+
+You can reach the person managing the list at
+	mailman-users-admin@python.org
+
+When replying, please edit your Subject line so it is more specific
+than "Re: Contents of Mailman-Users digest..."
+
+
+--10.0.11.1.506.27298.1035738004.364.17787
+Content-type: text/plain; charset=us-ascii
+Content-description: Today's Topics (14 msgs)
+
+Today's Topics:
+
+   1. RELEASED Mailman 2.1 beta 4 (Barry A. Warsaw)
+   2. bin/arch not working (Aparajita Fishman)
+   3. Can't receive mail (Aparajita Fishman)
+   4. I have the same problem with the list not sending mail..but
+       getting confirmations... (jared sanders)
+   5. Re: RELEASED Mailman 2.1 beta 4 (Jeremy Portzer)
+   6. Re: I have the same problem with the list not sending mail..but getting confirmations... (Aparajita Fishman)
+   7. 2.1b4 problem (Fuzzy)
+   8. inetd doesn't start mailman...? (Nick Arnett)
+   9. Re: rejecting non-subscriber postings (G. Armour Van Horn)
+  10. Re: No public lists? (Armando Soto Baeza)
+  11. Re: No public lists? (Armando Soto Baeza)
+  12. Re: I have the same problem with the list not sending mail..but getting confirmations... (Armando Soto Baeza)
+  13. Re: Can't subscribe via web (Armando Soto Baeza)
+
+--10.0.11.1.506.27298.1035738004.364.17787
+Content-type: multipart/digest; boundary="__--__--"
+
+--__--__--
+
+Message: 1
+MIME-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Message-ID: <15802.52753.139705.927733@gargle.gargle.HOWL>
+---- MESSAGE TRUNCATED ----
+

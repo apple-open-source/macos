@@ -1,0 +1,146 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
+<html>
+  <head>
+    <!--
+
+    JBoss, the OpenSource J2EE webOS
+
+    This library is free software; you can redistribute it and/or modify it   
+    under the terms of the GNU Lesser General Public License as published     
+    by the Free Software Foundation; either version 2 of the License, or      
+    (at your option) any later version.                                       
+                                                                              
+    This library is distributed in the hope that it will be useful, but       
+    WITHOUT ANY WARRANTY; without even the implied warranty of                
+    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU         
+    Lesser General Public License for more details.                           
+
+    -->
+    <!-- $Id: package.html,v 1.2 2002/07/21 17:38:29 sparre Exp $ -->
+  </head>
+
+  <body bgcolor="white">
+    <p><em>The default Transaction Manager implementation</em>.
+
+
+    <h2>Package Specification</h2>
+    <ul>
+
+The classes in this package belong may be grouped into two:
+<ul>
+  <li><em>Application server interface</em>. This group consists of the
+     two classes {@link: TransactionPropagationContextFactory} and
+     {@link: TransactionPropagationContextImporter}. Together these two
+     classes form the JBoss-specific Communication Resource Manager (CRM).
+  </li>
+  <li><em>The default Transaction Service</em>. This is the rest of the
+     classes in this package. It is a very fast JTA implementation with
+     two drawbacks:
+     <ul>
+       <li>
+         It has no transactional logging or recovery after server crashes.
+       </li>
+       <li>
+         Transactions cannot be propagated from one server VM to another.
+         But the thin-client UserTransaction service works fine, in case
+         you just want to control transactions on a single server from your
+         stand-alone clients.
+       </li>
+     </ul>
+  </li>
+       
+</ul>
+    </ul>
+      
+    <h2>The JBoss-specific Communication Resource Manager</h2>
+    <p>A CRM is responsible for converting local transactions from/to a
+    form that can be serialized so it can be passed over the wire to
+    another Java VM.</p>
+    <p>The JTA specification does not define the CRM, so we have implemented
+    our own.</p>
+    <p>The J2EE specification suggests that the CRM used is the OTS
+    CosTSPortability CRM, but that depends heavily on CORBA, and JBoss is
+    not dependent on any particular object request broker technology, so
+    we do not use that.</p>
+    <p>The advantage of using our own CRM implementation instead of
+    CosTSPortablilty is twofold:
+    <ul>
+      <li>
+        JBoss does not depend on CORBA, and will run just fine without it.
+      </li>
+      <li>
+        JBoss is able to use JTA implementations that are completely
+        incompatible with OTS.
+      </li>
+    </ul>
+
+    <h2>Adapting an existing JTA implementation for JBoss</h2>
+    <p>In JBoss everything is a MBean. Implementing your JTA implementation
+    as an MBean makes it simpler to manage it in a standardized way.</p>
+    Since your JTA implementation is a service you probably want to make
+    your MBean implemementation extend from
+    <code>org.jboss.system.ServiceMBeanSupport</code>.</p>
+    When running in the server, your MBean should publish three objects
+    in JNDI:
+    <ul>
+      <li>
+        <em>java:/TransactionManager</em>
+        When this JNDI name is looked up, it should return an object instance
+        that implements <code>javax.transaction.TransactionManager</code>.
+        This is the standard JTA transaction manager that the JBoss server
+        uses to control transactions.
+      </li>
+      <li>
+        <em>java:/TransactionPropagationContextImporter</em>
+        When this JNDI name is looked up, it should return an object instance
+        that implements
+        <code>org.jboss.tm.TransactionPropagationContextImporter</code>.
+        This is used by the JBoss communication layers to convert the wire
+        representation of a transaction to a
+        <code>javax.transaction.Transaction</code> instance that can be used
+        locally.
+      </li>
+      <li>
+        <em>java:/TransactionPropagationContextFactory</em>
+        When this JNDI name is looked up, it should return an object instance
+        that implements
+        <code>org.jboss.tm.TransactionPropagationContextFactory</code>.
+        This is used by the JBoss communication layers to convert the wire
+        representation of a <code>javax.transaction.Transaction</code>
+        instance to a form that can be passed over the wire to another JBoss
+        server.
+      </li>
+    </ul>
+    <p>See the implementation of
+    <code>org.jboss.tm.TransactionManagerService</code> for an example of
+    such a MBean. Please note that the three names your MBean should publish
+    in JNDI need not refer to the same object instance as the
+    <code>TransactionManagerService</code> does.</p>
+
+    <p>Please note that the transaction propagation context (TPC) used by
+    the CRM interfaces <code>TransactionPropagationContextImporter</code>
+    and <code>TransactionPropagationContextFactory</code> is of type
+    <code>java.lang.Object</code>. This allows for the widest range of
+    possible TPC implementations. For your TPC to work with the JBoss
+    JRMP transport, it should be Java-serializable at runtime.</p>
+
+    <h2>Related Documentation</h2>
+    <ul>
+      <li>
+        <a href="http://java.sun.com/products/jta/">The JTA specification</a>
+      </li>
+      <li>
+        <a href="http://www.omg.org/technology/documents/formal/transaction_service.htm">The OTS specification</a>
+      </li>
+    </ul>
+
+    <h2>Package Status</h2>
+    <ul>
+      <li><font color="green"><b>STABLE</b></font>
+    </ul>
+
+    <!-- Put @see and @since tags down here. -->
+
+  </body>
+</html>
+

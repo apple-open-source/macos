@@ -1,0 +1,25 @@
+#!/usr/bin/perl
+
+# Strip out stuff that doesn't belong in the Gimp distribution.
+
+foreach $file (@ARGV) {
+    $output = "";
+    $do_output = 1;
+    $tmpfile = "$file.tmp";
+    open INPUT, $file or die "Can't open $file: $!\n";
+    while (<>) {
+	if (/@-@-@-@-@ NO-GIMP @-@-@-@-@/) {
+	    $do_output = 0;
+	} elsif (/@-@-@-@-@ YES-GIMP @-@-@-@-@/) {
+	    $do_output = 1;
+	} elsif ($do_output) {
+	    $output .= $_;
+	}
+    }
+    close INPUT;
+    open OUTPUT, ">$tmpfile" or die "Can't open $tmpfile: $!\n";
+    print OUTPUT $output or die "Can't write to $tmpfile: $!\n";
+    close OUTPUT or die "Can't close $tmpfile: $!\n";
+    rename $tmpfile, $file or die "Can't rename $tmpfile to $file: $!\n";
+}
+

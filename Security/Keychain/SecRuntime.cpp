@@ -20,15 +20,63 @@
 //
 
 #include <Security/SecRuntime.h>
-#include <Security/SecCFTypes.h>
+
+#ifndef NDEBUG
+#include <Security/debugging.h>
+#endif
 
 using namespace KeychainCore;
 
 //
 // SecCFObject
 //
-SecCFObject::~SecCFObject()
+SecCFObject *
+SecCFObject::optional(CFTypeRef cfTypeRef) throw()
 {
+	if (!cfTypeRef)
+		return NULL;
+
+	return const_cast<SecCFObject *>(reinterpret_cast<const SecCFObject *>(reinterpret_cast<const uint8_t *>(cfTypeRef) + kAlignedRuntimeSize));
+}
+
+SecCFObject *
+SecCFObject::required(CFTypeRef cfTypeRef, OSStatus error)
+{
+	SecCFObject *object = optional(cfTypeRef);
+	if (!object)
+		MacOSError::throwMe(error);
+
+	return object;
+}
+
+void *
+SecCFObject::allocate(size_t size, CFTypeID typeID) throw(std::bad_alloc)
+{
+	void *p = const_cast<void *>(_CFRuntimeCreateInstance(NULL, typeID,
+		size + kAlignedRuntimeSize - sizeof(CFRuntimeBase), NULL));
+	if (p == NULL)
+		throw std::bad_alloc();
+
+	reinterpret_cast<SecRuntimeBase *>(p)->isNew = true;
+
+	void *q = reinterpret_cast<void *>(reinterpret_cast<uint8_t *>(p) + kAlignedRuntimeSize);
+
+	secdebug("sec", "SecCFObject allocated %p of type %lu", q, typeID);
+
+	return q;
+}
+
+void
+SecCFObject::operator delete(void *object) throw()
+{
+	secdebug("sec", "SecCFObject operator delete %p", object);
+	CFTypeRef cfType = reinterpret_cast<CFTypeRef>(reinterpret_cast<const uint8_t *>(object) - kAlignedRuntimeSize);
+	CFRelease(cfType);
+}
+
+SecCFObject::~SecCFObject() throw()
+{
+	secdebug("sec", "SecCFObject::~SecCFObject %p", this);
 }
 
 bool
@@ -43,98 +91,22 @@ SecCFObject::hash()
 	return CFHashCode(this);
 }
 
-
-//
-// SecCFType
-//
-SecCFType::SecCFType(SecCFObject *obj) :
-	mObject(obj)
+CFStringRef
+SecCFObject::copyFormattingDesc(CFDictionaryRef dict)
 {
+	return NULL;
 }
 
-SecCFType::~SecCFType()
+CFStringRef
+SecCFObject::copyDebugDesc()
 {
-	mObject = NULL;
+	return NULL;
 }
 
-//
-// CFClassBase
-//
-CFClassBase::CFClassBase(const char *name)
+CFTypeRef
+SecCFObject::handle(bool retain) throw()
 {
-	// initialize the CFRuntimeClass structure
-	version = 0;
-	className = name;
-	init = NULL;
-	copy = NULL;
-	finalize = finalizeType;
-	equal = equalType;
-	hash = hashType;
-	copyFormattingDesc = NULL;
-	copyDebugDesc = NULL;
-	
-	// register
-	typeId = _CFRuntimeRegisterClass(this);
-	assert(typeId != _kCFRuntimeNotATypeID);
-}
-    
-void
-CFClassBase::finalizeType(CFTypeRef cf)
-{
-	const SecCFType *type = reinterpret_cast<const SecCFType *>(cf);
-	StLock<Mutex> _(gTypes().mapLock);
-	gTypes().map.erase(type->mObject.get());
-    type->~SecCFType();
-}
-    
-Boolean
-CFClassBase::equalType(CFTypeRef cf1, CFTypeRef cf2)
-{
-	const SecCFType *t1 = reinterpret_cast<const SecCFType *>(cf1); 
-	const SecCFType *t2 = reinterpret_cast<const SecCFType *>(cf2);
-	// CF checks for pointer equality and ensures type equality already
-	return t1->mObject->equal(*t2->mObject);
-}
-
-CFHashCode
-CFClassBase::hashType(CFTypeRef cf)
-{
-	return reinterpret_cast<const SecCFType *>(cf)->mObject->hash();
-}
-
-const SecCFType *
-CFClassBase::makeNew(SecCFObject *obj)
-{
-	void *p = const_cast<void *>(_CFRuntimeCreateInstance(NULL, typeId,
-		sizeof(SecCFType) - sizeof(CFRuntimeBase), NULL));
-	new (p) SecCFType(obj);
-	return reinterpret_cast<const SecCFType *>(p);
-}
-
-const SecCFType *
-CFClassBase::handle(SecCFObject *obj)
-{
-	SecCFTypes::Map &map = gTypes().map;
-	StLock<Mutex> _(gTypes().mapLock);
-	SecCFTypes::Map::const_iterator it = map.find(obj);
-	if (it == map.end())
-	{
-		const SecCFType *p = makeNew(obj);
-		map[obj] = p;
-		return p;
-	}
-	else
-	{
-		CFRetain(it->second);
-		return it->second;
-	}
-}
-
-SecCFObject *
-CFClassBase::required(const SecCFType *type, OSStatus errorCode)
-{
-	if (!type)
-		MacOSError::throwMe(errorCode);
-
-	return type->mObject.get();
+	CFTypeRef cfType = *this;
+	if (retain && !isNew()) CFRetain(cfType);
+	return cfType;
 }

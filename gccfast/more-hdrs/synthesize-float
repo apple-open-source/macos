@@ -1,0 +1,55 @@
+#!/bin/sh
+#
+# Synthesize float.h to be installed in the the system.
+#
+# This used to do all sorts of things, but now it just makes one change
+# to support FLT_ROUNDS.
+#
+# This script is only called from the top-level GNUmakefile.  It
+# is called as follows:
+#
+# synthesize_float $(SRCROOT) file $(RC_RELEASE)
+#
+# i.e., it will process $(SRCROOT)/gcc/config/float.h and
+# and output the header into the file.
+#
+cat <<EOF >"$2"
+/* float.h */
+#ifndef _FLOAT_H_
+#define _FLOAT_H_
+
+EOF
+
+cat "$1"/gcc/ginclude/float.h | grep -v _FLOAT_H___ >>"$2"
+
+cat <<EOF >/tmp/fegetfltrounds$$.c
+extern int __fegetfltrounds (void);
+int main()
+{
+  return __fegetfltrounds ();
+}
+EOF
+
+set -x
+if [ "$3" != "Proton" ]; then
+    if cc /tmp/fegetfltrounds$$.c -o /tmp/xfegetfltrounds.$$ &> /dev/null; then
+cat <<EOF >>"$2"
+
+#ifdef __cplusplus
+extern "C" {
+#endif
+extern int __fegetfltrounds( void ); 
+#ifdef __cplusplus
+}
+#endif
+#undef FLT_ROUNDS
+#define FLT_ROUNDS (__fegetfltrounds ())
+EOF
+    fi
+    rm -f /tmp/fegetfltrounds$$.c /tmp/xfegetfltrounds.$$
+fi
+
+cat <<EOF >>"$2"
+
+#endif /* _FLOAT_H_ */
+EOF

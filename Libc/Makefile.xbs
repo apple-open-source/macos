@@ -23,60 +23,85 @@
 .MAIN: all
 all: libc.a libc_static.a libc_debug.a libc_profile.a
 install: installhdrs install_libc.a install_libc_static.a \
-         install_libc_profile.a install_libc_debug.a maninstall
+	 install_libc_profile.a install_libc_debug.a fbsdman maninstall
 
 .SUFFIXES:
-.SUFFIXES: .o .po .So .do .S .s .c .cc .cpp .cxx .m .C .f .y .l .defs .h
+.SUFFIXES: .o .po .So .do .S .s -fbsd.c .c .cc .cpp .cxx .m .C .f .y .l .defs .h
+.SUFFIXES: User.c User.o User.po User.So User.do
+.SUFFIXES: Server.c Server.o Server.po Server.So Server.do
 
 OBJS+=  ${SRCS:N*.h:R:S/$/.o/g}
 POBJS+= ${OBJS:.o=.po} ${STATICOBJS:.o=.po}
 SOBJS+= ${OBJS:.o=.So}
+FBSDFLAGS= -I${.CURDIR}/fbsdcompat -include _fbsd_compat_.h
 
-.c.o:
-	${CC} -static ${CFLAGS} -c ${.IMPSRC} -o ${.TARGET}
-.c.po: 
+-fbsd.c.o:
+	${CC} -static ${FBSDFLAGS} ${CFLAGS} -Os -c ${.IMPSRC} -o ${.TARGET}
+.c.o User.cUser.o Server.cServer.o:
+	${CC} -static ${CFLAGS} -Os -c ${.IMPSRC} -o ${.TARGET}
+-fbsd.c.po:
+	${CC} -pg -DPROFILE ${FBSDFLAGS} ${CFLAGS} -Os -c ${.IMPSRC} \
+	    -o ${.TARGET}
+.c.po User.cUser.po Server.cServer.po:
 	${CC} -pg -DPROFILE ${CFLAGS} -Os -c ${.IMPSRC} -o ${.TARGET}
-.c.So:
+-fbsd.c.So: 
+	${CC} ${FBSDFLAGS} ${CFLAGS} -Os -c ${.IMPSRC} -o ${.TARGET}
+.c.So User.cUser.So Server.cServer.So: 
 	${CC} ${CFLAGS} -Os -c ${.IMPSRC} -o ${.TARGET}
-.c.do:
+-fbsd.c.do:
+	${CC} -g -DDEBUG ${FBSDFLAGS} ${CFLAGS} -c ${.IMPSRC} -o ${.TARGET}
+.c.do User.cUser.do Server.cServer.do:
 	${CC} -g -DDEBUG ${CFLAGS} -c ${.IMPSRC} -o ${.TARGET}
+-fbsd.s.o:
+	${CC} -x assembler-with-cpp ${FBSDFLAGS} ${CFLAGS:M-[BID]*} \
+	    -static ${AINC} -c ${.IMPSRC} -o ${.TARGET}
 .s.o:
 	${CC} -x assembler-with-cpp ${CFLAGS:M-[BID]*} -static ${AINC} -c \
-            ${.IMPSRC} -o ${.TARGET}
+	    ${.IMPSRC} -o ${.TARGET}
+-fbsd.s.po:
+	${CC} -pg -DPROFILE -x assembler-with-cpp ${FBSDFLAGS} \
+	    ${CFLAGS:M-[BID]*} -Os ${AINC} -c ${.IMPSRC} -o ${.TARGET}
 .s.po:
 	${CC} -pg -DPROFILE -x assembler-with-cpp ${CFLAGS:M-[BID]*} -Os \
-            ${AINC} -c ${.IMPSRC} -o ${.TARGET}
+	    ${AINC} -c ${.IMPSRC} -o ${.TARGET}
+-fbsd.s.So:
+	${CC} -x assembler-with-cpp ${FBSDFLAGS} \
+	    ${CFLAGS:M-[BID]*} -Os ${AINC} -c ${.IMPSRC} -o ${.TARGET}
 .s.So:
 	${CC} -x assembler-with-cpp \
-            ${CFLAGS:M-[BID]*} -Os ${AINC} -c ${.IMPSRC} -o ${.TARGET}
+	    ${CFLAGS:M-[BID]*} -Os ${AINC} -c ${.IMPSRC} -o ${.TARGET}
+-fbsd.s.do:
+	${CC} -DDEBUG -g -x assembler-with-cpp ${FBSDFLAGS} ${CFLAGS:M-[BID]*} \
+	    ${AINC} -c ${.IMPSRC} -o ${.TARGET}
 .s.do:
 	${CC} -DDEBUG -g -x assembler-with-cpp ${CFLAGS:M-[BID]*} ${AINC} -c \
-            ${.IMPSRC} -o ${.TARGET}
-.defs.h:
-	mig -user ${.TARGET:S/.h$/User.c/} \
-		-server ${.TARGET:S/.h$/Server.c/} -header ${.TARGET} ${.IMPSRC}
+	    ${.IMPSRC} -o ${.TARGET}
+.defs.h .defsUser.c .defsServer.c:
+	mig -arch ${MACHINE_ARCH} -user ${.PREFIX}User.c -server ${.PREFIX}Server.c -header ${.PREFIX}.h ${.IMPSRC}
 
-gen_mig_defs: ${SRVMIGHDRS} ${MIGHDRS} 
-lib${LIB}_static.a:: ${OBJS} ${STATICOBJS} 
+gen_mig_defs: ${SRVMIGHDRS} ${MIGHDRS}
+gen_md_mig_defs: ${MD_MIGHDRS}
+
+lib${LIB}_static.a:: ${FBSDHDRS} ${OBJS} ${STATICOBJS} 
 	@${ECHO} building static ${LIB} library
 	@rm -f lib${LIB}_static.a
 	@${AR} cq lib${LIB}_static.a `lorder ${OBJS} ${STATICOBJS} | tsort -q` ${ARADD}
 	${RANLIB} lib${LIB}_static.a
 
-lib${LIB}_profile.a:: ${POBJS} 
+lib${LIB}_profile.a:: ${FBSDHDRS} ${POBJS} 
 	@${ECHO} building profiled ${LIB} library
 	@rm -f lib${LIB}_profile.a
 	@${AR} cq lib${LIB}_profile.a `lorder ${POBJS} | tsort -q` ${ARADD}
 	${RANLIB} lib${LIB}_profile.a
 
 DOBJS+= ${OBJS:.o=.do}
-lib${LIB}_debug.a:: ${DOBJS}
+lib${LIB}_debug.a:: ${FBSDHDRS} ${DOBJS}
 	@${ECHO} building debug ${LIB} library
 	@rm -f lib${LIB}_debug.a
 	@${AR} cq lib${LIB}_debug.a `lorder ${DOBJS} | tsort -q` ${ARADD}
 	${RANLIB} lib${LIB}_debug.a
 
-lib${LIB}.a:: ${SOBJS}
+lib${LIB}.a:: ${FBSDHDRS} ${SOBJS}
 	@${ECHO} building standard ${LIB} library
 	@rm -f lib${LIB}.a
 	@${AR} cq lib${LIB}.a `lorder ${SOBJS} | tsort -q` ${ARADD}
@@ -84,31 +109,42 @@ lib${LIB}.a:: ${SOBJS}
 
 CLEANFILES += ${DOBJS} libc_static.a libc_profile.a libc_debug.a
 
-installhdrs: gen_mig_defs
-	mkdir -p ${DESTDIR}/usr/include/arpa
-	mkdir -p ${DESTDIR}/usr/include/protocols
-	mkdir -p ${DESTDIR}/usr/include/mach
-	mkdir -p ${DESTDIR}/usr/include/objc
-	mkdir -p ${DESTDIR}/usr/include/servers
-	${INSTALL} -c -m 444 ${INSTHDRS} ${DESTDIR}/usr/include
-	${INSTALL} -c -m 444 ${ARPA_INSTHDRS} ${DESTDIR}/usr/include/arpa
-	${INSTALL} -c -m 444 ${PROTO_INSTHDRS} ${DESTDIR}/usr/include/protocols
-	${INSTALL} -c -m 444 ${MACH_INSTHDRS} ${DESTDIR}/usr/include/mach
-	${INSTALL} -c -m 444 ${OBJC_INSTHDRS} ${DESTDIR}/usr/include/objc
-	${INSTALL} -c -m 444 ${SRVHDRS} ${DESTDIR}/usr/include/servers
-	mv ${DESTDIR}/usr/include/servers/srvbootstrap.h ${DESTDIR}/usr/include/servers/bootstrap.h
-	mkdir -p ${DESTDIR}/System/Library/Frameworks/System.framework/Versions/B/PrivateHeaders/
-	mkdir -p ${DESTDIR}/System/Library/Frameworks/System.framework/Versions/B/PrivateHeaders/architecture
-	mkdir -p ${DESTDIR}/System/Library/Frameworks/System.framework/Versions/B/PrivateHeaders/architecture/ppc
-	mkdir -p ${DESTDIR}/System/Library/Frameworks/System.framework/Versions/B/PrivateHeaders/btree
-	mkdir -p ${DESTDIR}/System/Library/Frameworks/System.framework/Versions/B/PrivateHeaders/machine
-	mkdir -p ${DESTDIR}/System/Library/Frameworks/System.framework/Versions/B/PrivateHeaders/objc
-	install -c -m 444 ${SRCROOT}/db/btree/btree.h ${DESTDIR}/System/Library/Frameworks/System.framework/Versions/B/PrivateHeaders/btree
-	install -c -m 444 ${SRCROOT}/db/btree/bt_extern.h ${DESTDIR}/System/Library/Frameworks/System.framework/Versions/B/PrivateHeaders/btree
-	install -c -m 444 ${SRCROOT}/ppc/sys/processor_facilities.h ${DESTDIR}/System/Library/Frameworks/System.framework/Versions/B/PrivateHeaders/architecture/ppc
-	install -c -m 444 ${SRCROOT}/internat/NXCType.h ${DESTDIR}/System/Library/Frameworks/System.framework/Versions/B/PrivateHeaders/objc
-	install -c -m 444 ${SRCROOT}/gen/stack_logging.h ${DESTDIR}/System/Library/Frameworks/System.framework/Versions/B/PrivateHeaders/
-	mv ${DESTDIR}/usr/include/asm.h ${DESTDIR}/System/Library/Frameworks/System.framework/Versions/B/PrivateHeaders/machine
+INCDIR = ${DESTDIR}/usr/include
+LOCINCDIR = ${DESTDIR}/usr/local/include
+SYSTEMFRAMEWORK = ${DESTDIR}/System/Library/Frameworks/System.framework
+PRIVHDRS = ${SYSTEMFRAMEWORK}/Versions/B/PrivateHeaders
+
+installhdrs-md: gen_md_mig_defs
+	mkdir -p ${INCDIR}/mach/${MACHINE_ARCH}
+	${INSTALL} -c -m 444 ${MD_MIGHDRS} ${INCDIR}/mach/${MACHINE_ARCH}
+
+installhdrs: ${FBSDHDRS} gen_mig_defs
+	mkdir -p ${INCDIR}/arpa
+	mkdir -p ${INCDIR}/mach
+	mkdir -p ${INCDIR}/malloc
+	mkdir -p ${INCDIR}/objc
+	mkdir -p ${INCDIR}/protocols
+	mkdir -p ${INCDIR}/servers
+	${INSTALL} -c -m 444 ${INSTHDRS} ${INCDIR}
+	${INSTALL} -c -m 444 ${ARPA_INSTHDRS} ${INCDIR}/arpa
+	${INSTALL} -c -m 444 ${MACH_INSTHDRS} ${INCDIR}/mach
+	${INSTALL} -c -m 444 ${MALLOC_INSTHDRS} ${INCDIR}/malloc
+	${INSTALL} -c -m 444 ${OBJC_INSTHDRS} ${INCDIR}/objc
+	${INSTALL} -c -m 444 ${PROTO_INSTHDRS} ${INCDIR}/protocols
+	${INSTALL} -c -m 444 ${SRVHDRS} ${INCDIR}/servers
+	mkdir -p ${LOCINCDIR}
+	${INSTALL} -c -m 444 ${LOCALHDRS} ${LOCINCDIR}
+	mkdir -p ${PRIVHDRS}/architecture/ppc
+	mkdir -p ${PRIVHDRS}/btree
+	mkdir -p ${PRIVHDRS}/machine
+	mkdir -p ${PRIVHDRS}/objc
+	${INSTALL} -c -m 444 ${SRCROOT}/ppc/sys/processor_facilities.h ${PRIVHDRS}/architecture/ppc
+	${INSTALL} -c -m 444 ${SRCROOT}/db/btree/btree.h ${PRIVHDRS}/btree
+	${INSTALL} -c -m 444 ${SRCROOT}/db/btree/bt_extern.h ${PRIVHDRS}/btree
+	${INSTALL} -c -m 444 ${SRCROOT}/internat/NXCType.h ${PRIVHDRS}/objc
+	${INSTALL} -c -m 444 ${SRCROOT}/gen/stack_logging.h ${PRIVHDRS}
+	mv ${DESTDIR}/usr/include/asm.h ${PRIVHDRS}/machine
+	mv ${INCDIR}/servers/srvbootstrap.h ${INCDIR}/servers/bootstrap.h
 
 install_lib${LIB}_static.a:
 	${INSTALL} -c -m 444 lib${LIB}_static.a ${DESTDIR}/usr/local/lib/system/
@@ -118,6 +154,8 @@ install_lib${LIB}_debug.a:
 	${INSTALL} -c -m 444 lib${LIB}_debug.a ${DESTDIR}/usr/local/lib/system/
 install_lib${LIB}.a:
 	${INSTALL} -c -m 444 lib${LIB}.a ${DESTDIR}/usr/local/lib/system/
+
+fbsdman: ${FBSDPATCHMAN}
 
 clean:
 	rm -f ${OBJS} ${POBJS} ${DOBJS} ${SOBJS} ${CLEANFILES}

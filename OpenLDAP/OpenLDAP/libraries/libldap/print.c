@@ -1,6 +1,6 @@
-/* $OpenLDAP: pkg/ldap/libraries/libldap/print.c,v 1.10 2002/01/04 20:17:39 kurt Exp $ */
+/* $OpenLDAP: pkg/ldap/libraries/libldap/print.c,v 1.10.2.2 2003/03/03 17:10:05 kurt Exp $ */
 /*
- * Copyright 1998-2002 The OpenLDAP Foundation, All Rights Reserved.
+ * Copyright 1998-2003 The OpenLDAP Foundation, All Rights Reserved.
  * COPYING RESTRICTIONS APPLY, see COPYRIGHT file
  */
 
@@ -43,15 +43,8 @@ int ldap_log_printf( LDAP *ld, int loglvl, const char *fmt, ... )
 
 	va_start( ap, fmt );
 
-#ifdef HAVE_VSNPRINTF
 	buf[sizeof(buf) - 1] = '\0';
 	vsnprintf( buf, sizeof(buf)-1, fmt, ap );
-#elif HAVE_VSPRINTF
-	vsprintf( buf, fmt, ap ); /* hope it's not too long */
-#else
-	/* use doprnt() */
-	chokeme = "choke me! I don't have a doprnt manual handy!";
-#endif
 
 	va_end(ap);
 

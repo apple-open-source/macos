@@ -29,6 +29,7 @@
 #include <IOKit/IOUserClient.h>
 #include <IOKit/audio/IOAudioEngine.h>
 #include <IOKit/audio/IOAudioTypes.h>
+#include <IOKit/IOBufferMemoryDescriptor.h>
 
 class IOAudioEngine;
 class IOAudioStream;
@@ -80,7 +81,7 @@ protected:
     IOWorkLoop					*workLoop;
     IOCommandGate				*commandGate;
 
-    IOExternalMethod			methods[kIOAudioEngineNumCalls];
+    IOExternalMethod			old_methods[5];		// It's size can't be changed for binary compatibility reasons, no longer used.
     IOExternalTrap				trap;
 
     task_t						clientTask;
@@ -96,21 +97,26 @@ protected:
 protected:
     struct ExpansionData {
 		IOAudioClientBufferExtendedInfo		*extendedInfo;
+		IOExternalMethod					methods[kIOAudioEngineNumCalls];		// This size can be changed, this is the new methods pointer
+ 		UInt32								classicMode;
+//		void								*securityToken;
 	};
-    
+
     ExpansionData *reserved;
 
 public:
 	// New code added here...
 	virtual IOReturn registerClientParameterBuffer (void *parameterBuffer, UInt32 bufferSetID);
 	virtual IOAudioClientBufferExtendedInfo * findExtendedInfo(UInt32 bufferSetID);
+	virtual IOReturn getNearestStartTime(IOAudioStream *audioStream, IOAudioTimeStamp *ioTimeStamp, UInt32 isInput);
+	virtual IOReturn getClientNearestStartTime(IOAudioStream *audioStream, IOAudioTimeStamp *ioTimeStamp, UInt32 isInput);
 
 private:
     OSMetaClassDeclareReservedUsed(IOAudioEngineUserClient, 0);
     OSMetaClassDeclareReservedUsed(IOAudioEngineUserClient, 1);
+    OSMetaClassDeclareReservedUsed(IOAudioEngineUserClient, 2);
+    OSMetaClassDeclareReservedUsed(IOAudioEngineUserClient, 3);
 
-    OSMetaClassDeclareReservedUnused(IOAudioEngineUserClient, 2);
-    OSMetaClassDeclareReservedUnused(IOAudioEngineUserClient, 3);
     OSMetaClassDeclareReservedUnused(IOAudioEngineUserClient, 4);
     OSMetaClassDeclareReservedUnused(IOAudioEngineUserClient, 5);
     OSMetaClassDeclareReservedUnused(IOAudioEngineUserClient, 6);
@@ -182,10 +188,12 @@ public:
     
     static IOReturn registerBufferAction(OSObject *owner, void *arg1, void *arg2, void *arg3, void *arg4);
     static IOReturn unregisterBufferAction(OSObject *owner, void *arg1, void *arg2, void *arg3, void *arg4);
-    
+
     virtual IOReturn registerClientBuffer(IOAudioStream *audioStream, void *sourceBuffer, UInt32 bufSizeInBytes, UInt32 bufferSetID);
     virtual IOReturn unregisterClientBuffer(void *sourceBuffer, UInt32 bufferSetID);
     
+    static IOReturn getNearestStartTimeAction(OSObject *owner, void *arg1, void *arg2, void *arg3, void *arg4);
+
     virtual IOAudioClientBufferSet *findBufferSet(UInt32 bufferSetID);
     virtual void removeBufferSet(IOAudioClientBufferSet *bufferSet);
     

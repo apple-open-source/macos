@@ -9,11 +9,12 @@
  *
  * Copyright (c) 1995-1997 Sun Microsystems, Inc.
  * Copyright (c) 1998 by Scriptics Corporation.
+ * Copyright (c) 2003 by Kevin B. Kenny.  All rights reserved.
  *
  * See the file "license.terms" for information on usage and redistribution
  * of this file, and for a DISCLAIMER OF ALL WARRANTIES.
  *
- * RCS: @(#) $Id: tclNotify.c,v 1.1.1.4 2000/12/06 23:03:29 wsanchez Exp $
+ * RCS: @(#) $Id: tclNotify.c,v 1.1.1.5 2003/03/06 00:10:49 landonf Exp $
  */
 
 #include "tclInt.h"
@@ -116,7 +117,7 @@ TclInitNotifier()
     Tcl_MutexLock(&listLock);
 
     tsdPtr->threadId = Tcl_GetCurrentThread();
-    tsdPtr->clientData = Tcl_InitNotifier();
+    tsdPtr->clientData = tclStubs.tcl_InitNotifier();
     tsdPtr->nextPtr = firstNotifierPtr;
     firstNotifierPtr = tsdPtr;
 
@@ -146,10 +147,23 @@ TclFinalizeNotifier()
 {
     ThreadSpecificData *tsdPtr = TCL_TSD_INIT(&dataKey);
     ThreadSpecificData **prevPtrPtr;
+    Tcl_Event *evPtr, *hold;
+
+    Tcl_MutexLock(&(tsdPtr->queueMutex));
+    for (evPtr = tsdPtr->firstEventPtr; evPtr != (Tcl_Event *) NULL; ) {
+	hold = evPtr;
+	evPtr = evPtr->nextPtr;
+	ckfree((char *) hold);
+    }
+    tsdPtr->firstEventPtr = NULL;
+    tsdPtr->lastEventPtr = NULL;
+    Tcl_MutexUnlock(&(tsdPtr->queueMutex));
 
     Tcl_MutexLock(&listLock);
 
-    Tcl_FinalizeNotifier(tsdPtr->clientData);
+    if (tclStubs.tcl_FinalizeNotifier) {
+	tclStubs.tcl_FinalizeNotifier(tsdPtr->clientData);
+    }
     Tcl_MutexFinalize(&(tsdPtr->queueMutex));
     for (prevPtrPtr = &firstNotifierPtr; *prevPtrPtr != NULL;
 	 prevPtrPtr = &((*prevPtrPtr)->nextPtr)) {
@@ -192,6 +206,10 @@ Tcl_SetNotifier(notifierProcPtr)
 #endif
     tclStubs.tcl_SetTimer = notifierProcPtr->setTimerProc;
     tclStubs.tcl_WaitForEvent = notifierProcPtr->waitForEventProc;
+    tclStubs.tcl_InitNotifier = notifierProcPtr->initNotifierProc;
+    tclStubs.tcl_FinalizeNotifier = notifierProcPtr->finalizeNotifierProc;
+    tclStubs.tcl_AlertNotifier = notifierProcPtr->alertNotifierProc;
+    tclStubs.tcl_ServiceModeHook = notifierProcPtr->serviceModeHookProc;
 }
 
 /*
@@ -492,14 +510,14 @@ Tcl_DeleteEvents(proc, clientData)
         if ((*proc) (evPtr, clientData) == 1) {
             if (tsdPtr->firstEventPtr == evPtr) {
                 tsdPtr->firstEventPtr = evPtr->nextPtr;
-                if (evPtr->nextPtr == (Tcl_Event *) NULL) {
-                    tsdPtr->lastEventPtr = prevPtr;
-                }
-		if (tsdPtr->markerEventPtr == evPtr) {
-		    tsdPtr->markerEventPtr = prevPtr;
-		}
             } else {
                 prevPtr->nextPtr = evPtr->nextPtr;
+            }
+            if (evPtr->nextPtr == (Tcl_Event *) NULL) {
+                tsdPtr->lastEventPtr = prevPtr;
+            }
+            if (tsdPtr->markerEventPtr == evPtr) {
+                tsdPtr->markerEventPtr = prevPtr;
             }
             hold = evPtr;
             evPtr = evPtr->nextPtr;
@@ -706,7 +724,9 @@ Tcl_SetServiceMode(mode)
 
     oldMode = tsdPtr->serviceMode;
     tsdPtr->serviceMode = mode;
-    Tcl_ServiceModeHook(mode);
+    if (tclStubs.tcl_ServiceModeHook) {
+	tclStubs.tcl_ServiceModeHook(mode);
+    }
     return oldMode;
 }
 
@@ -1072,7 +1092,9 @@ Tcl_ThreadAlert(threadId)
     Tcl_MutexLock(&listLock);
     for (tsdPtr = firstNotifierPtr; tsdPtr; tsdPtr = tsdPtr->nextPtr) {
 	if (tsdPtr->threadId == threadId) {
-	    Tcl_AlertNotifier(tsdPtr->clientData);
+	    if (tclStubs.tcl_AlertNotifier) {
+		tclStubs.tcl_AlertNotifier(tsdPtr->clientData);
+	    }
 	    break;
 	}
     }

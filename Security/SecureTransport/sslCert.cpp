@@ -152,12 +152,38 @@ SSLProcessCertificate(SSLBuffer message, SSLContext *ctx)
 			return noErr;
 		}
 		else {
+			AlertDescription desc;
+			if(ctx->negProtocolVersion == SSL_Version_3_0) {
+				/* this one's for SSL3 only */
+				desc = SSL_AlertBadCert;
+			}
+			else {
+				desc = SSL_AlertCertUnknown;
+			}
+			SSLFatalSessionAlert(desc, ctx);
 			return errSSLXCertChainInvalid;
 		}
     }
-    if((err = sslVerifyCertChain(ctx, *ctx->peerCert)) != 0) 
+    if((err = sslVerifyCertChain(ctx, *ctx->peerCert)) != 0) {
+		AlertDescription desc;
+		switch(err) {
+			case errSSLUnknownRootCert:
+			case errSSLNoRootCert:
+				desc = SSL_AlertUnknownCA;
+				break;
+			case errSSLCertExpired:
+			case errSSLCertNotYetValid:
+				desc = SSL_AlertCertExpired;
+				break;
+			case errSSLXCertChainInvalid:
+			default:
+				desc = SSL_AlertCertUnknown;
+				break;
+		}
+		SSLFatalSessionAlert(desc, ctx);
         return err;
-
+	}
+	
 	/* peer's certificate is the last one in the chain */
     cert = ctx->peerCert;
     while (cert->next != 0)
@@ -323,7 +349,7 @@ SSLEncodeCertificateVerify(SSLRecord &certVerify, SSLContext *ctx)
     SSLEncodeInt(certVerify.contents.data+1, len+2, 3);
     SSLEncodeInt(certVerify.contents.data+4, len, 2);
 
-	err = sslRsaRawSign(ctx,
+	err = sslRawSign(ctx,
 		ctx->signingPrivKey,
 		ctx->signingKeyCsp,
 		hashData,						// data to sign 
@@ -390,7 +416,7 @@ SSLProcessCertificateVerify(SSLBuffer message, SSLContext *ctx)
 	/* 
 	 * The CSP does the decrypt & compare for us in one shot
 	 */
-	err = sslRsaRawVerify(ctx,
+	err = sslRawVerify(ctx,
 		ctx->peerPubKey,
 		ctx->peerPubKeyCsp,		// FIXME - maybe we just use cspHand?
 		hashData,				// data to verify
@@ -398,6 +424,7 @@ SSLProcessCertificateVerify(SSLBuffer message, SSLContext *ctx)
 		message.data + 2, 		// signature
 		signatureLen);
 	if(err) {
+		SSLFatalSessionAlert(SSL_AlertDecryptError, ctx);
 		goto fail;
 	}
     err = noErr;

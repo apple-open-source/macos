@@ -4,18 +4,15 @@
 #
 # Checks for the availability of XNU (kernel) header files which are
 # needed by "lsof".  If the header files are not currently available
-# then we will check them out from the Darwin CVS repository.
+# then they will be extracted from an appropriate open source tarball,
+# downloaded from ${DS}.
 #
-# Note: You must be a registered Darwin user in order to access
-#       the Darwin sources.
+# Note: You must supply a registered Darwin user name and its password to
+#       download the XNU header file tarball.
 #
-#       See http://www.opensource.apple.com/tools/cvs/docs.html
+# Usage: file1 file2 ...
 #
-# Usage: dir file1 file2 ...
-#
-# Where: dir	the Darwin frameworks path -- e.g., /System/Library/Frameworks
-#
-#	 file1	first header file to get
+# Where: file1	first header file to get
 #	 file2	second header file to get
 #
 # Exit:
@@ -25,127 +22,113 @@
 #
 #	STDOUT: "" if all header files are available
 #		"<error message>" if not all header files are available
+#set -x	# for DEBUGging
 
 # Pre-defined constants
 
-L=`pwd`/dialects/darwin/include		# local header file path
+DS="http://www.opensource.apple.com/darwinsource"
+L=`pwd`/dialects/darwin			# local header file path
+P="xnu/bsd"				# xnu tar path prefix
 S=`basename $0 .sh`			# script's base name
+T=xnu					# tar base name
+TB=${T}.tar				# tarball name
+TBGZ=${TB}.gz				# gzip'd tarball
+TD=/tmp/${USER}.$$			# temporary directory
 
 # Other variables
 
-BR=""					# open source branch
-DUN=""					# Darwin registered user name
-HS=0					# missing header file status
-UH=0					# if 1, some missing header files are
-					# also unavailable via CVS
+MH=""					# missing header file status
+UH=0					# unavailable header file status
 
-# Check argument count.  There must be at least two arguments.
+# Check argument count.  There must be at least one argument.
 
-if test $# -lt 2	# {
+if test $# -lt 1	# {
 then
   echo "insufficient arguments: $#"
   exit 1
 fi	# }
 
-# Save frameworks path.
+# Record the header files that aren't already available in ${MH}.
 
-F=$1
-shift
-
-# See if all header files are available in the frameworks tree.
-
-for h in $*	# {
+for i in $*
 do
-  if test ! -f ${F}/System.framework/PrivateHeaders/${h}	# {
+  if test ! -r ${L}/${P}/$i
   then
-    HS=1
-  fi	# }
-done	# }
-if test $HS -eq 0	# {
+    if test "X$MH" = "X"
+    then
+      MH=$i
+    else
+      MH="$MH $i"
+    fi
+  fi
+done
+if test "X$MH" = "X"
 then
-  
-  # All header files are available. Return success.
+
+  # All header files are available, so exit cleanly.
 
   exit 0
-fi	# }
+fi
 
-# Not all header files are available in the framworks tree.  Use cvs to
-# get them.
+# Get the registered Darwin user name and password.
 
-# First get the registered Darwin user name.
-
-trap 'echo TRAP; exit 1' 1 2 3 15
+trap 'stty echo; echo TRAP; rm -rf $TD; exit 1' 1 2 3 15
 cat << .CAT_MARK
 
------------------------------------------------------------------
+---------------------------------------------------------------------
 
-It's necessary to check out some XNU kernel header files from the
-open source CVS repository.  See this URL for more information:
+It's necessary to download a Darwin open source tarball and extract
+some some XNU kernel header files from it.  The tarball will be
+downloaded to $TD and gunzip'd there.  The resulting tar
+file will be twenty to thirty megabytes in size, and the necessary
+header files will be extracted from it to ${L}/${T}.
 
-   http://www.opensource.apple.com/tools/cvs/docs.html
+You must first specify your registered Darwin user name and password
+in order to download the tarball.
 
-You must first specify your registered Darwin user name in order
-to access the open source repository.  The companion Darwin user
-name password must be stored in ~/.cvspass.
+You must then specify the open source branch from which the tarball
+should be downloaded.
 
-You must also specify the open source branch from which the headers
-should be obtained.
 .CAT_MARK
 END=0
 while test $END = 0	# {
 do
-  echo ""
   echo -n "What is your registered Darwin user name? "
   read DUN EXCESS
   if test "X$DUN" = "X"	# {
   then
     echo ""
-    echo "Please enter a non-empty name."
+    echo "+=====================================+"
+    echo "| Please enter a non-empty user name. |"
+    echo "+=====================================+"
+    echo ""
   else
     END=1
   fi	# }
 done	# }
-
-# Warn if there's no ~/.cvspass file.
-
-if test ! -f ${HOME}/.cvspass	# {
-then
-  cat << .CAT_MARK
-
-!!!WARNING!!!   !!!WARNING!!!   !!!WARNING!!!   !!!WARNING!!!   !!!WARNING!!!
-
-There is no ~/.cvspass, so a CVS checkout will fail the authentication
-test.
-
-Hint: don't continue; exit, set CVSROOT, and do a cvs login.
-
-!!!WARNING!!!   !!!WARNING!!!   !!!WARNING!!!   !!!WARNING!!!   !!!WARNING!!!
-.CAT_MARK
-
-  END=0
-  while test $END -eq 0	# {
-  do
+stty -echo
+END=0
+while test $END = 0	# {
+do
+  echo -n "What is your registered Darwin password? "
+  read DPW EXCESS
+  if test "X$DPW" = "X"	# {
+  then
     echo ""
-    echo -n "Continue (y|n) [n]? "
-    read ANS EXCESS
-    if test "X$ANS" = "Xn" -o "X$ANS" = "XN" -o "X$ANS" = "X"	# {
-    then
-      exit 1
-    else
-      if test "X$ANS" = "Xy" -o "X$ANS" = "XY"	# {
-      then
-	END=1
-      else
-	echo ""
-	echo "Please answer y or n."
-      fi	# }
-    fi	# }
-  done	# }
-fi	#}
+    echo "+====================================+"
+    echo "| Please enter a non-empty password. |"
+    echo "+====================================+"
+    echo ""
+  else
+    END=1
+  fi	# }
+done	# }
+stty echo
 
 # Get the branch.
 
 cat << .CAT_MARK
+
 
 --------------------------------------------------------------------
 
@@ -153,69 +136,79 @@ Now you must specify the open source branch of the CVS repository
 from which the header files will be checked out.  These are some
 likely open source branches:
 
-    Darwin 1.2.1: xnu-3-1
-    Darwin 1.3.1: xnu-4-2
-    Darwin 1.4.1: xnu-9-1
-    Mac OS X 10.0   (4K78): Apple-123-5
-    Mac OS X 10.0.4 (4Q12): Apple-124-13
-    Mac OS X 10.1   (5G64): Apple-201
-    Mac OS X 10.1.1 (5M28): Apple-201-5
-    Mac OS X 10.1.2 (5P48): Apple-201-14
+    Mac OS X 10.2.2 (kernel version 6.2): 10.2.2
+    Mac OS X 10.2.4 (kernel version 6.4): 10.2.4
+    Mac OS X 10.2.5 (kernel version 6.5): 10.2.5
+    Mac OS X 10.2.6 (kernel version 6.6): 10.2.6
 
-Please specify a branch to use.  (It needn't be one of the suggested
-ones.)
+Please specify the last value of a row as the name of an open source
+branch from which to fetch the tarball.
 
 .CAT_MARK
 END=0
 while test $END = 0	# {
 do
-  echo ""
   echo -n "What branch? "
   read BR EXCESS
   if test "X$BR" = "X"	# {
   then
     echo ""
-    echo "Please enter a non-empty branch."
+    echo "+==================================+"
+    echo "| Please enter a non-empty branch. |"
+    echo "+==================================+"
+    echo ""
   else
     END=1
   fi	# }
 done	# }
 
-# Now fetch the missing header files, if possible.
+# Make a temporary directory to hold the tarball, download it and gunzip it.
 
-R=${ALT_XNU_CVSROOT:-":pserver:${DUN}@anoncvs.opensource.apple.com:/cvs/Darwin"}
-for h in $*	# {
+rm -rf $TD
+mkdir $TD
+echo "Downloading tarball to ${TD}/$TBGZ ..."
+(cd $TD;
+curl --config - --remote-name ${DS}/tarballs/${BR}/apsl/$TBGZ << _EOF
+silent
+user ${DUN}:${DPW}
+_EOF
+)
+if test ! -r ${TD}/$TBGZ -o ! -s ${TD}/$TBGZ
+then
+  echo "${S}: can't download ${TBGZ}."
+  rm -rf $TD
+  exit 1
+fi
+echo "Gunzip'ping ${TD}/$TBGZ ..."
+gunzip ${TD}/$TBGZ
+if test ! -r ${TD}/$TB -o ! -s ${TD}/$TB
+then
+  echo "${S}: gunzip of ${TD}/$TBGZ failed."
+  ls -l ${TD}/$TBGZ
+  ls -l ${TD}/$TB
+  echo "Hint: examine ${TD}/${TBGZ}."
+  echo "      It may have failed to download properly.  If you find it is not"
+  echo "      in gzip format and contains HTML, your registered Darwin user"
+  echo "      name or password may be incorrect, or the download tarball may"
+  echo "      not exist."
+  exit 1
+fi
+ls -l ${TD}/$TB
+
+# Get the required header files from the tarball.
+
+for i in $MH
 do
-  LP=${L}/${h}
-  D=`dirname $LP`
-  mkdir -p $D
-  if test -f $LP	# {
+  rm -f ${L}/${P}/$i
+  echo -n "Extracting $i ... "
+  (cd $L; tar xf ${TD}/$TB ${P}/$i > /dev/null 2>&1)
+  if test $? -eq 0
   then
-    LPT=${LP}.old
-    rm -f $LPT
-    mv $LP $LPT
+    echo "OK"
   else
-    LPT=""
-  fi	# }
-  echo "Checking out: $h"
-  cvs -l -d ${R} checkout -p -r ${BR} System/xnu/bsd/${h} > $LP 2> /dev/null
-  ERR=$?
-  if test $ERR -ne 0 -o ! -f $LP -o ! -s $LP	# {
-  then
-    rm -f $LP
-    if test $ERR -ne 0	# {
-    then
-	echo "WARNING: CVS checkout failed."
-    fi	# }
-    if test "X$LPT" != "X"	# {
-    then
-      rm -f $LP
-      mv $LPT $LP
-      echo "WARNING: using old $LP"
-    else
-      echo "ERROR: unavailable: $h"
-      UH=1
-    fi	# }
-  fi	# }
-done	# }
+    echo "UNAVAILABLE"
+    UH=1
+  fi
+done
+rm -rf $TD
 exit $UH

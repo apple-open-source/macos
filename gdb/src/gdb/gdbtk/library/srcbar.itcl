@@ -28,7 +28,7 @@
 #
 # ----------------------------------------------------------------------
 
-class SrcBar {
+itcl::class SrcBar {
   inherit itk::Widget GDBEventHandler
 
   # ------------------------------------------------------------------
@@ -428,16 +428,19 @@ class SrcBar {
   private method create_plugin_menu {} {
     global gdb_plugins
 
-    if {$gdb_plugins != ""} {
-      $Menu add menubutton plugin "PlugIn" 4
-      set plugins_available 0
-      source [file join $gdb_plugins plugins.tcl]
-      if {! $plugins_available} {
-        # No plugins are available for this configuration,
-        # so remove the menu
-        debug "No plugins configured, go remove the PlugIn menu..."
-        $Menu delete plugin
+    $Menu add menubutton plugin "PlugIn" 4
+    set plugins_available 0
+    foreach plugin_dir $gdb_plugins {
+      if {[catch {source [file join $plugin_dir plugins.tcl]} txt]} {
+	dbug E $txt
       }
+    }
+
+    if {! $plugins_available} {
+      # No plugins are available for this configuration,
+      # so remove the menu
+      debug "No plugins configured, go remove the PlugIn menu..."
+      $Menu delete plugin
     }
   }
 
@@ -459,10 +462,16 @@ class SrcBar {
   #  METHOD:  create_help_menu - Creates the standard help menu
   # ------------------------------------------------------------------  
   private method create_help_menu {} {
-
-    $Menu add menubutton help "Help" 0
-    $Menu add command Other "Help Topics" \
-      {HtmlViewer::open_help index.html} \
+    # KDE and GNOME like the help menu to be the last item in the menubar.
+    # The default Unix behavior is to be at the far right of the menubar.
+    set os [pref get gdb/compat]
+    if {$os == "KDE" || $os == "GNOME"} {
+      set helpmenu "_help"
+    } else {
+      set helpmenu "help"
+    }
+    $Menu add menubutton $helpmenu "Help" 0
+    $Menu add command Other "Help Topics" {open_help index.html} \
       -underline 0
     $Menu add separator
     $Menu add command Other "About GDB..." \
@@ -696,7 +705,7 @@ class SrcBar {
     }
     set _loaded_images 1
 
-    lappend imgs console reg stack vmake vars watch memory bp
+    lappend imgs console reg stack vars watch memory bp
     foreach name $imgs {
       image create photo ${name}_img -file [file join $gdb_ImageDir ${name}.gif]
     }

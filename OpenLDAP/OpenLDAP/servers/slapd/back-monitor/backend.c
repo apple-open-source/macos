@@ -1,6 +1,6 @@
 /* backend.c - deals with backend subsystem */
 /*
- * Copyright 1998-2002 The OpenLDAP Foundation, All Rights Reserved.
+ * Copyright 1998-2003 The OpenLDAP Foundation, All Rights Reserved.
  * COPYING RESTRICTIONS APPLY, see COPYRIGHT file
  */
 /*
@@ -58,10 +58,10 @@ monitor_subsys_backend_init(
 				&monitor_subsys[SLAPD_MONITOR_BACKEND].mss_ndn, 
 				&e_backend ) ) {
 #ifdef NEW_LOGGING
-		LDAP_LOG(( "operation", LDAP_LEVEL_CRIT,
+		LDAP_LOG( OPERATION, CRIT,
 			"monitor_subsys_backend_init: "
 			"unable to get entry '%s'\n",
-			monitor_subsys[SLAPD_MONITOR_BACKEND].mss_ndn.bv_val ));
+			monitor_subsys[SLAPD_MONITOR_BACKEND].mss_ndn.bv_val, 0, 0 );
 #else
 		Debug( LDAP_DEBUG_ANY,
 			"monitor_subsys_backend_init: "
@@ -91,15 +91,14 @@ monitor_subsys_backend_init(
 		e = str2entry( buf );
 		if ( e == NULL ) {
 #ifdef NEW_LOGGING
-			LDAP_LOG(( "operation", LDAP_LEVEL_CRIT,
+			LDAP_LOG( OPERATION, CRIT,
 				"monitor_subsys_backend_init: "
 				"unable to create entry 'cn=Backend %d,%s'\n",
-				i, 
-				monitor_subsys[SLAPD_MONITOR_BACKEND].mss_ndn.bv_val ));
+				i, monitor_subsys[SLAPD_MONITOR_BACKEND].mss_ndn.bv_val, 0 );
 #else
 			Debug( LDAP_DEBUG_ANY,
 				"monitor_subsys_backend_init: "
-				"unable to create entry 'Backend cn=%d,%s'\n%s",
+				"unable to create entry 'cn=Backend %d,%s'\n%s",
 				i, 
 				monitor_subsys[SLAPD_MONITOR_BACKEND].mss_ndn.bv_val,
 				"" );
@@ -113,6 +112,16 @@ monitor_subsys_backend_init(
 
 		attr_merge( e, monitor_ad_desc, bv );
 		attr_merge( e_backend, monitor_ad_desc, bv );
+
+		if ( bi->bi_controls ) {
+			int j;
+
+			for ( j = 0; bi->bi_controls[ j ]; j++ ) {
+				bv[0].bv_val = bi->bi_controls[ j ];
+				bv[0].bv_len = strlen( bv[0].bv_val );
+				attr_merge( e, slap_schema.si_ad_supportedControl, bv );
+			}
+		}
 		
 		mp = ( struct monitorentrypriv * )ch_calloc( sizeof( struct monitorentrypriv ), 1 );
 		e->e_private = ( void * )mp;
@@ -124,11 +133,10 @@ monitor_subsys_backend_init(
 
 		if ( monitor_cache_add( mi, e ) ) {
 #ifdef NEW_LOGGING
-			LDAP_LOG(( "operation", LDAP_LEVEL_CRIT,
+			LDAP_LOG( OPERATION, CRIT,
 				"monitor_subsys_backend_init: "
 				"unable to add entry 'cn=Backend %d,%s'\n",
-				i,
-			       	monitor_subsys[SLAPD_MONITOR_BACKEND].mss_ndn.bv_val ));
+				i, monitor_subsys[SLAPD_MONITOR_BACKEND].mss_ndn.bv_val, 0 );
 #else
 			Debug( LDAP_DEBUG_ANY,
 				"monitor_subsys_backend_init: "

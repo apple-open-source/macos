@@ -73,4 +73,4 @@ private:
 }	// end namespace Security
 
 
-#endif _H_HOSTS
+#endif /* _H_HOSTS */

@@ -1,0 +1,69 @@
+Greetings, and thanks for all of your work on the wonderful rsync!
+
+I recently had the need to transfer files only with different mod
+dates (and to *not* transfer them based on file size differences).
+This is because I'm backing up files remotely on an untrusted machine,
+so I'm encrypting them with gpg before transfer.  I discovered that
+rsync didn't already have a --date-only flag, so I added one and am
+enclosing the diffs in case you (as I hope) decide to include this
+option in future releases.
+
+Again, thanks!
+
+Best Regards,
+Jeremy Bornstein
+diff rsync-2.5.4/README rsync-2.5.4-patched/README
+70a71
+>      --date-only             only use modification date when determining if a file should be transferred
+Common subdirectories: rsync-2.5.4/doc and rsync-2.5.4-patched/doc
+diff rsync-2.5.4/generator.c rsync-2.5.4-patched/generator.c
+39a40
+> extern int date_only;
+50a52,56
+> 	if (date_only) {
+> 		return (cmp_modtime(st->st_mtime,file->modtime) == 0);
+> 	}
+> 
+> 
+Common subdirectories: rsync-2.5.4/lib and rsync-2.5.4-patched/lib
+diff rsync-2.5.4/options.c rsync-2.5.4-patched/options.c
+64a65
+> int date_only=0;
+223a225
+>   rprintf(F,"     --date-only             only use modification date when determining if a file should be transferred\n");
+265c267
+<       OPT_LOG_FORMAT, OPT_PASSWORD_FILE, OPT_SIZE_ONLY, OPT_ADDRESS,
+---
+>       OPT_LOG_FORMAT, OPT_PASSWORD_FILE, OPT_SIZE_ONLY, OPT_DATE_ONLY, OPT_ADDRESS,
+278a281
+>   {"date-only",        0,  POPT_ARG_NONE,   &date_only},
+704a708,710
+> 
+> 	if (date_only)
+> 		args[ac++] = "--date-only";
+Common subdirectories: rsync-2.5.4/packaging and rsync-2.5.4-patched/packaging
+Common subdirectories: rsync-2.5.4/popt and rsync-2.5.4-patched/popt
+diff rsync-2.5.4/rsync.1 rsync-2.5.4-patched/rsync.1
+289a290
+>      --date-only             only use modification date when determining if a file should be transferred
+363a365,371
+> .IP 
+> .IP "\fB--date-only\fP" 
+> Normally rsync will skip any files that are
+> already the same length and have the same time-stamp\&. With the
+> --date-only option files will be skipped if they have the same timestamp,
+> regardless of size\&. This may be useful when the remote files have passed
+> through a size-changing filter, e.g. for encryption\&.
+diff rsync-2.5.4/rsync.yo rsync-2.5.4-patched/rsync.yo
+260a261
+>      --date-only             only use modification date when determining if a file should be transferred
+326a328,333
+> 
+> dit(bf(--date-only)) Normally rsync will skip any files that are
+> already the same length and have the same time-stamp. With the
+> --date-only option files will be skipped if they have the same
+> timestamp, regardless of size. This may be useful when the remote
+> files have passed through a size-changing filter, e.g. for encryption.
+Common subdirectories: rsync-2.5.4/testhelp and rsync-2.5.4-patched/testhelp
+Common subdirectories: rsync-2.5.4/testsuite and rsync-2.5.4-patched/testsuite
+Common subdirectories: rsync-2.5.4/zlib and rsync-2.5.4-patched/zlib

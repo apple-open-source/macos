@@ -119,6 +119,11 @@
 #include <com_err.h>
 #include <krb5/krb5.h>
 #endif
+#ifdef __APPLE__
+#include <pam/pam_appl.h>
+#include <pam/pam_misc.h>
+#include <pam/pam_mod_misc.h>
+#endif
 
 #define	GLOBAL
 #include "extern.h"
@@ -778,11 +783,11 @@ end_login(void)
 {
 
 	if (logged_in) {
-#ifdef NO_UTMP
+#ifndef NO_UTMP
 		if (dowtmp)
-			logwtmp(ttyline, "", "");
+			ftp_logwtmp(ttyline, "", "");
 		if (doutmp)
-			logout(utmp.ut_line);
+			ftp_logout(utmp.ut_line);
 #endif /* NO_UTMP */
 	}
 			/* reset login state */
@@ -805,6 +810,7 @@ pass(const char *passwd)
 	char		*class, root[MAXPATHLEN];
 	char		*p;
 	int		 len;
+	uid_t		 euid;
 
 	class = NULL;
 	if (logged_in || askpasswd == 0) {
@@ -910,9 +916,9 @@ pass(const char *passwd)
 	gidcount = getgroups(sizeof(gidlist), gidlist);
 
 			/* open wtmp before chroot */
-#ifdef NO_UTMP
+#ifndef NO_UTMP
 	if (dowtmp)
-		logwtmp(ttyline, pw->pw_name, remotehost);
+		ftp_logwtmp(ttyline, pw->pw_name, remotehost);
 
 			/* open utmp before chroot */
 	if (doutmp) {
@@ -921,7 +927,7 @@ pass(const char *passwd)
 		(void)strncpy(utmp.ut_name, pw->pw_name, sizeof(utmp.ut_name));
 		(void)strncpy(utmp.ut_host, remotehost, sizeof(utmp.ut_host));
 		(void)strncpy(utmp.ut_line, ttyline, sizeof(utmp.ut_line));
-		login(&utmp);
+		ftp_login(&utmp);
 	}
 #endif /* NO_UTMP */
 
@@ -1012,11 +1018,16 @@ pass(const char *passwd)
 		    "/");
 		if (EMPTYSTR(homedir))
 			homedir[0] = '/';
+		euid = geteuid();
+		seteuid(0);
 		if (EMPTYSTR(root) || chroot(root) < 0) {
+			seteuid(euid);
 			syslog(LOG_NOTICE,
 			    "GUEST user %s: can't chroot to %s: %m",
 			    pw->pw_name, root);
 			goto bad_guest;
+		} else {
+			seteuid(euid);
 		}
 		if (chdir(homedir) < 0) {
 			syslog(LOG_NOTICE,
@@ -1036,11 +1047,16 @@ pass(const char *passwd)
 		    "/");
 		if (EMPTYSTR(homedir))
 			homedir[0] = '/';
+		euid = geteuid();
+		seteuid(0);
 		if (EMPTYSTR(root) || chroot(root) < 0) {
+			seteuid(euid);
 			syslog(LOG_NOTICE,
 			    "CHROOT user %s: can't chroot to %s: %m",
 			    pw->pw_name, root);
 			goto bad_chroot;
+		} else {
+			seteuid(euid);
 		}
 		if (chdir(homedir) < 0) {
 			syslog(LOG_NOTICE,
@@ -2157,9 +2173,9 @@ dologout(int status)
 	if (logged_in) {
 #ifdef NO_UTMP
 		if (dowtmp)
-			logwtmp(ttyline, "", "");
+			ftp_logwtmp(ttyline, "", "");
 		if (doutmp)
-			logout(utmp.ut_line);
+			ftp_logout(utmp.ut_line);
 #endif /* NO_UTMP */
 #ifdef KERBEROS
 		if (!notickets && krbtkfile_env)
@@ -2880,6 +2896,26 @@ logxfer(const char *command, off_t bytes, const char *file1, const char *file2,
 	    );
 }
 
+char *mystuff = NULL;
+/* This is an extremely limited pam conversation module.
+ * It is the bare minimum to get the password.
+ */
+int aapl_conv(int num_msg, const struct pam_message **msg, struct pam_response **resp, void *appdata_ptr)
+{
+	struct pam_response *reply;
+
+	if( msg[0]->msg_style != PAM_PROMPT_ECHO_OFF ) 
+		return PAM_CONV_ERR;
+
+	reply = calloc(num_msg, sizeof(struct pam_response));
+	if( reply == NULL )
+		return PAM_CONV_ERR;
+
+	reply[0].resp = mystuff;
+	*resp = reply;
+	return PAM_SUCCESS;
+}
+
 /*
  * Determine if `password' is valid for user given in `pw'.
  * Returns 2 if password expired, 1 if otherwise failed, 0 if ok
@@ -2891,6 +2927,11 @@ checkpassword(const struct passwd *pw, const char *password)
 	time_t	 expire;
 #if HAVE_GETSPNAM
 	struct spwd *spw;
+#endif
+#ifdef __APPLE__
+	pam_handle_t *pamh = NULL;
+	struct pam_conv conv = {aapl_conv, NULL};
+	int rval;
 #endif
 
 	expire = 0;
@@ -2908,15 +2949,25 @@ checkpassword(const struct passwd *pw, const char *password)
 #endif
 #endif /* HAVE_GETSPNAM */
 
+#ifdef __APPLE__
+	mystuff = password;
+	rval = pam_start("ftpd", pw->pw_name, &conv, &pamh);
+	if( rval != PAM_SUCCESS )
+		return 1;
+	rval = pam_authenticate(pamh, 0);
+	if( rval != PAM_SUCCESS ) 
+		return 1;
+#else
+
 	if (orig[0] == '\0')		/* don't allow empty passwords */
 		return 1;
-
 	new = crypt(password, orig);	/* encrypt given password */
 	if (strcmp(new, orig) != 0)	/* compare */
 		return 1;
 
 	if (expire && time(NULL) >= expire)
 		return 2;		/* check if expired */
+#endif
 
 	return 0;			/* OK! */
 }

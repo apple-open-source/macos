@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<!-- ===================================================================== -->
+<!--                                                                       -->
+<!--  HTTP Session Clustering Service Configuration                        -->
+<!--                                                                       -->
+<!-- ===================================================================== -->
+
+<server>
+
+  <!--classpath archives="jbossha.jar"/-->
+
+
+  <!-- ==================================================================== -->
+  <!-- HTTP Session clustering service                                      -->
+  <!-- ==================================================================== -->
+
+  <mbean code="org.jboss.ha.httpsession.server.ClusteredHTTPSessionService"
+         name="jboss:service=ClusteredHttpSession">
+    <depends>jboss.j2ee:service=EJB,jndiName=clustering/HTTPSession</depends>
+  </mbean>
+
+</server>

@@ -21,7 +21,7 @@
 /* This file is derived from p-typeprint.c */
 
 #include "defs.h"
-#include "obstack.h"
+#include "gdb_obstack.h"
 #include "bfd.h"		/* Binary File Description */
 #include "symtab.h"
 #include "gdbtypes.h"
@@ -786,6 +786,14 @@ pascal_type_print_base (struct type *type, struct ui_file *stream, int show,
       fputs_filtered ("set of ", stream);
       pascal_print_type (TYPE_INDEX_TYPE (type), "", stream,
 			 show - 1, level);
+      break;
+
+    case TYPE_CODE_BITSTRING:
+      fputs_filtered ("BitString", stream);
+      break;
+
+    case TYPE_CODE_STRING:
+      fputs_filtered ("String", stream);
       break;
 
     default:

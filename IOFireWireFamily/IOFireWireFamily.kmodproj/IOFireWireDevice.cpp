@@ -336,6 +336,7 @@ void IOFireWireDevice::terminateDevice(void *refcon)
 	me->fControl->openGate();
 }
 
+
 void IOFireWireDevice::free()
 {
 	FWKLOG(( "IOFireWireDevice@0x%08lx::free()\n", (UInt32)this ));		
@@ -800,6 +801,7 @@ void IOFireWireDevice::preprocessDirectories( OSDictionary * rootPropTable, OSSe
 {
 	OSObject * modelNameProperty = rootPropTable->getObject( gFireWireProduct_Name );
 	OSObject * vendorNameProperty = rootPropTable->getObject( gFireWireVendor_Name );
+	OSObject * modelIDProperty = rootPropTable->getObject( gFireWireModel_ID );
 
 	OSIterator * iterator = OSCollectionIterator::withCollection( unitSet );
 	iterator->reset();
@@ -817,6 +819,14 @@ void IOFireWireDevice::preprocessDirectories( OSDictionary * rootPropTable, OSSe
 			propTable->setObject( gFireWireProduct_Name, modelNameProperty );
 		}
 
+		// if the unit doesn't have a model ID property, but the device does
+		// then copy the property from the device
+		OSObject * unitModelIDProperty = propTable->getObject( gFireWireModel_ID );
+		if( unitModelIDProperty == NULL && modelIDProperty != NULL )
+		{
+			propTable->setObject( gFireWireModel_ID, modelIDProperty );
+		}
+		
 		// copy the vendor name (if any) from the device to the unit
 		if( vendorNameProperty )
 		{
@@ -835,6 +845,9 @@ void IOFireWireDevice::preprocessDirectories( OSDictionary * rootPropTable, OSSe
 IOReturn IOFireWireDevice::readRootDirectory( IOConfigDirectory * directory, OSDictionary * propTable )
 {
 	IOReturn status = kIOReturnSuccess;
+	
+	UInt32 	modelID = 0;
+	bool	modelIDPresent = false;
 	
 	OSString * modelName = NULL;
 	OSString * vendorName = NULL;
@@ -868,12 +881,14 @@ IOReturn IOFireWireDevice::readRootDirectory( IOConfigDirectory * directory, OSD
 	if( status == kIOReturnSuccess )
 	{
 		IOReturn 	result = kIOReturnSuccess;
-		UInt32		modelID = 0;
 		
 		result = directory->getKeyValue( kConfigModelIdKey, modelID, &modelName );
 
 		if( result == kIOFireWireConfigROMInvalid )
 			status = result;
+		
+		if( result == kIOReturnSuccess )
+			modelIDPresent = true;
 	}
 
 	// model and vendor
@@ -899,13 +914,14 @@ IOReturn IOFireWireDevice::readRootDirectory( IOConfigDirectory * directory, OSD
 		
 		if( result == kIOReturnSuccess )
 		{
-			UInt32		modelID = 0;
-			
 			result = unit->getKeyValue( kConfigModelIdKey, modelID, &t );
 	
 			if( result == kIOFireWireConfigROMInvalid )
 				status = result;
 	
+			if( result == kIOReturnSuccess )
+				modelIDPresent = true;
+				
 			if( result == kIOReturnSuccess && t != NULL )
 			{
 				if( modelName )
@@ -929,6 +945,16 @@ IOReturn IOFireWireDevice::readRootDirectory( IOConfigDirectory * directory, OSD
         
 		modelName->release();
     }
+	
+	if( modelIDPresent )
+	{
+		if( status == kIOReturnSuccess )
+		{
+			OSObject *prop = OSNumber::withNumber(modelID, 32);
+			propTable->setObject(gFireWireModel_ID, prop);
+			prop->release();
+		}
+	}
 	
 	if( vendorName != NULL )
 	{
@@ -1005,11 +1031,12 @@ IOReturn IOFireWireDevice::readUnitDirectories( IOConfigDirectory * directory, O
 		{
 			IOConfigDirectory * unit = NULL;
 		
-            while( unit = OSDynamicCast( IOConfigDirectory, unitDirs->getNextObject() ) )
+            while( (unit = OSDynamicCast(IOConfigDirectory, unitDirs->getNextObject())) )
 			{
                 UInt32 		unitSpecID = 0;
                 UInt32 		unitSoftwareVersion = 0;
                 UInt32		modelID = 0;
+				bool		modelIDPresent = false;
 				OSString *	t = NULL;
 		
                 result = unit->getKeyValue(kConfigUnitSpecIdKey, unitSpecID);
@@ -1019,6 +1046,9 @@ IOReturn IOFireWireDevice::readUnitDirectories( IOConfigDirectory * directory, O
 				if( result == kIOReturnSuccess )
 					result = unit->getKeyValue(kConfigModelIdKey, modelID, &t);
                 
+				if( result == kIOReturnSuccess )
+					modelIDPresent = true;
+					
 				if( result == kIOFireWireConfigROMInvalid )
 					status = result;
 			
@@ -1056,6 +1086,13 @@ IOReturn IOFireWireDevice::readUnitDirectories( IOConfigDirectory * directory, O
 						if( modelName )
 							propTable->setObject(gFireWireProduct_Name, modelName);
 		
+						if( modelIDPresent )
+						{
+							prop = OSNumber::withNumber(modelID, 32);
+							propTable->setObject(gFireWireModel_ID, prop);
+							prop->release();
+						}
+						
 						prop = OSNumber::withNumber(unitSpecID, 32);
 						propTable->setObject(gFireWireUnit_Spec_ID, prop);
 						prop->release();
@@ -1372,7 +1409,8 @@ void IOFireWireDevice::handleClose( IOService * forClient, IOOptionBits options 
                 IOService::handleClose( this, options );
                 
                 // terminate if we're no longer on the bus and haven't already been terminated.
-                if( fNodeID == kFWBadNodeID && !isTerminated() ) {
+                if( fNodeID == kFWBadNodeID && !isTerminated() ) 
+				{
 					setTerminated( true );
                     IOCreateThread(terminateDevice, this);
                 }

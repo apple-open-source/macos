@@ -101,6 +101,8 @@ unsigned long	a_drsize;	/* size of data relocation */
  */
 #define	CPUSUBTYPE_SUPPORT	0
 
+int __fdnlist(int fd, struct nlist *list);
+
 /*
  * nlist - retreive attributes from name list (string table version)
  */
@@ -129,7 +131,7 @@ __fdnlist(fd, list)
 {
 	register struct nlist *p, *q;
 	register char *s1, *s2;
-	register n, m;
+	register int n, m;
 	int maxlen, nreq;
 	off_t sa;		/* symbol address */
 	off_t ss;		/* start of strings */
@@ -212,7 +214,7 @@ __fdnlist(fd, list)
 #if	CPUSUBTYPE_SUPPORT
 		fap = cpusubtype_getbestarch(hbi.cpu_type, hbi.cpu_subtype,
 					     fat_archs, fh.nfat_arch);
-#else	CPUSUBTYPE_SUPPORT
+#else
 #warning	Use the cpusubtype functions!!!
 		fap = NULL;
 		for (i = 0; i < fh.nfat_arch; i++) {
@@ -221,7 +223,7 @@ __fdnlist(fd, list)
 				break;
 			}
 		}
-#endif	CPUSUBTYPE_SUPPORT
+#endif	/* CPUSUBTYPE_SUPPORT */
 		if (!fap) {
 			free(fat_archs);
 			return (-1);

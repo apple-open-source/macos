@@ -1,0 +1,18 @@
+# The canonical unix board description.
+load_generic_config "unix";
+
+process_multilib_options "";
+
+set_board_info compiler  "[find_gcc]";
+
+set_board_info bmk,use_alarm 1;
+
+# Do not use -lm on Cygwin
+if { [istarget "*-*-cygwin*"] } { 
+  set_board_info mathlib "";
+}
+
+# For the alpha, force use ieee
+if { [istarget "alpha*-*"] } {
+  set_board_info ieee_multilib_flags "-mieee";
+}

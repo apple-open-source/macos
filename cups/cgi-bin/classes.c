@@ -1,9 +1,9 @@
 /*
- * "$Id: classes.c,v 1.1.1.2 2002/02/10 04:47:48 jlovell Exp $"
+ * "$Id: classes.c,v 1.1.1.8 2003/07/23 02:33:32 jlovell Exp $"
  *
  *   Class status CGI for the Common UNIX Printing System (CUPS).
  *
- *   Copyright 1997-2002 by Easy Software Products.
+ *   Copyright 1997-2003 by Easy Software Products.
  *
  *   These coded instructions, statements, and computer programs are the
  *   property of Easy Software Products and are protected by Federal
@@ -37,21 +37,25 @@
  * 'main()' - Main entry for CGI.
  */
 
-int				/* O - Exit status */
-main(int  argc,			/* I - Number of command-line arguments */
-     char *argv[])		/* I - Command-line arguments */
+int					/* O - Exit status */
+main(int  argc,				/* I - Number of command-line arguments */
+     char *argv[])			/* I - Command-line arguments */
 {
-  cups_lang_t	*language;	/* Language information */
-  char		*pclass;	/* Printer class name */
-  http_t	*http;		/* Connection to the server */
-  ipp_t		*request,	/* IPP request */
-		*response;	/* IPP response */
-  ipp_attribute_t *attr;	/* IPP attribute */
-  ipp_status_t	status;		/* Operation status... */
-  char		uri[HTTP_MAX_URI];
-				/* Printer URI */
-  const char	*which_jobs;	/* Which jobs to show */
-  const char	*op;		/* Operation to perform, if any */
+  cups_lang_t	*language;		/* Language information */
+  char		*pclass;		/* Printer class name */
+  http_t	*http;			/* Connection to the server */
+  ipp_t		*request,		/* IPP request */
+		*response;		/* IPP response */
+  ipp_attribute_t *attr;		/* IPP attribute */
+  ipp_status_t	status;			/* Operation status... */
+  char		uri[HTTP_MAX_URI];	/* Printer URI */
+  const char	*which_jobs;		/* Which jobs to show */
+  const char	*op;			/* Operation to perform, if any */
+  static const char	*def_attrs[] =	/* Attributes for default printer */
+		{
+		  "printer-name",
+		  "printer-uri-supported"
+		};
 
 
  /*
@@ -112,6 +116,10 @@ main(int  argc,			/* I - Number of command-line arguments */
 
     ippAddString(request, IPP_TAG_OPERATION, IPP_TAG_LANGUAGE,
         	 "attributes-natural-language", NULL, language->language);
+
+    ippAddStrings(request, IPP_TAG_OPERATION, IPP_TAG_KEYWORD,
+                  "requested-attributes",
+		  sizeof(def_attrs) / sizeof(def_attrs[0]), NULL, def_attrs);
 
     if ((response = cupsDoRequest(http, request, "/")) != NULL)
     {
@@ -202,13 +210,15 @@ main(int  argc,			/* I - Number of command-line arguments */
                    uri);
     }
 
+    ippGetAttributes(request, TEMPLATES, "classes.tmpl", getenv("LANG"));
+
    /*
     * Do the request and get back a response...
     */
 
     if ((response = cupsDoRequest(http, request, "/")) != NULL)
     {
-      ippSetCGIVars(response, NULL, NULL);
+      ippSetCGIVars(response, NULL, NULL, NULL, 0);
       ippDelete(response);
     }
 
@@ -253,13 +263,15 @@ main(int  argc,			/* I - Number of command-line arguments */
 	ippAddString(request, IPP_TAG_OPERATION, IPP_TAG_KEYWORD, "which-jobs",
                      NULL, which_jobs);
 
+      ippGetAttributes(request, TEMPLATES, "jobs.tmpl", getenv("LANG"));
+
      /*
       * Do the request and get back a response...
       */
 
       if ((response = cupsDoRequest(http, request, "/")) != NULL)
       {
-	ippSetCGIVars(response, NULL, NULL);
+	ippSetCGIVars(response, NULL, NULL, NULL, 0);
 	ippDelete(response);
 
 	cgiCopyTemplateLang(stdout, TEMPLATES, "jobs.tmpl", getenv("LANG"));
@@ -320,12 +332,12 @@ main(int  argc,			/* I - Number of command-line arguments */
                                       CUPS_DATADIR "/data/testprint.ps")) != NULL)
     {
       status = response->request.status.status_code;
-      ippSetCGIVars(response, NULL, NULL);
+      ippSetCGIVars(response, NULL, NULL, NULL, 0);
 
       ippDelete(response);
     }
     else
-      status = IPP_GONE;
+      status = cupsLastError();
 
     cgiSetVariable("PRINTER_NAME", pclass);
 
@@ -356,5 +368,5 @@ main(int  argc,			/* I - Number of command-line arguments */
 
 
 /*
- * End of "$Id: classes.c,v 1.1.1.2 2002/02/10 04:47:48 jlovell Exp $".
+ * End of "$Id: classes.c,v 1.1.1.8 2003/07/23 02:33:32 jlovell Exp $".
  */

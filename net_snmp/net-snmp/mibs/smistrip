@@ -13,7 +13,7 @@
 # See the file "COPYING" for information on usage and redistribution
 # of this file, and for a DISCLAIMER OF ALL WARRANTIES.
 #
-# $Id: smistrip,v 1.1.1.1 2002/02/04 22:07:07 jkh Exp $
+# $Id: smistrip,v 1.1.1.2 2003/05/29 00:03:11 rbraun Exp $
 #
 # NOTE, that this script relies on awk (tested with GNU awk) and getopts
 # (shell builtin like in bash or standalone).

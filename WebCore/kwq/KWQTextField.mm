@@ -31,7 +31,11 @@
 #import "KWQNSViewExtras.h"
 #import "KWQView.h"
 #import "WebCoreBridge.h"
-#import "WebCoreFirstResponderChanges.h"
+
+@interface NSString (KWQTextField)
+- (int)_KWQ_numComposedCharacterSequences;
+- (NSString *)_KWQ_truncateToNumComposedCharacterSequences:(int)num;
+@end
 
 @interface KWQTextField (KWQInternal)
 - (void)setHasFocus:(BOOL)hasFocus;
@@ -87,7 +91,7 @@
     [field setAction:@selector(action:)];
 }
 
-- initWithFrame:(NSRect)frame
+-(id)initWithFrame:(NSRect)frame
 {
     [super initWithFrame:frame];
     formatter = [[KWQTextFieldFormatter alloc] init];
@@ -96,14 +100,23 @@
     return self;
 }
 
-- initWithQLineEdit:(QLineEdit *)w 
+-(id)initWithQLineEdit:(QLineEdit *)w 
 {
     widget = w;
     return [self init];
 }
 
+-(void)invalidate
+{
+    widget = NULL;
+}
+
 - (void)action:sender
 {
+    if (!widget) {
+	return;
+    }
+
     widget->returnPressed();
 }
 
@@ -200,8 +213,8 @@
 - (void)setMaximumLength:(int)len
 {
     NSString *oldValue = [self stringValue];
-    if ((int)[oldValue length] > len) {
-        [self setStringValue:[oldValue substringToIndex:len]];
+    if ([oldValue _KWQ_numComposedCharacterSequences] > len) {
+        [self setStringValue:[oldValue _KWQ_truncateToNumComposedCharacterSequences:len]];
     }
     [formatter setMaximumLength:len];
 }
@@ -221,22 +234,34 @@
     edited = ed;
 }
 
-- (void)controlTextDidBeginEditing:(NSNotification *)notification
+-(void)controlTextDidBeginEditing:(NSNotification *)notification
 {
+    if (!widget) {
+	return;
+    }
+
     WebCoreBridge *bridge = KWQKHTMLPart::bridgeForWidget(widget);
     [bridge controlTextDidBeginEditing:notification];
 }
 
-- (void)controlTextDidEndEditing:(NSNotification *)notification
+-(void)controlTextDidEndEditing:(NSNotification *)notification
 {
     [self setHasFocus:NO];
+
+    if (!widget) {
+	return;
+    }
 
     WebCoreBridge *bridge = KWQKHTMLPart::bridgeForWidget(widget);
     [bridge controlTextDidEndEditing:notification];
 }
 
-- (void)controlTextDidChange:(NSNotification *)notification
+-(void)controlTextDidChange:(NSNotification *)notification
 {
+    if (!widget) {
+	return;
+    }
+
     WebCoreBridge *bridge = KWQKHTMLPart::bridgeForWidget(widget);
     [bridge controlTextDidChange:notification];
 
@@ -244,43 +269,67 @@
     widget->textChanged();
 }
 
-- (BOOL)control:(NSControl *)control textShouldBeginEditing:(NSText *)fieldEditor
+-(BOOL)control:(NSControl *)control textShouldBeginEditing:(NSText *)fieldEditor
 {
+    if (!widget) {
+	return NO;
+    }
+
     WebCoreBridge *bridge = KWQKHTMLPart::bridgeForWidget(widget);
     return [bridge control:control textShouldBeginEditing:fieldEditor];
 }
 
-- (BOOL)control:(NSControl *)control textShouldEndEditing:(NSText *)fieldEditor
+-(BOOL)control:(NSControl *)control textShouldEndEditing:(NSText *)fieldEditor
 {
+    if (!widget) {
+	return NO;
+    }
+
     WebCoreBridge *bridge = KWQKHTMLPart::bridgeForWidget(widget);
     return [bridge control:control textShouldEndEditing:fieldEditor];
 }
 
-- (BOOL)control:(NSControl *)control didFailToFormatString:(NSString *)string errorDescription:(NSString *)error
+-(BOOL)control:(NSControl *)control didFailToFormatString:(NSString *)string errorDescription:(NSString *)error
 {
+    if (!widget) {
+	return NO;
+    }
+
     WebCoreBridge *bridge = KWQKHTMLPart::bridgeForWidget(widget);
     return [bridge control:control didFailToFormatString:string errorDescription:error];
 }
 
-- (void)control:(NSControl *)control didFailToValidatePartialString:(NSString *)string errorDescription:(NSString *)error
+-(void)control:(NSControl *)control didFailToValidatePartialString:(NSString *)string errorDescription:(NSString *)error
 {
+    if (!widget) {
+	return;
+    }
+
     WebCoreBridge *bridge = KWQKHTMLPart::bridgeForWidget(widget);
     [bridge control:control didFailToValidatePartialString:string errorDescription:error];
 }
 
-- (BOOL)control:(NSControl *)control isValidObject:(id)obj
+-(BOOL)control:(NSControl *)control isValidObject:(id)obj
 {
+    if (!widget) {
+	return NO;
+    }
+
     WebCoreBridge *bridge = KWQKHTMLPart::bridgeForWidget(widget);
     return [bridge control:control isValidObject:obj];
 }
 
-- (BOOL)control:(NSControl *)control textView:(NSTextView *)textView doCommandBySelector:(SEL)commandSelector
+-(BOOL)control:(NSControl *)control textView:(NSTextView *)textView doCommandBySelector:(SEL)commandSelector
 {
+    if (!widget) {
+	return NO;
+    }
+
     WebCoreBridge *bridge = KWQKHTMLPart::bridgeForWidget(widget);
     return [bridge control:control textView:textView doCommandBySelector:commandSelector];
 }
 
-- (NSString *)stringValue
+-(NSString *)stringValue
 {
     if ([secureField superview]) {
         return [secureField stringValue];
@@ -288,38 +337,48 @@
     return [super stringValue];
 }
 
-- (void)setStringValue:(NSString *)string
+-(void)setStringValue:(NSString *)string
 {
-    int maxLength = [formatter maximumLength];
-    if ((int)[string length] > maxLength) {
-        string = [string substringToIndex:maxLength];
+    if (!widget) {
+	return;
     }
+
+    int maxLength = [formatter maximumLength];
+    string = [string _KWQ_truncateToNumComposedCharacterSequences:maxLength];
     [secureField setStringValue:string];
     [super setStringValue:string];
     widget->textChanged();
 }
 
-- (void)setFont:(NSFont *)font
+-(void)setFont:(NSFont *)font
 {
     [secureField setFont:font];
     [super setFont:font];
 }
 
-- (NSView *)nextKeyView
+-(NSView *)nextKeyView
 {
+    if (!widget) {
+	return [super nextKeyView];
+    }
+
     return inNextValidKeyView
         ? KWQKHTMLPart::nextKeyViewForWidget(widget, KWQSelectingNext)
         : [super nextKeyView];
 }
 
-- (NSView *)previousKeyView
+-(NSView *)previousKeyView
 {
-   return inNextValidKeyView
+    if (!widget) {
+	return [super previousKeyView];
+    }
+
+    return inNextValidKeyView
         ? KWQKHTMLPart::nextKeyViewForWidget(widget, KWQSelectingPrevious)
         : [super previousKeyView];
 }
 
-- (NSView *)nextValidKeyView
+-(NSView *)nextValidKeyView
 {
     inNextValidKeyView = YES;
     NSView *view = [super nextValidKeyView];
@@ -327,7 +386,7 @@
     return view;
 }
 
-- (NSView *)previousValidKeyView
+-(NSView *)previousValidKeyView
 {
     inNextValidKeyView = YES;
     NSView *view = [super previousValidKeyView];
@@ -355,16 +414,73 @@
     return widget;
 }
 
-- (void)fieldEditorDidMouseDown:(NSEvent *)event
-{
-    widget->sendConsumedMouseUp();
-    widget->clicked();
-}
-
 - (void)setAlignment:(NSTextAlignment)alignment
 {
     [secureField setAlignment:alignment];
     [super setAlignment:alignment];
+}
+
+// This is the only one of the display family of calls that we use, and the way we do
+// displaying in WebCore means this is called on this NSView explicitly, so this catches
+// all cases where we are inside the normal display machinery. (Used only by the insertion
+// point method below.)
+- (void)displayRectIgnoringOpacity:(NSRect)rect
+{
+    inDrawingMachinery = YES;
+    [super displayRectIgnoringOpacity:rect];
+    inDrawingMachinery = NO;
+}
+
+// Use the "needs display" mechanism to do all insertion point drawing in the web view.
+- (BOOL)textView:(NSTextView *)view shouldDrawInsertionPointInRect:(NSRect)rect color:(NSColor *)color turnedOn:(BOOL)drawInsteadOfErase
+{
+    // We only need to take control of the cases where we are being asked to draw by something
+    // outside the normal display machinery, and when we are being asked to draw the insertion
+    // point, not erase it.
+    if (inDrawingMachinery || !drawInsteadOfErase) {
+        return YES;
+    }
+
+    // NSTextView's insertion-point drawing code sets the rect width to 1.
+    // So we do the same thing, to affect exactly the same rectangle.
+    rect.size.width = 1;
+
+    // Call through to the setNeedsDisplayInRect implementation in NSView.
+    // If we call the one in NSTextView through the normal method dispatch
+    // we will reenter the caret blinking code and end up with a nasty crash
+    // (see Radar 3250608).
+    SEL selector = @selector(setNeedsDisplayInRect:);
+    typedef void (*IMPWithNSRect)(id, SEL, NSRect);
+    IMPWithNSRect implementation = (IMPWithNSRect)[NSView instanceMethodForSelector:selector];
+    implementation(view, selector, rect);
+
+    return NO;
+}
+
+- (BOOL)textView:(NSTextView *)view shouldHandleEvent:(NSEvent *)event
+{
+    if (!widget) {
+	return YES;
+    }
+
+    if ([event type] == NSKeyDown || [event type] == NSKeyUp) {
+        WebCoreBridge *bridge = KWQKHTMLPart::bridgeForWidget(widget);
+        [bridge interceptKeyEvent:event toView:view];
+        // FIXME: In theory, if the bridge intercepted the event we should return NO.
+        // But the code in the Web Kit that we moved in here did not do that.
+    }
+    return YES;
+}
+
+- (void)textView:(NSTextView *)view didHandleEvent:(NSEvent *)event
+{
+    if (!widget) {
+	return;
+    }
+    if ([event type] == NSLeftMouseUp) {
+        widget->sendConsumedMouseUp();
+        widget->clicked();
+    }
 }
 
 @end
@@ -401,25 +517,32 @@
     }
 }
 
-- (void)setHasFocus:(BOOL)hasFocus
+- (void)setHasFocus:(BOOL)nowHasFocus
 {
-    if (hasFocus == _hasFocus) {
+    if (!widget) {
+	return;
+    }
+
+    if (nowHasFocus == hasFocus) {
         return;
     }
 
-    _hasFocus = hasFocus;
+    hasFocus = nowHasFocus;
 
-    if (hasFocus) {
+    if (nowHasFocus) {
         // Select all the text if we are tabbing in, but otherwise preserve/remember
         // the selection from last time we had focus (to match WinIE).
         if ([[self window] keyViewSelectionDirection] != NSDirectSelection) {
             lastSelectedRange.location = NSNotFound;
         }
+
         if (lastSelectedRange.location != NSNotFound) {
             [self setSelectedRange:lastSelectedRange];
         }
-
-        [self _KWQ_scrollFrameToVisible];
+        
+        if (!KWQKHTMLPart::currentEventIsMouseDownInWidget(widget)) {
+            [self _KWQ_scrollFrameToVisible];
+        }
 
         QFocusEvent event(QEvent::FocusIn);
         const_cast<QObject *>(widget->eventFilterObject())->eventFilter(widget, &event);
@@ -496,7 +619,7 @@
 
 - (BOOL)isPartialStringValid:(NSString *)partialString newEditingString:(NSString **)newString errorDescription:(NSString **)error
 {
-    if ((int)[partialString length] > maxLength) {
+    if ([partialString _KWQ_numComposedCharacterSequences] > maxLength) {
         *newString = nil;
         return NO;
     }
@@ -606,12 +729,6 @@
     return [(KWQTextField *)[self delegate] widget];
 }
 
-- (void)fieldEditorDidMouseDown:(NSEvent *)event
-{
-    ASSERT([[self delegate] isKindOfClass:[KWQTextField class]]);
-    [[self delegate] fieldEditorDidMouseDown:event];
-}
-
 - (void)textDidEndEditing:(NSNotification *)notification
 {
     [super textDidEndEditing:notification];
@@ -649,6 +766,38 @@
     [super selectWithFrame:frame inView:view editor:editor delegate:delegate start:start length:length];
     ASSERT([[delegate delegate] isKindOfClass:[KWQTextField class]]);
     [(KWQTextField *)[delegate delegate] setHasFocus:YES];
+}
+
+@end
+
+@implementation NSString (KWQTextField)
+
+- (int)_KWQ_numComposedCharacterSequences
+{
+    unsigned i = 0;
+    unsigned l = [self length];
+    int num = 0;
+    while (i < l) {
+        i = NSMaxRange([self rangeOfComposedCharacterSequenceAtIndex:i]);
+        ++num;
+    }
+    return num;
+}
+
+- (NSString *)_KWQ_truncateToNumComposedCharacterSequences:(int)num
+{
+    unsigned i = 0;
+    unsigned l = [self length];
+    if (l == 0) {
+        return self;
+    }
+    for (int j = 0; j < num; j++) {
+        i = NSMaxRange([self rangeOfComposedCharacterSequenceAtIndex:i]);
+        if (i >= l) {
+            return self;
+        }
+    }
+    return [self substringToIndex:i];
 }
 
 @end

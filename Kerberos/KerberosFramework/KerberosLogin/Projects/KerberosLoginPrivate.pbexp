@@ -1,0 +1,20 @@
+# $Header: /cvs/kfm/KerberosFramework/KerberosLogin/Projects/KerberosLoginPrivate.pbexp,v 1.9 2003/06/06 14:28:26 lxs Exp $
+
+#
+# Internal Kerberos Library API
+#
+
+___KLAcquireInitialTicketsForCache
+
+___KLSetApplicationPrompter
+___KLPrompter
+
+___KLLoginOptionsGetKerberos5Options
+___KLLoginOptionsGetStartTime
+___KLLoginOptionsGetServiceName
+
+___KLSetHomeDirectoryAccess
+___KLAllowHomeDirectoryAccess
+
+___KLSetAutomaticPrompting
+___KLAllowAutomaticPrompting

@@ -133,7 +133,9 @@
                                     IOInterruptEventSource * evtSrc, int intCount );
     static void deferredCLUTSetInterrupt( OSObject * owner,
                                           IOInterruptEventSource * evtSrc, int intCount );
-    void IOFramebuffer::checkDeferredCLUTSet( void );
+    void checkDeferredCLUTSet( void );
+    void updateCursorForCLUTSet( void );
+
     static void handleVBL(IOFramebuffer * inst, void * ref);
     static void connectChangeInterrupt( IOFramebuffer * inst, void * ref );
     void checkConnectionChange( bool message = true );
@@ -207,3 +209,23 @@ public:
     static IOOptionBits clamshellState( void );
     IOWorkLoop * getWorkLoop() const;
 protected:
+
+    IOReturn stopDDC1SendCommand(IOIndex bus, IOI2CBusTiming * timing);
+    void waitForDDCDataLine(IOIndex bus, IOI2CBusTiming * timing, UInt32 waitTime);
+
+    IOReturn readDDCBlock(IOIndex bus, IOI2CBusTiming * timing, UInt8 deviceAddress, UInt8 startAddress, UInt8 * data);
+    IOReturn i2cReadDDCciData(IOIndex bus, IOI2CBusTiming * timing, UInt8 deviceAddress, UInt8 count, UInt8 *buffer);
+    IOReturn i2cReadData(IOIndex bus, IOI2CBusTiming * timing, UInt8 deviceAddress, UInt8 count, UInt8 * buffer);
+    IOReturn i2cWriteData(IOIndex bus, IOI2CBusTiming * timing, UInt8 deviceAddress, UInt8 count, UInt8 * buffer);
+
+    void i2cStart(IOIndex bus, IOI2CBusTiming * timing);
+    void i2cStop(IOIndex bus, IOI2CBusTiming * timing);
+    void i2cSendAck(IOIndex bus, IOI2CBusTiming * timing);
+    void i2cSendNack(IOIndex bus, IOI2CBusTiming * timing);
+    IOReturn i2cWaitForAck(IOIndex bus, IOI2CBusTiming * timing);
+    void i2cSendByte(IOIndex bus, IOI2CBusTiming * timing, UInt8 data);
+    IOReturn i2cReadByte(IOIndex bus, IOI2CBusTiming * timing, UInt8 *data);
+    IOReturn i2cWaitForBus(IOIndex bus, IOI2CBusTiming * timing);
+    IOReturn i2cRead(IOIndex bus, IOI2CBusTiming * timing, UInt8 deviceAddress, UInt8 numberOfBytes, UInt8 * data);
+    IOReturn i2cWrite(IOIndex bus, IOI2CBusTiming * timing, UInt8 deviceAddress, UInt8 numberOfBytes, UInt8 * data);
+    void i2cSend9Stops(IOIndex bus, IOI2CBusTiming * timing);

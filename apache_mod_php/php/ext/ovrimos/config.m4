@@ -1,10 +1,10 @@
-dnl $Id: config.m4,v 1.1.1.2 2001/07/19 00:19:43 zarzycki Exp $
-dnl config.m4 for extension ovrimos
-dnl don't forget to call PHP_EXTENSION(ovrimos)
+dnl
+dnl $Id: config.m4,v 1.1.1.4 2003/03/11 01:09:28 zarzycki Exp $
+dnl
 
 PHP_ARG_WITH(ovrimos, for Ovrimos SQL Server support,
 [  --with-ovrimos[=DIR]    Include Ovrimos SQL Server support. DIR is the
-                          Ovrimos' libsqlcli install directory.])
+                          Ovrimos libsqlcli install directory.])
 
 if test "$PHP_OVRIMOS" != "no"; then
   for i in /usr/local /usr $PHP_OVRIMOS; do
@@ -24,5 +24,5 @@ if test "$PHP_OVRIMOS" != "no"; then
   PHP_ADD_LIBRARY_WITH_PATH(sqlcli, $OVRIMOS_DIR/lib, OVRIMOS_SHARED_LIBADD)
   AC_DEFINE(HAVE_LIBSQLCLI,1,[ ])
 
-  PHP_EXTENSION(ovrimos, $ext_shared)
+  PHP_NEW_EXTENSION(ovrimos, ovrimos.c, $ext_shared)
 fi

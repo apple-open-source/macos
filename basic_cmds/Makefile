@@ -12,7 +12,7 @@ NAME = basic_cmds
 PROJECTVERSION = 2.8
 PROJECT_TYPE = Aggregate
 
-TOOLS = mesg.tproj more.tproj pico.tproj uudecode.tproj uuencode.tproj\
+TOOLS = mesg.tproj pico.tproj uudecode.tproj uuencode.tproj\
         write.tproj
 
 OTHERSRCS = Makefile.preamble Makefile Makefile.include
@@ -26,7 +26,7 @@ DEBUG_LIBS = $(LIBS)
 PROF_LIBS = $(LIBS)
 
 
-NEXTSTEP_PB_CFLAGS = -traditional-cpp -D__TEFLON__
+NEXTSTEP_PB_CFLAGS = -no-cpp-precomp -D__TEFLON__
 
 
 NEXTSTEP_BUILD_OUTPUT_DIR = /Users/Shared/$(USER)/BUILD

@@ -3,7 +3,7 @@
  * Wilfredo Sanchez | wsanchez@opensource.apple.com
  * $Apple$
  **
- * Copyright (c) 1999-2001 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 1999-2002 Apple Computer, Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -37,6 +37,7 @@
 #define kStartupCompleteKey     CFSTR("Startup complete.")
 #define kResourcesBundleName    CFSTR("SystemStarterResources")
 #define kSafeBootKey            CFSTR("Safe Boot")
+#define kLoginWindowKey         CFSTR("Login Window starting")
 
 #define LocalizedString(bundlePath,string) StartupItemCreateLocalizedStringWithPath((bundlePath),(string))
 
@@ -44,11 +45,13 @@
 /* Structure to pass common objects from system_starter to the IPC handlers */
 typedef struct StartupContextStorage {
     CFMutableArrayRef           aWaitingList;
+    CFMutableArrayRef           aFailedList;
     CFMutableDictionaryRef      aStatusDict;
     DisplayContext              aDisplayContext;
     int                         aServicesCount;
     int                         aRunningCount;
     CFStringRef                 aResourcesBundlePath;
+    int                         aQuitOnNotification;
 } *StartupContext;
 
 /* Action types */

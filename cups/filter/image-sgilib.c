@@ -1,10 +1,10 @@
 /*
- * "$Id: image-sgilib.c,v 1.1.1.3 2002/03/02 18:28:26 jlovell Exp $"
+ * "$Id: image-sgilib.c,v 1.1.1.7 2002/12/24 00:07:02 jlovell Exp $"
  *
  *   SGI image file format library routines for the Common UNIX Printing
  *   System (CUPS).
  *
- *   Copyright 1993-2002 by Easy Software Products.
+ *   Copyright 1993-2003 by Easy Software Products.
  *
  *   These coded instructions, statements, and computer programs are the
  *   property of Easy Software Products and are protected by Federal
@@ -855,5 +855,5 @@ write_rle16(FILE           *fp,  /* I - File to write to */
 
 
 /*
- * End of "$Id: image-sgilib.c,v 1.1.1.3 2002/03/02 18:28:26 jlovell Exp $".
+ * End of "$Id: image-sgilib.c,v 1.1.1.7 2002/12/24 00:07:02 jlovell Exp $".
  */

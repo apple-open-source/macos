@@ -1,5 +1,6 @@
 /* Header file for GDB command decoding library.
-   Copyright 2000 Free Software Foundation, Inc.
+
+   Copyright 2000, 2003 Free Software Foundation, Inc.
 
    This program is free software; you can redistribute it and/or modify
    it under the terms of the GNU General Public License as published by
@@ -19,8 +20,9 @@
 #if !defined (CLI_DECODE_H)
 #define CLI_DECODE_H 1
 
-#include "gdb_regex.h"		/* Needed by apropos_cmd.  */
 #include "command.h"
+
+struct re_pattern_buffer;
 
 #if 0
 /* FIXME: cagney/2002-03-17: Once cmd_type() has been removed, ``enum
@@ -69,12 +71,11 @@ struct cmd_list_element
        to one of the below.  */
     union
       {
-	/* If type is not_set_cmd, call it like this:  */
-	void (*cfunc) (char *args, int from_tty);
-
-	/* If type is set_cmd or show_cmd, first set the variables, and
-	   then call this.  */
-	void (*sfunc) (char *args, int from_tty, struct cmd_list_element * c);
+	/* If type is not_set_cmd, call it like this: */
+	cmd_cfunc_ftype *cfunc;
+	/* If type is set_cmd or show_cmd, first set the variables,
+	   and then call this: */
+	cmd_sfunc_ftype *sfunc;
       }
     function;
 
@@ -295,18 +296,6 @@ extern struct cmd_list_element *add_set_enum_cmd (char *name,
 						  const char **var,
 						  char *doc,
 						  struct cmd_list_element **list);
-
-extern struct cmd_list_element *add_set_auto_boolean_cmd (char *name,
-							  enum command_class class,
-							  enum cmd_auto_boolean *var,
-							  char *doc,
-							  struct cmd_list_element **list);
-
-extern struct cmd_list_element *add_set_boolean_cmd (char *name,
-						     enum command_class class,
-						     int *var,
-						     char *doc,
-						     struct cmd_list_element **list);
 
 extern struct cmd_list_element *add_show_from_set (struct cmd_list_element *,
 						   struct cmd_list_element

@@ -197,7 +197,7 @@ bfd_lookup_symbol (bfd *abfd, char *symname)
   if (storage_needed > 0)
     {
       symbol_table = (asymbol **) xmalloc (storage_needed);
-      back_to = make_cleanup (xfree, (PTR) symbol_table);
+      back_to = make_cleanup (xfree, symbol_table);
       number_of_symbols = bfd_canonicalize_symtab (abfd, symbol_table);
 
       for (i = 0; i < number_of_symbols; i++)
@@ -224,7 +224,7 @@ bfd_lookup_symbol (bfd *abfd, char *symname)
   if (storage_needed > 0)
     {
       symbol_table = (asymbol **) xmalloc (storage_needed);
-      back_to = make_cleanup (xfree, (PTR) symbol_table);
+      back_to = make_cleanup (xfree, symbol_table);
       number_of_symbols = bfd_canonicalize_dynamic_symtab (abfd, symbol_table);
 
       for (i = 0; i < number_of_symbols; i++)
@@ -446,15 +446,16 @@ elf_locate_base (void)
 	  else if (dyn_tag == DT_MIPS_RLD_MAP)
 	    {
 	      char *pbuf;
+	      int pbuf_size = TARGET_PTR_BIT / HOST_CHAR_BIT;
 
-	      pbuf = alloca (TARGET_PTR_BIT / HOST_CHAR_BIT);
+	      pbuf = alloca (pbuf_size);
 	      /* DT_MIPS_RLD_MAP contains a pointer to the address
 		 of the dynamic link structure.  */
 	      dyn_ptr = bfd_h_get_32 (exec_bfd, 
 				      (bfd_byte *) x_dynp->d_un.d_ptr);
-	      if (target_read_memory (dyn_ptr, pbuf, sizeof (pbuf)))
+	      if (target_read_memory (dyn_ptr, pbuf, pbuf_size))
 		return 0;
-	      return extract_unsigned_integer (pbuf, sizeof (pbuf));
+	      return extract_unsigned_integer (pbuf, pbuf_size);
 	    }
 	}
     }
@@ -476,6 +477,20 @@ elf_locate_base (void)
 	      dyn_ptr = bfd_h_get_64 (exec_bfd, 
 				      (bfd_byte *) x_dynp->d_un.d_ptr);
 	      return dyn_ptr;
+	    }
+	  else if (dyn_tag == DT_MIPS_RLD_MAP)
+	    {
+	      char *pbuf;
+	      int pbuf_size = TARGET_PTR_BIT / HOST_CHAR_BIT;
+
+	      pbuf = alloca (pbuf_size);
+	      /* DT_MIPS_RLD_MAP contains a pointer to the address
+		 of the dynamic link structure.  */
+	      dyn_ptr = bfd_h_get_64 (exec_bfd, 
+				      (bfd_byte *) x_dynp->d_un.d_ptr);
+	      if (target_read_memory (dyn_ptr, pbuf, pbuf_size))
+		return 0;
+	      return extract_unsigned_integer (pbuf, pbuf_size);
 	    }
 	}
     }
@@ -762,6 +777,77 @@ svr4_current_sos (void)
   return head;
 }
 
+/* Get the address of the link_map for a given OBJFILE.  Loop through
+   the link maps, and return the address of the one corresponding to
+   the given objfile.  Note that this function takes into account that
+   objfile can be the main executable, not just a shared library.  The
+   main executable has always an empty name field in the linkmap.  */
+
+CORE_ADDR
+svr4_fetch_objfile_link_map (struct objfile *objfile)
+{
+  CORE_ADDR lm;
+
+  if ((debug_base = locate_base ()) == 0)
+    return 0;   /* failed somehow... */
+
+  /* Position ourselves on the first link map.  */
+  lm = first_link_map_member ();  
+  while (lm)
+    {
+      /* Get info on the layout of the r_debug and link_map structures. */
+      struct link_map_offsets *lmo = SVR4_FETCH_LINK_MAP_OFFSETS ();
+      int errcode;
+      char *buffer;
+      struct lm_info objfile_lm_info;
+      struct cleanup *old_chain;
+      CORE_ADDR name_address;
+      char *l_name_buf = xmalloc (lmo->l_name_size);
+      old_chain = make_cleanup (xfree, l_name_buf);
+
+      /* Set up the buffer to contain the portion of the link_map
+         structure that gdb cares about.  Note that this is not the
+         whole link_map structure.  */
+      objfile_lm_info.lm = xmalloc (lmo->link_map_size);
+      make_cleanup (xfree, objfile_lm_info.lm);
+      memset (objfile_lm_info.lm, 0, lmo->link_map_size);
+
+      /* Read the link map into our internal structure.  */
+      read_memory (lm, objfile_lm_info.lm, lmo->link_map_size);
+
+      /* Read address of name from target memory to GDB.  */
+      read_memory (lm + lmo->l_name_offset, l_name_buf, lmo->l_name_size);
+
+      /* Extract this object's name.  */
+      name_address = extract_address (l_name_buf,
+				      lmo->l_name_size);
+      target_read_string (name_address, &buffer,
+      			  SO_NAME_MAX_PATH_SIZE - 1, &errcode);
+      make_cleanup (xfree, buffer);
+      if (errcode != 0)
+    	{
+	  warning ("svr4_fetch_objfile_link_map: Can't read pathname for load map: %s\n",
+  		   safe_strerror (errcode));
+  	}
+      else
+  	{
+	  /* Is this the linkmap for the file we want?  */
+	  /* If the file is not a shared library and has no name,
+	     we are sure it is the main executable, so we return that.  */
+	  if ((buffer && strcmp (buffer, objfile->name) == 0)
+              || (!(objfile->flags & OBJF_SHARED) && (strcmp (buffer, "") == 0)))
+  	    {
+    	      do_cleanups (old_chain);
+    	      return lm;
+      	    }
+  	}
+      /* Not the file we wanted, continue checking.  */
+      lm = extract_address (objfile_lm_info.lm + lmo->l_next_offset,
+			    lmo->l_next_size);
+      do_cleanups (old_chain);
+    }
+  return 0;
+}
 
 /* On some systems, the only way to recognize the link map entry for
    the main executable file is by looking at its name.  Return
@@ -1293,7 +1379,7 @@ static struct link_map_offsets *
 svr4_fetch_link_map_offsets (void)
 {
   struct link_map_offsets *(*flmo)(void) =
-    gdbarch_data (fetch_link_map_offsets_gdbarch_data);
+    gdbarch_data (current_gdbarch, fetch_link_map_offsets_gdbarch_data);
 
   if (flmo == NULL)
     {
@@ -1318,24 +1404,20 @@ set_solib_svr4_fetch_link_map_offsets (struct gdbarch *gdbarch,
   set_gdbarch_data (gdbarch, fetch_link_map_offsets_gdbarch_data, flmo);
 }
 
-/* Initialize the architecture specific link_map_offsets fetcher. 
-   This is called after <arch>_gdbarch_init() has set up its struct
-   gdbarch for the new architecture, so care must be taken to use the
-   value set by set_solib_svr4_fetch_link_map_offsets(), above.  We
-   do, however, attempt to provide a reasonable alternative (for
-   native targets anyway) if the <arch>_gdbarch_init() fails to call
+/* Initialize the architecture-specific link_map_offsets fetcher.
+   This is called after <arch>_gdbarch_init() has set up its `struct
+   gdbarch' for the new architecture, and is only called if the
+   link_map_offsets fetcher isn't already initialized (which is
+   usually done by calling set_solib_svr4_fetch_link_map_offsets()
+   above in <arch>_gdbarch_init()).  Therefore we attempt to provide a
+   reasonable alternative (for native targets anyway) if the
+   <arch>_gdbarch_init() fails to call
    set_solib_svr4_fetch_link_map_offsets().  */
 
 static void *
 init_fetch_link_map_offsets (struct gdbarch *gdbarch)
 {
-  struct link_map_offsets *(*flmo) =
-    gdbarch_data (fetch_link_map_offsets_gdbarch_data);
-
-  if (flmo == NULL)
-    return legacy_fetch_link_map_offsets;
-  else
-    return flmo;
+  return legacy_fetch_link_map_offsets;
 }
 
 static struct target_so_ops svr4_so_ops;

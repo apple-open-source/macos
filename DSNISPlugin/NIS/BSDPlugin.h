@@ -3,19 +3,22 @@
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
- * The contents of this file constitute Original Code as defined in and
- * are subject to the Apple Public Source License Version 1.1 (the
- * "License").  You may not use this file except in compliance with the
- * License.  Please obtain a copy of the License at
- * http://www.apple.com/publicsource and read it before using this file.
+ * Copyright (c) 1999-2003 Apple Computer, Inc.  All Rights Reserved.
  * 
- * This Original Code and all software distributed under the License are
- * distributed on an "AS IS" basis, WITHOUT WARRANTY OF ANY KIND, EITHER
+ * This file contains Original Code and/or Modifications of Original Code
+ * as defined in and that are subject to the Apple Public Source License
+ * Version 2.0 (the 'License'). You may not use this file except in
+ * compliance with the License. Please obtain a copy of the License at
+ * http://www.opensource.apple.com/apsl/ and read it before using this
+ * file.
+ * 
+ * The Original Code and all software distributed under the License are
+ * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
  * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
  * INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY,
- * FITNESS FOR A PARTICULAR PURPOSE OR NON-INFRINGEMENT.  Please see the
- * License for the specific language governing rights and limitations
- * under the License.
+ * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
+ * Please see the License for the specific language governing rights and
+ * limitations under the License.
  * 
  * @APPLE_LICENSE_HEADER_END@
  */
@@ -49,7 +52,7 @@
 #define BUILDING_COMBO_PLUGIN
 #endif
 
-#define kConfigNodeName					"NIS"
+#define kConfigNodeName					"BSD"
 
 #ifdef BUILDING_COMBO_PLUGIN
 	#define kFFNodeName					"local"
@@ -64,7 +67,7 @@
 
 #define kAlternateTag				"--Alternate--"
 
-#define kNoDomainName				"-NO-"
+#define kNoDomainName				""
 
 #define kBindErrorString			"Can't bind to server which serves this domain"
 
@@ -176,6 +179,8 @@ class BSDPlugin : public CDSServerModule
 public:
                                 BSDPlugin						( void );
     virtual                     ~BSDPlugin						( void );
+	
+			void				WaitForInit						( void );
 			sInt32				GetNISConfiguration				( void );
             
 	virtual sInt32				Validate						( const char *inVersionStr, const uInt32 inSignature );
@@ -222,9 +227,12 @@ protected:
 			Boolean				LookupdIsConfigured				( void );
 			void				SaveDefaultLookupdConfiguration	( void );
 
+			CFStringRef			CopyDomainFromFile				( void );
+			void				SaveDomainToFile				( CFStringRef domainNameRef );
+			
 			sInt32				SetDomain						( CFStringRef domainNameRef );
 			sInt32				UpdateHostConfig				( void );
-			sInt32				SetNISServers					( CFStringRef nisServersRef );
+			sInt32				SetNISServers					( CFStringRef nisServersRef, char* oldDomainStr );
 			CFStringRef			CreateListOfServers				( void );
 
 
@@ -236,7 +244,8 @@ protected:
 																	const char*			recordTypeName,
 																	char*				recordName = NULL,
 																	tDirPatternMatch	inAttributePatternMatch = eDSAnyMatch,
-																	tDataNodePtr		inAttributePatt2Match = NULL );
+																	tDataNodePtr		inAttributePatt2Match = NULL,
+																	char*				attributeKeyToMatch = NULL );
 																	
 #ifdef BUILDING_COMBO_PLUGIN
 			CFMutableDictionaryRef	CreateFFParseResult			( char *data, const char* recordTypeName );
@@ -277,9 +286,14 @@ protected:
 			sInt32				HandleNetworkTransition			( sHeader *inData );
     
 			CFDictionaryRef		CopyRecordResult				( Boolean isFFRecord, const char* recordTypeName, char* recordName );
-			Boolean				RecordIsAMatch					( CFDictionaryRef recordRef, tDirPatternMatch inAttributePatternMatch, tDataNodePtr inAttributePatt2Match );
+			Boolean				RecordIsAMatch					(	CFDictionaryRef		recordRef,
+																	tDirPatternMatch	inAttributePatternMatch,
+																	tDataNodePtr		inAttributePatt2Match,
+																	char*				attributeKeyToMatch );
 #ifdef BUILDING_COMBO_PLUGIN
-			CFMutableDictionaryRef	CopyResultOfFFLookup		( const char* recordTypeName );
+			void					SetLastModTimeOfFileRead	( const char* recordTypeName, time_t modTimeOfFile );
+			time_t					GetLastModTimeOfFileRead	( const char* recordTypeName );
+			CFMutableDictionaryRef	CopyResultOfFFLookup		( const char* recordTypeName, CFStringRef recordTypeRef );
 #endif
 			char*				CopyResultOfNISLookup			( NISLookupType	type, const char* recordTypeName = NULL, const char* key = NULL );
 			CFDictionaryRef		CopyMapResults					( Boolean isFFRecord, const char* recordTypeName );
@@ -338,6 +352,7 @@ private:
 		CFMutableDictionaryRef	mCachedMapsRef;
 #ifdef BUILDING_COMBO_PLUGIN
 		CFMutableDictionaryRef	mCachedFFRef;
+		time_t					mModTimes[14];
 #endif
 };
 

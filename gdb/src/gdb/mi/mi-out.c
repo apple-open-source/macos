@@ -125,9 +125,9 @@ mi_table_begin (struct ui_out *uiout,
   if (data->mi_version == 0)
     {
       if (nr_rows == 0)
-	data->suppress_output = 1;
+        data->suppress_output = 1;
       else
-	mi_open (uiout, "hdr", ui_out_type_list);
+        mi_open (uiout, "hdr", ui_out_type_list);
       return;
     }
   mi_field_int (uiout, -1/*fldno*/, -1/*width*/, -1/*alin*/,
@@ -419,9 +419,9 @@ mi_open (struct ui_out *uiout,
       break;
     case ui_out_type_list:
       if (data->mi_version == 0)
-	fputc_unfiltered ('{', data->buffer);
+        fputc_unfiltered ('{', data->buffer);
       else
-	fputc_unfiltered ('[', data->buffer);
+        fputc_unfiltered ('[', data->buffer);
       break;
     default:
       internal_error (__FILE__, __LINE__, "bad switch");
@@ -440,9 +440,9 @@ mi_close (struct ui_out *uiout,
       break;
     case ui_out_type_list:
       if (data->mi_version == 0)
-	fputc_unfiltered ('}', data->buffer);
+        fputc_unfiltered ('}', data->buffer);
       else
-	fputc_unfiltered (']', data->buffer);
+        fputc_unfiltered (']', data->buffer);
       break;
     default:
       internal_error (__FILE__, __LINE__, "bad switch");
@@ -483,6 +483,15 @@ mi_out_put (struct ui_out *uiout,
   struct ui_out_data *data = ui_out_data (uiout);
   ui_file_put (data->buffer, do_write, stream);
   ui_file_rewind (data->buffer);
+}
+
+/* Current MI version.  */
+
+int
+mi_version (struct ui_out *uiout)
+{
+  struct ui_out_data *data = ui_out_data (uiout);
+  return data->mi_version;
 }
 
 /* initalize private members at startup */

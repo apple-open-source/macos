@@ -13,9 +13,11 @@ StartService ()
 
 	CheckForNetwork
 
-	if [ "${NETWORKUP}" = "-NO-" ]; then exit; fi
+	if [ -f /var/run/NetworkTime.StartupItem -o "${NETWORKUP}" = "-NO-" ]; then exit; fi
+	touch /var/run/NetworkTime.StartupItem
 
-	ConsoleMessage "Starting network time syncronization"
+
+	ConsoleMessage "Starting network time synchronization"
 
 	# Synchronize our clock to the network's time,
 	# then fire off ntpd to keep the clock in sync.
@@ -27,7 +29,7 @@ StartService ()
 StopService ()
 {
     if pid=$(GetPID ntpd); then
-	ConsoleMessage "Stopping network time syncronization"
+	ConsoleMessage "Stopping network time synchronization"
 	kill -TERM "${pid}"
     else
 	echo "ntpd is not running."

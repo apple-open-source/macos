@@ -332,7 +332,16 @@ cuts fields 1 and 3 from the files var(file1) and var(file2) respectively,
 pastes the results together, and sends it to the processes
 var(process1) and var(process2).
 
-Both the tt(/dev/fd) and the named pipe implementation have drawbacks.  In
+If tt(=LPAR())var(...)tt(RPAR()) is used instead of
+tt(<LPAR())var(...)tt(RPAR()),
+then the file passed as an argument will be the name
+of a temporary file containing the output of the var(list)
+process.  This may be used instead of the tt(<)
+form for a program that expects to lseek (see manref(lseek)(2))
+on the input file.
+
+The tt(=) form is useful as both the tt(/dev/fd) and the named pipe
+implementation of tt(<LPAR())var(...)tt(RPAR()) have drawbacks.  In 
 the former case, some programmes may automatically close the file
 descriptor in question before examining the file on the command line,
 particularly if this is necessary for security reasons such as when the
@@ -353,12 +362,25 @@ example(tt(paste <LPAR()cut -f1) var(file1)tt(RPAR() <LPAR()cut -f3) var(file2)t
 The shell uses pipes instead of FIFOs to implement the latter
 two process substitutions in the above example.
 
-If tt(=) is used,
-then the file passed as an argument will be the name
-of a temporary file containing the output of the var(list)
-process.  This may be used instead of the tt(<)
-form for a program that expects to lseek (see manref(lseek)(2))
-on the input file.
+There is an additional problem with tt(>LPAR())var(process)tt(RPAR()); when
+this is attached to an external command, the parent shell does not wait
+for var(process) to finish and hence an immediately following command
+cannot rely on the results being complete.  The problem and solution are
+the same as described in the section em(MULTIOS) in
+ifzman(zmanref(zshmisc))\
+ifnzman(noderef(Redirection)).  Hence in a simplified
+version of the example above:
+
+example(tt(paste <LPAR()cut -f1) var(file1)tt(RPAR() <LPAR()cut -f3) var(file2)tt(RPAR()) tt(> >LPAR())var(process)tt(RPAR()))
+
+(note that no tt(MULTIOS) are involved), var(process) will be run
+asynchronously.  The workaround is:
+
+example(tt({ paste <LPAR()cut -f1) var(file1)tt(RPAR() <LPAR()cut -f3) var(file2)tt(RPAR() }) tt(> >LPAR())var(process)tt(RPAR()))
+
+The extra processes here are
+spawned from the parent shell which will wait for their completion.
+
 texinode(Parameter Expansion)(Command Substitution)(Process Substitution)(Expansion)
 sect(Parameter Expansion)
 cindex(parameter expansion)
@@ -373,6 +395,11 @@ noderef(Parameters)
 )\
 for a description of parameters, including arrays, associative arrays,
 and subscript notation to access individual array elements.
+
+Note in particular the fact that words of unquoted parameters are not
+automatically split on whitespace unless the option tt(SH_WORD_SPLIT) is
+set; see references to this option below for more details.  This is an
+important difference from other shells.
 
 In the expansions discussed below that require a pattern, the form of
 the pattern is the same as that used for filename generation;
@@ -483,8 +510,8 @@ The var(pattern) may begin with a `tt(#)', in which case the
 var(pattern) must match at the start of the string, or `tt(%)', in
 which case it must match at the end of the string.  The var(repl) may
 be an empty string, in which case the final `tt(/)' may also be omitted.
-To quote the final `tt(/)' in other cases it should be preceded by two
-backslashes (i.e., a quoted backslash); this is not necessary if the
+To quote the final `tt(/)' in other cases it should be preceded by a
+single backslash; this is not necessary if the
 `tt(/)' occurs inside a substituted parameter.  Note also that the `tt(#)'
 and `tt(%)' are not active if they occur inside a substituted parameter,
 even at the start.
@@ -620,6 +647,11 @@ arrays; the var(word) part em(must) be converted to an array, for
 example by using `tt(${(AA)=)var(name)tt(=)...tt(})' to activate
 field splitting, when creating an associative array.
 )
+item(tt(a))(
+With tt(o) or tt(O), sort in array index order. Note that `tt(oa)' is
+therefore equivalent to the default but `tt(Oa)' is useful for
+obtaining an array's elements in reverse order.
+)
 item(tt(c))(
 With tt(${#)var(name)tt(}), count the total number of characters in an array,
 as if the elements were concatenated with spaces between them.
@@ -654,6 +686,9 @@ this flag may not be combined with subscript ranges.
 )
 item(tt(L))(
 Convert all letters in the result to lower case.
+)
+item(tt(n))(
+With tt(o) or tt(O), sort numerically.
 )
 item(tt(o))(
 Sort the resulting words in ascending order.
@@ -726,6 +761,9 @@ item(tt(special))(
 for special parameters defined by the shell
 )
 enditem()
+)
+item(tt(u))(
+Expand only the first occurrence of each unique word.
 )
 item(tt(U))(
 Convert all letters in the result to upper case.
@@ -1115,11 +1153,9 @@ tt($OLDPWD) are never abbreviated in this fashion.
 If a word begins with an unquoted `tt(=)'
 and the tt(EQUALS) option is set,
 the remainder of the word is taken as the
-name of a command or alias.  If a command
+name of a command.  If a command
 exists by that name, the word is replaced
 by the full pathname of the command.
-If an alias exists by that name, the word
-is replaced with the text of the alias.
 
 Filename expansion is performed on the right hand side of a parameter
 assignment, including those appearing after commands of the
@@ -1180,6 +1216,7 @@ cindex(character classes)
 There are also several named classes of characters, in the form
 `tt([:)var(name)tt(:])' with the following meanings:  `tt([:alnum:])'
 alphanumeric, `tt([:alpha:])' alphabetic,
+`tt([:ascii:])' 7-bit,
 `tt([:blank:])' space or tab,
 `tt([:cntrl:])' control character, `tt([:digit:])' decimal
 digit, `tt([:graph:])' printable character except whitespace,
@@ -1440,6 +1477,17 @@ anywhere except at the start of the string, although this actually means
 need to use `tt((""~(#s)))' to match a zero-length portion of the string
 not at the start.
 )
+item(tt(q))(
+A `tt(q)' and everything up to the closing parenthesis of the globbing
+flags are ignored by the pattern matching code.  This is intended to
+support the use of glob qualifiers, see below.  The result is that
+the pattern `tt((#b)(*).c(#q.))' can be used both for globbing and for
+matching against a string.  In the former case, the `tt((#q.))' will be
+treated as a glob qualifier and the `tt((#b))' will not be useful, while in
+the latter case the `tt((#b))' is useful for backreferences and the
+`tt((#q.))' will be ignored.  Note that colon modifiers in the glob
+qualifiers are also not applied in ordinary pattern matching.
+)
 enditem()
 
 For example, the test string tt(fooxx) can be matched by the pattern
@@ -1562,6 +1610,20 @@ qualifiers, for example `tt((^x))', can be forced to be treated as part of
 the glob pattern by doubling the parentheses, in this case producing
 `tt(((^x)))'.
 
+If the option tt(EXTENDED_GLOB) is set, a different syntax for glob
+qualifiers is available, namely `tt((#qx))' where tt(x) is any of the same
+glob qualifiers used in the other format.  The qualifiers must still appear
+at the end of the pattern.  However, with this syntax multiple glob
+qualifiers may be chained together.  They are treated as a logical AND of
+the individual sets of flags.  Also, as the syntax is unambiguous, the
+expression will be treated as glob qualifiers just as long any parentheses
+contained within it are balanced; appearance of `tt(|)', `tt(LPAR())' or
+`tt(~)' does not negate the effect.  Note that qualifiers will be
+recognised in this form even if a bare glob qualifier exists at the end of
+the pattern, for example `tt(*(#q*)(.))' will recognise executable regular
+files if both options are set; however, mixed syntax should probably be
+avoided for the sake of clarity.
+
 A qualifier may be any one of the following:
 
 startitem()
@@ -1645,11 +1707,11 @@ If the qualifier `tt(f)' is followed by any other character anything
 up to the next matching character (`tt([)', `tt({)', and `tt(<)' match 
 `tt(])', `tt(})', and `tt(>)' respectively, any other character
 matches itself) is taken as a list of comma-separated
-var(sub-spec)s. Each var(sub-spec) may be either a octal number as
+var(sub-spec)s. Each var(sub-spec) may be either an octal number as
 described above or a list of any of the characters `tt(u)', `tt(g)',
 `tt(o)', and `tt(a)', followed by a `tt(=)', a `tt(PLUS())', or a
 `tt(-)', followed by a list of any of the characters `tt(r)', `tt(w)', 
-`tt(x)', `tt(s)', and `tt(t)', or a octal digit. The first list of
+`tt(x)', `tt(s)', and `tt(t)', or an octal digit. The first list of
 characters specify which access rights are to be checked. If a `tt(u)'
 is given, those for the owner of the file are used, if a `tt(g)' is
 given, those of the group are checked, a `tt(o)' means to test those
@@ -1845,3 +1907,11 @@ example(ls *.*~(lex|parse).[ch](^D^l1))
 lists all files having a link count of one whose names contain a dot
 (but not those starting with a dot, since tt(GLOB_DOTS) is explicitly
 switched off) except for tt(lex.c), tt(lex.h), tt(parse.c) and tt(parse.h).
+
+example(print b*.pro(#q:s/pro/shmo/)(#q.:s/builtin/shmiltin/))
+
+demonstrates how colon modifiers and other qualifiers may be chained
+together.  The ordinary qualifier `tt(.)' is applied first, then the colon
+modifiers in order from left to right.  So if tt(EXTENDED_GLOB) is set and
+the base pattern matches the regular file tt(builtin.pro), the shell will
+print `tt(shmiltin.shmo)'.

@@ -1,22 +1,25 @@
 /*
- * Copyright (c) 2000-2002 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 2000-2003 Apple Computer, Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
- *
- * The contents of this file constitute Original Code as defined in and
- * are subject to the Apple Public Source License Version 1.1 (the
- * "License").  You may not use this file except in compliance with the
- * License.  Please obtain a copy of the License at
- * http://www.apple.com/publicsource and read it before using this file.
- *
- * This Original Code and all software distributed under the License are
- * distributed on an "AS IS" basis, WITHOUT WARRANTY OF ANY KIND, EITHER
+ * 
+ * Copyright (c) 1999-2003 Apple Computer, Inc.  All Rights Reserved.
+ * 
+ * This file contains Original Code and/or Modifications of Original Code
+ * as defined in and that are subject to the Apple Public Source License
+ * Version 2.0 (the 'License'). You may not use this file except in
+ * compliance with the License. Please obtain a copy of the License at
+ * http://www.opensource.apple.com/apsl/ and read it before using this
+ * file.
+ * 
+ * The Original Code and all software distributed under the License are
+ * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
  * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
  * INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY,
- * FITNESS FOR A PARTICULAR PURPOSE OR NON-INFRINGEMENT.  Please see the
- * License for the specific language governing rights and limitations
- * under the License.
- *
+ * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
+ * Please see the License for the specific language governing rights and
+ * limitations under the License.
+ * 
  * @APPLE_LICENSE_HEADER_END@
  */
 
@@ -32,172 +35,96 @@
 
 #include "configd.h"
 #include "session.h"
+#include "pattern.h"
 
 
 static __inline__ void
-my_CFDictionaryApplyFunction(CFDictionaryRef			theDict,
-			     CFDictionaryApplierFunction	applier,
-			     void				*context)
+my_CFSetApplyFunction(CFSetRef			theSet,
+		      CFSetApplierFunction	applier,
+		      void			*context)
 {
 	CFAllocatorRef	myAllocator;
-	CFDictionaryRef	myDict;
+	CFSetRef	mySet;
 
-	myAllocator = CFGetAllocator(theDict);
-	myDict      = CFDictionaryCreateCopy(myAllocator, theDict);
-	CFDictionaryApplyFunction(myDict, applier, context);
-	CFRelease(myDict);
+	myAllocator = CFGetAllocator(theSet);
+	mySet       = CFSetCreateCopy(myAllocator, theSet);
+	CFSetApplyFunction(mySet, applier, context);
+	CFRelease(mySet);
 	return;
 }
 
 
+__private_extern__
 int
-__SCDynamicStoreAddWatchedKey(SCDynamicStoreRef store, CFStringRef key, Boolean isRegex)
+__SCDynamicStoreAddWatchedKey(SCDynamicStoreRef store, CFStringRef key, Boolean isRegex, Boolean internal)
 {
-	SCDynamicStorePrivateRef	storePrivate = (SCDynamicStorePrivateRef)store;
+	int				sc_status	= kSCStatusOK;
+	CFNumberRef			sessionNum	= NULL;
+	SCDynamicStorePrivateRef	storePrivate	= (SCDynamicStorePrivateRef)store;
 
-	SCLog(_configd_verbose, LOG_DEBUG, CFSTR("__SCDynamicStoreAddWatchedKey:"));
-	SCLog(_configd_verbose, LOG_DEBUG, CFSTR("  key     = %@"), key);
-	SCLog(_configd_verbose, LOG_DEBUG, CFSTR("  isRegex = %s"), isRegex ? "TRUE" : "FALSE");
+	if (_configd_verbose) {
+		SCLog(TRUE, LOG_DEBUG, CFSTR("__SCDynamicStoreAddWatchedKey:"));
+		SCLog(TRUE, LOG_DEBUG, CFSTR("  key     = %@"), key);
+		SCLog(TRUE, LOG_DEBUG, CFSTR("  isRegex = %s"), isRegex ? "TRUE" : "FALSE");
+	}
 
 	if (!store || (storePrivate->server == MACH_PORT_NULL)) {
 		return kSCStatusNoStoreSession;	/* you must have an open session to play */
 	}
 
-	/*
-	 * add new key after checking if key has already been defined
-	 */
-	if (isRegex) {
-		if (CFSetContainsValue(storePrivate->reKeys, key))
-			return kSCStatusKeyExists;		/* sorry, key already exists in notifier list */
-		CFSetAddValue(storePrivate->reKeys, key);	/* add key to this sessions notifier list */
-	} else {
-		if (CFSetContainsValue(storePrivate->keys, key))
-			return kSCStatusKeyExists;		/* sorry, key already exists in notifier list */
-		CFSetAddValue(storePrivate->keys, key);	/* add key to this sessions notifier list */
+	if (_configd_trace) {
+		SCTrace(TRUE, _configd_trace,
+			CFSTR("%s : %5d : %s : %@\n"),
+			internal ? "*watch+" : "watch+ ",
+			storePrivate->server,
+			isRegex  ? "pattern" : "key",
+			key);
 	}
 
+	sessionNum = CFNumberCreate(NULL, kCFNumberIntType, &storePrivate->server);
+
 	if (isRegex) {
-		CFStringRef		sessionKey;
-		int			regexStrLen;
-		char			*regexStr;
-		CFMutableDataRef	regexData;
-		int			reError;
-		char			reErrBuf[256];
-		int			reErrStrLen;
-		addContext		context;
-		CFDictionaryRef		info;
-		CFMutableDictionaryRef	newInfo;
-		CFArrayRef		rKeys;
-		CFMutableArrayRef	newRKeys;
-		CFArrayRef		rData;
-		CFMutableArrayRef	newRData;
-
-		/*
-		 * We are adding a regex key. As such, we need to flag
-		 * any keys currently in the store.
-		 */
-
-		/* 1. Extract a C String version of the key pattern string. */
-
-		regexStrLen = CFStringGetLength(key) + 1;
-		regexStr    = CFAllocatorAllocate(NULL, regexStrLen, 0);
-		if (!CFStringGetCString(key,
-					regexStr,
-					regexStrLen,
-					kCFStringEncodingMacRoman)) {
-			SCLog(_configd_verbose, LOG_DEBUG, CFSTR("CFStringGetCString: could not convert regex key to C string"));
-			CFAllocatorDeallocate(NULL, regexStr);
-			return kSCStatusFailed;
-		}
-
-		/* 2. Compile the regular expression from the pattern string. */
-
-		regexData = CFDataCreateMutable(NULL, sizeof(regex_t));
-		CFDataSetLength(regexData, sizeof(regex_t));
-		reError = regcomp((regex_t *)CFDataGetBytePtr(regexData),
-				  regexStr,
-				  REG_EXTENDED);
-		CFAllocatorDeallocate(NULL, regexStr);
-		if (reError != 0) {
-			reErrStrLen = regerror(reError,
-					       (regex_t *)CFDataGetBytePtr(regexData),
-					       reErrBuf,
-					       sizeof(reErrBuf));
-			SCLog(_configd_verbose, LOG_DEBUG, CFSTR("regcomp() key: %s"), reErrBuf);
-			CFRelease(regexData);
-			return kSCStatusFailed;
+		if (CFSetContainsValue(storePrivate->patterns, key)) {
+			/* sorry, pattern already exists in notifier list */
+			sc_status = kSCStatusKeyExists;
+			goto done;
 		}
 
 		/*
-		 * 3. Iterate over the current keys and add this session as a "watcher"
-		 *    for any key already defined in the store.
+		 * add this session as a pattern watcher
 		 */
-
-		context.store = storePrivate;
-		context.preg  = (regex_t *)CFDataGetBytePtr(regexData);
-		my_CFDictionaryApplyFunction(storeData,
-					     (CFDictionaryApplierFunction)_addRegexWatcherByKey,
-					     &context);
-
-		/*
-		 * 4. We also need to save this key and the associated regex data
-		 *    for any subsequent additions.
-		 */
-		sessionKey = CFStringCreateWithFormat(NULL, NULL, CFSTR("%d"), storePrivate->server);
-
-		info = CFDictionaryGetValue(sessionData, sessionKey);
-		if (info) {
-			newInfo = CFDictionaryCreateMutableCopy(NULL, 0, info);
-		} else {
-			newInfo = CFDictionaryCreateMutable(NULL,
-							    0,
-							    &kCFTypeDictionaryKeyCallBacks,
-							    &kCFTypeDictionaryValueCallBacks);
+		if (!patternAddSession(key, sessionNum)) {
+			sc_status = kSCStatusInvalidArgument;
+			goto done;
 		}
 
-		rKeys = CFDictionaryGetValue(newInfo, kSCDRegexKeys);
-		if ((rKeys == NULL) ||
-		    (CFArrayContainsValue(rKeys,
-					  CFRangeMake(0, CFArrayGetCount(rKeys)),
-					  key) == FALSE)) {
-			rData = CFDictionaryGetValue(newInfo, kSCDRegexData);
-			if (rKeys) {
-				newRKeys = CFArrayCreateMutableCopy(NULL, 0, rKeys);
-				newRData = CFArrayCreateMutableCopy(NULL, 0, rData);
-			} else {
-				newRKeys = CFArrayCreateMutable(NULL, 0, &kCFTypeArrayCallBacks);
-				newRData = CFArrayCreateMutable(NULL, 0, &kCFTypeArrayCallBacks);
-			}
-
-			/* save the regex key */
-			CFArrayAppendValue(newRKeys, key);
-			CFDictionarySetValue(newInfo, kSCDRegexKeys, newRKeys);
-			CFRelease(newRKeys);
-			/* ...and the compiled expression */
-			CFArrayAppendValue(newRData, regexData);
-			CFDictionarySetValue(newInfo, kSCDRegexData, newRData);
-			CFRelease(newRData);
-			CFDictionarySetValue(sessionData, sessionKey, newInfo);
-		}
-		CFRelease(regexData);
-		CFRelease(newInfo);
-		CFRelease(sessionKey);
+		/* add pattern to this sessions notifier list */
+		CFSetAddValue(storePrivate->patterns, key);
 	} else {
-		CFNumberRef	sessionNum;
+		if (CFSetContainsValue(storePrivate->keys, key)) {
+			/* sorry, key already exists in notifier list */
+			sc_status = kSCStatusKeyExists;
+			goto done;
+		}
 
 		/*
 		 * We are watching a specific key. As such, update the
 		 * store to mark our interest in any changes.
 		 */
-		sessionNum = CFNumberCreate(NULL, kCFNumberIntType, &storePrivate->server);
 		_addWatcher(sessionNum, key);
-		CFRelease(sessionNum);
+
+		/* add key to this sessions notifier list */
+		CFSetAddValue(storePrivate->keys, key);
 	}
 
-	return kSCStatusOK;
+    done :
+
+	if (sessionNum)	CFRelease(sessionNum);
+	return sc_status;
 }
 
 
+__private_extern__
 kern_return_t
 _notifyadd(mach_port_t 			server,
 	   xmlData_t			keyRef,		/* raw XML bytes */
@@ -209,23 +136,204 @@ _notifyadd(mach_port_t 			server,
 	serverSessionRef	mySession = getSession(server);
 	CFStringRef		key;		/* key  (un-serialized) */
 
-	SCLog(_configd_verbose, LOG_DEBUG, CFSTR("Add notification key for this session."));
-	SCLog(_configd_verbose, LOG_DEBUG, CFSTR("  server = %d"), server);
+	if (_configd_verbose) {
+		SCLog(TRUE, LOG_DEBUG, CFSTR("Add notification key for this session."));
+		SCLog(TRUE, LOG_DEBUG, CFSTR("  server = %d"), server);
+	}
 
 	/* un-serialize the key */
-	if (!_SCUnserialize((CFPropertyListRef *)&key, (void *)keyRef, keyLen)) {
+	if (!_SCUnserializeString(&key, NULL, (void *)keyRef, keyLen)) {
 		*sc_status = kSCStatusFailed;
 		return KERN_SUCCESS;
 	}
 
 	if (!isA_CFString(key)) {
-		CFRelease(key);
 		*sc_status = kSCStatusInvalidArgument;
+		CFRelease(key);
 		return KERN_SUCCESS;
 	}
 
-	*sc_status = __SCDynamicStoreAddWatchedKey(mySession->store, key, isRegex);
+	if (!mySession) {
+		*sc_status = kSCStatusNoStoreSession;	/* you must have an open session to play */
+		CFRelease(key);
+		return KERN_SUCCESS;
+	}
+
+	*sc_status = __SCDynamicStoreAddWatchedKey(mySession->store, key, isRegex != 0, FALSE);
 	CFRelease(key);
+
+	return KERN_SUCCESS;
+}
+
+
+/*
+ * "context" argument for removeOldKey() and addNewKey()
+ */
+typedef struct {
+	SCDynamicStoreRef       store;
+	CFSetRef		oldKeys;	/* for addNewKey */
+	CFArrayRef		newKeys;	/* for removeOldKey */
+	Boolean			isRegex;
+	int			sc_status;
+} updateKeysContext, *updateKeysContextRef;
+
+
+static void
+removeOldKey(const void *value, void *context)
+{
+	CFStringRef			oldKey		= (CFStringRef)value;
+	updateKeysContextRef		myContextRef	= (updateKeysContextRef)context;
+
+	if (myContextRef->sc_status != kSCStatusOK) {
+		return;
+	}
+
+	if (!myContextRef->newKeys ||
+	    !CFArrayContainsValue(myContextRef->newKeys,
+				  CFRangeMake(0, CFArrayGetCount(myContextRef->newKeys)),
+				  oldKey)) {
+		/* the old notification key is not being retained, remove it */
+		myContextRef->sc_status = __SCDynamicStoreRemoveWatchedKey(myContextRef->store,
+									   oldKey,
+									   myContextRef->isRegex,
+									   TRUE);
+	}
+
+	return;
+}
+
+
+static void
+addNewKey(const void *value, void *context)
+{
+	CFStringRef			newKey		= (CFStringRef)value;
+	updateKeysContextRef		myContextRef	= (updateKeysContextRef)context;
+
+	if (myContextRef->sc_status != kSCStatusOK) {
+		return;
+	}
+
+	if (!myContextRef->oldKeys ||
+	    !CFSetContainsValue(myContextRef->oldKeys, newKey)) {
+		/* if this is a new notification key */
+		myContextRef->sc_status = __SCDynamicStoreAddWatchedKey(myContextRef->store,
+									newKey,
+									myContextRef->isRegex,
+									TRUE);
+	}
+
+	return;
+}
+
+
+__private_extern__
+int
+__SCDynamicStoreSetNotificationKeys(SCDynamicStoreRef store, CFArrayRef keys, CFArrayRef patterns)
+{
+	updateKeysContext		myContext;
+	SCDynamicStorePrivateRef	storePrivate = (SCDynamicStorePrivateRef)store;
+
+	if (_configd_verbose) {
+		SCLog(TRUE, LOG_DEBUG, CFSTR("__SCDynamicStoreSetNotificationKeys:"));
+		SCLog(TRUE, LOG_DEBUG, CFSTR("  keys     = %@"), keys);
+		SCLog(TRUE, LOG_DEBUG, CFSTR("  patterns = %@"), patterns);
+	}
+
+	if (!store || (storePrivate->server == MACH_PORT_NULL)) {
+		return kSCStatusNoStoreSession;	/* you must have an open session to play */
+	}
+
+	if (_configd_trace) {
+		SCTrace(TRUE, _configd_trace,
+			CFSTR("watch   : %5d : %d keys, %d patterns\n"),
+			storePrivate->server,
+			keys     ? CFArrayGetCount(keys)     : 0,
+			patterns ? CFArrayGetCount(patterns) : 0);
+	}
+
+	myContext.store     = store;
+	myContext.sc_status = kSCStatusOK;
+
+	/* remove any previously registered keys, register any new keys */
+	myContext.oldKeys = CFSetCreateCopy(NULL, storePrivate->keys);
+	myContext.newKeys = keys;
+	myContext.isRegex = FALSE;
+	my_CFSetApplyFunction(storePrivate->keys, removeOldKey, &myContext);
+	if (keys) {
+		CFArrayApplyFunction(keys,
+				     CFRangeMake(0, CFArrayGetCount(keys)),
+				     addNewKey,
+				     &myContext);
+	}
+	CFRelease(myContext.oldKeys);
+
+	/* remove any previously registered patterns, register any new patterns */
+	myContext.oldKeys = CFSetCreateCopy(NULL, storePrivate->patterns);
+	myContext.newKeys = patterns;
+	myContext.isRegex = TRUE;
+	my_CFSetApplyFunction(storePrivate->patterns, removeOldKey, &myContext);
+	if (patterns) {
+		CFArrayApplyFunction(patterns,
+				     CFRangeMake(0, CFArrayGetCount(patterns)),
+				     addNewKey,
+				     &myContext);
+	}
+	CFRelease(myContext.oldKeys);
+
+	return myContext.sc_status;
+}
+
+
+__private_extern__
+kern_return_t
+_notifyset(mach_port_t 			server,
+	   xmlData_t			keysRef,		/* raw XML bytes */
+	   mach_msg_type_number_t	keysLen,
+	   xmlData_t			patternsRef,		/* raw XML bytes */
+	   mach_msg_type_number_t	patternsLen,
+	   int				*sc_status
+)
+{
+	serverSessionRef	mySession	= getSession(server);
+	CFArrayRef		keys		= NULL;	/* key (un-serialized) */
+	CFArrayRef		patterns	= NULL;	/* patterns (un-serialized) */
+
+	if (_configd_verbose) {
+		SCLog(TRUE, LOG_DEBUG, CFSTR("Add notification key for this session."));
+		SCLog(TRUE, LOG_DEBUG, CFSTR("  server = %d"), server);
+	}
+
+	*sc_status = kSCStatusOK;
+
+	if (keysRef && (keysLen > 0)) {
+		/* un-serialize the keys */
+		if (!_SCUnserialize((CFPropertyListRef *)&keys, NULL, (void *)keysRef, keysLen)) {
+			*sc_status = kSCStatusFailed;
+		} else if (!isA_CFArray(keys)) {
+			*sc_status = kSCStatusInvalidArgument;
+		}
+	}
+
+	if (patternsRef && (patternsLen > 0)) {
+		/* un-serialize the patterns */
+		if (!_SCUnserialize((CFPropertyListRef *)&patterns, NULL, (void *)patternsRef, patternsLen)) {
+			*sc_status = kSCStatusFailed;
+		} else if (!isA_CFArray(patterns)) {
+			*sc_status = kSCStatusInvalidArgument;
+		}
+	}
+
+	if (!mySession) {
+		/* you must have an open session to play */
+		*sc_status = kSCStatusNoStoreSession;
+	}
+
+	if (*sc_status == kSCStatusOK) {
+		*sc_status = __SCDynamicStoreSetNotificationKeys(mySession->store, keys, patterns);
+	}
+
+	if (keys)	CFRelease(keys);
+	if (patterns)	CFRelease(patterns);
 
 	return KERN_SUCCESS;
 }

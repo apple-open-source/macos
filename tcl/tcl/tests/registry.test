@@ -10,17 +10,17 @@
 # Copyright (c) 1997 by Sun Microsystems, Inc.  All rights reserved.
 # Copyright (c) 1998-1999 by Scriptics Corporation.
 #
-# RCS: @(#) $Id: registry.test,v 1.1.1.4 2000/12/06 23:04:17 wsanchez Exp $
+# RCS: @(#) $Id: registry.test,v 1.1.1.6 2003/07/09 01:33:57 landonf Exp $
 
 if {[lsearch [namespace children] ::tcltest] == -1} {
-    package require tcltest
+    package require tcltest 2
     namespace import -force ::tcltest::*
 }
 
 if {$tcl_platform(platform) == "windows"} {
     if [catch {
-	set lib [lindex [glob [file join [pwd] [file dirname \
-		[info nameofexecutable]] tclreg*.dll]] 0]
+	set lib [lindex [glob -directory [file join [pwd] [file dirname \
+		[info nameofexecutable]]] tclreg*.dll] 0]
 	load $lib registry
     }] {
 	puts "Unable to find the registry package. Skipping registry tests."
@@ -29,13 +29,9 @@ if {$tcl_platform(platform) == "windows"} {
 }
 
 # determine the current locale
-set old [testlocale all]
-if {![string compare [testlocale all ""] "English_United States.1252"]} {
-	# error messages from registry package are already localized.
-    set ::tcltest::testConstraints(english) 1
-}
-testlocale all $old
-unset old
+testConstraint english [expr {[llength [info commands testlocale]]
+	&& [string equal [testlocale all ""] "English_United States.1252"]
+}]
 
 set hostname [info hostname]
 
@@ -44,7 +40,7 @@ test registry-1.1 {argument parsing for registry command} {pcOnly} {
 } {1 {wrong # args: should be "registry option ?arg arg ...?"}}
 test registry-1.2 {argument parsing for registry command} {pcOnly} {
     list [catch {registry foo} msg] $msg
-} {1 {bad option "foo": must be delete, get, keys, set, type, or values}}
+} {1 {bad option "foo": must be broadcast, delete, get, keys, set, type, or values}}
 
 test registry-1.3 {argument parsing for registry command} {pcOnly} {
     list [catch {registry d} msg] $msg
@@ -582,21 +578,23 @@ test registry-11.3 {SetValue: failure} {pcOnly nonPortable english} {
     list [catch {registry set {\\mom\HKEY_CLASSES_ROOT\TclFoobar} bar foobar} msg] $msg
 } {1 {unable to open key: Access is denied.}}
 
+test registry-12.1 {BroadcastValue} {pcOnly} {
+    list [catch {registry broadcast} msg] $msg
+} {1 {wrong # args: should be "registry broadcast keyName ?-timeout millisecs?"}}
+test registry-12.2 {BroadcastValue} {pcOnly} {
+    list [catch {registry broadcast "" -time} msg] $msg
+} {1 {wrong # args: should be "registry broadcast keyName ?-timeout millisecs?"}}
+test registry-12.3 {BroadcastValue} {pcOnly} {
+    list [catch {registry broadcast "" - 500} msg] $msg
+} {1 {wrong # args: should be "registry broadcast keyName ?-timeout millisecs?"}}
+test registry-12.4 {BroadcastValue} {pcOnly} {
+    list [catch {registry broadcast {Environment}} msg] $msg
+} {0 {1 0}}
+test registry-12.5 {BroadcastValue} {pcOnly} {
+    list [catch {registry b {}} msg] $msg
+} {0 {1 0}}
 
 # cleanup
 unset hostname
 ::tcltest::cleanupTests
 return
-
-
-
-
-
-
-
-
-
-
-
-
-

@@ -1,0 +1,28 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<jaws>
+
+    <enterprise-beans>
+      
+     <entity>
+      <ejb-name>AllTypes</ejb-name>
+      <table-name>AllTypesTestBean2</table-name>
+			<remove-table>true</remove-table>
+			
+			<finder>
+				<name>findByMinInt</name>
+				<query>anInt > {0}</query>
+				<order>anInt ASC</order>
+			</finder>
+	    
+			<finder>
+				<name>findByIntAndDouble</name>
+				<query>anInt = {0} AND aDouble = {1}</query>
+				<order>aString</order>
+			</finder>
+		 </entity>
+        
+    </enterprise-beans>
+
+</jaws>
+

@@ -1,0 +1,156 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE log4j:configuration SYSTEM "log4j.dtd">
+
+<!-- ===================================================================== -->
+<!--                                                                       -->
+<!--  Log4j Configuration                                                  -->
+<!--                                                                       -->
+<!-- ===================================================================== -->
+
+<!-- $Id: log4j.xml,v 1.2.2.1 2003/01/06 06:29:45 starksm Exp $ -->
+
+<!--
+   | For more configuration infromation and examples see the Jakarta Log4j
+   | owebsite: http://jakarta.apache.org/log4j
+ -->
+
+<log4j:configuration xmlns:log4j="http://jakarta.apache.org/log4j/" debug="false">
+
+  <!-- ================================= -->
+  <!-- Preserve messages in a local file -->
+  <!-- ================================= -->
+
+  <!-- A time/date based rolling appender -->
+  <appender name="FILE" class="org.jboss.logging.appender.DailyRollingFileAppender">
+    <param name="File" value="${build.testlog}/test.log"/>
+    <param name="Append" value="true"/>
+
+    <!-- Rollover at midnight each day -->
+    <param name="DatePattern" value="'.'yyyy-MM-dd"/>
+
+    <!-- Rollover at the top of each hour
+    <param name="DatePattern" value="'.'yyyy-MM-dd-HH"/>
+    -->
+    <param name="Threshold" value="DEBUG"/>
+
+    <layout class="org.apache.log4j.PatternLayout">
+      <!-- The default pattern: Date Priority [Category] Message\n -->
+      <param name="ConversionPattern" value="%d %-5p [%c] %m%n"/>
+
+      <!-- The full pattern: Date MS Priority [Category] (Thread:NDC) Message\n
+      <param name="ConversionPattern" value="%d %-5r %-5p [%c] (%t:%x) %m%n"/>
+       -->
+    </layout>	    
+  </appender>
+
+  <!-- A size based file rolling appender
+  <appender name="FILE" class="org.jboss.logging.appender.RollingFileAppender">
+    <param name="File" value="${jboss.server.home.dir}/log/server.log"/>
+    <param name="Append" value="false"/>
+    <param name="MaxFileSize" value="500KB"/>
+    <param name="MaxBackupIndex" value="1"/>
+
+    <layout class="org.apache.log4j.PatternLayout">
+      <param name="ConversionPattern" value="%d %-5p [%c] %m%n"/>
+    </layout>	    
+  </appender>
+  -->
+
+  <!-- ============================== -->
+  <!-- Append messages to the console -->
+  <!-- ============================== -->
+
+  <appender name="CONSOLE" class="org.apache.log4j.ConsoleAppender">
+    <param name="Threshold" value="FATAL"/>
+    <param name="Target" value="System.out"/>
+
+    <layout class="org.apache.log4j.PatternLayout">
+      <!-- The default pattern: Date Priority [Category] Message\n -->
+      <param name="ConversionPattern" value="%d{ABSOLUTE} %-5p [%c{1}] %m%n"/>
+    </layout>
+  </appender>
+
+
+  <!-- ====================== -->
+  <!-- More Appender examples -->
+  <!-- ====================== -->
+
+  <!-- Buffer events and log them asynchronously
+  <appender name="ASYNC" class="org.apache.log4j.AsyncAppender">
+    <appender-ref ref="FILE"/>
+    <appender-ref ref="CONSOLE"/>
+  </appender>
+  -->
+
+  <!-- EMail events to an administrator
+  <appender name="SMTP" class="org.apache.log4j.net.SMTPAppender">
+    <param name="Threshold" value="ERROR"/>
+    <param name="To" value="admin@myhost.domain.com"/>
+    <param name="From" value="nobody@myhost.domain.com"/>
+    <param name="Subject" value="JBoss Sever Errors"/>
+    <param name="SMTPHost" value="localhost"/>
+    <param name="BufferSize" value="10"/>
+  </appender>
+  -->
+
+  <!-- Syslog events
+  <appender name="SYSLOG" class="org.apache.log4j.net.SyslogAppender">
+    <param name="Facility" value="LOCAL7"/>
+    <param name="FacilityPrinting" value="true"/>
+    <param name="SyslogHost" value="localhost"/>
+  </appender>
+  -->
+
+  <!-- Log events to JMS (requires a topic to be created)
+  <appender name="JMS" class="org.apache.log4j.net.JMSAppender">
+    <param name="Threshold" value="ERROR"/>
+    <param name="TopicConnectionFactoryBindingName" value="java:/ConnectionFactory"/>
+    <param name="TopicBindingName" value="topic/MyErrorsTopic"/>
+  </appender>
+  -->
+
+  <!-- ================ -->
+  <!-- Limit categories -->
+  <!-- ================ -->
+
+  <!-- Limit JBoss categories to INFO 
+  <category name="org.jboss">
+    <priority value="INFO" class="org.jboss.logging.XLevel"/>
+  </category>
+  -->
+
+  <!-- Increase the priority threshold for the DefaultDS category
+  <category name="DefaultDS">
+    <priority value="FATAL"/>
+  </category>
+  -->
+
+  <!-- Decrease the priority threshold for the org.jboss.varia category
+  <category name="org.jboss.varia">
+    <priority value="DEBUG"/>
+  </category>
+  -->
+
+  <!--
+     | An example of enabling the custom TRACE level priority that is used
+     | by the JBoss internals to diagnose low level details. This example
+     | turns on TRACE level msgs for the org.jboss.ejb.plugins package and its
+     | subpackages. This will produce A LOT of logging output.
+  <category name="org.jboss.system">
+    <priority value="TRACE" class="org.jboss.logging.XLevel"/>
+  </category>
+  -->
+
+  <category name="org.jboss.tm">
+    <priority value="TRACE" class="org.jboss.logging.XLevel"/>
+  </category>
+  <!-- ======================= -->
+  <!-- Setup the Root category -->
+  <!-- ======================= -->
+
+  <root>
+    <appender-ref ref="CONSOLE"/>
+    <appender-ref ref="FILE"/>
+  </root>
+  
+</log4j:configuration>

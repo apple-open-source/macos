@@ -3,8 +3,6 @@
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
- * Copyright (c) 1999-2003 Apple Computer, Inc.  All Rights Reserved.
- * 
  * This file contains Original Code and/or Modifications of Original Code
  * as defined in and that are subject to the Apple Public Source License
  * Version 2.0 (the 'License'). You may not use this file except in
@@ -103,6 +101,8 @@ enum dyld_other_error_numbers {
     DYLD_INVALID_ARGS /* 4 */
 };
 
+extern unsigned long undefined_handler_recursion_level;
+
 /*
  * These are the pointers to the user's three error handler functions.
  */
@@ -119,7 +119,7 @@ extern void (*user_linkEdit_handler)(
     const char *error_string);
 
 extern enum bool check_and_report_undefineds(
-    void);
+    enum bool invoke_user_handler_with_last_undefined);
 
 extern void multiply_defined_error(
     char *symbol_name,

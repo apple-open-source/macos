@@ -1,0 +1,68 @@
+ac_cv_type_size_t=${ac_cv_type_size_t='yes'}
+ac_cv_func_waitpid=${ac_cv_func_waitpid='yes'}
+ac_cv_header_stdlib_h=${ac_cv_header_stdlib_h='yes'}
+ac_cv_func_BSDgettimeofday=${ac_cv_func_BSDgettimeofday='no'}
+ac_cv_func_strncasecmp=${ac_cv_func_strncasecmp='yes'}
+ac_cv_func_strtoul=${ac_cv_func_strtoul='yes'}
+ac_cv_header_sys_time_h=${ac_cv_header_sys_time_h='yes'}
+ac_cv_func_strtol=${ac_cv_func_strtol='yes'}
+ac_cv_func_sin=${ac_cv_func_sin='yes'}
+ac_cv_func_wait3=${ac_cv_func_wait3='yes'}
+ac_cv_header_sys_wait_h=${ac_cv_header_sys_wait_h='yes'}
+tcl_cv_lib_sockets=${tcl_cv_lib_sockets=''}
+ac_cv_header_float_h=${ac_cv_header_float_h='yes'}
+ac_cv_c_char_unsigned=${ac_cv_c_char_unsigned='no'}
+ac_cv_lib_ieee_main=${ac_cv_lib_ieee_main='no'}
+ac_cv_func_uname=${ac_cv_func_uname='yes'}
+ac_cv_func_strstr=${ac_cv_func_strstr='yes'}
+ac_cv_func_tmpnam=${ac_cv_func_tmpnam='yes'}
+ac_cv_type_mode_t=${ac_cv_type_mode_t='yes'}
+ac_cv_header_values_h=${ac_cv_header_values_h='no'}
+ac_cv_header_limits_h=${ac_cv_header_limits_h='yes'}
+ac_cv_func_getwd=${ac_cv_func_getwd='yes'}
+ac_cv_header_net_errno_h=${ac_cv_header_net_errno_h='no'}
+ac_cv_func_gettimeofday=${ac_cv_func_gettimeofday='yes'}
+ac_cv_header_stdc=${ac_cv_header_stdc='yes'}
+ac_cv_header_time=${ac_cv_header_time='yes'}
+ac_cv_type_signal=${ac_cv_type_signal='void'}
+ac_cv_header_unistd_h=${ac_cv_header_unistd_h='yes'}
+ac_cv_header_string_h=${ac_cv_header_string_h='yes'}
+ac_cv_struct_tm_zone=${ac_cv_struct_tm_zone='no'}
+ac_cv_header_sys_filio_h=${ac_cv_header_sys_filio_h='no'}
+ac_cv_header_errno_h=${ac_cv_header_errno_h='yes'}
+ac_cv_func_strerror=${ac_cv_func_strerror='yes'}
+ac_cv_type_pid_t=${ac_cv_type_pid_t='yes'}
+ac_cv_func_connect=${ac_cv_func_connect='yes'}
+ac_cv_struct_st_blksize=${ac_cv_struct_st_blksize='yes'}
+ac_cv_func_vfork=${ac_cv_func_vfork='yes'}
+ac_cv_struct_tm=${ac_cv_struct_tm='time.h'}
+ac_cv_header_sys_ioctl_h=${ac_cv_header_sys_ioctl_h='yes'}
+ac_cv_lib_dl_dlopen=${ac_cv_lib_dl_dlopen='no'}
+ac_cv_type_uid_t=${ac_cv_type_uid_t='yes'}
+ac_cv_func_strtod=${ac_cv_func_strtod='yes'}
+ac_cv_var_tzname=${ac_cv_var_tzname='no'}
+ac_cv_header_dlfcn_h=${ac_cv_header_dlfcn_h='yes'}
+ac_cv_lib_inet_main=${ac_cv_lib_inet_main='no'}
+ac_cv_func_opendir=${ac_cv_func_opendir='yes'}
+ac_cv_objext=${ac_cv_objext='o'}
+cat <<'EOF' >> confdefs.h
+#define HAVE_GETCWD 1
+#define HAVE_OPENDIR 1
+#define HAVE_STRSTR 1
+#define HAVE_STRTOL 1
+#define HAVE_TMPNAM 1
+#define HAVE_WAITPID 1
+#define NO_VALUES_H 1
+#define HAVE_UNISTD_H 1
+#define USE_TERMIOS 1
+#define HAVE_SYS_TIME_H 1
+#define TIME_WITH_SYS_TIME 1
+#define HAVE_ST_BLKSIZE 1
+#define STDC_HEADERS 1
+#define NO_UNION_WAIT 1
+#define NEED_MATHERR 1
+#define RETSIGTYPE void
+#define HAVE_SIGNED_CHAR 1
+#define HAVE_SYS_IOCTL_H 1
+#define HAVE_TM_ZONE 1
+EOF

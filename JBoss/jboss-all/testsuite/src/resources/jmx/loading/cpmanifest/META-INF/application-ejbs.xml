@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<application>
+    <display-name>JBossTest Manifest tests of an ejb jar referencing
+    another ejb jar via its manifest Class-Path entry.</display-name>
+    <module>
+        <ejb>ejbjar1.jar</ejb>
+    </module>
+    <module>
+        <ejb>ejbjar2.jar</ejb>
+    </module>
+</application>
+

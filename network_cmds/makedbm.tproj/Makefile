@@ -12,7 +12,7 @@ NAME = makedbm
 PROJECTVERSION = 2.8
 PROJECT_TYPE = Tool
 
-HFILES = db.h ypdb.h ypdef.h
+HFILES = _db.h ypdb.h ypdef.h
 
 CFILES = db.c makedbm.c ypdb.c
 

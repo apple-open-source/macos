@@ -141,8 +141,10 @@ static status_e service_fill( struct service_config *scp,
       return( FAILED ) ;
 
    /* 
-    * FIXME: Should all these set SPECIFY or PRESENT ? 
-    * PRESENT makes more sense. Also, these sb documented on manpage. -SG
+    * FIXME: Should all these set SPECIFY or PRESENT ?
+    * PRESENT means that either a default or specified value.
+    * SPECIFIED means that the user specified a value. 
+    * PRESENT makes more sense for default values. -SG
     */
    if ( ! SC_SPECIFIED( scp, A_INSTANCES ) )
    {
@@ -159,9 +161,26 @@ static status_e service_fill( struct service_config *scp,
 
    if ( ! SC_SPECIFIED( scp, A_PER_SOURCE ) )
    {
-      scp->sc_per_source = SC_SPECIFIED( def, A_PER_SOURCE ) ? def->sc_per_source : DEFAULT_INSTANCE_LIMIT ;
+      scp->sc_per_source = SC_SPECIFIED( def, A_PER_SOURCE ) ? 
+         def->sc_per_source : DEFAULT_INSTANCE_LIMIT ;
       SC_SPECIFY( scp, A_PER_SOURCE ) ;
    }
+
+#ifdef HAVE_DNSREGISTRATION
+   if ( ! SC_SPECIFIED( scp, A_MDNS ) )
+   {
+      scp->sc_mdns = SC_SPECIFIED( def, A_MDNS ) ? def->sc_mdns : YES;
+      SC_SPECIFY( scp, A_MDNS );
+   }
+#endif
+
+#ifdef HAVE_SESSIONCREATE
+   if ( !SC_SPECIFIED( scp, A_SESSIONCREATE ) )
+   {
+      scp->sc_sessioncreate = NO;
+      SC_SPECIFY( scp, A_SESSIONCREATE );
+   }
+#endif
 
    if ( ! SC_SPECIFIED( scp, A_GROUPS ) )
    {
@@ -178,20 +197,38 @@ static status_e service_fill( struct service_config *scp,
       scp->sc_time_reenable = 0;
    }
 
+#ifdef HAVE_LOADAVG
    if ( ! SC_SPECIFIED( scp, A_MAX_LOAD ) ) {
       scp->sc_max_load = SC_SPECIFIED( def, A_MAX_LOAD ) ? def->sc_max_load : 0;
       SC_SPECIFY( scp, A_MAX_LOAD ) ;
    }
+#endif
 
+   /* 
+    * we need to check a few things. A_BIND can be specified & sc_bind_addr
+    * is NULL. This means the address couldn't be determined in bind_parser
+    * and it was stored into sc_orig_bind_addr. We unset the attribute
+    * so that its processed correctly.
+    */
+   if (SC_SPECIFIED( scp, A_BIND) && scp->sc_bind_addr == NULL)
+      M_CLEAR( scp->sc_specified_attributes, A_BIND ) ;
+   
    if ( (! SC_SPECIFIED( scp, A_BIND )) && (scp->sc_orig_bind_addr == 0) ) {
-      scp->sc_bind_addr = SC_SPECIFIED( def, A_BIND ) ? def->sc_bind_addr : 0 ;
-      if (scp->sc_bind_addr != 0)
+      if ( SC_SPECIFIED( def, A_BIND ) ) {
+         scp->sc_bind_addr = (union xsockaddr *)malloc(sizeof(union xsockaddr));
+         if( scp->sc_bind_addr == NULL ) {
+            msg(LOG_ERR, func, "can't allocate space for bind addr");
+            return( FAILED );
+         }
+         memcpy(scp->sc_bind_addr, def->sc_bind_addr, sizeof(union xsockaddr));
          SC_SPECIFY( scp, A_BIND ) ;
+      }
+      else if ( def->sc_orig_bind_addr )
+         scp->sc_orig_bind_addr = new_string( def->sc_orig_bind_addr );
    }
-
+   
    if ( ! SC_SPECIFIED( scp, A_V6ONLY ) ) {
       scp->sc_v6only = SC_SPECIFIED( def, A_V6ONLY ) ? def->sc_v6only : NO;
-      SC_SPECIFY( scp, A_V6ONLY );
    }
 
    if ( ! SC_SPECIFIED( scp, A_DENY_TIME ) )
@@ -209,7 +246,7 @@ static status_e service_fill( struct service_config *scp,
        */
       if ( SC_SPECIFIED( scp, A_BIND ) && !scp->sc_orig_bind_addr ) 
       {
-	  if ( SAIN6(scp->sc_bind_addr)->sin6_family == AF_INET )
+	  if ( SAIN(scp->sc_bind_addr)->sin_family == AF_INET )
              M_SET(scp->sc_xflags, SF_IPV4);
 	  else
              M_SET(scp->sc_xflags, SF_IPV6);
@@ -260,6 +297,7 @@ static status_e service_fill( struct service_config *scp,
          memcpy(scp->sc_bind_addr, res->ai_addr, res->ai_addrlen);
          free(scp->sc_orig_bind_addr);
          scp->sc_orig_bind_addr = 0;
+ 	 SC_SPECIFY( scp, A_BIND );
       }
       freeaddrinfo(res);
    }
@@ -445,8 +483,8 @@ static status_e service_attr_check( const struct service_config *scp )
    mask_t         necessary_and_specified ;
    mask_t         necessary_and_missing ;
    mask_t         must_specify = NECESSARY_ATTRS ; /* socket_type & wait */
-   int            attr_id ;
-   char          *attr_name ;
+   unsigned int   attr_id ;
+   const char    *attr_name ;
    const char    *func = "service_attr_check" ;
 
    /*
@@ -643,6 +681,25 @@ static status_e check_entry( struct service_config *scp,
          return( FAILED ) ;
    }
 
+   if ( SC_IS_MUXCLIENT( scp ) ) 
+   {
+	   if ( !SC_IS_UNLISTED( scp ) )
+	   {
+               msg(LOG_ERR, func, 
+                   "Service: %s (tcpmux) should have UNLISTED in type.",
+		   scp->sc_name);
+	       return( FAILED );
+	   }
+	   
+	   if (!EQ("tcp", scp->sc_protocol.name))
+	   {
+               msg(LOG_ERR, func, 
+                   "Service: %s (tcpmux) should have tcp in protocol.",
+		   scp->sc_name);
+	       return( FAILED );
+	   }
+   }
+
 /* #ifndef NO_RPC */
 #if defined(HAVE_RPC_RPCENT_H) || defined(HAVE_NETDB_H)
    if ( SC_IS_RPC( scp ) && !SC_IS_UNLISTED( scp ) )
@@ -672,7 +729,7 @@ static status_e check_entry( struct service_config *scp,
 	   * proper protocol for the given service. 
            * We don't need to check MUXCLIENTs - they aren't in /etc/services.
            */
-          if ( SC_SPECIFIED( scp, A_PROTOCOL ) && ! SC_IS_MUXCLIENT( scp ) )
+          if ( SC_SPECIFIED( scp, A_PROTOCOL ) )
           {
              sep = getservbyname( scp->sc_name, scp->sc_protocol.name ) ;
              if ( (sep == NULL) )
@@ -704,7 +761,7 @@ static status_e check_entry( struct service_config *scp,
                   scp->sc_name, service_port, scp->sc_port ) ;
              return( FAILED ) ;
           }
-       } /* if not unlisted */
+      } /* if not unlisted */
     }
     if ( SC_SPECIFIED( scp, A_REDIR ))
     {
@@ -726,6 +783,16 @@ static status_e check_entry( struct service_config *scp,
           msg( LOG_ERR, func, 
  	      "Redirected service %s should not have NAMEINARGS flag set", 
 	      scp->sc_name);
+          return FAILED;
+       }
+    }
+    else /* Not a redirected service */
+    {
+       if( M_IS_SET( (scp)->sc_log_on_success, LO_TRAFFIC ) )
+       {
+          msg( LOG_ERR, func,
+             "Service %s should not have TRAFFIC flag set since its"
+             " not redirected", scp->sc_name);
           return FAILED;
        }
     }
@@ -787,19 +854,24 @@ status_e cnf_get( struct configuration *confp )
 
    else if ( get_conf( config_fd, confp ) == FAILED )
    {
-      close( config_fd ) ;
+      Sclose( config_fd ) ;
       cnf_free( confp ) ;
       psi_destroy( iter ) ;
       return( FAILED ) ;
    }
 
-   close( config_fd ) ;
+   /* get_conf eventually calls Srdline, try Sclosing to unmmap memory. */
+   Sclose( config_fd );
    if( inetd_compat ) {
       config_fd = open("/etc/inetd.conf", O_RDONLY);
       if( config_fd >= 0 ) {
          parse_inet_conf_file( config_fd, confp );
          parse_end() ;
-         close(config_fd);
+         /*
+	  * parse_inet_conf eventually calls Srdline, try Sclosing to 
+	  * unmmap memory. 
+	  */
+         Sclose(config_fd);
       }
    }
 

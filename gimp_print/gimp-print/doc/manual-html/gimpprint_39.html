@@ -1,0 +1,59 @@
+<HTML>
+<HEAD>
+<!-- This HTML file has been created by texi2html 1.51
+     from .././gimpprint.texi on 22 January 2003 -->
+
+<TITLE>GIMP-Print - New Printer</TITLE>
+</HEAD>
+<BODY>
+Go to the <A HREF="gimpprint_1.html">first</A>, <A HREF="gimpprint_38.html">previous</A>, <A HREF="gimpprint_40.html">next</A>, <A HREF="gimpprint_47.html">last</A> section, <A HREF="gimpprint_toc.html">table of contents</A>.
+<P><HR><P>
+
+
+<H1><A NAME="SEC54" HREF="gimpprint_toc.html#TOC54">D  Adding a new printer</A></H1>
+<P>
+<A NAME="IDX253"></A>
+<A NAME="IDX254"></A>
+<A NAME="IDX255"></A>
+
+</P>
+
+<P>
+This appendix covers adding a new ESCP/2, PCL, or Canon printer.
+Writing a new driver module is not covered.
+
+</P>
+<P>
+The three steps to adding a printer are:
+
+</P>
+
+<OL>
+<LI>Add an entry to <TT>`printers.xml'</TT>
+
+<LI>Add the appropriate code and data to the appropriate driver module
+
+<LI>Tune the printer
+
+</OL>
+
+<P>
+Printer information is stored in two places: in <TT>`printers.xml'</TT>
+(which contains the list of printer models available to the the
+upper-level application), and in the appropriate driver file
+(<TT>`print-escp2.c'</TT>, <TT>`print-pcl.c'</TT>, or <TT>`print-canon.c'</TT>).
+
+</P>
+
+<UL>
+<LI><A HREF="gimpprint_40.html#SEC55">printers.xml</A>: File format description.
+<LI><A HREF="gimpprint_41.html#SEC56">Driver file</A>: Data structures to use.
+<LI><A HREF="gimpprint_42.html#SEC57">Epson inkjet printers</A>: Adding an Epson printer.
+<LI><A HREF="gimpprint_43.html#SEC58">Tuning Epson printers</A>: Tweaking settings.
+<LI><A HREF="gimpprint_44.html#SEC59">Canon inkjet printers</A>: Adding a Canon printer.
+</UL>
+
+<P><HR><P>
+Go to the <A HREF="gimpprint_1.html">first</A>, <A HREF="gimpprint_38.html">previous</A>, <A HREF="gimpprint_40.html">next</A>, <A HREF="gimpprint_47.html">last</A> section, <A HREF="gimpprint_toc.html">table of contents</A>.
+</BODY>
+</HTML>

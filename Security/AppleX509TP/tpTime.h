@@ -66,17 +66,29 @@ extern int compareTimes(
 /*
  * Create a time string, in either UTC (2-digit) or or Generalized (4-digit)
  * year format. Caller mallocs the output string whose length is at least
- * (UTC_TIME_STRLEN+1) or (GENERALIZED_TIME_STRLEN+1) respectively.
- * Caller must hold tpTimeLock.
+ * (UTC_TIME_STRLEN+1), (GENERALIZED_TIME_STRLEN+1), or (CSSM_TIME_STRLEN+1)
+ * respectively. Caller must hold tpTimeLock.
  */
 typedef enum {
 	TIME_UTC,
-	TIME_GEN
+	TIME_GEN,
+	TIME_CSSM
 } TpTimeSpec;
 
 void timeAtNowPlus(unsigned secFromNow,
 	TpTimeSpec timeSpec,
 	char *outStr);
+
+/*
+ * Convert a time string, which can be in any of three forms (UTC,
+ * generalized, or CSSM_TIMESTRING) into a CSSM_TIMESTRING. Caller
+ * mallocs the result, which must be at least (CSSM_TIME_STRLEN+1) bytes.
+ * Returns nonzero if incoming time string is badly formed. 
+ */
+int tpTimeToCssmTimestring(
+	const char 	*inStr,			// not necessarily NULL terminated
+	unsigned	inStrLen,		// not including possible NULL
+	char 		*outTime);		// caller mallocs
 
 #ifdef	__cplusplus
 }

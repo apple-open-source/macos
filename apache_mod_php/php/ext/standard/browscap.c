@@ -1,8 +1,8 @@
 /*
    +----------------------------------------------------------------------+
-   | PHP version 4.0                                                      |
+   | PHP Version 4                                                        |
    +----------------------------------------------------------------------+
-   | Copyright (c) 1997-2001 The PHP Group                                |
+   | Copyright (c) 1997-2003 The PHP Group                                |
    +----------------------------------------------------------------------+
    | This source file is subject to version 2.02 of the PHP license,      |
    | that is bundled with this package in the file LICENSE, and is        |
@@ -12,11 +12,11 @@
    | obtain it through the world-wide-web, please send a note to          |
    | license@php.net so we can mail you a copy immediately.               |
    +----------------------------------------------------------------------+
-   | Authors: Zeev Suraski <zeev@zend.com>                                |
+   | Author: Zeev Suraski <zeev@zend.com>                                 |
    +----------------------------------------------------------------------+
  */
 
-/* $Id: browscap.c,v 1.1.1.5 2001/12/14 22:13:17 zarzycki Exp $ */
+/* $Id: browscap.c,v 1.1.1.8 2003/07/18 18:07:42 zarzycki Exp $ */
 
 #include "php.h"
 #include "php_regex.h"
@@ -34,7 +34,7 @@ static zval *current_section;
 
 static void browscap_entry_dtor(zval *pvalue)
 {
-	if (pvalue->type == IS_OBJECT) {
+	if (Z_TYPE_P(pvalue) == IS_OBJECT) {
 		zend_hash_destroy(Z_OBJPROP_P(pvalue));
 		free(Z_OBJPROP_P(pvalue));
 	}
@@ -47,21 +47,21 @@ static void convert_browscap_pattern(zval *pattern)
 	register int i, j;
 	char *t;
 
-	for (i=0; i<pattern->value.str.len; i++) {
-		if (pattern->value.str.val[i]=='*' || pattern->value.str.val[i]=='?' || pattern->value.str.val[i]=='.') {
+	for (i=0; i<Z_STRLEN_P(pattern); i++) {
+		if (Z_STRVAL_P(pattern)[i]=='*' || Z_STRVAL_P(pattern)[i]=='?' || Z_STRVAL_P(pattern)[i]=='.') {
 			break;
 		}
 	}
 
-	if (i==pattern->value.str.len) { /* no wildcards */
-		pattern->value.str.val = zend_strndup(pattern->value.str.val, pattern->value.str.len);
+	if (i==Z_STRLEN_P(pattern)) { /* no wildcards */
+		Z_STRVAL_P(pattern) = zend_strndup(Z_STRVAL_P(pattern), Z_STRLEN_P(pattern));
 		return;
 	}
 
-	t = (char *) malloc(pattern->value.str.len*2);
+	t = (char *) malloc(Z_STRLEN_P(pattern)*2 + 1);
 	
-	for (i=0, j=0; i<pattern->value.str.len; i++, j++) {
-		switch (pattern->value.str.val[i]) {
+	for (i=0, j=0; i<Z_STRLEN_P(pattern); i++, j++) {
+		switch (Z_STRVAL_P(pattern)[i]) {
 			case '?':
 				t[j] = '.';
 				break;
@@ -74,13 +74,18 @@ static void convert_browscap_pattern(zval *pattern)
 				t[j] = '.';
 				break;
 			default:
-				t[j] = pattern->value.str.val[i];
+				t[j] = Z_STRVAL_P(pattern)[i];
 				break;
 		}
 	}
+	
+	if (j && (t[j-1] == '.')) {
+		t[j++] = '*';
+	}
+	
 	t[j]=0;
-	pattern->value.str.val = t;
-	pattern->value.str.len = j;
+	Z_STRVAL_P(pattern) = t;
+	Z_STRLEN_P(pattern) = j;
 }
 /* }}} */
 
@@ -88,17 +93,21 @@ static void convert_browscap_pattern(zval *pattern)
  */
 static void php_browscap_parser_cb(zval *arg1, zval *arg2, int callback_type, void *arg)
 {
+	if (!arg1) {
+		return;
+	}
+
 	switch (callback_type) {
 		case ZEND_INI_PARSER_ENTRY:
-			if (current_section) {
+			if (current_section && arg2) {
 				zval *new_property;
 				char *new_key;
 
 				new_property = (zval *) malloc(sizeof(zval));
 				INIT_PZVAL(new_property);
-				new_property->value.str.val = Z_STRLEN_P(arg2)?zend_strndup(Z_STRVAL_P(arg2), Z_STRLEN_P(arg2)):"";
-				new_property->value.str.len = Z_STRLEN_P(arg2);
-				new_property->type = IS_STRING;
+				Z_STRVAL_P(new_property) = Z_STRLEN_P(arg2)?zend_strndup(Z_STRVAL_P(arg2), Z_STRLEN_P(arg2)):"";
+				Z_STRLEN_P(new_property) = Z_STRLEN_P(arg2);
+				Z_TYPE_P(new_property) = IS_STRING;
 				
 				new_key = zend_strndup(Z_STRVAL_P(arg1), Z_STRLEN_P(arg1));
 				zend_str_tolower(new_key, Z_STRLEN_P(arg1));
@@ -108,6 +117,8 @@ static void php_browscap_parser_cb(zval *arg1, zval *arg2, int callback_type, vo
 			break;
 		case ZEND_INI_PARSER_SECTION: {
 				zval *processed;
+				HashTable *section_properties;
+				TSRMLS_FETCH();
 
 				/*printf("'%s' (%d)\n",$1.value.str.val,$1.value.str.len+1);*/
 				current_section = (zval *) malloc(sizeof(zval));
@@ -115,18 +126,17 @@ static void php_browscap_parser_cb(zval *arg1, zval *arg2, int callback_type, vo
 				processed = (zval *) malloc(sizeof(zval));
 				INIT_PZVAL(processed);
 
-				/* OBJECTS_FIXME */
-				Z_OBJCE_P(current_section) = &zend_standard_class_def;
-				Z_OBJPROP_P(current_section) = (HashTable *) malloc(sizeof(HashTable));
-				current_section->type = IS_OBJECT;
-				zend_hash_init(Z_OBJPROP_P(current_section), 0, NULL, (dtor_func_t) browscap_entry_dtor, 1);
+				section_properties = (HashTable *) malloc(sizeof(HashTable));
+				_object_and_properties_init(current_section, ZEND_STANDARD_CLASS_DEF_PTR, section_properties ZEND_FILE_LINE_CC TSRMLS_CC);
+											
+				zend_hash_init(section_properties, 0, NULL, (dtor_func_t) browscap_entry_dtor, 1);
 				zend_hash_update(&browser_hash, Z_STRVAL_P(arg1), Z_STRLEN_P(arg1)+1, (void *) &current_section, sizeof(zval *), NULL);  
 
-				processed->value.str.val = Z_STRVAL_P(arg1);
-				processed->value.str.len = Z_STRLEN_P(arg1);
-				processed->type = IS_STRING;
+				Z_STRVAL_P(processed) = Z_STRVAL_P(arg1);
+				Z_STRLEN_P(processed) = Z_STRLEN_P(arg1);
+				Z_TYPE_P(processed) = IS_STRING;
 				convert_browscap_pattern(processed);
-				zend_hash_update(Z_OBJPROP_P(current_section), "browser_name_pattern", sizeof("browser_name_pattern"), (void *) &processed, sizeof(zval *), NULL);
+				zend_hash_update(section_properties, "browser_name_pattern", sizeof("browser_name_pattern"), (void *) &processed, sizeof(zval *), NULL);
 			}
 			break;
 	}
@@ -147,12 +157,14 @@ PHP_MINIT_FUNCTION(browscap)
 		}
 
 		fh.handle.fp = VCWD_FOPEN(browscap, "r");
+		fh.opened_path = NULL;
+		fh.free_filename = 0;
 		if (!fh.handle.fp) {
-			php_error(E_CORE_WARNING, "Cannot open '%s' for reading", browscap);
+			zend_error(E_CORE_WARNING, "Cannot open '%s' for reading", browscap);
 			return FAILURE;
 		}
 		fh.filename = browscap;
-		fh.type = ZEND_HANDLE_FP;
+		Z_TYPE(fh) = ZEND_HANDLE_FP;
 		zend_parse_ini_file(&fh, 1, (zend_ini_parser_cb_t) php_browscap_parser_cb, &browser_hash);
 	}
 
@@ -186,11 +198,7 @@ static int browser_reg_compare(zval **browser, int num_args, va_list args, zend_
 	if(zend_hash_find(Z_OBJPROP_PP(browser), "browser_name_pattern", sizeof("browser_name_pattern"), (void **) &browser_name) == FAILURE) {
 		return 0;
 	}
-
-	if (!strchr((*browser_name)->value.str.val,'*')) {
-		return 0;
-	}
-	if (regcomp(&r, (*browser_name)->value.str.val, REG_NOSUB)!=0) {
+	if (regcomp(&r, Z_STRVAL_PP(browser_name), REG_NOSUB)!=0) {
 		return 0;
 	}
 	if (regexec(&r, lookup_browser_name, 0, NULL, 0)==0) {
@@ -210,6 +218,7 @@ PHP_FUNCTION(get_browser)
 	char *lookup_browser_name;
 
 	if (!INI_STR("browscap")) {
+		php_error_docref(NULL TSRMLS_CC, E_WARNING, "browscap ini directive not set.");
 		RETURN_FALSE;
 	}
 	
@@ -233,8 +242,8 @@ PHP_FUNCTION(get_browser)
 	
 	convert_to_string_ex(agent_name);
 
-	if (zend_hash_find(&browser_hash, (*agent_name)->value.str.val, (*agent_name)->value.str.len+1, (void **) &agent)==FAILURE) {
-		lookup_browser_name = (*agent_name)->value.str.val;
+	if (zend_hash_find(&browser_hash, Z_STRVAL_PP(agent_name), Z_STRLEN_PP(agent_name)+1, (void **) &agent)==FAILURE) {
+		lookup_browser_name = Z_STRVAL_PP(agent_name);
 		found_browser_entry = NULL;
 		zend_hash_apply_with_arguments(&browser_hash, (apply_func_args_t) browser_reg_compare, 2, lookup_browser_name, &found_browser_entry);
 		
@@ -250,7 +259,7 @@ PHP_FUNCTION(get_browser)
 	
 	while (zend_hash_find(Z_OBJPROP_PP(agent), "parent", sizeof("parent"), (void **) &agent_name)==SUCCESS) {
 
-		if (zend_hash_find(&browser_hash, (*agent_name)->value.str.val, (*agent_name)->value.str.len+1, (void **)&agent)==FAILURE) {
+		if (zend_hash_find(&browser_hash, Z_STRVAL_PP(agent_name), Z_STRLEN_PP(agent_name)+1, (void **)&agent)==FAILURE) {
 			break;
 		}
 		
@@ -264,6 +273,6 @@ PHP_FUNCTION(get_browser)
  * tab-width: 4
  * c-basic-offset: 4
  * End:
- * vim600: sw=4 ts=4 tw=78 fdm=marker
- * vim<600: sw=4 ts=4 tw=78
+ * vim600: sw=4 ts=4 fdm=marker
+ * vim<600: sw=4 ts=4
  */

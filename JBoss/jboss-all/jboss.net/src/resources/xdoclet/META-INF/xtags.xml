@@ -1,0 +1,51 @@
+<?xml version="1.0" encoding="ISO-8859-1"?>
+
+<!DOCTYPE xdoclet PUBLIC "-//XDoclet Team//DTD XDoclet Tags 1.1//EN" "http://xdoclet.sourceforge.net/dtds/xtags.dtd">
+
+<xdoclet>
+	<!-- jboss specific tags -->
+	<namespace>
+		<name>jbossnet</name>
+		<usage-description>Tags for creation of jboss.net specific web service resources</usage-description>
+		<tags>
+			<tag>
+				<name>jboss-net:web-service</name>
+				<usage-description>Will mark this class as the target of a web-service transport.</usage-description>
+				<unique>true</unique>
+				<condition-description>This is currently applicable to Session Beans and MBeans.</condition-description>
+				<parameter type="text">
+					<name>urn</name>
+					<usage-description>The name of the web service</usage-description>
+					<mandatory>true</mandatory>
+				</parameter>
+				<parameter type="text">
+					<name>expose-all</name>
+					<usage-description>If present, all methods will be exposed, vs. individually specifying each method to be exposed.</usage-description>
+					<mandatory>false</mandatory>
+				</parameter>
+				<parameter type="text">
+					<name>scope</name>
+					<usage-description>Only useful for stateful session beans. Will set the caching policy of the web service endpoint.</usage-description>
+					<mandatory>false</mandatory>
+				</parameter>
+			</tag>
+			<tag>
+				<name>jboss-net:web-method</name>
+				<usage-description>Will expose the marked method as a web-service operation.</usage-description>
+				<unique>true</unique>
+				<condition-description>All session beans and MBeans</condition-description>
+			</tag>
+			<tag>
+				<name>jboss-net:xml-schema</name>
+				<usage-description>Will expose the marked class as (de-)serializable xml structure.</usage-description>
+				<unique>true</unique>
+				<condition-description>All Entity Beans and Java Beans.</condition-description>
+				<parameter type="text">
+					<name>urn</name>
+					<usage-description>The name of the xml type</usage-description>
+					<mandatory>true</mandatory>
+				</parameter>
+			</tag>
+		</tags>
+	</namespace>
+</xdoclet>

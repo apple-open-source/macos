@@ -110,11 +110,19 @@ SOURCE=.\dbx_mysql.c
 # End Source File
 # Begin Source File
 
+SOURCE=.\dbx_oci8.c
+# End Source File
+# Begin Source File
+
 SOURCE=.\dbx_odbc.c
 # End Source File
 # Begin Source File
 
 SOURCE=.\dbx_pgsql.c
+# End Source File
+# Begin Source File
+
+SOURCE=.\dbx_sybasect.c
 # End Source File
 # End Group
 # Begin Group "Header Files"
@@ -138,11 +146,19 @@ SOURCE=.\dbx_mysql.h
 # End Source File
 # Begin Source File
 
+SOURCE=.\dbx_oci8.h
+# End Source File
+# Begin Source File
+
 SOURCE=.\dbx_odbc.h
 # End Source File
 # Begin Source File
 
 SOURCE=.\dbx_pgsql.h
+# End Source File
+# Begin Source File
+
+SOURCE=.\dbx_sybasect.h
 # End Source File
 # Begin Source File
 

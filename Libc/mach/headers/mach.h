@@ -71,6 +71,9 @@
 #include <mach/mig.h>
 #include <mach/mig_errors.h>
 
+#include <sys/cdefs.h>
+
+__BEGIN_DECLS
 /*
  * Standard prototypes
  */
@@ -126,4 +129,6 @@ extern kern_return_t	clock_sleep(mach_port_t,
 				    int,
 				    mach_timespec_t,
 				    mach_timespec_t *);
+__END_DECLS
+
 #endif	/* _MACH_H_ */

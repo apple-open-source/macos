@@ -1,5 +1,4 @@
 /*
- * Copyright (c) 1998-2002 Apple Computer, Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -22,6 +21,7 @@
  * 
  * @APPLE_LICENSE_HEADER_END@
  */
+
 
     /* AppleUSBCDCDriver.cpp - MacOSX implementation of		*/
     /* USB Communication Device Class (CDC) Driver.		*/
@@ -56,11 +56,16 @@
 
 #define MIN_BAUD (50 << 1)
 
-    static globals	g;	// Instantiate the globals
+    // Globals
+
+#if USE_ELG
+    com_apple_iokit_XTrace	*gXTrace = 0;
+    UInt32			gTraceID;
+#endif
 
 #define super IOSerialDriverSync
 
-    OSDefineMetaClassAndStructors( AppleUSBCDCDriver, IOSerialDriverSync );
+OSDefineMetaClassAndStructors(AppleUSBCDCDriver, IOSerialDriverSync);
 
 /****************************************************************************************************/
 //
@@ -78,101 +83,80 @@ static UInt8 Asciify(UInt8 i)
 {
 
     i &= 0xF;
-    if ( i < 10 )
-        return( '0' + i );
-    else return( 55  + i );
+    if (i < 10)
+        return('0' + i);
+    else return(55  + i);
 	
 }/* end Asciify */
 
 #if USE_ELG
+#define DEBUG_NAME "AppleUSBCDCDriver"
+
 /****************************************************************************************************/
 //
-//		Function:	AllocateEventLog
+//		Function:	findKernelLogger
 //
-//		Inputs:		size - amount of memory to allocate
+//		Inputs:		
 //
-//		Outputs:	None
+//		Outputs:	
 //
-//		Desc:		Allocates the event log buffer
+//		Desc:		Just like the name says
 //
 /****************************************************************************************************/
 
-static void AllocateEventLog( UInt32 size )
+IOReturn findKernelLogger()
 {
-    if ( g.evLogBuf )
-        return;
-
-    g.evLogFlag = 0;            // assume insufficient memory
-    g.evLogBuf = (UInt8*)IOMalloc( size );
-    if ( !g.evLogBuf )
+    OSIterator		*iterator = NULL;
+    OSDictionary	*matchingDictionary = NULL;
+    IOReturn		error = 0;
+	
+	// Get matching dictionary
+	
+    matchingDictionary = IOService::serviceMatching("com_apple_iokit_XTrace");
+    if (!matchingDictionary)
     {
-        kprintf( "AppleUSBCDCDriver evLog allocation failed " );
-        return;
+        error = kIOReturnError;
+        IOLog(DEBUG_NAME "[FindKernelLogger] Couldn't create a matching dictionary.\n");
+        goto exit;
     }
-
-    bzero( g.evLogBuf, size );
-    g.evLogBufp	= g.evLogBuf;
-    g.evLogBufe	= g.evLogBufp + kEvLogSize - 0x20; // ??? overran buffer?
-    g.evLogFlag  = 0xFEEDBEEF;	// continuous wraparound
-//	g.evLogFlag  = 'step';		// stop at each ELG
-//	g.evLogFlag  = 0x0333;		// any nonzero - don't wrap - stop logging at buffer end
-
-    IOLog( "AllocateEventLog - &globals=%8x buffer=%8x", (unsigned int)&g, (unsigned int)g.evLogBuf );
-
-    return;
 	
-}/* end AllocateEventLog */
-
-/****************************************************************************************************/
-//
-//		Function:	EvLog
-//
-//		Inputs:		a - anything, b - anything, ascii - 4 charater tag, str - any info string			
-//
-//		Outputs:	None
-//
-//		Desc:		Writes the various inputs to the event log buffer
-//
-/****************************************************************************************************/
-
-static void EvLog( UInt32 a, UInt32 b, UInt32 ascii, char* str )
-{
-    register UInt32	*lp;           // Long pointer
-    mach_timespec_t	time;
-
-    if ( g.evLogFlag == 0 )
-        return;
-
-    IOGetTime( &time );
-
-    lp = (UInt32*)g.evLogBufp;
-    g.evLogBufp += 0x10;
-
-    if ( g.evLogBufp >= g.evLogBufe )       // handle buffer wrap around if any
-    {    
-        g.evLogBufp  = g.evLogBuf;
-        if ( g.evLogFlag != 0xFEEDBEEF )    // make 0xFEEDBEEF a symbolic ???
-            g.evLogFlag = 0;                // stop tracing if wrap undesired
-    }
-
-        // compose interrupt level with 3 byte time stamp:
-
-    *lp++ = (g.intLevel << 24) | ((time.tv_nsec >> 10) & 0x003FFFFF);   // ~ 1 microsec resolution
-    *lp++ = a;
-    *lp++ = b;
-    *lp   = ascii;
-
-    if( g.evLogFlag == 'step' )
-    {	
-        static char	code[ 5 ] = {0,0,0,0,0};
-        *(UInt32*)&code = ascii;
-        IOLog( "%8x AppleUSBCDCDriver: %8x %8x %s\n", time.tv_nsec>>10, (unsigned int)a, (unsigned int)b, code );
-    }
-
-    return;
+	// Get an iterator
 	
-}/* end EvLog */
-#endif // USE_ELG
+    iterator = IOService::getMatchingServices(matchingDictionary);
+    if (!iterator)
+    {
+        error = kIOReturnError;
+        IOLog(DEBUG_NAME "[FindKernelLogger] No XTrace logger found.\n");
+        goto exit;
+    }
+	
+	// User iterator to find each com_apple_iokit_XTrace instance. There should be only one, so we
+	// won't iterate
+	
+    gXTrace = (com_apple_iokit_XTrace*)iterator->getNextObject();
+    if (gXTrace)
+    {
+        IOLog(DEBUG_NAME "[FindKernelLogger] Found XTrace logger at %p.\n", gXTrace);
+    }
+	
+exit:
+	
+    if (error != kIOReturnSuccess)
+    {
+        gXTrace = NULL;
+        IOLog(DEBUG_NAME "[FindKernelLogger] Could not find a logger instance. Error = %X.\n", error);
+    }
+	
+    if (matchingDictionary)
+        matchingDictionary->release();
+            
+    if (iterator)
+        iterator->release();
+		
+    return error;
+    
+}/* end findKernelLogger */
+#endif
 
 #if LOG_DATA
 #define dumplen		32		// Set this to the number of bytes to dump and the rest should work out correct
@@ -184,80 +168,148 @@ static void EvLog( UInt32 a, UInt32 b, UInt32 ascii, char* str )
 //
 //		Function:	USBLogData
 //
-//		Inputs:		Dir - direction, Count - number of bytes, buf - the data
+//		Inputs:		Dir - direction
+//				Count - number of bytes
+//				buf - the data
 //
-//		Outputs:	None
+//		Outputs:	
 //
 //		Desc:		Puts the data in the log. 
 //
 /****************************************************************************************************/
 
-static void USBLogData(UInt8 Dir, UInt32 Count, char *buf)
-{
-    UInt8	wlen, i, Aspnt, Hxpnt;
+void USBLogData(UInt8 Dir, UInt32 Count, char *buf, PortInfo_t *port)
+{    
+    SInt32	wlen;
+#if USE_ELG
+    UInt8 	*b;
+    UInt8 	w[8];
+#else
+    UInt32	llen, rlen;
+    UInt16	i, Aspnt, Hxpnt;
     UInt8	wchr;
     char	LocBuf[buflen+1];
-
-    for ( i=0; i<=buflen; i++ )
+#endif
+    
+    switch (Dir)
     {
-        LocBuf[i] = 0x20;
-    }
-    LocBuf[i] = 0x00;
-	
-    if ( Dir == kUSBIn )
-    {
-        IOLog( "AppleUSBCDCDriver: USBLogData - Read Complete, size = %8x\n", Count );
-    } else {
-        if ( Dir == kUSBOut )
-        {
-            IOLog( "AppleUSBCDCDriver: USBLogData - Write, size = %8x\n", Count );
-        } else {
-            if ( Dir == kUSBAnyDirn )
-            {
-                IOLog( "AppleUSBCDCDriver: USBLogData - Other, size = %8x\n", Count );
-            }
-        }			
+        case kDataIn:
+#if USE_ELG
+            XTRACE2(port, buf, Count, "USBLogData - Read Complete, address, size");
+#else
+            IOLog( "AppleUSBCDCDriver: USBLogData - Read Complete, address = %8x, size = %8d\n", (UInt)buf, (UInt)Count );
+#endif
+            break;
+        case kDataOut:
+#if USE_ELG
+            XTRACE2(port, buf, Count, "USBLogData - Write, address, size");
+#else
+            IOLog( "AppleUSBCDCDriver: USBLogData - Write, address = %8x, size = %8d\n", (UInt)buf, (UInt)Count );
+#endif
+            break;
+        case kDataOther:
+#if USE_ELG
+            XTRACE2(port, buf, Count, "USBLogData - Other, address, size");
+#else
+            IOLog( "AppleUSBCDCDriver: USBLogData - Other, address = %8x, size = %8d\n", (UInt)buf, (UInt)Count );
+#endif
+            break;
     }
 
-    if ( Count > dumplen )
+#if DUMPALL
+    wlen = Count;
+#else
+    if (Count > dumplen)
     {
         wlen = dumplen;
     } else {
         wlen = Count;
     }
-	
-    if ( wlen > 0 )
+#endif
+
+    if (wlen == 0)
     {
+#if USE_ELG
+        XTRACE2(port, 0, Count, "USBLogData - No data, Count=0");
+#else
+        IOLog( "AppleUSBCDCDriver: USBLogData - No data, Count=0\n" );
+#endif
+        return;
+    }
+
+#if (USE_ELG)
+    b = (UInt8 *)buf;
+    while (wlen > 0)							// loop over the buffer
+    {
+        bzero(w, sizeof(w));						// zero it
+        bcopy(b, w, min(wlen, 8));					// copy bytes over
+    
+        switch (Dir)
+        {
+            case kDataIn:
+                XTRACE2(port, (w[0] << 24 | w[1] << 16 | w[2] << 8 | w[3]), (w[4] << 24 | w[5] << 16 | w[6] << 8 | w[7]), "USBLogData - Rx buffer dump");
+                break;
+            case kDataOut:
+                XTRACE2(port, (w[0] << 24 | w[1] << 16 | w[2] << 8 | w[3]), (w[4] << 24 | w[5] << 16 | w[6] << 8 | w[7]), "USBLogData - Tx buffer dump");
+                break;
+            case kDataOther:
+                XTRACE2(port, (w[0] << 24 | w[1] << 16 | w[2] << 8 | w[3]), (w[4] << 24 | w[5] << 16 | w[6] << 8 | w[7]), "USBLogData - Misc buffer dump");
+                break;
+        }
+        wlen -= 8;							// adjust by 8 bytes for next time (if have more)
+        b += 8;
+    }
+#else
+    rlen = 0;
+    do
+    {
+        for (i=0; i<=buflen; i++)
+        {
+            LocBuf[i] = 0x20;
+        }
+        LocBuf[i] = 0x00;
+        
+        if (wlen > dumplen)
+        {
+            llen = dumplen;
+            wlen -= dumplen;
+        } else {
+            llen = wlen;
+            wlen = 0;
+        }
         Aspnt = Asciistart;
         Hxpnt = 0;
-        for ( i=1; i<=wlen; i++ )
+        for (i=1; i<=llen; i++)
         {
             wchr = buf[i-1];
-            LocBuf[Hxpnt++] = Asciify( wchr >> 4 );
-            LocBuf[Hxpnt++] = Asciify( wchr );
-            if (( wchr < 0x20) || (wchr > 0x7F )) 		// Non printable characters
+            LocBuf[Hxpnt++] = Asciify(wchr >> 4);
+            LocBuf[Hxpnt++] = Asciify(wchr);
+            if ((wchr < 0x20) || (wchr > 0x7F)) 		// Non printable characters
             {
                 LocBuf[Aspnt++] = 0x2E;				// Replace with a period
             } else {
                 LocBuf[Aspnt++] = wchr;
             }
         }
-        LocBuf[(wlen + Asciistart) + 1] = 0x00;
-        IOLog( LocBuf );
-        IOLog( "\n" );
+        LocBuf[(llen + Asciistart) + 1] = 0x00;
+        IOLog(LocBuf);
+        IOLog("\n");
         IOSleep(Sleep_Time);					// Try and keep the log from overflowing
-    } else {
-        IOLog( "AppleUSBCDCDriver: USBLogData - No data, Count=0\n" );
-    }
-	
+       
+        rlen += llen;
+        buf = &buf[rlen];
+    } while (wlen != 0);
+#endif 
+
 }/* end USBLogData */
-#endif // LOG_DATA
+#endif
 
 /****************************************************************************************************/
 //
 //		Method:		AddBytetoQueue
 //
-//		Inputs:		Queue - the queue to be added to, Value - Byte to be added, queueRequestLock - queue lock
+//		Inputs:		Queue - the queue to be added to
+//				Value - Byte to be added
 //
 //		Outputs:	Queue status - full or no error
 //
@@ -268,18 +320,11 @@ static void USBLogData(UInt8 Dir, UInt32 Count, char *buf)
 //
 /****************************************************************************************************/
 
-QueueStatus AppleUSBCDCDriver::AddBytetoQueue( CirQueue *Queue, char Value, IOLock *queueRequestLock )
+QueueStatus AppleUSBCDCDriver::AddBytetoQueue(CirQueue *Queue, char Value)
 {
-
-    if ( !queueRequestLock )
-    {
-        return queueFull;		// for lack of a better error
-    }
-    IOLockLock( queueRequestLock );
     
-    if ( (Queue->NextChar == Queue->LastChar) && Queue->InQueue )
+    if ((Queue->NextChar == Queue->LastChar) && Queue->InQueue)
     {
-        IOLockUnlock( queueRequestLock );
         return queueFull;
     }
 
@@ -288,10 +333,9 @@ QueueStatus AppleUSBCDCDriver::AddBytetoQueue( CirQueue *Queue, char Value, IOLo
 
         // Check to see if we need to wrap the pointer.
 		
-    if ( Queue->NextChar >= Queue->End )
+    if (Queue->NextChar >= Queue->End)
         Queue->NextChar =  Queue->Start;
 
-    IOLockUnlock( queueRequestLock );
     return queueNoError;
 	
 }/* end AddBytetoQueue */
@@ -300,26 +344,20 @@ QueueStatus AppleUSBCDCDriver::AddBytetoQueue( CirQueue *Queue, char Value, IOLo
 //
 //		Method:		GetBytetoQueue
 //
-//		Inputs:		Queue - the queue to be removed from, queueRequestLock - queue lock
+//		Inputs:		Queue - the queue to be removed from
 //
-//		Outputs:	Value - where to put the byte, Queue status - empty or no error
+//		Outputs:	Value - where to put the byte
+//				QueueStatus - empty or no error
 //
 //		Desc:		Remove a byte from the circular queue.
 //
 /****************************************************************************************************/
 
-QueueStatus AppleUSBCDCDriver::GetBytetoQueue( CirQueue *Queue, UInt8 *Value, IOLock *queueRequestLock )
+QueueStatus AppleUSBCDCDriver::GetBytetoQueue(CirQueue *Queue, UInt8 *Value)
 {
-	
-    if ( !queueRequestLock )
-    {
-        return queueEmpty;		// pretend it's empty
-    }
-    IOLockLock( queueRequestLock );
     
-    if ( (Queue->NextChar == Queue->LastChar) && !Queue->InQueue )
+    if ((Queue->NextChar == Queue->LastChar) && !Queue->InQueue)
     {
-        IOLockUnlock( queueRequestLock );
         return queueEmpty;
     }
 
@@ -328,10 +366,9 @@ QueueStatus AppleUSBCDCDriver::GetBytetoQueue( CirQueue *Queue, UInt8 *Value, IO
 
         // Check to see if we need to wrap the pointer.
         
-    if ( Queue->LastChar >= Queue->End )
+    if (Queue->LastChar >= Queue->End)
         Queue->LastChar =  Queue->Start;
 
-    IOLockUnlock( queueRequestLock );
     return queueNoError;
 	
 }/* end GetBytetoQueue */
@@ -340,15 +377,17 @@ QueueStatus AppleUSBCDCDriver::GetBytetoQueue( CirQueue *Queue, UInt8 *Value, IO
 //
 //		Method:		InitQueue
 //
-//		Inputs:		Queue - the queue to be initialized, Buffer - the buffer, size - length of buffer
+//		Inputs:		Queue - the queue to be initialized
+//				Buffer - the buffer
+//				size - length of buffer
 //
-//		Outputs:	Queue status - queueNoError.
+//		Outputs:	QueueStatus - queueNoError.
 //
 //		Desc:		Pass a buffer of memory and this routine will set up the internal data structures.
 //
 /****************************************************************************************************/
 
-QueueStatus AppleUSBCDCDriver::InitQueue( CirQueue *Queue, UInt8 *Buffer, size_t Size )
+QueueStatus AppleUSBCDCDriver::InitQueue(CirQueue *Queue, UInt8 *Buffer, size_t Size)
 {
     Queue->Start	= Buffer;
     Queue->End		= (UInt8*)((size_t)Buffer + Size);
@@ -357,7 +396,7 @@ QueueStatus AppleUSBCDCDriver::InitQueue( CirQueue *Queue, UInt8 *Buffer, size_t
     Queue->LastChar	= Buffer;
     Queue->InQueue	= 0;
 
-    IOSleep( 1 );
+    IOSleep(1);
 	
     return queueNoError ;
 	
@@ -369,13 +408,13 @@ QueueStatus AppleUSBCDCDriver::InitQueue( CirQueue *Queue, UInt8 *Buffer, size_t
 //
 //		Inputs:		Queue - the queue to be closed
 //
-//		Outputs:	Queue status - queueNoError.
+//		Outputs:	QueueStatus - queueNoError.
 //
 //		Desc:		Clear out all of the data structures.
 //
 /****************************************************************************************************/
 
-QueueStatus AppleUSBCDCDriver::CloseQueue( CirQueue *Queue )
+QueueStatus AppleUSBCDCDriver::CloseQueue(CirQueue *Queue)
 {
 
     Queue->Start	= 0;
@@ -392,7 +431,9 @@ QueueStatus AppleUSBCDCDriver::CloseQueue( CirQueue *Queue )
 //
 //		Method:		AddtoQueue
 //
-//		Inputs:		Queue - the queue to be added to, Buffer - data to add, Size - length of data
+//		Inputs:		Queue - the queue to be added to
+//				Buffer - data to add
+//				Size - length of data
 //
 //		Outputs:	BytesWritten - Number of bytes actually put in the queue.
 //
@@ -400,13 +441,13 @@ QueueStatus AppleUSBCDCDriver::CloseQueue( CirQueue *Queue )
 //
 /****************************************************************************************************/
 
-size_t AppleUSBCDCDriver::AddtoQueue( CirQueue *Queue, UInt8 *Buffer, size_t Size, IOLock *queueRequestLock )
+size_t AppleUSBCDCDriver::AddtoQueue(CirQueue *Queue, UInt8 *Buffer, size_t Size)
 {
     size_t	BytesWritten = 0;
 
-    while ( FreeSpaceinQueue( Queue, queueRequestLock ) && (Size > BytesWritten) )
+    while (FreeSpaceinQueue(Queue) && (Size > BytesWritten))
     {
-        AddBytetoQueue( Queue, *Buffer++, queueRequestLock );
+        AddBytetoQueue(Queue, *Buffer++);
         BytesWritten++;
     }
 
@@ -418,21 +459,23 @@ size_t AppleUSBCDCDriver::AddtoQueue( CirQueue *Queue, UInt8 *Buffer, size_t Siz
 //
 //		Method:		RemovefromQueue
 //
-//		Inputs:		Queue - the queue to be removed from, Size - size of buffer, queueRequestLock - queue lock
+//		Inputs:		Queue - the queue to be removed from
+//				Size - size of buffer
 //
-//		Outputs:	Buffer - Where to put the data, BytesReceived - Number of bytes actually put in Buffer.
+//		Outputs:	Buffer - Where to put the data
+//				BytesReceived - Number of bytes actually put in Buffer.
 //
 //		Desc:		Get a buffers worth of data from the queue.
 //
 /****************************************************************************************************/
 
-size_t AppleUSBCDCDriver::RemovefromQueue( CirQueue *Queue, UInt8 *Buffer, size_t MaxSize, IOLock *queueRequestLock )
+size_t AppleUSBCDCDriver::RemovefromQueue(CirQueue *Queue, UInt8 *Buffer, size_t MaxSize)
 {
     size_t	BytesReceived = 0;
     UInt8	Value;
 
-    //  while( (GetBytetoQueue( Queue, &Value, queueRequestLock ) == queueNoError ) && (MaxSize >= BytesReceived) )
-    while( (MaxSize > BytesReceived) && (GetBytetoQueue(Queue, &Value, queueRequestLock) == queueNoError) ) 
+    //  while((GetBytetoQueue(Queue, &Value) == queueNoError) && (MaxSize >= BytesReceived))
+    while((MaxSize > BytesReceived) && (GetBytetoQueue(Queue, &Value) == queueNoError)) 
     {
         *Buffer++ = Value;
         BytesReceived++;
@@ -446,7 +489,7 @@ size_t AppleUSBCDCDriver::RemovefromQueue( CirQueue *Queue, UInt8 *Buffer, size_
 //
 //		Method:		FreeSpaceinQueue
 //
-//		Inputs:		Queue - the queue to be queried, queueRequestLock - queue lock
+//		Inputs:		Queue - the queue to be queried
 //
 //		Outputs:	Return Value - Free space left
 //
@@ -454,19 +497,12 @@ size_t AppleUSBCDCDriver::RemovefromQueue( CirQueue *Queue, UInt8 *Buffer, size_
 //
 /****************************************************************************************************/
 
-size_t AppleUSBCDCDriver::FreeSpaceinQueue( CirQueue *Queue, IOLock *queueRequestLock )
+size_t AppleUSBCDCDriver::FreeSpaceinQueue(CirQueue *Queue)
 {
     size_t	retVal = 0;
-
-    if ( !queueRequestLock )
-    {
-        return retVal;
-    }
-    IOLockLock( queueRequestLock );
     
     retVal = Queue->Size - Queue->InQueue;
 
-    IOLockUnlock( queueRequestLock );
     return retVal;
 	
 }/* end FreeSpaceinQueue */
@@ -483,7 +519,7 @@ size_t AppleUSBCDCDriver::FreeSpaceinQueue( CirQueue *Queue, IOLock *queueReques
 //
 /****************************************************************************************************/
 
-size_t AppleUSBCDCDriver::UsedSpaceinQueue( CirQueue *Queue )
+size_t AppleUSBCDCDriver::UsedSpaceinQueue(CirQueue *Queue)
 {
     return Queue->InQueue;
 	
@@ -501,7 +537,7 @@ size_t AppleUSBCDCDriver::UsedSpaceinQueue( CirQueue *Queue )
 //
 /****************************************************************************************************/
 
-size_t AppleUSBCDCDriver::GetQueueSize( CirQueue *Queue )
+size_t AppleUSBCDCDriver::GetQueueSize(CirQueue *Queue)
 {
     return Queue->Size;
 	
@@ -519,11 +555,11 @@ size_t AppleUSBCDCDriver::GetQueueSize( CirQueue *Queue )
 //
 /****************************************************************************************************/
 
-QueueStatus AppleUSBCDCDriver::GetQueueStatus( CirQueue *Queue )
+QueueStatus AppleUSBCDCDriver::GetQueueStatus(CirQueue *Queue)
 {
-    if ( (Queue->NextChar == Queue->LastChar) && Queue->InQueue )
+    if ((Queue->NextChar == Queue->LastChar) && Queue->InQueue)
         return queueFull;
-    else if ( (Queue->NextChar == Queue->LastChar) && !Queue->InQueue )
+    else if ((Queue->NextChar == Queue->LastChar) && !Queue->InQueue)
         return queueEmpty;
 		
     return queueNoError ;
@@ -539,10 +575,11 @@ QueueStatus AppleUSBCDCDriver::GetQueueStatus( CirQueue *Queue )
 //		Outputs:	None
 //
 //		Desc:		Checks the various queue's etc and manipulates the state(s) accordingly
+//				Must be called from a gated method or completion routine.
 //
 /****************************************************************************************************/
 
-void AppleUSBCDCDriver::CheckQueues( PortInfo_t *port )
+void AppleUSBCDCDriver::CheckQueues(PortInfo_t *port)
 {
     unsigned long	Used;
     unsigned long	Free;
@@ -551,19 +588,21 @@ void AppleUSBCDCDriver::CheckQueues( PortInfo_t *port )
 
 	// Initialise the QueueState with the current state.
         
-    QueuingState = readPortState( port );
+    QueuingState = port->State;
 
         // Check to see if there is anything in the Transmit buffer.
         
-    Used = UsedSpaceinQueue( &port->TX );
-    Free = FreeSpaceinQueue( &port->TX, port->TXqueueRequestLock );
-//	ELG( Free, Used, 'CkQs', "CheckQueues" );
-    if ( Free == 0 )
+    Used = UsedSpaceinQueue(&port->TX);
+    Free = FreeSpaceinQueue(&port->TX);
+    
+    XTRACE(port, Free, Used, "CheckQueues");
+    
+    if (Free == 0)
     {
         QueuingState |=  PD_S_TXQ_FULL;
         QueuingState &= ~PD_S_TXQ_EMPTY;
     } else {
-        if ( Used == 0 )
+        if (Used == 0)
 	{
             QueuingState &= ~PD_S_TXQ_FULL;
             QueuingState |=  PD_S_TXQ_EMPTY;
@@ -575,26 +614,26 @@ void AppleUSBCDCDriver::CheckQueues( PortInfo_t *port )
 
     	// Check to see if we are below the low water mark.
         
-    if ( Used < port->TXStats.LowWater )
+    if (Used < port->TXStats.LowWater)
          QueuingState |=  PD_S_TXQ_LOW_WATER;
     else QueuingState &= ~PD_S_TXQ_LOW_WATER;
 
-    if ( Used > port->TXStats.HighWater )
+    if (Used > port->TXStats.HighWater)
          QueuingState |= PD_S_TXQ_HIGH_WATER;
     else QueuingState &= ~PD_S_TXQ_HIGH_WATER;
 
 
         // Check to see if there is anything in the Receive buffer.
         
-    Used = UsedSpaceinQueue( &port->RX );
-    Free = FreeSpaceinQueue( &port->RX, port->RXqueueRequestLock );
+    Used = UsedSpaceinQueue(&port->RX);
+    Free = FreeSpaceinQueue(&port->RX);
 
-    if ( Free == 0 )
+    if (Free == 0)
     {
         QueuingState |= PD_S_RXQ_FULL;
         QueuingState &= ~PD_S_RXQ_EMPTY;
     } else {
-        if ( Used == 0 )
+        if (Used == 0)
 	{
             QueuingState &= ~PD_S_RXQ_FULL;
             QueuingState |= PD_S_RXQ_EMPTY;
@@ -606,18 +645,18 @@ void AppleUSBCDCDriver::CheckQueues( PortInfo_t *port )
 
         // Check to see if we are below the low water mark.
     
-    if ( Used < port->RXStats.LowWater )
+    if (Used < port->RXStats.LowWater)
          QueuingState |= PD_S_RXQ_LOW_WATER;
     else QueuingState &= ~PD_S_RXQ_LOW_WATER;
 
-    if ( Used > port->RXStats.HighWater )
+    if (Used > port->RXStats.HighWater)
          QueuingState |= PD_S_RXQ_HIGH_WATER;
     else QueuingState &= ~PD_S_RXQ_HIGH_WATER;
 
         // Figure out what has changed to get mask.
         
-    DeltaState = QueuingState ^ readPortState( port );
-    changeState( port, QueuingState, DeltaState );
+    DeltaState = QueuingState ^ port->State;
+    setStateGated(QueuingState, DeltaState, port);
 	
     return;
 	
@@ -649,8 +688,10 @@ static UInt32 sMapModemStates[16] =
 //
 //		Method:		AppleUSBCDCDriver::commReadComplete
 //
-//		Inputs:		obj - me, param - parameter block(the Port), rc - return code, remaining - what's left
-//												(whose idea was that?)
+//		Inputs:		obj - me
+//				param - the Port
+//				rc - return code
+//				remaining - what's left
 //
 //		Outputs:	None
 //
@@ -658,7 +699,7 @@ static UInt32 sMapModemStates[16] =
 //
 /****************************************************************************************************/
 
-void AppleUSBCDCDriver::commReadComplete( void *obj, void *param, IOReturn rc, UInt32 remaining )
+void AppleUSBCDCDriver::commReadComplete(void *obj, void *param, IOReturn rc, UInt32 remaining)
 {
     AppleUSBCDCDriver	*me = (AppleUSBCDCDriver*)obj;
     PortInfo_t 		*port = (PortInfo_t*)param;
@@ -666,37 +707,53 @@ void AppleUSBCDCDriver::commReadComplete( void *obj, void *param, IOReturn rc, U
     UInt32		dLen;
     UInt16		*tState;
     UInt32		tempS, value, mask;
+    
+    XTRACE(port, rc, 0, "commReadComplete");
+    
+    if (me->fStopping)
+        return;
 
-    if ( rc == kIOReturnSuccess )	// If operation returned ok
+    if (rc == kIOReturnSuccess)					// If operation returned ok
     {
         dLen = COMM_BUFF_SIZE - remaining;
-        ELG( rc, dLen, 'cRC+', "commReadComplete" );
+        XTRACE(port, 0, dLen, "commReadComplete - data length");
 		
             // Now look at the state stuff
             
-        LogData( kUSBAnyDirn, dLen, port->CommPipeBuffer );
+//        LogData(kDataOther, dLen, port->CommPipeBuffer, port);
 		
         if ((dLen > 7) && (port->CommPipeBuffer[1] == kUSBSERIAL_STATE))
         {
             tState = (UInt16 *)&port->CommPipeBuffer[8];
             tempS = USBToHostWord(*tState);
-            ELG( 0, tempS, 'cRUS', "commReadComplete - kUSBSERIAL_STATE" );
+            XTRACE(port, 0, tempS, "commReadComplete - kUSBSERIAL_STATE");
 			
             mask = sMapModemStates[15];				// All 4 on
             value = sMapModemStates[tempS & 15];		// now the status bits
-            me->changeState(port, value, mask);
+            me->setStateGated(value, mask, port);
         }
-		
-            // Queue the next read
-	
-        ior = port->CommPipe->Read( port->CommPipeMDP, &me->fCommCompletionInfo, NULL );
-        if ( ior == kIOReturnSuccess )
-            return;
+    } else {
+        XTRACE(port, 0, rc, "commReadComplete - error");
+        if (rc != kIOReturnAborted)
+        {
+            rc = me->clearPipeStall(port, port->CommPipe);
+            if (rc != kIOReturnSuccess)
+            {
+                XTRACE(port, 0, rc, "dataReadComplete - clear stall failed (trying to continue)");
+            }
+        }
     }
-
-        // Read returned with error OR next interrupt read failed to be queued
-
-    ELG( 0, rc, 'cRC-', "commReadComplete - error" );
+    
+        // Queue the next read only if not aborted
+        
+    if (rc != kIOReturnAborted)
+    {
+        ior = port->CommPipe->Read(port->CommPipeMDP, &port->fCommCompletionInfo, NULL);
+        if (ior != kIOReturnSuccess)
+        {
+            XTRACE(port, 0, rc, "commReadComplete - Read io error");
+        }
+    }
 
     return;
 	
@@ -706,7 +763,10 @@ void AppleUSBCDCDriver::commReadComplete( void *obj, void *param, IOReturn rc, U
 //
 //		Method:		AppleUSBCDCDriver::dataReadComplete
 //
-//		Inputs:		obj - me, param - parameter block(the Port), rc - return code, remaining - what's left
+//		Inputs:		obj - me
+//				param - the Port
+//				rc - return code
+//				remaining - what's left
 //
 //		Outputs:	None
 //
@@ -714,35 +774,53 @@ void AppleUSBCDCDriver::commReadComplete( void *obj, void *param, IOReturn rc, U
 //
 /****************************************************************************************************/
 
-void AppleUSBCDCDriver::dataReadComplete( void *obj, void *param, IOReturn rc, UInt32 remaining )
+void AppleUSBCDCDriver::dataReadComplete(void *obj, void *param, IOReturn rc, UInt32 remaining)
 {
     AppleUSBCDCDriver	*me = (AppleUSBCDCDriver*)obj;
     PortInfo_t 		*port = (PortInfo_t*)param;
     IOReturn		ior;
+    size_t		length;
+    
+    XTRACE(port, rc, 0, "dataReadComplete");
+    
+    if (me->fStopping)
+        return;
 
-    if ( rc == kIOReturnSuccess )	// If operation returned ok
-    {	
-        ELG( port->State, 128 - remaining, 'dRC+', "dataReadComplete" );
+    if (rc == kIOReturnSuccess)				// If operation returned ok
+    {
+        length = DATA_BUFF_SIZE - remaining;
+        XTRACE(port, port->State, length, "dataReadComplete - data length");
 		
-        LogData( kUSBIn, (128 - remaining), port->PipeInBuffer );
+        LogData(kDataIn, length, port->PipeInBuffer, port);
 	
             // Move the incoming bytes to the ring buffer
             
-        me->AddtoQueue( &port->RX, port->PipeInBuffer, 128 - remaining, port->RXqueueRequestLock );
-	
-            // Queue the next read
-	
-        ior = port->InPipe->Read( port->PipeInMDP, &me->fReadCompletionInfo, NULL );
-        if ( ior == kIOReturnSuccess )
+        me->AddtoQueue(&port->RX, port->PipeInBuffer, length);
+        
+        me->CheckQueues(port);
+        
+    } else {
+        XTRACE(port, 0, rc, "dataReadComplete - error");
+        if (rc != kIOReturnAborted)
         {
-            me->CheckQueues( port );
-            return;
+            rc = me->clearPipeStall(port, port->InPipe);
+            if (rc != kIOReturnSuccess)
+            {
+                XTRACE(port, 0, rc, "dataReadComplete - clear stall failed (trying to continue)");
+            }
         }
     }
-
-        // Read returned with error OR next bulk read failed to be queued
-
-    ELG( 0, rc, 'dRe-', "AppleUSBCDCDriver::dataReadComplete - io err" );
+	
+        // Queue the next read only if not aborted
+        
+    if (rc != kIOReturnAborted)
+    {
+        ior = port->InPipe->Read(port->PipeInMDP, &port->fReadCompletionInfo, NULL);
+        if (ior != kIOReturnSuccess)
+        {
+            XTRACE(port, 0, rc, "dataReadComplete - Read io err");
+        }
+    }
 
     return;
 	
@@ -752,7 +830,10 @@ void AppleUSBCDCDriver::dataReadComplete( void *obj, void *param, IOReturn rc, U
 //
 //		Method:		AppleUSBCDCDriver::dataWriteComplete
 //
-//		Inputs:		obj - me, param - parameter block(the Port), rc - return code, remaining - what's left
+//		Inputs:		obj - me
+//				param - the Port
+//				rc - return code
+//				remaining - what's left
 //
 //		Outputs:	None
 //
@@ -760,38 +841,56 @@ void AppleUSBCDCDriver::dataReadComplete( void *obj, void *param, IOReturn rc, U
 //
 /****************************************************************************************************/
 
-void AppleUSBCDCDriver::dataWriteComplete( void *obj, void *param, IOReturn rc, UInt32 remaining )
+void AppleUSBCDCDriver::dataWriteComplete(void *obj, void *param, IOReturn rc, UInt32 remaining)
 {
-    AppleUSBCDCDriver	*me = (AppleUSBCDCDriver*)obj;
-    PortInfo_t 		*port = (PortInfo_t*)param;
+    AppleUSBCDCDriver	*me = (AppleUSBCDCDriver *)obj;
+    PortInfo_t 		*port = (PortInfo_t *)param;
+    
+    XTRACE(port, rc, 0, "dataWriteComplete");
+    
+    if (me->fStopping)
+        return;
 
-    if ( rc == kIOReturnSuccess )	// If operation returned ok
+    if (rc == kIOReturnSuccess)	// If operation returned ok
     {	
-        ELG( rc, (port->Count - remaining), 'dWC+', "dataWriteComplete" );
-        if ( port->Count > 0 )							// Check if it was a zero length write
+        XTRACE(port, 0, (port->Count - remaining), "dataWriteComplete - data length");
+        if (port->Count > 0)						// Check if it was a zero length write
         {
-            if ( (port->Count % port->OutPacketSize) == 0 )			// If it was a multiple of max packet size then we need to do a zero length write
+            if ((port->Count % port->OutPacketSize) == 0)		// If it was a multiple of max packet size then we need to do a zero length write
             {
-                ELG( rc, (port->Count - remaining), 'dWCz', "dataWriteComplete - writing zero length packet" );
-                port->PipeOutMDP->setLength( 0 );
+                XTRACE(port, rc, (port->Count - remaining), "dataWriteComplete - writing zero length packet");
+                port->PipeOutMDP->setLength(0);
                 port->Count = 0;
-                port->OutPipe->Write( port->PipeOutMDP, &me->fWriteCompletionInfo );
+                port->OutPipe->Write(port->PipeOutMDP, &port->fWriteCompletionInfo);
                 return;
             }
         }
 
-        me->CheckQueues( port );
+        me->CheckQueues(port);
 
         port->AreTransmitting = false;
-        me->SetUpTransmit( port );					// just to keep it going??
-        if ( !port->AreTransmitting )
-            me->changeState( port, 0, PD_S_TX_BUSY );	/// mlj
+        me->setStateGated(0, PD_S_TX_BUSY, port);
+        me->setUpTransmit(port);					// just to keep it going??
+        
+//        if (!port->AreTransmitting)
+//        {
+//            me->setStateGated(0, PD_S_TX_BUSY, port);
+//        }
 
-        return;
+    } else {
+        XTRACE(port, 0, rc, "dataWriteComplete - io error");
+        if (rc != kIOReturnAborted)
+        {
+            rc = me->clearPipeStall(port, port->OutPipe);
+            if (rc != kIOReturnSuccess)
+            {
+                XTRACE(port, 0, rc, "dataWriteComplete - clear stall failed (trying to continue)");
+            }
+        }
+        port->AreTransmitting = false;
+        me->setStateGated(0, PD_S_TX_BUSY, port);
     }
 
-    ELG( 0, rc, 'dWe-', "AppleUSBCDCDriver::dataWriteComplete - io err" );
-    port->AreTransmitting = false;
     return;
 	
 }/* end dataWriteComplete */
@@ -800,44 +899,62 @@ void AppleUSBCDCDriver::dataWriteComplete( void *obj, void *param, IOReturn rc, 
 //
 //		Method:		AppleUSBCDCDriver::merWriteComplete
 //
-//		Inputs:		obj - me, param - parameter block (may or may not be present depending on request), 
-//				rc - return code, remaining - what's left
+//		Inputs:		obj - me
+//				param - port 
+//				rc - return code
+//				remaining - what's left
 //
 //		Outputs:	None
 //
-//		Desc:		Management element request write completion routine
+//		Desc:		Management Element Request write completion routine
 //
 /****************************************************************************************************/
 
-void AppleUSBCDCDriver::merWriteComplete( void *obj, void *param, IOReturn rc, UInt32 remaining )
+void AppleUSBCDCDriver::merWriteComplete(void *obj, void *param, IOReturn rc, UInt32 remaining)
 {
-
-    IOUSBDevRequest	*MER = (IOUSBDevRequest*)param;
+    AppleUSBCDCDriver	*me = (AppleUSBCDCDriver *)obj;
+    IOUSBDevRequest	*MER = (IOUSBDevRequest *)param;
     UInt16		dataLen;
-	
+    
+    XTRACE(me, 0, remaining, "merWriteComplete");
+    
+    if (me->fStopping)
+    {
+        if (MER)
+        {
+            dataLen = MER->wLength;
+            if ((dataLen != 0) && (MER->pData))
+            {
+                IOFree(MER->pData, dataLen);
+            }
+            IOFree(MER, sizeof(IOUSBDevRequest));
+        }
+        return;
+    }
+    
     if (MER)
     {
-        if ( rc == kIOReturnSuccess )
+        if (rc == kIOReturnSuccess)
         {
-            ELG( MER->bRequest, remaining, 'mWC+', "AppleUSBCDCDriver::merWriteComplete" );
+            XTRACE(me, MER->bRequest, remaining, "merWriteComplete - request");
         } else {
-            ELG( MER->bRequest, rc, 'mWC-', "AppleUSBCDCDriver::merWriteComplete - io err" );
+            XTRACE(me, MER->bRequest, rc, "merWriteComplete - io err");
         }
 		
         dataLen = MER->wLength;
-        ELG( 0, dataLen, 'mWC ', "AppleUSBCDCDriver::merWriteComplete - data length" );
+        XTRACE(me, 0, dataLen, "merWriteComplete - data length");
         if ((dataLen != 0) && (MER->pData))
         {
-            IOFree( MER->pData, dataLen );
+            IOFree(MER->pData, dataLen);
         }
-        IOFree( MER, sizeof(IOUSBDevRequest) );
+        IOFree(MER, sizeof(IOUSBDevRequest));
 		
     } else {
-        if ( rc == kIOReturnSuccess )
+        if (rc == kIOReturnSuccess)
         {
-            ELG( 0, remaining, 'mWr+', "AppleUSBCDCDriver::merWriteComplete (request unknown)" );
+            XTRACE(me, 0, remaining, "merWriteComplete (request unknown)");
         } else {
-            ELG( 0, rc, 'rWr-', "AppleUSBCDCDriver::merWriteComplete (request unknown) - io err" );
+            XTRACE(me, 0, rc, "merWriteComplete (request unknown) - io err");
         }
     }
 	
@@ -858,49 +975,59 @@ void AppleUSBCDCDriver::merWriteComplete( void *obj, void *param, IOReturn rc, U
 //
 /****************************************************************************************************/
 
-bool AppleUSBCDCDriver::start( IOService *provider )
+bool AppleUSBCDCDriver::start(IOService *provider)
 {
     UInt8	configs;	// number of device configurations
     UInt8	i;
-
-    g.evLogBufp = NULL;
 	
     for (i=0; i<numberofPorts; i++)
     {
         fPorts[i] = NULL;
     }
     
+    fSessions = 0;
+    fTerminate = false;
+    fStopping = false;
+    
 #if USE_ELG
-    AllocateEventLog( kEvLogSize );
-    ELG( &g, g.evLogBufp, 'USBM', "AppleUSBCDCDriver::init - event logging set up." );
-
-    waitForService( resourceMatching( "kdp" ) );
-#endif /* USE_ELG */
-
-    ELG( this, provider, 'strt', "AppleUSBCDCDriver::start - this, provider." );
-    if( !super::start( provider ) )
+    XTraceLogInfo	*logInfo;
+    
+    findKernelLogger();
+    if (gXTrace)
     {
-        IOLogIt( 0, 0, 'SS--', "AppleUSBCDCDriver::start - super failed" );
+        gXTrace->retain();		// don't let it unload ...
+        XTRACE(this, 0, 0xbeefbeef, "Hello from start");
+        logInfo = gXTrace->LogGetInfo();
+        IOLog("AppleUSBCDCDriver: start - Log is at %x\n", (unsigned int)logInfo);
+    } else {
+        return false;
+    }
+#endif
+
+    XTRACE(this, 0, provider, "start - provider.");
+    if(!super::start(provider))
+    {
+        ALERT(0, 0, "start - super failed");
         return false;
     }
 
 	// Get my USB device provider - the device
 
-    fpDevice = OSDynamicCast( IOUSBDevice, provider );
-    if( !fpDevice )
+    fpDevice = OSDynamicCast(IOUSBDevice, provider);
+    if(!fpDevice)
     {
-        IOLogIt( 0, 0, 'Dev-', "AppleUSBCDCDriver::start - provider invalid" );
-        stop( provider );
+        ALERT(0, 0, "start - provider invalid");
+        stop(provider);
         return false;
     }
 
 	// Let's see if we have any configurations to play with
 		
     configs = fpDevice->GetNumConfigurations();
-    if ( configs < 1 )
+    if (configs < 1)
     {
-        IOLogIt( 0, 0, 'Cfg-', "AppleUSBCDCDriver::start - no configurations" );
-        stop( provider );
+        ALERT(0, 0, "start - no configurations");
+        stop(provider);
         return false;
     }
 	
@@ -908,51 +1035,38 @@ bool AppleUSBCDCDriver::start( IOService *provider )
 		
     if (!fpDevice->open(this))
     {
-        IOLogIt( 0, 0, 'Opn-', "AppleUSBCDCDriver::start - unable to open device" );
-        stop( provider );
-        return false;
-    }
-	
-    if ( !configureDevice(configs) )
-    {
-    IOLogIt( 0, 0, 'Nub-', "AppleUSBCDCDriver::start - failed" );
-    fpDevice->close(this);
-    stop( provider );
+        ALERT(0, 0, "start - unable to open device");
+        stop(provider);
         return false;
     }
     
-    ELG( 0, 0, 'Nub+', "AppleUSBCDCDriver::start - successful and IOModemSerialStreamSync created" );
+        // get workloop
+        
+    fWorkLoop = getWorkLoop();
+    if (!fWorkLoop)
+    {
+        ALERT(0, 0, "start - getWorkLoop failed");
+        fpDevice->close(this);
+        stop(provider);
+        return false;
+    }
+    
+    fWorkLoop->retain();
+	
+    if (!configureDevice(configs))
+    {
+        ALERT(0, 0, "start - configureDevice failed");
+        cleanUp();
+        fpDevice->close(this);
+        stop(provider);
+        return false;
+    }
+            
+    XTRACE(this, 0, 0, "start - successful and IOModemSerialStreamSync created");
     
     return true;
     	
 }/* end start */
-
-/****************************************************************************************************/
-//
-//		Method:		AppleUSBCDCDriver::free
-//
-//		Inputs:		None
-//
-//		Outputs:	None
-//
-//		Desc:		Clean up and free the log 
-//
-/****************************************************************************************************/
-
-void AppleUSBCDCDriver::free()
-{
-
-    ELG( 0, 0, 'free', "AppleUSBCDCDriver::free" );
-	
-#if USE_ELG
-    if ( g.evLogBuf )
-    	IOFree( g.evLogBuf, kEvLogSize );
-#endif /* USE_ELG */
-
-    super::free();
-    return;
-	
-}/* end free */
 
 /****************************************************************************************************/
 //
@@ -962,245 +1076,125 @@ void AppleUSBCDCDriver::free()
 //
 //		Outputs:	None
 //
-//		Desc:		Stops
+//		Desc:		Stops the driver
 //
 /****************************************************************************************************/
 
-void AppleUSBCDCDriver::stop( IOService *provider )
+void AppleUSBCDCDriver::stop(IOService *provider)
 {
-    UInt8	i;
+    IOReturn	ret;
+    UInt16	i;
+    parmList	parms;
     
-    ELG( 0, 0, 'stop', "AppleUSBCDCDriver::stop" );
-
-//    if ( fqueueRequestLock )
-//    {
-//        IOLockFree( fqueueRequestLock );	// free the queue Lock
-//        fqueueRequestLock = 0;
-//    }
-
+    XTRACE(this, 0, 0, "stop");
+    
+    fStopping = true;
+    
     for (i=0; i<numberofPorts; i++)
     {
-        if ( fPorts[i] != NULL )
+        if (fPorts[i] != NULL)
         {
-            if ( fPorts[i]->CommInterface )	
-            {
-                fPorts[i]->CommInterface->close( this );	
-                fPorts[i]->CommInterface->release();
-                fPorts[i]->CommInterface = NULL;	
-            }
-	
-            if ( fPorts[i]->DataInterface )	
-            { 
-                fPorts[i]->DataInterface->close( this );	
-                fPorts[i]->DataInterface->release();
-                fPorts[i]->DataInterface = NULL;	
-            }
-
-            IOFree( fPorts[i], sizeof(PortInfo_t) );
+            parms.arg1 = NULL;
+            parms.arg2 = NULL;
+            parms.arg3 = NULL;
+            parms.arg4 = NULL;
+            parms.port = fPorts[i];
+    
+            retain();
+            ret = fPorts[i]->commandGate->runAction(stopAction, (void *)&parms);
+            release();
+            
+            IOFree(fPorts[i], sizeof(PortInfo_t));
             fPorts[i] = NULL;
         }
     }
-	
-    removeProperty( (const char *)propertyTag );
     
-    if ( fpDevice )
+    removeProperty((const char *)propertyTag);
+    
+    if (fpDevice)
     {
-        fpDevice->close( this );
+        fpDevice->close(this);
         fpDevice = NULL;
     }
     
-    super::stop( provider );
+    super::stop(provider);
     
     return;
-	
+
 }/* end stop */
 
 /****************************************************************************************************/
 //
-//		Method:		AppleUSBCDCDriver::allocateResources
+//		Method:		AppleUSBCDCDriver::stopAction
 //
-//		Inputs:		port - the Port
-//
-//		Outputs:	return code - true (allocate was successful), false (it failed)
-//
-//		Desc:		Finishes up the rest of the configuration and gets all the endpoints open etc.
+//		Desc:		Dummy pass through for stopGated.
 //
 /****************************************************************************************************/
 
-bool AppleUSBCDCDriver::allocateResources( PortInfo_t *port )
+IOReturn AppleUSBCDCDriver::stopAction(OSObject *owner, void *arg0, void *, void *, void *)
 {
-    IOUSBFindEndpointRequest	epReq;		// endPoint request struct on stack
-    bool			goodCall;
+    parmList	*parms = (parmList *)arg0;
 
-    ELG( port, 0, 'Allo', "AppleUSBCDCDriver::allocateResources." );
-
-        // Open all the end points:
-
-    goodCall = port->DataInterface->open( this );
-    if ( !goodCall )
-    {
-        ELG( 0, 0, 'epD-', "AppleUSBCDCDriver::allocateResources - open data interface failed." );
-        port->DataInterface->release();
-        port->DataInterface = NULL;
-        return false;
-    }
-
-    goodCall = port->CommInterface->open( this );
-    if ( !goodCall )
-    {
-        ELG( 0, 0, 'epC-', "AppleUSBCDCDriver::allocateResources - open comm interface failed." );
-        port->CommInterface->release();
-        port->CommInterface = NULL;
-        return false;
-    }
-	
-//    port->CommInterfaceNumber = port->CommInterface->GetInterfaceNumber();
-//    ELG( 0, port->CommInterfaceNumber, 'CIn#', "AppleUSBCDCDriver::allocateResources - Comm interface number." );
-
-    epReq.type = kUSBBulk;
-    epReq.direction = kUSBIn;
-    epReq.maxPacketSize	= 0;
-    epReq.interval = 0;
-    port->InPipe = port->DataInterface->FindNextPipe( 0, &epReq );
-    if ( !port->InPipe )
-    {
-        ELG( 0, 0, 'i P-', "AppleUSBCDCDriver::allocateResources - no bulk input pipe." );
-        return false;
-    }
-    ELG( epReq.maxPacketSize << 16 |epReq.interval, port->InPipe, 'i P+', "AppleUSBCDCDriver::allocateResources - bulk input pipe." );
-
-    epReq.direction = kUSBOut;
-    port->OutPipe = port->DataInterface->FindNextPipe( 0, &epReq );
-    if ( !port->OutPipe )
-    {
-        ELG( 0, 0, 'o P-', "AppleUSBCDCDriver::allocateResources - no bulk output pipe." );
-        return false;
-    }
-    port->OutPacketSize = epReq.maxPacketSize;
-    ELG( epReq.maxPacketSize << 16 |epReq.interval, port->OutPipe, 'o P+', "AppleUSBCDCDriver::allocateResources - bulk output pipe." );
-
-        // Interrupt pipe - Comm Interface:
-
-    epReq.type = kUSBInterrupt;
-    epReq.direction = kUSBIn;
-    port->CommPipe = port->CommInterface->FindNextPipe( 0, &epReq );
-    if ( !port->CommPipe )
-    {
-        ELG( 0, 0, 'c P-', "AppleUSBCDCDriver::allocateResources - no comm pipe." );
-        releaseResources( port );
-        return false;
-    }
-    ELG( epReq.maxPacketSize << 16 |epReq.interval, port->CommPipe, 'c P+', "AppleUSBCDCDriver::allocateResources - comm pipe." );
-
-        // Allocate Memory Descriptor Pointer with memory for the Comm pipe:
-
-    port->CommPipeMDP = IOBufferMemoryDescriptor::withCapacity( COMM_BUFF_SIZE, kIODirectionIn );
-    if ( !port->CommPipeMDP )
-        return false;
-		
-    port->CommPipeMDP->setLength( COMM_BUFF_SIZE );
-    port->CommPipeBuffer = (UInt8*)port->CommPipeMDP->getBytesNoCopy();
-    ELG( 0, port->CommPipeBuffer, 'cBuf', "AppleUSBCDCDriver::allocateResources - comm buffer" );
-
-        // Allocate Memory Descriptor Pointer with memory for the data-in bulk pipe:
-
-    port->PipeInMDP = IOBufferMemoryDescriptor::withCapacity( 128, kIODirectionIn );
-    if ( !port->PipeInMDP )
-        return false;
-		
-    port->PipeInMDP->setLength( 128 );
-    port->PipeInBuffer = (UInt8*)port->PipeInMDP->getBytesNoCopy();
-    ELG( 0, port->PipeInBuffer, 'iBuf', "AppleUSBCDCDriver::allocateResources - input buffer" );
-
-        // Allocate Memory Descriptor Pointer with memory for the data-out bulk pipe:
-
-    port->PipeOutMDP = IOBufferMemoryDescriptor::withCapacity( MAX_BLOCK_SIZE, kIODirectionOut );
-    if ( !port->PipeOutMDP )
-        return false;
-		
-    port->PipeOutMDP->setLength( MAX_BLOCK_SIZE );
-    port->PipeOutBuffer = (UInt8*)port->PipeOutMDP->getBytesNoCopy();
-    ELG( 0, port->PipeOutBuffer, 'oBuf', "AppleUSBCDCDriver::allocateResources - output buffer" );
-
-        // Allocate queue locks
-
-    port->RXqueueRequestLock = IOLockAlloc();	// init lock for RX queue
-    if ( !port->RXqueueRequestLock )
-        return false;
-        
-    port->TXqueueRequestLock = IOLockAlloc();	// init lock for TX queue
-    if ( !port->TXqueueRequestLock )
-        return false;
-		
-    return true;
-	
-}/* end allocateResources */
+    ((AppleUSBCDCDriver *)owner)->stopGated(parms->port);
+    
+    return kIOReturnSuccess;
+    
+}/* end stopAction */
 
 /****************************************************************************************************/
 //
-//		Method:		AppleUSBCDCDriver::releaseResources
+//		Method:		AppleUSBCDCDriver::stopGated
 //
-//		Inputs:		port - the Port
+//		Inputs:		provider - my provider
 //
 //		Outputs:	None
 //
-//		Desc:		Frees up the resources allocated in allocateResources
+//		Desc:		Releases the interfaces, memory and general housekeeping 
 //
 /****************************************************************************************************/
 
-void AppleUSBCDCDriver::releaseResources( PortInfo_t *port )
+void AppleUSBCDCDriver::stopGated(PortInfo_t *port)
 {
-    ELG( 0, 0, 'rlRs', "AppleUSBCDCDriver::releaseResources" );
+    
+    XTRACE(port, 0, 0, "stopGated");
+    
+    releaseResources(port);           
+           
+    return;
 	
-    if ( port->CommInterface )	
-    {
-        port->CommInterface->close( this );		
-    }
-	
-    if ( port->DataInterface )	
-    { 
-        port->DataInterface->close( this );
-    }
+}/* end stopGated */
 
-    if ( port->serialRequestLock )
-    {
-        IOLockFree( port->serialRequestLock );	// free the State machine Lock
-        port->serialRequestLock = 0;
-    }
+/****************************************************************************************************/
+//
+//		Method:		AppleUSBCDCDriver::cleanUp
+//
+//		Inputs:		None
+//
+//		Outputs:	None
+//
+//		Desc:		Clean up the ports.
+//
+/****************************************************************************************************/
+
+void AppleUSBCDCDriver::cleanUp(void)
+{
+    UInt8	i;
     
-    if ( port->RXqueueRequestLock )
+    XTRACE(this, 0, 0, "cleanUp");
+
+    for (i=0; i<numberofPorts; i++)
     {
-        IOLockFree( port->RXqueueRequestLock );
-        port->RXqueueRequestLock = 0;
-    }
-    
-    if ( port->TXqueueRequestLock )
-    {
-        IOLockFree( port->TXqueueRequestLock );
-        port->TXqueueRequestLock = 0;
-    }
-	
-    if ( port->PipeOutMDP  )	
-    { 
-        port->PipeOutMDP->release();	
-        port->PipeOutMDP = 0; 
-    }
-	
-    if ( port->PipeInMDP   )	
-    { 
-        port->PipeInMDP->release();	
-        port->PipeInMDP = 0; 
-    }
-	
-    if ( port->CommPipeMDP )	
-    { 
-        port->CommPipeMDP->release();	
-        port->CommPipeMDP = 0; 
+        if (fPorts[i] != NULL)
+        {
+            releaseResources(fPorts[i]);
+            IOFree(fPorts[i], sizeof(PortInfo_t));
+            fPorts[i] = NULL;
+        }
     }
 
     return;
 	
-}/* end releaseResources */
+}/* end cleanUp */
 
 /****************************************************************************************************/
 //
@@ -1214,7 +1208,7 @@ void AppleUSBCDCDriver::releaseResources( PortInfo_t *port )
 //
 /****************************************************************************************************/
 
-bool AppleUSBCDCDriver::configureDevice( UInt8 numConfigs )
+bool AppleUSBCDCDriver::configureDevice(UInt8 numConfigs)
 {
     IOUSBFindInterfaceRequest		req;			// device request
     IOUSBInterface			*Comm;
@@ -1225,61 +1219,60 @@ bool AppleUSBCDCDriver::configureDevice( UInt8 numConfigs )
     bool				goodCDC = false;
     PortInfo_t 				*port = NULL;
     
-    ELG( 0, numConfigs, 'cDev', "AppleUSBCDCDriver::configureDevice" );
+    XTRACE(this, 0, numConfigs, "configureDevice");
     	
         // Initialize and "configure" the device
         
-    if ( !initDevice( numConfigs ))
+    if (!initDevice(numConfigs))
     {
-        ELG( 0, 0, 'cDi-', "AppleUSBCDCDriver::configureDevice - initDevice failed" );
+        XTRACE(this, 0, 0, "configureDevice - initDevice failed");
         return false;
     }
 
-    OSBoolean *boolObj = OSDynamicCast( OSBoolean, fpDevice->getProperty("kDoNotSuspend") );
-    if ( boolObj && boolObj->isTrue() )
+    OSBoolean *boolObj = OSDynamicCast(OSBoolean, fpDevice->getProperty("kDoNotSuspend"));
+    if (boolObj && boolObj->isTrue())
     {
         fSuspendOK = false;
-        USBLog(5,"%s[%p] Suspend has been canceled for this device", getName(), this);
-        ELG( 0, 0, 'cDs-', "AppleUSBCDCDriver::configureDevice - Suspended has been canceled for this device" );
+        XTRACE(this, 0, 0, "configureDevice - Suspended has been canceled for this device");
     }
-
+    
     req.bInterfaceClass	= kUSBCommClass;
     req.bInterfaceSubClass = kUSBAbstractControlModel;
     req.bInterfaceProtocol = kUSBv25;
     req.bAlternateSetting = kIOUSBFindInterfaceDontCare;
     
-    Comm = fpDevice->FindNextInterface( NULL, &req );
-    if ( !Comm )
+    Comm = fpDevice->FindNextInterface(NULL, &req);
+    if (!Comm)
     {
-        ELG( 0, 0, 'FIC-', "AppleUSBCDCDriver::configureDevice - Finding the first CDC interface failed" );
+        XTRACE(this, 0, 0, "configureDevice - Finding the first CDC interface failed");
     }
 
-    while ( Comm )
+    while (Comm)
     {
         port = NULL;
         for (i=0; i<numberofPorts; i++)
         {
             if (fPorts[i] == NULL)
             {
-                port = (PortInfo_t*)IOMalloc( sizeof(PortInfo_t) );
+                port = (PortInfo_t*)IOMalloc(sizeof(PortInfo_t));
                 fPorts[i] = port;
-                ELG( port, i, 'Port', "AppleUSBCDCDriver::configureDevice - Port allocated" );
-                SetStructureDefaults( port, true );			// init the Port structure
+                XTRACE(port, 0, i, "configureDevice - Port allocated");
+                initStructure(port);
                 break;
             }
         }
-        if ( !port )
+        if (!port)
         {
-            ELG( 0, i, 'Port', "AppleUSBCDCDriver::configureDevice - No ports available or IOMalloc failed" );
+            XTRACE(this, 0, i, "configureDevice - No ports available or allocate failed");
         } else {
             port->CommInterface = Comm;
             port->CommInterface->retain();
             port->CommInterfaceNumber = Comm->GetInterfaceNumber();
-            ELG( 0, port->CommInterfaceNumber, 'cdI#', "AppleUSBCDCDriver::configureDevice - Comm interface number." );
+            XTRACE(port, 0, port->CommInterfaceNumber, "configureDevice - Comm interface number.");
     	
-            portok = getFunctionalDescriptors ( port );
+            portok = getFunctionalDescriptors(port);
             
-            if ( portok )
+            if (portok)
             {
                 req.bInterfaceClass = kUSBDataClass;
                 req.bInterfaceSubClass = kIOUSBFindInterfaceDontCare;
@@ -1287,56 +1280,63 @@ bool AppleUSBCDCDriver::configureDevice( UInt8 numConfigs )
                 req.bAlternateSetting = kIOUSBFindInterfaceDontCare;
                 do
                 {
-                    Dataintf = fpDevice->FindNextInterface( Dataintf, &req );
-                    if ( Dataintf )
+                    Dataintf = fpDevice->FindNextInterface(Dataintf, &req);
+                    if (Dataintf)
                     {
                         dataindx = Dataintf->GetInterfaceNumber();
-                        ELG( dataindx, port->DataInterfaceNumber, 'cDD#', "AppleUSBCDCDriver::configureDevice - finding Data interface" );
-                        if ( dataindx == port->DataInterfaceNumber )
+                        XTRACE(port, dataindx, port->DataInterfaceNumber, "configureDevice - finding Data interface");
+                        if (dataindx == port->DataInterfaceNumber)
                         {
                             port->DataInterface = Dataintf;				// We've found our man
-                            ELG( 0, 0, 'cDDm', "AppleUSBCDCDriver::configureDevice - found matching Data interface" );
+                            XTRACE(port, 0, 0, "configureDevice - found matching Data interface");
                             break;
                         }
                     }
                 } while (Dataintf);
                 
-                if ( !port->DataInterface )
+                if (!port->DataInterface)
                 {
-                    port->DataInterface = fpDevice->FindNextInterface( NULL, &req );	// Go with the first one
-                    if ( !port->DataInterface )
+                    port->DataInterface = fpDevice->FindNextInterface(NULL, &req);	// Go with the first one (is this a good idea??)
+                    if (!port->DataInterface)
                     {
-                        ELG( 0, 0, 'cDD-', "AppleUSBCDCDriver::configureDevice - Find next interface for the Data Class failed" );
+                        XTRACE(port, 0, 0, "configureDevice - Find next interface for the Data Class failed");
                         portok = false;
                     } else {
-                        ELG( 0, 0, 'cDDm', "AppleUSBCDCDriver::configureDevice - going with the first (only?) Data interface" );
+                        XTRACE(port, 0, 0, "configureDevice - going with the first (only?) Data interface");
                     }
                 }
-                if ( port->DataInterface )
+                if (port->DataInterface)
                 {
                     port->DataInterface->retain();
             
                         // Found both so now set the name for this port
 	
-                    if ( createSerialStream( port ) )	// Publish SerialStream services
+                    if (createSerialStream(port))					// Publish SerialStream services
                     {
-                        goodCDC = true;
+                        portok = initPort(port);					// Initilaize the Port structure
+                        if (portok)
+                        {
+                            goodCDC = true;
+                        } else {
+                            XTRACE(port, 0, 0, "configureDevice - initPort failed");
+                        }
                     } else {
-                        ELG( 0, 0, 'Nub-', "AppleUSBCDCDriver::configureDevice - createSerialStream failed" );
+                        XTRACE(port, 0, 0, "configureDevice - createSerialStream failed");
                         portok = false;
                     }
                 }
             }
         }
-        if ( !portok )
+        if (!portok)
         {
             if (port)
             {
-                IOFree( port, sizeof(PortInfo_t) );
+                releaseResources(port);
+                IOFree(port, sizeof(PortInfo_t));
                 fPorts[i] = NULL;
             }
         }
-        
+
             // see if there's another CDC interface
             
         req.bInterfaceClass = kUSBCommClass;
@@ -1344,29 +1344,24 @@ bool AppleUSBCDCDriver::configureDevice( UInt8 numConfigs )
 	req.bInterfaceProtocol = kUSBv25;
 	req.bAlternateSetting = kIOUSBFindInterfaceDontCare;
             
-        Comm = fpDevice->FindNextInterface( Comm, &req );
-        if ( !Comm )
+        Comm = fpDevice->FindNextInterface(Comm, &req);
+        if (!Comm)
         {
-            ELG( 0, 0, 'cDFI', "AppleUSBCDCDriver::configureDevice - No more CDC interfaces" );
+            XTRACE(port, 0, 0, "configureDevice - No more CDC interfaces");
         }
         portok = false;
     }
     
-    if ( fSuspendOK )
+    if (fSuspendOK)
     {
-        ior = fpDevice->SuspendDevice( true );         // Suspend the device (if supported, bus powered ONLY and not canceled)
-        if ( ior )
+        ior = fpDevice->SuspendDevice(true);         // Suspend the device (if supported, bus powered ONLY and not canceled)
+        if (ior)
         {
-            ELG( 0, ior, 'cCSD', "AppleUSBCDCDriver::configureDevice - SuspendDevice error" );
+            XTRACE(port, 0, ior, "AppleUSBCDCDriver::configureDevice - SuspendDevice error");
         }
     }
-    
-    if ( goodCDC )
-    {
-        return true;
-    }
 	
-    return false;
+    return goodCDC;
 
 }/* end configureDevice */
 
@@ -1382,7 +1377,7 @@ bool AppleUSBCDCDriver::configureDevice( UInt8 numConfigs )
 //
 /****************************************************************************************************/
 
-bool AppleUSBCDCDriver::initDevice( UInt8 numConfigs )
+bool AppleUSBCDCDriver::initDevice(UInt8 numConfigs)
 {
     IOUSBFindInterfaceRequest		req;
     IOUSBDevRequest			devreq;
@@ -1393,75 +1388,75 @@ bool AppleUSBCDCDriver::initDevice( UInt8 numConfigs )
     UInt8				config = 0;
     bool				goodconfig = false;
        
-    ELG( 0, numConfigs, 'cDev', "AppleUSBCDCDriver::initDevice" );
+    XTRACE(this, 0, numConfigs, "initDevice");
     	
         // Make sure we have a CDC interface to play with
         
     for (cval=0; cval<numConfigs; cval++)
     {
-    	ELG( 0, cval, 'CkCn', "AppleUSBCDCDriver::initDevice - Checking Configuration" );
+    	XTRACE(this, 0, cval, "initDevice - Checking Configuration");
 		
      	cd = fpDevice->GetFullConfigurationDescriptor(cval);
-     	if ( !cd )
+     	if (!cd)
     	{
-            ELG( 0, 0, 'GFC-', "AppleUSBCDCDriver::initDevice - Error getting the full configuration descriptor" );
+            XTRACE(this, 0, 0, "initDevice - Error getting the full configuration descriptor");
         } else {
             req.bInterfaceClass	= kUSBCommClass;
             req.bInterfaceSubClass = kUSBAbstractControlModel;
             req.bInterfaceProtocol = kUSBv25;
             req.bAlternateSetting = kIOUSBFindInterfaceDontCare;
             ior = fpDevice->FindNextInterfaceDescriptor(cd, intf, &req, &intf);
-            if ( ior == kIOReturnSuccess )
+            if (ior == kIOReturnSuccess)
             {
-                if ( intf )
+                if (intf)
                 {
-                    ELG( 0, config, 'FNI+', "AppleUSBCDCDriver::initDevice - Interface descriptor found" );
+                    XTRACE(this, 0, config, "initDevice - Interface descriptor found");
                     config = cd->bConfigurationValue;
                     goodconfig = true;					// We have at least one CDC interface in this configuration
                     break;
                 } else {
-                    ELG( 0, config, 'FNI-', "AppleUSBCDCDriver::initDevice - That's weird the interface was null" );
+                    XTRACE(this, 0, config, "initDevice - That's weird the interface was null");
                 }
             } else {
-                ELG( 0, cval, 'FNID', "AppleUSBCDCDriver::initDevice - No CDC interface found this configuration" );
+                XTRACE(this, 0, cval, "initDevice - No CDC interface found this configuration");
             }
         }
     }
     
-    if ( goodconfig )
+    if (goodconfig)
     {
-        ior = fpDevice->SetConfiguration( this, config );
-        if ( ior != kIOReturnSuccess )
+        ior = fpDevice->SetConfiguration(this, config);
+        if (ior != kIOReturnSuccess)
         {
-            ELG( 0, ior, 'SCo-', "AppleUSBCDCDriver::initDevice - SetConfiguration error" );
+            XTRACE(this, 0, ior, "initDevice - SetConfiguration error");
             goodconfig = false;			
         }
     }
     
-    if ( !goodconfig )					// If we're not good - bail
+    if (!goodconfig)					// If we're not good - bail
         return false;
     
     fbmAttributes = cd->bmAttributes;
-    ELG( fbmAttributes, kUSBAtrRemoteWakeup, 'GFbA', "AppleUSBCDCDriver::initDevice - Configuration bmAttributes" );
+    XTRACE(this, fbmAttributes, kUSBAtrRemoteWakeup, "initDevice - Configuration bmAttributes");
     
     fSuspendOK = false;
-    if ( !(fbmAttributes & kUSBAtrSelfPowered) )
+    if (!(fbmAttributes & kUSBAtrSelfPowered))
     {
-        if ( fbmAttributes & kUSBAtrBusPowered )
+        if (fbmAttributes & kUSBAtrBusPowered)
         {
             fSuspendOK = true;
         }
     }
-    if ( fSuspendOK )
+    if (fSuspendOK)
     {
-        ELG( 0, 0, 'SCS+', "AppleUSBCDCDriver::initDevice - Suspend/Resume is active" );
+        XTRACE(this, 0, 0, "initDevice - Suspend/Resume is active");
     } else {
-        ELG( 0, 0, 'SCS-', "AppleUSBCDCDriver::initDevice - Suspend/Resume is inactive" );
+        XTRACE(this, 0, 0, "initDevice - Suspend/Resume is inactive");
     }
     
-    if ( fbmAttributes & kUSBAtrRemoteWakeup )
+    if (fbmAttributes & kUSBAtrRemoteWakeup)
     {
-//        getPMRootDomain()->publishFeature( "WakeOnRing" );
+        getPMRootDomain()->publishFeature("WakeOnRing");
     
             // Clear the feature if wake-on-ring is not set (SetConfiguration sets the feature 
             // automatically if the device supports remote wake up)
@@ -1475,16 +1470,16 @@ bool AppleUSBCDCDriver::initDevice( UInt8 numConfigs )
             devreq.wLength = 0;
             devreq.pData = 0;
 
-            ior = fpDevice->DeviceRequest( &devreq );
-            if ( ior == kIOReturnSuccess )
+            ior = fpDevice->DeviceRequest(&devreq);
+            if (ior == kIOReturnSuccess)
             {
-                ELG( 0, ior, 'SCCs', "AppleUSBCDCDriver::initDevice - Clearing remote wake up feature successful" );
+                XTRACE(this, 0, ior, "initDevice - Clearing remote wake up feature successful");
             } else {
-                ELG( 0, ior, 'SCCf', "AppleUSBCDCDriver::initDevice - Clearing remote wake up feature failed" );
+                XTRACE(this, 0, ior, "initDevice - Clearing remote wake up feature failed");
             }
         }
     } else {
-        ELG( 0, 0, 'SCRw', "AppleUSBCDCDriver::initDevice - Remote wake up not supported" );
+        XTRACE(this, 0, 0, "initDevice - Remote wake up not supported");
     }
         
     return goodconfig;
@@ -1503,7 +1498,7 @@ bool AppleUSBCDCDriver::initDevice( UInt8 numConfigs )
 //
 /****************************************************************************************************/
 
-bool AppleUSBCDCDriver::getFunctionalDescriptors( PortInfo_t *port )
+bool AppleUSBCDCDriver::getFunctionalDescriptors(PortInfo_t *port)
 {
     bool				gotDescriptors = false;
     bool				configok = true;
@@ -1511,7 +1506,7 @@ bool AppleUSBCDCDriver::getFunctionalDescriptors( PortInfo_t *port )
     CMFunctionalDescriptor		*CMFDesc;		// call management functional descriptor
     ACMFunctionalDescriptor		*ACMFDesc;		// abstract control management functional descriptor
        
-    ELG( 0, 0, 'gFDs', "AppleUSBCDCDriver::getFunctionalDescriptors" );
+    XTRACE(port, 0, 0, "getFunctionalDescriptors");
     
         // Set some defaults just in case and then get the associated functional descriptors
 	
@@ -1526,14 +1521,14 @@ bool AppleUSBCDCDriver::getFunctionalDescriptors( PortInfo_t *port )
         {
             gotDescriptors = true;
         } else {
-            switch ( funcDesc->bDescriptorSubtype )
+            switch (funcDesc->bDescriptorSubtype)
             {
                 case Header_FunctionalDescriptor:
-                    ELG( funcDesc->bDescriptorType, funcDesc->bDescriptorSubtype, 'gFHd', "AppleUSBCDCDriver::getFunctionalDescriptors - Header Functional Descriptor" );
+                    XTRACE(port, funcDesc->bDescriptorType, funcDesc->bDescriptorSubtype, "getFunctionalDescriptors - Header Functional Descriptor");
                     break;
                 case CM_FunctionalDescriptor:
                     (const FunctionalDescriptorHeader*)CMFDesc = funcDesc;
-                    ELG( funcDesc->bDescriptorType, funcDesc->bDescriptorSubtype, 'gFCM', "AppleUSBCDCDriver::getFunctionalDescriptors - CM Functional Descriptor" );
+                    XTRACE(port, funcDesc->bDescriptorType, funcDesc->bDescriptorSubtype, "getFunctionalDescriptors - CM Functional Descriptor");
                     port->DataInterfaceNumber = CMFDesc->bDataInterface;
                     port->CMCapabilities = CMFDesc->bmCapabilities;
 				
@@ -1541,28 +1536,28 @@ bool AppleUSBCDCDriver::getFunctionalDescriptors( PortInfo_t *port )
 				
                     if (!(port->CMCapabilities & CM_ManagementData))
                     {
-                        ELG( 0, 0, 'gFC-', "AppleUSBCDCDriver::getFunctionalDescriptors - Interface doesn't support Call Management" );
+                        XTRACE(port, 0, 0, "getFunctionalDescriptors - Interface doesn't support Call Management");
                         configok = false;
                     }
                     if (!(port->CMCapabilities & CM_ManagementOnData))
                     {
-                        ELG( 0, 0, 'gFC-', "AppleUSBCDCDriver::getFunctionalDescriptors - Interface doesn't support Call Management on Data Interface" );
-                       //  configok = false;
+                        XTRACE(port, 0, 0, "getFunctionalDescriptors - Interface doesn't support Call Management on Data Interface");
+                       //  configok = false;				// Some devices get this wrong so we'll let it slide
                     }
                     break;
                 case ACM_FunctionalDescriptor:
                     (const FunctionalDescriptorHeader*)ACMFDesc = funcDesc;
-                    ELG( funcDesc->bDescriptorType, funcDesc->bDescriptorSubtype, 'gFAM', "AppleUSBCDCDriver::getFunctionalDescriptors - ACM Functional Descriptor" );
+                    XTRACE(port, funcDesc->bDescriptorType, funcDesc->bDescriptorSubtype, "getFunctionalDescriptors - ACM Functional Descriptor");
                     port->ACMCapabilities = ACMFDesc->bmCapabilities;
                     break;
                 case Union_FunctionalDescriptor:
-                    ELG( funcDesc->bDescriptorType, funcDesc->bDescriptorSubtype, 'gFUn', "AppleUSBCDCDriver::getFunctionalDescriptors - Union Functional Descriptor" );
+                    XTRACE(port, funcDesc->bDescriptorType, funcDesc->bDescriptorSubtype, "getFunctionalDescriptors - Union Functional Descriptor");
                     break;
                 case CS_FunctionalDescriptor:
-                    ELG( funcDesc->bDescriptorType, funcDesc->bDescriptorSubtype, 'gFCS', "AppleUSBCDCDriver::getFunctionalDescriptors - CS Functional Descriptor" );
+                    XTRACE(port, funcDesc->bDescriptorType, funcDesc->bDescriptorSubtype, "getFunctionalDescriptors - CS Functional Descriptor");
                     break;
                 default:
-                    ELG( funcDesc->bDescriptorType, funcDesc->bDescriptorSubtype, 'gFFD', "AppleUSBCDCDriver::getFunctionalDescriptors - unknown Functional Descriptor" );
+                    XTRACE(port, funcDesc->bDescriptorType, funcDesc->bDescriptorSubtype, "getFunctionalDescriptors - unknown Functional Descriptor");
                     break;
             }
         }
@@ -1576,24 +1571,26 @@ bool AppleUSBCDCDriver::getFunctionalDescriptors( PortInfo_t *port )
 //
 //		Method:		AppleUSBCDCDriver::createSuffix
 //
-//		Inputs:		None
+//		Inputs:		port - the port
 //
-//		Outputs:	return Code - true (suffix created), false (suffix not create), sufKey - the key
+//		Outputs:	return Code - true (suffix created), false (suffix not create)
+//				sufKey - the key
 //
 //		Desc:		Creates the suffix key. It attempts to use the serial number string from the device
 //				if it's reasonable i.e. less than 8 bytes ascii. Remember it's stored in unicode 
 //				format. If it's not present or not reasonable it will generate the suffix based 
 //				on the location property tag. At least this remains the same across boots if the
 //				device is plugged into the same physical location. In the latter case trailing
-//				zeros are removed.
+//				zeros are removed. The interface number is also added to make it unique for
+//				multiple CDC configuration devices.
 //
 /****************************************************************************************************/
 
-bool AppleUSBCDCDriver::createSuffix( unsigned char *sufKey )
+bool AppleUSBCDCDriver::createSuffix(PortInfo_t *port, unsigned char *sufKey)
 {
     
     IOReturn	rc;
-    UInt8	serBuf[10];		// arbitrary size > 8
+    UInt8	serBuf[12];		// arbitrary size > 8
     OSNumber	*location;
     UInt32	locVal;
     UInt8	*rlocVal;
@@ -1601,32 +1598,33 @@ bool AppleUSBCDCDriver::createSuffix( unsigned char *sufKey )
     UInt8	indx;
     bool	keyOK = false;			
 	
-    ELG( 0, 0, 'cSuf', "AppleUSBCDCDriver::createSuffix" );
+    XTRACE(port, 0, 0, "createSuffix");
 	
     indx = fpDevice->GetSerialNumberStringIndex();	
-    if ( indx != 0 )
+    if (indx != 0)
     {	
             // Generate suffix key based on the serial number string (if reasonable <= 8 and > 0)	
 
         rc = fpDevice->GetStringDescriptor(indx, (char *)&serBuf, sizeof(serBuf));
-        if ( !rc )
+        if (!rc)
         {
-            if ( (strlen((char *)&serBuf) < 9) && (strlen((char *)&serBuf) > 0) )
+            if ((strlen((char *)&serBuf) < 9) && (strlen((char *)&serBuf) > 0))
             {
-                strcpy( (char *)sufKey, (const char *)&serBuf);
+                strcpy((char *)sufKey, (const char *)&serBuf);
+                sig = strlen((char *)sufKey);
                 keyOK = true;
             }			
         } else {
-            ELG( 0, rc, 'Sdt-', "AppleUSBCDCDriver::createSuffix error reading serial number string" );
+            XTRACE(port, 0, rc, "createSuffix error reading serial number string");
         }
     }
 	
-    if ( !keyOK )
+    if (!keyOK)
     {
             // Generate suffix key based on the location property tag
 	
         location = (OSNumber *)fpDevice->getProperty(kUSBDevicePropertyLocationID);
-        if ( location )
+        if (location)
         {
             locVal = location->unsigned32BitValue();		
             offs = 0;
@@ -1634,15 +1632,27 @@ bool AppleUSBCDCDriver::createSuffix( unsigned char *sufKey )
             for (i=0; i<4; i++)
             {
                 sufKey[offs] = Asciify(rlocVal[i] >> 4);
-                if ( sufKey[offs++] != '0')
+                if (sufKey[offs++] != '0')
                     sig = offs;
                 sufKey[offs] = Asciify(rlocVal[i]);
-                if ( sufKey[offs++] != '0')
+                if (sufKey[offs++] != '0')
                     sig = offs;
-            }			
-            sufKey[sig] = 0x00;
+            }
             keyOK = true;
         }
+    }
+    
+        // Make it unique if there's more than one configuration and config value is none zero
+    
+    if (keyOK)
+    {
+        sufKey[sig] = Asciify((UInt8)port->CommInterfaceNumber >> 4);
+        if (sufKey[sig] != '0')
+            sig++;
+        sufKey[sig] = Asciify((UInt8)port->CommInterfaceNumber);
+        if (sufKey[sig] != '0')
+            sig++;			
+        sufKey[sig] = 0x00;
     }
 	
     return keyOK;
@@ -1661,17 +1671,17 @@ bool AppleUSBCDCDriver::createSuffix( unsigned char *sufKey )
 //
 /****************************************************************************************************/
 
-bool AppleUSBCDCDriver::createSerialStream( PortInfo_t *port )
+bool AppleUSBCDCDriver::createSerialStream(PortInfo_t *port)
 {
     IOModemSerialStreamSync	*pNub = new IOModemSerialStreamSync;
     bool			ret;
     UInt8			indx;
     IOReturn			rc;
-    unsigned char		rname[10];
+    unsigned char		rname[20];
     const char			*suffix = (const char *)&rname;
 	
-    ELG( 0, pNub, '=Nub', "AppleUSBCDCDriver::createSerialStream - 0, nub" );
-    if ( !pNub )
+    XTRACE(port, 0, pNub, "createSerialStream");
+    if (!pNub)
     {
         return false;
     }
@@ -1680,24 +1690,24 @@ bool AppleUSBCDCDriver::createSerialStream( PortInfo_t *port )
     	// or we failed in which case we should get rid our reference as well.
         // This just makes sure the reference count is correct.
 	
-    ret = (pNub->init(0, port) && pNub->attach( this ));
+    ret = (pNub->init(0, port) && pNub->attach(this));
 	
     pNub->release();
-    if ( !ret )
+    if (!ret)
     {
-        ELG( ret, 0, 'Nub-', "AppleUSBCDCDriver::createSerialStream - Didn't attach to the nub properly" );
+        XTRACE(port, ret, 0, "createSerialStream - Failed to attach to the nub");
         return false;
     }
 
     // Report the base name to be used for generating device nodes
 	
-    pNub->setProperty( kIOTTYBaseNameKey, baseName );
+    pNub->setProperty(kIOTTYBaseNameKey, baseName);
 	
     // Create suffix key and set it
 	
-    if ( createSuffix( (unsigned char *)suffix ) )
+    if (createSuffix(port, (unsigned char *)suffix))
     {		
-        pNub->setProperty( kIOTTYSuffixKey, suffix );
+        pNub->setProperty(kIOTTYSuffixKey, suffix);
     }
 
     pNub->registerService();
@@ -1705,16 +1715,16 @@ bool AppleUSBCDCDriver::createSerialStream( PortInfo_t *port )
 	// Save the Product String (at least the first productNameLength's worth). This is done (same name) per stream for the moment.
 
     indx = fpDevice->GetProductStringIndex();	
-    if ( indx != 0 )
+    if (indx != 0)
     {	
-        rc = fpDevice->GetStringDescriptor( indx, (char *)&fProductName, sizeof(fProductName) );
-        if ( !rc )
+        rc = fpDevice->GetStringDescriptor(indx, (char *)&fProductName, sizeof(fProductName));
+        if (!rc)
         {
-            if ( strlen((char *)fProductName) == 0 )		// believe it or not this sometimes happens (null string with an index defined???)
+            if (strlen((char *)fProductName) == 0)		// believe it or not this sometimes happens (null string with an index defined???)
             {
-                strcpy( (char *)fProductName, defaultName);
+                strcpy((char *)fProductName, defaultName);
             }
-            pNub->setProperty( (const char *)propertyTag, (const char *)fProductName );
+            pNub->setProperty((const char *)propertyTag, (const char *)fProductName);
         }
     }
 
@@ -1726,7 +1736,59 @@ bool AppleUSBCDCDriver::createSerialStream( PortInfo_t *port )
 //
 //		Method:		AppleUSBCDCDriver::acquirePort
 //
-//		Inputs:		sleep - true (wait for it), false (don't), refCon - the Port
+//		Inputs:		sleep - true (wait for it), false (don't)
+//				refCon - the Port
+//
+//		Outputs:	Return Code - kIOReturnSuccess, kIOReturnExclusiveAccess, kIOReturnIOError and various others
+//
+//		Desc:		Set up for gated acquirePort call.
+//
+/****************************************************************************************************/
+
+IOReturn AppleUSBCDCDriver::acquirePort(bool sleep, void *refCon)
+{
+    IOReturn	ret;
+    PortInfo_t	*port = (PortInfo_t *)refCon;
+    parmList	parms;
+    
+    XTRACE(port, 0, sleep, "acquirePort");
+    
+    parms.arg1 = (void *)sleep;
+    parms.arg2 = NULL;
+    parms.arg3 = NULL;
+    parms.arg4 = NULL;
+    parms.port = port;
+    
+    retain();
+    ret = port->commandGate->runAction(acquirePortAction, (void *)&parms);
+    release();
+    
+    return ret;
+
+}/* end acquirePort */
+
+/****************************************************************************************************/
+//
+//		Method:		AppleUSBCDCDriver::acquirePortAction
+//
+//		Desc:		Dummy pass through for acquirePortGated.
+//
+/****************************************************************************************************/
+
+IOReturn AppleUSBCDCDriver::acquirePortAction(OSObject *owner, void *arg0, void *, void *, void *)
+{
+    parmList	*parms = (parmList *)arg0;
+
+    return ((AppleUSBCDCDriver *)owner)->acquirePortGated((bool)parms->arg1, parms->port);
+    
+}/* end acquirePortAction */
+
+/****************************************************************************************************/
+//
+//		Method:		AppleUSBCDCDriver::acquirePortGated
+//
+//		Inputs:		sleep - true (wait for it), false (don't)
+//				port - the Port
 //
 //		Outputs:	Return Code - kIOReturnSuccess, kIOReturnExclusiveAccess, kIOReturnIOError and various others
 //
@@ -1738,123 +1800,110 @@ bool AppleUSBCDCDriver::createSerialStream( PortInfo_t *port )
 //
 /****************************************************************************************************/
 
-IOReturn AppleUSBCDCDriver::acquirePort( bool sleep, void *refCon )
+IOReturn AppleUSBCDCDriver::acquirePortGated(bool sleep, PortInfo_t *port)
 {
-    PortInfo_t 	*port = (PortInfo_t *) refCon;
     UInt32 	busyState = 0;
     IOReturn 	rtn = kIOReturnSuccess;
 
-    ELG( port, sleep, 'acqP', "AppleUSBCDCDriver::acquirePort" );
+    XTRACE(port, 0, sleep, "acquirePortGated");
 
-    if ( !port->serialRequestLock )
+    retain(); 							// Hold reference till releasePortgated, unless we fail to acquire
+    while (true)
     {
-        port->serialRequestLock = IOLockAlloc();	// init lock for state machine
-        if ( !port->serialRequestLock )
-            return kIOReturnNoMemory;
-    }
-
-    for (;;)
-    {
-        busyState = readPortState( port ) & PD_S_ACQUIRED;
-        if ( !busyState )
+        busyState = port->State & PD_S_ACQUIRED;
+        if (!busyState)
         {		
-                // Set busy bit, and clear everything else
+                // Set busy bit (acquired), and clear everything else
                 
-            changeState( port, (UInt32)PD_S_ACQUIRED | DEFAULT_STATE, (UInt32)STATE_ALL);
+            setStateGated((UInt32)PD_S_ACQUIRED | DEFAULT_STATE, (UInt32)STATE_ALL, port);
             break;
         } else {
-            if ( !sleep )
+            if (!sleep)
             {
-                ELG( 0, 0, 'busy', "AppleUSBCDCDriver::acquirePort - Busy exclusive access" );
+                XTRACE(port, 0, 0, "acquirePortGated - Busy exclusive access");
+                release();
             	return kIOReturnExclusiveAccess;
             } else {
             	busyState = 0;
-            	rtn = watchState( &busyState, PD_S_ACQUIRED, refCon );
-            	if ( (rtn == kIOReturnIOError) || (rtn == kIOReturnSuccess) )
+            	rtn = watchStateGated(&busyState, PD_S_ACQUIRED, port);
+            	if ((rtn == kIOReturnIOError) || (rtn == kIOReturnSuccess))
                 {
                     continue;
             	} else {
-                    ELG( 0, 0, 'int-', "AppleUSBCDCDriver::acquirePort - Interrupted!" );
+                    XTRACE(port, 0, 0, "acquirePortGated - Interrupted!");
+                    release();
                     return rtn;
                 }
             }
         }
-    } /* end for */
-    
-    if ( fSuspendOK )
-    {
-    rtn = fpDevice->SuspendDevice( false );		// Resume the device
-    if ( rtn != kIOReturnSuccess )
-    {
-        return rtn;
-    }
     }
     
-    IOSleep( 50 );
+    do
+    {
+        if (fSuspendOK)
+        {
+            rtn = fpDevice->SuspendDevice(false);		// Resume the device
+            if (rtn != kIOReturnSuccess)
+            {
+                break;
+            }
+        }
     
-    if ( !allocateResources( port ) ) 
-    {
-    	return kIOReturnNoMemory;
-    }
+        IOSleep(50);
+    	
+        setStructureDefaults(port);			// Set the default values
 	
-    SetStructureDefaults( port, FALSE );	/* Initialize all the structures */
-	
-    if (!allocateRingBuffer(&(port->TX), port->TXStats.BufferSize) || !allocateRingBuffer(&(port->RX), port->RXStats.BufferSize)) 
-    {
-        releaseResources( port );
-        return kIOReturnNoMemory;
-    }
-	
-        // Read the comm interrupt pipe for status:
+            // Read the comm interrupt pipe for status:
 		
-    fCommCompletionInfo.target = this;
-    fCommCompletionInfo.action = commReadComplete;
-    fCommCompletionInfo.parameter = port;
+        port->fCommCompletionInfo.target = this;
+        port->fCommCompletionInfo.action = commReadComplete;
+        port->fCommCompletionInfo.parameter = port;
 		
-    rtn = port->CommPipe->Read(port->CommPipeMDP, &fCommCompletionInfo, NULL );
-    if ( rtn == kIOReturnSuccess )
-    {
+        rtn = port->CommPipe->Read(port->CommPipeMDP, &port->fCommCompletionInfo, NULL);
+        if (rtn == kIOReturnSuccess)
+        {
         	// Read the data-in bulk pipe:
 			
-        fReadCompletionInfo.target = this;
-        fReadCompletionInfo.action = dataReadComplete;
-        fReadCompletionInfo.parameter = port;
+            port->fReadCompletionInfo.target = this;
+            port->fReadCompletionInfo.action = dataReadComplete;
+            port->fReadCompletionInfo.parameter = port;
 		
-        rtn = port->InPipe->Read(port->PipeInMDP, &fReadCompletionInfo, NULL );
+            rtn = port->InPipe->Read(port->PipeInMDP, &port->fReadCompletionInfo, NULL);
+            if (rtn == kIOReturnSuccess)
+            {
+                    // Set up the data-out bulk pipe:
 			
-        if ( rtn == kIOReturnSuccess )
-        {
-        	// Set up the data-out bulk pipe:
-			
-            fWriteCompletionInfo.target	= this;
-            fWriteCompletionInfo.action	= dataWriteComplete;
-            fWriteCompletionInfo.parameter = port;
+                port->fWriteCompletionInfo.target = this;
+                port->fWriteCompletionInfo.action = dataWriteComplete;
+                port->fWriteCompletionInfo.parameter = port;
 		
-                // Set up the management element request completion routine:
+                    // Set up the management element request completion routine:
 
-            fMERCompletionInfo.target = this;
-            fMERCompletionInfo.action = merWriteComplete;
-            fMERCompletionInfo.parameter = NULL;				// for now, filled in with parm block when allocated
+                port->fMERCompletionInfo.target = this;
+                port->fMERCompletionInfo.action = merWriteComplete;
+                port->fMERCompletionInfo.parameter = NULL;
+            } else {
+                break;
+            }
+        } else {
+            break;
         }
-    }
+        
+        fSessions++;				// Bump number of active sessions and turn on clear to send
+        setStateGated(PD_RS232_S_CTS, PD_RS232_S_CTS, port);
+        
+        return kIOReturnSuccess;
+        
+    } while (0);
 
-    if (rtn != kIOReturnSuccess)
-    {
     	// We failed for some reason
-	
-        freeRingBuffer(&(port->TX));
-        freeRingBuffer(&(port->RX));
 
-        releaseResources( port );
-        changeState(port, 0, STATE_ALL);	// Clear the entire state word
-    } else {
-        fSessions++;				// bump number of active sessions and turn on clear to send
-        changeState( port, PD_RS232_S_CTS, PD_RS232_S_CTS);
-    }
-
+    setStateGated(0, STATE_ALL, port);		// Clear the entire state word
+    release();
+    
     return rtn;
 	
-}/* end acquirePort */
+}/* end acquirePortGated */
 
 /****************************************************************************************************/
 //
@@ -1864,49 +1913,115 @@ IOReturn AppleUSBCDCDriver::acquirePort( bool sleep, void *refCon )
 //
 //		Outputs:	Return Code - kIOReturnSuccess or kIOReturnNotOpen
 //
+//		Desc:		Set up for gated releasePort call.
+//
+/****************************************************************************************************/
+
+IOReturn AppleUSBCDCDriver::releasePort(void *refCon)
+{
+    IOReturn	ret = kIOReturnSuccess;
+    PortInfo_t	*port = (PortInfo_t *)refCon;
+    parmList	parms;
+    UInt16	i;
+    bool	portok = false;
+    
+    XTRACE(port, 0, 0, "releasePort");
+    
+        // In some odd situations releasePort can occur after stop has been issued.
+        // We need to check here to make sure the refcon/port is still valid.
+        
+    for (i=0; i<numberofPorts; i++)
+    {
+        if (fPorts[i] != NULL)
+        {
+            if (port = fPorts[i])
+            {
+                portok = true;
+                break;
+            }
+        }
+    }
+
+    if (portok)
+    {
+        parms.arg1 = NULL;
+        parms.arg2 = NULL;
+        parms.arg3 = NULL;
+        parms.arg4 = NULL;
+        parms.port = port;
+    
+        retain();
+        ret = port->commandGate->runAction(releasePortAction, (void *)&parms);
+        release();
+    } else {
+        XTRACE(port, 0, 0, "releasePort - port is invalid");
+    }
+    
+    return ret;
+
+}/* end releasePort */
+
+/****************************************************************************************************/
+//
+//		Method:		AppleUSBCDCDriver::releasePortAction
+//
+//		Desc:		Dummy pass through for releasePortGated.
+//
+/****************************************************************************************************/
+
+IOReturn AppleUSBCDCDriver::releasePortAction(OSObject *owner, void *arg0, void *, void *, void *)
+{
+    parmList	*parms = (parmList *)arg0;
+
+    return ((AppleUSBCDCDriver *)owner)->releasePortGated(parms->port);
+    
+}/* end acquirePortAction */
+
+/****************************************************************************************************/
+//
+//		Method:		AppleUSBCDCDriver::releasePortGated
+//
+//		Inputs:		port - the Port
+//
+//		Outputs:	Return Code - kIOReturnSuccess or kIOReturnNotOpen
+//
 //		Desc:		releasePort returns all the resources and does clean up.
 //
 /****************************************************************************************************/
 
-IOReturn AppleUSBCDCDriver::releasePort( void *refCon )
+IOReturn AppleUSBCDCDriver::releasePortGated(PortInfo_t *port)
 {
-    PortInfo_t 	*port = (PortInfo_t *) refCon;
     UInt32 	busyState;
     IOReturn	ior;
 
-    ELG( 0, port, 'relP', "AppleUSBCDCDriver::releasePort" );
-    busyState = (readPortState( port ) & PD_S_ACQUIRED);
-    if ( !busyState )
+    XTRACE(port, 0, 0, "releasePortGated");
+    
+    busyState = (port->State & PD_S_ACQUIRED);
+    if (!busyState)
     {
-        ELG( 0, 0, 'rlP-', "AppleUSBCDCDriver::releasePort - NOT OPEN" );
-        if ( fTerminate )
+        XTRACE(port, 0, 0, "AppleUSBCDCDriver::releasePort - NOT OPEN");
+        if (fTerminate)
             return kIOReturnOffline;
 
         return kIOReturnNotOpen;
     }
 	
-    if ( !fTerminate )
+    if (!fTerminate)
         USBSetControlLineState(port, false, false);		// clear RTS and clear DTR only if not terminated
 	
-    changeState( port, 0, (UInt32)STATE_ALL );			// Clear the entire state word - which also deactivates the port
-
-        // Remove all the buffers.
-
-    freeRingBuffer( &port->TX );
-    freeRingBuffer( &port->RX );
-	
-        // Release all resources
-		
-    releaseResources( port );
+    setStateGated(0, (UInt32)STATE_ALL, port);			// Clear the entire state word - which also deactivates the port
     
-    if ( !fTerminate )
+    port->CommPipe->Abort();					// Abort any outstanding reads
+    port->InPipe->Abort();
+    
+    if (!fTerminate)
     {
-        if ( fSuspendOK )
+        if (fSuspendOK)
         {
-            ior = fpDevice->SuspendDevice( true );         // Suspend the device again (if supported and not unplugged)
-            if ( ior )
+            ior = fpDevice->SuspendDevice(true);         // Suspend the device again (if supported and not unplugged)
+            if (ior)
             {
-                ELG( 0, ior, 'rPSD', "AppleUSBCDCDriver::releasePort - SuspendDevice error" );
+                XTRACE(port, 0, ior, "releasePort - SuspendDevice error");
             }
         }
     }
@@ -1916,19 +2031,172 @@ IOReturn AppleUSBCDCDriver::releasePort( void *refCon )
     {
     	fpDevice->close(this);
         fpDevice = NULL;
+    } else {
+        fpDevice->ReEnumerateDevice(0);			// Re-enumerate for now to clean up various problems
     }
     
-    ELG( 0, 0, 'RlP+', "AppleUSBCDCDriver::releasePort - OK" );
+    release(); 						// Dispose of the self-reference we took in acquirePortGated()
+    
+    XTRACE(port, 0, 0, "releasePort - Exit");
     
     return kIOReturnSuccess;
 	
-}/* end releasePort */
+}/* end releasePortGated */
+
+/****************************************************************************************************/
+//
+//		Method:		AppleUSBCDCDriver::getState
+//
+//		Inputs:		refCon - the Port
+//
+//		Outputs:	Return value - port state
+//
+//		Desc:		Set up for gated getState call.
+//
+/****************************************************************************************************/
+
+UInt32 AppleUSBCDCDriver::getState(void *refCon)
+{
+    UInt32	currState;
+    PortInfo_t	*port = (PortInfo_t *)refCon;
+    parmList	parms;
+    
+    XTRACE(port, 0, 0, "getState");
+    
+    parms.arg1 = NULL;
+    parms.arg2 = NULL;
+    parms.arg3 = NULL;
+    parms.arg4 = NULL;
+    parms.port = port;
+    
+    retain();
+    currState = port->commandGate->runAction(getStateAction, (void *)&parms);
+    release();
+    
+    return currState;
+    
+}/* end getState */
+
+/****************************************************************************************************/
+//
+//		Method:		AppleUSBCDCDriver::getStateAction
+//
+//		Desc:		Dummy pass through for getStateGated.
+//
+/****************************************************************************************************/
+
+IOReturn AppleUSBCDCDriver::getStateAction(OSObject *owner, void *arg0, void *, void *, void *)
+{
+    UInt32	newState;
+    parmList	*parms = (parmList *)arg0;
+
+    newState = ((AppleUSBCDCDriver *)owner)->getStateGated(parms->port);
+    
+    return newState;
+    
+}/* end getStateAction */
+
+/****************************************************************************************************/
+//
+//		Method:		AppleUSBCDCDriver::getStateGated
+//
+//		Inputs:		port - the Port
+//
+//		Outputs:	return value - port state
+//
+//		Desc:		Get the state for the port.
+//
+/****************************************************************************************************/
+
+UInt32 AppleUSBCDCDriver::getStateGated(PortInfo_t *port)
+{
+    UInt32 	state;
+	
+    XTRACE(port, 0, 0, "getStateGated");
+	
+    CheckQueues(port);
+	
+    state = port->State & EXTERNAL_MASK;
+	
+    XTRACE(port, state, EXTERNAL_MASK, "getState - Exit");
+	
+    return state;
+	
+}/* end getStateGated */
 
 /****************************************************************************************************/
 //
 //		Method:		AppleUSBCDCDriver::setState
 //
-//		Inputs:		state - state to set, mask - state mask, refCon - the Port
+//		Inputs:		state - the state
+//				mask - the mask
+//				refCon - the Port
+//
+//		Outputs:	Return code - kIOReturnSuccess or kIOReturnBadArgument
+//
+//		Desc:		Set up for gated setState call.
+//
+/****************************************************************************************************/
+
+IOReturn AppleUSBCDCDriver::setState(UInt32 state, UInt32 mask, void *refCon)
+{
+    IOReturn	ret = kIOReturnSuccess;
+    PortInfo_t	*port = (PortInfo_t *)refCon;
+    parmList	parms;
+    
+    XTRACE(port, 0, 0, "setState");
+    
+        // Cannot acquire or activate via setState
+    
+    if (mask & (PD_S_ACQUIRED | PD_S_ACTIVE | (~EXTERNAL_MASK)))
+    {
+        ret = kIOReturnBadArgument;
+    } else {
+        
+            // ignore any bits that are read-only
+        
+        mask &= (~port->FlowControl & PD_RS232_A_MASK) | PD_S_MASK;
+        if (mask)
+        {
+            parms.arg1 = (void *)state;
+            parms.arg2 = (void *)mask;
+            parms.arg3 = NULL;
+            parms.arg4 = NULL;
+            parms.port = port;
+    
+            retain();
+            ret = port->commandGate->runAction(setStateAction, (void *)&parms);
+            release();
+        }
+    }
+    
+    return ret;
+    
+}/* end setState */
+
+/****************************************************************************************************/
+//
+//		Method:		AppleUSBCDCDriver::setStateAction
+//
+//		Desc:		Dummy pass through for setStateGated.
+//
+/****************************************************************************************************/
+
+IOReturn AppleUSBCDCDriver::setStateAction(OSObject *owner, void *arg0, void *, void *, void *)
+{
+    parmList	*parms = (parmList *)arg0;
+
+    return ((AppleUSBCDCDriver *)owner)->setStateGated((UInt32)parms->arg1, (UInt32)parms->arg2, parms->port);
+    
+}/* end setStateAction */
+
+/****************************************************************************************************/
+//
+//		Method:		AppleUSBCDCDriver::setStateGated
+//
+//		Inputs:		state - state to set
+//				mask - state mask
+//				port - the Port
 //
 //		Outputs:	Return Code - kIOReturnSuccess or kIOReturnBadArgument
 //
@@ -1943,115 +2211,223 @@ IOReturn AppleUSBCDCDriver::releasePort( void *refCon )
 //
 /****************************************************************************************************/
 
-IOReturn AppleUSBCDCDriver::setState( UInt32 state, UInt32 mask, void *refCon )
+IOReturn AppleUSBCDCDriver::setStateGated(UInt32 state, UInt32 mask, PortInfo_t *port)
 {
-    PortInfo_t *port = (PortInfo_t *) refCon;
+    UInt32	delta;
 	
-    ELG( state, mask, 'stSt', "AppleUSBCDCDriver::setState" );
+    XTRACE(port, state, mask, "setStateGated");
     
-    if ( fTerminate )
+    if (fTerminate)
         return kIOReturnOffline;
-	
-    if ( mask & (PD_S_ACQUIRED | PD_S_ACTIVE | (~EXTERNAL_MASK)) )
-        return kIOReturnBadArgument;
     
-    if ( readPortState( port ) & PD_S_ACQUIRED )
-    {
-            // ignore any bits that are read-only
-            
-        mask &= (~port->FlowControl & PD_RS232_A_MASK) | PD_S_MASK;
+        // Check if it's being acquired or already acquired
 
-        if ( mask & PD_RS232_S_DTR )
+    if ((state & PD_S_ACQUIRED) || (port->State & PD_S_ACQUIRED))
+    {
+        if (mask & PD_RS232_S_DTR)
         {
-            if ( (state & PD_RS232_S_DTR) != (port->State & PD_RS232_S_DTR) )
+            if ((state & PD_RS232_S_DTR) != (port->State & PD_RS232_S_DTR))
             {
-                if ( state & PD_RS232_S_DTR )
+                if (state & PD_RS232_S_DTR)
                 {
-                    ELG( 0, 0, 'stDT', "AppleUSBCDCDriver::setState - DTR TRUE" );
+                    XTRACE(port, 0, 0, "setState - DTR TRUE");
                     USBSetControlLineState(port, false, true);
                 } else {
-                    ELG( 0, 0, 'stDF', "AppleUSBCDCDriver::setState - DTR FALSE" );
+                    XTRACE(port, 0, 0, "setState - DTR FALSE");
                     USBSetControlLineState(port, false, false);
                 }
             }
         }
+        
+        state = (port->State & ~mask) | (state & mask); 		// compute the new state
+        delta = state ^ port->State;		    			// keep a copy of the diffs
+        port->State = state;
 
-        if ( mask)
-            changeState( port, state, mask );
-
+	    // Wake up all threads asleep on WatchStateMask
+		
+        if (delta & port->WatchStateMask)
+        {
+            port->commandGate->commandWakeup((void *)&port->State);
+        }
+        
         return kIOReturnSuccess;
+
+    } else {
+        XTRACE(port, port->State, 0, "setStateGated - Not Acquired");
     }
     
     return kIOReturnNotOpen;
 	
-}/* end setState */
-
-/****************************************************************************************************/
-//
-//		Method:		AppleUSBCDCDriver::getState
-//
-//		Inputs:		refCon - the Port
-//
-//		Outputs:	state - port state
-//
-//		Desc:		Get the state for the port.
-//
-/****************************************************************************************************/
-
-UInt32 AppleUSBCDCDriver::getState( void *refCon )
-{
-    PortInfo_t 	*port = (PortInfo_t *) refCon;
-    UInt32 	state;
-	
-    ELG( 0, port, 'gtSt', "AppleUSBCDCDriver::getState" );
-	
-    CheckQueues( port );
-	
-    state = readPortState( port ) & EXTERNAL_MASK;
-	
-    ELG( state, EXTERNAL_MASK, 'gtSe', "AppleUSBCDCDriver::getState - exit" );
-	
-    return state;
-	
-}/* end getState */
+}/* end setStateGated */
 
 /****************************************************************************************************/
 //
 //		Method:		AppleUSBCDCDriver::watchState
 //
-//		Inputs:		state - state to watch for, mask - state mask bits, refCon - the Port
+//		Inputs:		state - state to watch for
+//				mask - state mask bits
+//				refCon - the Port
 //
 //		Outputs:	Return Code - kIOReturnSuccess or value returned from ::watchState
 //
-//		Desc:		Wait for the at least one of the state bits defined in mask to be equal
-//				to the value defined in state. Check on entry then sleep until necessary,
-//				see privatewatchState for more details.
+//		Desc:		Set up for gated watchState call.
 //
 /****************************************************************************************************/
 
-IOReturn AppleUSBCDCDriver::watchState( UInt32 *state, UInt32 mask, void *refCon)
+IOReturn AppleUSBCDCDriver::watchState(UInt32 *state, UInt32 mask, void *refCon)
 {
-    PortInfo_t 	*port = (PortInfo_t *) refCon;
+    IOReturn 	ret;
+    PortInfo_t	*port = (PortInfo_t *)refCon;
+    parmList	parms;
+
+    XTRACE(port, *state, mask, "watchState");
+    
+    if (!state) 
+        return kIOReturnBadArgument;
+        
+    if (!mask)
+        return kIOReturnSuccess;
+        
+    parms.arg1 = (void *)state;
+    parms.arg2 = (void *)mask;
+    parms.arg3 = NULL;
+    parms.arg4 = NULL;
+    parms.port = port;
+
+    retain();
+    ret = port->commandGate->runAction(watchStateAction, (void *)&parms);
+    release();
+    return ret;
+
+}/* end watchState */
+
+/****************************************************************************************************/
+//
+//		Method:		AppleUSBCDCDriver::watchStateAction
+//
+//		Desc:		Dummy pass through for watchStateGated.
+//
+/****************************************************************************************************/
+
+IOReturn AppleUSBCDCDriver::watchStateAction(OSObject *owner, void *arg0, void *, void *, void *)
+{
+    parmList	*parms = (parmList *)arg0;
+
+    return ((AppleUSBCDCDriver *)owner)->watchStateGated((UInt32 *)parms->arg1, (UInt32)parms->arg2, parms->port);
+    
+}/* end watchStateAction */
+
+/****************************************************************************************************/
+//
+//		Method:		AppleUSBCDCDriver::watchStateGated
+//
+//		Inputs:		state - state to watch for
+//				mask - state mask bits
+//				port - the Port
+//
+//		Outputs:	Return Code - kIOReturnSuccess or value returned from privateWatchState
+//
+//		Desc:		Wait for the at least one of the state bits defined in mask to be equal
+//				to the value defined in state. Check on entry then sleep until necessary,
+//				A return value of kIOReturnSuccess means that at least one of the port state
+//				bits specified by mask is equal to the value passed in by state.  A return
+//				value of kIOReturnIOError indicates that the port went inactive.  A return
+//				value of kIOReturnIPCError indicates sleep was interrupted by a signal.
+//
+/****************************************************************************************************/
+
+IOReturn AppleUSBCDCDriver::watchStateGated(UInt32 *state, UInt32 mask, PortInfo_t *port)
+{
+    unsigned 	watchState, foundStates;
+    bool 	autoActiveBit = false;
     IOReturn 	ret = kIOReturnNotOpen;
 
-    ELG( *state, mask, 'WatS', "AppleUSBCDCDriver::watchState" );
+    XTRACE(port, *state, mask, "watchStateGated");
     
-    if ( fTerminate )
+    if (fTerminate)
         return kIOReturnOffline;
-
-    if ( readPortState( port ) & PD_S_ACQUIRED )
+        
+    if (port->State & PD_S_ACQUIRED)
     {
         ret = kIOReturnSuccess;
         mask &= EXTERNAL_MASK;
-        ret = privateWatchState( port, state, mask );
+        
+        watchState = *state;
+        if (!(mask & (PD_S_ACQUIRED | PD_S_ACTIVE)))
+        {
+            watchState &= ~PD_S_ACTIVE;				// Check for low PD_S_ACTIVE
+            mask |=  PD_S_ACTIVE;				// Register interest in PD_S_ACTIVE bit
+            autoActiveBit = true;
+        }
+
+        while (true)
+        {
+                // Check port state for any interesting bits with watchState value
+                // NB. the '^ ~' is a XNOR and tests for equality of bits.
+			
+            foundStates = (watchState ^ ~port->State) & mask;
+
+            if (foundStates)
+            {
+                *state = port->State;
+                if (autoActiveBit && (foundStates & PD_S_ACTIVE))
+                {
+                    ret = kIOReturnIOError;
+                } else {
+                    ret = kIOReturnSuccess;
+                }
+                break;
+            }
+
+                // Everytime we go around the loop we have to reset the watch mask.
+                // This means any event that could affect the WatchStateMask must
+                // wakeup all watch state threads.  The two events are an interrupt
+                // or one of the bits in the WatchStateMask changing.
+			
+            port->WatchStateMask |= mask;
+            
+            XTRACE(port, port->State, port->WatchStateMask, "watchStateGated - Thread sleeping");
+            
+            retain();								// Just to make sure all threads are awake
+            port->commandGate->retain();					// before we're released
+        
+            ret = port->commandGate->commandSleep((void *)&port->State);
+        
+//            port->commandGate->retain();
+            port->commandGate->release();
+            
+            XTRACE(port, port->State, ret, "watchStateGated - Thread restart");
+
+            if (ret == THREAD_TIMED_OUT)
+            {
+                ret = kIOReturnTimeout;
+                break;
+            } else {
+                if (ret == THREAD_INTERRUPTED)
+                {
+                    ret = kIOReturnAborted;
+                    break;
+                }
+            }
+            release();
+        }       
+        
+            // As it is impossible to undo the masking used by this
+            // thread, we clear down the watch state mask and wakeup
+            // every sleeping thread to reinitialize the mask before exiting.
+		
+        port->WatchStateMask = 0;
+        XTRACE(port, *state, 0, "watchStateGated - Thread wakeing others");
+        port->commandGate->commandWakeup((void *)&port->State);
+ 
         *state &= EXTERNAL_MASK;
     }
 	
-    ELG( ret, 0, 'Wate', "AppleUSBCDCDriver::watchState - exit" );
+    XTRACE(port, ret, 0, "watchState - Exit");
     
     return ret;
 	
-}/* end watchState */
+}/* end watchStateGated */
 
 /****************************************************************************************************/
 //
@@ -2059,19 +2435,27 @@ IOReturn AppleUSBCDCDriver::watchState( UInt32 *state, UInt32 mask, void *refCon
 //
 //		Inputs:		refCon - the Port
 //
-//		Outputs:	Return Code - kIOReturnSuccess
+//		Outputs:	Return Code - kIOReturnSuccess or kIOReturnOffline
 //
 //		Desc:		Not used by this driver.
 //
 /****************************************************************************************************/
 
-UInt32 AppleUSBCDCDriver::nextEvent( void *refCon )
+UInt32 AppleUSBCDCDriver::nextEvent(void *refCon)
 {
-    UInt32 ret = kIOReturnSuccess;
+    PortInfo_t 	*port = (PortInfo_t *)refCon;
 
-    ELG( 0, 0, 'NxtE', "AppleUSBCDCDriver::nextEvent" );
+    XTRACE(port, 0, 0, "nextEvent");
+    
+    if (fTerminate)
+        return kIOReturnOffline;
+        
+    if (getState(port) & PD_S_ACTIVE)
+    {
+        return kIOReturnSuccess;
+    }
 
-    return ret;
+    return kIOReturnNotOpen;
 	
 }/* end nextEvent */
 
@@ -2079,7 +2463,61 @@ UInt32 AppleUSBCDCDriver::nextEvent( void *refCon )
 //
 //		Method:		AppleUSBCDCDriver::executeEvent
 //
-//		Inputs:		event - The event, data - any data associated with the event, refCon - the Port
+//		Inputs:		event - The event
+//				data - any data associated with the event
+//				refCon - the Port
+//
+//		Outputs:	Return Code - kIOReturnSuccess, kIOReturnNotOpen or kIOReturnBadArgument
+//
+//		Desc:		Set up for gated executeEvent call.
+//
+/****************************************************************************************************/
+
+IOReturn AppleUSBCDCDriver::executeEvent(UInt32 event, UInt32 data, void *refCon)
+{
+    IOReturn 	ret;
+    PortInfo_t	*port = (PortInfo_t *)refCon;
+    parmList	parms;
+    
+    XTRACE(port, data, event, "executeEvent");
+    
+    parms.arg1 = (void *)event;
+    parms.arg2 = (void *)data;
+    parms.arg3 = NULL;
+    parms.arg4 = NULL;
+    parms.port = port;
+    
+    retain();
+    ret = port->commandGate->runAction(executeEventAction, (void *)&parms);
+    release();
+
+    return ret;
+    
+}/* end executeEvent */
+
+/****************************************************************************************************/
+//
+//		Method:		AppleUSBCDCDriver::executeEventAction
+//
+//		Desc:		Dummy pass through for executeEventGated.
+//
+/****************************************************************************************************/
+
+IOReturn AppleUSBCDCDriver::executeEventAction(OSObject *owner, void *arg0, void *, void *, void *)
+{
+    parmList	*parms = (parmList *)arg0;
+
+    return ((AppleUSBCDCDriver *)owner)->executeEventGated((UInt32)parms->arg1, (UInt32)parms->arg2, parms->port);
+    
+}/* end executeEventAction */
+
+/****************************************************************************************************/
+//
+//		Method:		AppleUSBCDCDriver::executeEventGated
+//
+//		Inputs:		event - The event
+//				data - any data associated with the event
+//				port - the Port
 //
 //		Outputs:	Return Code - kIOReturnSuccess, kIOReturnNotOpen or kIOReturnBadArgument
 //
@@ -2088,132 +2526,131 @@ UInt32 AppleUSBCDCDriver::nextEvent( void *refCon )
 //
 /****************************************************************************************************/
 
-IOReturn AppleUSBCDCDriver::executeEvent( UInt32 event, UInt32 data, void *refCon )
+IOReturn AppleUSBCDCDriver::executeEventGated(UInt32 event, UInt32 data, PortInfo_t *port)
 {
-    PortInfo_t 	*port = (PortInfo_t *)refCon;
     IOReturn	ret = kIOReturnSuccess;
     UInt32 	state, delta;
 	
-    if ( fTerminate )
+    if (fTerminate)
         return kIOReturnOffline;
         
     delta = 0;
-    state = readPortState( port );	
-    ELG( port, state, 'ExIm', "AppleUSBCDCDriver::executeEvent" );
+    state = port->State;	
+    XTRACE(port, state, event, "executeEventGated");
 	
-    if ( (state & PD_S_ACQUIRED) == 0 )
+    if ((state & PD_S_ACQUIRED) == 0)
         return kIOReturnNotOpen;
 
-    switch ( event )
+    switch (event)
     {
 	case PD_RS232_E_XON_BYTE:
-            ELG( data, event, 'ExIm', "AppleUSBCDCDriver::executeEvent - PD_RS232_E_XON_BYTE" );
+            XTRACE(port, data, event, "executeEventGated - PD_RS232_E_XON_BYTE");
             port->XONchar = data;
             break;
 	case PD_RS232_E_XOFF_BYTE:
-            ELG( data, event, 'ExIm', "AppleUSBCDCDriver::executeEvent - PD_RS232_E_XOFF_BYTE" );
+            XTRACE(port, data, event, "executeEventGated - PD_RS232_E_XOFF_BYTE");
             port->XOFFchar = data;
             break;
 	case PD_E_SPECIAL_BYTE:
-            ELG( data, event, 'ExIm', "AppleUSBCDCDriver::executeEvent - PD_E_SPECIAL_BYTE" );
+            XTRACE(port, data, event, "executeEventGated - PD_E_SPECIAL_BYTE");
             port->SWspecial[ data >> SPECIAL_SHIFT ] |= (1 << (data & SPECIAL_MASK));
             break;
 	case PD_E_VALID_DATA_BYTE:
-            ELG( data, event, 'ExIm', "AppleUSBCDCDriver::executeEvent - PD_E_VALID_DATA_BYTE" );
+            XTRACE(port, data, event, "executeEventGated - PD_E_VALID_DATA_BYTE");
             port->SWspecial[ data >> SPECIAL_SHIFT ] &= ~(1 << (data & SPECIAL_MASK));
             break;
 	case PD_E_FLOW_CONTROL:
-            ELG( data, event, 'ExIm', "AppleUSBCDCDriver::executeEvent - PD_E_FLOW_CONTROL" );
+            XTRACE(port, data, event, "executeEventGated - PD_E_FLOW_CONTROL");
             break;
 	case PD_E_ACTIVE:
-            ELG( data, event, 'Exlm', "AppleUSBCDCDriver::executeEvent - PD_E_ACTIVE" );
-            if ( (bool)data )
+            XTRACE(port, data, event, "executeEventGated - PD_E_ACTIVE");
+            if ((bool)data)
             {
-                if ( !(state & PD_S_ACTIVE) )
+                if (!(state & PD_S_ACTIVE))
                 {
-                    SetStructureDefaults( port, FALSE );
-                    changeState( port, (UInt32)PD_S_ACTIVE, (UInt32)PD_S_ACTIVE ); 	// activate port
+                    setStructureDefaults(port);
+                    setStateGated((UInt32)PD_S_ACTIVE, (UInt32)PD_S_ACTIVE, port); 		// activate port
 				
                     USBSetControlLineState(port, true, true);					// set RTS and set DTR
                 }
             } else {
-                if ( (state & PD_S_ACTIVE) )
+                if ((state & PD_S_ACTIVE))
                 {
-                    changeState( port, 0, (UInt32)PD_S_ACTIVE );			// deactivate port
+                    setStateGated(0, (UInt32)PD_S_ACTIVE, port);				// deactivate port
 				
-                    USBSetControlLineState(port, false, false);				// clear RTS and clear DTR
+                    USBSetControlLineState(port, false, false);					// clear RTS and clear DTR
                 }
             }
             break;
 	case PD_E_DATA_LATENCY:
-            ELG( data, event, 'ExIm', "AppleUSBCDCDriver::executeEvent - PD_E_DATA_LATENCY" );
-            port->DataLatInterval = long2tval( data * 1000 );
+            XTRACE(port, data, event, "executeEventGated - PD_E_DATA_LATENCY");
+            port->DataLatInterval = long2tval(data * 1000);
             break;
 	case PD_RS232_E_MIN_LATENCY:
-            ELG( data, event, 'ExIm', "AppleUSBCDCDriver::executeEvent - PD_RS232_E_MIN_LATENCY" );
-            port->MinLatency = bool( data );
+            XTRACE(port, data, event, "executeEventGated - PD_RS232_E_MIN_LATENCY");
+            port->MinLatency = bool(data);
             break;
 	case PD_E_DATA_INTEGRITY:
-            ELG( data, event, 'Exlm', "AppleUSBCDCDriver::executeEvent - PD_E_DATA_INTEGRITY" );
-            if ( (data < PD_RS232_PARITY_NONE) || (data > PD_RS232_PARITY_SPACE))
+            XTRACE(port, data, event, "executeEventGated - PD_E_DATA_INTEGRITY");
+            if ((data < PD_RS232_PARITY_NONE) || (data > PD_RS232_PARITY_SPACE))
             {
                 ret = kIOReturnBadArgument;
             } else {
                 port->TX_Parity = data;
                 port->RX_Parity = PD_RS232_PARITY_DEFAULT;
 			
-                USBSetLineCoding( port );			
+                USBSetLineCoding(port);			
             }
             break;
 	case PD_E_DATA_RATE:
-            ELG( data, event, 'Exlm', "AppleUSBCDCDriver::executeEvent - PD_E_DATA_RATE" );
+            XTRACE(port, data, event, "executeEventGated - PD_E_DATA_RATE");
             
                 // For API compatiblilty with Intel.
                 
             data >>= 1;
-            ELG( 0, data, 'Exlm', "AppleUSBCDCDriver::executeEvent - actual data rate" );
-            if ( (data < MIN_BAUD) || (data > kMaxBaudRate) )
+            XTRACE(port, data, 0, "executeEventGated - actual data rate");
+            if ((data < MIN_BAUD) || (data > kMaxBaudRate))
             {
                 ret = kIOReturnBadArgument;
             } else {
                 port->BaudRate = data;
 			
-                USBSetLineCoding( port );			
+                USBSetLineCoding(port);			
             }		
             break;
 	case PD_E_DATA_SIZE:
-            ELG( data, event, 'Exlm', "AppleUSBCDCDriver::executeEvent - PD_E_DATA_SIZE" );
+            XTRACE(port, data, event, "executeEventGated - PD_E_DATA_SIZE");
             
                 // For API compatiblilty with Intel.
                 
             data >>= 1;
-            ELG( 0, data, 'Exlm', "AppleUSBCDCDriver::executeEvent - actual data size" );
-            if ( (data < 5) || (data > 8) )
+            XTRACE(port, data, 0, "executeEventGated - actual data size");
+            if ((data < 5) || (data > 8))
             {
                 ret = kIOReturnBadArgument;
             } else {
                 port->CharLength = data;
 			
-                USBSetLineCoding( port );			
+                USBSetLineCoding(port);			
             }
             break;
 	case PD_RS232_E_STOP_BITS:
-            ELG( data, event, 'Exlm', "AppleUSBCDCDriver::executeEvent - PD_RS232_E_STOP_BITS" );
-            if ( (data < 0) || (data > 20) )
+            XTRACE(port, data, event, "executeEventGated - PD_RS232_E_STOP_BITS");
+            if ((data < 0) || (data > 20))
             {
                 ret = kIOReturnBadArgument;
             } else {
                 port->StopBits = data;
 			
-                USBSetLineCoding( port );
+                USBSetLineCoding(port);
             }
             break;
 	case PD_E_RXQ_FLUSH:
-            ELG( data, event, 'Exlm', "AppleUSBCDCDriver::executeEvent - PD_E_RXQ_FLUSH" );
+            XTRACE(port, data, event, "executeEventGated - PD_E_RXQ_FLUSH");
             break;
 	case PD_E_RX_DATA_INTEGRITY:
-            ELG( data, event, 'Exlm', "AppleUSBCDCDriver::executeEvent - PD_E_RX_DATA_INTEGRITY" );
-            if ( (data != PD_RS232_PARITY_DEFAULT) &&  (data != PD_RS232_PARITY_ANY) )
+            XTRACE(port, data, event, "executeEventGated - PD_E_RX_DATA_INTEGRITY");
+            if ((data != PD_RS232_PARITY_DEFAULT) &&  (data != PD_RS232_PARITY_ANY))
             {
                 ret = kIOReturnBadArgument;
             } else {
@@ -2221,203 +2658,202 @@ IOReturn AppleUSBCDCDriver::executeEvent( UInt32 event, UInt32 data, void *refCo
             }
             break;
 	case PD_E_RX_DATA_RATE:
-            ELG( data, event, 'Exlm', "AppleUSBCDCDriver::executeEvent - PD_E_RX_DATA_RATE" );
-            if ( data )
+            XTRACE(port, data, event, "executeEventGated - PD_E_RX_DATA_RATE");
+            if (data)
             {
                 ret = kIOReturnBadArgument;
             }
             break;
 	case PD_E_RX_DATA_SIZE:
-            ELG( data, event, 'Exlm', "AppleUSBCDCDriver::executeEvent - PD_E_RX_DATA_SIZE" );
-            if ( data )
+            XTRACE(port, data, event, "executeEventGated - PD_E_RX_DATA_SIZE");
+            if (data)
             {
                 ret = kIOReturnBadArgument;
             }
             break;
 	case PD_RS232_E_RX_STOP_BITS:
-            ELG( data, event, 'Exlm', "AppleUSBCDCDriver::executeEvent - PD_RS232_E_RX_STOP_BITS" );
-            if ( data )
+            XTRACE(port, data, event, "executeEventGated - PD_RS232_E_RX_STOP_BITS");
+            if (data)
             {
                 ret = kIOReturnBadArgument;
             }
             break;
 	case PD_E_TXQ_FLUSH:
-            ELG( data, event, 'Exlm', "AppleUSBCDCDriver::executeEvent - PD_E_TXQ_FLUSH" );
+            XTRACE(port, data, event, "executeEventGated - PD_E_TXQ_FLUSH");
             break;
 	case PD_RS232_E_LINE_BREAK:
-            ELG( data, event, 'Exlm', "AppleUSBCDCDriver::executeEvent - PD_RS232_E_LINE_BREAK" );
+            XTRACE(port, data, event, "executeEventGated - PD_RS232_E_LINE_BREAK");
             state &= ~PD_RS232_S_BRK;
             delta |= PD_RS232_S_BRK;
+            setStateGated(state, delta, port);
             break;
 	case PD_E_DELAY:
-            ELG( data, event, 'Exlm', "AppleUSBCDCDriver::executeEvent - PD_E_DELAY" );
+            XTRACE(port, data, event, "executeEventGated - PD_E_DELAY");
             port->CharLatInterval = long2tval(data * 1000);
             break;
 	case PD_E_RXQ_SIZE:
-            ELG( 0, event, 'Exlm', "AppleUSBCDCDriver::executeEvent - PD_E_RXQ_SIZE" );
+            XTRACE(port, data, event, "executeEventGated - PD_E_RXQ_SIZE");
             break;
 	case PD_E_TXQ_SIZE:
-            ELG( 0, event, 'Exlm', "AppleUSBCDCDriver::executeEvent - PD_E_TXQ_SIZE" );
+            XTRACE(port, data, event, "executeEventGated - PD_E_TXQ_SIZE");
             break;
 	case PD_E_RXQ_HIGH_WATER:
-            ELG( data, event, 'Exlm', "AppleUSBCDCDriver::executeEvent - PD_E_RXQ_HIGH_WATER" );
+            XTRACE(port, data, event, "executeEventGated - PD_E_RXQ_HIGH_WATER");
             break;
 	case PD_E_RXQ_LOW_WATER:
-            ELG( data, event, 'Exlm', "AppleUSBCDCDriver::executeEvent - PD_E_RXQ_LOW_WATER" );
+            XTRACE(port, data, event, "executeEventGated - PD_E_RXQ_LOW_WATER");
             break;
 	case PD_E_TXQ_HIGH_WATER:
-            ELG( data, event, 'Exlm', "AppleUSBCDCDriver::executeEvent - PD_E_TXQ_HIGH_WATER" );
+            XTRACE(port, data, event, "executeEventGated - PD_E_TXQ_HIGH_WATER");
             break;
 	case PD_E_TXQ_LOW_WATER:
-            ELG( data, event, 'Exlm', "AppleUSBCDCDriver::executeEvent - PD_E_TXQ_LOW_WATER" );
+            XTRACE(port, data, event, "executeEventGated - PD_E_TXQ_LOW_WATER");
             break;
 	default:
-            ELG( data, event, 'Exlm', "AppleUSBCDCDriver::executeEvent - unrecognized event" );
+            XTRACE(port, data, event, "executeEventGated - unrecognized event");
             ret = kIOReturnBadArgument;
             break;
     }
-
-    state |= state;					// ejk for compiler warnings. ??
-    changeState( port, state, delta );
 	
     return ret;
 	
-}/* end executeEvent */
+}/* end executeEventGated */
 
 /****************************************************************************************************/
 //
 //		Method:		AppleUSBCDCDriver::requestEvent
 //
-//		Inputs:		event - The event, refCon - the Port
+//		Inputs:		event - The event
+//				refCon - the Port
 //
-//		Outputs:	Return Code - kIOReturnSuccess, kIOReturnBadArgument, data - any data associated with the event
+//		Outputs:	Return Code - kIOReturnSuccess, kIOReturnBadArgument
+//				data - any data associated with the event
 //
 //		Desc:		requestEvent processes the specified event as an immediate request and
 //				returns the results in data.  This is primarily used for getting link
-//				status information and verifying baud rate and such.
+//				status information and verifying baud rate etc.
 //
 /****************************************************************************************************/
 
-IOReturn AppleUSBCDCDriver::requestEvent( UInt32 event, UInt32 *data, void *refCon )
+IOReturn AppleUSBCDCDriver::requestEvent(UInt32 event, UInt32 *data, void *refCon)
 {
     PortInfo_t	*port = (PortInfo_t *) refCon;
     IOReturn	returnValue = kIOReturnSuccess;
 
-//    ELG( 0, readPortState( port ), 'ReqE', "AppleUSBCDCDriver::requestEvent" );
-    ELG( 0, port, 'ReqE', "AppleUSBCDCDriver::requestEvent" );
+    XTRACE(port, 0, event, "requestEvent");
     
-    if ( fTerminate )
+    if (fTerminate)
         return kIOReturnOffline;
 
-    if ( data == NULL ) 
+    if (data == NULL) 
     {
-        ELG( 0, event, 'ReqE', "AppleUSBCDCDriver::requestEvent - data is null" );
+        XTRACE(port, 0, event, "requestEvent - data is null");
         returnValue = kIOReturnBadArgument;
     } else {
-        switch ( event )
+        switch (event)
         {
             case PD_E_ACTIVE:
-                ELG( 0, event, 'ReqE', "AppleUSBCDCDriver::requestEvent - PD_E_ACTIVE" );
-                *data = bool(readPortState( port ) & PD_S_ACTIVE);	
+                XTRACE(port, 0, event, "requestEvent - PD_E_ACTIVE");
+                *data = bool(getState(port) & PD_S_ACTIVE);	
                 break;
             case PD_E_FLOW_CONTROL:
-                ELG( port->FlowControl, event, 'ReqE', "AppleUSBCDCDriver::requestEvent - PD_E_FLOW_CONTROL" );
+                XTRACE(port, port->FlowControl, event, "requestEvent - PD_E_FLOW_CONTROL");
                 *data = port->FlowControl;							
                 break;
             case PD_E_DELAY:
-                ELG( 0, event, 'ReqE', "AppleUSBCDCDriver::requestEvent - PD_E_DELAY" );
-                *data = tval2long( port->CharLatInterval )/ 1000;	
+                XTRACE(port, 0, event, "requestEvent - PD_E_DELAY");
+                *data = tval2long(port->CharLatInterval)/ 1000;	
                 break;
             case PD_E_DATA_LATENCY:
-                ELG( 0, event, 'ReqE', "AppleUSBCDCDriver::requestEvent - PD_E_DATA_LATENCY" );
-                *data = tval2long( port->DataLatInterval )/ 1000;	
+                XTRACE(port, 0, event, "requestEvent - PD_E_DATA_LATENCY");
+                *data = tval2long(port->DataLatInterval)/ 1000;	
                 break;
             case PD_E_TXQ_SIZE:
-                ELG( 0, event, 'ReqE', "AppleUSBCDCDriver::requestEvent - PD_E_TXQ_SIZE" );
-                *data = GetQueueSize( &port->TX );	
+                XTRACE(port, 0, event, "requestEvent - PD_E_TXQ_SIZE");
+                *data = GetQueueSize(&port->TX);	
                 break;
             case PD_E_RXQ_SIZE:
-                ELG( 0, event, 'ReqE', "AppleUSBCDCDriver::requestEvent - PD_E_RXQ_SIZE" );
-                *data = GetQueueSize( &port->RX );	
+                XTRACE(port, 0, event, "requestEvent - PD_E_RXQ_SIZE");
+                *data = GetQueueSize(&port->RX);	
                 break;
             case PD_E_TXQ_LOW_WATER:
-                ELG( 0, event, 'ReqE', "AppleUSBCDCDriver::requestEvent - PD_E_TXQ_LOW_WATER" );
+                XTRACE(port, 0, event, "requestEvent - PD_E_TXQ_LOW_WATER");
                 *data = 0; 
                 returnValue = kIOReturnBadArgument; 
                 break;
             case PD_E_RXQ_LOW_WATER:
-                ELG( 0, event, 'ReqE', "AppleUSBCDCDriver::requestEvent - PD_E_RXQ_LOW_WATER" );
+                XTRACE(port, 0, event, "requestEvent - PD_E_RXQ_LOW_WATER");
                 *data = 0; 
                 returnValue = kIOReturnBadArgument; 
                 break;
             case PD_E_TXQ_HIGH_WATER:
-                ELG( 0, event, 'ReqE', "AppleUSBCDCDriver::requestEvent - PD_E_TXQ_HIGH_WATER" );
+                XTRACE(port, 0, event, "requestEvent - PD_E_TXQ_HIGH_WATER");
                 *data = 0; 
                 returnValue = kIOReturnBadArgument; 
                 break;
             case PD_E_RXQ_HIGH_WATER:
-                ELG( 0, event, 'ReqE', "AppleUSBCDCDriver::requestEvent - PD_E_RXQ_HIGH_WATER" );
+                XTRACE(port, 0, event, "requestEvent - PD_E_RXQ_HIGH_WATER");
                 *data = 0; 
                 returnValue = kIOReturnBadArgument; 
                 break;
             case PD_E_TXQ_AVAILABLE:
-                ELG( 0, event, 'ReqE', "AppleUSBCDCDriver::requestEvent - PD_E_TXQ_AVAILABLE" );
-                *data = FreeSpaceinQueue( &port->TX, port->TXqueueRequestLock );	 
+                XTRACE(port, 0, event, "requestEvent - PD_E_TXQ_AVAILABLE");
+                *data = FreeSpaceinQueue(&port->TX);	 
                 break;
             case PD_E_RXQ_AVAILABLE:
-                ELG( 0, event, 'ReqE', "AppleUSBCDCDriver::requestEvent - PD_E_RXQ_AVAILABLE" );
-                *data = UsedSpaceinQueue( &port->RX ); 	
+                XTRACE(port, 0, event, "requestEvent - PD_E_RXQ_AVAILABLE");
+                *data = UsedSpaceinQueue(&port->RX); 	
                 break;
             case PD_E_DATA_RATE:
-                ELG( 0, event, 'ReqE', "AppleUSBCDCDriver::requestEvent - PD_E_DATA_RATE" );
+                XTRACE(port, 0, event, "requestEvent - PD_E_DATA_RATE");
                 *data = port->BaudRate << 1;		
                 break;
             case PD_E_RX_DATA_RATE:
-                ELG( 0, event, 'ReqE', "AppleUSBCDCDriver::requestEvent - PD_E_RX_DATA_RATE" );
+                XTRACE(port, 0, event, "requestEvent - PD_E_RX_DATA_RATE");
                 *data = 0x00;					
                 break;
             case PD_E_DATA_SIZE:
-                ELG( 0, event, 'ReqE', "AppleUSBCDCDriver::requestEvent - PD_E_DATA_SIZE" );
+                XTRACE(port, 0, event, "requestEvent - PD_E_DATA_SIZE");
                 *data = port->CharLength << 1;	
                 break;
             case PD_E_RX_DATA_SIZE:
-                ELG( 0, event, 'ReqE', "AppleUSBCDCDriver::requestEvent - PD_E_RX_DATA_SIZE" );
+                XTRACE(port, 0, event, "requestEvent - PD_E_RX_DATA_SIZE");
                 *data = 0x00;					
                 break;
             case PD_E_DATA_INTEGRITY:
-                ELG( 0, event, 'ReqE', "AppleUSBCDCDriver::requestEvent - PD_E_DATA_INTEGRITY" );
+                XTRACE(port, 0, event, "requestEvent - PD_E_DATA_INTEGRITY");
                 *data = port->TX_Parity;			
                 break;
             case PD_E_RX_DATA_INTEGRITY:
-                ELG( 0, event, 'ReqE', "AppleUSBCDCDriver::requestEvent - PD_E_RX_DATA_INTEGRITY" );
+                XTRACE(port, 0, event, "requestEvent - PD_E_RX_DATA_INTEGRITY");
                 *data = port->RX_Parity;			
                 break;
             case PD_RS232_E_STOP_BITS:
-                ELG( 0, event, 'ReqE', "AppleUSBCDCDriver::requestEvent - PD_RS232_E_STOP_BITS" );
+                XTRACE(port, 0, event, "requestEvent - PD_RS232_E_STOP_BITS");
                 *data = port->StopBits << 1;		
                 break;
             case PD_RS232_E_RX_STOP_BITS:
-                ELG( 0, event, 'ReqE', "AppleUSBCDCDriver::requestEvent - PD_RS232_E_RX_STOP_BITS" );
+                XTRACE(port, 0, event, "requestEvent - PD_RS232_E_RX_STOP_BITS");
                 *data = 0x00;					
                 break;
             case PD_RS232_E_XON_BYTE:
-                ELG( 0, event, 'ReqE', "AppleUSBCDCDriver::requestEvent - PD_RS232_E_XON_BYTE" );
+                XTRACE(port, 0, event, "requestEvent - PD_RS232_E_XON_BYTE");
                 *data = port->XONchar;			
                 break;
             case PD_RS232_E_XOFF_BYTE:
-                ELG( 0, event, 'ReqE', "AppleUSBCDCDriver::requestEvent - PD_RS232_E_XOFF_BYTE" );
+                XTRACE(port, 0, event, "requestEvent - PD_RS232_E_XOFF_BYTE");
                 *data = port->XOFFchar;			
                 break;
             case PD_RS232_E_LINE_BREAK:
-                ELG( 0, event, 'ReqE', "AppleUSBCDCDriver::requestEvent - PD_RS232_E_LINE_BREAK" );
-                *data = bool(readPortState( port ) & PD_RS232_S_BRK);
+                XTRACE(port, 0, event, "requestEvent - PD_RS232_E_LINE_BREAK");
+                *data = bool(getState(port) & PD_RS232_S_BRK);
                 break;
             case PD_RS232_E_MIN_LATENCY:
-                ELG( 0, event, 'ReqE', "AppleUSBCDCDriver::requestEvent - PD_RS232_E_MIN_LATENCY" );
-                *data = bool( port->MinLatency );		
+                XTRACE(port, 0, event, "requestEvent - PD_RS232_E_MIN_LATENCY");
+                *data = bool(port->MinLatency);		
                 break;
             default:
-                ELG( 0, event, 'ReqE', "AppleUSBCDCDriver::requestEvent - unrecognized event" );
+                XTRACE(port, 0, event, "requestEvent - unrecognized event");
                 returnValue = kIOReturnBadArgument; 			
                 break;
         }
@@ -2431,30 +2867,37 @@ IOReturn AppleUSBCDCDriver::requestEvent( UInt32 event, UInt32 *data, void *refC
 //
 //		Method:		AppleUSBCDCDriver::enqueueEvent
 //
-//		Inputs:		event - The event, data - any data associated with the event, 
-//				sleep - true (wait for it), false (don't), refCon - the Port
+//		Inputs:		event - The event
+//				data - any data associated with the event, 
+//				sleep - true (wait for it), false (don't)
+//				refCon - the Port
 //
-//		Outputs:	Return Code - kIOReturnSuccess, kIOReturnNotOpen
+//		Outputs:	Return Code - kIOReturnSuccess or kIOReturnNotOpen
 //
-//		Desc:		Not used by this driver.	
+//		Desc:		Not used by this driver.
+//				Events are passed on to executeEvent for immediate action.	
 //
 /****************************************************************************************************/
 
-IOReturn AppleUSBCDCDriver::enqueueEvent( UInt32 event, UInt32 data, bool sleep, void *refCon)
+IOReturn AppleUSBCDCDriver::enqueueEvent(UInt32 event, UInt32 data, bool sleep, void *refCon)
 {
-    PortInfo_t *port = (PortInfo_t *) refCon;
-	
-    ELG( data, event, 'EnqE', "AppleUSBCDCDriver::enqueueEvent" );
+    IOReturn 	ret;
+    PortInfo_t	*port = (PortInfo_t *)refCon;
+    parmList	parms;
     
-    if ( fTerminate )
-        return kIOReturnOffline;
+    XTRACE(port, data, event, "enqueueEvent");
+    
+    parms.arg1 = (void *)event;
+    parms.arg2 = (void *)data;
+    parms.arg3 = NULL;
+    parms.arg4 = NULL;
+    parms.port = port;
+    
+    retain();
+    ret = port->commandGate->runAction(executeEventAction, (void *)&parms);
+    release();
 
-    if ( readPortState( port ) & PD_S_ACTIVE )
-    {
-        return kIOReturnSuccess;
-    }
-
-    return kIOReturnNotOpen;
+    return ret;
 	
 }/* end enqueueEvent */
 
@@ -2462,7 +2905,8 @@ IOReturn AppleUSBCDCDriver::enqueueEvent( UInt32 event, UInt32 data, bool sleep,
 //
 //		Method:		AppleUSBCDCDriver::dequeueEvent
 //
-//		Inputs:		sleep - true (wait for it), false (don't), refCon - the Port
+//		Inputs:		sleep - true (wait for it), false (don't)
+//				refCon - the Port
 //
 //		Outputs:	Return Code - kIOReturnSuccess, kIOReturnNotOpen
 //
@@ -2470,19 +2914,19 @@ IOReturn AppleUSBCDCDriver::enqueueEvent( UInt32 event, UInt32 data, bool sleep,
 //
 /****************************************************************************************************/
 
-IOReturn AppleUSBCDCDriver::dequeueEvent( UInt32 *event, UInt32 *data, bool sleep, void *refCon )
+IOReturn AppleUSBCDCDriver::dequeueEvent(UInt32 *event, UInt32 *data, bool sleep, void *refCon)
 {
     PortInfo_t *port = (PortInfo_t *) refCon;
 	
-    ELG( 0, 0, 'DeqE', "dequeueEvent" );
+    XTRACE(port, 0, 0, "dequeueEvent");
     
-    if ( fTerminate )
+    if (fTerminate)
         return kIOReturnOffline;
 
-    if ( (event == NULL) || (data == NULL) )
+    if ((event == NULL) || (data == NULL))
         return kIOReturnBadArgument;
 
-    if ( readPortState( port ) & PD_S_ACTIVE )
+    if (getState(port) & PD_S_ACTIVE)
     {
         return kIOReturnSuccess;
     }
@@ -2495,10 +2939,70 @@ IOReturn AppleUSBCDCDriver::dequeueEvent( UInt32 *event, UInt32 *data, bool slee
 //
 //		Method:		AppleUSBCDCDriver::enqueueData
 //
-//		Inputs:		buffer - the data, size - number of bytes, sleep - true (wait for it), false (don't),
+//		Inputs:		buffer - the data
+//				size - number of bytes
+//				sleep - true (wait for it), false (don't)
 //				refCon - the Port
 //
-//		Outputs:	Return Code - kIOReturnSuccess or value returned from watchState, count - bytes transferred,  
+//		Outputs:	Return Code - kIOReturnSuccess, kIOReturnBadArgument or value returned from watchState
+//				count - bytes transferred  
+//
+//		Desc:		set up for enqueueDataGated call.	
+//
+/****************************************************************************************************/
+
+IOReturn AppleUSBCDCDriver::enqueueData(UInt8 *buffer, UInt32 size, UInt32 *count, bool sleep, void *refCon)
+{
+    IOReturn 	ret;
+    PortInfo_t	*port = (PortInfo_t *)refCon;
+    parmList	parms;
+    
+    XTRACE(port, size, sleep, "enqueueData");
+    
+    if (count == NULL || buffer == NULL)
+        return kIOReturnBadArgument;
+    
+    parms.arg1 = (void *)buffer;
+    parms.arg2 = (void *)size;
+    parms.arg3 = (void *)count;
+    parms.arg4 = (void *)sleep;
+    parms.port = port;
+        
+    retain();
+    ret = port->commandGate->runAction(enqueueDataAction, (void *)&parms);
+    release();
+
+    return ret;
+        
+}/* end enqueueData */
+
+/****************************************************************************************************/
+//
+//		Method:		AppleUSBCDCDriver::enqueueDatatAction
+//
+//		Desc:		Dummy pass through for equeueDataGated.
+//
+/****************************************************************************************************/
+
+IOReturn AppleUSBCDCDriver::enqueueDataAction(OSObject *owner, void *arg0, void *, void *, void *)
+{
+    parmList	*parms = (parmList *)arg0;
+
+    return ((AppleUSBCDCDriver *)owner)->enqueueDataGated((UInt8 *)parms->arg1, (UInt32)parms->arg2, (UInt32 *)parms->arg3, (bool)parms->arg4, parms->port);
+    
+}/* end enqueueDataAction */
+
+/****************************************************************************************************/
+//
+//		Method:		AppleUSBCDCDriver::enqueueDataGated
+//
+//		Inputs:		buffer - the data
+//				size - number of bytes
+//				sleep - true (wait for it), false (don't)
+//				port - the Port
+//
+//		Outputs:	Return Code - kIOReturnSuccess or value returned from watchState
+//				count - bytes transferred,  
 //
 //		Desc:		enqueueData will attempt to copy data from the specified buffer to
 //				the TX queue as a sequence of VALID_DATA events.  The argument
@@ -2515,71 +3019,127 @@ IOReturn AppleUSBCDCDriver::dequeueEvent( UInt32 *event, UInt32 *data, bool slee
 //
 /****************************************************************************************************/
 
-IOReturn AppleUSBCDCDriver::enqueueData( UInt8 *buffer, UInt32 size, UInt32 *count, bool sleep, void *refCon )
+IOReturn AppleUSBCDCDriver::enqueueDataGated(UInt8 *buffer, UInt32 size, UInt32 *count, bool sleep, PortInfo_t 	*port)
 {
-    PortInfo_t 	*port = (PortInfo_t *) refCon;
     UInt32 	state = PD_S_TXQ_LOW_WATER;
     IOReturn 	rtn = kIOReturnSuccess;
 
-    ELG( 0, sleep, 'eqDt', "AppleUSBCDCDriver::enqueData" );
+    XTRACE(port, size, sleep, "enqueueDataGated");
 
-    if ( fTerminate )
+    if (fTerminate)
         return kIOReturnOffline;
-
-    if ( count == NULL || buffer == NULL )
-        return kIOReturnBadArgument;
 
     *count = 0;
 
-    if ( !(readPortState( port ) & PD_S_ACTIVE) )
+    if (!(port->State & PD_S_ACTIVE))
         return kIOReturnNotOpen;
 
-    ELG( port->State, size, 'eqDt', "AppleUSBCDCDriver::enqueData State" );	
-    LogData( kUSBAnyDirn, size, buffer );
+    XTRACE(port, port->State, size, "enqueueDataGated - current State");	
+//    LogData(kDataOther, size, buffer, port);
 
         // OK, go ahead and try to add something to the buffer
         
-    *count = AddtoQueue( &port->TX, buffer, size, port->TXqueueRequestLock );
-    CheckQueues( port );
+    *count = AddtoQueue(&port->TX, buffer, size);
+    CheckQueues(port);
 
         // Let the tranmitter know that we have something ready to go
     
-    SetUpTransmit( port );
+    setUpTransmit(port);
 
         // If we could not queue up all of the data on the first pass and
         // the user wants us to sleep until it's all out then sleep
 
-    while ( (*count < size) && sleep )
+    while ((*count < size) && sleep)
     {
         state = PD_S_TXQ_LOW_WATER;
-        rtn = watchState( &state, PD_S_TXQ_LOW_WATER, refCon );
-        if ( rtn != kIOReturnSuccess )
+        rtn = watchStateGated(&state, PD_S_TXQ_LOW_WATER, port);
+        if (rtn != kIOReturnSuccess)
         {
-            ELG( 0, rtn, 'EqD-', "AppleUSBCDCDriver::enqueueData - interrupted" );
+            XTRACE(port, 0, rtn, "enqueueDataGated - interrupted");
             return rtn;
         }
 
-        *count += AddtoQueue( &port->TX, buffer + *count, size - *count, port->TXqueueRequestLock );
-        CheckQueues( port );
+        *count += AddtoQueue(&port->TX, buffer + *count, size - *count);
+        CheckQueues(port);
 
             // Let the tranmitter know that we have something ready to go.
 
-        SetUpTransmit( port );
+        setUpTransmit(port);
     }
 
-    ELG( *count, size, 'enqd', "AppleUSBCDCDriver::enqueueData - Enqueue" );
+    XTRACE(port, *count, size, "enqueueDataGated - Exit");
 
     return kIOReturnSuccess;
 	
-}/* end enqueueData */
+}/* end enqueueDataGated */
 
 /****************************************************************************************************/
 //
 //		Method:		AppleUSBCDCDriver::dequeueData
 //
-//		Inputs:		size - buffer size, min - minimum bytes required, refCon - the Port
+//		Inputs:		size - buffer size
+//				min - minimum bytes required
+//				refCon - the Port (not used)
 //
-//		Outputs:	buffer - data returned, min - number of bytes
+//		Outputs:	buffer - data returned
+//				min - number of bytes
+//				Return Code - kIOReturnSuccess, kIOReturnBadArgument, kIOReturnNotOpen, or value returned from watchState
+//
+//		Desc:		set up for enqueueDataGated call.
+//
+/****************************************************************************************************/
+
+IOReturn AppleUSBCDCDriver::dequeueData(UInt8 *buffer, UInt32 size, UInt32 *count, UInt32 min, void *refCon)
+{
+    IOReturn 	ret;
+    PortInfo_t	*port = (PortInfo_t *)refCon;
+    parmList	parms;
+    
+    XTRACE(port, size, min, "dequeueData");
+    
+    if ((count == NULL) || (buffer == NULL) || (min > size))
+        return kIOReturnBadArgument;
+    
+    parms.arg1 = (void *)buffer;
+    parms.arg2 = (void *)size;
+    parms.arg3 = (void *)count;
+    parms.arg4 = (void *)min;
+    parms.port = port;
+
+    retain();
+    ret = port->commandGate->runAction(dequeueDataAction, (void *)&parms);
+    release();
+
+    return ret;
+
+}/* end dequeueData */
+
+/****************************************************************************************************/
+//
+//		Method:		AppleUSBCDCDriver::dequeueDatatAction
+//
+//		Desc:		Dummy pass through for equeueDataGated.
+//
+/****************************************************************************************************/
+
+IOReturn AppleUSBCDCDriver::dequeueDataAction(OSObject *owner, void *arg0, void *, void *, void *)
+{
+    parmList	*parms = (parmList *)arg0;
+
+    return ((AppleUSBCDCDriver *)owner)->dequeueDataGated((UInt8 *)parms->arg1, (UInt32)parms->arg2, (UInt32 *)parms->arg3, (UInt32)parms->arg4, parms->port);
+    
+}/* end dequeueDataAction */
+
+/****************************************************************************************************/
+//
+//		Method:		AppleUSBCDCDriver::dequeueDataGated
+//
+//		Inputs:		size - buffer size
+//				min - minimum bytes required
+//				port - the Port
+//
+//		Outputs:	buffer - data returned
+//				min - number of bytes
 //				Return Code - kIOReturnSuccess, kIOReturnBadArgument, kIOReturnNotOpen, or value returned from watchState
 //
 //		Desc:		dequeueData will attempt to copy data from the RX queue to the
@@ -2600,76 +3160,71 @@ IOReturn AppleUSBCDCDriver::enqueueData( UInt8 *buffer, UInt32 size, UInt32 *cou
 //
 /****************************************************************************************************/
 
-IOReturn AppleUSBCDCDriver::dequeueData( UInt8 *buffer, UInt32 size, UInt32 *count, UInt32 min, void *refCon )
+IOReturn AppleUSBCDCDriver::dequeueDataGated(UInt8 *buffer, UInt32 size, UInt32 *count, UInt32 min, PortInfo_t *port)
 {
-    PortInfo_t 	*port = (PortInfo_t *) refCon;
     IOReturn 	rtn = kIOReturnSuccess;
     UInt32 	state = 0;
+    bool	goXOIdle;
 
-    ELG( size, min, 'dqDt', "AppleUSBCDCDriver::dequeueData" );
+    XTRACE(port, size, min, "dequeueDataGated");
     
-    if ( fTerminate )
+    if (fTerminate)
         return kIOReturnOffline;
 	
-        // Check to make sure we have good arguments.
-        
-    if ( (count == NULL) || (buffer == NULL) || (min > size) )
-        return kIOReturnBadArgument;
-
         // If the port is not active then there should not be any chars.
         
     *count = 0;
-    if ( !(readPortState( port ) & PD_S_ACTIVE) )
+    if (!(port->State & PD_S_ACTIVE))
         return kIOReturnNotOpen;
 
         // Get any data living in the queue.
         
-    *count = RemovefromQueue( &port->RX, buffer, size, port->RXqueueRequestLock );
-    CheckQueues( port );
+    *count = RemovefromQueue(&port->RX, buffer, size);
+    CheckQueues(port);
 
-    while ( (min > 0) && (*count < min) )
+    while ((min > 0) && (*count < min))
     {
             // Figure out how many bytes we have left to queue up
             
         state = 0;
 
-        rtn = watchState( &state, PD_S_RXQ_EMPTY, refCon );
+        rtn = watchStateGated(&state, PD_S_RXQ_EMPTY, port);
 
-        if ( rtn != kIOReturnSuccess )
+        if (rtn != kIOReturnSuccess)
         {
-            ELG( 0, rtn, 'DqD-', "AppleUSBCDCDriver::dequeueData - Interrupted!" );
+            XTRACE(port, 0, rtn, "dequeueDataGated - Interrupted!");
             return rtn;
         }
         
             // Try and get more data starting from where we left off
             
-        *count += RemovefromQueue( &port->RX, buffer + *count, (size - *count), port->RXqueueRequestLock );
-        CheckQueues( port );
+        *count += RemovefromQueue(&port->RX, buffer + *count, (size - *count));
+        CheckQueues(port);
 		
     }
 
         // Now let's check our receive buffer to see if we need to stop
         
-    bool goXOIdle = (UsedSpaceinQueue( &port->RX ) < port->RXStats.LowWater) && (port->RXOstate == SENT_XOFF);
+    goXOIdle = (UsedSpaceinQueue(&port->RX) < port->RXStats.LowWater) && (port->RXOstate == SENT_XOFF);
 
-    if ( goXOIdle )
+    if (goXOIdle)
     {
         port->RXOstate = IDLE_XO;
-        AddBytetoQueue( &port->TX, port->XOFFchar, port->TXqueueRequestLock );
-        SetUpTransmit( port );
+        AddBytetoQueue(&port->TX, port->XOFFchar);
+        setUpTransmit(port);
     }
 
-    ELG( *count, size, 'deqd', "dequeueData -->Out Dequeue" );
+    XTRACE(port, *count, size, "dequeueData - Exit");
 
     return rtn;
 	
-}/* end dequeueData */
+}/* end dequeueDataGated */
 
 /****************************************************************************************************/
 //
-//		Method:		AppleUSBCDCDriver::SetUpTransmit
+//		Method:		AppleUSBCDCDriver::setUpTransmit
 //
-//		Inputs:		port - the port to transmit on
+//		Inputs:		port - the port
 //
 //		Outputs:	return code - true (transmit started), false (transmission already in progress)
 //
@@ -2677,87 +3232,98 @@ IOReturn AppleUSBCDCDriver::dequeueData( UInt8 *buffer, UInt32 size, UInt32 *cou
 //
 /****************************************************************************************************/
 
-bool AppleUSBCDCDriver::SetUpTransmit( PortInfo_t *port )
+bool AppleUSBCDCDriver::setUpTransmit(PortInfo_t *port)
 {
 
-    ELG( port, port->AreTransmitting, 'upTx', "AppleUSBCDCDriver::SetUpTransmit" );
+    XTRACE(port, 0, port->AreTransmitting, "setUpTransmit");
+    
+            // As a precaution just check we've not been terminated (may be a woken thread)
+    
+    if (fTerminate)
+    {
+        XTRACE(port, 0, 0, "setUpTransmit - terminating");
+        return false;
+    }
 	
         //  If we are already in the cycle of transmitting characters,
         //  then we do not need to do anything.
 		
-    if ( port->AreTransmitting == TRUE )
+    if (port->AreTransmitting == TRUE)
         return FALSE;
 
-//    if ( GetQueueStatus( &port->TX ) != queueEmpty )
     if (UsedSpaceinQueue(&port->TX) > 0)
     {
-        StartTransmission( port );
+        startTransmission(port);
     }
 
     return TRUE;
 	
-}/* end SetUpTransmit */
+}/* end setUpTransmit */
 
 /****************************************************************************************************/
 //
-//		Method:		AppleUSBCDCDriver::StartTransmission
+//		Method:		AppleUSBCDCDriver::startTransmission
 //
-//		Inputs:		port - the port to transmit on
+//		Inputs:		port - the port
 //
 //		Outputs:	None
 //
 //		Desc:		Start the transmisson on the port specified
+//				Must be called from a gated method
 //
 /****************************************************************************************************/
 
-void AppleUSBCDCDriver::StartTransmission( PortInfo_t *port )
+void AppleUSBCDCDriver::startTransmission(PortInfo_t *port)
 {
     size_t	count;
     IOReturn	ior;
+    
+    XTRACE(port, 0, 0, "startTransmission");
 
         // Sets up everything as we are running so as not to start this
         // port twice if a call occurs twice to this Method:
 		
     port->AreTransmitting = TRUE;
-    changeState( port, PD_S_TX_BUSY, PD_S_TX_BUSY );
+    setStateGated(PD_S_TX_BUSY, PD_S_TX_BUSY, port);
 
         // Fill up the buffer with characters from the queue
 		
-    count = RemovefromQueue( &port->TX, port->PipeOutBuffer, MAX_BLOCK_SIZE, port->TXqueueRequestLock );
-    ELG( port->State, count, ' Tx+', "AppleUSBCDCDriver::StartTransmission" );
-    LogData( kUSBOut, count, port->PipeOutBuffer );	
-    port->Count = count;
+    count = RemovefromQueue(&port->TX, port->PipeOutBuffer, MAX_BLOCK_SIZE);
 
         // If there are no bytes to send just exit:
 		
-    if ( count <= 0 )
+    if (count <= 0)
     {
             // Updates all the status flags:
 			
-        CheckQueues( port );
+        CheckQueues(port);
         port->AreTransmitting = FALSE;
-        changeState( port, 0, PD_S_TX_BUSY );
+        setStateGated(0, PD_S_TX_BUSY, port);
         return;
     }
+    
+    XTRACE(port, port->State, count, "startTransmission - Bytes to write");
+    LogData(kDataOut, count, port->PipeOutBuffer, port);	
+    port->Count = count;
 
-    port->PipeOutMDP->setLength( count );
-    ior = port->OutPipe->Write( port->PipeOutMDP, &fWriteCompletionInfo );
+    port->PipeOutMDP->setLength(count);
+    ior = port->OutPipe->Write(port->PipeOutMDP, &port->fWriteCompletionInfo);
 
         // We just removed a bunch of stuff from the
         // queue, so see if we can free some thread(s)
         // to enqueue more stuff.
 		
-    CheckQueues( port );
+    CheckQueues(port);
 
     return;
 	
-}/* end StartTransmission */
+}/* end startTransmission */
 
 /****************************************************************************************************/
 //
 //		Method:		AppleUSBCDCDriver::USBSetLineCoding
 //
-//		Inputs:		None
+//		Inputs:		port - the port
 //
 //		Outputs:	None
 //
@@ -2765,14 +3331,14 @@ void AppleUSBCDCDriver::StartTransmission( PortInfo_t *port )
 //
 /****************************************************************************************************/
 
-void AppleUSBCDCDriver::USBSetLineCoding( PortInfo_t *port )
+void AppleUSBCDCDriver::USBSetLineCoding(PortInfo_t *port)
 {
     LineCoding		*lineParms;
-    IOReturn		rc;
     IOUSBDevRequest	*MER;
+    IOReturn		rc;
     UInt16		lcLen = sizeof(LineCoding)-1;
 	
-    ELG( 0, port, 'USLC', "AppleUSBCDCDriver::USBSetLineCoding" );
+    XTRACE(port, 0, port->CommInterfaceNumber, "USBSetLineCoding");
 	
 	// First check that Set Line Coding is supported
 	
@@ -2783,31 +3349,32 @@ void AppleUSBCDCDriver::USBSetLineCoding( PortInfo_t *port )
 	
 	// Check for changes and only do it if something's changed
 	
-    if ( (port->BaudRate == port->LastBaudRate) && (port->StopBits == port->LastStopBits) && 
-        (port->TX_Parity == port->LastTX_Parity) && (port->CharLength == port->LastCharLength) )
+    if ((port->BaudRate == port->LastBaudRate) && (port->StopBits == port->LastStopBits) && 
+        (port->TX_Parity == port->LastTX_Parity) && (port->CharLength == port->LastCharLength))
     {
         return;
     }
+    	
+    MER = (IOUSBDevRequest*)IOMalloc(sizeof(IOUSBDevRequest));
+    if (!MER)
+    {
+        XTRACE(port, 0, 0, "USBSetLineCoding - allocate MER failed");
+        return;
+    }
+    bzero(MER, sizeof(IOUSBDevRequest));
 	
-    MER = (IOUSBDevRequest*)IOMalloc( sizeof(IOUSBDevRequest) );
-    if ( !MER )
+    lineParms = (LineCoding*)IOMalloc(lcLen);
+    if (!lineParms)
     {
-        ELG( 0, 0, 'USL-', "AppleUSBCDCDriver::USBSetLineCoding - allocate MER failed" );
+        XTRACE(port, 0, 0, "USBSetLineCoding - allocate lineParms failed");
+        IOFree(MER, sizeof(IOUSBDevRequest));
         return;
     }
-    bzero( MER, sizeof(IOUSBDevRequest) );
-	
-    lineParms = (LineCoding*)IOMalloc( lcLen );
-    if ( !lineParms )
-    {
-        ELG( 0, 0, 'USL-', "AppleUSBCDCDriver::USBSetLineCoding - allocate lineParms failed" );
-        return;
-    }
-    bzero( lineParms, lcLen ); 
+    bzero(lineParms, lcLen); 
 	
         // convert BaudRate - intel format doubleword (32 bits) 
 		
-    OSWriteLittleInt32( lineParms, dwDTERateOffset, port->BaudRate );
+    OSWriteLittleInt32(lineParms, dwDTERateOffset, port->BaudRate);
     port->LastBaudRate = port->BaudRate;
     lineParms->bCharFormat = port->StopBits - 2;
     port->LastStopBits = port->StopBits;
@@ -2816,7 +3383,7 @@ void AppleUSBCDCDriver::USBSetLineCoding( PortInfo_t *port )
     lineParms->bDataBits = port->CharLength;
     port->LastCharLength = port->CharLength;
 	
-    LogData( kUSBAnyDirn, lcLen, lineParms );
+//    LogData(kDataOther, lcLen, lineParms, port);
 	
         // now build the Management Element Request
 		
@@ -2826,15 +3393,15 @@ void AppleUSBCDCDriver::USBSetLineCoding( PortInfo_t *port )
     MER->wIndex = port->CommInterfaceNumber;
     MER->wLength = lcLen;
     MER->pData = lineParms;
+    
+    port->fMERCompletionInfo.parameter = MER;
 	
-    fMERCompletionInfo.parameter = MER;
-	
-    rc = fpDevice->DeviceRequest(MER, &fMERCompletionInfo);
-    if ( rc != kIOReturnSuccess )
+    rc = fpDevice->DeviceRequest(MER, &port->fMERCompletionInfo);
+    if (rc != kIOReturnSuccess)
     {
-        ELG( MER->bRequest, rc, 'SLER', "AppleUSBCDCDriver::USBSetLineCoding - error issueing DeviceRequest" );
-        IOFree( MER->pData, lcLen );
-        IOFree( MER, sizeof(IOUSBDevRequest) );
+        XTRACE(port, MER->bRequest, rc, "USBSetLineCoding - error issueing DeviceRequest");
+        IOFree(MER->pData, lcLen);
+        IOFree(MER, sizeof(IOUSBDevRequest));
     }
 
 }/* end USBSetLineCoding */
@@ -2843,7 +3410,9 @@ void AppleUSBCDCDriver::USBSetLineCoding( PortInfo_t *port )
 //
 //		Method:		AppleUSBCDCDriver::USBSetControlLineState
 //
-//		Inputs:		port - the port, RTS - true(set RTS), false(clear RTS), DTR - true(set DTR), false(clear DTR)
+//		Inputs:		port - the port
+//				RTS - true(set RTS), false(clear RTS)
+//				DTR - true(set DTR), false(clear DTR)
 //
 //		Outputs:	None
 //
@@ -2851,13 +3420,13 @@ void AppleUSBCDCDriver::USBSetLineCoding( PortInfo_t *port )
 //
 /****************************************************************************************************/
 
-void AppleUSBCDCDriver::USBSetControlLineState( PortInfo_t *port, bool RTS, bool DTR)
+void AppleUSBCDCDriver::USBSetControlLineState(PortInfo_t *port, bool RTS, bool DTR)
 {
     IOReturn		rc;
     IOUSBDevRequest	*MER;
     UInt16		CSBitmap = 0;
 	
-    ELG( 0, 0, 'USLC', "AppleUSBCDCDriver::USBSetControlLineState" );
+    XTRACE(port, 0, port->CommInterfaceNumber, "USBSetControlLineState");
 	
 	// First check that Set Control Line State is supported
 	
@@ -2866,44 +3435,44 @@ void AppleUSBCDCDriver::USBSetControlLineState( PortInfo_t *port, bool RTS, bool
         return;
     }
 	
-    MER = (IOUSBDevRequest*)IOMalloc( sizeof(IOUSBDevRequest) );
-    if ( !MER )
+    MER = (IOUSBDevRequest*)IOMalloc(sizeof(IOUSBDevRequest));
+    if (!MER)
     {
-        ELG( 0, 0, 'USL-', "AppleUSBCDCDriver::USBSetControlLineState - allocate MER failed" );
+        XTRACE(port, 0, 0, "USBSetControlLineState - allocate MER failed");
         return;
     }
-    bzero( MER, sizeof(IOUSBDevRequest) );
+    bzero(MER, sizeof(IOUSBDevRequest));
 	
         // now build the Management Element Request
 		
     MER->bmRequestType = USBmakebmRequestType(kUSBOut, kUSBClass, kUSBInterface);
     MER->bRequest = kUSBSET_CONTROL_LINE_STATE;
-    if ( RTS )
+    if (RTS)
         CSBitmap |= kRTSOn;
-    if ( DTR )
+    if (DTR)
         CSBitmap |= kDTROn;
     MER->wValue = CSBitmap;
     MER->wIndex = port->CommInterfaceNumber;
     MER->wLength = 0;
     MER->pData = NULL;
+    
+    port->fMERCompletionInfo.parameter = MER;
 	
-    fMERCompletionInfo.parameter = MER;
-	
-    rc = fpDevice->DeviceRequest(MER, &fMERCompletionInfo);
-    if ( rc != kIOReturnSuccess )
+    rc = fpDevice->DeviceRequest(MER, &port->fMERCompletionInfo);
+    if (rc != kIOReturnSuccess)
     {
-        ELG( MER->bRequest, rc, 'SLER', "AppleUSBCDCDriver::USBSetControlLineState - error issueing DeviceRequest" );
-        IOFree( MER, sizeof(IOUSBDevRequest) );
+        XTRACE(port, MER->bRequest, rc, "USBSetControlLineState - error issueing DeviceRequest");
+        IOFree(MER, sizeof(IOUSBDevRequest));
     }
 
 }/* end USBSetControlLineState */
-
 
 /****************************************************************************************************/
 //
 //		Method:		AppleUSBCDCDriver::USBSendBreak
 //
-//		Inputs:		port - the port, sBreak - true(set Break), false(clear Break) - This may change
+//		Inputs:		port - the port
+//				sBreak - true(set Break), false(clear Break)
 //
 //		Outputs:	None
 //
@@ -2911,12 +3480,12 @@ void AppleUSBCDCDriver::USBSetControlLineState( PortInfo_t *port, bool RTS, bool
 //
 /****************************************************************************************************/
 
-void AppleUSBCDCDriver::USBSendBreak( PortInfo_t *port, bool sBreak)
+void AppleUSBCDCDriver::USBSendBreak(PortInfo_t *port, bool sBreak)
 {
     IOReturn		rc;
     IOUSBDevRequest	*MER;
 	
-    ELG( 0, 0, 'USLC', "AppleUSBCDCDriver::USBSendBreak" );
+    XTRACE(port, 0, port->CommInterfaceNumber, "USBSendBreak");
 	
 	// First check that Send Break is supported
 	
@@ -2925,18 +3494,18 @@ void AppleUSBCDCDriver::USBSendBreak( PortInfo_t *port, bool sBreak)
         return;
     }
 	
-    MER = (IOUSBDevRequest*)IOMalloc( sizeof(IOUSBDevRequest) );
-    if ( !MER )
+    MER = (IOUSBDevRequest*)IOMalloc(sizeof(IOUSBDevRequest));
+    if (!MER)
     {
-        ELG( 0, 0, 'USL-', "AppleUSBCDCDriver::USBSendBreak - allocate MER failed" );
+        XTRACE(port, 0, 0, "USBSendBreak - allocate MER failed");
         return;
     }
-    bzero( MER, sizeof(IOUSBDevRequest) );
+    bzero(MER, sizeof(IOUSBDevRequest));
 	
         // now build the Management Element Request
 		
     MER->bmRequestType = USBmakebmRequestType(kUSBOut, kUSBClass, kUSBInterface);
-    MER->bRequest = kUSBSET_CONTROL_LINE_STATE;
+    MER->bRequest = kUSBSEND_BREAK;
     if (sBreak)
     {
         MER->wValue = 0xFFFF;
@@ -2946,23 +3515,143 @@ void AppleUSBCDCDriver::USBSendBreak( PortInfo_t *port, bool sBreak)
     MER->wIndex = port->CommInterfaceNumber;
     MER->wLength = 0;
     MER->pData = NULL;
+    
+    port->fMERCompletionInfo.parameter = MER;
 	
-    fMERCompletionInfo.parameter = MER;
-	
-    rc = fpDevice->DeviceRequest(MER, &fMERCompletionInfo);
-    if ( rc != kIOReturnSuccess )
+    rc = fpDevice->DeviceRequest(MER, &port->fMERCompletionInfo);
+    if (rc != kIOReturnSuccess)
     {
-        ELG( MER->bRequest, rc, 'SLER', "AppleUSBCDCDriver::USBSendBreak - error issueing DeviceRequest" );
-        IOFree( MER, sizeof(IOUSBDevRequest) );
+        XTRACE(port, MER->bRequest, rc, "USBSendBreak - error issueing DeviceRequest");
+        IOFree(MER, sizeof(IOUSBDevRequest));
     }
 
 }/* end USBSendBreak */
 
 /****************************************************************************************************/
 //
-//		Method:		AppleUSBCDCDriver::SetStructureDefaults
+//		Method:		AppleUSBCDCDriver::clearPipeStall
 //
-//		Inputs:		port - the port to set the defaults, Init - Probe time or not
+//		Inputs:		port - the port
+//				thePipe - the pipe
+//
+//		Outputs:	
+//
+//		Desc:		Clear a stall (by reset) on the specified pipe. All outstanding I/O
+//				is returned as aborted.
+//
+/****************************************************************************************************/
+
+IOReturn AppleUSBCDCDriver::clearPipeStall(PortInfo_t *port, IOUSBPipe *thePipe)
+{
+    UInt8	pipeStatus;
+    IOReturn 	rtn = kIOReturnSuccess;
+    
+    XTRACE(port, 0, thePipe, "clearPipeStall");
+    
+    pipeStatus = thePipe->GetStatus();
+    if (pipeStatus == kPipeStalled)
+    {
+        rtn = thePipe->Reset();
+        if (rtn == kIOReturnSuccess)
+        {
+            XTRACE(port, 0, 0, "clearPipeStall - Successful");
+        } else {
+            XTRACE(port, 0, rtn, "clearPipeStall - Failed");
+        }
+    } else {
+        XTRACE(port, 0, 0, "clearPipeStall - Pipe not stalled");
+    }
+    
+    return rtn;
+
+}/* end clearPipeStall */
+
+/****************************************************************************************************/
+//
+//		Method:		AppleUSBCDCDriver::initPort
+//
+//		Inputs:		port - the port
+//
+//		Outputs:	return code - true (initialized), false (failed)
+//
+//		Desc:		Initialize the rest of port data
+//
+/****************************************************************************************************/
+
+bool AppleUSBCDCDriver::initPort(PortInfo_t *port)
+{
+	
+    XTRACE(port, 0, 0, "initPort");
+    
+    port->commandGate = IOCommandGate::commandGate(this);
+    if (!port->commandGate)
+    {
+        XTRACE(port, 0, 0, "initPort - commandGate failed");
+        return false;
+    }
+    
+    if (fWorkLoop->addEventSource(port->commandGate) != kIOReturnSuccess)
+    {
+        XTRACE(port, 0, 0, "initPort - addEventSource(commandGate) failed");
+        return false;
+    }
+
+    port->commandGate->enable();
+            
+    if (!allocateResources(port)) 
+    {
+        XTRACE(port, 0, 0, "initPort - allocateResources failed");
+        return false;
+    }
+
+    return true;
+
+}/* end initPort */
+
+/****************************************************************************************************/
+//
+//		Method:		AppleUSBCDCDriver::initStructure
+//
+//		Inputs:		port - the port
+//
+//		Outputs:	none
+//
+//		Desc:		Initialize the port structure
+//
+/****************************************************************************************************/
+
+void AppleUSBCDCDriver::initStructure(PortInfo_t *port)
+{
+	
+    XTRACE(port, 0, 0, "initStructure");
+
+        // These are set up at start and should not be reset during execution.
+        
+    port->FCRimage = 0x00;
+    port->IERmask = 0x00;
+
+    port->State = (PD_S_TXQ_EMPTY | PD_S_TXQ_LOW_WATER | PD_S_RXQ_EMPTY | PD_S_RXQ_LOW_WATER);
+    port->WatchStateMask = 0x00000000;
+    port->PipeOutMDP = NULL;
+    port->PipeInMDP = NULL;
+    port->CommPipeMDP = NULL;
+    port->CommInterface = NULL;
+    port->DataInterface = NULL;
+    port->InPipe = NULL;
+    port->OutPipe = NULL;
+    port->CommPipe = NULL;
+    port->CommPipeBuffer = NULL;
+    port->PipeInBuffer = NULL;
+    port->PipeOutBuffer = NULL;
+    port->Count = -1;
+    
+}/* end initStructure */
+
+/****************************************************************************************************/
+//
+//		Method:		AppleUSBCDCDriver::setStructureDefaults
+//
+//		Inputs:		port - the port
 //
 //		Outputs:	None
 //
@@ -2970,36 +3659,11 @@ void AppleUSBCDCDriver::USBSendBreak( PortInfo_t *port, bool sBreak)
 //
 /****************************************************************************************************/
 
-void AppleUSBCDCDriver::SetStructureDefaults( PortInfo_t *port, bool Init )
+void AppleUSBCDCDriver::setStructureDefaults(PortInfo_t *port)
 {
     UInt32	tmp;
 	
-    ELG( 0, 0, 'StSD', "AppleUSBCDCDriver::SetStructureDefaults" );
-
-        // These are set up at start and cannot get reset during execution.
-        
-    if ( Init )
-    {
-        port->FCRimage = 0x00;
-        port->IERmask = 0x00;
-
-        port->State = ( PD_S_TXQ_EMPTY | PD_S_TXQ_LOW_WATER | PD_S_RXQ_EMPTY | PD_S_RXQ_LOW_WATER );
-        port->WatchStateMask = 0x00000000;
-        port->serialRequestLock = NULL;
-        port->RXqueueRequestLock = NULL;
-        port->TXqueueRequestLock = NULL;
-        port->PipeOutMDP = NULL;
-        port->PipeInMDP = NULL;
-        port->CommPipeMDP = NULL;
-        port->CommInterface = NULL;
-        port->DataInterface = NULL;
-        port->InPipe = NULL;
-        port->OutPipe = NULL;
-        port->CommPipe = NULL;
-        port->CommPipeBuffer = NULL;
-        port->PipeInBuffer = NULL;
-        port->PipeOutBuffer = NULL;
-    }
+    XTRACE(port, 0, 0, "setStructureDefaults");
 
     port->BaudRate = kDefaultBaudRate;			// 9600 bps
     port->LastBaudRate = 0;
@@ -3029,18 +3693,213 @@ void AppleUSBCDCDriver::SetStructureDefaults( PortInfo_t *port, bool Init )
 
     port->AreTransmitting = FALSE;
 
-    for ( tmp=0; tmp < (256 >> SPECIAL_SHIFT); tmp++ )
+    for (tmp=0; tmp < (256 >> SPECIAL_SHIFT); tmp++)
         port->SWspecial[ tmp ] = 0;
 
     return;
 	
-}/* end SetStructureDefaults */
+}/* end setStructureDefaults */
+
+/****************************************************************************************************/
+//
+//		Method:		AppleUSBCDCDriver::allocateResources
+//
+//		Inputs:		port - the Port
+//
+//		Outputs:	return code - true (allocate was successful), false (it failed)
+//
+//		Desc:		Finishes up the rest of the configuration and gets all the endpoints open etc.
+//
+/****************************************************************************************************/
+
+bool AppleUSBCDCDriver::allocateResources(PortInfo_t *port)
+{
+    IOUSBFindEndpointRequest	epReq;		// endPoint request
+    bool			goodCall;
+
+    XTRACE(port, 0, 0, "allocateResources.");
+
+        // Open all the end points and get the buffers
+
+    goodCall = port->DataInterface->open(this);
+    if (!goodCall)
+    {
+        XTRACE(port, 0, 0, "allocateResources - open data interface failed.");
+        port->DataInterface->release();
+        port->DataInterface = NULL;
+        return false;
+    }
+
+    goodCall = port->CommInterface->open(this);
+    if (!goodCall)
+    {
+        XTRACE(port, 0, 0, "allocateResources - open comm interface failed.");
+        port->CommInterface->release();
+        port->CommInterface = NULL;
+        return false;
+    }
+    
+        // Bulk In pipe
+
+    epReq.type = kUSBBulk;
+    epReq.direction = kUSBIn;
+    epReq.maxPacketSize	= 0;
+    epReq.interval = 0;
+    port->InPipe = port->DataInterface->FindNextPipe(0, &epReq);
+    if (!port->InPipe)
+    {
+        XTRACE(port, 0, 0, "allocateResources - no bulk input pipe.");
+        return false;
+    }
+    port->InPacketSize = epReq.maxPacketSize;
+    XTRACE(port, epReq.maxPacketSize << 16 |epReq.interval, port->InPipe, "allocateResources - bulk input pipe.");
+    
+        // Allocate Memory Descriptor Pointer with memory for the bulk in pipe:
+
+    port->PipeInMDP = IOBufferMemoryDescriptor::withCapacity(DATA_BUFF_SIZE, kIODirectionIn);
+    if (!port->PipeInMDP)
+    {
+        XTRACE(port, 0, 0, "allocateResources - Couldn't allocate MDP for bulk in pipe");
+        return false;
+    }
+		
+//    port->PipeInMDP->setLength(DATA_BUFF_SIZE);
+    port->PipeInBuffer = (UInt8*)port->PipeInMDP->getBytesNoCopy();
+    XTRACE(port, 0, port->PipeInBuffer, "allocateResources - input buffer");
+    
+        // Bulk Out pipe
+
+    epReq.direction = kUSBOut;
+    port->OutPipe = port->DataInterface->FindNextPipe(0, &epReq);
+    if (!port->OutPipe)
+    {
+        XTRACE(port, 0, 0, "allocateResources - no bulk output pipe.");
+        return false;
+    }
+    port->OutPacketSize = epReq.maxPacketSize;
+    XTRACE(port, epReq.maxPacketSize << 16 |epReq.interval, port->OutPipe, "allocateResources - bulk output pipe.");
+    
+        // Allocate Memory Descriptor Pointer with memory for the bulk out pipe:
+
+    port->PipeOutMDP = IOBufferMemoryDescriptor::withCapacity(MAX_BLOCK_SIZE, kIODirectionOut);
+    if (!port->PipeOutMDP)
+    {
+        XTRACE(port, 0, 0, "allocateResources - Couldn't allocate MDP for bulk out pipe");
+        return false;
+    }
+		
+//    port->PipeOutMDP->setLength(MAX_BLOCK_SIZE);
+    port->PipeOutBuffer = (UInt8*)port->PipeOutMDP->getBytesNoCopy();
+    XTRACE(port, 0, port->PipeOutBuffer, "allocateResources - output buffer");
+
+        // Interrupt pipe
+
+    epReq.type = kUSBInterrupt;
+    epReq.direction = kUSBIn;
+    port->CommPipe = port->CommInterface->FindNextPipe(0, &epReq);
+    if (!port->CommPipe)
+    {
+        XTRACE(port, 0, 0, "allocateResources - no comm pipe.");
+        return false;
+    }
+    XTRACE(port, epReq.maxPacketSize << 16 |epReq.interval, port->CommPipe, "allocateResources - comm pipe.");
+
+        // Allocate Memory Descriptor Pointer with memory for the Interrupt pipe:
+
+    port->CommPipeMDP = IOBufferMemoryDescriptor::withCapacity(COMM_BUFF_SIZE, kIODirectionIn);
+    if (!port->CommPipeMDP)
+    {
+        XTRACE(port, 0, 0, "allocateResources - Couldn't allocate MDP for interrupt pipe");
+        return false;
+    }
+		
+//    port->CommPipeMDP->setLength(COMM_BUFF_SIZE);
+    port->CommPipeBuffer = (UInt8*)port->CommPipeMDP->getBytesNoCopy();
+    XTRACE(port, 0, port->CommPipeBuffer, "allocateResources - comm buffer");
+    
+        // Now the ring buffers
+        
+    if (!allocateRingBuffer(port, &port->TX, port->TXStats.BufferSize))
+    {
+        XTRACE(port, 0, 0, "allocateResources - Couldn't allocate TX ring buffer");
+        return false;
+    }
+    
+    XTRACE(port, 0, port->TX.Start, "allocateResources - TX ring buffer");
+    
+    if (!allocateRingBuffer(port, &port->RX, port->RXStats.BufferSize)) 
+    {
+        XTRACE(port, 0, 0, "allocateResources - Couldn't allocate RX ring buffer");
+        return false;
+    }
+    
+    XTRACE(port, 0, port->RX.Start, "allocateResources - RX ring buffer");
+
+    return true;
+	
+}/* end allocateResources */
+
+/****************************************************************************************************/
+//
+//		Method:		AppleUSBCDCDriver::releaseResources
+//
+//		Inputs:		port - the Port
+//
+//		Outputs:	None
+//
+//		Desc:		Frees up the resources allocated in allocateResources
+//
+/****************************************************************************************************/
+
+void AppleUSBCDCDriver::releaseResources(PortInfo_t *port)
+{
+    XTRACE(port, 0, 0, "releaseResources");
+	
+    if (port->CommInterface)	
+    {
+        port->CommInterface->close(this);
+        port->CommInterface->release();
+        port->CommInterface = NULL;		
+    }
+	
+    if (port->DataInterface)	
+    { 
+        port->DataInterface->close(this);
+        port->DataInterface->release();
+        port->DataInterface = NULL;
+    }
+
+    if (port->PipeOutMDP )	
+    { 
+        port->PipeOutMDP->release();	
+        port->PipeOutMDP = 0; 
+    }
+	
+    if (port->PipeInMDP  )	
+    { 
+        port->PipeInMDP->release();	
+        port->PipeInMDP = 0; 
+    }
+	
+    if (port->CommPipeMDP)	
+    { 
+        port->CommPipeMDP->release();	
+        port->CommPipeMDP = 0; 
+    }
+    
+    freeRingBuffer(port, &port->TX);
+    freeRingBuffer(port, &port->RX);
+
+    return;
+	
+}/* end releaseResources */
 
 /****************************************************************************************************/
 //
 //		Method:		AppleUSBCDCDriver::freeRingBuffer
 //
-//		Inputs:		Queue - the specified queue to free
+//		Inputs:		port - the port
+//				Queue - the specified queue to free
 //
 //		Outputs:	None
 //
@@ -3049,12 +3908,19 @@ void AppleUSBCDCDriver::SetStructureDefaults( PortInfo_t *port, bool Init )
 //
 /****************************************************************************************************/
 
-void AppleUSBCDCDriver::freeRingBuffer( CirQueue *Queue )
+void AppleUSBCDCDriver::freeRingBuffer(PortInfo_t *port, CirQueue *Queue)
 {
-    ELG( 0, Queue, 'f rb', "AppleUSBCDCDriver::freeRingBuffer" );
+    XTRACE(port, 0, Queue, "freeRingBuffer");
 
-    IOFree( Queue->Start, Queue->Size );
-    CloseQueue( Queue );
+    if (Queue)
+    {
+        if (Queue->Start)
+        {
+            IOFree(Queue->Start, Queue->Size);
+        }
+        CloseQueue(Queue);
+    }
+    
     return;
 	
 }/* end freeRingBuffer */
@@ -3063,7 +3929,9 @@ void AppleUSBCDCDriver::freeRingBuffer( CirQueue *Queue )
 //
 //		Method:		AppleUSBCDCDriver::allocateRingBuffer
 //
-//		Inputs:		Queue - the specified queue to allocate, BufferSize - size to allocate
+//		Inputs:		port - the port
+//				Queue - the specified queue to allocate
+//				BufferSize - size to allocate
 //
 //		Outputs:	return Code - true (buffer allocated), false (it failed)
 //
@@ -3071,18 +3939,18 @@ void AppleUSBCDCDriver::freeRingBuffer( CirQueue *Queue )
 //
 /****************************************************************************************************/
 
-bool AppleUSBCDCDriver::allocateRingBuffer( CirQueue *Queue, size_t BufferSize )
+bool AppleUSBCDCDriver::allocateRingBuffer(PortInfo_t *port, CirQueue *Queue, size_t BufferSize)
 {
     UInt8	*Buffer;
 
         // Size is ignored and kMaxCirBufferSize, which is 4096, is used.
 		
-    ELG( 0, BufferSize, 'alrb', "AppleUSBCDCDriver::allocateRingBuffer" );
-    Buffer = (UInt8*)IOMalloc( kMaxCirBufferSize );
+    XTRACE(port, 0, BufferSize, "allocateRingBuffer");
+    Buffer = (UInt8*)IOMalloc(kMaxCirBufferSize);
 
-    InitQueue( Queue, Buffer, kMaxCirBufferSize );
+    InitQueue(Queue, Buffer, kMaxCirBufferSize);
 
-    if ( Buffer )
+    if (Buffer)
         return true;
 
     return false;
@@ -3091,9 +3959,9 @@ bool AppleUSBCDCDriver::allocateRingBuffer( CirQueue *Queue, size_t BufferSize )
 
 /****************************************************************************************************/
 //
-//		Function:	WakeonRing
+//		Function:	AppleUSBCDCDriver::WakeonRing
 //
-//		Inputs:		
+//		Inputs:		none
 //
 //		Outputs:	return code - true(Wake-on-Ring enabled), false(disabled)	
 //
@@ -3101,29 +3969,29 @@ bool AppleUSBCDCDriver::allocateRingBuffer( CirQueue *Queue, size_t BufferSize )
 //
 /****************************************************************************************************/
 
-bool AppleUSBCDCDriver::WakeonRing()
+bool AppleUSBCDCDriver::WakeonRing(void)
 {
     mach_timespec_t	t;
     IOService 		*pmu;
     bool		WoR = false;
-	
-    ELG( 0, 0, 'WoR ', "AppleUSBCDCDriver::WakeonRing" );
+
+    XTRACE(this, 0, 0, "WakeonRing");
         
     t.tv_sec = 1;
     t.tv_nsec = 0;
     
-    pmu = waitForService(IOService::serviceMatching( "ApplePMU" ), &t );
+    pmu = waitForService(IOService::serviceMatching("ApplePMU"), &t);
     if (pmu)
     {
         if (kOSBooleanTrue == pmu->getProperty("WakeOnRing"))
         {
-            ELG( 0, 0, 'WREn', "AppleUSBCDCDriver::WakeonRing - Enabled" );
+            XTRACE(this, 0, 0, "WakeonRing - Enabled");
             WoR = true;
         } else {
-            ELG( 0, 0, 'WRDs', "AppleUSBCDCDriver::WakeonRing - Disabled" );
+            XTRACE(this, 0, 0, "WakeonRing - Disabled");
         }
     } else {
-        ELG( 0, 0, 'WRsf', "AppleUSBCDCDriver::WakeonRing - serviceMatching ApplePMU failed" );
+        XTRACE(this, 0, 0, "WakeonRing - serviceMatching ApplePMU failed");
     }
     
     return WoR;
@@ -3134,7 +4002,9 @@ bool AppleUSBCDCDriver::WakeonRing()
 //
 //		Method:		AppleUSBCDCDriver::message
 //
-//		Inputs:		type - message type, provider - my provider, argument - additional parameters
+//		Inputs:		type - message type
+//				provider - my provider
+//				argument - additional parameters
 //
 //		Outputs:	return Code - kIOReturnSuccess
 //
@@ -3142,27 +4012,19 @@ bool AppleUSBCDCDriver::WakeonRing()
 //
 /****************************************************************************************************/
 
-IOReturn AppleUSBCDCDriver::message( UInt32 type, IOService *provider,  void *argument )
+IOReturn AppleUSBCDCDriver::message(UInt32 type, IOService *provider, void *argument)
 {	
-    UInt8	i;
+    
+    XTRACE(this, 0, type, "message");
 	
-    ELG( 0, type, 'mess', "AppleUSBCDCDriver::message" );
-	
-    switch ( type )
+    switch (type)
     {
         case kIOMessageServiceIsTerminated:
-            ELG( fSessions, type, 'mess', "AppleUSBCDCDriver::message - kIOMessageServiceIsTerminated" );
+            XTRACE(this, fSessions, type, "message - kIOMessageServiceIsTerminated");
 			
-            if ( fSessions )
+            if (fSessions)
             {
-                for (i=0; i<numberofPorts; i++)
-                {
-                    if ( (fPorts[i] != NULL) && (fPorts[i]->serialRequestLock != 0) )
-                    {
-//			changeState( fPorts[i], 0, (UInt32)PD_S_ACTIVE );
-                    }
-                }
-                if ( !fTerminate )		// Check if we're already being terminated
+                if (!fTerminate)		// Check if we're already being terminated
                 { 
 		    // NOTE! This call below depends on the hard coded path of this KEXT. Make sure
 		    // that if the KEXT moves, this path is changed!
@@ -3177,234 +4039,46 @@ IOReturn AppleUSBCDCDriver::message( UInt32 type, IOService *provider,  void *ar
 			"OK"); 
                 }
             } else {
-                for (i=0; i<numberofPorts; i++)
-                {
-                    if ( fPorts[i] != NULL )
-                    {
-                        if ( fPorts[i]->CommInterface )	
-                        {
-                            fPorts[i]->CommInterface->close( this );	
-                            fPorts[i]->CommInterface->release();
-                            fPorts[i]->CommInterface = NULL;	
-                        }
-	
-                        if ( fPorts[i]->DataInterface )	
-                        { 
-                            fPorts[i]->DataInterface->close( this );	
-                            fPorts[i]->DataInterface->release();
-                            fPorts[i]->DataInterface = NULL;	
-                        }
-                    }
-                }
-                
-            	fpDevice->close(this); 	// need to close so we can get the free and stop calls only if no sessions active (see releasePort)
+            
+                    // Clean up before closing the device
+            
+                cleanUp();
+                                
+            	fpDevice->close(this); 	// Need to close so we can get the stop call (only if no sessions active - see releasePortGated)
                 fpDevice = NULL;
             }
 			
-            fTerminate = true;		// we're being terminated (unplugged)
+            fTerminate = true;		// We're being terminated (unplugged)
             return kIOReturnSuccess;			
         case kIOMessageServiceIsSuspended: 	
-            ELG( 0, type, 'mess', "AppleUSBCDCDriver::message - kIOMessageServiceIsSuspended" );
+            XTRACE(this, 0, type, "message - kIOMessageServiceIsSuspended");
             break;			
         case kIOMessageServiceIsResumed: 	
-            ELG( 0, type, 'mess', "AppleUSBCDCDriver::message - kIOMessageServiceIsResumed" );
+            XTRACE(this, 0, type, "message - kIOMessageServiceIsResumed");
             break;			
         case kIOMessageServiceIsRequestingClose: 
-            ELG( 0, type, 'mess', "AppleUSBCDCDriver::message - kIOMessageServiceIsRequestingClose" ); 
+            XTRACE(this, 0, type, "message - kIOMessageServiceIsRequestingClose"); 
             break;
         case kIOMessageServiceWasClosed: 	
-            ELG( 0, type, 'mess', "AppleUSBCDCDriver::message - kIOMessageServiceWasClosed" ); 
+            XTRACE(this, 0, type, "message - kIOMessageServiceWasClosed"); 
             break;
         case kIOMessageServiceBusyStateChange: 	
-            ELG( 0, type, 'mess', "AppleUSBCDCDriver::message - kIOMessageServiceBusyStateChange" ); 
+            XTRACE(this, 0, type, "message - kIOMessageServiceBusyStateChange"); 
             break;
         case kIOUSBMessagePortHasBeenResumed: 	
-            ELG( 0, type, 'mess', "AppleUSBCDCDriver::message - kIOUSBMessagePortHasBeenResumed" );
+            XTRACE(this, 0, type, "message - kIOUSBMessagePortHasBeenResumed");
             break;
         case kIOUSBMessageHubResumePort:
-            ELG( 0, type, 'mess', "AppleUSBCDCDriver::message - kIOUSBMessageHubResumePort" );
+            XTRACE(this, 0, type, "message - kIOUSBMessageHubResumePort");
+            break;
+        case kIOUSBMessagePortHasBeenReset:
+            XTRACE(this, 0, type, "message - kIOUSBMessagePortHasBeenReset");
             break;
         default:
-            ELG( 0, type, 'mess', "AppleUSBCDCDriver::message - unknown message" ); 
+            XTRACE(this, 0, type, "message - unknown message"); 
             break;
     }
     
     return kIOReturnUnsupported;
-}
-
-/****************************************************************************************************/
-//
-//		Method:		readPortState
-//
-//		Inputs:		port - the specified port
-//
-//		Outputs:	returnState - current state of the port
-//
-//		Desc:		Reads the current Port->State. 
-//
-/****************************************************************************************************/
-
-UInt32 AppleUSBCDCDriver::readPortState( PortInfo_t *port )
-{
-    UInt32	returnState = 0;
-	
-//	ELG( 0, port, 'rPSt', "readPortState" );
-
-    if ( port &&  port->serialRequestLock )
-    {
-        IOLockLock( port->serialRequestLock );
-
-        returnState = port->State;
-
-        IOLockUnlock( port->serialRequestLock);
-    }
-
-//	ELG( returnState, 0, 'rPS-', "readPortState" );
-
-    return returnState;
-	
-}/* end readPortState */
-
-/****************************************************************************************************/
-//
-//		Method:		changeState
-//
-//		Inputs:		port - the specified port, state - new state, mask - state mask (the specific bits)
-//
-//		Outputs:	None
-//
-//		Desc:		Change the current Port->State to state using the mask bits.
-//				if mask = 0 nothing is changed.
-//				delta contains the difference between the new and old state taking the
-//				mask into account and it's used to wake any waiting threads as appropriate. 
-//
-/****************************************************************************************************/
-
-void AppleUSBCDCDriver::changeState( PortInfo_t *port, UInt32 state, UInt32 mask )
-{
-    UInt32	delta;
-	
-//	ELG( state, mask, 'chSt', "changeState" );
-    if ( port &&  port->serialRequestLock )
-    {
-
-        IOLockLock( port->serialRequestLock );
-        state = (port->State & ~mask) | (state & mask); 	// compute the new state
-        delta = state ^ port->State;		    		// keep a copy of the diffs
-        port->State = state;
-
-	    // Wake up all threads asleep on WatchStateMask
-		
-        if ( delta & port->WatchStateMask )
-            thread_wakeup_with_result( &port->WatchStateMask, THREAD_RESTART );
-
-        IOLockUnlock( port->serialRequestLock );
-
-        ELG( port->State, delta, 'chSt', "changeState --> changeState" );
-    }
-	
-}/* end changeState */
-
-/****************************************************************************************************/
-//
-//		Method:		privateWatchState
-//
-//		Inputs:		port - the specified port, state - state watching for, mask - state mask (the specific bits)
-//
-//		Outputs:	IOReturn - kIOReturnSuccess, kIOReturnIOError or kIOReturnIPCError
-//
-//		Desc:		Wait for the at least one of the state bits defined in mask to be equal
-//				to the value defined in state. Check on entry then sleep until necessary.
-//				A return value of kIOReturnSuccess means that at least one of the port state
-//				bits specified by mask is equal to the value passed in by state.  A return
-//				value of kIOReturnIOError indicates that the port went inactive.  A return
-//				value of kIOReturnIPCError indicates sleep was interrupted by a signal. 
-//
-/****************************************************************************************************/
-
-IOReturn AppleUSBCDCDriver::privateWatchState( PortInfo_t *port, UInt32 *state, UInt32 mask )
-{
-    unsigned 	watchState, foundStates;
-    bool 	autoActiveBit = false;
-    IOReturn 	rtn = kIOReturnSuccess;
-
-//    ELG( mask, *state, 'wsta', "privateWatchState" );
-
-    watchState = *state;
-    IOLockLock( port->serialRequestLock );
-
-        // hack to get around problem with carrier detection
-		
-//    if ( *state & PD_RS232_S_CAR )			/// mlj ???
-//    {
-//        port->State |= PD_RS232_S_CAR;
-//    }
-
-    if ( !(mask & (PD_S_ACQUIRED | PD_S_ACTIVE)) )
-    {
-        watchState &= ~PD_S_ACTIVE;		// Check for low PD_S_ACTIVE
-        mask |=  PD_S_ACTIVE;			// Register interest in PD_S_ACTIVE bit
-        autoActiveBit = true;
-    }
-
-    for (;;)
-    {
-            // Check port state for any interesting bits with watchState value
-            // NB. the '^ ~' is a XNOR and tests for equality of bits.
-			
-        foundStates = (watchState ^ ~port->State) & mask;
-
-        if ( foundStates )
-        {
-            *state = port->State;
-            if ( autoActiveBit && (foundStates & PD_S_ACTIVE) )
-            {
-                rtn = kIOReturnIOError;
-            } else {
-                rtn = kIOReturnSuccess;
-            }
-            break;
-        }
-
-            // Everytime we go around the loop we have to reset the watch mask.
-            // This means any event that could affect the WatchStateMask must
-            // wakeup all watch state threads.  The two events are an interrupt
-            // or one of the bits in the WatchStateMask changing.
-			
-        port->WatchStateMask |= mask;
-
-            // note: Interrupts need to be locked out completely here,
-            // since as assertwait is called other threads waiting on
-            // &port->WatchStateMask will be woken up and spun through the loop.
-            // If an interrupt occurs at this point then the current thread
-            // will end up waiting with a different port state than assumed
-            //  -- this problem was causing dequeueData to wait for a change in
-            // PD_E_RXQ_EMPTY to 0 after an interrupt had already changed it to 0.
-
-        assert_wait( &port->WatchStateMask, true );	// assert event
-
-        IOLockUnlock( port->serialRequestLock );
-        rtn = thread_block( (void(*)(void))0 );		// block ourselves
-        IOLockLock( port->serialRequestLock );
-
-        if ( rtn == THREAD_RESTART )
-        {
-            continue;
-        } else {
-            rtn = kIOReturnIPCError;
-            break;
-        }
-    }
-
-        // As it is impossible to undo the masking used by this
-        // thread, we clear down the watch state mask and wakeup
-        // every sleeping thread to reinitialize the mask before exiting.
-		
-    port->WatchStateMask = 0;
-
-    thread_wakeup_with_result( &port->WatchStateMask, THREAD_RESTART );
-    IOLockUnlock( port->serialRequestLock);
-	
-    return rtn;
-	
-}/* end privateWatchState */
+    
+}/* end message */

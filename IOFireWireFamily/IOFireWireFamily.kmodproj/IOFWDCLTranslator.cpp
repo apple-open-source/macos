@@ -487,7 +487,11 @@ bool IODCLTranslator::init(DCLCommand* toInterpret)
     return true;
 }
 
-IOReturn IODCLTranslator::notify(UInt32 notificationType, DCLCommand** dclCommandList, UInt32 numDCLCommands)
+IOReturn 
+IODCLTranslator :: notify (
+	IOFWDCLNotificationType 	notificationType,
+	DCLCommand ** 				dclCommandList, 
+	UInt32	 					numDCLCommands )
 {
     return kIOReturnSuccess;	// Nothing to do, we're interpreting anyway
 }

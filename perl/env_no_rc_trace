@@ -1,0 +1,4 @@
+#!/bin/sh
+
+unset RC_TRACE_ARCHIVES RC_TRACE_DYLIBS
+exec "$@"

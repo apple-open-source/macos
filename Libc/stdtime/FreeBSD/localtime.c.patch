@@ -1,0 +1,463 @@
+--- localtime.c.orig	Thu Aug  7 18:34:10 2003
++++ localtime.c	Thu Aug  7 16:57:55 2003
+@@ -24,6 +24,18 @@
+ #include <sys/stat.h>
+ #include <fcntl.h>
+ #include <pthread.h>
++#ifdef NOTIFY_TZ
++//#define NOTIFY_TZ_DEBUG
++//#define NOTIFY_TZ_DEBUG_FILE	"/var/log/localtime.debug"
++//#define NOTIFY_TZ_LOG	"/var/log/localtime.log"
++/* force ALL_STATE if NOTIFY_TZ is set */
++#ifndef ALL_STATE
++#define ALL_STATE
++#endif /* ALL_STATE */
++#include <mach/mach_init.h>
++#include <notify.h>
++#include <alloca.h>
++#endif /* NOTIFY_TZ */
+ #include "private.h"
+ #include "un-namespace.h"
+ 
+@@ -119,6 +131,16 @@
+ #define DAY_OF_YEAR		1	/* n - day of year */
+ #define MONTH_NTH_DAY_OF_WEEK	2	/* Mm.n.d - month, week, day of week */
+ 
++#ifdef NOTIFY_TZ
++typedef struct {
++	int token;
++	int notify_was_off;
++	int is_set;
++} notify_tz_t;
++
++#define NOTIFY_TZ_NAME		"com.apple.system.timezone"
++#endif /* NOTIFY_TZ */
++
+ /*
+ ** Prototypes for static functions.
+ */
+@@ -138,6 +160,10 @@
+ static int		increment_overflow(int * number, int delta);
+ static int		normalize_overflow(int * tensptr, int * unitsptr,
+ 				int base);
++#ifdef NOTIFY_TZ
++static void		notify_check_tz(notify_tz_t *p);
++static void		notify_register_tz(char *file, notify_tz_t *p);
++#endif /* NOTIFY_TZ */
+ static void		settzname(void);
+ static time_t		time1(struct tm * tmp,
+ 				void(*funcp) (const time_t *,
+@@ -174,8 +200,13 @@
+ #endif /* !defined TZ_STRLEN_MAX */
+ 
+ static char		lcl_TZname[TZ_STRLEN_MAX + 1];
++#ifdef NOTIFY_TZ
++#define lcl_is_set	(lcl_notify.is_set)
++#define gmt_is_set	(gmt_notify.is_set)
++#else /* ! NOTIFY_TZ */
+ static int		lcl_is_set;
+ static int		gmt_is_set;
++#endif /* NOTIFY_TZ */
+ static pthread_mutex_t	lcl_mutex = PTHREAD_MUTEX_INITIALIZER;
+ static pthread_mutex_t	gmt_mutex = PTHREAD_MUTEX_INITIALIZER;
+ 
+@@ -203,6 +234,50 @@
+ time_t			altzone = 0;
+ #endif /* defined ALTZONE */
+ 
++#ifdef NOTIFY_TZ
++#ifdef NOTIFY_TZ_DEBUG
++#ifdef NOTIFY_TZ_DEBUG_FILE
++#define NOTIFY_TZ_PRINTF(fmt, args...)	\
++{ \
++	FILE *_notify_tz_fp_; \
++	if((_notify_tz_fp_ = fopen(NOTIFY_TZ_DEBUG_FILE, "a")) != NULL) { \
++		fprintf(_notify_tz_fp_, "%d: " fmt, getpid(), ## args); \
++		fclose(_notify_tz_fp_); \
++	} \
++}
++#else /* ! NOTIFY_TZ_DEBUG_FILE */
++#define NOTIFY_TZ_PRINTF(args...)	fprintf(stdout, ## args)
++#endif /* NOTIFY_TZ_DEBUG_FILE */
++#endif /* NOTIFY_TZ_DEBUG */
++#ifdef NOTIFY_TZ_LOG
++#define NOTIFY_LOG(fmt, args...)	\
++{ \
++	FILE *_notify_log_fp_; \
++	if((_notify_log_fp_ = fopen(NOTIFY_TZ_LOG, "a")) != NULL) { \
++		fprintf(_notify_log_fp_, "%d: " fmt, getpid(), ## args); \
++		fclose(_notify_log_fp_); \
++	} \
++}
++#endif /* NOTIFY_TZ_LOG */
++/*--------------------------------------------------------------------
++ * __notify_78945668_info__ is a global variable (defined in Libnotify)
++ * that can be used to disable the notify mechanism.  Set to a negative
++ * value to disable.  It can then be set back to zero to re-enable.
++ *-------------------------------------------------------------------- */
++extern int		__notify_78945668_info__;
++
++/*--------------------------------------------------------------------
++ * fullname is used to pass the actual path of the timezone file to the
++ * notify routines.  If it is a nil string, that means no timezone file
++ * is being used.
++ *-------------------------------------------------------------------- */
++static char *		fullname = NULL;
++
++static notify_tz_t	gmt_notify = {-1, 0, 0};
++static notify_tz_t	lcl_notify = {-1, 0, 0};
++static char		notify_tz_name[] = NOTIFY_TZ_NAME;
++#endif /* NOTIFY_TZ */
++
+ static long
+ detzcode(codep)
+ const char * const	codep;
+@@ -233,7 +308,7 @@
+ #endif /* defined ALTZONE */
+ #ifdef ALL_STATE
+ 	if (sp == NULL) {
+-		tzname[0] = tzname[1] = gmt;
++		tzname[0] = tzname[1] = (char *)gmt;
+ 		return;
+ 	}
+ #endif /* defined ALL_STATE */
+@@ -266,6 +341,117 @@
+ 	}
+ }
+ 
++#ifdef NOTIFY_TZ
++static void
++notify_check_tz(notify_tz_t *p)
++{
++	unsigned int nstat;
++	int ncheck;
++
++	if (__notify_78945668_info__ < 0) {
++#ifdef NOTIFY_TZ_DEBUG
++		if(!p->notify_was_off) NOTIFY_TZ_PRINTF("notify_check_tz: setting %s_notify->notify_was_off\n", (p == &lcl_notify ? "lcl" : "gmt"));
++#endif /* NOTIFY_TZ_DEBUG */
++		p->notify_was_off = 1;
++		return;
++	}
++	/* force rereading the timezone file if notify was off */
++	if (p->notify_was_off) {
++#ifdef NOTIFY_TZ_DEBUG
++		NOTIFY_TZ_PRINTF("notify_check_tz: saw %s_notify->notify_was_off\n", (p == &lcl_notify ? "lcl" : "gmt"));
++#endif /* NOTIFY_TZ_DEBUG */
++		p->is_set = 0;
++		p->notify_was_off = 0;
++		return;
++	}
++	if (p->token < 0)
++		return;
++	nstat = notify_check(p->token, &ncheck);
++	if (nstat || ncheck) {
++		p->is_set = 0;
++#ifdef NOTIFY_TZ_DEBUG
++		NOTIFY_TZ_PRINTF("notify_check_tz: %s changed\n", (p == &lcl_notify) ? "lcl" : "gmt");
++#endif /* NOTIFY_TZ_DEBUG */
++	}
++#ifdef NOTIFY_TZ_DEBUG
++		NOTIFY_TZ_PRINTF("notify_check_tz: %s unchanged\n", (p == &lcl_notify) ? "lcl" : "gmt");
++#endif /* NOTIFY_TZ_DEBUG */
++}
++
++static void
++notify_register_tz(char *file, notify_tz_t *p)
++{
++	char *name;
++	unsigned int nstat;
++	int ncheck;
++
++	if (__notify_78945668_info__ < 0)
++		return;
++	/*----------------------------------------------------------------
++	 * Since we don't record the last time zone filename, just cancel
++	 * (which should remove the file monitor) and setup from scratch
++	 *----------------------------------------------------------------*/
++	if (p->token >= 0)
++		notify_cancel(p->token);
++	if (*file == 0) {
++		/* no time zone file to monitor */
++		p->token = -1;
++		return;
++	}
++	/*----------------------------------------------------------------
++	 * Just use com.apple.system.timezone if the path is /etc/localtime.
++	 * Otherwise use com.apple.system.timezone.<fullpath>
++	 *----------------------------------------------------------------*/
++	if (TZDEFAULT && strcmp(file, TZDEFAULT) == 0)
++		name = notify_tz_name;
++	else {
++		name = alloca(sizeof(notify_tz_name) + strlen(file) + 1);
++		if (name == NULL) {
++			p->token = -1;
++			return;
++		}
++		strcpy(name, notify_tz_name);
++		strcat(name, ".");
++		strcat(name, file);
++	}
++#ifdef NOTIFY_TZ_DEBUG
++	NOTIFY_TZ_PRINTF("notify_register_tz: file=%s name=%s\n", file, name);
++#endif /* NOTIFY_TZ_DEBUG */
++	nstat = notify_register_check(name, &p->token);
++	if (nstat != 0) {
++		p->token = -1;
++		p->is_set = 0;
++#ifdef NOTIFY_TZ_DEBUG
++		NOTIFY_TZ_PRINTF("***notify_register_tz: notify_register_check failed: %u\n", nstat);
++#endif /* NOTIFY_TZ_DEBUG */
++#ifdef NOTIFY_TZ_LOG
++		NOTIFY_LOG("notify_register_check(%s) failed: %u\n", name, nstat);
++#endif /* NOTIFY_TZ_LOG */
++		return;
++	}
++	/* don't need to request monitoring /etc/localtime */
++	if (name != notify_tz_name) {
++#ifdef NOTIFY_TZ_DEBUG
++		NOTIFY_TZ_PRINTF("notify_register_tz: monitor %s\n", file);
++#endif /* NOTIFY_TZ_DEBUG */
++		nstat = notify_monitor_file(p->token, file, 0);
++		if (nstat != 0) {
++			notify_cancel(p->token);
++			p->token = -1;
++			p->is_set = 0;
++#ifdef NOTIFY_TZ_DEBUG
++			NOTIFY_TZ_PRINTF("***notify_register_tz: notify_monitor_file failed: %u\n", nstat);
++#endif /* NOTIFY_TZ_DEBUG */
++#ifdef NOTIFY_TZ_LOG
++			NOTIFY_LOG("notify_monitor_file(%s) failed: %u\n", file, nstat);
++#endif /* NOTIFY_TZ_LOG */
++			return;
++		}
++	}
++	notify_check(p->token, &ncheck);	/* this always returns true */
++}
++#endif /* NOTIFY_TZ */
++
+ static int
+ tzload(name, sp)
+ const char *		name;
+@@ -275,6 +461,9 @@
+ 	int		i;
+ 	int		fid;
+ 
++#ifdef NOTIFY_TZ_DEBUG
++	NOTIFY_TZ_PRINTF("tzload: name=%s\n", name);
++#endif /* NOTIFY_TZ_DEBUG */
+ 	/* XXX The following is from OpenBSD, and I'm not sure it is correct */
+ 	if (name != NULL && issetugid() != 0)
+ 		if ((name[0] == ':' && name[1] == '/') || 
+@@ -292,7 +481,15 @@
+ 		** to hold the longest file name string that the implementation
+ 		** guarantees can be opened."
+ 		*/
++#ifdef NOTIFY_TZ
++		if (!fullname) {
++			fullname = malloc(FILENAME_MAX + 1);
++			if (!fullname)
++				return -1;
++		}
++#else /* ! NOTIFY_TZ */
+ 		char		fullname[FILENAME_MAX + 1];
++#endif /* NOTIFY_TZ */
+ 
+ 		if (name[0] == ':')
+ 			++name;
+@@ -300,7 +497,11 @@
+ 		if (!doaccess) {
+ 			if ((p = TZDIR) == NULL)
+ 				return -1;
++#ifdef NOTIFY_TZ
++			if ((strlen(p) + 1 + strlen(name) + 1) >= (FILENAME_MAX + 1))
++#else /* ! NOTIFY_TZ */
+ 			if ((strlen(p) + 1 + strlen(name) + 1) >= sizeof fullname)
++#endif /* NOTIFY_TZ */
+ 				return -1;
+ 			(void) strcpy(fullname, p);
+ 			(void) strcat(fullname, "/");
+@@ -312,6 +513,10 @@
+ 				doaccess = TRUE;
+ 			name = fullname;
+ 		}
++#ifdef NOTIFY_TZ
++		else
++			strcpy(fullname, name);
++#endif /* NOTIFY_TZ */
+ 		if (doaccess && access(name, R_OK) != 0)
+ 		     	return -1;
+ 		if ((fid = _open(name, OPEN_MODE)) == -1)
+@@ -327,6 +532,9 @@
+ 		int		ttisstdcnt;
+ 		int		ttisgmtcnt;
+ 
++#ifdef NOTIFY_TZ_DEBUG
++		NOTIFY_TZ_PRINTF("tzload: reading %s\n", name);
++#endif /* NOTIFY_TZ_DEBUG */
+ 		i = _read(fid, buf, sizeof buf);
+ 		if (_close(fid) != 0)
+ 			return -1;
+@@ -748,6 +956,9 @@
+ 		}
+ 	}
+ 	load_result = tzload(TZDEFRULES, sp);
++#ifdef NOTIFY_TZ
++	*fullname = 0;				/* mark fullname as invalid */
++#endif /* NOTIFY_TZ */
+ 	if (load_result != 0)
+ 		sp->leapcnt = 0;		/* so, we're off a little */
+ 	if (*name != '\0') {
+@@ -934,8 +1145,19 @@
+ static void
+ tzsetwall_basic(void)
+ {
++#ifdef NOTIFY_TZ
++	notify_check_tz(&lcl_notify);
++#endif /* NOTIFY_TZ */
++#ifdef NOTIFY_TZ_DEBUG
++	if (lcl_is_set < 0) {
++		NOTIFY_TZ_PRINTF("tzsetwall_basic lcl_is_set < 0\n");
++		return;
++	}
++	NOTIFY_TZ_PRINTF("tzsetwall_basic not set\n");
++#else /* ! NOTIFY_TZ_DEBUG */
+ 	if (lcl_is_set < 0)
+ 		return;
++#endif /* NOTIFY_TZ_DEBUG */
+ 	lcl_is_set = -1;
+ 
+ #ifdef ALL_STATE
+@@ -949,12 +1171,18 @@
+ #endif /* defined ALL_STATE */
+ 	if (tzload((char *) NULL, lclptr) != 0)
+ 		gmtload(lclptr);
++#ifdef NOTIFY_TZ
++	notify_register_tz(fullname, &lcl_notify);
++#endif /* NOTIFY_TZ */
+ 	settzname();
+ }
+ 
+ void
+ tzsetwall(void)
+ {
++#ifdef NOTIFY_TZ_DEBUG
++	NOTIFY_TZ_PRINTF("tzsetwall called\n");
++#endif /* NOTIFY_TZ_DEBUG */
+ 	_MUTEX_LOCK(&lcl_mutex);
+ 	tzsetwall_basic();
+ 	_MUTEX_UNLOCK(&lcl_mutex);
+@@ -971,8 +1199,19 @@
+ 		return;
+ 	}
+ 
++#ifdef NOTIFY_TZ
++	notify_check_tz(&lcl_notify);
++#endif /* NOTIFY_TZ */
++#ifdef NOTIFY_TZ_DEBUG
++	if (lcl_is_set > 0  &&  strcmp(lcl_TZname, name) == 0) {
++		NOTIFY_TZ_PRINTF("tzset_basic matched %s\n", lcl_TZname);
++		return;
++	}
++	NOTIFY_TZ_PRINTF("tzset_basic didn't matched %s\n", lcl_TZname);
++#else /* ! NOTIFY_TZ_DEBUG */
+ 	if (lcl_is_set > 0  &&  strcmp(lcl_TZname, name) == 0)
+ 		return;
++#endif /* NOTIFY_TZ_DEBUG */
+ 	lcl_is_set = (strlen(name) < sizeof(lcl_TZname));
+ 	if (lcl_is_set)
+ 		(void) strcpy(lcl_TZname, name);
+@@ -995,15 +1234,24 @@
+ 		lclptr->ttis[0].tt_gmtoff = 0;
+ 		lclptr->ttis[0].tt_abbrind = 0;
+ 		(void) strcpy(lclptr->chars, gmt);
++#ifdef NOTIFY_TZ
++		*fullname = 0;
++#endif /* NOTIFY_TZ */
+ 	} else if (tzload(name, lclptr) != 0)
+ 		if (name[0] == ':' || tzparse(name, lclptr, FALSE) != 0)
+ 			(void) gmtload(lclptr);
++#ifdef NOTIFY_TZ
++	notify_register_tz(fullname, &lcl_notify);
++#endif /* NOTIFY_TZ */
+ 	settzname();
+ }
+ 
+ void
+ tzset(void)
+ {
++#ifdef NOTIFY_TZ_DEBUG
++	NOTIFY_TZ_PRINTF("tzset called TZ=%s\n", getenv("TZ"));
++#endif /* NOTIFY_TZ_DEBUG */
+ 	_MUTEX_LOCK(&lcl_mutex);
+ 	tzset_basic();
+ 	_MUTEX_UNLOCK(&lcl_mutex);
+@@ -1030,6 +1278,9 @@
+ 	int			i;
+ 	const time_t			t = *timep;
+ 
++#ifdef NOTIFY_TZ_DEBUG
++	NOTIFY_TZ_PRINTF("localsub called\n");
++#endif /* NOTIFY_TZ_DEBUG */
+ 	sp = lclptr;
+ #ifdef ALL_STATE
+ 	if (sp == NULL) {
+@@ -1087,7 +1338,7 @@
+ 
+ 	if (__isthreaded != 0) {
+ 		_pthread_mutex_lock(&localtime_mutex);
+-		if (localtime_key < 0) {
++		if (localtime_key == (pthread_key_t)-1) {
+ 			if (_pthread_key_create(&localtime_key, free) < 0) {
+ 				_pthread_mutex_unlock(&localtime_mutex);
+ 				return(NULL);
+@@ -1123,14 +1374,30 @@
+ const long		offset;
+ struct tm * const	tmp;
+ {
++#ifdef NOTIFY_TZ_DEBUG
++	NOTIFY_TZ_PRINTF("gmtsub called\n");
++#endif /* NOTIFY_TZ_DEBUG */
+ 	_MUTEX_LOCK(&gmt_mutex);
++#ifdef NOTIFY_TZ
++	notify_check_tz(&gmt_notify);
++#endif /* NOTIFY_TZ */
+ 	if (!gmt_is_set) {
+ 		gmt_is_set = TRUE;
+ #ifdef ALL_STATE
+-		gmtptr = (struct state *) malloc(sizeof *gmtptr);
++#ifdef NOTIFY_TZ
++		if (gmtptr == NULL)
++#endif /* NOTIFY_TZ */
++			gmtptr = (struct state *) malloc(sizeof *gmtptr);
+ 		if (gmtptr != NULL)
++#ifdef NOTIFY_TZ
++		{
++#endif /* NOTIFY_TZ */
+ #endif /* defined ALL_STATE */
+ 			gmtload(gmtptr);
++#ifdef NOTIFY_TZ
++			notify_register_tz(fullname, &gmt_notify);
++		}
++#endif /* NOTIFY_TZ */
+ 	}
+ 	_MUTEX_UNLOCK(&gmt_mutex);
+ 	timesub(timep, offset, gmtptr, tmp);
+@@ -1145,7 +1412,7 @@
+ 	else {
+ #ifdef ALL_STATE
+ 		if (gmtptr == NULL)
+-			tmp->TM_ZONE = gmt;
++			tmp->TM_ZONE = (char *)gmt;
+ 		else	tmp->TM_ZONE = gmtptr->chars;
+ #endif /* defined ALL_STATE */
+ #ifndef ALL_STATE
+@@ -1165,7 +1432,7 @@
+ 
+ 	if (__isthreaded != 0) {
+ 		_pthread_mutex_lock(&gmtime_mutex);
+-		if (gmtime_key < 0) {
++		if (gmtime_key == (pthread_key_t)-1) {
+ 			if (_pthread_key_create(&gmtime_key, free) < 0) {
+ 				_pthread_mutex_unlock(&gmtime_mutex);
+ 				return(NULL);

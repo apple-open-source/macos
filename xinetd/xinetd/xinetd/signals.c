@@ -35,17 +35,6 @@
 #include "reconfig.h"
 #include "internals.h"
 
-static void my_handler( int sig );
-static void general_handler( int sig );
-
-typedef void sigfunc( int );
-
-#define SIGSET_NULL            ((sigset_t *)0)
-#define SIGVEC_NULL            ((struct sigvec *)0)
-#define SIGACTION_NULL         ((struct sigaction *)0)
-
-#ifdef NO_POSIX_SIGS
-
 #ifdef NO_POSIX_TYPES
 /*
  * XXX:   here we assume that in the case that NO_POSIX_TYPES is not defined
@@ -63,6 +52,21 @@ struct sigaction
 } ;
 #endif   /* NO_POSIX_TYPES */
 
+static void my_handler( int sig );
+static void general_handler( int sig );
+#ifndef NO_POSIX_SIGS
+/* We only include this function if the system really supports posix
+ * signals so we can get some debug information */
+static void mem_fault_handler( int sig, siginfo_t * siginfo, void *context );
+#endif
+typedef void sigfunc( int );
+
+#define SIGSET_NULL            ((sigset_t *)0)
+#define SIGVEC_NULL            ((struct sigvec *)0)
+#define SIGACTION_NULL         ((struct sigaction *)0)
+
+
+#ifdef NO_POSIX_SIGS
 #ifdef NO_SIGVEC
 #define sigmask( sig )                  ( 1 << ( (sig) -1 ) )
 typedef int (*sighandler_type)() ;
@@ -70,12 +74,10 @@ typedef int (*sighandler_type)() ;
 #define sigsetmask( x )
 #endif   /* NO_SIGVEC */
 
-
 #define sigsuspend( set )               sigpause( *set )
 #define sigemptyset( set )              (*set) = 0
 #define sigaddset( set, sig )           ( ( (*set) |= sigmask( sig ) ), 0 )
 #define sigismember( set, sig )         ( ( (*set) & sigmask( sig ) ) != 0 )
-
 
 /*
  * Only works for SIG_SETMASK and SIG_UNBLOCK. Also oset must be NULL.
@@ -157,7 +159,6 @@ static sigset_t reset_sigs ;
 static int nsig ;
 
 
-
 /*
  * When this function returns FAILED, we check the errno to determine
  * if it failed because the signal number specified was invalid.
@@ -167,6 +168,8 @@ static status_e handle_signal( int sig )
 {
    struct sigaction      sa ;
    sigfunc              *sig_handler ;
+
+   sa.sa_flags = 0 ;
 
    switch ( sig )
    {
@@ -207,12 +210,20 @@ static status_e handle_signal( int sig )
        * xinetd (i.e. DEBUG is defined) and we are not debugging the
        * signal recovery code (i.e. DEBUG_SIGNALS is not defined).
        */
-#if defined( DEBUG ) && !defined( DEBUG_SIGNALS )
       case SIGSEGV:
       case SIGBUS:
+#if defined( DEBUG ) && !defined( DEBUG_SIGNALS )
          return( OK ) ;
+#else
+#ifdef NO_POSIX_SIGS
+         sig_handler = general_handler ;
+#else
+         sa.sa_sigaction= mem_fault_handler ;
+         sig_handler = NULL ;
+         sa.sa_flags = SA_SIGINFO ;
 #endif
-
+         break;
+#endif
       case SIGTRAP:
          if ( debug.on )
             return( OK ) ;
@@ -221,12 +232,11 @@ static status_e handle_signal( int sig )
          sig_handler = general_handler ;
    }
 
-   sa.sa_flags = 0 ;
    sigemptyset( &sa.sa_mask ) ;
-   sa.sa_handler = sig_handler ;
+   if ( sig_handler )
+      sa.sa_handler = sig_handler ;
    return( ( sigaction( sig, &sa, SIGACTION_NULL ) == -1 ) ? FAILED : OK ) ;
 }
-
 
 
 /*
@@ -332,6 +342,64 @@ static void bad_signal(void)
       interval_signal_count = 1 ;
    }
 }
+#ifndef NO_POSIX_SIGS
+/* If a SEGV or BUS fault occur, output some basic debug information */
+static void mem_fault_handler( int sig, siginfo_t * siginfo, void *context )
+{
+   if (sig == SIGSEGV || sig == SIGBUS)
+   {
+      const char *func = "mem_fault_handler";
+      msg(LOG_CRIT, func, "Address of fault: %p", siginfo->si_addr);
+      if (siginfo->si_errno)
+         msg(LOG_CRIT, func, "si_errno: %s", strerror(siginfo->si_errno));
+
+      switch (sig) {
+         case SIGSEGV:
+            switch (siginfo->si_code) {
+#ifdef SEGV_MAPERR
+               case SEGV_MAPERR:
+                  msg(LOG_CRIT, func, "address is not mapped for object");
+                  break;
+#endif
+#ifdef SEGV_ACCERR
+               case SEGV_ACCERR:
+                  msg(LOG_CRIT, func, 
+			     "invalid permissions for mapped object");
+                  break;
+#endif
+               default:
+                  msg(LOG_CRIT, func, "unknown fault code %d",siginfo->si_code);
+            }
+            break;
+
+         case SIGBUS:
+            switch(siginfo->si_code) {
+#ifdef BUS_ADRALN
+               case BUS_ADRALN:
+                  msg(LOG_CRIT, func, "invalid address alignment");
+                  break;
+#endif
+#ifdef BUS_ADRERR
+               case BUS_ADRERR:
+                  msg(LOG_CRIT, func, "nonexistent physical address");
+                  break;
+#endif
+#ifdef BUS_OBJERR
+               case BUS_OBJERR:
+                  msg(LOG_CRIT, func, "object-specific hardware error");
+                  break;
+#endif
+               default:
+                  msg(LOG_CRIT, func, "unknown fault code %d",siginfo->si_code);
+            }
+            break;
+      }
+   }
+
+   /* Now call old function for handling */
+   general_handler( sig );
+}
+#endif /* NO_POSIX_SIGS */
 
 char *sig_name( int sig )
 {
@@ -377,7 +445,8 @@ static void general_handler( int sig )
    {
       case SIGBUS:
       case SIGSEGV:
-         msg( LOG_CRIT, func, "(%d) Unexpected signal: %s", getpid(), sig_name( sig ) ) ;
+         msg( LOG_CRIT, func, "(%d) Unexpected signal: %s", 
+                        getpid(), sig_name( sig ) ) ;
          if ( debug.on )
 	 {
 	    /* Generate a core dump */
@@ -403,8 +472,13 @@ static void general_handler( int sig )
 static void my_handler( int sig )
 {
    int ret_val;
+   int saved_errno = errno;
 #if NSIG < 256
    unsigned char sig_byte;
+#ifdef __APPLE__
+   if (sig == SIGTERM)
+      _exit(0);
+#endif
    if (signals_pending[1] < 0) return;
    if (sig >= 256) return;
    sig_byte = sig;
@@ -419,6 +493,7 @@ static void my_handler( int sig )
       ret_val = write(signals_pending[1], &sig, sizeof(int));
    } while (ret_val == -1 && errno == EINTR);
 #endif
+   errno = saved_errno;
 }
 
 
@@ -490,6 +565,9 @@ void check_pipe(void)
          case STATE_DUMP_SIG:        dump_internal_state();  break;
          case CONSISTENCY_CHECK_SIG: user_requested_check(); break;
          case QUIT_SIG:              quit_program();         break;
+         default:
+            msg(LOG_ERR, func, "unexpected signal: %s in signal pipe", 
+               sig_name(sig));
       }
    }
 }

@@ -1,11 +1,11 @@
 
-#import <unistd.h>
-#import <stdlib.h>
-#import <stdio.h>
-#import <sys/types.h>
-#import <strings.h>
+#include <unistd.h>
+#include <stdlib.h>
+#include <stdio.h>
+#include <sys/types.h>
+#include <strings.h>
 
-#import "ptrlist.h"
+#include "ptrlist.h"
 
 #ifdef TESTING
 #define DEBUG

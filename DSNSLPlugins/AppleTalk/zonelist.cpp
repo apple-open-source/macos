@@ -1,3 +1,32 @@
+/*
+ * Copyright (c) 2002 Apple Computer, Inc. All rights reserved.
+ *
+ * @APPLE_LICENSE_HEADER_START@
+ * 
+ * Copyright (c) 1999-2003 Apple Computer, Inc.  All Rights Reserved.
+ * 
+ * This file contains Original Code and/or Modifications of Original Code
+ * as defined in and that are subject to the Apple Public Source License
+ * Version 2.0 (the 'License'). You may not use this file except in
+ * compliance with the License. Please obtain a copy of the License at
+ * http://www.opensource.apple.com/apsl/ and read it before using this
+ * file.
+ * 
+ * The Original Code and all software distributed under the License are
+ * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
+ * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
+ * INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY,
+ * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
+ * Please see the License for the specific language governing rights and
+ * limitations under the License.
+ * 
+ * @APPLE_LICENSE_HEADER_END@
+ */
+ 
+/*!
+ *  @header zonelist
+ */
+ 
 #include <NSLSemaphore.h>
 #include "zonelist.h"
 
@@ -5,10 +34,9 @@ static NSLSemaphore *sNSLSemaphore = NULL;
 
 int ZIPGetZoneList(int lookupType, char *buffer, int bufferSize, long *actualCount)
 {
-//	static u_char	zonebuf[ATP_DATA_SIZE+1];
-    static u_char	zonebuf[sizeof(Str32)];
+    static u_char	zonebuf[ATP_DATA_SIZE+1];	// for zip_getzonelist call, must be at least ATP_DATA_SIZE+1 bytes in length
     u_char			*start, *end, save;
-	int             i, j, n;
+	int             i, j, n=-1;
     UInt16			len;
 	long		entryCount = 0;
 	Str32		*currStr = (Str32 *) buffer;
@@ -38,19 +66,16 @@ int ZIPGetZoneList(int lookupType, char *buffer, int bufferSize, long *actualCou
         switch( lookupType )
         {
             case LOOKUP_ALL:
-                n = zip_getzonelist( ZIP_DEF_INTERFACE, &i, zonebuf, sizeof(Str32) );
+                n = zip_getzonelist( ZIP_DEF_INTERFACE, &i, zonebuf, sizeof(zonebuf) );
                 break;
             
             case LOOKUP_LOCAL:
-                n = zip_getlocalzones( ZIP_DEF_INTERFACE, &i, zonebuf, sizeof(Str32) );
+                n = zip_getlocalzones( ZIP_DEF_INTERFACE, &i, zonebuf, sizeof(zonebuf) );
                 break;
                 
             case LOOKUP_CURRENT:
                 // these calls require an interface name.
-                // do not use ZIP_DEF_INTERFACE 
-//                n = zip_getmyzone( "en0", &aZone );
                 n = zip_getmyzone( ZIP_DEF_INTERFACE, &aZone );
-                //n = at_getdefaultzone( "en0", &aZone );
                 DBGLOG( "zip_getmyzone = %d\n",n );
                 break;
         }
@@ -60,7 +85,7 @@ int ZIPGetZoneList(int lookupType, char *buffer, int bufferSize, long *actualCou
         if (n == -1)
         {
             DBGLOG( "zip_getzonelist failed\n" );
-            return (-1);				// got an error, so punt
+            return (-1);				// got an error
         }
         
         // handle the zip_getmyzone case
@@ -73,7 +98,7 @@ int ZIPGetZoneList(int lookupType, char *buffer, int bufferSize, long *actualCou
             return 0;
         }
         
-        if ((entryCount + n) > maxCount)		// dont overrun their buffer
+        if ((entryCount + n) > maxCount)		// don't overrun their buffer
         {
             n = maxCount - entryCount;		// fit in as many entries as we can
             if (n <= 0) {				// if no more will fit, then skip out to do the sort
@@ -102,29 +127,9 @@ int ZIPGetZoneList(int lookupType, char *buffer, int bufferSize, long *actualCou
 
     } while (n != -1 && i != ZIP_NO_MORE_ZONES);
 
-#if 0
-    currStr = (Str32 *) buffer;
-    for (j = 0; j < entryCount; j++)
-    {
-        fprintf (stderr, "Entry %d, <%s>\n", j, (char*) currStr);
-        currStr++;
-    }
-#endif
+//    qsort(buffer, entryCount, sizeof (Str32), my_strcmp);
 
-    qsort(buffer, entryCount, sizeof (Str32), my_strcmp);
-
-
-#if 0
-    currStr = buffer;
-    for (j = 0; j < entryCount; j++)
-    {
-        fprintf (stderr, "Entry %d, <%s>\n", j, (char*) currStr);
-        currStr++;
-    }
-#endif
     *actualCount = entryCount;
 
     return(result);
 }
-
-

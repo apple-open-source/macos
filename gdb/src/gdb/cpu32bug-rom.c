@@ -28,6 +28,8 @@
 #include "serial.h"
 #include "regcache.h"
 
+#include "m68k-tdep.h"
+
 static void cpu32bug_open (char *args, int from_tty);
 
 static void
@@ -53,12 +55,12 @@ cpu32bug_supply_register (char *regname, int regnamelen, char *val, int vallen)
     case 'D':
       if (regname[1] < '0' || regname[1] > '7')
 	return;
-      regno = regname[1] - '0' + D0_REGNUM;
+      regno = regname[1] - '0' + M68K_D0_REGNUM;
       break;
     case 'A':
       if (regname[1] < '0' || regname[1] > '7')
 	return;
-      regno = regname[1] - '0' + A0_REGNUM;
+      regno = regname[1] - '0' + M68K_A0_REGNUM;
       break;
     default:
       return;
@@ -74,12 +76,22 @@ cpu32bug_supply_register (char *regname, int regnamelen, char *val, int vallen)
  * registers either. So, typing "info reg sp" becomes an "A7".
  */
 
-static char *cpu32bug_regnames[NUM_REGS] =
+static const char *
+cpu32bug_regname (int index)
 {
-  "D0", "D1", "D2", "D3", "D4", "D5", "D6", "D7",
-  "A0", "A1", "A2", "A3", "A4", "A5", "A6", "A7",
-  "SR", "PC",
-};
+  static char *regnames[] =
+  {
+    "D0", "D1", "D2", "D3", "D4", "D5", "D6", "D7",
+    "A0", "A1", "A2", "A3", "A4", "A5", "A6", "A7",
+    "SR", "PC"
+  };
+
+  if ((index >= (sizeof (regnames) / sizeof (regnames[0]))) 
+       || (index < 0) || (index >= NUM_REGS))
+    return NULL;
+  else
+    return regnames[index];
+}
 
 /*
  * Define the monitor command strings. Since these are passed directly
@@ -139,7 +151,8 @@ init_cpu32bug_cmds (void)
   cpu32bug_cmds.cmd_end = NULL;	/* optional command terminator */
   cpu32bug_cmds.target = &cpu32bug_ops;		/* target operations */
   cpu32bug_cmds.stopbits = SERIAL_1_STOPBITS;	/* number of stop bits */
-  cpu32bug_cmds.regnames = cpu32bug_regnames;	/* registers names */
+  cpu32bug_cmds.regnames = NULL;	/* registers names */
+  cpu32bug_cmds.regname = cpu32bug_regname;
   cpu32bug_cmds.magic = MONITOR_OPS_MAGIC;	/* magic */
 };				/* init_cpu32bug_cmds */
 

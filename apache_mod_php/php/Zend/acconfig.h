@@ -1,7 +1,9 @@
 #define ZEND_API
 #define ZEND_DLEXPORT
 
+#ifndef NETWARE
 @TOP@
+#endif
 
 #undef uint
 #undef ulong
@@ -9,7 +11,9 @@
 /* Define if you want to enable memory limit support */
 #define MEMORY_LIMIT 0
 
+#ifndef NETWARE
 @BOTTOM@
+#endif
 
 #ifdef HAVE_STDLIB_H
 # include <stdlib.h>
@@ -37,6 +41,7 @@ int zend_sprintf(char *buffer, const char *format, ...);
 
 #include <math.h>
 
+#ifndef zend_isnan
 #ifdef HAVE_ISNAN
 #define zend_isnan(a) isnan(a)
 #elif defined(NAN)
@@ -45,6 +50,7 @@ int zend_sprintf(char *buffer, const char *format, ...);
 #define zend_isnan(a) ((fpclass(a) == FP_SNAN) || (fpclass(a) == FP_QNAN))
 #else
 #define zend_isnan(a) 0
+#endif
 #endif
 
 #ifdef HAVE_ISINF

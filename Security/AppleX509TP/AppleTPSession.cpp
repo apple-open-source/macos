@@ -21,6 +21,10 @@
  */
 
 #include "AppleTPSession.h"
+#include "TPCertInfo.h"
+#include "TPCrlInfo.h"
+#include "tpCrlVerify.h"
+#include "tpdebugging.h"
 
 AppleTPSession::AppleTPSession(
 	CSSM_MODULE_HANDLE theHandle,
@@ -33,22 +37,10 @@ AppleTPSession::AppleTPSession(
 		: TPPluginSession(theHandle, plug, version, subserviceId, 
 							subserviceType,attachFlags, upcalls)
 {
-	/* TBD session stuff here...
-	mCspHand = CSSM_INVALID_HANDLE;
-	mCspDlHand = CSSM_INVALID_HANDLE;
-	...*/
 }
 
 AppleTPSession::~AppleTPSession()
 {
-	/* TBD 
-	if(mCspHand != CSSM_INVALID_HANDLE) {
-		CSSM_ModuleDetach(mCspHand); 
-	}
-	if(mCspDlHand != CSSM_INVALID_HANDLE) {
-		CSSM_ModuleDetach(mCspDlHand); 
-	}
-	*/
 }
 
 void AppleTPSession::CertCreateTemplate(CSSM_CL_HANDLE CLHandle,
@@ -63,10 +55,100 @@ void AppleTPSession::CrlVerify(CSSM_CL_HANDLE CLHandle,
 		CSSM_CSP_HANDLE CSPHandle,
 		const CSSM_ENCODED_CRL &CrlToBeVerified,
 		const CSSM_CERTGROUP &SignerCertGroup,
-		const CSSM_TP_VERIFY_CONTEXT &VerifyContext,
-		CSSM_TP_VERIFY_CONTEXT_RESULT &RevokerVerifyResult)
+		const CSSM_TP_VERIFY_CONTEXT *VerifyContext,
+		CSSM_TP_VERIFY_CONTEXT_RESULT *RevokerVerifyResult)
 {
-	CssmError::throwMe(CSSM_ERRCODE_FUNCTION_NOT_IMPLEMENTED);
+	/* verify input args */
+	if(RevokerVerifyResult != NULL) {
+		/* not yet, but probably someday */
+		CssmError::throwMe(CSSMERR_TP_INVALID_REQUEST_INPUTS);
+	}
+	switch(CrlToBeVerified.CrlType) {
+		case CSSM_CRL_TYPE_X_509v1:
+		case CSSM_CRL_TYPE_X_509v2:
+			break;
+		default:
+			CssmError::throwMe(CSSMERR_TP_INVALID_CRL_TYPE);
+	}
+	switch(CrlToBeVerified.CrlEncoding) {
+		case CSSM_CRL_ENCODING_BER:
+		case CSSM_CRL_ENCODING_DER:
+			break;
+		default:
+			CssmError::throwMe(CSSMERR_TP_INVALID_CRL_ENCODING);
+	}
+	
+	/* optional arguments */
+	CSSM_TIMESTRING						cssmTimeStr = NULL;
+	const CSSM_TP_CALLERAUTH_CONTEXT 	*cred = NULL;
+	uint32 								NumberOfAnchorCerts = 0;
+	CSSM_DATA_PTR 						AnchorCerts = NULL;
+	CSSM_DL_DB_LIST_PTR 				DBList = NULL;
+	CSSM_APPLE_TP_ACTION_FLAGS			actionFlags = 0;
+	CSSM_APPLE_TP_ACTION_DATA			*actionData = NULL;
+	
+	if(VerifyContext != NULL) {
+		cred = VerifyContext->Cred;
+		actionData = 
+			(CSSM_APPLE_TP_ACTION_DATA *)VerifyContext->ActionData.Data;
+		if(actionData != NULL) {
+			switch(actionData->Version) {
+				case CSSM_APPLE_TP_ACTION_VERSION:
+					if(VerifyContext->ActionData.Length !=
+							sizeof(CSSM_APPLE_TP_ACTION_DATA)) {
+						CssmError::throwMe(CSSMERR_TP_INVALID_ACTION_DATA);
+					}
+					break;
+				/* handle backwards versions here if we ever go 
+				 * beyond version 0 */
+				default:
+					CssmError::throwMe(CSSMERR_TP_INVALID_ACTION_DATA);
+			}
+			actionFlags = actionData->ActionFlags;
+		}
+	}
+	if(cred != NULL) {
+		cssmTimeStr = cred->VerifyTime;
+		NumberOfAnchorCerts = cred->NumberOfAnchorCerts;
+		AnchorCerts = cred->AnchorCerts;
+		DBList = cred->DBList;
+	}
+	
+	/* this must be parseable, throw immediately if not */
+	TPCrlInfo crlToVerify(CLHandle, CSPHandle, &CrlToBeVerified.CrlBlob,
+		TIC_NoCopy, cssmTimeStr);
+		
+	/* required at the API but in fact may be empty */
+	TPCertGroup inCertGroup(SignerCertGroup, CLHandle, CSPHandle, *this, 
+		cssmTimeStr, 		// optional 'this' time
+		false, 				// firstCertMustBeValid
+		TGO_Group);	
+		
+	/* common CRL verify parameters */
+	TPCrlVerifyContext vfyCtx(*this,
+		CLHandle,
+		CSPHandle,
+		cssmTimeStr,
+		NumberOfAnchorCerts,
+		AnchorCerts,
+		&inCertGroup,
+		NULL,				// no CRLs, we're on our own 
+		NULL,				// gatheredCerts, none so far
+		DBList,
+		kCrlNone,			// policy, varies per policy
+		actionFlags,
+		0);					// crlOptFlags, varies per policy
+		
+	/*
+	 * We assert the doCrlVerify flag to ensure CRL verification 
+	 * if intermediate certs which verifyWithContext() gathers to
+	 * verify this CRL.
+	 */
+	CSSM_RETURN crtn = crlToVerify.verifyWithContext(vfyCtx, NULL, true);
+	if(crtn) {
+		tpCrlDebug("CrlVerify failure");
+		CssmError::throwMe(crtn);
+	}
 }
 
 void AppleTPSession::CertReclaimKey(const CSSM_CERTGROUP &CertGroup,
@@ -84,8 +166,8 @@ void AppleTPSession::CertSign(CSSM_CL_HANDLE CLHandle,
 		CSSM_CC_HANDLE CCHandle,
 		const CssmData &CertTemplateToBeSigned,
 		const CSSM_CERTGROUP &SignerCertGroup,
-		const CSSM_TP_VERIFY_CONTEXT &SignerVerifyContext,
-		CSSM_TP_VERIFY_CONTEXT_RESULT &SignerVerifyResult,
+		const CSSM_TP_VERIFY_CONTEXT *SignerVerifyContext,
+		CSSM_TP_VERIFY_CONTEXT_RESULT *SignerVerifyResult,
 		CssmData &SignedCert)
 {
 	CssmError::throwMe(CSSM_ERRCODE_FUNCTION_NOT_IMPLEMENTED);
@@ -171,8 +253,8 @@ void AppleTPSession::CrlSign(CSSM_CL_HANDLE CLHandle,
 		CSSM_CC_HANDLE CCHandle,
 		const CSSM_ENCODED_CRL &CrlToBeSigned,
 		const CSSM_CERTGROUP &SignerCertGroup,
-		const CSSM_TP_VERIFY_CONTEXT &SignerVerifyContext,
-		CSSM_TP_VERIFY_CONTEXT_RESULT &SignerVerifyResult,
+		const CSSM_TP_VERIFY_CONTEXT *SignerVerifyContext,
+		CSSM_TP_VERIFY_CONTEXT_RESULT *SignerVerifyResult,
 		CssmData &SignedCrl)
 {
 	CssmError::throwMe(CSSM_ERRCODE_FUNCTION_NOT_IMPLEMENTED);

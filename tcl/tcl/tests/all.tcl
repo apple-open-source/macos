@@ -4,52 +4,22 @@
 # tests.  Execute it by invoking "source all.test" when running tcltest
 # in this directory.
 #
-# Copyright (c) 1998-2000 Ajuba Solutions.
-# All rights reserved.
+# Copyright (c) 1998-1999 by Scriptics Corporation.
+# Copyright (c) 2000 by Ajuba Solutions
+#
+# See the file "license.terms" for information on usage and redistribution
+# of this file, and for a DISCLAIMER OF ALL WARRANTIES.
 # 
-# RCS: @(#) $Id: all.tcl,v 1.1.1.3 2000/12/06 23:04:24 wsanchez Exp $
+# RCS: @(#) $Id: all.tcl,v 1.1.1.4 2003/03/06 00:12:44 landonf Exp $
 
-if {[lsearch [namespace children] ::tcltest] == -1} {
-    package require tcltest
-    namespace import -force ::tcltest::*
+set tcltestVersion [package require tcltest]
+namespace import -force tcltest::*
+
+if {$tcl_platform(platform) == "macintosh"} {
+	tcltest::singleProcess 1
 }
 
-set ::tcltest::testSingleFile false
-set ::tcltest::testsDirectory [file dir [info script]]
+tcltest::testsDirectory [file dir [info script]]
+tcltest::runAllTests
 
-# We need to ensure that the testsDirectory is absolute
-::tcltest::normalizePath ::tcltest::testsDirectory
-
-puts stdout "Tcl $tcl_patchLevel tests running in interp:  [info nameofexecutable]"
-puts stdout "Tests running in working dir:  $::tcltest::testsDirectory"
-if {[llength $::tcltest::skip] > 0} {
-    puts stdout "Skipping tests that match:  $::tcltest::skip"
-}
-if {[llength $::tcltest::match] > 0} {
-    puts stdout "Only running tests that match:  $::tcltest::match"
-}
-
-if {[llength $::tcltest::skipFiles] > 0} {
-    puts stdout "Skipping test files that match:  $::tcltest::skipFiles"
-}
-if {[llength $::tcltest::matchFiles] > 0} {
-    puts stdout "Only sourcing test files that match:  $::tcltest::matchFiles"
-}
-
-set timeCmd {clock format [clock seconds]}
-puts stdout "Tests began at [eval $timeCmd]"
-
-# source each of the specified tests
-foreach file [lsort [::tcltest::getMatchingFiles]] {
-    set tail [file tail $file]
-    puts stdout $tail
-    if {[catch {source $file} msg]} {
-	puts stdout $msg
-    }
-}
-
-# cleanup
-puts stdout "\nTests ended at [eval $timeCmd]"
-::tcltest::cleanupTests 1
 return
-

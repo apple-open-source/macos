@@ -264,6 +264,66 @@ CompareExtendedCatalogKeys(HFSPlusCatalogKey *searchKey, HFSPlusCatalogKey *tria
 }
 
 
+/* 
+ * Routine:	CaseSensitiveCatalogKeyCompare
+ *
+ * Function:	Compares two catalog keys using a 16-bit binary comparison
+ *		for the name portion of the key. 
+ *
+ * Result:	+n  search key > trial key
+ *		0  search key = trial key
+ *		-n  search key < trial key
+ */
+
+SInt32
+CaseSensitiveCatalogKeyCompare(HFSPlusCatalogKey *searchKey, HFSPlusCatalogKey *trialKey)
+{
+	HFSCatalogNodeID searchParentID, trialParentID;
+	SInt32 result;
+
+	searchParentID = searchKey->parentID;
+	trialParentID = trialKey->parentID;
+	result = 0;
+	
+	if (searchParentID > trialParentID) {
+		++result;
+	} else if (searchParentID < trialParentID) {
+		--result;
+	} else {
+		UInt16 * str1 = &searchKey->nodeName.unicode[0];
+		UInt16 * str2 = &trialKey->nodeName.unicode[0];
+		int length1 = searchKey->nodeName.length;
+		int length2 = trialKey->nodeName.length;
+		UInt16 c1, c2;
+		int length;
+	
+		if (length1 < length2) {
+			length = length1;
+			--result;
+		} else if (length1 > length2) {
+			length = length2;
+			++result;
+		} else {
+			length = length1;
+		}
+	
+		while (length--) {
+			c1 = *(str1++);
+			c2 = *(str2++);	
+			if (c1 > c2) {
+				result = 1;
+				break;
+			}
+			if (c1 < c2) {
+				result = -1;
+				break;
+			}
+		}
+	}
+
+	return result;
+}
+
 //ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
 //	Routine:	CompareExtentKeys
 //

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000-2001 Apple Computer, Inc. All Rights Reserved.
+ * Copyright (c) 2000-2001, 2003 Apple Computer, Inc. All Rights Reserved.
  * 
  * The contents of this file constitute Original Code as defined in and are
  * subject to the Apple Public Source License Version 1.2 (the 'License').
@@ -231,7 +231,7 @@ ModifiedTable::deleteRecord(const RecordId &inRecordId)
 }
 
 const RecordId
-ModifiedTable::insertRecord(AtomicFile::VersionId inVersionId,
+ModifiedTable::insertRecord(uint32 inVersionId,
 							const CSSM_DB_RECORD_ATTRIBUTE_DATA *inAttributes,
 							const CssmData *inData)
 {
@@ -436,7 +436,7 @@ ModifiedTable::writeIndexSection(WriteSection &tableSection, uint32 offset)
 }
 
 uint32
-ModifiedTable::writeTable(AtomicFile &inAtomicFile, uint32 inSectionOffset)
+ModifiedTable::writeTable(AtomicTempFile &inAtomicTempFile, uint32 inSectionOffset)
 {
 	if (mTable && !mIsModified) {
 		// the table has not been modified, so we can just dump the old table
@@ -445,7 +445,7 @@ ModifiedTable::writeTable(AtomicFile &inAtomicFile, uint32 inSectionOffset)
 		const ReadSection &tableSection = mTable->getTableSection();
 		uint32 tableSize = tableSection.at(Table::OffsetSize);
 		
-		inAtomicFile.write(AtomicFile::FromStart, inSectionOffset,
+		inAtomicTempFile.write(AtomicFile::FromStart, inSectionOffset,
 			tableSection.range(Range(0, tableSize)), tableSize);
 
 		return inSectionOffset + tableSize;
@@ -505,7 +505,7 @@ ModifiedTable::writeTable(AtomicFile &inAtomicFile, uint32 inSectionOffset)
 				// to but not including the current one to the new file.
 				if (aBlockSize > 0)
 				{
-					inAtomicFile.write(AtomicFile::FromStart, anOffset,
+					inAtomicTempFile.write(AtomicFile::FromStart, anOffset,
 									   aRecordsSection.range(Range(aBlockStart,
 																   aBlockSize)),
 									   aBlockSize);
@@ -522,7 +522,7 @@ ModifiedTable::writeTable(AtomicFile &inAtomicFile, uint32 inSectionOffset)
 		// Copy all records that have not yet been copied to the new file.
 		if (aBlockSize > 0)
 		{
-			inAtomicFile.write(AtomicFile::FromStart, anOffset,
+			inAtomicTempFile.write(AtomicFile::FromStart, anOffset,
 							   aRecordsSection.range(Range(aBlockStart,
 														   aBlockSize)),
 							   aBlockSize);
@@ -542,7 +542,7 @@ ModifiedTable::writeTable(AtomicFile &inAtomicFile, uint32 inSectionOffset)
 		// Put offset relative to start of this table in recordNumber array.
 		aTableSection.put(Table::OffsetRecordNumbers + AtomSize * aRecordNumber,
 						  anOffset - inSectionOffset);
-		inAtomicFile.write(AtomicFile::FromStart, anOffset,
+		inAtomicTempFile.write(AtomicFile::FromStart, anOffset,
 						   aRecord.address(), aRecord.size());
 		anOffset += aRecord.size();
 		aRecordsCount++;
@@ -580,7 +580,7 @@ ModifiedTable::writeTable(AtomicFile &inAtomicFile, uint32 inSectionOffset)
 	{	
 		uint32 indexOffset = anOffset;
 		anOffset = writeIndexSection(aTableSection, anOffset);
-		inAtomicFile.write(AtomicFile::FromStart, inSectionOffset + indexOffset,
+		inAtomicTempFile.write(AtomicFile::FromStart, inSectionOffset + indexOffset,
 			aTableSection.address() + indexOffset, anOffset - indexOffset);
 	}
 
@@ -589,7 +589,7 @@ ModifiedTable::writeTable(AtomicFile &inAtomicFile, uint32 inSectionOffset)
 	aTableSection.put(Table::OffsetRecordsCount, aRecordsCount);
 
 	// Write out aTableSection header.
-	inAtomicFile.write(AtomicFile::FromStart, inSectionOffset,
+	inAtomicTempFile.write(AtomicFile::FromStart, inSectionOffset,
 					   aTableSection.address(), aTableSection.size());
 
     return anOffset + inSectionOffset;
@@ -739,15 +739,16 @@ static const CSSM_DB_ATTRIBUTE_INFO AttrSchemaParsingModule[] =
 //
 // DbVersion
 //
-DbVersion::DbVersion(AtomicFile &inDatabaseFile,
-	const AppleDatabase &db) :
-	mDatabase(reinterpret_cast<const uint8 *>(NULL), 0), mDatabaseFile(&inDatabaseFile),
-	mDb(db)
+DbVersion::DbVersion(const AppleDatabase &db, const RefPointer <AtomicBufferedFile> &inAtomicBufferedFile) :
+	mDatabase(reinterpret_cast<const uint8 *>(NULL), 0),
+	mDb(db),
+	mBufferedFile(inAtomicBufferedFile)
 {
-	const uint8 *aFileAddress;
-	size_t aLength;
-	mVersionId = mDatabaseFile->enterRead(aFileAddress, aLength);
-	mDatabase = ReadSection(aFileAddress, aLength);
+	off_t aLength = mBufferedFile->length();
+	off_t bytesRead = 0;
+	const uint8 *ptr = mBufferedFile->read(0, aLength, bytesRead);
+	mBufferedFile->close();
+	mDatabase = ReadSection(ptr, bytesRead);
 	open();
 }
 
@@ -756,19 +757,8 @@ DbVersion::~DbVersion()
 	try
 	{
 		for_each_map_delete(mTableMap.begin(), mTableMap.end());
-		if (mDatabaseFile)
-			mDatabaseFile->exitRead(mVersionId);
 	}
 	catch(...) {}
-}
-
-bool
-DbVersion::isDirty() const
-{
-	if (mDatabaseFile)
-		return mDatabaseFile->isDirty(mVersionId);
-
-	return true;
 }
 
 void
@@ -777,6 +767,8 @@ DbVersion::open()
 	try
 	{
 		// This is the oposite of DbModifier::commit()
+		mVersionId = mDatabase[mDatabase.size() - AtomSize];
+
 		const ReadSection aHeaderSection = mDatabase.subsection(HeaderOffset,
 																HeaderSize);
 		if (aHeaderSection.at(OffsetMagic) != HeaderMagic)
@@ -898,93 +890,78 @@ DbVersion::open()
 			ReadSection aRecordSection = MetaRecord::readSection(aRecordsSection, aReadOffset);
 			uint32 aRecordSize = aRecordSection.size();
 			aReadOffset += aRecordSize;
-#if 0
-			try
+			aMetaRecord.unpackRecord(aRecordSection, recordAllocator,
+										&aRecordAttributeData, NULL, 0);
+			// Create the attribute coresponding to this entry
+			if (aRecordData[0].size() != 1 || aRecordData[0].format() != CSSM_DB_ATTRIBUTE_FORMAT_UINT32)
+				CssmError::throwMe(CSSMERR_DL_DATABASE_CORRUPT);
+			uint32 aRelationId = aRecordData[0];
+
+			// Skip the schema relations for the meta tables themselves.
+			// FIXME: this hard-wires the meta-table relation IDs to be
+			// within {CSSM_DB_RECORDTYPE_SCHEMA_START...
+			// CSSM_DB_RECORDTYPE_SCHEMA_END} (which is {0..4}). 
+			// Bogus - the MDS schema relation IDs start at 
+			// CSSM_DB_RELATIONID_MDS_START which is 0x40000000.
+			// Ref. Radar 2817921.
+			if (CSSM_DB_RECORDTYPE_SCHEMA_START <= aRelationId && aRelationId < CSSM_DB_RECORDTYPE_SCHEMA_END)
+				continue;
+
+			// Get the MetaRecord corresponding to the specified RelationId
+			MetaRecord &aMetaRecord = findTable(aRelationId).getMetaRecord();
+
+			if (aRecordData[1].size() != 1
+				|| aRecordData[1].format() != CSSM_DB_ATTRIBUTE_FORMAT_UINT32
+				|| aRecordData[2].size() != 1
+				|| aRecordData[2].format() != CSSM_DB_ATTRIBUTE_FORMAT_UINT32
+				|| aRecordData[5].size() != 1
+				|| aRecordData[5].format() != CSSM_DB_ATTRIBUTE_FORMAT_UINT32)
+				CssmError::throwMe(CSSMERR_DL_DATABASE_CORRUPT);
+
+			uint32 anAttributeId = aRecordData[1];
+			uint32 anAttributeNameFormat = aRecordData[2];
+			uint32 anAttributeFormat = aRecordData[5];
+			auto_ptr<string> aName;
+			const CssmData *aNameID = NULL;
+
+			if (aRecordData[3].size() == 1)
 			{
-#endif
-				aMetaRecord.unpackRecord(aRecordSection, recordAllocator,
-										 &aRecordAttributeData, NULL, 0);
-				// Create the attribute coresponding to this entry
-				if (aRecordData[0].size() != 1 || aRecordData[0].format() != CSSM_DB_ATTRIBUTE_FORMAT_UINT32)
-					CssmError::throwMe(CSSMERR_DL_DATABASE_CORRUPT);
-				uint32 aRelationId = aRecordData[0];
-
-				// Skip the schema relations for the meta tables themselves.
-				// FIXME: this hard-wires the meta-table relation IDs to be
-				// within {CSSM_DB_RECORDTYPE_SCHEMA_START...
-				// CSSM_DB_RECORDTYPE_SCHEMA_END} (which is {0..4}). 
-				// Bogus - the MDS schema relation IDs start at 
-				// CSSM_DB_RELATIONID_MDS_START which is 0x40000000.
-				// Ref. Radar 2817921.
-				if (CSSM_DB_RECORDTYPE_SCHEMA_START <= aRelationId && aRelationId < CSSM_DB_RECORDTYPE_SCHEMA_END)
-					continue;
-
-				// Get the MetaRecord corresponding to the specified RelationId
-				MetaRecord &aMetaRecord = findTable(aRelationId).getMetaRecord();
-
-				if (aRecordData[1].size() != 1
-					|| aRecordData[1].format() != CSSM_DB_ATTRIBUTE_FORMAT_UINT32
-					|| aRecordData[2].size() != 1
-					|| aRecordData[2].format() != CSSM_DB_ATTRIBUTE_FORMAT_UINT32
-					|| aRecordData[5].size() != 1
-					|| aRecordData[5].format() != CSSM_DB_ATTRIBUTE_FORMAT_UINT32)
+				if (aRecordData[3].format() != CSSM_DB_ATTRIBUTE_FORMAT_STRING)
 					CssmError::throwMe(CSSMERR_DL_DATABASE_CORRUPT);
 
-				uint32 anAttributeId = aRecordData[1];
-				uint32 anAttributeNameFormat = aRecordData[2];
-				uint32 anAttributeFormat = aRecordData[5];
-				auto_ptr<string> aName;
-				const CssmData *aNameID = NULL;
-
-				if (aRecordData[3].size() == 1)
-				{
-					if (aRecordData[3].format() != CSSM_DB_ATTRIBUTE_FORMAT_STRING)
-						CssmError::throwMe(CSSMERR_DL_DATABASE_CORRUPT);
-
-					auto_ptr<string> aName2(new string(static_cast<string>(aRecordData[3])));
-					aName = aName2;
-				}
-
-				if (aRecordData[4].size() == 1)
-				{
-					if (aRecordData[4].format() != CSSM_DB_ATTRIBUTE_FORMAT_BLOB)
-						CssmError::throwMe(CSSMERR_DL_DATABASE_CORRUPT);
-
-                                        // @@@ Invoking conversion operator to CssmData & on aRecordData[4]
-                                        // And taking address of result.
-					aNameID = &static_cast<CssmData &>(aRecordData[4]);
-				}
-
-				// Make sure that the attribute specified by anAttributeNameFormat is present. 
-				switch (anAttributeNameFormat)
-				{
-				case CSSM_DB_ATTRIBUTE_NAME_AS_STRING:
-					if (aRecordData[3].size() != 1)
-						CssmError::throwMe(CSSMERR_DL_DATABASE_CORRUPT);
-					break;
-				case CSSM_DB_ATTRIBUTE_NAME_AS_OID:
-					if (aRecordData[4].size() != 1)
-						CssmError::throwMe(CSSMERR_DL_DATABASE_CORRUPT);
-					break;
-				case CSSM_DB_ATTRIBUTE_NAME_AS_INTEGER:
-					break;
-				default:
-					CssmError::throwMe(CSSMERR_DL_DATABASE_CORRUPT);
-				}
-
-				// Create the attribute
-				aMetaRecord.createAttribute(aName.get(), aNameID, anAttributeId, anAttributeFormat);
-
-#if 0
-				// Free the data.
-				aRecordData.deleteValues(CssmAllocator::standard());
+				auto_ptr<string> aName2(new string(static_cast<string>(aRecordData[3])));
+				aName = aName2;
 			}
-			catch(...)
+
+			if (aRecordData[4].size() == 1)
 			{
-				aRecordData.deleteValues(CssmAllocator::standard());
-				throw;
+				if (aRecordData[4].format() != CSSM_DB_ATTRIBUTE_FORMAT_BLOB)
+					CssmError::throwMe(CSSMERR_DL_DATABASE_CORRUPT);
+
+									// @@@ Invoking conversion operator to CssmData & on aRecordData[4]
+									// And taking address of result.
+				aNameID = &static_cast<CssmData &>(aRecordData[4]);
 			}
-#endif
+
+			// Make sure that the attribute specified by anAttributeNameFormat is present. 
+			switch (anAttributeNameFormat)
+			{
+			case CSSM_DB_ATTRIBUTE_NAME_AS_STRING:
+				if (aRecordData[3].size() != 1)
+					CssmError::throwMe(CSSMERR_DL_DATABASE_CORRUPT);
+				break;
+			case CSSM_DB_ATTRIBUTE_NAME_AS_OID:
+				if (aRecordData[4].size() != 1)
+					CssmError::throwMe(CSSMERR_DL_DATABASE_CORRUPT);
+				break;
+			case CSSM_DB_ATTRIBUTE_NAME_AS_INTEGER:
+				break;
+			default:
+				CssmError::throwMe(CSSMERR_DL_DATABASE_CORRUPT);
+			}
+
+			// Create the attribute
+			aMetaRecord.createAttribute(aName.get(), aNameID, anAttributeId, anAttributeFormat);
         }
 		
 		// initialize the indexes associated with each table
@@ -1248,7 +1225,6 @@ DbModifier::DbModifier(AtomicFile &inAtomicFile, const AppleDatabase &db) :
 	Metadata(),
 	mDbVersion(),
     mAtomicFile(inAtomicFile),
-    mWriting(false),
 	mDb(db)
 {
 }
@@ -1258,9 +1234,7 @@ DbModifier::~DbModifier()
     try
     {
 		for_each_map_delete(mModifiedTableMap.begin(), mModifiedTableMap.end());
-
-        if (mWriting)
-            rollback();
+		// mAtomicTempFile will do automatic rollback on destruction.
     }
     catch(...) {}
 }
@@ -1269,26 +1243,40 @@ const RefPointer<const DbVersion>
 DbModifier::getDbVersion()
 {
     StLock<Mutex> _(mDbVersionLock);
-	if (mDbVersion && mDbVersion->isDirty())
-		mDbVersion = NULL;
+	RefPointer <AtomicBufferedFile> atomicBufferedFile(mAtomicFile.read());
+	off_t length = atomicBufferedFile->open();
+	if (mDbVersion)
+	{
+		if (length < AtomSize)
+			CssmError::throwMe(CSSMERR_DL_DATABASE_CORRUPT);
 
-	if (mDbVersion == NULL)
-		mDbVersion = new DbVersion(mAtomicFile, mDb);
+		off_t bytesRead = 0;
+		const uint8 *ptr = atomicBufferedFile->read(length - AtomSize, AtomSize, bytesRead);
+		ReadSection aVersionSection(ptr, bytesRead);
+		uint32 aVersionId = aVersionSection[0];
+
+		if (aVersionId == mDbVersion->getVersionId())
+			return mDbVersion;
+	}
+
+	mDbVersion = new DbVersion(mDb, atomicBufferedFile);
 
     return mDbVersion;
 }
 
 void
 DbModifier::createDatabase(const CSSM_DBINFO &inDbInfo,
-						   const CSSM_ACL_ENTRY_INPUT *inInitialAclEntry)
+						   const CSSM_ACL_ENTRY_INPUT *inInitialAclEntry,
+						   mode_t mode)
 {
 	// XXX This needs better locking.  There is a possible race condition between
 	// two concurrent creators.  Or a writer/creator or a close/create etc.
-	if (mWriting || !mModifiedTableMap.empty())
+	if (mAtomicTempFile || !mModifiedTableMap.empty())
 		CssmError::throwMe(CSSMERR_DL_DATASTORE_ALREADY_EXISTS);
 
-    mVersionId = mAtomicFile.enterCreate(mFileRef);
-    mWriting = true;
+    mAtomicTempFile = mAtomicFile.create(mode);
+	// Set mVersionId to one since this is the first version of the database.
+	mVersionId = 1;
 
 	// we need to create the meta tables first, because inserting tables
 	// (including the meta tables themselves) relies on them being there
@@ -1356,26 +1344,19 @@ void DbModifier::deleteDatabase()
 void
 DbModifier::modifyDatabase()
 {
-	if (mWriting)
+	if (mAtomicTempFile)
 		return;
 
 	try
 	{
-		const uint8 *aFileAddress;
-		size_t aLength;
-		mVersionId = mAtomicFile.enterWrite(aFileAddress, aLength, mFileRef);
-		mWriting = true;
-		{
-			// Aquire the mutex protecting mDbVersion 
-			StLock<Mutex> _l(mDbVersionLock);
-			if (mDbVersion == nil || mDbVersion->getVersionId() != mVersionId)
-			{
-				// This will call enterRead().  Now that we hold the write
-				// lock on the file this ensures we get the same verison
-				// enterWrite just returned.
-				mDbVersion = new DbVersion(mAtomicFile, mDb);
-			}
-		}
+		mAtomicTempFile = mAtomicFile.write();
+		// Now we are holding the write lock make sure we get the latest greatest version of the db.
+		// Also set mVersionId to one more that that of the old database.
+		mVersionId = getDbVersion()->getVersionId() + 1;
+
+		// Never make a database with mVersionId 0 since it makes bad things happen to Jaguar and older systems
+		if (mVersionId == 0)
+			mVersionId = 1;
 
 		// Remove all old modified tables
 		for_each_map_delete(mModifiedTableMap.begin(), mModifiedTableMap.end());
@@ -1425,6 +1406,7 @@ DbModifier::updateRecord(Table::Id inTableId, const RecordId &inRecordId,
 						 const CssmData *inData,
 						 CSSM_DB_MODIFY_MODE inModifyMode)
 {
+	// @@@ Investigate why update is forcing a commit unlike delete and insert?
 	commit(); // XXX this is not thread safe, but what is?
 	modifyDatabase();
 	return findTable(inTableId).updateRecord(inRecordId, inAttributes, inData, inModifyMode);
@@ -1481,8 +1463,8 @@ DbModifier::writeAuthSection(uint32 inSectionOffset)
 	uint32 anOffset = anAuthSection.put(0, 0);
 	anAuthSection.size(anOffset);
 
-	mAtomicFile.write(AtomicFile::FromStart, inSectionOffset,
-					  anAuthSection.address(), anAuthSection.size());
+	mAtomicTempFile->write(AtomicFile::FromStart, inSectionOffset,
+					anAuthSection.address(), anAuthSection.size());
     return inSectionOffset + anOffset;
 }
 
@@ -1505,12 +1487,12 @@ DbModifier::writeSchemaSection(uint32 inSectionOffset)
 		// this section into the tables array
 		aTableSection.put(OffsetTables + AtomSize * aTableNumber,
 						  anOffset - inSectionOffset);
-		anOffset = anIt->second->writeTable(mAtomicFile, anOffset);
+		anOffset = anIt->second->writeTable(*mAtomicTempFile, anOffset);
 	}
 
 	aTableSection.put(OffsetSchemaSize, anOffset - inSectionOffset);
-	mAtomicFile.write(AtomicFile::FromStart, inSectionOffset,
-					  aTableSection.address(), aTableSection.size());
+	mAtomicTempFile->write(AtomicFile::FromStart, inSectionOffset,
+					aTableSection.address(), aTableSection.size());
 
 	return anOffset;
 }
@@ -1518,7 +1500,7 @@ DbModifier::writeSchemaSection(uint32 inSectionOffset)
 void
 DbModifier::commit()
 {
-    if (!mWriting)
+    if (!mAtomicTempFile)
         return;
     try
     {
@@ -1539,31 +1521,32 @@ DbModifier::commit()
 		// Write out the file header.
 		aHeaderSection.put(OffsetMagic, HeaderMagic);
 		aHeaderSection.put(OffsetVersion, HeaderVersion);
-        mAtomicFile.write(AtomicFile::FromStart, HeaderOffset,
-						  aHeaderSection.address(), aHeaderSection.size());
+        mAtomicTempFile->write(AtomicFile::FromStart, HeaderOffset,
+							   aHeaderSection.address(), aHeaderSection.size());
+
+		// Write out the versionId.
+		WriteSection aVersionSection(CssmAllocator::standard(), size_t(AtomSize));
+		anOffset = aVersionSection.put(0, mVersionId);
+		aVersionSection.size(anOffset);
+
+        mAtomicTempFile->write(AtomicFile::FromEnd, 0,
+							   aVersionSection.address(), aVersionSection.size());
+
+		mAtomicTempFile->commit();
+		mAtomicTempFile = NULL;
     }
     catch(...)
     {
-        try
-        {
-            rollback(); // Sets mWriting to false;
-        }
-        catch(...) {}
+		rollback();
 		throw;
     }
-
-    mWriting = false;
-    mAtomicFile.commit();
 }
 
 void
-DbModifier::rollback()
+DbModifier::rollback() throw()
 {
-    if (mWriting)
-    {
-        mWriting = false;
-        mAtomicFile.rollback();
-    }
+	// This will destroy the AtomicTempFile if we have one causing it to rollback.
+	mAtomicTempFile = NULL;
 }
 
 const RecordId
@@ -1797,28 +1780,57 @@ AppleDatabaseManager::make(const DbName &inDbName)
     return new AppleDatabase(inDbName, mTableNames);
 }
 
+
 //
 // AppleDbContext implementation
 //
+
+/* This is the version 0 CSSM_APPLEDL_OPEN_PARAMETERS struct used up to 10.2.x. */
+extern "C" {
+
+typedef struct cssm_appledl_open_parameters_v0
+{
+		uint32 length;  /* Should be sizeof(CSSM_APPLEDL_OPEN_PARAMETERS_V0). */
+		uint32 version; /* Should be 0. */
+		CSSM_BOOL autoCommit;
+} CSSM_APPLEDL_OPEN_PARAMETERS_V0;
+
+};
+
 AppleDbContext::AppleDbContext(Database &inDatabase,
 							   DatabaseSession &inDatabaseSession,
 							   CSSM_DB_ACCESS_TYPE inAccessRequest,
 							   const AccessCredentials *inAccessCred,
 							   const void *inOpenParameters) :
-	DbContext(inDatabase, inDatabaseSession, inAccessRequest, inAccessCred)
+	DbContext(inDatabase, inDatabaseSession, inAccessRequest, inAccessCred),
+	mAutoCommit(true),
+	mMode(0666)
 {
 	const CSSM_APPLEDL_OPEN_PARAMETERS *anOpenParameters =
 		reinterpret_cast<const CSSM_APPLEDL_OPEN_PARAMETERS *>(inOpenParameters);
+
 	if (anOpenParameters)
 	{
-		if (anOpenParameters->length < sizeof(CSSM_APPLEDL_OPEN_PARAMETERS)
-			|| anOpenParameters->version != 0)
-			CssmError::throwMe(CSSMERR_APPLEDL_INVALID_OPEN_PARAMETERS);
+		switch (anOpenParameters->version)
+		{
+		case 1:
+			if (anOpenParameters->length < sizeof(CSSM_APPLEDL_OPEN_PARAMETERS))
+				CssmError::throwMe(CSSMERR_APPLEDL_INVALID_OPEN_PARAMETERS);
 
-		mAutoCommit = anOpenParameters->autoCommit == CSSM_FALSE ? false : true;
+			if (anOpenParameters->mask & kCSSM_APPLEDL_MASK_MODE)
+				mMode = anOpenParameters->mode;
+			/*DROPTHROUGH*/
+		case 0:
+			if (anOpenParameters->length < sizeof(CSSM_APPLEDL_OPEN_PARAMETERS_V0))
+				CssmError::throwMe(CSSMERR_APPLEDL_INVALID_OPEN_PARAMETERS);
+
+			mAutoCommit = anOpenParameters->autoCommit == CSSM_FALSE ? false : true;
+			break;
+
+		default:
+			CssmError::throwMe(CSSMERR_APPLEDL_INVALID_OPEN_PARAMETERS);
+		}
 	}
-	else
-		mAutoCommit = true;
 }
 
 AppleDbContext::~AppleDbContext()
@@ -1842,7 +1854,7 @@ AppleDatabase::AppleDatabase(const DbName &inDbName, const AppleDatabaseTableNam
 	schemaParsingModule(tableNames[AppleDatabaseTableName::kSchemaParsingModule].mTableId,
 		sizeof(AttrSchemaParsingModule) / sizeof(CSSM_DB_ATTRIBUTE_INFO),
 		const_cast<CSSM_DB_ATTRIBUTE_INFO_PTR>(AttrSchemaParsingModule)),
-    mAtomicFile(mDbName),
+    mAtomicFile(mDbName.dbName()),
 	mDbModifier(mAtomicFile, *this),
 	mTableNames(tableNames)
 {
@@ -1881,17 +1893,18 @@ void
 AppleDatabase::dbCreate(DbContext &inDbContext, const CSSM_DBINFO &inDBInfo,
                         const CSSM_ACL_ENTRY_INPUT *inInitialAclEntry)
 {
+	AppleDbContext &context = safer_cast<AppleDbContext &>(inDbContext);
     try
     {
 		StLock<Mutex> _(mWriteLock);
-        mDbModifier.createDatabase(inDBInfo, inInitialAclEntry);
+        mDbModifier.createDatabase(inDBInfo, inInitialAclEntry, context.mode());
     }
     catch(...)
     {
         mDbModifier.rollback();
         throw;
     }
-	if (safer_cast<AppleDbContext &>(inDbContext).autoCommit())
+	if (context.autoCommit())
 		mDbModifier.commit();
 }
 
@@ -2240,5 +2253,3 @@ AppleDatabase::passThrough(DbContext &dbContext,
 		break;
 	}
 }
-
-

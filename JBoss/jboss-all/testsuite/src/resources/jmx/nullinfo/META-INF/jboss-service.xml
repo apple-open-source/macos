@@ -1,0 +1,9 @@
+<server>
+<!--service.xml file for test of invalid DynamicMBean that returns null for getMBeanInfo()-->
+<!--Thanks to David Budworth-->
+   
+   <mbean code="org.jboss.test.jmx.nullinfo.NullInfo" name="NullInfoTest:name=NullInfo">
+   </mbean>
+
+</server>
+

@@ -44,7 +44,7 @@ Session::Session(Bootstrap bootstrap, Port servicePort, SessionAttributeBits att
     : mBootstrap(bootstrap), mServicePort(servicePort),
 	  mAttributes(attrs), mProcessCount(0), mAuthCount(0), mDying(false)
 {
-    debug("SSsession", "%p CREATED: handle=0x%lx bootstrap=%d service=%d attrs=0x%lx",
+    secdebug("SSsession", "%p CREATED: handle=0x%lx bootstrap=%d service=%d attrs=0x%lx",
         this, handle(), mBootstrap.port(), mServicePort.port(), mAttributes);
 }
 
@@ -91,8 +91,9 @@ DynamicSession::~DynamicSession()
 	Server::active().remove(*this);
 
 	// if this is a (the) graphic login session, lock all databases
-	if (attribute(sessionHasGraphicAccess))
-		Database::lockAllDatabases();
+	secdebug("session", "%p Locking all %ld databases",
+		this, databases().size());
+	Database::lockAllDatabases(databases());
 }
 
 
@@ -108,7 +109,7 @@ void DynamicSession::release()
 Session::~Session()
 {
     assert(mProcessCount == 0);	// can't die with processes still alive
-    debug("SSsession", "%p DESTROYED: handle=0x%lx bootstrap=%d",
+    secdebug("SSsession", "%p DESTROYED: handle=0x%lx bootstrap=%d",
         this, handle(), mBootstrap.port());
 }
 
@@ -156,7 +157,7 @@ void Session::eliminate(Port servPort)
     if (session->clearResources())
         delete session;
     else
-        debug("SSsession", "session %p zombified for %d processes and %d auths",
+        secdebug("SSsession", "session %p zombified for %d processes and %d auths",
             session, int(session->mProcessCount), int(session->mAuthCount));
 }
 
@@ -172,13 +173,27 @@ bool Session::clearResources()
         StLock<Mutex> _(mCredsLock);
         
         IFDEBUG(if (!mSessionCreds.empty()) 
-            debug("SSauth", "session %p clearing %d shared credentials", 
+            secdebug("SSauth", "session %p clearing %d shared credentials", 
                 this, int(mSessionCreds.size())));
         for (CredentialSet::iterator it = mSessionCreds.begin(); it != mSessionCreds.end(); it++)
             (*it)->invalidate();
     }
     // let the caller know if we are ready to die NOW
     return mProcessCount == 0 && mAuthCount == 0;
+}
+
+
+//
+// Relay lockAllDatabases to all known sessions
+//
+void Session::lockAllDatabases(bool forSleep)
+{
+	StLock<Mutex> _(sessionMapLock);
+	for (SessionMap::const_iterator it = begin(); it != end(); it++) {
+	    secdebug("SSdb", "locking all %d known databases %s in session %p",
+			int(it->second->databases().size()), forSleep ? " for sleep" : "", it->second);
+		Database::lockAllDatabases(it->second->databases(), forSleep);
+	}
 }
 
 
@@ -219,16 +234,17 @@ bool Session::removeAuthorization(AuthorizationToken *)
 //
 // Authorization operations
 //
-OSStatus Session::authCreate(const RightSet &rights,
-	const AuthorizationEnvironment *environment,
+OSStatus Session::authCreate(const AuthItemSet &rights,
+	const AuthItemSet &environment,
 	AuthorizationFlags flags,
-	AuthorizationBlob &newHandle)
+	AuthorizationBlob &newHandle,
+	const security_token_t &securityToken)
 {
 	// invoke the authorization computation engine
 	CredentialSet resultCreds;
 	
 	// this will acquire mLock, so we delay acquiring it
-	auto_ptr<AuthorizationToken> auth(new AuthorizationToken(*this, resultCreds));
+	auto_ptr<AuthorizationToken> auth(new AuthorizationToken(*this, resultCreds, securityToken));
 
     // Make a copy of the mSessionCreds
     CredentialSet sessionCreds;
@@ -237,8 +253,9 @@ OSStatus Session::authCreate(const RightSet &rights,
         sessionCreds = mSessionCreds;
     }
         
+	AuthItemSet outRights;
 	OSStatus result = Server::authority().authorize(rights, environment, flags,
-        &sessionCreds, &resultCreds, NULL, *auth);
+        &sessionCreds, &resultCreds, outRights, *auth);
 	newHandle = auth->handle();
 
     // merge resulting creds into shared pool
@@ -261,6 +278,8 @@ void Session::authFree(const AuthorizationBlob &authBlob, AuthorizationFlags fla
 {
     AuthorizationToken::Deleter deleter(authBlob);
     AuthorizationToken &auth = deleter;
+	Process &process = Server::connection().process;
+	process.checkAuthorization(&auth);
 
 	if (flags & kAuthorizationFlagDestroyRights) {
 		// explicitly invalidate all shared credentials and remove them from the session
@@ -270,14 +289,14 @@ void Session::authFree(const AuthorizationBlob &authBlob, AuthorizationFlags fla
 	}
 
 	// now get rid of the authorization itself
-	if (Server::connection().process.removeAuthorization(&auth))
+	if (process.removeAuthorization(&auth))
         deleter.remove();
 }
 
 OSStatus Session::authGetRights(const AuthorizationBlob &authBlob,
-	const RightSet &rights, const AuthorizationEnvironment *environment,
+	const AuthItemSet &rights, const AuthItemSet &environment,
 	AuthorizationFlags flags,
-	MutableRightSet &grantedRights)
+	AuthItemSet &grantedRights)
 {
     CredentialSet resultCreds;
     AuthorizationToken &auth = authorization(authBlob);
@@ -287,7 +306,7 @@ OSStatus Session::authGetRights(const AuthorizationBlob &authBlob,
         effective	 = auth.effectiveCreds();
     }
 	OSStatus result = Server::authority().authorize(rights, environment, flags, 
-        &effective, &resultCreds, &grantedRights, auth);
+        &effective, &resultCreds, grantedRights, auth);
 
 	// merge resulting creds into shared pool
 	if ((flags & kAuthorizationFlagExtendRights) && !(flags & kAuthorizationFlagDestroyRights))
@@ -297,38 +316,33 @@ OSStatus Session::authGetRights(const AuthorizationBlob &authBlob,
         auth.mergeCredentials(resultCreds);
 	}
 
-	IFDEBUG(debug("SSauth", "Authorization %p copyRights asked for %d got %d",
-		&authorization(authBlob), int(rights.size()), int(grantedRights.size())));
+	secdebug("SSauth", "Authorization %p copyRights asked for %d got %d",
+		&authorization(authBlob), int(rights.size()), int(grantedRights.size()));
 	return result;
 }
 
 OSStatus Session::authGetInfo(const AuthorizationBlob &authBlob,
 	const char *tag,
-	AuthorizationItemSet *&contextInfo)
+	AuthItemSet &contextInfo)
 {
-	StLock<Mutex> _(mLock);
 	AuthorizationToken &auth = authorization(authBlob);
-	debug("SSauth", "Authorization %p get-info", &auth);
-    if (tag) {	// @@@ no tag support yet
-        return errAuthorizationInvalidTag;
-    } else {	// return all tags
-        contextInfo = &auth.infoSet();
-        return noErr;
-    }
+	secdebug("SSauth", "Authorization %p get-info", &auth);
+	contextInfo = auth.infoSet(tag);
+    return noErr;
 }
 
 OSStatus Session::authExternalize(const AuthorizationBlob &authBlob, 
 	AuthorizationExternalForm &extForm)
 {
-	StLock<Mutex> _(mLock);
 	const AuthorizationToken &auth = authorization(authBlob);
+	StLock<Mutex> _(mLock);
 	if (auth.mayExternalize(Server::connection().process)) {
 		memset(&extForm, 0, sizeof(extForm));
         AuthorizationExternalBlob &extBlob =
             reinterpret_cast<AuthorizationExternalBlob &>(extForm);
         extBlob.blob = auth.handle();
         extBlob.session = bootstrapPort();
-		debug("SSauth", "Authorization %p externalized", &auth);
+		secdebug("SSauth", "Authorization %p externalized", &auth);
 		return noErr;
 	} else
 		return errAuthorizationExternalizeNotAllowed;
@@ -337,8 +351,6 @@ OSStatus Session::authExternalize(const AuthorizationBlob &authBlob,
 OSStatus Session::authInternalize(const AuthorizationExternalForm &extForm, 
 	AuthorizationBlob &authBlob)
 {
-	StLock<Mutex> _(mLock);
-	
 	// interpret the external form
     const AuthorizationExternalBlob &extBlob = 
         reinterpret_cast<const AuthorizationExternalBlob &>(extForm);
@@ -348,10 +360,11 @@ OSStatus Session::authInternalize(const AuthorizationExternalForm &extForm,
     
 	// check for permission and do it
 	if (sourceAuth.mayInternalize(Server::connection().process, true)) {
+		StLock<Mutex> _(mLock);
 		authBlob = extBlob.blob;
         Server::connection().process.addAuthorization(&sourceAuth);
         mAuthCount++;
-        debug("SSauth", "Authorization %p internalized", &sourceAuth);
+        secdebug("SSauth", "Authorization %p internalized", &sourceAuth);
 		return noErr;
 	} else
 		return errAuthorizationInternalizeNotAllowed;
@@ -367,22 +380,75 @@ void Session::setup(SessionCreationFlags flags, SessionAttributeBits attrs)
 {
     // check current process object - it may have been cached before the client's bootstrap switch
     Process *process = &Server::connection().process;
-#if 0
-    if (process->taskPort().bootstrap() != process->session.bootstrapPort())
-        process = Server::active().resetConnection();
-#endif
     process->session.setupAttributes(attrs);
 }
 
 
 void Session::setupAttributes(SessionAttributeBits attrs)
 {
-    debug("SSsession", "%p setup attrs=0x%lx", this, attrs);
+    secdebug("SSsession", "%p setup attrs=0x%lx", this, attrs);
     if (attrs & ~settableAttributes)
         MacOSError::throwMe(errSessionInvalidAttributes);
     if (attribute(sessionWasInitialized))
         MacOSError::throwMe(errSessionAuthorizationDenied);
     setAttributes(attrs | sessionWasInitialized);
+}
+
+
+OSStatus Session::authorizationdbGet(AuthorizationString inRightName, CFDictionaryRef *rightDict)
+{
+	string rightName(inRightName);
+	return Server::authority().getRule(rightName, rightDict);
+}
+
+
+OSStatus Session::authorizationdbSet(const AuthorizationBlob &authBlob, AuthorizationString inRightName, CFDictionaryRef rightDict)
+{
+	CredentialSet resultCreds;
+    AuthorizationToken &auth = authorization(authBlob);
+    CredentialSet effective;
+
+    {
+        StLock<Mutex> _(mCredsLock);
+        effective	 = auth.effectiveCreds();
+    }
+
+	OSStatus result = Server::authority().setRule(inRightName, rightDict, &effective, &resultCreds, auth);
+
+    {
+        StLock<Mutex> _(mCredsLock);
+        mergeCredentials(resultCreds);
+        auth.mergeCredentials(resultCreds);
+	}
+
+	secdebug("SSauth", "Authorization %p authorizationdbSet %s (result=%ld)",
+		&authorization(authBlob), inRightName, result);
+	return result;
+}
+
+
+OSStatus Session::authorizationdbRemove(const AuthorizationBlob &authBlob, AuthorizationString inRightName)
+{
+	CredentialSet resultCreds;
+    AuthorizationToken &auth = authorization(authBlob);
+    CredentialSet effective;
+
+    {
+        StLock<Mutex> _(mCredsLock);
+        effective	 = auth.effectiveCreds();
+    }
+
+	OSStatus result = Server::authority().removeRule(inRightName, &effective, &resultCreds, auth);
+
+    {
+        StLock<Mutex> _(mCredsLock);
+        mergeCredentials(resultCreds);
+        auth.mergeCredentials(resultCreds);
+	}
+
+	secdebug("SSauth", "Authorization %p authorizationdbRemove %s (result=%ld)",
+		&authorization(authBlob), inRightName, result);
+	return result;
 }
 
 
@@ -392,7 +458,7 @@ void Session::setupAttributes(SessionAttributeBits attrs)
 // must hold mCredsLock
 void Session::mergeCredentials(CredentialSet &creds)
 {
-    debug("SSsession", "%p merge creds @%p", this, &creds);
+    secdebug("SSsession", "%p merge creds @%p", this, &creds);
 	for (CredentialSet::const_iterator it = creds.begin(); it != creds.end(); it++)
 		if (((*it)->isShared() && (*it)->isValid())) {
 			CredentialSet::iterator old = mSessionCreds.find(*it);
@@ -413,5 +479,7 @@ void Session::mergeCredentials(CredentialSet &creds)
 //
 AuthorizationToken &Session::authorization(const AuthorizationBlob &blob)
 {
-    return AuthorizationToken::find(blob);
+    AuthorizationToken &auth = AuthorizationToken::find(blob);
+	Server::connection().process.checkAuthorization(&auth);
+	return auth;
 }

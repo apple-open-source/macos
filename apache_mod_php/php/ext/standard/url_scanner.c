@@ -1,8 +1,8 @@
 /*
    +----------------------------------------------------------------------+
-   | PHP version 4.0                                                      |
+   | PHP Version 4                                                        |
    +----------------------------------------------------------------------+
-   | Copyright (c) 1997-2001 The PHP Group                                |
+   | Copyright (c) 1997-2003 The PHP Group                                |
    +----------------------------------------------------------------------+
    | This source file is subject to version 2.02 of the PHP license,      |
    | that is bundled with this package in the file LICENSE, and is        |
@@ -12,14 +12,12 @@
    | obtain it through the world-wide-web, please send a note to          |
    | license@php.net so we can mail you a copy immediately.               |
    +----------------------------------------------------------------------+
-   | Author: Hartmut Holzgraefe <hartmut@six.de>                          |
+   | Author: Hartmut Holzgraefe <hholzgra@php.net>                        |
    +----------------------------------------------------------------------+
  */
-/* $Id: url_scanner.c,v 1.1.1.5 2001/12/14 22:13:29 zarzycki Exp $ */
+/* $Id: url_scanner.c,v 1.1.1.8 2003/07/18 18:07:44 zarzycki Exp $ */
 
 #include "php.h"
-
-#ifdef TRANS_SID
 
 #include "php_globals.h"
 
@@ -34,14 +32,14 @@
 #define BUFSIZE 256
 #endif
 
-PHP_RINIT_FUNCTION(url_scanner)
+int php_url_scanner_activate(TSRMLS_D)
 {
 	url_adapt(NULL,0,NULL,NULL);
 	return SUCCESS;
 }
 
 
-PHP_RSHUTDOWN_FUNCTION(url_scanner)
+int php_url_scanner_deactivate(TSRMLS_D)
 {
 	url_adapt(NULL,0,NULL,NULL);
 	return SUCCESS;
@@ -90,7 +88,7 @@ static char *url_attr_addon(const char *tag,const char *attr,const char *val,con
 
 /* {{{ url_adapt_ext
  */
-char *url_adapt_ext(const char *src, size_t srclen, const char *name, const char *val, size_t *newlen)
+char *url_adapt_ext(const char *src, uint srclen, const char *name, const char *val, size_t *newlen)
 {
 	char buf[1024];
 
@@ -364,6 +362,8 @@ char *url_adapt(const char *src, size_t srclen, const char *data, size_t *newlen
 				}
 			}
 			break;
+		default:
+			break;
 		}
 
 		*outp++=*src++;
@@ -373,13 +373,12 @@ char *url_adapt(const char *src, size_t srclen, const char *data, size_t *newlen
 	return out;
 }
 /* }}} */
-#endif
 
 /*
  * Local variables:
  * tab-width: 4
  * c-basic-offset: 4
  * End:
- * vim600: sw=4 ts=4 tw=78 fdm=marker
- * vim<600: sw=4 ts=4 tw=78
+ * vim600: sw=4 ts=4 fdm=marker
+ * vim<600: sw=4 ts=4
  */

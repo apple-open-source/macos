@@ -1,4 +1,4 @@
-dnl $Id: config.m4,v 1.1.1.4 2001/12/14 22:13:17 zarzycki Exp $ -*- sh -*-
+dnl $Id: config.m4,v 1.1.1.7 2003/07/18 18:07:42 zarzycki Exp $ -*- sh -*-
 
 divert(3)dnl
 
@@ -58,6 +58,13 @@ dnl Check for crypt() capabilities
 dnl
 AC_DEFUN(AC_CRYPT_CAP,[
 
+  if test "$ac_cv_func_crypt" = "no"; then
+  AC_CHECK_LIB(crypt, crypt, [
+    LIBS="-lcrypt $LIBS -lcrypt"
+    AC_DEFINE(HAVE_CRYPT, 1, [ ])
+  ])
+  fi
+  
   AC_CACHE_CHECK(for standard DES crypt, ac_cv_crypt_des,[
   AC_TRY_RUN([
 #if HAVE_CRYPT_H
@@ -185,13 +192,7 @@ main() {
   AC_DEFINE_UNQUOTED(PHP_BLOWFISH_CRYPT, $ac_result, [Whether the system supports BlowFish salt])
 ])
 
-AC_CHECK_FUNC(dlopen, [AC_DEFINE(HAVE_LIBDL,1,[ ])])
-
-AC_CHECK_LIB(pam, pam_start, [
-  EXTRA_LIBS="$EXTRA_LIBS -lpam"
-  AC_DEFINE(HAVE_LIBPAM,1,[ ]) ], []) 
-
-AC_CHECK_FUNCS(getcwd getwd)
+AC_CHECK_FUNCS(getcwd getwd asinh acosh atanh log1p hypot)
 
 AC_CRYPT_CAP
 AC_FLUSH_IO
@@ -199,11 +200,16 @@ AC_FLUSH_IO
 divert(5)dnl
 
 AC_ARG_WITH(regex,
-[  --with-regex=TYPE       regex library type: system, apache, php],
+[  --with-regex=TYPE       regex library type: system, apache, php. Default: php
+                          WARNING: Do NOT use unless you know what you are doing!],
 [
   case $withval in 
     system)
-      REGEX_TYPE=system
+      if test "$PHP_SAPI" = "apache" || test "$PHP_SAPI" = "apache2filter"; then
+        REGEX_TYPE=php
+      else
+        REGEX_TYPE=system
+      fi
       ;;
     apache)
       REGEX_TYPE=apache
@@ -219,14 +225,30 @@ AC_ARG_WITH(regex,
 ],[
   REGEX_TYPE=php
 ])
-	
-AC_ARG_WITH(system-regex,
-[  --with-system-regex     (deprecated) Use system regex library],[
-  if test "$withval" = "yes"; then
-    REGEX_TYPE=system
-  else
-    REGEX_TYPE=php
-  fi
-])
 
-PHP_EXTENSION(standard)
+AC_FUNC_FNMATCH	
+
+dnl getopt long options disabled for now
+dnl as we can't be sure that we get the right getopt.h here
+dnl using the standard AC_CHECK macros
+dnl AC_CHECK_HEADERS(getopt.h)
+dnl AC_CHECK_FUNCS(getopt_long getopt_long_only)
+
+AC_CHECK_FUNCS(glob strfmon)
+
+if test "$PHP_SAPI" = "cgi" -o "$PHP_SAPI" = "cli" -o "$PHP_SAPI" = "embed"; then
+  AC_DEFINE(ENABLE_CHROOT_FUNC, 1, [Whether to enable chroot() function])
+fi
+
+PHP_NEW_EXTENSION(standard, array.c base64.c basic_functions.c browscap.c crc32.c crypt.c \
+                            cyr_convert.c datetime.c dir.c dl.c dns.c exec.c file.c filestat.c \
+                            flock_compat.c formatted_print.c fsock.c head.c html.c image.c \
+                            info.c iptc.c lcg.c link.c mail.c math.c md5.c metaphone.c \
+                            microtime.c pack.c pageinfo.c parsedate.c quot_print.c rand.c \
+                            reg.c soundex.c string.c scanf.c syslog.c type.c uniqid.c url.c \
+                            url_scanner.c var.c versioning.c assert.c strnatcmp.c levenshtein.c \
+                            incomplete_class.c url_scanner_ex.c ftp_fopen_wrapper.c \
+                            http_fopen_wrapper.c php_fopen_wrapper.c credits.c css.c \
+                            var_unserializer.c ftok.c aggregation.c sha1.c )
+
+PHP_ADD_MAKEFILE_FRAGMENT

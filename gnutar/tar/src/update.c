@@ -1,5 +1,7 @@
 /* Update a tar archive.
-   Copyright (C) 1988, 1992, 1994, 1996, 1997 Free Software Foundation, Inc.
+
+   Copyright (C) 1988, 1992, 1994, 1996, 1997, 1999, 2000, 2001 Free
+   Software Foundation, Inc.
 
    This program is free software; you can redistribute it and/or modify it
    under the terms of the GNU General Public License as published by the
@@ -21,6 +23,7 @@
    they're on raw tape or something like that, it'll probably lose...  */
 
 #include "system.h"
+#include <quotearg.h>
 #include "common.h"
 
 /* FIXME: This module should not directly handle the following variable,
@@ -30,79 +33,70 @@ extern union block *current_block;
 /* We've hit the end of the old stuff, and its time to start writing new
    stuff to the tape.  This involves seeking back one record and
    re-writing the current record (which has been changed).  */
-int time_to_start_writing = 0;
+int time_to_start_writing;
 
 /* Pointer to where we started to write in the first record we write out.
    This is used if we can't backspace the output and have to null out the
    first part of the record.  */
 char *output_start;
 
-/*------------------------------------------------------------------------.
-| Catenate file PATH to the archive without creating a header for it.  It |
-| had better be a tar file or the archive is screwed.			  |
-`------------------------------------------------------------------------*/
-
+/* Catenate file PATH to the archive without creating a header for it.
+   It had better be a tar file or the archive is screwed.  */
 static void
 append_file (char *path)
 {
-  int handle;
+  int handle = open (path, O_RDONLY | O_BINARY);
   struct stat stat_data;
-  off_t bytes_left;
 
-  if (stat (path, &stat_data) != 0
-      || (handle = open (path, O_RDONLY | O_BINARY), handle < 0))
+  if (handle < 0)
     {
-      ERROR ((0, errno, _("Cannot open file %s"), path));
+      open_error (path);
       return;
     }
 
-  bytes_left = stat_data.st_size;
-
-  while (bytes_left > 0)
+  if (fstat (handle, &stat_data) != 0)
+    stat_error (path);
+  else
     {
-      union block *start = find_next_block ();
-      size_t buffer_size = available_space_after (start);
-      ssize_t status;
+      off_t bytes_left = stat_data.st_size;
 
-      if (bytes_left < buffer_size)
+      while (bytes_left > 0)
 	{
-	  buffer_size = bytes_left;
-	  status = buffer_size % BLOCKSIZE;
-	  if (status)
-	    memset (start->buffer + bytes_left, 0,
-		    (size_t) (BLOCKSIZE - status));
-	}
-
-      status = safe_read (handle, start->buffer, buffer_size);
-      if (status < 0)
-	{
+	  union block *start = find_next_block ();
+	  size_t buffer_size = available_space_after (start);
+	  ssize_t status;
 	  char buf[UINTMAX_STRSIZE_BOUND];
-	  FATAL_ERROR ((0, errno,
-			_("Read error at byte %s reading %lu bytes in file %s"),
-			STRINGIFY_BIGINT (stat_data.st_size - bytes_left, buf),
-			(unsigned long) buffer_size, path));
-	}
-      bytes_left -= status;
 
-      set_next_block_after (start + (status - 1) / BLOCKSIZE);
+	  if (bytes_left < buffer_size)
+	    {
+	      buffer_size = bytes_left;
+	      status = buffer_size % BLOCKSIZE;
+	      if (status)
+		memset (start->buffer + bytes_left, 0, BLOCKSIZE - status);
+	    }
 
-      if (status != buffer_size)
-	{
-	  char buf[UINTMAX_STRSIZE_BOUND];
-	  FATAL_ERROR ((0, 0, _("%s: File shrunk by %s bytes, (yark!)"),
-			path, STRINGIFY_BIGINT (bytes_left, buf)));
+	  status = safe_read (handle, start->buffer, buffer_size);
+	  if (status < 0)
+	    read_fatal_details (path, stat_data.st_size - bytes_left,
+				buffer_size);
+	  if (status == 0)
+	    FATAL_ERROR ((0, 0, _("%s: File shrank by %s bytes"),
+			  quotearg_colon (path),
+			  STRINGIFY_BIGINT (bytes_left, buf)));
+
+	  bytes_left -= status;
+
+	  set_next_block_after (start + (status - 1) / BLOCKSIZE);
 	}
     }
 
-  close (handle);
+  if (close (handle) != 0)
+    close_error (path);
 }
 
-/*-----------------------------------------------------------------------.
-| Implement the 'r' (add files to end of archive), and 'u' (add files to |
-| end of archive if they arent there, or are more up to date than the	 |
-| version in the archive.) commands.					 |
-`-----------------------------------------------------------------------*/
-
+/* Implement the 'r' (add files to end of archive), and 'u' (add files
+   to end of archive if they aren't there, or are more up to date than
+   the version in the archive) commands.  */
 void
 update_archive (void)
 {
@@ -110,13 +104,11 @@ update_archive (void)
   int found_end = 0;
 
   name_gather ();
-  if (subcommand_option == UPDATE_SUBCOMMAND)
-    name_expand ();
   open_archive (ACCESS_UPDATE);
 
   while (!found_end)
     {
-      enum read_header status = read_header ();
+      enum read_header status = read_header (0);
 
       switch (status)
 	{
@@ -130,19 +122,16 @@ update_archive (void)
 	    if (subcommand_option == UPDATE_SUBCOMMAND
 		&& (name = name_scan (current_file_name), name))
 	      {
-		struct stat stat_data;
+		struct stat s;
 		enum archive_format unused;
 
 		decode_header (current_header, &current_stat, &unused, 0);
-		if (stat (current_file_name, &stat_data) < 0)
-		  ERROR ((0, errno, _("Cannot stat %s"), current_file_name));
-		else if (current_stat.st_mtime >= stat_data.st_mtime)
-		  name->found = 1;
+		chdir_do (name->change_dir);
+		if (deref_stat (dereference_option, current_file_name, &s) == 0
+		    && s.st_mtime <= current_stat.st_mtime)
+		  add_avoided_name (current_file_name);
 	      }
-	    set_next_block_after (current_header);
-	    if (current_header->oldgnu_header.isextended)
-	      skip_extended_headers ();
-	    skip_file (current_stat.st_size);
+	    skip_member ();
 	    break;
 	  }
 
@@ -189,12 +178,14 @@ update_archive (void)
 
     while (path = name_from_list (), path)
       {
+	if (excluded_name (path))
+	  continue;
 	if (interactive_option && !confirm ("add", path))
 	  continue;
 	if (subcommand_option == CAT_SUBCOMMAND)
 	  append_file (path);
 	else
-	  dump_file (path, (dev_t) -1, 1);
+	  dump_file (path, 1, (dev_t) 0);
       }
   }
 

@@ -3,21 +3,22 @@
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
- * Portions Copyright (c) 1999 Apple Computer, Inc.  All Rights
- * Reserved.  This file contains Original Code and/or Modifications of
- * Original Code as defined in and that are subject to the Apple Public
- * Source License Version 1.1 (the "License").  You may not use this file
- * except in compliance with the License.  Please obtain a copy of the
- * License at http://www.apple.com/publicsource and read it before using
- * this file.
+ * Copyright (c) 1999-2003 Apple Computer, Inc.  All Rights Reserved.
+ * 
+ * This file contains Original Code and/or Modifications of Original Code
+ * as defined in and that are subject to the Apple Public Source License
+ * Version 2.0 (the 'License'). You may not use this file except in
+ * compliance with the License. Please obtain a copy of the License at
+ * http://www.opensource.apple.com/apsl/ and read it before using this
+ * file.
  * 
  * The Original Code and all software distributed under the License are
- * distributed on an "AS IS" basis, WITHOUT WARRANTY OF ANY KIND, EITHER
+ * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
  * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
  * INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY,
- * FITNESS FOR A PARTICULAR PURPOSE OR NON- INFRINGEMENT.  Please see the
- * License for the specific language governing rights and limitations
- * under the License.
+ * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
+ * Please see the License for the specific language governing rights and
+ * limitations under the License.
  * 
  * @APPLE_LICENSE_HEADER_END@
  */
@@ -78,7 +79,7 @@
 
 #if defined(LIBC_SCCS) && !defined(lint)
 static char sccsid[] = "@(#)res_send.c	8.1 (Berkeley) 6/4/93";
-static char rcsid[] = "$Id: res_send.c,v 1.2.202.1 2002/11/06 17:30:17 majka Exp $";
+static char rcsid[] = "$Id: res_send.c,v 1.6 2003/02/18 17:29:25 majka Exp $";
 #endif /* LIBC_SCCS and not lint */
 
 	/* change this to "0"
@@ -97,7 +98,7 @@ static char rcsid[] = "$Id: res_send.c,v 1.2.202.1 2002/11/06 17:30:17 majka Exp
 #include <sys/socket.h>
 #include <sys/uio.h>
 #include <netinet/in.h>
-#include <arpa/nameser.h>
+#include <arpa/nameser8_compat.h>
 #include <arpa/inet.h>
 #include <ifaddrs.h>
 #include <net/if.h>
@@ -105,7 +106,7 @@ static char rcsid[] = "$Id: res_send.c,v 1.2.202.1 2002/11/06 17:30:17 majka Exp
 #include <stdio.h>
 #include <netdb.h>
 #include <errno.h>
-#include <resolv.h>
+#include <resolv8_compat.h>
 #if defined(BSD) && (BSD >= 199306)
 # include <stdlib.h>
 # include <string.h>
@@ -185,8 +186,6 @@ static int vc = 0;	/* is the socket a virtual ciruit? */
 	errno = save;
     }
 #endif
-
-extern struct __res_state _res_shadow;
 
 static res_send_qhook Qhook = NULL;
 static res_send_rhook Rhook = NULL;
@@ -313,26 +312,6 @@ res_queriesmatch(buf1, eom1, buf2, eom2)
 	return (1);
 }
 
-static int res_using_defaults()
-{
-	int i;
-	
-	if (_res.nscount != _res_shadow.nscount)
-		return 0;
-	
-	for (i = 0; i < _res.nscount; i++) {
-		/* Check that the address and port have not changed */
-		if ((_res.nsaddr_list[i].sin_addr.s_addr !=
-			 _res_shadow.nsaddr_list[i].sin_addr.s_addr) ||
-			(_res.nsaddr_list[i].sin_port !=
-			 _res_shadow.nsaddr_list[i].sin_port)) {
-			return 0;
-		}
-	}
-	
-	return 1;
-}
-
 /* Returns whether a dns encoded name should be sent to multicast or not */
 static int dns_is_local_name(const u_int8_t *name)
 {
@@ -340,7 +319,9 @@ static int dns_is_local_name(const u_int8_t *name)
 	const u_int8_t *d1 = NULL;		// Second-Level Domain
 	const u_int8_t *d2 = NULL;		// etc.
 	const u_int8_t *d3 = NULL;
-	
+
+	if (name == NULL) return 0;
+
 	while (*name)
 	{
 		d3 = d2;
@@ -418,8 +399,7 @@ res_send(buf, buflen, ans, anssiz)
 	terrno = ETIMEDOUT;
 	badns = 0;
 
-	if (res_using_defaults() &&
-		dns_is_local_name((u_int8_t*)(buf + DNS_HEADER_SIZE))) {
+	if (dns_is_local_name((u_int8_t*)(buf + DNS_HEADER_SIZE))) {
 		multicast = 1;
 		v_circuit = 0;
 	} else {

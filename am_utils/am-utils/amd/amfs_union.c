@@ -37,7 +37,7 @@
  * SUCH DAMAGE.
  *
  *
- * $Id: amfs_union.c,v 1.1.1.1 2002/05/15 01:21:54 jkh Exp $
+ * $Id: amfs_union.c,v 1.1.1.2 2002/07/15 19:42:36 zarzycki Exp $
  *
  */
 
@@ -75,7 +75,9 @@ am_ops amfs_union_ops =
   0,				/* amfs_toplvl_umounted */
   find_amfs_auto_srvr,
   FS_MKMNT | FS_NOTIMEOUT | FS_BACKGROUND | FS_AMQINFO | FS_DIRECTORY,
-  FS_MKMNT | FS_NOTIMEOUT | FS_BACKGROUND | FS_AMQINFO | FS_DIRECTORY
+#ifdef HAVE_FS_AUTOFS
+  AUTOFS_UNION_FS_FLAGS,
+#endif /* HAVE_FS_AUTOFS */
 };
 
 

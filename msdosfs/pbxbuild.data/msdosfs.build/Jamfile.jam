@@ -1,30 +1,39 @@
-# Jamfile for target msdosfs of project msdosfs
+# Jamfile for target "msdosfs" of project "msdosfs"
 
-
-PROJECT = msdosfs ;
 
 JAVAC_SOURCE_FILE_ENCODING default = MacRoman ;
 
-# msdosfs target
-export deferred TARGET_NAME = msdosfs ;
-export deferred PRODUCT_NAME = msdosfs ;
+# Implicitly computed project-wide settings for project
+export deferred DEVELOPMENT_LANGUAGE = English ;
+export deferred PROJECT = $(PROJECT_NAME) ;
+export deferred PROJECT_NAME = msdosfs ;
+export deferred SRCROOT = /Volumes/Speedy/sources/msdosfs ;
 
-export deferred PKGINFO_FILE_CONTENTS = "KEXT????" ;
-export deferred PRODUCT_SETTINGS_PATH = "$(SRCROOT)/pbxbuild.data/msdosfs.build/Info.plist" ;
-export deferred PKGINFO_FILE_PATH = "$(SRCROOT)/pbxbuild.data/msdosfs.build/PkgInfo" ;
-export deferred DEVELOPMENT_SETTINGS_PATH = "$(SRCROOT)/pbxbuild.data/msdosfs.build/pbdevelopment.plist" ;
+# User-defined project-wide settings for project
 
+# Target "msdosfs"
+
+export deferred _INFO_PLIST_FILE_PATH = "$(SRCROOT)/pbxbuild.data/msdosfs.build/Info.plist" ;
+export deferred _PKGINFO_FILE_PATH = "$(SRCROOT)/pbxbuild.data/msdosfs.build/PkgInfo" ;
+export deferred _PBDEVELOPMENT_PLIST_FILE_PATH = "$(SRCROOT)/pbxbuild.data/msdosfs.build/pbdevelopment.plist" ;
+
+# Implicitly computed build settings for target "msdosfs"
 export deferred CLONE_HEADERS = NO ;
+export deferred PFE_FILE_C_DIALECTS = c ;
+export deferred TARGETNAME = $(TARGET_NAME) ;
+export deferred TARGET_NAME = msdosfs ;
+
+# User-defined build settings for target "msdosfs"
 export deferred FRAMEWORK_SEARCH_PATHS =  ;
 export deferred HEADER_SEARCH_PATHS =  ;
 export deferred INSTALL_PATH = "$(SYSTEM_LIBRARY_DIR)/Extensions" ;
 export deferred KERNEL_EXTENSION = YES ;
 export deferred KERNEL_MODULE = YES ;
 export deferred LIBRARY_SEARCH_PATHS =  ;
-export deferred MODULE_NAME = msdosfs ;
+export deferred MODULE_NAME = com.apple.filesystems.msdosfs ;
 export deferred MODULE_START = msdosfs_module_start ;
 export deferred MODULE_STOP = msdosfs_module_stop  ;
-export deferred MODULE_VERSION = 1.0 ;
+export deferred MODULE_VERSION = 1.3 ;
 export deferred OTHER_CFLAGS = -Wno-format ;
 export deferred OTHER_LDFLAGS =  ;
 export deferred OTHER_REZFLAGS =  ;
@@ -35,12 +44,15 @@ export deferred WRAPPER_EXTENSION = kext ;
 
 if "$(BUILD_STYLE)" = Development {
 	export deferred COPY_PHASE_STRIP = NO ;
+	export deferred OPTIMIZATION_CFLAGS = -O0 ;
 }
 
 if "$(BUILD_STYLE)" = Deployment {
 	export deferred COPY_PHASE_STRIP = YES ;
 }
 
+
+ConditionalDefinitions _ ;
 commitdeferred ;
 
 
@@ -94,6 +106,12 @@ ProcessRezFiles "<msdosfs>msdosfs.kext" : "$(REZ_FILES)" : BPTag004 : BPTag005 ;
 # Script Build Phase Files
 SCRIPT_BUILD_PHASE_FILES = "$(SRCROOT)/pbxbuild.data/msdosfs.build/BPTag006-script.sh" ;
 ProcessScriptBuildPhaseFiles "<msdosfs>msdosfs.kext" : "$(SCRIPT_BUILD_PHASE_FILES)" : BPTag005 : BPTag006 ;
+
+rule DefineHeaderDependencies
+{
+}
+
+DefineHeaderDependencies "<msdosfs>msdosfs.kext" ;
 
 EndBundle "<msdosfs>msdosfs.kext" ;
 

@@ -1,11 +1,11 @@
 #
-# "$Id: cups.spec,v 1.1.1.6 2002/06/06 22:12:28 jlovell Exp $"
+# "$Id: cups.spec,v 1.1.1.19 2003/07/16 17:21:40 jlovell Exp $"
 #
 #   RPM "spec" file for the Common UNIX Printing System (CUPS).
 #
 #   Original version by Jason McMullan <jmcc@ontv.com>.
 #
-#   Copyright 1999-2002 by Easy Software Products, all rights reserved.
+#   Copyright 1999-2003 by Easy Software Products, all rights reserved.
 #
 #   These coded instructions, statements, and computer programs are the
 #   property of Easy Software Products and are protected by Federal
@@ -26,11 +26,11 @@
 
 Summary: Common Unix Printing System
 Name: cups
-Version: 1.1.15
+Version: 1.1.20rc1
 Release: 1
 Copyright: GPL
 Group: System Environment/Daemons
-Source: ftp://ftp.easysw.com/pub/cups/%{version}/cups-%{version}-1-source.tar.gz
+Source: ftp://ftp.easysw.com/pub/cups/%{version}/cups-%{version}-source.tar.gz
 Url: http://www.cups.org
 Packager: Anonymous <anonymous@foo.com>
 Vendor: Easy Software Products
@@ -46,6 +46,10 @@ Provides: libcupsimage.so.2
 %package devel
 Summary: Common Unix Printing System - development environment
 Group: Development/Libraries
+
+%package libs
+Summary: Common Unix Printing System - shared libraries
+Group: System Environment/Libraries
 Provides: libcups1
 
 %description
@@ -58,6 +62,10 @@ CUPS provides the System V and Berkeley command-line interfaces.
 The Common UNIX Printing System provides a portable printing layer for 
 UNIX® operating systems. This is the development package for creating
 additional printer drivers and other CUPS services.
+
+%description libs
+The Common UNIX Printing System provides a portable printing layer for 
+UNIX® operating systems. This package contains the CUPS shared libraries.
 
 %prep
 %setup
@@ -127,26 +135,31 @@ rm -rf $RPM_BUILD_ROOT
 # RC dirs are a pain under Linux...  Uncomment the appropriate ones if you
 # don't use Red Hat or Mandrake...
 
+# OLD RedHat/Mandrake
 /etc/rc.d/init.d/*
 /etc/rc.d/rc0.d/*
+/etc/rc.d/rc2.d/*
 /etc/rc.d/rc3.d/*
 /etc/rc.d/rc5.d/*
 
-#/etc/init.d/*
-#/etc/rc0.d/*
-#/etc/rc3.d/*
-#/etc/rc5.d/*
-
 #/sbin/rc.d/*
 #/sbin/rc.d/rc0.d/*
+#/sbin/rc.d/rc2.d/*
 #/sbin/rc.d/rc3.d/*
 #/sbin/rc.d/rc5.d/*
 
+# NEW RedHat/Mandrake
+#/etc/init.d/*
+#/etc/rc0.d/*
+#/etc/rc2.d/*
+#/etc/rc3.d/*
+#/etc/rc5.d/*
+
 /usr/bin/cancel
+/usr/bin/cupstestppd
 /usr/bin/disable
 /usr/bin/enable
 /usr/bin/lp*
-/usr/lib/*.so*
 %dir /usr/lib/cups
 /usr/lib/cups/*
 /usr/sbin/*
@@ -202,6 +215,9 @@ rm -rf $RPM_BUILD_ROOT
 %dir /usr/share/man/fr/man3
 /usr/share/man/fr/man3/*
 
+%files libs
+/usr/lib/*.so*
+
 #
-# End of "$Id: cups.spec,v 1.1.1.6 2002/06/06 22:12:28 jlovell Exp $".
+# End of "$Id: cups.spec,v 1.1.1.19 2003/07/16 17:21:40 jlovell Exp $".
 #

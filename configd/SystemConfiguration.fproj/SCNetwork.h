@@ -1,22 +1,25 @@
 /*
- * Copyright (c) 2000 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 2000-2003 Apple Computer, Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
- *
- * The contents of this file constitute Original Code as defined in and
- * are subject to the Apple Public Source License Version 1.1 (the
- * "License").  You may not use this file except in compliance with the
- * License.  Please obtain a copy of the License at
- * http://www.apple.com/publicsource and read it before using this file.
- *
- * This Original Code and all software distributed under the License are
- * distributed on an "AS IS" basis, WITHOUT WARRANTY OF ANY KIND, EITHER
+ * 
+ * Copyright (c) 1999-2003 Apple Computer, Inc.  All Rights Reserved.
+ * 
+ * This file contains Original Code and/or Modifications of Original Code
+ * as defined in and that are subject to the Apple Public Source License
+ * Version 2.0 (the 'License'). You may not use this file except in
+ * compliance with the License. Please obtain a copy of the License at
+ * http://www.opensource.apple.com/apsl/ and read it before using this
+ * file.
+ * 
+ * The Original Code and all software distributed under the License are
+ * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
  * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
  * INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY,
- * FITNESS FOR A PARTICULAR PURPOSE OR NON-INFRINGEMENT.  Please see the
- * License for the specific language governing rights and limitations
- * under the License.
- *
+ * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
+ * Please see the License for the specific language governing rights and
+ * limitations under the License.
+ * 
  * @APPLE_LICENSE_HEADER_END@
  */
 
@@ -31,20 +34,28 @@
 
 /*!
 	@header SCNetwork
+
+	SCNetworkCheckReachabilityXXX()
+
 	The SCNetworkCheckReachabilityXXX() APIs allow an application to
-	determine the status of the system's current network configuration.
+	determine the status of the system's current network configuration
+	and the accessibility of a target host/address.
 
 	The term "reachable" reflects whether a data packet, sent by
-	an application into the network stack, will be able to reach
-	the destination host.
+	an application into the network stack, can be sent to the
+	the target host/address.  Please note that their is no
+	guarantee that the data packet will actually be received by
+	the host.
 
-	Please note that being able to reach the destination host
-	does not guarantee that the data packet will reach the
-	host.
 
-	The APIs provided by this framework communicate with the "configd"
-	daemon to obtain information regarding the system's current
-	configuration.
+	SCNetworkInterfaceRefreshConfiguration()
+
+	This API sends a notification to interested network configuration
+	agents to retry	their configuraton immediately. For example, calling
+	this API will cause the DHCP client to contact the DHCP server
+	immediately rather than waiting until its timeout has expired.
+	The utility of this API is to allow the caller to give a hint to
+	the system that the network infrastructure/configuration has changed.
  */
 
 /*!
@@ -85,15 +96,27 @@
 		form of user intervention will be required to establish
 		this connection (e.g. providing a password, authentication
 		token, etc.).
- */
-typedef enum {
-	kSCNetworkFlagsTransientConnection	=  1<<0,
-	kSCNetworkFlagsReachable		=  1<<1,
-	kSCNetworkFlagsConnectionRequired	=  1<<2,
-	kSCNetworkFlagsConnectionAutomatic	=  1<<3,
-	kSCNetworkFlagsInterventionRequired	=  1<<4,
-} SCNetworkConnectionFlags;
 
+	@constant kSCNetworkFlagsIsLocalAddress
+		This flag indicates that the specified nodename/address
+		is one associated with a network interface on the current
+		system.
+
+	@constant kSCNetworkFlagsIsDirect
+		This flag indicates that network traffic to the specified
+		nodename/address will not go through a gateway but is routed
+		directly to one of the interfaces in the system.
+ */
+enum {
+	kSCNetworkFlagsTransientConnection	= 1<<0,
+	kSCNetworkFlagsReachable		= 1<<1,
+	kSCNetworkFlagsConnectionRequired	= 1<<2,
+	kSCNetworkFlagsConnectionAutomatic	= 1<<3,
+	kSCNetworkFlagsInterventionRequired	= 1<<4,
+	kSCNetworkFlagsIsLocalAddress		= 1<<16,
+	kSCNetworkFlagsIsDirect			= 1<<17
+};
+typedef	uint32_t	SCNetworkConnectionFlags;
 
 __BEGIN_DECLS
 
@@ -101,8 +124,6 @@ __BEGIN_DECLS
 	@function SCNetworkCheckReachabilityByAddress
 	@discussion Determines if the given network address is
 		reachable using the current network configuration.
-
-		Note: This API is not thread safe.
 	@param address The network address of the desired host.
 	@param addrlen The length, in bytes, of the address.
 	@param flags A pointer to memory that will be filled with a
@@ -114,7 +135,7 @@ __BEGIN_DECLS
 Boolean
 SCNetworkCheckReachabilityByAddress	(
 					const struct sockaddr		*address,
-					const int			addrlen,
+					int				addrlen,
 					SCNetworkConnectionFlags	*flags
 					);
 
@@ -122,9 +143,6 @@ SCNetworkCheckReachabilityByAddress	(
 	@function SCNetworkCheckReachabilityByName
 	@discussion Determines if the given network host/node name is
 		reachable using the current network configuration.
-
-		Note: This API is not thread safe.
-
 	@param nodename The node name of the desired host. This name would
 		be the same as that passed to gethostbyname() or getaddrinfo().
 	@param flags A pointer to memory that will be filled with a
@@ -138,7 +156,20 @@ SCNetworkCheckReachabilityByName	(
 					const char			*nodename,
 					SCNetworkConnectionFlags	*flags
 					);
+/*!
+	@function SCNetworkInterfaceRefreshConfiguration
+	@discussion Sends a notification to interested configuration agents
+		to have them immediately retry their configuration over a
+		particular network interface.
+		Note: This API must be invoked by root (uid == 0).
 
+	@param ifName The BSD name of the network interface e.g. CFSTR("en0").
+	@result TRUE if the notification was sent; FALSE otherwise.
+ */
+Boolean
+SCNetworkInterfaceRefreshConfiguration	(
+					CFStringRef ifName
+					);
 __END_DECLS
 
 #endif /* _SCNETWORK_H */

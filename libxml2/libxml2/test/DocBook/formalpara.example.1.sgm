@@ -1,0 +1,7 @@
+<!DOCTYPE formalpara PUBLIC "-//OASIS//DTD DocBook V3.1//EN">
+<formalpara><title>This Paragraph Has a Title</title>
+<para>
+This is a test.  This is only a test.  Had this been a real
+example, it would have made more sense.  Or less.
+</para>
+</formalpara>

@@ -2,5 +2,5 @@ Package: portmap
 Maintainer: Rob Braun <rbraun@apple.com>
 Vendor: FreeBSD
 Version: 2001.06.25
-Build-Depends: build-base, librpcsvc-hdrs, libinfo-hdrs, bsdmake, gnuzip
+Build-Depends: build-base, librpcsvc-hdrs, libinfo-hdrs, bsdmake, gnuzip, tcp-wrappers
 Description: RPC portmapper

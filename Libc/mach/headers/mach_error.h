@@ -61,6 +61,9 @@
 
 #include <mach/error.h>
 
+#include <sys/cdefs.h>
+
+__BEGIN_DECLS
 char		*mach_error_string(
 /*
  *	Returns a string appropriate to the error argument given
@@ -82,5 +85,6 @@ char		*mach_error_type(
  */
 	mach_error_t	error_value
 				);
+__END_DECLS
 
 #endif	/* _MACH_ERROR_ */

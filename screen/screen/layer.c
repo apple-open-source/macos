@@ -1,4 +1,4 @@
-/* Copyright (c) 1993-2000
+/* Copyright (c) 1993-2002
  *      Juergen Weigert (jnweiger@immd4.informatik.uni-erlangen.de)
  *      Michael Schroeder (mlschroe@immd4.informatik.uni-erlangen.de)
  * Copyright (c) 1987 Oliver Laumann
@@ -22,7 +22,7 @@
  */
 
 #include "rcs.h"
-RCS_ID("$Id: layer.c,v 1.1.1.1 2001/12/14 22:08:29 bbraun Exp $ FAU")
+RCS_ID("$Id: layer.c,v 1.1.1.2 2003/03/19 21:16:18 landonf Exp $ FAU")
 
 #include <sys/types.h>
 
@@ -69,13 +69,16 @@ int off;
 #endif
 #ifdef COLOR
   mml.color = ml->color + off;
+# ifdef COLORS256
+  mml.colorx = ml->colorx + off;
+# endif
 #endif
   return &mml;
 }
 
 #ifdef UTF8
-# define RECODE_MCHAR(mc) (l->l_utf8 != D_utf8 ? recode_mchar(mc, l->l_utf8, D_utf8) : (mc))
-# define RECODE_MLINE(ml) (l->l_utf8 != D_utf8 ? recode_mline(ml, l->l_width, l->l_utf8, D_utf8) : (ml))
+# define RECODE_MCHAR(mc) ((l->l_encoding == UTF8) != (D_encoding == UTF8) ? recode_mchar(mc, l->l_encoding, D_encoding) : (mc))
+# define RECODE_MLINE(ml) ((l->l_encoding == UTF8) != (D_encoding == UTF8) ? recode_mline(ml, l->l_width, l->l_encoding, D_encoding) : (ml))
 #else
 # define RECODE_MCHAR(mc) (mc)
 # define RECODE_MLINE(ml) (ml)
@@ -359,7 +362,7 @@ int x, y;
 	SetRendition(r);
 	s2 = s + xs2 - x - vp->v_xoff;
 #ifdef UTF8
-	if (D_utf8 && r->font)
+	if (D_encoding == UTF8 && l->l_encoding != UTF8 && (r->font || l->l_encoding))
 	  {
 	    struct mchar mc;
 	    mc = *r;
@@ -373,6 +376,73 @@ int x, y;
 #endif
 	while (xs2++ <= xe2)
 	  PUTCHARLP(*s2++);
+      }
+}
+
+void
+LPutWinMsg(l, s, n, r, x, y)
+struct layer *l;
+char *s;
+int n;
+struct mchar *r;
+int x, y;
+{
+  struct canvas *cv;
+  struct viewport *vp;
+  char *s2;
+  int xs2, xe2, y2, len, len2;
+  struct mchar or;
+
+  if (x + n > l->l_width)
+    n = l->l_width - x;
+#ifdef HAVE_BRAILLE
+  if (bd.bd_refreshing)
+    {
+      BPutStr(l, s, n, r, x, y);
+      return;
+    }
+#endif
+  len = strlen(s);
+  if (len > n)
+    len = n;
+  for (cv = l->l_cvlist; cv; cv = cv->c_lnext)
+    for (vp = cv->c_vplist; vp; vp = vp->v_next)
+      {
+	y2 = y + vp->v_yoff;
+	if (y2 < vp->v_ys || y2 > vp->v_ye)
+	  continue;
+	xs2 = x + vp->v_xoff;
+	xe2 = xs2 + n - 1;
+	if (xs2 < vp->v_xs)
+	  xs2 = vp->v_xs;
+	if (xe2 > vp->v_xe)
+	  xe2 = vp->v_xe;
+	if (xs2 > xe2)
+	  continue;
+	display = cv->c_display;
+	GotoPos(xs2, y2);
+	SetRendition(r);
+	len2 = xe2 - (x + vp->v_xoff) + 1;
+	if (len2 > len)
+	  len2 = len;
+	if (!PutWinMsg(s, xs2 - x - vp->v_xoff, len2))
+	  {
+	    s2 = s + xs2 - x - vp->v_xoff;
+	    while (len2-- > 0)
+	      {
+	        PUTCHARLP(*s2++);
+		xs2++;
+	      }
+	  }
+        else
+	  xs2 = x + vp->v_xoff + len2;
+	if (xs2 < vp->v_xs)
+	  xs2 = vp->v_xs;
+	or = D_rend;
+	GotoPos(xs2, y2);
+	SetRendition(&or);
+	while (xs2++ <= xe2)
+	  PUTCHARLP(' ');
       }
 }
 
@@ -515,6 +585,28 @@ int isblank;
 }
 
 void
+LCDisplayLineWrap(l, ml, y, from, to, isblank)
+struct layer *l;
+struct mline *ml;
+int y, from, to;
+int isblank;
+{
+  struct mchar nc;
+  copy_mline2mchar(&nc, ml, 0);
+#ifdef DW_CHARS
+  if (dw_left(ml, 0, l->l_encoding))
+    {
+      nc.mbcs = ml->image[1];
+      from++;
+    }
+#endif
+  LWrapChar(l, &nc, y - 1, -1, -1, 0);
+  from++;
+  if (from <= to)
+    LCDisplayLine(l, ml, y, from, to, isblank);
+}
+
+void
 LSetRendition(l, r)
 struct layer *l;
 struct mchar *r;
@@ -543,7 +635,7 @@ int ins;
   int bce;
 
 #ifdef COLOR
-  bce = c->color >> 4 & 0xf;
+  bce = rend_getbg(c);
 #else
   bce = 0;
 #endif
@@ -723,7 +815,6 @@ int on;
 }
 
 
-
 /*******************************************************************/
 
 void
@@ -873,9 +964,7 @@ int block;
     }
   newlay->l_width = flayer->l_width;
   newlay->l_height = flayer->l_height;
-#ifdef UTF8
-  newlay->l_utf8 = 0;
-#endif
+  newlay->l_encoding = 0;
   newlay->l_layfn = lf;
   newlay->l_data = data;
   newlay->l_next = flayer;

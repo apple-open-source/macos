@@ -13,7 +13,7 @@
  */
 
 #include "includes.h"
-RCSID("$OpenBSD: sshconnect1.c,v 1.51 2002/05/23 19:24:30 markus Exp $");
+RCSID("$OpenBSD: sshconnect1.c,v 1.52 2002/08/08 13:50:23 aaron Exp $");
 
 #include <openssl/bn.h>
 #include <openssl/md5.h>
@@ -254,7 +254,7 @@ try_rsa_authentication(int idx)
 	 * load the private key.  Try first with empty passphrase; if it
 	 * fails, ask for a passphrase.
 	 */
-	if (public->flags && KEY_FLAG_EXT)
+	if (public->flags & KEY_FLAG_EXT)
 		private = public;
 	else
 		private = key_load_private_type(KEY_RSA1, authfile, "", NULL);
@@ -542,6 +542,7 @@ try_krb5_authentication(krb5_context *context, krb5_auth_context *auth_context)
 	}
 #endif
 
+#ifndef USE_CCAPI
 	tkfile = krb5_cc_default_name(*context);
 	if (strncmp(tkfile, "FILE:", 5) == 0)
 		tkfile += 5;
@@ -551,6 +552,7 @@ try_krb5_authentication(krb5_context *context, krb5_auth_context *auth_context)
 		ret = 0;
 		goto out;
 	}
+#endif
 
 	problem = krb5_cc_default(*context, &ccache);
 	if (problem) {

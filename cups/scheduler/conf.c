@@ -1,9 +1,9 @@
 /*
- * "$Id: conf.c,v 1.13.2.3 2003/02/05 23:20:50 jlovell Exp $"
+ * "$Id: conf.c,v 1.23 2003/09/05 01:14:50 jlovell Exp $"
  *
  *   Configuration routines for the Common UNIX Printing System (CUPS).
  *
- *   Copyright 1997-2002 by Easy Software Products, all rights reserved.
+ *   Copyright 1997-2003 by Easy Software Products, all rights reserved.
  *
  *   These coded instructions, statements, and computer programs are the
  *   property of Easy Software Products and are protected by Federal
@@ -27,6 +27,8 @@
  *   read_configuration() - Read a configuration file.
  *   read_location()      - Read a <Location path> definition.
  *   get_address()        - Get an address + port number from a line.
+ *   CDSAGetServerCerts() - Convert a keychain name into the CFArrayRef
+ *                          required by SSLSetCertificate.
  */
 
 /*
@@ -37,10 +39,11 @@
 #include <stdarg.h>
 #include <pwd.h>
 #include <grp.h>
-#include <sys/resource.h>
 
-#include <net/if.h>
-#include "ifaddrs.h"
+#ifdef HAVE_CDSASSL
+#  include <Security/SecureTransport.h>
+#  include <Security/SecIdentitySearch.h>
+#endif /* HAVE_CDSASSL */
 
 #ifdef HAVE_VSYSLOG
 #  include <syslog.h>
@@ -57,6 +60,37 @@
 
 
 /*
+ * Some OS's don't have hstrerror(), most notably Solaris...
+ */
+
+#ifndef HAVE_HSTRERROR
+const char *					/* O - Error string */
+cups_hstrerror(int error)			/* I - Error number */
+{
+  static const char * const errors[] =
+		{
+		  "OK",
+		  "Host not found.",
+		  "Try again.",
+		  "Unrecoverable lookup error.",
+		  "No data associated with name."
+		};
+
+
+  if (error < 0 || error > 4)
+    return ("Unknown hostname lookup error.");
+  else
+    return (errors[error]);
+}
+#elif defined(_AIX)
+/*
+ * AIX doesn't provide a prototype but does provide the function...
+ */
+extern const char *hstrerror(int);
+#endif /* !HAVE_HSTRERROR */
+
+
+/*
  * Configuration variable structure...
  */
 
@@ -64,8 +98,7 @@ typedef struct
 {
   char	*name;		/* Name of variable */
   void	*ptr;		/* Pointer to variable */
-  int	type,		/* Type (int, string, address) */
-	size;		/* Size of string */
+  int	type;		/* Type (int, string, address) */
 } var_t;
 
 #define VAR_INTEGER	0
@@ -79,59 +112,69 @@ typedef struct
 
 static var_t	variables[] =
 {
-  { "AccessLog",	AccessLog,		VAR_STRING,	sizeof(AccessLog) },
-  { "AutoPurgeJobs", 	&JobAutoPurge,		VAR_BOOLEAN,	0 },
-  { "BrowseInterval",	&BrowseInterval,	VAR_INTEGER,	0 },
-  { "BrowsePort",	&BrowsePort,		VAR_INTEGER,	0 },
-  { "BrowseShortNames",	&BrowseShortNames,	VAR_BOOLEAN,	0 },
-  { "BrowseTimeout",	&BrowseTimeout,		VAR_INTEGER,	0 },
-  { "Browsing",		&Browsing,		VAR_BOOLEAN,	0 },
-  { "Classification",	Classification,		VAR_STRING,	sizeof(Classification) },
-  { "ClassifyOverride",	&ClassifyOverride,	VAR_BOOLEAN,	0 },
-  { "ConfigFilePerm",	&ConfigFilePerm,	VAR_INTEGER,	0 },
-  { "DataDir",		DataDir,		VAR_STRING,	sizeof(DataDir) },
-  { "DefaultCharset",	DefaultCharset,		VAR_STRING,	sizeof(DefaultCharset) },
-  { "DefaultLanguage",	DefaultLanguage,	VAR_STRING,	sizeof(DefaultLanguage) },
-  { "DocumentRoot",	DocumentRoot,		VAR_STRING,	sizeof(DocumentRoot) },
-  { "ErrorLog",		ErrorLog,		VAR_STRING,	sizeof(ErrorLog) },
-  { "FileDevice",	&FileDevice,		VAR_BOOLEAN,	0 },
-  { "FilterLimit",	&FilterLimit,		VAR_INTEGER,	0 },
-  { "FontPath",		FontPath,		VAR_STRING,	sizeof(FontPath) },
-  { "HideImplicitMembers", &HideImplicitMembers, VAR_BOOLEAN,	0 },
-  { "ImplicitClasses",	&ImplicitClasses,	VAR_BOOLEAN,	0 },
-  { "ImplicitAnyClasses", &ImplicitAnyClasses,	VAR_BOOLEAN,	0 },
-  { "KeepAliveTimeout",	&KeepAliveTimeout,	VAR_INTEGER,	0 },
-  { "KeepAlive",	&KeepAlive,		VAR_BOOLEAN,	0 },
-  { "LimitRequestBody",	&MaxRequestSize,	VAR_INTEGER,	0 },
-  { "ListenBackLog",	&ListenBackLog,		VAR_INTEGER,	0 },
-  { "LogFilePerm",	&LogFilePerm,		VAR_INTEGER,	0 },
-  { "MaxClients",	&MaxClients,		VAR_INTEGER,	0 },
-  { "MaxClientsPerHost",&MaxClientsPerHost,	VAR_INTEGER,	0 },
-  { "MaxJobs",		&MaxJobs,		VAR_INTEGER,	0 },
-  { "MaxJobsPerPrinter",&MaxJobsPerPrinter,	VAR_INTEGER,	0 },
-  { "MaxJobsPerUser",	&MaxJobsPerUser,	VAR_INTEGER,	0 },
-  { "MaxLogSize",	&MaxLogSize,		VAR_INTEGER,	0 },
-  { "MaxRequestSize",	&MaxRequestSize,	VAR_INTEGER,	0 },
-  { "PageLog",		PageLog,		VAR_STRING,	sizeof(PageLog) },
-  { "PreserveJobFiles",	&JobFiles,		VAR_BOOLEAN,	0 },
-  { "PreserveJobHistory", &JobHistory,		VAR_BOOLEAN,	0 },
-  { "Printcap",		Printcap,		VAR_STRING,	sizeof(Printcap) },
-  { "PrintcapGUI",	PrintcapGUI,		VAR_STRING,	sizeof(PrintcapGUI) },
-  { "RemoteRoot",	RemoteRoot,		VAR_STRING,	sizeof(RemoteRoot) },
-  { "RequestRoot",	RequestRoot,		VAR_STRING,	sizeof(RequestRoot) },
-  { "RIPCache",		RIPCache,		VAR_STRING,	sizeof(RIPCache) },
-  { "RunAsUser", 	&RunAsUser,		VAR_BOOLEAN,	0 },
-  { "RootCertDuration", &RootCertDuration,      VAR_INTEGER,    0 },
-  { "ServerAdmin",	ServerAdmin,		VAR_STRING,	sizeof(ServerAdmin) },
-  { "ServerBin",	ServerBin,		VAR_STRING,	sizeof(ServerBin) },
-#ifdef HAVE_LIBSSL
-  { "ServerCertificate",ServerCertificate,	VAR_STRING,	sizeof(ServerCertificate) },
-  { "ServerKey",	ServerKey,		VAR_STRING,	sizeof(ServerKey) },
-#endif /* HAVE_LIBSSL */
-  { "ServerName",	ServerName,		VAR_STRING,	sizeof(ServerName) },
-  { "ServerRoot",	ServerRoot,		VAR_STRING,	sizeof(ServerRoot) },
-  { "TempDir",		TempDir,		VAR_STRING,	sizeof(TempDir) },
-  { "Timeout",		&Timeout,		VAR_INTEGER,	0 }
+  { "AccessLog",		&AccessLog,		VAR_STRING },
+  { "AutoPurgeJobs", 		&JobAutoPurge,		VAR_BOOLEAN },
+  { "BrowseInterval",		&BrowseInterval,	VAR_INTEGER },
+  { "BrowsePort",		&BrowsePort,		VAR_INTEGER },
+  { "BrowseShortNames",		&BrowseShortNames,	VAR_BOOLEAN },
+  { "BrowseTimeout",		&BrowseTimeout,		VAR_INTEGER },
+  { "Browsing",			&Browsing,		VAR_BOOLEAN },
+  { "Classification",		&Classification,	VAR_STRING },
+  { "ClassifyOverride",		&ClassifyOverride,	VAR_BOOLEAN },
+  { "ConfigFilePerm",		&ConfigFilePerm,	VAR_INTEGER },
+  { "DataDir",			&DataDir,		VAR_STRING },
+  { "DefaultCharset",		&DefaultCharset,	VAR_STRING },
+  { "DefaultLanguage",		&DefaultLanguage,	VAR_STRING },
+  { "DocumentRoot",		&DocumentRoot,		VAR_STRING },
+  { "ErrorLog",			&ErrorLog,		VAR_STRING },
+  { "FaxRetryLimit",		&FaxRetryLimit,		VAR_INTEGER },
+  { "FaxRetryInterval",		&FaxRetryInterval,	VAR_INTEGER },
+  { "FileDevice",		&FileDevice,		VAR_BOOLEAN },
+  { "FilterLimit",		&FilterLimit,		VAR_INTEGER },
+  { "FilterNice",		&FilterNice,		VAR_INTEGER },
+  { "FontPath",			&FontPath,		VAR_STRING },
+  { "HideImplicitMembers",	&HideImplicitMembers,	VAR_BOOLEAN },
+  { "ImplicitClasses",		&ImplicitClasses,	VAR_BOOLEAN },
+  { "ImplicitAnyClasses",	&ImplicitAnyClasses,	VAR_BOOLEAN },
+  { "KeepAliveTimeout",		&KeepAliveTimeout,	VAR_INTEGER },
+  { "KeepAlive",		&KeepAlive,		VAR_BOOLEAN },
+  { "LimitRequestBody",		&MaxRequestSize,	VAR_INTEGER },
+  { "ListenBackLog",		&ListenBackLog,		VAR_INTEGER },
+  { "LogFilePerm",		&LogFilePerm,		VAR_INTEGER },
+  { "MaxClients",		&MaxClients,		VAR_INTEGER },
+  { "MaxClientsPerHost",	&MaxClientsPerHost,	VAR_INTEGER },
+  { "MaxCopies",		&MaxCopies,		VAR_INTEGER },
+#ifdef __APPLE__
+  { "MinCopies",		&MinCopies,		VAR_INTEGER },
+#endif  /* __APPLE__ */
+  { "MaxJobs",			&MaxJobs,		VAR_INTEGER },
+  { "MaxJobsPerPrinter",	&MaxJobsPerPrinter,	VAR_INTEGER },
+  { "MaxJobsPerUser",		&MaxJobsPerUser,	VAR_INTEGER },
+  { "MaxLogSize",		&MaxLogSize,		VAR_INTEGER },
+  { "MaxPrinterHistory",	&MaxPrinterHistory,	VAR_INTEGER },
+  { "MaxRequestSize",		&MaxRequestSize,	VAR_INTEGER },
+  { "PageLog",			&PageLog,		VAR_STRING },
+  { "PreserveJobFiles",		&JobFiles,		VAR_BOOLEAN },
+  { "PreserveJobHistory",	&JobHistory,		VAR_BOOLEAN },
+  { "Printcap",			&Printcap,		VAR_STRING },
+  { "PrintcapGUI",		&PrintcapGUI,		VAR_STRING },
+  { "RemoteRoot",		&RemoteRoot,		VAR_STRING },
+  { "RequestRoot",		&RequestRoot,		VAR_STRING },
+  { "RIPCache",			&RIPCache,		VAR_STRING },
+  { "RunAsUser", 		&RunAsUser,		VAR_BOOLEAN },
+  { "RootCertDuration",		&RootCertDuration,	VAR_INTEGER },
+  { "ServerAdmin",		&ServerAdmin,		VAR_STRING },
+  { "ServerBin",		&ServerBin,		VAR_STRING },
+#ifdef HAVE_SSL
+  { "ServerCertificate",	&ServerCertificate,	VAR_STRING },
+#  if defined(HAVE_LIBSSL) || defined(HAVE_GNUTLS)
+  { "ServerKey",		&ServerKey,		VAR_STRING },
+#  endif /* HAVE_LIBSSL || HAVE_GNUTLS */
+#endif /* HAVE_SSL */
+  { "ServerName",		&ServerName,		VAR_STRING },
+  { "ServerRoot",		&ServerRoot,		VAR_STRING },
+  { "TempDir",			&TempDir,		VAR_STRING },
+  { "Timeout",			&Timeout,		VAR_INTEGER }
 };
 #define NUM_VARS	(sizeof(variables) / sizeof(variables[0]))
 
@@ -140,31 +183,36 @@ static var_t	variables[] =
  * Local functions...
  */
 
-static int	read_configuration(FILE *fp);
-static int	read_location(FILE *fp, char *name, int linenum);
+static int	read_configuration(cups_file_t *fp);
+static int	read_location(cups_file_t *fp, char *name, int linenum);
 static int	get_address(char *value, unsigned defaddress, int defport,
 		            struct sockaddr_in *address);
 
-static int getFirstIPAddress(char* ServerName, int ServerNameSize);
+#ifdef HAVE_CDSASSL
+static CFArrayRef CDSAGetServerCerts();
+#endif /* HAVE_CDSASSL */
+
 
 /*
  * 'ReadConfiguration()' - Read the cupsd.conf file.
  */
 
-int				/* O - 1 if file read successfully, 0 otherwise */
+int					/* O - 1 on success, 0 otherwise */
 ReadConfiguration(void)
 {
-  int		i;		/* Looping var */
-  FILE		*fp;		/* Configuration file */
-  int		status;		/* Return status */
-  char		directory[1024],/* Configuration directory */
-		*slash;		/* Directory separator */
+  int		i;			/* Looping var */
+  cups_file_t	*fp;			/* Configuration file */
+  int		status;			/* Return status */
+  char		temp[1024],		/* Temporary buffer */
+		*slash;			/* Directory separator */
   char		type[MIME_MAX_SUPER + MIME_MAX_TYPE];
-				/* MIME type name */
-  struct rlimit	limit;		/* Runtime limit */
-  char		*language;	/* Language string */
-  struct passwd	*user;		/* Default user */
-  struct group	*group;		/* Default group */
+					/* MIME type name */
+  char		*language;		/* Language string */
+  struct passwd	*user;			/* Default user */
+  struct group	*group;			/* Default group */
+  int		run_user;		/* User that will be running cupsd */
+  char		*old_serverroot,	/* Old ServerRoot */
+		*old_requestroot;	/* Old RequestRoot */
 
 
  /*
@@ -174,103 +222,108 @@ ReadConfiguration(void)
   StopServer();
 
  /*
-  * Free all memory...
+  * Save the old root paths...
   */
 
-  FreeAllJobs();
-  DeleteAllClasses();
-  DeleteAllLocations();
-  DeleteAllPrinters();
-
-  DefaultPrinter = NULL;
-
-  if (Devices)
-  {
-    ippDelete(Devices);
-    Devices = NULL;
-  }
-
-  if (PPDs)
-  {
-    ippDelete(PPDs);
-    PPDs = NULL;
-  }
-
-  if (MimeDatabase != NULL)
-    mimeDelete(MimeDatabase);
-
-  if (NumMimeTypes)
-  {
-    for (i = 0; i < NumMimeTypes; i ++)
-      free((void *)MimeTypes[i]);
-
-    free(MimeTypes);
-  }
-
-  for (i = 0; i < NumRelays; i ++)
-    if (Relays[i].from.type == AUTH_NAME)
-      free(Relays[i].from.mask.name.name);
-
-  NumRelays = 0;
+  old_serverroot = NULL;
+  SetString(&old_serverroot, ServerRoot);
+  old_requestroot = NULL;
+  SetString(&old_requestroot, RequestRoot);
 
  /*
-  * Reset the current configuration to the defaults...
+  * Reset the server configuration data...
   */
 
-  NeedReload = FALSE;
+  DeleteAllLocations();
+
+  if (NumBrowsers > 0)
+  {
+    free(Browsers);
+
+    NumBrowsers = 0;
+  }
+
+  if (NumPolled > 0)
+  {
+    free(Polled);
+
+    NumPolled = 0;
+  }
+
+  if (NumRelays > 0)
+  {
+    for (i = 0; i < NumRelays; i ++)
+      if (Relays[i].from.type == AUTH_NAME)
+	free(Relays[i].from.mask.name.name);
+
+    free(Relays);
+
+    NumRelays = 0;
+  }
+
+  if (NumListeners > 0)
+  {
+    free(Listeners);
+
+    NumListeners = 0;
+  }
 
  /*
   * String options...
   */
 
-  gethostname(ServerName, sizeof(ServerName));
+  gethostname(temp, sizeof(temp));
+  SetString(&ServerName, temp);
+  SetStringf(&ServerAdmin, "root@%s", temp);
+  SetString(&ServerBin, CUPS_SERVERBIN);
+  SetString(&RequestRoot, CUPS_REQUESTS);
+  SetString(&DocumentRoot, CUPS_DOCROOT);
+  SetString(&DataDir, CUPS_DATADIR);
+  SetString(&AccessLog, CUPS_LOGDIR "/access_log");
+  SetString(&ErrorLog, CUPS_LOGDIR "/error_log");
+  SetString(&PageLog, CUPS_LOGDIR "/page_log");
+  SetString(&Printcap, "/etc/printcap");
+  SetString(&PrintcapGUI, "/usr/bin/glpoptions");
+  SetString(&FontPath, CUPS_FONTPATH);
+  SetString(&RemoteRoot, "remroot");
 
-  if (strcasecmp(ServerName, "localhost") == 0)
-  {
-	getFirstIPAddress(ServerName, sizeof(ServerName));
-	LogMessage(L_DEBUG, "Setting ServerName to first IP address=\"%s\"", ServerName);
-  }
-
-  snprintf(ServerAdmin, sizeof(ServerAdmin), "root@%s", ServerName);
-  strcpy(ServerBin, CUPS_SERVERBIN);
-  strcpy(RequestRoot, CUPS_REQUESTS);
-  strcpy(DocumentRoot, CUPS_DOCROOT);
-  strcpy(DataDir, CUPS_DATADIR);
-  strcpy(AccessLog, CUPS_LOGDIR "/access_log");
-  strcpy(ErrorLog, CUPS_LOGDIR "/error_log");
-  strcpy(PageLog, CUPS_LOGDIR "/page_log");
-  strcpy(Printcap, "/etc/printcap");
-  strcpy(PrintcapGUI, "/usr/bin/glpoptions");
-  strcpy(FontPath, CUPS_FONTPATH);
-  strcpy(RemoteRoot, "remroot");
-
-  strcpy(ServerRoot, ConfigurationFile);
-  if ((slash = strrchr(ServerRoot, '/')) != NULL)
+  strlcpy(temp, ConfigurationFile, sizeof(temp));
+  if ((slash = strrchr(temp, '/')) != NULL)
     *slash = '\0';
 
-  Classification[0] = '\0';
+  SetString(&ServerRoot, temp);
+
+  ClearString(&Classification);
   ClassifyOverride  = 0;
 
-#ifdef HAVE_LIBSSL
-  strcpy(ServerCertificate, "ssl/server.crt");
-  strcpy(ServerKey, "ssl/server.key");
-#endif /* HAVE_LIBSSL */
+#ifdef HAVE_SSL
+#  ifdef HAVE_CDSASSL
+  if (ServerCertificatesArray)
+  {
+    CFRelease(ServerCertificatesArray);
+    ServerCertificatesArray = NULL;
+  }
+  SetString(&ServerCertificate, "/var/root/Library/Keychains/CUPS");
+#  else
+  SetString(&ServerCertificate, "ssl/server.crt");
+  SetString(&ServerKey, "ssl/server.key");
+#  endif /* HAVE_CDSASSL */
+#endif /* HAVE_SSL */
 
   if ((language = DEFAULT_LANGUAGE) == NULL)
     language = "en";
   else if (strcmp(language, "C") == 0 || strcmp(language, "POSIX") == 0)
     language = "en";
 
-  strlcpy(DefaultLanguage, language, sizeof(DefaultLanguage));
+  SetString(&DefaultLanguage, language);
+  SetString(&DefaultCharset, DEFAULT_CHARSET);
 
-  strcpy(DefaultCharset, DEFAULT_CHARSET);
-
-  strcpy(RIPCache, "8m");
+  SetString(&RIPCache, "8m");
 
   if (getenv("TMPDIR") == NULL)
-    strcpy(TempDir, CUPS_REQUESTS "/tmp");
+    SetString(&TempDir, CUPS_REQUESTS "/tmp");
   else
-    strlcpy(TempDir, getenv("TMPDIR"), sizeof(TempDir));
+    SetString(&TempDir, getenv("TMPDIR"));
 
  /*
   * Find the default system group: "sys", "system", or "root"...
@@ -283,7 +336,7 @@ ReadConfiguration(void)
 
   if (group != NULL)
   {
-    strcpy(SystemGroups[0], CUPS_DEFAULT_GROUP);
+    SetString(&SystemGroups[0], CUPS_DEFAULT_GROUP);
     Group = group->gr_gid;
   }
   else
@@ -293,12 +346,12 @@ ReadConfiguration(void)
 
     if (group != NULL)
     {
-      strcpy(SystemGroups[0], group->gr_name);
+      SetString(&SystemGroups[0], group->gr_name);
       Group = 0;
     }
     else
     {
-      strcpy(SystemGroups[0], "unknown");
+      SetString(&SystemGroups[0], "unknown");
       Group = 0;
     }
   }
@@ -318,12 +371,15 @@ ReadConfiguration(void)
   * Numeric options...
   */
 
-  ConfigFilePerm      = 0600;
+  ConfigFilePerm      = 0640;
   LogFilePerm         = 0644;
 
+  FaxRetryLimit       = 5;
+  FaxRetryInterval    = 300;
   FileDevice          = FALSE;
   FilterLevel         = 0;
   FilterLimit         = 0;
+  FilterNice          = 0;
   HostNameLookups     = FALSE;
   ImplicitClasses     = TRUE;
   ImplicitAnyClasses  = FALSE;
@@ -335,6 +391,7 @@ ReadConfiguration(void)
   MaxClients          = 100;
   MaxClientsPerHost   = 0;
   MaxLogSize          = 1024 * 1024;
+  MaxPrinterHistory   = 10;
   MaxRequestSize      = 0;
   RootCertDuration    = 300;
   RunAsUser           = FALSE;
@@ -346,10 +403,6 @@ ReadConfiguration(void)
   BrowseShortNames    = TRUE;
   BrowseTimeout       = DEFAULT_TIMEOUT;
   Browsing            = TRUE;
-  NumBrowsers         = 0;
-  NumPolled           = 0;
-
-  NumListeners        = 0;
 
   JobHistory          = DEFAULT_HISTORY;
   JobFiles            = DEFAULT_FILES;
@@ -357,20 +410,33 @@ ReadConfiguration(void)
   MaxJobs             = 500;
   MaxJobsPerUser      = 0;
   MaxJobsPerPrinter   = 0;
+  MaxCopies           = 100;
+#ifdef __APPLE__
+  MinCopies           = 1;
+#endif  /* __APPLE__ */
+#ifdef HAVE_NOTIFY_POST
+  NotifyPaused        = 1;
+  NotifyPending       = 0;
+#endif  /* HAVE_NOTIFY_POST */
 
  /*
   * Read the configuration file...
   */
 
-  if ((fp = fopen(ConfigurationFile, "r")) == NULL)
+  if ((fp = cupsFileOpen(ConfigurationFile, "r")) == NULL)
     return (0);
 
   status = read_configuration(fp);
 
-  fclose(fp);
+  cupsFileClose(fp);
 
   if (!status)
     return (0);
+
+  if (RunAsUser)
+    run_user = User;
+  else
+    run_user = getuid();
 
  /*
   * Use the default system group if none was supplied in cupsd.conf...
@@ -400,94 +466,88 @@ ReadConfiguration(void)
   * Log the configuration file that was used...
   */
 
-  LogMessage(L_DEBUG, "ReadConfiguration() ConfigurationFile=\"%s\"",
-             ConfigurationFile);
+  LogMessage(L_INFO, "Loaded configuration file \"%s\"", ConfigurationFile);
 
  /*
   * Update all relative filenames to include the full path from ServerRoot...
   */
 
   if (DocumentRoot[0] != '/')
-  {
-    snprintf(directory, sizeof(directory), "%s/%s", ServerRoot, DocumentRoot);
-    strlcpy(DocumentRoot, directory, sizeof(DocumentRoot));
-  }
+    SetStringf(&DocumentRoot, "%s/%s", ServerRoot, DocumentRoot);
 
   if (RequestRoot[0] != '/')
-  {
-    snprintf(directory, sizeof(directory), "%s/%s", ServerRoot, RequestRoot);
-    strlcpy(RequestRoot, directory, sizeof(RequestRoot));
-  }
+    SetStringf(&RequestRoot, "%s/%s", ServerRoot, RequestRoot);
 
   if (ServerBin[0] != '/')
-  {
-    snprintf(directory, sizeof(directory), "%s/%s", ServerRoot, ServerBin);
-    strlcpy(ServerBin, directory, sizeof(ServerBin));
-  }
+    SetStringf(&ServerBin, "%s/%s", ServerRoot, ServerBin);
 
-#ifdef HAVE_LIBSSL
+#ifdef HAVE_SSL
   if (ServerCertificate[0] != '/')
-  {
-    snprintf(directory, sizeof(directory), "%s/%s", ServerRoot, ServerCertificate);
-    strlcpy(ServerCertificate, directory, sizeof(ServerCertificate));
-  }
+    SetStringf(&ServerCertificate, "%s/%s", ServerRoot, ServerCertificate);
 
-  chown(ServerCertificate, User, Group);
+#  if defined(HAVE_LIBSSL) || defined(HAVE_GNUTLS)
+  chown(ServerCertificate, run_user, Group);
   chmod(ServerCertificate, ConfigFilePerm);
 
   if (ServerKey[0] != '/')
-  {
-    snprintf(directory, sizeof(directory), "%s/%s", ServerRoot, ServerKey);
-    strlcpy(ServerKey, directory, sizeof(ServerKey));
-  }
+    SetStringf(&ServerKey, "%s/%s", ServerRoot, ServerKey);
 
-  chown(ServerKey, User, Group);
+  chown(ServerKey, run_user, Group);
   chmod(ServerKey, ConfigFilePerm);
-#endif /* HAVE_LIBSSL */
+#  endif /* HAVE_LIBSSL || HAVE_GNUTLS */
+#endif /* HAVE_SSL */
 
  /*
   * Make sure that ServerRoot and the config files are owned and
   * writable by the user and group in the cupsd.conf file...
   */
 
-  chown(ServerRoot, User, Group);
+  chown(ServerRoot, run_user, Group);
   chmod(ServerRoot, 0755);
 
-  snprintf(directory, sizeof(directory), "%s/certs", ServerRoot);
-  chown(directory, User, Group);
-  chmod(directory, 0711);
+  snprintf(temp, sizeof(temp), "%s/certs", ServerRoot);
+  chown(temp, run_user, Group);
+  chmod(temp, 0711);
 
-  snprintf(directory, sizeof(directory), "%s/ppd", ServerRoot);
-  chown(directory, User, Group);
-  chmod(directory, 0755);
+  snprintf(temp, sizeof(temp), "%s/ppd", ServerRoot);
+  chown(temp, run_user, Group);
+  chmod(temp, 0755);
 
-  snprintf(directory, sizeof(directory), "%s/ssl", ServerRoot);
-  chown(directory, User, Group);
-  chmod(directory, 0700);
+  snprintf(temp, sizeof(temp), "%s/ssl", ServerRoot);
+  chown(temp, run_user, Group);
+  chmod(temp, 0700);
 
-  snprintf(directory, sizeof(directory), "%s/cupsd.conf", ServerRoot);
-  chown(directory, User, Group);
-  chmod(directory, ConfigFilePerm);
+  snprintf(temp, sizeof(temp), "%s/cupsd.conf", ServerRoot);
+  chown(temp, run_user, Group);
+  chmod(temp, ConfigFilePerm);
 
-  snprintf(directory, sizeof(directory), "%s/classes.conf", ServerRoot);
-  chown(directory, User, Group);
-  chmod(directory, ConfigFilePerm);
+  snprintf(temp, sizeof(temp), "%s/classes.conf", ServerRoot);
+  chown(temp, run_user, Group);
+#ifdef __APPLE__
+  chmod(temp, 0600);
+#else
+  chmod(temp, ConfigFilePerm);
+#endif /* __APPLE__ */
 
-  snprintf(directory, sizeof(directory), "%s/printers.conf", ServerRoot);
-  chown(directory, User, Group);
-  chmod(directory, ConfigFilePerm);
+  snprintf(temp, sizeof(temp), "%s/printers.conf", ServerRoot);
+  chown(temp, run_user, Group);
+#ifdef __APPLE__
+  chmod(temp, 0600);
+#else
+  chmod(temp, ConfigFilePerm);
+#endif /* __APPLE__ */
 
-  snprintf(directory, sizeof(directory), "%s/passwd.md5", ServerRoot);
-  chown(directory, User, Group);
-  chmod(directory, 0600);
+  snprintf(temp, sizeof(temp), "%s/passwd.md5", ServerRoot);
+  chown(temp, User, Group);
+  chmod(temp, 0600);
 
  /*
   * Make sure the request and temporary directories have the right
   * permissions...
   */
 
-  chown(RequestRoot, User, Group);
-  chmod(RequestRoot, 0700);
+  chown(RequestRoot, run_user, Group);
+  chmod(RequestRoot, 0710);
 
   if (strncmp(TempDir, RequestRoot, strlen(RequestRoot)) == 0)
   {
@@ -496,18 +556,22 @@ ReadConfiguration(void)
     * is under the spool directory...
     */
 
-    chown(TempDir, User, Group);
-    chmod(TempDir, 01700);
+    chown(TempDir, run_user, Group);
+    chmod(TempDir, 01770);
   }
 
  /*
   * Check the MaxClients setting, and then allocate memory for it...
   */
 
-  getrlimit(RLIMIT_NOFILE, &limit);
+  if (MaxClients > (MaxFDs / 3) || MaxClients <= 0)
+  {
+    if (MaxClients > 0)
+      LogMessage(L_INFO, "MaxClients limited to 1/3 of the file descriptor limit (%d)...",
+                 MaxFDs);
 
-  if (MaxClients > (limit.rlim_max / 3) || MaxClients <= 0)
-    MaxClients = limit.rlim_max / 3;
+    MaxClients = MaxFDs / 3;
+  }
 
   if ((Clients = calloc(sizeof(client_t), MaxClients)) == NULL)
   {
@@ -518,10 +582,10 @@ ReadConfiguration(void)
   else
     LogMessage(L_INFO, "Configured for up to %d clients.", MaxClients);
 
-  if (strcasecmp(Classification, "none") == 0)
-    Classification[0] = '\0';
+  if (Classification && strcasecmp(Classification, "none") == 0)
+    ClearString(&Classification);
 
-  if (Classification[0])
+  if (Classification)
     LogMessage(L_INFO, "Security set to \"%s\"", Classification);
 
  /*
@@ -538,72 +602,133 @@ ReadConfiguration(void)
              MaxClientsPerHost);
 
  /*
-  * Read the MIME type and conversion database...
+  * If we are doing a full reload or the server root has changed, flush
+  * the jobs, printers, etc. and start from scratch...
   */
 
-  snprintf(directory, sizeof(directory), "%s/filter", ServerBin);
-
-  MimeDatabase = mimeNew();
-  mimeMerge(MimeDatabase, ServerRoot, directory);
-
- /*
-  * Create a list of MIME types for the document-format-supported
-  * attribute...
-  */
-
-  NumMimeTypes = MimeDatabase->num_types;
-  if (!mimeType(MimeDatabase, "application", "octet-stream"))
-    NumMimeTypes ++;
-
-  MimeTypes = calloc(NumMimeTypes, sizeof(const char *));
-
-  for (i = 0; i < MimeDatabase->num_types; i ++)
+  if (NeedReload == RELOAD_ALL ||
+      !old_serverroot || !ServerRoot || strcmp(old_serverroot, ServerRoot) ||
+      !old_requestroot || !RequestRoot || strcmp(old_requestroot, RequestRoot))
   {
-    snprintf(type, sizeof(type), "%s/%s", MimeDatabase->types[i]->super,
-             MimeDatabase->types[i]->type);
+    LogMessage(L_INFO, "Full reload is required.");
 
-    MimeTypes[i] = strdup(type);
+   /*
+    * Free all memory...
+    */
+
+    FreeAllJobs();
+    DeleteAllClasses();
+    DeleteAllPrinters();
+
+    DefaultPrinter = NULL;
+
+    if (Devices)
+    {
+      ippDelete(Devices);
+      Devices = NULL;
+    }
+
+    if (PPDs)
+    {
+      ippDelete(PPDs);
+      PPDs = NULL;
+    }
+
+    if (MimeDatabase != NULL)
+      mimeDelete(MimeDatabase);
+
+    if (NumMimeTypes)
+    {
+      for (i = 0; i < NumMimeTypes; i ++)
+	free((void *)MimeTypes[i]);
+
+      free(MimeTypes);
+    }
+
+   /*
+    * Read the MIME type and conversion database...
+    */
+
+    snprintf(temp, sizeof(temp), "%s/filter", ServerBin);
+
+    MimeDatabase = mimeNew();
+    mimeMerge(MimeDatabase, ServerRoot, temp);
+
+   /*
+    * Create a list of MIME types for the document-format-supported
+    * attribute...
+    */
+
+    NumMimeTypes = MimeDatabase->num_types;
+    if (!mimeType(MimeDatabase, "application", "octet-stream"))
+      NumMimeTypes ++;
+
+    MimeTypes = calloc(NumMimeTypes, sizeof(const char *));
+
+    for (i = 0; i < MimeDatabase->num_types; i ++)
+    {
+      snprintf(type, sizeof(type), "%s/%s", MimeDatabase->types[i]->super,
+               MimeDatabase->types[i]->type);
+
+      MimeTypes[i] = strdup(type);
+    }
+
+    if (i < NumMimeTypes)
+      MimeTypes[i] = strdup("application/octet-stream");
+
+   /*
+    * Load banners...
+    */
+
+    snprintf(temp, sizeof(temp), "%s/banners", DataDir);
+    LoadBanners(temp);
+
+   /*
+    * Load printers and classes...
+    */
+
+    LoadAllPrinters();
+    LoadAllClasses();
+
+   /*
+    * Load devices and PPDs...
+    */
+
+    snprintf(temp, sizeof(temp), "%s/backend", ServerBin);
+    LoadDevices(temp);
+
+    snprintf(temp, sizeof(temp), "%s/model", DataDir);
+    LoadPPDs(temp);
+
+   /*
+    * Load queued jobs...
+    */
+
+    LoadAllJobs();
+
+#ifdef HAVE_CDSASSL
+    ServerCertificatesArray = CDSAGetServerCerts();
+#endif /* HAVE_CDSASSL */
+
+    LogMessage(L_INFO, "Full reload complete.");
   }
-
-  if (i < NumMimeTypes)
-    MimeTypes[i] = strdup("application/octet-stream");
+  else
+    LogMessage(L_INFO, "Partial reload complete.");
 
  /*
-  * Load banners...
+  * Reset the reload state...
   */
 
-  snprintf(directory, sizeof(directory), "%s/banners", DataDir);
-  LoadBanners(directory);
+  NeedReload = RELOAD_NONE;
+
+  ClearString(&old_serverroot);
+  ClearString(&old_requestroot);
 
  /*
-  * Load printers and classes...
-  */
-
-  LoadAllPrinters();
-  LoadAllClasses();
-
- /*
-  * Load devices and PPDs...
-  */
-
-  snprintf(directory, sizeof(directory), "%s/model", DataDir);
-  LoadPPDs(directory);
-
-  snprintf(directory, sizeof(directory), "%s/backend", ServerBin);
-  LoadDevices(directory);
-
- /*
-  * Startup the server...
+  * Startup the server and return...
   */
 
   StartServer();
-
- /*
-  * Check for queued jobs...
-  */
-
-  LoadAllJobs();
-  CheckJobs();
 
   return (1);
 }
@@ -614,7 +739,7 @@ ReadConfiguration(void)
  */
 
 static int				/* O - 1 on success, 0 on failure */
-read_configuration(FILE *fp)		/* I - File to read from */
+read_configuration(cups_file_t *fp)	/* I - File to read from */
 {
   int		i;			/* Looping var */
   int		linenum;		/* Current line number */
@@ -634,7 +759,7 @@ read_configuration(FILE *fp)		/* I - File to read from */
   dirsvc_poll_t	*poll;			/* Polling data */
   struct sockaddr_in polladdr;		/* Polling address */
   location_t	*location;		/* Browse location */
-  FILE		*incfile;		/* Include file */
+  cups_file_t	*incfile;		/* Include file */
   char		incname[1024];		/* Include filename */
   static unsigned netmasks[4] =		/* Standard netmasks... */
   {
@@ -651,7 +776,7 @@ read_configuration(FILE *fp)		/* I - File to read from */
 
   linenum = 0;
 
-  while (fgets(line, sizeof(line), fp) != NULL)
+  while (cupsFileGets(fp, line, sizeof(line)) != NULL)
   {
     linenum ++;
 
@@ -706,13 +831,13 @@ read_configuration(FILE *fp)		/* I - File to read from */
       else
         snprintf(incname, sizeof(incname), "%s/%s", ServerRoot, value);
 
-      if ((incfile = fopen(incname, "rb")) == NULL)
+      if ((incfile = cupsFileOpen(incname, "rb")) == NULL)
         LogMessage(L_ERROR, "Unable to include config file \"%s\" - %s",
 	           incname, strerror(errno));
       else
       {
         read_configuration(incfile);
-	fclose(incfile);
+	cupsFileClose(incfile);
       }
     }
     else if (strcasecmp(name, "<Location") == 0)
@@ -743,25 +868,38 @@ read_configuration(FILE *fp)		/* I - File to read from */
       * Add a listening address to the list...
       */
 
-      if (NumListeners < MAX_LISTENERS)
+      listener_t	*temp;		/* New listeners array */
+
+
+      if (NumListeners == 0)
+        temp = malloc(sizeof(listener_t));
+      else
+        temp = realloc(Listeners, (NumListeners + 1) * sizeof(listener_t));
+
+      if (!temp)
       {
-        if (get_address(value, INADDR_ANY, IPP_PORT,
-	                &(Listeners[NumListeners].address)))
-        {
-          LogMessage(L_INFO, "Listening to %x:%d",
-                     ntohl(Listeners[NumListeners].address.sin_addr.s_addr),
-                     ntohs(Listeners[NumListeners].address.sin_port));
-	  NumListeners ++;
-        }
-	else
-          LogMessage(L_ERROR, "Bad %s address %s at line %d.", name,
-	             value, linenum);
+        LogMessage(L_ERROR, "Unable to allocate %s at line %d - %s.",
+	           name, linenum, strerror(errno));
+        continue;
+      }
+
+      Listeners = temp;
+      temp      += NumListeners;
+
+      memset(temp, 0, sizeof(listener_t));
+
+      if (get_address(value, INADDR_ANY, IPP_PORT, &(temp->address)))
+      {
+        LogMessage(L_INFO, "Listening to %x:%d",
+                   (unsigned)ntohl(temp->address.sin_addr.s_addr),
+                   ntohs(temp->address.sin_port));
+	NumListeners ++;
       }
       else
-        LogMessage(L_WARN, "Too many %s directives at line %d.", name,
-	           linenum);
+        LogMessage(L_ERROR, "Bad %s address %s at line %d.", name,
+	           value, linenum);
     }
-#ifdef HAVE_LIBSSL
+#ifdef HAVE_SSL
     else if (strcasecmp(name, "SSLPort") == 0 ||
              strcasecmp(name, "SSLListen") == 0)
     {
@@ -769,76 +907,96 @@ read_configuration(FILE *fp)		/* I - File to read from */
       * Add a listening address to the list...
       */
 
-      if (NumListeners < MAX_LISTENERS)
+      listener_t	*temp;		/* New listeners array */
+
+
+      if (NumListeners == 0)
+        temp = malloc(sizeof(listener_t));
+      else
+        temp = realloc(Listeners, (NumListeners + 1) * sizeof(listener_t));
+
+      if (!temp)
       {
-        if (get_address(value, INADDR_ANY, IPP_PORT,
-	                &(Listeners[NumListeners].address)))
-        {
-          LogMessage(L_INFO, "Listening to %x:%d (SSL)",
-                     ntohl(Listeners[NumListeners].address.sin_addr.s_addr),
-                     ntohs(Listeners[NumListeners].address.sin_port));
-          Listeners[NumListeners].encryption = HTTP_ENCRYPT_ALWAYS;
-	  NumListeners ++;
-        }
-	else
-          LogMessage(L_ERROR, "Bad %s address %s at line %d.", name,
-	             value, linenum);
+        LogMessage(L_ERROR, "Unable to allocate %s at line %d - %s.",
+	           name, linenum, strerror(errno));
+        continue;
+      }
+
+      Listeners = temp;
+      temp      += NumListeners;
+
+      if (get_address(value, INADDR_ANY, IPP_PORT, &(temp->address)))
+      {
+        LogMessage(L_INFO, "Listening to %x:%d (SSL)",
+                   (unsigned)ntohl(temp->address.sin_addr.s_addr),
+                   ntohs(temp->address.sin_port));
+        temp->encryption = HTTP_ENCRYPT_ALWAYS;
+	NumListeners ++;
       }
       else
-        LogMessage(L_WARN, "Too many %s directives at line %d.", name,
-	           linenum);
+        LogMessage(L_ERROR, "Bad %s address %s at line %d.", name,
+	           value, linenum);
     }
-#endif /* HAVE_LIBSSL */
+#endif /* HAVE_SSL */
     else if (strcasecmp(name, "BrowseAddress") == 0)
     {
      /*
       * Add a browse address to the list...
       */
 
-      if (NumBrowsers < MAX_BROWSERS)
+      dirsvc_addr_t	*temp;		/* New browse address array */
+
+
+      if (NumBrowsers == 0)
+        temp = malloc(sizeof(dirsvc_addr_t));
+      else
+        temp = realloc(Browsers, (NumBrowsers + 1) * sizeof(dirsvc_addr_t));
+
+      if (!temp)
       {
-        memset(Browsers + NumBrowsers, 0, sizeof(dirsvc_addr_t));
+        LogMessage(L_ERROR, "Unable to allocate BrowseAddress at line %d - %s.",
+	           linenum, strerror(errno));
+        continue;
+      }
 
-        if (strcasecmp(value, "@LOCAL") == 0)
-	{
-	 /*
-	  * Send browse data to all local interfaces...
-	  */
+      Browsers = temp;
+      temp     += NumBrowsers;
 
-	  strcpy(Browsers[NumBrowsers].iface, "*");
-	  NumBrowsers ++;
-	}
-	else if (strncasecmp(value, "@IF(", 4) == 0)
-	{
-	 /*
-	  * Send browse data to the named interface...
-	  */
+      memset(temp, 0, sizeof(dirsvc_addr_t));
 
-	  strlcpy(Browsers[NumBrowsers].iface, value + 4,
-	          sizeof(Browsers[0].iface));
+      if (strcasecmp(value, "@LOCAL") == 0)
+      {
+       /*
+	* Send browse data to all local interfaces...
+	*/
 
-          nameptr = Browsers[NumBrowsers].iface +
-	            strlen(Browsers[NumBrowsers].iface) - 1;
-          if (*nameptr == ')')
-	    *nameptr = '\0';
+	strcpy(temp->iface, "*");
+	NumBrowsers ++;
+      }
+      else if (strncasecmp(value, "@IF(", 4) == 0)
+      {
+       /*
+	* Send browse data to the named interface...
+	*/
 
-	  NumBrowsers ++;
-	}
-	else if (get_address(value, INADDR_NONE, BrowsePort,
-	                     &(Browsers[NumBrowsers].to)))
-        {
-          LogMessage(L_INFO, "Sending browsing info to %x:%d",
-                     ntohl(Browsers[NumBrowsers].to.sin_addr.s_addr),
-                     ntohs(Browsers[NumBrowsers].to.sin_port));
+	strlcpy(temp->iface, value + 4, sizeof(Browsers[0].iface));
 
-	  NumBrowsers ++;
-        }
-	else
-          LogMessage(L_ERROR, "Bad BrowseAddress %s at line %d.", value,
-	             linenum);
+        nameptr = temp->iface + strlen(temp->iface) - 1;
+        if (*nameptr == ')')
+	  *nameptr = '\0';
+
+	NumBrowsers ++;
+      }
+      else if (get_address(value, INADDR_NONE, BrowsePort, &(temp->to)))
+      {
+        LogMessage(L_INFO, "Sending browsing info to %x:%d",
+                   (unsigned)ntohl(temp->to.sin_addr.s_addr),
+                   ntohs(temp->to.sin_port));
+
+	NumBrowsers ++;
       }
       else
-        LogMessage(L_WARN, "Too many BrowseAddress directives at line %d.",
+        LogMessage(L_ERROR, "Bad BrowseAddress %s at line %d.", value,
 	           linenum);
     }
     else if (strcasecmp(name, "BrowseOrder") == 0)
@@ -1026,14 +1184,20 @@ read_configuration(FILE *fp)		/* I - File to read from */
       * BrowseRelay [from] source [to] destination
       */
 
-      if (NumRelays >= MAX_BROWSERS)
+      if (NumRelays == 0)
+        relay = malloc(sizeof(dirsvc_relay_t));
+      else
+        relay = realloc(Relays, (NumRelays + 1) * sizeof(dirsvc_relay_t));
+
+      if (!relay)
       {
-        LogMessage(L_WARN, "Too many BrowseRelay directives at line %d.",
-	           linenum);
+        LogMessage(L_ERROR, "Unable to allocate BrowseRelay at line %d - %s.",
+	           linenum, strerror(errno));
         continue;
       }
 
-      relay = Relays + NumRelays;
+      Relays = relay;
+      relay  += NumRelays;
 
       memset(relay, 0, sizeof(dirsvc_relay_t));
 
@@ -1151,12 +1315,12 @@ read_configuration(FILE *fp)		/* I - File to read from */
         if (relay->from.type == AUTH_NAME)
           LogMessage(L_INFO, "Relaying from %s to %x:%d",
 	             relay->from.mask.name.name,
-                     ntohl(relay->to.sin_addr.s_addr),
+                     (unsigned)ntohl(relay->to.sin_addr.s_addr),
                      ntohs(relay->to.sin_port));
         else
           LogMessage(L_INFO, "Relaying from %x/%x to %x:%d",
                      relay->from.mask.ip.address, relay->from.mask.ip.netmask,
-                     ntohl(relay->to.sin_addr.s_addr),
+                     (unsigned)ntohl(relay->to.sin_addr.s_addr),
                      ntohs(relay->to.sin_port));
 
 	NumRelays ++;
@@ -1175,12 +1339,20 @@ read_configuration(FILE *fp)		/* I - File to read from */
       * BrowsePoll address[:port]
       */
 
-      if (NumPolled >= MAX_BROWSERS)
+      if (NumPolled == 0)
+        poll = malloc(sizeof(dirsvc_poll_t));
+      else
+        poll = realloc(Polled, (NumPolled + 1) * sizeof(dirsvc_poll_t));
+
+      if (!poll)
       {
-        LogMessage(L_WARN, "Too many BrowsePoll directives at line %d.",
-	           linenum);
+        LogMessage(L_ERROR, "Unable to allocate BrowsePoll at line %d - %s.",
+	           linenum, strerror(errno));
         continue;
       }
+
+      Polled = poll;
+      poll   += NumPolled;
 
      /*
       * Get poll address and port...
@@ -1188,10 +1360,10 @@ read_configuration(FILE *fp)		/* I - File to read from */
 
       if (get_address(value, INADDR_NONE, ippPort(), &polladdr))
       {
-        LogMessage(L_INFO, "Polling %x:%d", ntohl(polladdr.sin_addr.s_addr),
+        LogMessage(L_INFO, "Polling %x:%d",
+	           (unsigned)ntohl(polladdr.sin_addr.s_addr),
                    ntohs(polladdr.sin_port));
 
-        poll = Polled + NumPolled;
 	NumPolled ++;
 	memset(poll, 0, sizeof(dirsvc_poll_t));
 
@@ -1214,7 +1386,7 @@ read_configuration(FILE *fp)		/* I - File to read from */
         User = atoi(value);
       else
       {
-        struct passwd *p;	/* Password information */
+      struct passwd *p;	/* Password information */
 
         endpwent();
 	p = getpwnam(value);
@@ -1257,7 +1429,7 @@ read_configuration(FILE *fp)		/* I - File to read from */
       char *valueptr; /* Pointer into value */
 
 
-      for (i = 0; i < MAX_SYSTEM_GROUPS; i ++)
+      for (i = NumSystemGroups; *value && i < MAX_SYSTEM_GROUPS; i ++)
       {
         for (valueptr = value; *valueptr; valueptr ++)
 	  if (isspace(*valueptr) || *valueptr == ',')
@@ -1266,7 +1438,9 @@ read_configuration(FILE *fp)		/* I - File to read from */
         if (*valueptr)
           *valueptr++ = '\0';
 
-        strlcpy(SystemGroups[i], value, sizeof(SystemGroups[0]));
+        SetString(SystemGroups + i, value);
+
+        value = valueptr;
 
         while (*value == ',' || isspace(*value))
 	  value ++;
@@ -1400,7 +1574,7 @@ read_configuration(FILE *fp)		/* I - File to read from */
 	    break;
 
 	case VAR_STRING :
-	    strlcpy((char *)var->ptr, value, var->size);
+	    SetString((char **)var->ptr, value);
 	    break;
       }
     }
@@ -1414,10 +1588,10 @@ read_configuration(FILE *fp)		/* I - File to read from */
  * 'read_location()' - Read a <Location path> definition.
  */
 
-static int			/* O - New line number or 0 on error */
-read_location(FILE *fp,		/* I - Configuration file */
-              char *location,	/* I - Location name/path */
-	      int  linenum)	/* I - Current line number */
+static int				/* O - New line number or 0 on error */
+read_location(cups_file_t *fp,		/* I - Configuration file */
+              char        *location,	/* I - Location name/path */
+	      int         linenum)	/* I - Current line number */
 {
   int		i;			/* Looping var */
   location_t	*loc,			/* New location */
@@ -1448,7 +1622,7 @@ read_location(FILE *fp,		/* I - Configuration file */
   parent->limit = AUTH_LIMIT_ALL;
   loc           = parent;
 
-  while (fgets(line, sizeof(line), fp) != NULL)
+  while (cupsFileGets(fp, line, sizeof(line)) != NULL)
   {
     linenum ++;
 
@@ -1879,12 +2053,12 @@ get_address(char               *value,		/* I - Value string */
   * Decode the hostname and port number as needed...
   */
 
-  if (hostname[0] && strcmp(hostname, "*") != 0)
+  if (hostname[0] && strcmp(hostname, "*"))
   {
     if ((host = httpGetHostByName(hostname)) == NULL)
     {
       LogMessage(L_ERROR, "httpGetHostByName(\"%s\") failed - %s!", hostname,
-                 strerror(errno));
+                 hstrerror(h_errno));
       return (0);
     }
 
@@ -1913,33 +2087,95 @@ get_address(char               *value,		/* I - Value string */
 }
 
 
-static int getFirstIPAddress(char* ServerName, int ServerNameSize)
-{
-	int result = 0;
-	struct ifaddrs *pifbase = NULL;
-	struct ifaddrs *pif = NULL;
+#ifdef HAVE_CDSASSL
+/*
+ * 'CDSAGetServerCerts()' - Convert a keychain name into the CFArrayRef
+ *                          required by SSLSetCertificate.
+ *
+ * For now we assumes that there is exactly one SecIdentity in the
+ * keychain - i.e. there is exactly one matching cert/private key pair.
+ * In the future we will search a keychain for a SecIdentity matching a
+ * specific criteria.  We also skip the operation of adding additional
+ * non-signing certs from the keychain to the CFArrayRef.
+ *
+ * To create a self-signed certificate for testing use the certtool.
+ * Executing the following as root will do it:
+ *
+ *     certtool c c v k=CUPS
+ */
 
-	result = getifaddrs(&pifbase);
-	if (result == 0 && pifbase != NULL)
+static CFArrayRef
+CDSAGetServerCerts(void)
+{
+  OSStatus		err;		/* Error info */
+  SecKeychainRef 	kcRef;		/* Keychain reference */
+  SecIdentitySearchRef	srchRef;	/* Search reference */
+  SecIdentityRef	identity;	/* Identity */
+  CFArrayRef		ca;		/* Certificate array */
+
+
+  kcRef    = NULL;
+  srchRef  = NULL;
+  identity = NULL;
+  ca       = NULL;
+  err      = SecKeychainOpen(ServerCertificate, &kcRef);
+
+  if (err)
+    LogMessage(L_ERROR, "Cannot open keychain \"%s\", error %d.",
+               ServerCertificate, err);
+  else
+  {
+   /*
+    * Search for "any" identity matching specified key use; 
+    * in this app, we expect there to be exactly one. 
+    */
+
+    err = SecIdentitySearchCreate(kcRef, CSSM_KEYUSE_SIGN, &srchRef);
+
+    if (err)
+      LogMessage(L_ERROR,
+                 "Cannot find signing key in keychain \"%s\", error %d",
+                 ServerCertificate, err);
+    else
+    {
+      err = SecIdentitySearchCopyNext(srchRef, &identity);
+
+      if (err)
+	LogMessage(L_ERROR,
+	           "Cannot find signing key in keychain \"%s\", error %d",
+	           ServerCertificate, err);
+      else
+      {
+	if (CFGetTypeID(identity) != SecIdentityGetTypeID())
+	  LogMessage(L_ERROR, "SecIdentitySearchCopyNext CFTypeID failure!");
+	else
 	{
-		for (pif = pifbase; pif != NULL; pif = pif->ifa_next)
-		{
-			/* Find the first up, inet interface that is not loopback
-			*/
-			if ((pif->ifa_flags & IFF_UP) != 0 && 
-				pif->ifa_addr->sa_family == AF_INET)
-			{
-				strcpy(ServerName, inet_ntoa(((struct sockaddr_in *)pif->ifa_addr)->sin_addr));
-				if (strcmp(ServerName, "127.0.0.1") != 0)
-					break;
-			}
-		}
-	
-		freeifaddrs(pifbase);
+	 /* 
+	  * Found one. Place it in a CFArray. 
+	  * TBD: snag other (non-identity) certs from keychain and add them
+	  * to array as well.
+	  */
+
+	  ca = CFArrayCreate(NULL, (const void **)&identity, 1, NULL);
+
+	  if (ca == nil)
+	    LogMessage(L_ERROR, "CFArrayCreate error");
 	}
-	return result;
+
+	/*CFRelease(identity);*/
+      }
+
+      /*CFRelease(srchRef);*/
+    }
+
+    /*CFRelease(kcRef);*/
+  }
+
+  return ca;
 }
+#endif /* HAVE_CDSASSL */
+
 
 /*
- * End of "$Id: conf.c,v 1.13.2.3 2003/02/05 23:20:50 jlovell Exp $".
+ * End of "$Id: conf.c,v 1.23 2003/09/05 01:14:50 jlovell Exp $".
  */

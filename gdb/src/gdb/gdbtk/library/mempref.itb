@@ -15,7 +15,7 @@
 # ------------------------------------------------------------------
 #  METHOD:  constructor - build the dialog
 # ------------------------------------------------------------------
-body MemPref::constructor {args} {
+itcl::body MemPref::constructor {args} {
 
   window_name "Memory Preferences"
 
@@ -57,14 +57,14 @@ body MemPref::constructor {args} {
 # ------------------------------------------------------------------
 #  METHOD:  destructor - destroy the dialog
 # ------------------------------------------------------------------
-body MemPref::destructor {} {
+itcl::body MemPref::destructor {} {
   trace vdelete [scope gnumbytes] w [code $this check_numbytes]
 }
 
 # ------------------------------------------------------------------
 #  METHOD:  build_win - build the dialog
 # ------------------------------------------------------------------
-body MemPref::build_win {} {
+itcl::body MemPref::build_win {} {
 
   frame $itk_interior.f
   set f [frame $itk_interior.f.a]
@@ -205,7 +205,7 @@ body MemPref::build_win {} {
 # ------------------------------------------------------------------
 #  METHOD:  busy - make the widget unusable
 # ------------------------------------------------------------------
-body MemPref::busy {} {
+itcl::body MemPref::busy {} {
   set top [winfo toplevel $itk_interior]
   $top configure -cursor watch
   
@@ -221,7 +221,7 @@ body MemPref::busy {} {
 # ------------------------------------------------------------------
 #  METHOD:  idle - make the widget useable
 # ------------------------------------------------------------------
-body MemPref::idle {} {
+itcl::body MemPref::idle {} {
   set top [winfo toplevel $itk_interior]
   $top configure -cursor {}
 
@@ -233,7 +233,7 @@ body MemPref::idle {} {
 # ------------------------------------------------------------------
 #  METHOD:  ok - apply and quit
 # ------------------------------------------------------------------
-body MemPref::ok {} {
+itcl::body MemPref::ok {} {
   apply
   unpost
 }
@@ -241,14 +241,14 @@ body MemPref::ok {} {
 # ------------------------------------------------------------------
 #  METHOD:  cancel - just close the dialog w/o saving changes
 # ------------------------------------------------------------------
-body MemPref::cancel {} {
+itcl::body MemPref::cancel {} {
   unpost
 }
 
 # ------------------------------------------------------------------
 #  METHOD:  check_numbytes - a trace to make sure gnumbytes is an int > 0
 # ------------------------------------------------------------------
-body MemPref::check_numbytes {var index mode} {
+itcl::body MemPref::check_numbytes {var index mode} {
   upvar \#0 $var true
   if {($true != "") && ([catch {expr {(int($true) != double($true)) || $true <= 0}} val] 
 			|| $val)} {
@@ -262,7 +262,7 @@ body MemPref::check_numbytes {var index mode} {
 # ------------------------------------------------------------------
 #  METHOD:  set_bytes_per_row - combobox callback to set the bytes per row
 # ------------------------------------------------------------------
-body MemPref::set_bytes_per_row {w value} {
+itcl::body MemPref::set_bytes_per_row {w value} {
   set gbpr $value
 }
 
@@ -270,7 +270,7 @@ body MemPref::set_bytes_per_row {w value} {
 #  METHOD:  toggle_size_control - toggle the state of the entry box as the
 #           control method changes
 # ------------------------------------------------------------------
-body MemPref::toggle_size_control {} {
+itcl::body MemPref::toggle_size_control {} {
 
   if {$gvar} {
     $Widgets(e-numbytes) configure -state normal \
@@ -286,7 +286,7 @@ body MemPref::toggle_size_control {} {
 # ------------------------------------------------------------------
 #  METHOD:  apply - apply changes to the parent window
 # ------------------------------------------------------------------
-body MemPref::apply {} {
+itcl::body MemPref::apply {} {
 
   busy
   gdbtk_busy
@@ -336,7 +336,7 @@ body MemPref::apply {} {
 # ------------------------------------------------------------------
 #  METHOD:  enable_format - turn on the format radio buttons 
 # ------------------------------------------------------------------
-body MemPref::enable_format {} {
+itcl::body MemPref::enable_format {} {
   if {!$format_disabled} {
     return
   }
@@ -351,7 +351,7 @@ body MemPref::enable_format {} {
 # ------------------------------------------------------------------
 #  METHOD:  disable_format - turn off the format radio buttons 
 # ------------------------------------------------------------------
-body MemPref::disable_format {} {
+itcl::body MemPref::disable_format {} {
   if {$format_disabled} {
     return
   }
@@ -365,7 +365,7 @@ body MemPref::disable_format {} {
 # ------------------------------------------------------------------
 #  METHOD:  pick - pick colors
 # ------------------------------------------------------------------
-body MemPref::pick {lab} {
+itcl::body MemPref::pick {lab} {
   set new_color [tk_chooseColor -initialcolor $color -title "Choose color"]
   if {$new_color != $color && $new_color != ""} {
     set color $new_color
@@ -377,7 +377,7 @@ body MemPref::pick {lab} {
 # ------------------------------------------------------------------
 #  METHOD:  reconfig - used when preferences change
 # ------------------------------------------------------------------
-body MemPref::reconfig {} {
+itcl::body MemPref::reconfig {} {
   # for now, just delete and recreate
   destroy $itk_interior.f 
   build_win

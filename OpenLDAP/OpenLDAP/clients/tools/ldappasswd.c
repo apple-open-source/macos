@@ -1,6 +1,6 @@
-/* $OpenLDAP: pkg/ldap/clients/tools/ldappasswd.c,v 1.94 2002/02/08 18:10:06 kurt Exp $ */
+/* $OpenLDAP: pkg/ldap/clients/tools/ldappasswd.c,v 1.94.2.10 2003/04/14 15:37:27 kurt Exp $ */
 /*
- * Copyright 1998-2002 The OpenLDAP Foundation, All Rights Reserved.
+ * Copyright 1998-2003 The OpenLDAP Foundation, All Rights Reserved.
  * COPYING RESTRICTIONS APPLY, see COPYRIGHT file
  */
 
@@ -11,21 +11,30 @@
 #include <ac/stdlib.h>
 
 #include <ac/ctype.h>
-#include <ac/signal.h>
 #include <ac/socket.h>
 #include <ac/string.h>
 #include <ac/time.h>
 #include <ac/unistd.h>
 
 #include <ldap.h>
-
+#include "lutil.h"
 #include "lutil_ldap.h"
 #include "ldap_defaults.h"
 
-static int	verbose = 0;
+#include "common.h"
 
-static void
-usage(const char *s)
+
+static struct berval newpw = { 0, NULL };
+static struct berval oldpw = { 0, NULL };
+
+static int   want_newpw = 0;
+static int   want_oldpw = 0;
+
+static char *oldpwfile = NULL;
+static char *newpwfile = NULL;
+
+void
+usage( void )
 {
 	fprintf(stderr,
 "Change password of an LDAP user\n\n"
@@ -34,623 +43,193 @@ usage(const char *s)
 "Password change options:\n"
 "  -a secret  old password\n"
 "  -A         prompt for old password\n"
+"  -t file    read file for old password\n"
 "  -s secret  new password\n"
 "  -S         prompt for new password\n"
-
-"Common options:\n"
-"  -d level   set LDAP debugging level to `level'\n"
-"  -D binddn  bind DN\n"
-"  -f file    read operations from `file'\n"
-"  -h host    LDAP server(s)\n"
-"  -H URI     LDAP Uniform Resource Indentifier(s)\n"
-"  -I         use SASL Interactive mode\n"
-"  -n         show what would be done but don't actually update\n"
-"  -O props   SASL security properties\n"
-"  -p port    port on LDAP server\n"
-"  -Q         use SASL Quiet mode\n"
-"  -R realm   SASL realm\n"
-"  -U authcid SASL authentication identity\n"
-"  -v         run in verbose mode (diagnostics to standard output)\n"
-"  -w passwd  bind passwd (for simple authentication)\n"
-"  -W         prompt for bind passwd\n"
-"  -x         Simple authentication\n"
-"  -X authzid SASL authorization identity (\"dn:<dn>\" or \"u:<user>\")\n"
-"  -Y mech    SASL mechanism\n"
-"  -Z         Start TLS request (-ZZ to require successful response)\n"
-		, s );
-
+"  -T file    read file for new password\n"
+	        , prog );
+	tool_common_usage();
 	exit( EXIT_FAILURE );
 }
+
+
+const char options[] = "a:As:St:T:"
+	"Cd:D:e:h:H:InO:p:QR:U:vVw:WxX:y:Y:Z";
+
+int
+handle_private_option( int i )
+{
+	switch ( i ) {
+#if 0
+	case 'E': /* passwd controls */ {
+		int		crit;
+		char	*control, *cvalue;
+		if( protocol == LDAP_VERSION2 ) {
+			fprintf( stderr, "%s: -E incompatible with LDAPv%d\n",
+			         prog, protocol );
+			exit( EXIT_FAILURE );
+		}
+
+		/* should be extended to support comma separated list of
+		 *	[!]key[=value] parameters, e.g.  -E !foo,bar=567
+		 */
+
+		crit = 0;
+		cvalue = NULL;
+		if( optarg[0] == '!' ) {
+			crit = 1;
+			optarg++;
+		}
+
+		control = strdup( optarg );
+		if ( (cvalue = strchr( control, '=' )) != NULL ) {
+			*cvalue++ = '\0';
+		}
+
+		fprintf( stderr, "Invalid passwd control name: %s\n", control );
+		usage();
+		}
+#endif
+
+	case 'a':	/* old password (secret) */
+		oldpw.bv_val = strdup( optarg );
+		{
+			char* p;
+			for( p = optarg; *p != '\0'; p++ ) {
+				*p = '\0';
+			}
+		}
+		oldpw.bv_len = strlen( oldpw.bv_val );
+		break;
+
+	case 'A':	/* prompt for old password */
+		want_oldpw++;
+		break;
+
+	case 's':	/* new password (secret) */
+		newpw.bv_val = strdup (optarg);
+		{
+			char* p;
+			for( p = optarg; *p != '\0'; p++ ) {
+				*p = '\0';
+			}
+		}
+		newpw.bv_len = strlen( newpw.bv_val );
+		break;
+
+	case 'S':	/* prompt for user password */
+		want_newpw++;
+		break;
+
+	case 't':
+		oldpwfile = optarg;
+		break;
+
+	case 'T':
+		newpwfile = optarg;
+		break;
+
+	default:
+		return 0;
+	}
+	return 1;
+}
+
 
 int
 main( int argc, char *argv[] )
 {
 	int rc;
-	char	*prog = NULL;
-	char	*ldaphost = NULL;
-	char	*ldapuri = NULL;
-
 	char	*user = NULL;
-	char	*binddn = NULL;
 
-	struct berval passwd = { 0, NULL };
-	char	*newpw = NULL;
-	char	*oldpw = NULL;
-
-	int		want_bindpw = 0;
-	int		want_newpw = 0;
-	int		want_oldpw = 0;
-
-	int		not = 0;
-	int		i;
-	int		ldapport = 0;
-	int		debug = 0;
-	int		version = -1;
-	int		authmethod = -1;
-	int		manageDSAit = 0;
-#ifdef HAVE_CYRUS_SASL
-	unsigned	sasl_flags = LDAP_SASL_AUTOMATIC;
-	char		*sasl_realm = NULL;
-	char		*sasl_authc_id = NULL;
-	char		*sasl_authz_id = NULL;
-	char		*sasl_mech = NULL;
-	char		*sasl_secprops = NULL;
-#endif
-	int		use_tls = 0;
-	int		referrals = 0;
 	LDAP	       *ld = NULL;
-	struct berval *bv = NULL;
+	struct berval bv = {0, NULL};
+	BerElement  *ber = NULL;
 
-	int id, code;
+	int id, code = LDAP_OTHER;
 	LDAPMessage *res;
 	char *matcheddn = NULL, *text = NULL, **refs = NULL;
 	char	*retoid = NULL;
 	struct berval *retdata = NULL;
 
-    prog = (prog = strrchr(argv[0], *LDAP_DIRSEP)) == NULL ? argv[0] : prog + 1;
+	prog = lutil_progname( "ldappasswd", argc, argv );
 
-	while( (i = getopt( argc, argv, "Aa:Ss:"
-		"Cd:D:h:H:InO:p:QR:U:vw:WxX:Y:Z" )) != EOF )
-	{
-		switch (i) {
-		/* Password Options */
-		case 'A':	/* prompt for old password */
-			want_oldpw++;
-			break;
+	/* LDAPv3 only */
+	protocol = LDAP_VERSION3;
 
-		case 'a':	/* old password (secret) */
-			oldpw = strdup (optarg);
-
-			{
-				char* p;
-
-				for( p = optarg; *p != '\0'; p++ ) {
-					*p = '\0';
-				}
-			}
-			break;
-
-		case 'S':	/* prompt for user password */
-			want_newpw++;
-			break;
-
-		case 's':	/* new password (secret) */
-			newpw = strdup (optarg);
-			{
-				char* p;
-
-				for( p = optarg; *p != '\0'; p++ ) {
-					*p = '\0';
-				}
-			}
-			break;
-
-	/* Common Options (including options we don't use) */
-	case 'C':
-		referrals++;
-		break;
-	case 'd':
-	    debug |= atoi( optarg );
-	    break;
-	case 'D':	/* bind DN */
-		if( binddn != NULL ) {
-			fprintf( stderr, "%s: -D previously specified\n", prog );
-			return EXIT_FAILURE;
-		}
-	    binddn = strdup( optarg );
-	    break;
-	case 'h':	/* ldap host */
-		if( ldapuri != NULL ) {
-			fprintf( stderr, "%s: -h incompatible with -H\n", prog );
-			return EXIT_FAILURE;
-		}
-		if( ldaphost != NULL ) {
-			fprintf( stderr, "%s: -h previously specified\n", prog );
-			return EXIT_FAILURE;
-		}
-	    ldaphost = strdup( optarg );
-	    break;
-	case 'H':	/* ldap URI */
-		if( ldaphost != NULL ) {
-			fprintf( stderr, "%s: -H incompatible with -h\n", prog );
-			return EXIT_FAILURE;
-		}
-		if( ldapport ) {
-			fprintf( stderr, "%s: -H incompatible with -p\n", prog );
-			return EXIT_FAILURE;
-		}
-		if( ldapuri != NULL ) {
-			fprintf( stderr, "%s: -H previously specified\n", prog );
-			return EXIT_FAILURE;
-		}
-	    ldapuri = strdup( optarg );
-	    break;
-	case 'I':
-#ifdef HAVE_CYRUS_SASL
-		if( version == LDAP_VERSION2 ) {
-			fprintf( stderr, "%s: -I incompatible with version %d\n",
-				prog, version );
-			return EXIT_FAILURE;
-		}
-		if( authmethod != -1 && authmethod != LDAP_AUTH_SASL ) {
-			fprintf( stderr, "%s: incompatible previous "
-				"authentication choice\n",
-				prog );
-			return EXIT_FAILURE;
-		}
-		authmethod = LDAP_AUTH_SASL;
-		version = LDAP_VERSION3;
-		sasl_flags = LDAP_SASL_INTERACTIVE;
-		break;
-#else
-		fprintf( stderr, "%s: was not compiled with SASL support\n",
-			prog );
-		return( EXIT_FAILURE );
-#endif
-	case 'k':	/* kerberos bind */
-#ifdef LDAP_API_FEATURE_X_OPENLDAP_V2_KBIND
-		if( version > LDAP_VERSION2 ) {
-			fprintf( stderr, "%s: -k incompatible with LDAPv%d\n",
-				prog, version );
-			return EXIT_FAILURE;
-		}
-
-		if( authmethod != -1 ) {
-			fprintf( stderr, "%s: -k incompatible with previous "
-				"authentication choice\n", prog );
-			return EXIT_FAILURE;
-		}
-			
-		authmethod = LDAP_AUTH_KRBV4;
-#else
-		fprintf( stderr, "%s: not compiled with Kerberos support\n", prog );
-		return EXIT_FAILURE;
-#endif
-	    break;
-	case 'K':	/* kerberos bind, part one only */
-#ifdef LDAP_API_FEATURE_X_OPENLDAP_V2_KBIND
-		if( version > LDAP_VERSION2 ) {
-			fprintf( stderr, "%s: -k incompatible with LDAPv%d\n",
-				prog, version );
-			return EXIT_FAILURE;
-		}
-		if( authmethod != -1 ) {
-			fprintf( stderr, "%s: incompatible with previous "
-				"authentication choice\n", prog );
-			return EXIT_FAILURE;
-		}
-
-		authmethod = LDAP_AUTH_KRBV41;
-#else
-		fprintf( stderr, "%s: not compiled with Kerberos support\n", prog );
-		return( EXIT_FAILURE );
-#endif
-	    break;
-	case 'M':
-		/* enable Manage DSA IT */
-		if( version == LDAP_VERSION2 ) {
-			fprintf( stderr, "%s: -M incompatible with LDAPv%d\n",
-				prog, version );
-			return EXIT_FAILURE;
-		}
-		manageDSAit++;
-		version = LDAP_VERSION3;
-		break;
-	case 'n':	/* print deletes, don't actually do them */
-	    ++not;
-	    break;
-	case 'O':
-#ifdef HAVE_CYRUS_SASL
-		if( sasl_secprops != NULL ) {
-			fprintf( stderr, "%s: -O previously specified\n", prog );
-			return EXIT_FAILURE;
-		}
-		if( version == LDAP_VERSION2 ) {
-			fprintf( stderr, "%s: -O incompatible with LDAPv%d\n",
-				prog, version );
-			return EXIT_FAILURE;
-		}
-		if( authmethod != -1 && authmethod != LDAP_AUTH_SASL ) {
-			fprintf( stderr, "%s: incompatible previous "
-				"authentication choice\n", prog );
-			return EXIT_FAILURE;
-		}
-		authmethod = LDAP_AUTH_SASL;
-		version = LDAP_VERSION3;
-		sasl_secprops = strdup( optarg );
-#else
-		fprintf( stderr, "%s: not compiled with SASL support\n",
-			prog );
-		return( EXIT_FAILURE );
-#endif
-		break;
-	case 'p':
-		if( ldapport ) {
-			fprintf( stderr, "%s: -p previously specified\n", prog );
-			return EXIT_FAILURE;
-		}
-	    ldapport = atoi( optarg );
-	    break;
-	case 'P':
-		switch( atoi(optarg) ) {
-		case 2:
-			if( version == LDAP_VERSION3 ) {
-				fprintf( stderr, "%s: -P 2 incompatible with version %d\n",
-					prog, version );
-				return EXIT_FAILURE;
-			}
-			version = LDAP_VERSION2;
-			break;
-		case 3:
-			if( version == LDAP_VERSION2 ) {
-				fprintf( stderr, "%s: -P 2 incompatible with version %d\n",
-					prog, version );
-				return EXIT_FAILURE;
-			}
-			version = LDAP_VERSION3;
-			break;
-		default:
-			fprintf( stderr, "%s: protocol version should be 2 or 3\n",
-				prog );
-			usage( prog );
-			return( EXIT_FAILURE );
-		} break;
-	case 'Q':
-#ifdef HAVE_CYRUS_SASL
-		if( version == LDAP_VERSION2 ) {
-			fprintf( stderr, "%s: -Q incompatible with version %d\n",
-				prog, version );
-			return EXIT_FAILURE;
-		}
-		if( authmethod != -1 && authmethod != LDAP_AUTH_SASL ) {
-			fprintf( stderr, "%s: incompatible previous "
-				"authentication choice\n",
-				prog );
-			return EXIT_FAILURE;
-		}
-		authmethod = LDAP_AUTH_SASL;
-		version = LDAP_VERSION3;
-		sasl_flags = LDAP_SASL_QUIET;
-		break;
-#else
-		fprintf( stderr, "%s: not compiled with SASL support\n",
-			prog );
-		return( EXIT_FAILURE );
-#endif
-	case 'R':
-#ifdef HAVE_CYRUS_SASL
-		if( sasl_realm != NULL ) {
-			fprintf( stderr, "%s: -R previously specified\n", prog );
-			return EXIT_FAILURE;
-		}
-		if( version == LDAP_VERSION2 ) {
-			fprintf( stderr, "%s: -R incompatible with version %d\n",
-				prog, version );
-			return EXIT_FAILURE;
-		}
-		if( authmethod != -1 && authmethod != LDAP_AUTH_SASL ) {
-			fprintf( stderr, "%s: incompatible previous "
-				"authentication choice\n",
-				prog );
-			return EXIT_FAILURE;
-		}
-		authmethod = LDAP_AUTH_SASL;
-		version = LDAP_VERSION3;
-		sasl_realm = strdup( optarg );
-#else
-		fprintf( stderr, "%s: not compiled with SASL support\n",
-			prog );
-		return( EXIT_FAILURE );
-#endif
-		break;
-	case 'U':
-#ifdef HAVE_CYRUS_SASL
-		if( sasl_authc_id != NULL ) {
-			fprintf( stderr, "%s: -U previously specified\n", prog );
-			return EXIT_FAILURE;
-		}
-		if( version == LDAP_VERSION2 ) {
-			fprintf( stderr, "%s: -U incompatible with version %d\n",
-				prog, version );
-			return EXIT_FAILURE;
-		}
-		if( authmethod != -1 && authmethod != LDAP_AUTH_SASL ) {
-			fprintf( stderr, "%s: incompatible previous "
-				"authentication choice\n",
-				prog );
-			return EXIT_FAILURE;
-		}
-		authmethod = LDAP_AUTH_SASL;
-		version = LDAP_VERSION3;
-		sasl_authc_id = strdup( optarg );
-#else
-		fprintf( stderr, "%s: not compiled with SASL support\n",
-			prog );
-		return( EXIT_FAILURE );
-#endif
-		break;
-	case 'v':	/* verbose mode */
-	    verbose++;
-	    break;
-	case 'w':	/* password */
-	    passwd.bv_val = strdup( optarg );
-		{
-			char* p;
-
-			for( p = optarg; *p != '\0'; p++ ) {
-				*p = '\0';
-			}
-		}
-		passwd.bv_len = strlen( passwd.bv_val );
-	    break;
-	case 'W':
-		want_bindpw++;
-		break;
-	case 'Y':
-#ifdef HAVE_CYRUS_SASL
-		if( sasl_mech != NULL ) {
-			fprintf( stderr, "%s: -Y previously specified\n", prog );
-			return EXIT_FAILURE;
-		}
-		if( version == LDAP_VERSION2 ) {
-			fprintf( stderr, "%s: -Y incompatible with version %d\n",
-				prog, version );
-			return EXIT_FAILURE;
-		}
-		if( authmethod != -1 && authmethod != LDAP_AUTH_SASL ) {
-			fprintf( stderr, "%s: incompatible with authentication choice\n", prog );
-			return EXIT_FAILURE;
-		}
-		authmethod = LDAP_AUTH_SASL;
-		version = LDAP_VERSION3;
-		sasl_mech = strdup( optarg );
-#else
-		fprintf( stderr, "%s: not compiled with SASL support\n",
-			prog );
-		return( EXIT_FAILURE );
-#endif
-		break;
-	case 'x':
-		if( authmethod != -1 && authmethod != LDAP_AUTH_SIMPLE ) {
-			fprintf( stderr, "%s: incompatible with previous "
-				"authentication choice\n", prog );
-			return EXIT_FAILURE;
-		}
-		authmethod = LDAP_AUTH_SIMPLE;
-		break;
-	case 'X':
-#ifdef HAVE_CYRUS_SASL
-		if( sasl_authz_id != NULL ) {
-			fprintf( stderr, "%s: -X previously specified\n", prog );
-			return EXIT_FAILURE;
-		}
-		if( version == LDAP_VERSION2 ) {
-			fprintf( stderr, "%s: -X incompatible with LDAPv%d\n",
-				prog, version );
-			return EXIT_FAILURE;
-		}
-		if( authmethod != -1 && authmethod != LDAP_AUTH_SASL ) {
-			fprintf( stderr, "%s: -X incompatible with "
-				"authentication choice\n", prog );
-			return EXIT_FAILURE;
-		}
-		authmethod = LDAP_AUTH_SASL;
-		version = LDAP_VERSION3;
-		sasl_authz_id = strdup( optarg );
-#else
-		fprintf( stderr, "%s: not compiled with SASL support\n",
-			prog );
-		return( EXIT_FAILURE );
-#endif
-		break;
-	case 'Z':
-#ifdef HAVE_TLS
-		if( version == LDAP_VERSION2 ) {
-			fprintf( stderr, "%s: -Z incompatible with version %d\n",
-				prog, version );
-			return EXIT_FAILURE;
-		}
-		version = LDAP_VERSION3;
-		use_tls++;
-#else
-		fprintf( stderr, "%s: not compiled with TLS support\n",
-			prog );
-		return( EXIT_FAILURE );
-#endif
-		break;
-
-
-		default:
-			fprintf( stderr, "%s: unrecognized option -%c\n",
-				prog, optopt );
-			usage (prog);
-		}
-	}
-
-	if (authmethod == -1) {
-#ifdef HAVE_CYRUS_SASL
-		authmethod = LDAP_AUTH_SASL;
-#else
-		authmethod = LDAP_AUTH_SIMPLE;
-#endif
-	}
+	tool_args( argc, argv );
 
 	if( argc - optind > 1 ) {
-		usage( prog );
+		usage();
 	} else if ( argc - optind == 1 ) {
 		user = strdup( argv[optind] );
 	} else {
 		user = NULL;
 	}
 
-	if( want_oldpw && oldpw == NULL ) {
+	if( oldpwfile ) {
+		rc = lutil_get_filed_password( prog, &oldpw );
+		if( rc ) return EXIT_FAILURE;
+	}
+
+	if( want_oldpw && oldpw.bv_val == NULL ) {
 		/* prompt for old password */
 		char *ckoldpw;
-		oldpw = strdup(getpassphrase("Old password: "));
+		oldpw.bv_val = strdup(getpassphrase("Old password: "));
 		ckoldpw = getpassphrase("Re-enter old password: ");
 
-		if( oldpw== NULL || ckoldpw == NULL ||
-			strcmp( oldpw, ckoldpw ))
+		if( oldpw.bv_val == NULL || ckoldpw == NULL ||
+			strcmp( oldpw.bv_val, ckoldpw ))
 		{
 			fprintf( stderr, "passwords do not match\n" );
 			return EXIT_FAILURE;
 		}
+
+		oldpw.bv_len = strlen( oldpw.bv_val );
 	}
 
-	if( want_newpw && newpw == NULL ) {
+	if( newpwfile ) {
+		rc = lutil_get_filed_password( prog, &newpw );
+		if( rc ) return EXIT_FAILURE;
+	}
+
+	if( want_newpw && newpw.bv_val == NULL ) {
 		/* prompt for new password */
 		char *cknewpw;
-		newpw = strdup(getpassphrase("New password: "));
+		newpw.bv_val = strdup(getpassphrase("New password: "));
 		cknewpw = getpassphrase("Re-enter new password: ");
 
-		if( newpw== NULL || cknewpw == NULL ||
-			strcmp( newpw, cknewpw ))
+		if( newpw.bv_val == NULL || cknewpw == NULL ||
+			strcmp( newpw.bv_val, cknewpw ))
 		{
 			fprintf( stderr, "passwords do not match\n" );
 			return EXIT_FAILURE;
 		}
+
+		newpw.bv_len = strlen( newpw.bv_val );
 	}
 
-	if (want_bindpw && passwd.bv_val == NULL ) {
+	if( want_bindpw && passwd.bv_val == NULL ) {
 		/* handle bind password */
-		passwd.bv_val = strdup( getpassphrase("Enter bind password: "));
-		passwd.bv_len = passwd.bv_val ? strlen( passwd.bv_val ) : 0;
-	}
-
-	if ( debug ) {
-		if( ber_set_option( NULL, LBER_OPT_DEBUG_LEVEL, &debug ) != LBER_OPT_SUCCESS ) {
-			fprintf( stderr, "Could not set LBER_OPT_DEBUG_LEVEL %d\n", debug );
-		}
-		if( ldap_set_option( NULL, LDAP_OPT_DEBUG_LEVEL, &debug ) != LDAP_OPT_SUCCESS ) {
-			fprintf( stderr, "Could not set LDAP_OPT_DEBUG_LEVEL %d\n", debug );
+		if ( pw_file ) {
+			rc = lutil_get_filed_password( pw_file, &passwd );
+			if( rc ) return EXIT_FAILURE;
+		} else {
+			passwd.bv_val = getpassphrase( "Enter LDAP Password: " );
+			passwd.bv_len = passwd.bv_val ? strlen( passwd.bv_val ) : 0;
 		}
 	}
 
-#ifdef SIGPIPE
-	(void) SIGNAL( SIGPIPE, SIG_IGN );
-#endif
+	ld = tool_conn_setup( 0, 0 );
 
-	/* connect to server */
-	if( ( ldaphost != NULL || ldapport ) && ( ldapuri == NULL ) ) {
-		if ( verbose ) {
-			fprintf( stderr, "ldap_init( %s, %d )\n",
-				ldaphost != NULL ? ldaphost : "<DEFAULT>",
-				ldapport );
-		}
+	tool_bind( ld );
 
-		ld = ldap_init( ldaphost, ldapport );
-		if( ld == NULL ) {
-			perror("ldapsearch: ldap_init");
-			return EXIT_FAILURE;
-		}
+	if ( authzid || manageDSAit || noop )
+		tool_server_controls( ld, NULL, 0 );
 
-	} else {
-		if ( verbose ) {
-			fprintf( stderr, "ldap_initialize( %s )\n",
-				ldapuri != NULL ? ldapuri : "<DEFAULT>" );
-		}
-
-		rc = ldap_initialize( &ld, ldapuri );
-		if( rc != LDAP_SUCCESS ) {
-			fprintf( stderr, "Could not create LDAP session handle (%d): %s\n",
-				rc, ldap_err2string(rc) );
-			return EXIT_FAILURE;
-		}
-	}
-
-	/* referrals */
-	if (ldap_set_option( ld, LDAP_OPT_REFERRALS,
-		referrals ? LDAP_OPT_ON : LDAP_OPT_OFF ) != LDAP_OPT_SUCCESS )
-	{
-		fprintf( stderr, "Could not set LDAP_OPT_REFERRALS %s\n",
-			referrals ? "on" : "off" );
-		return EXIT_FAILURE;
-	}
-
-	/* LDAPv3 only */
-	version = LDAP_VERSION3;
-	rc = ldap_set_option( ld, LDAP_OPT_PROTOCOL_VERSION, &version );
-
-	if(rc != LDAP_OPT_SUCCESS ) {
-		fprintf( stderr, "Could not set LDAP_OPT_PROTOCOL_VERSION %d\n", version );
-		return EXIT_FAILURE;
-	}
-
-	if ( use_tls && ( ldap_start_tls_s( ld, NULL, NULL ) != LDAP_SUCCESS )) {
-		ldap_perror( ld, "ldap_start_tls" );
-		if ( use_tls > 1 ) {
-			return( EXIT_FAILURE );
-		}
-	}
-
-	if ( authmethod == LDAP_AUTH_SASL ) {
-#ifdef HAVE_CYRUS_SASL
-		void *defaults;
-
-		if( sasl_secprops != NULL ) {
-			rc = ldap_set_option( ld, LDAP_OPT_X_SASL_SECPROPS,
-				(void *) sasl_secprops );
-			
-			if( rc != LDAP_OPT_SUCCESS ) {
-				fprintf( stderr,
-					"Could not set LDAP_OPT_X_SASL_SECPROPS: %s\n",
-					sasl_secprops );
-				return( EXIT_FAILURE );
-			}
-		}
-		
-		defaults = lutil_sasl_defaults( ld,
-			sasl_mech,
-			sasl_realm,
-			sasl_authc_id,
-			passwd.bv_val,
-			sasl_authz_id );
-
-		rc = ldap_sasl_interactive_bind_s( ld, binddn,
-			sasl_mech, NULL, NULL,
-			sasl_flags, lutil_sasl_interact, defaults );
-
-		if( rc != LDAP_SUCCESS ) {
-			ldap_perror( ld, "ldap_sasl_interactive_bind_s" );
-			return( EXIT_FAILURE );
-		}
-#else
-		fprintf( stderr, "%s: not compiled with SASL support\n",
-			prog );
-		return( EXIT_FAILURE );
-#endif
-	}
-	else {
-		if ( ldap_bind_s( ld, binddn, passwd.bv_val, authmethod )
-				!= LDAP_SUCCESS ) {
-			ldap_perror( ld, "ldap_bind" );
-			return( EXIT_FAILURE );
-		}
-	}
-
-	if( user != NULL || oldpw != NULL || newpw != NULL ) {
+	if( user != NULL || oldpw.bv_val != NULL || newpw.bv_val != NULL ) {
 		/* build change password control */
-		BerElement *ber = ber_alloc_t( LBER_USE_DER );
+		ber = ber_alloc_t( LBER_USE_DER );
 
 		if( ber == NULL ) {
 			perror( "ber_alloc_t" );
@@ -666,29 +245,27 @@ main( int argc, char *argv[] )
 			free(user);
 		}
 
-		if( oldpw != NULL ) {
-			ber_printf( ber, "ts",
-				LDAP_TAG_EXOP_MODIFY_PASSWD_OLD, oldpw );
-			free(oldpw);
+		if( oldpw.bv_val != NULL ) {
+			ber_printf( ber, "tO",
+				LDAP_TAG_EXOP_MODIFY_PASSWD_OLD, &oldpw );
+			free(oldpw.bv_val);
 		}
 
-		if( newpw != NULL ) {
-			ber_printf( ber, "ts",
-				LDAP_TAG_EXOP_MODIFY_PASSWD_NEW, newpw );
-			free(newpw);
+		if( newpw.bv_val != NULL ) {
+			ber_printf( ber, "tO",
+				LDAP_TAG_EXOP_MODIFY_PASSWD_NEW, &newpw );
+			free(newpw.bv_val);
 		}
 
 		ber_printf( ber, /*{*/ "N}" );
 
-		rc = ber_flatten( ber, &bv );
+		rc = ber_flatten2( ber, &bv, 0 );
 
 		if( rc < 0 ) {
-			perror( "ber_flatten" );
+			perror( "ber_flatten2" );
 			ldap_unbind( ld );
 			return EXIT_FAILURE;
 		}
-
-		ber_free( ber, 1 );
 	}
 
 	if ( not ) {
@@ -697,10 +274,10 @@ main( int argc, char *argv[] )
 	}
 
 	rc = ldap_extended_operation( ld,
-		LDAP_EXOP_MODIFY_PASSWD, bv, 
+		LDAP_EXOP_MODIFY_PASSWD, bv.bv_val ? &bv : NULL, 
 		NULL, NULL, &id );
 
-	ber_bvfree( bv );
+	ber_free( ber, 1 );
 
 	if( rc != LDAP_SUCCESS ) {
 		ldap_perror( ld, "ldap_extended_operation" );
@@ -714,7 +291,8 @@ main( int argc, char *argv[] )
 		return rc;
 	}
 
-	rc = ldap_parse_result( ld, res, &code, &matcheddn, &text, &refs, NULL, 0 );
+	rc = ldap_parse_result( ld, res,
+		&code, &matcheddn, &text, &refs, NULL, 0 );
 
 	if( rc != LDAP_SUCCESS ) {
 		ldap_perror( ld, "ldap_parse_result" );
@@ -731,7 +309,7 @@ main( int argc, char *argv[] )
 	if( retdata != NULL ) {
 		ber_tag_t tag;
 		char *s;
-		BerElement *ber = ber_init( retdata );
+		ber = ber_init( retdata );
 
 		if( ber == NULL ) {
 			perror( "ber_init" );
@@ -781,5 +359,5 @@ skip:
 	/* disconnect from server */
 	ldap_unbind (ld);
 
-	return EXIT_SUCCESS;
+	return code == LDAP_SUCCESS ? EXIT_SUCCESS : EXIT_FAILURE;
 }

@@ -35,11 +35,13 @@
 #include "sslMemory.h"
 #include "sslDebug.h"
 #include "sslUtils.h"
+#include "sslPriv.h"
+#include "appleCdsa.h"
 #include <string.h>
 #include <CoreServices/../Frameworks/CarbonCore.framework/Headers/MacErrors.h>
 
-#define ENABLE_3DES		1		/* normally enabled, our first preference */
-#define ENABLE_RC4		1		/* normally enabled, the most common one */
+#define ENABLE_3DES		1		/* normally enabled */
+#define ENABLE_RC4		1		/* normally enabled, our first preference */
 #define ENABLE_DES		1		/* normally enabled */
 #define ENABLE_RC2		1		/* normally enabled */
 
@@ -53,6 +55,16 @@
 #define ENABLE_RSA_RC2_MD5_NONEXPORT		ENABLE_RC2
 #define ENABLE_RSA_3DES_SHA					ENABLE_3DES 
 #define ENABLE_RSA_3DES_MD5					ENABLE_3DES	
+
+#if 	APPLE_DH
+#define ENABLE_DH_ANON			1
+#define ENABLE_DH_EPHEM_RSA		1
+#define ENABLE_DH_EPHEM_DSA		1
+#else
+#define ENABLE_DH_ANON			0
+#define ENABLE_DH_EPHEM_RSA		0
+#define ENABLE_DH_EPHEM_DSA		0
+#endif	/* APPLE_DH */
 
 extern "C" {
 extern const SSLSymmetricCipher SSLCipherNull;		/* in sslNullCipher.cpp */
@@ -203,24 +215,6 @@ const SSLCipherSpec SSL_NULL_WITH_NULL_NULL_CipherSpec =
 static const SSLCipherSpec KnownCipherSpecs[] =
 {
 	/*** domestic only ***/
-	#if	ENABLE_RSA_3DES_SHA
-	    {   
-	    	SSL_RSA_WITH_3DES_EDE_CBC_SHA, 
-	    	NotExportable, 
-	    	SSL_RSA, 
-	    	&HashHmacSHA1, 
-	    	&SSLCipher3DES_CBC 
-	    },
-	#endif
-	#if	ENABLE_RSA_3DES_MD5
-	    {   
-	    	SSL_RSA_WITH_3DES_EDE_CBC_MD5, 
-	    	NotExportable, 
-	    	SSL_RSA, 
-	    	&HashHmacMD5, 
-	    	&SSLCipher3DES_CBC 
-	    },
-	#endif
     #if	ENABLE_RSA_RC4_SHA_NONEXPORT
 	    {   
 	    	SSL_RSA_WITH_RC4_128_SHA, 
@@ -239,6 +233,24 @@ static const SSLCipherSpec KnownCipherSpecs[] =
 	    	&SSLCipherRC4_128 
 	    },
     #endif
+	#if	ENABLE_RSA_3DES_SHA
+	    {   
+	    	SSL_RSA_WITH_3DES_EDE_CBC_SHA, 
+	    	NotExportable, 
+	    	SSL_RSA, 
+	    	&HashHmacSHA1, 
+	    	&SSLCipher3DES_CBC 
+	    },
+	#endif
+	#if	ENABLE_RSA_3DES_MD5
+	    {   
+	    	SSL_RSA_WITH_3DES_EDE_CBC_MD5, 
+	    	NotExportable, 
+	    	SSL_RSA, 
+	    	&HashHmacMD5, 
+	    	&SSLCipher3DES_CBC 
+	    },
+	#endif
 	#if	ENABLE_RSA_DES_SHA_NONEXPORT
 	    {   
 	    	SSL_RSA_WITH_DES_CBC_SHA, 
@@ -267,16 +279,6 @@ static const SSLCipherSpec KnownCipherSpecs[] =
 			&SSLCipherRC4_40 
 		},
 	#endif
-    #if APPLE_DH
-	    /* Apple CSP doesn't support D-H yet */
-	    {   
-	    	SSL_DH_anon_WITH_RC4_128_MD5, 
-	    	NotExportable, 
-	    	SSL_DH_anon, 
-	    	&HashHmacMD5, 
-	    	&SSLCipherRC4_128 
-	    },
-    #endif
 	#if ENABLE_RSA_DES_SHA_EXPORT
 	    {   
 	    	SSL_RSA_EXPORT_WITH_DES40_CBC_SHA, 
@@ -311,7 +313,92 @@ static const SSLCipherSpec KnownCipherSpecs[] =
 	    	SSL_RSA, 
 	    	&HashHmacMD5, 
 	    	&SSLCipherNull 
-	    }
+	    },
+	#if ENABLE_DH_EPHEM_RSA
+		{
+			SSL_DHE_RSA_WITH_3DES_EDE_CBC_SHA,
+			NotExportable,
+			SSL_DHE_RSA,
+	    	&HashHmacSHA1, 
+	    	&SSLCipher3DES_CBC
+		},
+		{
+			SSL_DHE_RSA_WITH_DES_CBC_SHA,
+			NotExportable,
+			SSL_DHE_RSA,
+	    	&HashHmacSHA1, 
+	    	&SSLCipherDES_CBC
+		},
+		{
+			SSL_DHE_RSA_EXPORT_WITH_DES40_CBC_SHA,
+			Exportable,
+			SSL_DHE_RSA,
+	    	&HashHmacSHA1, 
+	    	&SSLCipherDES40_CBC
+		},
+	
+	#endif	/* ENABLE_DH_EPHEM_RSA */
+	#if ENABLE_DH_EPHEM_DSA
+		{
+			SSL_DHE_DSS_WITH_3DES_EDE_CBC_SHA,
+			NotExportable,
+			SSL_DHE_DSS,
+	    	&HashHmacSHA1, 
+	    	&SSLCipher3DES_CBC
+		},
+		{
+			SSL_DHE_DSS_WITH_DES_CBC_SHA,
+			NotExportable,
+			SSL_DHE_DSS,
+	    	&HashHmacSHA1, 
+	    	&SSLCipherDES_CBC
+		},
+		{
+			SSL_DHE_DSS_EXPORT_WITH_DES40_CBC_SHA,
+			Exportable,
+			SSL_DHE_DSS,
+	    	&HashHmacSHA1, 
+	    	&SSLCipherDES40_CBC
+		},
+	
+	#endif	/* ENABLE_DH_EPHEM_DSA */
+    #if ENABLE_DH_ANON
+		{
+			SSL_DH_anon_WITH_RC4_128_MD5,
+			NotExportable,
+			SSL_DH_anon,
+	    	&HashHmacMD5, 
+	    	&SSLCipherRC4_128
+		},
+		{
+			SSL_DH_anon_WITH_3DES_EDE_CBC_SHA,
+			NotExportable,
+			SSL_DH_anon,
+	    	&HashHmacSHA1, 
+	    	&SSLCipher3DES_CBC 
+		},
+		{
+			SSL_DH_anon_WITH_DES_CBC_SHA,
+			NotExportable,
+			SSL_DH_anon,
+	    	&HashHmacSHA1, 
+	    	&SSLCipherDES_CBC 
+		},
+		{
+			SSL_DH_anon_EXPORT_WITH_RC4_40_MD5,
+			Exportable,
+			SSL_DH_anon,
+	    	&HashHmacMD5, 
+	    	&SSLCipherRC4_40 
+		},
+		{
+			SSL_DH_anon_EXPORT_WITH_DES40_CBC_SHA,
+			Exportable,
+			SSL_DH_anon,
+	    	&HashHmacSHA1, 
+	    	&SSLCipherDES40_CBC 
+		},
+	#endif	/* APPLE_DH */
 };
 
 static const unsigned CipherSpecCount = sizeof(KnownCipherSpecs) / sizeof(SSLCipherSpec);
@@ -527,6 +614,8 @@ FindCipherSpec(SSLContext *ctx)
     }    
     if (ctx->selectedCipherSpec == NULL)         /* Not found */
         return errSSLNegotiation;
-    return noErr;
+		
+	/* make sure we're configured to handle this one */
+	return sslVerifyNegotiatedCipher(ctx);
 }
 

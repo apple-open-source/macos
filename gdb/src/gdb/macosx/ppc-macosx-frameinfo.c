@@ -35,14 +35,15 @@
 #include "objfiles.h"
 #include "command.h"
 
-/* external definitions (should be provided by gdb) */
+/* Limit the number of skipped non-prologue instructions, as the
+   examining of the prologue is expensive.  The current use that
+   refine_prologue_limit makes of this is to look for cases where
+   the scheduler moves a body instruction before the FIRST instruction
+   of the prologue.  For now, let's just lose then, since doing
+   a whole bunch of pc_line calls just for this eventuality is 
+   not a win.  */
 
-extern struct obstack frame_cache_obstack;
-extern struct frame_info *parse_frame_specification PARAMS ((char *frame_exp));
-
-/* local definitions */
-
-#define	DEFAULT_LR_SAVE 8
+static int max_skip_non_prologue_insns = 2;
 
 /* utility functions */
 
@@ -60,11 +61,8 @@ inline int GET_SRC_REG (long x)
   return (x >> 21) & 0x1f;
 }
 
-/* function definitions */
-
 void
-ppc_print_boundaries (bounds)
-     ppc_function_boundaries *bounds;
+ppc_print_boundaries (ppc_function_boundaries *bounds)
 {
   if (bounds->prologue_start != INVALID_ADDRESS) {
     printf_filtered 
@@ -89,8 +87,7 @@ ppc_print_boundaries (bounds)
 }
 
 void
-ppc_print_properties (props)
-     ppc_function_properties *props;
+ppc_print_properties (ppc_function_properties *props)
 {
   if (props->frameless) {
     printf_filtered (" No stack frame has been allocated.\n");
@@ -158,22 +155,23 @@ struct read_memory_unsigned_int_args
 int wrap_read_memory_unsigned_integer (void *in_args)
 {
   struct read_memory_unsigned_int_args *args 
-          = (struct read_memory_unsigned_int_args *) in_args;
+    = (struct read_memory_unsigned_int_args *) in_args;
           
   args->ret_val = read_memory_unsigned_integer (args->addr, args->len);
   return 1;
 }
 
 int
-safe_read_memory_unsigned_integer (CORE_ADDR addr, int len, unsigned long *val)
+safe_read_memory_unsigned_integer (CORE_ADDR addr, int len,
+				   unsigned long *val)
 {
     struct read_memory_unsigned_int_args args;
     
     args.addr = addr;
     args.len = len;
     
-    if (!catch_errors ((catch_errors_ftype *) wrap_read_memory_unsigned_integer,
-      &args,"", RETURN_MASK_ERROR))
+    if (! catch_errors (wrap_read_memory_unsigned_integer,
+			&args,"", RETURN_MASK_ERROR))
       {
           return 0;
       }
@@ -181,14 +179,12 @@ safe_read_memory_unsigned_integer (CORE_ADDR addr, int len, unsigned long *val)
     return 1;  
 }
 
-/* return pc value after skipping a function prologue and also return
+/* Return $pc value after skipping a function prologue and also return
    information about a function frame. */
 
 CORE_ADDR
-ppc_parse_instructions (start, end, props)
-     CORE_ADDR start;
-     CORE_ADDR end;
-     ppc_function_properties *props;
+ppc_parse_instructions (CORE_ADDR start, CORE_ADDR end,
+			ppc_function_properties *props)
 {
   CORE_ADDR pc = start;
   CORE_ADDR last_recognized_insn = start;
@@ -246,6 +242,25 @@ ppc_parse_instructions (start, end, props)
       {
 	props->lr_invalid = pc;
         saw_pic_base_setup = 1;
+        props->pic_base_address = pc + 4;
+	goto processed_insn;
+      }
+    /* This mr r31,r12 is part of an ObjC selector prologue like this:
+          mflr    r0
+          stmw    r30,-8(r1)
+          mr      r31,r12     (the PIC base was in r12, put it in r31)
+       But don't get tricked into using this expression if we've already
+       seen a normal pic base mflr insn.
+       Note:  By convention, the address of the start of the function is placed
+       in R12 when calling an ObjC selector, so we stuff the START address we
+       were given in to pic_base_address on the hope that START was actually
+       the start of the function.
+    */
+    if (!saw_pic_base_setup && (op == 0x7d9f6378 || op == 0x7d9e6378))
+      {
+        saw_pic_base_setup = 1;
+        props->pic_base_reg = (op & 0x1f0000) >> 16;
+        props->pic_base_address = start;
 	goto processed_insn;
       }
     /* Look at other branch instructions.  There are a couple of MacOS
@@ -399,7 +414,6 @@ ppc_parse_instructions (start, end, props)
            stack because we are a leaf function.  We are now
            moving it back to the lr, so the lr is again valid */
 
-        int target_reg = (op & 0x03e00000) >> 21;
         if (!props->lr_saved 
             && (props->lr_reg > -1))
           {
@@ -484,6 +498,14 @@ ppc_parse_instructions (start, end, props)
 	goto processed_insn;
 	
       } 
+    /* APPLE LOCAL fix-and-continue begin */
+    else if (op == 0x60000000)
+      {
+        /* ori 0,0,0 aka NOP */
+        /* Used in fix and continue padded prologues */
+        goto processed_insn;
+      }
+    /* APPLE LOCAL fix-and-continue end */
     else if ((op & 0xffff0000) == 0x60000000) 
       { 
 	/* ori 0,0,NUM, 2nd half of >= 32k frames */
@@ -503,6 +525,7 @@ ppc_parse_instructions (start, end, props)
       {
 	props->frameptr_used = 1;
 	props->frameptr_reg = 30;
+	props->frameptr_pc = pc;
 	goto processed_insn;
 	
       } 
@@ -588,6 +611,7 @@ ppc_parse_instructions (start, end, props)
       {
 	props->frameptr_used = 1;
 	props->frameptr_reg = 31;
+	props->frameptr_pc = pc;
 	goto processed_insn;
 	
       } 
@@ -606,6 +630,7 @@ ppc_parse_instructions (start, end, props)
       {
 	props->frameptr_used = 1;
 	props->frameptr_reg = 30;
+	props->frameptr_pc = pc;
 	goto processed_insn;
 	
       } 
@@ -614,6 +639,7 @@ ppc_parse_instructions (start, end, props)
       {
 	props->frameptr_used = 1;
 	props->frameptr_reg = (op & ~0x38010000) >> 21;
+	props->frameptr_pc = pc;
 	goto processed_insn;
 	
       } 
@@ -621,8 +647,48 @@ ppc_parse_instructions (start, end, props)
     else 
       {
 	insn_recognized = 0;
+
+	/* We have exceeded our maximum scan length.  So we are going to
+	   exit the parse.  However, there may be cases where what we have
+	   learned so far leads us to believe that there are interesting 
+	   bits of information that we should find in the instruction stream.
+	   We can make the scan more accurate even when we couldn't completely
+	   ingest the prologue by looking in a focused way for these bits.  */
+
 	if (insn_count > max_insn)
-	  break;
+	  {
+	    int cleanup_length = 6;
+
+	    if (!props->lr_saved 
+		&& props->lr_reg != -1
+		&& props->lr_invalid != 0 
+		&& props->lr_valid_again == INVALID_ADDRESS)
+	      {
+		/* We saw the link register made invalid, but we
+		   also didn't see it saved.  Let's try scanning forward
+		   to see when it gets saved or moved back to the lr, 
+		   otherwise we will think the return address is always stored 
+		   in some register, and end up adding a garbage address to 
+		   the stack.  */
+
+		for (; cleanup_length > 0; 
+		     pc += 4, cleanup_length--) 
+		  {
+		    unsigned long op;
+		    
+		    if (!safe_read_memory_unsigned_integer (pc, 4, &op))
+		      break;
+		    
+		    if ((op & 0xfc1fffff) == 0x7c0803a6) /* mtlr Rx */
+		      {
+			props->lr_valid_again = pc;
+			last_recognized_insn = pc;
+			break;
+		      }
+		  }
+	      }
+	    break;
+	  }
       }
   processed_insn:
     if (insn_recognized)
@@ -632,12 +698,19 @@ ppc_parse_instructions (start, end, props)
 
   if (props->offset != -1) { props->offset = -props->offset; }
   
-  return last_recognized_insn;
+  /* We are to return the first instruction of the body, so up the
+     last_recognized_insn by one.  However, if we are still at start
+     we didn't actually recognize any instructions, so don't increment
+     in that case.  */
+
+  if (last_recognized_insn == start)
+    return start;
+  else
+    return last_recognized_insn + 4;
 }
 
 void
-ppc_clear_function_boundaries_request (request)
-     ppc_function_boundaries_request *request;
+ppc_clear_function_boundaries_request (ppc_function_boundaries_request *request)
 {
   request->min_start = INVALID_ADDRESS;
   request->max_end = INVALID_ADDRESS;
@@ -651,8 +724,7 @@ ppc_clear_function_boundaries_request (request)
 }
 
 void
-ppc_clear_function_boundaries (boundaries)
-     ppc_function_boundaries *boundaries;
+ppc_clear_function_boundaries (ppc_function_boundaries *boundaries)
 {
   boundaries->prologue_start = INVALID_ADDRESS;
   boundaries->body_start = INVALID_ADDRESS;
@@ -661,8 +733,7 @@ ppc_clear_function_boundaries (boundaries)
 }
 
 void
-ppc_clear_function_properties (properties)
-     ppc_function_properties *properties;
+ppc_clear_function_properties (ppc_function_properties *properties)
 {
   properties->offset = -1;
 
@@ -673,6 +744,7 @@ ppc_clear_function_properties (properties)
 
   properties->frameptr_reg = -1;
   properties->frameptr_used = 0;
+  properties->frameptr_pc = INVALID_ADDRESS;
 
   properties->frameless = 1;
 
@@ -687,47 +759,66 @@ ppc_clear_function_properties (properties)
 
   properties->minimal_toc_loaded = 0;
   properties->pic_base_reg = 0;
+  properties->pic_base_address = INVALID_ADDRESS;
 }
 
-
 int
-ppc_find_function_boundaries (request, reply)
-     ppc_function_boundaries_request *request;
-     ppc_function_boundaries *reply;
+ppc_find_function_boundaries (ppc_function_boundaries_request *request,
+			      ppc_function_boundaries *reply)
 {
   ppc_function_properties props;
+  CORE_ADDR lim_pc;
 
   CHECK_FATAL (request != NULL);
   CHECK_FATAL (reply != NULL);
 
-  if (request->prologue_start != INVALID_ADDRESS) {
-    reply->prologue_start = request->prologue_start;
-  } else if (request->contains_pc != INVALID_ADDRESS) {
-    reply->prologue_start = get_pc_function_start (request->contains_pc);
-    if (reply->prologue_start == 0) { return -1; }
-  }
+  if (request->prologue_start != INVALID_ADDRESS)
+    {
+      reply->prologue_start = request->prologue_start;
+    }
+  else if (request->contains_pc != INVALID_ADDRESS)
+    {
+      reply->prologue_start = get_pc_function_start (request->contains_pc);
+      if (reply->prologue_start == 0)
+	return -1;
+    }
 
   CHECK_FATAL (reply->prologue_start != INVALID_ADDRESS);
 
-  if ((reply->prologue_start % 4) != 0) { return -1; }
-  reply->body_start = ppc_parse_instructions (reply->prologue_start, 
-					      INVALID_ADDRESS, &props);
+  if ((reply->prologue_start % 4) != 0)
+    return -1;
+
+  /* Use the line number information to limit the prologue search if
+     it is available */
+
+  lim_pc = refine_prologue_limit
+    (reply->prologue_start, 0, max_skip_non_prologue_insns);
+
+  if (lim_pc != 0)
+    reply->body_start = lim_pc;
+  else
+      lim_pc = INVALID_ADDRESS;
+      
+  reply->body_start = ppc_parse_instructions
+    (reply->prologue_start, lim_pc, &props);
+  
   return 0;
 }
 
 int
-ppc_frame_cache_boundaries (frame, retbounds)
-     struct frame_info *frame;
-     struct ppc_function_boundaries *retbounds;
+ppc_frame_cache_boundaries (struct frame_info *frame, 
+			    struct ppc_function_boundaries *retbounds)
 {
   if (!frame->extra_info->bounds) {
 
     if (ppc_is_dummy_frame (frame)) {
 
       frame->extra_info->bounds = (struct ppc_function_boundaries *)
-	obstack_alloc (&frame_cache_obstack, sizeof (ppc_function_boundaries));
+	frame_obstack_zalloc (sizeof (ppc_function_boundaries));
       CHECK_FATAL (frame->extra_info->bounds != NULL);
-      
+
+      ppc_clear_function_boundaries (frame->extra_info->bounds);
+
       frame->extra_info->bounds->prologue_start = INVALID_ADDRESS;
       frame->extra_info->bounds->body_start = INVALID_ADDRESS;
       frame->extra_info->bounds->epilogue_start = INVALID_ADDRESS;
@@ -742,19 +833,27 @@ ppc_frame_cache_boundaries (frame, retbounds)
       ppc_clear_function_boundaries (&lbounds);
       ppc_clear_function_boundaries_request (&request);
 
-      request.contains_pc = frame->pc;
+      request.contains_pc = frame_address_in_block (frame);
+
+      if (request.contains_pc == INVALID_ADDRESS)
+	return -1;
+
       ret = ppc_find_function_boundaries (&request, &lbounds);
-      if (ret != 0) { return ret; }
+      if (ret != 0)
+	return ret;
     
       frame->extra_info->bounds = (struct ppc_function_boundaries *)
-	obstack_alloc (&frame_cache_obstack, sizeof (ppc_function_boundaries));
+	frame_obstack_zalloc (sizeof (ppc_function_boundaries));
       CHECK_FATAL (frame->extra_info->bounds != NULL);
-      memcpy (frame->extra_info->bounds, &lbounds, sizeof (ppc_function_boundaries));
+
+      memcpy (frame->extra_info->bounds, &lbounds,
+	      sizeof (ppc_function_boundaries));
     }
   }
 
   if (retbounds != NULL) { 
-    memcpy (retbounds, frame->extra_info->bounds, sizeof (ppc_function_boundaries));
+    memcpy (retbounds, frame->extra_info->bounds,
+	    sizeof (ppc_function_boundaries));
   }
 
   return 0;
@@ -769,9 +868,8 @@ ppc_frame_cache_boundaries (frame, retbounds)
  * Returns: 0 on success */
 
 int
-ppc_frame_cache_properties (frame, retprops)
-     struct frame_info *frame;
-     struct ppc_function_properties *retprops;
+ppc_frame_cache_properties (struct frame_info *frame,
+			    struct ppc_function_properties *retprops)
 {
   /* FIXME: I have seen a couple of cases where this function gets
      called with a frame whose extra_info has not been set yet.  It is
@@ -780,24 +878,21 @@ ppc_frame_cache_properties (frame, retprops)
      but at some point it might be good to look at this more
      closely. */
 
-  if (!frame->extra_info)
-    {
-      return 1;
-    }
+  if (! frame->extra_info)
+    return 1;
 
   if (! frame->extra_info->props) 
     {
-      
       if (ppc_is_dummy_frame (frame)) 
 	{
-	  
 	  ppc_function_properties *props;
 	  
 	  frame->extra_info->props = (struct ppc_function_properties *)
-	    obstack_alloc (&frame_cache_obstack, sizeof (ppc_function_properties));
+	    frame_obstack_zalloc (sizeof (ppc_function_properties));
 	  CHECK_FATAL (frame->extra_info->props != NULL);
-	  ppc_clear_function_properties (frame->extra_info->props);
 	  props = frame->extra_info->props;
+
+	  ppc_clear_function_properties (props);
 	  
 	  props->offset = 0;
 	  props->saved_gpr = -1;
@@ -807,72 +902,83 @@ ppc_frame_cache_properties (frame, retprops)
 	  props->frameless = 0;
 	  props->frameptr_used = 0;
 	  props->frameptr_reg = -1;
+	  props->frameptr_pc = INVALID_ADDRESS;
 	  props->lr_saved = 1;
 	  props->lr_offset = DEFAULT_LR_SAVE;
 	  props->cr_saved = 0;
 	  props->cr_offset = -1;
 	  props->minimal_toc_loaded = 0;
-	  
 	} 
       else 
 	{
-	  
 	  int ret;
-	  ppc_function_properties lprops;
-	  
-	  ppc_clear_function_properties (&lprops);
+	  ppc_function_properties *props;
+	  ppc_function_boundaries *bounds;
 	  
 	  ret = ppc_frame_cache_boundaries (frame, NULL);
 	  if (ret != 0) { return ret; }
+	  bounds = frame->extra_info->bounds;
 	  
-	  if ((frame->extra_info->bounds->prologue_start % 4) != 0) { return -1; }
-	  if ((frame->pc % 4) != 0) { return -1; }
-	  ppc_parse_instructions (frame->extra_info->bounds->prologue_start, 
-				  frame->extra_info->bounds->function_end, &lprops);
+	  if ((bounds->prologue_start % 4) != 0)
+	    return -1;
+	  if ((frame->pc % 4) != 0)
+	    return -1;
+
 	  frame->extra_info->props = (struct ppc_function_properties *)
-	    obstack_alloc (&frame_cache_obstack, sizeof (ppc_function_properties));
+	    frame_obstack_zalloc (sizeof (ppc_function_properties));
 	  CHECK_FATAL (frame->extra_info->props != NULL);
+	  props = frame->extra_info->props;
+	  ppc_clear_function_properties (props);
+
+	  /* By the time we get here, ppc_frame_cache_boundaries will
+	     have already called ppc_parse_instructions to find the
+	     body start.  If that is true, use the body start it found
+	     to limit the search. */
+
+	  ppc_parse_instructions (bounds->prologue_start, 
+				  bounds->body_start, props);
 	  
 	  /* ppc_parse_instructions sometimes gets the stored pc location
-	     wrong.  However, we KNOW that for all frames but frame 0
+	     wrong.  However, we know that for all frames but frame 0
 	     the pc is on the stack.  So force that here. */
 	  
-	  if (frame->next != NULL && !lprops.lr_saved)
+	  if (get_next_frame (frame) != NULL)
 	    {
-	      lprops.lr_offset = 8;
-	      /* This is bogus, just needs to be BEFORE where we are
-		 to get the rest of the code right. */
-	      lprops.lr_saved = frame->pc - 8;
-	      lprops.lr_reg = LR_REGNUM;
-	      lprops.lr_invalid = 0;
+	      props->lr_offset = 8;
+	      /* This is a bogus value, but we need to tell it some value
+		 before the current $pc for the rest of the code to
+		 work properly. */
+	      props->lr_saved = 1;
+	      props->lr_reg = LR_REGNUM;
+	      props->lr_invalid = 0;
 	      ppc_debug ("ppc_frame_cache_properties: %s\n",
-			 "thought a non-leaf frame didn't save the lr, correcting...");
+			 "a non-leaf frame appeared not to save $lr;"
+			 "overriding and fetching from link area");
 	    }
-	  
-	  memcpy (frame->extra_info->props, &lprops,
-		  sizeof (ppc_function_properties));
 	}
     } 
-  else if (frame->next != NULL && !frame->extra_info->props->lr_saved)
+  else if (get_next_frame (frame) != NULL)
     {
       /* We tried to correct this error from ppc_parse_instructions above,
 	 but the frame hadn't been fully set yet.  So we will do it again
-	 here... */
+	 here. */
       ppc_function_properties *props = frame->extra_info->props;
       
       props->lr_offset = 8;
-      /* This is bogus, just needs to be BEFORE where we are
-	 to get the rest of the code right. */
-      props->lr_saved = frame->pc - 8;
+      /* This is a bogus value, but we need to tell it some value
+	 before the current $pc for the rest of the code to work
+	 properly. */
+      props->lr_saved = 1;
       props->lr_reg = LR_REGNUM;
       props->lr_invalid = 0;
       ppc_debug ("ppc_frame_cache_properties: %s\n",
-		 "thought a non-leaf frame didn't save the lr, correcting...");
-      
+		 "a non-leaf frame appeared not to save $lr;"
+		 "overriding and fetching from link area");
     }
 
   if (retprops != NULL) {
-    memcpy (retprops, frame->extra_info->props, sizeof (ppc_function_properties));
+    memcpy (retprops, frame->extra_info->props,
+	    sizeof (ppc_function_properties));
   }
   
   return 0;    

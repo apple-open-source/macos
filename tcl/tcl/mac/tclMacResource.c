@@ -11,7 +11,7 @@
  * See the file "license.terms" for information on usage and redistribution
  * of this file, and for a DISCLAIMER OF ALL WARRANTIES.
  *
- * RCS: @(#) $Id: tclMacResource.c,v 1.1.1.3 2000/04/12 02:02:38 wsanchez Exp $
+ * RCS: @(#) $Id: tclMacResource.c,v 1.1.1.4 2003/03/06 00:12:24 landonf Exp $
  */
 
 #include <Errors.h>
@@ -149,7 +149,7 @@ Tcl_ResourceObjCmd(
     char macPermision;
     int mode;
 
-    static char *switches[] = {"close", "delete" ,"files", "list", 
+    static CONST char *switches[] = {"close", "delete" ,"files", "list", 
             "open", "read", "types", "write", (char *) NULL
     };
 	        
@@ -158,7 +158,7 @@ Tcl_ResourceObjCmd(
             RESOURCE_OPEN, RESOURCE_READ, RESOURCE_TYPES, RESOURCE_WRITE
     };
               
-    static char *writeSwitches[] = {
+    static CONST char *writeSwitches[] = {
             "-id", "-name", "-file", "-force", (char *) NULL
     };
             
@@ -167,7 +167,7 @@ Tcl_ResourceObjCmd(
             RESOURCE_WRITE_FILE, RESOURCE_FORCE
     };
             
-    static char *deleteSwitches[] = {"-id", "-name", "-file", (char *) NULL};
+    static CONST char *deleteSwitches[] = {"-id", "-name", "-file", (char *) NULL};
              
     enum {RESOURCE_DELETE_ID, RESOURCE_DELETE_NAME, RESOURCE_DELETE_FILE};
 
@@ -496,7 +496,7 @@ resourceRef? resourceType");
 	    return TCL_OK;
 	case RESOURCE_OPEN: {
 	    Tcl_DString ds, buffer;
-	    char *str, *native;
+	    CONST char *str, *native;
 	    int length;
 	    			
 	    if (!((objc == 3) || (objc == 4))) {
@@ -954,8 +954,7 @@ Tcl_MacSourceObjCmd(
     }
     
     if (objc == 2)  {
-	string = Tcl_GetStringFromObj(objv[1], &length);
-	return Tcl_EvalFile(interp, string);
+	return Tcl_FSEvalFile(interp, objv[1]);
     }
     
     /*
@@ -1236,10 +1235,10 @@ SetSoundVolume(
 int
 Tcl_MacEvalResource(
     Tcl_Interp *interp,		/* Interpreter in which to process file. */
-    char *resourceName,		/* Name of TEXT resource to source,
+    CONST char *resourceName,	/* Name of TEXT resource to source,
 				   NULL if number should be used. */
     int resourceNumber,		/* Resource id of source. */
-    char *fileName)		/* Name of file to process.
+    CONST char *fileName)	/* Name of file to process.
 				   NULL if application resource. */
 {
     Handle sourceText;
@@ -1249,20 +1248,22 @@ Tcl_MacEvalResource(
     short saveRef, fileRef = -1;
     char idStr[64];
     FSSpec fileSpec;
-    Tcl_DString buffer;
-    char *nativeName;
+    Tcl_DString ds, buffer;
+    CONST char *nativeName;
 
     saveRef = CurResFile();
 	
     if (fileName != NULL) {
 	OSErr err;
 	
-	nativeName = Tcl_TranslateFileName(interp, fileName, &buffer);
-	if (nativeName == NULL) {
+	if (Tcl_TranslateFileName(interp, fileName, &buffer) == NULL) {
 	    return TCL_ERROR;
 	}
+	nativeName = Tcl_UtfToExternalDString(NULL, Tcl_DStringValue(&buffer), 
+    	    Tcl_DStringLength(&buffer), &ds);
 	err = FSpLocationFromPath(strlen(nativeName), nativeName,
                 &fileSpec);
+	Tcl_DStringFree(&ds);
 	Tcl_DStringFree(&buffer);
 	if (err != noErr) {
 	    Tcl_AppendResult(interp, "Error finding the file: \"", 
@@ -1294,9 +1295,12 @@ Tcl_MacEvalResource(
      * Load the resource by name or ID
      */
     if (resourceName != NULL) {
-	strcpy((char *) rezName + 1, resourceName);
-	rezName[0] = strlen(resourceName);
+	Tcl_DString ds;
+	Tcl_UtfToExternalDString(NULL, resourceName, -1, &ds);
+	strcpy((char *) rezName + 1, Tcl_DStringValue(&ds));
+	rezName[0] = (unsigned) Tcl_DStringLength(&ds);
 	sourceText = GetNamedResource('TEXT', rezName);
+	Tcl_DStringFree(&ds);
     } else {
 	sourceText = GetResource('TEXT', (short) resourceNumber);
     }
@@ -1383,20 +1387,24 @@ Tcl_MacConvertTextResource(
 {
     int i, size;
     char *resultStr;
+    Tcl_DString dstr;
 
     size = GetResourceSizeOnDisk(resource);
     
-    resultStr = ckalloc(size + 1);
+    Tcl_ExternalToUtfDString(NULL, *resource, size, &dstr);
+
+    size = Tcl_DStringLength(&dstr) + 1;
+    resultStr = (char *) ckalloc((unsigned) size);
+    
+    memcpy((VOID *) resultStr, (VOID *) Tcl_DStringValue(&dstr), (size_t) size);
+    
+    Tcl_DStringFree(&dstr);
     
     for (i=0; i<size; i++) {
-	if ((*resource)[i] == '\r') {
+	if (resultStr[i] == '\r') {
 	    resultStr[i] = '\n';
-	} else {
-	    resultStr[i] = (*resource)[i];
 	}
     }
-    
-    resultStr[size] = '\0';
 
     return resultStr;
 }
@@ -1421,10 +1429,10 @@ Handle
 Tcl_MacFindResource(
     Tcl_Interp *interp,		/* Interpreter in which to process file. */
     long resourceType,		/* Type of resource to load. */
-    char *resourceName,		/* Name of resource to find,
+    CONST char *resourceName,	/* Name of resource to find,
 				 * NULL if number should be used. */
     int resourceNumber,		/* Resource id of source. */
-    char *resFileRef,		/* Registered resource file reference,
+    CONST char *resFileRef,	/* Registered resource file reference,
 				 * NULL if searching all open resource files. */
     int *releaseIt)	        /* Should we release this resource when done. */
 {
@@ -1463,15 +1471,19 @@ Tcl_MacFindResource(
 	    resource = GetResource(resourceType, resourceNumber);
 	}
     } else {
-	c2pstr(resourceName);
+    	Str255 rezName;
+	Tcl_DString ds;
+	Tcl_UtfToExternalDString(NULL, resourceName, -1, &ds);
+	strcpy((char *) rezName + 1, Tcl_DStringValue(&ds));
+	rezName[0] = (unsigned) Tcl_DStringLength(&ds);
 	if (limitSearch) {
 	    resource = Get1NamedResource(resourceType,
-		    (StringPtr) resourceName);
+		    rezName);
 	} else {
 	    resource = GetNamedResource(resourceType,
-		    (StringPtr) resourceName);
+		    rezName);
 	}
-	p2cstr((StringPtr) resourceName);
+	Tcl_DStringFree(&ds);
     }
     
     if (*resource == NULL) {
@@ -1973,7 +1985,7 @@ TclMacRegisterResourceFork(
     if (tokenPtr != NULL) {
         char *tokenVal;
         int length;
-        tokenVal = (char *) Tcl_GetStringFromObj(tokenPtr, &length);
+        tokenVal = Tcl_GetStringFromObj(tokenPtr, &length);
         if (length > 0) {
             nameHashPtr = Tcl_FindHashEntry(&nameTable, tokenVal);
             if (nameHashPtr == NULL) {
@@ -2190,7 +2202,7 @@ BuildResourceForkList()
              Tcl_SetStringObj(nameObj, "ROM Map", -1);
         } else {
             p2cstr((StringPtr) fileName);
-            if (strcmp(fileName,(char *) appName) == 0) {
+            if (strcmp(fileName,appName) == 0) {
                 Tcl_SetStringObj(nameObj, "application", -1);
             } else {
                 Tcl_SetStringObj(nameObj, fileName, -1);

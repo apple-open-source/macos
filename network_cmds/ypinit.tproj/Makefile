@@ -1,7 +1,7 @@
 #
 # RC Makefile for ypinit scripts on Rhapsody.
 #
-# $Id: Makefile,v 1.2 2002/03/13 02:08:08 bbraun Exp $
+# $Id: Makefile,v 1.4 2003/02/08 03:46:33 mscopp Exp $
 #
 
 VARYP=$(DSTROOT)/private/var/yp

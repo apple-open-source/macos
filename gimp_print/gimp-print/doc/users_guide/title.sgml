@@ -1,0 +1,80 @@
+ <bookinfo>
+  <title>The User's Guide to the Gimp-Print Top Quality Printer Drivers</title>
+  <date>April 2, 2002</date>
+  <pubdate>April 2, 2002</pubdate>
+  <author>
+    <firstname>Andy</firstname>
+    <surname>Stewart</surname>
+  </author>
+  <copyright>
+    <year>2002</year>
+    <holder>Andy Stewart</holder>
+  </copyright>
+  <legalnotice>
+    <para>The User's Guide to the Gimp-Print Top Quality Printer
+Drivers, Copyright 2002, Andy Stewart.
+    </para>
+    <para>
+    Permission is granted to copy, distribute and/or modify this
+document under the terms of the GNU Free Documentation License,
+Version 1.1 or any later version published by the Free Software
+Foundation with no invariant sections, no Front-Cover texts, and no
+Back-Cover texts.  A copy of the license is included in <xref linkend="gfdl">.
+    </para>
+
+  </legalnotice>
+
+  <abstract>
+  <para>
+    The Gimp-Print Top Quality Printer Drivers (hereafter
+called Gimp-Print) are a set of printer drivers written to
+take advantage of the full capabilities of a wide range of
+printers. These drivers should work on any POSIX compliant operating
+system (e.g. Linux, Solaris, IRIX, etc).  This document will explain how to
+use the Gimp-Print software to achieve high quality printouts from the
+<ulink url="http://www.gimp.org">GIMP</ulink> (GNU Image
+Manipulation Program) and
+<ulink url="http://www.cups.org">CUPS</ulink> (Common Unix Printing
+System).
+  </para>
+  <para>
+    Please note that in addition to using the Gimp-Print software as a
+print plugin for the GIMP, and as a set of printer drivers for CUPS, this
+software can also be compiled and used with the 
+<ulink url="http://www.ghostscript.com">Ghostscript</ulink> software
+and with the 
+<ulink
+url="http://www.linuxprinting.org/foomatic.html">Foomatic</ulink> 
+software.
+   </para>
+   <para>
+Regardless of whether the Gimp-Print software is used with the GIMP,
+CUPS, Ghostscript, or Foomatic, the print quality and printer settings
+remain the same.  However, use of the Gimp-Print with Ghostscript and
+Foomatic is not covered in this document.  These topics may be covered
+in a future revision of this document.
+  </para>
+  <para>
+  This document corresponds to version 4.2.0 and later of the Gimp-Print
+software. This document will serve as a guide to the user, and as such
+will not explain how to install Gimp-Print, CUPS, GIMP, Ghostscript,
+Foomatic, or any other related software.
+  </para>
+
+  <para>
+    Andy Stewart, the author, is the founder of the
+<ulink url="http://www.wlug.org">Worcester Linux Users' Group</ulink> in
+Worcester, Massachusetts, USA.  The group was founded in July 1997 and has
+approximately 140 people on its mailing list.  Monthly meetings are
+held and all are invited.
+  </para>
+
+  <para>
+    In terms of "code", this is the author's first contribution to the
+open source community, and definitely his first experience with DocBook.
+Constructive comments, praise, words of encouragement, and the like
+will be most appreciated if e-mailed to the
+<ulink url="mailto:andystewart@attbi.com">author</ulink>.
+  </para>
+  </abstract>
+ </bookinfo>

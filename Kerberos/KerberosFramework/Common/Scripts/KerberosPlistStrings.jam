@@ -1,0 +1,46 @@
+include "$(SRCROOT)/../Scripts/InfoPlistStrings.jam" ;
+
+Intermediates = "$(BUILT_PRODUCTS_DIR)/Kerberos.intermediates" ;
+EnglishLProj = "$(Intermediates)/English.lproj" ;
+ConvertInfoPlistStrings = "$(Intermediates)/ConvertedInfoPlist.strings" ;
+InfoPlistStrings = "$(EnglishLProj)/InfoPlist.strings" ;
+
+CatInfoPlist "$(ConvertInfoPlistStrings)" :
+    "$(BUILT_PRODUCTS_DIR)/KerberosErrors.intermediates/Apple Event Manager.strings" 
+    "$(BUILT_PRODUCTS_DIR)/KerberosErrors.intermediates/Code Fragment Manager.strings" 
+    "$(BUILT_PRODUCTS_DIR)/KerberosErrors.intermediates/File Manager.strings" 
+    "$(BUILT_PRODUCTS_DIR)/KerberosErrors.intermediates/Gestalt Manager.strings" 
+    "$(BUILT_PRODUCTS_DIR)/KerberosErrors.intermediates/Memory Manager.strings" 
+    "$(BUILT_PRODUCTS_DIR)/KerberosErrors.intermediates/Process Manager.strings" 
+    "$(BUILT_PRODUCTS_DIR)/KerberosErrors.intermediates/Resource Manager.strings" 
+    "$(BUILT_PRODUCTS_DIR)/KerberosErrors.intermediates/Thread Manager.strings"
+    
+    "$(BUILT_PRODUCTS_DIR)/Kerberos5.intermediates/ErrorTables/krb_err.strings"
+    "$(BUILT_PRODUCTS_DIR)/Kerberos5.intermediates/ErrorTables/kadm_err.strings"
+
+    "$(BUILT_PRODUCTS_DIR)/Kerberos5.intermediates/ErrorTables/prof_err.strings"
+
+    "$(BUILT_PRODUCTS_DIR)/Kerberos5.intermediates/ErrorTables/asn1_err.strings"
+    "$(BUILT_PRODUCTS_DIR)/Kerberos5.intermediates/ErrorTables/krb5_err.strings"
+    "$(BUILT_PRODUCTS_DIR)/Kerberos5.intermediates/ErrorTables/kdb5_err.strings"
+    "$(BUILT_PRODUCTS_DIR)/Kerberos5.intermediates/ErrorTables/kv5m_err.strings"
+
+    "$(BUILT_PRODUCTS_DIR)/Kerberos5.intermediates/ErrorTables/krb524_err.strings"
+
+    "$(BUILT_PRODUCTS_DIR)/Kerberos5.intermediates/ErrorTables/gssapi_err_generic.strings"
+    "$(BUILT_PRODUCTS_DIR)/Kerberos5.intermediates/ErrorTables/gssapi_err_krb5.strings"
+    
+    "$(BUILT_PRODUCTS_DIR)/KerberosLogin.intermediates/KerberosLoginErrors.strings"
+
+    "$(BUILT_PRODUCTS_DIR)/KClient.intermediates/KClientErrors.strings"
+    "$(BUILT_PRODUCTS_DIR)/KClient.intermediates/KClientCompatErrors.strings"
+    ;
+
+CatAlreadyConverted "$(InfoPlistStrings)" : "$(ConvertInfoPlistStrings)"
+    "$(SRCROOT)/../../KerberosLogin/Resources/English.lproj/Localizable.strings" ;
+
+DEPENDS all : "$(InfoPlistStrings)" ;
+DEPENDS install : all ;
+
+NOCARE installhdrs ;
+NOTFILE installhdrs ;

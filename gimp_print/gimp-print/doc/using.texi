@@ -1,0 +1,46 @@
+@node Using libgimpprint, Integrating libgimpprint, Overview, Top
+@chapter Using libgimpprint
+@cindex using
+
+This chapter describes how to write programs that use libgimpprint.
+
+
+@section Code prerequisites
+To use libgimpprint with a program, several steps must be taken:
+
+@enumerate
+@item Include the master libgimpprint header @code{<gimp-print/gimp-print.h>.}
+@item Call @code{stp_init()}.
+@item Link with libgimpprint.
+@end enumerate
+
+The following is a short example program. It does not do anything useful,
+but it does everything required to link with libgimpprint and call other
+functions from libgimpprint.
+
+@example
+#include <gimp-print/gimp-print.h>
+
+int
+main (int argc, char *argv[])
+@{
+  stp_init ();
+  return (0);
+@}
+@end example
+
+@section Linking with libgimpprint
+
+To link a program with libgimpprint, then @samp{-lgimpprint} needs to be passed
+to the compiler when linking. For example, to compile and link @file{prog.c}
+the following commands would be used:
+
+@example
+gcc -c prog.c
+gcc -o prog -lgimpprint prog.o
+@end example
+
+The compiler and linker flags needed may vary depending on the options
+GIMP-Print was configured with when it was built. The
+@command{gimpprint-config} script will give the correct parameters for
+the local installation (@pxref{gimpprint-config}).

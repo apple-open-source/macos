@@ -206,7 +206,7 @@ enum {
     kIOPacketFilterMulticast       = 0x10,
     kIOPacketFilterMulticastAll    = 0x20,
     kIOPacketFilterPromiscuous     = 0x100,
-    kIOPacketFilterPromiscuousAll  = 0x200,
+    kIOPacketFilterPromiscuousAll  = 0x200
 };
 
 /*! @enum Feature flags returned by the getFeatures() method.
@@ -215,7 +215,7 @@ enum {
         "IOBSD" resource by the IONetworkController::start() method. */
 
 enum {
-    kIONetworkFeatureNoBSDWait = 0x01,
+    kIONetworkFeatureNoBSDWait = 0x01
 };
 
 /*
@@ -254,7 +254,7 @@ enum {
     kIOPacketBufferAlign4   = 4,
     kIOPacketBufferAlign8   = 8,
     kIOPacketBufferAlign16  = 16,
-    kIOPacketBufferAlign32  = 32,
+    kIOPacketBufferAlign32  = 32
 };
 
 /*!	@defined gIONetworkFilterGroup
@@ -860,7 +860,7 @@ public:
         kChecksumUDP                 = 0x0004,
         kChecksumTCPNoPseudoHeader   = 0x0100,
         kChecksumUDPNoPseudoHeader   = 0x0200,
-        kChecksumTCPSum16            = 0x1000,
+        kChecksumTCPSum16            = 0x1000
     };
 
 /*! @function getChecksumSupport

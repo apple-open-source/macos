@@ -121,26 +121,16 @@
 # Note: on MS Windows, executables, have an extension, so rules and dependencies
 #       for generated tools should use $(EXECUTABLE_EXT) on the end.
 
-IMPLICIT_SOURCE_FILES += nvram
+# Don't use IMPLICIT_SOURCE_FILES since that will get the CVS directory
+# too.  Instead, list the files in that directory in the OTHERSRCS line
+#IMPLICIT_SOURCE_FILES += nvram
 
 PAX = /bin/pax
 SHAREDIR = /usr/share
 MANDIR   = $(SHAREDIR)/man/man8
 MANPAGE  = nvram.8
-NVRAMDIR = $(SHAREDIR)/nvram
 
 after_install::
 	$(MKDIRS) $(DSTROOT)$(MANDIR)
 	$(CP) -f $(MANPAGE) $(DSTROOT)$(MANDIR)/$(MANPAGE)
 	$(CHMOD) og-w $(DSTROOT)$(MANDIR)/$(MANPAGE)
-	$(PAX) -rw nvram $(DSTROOT)$(SHAREDIR)
-	$(CHOWN) -R root.wheel $(DSTROOT)$(NVRAMDIR)
-	$(LN) -fs PowerSurge $(DSTROOT)$(NVRAMDIR)/7300
-	$(LN) -fs PowerSurge $(DSTROOT)$(NVRAMDIR)/7500
-	$(LN) -fs PowerSurge $(DSTROOT)$(NVRAMDIR)/8500
-	$(LN) -fs PowerSurge $(DSTROOT)$(NVRAMDIR)/9500
-	$(LN) -fs PowerExpress $(DSTROOT)$(NVRAMDIR)/9700
-	$(LN) -fs Hooper $(DSTROOT)$(NVRAMDIR)/3400-2400
-	$(LN) -fs Kanga $(DSTROOT)$(NVRAMDIR)/3500
-	$(LN) -fs Silk $(DSTROOT)$(NVRAMDIR)/PowerMac-G3
-	$(LN) -fs Wallstreet $(DSTROOT)$(NVRAMDIR)/PowerBook1998

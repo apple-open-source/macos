@@ -338,7 +338,7 @@ CSSM_SetContext (CSSM_CC_HANDLE CCHandle,
     	CssmError::throwMe(err);						// tell the caller it failed
     }
     
-    free(oldAttributes);
+    context.attachment.free(oldAttributes);
     END_API(CSSM)
 }
 

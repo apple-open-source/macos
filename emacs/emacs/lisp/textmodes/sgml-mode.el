@@ -107,6 +107,10 @@ This takes effect when first loading the sgml-mode library.")
 	      (define-key map "'" 'sgml-name-self))))
     (define-key map (vector (make-char 'latin-iso8859-1))
       'sgml-maybe-name-self)
+    (let ((c 127)
+	  (map (nth 1 map)))
+      (while (< (setq c (1+ c)) 256)
+	(aset map c 'sgml-maybe-name-self)))
     (define-key map [menu-bar sgml] (cons "SGML" menu-map))
     (define-key menu-map [sgml-validate] '("Validate" . sgml-validate))
     (define-key menu-map [sgml-name-8bit-mode]
@@ -143,7 +147,7 @@ This takes effect when first loading the sgml-mode library.")
 
 
 (defcustom sgml-name-8bit-mode nil
-  "*When non-nil, insert 8 bit characters with their names."
+  "*When non-nil, insert non-ASCII characters as named entities."
   :type 'boolean
   :group 'sgml)
 
@@ -182,6 +186,20 @@ This takes effect when first loading the sgml-mode library.")
    "oslash" "ugrave" "uacute" "ucirc" "uuml" "yacute" "thorn" "yuml"]
   "Vector of symbolic character names without `&' and `;'.")
 
+(put 'sgml-table 'char-table-extra-slots 0)
+
+(defvar sgml-char-names-table
+  (let ((table (make-char-table 'sgml-table))
+	(i 32)
+	elt)
+    (while (< i 256)
+      (setq elt (aref sgml-char-names i))
+      (if elt (aset table (make-char 'latin-iso8859-1 i) elt))
+      (setq i (1+ i)))
+    table)
+  "A table for mapping non-ASCII characters into SGML entity names.
+Currently, only Latin-1 characters are supported.")
+
 
 ;; nsgmls is a free SGML parser in the SP suite available from
 ;; ftp.jclark.com and otherwise packaged for GNU systems.
@@ -208,17 +226,16 @@ separated by a space."
   :group 'sgml)
 
 (defconst sgml-start-tag-regex
-  "<[A-Za-z]\\([-.A-Za-z0-9= \n\t]\\|\"[^\"]*\"\\|'[^']*'\\)*"
+  "<[[:alnum:]]\\([-_.:[:alnum:]= \n\t]\\|\"[^\"]*\"\\|'[^']*'\\)*"
   "Regular expression that matches a non-empty start tag.
 Any terminating `>' or `/' is not matched.")
 
 
 ;; internal
 (defconst sgml-font-lock-keywords-1
-  '(("<\\([!?][a-z][-.a-z0-9]*\\)" 1 font-lock-keyword-face)
-    ("<\\(/?[a-z][-.a-z0-9]*\\)" 1 font-lock-function-name-face)
-    ("[&%][a-z][-.a-z0-9]*;?" . font-lock-variable-name-face)
-    ("<! *--.*-- *>" . font-lock-comment-face)))
+  '(("<\\([!?][[:alnum:]][-_.:[:alnum:]]*\\)" 1 font-lock-keyword-face)
+    ("<\\(/?[[:alnum:]][-_.:[:alnum:]]*\\)" 1 font-lock-function-name-face)
+    ("[&%][[:alpha:]][-_.:[:alnum:]]*;?" . font-lock-variable-name-face)))
 
 (defconst sgml-font-lock-keywords-2 ())
 
@@ -325,9 +342,9 @@ varables of same name)."
 	;; This is desirable because SGML discards a newline that appears
 	;; immediately after a start tag or immediately before an end tag.
 	paragraph-separate "[ \t]*$\\|\
-\[ \t]*</?\\([A-Za-z]\\([-.A-Za-z0-9= \t\n]\\|\"[^\"]*\"\\|'[^']*'\\)*\\)?>$"
+\[ \t]*</?\\([A-Za-z]\\([-_.:[:alnum:]= \t\n]\\|\"[^\"]*\"\\|'[^']*'\\)*\\)?>$"
 	paragraph-start "[ \t]*$\\|\
-\[ \t]*</?\\([A-Za-z]\\([-.A-Za-z0-9= \t\n]\\|\"[^\"]*\"\\|'[^']*'\\)*\\)?>"
+\[ \t]*</?\\([A-Za-z]\\([-_.:[:alnum:]]= \t\n]\\|\"[^\"]*\"\\|'[^']*'\\)*\\)?>"
 	adaptive-fill-regexp "[ \t]*"
 	comment-start "<!-- "
 	comment-end " -->"
@@ -348,6 +365,8 @@ varables of same name)."
 			     nil
 			     t)
 	facemenu-add-face-function 'sgml-mode-facemenu-add-face-function)
+  (set (make-local-variable 'font-lock-syntactic-keywords)
+       '(("\\(<\\)! *--.*-- *\\(>\\)" (1 "!") (2 "!"))))
   ;; This will allow existing comments within declarations to be
   ;; recognized.
   (set (make-local-variable 'comment-start-skip) "\\(?:<!\\)?--[ \t]*")
@@ -446,11 +465,14 @@ start tag, and the second `/' is the corresponding null end tag."
 					       (point))
 					     (1+ blinkpos))))))))))
 
-
+;; Why doesn't this use the iso-cvt table or, preferably, generate the
+;; inverse of the extensive table in the SGML Quail input method?  -- fx
+;; I guess that's moot since it only works with Latin-1 anyhow.
 (defun sgml-name-char (&optional char)
   "Insert a symbolic character name according to `sgml-char-names'.
-8 bit chars may be inserted with the meta key as in M-SPC for no break space,
-or M-- for a soft hyphen."
+Non-ASCII chars may be inserted either with the meta key, as in M-SPC for
+no-break space or M-- for a soft hyphen; or via an input method or
+encoded keyboard operation."
   (interactive "*")
   (insert ?&)
   (or char
@@ -459,34 +481,44 @@ or M-- for a soft hyphen."
   (insert char)
   (undo-boundary)
   (delete-backward-char 1)
-  (insert ?&
-	  (or (aref sgml-char-names char)
-	      (format "#%d" char))
-	  ?\;))
-
+  (cond
+   ((< char 256)
+    (insert ?&
+	    (or (aref sgml-char-names char)
+		(format "#%d" char))
+	    ?\;))
+   ((aref sgml-char-names-table char)
+    (insert ?& (aref sgml-char-names-table char) ?\;))
+   ((let ((c (encode-char char 'ucs)))
+      (when c
+	(insert (format "&#%d;" c))
+	t)))
+   (t					; should be an error?  -- fx
+    (insert char))))
 
 (defun sgml-name-self ()
   "Insert a symbolic character name according to `sgml-char-names'."
   (interactive "*")
   (sgml-name-char last-command-char))
 
-
 (defun sgml-maybe-name-self ()
   "Insert a symbolic character name according to `sgml-char-names'."
   (interactive "*")
   (if sgml-name-8bit-mode
-      (sgml-name-char
-       (if (eq (char-charset last-command-char) 'latin-iso8859-1)
-	   (+ 128 (- last-command-char (make-char 'latin-iso8859-1)))
-	 last-command-char))
+      (let ((mc last-command-char))
+	(if (< mc 256)
+	    (setq mc (unibyte-char-to-multibyte mc)))
+	(or mc (setq mc last-command-char))
+	(sgml-name-char mc))
     (self-insert-command 1)))
 
-
+;; Fixme: This should sanity-check for use of Latin-1.
 (defun sgml-name-8bit-mode ()
-  "Toggle insertion of 8 bit characters."
+  "Toggle whether to insert named entities instead of non-ASCII characters.
+This only works for Latin-1 input."
   (interactive)
   (setq sgml-name-8bit-mode (not sgml-name-8bit-mode))
-  (message "sgml name 8 bit mode  is now %s"
+  (message "sgml name entity mode is now %s"
 	   (if sgml-name-8bit-mode "ON" "OFF")))
 
 

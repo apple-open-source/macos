@@ -1,0 +1,567 @@
+/*
+ * Copyright (c) 2003 Apple Computer, Inc. All rights reserved.
+ *
+ * @APPLE_LICENSE_HEADER_START@
+ * 
+ * Copyright (c) 1999-2003 Apple Computer, Inc.  All Rights Reserved.
+ * 
+ * This file contains Original Code and/or Modifications of Original Code
+ * as defined in and that are subject to the Apple Public Source License
+ * Version 2.0 (the 'License'). You may not use this file except in
+ * compliance with the License. Please obtain a copy of the License at
+ * http://www.opensource.apple.com/apsl/ and read it before using this
+ * file.
+ * 
+ * The Original Code and all software distributed under the License are
+ * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
+ * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
+ * INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY,
+ * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
+ * Please see the License for the specific language governing rights and
+ * limitations under the License.
+ * 
+ * @APPLE_LICENSE_HEADER_END@
+ */
+
+#include "DABase.h"
+
+#include "DAInternal.h"
+
+#include <fcntl.h>
+#include <paths.h>
+#include <sysexits.h>
+#include <unistd.h>
+#include <openssl/md5.h>
+#include <sys/attr.h>
+#include <IOKit/IOKitLib.h>
+#include <IOKit/hidsystem/IOHIDLib.h>
+
+__private_extern__ int ___chattr( const char * path, ___attr_t attr, ___attr_t noattr )
+{
+    /*
+     * Change file flags.
+     */
+
+    struct __chattrbuf
+    {
+        uint32_t  size;
+        uint8_t   reserved0032[8];
+        ___attr_t attr;
+        uint8_t   reserved0112[22];
+    };
+
+    typedef struct __chattrbuf __chattrbuf;
+
+    struct attrlist attributes;
+    __chattrbuf     buffer;
+    int             status;
+
+    attributes.bitmapcount = ATTR_BIT_MAP_COUNT;
+    attributes.commonattr  = ATTR_CMN_FNDRINFO;
+    attributes.dirattr     = 0;
+    attributes.fileattr    = 0;
+    attributes.forkattr    = 0;
+    attributes.volattr     = 0;
+
+    status = getattrlist( path, &attributes, &buffer, sizeof( buffer ), 0 );
+
+    if ( status == 0 )
+    {
+        buffer.attr = ( buffer.attr & ~noattr ) | attr;
+
+        status = setattrlist( path, &attributes, ( ( uint8_t * ) &buffer ) + sizeof( buffer.size ), sizeof( buffer ) - sizeof( buffer.size ), 0 );
+    }
+
+    return status;
+}
+
+__private_extern__ pid_t ___daemon( int nochdir, int noclose )
+{
+    /*
+     * Run in the background.  Same as daemon(), but returns the value from the fork() call.
+     */
+
+    pid_t pid = fork( );
+
+    if ( pid == 0 )
+    {
+        if ( setsid( ) == -1 )
+        {
+            _exit( EX_NOPERM );
+        }
+
+        if ( nochdir == 0 )
+        {
+            chdir( "/" );
+        }
+
+        if ( noclose == 0 )
+        {
+            int fd;
+
+            fd = open( _PATH_DEVNULL, O_RDWR, 0 );
+
+            if ( fd != -1 )
+            {
+                dup2( fd, STDIN_FILENO );
+                dup2( fd, STDOUT_FILENO );
+                dup2( fd, STDERR_FILENO );
+
+                if ( fd > 2 )
+                {
+                    close( fd );
+                }
+            }
+        }
+    }
+
+    return pid;
+}
+
+__private_extern__ void ___CFArrayIntersect( CFMutableArrayRef array1, CFArrayRef array2 )
+{
+    /*
+     * Forms the intersection with the given array.
+     */
+
+    CFIndex count;
+    CFIndex index;
+
+    count = CFArrayGetCount( array1 );
+
+    for ( index = count - 1; index > -1; index-- )
+    {
+        const void * value;
+
+        value = CFArrayGetValueAtIndex( array1, index );
+
+        if ( ___CFArrayContainsValue( array2, value ) == FALSE )
+        {
+            CFArrayRemoveValueAtIndex( array1, index );
+        }
+    }
+}
+
+__private_extern__ CFURLRef ___CFBundleCopyResourceURLInDirectory( CFURLRef bundleURL, CFStringRef resourcePath )
+{
+    /*
+     * Obtains the location of a resource contained in the specified bundle directory without
+     * requiring the creation of a bundle instance.  This variant will accept one argument to
+     * describe the subDirName, resourceName, and resourceType.  For instance, a resourcePath
+     * of "../hfs.tiff" would break down correctly.
+     */
+
+    CFURLRef resourceURL     = NULL;
+    CFURLRef resourcePathURL = NULL;
+
+    resourcePathURL = CFURLCreateWithFileSystemPathRelativeToBase( kCFAllocatorDefault, resourcePath, kCFURLPOSIXPathStyle, FALSE, NULL );
+
+    if ( resourcePathURL )
+    {
+        CFStringRef resourceName;
+
+        resourceName = CFURLCopyLastPathComponent( resourcePathURL );
+
+        if ( resourceName )
+        {
+            CFURLRef resourceSubDirNameURL;
+
+            resourceSubDirNameURL = CFURLCreateCopyDeletingLastPathComponent( kCFAllocatorDefault, resourcePathURL );
+
+            if ( resourceSubDirNameURL )
+            {
+                CFStringRef resourceSubDirName;
+
+                resourceSubDirName = CFURLCopyFileSystemPath( resourceSubDirNameURL, kCFURLPOSIXPathStyle );
+
+                if ( resourceSubDirName )
+                {
+                    resourceURL = CFBundleCopyResourceURLInDirectory( bundleURL, resourceName, NULL, resourceSubDirName );
+
+                    CFRelease( resourceSubDirName );
+                }
+
+                CFRelease( resourceSubDirNameURL );
+            }
+
+            CFRelease( resourceName );
+        }
+
+        CFRelease( resourcePathURL );
+    }
+
+    return resourceURL;
+}
+
+__private_extern__ CFDataRef ___CFDataCreateFromString( CFAllocatorRef allocator, CFStringRef string )
+{
+    /*
+     * Creates a CFData object using the specified string.  The string is validated to ensure it
+     * is in the appropriate form, that is, that it contain a sequence of hexadecimal characters.
+     */
+
+    CFMutableDataRef data;
+
+    data = CFDataCreateMutable( allocator, 0 );
+
+    if ( data )
+    {
+        CFIndex index;
+        CFIndex length;
+
+        length = CFStringGetLength( string );
+
+        for ( index = 0; index + 1 < length ; index += 2 )
+        {
+            UInt8   byte;
+            UniChar character1;
+            UniChar character2;
+
+            character1 = CFStringGetCharacterAtIndex( string, index     );
+            character2 = CFStringGetCharacterAtIndex( string, index + 1 );
+
+            if ( isxdigit( character1 ) == 0 )  break;
+            if ( isxdigit( character2 ) == 0 )  break;
+
+            character1 = tolower( character1 ) - '0';
+            character2 = tolower( character2 ) - '0';
+
+            byte = ( ( ( character1 > 9 ) ? ( character1 + '0' - 'a' + 10 ) : character1 ) << 4 ) |
+                   ( ( ( character2 > 9 ) ? ( character2 + '0' - 'a' + 10 ) : character2 )      );
+
+            CFDataAppendBytes( data, &byte, 1 );
+        }
+
+        for ( ; index < length; index++ )
+        {
+            UniChar character;
+
+            character = CFStringGetCharacterAtIndex( string, index );
+
+            if ( isspace( character ) == 0 )  break;
+        }
+
+        if ( index < length )
+        {
+            CFDataSetLength( data, 0 );
+        }
+
+        if ( CFDataGetLength( data ) == 0 )
+        {
+            CFRelease( data );
+            data = NULL;
+        }
+    }
+
+    return data;
+}
+
+__private_extern__ CFDictionaryRef ___CFDictionaryCreateFromXMLString( CFAllocatorRef allocator, CFStringRef string )
+{
+    /*
+     * Creates a CFDictionary object using the specified XML string.
+     */
+
+    CFDataRef       data;
+    CFDictionaryRef dictionary = NULL;
+
+    data = CFStringCreateExternalRepresentation( kCFAllocatorDefault, string, kCFStringEncodingUTF8, 0 );
+
+    if ( data )
+    {
+        CFTypeRef object;
+
+        object = CFPropertyListCreateFromXMLData( kCFAllocatorDefault, data, kCFPropertyListImmutable, NULL );
+
+        if ( object )
+        {
+            if ( CFGetTypeID( object ) == CFDictionaryGetTypeID( ) )
+            {
+                dictionary = CFRetain( object );
+            }
+
+            CFRelease( object );
+        }
+
+        CFRelease( data );
+    }
+
+    return dictionary;
+}
+
+__private_extern__ CFTypeRef ___CFDictionaryGetAnyValue( CFDictionaryRef dictionary )
+{
+    /*
+     * Retrieves the value associated with the first key from CFDictionaryGetKeysAndValues().
+     */
+
+    CFIndex   count;
+    CFTypeRef value = NULL;
+
+    count = CFDictionaryGetCount( dictionary );
+
+    if ( count )
+    {
+        CFTypeRef * values;
+
+        values = malloc( count * sizeof( CFDictionaryRef ) );
+
+        if ( values )
+        {
+            CFDictionaryGetKeysAndValues( dictionary, NULL, values );
+
+            value = values[0];
+
+            free( values );
+        }
+    }
+
+    return value;
+}
+
+__private_extern__ char * ___CFStringCreateCStringWithFormatAndArguments( const char * format, va_list arguments )
+{
+    /*
+     * Creates a C string buffer from a printf-style list.   The string encoding is presumed to
+     * be UTF-8.  The result is a reference to a C string buffer or NULL if there was a problem
+     * in creating the buffer.  The caller is responsible for releasing the buffer with free().
+     */
+
+    char * buffer = NULL;
+
+    if ( format )
+    {
+        CFStringRef formatAsString;
+
+        formatAsString = CFStringCreateWithCString( kCFAllocatorDefault, format, kCFStringEncodingUTF8 );
+
+        if ( formatAsString )
+        {
+            CFStringRef bufferAsString;
+
+            bufferAsString = CFStringCreateWithFormatAndArguments( kCFAllocatorDefault, NULL, formatAsString, arguments );
+
+            if ( bufferAsString )
+            {
+                buffer = ___CFStringCopyCString( bufferAsString );
+
+                CFRelease( bufferAsString );
+            }
+
+            CFRelease( formatAsString );
+        }
+    }
+
+    return buffer;
+}
+
+__private_extern__ Boolean ___CFStringGetCString( CFStringRef string, char * buffer, CFIndex length )
+{
+    /*
+     * Copies the character contents of a CFString object to a local C string buffer after
+     * converting the characters to UTF-8.  It will copy as many characters as will fit in
+     * the provided buffer.
+     */
+
+    length--;
+
+    CFStringGetBytes( string, CFRangeMake( 0, CFStringGetLength( string ) ), kCFStringEncodingUTF8, 0, FALSE, buffer, length, &length );
+
+    buffer[length] = 0;
+
+    return length ? TRUE : FALSE;
+}
+
+__private_extern__ void ___CFStringInsertFormat( CFMutableStringRef string, CFIndex index, CFStringRef format, ... )
+{
+    /*
+     * Inserts a formatted string at a specified location in the character buffer of a mutable
+     * CFString object.
+     */
+
+    va_list arguments;
+
+    va_start( arguments, format );
+
+    ___CFStringInsertFormatAndArguments( string, index, format, arguments );
+
+    va_end( arguments );
+}
+
+__private_extern__ void ___CFStringInsertFormatAndArguments( CFMutableStringRef string, CFIndex index, CFStringRef format, va_list arguments )
+{
+    /*
+     * Inserts a formatted string at a specified location in the character buffer of a mutable
+     * CFString object.
+     */
+
+    CFStringRef insert;
+
+    insert = CFStringCreateWithFormatAndArguments( kCFAllocatorDefault, NULL, format, arguments );
+
+    if ( insert )
+    {
+        CFStringInsert( string, index, insert );
+
+        CFRelease( insert );
+    }
+}
+
+__private_extern__ void ___CFStringPad( CFMutableStringRef string, CFStringRef pad, CFIndex length, CFIndex index )
+{
+    /*
+     * Enlarges the string represented by a CFString object, padding it with specified characters.
+     */
+
+    if ( length > CFStringGetLength( string ) )
+    {
+        CFStringPad( string, pad, length, index );
+    }
+}
+
+__private_extern__ CFUUIDRef ___CFUUIDCreateFromName( CFAllocatorRef allocator, CFUUIDRef space, CFDataRef name )
+{
+    /*
+     * Creates a UUID from a unique "name" in the given "name space".  See version 3 UUID.
+     */
+
+    MD5_CTX     md5c;
+    CFUUIDBytes uuid;
+
+    assert( sizeof( uuid ) == MD5_DIGEST_LENGTH );
+
+    uuid = CFUUIDGetUUIDBytes( space );
+
+    MD5_Init( &md5c );
+    MD5_Update( &md5c, &uuid, sizeof( uuid ) );
+    MD5_Update( &md5c, CFDataGetBytePtr( name ), CFDataGetLength( name ) );
+    MD5_Final( ( void * ) &uuid, &md5c );
+
+    uuid.byte6 = 0x30 | ( uuid.byte6 & 0x0F );
+    uuid.byte8 = 0x80 | ( uuid.byte8 & 0x3F );
+
+    return CFUUIDCreateFromUUIDBytes( allocator, uuid );
+}
+
+__private_extern__ CFUUIDRef ___CFUUIDCreateFromString( CFAllocatorRef allocator, CFStringRef string )
+{
+    /*
+     * Creates a CFUUID object using the specified string.  The string is validated to ensure it
+     * is in the appropriate form.  One would expect CFUUIDCreateFromString() to accomplish this,
+     * but it does not at this time.
+     */
+
+    UInt32 index;
+    UInt32 length;
+
+    length = CFStringGetLength( string );
+
+    for ( index = 0; index < length ; index++ )
+    {
+        UniChar character;
+
+        character = CFStringGetCharacterAtIndex( string, index );
+
+        if ( index < 36 )
+        {
+            if ( index == 8 || index == 13 || index == 18 || index == 23 )
+            {
+                if ( character != '-' )  break;
+            }
+            else
+            {
+                if ( isxdigit( character ) == 0 )  break;
+            }
+        }
+        else
+        {
+            if ( isspace( character ) == 0 )  break;
+        }
+    }
+
+    return ( index < length ) ? NULL : CFUUIDCreateFromString( allocator, string );
+}
+
+__private_extern__ CFStringRef ___CFURLCopyRawDeviceFileSystemPath( CFURLRef url, CFURLPathStyle pathStyle )
+{
+    /*
+     * Obtains the path portion of the specified URL, with the last path component prepended
+     * with an "r" to indicate the "raw" or "character" device variant of the specified URL.
+     */
+
+    CFStringRef path;
+
+    path = CFURLCopyFileSystemPath( url, pathStyle );
+
+    if ( path )
+    {
+        CFStringRef node;
+
+        node = CFURLCopyLastPathComponent( url );
+
+        if ( node )
+        {
+            CFMutableStringRef string;
+
+            string = CFStringCreateMutableCopy( CFGetAllocator( url ), 0, path );
+
+            if ( string )
+            {
+                CFIndex index;
+
+                index = CFStringGetLength( path ) - CFStringGetLength( node );
+
+                CFStringInsert( string, index, CFSTR( "r" ) );
+
+                CFRelease( path );
+
+                path = string;
+            }
+
+            CFRelease( node );
+        }
+    }
+
+    return path;
+}
+
+__private_extern__ void ___DADisplayUpdateActivity( void )
+{
+    /*
+     * Update display activity.
+     */
+
+    static io_connect_t   port = MACH_PORT_NULL;
+    static struct timeval time = { 0 };
+
+    if ( port == NULL )
+    {
+        io_service_t service;
+
+        service = IOServiceGetMatchingService( kIOMasterPortDefault, IOServiceMatching( kIOHIDSystemClass ) );
+
+        if ( service )
+        {
+            IOServiceOpen( service, mach_task_self( ), kIOHIDParamConnectType, &port );
+
+            IOObjectRelease( service );
+        }
+    }
+
+    if ( port )
+    {
+        struct timeval now;
+
+        gettimeofday( &now, NULL );
+
+        if ( time.tv_sec != now.tv_sec )
+        {
+            NXEventData data;
+            IOGPoint    location;
+
+            time.tv_sec = now.tv_sec;
+
+            IOHIDPostEvent( port, NX_NULLEVENT, location, &data, 0, 0, 0 );
+        }
+    }
+}

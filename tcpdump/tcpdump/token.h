@@ -1,4 +1,4 @@
-/* @(#) $Header: /cvs/Darwin/src/live/tcpdump/tcpdump/token.h,v 1.1.1.1 2001/07/07 00:50:54 bbraun Exp $ (LBL) */
+/* @(#) $Header: /cvs/root/tcpdump/tcpdump/token.h,v 1.1.1.2 2003/03/17 18:42:21 rbraun Exp $ (LBL) */
 /*
  * Copyright (c) 1998, Larry Lile
  * All rights reserved.
@@ -40,7 +40,7 @@
 #define LARGEST_FRAME(trp)	((ntohs((trp)->token_rcf) & 0x0070) >> 4)
 #define RING_NUMBER(trp, x)	((ntohs((trp)->token_rseg[x]) & 0xfff0) >> 4)
 #define BRIDGE_NUMBER(trp, x)	((ntohs((trp)->token_rseg[x]) & 0x000f))
-#define SEGMENT_COUNT(trp)	((RIF_LENGTH(trp) - 2) / 2)
+#define SEGMENT_COUNT(trp)	((int)((RIF_LENGTH(trp) - 2) / 2))
 
 struct token_header {
 	u_int8_t  token_ac;

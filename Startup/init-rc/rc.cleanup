@@ -62,9 +62,9 @@
         echo -n " /private/Network"
         mv /private/Network /private/_Network_
         {
-            find /private/_Network_ -fstype local -exec sh -c "chflags -R nouchg {} && rm -f -- {}" \; \
+            find /private/_Network_ -x -exec sh -c "chflags -R nouchg {} && rm -f -- {}" \; \
                 >/dev/null 2>&1;
-            find -d /private/_Network_ -fstype local -type d -exec rmdir -- {} \; \
+            find -d /private/_Network_ -x -type d -exec rmdir -- {} \; \
                 >/dev/null 2>&1;
             rmdir /private/_Network_ >/dev/null 2>&1;
         } &

@@ -77,6 +77,10 @@
 #define	HAVE_IFM_DATA
 #endif
 
+#ifdef __APPLE__
+#define HAVE_IFM_DATA
+#endif
+
 int
 getifaddrs(struct ifaddrs **pif)
 {

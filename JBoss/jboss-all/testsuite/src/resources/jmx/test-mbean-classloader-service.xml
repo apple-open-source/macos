@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<!-- erroroneous mbean - no such attribute -->
+
+<server>
+
+  <mbean code="org.jboss.test.jmx.mbean.TestMBClassLoader"
+	 name="test:name=TestMBClassLoaderA">
+  </mbean>
+
+  <mbean code="org.jboss.test.jmx.mbean.TestMBClassLoader"
+	 name="test:name=TestMBClassLoaderB">
+  </mbean>
+
+</server>

@@ -87,7 +87,7 @@ gdb_new_interpreter (char *name,
   
   new_interp = (struct gdb_interpreter *) xmalloc (sizeof (struct gdb_interpreter));
   
-  new_interp->name = strsave(name); 
+  new_interp->name = xstrdup (name); 
   new_interp->data = data;
   new_interp->interpreter_out = uiout;
   new_interp->quiet_p = 0;
@@ -227,8 +227,13 @@ gdb_set_interpreter (struct gdb_interpreter *interp)
 
   if (current != NULL)
     {
-      do_all_continuations ();
-      ui_out_flush (uiout);
+      /* APPLE LOCAL: Don't do this, you can't be sure there are no
+	 continuations from the enclosing interpreter which should
+	 really be run when that interpreter is in force. */
+#if 0
+     do_all_continuations ();
+#endif
+     ui_out_flush (uiout);
       if (current->suspend_proc &&
           !current->suspend_proc (current->data))
 	{
@@ -249,7 +254,7 @@ gdb_set_interpreter (struct gdb_interpreter *interp)
     {
       xfree (interpreter_p);
 
-      interpreter_p = strsave (current->name);
+      interpreter_p = xstrdup (current->name);
     }
 
   uiout = interp->interpreter_out;
@@ -485,7 +490,7 @@ set_interpreter_cmd (char *args, int from_tty, struct cmd_list_element * c)
   else
     {
       char *bad_name = interpreter_p;
-      interpreter_p = strsave (current->name);
+      interpreter_p = xstrdup (current->name);
       error ("Could not find interpreter \"%s\".", bad_name);
     }
 }

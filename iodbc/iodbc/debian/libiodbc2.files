@@ -1,0 +1,3 @@
+usr/bin/iodbc-config
+usr/lib/libiodbc.so.2*
+usr/lib/libiodbcinst.so.2*

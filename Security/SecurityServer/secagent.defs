@@ -72,8 +72,8 @@ routine retryUnlockDatabase(UCSP_PORTS; in reason: Reason; out passphrase: Strin
 routine queryNewPassphrase(UCSP_PORTS;
 	in requestor: ConstString; in requestPid: pid_t; in database: ConstString;
     in reason: Reason;
-    out stagePort: mach_port_copy_send_t; out passphrase: String);
-routine retryNewPassphrase(UCSP_PORTS; in reason: Reason; out passphrase: String);
+    out stagePort: mach_port_copy_send_t; out passphrase: String; out oldPassphrase: String);
+routine retryNewPassphrase(UCSP_PORTS; in reason: Reason; out passphrase: String; out oldPassphrase: String);
 
 //
 // "Rogue App" alert/confirm function
@@ -81,7 +81,13 @@ routine retryNewPassphrase(UCSP_PORTS; in reason: Reason; out passphrase: String
 routine queryKeychainAccess(UCSP_PORTS;
 	in requestor: ConstString; in requestPid: pid_t; in database: ConstString;
 	in item: ConstString; in operation: AclAuthorization; in needPassphrase: MigBoolean;
-    out choice: Choice);
+    out stagePort: mach_port_copy_send_t; out choice: Choice);
+
+routine retryQueryKeychainAccess (UCSP_PORTS;
+    in reason: Reason; out choice: Choice);
+
+routine queryCodeIdentity(UCSP_PORTS;
+	in requestor: ConstString; in requestPid: pid_t; in aclPath: ConstString; out choice: Choice);
     
 //
 // Generic new/old password prompt interface

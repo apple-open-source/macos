@@ -1,0 +1,4 @@
+<!DOCTYPE synopsis PUBLIC "-//OASIS//DTD DocBook V3.1//EN">
+<synopsis>
+chgrp [-R [-H | -L | -P] [-f] group file...
+</synopsis>

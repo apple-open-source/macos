@@ -3,7 +3,7 @@ OFLAG = -O
 ifeq "mwccppc" "$(notdir $(CC))"
   CFLAGS = -g $(OFLAG) -DBUILTIN_FAT -I$(SRCROOT)/../include
 else
-  CFLAGS = -g $(OFLAG) -Wall -DBUILTIN_FAT -Wno-precomp -I$(SRCROOT)/../include
+  CFLAGS = -g $(OFLAG) -Wall -DBUILTIN_FAT -I$(SRCROOT)/../include
 endif
 
 USE_DEPENDENCY_FILE := $(shell if [ "$(notdir $(CC))" != "mwccppc" ]; then \

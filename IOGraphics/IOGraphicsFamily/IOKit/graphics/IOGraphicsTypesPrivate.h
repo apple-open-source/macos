@@ -45,22 +45,10 @@ enum {
 
 enum {
     // Controller attributes
-    kIOSystemPowerAttribute		= 'spwr',
-    kIOVRAMSaveAttribute		= 'vrsv',
-    kIODeferCLUTSetAttribute		= 'vclt',
-
     kIOFBSpeedAttribute			= ' dgs',
 
     // Connection attributes
-    kConnectionPostWake			= 'pwak',
-
     kConnectionInTVMode			= 'tvmd',
-
-    kConnectionDisplayParameterCount	= 'pcnt',
-    kConnectionDisplayParameters	= 'parm',
-
-    kConnectionOverscan			= 'oscn',
-    kConnectionVideoBest		= 'vbst',
     kConnectionWSSB			= 'wssb'
 };
 
@@ -71,16 +59,9 @@ enum {
     kConnectionPALMode			= 2
 };
 
-#define kIOFBGammaWidthKey		"IOFBGammaWidth"
-#define kIOFBGammaCountKey		"IOFBGammaCount"
 #define kIOFBGammaHeaderSizeKey		"IOFBGammaHeaderSize"
 
-#define kIOFBCLUTDeferKey		"IOFBCLUTDefer"
-
 #define kIONDRVFramebufferGenerationKey "IONDRVFramebufferGeneration"
-
-#define kIODisplayOverscanKey		"oscn"
-#define kIODisplayVideoBestKey		"vbst"
 
 #endif /* ! _IOKIT_IOGRAPHICSTYPESPRIVATE_H */
 

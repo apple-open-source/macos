@@ -13,7 +13,7 @@
 # See the file "license.terms" for information on usage and redistribution
 # of this file, and for a DISCLAIMER OF ALL WARRANTIES.
 #
-# RCS: @(#) $Id: set-old.test,v 1.1.1.4 2000/12/06 23:04:18 wsanchez Exp $
+# RCS: @(#) $Id: set-old.test,v 1.1.1.6 2003/07/09 01:33:57 landonf Exp $
 
 if {[lsearch [namespace children] ::tcltest] == -1} {
     package require tcltest
@@ -204,7 +204,9 @@ test set-old-7.1 {unset command} {
 } {0 0 0 1}
 test set-old-7.2 {unset command} {
     list [catch {unset} msg] $msg
-} {1 {wrong # args: should be "unset varName ?varName ...?"}}
+} {0 {}}
+# Used to return:
+#{1 {wrong # args: should be "unset ?-nocomplain? ?--? ?varName varName ...?"}}
 test set-old-7.3 {unset command} {
     catch {unset a}
     list [catch {unset a} msg] $msg
@@ -266,6 +268,45 @@ test set-old-7.11 {unset command} {
     unset a
     list [catch {set a(14)} msg] $msg [catch {array names a} msg2] $msg2
 } {1 {can't read "a(14)": no such variable} 0 {}}
+test set-old-7.12 {unset command, -nocomplain} {
+    catch {unset a}
+    list [info exists a] [catch {unset -nocomplain a}] [info exists a]
+} {0 0 0}
+test set-old-7.13 {unset command, -nocomplain} {
+    set -nocomplain abc
+    list [info exists -nocomplain] [catch {unset -nocomplain}] \
+	    [info exists -nocomplain] [catch {unset -- -nocomplain}] \
+	    [info exists -nocomplain]
+} {1 0 1 0 0}
+test set-old-7.14 {unset command, --} {
+    set -- abc
+    list [info exists --] [catch {unset --}] \
+	    [info exists --] [catch {unset -- --}] \
+	    [info exists --]
+} {1 0 1 0 0}
+test set-old-7.15 {unset command, -nocomplain} {
+    set -nocomplain abc
+    set -- abc
+    list [info exists -nocomplain] [catch {unset -- -nocomplain}] \
+	    [info exists -nocomplain] [info exists --] \
+	    [catch {unset -- -nocomplain}] [info exists --] \
+	    [catch {unset -- --}] [info exists --]
+} {1 0 0 1 1 1 0 0}
+test set-old-7.16 {unset command, -nocomplain} {
+    set -nocomplain abc
+    set var abc
+    list [info exists bogus] [catch {unset -nocomplain bogus var bogus}] \
+	    [info exists -nocomplain] [info exists var] \
+	    [catch {unset -nocomplain -nocomplain}] [info exists -nocomplain]
+} {0 0 1 0 0 0}
+test set-old-7.17 {unset command, -nocomplain (no abbreviation)} {
+    set -nocomp abc
+    list [info exists -nocomp] [catch {unset -nocomp}] [info exists -nocomp]
+} {1 0 0}
+test set-old-7.18 {unset command, -nocomplain (no abbreviation)} {
+    catch {unset -nocomp}
+    list [info exists -nocomp] [catch {unset -nocomp}]
+} {0 1}
 
 # Array command.
 
@@ -296,7 +337,7 @@ test set-old-8.6 {array command} {
     catch {unset a}
     set a(22) 3
     list [catch {array gorp a} msg] $msg
-} {1 {bad option "gorp": must be anymore, donesearch, exists, get, names, nextelement, set, size, startsearch, or unset}}
+} {1 {bad option "gorp": must be anymore, donesearch, exists, get, names, nextelement, set, size, startsearch, statistics, or unset}}
 test set-old-8.7 {array command, anymore option} {
     catch {unset a}
     list [catch {array anymore a x} msg] $msg
@@ -358,8 +399,8 @@ test set-old-8.18 {array command, get option} {
     catch {unset a}
     set a(22) 3
     set {a(long name)} {}
-    array get a
-} {22 3 {long name} {}}
+    lsort [array get a]
+} {{} 22 3 {long name}}
 test set-old-8.19 {array command, get option (unset variable)} {
     catch {unset a}
     set a(x) 3
@@ -373,8 +414,8 @@ test set-old-8.20 {array command, get option, with pattern} {
     set a(x3) 5
     set a(b1) 24
     set a(b2) 25
-    array get a x*
-} {x1 3 x2 4 x3 5}
+    lsort [array get a x*]
+} {3 4 5 x1 x2 x3}
 test set-old-8.21 {array command, get option, array doesn't exist yet but has compiler-allocated procedure slot} {
     proc foo {x} {
         if {$x==1} {
@@ -388,30 +429,30 @@ test set-old-8.22 {array command, names option} {
     catch {unset a}
     set a(22) 3
     list [catch {array names a 4 5} msg] $msg
-} {1 {wrong # args: should be "array names arrayName ?pattern?"}}
-test set-old-8.19 {array command, names option} {
+} {1 {bad option "4": must be -exact, -glob, or -regexp}}
+test set-old-8.23 {array command, names option} {
     catch {unset a}
     array names a
 } {}
-test set-old-8.23 {array command, names option} {
+test set-old-8.24 {array command, names option} {
     catch {unset a}
     set a(22) 3; set a(Textual_name) 44; set "a(name with spaces)" xxx
     list [catch {lsort [array names a]} msg] $msg
 } {0 {22 Textual_name {name with spaces}}}
-test set-old-8.24 {array command, names option} {
+test set-old-8.25 {array command, names option} {
     catch {unset a}
     set a(22) 3; set a(33) 44;
     trace var a(xxx) w ignore
     list [catch {lsort [array names a]} msg] $msg
 } {0 {22 33}}
-test set-old-8.25 {array command, names option} {
+test set-old-8.26 {array command, names option} {
     catch {unset a}
     set a(22) 3; set a(33) 44;
     trace var a(xxx) w ignore
     set a(xxx) value
     list [catch {lsort [array names a]} msg] $msg
 } {0 {22 33 xxx}}
-test set-old-8.26 {array command, names option} {
+test set-old-8.27 {array command, names option} {
     catch {unset a}
     set a(axy) 3
     set a(bxy) 44
@@ -419,7 +460,7 @@ test set-old-8.26 {array command, names option} {
     set a(xxx) value
     list [lsort [array names a *xy]] [lsort [array names a]]
 } {{axy bxy} {axy bxy no xxx}}
-test set-old-8.27 {array command, names option, array doesn't exist yet but has compiler-allocated procedure slot} {
+test set-old-8.28 {array command, names option, array doesn't exist yet but has compiler-allocated procedure slot} {
     proc foo {x} {
         if {$x==1} {
             return [array names a]
@@ -428,14 +469,14 @@ test set-old-8.27 {array command, names option, array doesn't exist yet but has 
     }
     list [catch {foo 1} msg] $msg
 } {0 {}}
-test set-old-8.28 {array command, nextelement option} {
+test set-old-8.29 {array command, nextelement option} {
     list [catch {array nextelement a} msg] $msg
 } {1 {wrong # args: should be "array nextelement arrayName searchId"}}
-test set-old-8.29 {array command, nextelement option} {
+test set-old-8.30 {array command, nextelement option} {
     catch {unset a}
     list [catch {array nextelement a b} msg] $msg
 } {1 {"a" isn't an array}}
-test set-old-8.30 {array command, nextelement option, array doesn't exist yet but has compiler-allocated procedure slot} {
+test set-old-8.31 {array command, nextelement option, array doesn't exist yet but has compiler-allocated procedure slot} {
     proc foo {x} {
         if {$x==1} {
             return [array nextelement a b]
@@ -444,27 +485,27 @@ test set-old-8.30 {array command, nextelement option, array doesn't exist yet bu
     }
     list [catch {foo 1} msg] $msg
 } {1 {"a" isn't an array}}
-test set-old-8.31 {array command, set option} {
+test set-old-8.32 {array command, set option} {
     list [catch {array set a} msg] $msg
 } {1 {wrong # args: should be "array set arrayName list"}}
-test set-old-8.32 {array command, set option} {
+test set-old-8.33 {array command, set option} {
     list [catch {array set a 1 2} msg] $msg
 } {1 {wrong # args: should be "array set arrayName list"}}
-test set-old-8.33 {array command, set option} {
+test set-old-8.34 {array command, set option} {
     list [catch {array set a "a \{ c"} msg] $msg
 } {1 {unmatched open brace in list}}
-test set-old-8.34 {array command, set option} {
+test set-old-8.35 {array command, set option} {
     catch {unset a}
     set a 44
     list [catch {array set a {a b c d}} msg] $msg
 } {1 {can't set "a(a)": variable isn't array}}
-test set-old-8.35 {array command, set option} {
+test set-old-8.36 {array command, set option} {
     catch {unset a}
     set a(xx) yy
     array set a {b c d e}
-    array get a
-} {d e xx yy b c}
-test set-old-8.36 {array command, set option, array doesn't exist yet but has compiler-allocated procedure slot} {
+    lsort [array get a]
+} {b c d e xx yy}
+test set-old-8.37 {array command, set option, array doesn't exist yet but has compiler-allocated procedure slot} {
     proc foo {x} {
         if {$x==1} {
             return [array set a {x 0}]
@@ -473,72 +514,72 @@ test set-old-8.36 {array command, set option, array doesn't exist yet but has co
     }
     list [catch {foo 1} msg] $msg
 } {0 {}}
-test set-old-8.37 {array command, set option} {
+test set-old-8.38 {array command, set option} {
     catch {unset aVaRnAmE}
     array set aVaRnAmE {}
     list [info exists aVaRnAmE] [catch {set aVaRnAmE} msg] $msg
 } {1 1 {can't read "aVaRnAmE": variable is array}}
-test set-old-8.37.1 {array command, set scalar} {
+test set-old-8.38.1 {array command, set scalar} {
     catch {unset aVaRnAmE}
     set aVaRnAmE 1
     list [catch {array set aVaRnAmE {}} msg] $msg
 } {1 {can't array set "aVaRnAmE": variable isn't array}}
-test set-old-8.37.2 {array command, set alias} {
+test set-old-8.38.2 {array command, set alias} {
     catch {unset aVaRnAmE}
     upvar 0 aVaRnAmE anAliAs
     array set anAliAs {}
     list [array exists aVaRnAmE] [catch {set anAliAs} msg] $msg
 } {1 1 {can't read "anAliAs": variable is array}}
-test set-old-8.37.3 {array command, set element alias} {
+test set-old-8.38.3 {array command, set element alias} {
     catch {unset aVaRnAmE}
     list [catch {upvar 0 aVaRnAmE(elem) elemAliAs}] \
 	    [catch {array set elemAliAs {}} msg] $msg
 } {0 1 {can't array set "elemAliAs": variable isn't array}}
-test set-old-8.37.4 {array command, empty set with populated array} {
+test set-old-8.38.4 {array command, empty set with populated array} {
     catch {unset aVaRnAmE}
     array set aVaRnAmE [list e1 v1 e2 v2]
     array set aVaRnAmE {}
     array set aVaRnAmE [list e3 v3]
     list [lsort [array names aVaRnAmE]] [catch {set aVaRnAmE(e2)} msg] $msg
 } {{e1 e2 e3} 0 v2}
-test set-old-8.37.5 {array command, set with non-existent namespace} {
+test set-old-8.38.5 {array command, set with non-existent namespace} {
     list [catch {array set bogusnamespace::var {}} msg] $msg
 } {1 {can't set "bogusnamespace::var": parent namespace doesn't exist}}
-test set-old-8.37.6 {array command, set with non-existent namespace} {
+test set-old-8.38.6 {array command, set with non-existent namespace} {
     list [catch {array set bogusnamespace::var {a b}} msg] $msg
-} {1 {can't set "bogusnamespace::var(a)": parent namespace doesn't exist}}
-test set-old-8.37.7 {array command, set with non-existent namespace} {
+} {1 {can't set "bogusnamespace::var": parent namespace doesn't exist}}
+test set-old-8.38.7 {array command, set with non-existent namespace} {
     list [catch {array set bogusnamespace::var(0) {a b}} msg] $msg
 } {1 {can't set "bogusnamespace::var(0)": variable isn't array}}
-test set-old-8.38 {array command, size option} {
+test set-old-8.39 {array command, size option} {
     catch {unset a}
     array size a
 } {0}
-test set-old-8.39 {array command, size option} {
+test set-old-8.40 {array command, size option} {
     list [catch {array size a 4} msg] $msg
 } {1 {wrong # args: should be "array size arrayName"}}
-test set-old-8.40 {array command, size option} {
+test set-old-8.41 {array command, size option} {
     catch {unset a}
     array size a
 } {0}
-test set-old-8.41 {array command, size option} {
+test set-old-8.42 {array command, size option} {
     catch {unset a}
     set a(22) 3; set a(Textual_name) 44; set "a(name with spaces)" xxx
     list [catch {array size a} msg] $msg
 } {0 3}
-test set-old-8.42 {array command, size option} {
+test set-old-8.43 {array command, size option} {
     catch {unset a}
     set a(22) 3; set a(xx) 44; set a(y) xxx
     unset a(22) a(y) a(xx)
     list [catch {array size a} msg] $msg
 } {0 0}
-test set-old-8.43 {array command, size option} {
+test set-old-8.44 {array command, size option} {
     catch {unset a}
     set a(22) 3;
     trace var a(33) rwu ignore
     list [catch {array size a} msg] $msg
 } {0 1}
-test set-old-8.44 {array command, size option, array doesn't exist yet but has compiler-allocated procedure slot} {
+test set-old-8.45 {array command, size option, array doesn't exist yet but has compiler-allocated procedure slot} {
     proc foo {x} {
         if {$x==1} {
             return [array size a]
@@ -547,14 +588,14 @@ test set-old-8.44 {array command, size option, array doesn't exist yet but has c
     }
     list [catch {foo 1} msg] $msg
 } {0 0}
-test set-old-8.45 {array command, startsearch option} {
+test set-old-8.46 {array command, startsearch option} {
     list [catch {array startsearch a b} msg] $msg
 } {1 {wrong # args: should be "array startsearch arrayName"}}
-test set-old-8.46 {array command, startsearch option} {
+test set-old-8.47 {array command, startsearch option} {
     catch {unset a}
     list [catch {array startsearch a} msg] $msg
 } {1 {"a" isn't an array}}
-test set-old-8.47 {array command, startsearch option, array doesn't exist yet but has compiler-allocated procedure slot} {
+test set-old-8.48 {array command, startsearch option, array doesn't exist yet but has compiler-allocated procedure slot} {
     catch {rename p ""}
     proc p {x} {
         if {$x==1} {
@@ -564,11 +605,80 @@ test set-old-8.47 {array command, startsearch option, array doesn't exist yet bu
     }
     list [catch {p 1} msg] $msg
 } {1 {"a" isn't an array}}
+test set-old-8.49 {array command, statistics option} {
+    catch {unset a}
+    set a(abc) 1
+    set a(def) 2
+    set a(ghi) 3
+    set a(jkl) 4
+    set a(mno) 5
+    set a(pqr) 6
+    set a(stu) 7
+    set a(vwx) 8
+    set a(yz) 9
+    array statistics a
+} "9 entries in table, 4 buckets
+number of buckets with 0 entries: 0
+number of buckets with 1 entries: 0
+number of buckets with 2 entries: 3
+number of buckets with 3 entries: 1
+number of buckets with 4 entries: 0
+number of buckets with 5 entries: 0
+number of buckets with 6 entries: 0
+number of buckets with 7 entries: 0
+number of buckets with 8 entries: 0
+number of buckets with 9 entries: 0
+number of buckets with 10 or more entries: 0
+average search distance for entry: 1.7"
+test set-old-8.50 {array command, array names -exact on glob pattern} {
+    catch {unset a}
+    set a(1*2) 1
+    list [catch {array names a -exact 1*2} msg] $msg
+} {0 1*2}
+test set-old-8.51 {array command, array names -glob on glob pattern} {
+    catch {unset a}
+    set a(1*2) 1
+    set a(12) 1
+    set a(11) 1
+    list [catch {lsort [array names a -glob 1*2]} msg] $msg
+} {0 {1*2 12}}
+test set-old-8.52 {array command, array names -regexp on regexp pattern} {
+    catch {unset a}
+    set a(1*2) 1
+    set a(12) 1
+    set a(11) 1
+    list [catch {lsort [array names a -regexp ^1]} msg] $msg
+} {0 {1*2 11 12}}
+test set-old-8.53 {array command, array names -regexp} {
+    catch {unset a}
+    set a(-glob) 1
+    set a(-regexp) 1
+    set a(-exact) 1
+    list [catch {array names a -regexp} msg] $msg
+} {0 -regexp}
+test set-old-8.54 {array command, array names -exact} {
+    catch {unset a}
+    set a(-glob) 1
+    set a(-regexp) 1
+    set a(-exact) 1
+    list [catch {array names a -exact} msg] $msg
+} {0 -exact}
+test set-old-8.55 {array command, array names -glob} {
+    catch {unset a}
+    set a(-glob) 1
+    set a(-regexp) 1
+    set a(-exact) 1
+    list [catch {array names a -glob} msg] $msg
+} {0 -glob}
+test set-old-8.56 {array command, array statistics on a non-array} {
+	catch {unset a}
+	list [catch {array statistics a} msg] $msg
+} [list 1 "\"a\" isn't an array"]
 
 test set-old-9.1 {ids for array enumeration} {
     catch {unset a}
     set a(a) 1
-    list [array st a] [array st a] [array done a s-1-a; array st a] \
+    list [array star a] [array star a] [array done a s-1-a; array star a] \
 	    [array done a s-2-a; array d a s-3-a; array start a]
 } {s-1-a s-2-a s-3-a s-1-a}
 test set-old-9.2 {array enumeration} {
@@ -577,9 +687,9 @@ test set-old-9.2 {array enumeration} {
     set a(b) 1
     set a(c) 1
     set x [array startsearch a]
-    list [array nextelement a $x] [array ne a $x] [array next a $x] \
-	    [array next a $x] [array next a $x]
-} {a b c {} {}}
+    lsort [list [array nextelement a $x] [array ne a $x] [array next a $x] \
+	    [array next a $x] [array next a $x]]
+} {{} {} a b c}
 test set-old-9.3 {array enumeration} {
     catch {unset a}
     set a(a) 1
@@ -588,12 +698,12 @@ test set-old-9.3 {array enumeration} {
     set x [array startsearch a]
     set y [array startsearch a]
     set z [array startsearch a]
-    list [array nextelement a $x] [array ne a $x] \
+    lsort [list [array nextelement a $x] [array ne a $x] \
 	    [array next a $y] [array next a $z] [array next a $y] \
 	    [array next a $z] [array next a $y] [array next a $z] \
 	    [array next a $y] [array next a $z] [array next a $x] \
-	    [array next a $x]
-} {a b a a b b c c {} {} c {}}
+	    [array next a $x]]
+} {{} {} {} a a a b b b c c c}
 test set-old-9.4 {array enumeration: stopping searches} {
     catch {unset a}
     set a(a) 1
@@ -602,10 +712,10 @@ test set-old-9.4 {array enumeration: stopping searches} {
     set x [array startsearch a]
     set y [array startsearch a]
     set z [array startsearch a]
-    list [array next a $x] [array next a $x] [array next a $y] \
+    lsort [list [array next a $x] [array next a $x] [array next a $y] \
 	    [array done a $z; array next a $x] \
-	    [array done a $x; array next a $y] [array next a $y]
-} {a b a c b c}
+	    [array done a $x; array next a $y] [array next a $y]]
+} {a a b b c c}
 test set-old-9.5 {array enumeration: stopping searches} {
     catch {unset a}
     set a(a) 1
@@ -673,8 +783,8 @@ test set-old-9.12 {array enumeration with traced undefined elements} {
     set a(a) 1
     trace var a(b) r {}
     set x [array startsearch a]
-    list [array next a $x] [array next a $x]
-} {a {}}
+    lsort [list [array next a $x] [array next a $x]]
+} {{} a}
 
 test set-old-10.1 {array enumeration errors} {
     list [catch {array start} msg] $msg
@@ -763,21 +873,21 @@ test set-old-11.1 {array anymore option} {
     set a(b) 2
     set a(c) 3
     array startsearch a
-    list [array anymore a s-1-a] [array next a s-1-a] \
+    lsort [list [array anymore a s-1-a] [array next a s-1-a] \
 	    [array anymore a s-1-a] [array next a s-1-a] \
 	    [array anymore a s-1-a] [array next a s-1-a] \
-	    [array anymore a s-1-a] [array next a s-1-a] 
-} {1 a 1 b 1 c 0 {}}
+	    [array anymore a s-1-a] [array next a s-1-a]]
+} {{} 0 1 1 1 a b c}
 test set-old-11.2 {array anymore option} {
     catch {unset a}
     set a(a) 1
     set a(b) 2
     set a(c) 3
     array startsearch a
-    list [array next a s-1-a] [array next a s-1-a] \
+    lsort [list [array next a s-1-a] [array next a s-1-a] \
 	    [array anymore a s-1-a] [array next a s-1-a] \
-	    [array next a s-1-a] [array anymore a s-1-a] 
-} {a b 1 c {} 0}
+	    [array next a s-1-a] [array anymore a s-1-a]]
+} {{} 0 1 a b c}
 
 # Special check to see that the value of a variable is handled correctly
 # if it is returned as the result of a procedure (must not free the variable
@@ -807,15 +917,3 @@ catch {unset aVaRnAmE}
 # cleanup
 ::tcltest::cleanupTests
 return 
-
-
-
-
-
-
-
-
-
-
-
-

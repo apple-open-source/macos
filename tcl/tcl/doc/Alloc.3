@@ -4,13 +4,13 @@
 '\" See the file "license.terms" for information on usage and redistribution
 '\" of this file, and for a DISCLAIMER OF ALL WARRANTIES.
 '\" 
-'\" RCS: @(#) $Id: Alloc.3,v 1.1.1.2 2000/04/12 02:01:49 wsanchez Exp $
+'\" RCS: @(#) $Id: Alloc.3,v 1.1.1.3 2003/03/06 00:09:05 landonf Exp $
 '\" 
 .so man.macros
 .TH Tcl_Alloc 3 7.5 Tcl "Tcl Library Procedures"
 .BS
 .SH NAME
-Tcl_Alloc, Tcl_Free, Tcl_Realloc \- allocate or free heap memory
+Tcl_Alloc, Tcl_Free, Tcl_Realloc, Tcl_AttemptAlloc, Tcl_AttemptRealloc, ckalloc, ckfree, ckrealloc, attemptckalloc, attemptckrealloc \- allocate or free heap memory
 .SH SYNOPSIS
 .nf
 \fB#include <tcl.h>\fR
@@ -18,10 +18,32 @@ Tcl_Alloc, Tcl_Free, Tcl_Realloc \- allocate or free heap memory
 char *
 \fBTcl_Alloc\fR(\fIsize\fR)
 .sp
+void
 \fBTcl_Free\fR(\fIptr\fR)
 .sp
 char *
 \fBTcl_Realloc\fR(\fIptr, size\fR)
+.sp
+char *
+\fBTcl_AttemptAlloc\fR(\fIsize\fR)
+.sp
+char *
+\fBTcl_AttemptRealloc\fR(\fIptr, size\fR)
+.sp
+char *
+\fBckalloc\fR(\fIsize\fR)
+.sp
+void
+\fBckfree\fR(\fIptr\fR)
+.sp
+char *
+\fBckrealloc\fR(\fIptr, size\fR)
+.sp
+char *
+\fBattemptckalloc\fR(\fIsize\fR)
+.sp
+char *
+\fBattemptckrealloc\fR(\fIptr, size\fR)
 .SH ARGUMENTS
 .AS char *size
 .AP int size in
@@ -48,5 +70,23 @@ further allocation.
 \fIptr\fR to \fIsize\fR bytes and returns a pointer to the new block.
 The contents will be unchanged up to the lesser of the new and old
 sizes.  The returned location may be different from \fIptr\fR.
+.PP
+\fBTcl_AttemptAlloc\fR and \fBTcl_AttemptRealloc\fR are identical in
+function to \fBTcl_Alloc\fR and \fBTcl_Realloc\fR, except that
+\fBTcl_AttemptAlloc\fR and \fBTcl_AttemptRealloc\fR will not cause the Tcl
+interpreter to \fBpanic\fR if the memory allocation fails.  If the
+allocation fails, these functions will return NULL.  Note that on some
+platforms, attempting to allocate a block of memory will also cause
+these functions to return NULL.
+.PP
+The procedures \fBckalloc\fR, \fBckfree\fR, \fBckrealloc\fR,
+\fBattemptckalloc\fR, and \fBattemptckrealloc\fR are implemented
+as macros.  Normally, they are synonyms for the corresponding
+procedures documented on this page.  When Tcl and all modules
+calling Tcl are compiled with \fBTCL_MEM_DEBUG\fR defined, however,
+these macros are redefined to be special debugging versions of 
+of these procedures.  To support Tcl's memory debugging within a
+module, use the macros rather than direct calls to \fBTcl_Alloc\fR, etc.
+
 .SH KEYWORDS
-alloc, allocation, free, malloc, memory, realloc
+alloc, allocation, free, malloc, memory, realloc, TCL_MEM_DEBUG

@@ -34,26 +34,32 @@
 #include <assert.h>
 
 /* log changes in handshake state */
-#define sslHdskStateDebug(args...)		debug("sslHdskState", ## args)
+#define sslHdskStateDebug(args...)		secdebug("sslHdskState", ## args)
 
 /* log handshake and alert messages */
-#define sslHdskMsgDebug(args...)		debug("sslHdskMsg", ## args)
+#define sslHdskMsgDebug(args...)		secdebug("sslHdskMsg", ## args)
 
 /* log negotiated handshake parameters */
-#define sslLogNegotiateDebug(args...)	debug("sslLogNegotiate", ## args)
+#define sslLogNegotiateDebug(args...)	secdebug("sslLogNegotiate", ## args)
 
 /* log received protocol messsages */
-#define sslLogRxProtocolDebug(msgType)	debug("sslLogRxProtocol", \
+#define sslLogRxProtocolDebug(msgType)	secdebug("sslLogRxProtocol", \
 										"---received protoMsg %s", msgType)
 		
 /* log resumable session info */
-#define sslLogResumSessDebug(args...)	debug("sslResumSession", ## args)
+#define sslLogResumSessDebug(args...)	secdebug("sslResumSession", ## args)
 
 /* log low-level session info in appleSession.cpp */
-#define sslLogSessCacheDebug(args...)	debug("sslSessionCache", ## args)
+#define sslLogSessCacheDebug(args...)	secdebug("sslSessionCache", ## args)
 
 /* log record-level I/O (SSLRead, SSLWrite) */
-#define sslLogRecordIo(args...)			debug("sslRecordIo", ## args)
+#define sslLogRecordIo(args...)			secdebug("sslRecordIo", ## args)
+
+/* cert-related info */
+#define sslCertDebug(args...)			secdebug("sslCert", ## args)
+
+/* Diffie-Hellman */
+#define sslDhDebug(args...)				secdebug("sslDh", ## args)
 
 #ifdef	NDEBUG
 

@@ -1,9 +1,9 @@
 /*
- * "$Id: common.c,v 1.3 2002/05/28 23:20:45 gelphman Exp $"
+ * "$Id: common.c,v 1.1.1.10 2003/04/18 19:52:30 jlovell Exp $"
  *
  *   Common filter routines for the Common UNIX Printing System (CUPS).
  *
- *   Copyright 1997-2002 by Easy Software Products.
+ *   Copyright 1997-2003 by Easy Software Products.
  *
  *   These coded instructions, statements, and computer programs are the
  *   property of Easy Software Products and are protected by Federal
@@ -39,6 +39,7 @@
  */
 
 #include "common.h"
+#include <locale.h>
 
 
 /*
@@ -71,6 +72,10 @@ SetCommonOptions(int           num_options,	/* I - Number of options */
   const char	*val;		/* Option value */
 
 
+#ifdef LC_TIME
+  setlocale(LC_TIME, "");
+#endif /* LC_TIME */
+
   ppd = ppdOpenFile(getenv("PPD"));
 
   ppdMarkDefaults(ppd);
@@ -96,9 +101,12 @@ SetCommonOptions(int           num_options,	/* I - Number of options */
   }
 
   if ((val = cupsGetOption("landscape", num_options, options)) != NULL)
-    Orientation = 1;
-
-  if ((val = cupsGetOption("orientation-requested", num_options, options)) != NULL)
+  {
+    if (strcasecmp(val, "no") != 0 && strcasecmp(val, "off") != 0 &&
+        strcasecmp(val, "false") != 0)
+      Orientation = 1;
+  }
+  else if ((val = cupsGetOption("orientation-requested", num_options, options)) != NULL)
   {
    /*
     * Map IPP orientation values to 0 to 3:
@@ -193,14 +201,14 @@ SetCommonOptions(int           num_options,	/* I - Number of options */
   if (change_size)
     UpdatePageVars();
 
-  if ((val = cupsGetOption("sides", num_options, options)) != NULL &&
-      strncasecmp(val, "two-", 4) == 0)
-    Duplex = 1;
-  else if ((val = cupsGetOption("Duplex", num_options, options)) != NULL &&
-           strncasecmp(val, "Duplex", 6) == 0)
-    Duplex = 1;
-  else if (ppdIsMarked(ppd, "Duplex", "DuplexNoTumble") ||
-           ppdIsMarked(ppd, "Duplex", "DuplexTumble"))
+  if (ppdIsMarked(ppd, "Duplex", "DuplexNoTumble") ||
+      ppdIsMarked(ppd, "Duplex", "DuplexTumble") ||
+      ppdIsMarked(ppd, "JCLDuplex", "DuplexNoTumble") ||
+      ppdIsMarked(ppd, "JCLDuplex", "DuplexTumble") ||
+      ppdIsMarked(ppd, "EFDuplex", "DuplexNoTumble") ||
+      ppdIsMarked(ppd, "EFDuplex", "DuplexTumble") ||
+      ppdIsMarked(ppd, "KD03Duplex", "DuplexNoTumble") ||
+      ppdIsMarked(ppd, "KD03Duplex", "DuplexTumble"))
     Duplex = 1;
 
   return (ppd);
@@ -285,11 +293,11 @@ WriteCommon(void)
   puts("% x y w h ESPrf - Fill a rectangle.\n"
        "userdict/ESPrf/rectfill where{pop/rectfill load}\n"
        "{{gsave newpath 4 2 roll moveto 1 index 0 rlineto 0 exch rlineto\n"
-       "neg 0 rlineto closepath fill grestore}bind}ifelse put\n");
+       "neg 0 rlineto closepath fill grestore}bind}ifelse put");
   puts("% x y w h ESPrs - Stroke a rectangle.\n"
        "userdict/ESPrs/rectstroke where{pop/rectstroke load}\n"
        "{{gsave newpath 4 2 roll moveto 1 index 0 rlineto 0 exch rlineto\n"
-       "neg 0 rlineto closepath stroke grestore}bind}ifelse put\n");
+       "neg 0 rlineto closepath stroke grestore}bind}ifelse put");
 }
 
 
@@ -305,6 +313,7 @@ WriteLabelProlog(const char *label,	/* I - Page label */
 		 float      width)	/* I - Width in points */
 {
   const char	*classification;	/* CLASSIFICATION environment variable */
+  const char	*ptr;			/* Temporary string pointer */
 
 
  /*
@@ -343,14 +352,43 @@ WriteLabelProlog(const char *label,	/* I - Page label */
   else if (strcmp(classification, "unclassified") == 0)
     printf("/ESPpl(UNCLASSIFIED");
   else
+  {
     printf("/ESPpl(");
 
-  if (classification[0] && label)
-    printf(" - %s)put\n", label);
-  else if (label)
-    printf("%s)put\n", label);
-  else
-    puts(")put");
+    for (ptr = classification; *ptr; ptr ++)
+      if (*ptr < 32 || *ptr > 126)
+        printf("\\%03o", *ptr);
+      else
+      {
+	if (*ptr == '(' || *ptr == ')' || *ptr == '\\')
+	  putchar('\\');
+
+	putchar(*ptr);
+      }
+  }
+
+  if (label)
+  {
+    if (classification[0])
+      printf(" - ");
+
+   /*
+    * Quote the label string as needed...
+    */
+
+    for (ptr = label; *ptr; ptr ++)
+      if (*ptr < 32 || *ptr > 126)
+        printf("\\%03o", *ptr);
+      else
+      {
+	if (*ptr == '(' || *ptr == ')' || *ptr == '\\')
+	  putchar('\\');
+
+	putchar(*ptr);
+      }
+  }
+
+  puts(")put");
 
  /*
   * Then get a 14 point Helvetica-Bold font...
@@ -422,5 +460,5 @@ WriteLabels(int orient)	/* I - Orientation of the page */
 
 
 /*
- * End of "$Id: common.c,v 1.3 2002/05/28 23:20:45 gelphman Exp $".
+ * End of "$Id: common.c,v 1.1.1.10 2003/04/18 19:52:30 jlovell Exp $".
  */

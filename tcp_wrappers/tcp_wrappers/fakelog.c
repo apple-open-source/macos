@@ -43,9 +43,6 @@ va_list ap;
 
 /* VARARGS */
 
-#ifdef __APPLE__
-__private_extern__
-#endif
 VARARGS(syslog, int, severity)
 {
     va_list ap;

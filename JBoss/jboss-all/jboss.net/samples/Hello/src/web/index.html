@@ -1,0 +1,51 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
+<html>
+<head>
+<script src="Dispatcher.js"></script>
+<title>Flash Detect Page</title>
+<meta http-equiv="Content-Type" content="text/html; charset=iso-8859-1">
+<SCRIPT LANGUAGE="VBScript">
+   ' Check for the Flash ActiveX control.
+   '
+   ' This script will be ignored by browsers that do not support
+   ' VBScript (although Microsoft Internet Explorer will warn the
+   ' user that a script in an unsupported language has been
+   ' encountered if the user has checked "Show unsupported scripting
+   ' language errors" in Preferences->Web Browser->Web Content).
+   '
+   ' This technique due to Jeff Brown and Rafael M. Muñoz of
+   ' Microsoft Corporation.  Version testing adapted from Macromedia
+   ' Flash Technical Note #12853.
+   
+   Private i, x
+   
+   On Error Resume Next
+   
+   MM_FlashControlInstalled = False
+
+   For i = 6 To 1 Step -1
+       Set x = CreateObject("ShockwaveFlash.ShockwaveFlash." & i)
+   
+       MM_FlashControlInstalled = IsObject(x)
+   
+       If MM_FlashControlInstalled Then
+   	   MM_FlashControlVersion = CStr(i)
+   	   Exit For
+       End If
+   Next
+  </SCRIPT>
+<script language="JavaScript">
+<!--
+
+function MM_executeFlashDispatcher(){
+  var args = MM_executeFlashDispatcher.arguments;
+  MM_FlashDispatch(args[0],args[1],args[2],args[3],args[4],args[5],args[6],args[7],args[8]);
+
+}
+//-->
+</script>
+</head>
+
+<body onLoad="MM_executeFlashDispatcher('HelloWorld.jsp','6.0',false,'http://www.macromedia.com/shockwave/download/?P1_Prod_Version=ShockwaveFlash',true,'http://www.macromedia.com/shockwave/download/?P1_Prod_Version=ShockwaveFlash','FlashRequired.html',false,false)">
+</body>
+</html>

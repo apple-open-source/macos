@@ -2,7 +2,7 @@
     DYNAMIC_CODE_GEN = YES; 
     FILESTABLE = {
         CLASSES = (); 
-        FRAMEWORKS = (CoreFoundation.framework); 
+        FRAMEWORKS = (CoreFoundation.framework, SystemConfiguration.framework); 
         FRAMEWORKSEARCH = ("$(NEXT_ROOT)/System/Library/PrivateFrameworks"); 
         HEADERSEARCH = (../bootplib); 
         H_FILES = (bootpd.h, dhcpd.h, macNC.h, globals.h, bsdpd.h, AFPUsers.h); 

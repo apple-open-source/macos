@@ -1,7 +1,7 @@
 /* syntax.c - routines to manage syntax definitions */
-/* $OpenLDAP: pkg/ldap/servers/slapd/syntax.c,v 1.21 2002/01/04 20:17:49 kurt Exp $ */
+/* $OpenLDAP: pkg/ldap/servers/slapd/syntax.c,v 1.21.2.7 2003/02/09 16:31:37 kurt Exp $ */
 /*
- * Copyright 1998-2002 The OpenLDAP Foundation, All Rights Reserved.
+ * Copyright 1998-2003 The OpenLDAP Foundation, All Rights Reserved.
  * COPYING RESTRICTIONS APPLY, see COPYRIGHT file
  */
 
@@ -16,31 +16,32 @@
 #include "slap.h"
 #include "ldap_pvt.h"
 
-
 struct sindexrec {
 	char		*sir_name;
 	Syntax		*sir_syn;
 };
 
 static Avlnode	*syn_index = NULL;
-static Syntax *syn_list = NULL;
+static LDAP_SLIST_HEAD(SyntaxList, slap_syntax) syn_list
+	= LDAP_SLIST_HEAD_INITIALIZER(&syn_list);
 
 static int
 syn_index_cmp(
-    struct sindexrec	*sir1,
-    struct sindexrec	*sir2
+	const void *v_sir1,
+	const void *v_sir2
 )
 {
+	const struct sindexrec *sir1 = v_sir1, *sir2 = v_sir2;
 	return (strcmp( sir1->sir_name, sir2->sir_name ));
 }
 
 static int
 syn_index_name_cmp(
-    const char		*name,
-    struct sindexrec	*sir
+	const void *name,
+	const void *sir
 )
 {
-	return (strcmp( name, sir->sir_name ));
+	return (strcmp( name, ((const struct sindexrec *)sir)->sir_name ));
 }
 
 Syntax *
@@ -48,8 +49,7 @@ syn_find( const char *synname )
 {
 	struct sindexrec	*sir = NULL;
 
-	if ( (sir = (struct sindexrec *) avl_find( syn_index, synname,
-	    (AVL_CMP) syn_index_name_cmp )) != NULL ) {
+	if ( (sir = avl_find( syn_index, synname, syn_index_name_cmp )) != NULL ) {
 		return( sir->sir_syn );
 	}
 	return( NULL );
@@ -60,20 +60,23 @@ syn_find_desc( const char *syndesc, int *len )
 {
 	Syntax		*synp;
 
-	for (synp = syn_list; synp; synp = synp->ssyn_next)
-		if ((*len = dscompare( synp->ssyn_syn.syn_desc, syndesc, '{')))
+	LDAP_SLIST_FOREACH(synp, &syn_list, ssyn_next) {
+		if ((*len = dscompare( synp->ssyn_syn.syn_desc, syndesc, '{' /*'}'*/ ))) {
 			return synp;
+		}
+	}
 	return( NULL );
 }
 
 void
 syn_destroy( void )
 {
-	Syntax *s, *n;
+	Syntax *s;
 
 	avl_free(syn_index, ldap_memfree);
-	for (s=syn_list; s; s=n) {
-		n = s->ssyn_next;
+	while( !LDAP_SLIST_EMPTY(&syn_list) ) {
+		s = LDAP_SLIST_FIRST(&syn_list);
+		LDAP_SLIST_REMOVE_HEAD(&syn_list, ssyn_next);
 		ldap_syntax_free((LDAPSyntax *)s);
 	}
 }
@@ -84,26 +87,29 @@ syn_insert(
     const char		**err
 )
 {
-	Syntax		**synp;
 	struct sindexrec	*sir;
 
-	synp = &syn_list;
-	while ( *synp != NULL ) {
-		synp = &(*synp)->ssyn_next;
-	}
-	*synp = ssyn;
-
+	LDAP_SLIST_INSERT_HEAD( &syn_list, ssyn, ssyn_next );
+ 
 	if ( ssyn->ssyn_oid ) {
 		sir = (struct sindexrec *)
-			ch_calloc( 1, sizeof(struct sindexrec) );
+			SLAP_CALLOC( 1, sizeof(struct sindexrec) );
+		if( sir == NULL ) {
+#ifdef NEW_LOGGING
+			LDAP_LOG( OPERATION, ERR, 
+				"syn_insert: SLAP_CALLOC Error\n", 0, 0, 0 );
+#else
+			Debug( LDAP_DEBUG_ANY, "SLAP_CALLOC Error\n", 0, 0, 0 );
+#endif
+			return LDAP_OTHER;
+		}
 		sir->sir_name = ssyn->ssyn_oid;
 		sir->sir_syn = ssyn;
 		if ( avl_insert( &syn_index, (caddr_t) sir,
-				 (AVL_CMP) syn_index_cmp,
-				 (AVL_DUP) avl_dup_error ) ) {
+		                 syn_index_cmp, avl_dup_error ) ) {
 			*err = ssyn->ssyn_oid;
 			ldap_memfree(sir);
-			return SLAP_SCHERR_DUP_SYNTAX;
+			return SLAP_SCHERR_SYN_DUP;
 		}
 		/* FIX: temporal consistency check */
 		syn_find(sir->sir_name);
@@ -114,35 +120,42 @@ syn_insert(
 int
 syn_add(
     LDAPSyntax		*syn,
-	unsigned flags,
-    slap_syntax_validate_func	*validate,
-    slap_syntax_transform_func	*normalize,
-    slap_syntax_transform_func	*pretty,
-#ifdef SLAPD_BINARY_CONVERSION
-    slap_syntax_transform_func	*ber2str,
-    slap_syntax_transform_func	*str2ber,
-#endif
+    slap_syntax_defs_rec *def,
     const char		**err
 )
 {
 	Syntax		*ssyn;
 	int		code;
 
-	ssyn = (Syntax *) ch_calloc( 1, sizeof(Syntax) );
+	ssyn = (Syntax *) SLAP_CALLOC( 1, sizeof(Syntax) );
+	if( ssyn == NULL ) {
+#ifdef NEW_LOGGING
+		LDAP_LOG( OPERATION, ERR, 
+			"syn_add: SLAP_CALLOC Error\n", 0, 0, 0 );
+#else
+		Debug( LDAP_DEBUG_ANY, "SLAP_CALLOC Error\n", 0, 0, 0 );
+#endif
+		return LDAP_OTHER;
+	}
 
 	AC_MEMCPY( &ssyn->ssyn_syn, syn, sizeof(LDAPSyntax) );
 
-	ssyn->ssyn_next = NULL;
+	LDAP_SLIST_NEXT(ssyn,ssyn_next) = NULL;
 
+	/*
+	 * note: ssyn_bvoid uses the same memory of ssyn_syn.syn_oid;
+	 * ssyn_oidlen is #defined as ssyn_bvoid.bv_len
+	 */
+	ssyn->ssyn_bvoid.bv_val = ssyn->ssyn_syn.syn_oid;
 	ssyn->ssyn_oidlen = strlen(syn->syn_oid);
-	ssyn->ssyn_flags = flags;
-	ssyn->ssyn_validate = validate;
-	ssyn->ssyn_normalize = normalize;
-	ssyn->ssyn_pretty = pretty;
+	ssyn->ssyn_flags = def->sd_flags;
+	ssyn->ssyn_validate = def->sd_validate;
+	ssyn->ssyn_normalize = def->sd_normalize;
+	ssyn->ssyn_pretty = def->sd_pretty;
 
 #ifdef SLAPD_BINARY_CONVERSION
-	ssyn->ssyn_ber2str = ber2str;
-	ssyn->ssyn_str2ber = str2ber;
+	ssyn->ssyn_ber2str = def->sd_ber2str;
+	ssyn->ssyn_str2ber = def->sd_str2ber;
 #endif
 
 	code = syn_insert(ssyn, err);
@@ -151,42 +164,38 @@ syn_add(
 
 int
 register_syntax(
-	const char * desc,
-	unsigned flags,
-	slap_syntax_validate_func *validate,
-	slap_syntax_transform_func *normalize,
-	slap_syntax_transform_func *pretty )
+	slap_syntax_defs_rec *def )
 {
 	LDAPSyntax	*syn;
 	int		code;
 	const char	*err;
 
-	syn = ldap_str2syntax( desc, &code, &err, LDAP_SCHEMA_ALLOW_ALL);
+	syn = ldap_str2syntax( def->sd_desc, &code, &err, LDAP_SCHEMA_ALLOW_ALL);
 	if ( !syn ) {
 #ifdef NEW_LOGGING
-		LDAP_LOG(( "schema", LDAP_LEVEL_ERR,
-			   "register_syntax: Error - %s before %s in %s.\n",
-			   ldap_scherr2str(code), err, desc ));
+		LDAP_LOG( CONFIG, ERR, 
+			"register_syntax: Error - %s before %s in %s.\n",
+			ldap_scherr2str(code), err, def->sd_desc );
 #else
 		Debug( LDAP_DEBUG_ANY, "Error in register_syntax: %s before %s in %s\n",
-		    ldap_scherr2str(code), err, desc );
+		    ldap_scherr2str(code), err, def->sd_desc );
 #endif
 
 		return( -1 );
 	}
 
-	code = syn_add( syn, flags, validate, normalize, pretty, &err );
+	code = syn_add( syn, def, &err );
 
 	ldap_memfree( syn );
 
 	if ( code ) {
 #ifdef NEW_LOGGING
-		LDAP_LOG(( "schema", LDAP_LEVEL_ERR,
-			   "register_syntax: Error - %s %s in %s\n",
-			   scherr2str(code), err, desc ));
+		LDAP_LOG( CONFIG, ERR, 
+			"register_syntax: Error - %s %s in %s\n", 
+			scherr2str(code), err, def->sd_desc );
 #else
 		Debug( LDAP_DEBUG_ANY, "Error in register_syntax: %s %s in %s\n",
-		    scherr2str(code), err, desc );
+		    scherr2str(code), err, def->sd_desc );
 #endif
 
 		return( -1 );
@@ -194,8 +203,6 @@ register_syntax(
 
 	return( 0 );
 }
-
-#if defined( SLAPD_SCHEMA_DN )
 
 int
 syn_schema_info( Entry *e )
@@ -207,7 +214,7 @@ syn_schema_info( Entry *e )
 
 	vals[1].bv_val = NULL;
 
-	for ( syn = syn_list; syn; syn = syn->ssyn_next ) {
+	LDAP_SLIST_FOREACH(syn, &syn_list, ssyn_next ) {
 		if ( ! syn->ssyn_validate ) {
 			/* skip syntaxes without validators */
 			continue;
@@ -222,19 +229,19 @@ syn_schema_info( Entry *e )
 		}
 #if 0
 #ifdef NEW_LOGGING
-		LDAP_LOG(( "schema", LDAP_LEVEL_ENTRY,
+		LDAP_LOG( config, ENTRY,
 			   "syn_schema_info: Merging syn [%ld] %s\n",
-			   (long)vals[0].bv_len, vals[0].bv_val ));
+			   (long)vals[0].bv_len, vals[0].bv_val, 0 );
 #else
 		Debug( LDAP_DEBUG_TRACE, "Merging syn [%ld] %s\n",
 	       (long) vals[0].bv_len, vals[0].bv_val, 0 );
 #endif
 
 #endif
-		attr_merge( e, ad_ldapSyntaxes, vals );
+		if( attr_merge( e, ad_ldapSyntaxes, vals ) )
+			return -1;
 		ldap_memfree( vals[0].bv_val );
 	}
 	return 0;
 }
 
-#endif

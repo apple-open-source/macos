@@ -1,6 +1,9 @@
 #! /bin/sh
 # ylwrap - wrapper for lex/yacc invocations.
-# Copyright 1996, 1997, 1998, 1999, 2001  Free Software Foundation, Inc.
+#
+# Copyright (C) 1996, 1997, 1998, 1999, 2001, 2002 Free Software
+# Foundation, Inc.
+#
 # Written by Tom Tromey <tromey@cygnus.com>.
 #
 # This program is free software; you can redistribute it and/or modify
@@ -71,7 +74,10 @@ mkdir $dirname || exit 1
 
 cd $dirname
 
-$prog ${1+"$@"} "$input"
+case $# in
+ 0) $prog "$input" ;;
+ *) $prog "$@" "$input" ;;
+esac
 status=$?
 
 if test $status -eq 0; then

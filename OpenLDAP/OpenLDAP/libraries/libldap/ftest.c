@@ -1,6 +1,6 @@
-/* $OpenLDAP: pkg/ldap/libraries/libldap/ftest.c,v 1.5 2002/01/04 20:17:38 kurt Exp $ */
+/* $OpenLDAP: pkg/ldap/libraries/libldap/ftest.c,v 1.5.2.2 2003/02/08 23:53:25 kurt Exp $ */
 /*
- * Copyright 1998-2002 The OpenLDAP Foundation, All Rights Reserved.
+ * Copyright 1998-2003 The OpenLDAP Foundation, All Rights Reserved.
  * COPYING RESTRICTIONS APPLY, see COPYRIGHT file
  */
 /* OpenLDAP Filter API Test */
@@ -15,7 +15,7 @@
 
 #include <ldap.h>
 
-#include "ldap-int.h"
+#include "ldap_pvt.h"
 
 #include "ldif.h"
 #include "lutil.h"
@@ -38,7 +38,6 @@ main( int argc, char *argv[] )
 {
 	int c;
 	int debug=0;
-	char *filter=NULL;
 
     while( (c = getopt( argc, argv, "d:" )) != EOF ) {
 		switch ( c ) {
@@ -77,7 +76,7 @@ main( int argc, char *argv[] )
 static int filter2ber( char *filter )
 {
 	int rc;
-	struct berval *bv = NULL;
+	struct berval bv = {0};
 	BerElement *ber;
 
 	printf( "Filter: %s\n", filter );
@@ -88,23 +87,22 @@ static int filter2ber( char *filter )
 		return EXIT_FAILURE;
 	}
 
-	rc = ldap_int_put_filter( ber, filter );
+	rc = ldap_pvt_put_filter( ber, filter );
 	if( rc < 0 ) {
 		fprintf( stderr, "Filter error!\n");
 		return EXIT_FAILURE;
 	}
 
-	rc = ber_flatten( ber, &bv );
+	rc = ber_flatten2( ber, &bv, 0 );
 	if( rc < 0 ) {
-		perror( "ber_flatten" );
+		perror( "ber_flatten2" );
 		return EXIT_FAILURE;
 	}
 
-	printf( "BER encoding (len=%ld):\n", (long) bv->bv_len );
-	ber_bprint( bv->bv_val, bv->bv_len );
+	printf( "BER encoding (len=%ld):\n", (long) bv.bv_len );
+	ber_bprint( bv.bv_val, bv.bv_len );
 
-	ber_free( ber, 0 );
-	ber_bvfree( bv );
+	ber_free( ber, 1 );
 
 	return EXIT_SUCCESS;
 }

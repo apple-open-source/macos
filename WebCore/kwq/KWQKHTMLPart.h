@@ -43,6 +43,7 @@ namespace khtml {
 
 namespace KJS {
     class SavedProperties;
+    class SavedBuiltins;
     class ScheduledAction;
 }
 
@@ -57,6 +58,7 @@ namespace KJS {
 @class NSArray;
 @class NSMutableDictionary;
 @class WebCoreDOMElement;
+@class NSColor;
 #else
 class NSAttributedString;
 class NSEvent;
@@ -68,6 +70,7 @@ class NSString;
 class NSArray;
 class NSMutableDictionary;
 class WebCoreDOMElement;
+class NSColor;
 #endif
 
 enum KWQSelectionDirection {
@@ -86,9 +89,11 @@ public:
     void setView(KHTMLView *view);
     KHTMLView *view() const;
 
+    void provisionalLoadStarted();
+
     virtual bool openURL(const KURL &);
     virtual bool closeURL();
-    void didNotOpenURL(const QString &);
+    void didNotOpenURL(const KURL &);
     
     void openURLRequest(const KURL &, const KParts::URLArgs &);
     void submitForm(const KURL &, const KParts::URLArgs &);
@@ -118,6 +123,9 @@ public:
     void saveLocationProperties(KJS::SavedProperties *locationProperties);
     void restoreWindowProperties(KJS::SavedProperties *windowProperties);
     void restoreLocationProperties(KJS::SavedProperties *locationProperties);
+    void saveInterpreterBuiltins(KJS::SavedBuiltins &interpreterBuiltins);
+    void restoreInterpreterBuiltins(const KJS::SavedBuiltins &interpreterBuiltins);
+
     void openURLFromPageCache(KWQPageState *state);
 
     void saveDocumentState();
@@ -130,6 +138,8 @@ public:
     NSView *nextKeyView(DOM::NodeImpl *startingPoint, KWQSelectionDirection);
     NSView *nextKeyViewInFrameHierarchy(DOM::NodeImpl *startingPoint, KWQSelectionDirection);
     static NSView *nextKeyViewForWidget(QWidget *startingPoint, KWQSelectionDirection);
+    
+    static bool currentEventIsMouseDownInWidget(QWidget *candidate);
     
     static void setDocumentFocus(QWidget *);
     static void clearDocumentFocus(QWidget *);
@@ -177,6 +187,8 @@ public:
     bool keyEvent(NSEvent *);
     bool lastEventIsMouseUp();
 
+    bool sendContextMenuEvent(NSEvent *);
+
     void clearTimers();
     static void clearTimers(KHTMLView *);
     
@@ -207,6 +219,8 @@ public:
 
     // Convenience, to avoid repeating the code to dig down to get this.
     QChar backslashAsCurrencySymbol() const;
+
+    NSColor *bodyBackgroundColor() const;
 
 private:
     virtual void khtmlMousePressEvent(khtml::MousePressEvent *);
@@ -247,7 +261,7 @@ private:
     static NSEvent *_currentEvent;
     static NSResponder *_firstResponderAtMouseDownTime;
 
-    QString _submittedFormURL;
+    KURL _submittedFormURL;
 
     NSMutableDictionary *_formValuesAboutToBeSubmitted;
     WebCoreDOMElement *_formAboutToBeSubmitted;

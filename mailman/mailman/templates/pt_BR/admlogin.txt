@@ -1,0 +1,38 @@
+<html>
+<head>
+  <title>%(listname)s - Autenticação Administrativa</title>
+</head>
+<body bgcolor="#ffffff">
+<FORM METHOD=POST ACTION="%(path)s">
+%(message)s
+  <TABLE WIDTH="100%%" BORDER="0" CELLSPACING="4" CELLPADDING="5">
+    <TR>
+      <TD COLSPAN="2" WIDTH="100%%" BGCOLOR="#99CCFF" ALIGN="CENTER">
+	<B><FONT COLOR="#000000" SIZE="+1">Autenticação Administrativa da lista %(listname)s
+	    </FONT></B>
+      </TD>
+    </TR>
+    <tr>
+      <TD> <div ALIGN="Right"> Senha Administrativa da Lista: </div> </TD>
+      <TD> <INPUT TYPE=password NAME=adminpw SIZE=30></TD>
+    </tr>
+    <tr>
+      <td colspan=2 align=middle> <INPUT TYPE=SUBMIT name="request_login"
+						     value="Entrar no sistema">
+      </td>
+    </tr>
+  </TABLE>
+      <p><strong><em>Importante:</em></strong> A partir deste ponto, 
+      você deverá ter os cookies habilitados em seu navegador, 
+      caso contrário nenhuma modificação administrativa terá 
+      efeito.
+
+      <p>Cookies de seção são usadas na interface administrativa
+      do Mailman assim não será necessário refazer a autenticação 
+      entre cada operação administrativa. O cookie expirará
+      automaticamente assim que sair do navegador, ou poderá 
+      fazer isso clicando no botão <em>Sair</em> sob 
+      <em>Outras Atividades Administrativas</em> 
+      (que visualizará assim que entrar com sucesso no 
+      sistema).
+</FORM>

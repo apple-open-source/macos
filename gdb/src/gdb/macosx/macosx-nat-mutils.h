@@ -6,10 +6,10 @@
 
 struct target_ops;
 
-#if (!defined __GNUC__ || __GNUC__ < 2 || __GNUC_MINOR__ < (defined __cplusplus ? 6 : 4))
-#define __MACH_CHECK_FUNCTION ((__const char *) 0)
-#else
+#if (defined __GNUC__)
 #define __MACH_CHECK_FUNCTION __PRETTY_FUNCTION__
+#else
+#define __MACH_CHECK_FUNCTION ((__const char *) 0)
 #endif
 
 #define MACH_PROPAGATE_ERROR(ret) \

@@ -2,13 +2,19 @@
 
 # This can be used to add options or values with descriptions as matches.
 
-local _opt _expl _tmps _tmpd _tmpmd _tmpms _ret=1 _showd _nm _hide _args
-local _type=values _descr
+local _opt _expl _tmpm _tmpd _mlen _noprefix
+local _type=values _descr _ret=1 _showd _nm _hide _args _grp _sep
+local csl="$compstate[list]" csl2
+local _oargv _argv _new _strs _mats _opts _i _try=0
 
 # Get the option.
 
 if [[ "$1" = -o ]]; then
   _type=options
+  shift
+elif [[ "$1" = -O ]]; then
+  _type=options
+  _noprefix=1
   shift
 elif [[ "$1" = -t ]]; then
   _type="$2"
@@ -18,42 +24,102 @@ elif [[ "$1" = -t* ]]; then
   shift
 fi
 
+[[ "$_type$_noprefix" = options && ! -prefix [-+]* ]] && \
+    zstyle -T ":completion:${curcontext}:options" prefix-needed &&
+        return 1
+
 # Do the tests. `showd' is set if the descriptions should be shown.
 
 zstyle -T ":completion:${curcontext}:$_type" verbose && _showd=yes
 
+zstyle -s ":completion:${curcontext}:$_type" list-separator _sep || _sep=--
+zstyle -s ":completion:${curcontext}:$_type" max-matches-width _mlen ||
+    _mlen=$((COLUMNS/2))
+
 _descr="$1"
 shift
 
+if [[ -n "$_showd" ]] &&
+   zstyle -T ":completion:${curcontext}:$_type" list-grouped; then
+  _oargv=( "$@" )
+  _grp=(-g)
+else
+  _grp=()
+fi
+
 [[ "$_type" = options ]] &&
-    zstyle -t ":completion:${curcontext}:options" prefix-hidden && _hide=yes
+    zstyle -t ":completion:${curcontext}:options" prefix-hidden &&
+        _hide="${(M)PREFIX##(--|[-+])}"
 
 _tags "$_type"
 while _tags; do
   while _next_label "$_type" _expl "$_descr"; do
 
-    if [[ -n "$_showd" ]]; then
-      compdescribe -I ' -- ' "$@"
-    else
-      compdescribe -i "$@"
+    if (( $#_grp )); then
+  
+      set -- "$_oargv[@]"
+      _argv=( "$_oargv[@]" )
+      _i=1
+      (( _try++ ))
+      while (( $# )); do
+    
+        _strs="_a_$_try$_i"
+        if [[ "$1" = \(*\) ]]; then
+          eval local "_a_$_try$_i;_a_$_try$_i"'='$1
+        else
+          eval local "_a_$_try$_i;_a_$_try$_i"'=( "${'$1'[@]}" )'
+        fi
+        _argv[_i]="_a_$_try$_i"
+        shift
+        (( _i++ ))
+    
+        if [[ "$1" = (|-*) ]]; then
+          _mats=
+        else
+          _mats="_a_$_try$_i"
+          if [[ "$1" = \(*\) ]]; then
+            eval local "_a_$_try$_i;_a_$_try$_i"'='$1
+          else
+            eval local "_a_$_try$_i;_a_$_try$_i"'=( "${'$1'[@]}" )'
+          fi
+          _argv[_i]="_a_$_try$_i"
+          shift
+          (( _i++ ))
+        fi
+    
+        _opts=( "${(@)argv[1,(i)--]:#--}" )
+        shift "$#_opts"
+        (( _i += $#_opts ))
+        if [[ $1 == -- ]]; then
+          shift
+          (( _i++ ))
+        fi
+    
+        if [[ -n $_mats ]]; then
+          compadd "$_opts[@]" "${(@)_expl:/-J/-2V}" -D $_strs - \
+                  "${(@M)${(@P)_mats}##([^:\\]|\\?)##}"
+        else
+          compadd "$_opts[@]" "${(@)_expl:/-J/-2V}" -D $_strs - \
+                  "${(@M)${(@P)_strs}##([^:\\]|\\?)##}"
+        fi
+      done
+      set - "$_argv[@]"
     fi
 
-    while compdescribe -g _args _tmpd _tmpmd _tmps _tmpms; do
+    if [[ -n "$_showd" ]]; then
+      compdescribe -I "$_hide" "$_mlen" "$_sep " _expl "$_grp[@]" "$@"
+    else
+      compdescribe -i "$_hide" "$_mlen" "$@"
+    fi
 
-      # See if we should remove the option prefix characters.
+    compstate[list]="$csl"
 
-      if [[ -n "$_hide" ]]; then
-        if [[ "$PREFIX" = --* ]]; then
-          _tmpd=( "${(@)_tmpd#--}" )
-          _tmps=( "${(@)_tmps#--}" )
-        elif [[ "$PREFIX" = [-+]* ]]; then
-          _tmpd=( "${(@)_tmpd#[-+]}" )
-          _tmps=( "${(@)_tmps#[-+]}" )
-        fi
-      fi
+    while compdescribe -g csl2 _args _tmpm _tmpd; do
 
-      compadd "$_args[@]" "$_expl[@]" -ld _tmpd -a _tmpmd && _ret=0
-      compadd "$_args[@]" "$_expl[@]" -d _tmps  -a _tmpms && _ret=0
+      compstate[list]="$csl $csl2"
+      [[ -n "$csl2" ]] && compstate[list]="${compstate[list]:s/rows//}"
+
+      compadd "$_args[@]" -d _tmpd -a _tmpm && _ret=0
     done
   done
   (( _ret )) || return 0

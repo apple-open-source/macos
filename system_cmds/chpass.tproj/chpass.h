@@ -57,25 +57,72 @@
  *      @(#)chpass.h    8.4 (Berkeley) 4/2/94
  */
 
+#ifdef DIRECTORY_SERVICE
+#include <stdio.h>
+#include <sys/types.h>
+
+struct display {
+	struct passwd *pw;
+	char *fullname;
+	char *location;
+	char *officephone;
+	char *homephone;
+};
+#endif /* DIRECTORY_SERVICE */
+
 struct passwd;
 
 typedef struct _entry {
 	char *prompt;
+#ifdef DIRECTORY_SERVICE
+	void (*display)();
+#endif /* DIRECTORY_SERVICE */
 	int (*func)(), restricted, len;
 	char *except, *save;
 } ENTRY;
 
 /* Field numbers. */
+#ifdef DIRECTORY_SERVICE
+#define	E_LOGIN		0
+#define	E_PASSWD	1
+#define	E_UID		2
+#define	E_GID		3
+#define	E_CHANGE	4
+#define	E_EXPIRE	5
+#define	E_CLASS		6
+#define	E_HOME		7
+#define	E_SHELL		8
+#define	E_NAME		9
+#define	E_LOCATE	10
+#define	E_BPHONE	11
+#define	E_HPHONE	12
+#else /* DIRECTORY_SERVICE */
 #define	E_BPHONE	8
 #define	E_HPHONE	9
 #define	E_LOCATE	10
 #define	E_NAME		7
 #define	E_SHELL		12
+#endif /* DIRECTORY_SERVICE */
 
 extern ENTRY list[];
 extern uid_t uid;
 
 int	 atot __P((char *, time_t *));
+#ifdef DIRECTORY_SERVICE
+void	 d_change __P((struct display *, FILE *));
+void	 d_class __P((struct display *, FILE *));
+void	 d_expire __P((struct display *, FILE *));
+void	 d_fullname __P((struct display *, FILE *));
+void	 d_gid __P((struct display *, FILE *));
+void	 d_hdir __P((struct display *, FILE *));
+void	 d_homephone __P((struct display *, FILE *));
+void	 d_login __P((struct display *, FILE *));
+void	 d_location __P((struct display *, FILE *));
+void	 d_officephone __P((struct display *, FILE *));
+void	 d_passwd __P((struct display *, FILE *));
+void	 d_shell __P((struct display *, FILE *));
+void	 d_uid __P((struct display *, FILE *));
+#endif /* DIRECTORY_SERVICE */
 void	 display __P((int, struct passwd *));
 void	 edit __P((struct passwd *));
 char    *ok_shell __P((char *));

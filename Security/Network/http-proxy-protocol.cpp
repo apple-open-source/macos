@@ -32,7 +32,7 @@ namespace Network {
 HTTPProxyProtocol::HTTPProxyProtocol(Manager &mgr, const HostTarget &proxy)
     : HTTPProtocol(mgr), host(proxy.defaultPort(defaultHttpPort))
 {
-    debug("uaproxy", "%p http proxy for %s", this, host.urlForm().c_str());
+    secdebug("uaproxy", "%p http proxy for %s", this, host.urlForm().c_str());
 }
 
 

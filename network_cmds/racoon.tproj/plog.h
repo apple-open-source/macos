@@ -1,4 +1,4 @@
-/*	$KAME: plog.h,v 1.7 2001/01/10 02:58:58 sakane Exp $	*/
+/*	$KAME: plog.h,v 1.10 2002/05/07 08:56:19 sakane Exp $	*/
 
 /*
  * Copyright (C) 1995, 1996, 1997, and 1998 WIDE Project.

@@ -67,7 +67,7 @@ pullWord()
 // General purpose enqueue routine.  If no space is available,
 // the event is dropped and an OverRun condition is established.
 void Apple16X50Queue::
-enqueueEvent(UInt8 event, UInt32 data=0)
+enqueueEvent(UInt8 event, UInt32 data)
 {
     OverRun = !enqueueEventTry(event, data);
 }
@@ -77,7 +77,7 @@ enqueueEvent(UInt8 event, UInt32 data=0)
 // false is returned, but no OverRun condition is established.
 // A return value of true indicates the event was queued.
 bool Apple16X50Queue::
-enqueueEventTry(UInt8 event, UInt32 data=0)
+enqueueEventTry(UInt8 event, UInt32 data)
 {
     register UInt32 words = (event & PD_DATA_MASK);
 
@@ -97,7 +97,7 @@ enqueueEventTry(UInt8 event, UInt32 data=0)
 // returns the next element in the queue, or PD_E_EOQ if the queue is
 // empty.  
 UInt8 Apple16X50Queue::
-dequeueEvent(UInt32 *datap=NULL)
+dequeueEvent(UInt32 *datap)
 {
     if (Count > 0) {
         register UInt16 event = pullWord();
@@ -130,7 +130,7 @@ dequeueEvent(UInt32 *datap=NULL)
 // many elements to skip; 0 causes the next element to be returned.
 // If the specified depth exceeds the available data, PD_E_EOQ is returned
 UInt8 Apple16X50Queue::
-peekEvent(UInt32 depth=0)
+peekEvent(UInt32 depth)
 {
     register UInt16 event;
     register UInt32 tmp=DequeueIndex;

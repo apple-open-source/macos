@@ -5,8 +5,15 @@
 #
 # If the console is marked insecure, single-user requires
 # the root password.
+##
+# Since DirectoryServices is not running by the time we enter
+# single-user mode, init will ask for the non-shadow crypt
+# password stored for root in /etc/master.passwd.  If no such 
+# password exists, it will not be possible to enter single-user 
+# mode from a console marked insecure.
+##
 #console 	"/usr/libexec/getty std.9600"	vt100	on secure
-console "/System/Library/CoreServices/loginwindow.app/Contents/MacOS/loginwindow" vt100 on secure window=/System/Library/CoreServices/WindowServer onoption="/usr/libexec/getty std.9600"
+console "/System/Library/CoreServices/loginwindow.app/Contents/MacOS/loginwindow" vt100 on secure onoption="/usr/libexec/getty std.9600"
 #tahoe's only
 #remote	"/usr/libexec/getty std.1200"	pt	on		# diagnostics
 
@@ -17,6 +24,10 @@ console "/System/Library/CoreServices/loginwindow.app/Contents/MacOS/loginwindow
 # communications, the tty.serial entry should be turned off
 # (set the 4th field to off).
 tty.serial      "/usr/libexec/getty serial.9600"        vt100   off secure
+
+# Fax reception is off by default, use the 
+# System Preferences panel to enable it.
+fax	"/usr/bin/fax answer"	unknown	off
 
 # Hardwired lines are marked off, by default, so getty(8)
 # is quiet when they don't exist.

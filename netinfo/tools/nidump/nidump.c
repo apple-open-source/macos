@@ -3,21 +3,22 @@
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
- * "Portions Copyright (c) 1999 Apple Computer, Inc.  All Rights
- * Reserved.  This file contains Original Code and/or Modifications of
- * Original Code as defined in and that are subject to the Apple Public
- * Source License Version 1.0 (the 'License').  You may not use this file
- * except in compliance with the License.  Please obtain a copy of the
- * License at http://www.apple.com/publicsource and read it before using
- * this file.
+ * Copyright (c) 1999-2003 Apple Computer, Inc.  All Rights Reserved.
+ * 
+ * This file contains Original Code and/or Modifications of Original Code
+ * as defined in and that are subject to the Apple Public Source License
+ * Version 2.0 (the 'License'). You may not use this file except in
+ * compliance with the License. Please obtain a copy of the License at
+ * http://www.opensource.apple.com/apsl/ and read it before using this
+ * file.
  * 
  * The Original Code and all software distributed under the License are
  * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
  * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
  * INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY,
- * FITNESS FOR A PARTICULAR PURPOSE OR NON-INFRINGEMENT.  Please see the
- * License for the specific language governing rights and limitations
- * under the License."
+ * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
+ * Please see the License for the specific language governing rights and
+ * limitations under the License.
  * 
  * @APPLE_LICENSE_HEADER_END@
  */
@@ -58,6 +59,7 @@ void print_nidir(void *ni, ni_id *dir, int indent, FILE *out, char *last)
 	int i, len;
 	ni_id child;
 
+	NI_INIT(&pl);
 	status = ni_read(ni, dir, &pl);
 	if (status != NI_OK) return;
 
@@ -92,9 +94,10 @@ void print_nidir(void *ni, ni_id *dir, int indent, FILE *out, char *last)
 		fprintf(out, ");\n");
 	}
 
+	ni_proplist_free(&pl);
+
 	status = ni_children(ni, dir, &il);
 	if (status != NI_OK) return;
-
 
 	len = il.ni_idlist_len;
 
@@ -118,6 +121,8 @@ void print_nidir(void *ni, ni_id *dir, int indent, FILE *out, char *last)
 
 	for (i = 0; i < indent; i++) putc(' ', out);
 	fprintf(out, "}%s\n", last);
+
+	ni_idlist_free(&il);
 }
 
 void dump_raw(void *ni, char *path)
@@ -305,6 +310,7 @@ void dump_passwd(void *ni)
 	status = ni_pathsearch(ni, &dir, "/users");
 	if (status != NI_OK) return;
 
+	NI_INIT(&il);
 	status = ni_children(ni, &dir, &il);
 	if (status != NI_OK) return;
 
@@ -312,7 +318,14 @@ void dump_passwd(void *ni)
 	for (i = 0; i < len; i++)
 	{
 		dir.nii_object = il.ni_idlist_val[i];
+
+		NI_INIT(&pl);
 		status = ni_read(ni, &dir, &pl);
+		if (status != NI_OK)
+		{
+			ni_idlist_free(&il);
+			return;
+		}
 
 		if (!print_pl_first(pl, "name")) continue;
 		printf(":");
@@ -334,7 +347,11 @@ void dump_passwd(void *ni)
 		printf(":");
 		print_pl_first(pl, "shell");
 		printf("\n");
+
+		ni_proplist_free(&pl);
 	}
+
+	ni_idlist_free(&il);
 }
 
 void dump_aliases(void *ni)
@@ -355,10 +372,21 @@ void dump_aliases(void *ni)
 	for (i = 0; i < len; i++)
 	{
 		dir.nii_object = il.ni_idlist_val[i];
+
+		NI_INIT(&pl);
 		status = ni_read(ni, &dir, &pl);
+		if (status != NI_OK)
+		{
+			ni_idlist_free(&il);
+			return;
+		}
 
 		print_alias(pl);
+
+		ni_proplist_free(&pl);
 	}
+
+	ni_idlist_free(&il);
 }
 
 void dump_bootparams(void *ni)
@@ -379,7 +407,14 @@ void dump_bootparams(void *ni)
 	for (i = 0; i < len; i++)
 	{
 		dir.nii_object = il.ni_idlist_val[i];
+
+		NI_INIT(&pl);
 		status = ni_read(ni, &dir, &pl);
+		if (status != NI_OK)
+		{
+			ni_idlist_free(&il);
+			return;
+		}
 
 		if (!check_pl(pl, "name", 1)) continue;
 		if (!check_pl(pl, "bootparams", 1)) continue;
@@ -388,7 +423,11 @@ void dump_bootparams(void *ni)
 		printf(" ");
 		print_pl_from(pl, "bootparams", " \\\n\t", 0);
 		printf("\n");
+
+		ni_proplist_free(&pl);
 	}
+
+	ni_idlist_free(&il);
 }
 
 void dump_bootptab(void *ni)
@@ -413,7 +452,14 @@ void dump_bootptab(void *ni)
 	for (i = 0; i < len; i++)
 	{
 		dir.nii_object = il.ni_idlist_val[i];
+
+		NI_INIT(&pl);
 		status = ni_read(ni, &dir, &pl);
+		if (status != NI_OK)
+		{
+			ni_idlist_free(&il);
+			return;
+		}
 
 		if (!print_pl_first(pl, "name")) continue;
 		printf("\t");
@@ -425,7 +471,11 @@ void dump_bootptab(void *ni)
 		printf("\t");
 		if (!print_pl_first(pl, "bootfile")) printf("mach");
 		printf("\n");
+
+		ni_proplist_free(&pl);
 	}
+
+	ni_idlist_free(&il);
 }
 
 void dump_exports(void *ni)
@@ -446,7 +496,14 @@ void dump_exports(void *ni)
 	for (i = 0; i < len; i++)
 	{
 		dir.nii_object = il.ni_idlist_val[i];
+
+		NI_INIT(&pl);
 		status = ni_read(ni, &dir, &pl);
+		if (status != NI_OK)
+		{
+			ni_idlist_free(&il);
+			return;
+		}
 
 		if (!print_pl_first(pl, "name")) continue;
 		printf(" ");
@@ -456,7 +513,11 @@ void dump_exports(void *ni)
 		printf(" ");
 		print_pl_from(pl, "clients", " ", 0);
 		printf("\n");
+
+		ni_proplist_free(&pl);
 	}
+
+	ni_idlist_free(&il);
 }
 
 void dump_fstab(void *ni)
@@ -478,7 +539,14 @@ void dump_fstab(void *ni)
 	for (i = 0; i < len; i++)
 	{
 		dir.nii_object = il.ni_idlist_val[i];
+
+		NI_INIT(&pl);
 		status = ni_read(ni, &dir, &pl);
+		if (status != NI_OK)
+		{
+			ni_idlist_free(&il);
+			return;
+		}
 
 		if (!print_pl_first(pl, "name")) continue;
 		printf(" ");
@@ -504,67 +572,11 @@ void dump_fstab(void *ni)
 		printf(" ");
 		if (!print_pl_first(pl, "passno")) printf("0");
 		printf("\n");
-	}
-}
 
-void dump_mountmaps(void *ni, char *mapname)
-{
-	ni_id dir;
-	ni_status status;
-	ni_idlist il;
-	ni_entrylist el;
-	ni_proplist pl;
-	int i, len;
-	ni_index where;
-	char str[256];
-
-	if (mapname == NULL)
-	{
-		/* Dump available mountmap names */
-		
-		status = ni_pathsearch(ni, &dir, "/mountmaps");
-		if (status != NI_OK) return;
-
-		status = ni_list(ni, &dir, "name", &el);
-		if (status != NI_OK) return;
-		len = el.ni_entrylist_len;
-		for (i = 0; i < len; i++)
-		{
-			if (el.ni_entrylist_val[len].names != NULL)
-			{
-				if (el.ni_entrylist_val[i].names->ni_namelist_len > 0)
-					printf("%s\n",
-						el.ni_entrylist_val[i].names->ni_namelist_val[0]);
-			}
-		}
-		return;
+		ni_proplist_free(&pl);
 	}
 
-	sprintf(str, "/mountmaps/%s", mapname);
-	status = ni_pathsearch(ni, &dir, str);
-	if (status != NI_OK) return;
-
-	status = ni_children(ni, &dir, &il);
-	if (status != NI_OK) return;
-
-	len = il.ni_idlist_len;
-	for (i = 0; i < len; i++)
-	{
-		dir.nii_object = il.ni_idlist_val[i];
-		status = ni_read(ni, &dir, &pl);
-
-		if (!print_pl_first(pl, "name")) continue;
-		printf(" ");
-		where = ni_proplist_match((const ni_proplist)pl, "opts", NULL);
-		if (where != NI_INDEX_NULL)
-		{
-			printf("-");
-			print_pl_from(pl, "opts", ",", 0);
-			printf(" ");
-		}
-		print_pl_from(pl, "fsname", " ", 0);
-		printf("\n");
-	}
+	ni_idlist_free(&il);
 }
 
 void dump_printcap(void *ni)
@@ -585,10 +597,21 @@ void dump_printcap(void *ni)
 	for (i = 0; i < len; i++)
 	{
 		dir.nii_object = il.ni_idlist_val[i];
+
+		NI_INIT(&pl);
 		status = ni_read(ni, &dir, &pl);
+		if (status != NI_OK)
+		{
+			ni_idlist_free(&il);
+			return;
+		}
 
 		print_printer(pl);
+
+		ni_proplist_free(&pl);
 	}
+
+	ni_idlist_free(&il);
 }
 
 void dump_group(void *ni)
@@ -609,7 +632,14 @@ void dump_group(void *ni)
 	for (i = 0; i < len; i++)
 	{
 		dir.nii_object = il.ni_idlist_val[i];
+
+		NI_INIT(&pl);
 		status = ni_read(ni, &dir, &pl);
+		if (status != NI_OK)
+		{
+			ni_idlist_free(&il);
+			return;
+		}
 
 		if (!print_pl_first(pl, "name")) continue;
 		printf(":");
@@ -619,7 +649,11 @@ void dump_group(void *ni)
 		printf(":");
 		print_pl_from(pl, "users", ",", 0);
 		printf("\n");
+
+		ni_proplist_free(&pl);
 	}
+
+	ni_idlist_free(&il);
 }
 
 void dump_hosts(void *ni)
@@ -628,7 +662,8 @@ void dump_hosts(void *ni)
 	ni_status status;
 	ni_idlist il;
 	ni_proplist pl;
-	int i, len;
+	int i, j, len, naddrs;
+	ni_index where;
 
 	status = ni_pathsearch(ni, &dir, "/machines");
 	if (status != NI_OK) return;
@@ -640,13 +675,35 @@ void dump_hosts(void *ni)
 	for (i = 0; i < len; i++)
 	{
 		dir.nii_object = il.ni_idlist_val[i];
-		status = ni_read(ni, &dir, &pl);
 
-		if (!print_pl_first(pl, "ip_address")) continue;
-		printf("\t");
-		print_pl_from(pl, "name", " ", 0);
-		printf("\n");
+		NI_INIT(&pl);
+		status = ni_read(ni, &dir, &pl);
+		if (status != NI_OK)
+		{
+			ni_idlist_free(&il);
+			return;
+		}
+
+		where = ni_proplist_match(pl, "ip_address", NULL);
+		if (where == NI_INDEX_NULL)
+		{
+			ni_proplist_free(&pl);
+			continue;
+		}
+
+		naddrs = pl.ni_proplist_val[where].nip_val.ni_namelist_len;
+		for (j = 0; j < naddrs; j++)
+		{
+			printf("%s", pl.ni_proplist_val[where].nip_val.ni_namelist_val[j]);
+			printf("\t");
+			print_pl_from(pl, "name", " ", 0);
+			printf("\n");
+		}
+
+		ni_proplist_free(&pl);
 	}
+
+	ni_idlist_free(&il);
 }
 
 void dump_ethers(void *ni)
@@ -667,13 +724,24 @@ void dump_ethers(void *ni)
 	for (i = 0; i < len; i++)
 	{
 		dir.nii_object = il.ni_idlist_val[i];
+
+		NI_INIT(&pl);
 		status = ni_read(ni, &dir, &pl);
+		if (status != NI_OK)
+		{
+			ni_idlist_free(&il);
+			return;
+		}
 
 		if (!print_pl_first(pl, "en_address")) continue;
 		printf("\t");
 		print_pl_from(pl, "name", " ", 0);
 		printf("\n");
+
+		ni_proplist_free(&pl);
 	}
+
+	ni_idlist_free(&il);
 }
 
 void dump_networks(void *ni)
@@ -694,7 +762,14 @@ void dump_networks(void *ni)
 	for (i = 0; i < len; i++)
 	{
 		dir.nii_object = il.ni_idlist_val[i];
+
+		NI_INIT(&pl);
 		status = ni_read(ni, &dir, &pl);
+		if (status != NI_OK)
+		{
+			ni_idlist_free(&il);
+			return;
+		}
 
 		if (!print_pl_first(pl, "name")) continue;
 		printf("\t");
@@ -702,7 +777,11 @@ void dump_networks(void *ni)
 		printf("\t");
 		print_pl_from(pl, "name", "\t", 1);
 		printf("\n");
+
+		ni_proplist_free(&pl);
 	}
+
+	ni_idlist_free(&il);
 }
 
 void dump_services(void *ni)
@@ -723,7 +802,14 @@ void dump_services(void *ni)
 	for (i = 0; i < len; i++)
 	{
 		dir.nii_object = il.ni_idlist_val[i];
+
+		NI_INIT(&pl);
 		status = ni_read(ni, &dir, &pl);
+		if (status != NI_OK)
+		{
+			ni_idlist_free(&il);
+			return;
+		}
 
 		if (!print_pl_first(pl, "name")) continue;
 		printf("\t");
@@ -733,7 +819,11 @@ void dump_services(void *ni)
 		printf("\t");
 		print_pl_from(pl, "name", "\t", 1);
 		printf("\n");
+
+		ni_proplist_free(&pl);
 	}
+
+	ni_idlist_free(&il);
 }
 
 void dump_protocols(void *ni)
@@ -754,7 +844,14 @@ void dump_protocols(void *ni)
 	for (i = 0; i < len; i++)
 	{
 		dir.nii_object = il.ni_idlist_val[i];
+
+		NI_INIT(&pl);
 		status = ni_read(ni, &dir, &pl);
+		if (status != NI_OK)
+		{
+			ni_idlist_free(&il);
+			return;
+		}
 
 		if (!print_pl_first(pl, "name")) continue;
 		printf("\t");
@@ -762,7 +859,11 @@ void dump_protocols(void *ni)
 		printf("\t");
 		print_pl_from(pl, "name", "\t", 1);
 		printf("\n");
+
+		ni_proplist_free(&pl);
 	}
+
+	ni_idlist_free(&il);
 }
 
 void dump_resolv(void *ni)
@@ -777,6 +878,7 @@ void dump_resolv(void *ni)
 	status = ni_pathsearch(ni, &dir, "/locations/resolver");
 	if (status != NI_OK) return;
 
+	NI_INIT(&pl);
 	status = ni_read(ni, &dir, &pl);
 	if (status != NI_OK) return;
 
@@ -802,6 +904,8 @@ void dump_resolv(void *ni)
 	{
 		printf("nameserver %s\n", nl->ni_namelist_val[i]);
 	}
+
+	ni_proplist_free(&pl);
 }
 
 void dump_rpc(void *ni)
@@ -822,7 +926,14 @@ void dump_rpc(void *ni)
 	for (i = 0; i < len; i++)
 	{
 		dir.nii_object = il.ni_idlist_val[i];
+
+		NI_INIT(&pl);
 		status = ni_read(ni, &dir, &pl);
+		if (status != NI_OK)
+		{
+			ni_idlist_free(&il);
+			return;
+		}
 
 		if (!print_pl_first(pl, "name")) continue;
 		printf("\t");
@@ -830,7 +941,11 @@ void dump_rpc(void *ni)
 		printf("\t");
 		print_pl_from(pl, "name", "\t", 1);
 		printf("\n");
+
+		ni_proplist_free(&pl);
 	}
+
+	ni_idlist_free(&il);
 }
 
 void usage(char *name)
@@ -853,7 +968,6 @@ void usage(char *name)
 	fprintf(stderr, "\tresolv.conf\n");
 	fprintf(stderr, "\trpc\n");
 	fprintf(stderr, "\tservices\n");
-	fprintf(stderr, "\tmountmaps\n");
 	exit(1);
 }
 
@@ -942,11 +1056,6 @@ int main(int argc, char *argv[])
 	else if (!strcmp(dumpit, "resolv.conf")) dump_resolv(ni);
 	else if (!strcmp(dumpit, "rpc")) dump_rpc(ni);
 	else if (!strcmp(dumpit, "services")) dump_services(ni);
-	else if (!strcmp(dumpit, "mountmaps"))
-	{
-		if (mntmaparg == 0) dump_mountmaps(ni, NULL);
-		else dump_mountmaps(ni, argv[mntmaparg]);
-	}
 	else usage(MYNAME);
 
 	exit(0);

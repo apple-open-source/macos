@@ -1,0 +1,34 @@
+
+
+			       Credits
+			       -------
+
+
+Kudos to the following people who contributed to JavaGroups.
+
+
+
+Bela Ban (bela@nms.fnc.fujitsu.com)
+Original author. Responsible for core, pbcast protocols
+
+
+Gianluca Collot (gianluca@tin.it)
+Extended virtual synchrony, partitions and merging
+
+
+John Georgiadis (i.georgiadis@doc.ic.ac.uk)
+Total order protocol (TOTAL_JOHN)
+
+
+Jim Menard (jimm@io.com)
+Trace module and makefiles
+
+
+Filip Hanik (filip@filip.net)
+ANT based build system (./build)
+
+
+
+
+
+

@@ -117,9 +117,7 @@ public:
     RenderLayer* findNextLayer(RenderLayer* parentLayer, RenderObject* startPoint,
                                bool checkParent=true);
     virtual void positionChildLayers() { }
-    virtual bool requiresLayer() {
-        return isRoot() || (!isTableCell() && (isPositioned() || isRelPositioned()));
-    }
+    virtual bool requiresLayer();
     
     virtual QRect getOverflowClipRect(int tx, int ty) { return QRect(0,0,0,0); }
     virtual QRect getClipRect(int tx, int ty) { return QRect(0,0,0,0); }
@@ -197,12 +195,15 @@ public:
     virtual bool isInlineBlockOrInlineTable() const { return false; }
     virtual bool childrenInline() const { return false; }
     virtual void setChildrenInline(bool b) { };
-    virtual RenderFlow* continuation() const { return 0; }
+
+    virtual RenderFlow* continuation() const;
+    virtual bool isInlineContinuation() const;
     
     virtual bool isListItem() const { return false; }
     virtual bool isListMarker() const { return false; }
     virtual bool isCanvas() const { return false; }
     bool isRoot() const;
+    bool isBody() const;
     virtual bool isBR() const { return false; }
     virtual bool isTableCell() const { return false; }
     virtual bool isTableRow() const { return false; }
@@ -210,7 +211,6 @@ public:
     virtual bool isTableCol() const { return false; }
     virtual bool isTable() const { return false; }
     virtual bool isWidget() const { return false; }
-    virtual bool isBody() const { return false; }
     virtual bool isFormElement() const { return false; }
     virtual bool isImage() const { return false; }
     virtual bool isTextArea() const { return false; }
@@ -238,6 +238,7 @@ public:
     bool recalcMinMax() const { return m_recalcMinMax; }
 
     RenderCanvas* canvas() const;
+
     // don't even think about making this method virtual!
     DOM::NodeImpl* element() const { return m_node; }
 
@@ -282,15 +283,15 @@ public:
 
     void scheduleRelayout(RenderObject* clippedObj = 0);
 
-    virtual InlineBox* createInlineBox(bool makePlaceHolderBox);
+    virtual InlineBox* createInlineBox(bool makePlaceHolderBox, bool isRootLineBox);
     
     // for discussion of lineHeight see CSS2 spec
-    virtual short lineHeight( bool firstLine ) const;
+    virtual short lineHeight( bool firstLine, bool isRootLineBox=false ) const;
     // for the vertical-align property of inline elements
     // the difference between this objects baseline position and the lines baseline position.
     virtual short verticalPositionHint( bool firstLine ) const;
     // the offset of baseline from the top of the object.
-    virtual short baselinePosition( bool firstLine ) const;
+    virtual short baselinePosition( bool firstLine, bool isRootLineBox=false ) const;
 
     /*
      * Paint the object and its children, clipped by (x|y|w|h).
@@ -598,6 +599,11 @@ public:
     const QFontMetrics &fontMetrics(bool firstLine) const {
 	return style( firstLine )->fontMetrics();
     }
+
+    // Virtual function helpers for CSS3 Flexible Box Layout
+    virtual bool isFlexibleBox() const { return false; }
+    virtual bool isFlexingChildren() const { return false; }
+    virtual bool isStretchingChildren() const { return false; }
 
     // Convenience, to avoid repeating the code to dig down to get this.
     QChar backslashAsCurrencySymbol() const;

@@ -1,5 +1,5 @@
 /*
- * Copyright 1998-2002 The OpenLDAP Foundation, All Rights Reserved.
+ * Copyright 1998-2003 The OpenLDAP Foundation, All Rights Reserved.
  * COPYING RESTRICTIONS APPLY, see COPYRIGHT file
  *
  * Copyright 2001, Pierangelo Masarati, All rights reserved. <ando@sys-net.it>
@@ -214,7 +214,7 @@ meta_clear_unused_candidates(
 		if ( i == candidate ) {
 			continue;
 		}
-		meta_clear_one_candidate( lc->conns[ i ], reallyclean );
+		meta_clear_one_candidate( &lc->conns[ i ], reallyclean );
 	}
 
 	return 0;

@@ -64,6 +64,7 @@
 #define _BSD_WCHAR_T_   _BSD_CT_RUNE_T_
 #define _BSD_WINT_T_    _BSD_CT_RUNE_T_
 #define _BSD_MBSTATE_T_ __mbstate_t             /* mbstate_t */
+#define _BSD_SOCKLEN_T_ int32_t                 /* socklen_t (duh) */
 
 /*
  * The rune type above is declared to be an ``int'' instead of the more natural

@@ -398,12 +398,17 @@ A large number or nil slows down menu responsiveness."
 	      :help "Paste (yank) text cut or copied earlier"))
 (define-key menu-bar-edit-menu [paste]
   '(menu-item "Paste" yank
-	      :enable (and (x-selection-exists-p) (not buffer-read-only))
+	      :enable (and
+		       ;; Emacs compiled --without-x doesn't have
+		       ;; x-selection-exists-p.
+		       (fboundp 'x-selection-exists-p)
+		       (x-selection-exists-p) (not buffer-read-only))
 	      :help "Paste (yank) text most recently cut/copied"))
 (define-key menu-bar-edit-menu [copy]
   '(menu-item "Copy" menu-bar-kill-ring-save
 	      :enable mark-active
-	      :help "Copy text in region between mark and current position"))
+	      :help "Copy text in region between mark and current position"
+	      :keys "\\[kill-ring-save]"))
 (define-key menu-bar-edit-menu [cut]
   '(menu-item "Cut" kill-region
 	      :enable (and mark-active (not buffer-read-only))
@@ -433,7 +438,8 @@ A large number or nil slows down menu responsiveness."
 (put 'clipboard-kill-region 'menu-enable 'mark-active)
 (put 'clipboard-kill-ring-save 'menu-enable 'mark-active)
 (put 'clipboard-yank 'menu-enable
-     '(or (x-selection-exists-p) (x-selection-exists-p 'CLIPBOARD)))
+     '(or (and (fboundp 'x-selection-exists-p) (x-selection-exists-p))
+	  (x-selection-exists-p 'CLIPBOARD)))
 
 (defun clipboard-yank ()
   "Insert the clipboard contents, or the last stretch of killed text."

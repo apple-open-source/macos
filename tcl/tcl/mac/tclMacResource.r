@@ -12,7 +12,7 @@
  * See the file "license.terms" for information on usage and redistribution
  * of this file, and for a DISCLAIMER OF ALL WARRANTIES.
  *
- * RCS: @(#) $Id: tclMacResource.r,v 1.1.1.4 2002/04/05 16:13:47 jevans Exp $
+ * RCS: @(#) $Id: tclMacResource.r,v 1.1.1.5 2003/03/06 00:12:24 landonf Exp $
  */
 
 #include <Types.r>
@@ -23,23 +23,8 @@
  * the version string for Tcl.
  */
 
-#define RESOURCE_INCLUDED
+#define RC_INVOKED
 #include "tcl.h"
-
-#if (TCL_RELEASE_LEVEL == 0)
-#   define RELEASE_LEVEL alpha
-#elif (TCL_RELEASE_LEVEL == 1)
-#   define RELEASE_LEVEL beta
-#elif (TCL_RELEASE_LEVEL == 2)
-#   define RELEASE_LEVEL final
-#endif
-
-#if (TCL_RELEASE_LEVEL == 2)
-#   define MINOR_VERSION (TCL_MINOR_VERSION * 16) + TCL_RELEASE_SERIAL
-#else
-#   define MINOR_VERSION TCL_MINOR_VERSION * 16
-#endif
-
 
 /* 
  * The mechanisim below loads Tcl source into the resource fork of the
@@ -53,5 +38,7 @@
  * will load the TEXT resource named "Init".
  */
 
+#ifndef TCLTK_NO_LIBRARY_TEXT_RESOURCES
 #include "tclMacTclCode.r"
+#endif
 

@@ -1,9 +1,11 @@
 /* common definitions for `patch' */
 
-/* $Id: common.h,v 1.1.1.2 2000/05/06 22:44:55 wsanchez Exp $ */
+/* $Id: common.h,v 1.1.1.3 2003/05/08 18:38:01 rbraun Exp $ */
 
-/* Copyright 1986, 1988 Larry Wall
-   Copyright 1990, 1991-1993, 1997-1998, 1999 Free Software Foundation, Inc.
+/* Copyright (C) 1986, 1988 Larry Wall
+
+   Copyright (C) 1990, 1991, 1992, 1993, 1997, 1998, 1999, 2002 Free
+   Software Foundation, Inc.
 
    This program is free software; you can redistribute it and/or modify
    it under the terms of the GNU General Public License as published by
@@ -22,14 +24,6 @@
 
 #ifndef DEBUGGING
 #define DEBUGGING 1
-#endif
-
-/* We must define `volatile' and `const' first (the latter inside config.h),
-   so that they're used consistently in all system includes.  */
-#ifndef __STDC__
-# ifndef volatile
-# define volatile
-# endif
 #endif
 
 #include <config.h>
@@ -72,6 +66,9 @@
 #endif
 #ifndef S_IRUSR
 #define S_IRUSR (S_IROTH << 6)
+#endif
+#ifdef MKDIR_TAKES_ONE_ARG
+# define mkdir(name, mode) ((mkdir) (name))
 #endif
 
 #if HAVE_LIMITS_H
@@ -156,7 +153,7 @@ typedef off_t LINENUM;			/* must be signed */
 
 /* globals */
 
-extern char const program_name[];
+XTERN char *program_name;	/* The name this program was run with. */
 
 XTERN char *buf;			/* general purpose buffer */
 XTERN size_t bufsize;			/* allocated size of buf */
@@ -213,25 +210,11 @@ XTERN enum diff diff_type;
 
 XTERN char *revision;			/* prerequisite revision, if any */
 
-#ifdef __STDC__
-# define GENERIC_OBJECT void
-#else
-# define GENERIC_OBJECT char
-#endif
-
 #if __GNUC__ < 2 || (__GNUC__ == 2 && __GNUC_MINOR__ < 6) || __STRICT_ANSI__
 # define __attribute__(x)
 #endif
 
-#ifndef PARAMS
-# ifdef __STDC__
-#  define PARAMS(args) args
-# else
-#  define PARAMS(args) ()
-# endif
-#endif
-
-void fatal_exit PARAMS ((int)) __attribute__ ((noreturn));
+void fatal_exit (int) __attribute__ ((noreturn));
 
 #include <errno.h>
 #if !STDC_HEADERS && !defined errno
@@ -244,7 +227,7 @@ extern int errno;
 # if !HAVE_MEMCHR
 #  define memcmp(s1, s2, n) bcmp (s1, s2, n)
 #  define memcpy(d, s, n) bcopy (s, d, n)
-GENERIC_OBJECT *memchr ();
+void *memchr ();
 # endif
 #endif
 
@@ -252,8 +235,8 @@ GENERIC_OBJECT *memchr ();
 # include <stdlib.h>
 #else
 char *getenv ();
-GENERIC_OBJECT *malloc ();
-GENERIC_OBJECT *realloc ();
+void *malloc ();
+void *realloc ();
 #endif
 
 #if HAVE_UNISTD_H
@@ -284,6 +267,13 @@ GENERIC_OBJECT *realloc ();
 # define file_seek fseek
 # define file_tell ftell
 #endif
+#if ! (HAVE_GETEUID || defined geteuid)
+# if ! (HAVE_GETUID || defined getuid)
+#  define geteuid() (-1)
+# else
+#  define geteuid() getuid ()
+# endif
+#endif
 
 #if HAVE_FCNTL_H
 # include <fcntl.h>
@@ -313,7 +303,7 @@ GENERIC_OBJECT *realloc ();
 #define O_TRUNC 0
 #endif
 
-#if HAVE_SETMODE
+#if HAVE_SETMODE_DOS
   XTERN int binary_transput;	/* O_BINARY if binary i/o is desired */
 #else
 # define binary_transput 0
@@ -326,3 +316,6 @@ GENERIC_OBJECT *realloc ();
 #ifndef TTY_DEVICE
 #define TTY_DEVICE "/dev/tty"
 #endif
+
+/* The official name of this program (e.g., no `g' prefix).  */
+#define PROGRAM_NAME "patch"

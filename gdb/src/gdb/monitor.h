@@ -116,6 +116,9 @@ struct monitor_ops
     struct target_ops *target;	/* target operations */
     int stopbits;		/* number of stop bits */
     char **regnames;		/* array of register names in ascii */
+                                /* deprecated: use regname instead */
+    const char *(*regname) (int index); 
+                                /* function for dynamic regname array */
     int num_breakpoints;	/* If set_break != NULL, number of supported
 				   breakpoints */
     int magic;			/* Check value */
@@ -242,9 +245,7 @@ extern char *monitor_supply_register (int regno, char *valstr);
 extern int monitor_expect (char *prompt, char *buf, int buflen);
 extern int monitor_expect_prompt (char *buf, int buflen);
 extern void monitor_printf (char *, ...) ATTR_FORMAT (printf, 1, 2);
-extern void
-monitor_printf_noecho (char *, ...)
-ATTR_FORMAT (printf, 1, 2);
+extern void monitor_printf_noecho (char *, ...) ATTR_FORMAT (printf, 1, 2);
 extern void monitor_write (char *buf, int buflen);
 extern int monitor_readchar (void);
 extern char *monitor_get_dev_name (void);

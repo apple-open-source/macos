@@ -1,4 +1,4 @@
-/* $Header: /cvs/Darwin/src/live/tcsh/tcsh/config_f.h,v 1.1.1.2 2001/06/28 23:10:46 bbraun Exp $ */
+/* $Header: /cvs/root/tcsh/tcsh/config_f.h,v 1.2 2003/01/17 05:53:53 nicolai Exp $ */
 /*
  * config_f.h -- configure various defines for tcsh
  *
@@ -19,11 +19,7 @@
  * 2. Redistributions in binary form must reproduce the above copyright
  *    notice, this list of conditions and the following disclaimer in the
  *    documentation and/or other materials provided with the distribution.
- * 3. All advertising materials mentioning features or use of this software
- *    must display the following acknowledgement:
- *	This product includes software developed by the University of
- *	California, Berkeley and its contributors.
- * 4. Neither the name of the University nor the names of its contributors
+ * 3. Neither the name of the University nor the names of its contributors
  *    may be used to endorse or promote products derived from this software
  *    without specific prior written permission.
  *
@@ -65,7 +61,7 @@
  *		if you don't have <nl_types.h>, you don't want
  *		to define this.
  */
-#undef NLS_CATALOGS
+#define NLS_CATALOGS
 
 /*
  * LOGINFIRST   Source ~/.login before ~/.cshrc
@@ -117,14 +113,14 @@
  *		be used with SHORT_STRINGS
  *
  */
-#undef KANJI
+#define KANJI
 
 /*
  * DSPMBYTE	add variable "dspmbyte" and display multi-byte string at
  *		only output, when "dspmbyte" is set. Should be used with
  *		KANJI
  */
-#undef DSPMBYTE
+#define DSPMBYTE
 
 /*
  * MBYTEDEBUG	when "dspmbyte" is changed, set multi-byte checktable to
@@ -154,7 +150,7 @@
  *		POSIX says to use stat, but stat(2) is less accurate
  *		than access(2) for determining file access.
  */
-#undef USE_ACCESS
+#define USE_ACCESS
 
 /*
  * REMOTEHOST	Try to determine the remote host that we logged in from
@@ -175,6 +171,11 @@
  *
  */
 #undef COLORCAT
+
+/*
+ * FILEC    support for old style file completion
+ */
+#define FILEC
 
 /*
  * RCSID	This defines if we want rcs strings in the binary or not

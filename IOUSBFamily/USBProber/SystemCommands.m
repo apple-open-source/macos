@@ -83,7 +83,6 @@ AuthorizationRef myAuthorizationRef;
     else {
         NSTask *kextstat=[[NSTask alloc] init];
         NSPipe *pipe=[[NSPipe alloc] init];
-        NSFileHandle *handle;
         NSData *resultData;
         NSString *resultString;
         

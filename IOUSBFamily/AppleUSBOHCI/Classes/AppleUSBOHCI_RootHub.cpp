@@ -1,5 +1,4 @@
 /*
- * Copyright (c) 1998-2002 Apple Computer, Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -22,6 +21,7 @@
  * 
  * @APPLE_LICENSE_HEADER_END@
  */
+
 extern "C" {
 #include <kern/clock.h>
 }
@@ -358,6 +358,7 @@ IOReturn AppleUSBOHCI::GetRootHubPortState(UInt8 */*state*/, UInt16 /*port*/)
 
 IOReturn AppleUSBOHCI::SetHubAddress(UInt16 wValue)
 {
+    USBLog(3,"%s: Setting RootHub Address to %d", getName(), wValue);
     _rootHubFuncAddress = wValue;
     return (kIOReturnSuccess);
 }
@@ -374,7 +375,7 @@ void AppleUSBOHCI::OHCIRootHubPower(bool on)
     {
 	_pOHCIRegisters->hcRhStatus |= HostToUSBLong(kOHCIHcRhStatus_LPS); // turn off global power
     }
-
+    IOSync();
     return;
 }
 
@@ -872,4 +873,3 @@ AppleUSBOHCI::GetRootHubStringDescriptor(UInt8	index, OSData *desc)
 }
 
 
-    

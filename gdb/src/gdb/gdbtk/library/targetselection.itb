@@ -19,14 +19,14 @@
 # ------------------------------------------------------------------
 #  CONSTRUCTOR - create new target selection window
 # ------------------------------------------------------------------
-body TargetSelection::constructor {args} {
+itcl::body TargetSelection::constructor {args} {
   eval itk_initialize $args
   set top [winfo toplevel $itk_interior]
   _init
   build_win
 }
 
-body TargetSelection::getname {target name} {
+itcl::body TargetSelection::getname {target name} {
 
   # Init target database if we haven't already done so
   init_target_db
@@ -38,7 +38,7 @@ body TargetSelection::getname {target name} {
   }
 }
 
-body TargetSelection::init_target_db {} {
+itcl::body TargetSelection::init_target_db {} {
   # check to see if we already initialized this database
   if {$db_inited} { 
     return 
@@ -261,9 +261,24 @@ body TargetSelection::init_target_db {} {
   set gdb_target(vxworks,cmd) "vxworks ethX"
   set gdb_target(vxworks,runlist) { 1 0 1 1}
   set gdb_target(vxworks,after_attaching) { sym vxWorks.st }
+
+  # GDBServer, libremote, rda, etc
+  set gdb_target(gdbserver,pretty-name) "GDBserver"
+  set gdb_target(gdbserver,pretty-name) "GDBserver/Serial"
+  set gdb_target(gdbserver,defbaud) "9600"
+  set gdb_target(gdbserver,baud-rates) {9600 19200 38400 57600 115200}
+  set gdb_target(gdbserver,cmd) "remote com1"
+  set gdb_target(gdbserver,runlist) {1 0 0 1}
+  set gdb_target(gdbserver,after_attaching) {}
+  set gdb_target(gdbservertcp,pretty-name) "GDBserver/TCP"
+  set gdb_target(gdbservertcp,defbaud) "TCP"
+  set gdb_target(gdbservertcp,baud-rates) {}
+  set gdb_target(gdbservertcp,cmd) "remote tcpX"
+  set gdb_target(gdbservertcp,runlist) {1 0 0 1}
+  set gdb_target(gdbservertcp,after_attaching) {}
 }
 
-body TargetSelection::default_port {} {
+itcl::body TargetSelection::default_port {} {
   global tcl_platform
   switch -regexp $tcl_platform(os) {
     Windows { set port com1 }
@@ -289,7 +304,7 @@ body TargetSelection::default_port {} {
 }
 
 
-body TargetSelection::_init_prefs {} {
+itcl::body TargetSelection::_init_prefs {} {
 
   if {$prefs_inited} {
     return
@@ -310,7 +325,7 @@ body TargetSelection::_init_prefs {} {
   pref define gdb/load/default-after_attaching {}
 }
 
-body TargetSelection::_init_target {} {
+itcl::body TargetSelection::_init_target {} {
   global gdb_target_name
   set target_list [get_target_list]
   set target $gdb_target_name
@@ -347,7 +362,7 @@ body TargetSelection::_init_target {} {
   }
 }
 
-body TargetSelection::_init {} {
+itcl::body TargetSelection::_init {} {
 
   if {!$trace_inited} {
     # Trace all gdb_loaded changes based on target
@@ -370,7 +385,7 @@ body TargetSelection::_init {} {
 # ------------------------------------------------------------------
 #  METHOD:  build_win - build the dialog
 # ------------------------------------------------------------------
-body TargetSelection::build_win {} {
+itcl::body TargetSelection::build_win {} {
   global tcl_platform PREFS_state gdb_ImageDir gdb_target_name
 
   set f [frame $itk_interior.f]
@@ -599,7 +614,7 @@ body TargetSelection::build_win {} {
 # ------------------------------------------------------------------
 #  METHOD:  set_saved - set saved values
 # ------------------------------------------------------------------
-body TargetSelection::set_saved {} {
+itcl::body TargetSelection::set_saved {} {
   set saved_baud [pref get gdb/load/$target-baud]
   set saved_port [pref get gdb/load/$target-port]
   set saved_main [pref get gdb/load/main]
@@ -622,7 +637,7 @@ body TargetSelection::set_saved {} {
 # ------------------------------------------------------------------
 #  METHOD:  write_saved - write saved values to preferences
 # ------------------------------------------------------------------
-body TargetSelection::write_saved {} {
+itcl::body TargetSelection::write_saved {} {
   pref setd gdb/load/$target-baud $saved_baud
   pref setd gdb/load/$target-port $saved_port
   pref setd gdb/load/main $saved_main
@@ -644,7 +659,7 @@ body TargetSelection::write_saved {} {
 # ------------------------------------------------------------------
 #  METHOD:  fill_rates - fill baud rate combobox
 # ------------------------------------------------------------------
-body TargetSelection::fill_rates {} {
+itcl::body TargetSelection::fill_rates {} {
   $fr.cb list delete 0 end
 
   if {$gdb_target($target,baud-rates) != ""} {
@@ -657,7 +672,7 @@ body TargetSelection::fill_rates {} {
 # ------------------------------------------------------------------
 #  METHOD:  fill_targets - fill target combobox
 # ------------------------------------------------------------------
-body TargetSelection::fill_targets {} {
+itcl::body TargetSelection::fill_targets {} {
   #[$fr.tar subwidget listbox] delete 0 end
   $fr.tar list delete 0 end
 
@@ -677,7 +692,7 @@ body TargetSelection::fill_targets {} {
 #  METHOD:  config_dialog - Convenience method to map/unmap/rename
 #            components onto the screen based on target T.
 # ------------------------------------------------------------------
-body TargetSelection::config_dialog {t} {
+itcl::body TargetSelection::config_dialog {t} {
   pref define gdb/load/$t-verbose [pref get gdb/load/verbose]
   $f.fr.verb config -variable [pref varname gdb/load/$t-verbose]
   # Map the correct entries and comboboxes onto the screen
@@ -773,7 +788,7 @@ body TargetSelection::config_dialog {t} {
 # ------------------------------------------------------------------
 #  METHOD:  change_target - callback for target combobox
 # ------------------------------------------------------------------
-body TargetSelection::change_target {w {name ""}} {
+itcl::body TargetSelection::change_target {w {name ""}} {
   if {$name == ""} {return}
   set target [get_target $name]
 
@@ -830,7 +845,7 @@ body TargetSelection::change_target {w {name ""}} {
 #  PRIVATE METHOD:  change_baud - called when the baud rate is changed.
 #  If GDB is running, set baud rate in GDB and read it back.
 # ------------------------------------------------------------------
-body TargetSelection::change_baud {w {baud ""}} {
+itcl::body TargetSelection::change_baud {w {baud ""}} {
   if {$baud != ""} {
     if {([string compare $baud "TCP"] != 0)
         && ([string compare $baud "ETH"] != 0)} {
@@ -855,7 +870,7 @@ body TargetSelection::change_baud {w {baud ""}} {
 # ------------------------------------------------------------------
 #  METHOD:  port_list - return a list of valid ports for Windows
 # ------------------------------------------------------------------
-body TargetSelection::port_list {} {
+itcl::body TargetSelection::port_list {} {
   set plist ""
   # Scan com1 - com8 trying to open each one.
   # If permission is denied that means it is in use,
@@ -882,7 +897,7 @@ body TargetSelection::port_list {} {
 #  METHOD:  get_target_list - return a list of targets supported
 #  by this GDB.  Parses the output of "help target"
 # ------------------------------------------------------------------
-body TargetSelection::get_target_list {} {
+itcl::body TargetSelection::get_target_list {} {
   set native [native_debugging]
   set names ""
   set res [gdb_cmd "help target"]
@@ -897,13 +912,14 @@ body TargetSelection::get_target_list {} {
       lappend names $name
     }
   }
+  lappend names gdbserver
   return $names
 }
 
 # ------------------------------------------------------------------
 #  METHOD:  save - save values
 # ------------------------------------------------------------------
-body TargetSelection::save {} {
+itcl::body TargetSelection::save {} {
   global gdb_target_name
   set err [catch {
     set_saved
@@ -925,7 +941,7 @@ body TargetSelection::save {} {
 # ------------------------------------------------------------------
 #  METHOD:  cancel - restore previous values
 # ------------------------------------------------------------------
-body TargetSelection::cancel {} {
+itcl::body TargetSelection::cancel {} {
   global gdb_target_name
   catch {gdb_cmd "set remotebaud $saved_baud"}
 
@@ -942,7 +958,7 @@ body TargetSelection::cancel {} {
 # ------------------------------------------------------------------
 #  METHOD: set_check_button - enable/disable compare-section command 
 # ------------------------------------------------------------------
-body TargetSelection::set_check_button {name} {
+itcl::body TargetSelection::set_check_button {name} {
   if {[winfo exists  $itk_interior.f.fr.check]} {
     if { $name == "exec" } {
       $itk_interior.f.fr.check configure -state disabled
@@ -955,13 +971,13 @@ body TargetSelection::set_check_button {name} {
 # ------------------------------------------------------------------
 #  METHOD:  help - launches context sensitive help.
 # ------------------------------------------------------------------
-body TargetSelection::help {} {
+itcl::body TargetSelection::help {} {
 }
 
 # ------------------------------------------------------------------
 #  METHOD:  reconfig - used when preferences change
 # ------------------------------------------------------------------
-body TargetSelection::reconfig {} {
+itcl::body TargetSelection::reconfig {} {
   # for now, just delete and recreate
   destroy $itk_interior.f
   build_win
@@ -971,7 +987,7 @@ body TargetSelection::reconfig {} {
 #  METHOD:  get_target - get the internal name of a target from the
 #              pretty-name
 # ------------------------------------------------------------------
-body TargetSelection::get_target {name} {
+itcl::body TargetSelection::get_target {name} {
   set t {}
   set list [array get gdb_target *,pretty-name]
   set i [lsearch -exact $list $name]
@@ -988,7 +1004,7 @@ body TargetSelection::get_target {name} {
 #  METHOD: toggle_more_options -- toggle displaying the  More/Fewer
 #                Options pane
 # ------------------------------------------------------------------
-body TargetSelection::toggle_more_options {} {
+itcl::body TargetSelection::toggle_more_options {} {
   if {[$MoreLabel cget -text] == "More Options"} {
     $MoreLabel configure -text "Fewer Options"
     $MoreButton configure -image _LESS_
@@ -1007,7 +1023,7 @@ body TargetSelection::toggle_more_options {} {
 #  METHOD:  set_run - set the run button. Make sure not both run and
 #                     continue are selected.
 # ------------------------------------------------------------------
-body TargetSelection::set_run {check_which} {
+itcl::body TargetSelection::set_run {check_which} {
   global PREFS_state
   set var [pref varname gdb/src/run_$check_which]
   global $var
@@ -1022,7 +1038,7 @@ body TargetSelection::set_run {check_which} {
 #          and possible more) whenever the value of gdb_loaded
 #          is changed based on the current target.
 # ------------------------------------------------------------------
-body TargetSelection::target_trace {variable index op} {
+itcl::body TargetSelection::target_trace {variable index op} {
   global gdb_target_name gdb_loaded
 
   switch $gdb_target_name {
@@ -1035,7 +1051,11 @@ body TargetSelection::target_trace {variable index op} {
 }
 
 # Returns 1 if TARGET is a _runnable_ target for this gdb.
-body TargetSelection::valid_target {target} {
+itcl::body TargetSelection::valid_target {target} {
+
+  # always allow gdbserver
+  if {$target == "gdbserver"} {return 1}
+
   set err [catch {gdb_cmd "help target $target"}]
   if {$target == "exec" && ![native_debugging]} {
     set err 1
@@ -1051,7 +1071,7 @@ body TargetSelection::valid_target {target} {
 }
 
 # Returns 1 if this is not a cross debugger.
-body TargetSelection::native_debugging {} {
+itcl::body TargetSelection::native_debugging {} {
   global GDBStartup
 
   set r [string compare $GDBStartup(host_name) $GDBStartup(target_name)]

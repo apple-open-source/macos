@@ -1,5 +1,3 @@
-/*	$NetBSD: wc.c,v 1.13 1997/10/20 02:40:26 mrg Exp $	*/
-
 /*
  * Copyright (c) 1980, 1987, 1991, 1993
  *	The Regents of the University of California.  All rights reserved.
@@ -34,59 +32,37 @@
  */
 
 #include <sys/cdefs.h>
-#ifndef lint
-__COPYRIGHT("@(#) Copyright (c) 1980, 1987, 1991, 1993\n\
-	The Regents of the University of California.  All rights reserved.\n");
-#endif /* not lint */
-
-#ifndef lint
-#if 0
-static char sccsid[] = "@(#)wc.c	8.2 (Berkeley) 5/2/95";
-#else
-__RCSID("$NetBSD: wc.c,v 1.13 1997/10/20 02:40:26 mrg Exp $");
-#endif
-#endif /* not lint */
-
-/* wc line, word and char count */
-
 #include <sys/param.h>
 #include <sys/stat.h>
 
-#include <fcntl.h>
-#include <unistd.h>
+#include <ctype.h>
+#include <err.h>
 #include <errno.h>
+#include <fcntl.h>
+#include <locale.h>
+#include <stdint.h>
 #include <stdio.h>
-
 #include <stdlib.h>
 #include <string.h>
-#include <locale.h>
-#include <ctype.h>
-#include <errno.h>
-#include <sys/param.h>
-#include <sys/stat.h>
-#include <sys/file.h>
 #include <unistd.h>
-#include <err.h>
+#include <wctype.h>
 
-static unsigned long	tlinect, twordct, tcharct;
-static int		doline, doword, dochar;
-static int 		rval = 0;
+uintmax_t tlinect, twordct, tcharct;
+int doline, doword, dochar, domulti;
 
-static void	cnt __P((char *));
-static void	print_counts __P((long, long, long, char *));
-static void	usage __P((void));
-int	main __P((int, char *[]));
+static int	cnt(const char *);
+static void	usage(void);
 
 int
 main(argc, argv)
 	int argc;
 	char *argv[];
 {
-	int ch;
+	int ch, errors, total;
 
-	setlocale(LC_ALL, "");
+	(void) setlocale(LC_CTYPE, "");
 
-	while ((ch = getopt(argc, argv, "lwcm")) != -1)
+	while ((ch = getopt(argc, argv, "clmw")) != -1)
 		switch((char)ch) {
 		case 'l':
 			doline = 1;
@@ -95,8 +71,12 @@ main(argc, argv)
 			doword = 1;
 			break;
 		case 'c':
-		case 'm':
 			dochar = 1;
+			domulti = 0;
+			break;
+		case 'm':
+			domulti = 1;
+			dochar = 0;
 			break;
 		case '?':
 		default:
@@ -106,164 +86,168 @@ main(argc, argv)
 	argc -= optind;
 
 	/* Wc's flags are on by default. */
-	if (doline + doword + dochar == 0)
+	if (doline + doword + dochar + domulti == 0)
 		doline = doword = dochar = 1;
 
+	errors = 0;
+	total = 0;
 	if (!*argv) {
-		cnt(NULL);
-	} else {
-		int dototal = (argc > 1);
-
-		do {
-			cnt(*argv);
-		} while(*++argv);
-
-		if (dototal) {
-			print_counts(tlinect, twordct, tcharct, "total"); 
-		}
+		if (cnt((char *)NULL) != 0)
+			++errors;
+		else
+			(void)printf("\n");
 	}
+	else do {
+		if (cnt(*argv) != 0)
+			++errors;
+		else
+			(void)printf(" %s\n", *argv);
+		++total;
+	} while(*++argv);
 
-	exit(rval);
+	if (total > 1) {
+		if (doline)
+			(void)printf(" %7ju", tlinect);
+		if (doword)
+			(void)printf(" %7ju", twordct);
+		if (dochar || domulti)
+			(void)printf(" %7ju", tcharct);
+		(void)printf(" total\n");
+	}
+	exit(errors == 0 ? 0 : 1);
 }
 
-static void
+static int
 cnt(file)
-	char *file;
+	const char *file;
 {
-	u_char *C;
-	short gotsp;
-	int len;
-	u_long linect, wordct, charct;
 	struct stat sb;
-	int fd;
+	uintmax_t linect, wordct, charct;
+	ssize_t nread;
+	int clen, fd, len, warned;
+	short gotsp;
+	u_char *p;
 	u_char buf[MAXBSIZE];
+	wchar_t wch;
 
 	linect = wordct = charct = 0;
-	if (file) {
-		if ((fd = open(file, O_RDONLY, 0)) < 0) {
-			warn("%s", file);
-			rval = 1;
-			return;
-		}
-	} else  {
+	if (file == NULL) {
+		file = "stdin";
 		fd = STDIN_FILENO;
-	}
-	
-	if (!doword) {
+	} else {
+		if ((fd = open(file, O_RDONLY, 0)) < 0) {
+			warn("%s: open", file);
+			return (1);
+		}
+		if (doword || (domulti && MB_CUR_MAX != 1))
+			goto word;
 		/*
-		 * line counting is split out because it's a lot
-		 * faster to get lines than to get words, since
-		 * the word count requires some logic.
+		 * Line counting is split out because it's a lot faster to get
+		 * lines than to get words, since the word count requires some
+		 * logic.
 		 */
 		if (doline) {
-			while ((len = read(fd, buf, MAXBSIZE)) > 0) {
+			while ((len = read(fd, buf, MAXBSIZE))) {
+				if (len == -1) {
+					warn("%s: read", file);
+					(void)close(fd);
+					return (1);
+				}
 				charct += len;
-				for (C = buf; len--; ++C)
-					if (*C == '\n')
+				for (p = buf; len--; ++p)
+					if (*p == '\n')
 						++linect;
 			}
-			if (len == -1) {
-				warn ("%s", file);
-				rval = 1;
+			tlinect += linect;
+			(void)printf(" %7ju", linect);
+			if (dochar) {
+				tcharct += charct;
+				(void)printf(" %7ju", charct);
 			}
+			(void)close(fd);
+			return (0);
 		}
-
 		/*
-		 * if all we need is the number of characters and
-		 * it's a directory or a regular or linked file, just
-		 * stat the puppy.  We avoid testing for it not being
-		 * a special device in case someone adds a new type
-		 * of inode.
+		 * If all we need is the number of characters and it's a
+		 * regular file, just stat the puppy.
 		 */
-		else if (dochar) {
+		if (dochar || domulti) {
 			if (fstat(fd, &sb)) {
-				warn("%s", file);
-				rval = 1;
-			} else {
-				if (S_ISREG(sb.st_mode) ||
-				    S_ISLNK(sb.st_mode) ||
-				    S_ISDIR(sb.st_mode)) {
-					charct = sb.st_size;
-				} else {
-					while ((len = read(fd, buf, MAXBSIZE)) > 0)
-						charct += len;
-					if (len == -1) {
-						warn ("%s", file);
-						rval = 1;
-					}
-				}
+				warn("%s: fstat", file);
+				(void)close(fd);
+				return (1);
+			}
+			if (S_ISREG(sb.st_mode)) {
+				(void)printf(" %7lld", (long long)sb.st_size);
+				tcharct += sb.st_size;
+				(void)close(fd);
+				return (0);
 			}
 		}
 	}
-	else
-	{
-		/* do it the hard way... */
-		gotsp = 1;
-		while ((len = read(fd, buf, MAXBSIZE)) > 0) {
-			charct += len;
-			for (C = buf; len--; ++C) {
-				if (isspace(*C)) {
-					gotsp = 1;
-					if (*C == '\n') {
-						++linect;
+
+	/* Do it the hard way... */
+word:	gotsp = 1;
+	len = 0;
+	warned = 0;
+	while ((nread = read(fd, buf + len, MAXBSIZE - len)) != 0) {
+		if (nread == -1) {
+			warn("%s: read", file);
+			(void)close(fd);
+			return (1);
+		}
+		len += nread;
+		p = buf;
+		while (len > 0) {
+			if (!domulti || MB_CUR_MAX == 1) {
+				clen = 1;
+				wch = (unsigned char)*p;
+			} else if ((clen = mbtowc(&wch, p, len)) <= 0) {
+				if (len > MB_CUR_MAX) {
+					clen = 1;
+					wch = (unsigned char)*p;
+					if (!warned) {
+						errno = EILSEQ;
+						warn("%s", file);
+						warned = 1;
 					}
 				} else {
-					/*
-					 * This line implements the POSIX
-					 * spec, i.e. a word is a "maximal
-					 * string of characters delimited by
-					 * whitespace."  Notice nothing was
-					 * said about a character being
-					 * printing or non-printing.
-					 */
-					if (gotsp) {
-						gotsp = 0;
-						++wordct;
-					}
+					memmove(buf, p, len);
+					break;
 				}
 			}
-		}
-		if (len == -1) {
-			warn("%s", file);
-			rval = 1;
+			charct++;
+			len -= clen;
+			p += clen;
+			if (wch == L'\n')
+				++linect;
+			if (iswspace(wch))
+				gotsp = 1;
+			else if (gotsp) {
+				gotsp = 0;
+				++wordct;
+			}
 		}
 	}
-
-	print_counts(linect, wordct, charct, file ? file : "");
-
-	/* don't bother checkint doline, doword, or dochar --- speeds
-           up the common case */
-	tlinect += linect;
-	twordct += wordct;
-	tcharct += charct;
-
-	if (close(fd)) {
-		warn ("%s", file);
-		rval = 1;
+	if (doline) {
+		tlinect += linect;
+		(void)printf(" %7ju", linect);
 	}
-}
-
-static void
-print_counts(lines, words, chars, name)
-	long lines;
-	long words;
-	long chars;
-	char *name;
-{
-
-	if (doline)
-		printf(" %7ld", lines);
-	if (doword)
-		printf(" %7ld", words);
-	if (dochar)
-		printf(" %7ld", chars);
-
-	printf(" %s\n", name);
+	if (doword) {
+		twordct += wordct;
+		(void)printf(" %7ju", wordct);
+	}
+	if (dochar || domulti) {
+		tcharct += charct;
+		(void)printf(" %7ju", charct);
+	}
+	(void)close(fd);
+	return (0);
 }
 
 static void
 usage()
 {
-	(void)fprintf(stderr, "usage: wc [-clw] [files]\n");
+	(void)fprintf(stderr, "usage: wc [-clmw] [file ...]\n");
 	exit(1);
 }

@@ -49,8 +49,8 @@ char nulstring[] = {Nularg, '\0'};
 mod_export void
 prefork(LinkList list, int flags)
 {
-    LinkNode node;
-    int asssub = (flags & PF_TYPESET) && isset(KSHTYPESET);
+    LinkNode node, stop = 0;
+    int keep = 0, asssub = (flags & PF_TYPESET) && isset(KSHTYPESET);
 
     queue_signals();
     for (node = firstnode(list); node; incnode(node)) {
@@ -78,15 +78,22 @@ prefork(LinkList list, int flags)
 	}
     }
     for (node = firstnode(list); node; incnode(node)) {
+	if (node == stop)
+	    keep = 0;
 	if (*(char *)getdata(node)) {
 	    remnulargs(getdata(node));
-	    if (unset(IGNOREBRACES) && !(flags & PF_SINGLE))
-		while (hasbraces(getdata(node)))
+	    if (unset(IGNOREBRACES) && !(flags & PF_SINGLE)) {
+		if (!keep)
+		    stop = nextnode(node);
+		while (hasbraces(getdata(node))) {
+		    keep = 1;
 		    xpandbraces(list, &node);
+		}
+	    }
 	    if (unset(SHFILEEXPANSION))
 		filesub((char **)getaddrdata(node),
 			flags & (PF_TYPESET|PF_ASSIGN));
-	} else if (!(flags & PF_SINGLE))
+	} else if (!(flags & PF_SINGLE) && !keep)
 	    uremnode(list, node);
 	if (errflag) {
 	    unqueue_signals();
@@ -190,7 +197,7 @@ stringsubst(LinkList list, LinkNode node, int ssub, int asssub)
 		continue;
 	    }
 	    if (!qt && ssub && isset(GLOBSUBST))
-		tokenize(s);
+		shtokenize(s);
 	    l1 = str2 - str3;
 	    l2 = strlen(s);
 	    if (nonempty(pl)) {
@@ -245,11 +252,13 @@ globlist(LinkList list, int nountok)
 mod_export void
 singsub(char **s)
 {
+    int omi = mult_isarr;
     local_list1(foo);
 
     init_list1(foo, *s);
 
     prefork(&foo, PF_SINGLE);
+    mult_isarr = omi;
     if (errflag)
 	return;
     *s = (char *) ugetnode(&foo);
@@ -414,15 +423,9 @@ filesubstr(char **namptr, int assign)
 	sav = *pp;
 	*pp = 0;
 	if (!(cnam = findcmd(str + 1, 1))) {
-	    Alias a = (Alias) aliastab->getnode(aliastab, str + 1);
-	    
-	    if (a)
-		cnam = a->text;
-	    else {
-		if (isset(NOMATCH))
-		    zerr("%s not found", str + 1, 0);
-		return 0;
-	    }
+	    if (isset(NOMATCH))
+		zerr("%s not found", str + 1, 0);
+	    return 0;
 	}
 	*namptr = dupstring(cnam);
 	if (sav) {
@@ -447,14 +450,14 @@ strcatsub(char **d, char *pb, char *pe, char *src, int l, char *s, int glbsub,
     if (!pl && (!s || !*s)) {
 	*d = dest = (copied ? src : dupstring(src));
 	if (glbsub)
-	    tokenize(dest);
+	    shtokenize(dest);
     } else {
 	*d = dest = hcalloc(pl + l + (s ? strlen(s) : 0) + 1);
 	strncpy(dest, pb, pl);
 	dest += pl;
 	strcpy(dest, src);
 	if (glbsub)
-	    tokenize(dest);
+	    shtokenize(dest);
 	dest += l;
 	if (s)
 	    strcpy(dest, s);
@@ -534,6 +537,72 @@ invcstrpcmp(const void *a, const void *b)
 
     return (int)STOUC(tulower(*d)) - (int)STOUC(tulower(*c));
 #endif
+}
+
+/**/
+int
+nstrpcmp(const void *a, const void *b)
+{
+    char *c = *(char **)a, *d = *(char **)b;
+    int cmp;
+
+#ifdef HAVE_STRCOLL
+    cmp = strcoll(c, d);
+#endif
+    for (; *c == *d && *c; c++, d++);
+#ifndef HAVE_STRCOLL
+    cmp = (int)STOUC(*c) - (int)STOUC(*d);
+#endif
+    if (idigit(*c) || idigit(*d)) {
+	for (; c > *(char **)a && idigit(c[-1]); c--, d--);
+	if (idigit(*c) && idigit(*d)) {
+	    while (*c == '0')
+		c++;
+	    while (*d == '0')
+		d++;
+	    for (; idigit(*c) && *c == *d; c++, d++);
+	    if (idigit(*c) || idigit(*d)) {
+		cmp = (int)STOUC(*c) - (int)STOUC(*d);
+		while (idigit(*c) && idigit(*d))
+		    c++, d++;
+		if (idigit(*c) && !idigit(*d))
+		    return 1;
+		if (idigit(*d) && !idigit(*c))
+		    return -1;
+	    }
+	}
+    }
+    return cmp;
+}
+
+/**/
+int
+invnstrpcmp(const void *a, const void *b)
+{
+    return -nstrpcmp(a, b);
+}
+
+/**/
+int
+instrpcmp(const void *a, const void *b)
+{
+    VARARR(char, c, strlen(*(char **) a) + 1);
+    VARARR(char, d, strlen(*(char **) b) + 1);
+    char **e = (char **)&c;
+    char **f = (char **)&d;
+    char *s, *t;
+
+    for (s = *(char **) a, t = c; (*t++ = tulower(*s++)););
+    for (s = *(char **) b, t = d; (*t++ = tulower(*s++)););
+
+    return nstrpcmp(&e, &f);
+}
+
+/**/
+int
+invinstrpcmp(const void *a, const void *b)
+{
+    return -instrpcmp(a, b);
 }
 
 /**/
@@ -770,7 +839,8 @@ paramsubst(LinkList l, LinkNode n, char **str, int qt, int ssub)
     Value v = NULL;
     int flags = 0;
     int flnum = 0;
-    int sortit = 0, casind = 0;
+    int sortit = 0, casind = 0, numord = 0, indord = 0;
+    int unique = 0;
     int casmod = 0;
     int quotemod = 0, quotetype = 0, quoteerr = 0;
     int visiblemod = 0;
@@ -876,6 +946,12 @@ paramsubst(LinkList l, LinkNode n, char **str, int qt, int ssub)
 		    break;
 		case 'i':
 		    casind = 1;
+		    break;
+		case 'n':
+		    numord = 1;
+		    break;
+		case 'a':
+		    indord = 1;
 		    break;
 
 		case 'V':
@@ -1000,6 +1076,10 @@ paramsubst(LinkList l, LinkNode n, char **str, int qt, int ssub)
 		    shsplit = 1;
 		    break;
 
+		case 'u':
+		    unique = 1;
+		    break;
+
 		default:
 		  flagerr:
 		    zerr("error in flags", NULL, 0);
@@ -1010,7 +1090,7 @@ paramsubst(LinkList l, LinkNode n, char **str, int qt, int ssub)
 	}
     }
     if (sortit)
-	sortit += (casind << 1);
+	sortit += (casind << 1) + (numord << 2);
 
     if (!premul)
 	premul = " ";
@@ -1340,7 +1420,7 @@ paramsubst(LinkList l, LinkNode n, char **str, int qt, int ssub)
 	    if ((c = *s) == '/') {
 		/* doubled, so replace all occurrences */
 		flags |= SUB_GLOBAL;
-		s++;
+		c = *++s;
 	    }
 	    /* Check for anchored substitution */
 	    if (c == '%') {
@@ -1357,15 +1437,20 @@ paramsubst(LinkList l, LinkNode n, char **str, int qt, int ssub)
 	     * If there isn't one, we're just going to delete that,
 	     * i.e. replace it with an empty string.
 	     *
-	     * This allows quotation of the slash with '\\/'. Why
-	     * two?  Well, for a non-quoted string we can check for
-	     * Bnull+/, which is what you get from `\/', but inside
-	     * double quotes the Bnull isn't there, so it's not
-	     * consistent.
+	     * We used to use double backslashes to quote slashes,
+	     * but actually that was buggy and using a single backslash
+	     * is easier and more obvious.
 	     */
 	    for (ptr = s; (c = *ptr) && c != '/'; ptr++)
-		if (c == '\\' && ptr[1] == '/')
-		    chuck(ptr);
+	    {
+		if ((c == Bnull || c == '\\') && ptr[1])
+		{
+		    if (ptr[1] == '/')
+			chuck(ptr);
+		    else
+			ptr++;
+		}
+	    }
 	    replstr = (*ptr && ptr[1]) ? ptr+1 : "";
 	    *ptr = '\0';
 	}
@@ -1515,7 +1600,7 @@ paramsubst(LinkList l, LinkNode n, char **str, int qt, int ssub)
 		if (!quoteerr) {
 		    errflag = oef;
 		    if (haserr)
-			tokenize(s);
+			shtokenize(s);
 		} else if (haserr || errflag) {
 		    zerr("parse error in ${...%c...} substitution",
 			 NULL, s[-1]);
@@ -1866,28 +1951,57 @@ paramsubst(LinkList l, LinkNode n, char **str, int qt, int ssub)
 	int i;
 	LinkNode on = n;
 
-	if (!aval[0] && !plan9) {
+	if (unique) {
+	    if(!copied)
+		aval = arrdup(aval);
+
+	    i = arrlen(aval);
+	    if (i > 1)
+		zhuniqarray(aval);
+	}
+	if ((!aval[0] || !aval[1]) && !plan9) {
+	    int vallen;
 	    if (aptr > (char *) getdata(n) &&
 		aptr[-1] == Dnull && *fstr == Dnull)
 		*--aptr = '\0', fstr++;
-	    y = (char *) hcalloc((aptr - ostr) + strlen(fstr) + 1);
+	    vallen = aval[0] ? strlen(aval[0]) : 0;
+	    y = (char *) hcalloc((aptr - ostr) + vallen + strlen(fstr) + 1);
 	    strcpy(y, ostr);
 	    *str = y + (aptr - ostr);
+	    if (vallen)
+	    {
+		strcpy(*str, aval[0]);
+		*str += vallen;
+	    }
 	    strcpy(*str, fstr);
 	    setdata(n, y);
 	    return n;
 	}
 	if (sortit) {
-	    static CompareFn sortfn[] = {
-		strpcmp, invstrpcmp, cstrpcmp, invcstrpcmp
-	    };
-
 	    if (!copied)
 		aval = arrdup(aval);
+	    if (indord) {
+		if (sortit & 2) {
+		    char *copy;
+		    char **end = aval + arrlen(aval) - 1, **start = aval;
 
-	    i = arrlen(aval);
-	    if (i && (*aval[i-1] || --i))
-		qsort(aval, i, sizeof(char *), sortfn[sortit-1]);
+		    /* reverse the array */
+		    while (start < end) {
+			copy = *end;
+			*end-- = *start;
+			*start++ = copy;
+		    }
+		}
+	    } else {
+		static CompareFn sortfn[] = {
+		    strpcmp, invstrpcmp, cstrpcmp, invcstrpcmp,
+		    nstrpcmp, invnstrpcmp, instrpcmp, invinstrpcmp
+		};
+
+		i = arrlen(aval);
+		if (i && (*aval[i-1] || --i))
+		    qsort(aval, i, sizeof(char *), sortfn[sortit-1]);
+	    }
 	}
 	if (plan9) {
 	    LinkNode tn;
@@ -1961,7 +2075,7 @@ paramsubst(LinkList l, LinkNode n, char **str, int qt, int ssub)
 		else {
 		    y = dupstring(x);
 		    if (globsubst)
-			tokenize(y);
+			shtokenize(y);
 		}
 		insertlinknode(l, n, (void *) y), incnode(n);
 	    }

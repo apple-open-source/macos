@@ -1,9 +1,11 @@
-.TH LBER_TYPES 3 "25 January 2002" "OpenLDAP LDVERSION"
-.\" $OpenLDAP: pkg/ldap/doc/man/man3/lber-types.3,v 1.8 2002/01/25 11:34:58 hyc Exp $
-.\" Copyright 1998-2002 The OpenLDAP Foundation All Rights Reserved.
+.TH LBER_TYPES 3 "RELEASEDATE" "OpenLDAP LDVERSION"
+.\" $OpenLDAP: pkg/ldap/doc/man/man3/lber-types.3,v 1.8.2.4 2003/03/03 17:10:02 kurt Exp $
+.\" Copyright 1998-2003 The OpenLDAP Foundation All Rights Reserved.
 .\" Copying restrictions apply.  See COPYRIGHT/LICENSE.
 .SH NAME
 ber_int_t, ber_uint_t, ber_len_t, ber_slen_t, ber_tag_t \- LBER types
+.SH LIBRARY
+OpenLDAP LBER (liblber, -llber)
 .SH SYNOPSIS
 .B #include <lber.h>
 .LP
@@ -153,8 +155,8 @@ and
 frees a BerElement pointed to by \fIber\fP.  If \fIber\fP is NULL, the routine
 does nothing.  If \fIfreebuf\fP is zero, the internal buffer is not freed.
 .SH SEE ALSO
-.BR lber-encode (3)
-.BR lber-decode (3)
+.BR lber-encode (3),
+.BR lber-decode (3),
 .BR lber-memory (3)
 .LP
 .SH ACKNOWLEDGEMENTS

@@ -3,21 +3,22 @@
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
- * Portions Copyright (c) 1999 Apple Computer, Inc.  All Rights
- * Reserved.  This file contains Original Code and/or Modifications of
- * Original Code as defined in and that are subject to the Apple Public
- * Source License Version 1.1 (the "License").  You may not use this file
- * except in compliance with the License.  Please obtain a copy of the
- * License at http://www.apple.com/publicsource and read it before using
- * this file.
+ * Copyright (c) 1999-2003 Apple Computer, Inc.  All Rights Reserved.
+ * 
+ * This file contains Original Code and/or Modifications of Original Code
+ * as defined in and that are subject to the Apple Public Source License
+ * Version 2.0 (the 'License'). You may not use this file except in
+ * compliance with the License. Please obtain a copy of the License at
+ * http://www.opensource.apple.com/apsl/ and read it before using this
+ * file.
  * 
  * The Original Code and all software distributed under the License are
- * distributed on an "AS IS" basis, WITHOUT WARRANTY OF ANY KIND, EITHER
+ * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
  * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
  * INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY,
- * FITNESS FOR A PARTICULAR PURPOSE OR NON- INFRINGEMENT.  Please see the
- * License for the specific language governing rights and limitations
- * under the License.
+ * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
+ * Please see the License for the specific language governing rights and
+ * limitations under the License.
  * 
  * @APPLE_LICENSE_HEADER_END@
  */
@@ -32,10 +33,16 @@
 #include "_lu_types.h"
 #include "lookup.h"
 #include "lu_utils.h"
+#include "netdb_async.h"
 
 #define MAX_LOOKUP_ATTEMPTS 10
+#define _LU_MAXLUSTRLEN 256
+#define QBUF_SIZE 4096
 
-static pthread_key_t  _info_key             = NULL;
+#define LU_MESSAGE_SEND_ID 4241776
+#define LU_MESSAGE_REPLY_ID 4241876
+
+static pthread_key_t _info_key = NULL;
 static pthread_once_t _info_key_initialized = PTHREAD_ONCE_INIT;
 
 struct _lu_data_s
@@ -46,7 +53,340 @@ struct _lu_data_s
 	void (**idata_destructor)(void *);
 };
 
-#define _LU_MAXLUSTRLEN 256
+typedef struct _lu_async_request_s
+{
+	mach_port_t reply_port;
+	uint32_t retry;
+	uint32_t proc;
+	void *context;
+	void *callback;
+	ooline_data request_buffer;
+	mach_msg_type_number_t request_buffer_len;
+	struct _lu_async_request_s *next;
+} _lu_async_request_t;
+
+typedef struct
+{
+	mach_msg_header_t head;
+	NDR_record_t NDR;
+	int proc;
+	mach_msg_type_number_t query_data_len;
+	unit query_data[QBUF_SIZE];
+} _lu_query_msg_t;
+
+typedef struct
+{
+	mach_msg_header_t head;
+	mach_msg_body_t msgh_body;
+	mach_msg_ool_descriptor_t reply_data;
+	NDR_record_t NDR;
+	mach_msg_type_number_t reply_data_len;
+	mach_msg_format_0_trailer_t trailer;
+} _lu_reply_msg_t;
+
+static pthread_mutex_t _lu_worklist_lock = PTHREAD_MUTEX_INITIALIZER;
+static _lu_async_request_t *_lu_worklist = NULL;
+
+/* Send an asynchronous query message to lookupd */
+static kern_return_t
+_lu_async_send(_lu_async_request_t *r)
+{
+	_lu_query_msg_t in;
+	register _lu_query_msg_t *inp = &in;
+	mach_msg_return_t status;
+	unsigned int msgh_size;
+
+	if (r == NULL) return KERN_FAILURE;
+
+	if (r->retry == 0) return MIG_SERVER_DIED;
+	r->retry--;
+
+	if (r->request_buffer_len > QBUF_SIZE) return MIG_ARRAY_TOO_LARGE;
+
+	msgh_size = (sizeof(_lu_query_msg_t) - 16384) + ((4 * r->request_buffer_len));
+	inp->head.msgh_bits = MACH_MSGH_BITS(19, MACH_MSG_TYPE_MAKE_SEND_ONCE);
+	inp->head.msgh_remote_port = _lu_port;
+	inp->head.msgh_local_port = r->reply_port;
+	inp->head.msgh_id = LU_MESSAGE_SEND_ID;
+	inp->NDR = NDR_record;
+	inp->proc = r->proc;
+	inp->query_data_len = r->request_buffer_len;
+	memcpy(inp->query_data, r->request_buffer, 4 * r->request_buffer_len);
+
+	status = mach_msg(&inp->head, MACH_SEND_MSG, msgh_size, 0, MACH_PORT_NULL, MACH_MSG_TIMEOUT_NONE, MACH_PORT_NULL);	
+	if (status == MACH_MSG_SUCCESS) return KERN_SUCCESS;
+	
+	if (status == MACH_SEND_INVALID_REPLY)
+	{
+		mach_port_mod_refs(mach_task_self(), r->reply_port, MACH_PORT_RIGHT_RECEIVE, -1);
+		r->reply_port = MACH_PORT_NULL;
+	}
+
+	return status;
+}
+
+static _lu_async_request_t *
+_lu_worklist_remove(mach_port_t p)
+{
+	_lu_async_request_t *r, *n;
+
+	if (p == MACH_PORT_NULL) return NULL;
+	if (_lu_worklist == NULL) return NULL;
+
+	pthread_mutex_lock(&_lu_worklist_lock);
+
+	if (_lu_worklist->reply_port == p)
+	{
+		r = _lu_worklist;
+		_lu_worklist = r->next;
+		pthread_mutex_unlock(&_lu_worklist_lock);
+		return r;
+	}
+
+	for (r = _lu_worklist; r != NULL; r = r->next)
+	{
+		n = r->next;
+		if (n == NULL) break;
+
+		if (n->reply_port == p)
+		{
+			r->next = n->next;
+			pthread_mutex_unlock(&_lu_worklist_lock);
+			return n;
+		}
+	}
+
+	pthread_mutex_unlock(&_lu_worklist_lock);
+	return NULL;
+}
+
+static _lu_async_request_t *
+_lu_worklist_find(mach_port_t p)
+{
+	_lu_async_request_t *r;
+
+	if (p == MACH_PORT_NULL) return NULL;
+	if (_lu_worklist == NULL) return NULL;
+
+	pthread_mutex_lock(&_lu_worklist_lock);
+
+	for (r = _lu_worklist; r != NULL; r = r->next)
+	{
+		if (r->reply_port == p)
+		{
+			pthread_mutex_unlock(&_lu_worklist_lock);
+			return r;
+		}
+	}
+
+	pthread_mutex_unlock(&_lu_worklist_lock);
+	return NULL;
+}
+
+static void
+_lu_free_request(_lu_async_request_t *r)
+{
+	if (r == NULL) return;
+
+	if (r->request_buffer != NULL) free(r->request_buffer);
+	r->request_buffer = NULL;
+
+	if (r->reply_port != MACH_PORT_NULL) mach_port_destroy(mach_task_self(), r->reply_port);
+	r->reply_port = MACH_PORT_NULL;
+
+	free(r);
+}
+
+/* Receive an asynchronous reply message from lookupd */
+kern_return_t
+lu_async_receive(mach_port_t p, char **buf, uint32_t *len)
+{
+	_lu_reply_msg_t *r;
+	kern_return_t status;
+	uint32_t size;
+	_lu_async_request_t *req;
+
+	size = sizeof(_lu_reply_msg_t);
+
+	r = (_lu_reply_msg_t *)calloc(1, size);
+	if (r == NULL) return KERN_RESOURCE_SHORTAGE;
+
+	r->head.msgh_local_port = p;
+	r->head.msgh_size = size;
+	status = mach_msg(&(r->head), MACH_RCV_MSG, 0, size, r->head.msgh_local_port, 0, MACH_PORT_NULL);
+	if (status != KERN_SUCCESS)
+	{
+		free(r);
+		return status;
+	}
+
+	req = _lu_worklist_remove(r->head.msgh_local_port);
+	if (req == NULL)
+	{
+		free(r);
+		return KERN_FAILURE;
+	}
+
+	*buf = r->reply_data.address;
+	*len = r->reply_data.size;
+
+	free(r);
+
+	_lu_free_request(req);
+	return KERN_SUCCESS;
+}
+
+static void
+_lu_worklist_append(_lu_async_request_t *r)
+{
+	_lu_async_request_t *p;
+
+	if (r == NULL) return;
+
+	pthread_mutex_lock(&_lu_worklist_lock);
+
+	if (_lu_worklist == NULL)
+	{
+		_lu_worklist = r;
+		pthread_mutex_unlock(&_lu_worklist_lock);
+		return;
+	}
+
+	for (p = _lu_worklist; p->next != NULL; p = p->next);
+	p->next = r;
+
+	pthread_mutex_unlock(&_lu_worklist_lock);
+}
+
+void
+lu_async_call_cancel(mach_port_t p)
+{
+	_lu_async_request_t *req;
+
+	req = _lu_worklist_remove(p);
+	if (req != NULL) _lu_free_request(req);
+	else if (p != MACH_PORT_NULL) mach_port_destroy(mach_task_self(), p);
+}
+
+static _lu_async_request_t *
+_lu_create_request(uint32_t proc, const char *buf, uint32_t len, void *callback, void *context)
+{
+	_lu_async_request_t *r;
+	kern_return_t status;
+
+	if (_lu_port == NULL) return NULL;
+
+	r = (_lu_async_request_t *)calloc(1, sizeof(_lu_async_request_t));
+	if (r == NULL) return NULL;
+
+	status = mach_port_allocate(mach_task_self(), MACH_PORT_RIGHT_RECEIVE, &(r->reply_port));
+	if (status != KERN_SUCCESS)
+	{
+		_lu_free_request(r);
+		return NULL;
+	}
+
+	r->retry = MAX_LOOKUP_ATTEMPTS;
+
+	r->context = context;
+	r->callback = callback;
+	r->proc = proc;
+
+	r->request_buffer = malloc(len * BYTES_PER_XDR_UNIT);
+	memcpy(r->request_buffer, buf, len * BYTES_PER_XDR_UNIT);
+	r->request_buffer_len = len;
+
+	r->next = NULL;
+
+	return r;
+}
+
+kern_return_t
+lu_async_start(mach_port_t *p, uint32_t proc, const char *buf, uint32_t len, void *callback, void *context)
+{
+	_lu_async_request_t *r;
+	kern_return_t status;
+	uint32_t retry;
+
+	if (p == NULL) return KERN_FAILURE;
+
+	*p = MACH_PORT_NULL;
+
+	if (!_lu_running()) return KERN_FAILURE;
+
+	/* Make a request struct to keep track */
+	r = _lu_create_request(proc, buf, len, callback, context);
+	if (r == NULL) return KERN_FAILURE;
+
+	status = MIG_SERVER_DIED;
+	for (retry = 0; (status == MIG_SERVER_DIED) && (retry < MAX_LOOKUP_ATTEMPTS); retry++)
+	{
+		/* send to lookupd */
+		status = _lu_async_send(r);
+	}
+
+	if (status != KERN_SUCCESS)
+	{
+		_lu_free_request(r);
+		return status;
+	}
+
+	/* Add request to worklist */
+	_lu_worklist_append(r);
+
+	*p = r->reply_port;
+	return KERN_SUCCESS;
+}
+
+kern_return_t
+lu_async_send(mach_port_t *p, uint32_t proc, const char *buf, uint32_t len)
+{
+	return lu_async_start(p, proc, buf, len, NULL, NULL);
+}
+
+int
+lu_async_handle_reply(void *msg, char **buf, uint32_t *len, void **callback, void **context)
+{
+	_lu_reply_msg_t *r;
+	_lu_async_request_t *req;
+	kern_return_t status;
+	uint32_t retry;
+
+	if (msg == NULL) return -1;
+	r = (_lu_reply_msg_t *)msg;
+
+	/* If reply status was an error, resend */
+	if (r->head.msgh_id != LU_MESSAGE_REPLY_ID)
+	{
+		if (r->head.msgh_id == MACH_NOTIFY_SEND_ONCE)
+		{
+			/* if MiG server (lookupd) died */
+			req = _lu_worklist_find(r->head.msgh_local_port);
+			if (req == NULL) return -1;
+
+			status = MIG_SERVER_DIED;
+			for (retry = 0; (status == MIG_SERVER_DIED) && (retry < MAX_LOOKUP_ATTEMPTS); retry++)
+			{
+				/* send to lookupd */
+				status = _lu_async_send(req);
+			}
+
+			if (status != KERN_SUCCESS) return -1;
+		}
+		return MIG_REPLY_MISMATCH;
+	}
+
+	req = _lu_worklist_remove(r->head.msgh_local_port);
+	if (req == NULL) return -1;
+
+	*buf = r->reply_data.address;
+	*len = r->reply_data.size;
+	*callback = req->callback;
+	*context = req->context;
+
+	_lu_free_request(req);
+	return 0;
+}
 
 ni_proplist *
 _lookupd_xdr_dictionary(XDR *inxdr)

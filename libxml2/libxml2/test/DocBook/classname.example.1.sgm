@@ -1,0 +1,5 @@
+<!DOCTYPE para PUBLIC "-//OASIS//DTD DocBook V3.1//EN">
+<para> 
+All user-interface components must be descendants of the
+<classname>Widget</classname> class.
+</para>

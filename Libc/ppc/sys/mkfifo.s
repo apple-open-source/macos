@@ -25,4 +25,3 @@
 #include "SYS.h"
 
 SYSCALL(mkfifo, 2)
-	blr

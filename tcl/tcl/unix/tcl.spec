@@ -1,7 +1,7 @@
-# $Id: tcl.spec,v 1.1.1.2 2002/04/05 16:14:06 jevans Exp $
+# $Id: tcl.spec,v 1.1.1.5 2003/07/22 23:11:19 landonf Exp $
 # This file is the basis for a binary Tcl RPM for Linux.
 
-%define version 8.3.4
+%define version 8.4.4
 %define directory /usr/local
 
 Summary: Tcl scripting language development environment
@@ -10,9 +10,9 @@ Version: %{version}
 Release: 1
 Copyright: BSD
 Group: Development/Languages
-Source: ftp://ftp.scriptics.com/pub/tcl/tcl8_3/tcl%{version}.tar.gz
-URL: http://www.tcl-tk.net/
-Packager: ActiveState Corporation
+Source: http://prdownloads.sourceforge.net/tcl/tcl%{version}-src.tar.gz
+URL: http://www.tcl.tk/
+Packager: Carina
 Buildroot: /var/tmp/%{name}%{version}
 
 %description

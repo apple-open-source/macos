@@ -1,5 +1,4 @@
 /*
- * Copyright (c) 2001-2002 Apple Computer, Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -22,13 +21,7 @@
  * 
  * @APPLE_LICENSE_HEADER_END@
  */
-/*
- * Copyright (c) 1999 Apple Computer, Inc.  All rights reserved.
- *
- * HISTORY
- * 13 February 2001 wgulland created.
- *
- */
+
 
 #define DEBUGGING_LEVEL 0	// 1 = low; 2 = high; 3 = extreme
 #define DEBUGLOG IOLog

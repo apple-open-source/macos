@@ -3,8 +3,6 @@
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
- * Copyright (c) 1999-2003 Apple Computer, Inc.  All Rights Reserved.
- * 
  * This file contains Original Code and/or Modifications of Original Code
  * as defined in and that are subject to the Apple Public Source License
  * Version 2.0 (the 'License'). You may not use this file except in
@@ -34,6 +32,9 @@
  */
 
 #ifndef RLD
+/* TRUE if -search_paths_first was specified */
+__private_extern__ enum bool search_paths_first;
+
 /* the user specified directories to search for -lx filenames, and the number
    of them */
 __private_extern__ char **search_dirs;
@@ -63,7 +64,7 @@ __private_extern__ struct merged_segment *base_obj_segments;
 __private_extern__ char *bsearch_strings;
 #ifndef RLD
 __private_extern__ struct nlist *bsearch_symbols;
-#endif !defined(RLD)
+#endif /* !defined(RLD) */
 
 /*
  * The lists of libraries to be search with dynamic library search semantics.
@@ -85,6 +86,7 @@ struct dynamic_library {
     enum bool indirect_twolevel_ref_flagged;
     enum bool some_non_weak_refs;
     enum bool some_symbols_referenced;
+    enum bool force_weak_dylib;
     struct object_file *definition_obj;
     char *dylib_file; /* argument to -dylib_file "install_name:file_name" */
     struct dylib_table_of_contents *tocs;
@@ -119,17 +121,19 @@ struct dynamic_library {
  * libraries on the link line.
  */
 __private_extern__ struct dynamic_library *dynamic_libs;
-#endif !defined(RLD)
+#endif /* !defined(RLD) */
 
 __private_extern__ void pass1(
     char *filename,
     enum bool lname,
     enum bool base_name,
     enum bool framework_name,
-    enum bool bundle_loader);
+    enum bool bundle_loader,
+    enum bool force_weak);
 __private_extern__ void merge(
     enum bool dylib_only,
-    enum bool bundle_loader);
+    enum bool bundle_loader,
+    enum bool force_weak);
 __private_extern__ void check_fat(
     char *file_name,
     unsigned long file_size,
@@ -152,7 +156,7 @@ __private_extern__ struct dynamic_library *add_dynamic_lib(
 __private_extern__ int dylib_bsearch(
     const char *symbol_name,
     const struct dylib_table_of_contents *toc);
-#endif !defined(RLD)
+#endif /* !defined(RLD) */
 
 #ifdef RLD
 __private_extern__ void merge_base_program(
@@ -163,4 +167,4 @@ __private_extern__ void merge_base_program(
     unsigned long nsyms,
     char *strtab,
     unsigned long strsize);
-#endif RLD
+#endif /* RLD */

@@ -4,10 +4,10 @@
 '\" See the file "license.terms" for information on usage and redistribution
 '\" of this file, and for a DISCLAIMER OF ALL WARRANTIES.
 '\"
-'\" RCS: @(#) $Id: fconfigure.n,v 1.1.1.3 2000/04/12 02:01:59 wsanchez Exp $
+'\" RCS: @(#) $Id: fconfigure.n,v 1.1.1.5 2003/07/09 01:33:38 landonf Exp $
 '\"
 .so man.macros
-.TH fconfigure n 8.1 Tcl "Tcl Built-In Commands"
+.TH fconfigure n 8.3 Tcl "Tcl Built-In Commands"
 .BS
 '\" Note:  do not modify the .SH NAME line immediately below!
 .SH NAME
@@ -19,11 +19,16 @@ fconfigure \- Set and get options on a channel
 \fBfconfigure \fIchannelId\fR \fIname value \fR?\fIname value ...\fR?
 .fi
 .BE
-
 .SH DESCRIPTION
 .PP
 The \fBfconfigure\fR command sets and retrieves options for channels.
-\fIChannelId\fR identifies the channel for which to set or query an option.
+.PP
+\fIChannelId\fR identifies the channel for which to set or query an
+option and must refer to an open channel such as a Tcl standard
+channel (\fBstdin\fR, \fBstdout\fR, or \fBstderr\fR), the return
+value from an invocation of \fBopen\fR or \fBsocket\fR, or the result
+of a channel creation command provided by a Tcl extension.
+.PP
 If no \fIname\fR or \fIvalue\fR arguments are supplied, the command
 returns a list containing alternating option names and values for the channel.
 If \fIname\fR is supplied but no \fIvalue\fR then the command returns
@@ -61,7 +66,7 @@ automatically after every output operation.  The default is for
 \fB\-buffering\fR to be set to \fBfull\fR except for channels that
 connect to terminal-like devices; for these channels the initial setting
 is \fBline\fR.  Additionally, \fBstdin\fR and \fBstdout\fR are
-intially set to \fBline\fR, and \fBstderr\fR is set to \fBnone\fR.
+initially set to \fBline\fR, and \fBstderr\fR is set to \fBnone\fR.
 .TP
 \fB\-buffersize\fR \fInewSize\fR
 .
@@ -69,7 +74,6 @@ intially set to \fBline\fR, and \fBstderr\fR is set to \fBnone\fR.
 buffers, in bytes, subsequently allocated for this channel to store input
 or output. \fINewvalue\fR must be between ten and one million, allowing
 buffers of ten to one million bytes in size.
-.VS 8.1 br
 .TP
 \fB\-encoding\fR \fIname\fR
 .
@@ -93,7 +97,6 @@ The default encoding for newly opened channels is the same platform- and
 locale-dependent system encoding used for interfacing with the operating
 system.  
 .RE
-.VE
 .TP
 \fB\-eofchar\fR \fIchar\fR
 .TP
@@ -154,7 +157,6 @@ Tcl chooses \fBcrlf\fR, for all Unix flavors, it chooses \fBlf\fR, for the
 Macintosh platform it chooses \fBcr\fR and for the various flavors of
 Windows it chooses \fBcrlf\fR.  The default setting for
 \fB\-translation\fR is \fBauto\fR for both input and output.
-.VS 8.1 br
 .TP
 \fBbinary\fR 
 .
@@ -163,7 +165,6 @@ No end-of-line translations are performed.  This is nearly identical to
 end-of-file character to the empty string (which disables it) and sets the
 encoding to \fBbinary\fR (which disables encoding filtering).  See the
 description of \fB\-eofchar\fR and \fB\-encoding\fR for more information.
-.VE
 .TP
 \fBcr\fR
 .
@@ -192,8 +193,19 @@ platforms.
 .RE
 .PP
 
+.SH "STANDARD CHANNELS"
+.PP
+The Tcl standard channels (\fBstdin\fR, \fBstdout\fR, and \fBstderr\fR)
+can be configured through this command like every other channel opened
+by the Tcl library. Beyond the standard options described above they
+will also support any special option according to their current type.
+If, for example, a Tcl application is started by the \fBinet\fR
+super-server common on Unix system its Tcl standard channels will be
+sockets and thus support the socket options.
+
 .SH "SEE ALSO"
-close(n), flush(n), gets(n), puts(n), read(n), socket(n)
+close(n), flush(n), gets(n), open(n), puts(n), read(n), socket(n),
+Tcl_StandardChannels(3)
 
 .SH KEYWORDS
 blocking, buffering, carriage return, end of line, flushing, linemode,

@@ -11,9 +11,12 @@
         PUBLIC_HEADERS = (); 
         SUBPROJECTS = (
             cap_mkdb.tproj, 
+            colldef.tproj, 
             finger.tproj, 
             fingerd.tproj, 
+            gencat.tproj, 
             last.tproj, 
+	    lsvfs.tproj,
             md.tproj, 
             mklocale.tproj, 
             pstat.tproj, 
@@ -23,7 +26,8 @@
             tty.tproj, 
             tset.tproj, 
             whois.tproj, 
-            ps.tproj
+            ps.tproj,
+            usr-share-locale.tproj
         ); 
     }; 
     LANGUAGE = English; 

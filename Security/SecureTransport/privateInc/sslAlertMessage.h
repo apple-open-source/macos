@@ -44,11 +44,11 @@ typedef enum
     SSL_AlertUnexpectedMsg = 10,
     SSL_AlertBadRecordMac = 20,
 	SSL_AlertDecryptionFail = 21,		/* TLS */
-	SSL_AlertRecordOverflow = 22,			/* TLS */
+	SSL_AlertRecordOverflow = 22,		/* TLS */
     SSL_AlertDecompressFail = 30,
     SSL_AlertHandshakeFail = 40,
     SSL_AlertNoCert = 41,
-    SSL_AlertBadCert = 42,			/* SSLv3 only */
+    SSL_AlertBadCert = 42,				/* SSLv3 only */
     SSL_AlertUnsupportedCert = 43,
     SSL_AlertCertRevoked = 44,
     SSL_AlertCertExpired = 45,
@@ -71,11 +71,6 @@ OSStatus SSLProcessAlert(
 	SSLRecord rec, 
 	SSLContext *ctx);
 OSStatus SSLSendAlert(
-	AlertLevel level, 
-	AlertDescription desc, 
-	SSLContext *ctx);
-OSStatus SSLEncodeAlert(
-	SSLRecord &rec, 
 	AlertLevel level, 
 	AlertDescription desc, 
 	SSLContext *ctx);

@@ -1,0 +1,34 @@
+Pomoc dla listy dyskusyjnej %(listname)s:
+
+To jest wynik komendy mailowej 'help' wygenerowany przez system zarz±dzania
+listami dyskusyjnymi "Mailman" w wersji  %(version)s. W li¶cie tym opisano
+komendy, którymi mo¿na komunikowaæ siê z Mailmanem drog± poczty
+elektronicznej. Mo¿na w ten sposób zmieniaæ parametry swojej subskrybcji.
+Komenda mo¿e byæ umieszczona zarówno w temacie, jak i tre¶ci wiadomo¶ci.
+
+Przypominam, ¿e wszystkie te dzia³ania mog± byæ równie¿ zrobione za
+po¶rednictwem sieci WWW, na stronie:
+
+    %(listinfo_url)s
+
+W szczególno¶ci, za pomoc± w.w. strony mo¿esz poprosiæ o przypomnienie
+Ci Twojego has³a.
+
+Komendy dotycz±ce konkretnej listy (np. subscribe, who) nale¿y wysy³aæ
+na adres *-request specyficzny dla danej listy. Na przyk³ad komendy
+dotycz±ce listy 'mailman' nale¿y wysy³aæ na adres 
+'mailman-request@...'.
+
+Legenda: s³owa w nawiasach "<>" oznaczaj± WYMAGANE opcje, a 
+nawiasy "[]" informuj±, ¿e dane pole jest OPCJONALNE. Nie nale¿y 
+umieszczaæ w komendach samych znaków nawiasów "<>", czy "[]".
+
+Lista dopuszczalnych komend:
+
+    %(commands)s
+
+Komendy nale¿y wys³aæ na adres %(requestaddr)s
+
+Pytania lub pro¶by interwencji cz³owieka, proszê przesy³aæ na adres:
+
+    %(adminaddr)s

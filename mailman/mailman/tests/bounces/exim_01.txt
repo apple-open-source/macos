@@ -1,0 +1,58 @@
+Received: from localhost (k298r.balpol.tudelft.nl) [127.0.0.1] 
+        by stereo.rotzorg.org with esmtp (Exim 2.05 #1 (Debian))
+        id 11SrFm-000595-00; Mon, 20 Sep 1999 02:24:22 +0200
+Received: from mail by stereo.rotzorg.org with local (Exim 2.05 #1 (Debian))
+        id 11SrFM-00058o-00; Mon, 20 Sep 1999 02:23:56 +0200
+X-Failed-Recipients: delangen@its.tudelft.nl
+From: Mail Delivery System <Mailer-Daemon@rotzorg.org>
+To: lanparty-helden-admin@rotzorg.org
+Subject: Mail delivery failed: returning message to sender
+Message-Id: <E11SrFM-00058o-00@stereo.rotzorg.org>
+Date: Mon, 20 Sep 1999 02:23:56 +0200
+Status: RO
+Content-Length: 1544
+Lines: 42
+
+This message was created automatically by mail delivery software.
+
+A message that you sent could not be delivered to all of its recipients. The
+following address(es) failed:
+
+  delangen@its.tudelft.nl:
+    SMTP error from remote mailer after RCPT TO:
+    <delangen@its.tudelft.nl>:
+    host mailhost1.et.tudelft.nl [130.161.33.163]:
+    553 5.1.1 unknown or illegal user:
+    delangen@its.tudelft.nl
+
+----- This is a copy of the message, including all the headers. ------
+
+Return-path: <lanparty-helden-admin@rotzorg.org>
+Received: from localhost (k298r.balpol.tudelft.nl) [127.0.0.1] 
+        by stereo.rotzorg.org with esmtp (Exim 2.05 #1 (Debian))
+        id 11SrFJ-00058j-00; Mon, 20 Sep 1999 02:23:53 +0200
+Received: from sgr by stereo.rotzorg.org with local (Exim 2.05 #1 (Debian))
+        id 11SrEp-00058U-00; Mon, 20 Sep 1999 02:23:23 +0200
+Date: Mon, 20 Sep 1999 02:23:22 +0200
+From: Sendy <sgr@rotzorg.org>
+To: lanparty-helden@rotzorg.org
+Message-ID: <19990920022322.A19735@stereo.rotzorg.org>
+Reply-To: sendy@dds.nl
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+X-Mailer: Mutt 0.95.3i
+Subject: [Lanparty-helden] test
+Sender: lanparty-helden-admin@rotzorg.org
+Errors-To: lanparty-helden-admin@rotzorg.org
+X-Mailman-Version: 1.0rc2
+Precedence: bulk
+List-Id: Mailinglist voor de KB Lanparty organisatoren <lanparty-helden.rotzorg.
+org>
+X-BeenThere: lanparty-helden@rotzorg.org
+
+
+
+_______________________________________________
+Lanparty-helden mailing list  -  Lanparty-helden@rotzorg.org
+http://rotzorg.org/mailman/listinfo/lanparty-helden
+

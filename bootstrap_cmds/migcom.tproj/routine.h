@@ -3,21 +3,22 @@
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
- * "Portions Copyright (c) 1999 Apple Computer, Inc.  All Rights
- * Reserved.  This file contains Original Code and/or Modifications of
- * Original Code as defined in and that are subject to the Apple Public
- * Source License Version 1.0 (the 'License').  You may not use this file
- * except in compliance with the License.  Please obtain a copy of the
- * License at http://www.apple.com/publicsource and read it before using
- * this file.
+ * Copyright (c) 1999-2003 Apple Computer, Inc.  All Rights Reserved.
+ * 
+ * This file contains Original Code and/or Modifications of Original Code
+ * as defined in and that are subject to the Apple Public Source License
+ * Version 2.0 (the 'License'). You may not use this file except in
+ * compliance with the License. Please obtain a copy of the License at
+ * http://www.opensource.apple.com/apsl/ and read it before using this
+ * file.
  * 
  * The Original Code and all software distributed under the License are
  * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
  * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
  * INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY,
- * FITNESS FOR A PARTICULAR PURPOSE OR NON-INFRINGEMENT.  Please see the
- * License for the specific language governing rights and limitations
- * under the License."
+ * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
+ * Please see the License for the specific language governing rights and
+ * limitations under the License.
  * 
  * @APPLE_LICENSE_HEADER_END@
  */
@@ -75,7 +76,8 @@
 #define akeSubCount	(15)	/* a array of array case: subordinate arrays count */
 #define akeImplicit	(16)	/* an implicit argument, from the trailer */
 #define akeSecToken	(17)	/* an argument from the trailer: the security token */
-#define akeSendTime     (18)    /* pointed at by rtWaitTime */
+#define akeAuditToken	(18)	/* an argument from the trailer: the audit token */
+#define akeSendTime     (19)    /* pointed at by rtWaitTime */
 
 #define	akeBITS		(0x0000003f)
 #define	akbRequest	(0x00000040)	/* has a msg_type in request */
@@ -90,11 +92,13 @@
 #define akbReturnBody	(0x00008000)	/* value carried in reply body */
 #define akbReturnSnd	(0x00010000)	/* value stuffed into reply */
 #define akbReturnRcv	(0x00020000)	/* value grabbed from reply */
-#define akbReplyInit	(0x00040000)	/* reply value doesn't come from target routine */
+#define akbReturnNdr	(0x00040000)	/* needs NDR conversion in reply */
+#define akbReplyInit	(0x00080000)	/* reply value doesn't come from target routine */
 #define akbReplyCopy	(0x00200000)	/* copy reply value from request */
 #define akbVarNeeded	(0x00400000)	/* may need local var in server */
 #define akbDestroy	(0x00800000)	/* call destructor function */
 #define akbVariable	(0x01000000)	/* variable size inline data */
+#define akbSendNdr	(0x04000000)	/* needs NDR conversion in request */
 #define akbSendKPD 	(0x08000000)	/* the arg is sent in the Kernel Processed Data
 					   section of the Request message */
 #define akbReturnKPD 	(0x10000000)	/* the arg is sent in the Kernel Processed Data
@@ -230,6 +234,14 @@ typedef u_int  arg_kind_t;
 #define akUserSecToken akAddFeature(akeSecToken, \
 	akbUserArg|akbUserImplicit|akbReturn|akbReturnRcv)
 #define akSecToken akAddFeature(akeSecToken, \
+        akbServerArg|akbServerImplicit|akbSend|akbSendRcv| \
+        akbUserArg|akbUserImplicit|akbReturn|akbReturnRcv)
+
+#define akServerAuditToken akAddFeature(akeAuditToken, \
+	akbServerArg|akbServerImplicit|akbSend|akbSendRcv)
+#define akUserAuditToken akAddFeature(akeAuditToken, \
+	akbUserArg|akbUserImplicit|akbReturn|akbReturnRcv)
+#define akAuditToken akAddFeature(akeAuditToken, \
         akbServerArg|akbServerImplicit|akbSend|akbSendRcv| \
         akbUserArg|akbUserImplicit|akbReturn|akbReturnRcv)
 

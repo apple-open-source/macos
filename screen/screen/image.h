@@ -1,4 +1,4 @@
-/* Copyright (c) 1993-2000
+/* Copyright (c) 1993-2002
  *      Juergen Weigert (jnweiger@immd4.informatik.uni-erlangen.de)
  *      Michael Schroeder (mlschroe@immd4.informatik.uni-erlangen.de)
  * Copyright (c) 1987 Oliver Laumann
@@ -19,7 +19,7 @@
  * 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA
  *
  ****************************************************************
- * $Id: image.h,v 1.1.1.1 2001/12/14 22:08:29 bbraun Exp $ FAU
+ * $Id: image.h,v 1.1.1.2 2003/03/19 21:16:18 landonf Exp $ FAU
  */
 
 
@@ -38,83 +38,126 @@
 # define IFCOLOR(x)
 #endif
 
-#ifdef KANJI
-# define IFKANJI(x) x
+#if defined(COLOR) && defined(COLORS16) && defined(COLORS256)
+# define IFCOLORX(x) x
 #else
-# define IFKANJI(x)
+# define IFCOLORX(x)
+#endif
+
+#ifdef DW_CHARS
+# define IFDWCHAR(x) x
+#else
+# define IFDWCHAR(x)
 #endif
 
 struct mchar {
-	char image;
-	char attr;
-IFFONT( char font;)
-IFCOLOR(char color;)
-IFKANJI(char mbcs;)
+	 unsigned char image;
+	 unsigned char attr;
+IFFONT(  unsigned char font;)
+IFCOLOR( unsigned char color;)
+IFCOLORX(unsigned char colorx;)
+IFDWCHAR(unsigned char mbcs;)
 };
 
 struct mline {
-	char *image;
-	char *attr;
-IFFONT( char *font;)
-IFCOLOR(char *color;)
+	 unsigned char *image;
+	 unsigned char *attr;
+IFFONT(  unsigned char *font;)
+IFCOLOR( unsigned char *color;)
+IFCOLORX(unsigned char *colorx;)
 };
 
 
 
-#define save_mline(ml, n) do {					\
-	bcopy((ml)->image, mline_old.image, (n));		\
-	bcopy((ml)->attr,  mline_old.attr,  (n));		\
-IFFONT(	bcopy((ml)->font,  mline_old.font,  (n));	       )\
-IFCOLOR(bcopy((ml)->color, mline_old.color, (n));	       )\
+#define save_mline(ml, n) do {						\
+	 bcopy((char *)(ml)->image, (char *)mline_old.image, (n));	\
+	 bcopy((char *)(ml)->attr,  (char *)mline_old.attr,  (n));	\
+IFFONT(	 bcopy((char *)(ml)->font,  (char *)mline_old.font,  (n));     )\
+IFCOLOR( bcopy((char *)(ml)->color, (char *)mline_old.color, (n));     )\
+IFCOLORX(bcopy((char *)(ml)->colorx, (char *)mline_old.colorx, (n));   )\
 } while (0)
 
-#define bcopy_mline(ml, xf, xt, n) do {				\
-	bcopy((ml)->image + (xf), (ml)->image + (xt), (n));	\
-	bcopy((ml)->attr  + (xf), (ml)->attr  + (xt), (n));	\
-IFFONT(	bcopy((ml)->font  + (xf), (ml)->font  + (xt), (n));    )\
-IFCOLOR(bcopy((ml)->color + (xf), (ml)->color + (xt), (n));    )\
+#define bcopy_mline(ml, xf, xt, n) do {					       \
+	 bcopy((char *)(ml)->image + (xf), (char *)(ml)->image + (xt), (n));   \
+	 bcopy((char *)(ml)->attr  + (xf), (char *)(ml)->attr  + (xt), (n));   \
+IFFONT(	 bcopy((char *)(ml)->font  + (xf), (char *)(ml)->font  + (xt), (n));  )\
+IFCOLOR( bcopy((char *)(ml)->color + (xf), (char *)(ml)->color + (xt), (n));  )\
+IFCOLORX(bcopy((char *)(ml)->colorx + (xf), (char *)(ml)->colorx + (xt), (n));)\
 } while (0)
 
-#define clear_mline(ml, x, n) do {				\
-	bclear((ml)->image + (x), (n));				\
-	if ((ml)->attr != null) bzero((ml)->attr  + (x), (n));	\
-IFFONT(	if ((ml)->font != null) bzero((ml)->font  + (x), (n)); )\
-IFCOLOR(if ((ml)->color!= null) bzero((ml)->color + (x), (n)); )\
+#define clear_mline(ml, x, n) do {					       \
+	 bclear((char *)(ml)->image + (x), (n));			       \
+	 if ((ml)->attr != null) bzero((char *)(ml)->attr  + (x), (n));	       \
+IFFONT(  if ((ml)->font != null) bzero((char *)(ml)->font  + (x), (n));       )\
+IFCOLOR (if ((ml)->color!= null) bzero((char *)(ml)->color + (x), (n));       )\
+IFCOLORX(if ((ml)->colorx!= null) bzero((char *)(ml)->colorx + (x), (n));     )\
 } while (0)
 
 #define cmp_mline(ml1, ml2, x) (				\
-	   (ml1)->image[x] == (ml2)->image[x]			\
-	&& (ml1)->attr[x]  == (ml2)->attr[x]			\
-IFFONT(	&& (ml1)->font[x]  == (ml2)->font[x]		       )\
-IFCOLOR(&& (ml1)->color[x] == (ml2)->color[x]		       )\
+	    (ml1)->image[x] == (ml2)->image[x]			\
+	 && (ml1)->attr[x]  == (ml2)->attr[x]			\
+IFFONT(	 && (ml1)->font[x]  == (ml2)->font[x]		       )\
+IFCOLOR( && (ml1)->color[x] == (ml2)->color[x]		       )\
+IFCOLORX(&& (ml1)->colorx[x] == (ml2)->colorx[x]	       )\
 )
 
 #define cmp_mchar(mc1, mc2) (					\
-	   (mc1)->image == (mc2)->image				\
-	&& (mc1)->attr  == (mc2)->attr				\
-IFFONT(	&& (mc1)->font  == (mc2)->font			       )\
-IFCOLOR(&& (mc1)->color == (mc2)->color			       )\
+	    (mc1)->image == (mc2)->image			\
+	 && (mc1)->attr  == (mc2)->attr				\
+IFFONT(	 && (mc1)->font  == (mc2)->font			       )\
+IFCOLOR( && (mc1)->color == (mc2)->color		       )\
+IFCOLORX(&& (mc1)->colorx == (mc2)->colorx		       )\
 )
 
 #define cmp_mchar_mline(mc, ml, x) (				\
-	   (mc)->image == (ml)->image[x]			\
-	&& (mc)->attr  == (ml)->attr[x]				\
-IFFONT(	&& (mc)->font  == (ml)->font[x]			       )\
-IFCOLOR(&& (mc)->color == (ml)->color[x]		       )\
+	    (mc)->image == (ml)->image[x]			\
+	 && (mc)->attr  == (ml)->attr[x]			\
+IFFONT(	 && (mc)->font  == (ml)->font[x]		       )\
+IFCOLOR( && (mc)->color == (ml)->color[x]		       )\
+IFCOLORX(&& (mc)->colorx == (ml)->colorx[x]		       )\
 )
 
 #define copy_mchar2mline(mc, ml, x) do {			\
-	(ml)->image[x] = (mc)->image;				\
-	(ml)->attr[x]  = (mc)->attr;				\
-IFFONT(	(ml)->font[x]  = (mc)->font;			       )\
-IFCOLOR((ml)->color[x] = (mc)->color;			       )\
+	 (ml)->image[x] = (mc)->image;				\
+	 (ml)->attr[x]  = (mc)->attr;				\
+IFFONT(	 (ml)->font[x]  = (mc)->font;			       )\
+IFCOLOR( (ml)->color[x] = (mc)->color;			       )\
+IFCOLORX((ml)->colorx[x] = (mc)->colorx;		       )\
 } while (0)
 
 #define copy_mline2mchar(mc, ml, x) do {			\
-	(mc)->image = (ml)->image[x];				\
-	(mc)->attr  = (ml)->attr[x];				\
-IFFONT(	(mc)->font  = (ml)->font[x];			       )\
-IFCOLOR((mc)->color = (ml)->color[x];			       )\
-IFKANJI((mc)->mbcs  = 0;				       )\
+	 (mc)->image = (ml)->image[x];				\
+	 (mc)->attr  = (ml)->attr[x];				\
+IFFONT(	 (mc)->font  = (ml)->font[x];			       )\
+IFCOLOR( (mc)->color = (ml)->color[x];			       )\
+IFCOLORX((mc)->colorx = (ml)->colorx[x];		       )\
+IFDWCHAR((mc)->mbcs  = 0;				       )\
 } while (0)
 
+#ifdef COLOR
+# ifdef COLORS16
+#  ifdef COLORS256
+#   define rend_getbg(mc) (((mc)->color & 0xf0) >> 4 | ((mc)->attr & A_BBG ? 0x100 : 0) | ((mc)->colorx & 0xf0))
+#   define rend_setbg(mc, c) ((mc)->color = ((mc)->color & 0x0f) | (c << 4 & 0xf0), (mc)->colorx = ((mc)->colorx & 0x0f) | (c & 0xf0), (mc)->attr = ((mc)->attr | A_BBG) ^ (c & 0x100 ? 0 : A_BBG))
+#   define rend_getfg(mc) (((mc)->color & 0x0f) | ((mc)->attr & A_BFG ? 0x100 : 0) | (((mc)->colorx & 0x0f) << 4))
+#   define rend_setfg(mc, c) ((mc)->color = ((mc)->color & 0xf0) | (c & 0x0f), (mc)->colorx = ((mc)->colorx & 0xf0) | ((c & 0xf0) >> 4), (mc)->attr = ((mc)->attr | A_BFG) ^ (c & 0x100 ? 0 : A_BFG))
+#   define rend_setdefault(mc) ((mc)->color = (mc)->colorx = 0, (mc)->attr &= ~(A_BBG|A_BFG))
+#  else
+#   define rend_getbg(mc) (((mc)->color & 0xf0) >> 4 | ((mc)->attr & A_BBG ? 0x100 : 0))
+#   define rend_setbg(mc, c) ((mc)->color = ((mc)->color & 0x0f) | (c << 4 & 0xf0), (mc)->attr = ((mc)->attr | A_BBG) ^ (c & 0x100 ? 0 : A_BBG))
+#   define rend_getfg(mc) (((mc)->color & 0x0f) | ((mc)->attr & A_BFG ? 0x100 : 0))
+#   define rend_setfg(mc, c) ((mc)->color = ((mc)->color & 0xf0) | (c & 0x0f), (mc)->attr = ((mc)->attr | A_BFG) ^ (c & 0x100 ? 0 : A_BFG))
+#   define rend_setdefault(mc) ((mc)->color = 0, (mc)->attr &= ~(A_BBG|A_BFG))
+#  endif
+#  define coli2e(c) ((((c) & 0x1f8) == 0x108 ? (c) ^ 0x108 : (c & 0xff)) ^ 9)
+#  define cole2i(c) ((c) >= 8 && (c) < 16 ? (c) ^ 0x109 : (c) ^ 9)
+# else
+#  define rend_getbg(mc) (((mc)->color & 0xf0) >> 4)
+#  define rend_setbg(mc, c) ((mc)->color = ((mc)->color & 0x0f) | (c << 4 & 0xf0))
+#  define rend_getfg(mc) ((mc)->color & 0x0f)
+#  define rend_setfg(mc, c) ((mc)->color = ((mc)->color & 0xf0) | (c & 0x0f))
+#  define rend_setdefault(mc) ((mc)->color = 0)
+#  define coli2e(c) ((c) ^ 9)
+#  define cole2i(c) ((c) ^ 9)
+# endif
+#endif

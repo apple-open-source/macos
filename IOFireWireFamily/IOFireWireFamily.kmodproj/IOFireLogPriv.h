@@ -26,9 +26,9 @@
 #ifndef _IOKIT_IOFIRELOGPRIV_H
 #define _IOKIT_IOFIRELOGPRIV_H
 
-#include <IOKit/firewire/IOFireLog.h>
+#if FIRELOGCORE
 
-#if FIRELOG
+#include <IOKit/firewire/IOFireLog.h>
 
 #include <libkern/c++/OSObject.h>
 #include <IOKit/system.h>
@@ -38,8 +38,8 @@
 
 #include <IOKit/IOBufferMemoryDescriptor.h>
 
-//#define kFireLogSize (4*1024*1024)    // 4MB
-#define kFireLogSize (512*1024)    // 512k
+#define kFireLogSize (12*1024*1024)    // 8MB
+//#define kFireLogSize (512*1024)    // 512KB
 
 class IOFireLog : public OSObject
 {

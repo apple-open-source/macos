@@ -1,4 +1,4 @@
-/*	$KAME: isakmp.c,v 1.171 2001/12/12 22:35:37 itojun Exp $	*/
+/*	$KAME: isakmp.c,v 1.176 2002/08/28 04:08:30 itojun Exp $	*/
 
 /*
  * Copyright (C) 1995, 1996, 1997, and 1998 WIDE Project.
@@ -87,6 +87,9 @@
 #include "isakmp_inf.h"
 #include "isakmp_newg.h"
 #include "strnames.h"
+#ifndef HAVE_ARC4RANDOM
+#include "arc4random.h"
+#endif
 
 static int nostate1 __P((struct ph1handle *, vchar_t *));
 static int nostate2 __P((struct ph2handle *, vchar_t *));
@@ -173,8 +176,8 @@ isakmp_handler(so_isakmp)
 		goto end;
 	}
 
-	/* check isakmp header length */
-	if (len < sizeof(isakmp)) {
+	/* check isakmp header length, as well as sanity of header length */
+	if (len < sizeof(isakmp) || ntohl(isakmp.len) < sizeof(isakmp)) {
 		plog(LLV_ERROR, LOCATION, (struct sockaddr *)&remote,
 			"packet shorter than isakmp header size.\n");
 		/* dummy receive */
@@ -269,6 +272,179 @@ end:
 	return(error);
 }
 
+#ifdef IKE_NAT_T
+/*
+ * isakmp packet handler for natt port (4500)
+ */
+int
+isakmp_natt_handler(so_isakmp)
+	int so_isakmp;
+{
+	u_char	temp_buffer[sizeof(struct isakmp) + 4];
+	struct isakmp *isakmp = (struct isakmp*)(temp_buffer + 4);
+	struct sockaddr_storage remote;
+	struct sockaddr_storage local;
+	int remote_len = sizeof(remote);
+	int local_len = sizeof(local);
+	int len;
+	u_short port;
+	vchar_t *buf = NULL;
+	int error = -1;
+
+	/* read message by MSG_PEEK */
+	while ((len = recvfromto(so_isakmp, temp_buffer, sizeof(temp_buffer),
+		    MSG_PEEK, (struct sockaddr *)&remote, &remote_len,
+		    (struct sockaddr *)&local, &local_len)) < 0) {
+		if (errno == EINTR)
+			continue;
+		plog(LLV_ERROR, LOCATION, NULL,
+			"failed to receive isakmp packet\n");
+		goto end;
+	}
+	
+	/* remove the four bytes of zeros on nat traversal port */
+	if (*(u_long*)temp_buffer != 0L)
+	{
+		/*
+		 * This is a UDP encapsulated IPSec packet,
+		 * we should drop it.
+		 *
+		 * TBD: Need a way to read the packet.
+		 * The kernel intercepts these packets on Mac OS X
+		 * but not all kernels will handle this the same way.
+		 */
+		goto end;
+	}
+
+	/* check isakmp header length */
+	if (len < sizeof(temp_buffer)) {
+		plog(LLV_ERROR, LOCATION, (struct sockaddr *)&remote,
+			"packet shorter than isakmp header size.\n");
+		/* dummy receive */
+		if ((len = recvfrom(so_isakmp, (char *)temp_buffer, sizeof(temp_buffer),
+			    0, (struct sockaddr *)&remote, &remote_len)) < 0) {
+			plog(LLV_ERROR, LOCATION, NULL,
+				"failed to receive isakmp packet\n");
+		}
+		goto end;
+	}
+
+	/* read real message */
+	if ((buf = vmalloc(ntohl(isakmp->len) + 4)) == NULL) {
+		plog(LLV_ERROR, LOCATION, NULL,
+			"failed to allocate reading buffer\n");
+		/* dummy receive */
+		if ((len = recvfrom(so_isakmp, (char *)temp_buffer, sizeof(temp_buffer),
+			    0, (struct sockaddr *)&remote, &remote_len)) < 0) {
+			plog(LLV_ERROR, LOCATION, NULL,
+				"failed to receive isakmp packet\n");
+		}
+		goto end;
+	}
+
+	while ((len = recvfromto(so_isakmp, buf->v, buf->l,
+	                    0, (struct sockaddr *)&remote, &remote_len,
+	                    (struct sockaddr *)&local, &local_len)) < 0) {
+		if (errno == EINTR)
+			continue;
+		plog(LLV_ERROR, LOCATION, NULL,
+			"failed to receive isakmp packet\n");
+		goto end;
+	}
+
+	if (len != buf->l) {
+		plog(LLV_ERROR, LOCATION, (struct sockaddr *)&remote,
+			"received invalid length, header says %d, packet is %d bytes why ?\n",
+			len, buf->l);
+		goto end;
+	}
+
+	/*
+	 * Discard first 4 bytes, they're either:
+	 * 0 - this is IKE traffic
+	 * !0 - first four bytes are the SPI of a UDP encapsulated IPSec packet
+	 * The seond type of packet should be interecepted by the kernel
+	 * or dropped before we get to this point.
+	 */
+	{
+		vchar_t	*newbuf = vmalloc(buf->l - 4);
+		if (newbuf == NULL)
+		{
+			plog(LLV_ERROR, LOCATION, (struct sockaddr *)&remote,
+				"couldn't allocate smaller buffer.\n");
+			goto end;
+		}
+		memcpy(newbuf->v, buf->v + 4, newbuf->l);
+		vfree(buf);
+		buf = newbuf;
+		len = buf->l;
+	}
+
+	plog(LLV_DEBUG, LOCATION, NULL, "===\n");
+	plog(LLV_DEBUG, LOCATION, (struct sockaddr *)&local,
+		"%d bytes message received from %s\n",
+		len, saddr2str((struct sockaddr *)&remote));
+	plogdump(LLV_DEBUG, buf->v, buf->l);
+
+	/* avoid packets with malicious port/address */
+	switch (remote.ss_family) {
+	case AF_INET:
+		port = ((struct sockaddr_in *)&remote)->sin_port;
+		break;
+#ifdef INET6
+	case AF_INET6:
+		port = ((struct sockaddr_in6 *)&remote)->sin6_port;
+		break;
+#endif
+	default:
+		plog(LLV_ERROR, LOCATION, NULL,
+			"invalid family: %d\n", remote.ss_family);
+		goto end;
+	}
+	if (port == 0) {
+		plog(LLV_ERROR, LOCATION, (struct sockaddr *)&remote,
+			"src port == 0 (valid as UDP but not with IKE)\n");
+		goto end;
+	}
+
+	{
+		struct isakmp	*isakmp = (struct isakmp*)buf->v;
+		plog(LLV_DEBUG, LOCATION, (struct sockaddr*)&remote,
+			"natt receiving packet %.8X%.8X:%.8X%.8X %u\n",
+			*(u_long*)isakmp->i_ck, *(u_long*)&isakmp->i_ck[4],
+			*(u_long*)isakmp->r_ck, *(u_long*)&isakmp->r_ck[4],
+			isakmp->msgid);
+	}
+
+	/* XXX: check sender whether to be allowed or not to accept */
+
+	/* XXX: I don't know how to check isakmp half connection attack. */
+
+	/* simply reply if the packet was processed. */
+	if (check_recvdpkt((struct sockaddr *)&remote,
+			(struct sockaddr *)&local, buf)) {
+		plog(LLV_NOTIFY, LOCATION, NULL,
+			"the packet is retransmitted by %s.\n",
+			saddr2str((struct sockaddr *)&remote));
+		error = 0;
+		goto end;
+	}
+
+	/* isakmp main routine */
+	if (isakmp_main(buf, (struct sockaddr *)&remote,
+			(struct sockaddr *)&local) != 0) goto end;
+
+	error = 0;
+
+end:
+	if (buf != NULL)
+		vfree(buf);
+
+	return(error);
+}
+#endif
+
+
 /*
  * main processing to handle isakmp payload
  */
@@ -348,17 +524,40 @@ isakmp_main(msg, remote, local)
 
 		/* must be same addresses in one stream of a phase at least. */
 		if (cmpsaddrstrict(iph1->remote, remote) != 0) {
-			char *saddr_db, *saddr_act;
-
-			saddr_db = strdup(saddr2str(iph1->remote));
-			saddr_act = strdup(saddr2str(remote));
-
-			plog(LLV_WARNING, LOCATION, remote,
-				"remote address mismatched. db=%s, act=%s\n",
-				saddr_db, saddr_act);
-
-			racoon_free(saddr_db);
-			racoon_free(saddr_act);
+#ifdef IKE_NAT_T
+			if (iph1->side == RESPONDER &&
+				(iph1->natt_flags & natt_remote_support) != 0 &&
+				cmpsaddrwop(iph1->remote, remote) == 0)
+			{
+				/*
+				 * If the initiator detects a NAT it may switch to a
+				 * new port. Technically, the remote address may change
+				 * as well, depending on the NAT. Handling that would
+				 * require more changes.
+				 *
+				 * We should record the new remote port so we can
+				 * send
+				 */
+				 plog(LLV_WARNING, LOCATION, remote,
+				 	"remote port changed from %s\n", saddr2str(iph1->remote));
+				 memcpy(iph1->remote, remote, iph1->remote->sa_len);
+				 memcpy(iph1->local, local, iph1->local->sa_len);
+			}
+			else
+#endif
+			{
+				char *saddr_db, *saddr_act;
+	
+				saddr_db = strdup(saddr2str(iph1->remote));
+				saddr_act = strdup(saddr2str(remote));
+	
+				plog(LLV_WARNING, LOCATION, remote,
+					"remote address mismatched. db=%s, act=%s\n",
+					saddr_db, saddr_act);
+	
+				racoon_free(saddr_db);
+				racoon_free(saddr_act);
+			}
 		}
 		/*
 		 * don't check of exchange type here because other type will be
@@ -1208,8 +1407,6 @@ isakmp_init()
 	initctdtree();
 	init_recvdpkt();
 
-	srandom(time(0));
-
 	if (isakmp_open() < 0)
 		goto err;
 
@@ -1254,15 +1451,86 @@ isakmp_pindex(index, msgid)
 	return buf;
 }
 
+int
+isakmp_setup_socket(struct sockaddr* in_addr)
+{
+	int sock = -1;
+	const int yes = 1;
+#ifdef INET6
+	int pktinfo;
+#endif
+	if ((sock = socket(in_addr->sa_family, SOCK_DGRAM, 0)) < 0) {
+		plog(LLV_ERROR, LOCATION, NULL,
+			"socket (%s)\n", strerror(errno));
+		return -1;
+	}
+	
+	/* receive my interface address on inbound packets. */
+	switch (in_addr->sa_family) {
+		case AF_INET:
+			if (setsockopt(sock, IPPROTO_IP, IP_RECVDSTADDR,
+				(const void *)&yes, sizeof(yes)) < 0) {
+				plog(LLV_ERROR, LOCATION, NULL,
+				"setsockopt (%s)\n", strerror(errno));
+				close(sock);
+				return -1;
+			}
+		break;
+#ifdef INET6
+		case AF_INET6:
+#ifdef ADVAPI
+#ifdef IPV6_RECVPKTINFO
+			pktinfo = IPV6_RECVPKTINFO;
+#else  /* old adv. API */
+			pktinfo = IPV6_PKTINFO;
+#endif /* IPV6_RECVPKTINFO */
+#else
+			pktinfo = IPV6_RECVDSTADDR;
+#endif
+			if (setsockopt(sock, IPPROTO_IPV6, pktinfo,
+				(const void *)&yes, sizeof(yes)) < 0)
+			{
+				plog(LLV_ERROR, LOCATION, NULL,
+				"setsockopt(%d): %s\n",
+				pktinfo, strerror(errno));
+				close(sock);
+				return -1;
+			}
+			break;
+#endif
+	}
+	
+#ifdef IPV6_USE_MIN_MTU
+	if (in_addr->sa_family == AF_INET6 &&
+		setsockopt(sock, IPPROTO_IPV6, IPV6_USE_MIN_MTU,
+		(void *)&yes, sizeof(yes)) < 0) {
+		plog(LLV_ERROR, LOCATION, NULL,
+		"setsockopt (%s)\n", strerror(errno));
+		close(sock);
+		return -1;
+	}
+#endif
+	
+	if (setsockopt_bypass(sock, in_addr->sa_family) < 0) {
+		close(sock);
+		return -1;
+	}
+	
+	if (bind(sock, in_addr, in_addr->sa_len) < 0) {
+		plog(LLV_ERROR, LOCATION, in_addr,
+		"failed to bind (%s).\n", strerror(errno));
+		close(sock);
+		return -1;
+	}
+	
+	return sock;
+}
+
 /* open ISAKMP sockets. */
 int
 isakmp_open()
 {
-	const int yes = 1;
 	int ifnum;
-#ifdef INET6
-	int pktinfo;
-#endif
 	struct myaddrs *p;
 
 	ifnum = 0;
@@ -1292,71 +1560,35 @@ isakmp_open()
 				lcconf->default_af);
 			goto err_and_next;
 		}
+		
+		p->sock = isakmp_setup_socket(p->addr);
+		if (p->sock < 0) goto err_and_next;
 
-		if ((p->sock = socket(p->addr->sa_family, SOCK_DGRAM, 0)) < 0) {
-			plog(LLV_ERROR, LOCATION, NULL,
-				"socket (%s)\n", strerror(errno));
-			goto err_and_next;
-		}
-
-		/* receive my interface address on inbound packets. */
-		switch (p->addr->sa_family) {
-		case AF_INET:
-			if (setsockopt(p->sock, IPPROTO_IP, IP_RECVDSTADDR,
-					(const void *)&yes, sizeof(yes)) < 0) {
-				plog(LLV_ERROR, LOCATION, NULL,
-					"setsockopt (%s)\n", strerror(errno));
-				goto err_and_next;
-			}
-			break;
-#ifdef INET6
-		case AF_INET6:
-#ifdef ADVAPI
-#ifdef IPV6_RECVPKTINFO
-			pktinfo = IPV6_RECVPKTINFO;
-#else  /* old adv. API */
-			pktinfo = IPV6_PKTINFO;
-#endif /* IPV6_RECVPKTINFO */
-#else
-			pktinfo = IPV6_RECVDSTADDR;
-#endif
-			if (setsockopt(p->sock, IPPROTO_IPV6, pktinfo,
-					(const void *)&yes, sizeof(yes)) < 0)
-			{
-				plog(LLV_ERROR, LOCATION, NULL,
-					"setsockopt(%d): %s\n",
-					pktinfo, strerror(errno));
-				goto err_and_next;
-			}
-			break;
-#endif
-		}
-
-#ifdef IPV6_USE_MIN_MTU
-		if (p->addr->sa_family == AF_INET6 &&
-		    setsockopt(p->sock, IPPROTO_IPV6, IPV6_USE_MIN_MTU,
-		    (void *)&yes, sizeof(yes)) < 0) {
-			plog(LLV_ERROR, LOCATION, NULL,
-			    "setsockopt (%s)\n", strerror(errno));
-			return -1;
-		}
-#endif
-
-		if (setsockopt_bypass(p->sock, p->addr->sa_family) < 0)
-			goto err_and_next;
-
-		if (bind(p->sock, p->addr, p->addr->sa_len) < 0) {
-			plog(LLV_ERROR, LOCATION, p->addr,
-				"failed to bind (%s).\n", strerror(errno));
-			close(p->sock);
-			goto err_and_next;
-		}
-
-		ifnum++;
-
-		plog(LLV_INFO, LOCATION, NULL,
+		plog(LLV_DEBUG, LOCATION, NULL,
 			"%s used as isakmp port (fd=%d)\n",
 			saddr2str(p->addr), p->sock);
+
+		ifnum++;
+		
+#ifdef IKE_NAT_T
+		/*
+		 * We have to listen on 4500 in addition to 500 with IPv4
+		 * to support NAT traversal.
+		 */
+		if (p->addr->sa_family == AF_INET)
+		{
+			struct sockaddr_in	sin = *(struct sockaddr_in*)p->addr;
+			
+			sin.sin_port = ntohs(PORT_ISAKMP_NATT);
+			p->nattsock = isakmp_setup_socket((struct sockaddr*)&sin);
+			if (p->nattsock >= 0)
+			{
+				plog(LLV_DEBUG, LOCATION, NULL,
+					"%s used as nat-t isakmp port (fd=%d)\n",
+					saddr2str((struct sockaddr*)&sin), p->nattsock);
+			}
+		}
+#endif
 
 		continue;
 
@@ -1385,9 +1617,14 @@ isakmp_close()
 	for (p = lcconf->myaddrs; p; p = next) {
 		next = p->next;
 
-		if (!p->addr)
+		if (!p->addr) {
+			racoon_free(p);
 			continue;
+		}
 		close(p->sock);
+#ifdef IKE_NAT_T
+		if (p->nattsock >= 0) close(p->nattsock);
+#endif
 		racoon_free(p->addr);
 		racoon_free(p);
 	}
@@ -1402,11 +1639,32 @@ isakmp_send(iph1, sbuf)
 {
 	int len = 0;
 	int s;
+	vchar_t	*newbuf = NULL;
 
 	/* select the socket to be sent */
 	s = getsockmyaddr(iph1->local);
 	if (s == -1)
 		return -1;
+	
+#ifdef IKE_NAT_T
+	/* prepend four bytes of zeros if source or destination port is PORT_ISAKMP_NATT */
+	if (iph1->remote->sa_family == AF_INET &&
+		(((struct sockaddr_in*)(iph1->remote))->sin_port == htons(PORT_ISAKMP_NATT)) ||
+		 ((struct sockaddr_in*)(iph1->local))->sin_port == htons(PORT_ISAKMP_NATT))
+	{
+		
+		/* There's probably a better way to do this */
+		newbuf = vmalloc(sbuf->l + 4);
+		if (newbuf == NULL) {
+			plog(LLV_ERROR, LOCATION, NULL, "sendfromto natt prepend failed\n");
+			return -1;
+		}
+		
+		memset(newbuf->v, 0, 4);
+		memcpy(newbuf->v + 4, sbuf->v, sbuf->l);
+		sbuf = newbuf;
+	}
+#endif
 
 	len = sendfromto(s, sbuf->v, sbuf->l,
 			iph1->local, iph1->remote, lcconf->count_persend);
@@ -1414,6 +1672,8 @@ isakmp_send(iph1, sbuf)
 		plog(LLV_ERROR, LOCATION, NULL, "sendfromto failed\n");
 		return -1;
 	}
+	
+	if (newbuf) vfree(newbuf);
 
 	return 0;
 }
@@ -2035,7 +2295,7 @@ isakmp_newmsgid2(iph1)
 	u_int32_t msgid2;
 
 	do {
-		msgid2 = random();
+		msgid2 = arc4random();
 	} while (getph2bymsgid(iph1, msgid2));
 
 	return msgid2;
@@ -2179,7 +2439,7 @@ getname(ap)
 	if (getnameinfo((struct sockaddr *)&addr, addr.sin_len,
 			ntop_buf, sizeof(ntop_buf), NULL, 0,
 			NI_NUMERICHOST | niflags))
-		strncpy(ntop_buf, "?", sizeof(ntop_buf));
+		strlcpy(ntop_buf, "?", sizeof(ntop_buf));
 
 	return ntop_buf;
 }
@@ -2203,7 +2463,7 @@ getname6(ap)
 	if (getnameinfo((struct sockaddr *)&addr, addr.sin6_len,
 			ntop_buf, sizeof(ntop_buf), NULL, 0,
 			NI_NUMERICHOST | niflags))
-		strncpy(ntop_buf, "?", sizeof(ntop_buf));
+		strlcpy(ntop_buf, "?", sizeof(ntop_buf));
 
 	return ntop_buf;
 }
@@ -2252,8 +2512,8 @@ isakmp_printpacket(msg, from, my, decoded)
 		if (getnameinfo(from, from->sa_len, hostbuf, sizeof(hostbuf),
 				portbuf, sizeof(portbuf),
 				NI_NUMERICHOST | NI_NUMERICSERV | niflags)) {
-			strncpy(hostbuf, "?", sizeof(hostbuf));
-			strncpy(portbuf, "?", sizeof(portbuf));
+			strlcpy(hostbuf, "?", sizeof(hostbuf));
+			strlcpy(portbuf, "?", sizeof(portbuf));
 		}
 		printf("%s:%s", hostbuf, portbuf);
 	} else
@@ -2263,8 +2523,8 @@ isakmp_printpacket(msg, from, my, decoded)
 		if (getnameinfo(my, my->sa_len, hostbuf, sizeof(hostbuf),
 				portbuf, sizeof(portbuf),
 				NI_NUMERICHOST | NI_NUMERICSERV | niflags)) {
-			strncpy(hostbuf, "?", sizeof(hostbuf));
-			strncpy(portbuf, "?", sizeof(portbuf));
+			strlcpy(hostbuf, "?", sizeof(hostbuf));
+			strlcpy(portbuf, "?", sizeof(portbuf));
 		}
 		printf("%s:%s", hostbuf, portbuf);
 	} else

@@ -1,0 +1,42 @@
+#
+# Byte flipper generator configuration.
+#
+# Syntax of each non-comment line:
+#	cssmType[/podwrapperType]	field1 ... fieldn
+#	cssmType[/podwrapperType]	*
+# Generates flippers for each cssmType (with forwarders for podwrapperType if present),
+# flipping the fields given. If '*' is used, take field definitions from cssmtype.h.
+#
+
+#
+# CSSM standard structures
+#
+CSSM_DATA/CssmData	Length
+CSSM_VERSION *
+CSSM_SUBSERVICE_UID/CssmSubserviceUid *
+CSSM_NET_ADDRESS *
+CSSM_LIST_ELEMENT/ListElement	WordID ElementType
+CSSM_DL_DB_HANDLE *
+CSSM_CONTEXT_ATTRIBUTE/Context::Attr CUSTOM
+CSSM_CONTEXT/Context *
+CSSM_LIST/CssmList/TypedList	ListType Tail
+CSSM_SAMPLE/CssmSample *
+CSSM_SAMPLEGROUP/SampleGroup	NumberOfSamples
+CSSM_ACCESS_CREDENTIALS/AccessCredentials	Callback CallerCtx
+CSSM_AUTHORIZATIONGROUP/AuthorizationGroup	NumberOfAuthTags
+CSSM_ACL_VALIDITY_PERIOD *
+CSSM_ACL_ENTRY_PROTOTYPE/AclEntryPrototype	Delegate
+CSSM_ACL_OWNER_PROTOTYPE/AclOwnerPrototype	Delegate
+CSSM_ACL_ENTRY_INPUT/AclEntryInput	Callback CallerContext
+CSSM_ACL_ENTRY_INFO/AclEntryInfo	EntryHandle
+CSSM_RANGE *
+CSSM_KEY_SIZE/CssmKeySize *
+CSSM_KEYHEADER/CssmKey::Header *
+CSSM_KEY/CssmKey	KeyHeader
+
+
+#
+# Authorization structures
+#
+AuthorizationItem		valueLength flags
+AuthorizationItemSet	count

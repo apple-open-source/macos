@@ -1,9 +1,9 @@
 dnl
-dnl "$Id: cups-manpages.m4,v 1.4 2002/02/10 05:20:13 jlovell Exp $"
+dnl "$Id: cups-manpages.m4,v 1.1.1.7 2002/12/24 00:04:59 jlovell Exp $"
 dnl
 dnl   Manpage stuff for the Common UNIX Printing System (CUPS).
 dnl
-dnl   Copyright 1997-2002 by Easy Software Products, all rights reserved.
+dnl   Copyright 1997-2003 by Easy Software Products, all rights reserved.
 dnl
 dnl   These coded instructions, statements, and computer programs are the
 dnl   property of Easy Software Products and are protected by Federal
@@ -100,5 +100,5 @@ AC_SUBST(MAN8EXT)
 AC_SUBST(MAN8DIR)
 
 dnl
-dnl End of "$Id: cups-manpages.m4,v 1.4 2002/02/10 05:20:13 jlovell Exp $".
+dnl End of "$Id: cups-manpages.m4,v 1.1.1.7 2002/12/24 00:04:59 jlovell Exp $".
 dnl

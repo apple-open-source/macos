@@ -1,0 +1,23 @@
+#!/bin/sh
+
+# Check that conditional redefinitions of AC_SUBST'ed variables are detected.
+# Report from Patrik Weiskircher
+
+. $srcdir/defs
+
+set -e
+
+cat >>configure.in <<EOF
+AM_CONDITIONAL([COND], [true])
+AC_OUTPUT
+EOF
+
+cat >Makefile.am <<EOF
+if COND
+libdir = mumble
+endif
+EOF
+
+$ACLOCAL
+$AUTOMAKE 2>stderr && exit 1
+grep 'libdir was already defined' stderr

@@ -23,6 +23,7 @@
 #define _H_CDSA_CLIENT_ACLCLIENT  1
 
 #include <Security/cssmaclpod.h>
+#include <Security/cssmacl.h>
 #include <Security/cssmcred.h>
 #include <Security/refcount.h>
 #include <Security/globalizer.h>
@@ -78,21 +79,43 @@ public:
 	const AccessCredentials *promptCred() const;
 	const AccessCredentials *unlockCred() const;
 
-public:
-    // HHS password change credentials are used, amazingly enough, to change passwords...
-    class PasswordChangeCredentials
-    {
+protected:
+	class KeychainCredentials {
+	public:
+		KeychainCredentials(CssmAllocator &alloc)
+			: allocator(alloc), mCredentials(new AutoCredentials(alloc)) { }
+		virtual ~KeychainCredentials();
+
+		CssmAllocator &allocator;
+
+        operator const AccessCredentials* () { return mCredentials; }
+	
     protected:
-        AutoCredentials* mCredentials;
-        CssmAllocator& mAllocator;
+		AutoCredentials *mCredentials;
+	};
     
+public:
+    // create a self-managed AccessCredentials to explicitly provide a keychain passphrase
+    class PassphraseUnlockCredentials : public KeychainCredentials {
     public:
-        PasswordChangeCredentials (const CssmData& password,
-                                   CssmAllocator& allocator);
-        ~PasswordChangeCredentials ();
-        
-        operator const AccessCredentials* () {return mCredentials;}
+        PassphraseUnlockCredentials (const CssmData& password, CssmAllocator& allocator);
     };
+        
+	// create a self-managed AccessCredentials to change a keychain passphrase
+    class PasswordChangeCredentials : public KeychainCredentials {
+    public:
+        PasswordChangeCredentials (const CssmData& password, CssmAllocator& allocator);
+    };
+	
+public:
+	class AnyResourceContext : public ResourceControlContext {
+	public:
+		AnyResourceContext(const CSSM_ACCESS_CREDENTIALS *cred = NULL);
+		
+	private:
+		ListElement mAny;
+		CSSM_ACL_AUTHORIZATION_TAG mTag;
+	};
 };
 
 

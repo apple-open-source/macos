@@ -1,0 +1,15 @@
+include "$(SRCROOT)/../../Common/Scripts/AbsolutePathMig.jam" ;
+
+Intermediates = "$(BUILT_PRODUCTS_DIR)/KerberosIPC.intermediates" ;
+
+MACH_SERVER = YES ;
+AbsolutePathMig "$(Intermediates)/notifyServer.h" 
+                "$(Intermediates)/notifyServer.c" : 
+                "$(SRCROOT)/../../KerberosIPC/Sources/notify.defs" ;
+
+DEPENDS all : 	"$(Intermediates)/notifyServer.h" 
+                "$(Intermediates)/notifyServer.c" ;
+DEPENDS install : all ;
+
+NOCARE installhdrs ;
+NOTFILE installhdrs ;

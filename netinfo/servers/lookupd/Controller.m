@@ -3,21 +3,22 @@
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
- * "Portions Copyright (c) 1999 Apple Computer, Inc.  All Rights
- * Reserved.  This file contains Original Code and/or Modifications of
- * Original Code as defined in and that are subject to the Apple Public
- * Source License Version 1.0 (the 'License').  You may not use this file
- * except in compliance with the License.  Please obtain a copy of the
- * License at http://www.apple.com/publicsource and read it before using
- * this file.
+ * Copyright (c) 1999-2003 Apple Computer, Inc.  All Rights Reserved.
+ * 
+ * This file contains Original Code and/or Modifications of Original Code
+ * as defined in and that are subject to the Apple Public Source License
+ * Version 2.0 (the 'License'). You may not use this file except in
+ * compliance with the License. Please obtain a copy of the License at
+ * http://www.opensource.apple.com/apsl/ and read it before using this
+ * file.
  * 
  * The Original Code and all software distributed under the License are
  * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
  * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
  * INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY,
- * FITNESS FOR A PARTICULAR PURPOSE OR NON-INFRINGEMENT.  Please see the
- * License for the specific language governing rights and limitations
- * under the License."
+ * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
+ * Please see the License for the specific language governing rights and
+ * limitations under the License.
  * 
  * @APPLE_LICENSE_HEADER_END@
  */
@@ -135,14 +136,18 @@ extern int _lookup_link();
 
 - (id)agentClassNamed:(char *)name
 {
-	int i;
-	char cname[256];
+	int status;
+	unsigned int i;
+	char *cname;
 
 	i = listIndex(name, agentNames);
 	if (i != IndexNull) return agents[i];
 
-	sprintf(cname, "%sAgent", name);
+	status = asprintf(&cname, "%sAgent", name);
+	if (status < 0) return nil;
+
 	i = listIndex(cname, agentNames);
+	free(cname);
 	if (i != IndexNull) return agents[i];
 
 	return nil;
@@ -155,14 +160,25 @@ extern int _lookup_link();
 	char *logFileName;
 	char *logFacilityName;
 	FILE *fp;
-	int pri;
+	int pri, status;
 	time_t now;
-	char str[64];
+	char *str;
 
 	configurationArray = [configManager config];
 	global = [configManager configGlobal:configurationArray];
 
-	statistics_enabled = [configManager boolForKey:"StatisticsEnabled" dict:global default:statistics_enabled];
+	debug_enabled = [configManager boolForKey:"Debug" dict:global default:debug_enabled];
+	if (debug_enabled)
+	{
+		statistics_enabled = YES;
+		coredump_enabled = YES;
+		system_log_set_max_priority(LOG_DEBUG);
+	}
+	else
+	{
+		statistics_enabled = [configManager boolForKey:"StatisticsEnabled" dict:global default:statistics_enabled];
+		coredump_enabled = [configManager boolForKey:"CoreDumpEnabled" dict:global default:coredump_enabled];
+	}
 
 	logFileName = [configManager stringForKey:"LogFile" dict:global default:NULL];
 	fp = fopen(logFileName, "a");
@@ -173,11 +189,14 @@ extern int _lookup_link();
 	freeString(logFacilityName);
 
 	now = time(0);
-	sprintf(str, "lookupd (version %s) starting - %s", _PROJECT_VERSION_, ctime(&now));
-
-	/* remove ctime trailing newline */
-	str[strlen(str) - 1] = '\0';
-	system_log(LOG_NOTICE, str);
+	status = asprintf(&str, "lookupd (version %s) starting - %s", _PROJECT_VERSION_, ctime(&now));
+	if (status >= 0)
+	{
+		/* remove ctime trailing newline */
+		str[strlen(str) - 1] = '\0';
+		system_log(LOG_NOTICE, str);
+		free(str);
+	}
 
 	maxThreads = [configManager intForKey:"MaxThreads" dict:global default:64];
 	maxIdleThreads = [configManager intForKey:"MaxIdleThreads" dict:global default:2];
@@ -191,7 +210,6 @@ extern int _lookup_link();
 
 - (id)initWithName:(char *)name
 {
-	char str[128];
 	DNSAgent *dns;
 
 	[super init];
@@ -203,8 +221,7 @@ extern int _lookup_link();
  	if (name == NULL) portName = NULL;
 	else portName = copyString((char *)name);
 
-	sprintf(str, "Controller");
-	[self setBanner:str];
+	[self setBanner:"Controller"];
 
 	if (![self registerPort:portName]) return nil;
 
@@ -387,7 +404,8 @@ extern int _lookup_link();
 - (void)setLoginUser:(int)uid
 {
 	LUServer *s;
-	char scratch[256];
+	char *scratch, *name;
+	int status;
 
 	if (loginUser != nil)
 	{
@@ -396,18 +414,27 @@ extern int _lookup_link();
 		loginUser = nil;
 	}
 
-	sprintf(scratch, "%d", uid);
+	status = asprintf(&scratch, "%d", uid);
+	if (status < 0) return;
+
 	s = [self checkOutServer];
 	loginUser = [s itemWithKey:"uid" value:scratch category:LUCategoryUser];
 	[self checkInServer:s];
+	free(scratch);
 
 	if (loginUser != nil)
 	{
 		[cacheAgent addObject:loginUser key:"name" category:LUCategoryUser];
 		[cacheAgent addObject:loginUser key:"uid" category:LUCategoryUser];
 		[loginUser setTimeToLive:(time_t)-1];
-		sprintf(scratch, "%s (console user)", [loginUser banner]);
-		[loginUser setBanner:scratch];
+		name = [loginUser banner];
+		if (name != NULL)
+		{
+			status = asprintf(&scratch, "%s (console user)", [loginUser banner]);
+			if (status < 0) return;
+			[loginUser setBanner:scratch];
+			free(scratch);
+		}
 	}
 }
 

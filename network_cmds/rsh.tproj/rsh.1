@@ -29,94 +29,81 @@
 .\" OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
 .\" SUCH DAMAGE.
 .\"
-.\"	@(#)rsh.1	8.2 (Berkeley) 4/29/95
+.\"	@(#)rsh.1	8.1 (Berkeley) 6/6/93
+.\" $FreeBSD: src/usr.bin/rsh/rsh.1,v 1.17 2002/04/20 12:16:41 charnier Exp $
 .\"
-.Dd April 29, 1995
+.Dd June 6, 1993
 .Dt RSH 1
-.Os BSD 4.2
+.Os
 .Sh NAME
 .Nm rsh
 .Nd remote shell
 .Sh SYNOPSIS
-.Nm rsh
-.Op Fl Kdnx
+.Nm
+.Op Fl 46Kdnx
+.Op Fl t Ar timeout
 .Op Fl k Ar realm
 .Op Fl l Ar username
 .Ar host
-.Nm rsh
-.Op Fl Kdnx
-.Op Fl k Ar realm
-.Ar username@host
 .Op command
 .Sh DESCRIPTION
-.Nm Rsh
-executes
+The
+.Nm
+utility executes
 .Ar command
 on
-.Ar host  .
+.Ar host .
 .Pp
-.Nm Rsh
-copies its standard input to the remote command, the standard
+The
+.Nm
+utility copies its standard input to the remote command, the standard
 output of the remote command to its standard output, and the
 standard error of the remote command to its standard error.
 Interrupt, quit and terminate signals are propagated to the remote
 command;
-.Nm rsh
+.Nm
 normally terminates when the remote command does.
 The options are as follows:
 .Bl -tag -width flag
-.It Fl K
-The
-.Fl K
-option turns off all Kerberos authentication.
+.It Fl 4
+Use IPv4 addresses only.
+.It Fl 6
+Use IPv6 addresses only.
 .It Fl d
-The
-.Fl d
-option turns on socket debugging (using
-.Xr setsockopt  2  )
+Turn on socket debugging (using
+.Xr setsockopt 2 )
 on the
 .Tn TCP
 sockets used for communication with the remote host.
-.It Fl k
-The
-.Fl k
-option causes
-.Nm rsh
-to obtain tickets for the remote host in
-.Ar realm
-instead of the remote host's realm as determined by
-.Xr krb_realmofhost  3  .
-.It Fl l
+.It Fl l Ar username
+Allow the remote
+.Ar username
+to be specified.
 By default, the remote username is the same as the local username.
-The
-.Fl l
-option or the
-.Pa username@host
-format allow the remote name to be specified.
-Kerberos authentication is used, and authorization is determined
-as in
-.Xr rlogin  1  .
 .It Fl n
-The
-.Fl n
-option redirects input from the special device
+Redirect input from the special device
 .Pa /dev/null
 (see the
 .Sx BUGS
 section of this manual page).
 .It Fl x
-The
-.Fl x
-option turns on
+Turn on
 .Tn DES
 encryption for all data exchange.
 This may introduce a significant delay in response time.
+.It Fl t Ar timeout
+Allow a
+.Ar timeout
+to be specified (in seconds).  If no
+data is sent or received in this time,
+.Nm
+will exit.
 .El
 .Pp
 If no
 .Ar command
 is specified, you will be logged in on the remote host using
-.Xr rlogin  1  .
+.Xr rlogin 1 .
 .Pp
 Shell metacharacters which are not quoted are interpreted on local machine,
 while quoted metacharacters are interpreted on the remote machine.
@@ -144,26 +131,35 @@ to
 .Sh FILES
 .Bl -tag -width /etc/hosts -compact
 .It Pa /etc/hosts
+.It Pa /etc/auth.conf
 .El
 .Sh SEE ALSO
 .Xr rlogin 1 ,
+.Xr setsockopt 2 ,
 .Xr kerberos 3 ,
+.Xr krb_realmofhost 3 ,
 .Xr krb_sendauth 3 ,
-.Xr krb_realmofhost 3
+.Xr rcmd 3 ,
+.Xr ruserok 3 ,
+.Xr auth.conf 5 ,
+.Xr hosts 5 ,
+.Xr hosts.equiv 5 ,
+.Xr rlogind 8 ,
+.Xr rshd 8
 .Sh HISTORY
 The
-.Nm rsh
+.Nm
 command appeared in
 .Bx 4.2 .
 .Sh BUGS
 If you are using
 .Xr csh  1
 and put a
-.Nm rsh
+.Nm
 in the background without redirecting its input away from the terminal,
 it will block even if no reads are posted by the remote command.
 If no input is desired you should redirect the input of
-.Nm rsh
+.Nm
 to
 .Pa /dev/null
 using the
@@ -172,16 +168,16 @@ option.
 .Pp
 You cannot run an interactive command
 (like
-.Xr rogue  6
+.Xr rogue 6
 or
-.Xr vi  1  )
+.Xr vi 1 )
 using
-.Nm rsh  ;
+.Nm ;
 use
-.Xr rlogin  1
+.Xr rlogin 1
 instead.
 .Pp
 Stop signals stop the local
-.Nm rsh
+.Nm
 process only; this is arguably wrong, but currently hard to fix for reasons
 too complicated to explain here.

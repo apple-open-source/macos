@@ -3,7 +3,7 @@ AC_DEFUN(BFD_BINARY_FOPEN,
 [AC_REQUIRE([AC_CANONICAL_SYSTEM])
 case "${host}" in
 changequote(,)dnl
-*-*-msdos* | *-*-go32* | *-*-mingw32* | *-*-cygwin* | *-*-windows* | *-*pdo-winnt*)
+*-*-msdos* | *-*-go32* | *-*-mingw32* | *-*-cygwin* | *-*-windows*)
 changequote([,])dnl
   AC_DEFINE(USE_BINARY_FOPEN, 1, [Use b modifier when opening binary files?]) ;;
 esac])dnl
@@ -108,3 +108,32 @@ AC_DEFUN(BFD_HAVE_SYS_PROCFS_TYPE_MEMBER,
  AC_MSG_RESULT($bfd_cv_have_sys_procfs_type_member_$1_$2)
 ])
 
+sinclude(../gettext.m4)
+ifelse(yes,no,[
+AC_DEFUN([CY_WITH_NLS],)
+AC_SUBST(INTLLIBS)
+])
+
+AC_DEFUN([AM_INSTALL_LIBBFD],
+[AC_MSG_CHECKING([whether to install libbfd])
+  AC_ARG_ENABLE(install-libbfd,
+[  --install-libbfd controls installation of libbfd and related headers],
+      install_libbfd_p=$enableval,
+      if test "${host}" = "${target}" || test "$enable_shared" = "yes"; then
+        install_libbfd_p=yes
+      else
+        install_libbfd_p=no
+      fi)
+  AC_MSG_RESULT($install_libbfd_p)
+  AM_CONDITIONAL(INSTALL_LIBBFD, test $install_libbfd_p = yes)
+  # libbfd.a is a host library containing target dependent code
+  bfdlibdir='$(libdir)'
+  bfdincludedir='$(includedir)'
+  if test "${host}" != "${target}"; then
+    bfdlibdir='$(exec_prefix)/$(host_alias)/$(target_alias)/lib'
+    bfdincludedir='$(exec_prefix)/$(host_alias)/$(target_alias)/include'
+  fi
+  AC_SUBST(bfdlibdir)
+  AC_SUBST(bfdincludedir)
+]
+)

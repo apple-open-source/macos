@@ -91,6 +91,14 @@ If a command is issued that can't be executed as a normal command,
 and the command is the name of a directory, perform the tt(cd)
 command to that directory.
 )
+pindex(AUTO_CONTINUE)
+cindex(jobs, continuing automatically)
+cindex(continuing jobs automatically)
+item(tt(AUTO_CONTINUE))(
+With this option set, stopped jobs that are removed from the job table
+with the tt(disown) builtin command are automatically sent a tt(CONT)
+signal to make them running.
+)
 pindex(AUTO_LIST)
 cindex(completion, listing choices)
 item(tt(AUTO_LIST) (tt(-9)) <D>)(
@@ -297,6 +305,9 @@ cindex(correction, spelling)
 cindex(spelling correction)
 item(tt(CORRECT) (tt(-0)))(
 Try to correct the spelling of commands.
+Note that, when the tt(HASH_LIST_ALL) option is not set or when some
+directories in the path are not readable, this may falsely report spelling
+errors the first time some commands are used.
 )
 pindex(CORRECT_ALL)
 item(tt(CORRECT_ALL) (tt(-O)))(
@@ -356,6 +367,14 @@ Use the Dvorak keyboard instead of the standard qwerty keyboard as a basis
 for examining spelling mistakes for the tt(CORRECT) and tt(CORRECT_ALL)
 options and the tt(spell-word) editor command.
 )
+pindex(EMACS)
+item(tt(EMACS))(
+If ZLE is loaded, turning on this option has the equivalent effect
+of `tt(bindkey -e)'.  In addition, the VI option is unset.
+Turning it off has no effect.  The option setting is
+not guaranteed to reflect the current keymap.  This option is
+provided for compatibility; tt(bindkey) is the recommended interface.
+)
 pindex(EQUALS)
 cindex(filename expansion, =)
 item(tt(EQUALS) <Z>)(
@@ -368,6 +387,16 @@ item(tt(ERR_EXIT) (tt(-e), ksh: tt(-e)))(
 If a command has a non-zero exit status, execute the tt(ZERR)
 trap, if set, and exit.  This is disabled while running initialization
 scripts.
+)
+pindex(ERR_RETURN)
+cindex(function return, on error)
+cidnex(return from function, on error)
+item(tt(ERR_RETURN))(
+If a command has a non-zero exit status, return immediately from the
+enclosing function.  The logic is identical to that for tt(ERR_EXIT),
+except that an implicit tt(return) statement is executed instead of an
+tt(exit).  This will trigger an exit at the outermost level of a
+non-interactive script.
 )
 pindex(EXEC)
 cindex(command execution, enabling)
@@ -1145,6 +1174,20 @@ of backquotes on the line, ignore the trailing backquote.
 This is useful on some keyboards where the return key is
 too small, and the backquote key lies annoyingly close to it.
 )
+pindex(TRANSIENT_RPROMPT)
+item(tt(TRANSIENT_RPROMPT))(
+Remove any right prompt from display when accepting a command
+line.  This may be useful with terminals with other cut/paste methods.
+)
+pindex(TYPESET_SILENT)
+item(tt(TYPESET_SILENT))(
+If this is unset, executing any of the `tt(typeset)' family of
+commands with no options and a list of parameters that have no values
+to be assigned but already exist will display the value of the parameter.
+If the option is set, they will only be shown when parameters are selected
+with the `tt(-m)' option.  The option `tt(-p)' is available whether or not
+the option is set.
+)
 pindex(UNSET)
 cindex(parameters, substituting unset)
 cindex(unset parameters, substituting)
@@ -1157,6 +1200,14 @@ cindex(tracing, of input lines)
 cindex(input, tracing)
 item(tt(VERBOSE) (tt(-v), ksh: tt(-v)))(
 Print shell input lines as they are read.
+)
+pindex(VI)
+item(tt(VI))(
+If ZLE is loaded, turning on this option has the equivalent effect
+of `tt(bindkey -v)'.  In addition, the EMACS option is unset.
+Turning it off has no effect.  The option setting is
+not guaranteed to reflect the current keymap.  This option is
+provided for compatibility; tt(bindkey) is the recommended interface.
 )
 pindex(XTRACE)
 cindex(tracing, of commands)

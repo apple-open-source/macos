@@ -98,3 +98,7 @@
 # owned by the top-level Makefile API and no context has been set up for where 
 # derived files should go.
 #
+
+install-man-page:
+	install -d $(DSTROOT)/usr/share/man/man1
+	install -c -m 444 zprint.1 $(DSTROOT)/usr/share/man/man1/zprint.1

@@ -1,0 +1,2 @@
+%(member)s 已经订阅 %(listname)s 成功了.
+

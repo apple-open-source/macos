@@ -1,0 +1,19 @@
+Detta är en påminnelse som skickas ut en gång i månaden, till följd
+av ditt medlemskap på listor på %(hostname)s. Här följer lite information
+om ditt medlemskap, hur du kan ändra det och hur du kan avanmäla dig
+från en lista.
+
+Du kan besöka webbsidorna för att justera inställningar för ditt medlemskap,
+bland annat avanmäla dig, få en sammandragsversion, stoppa brev från listan
+under en period osv.
+
+Allt detta kan du också göra via e-post. För mer information, skicka ett 
+e-postbrev till '-request' adressen till en lista (till exempel %(exreq)s), 
+som innehåller enbart ordet 'help'. Du kommer då att få ett e-postbrev med 
+närmare instruktioner.
+
+Har du frågor, problem, kommentarer, etc, skicka dem till
+%(owner)s.
+
+Lösenord för %(useraddr)s:
+

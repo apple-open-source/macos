@@ -1,21 +1,22 @@
 /*
- * Copyright (c) 1998-2000 Apple Computer, Inc. All rights reserved.
- *
  * @APPLE_LICENSE_HEADER_START@
  * 
- * The contents of this file constitute Original Code as defined in and
- * are subject to the Apple Public Source License Version 1.1 (the
- * "License").  You may not use this file except in compliance with the
- * License.  Please obtain a copy of the License at
- * http://www.apple.com/publicsource and read it before using this file.
+ * Copyright (c) 1999-2003 Apple Computer, Inc.  All Rights Reserved.
  * 
- * This Original Code and all software distributed under the License are
- * distributed on an "AS IS" basis, WITHOUT WARRANTY OF ANY KIND, EITHER
+ * This file contains Original Code and/or Modifications of Original Code
+ * as defined in and that are subject to the Apple Public Source License
+ * Version 2.0 (the 'License'). You may not use this file except in
+ * compliance with the License. Please obtain a copy of the License at
+ * http://www.opensource.apple.com/apsl/ and read it before using this
+ * file.
+ * 
+ * The Original Code and all software distributed under the License are
+ * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
  * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
  * INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY,
- * FITNESS FOR A PARTICULAR PURPOSE OR NON-INFRINGEMENT.  Please see the
- * License for the specific language governing rights and limitations
- * under the License.
+ * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
+ * Please see the License for the specific language governing rights and
+ * limitations under the License.
  * 
  * @APPLE_LICENSE_HEADER_END@
  */
@@ -55,6 +56,7 @@
 // The following messages should be unique across the entire system
 #define sub_iokit_hidsystem			err_sub(14)
 #define kIOHIDSystem508MouseClickMessage 	iokit_family_msg(sub_iokit_hidsystem, 1)
+#define kIOHIDSystemDeviceSeizeRequestMessage	iokit_family_msg(sub_iokit_hidsystem, 2)
 
 class IOHIDSystem : public IOService
 {
@@ -66,6 +68,7 @@ class IOHIDSystem : public IOService
 private:
 	IOWorkLoop *		workLoop;
 	IOTimerEventSource *  	timerES;
+	IOTimerEventSource *  	vblES;
         IOInterruptEventSource * eventConsumerES;
         IOCommandGate *		cmdGate;
 	IOUserClient *		serverConnect;
@@ -158,11 +161,11 @@ private:
         AbsoluteTime waitFrameRate;	// Ticks per wait cursor frame
         AbsoluteTime waitFrameTime;	// Wait cursor frame timer
 
-        AbsoluteTime postedVBLTime;	// Used to post mouse events once per frame
+        AbsoluteTime lastRelativeEventTime;	// Used to post mouse events once per frame
+        AbsoluteTime lastRelativeMoveTime;
         AbsoluteTime lastEventTime;
-        AbsoluteTime lastMoveTime;
-        SInt32 accumDX;
-        SInt32 accumDY;
+        SInt32 postDeltaX, accumDX;
+        SInt32 postDeltaY, accumDY;
 
 	// Flags used in scheduling periodic event callbacks
 	bool		needSetCursorPosition;
@@ -179,8 +182,14 @@ private:
         char *		registryName;		// cache our name
         UInt32		maxWaitCursorFrame;	// animation frames
 	UInt32		firstWaitCursorFrame;	//
+        
+        UInt32		cachedEventFlags;
+        OSDictionary *  cachedButtonStates;
 
 private:
+    void vblEvent(void);
+    static void _vblEvent(OSObject *self, IOTimerEventSource *sender);
+
   inline short getUniqueEventNum();
 
   virtual IOReturn powerStateDidChangeTo( IOPMPowerFlags, unsigned long, IOService * );
@@ -219,8 +228,11 @@ private:
   static bool terminateNotificationHandler( void * target, 
 				void * ref, IOService * service );
 
-  static void makeParamProperty( OSDictionary * dict, const char * key,
-                            const void * bytes, unsigned int length );
+  static void makeNumberParamProperty( OSDictionary * dict, const char * key,
+                            unsigned long long number, unsigned int bits );
+
+  static void makeInt32ArrayParamProperty( OSDictionary * dict, const char * key,
+                            UInt32 * array, unsigned int count );
 
 /*
  * HISTORICAL NOTE:
@@ -281,14 +293,16 @@ private:
   bool registerEventSource(IOHIDevice * source);
 
   // Set abs cursor position.
-  void setCursorPosition(Point * newLoc, bool external);
+  void setCursorPosition(Point * newLoc, bool external, OSObject * sender=0);
   void _setButtonState(int buttons,
-                       /* atTime */ AbsoluteTime ts);
-  void _setCursorPosition(Point * newLoc, bool external);
+                       /* atTime */ AbsoluteTime ts,
+                       OSObject * sender);
+  void _setCursorPosition(Point * newLoc, bool external, OSObject * sender=0);
 
   void _postMouseMoveEvent(int		what,
                            Point *	location,
-                           AbsoluteTime	theClock);
+                           AbsoluteTime	theClock,
+                           OSSymbol *	senderKey=0);
   void createParameters( void );
 
 /* END HISTORICAL NOTE */
@@ -405,11 +419,13 @@ private:
 
   void _scaleLocationToCurrentScreen(Point *location, Bounds *bounds);  // Should this one be public???
 
-  static void _relativePointerEvent( IOHIDSystem * self,
+  static void _relativePointerEvent(IOHIDSystem * self,
 				    int        buttons,
                        /* deltaX */ int        dx,
                        /* deltaY */ int        dy,
-                       /* atTime */ AbsoluteTime ts);
+                       /* atTime */ AbsoluteTime ts,
+                                    OSObject * sender,
+                                    void *     refcon);
 
   /* Tablet event reporting */
   static void _absolutePointerEvent(IOHIDSystem * self,
@@ -419,44 +435,60 @@ private:
                  /* inProximity */  bool       proximity,
                  /* withPressure */ int        pressure,
                  /* withAngle */    int        stylusAngle,
-                 /* atTime */       AbsoluteTime ts);
+                 /* atTime */       AbsoluteTime ts,
+                                    OSObject * sender,
+                                    void *     refcon);
 
   /* Mouse scroll wheel event reporting */
-  static void _scrollWheelEvent(IOHIDSystem *self,
-                                short deltaAxis1,
-                                short deltaAxis2,
-                                short deltaAxis3,
-                                AbsoluteTime ts);
+  static void _scrollWheelEvent(    IOHIDSystem *self,
+                                    short      deltaAxis1,
+                                    short      deltaAxis2,
+                                    short      deltaAxis3,
+                                    AbsoluteTime ts,
+                                    OSObject * sender,
+                                    void *     refcon);
 
-  static void _tabletEvent(IOHIDSystem *self,
-                           NXEventData *tabletData,
-                           AbsoluteTime ts);
+  static void _tabletEvent(         IOHIDSystem *self,
+                                    NXEventData *tabletData,
+                                    AbsoluteTime ts,
+                                    OSObject * sender,
+                                    void *     refcon);
 
-  static void _proximityEvent(IOHIDSystem *self,
-                              NXEventData *proximityData,
-                              AbsoluteTime ts);
+  static void _proximityEvent(      IOHIDSystem *self,
+                                    NXEventData *proximityData,
+                                    AbsoluteTime ts,
+                                    OSObject * sender,
+                                    void *     refcon);
 
-  static void _keyboardEvent( IOHIDSystem * self,
-			     unsigned   eventType,
-      /* flags */            unsigned   flags,
-      /* keyCode */          unsigned   key,
-      /* charCode */         unsigned   charCode,
-      /* charSet */          unsigned   charSet,
-      /* originalCharCode */ unsigned   origCharCode,
-      /* originalCharSet */  unsigned   origCharSet,
-      /* keyboardType */     unsigned   keyboardType,
-      /* repeat */           bool       repeat,
-      /* atTime */           AbsoluteTime ts);
-  static void _keyboardSpecialEvent( 	IOHIDSystem * self,
-                                        unsigned   eventType,
-                    /* flags */     	unsigned   flags,
-                    /* keyCode  */  	unsigned   key,
-                    /* specialty */ 	unsigned   flavor,
-                    /* guid */          UInt64     guid,
-                    /* repeat */        bool       repeat,
-                    /* atTime */    	AbsoluteTime ts);
-  static void _updateEventFlags( IOHIDSystem * self,
-				unsigned flags);  /* Does not generate events */
+  static void _keyboardEvent(       IOHIDSystem * self,
+                                    unsigned   eventType,
+            /* flags */             unsigned   flags,
+            /* keyCode */           unsigned   key,
+            /* charCode */          unsigned   charCode,
+            /* charSet */           unsigned   charSet,
+            /* originalCharCode */  unsigned   origCharCode,
+            /* originalCharSet */   unsigned   origCharSet,
+            /* keyboardType */      unsigned   keyboardType,
+            /* repeat */            bool       repeat,
+            /* atTime */            AbsoluteTime ts,
+                                    OSObject * sender,
+                                    void *     refcon);
+            
+  static void _keyboardSpecialEvent(IOHIDSystem * self,
+                                    unsigned   eventType,
+                /* flags */         unsigned   flags,
+                /* keyCode  */      unsigned   key,
+                /* specialty */     unsigned   flavor,
+                /* guid */          UInt64     guid,
+                /* repeat */        bool       repeat,
+                /* atTime */        AbsoluteTime ts,
+                                    OSObject * sender,
+                                    void *     refcon);
+                
+  static void _updateEventFlags(    IOHIDSystem * self,
+                                    unsigned   flags,
+                                    OSObject * sender,
+                                    void *     refcon);  /* Does not generate events */
 
 
 /*
@@ -511,6 +543,61 @@ public:
 
 /* END HISTORICAL NOTES */
 
+private:
+void relativePointerEvent(          int        buttons,
+                 /* deltaX */       int        dx,
+                 /* deltaY */       int        dy,
+                 /* atTime */       AbsoluteTime ts,
+                 /* senderID */     OSObject * sender);
+
+  /* Tablet event reporting */
+void absolutePointerEvent(          int        buttons,
+                 /* at */           Point *    newLoc,
+                 /* withBounds */   Bounds *   bounds,
+                 /* inProximity */  bool       proximity,
+                 /* withPressure */ int        pressure,
+                 /* withAngle */    int        stylusAngle,
+                 /* atTime */       AbsoluteTime ts,
+                 /* senderID */     OSObject * sender);
+
+  /* Mouse scroll wheel event reporting */
+void scrollWheelEvent(	        short 	       deltaAxis1,
+                                short          deltaAxis2,
+                                short          deltaAxis3,
+                                AbsoluteTime   ts,
+                                OSObject *     sender);
+
+void tabletEvent(	NXEventData * tabletData,
+                                AbsoluteTime ts,
+                                OSObject * sender);
+
+void proximityEvent(	NXEventData * proximityData,
+                                AbsoluteTime ts,
+                                OSObject * sender);
+
+void keyboardEvent(unsigned   eventType,
+      /* flags */            unsigned   flags,
+      /* keyCode */          unsigned   key,
+      /* charCode */         unsigned   charCode,
+      /* charSet */          unsigned   charSet,
+      /* originalCharCode */ unsigned   origCharCode,
+      /* originalCharSet */  unsigned   origCharSet,
+      /* keyboardType */     unsigned   keyboardType,
+      /* repeat */           bool       repeat,
+      /* atTime */           AbsoluteTime ts,
+      /* sender */           OSObject * sender);
+
+void keyboardSpecialEvent(   unsigned   eventType,
+      /* flags */        unsigned   flags,
+      /* keyCode  */     unsigned   key,
+      /* specialty */    unsigned   flavor,
+      /* guid */         UInt64     guid,
+      /* repeat */       bool       repeat,
+      /* atTime */       AbsoluteTime ts,
+      /* sender */       OSObject * sender);
+
+void updateEventFlags(unsigned flags, OSObject * sender);
+
 /*
  * COMMAND GATE COMPATIBILITY:
  *   The following method is part of the work needed to make IOHIDSystem
@@ -537,12 +624,12 @@ static	IOReturn	doUnregisterScreen (IOHIDSystem *self, void * arg0);
 static	IOReturn	doCreateShmem (IOHIDSystem *self, void * arg0);
         IOReturn	createShmemGated (void * p1);
 
-static	IOReturn	doRelativePointerEvent (IOHIDSystem *self, void * arg0, void * arg1, 
-                                                    void * arg2, void * arg3);
+static	IOReturn	doRelativePointerEvent (IOHIDSystem *self, void * args);
         void		relativePointerEventGated(int buttons, 
                                                     int dx, 
                                                     int dy, 
-                                                    AbsoluteTime ts);
+                                                    AbsoluteTime ts,
+                                                    OSObject * sender);
 
 static	IOReturn	doAbsolutePointerEvent (IOHIDSystem *self, void * args);        
         void 		absolutePointerEventGated (int buttons,
@@ -551,20 +638,25 @@ static	IOReturn	doAbsolutePointerEvent (IOHIDSystem *self, void * args);
                                                     bool       proximity,
                                                     int        pressure,
                                                     int        stylusAngle,
-                                                    AbsoluteTime ts);
+                                                    AbsoluteTime ts,
+                                                    OSObject * sender);
 
-static	IOReturn	doScrollWheelEvent(IOHIDSystem *self, void * arg0, void * arg1, 
-                                                    void * arg2, void * arg3);        
+static	IOReturn	doScrollWheelEvent(IOHIDSystem *self, void * args);        
         void		scrollWheelEventGated (short deltaAxis1,
                                                 short deltaAxis2,
                                                 short deltaAxis3,
-                                                AbsoluteTime ts);
+                                                AbsoluteTime ts,
+                                                OSObject * sender);
 
-static	IOReturn	doTabletEvent (IOHIDSystem *self, void * arg0, void * arg1);        
-        void		tabletEventGated (NXEventData *tabletData, AbsoluteTime ts);
+static	IOReturn	doTabletEvent (IOHIDSystem *self, void * arg0, void * arg1, void * arg2);        
+        void		tabletEventGated (	NXEventData *tabletData, 
+                                                AbsoluteTime ts, 
+                                                OSObject * sender);
 
-static	IOReturn	doProximityEvent (IOHIDSystem *self, void * arg0, void * arg1);        
-        void		proximityEventGated (NXEventData *proximityData, AbsoluteTime ts);
+static	IOReturn	doProximityEvent (IOHIDSystem *self, void * arg0, void * arg1, void * arg2);        
+        void		proximityEventGated (	NXEventData *proximityData, 
+                                                AbsoluteTime ts, 
+                                                OSObject * sender);
 
 static	IOReturn	doKeyboardEvent (IOHIDSystem *self, void * args);        
         void		keyboardEventGated (unsigned   eventType,
@@ -576,7 +668,8 @@ static	IOReturn	doKeyboardEvent (IOHIDSystem *self, void * args);
                                             unsigned   origCharSet,
                                             unsigned   keyboardType,
                                             bool       repeat,
-                                            AbsoluteTime ts);
+                                            AbsoluteTime ts,
+                                            OSObject * sender);
 
 static	IOReturn	doKeyboardSpecialEvent (IOHIDSystem *self, void * args);        
         void		keyboardSpecialEventGated (   
@@ -586,10 +679,11 @@ static	IOReturn	doKeyboardSpecialEvent (IOHIDSystem *self, void * args);
                                             unsigned   flavor,
                                             UInt64     guid,
                                             bool       repeat,
-                                            AbsoluteTime ts);
+                                            AbsoluteTime ts,
+                                            OSObject * sender);
 
-static	IOReturn	doUpdateEventFlags (IOHIDSystem *self, void * arg0);        
-        void		updateEventFlagsGated (unsigned flags);
+static	IOReturn	doUpdateEventFlags (IOHIDSystem *self, void * arg0, void * arg1);        
+        void		updateEventFlagsGated (unsigned flags, OSObject * sender);
 
 static	IOReturn	doNewUserClient (IOHIDSystem *self, void * arg0, void * arg1, 
                                                     void * arg2, void * arg3);        

@@ -93,7 +93,7 @@ struct heredocs *hdocs;
  *
  *   WC_LIST
  *     - data contains type (sync, ...)
- *     - follwed by code for this list
+ *     - followed by code for this list
  *     - if not (type & Z_END), followed by next WC_LIST
  *
  *   WC_SUBLIST
@@ -139,7 +139,7 @@ struct heredocs *hdocs;
  *     - followed by offset to first string
  *     - followed by length of string table
  *     - followed by number of patterns for body
- *     - follwoed by codes for body
+ *     - followed by codes for body
  *     - followed by strings for body
  *
  *   WC_FOR
@@ -396,6 +396,7 @@ bld_eprog(void)
 		(ecused * sizeof(wordcode)) +
 		ecsoffs);
     ret->npats = ecnpats;
+    ret->nref = -1;		/* Eprog is on the heap */
     ret->pats = (Patprog *) zhalloc(ret->len);
     ret->prog = (Wordcode) (ret->pats + ecnpats);
     ret->strs = (char *) (ret->prog + ecused);
@@ -420,6 +421,18 @@ empty_eprog(Eprog p)
     return (!p || !p->prog || *p->prog == WCB_END());
 }
 
+static void
+clear_hdocs()
+{
+    struct heredocs *p, *n;
+
+    for (p = hdocs; p; p = n) {
+        n = p->next;
+        zfree(p, sizeof(struct heredocs));
+    }
+    hdocs = NULL;
+}
+
 /*
  * event	: ENDINPUT
  *			| SEPER
@@ -435,7 +448,12 @@ parse_event(void)
     aliasspaceflag = 0;
     yylex();
     init_parse();
-    return ((par_event()) ? bld_eprog() : NULL);
+
+    if (!par_event()) {
+        clear_hdocs();
+        return NULL;
+    }
+    return bld_eprog();
 }
 
 /**/
@@ -509,6 +527,7 @@ parse_list(void)
     init_parse();
     par_list(&c);
     if (tok != ENDINPUT) {
+        clear_hdocs();
 	tok = LEXERR;
 	yyerror(0);
 	return NULL;
@@ -522,9 +541,10 @@ parse_cond(void)
 {
     init_parse();
 
-    if (!par_cond())
+    if (!par_cond()) {
+        clear_hdocs();
 	return NULL;
-
+    }
     return bld_eprog();
 }
 
@@ -903,19 +923,36 @@ par_for(int *complex)
 	yylex();
 	type = WC_FOR_COND;
     } else {
-	int posix_in;
+	int np = 0, n, posix_in, ona = noaliases, onc = nocorrect;
 	infor = 0;
 	if (tok != STRING || !isident(tokstr))
 	    YYERRORV(oecused);
-	ecstr(tokstr);
+	if (!sel)
+	    np = ecadd(0);
+	n = 0;
 	incmdpos = 1;
-	yylex();
+	noaliases = nocorrect = 1;
+	for (;;) {
+	    n++;
+	    ecstr(tokstr);
+	    yylex();
+	    if (tok != STRING || !strcmp(tokstr, "in") || sel)
+		break;
+	    if (!isident(tokstr) || errflag)
+	    {
+		noaliases = ona;
+		nocorrect = onc;
+		YYERRORV(oecused);
+	    }
+	}
+	noaliases = ona;
+	nocorrect = onc;
+	if (!sel)
+	    ecbuf[np] = n;
 	posix_in = isnewlin;
 	while (isnewlin)
-	  yylex();
-	if (tok == STRING && !strcmp(tokstr, "in")) {
-	    int np, n;
-
+	    yylex();
+        if (tok == STRING && !strcmp(tokstr, "in")) {
 	    incmdpos = 0;
 	    yylex();
 	    np = ecadd(0);
@@ -925,8 +962,6 @@ par_for(int *complex)
 	    ecbuf[np] = n;
 	    type = (sel ? WC_SELECT_LIST : WC_FOR_LIST);
 	} else if (!posix_in && tok == INPAR) {
-	    int np, n;
-
 	    incmdpos = 0;
 	    yylex();
 	    np = ecadd(0);
@@ -1009,6 +1044,8 @@ par_case(int *complex)
 	    yylex();
 	if (tok == OUTBRACE)
 	    break;
+	if (tok == INPAR)
+	    yylex();
 	if (tok != STRING)
 	    YYERRORV(oecused);
 	if (!strcmp(tokstr, "esac"))
@@ -1456,11 +1493,17 @@ par_simple(int *complex, int nr)
 	} else if (tok == ENVSTRING) {
 	    char *p, *name, *str;
 
-	    ecadd(WCB_ASSIGN(WC_ASSIGN_SCALAR, 0));
 	    name = tokstr;
-	    for (p = tokstr; *p && *p != Inbrack && *p != '='; p++);
-	    if (*p == Inbrack && !skipparens(Inbrack, Outbrack, &p) &&
-		*p == '=') {
+	    for (p = tokstr; *p && *p != Inbrack && *p != '=' && *p != '+';
+	         p++);
+	    if (*p == Inbrack) skipparens(Inbrack, Outbrack, &p);
+	    if (*p == '+') {
+	    	*p++ = '\0';
+	    	ecadd(WCB_ASSIGN(WC_ASSIGN_SCALAR, WC_ASSIGN_INC, 0));
+	    } else
+		ecadd(WCB_ASSIGN(WC_ASSIGN_SCALAR, WC_ASSIGN_NEW, 0));
+    	
+	    if (*p == '=') {
 		*p = '\0';
 		str = p + 1;
 	    } else
@@ -1469,15 +1512,20 @@ par_simple(int *complex, int nr)
 	    ecstr(str);
 	    isnull = 0;
 	} else if (tok == ENVARRAY) {
-	    int oldcmdpos = incmdpos, n;
+	    int oldcmdpos = incmdpos, n, type2;
 
 	    p = ecadd(0);
 	    incmdpos = 0;
+	    if ((type2 = strlen(tokstr) - 1) && tokstr[type2] == '+') {
+	    	tokstr[type2] = '\0';
+		type2 = WC_ASSIGN_INC;
+    	    } else
+		type2 = WC_ASSIGN_NEW;
 	    ecstr(tokstr);
 	    cmdpush(CS_ARRAY);
 	    yylex();
 	    n = par_nl_wordlist();
-	    ecbuf[p] = WCB_ASSIGN(WC_ASSIGN_ARRAY, n);
+	    ecbuf[p] = WCB_ASSIGN(WC_ASSIGN_ARRAY, type2, n);
 	    cmdpop();
 	    if (tok != OUTPAR)
 		YYERROR(oecused);
@@ -1547,6 +1595,8 @@ par_simple(int *complex, int nr)
 		pl = ecadd(WCB_PIPE(WC_PIPE_END, 0));
 
 		par_cmd(&c);
+		if (!c)
+		    YYERROR(oecused);
 
 		set_sublist_code(sl, WC_SUBLIST_END, 0, ecused - 1 - sl, c);
 		set_list_code(ll, (Z_SYNC | Z_END), c);
@@ -1566,6 +1616,8 @@ par_simple(int *complex, int nr)
 	    ecbuf[p] = WCB_FUNCDEF(ecused - 1 - p);
 
 	    isfunc = 1;
+	    isnull = 0;
+	    break;
 	} else
 	    break;
 	isnull = 0;
@@ -1816,9 +1868,9 @@ par_cond_2(void)
 	    condlex();
 	    return par_cond_double(dupstring("-n"), s1);
 	}
-	if (testargs[1] && !testargs[2]) {
+	if (testargs[1]) {
 	    /* three arguments: if the second argument is a binary operator, *
-	     * perform that binary test on the first and the trird argument  */
+	     * perform that binary test on the first and the third argument  */
 	    if (!strcmp(*testargs, "=")  ||
 		!strcmp(*testargs, "==") ||
 		!strcmp(*testargs, "!=") ||
@@ -2038,6 +2090,12 @@ dupeprog(Eprog p, int heap)
     r->dump = NULL;
     r->len = p->len;
     r->npats = p->npats;
+    /*
+     * If Eprog is on the heap, reference count is not valid.
+     * Otherwise, initialise reference count to 1 so that a freeeprog()
+     * will delete it if it is not in use.
+     */
+    r->nref = heap ? -1 : 1;
     pp = r->pats = (heap ? (Patprog *) hcalloc(r->len) :
 		    (Patprog *) zcalloc(r->len));
     r->prog = (Wordcode) (r->pats + r->npats);
@@ -2051,33 +2109,49 @@ dupeprog(Eprog p, int heap)
     return r;
 }
 
-static LinkList eprog_free;
+
+/*
+ * Pair of functions to mark an Eprog as in use, and to delete it
+ * when it is no longer in use, by means of the reference count in
+ * then nref element.
+ *
+ * If nref is negative, the Eprog is on the heap and is never freed.
+ */
+
+/* Increase the reference count of an Eprog so it won't be deleted. */
+
+/**/
+mod_export void
+useeprog(Eprog p)
+{
+    if (p && p != &dummy_eprog && p->nref >= 0)
+	p->nref++;
+}
+
+/* Free an Eprog if we have finished with it */
 
 /**/
 mod_export void
 freeeprog(Eprog p)
 {
-    if (p && p != &dummy_eprog)
-	zaddlinknode(eprog_free, p);
-}
-
-/**/
-void
-freeeprogs(void)
-{
-    Eprog p;
     int i;
     Patprog *pp;
 
-    while ((p = (Eprog) getlinknode(eprog_free))) {
-	for (i = p->npats, pp = p->pats; i--; pp++)
-	    freepatprog(*pp);
-	if (p->dump) {
-	    decrdumpcount(p->dump);
-	    zfree(p->pats, p->npats * sizeof(Patprog));
-	} else
-	    zfree(p->pats, p->len);
-	zfree(p, sizeof(*p));
+    if (p && p != &dummy_eprog) {
+	/* paranoia */
+	DPUTS(p->nref > 0 && (p->flags & EF_HEAP), "Heap EPROG has nref > 0");
+	DPUTS(p->nref < 0 && !(p->flags & EF_HEAP), "Real EPROG has nref < 0");
+	DPUTS(p->nref < -1 || p->nref > 256, "Uninitialised EPROG nref");
+	if (p->nref > 0 && !--p->nref) {
+	    for (i = p->npats, pp = p->pats; i--; pp++)
+		freepatprog(*pp);
+	    if (p->dump) {
+		decrdumpcount(p->dump);
+		zfree(p->pats, p->npats * sizeof(Patprog));
+	    } else
+		zfree(p->pats, p->len);
+	    zfree(p, sizeof(*p));
+	}
     }
 }
 
@@ -2221,8 +2295,6 @@ init_eprog(void)
     dummy_eprog.len = sizeof(wordcode);
     dummy_eprog.prog = &dummy_eprog_code;
     dummy_eprog.strs = NULL;
-
-    eprog_free = znewlinklist();
 }
 
 /* Code for function dump files.
@@ -2256,8 +2328,8 @@ init_eprog(void)
 #define FD_MINMAP 4096
 
 #define FD_PRELEN 12
-#define FD_MAGIC  0x02030405
-#define FD_OMAGIC 0x05040302
+#define FD_MAGIC  0x04050607
+#define FD_OMAGIC 0x07060504
 
 #define FDF_MAP   1
 #define FDF_OTHER 2
@@ -2328,24 +2400,26 @@ dump_find_func(Wordcode h, char *name)
 
 /**/
 int
-bin_zcompile(char *nam, char **args, char *ops, int func)
+bin_zcompile(char *nam, char **args, Options ops, int func)
 {
     int map, flags, ret;
     char *dump;
 
-    if ((ops['k'] && ops['z']) || (ops['R'] && ops['M']) ||
-	(ops['c'] && (ops['U'] || ops['k'] || ops['z'])) ||
-	(!(ops['c'] || ops['a']) && ops['m'])) {
+    if ((OPT_ISSET(ops,'k') && OPT_ISSET(ops,'z')) ||
+	(OPT_ISSET(ops,'R') && OPT_ISSET(ops,'M')) ||
+	(OPT_ISSET(ops,'c') &&
+	 (OPT_ISSET(ops,'U') || OPT_ISSET(ops,'k') || OPT_ISSET(ops,'z'))) ||
+	(!(OPT_ISSET(ops,'c') || OPT_ISSET(ops,'a')) && OPT_ISSET(ops,'m'))) {
 	zwarnnam(nam, "illegal combination of options", NULL, 0);
 	return 1;
     }
-    if ((ops['c'] || ops['a']) && isset(KSHAUTOLOAD))
+    if ((OPT_ISSET(ops,'c') || OPT_ISSET(ops,'a')) && isset(KSHAUTOLOAD))
 	zwarnnam(nam, "functions will use zsh style autoloading", NULL, 0);
 
-    flags = (ops['k'] ? FDHF_KSHLOAD :
-	     (ops['z'] ? FDHF_ZSHLOAD : 0));
+    flags = (OPT_ISSET(ops,'k') ? FDHF_KSHLOAD :
+	     (OPT_ISSET(ops,'z') ? FDHF_ZSHLOAD : 0));
 
-    if (ops['t']) {
+    if (OPT_ISSET(ops,'t')) {
 	Wordcode f;
 
 	if (!*args) {
@@ -2375,21 +2449,23 @@ bin_zcompile(char *nam, char **args, char *ops, int func)
 	zwarnnam(nam, "too few arguments", NULL, 0);
 	return 1;
     }
-    map = (ops['M'] ? 2 : (ops['R'] ? 0 : 1));
+    map = (OPT_ISSET(ops,'M') ? 2 : (OPT_ISSET(ops,'R') ? 0 : 1));
 
-    if (!args[1] && !(ops['c'] || ops['a'])) {
+    if (!args[1] && !(OPT_ISSET(ops,'c') || OPT_ISSET(ops,'a'))) {
 	queue_signals();
-	ret = build_dump(nam, dyncat(*args, FD_EXT), args, ops['U'], map, flags);
+	ret = build_dump(nam, dyncat(*args, FD_EXT), args, OPT_ISSET(ops,'U'),
+			 map, flags);
 	unqueue_signals();
 	return ret;
     }
     dump = (strsfx(FD_EXT, *args) ? *args : dyncat(*args, FD_EXT));
 
     queue_signals();
-    ret = ((ops['c'] || ops['a']) ?
-	   build_cur_dump(nam, dump, args + 1, ops['m'], map,
-			  (ops['c'] ? 1 : 0) | (ops['a'] ? 2 : 0)) :
-	   build_dump(nam, dump, args + 1, ops['U'], map, flags));
+    ret = ((OPT_ISSET(ops,'c') || OPT_ISSET(ops,'a')) ?
+	   build_cur_dump(nam, dump, args + 1, OPT_ISSET(ops,'m'), map,
+			  (OPT_ISSET(ops,'c') ? 1 : 0) | 
+			  (OPT_ISSET(ops,'a') ? 2 : 0)) :
+	   build_dump(nam, dump, args + 1, OPT_ISSET(ops,'U'), map, flags));
     unqueue_signals();
 
     return ret;
@@ -2551,7 +2627,8 @@ build_dump(char *nam, char *dump, char **files, int ali, int map, int flags)
     if (!strsfx(FD_EXT, dump))
 	dump = dyncat(dump, FD_EXT);
 
-    if ((dfd = open(dump, O_WRONLY|O_CREAT, 0600)) < 0) {
+    unlink(dump);
+    if ((dfd = open(dump, O_WRONLY|O_CREAT, 0444)) < 0) {
 	zwarnnam(nam, "can't write zwc file: %s", dump, 0);
 	return 1;
     }
@@ -2591,7 +2668,7 @@ build_dump(char *nam, char *dump, char **files, int ali, int map, int flags)
 	close(fd);
 	file = metafy(file, flen, META_REALLOC);
 
-	if (!(prog = parse_string(file, 1)) || errflag) {
+	if (!(prog = parse_string(file)) || errflag) {
 	    errflag = 0;
 	    close(dfd);
 	    zfree(file, flen);
@@ -2682,7 +2759,8 @@ build_cur_dump(char *nam, char *dump, char **names, int match, int map,
     if (!strsfx(FD_EXT, dump))
 	dump = dyncat(dump, FD_EXT);
 
-    if ((dfd = open(dump, O_WRONLY|O_CREAT, 0600)) < 0) {
+    unlink(dump);
+    if ((dfd = open(dump, O_WRONLY|O_CREAT, 0444)) < 0) {
 	zwarnnam(nam, "can't write zwc file: %s", dump, 0);
 	return 1;
     }
@@ -2782,6 +2860,24 @@ build_cur_dump(char *nam, char *dump, char **names, int match, int map,
 
 static FuncDump dumps;
 
+/**/
+static int
+zwcstat(char *filename, struct stat *buf, FuncDump dumps)
+{
+    if (stat(filename, buf)) {
+#ifdef HAVE_FSTAT
+        FuncDump f;
+    
+	for (f = dumps; f; f = f->next) {
+	    if (!strncmp(filename, f->filename, strlen(f->filename)) &&
+		!fstat(f->fd, buf))
+		return 0;
+	}
+#endif
+	return 1;
+    } else return 0;
+}
+
 /* Load a dump file (i.e. map it). */
 
 static void
@@ -2834,7 +2930,12 @@ load_dump_file(char *dump, struct stat *sbuf, int other, int len)
     d->addr = addr;
     d->len = len;
     d->count = 0;
+    d->filename = ztrdup(dump);
 }
+
+#else
+
+#define zwcstat(f, b, d) stat(f, b)
 
 #endif
 
@@ -2861,7 +2962,7 @@ try_dump_file(char *path, char *name, char *file, int *ksh)
     dig = dyncat(path, FD_EXT);
     wc = dyncat(file, FD_EXT);
 
-    rd = stat(dig, &std);
+    rd = zwcstat(dig, &std, dumps);
     rc = stat(wc, &stc);
     rn = stat(file, &stn);
 
@@ -2941,7 +3042,7 @@ check_dump_file(char *file, struct stat *sbuf, char *name, int *ksh)
     struct stat lsbuf;
 
     if (!sbuf) {
-	if (stat(file, &lsbuf))
+	if (zwcstat(file, &lsbuf, dumps))
 	    return NULL;
 	sbuf = &lsbuf;
     }
@@ -2985,6 +3086,7 @@ check_dump_file(char *file, struct stat *sbuf, char *name, int *ksh)
 	    prog->flags = EF_MAP;
 	    prog->len = h->len;
 	    prog->npats = np = h->npats;
+	    prog->nref = 1;	/* allocated from permanent storage */
 	    prog->pats = pp = (Patprog *) zalloc(np * sizeof(Patprog));
 	    prog->prog = f->map + h->start;
 	    prog->strs = ((char *) prog->prog) + h->strs;
@@ -3036,6 +3138,7 @@ check_dump_file(char *file, struct stat *sbuf, char *name, int *ksh)
 	    prog->flags = EF_REAL;
 	    prog->len = h->len + po;
 	    prog->npats = np = h->npats;
+	    prog->nref = 1; /* allocated from permanent storage */
 	    prog->pats = pp = (Patprog *) d;
 	    prog->prog = (Wordcode) (((char *) d) + po);
 	    prog->strs = ((char *) prog->prog) + h->strs;
@@ -3084,6 +3187,7 @@ decrdumpcount(FuncDump f)
 		dumps = p->next;
 	    munmap((void *) f->addr, f->len);
 	    zclose(f->fd);
+	    zsfree(f->filename);
 	    zfree(f, sizeof(*f));
 	}
     }
@@ -3121,7 +3225,7 @@ closedumps(void)
 
 /**/
 int
-dump_autoload(char *nam, char *file, int on, char *ops, int func)
+dump_autoload(char *nam, char *file, int on, Options ops, int func)
 {
     Wordcode h;
     FDHead n, e;
@@ -3140,7 +3244,7 @@ dump_autoload(char *nam, char *file, int on, char *ops, int func)
 	shf->flags = on;
 	shf->funcdef = mkautofn(shf);
 	shfunctab->addnode(shfunctab, ztrdup(fdname(n) + fdhtail(n)), shf);
-	if (ops['X'] && eval_autoload(shf, shf->nam, ops, func))
+	if (OPT_ISSET(ops,'X') && eval_autoload(shf, shf->nam, ops, func))
 	    ret = 1;
     }
     return ret;

@@ -1,0 +1,73 @@
+Mailman - The GNU Mailing List Management System
+Copyright (C) 1998,1999,2000,2001,2002 by the Free Software Foundation, Inc.
+59 Temple Place - Suite 330, Boston, MA 02111-1307, USA
+
+SECURITY NOTE
+
+    You may be tempted to set the DELIVERY_MODULE configuration
+    variable in mm_cfg.py to `Sendmail' when using the Sendmail MTA.
+    Don't.  The Sendmail.py module is misnamed -- it's really a
+    command line based message handoff scheme as opposed to the SMTP
+    scheme used in SMTPDirect (the default).  Sendmail.py has known
+    security holes and is provided as a proof-of-concept only.  If you
+    are having problems using SMTPDirect.py please fix those instead
+    of using Sendmail.py, or you may open your system up to security
+    exploits.
+
+
+SENDMAIL `smrsh' COMPATIBILITY
+
+    Many newer versions of Sendmail come with a restricted execution
+    utility called "smrsh", which limits the executables that Sendmail
+    will allow to be used as mail filter programs.  You need to
+    explicitly allow Mailman's wrapper program to be used with smrsh
+    before it will work.  If mail is not getting delivered to
+    Mailman's wrapper program and you're getting an "operating system
+    error" in your mail syslog, this could be your problem.
+
+    One good way of doing this is to:
+
+        - cd into /etc/smrsh (or where ever it happens to reside on
+          your system, such as /var/smrsh or /usr/local/smrsh).
+
+        - create a symbolic link to Mailman's wrapper program
+
+    For example, if you've installed Mailman in the standard location,
+    you can just execute these commands (you might have to do these as
+    root):
+
+        % cd /etc/smrsh
+        % ln -s /usr/local/mailman/mail/mailman mailman
+
+
+INTEGRATING SENDMAIL AND MAILMAN
+
+    David Champion has contributed a recipe for more closely
+    integrating Sendmail and Mailman, such that Sendmail will
+    automatically recognize and deliver to new mailing lists as they
+    are created, without having to manually edit alias tables.
+
+    In the contrib directory, you will find four files
+
+    mm-handler.readme - an explanation of how to set everything up
+    mm-handler        - the mail delivery agent (MDA)
+    mailman.mc        - a toy configuration file sample
+    virtusertable     - a sample for RFC 2142 address exceptions
+
+
+PERFORMANCE NOTES
+
+    One of the surest performance killers for Sendmail users is when
+    Sendmail is configured to synchronously verify the recipient's
+    host via DNS.  If it does this for messages posted to it from
+    Mailman, you will get horrible performance.  Since Mailman usually
+    connects via localhost (i.e. 127.0.0.1) to the SMTP port of
+    Sendmail, you should be sure to configure Sendmail /not/ to do DNS
+    verification synchronously for localhost connections.
+
+
+
+Local Variables:
+mode: text
+indent-tabs-mode: nil
+End:

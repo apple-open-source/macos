@@ -270,6 +270,22 @@ bool IODisplay::start( IOService * provider )
             look = look->getProvider();
     }
 
+    if (!fParameterHandler && OSDynamicCast(IOBacklightDisplay, this))
+    {
+	OSIterator * iter = getMatchingServices(nameMatching("backlight"));
+	if (iter)
+	{
+	    look = OSDynamicCast(IOService, iter->getNextObject());
+	    if (look)
+		parameterHandler = OSDynamicCast( IODisplayParameterHandler,
+						  look->getClientWithCategory(gIODisplayParametersKey));
+	    if (parameterHandler && parameterHandler->setDisplay(this))
+		addParameterHandler(parameterHandler);
+
+	    iter->release();
+	}
+    }
+
     if ((parameterHandler = OSDynamicCast(IODisplayParameterHandler,
 					    framebuffer->getProperty(gIODisplayParametersKey))))
     {
@@ -281,9 +297,9 @@ bool IODisplay::start( IOService * provider )
 
     // initialize power management of the display
 
-    fDisplayPMVars = IONew( DisplayPMVars, 1);
+    fDisplayPMVars = IONew(DisplayPMVars, 1);
     assert( fDisplayPMVars );
-    bzero( fDisplayPMVars, sizeof(DisplayPMVars));
+    bzero(fDisplayPMVars, sizeof(DisplayPMVars));
 
     fDisplayPMVars->maxState = kIODisplayMaxPowerState;
 
@@ -503,7 +519,7 @@ bool IODisplay::setForKey( OSDictionary * params, const OSSymbol * sym,
 
 IOReturn IODisplay::setProperties( OSObject * properties )
 {
-    IOReturn			err;
+    IOReturn			err = kIOReturnSuccess;
     OSDictionary *		dict;
     OSDictionary *		dict2;
     OSSymbol *			sym;
@@ -1041,48 +1057,5 @@ OSMetaClassDefineReservedUnused(IODisplayParameterHandler, 6);
 OSMetaClassDefineReservedUnused(IODisplayParameterHandler, 7);
 OSMetaClassDefineReservedUnused(IODisplayParameterHandler, 8);
 OSMetaClassDefineReservedUnused(IODisplayParameterHandler, 9);
-
-/* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
-
-#ifdef kIOIconKey
-
-static IOReturn
-AppleCudaIIC( const OSSymbol * sym, UInt8 address, UInt8 * buffer, IOByteCount * count )
-{
-    static IOService * cuda;
-    IOReturn ret = kIOReturnError;
-
-    // Wait for Cuda to show up:
-    if (!cuda)
-        cuda = IOService::waitForService(IOService::serviceMatching("AppleCuda"));
-    if (cuda)
-        ret = cuda->callPlatformFunction( sym, false, (void *) (UInt32) address, buffer, count, 0 );
-
-    return (ret);
-}
-
-IOReturn
-AppleCudaWriteIIC( UInt8 address, const UInt8 * buffer, IOByteCount * count )
-{
-    static const OSSymbol * sym;
-
-    if (!sym)
-        sym = OSSymbol::withCString("write_iic");
-
-    return (AppleCudaIIC(sym, address, (UInt8 *) buffer, count));
-}
-
-IOReturn
-AppleCudaReadIIC( UInt8 address, UInt8 * buffer, IOByteCount * count )
-{
-    static const OSSymbol * sym;
-
-    if (!sym)
-        sym = OSSymbol::withCString("read_iic");
-
-    return (AppleCudaIIC(sym, address, buffer, count));
-}
-
-#endif
 
 /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */

@@ -35,7 +35,7 @@ extern int errno;
 int *__error(void) {
     pthread_t self = pthread_self();
     /* If we're not a detached pthread, just return the global errno */
-    if ((self == (pthread_t)0) || (self->sig != _PTHREAD_SIG) || (self->detached & _PTHREAD_CREATE_PARENT)) {
+    if ((self == (pthread_t)0) || (self->sig != _PTHREAD_SIG)) {
         return &errno;
     }
     return &self->err_no;

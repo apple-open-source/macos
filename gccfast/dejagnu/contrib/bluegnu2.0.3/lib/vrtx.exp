@@ -1,0 +1,334 @@
+# Copyright (C) 92, 93, 94, 95, 1996 Free Software Foundation, Inc.
+
+# This program is free software; you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation; either version 2 of the License, or
+# (at your option) any later version.
+# 
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+# 
+# You should have received a copy of the GNU General Public License
+# along with this program; if not, write to the Free Software
+# Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
+
+# Please email any bugs, comments, and/or additions to this file to:
+# bug-dejagnu@prep.ai.mit.edu
+
+# This file was written by Rob Savoye. (rob@welcomehome.org)
+
+# these just need to be initialized
+# FIXME: The usage of `shell_id' as a global here seems wrong.  Most targets
+# have it local to the file of our caller.  See for example udi.exp.
+set shell_id   	0
+
+#
+# set default values
+#
+
+global env
+if ![info exists env(SPECTRA)] {
+    perror "SPECTRA environment variable is not set."
+    exit 1
+} else {
+    set SPECTRA $env(SPECTRA)
+    append CFLAGS " -I $SPECTRA/target/include"
+}
+
+# the hostname of the target board
+
+global targetname
+if ![info exists targetname] {
+    puts stderr "ERROR: Need a target name for Spectra."
+    puts stderr "       Use the --target option\n"
+    exit 1
+}
+
+# the default connect program to use
+global connectmode
+if ![info exists connectmode] {
+    set connectmode	"xsh"
+    warning "Using default of $connectmode for target communication."
+}
+
+#
+# Connect to Spectra (VTRX) using xsh
+#
+proc xsh { hostname } {
+    global verbose
+    global hex
+    global connectmode
+    global shell_prompt
+    global spawn_id
+    global shell_id
+    global spawn_id
+    global env
+    global target_triplet
+
+    set retries 0
+    set result  0
+    if {[which xsh] != 0} {
+	spawn xsh
+    } else {
+	warning "Can't find xsh in path"
+	return
+    }
+
+    set shell_id $spawn_id
+
+    # start the shell
+    expect {
+	"*Spectra Cross-Development Shell version*$shell_prompt" { 
+	    verbose "Got prompt"
+	    set result 0
+	}
+	timeout			{ 
+	    warning "Timed out trying to connect."
+	    set result -1
+	    incr retries
+	    if { $retries <= 2 } {
+		exp_continue
+	    }
+	}
+    }
+
+    # connect to the shell
+    set retries 0
+    send "connect $hostname\n"
+    expect {
+	"connect $hostname*$hostname connected \(non-os mode\)*\n" {
+	    set shell_prompt "$hostname> "
+	    verbose "Connected to $hostname"
+	}
+	"*connect: not attached*" {
+	    warning "Couldn't attach target"
+	    set result -1
+	}
+	-re ".* reset on target.*$" {
+	    send_user "Spectra was reset\n"
+	    exp_continue 
+	}
+	-re "\[0-9A-Fa-f\]+\[ 0x\]+\[0-9A-Fa-f\]+.*$" {
+	    exp_continue
+	}
+	"$hostname> " {
+	    #send "\n"
+	}
+	timeout {
+	    warning "Timed out trying to connect after $expect_out(seconds) seconds."
+	    set result -1
+	    incr retries
+	    if { $retries <= 2 } {
+		exp_continue	    
+	    }
+	}
+    }
+
+    send "\n\n\n"
+    expect {
+	"*$hostname*$hostname" {
+	    verbose "Cleared reset messages" 1
+	}
+	timeout {
+	    warning "Couldn't clear reset messages"
+	    set result 1
+	}
+    }
+
+    # load to operating system
+    set timeout 20
+    set retries 0
+    if {[xsh_load $env(SPECTRA)/${target_triplet}-os.o {-e sys_start_crt0}]!=0} {
+ perror "Couldn't load Spectra into target"
+	return -1
+    }
+
+    set timeout 10
+    # start the OS running
+    set retries 0
+    send "go\n"
+    expect {
+	-re ".*Multithreading on target darkstar.*$" {
+	    verbose "Spectra has been started..." 1
+	    set result 0
+	}
+	-re ".*reset on target.*$" {
+	    verbose "Spectra was reset"
+	    exp_continue 
+	}
+	-re "\[0-9A-Fa-f\]+\[ 0x\]+\[0-9A-Fa-f\]+.*$" {
+	    #send "\n"
+	    exp_continue
+	}
+	-re "go\n" { exp_continue }
+	"$shell_prompt" { exp_continue }
+	timeout {
+	    perror "Spectra wouldn't start"
+	    set result -1
+	    incr retries
+	    if { $retries <= 2 } {
+		send "go\r"
+		exp_continue
+	    }
+	}
+    }
+
+    if { $result < 0 } {
+ perror "Couldn't connect after $retries retries.\n"
+	return -1
+    } else {
+	return $spawn_id
+    }
+}
+
+#
+# Downloads using the load command in Spectra
+#     arg - is a full path name to the file to download
+#     returns 1 if a spectra error occured,
+#         -1 if an internal error occured,
+#         0 otherwise.
+#
+proc xsh_load { args } {
+    global verbose
+    global shell_id
+    global decimal
+    global hex
+    global shell_prompt
+    global expect_out
+
+    set result 1
+    set retries 0
+
+    if { [llength $args] == 1 } {
+	set opts ""
+    } else {
+	set opts [lindex $args 1]
+    } 
+    set file [lindex $args 0]
+
+    if ![file exists $file] {
+ perror "$file doesn't exist."
+	return 1
+    }
+
+    verbose "Downloading $file..."
+
+    send -i $shell_id "load $opts $file\r"
+    set force 0
+    expect {
+	-i $shell_id -re "\[0-9A-Fa-f\]+\[ 0x\]+\[0-9A-Fa-f\]+\r\n" {
+	    set timeout 1
+	    send "dout\n"
+	    while $force<2 {
+		expect {
+		    "dout*undefined kernel symbol*$shell_prompt" {
+			verbose "Attempted to flush I/O buffers" 1
+		    }
+		    timout {	
+			incr force	
+			flush stdout	
+		    }
+		}
+	    }
+	    set timeout 20
+	    exp_continue
+	}
+	-i $shell_id  "load $opts $file*\r" {
+	    verbose "Loading a.out..."
+	    exp_continue
+	}
+	-i $shell_id "Warm reset on target*\n" {
+	    verbose "Spectra did a warm reset"
+	    exp_continue 
+	}
+	-i $shell_id "Cold reset on target*\n" {
+	    verbose "Spectra did a cold reset"
+	    exp_continue
+	}
+	-i $shell_id "loading a.out*\r" {
+	    verbose "Loading a.out..."
+	    exp_continue
+	}
+	-i $shell_id "reading symbols*\r" {
+	    verbose "Reading symbols..."
+	    exp_continue
+	}
+	-i $shell_id "defining symbols*\r" {
+	    verbose "defining symbols..."
+	    exp_continue
+	}
+	-i $shell_id "*loading image*\r" {
+	    verbose "Loading image..."
+	    exp_continue
+	}
+	-i $shell_id -re ".*bytes loaded:.*$decimal.*$" {
+	    verbose "$expect_out(buffer)"
+	    exp_continue
+	}
+	-i $shell_id "*loading done*\r" {
+	    verbose "Loading done..."
+	    exp_continue
+	}
+	-i $shell_id "*setting PC*\r" {
+	    verbose "Setting PC..."
+	    exp_continue
+	}
+	-i $shell_id "*resolving symbols*\r" {
+	    verbose "Resolving symbols..."
+	    exp_continue
+	}
+        -i $shell_id -re ".*load module id = $decimal.*$" {
+	    verbose ""
+	    }         
+        }
+	-i $shell_id -re ".*load: undefined symbols.*$"  {
+	    perror "undefined symbols, make sure os is loaded and running"
+	    set result -1
+        }
+	-i $shell_id "$shell_prompt" {
+	    set result 0
+	    exp_continue 
+	}
+	-i $shell_id "load: no default target" {
+	    perror "default target isn't set"
+	    return -1
+	}
+	-i $shell_id timeout {
+	    perror "Timed out trying to download after $expect_out(seconds) seconds."
+	    incr retries
+	    set result 1
+	    if { $retries <= 2 } {
+		exp_continue
+	    }
+	}
+    }
+
+    set timeout 10
+    if [info exists expect_out(buffer)] {
+	send_log $expect_out(buffer)
+    }
+    return $result
+}
+
+#
+# Exit the remote shell
+#
+proc xsh_exit { shell_id } {
+    global verbose
+    global connectmode
+    global targetname
+    global shell_prompt
+    global shell_id
+
+    send -i $shell_id "exit\n"
+
+    verbose "Exiting shell."
+    set shell_id 0
+    return 0
+}
+
+
+
+

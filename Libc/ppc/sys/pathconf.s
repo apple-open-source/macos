@@ -25,4 +25,3 @@
 #include "SYS.h"
 
 SYSCALL(pathconf, 2)
-	blr

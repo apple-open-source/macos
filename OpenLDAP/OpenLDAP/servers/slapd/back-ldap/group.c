@@ -1,7 +1,7 @@
 /* group.c - ldap backend acl group routine */
-/* $OpenLDAP: pkg/ldap/servers/slapd/back-ldap/group.c,v 1.14 2002/01/19 01:58:01 hyc Exp $ */
+/* $OpenLDAP: pkg/ldap/servers/slapd/back-ldap/group.c,v 1.14.2.4 2003/02/09 16:31:38 kurt Exp $ */
 /*
- * Copyright 1998-2002 The OpenLDAP Foundation, All Rights Reserved.
+ * Copyright 1998-2003 The OpenLDAP Foundation, All Rights Reserved.
  * COPYING RESTRICTIONS APPLY, see COPYRIGHT file
  */
 
@@ -14,7 +14,7 @@
 
 #include "slap.h"
 #include "back-ldap.h"
-
+#include "lutil.h"
 
 /* return 0 IFF op_dn is a value in group_at (member) attribute
  * of entry with gr_dn AND that entry has an objectClass
@@ -82,7 +82,8 @@ ldap_back_group(
 			 * attribute has not been required
 			 */
 			if ((attr = attr_find(target->e_attrs, group_at)) != NULL) {
-				if( value_find( group_at, attr->a_vals, op_ndn ) != LDAP_SUCCESS  )
+				if( value_find_ex( group_at, SLAP_MR_VALUE_NORMALIZED_MATCH,
+					attr->a_vals, op_ndn ) != LDAP_SUCCESS )
 					return(1);
 				return(0);
 			} /* else: repeat the search */
@@ -100,9 +101,9 @@ ldap_back_group(
 			mop_ndn = *op_ndn;
 		}
 #ifdef NEW_LOGGING
-		LDAP_LOG(( "backend", LDAP_LEVEL_DETAIL1,
-				"[rw] bindDn (op ndn in group):"
-				" \"%s\" -> \"%s\"\n", op_ndn->bv_val, mop_ndn.bv_val ));
+		LDAP_LOG( BACK_LDAP, DETAIL1, 
+			"[rw] bindDn (op ndn in group): \"%s\" -> \"%s\"\n", 
+			op_ndn->bv_val, mop_ndn.bv_val, 0 );
 #else /* !NEW_LOGGING */
 		Debug( LDAP_DEBUG_ARGS,
 			"rw> bindDn (op ndn in group): \"%s\" -> \"%s\"\n%s",
@@ -126,9 +127,9 @@ ldap_back_group(
 			mgr_ndn = *gr_ndn;
 		}
 #ifdef NEW_LOGGING
-		LDAP_LOG(( "backend", LDAP_LEVEL_DETAIL1,
-				"[rw] searchBase (gr ndn in group):"
-				" \"%s\" -> \"%s\"\n%s", gr_ndn->bv_val, mgr_ndn.bv_val ));
+		LDAP_LOG( BACK_LDAP, DETAIL1, 
+			"[rw] searchBase (gr ndn in group): \"%s\" -> \"%s\"\n%s", 
+			gr_ndn->bv_val, mgr_ndn.bv_val, "" );
 #else /* !NEW_LOGGING */
 		Debug( LDAP_DEBUG_ARGS,
 			"rw> searchBase (gr ndn in group):"
@@ -153,11 +154,13 @@ ldap_back_group(
 	}
 #endif /* !ENABLE_REWRITE */
 
-	ldap_back_map(&li->oc_map, &group_oc_name, &group_oc_name, 0);
-	if (group_oc_name.bv_val == NULL)
+	ldap_back_map(&li->oc_map, &group_oc_name, &group_oc_name,
+			BACKLDAP_MAP);
+	if (group_oc_name.bv_val == NULL || group_oc_name.bv_val[0] == '\0')
 		goto cleanup;
-	ldap_back_map(&li->at_map, &group_at_name, &group_at_name, 0);
-	if (group_at_name.bv_val == NULL)
+	ldap_back_map(&li->at_map, &group_at_name, &group_at_name,
+			BACKLDAP_MAP);
+	if (group_at_name.bv_val == NULL || group_at_name.bv_val[0] == '\0')
 		goto cleanup;
 
 	filter = ch_malloc(sizeof("(&(objectclass=)(=))")
@@ -176,12 +179,12 @@ ldap_back_group(
 		goto cleanup;
 	}
 
-	ptr = slap_strcopy(filter, "(&(objectclass=");
-	ptr = slap_strcopy(ptr, group_oc_name.bv_val);
-	ptr = slap_strcopy(ptr, ")(");
-	ptr = slap_strcopy(ptr, group_at_name.bv_val);
-	ptr = slap_strcopy(ptr, "=");
-	ptr = slap_strcopy(ptr, mop_ndn.bv_val);
+	ptr = lutil_strcopy(filter, "(&(objectclass=");
+	ptr = lutil_strcopy(ptr, group_oc_name.bv_val);
+	ptr = lutil_strcopy(ptr, ")(");
+	ptr = lutil_strcopy(ptr, group_at_name.bv_val);
+	ptr = lutil_strcopy(ptr, "=");
+	ptr = lutil_strcopy(ptr, mop_ndn.bv_val);
 	strcpy(ptr, "))");
 
 	gattr[0] = "objectclass";

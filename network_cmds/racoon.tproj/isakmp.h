@@ -1,4 +1,4 @@
-/*	$KAME: isakmp.h,v 1.18 2001/03/26 17:27:40 thorpej Exp $	*/
+/*	$KAME: isakmp.h,v 1.19 2001/04/11 06:11:55 sakane Exp $	*/
 
 /*
  * Copyright (C) 1995, 1996, 1997, and 1998 WIDE Project.
@@ -82,7 +82,8 @@ struct isakmp {
 #define ISAKMP_NPTYPE_N		11	/* Notification */
 #define ISAKMP_NPTYPE_D		12	/* Delete */
 #define ISAKMP_NPTYPE_VID	13	/* Vendor ID */
-#define ISAKMP_NPTYPE_MAX	14
+#define ISAKMP_NPTYPE_NATD	15	/* NAT detection hash value */
+#define ISAKMP_NPTYPE_MAX	16
 			/*	128 - 255 Private Use */
 
 /*

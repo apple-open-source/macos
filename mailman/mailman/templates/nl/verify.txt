@@ -1,0 +1,21 @@
+Mailing lijst aanmeldingsbevestiging voor de mailinglijst %(listname)s
+
+Wij hebben een verzoek ontvangen %(remote)s voor het aanmelden van uw
+e-mail adres, "%(email)s", bij de %(listaddr)s mailinglijst. Om te bevestigen
+dat u lid wilt worden van deze mailinglijst kunt u dit bericht replyen (beantwoorden),
+laat u het onderwerp (subject) gewoon staan. U kunt ook deze website bezoeken:
+
+%(confirmurl)s
+
+Of u stuurt de volgende regel -- en alleen deze regel -- in een berichtje
+aan %(requestaddr)s:
+
+confirm %(cookie)s
+
+Opmerking: Enkel een 'reply' op dit bericht zou in de meeste e-mail programma's
+moeten werken. Omdat deze meestal de Subject (onderwerp) regel intact laat (er wordt
+alleen "Re:" toegevoegd)
+
+Als u geen lid wilt worden van deze mailinglijst, kunt u deze e-mail negeren.
+Wanneer u denkt dat u valselijk lid bent gemaakt van deze lijst, of als u andere vragen
+heeft, stuur dan een e-mail naar: %(listadmin)s.

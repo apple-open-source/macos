@@ -1,0 +1,560 @@
+<HTML>
+<HEAD>
+<!-- This HTML file has been created by texi2html 1.51
+     from .././gimpprint.texi on 22 January 2003 -->
+
+<TITLE>GIMP-Print - ESC/P2 Standard Commands</TITLE>
+</HEAD>
+<BODY>
+Go to the <A HREF="gimpprint_1.html">first</A>, <A HREF="gimpprint_35.html">previous</A>, <A HREF="gimpprint_37.html">next</A>, <A HREF="gimpprint_47.html">last</A> section, <A HREF="gimpprint_toc.html">table of contents</A>.
+<P><HR><P>
+
+
+<H2><A NAME="SEC51" HREF="gimpprint_toc.html#TOC51">C.2  Standard commands</A></H2>
+
+<P>
+<DL>
+<DT><U>ESC/P2 command:</U> <B><CODE>ESC @</CODE></B>
+<DD><A NAME="IDX192"></A>
+Reset the printer.  Discards any output, ejects the existing page,
+returns all settings to their default.  Always use this before printing
+a page.
+</DL>
+
+</P>
+<P>
+<DL>
+<DT><U>ESC/P2 command:</U> <B><CODE>ESC (G <VAR>BC</VAR>=1 <VAR>ON1</VAR></CODE></B>
+<DD><A NAME="IDX193"></A>
+Turn on graphics mode.  <VAR>ON</VAR> should be <SAMP>`1'</SAMP> (turn on graphics
+mode).
+</DL>
+
+</P>
+<P>
+<DL>
+<DT><U>ESC/P2 command:</U> <B><CODE>ESC (U <VAR>BC</VAR>=1 <VAR>UNIT1</VAR></CODE></B>
+<DD><A NAME="IDX194"></A>
+Set basic unit of measurement used by printer.  This is expressed in
+multiples of 1/3600".  At 720 DPI, <VAR>UNIT</VAR> is <SAMP>`5'</SAMP>; at 360 DPI,
+<VAR>UNIT</VAR> is <SAMP>`10'</SAMP>.
+</DL>
+
+</P>
+<P>
+<DL>
+<DT><U>ESC/P2 command:</U> <B><CODE>ESC (U <VAR>BC</VAR>=5 <VAR>PAGEUNITS1</VAR> <VAR>VUNIT1</VAR> <VAR>HUNIT1</VAR> <VAR>BASEUNIT2</VAR></CODE></B>
+<DD><A NAME="IDX195"></A>
+Set basic units of measurement used by the printer.  <VAR>PAGEUNIT</VAR> is
+the unit of page measurement (for commands that set page dimensions and
+the like).  <VAR>VUNIT</VAR> is the unit of vertical measurement (for
+vertical movement commands).  <VAR>HUNIT</VAR> is the unit of horizontal
+movement (for horizontal positioning commands).  All of these units are
+expressed in <VAR>BASEUNIT</VAR>, which is in reciprocal inches.  Typically,
+<VAR>BASEUNIT</VAR> is <SAMP>`1440'</SAMP>.  In 720 DPI mode, <VAR>PAGEUNIT</VAR>,
+<VAR>VUNIT</VAR>, and <VAR>HUNIT</VAR> are all <SAMP>`2'</SAMP>; in 1440x720 DPI mode,
+<VAR>PAGEUNIT</VAR> and <VAR>VUNIT</VAR> are normally set to <SAMP>`2'</SAMP>; <VAR>HUNIT</VAR>
+is set to <SAMP>`1'</SAMP>.
+</DL>
+
+</P>
+<P>
+<DL>
+<DT><U>ESC/P2 command:</U> <B><CODE>ESC (K <VAR>BC</VAR>=2 <VAR>ZERO1</VAR> <VAR>GRAYMODE1</VAR></CODE></B>
+<DD><A NAME="IDX196"></A>
+Set color or grayscale mode, on printers supporting an explicit
+grayscale mode.  These printers can be identified because they are
+advertised as having more black nozzles than nozzles of individual
+colors.  Setting grayscale mode allows use of these extra nozzles for
+faster printing.  <VAR>GRAYMODE</VAR> should be <SAMP>`0'</SAMP> or <SAMP>`2'</SAMP> for
+color, <SAMP>`1'</SAMP> for grayscale.  <VAR>ZERO</VAR> should always be <SAMP>`0'</SAMP>.
+</DL>
+
+</P>
+<P>
+<DL>
+<DT><U>ESC/P2 command:</U> <B><CODE>ESC (i <VAR>BC</VAR>=1 <VAR>MICROWEAVE1</VAR></CODE></B>
+<DD><A NAME="IDX197"></A>
+If <VAR>MICROWEAVE</VAR> is <SAMP>`1'</SAMP>, use microweave mode.  On older
+printers, this is used to turn on microweave; on newer printers, it
+prints one row at a time.  All printers support this mode.  It should
+only be used at 720 (or 1440x720) DPI.  The Epson Stylus Pro series
+indicates additional modes:
+
+</P>
+<DL COMPACT>
+
+<DT><SAMP>`2'</SAMP>
+<DD>
+"Full-overlap"
+<DT><SAMP>`3'</SAMP>
+<DD>
+"Four-pass"
+<DT><SAMP>`4'</SAMP>
+<DD>
+"Full-overlap 2"
+</DL>
+
+<P>
+Any of these commands can be used with the high four bits set to either
+<SAMP>`3'</SAMP> or <SAMP>`0'</SAMP>.
+</DL>
+
+</P>
+<P>
+<DL>
+<DT><U>ESC/P2 command:</U> <B><CODE>ESC U <VAR>DIRECTION1</VAR></CODE></B>
+<DD><A NAME="IDX198"></A>
+If <VAR>DIRECTION</VAR> is <SAMP>`1'</SAMP>, print unidirectionally; if <SAMP>`0'</SAMP>,
+print bidirectionally.
+</DL>
+
+</P>
+<P>
+<DL>
+<DT><U>ESC/P2 command:</U> <B><CODE>ESC (s <VAR>BC</VAR>=1 <VAR>SPEED1</VAR></CODE></B>
+<DD><A NAME="IDX199"></A>
+On some older printers, this controls the print head speed.  <VAR>SPEED</VAR>
+of <SAMP>`2'</SAMP> is 10 inches/sec; SPEED of <SAMP>`0'</SAMP> or 1 is 20.
+</DL>
+
+</P>
+<P>
+<DL>
+<DT><U>ESC/P2 command:</U> <B><CODE>ESC (e <VAR>BC</VAR>=2 <VAR>ZERO1</VAR> <VAR>DOTSIZE1</VAR></CODE></B>
+<DD><A NAME="IDX200"></A>
+Choose print dotsize.  <VAR>DOTSIZE</VAR> can take on various values,
+depending upon the printer.  Almost all printers support <SAMP>`0'</SAMP> and
+<SAMP>`2'</SAMP>.  Variable dot size printers allow a value of <VAR>16</VAR>.  Other
+than the value of <VAR>16</VAR>, this appears to be ignored at resolutions of
+720 DPI and above.
+</DL>
+
+</P>
+<P>
+<DL>
+<DT><U>ESC/P2 command:</U> <B><CODE>ESC (C <VAR>BC</VAR>=2 <VAR>PAGELENGTH2</VAR></CODE></B>
+<DD><A NAME="IDX201"></A>
+<DT><U>ESC/P2 command:</U> <B><CODE>ESC (C <VAR>BC</VAR>=4 <VAR>PAGELENGTH4</VAR></CODE></B>
+<DD><A NAME="IDX202"></A>
+Set the length of the page in "pageunits" (see <SAMP>`ESC (U'</SAMP> above).
+The second form of the command allows setting of longer page lengths on
+new printers (these happen to be the printers that support variable dot
+size).
+</DL>
+
+</P>
+<P>
+<DL>
+<DT><U>ESC/P2 command:</U> <B><CODE>ESC (c <VAR>BC</VAR>=4 <VAR>TOP2</VAR> <VAR>LENGTH2</VAR></CODE></B>
+<DD><A NAME="IDX203"></A>
+<DT><U>ESC/P2 command:</U> <B><CODE>ESC (c <VAR>BC</VAR>=8 <VAR>TOP4</VAR> <VAR>LENGTH4</VAR></CODE></B>
+<DD><A NAME="IDX204"></A>
+Set the vertical page margins of the page in "pageunits" (see <SAMP>`ESC
+(U'</SAMP> above).  The margins are specified as the top of the page and the
+length of the page.  The second form of the command allows setting of
+longer page lengths on new printers (these happen to be the printers
+that support variable dot size).
+</DL>
+
+</P>
+<P>
+<DL>
+<DT><U>ESC/P2 command:</U> <B><CODE>ESC (S <VAR>BC</VAR>=8 <VAR>WIDTH4</VAR> <VAR>LENGTH4</VAR></CODE></B>
+<DD><A NAME="IDX205"></A>
+Set the width and length of the printed page region in "pageunits" (see
+<SAMP>`ESC (U'</SAMP> above).
+</DL>
+
+</P>
+<P>
+<DL>
+<DT><U>ESC/P2 command:</U> <B><CODE>ESC (v <VAR>BC</VAR>=2 <VAR>ADVANCE2</VAR></CODE></B>
+<DD><A NAME="IDX206"></A>
+<DT><U>ESC/P2 command:</U> <B><CODE>ESC (v <VAR>BC</VAR>=4 <VAR>ADVANCE4</VAR></CODE></B>
+<DD><A NAME="IDX207"></A>
+Feed vertically <VAR>ADVANCE</VAR> "vertical units" (see <SAMP>`ESC (U'</SAMP> above)
+from the current print head position.
+</DL>
+
+</P>
+<P>
+<DL>
+<DT><U>ESC/P2 command:</U> <B><CODE>ESC (V <VAR>BC</VAR>=2 <VAR>ADVANCE2</VAR></CODE></B>
+<DD><A NAME="IDX208"></A>
+<DT><U>ESC/P2 command:</U> <B><CODE>ESC (V <VAR>BC</VAR>=4 <VAR>ADVANCE4</VAR></CODE></B>
+<DD><A NAME="IDX209"></A>
+Feed vertically <VAR>ADVANCE</VAR> "vertical units" (see <SAMP>`ESC (U'</SAMP> above)
+from the top margin.
+</DL>
+
+</P>
+<P>
+<DL>
+<DT><U>ESC/P2 command:</U> <B><CODE>ESC ($ <VAR>BC</VAR>=4 <VAR>OFFSET4</VAR></CODE></B>
+<DD><A NAME="IDX210"></A>
+Set horizontal position to <VAR>OFFSET</VAR> from the left margin.  This
+command operates on printers of the 740 class and newer (all printers
+with variable dot size).
+</DL>
+
+</P>
+<P>
+<DL>
+<DT><U>ESC/P2 command:</U> <B><CODE>ESC $ <VAR>OFFSET2</VAR></CODE></B>
+<DD><A NAME="IDX211"></A>
+Set horizontal position to <VAR>OFFSET</VAR> from the left margin.  This
+command operates on printers of the 740 class and newer (all printers
+with variable dot size).
+</DL>
+
+</P>
+<P>
+<DL>
+<DT><U>ESC/P2 command:</U> <B><CODE>ESC (\ <VAR>BC</VAR>=4 <VAR>UNITS2</VAR> <VAR>OFFSET2</VAR></CODE></B>
+<DD><A NAME="IDX212"></A>
+Set horizontal position to <VAR>OFFSET</VAR> from the previous print head
+position, measured in <VAR>UNITS</VAR>.  <VAR>UNITS</VAR> is measured in inverse
+inches, and should be set to 1440 in all cases.  This operates on all
+1440 dpi printers that do not support variable dot size.
+</DL>
+
+</P>
+<P>
+<DL>
+<DT><U>ESC/P2 command:</U> <B><CODE>ESC (/ <VAR>BC</VAR>=4 <VAR>OFFSET4</VAR></CODE></B>
+<DD><A NAME="IDX213"></A>
+Set horizontal position to <VAR>OFFSET</VAR> from the previous print head
+position, measured in "horizontal units" (see <SAMP>`ESC (U'</SAMP> above).
+This operates on all variable dot size printers.
+</DL>
+
+</P>
+<P>
+<DL>
+<DT><U>ESC/P2 command:</U> <B><CODE>ESC \ <VAR>OFFSET2</VAR></CODE></B>
+<DD><A NAME="IDX214"></A>
+Set horizontal position to <VAR>OFFSET</VAR> from the previous print head
+position, measured in basic unit of measurement (see <SAMP>`ESC (U'</SAMP>
+above). This is used on all 720 dpi printers, and can also be used on
+1440 dpi printers in lower resolutions to save a few bytes.  Note that
+<VAR>OFFSET</VAR> may be negative.  The range of values for this command is
+between <SAMP>`-16384'</SAMP> and <SAMP>`16383'</SAMP>.
+</DL>
+
+</P>
+<P>
+<DL>
+<DT><U>ESC/P2 command:</U> <B><CODE>ESC r <VAR>COLOR1</VAR></CODE></B>
+<DD><A NAME="IDX215"></A>
+<DT><U>ESC/P2 command:</U> <B><CODE>ESC (r <VAR>BC</VAR>=2 <VAR>DENSITY1</VAR> <VAR>COLOR1</VAR></CODE></B>
+<DD><A NAME="IDX216"></A>
+Set the ink color.  The first form is used on four-color printers; the
+second on six-color printers.  <VAR>DENSITY</VAR> is <SAMP>`0'</SAMP> for dark inks,
+<SAMP>`1'</SAMP> for light.  <VAR>COLOR</VAR> is
+
+</P>
+<DL COMPACT>
+
+<DT><SAMP>`0'</SAMP>
+<DD>
+black
+<DT><SAMP>`1'</SAMP>
+<DD>
+magenta
+<DT><SAMP>`2'</SAMP>
+<DD>
+cyan
+<DT><SAMP>`4'</SAMP>
+<DD>
+yellow
+</DL>
+
+<P>
+This command is not used on variable dot size printers in softweave
+mode.
+</DL>
+
+</P>
+<P>
+<DL>
+<DT><U>ESC/P2 command:</U> <B><CODE>ESC . <VAR>COMPRESS1</VAR> <VAR>VSEP1</VAR> <VAR>HSEP1</VAR> <VAR>LINES1</VAR> <VAR>WIDTH2</VAR> <VAR>data...</VAR></CODE></B>
+<DD><A NAME="IDX217"></A>
+	Print data.  <VAR>COMPRESS</VAR> signifies the compression mode:
+
+</P>
+<DL COMPACT>
+
+<DT><SAMP>`0'</SAMP>
+<DD>
+no compression
+<DT><SAMP>`1'</SAMP>
+<DD>
+TIFF compression (incorrectly documented as "run length encoded")
+<DT><SAMP>`2'</SAMP>
+<DD>
+TIFF compression with a special command set.
+</DL>
+
+<P>
+<VAR>VSEP</VAR> depends upon resolution and printer type.  At 360 DPI, it is
+always <SAMP>`10'</SAMP>.  At 720 DPI, it is normally <SAMP>`5'</SAMP>5.  On the ESC
+600, it is <SAMP>`40'</SAMP> (@math{8 * 5}).  On some other printers, it varies.
+
+</P>
+<P>
+<VAR>HSEP1</VAR> is <SAMP>`10'</SAMP> at 360 DPI and <SAMP>`5'</SAMP> at 720 or 1440 DPI
+(1440 DPI cannot be printed in one pass; it is printed in two passes,
+with the dots separated in each pass by 1/720").
+
+</P>
+<P>
+<VAR>LINES</VAR> is the number of lines to be printed.  It should be <SAMP>`1'</SAMP>
+in microweave and 360 DPI.  At 720 DPI softweave, it should be the
+number of lines to be actually printed.
+
+</P>
+<P>
+<VAR>WIDTH</VAR> is the number of pixels to be printed in each row.
+Following this command, a carriage return (<SAMP>`13'</SAMP> decimal, <SAMP>`0A'</SAMP>
+hex) should be output to return the print head position to the left
+margin.
+
+</P>
+<P>
+The basic data format is a string of bytes, with data from left to right
+on the page.  Within each byte, the highest bit is first.
+
+</P>
+<P>
+The TIFF compression is implemented as one count byte followed by one or
+more data bytes.  There are two cases:
+
+</P>
+
+<OL>
+<LI>
+
+If the count byte is <SAMP>`128'</SAMP> or less, it is followed by @math{[count]
++ 1} data bytes.  So if the count byte is <SAMP>`0'</SAMP>, it is followed by 1
+data byte; if it is <SAMP>`128'</SAMP>, it is followed by 129 data bytes.
+
+<LI>
+
+If the count byte is greater than 128, it is followed by one byte.  This
+byte is repeated (257 - [count]) times.  So if [count] is 129, the next
+byte is treated as though it were repeated 128 times; if [count] is 255,
+it is treated as though it were repeated twice.
+</OL>
+
+</DL>
+
+<P>
+<DL>
+<DT><U>ESC/P2 command:</U> <B><CODE>ESC i <VAR>COLOR1</VAR> <VAR>COMPRESS1</VAR> <VAR>BITS1</VAR> <VAR>BYTES2</VAR> <VAR>LINES2</VAR> <VAR>data...</VAR></CODE></B>
+<DD><A NAME="IDX218"></A>
+Print data in the newer printers (that support variable dot size), and
+Stylus Pro models.
+
+</P>
+<P>
+<VAR>COLOR</VAR> is the color:
+
+</P>
+<DL COMPACT>
+
+<DT><SAMP>`0'</SAMP>
+<DD>
+black
+<DT><SAMP>`1'</SAMP>
+<DD>
+magenta
+<DT><SAMP>`2'</SAMP>
+<DD>
+cyan
+<DT><SAMP>`4'</SAMP>
+<DD>
+yellow
+<DT><SAMP>`17'</SAMP>
+<DD>
+light magenta
+<DT><SAMP>`18'</SAMP>
+<DD>
+light cyan
+</DL>
+
+<P>
+<VAR>COMPRESS</VAR> signifies the
+compression mode:
+
+</P>
+<DL COMPACT>
+
+<DT><SAMP>`0'</SAMP>
+<DD>
+no compression
+<DT><SAMP>`1'</SAMP>
+<DD>
+TIFF compression (incorrectly documented as "run length encoded")
+<DT><SAMP>`2'</SAMP>
+<DD>
+TIFF compression with a special command set.
+</DL>
+
+<P>
+<VAR>BITS</VAR> is the number of bits per pixel.
+
+</P>
+<P>
+<VAR>BYTES</VAR> is the number of bytes wide for each row (@math{ceiling(BITS
+* width_of_row, 8)}). Note that this is different from the <SAMP>`ESC .'</SAMP>
+command above.
+
+</P>
+<P>
+<VAR>LINES</VAR> is the number of lines to be printed.  This command is the
+only way to get variable dot size printing.  In variable dot mode, the
+size of the dots increases as the value (<SAMP>`1'</SAMP>, <SAMP>`2'</SAMP>, or
+<SAMP>`3'</SAMP>) increases.
+</DL>
+
+</P>
+<P>
+<DL>
+<DT><U>ESC/P2 command:</U> <B><CODE>ESC (D <VAR>BC</VAR>=4 <VAR>BASE2</VAR> <VAR>VERTICAL1</VAR> <VAR>HORIZONTAL1</VAR></CODE></B>
+<DD><A NAME="IDX219"></A>
+Set printer horizontal and vertical spacing.  It only applies to
+variable dot size printers in softweave mode (and possibly other high
+end printers).
+
+</P>
+<P>
+<VAR>BASE</VAR> is the base unit for this command; it must be <SAMP>`14400'</SAMP>.
+
+</P>
+<P>
+<VAR>VERTICAL</VAR> is the distance in these units between printed rows; it
+should be (@math{separation_in_nozzles * BASE / 720}).
+
+</P>
+<P>
+<VAR>HORIZONTAL</VAR> is the horizontal separation between dots in a row.
+Depending upon the printer, this should be either (@math{14400 / 720})
+or (@math{14400 / 360}).  The Stylus Pro 9000 manual suggests that the
+settings should match the chosen resolution, but that is apparently not
+the case (or not always the case) on other printers.
+</DL>
+
+</P>
+<P>
+<DL>
+<DT><U>ESC/P2 command:</U> <B><CODE>ESC (R <VAR>BC</VAR>=8 00 R E M O T E 1</CODE></B>
+<DD><A NAME="IDX220"></A>
+Enters "remote mode".  This is a special, undocumented command set that
+is used to set up various printer options, such as paper feed tray, and
+perform utility functions such as head cleaning and alignment.  It does
+not appear that anything here is actually required to make the printer
+print.  Our best understanding of what is in a remote command sequence
+is described in a separate section below.
+</DL>
+
+</P>
+<P>
+<DL>
+<DT><U>ESC/P2 command:</U> <B><CODE>ESC 01 @EJL [sp] ID\r\n</CODE></B>
+<DD><A NAME="IDX221"></A>
+Return the printer ID.  This is considered a remote mode command,
+although the syntax is that of a conventional command.  This returns the
+following information:
+
+</P>
+
+<PRE>
+@EJL ID\r
+MFG:EPSON;
+CMD:ESCPL2,BDC;
+MDL:[printer model];
+CLS:PRINTER;
+DES:EPSON [printer model];
+\f
+</PRE>
+
+</DL>
+
+<P>
+After all data has been sent, a form feed byte should be sent.
+
+</P>
+<P>
+All newer Epson printers (STC 440, STP 750) require the following
+command to be sent at least once to enable printing at all.  This
+command specifically takes the printer out of the Epson packet mode
+communication protocol (whatever that is) and enables normal data
+transfer.  Sending it multiple times is is not harmful, so it is
+normally sent at the beginning of each job:
+
+</P>
+
+<PRE>
+ESC 01@EJL[space]1284.4[newline]@EJL[space][space][space][space]
+[space][newline]ESC@
+</PRE>
+
+<P>
+The proper sequence of initialization commands is:
+
+</P>
+
+<PRE>
+magic command
+ESC 
+remote mode if needed
+ESC (G
+ESC (U
+ESC (K (if appropriate)
+ESC (i
+ESC U (if needed)
+ESC (s (if appropriate)
+ESC (e
+ESC (C
+ESC (c
+ESC (S
+ESC (D (if needed)
+ESC (V (optional -- this can be accomplished with ESC (v)
+</PRE>
+
+<P>
+For printing, the proper sequence is:
+
+</P>
+
+<PRE>
+ESC (v
+</PRE>
+
+<P>
+and repeat for each color:
+
+</P>
+
+<PRE>
+ESC ($ or ESC (\ or ESC \
+ESC (r or ESC r (if needed--not used with <SAMP>`ESC i'</SAMP> and not needed if the color
+has not changed from the previous printed line)
+ESC . or ESC i  ...data... [return] (0A hex)
+</PRE>
+
+<P>
+To terminate a page:
+
+</P>
+
+<PRE>
+[formfeed] (0C hex)
+ESC @
+</PRE>
+
+<P><HR><P>
+Go to the <A HREF="gimpprint_1.html">first</A>, <A HREF="gimpprint_35.html">previous</A>, <A HREF="gimpprint_37.html">next</A>, <A HREF="gimpprint_47.html">last</A> section, <A HREF="gimpprint_toc.html">table of contents</A>.
+</BODY>
+</HTML>

@@ -1317,6 +1317,11 @@ struct face
   unsigned tty_reverse_p : 1;
   unsigned tty_blinking_p : 1;
 
+  /* 1 means that colors of this face may not be freed because they
+     have been copied bitwise from a base face (see
+     realize_x_face).  */
+  unsigned colors_copied_bitwise_p : 1;
+
   /* Next and previous face in hash collision list of face cache.  */
   struct face *next, *prev;
 
@@ -2162,7 +2167,7 @@ extern int tool_bar_button_relief;
 
 struct glyph_row *row_containing_pos P_ ((struct window *, int,
 					  struct glyph_row *,
-					  struct glyph_row *));
+					  struct glyph_row *, int));
 int string_buffer_position P_ ((struct window *, Lisp_Object, int));
 int line_bottom_y P_ ((struct it *));
 int display_prop_intangible_p P_ ((Lisp_Object));

@@ -1,6 +1,6 @@
-/* Assorted BFD support routines, only used internally.
+/* Low-level I/O routines for BFDs.
    Copyright 1990, 1991, 1992, 1993, 1994, 1995, 1996, 1997, 1998, 1999,
-   2000, 2001
+   2000, 2001, 2002 Free Software Foundation, Inc.
    Written by Cygnus Support.
 
 This file is part of BFD, the Binary File Descriptor library.
@@ -27,13 +27,13 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.  */
 #include <limits.h>
 
 #ifndef S_IXUSR
-#define S_IXUSR 0100	/* Execute by owner.  */
+#define S_IXUSR 0100    /* Execute by owner.  */
 #endif
 #ifndef S_IXGRP
-#define S_IXGRP 0010	/* Execute by group.  */
+#define S_IXGRP 0010    /* Execute by group.  */
 #endif
 #ifndef S_IXOTH
-#define S_IXOTH 0001	/* Execute by others.  */
+#define S_IXOTH 0001    /* Execute by others.  */
 #endif
 
 /* Note that archive entries don't have streams; they share their parent's.
@@ -41,10 +41,9 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.  */
 
    Also, note that the origin pointer points to the beginning of a file's
    contents (0 for non-archive elements).  For archive entries this is the
-   first octet in the file, NOT the beginning of the archive header. */
+   first octet in the file, NOT the beginning of the archive header.  */
 
-/* Return value is amount read (FIXME: how are errors and end of file dealt
-   with?  We never call bfd_set_error, which is probably a mistake).  */
+/* Return value is amount read.  */
 
 bfd_size_type
 bfd_bread (ptr, size, abfd)
@@ -84,7 +83,7 @@ bfd_bread (ptr, size, abfd)
     {
       int nread;
 
-      nread = fread (ptr, 1, (size_t) (size), bfd_cache_lookup(abfd));
+      nread = fread (ptr, 1, (size_t) (size), bfd_cache_lookup (abfd));
   
       if (nread > 0)
 	abfd->where += nread;
@@ -111,7 +110,7 @@ bfd_bread (ptr, size, abfd)
 
 bfd_size_type
 bfd_bwrite (ptr, size, abfd)
-     CONST PTR ptr;
+     const PTR ptr;
      bfd_size_type size;
      bfd *abfd;
 {
@@ -129,7 +128,7 @@ bfd_bwrite (ptr, size, abfd)
 	  newsize = (bim->size + 127) & ~127;
 	  if (newsize > oldsize)
 	    {
-	      bim->buffer = bfd_realloc (bim->buffer, newsize);
+	      bim->buffer = (bfd_byte *) bfd_realloc (bim->buffer, newsize);
 	      if (bim->buffer == 0)
 		{
 		  bim->size = 0;
@@ -137,6 +136,9 @@ bfd_bwrite (ptr, size, abfd)
 		}
 	    }
 	}
+      memcpy (bim->buffer + abfd->where, ptr, (size_t) size);
+      abfd->where += size;
+      return size;
     }
   else if ((abfd->flags & BFD_IO_FUNCS) != 0)
     {
@@ -233,13 +235,15 @@ bfd_stat (abfd, statbuf)
 
   if ((abfd->flags & BFD_IN_MEMORY) != 0)
     {
-      BFD_ASSERT ((abfd->flags & BFD_IN_MEMORY) == 0);
-      return -1;
+      struct bfd_in_memory *b = (struct bfd_in_memory *) abfd->iostream;
+      memset (statbuf, 0, sizeof (struct stat));
+      statbuf->st_size = b->size;
+      return 0;
     } 
   else if ((abfd->flags & BFD_IO_FUNCS) != 0)
     {
-      BFD_ASSERT ((abfd->flags & BFD_IO_FUNCS) == 0);
-      return -1;
+      struct bfd_io_functions *bif = (struct bfd_io_functions *) abfd->iostream;
+      return (*bif->stat_func) (bif->iodata, abfd, statbuf);
     } 
   else 
     {
@@ -267,7 +271,7 @@ bfd_seek (abfd, position, direction)
 {
   /* For the time being, a BFD may not seek to it's end.  The problem
      is that we don't easily have a way to recognize the end of an
-     element in an archive. */
+     element in an archive.  */
 
   BFD_ASSERT (direction == SEEK_SET || direction == SEEK_CUR);
 
@@ -281,7 +285,7 @@ bfd_seek (abfd, position, direction)
       abfd = abfd->my_archive;
     }
 
-  if (direction == SEEK_SET && position == abfd->where)
+  if ((direction == SEEK_SET) && ((ufile_ptr) position == abfd->where))
     return 0;
 
   if ((position < 0) && (direction != SEEK_CUR)) {
@@ -303,7 +307,7 @@ bfd_seek (abfd, position, direction)
     {  
       int result;
 
-      BFD_ASSERT (ftell (bfd_cache_lookup (abfd)) == abfd->where);
+      BFD_ASSERT ((ufile_ptr) ftell (bfd_cache_lookup (abfd)) == abfd->where);
 
       result = fseek (bfd_cache_lookup (abfd), position, direction);
       if (result != 0)
@@ -325,8 +329,8 @@ bfd_seek (abfd, position, direction)
     }
 }
 
-boolean
-bfd_io_close (abfd)
+bfd_boolean
+_bfd_io_close (abfd)
      bfd *abfd;
 {
   if (abfd->flags & BFD_IN_MEMORY)
@@ -343,7 +347,7 @@ bfd_io_close (abfd)
       abfd->iostream = NULL;
       BFD_ASSERT (ret == 0);
       
-      return true;
+      return TRUE;
     } 
   else if (abfd->flags & BFD_IO_FUNCS)
     {
@@ -354,8 +358,7 @@ bfd_io_close (abfd)
     }
   else
     {
-      boolean ret = true;
-
+      bfd_boolean ret = TRUE;
       ret = bfd_cache_close (abfd);
 
       /* If the file was open for writing and is now executable,
@@ -368,13 +371,16 @@ bfd_io_close (abfd)
 
 	  if (stat (abfd->filename, &buf) == 0)
 	    {
-	      int mask = umask (0);
+	      unsigned int mask = umask (0);
+
 	      umask (mask);
 	      chmod (abfd->filename,
 		     (0x777
 		      & (buf.st_mode | ((S_IXUSR | S_IXGRP | S_IXOTH) &~ mask))));
 	    }
 	}
+
+      return ret;
     }
 }
 
@@ -398,7 +404,7 @@ bfd_get_mtime (abfd)
   while (abfd->my_archive)
     abfd = abfd->my_archive;
 
-  if (abfd->flags & BFD_IO_FUNCS)
+  if (abfd->flags & (BFD_IO_FUNCS | BFD_IN_MEMORY))
     {
       return 0;
     }
@@ -439,7 +445,7 @@ DESCRIPTION
 	Instead, we want to ask questions like "is this NNN byte sized
 	object I'm about to try read from file offset YYY reasonable?"
 	As as example of where we might do this, some object formats
-	use string tables for which the first <<sizeof(long)>> bytes of the
+	use string tables for which the first <<sizeof (long)>> bytes of the
 	table contain the size of the table itself, including the size bytes.
 	If an application tries to read what it thinks is one of these
 	string tables, without some way to validate the size, and for

@@ -1,8 +1,8 @@
 /*
    +----------------------------------------------------------------------+
-   | PHP version 4.0                                                      |
+   | PHP Version 4                                                        |
    +----------------------------------------------------------------------+
-   | Copyright (c) 1997-2001 The PHP Group                                |
+   | Copyright (c) 1997-2003 The PHP Group                                |
    +----------------------------------------------------------------------+
    | This source file is subject to version 2.01 of the PHP license,      |
    | that is bundled with this package in the file LICENSE, and is        |
@@ -12,11 +12,11 @@
    | obtain it through the world-wide-web, please send a note to          |
    | license@php.net so we can mail you a copy immediately.               |
    +----------------------------------------------------------------------+
-   | Authors: Brad Atkins <brad@youreshop.com>                            |
+   | Author: Brad Atkins <brad@youreshop.com>                             |
    +----------------------------------------------------------------------+
 */
  
-/* $Id: php_notes.c,v 1.1.1.2 2001/12/14 22:12:51 zarzycki Exp $ */
+/* $Id: php_notes.c,v 1.1.1.4 2003/07/18 18:07:38 zarzycki Exp $ */
 
 #ifdef COMPILE_DL_NOTES
 #define HAVE_NOTES 1
@@ -31,7 +31,12 @@
 #include "php_notes.h"
 #include "ext/standard/info.h"
 
+#ifdef PHP_WIN32
+#include <global.h>
+#else
 #include <notes_global.h>
+#endif
+
 #include <nsfdb.h>
 #include <nsfdata.h>
 #include <osmisc.h>
@@ -58,9 +63,14 @@
 #include <io.h>
 #include <direct.h>
 #include <fcntl.h>
-
 #include <globerr.h>
+
+#ifdef PHP_WIN32
+#include <mail.h>
+#else
 #include <notes_mail.h>
+#endif
+
 #include <mailserv.h>
 #include <nsf.h>
 #include <osfile.h>                     /* OSPathNetConstruct */
@@ -147,7 +157,7 @@ PHP_MINFO_FUNCTION(notes)
 }
 
 /* {{{ proto bool notes_create_db(string database_name)
-   Create a Lotus Notes database */
+   Creates a Lotus Notes database */
 PHP_FUNCTION(notes_create_db)
 {
 
@@ -170,15 +180,13 @@ PHP_FUNCTION(notes_create_db)
 
 	error = NotesInitExtended( argc, (char **) argv );
 
-	if( error ){
-
+	if (error) {
 		OSLoadString(NULLHANDLE, ERR(error), error_string, sizeof(error_string));
 		php_error(E_WARNING,"Unable to initialize Lotus Notes: %s", error_string);
 		RETURN_FALSE;
 	}
 	
-	if (error = NSFDbCreate ((*db)->value.str.val, (USHORT) DBCLASS_NOTEFILE, FALSE)){
-	
+	if (error = NSFDbCreate (Z_STRVAL_PP(db), (USHORT) DBCLASS_NOTEFILE, FALSE)) {
 		OSLoadString(NULLHANDLE, ERR(error), error_string, sizeof(error_string));
 		php_error(E_WARNING,"Unable to create database: %s", error_string);
 		NotesTerm();
@@ -192,7 +200,7 @@ PHP_FUNCTION(notes_create_db)
 /* }}} */
 
 /* {{{ proto bool notes_drop_db(string database_name)
-   Drop a Lotus Notes database */
+   Drops a Lotus Notes database */
 PHP_FUNCTION(notes_drop_db)
 {
 
@@ -215,15 +223,13 @@ PHP_FUNCTION(notes_drop_db)
 
 	error = NotesInitExtended( argc, (char **) argv );
 
-	if( error ){
-
+	if (error) {
 		OSLoadString(NULLHANDLE, ERR(error), error_string, sizeof(error_string));
 		php_error(E_WARNING,"Unable to initialize Lotus Notes: %s", error_string);
 		RETURN_FALSE;
 	}
 	
-	if (error = NSFDbDelete ((*db)->value.str.val)){
-	
+	if (error = NSFDbDelete (Z_STRVAL_PP(db))) {
 		OSLoadString(NULLHANDLE, ERR(error), error_string, sizeof(error_string));
 		php_error(E_WARNING,"Unable to delete database: %s", error_string);
 		NotesTerm();
@@ -237,7 +243,7 @@ PHP_FUNCTION(notes_drop_db)
 /* }}} */
 
 /* {{{ proto string notes_version(string database_name)
-   Get the version Lotus Notes */
+   Gets the Lotus Notes version */
 PHP_FUNCTION(notes_version)
 {
 
@@ -262,16 +268,15 @@ PHP_FUNCTION(notes_version)
 
 	convert_to_string_ex(db);
 
-	error = NotesInitExtended( argc, (char **) argv );
+	error = NotesInitExtended(argc, (char **) argv);
 
-	if( error ){
-
+	if (error) {
 		OSLoadString(NULLHANDLE, ERR(error), error_string, sizeof(error_string));
 		php_error(E_WARNING,"Unable to initialize Lotus Notes: %s", error_string);
 		RETURN_FALSE;
 	}
 	
-	if (error = NSFDbOpen ((*db)->value.str.val, &db_handle)){
+	if (error = NSFDbOpen(Z_STRVAL_PP(db), &db_handle)) {
 	
 		OSLoadString(NULLHANDLE, ERR(error), error_string, sizeof(error_string));
 		php_error(E_WARNING,"Unable to open database: %s", error_string);
@@ -279,8 +284,7 @@ PHP_FUNCTION(notes_version)
 		RETURN_FALSE;
 	}
 
-	if( error = NSFDbGetBuildVersion (db_handle, &wbuild) ){
-
+	if (error = NSFDbGetBuildVersion(db_handle, &wbuild)) {
 		OSLoadString(NULLHANDLE, ERR(error), error_string, sizeof(error_string));
 		php_error(E_WARNING,"Unable to get Lotus Notes version: %s", error_string);
 		NSFDbClose(db_handle);
@@ -291,61 +295,28 @@ PHP_FUNCTION(notes_version)
 	NSFDbClose(db_handle);
 	NotesTerm();
 
-	if( wbuild > 0 && wbuild < 82 ){
-
-			RETURN_DOUBLE(1.0);
-	}
-	else{
-
-		if( wbuild > 81 && wbuild < 94 ){
-
-			RETURN_DOUBLE(2.0);
-		}
-		else{
-
-			if(wbuild > 93 && wbuild < 119 ){
-
-				RETURN_DOUBLE(3.0);
-			}
-			else{
-
-				if( wbuild > 118 && wbuild < 137 ){
-
-					RETURN_DOUBLE(4.0);
-				}
-				else{
-
-					if( wbuild == 138 ){
-
-						RETURN_DOUBLE(4.1);
-					}
-					else{
-
-						if( wbuild > 139 && wbuild < 146 ){
-
-							RETURN_DOUBLE(4.5);
-						}
-						else{
-
-							if( wbuild == 147 ){
-		
-								RETURN_DOUBLE(4.6);
-							}
-							else{
-								
-								RETURN_DOUBLE(5.0);
-							}
-						}
-					}
-				}
-			}
-		}
+	if(wbuild > 0 && wbuild < 82) {
+		RETURN_DOUBLE(1.0);
+	} else if (wbuild > 81 && wbuild < 94) {
+		RETURN_DOUBLE(2.0);
+	} else if (wbuild > 93 && wbuild < 119) {
+		RETURN_DOUBLE(3.0);
+	} else if (wbuild > 118 && wbuild < 137) {
+		RETURN_DOUBLE(4.0);
+	} else if (wbuild == 138) {
+		RETURN_DOUBLE(4.1);
+	} else if (wbuild > 139 && wbuild < 146) {
+		RETURN_DOUBLE(4.5);
+	} else if (wbuild == 147) {
+		RETURN_DOUBLE(4.6);
+	} else {
+		RETURN_DOUBLE(5.0);
 	}
 }
 /* }}} */
 
 /* {{{ proto string notes_create_note(string database_name, string form_name)
-   Create a note using form form_name */
+   Creates a note using form form_name */
 PHP_FUNCTION(notes_create_note)
 {
 
@@ -374,14 +345,13 @@ PHP_FUNCTION(notes_create_note)
 
 	error = NotesInitExtended( argc, (char **) argv );
 
-	if( error ){
-
+	if (error) {
 		OSLoadString(NULLHANDLE, ERR(error), error_string, sizeof(error_string));
 		php_error(E_WARNING,"Unable to initialize Lotus Notes: %s", error_string);
 		RETURN_FALSE;
 	}
 	
-	if (error = NSFDbOpen ((*db)->value.str.val, &db_handle)){
+	if (error = NSFDbOpen(Z_STRVAL_PP(db), &db_handle)) {
 	
 		OSLoadString(NULLHANDLE, ERR(error), error_string, sizeof(error_string));
 		php_error(E_WARNING,"Unable to open database: %s", error_string);
@@ -389,7 +359,7 @@ PHP_FUNCTION(notes_create_note)
 		RETURN_FALSE;
 	}
 
-    if (error = NSFNoteCreate (db_handle, &note_handle)){
+    if (error = NSFNoteCreate (db_handle, &note_handle)) {
 
 		OSLoadString(NULLHANDLE, ERR(error), error_string, sizeof(error_string));
 		php_error(E_WARNING,"Unable to create note: error_string");
@@ -398,11 +368,7 @@ PHP_FUNCTION(notes_create_note)
     }
 
     /* Append the form name item to the new note */
-    if (error = NSFItemSetText( note_handle,
-                                FIELD_FORM,
-                                (*form_name)->value.str.val,
-                                MAXWORD)){
-
+    if (error = NSFItemSetText(note_handle, FIELD_FORM, Z_STRVAL_PP(form_name), MAXWORD)) {
 		OSLoadString(NULLHANDLE, ERR(error), error_string, sizeof(error_string));
 		php_error(E_WARNING,"Unable to use the form: %s", error_string);
         NSFNoteClose (note_handle);
@@ -411,7 +377,6 @@ PHP_FUNCTION(notes_create_note)
     }
 
     if (error = NSFNoteUpdate (note_handle, 0)) {
-
 		OSLoadString(NULLHANDLE, ERR(error), error_string, sizeof(error_string));
 		php_error(E_WARNING,"Unable to save the note: %s", error_string);
         NSFNoteClose (note_handle);
@@ -475,9 +440,7 @@ STATUS UndoUnreadStatus (
 
 
 /* {{{ proto string notes_mark_read(string database_name, string user_name, string note_id)
-   Mark a note_id as read for the User user_name 
-   Note: user_name must be fully distinguished user name
-*/
+   Marks a note_id as read for the User user_name.  Note: user_name must be fully distinguished user name */
 PHP_FUNCTION(notes_mark_read)
 {
 
@@ -517,8 +480,7 @@ PHP_FUNCTION(notes_mark_read)
 
 	error = NotesInitExtended( argc, (char **) argv );
 
-	if( error ){
-
+	if (error) {
 		OSLoadString(NULLHANDLE, ERR(error), error_string, sizeof(error_string));
 		php_error(E_WARNING,"Unable to initialize Lotus Notes: %s", error_string);
 		RETURN_FALSE;
@@ -526,42 +488,36 @@ PHP_FUNCTION(notes_mark_read)
 	
 	curArg = 2;
 
-	UserNameLen = strlen ((*user_name)->value.str.val);
+	UserNameLen = Z_STRLEN_PP(user_name);
 
 	curAction = 0;
 	ActionCount = 1;
 
 	ActionTable[curAction].AddFlag = FALSE;
 
-	ActionTable[curAction].NoteID =
-	 strtoul ((*note_id)->value.str.val, &pEnd, 16);
+	ActionTable[curAction].NoteID = strtoul (Z_STRVAL_PP(note_id), &pEnd, 16);
 
-	if (error = NSFDbOpen ((*db)->value.str.val, &db_handle)){
-	
+	if (error = NSFDbOpen(Z_STRVAL_PP(db), &db_handle)) {
 		OSLoadString(NULLHANDLE, ERR(error), error_string, sizeof(error_string));
 		php_error(E_WARNING,"Unable to open database: %s", error_string);
 		NotesTerm();
 		RETURN_FALSE;
 	}
 
-	error = UpdateUnread (db_handle, (*user_name)->value.str.val, UserNameLen,
+	error = UpdateUnread (db_handle, Z_STRVAL_PP(user_name), UserNameLen,
 				ActionTable, ActionCount, &UndoID);
 
-	if ( (error == NOERROR) && UndoID ){
-
-	 error = UndoUnreadStatus (db_handle, (*user_name)->value.str.val, UserNameLen, ActionTable,
+	if ((error == NOERROR) && UndoID) {
+	 error = UndoUnreadStatus (db_handle, Z_STRVAL_PP(user_name), UserNameLen, ActionTable,
 								ActionCount, UndoID);
 	}
 
     /* Close the database */
 	error = NSFDbClose (db_handle);
 
-	if (NOERROR == error){
-	
+	if (NOERROR == error) {
 		RETURN_TRUE;
-	}
-	else{
-
+	} else {
 		OSLoadString(NULLHANDLE, ERR(error), error_string, sizeof(error_string));
 		php_error(E_WARNING,"Unable to close database: %s", error_string);
 		RETURN_FALSE;
@@ -570,9 +526,7 @@ PHP_FUNCTION(notes_mark_read)
 /* }}} */
 
 /* {{{ proto string notes_mark_unread(string database_name, string user_name, string note_id)
-   Mark a note_id as unread for the User user_name
-   Note: user_name must be fully distinguished user name
-*/
+   Marks a note_id as unread for the User user_name.  Note: user_name must be fully distinguished user name */
 PHP_FUNCTION(notes_mark_unread)
 {
 
@@ -621,7 +575,7 @@ PHP_FUNCTION(notes_mark_unread)
 	
 	curArg = 2;
 
-	UserNameLen = strlen ((*user_name)->value.str.val);
+	UserNameLen = strlen (Z_STRVAL_PP(user_name));
 
 	curAction = 0;
 	ActionCount = 1;
@@ -629,9 +583,9 @@ PHP_FUNCTION(notes_mark_unread)
 	ActionTable[curAction].AddFlag = TRUE;
 
 	ActionTable[curAction].NoteID =
-	 strtoul ((*note_id)->value.str.val, &pEnd, 16);
+	 strtoul (Z_STRVAL_PP(note_id), &pEnd, 16);
 
-	if (error = NSFDbOpen ((*db)->value.str.val, &db_handle)){
+	if (error = NSFDbOpen (Z_STRVAL_PP(db), &db_handle)){
 	
 		OSLoadString(NULLHANDLE, ERR(error), error_string, sizeof(error_string));
 		php_error(E_WARNING,"Unable to open database: %s", error_string);
@@ -639,12 +593,12 @@ PHP_FUNCTION(notes_mark_unread)
 		RETURN_FALSE;
 	}
 
-	error = UpdateUnread (db_handle, (*user_name)->value.str.val, UserNameLen,
+	error = UpdateUnread (db_handle, Z_STRVAL_PP(user_name), UserNameLen,
 				ActionTable, ActionCount, &UndoID);
 
 	if ( (error == NOERROR) && UndoID ){
 
-		error = UndoUnreadStatus (db_handle, (*user_name)->value.str.val, UserNameLen, ActionTable,
+		error = UndoUnreadStatus (db_handle, Z_STRVAL_PP(user_name), UserNameLen, ActionTable,
 								ActionCount, UndoID);
 	}
 
@@ -900,8 +854,7 @@ STATUS UndoUnreadStatus (
 }
 
 /* {{{ proto string notes_unread(string database_name, string user_name)
-   Returns the unread note id's for the current User user_name 
-   Note: user_name must be fully distinguished user name*/
+   Returns the unread note id's for the current User user_name.  Note: user_name must be fully distinguished user name */
 PHP_FUNCTION(notes_unread)
 {
 
@@ -942,7 +895,7 @@ PHP_FUNCTION(notes_unread)
 		RETURN_FALSE;
 	}
 
-	if (error = NSFDbOpen ((*db)->value.str.val, &db_handle)){
+	if (error = NSFDbOpen (Z_STRVAL_PP(db), &db_handle)){
 	
 		OSLoadString(NULLHANDLE, ERR(error), error_string, sizeof(error_string));
 		php_error(E_WARNING,"Unable to open database: %s", error_string);
@@ -950,12 +903,12 @@ PHP_FUNCTION(notes_unread)
 		RETURN_FALSE;
 	}
 
-	UserNameLen = strlen((*user_name)->value.str.val);
+	UserNameLen = strlen(Z_STRVAL_PP(user_name));
 
 	/* Get the unread list */
 	if( error = NSFDbGetUnreadNoteTable (
 		   db_handle,
-		   (*user_name)->value.str.val,
+		   Z_STRVAL_PP(user_name),
 		   UserNameLen,
 		   TRUE,         /* Create the list if it's not already there */
 		   &table_handle) ){
@@ -1010,9 +963,8 @@ PHP_FUNCTION(notes_unread)
 STATUS near pascal GetUniqueFileName(char *Drive, char *Ext, char *FileName);
 
 /* {{{ proto object notes_header_info(string server, string mailbox, int msg_number)
-   Open the message msg_number in the specified mailbox on the specified server (leave server
-	blank for local).
-	
+   Opens the message msg_number in the specified mailbox on the specified server (leave server blank for local) */
+/*	
 	Elements:
 
 		originator (Contains orignal message sender. Relevant only when forwarded messages)
@@ -1024,7 +976,8 @@ STATUS near pascal GetUniqueFileName(char *Drive, char *Ext, char *FileName);
 		status (blank if delivered, otherwise contains failure reason)
 		priority H: High N: Normal L: Low
 		receipt 1: Yes 0: No
-		subject*/
+		subject
+*/
 PHP_FUNCTION(notes_header_info)
 {
 
@@ -1074,8 +1027,8 @@ PHP_FUNCTION(notes_header_info)
 	}
 
     OSPathNetConstruct( NULL,               /* port name  */
-                        (*server)->value.str.val,   
-                        (*mail_box)->value.str.val,
+                        Z_STRVAL_PP(server),   
+                        Z_STRVAL_PP(mail_box),
                         szMailFilePath);
 
     /* Open the message file. */
@@ -1107,10 +1060,10 @@ PHP_FUNCTION(notes_header_info)
 
 	object_init(return_value);
 
-    if (error = MailOpenMessage (MessageList, (WORD)(*msg_number)->value.lval, &hMessage)){
+    if (error = MailOpenMessage (MessageList, (WORD)Z_LVAL_PP(msg_number), &hMessage)){
 
 		OSLoadString(NULLHANDLE, ERR(error), error_string, sizeof(error_string));
-        php_error(E_WARNING,"Unable to open message number %d: %s", (WORD)(*msg_number)->value.lval, error_string);
+        php_error(E_WARNING,"Unable to open message number %d: %s", (WORD)Z_LVAL_PP(msg_number), error_string);
 
 		if (hMessageList != NULLHANDLE){
 
@@ -1127,7 +1080,7 @@ PHP_FUNCTION(notes_header_info)
 
     /* Get the originator's name/address. */
 
-    if (error = MailGetMessageOriginator(MessageList, (WORD)(*msg_number)->value.lval, 
+    if (error = MailGetMessageOriginator(MessageList, (WORD)Z_LVAL_PP(msg_number), 
             Originator, sizeof(Originator), &OriginatorLength)){
 
 		OSLoadString(NULLHANDLE, ERR(error), error_string, sizeof(error_string));
@@ -1258,8 +1211,7 @@ STATUS near pascal GetUniqueFileName(char *Drive, char *Ext,
 }
 
 /* {{{ proto array notes_body(string server, string mailbox, int msg_number)
-   Open the message msg_number in the specified mailbox on the specified server (leave server
-	blank for local) and returns an array of body text lines. */
+   Opens the message msg_number in the specified mailbox on the specified server (leave server blank for local) and returns an array of body text lines */
 PHP_FUNCTION(notes_body)
 {
 
@@ -1307,8 +1259,8 @@ PHP_FUNCTION(notes_body)
 	}
 
     OSPathNetConstruct( NULL,               /* port name  */
-                        (*server)->value.str.val,   
-                        (*mail_box)->value.str.val,
+                        Z_STRVAL_PP(server),   
+                        Z_STRVAL_PP(mail_box),
                         szMailFilePath);
 
     /* Open the message file. */
@@ -1335,10 +1287,10 @@ PHP_FUNCTION(notes_body)
 		RETURN_FALSE;
     }
 
-    if (error = MailOpenMessage (MessageList, (WORD)(*msg_number)->value.lval, &hMessage)){
+    if (error = MailOpenMessage (MessageList, (WORD)Z_LVAL_PP(msg_number), &hMessage)){
 
 		OSLoadString(NULLHANDLE, ERR(error), error_string, sizeof(error_string));
-        php_error(E_WARNING,"Unable to open message number %d: %s", (WORD)(*msg_number)->value.lval, error_string);
+        php_error(E_WARNING,"Unable to open message number %d: %s", (WORD)Z_LVAL_PP(msg_number), error_string);
 
 		if (hMessageList != NULLHANDLE){
 
@@ -1452,15 +1404,17 @@ PHP_FUNCTION(notes_body)
 }
 /* }}} */
 
-/* {{{ proto bool notes_find_note(string database_name, string name [, string type] )
-   Returns a note id found in database_name. Specify the name of the note. Leaving type blank
-	will default to all, otherwise specify:
+/* {{{ proto bool notes_find_note(string database_name, string name [, string type])
+   Returns a note id found in database_name */
+/*
+Specify the name of the note. Leaving type blank
+will default to all, otherwise specify:
 	
 		FORM
 		VIEW
 		FILTER
 		FIELD
-		*/
+*/
 PHP_FUNCTION(notes_find_note)
 {
 
@@ -1501,7 +1455,7 @@ PHP_FUNCTION(notes_find_note)
 		RETURN_FALSE;
 	}
 
-	if (error = NSFDbOpen ((*db)->value.str.val, &db_handle)){
+	if (error = NSFDbOpen (Z_STRVAL_PP(db), &db_handle)){
 	
 		OSLoadString(NULLHANDLE, ERR(error), error_string, sizeof(error_string));
 		php_error(E_WARNING,"Unable to open database: %s", error_string);
@@ -1509,35 +1463,35 @@ PHP_FUNCTION(notes_find_note)
 		RETURN_FALSE;
 	}
 
-	if( strcmp( (*type)->value.str.val, "FORM" ) == 0 ){
+	if( strcmp( Z_STRVAL_PP(type), "FORM" ) == 0 ){
 	
-		if ((error = NIFFindDesignNote(db_handle, (*name)->value.str.val, NOTE_CLASS_FORM, &note_id)) != ERR_NOT_FOUND) {
+		if ((error = NIFFindDesignNote(db_handle, Z_STRVAL_PP(name), NOTE_CLASS_FORM, &note_id)) != ERR_NOT_FOUND) {
 
 			RETVAL_LONG( (long) note_id );
 		}
-	} else if( strcmp( (*type)->value.str.val, "VIEW" ) == 0 ){
+	} else if( strcmp( Z_STRVAL_PP(type), "VIEW" ) == 0 ){
 	
-		if ((error = NIFFindDesignNote(db_handle, (*name)->value.str.val, NOTE_CLASS_VIEW, &note_id)) != ERR_NOT_FOUND) {
+		if ((error = NIFFindDesignNote(db_handle, Z_STRVAL_PP(name), NOTE_CLASS_VIEW, &note_id)) != ERR_NOT_FOUND) {
 
 			RETVAL_LONG( (long) note_id );
 		}
-	} else if( strcmp( (*type)->value.str.val, "FILTER" ) == 0 ){
+	} else if( strcmp( Z_STRVAL_PP(type), "FILTER" ) == 0 ){
 	
-		if ((error = NIFFindDesignNote(db_handle, (*name)->value.str.val, NOTE_CLASS_FILTER, &note_id)) != ERR_NOT_FOUND) {
+		if ((error = NIFFindDesignNote(db_handle, Z_STRVAL_PP(name), NOTE_CLASS_FILTER, &note_id)) != ERR_NOT_FOUND) {
 
 			RETVAL_LONG( (long) note_id );
 		}
 
-	} else if( strcmp( (*type)->value.str.val, "FIELD" ) == 0 ){
+	} else if( strcmp( Z_STRVAL_PP(type), "FIELD" ) == 0 ){
 	
-		if ((error = NIFFindDesignNote(db_handle, (*name)->value.str.val, NOTE_CLASS_FIELD, &note_id)) != ERR_NOT_FOUND) {
+		if ((error = NIFFindDesignNote(db_handle, Z_STRVAL_PP(name), NOTE_CLASS_FIELD, &note_id)) != ERR_NOT_FOUND) {
 
 			RETVAL_LONG( (long) note_id );
 		}
 	}
 	else{
 
-		if ((error = NIFFindDesignNote(db_handle, (*name)->value.str.val, NOTE_CLASS_ALL, &note_id)) != ERR_NOT_FOUND) {
+		if ((error = NIFFindDesignNote(db_handle, Z_STRVAL_PP(name), NOTE_CLASS_ALL, &note_id)) != ERR_NOT_FOUND) {
 
 			RETVAL_LONG( (long) note_id );
 		}
@@ -1548,8 +1502,8 @@ PHP_FUNCTION(notes_find_note)
 }
 /* }}} */
 
-/* {{{ proto bool notes_nav_create(string database_name, string name )
-   Create a navigator name, in database_name  */
+/* {{{ proto bool notes_nav_create(string database_name, string name)
+   Creates a navigator name, in database_name */
 PHP_FUNCTION(notes_nav_create)
 {
 
@@ -1602,7 +1556,7 @@ PHP_FUNCTION(notes_nav_create)
 		RETURN_FALSE;
 	}
 
-	if (error = NSFDbOpen ((*db)->value.str.val, &db_handle)){
+	if (error = NSFDbOpen (Z_STRVAL_PP(db), &db_handle)){
 	
 		OSLoadString(NULLHANDLE, ERR(error), error_string, sizeof(error_string));
 		php_error(E_WARNING,"Unable to open database: %s", error_string);
@@ -1627,7 +1581,7 @@ PHP_FUNCTION(notes_nav_create)
  * Set the view name. 
  */
 	error = NSFItemSetText( view_handle, VIEW_TITLE_ITEM,
-						  (*name)->value.str.val, MAXWORD );
+						  Z_STRVAL_PP(name), MAXWORD );
 	if ( error ){
 
 		OSLoadString(NULLHANDLE, ERR(error), error_string, sizeof(error_string));
@@ -1742,10 +1696,8 @@ PHP_FUNCTION(notes_nav_create)
 }
 /* }}} */
 
-/* {{{ proto string notes_search(string database_name, string keywords )
-   Find notes that match keywords in database_name
-   The note(s) that are returned must be converted to base 16
-   Example base_convert( $note_id, "10", "16" ) */
+/* {{{ proto string notes_search(string database_name, string keywords)
+   Finds notes that match keywords in database_name.  The note(s) that are returned must be converted to base 16. Example base_convert($note_id, "10", "16") */
 
 STATUS LNPUBLIC file_action (void *, SEARCH_MATCH *, ITEM_TABLE *);
 STATUS LNPUBLIC print_file_summary (ITEM_TABLE *);
@@ -1794,7 +1746,7 @@ PHP_FUNCTION(notes_search)
 		RETURN_FALSE;
 	}
 	
-	if (error = NSFDbOpen ((*db)->value.str.val, &db_handle)){
+	if (error = NSFDbOpen (Z_STRVAL_PP(db), &db_handle)){
 	
 		OSLoadString(NULLHANDLE, ERR(error), error_string, sizeof(error_string));
 		php_error(E_WARNING,"Unable to open database: %s", error_string);
@@ -1827,7 +1779,7 @@ PHP_FUNCTION(notes_search)
                                               allocated search handle */
                      (HCOLLECTION) NULLHANDLE, /* no collection specified - 
                                               query all docs */
-                     (*keywords)->value.str.val,                /* query string */
+                     Z_STRVAL_PP(keywords),                /* query string */
                      FT_SEARCH_SCORES |    /* find relevancy scores */
                      FT_SEARCH_STEM_WORDS, /* find word variants */
                      0,                    /* maximum number of docs to
@@ -1921,7 +1873,7 @@ PHP_FUNCTION(notes_search)
                                               allocated search handle */
                      (HCOLLECTION) NULLHANDLE, /* no collection specified - 
                                               query all docs */
-                     (*keywords)->value.str.val,                /* query string */
+                     Z_STRVAL_PP(keywords),                /* query string */
                      FT_SEARCH_SCORES |    /* find relevancy scores */
                      FT_SEARCH_REFINE,     /* refine the search - use the
                                             * given id table */
@@ -1986,8 +1938,8 @@ PHP_FUNCTION(notes_search)
 }
 /* }}} */
 
-/* {{{ proto string notes_copy_db(string from_database_name, string to_database_name [, title])
-   Create a note using form form_name */
+/* {{{ proto string notes_copy_db(string from_database_name, string to_database_name [, string title])
+   Creates a note using form form_name */
 PHP_FUNCTION(notes_copy_db)
 {
 
@@ -2039,7 +1991,7 @@ PHP_FUNCTION(notes_copy_db)
 	
 /* Open the input database. */
 
-	if (error = NSFDbOpen ((*db_input)->value.str.val, &input_handle)){
+	if (error = NSFDbOpen (Z_STRVAL_PP(db_input), &input_handle)){
 	
         NSFDbClose (input_handle);
 		OSLoadString(NULLHANDLE, ERR(error), error_string, sizeof(error_string));
@@ -2050,7 +2002,7 @@ PHP_FUNCTION(notes_copy_db)
 
 /* Create and open the output database. */
 
-    if (error = NSFDbCreate ((*db_output)->value.str.val, DBCLASS_NOTEFILE, FALSE))
+    if (error = NSFDbCreate (Z_STRVAL_PP(db_output), DBCLASS_NOTEFILE, FALSE))
     {
         NSFDbClose (input_handle);
 		OSLoadString(NULLHANDLE, ERR(error), error_string, sizeof(error_string));
@@ -2059,7 +2011,7 @@ PHP_FUNCTION(notes_copy_db)
 		RETURN_FALSE;
     }
 
-    if (error = NSFDbOpen ((*db_output)->value.str.val, &output_handle))
+    if (error = NSFDbOpen (Z_STRVAL_PP(db_output), &output_handle))
     {
         NSFDbClose (input_handle);
 		OSLoadString(NULLHANDLE, ERR(error), error_string, sizeof(error_string));
@@ -2183,7 +2135,7 @@ specified to indicate that we do not want any cutoff date.  */
 
 /* Add the database title to the database information buffer */
     
-    NSFDbInfoModify (output_db_info, INFOPARSE_TITLE, (*title)->value.str.val);
+    NSFDbInfoModify (output_db_info, INFOPARSE_TITLE, Z_STRVAL_PP(title));
     if (error = NSFDbInfoSet (output_handle, output_db_info))
     {
         NSFDbClose (input_handle);
@@ -2246,10 +2198,6 @@ specified to indicate that we do not want any cutoff date.  */
 
 
 
-/* {{{ proto string notes_list(string database_name)
-   Returns the notes from a selected database_name 
-   */
-
 STATUS LNPUBLIC ReadSummaryData (     /* called for every document */
             VOID far *,
             SEARCH_MATCH far *,
@@ -2277,6 +2225,8 @@ char    ItemText[MAX_ITEM_LEN];     /* Text rendering of item value */
 char    ItemName[MAX_ITEM_NAME_LEN];/* Zero terminated item name */
 
 
+/* {{{ proto bool notes_list_msgs(string db)
+   ??? */
 PHP_FUNCTION(notes_list_msgs)
 {
 
@@ -2311,7 +2261,7 @@ PHP_FUNCTION(notes_list_msgs)
 		RETURN_FALSE;
 	}
 
-	if (error = NSFDbOpen ((*db)->value.str.val, &db_handle)){
+	if (error = NSFDbOpen (Z_STRVAL_PP(db), &db_handle)){
 	
         NSFDbClose (db_handle);
 		OSLoadString(NULLHANDLE, ERR(error), error_string, sizeof(error_string));
@@ -2371,7 +2321,7 @@ STATUS LNPUBLIC ReadSummaryData
 
     /* Print the note ID. */
 
-    php_printf ("\nNote ID is: %lX.\n<br>", SearchMatch.ID.NoteID);
+    php_printf ("\nNote ID is: %lX.\n<br />", SearchMatch.ID.NoteID);
 
     /* Print the summary data. */
 

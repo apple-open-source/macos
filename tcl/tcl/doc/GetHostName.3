@@ -2,7 +2,7 @@
 '\" Copyright (c) 1998-2000 by Scriptics Corporation.
 '\" All rights reserved.
 '\" 
-'\" RCS: @(#) $Id: GetHostName.3,v 1.1.1.1 2000/04/12 02:01:53 wsanchez Exp $
+'\" RCS: @(#) $Id: GetHostName.3,v 1.1.1.2 2003/03/06 00:09:26 landonf Exp $
 '\" 
 .so man.macros
 .TH Tcl_GetHostName 3 8.3 Tcl "Tcl Library Procedures"
@@ -13,8 +13,9 @@ Tcl_GetHostName \- get the name of the local host
 .nf
 \fB#include <tcl.h>\fR
 .sp
-char *
+CONST char *
 \fBTcl_GetHostName\fR()
+.BE
 
 .SH DESCRIPTION
 .PP

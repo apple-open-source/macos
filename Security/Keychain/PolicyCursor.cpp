@@ -19,6 +19,7 @@
 // PolicyCursor.cpp
 //
 #include <Security/PolicyCursor.h>
+#include <Security/Policies.h>
 #include <Security/oidsalg.h>
 #include <Security/tpclient.h>
 
@@ -39,6 +40,9 @@ static const CssmOid *theOidList[] = {
 	static_cast<const CssmOid *>(&CSSMOID_APPLE_ISIGN),
 	static_cast<const CssmOid *>(&CSSMOID_APPLE_X509_BASIC),
 	static_cast<const CssmOid *>(&CSSMOID_APPLE_TP_SSL),
+	static_cast<const CssmOid *>(&CSSMOID_APPLE_TP_SMIME),
+	static_cast<const CssmOid *>(&CSSMOID_APPLE_TP_EAP),
+	static_cast<const CssmOid *>(&CSSMOID_APPLE_TP_REVOCATION_CRL),
     NULL	// sentinel
 };
 
@@ -60,7 +64,7 @@ PolicyCursor::PolicyCursor(const CSSM_OID* oid, const CSSM_DATA* value)
 //
 // Destroy
 //
-PolicyCursor::~PolicyCursor()
+PolicyCursor::~PolicyCursor() throw()
 {
 }
 
@@ -68,7 +72,7 @@ PolicyCursor::~PolicyCursor()
 //
 // Crank the iterator
 //
-bool PolicyCursor::next(RefPointer<Policy> &policy)
+bool PolicyCursor::next(SecPointer<Policy> &policy)
 {
     while (theOidList[mSearchPos]) {
         if (mOidGiven && mOid != *theOidList[mSearchPos]) {

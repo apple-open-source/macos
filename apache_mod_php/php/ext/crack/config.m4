@@ -1,12 +1,14 @@
-dnl $Id: config.m4,v 1.1.1.2 2001/12/14 22:12:04 zarzycki Exp $
+dnl
+dnl $Id: config.m4,v 1.1.1.4 2003/03/11 01:09:17 zarzycki Exp $
+dnl
 
-PHP_ARG_WITH(crack, whether to include crack support,
+PHP_ARG_WITH(crack, for CRACKlib support,
 [  --with-crack[=DIR]      Include crack support.])
 
 if test "$PHP_CRACK" != "no"; then
 
 	for i in /usr/local/lib /usr/lib $PHP_CRACK/lib $PHP_CRACK/cracklib; do
-		test -f $i/lib/libcrack.$SHLIB_SUFFIX_NAME -o -f $i/libcrack.a && CRACK_LIBDIR=$i
+		test -f $i/libcrack.$SHLIB_SUFFIX_NAME -o -f $i/libcrack.a && CRACK_LIBDIR=$i
 	done
 
 	for i in /usr/local/include /usr/include $PHP_CRACK/include $PHP_CRACK/cracklib; do
@@ -24,7 +26,7 @@ if test "$PHP_CRACK" != "no"; then
 	PHP_ADD_INCLUDE($CRACK_INCLUDEDIR)
 	PHP_ADD_LIBRARY_WITH_PATH(crack, $CRACK_LIBDIR, CRACK_SHARED_LIBADD)
 
-	PHP_EXTENSION(crack, $ext_shared)
+	PHP_NEW_EXTENSION(crack, crack.c, $ext_shared)
 	PHP_SUBST(CRACK_SHARED_LIBADD)
 	AC_DEFINE(HAVE_CRACK, 1, [ ])
 fi

@@ -1,0 +1,7 @@
+touch log
+foreach i ( log.* )
+	echo $i
+	echo $i >> log
+	cat $i  >> log
+end
+SetFile -c CWIE -t TEXT log

@@ -1,0 +1,43 @@
+#compdef elinks
+
+# ELinks 0.4.2 - Text WWW browser
+
+local curcontext="$curcontext" state line
+typeset -A opt_args
+
+_arguments -C -A '-*' \
+  '*-anonymous[restrict to anonymous mode]::boolean:(0 1)' \
+  '*-auto-submit[autosubmit first form]::boolean:(0 1)' \
+  '*-base-session[clone session with given ID]:ID number:' \
+  '*-default-mime-type[MIME type to assume for documents]:MIME type:' \
+  '*-dump[write formatted version of given URL to stdout]::boolean:(0 1)' \
+  '*-dump-charset[codepage to use with -dump]:codepage:' \
+  '*-dump-width[width of document formatted with -dump]:width:' \
+  '*-eval[evaluate given configuration option]:configuration option:' \
+  '(- 1)-'{\?,h,help}'[print usage help and exit]' \
+  '(- 1)-long-help[print detailed usage help and exit]' \
+  '(- 1)-config-help[print help for configuration options]' \
+  '(- 1)-lookup[look up specified host]:host:_hosts' \
+  '*-no-connect[run as separate instance]::boolean:(0 1)' \
+  "*-no-home[don't use files in ~/.elinks]::boolean:(0 1)" \
+  '*-session-ring[connect to session ring with given ID]:ID number:' \
+  '*-source[write the source of given URL to stdout]::boolean:(0 1)' \
+  '(1)*-stdin[read document from stdin]::boolean:(0 1)' \
+  '*-touch-files[touch files in ~/.elinks when running with -no-connect/-session-ring]::boolean:(0 1)' \
+  '(- 1)-version[print version information and exit]' \
+  '1:url:->url' && return
+
+if [[ "$state" = url ]]; then
+  local elinks_bookmarks
+
+  if [[ -s ~/.elinks/bookmarks ]]; then
+    elinks_bookmarks=( $(cut -f2 ~/.elinks/bookmarks) )
+  fi
+
+  _alternative \
+    'files:file:_files' \
+    'bookmarks:bookmark:compadd -a elinks_bookmarks' \
+    'urls:url:_urls' && return
+fi
+
+return 1

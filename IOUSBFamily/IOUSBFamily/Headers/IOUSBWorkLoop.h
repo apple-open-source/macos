@@ -22,12 +22,7 @@
  * 
  * @APPLE_LICENSE_HEADER_END@
  */
-/*
- * Copyright (c) 2001-2002 Apple Computer, Inc.  All rights reserved.
- *
- * HISTORY
- *
- */
+
 
 
 #ifndef _IOKIT_IOUSBWORKLOOP_H

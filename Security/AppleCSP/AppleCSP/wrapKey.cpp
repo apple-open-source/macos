@@ -28,9 +28,8 @@
 
 #include "AppleCSPSession.h"
 #include "AppleCSPUtils.h"
-#ifdef USE_SNACC
-#include "pkcs_7_8.h"
-#endif
+#include "AppleCSPKeys.h"
+#include "pkcs8.h"
 #include "cspdebugging.h"
 
 /*
@@ -43,8 +42,9 @@
  *     must be of  class ALGCLASS_SYMMETRIC or ALGCLASS_ASYMMETRIC,
  *     matching the wrapping key. 
  *
- *	   Private keys will be PKCS8 encoded; session keys will be 
- *     PKCS7 encoded. Both input keys may be in raw or reference 
+ *	   In the absence of an explicit CSSM_ATTRIBUTE_WRAPPED_KEY_FORMAT
+ *     attribute, private keys will be PKCS8 wrapped; session keys will be 
+ *     PKCS7 wrapped. Both input keys may be in raw or reference 
  *     format. Wrapped key will have BlobType CSSM_KEYBLOB_WRAPPED.
  * 
  *  -- Convert a reference key to a RAW key (with no encrypting).
@@ -68,13 +68,15 @@
  * a modified CMS-style wrapping which is similar to that specified in
  * RFC2630, with some modification. 
  *
- * Default wrapping if none specified:
+ * Default wrapping if none specified based on ther unwrapped key as 
+ * follows:
  *
- * UnwrappedKey type   WrappingKey type 	Format
- * -----------------   ----------------		-------------------------
- * 3DES		   		   3DES					CSSM_KEYBLOB_WRAPPED_FORMAT_APPLE_CUSTOM
- * any				   Other symmetric		CSSM_KEYBLOB_WRAPPED_FORMAT_PKCS7
- * any				   Other asymmetric		CSSM_KEYBLOB_WRAPPED_FORMAT_PKCS8
+ * UnwrappedKey			Wrap format
+ * ------------			-----------
+ * Symmetric 			PKCS7
+ * Public				APPLE_CUSTOM
+ * FEE private			APPLE_CUSTOM
+ * Other private		PKCS8
  */
  
 void AppleCSPSession::WrapKey(
@@ -130,7 +132,8 @@ void AppleCSPSession::WrapKey(
 		}
 		#endif	/* ALLOW_PUB_KEY_WRAP */
 		cspValidateIntendedKeyUsage(&wrappingKey->KeyHeader, CSSM_KEYUSE_WRAP);
-
+		cspVerifyKeyTimes(wrappingKey->KeyHeader);
+		
 		/*
 		 * make sure wrapping key type matches context
 		 */
@@ -163,41 +166,48 @@ void AppleCSPSession::WrapKey(
 		 */
 		wrapFormat = Context.getInt(CSSM_ATTRIBUTE_WRAPPED_KEY_FORMAT);
 		if(wrapFormat == CSSM_KEYBLOB_WRAPPED_FORMAT_NONE) {
-			/* figure out a default */
-			if(wrapType == CSSM_ALGCLASS_ASYMMETRIC) {
-				/* easy */
-#ifdef USE_SNACC
-				wrapFormat = CSSM_KEYBLOB_WRAPPED_FORMAT_PKCS8;
-#else
-				wrapFormat = CSSM_KEYBLOB_WRAPPED_FORMAT_APPLE_CUSTOM; 
-#endif
-			}
-			else {
-				CASSERT(wrapType == CSSM_ALGCLASS_SYMMETRIC);
-				if((wrappingKey->algorithm() == CSSM_ALGID_3DES_3KEY) &&
-				   (UnwrappedKey.algorithm() == CSSM_ALGID_3DES_3KEY)) {
-					/* apple custom CMS */
-					wrapFormat = CSSM_KEYBLOB_WRAPPED_FORMAT_APPLE_CUSTOM; 
-				}
-				else {
-					/* normal case for symmetric wrapping keys */
-#ifdef USE_SNACC
+			/* figure out a default based on unwrapped key */
+			switch(UnwrappedKey.keyClass()) {
+				case CSSM_KEYCLASS_SESSION_KEY:
 					wrapFormat = CSSM_KEYBLOB_WRAPPED_FORMAT_PKCS7;
-#else
+					break;
+				case CSSM_KEYCLASS_PUBLIC_KEY:
 					wrapFormat = CSSM_KEYBLOB_WRAPPED_FORMAT_APPLE_CUSTOM; 
-#endif
-				}
-			}	/* default for symmetric wrapping key */
+					break;
+				case CSSM_KEYCLASS_PRIVATE_KEY:
+					switch(UnwrappedKey.algorithm()) {
+						case CSSM_ALGID_FEE:
+							wrapFormat = CSSM_KEYBLOB_WRAPPED_FORMAT_APPLE_CUSTOM; 
+							break;
+						default:
+							wrapFormat = CSSM_KEYBLOB_WRAPPED_FORMAT_PKCS8; 
+							break;
+					}
+					break;
+				default:
+					/* NOT REACHED - checked above */
+					break;
+			}
 		}		/* no format present or FORMAT_NONE */
 	}
 	
 	/* make sure we have a valid format here */
 	switch(wrapFormat) {
-#if 0
 		case CSSM_KEYBLOB_WRAPPED_FORMAT_PKCS7:
+			if(UnwrappedKey.keyClass() != CSSM_KEYCLASS_SESSION_KEY) {
+				/* this wrapping style only for symmetric keys */
+				CssmError::throwMe(CSSMERR_CSP_INVALID_KEY_CLASS);
+			}
+			break;
 		case CSSM_KEYBLOB_WRAPPED_FORMAT_PKCS8:
-#endif
+			if(UnwrappedKey.keyClass() != CSSM_KEYCLASS_PRIVATE_KEY) {
+				/* this wrapping style only for private keys */
+				CssmError::throwMe(CSSMERR_CSP_INVALID_KEY_CLASS);
+			}
+			break;
 		case CSSM_KEYBLOB_WRAPPED_FORMAT_APPLE_CUSTOM:
+			/* no restrictions (well AES can't be the wrap alg but that will 
+			 * be caught later */
 			break;
 		case CSSM_KEYBLOB_WRAPPED_FORMAT_NONE:
 			if(isNullWrap) {
@@ -214,6 +224,13 @@ void AppleCSPSession::WrapKey(
 	bool allocdRawBlob = false;
 	CSSM_KEYBLOB_FORMAT rawFormat;
 	
+	/* 
+	 * Outgoing same as incoming unless a partial key is completed during 
+	 * generateKeyBlob()
+	 */
+	const CssmKey::Header &unwrappedHdr = UnwrappedKey.header();
+	CSSM_KEYATTR_FLAGS unwrappedKeyAttrFlags = unwrappedHdr.KeyAttr;
+	
 	switch(UnwrappedKey.blobType()) {
 		case CSSM_KEYBLOB_RAW:
 			/* trivial case */
@@ -224,23 +241,43 @@ void AppleCSPSession::WrapKey(
 			/* get binary key, then get blob from it */
 			{
 				BinaryKey &binKey = lookupRefKey(UnwrappedKey);
+				
 				/*
-				 * Special case for null wrap - prevent caller from obtaining 
-				 * clear bits if CSSM_KEYATTR_SENSITIVE or !CSSM_KEYATTR_EXTRACTABLE.
-				 * Don't trust the caller's header; use the one in the BinaryKey.
+				 * Subsequent tests for extractability: don't trust the 
+				 * caller's header; use the one in the BinaryKey.
 				 */
-				if(isNullWrap) {
-					CSSM_KEYATTR_FLAGS keyAttr = binKey.mKeyHeader.KeyAttr;
-					if((keyAttr & CSSM_KEYATTR_SENSITIVE) ||
-					   !(keyAttr & CSSM_KEYATTR_EXTRACTABLE)) {
-						CssmError::throwMe(
-							CSSMERR_CSP_INVALID_KEYATTR_MASK);
-					}
+				CSSM_KEYATTR_FLAGS keyAttr = binKey.mKeyHeader.KeyAttr;
+				if(!(keyAttr & CSSM_KEYATTR_EXTRACTABLE)) {
+					/* this key not extractable in any form */
+					CssmError::throwMe(CSSMERR_CSP_INVALID_KEYATTR_MASK);
 				}
-				rawFormat = requestedKeyFormat(Context, UnwrappedKey);
+				
+				/*
+				 * Null wrap - prevent caller from obtaining 
+				 * clear bits if CSSM_KEYATTR_SENSITIVE
+				 */
+				if(isNullWrap && (keyAttr & CSSM_KEYATTR_SENSITIVE)) {
+					CssmError::throwMe(CSSMERR_CSP_INVALID_KEYATTR_MASK);
+				}
+
+				/*
+				 * Special case for PKCS8: need to get blob of a specific
+				 * algorithm-dependent format.
+				 */
+				if(wrapFormat == CSSM_KEYBLOB_WRAPPED_FORMAT_PKCS8) {
+					rawFormat = pkcs8RawKeyFormat(binKey.mKeyHeader.Format);
+				}
+				else {
+					rawFormat = requestedKeyFormat(Context, UnwrappedKey);
+				}
+				/* optional parameter-bearing key */
+				CssmKey *paramKey = Context.get<CssmKey>(CSSM_ATTRIBUTE_PARAM_KEY);
 				binKey.generateKeyBlob(privAllocator,
 					rawBlob,
-					rawFormat);
+					rawFormat,
+					*this,
+					paramKey,
+					unwrappedKeyAttrFlags);
 			}
 			allocdRawBlob = true;		// remember - we need to free
 			break;
@@ -253,16 +290,17 @@ void AppleCSPSession::WrapKey(
 	/*
 	 * Prepare outgoing header.
 	 */
-	const CssmKey::Header &unwrappedHdr = UnwrappedKey.header();
 	setKeyHeader(wrappedHdr,
 		plugin.myGuid(),
 		unwrappedHdr.algorithm(),		// same as incoming 
 		unwrappedHdr.keyClass(),		// same as incoming
-		unwrappedHdr.KeyAttr,
+		unwrappedKeyAttrFlags,
 		unwrappedHdr.KeyUsage);
 	wrappedHdr.LogicalKeySizeInBits = unwrappedHdr.LogicalKeySizeInBits;
 	wrappedHdr.WrapAlgorithmId = Context.algorithm(); 	// true for null 
 														// and non-Null 
+	wrappedHdr.StartDate = unwrappedHdr.StartDate;
+	wrappedHdr.EndDate = unwrappedHdr.EndDate;
 	wrappedHdr.Format = wrapFormat;
 	if(isNullWrap) {
 		wrappedHdr.BlobType = CSSM_KEYBLOB_RAW;
@@ -316,7 +354,6 @@ void AppleCSPSession::WrapKey(
 				normAllocator);
 			wrappedHdr.Format   = rawFormat; 
 		}
-#ifdef USE_SNACC
 		else {
 			/* encrypt rawBlob using caller's context, then encode to
 			 * WrappedKey.KeyData */
@@ -334,42 +371,24 @@ void AppleCSPSession::WrapKey(
 			// I'm not 100% sure about this....
 			assert(remData.Length == 0);
 			encryptedBlob.Length = bytesEncrypted;
-			if(wrapFormat == CSSM_KEYBLOB_WRAPPED_FORMAT_PKCS7) {
-				cspEncodePkcs7(Context.algorithm(),
-					Context.getInt(CSSM_ATTRIBUTE_MODE),
-					encryptedBlob,
-					CssmData::overlay(WrappedKey.KeyData), 
-					normAllocator);
-			}
-			else {
-				CASSERT(wrapFormat == CSSM_KEYBLOB_WRAPPED_FORMAT_PKCS8);
-				cspEncodePkcs8(Context.algorithm(),
-					Context.getInt(CSSM_ATTRIBUTE_MODE),
-					encryptedBlob,
-					CssmData::overlay(WrappedKey.KeyData),
-					normAllocator);
-			}
+			WrappedKey.KeyData = encryptedBlob;
 			wrappedHdr.BlobType = CSSM_KEYBLOB_WRAPPED;
 			// OK to be zero or not present 
 			wrappedHdr.WrapMode = Context.getInt(
 				CSSM_ATTRIBUTE_MODE);
 		}
-#endif
 	}
 	catch (...) {
 		errorLog0("WrapKey: EncryptData() threw exception\n");
 		if(allocdRawBlob) {
 			freeCssmData(rawBlob, privAllocator);
 		}
-		/* mallocd in EncryptData, thus normAllocator */
-		freeCssmData(encryptedBlob, normAllocator);
 		freeCssmData(remData,normAllocator);
 		throw;
 	}
 	if(allocdRawBlob) {
 		freeCssmData(rawBlob, privAllocator);
 	}
-	freeCssmData(encryptedBlob, normAllocator);
 	freeCssmData(remData, normAllocator);
 }
 
@@ -448,6 +467,7 @@ void AppleCSPSession::UnwrapKey(
 			CssmError::throwMe(CSSMERR_CSP_INVALID_ALGORITHM);
 		}
 		cspValidateIntendedKeyUsage(&unwrappingKey->KeyHeader, CSSM_KEYUSE_UNWRAP);
+		cspVerifyKeyTimes(unwrappingKey->KeyHeader);
 	}
 
 	/* validate WrappedKey */
@@ -504,18 +524,26 @@ void AppleCSPSession::UnwrapKey(
 		KeyAttr & ~KEY_ATTR_RETURN_MASK,
 		KeyUsage);
 	unwrappedHdr.LogicalKeySizeInBits = wrappedHdr.LogicalKeySizeInBits;
-	unwrappedHdr.KeyUsage = wrappedHdr.KeyUsage;
+	unwrappedHdr.StartDate = wrappedHdr.StartDate;
+	unwrappedHdr.EndDate = wrappedHdr.EndDate;
 	UnwrappedKey.KeyData.Data = NULL;	// ignore possible incoming KeyData
 	UnwrappedKey.KeyData.Length = 0;
 	
 	/* validate wrappedKey format */
 	if(!isNullUnwrap) {
 		switch(wrapFormat) {
-#ifdef USE_SNACC
 			case CSSM_KEYBLOB_WRAPPED_FORMAT_PKCS7:
-			case CSSM_KEYBLOB_WRAPPED_FORMAT_PKCS8:
+				if(WrappedKey.keyClass() != CSSM_KEYCLASS_SESSION_KEY) {
+					/* this unwrapping style only for symmetric keys */
+					CssmError::throwMe(CSSMERR_CSP_INVALID_KEY_CLASS);
+				}
 				break;
-#endif
+			case CSSM_KEYBLOB_WRAPPED_FORMAT_PKCS8:
+				if(WrappedKey.keyClass() != CSSM_KEYCLASS_PRIVATE_KEY) {
+					/* this unwrapping style only for private keys */
+					CssmError::throwMe(CSSMERR_CSP_INVALID_KEY_CLASS);
+				}
+				break;
 			case CSSM_KEYBLOB_WRAPPED_FORMAT_APPLE_CUSTOM:
 				UnwrapKeyCms(CCHandle,
 						Context,
@@ -543,23 +571,8 @@ void AppleCSPSession::UnwrapKey(
 			unwrappedHdr.BlobType = CSSM_KEYBLOB_RAW;
 			unwrappedHdr.Format   = wrapFormat; 
 		}
-#ifdef USE_SNACC
 		else {
-			/* decode wrapped blob, then decrypt to UnwrappedKey.KeyData
-			 * using caller's context */
-			CSSM_KEYBLOB_FORMAT rawFormat;
-			if(wrapFormat == CSSM_KEYBLOB_WRAPPED_FORMAT_PKCS7) {
-				cspDecodePkcs7(WrappedKey,
-					decodedBlob,
-					rawFormat,
-					normAllocator);
-			}
-			else {
-				cspDecodePkcs8(WrappedKey,
-					decodedBlob, 
-					rawFormat,
-					normAllocator);
-			}
+			decodedBlob = CssmData::overlay(WrappedKey.KeyData);
 			uint32 bytesDecrypted;		
 			CssmData *unwrapData = 	
 				CssmData::overlay(&UnwrappedKey.KeyData);
@@ -578,17 +591,31 @@ void AppleCSPSession::UnwrapKey(
 			assert(remData.Length == 0);
 			UnwrappedKey.KeyData.Length = bytesDecrypted;
 			unwrappedHdr.BlobType = CSSM_KEYBLOB_RAW;
-			unwrappedHdr.Format   = rawFormat;
+			
+			/* 
+			 * Figure out various header fields from resulting blob
+			 */
+			switch(wrapFormat) {
+				case CSSM_KEYBLOB_WRAPPED_FORMAT_PKCS7:
+					unwrappedHdr.Format = 
+						CSSM_KEYBLOB_RAW_FORMAT_OCTET_STRING;
+					if(unwrappedHdr.LogicalKeySizeInBits == 0) {
+						unwrappedHdr.LogicalKeySizeInBits =
+							bytesDecrypted * 8;
+					}
+					/* app has to infer/know algorithm */
+					break;
+				case CSSM_KEYBLOB_WRAPPED_FORMAT_PKCS8:
+					pkcs8InferKeyHeader(UnwrappedKey);
+					break;
+			}
 		}
-#endif
 	}
 	catch (...) {
 		errorLog0("UnwrapKey: DecryptData() threw exception\n");
-		freeCssmData(decodedBlob, normAllocator);
 		freeCssmData(remData, normAllocator);
 		throw;
 	}
-	freeCssmData(decodedBlob, normAllocator);
 	freeCssmData(remData, normAllocator);
 
 	/* 
@@ -601,7 +628,9 @@ void AppleCSPSession::UnwrapKey(
 		 */
 		BinaryKey *binKey = NULL;
 		CSPKeyInfoProvider *provider = infoProvider(UnwrappedKey);
-		provider->CssmKeyToBinary(&binKey);
+		/* optional parameter-bearing key */
+		CssmKey *paramKey = Context.get<CssmKey>(CSSM_ATTRIBUTE_PARAM_KEY);
+		provider->CssmKeyToBinary(paramKey, UnwrappedKey.KeyHeader.KeyAttr, &binKey);
 		addRefKey(*binKey, UnwrappedKey);
 		delete provider;
 	}

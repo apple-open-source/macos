@@ -84,9 +84,12 @@ public:
     CssmUniformDate(CFDateRef ref);
     operator CFDateRef() const;
     
+	// convert to/from CFAbsoluteTime
+	CssmUniformDate(CFAbsoluteTime ct) : mTime(ct) { }
+	operator CFAbsoluteTime() const { return mTime; }
+	
     // convert to/from CSSM_DATE
     CssmUniformDate(const CssmDate &src);
-    CssmUniformDate(const CSSM_DATE &src);
     operator CssmDate () const;
     
     // convert to/from DATA format (1999-06-30_15:05:39 form)

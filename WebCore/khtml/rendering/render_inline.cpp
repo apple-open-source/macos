@@ -64,8 +64,17 @@ void RenderInline::setStyle(RenderStyle* _style)
     updatePseudoChild(RenderStyle::AFTER, lastChild());
 }
 
+bool RenderInline::isInlineContinuation() const
+{
+    return m_isContinuation;
+}
+
 void RenderInline::addChildToFlow(RenderObject* newChild, RenderObject* beforeChild)
 {
+    // Make sure we don't append things after :after-generated content if we have it.
+    if (!beforeChild && lastChild() && lastChild()->style()->styleType() == RenderStyle::AFTER)
+        beforeChild = lastChild();
+    
     setNeedsLayout(true);
     
     if (!newChild->isText() && newChild->style()->position() != STATIC)
@@ -86,6 +95,16 @@ void RenderInline::addChildToFlow(RenderObject* newChild, RenderObject* beforeCh
         newBox->setIsAnonymousBox(true);
         RenderFlow* oldContinuation = continuation();
         setContinuation(newBox);
+
+        // Someone may have put a <p> inside a <q>, causing a split.  When this happens, the :after content
+        // has to move into the inline continuation.  Call updatePseudoChild to ensure that our :after
+        // content gets properly destroyed.
+        bool isLastChild = (beforeChild == lastChild());
+        updatePseudoChild(RenderStyle::AFTER, lastChild());
+        if (isLastChild && beforeChild != lastChild())
+            beforeChild = 0; // We destroyed the last child, so now we need to update our insertion
+                             // point to be 0.  It's just a straight append now.
+        
         splitFlow(beforeChild, newBox, newChild, oldContinuation);
         return;
     }
@@ -95,9 +114,10 @@ void RenderInline::addChildToFlow(RenderObject* newChild, RenderObject* beforeCh
     newChild->setNeedsLayoutAndMinMaxRecalc();
 }
 
-static RenderInline* cloneInline(RenderFlow* src)
+RenderInline* RenderInline::cloneInline(RenderFlow* src)
 {
     RenderInline *o = new (src->renderArena()) RenderInline(src->element());
+    o->m_isContinuation = true;
     o->setStyle(src->style());
     return o;
 }
@@ -109,14 +129,14 @@ void RenderInline::splitInlines(RenderBlock* fromBlock, RenderBlock* toBlock,
     // Create a clone of this inline.
     RenderInline* clone = cloneInline(this);
     clone->setContinuation(oldCont);
-
+    
     // Now take all of the children from beforeChild to the end and remove
-    // then from |this| and place them in the clone.
+    // them from |this| and place them in the clone.
     RenderObject* o = beforeChild;
     while (o) {
         RenderObject* tmp = o;
         o = tmp->nextSibling();
-        clone->appendChildNode(removeChildNode(tmp));
+        clone->addChildToFlow(removeChildNode(tmp), 0);
         tmp->setNeedsLayoutAndMinMaxRecalc();
     }
 
@@ -134,20 +154,25 @@ void RenderInline::splitInlines(RenderBlock* fromBlock, RenderBlock* toBlock,
         clone = cloneInline(curr);
 
         // Insert our child clone as the first child.
-        clone->appendChildNode(cloneChild);
+        clone->addChildToFlow(cloneChild, 0);
 
         // Hook the clone up as a continuation of |curr|.
         RenderFlow* oldCont = curr->continuation();
         curr->setContinuation(clone);
         clone->setContinuation(oldCont);
 
+        // Someone may have indirectly caused a <q> to split.  When this happens, the :after content
+        // has to move into the inline continuation.  Call updatePseudoChild to ensure that the inline's :after
+        // content gets properly destroyed.
+        curr->updatePseudoChild(RenderStyle::AFTER, curr->lastChild());
+        
         // Now we need to take all of the children starting from the first child
         // *after* currChild and append them all to the clone.
         o = currChild->nextSibling();
         while (o) {
             RenderObject* tmp = o;
             o = tmp->nextSibling();
-            clone->appendChildNode(curr->removeChildNode(tmp));
+            clone->addChildToFlow(curr->removeChildNode(tmp), 0);
             tmp->setNeedsLayoutAndMinMaxRecalc();
         }
 
@@ -246,13 +271,21 @@ void RenderInline::paintObject(QPainter *p, int _x, int _y,
     //    kdDebug( 6040 ) << renderName() << "(RenderInline) " << this << " ::paintObject() w/h = (" << width() << "/" << height() << ")" << endl;
 #endif
 
+    // If we have an inline root, it has to call the special root box decoration painting
+    // function.
+    if (isRoot() &&
+        (paintAction == PaintActionElementBackground || paintAction == PaintActionChildBackground) &&
+        shouldPaintBackgroundOrBorder() && style()->visibility() == VISIBLE) {
+        paintRootBoxDecorations(p, _x, _y, _w, _h, _tx, _ty);
+    }
+    
     // We're done.  We don't bother painting any children.
     if (paintAction == PaintActionElementBackground)
         return;
     // We don't paint our own background, but we do let the kids paint their backgrounds.
     if (paintAction == PaintActionChildBackgrounds)
         paintAction = PaintActionChildBackground;
-    
+
     paintLineBoxBackgroundBorder(p, _x, _y, _w, _h, _tx, _ty, paintAction);
     
     RenderObject *child = firstChild();
@@ -279,6 +312,10 @@ void RenderInline::calcMinMaxWidth()
     m_maxWidth = 0;
 
     setMinMaxKnown();
+}
+
+bool RenderInline::requiresLayer() {
+    return isRoot() || isRelPositioned() || style()->opacity() < 1.0f;
 }
 
 short RenderInline::width() const

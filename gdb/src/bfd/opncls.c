@@ -1,25 +1,25 @@
 /* opncls.c -- open and close a BFD.
    Copyright 1990, 1991, 1992, 1993, 1994, 1995, 1996, 1997, 1998, 2000,
-   2001
+   2001, 2002
    Free Software Foundation, Inc.
 
    Written by Cygnus Support.
 
-This file is part of BFD, the Binary File Descriptor library.
+   This file is part of BFD, the Binary File Descriptor library.
 
-This program is free software; you can redistribute it and/or modify
-it under the terms of the GNU General Public License as published by
-the Free Software Foundation; either version 2 of the License, or
-(at your option) any later version.
+   This program is free software; you can redistribute it and/or modify
+   it under the terms of the GNU General Public License as published by
+   the Free Software Foundation; either version 2 of the License, or
+   (at your option) any later version.
 
-This program is distributed in the hope that it will be useful,
-but WITHOUT ANY WARRANTY; without even the implied warranty of
-MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-GNU General Public License for more details.
+   This program is distributed in the hope that it will be useful,
+   but WITHOUT ANY WARRANTY; without even the implied warranty of
+   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+   GNU General Public License for more details.
 
-You should have received a copy of the GNU General Public License
-along with this program; if not, write to the Free Software
-Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.  */
+   You should have received a copy of the GNU General Public License
+   along with this program; if not, write to the Free Software
+   Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.  */
 
 #include "bfd.h"
 #include "sysdep.h"
@@ -57,11 +57,12 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.  */
 #define S_IXOTH 0001	/* Execute by others.  */
 #endif
 
+/* Counter used to initialize the bfd identifier.  */
+
+static unsigned int _bfd_id_counter = 0;
+
 /* fdopen is a loser -- we should use stdio exclusively.  Unfortunately
    if we do that we can't use fcntl.  */
-
-/* FIXME: This is no longer used.  */
-long _bfd_chunksize = -1;
 
 /* Return a new BFD.  All BFD's are allocated through this routine.  */
 
@@ -73,6 +74,8 @@ _bfd_new_bfd ()
   nbfd = (bfd *) bfd_zmalloc ((bfd_size_type) sizeof (bfd));
   if (nbfd == NULL)
     return NULL;
+
+  nbfd->id = _bfd_id_counter++;
 
   nbfd->memory = (PTR) objalloc_create ();
   if (nbfd->memory == NULL)
@@ -87,7 +90,9 @@ _bfd_new_bfd ()
   nbfd->direction = no_direction;
   nbfd->iostream = NULL;
   nbfd->where = 0;
-  if (!bfd_hash_table_init (&nbfd->section_htab, bfd_section_hash_newfunc))
+  if (!bfd_hash_table_init_n (&nbfd->section_htab,
+			      bfd_section_hash_newfunc,
+			      251))
     {
       free (nbfd);
       return NULL;
@@ -97,13 +102,13 @@ _bfd_new_bfd ()
   nbfd->format = bfd_unknown;
   nbfd->my_archive = (bfd *) NULL;
   nbfd->origin = 0;
-  nbfd->opened_once = false;
-  nbfd->output_has_begun = false;
+  nbfd->opened_once = FALSE;
+  nbfd->output_has_begun = FALSE;
   nbfd->section_count = 0;
   nbfd->usrdata = (PTR) NULL;
-  nbfd->cacheable = false;
+  nbfd->cacheable = FALSE;
   nbfd->flags = BFD_NO_FLAGS;
-  nbfd->mtime_set = false;
+  nbfd->mtime_set = FALSE;
 
   return nbfd;
 }
@@ -117,6 +122,8 @@ _bfd_new_bfd_contained_in (obfd)
   bfd *nbfd;
 
   nbfd = _bfd_new_bfd ();
+  if (nbfd == NULL)
+    return NULL;
   nbfd->xvec = obfd->xvec;
   nbfd->my_archive = obfd;
   nbfd->direction = read_direction;
@@ -132,6 +139,7 @@ _bfd_delete_bfd (abfd)
 {
   bfd_hash_table_free (&abfd->section_htab);
   objalloc_free ((struct objalloc *) abfd->memory);
+  memset (abfd, '\0', sizeof (bfd));
   free (abfd);
 }
 
@@ -146,7 +154,7 @@ FUNCTION
 	bfd_openr
 
 SYNOPSIS
-        bfd *bfd_openr(const char *filename, const char *target);
+	bfd *bfd_openr(const char *filename, const char *target);
 
 DESCRIPTION
 	Open the file @var{filename} (using <<fopen>>) with the target
@@ -156,7 +164,8 @@ DESCRIPTION
 	that function.
 
 	If <<NULL>> is returned then an error has occured.   Possible errors
-	are <<bfd_error_no_memory>>, <<bfd_error_invalid_target>> or <<system_call>> error.
+	are <<bfd_error_no_memory>>, <<bfd_error_invalid_target>> or
+	<<system_call>> error.
 */
 
 bfd *
@@ -174,7 +183,6 @@ bfd_openr (filename, target)
   target_vec = bfd_find_target (target, nbfd);
   if (target_vec == NULL)
     {
-      bfd_set_error (bfd_error_invalid_target);
       _bfd_delete_bfd (nbfd);
       return NULL;
     }
@@ -184,7 +192,7 @@ bfd_openr (filename, target)
 
   if (bfd_open_file (nbfd) == NULL)
     {
-      /* File didn't exist, or some such */
+      /* File didn't exist, or some such.  */
       bfd_set_error (bfd_error_system_call);
       _bfd_delete_bfd (nbfd);
       return NULL;
@@ -198,15 +206,15 @@ FUNCTION
 	bfd_mmap_file
 
 SYNOPSIS
-        boolean bfd_mmap_file(bfd *abfd, void *addr);
+        bfd_boolean bfd_mmap_file(bfd *abfd, void *addr);
 
 DESCRIPTION
 	Cause future file accesses to be done via mmap rather than via read/write.
 */
 
-boolean bfd_mmap_file (abfd, addr)
-     bfd *abfd;
-     void *addr;
+bfd_boolean bfd_mmap_file (abfd, addr)
+     bfd *abfd ATTRIBUTE_UNUSED;
+     void *addr ATTRIBUTE_UNUSED;
 {
 #if USE_MMAP 
   struct bfd_in_memory *mem;
@@ -219,11 +227,10 @@ boolean bfd_mmap_file (abfd, addr)
   BFD_ASSERT ((abfd->flags & BFD_IN_MEMORY) == 0);
 
   abfd->mtime = bfd_get_mtime (abfd);
-  abfd->mtime_set = 1;
 
   mem = bfd_alloc (abfd, sizeof (struct bfd_in_memory));
   if (mem == NULL) {
-    return false; 
+    return FALSE; 
   }
 
   fp = bfd_cache_lookup (abfd);
@@ -231,7 +238,7 @@ boolean bfd_mmap_file (abfd, addr)
 
   if (fstat (fd, &statbuf) != 0) {
     bfd_set_error (bfd_error_system_call);
-    return false;
+    return FALSE;
   }
   mem->size = statbuf.st_size;
 
@@ -262,7 +269,7 @@ boolean bfd_mmap_file (abfd, addr)
   mem->buffer = mmap (addr, mem->size, prot, flags, fd, 0);
   if ((caddr_t) mem->buffer == (caddr_t) -1) {
     bfd_set_error (bfd_error_system_call);
-    return false;
+    return FALSE;
   }
   
   BFD_ASSERT ((abfd->flags & BFD_IN_MEMORY) == 0);
@@ -270,11 +277,11 @@ boolean bfd_mmap_file (abfd, addr)
   abfd->iostream = mem;
   abfd->flags |= BFD_IN_MEMORY;
 
-  return true;
+  return TRUE;
 
 #else /* ! USE_MMAP */
   bfd_set_error (bfd_error_system_call);
-  return false;
+  return FALSE;
 #endif /* USE_MMAP */
 }
 
@@ -283,7 +290,7 @@ FUNCTION
 	bfd_funopenr
 
 SYNOPSIS
-        bfd *bfd_funopenr(CONST char *filename, CONST char *target, struct bfd_io_functions *fdata);
+        bfd *bfd_funopenr(const char *filename, const char *target, struct bfd_io_functions *fdata);
 
 DESCRIPTION
 	No description available.
@@ -291,8 +298,8 @@ DESCRIPTION
 
 bfd *
 bfd_funopenr (filename, target, fdata)
-     CONST char *filename;
-     CONST char *target;
+     const char *filename;
+     const char *target;
      struct bfd_io_functions *fdata;
 {
   bfd *nbfd;
@@ -332,7 +339,7 @@ FUNCTION
 	bfd_memopenr
 
 SYNOPSIS
-        bfd *bfd_memopenr(CONST char *filename, CONST char *target, unsigned char *addr, bfd_size_type len);
+        bfd *bfd_memopenr(const char *filename, const char *target, unsigned char *addr, bfd_size_type len);
 
 DESCRIPTION
 	Treat the block of memory at address @var{addr} as if it were a file of
@@ -348,8 +355,8 @@ DESCRIPTION
 
 bfd *
 bfd_memopenr (filename, target, addr, len)
-     CONST char *filename;
-     CONST char *target;
+     const char *filename;
+     const char *target;
      unsigned char *addr;
      bfd_size_type len;
 {
@@ -391,32 +398,31 @@ bfd_memopenr (filename, target, addr, len)
        won't cause a storage leak.
    o - We open the file stream last, since we don't want to have to
        close it if anything goes wrong.  Closing the stream means closing
-       the file descriptor too, even though we didn't open it.
- */
+       the file descriptor too, even though we didn't open it.  */
 /*
 FUNCTION
-         bfd_fdopenr
+	bfd_fdopenr
 
 SYNOPSIS
-         bfd *bfd_fdopenr(const char *filename, const char *target, int fd);
+	bfd *bfd_fdopenr(const char *filename, const char *target, int fd);
 
 DESCRIPTION
-         <<bfd_fdopenr>> is to <<bfd_fopenr>> much like <<fdopen>> is to <<fopen>>.
-	 It opens a BFD on a file already described by the @var{fd}
-	 supplied.
+	<<bfd_fdopenr>> is to <<bfd_fopenr>> much like <<fdopen>> is to
+	<<fopen>>.  It opens a BFD on a file already described by the
+	@var{fd} supplied.
 
-	 When the file is later <<bfd_close>>d, the file descriptor will be closed.
+	When the file is later <<bfd_close>>d, the file descriptor will
+	be closed.  If the caller desires that this file descriptor be
+	cached by BFD (opened as needed, closed as needed to free
+	descriptors for other opens), with the supplied @var{fd} used as
+	an initial file descriptor (but subject to closure at any time),
+	call bfd_set_cacheable(bfd, 1) on the returned BFD.  The default
+	is to assume no cacheing; the file descriptor will remain open
+	until <<bfd_close>>, and will not be affected by BFD operations
+	on other files.
 
-	 If the caller desires that this file descriptor be cached by BFD
-	 (opened as needed, closed as needed to free descriptors for
-	 other opens), with the supplied @var{fd} used as an initial
-	 file descriptor (but subject to closure at any time), call
-	 bfd_set_cacheable(bfd, 1) on the returned BFD.  The default is to
-	 assume no cacheing; the file descriptor will remain open until
-	 <<bfd_close>>, and will not be affected by BFD operations on other
-	 files.
-
-         Possible errors are <<bfd_error_no_memory>>, <<bfd_error_invalid_target>> and <<bfd_error_system_call>>.
+	Possible errors are <<bfd_error_no_memory>>,
+	<<bfd_error_invalid_target>> and <<bfd_error_system_call>>.
 */
 
 bfd *
@@ -431,11 +437,12 @@ bfd_fdopenr (filename, target, fd)
 
   bfd_set_error (bfd_error_system_call);
 #if ! defined(HAVE_FCNTL) || ! defined(F_GETFL)
-  fdflags = O_RDWR;			/* Assume full access */
+  fdflags = O_RDWR;			/* Assume full access.  */
 #else
   fdflags = fcntl (fd, F_GETFL, NULL);
 #endif
-  if (fdflags == -1) return NULL;
+  if (fdflags == -1)
+    return NULL;
 
   nbfd = _bfd_new_bfd ();
   if (nbfd == NULL)
@@ -444,7 +451,6 @@ bfd_fdopenr (filename, target, fd)
   target_vec = bfd_find_target (target, nbfd);
   if (target_vec == NULL)
     {
-      bfd_set_error (bfd_error_invalid_target);
       _bfd_delete_bfd (nbfd);
       return NULL;
     }
@@ -452,7 +458,7 @@ bfd_fdopenr (filename, target, fd)
 #ifndef HAVE_FDOPEN
   nbfd->iostream = (PTR) fopen (filename, FOPEN_RB);
 #else
-  /* (O_ACCMODE) parens are to avoid Ultrix header file bug */
+  /* (O_ACCMODE) parens are to avoid Ultrix header file bug.  */
   switch (fdflags & (O_ACCMODE))
     {
     case O_RDONLY: nbfd->iostream = (PTR) fdopen (fd, FOPEN_RB);   break;
@@ -468,14 +474,14 @@ bfd_fdopenr (filename, target, fd)
       return NULL;
     }
 
-  /* OK, put everything where it belongs */
+  /* OK, put everything where it belongs.  */
 
   nbfd->filename = filename;
 
   /* As a special case we allow a FD open for read/write to
      be written through, although doing so requires that we end
      the previous clause with a preposition.  */
-  /* (O_ACCMODE) parens are to avoid Ultrix header file bug */
+  /* (O_ACCMODE) parens are to avoid Ultrix header file bug.  */
   switch (fdflags & (O_ACCMODE))
     {
     case O_RDONLY: nbfd->direction = read_direction; break;
@@ -489,7 +495,7 @@ bfd_fdopenr (filename, target, fd)
       _bfd_delete_bfd (nbfd);
       return NULL;
     }
-  nbfd->opened_once = true;
+  nbfd->opened_once = TRUE;
 
   return nbfd;
 }
@@ -524,7 +530,6 @@ bfd_openstreamr (filename, target, streamarg)
   target_vec = bfd_find_target (target, nbfd);
   if (target_vec == NULL)
     {
-      bfd_set_error (bfd_error_invalid_target);
       _bfd_delete_bfd (nbfd);
       return NULL;
     }
@@ -542,10 +547,10 @@ bfd_openstreamr (filename, target, streamarg)
   return nbfd;
 }
 
-/** bfd_openw -- open for writing.
-  Returns a pointer to a freshly-allocated BFD on success, or NULL.
+/* bfd_openw -- open for writing.
+   Returns a pointer to a freshly-allocated BFD on success, or NULL.
 
-  See comment by bfd_fdopenr before you try to modify this function. */
+   See comment by bfd_fdopenr before you try to modify this function.  */
 
 /*
 FUNCTION
@@ -570,11 +575,8 @@ bfd_openw (filename, target)
   bfd *nbfd;
   const bfd_target *target_vec;
 
-  bfd_set_error (bfd_error_system_call);
-
   /* nbfd has to point to head of malloc'ed block so that bfd_close may
-     reclaim it correctly. */
-
+     reclaim it correctly.  */
   nbfd = _bfd_new_bfd ();
   if (nbfd == NULL)
     return NULL;
@@ -591,7 +593,8 @@ bfd_openw (filename, target)
 
   if (bfd_open_file (nbfd) == NULL)
     {
-      bfd_set_error (bfd_error_system_call);	/* File not writeable, etc */
+      /* File not writeable, etc.  */
+      bfd_set_error (bfd_error_system_call);
       _bfd_delete_bfd (nbfd);
       return NULL;
   }
@@ -605,14 +608,14 @@ FUNCTION
 	bfd_close
 
 SYNOPSIS
-	boolean bfd_close(bfd *abfd);
+	bfd_boolean bfd_close (bfd *abfd);
 
 DESCRIPTION
 
-	Close a BFD. If the BFD was open for writing,
-	then pending operations are completed and the file written out
-	and closed. If the created file is executable, then
-	<<chmod>> is called to mark it as such.
+	Close a BFD. If the BFD was open for writing, then pending
+	operations are completed and the file written out and closed.
+	If the created file is executable, then <<chmod>> is called
+	to mark it as such.
 
 	All memory attached to the BFD is released.
 
@@ -620,27 +623,26 @@ DESCRIPTION
 	if it was passed in to BFD by <<bfd_fdopenr>>).
 
 RETURNS
-	<<true>> is returned if all is ok, otherwise <<false>>.
+	<<TRUE>> is returned if all is ok, otherwise <<FALSE>>.
 */
 
 
-boolean
+bfd_boolean
 bfd_close (abfd)
      bfd *abfd;
 {
-  boolean ret = true;
+  bfd_boolean ret = TRUE;
 
-  if (!bfd_read_p (abfd))
+  if (bfd_write_p (abfd))
     {
       if (! BFD_SEND_FMT (abfd, _bfd_write_contents, (abfd)))
-	return false;
+	return FALSE;
     }
 
   if (! BFD_SEND (abfd, _close_and_cleanup, (abfd)))
-    return false;
+    return FALSE;
 
-  bfd_io_close (abfd);
-
+  ret = _bfd_io_close (abfd);
   _bfd_delete_bfd (abfd);
 
   return ret;
@@ -651,13 +653,13 @@ FUNCTION
 	bfd_close_all_done
 
 SYNOPSIS
-	boolean bfd_close_all_done(bfd *);
+	bfd_boolean bfd_close_all_done (bfd *);
 
 DESCRIPTION
-	Close a BFD.  Differs from <<bfd_close>>
-	since it does not complete any pending operations.  This
-	routine would be used if the application had just used BFD for
-	swapping and didn't want to use any of the writing code.
+	Close a BFD.  Differs from <<bfd_close>> since it does not
+	complete any pending operations.  This routine would be used
+	if the application had just used BFD for swapping and didn't
+	want to use any of the writing code.
 
 	If the created file is executable, then <<chmod>> is called
 	to mark it as such.
@@ -665,20 +667,19 @@ DESCRIPTION
 	All memory attached to the BFD is released.
 
 RETURNS
-	<<true>> is returned if all is ok, otherwise <<false>>.
-
+	<<TRUE>> is returned if all is ok, otherwise <<FALSE>>.
 */
 
-boolean
+bfd_boolean
 bfd_close_all_done (abfd)
      bfd *abfd;
 {
-  boolean ret;
+  bfd_boolean ret;
 
-  ret = bfd_io_close (abfd);
+  ret = _bfd_io_close (abfd);
 
   /* If the file was open for writing and is now executable,
-     make it so */
+     make it so.  */
   if (ret
       && abfd->direction == write_direction
       && abfd->flags & EXEC_P)
@@ -688,6 +689,7 @@ bfd_close_all_done (abfd)
       if (stat (abfd->filename, &buf) == 0)
 	{
 	  unsigned int mask = umask (0);
+
 	  umask (mask);
 	  chmod (abfd->filename,
 		 (0777
@@ -708,11 +710,9 @@ SYNOPSIS
 	bfd *bfd_create(const char *filename, bfd *templ);
 
 DESCRIPTION
-	Create a new BFD in the manner of
-	<<bfd_openw>>, but without opening a file. The new BFD
-	takes the target from the target used by @var{template}. The
-	format is always set to <<bfd_object>>.
-
+	Create a new BFD in the manner of <<bfd_openw>>, but without
+	opening a file. The new BFD takes the target from the target
+	used by @var{template}. The format is always set to <<bfd_object>>.
 */
 
 bfd *
@@ -730,6 +730,7 @@ bfd_create (filename, templ)
     nbfd->xvec = templ->xvec;
   nbfd->direction = no_direction;
   bfd_set_format (nbfd, bfd_object);
+
   return nbfd;
 }
 
@@ -738,7 +739,7 @@ FUNCTION
 	bfd_make_writable
 
 SYNOPSIS
-	boolean bfd_make_writable(bfd *abfd);
+	bfd_boolean bfd_make_writable (bfd *abfd);
 
 DESCRIPTION
 	Takes a BFD as created by <<bfd_create>> and converts it
@@ -747,10 +748,10 @@ DESCRIPTION
 	you will call <<bfd_make_readable>> on this bfd later.
 
 RETURNS
-	<<true>> is returned if all is ok, otherwise <<false>>.
+	<<TRUE>> is returned if all is ok, otherwise <<FALSE>>.
 */
 
-boolean
+bfd_boolean
 bfd_make_writable(abfd)
      bfd *abfd;
 {
@@ -759,13 +760,13 @@ bfd_make_writable(abfd)
   if (abfd->direction != no_direction)
     {
       bfd_set_error (bfd_error_invalid_operation);
-      return false;
+      return FALSE;
     }
 
   bim = ((struct bfd_in_memory *)
 	 bfd_malloc ((bfd_size_type) sizeof (struct bfd_in_memory)));
   abfd->iostream = (PTR) bim;
-  /* bfd_bwrite will grow these as needed */
+  /* bfd_bwrite will grow these as needed.  */
   bim->size = 0;
   bim->buffer = 0;
 
@@ -773,7 +774,7 @@ bfd_make_writable(abfd)
   abfd->direction = write_direction;
   abfd->where = 0;
 
-  return true;
+  return TRUE;
 }
 
 /*
@@ -781,7 +782,7 @@ FUNCTION
 	bfd_make_readable
 
 SYNOPSIS
-	boolean bfd_make_readable(bfd *abfd);
+	bfd_boolean bfd_make_readable (bfd *abfd);
 
 DESCRIPTION
 	Takes a BFD as created by <<bfd_create>> and
@@ -791,50 +792,50 @@ DESCRIPTION
 	direction.
 
 RETURNS
-	<<true>> is returned if all is ok, otherwise <<false>>.  */
+	<<TRUE>> is returned if all is ok, otherwise <<FALSE>>.  */
 
-boolean
+bfd_boolean
 bfd_make_readable(abfd)
      bfd *abfd;
 {
   if (abfd->direction != write_direction || !(abfd->flags & BFD_IN_MEMORY))
     {
       bfd_set_error (bfd_error_invalid_operation);
-      return false;
+      return FALSE;
     }
 
   if (! BFD_SEND_FMT (abfd, _bfd_write_contents, (abfd)))
-    return false;
+    return FALSE;
 
   if (! BFD_SEND (abfd, _close_and_cleanup, (abfd)))
-    return false;
+    return FALSE;
 
 
   abfd->arch_info = &bfd_default_arch_struct;
 
   abfd->where = 0;
-  abfd->sections = (asection *) NULL;
   abfd->format = bfd_unknown;
   abfd->my_archive = (bfd *) NULL;
   abfd->origin = 0;
-  abfd->opened_once = false;
-  abfd->output_has_begun = false;
+  abfd->opened_once = FALSE;
+  abfd->output_has_begun = FALSE;
   abfd->section_count = 0;
   abfd->usrdata = (PTR) NULL;
-  abfd->cacheable = false;
+  abfd->cacheable = FALSE;
   abfd->flags = BFD_IN_MEMORY;
-  abfd->mtime_set = false;
+  abfd->mtime_set = FALSE;
 
-  abfd->target_defaulted = true;
+  abfd->target_defaulted = TRUE;
   abfd->direction = read_direction;
   abfd->sections = 0;
   abfd->symcount = 0;
   abfd->outsymbols = 0;
   abfd->tdata.any = 0;
 
-  bfd_check_format(abfd, bfd_object);
+  bfd_section_list_clear (abfd);
+  bfd_check_format (abfd, bfd_object);
 
-  return true;
+  return TRUE;
 }
 
 /*

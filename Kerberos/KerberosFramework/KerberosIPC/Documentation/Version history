@@ -1,0 +1,91 @@
+========================================================================
+KerberosIPC Version History
+========================================================================
+Current version: 1.1fc2
+Date:            August 22, 2003
+Author:          lxs@mit.edu
+========================================================================
+
+	KerberosIPC 1.1fc2
+	August 22, 2003
+
+	[RT 1764] Framework should use CFStringGetMaximumSizeForEncoding()
+	
+	========================================================================
+	KerberosIPC 1.1fc1
+	July 16, 2003
+
+	[RT 1670] Use AppKit and HIToolbox to determine if process is a GUI app
+	
+	========================================================================
+	KerberosIPC 1.1a6
+	July 3, 2003
+
+	[RT 1638]   KfM should use CoreGraphics to determine if GUI is available
+
+	========================================================================
+	KerberosIPC 1.1a5
+	May 21, 2003
+
+	[RT 1461]   KerberosIPC shouldn't assume window server is /dev/console
+	[RT 1494]   Avoid checking TERM because it has too many valid values
+
+	========================================================================
+
+	KerberosIPC 1.1a4
+	May 7, 2003
+
+	[RT 1457] Double free in mach_client_lookup_server breaks AppleEvents
+
+	========================================================================
+
+	KerberosIPC 1.1a3
+	May 1, 2003
+
+	New C implementation
+
+	[RT 1425]   Server names should include Security Session
+
+	========================================================================
+
+	KerberosIPC 1.1a2
+	March 11, 2003
+
+	[RT 1331] KLS leaves zombies
+
+	========================================================================
+	KerberosIPC 1.1a1
+	January 14, 2003
+
+	[RT 1294] KfM Mach service names contain the user's controlling terminal
+	[RT 1299] Login session APIs should check if ttyname returns NULL
+
+	========================================================================
+
+KerberosIPC 1.0
+June 19, 2002
+
+First release separate from MIT Support Library
+
+========================================================================
+
+	KerberosIPC 1.0
+	June 19, 2002
+
+	Moved to final candidate.
+
+	========================================================================
+
+	KerberosIPC 1.0fc1
+	June 17, 2002
+
+	Moved to final candidate.
+
+	========================================================================
+
+	KerberosIPC 1.0a1
+	June 10, 2002
+
+	[BZ 747]	Mach IPC servers should only rename if seteuid succeeds
+
+	========================================================================

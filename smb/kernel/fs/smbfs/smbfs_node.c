@@ -29,7 +29,7 @@
  * OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
  * SUCH DAMAGE.
  *
- * $Id: smbfs_node.c,v 1.16.52.1 2003/03/14 00:05:54 lindak Exp $
+ * $Id: smbfs_node.c,v 1.23 2003/09/21 20:53:11 lindak Exp $
  */
 #include <sys/param.h>
 #include <sys/systm.h>
@@ -71,7 +71,7 @@
 extern vop_t **smbfs_vnodeop_p;
 
 MALLOC_DEFINE(M_SMBNODE, "SMBFS node", "SMBFS vnode private part");
-static MALLOC_DEFINE(M_SMBNODENAME, "SMBFS nname", "SMBFS node name");
+MALLOC_DEFINE(M_SMBNODENAME, "SMBFS nname", "SMBFS node name");
 
 int smbfs_hashprint(struct mount *mp);
 
@@ -105,7 +105,7 @@ smbfs_hashprint(struct mount *mp)
 	struct smbmount *smp = VFSTOSMBFS(mp);
 	struct smbnode_hashhead *nhpp;
 	struct smbnode *np;
-	int i;
+	u_long i;
 
 	for(i = 0; i <= smp->sm_hashlen; i++) {
 		nhpp = &smp->sm_hash[i];
@@ -138,7 +138,7 @@ smbfs_name_alloc(const u_char *name, int nmlen)
 }
 
 void
-smbfs_name_free(u_char *name)
+smbfs_name_free(const u_char *name)
 {
 #ifdef SMBFS_NAME_DEBUG
 	int nmlen, slen;
@@ -168,9 +168,9 @@ smbfs_name_free(u_char *name)
 #endif
 }
 
-static int
-smbfs_node_alloc(struct mount *mp, struct vnode *dvp,
-	const char *name, int nmlen, struct smbfattr *fap, struct vnode **vpp)
+int
+smbfs_nget(struct mount *mp, struct vnode *dvp, const char *name, int nmlen,
+	struct smbfattr *fap, struct vnode **vpp)
 {
 	struct proc *p = curproc;	/* XXX */
 	struct smbmount *smp = VFSTOSMBFS(mp);
@@ -181,6 +181,8 @@ smbfs_node_alloc(struct mount *mp, struct vnode *dvp,
 	int error;
 
 	*vpp = NULL;
+	if (smp->sm_status & SM_STATUS_FORCE)
+		return ENXIO;
 	if (smp->sm_root != NULL && dvp == NULL) {
 		SMBERROR("do not allocate root vnode twice!\n");
 		return EINVAL;
@@ -199,7 +201,7 @@ smbfs_node_alloc(struct mount *mp, struct vnode *dvp,
 	}
 	dnp = dvp ? VTOSMB(dvp) : NULL;
 	if (dnp == NULL && dvp != NULL) {
-		vprint("smbfs_node_alloc: dead parent vnode", dvp);
+		vprint("smbfs_nget: dead parent vnode", dvp);
 		return EINVAL;
 	}
 	hashval = smbfs_hash(name, nmlen);
@@ -217,6 +219,9 @@ loop:
 		if (vget(vp, LK_EXCLUSIVE | LK_INTERLOCK, p) != 0)
 			goto retry;
 		*vpp = vp;
+		/* update the attr_cache info if the file is clean */
+		if (fap && !(np->n_flag & NFLUSHWIRE))
+			smbfs_attr_cacheenter(vp, fap);
 		return 0;
 	}
 	smbfs_hash_unlock(smp, p);
@@ -259,7 +264,13 @@ loop:
 	} else if (vp->v_type == VREG)
 		SMBERROR("new vnode '%s' born without parent ?\n", np->n_name);
 
+	/* update the attr_cache info */
+	if (fap)
+		smbfs_attr_cacheenter(vp, fap);
 #ifdef APPLE
+	/* Call ubc_info_init() after adding to the attr_cache so that
+	 * ubc_info_init's getattr request won't cause network activity.
+	 */
 	if (vp->v_type == VREG)
 		(void) ubc_info_init(vp);
 #else
@@ -282,29 +293,11 @@ loop:
 	return 0;
 }
 
-int
-smbfs_nget(struct mount *mp, struct vnode *dvp, const char *name, int nmlen,
-	struct smbfattr *fap, struct vnode **vpp)
-{
-	struct vnode *vp;
-	int error;
-
-	*vpp = NULL;
-	error = smbfs_node_alloc(mp, dvp, name, nmlen, fap, &vp);
-	if (error)
-		return error;
-	if (fap)
-		smbfs_attr_cacheenter(vp, fap);
-	*vpp = vp;
-	return 0;
-}
-
 /* freebsd bug: smb_vhashrem is so we cant nget unlinked nodes */
 void
-smb_vhashrem(struct vnode *vp, struct proc *p)
+smb_vhashrem(struct smbnode *np, struct proc *p)
 {
-	struct smbmount *smp = VTOSMBFS(vp);
-	struct smbnode *np = VTOSMB(vp);
+	struct smbmount *smp = np->n_mount;
 	
 	smbfs_hash_lock(smp, p);
 	if (np->n_hash.le_prev) {
@@ -442,6 +435,7 @@ smbfs_attr_cacheenter(struct vnode *vp, struct smbfattr *fap)
 		return;
 	np->n_mtime = fap->fa_mtime;
 	np->n_dosattr = fap->fa_attr;
+	np->n_flag &= ~NATTRCHANGED;
 	np->n_attrage = time_second;
 	return;
 }
@@ -451,11 +445,26 @@ smbfs_attr_cachelookup(struct vnode *vp, struct vattr *va)
 {
 	struct smbnode *np = VTOSMB(vp);
 	struct smbmount *smp = VTOSMBFS(vp);
-	int diff;
+	time_t timediff, attrtimeo;
 
-	diff = time_second - np->n_attrage;
-	if (diff > 2)	/* XXX should be configurable */
+	/* Determine attrtimeo. This will be something between SMB_MINATTRTIMO and
+	 * SMB_MAXATTRTIMO where recently modified files have a short timeout and
+	 * files that haven't been modified in a long time have a long timeout.
+	 * This is the same algorithm used by NFS.
+	 */
+	timediff = (time_second - np->n_mtime.tv_sec) / 10;
+	if (timediff < SMB_MINATTRTIMO) {
+		attrtimeo = SMB_MINATTRTIMO;
+	} else if (timediff > SMB_MAXATTRTIMO) {
+		attrtimeo = SMB_MAXATTRTIMO;
+	} else {
+		attrtimeo = timediff;
+	}
+	/* has too much time passed? */
+	if ((time_second - np->n_attrage) > attrtimeo) {
 		return ENOENT;
+	}
+
 	va->va_type = vp->v_type;		/* vnode type (for create) */
 	if (vp->v_type == VREG) {
 		va->va_mode = smp->sm_args.file_mode;	/* files access mode and type */
@@ -518,36 +527,30 @@ smbfs_attr_cachelookup(struct vnode *vp, struct vattr *va)
  */
 
 void
-smbfs_attr_touchdir(struct vnode *dvp)
+smbfs_attr_touchdir(struct smbnode *dnp)
 {
-	if (dvp && dvp->v_type == VDIR && dvp->v_tag == VT_SMBFS) {
-		struct smbnode *dnp = VTOSMB(dvp);
-		struct timespec ts, ta;
+	struct timespec ts, ta;
 
-		/*
-		 * Creep the saved time forwards far enough that
-		 * layers above the kernel will notice.
-		 */
-		ta.tv_sec = 1;
-		ta.tv_nsec = 0;
-		timespecadd(&dnp->n_mtime, &ta);
-		/*
-		 * If the current time is later than the updated
-		 * saved time, apply it instead.
-		 */
-		getnanotime(&ts);
-		if (timespeccmp(&dnp->n_mtime, &ts, <))
-			dnp->n_mtime = ts;
-		/*
-		 * Invalidate the cache, so that we go to the wire
-		 * to check that the server doesn't have a better
-		 * timestamp next time we care.
-		 */
-		smbfs_attr_cacheremove(dvp);
-	} else {
-		panic("smbfs_attr_touchdir: not SMB directory %d %d",
-		      dvp ? dvp->v_type : -1, dvp ? dvp->v_tag : -1);
-	}
+	/*
+	 * Creep the saved time forwards far enough that
+	 * layers above the kernel will notice.
+	 */
+	ta.tv_sec = 1;
+	ta.tv_nsec = 0;
+	timespecadd(&dnp->n_mtime, &ta);
+	/*
+	 * If the current time is later than the updated
+	 * saved time, apply it instead.
+	 */
+	getnanotime(&ts);
+	if (timespeccmp(&dnp->n_mtime, &ts, <))
+		dnp->n_mtime = ts;
+	/*
+	 * Invalidate the cache, so that we go to the wire
+	 * to check that the server doesn't have a better
+	 * timestamp next time we care.
+	 */
+	smbfs_attr_cacheremove(dnp);
 }
 
 

@@ -1,0 +1,387 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01//EN" "http://www.w3.org/TR/html4/strict.dtd">
+<html xmlns="http://www.w3.org/TR/xhtml1/strict">
+<head>
+<title>Quick Start JK2 Configuration Guide</title>
+<meta content="1999-2002 The Apache Software Foundation" name="copyright"/>
+<meta content="$Date: 2002/11/07 09:16:24 $" name="last-changed"/>
+<meta content="Mladen Turk" name="author"/>
+<meta content="mturk@mappingsoft.com" name="email"/>
+<link href="..//style.css" type="text/css" rel="stylesheet"/>
+<link href="../images/tomcat.ico" rel="shortcut icon"/>
+</head>
+<body link="#525D76" vlink="#525D76" alink="#525D76" text="#000000" bgcolor="#ffffff">
+<a name="TOP"/>
+<table width="100%" cellpadding="0" cellspacing="0" border="0">
+<tr height="1">
+<td class="nil" height="1" bgcolor="#ffffff" width="150">
+<img hspace="0" vspace="0" height="1" width="150" border="0" src="../images/pixel.gif"/>
+</td>
+<td class="nil" height="1" bgcolor="#ffffff" width="*">
+<img hspace="0" vspace="0" height="1" width="370" border="0" src="../images/pixel.gif"/>
+</td>
+</tr>
+<tr>
+<td width="*" colspan="2" class="logo" bgcolor="#ffffff">
+<table width="100%" cellpadding="0" cellspacing="0" border="0">
+<tr>
+<td align="left">
+<img align="left" height="48" width="505" border="0" src="../images/jakarta.gif"/>
+</td>
+<td align="right">
+<img align="right" border="0" src="../images/mod_jk.jpg"/>
+</td>
+</tr>
+</table>
+</td>
+</tr>
+<tr>
+<td colspan="2" width="*" align="right" class="head" bgcolor="#999999">
+<nobr>
+<a href="http://www.apache.org/" class="head">Apache Software Foundation</a> |
+                <a href="http://jakarta.apache.org/" class="head">Jakarta Project</a> |
+                <a href="http://jakarta.apache.org/tomcat/" class="head">Apache Tomcat</a>
+</nobr>
+</td>
+</tr>
+<tr>
+<td valign="top" width="150" bgcolor="#ffffff">
+<table class="menu" cellpadding="0" cellspacing="0" width="150" border="0">
+<tr height="1">
+<td class="nil" height="1" bgcolor="#cccccc" width="10">
+<img hspace="0" vspace="0" height="1" width="10" border="0" src="../images/pixel.gif"/>
+</td>
+<td class="nil" height="1" bgcolor="#cccccc" width="140">
+<img hspace="0" vspace="0" height="1" width="140" border="0" src="../images/pixel.gif"/>
+</td>
+</tr>
+<tr height="6">
+<td colspan="2" width="150" bgcolor="#d0d0d0">Presentation</td>
+</tr>
+<tr>
+<td colspan="2" width="150" bgcolor="#cccccc">
+<nobr>
+<a class="menu" href="../index.html">Overview</a>
+</nobr>
+</td>
+</tr>
+<tr height="2"/>
+<tr height="6"/>
+<tr height="6">
+<td colspan="2" width="150" bgcolor="#d0d0d0">Commons</td>
+</tr>
+<tr>
+<td colspan="2" width="150" bgcolor="#cccccc">
+<nobr>
+<a class="menu" href="../common/AJPv13.html">AJPv13</a>
+</nobr>
+</td>
+</tr>
+<tr height="2"/>
+<tr>
+<td colspan="2" width="150" bgcolor="#cccccc">
+<nobr>
+<a class="menu" href="../common/AJPv13-extensions-proposal.html">AJPv13 extensions Proposal</a>
+</nobr>
+</td>
+</tr>
+<tr height="2"/>
+<tr>
+<td colspan="2" width="150" bgcolor="#cccccc">
+<nobr>
+<a class="menu" href="../faq.html">FAQ</a>
+</nobr>
+</td>
+</tr>
+<tr height="2"/>
+<tr height="6"/>
+<tr height="6">
+<td colspan="2" width="150" bgcolor="#d0d0d0">JK</td>
+</tr>
+<tr>
+<td colspan="2" width="150" bgcolor="#cccccc">
+<nobr>
+<a class="menu" href="../jk/quickhowto.html">Quick Start HowTo</a>
+</nobr>
+</td>
+</tr>
+<tr height="2"/>
+<tr>
+<td colspan="2" width="150" bgcolor="#cccccc">
+<nobr>
+<a class="menu" href="../jk/aphowto.html">Apache HowTo</a>
+</nobr>
+</td>
+</tr>
+<tr height="2"/>
+<tr>
+<td colspan="2" width="150" bgcolor="#cccccc">
+<nobr>
+<a class="menu" href="../jk/domhowto.html">Domino HowTo</a>
+</nobr>
+</td>
+</tr>
+<tr height="2"/>
+<tr>
+<td colspan="2" width="150" bgcolor="#cccccc">
+<nobr>
+<a class="menu" href="../jk/iishowto.html">IIS HowTo</a>
+</nobr>
+</td>
+</tr>
+<tr height="2"/>
+<tr>
+<td colspan="2" width="150" bgcolor="#cccccc">
+<nobr>
+<a class="menu" href="../jk/neshowto.html">Netscape/iPlanet HowTo</a>
+</nobr>
+</td>
+</tr>
+<tr height="2"/>
+<tr>
+<td colspan="2" width="150" bgcolor="#cccccc">
+<nobr>
+<a class="menu" href="../jk/workershowto.html">Workers HowTo</a>
+</nobr>
+</td>
+</tr>
+<tr height="2"/>
+<tr height="6"/>
+<tr height="6">
+<td colspan="2" width="150" bgcolor="#d0d0d0">JK2</td>
+</tr>
+<tr height="6"/>
+<tr height="6">
+<td colspan="2" width="150" bgcolor="#d0d0d0">Configuration in the Tomcat</td>
+</tr>
+<tr>
+<td colspan="2" width="150" bgcolor="#cccccc">
+<nobr>
+<a class="menu" href="../jk2/configtc.html">Configuration options</a>
+</nobr>
+</td>
+</tr>
+<tr height="2"/>
+<tr>
+<td colspan="2" width="150" bgcolor="#cccccc">
+<nobr>
+<a class="menu" href="../jk2/configtcex.html">Examples</a>
+</nobr>
+</td>
+</tr>
+<tr height="2"/>
+<tr height="6"/>
+<tr height="6">
+<td colspan="2" width="150" bgcolor="#d0d0d0">Configuration in the Web Server</td>
+</tr>
+<tr>
+<td colspan="2" width="150" bgcolor="#cccccc">
+<nobr>
+<a class="menu" href="../jk2/configweb.html">Configuration file</a>
+</nobr>
+</td>
+</tr>
+<tr height="2"/>
+<tr>
+<td colspan="2" width="150" bgcolor="#cccccc">
+<nobr>
+<a class="menu" href="../jk2/configwebcom.html">Components</a>
+</nobr>
+</td>
+</tr>
+<tr height="2"/>
+<tr>
+<td colspan="2" width="150" bgcolor="#cccccc">
+<nobr>
+<a class="menu" href="../jk2/configwebex.html">Examples</a>
+</nobr>
+</td>
+</tr>
+<tr height="2"/>
+<tr height="6"/>
+<tr height="6">
+<td colspan="2" width="150" bgcolor="#d0d0d0">Installation</td>
+</tr>
+<tr>
+<td colspan="2" width="150" bgcolor="#cccccc">
+<nobr>
+<a class="menu" href="../jk2/installhowto.html">Installation of jk2 in the Web Server</a>
+</nobr>
+</td>
+</tr>
+<tr height="2"/>
+<tr height="6"/>
+<tr height="6">
+<td colspan="2" width="150" bgcolor="#d0d0d0">Howto</td>
+</tr>
+<tr>
+<td colspan="2" width="150" bgcolor="#cccccc">
+<nobr>
+<a class="menu" href="../jk2/confighowto.html">Quick Start JK2 Configuration Guide</a>
+</nobr>
+</td>
+</tr>
+<tr height="2"/>
+<tr>
+<td width="10" bgcolor="#cccccc"/>
+<td width="140" bgcolor="#cccccc">
+<a href="#Introduction" class="menu">Introduction</a>
+</td>
+</tr>
+<tr height="1"/>
+<tr>
+<td width="10" bgcolor="#cccccc"/>
+<td width="140" bgcolor="#cccccc">
+<a href="#Minimum Configuration" class="menu">Minimum Configuration</a>
+</td>
+</tr>
+<tr height="1"/>
+<tr>
+<td width="10" bgcolor="#cccccc"/>
+<td width="140" bgcolor="#cccccc">
+<a href="#Minimum JNI Configuration" class="menu">Minimum JNI Configuration</a>
+</td>
+</tr>
+<tr height="1"/>
+<tr height="6"/>
+</table>
+</td>
+<td class="body" valign="top" width="*" bgcolor="#ffffff">
+<a name="Introduction">
+<table width="100%" cellpadding="0" cellspacing="0" border="0">
+<tr>
+<td align="left" valign="top" class="section" bgcolor="#525D76">
+<img border="0" vspace="0" hspace="0" align="left" valign="top" src="../images/corner.gif"/>Introduction</td>
+</tr>
+</table>
+</a>
+<p class="section">
+  This document describes the configuration files used by JK2 on the
+  Tomcat and Web Server side:
+    <ul>
+<li>
+    <b>
+<font color="#333333">jk2.properties</font>
+</b> is used on the Tomcat side. It's installation path in
+    the $TOMCAT_HOME/conf directory.
+    </li>
+<li>
+    <b>
+<font color="#333333">workers2.properties</font>
+</b> is used on the webserver side. For the Apache
+    servers the default path is in the ServerRoot/conf directory.
+    </li>
+</ul>    
+  Although JK2 has many things in common with mod_jk, the configuration is quite
+  different, and all the directives should be inside the workers2.properties.
+  This enables JK2 to have the same configuration file no mater what the web server
+  it's connected to.
+</p>
+<br/>
+<a name="Minimum Configuration">
+<table width="100%" cellpadding="0" cellspacing="0" border="0">
+<tr>
+<td align="left" valign="top" class="section" bgcolor="#525D76">
+<img border="0" vspace="0" hspace="0" align="left" valign="top" src="../images/corner.gif"/>Minimum Configuration</td>
+</tr>
+</table>
+</a>
+<p class="section">
+    Minimum configuration is the simplest one to make the JK2 working. The used
+    channel will be socket, and lot of options are used by default. Both the
+    Tomcat and web server are on the same computer.
+</p>
+<p class="section">
+jk2.properties:
+<pre class="section">
+# The default port is 8009 but you can use another one
+# channelSocket.port=8019
+</pre>
+That is all needed on the Tomcat side to configure the JK2.
+</p>
+<p class="section">
+workers2.properties:
+<pre class="section">
+# Define the communication channel 
+[channel.socket:localhost:8009]
+info=Ajp13 forwarding over socket
+tomcatId=localhost:8009
+
+# Map the Tomcat examples webapp to the Web server uri space
+[uri:/examples/*]
+info=Map the whole webapp
+</pre>
+</p>
+<p class="section">
+Start the Tomcat and Web server and browse to the <b>
+<a href="../">http://localhost/examples/</a>
+</b>
+</p>
+<br/>
+<a name="Minimum JNI Configuration">
+<table width="100%" cellpadding="0" cellspacing="0" border="0">
+<tr>
+<td align="left" valign="top" class="section" bgcolor="#525D76">
+<img border="0" vspace="0" hspace="0" align="left" valign="top" src="../images/corner.gif"/>Minimum JNI Configuration</td>
+</tr>
+</table>
+</a>
+<p class="section">
+    Minimum JNI configuration is the simplest one to make the Tomcat working
+    from inside the web server as inprocess. The only comunication channel used
+    is JNI. The JK2 will register all the native calls by itself, so there is
+    no need to specify the native library on Java side.
+</p>
+<p class="section">
+jk2.properties:
+<pre class="section">
+# Add the apr and channelJni to the list of handlers
+handler.list=apr,request,container,channelJni
+# The native libraries will be registered by JK2
+apr.jniModeSo=inprocess
+</pre>
+</p>
+<p class="section">
+workers2.properties:
+<pre class="section">
+# Define the comunication channel 
+[channel.jni:jni]
+info=The jni channel, used if tomcat is started inprocess
+
+# Define the parameters for the Java Virtual Machine
+[vm:]
+info=Parameters used to load a JVM in the server process
+OPT=-Djava.class.path=${TOMCAT_HOME}/lib/tomcat-jni.jar;${TOMCAT_HOME}/lib/tomcat.jar
+OPT=-Dtomcat.home=${TOMCAT_HOME}
+OPT=-Dcatalina.home=${TOMCAT_HOME}
+OPT=-Xmx128M
+
+# JNI worker startup handler
+[worker.jni:onStartup]
+info=Command to be executed by the VM on startup. This one will start tomcat.
+class=org/apache/jk/apr/TomcatStarter
+ARG=start
+stdout=${serverRoot}/logs/stdout.log
+stderr=${serverRoot}/logs/stderr.log
+
+# JNI worker shutdown handler
+[worker.jni:onShutdown]
+info=Command to be executed by the VM on shutdown. This one will stop tomcat.
+class=org/apache/jk/apr/TomcatStarter
+ARG=stop
+
+# Map the Tomcat examples webapp to the Web server uri space
+[uri:/examples/*]
+info=Map the whole webapp
+</pre>
+</p>
+<p class="section">
+Start the Web server and browse to the <b>
+<a href="../">http://localhost/examples/</a>
+</b>
+</p>
+<br/>
+</td>
+</tr>
+</table>
+</body>
+</html>

@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<!-- test META-INF/jboss-service.xml file for a jsr that depends on two others.
+	-->
+<server>
+
+  <mbean code="org.jboss.test.jmx.mbeanc.TestDeployerC"
+	 name="test:name=TestDeployerC">
+    <depends>test:name=TestDeployerA</depends>
+    <depends>test:name=TestDeployerB</depends>
+  </mbean>
+
+</server>

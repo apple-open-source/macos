@@ -1,7 +1,7 @@
 /* index.c - routines for dealing with attribute indexes */
-/* $OpenLDAP: pkg/ldap/servers/slapd/back-ldbm/key.c,v 1.4 2002/01/04 20:17:52 kurt Exp $ */
+/* $OpenLDAP: pkg/ldap/servers/slapd/back-ldbm/key.c,v 1.4.2.2 2003/03/03 17:10:10 kurt Exp $ */
 /*
- * Copyright 1998-2002 The OpenLDAP Foundation, All Rights Reserved.
+ * Copyright 1998-2003 The OpenLDAP Foundation, All Rights Reserved.
  * COPYING RESTRICTIONS APPLY, see COPYRIGHT file
  */
 
@@ -28,8 +28,7 @@ key_read(
 	ID_BLOCK		*idl;
 
 #ifdef NEW_LOGGING
-	LDAP_LOG(( "index", LDAP_LEVEL_ENTRY,
-		   "key_read: enter\n" ));
+	LDAP_LOG( INDEX, ENTRY, "key_read: enter\n", 0, 0, 0 );
 #else
 	Debug( LDAP_DEBUG_TRACE, "=> key_read\n", 0, 0, 0 );
 #endif
@@ -42,9 +41,8 @@ key_read(
 	idl = idl_fetch( be, db, key );
 
 #ifdef NEW_LOGGING
-	LDAP_LOG(( "index", LDAP_LEVEL_ENTRY,
-		   "key_read: %ld candidates\n",
-		   idl ? ID_BLOCK_NIDS(idl) : 0 ));
+	LDAP_LOG( INDEX, ENTRY, 
+		   "key_read: %ld candidates\n", idl ? ID_BLOCK_NIDS(idl) : 0, 0, 0 );
 #else
 	Debug( LDAP_DEBUG_TRACE, "<= index_read %ld candidates\n",
 	       idl ? ID_BLOCK_NIDS(idl) : 0, 0, 0 );
@@ -69,9 +67,8 @@ key_change(
 	Datum	key;
 
 #ifdef NEW_LOGGING
-	LDAP_LOG(( "index", LDAP_LEVEL_ENTRY,
-		   "key_change: %s ID %lx\n",
-		   op == SLAP_INDEX_ADD_OP ? "Add" : "Delete", (long)id ));
+	LDAP_LOG( INDEX, ENTRY, "key_change: %s ID %lx\n",
+		   op == SLAP_INDEX_ADD_OP ? "Add" : "Delete", (long)id, 0 );
 #else
 	Debug( LDAP_DEBUG_TRACE, "=> key_change(%s,%lx)\n",
 		op == SLAP_INDEX_ADD_OP ? "ADD":"DELETE", (long) id, 0 );
@@ -95,8 +92,7 @@ key_change(
 
 
 #ifdef NEW_LOGGING
-	LDAP_LOG(( "index", LDAP_LEVEL_ENTRY,
-		   "key_change: return %d\n", rc ));
+	LDAP_LOG( INDEX, ENTRY, "key_change: return %d\n", rc, 0, 0 );
 #else
 	Debug( LDAP_DEBUG_TRACE, "<= key_change %d\n", rc, 0, 0 );
 #endif

@@ -1,0 +1,156 @@
+<HTML>
+<HEAD>
+<!-- This HTML file has been created by texi2html 1.51
+     from .././gimpprint.texi on 22 January 2003 -->
+
+<TITLE>GIMP-Print - Version functions</TITLE>
+</HEAD>
+<BODY>
+Go to the <A HREF="gimpprint_1.html">first</A>, <A HREF="gimpprint_17.html">previous</A>, <A HREF="gimpprint_19.html">next</A>, <A HREF="gimpprint_47.html">last</A> section, <A HREF="gimpprint_toc.html">table of contents</A>.
+<P><HR><P>
+
+
+<H2><A NAME="SEC23" HREF="gimpprint_toc.html#TOC23">4.8  Version functions</A></H2>
+<P>
+<A NAME="IDX159"></A>
+
+</P>
+<P>
+<DL>
+<DT><U>Function:</U> const char * <B>stp_check_version</B> <I>(unsigned int <VAR>required_major</VAR>,</I>
+<DD><A NAME="IDX160"></A>
+unsigned int <VAR>required_minor</VAR>, unsigned int <VAR>required_micro</VAR>)
+
+</P>
+<P>
+This function checks whether the version of libgimpprint that the program
+is linked with is equal to the version number passed to it. If the version
+is the same, the function returns <CODE>NULL</CODE>. If any of the version
+numbers do not match (i.e. the library version is too old or too new), a string containing a desription of the difference is
+returned. The first error found is returned. The function checks in the order
+major, minor, micro.
+</DL>
+
+</P>
+
+
+<H3><A NAME="SEC24" HREF="gimpprint_toc.html#TOC24">4.8.1  Version macros</A></H3>
+
+<P>
+<DL>
+<DT><U>Macro:</U> <B>GIMPPRINT_CHECK_VERSION</B> <I>(major,minor,micro)</I>
+<DD><A NAME="IDX161"></A>
+
+</P>
+<P>
+This macro returns zero if the version of the libgimpprint headers are
+greater or equal to the version given as an argument. It returns nonzero
+if the version of the libgimpprint headers are less than the argument.
+</DL>
+
+</P>
+<P>
+<DL>
+<DT><U>Macro:</U> <B>GIMPPRINT_MAJOR_VERSION</B>
+<DD><A NAME="IDX162"></A>
+</DL>
+
+</P>
+<P>
+<DL>
+<DT><U>Macro:</U> <B>GIMPPRINT_MINOR_VERSION</B>
+<DD><A NAME="IDX163"></A>
+</DL>
+
+</P>
+<P>
+<DL>
+<DT><U>Macro:</U> <B>GIMPPRINT_MICRO_VERSION</B>
+<DD><A NAME="IDX164"></A>
+</DL>
+
+</P>
+<P>
+<DL>
+<DT><U>Macro:</U> <B>GIMPPRINT_CURRENT_INTERFACE</B>
+<DD><A NAME="IDX165"></A>
+</DL>
+
+</P>
+<P>
+<DL>
+<DT><U>Macro:</U> <B>GIMPPRINT_BINARY_AGE</B>
+<DD><A NAME="IDX166"></A>
+</DL>
+
+</P>
+<P>
+<DL>
+<DT><U>Macro:</U> <B>GIMPPRINT_INTERFACE_AGE</B>
+<DD><A NAME="IDX167"></A>
+</DL>
+
+</P>
+<P>
+These macros are integers holding the version numbers. They should be
+used for compile-time checking only. To check version numbers at
+run-time, use the equivalent variables. Note that at present (4.1.x
+development branch) the library interface version numbers are not used.
+
+</P>
+
+
+<H3><A NAME="SEC25" HREF="gimpprint_toc.html#TOC25">4.8.2  Version variables</A></H3>
+
+<P>
+<DL>
+<DT><U>Variable:</U> const unsigned int <B>gimpprint_major_version</B>
+<DD><A NAME="IDX168"></A>
+</DL>
+
+</P>
+<P>
+<DL>
+<DT><U>Variable:</U> const unsigned int <B>gimpprint_minor_version</B>
+<DD><A NAME="IDX169"></A>
+</DL>
+
+</P>
+<P>
+<DL>
+<DT><U>Variable:</U> const unsigned int <B>gimpprint_micro_version</B>
+<DD><A NAME="IDX170"></A>
+</DL>
+
+</P>
+<P>
+<DL>
+<DT><U>Variable:</U> const unsigned int <B>gimpprint_current_interface</B>
+<DD><A NAME="IDX171"></A>
+</DL>
+
+</P>
+<P>
+<DL>
+<DT><U>Variable:</U> const unsigned int <B>gimpprint_binary_age</B>
+<DD><A NAME="IDX172"></A>
+</DL>
+
+</P>
+<P>
+<DL>
+<DT><U>Variable:</U> const unsigned int <B>gimpprint_interface_age</B>
+<DD><A NAME="IDX173"></A>
+</DL>
+
+</P>
+<P>
+These variables hold the library version numbers. Because the version of
+the library may change on a system using shared libraries, these should
+be used instead of the equivalent macros when checking the library
+version at run-time. Note that library interface version numbers are not
+used in the development branch, but are in the stable branch.
+<P><HR><P>
+Go to the <A HREF="gimpprint_1.html">first</A>, <A HREF="gimpprint_17.html">previous</A>, <A HREF="gimpprint_19.html">next</A>, <A HREF="gimpprint_47.html">last</A> section, <A HREF="gimpprint_toc.html">table of contents</A>.
+</BODY>
+</HTML>

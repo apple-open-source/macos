@@ -1,0 +1,14 @@
+
+Eine e-Mail an eine Mailingliste wurde nicht verteilt und benötigt
+eine Freigabe durch Sie als Listenmoderator:
+
+    Liste:   %(listname)s@%(hostname)s
+    Von:     %(sender)s
+    Betreff: %(subject)s
+    Grund:   %(reason)s
+
+Bitte besuchen Sie bei Gelegenheit
+
+%(admindb_url)s
+        
+um die Email zu genehmigen oder abzulehnen.

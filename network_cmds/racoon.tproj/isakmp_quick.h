@@ -1,4 +1,4 @@
-/*	$KAME: isakmp_quick.h,v 1.4 2000/09/13 04:50:26 itojun Exp $	*/
+/*	$KAME: isakmp_quick.h,v 1.5 2000/10/04 17:41:01 itojun Exp $	*/
 
 /*
  * Copyright (C) 1995, 1996, 1997, and 1998 WIDE Project.

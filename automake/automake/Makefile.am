@@ -45,8 +45,8 @@ install-exec-hook:
 	  f="`echo $$p|sed '$(transform)'`"; \
 	  fv="$$f-$(APIVERSION)"; \
 	  rm -f $(DESTDIR)$(bindir)/$$fv; \
-	  echo " ln $(DESTDIR)$(bindir)/$$f $(DESTDIR)$(bindir)/$$fv"; \
-	  ln $(DESTDIR)$(bindir)/$$f $(DESTDIR)$(bindir)/$$fv; \
+	  echo " $(LN) $(DESTDIR)$(bindir)/$$f $(DESTDIR)$(bindir)/$$fv"; \
+	  $(LN) $(DESTDIR)$(bindir)/$$f $(DESTDIR)$(bindir)/$$fv; \
 	done
 
 uninstall-hook:
@@ -90,6 +90,13 @@ maintainer-check: automake aclocal
 	      fgrep -v '##'; then \
 	  echo "Suspicious 'rm' invocation." 1>&2; \
 	  exit 1;				\
+	else :; fi
+## Never use something like `for file in $(FILES)', this doesn't work
+## if FILES is empty or if it contains shell meta characters (e.g. $ is
+## commonly used in Java filenames).
+	@if egrep 'for .* in \$$\(' $(srcdir)/lib/am/[a-z]*.am; then \
+	  echo 'Use "list=$$(mumble); for var in $$$$list".' 1>&2 ; \
+	  exit 1; \
 	else :; fi
 ## Make sure all invocations of mkinstalldirs are correct.
 	@if fgrep -n 'mkinstalldirs' $(srcdir)/lib/am/[a-z]*.am | \
@@ -185,7 +192,7 @@ maintainer-check: automake aclocal
 	fi
 ## On NetBSD (1.5) and OSF, the $SHELL variable is still inherited from
 ## the environment.
-	@if grep '$$MAKE.*-e' $(srcdir)/tests/*.test | grep -v '-e.*SHELL' ; then \
+	@if grep '$$MAKE.* -e' $(srcdir)/tests/*.test | grep -v '-e.*SHELL' ; then \
 	  echo 'Always overwrite SHELL when using "$$MAKE -e".' 1>&2; \
 	  echo 'Use "$$MAKE -e SHELL=/bin/sh" in the above lines.' 1>&2; \
 	  exit 1; \
@@ -238,7 +245,8 @@ WGET = wget
 
 ## Files that we fetch and which we compare against.
 ## FIXME should be a lot more here
-FETCHFILES = config.guess config.sub texinfo.tex Automake/XFile.pm
+FETCHFILES = config.guess config.sub texinfo.tex Automake/XFile.pm INSTALL \
+	install-sh
 
 ## Fetch the latest versions of files we care about.
 fetch:
@@ -249,7 +257,9 @@ fetch:
 	$(WGET) ftp://ftp.gnu.org/gnu/config/config.guess; \
 	$(WGET) ftp://ftp.gnu.org/gnu/config/config.sub; \
 	$(WGET) ftp://ftp.gnu.org/gnu/texinfo/texinfo.tex; \
-	$(WGET) http://savannah.gnu.org/cgi-bin/viewcvs/~checkout~/autoconf/autoconf/lib/Autom4te/XFile.pm?content-type=text/plain -O Automake/XFile.pm)
+	$(WGET) http://savannah.gnu.org/cgi-bin/viewcvs/~checkout~/autoconf/autoconf/lib/Autom4te/XFile.pm?content-type=text/plain -O Automake/XFile.pm; \
+	$(WGET) http://savannah.gnu.org/cgi-bin/viewcvs/~checkout~/autoconf/autoconf/config/install-sh?content-type=text/plain -O install-sh; \
+	$(WGET) http://savannah.gnu.org/cgi-bin/viewcvs/~checkout~/autoconf/autoconf/INSTALL?content-type=text/plain -O INSTALL)
 	perl -pi -e 's/Autom4te::/Automake::/g' Fetchdir/Automake/XFile.pm
 ## Don't exit after test because we want to give as many errors as
 ## possible.

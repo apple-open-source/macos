@@ -3,8 +3,6 @@
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
- * Copyright (c) 1999-2003 Apple Computer, Inc.  All Rights Reserved.
- * 
  * This file contains Original Code and/or Modifications of Original Code
  * as defined in and that are subject to the Apple Public Source License
  * Version 2.0 (the 'License'). You may not use this file except in
@@ -29,6 +27,9 @@
 
 extern void relocate_modules_being_linked(
     enum bool launching_with_prebound_libraries);
+
+extern void resolve_external_relocations_in_object_image(
+    struct object_image *object_image);
 
 extern void local_relocation(
     struct image *image);

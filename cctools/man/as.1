@@ -1,4 +1,4 @@
-.TH AS 1 "November 19, 2001" "Apple Computer, Inc."
+.TH AS 1 "May 21, 2003" "Apple Computer, Inc."
 .SH NAME
 as \- Mac OS X Mach-O GNU-based assemblers
 .SH SYNOPSIS
@@ -38,13 +38,13 @@ Specifies the target architecture,
 .IR arch_type ,
 of the assembler to be executed.  The target assemblers for each
 architecture are in
-.BI /lib/ arch_type /as
+.BI /usr/libexec/gcc/darwin/ arch_type /as
 or
-.BI /usr/local/lib/ arch_type /as .
+.BI /usr/local/libexec/gcc/darwin/ arch_type /as .
 There is only one assembler for an architecture family.  If the
 specified target architecture is a machine-specific implementation,
 the assembler for that architecture family is executed (e.g., 
-.B /lib/ppc/as 
+.B /usr/libexec/gcc/darwin/ppc/as 
 for
 .BR "\-arch ppc604e" ).
 See
@@ -72,10 +72,13 @@ option.
 .BI \-force_cpusubtype_ALL
 By default, the assembler will produce the CPU subtype ALL for the object file
 it is assembling if it finds no implementation-specific instructions.  Also
-by default, the assembler will allow implementation-specific instructions and will combine the CPU subtype for those specific
-implementations.  The combining of specific implementations is architecture-dependent; if some combination of architectures is not allowed, an error is generated.  With the optional
+by default, the assembler will allow implementation-specific instructions and
+will combine the CPU subtype for those specific implementations.  The combining
+of specific implementations is architecture-dependent; if some combination of
+instructions is not allowed, an error is generated.  With the optional
 .B \-force_cpusubtype_ALL
-flag, all instructions are allowed and the object file's CPU subtype will be ALL.
+flag, all instructions are allowed and the object file's CPU subtype will be
+the ALL subtype.
 If the target architecture specified is a machine-specific implementation
 (e.g.,
 .BR "\-arch ppc603" ,
@@ -91,7 +94,8 @@ This is the default.
 .TP
 .B \-static
 Causes the assembler to treat as an error any features for dynamic 
-linking.
+linking.  Also causes the .text directive to not include the pure_instructions
+section attribute.
 .TP
 .B \-\|\-
 Use 
@@ -129,11 +133,6 @@ assembly statements produced from
 .B asm() 
 statements.
 .TP
-.B \-k 
-Produces a warning when the statement ``.word symbol1-symbol2+offset'' does
-not fit in a 16-bit word (only applicable on the 68000 processor, where .word is
-16 bits and addresses are 16 bits).  Not applicable on NeXT machines.
-.TP
 .B \-g
 Produce debugging information for the symbolic debugger
 .IR gdb (1)
@@ -149,6 +148,10 @@ Otherwise, the debugger will get confused when in that assembly file.
 Display the version of the assembler (both the Mac OS X version and the GNU version
 it is based on).
 .TP
+.B \-V
+Print the path and the command line of the assembler the assembler driver is
+using.
+.TP
 .BI \-I dir
 Add the directory
 .I dir
@@ -162,6 +165,23 @@ Suppress warnings.
 Save non-global defined labels beginning with an 'L'; these labels are normally
 discarded to save space in the resultant symbol table.  The compiler generates
 such temporary labels.
+.SH "Assembler options for the PowerPC processors"
+.TP
+.B \-static_branch_prediction_Y_bit
+Treat a single trailing '+' or '-' after a conditional PowerPC branch
+instruction as a static branch prediction that sets the Y-bit in the
+opcode.  Pairs of trailing "++" or "--" always set the AT-bits. This is
+the default for Mac OS X.
+.TP
+.B \-static_branch_prediction_AT_bits
+Treat a single trailing '+' or '-' after a conditional PowerPC branch
+instruction as a static branch prediction that sets the AT-bits in the
+opcode. Pairs of trailing "++" or "--" always set the AT-bits but with
+this option a warning is issued if this syntax is used.  With this flag
+the assembler behaves like the IBM tools.
+.TP
+.B \-no_ppc601
+Treat any PowerPC 601 instructions as an error.
 .SH "Assembler options for the mc680x0 processors"
 .TP
 .BR \-mc68000 " and " \-mc68010

@@ -72,7 +72,7 @@ public:
     virtual bool init(DCLCommand* toInterpret);
     virtual IOReturn allocateHW(IOFWSpeed speed, UInt32 chan);
     virtual IOReturn releaseHW();
-    virtual IOReturn notify(UInt32 notificationType,
+    virtual IOReturn notify(IOFWDCLNotificationType notificationType,
 	DCLCommand** dclCommandList, UInt32 numDCLCommands);
     virtual void stop();
 

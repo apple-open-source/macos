@@ -79,7 +79,8 @@ CFTypeID SecTrustGetTypeID(void);
 	@function SecTrustCreateWithCertificates
 	@abstract Creates a trust based on the given certificates and policies.
     @param certificates The group of certificates to verify.
-    @param policies An array of one or more policies.
+    @param policies An array of one or more policies. You may pass a SecPolicyRef
+		to represent a single policy.
 	@param trustRef On return, a pointer to the trust management reference.
 	@result A result code.  See "Security Error Codes" (SecBase.h).
 */

@@ -9,7 +9,7 @@
 # See the file "license.terms" for information on usage and redistribution
 # of this file, and for a DISCLAIMER OF ALL WARRANTIES.
 # 
-# RCS: @(#) $Id: index.tcl,v 1.1.1.2 2000/04/12 02:02:42 wsanchez Exp $
+# RCS: @(#) $Id: index.tcl,v 1.1.1.3 2003/07/22 23:11:14 landonf Exp $
 # 
 
 # Global variables used by these scripts:
@@ -63,7 +63,7 @@ proc getSections {pkg} {
     lsort [array names temp]
 }
 
-# getSections --
+# getTopics --
 #
 # Generate a sorted list of topics in the specified section of the
 # specified package from the topics array.

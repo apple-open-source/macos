@@ -1,8 +1,8 @@
 /* 
    +----------------------------------------------------------------------+
-   | PHP version 4.0                                                      |
+   | PHP Version 4                                                        |
    +----------------------------------------------------------------------+
-   | Copyright (c) 1997-2001 The PHP Group                                |
+   | Copyright (c) 1997-2003 The PHP Group                                |
    +----------------------------------------------------------------------+
    | This source file is subject to version 2.02 of the PHP license,      |
    | that is bundled with this package in the file LICENSE, and is        |
@@ -18,7 +18,7 @@
    +----------------------------------------------------------------------+
 */
 
-/* $Id: php_ldap.h,v 1.1.1.5 2001/12/14 22:12:32 zarzycki Exp $ */
+/* $Id: php_ldap.h,v 1.1.1.7 2003/07/18 18:07:35 zarzycki Exp $ */
 
 #ifndef PHP_LDAP_H
 #define PHP_LDAP_H
@@ -66,7 +66,6 @@ PHP_FUNCTION(ldap_dn2ufn);
 
 PHP_FUNCTION(ldap_add);
 PHP_FUNCTION(ldap_delete);
-PHP_FUNCTION(ldap_modify);
 
 PHP_FUNCTION(ldap_mod_add);
 PHP_FUNCTION(ldap_mod_replace);
@@ -78,6 +77,8 @@ PHP_FUNCTION(ldap_error);
 
 PHP_FUNCTION(ldap_compare);
 
+PHP_FUNCTION(ldap_sort);
+
 #if ( LDAP_API_VERSION > 2000 ) || HAVE_NSLDAP
 PHP_FUNCTION(ldap_get_option);
 PHP_FUNCTION(ldap_set_option);
@@ -88,16 +89,22 @@ PHP_FUNCTION(ldap_parse_reference);
 PHP_FUNCTION(ldap_rename);
 #endif
 
+#if LDAP_API_VERSION > 2000
+PHP_FUNCTION(ldap_start_tls);
+#endif
+
+#if defined(LDAP_API_FEATURE_X_OPENLDAP) && defined(HAVE_3ARG_SETREBINDPROC)
+PHP_FUNCTION(ldap_set_rebind_proc);
+#endif
+
 #ifdef STR_TRANSLATION
 PHP_FUNCTION(ldap_t61_to_8859);
 PHP_FUNCTION(ldap_8859_to_t61);
 #endif
 
 ZEND_BEGIN_MODULE_GLOBALS(ldap)
-	long default_link;
 	long num_links;
 	long max_links;
-	char *base_dn;
 ZEND_END_MODULE_GLOBALS(ldap)
 
 #ifdef ZTS

@@ -1,0 +1,7 @@
+$ $Id$
+$ sh.func.c
+$set 15 
+1 %s: %s: Nie mogê limitowaæ %s%s\n
+2 usuñ
+3 ustaw
+4 \040twardy

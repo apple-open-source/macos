@@ -25,5 +25,4 @@
 #include "SYS.h"
 
 SYSCALL(__sysctl, 6)
-	blr
 

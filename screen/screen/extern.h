@@ -1,4 +1,4 @@
-/* Copyright (c) 1993-2000
+/* Copyright (c) 1993-2002
  *      Juergen Weigert (jnweiger@immd4.informatik.uni-erlangen.de)
  *      Michael Schroeder (mlschroe@immd4.informatik.uni-erlangen.de)
  * Copyright (c) 1987 Oliver Laumann
@@ -19,7 +19,7 @@
  * 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA
  *
  ****************************************************************
- * $Id: extern.h,v 1.1.1.1 2001/12/14 22:08:28 bbraun Exp $ FAU
+ * $Id: extern.h,v 1.1.1.2 2003/03/19 21:16:18 landonf Exp $ FAU
  */
 
 #if !defined(__GNUC__) || __GNUC__ < 2
@@ -32,6 +32,7 @@ extern int   main __P((int, char **));
 extern sigret_t SigHup __P(SIGPROTOARG);
 extern void  eexit __P((int));
 extern void  Detach __P((int));
+extern void  Hangup __P((void));
 extern void  Kill __P((int, int));
 #ifdef USEVARARGS
 extern void  Msg __P((int, char *, ...)) __attribute__((format(printf, 2, 3)));
@@ -44,9 +45,10 @@ extern void  DisplaySleep __P((int, int));
 extern void  Finit __P((int));
 extern void  MakeNewEnv __P((void));
 extern char *MakeWinMsg __P((char *, struct win *, int));
-extern char *MakeWinMsgEv __P((char *, struct win *, int, struct event *));
+extern char *MakeWinMsgEv __P((char *, struct win *, int, int, struct event *, int));
 extern int   PutWinMsg __P((char *, int, int));
 extern void  WindowDied __P((struct win *));
+extern void  setbacktick __P((int, int, int, char **));
 
 /* ansi.c */
 extern void  ResetAnsiState __P((struct win *));
@@ -73,6 +75,8 @@ extern void  WriteFile __P((struct acluser *, char *, int));
 extern char *ReadFile __P((char *, int *));
 extern void  KillBuffers __P((void));
 extern int   printpipe __P((struct win *, char *));
+extern int   readpipe __P((char **));
+extern void  do_source __P((char *));
 
 /* tty.c */
 extern int   OpenTTY __P((char *, char *));
@@ -114,10 +118,13 @@ extern int   InInput __P((void));
 
 /* help.c */
 extern void  exit_with_usage __P((char *, char *, char *));
-extern void  display_help __P((void));
+extern void  display_help __P((char *, struct action *));
 extern void  display_copyright __P((void));
 extern void  display_displays __P((void));
 extern void  display_bindkey __P((char *, struct action *));
+extern void  display_wlist __P((int));
+extern int   InWList __P((void));
+extern void  WListUpdatecv __P((struct canvas *, struct win *));
 
 /* window.c */
 extern int   MakeWindow __P((struct NewWindow *));
@@ -182,6 +189,7 @@ extern void  DoScreen __P((char *, char **));
 extern int   IsNumColon __P((char *, int, char *, int));
 extern void  ShowWindows __P((int));
 extern char *AddWindows __P((char *, int, int, int));
+extern char *AddWindowFlags __P((char *, int, struct win *));
 extern char *AddOtherUsers __P((char *, int, struct win *));
 extern int   WindowByNoN __P((char *));
 extern struct win *FindNiceWindow __P((struct win *, char *));
@@ -196,6 +204,7 @@ extern int   ParseNum __P((struct action *act, int *));
 extern int   ParseSwitch __P((struct action *, int *));
 extern int   ParseAttrColor __P((char *, char *, int));
 extern void  ApplyAttrColor __P((int, struct mchar *));
+extern void  SwitchWindow __P((int));
 
 /* termcap.c */
 extern int   InitTermcap __P((int, int));
@@ -212,6 +221,7 @@ extern void  FreeTransTable __P((void));
 extern int   Attach __P((int));
 extern void  Attacher __P((void));
 extern sigret_t AttacherFinit __P(SIGPROTOARG);
+extern void  SendCmdMessage __P((char *, char *, char **));
 
 /* display.c */
 extern struct display *MakeDisplay __P((char *, char *, char *, int, int, struct mode *));
@@ -255,7 +265,7 @@ extern void  CursorVisibility __P((int));
 extern void  MouseMode __P((int));
 extern void  SetFont __P((int));
 extern void  SetAttr __P((int));
-extern void  SetColor __P((int));
+extern void  SetColor __P((int, int));
 extern void  SetRendition __P((struct mchar *));
 extern void  SetRenditionMline __P((struct mline *, int));
 extern void  MakeStatus __P((char *));
@@ -269,9 +279,6 @@ extern void  Resize_obuf __P((void));
 #ifdef AUTO_NUKE
 extern void  NukePending __P((void));
 #endif
-#ifdef KANJI
-extern int   badkanji __P((char *, int));
-#endif
 extern void  SetCanvasWindow __P((struct canvas *, struct win *));
 extern int   MakeDefaultCanvas __P((void));
 extern int   AddCanvas __P((void));
@@ -283,6 +290,12 @@ extern void  RethinkViewportOffsets __P((struct canvas *));
 extern void  ClearAllXtermOSC __P((void));
 extern void  SetXtermOSC __P((int, char *));
 #endif
+#ifdef COLOR
+extern int   color256to16 __P((int));
+# ifdef COLORS256
+extern int   color256to88 __P((int));
+# endif
+#endif
 
 /* resize.c */
 extern int   ChangeWindowSize __P((struct win *, int, int, int));
@@ -292,6 +305,9 @@ extern char *xrealloc __P((char *, int));
 extern void  ResizeLayersToCanvases __P((void));
 extern void  ResizeLayer __P((struct layer *, int, int, struct display *));
 extern int   MayResizeLayer __P((struct layer *));
+extern void  FreeAltScreen __P((struct win *));
+extern void  EnterAltScreen __P((struct win *));
+extern void  LeaveAltScreen __P((struct win *));
 
 /* sched.c */
 extern void  evenq __P((struct event *));
@@ -308,7 +324,6 @@ extern int   chsock __P((void));
 extern void  ReceiveMsg __P((void));
 extern void  SendCreateMsg __P((char *, struct NewWindow *));
 extern int   SendErrorMsg __P((char *, char *));
-extern void  SendCmdMessage __P((char *, char *, char **));
 
 /* misc.c */
 extern char *SaveStr __P((const char *));
@@ -393,6 +408,7 @@ extern void  LGotoPos __P((struct layer *, int, int));
 extern void  LPutChar __P((struct layer *, struct mchar *, int, int));
 extern void  LInsChar __P((struct layer *, struct mchar *, int, int, struct mline *));
 extern void  LPutStr __P((struct layer *, char *, int, struct mchar *, int, int));
+extern void  LPutWinMsg __P((struct layer *, char *, int, struct mchar *, int, int));
 extern void  LScrollH __P((struct layer *, int, int, int, int, int, struct mline *));
 extern void  LScrollV __P((struct layer *, int, int, int, int));
 extern void  LClearAll __P((struct layer *, int));
@@ -400,6 +416,7 @@ extern void  LClearArea __P((struct layer *, int, int, int, int, int, int));
 extern void  LClearLine __P((struct layer *, int, int, int, int, struct mline *));
 extern void  LRefreshAll __P((struct layer *, int));
 extern void  LCDisplayLine __P((struct layer *, struct mline *, int, int, int, int));
+extern void  LCDisplayLineWrap __P((struct layer *, struct mline *, int, int, int, int));
 extern void  LSetRendition __P((struct layer *, struct mchar *));
 extern void  LWrapChar  __P((struct layer *, struct mchar *, int, int, int, int));
 extern void  LCursorVisibility __P((struct layer *, int));
@@ -432,13 +449,33 @@ extern void  TelStatus __P((struct win *, char *, int));
 /* nethack.c */
 extern char *DoNLS __P((char *));
 
-/* utf8.c */
-#ifdef UTF8
-extern int   recode_char __P((int, int, int));
+/* encoding.c */
+#ifdef ENCODINGS
+# ifdef UTF8
+extern void  InitBuiltinTabs __P((void));
 extern struct mchar *recode_mchar __P((struct mchar *, int, int));
 extern struct mline *recode_mline __P((struct mline *, int, int, int));
 extern int   FromUtf8 __P((int, int *));
 extern void  AddUtf8 __P((int));
 extern int   ToUtf8 __P((char *, int));
-extern void  WinSwitchUtf8 __P((struct win *, int));
+extern int   ToUtf8_comb __P((char *, int));
+extern int   utf8_isdouble __P((int));
+extern int   utf8_iscomb __P((int));
+extern void  utf8_handle_comb __P((int, struct mchar *));
+extern int   ContainsSpecialDeffont __P((struct mline *, int, int, int));
+extern int   LoadFontTranslation __P((int, char *));
+extern void  LoadFontTranslationsForEncoding __P((int));
+# endif	/* UTF8 */
+extern void  WinSwitchEncoding __P((struct win *, int));
+extern int   FindEncoding __P((char *));
+extern char *EncodingName __P((int));
+extern int   EncodingDefFont __P((int));
+extern void  ResetEncoding __P((struct win *));
+extern int   CanEncodeFont __P((int, int));
+extern int   DecodeChar __P((int, int, int *));
+extern int   RecodeBuf __P((unsigned char *, int, int, int, unsigned char *));
+# ifdef DW_CHARS
+extern int   PrepareEncodedChar __P((int));
+# endif
 #endif
+extern int   EncodeChar __P((char *, int, int, int *));

@@ -1,0 +1,45 @@
+# APPLE LOCAL entire file
+# /* APPLE LOCAL begin libcc_kext */
+# 'libcc_kext.a' is runtime support routines for the Darwin kernel and dynamically-loaded drivers.
+# No exit/abort/malloc support available, and everything is compiled with '-static -fno-exceptions'.
+# Since no exception handling is available, the LIB2_DIVMOD_FUNCS are treated like non-throwing functions.
+# Floating support and AltiVec usage are strongly discouraged, but supported.
+# 'new' and 'delete' are supported in their non-throwing variants.
+# Due to an unfortunate history, throwing-style 'new' and 'delete' are available,
+# but they do not throw; new will fail by invoking the 'new_handler' if available, or return zero if not.
+# Many standard libgcc routines are not supported in the kernel,
+# e.g. 'trampoline', 'clear_cache', 'exit', 'eprintf'.
+# These are duplicated betwixt rs6000/t-darwin and i386/t-darwin
+# because they are not necessarily identical :-( .
+LIBKFUNCS_DARWIN = _muldi3 _negdi2 _lshrdi3 _ashldi3 _ashrdi3 _ffsdi2 _clz \
+    _cmpdi2 _ucmpdi2 _floatdidf _floatdisf _fixunsdfsi _fixunssfsi \
+    _fixunsdfdi _fixdfdi _fixunssfdi _fixsfdi \
+    _fixxfdi _fixunsxfdi _floatdixf _fixunsxfsi _fixtfdi _fixunstfdi \
+    _floatditf _absvsi2 _absvdi2 _addvsi3 _addvdi3 _subvsi3 _subvdi3 \
+    _mulvsi3 _mulvdi3 _negvsi2 _negvdi2 \
+    _divdi3 _moddi3 _udivdi3 _umoddi3 _udiv_w_sdiv _udivmoddi4 \
+    __gcc_bcmp 
+
+LIBK_SUPCXX_DARWIN = new_op.cc new_opnt.cc new_opv.cc new_opvnt.cc \
+    del_op.cc del_opnt.cc del_opv.cc del_opvnt.cc new_handler.cc pure.cc
+# /* APPLE LOCAL end libcc_kext */
+
+# We want fine grained libraries, so use the new code to build the
+# floating point emulation libraries.
+FPBIT = fp-bit.c
+DPBIT = dp-bit.c
+
+# APPLE LOCAL begin cpp-precomp
+# We don't want cpp-precomp to run while bootstrapping.
+TCFLAGS = -no-cpp-precomp
+BOOT_CFLAGS = -g -O2 -no-cpp-precomp
+# APPLE LOCAL end cpp-precomp
+
+dp-bit.c: $(srcdir)/config/fp-bit.c
+	cat $(srcdir)/config/fp-bit.c > dp-bit.c
+
+fp-bit.c: $(srcdir)/config/fp-bit.c
+	echo '#define FLOAT' > fp-bit.c
+	cat $(srcdir)/config/fp-bit.c >> fp-bit.c
+
+# APPLE LOCAL no soft-float multilibs

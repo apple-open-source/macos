@@ -1,43 +1,45 @@
 /*
- *	File:		CommandLineUtilities.c (used to be executecommand.c)
+ * Copyright (c) 2002 Apple Computer, Inc. All rights reserved.
  *
- *	Contains:	Implement a way to execute a command and get back its result.
- *
- *				To build and test as a standalone tool:
- *				cc -traditional-cpp -DSTANDALONE=1 -DDEBUG=1 \
- *					-DUSE_RASDEBUGLOG=0 -DKILL_CHILDREN_IF_TIMEOUT=1 \
- *					-o executecommand CommandLineUtilities.c
- *
- *	Usage:		executecommand <command>
- *
- *	Written by:	Jeff Albouze
- *
- *	Copyright:	© 2000-2001 Apple Computer, Inc., all rights reserved.
- *
- *	Change History (most recent first):
- *
- *		 <*>	 7/10/01	JFA		Last modified (S3.1 candidate).
- *		<13>	  5/7/01	JFA		Last modified (Mac OS X Server GM).
- *		 <0>	 5/11/00	JFA		Created from scratch.
+ * @APPLE_LICENSE_HEADER_START@
+ * 
+ * Copyright (c) 1999-2003 Apple Computer, Inc.  All Rights Reserved.
+ * 
+ * This file contains Original Code and/or Modifications of Original Code
+ * as defined in and that are subject to the Apple Public Source License
+ * Version 2.0 (the 'License'). You may not use this file except in
+ * compliance with the License. Please obtain a copy of the License at
+ * http://www.opensource.apple.com/apsl/ and read it before using this
+ * file.
+ * 
+ * The Original Code and all software distributed under the License are
+ * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
+ * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
+ * INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY,
+ * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
+ * Please see the License for the specific language governing rights and
+ * limitations under the License.
+ * 
+ * @APPLE_LICENSE_HEADER_END@
+ */
+ 
+/*!
+ *	@header CommandLineUtilities
+ *	Implement a way to execute a command and get back its result.
  */ 
-
-
 
 #include "CommandLineUtilities.h"
 #include "NSLDebugLog.h"
+#include "CNSLTimingUtils.h"
 
 #if USE_RASDEBUGLOG
 #define DEBUG 0
 extern void RASDebugLogV(const char* inFormat, va_list stuff);
 #endif
 
-
 /* Globals */
 FILE 				*ec_log_file = NULL;
 static pid_t		*ec_childpid = NULL;
-
-
-
 
 /*-----------------------------------------------------------------------------
  *	executecommand
@@ -63,6 +65,10 @@ int myexecutecommandas(const char *command, const char* path, const char * argv[
 	uid_t uid, gid_t gid)
 {
 	FILE	*pipe = NULL;
+#ifdef LOG_TO_FILE
+	#warning "DEBUG CODE, DO NOT SUBMIT!!!!"
+	FILE *				destFP = NULL;
+#endif
 	size_t	output_size = 0;
 	size_t	output_count = 0;
 	int		pipe_fd = 0;
@@ -111,6 +117,7 @@ int myexecutecommandas(const char *command, const char* path, const char * argv[
 			DBGLOG(  "executecommand(): timed out\n");
 
 			has_timedout = 1;
+			break;
 		}
 		
 		/* Clear last file error */
@@ -129,14 +136,10 @@ int myexecutecommandas(const char *command, const char* path, const char * argv[
 	
 				if (line_output_size == 0) 
 				{
-	//				sleep(1);
 					continue;
 				}
-			} /*else {
-				line_output_size = 9;
-				memcpy(line, "timed out", line_output_size);
-			}*/
-	
+			}
+				
 			/* Feed output buffer if asked */
 			if (output != NULL && line_output_size > 0) 
 			{
@@ -165,14 +168,31 @@ int myexecutecommandas(const char *command, const char* path, const char * argv[
 			}
 		}
 	} while (feof(pipe) == 0 && has_timedout == 0 && !(*canceledFlag));
-	
+#ifdef LOG_TO_FILE
+	#warning "DEBUG CODE, DO NOT SUBMIT!!!!"
+		// let's dump this out to a file
+		destFP = fopen( "/tmp/myexecutecommandas.out", "a" );
+		char				headerString[1024];
+		
+		if ( destFP )
+		{
+			sprintf( headerString, "\n**** Results %d bytes %d strlen ****\n", output_count, (*output)?strlen( *output ):0);
+			fputs( headerString, destFP );
+			if ( (*output) )
+				fputs( *output, destFP );
+			fputs( "\n**** endof results *****\n\n", destFP );
+			fclose( destFP );
+		}
+		else
+			syslog( LOG_ALERT, "COULD NOT OPEN /tmp/myexecutecommandas.out!\n" );
+#endif	
 	/* Clear error code if no error or if EAGAIN error */
 	if (ferror(pipe) == 0 || errno == EAGAIN) {
 		errno = 0;
 	}
 	
 	/* Remove all weird characters except LF and CR and tab*/
-	if (output != NULL && *output != NULL && !(*canceledFlag)) {
+/*	if (output != NULL && *output != NULL && !(*canceledFlag)) {
 		unsigned char	*p = (unsigned char*) *output;
 		for (; *p != (unsigned char) 0; p++) {
 			if (*p == (unsigned char) 0x0A) continue;
@@ -182,17 +202,12 @@ int myexecutecommandas(const char *command, const char* path, const char * argv[
 				|| (*p > (unsigned char) 0x7F)) *p = 0x20;
 		}
 	}
-
+*/
 	/* Exit (keep track of exit status unless a timeout occurred) */
 executecommand_exit:	
 	if (pipe != NULL) {
 		int result = ec_pclose(pipe, has_timedout);
-		if (result != ENOERR) {
 
-			DBGLOG(  
-				"executecommand(%s): plcose() failed with %d, %s\n", 
-				command, result, strerror(errno));
-		}
 		if (has_timedout == 1 && errno == ESRCH) {
 			errno = ENOERR;
 		} else {
@@ -207,8 +222,6 @@ executecommand_exit:
 
 	return errno;
 }
-
-
 
 
 #pragma mark-
@@ -236,7 +249,6 @@ FILE *ec_popen(const char *cmdstring, const char* path, const char * argv[], Boo
 	}
 
 	/* Fork the child */
-//	if ((pid = fork()) < 0) {
 	if ((pid = vfork()) < 0) {
 		(void) close(pfd[0]);
 		(void) close(pfd[1]);
@@ -247,9 +259,6 @@ FILE *ec_popen(const char *cmdstring, const char* path, const char * argv[], Boo
 	if (pid == 0) {
 		int	i,new_fd1=-1,new_fd2=-1;
 		
-		/* Without this sleep() the parent might never get the CPU again??? */
-//		sleep(1);		
-
 		/* Link stdout to 'pfd[1]': fd#1 shares fd#4 file table entry */
 		(void) close(pfd[0]);
 		if (pfd[1] != STDOUT_FILENO) {
@@ -267,17 +276,18 @@ FILE *ec_popen(const char *cmdstring, const char* path, const char * argv[], Boo
 			if (new_fd1 != -1 && i == new_fd1) continue;
 			if (new_fd2 != -1 && i == new_fd2) continue;
             
-            /* These conditions were added to S3.1 */
             if (i == STDIN_FILENO) continue;
             if (i == STDOUT_FILENO) continue;
             if (i == STDERR_FILENO) continue;
             
-			/*if (ec_childpid[i] > 0)*/ (void) close(i);
+			(void) close(i);
 		}
 		
 		/* Impersonate 'uid/gid' and exec the command */
 		(void) setgid(gid);
 		(void) setuid(uid);
+
+		setsid ();	// divorce ourselves from our parents process space
 
 		if (useSHELL)
 			execl(SHELL, "sh", "-c", cmdstring, (char*) NULL);
@@ -466,7 +476,7 @@ int ec_terminate_process_by_name(const char *name)
 /*-----------------------------------------------------------------------------
  *	ec_terminate_daemon_by_name
  *	Terminate asked processes (case-sensitive search) and verify all its
- *	children are terminated as well. Output a English log message. Return 1
+ *	children are terminated as well. Output an English log message. Return 1
  *	if the termination was successful. Wait a few seconds after terminating
  *	the daemon before sending a KILL siginal if it appears it's still running.
  *---------------------------------------------------------------------------*/
@@ -543,7 +553,7 @@ int ec_terminate_daemon_by_name(const char *name, char **log)
 	/* No matter the outcome of the above SIGTERM make sure everybody's dead */
 	/* but wait a bit before (else, for instance, apachectl start may fail) */
 	do {
-		sleep(2);
+		SmartSleep(2*USEC_PER_SEC);
 		try_again = 0;
 	    result = sysctl(mib, 4, NULL, &buf_size, NULL, 0);
 		if (result < 0) return success;	
@@ -574,7 +584,3 @@ int ec_terminate_daemon_by_name(const char *name, char **log)
 	
    	return success;
 }
-
-
-
-

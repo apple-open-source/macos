@@ -1,7 +1,7 @@
 /* modify.c - shell backend modify function */
-/* $OpenLDAP: pkg/ldap/servers/slapd/back-shell/modify.c,v 1.19 2002/01/04 20:17:55 kurt Exp $ */
+/* $OpenLDAP: pkg/ldap/servers/slapd/back-shell/modify.c,v 1.19.2.6 2003/03/03 17:10:11 kurt Exp $ */
 /*
- * Copyright 1998-2002 The OpenLDAP Foundation, All Rights Reserved.
+ * Copyright 1998-2003 The OpenLDAP Foundation, All Rights Reserved.
  * COPYING RESTRICTIONS APPLY, see COPYRIGHT file
  */
 
@@ -27,6 +27,8 @@ shell_back_modify(
 {
 	Modification *mod;
 	struct shellinfo	*si = (struct shellinfo *) be->be_private;
+	AttributeDescription *entry = slap_schema.si_ad_entry;
+	Entry e;
 	FILE			*rfp, *wfp;
 	int			i;
 
@@ -36,9 +38,26 @@ shell_back_modify(
 		return( -1 );
 	}
 
+	e.e_id = NOID;
+	e.e_name = *dn;
+	e.e_nname = *ndn;
+	e.e_attrs = NULL;
+	e.e_ocflags = 0;
+	e.e_bv.bv_len = 0;
+	e.e_bv.bv_val = NULL;
+	e.e_private = NULL;
+
+	if ( ! access_allowed( be, conn, op, &e,
+		entry, NULL, ACL_WRITE, NULL ) )
+	{
+		send_ldap_result( conn, op, LDAP_INSUFFICIENT_ACCESS,
+			NULL, NULL, NULL, NULL );
+		return -1;
+	}
+
 	if ( (op->o_private = (void *) forkandexec( si->si_modify, &rfp, &wfp ))
 	    == (void *) -1 ) {
-		send_ldap_result( conn, op, LDAP_OPERATIONS_ERROR, NULL,
+		send_ldap_result( conn, op, LDAP_OTHER, NULL,
 		    "could not fork/exec", NULL, NULL );
 		return( -1 );
 	}

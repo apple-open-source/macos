@@ -6,15 +6,15 @@
 # errors. No output means no errors were found.
 #
 # Copyright (c) 1997 Sun Microsystems, Inc.
-# Copyright (c) 1998-1999 by Scriptics Corporation.
+# Copyright (c) 1998-2000 by Scriptics Corporation.
 #
 # See the file "license.terms" for information on usage and redistribution
 # of this file, and for a DISCLAIMER OF ALL WARRANTIES.
 #
-# RCS: @(#) $Id: namespace.test,v 1.1.1.4 2000/12/06 23:04:14 wsanchez Exp $
+# RCS: @(#) $Id: namespace.test,v 1.1.1.5 2003/03/06 00:13:05 landonf Exp $
 
 if {[lsearch [namespace children] ::tcltest] == -1} {
-    package require tcltest
+    package require tcltest 2
     namespace import -force ::tcltest::*
 }
 
@@ -641,7 +641,7 @@ test namespace-20.1 {Tcl_NamespaceObjCmd, bad subcommand} {
 } {1 {wrong # args: should be "namespace subcommand ?arg ...?"}}
 test namespace-20.2 {Tcl_NamespaceObjCmd, bad subcommand} {
     list [catch {namespace wombat {}} msg] $msg
-} {1 {bad option "wombat": must be children, code, current, delete, eval, export, forget, import, inscope, origin, parent, qualifiers, tail, or which}}
+} {1 {bad option "wombat": must be children, code, current, delete, eval, exists, export, forget, import, inscope, origin, parent, qualifiers, tail, or which}}
 test namespace-20.3 {Tcl_NamespaceObjCmd, abbreviations are okay} {
     namespace ch :: test_ns_*
 } {}
@@ -694,12 +694,23 @@ test namespace-22.3 {NamespaceCodeCmd, arg is already scoped value} {
 } {namespace     inscope     ::test_ns_1 cmd}
 test namespace-22.4 {NamespaceCodeCmd, in :: namespace} {
     namespace code unknown
-} {namespace inscope :: unknown}
+} {::namespace inscope :: unknown}
 test namespace-22.5 {NamespaceCodeCmd, in other namespace} {
     namespace eval test_ns_1 {
         namespace code cmd
     }
-} {namespace inscope ::test_ns_1 cmd}
+} {::namespace inscope ::test_ns_1 cmd}
+test namespace-22.6 {NamespaceCodeCmd, in other namespace} { 
+    namespace eval test_ns_1 { 
+	variable v 42 
+    } 
+    namespace eval test_ns_2 { 
+	proc namespace args {} 
+    } 
+    namespace eval test_ns_2 [namespace eval test_ns_1 { 
+	namespace code {set v} 
+    }] 
+} {42} 
 
 test namespace-23.1 {NamespaceCurrentCmd, bad args} {
     catch {eval namespace delete [namespace children :: test_ns_*]}
@@ -737,7 +748,7 @@ test namespace-25.1 {NamespaceEvalCmd, bad args} {
 } {1 {wrong # args: should be "namespace eval name arg ?arg...?"}}
 test namespace-25.2 {NamespaceEvalCmd, bad args} {
     list [catch {namespace test_ns_1} msg] $msg
-} {1 {bad option "test_ns_1": must be children, code, current, delete, eval, export, forget, import, inscope, origin, parent, qualifiers, tail, or which}}
+} {1 {bad option "test_ns_1": must be children, code, current, delete, eval, exists, export, forget, import, inscope, origin, parent, qualifiers, tail, or which}}
 catch {unset v}
 test namespace-25.3 {NamespaceEvalCmd, new namespace} {
     set v 123
@@ -1093,6 +1104,85 @@ test namespace-38.1 {UpdateStringOfNsName} {
     list [namespace eval {} {namespace current}] \
          [namespace eval {} {namespace current}]
 } {:: ::}
+
+test namespace-39.1 {NamespaceExistsCmd} {
+    catch {eval namespace delete [namespace children :: test_ns_*]}
+    namespace eval ::test_ns_z::test_me { variable foo }
+    list [namespace exists ::] \
+	    [namespace exists ::bogus_namespace] \
+	    [namespace exists ::test_ns_z] \
+	    [namespace exists test_ns_z] \
+	    [namespace exists ::test_ns_z::foo] \
+	    [namespace exists ::test_ns_z::test_me] \
+	    [namespace eval ::test_ns_z { namespace exists ::test_me }] \
+	    [namespace eval ::test_ns_z { namespace exists test_me }] \
+	    [namespace exists :::::test_ns_z]
+} {1 0 1 1 0 1 0 1 1}
+test namespace-39.2 {NamespaceExistsCmd error} {
+    list [catch {namespace exists} msg] $msg
+} {1 {wrong # args: should be "namespace exists name"}}
+test namespace-39.3 {NamespaceExistsCmd error} {
+    list [catch {namespace exists a b} msg] $msg
+} {1 {wrong # args: should be "namespace exists name"}}
+
+test namespace-40.1 {Ignoring namespace proc "unknown"} {
+    rename unknown _unknown
+    proc unknown args {return global}
+    namespace eval ns {proc unknown args {return local}}
+    set l [list [namespace eval ns aaa bbb] [namespace eval ns aaa]]
+    rename unknown {}   
+    rename _unknown unknown
+    namespace delete ns
+    set l
+} {global global}
+
+test namespace-41.1 {Shadowing byte-compiled commands, Bug: 231259} {
+    set res {}
+    namespace eval ns {
+	set res {}
+	proc test {} {
+	    set ::g 0
+	}  
+	lappend ::res [test]
+	proc set {a b} {
+	    ::set a [incr b]
+	}
+	lappend ::res [test]
+    }
+    namespace delete ns
+    set res
+} {0 1}
+
+test namespace-41.2 {Shadowing byte-compiled commands, Bug: 231259} {
+    set res {}
+    namespace eval ns {}
+    proc ns::a {i} {
+	variable b
+	proc set args {return "New proc is called"}
+	return [set b $i]
+    }
+    ns::a 1
+    set res [ns::a 2]
+    namespace delete ns
+    set res
+} {New proc is called}
+
+test namespace-41.3 {Shadowing byte-compiled commands, Bug: 231259} {knownBug} {
+    set res {}
+    namespace eval ns {
+	variable b 0
+    }
+
+    proc ns::a {i} {
+	variable b
+	proc set args {return "New proc is called"}
+	return [set b $i]
+    }
+    
+    set res [list [ns::a 1] $ns::b]
+    namespace delete ns
+    set res
+} {{New proc is called} 0}
 
 # cleanup
 catch {rename cmd1 {}}

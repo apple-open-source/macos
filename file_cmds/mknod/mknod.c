@@ -380,7 +380,7 @@ main(argc, argv)
 	printf("name: %s\nmode: %05o\ndev:  %08x\n", name, mode, dev);
 #else
 	if (mknod(name, mode, dev) < 0)
-		err(1, "%s", argv[0]);
+		err(1, "%s", name);
 #endif
 
 	exit(0);

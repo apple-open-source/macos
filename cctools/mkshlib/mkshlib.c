@@ -3,8 +3,6 @@
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
- * Copyright (c) 1999-2003 Apple Computer, Inc.  All Rights Reserved.
- * 
  * This file contains Original Code and/or Modifications of Original Code
  * as defined in and that are subject to the Apple Public Source License
  * Version 2.0 (the 'License'). You may not use this file except in
@@ -66,7 +64,7 @@ enum byte_sex target_byte_sex = UNKNOWN_BYTE_SEX;
  * Array to hold ld(1) flags.
  */
 char **ldflags = NULL;
-long nldflags = 0;
+unsigned long nldflags = 0;
 
 #define	MKSHLIBNAME	"mkshlib"	/* base name of this program */
 #define	ASNAME		"as"		/* base name of the assembler */

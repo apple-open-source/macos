@@ -1,8 +1,8 @@
 /*
    +----------------------------------------------------------------------+
-   | PHP version 4.0                                                      |
+   | PHP Version 4                                                        |
    +----------------------------------------------------------------------+
-   | Copyright (c) 1997-2001 The PHP Group                                |
+   | Copyright (c) 1997-2003 The PHP Group                                |
    +----------------------------------------------------------------------+
    | This source file is subject to version 2.02 of the PHP license,      |
    | that is bundled with this package in the file LICENSE, and is        |
@@ -12,17 +12,21 @@
    | obtain it through the world-wide-web, please send a note to          |
    | license@php.net so we can mail you a copy immediately.               |
    +----------------------------------------------------------------------+
-   | Authors: Paul Panotzki - Bunyip Information Systems                  |
+   | Author: Paul Panotzki - Bunyip Information Systems                   |
    +----------------------------------------------------------------------+
 */
 
-/* $Id: microtime.h,v 1.1.1.3 2001/07/19 00:20:17 zarzycki Exp $ */
+/* $Id: microtime.h,v 1.1.1.6 2003/07/18 18:07:43 zarzycki Exp $ */
 
 #ifndef MICROTIME_H
 #define MICROTIME_H
 
+#ifdef HAVE_GETTIMEOFDAY
 PHP_FUNCTION(microtime);
 PHP_FUNCTION(gettimeofday);
+#endif
+#ifdef HAVE_GETRUSAGE
 PHP_FUNCTION(getrusage);
+#endif
 
 #endif /* MICROTIME_H */

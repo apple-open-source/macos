@@ -21,18 +21,14 @@
 
 #ifndef lint
 static const char rcsid[] =
-"@(#) $Header: /cvs/Darwin/src/live/tcpdump/tcpdump/print-pppoe.c,v 1.1.1.2 2002/05/29 00:05:40 landonf Exp $ (LBL)";
+"@(#) $Header: /cvs/root/tcpdump/tcpdump/print-pppoe.c,v 1.1.1.3 2003/03/17 18:42:18 rbraun Exp $ (LBL)";
 #endif
 
 #ifdef HAVE_CONFIG_H
 #include "config.h"
 #endif
 
-#include <sys/param.h>
-#include <sys/time.h>
-#include <sys/socket.h>
-
-#include <netinet/in.h>
+#include <tcpdump-stdinc.h>
 
 #include <stdio.h>
 #include <string.h>
@@ -93,32 +89,13 @@ static struct tok pppoetag2str[] = {
 
 #define PPPOE_HDRLEN 6
 
-void
-pppoe_if_print(u_char *user, const struct pcap_pkthdr *h,
-	     register const u_char *p)
+u_int
+pppoe_if_print(const struct pcap_pkthdr *h, register const u_char *p)
 {
-	register u_int length = h->len;
-	register u_int caplen = h->caplen;
-
-	++infodelay;
-	ts_print(&h->ts);
-
-	/*
-	 * Some printers want to get back at the link level addresses,
-	 * and/or check that they're not walking off the end of the packet.
-	 * Rather than pass them all the way down, we set these globals.
-	 */
-	packetp = p;
-	snapend = p + caplen;
-
-	pppoe_print(p, length);
-	putchar('\n');
-	--infodelay;
-	if (infoprint)
-		info(0);
+	return (pppoe_print(p, h->len));
 }
 
-void
+u_int
 pppoe_print(register const u_char *bp, u_int length)
 {
 	u_short pppoe_ver, pppoe_type, pppoe_code, pppoe_sessionid, pppoe_length;
@@ -127,7 +104,7 @@ pppoe_print(register const u_char *bp, u_int length)
 	pppoe_packet = bp;
 	if (pppoe_packet > snapend) {
 		printf("[|pppoe]");
-		return;
+		return (PPPOE_HDRLEN);
 	}
 
 	pppoe_ver  = (pppoe_packet[0] & 0xF0) >> 4;
@@ -139,7 +116,7 @@ pppoe_print(register const u_char *bp, u_int length)
 
 	if (snapend < pppoe_payload) {
 		printf(" truncated PPPoE");
-		return;
+		return (PPPOE_HDRLEN);
 	}
 
 	if (pppoe_ver != 1) {
@@ -211,9 +188,10 @@ pppoe_print(register const u_char *bp, u_int length)
 			p += tag_len;
 			/* p points to next tag */
 		}
+		return (0);
 	} else {
+		/* PPPoE data */
 		printf(" ");
-		ppp_print(pppoe_payload, pppoe_length);
+		return (PPPOE_HDRLEN + ppp_print(pppoe_payload, pppoe_length));
 	}
-	return;
 }

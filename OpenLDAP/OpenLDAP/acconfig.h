@@ -1,5 +1,5 @@
 /*
- * Copyright 1998-2002 The OpenLDAP Foundation, Redwood City, California, USA
+ * Copyright 1998-2003 The OpenLDAP Foundation, Redwood City, California, USA
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -88,11 +88,29 @@
 #	include <stddef.h>
 #endif
 
+#ifndef LDAP_REL_ENG
+#if (LDAP_VENDOR_VERSION == 000000) && !defined(LDAP_DEVEL)
+#define LDAP_DEVEL
+#endif
 #if defined(LDAP_DEVEL) && !defined(LDAP_TEST)
 #define LDAP_TEST
 #endif
 #if defined(LDAP_TEST) && !defined(LDAP_DEBUG)
 #define LDAP_DEBUG
+#endif
+#endif
+
+#ifdef HAVE_EBCDIC 
+/* ASCII/EBCDIC converting replacements for stdio funcs
+ * vsnprintf and snprintf are used too, but they are already
+ * checked by the configure script
+ */
+#define fputs ber_pvt_fputs
+#define fgets ber_pvt_fgets
+#define printf ber_pvt_printf
+#define fprintf ber_pvt_fprintf
+#define vfprintf ber_pvt_vfprintf
+#define vsprintf ber_pvt_vsprintf
 #endif
 
 #include "ldap_cdefs.h"

@@ -96,6 +96,8 @@ class KeychainImpl : public SecCFObject
 {
     NOCOPY(KeychainImpl)
 public:
+	SECCFFUNCTIONS(KeychainImpl, SecKeychainRef, errSecInvalidKeychain)
+
 	friend class Keychain;
 	friend class ItemImpl;
 protected:
@@ -107,7 +109,7 @@ protected:
 						PrimaryKey &newPK);
 
 public:
-    virtual ~KeychainImpl();
+    virtual ~KeychainImpl() throw();
 
 	bool operator ==(const KeychainImpl &) const;
 
@@ -164,6 +166,7 @@ public:
 	void getAttributeInfoForItemID(CSSM_DB_RECORDTYPE itemID, SecKeychainAttributeInfo **Info);
 	static void freeAttributeInfo(SecKeychainAttributeInfo *Info);
 	KeychainSchema keychainSchema();
+	void resetSchema();
 	void didDeleteItem(const ItemImpl *inItemImpl);
 
 private:
@@ -179,18 +182,18 @@ private:
 };
 
 
-class Keychain : public RefPointer<KeychainImpl>
+class Keychain : public SecPointer<KeychainImpl>
 {
 public:
     Keychain() {}
-    Keychain(KeychainImpl *impl) : RefPointer<KeychainImpl>(impl) {}
+    Keychain(KeychainImpl *impl) : SecPointer<KeychainImpl>(impl) {}
 
 	static Keychain optional(SecKeychainRef handle); 
 
 private:
 	friend class StorageManager;
     Keychain(const CssmClient::Db &db)
-	: RefPointer<KeychainImpl>(new KeychainImpl(db)) {}
+	: SecPointer<KeychainImpl>(new KeychainImpl(db)) {}
 
 	typedef KeychainImpl Impl;
 };

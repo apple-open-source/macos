@@ -23,15 +23,87 @@
  * @APPLE_LICENSE_HEADER_END@
  */
 
-// fix!
-#undef KERNEL
+// These functions have migrated to the comm page.
+
+#define	__APPLE_API_PRIVATE
+#include <machine/cpu_capabilities.h>
+#undef	__APPLE_API_PRIVATE
+
 
 #if defined (__ppc__)
-#include <IOKit/ppc/IOSharedLockImp.h>
+
+	.text
+
+	.align	4
+	.globl	_IOTrySpinLock
+_IOTrySpinLock:
+	ba	_COMM_PAGE_SPINLOCK_TRY
+
+	.align	4
+	.globl _ev_try_lock
+_ev_try_lock:
+	ba	_COMM_PAGE_SPINLOCK_TRY
+
+	.align	4
+	.globl _IOSpinLock
+_IOSpinLock:
+	ba 	_COMM_PAGE_SPINLOCK_LOCK
+
+	.align	4
+	.globl _ev_lock
+_ev_lock:
+	ba 	_COMM_PAGE_SPINLOCK_LOCK
+
+	.align	4
+	.globl _IOSpinUnlock
+_IOSpinUnlock:
+	ba	_COMM_PAGE_SPINLOCK_UNLOCK
+
+	.align	4
+	.globl _ev_unlock
+_ev_unlock:
+	ba	_COMM_PAGE_SPINLOCK_UNLOCK
+
 #elif defined (__i386__)
-#include <IOKit/i386/IOSharedLockImp.h>
+
+	.text
+
+	.align 4, 0x90
+	.globl _IOTrySpinLock
+_IOTrySpinLock:
+        movl    $(_COMM_PAGE_SPINLOCK_TRY), %eax
+        jmpl    %eax
+
+	.align 4, 0x90
+	.globl _ev_try_lock
+_ev_try_lock:
+        movl    $(_COMM_PAGE_SPINLOCK_TRY), %eax
+        jmpl    %eax
+
+	.align 4, 0x90
+	.globl _IOSpinLock
+_IOSpinLock:
+        movl    $(_COMM_PAGE_SPINLOCK_LOCK), %eax
+        jmpl    %eax
+
+	.align 4, 0x90
+	.globl _ev_lock
+_ev_lock:
+        movl    $(_COMM_PAGE_SPINLOCK_LOCK), %eax
+        jmpl    %eax
+
+	.align 4, 0x90
+	.globl _IOSpinUnlock
+_IOSpinUnlock:
+        movl    $(_COMM_PAGE_SPINLOCK_UNLOCK), %eax
+        jmpl    %eax
+
+	.align 4, 0x90
+	.globl _ev_unlock
+_ev_unlock:
+        movl    $(_COMM_PAGE_SPINLOCK_UNLOCK), %eax
+        jmpl    %eax
+
 #else
 #error architecture not supported
 #endif
-
-

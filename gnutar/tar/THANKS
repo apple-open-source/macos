@@ -3,7 +3,7 @@ GNU tar THANKS file
 Public domain tar was written by John Gilmore, with contributions
 from Henry Spencer, Fred Fish, Ian Darwin, Geoff Collyer, Stan Barber,
 Guy Harris, Dave Brower, Richard Todd, Michael Rendell, Stu Heiss and
-Rich $alz.  The FSF version, named GNU `tar', was derived from PDTAR by
+Rich $alz.  The FSF version, named GNU tar, was derived from PDTAR by
 Jay Fenlason and Joy Kendall, and was maintained in turn by François
 Pinard and Paul Eggert.
 
@@ -71,6 +71,7 @@ Calvin Cliff		cliff@trifid.astro.ucla.edu
 Cameron Elliott		cam@mvbms.mvbms.com
 Carl Streeter		streeter@cae.wisc.edu
 Carsten Heyl		heyl@nads.de
+Catrin Urbanneck	cur@gppc.de
 Cesar Romani		romani@ifm.uni-hamburg.de
 Chad Hurwitz		churritz@cts.com
 Chance Reschke		creschke@usra.edu
@@ -86,10 +87,12 @@ Chris Metcalf		metcalf@catfish.lcs.mit.edu
 Chris Ransom		chris@quests.com
 Christian Callsen	Christian.Callsen@eng.sun.com
 Christian Kirsch	ck@held.mind.de
+Christian Laubscher	<christian.laubscher@tiscalinet.ch>
 Christian T. Dum	ctd@mpe-garching.mpg.de
 Christian von Roques	roques@pond.sub.org
 Christoph Litauer	litauer@mailhost.uni-koblenz.de
 Christophe Colle	colle@krtkg1.rug.ac.be
+Christophe Kalt		Christophe.Kalt@kbcfp.com
 Christopher T. Johnson	cjohnson@camelot.com
 Christopher Vickery	vickery@ipc1.cs.qc.edu
 Claude Scarpelli	claude@genethon.fr
@@ -164,6 +167,7 @@ Fritz Elfert		fritz@fsun.triltsch.de
 George Chyu		gschyu@ccgate.dp.beckman.com
 Gerben Wierda		gerben@rna.indiv.nluug.nl
 Gerd Knorr		kraxel@cs.tu-berlin.de
+Gerhard Poul		gpoul@gnu.org
 Giorgio Signorini	signo@chim.unifi.it
 Graham Whitted		gbw@sgrail.com
 Grant McDorman		grant@isgtec.com
@@ -277,6 +281,7 @@ Les Mikesell		les@mcs.com
 Loren J. Rittle		rittle@comm.mot.com
 Loïc Prylli		Loic.Prylli@lip.ens-lyon.fr
 Luke Mewburn		lukem@connect.com.au
+Machael Stone		mstone@cs.loyola.edu
 Manfred Weichel		Manfred.Weichel@mch.sni.de
 Manuel Munier		Manuel.Munier@loria.fr
 Marc Boucher		marc@cam.org
@@ -290,7 +295,7 @@ Mark Kollert		Mark.Kollert@oi42.kwu.siemens.de
 Mark W. Eichin		eichin@cygnus.com
 Markus Kuhn		mskuhn@cip.informatik.uni-erlangen.de
 Martin Bellenberg	sunsoft@ifm.uni-hamburg.de
-Martin Goik		goma0002@fh-karlsruhe.de
+Martin Goik		goik@HDM-Stuttgart.de
 Martin Mares		mj@k332.feld.cvut.cz
 Marty Leisner		leisner@eso.mc.xerox.com
 Massimo Dal Zotto	dz@cs.unitn.it
@@ -300,6 +305,7 @@ Matthew J. D'Errico	doc@deathstar.lis.cch.com
 Matti Aarnio		mea@utu.fi
 Max Hailperin		max@nic.gac.edu
 Maxime Taksar		mmt@redbrick.com
+Melissa O'Neill		oneill@cs.sfu.ca
 Melissa Weisshaus	melissa@gnu.org
 Michael Dietrich	mdt@is.in-berlin.de
 Michael Ellis		bosun@aquarius.seaoar.uvic.ca
@@ -324,6 +330,7 @@ Mike Walker		M.D.Walker@larc.nasa.gov
 Milan Hodoscek		milan@kihp6.ki.si
 Minh Tran-Le		tranle@intellicorp.com
 Mitsuaki Masuhara	masuhara@mcprv.mec.mei.co.jp
+Nate Eldredge		nate@cs.hmc.edu
 Neil Faulks		neil@dcs.kcl.ac.uk
 Neil Jerram		nj104@cus.cam.ac.uk
 Nelson H.F. Beebe	beebe@math.utah.edu
@@ -361,7 +368,7 @@ Piercarlo Grandi	piercarl@sabi.demon.co.uk
 Pierce Cantrell		cantrell@ee.tamu.edu
 R. Kent Dybvig		dyb@cadence.bloomington.in.us
 R. Scott Butler		butler@prism.es.dupont.com
-Rainer Orth		ro@thp.uni-koeln.de
+Rainer Orth		ro@TechFak.Uni-Bielefeld.DE
 Ralf Suckow		suckow@contrib.de
 Ralph Schleicher	rs@purple.ul.bawue.de
 Randy Bias		randyb@edge.edge.net
@@ -418,7 +425,7 @@ Seth Robertson		seth@ctr.columbia.edu
 Sherwood Botsford	sherwood@space.ualberta.ca
 Simon Wright		simon.j.wright@gecm.com
 Sisira Jayasinghe	sisira.jayasinghe@sdrc.com
-Skip Montanaro		skip@automatrix.com
+Skip Montanaro		skip@mojam.com http://www.musi-cal.com/~skip/
 Simon Wright		simon@pogner.demon.co.uk
 Stefan Skoglund		sp2stes1@ida.his.se
 Steffen Stempel		stempel@ira.uka.de
@@ -456,7 +463,6 @@ Tom Tromey		tromey@drip.colorado.edu
 Tor Lillqvist		tml@hemuli.tte.vtt.fi
 Torbjorn Granlund	tege@sics.se
 Torkel Hasle		torkel@bibsyst.no
-Torsten Lull		tlupi@gppc.de
 Toshiaki Nishi		toshi@sss.osa.sharp.co.jp
 Travis L. Priest	T.L.Priest@larc.nasa.gov
 Troy Rudolph		rudtr01@cai.com
@@ -465,6 +471,7 @@ Ulrich Drepper		drepper@gnu.org
 Van Snyder		vsnyder@math.jpl.nasa.gov
 Vic Abell		abe@cc.purdue.edu
 Victor J. Griswold	vgris@aironet.com
+Ville Herva		v@iki.fi
 Vince Del Vecchio	vdelvecc@inmet.com
 W. Phillip Moore	wpm@morgan.com
 Warner Losh		imp@boulder.parcplace.com
@@ -480,3 +487,7 @@ Wolfram Gloger		Wolfram.Gloger@dent.med.uni-muenchen.de
 Wolfram Wagner		ww@mpi-sb.mpg.de
 Yasushi Suzudo		SGR00413@niftyserve.or.jp
 Yu-Min Liang		min@taz.ho.att.com
+
+Local Variables:
+coding: iso-latin-1
+End:

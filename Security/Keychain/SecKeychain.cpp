@@ -17,19 +17,22 @@
 
 #include <Security/SecKeychainAPIPriv.h>
 #include <Security/SecKeychain.h>
+#include <Security/KCCursor.h>
 #include <Security/cssmdata.h>
 #include <Security/KCExceptions.h>
 #include "SecBridge.h"
 #include "CCallbackMgr.h"
 #include "Schema.h"
-
+#include <Security/ktracecodes.h>
+#include <pwd.h>
 
 CFTypeID
 SecKeychainGetTypeID(void)
 {
 	BEGIN_SECAPI
 
-	return gTypes().keychain.typeId;
+	secdebug("kc", "SecKeychainGetTypeID()");
+	return gTypes().KeychainImpl.typeID;
 
 	END_SECAPI1(_kCFRuntimeNotATypeID)
 }
@@ -38,6 +41,7 @@ SecKeychainGetTypeID(void)
 OSStatus
 SecKeychainGetVersion(UInt32 *returnVers)
 {
+	secdebug("kc", "SecKeychainGetVersion(%p)", returnVers);
     if (!returnVers)
 		return noErr;
 
@@ -51,7 +55,8 @@ SecKeychainOpen(const char *pathName, SecKeychainRef *keychainRef)
 {
     BEGIN_SECAPI
 
-	RequiredParam(keychainRef)=gTypes().keychain.handle(*globals().storageManager.make(pathName));
+	secdebug("kc", "SecKeychainOpen(\"%s\", %p)", pathName, keychainRef);
+	RequiredParam(keychainRef)=globals().storageManager.make(pathName, false)->handle();
 
 	END_SECAPI
 }
@@ -63,6 +68,7 @@ SecKeychainCreate(const char *pathName, UInt32 passwordLength, const void *passw
 {
     BEGIN_SECAPI
 
+	secdebug("kc", "SecKeychainCreate(\"%s\", %lu, %p, %d, %p, %p)", pathName, passwordLength, password, promptUser, initialAccess, keychainRef);
 	KCThrowParamErrIf_(!pathName);
 	Keychain keychain = globals().storageManager.make(pathName);
 
@@ -75,7 +81,7 @@ SecKeychainCreate(const char *pathName, UInt32 passwordLength, const void *passw
 		KCThrowParamErrIf_(!password);
 		keychain->create(passwordLength, password);
 	}
-	RequiredParam(keychainRef)=gTypes().keychain.handle(*keychain);
+	RequiredParam(keychainRef)=keychain->handle();
 
 	END_SECAPI
 }
@@ -86,6 +92,8 @@ SecKeychainDelete(SecKeychainRef keychainOrArray)
 {
     BEGIN_SECAPI
 
+	secdebug("kc", "SecKeychainDelete(%p)", keychainOrArray);
+	KCThrowIf_(!keychainOrArray, errSecInvalidKeychain);
 	StorageManager::KeychainList keychains;
 	globals().storageManager.optionalSearchList(keychainOrArray, keychains);
 	globals().storageManager.remove(keychains, true);
@@ -99,6 +107,7 @@ SecKeychainSetSettings(SecKeychainRef keychainRef, const SecKeychainSettings *ne
 {
     BEGIN_SECAPI
 
+	secdebug("kc", "SecKeychainSetSettings(%p, %p)", keychainRef, newSettings);
 	Keychain keychain = Keychain::optional(keychainRef);
 	if (newSettings->version==SEC_KEYCHAIN_SETTINGS_VERS1)
 	{
@@ -116,6 +125,7 @@ SecKeychainCopySettings(SecKeychainRef keychainRef, SecKeychainSettings *outSett
 {
     BEGIN_SECAPI
 
+	secdebug("kc", "SecKeychainCopySettings(%p, %p)", keychainRef, outSettings);
 	Keychain keychain = Keychain::optional(keychainRef);
 	if (outSettings->version==SEC_KEYCHAIN_SETTINGS_VERS1)
 	{
@@ -136,9 +146,10 @@ SecKeychainUnlock(SecKeychainRef keychainRef, UInt32 passwordLength, void *passw
 {
 	BEGIN_SECAPI
 
+	secdebug("kc", "SecKeychainUnlock(%p, %lu, %p, %d)", keychainRef, passwordLength, password, usePassword);
 	Keychain keychain = Keychain::optional(keychainRef);
-	
-	if(usePassword)
+
+	if (usePassword)
 		keychain->unlock(CssmData(password,passwordLength));
 	else
 		keychain->unlock();
@@ -152,6 +163,7 @@ SecKeychainLock(SecKeychainRef	keychainRef)
 {
 	BEGIN_SECAPI
 
+	secdebug("kc", "SecKeychainLock(%p)", keychainRef);
 	Keychain keychain = Keychain::optional(keychainRef);
 	keychain->lock();
 
@@ -164,18 +176,53 @@ SecKeychainLockAll(void)
 {
 	BEGIN_SECAPI
 
+	secdebug("kc", "SecKeychainLockAll()");
 	globals().storageManager.lockAll();
 
 	END_SECAPI
 }
 
 
+OSStatus SecKeychainResetLogin(UInt32 passwordLength, const void* password, Boolean resetSearchList)
+{
+	BEGIN_SECAPI
+        KCThrowParamErrIf_(password==NULL);
+        //
+        // Get the current user (using fallback method if necessary)
+        //
+        char* uName = getenv("USER");
+        string userName = uName ? uName : "";
+        if ( userName.length() == 0 )
+        {
+            uid_t uid = geteuid();
+            if (!uid) uid = getuid();
+            struct passwd *pw = getpwuid(uid);	// fallback case...
+            if (pw)
+                userName = pw->pw_name;
+            endpwent();
+        }
+        if ( userName.length() == 0 )	// did we ultimately get one?
+            MacOSError::throwMe(errAuthorizationInternal);
+        //
+        // Clears the plist and moves aside (renames) an existing login.keychain
+        //
+        globals().storageManager.resetKeychain(resetSearchList);
+        //
+        // Creates a login keychain and sets it to the default.
+        //
+        globals().storageManager.login(userName.length(), userName.c_str(), passwordLength, password);	
+        Keychain keychain = globals().storageManager.loginKeychain();
+        globals().storageManager.defaultKeychain(keychain);
+	END_SECAPI
+}
+
 OSStatus
 SecKeychainCopyDefault(SecKeychainRef *keychainRef)
 {
 	BEGIN_SECAPI
 
-	RequiredParam(keychainRef)=gTypes().keychain.handle(*globals().defaultKeychain.keychain());
+	secdebug("kc", "SecKeychainCopyDefault(%p)", keychainRef);
+	RequiredParam(keychainRef)=globals().storageManager.defaultKeychain()->handle();
 
 	END_SECAPI
 }
@@ -186,15 +233,17 @@ SecKeychainSetDefault(SecKeychainRef keychainRef)
 {
 	BEGIN_SECAPI
 
-	globals().defaultKeychain.keychain(Keychain::optional(keychainRef));
+	secdebug("kc", "SecKeychainSetDefault(%p)", keychainRef);
+	globals().storageManager.defaultKeychain(Keychain::optional(keychainRef));
 
 	END_SECAPI
 }
 
-OSStatus SecKeychainCopySearchList(CFArrayRef* searchList)
+OSStatus SecKeychainCopySearchList(CFArrayRef *searchList)
 {
 	BEGIN_SECAPI
 
+	secdebug("kc", "SecKeychainCopySearchList(%p)", searchList);
 	RequiredParam(searchList);
 	StorageManager &smr = globals().storageManager;
 	StorageManager::KeychainList keychainList;
@@ -208,6 +257,7 @@ OSStatus SecKeychainSetSearchList(CFArrayRef searchList)
 {
 	BEGIN_SECAPI
 
+	secdebug("kc", "SecKeychainSetSearchList(%p)", searchList);
 	RequiredParam(searchList);
 	StorageManager &smr = globals().storageManager;
 	StorageManager::KeychainList keychainList;
@@ -217,11 +267,79 @@ OSStatus SecKeychainSetSearchList(CFArrayRef searchList)
 	END_SECAPI
 }
 
+OSStatus SecKeychainCopyDomainDefault(SecPreferencesDomain domain, SecKeychainRef *keychainRef)
+{
+	BEGIN_SECAPI
+
+	secdebug("kc", "SecKeychainCopyDefault(%p)", keychainRef);
+	RequiredParam(keychainRef)=globals().storageManager.defaultKeychain(domain)->handle();
+
+	END_SECAPI
+}
+
+OSStatus SecKeychainSetDomainDefault(SecPreferencesDomain domain, SecKeychainRef keychainRef)
+{
+	BEGIN_SECAPI
+
+	secdebug("kc", "SecKeychainSetDefault(%p)", keychainRef);
+	globals().storageManager.defaultKeychain(domain, Keychain::optional(keychainRef));
+
+	END_SECAPI
+}
+
+OSStatus SecKeychainCopyDomainSearchList(SecPreferencesDomain domain, CFArrayRef *searchList)
+{
+	BEGIN_SECAPI
+
+	secdebug("kc", "SecKeychainCopyDomainSearchList(%p)", searchList);
+	RequiredParam(searchList);
+	StorageManager &smr = globals().storageManager;
+	StorageManager::KeychainList keychainList;
+	smr.getSearchList(domain, keychainList);
+	*searchList = smr.convertFromKeychainList(keychainList);
+
+	END_SECAPI
+}
+
+OSStatus SecKeychainSetDomainSearchList(SecPreferencesDomain domain, CFArrayRef searchList)
+{
+	BEGIN_SECAPI
+
+	secdebug("kc", "SecKeychainSetDomainSearchList(%p)", searchList);
+	RequiredParam(searchList);
+	StorageManager &smr = globals().storageManager;
+	StorageManager::KeychainList keychainList;
+	smr.convertToKeychainList(searchList, keychainList);
+	smr.setSearchList(domain, keychainList);
+
+	END_SECAPI
+}
+
+OSStatus SecKeychainSetPreferenceDomain(SecPreferencesDomain domain)
+{
+	BEGIN_SECAPI
+
+	globals().storageManager.domain(domain);
+
+	END_SECAPI
+}
+
+OSStatus SecKeychainGetPreferenceDomain(SecPreferencesDomain *domain)
+{
+	BEGIN_SECAPI
+	
+	*domain = globals().storageManager.domain();
+	
+	END_SECAPI
+}
+
+
 OSStatus
 SecKeychainGetStatus(SecKeychainRef keychainRef, SecKeychainStatus *keychainStatus)
 {
     BEGIN_SECAPI
 
+	secdebug("kc", "SecKeychainGetStatus(%p): %p", keychainRef, keychainStatus);
 	RequiredParam(keychainStatus) = (SecKeychainStatus)Keychain::optional(keychainRef)->status();
 
 	END_SECAPI
@@ -229,11 +347,13 @@ SecKeychainGetStatus(SecKeychainRef keychainRef, SecKeychainStatus *keychainStat
 
 
 OSStatus
-SecKeychainGetPath(SecKeychainRef keychainRef, UInt32 * ioPathLength, char *pathName)
+SecKeychainGetPath(SecKeychainRef keychainRef, UInt32 *ioPathLength, char *pathName)
 {
     BEGIN_SECAPI
 
+	secdebug("kc", "SecKeychainGetPath(%p, %p, %p)", keychainRef, ioPathLength, pathName);
 	RequiredParam(pathName);
+	RequiredParam(ioPathLength);
 
     const char *name = Keychain::optional(keychainRef)->name();
 	UInt32 nameLen = strlen(name);
@@ -253,6 +373,7 @@ SecKeychainListGetCount(void)
 {
     BEGIN_SECAPI
 
+	secdebug("kc", "SecKeychainListGetCount()");
 	return globals().storageManager.size();
 
 	END_SECAPI1(0)
@@ -265,8 +386,9 @@ SecKeychainListCopyKeychainAtIndex(UInt16 index, SecKeychainRef *keychainRef)
 {
     BEGIN_SECAPI
 
+	secdebug("kc", "SecKeychainListCopyKeychainAtIndex(%d, %p)", index, keychainRef);
 	KeychainCore::StorageManager &smgr=KeychainCore::globals().storageManager;
-	RequiredParam(keychainRef)=gTypes().keychain.handle(*smgr[index]);
+	RequiredParam(keychainRef)=smgr[index]->handle();
 
 	END_SECAPI
 }
@@ -278,6 +400,7 @@ SecKeychainListRemoveKeychain(SecKeychainRef *keychainRef)
 {
     BEGIN_SECAPI
 
+	secdebug("kc", "SecKeychainListRemoveKeychain(%p)", keychainRef);
 	Required(keychainRef);
 	Keychain keychain = Keychain::optional(*keychainRef);
 	StorageManager::KeychainList keychainList;
@@ -294,6 +417,7 @@ SecKeychainAttributeInfoForItemID(SecKeychainRef keychainRef, UInt32 itemID, Sec
 {
 	BEGIN_SECAPI
 
+	secdebug("kc", "SecKeychainAttributeInfoForItemID(%p, %lu, %p)", keychainRef, itemID, info);
 	Keychain keychain = Keychain::optional(keychainRef);
 	keychain->getAttributeInfoForItemID(itemID, info);
 
@@ -306,6 +430,7 @@ SecKeychainFreeAttributeInfo(SecKeychainAttributeInfo *info)
 {
 	BEGIN_SECAPI
 
+	secdebug("kc", "SecKeychainFreeAttributeInfo(%p)", info);
 	KeychainImpl::freeAttributeInfo(info);
 
 	END_SECAPI
@@ -317,6 +442,7 @@ SecKeychainAddCallback(SecKeychainCallback callbackFunction, SecKeychainEventMas
 {
     BEGIN_SECAPI
 
+	secdebug("kc", "SecKeychainAddCallback(%p, %08lx, %p)", callbackFunction, eventMask, userContext);
 	RequiredParam(callbackFunction);
 	CCallbackMgr::AddCallback(callbackFunction,eventMask,userContext);
 
@@ -329,32 +455,35 @@ SecKeychainRemoveCallback(SecKeychainCallback callbackFunction)
 {
     BEGIN_SECAPI
 
+	secdebug("kc", "SecKeychainRemoveCallback(%p)", callbackFunction);
 	RequiredParam(callbackFunction);
 	CCallbackMgr::RemoveCallback(callbackFunction);
 
 	END_SECAPI
 }	
 
-
 OSStatus
 SecKeychainAddInternetPassword(SecKeychainRef keychainRef, UInt32 serverNameLength, const char *serverName, UInt32 securityDomainLength, const char *securityDomain, UInt32 accountNameLength, const char *accountName, UInt32 pathLength, const char *path, UInt16 port, SecProtocolType protocol, SecAuthenticationType authenticationType, UInt32 passwordLength, const void *passwordData, SecKeychainItemRef *itemRef)
 {
     BEGIN_SECAPI
 
+	secdebug("kc", "SecKeychainAddInternetPassword(%p)", keychainRef);
 	KCThrowParamErrIf_(passwordLength!=0 && passwordData==NULL);
 	// @@@ Get real itemClass
 	Item item(kSecInternetPasswordItemClass, 'aapl', passwordLength, passwordData);
 	
 	if (serverName && serverNameLength)
-		item->setAttribute(Schema::attributeInfo(kSecServerItemAttr),
-			CssmData(const_cast<void *>(reinterpret_cast<const void *>(serverName)), serverNameLength));
+	{
+		CssmData server(const_cast<void *>(reinterpret_cast<const void *>(serverName)), serverNameLength);
+		item->setAttribute(Schema::attributeInfo(kSecServerItemAttr), server);
+		// use server name as default label
+		item->setAttribute(Schema::attributeInfo(kSecLabelItemAttr), server);
+	}
 		
 	if (accountName && accountNameLength)
 	{
 		CssmData account(const_cast<void *>(reinterpret_cast<const void *>(accountName)), accountNameLength);
 		item->setAttribute(Schema::attributeInfo(kSecAccountItemAttr), account);
-			// @@@ We should probably leave setting of label up to lower level code.
-		item->setAttribute(Schema::attributeInfo(kSecLabelItemAttr), account);
 	}
 
 	if (securityDomain && securityDomainLength)
@@ -369,9 +498,24 @@ SecKeychainAddInternetPassword(SecKeychainRef keychainRef, UInt32 serverNameLeng
 		item->setAttribute(Schema::attributeInfo(kSecPathItemAttr),
 			CssmData(const_cast<void *>(reinterpret_cast<const void *>(path)), pathLength));
 
-	Keychain::optional(keychainRef)->add(item);
-	if (itemRef)
-		*itemRef = gTypes().item.handle(*item);
+	Keychain keychain = nil;
+	try
+    {
+        keychain = Keychain::optional(keychainRef);
+        if ( !keychain->exists() )
+        {
+            MacOSError::throwMe(errSecNoSuchKeychain);	// Might be deleted or not available at this time.
+        }
+    }
+    catch(...)
+    {
+        keychain = globals().storageManager.defaultKeychainUI(item);
+    }
+
+    keychain->add(item);
+
+    if (itemRef)
+		*itemRef = item->handle();
 
     END_SECAPI
 }
@@ -383,6 +527,7 @@ SecKeychainFindInternetPassword(CFTypeRef keychainOrArray, UInt32 serverNameLeng
 {
     BEGIN_SECAPI
 
+	secdebug("kc", "SecKeychainFindInternetPassword(%p)", keychainOrArray);
 	StorageManager::KeychainList keychains;
 	globals().storageManager.optionalSearchList(keychainOrArray, keychains);
 	KCCursor cursor(keychains, kSecInternetPasswordItemClass, NULL);
@@ -444,7 +589,7 @@ SecKeychainFindInternetPassword(CFTypeRef keychainOrArray, UInt32 serverNameLeng
 	}
 
 	if (itemRef)
-		*itemRef=gTypes().item.handle(*item);
+		*itemRef=item->handle();
 
     END_SECAPI
 }
@@ -452,28 +597,45 @@ SecKeychainFindInternetPassword(CFTypeRef keychainOrArray, UInt32 serverNameLeng
 
 OSStatus
 SecKeychainAddGenericPassword(SecKeychainRef keychainRef, UInt32 serviceNameLength, const char *serviceName, UInt32 accountNameLength, const char *accountName, UInt32 passwordLength, const void *passwordData, SecKeychainItemRef *itemRef)
-										
 {
 	BEGIN_SECAPI
 
+	secdebug("kc", "SecKeychainAddGenericPassword(%p)", keychainRef);
 	KCThrowParamErrIf_(passwordLength!=0 && passwordData==NULL);
 	// @@@ Get real itemClass
 	Item item(kSecGenericPasswordItemClass, 'aapl', passwordLength, passwordData);
 
 	if (serviceName && serviceNameLength)
-		item->setAttribute(Schema::attributeInfo(kSecServiceItemAttr), CssmData(const_cast<void *>(reinterpret_cast<const void *>(serviceName)), serviceNameLength));
+	{
+		CssmData service(const_cast<void *>(reinterpret_cast<const void *>(serviceName)), serviceNameLength);
+		item->setAttribute(Schema::attributeInfo(kSecServiceItemAttr), service);
+		// use service name as default label
+		item->setAttribute(Schema::attributeInfo(kSecLabelItemAttr), service);
+	}
 
 	if (accountName && accountNameLength)
 	{
 		CssmData account(const_cast<void *>(reinterpret_cast<const void *>(accountName)), accountNameLength);
 		item->setAttribute(Schema::attributeInfo(kSecAccountItemAttr), account);
-			// @@@ We should probably leave setting of label up to lower level code.
-		item->setAttribute(Schema::attributeInfo(kSecLabelItemAttr), account);
 	}
 
-	Keychain::optional(keychainRef)->add(item);
+	Keychain keychain = nil;
+	try
+    {
+        keychain = Keychain::optional(keychainRef);
+        if ( !keychain->exists() )
+        {
+            MacOSError::throwMe(errSecNoSuchKeychain);	// Might be deleted or not available at this time.
+        }
+    }
+    catch(...)
+    {
+        keychain = globals().storageManager.defaultKeychainUI(item);
+    }
+
+	keychain->add(item);
 	if (itemRef)
-		*itemRef = gTypes().item.handle(*item);
+		*itemRef = item->handle();
 
     END_SECAPI
 }
@@ -483,8 +645,11 @@ OSStatus
 SecKeychainFindGenericPassword(CFTypeRef keychainOrArray, UInt32 serviceNameLength, const char *serviceName, UInt32 accountNameLength, const char *accountName, UInt32 *passwordLength, void **passwordData, SecKeychainItemRef *itemRef)
 																			   
 {
+    Debug::trace (kSecTraceSecurityFrameworkSecKeychainFindGenericPasswordBegin);
+
     BEGIN_SECAPI
 
+	secdebug("kc", "SecKeychainFindGenericPassword(%p)", keychainOrArray);
 	StorageManager::KeychainList keychains;
 	globals().storageManager.optionalSearchList(keychainOrArray, keychains);
 	KCCursor cursor(keychains, kSecGenericPasswordItemClass, NULL);
@@ -517,7 +682,7 @@ SecKeychainFindGenericPassword(CFTypeRef keychainOrArray, UInt32 serviceNameLeng
 	}
 
 	if (itemRef)
-		*itemRef=gTypes().item.handle(*item);
+		*itemRef=item->handle();
 
 	END_SECAPI
 }
@@ -528,6 +693,7 @@ SecKeychainSetUserInteractionAllowed(Boolean state)
 {
 	BEGIN_SECAPI
 
+	secdebug("kc", "SecKeychainSetUserInteractionAllowed(%d)", state);
 	globals().setUserInteractionAllowed(state);
 
     END_SECAPI
@@ -539,6 +705,7 @@ SecKeychainGetUserInteractionAllowed(Boolean *state)
 {
 	BEGIN_SECAPI
 
+	secdebug("kc", "SecKeychainGetUserInteractionAllowed()");
 	Required(state)=globals().getUserInteractionAllowed();
 
     END_SECAPI
@@ -550,6 +717,7 @@ SecKeychainGetDLDBHandle(SecKeychainRef keychainRef, CSSM_DL_DB_HANDLE *dldbHand
 {
     BEGIN_SECAPI
 
+	secdebug("kc", "SecKeychainGetDLDBHandle(%p, %p)", keychainRef, dldbHandle);
 	RequiredParam(dldbHandle);
 	
 	Keychain keychain = Keychain::optional(keychainRef);
@@ -564,6 +732,7 @@ SecKeychainGetCSPHandle(SecKeychainRef keychainRef, CSSM_CSP_HANDLE *cspHandle)
 {
     BEGIN_SECAPI
 
+	secdebug("kc", "SecKeychainGetCSPHandle(%p, %p)", keychainRef, cspHandle);
 	RequiredParam(cspHandle);
 
 	Keychain keychain = Keychain::optional(keychainRef);
@@ -578,6 +747,7 @@ SecKeychainCopyAccess(SecKeychainRef keychainRef, SecAccessRef *accessRef)
 {
 	BEGIN_SECAPI
 
+	secdebug("kc", "SecKeychainCopyAccess(%p, %p)", keychainRef, accessRef);
 	MacOSError::throwMe(unimpErr);//%%%for now
 
 	END_SECAPI
@@ -589,6 +759,7 @@ SecKeychainSetAccess(SecKeychainRef keychainRef, SecAccessRef accessRef)
 {
 	BEGIN_SECAPI
 
+	secdebug("kc", "SecKeychainSetAccess(%p, %p)", keychainRef, accessRef);
 	MacOSError::throwMe(unimpErr);//%%%for now
 
 	END_SECAPI
@@ -603,6 +774,8 @@ SecKeychainChangePassword(SecKeychainRef keychainRef, UInt32 oldPasswordLength, 
 {
     BEGIN_SECAPI
 
+	secdebug("kc", "SecKeychainChangePassword(%p, %lu, %p, %lu, %p)", keychainRef,
+		oldPasswordLength, oldPassword, newPasswordLength, newPassword);
 	Keychain keychain = Keychain::optional(keychainRef);
         keychain->changePassphrase (oldPasswordLength, oldPassword,  newPasswordLength, newPassword);
 
@@ -615,9 +788,8 @@ SecKeychainCopyLogin(SecKeychainRef *keychainRef)
 {
     BEGIN_SECAPI
 
-	// NOTE: operates on default Keychain!  It shouldn't... we want to 
-	//		 have code that operates of a login keychain.
-	RequiredParam(keychainRef)=gTypes().keychain.handle(*globals().defaultKeychain.keychain());
+	secdebug("kc", "SecKeychainCopyLogin(%p)", keychainRef);
+	RequiredParam(keychainRef)=globals().storageManager.loginKeychain()->handle();
 
     END_SECAPI
 }
@@ -628,6 +800,7 @@ SecKeychainLogin(UInt32 nameLength, void* name, UInt32 passwordLength, void* pas
 {
     BEGIN_SECAPI
 
+	secdebug("kc", "SecKeychainLogin(%lu, %p, %lu, %p)", nameLength, name, passwordLength, password);
 	globals().storageManager.login(nameLength, name,  passwordLength, password);
 
     END_SECAPI
@@ -639,7 +812,61 @@ SecKeychainLogout()
 {
     BEGIN_SECAPI
 
+	secdebug("kc", "SecKeychainLogout()");
 	globals().storageManager.logout();
 
     END_SECAPI
 }
+
+static CFStringRef copyErrorMessageFromBundle(OSStatus status,CFStringRef tableName);
+
+// caller MUST release the string, since it is gotten with "CFCopyLocalizedStringFromTableInBundle"
+// intended use of reserved param is to pass in CFStringRef with name of the Table for lookup
+// Will look by default in "SecErrorMessages.strings" in the resources of Security.framework.
+
+
+CFStringRef SecCopyErrorMessageString(OSStatus status, void *reserved)
+{
+	BEGIN_SECAPI
+
+	return copyErrorMessageFromBundle(status,CFSTR("SecErrorMessages"));
+        
+	END_SECAPI1(NULL)
+}
+
+CFStringRef copyErrorMessageFromBundle(OSStatus status,CFStringRef tableName)
+{
+    CFStringRef errorString = nil;
+    CFStringRef keyString = nil;
+    CFURLRef bundleURL = NULL;
+    CFBundleRef secBundle = NULL;
+
+    // Make a CFURLRef from the CFString representation of the bundle’s path.
+    bundleURL = CFURLCreateWithFileSystemPath(kCFAllocatorDefault,
+        CFSTR("/System/Library/Frameworks/Security.framework/"),kCFURLPOSIXPathStyle,true);	//	Resources/
+    if (!bundleURL)
+        goto xit;
+        
+    // Make a bundle instance using the URLRef.
+    secBundle = CFBundleCreate(kCFAllocatorDefault,bundleURL);
+    if (!secBundle)
+        goto xit;
+
+    // Convert status to Int32 string representation, e.g. "-25924"
+    keyString = CFStringCreateWithFormat (kCFAllocatorDefault,NULL,CFSTR("%d"),status);
+    if (!keyString)
+        goto xit;
+
+	errorString = CFCopyLocalizedStringFromTableInBundle(keyString,tableName,secBundle,NULL);
+    
+xit:
+    if (bundleURL)
+        CFRelease(bundleURL);	
+    if (secBundle)
+        CFRelease(secBundle);	
+    if (keyString)
+        CFRelease(keyString);	
+
+    return errorString;
+}
+

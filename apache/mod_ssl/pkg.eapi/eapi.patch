@@ -7,7 +7,7 @@
 ## 
 ## Annotated patch file: eapi.patch
 ## Copyright (c) 1998-2001 Ralf S. Engelschall, All Rights Reserved. 
-## Created on: 04-Oct-2002
+## Created on: 18-Jul-2003
 ##
 ## This file assembles changes to existing Apache source files
 ## between the original Apache and the patched variant. It can be
@@ -56,9 +56,9 @@ Index: src/Configuration.tmpl
 | Patch in implementation of the EAPI rule.
 +---------------------------------------------------------------------------
 Index: src/Configure
---- src/Configure	4 Oct 2002 11:50:12 -0000	1.1.1.20
-+++ src/Configure	4 Oct 2002 11:54:56 -0000	1.23
-@@ -1885,6 +1885,72 @@
+--- src/Configure	18 Jul 2003 15:44:29 -0000	1.1.1.21
++++ src/Configure	18 Jul 2003 15:56:57 -0000	1.24
+@@ -1892,6 +1892,72 @@
  fi
  
  ####################################################################
@@ -152,9 +152,9 @@ Index: src/ap/Makefile.tmpl
 | Add the build support for the ap_hook.c and ap_ctx.c sources (Win32)
 +---------------------------------------------------------------------------
 Index: src/ap/ap.mak
---- src/ap/ap.mak	16 Oct 2001 11:47:06 -0000	1.1.1.9
-+++ src/ap/ap.mak	16 Oct 2001 11:57:38 -0000	1.9
-@@ -50,6 +50,9 @@
+--- src/ap/ap.mak	18 Jul 2003 15:44:30 -0000	1.1.1.10
++++ src/ap/ap.mak	18 Jul 2003 15:56:58 -0000	1.10
+@@ -44,6 +44,9 @@
  	-@erase "$(INTDIR)\ap_cpystrn.obj"
  	-@erase "$(INTDIR)\ap_fnmatch.obj"
  	-@erase "$(INTDIR)\ap_md5c.obj"
@@ -164,7 +164,7 @@ Index: src/ap/ap.mak
  	-@erase "$(INTDIR)\ap_sha1.obj"
  	-@erase "$(INTDIR)\ap_signal.obj"
  	-@erase "$(INTDIR)\ap_slack.obj"
-@@ -108,6 +111,9 @@
+@@ -99,6 +102,9 @@
  	"$(INTDIR)\ap_cpystrn.obj" \
  	"$(INTDIR)\ap_fnmatch.obj" \
  	"$(INTDIR)\ap_md5c.obj" \
@@ -174,7 +174,7 @@ Index: src/ap/ap.mak
  	"$(INTDIR)\ap_sha1.obj" \
  	"$(INTDIR)\ap_signal.obj" \
  	"$(INTDIR)\ap_slack.obj" \
-@@ -144,6 +150,9 @@
+@@ -128,6 +134,9 @@
  	-@erase "$(INTDIR)\ap_cpystrn.obj"
  	-@erase "$(INTDIR)\ap_fnmatch.obj"
  	-@erase "$(INTDIR)\ap_md5c.obj"
@@ -184,7 +184,7 @@ Index: src/ap/ap.mak
  	-@erase "$(INTDIR)\ap_sha1.obj"
  	-@erase "$(INTDIR)\ap_signal.obj"
  	-@erase "$(INTDIR)\ap_slack.obj"
-@@ -202,6 +211,9 @@
+@@ -183,6 +192,9 @@
  	"$(INTDIR)\ap_cpystrn.obj" \
  	"$(INTDIR)\ap_fnmatch.obj" \
  	"$(INTDIR)\ap_md5c.obj" \
@@ -200,10 +200,10 @@ Index: src/ap/ap.mak
 | EAPI-aware modules and standard modules.
 +---------------------------------------------------------------------------
 Index: src/include/ap_mmn.h
---- src/include/ap_mmn.h	19 Jun 2002 07:20:24 -0000	1.1.1.11
-+++ src/include/ap_mmn.h	19 Jun 2002 07:29:08 -0000	1.11
-@@ -239,7 +239,23 @@
-  * 19990320.13          - add ap_strtol()
+--- src/include/ap_mmn.h	18 Jul 2003 15:44:32 -0000	1.1.1.12
++++ src/include/ap_mmn.h	18 Jul 2003 15:56:58 -0000	1.12
+@@ -245,7 +245,23 @@
+  * 19990320.15          - ap_is_recursion_limit_exceeded()
   */
  
 +/* 
@@ -232,8 +232,8 @@ Index: src/include/ap_mmn.h
 | shared memory pools.
 +---------------------------------------------------------------------------
 Index: src/include/ap_alloc.h
---- src/include/ap_alloc.h	27 Mar 2002 15:22:56 -0000	1.1.1.5
-+++ src/include/ap_alloc.h	27 Mar 2002 15:30:02 -0000	1.6
+--- src/include/ap_alloc.h	18 Jul 2003 15:44:31 -0000	1.1.1.6
++++ src/include/ap_alloc.h	18 Jul 2003 15:56:58 -0000	1.7
 @@ -95,6 +95,15 @@
  API_EXPORT(pool *) ap_init_alloc(void);		/* Set up everything */
  void ap_cleanup_alloc(void);
@@ -255,8 +255,8 @@ Index: src/include/ap_alloc.h
 | Add the additional context variable `ctx' for BUFF structures.
 +---------------------------------------------------------------------------
 Index: src/include/buff.h
---- src/include/buff.h	27 Mar 2002 15:22:57 -0000	1.1.1.6
-+++ src/include/buff.h	27 Mar 2002 15:30:02 -0000	1.10
+--- src/include/buff.h	18 Jul 2003 15:44:32 -0000	1.1.1.7
++++ src/include/buff.h	18 Jul 2003 15:56:58 -0000	1.11
 @@ -125,6 +125,10 @@
      /* transport handle, for RPC binding handle or some such */
      void *t_handle;
@@ -284,8 +284,8 @@ Index: src/include/buff.h
 | Add the four additional Apache API module hooks.
 +---------------------------------------------------------------------------
 Index: src/include/http_config.h
---- src/include/http_config.h	27 Mar 2002 15:22:57 -0000	1.1.1.10
-+++ src/include/http_config.h	27 Mar 2002 15:30:02 -0000	1.12
+--- src/include/http_config.h	18 Jul 2003 15:44:32 -0000	1.1.1.11
++++ src/include/http_config.h	18 Jul 2003 15:56:58 -0000	1.13
 @@ -276,6 +276,65 @@
      void (*child_exit) (server_rec *, pool *);
  #endif
@@ -358,8 +358,8 @@ Index: src/include/http_config.h
 | global module context.
 +---------------------------------------------------------------------------
 Index: src/include/http_conf_globals.h
---- src/include/http_conf_globals.h	4 Oct 2002 11:50:14 -0000	1.1.1.12
-+++ src/include/http_conf_globals.h	4 Oct 2002 11:54:56 -0000	1.13
+--- src/include/http_conf_globals.h	18 Jul 2003 15:44:32 -0000	1.1.1.13
++++ src/include/http_conf_globals.h	18 Jul 2003 15:56:58 -0000	1.14
 @@ -95,6 +95,9 @@
  #endif
  extern int ap_dump_settings;
@@ -387,8 +387,8 @@ Index: src/include/http_main.h
 | function.
 +---------------------------------------------------------------------------
 Index: src/include/httpd.h
---- src/include/httpd.h	4 Oct 2002 11:50:14 -0000	1.1.1.20
-+++ src/include/httpd.h	4 Oct 2002 11:54:56 -0000	1.30
+--- src/include/httpd.h	18 Jul 2003 15:44:32 -0000	1.1.1.21
++++ src/include/httpd.h	18 Jul 2003 15:56:58 -0000	1.31
 @@ -70,7 +70,19 @@
  /* Headers in which EVERYONE has an interest... */
  
@@ -409,25 +409,21 @@ Index: src/include/httpd.h
  #include "buff.h"
  #include "ap.h"
  
-@@ -141,12 +153,17 @@
- #define DEFAULT_HTTP_PORT	80
- #define DEFAULT_HTTPS_PORT	443
- #define ap_is_default_port(port,r)	((port) == ap_default_port(r))
+@@ -145,8 +157,13 @@
+ #define ap_http_method(r) ap_os_http_method((void*)r)
+ #define ap_default_port(r) ap_os_default_port((void*)r)
+ #else
 +#ifdef EAPI
 +#define ap_http_method(r)   (((r)->ctx != NULL && ap_ctx_get((r)->ctx, "ap::http::method") != NULL) ? ((char *)ap_ctx_get((r)->ctx, "ap::http::method")) : "http")
 +#define ap_default_port(r)  (((r)->ctx != NULL && ap_ctx_get((r)->ctx, "ap::default::port") != NULL) ? atoi((char *)ap_ctx_get((r)->ctx, "ap::default::port")) : DEFAULT_HTTP_PORT)
 +#else /* EAPI */
- #ifdef NETWARE
- #define ap_http_method(r) ap_os_http_method(r)
- #else
  #define ap_http_method(r)	"http"
- #endif
  #define ap_default_port(r)	DEFAULT_HTTP_PORT
 +#endif /* EAPI */
+ #endif
  
  /* --------- Default user name and group name running standalone ---------- */
- /* --- These may be specified as numbers by placing a # before a number --- */
-@@ -351,6 +368,19 @@
+@@ -352,6 +369,19 @@
  #define SCOREBOARD_MAINTENANCE_INTERVAL 1000000
  #endif
  
@@ -447,7 +443,7 @@ Index: src/include/httpd.h
  /* Number of requests to try to handle in a single process.  If <= 0,
   * the children don't die off.  That's the default here, since I'm still
   * interested in finding and stanching leaks.
-@@ -443,6 +473,9 @@
+@@ -444,6 +474,9 @@
  API_EXPORT(const char *) ap_get_server_version(void);
  API_EXPORT(void) ap_add_version_component(const char *component);
  API_EXPORT(const char *) ap_get_server_built(void);
@@ -457,7 +453,7 @@ Index: src/include/httpd.h
  
  /* Numeric release version identifier: MMNNFFRBB: major minor fix final beta
   * Always increases along the same track as the source branch.
-@@ -846,6 +879,10 @@
+@@ -847,6 +880,10 @@
   * record to improve 64bit alignment the next time we need to break
   * binary compatibility for some other reason.
   */
@@ -468,7 +464,7 @@ Index: src/include/httpd.h
  };
  
  
-@@ -894,6 +931,9 @@
+@@ -895,6 +932,9 @@
      char *local_host;		/* used for ap_get_server_name when
  				 * UseCanonicalName is set to DNS
  				 * (ignores setting of HostnameLookups) */
@@ -478,7 +474,7 @@ Index: src/include/httpd.h
  };
  
  /* Per-vhost config... */
-@@ -966,6 +1006,10 @@
+@@ -967,6 +1007,10 @@
      int limit_req_line;      /* limit on size of the HTTP request line    */
      int limit_req_fieldsize; /* limit on size of any request header field */
      int limit_req_fields;    /* limit on number of request header fields  */
@@ -494,8 +490,8 @@ Index: src/include/httpd.h
 | Patch the shared memory pool support into the Apache pool facility.
 +---------------------------------------------------------------------------
 Index: src/main/alloc.c
---- src/main/alloc.c	4 Oct 2002 11:50:14 -0000	1.1.1.13
-+++ src/main/alloc.c	4 Oct 2002 11:54:56 -0000	1.20
+--- src/main/alloc.c	18 Jul 2003 15:44:34 -0000	1.1.1.14
++++ src/main/alloc.c	18 Jul 2003 15:56:58 -0000	1.22
 @@ -64,6 +64,10 @@
   */
  
@@ -539,19 +535,20 @@ Index: src/main/alloc.c
 +#endif
  {
      union block_hdr *blok;
- 
-@@ -230,12 +245,20 @@
-     ++num_malloc_calls;
+     int request_size;
+@@ -232,6 +247,11 @@
      num_malloc_bytes += size + sizeof(union block_hdr);
  #endif
+     request_size = size + sizeof(union block_hdr);
 +#if defined(EAPI) && defined(EAPI_MM)
 +    if (is_shm)
-+        blok = (union block_hdr *)ap_mm_malloc(mm, size + sizeof(union block_hdr));
++        blok = (union block_hdr *)ap_mm_malloc(mm, request_size);
 +    else
 +#endif
-     blok = (union block_hdr *) malloc(size + sizeof(union block_hdr));
+     blok = (union block_hdr *) malloc(request_size);
      if (blok == NULL) {
- 	fprintf(stderr, "Ouch!  malloc failed in malloc_block()\n");
+ 	fprintf(stderr, "Ouch!  malloc(%d) failed in malloc_block()\n",
+@@ -239,6 +259,9 @@
  	exit(1);
      }
      debug_fill(blok, size + sizeof(union block_hdr));
@@ -561,7 +558,7 @@ Index: src/main/alloc.c
      blok->h.next = NULL;
      blok->h.first_avail = (char *) (blok + 1);
      blok->h.endp = size + blok->h.first_avail;
-@@ -296,6 +319,10 @@
+@@ -299,6 +322,10 @@
      if (blok == NULL)
  	return;			/* Sanity check --- freeing empty pool? */
  
@@ -572,7 +569,7 @@ Index: src/main/alloc.c
      (void) ap_acquire_mutex(alloc_mutex);
      old_free_list = block_freelist;
      block_freelist = blok;
-@@ -342,6 +369,10 @@
+@@ -345,6 +372,10 @@
  #endif
  
      (void) ap_release_mutex(alloc_mutex);
@@ -583,7 +580,7 @@ Index: src/main/alloc.c
  #endif
  }
  
-@@ -350,7 +381,11 @@
+@@ -353,7 +384,11 @@
   * if necessary.  Must be called with alarms blocked.
   */
  
@@ -595,7 +592,7 @@ Index: src/main/alloc.c
  {
      union block_hdr **lastptr = &block_freelist;
      union block_hdr *blok = block_freelist;
-@@ -360,7 +395,12 @@
+@@ -363,7 +398,12 @@
       */
  
      while (blok != NULL) {
@@ -608,7 +605,7 @@ Index: src/main/alloc.c
  	    *lastptr = blok->h.next;
  	    blok->h.next = NULL;
  	    debug_verify_filled(blok->h.first_avail, blok->h.endp,
-@@ -376,7 +416,11 @@
+@@ -379,7 +419,11 @@
      /* Nope. */
  
      min_size += BLOCK_MINFREE;
@@ -620,7 +617,7 @@ Index: src/main/alloc.c
      return blok;
  }
  
-@@ -426,6 +470,9 @@
+@@ -429,6 +473,9 @@
  #ifdef POOL_DEBUG
      struct pool *joined;
  #endif
@@ -630,7 +627,7 @@ Index: src/main/alloc.c
  };
  
  static pool *permanent_pool;
-@@ -440,16 +487,28 @@
+@@ -443,16 +490,28 @@
  #define POOL_HDR_CLICKS (1 + ((sizeof(struct pool) - 1) / CLICK_SZ))
  #define POOL_HDR_BYTES (POOL_HDR_CLICKS * CLICK_SZ)
  
@@ -659,7 +656,7 @@ Index: src/main/alloc.c
      new_pool = (pool *) blok->h.first_avail;
      blok->h.first_avail += POOL_HDR_BYTES;
  #ifdef POOL_DEBUG
-@@ -468,12 +527,38 @@
+@@ -471,12 +530,38 @@
  	p->sub_pools = new_pool;
      }
  
@@ -698,7 +695,7 @@ Index: src/main/alloc.c
  #ifdef POOL_DEBUG
  static void stack_var_init(char *s)
  {
-@@ -488,6 +573,13 @@
+@@ -491,6 +576,13 @@
  }
  #endif
  
@@ -712,7 +709,7 @@ Index: src/main/alloc.c
  #ifdef ALLOC_STATS
  static void dump_stats(void)
  {
-@@ -520,6 +612,58 @@
+@@ -523,6 +615,58 @@
      return permanent_pool;
  }
  
@@ -771,7 +768,7 @@ Index: src/main/alloc.c
  void ap_cleanup_alloc(void)
  {
      ap_destroy_mutex(alloc_mutex);
-@@ -530,10 +674,18 @@
+@@ -533,10 +677,18 @@
  {
      ap_block_alarms();
  
@@ -790,7 +787,7 @@ Index: src/main/alloc.c
      /* Don't hold the mutex during cleanups. */
      run_cleanups(a->cleanups);
      a->cleanups = NULL;
-@@ -567,6 +719,10 @@
+@@ -570,6 +722,10 @@
      ap_block_alarms();
      ap_clear_pool(a);
  
@@ -801,7 +798,7 @@ Index: src/main/alloc.c
      (void) ap_acquire_mutex(alloc_mutex);
      if (a->parent) {
  	if (a->parent->sub_pools == a)
-@@ -577,6 +733,10 @@
+@@ -580,6 +736,10 @@
  	    a->sub_next->sub_prev = a->sub_prev;
      }
      (void) ap_release_mutex(alloc_mutex);
@@ -812,7 +809,7 @@ Index: src/main/alloc.c
  
      free_blocks(a->first);
      ap_unblock_alarms();
-@@ -591,6 +751,30 @@
+@@ -594,6 +754,30 @@
      return bytes_in_block_list(block_freelist);
  }
  
@@ -843,7 +840,7 @@ Index: src/main/alloc.c
  /*****************************************************************
   * POOL_DEBUG support
   */
-@@ -756,16 +940,31 @@
+@@ -759,16 +943,31 @@
  
      ap_block_alarms();
  
@@ -875,7 +872,7 @@ Index: src/main/alloc.c
  
      ap_unblock_alarms();
  
-@@ -882,6 +1081,11 @@
+@@ -885,6 +1084,11 @@
      size = cur_len << 1;
      if (size < AP_PSPRINTF_MIN_SIZE)
          size = AP_PSPRINTF_MIN_SIZE;
@@ -887,7 +884,7 @@ Index: src/main/alloc.c
      ptr = realloc(ps->base, size);
      if (ptr == NULL) {
  	fputs("Ouch!  Out of memory!\n", stderr);
-@@ -905,9 +1109,21 @@
+@@ -908,9 +1112,21 @@
          size = AP_PSPRINTF_MIN_SIZE;
  
      /* must try another blok */
@@ -909,7 +906,7 @@ Index: src/main/alloc.c
      memcpy(nblok->h.first_avail, blok->h.first_avail, cur_len);
      ps->vbuff.curpos = nblok->h.first_avail + cur_len;
      /* save a byte for the NUL terminator */
-@@ -916,10 +1132,18 @@
+@@ -919,10 +1135,18 @@
      /* did we allocate the current blok? if so free it up */
      if (ps->got_a_new_block) {
  	debug_fill(blok->h.first_avail, blok->h.endp - blok->h.first_avail);
@@ -928,7 +925,7 @@ Index: src/main/alloc.c
      }
      ps->blok = nblok;
      ps->got_a_new_block = 1;
-@@ -938,6 +1162,11 @@
+@@ -941,6 +1165,11 @@
      void *ptr;
  
      ap_block_alarms();
@@ -940,7 +937,7 @@ Index: src/main/alloc.c
      ps.base = malloc(512);
      if (ps.base == NULL) {
  	fputs("Ouch!  Out of memory!\n", stderr);
-@@ -950,6 +1179,11 @@
+@@ -953,6 +1182,11 @@
      *ps.vbuff.curpos++ = '\0';
      ptr = ps.base;
      /* shrink */
@@ -952,14 +949,24 @@ Index: src/main/alloc.c
      ptr = realloc(ptr, (char *)ps.vbuff.curpos - (char *)ptr);
      if (ptr == NULL) {
  	fputs("Ouch!  Out of memory!\n", stderr);
+@@ -1780,6 +2014,9 @@
+     cleanup_pool_for_exec(permanent_pool);
+     ap_unblock_alarms();
+ #endif /* ndef WIN32 */
++#ifdef EAPI
++    ap_kill_alloc_shared();
++#endif
+ }
+ 
+ API_EXPORT_NONSTD(void) ap_null_cleanup(void *data)
 
 +---------------------------------------------------------------------------
 | Patch the low-level buffer routines to additionally allow
 | modules to intercept the I/O processing via hooks.
 +---------------------------------------------------------------------------
 Index: src/main/buff.c
---- src/main/buff.c	27 Mar 2002 15:23:00 -0000	1.1.1.12
-+++ src/main/buff.c	27 Mar 2002 15:30:02 -0000	1.20
+--- src/main/buff.c	18 Jul 2003 15:44:34 -0000	1.1.1.13
++++ src/main/buff.c	18 Jul 2003 15:56:58 -0000	1.21
 @@ -293,6 +293,9 @@
      }
      else
@@ -1028,8 +1035,8 @@ Index: src/main/buff.c
 | variables are initialized.
 +---------------------------------------------------------------------------
 Index: src/main/http_config.c
---- src/main/http_config.c	4 Oct 2002 11:50:15 -0000	1.1.1.15
-+++ src/main/http_config.c	4 Oct 2002 11:54:56 -0000	1.18
+--- src/main/http_config.c	18 Jul 2003 15:44:34 -0000	1.1.1.16
++++ src/main/http_config.c	18 Jul 2003 15:56:58 -0000	1.19
 @@ -600,6 +600,20 @@
  	m->name = tmp;
      }
@@ -1131,8 +1138,8 @@ Index: src/main/http_config.c
 | is added plus the initialization of one more `ctx' variable.
 +---------------------------------------------------------------------------
 Index: src/main/http_main.c
---- src/main/http_main.c	4 Oct 2002 11:50:15 -0000	1.1.1.19
-+++ src/main/http_main.c	4 Oct 2002 11:54:56 -0000	1.41
+--- src/main/http_main.c	18 Jul 2003 15:44:35 -0000	1.1.1.20
++++ src/main/http_main.c	18 Jul 2003 15:56:58 -0000	1.42
 @@ -279,6 +279,9 @@
  
  int ap_dump_settings = 0;
@@ -1143,7 +1150,7 @@ Index: src/main/http_main.c
  
  /*
   * The max child slot ever assigned, preserved across restarts.  Necessary
-@@ -469,6 +472,30 @@
+@@ -471,6 +474,30 @@
      }
  }
  
@@ -1174,7 +1181,7 @@ Index: src/main/http_main.c
  #ifndef NETWARE
  static APACHE_TLS int volatile exit_after_unblock = 0;
  #endif
-@@ -1523,6 +1550,10 @@
+@@ -1577,6 +1604,10 @@
  	    ap_log_transaction(log_req);
  	}
  
@@ -1185,7 +1192,7 @@ Index: src/main/http_main.c
  	ap_bsetflag(save_req->connection->client, B_EOUT, 1);
  	ap_bclose(save_req->connection->client);
  	
-@@ -1531,6 +1562,9 @@
+@@ -1585,6 +1616,9 @@
          ap_longjmp(jmpbuffer, 1);
      }
      else {			/* abort the connection */
@@ -1195,7 +1202,7 @@ Index: src/main/http_main.c
  	ap_bsetflag(current_conn->client, B_EOUT, 1);
  	ap_bclose(current_conn->client);
  	current_conn->aborted = 1;
-@@ -1833,10 +1867,16 @@
+@@ -1887,10 +1921,16 @@
      /* Send any leftover data to the client, but never try to again */
  
      if (ap_bflush(r->connection->client) == -1) {
@@ -1212,7 +1219,7 @@ Index: src/main/http_main.c
      ap_bsetflag(r->connection->client, B_EOUT, 1);
  
      /* Close our half of the connection --- send the client a FIN */
-@@ -2566,6 +2606,9 @@
+@@ -2589,6 +2629,9 @@
      /* Clear the pool - including any registered cleanups */
      ap_destroy_pool(pglobal);
  #endif
@@ -1222,7 +1229,7 @@ Index: src/main/http_main.c
      exit(code);
  }
  
-@@ -3577,6 +3620,24 @@
+@@ -3608,6 +3651,24 @@
      conn->remote_addr = *remaddr;
      conn->remote_ip = ap_pstrdup(conn->pool,
  			      inet_ntoa(conn->remote_addr.sin_addr));
@@ -1247,7 +1254,7 @@ Index: src/main/http_main.c
  
      return conn;
  }
-@@ -4005,6 +4066,15 @@
+@@ -4043,6 +4104,15 @@
      printf("Server's Module Magic Number: %u:%u\n",
  	   MODULE_MAGIC_NUMBER_MAJOR, MODULE_MAGIC_NUMBER_MINOR);
      printf("Server compiled with....\n");
@@ -1263,7 +1270,7 @@ Index: src/main/http_main.c
  #ifdef TPF
      show_os_specific_compile_settings();
  #endif
-@@ -4175,6 +4245,22 @@
+@@ -4214,6 +4284,22 @@
      ap_server_pre_read_config  = ap_make_array(pcommands, 1, sizeof(char *));
      ap_server_post_read_config = ap_make_array(pcommands, 1, sizeof(char *));
      ap_server_config_defines   = ap_make_array(pcommands, 1, sizeof(char *));
@@ -1286,7 +1293,7 @@ Index: src/main/http_main.c
  }
  
  #ifndef MULTITHREAD
-@@ -4625,6 +4711,9 @@
+@@ -4675,6 +4761,9 @@
  
  	    ap_sync_scoreboard_image();
  	    if (ap_scoreboard_image->global.running_generation != ap_my_generation) {
@@ -1296,7 +1303,7 @@ Index: src/main/http_main.c
  		ap_bclose(conn_io);
  		clean_child_exit(0);
  	    }
-@@ -4653,6 +4742,9 @@
+@@ -4703,6 +4792,9 @@
  	 */
  
  #ifdef NO_LINGCLOSE
@@ -1306,7 +1313,7 @@ Index: src/main/http_main.c
  	ap_bclose(conn_io);	/* just close it */
  #else
  	if (r && r->connection
-@@ -4663,6 +4755,9 @@
+@@ -4713,6 +4805,9 @@
  	    lingering_close(r);
  	}
  	else {
@@ -1316,7 +1323,7 @@ Index: src/main/http_main.c
  	    ap_bsetflag(conn_io, B_EOUT, 1);
  	    ap_bclose(conn_io);
  	}
-@@ -5428,16 +5523,31 @@
+@@ -5483,16 +5578,31 @@
  	    usage(argv[0]);
  	}
      }
@@ -1348,7 +1355,7 @@ Index: src/main/http_main.c
      }
  
      child_timeouts = !ap_standalone || one_process;
-@@ -5585,6 +5695,10 @@
+@@ -5640,6 +5750,10 @@
  	    ap_destroy_pool(r->pool);
  	}
  
@@ -1359,7 +1366,7 @@ Index: src/main/http_main.c
  	ap_bclose(cio);
      }
      exit(0);
-@@ -5961,6 +6075,9 @@
+@@ -6016,6 +6130,9 @@
  	ap_kill_cleanups_for_socket(ptrans, csd);
  
  #ifdef NO_LINGCLOSE
@@ -1369,7 +1376,7 @@ Index: src/main/http_main.c
  	ap_bclose(conn_io);	/* just close it */
  #else
  	if (r && r->connection
-@@ -5971,6 +6088,9 @@
+@@ -6026,6 +6143,9 @@
  	    lingering_close(r);
  	}
  	else {
@@ -1379,7 +1386,7 @@ Index: src/main/http_main.c
  	    ap_bsetflag(conn_io, B_EOUT, 1);
  	    ap_bclose(conn_io);
  	}
-@@ -7539,6 +7659,10 @@
+@@ -7594,6 +7714,10 @@
      if (!conf_specified)
          ap_cpystrn(ap_server_confname, SERVER_CONFIG_FILE, sizeof(ap_server_confname));
  
@@ -1390,7 +1397,7 @@ Index: src/main/http_main.c
      if (!ap_os_is_path_absolute(ap_server_confname))
          ap_cpystrn(ap_server_confname,
                     ap_server_root_relative(pcommands, ap_server_confname),
-@@ -7578,6 +7702,9 @@
+@@ -7633,6 +7757,9 @@
      }
  #else /* ndef WIN32 */
      server_conf = ap_read_config(pconf, ptrans, ap_server_confname);
@@ -1406,9 +1413,9 @@ Index: src/main/http_main.c
 | conn_rec structures.
 +---------------------------------------------------------------------------
 Index: src/main/http_request.c
---- src/main/http_request.c	19 Jun 2002 07:20:26 -0000	1.1.1.15
-+++ src/main/http_request.c	19 Jun 2002 07:29:09 -0000	1.15
-@@ -1375,6 +1375,10 @@
+--- src/main/http_request.c	18 Jul 2003 15:44:36 -0000	1.1.1.16
++++ src/main/http_request.c	18 Jul 2003 15:56:58 -0000	1.16
+@@ -1398,6 +1398,10 @@
  
      new->method          = r->method;
      new->method_number   = r->method_number;
@@ -1425,9 +1432,9 @@ Index: src/main/http_request.c
 | request_rec structures.
 +---------------------------------------------------------------------------
 Index: src/main/http_protocol.c
---- src/main/http_protocol.c	4 Oct 2002 11:50:15 -0000	1.1.1.18
-+++ src/main/http_protocol.c	4 Oct 2002 11:54:56 -0000	1.18
-@@ -1203,6 +1203,10 @@
+--- src/main/http_protocol.c	18 Jul 2003 15:44:35 -0000	1.1.1.19
++++ src/main/http_protocol.c	18 Jul 2003 15:56:58 -0000	1.19
+@@ -1202,6 +1202,10 @@
      r->status          = HTTP_REQUEST_TIME_OUT;  /* Until we get a request */
      r->the_request     = NULL;
  
@@ -1438,7 +1445,7 @@ Index: src/main/http_protocol.c
  #ifdef CHARSET_EBCDIC
      ap_bsetflag(r->connection->client, B_ASCII2EBCDIC, r->ebcdic.conv_in  = 1);
      ap_bsetflag(r->connection->client, B_EBCDIC2ASCII, r->ebcdic.conv_out = 1);
-@@ -1359,6 +1363,11 @@
+@@ -1358,6 +1362,11 @@
      rnew->read_body       = REQUEST_NO_BODY;
  
      rnew->main = (request_rec *) r;
@@ -1455,8 +1462,8 @@ Index: src/main/http_protocol.c
 | Add support for loading both EAPI and AP13 modules.
 +---------------------------------------------------------------------------
 Index: src/modules/standard/mod_so.c
---- src/modules/standard/mod_so.c	27 Mar 2002 15:23:06 -0000	1.1.1.9
-+++ src/modules/standard/mod_so.c	27 Mar 2002 15:30:03 -0000	1.10
+--- src/modules/standard/mod_so.c	18 Jul 2003 15:44:39 -0000	1.1.1.10
++++ src/modules/standard/mod_so.c	18 Jul 2003 15:56:59 -0000	1.11
 @@ -269,11 +269,24 @@
       * Make sure the found module structure is really a module structure
       * 
@@ -1491,8 +1498,8 @@ Index: src/modules/standard/mod_so.c
 | one hook for creating new %x tags at all.
 +---------------------------------------------------------------------------
 Index: src/modules/standard/mod_log_config.c
---- src/modules/standard/mod_log_config.c	19 Jun 2002 07:20:30 -0000	1.1.1.13
-+++ src/modules/standard/mod_log_config.c	19 Jun 2002 07:29:09 -0000	1.26
+--- src/modules/standard/mod_log_config.c	18 Jul 2003 15:44:39 -0000	1.1.1.14
++++ src/modules/standard/mod_log_config.c	18 Jul 2003 15:56:59 -0000	1.27
 @@ -262,6 +262,9 @@
  typedef const char *(*item_key_func) (request_rec *, char *);
  
@@ -1584,9 +1591,9 @@ Index: src/modules/standard/mod_log_config.c
 | variables from other modules.
 +---------------------------------------------------------------------------
 Index: src/modules/standard/mod_rewrite.c
---- src/modules/standard/mod_rewrite.c	4 Oct 2002 11:50:18 -0000	1.1.1.16
-+++ src/modules/standard/mod_rewrite.c	4 Oct 2002 11:54:56 -0000	1.14
-@@ -3691,6 +3691,15 @@
+--- src/modules/standard/mod_rewrite.c	18 Jul 2003 15:44:39 -0000	1.1.1.17
++++ src/modules/standard/mod_rewrite.c	18 Jul 2003 15:56:59 -0000	1.15
+@@ -3883,6 +3883,15 @@
      }
  #endif /* ndef WIN32 && NETWARE*/
  
@@ -1608,29 +1615,40 @@ Index: src/modules/standard/mod_rewrite.c
 | the status HTML page.
 +---------------------------------------------------------------------------
 Index: src/modules/standard/mod_status.c
---- src/modules/standard/mod_status.c	27 Mar 2002 15:23:06 -0000	1.1.1.14
-+++ src/modules/standard/mod_status.c	27 Mar 2002 15:30:03 -0000	1.11
-@@ -717,6 +754,12 @@
- </table>\n", r);
- #endif
- 	}
-+
-+#ifdef EAPI
-+    ap_hook_use("ap::mod_status::display",
-+                AP_HOOK_SIG4(void,ptr,int,int), AP_HOOK_ALL,
-+                r, no_table_report, short_report);
+--- src/modules/standard/mod_status.c	18 Jul 2003 15:44:39 -0000	1.1.1.15
++++ src/modules/standard/mod_status.c	18 Jul 2003 15:56:59 -0000	1.12
+@@ -694,12 +720,23 @@
+ 			    ap_rprintf(r,
+ 			     "<td>?<td nowrap>?<td nowrap>..reading.. </tr>\n\n");
+ 			else
++#ifndef NO_PRETTYPRINT
++			    ap_rprintf(r,
++			     "<td nowrap><font face=\"Arial,Helvetica\" size=\"-1\">%s</font>"
++			     "<td nowrap><font face=\"Arial,Helvetica\" size=\"-1\">%s</font>"
++			     "<td nowrap><font face=\"Arial,Helvetica\" size=\"-1\">%s</font>"
++			     "</tr>\n\n",
++			     score_record.client,
++			     vhost ? vhost->server_hostname : "(unavailable)",
++			     ap_escape_html(r->pool, score_record.request));
++#else
+ 			    ap_rprintf(r,
+ 			     "<td>%s<td nowrap>%s<td nowrap>%s</tr>\n\n",
+ 			     ap_escape_html(r->pool, score_record.client),
+ 			     vhost ? ap_escape_html(r->pool, 
+ 				vhost->server_hostname) : "(unavailable)",
+ 			     ap_escape_html(r->pool, score_record.request));
 +#endif
- 
-     } else {
- 
+ 		    }		/* no_table_report */
+ 		}			/* !short_report */
+ 	    }			/* if (<active child>) */
 
 +---------------------------------------------------------------------------
 | Add hooks to the scheme processing to allow other modules to
 | recognize more schemes by intercepting this processing.
 +---------------------------------------------------------------------------
 Index: src/modules/proxy/mod_proxy.c
---- src/modules/proxy/mod_proxy.c	19 Jun 2002 07:20:27 -0000	1.1.1.12
-+++ src/modules/proxy/mod_proxy.c	19 Jun 2002 07:29:09 -0000	1.19
+--- src/modules/proxy/mod_proxy.c	18 Jul 2003 15:44:36 -0000	1.1.1.13
++++ src/modules/proxy/mod_proxy.c	18 Jul 2003 15:56:58 -0000	1.20
 @@ -218,6 +218,9 @@
  static int proxy_fixup(request_rec *r)
  {
@@ -1759,8 +1777,8 @@ Index: src/modules/proxy/mod_proxy.c
 | to enhance it by intercepting this processing.
 +---------------------------------------------------------------------------
 Index: src/modules/proxy/proxy_http.c
---- src/modules/proxy/proxy_http.c	4 Oct 2002 11:50:16 -0000	1.1.1.15
-+++ src/modules/proxy/proxy_http.c	4 Oct 2002 11:54:56 -0000	1.23
+--- src/modules/proxy/proxy_http.c	18 Jul 2003 15:44:37 -0000	1.1.1.16
++++ src/modules/proxy/proxy_http.c	18 Jul 2003 15:56:58 -0000	1.24
 @@ -170,6 +170,9 @@
      const char *datestr, *urlstr;
      int result, major, minor;
@@ -1851,9 +1869,9 @@ Index: src/modules/proxy/proxy_http.c
 | Add EAPI hooks in module structure for APXS generated samples.
 +---------------------------------------------------------------------------
 Index: src/support/apxs.pl
---- src/support/apxs.pl	19 Jun 2002 07:20:34 -0000	1.1.1.12
-+++ src/support/apxs.pl	19 Jun 2002 07:29:09 -0000	1.12
-@@ -711,5 +711,11 @@
+--- src/support/apxs.pl	18 Jul 2003 15:44:46 -0000	1.1.1.13
++++ src/support/apxs.pl	18 Jul 2003 15:56:59 -0000	1.13
+@@ -796,5 +796,11 @@
      NULL,                  /* child_init                          */
      NULL,                  /* child_exit                          */
      NULL                   /* [#0] post read-request              */
@@ -1871,9 +1889,9 @@ Index: src/support/apxs.pl
 | and similar braindead platforms as DSO.
 +---------------------------------------------------------------------------
 Index: src/support/httpd.exp
---- src/support/httpd.exp	19 Jun 2002 07:20:34 -0000	1.1.1.11
-+++ src/support/httpd.exp	19 Jun 2002 07:29:09 -0000	1.13
-@@ -427,3 +427,59 @@
+--- src/support/httpd.exp	18 Jul 2003 15:44:47 -0000	1.1.1.12
++++ src/support/httpd.exp	18 Jul 2003 15:56:59 -0000	1.14
+@@ -429,3 +429,59 @@
  XML_SetUnparsedEntityDeclHandler
  XML_SetUserData
  XML_UseParserAsHandlerArg

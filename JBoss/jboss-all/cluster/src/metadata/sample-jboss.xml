@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="Cp1252"?>
+
+<!-- ===================================================================== -->
+<!--                                                                       -->
+<!--  Sample Clustering jboss.xml Configuration                            -->
+<!--    Use this with testbean.jar.                                        -->
+<!-- ===================================================================== -->
+  <jboss>
+    <secure>false</secure>
+
+    <enterprise-beans>
+      <session>
+	<ejb-name>nextgen.StatelessSession</ejb-name>
+	<jndi-name>nextgen.StatelessSession</jndi-name>
+	<clustered>True</clustered>
+      </session>
+      <entity>
+	<ejb-name>nextgen.EnterpriseEntity</ejb-name>
+	<jndi-name>nextgen.EnterpriseEntity</jndi-name>
+	<clustered>True</clustered>
+      </entity>
+    </enterprise-beans>
+
+  </jboss>

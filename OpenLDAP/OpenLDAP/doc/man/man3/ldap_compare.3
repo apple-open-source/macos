@@ -1,9 +1,11 @@
-.TH LDAP_COMPARE 3 "22 September 1998" "OpenLDAP LDVERSION"
-.\" $OpenLDAP: pkg/ldap/doc/man/man3/ldap_compare.3,v 1.6 2002/01/04 20:17:34 kurt Exp $
-.\" Copyright 1998-2002 The OpenLDAP Foundation All Rights Reserved.
+.TH LDAP_COMPARE 3 "RELEASEDATE" "OpenLDAP LDVERSION"
+.\" $OpenLDAP: pkg/ldap/doc/man/man3/ldap_compare.3,v 1.6.2.4 2003/03/03 17:10:02 kurt Exp $
+.\" Copyright 1998-2003 The OpenLDAP Foundation All Rights Reserved.
 .\" Copying restrictions apply.  See COPYRIGHT/LICENSE.
 .SH NAME
 ldap_compare, ldap_compare_s \- Perform an LDAP compare operation
+.SH LIBRARY
+OpenLDAP LDAP (libldap, -lldap)
 .SH SYNOPSIS
 .nf
 .ft B
@@ -49,8 +51,8 @@ non-negative message id of the request if things went ok.
 .SH BUGS
 There is no way to compare binary values, but there should be.
 .SH SEE ALSO
-.BR ldap(3),
-.BR ldap_error(3)
+.BR ldap (3),
+.BR ldap_error (3)
 .SH ACKNOWLEDGEMENTS
 .B	OpenLDAP
 is developed and maintained by The OpenLDAP Project (http://www.openldap.org/).

@@ -1,0 +1,171 @@
+<!doctype html public "-//w3c//dtd html 4.0 transitional//en">
+<html>
+<head>
+   <meta http-equiv="Content-Type" content="text/html; charset=iso-8859-1">
+   <meta name="GENERATOR" content="Mozilla/4.61 [en] (WinNT; I) [Netscape]">
+   <meta name="Author" content="Anil K. Vijendran">
+   <title>JSP Examples</title>
+<!--
+  Copyright (c) 1999 The Apache Software Foundation.  All rights 
+  reserved.
+-->
+</head>
+<body bgcolor="#FFFFFF">
+<b><font face="Arial, Helvetica, sans-serif"><font size=+2>JSP
+Samples</font></font></b>
+<p>This is a collection of samples demonstrating the usage of different
+parts of the Java Server Pages (JSP) specification.
+<p>These examples will only work when these pages are being served by a
+servlet engine; of course, we recommend
+<a href="http://jakarta.apache.org/tomcat/">Tomcat</a>.
+They will not work if you are viewing these pages via a
+"file://..." URL.
+<p>To navigate your way through the examples, the following icons will
+help:
+<br>&nbsp;
+<table BORDER=0 CELLSPACING=5 WIDTH="85%" >
+<tr VALIGN=TOP>
+<td WIDTH="30"><img SRC="../images/execute.gif" ></td>
+
+<td>Execute the example</td>
+</tr>
+
+<tr VALIGN=TOP>
+<td WIDTH="30"><img SRC="../images/code.gif" height=24 width=24></td>
+
+<td>Look at the source code for the example</td>
+</tr>
+
+<tr VALIGN=TOP>
+<td WIDTH="30"><img SRC="../images/return.gif" height=24 width=24></td>
+
+<td>Return to this screen</td>
+</tr>
+</table>
+
+<p>Tip: For session scoped beans to work, the cookies must be enabled.
+This can be done using browser options.
+<br>&nbsp;
+<table BORDER=0 CELLSPACING=5 WIDTH="85%" >
+<tr VALIGN=TOP>
+<td>Numberguess&nbsp;</td>
+
+<td VALIGN=TOP WIDTH="30%"><a href="num/numguess.jsp"><img SRC="../images/execute.gif" HSPACE=4 BORDER=0  align=TOP></a><a href="num/numguess.jsp">Execute</a></td>
+
+<td WIDTH="30%"><a href="num/numguess.html"><img SRC="../images/code.gif" HSPACE=4 BORDER=0 height=24 width=24 align=TOP></a><a href="num/numguess.html">Source</a></td>
+</tr>
+
+<tr VALIGN=TOP>
+<td>Date&nbsp;</td>
+
+<td VALIGN=TOP WIDTH="30%"><a href="dates/date.jsp"><img SRC="../images/execute.gif" HSPACE=4 BORDER=0  align=TOP></a><a href="dates/date.jsp">Execute</a></td>
+
+<td WIDTH="30%"><a href="dates/date.html"><img SRC="../images/code.gif" HSPACE=4 BORDER=0 height=24 width=24 align=TOP></a><a href="dates/date.html">Source</a></td>
+</tr>
+
+<tr VALIGN=TOP>
+<td>Snoop</td>
+
+<td WIDTH="30%"><a href="snp/snoop.jsp"><img SRC="../images/execute.gif" HSPACE=4 BORDER=0  align=TOP></a><a href="snp/snoop.jsp">Execute</a></td>
+
+<td WIDTH="30%"><a href="snp/snoop.html"><img SRC="../images/code.gif" HSPACE=4 BORDER=0 height=24 width=24 align=TOP></a><a href="snp/snoop.html">Source</a></td>
+</tr>
+
+<tr VALIGN=TOP>
+<td>ErrorPage&nbsp;</td>
+
+<td WIDTH="30%"><a href="error/error.html"><img SRC="../images/execute.gif" HSPACE=4 BORDER=0  align=TOP></a><a href="error/error.html">Execute</a></td>
+
+<td WIDTH="30%"><a href="error/er.html"><img SRC="../images/code.gif" HSPACE=4 BORDER=0 height=24 width=24 align=TOP></a><a href="error/er.html">Source</a></td>
+</tr>
+
+<tr VALIGN=TOP>
+<td>Carts&nbsp;</td>
+
+<td VALIGN=TOP WIDTH="30%"><a href="sessions/carts.html"><img SRC="../images/execute.gif" HSPACE=4 BORDER=0  align=TOP></a><a href="sessions/carts.html">Execute</a></td>
+
+<td WIDTH="30%"><a href="sessions/crt.html"><img SRC="../images/code.gif" HSPACE=4 BORDER=0 height=24 width=24 align=TOP></a><a href="sessions/crt.html">Source</a></td>
+</tr>
+
+<tr VALIGN=TOP>
+<td>Checkbox&nbsp;</td>
+
+<td VALIGN=TOP WIDTH="30%"><a href="checkbox/check.html"><img SRC="../images/execute.gif" HSPACE=4 BORDER=0  align=TOP></a><a href="checkbox/check.html">Execute</a></td>
+
+<td WIDTH="30%"><a href="checkbox/cresult.html"><img SRC="../images/code.gif" HSPACE=4 BORDER=0 height=24 width=24 align=TOP></a><a href="checkbox/cresult.html">Source</a></td>
+</tr>
+
+<tr VALIGN=TOP>
+<td>Color&nbsp;</td>
+
+<td VALIGN=TOP WIDTH="30%"><a href="colors/colors.html"><img SRC="../images/execute.gif" HSPACE=4 BORDER=0  align=TOP></a><a href="colors/colors.html">Execute</a></td>
+
+<td WIDTH="30%"><a href="colors/clr.html.html"><img SRC="../images/code.gif" HSPACE=4 BORDER=0 height=24 width=24 align=TOP></a><a href="colors/clr.html">Source</a></td>
+</tr>
+
+<tr VALIGN=TOP>
+<td>Calendar&nbsp;</td>
+
+<td WIDTH="30%"><a href="cal/login.html"><img SRC="../images/execute.gif" HSPACE=4 BORDER=0  align=TOP></a><a href="cal/login.html">Execute</a></td>
+
+<td WIDTH="30%"><a href="cal/calendar.html"><img SRC="../images/code.gif" HSPACE=4 BORDER=0 height=24 width=24 align=TOP></a><a href="cal/calendar.html">Source</a></td>
+</tr>
+
+<tr VALIGN=TOP>
+<td>Include&nbsp;</td>
+
+<td VALIGN=TOP WIDTH="30%"><a href="/include/include.jsp"><img SRC="../images/execute.gif" HSPACE=4 BORDER=0  align=TOP></a><a href="include/include.jsp">Execute</a></td>
+
+<td WIDTH="30%"><a href="include/inc.html"><img SRC="../images/code.gif" HSPACE=4 BORDER=0 height=24 width=24 align=TOP></a><a href="include/inc.html">Source</a></td>
+</tr>
+
+<tr VALIGN=TOP>
+<td>Forward&nbsp;</td>
+
+<td VALIGN=TOP WIDTH="30%"><a href="forward/forward.jsp"><img SRC="../images/execute.gif" HSPACE=4 BORDER=0  align=TOP></a><a href="forward/forward.jsp">Execute</a></td>
+
+<td WIDTH="30%"><a href="forward/fwd.html"><img SRC="../images/code.gif" HSPACE=4 BORDER=0 height=24 width=24 align=TOP></a><a href="forward/fwd.html">Source</a></td>
+</tr>
+
+<tr VALIGN=TOP>
+<td>Plugin&nbsp;</td>
+
+<td VALIGN=TOP WIDTH="30%"><a href="plugin/plugin.jsp"><img SRC="../images/execute.gif" HSPACE=4 BORDER=0  align=TOP></a><a href="plugin/plugin.jsp">Execute</a></td>
+
+<td WIDTH="30%"><a href="plugin/plugin.html"><img SRC="../images/code.gif" HSPACE=4 BORDER=0 height=24 width=24 align=TOP></a><a href="plugin/plugin.html">Source</a></td>
+</tr>
+
+<tr VALIGN=TOP>
+<td>JSP-Servlet-JSP&nbsp;</td>
+
+<td VALIGN=TOP WIDTH="30%"><a href="jsptoserv/jsptoservlet.jsp"><img SRC="../images/execute.gif" HSPACE=4 BORDER=0  align=TOP></a><a href="jsptoserv/jsptoservlet.jsp">Execute</a></td>
+
+<td WIDTH="30%"><a href="jsptoserv/jts.html"><img SRC="../images/code.gif" HSPACE=4 BORDER=0 height=24 width=24 align=TOP></a><a href="jsptoserv/jts.html">Source</a></td>
+</tr>
+
+<tr VALIGN=TOP>
+<td>Simple custom tag example</td>
+
+<td VALIGN=TOP WIDTH="30%"><a href="simpletag/foo.jsp"><img SRC="../images/execute.gif" HSPACE=4 BORDER=0  align=TOP></a><a href="simpletag/foo.jsp">Execute</a></td>
+
+<td WIDTH="30%"><a href="simpletag/foo.html"><img SRC="../images/code.gif" HSPACE=4 BORDER=0 height=24 width=24 align=TOP></a><a href="simpletag/foo.html">Source</a></td>
+</tr>
+
+<tr valign=TOP>
+<td>Send mail example</td>
+<td valign=TOP width="30%"><a href="mail/sendmail.jsp"><img src="../images/execute.gif" hspace=4 border=0  align=top></a><a href="mail/sendmail.jsp">Execute</a></td>
+
+<td width="30%"><a href="mail/sendmail.html"><img SRC="../images/code.gif" HSPACE=4 BORDER=0 height=24 width=24 align=TOP></a><a href="mail/sendmail.html">Source</a></td>
+</tr>
+
+<tr valign=TOP>
+<td>XML syntax example</td>
+<td valign=TOP width="30%"><a href="xml/xml.jsp"><img src="../images/execute.gif" hspace=4 border=0  align=top></a><a href="xml/xml.jsp">Execute</a></td>
+
+<td width="30%"><a href="xml/xml.html"><img SRC="../images/code.gif" HSPACE=4 BORDER=0 height=24 width=24 align=TOP></a><a href="xml/xml.html">Source</a></td>
+</tr>
+
+</table>
+
+</body>
+</html>

@@ -2,8 +2,8 @@
 
   dbm.c -
 
-  $Author: jkh $
-  $Date: 2002/05/27 17:59:45 $
+  $Author: melville $
+  $Date: 2003/05/14 15:03:41 $
   created at: Mon Jan 24 15:59:52 JST 1994
 
   Copyright (C) 1995-2001 Yukihiro Matsumoto
@@ -224,7 +224,7 @@ fdbm_indexes(argc, argv, obj)
 
     new = rb_ary_new2(argc);
     for (i=0; i<argc; i++) {
-	rb_ary_push(new, fdbm_fetch(obj, argv[i]));
+	rb_ary_push(new, fdbm_fetch(obj, argv[i], Qnil));
     }
 
     return new;

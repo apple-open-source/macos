@@ -1,9 +1,9 @@
 /*
- * "$Id: hpgl-prolog.c,v 1.2 2002/06/27 16:36:52 gelphman Exp $"
+ * "$Id: hpgl-prolog.c,v 1.1.1.7 2002/12/24 00:06:58 jlovell Exp $"
  *
  *   HP-GL/2 prolog routines for for the Common UNIX Printing System (CUPS).
  *
- *   Copyright 1993-2002 by Easy Software Products.
+ *   Copyright 1993-2003 by Easy Software Products.
  *
  *   These coded instructions, statements, and computer programs are the
  *   property of Easy Software Products and are protected by Federal
@@ -72,7 +72,7 @@ OutputProlog(char  *title,	/* I - Job title */
   printf("%%%%CreationDate: %s\n", line);
   printf("%%%%Title: %s\n", title);
   printf("%%%%For: %s\n", user);
-  printf("%%ESPRotation: %d\n", (Orientation & 3) * 90);
+  printf("%%cupsRotation: %d\n", (Orientation & 3) * 90);
   puts("%%EndComments");
   puts("%%BeginProlog");
   printf("/DefaultPenWidth %.2f def\n", PenWidth * 72.0 / 25.4);
@@ -404,5 +404,5 @@ Outputf(const char *format,	/* I - Printf-style string */
 
 
 /*
- * End of "$Id: hpgl-prolog.c,v 1.2 2002/06/27 16:36:52 gelphman Exp $".
+ * End of "$Id: hpgl-prolog.c,v 1.1.1.7 2002/12/24 00:06:58 jlovell Exp $".
  */

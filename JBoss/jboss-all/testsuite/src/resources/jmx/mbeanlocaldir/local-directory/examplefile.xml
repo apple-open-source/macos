@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<!-- EXAMPLE META-INF/jboss-service.xml file for the connector stuff in deploy/lib
+	No classpath is specified here as it points to the same jsr file
+	You can nevertheless specify a URL classpath that points outside the jar
+	-->
+
+<server>
+  <mbean code="org.jboss.test.jmx.mbean.TestDeployer"
+	 name="test:name=TestDeployer"/>
+
+</server>

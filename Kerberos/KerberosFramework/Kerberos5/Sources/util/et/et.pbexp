@@ -1,0 +1,10 @@
+#
+# comerr library Macintosh export file
+#
+# $Header: /cvs/krbdev/krb5/src/util/et/et.pbexp,v 5.1 2002/07/03 22:40:42 tlyu Exp $
+
+_com_err
+_com_err_va
+_error_message
+_add_error_table
+_remove_error_table

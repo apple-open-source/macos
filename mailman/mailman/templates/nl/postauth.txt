@@ -1,0 +1,13 @@
+Als lijst administrator, wordt uw goedkeuring gevraagd voor de
+volgende mailinglijst zending:
+
+    Lijst:    %(listname)s@%(hostname)s
+    Van :     %(sender)s
+    Onderwerp: %(subject)s
+    Reden:  %(reason)s
+
+Bezoek:
+
+    %(admindb_url)s
+
+om het verzoek goed te keuren of te weigeren.

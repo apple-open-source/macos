@@ -1,6 +1,6 @@
-.TH LDAPMODIFY 1 "20 August 2001" "OpenLDAP LDVERSION"
-.\" $OpenLDAP: pkg/ldap/doc/man/man1/ldapmodify.1,v 1.32 2002/01/04 20:17:33 kurt Exp $
-.\" Copyright 1998-2002 The OpenLDAP Foundation All Rights Reserved.
+.TH LDAPMODIFY 1 "RELEASEDATE" "OpenLDAP LDVERSION"
+.\" $OpenLDAP: pkg/ldap/doc/man/man1/ldapmodify.1,v 1.32.2.9 2003/05/24 23:03:36 kurt Exp $
+.\" Copyright 1998-2003 The OpenLDAP Foundation All Rights Reserved.
 .\" Copying restrictions apply.  See COPYRIGHT/LICENSE.
 .SH NAME
 ldapmodify, ldapadd \- LDAP modify entry and LDAP add entry tools
@@ -11,7 +11,7 @@ ldapmodify, ldapadd \- LDAP modify entry and LDAP add entry tools
 [\c
 .BR \-c ]
 [\c
-.BR \-C ]
+.BI \-S \ file\fR]
 [\c
 .BR \-n ]
 [\c
@@ -30,6 +30,8 @@ ldapmodify, ldapadd \- LDAP modify entry and LDAP add entry tools
 .BR \-W ]
 [\c
 .BI \-w \ passwd\fR]
+[\c
+.BI \-y \ passwdfile\fR]
 [\c
 .BI \-H \ ldapuri\fR]
 [\c
@@ -47,6 +49,8 @@ ldapmodify, ldapadd \- LDAP modify entry and LDAP add entry tools
 [\c
 .BI \-U \ authcid\fR]
 [\c
+.BI \-R \ realm\fR]
+[\c
 .BR \-x ]
 [\c
 .BI \-X \ authzid\fR]
@@ -61,7 +65,7 @@ ldapmodify, ldapadd \- LDAP modify entry and LDAP add entry tools
 [\c
 .BR \-c ]
 [\c
-.BR \-C ]
+.BI \-S \ file\fR]
 [\c
 .BR \-n ]
 [\c
@@ -81,6 +85,8 @@ ldapmodify, ldapadd \- LDAP modify entry and LDAP add entry tools
 [\c
 .BI \-w \ passwd\fR]
 [\c
+.BI \-y \ passwdfile\fR]
+[\c
 .BI \-h \ ldaphost\fR]
 [\c
 .BI \-p \ ldapport\fR]
@@ -94,6 +100,8 @@ ldapmodify, ldapadd \- LDAP modify entry and LDAP add entry tools
 .BR \-Q ]
 [\c
 .BI \-U \ authcid\fR]
+[\c
+.BI \-R \ realm\fR]
 [\c
 .BR \-x ]
 [\c
@@ -129,14 +137,16 @@ is to modify existing entries.  If invoked as
 .BR ldapadd ,
 this flag is always set.
 .TP
-.B \-C
-Automatically chase referrals.
-.TP
 .B \-c
 Continuous operation mode.  Errors are reported, but
 .B ldapmodify
 will continue with modifications.  The default is to exit after
 reporting an error.
+.TP
+.BI \-S \ file
+Add or change records which where skipped due to an error are written to \fIfile\fP 
+and the error message returned by the server is added as a comment. Most useful in 
+conjunction with -c.
 .TP
 .B \-n
 Show what would be done, but don't actually modify entries.  Useful for
@@ -189,6 +199,10 @@ This is used instead of specifying the password on the command line.
 .BI \-w \ passwd
 Use \fIpasswd\fP as the password for simple authentication.
 .TP
+.BI \-y \ passwdfile
+Use complete contents of \fIpasswdfile\fP as the password for
+simple authentication.
+.TP
 .BI \-H \ ldapuri
 Specify URI(s) referring to the ldap server(s).
 .TP
@@ -215,6 +229,10 @@ Enable SASL Quiet mode.  Never prompt.
 .TP
 .BI \-U \ authcid
 Specify the authentication ID for SASL bind. The form of the ID
+depends on the actual SASL mechanism used.
+.TP
+.BI \-R \ realm
+Specify the realm of authentication ID for SASL bind. The form of the realm
 depends on the actual SASL mechanism used.
 .TP
 .BI \-X \ authzid
@@ -251,13 +269,13 @@ absence of any "replica:" lines.
 .LP
 If no "changetype:" line is present, the default is "add" if the -a
 flag is set (or if the program was invoked as
-.I ldapmodify)
+.I ldapadd)
 and "modify" otherwise.
 .LP
 If changetype is "modify" and no "add:", "replace:", or "delete:" lines
-appear, the default is "replace" for and "add"
+appear, the default is "replace" for
 .BR ldapmodify (1)
-for
+and "add" for
 .BR ldapadd (1).
 .LP
 Note that the above exceptions to the
@@ -323,7 +341,7 @@ exists and has the contents:
 the command:
 .LP
 .nf
-    ldapadd -f /tmp/entrymods
+    ldapadd -f /tmp/newentry
 .fi
 .LP
 will add a new entry for Babs Jensen, using the values from the
@@ -331,7 +349,7 @@ file
 .B /tmp/newentry.
 .LP
 Assuming that the file
-.B /tmp/newentry
+.B /tmp/entrymods
 exists and has the contents:
 .LP
 .nf

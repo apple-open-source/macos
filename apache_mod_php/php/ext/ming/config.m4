@@ -1,30 +1,62 @@
-dnl $Id: config.m4,v 1.1.1.2 2001/12/14 22:12:36 zarzycki Exp $
-dnl config.m4 for extension libming
+dnl
+dnl $Id: config.m4,v 1.1.1.4 2003/03/11 01:09:25 zarzycki Exp $
+dnl
 
-PHP_ARG_WITH(ming, whether to include ming support,
-[  --with-ming[=DIR]       Include ming support])
+PHP_ARG_WITH(ming, for MING support,
+[  --with-ming[=DIR]       Include MING support])
 
 if test "$PHP_MING" != "no"; then
+  AC_CHECK_LIB(m, sin)
+
   for i in $PHP_MING /usr/local /usr; do
-    if test -r $i/lib/libming.so; then
+    if test -f $i/lib/libming.$SHLIB_SUFFIX_NAME -o -f $i/lib/libming.a; then
       MING_DIR=$i
     fi
   done
 
   if test -z "$MING_DIR"; then
-    AC_MSG_ERROR(Please reinstall libming.so - I cannot find libming.so)
+    AC_MSG_ERROR(Please reinstall ming distribution. libming.(a|so) not found.)
   fi
 
-  PHP_ADD_INCLUDE($MING_DIR/include)
+  for i in $MING_DIR/include $MING_DIR/include/ming $MING_DIR/ming/include; do
+    if test -f $i/ming.h; then
+      MING_INC_DIR=$i
+    fi
+  done
 
-  PHP_SUBST(MING_SHARED_LIBADD)
-  PHP_ADD_LIBRARY_WITH_PATH(ming, $MING_DIR/lib, MING_SHARED_LIBADD)
+  if test -z "$MING_INC_DIR"; then
+    AC_MSG_ERROR(Please reinstall ming distribution. ming.h not found.)
+  fi
 
-  AC_CHECK_LIB(ming, Ming_setScale, [
+  PHP_CHECK_LIBRARY(ming, Ming_useSWFVersion, [
     AC_DEFINE(HAVE_MING,1,[ ])
   ],[
-    AC_MSG_ERROR(Ming library 0.1.0 or greater required.)
+    AC_MSG_ERROR([Ming library 0.2a or greater required.])
+  ],[
+    -L$MING_DIR/lib
   ])
+  
+  PHP_ADD_INCLUDE($MING_INC_DIR)
+  PHP_ADD_LIBRARY_WITH_PATH(ming, $MING_DIR/lib, MING_SHARED_LIBADD)
 
-  PHP_EXTENSION(ming, $ext_shared)
+  AC_MSG_CHECKING([for destroySWFBlock])
+  AC_TRY_RUN([
+#include "ming.h"
+int destroySWFBlock(int a, int b) {
+	return a+b;
+}
+int main() {
+	return destroySWFBlock(-1,1); /* returns 0 only if function is not yet defined */
+}
+  ],[
+    AC_MSG_RESULT([missing])
+  ],[
+    AC_DEFINE(HAVE_DESTROY_SWF_BLOCK,1,[ ])
+    AC_MSG_RESULT([ok])
+  ],[
+    AC_MSG_RESULT([unknown])
+  ]) 
+
+  PHP_NEW_EXTENSION(ming, ming.c, $ext_shared)
+  PHP_SUBST(MING_SHARED_LIBADD)
 fi

@@ -3,19 +3,22 @@
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
- * The contents of this file constitute Original Code as defined in and
- * are subject to the Apple Public Source License Version 1.1 (the
- * "License").  You may not use this file except in compliance with the
- * License.  Please obtain a copy of the License at
- * http://www.apple.com/publicsource and read it before using this file.
+ * Copyright (c) 1999-2003 Apple Computer, Inc.  All Rights Reserved.
  * 
- * This Original Code and all software distributed under the License are
- * distributed on an "AS IS" basis, WITHOUT WARRANTY OF ANY KIND, EITHER
+ * This file contains Original Code and/or Modifications of Original Code
+ * as defined in and that are subject to the Apple Public Source License
+ * Version 2.0 (the 'License'). You may not use this file except in
+ * compliance with the License. Please obtain a copy of the License at
+ * http://www.opensource.apple.com/apsl/ and read it before using this
+ * file.
+ * 
+ * The Original Code and all software distributed under the License are
+ * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
  * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
  * INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY,
- * FITNESS FOR A PARTICULAR PURPOSE OR NON-INFRINGEMENT.  Please see the
- * License for the specific language governing rights and limitations
- * under the License.
+ * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
+ * Please see the License for the specific language governing rights and
+ * limitations under the License.
  * 
  * @APPLE_LICENSE_HEADER_END@
  */
@@ -58,8 +61,8 @@ protected:
     UInt8                       _auxOutputMode;
     UInt8                       _masterVolumeBitCount;
 
-    virtual bool     probeAudioCodec();
-    virtual bool     probeModemCodec();
+    virtual bool     probeAudioCodec( void );
+    virtual bool     probeModemCodec( void );
 
 public:
     // Codec creation and destruction.
@@ -73,7 +76,7 @@ public:
                            CodecID                    codecID,
                            void *                     codecParam = 0 );
 
-    virtual void     free();
+    virtual void     free( void );
 
     // Handle client open/close.
 
@@ -86,13 +89,13 @@ public:
 
     // AC97 codec introspection.
 
-    inline CodecID   getCodecID() const
+    inline CodecID   getCodecID( void ) const
     { return _codecID; }
 
-    inline void *    getCodecParam() const
+    inline void *    getCodecParam( void ) const
     { return _codecParam; }
 
-    inline AppleIntelAC97Controller * getController() const
+    inline AppleIntelAC97Controller * getController( void ) const
     { return _controller; }
 
     // Raw codec register access.
@@ -109,13 +112,13 @@ public:
 
     // Audio codec functions.
 
-    virtual IOFixed  getOutputVolumeMinDB() const;
+    virtual IOFixed  getOutputVolumeMinDB( void ) const;
 
-	virtual IOFixed  getOutputVolumeMaxDB() const;
+    virtual IOFixed  getOutputVolumeMaxDB( void ) const;
 
-    virtual UInt32   getOutputVolumeMin() const;
+    virtual UInt32   getOutputVolumeMin( void ) const;
     
-    virtual UInt32   getOutputVolumeMax() const;
+    virtual UInt32   getOutputVolumeMax( void ) const;
 
     virtual void     setOutputVolumeLeft( UInt16 volume );
 
@@ -123,9 +126,27 @@ public:
 
     virtual void     setOutputVolumeMute( bool isMute );
 
+    virtual IOFixed  getInputGainMinDB( void ) const;
+
+    virtual IOFixed  getInputGainMaxDB( void ) const;
+
+    virtual UInt32   getInputGainMin( void ) const;
+    
+    virtual UInt32   getInputGainMax( void ) const;
+
+    virtual void     setInputGainLeft( UInt16 volume );
+
+    virtual void     setInputGainRight( UInt16 volume );
+
+    virtual void     selectInputSource( UInt8 sourceID );
+
     virtual IOReturn setDACSampleRate( UInt32 rate, UInt32 * actualRate = 0 );
 
-    virtual UInt32   getDACSampleRate() const;
+    virtual UInt32   getDACSampleRate( void ) const;
+
+    virtual IOReturn setADCSampleRate( UInt32 rate, UInt32 * actualRate = 0 );
+
+    virtual UInt32   getADCSampleRate( void ) const;
 
     // DMA channel status and control.
 

@@ -14,6 +14,7 @@
     NEXTSTEP_BUILDTOOL = /bin/gnumake; 
     NEXTSTEP_INSTALLDIR = /usr/bin; 
     NEXTSTEP_JAVA_COMPILER = /usr/bin/javac; 
+    NEXTSTEP_LINKEROPTIONS = -ledit; 
     NEXTSTEP_OBJCPLUS_COMPILER = /usr/bin/cc; 
     PDO_UNIX_BUILDTOOL = $NEXT_ROOT/Developer/bin/make; 
     PDO_UNIX_JAVA_COMPILER = "$(JDKBINDIR)/javac"; 

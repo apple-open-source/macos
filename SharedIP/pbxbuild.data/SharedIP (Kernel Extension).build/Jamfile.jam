@@ -7,6 +7,7 @@ JAVAC_SOURCE_FILE_ENCODING default = MacRoman ;
 export deferred DEVELOPMENT_LANGUAGE = English ;
 export deferred PROJECT = $(PROJECT_NAME) ;
 export deferred PROJECT_NAME = SharedIP ;
+export deferred SRCROOT = /Volumes/CellarDoor/Projects/SharedIP/SharedIP ;
 
 # User-defined project-wide settings for project
 
@@ -29,7 +30,7 @@ export deferred KERNEL_MODULE = YES ;
 export deferred MODULE_NAME = com.apple.nke.SharedIP ;
 export deferred MODULE_START = SIP_start ;
 export deferred MODULE_STOP = SIP_stop ;
-export deferred MODULE_VERSION = 1.3.0 ;
+export deferred MODULE_VERSION = 1.3.2 ;
 export deferred OTHER_CFLAGS = -Wno-format ;
 export deferred OTHER_LDFLAGS =  ;
 export deferred OTHER_REZFLAGS =  ;
@@ -87,6 +88,12 @@ ProcessRezFiles "<SharedIP>SharedIP.kext" : "$(REZ_FILES)" : BPTag004 : BPTag005
 # Script Build Phase Files
 SCRIPT_BUILD_PHASE_FILES = "$(SRCROOT)/pbxbuild.data/SharedIP (Kernel Extension).build/BPTag006-script.sh" ;
 ProcessScriptBuildPhaseFiles "<SharedIP>SharedIP.kext" : "$(SCRIPT_BUILD_PHASE_FILES)" : BPTag005 : BPTag006 ;
+
+rule DefineHeaderDependencies
+{
+}
+
+DefineHeaderDependencies "<SharedIP>SharedIP.kext" ;
 
 EndBundle "<SharedIP>SharedIP.kext" ;
 

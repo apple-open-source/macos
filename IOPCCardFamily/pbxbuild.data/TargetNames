@@ -1,13 +1,17 @@
 if [ "${Target}" = "IOPCCardFamily" ]; then
 	Targets='InstallHeaders
-ApplePMUPCCardEject
+InstallExamples
 IOPCCardFamily'
 elif [ "${Target}" = "InstallHeaders" ]; then
 	Targets='InstallHeaders'
+elif [ "${Target}" = "InstallExamples" ]; then
+	Targets='InstallExamples'
 elif [ "${Target}" = "ApplePMUPCCardEject" ]; then
 	Targets='ApplePMUPCCardEject'
+elif [ "${Target}" = "BuildHeaderDoc" ]; then
+	Targets='BuildHeaderDoc'
 else
 	Targets='InstallHeaders
-ApplePMUPCCardEject
+InstallExamples
 IOPCCardFamily'
 fi

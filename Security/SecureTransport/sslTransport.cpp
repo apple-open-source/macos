@@ -92,8 +92,8 @@ SSLWrite(
 	    	 */
 			sslIoTrace("SSLWrite", dataLength, 0, badReqErr);
 	    	return badReqErr;
-	    case SSL2_HdskStateServerReady:
-	    case SSL2_HdskStateClientReady:
+	    case SSL_HdskStateServerReady:
+	    case SSL_HdskStateClientReady:
 			break;
 	}
 	
@@ -311,16 +311,6 @@ SSLHandshake(SSLContext *ctx)
     if (ctx->state == SSL_HdskStateErrorClose)
         return errSSLClosedAbort;
     
-    if(ctx->protocolSide == SSL_ServerSide) {
-    	/* some things the caller really has to have done by now... */
-    	if((ctx->localCert == NULL) ||
-    	   (ctx->signingPrivKey == NULL) ||
-    	   (ctx->signingPubKey == NULL) ||
-    	   (ctx->signingKeyCsp == 0)) {
-    	 	sslErrorLog("SSLHandshake: insufficient init\n");
-    	 	return badReqErr;
-    	}
-    }
     if(ctx->validCipherSpecs == NULL) {
     	/* build list of legal cipherSpecs */
     	err = sslBuildCipherSpecArray(ctx);
@@ -367,7 +357,7 @@ SSLHandshakeProceed(SSLContext *ctx)
 
 static OSStatus
 SSLInitConnection(SSLContext *ctx)
-{   OSStatus      err;
+{   OSStatus      err = noErr;
     
     if (ctx->protocolSide == SSL_ClientSide) {
         SSLChangeHdskState(ctx, SSL_HdskStateClientUninit);
@@ -383,34 +373,43 @@ SSLInitConnection(SSLContext *ctx)
     }
     
 	/* 
-	 * If we have a cached resumable session, blow it off if it's a higher
-	 * version than the max currently allowed. Note that this means that once
-	 * a process negotiates a given version with a given server/port, it won't
-	 * be able to negotiate a higher version. We might want to revisit this.
+	 * If we have a cached resumable session, blow it off if it's a version
+	 * which is not currently enabled.
 	 */
+	Boolean cachedV3OrTls1 = false;
+	
     if (ctx->resumableSession.data != 0) {
     
 		SSLProtocolVersion savedVersion;
+		Boolean enable;
 		
 		if ((err = SSLRetrieveSessionProtocolVersion(ctx->resumableSession,
 				&savedVersion, ctx)) != 0) {
             return err;
 		}
-		if(savedVersion > ctx->maxProtocolVersion) {
+		switch(savedVersion) {
+			case SSL_Version_2_0:
+				enable = ctx->versionSsl2Enable;
+				break;
+			case SSL_Version_3_0:
+				enable = ctx->versionSsl3Enable;
+				cachedV3OrTls1 = true;		// avoid V2 hello
+				break;
+			case TLS_Version_1_0:
+				enable = ctx->versionTls1Enable;
+				cachedV3OrTls1 = true;	
+				break;
+			default:
+				assert(0);
+				return errSSLInternal;
+		}
+		if(!enable) {
 			sslLogResumSessDebug("===Resumable session protocol mismatch");
 			SSLFreeBuffer(ctx->resumableSession, ctx);
+			cachedV3OrTls1 = false;
 		} 
 		else {
 			sslLogResumSessDebug("===attempting to resume session");
-			/*
-			 * A bit of a special case for server side here. If currently 
-			 * configged to allow for SSL3/TLS1 with an SSL2 hello, we 
-			 * don't want to preclude the possiblity of an SSL2 hello...
-			 * so we'll just leave the negProtocolVersion alone in the server case.
-			 */
-			if(ctx->protocolSide == SSL_ClientSide) {
-				ctx->negProtocolVersion = savedVersion;
-			}
 		}
     }
     
@@ -419,28 +418,18 @@ SSLInitConnection(SSLContext *ctx)
 	 *  pretending we just received a hello request
 	 */
     if (ctx->state == SSL_HdskStateClientUninit && ctx->writeCipher.ready == 0)
-    {   switch (ctx->negProtocolVersion)
-        {   case SSL_Version_Undetermined:
-            case SSL_Version_3_0_With_2_0_Hello:
-            case SSL_Version_2_0:
-                if ((err = SSL2AdvanceHandshake(
-						SSL2_MsgKickstart, ctx)) != 0)
-                    return err;
-                break;
-            case SSL_Version_3_0_Only:
-            case SSL_Version_3_0:
-            case TLS_Version_1_0_Only:
-            case TLS_Version_1_0:
-                if ((err = SSLAdvanceHandshake(SSL_HdskHelloRequest, ctx)) != 0)
-                    return err;
-                break;
-            default:
-                sslErrorLog("Bad protocol version\n");
-                return errSSLInternal;
-        }
+    {   
+		assert(ctx->negProtocolVersion == SSL_Version_Undetermined);
+		if(ctx->versionSsl2Enable && !cachedV3OrTls1) {
+			/* SSL2 client hello with possible upgrade */
+			err = SSL2AdvanceHandshake(SSL2_MsgKickstart, ctx);
+		}
+		else {
+			err = SSLAdvanceHandshake(SSL_HdskHelloRequest, ctx);
+		}
     }
     
-    return noErr;
+    return err;
 }
 
 static OSStatus
@@ -468,7 +457,6 @@ SSLServiceWriteQueue(SSLContext *ctx)
         }
         if (err)
             return err;
-        assert(ctx->recordWriteQueue == 0 || ctx->recordWriteQueue->sent == 0);
     }
 
     return werr;

@@ -1,4 +1,4 @@
-/* Copyright (c) 1993-2000
+/* Copyright (c) 1993-2002
  *      Juergen Weigert (jnweiger@immd4.informatik.uni-erlangen.de)
  *      Michael Schroeder (mlschroe@immd4.informatik.uni-erlangen.de)
  * Copyright (c) 1987 Oliver Laumann
@@ -22,7 +22,7 @@
  */
 
 #include "rcs.h"
-RCS_ID("$Id: utmp.c,v 1.1.1.1 2001/12/14 22:08:29 bbraun Exp $ FAU")
+RCS_ID("$Id: utmp.c,v 1.1.1.2 2003/03/19 21:16:19 landonf Exp $ FAU")
 
 
 #include <sys/types.h>
@@ -198,6 +198,7 @@ int how;
 	    Msg(0, "This window is now logged in.");
 	  else
 	    Msg(0, "This window should now be logged in.");
+	  WindowChanged(fore, 'f');
 	}
       else
 	Msg(0, "This window is already logged in.");
@@ -223,6 +224,7 @@ int how;
 #ifdef CAREFULUTMP
 	  CarefulUtmp();
 #endif
+	  WindowChanged(fore, 'f');
 	}
     }
 }
@@ -403,14 +405,14 @@ int
 SetUtmp(wi)
 struct win *wi;
 {
-  register char *p;
   register slot_t slot;
   struct utmp u;
   int saved_ut;
 #ifdef UTHOST
+  char *p;
   char host[sizeof(D_loginhost) + 15];
 #else
-  int host = 0;
+  char *host = 0;
 #endif /* UTHOST */
 
   wi->w_slot = (slot_t)0;
@@ -830,7 +832,7 @@ getttyent()
 char *
 getlogin()
 {
-  char *tty;
+  char *tty = NULL;
 #ifdef utmp
 # undef utmp
 #endif

@@ -3,19 +3,22 @@
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
- * The contents of this file constitute Original Code as defined in and
- * are subject to the Apple Public Source License Version 1.1 (the
- * "License").  You may not use this file except in compliance with the
- * License.  Please obtain a copy of the License at
- * http://www.apple.com/publicsource and read it before using this file.
+ * Copyright (c) 1999-2003 Apple Computer, Inc.  All Rights Reserved.
  * 
- * This Original Code and all software distributed under the License are
- * distributed on an "AS IS" basis, WITHOUT WARRANTY OF ANY KIND, EITHER
+ * This file contains Original Code and/or Modifications of Original Code
+ * as defined in and that are subject to the Apple Public Source License
+ * Version 2.0 (the 'License'). You may not use this file except in
+ * compliance with the License. Please obtain a copy of the License at
+ * http://www.opensource.apple.com/apsl/ and read it before using this
+ * file.
+ * 
+ * The Original Code and all software distributed under the License are
+ * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
  * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
  * INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY,
- * FITNESS FOR A PARTICULAR PURPOSE OR NON-INFRINGEMENT.  Please see the
- * License for the specific language governing rights and limitations
- * under the License.
+ * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
+ * Please see the License for the specific language governing rights and
+ * limitations under the License.
  * 
  * @APPLE_LICENSE_HEADER_END@
  */
@@ -876,6 +879,12 @@ dhcpoa_init_no_end(dhcpoa_t * oa_p, void * buffer, int size)
     return;
 }
 
+int
+dhcpoa_size(dhcpoa_t * oa_p)
+{
+    return (oa_p->oa_size);
+}
+
 void
 dhcpoa_init(dhcpoa_t * oa_p, void * buffer, int size)
 {
@@ -883,6 +892,45 @@ dhcpoa_init(dhcpoa_t * oa_p, void * buffer, int size)
     dhcpoa_init_common(oa_p, buffer, size, 1);
     return;
 }
+
+dhcpoa_ret_t
+dhcpoa_vendor_add(dhcpoa_t * oa_p, dhcpoa_t * vendor_oa_p,
+		  dhcptag_t tag, int len, void * option)
+{
+    int			freespace;
+    dhcpoa_ret_t	ret = dhcpoa_success_e;
+
+    oa_p->oa_err[0] = '\0';
+
+    if (len > (DHCP_OPTION_SIZE_MAX - OPTION_OFFSET)) {
+	sprintf(vendor_oa_p->oa_err, "tag %d option %d > %d", tag, len, 
+		DHCP_OPTION_SIZE_MAX - OPTION_OFFSET);
+	return (dhcpoa_failed_e);
+    }
+    freespace = dhcpoa_freespace(vendor_oa_p) - OPTION_OFFSET;
+    if (freespace < len) {
+	/* add the vendor-specific options to the packet to make room */
+	ret = dhcpoa_add(oa_p, dhcptag_vendor_specific_e,
+			 dhcpoa_used(vendor_oa_p),
+			 dhcpoa_buffer(vendor_oa_p));
+	if (ret != dhcpoa_success_e) {
+	    sprintf(vendor_oa_p->oa_err, "tag %d option %d > %d",
+		    tag, len, freespace);
+	    goto failed;
+	}
+	freespace = dhcpoa_freespace(oa_p) - OPTION_OFFSET;
+	if (freespace > dhcpoa_size(vendor_oa_p)) {
+	    freespace = dhcpoa_size(vendor_oa_p);
+	}
+	dhcpoa_init_no_end(vendor_oa_p, dhcpoa_buffer(vendor_oa_p),
+			   freespace);
+    }
+    ret = dhcpoa_add(vendor_oa_p, tag, len, option);
+
+ failed:
+    return (ret);
+}
+
 
 /*
  * Function: dhcpoa_add
@@ -1117,17 +1165,22 @@ struct test tests[] = {
 };
 
 
+char test_string_253[253] = "test string 253 characters long (zero padded)";
+
 static char buf[2048];
+static char vend_buf[255];
 
 int
 main()
 {
     int 	i;
     dhcpol_t 	options;
+    dhcpol_t	vendor_options;
     char	error[256];
     struct dhcp * pkt = (struct dhcp *)buf;
 
     dhcpol_init(&options);
+    dhcpol_init(&vendor_options);
 
     for (i = 0; tests[i].name; i++) {
 	printf("\nTest %d: ", i);
@@ -1152,10 +1205,12 @@ main()
     {
 	struct in_addr	iaddr;
 	dhcpoa_t	opts;
+	dhcpoa_t	vend_opts;
 	char		err[256];
 	unsigned char * str;
 
 	dhcpoa_init(&opts, buf, sizeof(buf));
+	dhcpoa_init_no_end(&vend_opts, vend_buf, sizeof(vend_buf));
 	
 	iaddr.s_addr = inet_addr("255.255.252.0");
 	if (dhcpoa_add(&opts, dhcptag_subnet_mask_e, sizeof(iaddr),
@@ -1179,6 +1234,23 @@ main()
 	    printf("couldn't add domain name tag, %s\n", dhcpoa_err(&opts));
 	    exit(1);
 	}
+	for (i = 0; i < 253; i++) {
+	    if (dhcpoa_vendor_add(&opts, &vend_opts, i+1, 
+				  i,
+				  test_string_253) != dhcpoa_success_e) {
+		printf("couldn't add vendor option, %s\n", 
+		       dhcpoa_err(&vend_opts));
+		break;
+	    }
+	}
+	if (dhcpoa_used(&vend_opts) > 0) {
+	    if (dhcpoa_add(&opts, dhcptag_vendor_specific_e,
+			   dhcpoa_used(&vend_opts), dhcpoa_buffer(&vend_opts))
+		!= dhcpoa_success_e) {
+		printf("couldn't add vendor options, %s\n", dhcpoa_err(&opts));
+		exit(1);
+	    }
+	}
 	if (dhcpoa_add(&opts, dhcptag_end_e, 0, 0) != dhcpoa_success_e) {
 	    printf("couldn't add end tag, %s\n", dhcpoa_err(&opts));
 	    exit(1);
@@ -1201,7 +1273,14 @@ main()
 		printf("Found router option %s\n", inet_ntoa(*iaddr));
 	    }
 	}
+	if (dhcpol_parse_vendor(&vendor_options, &options, NULL)) {
+	    printf("vendor parsed ok\n");
+	}
+	else {
+	    printf("parse vendor failed\n");
+	}
 	dhcpol_free(&options);
+	dhcpol_free(&vendor_options);
     }
     exit(0);
 }

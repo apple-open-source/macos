@@ -1,0 +1,52 @@
+KerberosIntermediates = "$(BUILT_PRODUCTS_DIR)/Kerberos.intermediates" ;
+KerberosPBExport = "$(KerberosIntermediates)/Kerberos.pbexp" ;
+KerberosCWExport = "$(KerberosIntermediates)/Kerberos.exp" ;
+
+rule ConvertPBToCWExport
+{
+    DEPENDS "$(1)" : "$(2)" ;
+    Clean.Remove clean : "$(1)" ;
+}
+
+actions ConvertPBToCWExport
+{
+    mkdir -p "$(1:D)"
+    cat "$(2)" | tr -d " \t" | sed -e "s/^_//" -e "s/^#.*//" | tr -s "\n" | sort | uniq > "$(1)" ; 
+}
+
+rule MakePBExport
+{
+    DEPENDS "$(1)" : "$(2)" ;
+    Clean.Remove clean : "$(1)" ;
+}
+
+actions MakePBExport
+{
+    mkdir -p "$(1:D)"
+    cat "$(2)" | tr -d " \t" | sed -e "s/^#.*//" | tr -s "\n" | sort | uniq > "$(1)" ;
+}
+
+MakePBExport "$(KerberosPBExport)" :
+    "$(SRCROOT)/../../KerberosErrors/Projects/KerberosErrors.pbexp" 
+    "$(SRCROOT)/../../KerberosPreferences/Projects/KerberosPreferences.pbexp"
+    "$(SRCROOT)/../../CredentialsCache/Projects/CredentialsCache.pbexp" 
+    "$(SRCROOT)/../../CredentialsCache/Projects/CCacheVector.pbexp" 
+    "$(SRCROOT)/../../Kerberos5/Projects/KerberosDES.pbexp" 
+    "$(SRCROOT)/../../Kerberos5/Projects/KerberosProfile.pbexp" 
+    "$(SRCROOT)/../../Kerberos5/Projects/Kerberos5.pbexp" 
+    "$(SRCROOT)/../../Kerberos5/Projects/GSS.pbexp" 
+    "$(SRCROOT)/../../Kerberos5/Projects/Kerberos4.pbexp" 
+    "$(SRCROOT)/../../KerberosLogin/Projects/KerberosLogin.pbexp" 
+    "$(SRCROOT)/../../KerberosLogin/Projects/KerberosLoginPrivate.pbexp" 
+    "$(SRCROOT)/../../KClient/Projects/KClient.pbexp" 
+    "$(SRCROOT)/../../KClient/Projects/KClientCompat.pbexp" 
+    "$(SRCROOT)/../../KClient/Projects/KClientDeprecated.pbexp" 
+    ;
+
+ConvertPBToCWExport "$(KerberosCWExport)" : "$(KerberosPBExport)" ;
+
+DEPENDS all : "$(KerberosPBExport)" "$(KerberosCWExport)" ;
+DEPENDS install : all ;
+
+NOCARE installhdrs ;
+NOTFILE installhdrs ;

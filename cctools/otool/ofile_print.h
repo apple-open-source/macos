@@ -3,8 +3,6 @@
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
- * Copyright (c) 1999-2003 Apple Computer, Inc.  All Rights Reserved.
- * 
  * This file contains Original Code and/or Modifications of Original Code
  * as defined in and that are subject to the Apple Public Source License
  * Version 2.0 (the 'License'). You may not use this file except in
@@ -97,9 +95,9 @@ extern void print_toc(
     struct dylib_module *mods,
     unsigned long nmods,
     struct nlist *symbols,
-    long nsymbols,
+    unsigned long nsymbols,
     char *strings,
-    long strings_size,
+    unsigned long strings_size,
     enum bool verbose);
 
 extern void print_module_table(
@@ -111,9 +109,9 @@ extern void print_module_table(
     struct dylib_module *mods,
     unsigned long nmods,
     struct nlist *symbols,
-    long nsymbols,
+    unsigned long nsymbols,
     char *strings,
-    long strings_size,
+    unsigned long strings_size,
     enum bool verbose);
 
 void print_refs(
@@ -127,9 +125,9 @@ void print_refs(
     struct dylib_module *mods,
     unsigned long nmods,
     struct nlist *symbols,
-    long nsymbols,
+    unsigned long nsymbols,
     char *strings,
-    long strings_size,
+    unsigned long strings_size,
     enum bool verbose);
 
 extern void print_indirect_symbols(
@@ -141,9 +139,9 @@ extern void print_indirect_symbols(
     unsigned long *indirect_symbols,
     unsigned long nindirect_symbols,
     struct nlist *symbols,
-    long nsymbols,
+    unsigned long nsymbols,
     char *strings,
-    long strings_size,
+    unsigned long strings_size,
     enum bool verbose);
 
 extern void print_hints(
@@ -155,9 +153,9 @@ extern void print_hints(
     struct twolevel_hint *hints,
     unsigned long nhints,
     struct nlist *symbols,
-    long nsymbols,
+    unsigned long nsymbols,
     char *strings,
-    long strings_size,
+    unsigned long strings_size,
     enum bool verbose);
 
 extern void print_segment_command(

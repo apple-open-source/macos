@@ -1,4 +1,4 @@
-/* Copyright (c) 1993-2000
+/* Copyright (c) 1993-2002
  *      Juergen Weigert (jnweiger@immd4.informatik.uni-erlangen.de)
  *      Michael Schroeder (mlschroe@immd4.informatik.uni-erlangen.de)
  * Copyright (c) 1987 Oliver Laumann
@@ -22,7 +22,7 @@
  */
 
 #include "rcs.h"
-RCS_ID("$Id: loadav.c,v 1.1.1.1 2001/12/14 22:08:29 bbraun Exp $ FAU")
+RCS_ID("$Id: loadav.c,v 1.1.1.2 2003/03/19 21:16:18 landonf Exp $ FAU")
 
 #include <sys/types.h>
 #include <fcntl.h>
@@ -72,15 +72,42 @@ static int
 GetLoadav()
 {
   FILE *fp;
-  double d[3];
+  char buf[128], *s;
   int i;
+  double d, e;
 
   if ((fp = secfopen("/proc/loadavg", "r")) == NULL)
     return 0;
-  fscanf(fp, "%lf %lf %lf\n", d, d + 1, d + 2);
+  *buf = 0;
+  fgets(buf, sizeof(buf), fp);
   fclose(fp);
+  /* can't use fscanf because the decimal point symbol depends on
+   * the locale but the kernel uses always '.'.
+   */
+  s = buf;
   for (i = 0; i < (LOADAV_NUM > 3 ? 3 : LOADAV_NUM); i++)
-    loadav[i] = d[i];
+    {
+      d = e = 0;
+      while(*s == ' ')
+	s++;
+      if (*s == 0)
+	break;
+      for(;;)
+	{
+	  if (*s == '.') 
+	    e = 1;
+	  else if (*s >= '0' && *s <= '9') 
+	    {
+	      d = d * 10 + (*s - '0'); 
+	      if (e)
+		e *= 10;
+	    }
+	  else    
+	    break;
+	  s++;    
+	}
+      loadav[i] = e ? d / e : d;
+    }
   return i;
 }
 #endif /* linux */
@@ -283,9 +310,11 @@ InitLoadav()
       close(kmemf);
       return;
     }
-# ifdef sgi
+# if 0		/* no longer needed (Al.Smith@aeschi.ch.eu.org) */
+#  ifdef sgi
   nl[0].n_value &= (unsigned long)-1 >> 1;	/* clear upper bit */
-# endif /* sgi */
+#  endif /* sgi */
+# endif
   debug1("AvenrunSym found (0x%lx)!!\n", nl[0].n_value);
   loadok = 1;
 }

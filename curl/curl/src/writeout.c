@@ -1,28 +1,37 @@
-/*****************************************************************************
+/***************************************************************************
  *                                  _   _ ____  _     
  *  Project                     ___| | | |  _ \| |    
  *                             / __| | | | |_) | |    
  *                            | (__| |_| |  _ <| |___ 
  *                             \___|\___/|_| \_\_____|
  *
- * Copyright (C) 2000, Daniel Stenberg, <daniel@haxx.se>, et al.
+ * Copyright (C) 1998 - 2002, Daniel Stenberg, <daniel@haxx.se>, et al.
  *
- * In order to be useful for every potential user, curl and libcurl are
- * dual-licensed under the MPL and the MIT/X-derivate licenses.
- *
+ * This software is licensed as described in the file COPYING, which
+ * you should have received as part of this distribution. The terms
+ * are also available at http://curl.haxx.se/docs/copyright.html.
+ * 
  * You may opt to use, copy, modify, merge, publish, distribute and/or sell
  * copies of the Software, and permit persons to whom the Software is
- * furnished to do so, under the terms of the MPL or the MIT/X-derivate
- * licenses. You may pick one of these licenses.
+ * furnished to do so, under the terms of the COPYING file.
  *
  * This software is distributed on an "AS IS" basis, WITHOUT WARRANTY OF ANY
  * KIND, either express or implied.
  *
- * $Id: writeout.c,v 1.1.1.2 2001/04/24 18:49:16 wsanchez Exp $
- *****************************************************************************/
+ * $Id: writeout.c,v 1.1.1.3 2002/11/26 19:08:07 zarzycki Exp $
+ ***************************************************************************/
+
+#include "setup.h"
 
 #include <stdio.h>
 #include <string.h>
+
+#ifdef HAVE_SYS_TYPES_H
+#include <sys/types.h>
+#endif
+#ifdef HAVE_SYS_SELECT_H
+#include <sys/select.h>
+#endif
 
 #include <curl/curl.h>
 
@@ -37,6 +46,7 @@ typedef enum {
   VAR_NAMELOOKUP_TIME,
   VAR_CONNECT_TIME,
   VAR_PRETRANSFER_TIME,
+  VAR_STARTTRANSFER_TIME,
   VAR_SIZE_DOWNLOAD,
   VAR_SIZE_UPLOAD,
   VAR_SPEED_DOWNLOAD,
@@ -45,11 +55,12 @@ typedef enum {
   VAR_HEADER_SIZE,
   VAR_REQUEST_SIZE,
   VAR_EFFECTIVE_URL,
+  VAR_CONTENT_TYPE,
   VAR_NUM_OF_VARS /* must be the last */
 } replaceid;
 
 struct variable {
-  char *name;
+  const char *name;
   replaceid id;
 };
 
@@ -61,13 +72,15 @@ static struct variable replacements[]={
   {"time_namelookup", VAR_NAMELOOKUP_TIME},
   {"time_connect", VAR_CONNECT_TIME},
   {"time_pretransfer", VAR_PRETRANSFER_TIME},
+  {"time_starttransfer", VAR_STARTTRANSFER_TIME},
   {"size_header", VAR_HEADER_SIZE},
   {"size_request", VAR_REQUEST_SIZE},
   {"size_download", VAR_SIZE_DOWNLOAD},
   {"size_upload", VAR_SIZE_UPLOAD},
   {"speed_download", VAR_SPEED_DOWNLOAD},
   {"speed_upload", VAR_SPEED_UPLOAD},
-  {NULL}
+  {"content_type", VAR_CONTENT_TYPE},
+  {NULL, 0}
 };
 
 void ourWriteOut(CURL *curl, char *writeinfo)
@@ -98,8 +111,9 @@ void ourWriteOut(CURL *curl, char *writeinfo)
             if(strequal(ptr, replacements[i].name)) {
               switch(replacements[i].id) {
               case VAR_EFFECTIVE_URL:
-                if(CURLE_OK ==
-                   curl_easy_getinfo(curl, CURLINFO_EFFECTIVE_URL, &stringp))
+                if((CURLE_OK ==
+                    curl_easy_getinfo(curl, CURLINFO_EFFECTIVE_URL, &stringp))
+                   && stringp)
                   fputs(stringp, stream);
                 break;
               case VAR_HTTP_CODE:
@@ -138,6 +152,11 @@ void ourWriteOut(CURL *curl, char *writeinfo)
                    curl_easy_getinfo(curl, CURLINFO_PRETRANSFER_TIME, &doubleinfo))
                   fprintf(stream, "%.3f", doubleinfo);
                 break;
+              case VAR_STARTTRANSFER_TIME:
+                if(CURLE_OK ==
+                   curl_easy_getinfo(curl, CURLINFO_STARTTRANSFER_TIME, &doubleinfo))
+                  fprintf(stream, "%.3f", doubleinfo);
+                break;
               case VAR_SIZE_UPLOAD:
                 if(CURLE_OK ==
                    curl_easy_getinfo(curl, CURLINFO_SIZE_UPLOAD, &doubleinfo))
@@ -157,6 +176,12 @@ void ourWriteOut(CURL *curl, char *writeinfo)
                 if(CURLE_OK ==
                    curl_easy_getinfo(curl, CURLINFO_SPEED_UPLOAD, &doubleinfo))
                   fprintf(stream, "%.3f", doubleinfo);
+                break;
+              case VAR_CONTENT_TYPE:
+                if((CURLE_OK ==
+                    curl_easy_getinfo(curl, CURLINFO_CONTENT_TYPE, &stringp))
+                   && stringp)
+                  fputs(stringp, stream);
                 break;
               default:
                 break;

@@ -110,10 +110,6 @@
 #
 install-man-page:
 	mkdir -p "$(DSTROOT)/usr/share/man/man3"
-	install -c -m 644 getaddrinfo.3 "$(DSTROOT)/usr/share/man/man3"
-	$(LN) -f "$(DSTROOT)/usr/share/man/man3/getaddrinfo.3" "$(DSTROOT)/usr/share/man/man3/freeaddrinfo.3"
-	$(LN) -f "$(DSTROOT)/usr/share/man/man3/getaddrinfo.3" "$(DSTROOT)/usr/share/man/man3/gai_strerror.3"
-	install -c -m 644 getnameinfo.3 "$(DSTROOT)/usr/share/man/man3"
 	install -c -m 644 gethostbyname.3 "$(DSTROOT)/usr/share/man/man3"
 	$(LN) -f "$(DSTROOT)/usr/share/man/man3/gethostbyname.3" "$(DSTROOT)/usr/share/man/man3/endhostent.3"
 	$(LN) -f "$(DSTROOT)/usr/share/man/man3/gethostbyname.3" "$(DSTROOT)/usr/share/man/man3/gethostbyaddr.3"
@@ -122,6 +118,7 @@ install-man-page:
 	$(LN) -f "$(DSTROOT)/usr/share/man/man3/gethostbyname.3" "$(DSTROOT)/usr/share/man/man3/herror.3"
 	$(LN) -f "$(DSTROOT)/usr/share/man/man3/gethostbyname.3" "$(DSTROOT)/usr/share/man/man3/hstrerror.3"
 	$(LN) -f "$(DSTROOT)/usr/share/man/man3/gethostbyname.3" "$(DSTROOT)/usr/share/man/man3/sethostent.3"
+	install -c -m 644 ether_addr.3 "$(DSTROOT)/usr/share/man/man3"
 	install -c -m 644 getifaddrs.3 "$(DSTROOT)/usr/share/man/man3"
 	$(LN) -f "$(DSTROOT)/usr/share/man/man3/getifaddrs.3" "$(DSTROOT)/usr/share/man/man3/freeifaddrs.3"
 	install -c -m 644 getipnodebyname.3 "$(DSTROOT)/usr/share/man/man3"
@@ -160,6 +157,3 @@ install-man-page:
 	$(LN) -f "$(DSTROOT)/usr/share/man/man3/inet6_rthdr_space.3" "$(DSTROOT)/usr/share/man/man3/inet6_rthdr_lasthop.3"
 	$(LN) -f "$(DSTROOT)/usr/share/man/man3/inet6_rthdr_space.3" "$(DSTROOT)/usr/share/man/man3/inet6_rthdr_reverse.3"
 	$(LN) -f "$(DSTROOT)/usr/share/man/man3/inet6_rthdr_space.3" "$(DSTROOT)/usr/share/man/man3/inet6_rthdr_segments.3"
-	install -c -m 644 linkaddr.3 "$(DSTROOT)/usr/share/man/man3"
-	$(LN) -f "$(DSTROOT)/usr/share/man/man3/linkaddr.3" "$(DSTROOT)/usr/share/man/man3/link_addr.3"
-	$(LN) -f "$(DSTROOT)/usr/share/man/man3/linkaddr.3" "$(DSTROOT)/usr/share/man/man3/link_ntoa.3"

@@ -3,7 +3,7 @@
 <HEAD>
 <TITLE>CUPS Interface Design Description</TITLE>
 <META NAME="author" CONTENT="Easy Software Products">
-<META NAME="copyright" CONTENT="Copyright 1997-2002, All Rights Reserved">
+<META NAME="copyright" CONTENT="Copyright 1997-2003, All Rights Reserved">
 <META NAME="docnumber" CONTENT="CUPS-IDD-1.1">
 <META HTTP-EQUIV="Content-Type" CONTENT="text/html; CHARSET=iso-8859-1">
 <STYLE TYPE="text/css"><!--
@@ -19,12 +19,12 @@ SUP { font-size: smaller }
 PRE { font-family: monospace }
 --></STYLE>
 </HEAD>
-<BODY>
+<BODY BGCOLOR="white">
 <CENTER><A HREF="#CONTENTS"><IMG SRC="images/cups-large.gif" BORDER="0" WIDTH="431" HEIGHT="511"><BR>
 <H1>CUPS Interface Design Description</H1></A><BR>
 CUPS-IDD-1.1<BR>
 Easy Software Products<BR>
-Copyright 1997-2002, All Rights Reserved<BR>
+Copyright 1997-2003, All Rights Reserved<BR>
 </CENTER>
 <HR>
 <H1 ALIGN="CENTER"><A NAME="CONTENTS">Table of Contents</A></H1>
@@ -106,10 +106,20 @@ Copyright 1997-2002, All Rights Reserved<BR>
  also supported with reduced functionality. CUPS adds network printer
  browsing and PostScript Printer Description (&quot;PPD&quot;) based printing
  options to support real-world printing under UNIX.</P>
-<P>CUPS also includes a customized version of GNU Ghostscript (currently
- based off GNU Ghostscript 5.50) and an image file RIP that are used to
- support non-PostScript printers. Sample drivers for HP and EPSON
- printers are included that use these filters.</P>
+<P>CUPS includes an image file RIP that supports printing of image files
+ to non-PostScript printers. A customized version of GNU Ghostscript
+ 7.05 for CUPS called ESP Ghostscript is available separately to support
+ printing of PostScript files within the CUPS driver framework. Sample
+ drivers for Dymo, EPSON, HP, and OKIDATA printers are included that use
+ these filters.</P>
+<P>Drivers for thousands of printers are provided with our ESP Print Pro
+ software, available at:</P>
+<PRE>
+    <A HREF="http://www.easysw.com/printpro/">http://www.easysw.com/printpro/</A>
+</PRE>
+<P>CUPS is licensed under the GNU General Public License and GNU Library
+ General Public License. Please contact Easy Software Products for
+ commercial support and &quot;binary distribution&quot; rights.</P>
 <H2><A NAME="1_3">1.3 Document Overview</A></H2>
 <P>This interface design description document is organized into the
  following sections:</P>
@@ -144,23 +154,28 @@ Adobe PostScript Printer Description File Format Specification, Version
  4.3.</A></LI>
 <LI><A HREF="http://partners.adobe.com/asn/developer/PDFS/TN/PLRM.pdf">
 Adobe PostScript Language Reference, Third Edition.</A></LI>
-<LI>IPP: Job and Printer Set Operations</LI>
-<LI>IPP/1.1: Encoding and Transport</LI>
 <LI>IPP/1.1: Implementers Guide</LI>
-<LI>IPP/1.1: Model and Semantics</LI>
 <LI><A HREF="http://www.ietf.org/rfc/rfc1179.txt">RFC 1179, Line Printer
  Daemon Protocol</A></LI>
+<LI><A HREF="http://www.ietf.org/rfc/rfc2396.txt">RFC 2396, Uniform
+ Resource Identifiers (URI): Generic Syntax</A></LI>
 <LI><A HREF="http://www.ietf.org/rfc/rfc2567.txt">RFC 2567, Design Goals
  for an Internet Printing Protocol</A></LI>
 <LI><A HREF="http://www.ietf.org/rfc/rfc2568.txt">RFC 2568, Rationale
- for the Structure of the Model and Protocol</A> for the Internet
- Printing Protocol</LI>
+ for the Structure of the Model and Protocol for the Internet Printing
+ Protocol</A></LI>
 <LI><A HREF="http://www.ietf.org/rfc/rfc2569.txt">RFC 2569, Mapping
  between LPD and IPP Protocols</A></LI>
 <LI><A HREF="http://www.ietf.org/rfc/rfc2616.txt">RFC 2616, Hypertext
  Transfer Protocol -- HTTP/1.1</A></LI>
 <LI><A HREF="http://www.ietf.org/rfc/rfc2617.txt">RFC 2617, HTTP
  Authentication: Basic and Digest Access</A> Authentication</LI>
+<LI><A HREF="http://www.ietf.org/rfc/rfc2910.txt">RFC 2910, IPP/1.1:
+ Encoding and Transport</A></LI>
+<LI><A HREF="http://www.ietf.org/rfc/rfc2911.txt">RFC 2911, IPP/1.1:
+ Model and Semantics</A></LI>
+<LI><A HREF="http://www.ietf.org/rfc/rfc3380.txt">RFC 3380, IPP: Job and
+ Printer Set Operations</A></LI>
 </UL>
 <H1><A NAME="3">3 Internal Interfaces</A></H1>
 <H2><A NAME="3_1">3.1 Character Set Files</A></H2>
@@ -366,15 +381,19 @@ source/type cost program
 <P>The destination type is assumed to the printer's type. If a printer
  supports the source type directly the special filter program &quot;-&quot; may be
  specified.</P>
-<H4>3.5.2.2 cupsManualCopies</H4>
+<H4>3.5.2.2 cupsFlipDuplex</H4>
+<P>This boolean attribute notifies the RIP filters that the destination
+ printer requires an upside-down image for the back page. The default
+ value is false.</P>
+<H4>3.5.2.3 cupsManualCopies</H4>
 <P>This boolean attribute notifies the RIP filters that the destination
  printer does not support copy generation in hardware. The default value
  is false.</P>
-<H4>3.5.2.3 cupsModelNumber</H4>
+<H4>3.5.2.4 cupsModelNumber</H4>
 <P>This integer attribute specifies a printer-specific model number.
  This number can be used by a filter program to adjust the output for a
  specific model of printer.</P>
-<H4>3.5.2.4 cupsProfile</H4>
+<H4>3.5.2.5 cupsProfile</H4>
 <P>This string attribute specifies a color profile of the form:</P>
 <UL>
 <PRE>
@@ -394,7 +413,12 @@ f(x) = density * x<SUP>gamma</SUP>
 <P>The<I> m00</I> through<I> m22</I> values define a 3x3 transformation
  matrix for the CMY color values. The density function is applied<I>
  after</I> the CMY transformation.</P>
-<H4>3.5.2.5 cupsVersion</H4>
+<H4>3.5.2.6 cupsProtocol</H4>
+<P>This optional attribute describes which binary communication protocol
+ to use when printing binary PostScript data. The strings &quot;None&quot;, &quot;BCP&quot;,
+ and &quot;TBCP&quot; are recognized, corresponding to no encoding, BCP, and TBCP
+ respectively.</P>
+<H4>3.5.2.7 cupsVersion</H4>
 <P>This required attribute describes which version of the CUPS IDD was
  used for the PPD file extensions. Currently it must be the string &quot;1.0&quot;
  or &quot;1.1&quot;.</P>
@@ -953,7 +977,30 @@ application/vnd.cups-postscript</CODE>.</P>
 <BR> 6 = CMYK
 <BR> 7 = YMCK
 <BR> 8 = KCMY
-<BR> 9 = KCMYcm</TD></TR>
+<BR> 9 = KCMYcm
+<BR> 10 = GMCK
+<BR> 11 = GMCS
+<BR> 12 = WHITE
+<BR> 13 = GOLD
+<BR> 14 = SILVER
+<BR> 15 = CIE XYZ
+<BR> 16 = CIE Lab
+<BR> 32 = ICC1
+<BR> 33 = ICC2
+<BR> 34 = ICC3
+<BR> 35 = ICC4
+<BR> 36 = ICC5
+<BR> 37 = ICC6
+<BR> 38 = ICC7
+<BR> 39 = ICC8
+<BR> 40 = ICC9
+<BR> 41 = ICCA (10)
+<BR> 42 = ICCB (11)
+<BR> 43 = ICCC (12)
+<BR> 44 = ICCD (13)
+<BR> 45 = ICCE (14)
+<BR> 46 = ICCF (15)
+<BR></TD></TR>
 <TR><TD>404-407</TD><TD>cupsCompression</TD><TD>Driver-specific 0 to 2<SUP>
 32</SUP> - 1</TD></TR>
 <TR><TD>408-411</TD><TD>cupsRowCount</TD><TD>Driver-specific 0 to 2<SUP>

@@ -2,20 +2,26 @@
     DYNAMIC_CODE_GEN = YES; 
     FILESTABLE = {
         H_FILES = (
+            GetSymbolFromPEF.h, 
+            IOGraphicsLibInternal.h, 
             IOGraphicsLibPrivate.h, 
             IOGraphicsLib.h, 
             IOAccelSurfaceControl.h
         ); 
         OTHER_LINKED = (
+            PEFSupport.c, 
             IOAccelSurfaceControl.c, 
             IOGraphicsLib.c, 
             IODisplayLib.c
         ); 
-        OTHER_SOURCES = (Makefile.preamble, Makefile); 
-        PROJECT_HEADERS = (IOGraphicsLib.h); 
+        OTHER_SOURCES = (Makefile.preamble, Makefile, IOGraphicsProperties.plist); 
+        PROJECT_HEADERS = (IOGraphicsLib.h, IOGraphicsLibPrivate.h);
         PUBLIC_HEADERS = (
-            IOGraphicsLib.h, 
-            IOAccelSurfaceControl.h
+            IOGraphicsLib.h
+        ); 
+        PRIVATE_HEADERS = (
+            IOAccelSurfaceControl.h,
+	    IOGraphicsLibPrivate.h
         ); 
         SUBPROJECTS = (); 
     }; 

@@ -21,22 +21,44 @@
 
 #include "server.h"
 
+#include <unistd.h>
+#include <signal.h>
+#include <sys/wait.h>
+
 int cont_thread;
 int general_thread;
+int step_thread;
 int thread_from_wait;
 int old_thread_from_wait;
 int extended_protocol;
+int server_waiting;
+
 jmp_buf toplevel;
-int inferior_pid;
+
+/* The PID of the originally created or attached inferior.  Used to
+   send signals to the process when GDB sends us an asynchronous interrupt
+   (user hitting Control-C in the client), and to wait for the child to exit
+   when no longer debugging it.  */
+
+int signal_pid;
 
 static unsigned char
 start_inferior (char *argv[], char *statusptr)
 {
-  inferior_pid = create_inferior (argv[0], argv);
-  fprintf (stderr, "Process %s created; pid = %d\n", argv[0], inferior_pid);
+  signal (SIGTTOU, SIG_DFL);
+  signal (SIGTTIN, SIG_DFL);
+
+  signal_pid = create_inferior (argv[0], argv);
+
+  fprintf (stderr, "Process %s created; pid = %d\n", argv[0],
+	   signal_pid);
+
+  signal (SIGTTOU, SIG_IGN);
+  signal (SIGTTIN, SIG_IGN);
+  tcsetpgrp (fileno (stderr), signal_pid);
 
   /* Wait till we are at 1st instruction in program, return signal number.  */
-  return mywait (statusptr);
+  return mywait (statusptr, 0);
 }
 
 static int
@@ -44,17 +66,76 @@ attach_inferior (int pid, char *statusptr, unsigned char *sigptr)
 {
   /* myattach should return -1 if attaching is unsupported,
      0 if it succeeded, and call error() otherwise.  */
+
   if (myattach (pid) != 0)
     return -1;
 
-  inferior_pid = pid;
+  /* FIXME - It may be that we should get the SIGNAL_PID from the
+     attach function, so that it can be the main thread instead of
+     whichever we were told to attach to.  */
+  signal_pid = pid;
 
-  *sigptr = mywait (statusptr);
+  *sigptr = mywait (statusptr, 0);
 
   return 0;
 }
 
 extern int remote_debug;
+
+/* Handle all of the extended 'q' packets.  */
+void
+handle_query (char *own_buf)
+{
+  static struct inferior_list_entry *thread_ptr;
+
+  if (strcmp ("qSymbol::", own_buf) == 0)
+    {
+      if (the_target->look_up_symbols != NULL)
+	(*the_target->look_up_symbols) ();
+
+      strcpy (own_buf, "OK");
+      return;
+    }
+
+  if (strcmp ("qfThreadInfo", own_buf) == 0)
+    {
+      thread_ptr = all_threads.head;
+      sprintf (own_buf, "m%x", thread_ptr->id);
+      thread_ptr = thread_ptr->next;
+      return;
+    }
+  
+  if (strcmp ("qsThreadInfo", own_buf) == 0)
+    {
+      if (thread_ptr != NULL)
+	{
+	  sprintf (own_buf, "m%x", thread_ptr->id);
+	  thread_ptr = thread_ptr->next;
+	  return;
+	}
+      else
+	{
+	  sprintf (own_buf, "l");
+	  return;
+	}
+    }
+      
+  /* Otherwise we didn't know what packet it was.  Say we didn't
+     understand it.  */
+  own_buf[0] = 0;
+}
+
+static int attached;
+
+static void
+gdbserver_usage (void)
+{
+  error ("Usage:\tgdbserver COMM PROG [ARGS ...]\n"
+	 "\tgdbserver COMM --attach PID\n"
+	 "\n"
+	 "COMM may either be a tty device (for serial debugging), or \n"
+	 "HOST:PORT to listen for a TCP connection.\n");
+}
 
 int
 main (int argc, char *argv[])
@@ -64,9 +145,8 @@ main (int argc, char *argv[])
   unsigned char signal;
   unsigned int len;
   CORE_ADDR mem_addr;
-  int bad_attach = 0;
-  int pid = 0;
-  int attached = 0;
+  int bad_attach;
+  int pid;
   char *arg_end;
 
   if (setjmp (toplevel))
@@ -75,6 +155,9 @@ main (int argc, char *argv[])
       exit (1);
     }
 
+  bad_attach = 0;
+  pid = 0;
+  attached = 0;
   if (argc >= 3 && strcmp (argv[2], "--attach") == 0)
     {
       if (argc == 4
@@ -89,8 +172,7 @@ main (int argc, char *argv[])
     }
 
   if (argc < 3 || bad_attach)
-    error ("Usage:\tgdbserver tty prog [args ...]\n"
-		 "\tgdbserver tty --attach pid");
+    gdbserver_usage();
 
   initialize_low ();
 
@@ -129,6 +211,9 @@ main (int argc, char *argv[])
 	  ch = own_buf[i++];
 	  switch (ch)
 	    {
+	    case 'q':
+	      handle_query (own_buf);
+	      break;
 	    case 'd':
 	      remote_debug = !remote_debug;
 	      break;
@@ -155,10 +240,14 @@ main (int argc, char *argv[])
 		case 'g':
 		  general_thread = strtol (&own_buf[2], NULL, 16);
 		  write_ok (own_buf);
-		  fetch_inferior_registers (0);
+		  set_desired_inferior (1);
 		  break;
 		case 'c':
 		  cont_thread = strtol (&own_buf[2], NULL, 16);
+		  write_ok (own_buf);
+		  break;
+		case 's':
+		  step_thread = strtol (&own_buf[2], NULL, 16);
 		  write_ok (own_buf);
 		  break;
 		default:
@@ -169,11 +258,12 @@ main (int argc, char *argv[])
 		}
 	      break;
 	    case 'g':
+	      set_desired_inferior (1);
 	      registers_to_string (own_buf);
 	      break;
 	    case 'G':
+	      set_desired_inferior (1);
 	      registers_from_string (&own_buf[1]);
-	      store_inferior_registers (-1);
 	      write_ok (own_buf);
 	      break;
 	    case 'm':
@@ -194,8 +284,9 @@ main (int argc, char *argv[])
 		signal = target_signal_to_host (sig);
 	      else
 		signal = 0;
+	      set_desired_inferior (0);
 	      myresume (0, signal);
-	      signal = mywait (&status);
+	      signal = mywait (&status, 1);
 	      prepare_resume_reply (own_buf, status, signal);
 	      break;
 	    case 'S':
@@ -204,18 +295,21 @@ main (int argc, char *argv[])
 		signal = target_signal_to_host (sig);
 	      else
 		signal = 0;
+	      set_desired_inferior (0);
 	      myresume (1, signal);
-	      signal = mywait (&status);
+	      signal = mywait (&status, 1);
 	      prepare_resume_reply (own_buf, status, signal);
 	      break;
 	    case 'c':
+	      set_desired_inferior (0);
 	      myresume (0, 0);
-	      signal = mywait (&status);
+	      signal = mywait (&status, 1);
 	      prepare_resume_reply (own_buf, status, signal);
 	      break;
 	    case 's':
+	      set_desired_inferior (0);
 	      myresume (1, 0);
-	      signal = mywait (&status);
+	      signal = mywait (&status, 1);
 	      prepare_resume_reply (own_buf, status, signal);
 	      break;
 	    case 'k':

@@ -21,7 +21,7 @@
 # ------------------------------------------------------------------
 #  CONSTRUCTOR - create new source text window
 # ------------------------------------------------------------------
-body SrcTextWin::constructor {args} {
+itcl::body SrcTextWin::constructor {args} {
   eval itk_initialize $args
   set top [winfo toplevel $itk_interior]
   if {$parent == {}} {
@@ -76,7 +76,7 @@ body SrcTextWin::constructor {args} {
 # ------------------------------------------------------------------
 #  DESTRUCTOR - destroy window containing widget
 # ------------------------------------------------------------------
-body SrcTextWin::destructor {} {
+itcl::body SrcTextWin::destructor {} {
   if {$Tracing} {
     remove_hook control_mode_hook "$this set_control_mode"
   }
@@ -90,7 +90,7 @@ body SrcTextWin::destructor {} {
 #  need to do here is to remove the trace tags, if we are exiting
 #  trace mode
 # ------------------------------------------------------------------
-body SrcTextWin::trace_find_hook {mode from_tty} {
+itcl::body SrcTextWin::trace_find_hook {mode from_tty} {
   if {[string compare $mode -1] == 0} {
     if {$Browsing} {
       $twin tag remove STACK_TAG 1.0 end
@@ -103,7 +103,7 @@ body SrcTextWin::trace_find_hook {mode from_tty} {
 #           browsing -> mode = 1
 #           controlling -> mode = 0
 # ------------------------------------------------------------------
-body SrcTextWin::set_control_mode {mode} {
+itcl::body SrcTextWin::set_control_mode {mode} {
 #  debug "Setting control mode of $twin to $mode"
   if {$mode} {
     set Browsing 1
@@ -153,7 +153,7 @@ body SrcTextWin::set_control_mode {mode} {
 #    browse_disabled - a similar list for menus that should be disabled
 #                      when you are browsing a trace expt.
 #
-body SrcTextWin::build_popups {} {
+itcl::body SrcTextWin::build_popups {} {
   
   set popups(bp) $itk_interior.bp_menu
   set popups(tp) $itk_interior.tp_menu
@@ -303,8 +303,8 @@ body SrcTextWin::build_popups {} {
 # ------------------------------------------------------------------
 #  METHOD:  build_win - build the main source paned window
 # ------------------------------------------------------------------
-body SrcTextWin::build_win {} {
-  cyg::panedwindow $itk_interior.p -background white
+itcl::body SrcTextWin::build_win {} {
+  cyg::panedwindow $itk_interior.p
 
   set _tpane pane$filenum
   incr filenum
@@ -314,7 +314,7 @@ body SrcTextWin::build_win {} {
   set Stwc(gdbtk_scratch_widget:pane) $_tpane
   set Stwc(gdbtk_scratch_widget:dirty) 0
 
-  set twinp [iwidgets::scrolledtext $pane1.st -textbackground white \
+  set twinp [iwidgets::scrolledtext $pane1.st \
 	       -hscrollmode dynamic -vscrollmode dynamic]
   set twin [$twinp component text]
   pack $twinp -fill both -expand yes
@@ -326,7 +326,7 @@ body SrcTextWin::build_win {} {
 #  METHOD:  SetRunningState - set state based on if GDB is running or not.
 #  This disables the popup menus when GDB is not running yet.
 # ------------------------------------------------------------------
-body SrcTextWin::SetRunningState {state} {
+itcl::body SrcTextWin::SetRunningState {state} {
 #  debug "$state"
   foreach elem $popups(run_disabled) {
     $popups([lindex $elem 0]) entryconfigure [lindex $elem 1] -state $state
@@ -336,7 +336,7 @@ body SrcTextWin::SetRunningState {state} {
 # ------------------------------------------------------------------
 #  METHOD:  enable - enable or disable bindings and change cursor
 # ------------------------------------------------------------------
-body SrcTextWin::enable {on} {
+itcl::body SrcTextWin::enable {on} {
   if {$on} {
     set Running 0
     set glyph ""
@@ -369,7 +369,7 @@ body SrcTextWin::enable {on} {
 # ------------------------------------------------------------------
 # PROC:  makeBreakDot - make the break dot for the screen
 # ------------------------------------------------------------------
-body SrcTextWin::makeBreakDot {size colorList {image {}}} {
+itcl::body SrcTextWin::makeBreakDot {size colorList {image {}}} {
   if {$size > 32} {
     set size 32
   } elseif {$size < 1} {
@@ -405,7 +405,7 @@ body SrcTextWin::makeBreakDot {size colorList {image {}}} {
 # ------------------------------------------------------------------
 # METHOD: setTabs - set the tabs for the assembly/src windows
 # ------------------------------------------------------------------
-body SrcTextWin::setTabs {win {asm S}} {
+itcl::body SrcTextWin::setTabs {win {asm S}} {
   set fsize [font measure [pref get gdb/src/font] "W"]
   set tsize [pref get gdb/src/tab_size]
   set rest ""
@@ -441,7 +441,7 @@ body SrcTextWin::setTabs {win {asm S}} {
   $win configure -tabs $tablist
 }
 
-body SrcTextWin::enable_disable_src_tags {win how} {
+itcl::body SrcTextWin::enable_disable_src_tags {win how} {
 
   switch $how {
     normal {
@@ -490,25 +490,25 @@ body SrcTextWin::enable_disable_src_tags {win how} {
 # ------------------------------------------------------------------
 #  METHOD:  config_win - configure the source or assembly text window
 # ------------------------------------------------------------------
-body SrcTextWin::config_win {win {asm S}} {
+itcl::body SrcTextWin::config_win {win {asm S}} {
 #  debug "$win $asm Tracing=$Tracing Browsing=$Browsing"
   
-  $win config -borderwidth 2 -insertwidth 0 -wrap none -bg white
+  $win config -borderwidth 2 -insertwidth 0 -wrap none
   
   # font
   set font [pref get gdb/src/font]
-  $win configure -font $font
+  $win configure -font $font -bg $::Colors(textbg) -fg $::Colors(textfg)
   
   setTabs $win $asm
 
   # set up some tags.  should probably be done differently
   # !! change bg?
   
-  $win tag configure break_rgn_tag -foreground [pref get gdb/src/break_fg]
+  $win tag configure break_rgn_tag
   foreach type $bp_types {
-    $win tag configure ${type}_tag -foreground [pref get gdb/src/break_fg]
+    $win tag configure ${type}_tag 
   }
-  $win tag configure tp_tag -foreground [pref get gdb/src/break_fg]
+  $win tag configure tp_tag 
   $win tag configure source_tag2 -foreground [pref get gdb/src/source2_fg]
   $win tag configure PC_TAG -background [pref get gdb/src/PC_TAG]
   $win tag configure STACK_TAG -background [pref get gdb/src/STACK_TAG]
@@ -690,7 +690,7 @@ body SrcTextWin::config_win {win {asm S}} {
 # ------------------------------------------------------------------
 #  METHOD:  addPopup - adds a popup to one of the source popup menus
 # ------------------------------------------------------------------
-body SrcTextWin::addPopup {menu label command {abg {}} {browse 1} {run 1}} {
+itcl::body SrcTextWin::addPopup {menu label command {abg {}} {browse 1} {run 1}} {
   
   if {$abg == ""} {
     $popups($menu) add command -label $label -command $command 
@@ -713,7 +713,7 @@ body SrcTextWin::addPopup {menu label command {abg {}} {browse 1} {run 1}} {
 #  PUBLIC METHOD:  set_variable - Handle changes in the gdb variables
 #           changed through the "set" gdb command.
 # ------------------------------------------------------------------
-body SrcTextWin::set_variable {event} {
+itcl::body SrcTextWin::set_variable {event} {
   set var [$event get variable]
   set val [$event get value]
   debug "Set hook got called with $var $val"
@@ -729,7 +729,7 @@ body SrcTextWin::set_variable {event} {
 #           mark all the cached assembly windows dirty, and force the
 #           visible window to be redisplayed.
 # ------------------------------------------------------------------
-body SrcTextWin::disassembly_changed {} {
+itcl::body SrcTextWin::disassembly_changed {} {
   foreach name [array names Stwc *:pane] {
     debug "Looking at $name"
       set vals [split $name ,]
@@ -749,7 +749,7 @@ body SrcTextWin::disassembly_changed {} {
 # ------------------------------------------------------------------
 #  METHOD:  reconfig - used when preferences change
 # ------------------------------------------------------------------
-body SrcTextWin::reconfig {} {
+itcl::body SrcTextWin::reconfig {} {
 #  debug
   
   # Make sure we redo the break images when we reconfigure
@@ -827,7 +827,7 @@ body SrcTextWin::reconfig {} {
 # ------------------------------------------------------------------
 # METHOD: updateBalloon - we have gone idle, update the balloon
 # ------------------------------------------------------------------
-body SrcTextWin::updateBalloon {} {
+itcl::body SrcTextWin::updateBalloon {} {
 
     set err [catch {$_balloon_var update} changed]
     catch {$_balloon_var name} var
@@ -841,7 +841,7 @@ body SrcTextWin::updateBalloon {} {
     }
   }
 
-body SrcTextWin::balloon_value {variable} {
+itcl::body SrcTextWin::balloon_value {variable} {
 
   catch {$variable value} value
   set value [string trim $value \ \r\t\n]
@@ -866,7 +866,7 @@ body SrcTextWin::balloon_value {variable} {
 # ------------------------------------------------------------------
 # METHOD: ClearTags - clear all tags
 # ------------------------------------------------------------------
-body SrcTextWin::ClearTags {} {
+itcl::body SrcTextWin::ClearTags {} {
   foreach tag {PC_TAG BROWSE_TAG STACK_TAG} {
     catch {
       $twin tag remove $tag $current(line).2 $current(line).end
@@ -883,7 +883,7 @@ body SrcTextWin::ClearTags {} {
 # METHOD: _mtime_changed - check if the modtime for a file
 #                          has changed.
 # ------------------------------------------------------------------
-body SrcTextWin::_mtime_changed {filename} {
+itcl::body SrcTextWin::_mtime_changed {filename} {
   global tcl_platform
 
   if [catch {gdb_find_file $filename} f] {
@@ -920,7 +920,7 @@ body SrcTextWin::_mtime_changed {filename} {
 # ------------------------------------------------------------------
 # METHOD: FillSource - fill a window with source
 # ------------------------------------------------------------------
-body SrcTextWin::FillSource {w tagname filename funcname line addr pc_addr lib} {
+itcl::body SrcTextWin::FillSource {w tagname filename funcname line addr pc_addr lib} {
   global gdb_running
   upvar ${w}win win
 
@@ -1000,7 +1000,7 @@ body SrcTextWin::FillSource {w tagname filename funcname line addr pc_addr lib} 
 # ------------------------------------------------------------------
 # METHOD: FillAssembly - fill a window with disassembled code
 # ------------------------------------------------------------------
-body SrcTextWin::FillAssembly {w tagname filename funcname line addr pc_addr lib} {
+itcl::body SrcTextWin::FillAssembly {w tagname filename funcname line addr pc_addr lib} {
   global gdb_running
   upvar ${w}win win
   upvar _${w}pane pane
@@ -1026,7 +1026,7 @@ body SrcTextWin::FillAssembly {w tagname filename funcname line addr pc_addr lib
     set oldpane $pane
     set result [LoadFromCache $w $addr A $lib]
     if {$result == 1} {
-      #debug [format "Disassembling at %x" $addr]
+      #debug "Disassembling at $addr"
       #debug "cf=$current(filename) name=$filename"
       if {[catch {gdb_load_disassembly $win nosource \
 			     [scope _map] $Cname $addr} mess]} {
@@ -1067,7 +1067,7 @@ body SrcTextWin::FillAssembly {w tagname filename funcname line addr pc_addr lib
 # ------------------------------------------------------------------
 # METHOD: FillMixed - fill a window with mixed source and assembly
 # ------------------------------------------------------------------
-body SrcTextWin::FillMixed {w tagname filename funcname line addr pc_addr lib} {
+itcl::body SrcTextWin::FillMixed {w tagname filename funcname line addr pc_addr lib} {
   global gdb_running
   upvar ${w}win win
   upvar _${w}pane pane
@@ -1091,7 +1091,7 @@ body SrcTextWin::FillMixed {w tagname filename funcname line addr pc_addr lib} {
     set mode_changed 0
     set oldpane $pane
     if {[LoadFromCache $w $funcname M $lib]} {
-      # debug [format "Disassembling at %x" $addr]
+      # debug "Disassembling at $addr"
       if {[catch {gdb_load_disassembly $win source \
 			     [scope _map] $Cname $addr} mess] } {
 	# print some intelligent error message
@@ -1125,7 +1125,7 @@ body SrcTextWin::FillMixed {w tagname filename funcname line addr pc_addr lib} {
 # METHOD: _highlightAsmLine - highlight the current execution line
 #         in one of the assembly modes
 # ------------------------------------------------------------------
-body SrcTextWin::_highlightAsmLine {win addr pc_addr \
+itcl::body SrcTextWin::_highlightAsmLine {win addr pc_addr \
                                     tagname filename funcname} {
   global gdb_running
 
@@ -1134,7 +1134,7 @@ body SrcTextWin::_highlightAsmLine {win addr pc_addr \
   if {[info exists _map($Cname,pc=$addr)]} {
     set current(asm_line) $_map($Cname,pc=$addr)
   } else {
-    set x [format "0x%x" [expr $current(addr)-2]]
+    set x [gdb_incr_addr $current(addr) -2]
     if {[info exists _map($Cname,pc=$x)]} {
       set current(asm_line) $_map($Cname,pc=$x)
     }
@@ -1161,7 +1161,7 @@ body SrcTextWin::_highlightAsmLine {win addr pc_addr \
 # ------------------------------------------------------------------
 # METHOD: set_tag - update tag to STACK without making other changes
 # ------------------------------------------------------------------
-body SrcTextWin::set_tag_to_stack {} {
+itcl::body SrcTextWin::set_tag_to_stack {} {
   foreach window [list $twin $bwin] {
     if {$window == ""} then {
       continue
@@ -1177,7 +1177,7 @@ body SrcTextWin::set_tag_to_stack {} {
 # ------------------------------------------------------------------
 # METHOD: location - display a location in a file
 # ------------------------------------------------------------------
-body SrcTextWin::location {tagname filename funcname line addr pc_addr lib} {
+itcl::body SrcTextWin::location {tagname filename funcname line addr pc_addr lib} {
 #  debug "$tagname $filename $line $addr $pc_addr,  mode=$current(mode) oldmode=$oldmode  cf=$current(filename) lib=$lib"
   
   ClearTags
@@ -1254,7 +1254,7 @@ body SrcTextWin::location {tagname filename funcname line addr pc_addr lib} {
 # ------------------------------------------------------------------
 #  METHOD:  LoadFile - loads in a new source file
 # ------------------------------------------------------------------
-body SrcTextWin::LoadFile {w name lib mtime_changed} {
+itcl::body SrcTextWin::LoadFile {w name lib mtime_changed} {
   debug "$name $current(filename) $current(mode)"
   upvar ${w}win win
   upvar _${w}pane pane
@@ -1287,7 +1287,7 @@ body SrcTextWin::LoadFile {w name lib mtime_changed} {
 #  METHOD:  display_line - make sure a line is displayed and near the center
 # ------------------------------------------------------------------
 
-body SrcTextWin::display_line { win line } {
+itcl::body SrcTextWin::display_line { win line } {
   ::update idletasks
   # keep line near center of display
   set pixHeight [winfo height $win]
@@ -1310,7 +1310,7 @@ body SrcTextWin::display_line { win line } {
 # uses current(filename) in SOURCE mode
 # ------------------------------------------------------------------
 
-body SrcTextWin::display_breaks {} {
+itcl::body SrcTextWin::display_breaks {} {
 #  debug
   
   # clear any previous breakpoints
@@ -1355,7 +1355,7 @@ body SrcTextWin::display_breaks {} {
 # METHOD: insertBreakTag - insert the right amount of tag chars
 #         into the text window WIN, at line linenum.
 # ------------------------------------------------------------------
-body SrcTextWin::insertBreakTag {win linenum tag} {
+itcl::body SrcTextWin::insertBreakTag {win linenum tag} {
 #  debug "$win $linenum $tag"
   
   # Get the tags at the current line.  
@@ -1399,7 +1399,7 @@ body SrcTextWin::insertBreakTag {win linenum tag} {
 #         from the given line.  If this is the last break tag on the 
 #         line reinstall the break_rgn_tag
 # ------------------------------------------------------------------
-body SrcTextWin::removeBreakTag {win linenum tag } {
+itcl::body SrcTextWin::removeBreakTag {win linenum tag } {
 #  debug "$win $linenum $tag"
 
   set tag_list [$win tag names $linenum.0]
@@ -1452,7 +1452,7 @@ body SrcTextWin::removeBreakTag {win linenum tag } {
 #  PUBLIC METHOD:  breakpoint - Handle a breakpoint create, delete,
 #                   or modify event from the backend.
 # ------------------------------------------------------------------
-body SrcTextWin::breakpoint {bp_event} {
+itcl::body SrcTextWin::breakpoint {bp_event} {
 
   bp [$bp_event get action] [$bp_event get number] [$bp_event get address] \
     [$bp_event get line] [$bp_event get file] [$bp_event get disposition]  \
@@ -1463,7 +1463,7 @@ body SrcTextWin::breakpoint {bp_event} {
 #  PUBLIC METHOD:  tracepoint - Handle a tracepoint create, delete,
 #                   modify event from the backend.
 # ------------------------------------------------------------------
-body SrcTextWin::tracepoint {tp_event} {
+itcl::body SrcTextWin::tracepoint {tp_event} {
 
   bp [$tp_event get action] [$tp_event get number] [$tp_event get address] \
     [$tp_event get line] [$tp_event get file] tracepoint                   \
@@ -1477,7 +1477,7 @@ body SrcTextWin::tracepoint {tp_event} {
 #  mixed window at that address.  If $line and $file are valid, 
 #  a breakpoint will be set in the source window if appropriate.
 # ------------------------------------------------------------------
-body SrcTextWin::bp {action bpnum addr {linenum {}} {file {}} {type 0} {enabled 0}  {thread -1}} {
+itcl::body SrcTextWin::bp {action bpnum addr {linenum {}} {file {}} {type 0} {enabled 0}  {thread -1}} {
 #  debug "$action addr=$addr line=$linenum file=$file type=$type current(filename)=$current(filename)"
 
   switch $current(mode) {
@@ -1516,7 +1516,7 @@ body SrcTextWin::bp {action bpnum addr {linenum {}} {file {}} {type 0} {enabled 
 # ------------------------------------------------------------------
 #  METHOD:  do_bp - bp helper function
 # ------------------------------------------------------------------
-body SrcTextWin::do_bp { win action linenum type bpnum enabled thread asm} {
+itcl::body SrcTextWin::do_bp { win action linenum type bpnum enabled thread asm} {
 #  debug "$action line=$linenum type=$type bpnum=$bpnum enabled=$enabled thread=$thread"
 
   if {$dont_change_appearance} {
@@ -1613,7 +1613,7 @@ body SrcTextWin::do_bp { win action linenum type bpnum enabled thread asm} {
 # ------------------------------------------------------------------
 #  METHOD:  hasBP - see if a line number has a breakpoint set
 # ------------------------------------------------------------------
-body SrcTextWin::hasBP {win line} {
+itcl::body SrcTextWin::hasBP {win line} {
   if {$win == ""} {
     set win $popups(saved_win)
   }
@@ -1627,7 +1627,7 @@ body SrcTextWin::hasBP {win line} {
 # ------------------------------------------------------------------
 #  METHOD:  hasTP - see if a line number has a tracepoint set
 # ------------------------------------------------------------------
-body SrcTextWin::hasTP {win line} {
+itcl::body SrcTextWin::hasTP {win line} {
   if {$win == ""} {
     set win $popups(saved_win)
   }
@@ -1649,7 +1649,7 @@ body SrcTextWin::hasTP {win line} {
 #  Return:
 #    The gdb_loc result for the location found
 # ------------------------------------------------------------------
-body SrcTextWin::report_source_location {} {
+itcl::body SrcTextWin::report_source_location {} {
   
   if {$current(filename) == ""} {
     error "No source file in window"
@@ -1716,7 +1716,7 @@ body SrcTextWin::report_source_location {} {
 #   set_cmd - for convenience, this is the command needed to set a 
 #             breakpoint at this address.
 # ------------------------------------------------------------------
-body SrcTextWin::lookup_line {win y} {
+itcl::body SrcTextWin::lookup_line {win y} {
   #debug "$win $y"
   if {$y == -1} {
     set y $popups(saved_y)
@@ -1770,7 +1770,7 @@ body SrcTextWin::lookup_line {win y} {
 #
 #  The threads parameter is not currently used.
 # ------------------------------------------------------------------
-body SrcTextWin::continue_to_here {{win {}} {y -1} {threads -1}} {
+itcl::body SrcTextWin::continue_to_here {{win {}} {y -1} {threads -1}} {
   
   # Look up the line...  This foreach is an lassign...
   foreach {name line addr type set_cmd} [lookup_line $win $y] {
@@ -1802,7 +1802,7 @@ body SrcTextWin::continue_to_here {{win {}} {y -1} {threads -1}} {
 #
 #  The threads parameter is not currently used.
 # ------------------------------------------------------------------
-body SrcTextWin::jump_to_here {{win {}} {y -1} {threads -1}} {
+itcl::body SrcTextWin::jump_to_here {{win {}} {y -1} {threads -1}} {
   
   # Look up the line...  This foreach is an lassign...
   foreach {name line addr type set_cmd} [lookup_line $win $y] {
@@ -1846,7 +1846,7 @@ body SrcTextWin::jump_to_here {{win {}} {y -1} {threads -1}} {
 #
 # When "threads" is set it means to set a bp on each thread in the list.
 # ------------------------------------------------------------------
-body SrcTextWin::set_bp_at_line {{type N} {win {}} {y -1} {threads "-1"}} {
+itcl::body SrcTextWin::set_bp_at_line {{type N} {win {}} {y -1} {threads "-1"}} {
 #  debug "$win $y $type $current(filename) Tracing=$Tracing"
   if {$Running} {return}
   
@@ -1875,7 +1875,7 @@ body SrcTextWin::set_bp_at_line {{type N} {win {}} {y -1} {threads "-1"}} {
 # ------------------------------------------------------------------
 #  METHOD:  enable_disable_at_line - Enable or disable breakpoint
 # ------------------------------------------------------------------
-body SrcTextWin::enable_disable_at_line {action} {
+itcl::body SrcTextWin::enable_disable_at_line {action} {
   if {$Running} {
     return
   }
@@ -1923,7 +1923,7 @@ body SrcTextWin::enable_disable_at_line {action} {
 #
 # when "threads" is set it means to set a bp on each thread in the list.
 # ------------------------------------------------------------------
-body SrcTextWin::remove_bp_at_line {{win {}} {y -1}} {
+itcl::body SrcTextWin::remove_bp_at_line {{win {}} {y -1}} {
   
   if {$Running} {return}
   
@@ -1950,7 +1950,7 @@ body SrcTextWin::remove_bp_at_line {{win {}} {y -1}} {
 #
 # when "threads" is set it means to set a bp on each thread in the list.
 # ------------------------------------------------------------------
-body SrcTextWin::set_tp_at_line {{win {}} {y -1}} {
+itcl::body SrcTextWin::set_tp_at_line {{win {}} {y -1}} {
 #  debug "$win $y $current(filename) Tracing=$Tracing"
 
   if {$Running} {return}
@@ -1976,7 +1976,7 @@ body SrcTextWin::set_tp_at_line {{win {}} {y -1}} {
 #           given by win & y...
 #
 # ------------------------------------------------------------------
-body SrcTextWin::next_hit_at_line {{win {}} {y -1}} {
+itcl::body SrcTextWin::next_hit_at_line {{win {}} {y -1}} {
 #  debug "$win $y $current(filename) Tracing=$Tracing"
 
   if {!$Browsing} {return}
@@ -2006,7 +2006,7 @@ body SrcTextWin::next_hit_at_line {{win {}} {y -1}} {
 #
 # when "threads" is set it means to set a bp on each thread in the list.
 # ------------------------------------------------------------------
-body SrcTextWin::remove_tp_at_line {{win {}} {y -1}} {
+itcl::body SrcTextWin::remove_tp_at_line {{win {}} {y -1}} {
   
   if {$Running} {return}
   
@@ -2037,7 +2037,7 @@ Error was: $errTxt"
 #  METHOD:  do_tag_popup - The tag bind function for breakpoint popups
 # ------------------------------------------------------------------
 
-body SrcTextWin::do_tag_popup {name X Y y} {
+itcl::body SrcTextWin::do_tag_popup {name X Y y} {
 
 #  debug "$name $X $Y $y"
 
@@ -2060,7 +2060,7 @@ body SrcTextWin::do_tag_popup {name X Y y} {
 #  METHOD:  do_source_popup - tag bind function for source popups
 # ------------------------------------------------------------------
 
-body SrcTextWin::do_source_popup { X Y x y } {
+itcl::body SrcTextWin::do_source_popup { X Y x y } {
   if {$Running || [winfo ismapped $popups(source)]} { 
     return 
   }
@@ -2149,17 +2149,17 @@ body SrcTextWin::do_source_popup { X Y x y } {
 # ------------------------------------------------------------------
 # METHOD:  addToWatch - add a variable to the watch window
 # ------------------------------------------------------------------
-body SrcTextWin::addToWatch {var} {
+itcl::body SrcTextWin::addToWatch {var} {
   [ManagedWin::open WatchWin] add $var
 }
 
 # ------------------------------------------------------------------
 #  METHOD:  do_key  -- wrapper for all key bindings
 # ------------------------------------------------------------------
-body SrcTextWin::do_key {key} {    
+itcl::body SrcTextWin::do_key {key} {    
   if {!$Running} {
     switch $key {
-      print        { print }
+      print        { print $top }
       download     { Download::download_it }
       run          { $parent inferior run }
       stack        { ManagedWin::open StackWin }
@@ -2204,14 +2204,14 @@ body SrcTextWin::do_key {key} {
 # ------------------------------------------------------------------
 #  METHOD:  mode_get - get the source mode
 # ------------------------------------------------------------------
-body SrcTextWin::mode_get {} {
+itcl::body SrcTextWin::mode_get {} {
   return $current(mode)
 }
 
 # ------------------------------------------------------------------
 #  METHOD:  mode_set - change the source mode
 # ------------------------------------------------------------------
-body SrcTextWin::mode_set {new_mode {go 1}} {
+itcl::body SrcTextWin::mode_set {new_mode {go 1}} {
   debug "$new_mode"
 
   if {$new_mode != $current(mode)} {
@@ -2236,7 +2236,7 @@ body SrcTextWin::mode_set {new_mode {go 1}} {
 # METHOD:  cancelMotion - cancel any pending motion callbacks for
 #          the source window's variable balloons
 # ------------------------------------------------------------------
-body SrcTextWin::cancelMotion {} {
+itcl::body SrcTextWin::cancelMotion {} {
   catch {after cancel $timeoutID}
 }
 
@@ -2244,7 +2244,7 @@ body SrcTextWin::cancelMotion {} {
 # METHOD:  motion - callback for mouse motion within the source
 #          window's text widget
 # ------------------------------------------------------------------
-body SrcTextWin::motion {type win x y} {
+itcl::body SrcTextWin::motion {type win x y} {
   global gdb_running
   cancelMotion
 
@@ -2270,7 +2270,7 @@ body SrcTextWin::motion {type win x y} {
 # ------------------------------------------------------------------
 # METHOD:  showBPBalloon - show BP information in a balloon
 # ------------------------------------------------------------------
-body SrcTextWin::showBPBalloon {win x y} {
+itcl::body SrcTextWin::showBPBalloon {win x y} {
   if {$Running} { return }
   $win tag remove _show_variable 1.0 end 
   set line [lindex [split [$win index @0,$y] .] 0]
@@ -2324,7 +2324,7 @@ body SrcTextWin::showBPBalloon {win x y} {
 
     if {$need_lf} {append str \n}
 
-    append str [format "breakpoint %d at %s:%d (%#x)\n   %s %s %s" \
+    append str [format "breakpoint %d at %s:%d (%s)\n   %s %s %s" \
 		  $b $file $linenum $addr $enabled $type $disposition]
 
     if {$thread != "-1"} {
@@ -2367,7 +2367,7 @@ body SrcTextWin::showBPBalloon {win x y} {
 # METHOD:  showBalloon - (possibly) show a variable's value in
 #          a balloon-help widget
 # ------------------------------------------------------------------
-body SrcTextWin::showBalloon {win x y} {
+itcl::body SrcTextWin::showBalloon {win x y} {
   if {$Running} { return }
 
   $twin tag remove _show_variable 1.0 end
@@ -2434,7 +2434,7 @@ body SrcTextWin::showBalloon {win x y} {
 # METHOD:  getVariable - get the name of the 'variable' under the
 #          mouse pointer in the text widget
 # ------------------------------------------------------------------
-body SrcTextWin::getVariable {x y {line {}}} {
+itcl::body SrcTextWin::getVariable {x y {line {}}} {
   #debug "$x $y $line"
   set hit_point [$twin index @$x,$y]
 
@@ -2512,7 +2512,7 @@ body SrcTextWin::getVariable {x y {line {}}} {
 # ------------------------------------------------------------------
 #  METHOD:  trace_help - update statusbar with ballon help message
 # ------------------------------------------------------------------
-body SrcTextWin::trace_help {args} {
+itcl::body SrcTextWin::trace_help {args} {
   upvar #0 ${this}_balloon a
   if {$a == ""} {
     $parent set_status
@@ -2521,7 +2521,7 @@ body SrcTextWin::trace_help {args} {
   }
 }
 
-body SrcTextWin::line_is_executable {win line} {
+itcl::body SrcTextWin::line_is_executable {win line} {
   # there should be an image or a "-" on the line
   set res [catch {$win image cget $line.0 -image}]
   if {!$res || [$win get $line.0] == "-"} {
@@ -2534,7 +2534,7 @@ body SrcTextWin::line_is_executable {win line} {
 # METHOD:   tracepoint_range - create tracepoints at every line in
 #           a range of lines on the screen
 # ------------------------------------------------------------------
-body SrcTextWin::tracepoint_range {win low high} {
+itcl::body SrcTextWin::tracepoint_range {win low high} {
 #  debug "$win $low $high"
 
   switch $current(mode) {
@@ -2607,7 +2607,7 @@ body SrcTextWin::tracepoint_range {win low high} {
 #  METHOD:  search - search for text or jump to a specific line
 #           in source window, going in the specified DIRECTION.
 # ------------------------------------------------------------------
-body SrcTextWin::search {exp direction} {
+itcl::body SrcTextWin::search {exp direction} {
   if {$exp != ""} {
     set result {}
     if {[regexp {^@([0-9]+)} $exp dummy index]} {
@@ -2671,7 +2671,7 @@ body SrcTextWin::search {exp direction} {
 #		filled in later due to errors, call UnLoadFromCache.
 # -----------------------------------------------------------------------------
 
-body SrcTextWin::LoadFromCache {w name asm lib} {
+itcl::body SrcTextWin::LoadFromCache {w name asm lib} {
   debug "LoadFromCache $w $name $asm"
   global tcl_platform
   upvar ${w}win win
@@ -2773,7 +2773,7 @@ body SrcTextWin::LoadFromCache {w name asm lib} {
 #  there is a problem with filling the widget.  
 # ------------------------------------------------------------------
 
-body SrcTextWin::UnLoadFromCache {w oldpane name asm lib} {
+itcl::body SrcTextWin::UnLoadFromCache {w oldpane name asm lib} {
 #  debug "$w $oldpane $name"
   upvar ${w}win win
   upvar _${w}pane pane
@@ -2799,7 +2799,7 @@ body SrcTextWin::UnLoadFromCache {w oldpane name asm lib} {
 # ------------------------------------------------------------------
 #  METHOD:  print - print the contents of the text widget
 # ------------------------------------------------------------------
-body SrcTextWin::print {top} {
+itcl::body SrcTextWin::print {top} {
   # FIXME
   send_printer -ascii [$twin get 1.0 end] -parent $top
 }
@@ -2807,7 +2807,7 @@ body SrcTextWin::print {top} {
 # ------------------------------------------------------------------
 #  METHOD:  ask_thread_bp - prompt for thread(s) for BP
 # ------------------------------------------------------------------
-body SrcTextWin::ask_thread_bp {} {
+itcl::body SrcTextWin::ask_thread_bp {} {
 #  debug
   if {[catch {gdb_cmd "info thread"} threads]} {
     # failed. Just leave
@@ -2822,8 +2822,11 @@ body SrcTextWin::ask_thread_bp {} {
   
   set a [toplevel .[gensym]]
   wm title $a "Thread Selection"
-  CygScrolledListbox $a.slb -selectmode multiple -height $num_threads
-  
+
+  iwidgets::scrolledlistbox $a.slb \
+    -vscrollmode dynamic -hscrollmode dynamic \
+    -selectmode multiple -textfont global/fixed
+
   set i [expr $num_threads - 1]
   set width 0
   foreach line $threads {
@@ -2837,19 +2840,21 @@ body SrcTextWin::ask_thread_bp {} {
       if {[string length $line] > $width} {
 	set width [string length $line]
       }
-      $a.slb.list insert 0 $line 
+      $a.slb insert 0 $line 
       incr i -1
     }
   }
-  $a.slb.list configure -width $width
+  $a.slb configure -visibleitems ${width}x$num_threads 
+  [$a.slb component listbox] configure -bg $::Colors(textbg) -fg $::Colors(textfg)
 
   frame $a.b
   button $a.b.ok -text OK -underline 0 -width 7 \
-    -command "$this do_thread_bp $a.slb.list"
+    -command "$this do_thread_bp $a.slb"
   button $a.b.cancel -text Cancel -width 7 -underline 0 -command "destroy $a"
   pack $a.b.ok $a.b.cancel -side left
   standard_button_box $a.b
   pack $a.b -fill x -expand yes -side bottom -padx 5 -pady 5
+  center_window $a -over [winfo toplevel [namespace tail $this]]
   pack $a.slb -side top -fill both -expand yes
   bind $a.b.ok <Return> "$a.b.ok flash; $a.b.ok invoke"
   focus $a.b.ok
@@ -2858,7 +2863,7 @@ body SrcTextWin::ask_thread_bp {} {
 # ------------------------------------------------------------------
 #  METHOD:  do_thread_bp - callback from thread selection
 # ------------------------------------------------------------------
-body SrcTextWin::do_thread_bp {listbox} {
+itcl::body SrcTextWin::do_thread_bp {listbox} {
 #  debug "$listbox [$listbox curselection]"
   set x ""
   foreach i [$listbox curselection] {
@@ -2870,7 +2875,7 @@ body SrcTextWin::do_thread_bp {listbox} {
 
 
 # public method for testing use only!
-body SrcTextWin::test_get {var} {
+itcl::body SrcTextWin::test_get {var} {
   if {[array exists $var]} {
     return [array get $var]
   } else {
@@ -2881,7 +2886,7 @@ body SrcTextWin::test_get {var} {
 # ------------------------------------------------------------------
 #  METHOD:  get_file - Return name of current file.
 # ------------------------------------------------------------------
-body SrcTextWin::get_file {} {
+itcl::body SrcTextWin::get_file {} {
   return $current(filename)
 }
 
@@ -2893,7 +2898,7 @@ body SrcTextWin::get_file {} {
 #              Delete the variable balloon if it exists.
 #              Clear the screen.
 # ------------------------------------------------------------------
-body SrcTextWin::clear_file {} {
+itcl::body SrcTextWin::clear_file {} {
 
   debug "In clear_file"
   # delete all caches
@@ -2920,7 +2925,7 @@ body SrcTextWin::clear_file {} {
 
 }
 
-body SrcTextWin::_initialize_srctextwin {} {
+itcl::body SrcTextWin::_initialize_srctextwin {} {
   set pc(filename) ""
   set pc(func) ""
   set pc(line) 0
@@ -2940,7 +2945,7 @@ body SrcTextWin::_initialize_srctextwin {} {
 # ------------------------------------------------------------------
 #  METHOD:  _clear_cache - Clear the cache
 # ------------------------------------------------------------------
-body SrcTextWin::_clear_cache {} {
+itcl::body SrcTextWin::_clear_cache {} {
 
   # display empty scratch frame
   set pane $Stwc(gdbtk_scratch_widget:pane)

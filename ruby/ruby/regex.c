@@ -717,8 +717,7 @@ is_in_list(c, b)
     else
       j = k;
   }
-  if (i < size && EXTRACT_MBC(&b[i*8]) <= c
-      && ((unsigned char)c != '\n' && (unsigned char)c != '\0'))
+  if (i < size && EXTRACT_MBC(&b[i*8]) <= c)
     return 1;
   return 0;
 }
@@ -1046,7 +1045,7 @@ calculate_must_string(start, end)
       p += mcnt;
       mcnt = EXTRACT_UNSIGNED_AND_INCR(p);
       while (mcnt--) {
-	p += 4;
+	p += 8;
       }
       break;
 
@@ -1531,6 +1530,7 @@ re_compile_pattern(pattern, size, bufp)
 
 	  case 'x':
 	    c = scan_hex(p, 2, &numlen);
+	    if (numlen == 0) goto invalid_escape;
 	    p += numlen;
 	    had_num_literal = 1;
 	    break;
@@ -2260,6 +2260,7 @@ re_compile_pattern(pattern, size, bufp)
       case 'x':
 	had_mbchar = 0;
 	c = scan_hex(p, 2, &numlen);
+	if (numlen == 0) goto invalid_escape;
 	p += numlen;
 	had_num_literal = 1;
 	goto numeric_char;
@@ -2267,7 +2268,7 @@ re_compile_pattern(pattern, size, bufp)
 	/* octal */
       case '0':
 	had_mbchar = 0;
-	c = scan_oct(p, 3, &numlen);
+	c = scan_oct(p, 2, &numlen);
 	p += numlen;
 	had_num_literal = 1;
 	goto numeric_char;
@@ -4035,7 +4036,7 @@ re_match(bufp, string_arg, size, pos, regs)
 	  else
 	    break;
 	}
-	if ((enum regexpcode)*p1 == jump)
+	if (p1 < pend && (enum regexpcode)*p1 == jump)
 	  p[-1] = unused;
 	else
 	  PUSH_FAILURE_POINT(0, 0);
@@ -4139,6 +4140,7 @@ re_match(bufp, string_arg, size, pos, regs)
 
       case wordbound:
 	if (AT_STRINGS_BEG(d)) {
+	  if (AT_STRINGS_END(d)) goto fail;
 	  if (IS_A_LETTER(d)) break;
 	  else goto fail;
 	}

@@ -1,0 +1,11 @@
+Package: python
+Maintainer: Wilfredo Sanchez <wsanchez@opensource.apple.com>
+Vendor: Python Software Foundation
+Version: 2.2
+URL: http://www.python.org/
+Build-Depends: build-base
+Description: Python
+ Python is an interpreted object-oriented programming language suitable
+ (amongst other uses) for distributed application development,
+ scripting, numeric computing and system testing.  Python is often
+ compared to Tcl, Perl, Java, JavaScript, Visual Basic or Scheme.

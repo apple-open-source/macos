@@ -121,3 +121,6 @@
 # Note: on MS Windows, executables, have an extension, so rules and dependencies
 #       for generated tools should use $(EXECUTABLE_EXT) on the end.
 VPATH += :../timed.tproj
+after_install::
+	$(MKDIR) -p $(DSTROOT)/usr/share/man/man8
+	$(CP) timedc.8 $(DSTROOT)/usr/share/man/man8/

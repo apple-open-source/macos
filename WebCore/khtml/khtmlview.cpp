@@ -396,6 +396,24 @@ void KHTMLView::setMarginHeight(int h)
     _marginHeight = h;
 }
 
+
+void KHTMLView::adjustViewSize()
+{
+    if( m_part->xmlDocImpl() ) {
+        DOM::DocumentImpl *document = m_part->xmlDocImpl();
+
+        khtml::RenderCanvas* root = static_cast<khtml::RenderCanvas *>(document->renderer());
+        if ( !root )
+            return;
+        
+        int docw = root->docWidth();
+        int doch = root->docHeight();
+    
+        resizeContents(docw, doch);
+    }
+}
+
+
 void KHTMLView::layout()
 {
     if( m_part->xmlDocImpl() ) {
@@ -1121,7 +1139,7 @@ void KHTMLView::print()
         root->setPrintingMode(true);
         root->setWidth(metrics.width());
 
-        m_part->xmlDocImpl()->styleSelector()->computeFontSizes(&metrics, 100);
+        m_part->xmlDocImpl()->styleSelector()->computeFontSizes(&metrics);
         m_part->xmlDocImpl()->updateStyleSelector();
         root->setPrintImages( printer->option("kde-khtml-printimages") == "true");
         root->setNeedsLayoutAndMinMaxRecalc();
@@ -1170,7 +1188,7 @@ void KHTMLView::print()
         khtml::setPrintPainter( 0 );
         setMediaType( oldMediaType );
         m_part->xmlDocImpl()->setPaintDevice( this );
-        m_part->xmlDocImpl()->styleSelector()->computeFontSizes(m_part->xmlDocImpl()->paintDeviceMetrics(), m_part->zoomFactor());
+        m_part->xmlDocImpl()->styleSelector()->computeFontSizes(m_part->xmlDocImpl()->paintDeviceMetrics());
         m_part->xmlDocImpl()->updateStyleSelector();
         viewport()->unsetCursor();
     }
@@ -1535,7 +1553,7 @@ void KHTMLView::timerEvent ( QTimerEvent *e )
         d->updateRect = QRect(contentsX(),contentsY(),visibleWidth(),visibleHeight());
     }
 
-    if( m_part->xmlDocImpl() ) {
+    if( m_part && m_part->xmlDocImpl() ) {
         DOM::DocumentImpl *document = m_part->xmlDocImpl();
         khtml::RenderCanvas* root = static_cast<khtml::RenderCanvas *>(document->renderer());
         if (root){

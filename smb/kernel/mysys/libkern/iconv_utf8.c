@@ -40,6 +40,7 @@ static int
 iconv_utf8_open(struct iconv_converter_class *dcp,
 	struct iconv_cspair *csp, struct iconv_cspair *cspf, void **dpp)
 {
+	#pragma unused(cspf)
 	struct iconv_utf8 *dp;
 
 	dp = (struct iconv_utf8 *)kobj_create((struct kobj_class*)dcp, M_ICONV, M_WAITOK);
@@ -101,6 +102,7 @@ iconv_utf8_conv(void *d2p, const char **inbuf,
 static const char *
 iconv_utf8_name(struct iconv_converter_class *dcp)
 {
+	#pragma unused(dcp)
 	return "utf8";
 }
 

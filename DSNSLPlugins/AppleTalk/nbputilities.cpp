@@ -1,3 +1,32 @@
+/*
+ * Copyright (c) 2002 Apple Computer, Inc. All rights reserved.
+ *
+ * @APPLE_LICENSE_HEADER_START@
+ * 
+ * Copyright (c) 1999-2003 Apple Computer, Inc.  All Rights Reserved.
+ * 
+ * This file contains Original Code and/or Modifications of Original Code
+ * as defined in and that are subject to the Apple Public Source License
+ * Version 2.0 (the 'License'). You may not use this file except in
+ * compliance with the License. Please obtain a copy of the License at
+ * http://www.opensource.apple.com/apsl/ and read it before using this
+ * file.
+ * 
+ * The Original Code and all software distributed under the License are
+ * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
+ * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
+ * INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY,
+ * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
+ * Please see the License for the specific language governing rights and
+ * limitations under the License.
+ * 
+ * @APPLE_LICENSE_HEADER_END@
+ */
+ 
+/*!
+ *  @header nbputilities
+ */
+ 
 #include "nbputilities.h"
 
 unsigned short gCompareTable[] = {
@@ -32,52 +61,48 @@ unsigned short gCompareTable[] = {
 
 int myFastRelString ( const unsigned char* str1, int length, const unsigned char* str2, int length2 )
 {
-#if 0
-        return CompareText (str1, str2, length, length2, NULL);
-#else
-        UInt16*			compareTable;
-        SInt32	 		bestGuess;
+	UInt16*			compareTable;
+	SInt32	 		bestGuess;
 
-        if (length == length2)
-                bestGuess = 0;
-        else if (length < length2)
-                bestGuess = -1;
-        else
-        {
-                bestGuess = 1;
-                length = length2;
-        }
+	if (length == length2)
+			bestGuess = 0;
+	else if (length < length2)
+			bestGuess = -1;
+	else
+	{
+			bestGuess = 1;
+			length = length2;
+	}
 
-        compareTable = (UInt16*) gCompareTable;
+	compareTable = (UInt16*) gCompareTable;
 
-        while (length--)
-        {
-                UInt8	aChar, bChar;
+	while (length--)
+	{
+			UInt8	aChar, bChar;
 
-                aChar = *(str1++);
-                bChar = *(str2++);
+			aChar = *(str1++);
+			bChar = *(str2++);
 
-                if (aChar != bChar)		//	If they don't match exacly, do case conversion
-                {
-                        UInt16	aSortWord, bSortWord;
+			if (aChar != bChar)		//	If they don't match exacly, do case conversion
+			{
+					UInt16	aSortWord, bSortWord;
 
-                        aSortWord = compareTable[aChar];
-                        bSortWord = compareTable[bChar];
+					aSortWord = compareTable[aChar];
+					bSortWord = compareTable[bChar];
 
-                        if (aSortWord > bSortWord)
-                                return 1;
+					if (aSortWord > bSortWord)
+							return 1;
 
-                        if (aSortWord < bSortWord)
-                                return -1;
-                }
+					if (aSortWord < bSortWord)
+							return -1;
+			}
 
-                //	If characters match exactly, then go on to next character immediately without
-                //	doing any extra work.
-        }
+			//	If characters match exactly, then go on to next character immediately without
+			//	doing any extra work.
+	}
 
-        //	if you got to here, then return bestGuess
-        return bestGuess;
-#endif
+	//	if you got to here, then return bestGuess
+	return bestGuess;
 }
 
 
@@ -118,5 +143,3 @@ int GetATStackState()
 
 	return error;
 }
-
-

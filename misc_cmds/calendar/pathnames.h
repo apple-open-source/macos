@@ -1,5 +1,3 @@
-/*	$NetBSD: pathnames.h,v 1.3 1995/03/27 08:46:15 glass Exp $	*/
-
 /*
  * Copyright (c) 1989, 1993
  *	The Regents of the University of California.  All rights reserved.
@@ -33,9 +31,10 @@
  * SUCH DAMAGE.
  *
  *	@(#)pathnames.h	8.1 (Berkeley) 6/6/93
+ * $FreeBSD: src/usr.bin/calendar/pathnames.h,v 1.4 2001/01/13 01:33:59 ache Exp $
  */
 
 #include <paths.h>
 
 #define	_PATH_CPP	"/usr/bin/cpp"
-#define	_PATH_CALENDARS	"/usr/share/calendar"
+#define	_PATH_INCLUDE	"/usr/share/calendar"

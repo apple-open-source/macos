@@ -1,1 +1,5 @@
-Targets='AppleGenericPCATA'
+if [ "${Target}" = "AppleGenericPCATA" ]; then
+	Targets='AppleGenericPCATA'
+else
+	Targets='AppleGenericPCATA'
+fi

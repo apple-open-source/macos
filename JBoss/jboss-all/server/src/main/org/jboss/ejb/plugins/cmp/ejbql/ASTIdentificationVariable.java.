@@ -1,0 +1,22 @@
+package org.jboss.ejb.plugins.cmp.ejbql;
+
+import org.jboss.ejb.plugins.cmp.bridge.EntityBridge;
+
+public class ASTIdentificationVariable extends SimpleNode {
+   public EntityBridge entity;
+   public String variable;
+
+   public ASTIdentificationVariable(int id) {
+      super(id);
+   }
+
+   public ASTIdentificationVariable(EJBQLParser p, int id) {
+      super(p, id);
+   }
+
+
+   /** Accept the visitor. **/
+   public Object jjtAccept(JBossQLParserVisitor visitor, Object data) {
+      return visitor.visit(this, data);
+   }
+}

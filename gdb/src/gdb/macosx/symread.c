@@ -35,7 +35,7 @@
 #include "gdbcmd.h"
 #include "complaints.h"
 
-#include "sym.h"
+#include "xsym.h"
 
 #include <string.h>
 #include <stdio.h>
@@ -45,11 +45,11 @@
 struct type *sym_builtin_type_pstr;
 struct type *sym_builtin_type_cstr;
 
-struct complaint sym_complaint = 
-  {"error parsing SYM-format symbol table", 0, 0};
-
-struct complaint sym_unknown_typecode_complaint = 
-  {"unknown SYM typecode %d", 0, 0};
+static void
+sym_complaint (void)
+{
+  complaint (&symfile_complaints, "error parsing SYM-format symbol table");
+}
 
 struct sym_symfile_info {
   asymbol **syms;
@@ -122,10 +122,10 @@ int sym_parse_type
     long value;
 
     ret = bfd_sym_fetch_long (buf, len, offset, &offset, &value); 
-    if (ret < 0) { complain (&sym_complaint); break; }
-    if (value < 0) { complain (&sym_complaint); break; } 
-    if (value >= ntypes) { complain (&sym_complaint); break; }
-    if (typevec[value] == NULL) { complain (&sym_complaint); break; }
+    if (ret < 0) { sym_complaint (); break; }
+    if (value < 0) { sym_complaint (); break; } 
+    if (value >= ntypes) { sym_complaint (); break; }
+    if (typevec[value] == NULL) { sym_complaint (); break; }
     type = typevec[value]; 
 
     break;
@@ -133,17 +133,17 @@ int sym_parse_type
 
   case 2: {
     ret = sym_parse_type (objfile, typevec, ntypes, buf, len, offset, &offset, &target, NULL, NULL);
-    if ((ret < 0) || (target == NULL)) { complain (&sym_complaint); break; }
-    if (target == NULL) { complain (&sym_complaint); break; }
+    if ((ret < 0) || (target == NULL)) { sym_complaint (); break; }
+    if (target == NULL) { sym_complaint (); break; }
     type = make_pointer_type (target, NULL);
     break;
   }
 
   case 3: {
     ret = sym_parse_type (objfile, typevec, ntypes, buf, len, offset, &offset, &type, NULL, NULL);
-    if ((ret < 0) || (type == NULL)) { complain (&sym_complaint); break; }
+    if ((ret < 0) || (type == NULL)) { sym_complaint (); break; }
     ret = bfd_sym_fetch_long (buf, len, offset, &offset, &value); 
-    if (ret < 0) { complain (&sym_complaint); break; }
+    if (ret < 0) { sym_complaint (); break; }
     break;
   }
 
@@ -168,9 +168,9 @@ int sym_parse_type
     for (i = 0; i < nelem; i++) {
 
       ret = sym_parse_type (objfile, typevec, ntypes, buf, len, offset, &offset, &target, &targname, &value);
-      if ((ret < 0) || (target == NULL)) { complain (&sym_complaint); break; }
+      if ((ret < 0) || (target == NULL)) { sym_complaint (); break; }
 
-      if (targname == NULL) { complain (&sym_complaint); targname = "";  }
+      if (targname == NULL) { sym_complaint (); targname = "";  }
       
       TYPE_FIELD_TYPE (type, i) = target;
       TYPE_FIELD_NAME (type, i) = targname;
@@ -185,9 +185,9 @@ int sym_parse_type
     struct type *index;
     
     ret = sym_parse_type (objfile, typevec, ntypes, buf, len, offset, &offset, &index, NULL, NULL);
-    if ((ret < 0) || (index == NULL)) { complain (&sym_complaint); break; }
+    if ((ret < 0) || (index == NULL)) { sym_complaint (); break; }
     ret = sym_parse_type (objfile, typevec, ntypes, buf, len, offset, &offset, &target, NULL, NULL);
-    if ((ret < 0) || (target == NULL)) { complain (&sym_complaint); break; }
+    if ((ret < 0) || (target == NULL)) { sym_complaint (); break; }
     
     type = create_array_type (NULL, target, index);
     break;
@@ -199,8 +199,8 @@ int sym_parse_type
     long nrec, eloff, i;
 
     ret = bfd_sym_fetch_long (buf, len, offset, &offset, &nrec); 
-    if (ret < 0) { complain (&sym_complaint); break; }
-    if (nrec < 0) { complain (&sym_complaint); break; }
+    if (ret < 0) { sym_complaint (); break; }
+    if (nrec < 0) { sym_complaint (); break; }
 
     type = alloc_type (objfile);
 
@@ -218,9 +218,9 @@ int sym_parse_type
 
     for (i = 0; i < nrec; i++) {
       ret = bfd_sym_fetch_long (buf, len, offset, &offset, &eloff); 
-      if (ret < 0) { complain (&sym_complaint); break; }
+      if (ret < 0) { sym_complaint (); break; }
       ret = sym_parse_type (objfile, typevec, ntypes, buf, len, offset, &offset, &target, &targname, NULL);
-      if ((ret < 0) || (target == NULL)) { complain (&sym_complaint); break; }
+      if ((ret < 0) || (target == NULL)) { sym_complaint (); break; }
 
       if ((eloff < 0) || (targname == NULL)) {
 	type = NULL; 
@@ -242,11 +242,11 @@ int sym_parse_type
     unsigned long lval, uval;
 
     ret = sym_parse_type (objfile, typevec, ntypes, buf, len, offset, &offset, &target, NULL, NULL);
-    if ((ret < 0) || (target == NULL)) { complain (&sym_complaint); break; }
+    if ((ret < 0) || (target == NULL)) { sym_complaint (); break; }
     ret = sym_parse_type (objfile, typevec, ntypes, buf, len, offset, &offset, &lower, NULL, &lval);
-    if ((ret < 0) || (lower == NULL)) { complain (&sym_complaint); break; }
+    if ((ret < 0) || (lower == NULL)) { sym_complaint (); break; }
     ret = sym_parse_type (objfile, typevec, ntypes, buf, len, offset, &offset, &upper, NULL, &uval);
-    if ((ret < 0) || (upper == NULL)) { complain (&sym_complaint); break; }
+    if ((ret < 0) || (upper == NULL)) { sym_complaint (); break; }
     
     type = create_range_type (NULL, target, lval, uval);
 
@@ -259,9 +259,9 @@ int sym_parse_type
     const unsigned char *name;
 
     ret = bfd_sym_fetch_long (buf, len, offset, &offset, &value); 
-    if (ret < 0) { complain (&sym_complaint); break; }
+    if (ret < 0) { sym_complaint (); break; }
     ret = sym_parse_type (objfile, typevec, ntypes, buf, len, offset, &offset, &type, NULL, NULL);
-    if ((ret < 0) || (type == NULL)) { complain (&sym_complaint); break; }
+    if ((ret < 0) || (type == NULL)) { sym_complaint (); break; }
 
     name = bfd_sym_symbol_name (objfile->obfd, value);
     typename = (char *) obstack_alloc (&objfile->symbol_obstack, name[0] + 1);
@@ -271,7 +271,7 @@ int sym_parse_type
   }
 
   default:
-    complain (&sym_unknown_typecode_complaint, typecode);
+    complaint (&symfile_complaints, "unknown SYM typecode %d", typecode);
     type = builtin_type_error;
     break;
   }
@@ -349,7 +349,7 @@ static void sym_read_type
 
   if (bfd_seek (abfd, entry.offset, SEEK_SET) < 0) { return; }
 
-  if (bfd_read (buf, 1, entry.physical_size, abfd) != entry.physical_size) { return; }
+  if (bfd_bread (buf, entry.physical_size, abfd) != entry.physical_size) { return; }
 
   typename = bfd_sym_symbol_name (objfile->obfd, entry.nte_index);
 
@@ -477,28 +477,28 @@ static void sym_read_contained_variables
   i = entry->mte_cvte_index;
 
   if (i == 0) { return; }
-  if (i > sdata->header.dshb_cvte.dti_object_count) { complain (&sym_complaint); goto end; }
+  if (i > sdata->header.dshb_cvte.dti_object_count) { sym_complaint (); goto end; }
   ret = bfd_sym_fetch_contained_variables_table_entry (abfd, &cventry, i);
-  if (ret < 0) { complain (&sym_complaint); goto end; }
-  if (cventry.generic.type != BFD_SYM_SOURCE_FILE_CHANGE) { complain (&sym_complaint); goto end; }
+  if (ret < 0) { sym_complaint (); goto end; }
+  if (cventry.generic.type != BFD_SYM_SOURCE_FILE_CHANGE) { sym_complaint (); goto end; }
   i++;
       
   for (;;) {
 
     const unsigned char *nname = NULL;
 
-    if (i > sdata->header.dshb_cvte.dti_object_count) { complain (&sym_complaint); goto end; }
+    if (i > sdata->header.dshb_cvte.dti_object_count) { sym_complaint (); goto end; }
     ret = bfd_sym_fetch_contained_variables_table_entry (abfd, &cventry, i);
     i++;
 
-    if (ret < 0) { complain (&sym_complaint); goto end; }
+    if (ret < 0) { sym_complaint (); goto end; }
     if (cventry.generic.type == BFD_SYM_END_OF_LIST) { break; }
     if (cventry.generic.type == BFD_SYM_SOURCE_FILE_CHANGE) { goto end; }
 
-    if (cventry.entry.tte_index > ntypes) { complain (&sym_complaint); goto end; }
-    if (typevec[cventry.entry.tte_index] == NULL) { complain (&sym_complaint); goto end; }
+    if (cventry.entry.tte_index > ntypes) { sym_complaint (); goto end; }
+    if (typevec[cventry.entry.tte_index] == NULL) { sym_complaint (); goto end; }
 
-    if (cventry.entry.la_size != BFD_SYM_CVTE_SCA) { complain (&sym_complaint); goto end; }
+    if (cventry.entry.la_size != BFD_SYM_CVTE_SCA) { sym_complaint (); goto end; }
 
     nname = bfd_sym_symbol_name (abfd, cventry.entry.nte_index);
 
@@ -551,7 +551,7 @@ static void sym_read_contained_variables
 	  break;
 
 	default:
-	  complain (&sym_complaint);
+	  sym_complaint ();
 	  goto end;
 	}
 
@@ -591,14 +591,14 @@ static void sym_read_contained_variables
 	  break;
 
 	default:
-	  complain (&sym_complaint);
+	  sym_complaint ();
 	  goto end;
 	}
 
 	break;
 
       default:
-	complain (&sym_complaint);
+	sym_complaint ();
 	goto end;
       }
 
@@ -910,7 +910,7 @@ static void sym_symfile_read (struct objfile *objfile, int mainline)
 	struct linetable *temp = NULL;
 
 	if (curitem >= linetable_maxentries) {
-	  complain (&sym_complaint);
+	  sym_complaint ();
 	} else if (0) {
 	  linetable->item[curitem].line = -1;
 	  linetable->item[curitem].pc = mtentry.mte_res_offset + mtentry.mte_size;
@@ -976,7 +976,7 @@ static void sym_symfile_read (struct objfile *objfile, int mainline)
 	curpos += entry.entry.mte_offset;
 
 	if (curitem >= linetable_maxentries) {
-	  complain (&sym_complaint);
+	  sym_complaint ();
 	} else {
 
 	  if (curitem == 0) {
@@ -1020,10 +1020,15 @@ static void sym_symfile_offsets (struct objfile *objfile, struct section_addr_in
     obstack_alloc (&objfile->psymbol_obstack, SIZEOF_SECTION_OFFSETS);
   memset (objfile->section_offsets, 0, SIZEOF_SECTION_OFFSETS);
 
-  for (i = 0; i < objfile->sections_end - objfile->sections; i++) {
-    objfile->sections[i].addr += addrs->other[0].addr;
-    objfile->sections[i].endaddr += addrs->other[0].addr;
-  }
+  if (addrs->other[0].addr != 0)
+    {
+      objfile_delete_from_ordered_sections (objfile);
+      for (i = 0; i < objfile->sections_end - objfile->sections; i++) {
+	objfile->sections[i].addr += addrs->other[0].addr;
+	objfile->sections[i].endaddr += addrs->other[0].addr;
+      }
+      objfile_add_to_ordered_sections (objfile);
+    }
 
   for (i = 0; i < MAX_SECTIONS; i++) {
     objfile->section_offsets->offsets[i] = (long) addrs->other[0].addr;

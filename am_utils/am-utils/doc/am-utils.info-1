@@ -1,6 +1,7 @@
-This is am-utils.info, produced by makeinfo version 4.0b from
+This is am-utils.info, produced by makeinfo version 4.1 from
 am-utils.texi.
 
+INFO-DIR-SECTION Administration
 START-INFO-DIR-ENTRY
 * Am-utils: (am-utils).          The Amd automounter suite of utilities
 END-INFO-DIR-ENTRY
@@ -228,14 +229,21 @@ on am-utils.
    Am-utils version 6.0 was numbered with a major new release number to
 distinguish it from the last official release of Amd (5.x).  Many new
 features have been added such as a GNU `configure' system, NFS Version
-3, Autofs support, a run-time configuration file (`amd.conf'), many new
-ports, more scripts and programs, as well as numerous bug fixes.
-Another reason for the new major release number was to alert users of
-am-utils that user-visible interfaces may have changed.  In order to
-make Amd work well for the next 10 years, and be easier to maintain, it
-was necessary to remove old or unused features, change various syntax
-files, etc.  However, great care was taken to ensure the maximum
-possible backwards compatibility.
+3, a run-time configuration file (`amd.conf'), many new ports, more
+scripts and programs, as well as numerous bug fixes.  Another reason
+for the new major release number was to alert users of am-utils that
+user-visible interfaces may have changed.  In order to make Amd work
+well for the next 10 years, and be easier to maintain, it was necessary
+to remove old or unused features, change various syntax files, etc.
+However, great care was taken to ensure the maximum possible backwards
+compatibility.
+
+   Am-utils version 6.1 has autofs support for Linux and Solaris 2.5+ as
+_the_ major new feature, in addition to several other minor new
+features. The autofs support is completely transparent to the end-user,
+aside from the fact that /bin/pwd now always returns the correct
+amd-ified path. The administrator can easily switch between NFS and
+autofs mounts by changing one parameter in amd.conf.
 
 
 File: am-utils.info,  Node: Overview,  Next: Supported Platforms,  Prev: History,  Up: Top
@@ -1112,65 +1120,4 @@ ordering can become significant.
      `Berkeley.EDU' and `${rhost}' was initially `snow.Berkeley.EDU',
      after the normalization it would simply be `snow'.  Hostname
      normalization is currently done in a _case-dependent_ manner.
-
-
-File: am-utils.info,  Node: Selectors,  Next: Map Options,  Prev: Variable Expansion,  Up: Location Format
-
-Selectors
----------
-
-   Selectors are used to control the use of a location.  It is possible
-to share a mount map between many machines in such a way that filesystem
-location, architecture and operating system differences are hidden from
-the users.  A selector of the form `arch==sun3;os==sunos4' would only
-apply on Sun-3s running SunOS 4.x.
-
-   Selectors can be negated by using `!=' instead of `=='.  For example
-to select a location on all non-Vax machines the selector `arch!=vax'
-would be used.
-
-   Selectors are evaluated left to right.  If a selector fails then that
-location is ignored.  Thus the selectors form a conjunction and the
-locations form a disjunction.  If all the locations are ignored or
-otherwise fail then Amd uses the "error" filesystem (*note Error
-Filesystem::).  This is equivalent to having a location `type:=error'
-at the end of each mount-map entry.
-
-   The default value of many of the selectors listed here can be
-overridden by an Amd command line switch or in an Amd configuration
-file.  *Note Amd Configuration File::.
-
-   The following selectors are currently implemented.
-
-* Menu:
-
-* arch Selector Variable::
-* autodir Selector Variable::
-* byte Selector Variable::
-* cluster Selector Variable::
-* domain Selector Variable::
-* dollar Selector Variable::
-* host Selector Variable::
-* hostd Selector Variable::
-* karch Selector Variable::
-* os Selector Variable::
-* osver Selector Variable::
-* full_os Selector Variable::
-* vendor Selector Variable::
-
-* key Selector Variable::
-* map Selector Variable::
-* netnumber Selector Variable::
-* network Selector Variable::
-* path Selector Variable::
-* wire Selector Variable::
-* uid Selector Variable::
-* gid Selector Variable::
-
-* exists Selector Function::
-* false Selector Function::
-* netgrp Selector Function::
-* netgrpd Selector Function::
-* in_network Selector Function::
-* true Selector Function::
 

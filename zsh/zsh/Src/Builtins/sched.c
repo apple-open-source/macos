@@ -46,7 +46,7 @@ static struct schedcmd *schedcmds;
 
 /**/
 static int
-bin_sched(char *nam, char **argv, char *ops, int func)
+bin_sched(char *nam, char **argv, Options ops, int func)
 {
     char *s = *argv++;
     time_t t;

@@ -1,6 +1,6 @@
-/* $OpenLDAP: pkg/ldap/servers/slapd/sasl.c,v 1.81 2002/02/11 19:33:27 kurt Exp $ */
+/* $OpenLDAP: pkg/ldap/servers/slapd/sasl.c,v 1.81.2.25 2003/03/24 03:54:12 kurt Exp $ */
 /*
- * Copyright 1998-2002 The OpenLDAP Foundation, All Rights Reserved.
+ * Copyright 1998-2003 The OpenLDAP Foundation, All Rights Reserved.
  * COPYING RESTRICTIONS APPLY, see COPYRIGHT file
  */
 
@@ -15,36 +15,204 @@
 
 #include "slap.h"
 
-#ifdef HAVE_CYRUS_SASL
 #include <limits.h>
 
-#ifdef HAVE_SASL_SASL_H
-#include <sasl/sasl.h>
-#else
-#include <sasl.h>
-#endif
+#ifdef HAVE_CYRUS_SASL
+# ifdef HAVE_SASL_SASL_H
+#  include <sasl/sasl.h>
+# else
+#  include <sasl.h>
+# endif
 
-#if SASL_VERSION_MAJOR >= 2
-#include <lutil.h>
-#define	SASL_CONST const
-#else
-#define	SASL_CONST
-#endif
-
-#include <ldap_pvt.h>
-
-#ifdef SLAPD_SPASSWD
-#include <lutil.h>
-#endif
-
-/* Flags for telling slap_sasl_getdn() what type of identity is being passed */
-#define FLAG_GETDN_FINAL   1
-#define FLAG_GETDN_AUTHCID 2
-#define FLAG_GETDN_AUTHZID 4
+# if SASL_VERSION_MAJOR >= 2
+#  ifdef HAVE_SASL_SASL_H
+#   include <sasl/saslplug.h>
+#  else
+#   include <saslplug.h>
+#  endif
+#  define	SASL_CONST const
+# else
+#  define	SASL_CONST
+# endif
 
 static sasl_security_properties_t sasl_secprops;
+#endif /* HAVE_CYRUS_SASL */
 
-static int
+#include "ldap_pvt.h"
+#include "lber_pvt.h"
+#include <lutil.h>
+
+int slap_sasl_config( int cargc, char **cargv, char *line,
+	const char *fname, int lineno )
+{
+		/* set SASL proxy authorization policy */
+		if ( strcasecmp( cargv[0], "sasl-authz-policy" ) == 0 ) {
+			if ( cargc != 2 ) {
+#ifdef NEW_LOGGING
+				LDAP_LOG( CONFIG, CRIT,
+					"%s: line %d: missing policy in"
+					" \"sasl-authz-policy <policy>\" line\n",
+					fname, lineno, 0 );
+#else
+				Debug( LDAP_DEBUG_ANY,
+					"%s: line %d: missing policy in"
+					" \"sasl-authz-policy <policy>\" line\n",
+				    fname, lineno, 0 );
+#endif
+
+				return( 1 );
+			}
+			if ( slap_sasl_setpolicy( cargv[1] ) ) {
+#ifdef NEW_LOGGING
+				LDAP_LOG( CONFIG, CRIT,
+					   "%s: line %d: unable "
+					   "to parse value \"%s\" "
+					   "in \"sasl-authz-policy "
+					   "<policy>\" line.\n",
+					   fname, lineno, cargv[1] );
+#else
+				Debug( LDAP_DEBUG_ANY,
+				    	"%s: line %d: unable "
+					"to parse value \"%s\" "
+					"in \"sasl-authz-policy "
+					"<policy>\" line\n",
+    					fname, lineno, cargv[1] );
+#endif
+				return( 1 );
+			}
+
+		} else if ( !strcasecmp( cargv[0], "sasl-regexp" ) 
+			|| !strcasecmp( cargv[0], "saslregexp" ) )
+		{
+			int rc;
+			if ( cargc != 3 ) {
+#ifdef NEW_LOGGING
+				LDAP_LOG( CONFIG, CRIT,
+					"%s: line %d: need 2 args in "
+					"\"saslregexp <match> <replace>\"\n",
+					fname, lineno, 0 );
+#else
+				Debug( LDAP_DEBUG_ANY, 
+					"%s: line %d: need 2 args in "
+					"\"saslregexp <match> <replace>\"\n",
+					fname, lineno, 0 );
+#endif
+
+				return( 1 );
+			}
+			rc = slap_sasl_regexp_config( cargv[1], cargv[2] );
+			if ( rc ) {
+				return rc;
+			}
+
+#ifdef HAVE_CYRUS_SASL
+		/* set SASL host */
+		} else if ( strcasecmp( cargv[0], "sasl-host" ) == 0 ) {
+			if ( cargc < 2 ) {
+#ifdef NEW_LOGGING
+				LDAP_LOG( CONFIG, CRIT,
+					"%s: line %d: missing host in \"sasl-host <host>\" line\n",
+					fname, lineno, 0 );
+#else
+				Debug( LDAP_DEBUG_ANY,
+	    			"%s: line %d: missing host in \"sasl-host <host>\" line\n",
+				    fname, lineno, 0 );
+#endif
+
+				return( 1 );
+			}
+
+			if ( global_host != NULL ) {
+#ifdef NEW_LOGGING
+				LDAP_LOG( CONFIG, CRIT,
+					"%s: line %d: already set sasl-host!\n",
+					fname, lineno, 0 );
+#else
+				Debug( LDAP_DEBUG_ANY,
+					"%s: line %d: already set sasl-host!\n",
+					fname, lineno, 0 );
+#endif
+
+				return 1;
+
+			} else {
+				global_host = ch_strdup( cargv[1] );
+			}
+
+		/* set SASL realm */
+		} else if ( strcasecmp( cargv[0], "sasl-realm" ) == 0 ) {
+			if ( cargc < 2 ) {
+#ifdef NEW_LOGGING
+				LDAP_LOG( CONFIG, CRIT, "%s: line %d: "
+					"missing realm in \"sasl-realm <realm>\" line.\n",
+					fname, lineno, 0 );
+#else
+				Debug( LDAP_DEBUG_ANY, "%s: line %d: "
+					"missing realm in \"sasl-realm <realm>\" line.\n",
+				    fname, lineno, 0 );
+#endif
+
+				return( 1 );
+			}
+
+			if ( global_realm != NULL ) {
+#ifdef NEW_LOGGING
+				LDAP_LOG( CONFIG, CRIT,
+					"%s: line %d: already set sasl-realm!\n",
+					fname, lineno, 0 );
+#else
+				Debug( LDAP_DEBUG_ANY,
+					"%s: line %d: already set sasl-realm!\n",
+					fname, lineno, 0 );
+#endif
+
+				return 1;
+
+			} else {
+				global_realm = ch_strdup( cargv[1] );
+			}
+
+		/* SASL security properties */
+		} else if ( strcasecmp( cargv[0], "sasl-secprops" ) == 0 ) {
+			char *txt;
+
+			if ( cargc < 2 ) {
+#ifdef NEW_LOGGING
+				LDAP_LOG( CONFIG, CRIT, "%s: line %d: "
+					"missing flags in \"sasl-secprops <properties>\" line\n",
+					fname, lineno, 0 );
+#else
+				Debug( LDAP_DEBUG_ANY, "%s: line %d: "
+					"missing flags in \"sasl-secprops <properties>\" line\n",
+				    fname, lineno, 0 );
+#endif
+
+				return 1;
+			}
+
+			txt = slap_sasl_secprops( cargv[1] );
+			if ( txt != NULL ) {
+#ifdef NEW_LOGGING
+				LDAP_LOG( CONFIG, CRIT,
+					"%s: line %d sasl-secprops: %s\n",
+					fname, lineno, txt );
+#else
+				Debug( LDAP_DEBUG_ANY,
+					"%s: line %d: sasl-secprops: %s\n",
+				    fname, lineno, txt );
+#endif
+
+				return 1;
+			}
+#endif /* HAVE_CYRUS_SASL */
+	    }
+
+	    return LDAP_SUCCESS;
+}
+
+#ifdef HAVE_CYRUS_SASL
+
+int
 slap_sasl_log(
 	void *context,
 	int priority,
@@ -111,10 +279,8 @@ slap_sasl_log(
 	}
 
 #ifdef NEW_LOGGING
-	LDAP_LOG(( "sasl", LDAP_LEVEL_ENTRY,
-		"SASL [conn=%ld] %s: %s\n",
-		conn ? conn->c_connid : -1,
-		label, message ));
+	LDAP_LOG( TRANSPORT, ENTRY, 
+		"SASL [conn=%ld] %s: %s\n", conn ? conn->c_connid : -1, label, message);
 #else
 	Debug( level, "SASL [conn=%ld] %s: %s\n",
 		conn ? conn->c_connid: -1,
@@ -126,169 +292,249 @@ slap_sasl_log(
 }
 
 
-/* Take any sort of identity string and return a DN with the "dn:" prefix. The
-   string returned in *dn is in its own allocated memory, and must be free'd 
-   by the calling process.
-   -Mark Adamson, Carnegie Mellon
-*/
+#if SASL_VERSION_MAJOR >= 2
+static const char *slap_propnames[] = {
+	"*slapConn", "*authcDN", "*authzDN", NULL };
 
-#define	SET_DN	1
-#define	SET_U	2
+static Filter *generic_filter;
 
-static struct berval ext_bv = { sizeof("EXTERNAL")-1, "EXTERNAL" };
+#define	PROP_CONN	0
+#define	PROP_AUTHC	1
+#define	PROP_AUTHZ	2
 
-int slap_sasl_getdn( Connection *conn, char *id,
-	char *user_realm, struct berval *dn, int flags )
+typedef struct lookup_info {
+	int last;
+	int flags;
+	const struct propval *list;
+	sasl_server_params_t *sparams;
+} lookup_info;
+
+static int
+sasl_ap_lookup(
+	BackendDB *be,
+	Connection *conn,
+	Operation *op,
+	Entry *e,
+	AttributeName *an,
+	int attrsonly,
+	LDAPControl **ctrls )
 {
-	char *c1;
-	int rc, len, is_dn = 0;
-	sasl_conn_t *ctx;
-	struct berval dn2;
+	BerVarray bv;
+	AttributeDescription *ad;
+	Attribute *a;
+	const char *text;
+	int rc, i;
+	slap_callback *tmp = op->o_callback;
+	lookup_info *sl = tmp->sc_private;
 
-#ifdef NEW_LOGGING
-	LDAP_LOG(( "sasl", LDAP_LEVEL_ENTRY,
-		"slap_sasl_getdn: conn %d id=%s\n",
-		conn ? conn->c_connid : -1,
-		id ? (*id ? id : "<empty>") : "NULL" ));
-#else
-	Debug( LDAP_DEBUG_ARGS, "slap_sasl_getdn: id=%s\n", 
-      id?(*id?id:"<empty>"):"NULL",0,0 );
-#endif
+	for( i = 0; i < sl->last; i++ ) {
+		const char *name = sl->list[i].name;
 
-	dn->bv_val = NULL;
-	dn->bv_len = 0;
+		if ( name[0] == '*' ) {
+			if ( sl->flags & SASL_AUXPROP_AUTHZID ) continue;
+			name++;
+		} else if ( !(sl->flags & SASL_AUXPROP_AUTHZID ) )
+			continue;
 
-	/* Blatantly anonymous ID */
-	if( id &&
-		( id[sizeof( "anonymous" )-1] == '\0'
-			|| id[sizeof( "anonymous" )-1] == '@' ) &&
-		!strncasecmp( id, "anonymous", sizeof( "anonymous" )-1) ) {
-		return( LDAP_SUCCESS );
-	}
-	ctx = conn->c_sasl_context;
-	len = strlen( id );
-
-	/* An authcID needs to be converted to authzID form */
-	if( flags & FLAG_GETDN_AUTHCID ) {
-		if( sasl_external_x509dn_convert
-			&& conn->c_sasl_bind_mech.bv_len == ext_bv.bv_len
-			&& ( strcasecmp( ext_bv.bv_val, conn->c_sasl_bind_mech.bv_val ) == 0 ) 
-			&& id[0] == '/' )
-		{
-			/* check SASL external for X.509 style DN and */
-			/* convert to dn:<dn> form */
-			dn->bv_val = ldap_dcedn2dn( id );
-			dn->bv_len = strlen(dn->bv_val);
-			is_dn = SET_DN;
-
-		} else {
-			/* convert to u:<username> form */
-			ber_str2bv( id, len, 1, dn );
-			is_dn = SET_U;
+		if ( sl->list[i].values ) {
+			if ( !(sl->flags & SASL_AUXPROP_OVERRIDE) ) continue;
 		}
-	}
-	if( !is_dn ) {
-		if( !strncasecmp( id, "u:", sizeof("u:")-1 )) {
-			is_dn = SET_U;
-			ber_str2bv( id+2, len-2, 1, dn );
-		} else if ( !strncasecmp( id, "dn:", sizeof("dn:")-1) ) {
-			is_dn = SET_DN;
-			ber_str2bv( id+3, len-3, 1, dn );
-		}
-	}
-
-	/* An authzID must be properly prefixed */
-	if( (flags & FLAG_GETDN_AUTHZID) && !is_dn ) {
-		free( dn->bv_val );
-		dn->bv_val = NULL;
-		dn->bv_len = 0;
-		return( LDAP_INAPPROPRIATE_AUTH );
-	}
-
-	/* Username strings */
-	if( is_dn == SET_U ) {
-		char *p;
-		len = dn->bv_len + sizeof("uid=")-1 + sizeof(",cn=auth")-1;
-
- 		if( user_realm && *user_realm ) {
- 			len += strlen( user_realm ) + sizeof(",cn=")-1;
-		}
-
-		if( conn->c_sasl_bind_mech.bv_len ) {
-			len += conn->c_sasl_bind_mech.bv_len + sizeof(",cn=")-1;
-		}
-
-		/* Build the new dn */
-		c1 = dn->bv_val;
-		dn->bv_val = ch_malloc( len );
-		p = slap_strcopy( dn->bv_val, "uid=" );
-		p = slap_strcopy( p, c1 );
-		ch_free( c1 );
-
-		if( user_realm ) {
-			p = slap_strcopy( p, ",cn=" );
-			p = slap_strcopy( p, user_realm );
-		}
-		if( conn->c_sasl_bind_mech.bv_len ) {
-			p = slap_strcopy( p, ",cn=" );
-			p = slap_strcopy( p, conn->c_sasl_bind_mech.bv_val );
-		}
-		p = slap_strcopy( p, ",cn=auth" );
-		dn->bv_len = p - dn->bv_val;
-		is_dn = SET_DN;
-
-#ifdef NEW_LOGGING
-		LDAP_LOG(( "sasl", LDAP_LEVEL_ENTRY,
-			"slap_sasl_getdn: u:id converted to %s.\n", dn->bv_val ));
-#else
-		Debug( LDAP_DEBUG_TRACE, "getdn: u:id converted to %s\n", dn->bv_val,0,0 );
-#endif
-	}
-
-	/* DN strings that are a cn=auth identity to run through regexp */
-	if( is_dn == SET_DN && ( ( flags & FLAG_GETDN_FINAL ) == 0 ) )
-	{
-		slap_sasl2dn( dn, &dn2 );
-		if( dn2.bv_val ) {
-			ch_free( dn->bv_val );
-			*dn = dn2;
-#ifdef NEW_LOGGING
-			LDAP_LOG(( "sasl", LDAP_LEVEL_ENTRY,
-				"slap_sasl_getdn: dn:id converted to %s.\n", dn->bv_val ));
-#else
-			Debug( LDAP_DEBUG_TRACE, "getdn: dn:id converted to %s\n",
-				dn->bv_val, 0, 0 );
-#endif
-		}
-	}
-
-	if( flags & FLAG_GETDN_FINAL ) {
-		/* omit "dn:" prefix */
-		is_dn = 0;
-	} else {
-		rc = dnNormalize2( NULL, dn, &dn2 );
-		free(dn->bv_val);
+		ad = NULL;
+		rc = slap_str2ad( name, &ad, &text );
 		if ( rc != LDAP_SUCCESS ) {
-			*dn = slap_empty_bv;
-			return rc;
+#ifdef NEW_LOGGING
+			LDAP_LOG( TRANSPORT, DETAIL1, 
+				"slap_auxprop: str2ad(%s): %s\n", name, text, 0 );
+#else
+			Debug( LDAP_DEBUG_TRACE,
+				"slap_auxprop: str2ad(%s): %s\n", name, text, 0 );
+#endif
+			continue;
 		}
-		*dn = dn2;
+		a = attr_find( e->e_attrs, ad );
+		if ( !a ) continue;
+		if ( ! access_allowed( be, conn, op, e, ad, NULL, ACL_AUTH, NULL ) ) {
+			continue;
+		}
+		if ( sl->list[i].values && ( sl->flags & SASL_AUXPROP_OVERRIDE ) ) {
+			sl->sparams->utils->prop_erase( sl->sparams->propctx,
+			sl->list[i].name );
+		}
+		for ( bv = a->a_vals; bv->bv_val; bv++ ) {
+			sl->sparams->utils->prop_set( sl->sparams->propctx,
+				sl->list[i].name, bv->bv_val, bv->bv_len );
+		}
 	}
-
-	/* Attach the "dn:" prefix if needed */
-	if ( is_dn == SET_DN ) {
-		c1 = ch_malloc( dn->bv_len + sizeof("dn:") );
-		strcpy( c1, "dn:" );
-		strcpy( c1 + 3, dn->bv_val );
-		free( dn->bv_val );
-		dn->bv_val = c1;
-		dn->bv_len += 3;
-	}
-
-	return( LDAP_SUCCESS );
+	return LDAP_SUCCESS;
 }
 
-#if SASL_VERSION_MAJOR >= 2
+static void
+slap_auxprop_lookup(
+	void *glob_context,
+	sasl_server_params_t *sparams,
+	unsigned flags,
+	const char *user,
+	unsigned ulen)
+{
+	int i, doit=0;
+	struct berval dn;
+	Connection *conn = NULL;
+	lookup_info sl;
+
+	sl.list = sparams->utils->prop_get( sparams->propctx );
+	sl.sparams = sparams;
+	sl.flags = flags;
+
+	/* Find our DN and conn first */
+	for( i = 0, sl.last = 0; sl.list[i].name; i++ ) {
+		if ( sl.list[i].name[0] == '*' ) {
+			if ( !strcmp( sl.list[i].name, slap_propnames[PROP_CONN] ) ) {
+				if ( sl.list[i].values && sl.list[i].values[0] )
+					AC_MEMCPY( &conn, sl.list[i].values[0], sizeof( conn ) );
+				if ( !sl.last ) sl.last = i;
+			}
+			if ( (flags & SASL_AUXPROP_AUTHZID) &&
+				!strcmp( sl.list[i].name, slap_propnames[PROP_AUTHZ] ) ) {
+
+				if ( sl.list[i].values && sl.list[i].values[0] )
+					AC_MEMCPY( &dn, sl.list[i].values[0], sizeof( dn ) );
+				if ( !sl.last ) sl.last = i;
+				break;
+			}
+			if ( !strcmp( sl.list[i].name, slap_propnames[PROP_AUTHC] ) ) {
+				if ( !sl.last ) sl.last = i;
+				if ( sl.list[i].values && sl.list[i].values[0] ) {
+					AC_MEMCPY( &dn, sl.list[i].values[0], sizeof( dn ) );
+					if ( !(flags & SASL_AUXPROP_AUTHZID) )
+						break;
+				}
+			}
+		}
+	}
+
+	/* Now see what else needs to be fetched */
+	for( i = 0; i < sl.last; i++ ) {
+		const char *name = sl.list[i].name;
+
+		if ( name[0] == '*' ) {
+			if ( flags & SASL_AUXPROP_AUTHZID ) continue;
+			name++;
+		} else if ( !(flags & SASL_AUXPROP_AUTHZID ) )
+			continue;
+
+		if ( sl.list[i].values ) {
+			if ( !(flags & SASL_AUXPROP_OVERRIDE) ) continue;
+		}
+		doit = 1;
+	}
+
+	if (doit) {
+		Backend *be;
+		Operation op = {0};
+		slap_callback cb = { slap_cb_null_response,
+			slap_cb_null_sresult, sasl_ap_lookup, slap_cb_null_sreference, NULL };
+
+		cb.sc_private = &sl;
+
+		be = select_backend( &dn, 0, 1 );
+		
+		if ( be && be_isroot( be, &dn ) && ( be->be_rootpw.bv_len > 0 ) &&
+			 ( be->be_rootpw.bv_val[0] != '{' /*'}'*/ ) ) {
+			for( i = 0; i < sl.last; i++ ) {
+				const char *name = sl.list[i].name;
+		
+				if ( name[0] == '*' ) {
+					if ( flags & SASL_AUXPROP_AUTHZID ) continue;
+					name++;
+				} else if ( !(flags & SASL_AUXPROP_AUTHZID ) )
+					continue;
+		
+				if ( !strcasecmp(name,"userPassword") )
+					sl.sparams->utils->prop_set( sl.sparams->propctx,
+						sl.list[i].name, be->be_rootpw.bv_val, 
+						be->be_rootpw.bv_len );
+			}
+		}
+		else if ( be && be->be_search ) {
+			op.o_tag = LDAP_REQ_SEARCH;
+			op.o_protocol = LDAP_VERSION3;
+			op.o_ndn = conn->c_ndn;
+			op.o_callback = &cb;
+			op.o_time = slap_get_time();
+			op.o_do_not_cache = 1;
+			op.o_is_auth_check = 1;
+			op.o_threadctx = conn->c_sasl_bindop->o_threadctx;
+
+			(*be->be_search)( be, conn, &op, NULL, &dn,
+				LDAP_SCOPE_BASE, LDAP_DEREF_NEVER, 1, 0,
+				generic_filter, NULL, NULL, 0 );
+		}
+	}
+}
+
+static sasl_auxprop_plug_t slap_auxprop_plugin = {
+	0,	/* Features */
+	0,	/* spare */
+	NULL,	/* glob_context */
+	NULL,	/* auxprop_free */
+	slap_auxprop_lookup,
+	"slapd",	/* name */
+	NULL	/* spare */
+};
+
+static int
+slap_auxprop_init(
+	const sasl_utils_t *utils,
+	int max_version,
+	int *out_version,
+	sasl_auxprop_plug_t **plug,
+	const char *plugname)
+{
+	if ( !out_version | !plug ) return SASL_BADPARAM;
+
+	if ( max_version < SASL_AUXPROP_PLUG_VERSION ) return SASL_BADVERS;
+
+	*out_version = SASL_AUXPROP_PLUG_VERSION;
+	*plug = &slap_auxprop_plugin;
+	return SASL_OK;
+}
+
+typedef struct checkpass_info {
+	int rc;
+	struct berval cred;
+} checkpass_info;
+
+static int
+sasl_cb_checkpass(
+	BackendDB *be,
+	Connection *conn,
+	Operation *op,
+	Entry *e,
+	AttributeName *an,
+	int attrsonly,
+	LDAPControl **ctrls )
+{
+	slap_callback *tmp = op->o_callback;
+	checkpass_info *ci = tmp->sc_private;
+	Attribute *a;
+	struct berval *bv;
+	
+	ci->rc = SASL_NOVERIFY;
+
+	a = attr_find( e->e_attrs, slap_schema.si_ad_userPassword );
+	if ( !a ) return 0;
+	if ( ! access_allowed( be, conn, op, e, slap_schema.si_ad_userPassword,
+		NULL, ACL_AUTH, NULL ) ) return 0;
+
+	for ( bv = a->a_vals; bv->bv_val != NULL; bv++ ) {
+		if ( !lutil_passwd( bv, &ci->cred, NULL ) ) {
+			ci->rc = SASL_OK;
+			break;
+		}
+	}
+	return 0;
+}
+
 static int
 slap_sasl_checkpass(
 	sasl_conn_t *sconn,
@@ -299,18 +545,19 @@ slap_sasl_checkpass(
 	struct propctx *propctx)
 {
 	Connection *conn = (Connection *)context;
-	struct berval dn, cred;
+	struct berval dn;
 	int rc;
-	BerVarray vals, bv;
+	Backend *be;
+	checkpass_info ci;
 
-	cred.bv_val = (char *)pass;
-	cred.bv_len = passlen;
+	ci.rc = SASL_NOUSER;
 
-	/* XXX do we need to check sasldb as well? */
+	/* SASL will fallback to its own mechanisms if we don't
+	 * find an answer here.
+	 */
 
-	/* XXX can we do both steps at once? */
-	rc = slap_sasl_getdn( conn, (char *)username, NULL, &dn,
-		FLAG_GETDN_AUTHCID | FLAG_GETDN_FINAL );
+	rc = slap_sasl_getdn( conn, (char *)username, 0, NULL, &dn,
+		SLAP_GETDN_AUTHCID );
 	if ( rc != LDAP_SUCCESS ) {
 		sasl_seterror( sconn, 0, ldap_err2string( rc ) );
 		return SASL_NOUSER;
@@ -325,36 +572,45 @@ slap_sasl_checkpass(
 		return SASL_NOUSER;
 	}
 
-	rc = backend_attribute( NULL, NULL, NULL, NULL, &dn,
-		slap_schema.si_ad_userPassword, &vals);
-	if ( rc != LDAP_SUCCESS ) {
-		ch_free( dn.bv_val );
-		sasl_seterror( sconn, 0, ldap_err2string( rc ) );
-		return SASL_NOVERIFY;
+	be = select_backend( &dn, 0, 1 );
+	if ( be && be->be_search ) {
+		Operation op = {0};
+		slap_callback cb = { slap_cb_null_response,
+			slap_cb_null_sresult, sasl_cb_checkpass, slap_cb_null_sreference, NULL };
+
+		ci.cred.bv_val = (char *)pass;
+		ci.cred.bv_len = passlen;
+
+		cb.sc_private = &ci;
+		op.o_tag = LDAP_REQ_SEARCH;
+		op.o_protocol = LDAP_VERSION3;
+		op.o_ndn = conn->c_ndn;
+		op.o_callback = &cb;
+		op.o_time = slap_get_time();
+		op.o_do_not_cache = 1;
+		op.o_is_auth_check = 1;
+		op.o_threadctx = conn->c_sasl_bindop->o_threadctx;
+
+		(*be->be_search)( be, conn, &op, NULL, &dn,
+			LDAP_SCOPE_BASE, LDAP_DEREF_NEVER, 1, 0,
+			generic_filter, NULL, NULL, 0 );
 	}
-
-	rc = SASL_NOVERIFY;
-
-	if ( vals != NULL ) {
-		for ( bv = vals; bv->bv_val != NULL; bv++ ) {
-			if ( !lutil_passwd( bv, &cred, NULL ) ) {
-				rc = SASL_OK;
-				break;
-			}
-		}
-		ber_bvarray_free( vals );
-	}
-
-	if ( rc != SASL_OK ) {
+	if ( ci.rc != SASL_OK ) {
 		sasl_seterror( sconn, 0,
 			ldap_err2string( LDAP_INVALID_CREDENTIALS ) );
 	}
 
 	ch_free( dn.bv_val );
 
-	return rc;
+	return ci.rc;
 }
 
+/* Convert a SASL authcid or authzid into a DN. Store the DN in an
+ * auxiliary property, so that we can refer to it in sasl_authorize
+ * without interfering with anything else. Also, the SASL username
+ * buffer is constrained to 256 characters, and our DNs could be
+ * much longer (totally arbitrary length)...
+ */
 static int
 slap_sasl_canonicalize(
 	sasl_conn_t *sconn,
@@ -368,56 +624,106 @@ slap_sasl_canonicalize(
 	unsigned *out_len)
 {
 	Connection *conn = (Connection *)context;
+	struct propctx *props = sasl_auxprop_getctx( sconn );
+	struct propval auxvals[3];
 	struct berval dn;
-	int rc;
+	int rc, which;
+	const char *names[2];
 
 	*out_len = 0;
 
 #ifdef NEW_LOGGING
-	LDAP_LOG(( "sasl", LDAP_LEVEL_ENTRY,
+	LDAP_LOG( TRANSPORT, ENTRY, 
 		"slap_sasl_canonicalize: conn %d %s=\"%s\"\n",
-			conn ? conn->c_connid : -1,
-			(flags == SASL_CU_AUTHID) ? "authcid" : "authzid",
-			in ? in : "<empty>" ));
+		conn ? conn->c_connid : -1,
+		(flags & SASL_CU_AUTHID) ? "authcid" : "authzid",
+		in ? in : "<empty>");
 #else
-	Debug( LDAP_DEBUG_ARGS, "SASL Canonicalize [conn=%ld]: "
-		"%s=\"%s\"\n",
-			conn ? conn->c_connid : -1,
-			(flags == SASL_CU_AUTHID) ? "authcid" : "authzid",
-			in ? in : "<empty>" );
+	Debug( LDAP_DEBUG_ARGS, "SASL Canonicalize [conn=%ld]: %s=\"%s\"\n",
+		conn ? conn->c_connid : -1,
+		(flags & SASL_CU_AUTHID) ? "authcid" : "authzid",
+		in ? in : "<empty>");
 #endif
 
-	rc = slap_sasl_getdn( conn, (char *)in, (char *)user_realm, &dn,
-		(flags == SASL_CU_AUTHID) ? FLAG_GETDN_AUTHCID : FLAG_GETDN_AUTHZID );
+	/* If name is too big, just truncate. We don't care, we're
+	 * using DNs, not the usernames.
+	 */
+	if ( inlen > out_max )
+		inlen = out_max-1;
+
+	/* See if we need to add request, can only do it once */
+	prop_getnames( props, slap_propnames, auxvals );
+	if ( !auxvals[0].name )
+		prop_request( props, slap_propnames );
+
+	if ( flags & SASL_CU_AUTHID )
+		which = PROP_AUTHC;
+	else
+		which = PROP_AUTHZ;
+
+	/* Need to store the Connection for auxprop_lookup */
+	if ( !auxvals[PROP_CONN].values ) {
+		names[0] = slap_propnames[PROP_CONN];
+		names[1] = NULL;
+		prop_set( props, names[0], (char *)&conn, sizeof( conn ) );
+	}
+		
+	/* Already been here? */
+	if ( auxvals[which].values )
+		goto done;
+
+	/* Normally we require an authzID to have a u: or dn: prefix.
+	 * However, SASL frequently gives us an authzID that is just
+	 * an exact copy of the authcID, without a prefix. We need to
+	 * detect and allow this condition. If SASL calls canonicalize
+	 * with SASL_CU_AUTHID|SASL_CU_AUTHZID this is a no-brainer.
+	 * But if it's broken into two calls, we need to remember the
+	 * authcID so that we can compare the authzID later. We store
+	 * the authcID temporarily in conn->c_sasl_dn. We necessarily
+	 * finish Canonicalizing before Authorizing, so there is no
+	 * conflict with slap_sasl_authorize's use of this temp var.
+	 *
+	 * The SASL EXTERNAL mech is backwards from all the other mechs,
+	 * it does authzID before the authcID. If we see that authzID
+	 * has already been done, don't do anything special with authcID.
+	 */
+	if ( flags == SASL_CU_AUTHID && !auxvals[PROP_AUTHZ].values ) {
+		conn->c_sasl_dn.bv_val = (char *) in;
+	} else if ( flags == SASL_CU_AUTHZID && conn->c_sasl_dn.bv_val ) {
+		rc = strcmp( in, conn->c_sasl_dn.bv_val );
+		conn->c_sasl_dn.bv_val = NULL;
+		/* They were equal, no work needed */
+		if ( !rc ) goto done;
+	}
+
+	rc = slap_sasl_getdn( conn, (char *)in, inlen, (char *)user_realm, &dn,
+		(flags & SASL_CU_AUTHID) ? SLAP_GETDN_AUTHCID : SLAP_GETDN_AUTHZID );
 	if ( rc != LDAP_SUCCESS ) {
 		sasl_seterror( sconn, 0, ldap_err2string( rc ) );
 		return SASL_NOAUTHZ;
 	}		
 
-	if ( out_max < dn.bv_len ) {
-		return SASL_BUFOVER;
-	}
+	names[0] = slap_propnames[which];
+	names[1] = NULL;
 
-	AC_MEMCPY( out, dn.bv_val, dn.bv_len );
-	out[dn.bv_len] = '\0';
-
-	*out_len = dn.bv_len;
-
-	ch_free( dn.bv_val );
-
+	prop_set( props, names[0], (char *)&dn, sizeof( dn ) );
+		
 #ifdef NEW_LOGGING
-	LDAP_LOG(( "sasl", LDAP_LEVEL_ENTRY,
+	LDAP_LOG( TRANSPORT, ENTRY, 
 		"slap_sasl_canonicalize: conn %d %s=\"%s\"\n",
-			conn ? conn->c_connid : -1,
-			(flags == SASL_CU_AUTHID) ? "authcDN" : "authzDN",
-			out ));
+		conn ? conn->c_connid : -1, names[0]+1,
+		dn.bv_val ? dn.bv_val : "<EMPTY>" );
 #else
-	Debug( LDAP_DEBUG_ARGS, "SASL Canonicalize [conn=%ld]: "
-		"%s=\"%s\"\n",
-			conn ? conn->c_connid : -1,
-			(flags == SASL_CU_AUTHID) ? "authcDN" : "authzDN",
-			out );
+	Debug( LDAP_DEBUG_ARGS, "SASL Canonicalize [conn=%ld]: %s=\"%s\"\n",
+		conn ? conn->c_connid : -1, names[0]+1,
+		dn.bv_val ? dn.bv_val : "<EMPTY>" );
 #endif
+
+done:
+	AC_MEMCPY( out, in, inlen );
+	out[inlen] = '\0';
+
+	*out_len = inlen;
 
 	return SASL_OK;
 }
@@ -426,40 +732,54 @@ static int
 slap_sasl_authorize(
 	sasl_conn_t *sconn,
 	void *context,
-	const char *requested_user,
+	char *requested_user,
 	unsigned rlen,
-	const char *auth_identity,
+	char *auth_identity,
 	unsigned alen,
 	const char *def_realm,
 	unsigned urlen,
-	struct propctx *propctx)
+	struct propctx *props)
 {
 	Connection *conn = (Connection *)context;
+	struct propval auxvals[3];
 	struct berval authcDN, authzDN;
 	int rc;
 
-	authcDN.bv_val = (char *)auth_identity;
-	authcDN.bv_len = alen;
-
-	authzDN.bv_val = (char *)requested_user;
-	authzDN.bv_len = rlen;
-
 #ifdef NEW_LOGGING
-	LDAP_LOG(( "sasl", LDAP_LEVEL_ENTRY,
-		"slap_sasl_authorize: conn %d authcDN=\"%s\" authzDN=\"%s\"\n",
-			conn ? conn->c_connid : -1, authcDN.bv_val, authzDN.bv_val));
+	LDAP_LOG( TRANSPORT, ENTRY, 
+		"slap_sasl_authorize: conn %d authcid=\"%s\" authzid=\"%s\"\n",
+		conn ? conn->c_connid : -1, auth_identity, requested_user);
 #else
 	Debug( LDAP_DEBUG_ARGS, "SASL Authorize [conn=%ld]: "
-		"authcDN=\"%s\" authzDN=\"%s\"\n",
-		conn ? conn->c_connid : -1, authcDN.bv_val, authzDN.bv_val );
+		"authcid=\"%s\" authzid=\"%s\"\n",
+		conn ? conn->c_connid : -1, auth_identity, requested_user );
 #endif
+	if ( conn->c_sasl_dn.bv_val ) {
+		ch_free( conn->c_sasl_dn.bv_val );
+		conn->c_sasl_dn.bv_val = NULL;
+		conn->c_sasl_dn.bv_len = 0;
+	}
 
-	rc = slap_sasl_authorized( &authcDN, &authzDN );
+	/* Skip PROP_CONN */
+	prop_getnames( props, slap_propnames+1, auxvals );
+	
+	AC_MEMCPY( &authcDN, auxvals[0].values[0], sizeof(authcDN) );
+
+	/* Nothing to do if no authzID was given */
+	if ( !auxvals[1].name || !auxvals[1].values ) {
+		conn->c_sasl_dn = authcDN;
+		goto ok;
+	}
+	
+	AC_MEMCPY( &authzDN, auxvals[1].values[0], sizeof(authzDN) );
+
+	rc = slap_sasl_authorized( conn, &authcDN, &authzDN );
+	ch_free( authcDN.bv_val );
 	if ( rc != LDAP_SUCCESS ) {
 #ifdef NEW_LOGGING
-		LDAP_LOG(( "sasl", LDAP_LEVEL_INFO,
-			   "slap_sasl_authorize: conn %ld  authorization disallowed (%d)\n",
-			   (long)(conn ? conn->c_connid : -1), rc ));
+		LDAP_LOG( TRANSPORT, INFO, 
+			"slap_sasl_authorize: conn %ld  authorization disallowed (%d)\n",
+			(long)(conn ? conn->c_connid : -1), rc, 0 );
 #else
 		Debug( LDAP_DEBUG_TRACE, "SASL Authorize [conn=%ld]: "
 			" authorization disallowed (%d)\n",
@@ -467,27 +787,36 @@ slap_sasl_authorize(
 #endif
 
 		sasl_seterror( sconn, 0, "not authorized" );
+		ch_free( authzDN.bv_val );
 		return SASL_NOAUTHZ;
 	}
 
+	conn->c_sasl_dn = authzDN;
+ok:
+	if (conn->c_sasl_bindop) {
+		Statslog( LDAP_DEBUG_STATS,
+			"conn=%lu op=%lu BIND authcid=\"%s\"\n",
+			conn->c_connid, conn->c_sasl_bindop->o_opid, 
+			auth_identity, 0, 0);
+	}
+
 #ifdef NEW_LOGGING
-	LDAP_LOG(( "sasl", LDAP_LEVEL_ENTRY,
-		   "slap_sasl_authorize: conn %d authorization allowed\n",
-		   (long)(conn ? conn->c_connid : -1 ) ));
+	LDAP_LOG( TRANSPORT, ENTRY, 
+		"slap_sasl_authorize: conn %d authorization allowed\n",
+		(long)(conn ? conn->c_connid : -1), 0, 0 );
 #else
 	Debug( LDAP_DEBUG_TRACE, "SASL Authorize [conn=%ld]: "
 		" authorization allowed\n",
 		(long) (conn ? conn->c_connid : -1), 0, 0 );
 #endif
-
 	return SASL_OK;
 } 
 #else
 static int
 slap_sasl_authorize(
 	void *context,
-	const char *authcid,
-	const char *authzid,
+	char *authcid,
+	char *authzid,
 	const char **user,
 	const char **errstr)
 {
@@ -497,13 +826,17 @@ slap_sasl_authorize(
 	char *realm;
 
 	*user = NULL;
+	if ( conn->c_sasl_dn.bv_val ) {
+		ch_free( conn->c_sasl_dn.bv_val );
+		conn->c_sasl_dn.bv_val = NULL;
+		conn->c_sasl_dn.bv_len = 0;
+	}
 
 #ifdef NEW_LOGGING
-	LDAP_LOG(( "sasl", LDAP_LEVEL_ENTRY,
-		   "slap_sasl_authorize: conn %d	 authcid=\"%s\" authzid=\"%s\"\n",
-		   conn ? conn->c_connid : -1,
-		   authcid ? authcid : "<empty>",
-		   authzid ? authzid : "<empty>" ));
+	LDAP_LOG( TRANSPORT, ENTRY, 
+		"slap_sasl_authorize: conn %d	 authcid=\"%s\" authzid=\"%s\"\n",
+		conn ? conn->c_connid : -1, authcid ? authcid : "<empty>",
+		authzid ? authzid : "<empty>" );
 #else
 	Debug( LDAP_DEBUG_ARGS, "SASL Authorize [conn=%ld]: "
 		"authcid=\"%s\" authzid=\"%s\"\n",
@@ -516,8 +849,8 @@ slap_sasl_authorize(
 	rc = sasl_getprop( conn->c_sasl_context, SASL_REALM, (void **)&realm );
 	if( rc != SASL_OK && rc != SASL_NOTDONE ) {
 #ifdef NEW_LOGGING
-		LDAP_LOG(( "sasl", LDAP_LEVEL_ERR,
-			"slap_sasl_authorize: getprop(REALM) failed.\n" ));
+		LDAP_LOG( TRANSPORT, ERR,
+			"slap_sasl_authorize: getprop(REALM) failed.\n", 0, 0, 0 );
 #else
 		Debug(LDAP_DEBUG_TRACE,
 			"authorize: getprop(REALM) failed!\n", 0,0,0);
@@ -528,38 +861,40 @@ slap_sasl_authorize(
 
 	/* Convert the identities to DN's. If no authzid was given, client will
 	   be bound as the DN matching their username */
-	rc = slap_sasl_getdn( conn, (char *)authcid, realm, &authcDN, FLAG_GETDN_AUTHCID );
+	rc = slap_sasl_getdn( conn, (char *)authcid, 0, realm,
+		&authcDN, SLAP_GETDN_AUTHCID );
 	if( rc != LDAP_SUCCESS ) {
 		*errstr = ldap_err2string( rc );
 		return SASL_NOAUTHZ;
 	}
 	if( ( authzid == NULL ) || !strcmp( authcid,authzid ) ) {
 #ifdef NEW_LOGGING
-		LDAP_LOG(( "sasl", LDAP_LEVEL_ENTRY,
-			   "slap_sasl_authorize: conn %d  Using authcDN=%s\n",
-			   conn ? conn->c_connid : -1, authcDN.bv_val ));
+		LDAP_LOG( TRANSPORT, ENTRY, 
+			"slap_sasl_authorize: conn %d  Using authcDN=%s\n",
+			conn ? conn->c_connid : -1, authcDN.bv_val, 0 );
 #else
 		Debug( LDAP_DEBUG_TRACE, "SASL Authorize [conn=%ld]: "
 		 "Using authcDN=%s\n", (long) (conn ? conn->c_connid : -1), authcDN.bv_val,0 );
 #endif
 
-		*user = authcDN.bv_val;
-		*errstr = NULL;
-		return SASL_OK;
+		conn->c_sasl_dn = authcDN;
+		goto ok;
 	}
-	rc = slap_sasl_getdn( conn, (char *)authzid, realm, &authzDN, FLAG_GETDN_AUTHZID );
+	rc = slap_sasl_getdn( conn, (char *)authzid, 0, realm,
+		&authzDN, SLAP_GETDN_AUTHZID );
 	if( rc != LDAP_SUCCESS ) {
 		ch_free( authcDN.bv_val );
 		*errstr = ldap_err2string( rc );
 		return SASL_NOAUTHZ;
 	}
 
-	rc = slap_sasl_authorized( &authcDN, &authzDN );
+	rc = slap_sasl_authorized(conn, &authcDN, &authzDN );
+	ch_free( authcDN.bv_val );
 	if( rc ) {
 #ifdef NEW_LOGGING
-		LDAP_LOG(( "sasl", LDAP_LEVEL_INFO,
-			   "slap_sasl_authorize: conn %ld  authorization disallowed (%d)\n",
-			   (long)(conn ? conn->c_connid : -1), rc ));
+		LDAP_LOG( TRANSPORT, INFO, 
+			"slap_sasl_authorize: conn %ld  authorization disallowed (%d)\n",
+			(long)(conn ? conn->c_connid : -1), rc, 0 );
 #else
 		Debug( LDAP_DEBUG_TRACE, "SASL Authorize [conn=%ld]: "
 			" authorization disallowed (%d)\n",
@@ -567,24 +902,29 @@ slap_sasl_authorize(
 #endif
 
 		*errstr = "not authorized";
-		ch_free( authcDN.bv_val );
 		ch_free( authzDN.bv_val );
 		return SASL_NOAUTHZ;
 	}
+	conn->c_sasl_dn = authzDN;
 
+ok:
 #ifdef NEW_LOGGING
-	LDAP_LOG(( "sasl", LDAP_LEVEL_ENTRY,
-		   "slap_sasl_authorize: conn %d authorization allowed\n",
-		   (long)(conn ? conn->c_connid : -1 ) ));
+	LDAP_LOG( TRANSPORT, RESULTS, 
+		"slap_sasl_authorize: conn %d authorization allowed\n",
+	   (long)(conn ? conn->c_connid : -1 ), 0, 0 );
 #else
 	Debug( LDAP_DEBUG_TRACE, "SASL Authorize [conn=%ld]: "
 		" authorization allowed\n",
 		(long) (conn ? conn->c_connid : -1), 0, 0 );
 #endif
 
+	if (conn->c_sasl_bindop) {
+		Statslog( LDAP_DEBUG_STATS,
+			"conn=%lu op=%lu BIND authcid=\"%s\"\n",
+			conn->c_connid, conn->c_sasl_bindop->o_opid, 
+			authcid, 0, 0);
+	}
 
-	ch_free( authcDN.bv_val );
-	*user = authzDN.bv_val;
 	*errstr = NULL;
 	return SASL_OK;
 }
@@ -627,7 +967,6 @@ slap_sasl_err2ldap( int saslerr )
 }
 #endif
 
-
 int slap_sasl_init( void )
 {
 #ifdef HAVE_CYRUS_SASL
@@ -637,11 +976,35 @@ int slap_sasl_init( void )
 		{ SASL_CB_LIST_END, NULL, NULL }
 	};
 
+#ifdef HAVE_SASL_VERSION
+#define SASL_BUILD_VERSION ((SASL_VERSION_MAJOR << 24) |\
+	(SASL_VERSION_MINOR << 16) | SASL_VERSION_STEP)
+
+	sasl_version( NULL, &rc );
+	if ( ((rc >> 16) != ((SASL_VERSION_MAJOR << 8)|SASL_VERSION_MINOR)) ||
+		(rc & 0xffff) < SASL_VERSION_STEP) {
+
+#ifdef NEW_LOGGING
+		LDAP_LOG( TRANSPORT, INFO,
+		"slap_sasl_init: SASL version mismatch, got %x, wanted %x.\n",
+			rc, SASL_BUILD_VERSION, 0 );
+#else
+		Debug( LDAP_DEBUG_ANY,
+		"slap_sasl_init: SASL version mismatch, got %x, wanted %x.\n",
+			rc, SASL_BUILD_VERSION, 0 );
+#endif
+		return -1;
+	}
+#endif
+
+	/* SASL 2 does its own memory management internally */
+#if SASL_VERSION_MAJOR < 2
 	sasl_set_alloc(
-		ch_malloc,
-		ch_calloc,
-		ch_realloc,
-		ch_free ); 
+		ber_memalloc,
+		ber_memcalloc,
+		ber_memrealloc,
+		ber_memfree ); 
+#endif
 
 	sasl_set_mutex(
 		ldap_pvt_sasl_mutex_new,
@@ -649,25 +1012,39 @@ int slap_sasl_init( void )
 		ldap_pvt_sasl_mutex_unlock,
 		ldap_pvt_sasl_mutex_dispose );
 
+#if SASL_VERSION_MAJOR >= 2
+	sasl_auxprop_add_plugin( "slapd", slap_auxprop_init );
+#endif
 	/* should provide callbacks for logging */
 	/* server name should be configurable */
+#ifdef __APPLE__
+    setenv( "SASL_PATH", "/usr/lib/sasl2/openldap/", 0 );
+#endif
 	rc = sasl_server_init( server_callbacks, "slapd" );
 
+#ifdef __APPLE__
+	if ( rc == SASL_OK )
+	{
+		rc = sasl_client_init(NULL);
+	}
+#endif
 	if( rc != SASL_OK ) {
 #ifdef NEW_LOGGING
-		LDAP_LOG(( "sasl", LDAP_LEVEL_INFO,
-			   "slap_sasl_init: init failed.\n" ));
+		LDAP_LOG( TRANSPORT, INFO, "slap_sasl_init: init failed.\n", 0, 0, 0 );
 #else
 		Debug( LDAP_DEBUG_ANY, "sasl_server_init failed\n",
 			0, 0, 0 );
+#endif
+#if SASL_VERSION_MAJOR < 2
+		/* A no-op used to make sure we linked with Cyrus 1.5 */
+		sasl_client_auth( NULL, NULL, NULL, 0, NULL, NULL );
 #endif
 
 		return -1;
 	}
 
 #ifdef NEW_LOGGING
-	LDAP_LOG(( "sasl", LDAP_LEVEL_INFO,
-		   "slap_sasl_init: initialized!\n"));
+	LDAP_LOG( TRANSPORT, INFO, "slap_sasl_init: initialized!\n", 0, 0, 0 );
 #else
 	Debug( LDAP_DEBUG_TRACE, "slap_sasl_init: initialized!\n",
 		0, 0, 0 );
@@ -688,6 +1065,9 @@ int slap_sasl_destroy( void )
 {
 #ifdef HAVE_CYRUS_SASL
 	sasl_done();
+#endif
+#if SASL_VERSION_MAJOR >= 2
+	filter_free( generic_filter );
 #endif
 	free( global_host );
 	global_host = NULL;
@@ -713,10 +1093,20 @@ int slap_sasl_open( Connection *conn )
 
 	session_callbacks =
 #if SASL_VERSION_MAJOR >= 2
-		ch_calloc( 5, sizeof(sasl_callback_t));
+		SLAP_CALLOC( 5, sizeof(sasl_callback_t));
 #else
-		ch_calloc( 3, sizeof(sasl_callback_t));
+		SLAP_CALLOC( 3, sizeof(sasl_callback_t));
 #endif
+	if( session_callbacks == NULL ) {
+#ifdef NEW_LOGGING
+			LDAP_LOG( TRANSPORT, ERR, 
+				"slap_sasl_open: SLAP_MALLOC failed", 0, 0, 0 );
+#else
+			Debug( LDAP_DEBUG_ANY, 
+				"slap_sasl_open: SLAP_MALLOC failed", 0, 0, 0 );
+#endif
+			return -1;
+	}
 	conn->c_sasl_extra = session_callbacks;
 
 	session_callbacks[cb=0].id = SASL_CB_LOG;
@@ -748,6 +1138,9 @@ int slap_sasl_open( Connection *conn )
 
 	/* create new SASL context */
 #if SASL_VERSION_MAJOR >= 2
+	if ( generic_filter == NULL ) {
+		generic_filter = str2filter( "(objectclass=*)" );
+	}
 	if ( conn->c_sock_name.bv_len != 0 &&
 	     strncmp( conn->c_sock_name.bv_val, "IP=", 3 ) == 0) {
 		char *p;
@@ -755,6 +1148,8 @@ int slap_sasl_open( Connection *conn )
 		iplocalport = ch_strdup( conn->c_sock_name.bv_val + 3 );
 		/* Convert IPv6 addresses to address;port syntax. */
 		p = strrchr( iplocalport, ' ' );
+		/* Convert IPv4 addresses to address;port syntax. */
+		if ( p == NULL ) p = strchr( iplocalport, ':' );
 		if ( p != NULL ) {
 			*p = ';';
 		}
@@ -766,12 +1161,14 @@ int slap_sasl_open( Connection *conn )
 		ipremoteport = ch_strdup( conn->c_peer_name.bv_val + 3 );
 		/* Convert IPv6 addresses to address;port syntax. */
 		p = strrchr( ipremoteport, ' ' );
+		/* Convert IPv4 addresses to address;port syntax. */
+		if ( p == NULL ) p = strchr( ipremoteport, ':' );
 		if ( p != NULL ) {
 			*p = ';';
 		}
 	}
 	sc = sasl_server_new( "ldap", global_host, global_realm,
-		iplocalport, ipremoteport, session_callbacks, 0, &ctx );
+		iplocalport, ipremoteport, session_callbacks, SASL_SUCCESS_DATA, &ctx );
 	if ( iplocalport != NULL ) {
 		ch_free( iplocalport );
 	}
@@ -785,8 +1182,8 @@ int slap_sasl_open( Connection *conn )
 
 	if( sc != SASL_OK ) {
 #ifdef NEW_LOGGING
-		LDAP_LOG(( "sasl", LDAP_LEVEL_ERR,
-			   "slap_sasl_open: sasl_server_new failed: %d\n", sc ));
+		LDAP_LOG( TRANSPORT, ERR, 
+			"slap_sasl_open: sasl_server_new failed: %d\n", sc, 0, 0 );
 #else
 		Debug( LDAP_DEBUG_ANY, "sasl_server_new failed: %d\n",
 			sc, 0, 0 );
@@ -803,8 +1200,8 @@ int slap_sasl_open( Connection *conn )
 
 		if( sc != SASL_OK ) {
 #ifdef NEW_LOGGING
-			LDAP_LOG(( "sasl", LDAP_LEVEL_ERR,
-				   "slap_sasl_open: sasl_setprop failed: %d \n", sc ));
+			LDAP_LOG( TRANSPORT, ERR, 
+				"slap_sasl_open: sasl_setprop failed: %d \n", sc, 0, 0 );
 #else
 			Debug( LDAP_DEBUG_ANY, "sasl_setprop failed: %d\n",
 				sc, 0, 0 );
@@ -898,8 +1295,8 @@ char ** slap_sasl_mechs( Connection *conn )
 
 		if( sc != SASL_OK ) {
 #ifdef NEW_LOGGING
-			LDAP_LOG(( "sasl", LDAP_LEVEL_ERR,
-				"slap_sasl_mechs: sasl_listmech failed: %d\n", sc ));
+			LDAP_LOG( TRANSPORT, ERR, 
+				"slap_sasl_mechs: sasl_listmech failed: %d\n", sc, 0, 0 );
 #else
 			Debug( LDAP_DEBUG_ANY, "slap_sasl_listmech failed: %d\n",
 				sc, 0, 0 );
@@ -908,7 +1305,7 @@ char ** slap_sasl_mechs( Connection *conn )
 			return NULL;
 		}
 
-		mechs = str2charray( mechstr, "," );
+		mechs = ldap_str2charray( mechstr, "," );
 
 #if SASL_VERSION_MAJOR < 2
 		ch_free( mechstr );
@@ -956,12 +1353,12 @@ int slap_sasl_bind(
 	int sc;
 
 #ifdef NEW_LOGGING
-	LDAP_LOG(( "sasl", LDAP_LEVEL_ENTRY,
-		"sasl_bind: conn %ld dn=\"%s\" mech=%s datalen=%ld\n",
-		conn->c_connid,
+	LDAP_LOG( TRANSPORT, ENTRY, 
+		"sasl_bind: dn=\"%s\" mech=%s datalen=%ld\n",
 		dn->bv_len ? dn->bv_val : "",
-		conn->c_sasl_bind_in_progress ? "<continuing>" : conn->c_sasl_bind_mech.bv_val,
-		cred ? cred->bv_len : 0 ));
+		conn->c_sasl_bind_in_progress ? "<continuing>" : 
+		conn->c_sasl_bind_mech.bv_val,
+		cred ? cred->bv_len : 0 );
 #else
 	Debug(LDAP_DEBUG_ARGS,
 		"==> sasl_bind: dn=\"%s\" mech=%s datalen=%ld\n",
@@ -992,8 +1389,7 @@ int slap_sasl_bind(
 	if ( !conn->c_sasl_bind_in_progress ) {
 		sc = START( ctx,
 			conn->c_sasl_bind_mech.bv_val,
-			cred->bv_len ? cred->bv_val : "",
-			cred->bv_len,
+			cred->bv_val, cred->bv_len,
 			(SASL_CONST char **)&response.bv_val, &reslen, &errstr );
 
 	} else {
@@ -1005,60 +1401,35 @@ int slap_sasl_bind(
 	response.bv_len = reslen;
 
 	if ( sc == SASL_OK ) {
-		char *username = NULL;
-		char *realm = NULL;
+		sasl_ssf_t *ssf = NULL;
 
-#if SASL_VERSION_MAJOR >= 2
-		sc = sasl_getprop( ctx, SASL_DEFUSERREALM, (const void **)&realm );
-#else
-		sc = sasl_getprop( ctx, SASL_REALM, (void **)&realm );
-#endif
-		sc = sasl_getprop( ctx,
-			SASL_USERNAME, (SASL_CONST void **)&username );
+		*edn = conn->c_sasl_dn;
+		conn->c_sasl_dn.bv_val = NULL;
+		conn->c_sasl_dn.bv_len = 0;
 
-		if ( sc != SASL_OK ) {
-#ifdef NEW_LOGGING
-			LDAP_LOG(( "sasl", LDAP_LEVEL_ERR,
-				"slap_sasl_bind: getprop(USERNAME) failed: %d\n", sc ));
-#else
-			Debug(LDAP_DEBUG_TRACE,
-				"slap_sasl_bind: getprop(USERNAME) failed!\n",
-				0, 0, 0);
-#endif
+		rc = LDAP_SUCCESS;
 
+		(void) sasl_getprop( ctx, SASL_SSF, (void *)&ssf );
+		*ssfp = ssf ? *ssf : 0;
 
-			send_ldap_result( conn, op, rc = slap_sasl_err2ldap( sc ),
-				NULL, "no SASL username", NULL, NULL );
-
-		} else {
-			rc = slap_sasl_getdn( conn, username, realm, edn, FLAG_GETDN_FINAL );
-
-			if( rc == LDAP_SUCCESS ) {
-				sasl_ssf_t *ssf = NULL;
-				(void) sasl_getprop( ctx, SASL_SSF, (void *)&ssf );
-				*ssfp = ssf ? *ssf : 0;
-
-				if( *ssfp ) {
-					ldap_pvt_thread_mutex_lock( &conn->c_mutex );
-					conn->c_sasl_layers++;
-					ldap_pvt_thread_mutex_unlock( &conn->c_mutex );
-				}
-
-				send_ldap_sasl( conn, op, rc,
-					NULL, NULL, NULL, NULL,
-					response.bv_len ? &response : NULL );
-
-			} else {
-				send_ldap_result( conn, op, rc,
-					NULL, errstr, NULL, NULL );
-			}
+		if( *ssfp ) {
+			ldap_pvt_thread_mutex_lock( &conn->c_mutex );
+			conn->c_sasl_layers++;
+			ldap_pvt_thread_mutex_unlock( &conn->c_mutex );
 		}
+
+		send_ldap_sasl( conn, op, rc,
+			NULL, NULL, NULL, NULL,
+			response.bv_len ? &response : NULL );
 
 	} else if ( sc == SASL_CONTINUE ) {
 		send_ldap_sasl( conn, op, rc = LDAP_SASL_BIND_IN_PROGRESS,
 			NULL, NULL, NULL, NULL, &response );
 
 	} else {
+#if SASL_VERSION_MAJOR >= 2
+		errstr = sasl_errdetail( ctx );
+#endif
 		send_ldap_result( conn, op, rc = slap_sasl_err2ldap( sc ),
 			NULL, errstr, NULL, NULL );
 	}
@@ -1070,8 +1441,7 @@ int slap_sasl_bind(
 #endif
 
 #ifdef NEW_LOGGING
-	LDAP_LOG(( "sasl", LDAP_LEVEL_ENTRY,
-		"slap_sasl_bind: rc=%d\n", rc ));
+	LDAP_LOG( TRANSPORT, RESULTS, "slap_sasl_bind: rc=%d\n", rc, 0, 0 );
 #else
 	Debug(LDAP_DEBUG_TRACE, "<== slap_sasl_bind: rc=%d\n", rc, 0, 0);
 #endif
@@ -1094,4 +1464,275 @@ char* slap_sasl_secprops( const char *in )
 #else
 	return "SASL not supported";
 #endif
+}
+
+#ifdef HAVE_CYRUS_SASL
+int
+slap_sasl_setpass(
+	Connection      *conn,
+	Operation       *op,
+	const char      *reqoid,
+	struct berval   *reqdata,
+	char            **rspoid,
+	struct berval   **rspdata,
+	LDAPControl     *** rspctrls,
+	const char      **text )
+{
+	int rc;
+	struct berval id = { 0, NULL };	/* needs to come from connection */
+	struct berval new = { 0, NULL };
+	struct berval old = { 0, NULL };
+
+	assert( reqoid != NULL );
+	assert( strcmp( LDAP_EXOP_MODIFY_PASSWD, reqoid ) == 0 );
+
+	rc = sasl_getprop( conn->c_sasl_context, SASL_USERNAME,
+		(SASL_CONST void **)&id.bv_val );
+
+	if( rc != SASL_OK ) {
+		*text = "unable to retrieve SASL username";
+		rc = LDAP_OTHER;
+		goto done;
+	}
+
+#ifdef NEW_LOGGING
+	LDAP_LOG( BACKEND, ENTRY,
+		"slap_sasl_setpass: \"%s\"\n",
+		id.bv_val ? id.bv_val : "", 0, 0);
+#else
+	Debug( LDAP_DEBUG_ARGS, "==> slap_sasl_setpass: \"%s\"\n",
+		id.bv_val ? id.bv_val : "", 0, 0 );
+#endif
+
+	rc = slap_passwd_parse( reqdata,
+		NULL, &old, &new, text );
+
+	if( rc != LDAP_SUCCESS ) {
+		goto done;
+	}
+
+	if( new.bv_len == 0 ) {
+		slap_passwd_generate(&new);
+
+		if( new.bv_len == 0 ) {
+			*text = "password generation failed.";
+			rc = LDAP_OTHER;
+			goto done;
+		}
+		
+		*rspdata = slap_passwd_return( &new );
+	}
+
+#if SASL_VERSION_MAJOR < 2
+	rc = sasl_setpass( conn->c_sasl_context,
+		id.bv_val, new.bv_val, new.bv_len, 0, text );
+#else
+	rc = sasl_setpass( conn->c_sasl_context, id.bv_val,
+		new.bv_val, new.bv_len, old.bv_val, old.bv_len, 0 );
+	if( rc != SASL_OK ) {
+		*text = sasl_errdetail( conn->c_sasl_context );
+	}
+#endif
+	switch(rc) {
+		case SASL_OK:
+			rc = LDAP_SUCCESS;
+			break;
+
+		case SASL_NOCHANGE:
+		case SASL_NOMECH:
+		case SASL_DISABLED:
+		case SASL_PWLOCK:
+		case SASL_FAIL:
+		case SASL_BADPARAM:
+		default:
+			rc = LDAP_OTHER;
+	}
+
+done:
+	return rc;
+}
+#endif /* HAVE_CYRUS_SASL */
+
+/* Take any sort of identity string and return a DN with the "dn:" prefix. The
+   string returned in *dn is in its own allocated memory, and must be free'd 
+   by the calling process.
+   -Mark Adamson, Carnegie Mellon
+
+   The "dn:" prefix is no longer used anywhere inside slapd. It is only used
+   on strings passed in directly from SASL.
+   -Howard Chu, Symas Corp.
+*/
+
+#define SET_NONE	0
+#define	SET_DN		1
+#define	SET_U		2
+
+static struct berval ext_bv = BER_BVC( "EXTERNAL" );
+
+int slap_sasl_getdn( Connection *conn, char *id, int len,
+	char *user_realm, struct berval *dn, int flags )
+{
+	char *c1;
+	int rc, is_dn = SET_NONE, do_norm = 1;
+	struct berval dn2;
+
+#ifdef NEW_LOGGING
+	LDAP_LOG( TRANSPORT, ENTRY, 
+		"slap_sasl_getdn: conn %d id=%s [len=%d]\n",
+		conn ? conn->c_connid : -1, id ? (*id ? id : "<empty>") : "NULL", len );
+#else
+	Debug( LDAP_DEBUG_ARGS, "slap_sasl_getdn: id=%s [len=%d]\n", 
+		id ? ( *id ? id : "<empty>" ) : "NULL", len, 0 );
+#endif
+
+	dn->bv_val = NULL;
+	dn->bv_len = 0;
+
+	if ( id ) {
+		if ( len == 0 ) len = strlen( id );
+
+		/* Blatantly anonymous ID */
+		if ( len == sizeof("anonymous") - 1 &&
+			!strcasecmp( id, "anonymous" ) ) {
+			return( LDAP_SUCCESS );
+		}
+	} else {
+		len = 0;
+	}
+
+	/* An authcID needs to be converted to authzID form. Set the
+	 * values directly into *dn; they will be normalized later. (and
+	 * normalizing always makes a new copy.) An ID from a TLS certificate
+	 * is already normalized, so copy it and skip normalization.
+	 */
+	if( flags & SLAP_GETDN_AUTHCID ) {
+		if( conn->c_sasl_bind_mech.bv_len == ext_bv.bv_len &&
+			strcasecmp( ext_bv.bv_val, conn->c_sasl_bind_mech.bv_val ) == 0 )
+		{
+			/* EXTERNAL DNs are already normalized */
+			do_norm = 0;
+			is_dn = SET_DN;
+			ber_str2bv( id, len, 1, dn );
+
+		} else {
+			/* convert to u:<username> form */
+			is_dn = SET_U;
+			dn->bv_val = id;
+			dn->bv_len = len;
+		}
+	}
+	if( is_dn == SET_NONE ) {
+		if( !strncasecmp( id, "u:", sizeof("u:")-1 )) {
+			is_dn = SET_U;
+			dn->bv_val = id+2;
+			dn->bv_len = len-2;
+		} else if ( !strncasecmp( id, "dn:", sizeof("dn:")-1) ) {
+			is_dn = SET_DN;
+			dn->bv_val = id+3;
+			dn->bv_len = len-3;
+		}
+	}
+
+	/* No other possibilities from here */
+	if( is_dn == SET_NONE ) {
+		dn->bv_val = NULL;
+		dn->bv_len = 0;
+		return( LDAP_INAPPROPRIATE_AUTH );
+	}
+
+	/* Username strings */
+	if( is_dn == SET_U ) {
+		char *p, *realm;
+		len = dn->bv_len + sizeof("uid=")-1 + sizeof(",cn=auth")-1;
+
+		/* username may have embedded realm name */
+		if( ( realm = strchr( dn->bv_val, '@') ) ) {
+			*realm++ = '\0';
+			len += sizeof(",cn=")-2;
+		} else if( user_realm && *user_realm ) {
+ 			len += strlen( user_realm ) + sizeof(",cn=")-1;
+		}
+
+		if( conn->c_sasl_bind_mech.bv_len ) {
+			len += conn->c_sasl_bind_mech.bv_len + sizeof(",cn=")-1;
+		}
+
+		/* Build the new dn */
+		c1 = dn->bv_val;
+		dn->bv_val = SLAP_MALLOC( len+1 );
+		if( dn->bv_val == NULL ) {
+#ifdef NEW_LOGGING
+			LDAP_LOG( TRANSPORT, ERR, 
+				"slap_sasl_getdn: SLAP_MALLOC failed", 0, 0, 0 );
+#else
+			Debug( LDAP_DEBUG_ANY, 
+				"slap_sasl_getdn: SLAP_MALLOC failed", 0, 0, 0 );
+#endif
+			return LDAP_OTHER;
+		}
+		p = lutil_strcopy( dn->bv_val, "uid=" );
+		p = lutil_strncopy( p, c1, dn->bv_len );
+
+		if( realm ) {
+			int rlen = dn->bv_len - ( realm - c1 );
+			p = lutil_strcopy( p, ",cn=" );
+			p = lutil_strncopy( p, realm, rlen );
+			realm[-1] = '@';
+		} else if( user_realm && *user_realm ) {
+			p = lutil_strcopy( p, ",cn=" );
+			p = lutil_strcopy( p, user_realm );
+		}
+
+		if( conn->c_sasl_bind_mech.bv_len ) {
+			p = lutil_strcopy( p, ",cn=" );
+			p = lutil_strcopy( p, conn->c_sasl_bind_mech.bv_val );
+		}
+		p = lutil_strcopy( p, ",cn=auth" );
+		dn->bv_len = p - dn->bv_val;
+
+#ifdef NEW_LOGGING
+		LDAP_LOG( TRANSPORT, ENTRY, 
+			"slap_sasl_getdn: u:id converted to %s.\n", dn->bv_val, 0, 0 );
+#else
+		Debug( LDAP_DEBUG_TRACE, "getdn: u:id converted to %s\n", dn->bv_val,0,0 );
+#endif
+	} else {
+		
+		/* Dup the DN in any case, so we don't risk 
+		 * leaks or dangling pointers later,
+		 * and the DN value is '\0' terminated */
+		ber_dupbv( &dn2, dn );
+		dn->bv_val = dn2.bv_val;
+	}
+
+	/* All strings are in DN form now. Normalize if needed. */
+	if ( do_norm ) {
+		rc = dnNormalize2( NULL, dn, &dn2 );
+
+		/* User DNs were constructed above and must be freed now */
+		ch_free( dn->bv_val );
+
+		if ( rc != LDAP_SUCCESS ) {
+			dn->bv_val = NULL;
+			dn->bv_len = 0;
+			return rc;
+		}
+		*dn = dn2;
+	}
+
+	/* Run thru regexp */
+	slap_sasl2dn( conn, dn, &dn2 );
+	if( dn2.bv_val ) {
+		ch_free( dn->bv_val );
+		*dn = dn2;
+#ifdef NEW_LOGGING
+		LDAP_LOG( TRANSPORT, ENTRY, 
+			"slap_sasl_getdn: dn:id converted to %s.\n", dn->bv_val, 0, 0 );
+#else
+		Debug( LDAP_DEBUG_TRACE, "getdn: dn:id converted to %s\n",
+			dn->bv_val, 0, 0 );
+#endif
+	}
+
+	return( LDAP_SUCCESS );
 }

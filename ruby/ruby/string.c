@@ -2,8 +2,8 @@
 
   string.c -
 
-  $Author: jkh $
-  $Date: 2002/05/27 17:59:44 $
+  $Author: melville $
+  $Date: 2003/05/14 13:58:45 $
   created at: Mon Aug  9 17:12:58 JST 1993
 
   Copyright (C) 1993-2000 Yukihiro Matsumoto
@@ -670,7 +670,12 @@ rb_str_index_m(argc, argv, str)
     }
     if (pos < 0) {
 	pos += RSTRING(str)->len;
-	if (pos < 0) return Qnil;
+	if (pos < 0) {
+	    if (TYPE(sub) == T_REGEXP) {
+		rb_backref_set(Qnil);
+	    }
+		return Qnil;
+	}
     }
 
     switch (TYPE(sub)) {
@@ -719,7 +724,12 @@ rb_str_rindex(argc, argv, str)
 	pos = NUM2INT(position);
         if (pos < 0) {
 	    pos += RSTRING(str)->len;
-	    if (pos < 0) return Qnil;
+	    if (pos < 0) {
+		if (TYPE(sub) == T_REGEXP) {
+		    rb_backref_set(Qnil);
+		}
+		return Qnil;
+	    }
         }
 	if (pos > RSTRING(str)->len) pos = RSTRING(str)->len;
     }
@@ -1027,10 +1037,11 @@ rb_str_aset(str, indx, val)
 
       case T_STRING:
 	beg = rb_str_index(str, indx, 0);
-	if (beg != -1) {
-	    if (TYPE(val) != T_STRING) val = rb_str_to_str(val);
-	    rb_str_replace(str, beg, RSTRING(indx)->len, val);
+	if (beg < 0) {
+	    rb_raise(rb_eIndexError, "string not matched");
 	}
+	if (TYPE(val) != T_STRING) val = rb_str_to_str(val);
+	rb_str_replace(str, beg, RSTRING(indx)->len, val);
 	return val;
 
       default:
@@ -1061,10 +1072,10 @@ rb_str_aset_m(argc, argv, str)
 	if (TYPE(argv[2]) != T_STRING) argv[2] = rb_str_to_str(argv[2]);
 	beg = NUM2INT(argv[0]);
 	len = NUM2INT(argv[1]);
-	if (len < 0) rb_raise(rb_eIndexError, "negative length %d", len);
+	if (len < 0) rb_raise(rb_eIndexError, "negative length %ld", len);
 	if (RSTRING(str)->len < beg) {
 	  out_of_range:
-	    rb_raise(rb_eIndexError, "index %d out of string", beg);
+	    rb_raise(rb_eIndexError, "index %ld out of string", beg);
 	}
 	if (beg < 0) {
 	    if (-beg > RSTRING(str)->len) {
@@ -1102,7 +1113,9 @@ rb_str_slice_bang(argc, argv, str)
     }
     buf[i] = rb_str_new(0,0);
     result = rb_str_aref_m(argc, buf, str);
-    rb_str_aset_m(argc+1, buf, str);
+    if (!NIL_P(result)) {
+	rb_str_aset_m(argc+1, buf, str);
+    }
     return result;
 }
 
@@ -1363,7 +1376,7 @@ uscore_get()
     line = rb_lastline_get();
     if (TYPE(line) != T_STRING) {
 	rb_raise(rb_eTypeError, "$_ value need to be String (%s given)",
-		 NIL_P(line)?"nil":rb_class2name(CLASS_OF(line)));
+		 NIL_P(line) ? "nil" : rb_class2name(CLASS_OF(line)));
     }
     return line;
 }
@@ -2161,7 +2174,7 @@ rb_str_split_m(argc, argv, str)
 	i = 1;
     }
 
-    if (argc == 0) {
+    if (NIL_P(spat)) {
 	if (!NIL_P(rb_fs)) {
 	    spat = rb_fs;
 	    goto fs_set;
@@ -2341,7 +2354,7 @@ rb_str_each_line(argc, argv, str)
 	    if (*++p != '\n') continue;
 	    while (*p == '\n') p++;
 	}
-	if (p[-1] == newline &&
+	if (RSTRING(str)->ptr < p && p[-1] == newline &&
 	    (rslen <= 1 ||
 	     rb_memcmp(RSTRING(rs)->ptr, p-rslen, rslen) == 0)) {
 	    line = rb_str_new(s, p - s);
@@ -2658,6 +2671,7 @@ rb_str_crypt(str, salt)
 
     result = rb_str_new2(crypt(RSTRING(str)->ptr, RSTRING(salt)->ptr));
     OBJ_INFECT(result, str);
+    OBJ_INFECT(result, salt);
     return result;
 }
 
@@ -2728,7 +2742,7 @@ rb_str_ljust(str, w)
     VALUE res;
     char *p, *pend;
 
-    if (width < 0 || RSTRING(str)->len >= width) return str;
+    if (width < 0 || RSTRING(str)->len >= width) return rb_str_dup(str);
     res = rb_str_new(0, width);
     RBASIC(res)->klass = rb_obj_class(str);
     memcpy(RSTRING(res)->ptr, RSTRING(str)->ptr, RSTRING(str)->len);
@@ -2749,7 +2763,7 @@ rb_str_rjust(str, w)
     VALUE res;
     char *p, *pend;
 
-    if (width < 0 || RSTRING(str)->len >= width) return str;
+    if (width < 0 || RSTRING(str)->len >= width) return rb_str_dup(str);
     res = rb_str_new(0, width);
     RBASIC(res)->klass = rb_obj_class(str);
     p = RSTRING(res)->ptr; pend = p + width - RSTRING(str)->len;
@@ -2771,7 +2785,7 @@ rb_str_center(str, w)
     char *p, *pend;
     long n;
 
-    if (width < 0 || RSTRING(str)->len >= width) return str;
+    if (width < 0 || RSTRING(str)->len >= width) return rb_str_dup(str);
     res = rb_str_new(0, width);
     RBASIC(res)->klass = rb_obj_class(str);
     n = (width - RSTRING(str)->len)/2;

@@ -12,7 +12,7 @@
 # GNU General Public License for more details.
 
 
-class ProcessWin {
+itcl::class ProcessWin {
   inherit EmbeddedWin GDBWin
   
   private {

@@ -143,6 +143,7 @@ OSStatus SecCertificateGetIssuer(SecCertificateRef certificate, CSSM_X509_NAME *
 */
 OSStatus SecCertificateGetCLHandle(SecCertificateRef certificate, CSSM_CL_HANDLE *clHandle);
 
+
 #if defined(__cplusplus)
 }
 #endif

@@ -12,7 +12,7 @@ tar cf archive 1 2 3
 tar tf archive
 cat archive | tar f - --delete 2 > archive2
 echo -----
-tar tf archive
+tar tf archive2
 
 out="\
 1

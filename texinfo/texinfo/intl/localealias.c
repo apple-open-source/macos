@@ -1,5 +1,5 @@
 /* Handle aliases for locale names.
-   Copyright (C) 1995-1999, 2000, 2001 Free Software Foundation, Inc.
+   Copyright (C) 1995-1999, 2000-2001, 2003 Free Software Foundation, Inc.
 
    This program is free software; you can redistribute it and/or modify it
    under the terms of the GNU Library General Public License as published
@@ -35,17 +35,23 @@
 #include <sys/types.h>
 
 #ifdef __GNUC__
+# undef alloca
 # define alloca __builtin_alloca
 # define HAVE_ALLOCA 1
 #else
-# if defined HAVE_ALLOCA_H || defined _LIBC
-#  include <alloca.h>
+# ifdef _MSC_VER
+#  include <malloc.h>
+#  define alloca _alloca
 # else
-#  ifdef _AIX
- #pragma alloca
+#  if defined HAVE_ALLOCA_H || defined _LIBC
+#   include <alloca.h>
 #  else
-#   ifndef alloca
+#   ifdef _AIX
+ #pragma alloca
+#   else
+#    ifndef alloca
 char *alloca ();
+#    endif
 #   endif
 #  endif
 # endif
@@ -55,6 +61,12 @@ char *alloca ();
 #include <string.h>
 
 #include "gettextP.h"
+
+#if ENABLE_RELOCATABLE
+# include "relocatable.h"
+#else
+# define relocate(pathname) (pathname)
+#endif
 
 /* @@ end of prolog @@ */
 
@@ -115,10 +127,14 @@ struct alias_map
 };
 
 
-static char *string_space;
+#ifndef _LIBC
+# define libc_freeres_ptr(decl) decl
+#endif
+
+libc_freeres_ptr (static char *string_space);
 static size_t string_space_act;
 static size_t string_space_max;
-static struct alias_map *map;
+libc_freeres_ptr (static struct alias_map *map);
 static size_t nmap;
 static size_t maxmap;
 
@@ -217,7 +233,7 @@ read_alias_file (fname, fname_len)
   memcpy (&full_fname[fname_len], aliasfile, sizeof aliasfile);
 #endif
 
-  fp = fopen (full_fname, "r");
+  fp = fopen (relocate (full_fname), "r");
   freea (full_fname);
   if (fp == NULL)
     return 0;
@@ -234,8 +250,10 @@ read_alias_file (fname, fname_len)
 	 a) we are only interested in the first two fields
 	 b) these fields must be usable as file names and so must not
 	    be that long
-       */
-      char buf[BUFSIZ];
+	 We avoid a multi-kilobyte buffer here since this would use up
+	 stack space which we might not have if the program ran out of
+	 memory.  */
+      char buf[400];
       char *alias;
       char *value;
       char *cp;
@@ -243,19 +261,6 @@ read_alias_file (fname, fname_len)
       if (FGETS (buf, sizeof buf, fp) == NULL)
 	/* EOF reached.  */
 	break;
-
-      /* Possibly not the whole line fits into the buffer.  Ignore
-	 the rest of the line.  */
-      if (strchr (buf, '\n') == NULL)
-	{
-	  char altbuf[BUFSIZ];
-	  do
-	    if (FGETS (altbuf, sizeof altbuf, fp) == NULL)
-	      /* Make sure the inner loop will be left.  The outer loop
-		 will exit at the `feof' test.  */
-	      break;
-	  while (strchr (altbuf, '\n') == NULL);
-	}
 
       cp = buf;
       /* Ignore leading white space.  */
@@ -340,6 +345,14 @@ read_alias_file (fname, fname_len)
 	      ++added;
 	    }
 	}
+
+      /* Possibly not the whole line fits into the buffer.  Ignore
+	 the rest of the line.  */
+      while (strchr (buf, '\n') == NULL)
+	if (FGETS (buf, sizeof buf, fp) == NULL)
+	  /* Make sure the inner loop will be left.  The outer loop
+	     will exit at the `feof' test.  */
+	  break;
     }
 
   /* Should we test for ferror()?  I think we have to silently ignore
@@ -371,19 +384,6 @@ extend_alias_table ()
   maxmap = new_size;
   return 0;
 }
-
-
-#ifdef _LIBC
-static void __attribute__ ((unused))
-free_mem (void)
-{
-  if (string_space != NULL)
-    free (string_space);
-  if (map != NULL)
-    free (map);
-}
-text_set_element (__libc_subfreeres, free_mem);
-#endif
 
 
 static int

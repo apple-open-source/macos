@@ -3,19 +3,22 @@
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
- * The contents of this file constitute Original Code as defined in and
- * are subject to the Apple Public Source License Version 1.1 (the
- * "License").  You may not use this file except in compliance with the
- * License.  Please obtain a copy of the License at
- * http://www.apple.com/publicsource and read it before using this file.
+ * Copyright (c) 1999-2003 Apple Computer, Inc.  All Rights Reserved.
  * 
- * This Original Code and all software distributed under the License are
- * distributed on an "AS IS" basis, WITHOUT WARRANTY OF ANY KIND, EITHER
+ * This file contains Original Code and/or Modifications of Original Code
+ * as defined in and that are subject to the Apple Public Source License
+ * Version 2.0 (the 'License'). You may not use this file except in
+ * compliance with the License. Please obtain a copy of the License at
+ * http://www.opensource.apple.com/apsl/ and read it before using this
+ * file.
+ * 
+ * The Original Code and all software distributed under the License are
+ * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
  * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
  * INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY,
- * FITNESS FOR A PARTICULAR PURPOSE OR NON-INFRINGEMENT.  Please see the
- * License for the specific language governing rights and limitations
- * under the License.
+ * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
+ * Please see the License for the specific language governing rights and
+ * limitations under the License.
  * 
  * @APPLE_LICENSE_HEADER_END@
  */
@@ -40,12 +43,14 @@ AppleIntelICH4AC97Controller::createCodec( CodecID codecID )
     DebugLog("%s::%s(%d) Global Status = %lx\n", getName(), __FUNCTION__,
              codecID, getGlobalStatus());
 
-    // FIXME - this needs work.
+    // FIXME - this needs work. Add secondary audio codec support.
 
-    if ( codecID == 0 )
-        readyMask = k3rdCodecReady;
-    else
-        return 0;
+    if ( codecID > 0 ) return 0;
+
+    // On ICH4, a codec can be connected to any of the three AC_SDINx
+    // input lines. Wait for any line to assert ready state.
+
+    readyMask = kPriCodecReady | kSecCodecReady | k3rdCodecReady;
 
     // Wait for codec to become ready.
 
@@ -130,7 +135,7 @@ void c::p##Write##w(UInt16 offset, UInt##w value, DMAChannel channel)  \
 }                                                                      \
 UInt##w c::p##Read##w(UInt16 offset, DMAChannel channel) const         \
 {                                                                      \
-	return OSReadLittleInt##w(b, offset + (channel * 0x10));           \
+    return OSReadLittleInt##w(b, offset + (channel * 0x10));           \
 }
 
 DefineBMRegAccessors( AppleIntelICH4AC97Controller, bm, 32, _bmBase )
@@ -182,9 +187,9 @@ IOReturn AppleIntelICH4AC97Controller::mixerWrite16( CodecID codecID,
 
     if ( codecID >= 4 ) return kIOReturnBadArgument;
 
-	ret = reserveACLink();
+    ret = reserveACLink();
 
-	if ( ret == kIOReturnSuccess )
+    if ( ret == kIOReturnSuccess )
     {
         OSWriteLittleInt16(_mixerBase, offset + (codecID * 0x80), value);
 

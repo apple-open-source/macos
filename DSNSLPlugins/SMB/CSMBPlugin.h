@@ -1,16 +1,38 @@
 /*
- *  CSMBPlugin.h
+ * Copyright (c) 2002 Apple Computer, Inc. All rights reserved.
  *
- *  Created by imlucid on Wed Aug 15 2001.
- *  Copyright (c) 2001 Apple Computer. All rights reserved.
- *
+ * @APPLE_LICENSE_HEADER_START@
+ * 
+ * Copyright (c) 1999-2003 Apple Computer, Inc.  All Rights Reserved.
+ * 
+ * This file contains Original Code and/or Modifications of Original Code
+ * as defined in and that are subject to the Apple Public Source License
+ * Version 2.0 (the 'License'). You may not use this file except in
+ * compliance with the License. Please obtain a copy of the License at
+ * http://www.opensource.apple.com/apsl/ and read it before using this
+ * file.
+ * 
+ * The Original Code and all software distributed under the License are
+ * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
+ * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
+ * INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY,
+ * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
+ * Please see the License for the specific language governing rights and
+ * limitations under the License.
+ * 
+ * @APPLE_LICENSE_HEADER_END@
+ */
+ 
+/*!
+ *  @header CSMBPlugin
  */
 
 #ifndef _CSMBPlugin_
 
+#include "LMBDiscoverer.h"
 #include "CNSLPlugin.h"
 
-#define	__APPLE_NMBLOOKUP_HACK_2987131	// this will ask nmblookup to give us raw bytes
+//#define	__APPLE_NMBLOOKUP_HACK_2987131	// this will ask nmblookup to give us raw bytes
 
 #define kProtocolPrefixPlainStr		"SMB"
 #define kProtocolPrefixStr			"/SMB"
@@ -20,9 +42,13 @@
 #define kReadSMBConfigData			'read'
 #define kWriteSMBConfigData			'writ'
 
-Boolean ExceptionInResult( const char* resultPtr );
-int IsIPAddress(const char* adrsStr, long *ipAdrs);
-Boolean IsDNSName(char* theName);
+#define kNMBLookupToolPath			"/usr/bin/nmblookup"
+#define kServiceTypeString			"smb"
+#define kTemplateConfFilePath		"/etc/smb.conf.template"
+#define kTempConfFilePath			"/tmp/smb.conf.temp"
+#define kConfFilePath				"/etc/smb.conf"
+#define kBrowsingConfFilePath		"/var/run/smbbrowsing.conf"
+
 
 class CSMBPlugin : public CNSLPlugin
 {
@@ -33,27 +59,31 @@ public:
     virtual sInt32				InitPlugin				( void );
 	virtual sInt32				GetDirNodeInfo			( sGetDirNodeInfo *inData );
 
-            Boolean				IsScopeInReturnList		( const char* scope );
-            void				AddResult				( const char* url );
-    
+	virtual	void				ActivateSelf			( void );
+	virtual	void				DeActivateSelf			( void );
+
             uInt32				fSignature;
 			const char*			GetWinsServer			( void ) { return mWINSServer; }
-			void				AddWINSWorkgroup		( const char* workgroup );
-			Boolean				IsWINSWorkgroup			( const char* workgroup );
-			void				NodeLookupIsCurrent		( void ) { mNodeListIsCurrent = true; }
+			void				NodeLookupIsCurrent		( void );
+			
+			LMBDiscoverer*		OurLMBDiscoverer		( void ) { return mLMBDiscoverer; }
+			void				ClearLMBForWorkgroup	( CFStringRef workgroupRef, CFStringRef lmbNameRef );
 
-			const char*			GetBroadcastAdddress	( void );
 protected: 
+			
 			void				WriteWorkgroupToFile	( FILE* fp );
 			void				WriteWINSToFile			( FILE* fp );
+			void				WriteCodePageToFile		( FILE* fp );
+			void				WriteUnixCharsetToFile		( FILE* fp );
+			void				WriteDisplayCharsetToFile	( FILE* fp );
 			void				ReadConfigFile			( void );
-			void				WriteToConfigFile		( void );
+			void				WriteToConfigFile		( const char* pathToConfigFile );
 			
+			void				SaveKnownLMBsToDisk		( void );
+			void				ReadKnownLMBsFromDisk	( void );
 			
 	virtual	sInt32				DoPlugInCustomCall		( sDoPlugInCustomCall *inData );
 	virtual sInt32				HandleNetworkTransition	( sHeader *inData );
-	
-			sInt32				GetPrimaryInterfaceBroadcastAdrs( char** broadcastAddr );
 	
 			sInt32				FillOutCurrentState		( sDoPlugInCustomCall *inData );
 			void*				MakeDataBufferOfWorkgroups( UInt32* dataLen );
@@ -65,18 +95,31 @@ protected:
     
     virtual void				NewNodeLookup			( void );		// this should fire off some threads in the subclass
     virtual	void				NewServiceLookup		( char* serviceType, CNSLDirNodeRep* nodeDirRep );
-    virtual Boolean				OKToOpenUnPublishedNode	( const char* parentNodeName );    
+    virtual Boolean				OKToOpenUnPublishedNode	( const char* parentNodeName );   
 
 private:
+            void					LockNodeState				( void ) { pthread_mutex_lock( &mNodeStateLock ); }
+            void					UnLockNodeState				( void ) { pthread_mutex_unlock( &mNodeStateLock ); }
+            pthread_mutex_t			mNodeStateLock;
+			
+            void					LockLMBsInProgress			( void ) { pthread_mutex_lock( &mListOfLMBsInProgressLock ); }
+            void					UnLockLMBsInProgress		( void ) { pthread_mutex_unlock( &mListOfLMBsInProgressLock ); }
+            pthread_mutex_t			mListOfLMBsInProgressLock;
+
 			Boolean					mNodeListIsCurrent;
+			Boolean					mNodeSearchInProgress;
             char*					mLocalNodeString;		
-            char*					mServiceTypeString;
-			char*					mTemplateConfFilePath;
-			char*					mConfFilePath;
-            char*					mNMBLookupToolPath;
 			char*					mWINSServer;
-			CFMutableDictionaryRef	mWINSWorkgroups;
 			char*					mBroadcastAddr;
+			CFMutableArrayRef		mOurLMBs;
+			CFMutableDictionaryRef	mAllKnownLMBs;
+			CFMutableDictionaryRef	mListOfLMBsInProgress;
+			Boolean					mConfFileCodePageAlreadyModifiedByDS;
+			Boolean					mInitialSearch;
+			Boolean					mNeedFreshLookup;
+			Boolean					mCurrentSearchCanceled;
+			
+			LMBDiscoverer*			mLMBDiscoverer;
 };
 
 #endif

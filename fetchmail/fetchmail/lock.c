@@ -125,7 +125,7 @@ void lock_or_die(void)
     }
 }
 
-void lock_release(void)
+void lock_do_release(void)
 /* release a lock on a given host */
 {
     unlink(lockfile);

@@ -1,4 +1,4 @@
-/* Copyright (c) 1995-2000
+/* Copyright (c) 1995-2002
  *      Juergen Weigert (jnweiger@immd4.informatik.uni-erlangen.de)
  *      Michael Schroeder (mlschroe@immd4.informatik.uni-erlangen.de)
  * Copyright (c) 1987 Oliver Laumann
@@ -19,7 +19,7 @@
  * 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA
  *
  ****************************************************************
- * $Id: layer.h,v 1.1.1.1 2001/12/14 22:08:29 bbraun Exp $ FAU
+ * $Id: layer.h,v 1.1.1.2 2003/03/19 21:16:18 landonf Exp $ FAU
  */
 
 /*
@@ -47,9 +47,7 @@ struct layer
   int	 l_height;
   int    l_x;			/* cursor position */
   int    l_y;
-#ifdef UTF8
-  int    l_utf8;
-#endif
+  int    l_encoding;
   struct LayFuncs *l_layfn;
   char	*l_data;
 

@@ -1,6 +1,7 @@
-/* $OpenLDAP: pkg/ldap/servers/slapd/back-perl/delete.c,v 1.7 2002/02/02 09:10:35 hyc Exp $ */
+/* $OpenLDAP: pkg/ldap/servers/slapd/back-perl/delete.c,v 1.7.2.1 2002/04/18 15:20:01 kurt Exp $ */
 /*
  *	 Copyright 1999, John C. Quillan, All rights reserved.
+ *	 Portions Copyright 2002, myinternet Limited. All rights reserved.
  *
  *	 Redistribution and use in source and binary forms are permitted only
  *	 as authorized by the OpenLDAP Public License.	A copy of this
@@ -11,16 +12,18 @@
 #include "portable.h"
 
 #include <stdio.h>
-/* #include <ac/types.h>
-#include <ac/socket.h>
-*/
+
+#include "slap.h"
+#ifdef HAVE_WIN32_ASPERL
+#include "asperl_undefs.h"
+#endif
 
 #include <EXTERN.h>
 #include <perl.h>
 
-#include "slap.h"
 #include "perl_back.h"
 
+int
 perl_back_delete(
 	Backend	*be,
 	Connection	*conn,
@@ -46,7 +49,11 @@ perl_back_delete(
 
 		PUTBACK;
 
+#ifdef PERL_IS_5_6
+		count = call_method("delete", G_SCALAR);
+#else
 		count = perl_call_method("delete", G_SCALAR);
+#endif
 
 		SPAGAIN;
 
@@ -61,14 +68,8 @@ perl_back_delete(
 
 	ldap_pvt_thread_mutex_unlock( &perl_interpreter_mutex );	
 
-	if( return_code != 0 ) {
-		send_ldap_result( conn, op, LDAP_OPERATIONS_ERROR,
+	send_ldap_result( conn, op, return_code,
 			NULL, NULL, NULL, NULL );
-
-	} else {
-		send_ldap_result( conn, op, LDAP_SUCCESS,
-			NULL, NULL, NULL, NULL );
-	}
 
 	Debug( LDAP_DEBUG_ANY, "Perl DELETE\n", 0, 0, 0 );
 	return( 0 );

@@ -1,6 +1,8 @@
 /* Internal type definitions for GDB.
-   Copyright 1992, 1993, 1994, 1995, 1996, 1997, 1998, 1999, 2000, 2001, 2002
-   Free Software Foundation, Inc.
+
+   Copyright 1992, 1993, 1994, 1995, 1996, 1997, 1998, 1999, 2000,
+   2001, 2002, 2003 Free Software Foundation, Inc.
+
    Contributed by Cygnus Support, using pieces from other GDB modules.
 
    This file is part of GDB.
@@ -101,13 +103,14 @@ enum type_code
     TYPE_CODE_RANGE,		/* Range (integers within spec'd bounds) */
 
     /* A string type which is like an array of character but prints
-       differently (at least for CHILL).  It does not contain a length
-       field as Pascal strings (for many Pascals, anyway) do; if we want
-       to deal with such strings, we should use a new type code.  */
+       differently (at least for (the deleted) CHILL).  It does not
+       contain a length field as Pascal strings (for many Pascals,
+       anyway) do; if we want to deal with such strings, we should use
+       a new type code.  */
     TYPE_CODE_STRING,
 
-    /* String of bits; like TYPE_CODE_SET but prints differently (at least
-       for CHILL).  */
+    /* String of bits; like TYPE_CODE_SET but prints differently (at
+       least for (the deleted) CHILL).  */
     TYPE_CODE_BITSTRING,
 
     /* Unknown type.  The length field is valid if we were able to
@@ -148,21 +151,21 @@ enum type_code
    type is signed (unless TYPE_FLAG_NOSIGN (below) is set). */
 
 #define TYPE_FLAG_UNSIGNED	(1 << 0)
-#define TYPE_UNSIGNED(t)	((t)->flags & TYPE_FLAG_UNSIGNED)
+#define TYPE_UNSIGNED(t)	(TYPE_FLAGS (t) & TYPE_FLAG_UNSIGNED)
 
 /* No sign for this type.  In C++, "char", "signed char", and "unsigned
    char" are distinct types; so we need an extra flag to indicate the
    absence of a sign! */
 
 #define TYPE_FLAG_NOSIGN	(1 << 1)
-#define TYPE_NOSIGN(t)		((t)->flags & TYPE_FLAG_NOSIGN)
+#define TYPE_NOSIGN(t)		(TYPE_FLAGS (t) & TYPE_FLAG_NOSIGN)
 
 /* This appears in a type's flags word if it is a stub type (e.g., if
    someone referenced a type that wasn't defined in a source file
    via (struct sir_not_appearing_in_this_film *)).  */
 
 #define TYPE_FLAG_STUB		(1 << 2)
-#define TYPE_STUB(t)		((t)->flags & TYPE_FLAG_STUB)
+#define TYPE_STUB(t)		(TYPE_FLAGS (t) & TYPE_FLAG_STUB)
 
 /* The target type of this type is a stub type, and this type needs to
    be updated if it gets un-stubbed in check_typedef.
@@ -171,7 +174,7 @@ enum type_code
    Also, set for TYPE_CODE_TYPEDEF. */
 
 #define TYPE_FLAG_TARGET_STUB	(1 << 3)
-#define TYPE_TARGET_STUB(t)	((t)->flags & TYPE_FLAG_TARGET_STUB)
+#define TYPE_TARGET_STUB(t)	(TYPE_FLAGS (t) & TYPE_FLAG_TARGET_STUB)
 
 /* Static type.  If this is set, the corresponding type had 
  * a static modifier.
@@ -180,21 +183,21 @@ enum type_code
  */
 
 #define TYPE_FLAG_STATIC	(1 << 4)
-#define TYPE_STATIC(t)		((t)->flags & TYPE_FLAG_STATIC)
+#define TYPE_STATIC(t)		(TYPE_FLAGS (t) & TYPE_FLAG_STATIC)
 
 /* Constant type.  If this is set, the corresponding type has a
  * const modifier.
  */
 
 #define TYPE_FLAG_CONST		(1 << 5)
-#define TYPE_CONST(t)		((t)->flags & TYPE_FLAG_CONST)
+#define TYPE_CONST(t)		(TYPE_INSTANCE_FLAGS (t) & TYPE_FLAG_CONST)
 
 /* Volatile type.  If this is set, the corresponding type has a
  * volatile modifier.
  */
 
 #define TYPE_FLAG_VOLATILE	(1 << 6)
-#define TYPE_VOLATILE(t)	((t)->flags & TYPE_FLAG_VOLATILE)
+#define TYPE_VOLATILE(t)	(TYPE_INSTANCE_FLAGS (t) & TYPE_FLAG_VOLATILE)
 
 
 /* This is a function type which appears to have a prototype.  We need this
@@ -202,7 +205,7 @@ enum type_code
    or to just do the standard conversions.  This is used with a short field. */
 
 #define TYPE_FLAG_PROTOTYPED	(1 << 7)
-#define TYPE_PROTOTYPED(t)	((t)->flags & TYPE_FLAG_PROTOTYPED)
+#define TYPE_PROTOTYPED(t)	(TYPE_FLAGS (t) & TYPE_FLAG_PROTOTYPED)
 
 /* This flag is used to indicate that processing for this type
    is incomplete.
@@ -213,7 +216,7 @@ enum type_code
    the method can be assigned correct types.) */
 
 #define TYPE_FLAG_INCOMPLETE	(1 << 8)
-#define TYPE_INCOMPLETE(t)	((t)->flags & TYPE_FLAG_INCOMPLETE)
+#define TYPE_INCOMPLETE(t)	(TYPE_FLAGS (t) & TYPE_FLAG_INCOMPLETE)
 
 /* Instruction-space delimited type.  This is for Harvard architectures
    which have separate instruction and data address spaces (and perhaps
@@ -235,250 +238,269 @@ enum type_code
    is instruction space, and for data objects is data memory.  */
 
 #define TYPE_FLAG_CODE_SPACE	(1 << 9)
-#define TYPE_CODE_SPACE(t)	((t)->flags & TYPE_FLAG_CODE_SPACE)
+#define TYPE_CODE_SPACE(t)	(TYPE_INSTANCE_FLAGS (t) & TYPE_FLAG_CODE_SPACE)
 
 #define TYPE_FLAG_DATA_SPACE	(1 << 10)
-#define TYPE_DATA_SPACE(t)	((t)->flags & TYPE_FLAG_DATA_SPACE)
+#define TYPE_DATA_SPACE(t)	(TYPE_INSTANCE_FLAGS (t) & TYPE_FLAG_DATA_SPACE)
 
-/* FIXME: Kludge to mark a varargs function type for C++ member
-   function argument processing.  Currently only used in dwarf2read.c,
-   but put it here so we won't accidentally overload the bit with
-   another flag.  */
+/* FIXME drow/2002-06-03:  Only used for methods, but applies as well
+   to functions.  */
 
 #define TYPE_FLAG_VARARGS	(1 << 11)
-#define TYPE_VARARGS(t)		((t)->flags & TYPE_FLAG_VARARGS)
+#define TYPE_VARARGS(t)		(TYPE_FLAGS (t) & TYPE_FLAG_VARARGS)
 
-struct type
-  {
+/* Identify a vector type.  Gcc is handling this by adding an extra
+   attribute to the array type.  We slurp that in as a new flag of a
+   type.  This is used only in dwarf2read.c.  */
+#define TYPE_FLAG_VECTOR	(1 << 12)
+#define TYPE_VECTOR(t)		(TYPE_FLAGS (t) & TYPE_FLAG_VECTOR)
 
-    /* Code for kind of type */
+/* Address class flags.  Some environments provide for pointers whose
+   size is different from that of a normal pointer or address types
+   where the bits are interpreted differently than normal addresses.  The
+   TYPE_FLAG_ADDRESS_CLASS_n flags may be used in target specific
+   ways to represent these different types of address classes.  */
+#define TYPE_FLAG_ADDRESS_CLASS_1 (1 << 13)
+#define TYPE_ADDRESS_CLASS_1(t) (TYPE_INSTANCE_FLAGS(t) \
+                                 & TYPE_FLAG_ADDRESS_CLASS_1)
+#define TYPE_FLAG_ADDRESS_CLASS_2 (1 << 14)
+#define TYPE_ADDRESS_CLASS_2(t) (TYPE_INSTANCE_FLAGS(t) \
+				 & TYPE_FLAG_ADDRESS_CLASS_2)
+#define TYPE_FLAG_ADDRESS_CLASS_ALL (TYPE_FLAG_ADDRESS_CLASS_1 \
+				     | TYPE_FLAG_ADDRESS_CLASS_2)
+#define TYPE_ADDRESS_CLASS_ALL(t) (TYPE_INSTANCE_FLAGS(t) \
+				   & TYPE_FLAG_ADDRESS_CLASS_ALL)
 
-    enum type_code code;
+struct main_type
+{
+  /* Code for kind of type */
 
-    /* Name of this type, or NULL if none.
+  enum type_code code;
 
-       This is used for printing only, except by poorly designed C++ code.
-       For looking up a name, look for a symbol in the VAR_NAMESPACE.  */
+  /* Name of this type, or NULL if none.
 
-    char *name;
+     This is used for printing only, except by poorly designed C++ code.
+     For looking up a name, look for a symbol in the VAR_NAMESPACE.  */
 
-    /* Tag name for this type, or NULL if none.  This means that the
-       name of the type consists of a keyword followed by the tag name.
-       Which keyword is determined by the type code ("struct" for
-       TYPE_CODE_STRUCT, etc.).  As far as I know C/C++ are the only languages
-       with this feature.
+  char *name;
 
-       This is used for printing only, except by poorly designed C++ code.
-       For looking up a name, look for a symbol in the STRUCT_NAMESPACE.
-       One more legitimate use is that if TYPE_FLAG_STUB is set, this is
-       the name to use to look for definitions in other files.  */
+  /* Tag name for this type, or NULL if none.  This means that the
+     name of the type consists of a keyword followed by the tag name.
+     Which keyword is determined by the type code ("struct" for
+     TYPE_CODE_STRUCT, etc.).  As far as I know C/C++ are the only languages
+     with this feature.
 
-    char *tag_name;
+     This is used for printing only, except by poorly designed C++ code.
+     For looking up a name, look for a symbol in the STRUCT_NAMESPACE.
+     One more legitimate use is that if TYPE_FLAG_STUB is set, this is
+     the name to use to look for definitions in other files.  */
 
-    /* Length of storage for a value of this type.  This is what
-       sizeof(type) would return; use it for address arithmetic,
-       memory reads and writes, etc.  This size includes padding.  For
-       example, an i386 extended-precision floating point value really
-       only occupies ten bytes, but most ABI's declare its size to be
-       12 bytes, to preserve alignment.  A `struct type' representing
-       such a floating-point type would have a `length' value of 12,
-       even though the last two bytes are unused.
+  char *tag_name;
 
-       There's a bit of a host/target mess here, if you're concerned
-       about machines whose bytes aren't eight bits long, or who don't
-       have byte-addressed memory.  Various places pass this to memcpy
-       and such, meaning it must be in units of host bytes.  Various
-       other places expect they can calculate addresses by adding it
-       and such, meaning it must be in units of target bytes.  For
-       some DSP targets, in which HOST_CHAR_BIT will (presumably) be 8
-       and TARGET_CHAR_BIT will be (say) 32, this is a problem.
+  /* Length of storage for a value of this type.  This is what
+     sizeof(type) would return; use it for address arithmetic,
+     memory reads and writes, etc.  This size includes padding.  For
+     example, an i386 extended-precision floating point value really
+     only occupies ten bytes, but most ABI's declare its size to be
+     12 bytes, to preserve alignment.  A `struct type' representing
+     such a floating-point type would have a `length' value of 12,
+     even though the last two bytes are unused.
 
-       One fix would be to make this field in bits (requiring that it
-       always be a multiple of HOST_CHAR_BIT and TARGET_CHAR_BIT) ---
-       the other choice would be to make it consistently in units of
-       HOST_CHAR_BIT.  However, this would still fail to address
-       machines based on a ternary or decimal representation.  */
-    unsigned length;
+     There's a bit of a host/target mess here, if you're concerned
+     about machines whose bytes aren't eight bits long, or who don't
+     have byte-addressed memory.  Various places pass this to memcpy
+     and such, meaning it must be in units of host bytes.  Various
+     other places expect they can calculate addresses by adding it
+     and such, meaning it must be in units of target bytes.  For
+     some DSP targets, in which HOST_CHAR_BIT will (presumably) be 8
+     and TARGET_CHAR_BIT will be (say) 32, this is a problem.
 
-    /* FIXME, these should probably be restricted to a Fortran-specific
-       field in some fashion.  */
+     One fix would be to make this field in bits (requiring that it
+     always be a multiple of HOST_CHAR_BIT and TARGET_CHAR_BIT) ---
+     the other choice would be to make it consistently in units of
+     HOST_CHAR_BIT.  However, this would still fail to address
+     machines based on a ternary or decimal representation.  */
+  
+  unsigned length;
+
+  /* FIXME, these should probably be restricted to a Fortran-specific
+     field in some fashion.  */
 #define BOUND_CANNOT_BE_DETERMINED   5
 #define BOUND_BY_REF_ON_STACK        4
 #define BOUND_BY_VALUE_ON_STACK      3
 #define BOUND_BY_REF_IN_REG          2
 #define BOUND_BY_VALUE_IN_REG        1
 #define BOUND_SIMPLE                 0
-    int upper_bound_type;
-    int lower_bound_type;
+  int upper_bound_type;
+  int lower_bound_type;
 
-    /* Every type is now associated with a particular objfile, and the
-       type is allocated on the type_obstack for that objfile.  One problem
-       however, is that there are times when gdb allocates new types while
-       it is not in the process of reading symbols from a particular objfile.
-       Fortunately, these happen when the type being created is a derived
-       type of an existing type, such as in lookup_pointer_type().  So
-       we can just allocate the new type using the same objfile as the
-       existing type, but to do this we need a backpointer to the objfile
-       from the existing type.  Yes this is somewhat ugly, but without
-       major overhaul of the internal type system, it can't be avoided
-       for now. */
+  /* Every type is now associated with a particular objfile, and the
+     type is allocated on the type_obstack for that objfile.  One problem
+     however, is that there are times when gdb allocates new types while
+     it is not in the process of reading symbols from a particular objfile.
+     Fortunately, these happen when the type being created is a derived
+     type of an existing type, such as in lookup_pointer_type().  So
+     we can just allocate the new type using the same objfile as the
+     existing type, but to do this we need a backpointer to the objfile
+     from the existing type.  Yes this is somewhat ugly, but without
+     major overhaul of the internal type system, it can't be avoided
+     for now. */
 
-    struct objfile *objfile;
+  struct objfile *objfile;
 
-    /* For a pointer type, describes the type of object pointed to.
-       For an array type, describes the type of the elements.
-       For a function or method type, describes the type of the return value.
-       For a range type, describes the type of the full range.
-       For a complex type, describes the type of each coordinate.
-       Unused otherwise.  */
+  /* For a pointer type, describes the type of object pointed to.
+     For an array type, describes the type of the elements.
+     For a function or method type, describes the type of the return value.
+     For a range type, describes the type of the full range.
+     For a complex type, describes the type of each coordinate.
+     Unused otherwise.  */
 
-    struct type *target_type;
+  struct type *target_type;
 
-    /* Type that is a pointer to this type.
-       NULL if no such pointer-to type is known yet.
-       The debugger may add the address of such a type
-       if it has to construct one later.  */
+  /* Flags about this type.  */
 
-    struct type *pointer_type;
+  int flags;
 
-    /* C++: also need a reference type.  */
+  /* Number of fields described for this type */
 
-    struct type *reference_type;
+  short nfields;
 
-    /* C-v variant chain. This points to a type that
-       differs from this one only in a const or volatile
-       attribute (or both). The various c-v variants
-       are chained together in a ring. */
-    struct type *cv_type;
+  /* For structure and union types, a description of each field.
+     For set and pascal array types, there is one "field",
+     whose type is the domain type of the set or array.
+     For range types, there are two "fields",
+     the minimum and maximum values (both inclusive).
+     For enum types, each possible value is described by one "field".
+     For a function or method type, a "field" for each parameter.
+     For C++ classes, there is one field for each base class (if it is
+     a derived class) plus one field for each class data member.  Member
+     functions are recorded elsewhere.
 
-    /* Address-space delimited variant chain.  This points to a type
-       that differs from this one only in an address-space qualifier
-       attribute.  The otherwise-identical address-space delimited 
-       types are chained together in a ring. */
-    struct type *as_type;
+     Using a pointer to a separate array of fields
+     allows all types to have the same size, which is useful
+     because we can allocate the space for a type before
+     we know what to put in it.  */
 
-    /* Flags about this type.  */
+  struct field
+  {
+    union field_location
+    {
+      /* Position of this field, counting in bits from start of
+	 containing structure.
+	 For BITS_BIG_ENDIAN=1 targets, it is the bit offset to the MSB.
+	 For BITS_BIG_ENDIAN=0 targets, it is the bit offset to the LSB.
+	 For a range bound or enum value, this is the value itself. */
 
-    int flags;
+      int bitpos;
 
-    /* Number of fields described for this type */
+      /* For a static field, if TYPE_FIELD_STATIC_HAS_ADDR then physaddr
+	 is the location (in the target) of the static field.
+	 Otherwise, physname is the mangled label of the static field. */
 
-    short nfields;
+      CORE_ADDR physaddr;
+      char *physname;
+    }
+    loc;
 
-    /* For structure and union types, a description of each field.
-       For set and pascal array types, there is one "field",
-       whose type is the domain type of the set or array.
-       For range types, there are two "fields",
-       the minimum and maximum values (both inclusive).
-       For enum types, each possible value is described by one "field".
-       For a function type, a "field" for each parameter type.
-       For C++ classes, there is one field for each base class (if it is
-       a derived class) plus one field for each class data member.  Member
-       functions are recorded elsewhere.
+    /* For a function or member type, this is 1 if the argument is marked
+       artificial.  Artificial arguments should not be shown to the
+       user.  */
+    unsigned int artificial : 1;
 
-       Using a pointer to a separate array of fields
-       allows all types to have the same size, which is useful
-       because we can allocate the space for a type before
-       we know what to put in it.  */
+    /* This flag is zero for non-static fields, 1 for fields whose location
+       is specified by the label loc.physname, and 2 for fields whose location
+       is specified by loc.physaddr.  */
 
-    struct field
-      {
-	union field_location
-	  {
-	    /* Position of this field, counting in bits from start of
-	       containing structure.
-	       For BITS_BIG_ENDIAN=1 targets, it is the bit offset to the MSB.
-	       For BITS_BIG_ENDIAN=0 targets, it is the bit offset to the LSB.
-	       For a range bound or enum value, this is the value itself. */
+    unsigned int static_kind : 2;
 
-	    int bitpos;
+    /* Size of this field, in bits, or zero if not packed.
+       For an unpacked field, the field's type's length
+       says how many bytes the field occupies.  */
 
-	    /* For a static field, if TYPE_FIELD_STATIC_HAS_ADDR then physaddr
-	       is the location (in the target) of the static field.
-	       Otherwise, physname is the mangled label of the static field. */
+    unsigned int bitsize : 29;
 
-	    CORE_ADDR physaddr;
-	    char *physname;
+    /* In a struct or union type, type of this field.
+       In a function or member type, type of this argument.
+       In an array type, the domain-type of the array.  */
 
-	    /* For a function type, this is 1 if the argument is marked
-	       artificial.  Artificial arguments should not be shown to the
-	       user.  */
-	    int artificial;
-	  }
-	loc;
+    struct type *type;
 
-	/* Size of this field, in bits, or zero if not packed.
-	   For an unpacked field, the field's type's length
-	   says how many bytes the field occupies.
-	   A value of -1 or -2 indicates a static field;  -1 means the location
-	   is specified by the label loc.physname;  -2 means that loc.physaddr
-	   specifies the actual address. */
+    /* Name of field, value or argument.
+       NULL for range bounds, array domains, and member function
+       arguments.  */
 
-	int bitsize;
+    char *name;
 
-	/* In a struct or union type, type of this field.
-	   In a function type, type of this argument.
-	   In an array type, the domain-type of the array.  */
+  } *fields;
 
-	struct type *type;
+  /* For types with virtual functions (TYPE_CODE_STRUCT), VPTR_BASETYPE
+     is the base class which defined the virtual function table pointer.  
 
-	/* Name of field, value or argument.
-	   NULL for range bounds and array domains.  */
+     For types that are pointer to member types (TYPE_CODE_MEMBER),
+     VPTR_BASETYPE is the type that this pointer is a member of.
 
-	char *name;
+     For method types (TYPE_CODE_METHOD), VPTR_BASETYPE is the aggregate
+     type that contains the method.
 
-      }
-     *fields;
+     Unused otherwise.  */
 
-    /* For types with virtual functions (TYPE_CODE_STRUCT), VPTR_BASETYPE
-       is the base class which defined the virtual function table pointer.  
+  struct type *vptr_basetype;
 
-       For types that are pointer to member types (TYPE_CODE_MEMBER),
-       VPTR_BASETYPE is the type that this pointer is a member of.
+  /* Field number of the virtual function table pointer in
+     VPTR_BASETYPE.  If -1, we were unable to find the virtual
+     function table pointer in initial symbol reading, and
+     fill_in_vptr_fieldno should be called to find it if possible.
 
-       For method types (TYPE_CODE_METHOD), VPTR_BASETYPE is the aggregate
-       type that contains the method.
+     Unused if this type does not have virtual functions.  */
 
-       Unused otherwise.  */
+  int vptr_fieldno;
 
-    struct type *vptr_basetype;
+  /* Slot to point to additional language-specific fields of this type.  */
 
-    /* Field number of the virtual function table pointer in
-       VPTR_BASETYPE.  If -1, we were unable to find the virtual
-       function table pointer in initial symbol reading, and
-       fill_in_vptr_fieldno should be called to find it if possible.
+  union type_specific
+  {
+    /* CPLUS_STUFF is for TYPE_CODE_STRUCT.  It is initialized to point to
+       cplus_struct_default, a default static instance of a struct
+       cplus_struct_type. */
 
-       Unused if this type does not have virtual functions.  */
+    struct cplus_struct_type *cplus_stuff;
 
-    int vptr_fieldno;
+    /* FLOATFORMAT is for TYPE_CODE_FLT.  It is a pointer to the
+       floatformat object that describes the floating-point value
+       that resides within the type.  */
 
-    /* Slot to point to additional language-specific fields of this type.  */
+    const struct floatformat *floatformat;
+  } type_specific;
+};
 
-    union type_specific
-      {
+/* A ``struct type'' describes a particular instance of a type, with
+   some particular qualification.  */
+struct type
+{
+  /* Type that is a pointer to this type.
+     NULL if no such pointer-to type is known yet.
+     The debugger may add the address of such a type
+     if it has to construct one later.  */
 
-	/* ARG_TYPES is for TYPE_CODE_METHOD.
-	   Contains the type of each argument, ending with a void type
-	   after the last argument for normal member functions or a NULL
-	   pointer after the last argument for functions with variable
-	   arguments.  */
+  struct type *pointer_type;
 
-	struct type **arg_types;
+  /* C++: also need a reference type.  */
 
-	/* CPLUS_STUFF is for TYPE_CODE_STRUCT.  It is initialized to point to
-	   cplus_struct_default, a default static instance of a struct
-	   cplus_struct_type. */
+  struct type *reference_type;
 
-	struct cplus_struct_type *cplus_stuff;
+  /* Variant chain.  This points to a type that differs from this one only
+     in qualifiers.  Currently, the possible qualifiers are const, volatile,
+     code-space, and data-space.  The variants are linked in a circular
+     ring and share MAIN_TYPE.  */
+  struct type *chain;
 
-	/* FLOATFORMAT is for TYPE_CODE_FLT.  It is a pointer to the
-           floatformat object that describes the floating-point value
-           that resides within the type.  */
+  /* Flags specific to this instance of the type, indicating where
+     on the ring we are.  */
+  int instance_flags;
 
-	const struct floatformat *floatformat;
-      }
-    type_specific;
-  };
+  /* Core type, shared by a group of qualified types.  */
+  struct main_type *main_type;
+};
 
 #define	NULL_TYPE ((struct type *) 0)
 
@@ -594,13 +616,6 @@ struct cplus_struct_type
 	       and *not* the return-value type). */
 
 	    struct type *type;
-
-	    /* The argument list.  Only valid if is_stub is clear.  Contains
-	       the type of each argument, including `this', and ending with
-	       a NULL pointer after the last argument.  Should not contain
-	       a `this' pointer for static member functions.  */
-
-	    struct type **args;
 
 	    /* For virtual functions.
 	       First baseclass that defines this virtual function.   */
@@ -726,32 +741,33 @@ extern const struct cplus_struct_type cplus_struct_default;
 extern void allocate_cplus_struct_type (struct type *);
 
 #define INIT_CPLUS_SPECIFIC(type) \
-  (TYPE_CPLUS_SPECIFIC(type)=(struct cplus_struct_type*)&cplus_struct_default)
+  (TYPE_CPLUS_SPECIFIC(type) = NULL)
 #define ALLOCATE_CPLUS_STRUCT_TYPE(type) allocate_cplus_struct_type (type)
 #define HAVE_CPLUS_STRUCT(type) \
-  (TYPE_CPLUS_SPECIFIC(type) != &cplus_struct_default)
+  (TYPE_CPLUS_SPECIFIC(type) != NULL)
 
-#define TYPE_NAME(thistype) (thistype)->name
-#define TYPE_TAG_NAME(type) ((type)->tag_name)
-#define TYPE_TARGET_TYPE(thistype) (thistype)->target_type
+#define TYPE_INSTANCE_FLAGS(thistype) (thistype)->instance_flags
+#define TYPE_MAIN_TYPE(thistype) (thistype)->main_type
+#define TYPE_NAME(thistype) TYPE_MAIN_TYPE(thistype)->name
+#define TYPE_TAG_NAME(type) TYPE_MAIN_TYPE(type)->tag_name
+#define TYPE_TARGET_TYPE(thistype) TYPE_MAIN_TYPE(thistype)->target_type
 #define TYPE_POINTER_TYPE(thistype) (thistype)->pointer_type
 #define TYPE_REFERENCE_TYPE(thistype) (thistype)->reference_type
-#define TYPE_CV_TYPE(thistype) (thistype)->cv_type
-#define TYPE_AS_TYPE(thistype) (thistype)->as_type
+#define TYPE_CHAIN(thistype) (thistype)->chain
 /* Note that if thistype is a TYPEDEF type, you have to call check_typedef.
    But check_typedef does set the TYPE_LENGTH of the TYPEDEF type,
    so you only have to call check_typedef once.  Since allocate_value
    calls check_typedef, TYPE_LENGTH (VALUE_TYPE (X)) is safe.  */
-#define TYPE_LENGTH(thistype) (thistype)->length
-#define TYPE_OBJFILE(thistype) (thistype)->objfile
-#define TYPE_FLAGS(thistype) (thistype)->flags
+#define TYPE_LENGTH(thistype) TYPE_MAIN_TYPE(thistype)->length
+#define TYPE_OBJFILE(thistype) TYPE_MAIN_TYPE(thistype)->objfile
+#define TYPE_FLAGS(thistype) TYPE_MAIN_TYPE(thistype)->flags
 /* Note that TYPE_CODE can be TYPE_CODE_TYPEDEF, so if you want the real
    type, you need to do TYPE_CODE (check_type (this_type)). */
-#define TYPE_CODE(thistype) (thistype)->code
-#define TYPE_NFIELDS(thistype) (thistype)->nfields
-#define TYPE_FIELDS(thistype) (thistype)->fields
-#define TYPE_TEMPLATE_ARGS(thistype) TYPE_CPLUS_SPECIFIC(thistype)->template_args
-#define TYPE_INSTANTIATIONS(thistype) TYPE_CPLUS_SPECIFIC(thistype)->instantiations
+#define TYPE_CODE(thistype) TYPE_MAIN_TYPE(thistype)->code
+#define TYPE_NFIELDS(thistype) TYPE_MAIN_TYPE(thistype)->nfields
+#define TYPE_FIELDS(thistype) TYPE_MAIN_TYPE(thistype)->fields
+#define TYPE_TEMPLATE_ARGS(thistype) TYPE_CPLUS_SPECIFIC_NONULL(thistype)->template_args
+#define TYPE_INSTANTIATIONS(thistype) TYPE_CPLUS_SPECIFIC_NONULL(thistype)->instantiations
 
 #define TYPE_INDEX_TYPE(type) TYPE_FIELD_TYPE (type, 0)
 #define TYPE_LOW_BOUND(range_type) TYPE_FIELD_BITPOS (range_type, 0)
@@ -759,8 +775,10 @@ extern void allocate_cplus_struct_type (struct type *);
 
 /* Moto-specific stuff for FORTRAN arrays */
 
-#define TYPE_ARRAY_UPPER_BOUND_TYPE(thistype) (thistype)->upper_bound_type
-#define TYPE_ARRAY_LOWER_BOUND_TYPE(thistype) (thistype)->lower_bound_type
+#define TYPE_ARRAY_UPPER_BOUND_TYPE(thistype) \
+	TYPE_MAIN_TYPE(thistype)->upper_bound_type
+#define TYPE_ARRAY_LOWER_BOUND_TYPE(thistype) \
+	TYPE_MAIN_TYPE(thistype)->lower_bound_type
 
 #define TYPE_ARRAY_UPPER_BOUND_VALUE(arraytype) \
    (TYPE_FIELD_BITPOS((TYPE_FIELD_TYPE((arraytype),0)),1))
@@ -770,95 +788,98 @@ extern void allocate_cplus_struct_type (struct type *);
 
 /* C++ */
 
-#define TYPE_VPTR_BASETYPE(thistype) (thistype)->vptr_basetype
-#define TYPE_DOMAIN_TYPE(thistype) (thistype)->vptr_basetype
-#define TYPE_VPTR_FIELDNO(thistype) (thistype)->vptr_fieldno
-#define TYPE_FN_FIELDS(thistype) TYPE_CPLUS_SPECIFIC(thistype)->fn_fields
-#define TYPE_NFN_FIELDS(thistype) TYPE_CPLUS_SPECIFIC(thistype)->nfn_fields
-#define TYPE_NFN_FIELDS_TOTAL(thistype) TYPE_CPLUS_SPECIFIC(thistype)->nfn_fields_total
-#define TYPE_NTEMPLATE_ARGS(thistype) TYPE_CPLUS_SPECIFIC(thistype)->ntemplate_args
-#define TYPE_NINSTANTIATIONS(thistype) TYPE_CPLUS_SPECIFIC(thistype)->ninstantiations
-#define TYPE_DECLARED_TYPE(thistype) TYPE_CPLUS_SPECIFIC(thistype)->declared_type
-#define	TYPE_TYPE_SPECIFIC(thistype) (thistype)->type_specific
-#define TYPE_ARG_TYPES(thistype) (thistype)->type_specific.arg_types
-#define TYPE_CPLUS_SPECIFIC(thistype) (thistype)->type_specific.cplus_stuff
-#define TYPE_FLOATFORMAT(thistype) (thistype)->type_specific.floatformat
-#define TYPE_BASECLASS(thistype,index) (thistype)->fields[index].type
-#define TYPE_N_BASECLASSES(thistype) TYPE_CPLUS_SPECIFIC(thistype)->n_baseclasses
-#define TYPE_BASECLASS_NAME(thistype,index) (thistype)->fields[index].name
+#define TYPE_VPTR_BASETYPE(thistype) TYPE_MAIN_TYPE(thistype)->vptr_basetype
+#define TYPE_DOMAIN_TYPE(thistype) TYPE_MAIN_TYPE(thistype)->vptr_basetype
+#define TYPE_VPTR_FIELDNO(thistype) TYPE_MAIN_TYPE(thistype)->vptr_fieldno
+#define TYPE_FN_FIELDS(thistype) TYPE_CPLUS_SPECIFIC_NONULL(thistype)->fn_fields
+#define TYPE_NFN_FIELDS(thistype) TYPE_CPLUS_SPECIFIC_NONULL(thistype)->nfn_fields
+#define TYPE_NFN_FIELDS_TOTAL(thistype) TYPE_CPLUS_SPECIFIC_NONULL(thistype)->nfn_fields_total
+#define TYPE_NTEMPLATE_ARGS(thistype) TYPE_CPLUS_SPECIFIC_NONULL(thistype)->ntemplate_args
+#define TYPE_NINSTANTIATIONS(thistype) TYPE_CPLUS_SPECIFIC_NONULL(thistype)->ninstantiations
+#define TYPE_DECLARED_TYPE(thistype) TYPE_CPLUS_SPECIFIC_NONULL(thistype)->declared_type
+#define	TYPE_TYPE_SPECIFIC(thistype) TYPE_MAIN_TYPE(thistype)->type_specific
+#define TYPE_CPLUS_SPECIFIC(thistype) TYPE_MAIN_TYPE(thistype)->type_specific.cplus_stuff
+#define TYPE_CPLUS_SPECIFIC_NONULL(thistype) (TYPE_CPLUS_SPECIFIC(thistype) != NULL ? \
+  TYPE_CPLUS_SPECIFIC(thistype) : &cplus_struct_default)
+#define TYPE_FLOATFORMAT(thistype) TYPE_MAIN_TYPE(thistype)->type_specific.floatformat
+#define TYPE_BASECLASS(thistype,index) TYPE_MAIN_TYPE(thistype)->fields[index].type
+#define TYPE_N_BASECLASSES(thistype) TYPE_CPLUS_SPECIFIC_NONULL(thistype)->n_baseclasses
+#define TYPE_BASECLASS_NAME(thistype,index) TYPE_MAIN_TYPE(thistype)->fields[index].name
 #define TYPE_BASECLASS_BITPOS(thistype,index) TYPE_FIELD_BITPOS(thistype,index)
 #define BASETYPE_VIA_PUBLIC(thistype, index) \
   ((!TYPE_FIELD_PRIVATE(thistype, index)) && (!TYPE_FIELD_PROTECTED(thistype, index)))
 
 #define BASETYPE_VIA_VIRTUAL(thistype, index) \
-  (TYPE_CPLUS_SPECIFIC(thistype)->virtual_field_bits == NULL ? 0 \
-    : B_TST(TYPE_CPLUS_SPECIFIC(thistype)->virtual_field_bits, (index)))
+  (TYPE_CPLUS_SPECIFIC_NONULL(thistype)->virtual_field_bits == NULL ? 0 \
+    : B_TST(TYPE_CPLUS_SPECIFIC_NONULL(thistype)->virtual_field_bits, (index)))
 
 #define FIELD_TYPE(thisfld) ((thisfld).type)
 #define FIELD_NAME(thisfld) ((thisfld).name)
 #define FIELD_BITPOS(thisfld) ((thisfld).loc.bitpos)
-#define FIELD_ARTIFICIAL(thisfld) ((thisfld).loc.artificial)
+#define FIELD_ARTIFICIAL(thisfld) ((thisfld).artificial)
 #define FIELD_BITSIZE(thisfld) ((thisfld).bitsize)
+#define FIELD_STATIC_KIND(thisfld) ((thisfld).static_kind)
 #define FIELD_PHYSNAME(thisfld) ((thisfld).loc.physname)
 #define FIELD_PHYSADDR(thisfld) ((thisfld).loc.physaddr)
 #define SET_FIELD_PHYSNAME(thisfld, name) \
-  ((thisfld).bitsize = -1, FIELD_PHYSNAME(thisfld) = (name))
+  ((thisfld).static_kind = 1, FIELD_PHYSNAME(thisfld) = (name))
 #define SET_FIELD_PHYSADDR(thisfld, name) \
-  ((thisfld).bitsize = -2, FIELD_PHYSADDR(thisfld) = (name))
-#define TYPE_FIELD(thistype, n) (thistype)->fields[n]
+  ((thisfld).static_kind = 2, FIELD_PHYSADDR(thisfld) = (name))
+#define TYPE_FIELD(thistype, n) TYPE_MAIN_TYPE(thistype)->fields[n]
 #define TYPE_FIELD_TYPE(thistype, n) FIELD_TYPE(TYPE_FIELD(thistype, n))
 #define TYPE_FIELD_NAME(thistype, n) FIELD_NAME(TYPE_FIELD(thistype, n))
 #define TYPE_FIELD_BITPOS(thistype, n) FIELD_BITPOS(TYPE_FIELD(thistype,n))
 #define TYPE_FIELD_ARTIFICIAL(thistype, n) FIELD_ARTIFICIAL(TYPE_FIELD(thistype,n))
 #define TYPE_FIELD_BITSIZE(thistype, n) FIELD_BITSIZE(TYPE_FIELD(thistype,n))
 #define TYPE_FIELD_PACKED(thistype, n) (FIELD_BITSIZE(TYPE_FIELD(thistype,n))!=0)
-#define TYPE_TEMPLATE_ARG(thistype, n) TYPE_CPLUS_SPECIFIC(thistype)->template_args[n]
-#define TYPE_INSTANTIATION(thistype, n) TYPE_CPLUS_SPECIFIC(thistype)->instantiations[n]
+#define TYPE_TEMPLATE_ARG(thistype, n) TYPE_CPLUS_SPECIFIC_NONULL(thistype)->template_args[n]
+#define TYPE_INSTANTIATION(thistype, n) TYPE_CPLUS_SPECIFIC_NONULL(thistype)->instantiations[n]
 
 #define TYPE_FIELD_PRIVATE_BITS(thistype) \
-  TYPE_CPLUS_SPECIFIC(thistype)->private_field_bits
+  TYPE_CPLUS_SPECIFIC_NONULL(thistype)->private_field_bits
 #define TYPE_FIELD_PROTECTED_BITS(thistype) \
-  TYPE_CPLUS_SPECIFIC(thistype)->protected_field_bits
+  TYPE_CPLUS_SPECIFIC_NONULL(thistype)->protected_field_bits
 #define TYPE_FIELD_IGNORE_BITS(thistype) \
-  TYPE_CPLUS_SPECIFIC(thistype)->ignore_field_bits
+  TYPE_CPLUS_SPECIFIC_NONULL(thistype)->ignore_field_bits
 #define TYPE_FIELD_VIRTUAL_BITS(thistype) \
-  TYPE_CPLUS_SPECIFIC(thistype)->virtual_field_bits
+  TYPE_CPLUS_SPECIFIC_NONULL(thistype)->virtual_field_bits
 #define SET_TYPE_FIELD_PRIVATE(thistype, n) \
-  B_SET (TYPE_CPLUS_SPECIFIC(thistype)->private_field_bits, (n))
+  B_SET (TYPE_CPLUS_SPECIFIC_NONULL(thistype)->private_field_bits, (n))
 #define SET_TYPE_FIELD_PROTECTED(thistype, n) \
-  B_SET (TYPE_CPLUS_SPECIFIC(thistype)->protected_field_bits, (n))
+  B_SET (TYPE_CPLUS_SPECIFIC_NONULL(thistype)->protected_field_bits, (n))
 #define SET_TYPE_FIELD_IGNORE(thistype, n) \
-  B_SET (TYPE_CPLUS_SPECIFIC(thistype)->ignore_field_bits, (n))
+  B_SET (TYPE_CPLUS_SPECIFIC_NONULL(thistype)->ignore_field_bits, (n))
 #define SET_TYPE_FIELD_VIRTUAL(thistype, n) \
-  B_SET (TYPE_CPLUS_SPECIFIC(thistype)->virtual_field_bits, (n))
+  B_SET (TYPE_CPLUS_SPECIFIC_NONULL(thistype)->virtual_field_bits, (n))
 #define TYPE_FIELD_PRIVATE(thistype, n) \
-  (TYPE_CPLUS_SPECIFIC(thistype)->private_field_bits == NULL ? 0 \
-    : B_TST(TYPE_CPLUS_SPECIFIC(thistype)->private_field_bits, (n)))
+  (TYPE_CPLUS_SPECIFIC_NONULL(thistype)->private_field_bits == NULL ? 0 \
+    : B_TST(TYPE_CPLUS_SPECIFIC_NONULL(thistype)->private_field_bits, (n)))
 #define TYPE_FIELD_PROTECTED(thistype, n) \
-  (TYPE_CPLUS_SPECIFIC(thistype)->protected_field_bits == NULL ? 0 \
-    : B_TST(TYPE_CPLUS_SPECIFIC(thistype)->protected_field_bits, (n)))
+  (TYPE_CPLUS_SPECIFIC_NONULL(thistype)->protected_field_bits == NULL ? 0 \
+    : B_TST(TYPE_CPLUS_SPECIFIC_NONULL(thistype)->protected_field_bits, (n)))
 #define TYPE_FIELD_IGNORE(thistype, n) \
-  (TYPE_CPLUS_SPECIFIC(thistype)->ignore_field_bits == NULL ? 0 \
-    : B_TST(TYPE_CPLUS_SPECIFIC(thistype)->ignore_field_bits, (n)))
+  (TYPE_CPLUS_SPECIFIC_NONULL(thistype)->ignore_field_bits == NULL ? 0 \
+    : B_TST(TYPE_CPLUS_SPECIFIC_NONULL(thistype)->ignore_field_bits, (n)))
 #define TYPE_FIELD_VIRTUAL(thistype, n) \
-  (TYPE_CPLUS_SPECIFIC(thistype)->virtual_field_bits == NULL ? 0 \
-    : B_TST(TYPE_CPLUS_SPECIFIC(thistype)->virtual_field_bits, (n)))
+  (TYPE_CPLUS_SPECIFIC_NONULL(thistype)->virtual_field_bits == NULL ? 0 \
+    : B_TST(TYPE_CPLUS_SPECIFIC_NONULL(thistype)->virtual_field_bits, (n)))
 
-#define TYPE_FIELD_STATIC(thistype, n) ((thistype)->fields[n].bitsize < 0)
-#define TYPE_FIELD_STATIC_HAS_ADDR(thistype, n) ((thistype)->fields[n].bitsize == -2)
+#define TYPE_FIELD_STATIC(thistype, n) (TYPE_MAIN_TYPE (thistype)->fields[n].static_kind != 0)
+#define TYPE_FIELD_STATIC_KIND(thistype, n) TYPE_MAIN_TYPE (thistype)->fields[n].static_kind
+#define TYPE_FIELD_STATIC_HAS_ADDR(thistype, n) (TYPE_MAIN_TYPE (thistype)->fields[n].static_kind == 2)
 #define TYPE_FIELD_STATIC_PHYSNAME(thistype, n) FIELD_PHYSNAME(TYPE_FIELD(thistype, n))
 #define TYPE_FIELD_STATIC_PHYSADDR(thistype, n) FIELD_PHYSADDR(TYPE_FIELD(thistype, n))
 
-#define TYPE_FN_FIELDLISTS(thistype) TYPE_CPLUS_SPECIFIC(thistype)->fn_fieldlists
-#define TYPE_FN_FIELDLIST(thistype, n) TYPE_CPLUS_SPECIFIC(thistype)->fn_fieldlists[n]
-#define TYPE_FN_FIELDLIST1(thistype, n) TYPE_CPLUS_SPECIFIC(thistype)->fn_fieldlists[n].fn_fields
-#define TYPE_FN_FIELDLIST_NAME(thistype, n) TYPE_CPLUS_SPECIFIC(thistype)->fn_fieldlists[n].name
-#define TYPE_FN_FIELDLIST_LENGTH(thistype, n) TYPE_CPLUS_SPECIFIC(thistype)->fn_fieldlists[n].length
+#define TYPE_FN_FIELDLISTS(thistype) TYPE_CPLUS_SPECIFIC_NONULL(thistype)->fn_fieldlists
+#define TYPE_FN_FIELDLIST(thistype, n) TYPE_CPLUS_SPECIFIC_NONULL(thistype)->fn_fieldlists[n]
+#define TYPE_FN_FIELDLIST1(thistype, n) TYPE_CPLUS_SPECIFIC_NONULL(thistype)->fn_fieldlists[n].fn_fields
+#define TYPE_FN_FIELDLIST_NAME(thistype, n) TYPE_CPLUS_SPECIFIC_NONULL(thistype)->fn_fieldlists[n].name
+#define TYPE_FN_FIELDLIST_LENGTH(thistype, n) TYPE_CPLUS_SPECIFIC_NONULL(thistype)->fn_fieldlists[n].length
 
 #define TYPE_FN_FIELD(thisfn, n) (thisfn)[n]
 #define TYPE_FN_FIELD_PHYSNAME(thisfn, n) (thisfn)[n].physname
 #define TYPE_FN_FIELD_TYPE(thisfn, n) (thisfn)[n].type
-#define TYPE_FN_FIELD_ARGS(thisfn, n) TYPE_ARG_TYPES ((thisfn)[n].type)
+#define TYPE_FN_FIELD_ARGS(thisfn, n) TYPE_FIELDS ((thisfn)[n].type)
 #define TYPE_FN_FIELD_CONST(thisfn, n) ((thisfn)[n].is_const)
 #define TYPE_FN_FIELD_VOLATILE(thisfn, n) ((thisfn)[n].is_volatile)
 #define TYPE_FN_FIELD_PRIVATE(thisfn, n) ((thisfn)[n].is_private)
@@ -877,20 +898,20 @@ extern void allocate_cplus_struct_type (struct type *);
 #define TYPE_FN_FIELD_VIRTUAL_P(thisfn, n) ((thisfn)[n].voffset > 1)
 #define TYPE_FN_FIELD_STATIC_P(thisfn, n) ((thisfn)[n].voffset == VOFFSET_STATIC)
 
-#define TYPE_RUNTIME_PTR(thistype) (TYPE_CPLUS_SPECIFIC(thistype)->runtime_ptr)
+#define TYPE_RUNTIME_PTR(thistype) (TYPE_CPLUS_SPECIFIC_NONULL(thistype)->runtime_ptr)
 #define TYPE_VTABLE(thistype) (TYPE_RUNTIME_PTR(thistype)->has_vtable)
 #define TYPE_HAS_VTABLE(thistype) (TYPE_RUNTIME_PTR(thistype) && TYPE_VTABLE(thistype))
 #define TYPE_PRIMARY_BASE(thistype) (TYPE_RUNTIME_PTR(thistype)->primary_base)
 #define TYPE_VIRTUAL_BASE_LIST(thistype) (TYPE_RUNTIME_PTR(thistype)->virtual_base_list)
 
-#define TYPE_LOCALTYPE_PTR(thistype) (TYPE_CPLUS_SPECIFIC(thistype)->localtype_ptr)
-#define TYPE_LOCALTYPE_FILE(thistype) (TYPE_CPLUS_SPECIFIC(thistype)->localtype_ptr->file)
-#define TYPE_LOCALTYPE_LINE(thistype) (TYPE_CPLUS_SPECIFIC(thistype)->localtype_ptr->line)
+#define TYPE_LOCALTYPE_PTR(thistype) (TYPE_CPLUS_SPECIFIC_NONULL(thistype)->localtype_ptr)
+#define TYPE_LOCALTYPE_FILE(thistype) (TYPE_CPLUS_SPECIFIC_NONULL(thistype)->localtype_ptr->file)
+#define TYPE_LOCALTYPE_LINE(thistype) (TYPE_CPLUS_SPECIFIC_NONULL(thistype)->localtype_ptr->line)
 
 #define TYPE_IS_OPAQUE(thistype) (((TYPE_CODE (thistype) == TYPE_CODE_STRUCT) ||        \
                                    (TYPE_CODE (thistype) == TYPE_CODE_UNION))        && \
                                   (TYPE_NFIELDS (thistype) == 0)                     && \
-                                  (TYPE_CPLUS_SPECIFIC (thistype) && (TYPE_NFN_FIELDS (thistype) == 0)))
+                                  (TYPE_CPLUS_SPECIFIC_NONULL (thistype) && (TYPE_NFN_FIELDS (thistype) == 0)))
 
 
 
@@ -957,8 +978,13 @@ extern struct type *builtin_type_v8hi;
 extern struct type *builtin_type_v4hi;
 extern struct type *builtin_type_v2si;
 
+/* Type for 64 bit vectors. */
+extern struct type *builtin_type_vec64;
+extern struct type *builtin_type_vec64i;
+
 /* Type for 128 bit vectors. */
 extern struct type *builtin_type_vec128;
+extern struct type *builtin_type_vec128i;
 
 /* Explicit floating-point formats.  See "floatformat.h".  */
 extern struct type *builtin_type_ieee_single_big;
@@ -998,14 +1024,6 @@ extern struct type *builtin_type_m2_int;
 extern struct type *builtin_type_m2_card;
 extern struct type *builtin_type_m2_real;
 extern struct type *builtin_type_m2_bool;
-
-/* Chill types */
-
-extern struct type *builtin_type_chill_bool;
-extern struct type *builtin_type_chill_char;
-extern struct type *builtin_type_chill_long;
-extern struct type *builtin_type_chill_ulong;
-extern struct type *builtin_type_chill_real;
 
 /* Fortran (F77) types */
 
@@ -1071,13 +1089,11 @@ extern struct type *make_reference_type (struct type *, struct type **);
 
 extern struct type *make_cv_type (int, int, struct type *, struct type **);
 
-extern void finish_cv_type (struct type *);
-
 extern void replace_type (struct type *, struct type *);
 
 extern int address_space_name_to_int (char *);
 
-extern char *address_space_int_to_name (int);
+extern const char *address_space_int_to_name (int);
 
 extern struct type *make_type_with_address_space (struct type *type, 
 						  int space_identifier);
@@ -1085,11 +1101,11 @@ extern struct type *make_type_with_address_space (struct type *type,
 extern struct type *lookup_member_type (struct type *, struct type *);
 
 extern void
-smash_to_method_type (struct type *, struct type *, struct type *,
-		      struct type **);
+smash_to_method_type (struct type *type, struct type *domain,
+		      struct type *to_type, struct field *args,
+		      int nargs, int varargs);
 
-extern void
-smash_to_member_type (struct type *, struct type *, struct type *);
+extern void smash_to_member_type (struct type *, struct type *, struct type *);
 
 extern struct type *allocate_stub_method (struct type *);
 
@@ -1115,8 +1131,6 @@ extern struct type *create_string_type (struct type *, struct type *);
 
 extern struct type *create_set_type (struct type *, struct type *);
 
-extern int chill_varying_type (struct type *);
-
 extern struct type *lookup_unsigned_typename (char *);
 
 extern struct type *lookup_signed_typename (char *);
@@ -1125,7 +1139,7 @@ extern struct type *check_typedef (struct type *);
 
 #define CHECK_TYPEDEF(TYPE) (TYPE) = check_typedef (TYPE)
 
-extern void check_stub_method (struct type *, int, int);
+extern void check_stub_method_group (struct type *, int);
 
 extern struct type *lookup_primitive_typename (char *);
 
@@ -1237,6 +1251,8 @@ extern struct badness_vector *rank_function (struct type **, int,
 					     struct type **, int);
 
 extern int rank_one_type (struct type *, struct type *);
+
+extern const char *type_code_name (int code);
 
 extern void recursive_dump_type (struct type *, int);
 

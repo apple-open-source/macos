@@ -145,8 +145,12 @@ private:
 		const char *dbName,
 		const RelationInfo *relationInfo,
 		unsigned numRelations,
+		CSSM_BOOL autoCommit,
+		mode_t mode,
 		CSSM_DB_HANDLE &dbHand);		// RETURNED
-	bool createSystemDatabases();
+	bool createSystemDatabases(
+		CSSM_BOOL autoCommit,
+		mode_t mode);
 
     const CssmMemoryFunctions mCssmMemoryFunctions;
     Guid 			mCallerGuid;

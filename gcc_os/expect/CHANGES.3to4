@@ -1,0 +1,115 @@
+This file describes the changes from Expect 3 to Expect 4.
+
+The improvements that people will find most interesting are:
+
+1) Expect version 4 is designed to work with Tcl 6.7 and Tk 3.2.
+   (Earlier versions of Expect will not work with Tcl 6.7)
+   Expect can now be layered in with any Tcl program.  
+   Note that in Tk, Expect's send command is called "exp_send".
+   (It used to be called "send_spawn" but this bit the dust.)
+2) A debugger is provided.
+3) The interact command has been totally rewritten and supports regular
+   expressions, timeout/eof patterns, and a number of other new things.
+4) The default behavior of ^C (SIGINT) is exit whether or not you are in
+   a read.
+5) Expect uses "sane" terminal parameters by default, allowing scripts
+   to work the same whether inside emacs shell mode or not.  (See man
+   page on "spawn" for more info.)
+6) All the hard parts of the installation process are automated.  This
+   was done primarily by Rob Savoye at Cygnus.  Thank you, Rob!
+7) It is now possible to buy a support contract for Expect from Cygnus.
+
+The changes that people will find most annoying are:
+
+1) send now only sends a single string.  (It used to send any number of
+   strings with spaces jammed in between.)
+2) getpid was renamed pid.
+3) interact's -flush was renamed -nobuffer (much more descriptive).
+4) interact now runs all actions in raw mode unless the flag -reset
+   is used.  -f and -F are ignored.  send automatically understands
+   how to do the right thing.  The most likely thing to watch out for
+   are actions like "exec kill -STOP 0" which almost certainly need
+   the -reset flag.
+5) argv0 is initialized to script name.  argv no longer contains it.
+   argc is initialized [llength $argv].  This follows new Tcl style.
+
+All differences are described in the man page.  Some of the less
+significant differences are described in the HISTORY file.  The
+debugger is described in a separate document (see the README).
+
+This version also introduces one incompatibility that may require
+changes to scripts.  While this may initially annoy you, the final
+result will simplify the process of writing scripts.  Namely:
+
+In version 3, the expect command accepted lists of glob-style patterns
+such as:
+
+	expect "a\ b c" action
+
+where "a b" or "c" would cause action to be executed.  The problem
+with this is that the pattern list is hard to write and hard to read.
+Patterns with control-characters, backslashes and dollar signs were
+very difficult to deal with.
+
+Regular-expression patterns provide a much simpler solution.  Via the
+alternation feature (using a "|") the above pattern can be written as:
+
+	expect -re "a b|c" action
+
+I was concerned about people having a significant investment in code
+that depended on the old syntax but responders to a comp.lang.tcl poll
+about such a change in pattern handling were 100% in favor of it.  (I
+even proposed hooks for backward compatibility, but there was no
+interest in it.)
+
+Fortunately, most simple things will work as before including:
+
+	expect foobar
+	expect {foobar}
+	expect "foobar"
+	expect "foo\ bar"
+
+However, some things won't work as before.  For example, the following
+will behave differently - now the braces will be considered as part of
+the pattern.
+
+	expect "{foo bar}"
+
+Here are examples of patterns in my own code that I had to change:
+
+	was				changed to
+	Version 3 pattern list		Version 4 pattern
+
+	{Whois:\ }			"Whois: "
+	{No\ match}			"No match"
+	{250*ftp>* 200*ftp>*}		-re "2(5|0)0.*ftp>.*"
+	{{Press Return to continue*}}	"Press Return to continue*"
+	{*\r\n*\\\\\r\n}		"\r\n*\\\r\n"
+
+
+
+Future Change Alert
+
+John Ousterhout has pre-announced a future change in Tcl that may
+affect you.  In particular, backslash sequences other than those
+explicitly listed in the Tcl documentation will be handled as if the
+backslash was not present.
+
+The likely place this arises is when quoting characters that are
+special to the pattern matcher but not to Tcl.
+
+For example in Tcl 6.7, the following command matches a period.
+
+	expect -re "\."
+
+In Tcl 7.0, it will match any character, because Tcl will throw away
+the backslash.  If you want to match a period, you will have to say:
+
+	expect -re "\\."
+or
+	expect -re {\.}
+
+The following command will find occurrences of this.  (It may find
+other things, but it will at least find the problem cases.)
+
+	egrep '(\\$)|(\\[^][bfnrtv\0-9{}$ ;"])' *.exp

@@ -1,4 +1,4 @@
-/* $Header: /cvs/Darwin/src/live/tcsh/tcsh/sh.dol.c,v 1.1.1.2 2001/06/28 23:10:50 bbraun Exp $ */
+/* $Header: /cvs/root/tcsh/tcsh/sh.dol.c,v 1.1.1.3 2003/01/17 03:41:12 nicolai Exp $ */
 /*
  * sh.dol.c: Variable substitutions
  */
@@ -14,11 +14,7 @@
  * 2. Redistributions in binary form must reproduce the above copyright
  *    notice, this list of conditions and the following disclaimer in the
  *    documentation and/or other materials provided with the distribution.
- * 3. All advertising materials mentioning features or use of this software
- *    must display the following acknowledgement:
- *	This product includes software developed by the University of
- *	California, Berkeley and its contributors.
- * 4. Neither the name of the University nor the names of its contributors
+ * 3. Neither the name of the University nor the names of its contributors
  *    may be used to endorse or promote products derived from this software
  *    without specific prior written permission.
  *
@@ -36,7 +32,7 @@
  */
 #include "sh.h"
 
-RCSID("$Id: sh.dol.c,v 1.1.1.2 2001/06/28 23:10:50 bbraun Exp $")
+RCSID("$Id: sh.dol.c,v 1.1.1.3 2003/01/17 03:41:12 nicolai Exp $")
 
 /*
  * C shell
@@ -114,7 +110,7 @@ Dfix(t)
 	    if (Ismbyte1(*p) && *(p + 1))
 		p ++;
 	    else
-#endif DSPMBYTE
+#endif /* DSPMBYTE */
 	    if (cmap(*p, _DOL | QUOTES)) {	/* $, \, ', ", ` */
 		Dfix2(t->t_dcom);	/* found one */
 		blkfree(t->t_dcom);
@@ -585,10 +581,8 @@ Dgetdol()
 		c = DgetC(0);
 	    } while (Isdigit(c));
 	    unDredc(c);
-	    if (subscr < 0) {
-		dolerror(vp->v_name);
-		return;
-	    }
+	    if (subscr < 0)
+		stderror(ERR_RANGE);
 	    if (subscr == 0) {
 		if (bitset) {
 		    dolp = dolzero ? STR1 : STR0;
@@ -651,7 +645,7 @@ Dgetdol()
 	dolp = (vp || getenv(short2str(name))) ? STR1 : STR0;
 	goto eatbrac;
     }
-    if (vp == 0) {
+    if (vp == NULL || vp->vec == NULL) {
 	np = str2short(getenv(short2str(name)));
 	if (np) {
 	    fixDolMod();
@@ -1043,7 +1037,7 @@ again:
 #ifndef O_EXCL
 # define O_EXCL 0
 #endif
-    if (open(tmp, O_RDWR|O_CREAT|O_EXCL|O_TEMPORARY) == -1) {
+    if (open(tmp, O_RDWR|O_CREAT|O_EXCL|O_TEMPORARY, 0600) == -1) {
 	int oerrno = errno;
 #ifndef WINNT_NATIVE
 	if (errno == EEXIST) {

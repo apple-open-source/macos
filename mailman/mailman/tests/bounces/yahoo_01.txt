@@ -1,0 +1,47 @@
+Return-path: <jpython-interest-admin@python.org>
+Received: from mta540.mail.yahoo.com [216.136.131.22] by receive.turbosport.com [63.118.43.131]
+	with SMTP (MDaemon.v3.5.2.R)
+	for <bbbsss@turbosport.com>; Sun, 18 Feb 2001 02:25:20 -0600
+Message-ID: <20010218082300.42071.qmail@mta540.mail.yahoo.com>
+Received: from mta540.mail.yahoo.com for bbbsss@turbosport.com; Feb 18 00:23:00 2001 -0800
+Received: from smtp015.mail.yahoo.com (216.136.173.59)
+X-Yahoo-Forwarded: from aaaaa_20@yahoo.com to bbbsss@turbosport.com
+  by mta540.mail.yahoo.com with SMTP; 18 Feb 2001 00:23:00 -0800 (PST)
+Date: 18 Feb 2001 08:22:57 -0000
+From: MAILER-DAEMON@yahoo.com
+To: aaaaa@yahoo.com
+Subject: failure delivery
+X-MDRcpt-To: bbbsss@turbosport.com
+X-MDRemoteIP: 216.136.131.22
+X-Return-Path: jpython-interest-admin@python.org
+X-MDaemon-Deliver-To: bbbsss@turbosport.com
+
+Message from  yahoo.com.
+Unable to deliver message to the following address(es).
+
+<subscribe.motorcycles@listsociety.com>:
+Sorry, I wasn't able to establish an SMTP connection. (#4.4.1)
+I'm not going to try again; this message has been in the queue too long.
+
+--- Original message follows.
+
+Return-Path: <aaaaa@yahoo.com>
+Received: from c58148.upc-c.chello.nl (HELO localhost) (212.187.58.148)
+  by smtp.mail.vip.sc5.yahoo.com with SMTP; 11 Feb 2001 01:15:27 -0000
+X-Apparently-From: <aaaaa?20@yahoo.com>
+X-Sender: aaaaa@yahoo.com
+From: Albert Ttttt <aaaaa@yahoo.com>
+To: subscribe.motorcycles@listsociety.com
+Date: Sun, 11 Feb 2001 02:14:40 +0100
+Subject: Subscribe
+Reply-To: aaaaa@yahoo.com
+MIME-Version: 1.0
+Content-Type: text/plain; charset=iso-8859-1
+Content-Transfer-Encoding: 7bit
+
+
+
+_________________________________________________________
+Do You Yahoo!?
+Get your free @yahoo.com address at http://mail.yahoo.com
+

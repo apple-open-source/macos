@@ -12,9 +12,9 @@ NAME = syslogd
 PROJECTVERSION = 2.8
 PROJECT_TYPE = Tool
 
-HFILES = pathnames.h
+HFILES = pathnames.h ttymsg.h
 
-CFILES = syslogd.c
+CFILES = ttymsg.c syslogd.c
 
 OTHERSRCS = Makefile.preamble Makefile Makefile.postamble syslogd.8\
             syslog.conf.5

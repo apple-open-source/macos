@@ -1,0 +1,12 @@
+2002-08-14  Keith Seitz  <keiths@redhat.com>
+
+	Merged from Red Hat internal branch:
+	2001-11-30  Keith Seitz  <keiths@redhat.com>
+	* rhabout.c: Update for building a DLL on cygwin.
+	(DllMain): New function.
+	* rhabout.tcl: Moved from ../ and renamed to
+	rhabout.tcl.in: configure needs to tweak the shared library name.
+	* rhabout.tcl.in: "New" file.
+	* Makefile.in: New (template) file.
+	* Makefile: Remove.
+	* pkgIndex.tcl: Moved from ../ here.

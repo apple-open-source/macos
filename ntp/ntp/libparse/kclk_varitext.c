@@ -1,5 +1,5 @@
 /*
- * $Header: /cvs/Darwin/ntp/ntp/libparse/kclk_varitext.c,v 1.1.1.1 1999/09/17 01:10:19 wsanchez Exp $
+ * $Header: /cvs/root/ntp/ntp/libparse/kclk_varitext.c,v 1.1.1.1 1999/09/17 01:10:19 wsanchez Exp $
  *
  * $Created: Sat Jun 13 09:58:27 1998 $
  *

@@ -220,6 +220,7 @@ static void macosx_exception_thread (void *arg)
     macosx_exception_thread_message msgsend;
 
     kern_return_t kret;
+    unsigned int i;
 
     pthread_testcancel ();
 
@@ -236,13 +237,23 @@ static void macosx_exception_thread (void *arg)
     static_message = &msgsend;
     excthread_debug_re ("macosx_exception_thread: parsing exception\n");
     kret = exc_server (msgin_hdr, msgout_hdr);
+    excthread_debug_re ("macosx_exception_thread: recieved exception for thread 0x%x\n", msgsend.thread_port);
     static_message = NULL;
     
     write (s->transmit_from_fd, &msgsend, sizeof (msgsend));
     read (s->receive_to_fd, &buf, 1);
   
-    excthread_debug_re ("macosx_exception_thread: sending exception reply with type %s\n",
-			unparse_exception_type (msgsend.exception_type));
+    if (excthread_debugflag) {
+      fprintf (excthread_stderr_re, "[%d excthread]: ", getpid ());
+      fprintf (excthread_stderr_re, "macosx_exception_thread: sending exception reply with type %s:",
+	       unparse_exception_type (msgsend.exception_type));
+      for (i = 0; i < msgsend.data_count; i++) {
+	fprintf (excthread_stderr_re, " 0x%lx", msgsend.exception_data[i]);
+      }
+      fprintf (excthread_stderr_re, "\n");
+      fflush (excthread_stderr_re);
+    }
+
     kret = mach_msg (msgout_hdr, (MACH_SEND_MSG | MACH_SEND_INTERRUPT),
 		     msgout_hdr->msgh_size, 0,
 		     MACH_PORT_NULL, MACH_MSG_TIMEOUT_NONE, MACH_PORT_NULL);

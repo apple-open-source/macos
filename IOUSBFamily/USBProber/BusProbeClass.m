@@ -34,6 +34,7 @@
 
 static Node *busprobeRootNode = nil;
 static NSMutableDictionary *vendorNamesDictionary = nil;
+static NSMutableDictionary *videoClassDevicesDictionary = nil; // add this line
 
 @implementation BusProbeClass
 
@@ -175,7 +176,7 @@ errexit:
         [self PrintKeyVal:"Device Descriptor" val:"" forDevice:deviceNumber atDepth:DEVICE_DESCRIPTOR_LEVEL-1 forNode:busprobeRootNode];
 
         NUM(dev, "Descriptor Version Number:", bcdUSB, deviceNumber, DEVICE_DESCRIPTOR_LEVEL, 0);
-        deviceClass = [self ClassAndSubClass:"Device" pcls:&dev.bDeviceClass forDevice:deviceNumber atDepth:1];
+        deviceClass = [self DeviceClassAndSubClass:"Device" devDescriptor:&dev forDevice:deviceNumber atDepth:1];
         NUM(dev, "Device Protocol", bDeviceProtocol, deviceNumber, DEVICE_DESCRIPTOR_LEVEL, 1);
         NUM(dev, "Device MaxPacketSize:", bMaxPacketSize0, deviceNumber, DEVICE_DESCRIPTOR_LEVEL, 1);
 
@@ -311,8 +312,8 @@ errexit:
                         lastInterfaceSubClass = ((IOUSBInterfaceDescriptor *)p)->bInterfaceSubClass;
                         currentInterfaceNum = (int) ((IOUSBInterfaceDescriptor *)p)->bInterfaceNumber;
                     }
-                    
-                    [self DumpDescriptor:deviceIntf p:p forDevice:deviceNumber lastInterfaceClass:lastInterfaceClass lastInterfaceSubClass:lastInterfaceSubClass currentInterfaceNum:currentInterfaceNum];
+
+                    [self DumpDescriptor:deviceIntf dev:dev p:p forDevice:deviceNumber lastInterfaceClass:lastInterfaceClass lastInterfaceSubClass:lastInterfaceSubClass currentInterfaceNum:currentInterfaceNum];
                     p += descLen;
                 }
             }
@@ -341,7 +342,7 @@ errexit:
         len = GetClassDescriptor(deviceIntf, kUSBHUBDesc, 0, &cfg, sizeof(cfg));
         if (len > 0)
         {
-            [self DumpDescriptor:deviceIntf p:(Byte *)&cfg forDevice:deviceNumber lastInterfaceClass:lastInterfaceClass lastInterfaceSubClass:lastInterfaceSubClass currentInterfaceNum:currentInterfaceNum];
+            [self DumpDescriptor:deviceIntf dev:dev p:(Byte *)&cfg forDevice:deviceNumber lastInterfaceClass:lastInterfaceClass lastInterfaceSubClass:lastInterfaceSubClass currentInterfaceNum:currentInterfaceNum];
         }
     }
     
@@ -354,7 +355,7 @@ errexit:
         len = GetDescriptor(deviceIntf, kUSBDeviceQualifierDesc, 0, &desc, sizeof(desc));
         if ( len > 0)
         {
-            [self DumpDescriptor:deviceIntf p:(Byte *)&desc forDevice:deviceNumber lastInterfaceClass:lastInterfaceClass lastInterfaceSubClass:lastInterfaceSubClass currentInterfaceNum:currentInterfaceNum];
+            [self DumpDescriptor:deviceIntf dev:dev p:(Byte *)&desc forDevice:deviceNumber lastInterfaceClass:lastInterfaceClass lastInterfaceSubClass:lastInterfaceSubClass currentInterfaceNum:currentInterfaceNum];
             
             // Since we have a Device Qualifier Descriptor, we can get a "Other Speed Configuration Descriptor" (It's the same as a 
             // regular configuration descriptor)
@@ -436,8 +437,8 @@ errexit:
                             lastInterfaceSubClass = ((IOUSBInterfaceDescriptor *)p)->bInterfaceSubClass;
                             currentInterfaceNum = (int) ((IOUSBInterfaceDescriptor *)p)->bInterfaceNumber;
                         }
-                        
-                        [self DumpDescriptor:deviceIntf p:p forDevice:deviceNumber lastInterfaceClass:lastInterfaceClass lastInterfaceSubClass:lastInterfaceSubClass currentInterfaceNum:currentInterfaceNum];
+
+                        [self DumpDescriptor:deviceIntf dev:dev p:p forDevice:deviceNumber lastInterfaceClass:lastInterfaceClass lastInterfaceSubClass:lastInterfaceSubClass currentInterfaceNum:currentInterfaceNum];
                         p += descLen;
                     }
         
@@ -567,21 +568,21 @@ int	GetStringDescriptor(IOUSBDeviceInterface **deviceIntf, UInt8 descIndex, void
 }
 
 
-+(USBClass *)ClassAndSubClass:(const char *)scope pcls:(UInt8 *)pcls forDevice:(int)deviceNumber atDepth:(int)depth
++(USBClass *)DeviceClassAndSubClass:(const char *)scope devDescriptor:(IOUSBDeviceDescriptor *)devDescriptor forDevice:(int)deviceNumber atDepth:(int)depth
 {
     USBClass *usbc = NULL;
     char *cls = "", *sub = "";
     char name[500];
 
-    switch (pcls[0])
+    switch (devDescriptor->bDeviceClass)
     {
         case kUSBCompositeClass:
             cls = "Composite";
             break;
         case kUSBAudioClass:
             cls = "Audio";
-            switch (pcls[1])
-	    {
+            switch (devDescriptor->bDeviceSubClass)
+            {
                 case 0x01:
                     sub = "Audio Control";
                     break;
@@ -595,37 +596,37 @@ int	GetStringDescriptor(IOUSBDeviceInterface **deviceIntf, UInt8 descIndex, void
                     sub = "Unknown";
                     break;
             }
-	    break;
-	    
+                break;
+
         case kUSBCommClass:
-	    cls = "Comm";
-	    break;
-	    
-        case kUSBHIDClass:			
-            cls = "HID";			
-            switch (pcls[1])
-	    {
-                case kUSBHIDBootInterfaceSubClass:
-		    sub = "Boot Interface";
-		    break;
-                default:
-		    sub = "";
-		    break;
-            }
+            cls = "Comm";
             break;
-	    
+
+        case kUSBHIDClass:
+            cls = "HID";
+            switch (devDescriptor->bDeviceSubClass)
+            {
+                case kUSBHIDBootInterfaceSubClass:
+                    sub = "Boot Interface";
+                    break;
+                default:
+                    sub = "";
+                    break;
+            }
+                break;
+
         case kUSBDisplayClass:
-	    cls = "Display";
-	    break;
-	    
+            cls = "Display";
+            break;
+
         case kUSBPrintingClass:
-	    cls = "Printing";
-	    break;
-	    
-        case kUSBMassStorageClass:		
-            cls = "Mass Storage";		
-            switch (pcls[1])
-	    {
+            cls = "Printing";
+            break;
+
+        case kUSBMassStorageClass:
+            cls = "Mass Storage";
+            switch (devDescriptor->bDeviceSubClass)
+            {
                 case kUSBMassStorageRBCSubClass:        sub = "Reduced Block Commands"; break;
                 case kUSBMassStorageATAPISubClass:  	sub = "ATAPI"; break;
                 case kUSBMassStorageQIC157SubClass:  	sub = "QIC-157"; break;
@@ -634,54 +635,174 @@ int	GetStringDescriptor(IOUSBDeviceInterface **deviceIntf, UInt8 descIndex, void
                 case kUSBMassStorageSCSISubClass:  	sub = "SCSI"; break;
                 default:                        	sub = "Unknown"; break;
             }
-            break;
-	    
+                break;
+
         case kUSBHubClass:
-	    cls = "Hub";
-	    break;
-	    
-        case kUSBDataClass:
-	    cls = "Data";
-            switch (pcls[1])
-            {
-                case kUSBCommDirectLineSubClass:	sub = "Direct Line Model";  break;
-                case kUSBCommAbstractSubClass:		sub = "Abstract Model";   break;
-                case kUSBCommTelephoneSubClass:		sub = "Telephone Model"; break;
-                case kUSBCommMultiChannelSubClass:	sub = "Multi Channel Model"; break;
-                case kUSBCommCAPISubClass:		sub = "CAPI Model"; break;
-                case kUSBCommEthernetNetworkingSubClass:sub = "Ethernet Networking Model";  break;
-                case kUSBATMNetworkingSubClass:		sub = "ATM Networking Model";  break;
-                default:				sub = "Unknown Comm Class Model";  break;
-            }
+            cls = "Hub";
             break;
-            
+
+        case kUSBDataClass:
+            cls = "Data";
+            break;
+
         case 0xE0:
-	    cls = "Bluetooth Wireless Controller";
-	    break;
-	    
+            cls = "Bluetooth Wireless Controller";
+            break;
+
         case kUSBApplicationSpecificClass:
             cls = "Application Specific";
-            switch (pcls[1])
-	    {
+            switch (devDescriptor->bDeviceSubClass)
+            {
                 case kUSBDFUSubClass:         	sub = "Device Firmware Upgrade"; break;
                 case kUSBIrDABridgeSubClass:  	sub = "IrDA Bridge"; break;
                 default:                        sub = "Unknown"; break;
             }
-	    break;
-	    
+                break;
+
         case kUSBVendorSpecificClass:
-	    cls = sub = "Vendor-specific";
-	    break;
-	    
+            cls = sub = "Vendor-specific";
+            break;
+
         default:
-	    cls = "Unknown";
-	    break;
+            cls = "Unknown";
+            break;
     }
 
     sprintf(name, "%s Class:", scope);
-    [self PrintNumStr:name value:pcls[0] size:1 interpret:cls forDevice:deviceNumber atDepth:depth asInt:1];
+    [self PrintNumStr:name value:devDescriptor->bDeviceClass size:1 interpret:cls forDevice:deviceNumber atDepth:depth asInt:1];
     sprintf(name, "%s Subclass:", scope);
-    [self PrintNumStr:name value:pcls[1] size:1 interpret:sub forDevice:deviceNumber atDepth:depth asInt:1];
+    [self PrintNumStr:name value:devDescriptor->bDeviceSubClass size:1 interpret:sub forDevice:deviceNumber atDepth:depth asInt:1];
+
+    if (usbc == NULL)
+    {
+        usbc = [[USBClass alloc] init];
+
+        [usbc setClassName:[NSString stringWithCString:cls]];
+        [usbc setSubClassName:[NSString stringWithCString:sub]];
+    }
+
+
+    return usbc;
+}
+
++(USBClass *)InterfaceClassAndSubClass:(const char *)scope devDescriptor:(IOUSBDeviceDescriptor *)devDescriptor intfceDescriptor:(IOUSBInterfaceDescriptor *)intfceDescriptor forDevice:(int)deviceNumber atDepth:(int)depth
+{
+    USBClass *usbc = NULL;
+    char *cls = "", *sub = "";
+    char name[500];
+    UInt32	productID = devDescriptor->idProduct;
+    UInt32	vendorID = devDescriptor->idVendor;
+
+    switch (intfceDescriptor->bInterfaceClass)
+    {
+        case kUSBCompositeClass:
+            cls = "Composite";
+            break;
+        case kUSBAudioClass:
+            cls = "Audio";
+            switch (intfceDescriptor->bInterfaceSubClass)
+            {
+                case 0x01:
+                    sub = "Audio Control";
+                    break;
+                case 0x02:
+                    sub = "Audio Streaming";
+                    break;
+                case 0x03:
+                    sub = "MIDI Streaming";
+                    break;
+                default:
+                    sub = "Unknown";
+                    break;
+            }
+                break;
+
+        case kUSBCommClass:
+            cls = "Comm";
+            break;
+
+        case kUSBHIDClass:
+            cls = "HID";
+            switch (intfceDescriptor->bInterfaceSubClass)
+            {
+                case kUSBHIDBootInterfaceSubClass:
+                    sub = "Boot Interface";
+                    break;
+                default:
+                    sub = "";
+                    break;
+            }
+                break;
+
+        case kUSBDisplayClass:
+            cls = "Display";
+            break;
+
+        case kUSBPrintingClass:
+            cls = "Printing";
+            break;
+
+        case kUSBMassStorageClass:
+            cls = "Mass Storage";
+            switch (intfceDescriptor->bInterfaceSubClass)
+            {
+                case kUSBMassStorageRBCSubClass:        sub = "Reduced Block Commands"; break;
+                case kUSBMassStorageATAPISubClass:  	sub = "ATAPI"; break;
+                case kUSBMassStorageQIC157SubClass:  	sub = "QIC-157"; break;
+                case kUSBMassStorageUFISubClass:  	sub = "UFI"; break;
+                case kUSBMassStorageSFF8070iSubClass:  	sub = "SFF-8070i"; break;
+                case kUSBMassStorageSCSISubClass:  	sub = "SCSI"; break;
+                default:                        	sub = "Unknown"; break;
+            }
+                break;
+
+        case kUSBHubClass:
+            cls = "Hub";
+            break;
+
+        case kUSBDataClass:
+            cls = "Data";
+            break;
+
+        case 0xE0:
+            cls = "Bluetooth Wireless Controller";
+            break;
+
+        case kUSBApplicationSpecificClass:
+            cls = "Application Specific";
+            switch (intfceDescriptor->bInterfaceSubClass)
+            {
+                case kUSBDFUSubClass:         	sub = "Device Firmware Upgrade"; break;
+                case kUSBIrDABridgeSubClass:  	sub = "IrDA Bridge"; break;
+                default:                        sub = "Unknown"; break;
+            }
+                break;
+
+        case kUSBVendorSpecificClass:
+            if ( [self isInterfaceVDC:vendorID idProduct:productID ] )
+            {
+                cls = "Vendor-specific";
+                switch (intfceDescriptor->bInterfaceSubClass)
+                {
+                    case SC_VIDEOCONTROL:	sub = "Video Control"; break;
+                    case SC_VIDEOSTREAMING:	sub = "Video Streaming"; break;
+                    default:			sub = "unknown"; break;
+                }
+            }
+            else
+                cls = sub = "Vendor-specific";
+            
+            break;
+
+        default:
+            cls = "Unknown";
+            break;
+    }
+
+    sprintf(name, "%s Class:", scope);
+    [self PrintNumStr:name value:intfceDescriptor->bInterfaceClass size:1 interpret:cls forDevice:deviceNumber atDepth:depth asInt:1];
+    sprintf(name, "%s Subclass:", scope);
+    [self PrintNumStr:name value:intfceDescriptor->bInterfaceSubClass size:1 interpret:sub forDevice:deviceNumber atDepth:depth asInt:1];
 
     if (usbc == NULL)
     {
@@ -802,6 +923,26 @@ UInt16	Swap16(void *p)
     return * (UInt16 *) p;
 }
 
+UInt32	Swap32(void *p)
+{
+    * (UInt32 *) p = CFSwapInt32LittleToHost(*(UInt32 *)p);
+    return * (UInt32 *) p;
+}
+
+UInt64	Swap64(void *p)
+{
+    UInt32	hiDW = (UInt32) (( *(UInt64 *)p) >> 32);
+    UInt32	loDW = (UInt32) ( ( *(UInt64 *)p) & 0xffffffff);
+
+    // Swap the 2 32 bit quantities
+    //
+    hiDW = Swap32(&hiDW);
+    loDW = Swap32(&loDW);
+    
+    * (UInt64 *) p = (( (UInt64)hiDW ) << 32) | ( (UInt64) loDW);
+    return * (UInt64 *) p;
+}
+
 // ________________________________________________________________________________________________
 //	PrintStr
 //
@@ -906,6 +1047,8 @@ UInt16	Swap16(void *p)
     char	descriptor[40];
     
     strcat( str1, "0000: ");
+
+    sprintf(descriptor, "Raw Descriptor (hex) ");
     
     while (--n >= 0) 
     {
@@ -922,8 +1065,6 @@ UInt16	Swap16(void *p)
             
         // Add the index to the bytes (should they be in hex?) to the text
         //
-        sprintf(descriptor, "Raw Descriptor (hex) ");
-
         // Split the descriptor into BYTESPERLINE bytes each line so that it's more readabale
         //
         if ( lineCount == BYTESPERLINE )
@@ -932,6 +1073,8 @@ UInt16	Swap16(void *p)
             lastLine = runningCount;
             lineCount = 0;
             sprintf(str1, "%4.4x: ",runningCount);
+            strcpy(descriptor, "");
+            
          //   strcpy(str1,"");
         }
     }
@@ -956,7 +1099,7 @@ UInt16	Swap16(void *p)
 // ________________________________________________________________________________________________
 //	DumpDescriptor
 //
-+(void)DumpDescriptor:(IOUSBDeviceInterface **)deviceIntf p:(Byte *)p forDevice:(int)deviceNumber  lastInterfaceClass:(UInt8)lastInterfaceClass  lastInterfaceSubClass:(UInt8)lastInterfaceSubClass currentInterfaceNum:(int)currentInterfaceNum
++(void)DumpDescriptor:(IOUSBDeviceInterface **)deviceIntf dev:(IOUSBDeviceDescriptor)dev p:(Byte *)p forDevice:(int)deviceNumber  lastInterfaceClass:(UInt8)lastInterfaceClass  lastInterfaceSubClass:(UInt8)lastInterfaceSubClass currentInterfaceNum:(int)currentInterfaceNum
 {
     UInt8 	descType 	= p[1];
     char *	xferTypes[] 	= { "Control", "Isochronous", "Bulk", "Interrupt" };
@@ -994,7 +1137,7 @@ UInt16	Swap16(void *p)
 
             NUM(interfaceDescriptor, "Alternate Setting", bAlternateSetting, deviceNumber, INTERFACE_LEVEL, 1);
             NUM(interfaceDescriptor, "Number of Endpoints", bNumEndpoints, deviceNumber, INTERFACE_LEVEL, 1);
-            interfaceClass = [self ClassAndSubClass:"Interface" pcls:&interfaceDescriptor.bInterfaceClass forDevice:deviceNumber atDepth:INTERFACE_LEVEL];
+            interfaceClass = [self InterfaceClassAndSubClass:"Interface" devDescriptor:&dev intfceDescriptor:&interfaceDescriptor forDevice:deviceNumber atDepth:INTERFACE_LEVEL];
 
             tempInt1 = [[busprobeRootNode childAtIndex:deviceNumber] childrenCount];
             tempInt2 = [[[busprobeRootNode childAtIndex:deviceNumber] childAtIndex:tempInt1-1] childrenCount];
@@ -1324,7 +1467,7 @@ UInt16	Swap16(void *p)
 	    
             [self PrintKeyVal:"Device Qualifier Descriptor" val:"" forDevice:deviceNumber atDepth:DEVICE_QUAL_DESCRIPTOR_LEVEL-1 forNode:busprobeRootNode];
             NUM(devQualDescriptor, "Descriptor Version Number:", bcdUSB, deviceNumber, DEVICE_QUAL_DESCRIPTOR_LEVEL, 0);
-            deviceClass = [self ClassAndSubClass:"Device" pcls:&devQualDescriptor.bDeviceClass forDevice:deviceNumber atDepth:1];
+            deviceClass = [self DeviceClassAndSubClass:"Device" devDescriptor:(IOUSBDeviceDescriptor *)&devQualDescriptor forDevice:deviceNumber atDepth:1];
             NUM(devQualDescriptor, "Device Protocol", bDeviceProtocol, deviceNumber, DEVICE_QUAL_DESCRIPTOR_LEVEL, 1);
             NUM(devQualDescriptor, "Device MaxPacketSize:", bMaxPacketSize0, deviceNumber, DEVICE_QUAL_DESCRIPTOR_LEVEL, 1);
             NUM(devQualDescriptor, "Number of Configurations:", bNumConfigurations, deviceNumber, DEVICE_DESCRIPTOR_LEVEL, 1);
@@ -1333,7 +1476,20 @@ UInt16	Swap16(void *p)
             [deviceClass release];
         }
         break;
-            
+
+        case kUSBInterfaceAssociationDesc:
+        {
+            IOUSBInterfaceAssociationDescriptor 	interfaceAssocDescriptor;
+                        interfaceAssocDescriptor = *(IOUSBInterfaceAssociationDescriptor *)p;
+                                    [self PrintKeyVal:"Interface Association Descriptor" val:"" forDevice:deviceNumber atDepth:DEVICE_QUAL_DESCRIPTOR_LEVEL forNode:busprobeRootNode];
+                                    NUM(interfaceAssocDescriptor, "First Interface:", bFirstInterface, deviceNumber, DEVICE_QUAL_DESCRIPTOR_LEVEL+1, 0);
+                                    NUM(interfaceAssocDescriptor, "Interface Count:", bInterfaceCount, deviceNumber, DEVICE_QUAL_DESCRIPTOR_LEVEL+1, 0);
+                                    NUM(interfaceAssocDescriptor, "Function Class:", bFunctionClass, deviceNumber, DEVICE_QUAL_DESCRIPTOR_LEVEL+1, 0);
+                                    NUM(interfaceAssocDescriptor, "Function SubClass:", bFunctionSubClass, deviceNumber, DEVICE_QUAL_DESCRIPTOR_LEVEL+1, 0);
+                                    NUM(interfaceAssocDescriptor, "Function Protocol:", bFunctionProtocol, deviceNumber, DEVICE_QUAL_DESCRIPTOR_LEVEL+1, 0);
+        }
+            break;
+
         default:
             switch(lastInterfaceClass)
             {
@@ -1404,6 +1560,13 @@ UInt16	Swap16(void *p)
 
                     [self DumpRawDescriptor:p forDevice:deviceNumber atDepth:CONFIGURATION_DESCRIPTOR_LEVEL+2];
                     break;
+                case 0xff:
+                    if ( [self isInterfaceVDC:dev.idVendor idProduct:dev.idProduct])
+                    {
+                        [DecodeVideoInterfaceDescriptor DecodeVideoInterfaceDescriptor:p deviceIntf:deviceIntf forDevice:deviceNumber atDepth:CONFIGURATION_DESCRIPTOR_LEVEL+1 forNode:busprobeRootNode  subClass:lastInterfaceSubClass ];
+                        break;
+                   }
+                    // Fall thru.
                 default:
                     [self DumpRawDescriptor:p forDevice:deviceNumber atDepth:CONFIGURATION_DESCRIPTOR_LEVEL+1];
                     break;
@@ -1472,6 +1635,39 @@ UInt16	Swap16(void *p)
     }
 }
 
+- (void)loadVDCListFromFile
+{
+    // read the text file into a string
+    NSString *vdcListString = [NSString stringWithContentsOfFile:[[[NSBundle mainBundle] resourcePath] stringByAppendingPathComponent:@"USBVDCList.txt"]];
+
+    // make sure we actually found and read the file properly
+    if (vdcListString == nil) { return; }
+    else {
+        // create an array that is filled with the lines of the file
+        NSArray *vendorsAndProducts = [vdcListString componentsSeparatedByString:@"\n"];
+
+        // make sure the file actually had some lines that could be separated
+        if (vendorsAndProducts == nil) { return; }
+        else {
+            NSEnumerator *enumerator = [vendorsAndProducts objectEnumerator];
+            NSString *thisLine;
+            NSArray *lineComponents;
+            while ((thisLine = [enumerator nextObject])) {
+                // split the line up into idVendor/idProduct
+                lineComponents = [thisLine componentsSeparatedByString:@"|"];
+
+                // just to make sure the line actually had 2 items in it (idVendor/idProduct)
+                if (lineComponents == nil || [lineComponents count] < 2) { continue; }
+
+                // basically, we will put the entire line from the file, into the dictionary as a key. as the
+                // corresponding value, we just use a dummy NSObject. That way, we just need to check for a non-nil
+                // value to see if the idVendor/idProduct combo was in the file.
+                [videoClassDevicesDictionary setObject:[[NSObject new] autorelease] forKey:thisLine];
+            }
+        }
+    }
+}
+
 + (NSString *)vendorNameFromVendorID:(NSString *)intValueAsString
 {
     NSString *vendorName = [vendorNamesDictionary objectForKey:intValueAsString];
@@ -1481,13 +1677,21 @@ UInt16	Swap16(void *p)
         return @"unknown vendor";
 }
 
++ (BOOL)isInterfaceVDC:(UInt32)vendorID idProduct:(UInt32)productID
+{
+    NSString *hashString = [NSString stringWithFormat:@"%U|%U",vendorID,productID];
+    return ([videoClassDevicesDictionary objectForKey:hashString] != nil);
+}
+
 // init is like a constructor
 - init
 {
     self = [super init];
     busprobeRootNode = [[Node alloc] init];
     vendorNamesDictionary = [[NSMutableDictionary alloc] init];
+    videoClassDevicesDictionary = [[NSMutableDictionary alloc] init]; // add this line
     [self loadVendorNamesFromFile];
+    [self loadVDCListFromFile]; // this line
     return self;
 }
 
@@ -1510,7 +1714,7 @@ UInt16	Swap16(void *p)
 // "expand triangle" next to the label
 - (BOOL)outlineView:(NSOutlineView *)ov isItemExpandable:(id)item
 {
-    // Returns YES if the node has children
+    // Returns YES if the node has children 
     return [item expandable];
 }
 

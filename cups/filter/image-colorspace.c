@@ -1,9 +1,9 @@
 /*
- * "$Id: image-colorspace.c,v 1.1.1.4 2002/06/06 22:13:00 jlovell Exp $"
+ * "$Id: image-colorspace.c,v 1.1.1.9 2003/02/10 21:58:35 jlovell Exp $"
  *
  *   Colorspace conversions for the Common UNIX Printing System (CUPS).
  *
- *   Copyright 1993-2002 by Easy Software Products.
+ *   Copyright 1993-2003 by Easy Software Products.
  *
  *   These coded instructions, statements, and computer programs are the
  *   property of Easy Software Products and are protected by Federal
@@ -81,15 +81,20 @@
 
 
 /*
+ * Lookup table structure...
+ */
+
+typedef int cups_clut_t[3][256];
+
+
+/*
  * Local globals...
  */
 
 static int		ImageHaveProfile = 0;
 					/* Do we have a color profile? */
-static int		ImageDensity[256];
-					/* Ink/marker density LUT */
-static int		ImageMatrix[3][3][256];
-					/* Color transform matrix LUT */
+static int		*ImageDensity;	/* Ink/marker density LUT */
+static cups_clut_t	*ImageMatrix;	/* Color transform matrix LUT */
 static cups_cspace_t	ImageColorSpace = CUPS_CSPACE_RGB;
 					/* Destination colorspace */
 
@@ -147,6 +152,27 @@ ImageSetProfile(float d,		/* I - Ink/marker density */
   int		i, j, k;		/* Looping vars */
   float		m;			/* Current matrix value */
   int		*im;			/* Pointer into ImageMatrix */
+
+
+ /*
+  * Allocate memory for the profile data...
+  */
+
+  if (ImageMatrix == NULL)
+    ImageMatrix = calloc(3, sizeof(cups_clut_t));
+
+  if (ImageMatrix == NULL)
+    return;
+
+  if (ImageDensity == NULL)
+    ImageDensity = calloc(256, sizeof(int));
+
+  if (ImageDensity == NULL)
+    return;
+
+ /*
+  * Populate the profile lookup tables...
+  */
 
   ImageHaveProfile  = 1;
 
@@ -209,9 +235,9 @@ ImageWhiteToRGB(const ib_t *in,		/* I - Input pixels */
       *out++ = *in;
       *out++ = *in++;
 
-      if (ImageColorSpace == CUPS_CSPACE_CIELab)
+      if (ImageColorSpace >= CUPS_CSPACE_CIELab)
         rgb_to_lab(out - 3);
-      else if (ImageColorSpace >= CUPS_CSPACE_CIEXYZ)
+      else if (ImageColorSpace == CUPS_CSPACE_CIEXYZ)
         rgb_to_xyz(out - 3);
 
       count --;
@@ -590,7 +616,7 @@ ImageRGBToRGB(const ib_t *in,	/* I - Input pixels */
     {
       while (count > 0)
       {
-	if (ImageColorSpace == CUPS_CSPACE_CIELab)
+	if (ImageColorSpace >= CUPS_CSPACE_CIELab)
           rgb_to_lab(out);
 	else
           rgb_to_xyz(out);
@@ -930,9 +956,9 @@ ImageCMYKToRGB(const ib_t *in,	/* I - Input pixels */
       else
         *out++ = 0;
 
-      if (ImageColorSpace == CUPS_CSPACE_CIELab)
+      if (ImageColorSpace >= CUPS_CSPACE_CIELab)
         rgb_to_lab(out - 3);
-      else if (ImageColorSpace >= CUPS_CSPACE_CIEXYZ)
+      else if (ImageColorSpace == CUPS_CSPACE_CIEXYZ)
         rgb_to_xyz(out - 3);
 
       count --;
@@ -964,16 +990,16 @@ ImageLut(ib_t       *pixels,	/* IO - Input/output pixels */
  */
 
 void
-ImageRGBAdjust(ib_t *pixels,	/* IO - Input/output pixels */
-               int  count,	/* I - Number of pixels to adjust */
-               int  saturation,	/* I - Color saturation (%) */
-               int  hue)	/* I - Color hue (degrees) */
+ImageRGBAdjust(ib_t *pixels,		/* IO - Input/output pixels */
+               int  count,		/* I - Number of pixels to adjust */
+               int  saturation,		/* I - Color saturation (%) */
+               int  hue)		/* I - Color hue (degrees) */
 {
-  int		i, j, k;	/* Looping vars */
-  float		mat[3][3];	/* Color adjustment matrix */
-  static int	last_sat = 100,	/* Last saturation used */
-		last_hue = 0;	/* Last hue used */
-  static int	lut[3][3][256];	/* Lookup table for matrix */
+  int			i, j, k;	/* Looping vars */
+  float			mat[3][3];	/* Color adjustment matrix */
+  static int		last_sat = 100,	/* Last saturation used */
+			last_hue = 0;	/* Last hue used */
+  static cups_clut_t	*lut = NULL;	/* Lookup table for matrix */
 
 
   if (saturation != last_sat ||
@@ -986,6 +1012,16 @@ ImageRGBAdjust(ib_t *pixels,	/* IO - Input/output pixels */
     ident(mat);
     saturate(mat, saturation * 0.01);
     huerotate(mat, (float)hue);
+
+   /*
+    * Allocate memory for the lookup table...
+    */
+
+    if (lut == NULL)
+      lut = calloc(3, sizeof(cups_clut_t));
+
+    if (lut == NULL)
+      return;
 
    /*
     * Convert the matrix into a 3x3 array of lookup tables...
@@ -1107,12 +1143,29 @@ rgb_to_xyz(ib_t *val)	/* IO - Color value */
   ciez = 0.019334 * r + 0.119193 * g + 0.950227 * b;
 
  /*
-  * Output 8-bit value...
+  * Output 8-bit values...
   */
 
-  val[0] = (int)(ciex * 255.0 + 0.5);
-  val[1] = (int)(ciey * 255.0 + 0.5);
-  val[2] = (int)(ciez * 255.0 + 0.5);
+  if (ciex < 0.0)
+    val[0] = 0;
+  else if (ciex < 255.0)
+    val[0] = (int)ciex;
+  else
+    val[0] = 255;
+
+  if (ciey < 0.0)
+    val[1] = 0;
+  else if (ciey < 255.0)
+    val[1] = (int)ciey;
+  else
+    val[1] = 255;
+
+  if (ciez < 0.0)
+    val[2] = 0;
+  else if (ciez < 255.0)
+    val[2] = (int)ciez;
+  else
+    val[2] = 255;
 }
 
 
@@ -1162,37 +1215,43 @@ rgb_to_lab(ib_t *val)	/* IO - Color value */
   else
     ciel = 903.3 * ciey_yn;
 
+  ciel = ciel;
   ciea = 500 * (cielab(ciex, D65_X) - cielab(ciey, D65_Y));
   cieb = 200 * (cielab(ciey, D65_Y) - cielab(ciez, D65_Z));
 
  /*
-  * Output 8-bit value...
+  * Scale the L value and bias the a and b values by 128 so that all
+  * numbers are from 0 to 255.
+  */
+
+  ciel *= 2.55;
+  ciea += 128;
+  cieb += 128;
+
+ /*
+  * Output 8-bit values...
   */
 
   if (ciel < 0.0)
     val[0] = 0;
   else if (ciel < 255.0)
-    val[0] = (int)(ciel + 0.5);
+    val[0] = (int)ciel;
   else
     val[0] = 255;
 
-  if (ciea < -127.0)
+  if (ciea < 0.0)
     val[1] = 128;
-  else if (ciea < 0.0)
-    val[1] = (int)(ciea + 256.5);
-  else if (ciea > 127.0)
-    val[1] = 127;
+  else if (ciea < 255.0)
+    val[1] = (int)ciea;
   else
-    val[1] = (int)(ciea + 0.5);
+    val[1] = 255;
 
-  if (cieb < -127.0)
+  if (cieb < 0.0)
     val[2] = 128;
-  else if (cieb < 0.0)
-    val[2] = (int)(cieb + 256.5);
-  else if (cieb > 127.0)
-    val[2] = 127;
+  else if (cieb < 255.0)
+    val[2] = (int)cieb;
   else
-    val[2] = (int)(cieb + 0.5);
+    val[2] = 255;
 }
 
 
@@ -1481,5 +1540,5 @@ zshear(float mat[3][3],	/* I - Matrix */
 
 
 /*
- * End of "$Id: image-colorspace.c,v 1.1.1.4 2002/06/06 22:13:00 jlovell Exp $".
+ * End of "$Id: image-colorspace.c,v 1.1.1.9 2003/02/10 21:58:35 jlovell Exp $".
  */

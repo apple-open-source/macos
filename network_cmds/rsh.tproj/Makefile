@@ -12,7 +12,7 @@ NAME = rsh
 PROJECTVERSION = 2.8
 PROJECT_TYPE = Tool
 
-HFILES = pathnames.h
+HFILES = 
 
 CFILES = rsh.c
 

@@ -1,0 +1,37 @@
+2003-05-13  Ken Raeburn  <raeburn@mit.edu>
+
+	* aes_s2k.c (DEFAULT_ITERATION_COUNT): New macro; define to 4096.
+	(MAX_ITERATION_COUNT): New macro.
+	(krb5int_aes_string_to_key): Use them.
+
+2003-04-29  Ken Raeburn  <raeburn@mit.edu>
+
+	* uitypes.h: Use inttypes.h if HAVE_INTTYPES_H is defined.
+
+2003-04-13  Ken Raeburn  <raeburn@mit.edu>
+
+	* aes_s2k.c (krb5int_aes_string_to_key): Return an error if the
+	supplied iteration count is really, really large.
+
+2003-03-04  Ken Raeburn  <raeburn@mit.edu>
+
+	* aes_s2k.c, aes_s2k.h: New files.
+	* Makefile.in (STLIBOBJS, OBJS, SRCS): Build aes_s2k.
+	(LOCALINCLUDES): Add dk directory.
+	(GEN_OBJS): New variable.
+	(aes-gen): Use GEN_OBJS.
+
+2003-02-28  Ezra Peisach  <epeisach@bu.edu>
+
+	* Makefile.in (clean): Cleanup testing objects and outputs
+
+2003-02-05  Ezra Peisach  <epeisach@.bu.edu>
+
+	* Makefile.in (run-aes-test): Add $(RUN_SETUP) so that if
+	compiling only shared libraries, LD_LIBRARY_PATH is set for test.
+
+2003-02-03  Ken Raeburn  <raeburn@mit.edu>
+
+	* New directory, with Briad Gladstone's implementation of AES,
+	tweaked for the MIT krb5 build system.
+

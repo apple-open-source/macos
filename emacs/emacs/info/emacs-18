@@ -1,7 +1,8 @@
-This is ../info/emacs, produced by makeinfo version 4.0 from emacs.texi.
+This is ../info/emacs, produced by makeinfo version 4.0f from
+emacs.texi.
 
    This is the Fourteenth edition of the `GNU Emacs Manual', updated
-for Emacs version 21.1.
+for Emacs version 21.2.
 
 INFO-DIR-SECTION Emacs
 START-INFO-DIR-ENTRY
@@ -11,9 +12,9 @@ END-INFO-DIR-ENTRY
    Published by the Free Software Foundation 59 Temple Place, Suite 330
 Boston, MA  02111-1307 USA
 
-   Copyright (C) 1985,
-1986,1987,1993,1994,1995,1996,1997,1998,1999,2000,2001    Free Software
-Foundation, Inc.
+   Copyright (C)
+1985,1986,1987,1993,1994,1995,1996,1997,1998,1999,2000,2001,2002
+Free Software Foundation, Inc.
 
    Permission is granted to copy, distribute and/or modify this document
 under the terms of the GNU Free Documentation License, Version 1.1 or
@@ -199,13 +200,12 @@ particularly useful for this purpose.
 * Menu:
 
 * Change Log::	        Maintaining a change history for your program.
-* Authors::             Maintaining the Emacs `AUTHORS' file.
 * Tags::	        Go direct to any function in your program in one
 			  command.  Tags remembers which file it is in.
 * Emerge::	        A convenient way of merging two versions of a program.
 
 
-File: emacs,  Node: Change Log,  Next: Authors,  Up: Maintaining
+File: emacs,  Node: Change Log,  Next: Tags,  Up: Maintaining
 
 Change Logs
 ===========
@@ -299,31 +299,7 @@ of Emacs.
 your program and keep a change log.  *Note Log Buffer::.
 
 
-File: emacs,  Node: Authors,  Next: Tags,  Prev: Change Log,  Up: Maintaining
-
-`AUTHORS' files
-===============
-
-   Programs which have many contributors usually include a file named
-`AUTHORS' in their distribution, which lists the individual
-contributions.  Emacs has a special command for maintaining the
-`AUTHORS' file that is part of the Emacs distribution.
-
-   The `M-x authors' command prompts for the name of the root of the
-Emacs source directory.  It then scans `ChangeLog' files and Lisp
-source files under that directory for information about authors of
-individual packages, and people who made changes in source files, and
-puts the information it gleans into a buffer named `*Authors*'.  You
-can then edit the contents of that buffer and merge it with the
-existing `AUTHORS' file.
-
-   Do not assume that this command finds all the contributors; don't
-assume that a person not listed in the output was not a contributor.
-If you merged in someone's contribution and did not put his name in the
-change log, he won't show up in `M-x authors' either.
-
-
-File: emacs,  Node: Tags,  Next: Emerge,  Prev: Authors,  Up: Maintaining
+File: emacs,  Node: Tags,  Next: Emerge,  Prev: Change Log,  Up: Maintaining
 
 Tags Tables
 ===========
@@ -920,7 +896,7 @@ Merging Files with Emerge
 modify the same program in two different directions.  To recover from
 this confusion, you need to merge the two versions.  Emerge makes this
 easier.  See also *Note Comparing Files::, for commands to compare in a
-more manual fashion, and *Note Ediff: (ediff).
+more manual fashion, and *Note Ediff: (ediff)Top.
 
 * Menu:
 
@@ -1222,4 +1198,24 @@ with `C-c C-c':
      Trim identical lines off the top and bottom of the difference.
      Such lines occur when the A and B versions are identical but
      differ from the ancestor version.
+
+
+File: emacs,  Node: Exiting Emerge,  Next: Combining in Emerge,  Prev: Merge Commands,  Up: Emerge
+
+Exiting Emerge
+--------------
+
+   The `q' command (`emerge-quit') finishes the merge, storing the
+results into the output file if you specified one.  It restores the A
+and B buffers to their proper contents, or kills them if they were
+created by Emerge and you haven't changed them.  It also disables the
+Emerge commands in the merge buffer, since executing them later could
+damage the contents of the various buffers.
+
+   `C-]' aborts the merge.  This means exiting without writing the
+output file.  If you didn't specify an output file, then there is no
+real difference between aborting and finishing the merge.
+
+   If the Emerge command was called from another Lisp program, then its
+return value is `t' for successful completion, or `nil' if you abort.
 

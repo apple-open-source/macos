@@ -1,5 +1,7 @@
 /* Parameters for execution on a Matsushita mn10200 processor.
-   Copyright 1997, 1998, 1999, 2000, 2001 Free Software Foundation, Inc.
+
+   Copyright 1997, 1998, 1999, 2000, 2001, 2002, 2003 Free Software
+   Foundation, Inc.
 
    Contributed by Geoffrey Noer <noer@cygnus.com>
 
@@ -24,6 +26,8 @@
    declared in "regcache.h".  The ``correct fix'' is to convert those
    macros into functions.  */
 #include "regcache.h"
+#include "symtab.h"		/* For namespace_enum.  */
+#include "symfile.h"		/* For entry_point_address().  */
 
 /* ints are only 16bits on the mn10200.  */
 #undef TARGET_INT_BIT
@@ -103,7 +107,8 @@ struct value;
 
 extern void mn10200_init_extra_frame_info (struct frame_info *);
 #define INIT_EXTRA_FRAME_INFO(fromleaf, fi) mn10200_init_extra_frame_info (fi)
-#define INIT_FRAME_PC(x,y)
+#define DEPRECATED_INIT_FRAME_PC(x,y) (init_frame_pc_noop (x, y))
+#define INIT_FRAME_PC_FIRST(x,y) (init_frame_pc_noop (x, y))
 
 extern void mn10200_frame_find_saved_regs (struct frame_info *,
 					   struct frame_saved_regs *);
@@ -111,7 +116,6 @@ extern void mn10200_frame_find_saved_regs (struct frame_info *,
 
 extern CORE_ADDR mn10200_frame_chain (struct frame_info *);
 #define FRAME_CHAIN(fi) mn10200_frame_chain (fi)
-#define FRAME_CHAIN_VALID(FP, FI)	generic_file_frame_chain_valid (FP, FI)
 
 extern CORE_ADDR mn10200_find_callers_reg (struct frame_info *, int);
 extern CORE_ADDR mn10200_frame_saved_pc (struct frame_info *);
@@ -121,7 +125,7 @@ extern CORE_ADDR mn10200_frame_saved_pc (struct frame_info *);
    a function return value of type TYPE, and copy that, in virtual format,
    into VALBUF.  */
 
-#define EXTRACT_RETURN_VALUE(TYPE, REGBUF, VALBUF) \
+#define DEPRECATED_EXTRACT_RETURN_VALUE(TYPE, REGBUF, VALBUF) \
   { \
     if (TYPE_LENGTH (TYPE) > 8) \
       internal_error (__FILE__, __LINE__, "failed internal consistency check"); \
@@ -140,26 +144,26 @@ extern CORE_ADDR mn10200_frame_saved_pc (struct frame_info *);
       } \
   }
 
-#define EXTRACT_STRUCT_VALUE_ADDRESS(REGBUF) \
+#define DEPRECATED_EXTRACT_STRUCT_VALUE_ADDRESS(REGBUF) \
   extract_address (REGBUF + REGISTER_BYTE (4), \
 		   REGISTER_RAW_SIZE (4))
 
-#define STORE_RETURN_VALUE(TYPE, VALBUF) \
+#define DEPRECATED_STORE_RETURN_VALUE(TYPE, VALBUF) \
   { \
     if (TYPE_LENGTH (TYPE) > 8) \
       internal_error (__FILE__, __LINE__, "failed internal consistency check"); \
     else if (TYPE_LENGTH (TYPE) > 2 && TYPE_CODE (TYPE) != TYPE_CODE_PTR) \
       { \
-	write_register_bytes (REGISTER_BYTE (0), VALBUF, 2); \
-	write_register_bytes (REGISTER_BYTE (1), VALBUF + 2, 2); \
+	deprecated_write_register_bytes (REGISTER_BYTE (0), VALBUF, 2); \
+	deprecated_write_register_bytes (REGISTER_BYTE (1), VALBUF + 2, 2); \
       } \
     else if (TYPE_CODE (TYPE) == TYPE_CODE_PTR)\
       { \
-        write_register_bytes (REGISTER_BYTE (4), VALBUF, TYPE_LENGTH (TYPE)); \
+        deprecated_write_register_bytes (REGISTER_BYTE (4), VALBUF, TYPE_LENGTH (TYPE)); \
       } \
     else \
       { \
-        write_register_bytes (REGISTER_BYTE (0), VALBUF, TYPE_LENGTH (TYPE)); \
+        deprecated_write_register_bytes (REGISTER_BYTE (0), VALBUF, TYPE_LENGTH (TYPE)); \
       } \
   }
 
@@ -173,14 +177,14 @@ extern CORE_ADDR mn10200_skip_prologue (CORE_ADDR);
 
 #define FRAME_ARGS_SKIP 0
 
-#define FRAME_ARGS_ADDRESS(fi) ((fi)->frame)
-#define FRAME_LOCALS_ADDRESS(fi) ((fi)->frame)
+#define FRAME_ARGS_ADDRESS(fi) (get_frame_base (fi))
+#define FRAME_LOCALS_ADDRESS(fi) (get_frame_base (fi))
 #define FRAME_NUM_ARGS(fi) (-1)
 
 extern void mn10200_pop_frame (struct frame_info *);
 #define POP_FRAME mn10200_pop_frame (get_current_frame ())
 
-#define USE_GENERIC_DUMMY_FRAMES 1
+#define DEPRECATED_USE_GENERIC_DUMMY_FRAMES 1
 #define CALL_DUMMY                   {0}
 #define CALL_DUMMY_START_OFFSET      (0)
 #define CALL_DUMMY_BREAKPOINT_OFFSET (0)
@@ -193,24 +197,18 @@ extern CORE_ADDR mn10200_push_return_address (CORE_ADDR, CORE_ADDR);
 
 #define PUSH_DUMMY_FRAME	generic_push_dummy_frame ()
 
-extern CORE_ADDR
-mn10200_push_arguments (int, struct value **, CORE_ADDR,
-			unsigned char, CORE_ADDR);
+extern CORE_ADDR mn10200_push_arguments (int, struct value **, CORE_ADDR,
+					 unsigned char, CORE_ADDR);
 #define PUSH_ARGUMENTS(NARGS, ARGS, SP, STRUCT_RETURN, STRUCT_ADDR) \
   (mn10200_push_arguments (NARGS, ARGS, SP, STRUCT_RETURN, STRUCT_ADDR))
 
-#define PC_IN_CALL_DUMMY(PC, SP, FP) generic_pc_in_call_dummy (PC, SP, FP)
+#define DEPRECATED_PC_IN_CALL_DUMMY(PC, SP, FP) generic_pc_in_call_dummy (PC, SP, FP)
 
 #define REG_STRUCT_HAS_ADDR(gcc_p,TYPE) \
   	(TYPE_LENGTH (TYPE) > 8)
 
 extern use_struct_convention_fn mn10200_use_struct_convention;
 #define USE_STRUCT_CONVENTION(GCC_P, TYPE) mn10200_use_struct_convention (GCC_P, TYPE)
-
-/* Override the default get_saved_register function with
-   one that takes account of generic CALL_DUMMY frames.  */
-#define GET_SAVED_REGISTER(raw_buffer, optimized, addrp, frame, regnum, lval) \
-      generic_get_saved_register (raw_buffer, optimized, addrp, frame, regnum, lval)
 
 /* Define this for Wingdb */
 #define TARGET_MN10200

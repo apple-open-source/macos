@@ -87,12 +87,12 @@ bool executeSelf(char **argv)
 {
 	static const char reExecEnv[] = "_RE_EXECUTE";
 	if (getenv(reExecEnv)) {		// was re-executed
-		debug("daemon", "self-execution complete");
+		secdebug("daemon", "self-execution complete");
 		unsetenv(reExecEnv);
 		return true;
 	} else {
 		setenv(reExecEnv, "go", 1);
-		debug("daemon", "self-executing (ouch!)");
+		secdebug("daemon", "self-executing (ouch!)");
 		execv(argv[0], argv);
 		perror("re-execution");
 		Syslog::error("Re-execution attempt failed");

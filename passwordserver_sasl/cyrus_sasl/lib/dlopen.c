@@ -1,7 +1,7 @@
 /* dlopen.c--Unix dlopen() dynamic loader interface
  * Rob Siemborski
  * Rob Earhart
- * $Id: dlopen.c,v 1.3 2002/06/22 13:27:31 snsimon Exp $
+ * $Id: dlopen.c,v 1.4 2003/09/19 02:34:21 snsimon Exp $
  */
 /* 
  * Copyright (c) 2001 Carnegie Mellon University.  All rights reserved.
@@ -45,7 +45,7 @@
 
 #include <config.h>
 #ifndef __hpux
-#include <dlfcn.h>
+#include "dlfcn.h"
 #endif /* !__hpux */
 #include <stdlib.h>
 #include <errno.h>
@@ -119,7 +119,7 @@ dlclose(dll_handle h)
 }
 
 dll_func
-dlsym(dll_handle h, char *n)
+sasl_dlsym(dll_handle h, char *n)
 {
     dll_func handle;
     
@@ -129,7 +129,7 @@ dlsym(dll_handle h, char *n)
     return (dll_func)handle;
 }
 
-char *dlerror()
+char *sasl_dlerror()
 {
     if (errno != 0) {
 	return strerror(errno);
@@ -186,12 +186,12 @@ int _sasl_locate_entry(void *library, const char *entryname,
 #endif
 
     *entry_point = NULL;
-    *entry_point = dlsym(library, adj_entryname);
+    *entry_point = sasl_dlsym(library, adj_entryname);
     if (*entry_point == NULL) {
 #if 0 /* This message appears to confuse people */
 	_sasl_log(NULL, SASL_LOG_DEBUG,
 		  "unable to get entry point %s: %s", adj_entryname,
-		  dlerror());
+		  sasl_dlerror());
 #endif
 	return SASL_FAIL;
     }
@@ -340,9 +340,9 @@ int _sasl_get_plugin(const char *file,
     newhead = sasl_ALLOC(sizeof(lib_list_t));
     if(!newhead) return SASL_NOMEM;
 
-    if (!(library = dlopen(file, flag))) {
+    if (!(library = sasl_dlopen(file, flag))) {
 	_sasl_log(NULL, SASL_LOG_ERR,
-		  "unable to dlopen %s: %s", file, dlerror());
+		  "unable to dlopen %s: %s", file, sasl_dlerror());
 	sasl_FREE(newhead);
 	return SASL_FAIL;
     }
@@ -476,7 +476,7 @@ _sasl_done_with_plugins(void)
     for(libptr = lib_list_head; libptr; libptr = libptr_next) {
 	libptr_next = libptr->next;
 	if(libptr->library)
-	    dlclose(libptr->library);
+	    sasl_dlclose(libptr->library);
 	sasl_FREE(libptr);
     }
 

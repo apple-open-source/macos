@@ -1,5 +1,5 @@
 /*
- * Copyright 1998-2002 The OpenLDAP Foundation, All Rights Reserved.
+ * Copyright 1998-2003 The OpenLDAP Foundation, All Rights Reserved.
  * COPYING RESTRICTIONS APPLY, see COPYRIGHT file
  *
  * Copyright 2001, Pierangelo Masarati, All rights reserved. <ando@sys-net.it>
@@ -73,14 +73,9 @@
 
 #include "slap.h"
 #include "../back-ldap/back-ldap.h"
+#undef ldap_debug	/* silence a warning in ldap-int.h */
+#include "../../../libraries/libldap/ldap-int.h"
 #include "back-meta.h"
-
-extern int
-suffix_massage_config(
-		struct rewrite_info *info,
-		int argc,
-		char **argv
-);
 
 static struct metatarget *
 new_target( void )
@@ -128,8 +123,7 @@ meta_back_db_config(
 #if 0
 		int 		j;
 #endif /* uncomment if uri MUST be a branch of suffix */
-		LDAPURLDesc 	*ludp;
-		char 		*last;
+		LDAPURLDesc 	*ludp, *tmpludp;
 		struct berval	dn;
 		int		rc;
 		
@@ -164,7 +158,7 @@ meta_back_db_config(
 		/*
 		 * uri MUST be legal!
 		 */
-		if ( ldap_url_parse( argv[ 1 ], &ludp ) != LDAP_SUCCESS ) {
+		if ( ldap_url_parselist_ext( &ludp, argv[ 1 ], "\t" ) != LDAP_SUCCESS ) {
 			fprintf( stderr,
 	"%s: line %d: unable to parse URI"
 	" in \"uri <protocol>://<server>[:port]/<naming context>\" line\n",
@@ -198,10 +192,25 @@ meta_back_db_config(
 			return( 1 );
 		}
 
-		li->targets[ i ]->uri = ch_strdup( argv[ 1 ] );
-		last = strstr( li->targets[ i ]->uri, ludp->lud_dn );
-		assert( last != NULL );
-		last[ 0 ] = '\0';
+		ludp->lud_dn[ 0 ] = '\0';
+
+		for ( tmpludp = ludp->lud_next; tmpludp; tmpludp = tmpludp->lud_next ) {
+			if ( tmpludp->lud_dn != NULL && tmpludp->lud_dn[ 0 ] != '\0' ) {
+				fprintf( stderr, "%s: line %d: "
+						"multiple URIs must have no DN part\n",
+					fname, lineno, argv[ 1 ] );
+				return( 1 );
+
+			}
+		}
+
+		li->targets[ i ]->uri = ldap_url_list2urls( ludp );
+		ldap_free_urllist( ludp );
+		if ( li->targets[ i ]->uri == NULL) {
+			fprintf( stderr, "%s: line %d: no memory?\n",
+					fname, lineno );
+			return( 1 );
+		}
 		
 		/*
 		 * uri MUST be a branch of suffix!
@@ -245,8 +254,6 @@ meta_back_db_config(
 			}
 		}
 #endif
-		
-		ldap_free_urldesc( ludp );
 
 #if 0
 		fprintf(stderr, "%s: line %d: URI \"%s\", suffix \"%s\"\n",
@@ -350,6 +357,16 @@ meta_back_db_config(
 		}
 		ber_str2bv( argv[ 1 ], 0L, 1, &li->targets[ i ]->bindpw );
 		
+	/* save bind creds for referral rebinds? */
+	} else if ( strcasecmp( argv[0], "rebind-as-user" ) == 0 ) {
+		if (argc != 1) {
+			fprintf( stderr,
+	"%s: line %d: rebind-as-user takes no arguments\n",
+			    fname, lineno );
+			return( 1 );
+		}
+		li->savecred = 1;
+	
 	/* name to use as pseudo-root dn */
 	} else if ( strcasecmp( argv[ 0 ], "pseudorootdn" ) == 0 ) {
 		int 		i = li->ntargets-1;
@@ -399,7 +416,7 @@ meta_back_db_config(
 	} else if ( strcasecmp( argv[ 0 ], "suffixmassage" ) == 0 ) {
 		BackendDB 	*tmp_be;
 		int 		i = li->ntargets-1;
-		struct berval	dn, ndn;
+		struct berval	dn, nvnc, pvnc, nrnc, prnc;
 
 		if ( i < 0 ) {
 			fprintf( stderr,
@@ -428,41 +445,49 @@ meta_back_db_config(
 
 		dn.bv_val = argv[ 1 ];
 		dn.bv_len = strlen( argv[ 1 ] );
-		if ( dnNormalize2( NULL, &dn, &ndn ) != LDAP_SUCCESS ) {
+		if ( dnPrettyNormal( NULL, &dn, &pvnc, &nvnc ) != LDAP_SUCCESS ) {
 			fprintf( stderr, "%s: line %d: "
 					"suffix '%s' is invalid\n",
 					fname, lineno, argv[ 1 ] );
 			return 1;
 		}
 		
-		tmp_be = select_backend( &ndn, 0, 0 );
-		free( ndn.bv_val );
+		tmp_be = select_backend( &nvnc, 0, 0 );
 		if ( tmp_be != NULL && tmp_be != be ) {
 			fprintf( stderr, 
 	"%s: line %d: suffix already in use by another backend in"
 	" \"suffixMassage <suffix> <massaged suffix>\"\n",
 				fname, lineno );
+			free( pvnc.bv_val );
+			free( nvnc.bv_val );
 			return 1;						
 		}
 
 		dn.bv_val = argv[ 2 ];
 		dn.bv_len = strlen( argv[ 2 ] );
-		if ( dnNormalize2( NULL, &dn, &ndn ) != LDAP_SUCCESS ) {
+		if ( dnPrettyNormal( NULL, &dn, &prnc, &nrnc ) != LDAP_SUCCESS ) {
 			fprintf( stderr, "%s: line %d: "
 					"massaged suffix '%s' is invalid\n",
 					fname, lineno, argv[ 2 ] );
+			free( pvnc.bv_val );
+			free( nvnc.bv_val );
 			return 1;
 		}
-		
-		tmp_be = select_backend( &ndn, 0, 0 );
-		free( ndn.bv_val );
+	
+#if 0	
+		tmp_be = select_backend( &nrnc, 0, 0 );
 		if ( tmp_be != NULL ) {
 			fprintf( stderr,
 	"%s: line %d: massaged suffix already in use by another backend in" 
 	" \"suffixMassage <suffix> <massaged suffix>\"\n",
                                 fname, lineno );
+			free( pvnc.bv_val );
+			free( nvnc.bv_val );
+			free( prnc.bv_val );
+			free( nrnc.bv_val );
                         return 1;
 		}
+#endif
 		
 		/*
 		 * The suffix massaging is emulated by means of the
@@ -471,7 +496,7 @@ meta_back_db_config(
 		 * to the database
 		 */
 	 	return suffix_massage_config( li->targets[ i ]->rwinfo,
-				argc, argv );
+				&pvnc, &nvnc, &prnc, &nrnc );
 		
 	/* rewrite stuff ... */
  	} else if ( strncasecmp( argv[ 0 ], "rewrite", 7 ) == 0 ) {
@@ -502,7 +527,7 @@ meta_back_db_config(
 
 		if ( argc < 3 || argc > 4 ) {
 			fprintf( stderr,
-	"%s: line %d: syntax is \"map {objectclass | attribute} {<source> | *} [<dest> | *]\"\n",
+	"%s: line %d: syntax is \"map {objectclass | attribute} [<local> | *] {<foreign> | *}\"\n",
 				fname, lineno );
 			return 1;
 		}
@@ -513,32 +538,23 @@ meta_back_db_config(
 			map = &li->targets[ i ]->at_map;
 		} else {
 			fprintf( stderr,
-	"%s: line %d: syntax is \"map {objectclass | attribute} {<source> | *} [<dest> | *]\"\n",
+	"%s: line %d: syntax is \"map {objectclass | attribute} [<local> | *] {<foreign> | *}\"\n",
 				fname, lineno );
 			return 1;
 		}
 
-		if ( strcasecmp( argv[ 2 ], "*" ) != 0 ) {
-			src = argv[ 2 ];
-			if ( argc < 4 ) {
-				dst = "";
-			} else if ( strcasecmp( argv[ 3 ], "*" ) == 0 ) {
-				dst = src;
-			} else {
-				dst = argv[ 3 ];
+		if ( strcmp( argv[ 2 ], "*" ) == 0 ) {
+			if ( argc < 4 || strcmp( argv[ 3 ], "*" ) == 0 ) {
+				map->drop_missing = ( argc < 4 );
+				return 0;
 			}
+			src = dst = argv[ 3 ];
+		} else if ( argc < 4 ) {
+			src = "";
+			dst = argv[ 2 ];
 		} else {
-			if ( argc < 4 ) {
-				map->drop_missing = 1;
-				return 0;
-			}
-			if ( strcasecmp( argv[ 3 ], "*" ) == 0 ) {
-				map->drop_missing = 0;
-				return 0;
-			}
-
-			src = argv[ 3 ];
-			dst = src;
+			src = argv[ 2 ];
+			dst = ( strcmp( argv[ 3 ], "*" ) == 0 ? src : argv[ 3 ] );
 		}
 
 		if ( ( map == &li->targets[ i ]->at_map )
@@ -558,16 +574,12 @@ meta_back_db_config(
 		}
 		ber_str2bv( src, 0, 1, &mapping->src );
 		ber_str2bv( dst, 0, 1, &mapping->dst );
-		if ( *dst != 0 ) {
-			mapping[ 1 ].src = mapping->dst;
-			mapping[ 1 ].dst = mapping->src;
-		} else {
-			mapping[ 1 ].src = mapping->src;
-			mapping[ 1 ].dst = mapping->dst;
-		}
+		mapping[ 1 ].src = mapping->dst;
+		mapping[ 1 ].dst = mapping->src;
 
-		if ( avl_find( map->map, ( caddr_t )mapping,
-				mapping_cmp ) != NULL
+		if ( (*src != '\0' &&
+			  avl_find( map->map, ( caddr_t )mapping,
+				mapping_cmp ) != NULL)
 			|| avl_find( map->remap, ( caddr_t )&mapping[ 1 ],
 				mapping_cmp ) != NULL) {
 			fprintf( stderr,
@@ -576,8 +588,9 @@ meta_back_db_config(
 			return 0;
 		}
 
-		avl_insert( &map->map, ( caddr_t )mapping,
-					mapping_cmp, mapping_dup );
+		if ( *src != '\0' )
+			avl_insert( &map->map, ( caddr_t )mapping,
+						mapping_cmp, mapping_dup );
 		avl_insert( &map->remap, ( caddr_t )&mapping[ 1 ],
 					mapping_cmp, mapping_dup );
 

@@ -1,0 +1,16 @@
+#!/bin/sh -e
+#
+#
+
+for patch in debian/patches/*.patch; do
+	echo '->'`basename $patch`:
+	patch -p1 < $patch
+done
+
+cat debian/changelog | perl -pi -e '($version) = <STDIN> =~/\((.*)\)/; \
+		s/\".*\"/\"$version for Debian\"/' source/include/version.h
+
+# Regenerate configure only if it is older than configure.in
+[ source/configure -ot source/configure.in ] && (cd source && sh ./autogen.sh)
+
+exit 0

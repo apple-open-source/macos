@@ -1,11 +1,11 @@
 *PPD-Adobe: "4.3"
 *%
-*% "$Id: deskjet2.ppd,v 1.1.1.2 2002/02/10 04:49:40 jlovell Exp $"
+*% "$Id: deskjet2.ppd,v 1.1.1.6 2002/12/24 00:07:19 jlovell Exp $"
 *%
 *%   Second sample HP DeskJet driver PPD file for the Common UNIX Printing
 *%   System (CUPS).
 *%
-*%   Copyright 1997-2002 by Easy Software Products.
+*%   Copyright 1997-2003 by Easy Software Products.
 *%
 *%   These coded instructions, statements, and computer programs are the
 *%   property of Easy Software Products and are protected by Federal
@@ -213,5 +213,5 @@
 *Font ZapfChancery-MediumItalic: Standard "(001.007S)" Standard ROM
 *Font ZapfDingbats: Special "(001.004S)" Standard ROM
 *%
-*% End of "$Id: deskjet2.ppd,v 1.1.1.2 2002/02/10 04:49:40 jlovell Exp $".
+*% End of "$Id: deskjet2.ppd,v 1.1.1.6 2002/12/24 00:07:19 jlovell Exp $".
 *%

@@ -1,0 +1,55 @@
+#! /bin/sh
+
+# Regression test for bug when sources listed in conditional.
+# Report from Richard Boulton.  PR/326.
+
+. $srcdir/defs || exit 1
+
+set -e
+
+cat >> configure.in << 'END'
+AC_PROG_CC
+AM_CONDITIONAL(ONE, true)
+AM_CONDITIONAL(TWO, false)
+AM_CONDITIONAL(THREE, false)
+AC_OUTPUT
+END
+
+cat > Makefile.am << 'END'
+bin_PROGRAMS = targ
+
+if ONE
+SONE = one.c
+endif
+
+if TWO
+STWO =
+else
+STWO = two.c
+endif
+
+if THREE
+STHREE =
+else
+STHREE = three.c
+endif
+
+if THREE
+STHREE2 =
+else
+STHREE2 = three2.c
+endif
+
+targ_SOURCES = $(SONE) $(STWO) $(STHREE) $(STHREE2)
+
+echo:
+	echo BEG: $(targ_OBJECTS) :END;
+END
+
+$ACLOCAL
+$AUTOCONF
+$AUTOMAKE
+./configure
+OBJEXT=oo $MAKE -e SHELL=/bin/sh echo > output
+cat output
+fgrep 'BEG: one.oo two.oo three.oo three2.oo :END' output

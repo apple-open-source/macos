@@ -3,7 +3,7 @@
 	archiveVersion = 1;
 	classes = {
 	};
-	objectVersion = 34;
+	objectVersion = 38;
 	objects = {
 		06AA1264FFB2107B11CA28AA = {
 			buildActionMask = 2147483647;
@@ -12,9 +12,9 @@
 			generatedFileNames = (
 			);
 			isa = PBXShellScriptBuildPhase;
-			name = "Shell Script";
 			neededFileNames = (
 			);
+			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
 			shellScript = "script=\"${SYSTEM_DEVELOPER_DIR}/ProjectBuilder Extras/Kernel Extension Support/KEXTPostprocess\";\nif [ -x \"$script\" ]; then\n    . \"$script\"\nfi";
 		};
@@ -44,9 +44,9 @@
 			generatedFileNames = (
 			);
 			isa = PBXShellScriptBuildPhase;
-			name = "Shell Script";
 			neededFileNames = (
 			);
+			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
 			shellScript = "script=\"${SYSTEM_DEVELOPER_DIR}/ProjectBuilder Extras/Kernel Extension Support/KEXTPreprocess\";\nif [ -x \"$script\" ]; then\n    . \"$script\"\nfi";
 		};
@@ -104,7 +104,7 @@
 				LIBRARY_SEARCH_PATHS = "";
 				MODULE_IOKIT = YES;
 				MODULE_NAME = com.apple.driver.AppleIntelAC97Controller;
-				MODULE_VERSION = 1.0.0;
+				MODULE_VERSION = 1.1.0;
 				OPTIMIZATION_CFLAGS = "-O2";
 				OTHER_CFLAGS = "";
 				OTHER_LDFLAGS = "";
@@ -123,15 +123,15 @@
 			productName = AppleIntelAC97Driver;
 			productReference = 0B81C263FFB7832611CA28AA;
 			productSettingsXML = "<?xml version=\"1.0\" encoding=\"UTF-8\"?>
-<!DOCTYPE plist SYSTEM \"file://localhost/System/Library/DTDs/PropertyList.dtd\">
-<plist version=\"0.9\">
+<!DOCTYPE plist PUBLIC \"-//Apple Computer//DTD PLIST 1.0//EN\" \"http://www.apple.com/DTDs/PropertyList-1.0.dtd\">
+<plist version=\"1.0\">
 <dict>
 	<key>CFBundleDevelopmentRegion</key>
 	<string>English</string>
 	<key>CFBundleExecutable</key>
 	<string>AppleIntelAC97Controller</string>
 	<key>CFBundleGetInfoString</key>
-	<string>Version 1.0, Copyright 2002 Apple Computer, Inc.</string>
+	<string>Version 1.1.0, Copyright 2002-2003 Apple Computer, Inc.</string>
 	<key>CFBundleIconFile</key>
 	<string></string>
 	<key>CFBundleIdentifier</key>
@@ -143,11 +143,11 @@
 	<key>CFBundlePackageType</key>
 	<string>KEXT</string>
 	<key>CFBundleShortVersionString</key>
-	<string>1.0</string>
+	<string>1.1.0</string>
 	<key>CFBundleSignature</key>
 	<string>????</string>
 	<key>CFBundleVersion</key>
-	<string>1.0.0</string>
+	<string>1.1.0</string>
 	<key>IOKitPersonalities</key>
 	<dict>
 		<key>ICH2 AC97 Audio Controller</key>
@@ -189,7 +189,7 @@
 			<key>IOClass</key>
 			<string>AppleIntelICH4AC97Controller</string>
 			<key>IOPCIMatch</key>
-			<string>0x24c58086</string>
+			<string>0x24c58086 0x24d58086</string>
 			<key>IOProbeScore</key>
 			<integer>6000</integer>
 			<key>IOProviderClass</key>
@@ -197,7 +197,7 @@
 		</dict>
 	</dict>
 	<key>OSBundleCompatibleVersion</key>
-	<string>1.0.0</string>
+	<string>1.1.0</string>
 	<key>OSBundleLibraries</key>
 	<dict>
 		<key>com.apple.iokit.IOPCIFamily</key>
@@ -210,7 +210,7 @@
 </dict>
 </plist>
 ";
-			shouldUseHeadermap = 1;
+			shouldUseHeadermap = 0;
 		};
 		089C1674FE841209C02AAC07 = {
 			buildActionMask = 2147483647;
@@ -223,7 +223,7 @@
 				B911A68F029D9DC008D20C3A,
 			);
 			isa = PBXHeadersBuildPhase;
-			name = Headers;
+			runOnlyForDeploymentPostprocessing = 0;
 		};
 		089C1675FE841209C02AAC07 = {
 			buildActionMask = 2147483647;
@@ -231,7 +231,7 @@
 				089C1680FE841241C02AAC07,
 			);
 			isa = PBXResourcesBuildPhase;
-			name = "Bundle Resources";
+			runOnlyForDeploymentPostprocessing = 0;
 		};
 		089C1676FE841209C02AAC07 = {
 			buildActionMask = 2147483647;
@@ -242,21 +242,21 @@
 				B911A691029D9DC008D20C3A,
 			);
 			isa = PBXSourcesBuildPhase;
-			name = Sources;
+			runOnlyForDeploymentPostprocessing = 0;
 		};
 		089C1677FE841209C02AAC07 = {
 			buildActionMask = 2147483647;
 			files = (
 			);
 			isa = PBXFrameworksBuildPhase;
-			name = "Frameworks & Libraries";
+			runOnlyForDeploymentPostprocessing = 0;
 		};
 		089C1679FE841209C02AAC07 = {
 			buildActionMask = 2147483647;
 			files = (
 			);
 			isa = PBXRezBuildPhase;
-			name = "ResourceManager Resources";
+			runOnlyForDeploymentPostprocessing = 0;
 		};
 		089C167CFE841241C02AAC07 = {
 			children = (
@@ -363,21 +363,25 @@
 //B93
 //B94
 		B911A68A029D9DC008D20C3A = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			path = ICH3_AC97Controller.cpp;
 			refType = 4;
 		};
 		B911A68B029D9DC008D20C3A = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			path = ICH3_AC97Controller.h;
 			refType = 4;
 		};
 		B911A68C029D9DC008D20C3A = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			path = ICH4_AC97Controller.cpp;
 			refType = 4;
 		};
 		B911A68D029D9DC008D20C3A = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			path = ICH4_AC97Controller.h;
 			refType = 4;
@@ -424,7 +428,7 @@
 				HEADER_SEARCH_PATHS = "\"$(SYSTEM_LIBRARY_DIR)/Frameworks/Kernel.framework/Headers\" \"$(SYSTEM_LIBRARY_DIR)/Frameworks/Kernel.framework/Headers/bsd\"";
 				LIBRARY_STYLE = STATIC;
 				OPTIMIZATION_CFLAGS = "-O2";
-				OTHER_CFLAGS = "-nostdinc -finline -fno-keep-inline-functions -force_cpusubtype_ALL -x c++ -fno-rtti -fno-exceptions -fcheck-new -fvtable-thunks -findirect-virtual-calls -static -DKERNEL -DKERNEL_PRIVATE -DDRIVER_PRIVATE -DAPPLE -DNeXT";
+				OTHER_CFLAGS = "-fno-common -nostdinc -fno-builtin -finline -fno-keep-inline-functions -force_cpusubtype_ALL -fno-rtti -fno-exceptions -fcheck-new -fapple-kext -static -DKERNEL -DKERNEL_PRIVATE -DDRIVER_PRIVATE -DAPPLE -DNeXT";
 				OTHER_LDFLAGS = "-static";
 				OTHER_LIBTOOL_FLAGS = "";
 				OTHER_REZFLAGS = "";
@@ -447,7 +451,7 @@
 			files = (
 			);
 			isa = PBXHeadersBuildPhase;
-			name = Headers;
+			runOnlyForDeploymentPostprocessing = 0;
 		};
 		B92914EC02539BC308CA29FD = {
 			buildActionMask = 2147483647;
@@ -455,21 +459,21 @@
 				B94212A9026B492908D20C3A,
 			);
 			isa = PBXSourcesBuildPhase;
-			name = Sources;
+			runOnlyForDeploymentPostprocessing = 0;
 		};
 		B92914EE02539BC308CA29FD = {
 			buildActionMask = 2147483647;
 			files = (
 			);
 			isa = PBXFrameworksBuildPhase;
-			name = "Frameworks & Libraries";
+			runOnlyForDeploymentPostprocessing = 0;
 		};
 		B92914EF02539BC308CA29FD = {
 			buildActionMask = 2147483647;
 			files = (
 			);
 			isa = PBXRezBuildPhase;
-			name = "ResourceManager Resources";
+			runOnlyForDeploymentPostprocessing = 0;
 		};
 		B9421276026B359008D20C3A = {
 			children = (
@@ -486,56 +490,67 @@
 			refType = 4;
 		};
 		B942128D026B40BD08D20C3A = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			path = AC97AudioDriver.cpp;
 			refType = 4;
 		};
 		B942128E026B40BD08D20C3A = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			path = AC97AudioDriver.h;
 			refType = 4;
 		};
 		B942128F026B40BD08D20C3A = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			path = AC97AudioEngine.cpp;
 			refType = 4;
 		};
 		B9421290026B40BD08D20C3A = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			path = AC97AudioEngine.h;
 			refType = 4;
 		};
 		B9421291026B40BD08D20C3A = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			path = AC97AudioFloatLib.cpp;
 			refType = 4;
 		};
 		B9421297026B418708D20C3A = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			path = AC97Codec.cpp;
 			refType = 4;
 		};
 		B9421298026B418708D20C3A = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			path = AC97Codec.h;
 			refType = 4;
 		};
 		B9421299026B418708D20C3A = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			path = AC97Controller.cpp;
 			refType = 4;
 		};
 		B942129A026B418708D20C3A = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			path = AC97Controller.h;
 			refType = 4;
 		};
 		B942129B026B418708D20C3A = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			path = AC97Debug.h;
 			refType = 4;
 		};
 		B942129C026B418708D20C3A = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			path = AC97Defines.h;
 			refType = 4;
@@ -632,7 +647,7 @@
 				LIBRARY_SEARCH_PATHS = "";
 				MODULE_IOKIT = YES;
 				MODULE_NAME = com.apple.driver.AppleIntelAC97Audio;
-				MODULE_VERSION = 1.0.0;
+				MODULE_VERSION = 1.1.0;
 				OPTIMIZATION_CFLAGS = "-O2";
 				OTHER_CFLAGS = "";
 				OTHER_LDFLAGS = "";
@@ -651,15 +666,15 @@
 			productName = AppleIntelAC97AudioNew;
 			productReference = B9681A8D029EBF6E08D20C3A;
 			productSettingsXML = "<?xml version=\"1.0\" encoding=\"UTF-8\"?>
-<!DOCTYPE plist SYSTEM \"file://localhost/System/Library/DTDs/PropertyList.dtd\">
-<plist version=\"0.9\">
+<!DOCTYPE plist PUBLIC \"-//Apple Computer//DTD PLIST 1.0//EN\" \"http://www.apple.com/DTDs/PropertyList-1.0.dtd\">
+<plist version=\"1.0\">
 <dict>
 	<key>CFBundleDevelopmentRegion</key>
 	<string>English</string>
 	<key>CFBundleExecutable</key>
 	<string>AppleIntelAC97Audio</string>
 	<key>CFBundleGetInfoString</key>
-	<string>Version 1.0, Copyright 2002 Apple Computer, Inc.</string>
+	<string>Version 1.1.0, Copyright 2002-2003 Apple Computer, Inc.</string>
 	<key>CFBundleIconFile</key>
 	<string></string>
 	<key>CFBundleIdentifier</key>
@@ -671,11 +686,11 @@
 	<key>CFBundlePackageType</key>
 	<string>KEXT</string>
 	<key>CFBundleShortVersionString</key>
-	<string>1.0</string>
+	<string>1.1.0</string>
 	<key>CFBundleSignature</key>
 	<string>????</string>
 	<key>CFBundleVersion</key>
-	<string>1.0.0</string>
+	<string>1.1.0</string>
 	<key>IOKitPersonalities</key>
 	<dict>
 		<key>AC97 Audio Driver</key>
@@ -698,7 +713,7 @@
 	<key>OSBundleLibraries</key>
 	<dict>
 		<key>com.apple.driver.AppleIntelAC97Controller</key>
-		<string>1.0</string>
+		<string>1.1.0</string>
 		<key>com.apple.iokit.IOAudioFamily</key>
 		<string>1.1fc9</string>
 	</dict>
@@ -714,9 +729,9 @@
 			generatedFileNames = (
 			);
 			isa = PBXShellScriptBuildPhase;
-			name = "Shell Script";
 			neededFileNames = (
 			);
+			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
 			shellScript = "script=\"${SYSTEM_DEVELOPER_DIR}/ProjectBuilder Extras/Kernel Extension Support/KEXTPreprocess\";\nif [ -x \"$script\" ]; then\n    . \"$script\"\nfi";
 		};
@@ -727,7 +742,7 @@
 				B9681A97029EC01308D20C3A,
 			);
 			isa = PBXHeadersBuildPhase;
-			name = Headers;
+			runOnlyForDeploymentPostprocessing = 0;
 		};
 		B9681A92029EBF6E08D20C3A = {
 			buildActionMask = 2147483647;
@@ -736,7 +751,7 @@
 				B9681A99029EC01308D20C3A,
 			);
 			isa = PBXSourcesBuildPhase;
-			name = Sources;
+			runOnlyForDeploymentPostprocessing = 0;
 		};
 		B9681A93029EBF6E08D20C3A = {
 			buildActionMask = 2147483647;
@@ -744,7 +759,7 @@
 				B9B38E89029EDA2908D20C3A,
 			);
 			isa = PBXResourcesBuildPhase;
-			name = "Bundle Resources";
+			runOnlyForDeploymentPostprocessing = 0;
 		};
 		B9681A94029EBF6E08D20C3A = {
 			buildActionMask = 2147483647;
@@ -752,7 +767,7 @@
 				B9681A9A029EC03708D20C3A,
 			);
 			isa = PBXFrameworksBuildPhase;
-			name = "Frameworks & Libraries";
+			runOnlyForDeploymentPostprocessing = 0;
 		};
 		B9681A95029EBF6E08D20C3A = {
 			buildActionMask = 2147483647;
@@ -761,9 +776,9 @@
 			generatedFileNames = (
 			);
 			isa = PBXShellScriptBuildPhase;
-			name = "Shell Script";
 			neededFileNames = (
 			);
+			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
 			shellScript = "script=\"${SYSTEM_DEVELOPER_DIR}/ProjectBuilder Extras/Kernel Extension Support/KEXTPostprocess\";\nif [ -x \"$script\" ]; then\n    . \"$script\"\nfi";
 		};
@@ -804,7 +819,7 @@
 			files = (
 			);
 			isa = PBXCopyFilesBuildPhase;
-			name = "Copy Files";
+			runOnlyForDeploymentPostprocessing = 0;
 		};
 		B9B38E85029EC3DC08D20C3A = {
 			isa = PBXTargetDependency;
@@ -829,6 +844,7 @@
 			refType = 4;
 		};
 		B9B38E88029EDA2908D20C3A = {
+			fileEncoding = 10;
 			isa = PBXFileReference;
 			name = English;
 			path = English.lproj/InfoPlist.strings;

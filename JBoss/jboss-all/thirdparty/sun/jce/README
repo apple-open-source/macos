@@ -1,0 +1,174 @@
+              Java(TM) Cryptography Extension 1.2.1 
+
+                              README
+    
+-----------------------------------------------------------------------
+CONTENTS
+
+     - Introduction
+     - Understanding The Export Issues
+     - Where To Find Documentation
+     - Questions, Support, Reporting Bugs, and Feedback
+
+
+-----------------------------------------------------------------------
+Introduction
+-----------------------------------------------------------------------
+Thank you for downloading the Java(TM) Cryptography Extension (JCE) 
+1.2.1.
+
+JCE 1.2.1 supplements the Java 2 platform, and requires
+that you have it installed.
+
+JCE 1.2.1 is written entirely in the Java(TM) programming language.
+
+
+-----------------------------------------------------------------------
+Understanding The Export Issues
+-----------------------------------------------------------------------
+JCE 1.2.1 has been through the U.S. export review process. 
+The JCE 1.2.1 framework, along with the SunJCE provider that comes
+standard with it, is exportable.
+
+JCE 1.2.1 introduces an architecture which allows flexible 
+cryptographic strength to be configured via jurisdiction policy files 
+that are downloaded along with the JCE 1.2.1 software. The JCE 1.2.1 
+software from Sun Microsystems has a single distribution for both 
+domestic and global users. The bundled jurisdiction policy files 
+contain no restrictions on cryptographic strengths. This is appropriate
+for most countries. Other framework vendors could create download 
+bundles that include jurisdiction policy files that specify 
+cryptographic restrictions appropriate for countries whose governments
+mandate restrictions. Users in those countries could download an 
+appropriate bundle, and the JCE framework will enforce the specified 
+restrictions.
+
+Since JCE 1.2.1 has been granted "retail" status,
+a product which bundles JCE 1.2.1 may be globally distributable.
+You are advised to consult your export control counsel or
+attorney to determine the exact requirements.
+
+For more information on U.S. encyption policies, refer to these 
+web sites:
+
+    U.S. Department of Commerce      www.doc.gov
+    Export Policy Resource Page      www.crypto.com
+    Computer Systems Public Policy   www.cspp.org
+
+Reference sites for more information:
+
+    Bruce Schneier's site    www.counterpane.com
+    Gene Spafford's site     www.cs.purdue.edu/coast/coast.html
+
+
+-----------------------------------------------------------------------
+Where To Find Documentation
+-----------------------------------------------------------------------
+Once you have installed JCE 1.2.1, you will be able to read more 
+detailed information about the software and how to use it.
+
+The following documents will be of interest to you:
+
+    . An "API Specification & Reference" document:
+
+         jce1.2.1/doc/guide/API_users_guide.html
+
+    . A guide that explains how to write a Cryptographic Service 
+      Provider for JCE 1.2.1:
+
+         jce1.2.1/doc/guide/HowToImplAProvider.html
+
+    . JCE 1.2.1 javadocs:
+
+         jce1.2.1/doc/apidoc/packages.html
+
+("jce1.2.1" is the name of the directory that is automatically
+created when you extract JCE 1.2.1.)
+
+
+-----------------------------------------------------------------------
+Questions, Support, Reporting Bugs, and Feedback
+-----------------------------------------------------------------------
+
+Questions
+---------
+
+For miscellaneous questions about JCE 1.2.1 usage and deployment, 
+we encourage you to read 
+
+    . the JCE 1.2.1 Frequently Asked Questions, available from the
+      JCE web site
+
+        http://java.sun.com/products/jce
+
+    . the Java Security Q&A Archives 
+
+        http://archives.java.sun.com/archives/java-security.html
+
+    . the Java Developer Connection forums. These discussion forums 
+      allow you to tap into the experience of other users, ask 
+      questions, or offer tips to others on a variety of Java-related
+      topics including JCE 1.2.1. There is no fee to participate.
+
+        http://forum.java.sun.com/
+ 
+Although not supported by Sun, an alternative for technical 
+expertise may be found at 
+
+        http://www.hotdispatch.com/sun
+
+Support
+-------
+
+For more extensive JCE 1.2.1 questions or deployment issues, Sun 
+currently offers several levels of developer support for the Java 2 
+platform (including the JCE 1.2.1 optional package): 
+
+    . Per-Incident 
+    . Developer Access Direct(SM) 
+    . Developer Access Plus(SM)
+
+For more information, please see 
+
+        http://www.sun.com/developer/support/
+
+Please be aware that we may be barred from offering technical support
+specifically regarding encryption implementations of the JCE APIs to
+people outside the U.S. or Canada, according to U.S. regulations.
+
+Reporting Bugs
+--------------
+
+Please submit bugs with sample code using the normal Java Developer 
+Connection (JDC) process at:
+
+	http://java.sun.com/cgi-bin/bugreport.cgi
+
+Bug reports with sample code are highly appreciated!  
+
+Feedback
+--------
+
+Please e-mail general comments about JCE 1.2.1 to
+
+	java-security@sun.com
+
+The above mailing list is not a subscription list. 
+It is simply a one-way channel that you can use to send comments
+to the Java 2 Standard Edition security group. 
+
+Though we value your input, before sending your feedback please 
+review our pages of Frequently Asked Questions 
+(http://java.sun.com/products/jce/jce121_faq.html) and
+search the Java Security Q&A Archives 
+(http://archives.java.sun.com/archives/java-security.html). 
+
+Please note that due to the volume of messages we receive, we 
+may not be able to respond to every individual message. 
+
+For other comments/suggestions concerning the web sites please 
+use the feedback form at
+
+        http://java.sun.com/feedback/index.html
+
+

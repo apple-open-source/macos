@@ -1,0 +1,71 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<!-- ===================================================================== -->
+<!--                                                                       -->
+<!--  JBoss Server Configuration                                           -->
+<!--                                                                       -->
+<!-- ===================================================================== -->
+
+<!-- $Id: jboss-service.xml,v 1.1.2.1 2003/02/15 06:51:43 d_jencks Exp $ -->
+
+
+<server>
+
+  <!-- ==================================================================== -->
+  <!-- test driver deployment, sql statement tests connection. -->
+  <!-- ==================================================================== -->
+
+  <mbean code="org.jboss.resource.connectionmanager.NoTxConnectionManager" name="jboss.jca:service=CM,name=StatementTestsConnectionDS">
+
+
+    <attribute name="JndiName">StatementTestsConnectionDS</attribute>
+    <depends optional-attribute-name="ManagedConnectionFactoryName">
+      <!--embedded mbean-->
+      <mbean code="org.jboss.resource.connectionmanager.RARDeployment" name="jboss.jca:service=MCF,name=StatementTestsConnectionDS">
+
+        <attribute name="ManagedConnectionFactoryProperties">
+          <properties>
+            <config-property name="ConnectionURL" type="java.lang.String">jdbc:jboss-test-adapter:/localhost</config-property>
+            <config-property name="DriverClass" type="java.lang.String">org.jboss.test.jca.jdbc.TestDriver</config-property>
+            <config-property name="UserName" type="java.lang.String">sa</config-property>
+            <config-property name="Password" type="java.lang.String"></config-property>
+            <config-property name="CheckValidConnectionSQL" type="java.lang.String">Do Something</config-property>
+          </properties>
+        </attribute>
+
+<!--Below here are advanced properties -->
+        <!--hack-->
+        <depends optional-attribute-name="OldRarDeployment">jboss.jca:service=RARDeployment,name=JBoss LocalTransaction JDBC Wrapper</depends>
+        <depends>jboss:service=Hypersonic</depends>
+
+      </mbean>
+    </depends>
+    <depends optional-attribute-name="ManagedConnectionPool">
+      <!--embedded mbean-->
+      <mbean code="org.jboss.resource.connectionmanager.JBossManagedConnectionPool" name="jboss.jca:service=LocalTxPool,name=SingleConnectionhsqldbDS">
+
+        <attribute name="MinSize">0</attribute>
+        <attribute name="MaxSize">1</attribute>
+        <attribute name="BlockingTimeoutMillis">5000</attribute>
+        <attribute name="IdleTimeoutMinutes">15</attribute>
+        <!--criteria indicates if Subject (from security domain) or app supplied
+            parameters (such as from getConnection(user, pw)) are used to distinguish
+            connections in the pool. Choices are 
+            ByContainerAndApplication (use both), 
+            ByContainer (use Subject),
+            ByApplication (use app supplied params only),
+            ByNothing (all connections are equivalent, usually if adapter supports
+              reauthentication)-->
+        <attribute name="Criteria">ByContainer</attribute>
+      </mbean>
+    </depends>
+    <depends optional-attribute-name="CachedConnectionManager">jboss.jca:service=CachedConnectionManager</depends>
+
+    <depends optional-attribute-name="JaasSecurityManagerService">jboss.security:service=JaasSecurityManager</depends>
+
+
+  </mbean>
+
+
+
+</server>

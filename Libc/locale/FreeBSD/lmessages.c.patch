@@ -1,0 +1,11 @@
+--- lmessages.c.orig	Tue May 20 15:21:44 2003
++++ lmessages.c	Wed Jun 11 13:13:38 2003
+@@ -55,7 +55,7 @@
+ 	int ret;
+ 
+ 	ret = __part_load_locale(name, &_messages_using_locale,
+-		  _messages_locale_buf, "LC_MESSAGES",
++		  &_messages_locale_buf, "LC_MESSAGES/LC_MESSAGES",
+ 		  LCMESSAGES_SIZE_FULL, LCMESSAGES_SIZE_MIN,
+ 		  (const char **)&_messages_locale);
+ 	if (ret == _LDP_LOADED) {

@@ -1,15 +1,33 @@
 /*
-	File:		SLPRegistrar.cp
-
-	Contains:	class to keep track of all registered services
-
-	Written by:	Kevin Arnold
-
-	Copyright:	© 1997 - 2000 by Apple Computer, Inc., all rights reserved.
-
-	Change History (most recent first):
-
+ * Copyright (c) 2002 Apple Computer, Inc. All rights reserved.
+ *
+ * @APPLE_LICENSE_HEADER_START@
+ * 
+ * Copyright (c) 1999-2003 Apple Computer, Inc.  All Rights Reserved.
+ * 
+ * This file contains Original Code and/or Modifications of Original Code
+ * as defined in and that are subject to the Apple Public Source License
+ * Version 2.0 (the 'License'). You may not use this file except in
+ * compliance with the License. Please obtain a copy of the License at
+ * http://www.opensource.apple.com/apsl/ and read it before using this
+ * file.
+ * 
+ * The Original Code and all software distributed under the License are
+ * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
+ * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
+ * INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY,
+ * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
+ * Please see the License for the specific language governing rights and
+ * limitations under the License.
+ * 
+ * @APPLE_LICENSE_HEADER_END@
  */
+ 
+/*!
+ *  @header SLPRegistrar
+ *  class to keep track of all registered services
+ */
+ 
 #include <stdio.h>
 #include <string.h>
 #include <sys/un.h>
@@ -24,14 +42,12 @@
 
 #include "mslpd_parse.h"
 
-//#include "SLPDefines.h"
-
 #include "slpipc.h"
-//#include "URLUtilities.h"
 #include "ServiceInfo.h"
 #include "SLPRegistrar.h"
 
 #include "SLPComm.h"
+#include "CNSLTimingUtils.h"
 
 #ifdef USE_SLPREGISTRAR
 
@@ -283,24 +299,11 @@ void TurnOffDA( void )
 
 void InitSLPRegistrar( void )
 {
-    Boolean		previousNotificationsEnabled = false;
-    
-/*    if ( gsSLPRegistrar )
-    {
-        SLPRegistrar::Lock();
-        previousNotificationsEnabled = gsSLPRegistrar->RAdminNotificationEnabled();			// keep track of this - we need a better solution for restarting
-        delete gsSLPRegistrar;
-        SLPRegistrar::Unlock();
-    }
-*/
     if ( !gsSLPRegistrar )
     {
         gsSLPRegistrar = new SLPRegistrar();
         gsSLPRegistrar->Initialize();
     }
-    
-    if ( previousNotificationsEnabled )
-        gsSLPRegistrar->EnableRAdminNotification();
 }
 
 void TearDownSLPRegistrar( void )
@@ -325,11 +328,6 @@ void ResetStatelessBootTime( void )
 }
 
 // CF Callback function prototypes
-/*
-CFStringRef SLPCliqueKeyCopyDesctriptionCallback ( const void *key );
-Boolean SLPCliqueKeyEqualCallback ( const void *key1, const void *key2 );
-CFHashCode SLPCliqueKeyHashCallback(const void *key);
-*/
 CFStringRef SLPCliqueValueCopyDesctriptionCallback ( const void *value );
 Boolean SLPCliqueValueEqualCallback ( const void *value1, const void *value2 );
 void SLPCliqueHandlerFunction(const void *inKey, const void *inValue, void *inContext);
@@ -338,58 +336,7 @@ CFStringRef SLPServiceInfoCopyDesctriptionCallback ( const void *item );
 Boolean SLPServiceInfoEqualCallback ( const void *item1, const void *item2 );
 CFHashCode SLPServiceInfoHashCallback(const void *key);
 void SLPServiceInfoHandlerFunction(const void *inValue, void *inContext);
-/*
-CFStringRef SLPCliqueKeyCopyDesctriptionCallback ( const void *key )
-{
-//   SLPClique*		clique = (SLPClique*)value;
-    
-    return (CFStringRef)key;
-}
 
-Boolean SLPCliqueKeyEqualCallback ( const void *key1, const void *key2 )
-{
-//    SLPClique*		clique1 = (SLPClique*)::CFDictionaryGetValue( key1;
-//    SLPClique*		clique2 = (SLPClique*)key2;
-    
-    return ( key1 == key2 || CFStringCompare( (CFStringRef)key1, (CFStringRef)key2, kCFCompareCaseInsensitive ) == kCFCompareEqualTo );
-}
-
-CFHashCode SLPCliqueKeyHashCallback(const void *key)
-{
-	long		value1, value2;			// we'll do this by grabbing the first 4 bytes of the string and adding them to the last 4 bytes...
-    UInt8*		value1Ptr = (UInt8*)&value1;
-    UInt8*		value2Ptr = (UInt8*)&value2;
-    CFHashCode	returnCode;
-    CFIndex		begin2;
-    
-    ::CFStringGetBytes ((CFStringRef) key, 
-                        CFRangeMake(0,4), 
-                        kCFStringEncodingUTF8, 
-//                        CFStringGetSystemEncoding(), 
-                        '?', 
-                        false, 
-                        value1Ptr, 
-                        sizeof(value1), 
-                        NULL );
-
-    begin2 = CFStringGetLength((CFStringRef)key);
-    begin2 > 4 ? begin2 = begin2-4 : begin2 = 0;
-    
-    ::CFStringGetBytes ((CFStringRef) key, 
-                        CFRangeMake( begin2,4), 
-                        kCFStringEncodingUTF8, 
-//                        CFStringGetSystemEncoding(), 
-                        '?', 
-                        false, 
-                        value2Ptr, 
-                        sizeof(value2), 
-                        NULL );
-
-    returnCode = value1 + value2;
-    
-    return returnCode;		// just hash on the first 4 bytes of the string
-}
-*/
 CFStringRef SLPCliqueValueCopyDesctriptionCallback ( const void *value )
 {
    SLPClique*		clique = (SLPClique*)value;
@@ -512,16 +459,7 @@ void SLPRegistrar::Initialize( void )
     
 	// database initialization
     CFDictionaryValueCallBacks	valueCallBack;
-/*	CFDictionaryKeyCallBacks	keyCallBack;
-    
-    keyCallBack.version = 0;
-    keyCallBack.retain = NULL;
-    keyCallBack.release = NULL;
-    keyCallBack.copyDescription = SLPCliqueKeyCopyDesctriptionCallback;
-    keyCallBack.equal = SLPCliqueKeyEqualCallback;
-    keyCallBack.hash = SLPCliqueKeyHashCallback;
-//    keyCallBack.hash = NULL;
-*/    
+
     valueCallBack.version = 0;
     valueCallBack.retain = NULL;
     valueCallBack.release = NULL;
@@ -529,13 +467,6 @@ void SLPRegistrar::Initialize( void )
     valueCallBack.equal = SLPCliqueValueEqualCallback;
     
     mListOfSLPCliques = ::CFDictionaryCreateMutable( NULL, 0, &kCFCopyStringDictionaryKeyCallBacks, &valueCallBack);
-    mRAdminNotifier = new SLPRAdminNotifier();
-    if ( mRAdminNotifier )
-    {
-        mRAdminNotifier->Resume();
-    }
-    else
-        SLP_LOG( SLP_LOG_ERR, "SLPRegistrar couldn't create its Notifier Thread!" );
 
 	mSelfPtr = this;
 }
@@ -583,7 +514,7 @@ SLPInternalError SLPRegistrar::RegisterService( ServiceInfo* service )
 	SLPClique*	clique = NULL;
 
 #ifdef USE_EXCEPTIONS
-	Try_
+	try
 #endif
 	{
 		if ( service )
@@ -600,7 +531,7 @@ SLPInternalError SLPRegistrar::RegisterService( ServiceInfo* service )
 			else
 			{
 #ifdef USE_EXCEPTIONS
-				Try_
+				try
 #endif
 				{
 					clique = new SLPClique();
@@ -621,7 +552,7 @@ SLPInternalError SLPRegistrar::RegisterService( ServiceInfo* service )
 				}
 				
 #ifdef USE_EXCEPTIONS
-				Catch_( inErr )
+				catch ( int inErr )
 				{
 					status = (SLPInternalError)inErr;
 					if ( clique )
@@ -635,7 +566,7 @@ SLPInternalError SLPRegistrar::RegisterService( ServiceInfo* service )
 	}
 	
 #ifdef USE_EXCEPTIONS
-	Catch_ ( inErr )
+	catch ( int inErr )
 	{
 		status = (SLPInternalError)inErr;
 	}
@@ -649,7 +580,7 @@ SLPInternalError SLPRegistrar::DeregisterService( ServiceInfo* service )
 	SLPInternalError	status = SLP_OK;
 	
 #ifdef USE_EXCEPTIONS
-	Try_
+	try
 #endif
 	{
 		if ( service && service->SafeToUse() )
@@ -674,7 +605,7 @@ SLPInternalError SLPRegistrar::DeregisterService( ServiceInfo* service )
 	}
 	
 #ifdef USE_EXCEPTIONS
-	Catch_ ( inErr )
+	catch ( int inErr )
 	{
         SLP_LOG( SLP_LOG_ERR, "SLPRegistrar::DeregisterService Caught_ inErr: %ld", (SLPInternalError)inErr );
 
@@ -835,8 +766,6 @@ void SLPRegistrar::DeregisterAllServices( void )
         ::CFDictionaryRemoveAllValues( mListOfSLPCliques );
 
 // don't get rid of mListOfSLPCliques, we could just be turning our selves off.  We can release it in our destructor
-//        ::CFRelease( mListOfSLPCliques );
-//        mListOfSLPCliques = NULL;
     }
     
     Unlock();
@@ -889,7 +818,8 @@ SLPInternalError SLPRegistrar::CreateReplyToServiceRequest(
 		if ( !error )
 			tempPtr = safe_malloc(*piOutSz, 0, 0);
 		
-		assert( tempPtr );
+		if( !tempPtr ) 
+			error = SLP_PARAMETER_BAD;
 		
 		if ( !error )
 		{
@@ -918,25 +848,23 @@ SLPInternalError SLPRegistrar::CreateReplyToServiceRequest(
 	else if ( returnBuffer )
 	{
 		error = SLP_OK;		// we have nothing registered here yet, so just reply with no results
-        
-        SLP_LOG( SLP_LOG_DEBUG, "SLPRegistrar::CreateReplyToServiceRequest(), sending back empty result" );
-        
-        *piOutSz = GETHEADERLEN(originalHeader) + 4;
-        tempPtr = safe_malloc(*piOutSz, 0, 0);
-        
-        assert( tempPtr );
-        
-        if ( tempPtr )
-        {
-            SETVER(tempPtr,2);
-            SETFUN(tempPtr,SRVRPLY);
-            SETLEN(tempPtr,*piOutSz);
-            SETLANG(tempPtr,pslphdr->h_pcLangTag);
-        }
-        else
-            error = SLP_MEMORY_ALLOC_FAILED;
-            
-        *returnBuffer = tempPtr;
+		
+		SLP_LOG( SLP_LOG_DEBUG, "SLPRegistrar::CreateReplyToServiceRequest(), sending back empty result" );
+		
+		*piOutSz = GETHEADERLEN(originalHeader) + 4;
+		tempPtr = safe_malloc(*piOutSz, 0, 0);
+		
+		if ( tempPtr )
+		{
+			SETVER(tempPtr,2);
+			SETFUN(tempPtr,SRVRPLY);
+			SETLEN(tempPtr,*piOutSz);
+			SETLANG(tempPtr,pslphdr->h_pcLangTag);
+		}
+		else
+			error = SLP_PARAMETER_BAD;
+			
+		*returnBuffer = tempPtr;
 	}
 	else
 	{
@@ -960,7 +888,7 @@ SLPClique* SLPRegistrar::FindClique( ServiceInfo* service )
 void SLPRegistrar::UpdateDirtyCaches( void )
 {
 #ifdef USE_EXCEPTIONS
-	Try_
+	try
 #endif
 	{
 			
@@ -979,7 +907,7 @@ void SLPRegistrar::UpdateDirtyCaches( void )
 	}
 	
 #ifdef USE_EXCEPTIONS
-	Catch_( inErr )
+	catch ( int inErr )
 	{
         SLP_LOG( SLP_LOG_DA, "SLPRegistrar::UpdateDirtyCaches Caught Err: %d", (SLPInternalError)inErr );
 	}
@@ -1035,18 +963,19 @@ SLPClique* SLPRegistrar::FindClique( 	char* serviceType,
         memcpy( keyString+serviceTypeLen, "://", 3 );
         memcpy( keyString+serviceTypeLen+3, scopeList, scopeListLen );
         
-//        keyRef = ::CFStringCreateWithCString( kCFAllocatorDefault, keyString, CFStringGetSystemEncoding() );
         keyRef = ::CFStringCreateWithCString( kCFAllocatorDefault, keyString, kCFStringEncodingUTF8 );
-        assert( keyRef );
-        
-        if ( ::CFDictionaryGetCount( mListOfSLPCliques ) > 0 && ::CFDictionaryContainsKey( mListOfSLPCliques, keyRef ) )
-            curClique = (SLPClique*)::CFDictionaryGetValue( mListOfSLPCliques, keyRef );
-        else
-        {
-            SLP_LOG( SLP_LOG_DROP, "Unable to find SLPClique for request %s in %s.  Dictionary count: %d", serviceType, scopeList,  ::CFDictionaryGetCount( mListOfSLPCliques ) );
-        }
-    
-        ::CFRelease( keyRef );
+
+        if( keyRef )
+		{
+			if ( ::CFDictionaryGetCount( mListOfSLPCliques ) > 0 && ::CFDictionaryContainsKey( mListOfSLPCliques, keyRef ) )
+				curClique = (SLPClique*)::CFDictionaryGetValue( mListOfSLPCliques, keyRef );
+			else
+			{
+				SLP_LOG( SLP_LOG_DROP, "Unable to find SLPClique for request %s in %s.  Dictionary count: %d", serviceType, scopeList,  ::CFDictionaryGetCount( mListOfSLPCliques ) );
+			}
+		
+			::CFRelease( keyRef );
+		}
     }
     
 	return curClique;
@@ -1068,10 +997,20 @@ Boolean SLPServiceInfoEqualCallback ( const void *item1, const void *item2 )
     return ( serviceInfo1 == serviceInfo2 || *serviceInfo1 == *serviceInfo2 );
 }
 
+#define HAVENT_TESTED_HASH_CALLBACK
 CFHashCode SLPServiceInfoHashCallback(const void *key)
 {
+#ifdef HAVENT_TESTED_HASH_CALLBACK
     return 2;
-//    return CFHash( key );
+#elif	
+	// this should really be something like the following (but haven't tested it yet)
+	ServiceInfo*		serviceInfo = (ServiceInfo*)key;
+	
+	if ( serviceInfo->GetURLRef() )
+		return CFHash(serviceInfo->GetURLRef());
+	else	
+		return 0;
+#endif
 }
 
 void SLPServiceInfoHandlerFunction(const void *inValue, void *inContext)
@@ -1084,7 +1023,6 @@ void SLPServiceInfoHandlerFunction(const void *inValue, void *inContext)
     {
         case kDeleteSelf:
             clique->RemoveServiceInfoFromClique( curServiceInfo );		// this will do the right clean up and notify RAdmin
-//            curServiceInfo->RemoveInterest();
         break;
         
         case kUpdateCache:
@@ -1170,7 +1108,7 @@ void SLPClique::IntitializeInternalParams( ServiceInfo* exampleSI )
 #ifdef USE_EXCEPTIONS
 	ThrowIfNULL_( exampleSI );
 
-	Try_
+	try
 #else
 	if ( !exampleSI || !exampleSI->GetScope() )
 		return;
@@ -1201,14 +1139,14 @@ void SLPClique::IntitializeInternalParams( ServiceInfo* exampleSI )
 				
 				char		keyString[512];
 				sprintf( keyString, "%s://%s", mCliqueServiceType, mCliqueScope );
-		//        mKeyRef = ::CFStringCreateWithCString( kCFAllocatorDefault, keyString, CFStringGetSystemEncoding() );
+
 				mKeyRef = ::CFStringCreateWithCString( kCFAllocatorDefault, keyString, kCFStringEncodingUTF8 );       
 			}
 		}
     }
 	
 #ifdef USE_EXCEPTIONS
-	Catch_( inErr )
+	catch ( int inErr )
 	{
 		if ( mCliqueScope )
 		{
@@ -1244,7 +1182,6 @@ void SLPClique::Initialize( ServiceInfo* newService )
     callBack.copyDescription = SLPServiceInfoCopyDesctriptionCallback;
     callBack.equal = SLPServiceInfoEqualCallback;
     callBack.hash = SLPServiceInfoHashCallback;
-//    callBack.hash = NULL;
     
     mSetOfServiceInfos = ::CFSetCreateMutable( NULL, 0, &callBack );
 
@@ -1345,7 +1282,6 @@ SLPInternalError SLPClique::AddServiceInfoToClique( ServiceInfo* service )
         SLP_LOG( SLP_LOG_MSG, "Duplicate Service, update timestamp, URL=%s, SCOPE=%s", service->GetURLPtr(), service->GetScope() );    
 					
         // We need to update the reg time (in future, need to support partial registration!)
-        //UpdateRegisteredServiceTimeStamp( service );
         siToNotifyWith->UpdateLastRegistrationTimeStamp();
     }
         
@@ -1589,7 +1525,7 @@ pthread_mutex_t	SLPRAdminNotifier::mQueueLock;
 
 CFStringRef SLPRAdminNotifierCopyDesctriptionCallback ( const void *item )
 {
-    return CFSTR("SLP RAdmin Notification");
+    return kSLPRAdminNotificationSAFE_CFSTR;
 }
 
 Boolean SLPRAdminNotifierEqualCallback ( const void *item1, const void *item2 )
@@ -1598,7 +1534,7 @@ Boolean SLPRAdminNotifierEqualCallback ( const void *item1, const void *item2 )
 }
 
 SLPRAdminNotifier::SLPRAdminNotifier()
-	: LThread(threadOption_Default)
+	: DSLThread()
 {
 	CFArrayCallBacks	callBack;
     
@@ -1678,7 +1614,7 @@ void* SLPRAdminNotifier::Run( void )
             else
             {
                 QueueUnlock();
-                sleep(1);
+                SmartSleep(1*USEC_PER_SEC);
             }
             
             if ( notification )
@@ -1745,67 +1681,6 @@ void SLPRAdminNotifier::SendNotification( NotificationObject*	notification )
 }
 
 #pragma mark -
-#if 0
-Boolean IsLegalURLChar( const char theChar )
-{
-	return ( isprint( theChar ) && ( theChar != ' ' && theChar != '\"' && theChar != '<' && theChar != '>' && theChar != ',' ) );
-}
-
-Boolean	AllLegalURLChars( const char* theString, UInt32 theURLLength )
-{
-
-	Boolean	isLegal = true;
-	
-	if ( theString )				// make sure we have a string to examine
-	{		
-		for (SInt32 i = theURLLength - 1; i>=0 && isLegal; i--)
-			isLegal = IsLegalURLChar( theString[i] );
-	}
-	else
-		isLegal = false;
-	
-	return isLegal;
-	
-}
-
-Boolean	IsURL( const char* theString, UInt32 theURLLength, char** svcTypeOffset )
-{
-
-	Boolean		foundURL=false;
-	
-	if ( AllLegalURLChars(theString, theURLLength) )
-	{
-		*svcTypeOffset = strstr(theString, ":/");			// look for the interesting tag chars
-		if ( *svcTypeOffset != NULL)
-			foundURL = true;
-	}
-	
-	return foundURL;
-	
-}
-
-void GetServiceTypeFromURL(	const char* readPtr,
-							UInt32 theURLLength,
-							char*	URLType )
-{
-
-	char*	curOffset = NULL;
-	UInt16	typeLen;
-	
-	if ( IsURL( readPtr, theURLLength, &curOffset))
-	{
-		typeLen = curOffset - readPtr;
-//		::BlockMove((unsigned char*)readPtr, URLType, typeLen);
-        memcpy( URLType, (unsigned char*)readPtr, typeLen );
-		URLType[typeLen] = '\0';
-	}
-	else
-	{
-		URLType[0] = '\0';				// nothing here to find
-	}
-
-}
-#endif
 
 void AddToServiceReply( Boolean usingTCP, ServiceInfo* serviceInfo, char* requestHeader, UInt16 length, SLPInternalError& error, char** replyPtr )
 {
@@ -1939,7 +1814,6 @@ void AddToServiceReply( Boolean usingTCP, ServiceInfo* serviceInfo, char* reques
         (*replyPtr) = newReply;
     }
 }
-
 
 
 #endif //#ifdef USE_SLPREGISTRAR

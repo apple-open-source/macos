@@ -1,0 +1,24 @@
+Értesítés a(z) %(listname)s levelezõ listáról való törlésed megerõsítésérõl
+
+A(z)%(remote)s címrõl "%(email)s" címed törlését kérvényezték a(z)
+%(listaddr)s levelezõlistáról. Listatagságod törléséhez erre a
+levélre kell válaszolni úgy, hogy a Subject: (Tárgy:) mezõt 
+változatlanul hagyod. Leiratkozási szándékodat a következõ webcímen
+is megerõsítheted:
+
+    %(confirmurl)s
+
+Vagy helyezd el a következõ sort -- és semmi mást -- egy levélben,
+s küld el a(z) %(requestaddr)s címre:
+
+    confirm %(cookie)s
+
+A jóváhagyáshoz legtöbbször elég, ha egyszerûen csak válaszolsz
+(`reply') erre a levélre, mivel a levelezõprogramok többsége nem
+módosítja a levél tárgyát (az ide beszúrt "Re:" vagy "VÁ:" nem 
+okoz gondot).
+
+Ha nem szeretnél leiratkozni a listáról, akkor egyszerûen hagyd 
+figyelmen kívül ezt a levelet. Ha úgy gondolod, hogy jogtalanul
+töröltek a listáról, vagy más észrevételed van, akkor fordulj
+a lista adminisztrátorához; %(listadmin)s.

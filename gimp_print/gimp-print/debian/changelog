@@ -1,0 +1,209 @@
+gimp-print (4.2.5-1) unstable; urgency=low
+
+  * New stable release
+  * Use debian/build and debian/install instead of debian/gimp-print-build
+    and debian/gimp-print-install, respectively.
+  * Use dh_install rather than dh_movefiles.  This makes debian/rules
+    slightly cleaner, and debian/install is unchanged after install.
+  * Create symlinks for HTML manuals, since different versions of texi2html
+    and db2html create different names.
+  * Make the dependencies sane (remove incorrect dependencies, and correct
+    dubious ones).  foomatic-db-gimp-print now depends only upon foomatic-db
+    and ijsgimpprint.
+
+ -- Roger Leigh <roger@whinlatter.uklinux.net>  Tue, 10 Dec 2002 15:24:21 +0000
+
+gimp-print (4.2.4-1) unstable; urgency=low
+
+  * New stable release
+  * Update for Standards-Version 3.5.7 
+
+ -- Roger Leigh <roger@whinlatter.uklinux.net>  Sat,  9 Nov 2002 22:55:35 +0000
+
+gimp-print (4.2.3-1) unstable; urgency=low
+
+  * New stable release.
+  * I am the new maintainer of gimp-print for Debian.
+  * New package ijsgimpprint.  This provides an IJS server for use
+    with ghostscript.
+  * Fix doc-base problems with gimpprint-doc.
+
+ -- Roger Leigh <roger@whinlatter.uklinux.net>  Wed,  9 Oct 2002 13:26:30 +0100
+
+gimp-print (4.2.2-1) unstable; urgency=low
+
+  * New stable release.
+  * Upgrade to debhelper version 4.
+  * Automate library versioning to work for stable and unstable series.
+    LIBRARY_VERSION is the library major version or -UPSTREAM_VERSION.
+  * Update configure regeneration to work with configure.ac.
+  * libgimpprint$(VERSION)-dev provides and conflicts with a virtual
+    package `libgimpprint-dev'.
+  * Remove libgimpprint.postinst as ldconfig is called by debhelper.
+  * Update package descriptions.
+  * Fixed doc-base problems in libgimpprint-doc.  The doc-base file is
+    generated with sed to insert the version number.
+  * libgimpprint$(VERSION)-doc provides and conflicts with a virtual
+    package libgimpprint-doc to prevent clashes with gimpprint.info docs.
+
+ -- Roger Leigh <roger@whinlatter.uklinux.net>  Thu,  1 Aug 2002 12:40:26 +0100
+
+gimp-print (4.2.1-2) unstable; urgency=low
+
+  * Move escputil to section utils
+
+ -- Roger Leigh <roger@whinlatter.uklinux.net>  Thu,  2 May 2002 18:34:27 +0100
+
+gimp-print (4.2.1-1) unstable; urgency=low
+
+  * New upstream release
+  * Add postscript-viewer virtual package as an alternative to gs Recommends
+    for cupsys-driver-gimpprint
+  * Reinitialise cupsys after installation or removal of
+    cupsys-driver-gimpprint
+  * Correctly version libgimpprint1 shlibs with -V dh_makeshlibs option
+
+ -- Roger Leigh <roger@whinlatter.uklinux.net>  Wed,  6 Mar 2002 00:05:44 +0000
+
+gimp-print (4.2.0-3) unstable; urgency=low
+
+  * Fix libgimpprint.postinst to use 'if' instead of 'case', removing a
+    lintian warning.
+  * Split out the message catalogues from the libgimpprint package into
+    a new gimpprint-locales package to avoid filename conflicts when
+    multiple libgimpprint versions are installed concurrently.
+  * Add libgimpprint-doc.doc-base (existed for six months, but was never
+    added to CVS!)
+  * Merge fixes from debian-branch:
+    - Fix locales package description (Eric Sharkey)
+    - Change conflicts to replaces (Eric Sharkey)
+    - Fix build dependencies (Eric Sharkey)
+  * New package foomatic-db-gimpprint.  Contains foomatic data
+
+ -- Roger Leigh <roger@whinlatter.uklinux.net>  Fri,  1 Feb 2002 21:17:36 +0000
+
+gimp-print (4.2.0-1) unstable; urgency=low
+
+  * New upstream stable release (4.2.0)
+  * Disable PostScript level 3 PPD files, because there are some
+    level 3 constructs that gs 6.51 does not understand.
+
+ -- Roger Leigh <roger@whinlatter.uklinux.net>  Sat, 24 Nov 2001 13:45:33 +0000
+
+gimp-print (4.1.99-rc1-2) unstable; urgency=low
+
+  * New upstream release
+  * Update to new Standards-Version 3.5.6.0 (no changes)
+  * Disable building of translated PPD files
+  * Enable PostScript level 3 PPD files, and add a Recommends to
+    cupsys-driver-gimpprint for gs (>= 6.51) as earlier versions
+    have problems with level 3.
+
+ -- Roger Leigh <roger@whinlatter.uklinux.net>  Mon, 12 Nov 2001 18:29:21 +0000
+
+gimp-print (4.1.99-b4-6) unstable; urgency=low
+
+  * New upstream release
+  * cupsys-driver-gimpprint only includes the basic `C' POSIX locale
+    ppd files due to the size of the ppd files
+  * New package gimpprint-doc contains the new user guide
+  * escputil depends on libgimpprint1, as the new i18n code needs
+    the translations it provides
+  * Provide the PS version of the Programmer's Manual instead of PDF
+    format in libgimpprint-doc
+  * Update to new Standards-Version 3.5.2 (no changes)
+  * Update package descriptions for stable release
+  * gimpprint-doc Suggests libgimpprint1
+
+ -- Roger Leigh <roger@whinlatter.uklinux.net>  Tue, 30 Oct 2001 09:16:08 +0000
+
+gimp-print (4.1.99-b2-5) unstable; urgency=low
+
+  * New upstream release
+  * Changed library version names to reflect upstream library
+    versioning change to ABI versioning
+  * Enable i18n
+  * Add Build-Depends for gettext (>= 0.10.36-1), because
+    'make install' fails with earlier versions due to absent
+    DESTDIR support.
+  * libgimpprint-doc uses ps instead of dvi manual, due to inclusion
+    of graphics
+  * gimp1.2-print no longer registers documentation with doc-base, as
+    the manual is provided in libgimpprint-doc
+
+ -- Roger Leigh <roger@whinlatter.uklinux.net>  Tue, 18 Sep 2001 14:15:37 +0100
+
+gimp-print (4.1.99-a3-1) unstable; urgency=low
+
+  * New upstream release
+  * Remove README.dither from libgimpprint-dev.docs
+  * Add image samples to gimp1.2-print and cupsys-driver-gimpprint
+  * Change rules and control to use ABI library versioning
+
+ -- Roger Leigh <roger@whinlatter.uklinux.net>  Thu,  9 Aug 2001 11:15:38 +0100
+
+gimp-print (4.1.7-1) unstable; urgency=low
+
+  * libgimpprint-doc is in section `doc'.
+  * New package libgimpprint-doc for Info, dvi and HTML docs.
+  * Change debian/rules to use separate binary-arch and binary-indep
+    targets
+
+ -- Roger Leigh <roger@whinlatter.uklinux.net>  Fri, 11 May 2001 23:34:22 +0100
+
+gimp-print (4.1.5-2) unstable; urgency=low
+
+  * Clean up build process so that things work even if some scripts
+    don't have execute permissions, complicate things a bit by using
+    funky building script, Closes #89283, I hope...
+
+ -- Eric Sharkey <sharkey@debian.org>  Thu, 15 Mar 2001 21:54:52 -0500
+
+gimp-print (4.1.5-1) unstable; urgency=low
+
+  * New upstream release
+  * First Official version uploaded to Debian
+  * Close ITP bug for wnpp, Closes #85563
+
+ -- Eric Sharkey <sharkey@debian.org>  Fri,  2 Mar 2001 19:59:11 -0500
+
+gimp-print (4.1.4-2) unstable; urgency=low
+
+  * Repackage gimp-print after forking the Debian branch from 4.1.4
+  * Add version numbers to the libgimpprint package name
+  * Move documentation files from libgimpprint to libgimpprint-dev
+
+ -- Eric Sharkey <sharkey@debian.org>  Tue, 27 Feb 2001 11:22:18 -0500
+
+gimp-print (4.1.4-1) unstable; urgency=low
+
+  * New upstream release
+  * Debian package rewritten from scratch.
+  * Added diversion of the print plugin that is part of the GIMP
+    package to /usr/lib/gimp/1.2/print
+  * Fixed shared library dependencies for programs linked with
+    libgimpprint
+  * Added /etc/cups/command.types as a conffile for package cupsys-
+    driver-gimpprint
+  * Added gimp1.2-print html and sgml docs to doc-base
+  * Remove /etc/cups in postrm for cupsys-driver-gimprint (but
+    won't if not empty)
+  * Added versioned debhelper Build-Depends
+
+ -- Roger Leigh <roger@whinlatter.uklinux.net>  Fri, 16 Feb 2001 00:16:10 +0000
+
+gimp-print (4.0.2-1) unstable; urgency=low
+
+  * Debian packages of the latest GP
+
+ -- Eric Sharkey <sharkey@superk.physics.sunysb.edu>  Sun, 12 Nov 2000 04:46:54 +0900
+
+gimp-print (3.1.4-1) unstable; urgency=low
+
+  * Debianised gimp-print built from gimp-print CVS at sourceforge.
+
+ -- Charles Briscoe-Smith <cpbs@debian.org>  Wed, 24 May 2000 00:39:54 +0100
+
+Local variables:
+mode: debian-changelog
+End:

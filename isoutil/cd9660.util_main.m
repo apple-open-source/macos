@@ -3,19 +3,22 @@
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
- * The contents of this file constitute Original Code as defined in and
- * are subject to the Apple Public Source License Version 1.1 (the
- * "License").  You may not use this file except in compliance with the
- * License.  Please obtain a copy of the License at
- * http://www.apple.com/publicsource and read it before using this file.
+ * Copyright (c) 1999-2003 Apple Computer, Inc.  All Rights Reserved.
  * 
- * This Original Code and all software distributed under the License are
- * distributed on an "AS IS" basis, WITHOUT WARRANTY OF ANY KIND, EITHER
+ * This file contains Original Code and/or Modifications of Original Code
+ * as defined in and that are subject to the Apple Public Source License
+ * Version 2.0 (the 'License'). You may not use this file except in
+ * compliance with the License. Please obtain a copy of the License at
+ * http://www.opensource.apple.com/apsl/ and read it before using this
+ * file.
+ * 
+ * The Original Code and all software distributed under the License are
+ * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
  * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
  * INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY,
- * FITNESS FOR A PARTICULAR PURPOSE OR NON-INFRINGEMENT.  Please see the
- * License for the specific language governing rights and limitations
- * under the License.
+ * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
+ * Please see the License for the specific language governing rights and
+ * limitations under the License.
  * 
  * @APPLE_LICENSE_HEADER_END@
  */
@@ -38,9 +41,15 @@
 
 /* ************************************** I N C L U D E S ***************************************** */
 
-#import <sys/loadable_fs.h>
-#import	<bsd/libc.h>
-#import <bsd/dev/disk.h>
+#include <sys/types.h>
+#include <sys/disk.h>
+#include <sys/errno.h>
+#include <sys/uio.h>
+#include <sys/loadable_fs.h>
+#include <architecture/byte_order.h>
+
+#include <libc.h>
+#include <unistd.h>
 
 #include <CoreFoundation/CFBase.h>
 #include <IOKit/IOKitLib.h>
@@ -53,25 +62,34 @@
 #define	CDROM_BLOCK_SIZE		2048
 #define MAX_BLOCK_TO_SCAN		100
 #define ISO_STANDARD_ID 		"CD001"
-#define ISO_VD_PRIMARY 			0x01  // for ISOVolumeDescriptor.type when it's a primary descriptor
-#define ISO_FS_NAME				"cd9660"
-#define ISO_FS_NAME_NAME		"CDROM (ISO 9660)"
-#define DEFAULT_MOUNT_POINT		"/isoCD"
+#define ISO_FS_NAME			"cd9660"
 #define	MOUNT_COMMAND			"/sbin/mount"
 #define	UMOUNT_COMMAND			"/sbin/umount"
 #define MOUNT_FS_TYPE			"cd9660"
 
-typedef struct ISOVolumeDescriptor
-{
-	char		type[1];
-	char		id[5];			// should be "CD001"
-	char		version[1];
-	char		filler[33];
-	char		volumeID[32];
-	char		filler2[1976];
-} ISOVolumeDescriptor, *ISOVolumeDescriptorPtr;
+#define ISO_VD_BOOT            0
+#define ISO_VD_PRIMARY         1
+#define ISO_VD_SUPPLEMENTARY   2
+#define ISO_VD_PARTITION       3
+#define ISO_VD_END           255
 
+/* Universal Character Set implementation levels (for Joliet) */
+#define ISO_UCS2_Level_1	"%/@"
+#define ISO_UCS2_Level_2	"%/C"
+#define ISO_UCS2_Level_3	"%/E"
 
+struct iso_volumedesc {
+	u_char		vd_type[1];
+	char		vd_id[5];
+	u_char		vd_version[1];
+	u_char		vd_flags[1];
+	u_char		vd_system_id[32];
+	u_char		vd_volume_id[32];
+	u_char		vd_spare[8];
+	u_char		vd_blocks[8];
+	u_char		vd_escape_seq[32];
+	u_char		vd_data[1928];
+} iso_volumedesc;
 
 /* ************************************ P R O T O T Y P E S *************************************** */
 
@@ -261,102 +279,130 @@ Output -
 
 static int DoProbe( char *theDeviceNamePtr )
 {
-	int						myError;
-	int 					myFD = 0;
-	int						isFormated = 0;
-	long					myBlockNum;
-	ISOVolumeDescriptorPtr	myISOVolDescPtr;
-	char 					myBuffer[CDROM_BLOCK_SIZE];
-	char 					*myBufferPtr = &myBuffer[0];
+	struct iso_volumedesc * vdp;
+	void *bufp;
 	int sectorsize = 0;
-	long blkoff;
-	long maxblk;
+	int isFormated = 0;
+	daddr_t blkno;
+	daddr_t blkoff;
+	daddr_t maxblk;
+	char bestname[64] = {0};	
+	int fd = 0;
+	int error;
+	int i;
+	u_char type;
 	
-	myFD = open( theDeviceNamePtr, O_RDONLY | O_NDELAY , 0 );
-	if( myFD <= 0 )
-	{
-		
-#if DEBUG
-		printf ("Error opening the device name from DoProbe, Device was %s\n",theDeviceNamePtr);
-		printf ("Error %d was from an open call %s\n",errno,strerror(errno));
-#endif
-		myError = FSUR_IO_FAIL;
-		goto ExitThisRoutine;
+	bufp = malloc(CDROM_BLOCK_SIZE);
+	if (bufp == NULL)
+		return (FSUR_IO_FAIL);
+
+	if ((fd = open(theDeviceNamePtr, O_RDONLY | O_NDELAY , 0)) <= 0) {
+		error = FSUR_IO_FAIL;
+		goto out;
 	}
 
-	/* Make sure we are dealing with a resonable sector size (power of 2) */
-	if ( ioctl(myFD, DKIOCBLKSIZE, &sectorsize) < 0 )
-	{
-		myError = FSUR_IO_FAIL;
-		goto ExitThisRoutine;
+	if ((ioctl(fd, DKIOCGETBLOCKSIZE, &sectorsize) < 0) ||
+	    (ioctl(fd, DKIOCISFORMATTED, &isFormated) != 0) ) {
+		error = FSUR_IO_FAIL;
+		goto out;
 	}
-	if ((sectorsize & (sectorsize-1)) != 0)
-	{
-		myError = FSUR_UNRECOGNIZED;
-		goto ExitThisRoutine;
-	}
-	
-	/* Make sure the device is formatted.  If not, bail immediately. */
-	if ( ioctl( myFD, DKIOCGFORMAT, &isFormated ) != 0 )  
-	{
-		myError = FSUR_IO_FAIL;
-		goto ExitThisRoutine;
-	}
-	if ( isFormated == 0 )
-	{
-		myError = FSUR_UNRECOGNIZED;
-		goto ExitThisRoutine;
+	/*
+	 * Device must be formatted.
+	 * Sector size must be a power of 2.
+	 */
+	if ((isFormated == 0) ||
+	    ((sectorsize & (sectorsize-1)) != 0)) {
+		error = FSUR_UNRECOGNIZED;
+		goto out;
 	}
 
-	blkoff = get_ssector(theDeviceNamePtr, myFD);
+	blkoff = get_ssector(theDeviceNamePtr, fd);
 	maxblk = MAX_BLOCK_TO_SCAN + blkoff;
 
 	/* Scan for the ISO Volume Descriptor.  It should be at block 16 on the CD but may be past */
 	/* block 16.  We'll scan a few blocks looking for it. */
-	myISOVolDescPtr = (ISOVolumeDescriptorPtr) myBufferPtr;
-	myBlockNum = 16 + blkoff;
-	lseek( myFD, (myBlockNum * CDROM_BLOCK_SIZE), 0 );
-	for (; myBlockNum < maxblk; myBlockNum++)
-	{
-		if ( read( myFD, myBufferPtr, CDROM_BLOCK_SIZE ) != CDROM_BLOCK_SIZE )
-		{
-			myError = FSUR_IO_FAIL;
-			goto ExitThisRoutine;
+
+	vdp = (struct iso_volumedesc *) bufp;
+	blkno = 16 + blkoff;
+	lseek(fd, (blkno * CDROM_BLOCK_SIZE), 0);
+
+	for (blkno = 16 + blkoff; blkno < maxblk; blkno++) {
+		if (read(fd, bufp, CDROM_BLOCK_SIZE) != CDROM_BLOCK_SIZE) {
+			error = FSUR_IO_FAIL;
+			goto out;
 		}
+		if (bcmp(vdp->vd_id, ISO_STANDARD_ID,
+		    sizeof(vdp->vd_id)) != 0) {
+		    if (bestname[0] != 0)
+		    	break;
+			error = FSUR_IO_FAIL;
+			goto out;	/* Not ISO 9660 */
+		}
+		type = (u_char)vdp->vd_type[0];
+
+		if (type == ISO_VD_END)
+			break;
 				
-		if ( memcmp( &myISOVolDescPtr->id[0], ISO_STANDARD_ID, sizeof(myISOVolDescPtr->id) ) == 0 )
-		{
-			/* We found a match on id "CD001".  Now make sure type is for the primary descriptor */
-			if ( myISOVolDescPtr->type[0] == ISO_VD_PRIMARY )
-			{
-
-				myISOVolDescPtr->filler2[0] = 0x00; // make sure volume ID is null terminated
-				StripTrailingSpaces(myISOVolDescPtr->volumeID);
-				write(1, myISOVolDescPtr->volumeID,
-				      strlen(myISOVolDescPtr->volumeID));
-				DoFileSystemFile( FS_NAME_SUFFIX, ISO_FS_NAME );
-				DoFileSystemFile( FS_LABEL_SUFFIX,
-						  myISOVolDescPtr->volumeID );
-				break;
-			}
+		if (type == ISO_VD_PRIMARY) {
+			vdp->vd_data[0] = '\0';	/* null terminating */
+			bcopy(vdp->vd_volume_id, bestname, sizeof(vdp->vd_volume_id));
+			bestname[32] = '\0';
 		}
-	} /* end of for loop */
+		if (type == ISO_VD_SUPPLEMENTARY) {
+			CFStringRef cfstr;
+			u_int16_t * uchp;
+			u_char utf8_name[32];
 
-	if ( myBlockNum >= maxblk )
-	{
-		/* Didn't find the ISO volume descriptor */
-		myError = FSUR_UNRECOGNIZED;
-		goto ExitThisRoutine;
+			/*
+			 * Some Joliet CDs are "out-of-spec and don't correctly
+			 * set the SVD flags. We ignore the flags and rely soely
+			 * on the escape sequence.
+			 */
+			if ((bcmp(vdp->vd_escape_seq, ISO_UCS2_Level_1, 3) != 0) &&
+			    (bcmp(vdp->vd_escape_seq, ISO_UCS2_Level_2, 3) != 0) &&
+			    (bcmp(vdp->vd_escape_seq, ISO_UCS2_Level_3, 3) != 0) ) {
+			    continue;
+			}
+			/*
+			 * On Joliet CDs use the UCS-2 volume identifier.
+			 *
+			 * This name can have up to 16 UCS-2 chars.
+			 */
+			uchp = (u_int16_t *)vdp->vd_volume_id;
+			for (i = 0; i < 16 && uchp[i]; ++i) {
+				if (BYTE_ORDER != BIG_ENDIAN)
+					uchp[i] = NXSwapShort(uchp[i]);
+			}
+			cfstr = CFStringCreateWithCharacters(kCFAllocatorDefault, uchp, i);
+			
+			if (CFStringGetCString(cfstr, utf8_name, sizeof(utf8_name),
+			                       kCFStringEncodingUTF8)) {
+				bcopy(utf8_name, bestname, strlen(utf8_name) + 1);
+			}
+			CFRelease(cfstr);
+			if (bestname[0] != 0)
+				break;
+		}
 	}
-	 
-	myError = FSUR_RECOGNIZED;
+
+	if (blkno < maxblk) {
+		StripTrailingSpaces(bestname);
+		write(STDOUT_FILENO, bestname, strlen(bestname));
+		DoFileSystemFile(FS_NAME_SUFFIX, ISO_FS_NAME);
+		DoFileSystemFile(FS_LABEL_SUFFIX, bestname);
+		error = FSUR_RECOGNIZED;
+	} else {
+		error = FSUR_UNRECOGNIZED;
+	}
 	
-ExitThisRoutine:
-	if ( myFD > 0 )
-		close( myFD );
-		
-	return myError;
-		
+out:
+	if (fd > 0)
+		close(fd);
+
+	free(bufp);
+	
+	return (error);
+	
 } /* DoProbe */
 
 
@@ -599,15 +645,15 @@ get_ssector(const char *devpath, int devfd)
 {
 	struct CDTOC * toc_p;
 	struct CDTOC_Desc *toc_desc;
-	struct ISOVolumeDescriptor *isovdp;
+	struct iso_volumedesc *isovdp;
 	char iobuf[CDROM_BLOCK_SIZE];
-	int cmpsize = sizeof(isovdp->id);
+	int cmpsize = sizeof(isovdp->vd_id);
 	int i, count;
 	int ssector;
 	u_char track;
 
 	ssector = 0;
-	isovdp = (struct ISOVolumeDescriptor *)iobuf;
+	isovdp = (struct iso_volumedesc *)iobuf;
 
 	if ((toc_p = (struct CDTOC *)get_cdtoc(devpath)) == NULL)
 		goto exit;
@@ -640,8 +686,8 @@ get_ssector(const char *devpath, int devfd)
 			if (read(devfd, iobuf, CDROM_BLOCK_SIZE) != CDROM_BLOCK_SIZE)
 				continue;
 		
-			if ((memcmp(&isovdp->id[0], ISO_STANDARD_ID, cmpsize) == 0)
-				&& (isovdp->type[0] == ISO_VD_PRIMARY)) {
+			if ((memcmp(isovdp->vd_id, ISO_STANDARD_ID, cmpsize) == 0)
+				&& (isovdp->vd_type[0] == ISO_VD_PRIMARY)) {
 				ssector = sector;
 				break;
 			}
@@ -709,7 +755,7 @@ get_cdtoc(const char * devpath)
 		goto Exit;
 	
 	if ( IORegistryEntryCreateCFProperties(service,
-	                                       &properties,
+	                                       (CFMutableDictionaryRef *)&properties,
 	                                       kCFAllocatorDefault,
 	                                       kNilOptions) != KERN_SUCCESS ) {
 		goto Exit;

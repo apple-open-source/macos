@@ -27,7 +27,7 @@
 
 #include <Security/cssmerr.h>
 #include <Security/cssmtype.h>
-#include <Security/x509defs.h>			/* for CSSM_APPLE_ROOT_CERT_REQUEST fields */
+#include <Security/x509defs.h>			/* for CSSM_APPLE_TP_CERT_REQUEST fields */
 #include <Security/certextensions.h>	/* ditto */
 #include <sys/types.h>					/* for the BSD *_t types */
 
@@ -64,6 +64,8 @@ enum
     CSSM_WORDID_KEYCHAIN_CHANGE_LOCK,
 	CSSM_WORDID_PROCESS,
 	CSSM_WORDID__RESERVED_1,		// was used in 10.2 test seeds; no longer in use
+	CSSM_WORDID_SYMMETRIC_KEY,
+	CSSM_WORDID_SYSTEM,
 	CSSM_WORDID__FIRST_UNUSED
 };
 
@@ -149,9 +151,24 @@ enum
 	CSSM_ALGID_FEEDEXP,			/* 2:1 FEE asymmetric encryption */
 	CSSM_ALGID_ASC,				/* Apple Secure Compression */
 	CSSM_ALGID_SHA1HMAC_LEGACY,	/* HMAC/SHA1, legacy compatible */
+	CSSM_ALGID_KEYCHAIN_KEY,	/* derive or manipulate keychain master keys */
+	CSSM_ALGID_PKCS12_PBE_ENCR,	/* PKCS12, encrypt/decrypt key */
+	CSSM_ALGID_PKCS12_PBE_MAC,	/* PKCS12, MAC key */
     CSSM_ALGID__FIRST_UNUSED
 };
 
+/* Apple defined keyblob formats */
+enum {
+	CSSM_KEYBLOB_RAW_FORMAT_VENDOR_DEFINED	= 0x80000000
+};
+enum {
+	/* X509 SubjectPublicKeyInfo */
+	CSSM_KEYBLOB_RAW_FORMAT_X509 = CSSM_KEYBLOB_RAW_FORMAT_VENDOR_DEFINED,
+	/* openssh */
+	CSSM_KEYBLOB_RAW_FORMAT_OPENSSH,		
+	/* openssl-style DSA private key */
+	CSSM_KEYBLOB_RAW_FORMAT_OPENSSL
+};
 
 /* Apple adds some "common" error codes. CDSA does not define an official start value for this. */
 enum
@@ -160,7 +177,8 @@ enum
     
     CSSM_ERRCODE_NO_USER_INTERACTION =				0x00e0,
     CSSM_ERRCODE_USER_CANCELED =					0x00e1,
-	CSSM_ERRCODE_SERVICE_NOT_AVAILABLE =			0x00e2
+	CSSM_ERRCODE_SERVICE_NOT_AVAILABLE =			0x00e2,
+	CSSM_ERRCODE_INSUFFICIENT_CLIENT_IDENTIFICATION =		0x00e3
 };
 
 enum {
@@ -183,12 +201,31 @@ enum {
 	CSSMERR_CSP_SERVICE_NOT_AVAILABLE = CSSM_CSP_BASE_ERROR + CSSM_ERRCODE_SERVICE_NOT_AVAILABLE,
 	CSSMERR_CL_SERVICE_NOT_AVAILABLE = CSSM_CL_BASE_ERROR + CSSM_ERRCODE_SERVICE_NOT_AVAILABLE,
 	CSSMERR_DL_SERVICE_NOT_AVAILABLE = CSSM_DL_BASE_ERROR + CSSM_ERRCODE_SERVICE_NOT_AVAILABLE,
-	CSSMERR_TP_SERVICE_NOT_AVAILABLE = CSSM_TP_BASE_ERROR + CSSM_ERRCODE_SERVICE_NOT_AVAILABLE
+	CSSMERR_TP_SERVICE_NOT_AVAILABLE = CSSM_TP_BASE_ERROR + CSSM_ERRCODE_SERVICE_NOT_AVAILABLE,
+
+	CSSMERR_CSSM_INSUFFICIENT_CLIENT_IDENTIFICATION = CSSM_CSSM_BASE_ERROR + CSSM_ERRCODE_INSUFFICIENT_CLIENT_IDENTIFICATION,
+	CSSMERR_AC_INSUFFICIENT_CLIENT_IDENTIFICATION = CSSM_AC_BASE_ERROR + CSSM_ERRCODE_INSUFFICIENT_CLIENT_IDENTIFICATION,
+	CSSMERR_CSP_INSUFFICIENT_CLIENT_IDENTIFICATION = CSSM_CSP_BASE_ERROR + CSSM_ERRCODE_INSUFFICIENT_CLIENT_IDENTIFICATION,
+	CSSMERR_CL_INSUFFICIENT_CLIENT_IDENTIFICATION = CSSM_CL_BASE_ERROR + CSSM_ERRCODE_INSUFFICIENT_CLIENT_IDENTIFICATION,
+	CSSMERR_DL_INSUFFICIENT_CLIENT_IDENTIFICATION = CSSM_DL_BASE_ERROR + CSSM_ERRCODE_INSUFFICIENT_CLIENT_IDENTIFICATION,
+	CSSMERR_TP_INSUFFICIENT_CLIENT_IDENTIFICATION = CSSM_TP_BASE_ERROR + CSSM_ERRCODE_INSUFFICIENT_CLIENT_IDENTIFICATION
 };
 
-/* AppleCSPDL private error codes. */
+/* AppleCSPDL, AppleCSP private error codes. */
 enum {
-	CSSMERR_CSP_APPLE_ADD_APPLICATION_ACL_SUBJECT = CSSM_CSP_PRIVATE_ERROR + 0
+	CSSMERR_CSP_APPLE_ADD_APPLICATION_ACL_SUBJECT = CSSM_CSP_PRIVATE_ERROR + 0,
+	/*
+	 * An attempt was made to use a public key which is incomplete due to 
+	 * the lack of algorithm-specific parameters.
+	 */
+	CSSMERR_CSP_APPLE_PUBLIC_KEY_INCOMPLETE = CSSM_CSP_PRIVATE_ERROR + 1,
+	
+	/* a code signature match failed */
+	CSSMERR_CSP_APPLE_SIGNATURE_MISMATCH = CSSM_CSP_PRIVATE_ERROR + 2,
+	
+	/* Key StartDate/EndDate invalid */
+	CSSMERR_CSP_APPLE_INVALID_KEY_START_DATE = CSSM_CSP_PRIVATE_ERROR + 3,
+	CSSMERR_CSP_APPLE_INVALID_KEY_END_DATE = CSSM_CSP_PRIVATE_ERROR + 4
 };
 
 
@@ -201,7 +238,7 @@ enum
 
     CSSM_DL_DB_RECORD_X509_CERTIFICATE = CSSM_DB_RECORDTYPE_APP_DEFINED_START + 0x1000,
 	CSSM_DL_DB_RECORD_USER_TRUST,
-
+	CSSM_DL_DB_RECORD_X509_CRL,
     CSSM_DL_DB_RECORD_METADATA = CSSM_DB_RECORDTYPE_APP_DEFINED_START + 0x8000
 };
 
@@ -268,28 +305,81 @@ enum
 	CSSMERR_APPLETP_INVALID_ID_LINKAGE =			CSSM_TP_PRIVATE_ERROR + 8,
 	/* PathLengthConstraint exceeded */
 	CSSMERR_APPLETP_PATH_LEN_CONSTRAINT =			CSSM_TP_PRIVATE_ERROR + 9,
+	/* Cert group terminated at a root cert which did not self-verify */
+	CSSMERR_APPLETP_INVALID_ROOT =					CSSM_TP_PRIVATE_ERROR + 10,
+	/* CRL expired/not valid yet */
+	CSSMERR_APPLETP_CRL_EXPIRED =					CSSM_TP_PRIVATE_ERROR + 11,
+	CSSMERR_APPLETP_CRL_NOT_VALID_YET =				CSSM_TP_PRIVATE_ERROR + 12,
+	/* Can't find appropriate CRL */
+	CSSMERR_APPLETP_CRL_NOT_FOUND =					CSSM_TP_PRIVATE_ERROR + 13,
+	/* specified CRL server down */
+	CSSMERR_APPLETP_CRL_SERVER_DOWN =				CSSM_TP_PRIVATE_ERROR + 14,
+	/* illegible CRL distribution point URL */
+	CSSMERR_APPLETP_CRL_BAD_URI =					CSSM_TP_PRIVATE_ERROR + 15,
+	/* Unknown critical cert/CRL extension */
+	CSSMERR_APPLETP_UNKNOWN_CERT_EXTEN =			CSSM_TP_PRIVATE_ERROR + 16,
+	CSSMERR_APPLETP_UNKNOWN_CRL_EXTEN =				CSSM_TP_PRIVATE_ERROR + 17,
+	/* CRL not verifiable to anchor or root */
+	CSSMERR_APPLETP_CRL_NOT_TRUSTED =				CSSM_TP_PRIVATE_ERROR + 18,
+	/* CRL verified to untrusted root */
+	CSSMERR_APPLETP_CRL_INVALID_ANCHOR_CERT =		CSSM_TP_PRIVATE_ERROR + 19,
+	/* CRL failed policy verification */
+	CSSMERR_APPLETP_CRL_POLICY_FAIL =				CSSM_TP_PRIVATE_ERROR + 20,
+	/* IssuingDistributionPoint extension violation */
+	CSSMERR_APPLETP_IDP_FAIL =						CSSM_TP_PRIVATE_ERROR + 21,
+	/* Cert not found at specified issuerAltName */
+	CSSMERR_APPLETP_CERT_NOT_FOUND_FROM_ISSUER =	CSSM_TP_PRIVATE_ERROR + 22,
+	/* Bad cert obtained from specified issuerAltName */
+	CSSMERR_APPLETP_BAD_CERT_FROM_ISSUER =			CSSM_TP_PRIVATE_ERROR + 23,
+	/* S/MIME Email address mismatch */
+	CSSMERR_APPLETP_SMIME_EMAIL_ADDRS_NOT_FOUND =	CSSM_TP_PRIVATE_ERROR + 24,
+	/* Appropriate S/MIME ExtendedKeyUsage not found */
+	CSSMERR_APPLETP_SMIME_BAD_EXT_KEY_USE =			CSSM_TP_PRIVATE_ERROR + 25,
+	/* S/MIME KeyUsage incompatiblity */
+	CSSMERR_APPLETP_SMIME_BAD_KEY_USE =	  			CSSM_TP_PRIVATE_ERROR + 26,
+	/* S/MIME, cert with KeyUsage flagged !critical */
+	CSSMERR_APPLETP_SMIME_KEYUSAGE_NOT_CRITICAL =	CSSM_TP_PRIVATE_ERROR + 27,
+	/* S/MIME, leaf with empty subject name and no email addrs
+	 * in SubjectAltName */
+	CSSMERR_APPLETP_SMIME_NO_EMAIL_ADDRS =			CSSM_TP_PRIVATE_ERROR + 28,
+	/* S/MIME, leaf with empty subject name, SubjectAltName 
+	 * not critical */
+	CSSMERR_APPLETP_SMIME_SUBJ_ALT_NAME_NOT_CRIT =	CSSM_TP_PRIVATE_ERROR + 29
 };
 
 enum
 {
-	CSSM_APPLEDL_OPEN_PARAMETERS_VERSION =			0
+	CSSM_APPLEDL_OPEN_PARAMETERS_VERSION =			1
+};
+
+enum cssm_appledl_open_parameters_mask
+{
+	kCSSM_APPLEDL_MASK_MODE =			(1 << 0)
 };
 
 /* Pass a CSSM_APPLEDL_OPEN_PARAMETERS_PTR as the OpenParameters argument to
-   CSSM_DL_DbCreate or CSSM_DL_DbOpen. */
+   CSSM_DL_DbCreate or CSSM_DL_DbOpen.  When using this struct, you must zero
+   out the entire struct before setting any additional parameters to ensure
+   forward compatibility.  */
 typedef struct cssm_appledl_open_parameters
 {
 	uint32 length;	/* Should be sizeof(CSSM_APPLEDL_OPEN_PARAMETERS). */
 	uint32 version;	/* Should be CSSM_APPLEDL_OPEN_PARAMETERS_VERSION. */
 
-	/* If no OpenParameters are specified autoCommit is on (!CSSM_FALSE) by default.
-	   When autoCommit is on (!CSSM_FALSE) changes made to the Db are written to disk
+	/* If no OpenParameters are specified, autoCommit is on (!CSSM_FALSE) by default.
+	   When autoCommit is on (!CSSM_FALSE), changes made to the Db are written to disk
 	   before returning from each function.
-	   When autoCommit is off (CSSM_FALSE) changes made to the database are not guaranteed
+	   When autoCommit is off (CSSM_FALSE), changes made to the database are not guaranteed
 	   to be written to disk until the Db is closed.  This is useful for bulk writes.
-	   Beware that if autoCommit is off changes made in previous calls to the DL might
+	   Be aware that if autoCommit is off, changes made in previous calls to the DL might
 	   get rolled back if a new modification operation fails. */
 	CSSM_BOOL autoCommit;
+
+	/* Mask marking which of the following fields are to be used. */
+	uint32 mask;
+
+	/* When calling DbCreate, the initial mode to create the database file with; ignored on DbOpen.  You must set the kCSSM_APPLEDL_MASK_MODE bit in mask or mode is ignored.  */
+	mode_t mode;
 } CSSM_APPLEDL_OPEN_PARAMETERS, *CSSM_APPLEDL_OPEN_PARAMETERS_PTR;
 
 
@@ -301,7 +391,7 @@ enum
 	CSSM_APPLECSPDL_DB_LOCK =			0,
 
 	/* Tell the SecurityServer to unlock the database specified by the DLDBHandle argument.
-	   The InputParameters argument is a CSSM_DATA_PTR containing the password. Or NULL if
+	   The InputParameters argument is a CSSM_DATA_PTR containing the password, or NULL if
 	   the SecurityServer should prompt for the password.
 	   The OutputParams argument is ignored.
 	   The SecurityServer will put up UI (though the SecurityAgent) when this function is called
@@ -311,8 +401,8 @@ enum
 	/* Ask the SecurityServer to get the db settings specified for the database
 	   specified by the DLDBHandle argument.  The settings are returned in the OutputParameters argument.
 	   The OutputParameters argument is a pointer to a CSSM_APPLECSPDL_DB_SETTINGS_PARAMETERS_PTR.
-	   Upon successful completion the AppleCSPDL will have allocated a
-	   CSSM_APPLECSPDL_DB_SETTINGS_PARAMETERS structure using the application specified
+	   Upon successful completion, the AppleCSPDL will have allocated a
+	   CSSM_APPLECSPDL_DB_SETTINGS_PARAMETERS structure using the application-specified
 	   allocators for the DL attachment specified by the DLDBHandle argument.  The structure will contain
 	   the current database settings for the specified database.  The client should free the
 	   CSSM_APPLECSPDL_DB_SETTINGS_PARAMETERS_PTR after it has finished using it.
@@ -331,8 +421,8 @@ enum
 	/* Ask the SecurityServer whether the database specified by the DLDBHandle argument is locked.
 	   The InputParameters argument is ignored.
 	   The OutputParameters argument is a pointer to a CSSM_APPLECSPDL_DB_IS_LOCKED_PARAMETERS_PTR.
-	   Upon successful completion the AppleCSPDL will have allocated a
-	   CSSM_APPLECSPDL_DB_IS_LOCKED_PARAMETERS structure using the application specified
+	   Upon successful completion, the AppleCSPDL will have allocated a
+	   CSSM_APPLECSPDL_DB_IS_LOCKED_PARAMETERS structure using the application-specified
 	   allocators for the DL attachment specified by the DLDBHandle argument.  The structure will contain
 	   the current lock status for the specified database.  The client should free the
 	   CSSM_APPLECSPDL_DB_IS_LOCKED_PARAMETERS_PTR after it has finished using it.
@@ -344,17 +434,22 @@ enum
 
 	   The InputParameters argument is a const CSSM_APPLECSPDL_DB_CHANGE_PASSWORD_PARAMETERS * containing
 	   a CSSM_ACCESS_CREDENTIALS * which determines how the password will be changed.  If the
-	   accessCredentials are NULL the SecurityAgent will prompt for the old and the new password for the
-	   specified database.  If credentials are specified there should be 2 entries.  First a 3 element
-	   list containing:
+	   accessCredentials are NULL, the SecurityAgent will prompt for the old and the new password for the
+	   specified database.  If credentials are specified, there should be 2 entries:
+	   1. a 3-element list containing:
 	   CSSM_WORDID_KEYCHAIN_LOCK, CSSM_SAMPLE_TYPE_PASSWORD, and the old password.
-	   Second a 3 element list containing:
+	   2. a 3-element list containing:
 	   CSSM_WORDID_KEYCHAIN_CHANGE_LOCK, CSSM_SAMPLE_TYPE_PASSWORD, and the new password.
 
 	   The OutputParams argument is ignored.
 	   The SecurityServer might put up UI (though the SecurityAgent) when this function is called.  */
 	CSSM_APPLECSPDL_DB_CHANGE_PASSWORD =5,
-
+	
+	/* Return the SecurityServer database handle for the database specified by the DLDBHandle */
+	CSSM_APPLECSPDL_DB_GET_HANDLE =		6,
+	
+	/* Given a CSSM_KEY for the CSPDL, return the SecurityServer key handle */
+	CSSM_APPLESCPDL_CSP_GET_KEYHANDLE =	7,
 	
 	/* Given a CSSM_KEY_PTR in any format, obtain the SHA-1 hash of the 
 	 * associated key blob. 
@@ -363,6 +458,8 @@ enum
 	 * in *outData. */
 	CSSM_APPLECSP_KEYDIGEST = 			0x100	
 };
+
+
 
 /* AppleCSPDL passthough parameters */
 typedef struct cssm_applecspdl_db_settings_parameters
@@ -417,6 +514,19 @@ enum {
 	 */
 	CSSM_ATTRIBUTE_ASC_OPTIMIZATION = 
 			(CSSM_ATTRIBUTE_DATA_UINT32 | (CSSM_ATTRIBUTE_VENDOR_DEFINED + 3)),
+			
+	/*
+	 * RSA blinding. Value is integer, nonzero (blinding on) or zero.
+	 */
+	CSSM_ATTRIBUTE_RSA_BLINDING = 
+			(CSSM_ATTRIBUTE_DATA_UINT32 | (CSSM_ATTRIBUTE_VENDOR_DEFINED + 4)),
+			
+	/*
+	 * Additional public key from which to obtain algorithm-specific
+	 * parameters.
+	 */
+	CSSM_ATTRIBUTE_PARAM_KEY = 
+			(CSSM_ATTRIBUTE_DATA_KEY | (CSSM_ATTRIBUTE_VENDOR_DEFINED + 5))
 };
 
 /*
@@ -450,6 +560,17 @@ enum {
 	CSSM_ASC_OPTIMIZE_TIME,				/* min runtime */
 	CSSM_ASC_OPTIMIZE_TIME_SIZE,		/* implies loss of security */
 	CSSM_ASC_OPTIMIZE_ASCII,			/* optimized for ASCC text, not implemented */
+};
+
+/*
+ * Apple custom CSSM_KEYATTR_FLAGS.
+ */
+enum {
+	/*
+	 * When set, indicates a public key which is incomplete (though
+	 * still valid) due to the lack of algorithm-specific parameters.
+	 */
+	CSSM_KEYATTR_PARTIAL =		0x00010000
 };
 
 /*
@@ -520,6 +641,63 @@ typedef struct {
 	const char  *ServerName;    // optional
 } CSSM_APPLE_TP_SSL_OPTIONS;
 
+/* 
+ * Options for X509TP's CSSM_TP_CertGroupVerify for policy 
+ * CSSMOID_APPLE_TP_REVOCATION_CRL. A pointer to, and length of, one 
+ * of these is optionally placed in 
+ * CSSM_TP_VERIFY_CONTEXT.Cred->Policy.PolicyIds[n].FieldValue.
+ */
+#define CSSM_APPLE_TP_CRL_OPTS_VERSION		0
+
+typedef uint32 CSSM_APPLE_TP_CRL_OPT_FLAGS;
+enum {
+	// require CRL verification for each cert; default is "try"
+	CSSM_TP_ACTION_REQUIRE_CRL_PER_CERT 	= 0x00000001,	
+	// enable fetch from network
+	CSSM_TP_ACTION_FETCH_CRL_FROM_NET 		= 0x00000002
+};
+
+typedef struct {
+	uint32      				Version;        // CSSM_APPLE_TP_CRL_OPTS_VERSION
+	CSSM_APPLE_TP_CRL_OPT_FLAGS	CrlFlags;
+	
+	/*
+	 * When non-NULL, store CRLs fetched from net here.
+	 * This is most likely a pointer to one of the  
+	 * CSSM_TP_CALLERAUTH_CONTEXT.DBList entries but that
+	 * is not a strict requirement.
+	 */
+	CSSM_DL_DB_HANDLE_PTR		crlStore;
+} CSSM_APPLE_TP_CRL_OPTIONS;
+
+/* 
+ * Options for X509TP's CSSM_TP_CertGroupVerify for policy 
+ * CSSMOID_APPLE_TP_SMIME. A pointer to, and length of, one 
+ * of these is optionally placed in 
+ * CSSM_TP_VERIFY_CONTEXT.Cred->Policy.PolicyIds[n].FieldValue.
+ */
+#define CSSM_APPLE_TP_SMIME_OPTS_VERSION		0
+typedef struct {
+	uint32      Version;        // CSSM_APPLE_TP_SMIME_OPTS_VERSION
+
+	/* 
+	 * Intended usage of the leaf cert. The cert's KeyUsage extension,
+	 * if present, must be a superset of this.
+	 */
+	CE_KeyUsage	IntendedUsage;
+	
+	/* 
+	 * The email address of the sender. If there is an email address
+	 * in the sender's cert, that email address must match this one.
+	 * Both (email address in the cert, and this one) are optional.
+	 * Expressed as a C string, optionally NULL terminated (i.e.,
+	 * SenderEmail[SenderEmailLen - 1] may or may not be NULL).
+	 */
+	uint32      SenderEmailLen;
+	const char  *SenderEmail;    // optional
+} CSSM_APPLE_TP_SMIME_OPTIONS;
+
+
 /*
  * Optional ActionData for all X509TP CertGroupVerify policies.
  * A pointer to, and length of, one of these is optionally placed in 
@@ -527,9 +705,10 @@ typedef struct {
  */
 typedef uint32 CSSM_APPLE_TP_ACTION_FLAGS;
 enum {
-   CSSM_TP_ACTION_ALLOW_EXPIRED = 0x00000001,		// allow expired certs
-   CSSM_TP_ACTION_ALLOW_EXPIRED_ROOT = 0x00000008,	// allow expired roots
-   /* other flags TBD */
+	CSSM_TP_ACTION_ALLOW_EXPIRED  		= 0x00000001,	// allow expired certs
+	CSSM_TP_ACTION_LEAF_IS_CA 	 		= 0x00000002,	// first cert is a CA 
+	CSSM_TP_ACTION_FETCH_CERT_FROM_NET 	= 0x00000004,	// enable net fetch of CA cert
+	CSSM_TP_ACTION_ALLOW_EXPIRED_ROOT 	= 0x00000008, 	// allow expired roots
 };
 
 #define CSSM_APPLE_TP_ACTION_VERSION		0
@@ -552,7 +731,8 @@ enum
 	CSSM_CERT_STATUS_NOT_VALID_YET		= 0x00000002,
 	CSSM_CERT_STATUS_IS_IN_INPUT_CERTS	= 0x00000004,
 	CSSM_CERT_STATUS_IS_IN_ANCHORS		= 0x00000008,
-	CSSM_CERT_STATUS_IS_ROOT			= 0x00000010
+	CSSM_CERT_STATUS_IS_ROOT			= 0x00000010,
+	CSSM_CERT_STATUS_IS_FROM_NET		= 0x00000020
 };
 
 typedef struct {
@@ -641,8 +821,36 @@ typedef struct {
 	const char				*challengeString;
 } CSSM_APPLE_CL_CSR_REQUEST;
 
+/*
+ * When a CRL with no NextUpdate field is encountered, we use this time 
+ * as the NextUpdate attribute when storing in a DB. It represents the
+ * virtual end of time in CSSM_TIMESTRING form.
+ */
+#define CSSM_APPLE_CRL_END_OF_TIME		"99991231235959"
+
+/*
+ * Default filesystem names and locations for SecurityServer features
+ * (included here for lack of a better place)
+ */
+#define kKeychainSuffix			".keychain"
+#define kSystemKeychainName		"System.keychain"
+#define kSystemKeychainDir		"/Library/Keychains/"
+#define kSystemUnlockFile		"/var/db/SystemKey"
+
 
 void cssmPerror(const char *how, CSSM_RETURN error);
+
+/* Convert between CSSM_OID and CSSM_ALGORITHMS */
+bool cssmOidToAlg(const CSSM_OID *oid, CSSM_ALGORITHMS *alg);
+const CSSM_OID *cssmAlgToOid(CSSM_ALGORITHMS algId);
+
+/*
+ * The MacOS OSStatus space has an embedding for UNIX errno values, similar to
+ * the way we embed CSSM_RETURN values in OSStatus. These are the base and limit
+ * values for this embedding.
+ */
+#define errSecErrnoBase			100000
+#define errSecErrnoLimit		100255
 
 #ifdef	__cplusplus
 }

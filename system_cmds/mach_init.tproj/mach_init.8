@@ -29,13 +29,16 @@ When the
 .Fl D
 option is specified,
 .Nm mach_init
-starts in normal (non-debug) mode.  This is the default.
+starts in normal (non-debug) mode.  Logging is minimal (only security-related
+and process launch failures are logged).  Core dumps are disabled for launched
+servers.  This is the default.
 .It Fl d
 When the
 .Fl d
 option is specified,
 .Nm mach_init
-starts in debug mode.
+starts in debug mode. Logging is extensive.  Core dumps will be taken for any
+launched servers that crash.
 .It Fl F
 When the
 .Fl F

@@ -1,0 +1,13 @@
+--- pselect.c.orig	Sat Oct 12 09:13:37 2002
++++ pselect.c	Fri May 16 14:11:39 2003
+@@ -31,8 +31,10 @@
+ __FBSDID("$FreeBSD: src/lib/libc/gen/pselect.c,v 1.6 2002/10/12 16:13:37 mike Exp $");
+ 
+ #include "namespace.h"
++#include <sys/types.h>
+ #include <sys/select.h>
+ #include <sys/time.h>
++#include <unistd.h>
+ 
+ #include <errno.h>
+ #include <signal.h>

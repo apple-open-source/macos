@@ -1,13 +1,14 @@
 /* index.c - index utilities */
-/* $OpenLDAP: pkg/ldap/servers/slapd/index.c,v 1.8 2002/01/30 23:11:44 kurt Exp $ */
+/* $OpenLDAP: pkg/ldap/servers/slapd/index.c,v 1.8.2.1 2003/02/09 16:31:36 kurt Exp $ */
 /*
- * Copyright 1998-2002 The OpenLDAP Foundation, All Rights Reserved.
+ * Copyright 1998-2003 The OpenLDAP Foundation, All Rights Reserved.
  * COPYING RESTRICTIONS APPLY, see COPYRIGHT file
  */
 
 #include "portable.h"
 
 #include <stdio.h>
+#include <ac/string.h>
 
 #include "slap.h"
 
@@ -29,8 +30,9 @@ int slap_str2index( const char *str, slap_mask_t *idx )
 		strcasecmp( str, "sub" ) == 0 )
 	{
 		*idx = SLAP_INDEX_SUBSTR_DEFAULT;
-	} else if ( strcasecmp( str, "nolang" ) == 0 ) {
-		*idx = SLAP_INDEX_NOLANG;
+	} else if ( strcasecmp( str, "nolang" ) == 0 ||	/* backwards compat */
+	            strcasecmp( str, "notags" ) == 0 ) {
+		*idx = SLAP_INDEX_NOTAGS;
 	} else if ( strcasecmp( str, "nosubtypes" ) == 0 ) {
 		*idx = SLAP_INDEX_NOSUBTYPES;
 	} else {

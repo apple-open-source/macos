@@ -1,0 +1,113 @@
+# Copyright (C) 1997 - 2001 Free Software Foundation, Inc.
+
+# This program is free software; you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation; either version 2 of the License, or
+# (at your option) any later version.
+# 
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+# 
+# You should have received a copy of the GNU General Public License
+# along with this program; if not, write to the Free Software
+# Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.  
+
+# Please email any bugs, comments, and/or additions to this file to:
+# bug-dejagnu@gnu.org
+
+#
+# Searches in the appropriate place (the board_info array) for the specified
+# information.
+#
+proc board_info { machine op args } {
+    global target_info
+    global board_info
+
+    verbose "board_info $machine $op $args" 3
+
+    if [info exists target_info($machine,name)] {
+	set machine $target_info($machine,name);
+    }
+    if { $op == "exists" } {
+	if { [llength $args] == 0 } {
+	    if [info exists board_info($machine,name)] {
+		return 1;
+	    } else {
+		return 0;
+	    }
+	} else {
+	    if [info exists "board_info($machine,[lindex $args 0])"] {
+		return 1;
+	    } else {
+		return 0;
+	    }
+	}
+    }
+    if { [llength $args] == 0 } {
+	verbose "getting $machine $op" 3
+	if [info exists board_info($machine,$op)] {
+	    return $board_info($machine,$op);
+	} else {
+	    return ""
+	}
+    }
+    return "";
+}
+
+proc target_info { op args } {
+    return [eval "board_info target \"$op\" $args"];
+}
+
+proc host_info { op args } {
+    return [eval "board_info host \"$op\" $args"];
+}
+
+#
+# Fill in ENTRY with VALUE for the current board being defined.
+#
+proc set_board_info { entry value } {
+    global board_info board;
+
+    if ![info exists board_info($board,$entry)] {
+	set board_info($board,$entry) $value;
+    }
+}
+
+#
+# Fill in ENTRY with VALUE for the current target.
+#
+proc set_currtarget_info { entry value } {
+    global board_info;
+
+    set board [target_info name];
+
+    if ![info exists board_info($board,$entry)] {
+	set board_info($board,$entry) $value;
+    }
+}
+
+#
+# Unset ENTRY for the current board being defined.
+#
+proc unset_board_info { entry } {
+    global board_info board;
+
+    if [info exists board_info($board,$entry)] {
+	unset board_info($board,$entry);
+    }
+}
+
+#
+# Unset ENTRY for the current board being defined.
+#
+proc unset_currtarget_info { entry } {
+    global board_info;
+
+    set board [target_info name];
+
+    if [info exists board_info($board,$entry)] {
+	unset board_info($board,$entry);
+    }
+}

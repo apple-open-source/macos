@@ -139,15 +139,18 @@ DSTROOT = $(HOME)
 # Additional flags (MiG generated files)
 OTHER_OFILES = DNSServiceDiscoveryRequestUser.o DNSServiceDiscoveryReplyServer.o
 
-#private headers
-MDNS_HDRS = DNSServiceDiscoveryRequest.defs DNSServiceDiscoveryRequest.h \
-                        DNSServiceDiscoveryReply.defs DNSServiceDiscoveryReply.h DNSServiceDiscoveryDefines.h
+# private headers
+INTERNAL_MDNS_HDRS = DNSServiceDiscoveryRequest.defs\
+	DNSServiceDiscoveryRequest.h \
+	DNSServiceDiscoveryReply.defs\
+	DNSServiceDiscoveryReply.h \
+	DNSServiceDiscoveryDefines.h
 
-BEFORE_INSTALLHDRS += $(SFILE_DIR) $(MDNS_HDRS)
+# public headers
+PUBLIC_MDNS_HEADERS = DNSServiceDiscovery.h
+
+BEFORE_INSTALLHDRS += $(SFILE_DIR) $(INTERNAL_MDNS_HDRS) 
 AFTER_INSTALLHDRS += mdns_hdrs
 PRIVATE_HEADER_DIR = /AppleInternal/Developer/Headers
 MDNS_HEADER_DIR_SUFFIX = /DNSServiceDiscovery
 
-# public headers
-OTHER_PUBLIC_HEADERS = DNSServiceDiscovery.h
-PUBLIC_HEADER_DIR_SUFFIX = /DNSServiceDiscovery

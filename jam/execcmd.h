@@ -10,6 +10,7 @@
  * 05/04/94 (seiwald) - async multiprocess interface
  */
 
+int next_available_cmd_slot();
 void execcmd();
 int execwait();
 

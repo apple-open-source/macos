@@ -1,7 +1,7 @@
 /* attribute.c - bdb backend acl attribute routine */
-/* $OpenLDAP: pkg/ldap/servers/slapd/back-bdb/attribute.c,v 1.12 2002/02/09 04:14:18 kurt Exp $ */
+/* $OpenLDAP: pkg/ldap/servers/slapd/back-bdb/attribute.c,v 1.12.2.10 2003/04/25 08:30:00 hyc Exp $ */
 /*
- * Copyright 1998-2002 The OpenLDAP Foundation, All Rights Reserved.
+ * Copyright 1998-2003 The OpenLDAP Foundation, All Rights Reserved.
  * COPYING RESTRICTIONS APPLY, see COPYRIGHT file
  */
 
@@ -30,84 +30,113 @@ bdb_attribute(
 	BerVarray *vals )
 {
 	struct bdb_info *bdb = (struct bdb_info *) be->be_private;
-	struct bdb_op_info *boi = (struct bdb_op_info *) op->o_private;
+	struct bdb_op_info *boi = NULL;
 	DB_TXN *txn = NULL;
 	Entry *e;
-	int	i, j, rc;
+	int	i, j = 0, rc;
 	Attribute *attr;
 	BerVarray v;
 	const char *entry_at_name = entry_at->ad_cname.bv_val;
 	AccessControlState acl_state = ACL_STATE_INIT;
 
+	u_int32_t	locker = 0;
+	DB_LOCK		lock;
+	int		free_lock_id = 0;
+
 #ifdef NEW_LOGGING
-	LDAP_LOG(( "backend", LDAP_LEVEL_ARGS,
-		"bdb_attribute: gr dn: \"%s\"\n", entry_ndn->bv_val ));
-	LDAP_LOG(( "backend", LDAP_LEVEL_ARGS,
-		"bdb_attribute: at: \"%s\"\n", entry_at_name));
-	LDAP_LOG(( "backend", LDAP_LEVEL_ARGS,
-		"bdb_attribute: tr dn: \"%s\"\n",
-		target ? target->e_ndn : "" ));
+	LDAP_LOG( BACK_BDB, ARGS, 
+		"bdb_attribute: gr ndn: \"%s\"\n", entry_ndn->bv_val, 0, 0 );
+	LDAP_LOG( BACK_BDB, ARGS, 
+		"bdb_attribute: at: \"%s\"\n", entry_at_name, 0, 0);
+	LDAP_LOG( BACK_BDB, ARGS, "bdb_attribute: tr ndn: \"%s\"\n",
+		target ? target->e_ndn : "", 0, 0 );
 #else
 	Debug( LDAP_DEBUG_ARGS,
-		"=> bdb_attribute: gr dn: \"%s\"\n",
+		"=> bdb_attribute: gr ndn: \"%s\"\n",
 		entry_ndn->bv_val, 0, 0 ); 
 	Debug( LDAP_DEBUG_ARGS,
 		"=> bdb_attribute: at: \"%s\"\n", 
 		entry_at_name, 0, 0 ); 
 
 	Debug( LDAP_DEBUG_ARGS,
-		"=> bdb_attribute: tr dn: \"%s\"\n",
+		"=> bdb_attribute: tr ndn: \"%s\"\n",
 		target ? target->e_ndn : "", 0, 0 ); 
 #endif
 
+	if( op ) boi = (struct bdb_op_info *) op->o_private;
 	if( boi != NULL && be == boi->boi_bdb ) {
 		txn = boi->boi_txn;
+		locker = boi->boi_locker;
+	}
+
+	if ( txn != NULL ) {
+		locker = TXN_ID ( txn );
+	} else if ( !locker ) {
+		rc = LOCK_ID ( bdb->bi_dbenv, &locker );
+		free_lock_id = 1;
+		switch(rc) {
+		case 0:
+			break;
+		default:
+			return LDAP_OTHER;
+		}
 	}
 
 	if (target != NULL && dn_match(&target->e_nname, entry_ndn)) {
 		/* we already have a LOCKED copy of the entry */
 		e = target;
 #ifdef NEW_LOGGING
-		LDAP_LOG(( "backend", LDAP_LEVEL_DETAIL1,
-			"bdb_attribute: target is LOCKED (%s)\n",
-			entry_ndn->bv_val ));
+		LDAP_LOG( BACK_BDB, DETAIL1, 
+			"bdb_attribute: target is LOCKED (%s)\n", entry_ndn->bv_val, 0, 0 );
 #else
 		Debug( LDAP_DEBUG_ARGS,
 			"=> bdb_attribute: target is entry: \"%s\"\n",
 			entry_ndn->bv_val, 0, 0 );
 #endif
 
-
 	} else {
+dn2entry_retry:
 		/* can we find entry */
-		rc = bdb_dn2entry_r( be, NULL, entry_ndn, &e, NULL, 0 );
+		rc = bdb_dn2entry_r( be, txn, entry_ndn, &e, NULL, 0, locker, &lock );
 		switch( rc ) {
 		case DB_NOTFOUND:
 		case 0:
 			break;
-		default:
-			if( txn != NULL ) {
+		case DB_LOCK_DEADLOCK:
+		case DB_LOCK_NOTGRANTED:
+			/* the txn must abort and retry */
+			if ( txn ) {
 				boi->boi_err = rc;
+				return LDAP_BUSY;
 			}
-			return LDAP_OTHER;
+			ldap_pvt_thread_yield();
+			goto dn2entry_retry;
+		default:
+			if ( boi ) boi->boi_err = rc;
+			if ( free_lock_id ) {
+				LOCK_ID_FREE( bdb->bi_dbenv, locker );
+			}
+			return (rc != LDAP_BUSY) ? LDAP_OTHER : LDAP_BUSY;
 		}
 		if (e == NULL) {
 #ifdef NEW_LOGGING
-			LDAP_LOG(( "backend", LDAP_LEVEL_INFO,
-				"bdb_attribute: cannot find entry (%s)\n",
-				entry_ndn->bv_val ));
+			LDAP_LOG( BACK_BDB, INFO, 
+				"bdb_attribute: cannot find entry (%s)\n", 
+				entry_ndn->bv_val, 0, 0 );
 #else
 			Debug( LDAP_DEBUG_ACL,
 				"=> bdb_attribute: cannot find entry: \"%s\"\n",
 					entry_ndn->bv_val, 0, 0 ); 
 #endif
+			if ( free_lock_id ) {
+				LOCK_ID_FREE( bdb->bi_dbenv, locker );
+			}
 			return LDAP_NO_SUCH_OBJECT; 
 		}
 		
 #ifdef NEW_LOGGING
-		LDAP_LOG(( "backend", LDAP_LEVEL_DETAIL1,
-			"bdb_attribute: found entry (%s)\n",
-			entry_ndn->bv_val ));
+		LDAP_LOG( BACK_BDB, DETAIL1, "bdb_attribute: found entry (%s)\n",
+			entry_ndn->bv_val, 0, 0 );
 #else
 		Debug( LDAP_DEBUG_ACL,
 			"=> bdb_attribute: found entry: \"%s\"\n",
@@ -119,8 +148,8 @@ bdb_attribute(
 	/* find attribute values */
 	if( is_entry_alias( e ) ) {
 #ifdef NEW_LOGGING
-		LDAP_LOG(( "backend", LDAP_LEVEL_INFO,
-			"bdb_attribute: entry (%s) is an alias\n", e->e_dn ));
+		LDAP_LOG( BACK_BDB, INFO, 
+			"bdb_attribute: entry (%s) is an alias\n", e->e_dn, 0, 0 );
 #else
 		Debug( LDAP_DEBUG_ACL,
 			"<= bdb_attribute: entry is an alias\n", 0, 0, 0 );
@@ -132,8 +161,8 @@ bdb_attribute(
 
 	if( is_entry_referral( e ) ) {
 #ifdef NEW_LOGGING
-		LDAP_LOG(( "backend", LDAP_LEVEL_INFO,
-			"bdb_attribute: entry (%s) is a referral.\n", e->e_dn ));
+		LDAP_LOG( BACK_BDB, INFO, 
+			"bdb_attribute: entry (%s) is a referral.\n", e->e_dn, 0, 0);
 #else
 		Debug( LDAP_DEBUG_ACL,
 			"<= bdb_attribute: entry is a referral\n", 0, 0, 0 );
@@ -142,18 +171,10 @@ bdb_attribute(
 		goto return_results;
 	}
 
-	if (conn != NULL && op != NULL
-		&& access_allowed( be, conn, op, e, slap_schema.si_ad_entry,
-			NULL, ACL_READ, &acl_state ) == 0 )
-	{
-		rc = LDAP_INSUFFICIENT_ACCESS;
-		goto return_results;
-	}
-
 	if ((attr = attr_find(e->e_attrs, entry_at)) == NULL) {
 #ifdef NEW_LOGGING
-		LDAP_LOG(( "backend", LDAP_LEVEL_INFO,
-			"bdb_attribute: failed to find %s.\n", entry_at_name ));
+		LDAP_LOG( BACK_BDB, INFO, 
+			"bdb_attribute: failed to find %s.\n", entry_at_name, 0, 0 );
 #else
 		Debug( LDAP_DEBUG_ACL,
 			"<= bdb_attribute: failed to find %s\n",
@@ -164,8 +185,8 @@ bdb_attribute(
 	}
 
 	if (conn != NULL && op != NULL
-		&& access_allowed( be, conn, op, e, entry_at, NULL, ACL_READ, 
-			   &acl_state ) == 0 )
+		&& access_allowed( be, conn, op, e, entry_at, NULL,
+			ACL_AUTH, &acl_state ) == 0 )
 	{
 		rc = LDAP_INSUFFICIENT_ACCESS;
 		goto return_results;
@@ -181,7 +202,7 @@ bdb_attribute(
 		if( conn != NULL
 			&& op != NULL
 			&& access_allowed(be, conn, op, e, entry_at,
-				&attr->a_vals[i], ACL_READ, &acl_state ) == 0)
+				&attr->a_vals[i], ACL_AUTH, &acl_state ) == 0)
 		{
 			continue;
 		}
@@ -204,13 +225,15 @@ bdb_attribute(
 return_results:
 	if( target != e ) {
 		/* free entry */
-		bdb_cache_return_entry_r(&bdb->bi_cache, e);
+		bdb_cache_return_entry_r(bdb->bi_dbenv, &bdb->bi_cache, e, &lock);
+	}
+
+	if ( free_lock_id ) {
+		LOCK_ID_FREE( bdb->bi_dbenv, locker );
 	}
 
 #ifdef NEW_LOGGING
-	LDAP_LOG(( "backend", LDAP_LEVEL_ENTRY,
-		"bdb_attribute: rc=%d nvals=%d.\n",
-		rc, j ));
+	LDAP_LOG( BACK_BDB, ENTRY, "bdb_attribute: rc=%d nvals=%d.\n", rc, j, 0 );
 #else
 	Debug( LDAP_DEBUG_TRACE,
 		"bdb_attribute: rc=%d nvals=%d\n",

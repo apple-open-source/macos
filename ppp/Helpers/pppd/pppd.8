@@ -1,5 +1,5 @@
 .\" manual page [] for pppd 2.4
-.\" $Id: pppd.8,v 1.2 2002/03/13 22:44:59 callie Exp $
+.\" $Id: pppd.8,v 1.4 2002/12/07 02:14:50 callie Exp $
 .\" SH section heading
 .\" SS subsection heading
 .\" LP paragraph
@@ -181,7 +181,7 @@ identifier is randomized.
 .B active-filter \fIfilter-expression
 Specifies a packet filter to be applied to data packets to determine
 which packets are to be regarded as link activity, and therefore reset
-the idle timer, or cause the link to be brought up in demand-dialling
+the idle timer, or cause the link to be brought up in demand-dialing
 mode.  This option is useful in conjunction with the
 \fBidle\fR option if there are packets being sent or received
 regularly over the link (for example, routing information packets)
@@ -191,7 +191,7 @@ except that qualifiers which are inappropriate for a PPP link, such as
 \fBether\fR and \fBarp\fR, are not permitted.  Generally the filter
 expression should be enclosed in single-quotes to prevent whitespace
 in the expression from being interpreted by the shell. This option
-is currently only available under NetBSD, and then only
+is currently only available under NetBSD or Linux, and then only
 if both the kernel and pppd were compiled with PPP_FILTER defined.
 .TP
 .B allow-ip \fIaddress(es)
@@ -265,7 +265,7 @@ Request that the peer compress packets that it sends, using the
 Deflate scheme, with a maximum window size of \fI2**nr\fR bytes, and
 agree to compress packets sent to the peer with a maximum window size
 of \fI2**nt\fR bytes.  If \fInt\fR is not specified, it defaults to
-the value given for \fInr\fR.  Values in the range 8 to 15 may be used
+the value given for \fInr\fR.  Values in the range 9 to 15 may be used
 for \fInr\fR and \fInt\fR; larger values give better compression but
 consume more kernel memory for compression dictionaries.
 Alternatively, a value of 0 for \fInr\fR or \fInt\fR disables
@@ -297,6 +297,19 @@ specify \fIdomain Quotron.COM\fR.  Pppd would then use the name
 \fIporsche.Quotron.COM\fR for looking up secrets in the secrets file,
 and as the default name to send to the peer when authenticating itself
 to the peer.  This option is privileged.
+.TP
+.B dryrun
+With the \fBdryrun\fR option, pppd will print out all the option
+values which have been set and then exit, after parsing the command
+line and options files and checking the option values, but before
+initiating the link.  The option values are logged at level info, and
+also printed to standard output unless the device on standard output
+is the device that pppd would be using to communicate with the peer.
+.TP
+.B dump
+With the \fBdump\fR option, pppd will print out all the option values
+which have been set.  This option is like the \fBdryrun\fR option
+except that pppd proceeds as normal rather than exiting.
 .TP
 .B endpoint \fI<epdisc>
 Sets the endpoint discriminator sent by the local machine to the peer
@@ -444,7 +457,11 @@ default value is 3.
 .TP
 .B kdebug \fIn
 Enable debugging code in the kernel-level PPP driver.  The argument
-\fIn\fR is a number which is the sum of the following values: 1 to
+values depend on the specific kernel driver, but in general a value of
+1 will enable general kernel debug messages.  (Note that these
+messages are usually only useful for debugging the kernel driver
+itself.)  For the Linux 2.2.x kernel driver, the value is a sum of
+bits: 1 to
 enable general debug messages, 2 to request that the contents of
 received packets be printed, and 4 to request that the contents of
 transmitted packets be printed.  On most systems, messages printed by
@@ -544,6 +561,10 @@ control, as for the \fIcrtscts\fR option.
 Enables the use of PPP multilink; this is an alias for the `multilink'
 option.  This option is currently only available under Linux.
 .TP
+.B mppe-stateful
+Allow MPPE to use stateful mode.  Stateless mode is still attempted first.
+The default is to disallow stateful mode.  
+.TP
 .B mpshortseq
 Enables the use of short (12-bit) sequence numbers in multilink
 headers, as opposed to 24-bit sequence numbers.  This option is only
@@ -621,10 +642,10 @@ requests from pppd for CCP negotiation.
 .B nocrtscts
 Disable hardware flow control (i.e. RTS/CTS) on the serial port.
 If neither the \fIcrtscts\fR nor the \fInocrtscts\fR nor the
-\fIcdtrcts\fR nor the \fInodtrcts\fR option is given, the hardware
+\fIcdtrcts\fR nor the \fInocdtrcts\fR option is given, the hardware
 flow control setting for the serial port is left unchanged.
 .TP
-.B nodtrcts
+.B nocdtrcts
 This option is a synonym for \fInocrtscts\fR. Either of these options will
 disable both forms of hardware flow control.
 .TP
@@ -685,6 +706,18 @@ peer is buggy.
 .B nomp
 Disables the use of PPP multilink.  This option is currently only
 available under Linux.
+.TP
+.B nomppe
+Disables MPPE (Microsoft Point to Point Encryption).  This is the default.
+.TP
+.B nomppe-40
+Disable 40\-bit encryption with MPPE.
+.TP
+.B nomppe-128
+Disable 128\-bit encryption with MPPE.
+.TP
+.B nomppe-stateful
+Disable MPPE stateful mode.  This is the default.
 .TP
 .B nompshortseq
 Disables the use of short (12-bit) sequence numbers in the PPP
@@ -773,11 +806,15 @@ the kernel and pppd were compiled with PPP_FILTER defined.
 .TP
 .B persist
 Do not exit after a connection is terminated; instead try to reopen
-the connection.
+the connection. The \fBmaxfail\fR option still has an effect on
+persistent connections.
 .TP
 .B plugin \fIfilename
 Load the shared library object file \fIfilename\fR as a plugin.  This
-is a privileged option.
+is a privileged option.  If \fIfilename\fR does not contain a slash
+(/), pppd will look in the \fB/usr/lib/pppd/\fIversion\fR directory
+for the plugin, where
+\fIversion\fR is the version number of pppd (for example, 2.4.2).
 .TP
 .B predictor1
 Request that the peer compress frames that it sends using Predictor-1
@@ -832,6 +869,14 @@ to \fIname\fR.
 With this option, pppd will not agree to authenticate itself to the
 peer using CHAP.
 .TP
+.B refuse-mschap
+With this option, pppd will not agree to authenticate itself to the
+peer using MS-CHAP.
+.TP
+.B refuse-mschap-v2
+With this option, pppd will not agree to authenticate itself to the
+peer using MS-CHAPv2.
+.TP
 .B refuse-pap
 With this option, pppd will not agree to authenticate itself to the
 peer using PAP.
@@ -839,6 +884,28 @@ peer using PAP.
 .B require-chap
 Require the peer to authenticate itself using CHAP [Challenge
 Handshake Authentication Protocol] authentication.
+.TP
+.B require-mppe
+Require the use of MPPE (Microsoft Point to Point Encryption).  This
+option disables all other compression types.  This option enables
+both 40\-bit and 128\-bit encryption.  In order for MPPE to successfully
+come up, you must have authenticated with either MS-CHAP or MS-CHAPv2.
+This option is presently only supported under Linux, and only if your
+kernel has been configured to include MPPE support.
+.TP
+.B require-mppe-40
+Require the use of MPPE, with 40\-bit encryption.
+.TP
+.B require-mppe-128
+Require the use of MPPE, with 128\-bit encryption.
+.TP
+.B require-mschap
+Require the peer to authenticate itself using MS-CHAP [Microsft Challenge
+Handshake Authentication Protocol] authentication.
+.TP
+.B require-mschap-v2
+Require the peer to authenticate itself using MS-CHAPv2 [Microsft Challenge
+Handshake Authentication Protocol, Version 2] authentication.
 .TP
 .B require-pap
 Require the peer to authenticate itself using PAP [Password
@@ -991,7 +1058,8 @@ pppd will not agree to authenticate itself with a particular protocol
 if it has no secrets which could be used to do so.
 .LP
 Pppd stores secrets for use in authentication in secrets
-files (/etc/ppp/pap-secrets for PAP, /etc/ppp/chap-secrets for CHAP).
+files (/etc/ppp/pap-secrets for PAP, /etc/ppp/chap-secrets for
+CHAP/MS-CHAP/MS-CHAPv2).
 Both secrets files have the same format.  The secrets files can
 contain secrets for pppd to use in authenticating itself to other
 systems, as well as secrets for pppd to use when authenticating other
@@ -1122,7 +1190,7 @@ been able to negotiate the same addresses that it used to configure
 the interface (for example when the peer is an ISP that uses dynamic
 IP address assignment), pppd has to change the interface IP addresses
 to the negotiated addresses.  This may disrupt existing connections,
-and the use of demand dialling with peers that do dynamic IP address
+and the use of demand dialing with peers that do dynamic IP address
 assignment is not recommended.
 .SH MULTILINK
 Multilink PPP provides the capability to combine two or more PPP links
@@ -1469,7 +1537,8 @@ script.
 .B /var/run/ppp\fIn\fB.pid \fR(BSD or Linux), \fB/etc/ppp/ppp\fIn\fB.pid \fR(others)
 Process-ID for pppd process on ppp interface unit \fIn\fR.
 .TP
-.B /var/run/ppp-\fIname\fB.pid \fR(BSD or Linux), \fB/etc/ppp/ppp-\fIname\fB.pid \fR(others)
+.B /var/run/ppp-\fIname\fB.pid \fR(BSD or Linux),
+\fB/etc/ppp/ppp-\fIname\fB.pid \fR(others)
 Process-ID for pppd process for logical link \fIname\fR (see the
 \fIlinkname\fR option).
 .TP
@@ -1479,8 +1548,8 @@ file should be owned by root and not readable or writable by any other
 user.  Pppd will log a warning if this is not the case.
 .TP
 .B /etc/ppp/chap-secrets
-Names, secrets and IP addresses for CHAP authentication.  As for
-/etc/ppp/pap-secrets, this file should be owned by root and not
+Names, secrets and IP addresses for CHAP/MS-CHAP/MS-CHAPv2 authentication.
+As for /etc/ppp/pap-secrets, this file should be owned by root and not
 readable or writable by any other user.  Pppd will log a warning if
 this is not the case.
 .TP

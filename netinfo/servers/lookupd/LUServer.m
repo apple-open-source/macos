@@ -3,21 +3,22 @@
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
- * "Portions Copyright (c) 1999 Apple Computer, Inc.  All Rights
- * Reserved.  This file contains Original Code and/or Modifications of
- * Original Code as defined in and that are subject to the Apple Public
- * Source License Version 1.0 (the 'License').  You may not use this file
- * except in compliance with the License.  Please obtain a copy of the
- * License at http://www.apple.com/publicsource and read it before using
- * this file.
+ * Copyright (c) 1999-2003 Apple Computer, Inc.  All Rights Reserved.
+ * 
+ * This file contains Original Code and/or Modifications of Original Code
+ * as defined in and that are subject to the Apple Public Source License
+ * Version 2.0 (the 'License'). You may not use this file except in
+ * compliance with the License. Please obtain a copy of the License at
+ * http://www.opensource.apple.com/apsl/ and read it before using this
+ * file.
  * 
  * The Original Code and all software distributed under the License are
  * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
  * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
  * INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY,
- * FITNESS FOR A PARTICULAR PURPOSE OR NON-INFRINGEMENT.  Please see the
- * License for the specific language governing rights and limitations
- * under the License."
+ * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
+ * Please see the License for the specific language governing rights and
+ * limitations under the License.
  * 
  * @APPLE_LICENSE_HEADER_END@
  */
@@ -40,6 +41,7 @@
 #import "Controller.h"
 #import "Config.h"
 #import "Dyna.h"
+#import "DNSAgent.h"
 #import <NetInfo/dsutil.h>
 #import <netinfo/ni.h>
 #import <string.h>
@@ -49,12 +51,17 @@
 #import <sys/socket.h>
 #import <netinet/in.h>
 #import <arpa/inet.h>
+#import <fcntl.h>
+#import <ctype.h>
 
 #define MaxNetgroupRecursion 5
 #define XDRSIZE 8192
 
 #define MICROSECONDS 1000000
 #define MILLISECONDS 1000
+
+#define SOCK_UNSPEC 0
+#define IPPROTO_UNSPEC 0
 
 static unsigned int
 milliseconds_since(struct timeval t)
@@ -76,6 +83,22 @@ milliseconds_since(struct timeval t)
 
 	millisec = ((delta.tv_sec * 1000000) + delta.tv_usec) / 1000;
 	return millisec;
+}
+
+static int
+is_a_number(char *s)
+{
+	int i, len;
+
+	if (s == NULL) return 0;
+
+	len = strlen(s);
+	for (i = 0; i < len; i++)
+	{
+		if (isdigit(s[i]) == 0) return 0;
+	}
+
+	return 1;
 }
 
 @implementation LUServer
@@ -107,7 +130,7 @@ milliseconds_since(struct timeval t)
 	order = [cdict valuesForKey:"LookupOrder"];
 	return order;
 }
-
+			
 - (LUServer *)init
 {
 	[super init];
@@ -463,7 +486,6 @@ appendDomainName(char *h, char *d)
 	if (statistics_enabled)
 	{
 		gettimeofday(&allStart, (struct timezone *)NULL);
-
 		sprintf(caller, "all %s", [LUAgent categoryName:cat]);
 		currentCall = caller;
 	}
@@ -596,6 +618,7 @@ appendDomainName(char *h, char *d)
 	unsigned int sysTime;
 	unsigned int listTime;
 	unsigned int where;
+	int single_item;
 
 	if (pattern == nil) return nil;
 
@@ -630,6 +653,10 @@ appendDomainName(char *h, char *d)
 	pagent = NULL;
 	where = [pattern indexForKey:"_lookup_agent"];
 	if (where != IndexNull) pagent = [pattern valueAtIndex:where];
+
+	single_item = 0;
+	where = [pattern indexForKey:"_lookup_single"];
+	if (where != IndexNull) single_item = 1;
 
 	if ((pagent != NULL) && (!strcmp(pagent, "Cache")))
 	{
@@ -707,6 +734,8 @@ appendDomainName(char *h, char *d)
 
 			[sub release];
 		}
+
+		if ((single_item == 1) && ([all count] != 0)) break;
 	}
 
 	if (statistics_enabled)
@@ -788,7 +817,7 @@ appendDomainName(char *h, char *d)
 		}
 	}
 
-	all = [[LUDictionary alloc] init];
+	all = [[LUDictionary alloc] initTimeStamped];
 	[all setValue:name forKey:"name"];
 
 	lookupOrder = [self lookupOrderForCategory:LUCategoryUser];
@@ -868,7 +897,7 @@ appendDomainName(char *h, char *d)
 		return nil;
 	}
 	
-	group = [[LUDictionary alloc] init];
+	group = [[LUDictionary alloc] initTimeStamped];
 	[group setValue:name forKey:"name"];
 	sprintf(scratch, "LUServer: netgroup %s", name);
 	[group setBanner:scratch];
@@ -998,7 +1027,7 @@ appendDomainName(char *h, char *d)
 
 	if (all == nil) return nil;
 
-	item = [[LUDictionary alloc] init];
+	item = [[LUDictionary alloc] initTimeStamped];
 	[item setCategory:LUCategoryGroup];
 	sprintf(scratch, "LUServer: group %s %s", key, val);
 	[item setBanner:scratch];
@@ -1023,7 +1052,7 @@ appendDomainName(char *h, char *d)
 	LUDictionary *item;
 	BOOL cacheEnabled;
 	struct timeval sysStart;
-	unsigned int sysTime;
+	unsigned int sysTime = 0;
 
 	if (name == NULL) return nil;
 
@@ -1399,7 +1428,7 @@ appendDomainName(char *h, char *d)
 	int i, len;
 	struct timeval allStart;
 	struct timeval sysStart;
-	unsigned int sysTime;
+	unsigned int sysTime = 0;
 	unsigned int allTime;
 	BOOL found;
 
@@ -1619,64 +1648,1141 @@ appendDomainName(char *h, char *d)
 
 - (BOOL)isSecurityEnabledForOption:(char *)option
 {
-	ni_id dir;
-	void *d, *p;
-	ni_status status;
-	unsigned long i;
-	ni_namelist nl;
-
-	if (option == NULL) return NO;
-
-	dir.nii_object = 0;
-	d = NULL;
-
-	syslock_lock(rpcLock);
-	status = ni_open(NULL, ".", &d);
-	syslock_unlock(rpcLock);
-	if (status != NI_OK) return NO;
-
-	while (d != NULL)
-	{
-		NI_INIT(&nl);
-
-		syslock_lock(rpcLock);
-		ni_setreadtimeout(d, 10);
-		ni_setabort(d, 1);
-		status = ni_lookupprop(d, &dir, "security_options", &nl);
-		syslock_unlock(rpcLock);
-
-		if (status == NI_OK)
-		{
-			for (i = 0; i < nl.ni_namelist_len; i++)
-			{
-				if (streq(nl.ni_namelist_val[i], option) || streq(nl.ni_namelist_val[i], "all"))
-				{
-					ni_namelist_free(&nl);
-					syslock_lock(rpcLock);
-					ni_free(d);
-					syslock_unlock(rpcLock);
-					return YES;
-				}
-			}
-
-			ni_namelist_free(&nl);
-		}
-
-		syslock_lock(rpcLock);
-		status = ni_open(d, "..", &p);
-		ni_free(d);
-		syslock_unlock(rpcLock);
-
-		d = NULL;
-		if (status == NI_OK) d = p;
-	}
-
+	/* Obsolete - not used by loginwindow any more */
 	return NO;
 }
 
 - (BOOL)isNetwareEnabled
 {
+	/* Obsolete */
 	return NO;
+}
+
+- (LUDictionary *)dns_proxy:(LUDictionary *)dict
+{
+	struct timeval dnsStart;
+	unsigned int dnsTime;
+	LUDictionary *item;
+	DNSAgent *dns;
+
+	dns = (DNSAgent *)[self agentNamed:"DNS"];
+	if (dns == nil) return nil;
+
+	if (statistics_enabled)
+	{
+		gettimeofday(&dnsStart, (struct timezone *)NULL);
+		currentAgent = dns;
+		currentCall = "dns_proxy";
+		state = ServerStateQuerying;
+	}
+
+	item = [dns dns_proxy:dict];
+
+	if (statistics_enabled)
+	{
+		state = ServerStateActive;
+		currentAgent = nil;
+		dnsTime = milliseconds_since(dnsStart);
+		[self recordSearch:currentCall infoSystem:[dns shortName] time:dnsTime hit:(item == nil)];
+		currentCall = "NULL";
+	}
+
+	return item;
+}
+
+
+/*
+ * getaddrinfo support
+ * Input dict may contain the following
+ *
+ * name: nodename
+ * service: servname
+ * protocol: [IPPROTO_UNSPEC] | IPPROTO_UDP | IPPROTO_TCP
+ * socktype: [SOCK_UNSPEC] | SOCK_DGRAM | SOCK_STREAM
+ * family: [PF_UNSPEC] | PF_INET | PF_INET6
+ * canonname: [0] | 1
+ * passive: [0] | 1
+ * numerichost: [0] | 1
+ *
+ * Output dictionary may contain the following
+ * All values are encoded as strings.
+ *
+ * flags: unsigned long
+ * family: unsigned long
+ * socktype: unsigned long
+ * protocol: unsigned long
+ * port: unsigned long
+ * address: char *
+ * scopeid: unsigned long
+ * canonname: char *
+ */
+
+static LUDictionary *
+new_addrinfo(uint32_t flags, uint32_t sock, uint32_t proto, uint32_t family, uint32_t port, char *addr, uint32_t scopeid, char *cname)
+{
+	LUDictionary *a;
+
+	if ((scopeid == 0) && (addr != NULL) && (!strncasecmp(addr, "fe80:", 5)))
+	{
+		scopeid = atoi(addr+5);
+	}
+
+	a = [[LUDictionary alloc] init];
+
+	[a setUnsignedLong:flags forKey:"flags"];
+	[a setUnsignedLong:family forKey:"family"];
+	[a setUnsignedLong:sock forKey:"socktype"];
+	[a setUnsignedLong:proto forKey:"protocol"];
+	[a setUnsignedLong:port forKey:"port"];
+	[a setValue:addr forKey:"address"];
+	if (family == PF_INET6) [a setUnsignedLong:scopeid forKey:"scopeid"];
+	if (cname != NULL) [a setValue:cname forKey:"canonname"];
+	return a;
+}
+
+- (void)gaiPP:(char *)nodename port:(uint32_t)port protocol:(uint32_t)proto family:(uint32_t)family setcname:(int)setcname result:(LUArray *)res
+{
+	int wantv4, wantv6, socktype;
+	uint32_t i, count;
+	char **addrs, *cname;
+	LUDictionary *item;
+
+	socktype = SOCK_UNSPEC;
+	if (proto == IPPROTO_UDP) socktype = SOCK_DGRAM;
+	if (proto == IPPROTO_TCP) socktype = SOCK_STREAM;
+
+	cname = NULL;
+
+	wantv4 = 1;
+	wantv6 = 1;
+	if (family == PF_INET6) wantv4 = 0;
+	if (family == PF_INET) wantv6 = 0;
+
+	if (wantv4 != 0)
+	{
+		item = [self itemWithKey:"name" value:nodename category:LUCategoryHost];
+		if (item != nil)
+		{
+			if ((setcname != 0) && (cname == NULL)) cname = copyString([item valueForKey:"name"]);
+
+			addrs = [item valuesForKey:"ip_address"];
+			count = listLength(addrs);
+			for (i = 0; i < count; i++)
+			{
+				[res addObject:new_addrinfo(0, socktype, proto, PF_INET, port, addrs[i], 0, NULL)];
+			}
+
+			[item release];
+		}
+	}
+
+	if (wantv6 != 0)
+	{
+		item = [self ipv6NodeWithName:nodename];
+		if (item != nil)
+		{
+			if ((setcname != 0) && (cname == NULL)) cname = copyString([item valueForKey:"name"]);
+			addrs = [item valuesForKey:"ipv6_address"];
+			count = listLength(addrs);
+			for (i = 0; i < count; i++)
+			{
+				[res addObject:new_addrinfo(0, socktype, proto, PF_INET6, port, addrs[i], 0, NULL)];
+			}
+
+			[item release];
+		}
+	}
+
+	/* Set cname in first result */
+	if ((cname != NULL) && ([res count] != 0))
+	{
+		item = [res objectAtIndex:0];
+		if ([item valueForKey:"canonname"] == NULL) [item setValue:cname forKey:"canonname"];
+	}
+	
+	if (cname != NULL) free(cname);
+}
+
+- (LUArray *)gai_service:(char *)servname info:(LUDictionary *)dict
+{
+	uint32_t got_port, port, proto, family, socktype, setcname, passive, wantv4, wantv6, numericservice;
+	char *loopv4, *loopv6;
+	LUArray *res;
+	LUDictionary *item;
+
+	if (servname == NULL) return nil;
+
+	proto = [dict intForKey:"protocol"];
+	if (proto == 0) proto = IPPROTO_UNSPEC;
+
+	socktype = [dict intForKey:"socktype"];
+	if (socktype == 0) socktype = SOCK_UNSPEC;
+
+	if (socktype == SOCK_DGRAM) proto = IPPROTO_UDP;
+	if (socktype == SOCK_STREAM) proto = IPPROTO_TCP;
+
+	family = [dict intForKey:"family"];
+	if (family == 0) family = PF_UNSPEC;
+
+	setcname = [dict intForKey:"canonname"];
+	passive = [dict intForKey:"passive"];
+
+	loopv4 = "127.0.0.1";
+	loopv6 = "0:0:0:0:0:0:0:1";
+
+	if (passive == 1)
+	{
+		loopv4 = "0.0.0.0";
+		loopv6 = "0:0:0:0:0:0:0:0";
+	}
+
+	wantv4 = 1;
+	wantv6 = 1;
+	if (family == PF_INET6) wantv4 = 0;
+	if (family == PF_INET) wantv6 = 0;
+
+	res = [[LUArray alloc] init];
+
+	port = 0;
+
+	/* Deal with numericservice */
+	numericservice = is_a_number(servname);
+	if (numericservice != 0)
+	{
+		port = atoi(servname);
+
+		if (wantv4 != 0)
+		{
+			if ((proto == IPPROTO_UNSPEC) || (proto == IPPROTO_UDP))
+			{
+				[res addObject:new_addrinfo(0, SOCK_DGRAM, IPPROTO_UDP, PF_INET, port, loopv4, 0, NULL)];
+			}
+
+			if ((proto == IPPROTO_UNSPEC) || (proto == IPPROTO_TCP))
+			{
+				[res addObject:new_addrinfo(0, SOCK_STREAM, IPPROTO_TCP, PF_INET, port, loopv4, 0, NULL)];
+			}
+		}
+
+		if (wantv6 != 0)
+		{
+			if ((proto == IPPROTO_UNSPEC) || (proto == IPPROTO_UDP))
+			{
+				[res addObject:new_addrinfo(0, SOCK_DGRAM, IPPROTO_UDP, PF_INET6, port, loopv6, 0, NULL)];
+			}
+
+			if ((proto == IPPROTO_UNSPEC) || (proto == IPPROTO_TCP))
+			{
+				[res addObject:new_addrinfo(0, SOCK_STREAM, IPPROTO_TCP, PF_INET6, port, loopv6, 0, NULL)];
+			}
+		}
+
+		if ([res count] == 0)
+		{
+			[res release];
+			return NULL;
+		}
+
+		/* Set cname in first result */
+		if ((setcname == 1) && ([[res objectAtIndex:0] valueForKey:"canonname"] == NULL))
+		{
+			[[res objectAtIndex:0] setValue:"localhost" forKey:"canonname"];
+		}
+
+		return res;
+	}
+
+	if ((proto == IPPROTO_UNSPEC) || (proto == IPPROTO_UDP))
+	{
+		got_port = 0;
+		item = [self serviceWithName:servname protocol:"udp"];
+		if (item != nil)
+		{
+			port = [item intForKey:"port"];
+			got_port = 1;
+			[item release];
+		}
+
+		if (got_port != 0)
+		{
+			if (wantv4 != 0)
+			{
+				[res addObject:new_addrinfo(0, SOCK_DGRAM, IPPROTO_UDP, PF_INET, port, loopv4, 0, NULL)];
+			}
+
+			if (wantv6 != 0)
+			{
+				[res addObject:new_addrinfo(0, SOCK_DGRAM, IPPROTO_UDP, PF_INET6, port, loopv6, 0, NULL)];
+			}
+		}
+
+		[item release];
+	}
+
+	if ((proto == IPPROTO_UNSPEC) || (proto == IPPROTO_TCP))
+	{
+		got_port = 0;
+		item = [self serviceWithName:servname protocol:"tcp"];
+		if (item != nil)
+		{
+			port = [item intForKey:"port"];
+			got_port = 1;
+			[item release];
+		}
+
+		if (got_port != 0)
+		{
+			if (wantv4 != 0)
+			{
+				[res addObject:new_addrinfo(0, SOCK_STREAM, IPPROTO_TCP, PF_INET, port, loopv4, 0, NULL)];
+			}
+
+			if (wantv6 != 0)
+			{
+				[res addObject:new_addrinfo(0, SOCK_STREAM, IPPROTO_TCP, PF_INET6, port, loopv6, 0, NULL)];
+			}
+		}
+
+		[item release];
+	}
+
+	if ([res count] == 0)
+	{
+		[res release];
+		return nil;
+	}
+
+	/* Set cname in first result */
+	if ((setcname == 1) && ([[res objectAtIndex:0] valueForKey:"canonname"] == NULL))
+	{
+		[[res objectAtIndex:0] setValue:"localhost" forKey:"canonname"];
+	}
+	
+	return res;
+}
+
+- (LUArray *)gai_node:(char *)nodename port:(int)port info:(LUDictionary *)dict
+{
+	uint32_t family, setcname, numerichost, wantv4, wantv6, scopeid;
+	uint32_t proto, socktype;
+	int32_t i, count;
+	LUArray *res;
+	LUDictionary *item;
+	char **addrs, *cname, *p;
+	struct in_addr a4;
+	struct in6_addr a6;
+	char paddr[64];
+
+	if (nodename == NULL) return nil;
+
+	cname = NULL;
+
+	proto = [dict intForKey:"protocol"];
+	if (proto == 0) proto = IPPROTO_UNSPEC;
+	
+	socktype = [dict intForKey:"socktype"];
+	if (socktype == 0) socktype = SOCK_UNSPEC;
+	
+	if (socktype == SOCK_DGRAM) proto = IPPROTO_UDP;
+	if (socktype == SOCK_STREAM) proto = IPPROTO_TCP;
+	
+	family = [dict intForKey:"family"];
+	if (family == 0) family = PF_UNSPEC;
+
+	setcname = [dict intForKey:"canonname"];
+
+	numerichost = inet_pton(AF_INET, nodename, &a4);
+	if (numerichost != 0) family = PF_INET;
+
+	if (numerichost == 0)
+	{
+		numerichost = inet_pton(AF_INET6, nodename, &a6);
+		if (numerichost != 0) family = PF_INET6;
+	}
+
+	/* V4 mapped and compat addresses are converted to plain V4 */
+	if ((numerichost != 0) && (family == PF_INET6))
+	{
+		if ((IN6_IS_ADDR_V4MAPPED(&a6)) || (IN6_IS_ADDR_V4COMPAT(&a6)))
+		{
+			memcpy(&(a4.s_addr), &(a6.s6_addr[12]), 4);
+			family = PF_INET;
+		}
+	}
+
+	wantv4 = 1;
+	wantv6 = 1;
+	if (family == PF_INET6) wantv4 = 0;
+	if (family == PF_INET) wantv6 = 0;
+
+	res = [[LUArray alloc] init];
+
+	/* Deal with numerichost */
+	if (numerichost != 0)
+	{
+		if (wantv4 != 0)
+		{
+			if (inet_ntop(AF_INET, &a4, paddr, 64) != NULL)
+			{
+				if (port == 0)
+				{
+					[res addObject:new_addrinfo(0, SOCK_UNSPEC, IPPROTO_UNSPEC, PF_INET, port, paddr, 0, NULL)];
+				}
+				else
+				{
+					if ((proto == IPPROTO_UNSPEC) || (proto == IPPROTO_UDP))
+					{
+						[res addObject:new_addrinfo(0, SOCK_DGRAM, IPPROTO_UDP, PF_INET, port, paddr, 0, NULL)];
+					}
+				
+					if ((proto == IPPROTO_UNSPEC) || (proto == IPPROTO_TCP))
+					{
+						[res addObject:new_addrinfo(0, SOCK_STREAM, IPPROTO_TCP, PF_INET, port, paddr, 0, NULL)];
+					}
+				}
+				if (setcname != 0)
+				{
+					item = [self itemWithKey:"ip_address" value:paddr category:LUCategoryHost];
+					if (item != nil) 
+					{
+						if (cname == NULL) cname = copyString([item valueForKey:"name"]);
+						[item release];
+					}
+				}
+			}
+		}
+
+		if (wantv6 != 0)
+		{
+			scopeid = 0;
+			p = strrchr(nodename, '%');
+			if (p != NULL) scopeid = if_nametoindex(p+1);
+
+			if (inet_ntop(AF_INET6, &a6, paddr, 64) != NULL)
+			{
+				if (port == 0)
+				{
+					[res addObject:new_addrinfo(0, SOCK_UNSPEC, IPPROTO_UNSPEC, PF_INET6, port, paddr, scopeid, NULL)];
+				}
+				else
+				{
+					if ((proto == IPPROTO_UNSPEC) || (proto == IPPROTO_UDP))
+					{
+						[res addObject:new_addrinfo(0, SOCK_DGRAM, IPPROTO_UDP, PF_INET6, port, paddr, scopeid, NULL)];
+					}
+				
+					if ((proto == IPPROTO_UNSPEC) || (proto == IPPROTO_TCP))
+					{
+						[res addObject:new_addrinfo(0, SOCK_STREAM, IPPROTO_TCP, PF_INET6, port, paddr, scopeid, NULL)];
+					}
+				}
+
+				if (setcname != 0)
+				{
+					item = [self itemWithKey:"ipv6_address" value:paddr category:LUCategoryHost];
+					if (item != nil) 
+					{
+						if ((setcname != 0) && (cname == NULL)) cname = copyString([item valueForKey:"name"]);
+						[item release];
+					}
+				}
+			}
+		}
+
+		if ([res count] == 0)
+		{
+			[res release];
+			return nil;
+		}
+
+		/* Set cname in first result */
+		if (cname != NULL)
+		{
+			[[res objectAtIndex:0] setValue:cname forKey:"canonname"];
+			free(cname);
+		}
+
+		return res;
+	}
+
+	if (wantv4 != 0)
+	{
+		item = [self itemWithKey:"name" value:nodename category:LUCategoryHost];
+		if (item != nil)
+		{
+			if ((setcname != 0) && (cname == NULL)) cname = copyString([item valueForKey:"name"]);
+
+			addrs = [item valuesForKey:"ip_address"];
+			count = listLength(addrs);
+			for (i = 0; i < count; i++)
+			{
+				if (port == 0)
+				{
+					[res addObject:new_addrinfo(0, SOCK_UNSPEC, IPPROTO_UNSPEC, PF_INET, port, addrs[i], 0, NULL)];
+				}
+				else
+				{
+					if ((proto == IPPROTO_UNSPEC) || (proto == IPPROTO_UDP))
+					{
+						[res addObject:new_addrinfo(0, SOCK_DGRAM, IPPROTO_UDP, PF_INET, port, addrs[i], 0, NULL)];
+					}
+				
+					if ((proto == IPPROTO_UNSPEC) || (proto == IPPROTO_TCP))
+					{
+						[res addObject:new_addrinfo(0, SOCK_STREAM, IPPROTO_TCP, PF_INET, port, addrs[i], 0, NULL)];
+					}
+				}
+			}
+
+			[item release];
+		}
+	}
+
+	if (wantv6 != 0)
+	{
+		item = [self ipv6NodeWithName:nodename];
+		if (item != nil)
+		{
+			if ((setcname != 0) && (cname == NULL)) cname = copyString([item valueForKey:"name"]);
+			addrs = [item valuesForKey:"ipv6_address"];
+			count = listLength(addrs);
+			for (i = 0; i < count; i++)
+			{
+				if (port == 0)
+				{
+					[res addObject:new_addrinfo(0, SOCK_UNSPEC, IPPROTO_UNSPEC, PF_INET6, port, addrs[i], 0, NULL)];
+				}
+				else
+				{
+					if ((proto == IPPROTO_UNSPEC) || (proto == IPPROTO_UDP))
+					{
+						[res addObject:new_addrinfo(0, SOCK_DGRAM, IPPROTO_UDP, PF_INET6, port, addrs[i], 0, NULL)];
+					}
+
+					if ((proto == IPPROTO_UNSPEC) || (proto == IPPROTO_TCP))
+					{
+						[res addObject:new_addrinfo(0, SOCK_STREAM, IPPROTO_TCP, PF_INET6, port, addrs[i], 0, NULL)];
+					}
+				}
+			}
+
+			[item release];
+		}
+	}
+
+	count = [res count];
+	if (count == 0)
+	{
+		[res release];
+		return nil;
+	}
+
+	/* Set cname in first result */
+	if ((setcname != 0) && (cname != NULL) && ([[res objectAtIndex:0] valueForKey:"canonname"] == NULL))
+	{
+		[[res objectAtIndex:0] setValue:cname forKey:"canonname"];
+		free(cname);
+	}
+	
+	return res;
+}
+
+- (LUArray *)prioritySort:(LUArray *)l
+{
+	LUArray *out;
+	uint32_t i, j, incount, outcount, inp, inw, outp, outw, x;
+	LUDictionary *initem, *outitem;
+	char *val;
+
+	if (l == nil) return nil;
+
+	out = [[LUArray alloc] init];
+	incount = [l count];
+	outcount = 0;
+
+	for (i = 0; i < incount; i++)
+	{
+		initem = [l objectAtIndex:i];
+
+		val = [initem valueForKey:"priority"];
+		inp = (uint32_t)-1;
+		if (val != NULL) inp = atoi(val);
+		else [initem setValue:"-1" forKey:"priority"];
+
+		val = [initem valueForKey:"weight"];
+		inw = 0;
+		if (val != NULL) inw = atoi(val);
+
+		x = random();
+
+		inw = (x % 10000) * x;
+		asprintf(&val, "%u", inw);
+		[initem setValue:val forKey:"weight"];
+		free(val);
+	}
+
+	for (i = 0; i < incount; i++)
+	{
+		initem = [l objectAtIndex:i];
+
+		val = [initem valueForKey:"priority"];
+		inp = (uint32_t)-1;
+		if (val != NULL) inp = atoi(val);
+
+		val = [initem valueForKey:"weight"];
+		inw = (uint32_t)0;
+		if (val != NULL) inw = atoi(val);
+
+		for (j = 0; j < outcount; j++)
+		{
+			outitem = [out objectAtIndex:i];
+
+			val = [outitem valueForKey:"priority"];
+			outp = (uint32_t)-1;
+			if (val != NULL) outp = atoi(val);
+
+			val = [outitem valueForKey:"weight"];
+			outw = (uint32_t)0;
+			if (val != NULL) outw = atoi(val);
+
+			if (inp < outp) break;
+			if ((inp == outp) && (inw < outw)) break;
+		}
+
+		[out insertObject:initem atIndex:j];
+		outcount++;
+	}
+
+	return out;
+}
+
+- (LUArray *)gai_node:(char *)nodename service:(char *)servname info:(LUDictionary *)dict
+{
+	uint32_t port, port_udp, port_tcp, proto, family, socktype, setcname, numerichost, numericservice, scopeid;
+	uint32_t wantv4, wantv6, got_port, got_udp, got_tcp, j, len;
+	int32_t i, count;
+	LUArray *res, *all;
+	LUDictionary *item, *pattern;
+	char *cname, *str, **hosts, *p;
+	struct in_addr a4;
+	struct in6_addr a6;
+	char paddr[64];
+
+	if (nodename == NULL) return nil;
+	if (servname == NULL) return nil;
+
+	/* Deal with numericservice */
+	numericservice = is_a_number(servname);
+	if (numericservice)
+	{
+		port = atoi(servname);
+		return [self gai_node:nodename port:port info:dict];
+	}
+
+	cname = NULL;
+	port = 0;
+
+	proto = [dict intForKey:"protocol"];
+	if (proto == 0) proto = IPPROTO_UNSPEC;
+
+	socktype = [dict intForKey:"socktype"];
+	if (socktype == 0) socktype = SOCK_UNSPEC;
+
+	if (socktype == SOCK_DGRAM) proto = IPPROTO_UDP;
+	if (socktype == SOCK_STREAM) proto = IPPROTO_TCP;
+
+	family = [dict intForKey:"family"];
+	if (family == 0) family = PF_UNSPEC;
+
+	setcname = [dict intForKey:"canonname"];
+
+	numerichost = inet_pton(AF_INET, nodename, &a4);
+	if (numerichost != 0) family = PF_INET;
+
+
+	if (numerichost == 0)
+	{
+		numerichost = inet_pton(AF_INET6, nodename, &a6);
+		if (numerichost != 0) family = PF_INET6;
+	}
+
+	/* V4 mapped and compat addresses are converted to plain V4 */
+	if ((numerichost != 0) && (family == PF_INET6))
+	{
+		if ((IN6_IS_ADDR_V4MAPPED(&a6)) || (IN6_IS_ADDR_V4COMPAT(&a6)))
+		{
+			memcpy(&(a4.s_addr), &(a6.s6_addr[12]), 4);
+			family = PF_INET;
+		}
+	}
+
+	wantv4 = 1;
+	wantv6 = 1;
+	if (family == PF_INET6) wantv4 = 0;
+	if (family == PF_INET) wantv6 = 0;
+
+	/* Deal with numerichost */
+	if (numerichost != 0)
+	{
+		res = [[LUArray alloc] init];
+
+		if ((proto == IPPROTO_UNSPEC) || (proto == IPPROTO_UDP))
+		{
+			got_port = 0;
+			item = [self serviceWithName:servname protocol:"udp"];
+			if (item != nil)
+			{
+				port = [item intForKey:"port"];
+				got_port = 1;
+				[item release];
+			}
+
+			if (got_port != 0)
+			{
+				if (wantv4 != 0)
+				{
+					if (inet_ntop(AF_INET, &a4, paddr, 64) != NULL)
+					{
+						[res addObject:new_addrinfo(0, SOCK_DGRAM, IPPROTO_UDP, PF_INET, port, paddr, 0, NULL)];
+						if (setcname != 0)
+						{
+							item = [self itemWithKey:"ip_address" value:paddr category:LUCategoryHost];
+							if (item != nil) 
+							{
+								if (cname == NULL) cname = copyString([item valueForKey:"name"]);
+								[item release];
+							}
+						}
+					}
+				}
+
+				if (wantv6 != 0)
+				{
+					scopeid = 0;
+					p = strrchr(nodename, '%');
+					if (p != NULL) scopeid = if_nametoindex(p+1);
+
+					if (inet_ntop(AF_INET6, &a6, paddr, 64) != NULL)
+					{
+						[res addObject:new_addrinfo(0, SOCK_DGRAM, IPPROTO_UDP, PF_INET6, port, paddr, scopeid, NULL)];
+						if (setcname != 0)
+						{
+							item = [self itemWithKey:"ipv6_address" value:paddr category:LUCategoryHost];
+							if (item != nil) 
+							{
+								if ((setcname != 0) && (cname == NULL)) cname = copyString([item valueForKey:"name"]);
+								[item release];
+							}
+						}
+					}
+				}
+			}
+		}
+
+		if ((proto == IPPROTO_UNSPEC) || (proto == IPPROTO_TCP))
+		{
+			got_port = 0;
+			item = [self serviceWithName:servname protocol:"tcp"];
+			if (item != nil)
+			{
+				port = [item intForKey:"port"];
+				got_port = 1;
+				[item release];
+			}
+
+			if (got_port != 0)
+			{
+				if (wantv4 != 0)
+				{
+					if (inet_ntop(AF_INET, &a4, paddr, 64) != NULL)
+					{
+						[res addObject:new_addrinfo(0, SOCK_STREAM, IPPROTO_TCP, PF_INET, port, paddr, 0, NULL)];
+					}
+				}
+
+				if (wantv6 != 0)
+				{
+					scopeid = 0;
+					p = strrchr(nodename, '%');
+					if (p != NULL) scopeid = if_nametoindex(p+1);
+
+					if (inet_ntop(AF_INET6, &a6, paddr, 64) != NULL)
+					{
+						[res addObject:new_addrinfo(0, SOCK_STREAM, IPPROTO_TCP, PF_INET6, port, paddr, scopeid, NULL)];
+					}
+				}
+			}
+		}
+
+		if ([res count] == 0)
+		{
+			[res release];
+			return nil;
+		}
+
+		/* Set cname in first result */
+		if (cname != NULL)
+		{
+			item = [res objectAtIndex:0];
+			if ([item valueForKey:"canonname"] == NULL) [item setValue:cname forKey:"canonname"];
+		}
+	
+		if (cname != NULL) free(cname);
+		return res;
+	}
+
+	/* First check for this particular host / service (e.g. DNS_SRV) */
+	pattern = [[LUDictionary alloc] init];
+
+	[pattern setValue:(char *)[LUAgent categoryName:LUCategoryHost] forKey:"_lookup_category"];
+	[pattern setValue:"YES" forKey:"_lookup_single"];
+	[pattern setValue:nodename forKey:"name"];
+
+	[pattern setValue:servname forKey:"service"];
+	if ((proto == IPPROTO_UNSPEC) || (proto == IPPROTO_UDP)) [pattern setValue:"udp" forKey:"protocol"];
+	else if (proto == IPPROTO_TCP) [pattern setValue:"tcp" forKey:"protocol"];
+
+	all = [self query:pattern];
+	
+	if (proto == IPPROTO_UNSPEC)
+	{
+		[pattern setValue:"tcp" forKey:"protocol"];
+		res = [self query:pattern];
+		if (res != nil)
+		{
+			count = [res count];
+			if ((count > 0) && (all == nil)) all = [[LUArray alloc] init];
+			for (i = 0; i < count; i++) [all addObject:[res objectAtIndex:i]];
+			[res release];
+		}
+	}
+
+	[pattern release];
+
+	res = [self prioritySort:all];
+	[all release];
+	all = res;
+
+	res = [[LUArray alloc] init];
+
+	count = [all count];
+	for (i = 0; i < count; i++)
+	{
+		item = [all objectAtIndex:i];
+
+		str = [item valueForKey:"port"];
+		if (str == NULL) continue;
+
+		port = atoi(str);
+
+		str = [item valueForKey:"protocol"];
+		if (str == NULL) continue;
+
+		if (!strcasecmp(str, "udp")) proto = IPPROTO_UDP;
+		else if (!strcasecmp(str, "tcp")) proto = IPPROTO_TCP;
+		else continue;
+
+		str = [item valueForKey:"target"];
+		if (str == NULL) continue;
+
+		[self gaiPP:str port:port protocol:proto family:family setcname:setcname result:res];
+	}
+	
+	count = [res count];
+	if (count > 0)
+	{
+		[all release];
+		return res;
+	}
+
+	/* Special case for "smtp": collect mail_exchanger names */
+	hosts = NULL;
+
+	if (!strcasecmp(servname, "smtp"))
+	{
+		for (i = 0; i < count; i++)
+		{
+			item = [all objectAtIndex:i];
+
+			str = [item valueForKey:"mail_exchanger"];
+			if ((str != NULL) && (listIndex(str, hosts) == IndexNull))
+			{
+				hosts = appendString(str, hosts);
+			}
+		}
+	}
+
+	[all release];
+
+	got_udp = 0;
+	port_udp = 0;
+	if ((proto == IPPROTO_UNSPEC) || (proto == IPPROTO_UDP))
+	{
+		item = [self serviceWithName:servname protocol:"udp"];
+		if (item != NULL)
+		{
+			port_udp = [item intForKey:"port"];
+			got_udp = 1;
+			[item release];
+		}
+	}
+
+	got_tcp = 0;
+	port_tcp = 0;
+	if ((proto == IPPROTO_UNSPEC) || (proto == IPPROTO_TCP))
+	{
+		item = [self serviceWithName:servname protocol:"tcp"];
+		if (item != nil)
+		{
+			port_tcp = [item intForKey:"port"];
+			got_tcp = 1;
+			[item release];
+		}
+	}
+
+	if ((got_udp == 0) && (got_tcp == 0))
+	{
+		freeList(hosts);
+		if ([res count] == 0)
+		{
+			[res release];
+			return nil;
+		}
+		
+		return res;
+	}
+
+	len = listLength(hosts);
+	for (j = 0; j < len; j++)
+	{
+		if (got_udp != 0)
+		{
+			if (wantv4 != 0) [self gaiPP:hosts[j] port:port_udp protocol:IPPROTO_UDP family:PF_INET setcname:setcname result:res];
+			if (wantv6 != 0) [self gaiPP:hosts[j] port:port_udp protocol:IPPROTO_UDP family:PF_INET6 setcname:setcname result:res];
+		}
+
+		if (got_tcp != 0)
+		{
+			if (wantv4 != 0) [self gaiPP:hosts[j] port:port_tcp protocol:IPPROTO_TCP family:PF_INET setcname:setcname result:res];
+			if (wantv6 != 0) [self gaiPP:hosts[j] port:port_tcp protocol:IPPROTO_TCP family:PF_INET6 setcname:setcname result:res];
+ 		}
+	}
+
+	freeList(hosts);
+
+	pattern = [[LUDictionary alloc] init];
+
+	[pattern setValue:(char *)[LUAgent categoryName:LUCategoryHost] forKey:"_lookup_category"];
+	[pattern setValue:"YES" forKey:"_lookup_single"];
+	[pattern setValue:nodename forKey:"name"];
+
+	all = [self query:pattern];
+
+	[pattern release];
+
+	cname = NULL;
+	count = [all count];
+	for (i = 0; i < count; i++)
+	{
+		item = [all objectAtIndex:i];
+		if ((setcname != 0) && (cname == NULL)) cname = copyString([item valueForKey:"name"]);
+
+		if (wantv4 != 0)
+		{
+			hosts = [item valuesForKey:"ip_address"];
+			len = listLength(hosts);
+			for (j = 0; j < len; j++)
+			{
+				if (got_udp != 0) [res addObject:new_addrinfo(0, SOCK_DGRAM, IPPROTO_UDP, PF_INET, port_udp, hosts[j], 0, NULL)];
+				if (got_tcp != 0) [res addObject:new_addrinfo(0, SOCK_STREAM, IPPROTO_TCP, PF_INET, port_tcp, hosts[j], 0, NULL)];
+			}
+		}
+
+		if (wantv6 != 0)
+		{
+			hosts = [item valuesForKey:"ipv6_address"];
+			len = listLength(hosts);
+			for (j = 0; j < len; j++)
+			{
+				if (got_udp != 0) [res addObject:new_addrinfo(0, SOCK_DGRAM, IPPROTO_UDP, PF_INET6, port_udp, hosts[j], 0, NULL)];
+				if (got_tcp != 0) [res addObject:new_addrinfo(0, SOCK_STREAM, IPPROTO_TCP, PF_INET6, port_tcp, hosts[j], 0, NULL)];
+			}
+		}
+	}
+
+	[all release];
+
+	count = [res count];
+	if (count == 0)
+	{
+		if (cname != NULL) free(cname);
+		[res release];
+		return nil;
+	}
+
+	/* Set cname in first result */
+	if ((cname != NULL) && ([[res objectAtIndex:0] valueForKey:"canonname"] == NULL))
+	{
+		[[res objectAtIndex:0] setValue:cname forKey:"canonname"];
+	}
+
+	if (cname != NULL) free(cname);
+
+	return res;
+}
+
+- (LUArray *)getaddrinfo:(LUDictionary *)dict
+{
+	char *nodename, *servname;
+
+	/* N.B. Hints are checked in Libinfo. */
+
+	nodename = [dict valueForKey:"name"];
+	servname = [dict valueForKey:"service"];
+
+	if (nodename == NULL) return [self gai_service:servname info:dict];
+	if (servname == NULL) return [self gai_node:nodename port:0 info:dict];
+	return [self gai_node:nodename service:servname info:dict];
+}
+
+/*
+ * getnameinfo support
+ * Input dict may contain the following
+ *
+ * ip_address: node address
+ * ipv6_address: node address
+ * port: service number
+ * protocol: [tcp] | udp
+ * fqdn: [1] | 0
+ * numerichost: [0] | 1
+ * name_required: [0] | 1
+ * numericserv: [0] | 1
+ *
+ * Output dictionary may contain the following
+ * All values are encoded as strings.
+ *
+ * name: char *
+ * service: char *
+ */
+
+ - (LUDictionary *)getnameinfo:(LUDictionary *)dict
+{
+	char *nodeaddr, *servnum, *p, *proto;
+	LUDictionary *item, *dict2;
+	uint32_t port, family, fqdn, numericserv, numerichost, namereq, gotdata;
+
+	/* N.B. Args are checked in Libinfo. */
+
+	gotdata = 0;
+
+	family = PF_INET;
+	nodeaddr = [dict valueForKey:"ip_address"];
+	if (nodeaddr == NULL)
+	{
+		family = PF_INET6;
+		nodeaddr = [dict valueForKey:"ipv6_address"];
+	}
+	if (nodeaddr == NULL) family = PF_UNSPEC;
+
+	servnum = [dict valueForKey:"port"];
+
+	if ((nodeaddr == NULL) && (servnum == NULL)) return nil;
+
+	proto = "tcp";
+	p = [dict valueForKey:"protocol"];
+	if (p != NULL) proto = p;
+
+	if (strcmp(proto, "tcp") && strcmp(proto, "udp")) return nil;
+
+	fqdn = 1;
+	p = [dict valueForKey:"fqdn"];
+	if (p != NULL) fqdn = atoi(p);
+
+	numerichost = 0;
+	p = [dict valueForKey:"numerichost"];
+	if (p != NULL) numerichost = atoi(p);
+
+	numericserv = 0;
+	p = [dict valueForKey:"numericserv"];
+	if (p != NULL) numericserv = atoi(p);
+
+	namereq = 0;
+	p = [dict valueForKey:"name_required"];
+	if (p != NULL) namereq = atoi(p);
+
+	item = [[LUDictionary alloc] init];
+
+	if (nodeaddr != NULL)
+	{
+		if (numerichost != 0) 
+		{
+			[item setValue:nodeaddr forKey:"name"];
+			gotdata++;
+		}
+		else
+		{
+			dict2 = NULL;
+			if (family == PF_INET)
+			{
+				dict2 = [self itemWithKey:"ip_address" value:nodeaddr category:LUCategoryHost];
+			}
+			else if (family == PF_INET6)
+			{
+				dict2 = [self itemWithKey:"ipv6_address" value:nodeaddr category:LUCategoryHost];
+			}
+
+			if (dict2 != NULL)
+			{
+				p = [dict2 valueForKey:"name"];
+				if (p != NULL)
+				{
+					[item setValues:[dict2 valuesForKey:"name"] forKey:"name"];
+					gotdata++;
+				}
+				[dict2 release];
+			}
+			else
+			{
+				if (namereq != 0)
+				{
+					[item release];
+					return nil;
+				}
+			}
+		}
+	}
+
+	if (servnum != NULL)
+	{
+		if (numericserv != 0) 
+		{
+			[item setValue:servnum forKey:"service"];
+			gotdata++;
+		}
+		else
+		{
+			port = atoi(servnum);
+			dict2 = [self serviceWithNumber:&port protocol:proto];
+			if (dict2 != NULL)
+			{
+				p = [dict2 valueForKey:"name"];
+				if (p != NULL)
+				{
+					[item setValues:[dict2 valuesForKey:"name"] forKey:"service"];
+					gotdata++;
+				}
+				[dict2 release];
+			}
+		}
+	}
+
+	if (gotdata == 0)
+	{
+		[item release];
+		return nil;
+	}
+
+	return item;
 }
 
 @end

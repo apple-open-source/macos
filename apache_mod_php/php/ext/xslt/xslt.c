@@ -1,8 +1,8 @@
 /*
    +----------------------------------------------------------------------+
-   | PHP version 4.0                                                      |
+   | PHP Version 4                                                        |
    +----------------------------------------------------------------------+
-   | Copyright (c) 1997, 1998, 1999, 2000, 2001 The PHP Group             |
+   | Copyright (c) 1997-2003 The PHP Group                                |
    +----------------------------------------------------------------------+
    | This source file is subject to version 2.02 of the PHP license,      |
    | that is bundled with this package in the file LICENSE, and is        |
@@ -12,7 +12,7 @@
    | obtain it through the world-wide-web, please send a note to          |
    | license@php.net so we can mail you a copy immediately.               |
    +----------------------------------------------------------------------+
-   | Authors: Sterling Hughes <sterling@php.net>                          |
+   | Author: Sterling Hughes <sterling@php.net>                           |
    +----------------------------------------------------------------------+
  */
 
@@ -29,25 +29,25 @@
 #include <string.h>
 #include <stdarg.h>
 
-static int debug = 0;
+#define XSLT_DEBUG 0
 
 /* {{{ xslt_debug() 
    Output a debug message if debugging is enabled */
 extern void xslt_debug(char *function_name, char *format, ...)
 {
-	if (debug) {
-		va_list argv;
-		char    buffer[1024];
+#if DEBUG
+	va_list argv;
+	char    buffer[1024];
 
-		va_start(argv, format);
-		vsnprintf(buffer, sizeof(buffer) - 1, format, argv);
-		va_end(argv);
+    va_start(argv, format);
+	vsnprintf(buffer, sizeof(buffer) - 1, format, argv);
+    va_end(argv);
 
-		buffer[sizeof(buffer) - 1] = '\0';
+	buffer[sizeof(buffer) - 1] = '\0';
 
-		php_printf("<b>XSLT Debug</b>: %s: %s<br>\n", 
-		           function_name, buffer);
-	}
+	php_printf("<b>XSLT Debug</b>: %s: %s<br />\n", 
+	           function_name, buffer);
+#endif
 }
 /* }}} */
 
@@ -58,16 +58,19 @@ static char *_find_xslt_argument(const char **argv, const char *key)
 	char  **ptr;                  /* Pointer to the passed char ** array */
 	char   *return_value = NULL;  /* Value to return from the function */
 
+    if (! argv)
+        return NULL;
+    
 	/* Loop through the array searching for the value */
 	ptr = (char **) argv;
-	while (ptr && *ptr) {
+	while (*ptr) {
 		/* If we have a match, save the value and exit out */
 		if (! strcmp(*ptr, key)) {
 			return_value = estrdup(*ptr);
 			break;
 		}
 
-		ptr++;
+		++ptr;
 	}
 
 	return return_value;
@@ -83,15 +86,18 @@ extern void xslt_make_array(zval **zarr, char ***carr)
 	int         idx = 0;
 	TSRMLS_FETCH();
 
+	/* Skip a warning, when 'NULL' is provided as argument */
+	if ( Z_TYPE_PP(zarr) == IS_NULL)
+		return;
+
 	arr = HASH_OF(*zarr);
 	if (! arr) {
-		php_error(E_WARNING, "Invalid argument or parameter array to %s",
-		          get_active_function_name(TSRMLS_C));
+		php_error_docref(NULL TSRMLS_CC, E_WARNING, "Invalid argument or parameter array");
 		return;
 	}
 
 	*carr = emalloc(((zend_hash_num_elements(arr) * 2) + 1) * sizeof(char *));
-	
+
 	for (zend_hash_internal_pointer_reset(arr);
 	     zend_hash_get_current_data(arr, (void **) &current) == SUCCESS;
 	     zend_hash_move_forward(arr)) {
@@ -104,8 +110,11 @@ extern void xslt_make_array(zval **zarr, char ***carr)
 
 		type = zend_hash_get_current_key(arr, &string_key, &num_key, 0);
 		if (type == HASH_KEY_IS_LONG) {
-			php_error(E_WARNING, "Invalid argument or parameter array to %s",
-			          get_active_function_name(TSRMLS_C));
+			php_error_docref(NULL TSRMLS_CC, E_WARNING, "Invalid key value for argument or parameter array");
+			/* Make the next index NULL, so it signals the end of the array
+				this will protect against invalid arrays, like:
+				array('foo'=>'bar', 'foobarred', 'oops') */
+			(*carr)[idx] = NULL;
 			return;
 		}
 
@@ -210,13 +219,14 @@ extern void xslt_free_arguments(xslt_args *to_free)
    Call an XSLT handler */
 extern void xslt_call_function(char *name, 
                                zval *function, 
+                               zval *object,
                                int argc, 
                                zval **user_args, 
                                zval **retval)
 {
-	zval   ***argv;   /* Argument container, maps around for call_user_function_ex() */
-	int       error;  /* Error container */
-	int       idx;    /* Idx, when looping through and free'ing the arguments */
+	zval   ***argv;      /* Argument container, maps around for call_user_function_ex() */
+	int       error;     /* Error container */
+	int       idx;       /* Idx, when looping through and free'ing the arguments */
 	TSRMLS_FETCH();      /* For TS mode, fetch the executor globals */
 
 	argv = emalloc(argc * sizeof(zval **));
@@ -224,12 +234,23 @@ extern void xslt_call_function(char *name,
 		argv[idx] = &user_args[idx];
 	}
 	
-	/* Call the function */
-	error = call_user_function_ex(EG(function_table),
-	                              NULL, function,
-							      retval, argc, argv, 0, NULL TSRMLS_CC);
+
+	/* Call the function (with object when appropriate)*/
+	if (object == NULL)
+	{
+		error = call_user_function_ex(EG(function_table),
+					      NULL, function,
+					      retval, argc, argv, 0, NULL TSRMLS_CC);
+	}
+	else
+	{
+		error = call_user_function_ex(EG(function_table),
+					      &object, function,
+					      retval, argc, argv, 0, NULL TSRMLS_CC);
+	}
+
 	if (error == FAILURE) {
-		php_error(E_WARNING, "Cannot call the %s handler: %s", 
+		php_error_docref(NULL TSRMLS_CC, E_WARNING, "Cannot call the %s handler: %s", 
 		          name, Z_STRVAL_P(function));
 	}
 
@@ -238,6 +259,7 @@ extern void xslt_call_function(char *name,
 		/* Decrease refcount and free if refcount is <= 0 */
 		zval_ptr_dtor(argv[idx]);
 	}
+
 	efree(argv);
 }
 /* }}} */
@@ -249,6 +271,6 @@ extern void xslt_call_function(char *name,
  * tab-width: 4
  * c-basic-offset: 4
  * End:
- * vim600: sw=4 ts=4 tw=78 fdm=marker
- * vim<600: sw=4 ts=4 tw=78
+ * vim600: noet sw=4 ts=4 fdm=marker
+ * vim<600: noet sw=4 ts=4
  */

@@ -1,10 +1,30 @@
 /*
- *  CSLPPlugin.cpp
- *  DSSLPPlugIn
+ * Copyright (c) 2002 Apple Computer, Inc. All rights reserved.
  *
- *  Created by imlucid on Wed Aug 15 2001.
- *  Copyright (c) 2001 Apple Computer. All rights reserved.
- *
+ * @APPLE_LICENSE_HEADER_START@
+ * 
+ * Copyright (c) 1999-2003 Apple Computer, Inc.  All Rights Reserved.
+ * 
+ * This file contains Original Code and/or Modifications of Original Code
+ * as defined in and that are subject to the Apple Public Source License
+ * Version 2.0 (the 'License'). You may not use this file except in
+ * compliance with the License. Please obtain a copy of the License at
+ * http://www.opensource.apple.com/apsl/ and read it before using this
+ * file.
+ * 
+ * The Original Code and all software distributed under the License are
+ * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
+ * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
+ * INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY,
+ * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
+ * Please see the License for the specific language governing rights and
+ * limitations under the License.
+ * 
+ * @APPLE_LICENSE_HEADER_END@
+ */
+ 
+/*!
+ *  @header CSLPPlugin
  */
 
 #include <SystemConfiguration/SystemConfiguration.h>
@@ -12,22 +32,30 @@
 #include "CNSLHeaders.h"
 
 #include "CommandLineUtilities.h"
+#include "SLPSystemConfiguration.h"
 
 #include "CSLPPlugin.h"
 #include "CSLPNodeLookupThread.h"
 #include "CSLPServiceLookupThread.h"
-#include "TGetCFBundleResources.h"
-
+#include "CNSLTimingUtils.h"
 
 void AddToAttributeList( const void* key, const void* value, void* context );
 CFStringRef CreateHexEncodedString( CFStringRef rawStringRef );
 CFStringRef CreateEncodedString( CFStringRef rawStringRef );
 CFStringRef	CreateSLPTypeFromDSType ( CFStringRef inDSType );
 
-
 #define kCommandParamsID				128
 
+const CFStringRef	kDSStdAttrTypePrefixSAFE_CFSTR = CFSTR(kDSStdAttrTypePrefix);
+const CFStringRef	kDSNativeAttrTypePrefixSAFE_CFSTR = CFSTR(kDSNativeAttrTypePrefix);
+
+const CFStringRef	kDSSLPPluginTagSAFE_CFSTR = CFSTR("com.apple.DirectoryService.DSSLPPlugIn");
+const CFStringRef	kSLPTagSAFE_CFSTR = CFSTR("com.apple.slp");
 const CFStringRef	gBundleIdentifier = CFSTR("com.apple.DirectoryService.SLP");
+const CFStringRef	kSLPDefaultRegistrationScopeTagSAFE_CFSTR = CFSTR("com.apple.slp.defaultRegistrationScope");
+const CFStringRef	kAttributeListSAFE_CFSTR = CFSTR("attributeList");
+const CFStringRef	kAttributeListForURLSAFE_CFSTR = CFSTR("attributeForURL");
+
 const char*			gProtocolPrefixString = "SLP";
 static char*		gLocalNodeString = NULL;				// get this from SCPreferences
 
@@ -81,15 +109,21 @@ sInt32 CSLPPlugin::InitPlugin( void )
         DBGLOG( "Setting da to: %s", getenv( "net.slp.DAAddresses" ) );
     }
 
-    SCPreferencesRef prefRef = ::SCPreferencesCreate( NULL, CFSTR("com.apple.DirectoryService.DSSLPPlugIn"), CFSTR("com.apple.slp") );
+    SCPreferencesRef prefRef = ::SCPreferencesCreate( NULL, kDSSLPPluginTagSAFE_CFSTR, kSLPTagSAFE_CFSTR );
     
-//	system( "rm /var/slp.regfile" );
 	executecommand( "rm /var/slp.regfile" );
 	
 	DBGLOG( "CSLPPlugin::InitPlugin is deleting regfile:/var/slp.regfile" );
 	
-	CFPropertyListRef	propertyList = ::SCPreferencesGetValue( prefRef, CFSTR("com.apple.slp.defaultRegistrationScope") );
-        
+	CFPropertyListRef	propertyList = ::SCPreferencesGetValue( prefRef, kSLPDefaultRegistrationScopeTagSAFE_CFSTR );
+
+	// let's free the global if it is set already...
+	if( gLocalNodeString )
+	{
+		free( gLocalNodeString );
+		gLocalNodeString = NULL;
+	}
+	
     if ( propertyList )
     {
         if ( ::CFGetTypeID(propertyList) == ::CFStringGetTypeID() )
@@ -121,13 +155,11 @@ sInt32 CSLPPlugin::InitPlugin( void )
         
         if ( ::SCPreferencesLock( prefRef, true ) )
         {
-            ::SCPreferencesSetValue( prefRef, CFSTR("com.apple.slp.defaultRegistrationScope"), localNodeRef );
+            ::SCPreferencesSetValue( prefRef, kSLPDefaultRegistrationScopeTagSAFE_CFSTR, localNodeRef );
             ::SCPreferencesUnlock( prefRef );
         }
         
         ::CFRelease( localNodeRef );
-//        gLocalNodeString = (char*)malloc( strlen( v2_Default_Scope ) +1 );
-//        strcpy( gLocalNodeString, v2_Default_Scope );
     }
 	::CFRelease( prefRef );
 
@@ -146,27 +178,78 @@ sInt32 CSLPPlugin::InitPlugin( void )
     return siResult;
 }
 
+void CSLPPlugin::ActivateSelf( void )
+{
+    DBGLOG( "CSLPPlugin::ActivateSelf called, runloopRef = 0x%x\n", GetRunLoopRef() );
+	
+	InitPlugin();
+	
+	if ( !mSLPRef && GetRunLoopRef() && IsNetworkSetToTriggerDialup() == false )
+		SLPOpen( "en", SLP_FALSE, &mSLPRef, GetRunLoopRef() );
+		
+	// we are getting activated.  If we have anything registered, we will want to
+	// kick off slpd
+
+	CNSLPlugin::ActivateSelf();
+}
+
+void CSLPPlugin::DeActivateSelf( void )
+{
+	// we are getting deactivated.  We want to tell the slpd daemon to shutdown as
+	// well as deactivate our DA Listener
+    DBGLOG( "CSLPPlugin::DeActivateSelf called\n" );
+	
+	StopSLPDALocator();
+
+	TellSLPdToQuit();
+	
+	if ( mNodeLookupThread )
+		mNodeLookupThread->Cancel();
+		
+	if ( mSLPRef )
+		SLPClose( mSLPRef );
+	mSLPRef = NULL;
+
+	CNSLPlugin::DeActivateSelf();
+}
+
+void CSLPPlugin::TellSLPdToQuit( void )
+{
+	uInt32		bufLen = 0, returnBufLen = 0;
+	char*		sendBuf = MakeSLPIOCallBuffer( false, &bufLen );
+	char*		returnBuf = NULL;
+	
+	SendDataToSLPd( sendBuf, bufLen, &returnBuf, &returnBufLen );
+	
+	if ( sendBuf )
+		free( sendBuf );
+	
+	if ( returnBuf )
+		free( returnBuf );
+}
+
 sInt32 CSLPPlugin::SetServerIdleRunLoopRef( CFRunLoopRef idleRunLoopRef )
 {
 	CNSLPlugin::SetServerIdleRunLoopRef( idleRunLoopRef );
-	
-	SLPInternalError status = SLPOpen( "en", SLP_FALSE, &mSLPRef, GetRunLoopRef() );
 	
 	return eDSNoErr;
 }
 
 char* CSLPPlugin::CreateLocalNodeFromConfigFile( void )
 {
-    char*	localNodeString = (char*)malloc( strlen( v2_Default_Scope ) +1 );
+    const char*	defaultRegScope = NULL;
+	char*	localNodeString = (char*)malloc( strlen( v2_Default_Scope ) +1 );
     strcpy( localNodeString, v2_Default_Scope );
 
     SLPReadConfigFile( "/etc/slpsa.conf" );
     
-    if ( SLPGetProperty("com.apple.slp.defaultRegistrationScope") && strcmp(localNodeString,SLPGetProperty("com.apple.slp.defaultRegistrationScope")) != 0 )
+	defaultRegScope = SLPGetProperty("com.apple.slp.defaultRegistrationScope");
+	
+    if ( defaultRegScope && strcmp(localNodeString,defaultRegScope) != 0 )
     {
         free( localNodeString );
-        localNodeString = (char*)malloc( strlen( SLPGetProperty("com.apple.slp.defaultRegistrationScope") ) +1 );
-        strcpy( localNodeString, SLPGetProperty("com.apple.slp.defaultRegistrationScope") );
+        localNodeString = (char*)malloc( strlen( defaultRegScope ) +1 );
+        strcpy( localNodeString, defaultRegScope );
     }
     
     return localNodeString;
@@ -177,7 +260,7 @@ CFStringRef CSLPPlugin::GetBundleIdentifier( void )
     return gBundleIdentifier;
 }
 
-// this is used for top of the node's path "NSL"
+// this is used for top of the node's path "SLP"
 const char*	CSLPPlugin::GetProtocolPrefixString( void )
 {		
     return gProtocolPrefixString;
@@ -188,7 +271,6 @@ const char* CSLPPlugin::GetLocalNodeString( void )
 {
     return gLocalNodeString;
 }
-
 
 Boolean CSLPPlugin::IsLocalNode( const char *inNode )
 {
@@ -220,14 +302,17 @@ sInt32 CSLPPlugin::HandleNetworkTransition( sHeader *inData )
 {
     // we not only need to reset the scopes we have published, but we need to reset our thread that is looking for DAs
     sInt32					siResult			= eDSNoErr;
+	
+	siResult = CNSLPlugin::HandleNetworkTransition( inData );
     
-    if ( mActivatedByNSL )
-    {
-		KickSLPDALocator();			// wake this guy
-		ClearOutAllNodes();			// clear these out
-		StartNodeLookup();			// and then start all over
+	if ( !siResult )
+	{
+		if ( mActivatedByNSL && IsActive() && IsNetworkSetToTriggerDialup() == false )
+		{
+			KickSLPDALocator();			// wake this guy
+		}
 	}
-		
+	
     return ( siResult );
 }
 
@@ -242,38 +327,51 @@ void CSLPPlugin::NewNodeLookup( void )
 {
 	DBGLOG( "CSLPPlugin::NewNodeLookup\n" );
 	
-	// First add our local scope
-    AddNode( GetLocalNodeString() );		// always register the default registration node
-	
-	if ( !mNodeLookupThread )
+	if ( mActivatedByNSL && IsActive() && IsNetworkSetToTriggerDialup() == false )
 	{
-		mNodeLookupThread = new CSLPNodeLookupThread( this );
+		// First add our local scope
+		AddNode( GetLocalNodeString() );		// always register the default registration node
 		
-		mNodeLookupThread->Resume();
-	}
-	else
-	{
-		mNodeLookupThread->DoItAgain();		// we need to start a new one as soon as the old one finishes
+		if ( !mNodeLookupThread )
+		{
+			DBGLOG( "CSLPPlugin::NewNodeLookup creating a new CSLPNodeLookupThread\n" );
+			mNodeLookupThread = new CSLPNodeLookupThread( this );
+			
+			mNodeLookupThread->Resume();
+		}
+		else
+		{
+			DBGLOG( "CSLPPlugin::NewNodeLookup telling mNodeLookupThread to DoItAgain\n" );
+			mNodeLookupThread->DoItAgain();		// we need to start a new one as soon as the old one finishes
+		}
 	}
 }
 
 void CSLPPlugin::NewServiceLookup( char* serviceType, CNSLDirNodeRep* nodeDirRep )
 {
-	DBGLOG( "CSLPPlugin::NewServicesLookup on %s\n", serviceType );
-    
-    CSLPServiceLookupThread* newLookup = new CSLPServiceLookupThread( this, serviceType, nodeDirRep );
-    
-    // if we have too many threads running, just queue this search object and run it later
-    if ( OKToStartNewSearch() )
-    {
-        DBGLOG( "CSLPPlugin::NewServicesLookup on %s is being started.\n", serviceType );
-        newLookup->Resume();
-    }
-    else
-    {
-        DBGLOG( "CSLPPlugin::NewServicesLookup on %s is being queued.\n", serviceType );
-        QueueNewSearch( newLookup );
-    }
+	if ( serviceType && (strcmp( serviceType, "cifs" ) == 0 || strcmp( serviceType, "webdav" ) == 0) )
+	{
+		// ignore these types
+		DBGLOG( "CSLPPlugin::NewServicesLookup ignoring lookup on %s\n", serviceType );
+	}
+	else if ( mActivatedByNSL && IsActive() && IsNetworkSetToTriggerDialup() == false )
+	{
+		DBGLOG( "CSLPPlugin::NewServicesLookup on %s\n", serviceType );
+		
+		CSLPServiceLookupThread* newLookup = new CSLPServiceLookupThread( this, serviceType, nodeDirRep );
+		
+		// if we have too many threads running, just queue this search object and run it later
+		if ( OKToStartNewSearch() )
+		{
+			DBGLOG( "CSLPPlugin::NewServicesLookup on %s is being started.\n", serviceType );
+			newLookup->Resume();
+		}
+		else
+		{
+			DBGLOG( "CSLPPlugin::NewServicesLookup on %s is being queued.\n", serviceType );
+			QueueNewSearch( newLookup );
+		}
+	}
 }
 
 
@@ -282,6 +380,7 @@ Boolean CSLPPlugin::OKToOpenUnPublishedNode( const char* nodeName )
     return true;	// allow users to create their own nodes?
 }
 
+#pragma mark -
 sInt32 CSLPPlugin::RegisterService( tRecordReference recordRef, CFDictionaryRef service )
 {
     sInt32		status = eDSNoErr;
@@ -290,7 +389,7 @@ sInt32 CSLPPlugin::RegisterService( tRecordReference recordRef, CFDictionaryRef 
 	CFTypeRef	urlResultRef = NULL;
 	
     if ( service )
-		urlResultRef = (CFTypeRef)::CFDictionaryGetValue( service, CFSTR(kDSNAttrURL));
+		urlResultRef = (CFTypeRef)::CFDictionaryGetValue( service, kDSNAttrURLSAFE_CFSTR);
 
 	if ( urlResultRef )
 	{
@@ -311,23 +410,27 @@ sInt32 CSLPPlugin::RegisterService( tRecordReference recordRef, CFDictionaryRef 
 	
 	if ( service && urlRef && CFGetTypeID(urlRef) == CFStringGetTypeID() && CFStringGetLength( urlRef ) > 0 )
     {
-        UInt32		scopePtrLength;
+        UInt32		scopePtrLength = 0;
         char*		scopePtr = NULL;
         
         DBGLOG( "CSLPPlugin::RegisterService, check for specified location to register in\n" );
-        if ( (scopeRef = (CFStringRef)::CFDictionaryGetValue( service, CFSTR(kDS1AttrLocation) )) )
+        if ( (scopeRef = (CFStringRef)::CFDictionaryGetValue( service, kDS1AttrLocationSAFE_CFSTR )) )
         {
         	if ( CFGetTypeID( scopeRef ) == CFArrayGetTypeID() )
             {
                 scopeRef = (CFStringRef)::CFArrayGetValueAtIndex( (CFArrayRef)scopeRef, 0 );	// just get the first one for now
             }
                 
-            scopePtrLength = ::CFStringGetMaximumSizeForEncoding( ::CFStringGetLength( scopeRef ), kCFStringEncodingUTF8 ) + 1;
-        	scopePtr = (char*)malloc( scopePtrLength );
+            if ( scopeRef != NULL )
+			{
+				scopePtrLength = ::CFStringGetMaximumSizeForEncoding( ::CFStringGetLength( scopeRef ), kCFStringEncodingUTF8 ) + 1;
+				scopePtr = (char*)malloc( scopePtrLength );
 
-            ::CFStringGetCString( scopeRef, scopePtr, scopePtrLength, kCFStringEncodingUTF8 );
+				::CFStringGetCString( scopeRef, scopePtr, scopePtrLength, kCFStringEncodingUTF8 );
+			}
         }
-        else
+
+		if ( scopePtr == NULL )
         {
             DBGLOG( "CSLPPlugin::RegisterService, no location specified, using empty scope for default\n" );
             scopePtr = (char*)malloc(1);
@@ -347,8 +450,8 @@ sInt32 CSLPPlugin::RegisterService( tRecordReference recordRef, CFDictionaryRef 
             CFMutableStringRef		attributeForURLRef = ::CFStringCreateMutable( NULL, 0 );	// mod this for appending to URL
             CFMutableDictionaryRef	attributesDictRef = ::CFDictionaryCreateMutable( NULL, 2, &kCFTypeDictionaryKeyCallBacks, & kCFTypeDictionaryValueCallBacks );
             
-            ::CFDictionaryAddValue( attributesDictRef, CFSTR("attributeList"), attributeRef );
-            ::CFDictionaryAddValue( attributesDictRef, CFSTR("attributeForURL"), attributeForURLRef );
+            ::CFDictionaryAddValue( attributesDictRef, kAttributeListSAFE_CFSTR, attributeRef );
+            ::CFDictionaryAddValue( attributesDictRef, kAttributeListForURLSAFE_CFSTR, attributeForURLRef );
             
             ::CFDictionaryApplyFunction( service, AddToAttributeList, attributesDictRef );
 
@@ -381,8 +484,11 @@ sInt32 CSLPPlugin::RegisterService( tRecordReference recordRef, CFDictionaryRef 
                 free( attributePtr );
         }
             
-        free( scopePtr );
-        free( urlPtr );
+        if ( scopePtr )
+			free( scopePtr );
+        
+		if ( urlPtr )
+			free( urlPtr );
     }
     else
         status = eDSNullAttribute;
@@ -398,7 +504,7 @@ sInt32 CSLPPlugin::DeregisterService( tRecordReference recordRef, CFDictionaryRe
 	CFTypeRef		urlResultRef = NULL;
 	
     if ( service )
-		urlResultRef = (CFTypeRef)::CFDictionaryGetValue( service, CFSTR(kDSNAttrURL));
+		urlResultRef = (CFTypeRef)::CFDictionaryGetValue( service, kDSNAttrURLSAFE_CFSTR);
 
 	if ( urlResultRef )
 	{
@@ -418,7 +524,7 @@ sInt32 CSLPPlugin::DeregisterService( tRecordReference recordRef, CFDictionaryRe
         UInt32		scopePtrLength;
         char*		scopePtr = NULL;
         
-        if ( (scopeRef = (CFStringRef)::CFDictionaryGetValue( service, CFSTR(kDS1AttrLocation))) )
+        if ( (scopeRef = (CFStringRef)::CFDictionaryGetValue( service, kDS1AttrLocationSAFE_CFSTR)) )
         {
         	if ( CFGetTypeID( scopeRef ) == CFArrayGetTypeID() )
             {
@@ -449,8 +555,8 @@ sInt32 CSLPPlugin::DeregisterService( tRecordReference recordRef, CFDictionaryRe
             CFMutableStringRef		attributeForURLRef = ::CFStringCreateMutable( NULL, 0 );	// mod this for appending to URL
             CFMutableDictionaryRef	attributesDictRef = ::CFDictionaryCreateMutable( NULL, 2, &kCFTypeDictionaryKeyCallBacks, & kCFTypeDictionaryValueCallBacks );
             
-            ::CFDictionaryAddValue( attributesDictRef, CFSTR("attributeList"), attributeRef );
-            ::CFDictionaryAddValue( attributesDictRef, CFSTR("attributeForURL"), attributeForURLRef );
+            ::CFDictionaryAddValue( attributesDictRef, kAttributeListSAFE_CFSTR, attributeRef );
+            ::CFDictionaryAddValue( attributesDictRef, kAttributeListForURLSAFE_CFSTR, attributeForURLRef );
             
             ::CFDictionaryApplyFunction( service, AddToAttributeList, attributesDictRef );
 
@@ -509,13 +615,13 @@ OSStatus CSLPPlugin::DoSLPRegistration( char* scopeList, char* url, char* attrib
                 free( returnBuffer );
             returnBuffer = NULL;
             
-            sleep(1);		// try again
+            SmartSleep(1*USEC_PER_SEC);		// try again
             status = SendDataToSLPd( dataBuffer, dataBufferLen, &returnBuffer, &returnBufferLen );
             
         }
 	}
 	else
-		status = memFullErr;
+		status = eMemoryAllocError;
 			
 	// now check for any message status
 	if ( !status && returnBuffer && returnBufferLen > 0 )
@@ -545,7 +651,7 @@ OSStatus CSLPPlugin::DoSLPDeregistration( char* scopeList, char* url )
 	if ( dataBuffer )
 		status = SendDataToSLPd( dataBuffer, dataBufferLen, &returnBuffer, &returnBufferLen );
 	else
-		status = memFullErr;
+		status = eMemoryAllocError;
 		
 	// now check for any message status
 	if ( !status && returnBuffer && returnBufferLen > 0 )
@@ -560,7 +666,7 @@ OSStatus CSLPPlugin::DoSLPDeregistration( char* scopeList, char* url )
 	return status;
 }
 
-
+#pragma mark -
 void AddToAttributeList( const void* key, const void* value, void* context )
 {
     // for each key value we need to wrap it like one of these:
@@ -569,24 +675,24 @@ void AddToAttributeList( const void* key, const void* value, void* context )
     // (key=value1,value2),
 DBGLOG( "AddToAttributeList called with key:%s value:%s", (char*)key, (char*)value );
     // when we are done, we will end up with a string with an extra comma at the end that we will delete later
-    if ( key /*&& value*/ && context )
+    if ( key && context )
     {
         CFDictionaryRef				attrDict = (CFDictionaryRef)context;
         CFStringRef					keyRef = (CFStringRef) key;
-        CFMutableStringRef			attributeListRef = (CFMutableStringRef)CFDictionaryGetValue( attrDict, CFSTR("attributeList") );
-        CFMutableStringRef			attributeListForURLRef = (CFMutableStringRef)CFDictionaryGetValue( attrDict, CFSTR("attributeForURL") );
+        CFMutableStringRef			attributeListRef = (CFMutableStringRef)CFDictionaryGetValue( attrDict, kAttributeListSAFE_CFSTR );
+        CFMutableStringRef			attributeListForURLRef = (CFMutableStringRef)CFDictionaryGetValue( attrDict, kAttributeListForURLSAFE_CFSTR );
         CFPropertyListRef			valueRef = (CFPropertyListRef) value;
         
         // first check to see if this key is one to ignore
-        if ( ::CFStringCompare( CFSTR(kDSNAttrURL), keyRef, 0 ) == kCFCompareEqualTo )
+        if ( ::CFStringCompare( kDSNAttrURLSAFE_CFSTR, keyRef, 0 ) == kCFCompareEqualTo )
             return;
-        else if ( ::CFStringCompare( CFSTR(kDS1AttrLocation), keyRef, 0 ) == kCFCompareEqualTo )
+        else if ( ::CFStringCompare( kDS1AttrLocationSAFE_CFSTR, keyRef, 0 ) == kCFCompareEqualTo )
             return;
 
         if ( attributeListRef )
         {
             ::CFStringAppendCString( attributeListRef, "(", kCFStringEncodingUTF8 );
-            ::CFStringAppendCString( attributeListForURLRef, ";", kCFStringEncodingASCII );		// url needs to be encoded ASCII
+            ::CFStringAppendCString( attributeListForURLRef, ";", kCFStringEncodingUTF8 );		// url needs to be encoded UTF8
 
             ::CFStringRef	keyConvertedRef = CreateSLPTypeFromDSType( (CFStringRef)keyRef );
             ::CFStringAppend( attributeListRef, keyConvertedRef );
@@ -600,7 +706,9 @@ DBGLOG( "AddToAttributeList called with key:%s value:%s", (char*)key, (char*)val
             
                 if ( ::CFGetTypeID( valueRef ) == ::CFArrayGetTypeID() )
                 {
-                    for ( CFIndex i=0; i<CFArrayGetCount((CFArrayRef)valueRef); i++ )
+                    CFIndex		valueCount = CFArrayGetCount((CFArrayRef)valueRef);
+					
+					for ( CFIndex i=0; i<valueCount; i++ )
                     {
                         CFStringRef valueStringRef = (CFStringRef)::CFArrayGetValueAtIndex( (CFArrayRef)valueRef, i );
                             
@@ -611,7 +719,7 @@ DBGLOG( "AddToAttributeList called with key:%s value:%s", (char*)key, (char*)val
                             ::CFStringAppend( attributeListRef, encodedValueRef );
                             ::CFStringAppend( attributeListForURLRef, hexEncodedValueRef );
                             
-                            if ( i+1 < CFArrayGetCount((CFArrayRef)valueRef) )
+                            if ( i+1 < valueCount )
                             {
                                 ::CFStringAppendCString( attributeListRef, ",", kCFStringEncodingUTF8 );
                                 ::CFStringAppendCString( attributeListForURLRef, ",", kCFStringEncodingASCII );
@@ -665,8 +773,6 @@ CFStringRef CreateEncodedString( CFStringRef rawStringRef )
         char					temp[4] = {0};                
         
         DBGLOG( "CreateEncodedString parsing: %s\n", buffer );
-        
-        //CFStringAppendCString( newStringRef, "\\FF", kCFStringEncodingASCII );
         
         while ( *curPtr != '\0' )
         {
@@ -729,13 +835,7 @@ CFStringRef CreateHexEncodedString( CFStringRef rawStringRef )
         return NULL;
     }
     
-/*    if ( ::CFStringGetCString( rawStringRef, buffer, bufferSize, kCFStringEncodingASCII ) )
-    {
-        // no encoding needed, just pass back a copy
-        return CFStringCreateCopy( NULL, rawStringRef );
-    }
-    else 
-*/    if ( ::CFStringGetCString( rawStringRef, buffer, bufferSize, kCFStringEncodingUTF8 ) )
+	if ( ::CFStringGetCString( rawStringRef, buffer, bufferSize, kCFStringEncodingUTF8 ) )
     {
         CFMutableStringRef		newStringRef = ::CFStringCreateMutable( NULL, 0 );
         char*					curPtr = buffer;
@@ -743,8 +843,6 @@ CFStringRef CreateHexEncodedString( CFStringRef rawStringRef )
         Boolean					encode = false;
         
         DBGLOG( "CreateHexEncodedString parsing: %s\n", buffer );
-        
-        //CFStringAppendCString( newStringRef, "\\FF", kCFStringEncodingASCII );
         
         while ( *curPtr != '\0' )
         {
@@ -840,15 +938,15 @@ CFStringRef	CreateSLPTypeFromDSType ( CFStringRef inDSType )
 {
     CFStringRef		result = NULL;
     
-    if ( CFStringCompare( inDSType, CFSTR(kDSNAttrRecordName), 0 ) == kCFCompareEqualTo )
+    if ( CFStringCompare( inDSType, kDSNAttrRecordNameSAFE_CFSTR, 0 ) == kCFCompareEqualTo )
     {
         result = CFStringCreateWithCString( NULL, kSLPNameKey, kCFStringEncodingUTF8 );
     }    
-    else if ( CFStringHasPrefix( inDSType, CFSTR(kDSStdAttrTypePrefix) ) )
+    else if ( CFStringHasPrefix( inDSType, kDSStdAttrTypePrefixSAFE_CFSTR ) )
     {
         result = CFStringCreateWithSubstring( NULL, inDSType, CFRangeMake( strlen(kDSStdAttrTypePrefix), CFStringGetLength(inDSType) - strlen(kDSStdAttrTypePrefix) ) );
     }
-    else if ( CFStringHasPrefix( inDSType, CFSTR(kDSNativeAttrTypePrefix) ) )
+    else if ( CFStringHasPrefix( inDSType, kDSNativeAttrTypePrefixSAFE_CFSTR ) )
     {
         result = CFStringCreateWithSubstring( NULL, inDSType, CFRangeMake( strlen(kDSNativeAttrTypePrefix), CFStringGetLength(inDSType) - strlen(kDSNativeAttrTypePrefix) ) );
     }

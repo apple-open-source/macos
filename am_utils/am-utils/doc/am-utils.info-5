@@ -1,6 +1,7 @@
-This is am-utils.info, produced by makeinfo version 4.0b from
+This is am-utils.info, produced by makeinfo version 4.1 from
 am-utils.texi.
 
+INFO-DIR-SECTION Administration
 START-INFO-DIR-ENTRY
 * Am-utils: (am-utils).          The Amd automounter suite of utilities
 END-INFO-DIR-ENTRY
@@ -810,8 +811,8 @@ variable, or modify the script.
 Selector Variable::) Amd map syntax, then define the environment
 variable $DOMAIN or modify the script.
 
-   Note that automount2amd does not understand newer Sun Automount map
-syntax, those used by autofs.
+   Note that automount2amd does not understand the syntax in newer Sun
+Automount maps, those used with autofs.
 
 
 File: am-utils.info,  Node: ctl-amd,  Next: ctl-hlfsd,  Prev: automount2amd,  Up: Assorted Tools

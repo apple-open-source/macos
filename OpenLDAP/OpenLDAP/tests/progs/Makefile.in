@@ -1,18 +1,18 @@
-# $OpenLDAP: pkg/ldap/tests/progs/Makefile.in,v 1.10 2002/02/10 21:42:56 kurt Exp $
-## Copyright 1998-2002 The OpenLDAP Foundation, All Rights Reserved.
+# $OpenLDAP: pkg/ldap/tests/progs/Makefile.in,v 1.10.2.3 2003/02/24 16:16:54 kurt Exp $
+## Copyright 1998-2003 The OpenLDAP Foundation, All Rights Reserved.
 ## COPYING RESTRICTIONS APPLY, see COPYRIGHT file
 ##
 ## tests Makefile.in for OpenLDAP
 
-UNIX_PRGS = slapd-tester slapd-search slapd-read slapd-addel
-PROGRAMS = $(@PLAT@_PRGS)
+PROGRAMS = slapd-tester slapd-search slapd-read slapd-addel slapd-modrdn
 
-SRCS     = slapd-tester.c slapd-search.c slapd-read.c slapd-addel.c
+SRCS     = slapd-tester.c slapd-search.c slapd-read.c slapd-addel.c \
+		slapd-modrdn.c
 
 LDAP_INCDIR= ../../include
 LDAP_LIBDIR= ../../libraries
 
-XLIBS    = $(LDAP_LIBLDAP_LA) $(LDAP_LIBLBER_LA)
+XLIBS    = $(LDAP_LIBLDAP_LA) $(LDAP_LIBLBER_LA) $(LDAP_LIBLUTIL_A)
 XXLIBS	= $(SECURITY_LIBS) $(LUTIL_LIBS)
 
 # build-tools: FORCE
@@ -32,4 +32,6 @@ slapd-read: slapd-read.o $(XLIBS)
 slapd-addel: slapd-addel.o $(XLIBS)
 	$(LTLINK) -o $@ slapd-addel.o $(LIBS)
 
+slapd-modrdn: slapd-modrdn.o $(XLIBS)
+	$(LTLINK) -o $@ slapd-modrdn.o $(LIBS)
 

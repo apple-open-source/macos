@@ -1,4 +1,4 @@
-/* $Header: /cvs/Darwin/src/live/tcsh/tcsh/sh.dir.c,v 1.1.1.2 2001/06/28 23:10:50 bbraun Exp $ */
+/* $Header: /cvs/root/tcsh/tcsh/sh.dir.c,v 1.2 2003/07/15 00:00:28 eseidel Exp $ */
 /*
  * sh.dir.c: Directory manipulation functions
  */
@@ -14,11 +14,7 @@
  * 2. Redistributions in binary form must reproduce the above copyright
  *    notice, this list of conditions and the following disclaimer in the
  *    documentation and/or other materials provided with the distribution.
- * 3. All advertising materials mentioning features or use of this software
- *    must display the following acknowledgement:
- *	This product includes software developed by the University of
- *	California, Berkeley and its contributors.
- * 4. Neither the name of the University nor the names of its contributors
+ * 3. Neither the name of the University nor the names of its contributors
  *    may be used to endorse or promote products derived from this software
  *    without specific prior written permission.
  *
@@ -36,7 +32,7 @@
  */
 #include "sh.h"
 
-RCSID("$Id: sh.dir.c,v 1.1.1.2 2001/06/28 23:10:50 bbraun Exp $")
+RCSID("$Id: sh.dir.c,v 1.2 2003/07/15 00:00:28 eseidel Exp $")
 
 /*
  * C Shell - directory management
@@ -80,7 +76,8 @@ dinit(hp)
     /* Don't believe the login shell home, because it may be a symlink */
     tcp = (char *) getcwd(path, sizeof(path));
     if (tcp == NULL || *tcp == '\0') {
-	xprintf("%s: %s\n", progname, strerror(errno));
+	xprintf("%s: Can't start from current directory: %s\n",
+                    progname, strerror(errno));
 	if (hp && *hp) {
 	    tcp = short2str(hp);
 	    dstart(tcp);
@@ -323,6 +320,7 @@ dnormalize(cp, exp)
     if (exp) {
  	int     dotdot = 0;
 	Char   *dp, *cwd, *start = cp, buf[MAXPATHLEN];
+	struct stat sb;
 # ifdef apollo
 	bool slashslash;
 # endif /* apollo */
@@ -338,6 +336,13 @@ dnormalize(cp, exp)
 	 */
         if (dotdot == 0)
 	    return (Strsave(cp));
+
+	/*
+	 * If the path doesn't exist, we are done too.
+	 */
+	if (lstat(short2str(cp), &sb) != 0 && errno == ENOENT)
+	    return (Strsave(cp));
+	
 
 	cwd = (Char *) xmalloc((size_t) (((int) Strlen(dcwd->di_name) + 3) *
 					   sizeof(Char)));
@@ -414,6 +419,18 @@ dnormalize(cp, exp)
 	        cwd = dp;
 	        if ((TRM(cwd[(dotdot = (int) Strlen(cwd)) - 1])) == '/')
 		    cwd[--dotdot] = '\0';
+	    }
+	    /* Reduction of ".." following the stuff we collected in buf
+	     * only makes sense if the directory item in buf really exists.
+	     * Avoid reduction of "-I../.." (typical compiler call) to ""
+	     * or "/usr/nonexistant/../bin" to "/usr/bin":
+	     */
+	    if (cwd[0]) {
+	        struct stat exists;
+		if (0 != stat(short2str(cwd), &exists)) {
+		    xfree((ptr_t) cwd);
+		    return Strsave(start);
+		}
 	    }
 	    if (!*cp)
 	        break;
@@ -570,7 +587,7 @@ dfollow(cp)
     }
 
     if (cp[0] != '/' && !prefix(STRdotsl, cp) && !prefix(STRdotdotsl, cp)
-	&& (c = adrof(STRcdpath))) {
+	&& (c = adrof(STRcdpath)) && c->vec != NULL) {
 	Char  **cdp;
 	register Char *p;
 	Char    buf[MAXPATHLEN];
@@ -814,6 +831,7 @@ dcanon(cp, p)
 #ifdef apollo
     bool    slashslash;
 #endif /* apollo */
+    size_t  clen;
 
 #ifdef S_IFLNK			/* if we have symlinks */
     Char    link[MAXPATHLEN];
@@ -823,34 +841,40 @@ dcanon(cp, p)
 #endif /* S_IFLNK */
 
     /*
-     * kim: if the path given is too long abort().
+     * if the path given is too long truncate it!
      */
-    if (Strlen(cp) >= MAXPATHLEN)
-	abort();
+    if ((clen = Strlen(cp)) >= MAXPATHLEN)
+	cp[clen = MAXPATHLEN - 1] = '\0';
 
     /*
      * christos: if the path given does not start with a slash prepend cwd. If
-     * cwd does not start with a slash or the result would be too long abort().
+     * cwd does not start with a slash or the result would be too long try to
+     * correct it.
      */
     if (!ABSOLUTEP(cp)) {
 	Char    tmpdir[MAXPATHLEN];
+	size_t	len;
 
 	p1 = varval(STRcwd);
-	if (p1 == STRNULL || !ABSOLUTEP(p1))
-	    abort();
-	if (Strlen(p1) + Strlen(cp) + 1 >= MAXPATHLEN)
-	    abort();
+	if (p1 == STRNULL || !ABSOLUTEP(p1)) {
+	    char *tmp = (char *)getcwd((char *)tmpdir, sizeof(tmpdir));
+	    if (tmp == NULL || *tmp == '\0') {
+		xprintf("%s: %s\n", progname, strerror(errno));
+		set(STRcwd, SAVE("/"), VAR_READWRITE|VAR_NOGLOB);
+	    } else {
+		set(STRcwd, SAVE(tmp), VAR_READWRITE|VAR_NOGLOB);
+	    }
+	    p1 = varval(STRcwd);
+	}
+	len = Strlen(p1);
+	if (len + clen + 1 >= MAXPATHLEN)
+	    cp[MAXPATHLEN - (len + 1)] = '\0';
 	(void) Strcpy(tmpdir, p1);
 	(void) Strcat(tmpdir, STRslash);
 	(void) Strcat(tmpdir, cp);
 	xfree((ptr_t) cp);
 	cp = p = Strsave(tmpdir);
     }
-
-#ifdef COMMENT
-    if (*cp != '/')
-	abort();
-#endif /* COMMENT */
 
 #ifdef apollo
     slashslash = (cp[0] == '/' && cp[1] == '/');
@@ -1194,7 +1218,7 @@ dsetstack()
     struct varent *vp;
     struct directory *dn, *dp;
 
-    if ((vp = adrof(STRdirstack)) == NULL)
+    if ((vp = adrof(STRdirstack)) == NULL || vp->vec == NULL)
 	return;
 
     /* Free the whole stack */
@@ -1348,7 +1372,7 @@ recdirs(fname, def)
 	return;
     }
 
-    if ((snum = varval(STRsavedirs)) == STRNULL) 
+    if ((snum = varval(STRsavedirs)) == STRNULL || snum[0] == '\0') 
 	num = (unsigned int) ~0;
     else
 	num = (unsigned int) atoi(short2str(snum));

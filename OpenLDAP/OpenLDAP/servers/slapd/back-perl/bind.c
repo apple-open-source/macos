@@ -1,6 +1,7 @@
-/* $OpenLDAP: pkg/ldap/servers/slapd/back-perl/bind.c,v 1.9 2002/02/02 09:10:35 hyc Exp $ */
+/* $OpenLDAP: pkg/ldap/servers/slapd/back-perl/bind.c,v 1.9.2.3 2002/06/20 20:12:34 kurt Exp $ */
 /*
  *	 Copyright 1999, John C. Quillan, All rights reserved.
+ *	 Portions Copyright 2002, myinternet Limited. All rights reserved.
  *
  *	 Redistribution and use in source and binary forms are permitted only
  *	 as authorized by the OpenLDAP Public License.	A copy of this
@@ -9,17 +10,18 @@
  */
 
 #include "portable.h"
-/* init.c - initialize shell backend */
+/* init.c - initialize Perl backend */
 	
 #include <stdio.h>
-/*	#include <ac/types.h>
-	#include <ac/socket.h>
-*/
+
+#include "slap.h"
+#ifdef HAVE_WIN32_ASPERL
+#include "asperl_undefs.h"
+#endif
 
 #include <EXTERN.h>
 #include <perl.h>
 
-#include "slap.h"
 #include "perl_back.h"
 
 
@@ -45,18 +47,26 @@ perl_back_bind(
 
 	PerlBackend *perl_back = (PerlBackend *) be->be_private;
 
+#ifdef HAVE_WIN32_ASPERL
+	PERL_SET_CONTEXT( PERL_INTERPRETER );
+#endif
+
 	ldap_pvt_thread_mutex_lock( &perl_interpreter_mutex );	
 
 	{
 		dSP; ENTER; SAVETMPS;
 
-		PUSHMARK(sp);
+		PUSHMARK(SP);
 		XPUSHs( perl_back->pb_obj_ref );
 		XPUSHs(sv_2mortal(newSVpv( dn->bv_val , 0)));
 		XPUSHs(sv_2mortal(newSVpv( cred->bv_val , cred->bv_len)));
 		PUTBACK;
 
+#ifdef PERL_IS_5_6
+		count = call_method("bind", G_SCALAR);
+#else
 		count = perl_call_method("bind", G_SCALAR);
+#endif
 
 		SPAGAIN;
 
@@ -72,7 +82,11 @@ perl_back_bind(
 
 	ldap_pvt_thread_mutex_unlock( &perl_interpreter_mutex );	
 
-	Debug( LDAP_DEBUG_ANY, "Perl BIND\n", 0, 0, 0 );
+	Debug( LDAP_DEBUG_ANY, "Perl BIND returned 0x%04x\n", return_code, 0, 0 );
+
+	/* frontend will send result on success (0) */
+	if( return_code != LDAP_SUCCESS )
+		send_ldap_result( conn, op, return_code, NULL, NULL, NULL, NULL );
 
 	return ( return_code );
 }

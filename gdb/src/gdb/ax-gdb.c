@@ -1,5 +1,7 @@
-/* GDB-specific functions for operating on agent expressions
-   Copyright 1998, 1999, 2000, 2001 Free Software Foundation, Inc.
+/* GDB-specific functions for operating on agent expressions.
+
+   Copyright 1998, 1999, 2000, 2001, 2003 Free Software Foundation,
+   Inc.
 
    This file is part of GDB.
 
@@ -30,6 +32,7 @@
 #include "target.h"
 #include "ax.h"
 #include "ax-gdb.h"
+#include "gdb_string.h"
 
 /* To make sense of this file, you should read doc/agentexpr.texi.
    Then look at the types and enums in ax-gdb.h.  For the code itself,
@@ -353,7 +356,7 @@ gen_sign_extend (struct agent_expr *ax, struct type *type)
 {
   /* Do we need to sign-extend this?  */
   if (!TYPE_UNSIGNED (type))
-    ax_ext (ax, type->length * TARGET_CHAR_BIT);
+    ax_ext (ax, TYPE_LENGTH (type) * TARGET_CHAR_BIT);
 }
 
 
@@ -363,7 +366,7 @@ gen_sign_extend (struct agent_expr *ax, struct type *type)
 static void
 gen_extend (struct agent_expr *ax, struct type *type)
 {
-  int bits = type->length * TARGET_CHAR_BIT;
+  int bits = TYPE_LENGTH (type) * TARGET_CHAR_BIT;
   /* I just had to.  */
   ((TYPE_UNSIGNED (type) ? ax_zero_ext : ax_ext) (ax, bits));
 }
@@ -381,7 +384,7 @@ gen_fetch (struct agent_expr *ax, struct type *type)
       ax_trace_quick (ax, TYPE_LENGTH (type));
     }
 
-  switch (type->code)
+  switch (TYPE_CODE (type))
     {
     case TYPE_CODE_PTR:
     case TYPE_CODE_ENUM:
@@ -389,7 +392,7 @@ gen_fetch (struct agent_expr *ax, struct type *type)
     case TYPE_CODE_CHAR:
       /* It's a scalar value, so we know how to dereference it.  How
          many bytes long is it?  */
-      switch (type->length)
+      switch (TYPE_LENGTH (type))
 	{
 	case 8 / TARGET_CHAR_BIT:
 	  ax_simple (ax, aop_ref8);
@@ -699,7 +702,7 @@ gen_usual_unary (struct agent_expr *ax, struct axs_value *value)
      the stack.  Should we tweak the type?  */
 
   /* Some types require special handling.  */
-  switch (value->type->code)
+  switch (TYPE_CODE (value->type))
     {
       /* Functions get converted to a pointer to the function.  */
     case TYPE_CODE_FUNC:
@@ -874,7 +877,7 @@ gen_cast (struct agent_expr *ax, struct axs_value *value, struct type *type)
   /* Dereference typedefs. */
   type = check_typedef (type);
 
-  switch (type->code)
+  switch (TYPE_CODE (type))
     {
     case TYPE_CODE_PTR:
       /* It's implementation-defined, and I'll bet this is what GCC
@@ -925,9 +928,9 @@ gen_scale (struct agent_expr *ax, enum agent_op op, struct type *type)
 {
   struct type *element = TYPE_TARGET_TYPE (type);
 
-  if (element->length != 1)
+  if (TYPE_LENGTH (element) != 1)
     {
-      ax_const_l (ax, element->length);
+      ax_const_l (ax, TYPE_LENGTH (element));
       ax_simple (ax, op);
     }
 }
@@ -943,8 +946,8 @@ gen_add (struct agent_expr *ax, struct axs_value *value,
 	 struct axs_value *value1, struct axs_value *value2, char *name)
 {
   /* Is it INT+PTR?  */
-  if (value1->type->code == TYPE_CODE_INT
-      && value2->type->code == TYPE_CODE_PTR)
+  if (TYPE_CODE (value1->type) == TYPE_CODE_INT
+      && TYPE_CODE (value2->type) == TYPE_CODE_PTR)
     {
       /* Swap the values and proceed normally.  */
       ax_simple (ax, aop_swap);
@@ -955,8 +958,8 @@ gen_add (struct agent_expr *ax, struct axs_value *value,
     }
 
   /* Is it PTR+INT?  */
-  else if (value1->type->code == TYPE_CODE_PTR
-	   && value2->type->code == TYPE_CODE_INT)
+  else if (TYPE_CODE (value1->type) == TYPE_CODE_PTR
+	   && TYPE_CODE (value2->type) == TYPE_CODE_INT)
     {
       gen_scale (ax, aop_mul, value1->type);
       ax_simple (ax, aop_add);
@@ -966,8 +969,8 @@ gen_add (struct agent_expr *ax, struct axs_value *value,
 
   /* Must be number + number; the usual binary conversions will have
      brought them both to the same width.  */
-  else if (value1->type->code == TYPE_CODE_INT
-	   && value2->type->code == TYPE_CODE_INT)
+  else if (TYPE_CODE (value1->type) == TYPE_CODE_INT
+	   && TYPE_CODE (value2->type) == TYPE_CODE_INT)
     {
       ax_simple (ax, aop_add);
       gen_extend (ax, value1->type);	/* Catch overflow.  */
@@ -989,10 +992,10 @@ static void
 gen_sub (struct agent_expr *ax, struct axs_value *value,
 	 struct axs_value *value1, struct axs_value *value2)
 {
-  if (value1->type->code == TYPE_CODE_PTR)
+  if (TYPE_CODE (value1->type) == TYPE_CODE_PTR)
     {
       /* Is it PTR - INT?  */
-      if (value2->type->code == TYPE_CODE_INT)
+      if (TYPE_CODE (value2->type) == TYPE_CODE_INT)
 	{
 	  gen_scale (ax, aop_mul, value1->type);
 	  ax_simple (ax, aop_sub);
@@ -1003,7 +1006,7 @@ gen_sub (struct agent_expr *ax, struct axs_value *value,
       /* Is it PTR - PTR?  Strictly speaking, the types ought to
          match, but this is what the normal GDB expression evaluator
          tests for.  */
-      else if (value2->type->code == TYPE_CODE_PTR
+      else if (TYPE_CODE (value2->type) == TYPE_CODE_PTR
 	       && (TYPE_LENGTH (TYPE_TARGET_TYPE (value1->type))
 		   == TYPE_LENGTH (TYPE_TARGET_TYPE (value2->type))))
 	{
@@ -1018,8 +1021,8 @@ an integer nor a pointer of the same type.");
     }
 
   /* Must be number + number.  */
-  else if (value1->type->code == TYPE_CODE_INT
-	   && value2->type->code == TYPE_CODE_INT)
+  else if (TYPE_CODE (value1->type) == TYPE_CODE_INT
+	   && TYPE_CODE (value2->type) == TYPE_CODE_INT)
     {
       ax_simple (ax, aop_sub);
       gen_extend (ax, value1->type);	/* Catch overflow.  */
@@ -1044,8 +1047,8 @@ gen_binop (struct agent_expr *ax, struct axs_value *value,
 	   enum agent_op op_unsigned, int may_carry, char *name)
 {
   /* We only handle INT op INT.  */
-  if ((value1->type->code != TYPE_CODE_INT)
-      || (value2->type->code != TYPE_CODE_INT))
+  if ((TYPE_CODE (value1->type) != TYPE_CODE_INT)
+      || (TYPE_CODE (value2->type) != TYPE_CODE_INT))
     error ("Illegal combination of types in %s.", name);
 
   ax_simple (ax,
@@ -1092,7 +1095,7 @@ gen_deref (struct agent_expr *ax, struct axs_value *value)
 {
   /* The caller should check the type, because several operators use
      this, and we don't know what error message to generate.  */
-  if (value->type->code != TYPE_CODE_PTR)
+  if (TYPE_CODE (value->type) != TYPE_CODE_PTR)
     internal_error (__FILE__, __LINE__,
 		    "gen_deref: expected a pointer");
 
@@ -1102,7 +1105,7 @@ gen_deref (struct agent_expr *ax, struct axs_value *value)
      T" to "T", and mark the value as an lvalue in memory.  Leave it
      to the consumer to actually dereference it.  */
   value->type = check_typedef (TYPE_TARGET_TYPE (value->type));
-  value->kind = ((value->type->code == TYPE_CODE_FUNC)
+  value->kind = ((TYPE_CODE (value->type) == TYPE_CODE_FUNC)
 		 ? axs_rvalue : axs_lvalue_memory);
 }
 
@@ -1114,7 +1117,7 @@ gen_address_of (struct agent_expr *ax, struct axs_value *value)
   /* Special case for taking the address of a function.  The ANSI
      standard describes this as a special case, too, so this
      arrangement is not without motivation.  */
-  if (value->type->code == TYPE_CODE_FUNC)
+  if (TYPE_CODE (value->type) == TYPE_CODE_FUNC)
     /* The value's already an rvalue on the stack, so we just need to
        change the type.  */
     value->type = lookup_pointer_type (value->type);
@@ -1156,7 +1159,7 @@ find_field (struct type *type, char *name)
     {
       char *this_name = TYPE_FIELD_NAME (type, i);
 
-      if (this_name && STREQ (name, this_name))
+      if (this_name && strcmp (name, this_name) == 0)
 	return i;
 
       if (this_name[0] == '\0')
@@ -1346,7 +1349,7 @@ gen_struct_ref (struct agent_expr *ax, struct axs_value *value, char *field,
   /* Follow pointers until we reach a non-pointer.  These aren't the C
      semantics, but they're what the normal GDB evaluator does, so we
      should at least be consistent.  */
-  while (value->type->code == TYPE_CODE_PTR)
+  while (TYPE_CODE (value->type) == TYPE_CODE_PTR)
     {
       gen_usual_unary (ax, value);
       gen_deref (ax, value);
@@ -1410,7 +1413,7 @@ gen_repeat (union exp_element **pc, struct agent_expr *ax,
 
     if (!v)
       error ("Right operand of `@' must be a constant, in agent expressions.");
-    if (v->type->code != TYPE_CODE_INT)
+    if (TYPE_CODE (v->type) != TYPE_CODE_INT)
       error ("Right operand of `@' must be an integer.");
     length = value_as_long (v);
     if (length <= 0)
@@ -1835,7 +1838,7 @@ agent_command (char *exp, int from_tty)
 
   expr = parse_expression (exp);
   old_chain = make_cleanup (free_current_contents, &expr);
-  agent = gen_trace_for_expr (fi->pc, expr);
+  agent = gen_trace_for_expr (get_frame_pc (fi), expr);
   make_cleanup_free_agent_expr (agent);
   ax_print (gdb_stdout, agent);
 

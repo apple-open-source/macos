@@ -50,7 +50,7 @@ case "$@" in
     ;;
 esac
 
-exec gcc ${1+"$@"}
+exec gcc "$@"
 END
 
 chmod +x Mycomp

@@ -1,5 +1,9 @@
 .PATH: ${.CURDIR}/${MACHINE_ARCH}/pthreads ${.CURDIR}/pthreads
 
+.if exists(${.CURDIR}/${MACHINE_ARCH}/pthreads/Makefile.inc)
+.include "${.CURDIR}/${MACHINE_ARCH}/pthreads/Makefile.inc"
+.endif
+
 SRCS +=                   pthread_cond.c pthread_tsd.c pthread.c \
         pthread_mutex.c    thread_setup.c lock.s   stack.s pthread_rwlock.c
 
@@ -51,9 +55,11 @@ MLINKS+=pthread_getschedparam.3 pthread_setschedparam.3
 MLINKS+=pthread_mutexattr.3 pthread_mutexattr_destroy.3 \
 	pthread_mutexattr.3 pthread_mutexattr_getprioceiling.3 \
 	pthread_mutexattr.3 pthread_mutexattr_getprotocol.3 \
+	pthread_mutexattr.3 pthread_mutexattr_gettype.3 \
 	pthread_mutexattr.3 pthread_mutexattr_init.3 \
 	pthread_mutexattr.3 pthread_mutexattr_setprioceiling.3 \
-	pthread_mutexattr.3 pthread_mutexattr_setprotocol.3
+	pthread_mutexattr.3 pthread_mutexattr_setprotocol.3 \
+	pthread_mutexattr.3 pthread_mutexattr_settype.3
 
 MLINKS+=pthread_setcancelstate.3 pthread_setcanceltype.3 \
 	pthread_setcancelstate.3 pthread_testcancel.3

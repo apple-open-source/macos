@@ -3,8 +3,6 @@
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
- * Copyright (c) 1999-2003 Apple Computer, Inc.  All Rights Reserved.
- * 
  * This file contains Original Code and/or Modifications of Original Code
  * as defined in and that are subject to the Apple Public Source License
  * Version 2.0 (the 'License'). You may not use this file except in
@@ -262,7 +260,7 @@ static enum dyld_debug_return send_past_events(
  * These variables are used for the dyld/gdb interface as described in the
  * header file <mach-o/dyld_gdb.h>.
  */
-unsigned int gdb_dyld_version = 1;
+unsigned int gdb_dyld_version = 2;
 unsigned int gdb_nobject_images = NOBJECT_IMAGES;
 unsigned int gdb_nlibrary_images = NLIBRARY_IMAGES;
 unsigned int gdb_object_image_size = sizeof(struct object_image);
@@ -1009,11 +1007,11 @@ struct dyld_debug_module module
 				        FALSE, FALSE, FALSE);
 		    resolve_undefineds(FALSE, FALSE);
 		    relocate_modules_being_linked(FALSE);
-		    check_and_report_undefineds();
+		    check_and_report_undefineds(FALSE);
 		    call_registered_funcs_for_add_images();
 		    call_registered_funcs_for_linked_modules();
 		    call_image_init_routines(FALSE);
-		    call_module_initializers(FALSE, FALSE);
+		    call_module_initializers(FALSE, FALSE, FALSE);
 
 		    /* release lock for dyld data structures */
 		    release_lock();

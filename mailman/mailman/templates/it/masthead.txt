@@ -1,0 +1,16 @@
+Invia le richieste di iscrizione alla lista %(real_name)s 
+all'indirizzo
+	%(got_list_email)s
+
+Per iscriverti o cancellarti attraverso il web, visita
+	%(got_listinfo_url)s
+oppure, via email, manda un messaggio con oggetto `help'
+all'indirizzo
+	%(got_request_email)s
+
+Puoi contattare la persona che gestisce la lista all'indirizzo
+	%(got_owner_email)s
+
+Se rispondi a questo messaggio, per favore edita la linea 
+dell'oggetto in modo che sia più utile di un semplice
+"Re: Contenuti del digest della lista %(real_name)s..."

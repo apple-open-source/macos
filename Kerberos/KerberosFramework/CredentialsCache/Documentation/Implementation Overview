@@ -1,0 +1,102 @@
+
+Overview of the C++ implementation of the Credentials Cache library
+```````````````````````````````````````````````````````````````````
+
+meeroh@mit.edu, 1/24/2002
+
+
+The credentials cache consists of two layers: client state and
+server state. Client state is the data maintained for each application
+using the CCache. It is transient, and destroyed when the application
+exits. Server state is persistent across all applications.
+
+For example, credentials are part of the server state. They are stored
+outside of all applications, and shared among them.
+
+On the other hand, an iterator is part of the client state. It is 
+stored within an application, and cannot be transferred from one
+application to another.
+
+Every part of server state has a corresponding client state object.
+An application will never directly use server state; instead it will
+create a client object which refers to the appropriate server state
+and use that object as a proxy. 
+
+For example, when an application opens a ccache, a ccache client
+object is created in the application, and it refers to the ccache
+server object. Any operation on the proxy object causes a message
+to be send to the server, and the server then performs the operation
+on the appropriate server object
+
+Therefore, every class representing server state has a corresponding 
+class representing the corresponding client object. For example:
+
+CCIContextData (server state) -> CCIContext (client state)
+CCICCacheData (server state) -> CCICCache (client state)
+etc
+
+In addition to this, every client object has an associated class 
+which implementes the exported functions. The sole purpose of this
+external class is to validate the arguments and convert opaque API
+objects to their implementation. For example, the ccache external
+class converts cc_ccache_t to CCICCache objects, etc. The naming 
+convention is:
+
+CCECCache (external) -> CCICCache (internal)
+CCECredentialsIterator (external) -> CCICredentialsIterator (internal)
+etc
+
+Finally, the mechanism used to communicate between the client and the 
+server is abstracted into a pair of classes for each client/server 
+implementation. There are currently three implementations: 
+
+Mac OS 9 CFM		-> Call implementation
+Mac OS X Mach IPC	-> MachIPC implementation
+Mac OS 9 Classic	-> Classic implementation
+
+Every client/server implementation has two additional layers for every 
+pair of client/server classes. One of those layers is the stub
+layer, whose responsibility is to prepare client arguments for sending 
+to the server, and unwrap the reply, and the other is the interface 
+layer, whose responsibility is to extract client arguments from
+the message, interpret them appropriately, and return the reply in a
+message.
+
+For example, the Classic implementation contains:
+
+CCIContextDataClassicStub	and CCIContextDataClassicInterface
+
+which are the glue that binds CCIContext and CCIContextData together
+when using the Mac OS 9 Classic implementation.
+
+For different implementations, the interface layer diffes widely, since
+it needs to intergate tightly with whatever the messaging system, so
+some implementations use a separate class for the interface layer, and
+some use a set of functions. 
+
+The stub layer, however, always uses a separate class. For example, the
+CCIContextDataClassicStub is used by the Classic integration layer to
+communicate between the client and the server.
+
+Putting all those things together, the call chain of a typical ccache
+call looks like this:
+
+<Client application>
+CCEObject::Function
+CCIObject::Function
+CCIObjectDataMechanismStub::Function
+<Message sent to server>
+CCIObjectDataInterface::Function
+CCIObjectData::Function
+
+where Object is one of Context, CCache, or Credentials and Mechanism
+is one of MachIPC, Call, and Classic. CCIObjectDataInterface is a separate
+class in some cases, or just a set of functions in other cases.
+
+At compile time, one of the possible implementations is selected.
+CCIConcreteFactory is responsible for knowing which classes to instantiate
+and how to instantiate them, and is therefore where all the conditionals 
+for selecting the appropriate implementation are.
+
+More details on the implementation are available in the source for
+the respective classes.

@@ -57,8 +57,9 @@ The options are as follows:
 Specify how many servers are to be started.
 .El
 .Pp
-A client should run enough daemons to handle its maximum
-level of concurrency, typically four to six.
+A client should run enough servers to handle its maximum
+level of concurrency, typically four to six.  Each server
+runs as a separate thread within the nfsiod process.
 .Pp
 The
 .Nm nfsiod

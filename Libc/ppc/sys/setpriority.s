@@ -25,5 +25,4 @@
 #include "SYS.h"
 
 SYSCALL(setpriority, 3)
-	blr
 

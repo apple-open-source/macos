@@ -8,21 +8,22 @@
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
- * Portions Copyright (c) 1999 Apple Computer, Inc.  All Rights
- * Reserved.  This file contains Original Code and/or Modifications of
- * Original Code as defined in and that are subject to the Apple Public
- * Source License Version 1.1 (the "License").  You may not use this file
- * except in compliance with the License.  Please obtain a copy of the
- * License at http://www.apple.com/publicsource and read it before using
- * this file.
+ * Copyright (c) 1999-2003 Apple Computer, Inc.  All Rights Reserved.
+ * 
+ * This file contains Original Code and/or Modifications of Original Code
+ * as defined in and that are subject to the Apple Public Source License
+ * Version 2.0 (the 'License'). You may not use this file except in
+ * compliance with the License. Please obtain a copy of the License at
+ * http://www.opensource.apple.com/apsl/ and read it before using this
+ * file.
  * 
  * The Original Code and all software distributed under the License are
- * distributed on an "AS IS" basis, WITHOUT WARRANTY OF ANY KIND, EITHER
+ * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
  * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
  * INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY,
- * FITNESS FOR A PARTICULAR PURPOSE OR NON- INFRINGEMENT.  Please see the
- * License for the specific language governing rights and limitations
- * under the License.
+ * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
+ * Please see the License for the specific language governing rights and
+ * limitations under the License.
  * 
  * @APPLE_LICENSE_HEADER_END@
  */
@@ -67,9 +68,9 @@ struct dlopen_handle {
     struct dlopen_handle *prev;
     struct dlopen_handle *next;
 };
-static struct dlopen_handle *dlopen_handles = NULL;
-static const struct dlopen_handle main_program_handle = {NULL};
-static char *dlerror_pointer = NULL;
+static struct dlopen_handle *sasl_dlopen_handles = NULL;
+static const struct dlopen_handle sasl_main_program_handle = {NULL};
+static char *sasl_dlerror_pointer = NULL;
 
 /*
  * NSMakePrivateModulePublic() is not part of the public dyld API so we define
@@ -184,7 +185,7 @@ struct stat *stat_buf)
  * dlopen() the MacOS X version of the FreeBSD dlopen() interface.
  */
 void *
-dlopen(
+sasl_dlopen(
 const char *path,
 int mode)
 {
@@ -202,35 +203,35 @@ int mode)
 
         DEBUG_PRINT2("libdl: dlopen(%s,0x%x) -> ", path, (unsigned int)mode);
 
-	dlerror_pointer = NULL;
+	sasl_dlerror_pointer = NULL;
 	/*
 	 * A NULL path is to indicate the caller wants a handle for the
 	 * main program.
  	 */
 	if(path == NULL){
-	    retval = (void *)&main_program_handle;
+	    retval = (void *)&sasl_main_program_handle;
 	    DEBUG_PRINT1("main / %p\n", retval);
 	    return(retval);
 	}
 
 	/* see if the path exists and if so get the device and inode number */
 	if(stat(path, &stat_buf) == -1){
-	    dlerror_pointer = strerror(errno);
+	    sasl_dlerror_pointer = strerror(errno);
 
 	    if(path[0] == '/'){
-	        DEBUG_PRINT1("ERROR (stat): %s\n", dlerror_pointer);
+	        DEBUG_PRINT1("ERROR (stat): %s\n", sasl_dlerror_pointer);
 	        return(NULL);
 	    }
 
 	    /* search for the module in various places */
 	    if(_dl_search_paths(path, pathbuf, &stat_buf)){
-	        /* dlerror_pointer is unmodified */
-	        DEBUG_PRINT1("ERROR (stat): %s\n", dlerror_pointer);
+	        /* sasl_dlerror_pointer is unmodified */
+	        DEBUG_PRINT1("ERROR (stat): %s\n", sasl_dlerror_pointer);
 	        return(NULL);
 	    }
 	    DEBUG_PRINT1("found %s -> ", pathbuf);
 	    module_path = pathbuf;
-	    dlerror_pointer = NULL;
+	    sasl_dlerror_pointer = NULL;
 	}
 	else{
 	    module_path = path;
@@ -241,7 +242,7 @@ int mode)
 	 * for this path.
 	 */
 	if((mode & RTLD_UNSHARED) != RTLD_UNSHARED){
-	    p = dlopen_handles;
+	    p = sasl_dlopen_handles;
 	    while(p != NULL){
 		if(p->dev == stat_buf.st_dev && p->ino == stat_buf.st_ino){
 		    /* skip unshared handles */
@@ -264,9 +265,9 @@ int mode)
 			    return(p);
 			}
 			else{
-			    dlerror_pointer = "can't promote handle from "
+			    sasl_dlerror_pointer = "can't promote handle from "
 					      "RTLD_LOCAL to RTLD_GLOBAL";
-			    DEBUG_PRINT1("ERROR: %s\n", dlerror_pointer);
+			    DEBUG_PRINT1("ERROR: %s\n", sasl_dlerror_pointer);
 			    return(NULL);
 			}
 		    }
@@ -283,8 +284,8 @@ int mode)
 	 * look it up return NULL to indicate we don't have it.
 	 */
 	if((mode & RTLD_NOLOAD) == RTLD_NOLOAD){
-	    dlerror_pointer = "no existing handle for path RTLD_NOLOAD test";
-	    DEBUG_PRINT1("ERROR: %s\n", dlerror_pointer);
+	    sasl_dlerror_pointer = "no existing handle for path RTLD_NOLOAD test";
+	    DEBUG_PRINT1("ERROR: %s\n", sasl_dlerror_pointer);
 	    return(NULL);
 	}
 
@@ -294,29 +295,29 @@ int mode)
 	if(ofile_result_code != NSObjectFileImageSuccess){
 	    switch(ofile_result_code){
 	    case NSObjectFileImageFailure:
-		dlerror_pointer = "object file setup failure";
-		DEBUG_PRINT1("ERROR: %s\n", dlerror_pointer);
+		sasl_dlerror_pointer = "object file setup failure";
+		DEBUG_PRINT1("ERROR: %s\n", sasl_dlerror_pointer);
 		return(NULL);
 	    case NSObjectFileImageInappropriateFile:
-		dlerror_pointer = "not a Mach-O MH_BUNDLE file type";
-		DEBUG_PRINT1("ERROR: %s\n", dlerror_pointer);
+		sasl_dlerror_pointer = "not a Mach-O MH_BUNDLE file type";
+		DEBUG_PRINT1("ERROR: %s\n", sasl_dlerror_pointer);
 		return(NULL);
 	    case NSObjectFileImageArch:
-		dlerror_pointer = "no object for this architecture";
-		DEBUG_PRINT1("ERROR: %s\n", dlerror_pointer);
+		sasl_dlerror_pointer = "no object for this architecture";
+		DEBUG_PRINT1("ERROR: %s\n", sasl_dlerror_pointer);
 		return(NULL);
 	    case NSObjectFileImageFormat:
-		dlerror_pointer = "bad object file format";
-		DEBUG_PRINT1("ERROR: %s\n", dlerror_pointer);
+		sasl_dlerror_pointer = "bad object file format";
+		DEBUG_PRINT1("ERROR: %s\n", sasl_dlerror_pointer);
 		return(NULL);
 	    case NSObjectFileImageAccess:
-		dlerror_pointer = "can't read object file";
-		DEBUG_PRINT1("ERROR: %s\n", dlerror_pointer);
+		sasl_dlerror_pointer = "can't read object file";
+		DEBUG_PRINT1("ERROR: %s\n", sasl_dlerror_pointer);
 		return(NULL);
 	    default:
-		dlerror_pointer = "unknown error from "
+		sasl_dlerror_pointer = "unknown error from "
 				  "NSCreateObjectFileImageFromFile()";
-		DEBUG_PRINT1("ERROR: %s\n", dlerror_pointer);
+		DEBUG_PRINT1("ERROR: %s\n", sasl_dlerror_pointer);
 		return(NULL);
 	    }
 	}
@@ -328,8 +329,8 @@ int mode)
 	module = NSLinkModule(objectFileImage, module_path, options);
 	NSDestroyObjectFileImage(objectFileImage) ;
 	if(module == NULL){
-	    dlerror_pointer = "NSLinkModule() failed for dlopen()";
-	    DEBUG_PRINT1("ERROR: %s\n", dlerror_pointer);
+	    sasl_dlerror_pointer = "NSLinkModule() failed for dlopen()";
+	    DEBUG_PRINT1("ERROR: %s\n", sasl_dlerror_pointer);
 	    return(NULL);
 	}
 
@@ -339,17 +340,17 @@ int mode)
 	 */
 	if((mode & RTLD_GLOBAL) == RTLD_GLOBAL){
 	    if(NSMakePrivateModulePublic(module) == FALSE){
-		dlerror_pointer = "can't promote handle from RTLD_LOCAL to "
+		sasl_dlerror_pointer = "can't promote handle from RTLD_LOCAL to "
 				  "RTLD_GLOBAL";
-		DEBUG_PRINT1("ERROR: %s\n", dlerror_pointer);
+		DEBUG_PRINT1("ERROR: %s\n", sasl_dlerror_pointer);
 		return(NULL);
 	    }
 	}
 
 	p = malloc(sizeof(struct dlopen_handle));
 	if(p == NULL){
-	    dlerror_pointer = "can't allocate memory for the dlopen handle";
-	    DEBUG_PRINT1("ERROR: %s\n", dlerror_pointer);
+	    sasl_dlerror_pointer = "can't allocate memory for the dlopen handle";
+	    DEBUG_PRINT1("ERROR: %s\n", sasl_dlerror_pointer);
 	    return(NULL);
 	}
 
@@ -366,10 +367,10 @@ int mode)
 	p->dlopen_count = 1;
 	p->module = module;
 	p->prev = NULL;
-	p->next = dlopen_handles;
-	if(dlopen_handles != NULL)
-	    dlopen_handles->prev = p;
-	dlopen_handles = p;
+	p->next = sasl_dlopen_handles;
+	if(sasl_dlopen_handles != NULL)
+	    sasl_dlopen_handles->prev = p;
+	sasl_dlopen_handles = p;
 
 	/* call the init function if one exists */
 	NSSymbol = NSLookupSymbolInModule(p->module, "__init");
@@ -386,7 +387,7 @@ int mode)
  * dlsym() the MacOS X version of the FreeBSD dlopen() interface.
  */
 void *
-dlsym(
+sasl_dlsym(
 void * handle,
 const char *symbol)
 {
@@ -401,17 +402,17 @@ const char *symbol)
 	/*
 	 * If this is the handle for the main program do a global lookup.
 	 */
-	if(dlopen_handle == (struct dlopen_handle *)&main_program_handle){
+	if(dlopen_handle == (struct dlopen_handle *)&sasl_main_program_handle){
 	    if(NSIsSymbolNameDefined(symbol) == TRUE){
 		NSSymbol = NSLookupAndBindSymbol(symbol);
 		address = NSAddressOfSymbol(NSSymbol);
-		dlerror_pointer = NULL;
+		sasl_dlerror_pointer = NULL;
 		DEBUG_PRINT1("%p\n", address);
 		return(address);
 	    }
 	    else{
-		dlerror_pointer = "symbol not found";
-		DEBUG_PRINT1("ERROR: %s\n", dlerror_pointer);
+		sasl_dlerror_pointer = "symbol not found";
+		DEBUG_PRINT1("ERROR: %s\n", sasl_dlerror_pointer);
 		return(NULL);
 	    }
 	}
@@ -419,27 +420,27 @@ const char *symbol)
 	/*
 	 * Find this handle and do a lookup in just this module.
 	 */
-	p = dlopen_handles;
+	p = sasl_dlopen_handles;
 	while(p != NULL){
 	    if(dlopen_handle == p){
 		NSSymbol = NSLookupSymbolInModule(p->module, symbol);
 		if(NSSymbol != NULL){
 		    address = NSAddressOfSymbol(NSSymbol);
-		    dlerror_pointer = NULL;
+		    sasl_dlerror_pointer = NULL;
 		    DEBUG_PRINT1("%p\n", address);
 		    return(address);
 		}
 		else{
-		    dlerror_pointer = "symbol not found";
-		    DEBUG_PRINT1("ERROR: %s\n", dlerror_pointer);
+		    sasl_dlerror_pointer = "symbol not found";
+		    DEBUG_PRINT1("ERROR: %s\n", sasl_dlerror_pointer);
 		    return(NULL);
 		}
 	    }
 	    p = p->next;
 	}
 
-	dlerror_pointer = "bad handle passed to dlsym()";
-	DEBUG_PRINT1("ERROR: %s\n", dlerror_pointer);
+	sasl_dlerror_pointer = "bad handle passed to dlsym()";
+	DEBUG_PRINT1("ERROR: %s\n", sasl_dlerror_pointer);
 	return(NULL);
 }
 
@@ -447,13 +448,13 @@ const char *symbol)
  * dlerror() the MacOS X version of the FreeBSD dlopen() interface.
  */
 const char *
-dlerror(
+sasl_dlerror(
 void)
 {
     const char *p;
 
-	p = (const char *)dlerror_pointer;
-	dlerror_pointer = NULL;
+	p = (const char *)sasl_dlerror_pointer;
+	sasl_dlerror_pointer = NULL;
 	return(p);
 }
 
@@ -461,7 +462,7 @@ void)
  * dlclose() the MacOS X version of the FreeBSD dlopen() interface.
  */
 int
-dlclose(
+sasl_dlclose(
 void * handle)
 {
     struct dlopen_handle *p, *q;
@@ -471,9 +472,9 @@ void * handle)
 
         DEBUG_PRINT1("libdl: dlclose(%p) -> ", handle);
 
-	dlerror_pointer = NULL;
+	sasl_dlerror_pointer = NULL;
 	q = (struct dlopen_handle *)handle;
-	p = dlopen_handles;
+	p = sasl_dlopen_handles;
 	while(p != NULL){
 	    if(p == q){
 		/* if the dlopen() count is not zero we are done */
@@ -497,23 +498,23 @@ void * handle)
 		if(p->dlopen_mode & RTLD_LAZY_UNDEF)
 		    options |= NSUNLINKMODULE_OPTION_RESET_LAZY_REFERENCES;
 		if(NSUnLinkModule(p->module, options) == FALSE){
-		    dlerror_pointer = "NSUnLinkModule() failed for dlclose()";
-		    DEBUG_PRINT1("ERROR: %s\n", dlerror_pointer);
+		    sasl_dlerror_pointer = "NSUnLinkModule() failed for dlclose()";
+		    DEBUG_PRINT1("ERROR: %s\n", sasl_dlerror_pointer);
 		    return(-1);
 		}
 		if(p->prev != NULL)
 		    p->prev->next = p->next;
 		if(p->next != NULL)
 		    p->next->prev = p->prev;
-		if(dlopen_handles == p)
-		    dlopen_handles = p->next;
+		if(sasl_dlopen_handles == p)
+		    sasl_dlopen_handles = p->next;
 		free(p);
 		DEBUG_PRINT("OK");
 		return(0);
 	    }
 	    p = p->next;
 	}
-	dlerror_pointer = "invalid handle passed to dlclose()";
-	DEBUG_PRINT1("ERROR: %s\n", dlerror_pointer);
+	sasl_dlerror_pointer = "invalid handle passed to dlclose()";
+	DEBUG_PRINT1("ERROR: %s\n", sasl_dlerror_pointer);
 	return(-1);
 }

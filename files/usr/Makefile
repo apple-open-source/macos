@@ -15,4 +15,3 @@ install::
 	@echo "Installing $(Destination)"
 	$(_v) $(INSTALL_DIRECTORY) "$(Destination)"
 	$(_v) $(INSTALL_DIRECTORY) "$(Destination)"/include
-	$(_v) $(LN) -s . "$(Destination)"/include/bsd

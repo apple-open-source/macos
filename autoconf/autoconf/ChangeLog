@@ -1,3 +1,4544 @@
+2002-12-03  Paul Eggert  <eggert@twinsun.com>
+
+	Version 2.57.
+
+	* NEWS, configure.ac: Update version.
+
+	* doc/fdl.texi: Upgrade to FDL version 1.2.
+
+	* lib/autoconf/c.m4 (AC_LANG_FUNC_LINK_TRY(C)): Use the function f
+	nontrivially in main's body, so that f's external declaration is
+	not optimized away in AIX.  This should fix the bug reported by
+	Martin Frydl in
+	<http://mail.gnu.org/pipermail/autoconf/2002-November/014508.html>.
+
+	* lib/autoconf/c.m4 (AC_LANG_FUNC_LINK_TRY(C),
+	_AC_PROG_PREPROC_WORKS_IFELSE): Use <limits.h> if __STDC__ is
+	defined, to support freestanding compilers.  This should fix the
+	bug reported by Momchil Velkov in
+	<http://mail.gnu.org/pipermail/autoconf/2002-November/014490.html>.
+
+	* doc/autoconf.texi (Obsolete Macros): Fix typos (insert empty
+	arg, AC_DEFINE -> AC_DEFINE_UNQUOTED) in documentation for
+	obsolete AC_CHECK_TYPE.  The missing empty arg was reported
+	by Simon Josefsson in
+	<http://mail.gnu.org/pipermail/autoconf-patches/2002-December/008830.html>.
+
+	* Makefile.maint (www-gnu): New macro.
+	(standards.texi-url_prefix, make-stds.texi-url_prefix): Use it, as
+	the location has moved.
+
+2002-12-02  Martin Frydl  <martin@systinet.com>
+	
+	* bin/autom4te.in (at_flatten): rewritten to avoid M4 problem when
+	\(.*\) match is too long and there is something more to be checked.
+	<http://mail.gnu.org/pipermail/autoconf/2002-November/014524.html>
+
+2002-11-15  Akim Demaille  <akim@epita.fr>
+
+	Version 2.56.
+
+	* config/install-sh: chmod +x.
+	From Paul Eggert.
+	* config/move-if-change: Indenting changes.
+	* Makefile.am (AUTOMAKE_OPTIONS): Move to...
+	* configure.ac (AM_INIT_AUTOMAKE): here.
+	Require 1.7.1.
+
+2002-11-14  Akim Demaille  <akim@epita.fr>
+
+	Version 2.55.
+
+	* config/config.guess, config/config.sub, config/install-sh:
+	Update from masters.
+
+2002-11-14  Akim Demaille  <akim@epita.fr>
+
+	* Makefile.maint: Sync with Bison, i.e.:
+	(po-check): Scan .l and .y files instead of the
+	.c and the .h files that they generate.  This fixes the bug
+	reported by Tim Van Holder in:
+	<http://mail.gnu.org/pipermail/bison-patches/2002-November/001352.html>
+	Look for N_ as well as for _.  Try to avoid matching #define for
+	N_ and _.
+	From Paul Eggert.
+
+2002-11-14  Akim Demaille  <akim@epita.fr>
+
+	* doc/autoconf.texi (C Compiler): Compiling several files at once.
+	From Paul Eggert and Albert Chin-A-Young.
+
+2002-11-14  Akim Demaille  <akim@epita.fr>
+
+	* doc/autoconf.texi (C Compiler): Solitary backslashes.
+	From Paul Eggert and Albert Chin-A-Young.
+
+2002-11-14  Kevin Ryde  <user42@zip.com.au>
+
+	* lib/autoconf/c.m4 (AC_LANG_FUNC_LINK_TRY(C)): Initialize f=$1 rather
+	than assigning in main, to avoid HP cc +O3 optimizing it away.
+
+2002-11-12  Peter Eisentraut  <peter_e@gmx.net>
+
+	* lib/autoconf/status.m4 (_AC_OUTPUT_CONFIG_STATUS): Add -q
+	option.  Process --recheck after parsing all options.  Pass -q
+	option to configure on --recheck.
+	(AC_OUTPUT): Pass -q from configure to config.status.
+	* lib/autoconf/general.m4 (_AC_INIT_PREPARE): Strip -q from
+	arguments to record.
+	* doc/autoconf.texi (config.status Invocation): Document
+	config.status -q option.
+
+2002-11-07  Alexandre Duret-Lutz  <adl@gnu.org>
+
+	* bin/autoscan.in (scan_file): Scan Makefile.am too. Ignore
+	Makefile.in if Makefile.am exists.
+	(output): Strip `.am' from Makefiles.  Don't
+	output AC_CONFIG_FILES if no Makefiles were found.
+
+2002-11-07  Akim Demaille  <akim@epita.fr>
+
+	* Makefile.am (cvs_files): Add elisp-comp, mdate-sh.
+	(local_updates): New.
+	* Makefile.maint: Update, from CVS Bison.
+	(local_updates): New.
+
+2002-11-06  Akim Demaille  <akim@epita.fr>
+
+	* lib/autoconf/c.m4 (AC_LANG_FUNC_LINK_TRY): Wrap the `f'
+	declaration in extern "C" too.
+	Reported by Roberto Bagnara.
+
+2002-11-06  Akim Demaille  <akim@epita.fr>
+
+	* tests/torture.at (Configuring subdirectories): Don't use grep
+	-w.
+	* doc/autoconf.texi (Limitations of Usual Tools): Grep -w.
+	Reported by Ezra Peisach.
+
+2002-11-05  Akim Demaille  <akim@epita.fr>
+
+	* lib/autoconf/autoheader.m4 (_AH_TEMPLATE_OLD, _AH_VERBATIM_OLD):
+	Remove.
+	We _have_ to stop using the old compatibility scheme that tried to
+	avoid useless backslashes because Libtool 1.4.3 contains a
+	AC_DEFINE([error_t], [int],
+	[Define to a type to use for \`error_t' if it is not
+	otherwise available.])
+	We _have_ to quote the single quote and backslashes with \.  The
+	old compatibility scheme saw that ` was backslashed, and therefore
+	did not quote the single quote.  Hence before this patch, Autoconf
+	was not compatible with Libtool.
+
+2002-11-04  Paul Eggert  <eggert@twinsun.com>
+
+	* lib/m4sugar/m4sh.m4 (AS_SHELL_SANITIZE): Set the following variables,
+	too: LC_ADDRESS, LC_IDENTIFICATION, LC_MEASUREMENT, LC_MONETARY,
+	LC_NAME, LC_PAPER, LC_TELEPHONE.
+	* doc/autoconf.texi (Special Shell Variables): Mention those vars.
+
+2002-11-04  Akim Demaille  <akim@epita.fr>
+
+	Version 2.54c.
+
+	* Makefile.maint (update, cvs-update, po-update, do-po-update):
+	New.
+	* config/texinfo.tex: Update.
+
+2002-11-03  Akim Demaille  <akim@epita.fr>
+
+	* bin/autoreconf.in (&autoreconf_current_directory): New, extracted
+	from...
+	(&autoreconf): here.
+	($help, $make, &parse_args, &autoreconf_current_directory):
+	Support -m/--make.
+	* doc/autoconf.texi (autoreconf Invocation): Adjust.
+
+2002-10-31  Bruno Haible  <bruno@clisp.org>
+
+	* lib/autoconf/functions.m4 (_AC_FUNC_MALLOC_IF): Change message.
+	Change name of cache variable to ac_cv_func_malloc_0_nonnull.
+	(AC_FUNC_MALLOC): Change description of HAVE_MALLOC macro.
+	(_AC_FUNC_REALLOC_IF): Change message. Change name of cache variable
+	to ac_cv_func_realloc_0_nonnull.
+	(AC_FUNC_REALLOC): Change description of HAVE_REALLOC macro.
+
+2002-10-31  Akim Demaille  <akim@epita.fr>
+
+	The test suite was no longer checking for trailing envvars and files.
+
+	* tests/atspecific.m4 (AC_STATE_SAVE): Don't use quadrigraphs here.
+	(AT_CHECK_ENV): Make sure the `state-ls.before file exists.
+
+2002-10-31  Akim Demaille  <akim@epita.fr>
+
+	* lib/autoconf/programs.m4 (AC_PROG_MAKE_SET): Use and display
+	`$(MAKE)' instead of '${MAKE}' to emphasize that we refer to the
+	Make variable, not a shell variable.
+	Suggested by Bruno Haible.
+
+2002-10-31  Akim Demaille  <akim@epita.fr>
+
+	* bin/autom4te.in (load_configuration): Reject #args out of any
+	language.
+
+2002-10-31  Akim Demaille  <akim@epita.fr>
+
+	* lib/autoconf/general.m4 (_AC_MSG_LOG_CONFTEST): New.
+	(_AC_PREPROC_IFELSE, _AC_COMPILE_IFELSE, _AC_LINK_IFELSE)
+	(_AC_RUN_IFELSE): Use it.
+	* lib/autoconf/lang.m4 (_AC_COMPILER_OBJEXT):
+	(_AC_COMPILER_EXEEXT_DEFAULT): Likewise.
+	* lib/autoconf/c.m4 (AC_LANG_SOURCE): Don't include confdefs.h,
+	inline it.
+
+2002-10-30  Akim Demaille  <akim@epita.fr>
+
+	* bin/autom4te.in (&parse_args, $help): Support --no-cache.
+	* doc/autoconf.texi (autom4te Invocation): Adjust.
+	Suggested by Tim van Holder.
+
+2002-10-29  Paul Eggert  <eggert@twinsun.com>
+
+	* doc/autoconf.texi (Particular Functions): AC_FUNC_MALLOC and
+	AC_FUNC_REALLOC check for compatibility with glibc, not POSIX.
+	Problem reported by Bruno Haible.
+
+2002-10-29  Akim Demaille  <akim@epita.fr>
+
+	* doc/autoconf.texi (Header Templates): Put also in words what the
+	pictures says to assist free style readers.
+	(Customizing autom4te): s/--cache=/--cache /.
+
+2002-10-29  Akim Demaille  <akim@epita.fr>
+
+	* lib/autoconf/functions.m4 (_AC_FUNC_VFORK): Include stdlib.h and
+	sys/wait.h.
+	sparc_address_test returns void.
+	Use it with an argument, as prototyped.
+	From Bruno Haible.
+
+2002-10-29  Akim Demaille  <akim@epita.fr>
+
+	* doc/autoconf.texi (Subdirectories): Cygnus dirs have
+	configure.in, not configure.ac.
+	Reported by Bruno Haible.
+
+2002-10-29  Akim Demaille  <akim@epita.fr>
+
+	* tests/torture.at (Deep Package): New test.
+	(Configuring subdirectories): Don't use a testSubDir as Autotest
+	now does it itself.
+
+2002-10-29  Akim Demaille  <akim@epita.fr>
+
+	* bin/autoreconf.in (&parse_args, $help): Support --warnings.
+	* doc/autoconf.texi (Invoking autom4te): Rename as...
+	(autom4te Invocation): this, for consistency with the other nodes.
+
+2002-10-29  Akim Demaille  <akim@epita.fr>
+
+	* lib/autom4te.in (Autoconf): s/automate/autom4te/.
+	Reported by Ralf Corsepius.
+
+2002-10-29  Akim Demaille  <akim@epita.fr>
+
+	* lib/m4sugar/m4sh.m4 (_AS_QUOTE): The warning about quoted
+	characters is a back as an `obsolete' warning now.
+	Reported by Ralf Corsepius.
+
+2002-10-28  Akim Demaille  <akim@epita.fr>
+
+	* configure.ac: Bump to 2.54c.
+
+2002-10-28  Akim Demaille  <akim@epita.fr>
+
+	Version 2.54b.
+
+	* tests/foreign.at (Libtool): Adjust to broken libtoolize.
+
+2002-10-28  Akim Demaille  <akim@epita.fr>
+
+	* tests/atspecific.m4 (AT_CHECK_AUTOM4TE): Be robust to different
+	m4 executable names, and different GNU M4 version.
+	Reported by Ezra Peisach and Paul Jarc.
+
+2002-10-27  Akim Demaille  <akim@epita.fr>
+
+	* lib/autoconf/functions.m4 (_AC_FUNC_VFORK): Really use
+	AC_RUN_IFELSE.
+
+2002-10-27  Akim Demaille  <akim@epita.fr>
+
+	* doc/autoconf.texi: More AC_MSG_FAILURE promotion.
+	* lib/autoconf/fortran.m4 (_AC_F77_NAME_MANGLING):
+	Die when a simple Fortran program cannot be compiled.
+	* lib/autoconf/lang.m4 (AC_LANG_CALL, AC_LANG_FUNC_LINK_TRY):
+	Issue a warning if no function is given.
+
+2002-10-27  Akim Demaille  <akim@epita.fr>
+
+	* doc/autoconf.texi (Run Time): Document AC_RUN_IFELSE.
+	Move the documentation of AC_TRY_RUN to...
+	(Obsolete Macros): here.
+	Adjust all the old samples still using AC_TRY_RUN to AC_RUN_IFELSE.
+	(autoconf Invocation): Remove the duplicates with `invoking
+	autom4te'.
+	* lib/autoconf/headers.m4 (AC_HEADER_STDC): Don't use AC_TRY_RUN.
+	* lib/autoconf/c.m4 (AC_C_BIGENDIAN): Likewise.
+
+2002-10-27  Akim Demaille  <akim@epita.fr>
+
+	* doc/autoconf.texi (Generating Sources): Document AC_LANG_CALL
+	and AC_LANG_FUNC_LINK_TRY.
+	(Examining Libraries): Rename as...
+	(Running the Linker): this.
+	Document AC_LINK_IFELSE.
+	Move the documentation of AC_TRY_LINK and AC_TRY_LINK_FUNC to...
+	(Obsolete Macros): here.
+	* lib/autoconf/fortran.m4 (_AC_F77_NAME_MANGLING): Don't use
+	AC_TRY_LINK_FUNC nor AC_TRY_LINK.
+	* lib/autoconf/libs.m4 (AC_CHECK_LIB, AC_PATH_XTRA): Likewise.
+	* lib/autoconf/headers.m4 (AC_USG): Likewise.
+
+2002-10-27  Akim Demaille  <akim@epita.fr>
+
+	* lib/autoconf/headers.m4 (AC_HEADER_STDC): Don't use AC_TRY_CPP.
+
+	More `check config.log' messages.
+
+	* lib/autoconf/general.m4 (AC_MSG_FAILURE): New.
+	* doc/autoconf.texi (Printing Messages): Document it.
+	* lib/autoconf/types.m4 (AC_CHECK_SIZEOF): Use it when
+	appropriate.
+	* lib/autoconf/lang.m4 (_AC_COMPILER_EXEEXT_DEFAULT)
+	(_AC_COMPILER_EXEEXT_WORKS, _AC_COMPILER_EXEEXT_O)
+	(_AC_COMPILER_OBJEXT): Likewise.
+	* lib/autoconf/general.m4 (AC_RUN_IFELSE): Likewise.
+	* lib/autoconf/fortran.m4 (_AC_LANG_PROGRAM_C_F77_HOOKS):
+	Likewise.
+	* lib/autoconf/c.m4 (AC_PROG_CPP, AC_PROG_CC, AC_PROG_CXXCPP):
+	Likewise.
+
+	Deprecate macros with unusual interfaces.
+
+	* lib/autoconf/general.m4 (AC_TRY_CPP, AC_TRY_LINK)
+	(AC_TRY_COMPILE, AC_TRY_RUN): AU_DEFUN'ed.
+
+	Document the new ones, and proper style.
+
+	* doc/autoconf.texi (Generating Sources): New.
+	Document AC_LANG_CONFTEST, AC_LANG_SOURCE, AC_LANG_PROGRAM.
+	(Examining Declarations): Rename as...
+	(Running the Preprocessor): this.
+	Document AC_PREPROC_IFELSE.
+	(Examining Syntax): Rename as...
+	(Running the Compiler): this.
+	(AC_FOO_IFELSE vs AC_TRY_FOO): New section.
+	(Obsolete Macros): Move the definition of AC_TRY_CPP and
+	AC_TRY_COMPILE here.
+
+2002-10-27  Akim Demaille  <akim@epita.fr>
+
+	Move sections around.
+
+	* doc/autoconf.texi (Customizing autom4te): Remove a lost
+	sentence.
+	Reported by Burno Haible.
+	(Language Choice): Now the first section of...
+	(Writing Tests): this section.
+	Make the introduction less C-centric.
+	(Guidelines, Test Functions): Move to...
+	(Writing Test Programs): this new section.
+	(Test Programs): Merge into...
+	(Run Time): this.
+
+2002-10-27  Akim Demaille  <akim@epita.fr>
+
+	* lib/freeze.mk ($(AUTOM4TE_CFG)): Add a missing dependency on
+	autom4te.in that resulted in the need for two `make' runs.
+
+2002-10-27  Akim Demaille  <akim@epita.fr>
+
+	* configure.ac: Bump to 2.54b.
+
+2002-10-25  Akim Demaille  <akim@epita.fr>
+
+	Version 2.54a.
+
+	* Makefile.maint: Update from the Coreutils.
+	(AMTAR): Remove, obsolete.
+	(automake_repo): Update to redhat.com.
+	(cvs_file): New.
+	Adjust to the fact that ansi2knr is now hosted by Automake.
+	* Makefile.am (cvs_files): Add install-sh and mkinstalldirs.
+	* config/config.guess, config/mkinstalldirs, config/texinfo.tex:
+	Update from masters.
+	* lib/autoscan/Makefile.am (EXTRA_DIST, nodist_autoscanlib_DATA):
+	autoscan.pre is not to be installed, and autoscan.list is not to
+	be shipped.
+	(CLEANFILES): Add autoscan.list.
+	(autoscan.list): Disable the cache.
+	* bin/Makefile.am: Include freeze.mk.
+
+2002-10-25  Akim Demaille  <akim@epita.fr>
+
+	* bin/autom4te.in (&load_configuration): Take the file as
+	argument.
+	(&parse_args): Handle -C, --cache.
+	($help): Adjust.
+	(MAIN): Load ~/.autom4te.cfg and ./.autom4te.cfg.
+	* lib/autom4te.in (Autoconf): Pass --cache=autom4te.cache.
+	* doc/autoconf.texi (Invoking autom4te): Document --cache.
+	Now a subsection of...
+	(Using autom4te): This new section.
+	(Customizing autom4te): New.
+	(autom4te.cache): Adjust.
+
+2002-10-25  Akim Demaille  <akim@epita.fr>
+
+	* doc/autoconf.texi (Generic Headers): More information on how to
+	use AC_CHECK_HEADERS.
+
+2002-10-25  Akim Demaille  <akim@epita.fr>
+
+	* bin/autoconf.as, bin/autoconf.in, bin/autoupdate.in ($help):
+	Space changes.
+
+2002-10-25  Akim Demaille  <akim@epita.fr>
+
+	* bin/autoscan.in (output): Output AC_PREREQ.
+	(%needed_macros): Add AC_PREREQ so that configure.ac without one
+	be reported.
+
+2002-10-23  Akim Demaille  <akim@epita.fr>
+
+	* doc/autoconf.texi (Particular Headers): In AC_HEADER_STDBOOL,
+	document _Bool.
+
+2002-10-23  Akim Demaille  <akim@epita.fr>
+
+	* bin/autom4te.in (handle_traces): Handle @&t@ in traces.
+	Reported by Peter Eisentraut.
+
+2002-10-23  Akim Demaille  <akim@epita.fr>
+
+	* lib/autoconf/headers.m4 (AC_HEADER_STDBOOL): Also look for the
+	type _Bool.
+	Fix a typo.
+	* doc/autoconf.texi (Particular Headers): Adjust according to Paul
+	Eggert's recommandations.
+
+2002-10-22  Akim Demaille  <akim@epita.fr>
+
+	* lib/autoconf/headers.m4 (AC_HEADER_STDBOOL): New, based on CVS
+	Bison, by Paul Eggert.
+	* doc/autoconf.texi (Particular Headers): Document it.
+
+2002-10-22  Aaron M. Ucko  <amu@alum.mit.edu>
+
+	* lib/autoconf/general.m4 (_AC_INIT_PREPARE): Avoid duplicates in
+	`$ac_configure_args'.
+
+2002-10-22  Akim Demaille  <akim@epita.fr>
+
+	* doc/autoconf.texi: Use AC_CONFIG_HEADERS in examples.
+	(AC_ST_BLKSIZE, AC_ST_RDEV): Directly point to AC_CHECK_MEMBERS.
+	From Art Haas.
+
+2002-10-22  Akim Demaille  <akim@epita.fr>
+
+	Restore the 2002-10-11  Akim Demaille  <akim@epita.fr> patch:
+
+	* lib/autoconf/headers.m4 (_AC_CHECK_HEADER_MONGREL)
+	(AC_CHECK_HEADER, _AC_CHECK_HEADER_NEW,_AC_CHECK_HEADER_OLD): Restore.
+	(_AC_CHECK_HEADER_NEW): Rename as...
+	(AC_CHECK_HEADER): this.
+
+2002-10-22  Akim Demaille  <akim@epita.fr>
+
+	* doc/autoconf.texi (Limitations of Usual Tools): Remove incorrect
+	words about HP-UX cmp: it was actually a user-written cmp.
+
+2002-10-22  Akim Demaille  <akim@epita.fr>
+
+	* tests/foreign.at (Libtool): Don't check autoconf's stderr: there
+	are a few warnings.
+	* lib/autoconf/autoheader.m4 (AH_VERBATIM, _AH_VERBATIM_OLD):
+	Quote for Perl '' strings, not "".
+	* bin/autoheader.in: Invoke autoconf to get '' strings, not ""
+	strings.
+
+2002-10-22  Akim Demaille  <akim@epita.fr>
+
+	* lib/m4sugar/m4sh.m4 (_AS_QUOTE): The warning about quoted
+	characters is a syntax warning now.
+	(_AS_QUOTE): Accept $2 as list of characters to quote.
+	* lib/autoconf/autoheader.m4 (AH_VERBATIM, _AH_VERBATIM_OLD):
+	Quote for Perl, not sh.
+	* bin/autoheader.in: When $debug, report the file which is
+	`do'ne.
+	* tests/tools.at (autom4te, autoheader): Exercise @bar, not merely
+	`@', to tickle Perl's lists.
+	Reported by Carlos Velasco.
+
+2002-10-18  Akim Demaille  <akim@epita.fr>
+
+	* bin/autom4te.in (handle_m4): Pass --fatal-warning to m4, so that
+	missing included files _are_ errors.
+	Thanks to Alexandre Duret-Lutz.
+	* tests/tools.at (autom4te cache): Adjust.
+	* tests/atspecific.m4 (AT_CHECK_AUTOM4TE): New.
+	(AT_CHECK_M4SUGAR): Use it.
+	* tests/m4sugar.at (m4_warn, m4_require: circular dependencies):
+	Adjust.
+	* tests/tools.at (autom4te): Now it does exit 1.
+
+2002-10-17  Akim Demaille  <akim@epita.fr>
+
+	* lib/autoconf/general.m4 (AC_CACHE_SAVE): Don't use cmp.
+	Fixes the `AC_ARG_VAR' test failures.
+	* lib/autoconf/status.m4 (_AC_OUTPUT_FILES): Don't use cmp.
+	* lib/freeze.mk (check-forbidden-patterns): New.
+	* lib/autoconf/Makefile.am, lib/autotest/Makefile.am
+	* lib/m4sugar/Makefile.am (check-local): Use it to catch `cmp'.
+	* doc/autoconf.texi (Limitations of Usual Tools): HP-UX' cmp and
+	/dev/null.
+	Reported months ago by H. Merijn Brand.
+
+2002-10-17  Akim Demaille  <akim@epita.fr>
+
+	* tests/tools.at (autoheader): Put randoms `@' to stress Perl.
+
+2002-10-16  Paul Eggert  <eggert@twinsun.com>
+
+	* Makefile.maint (wget_files): Remove ansi2knr.c.
+	(ansi2knr.c-url_prefix): Remove.
+
+2002-10-16  Akim Demaille  <akim@epita.fr>
+
+	Because of caching, some files that no longer exist and are no
+	longer required can still cause errors.
+	Reported by Alexandre Duret-Lutz.
+
+	* bin/autom4te.in (&parse_args): Do not prepend `--reload-state'
+	to frozen files in @ARGV, as @ARGV must remain being a list of
+	files.  Rather, at M4 call sites, use this...
+	(&files_to_options): New function.
+	(&freeze): Use &error.
+	(&up_to_date): If a file that was included according to the cache
+	is no longer there, then the output is out dated.
+	(&main): Don't even check whether a file is up to date is anyway
+	--force is given.
+	* tests/tools.at (autom4te cache): New.
+
+2002-10-16  Akim Demaille  <akim@epita.fr>
+
+	* bin/autoconf.as: Kill dead options.
+	* bin/autoupdate.in (&parse_args): Kill old options.
+	* bin/autoreconf.in (&parse_args): Remove dead options.
+	Factor some code.
+	(&autoreconf): Report the directories we enter *and leave*, so
+	that error messages can be easily located, and use GNU Make
+	format, so that Emacs' compile mode understands us.
+	* lib/Autom4te/General.pm (&update_file): Use `verbose' to report
+	if some file was changed instead of `print'.
+	* bin/autoheader.in: Suggest AC_DEFINE with 3 args when needed.
+	(&parse_args): Remove the dead options.
+	* tests/atspecific.m4 (AT_CHECK_AUTOHEADER): Adjust to the new
+	autoheader's quiet mode.
+	(AT_CHECK_AUTOUPDATE): Likewise.
+	* tests/tools.at (autoupdate): Adjust.
+	* tests/semantics.at (AC_C_BIGENDIAN): Likewise.
+
+2002-10-11  Akim Demaille  <akim@epita.fr>
+
+	No longer use CPP to check for the existing of headers: use CC to
+	check for compilability.
+
+	* lib/autoconf/headers.m4 (_AC_CHECK_HEADER_MONGREL)
+	(AC_CHECK_HEADER, _AC_CHECK_HEADER_OLD): Remove.
+	(_AC_CHECK_HEADER_NEW): Rename as...
+	(AC_CHECK_HEADER): this.
+
+	* lib/autotest/general.m4 (AT_INIT): Include the failed test
+	numbers in the Subject suggestion.
+
+2002-10-11  Akim Demaille  <akim@epita.fr>
+
+	* lib/autoconf/specific.m4 (AC_DECL_SYS_SIGLIST): Obsolete.
+	Suggest using AC_CHECK_DECLS instead.
+
+2002-10-11  Akim Demaille  <akim@epita.fr>
+
+	* tests/torture.at (AC_ARG_VAR): Have configure report the value
+	of `precious'.
+
+2002-10-11  Akim Demaille  <akim@epita.fr>
+
+	* lib/m4sugar/m4sh.m4 (_AS_PATH_SEPARATOR_PREPARE): Use $$ in the
+	file name to enable parallel executions.
+	From Sam Varshavchik.
+
+2002-10-08  Akim Demaille  <akim@epita.fr>
+
+	* bin/autoreconf.in (&autoreconf): Run autopoint before the first
+	aclocal invocation, as Gettext macros might not be visible to
+	aclocal.
+	Instead of blindly running autopoint, scan configure.ac (not the
+	traces) for AM_GNU_GETTEXT_VERSION uses, as autopoint does.
+	Reported by Paul D. Smith.
+
+2002-10-08  Paul Eggert  <eggert@twinsun.com>
+
+	Work around problems found when POSIXLY_CORRECT=1 is set.
+	None of this seems to have anything to do with POSIX, really,
+	but it's how Perl getopt works.
+	* bin/autom4te.in (parse_args): Configure GetOpt with
+	"permute", too.
+	* doc/autoconf.texi (Invoking autom4te):
+	--warning -> --warnings.
+	* lib/autom4te.in: --warning -> --warnings.
+
+2002-09-28  Akim Demaille  <akim@epita.fr>
+
+	* doc/autoconf.texi (autom4te.cache): New section.
+
+2002-09-28  Akim Demaille  <akim@epita.fr>
+
+	* lib/autom4te.in (Autoscan-preselections, Autoreconf-preselections)
+	(Automake-preselections): Update.
+	* bin/autoreconf.in, bin/autoheader.in: Comment changes.
+
+2002-09-28  Akim Demaille  <akim@epita.fr>
+
+	* lib/autoscan/autoscan.pre: Move all the remaining rules to...
+	* lib/autoconf/c.m4, lib/autoconf/functions.m4,
+	* lib/autoconf/headers.m4, lib/autoconf/libs.m4,
+	* lib/autoconf/specific.m4, lib/autoconf/types.m4: here.
+
+2002-09-28  Akim Demaille  <akim@epita.fr>
+
+	* tests/torture.at (Configuring subdirectories): Be robust to
+	users who use config.site to require for a cache: in this case,
+	the two last configure runs, using two different sets of
+	arguments, trigger a legitimate error.
+
+2002-09-28  Akim Demaille  <akim@epita.fr>
+
+	* tests/m4sh.at (Functions Support, Functions and return Support):
+	New.
+
+2002-09-28  Akim Demaille  <akim@epita.fr>
+
+	* bin/Makefile.am (ETAGS_SH, ETAGS_PERL): Update: ifnames and
+	autoheader are Perl programs.
+	(autoconf, autoheader, autoreconf, autoupdate, ifnames, autoscan)
+	(autom4te): Specify that the sources are in the $srcdir.
+	* doc/autoconf.texi (Installation Directory Variables): Adjust.
+
+2002-09-28  Akim Demaille  <akim@epita.fr>
+
+	* lib/autoscan/autoscan.pre (st_blksize, st_blocks, st_rdev)
+	(tm_zone): Move their rules to...
+	* lib/autoconf/types.m4: here, using AN_ macros.
+	* lib/autoscan/autoscan.pre (AWK, BISON, INSTALL, LEX, LN, MAKE)
+	(RANLIB, YACC, awk, bison, byacc, flex, gawk, install, lex, ln)
+	(make, mawk, nawk, ranlib, yacc): Similarly, move to...
+	* lib/autoconf/programs.m4: here.
+	* lib/freeze.mk (ETAGS_FOR_M4, ETAGS_FOR_M4SUGAR)
+	(ETAGS_FOR_AUTOCONF): New.
+	Use it.
+
+2002-09-28  Akim Demaille  <akim@epita.fr>
+
+	* lib/autoconf/autoscan.m4: New file.
+	* lib/autoconf/autoconf.m4: Include it.
+	* lib/autoconf/functions.m4: Use AN_FUNCTION for all the functions
+	that were listed in the original autoscan.list.
+	* lib/autoconf/headers.m4: Similarly with headers.
+	* lib/freeze.mk (autoconf_m4f_dependencies): Add autoscan.m4.
+	(.m4.m4f): Don't pass --prepend-include, since that's done by
+	tests/autom4te itself.
+	* lib/autoscan/Makefile.am: Include freeze.mk.
+	(autoscan.list): New target --this file is no longer a source.
+	(autoscan.pre): New file.
+
+2002-09-28  Akim Demaille  <akim@epita.fr>
+
+	* bin/autoscan.in (@kinds): Make them singular.
+	Adjust all uses.
+	(&init_tables): When --debug, report the list of rules to ease
+	tracking changes in autoscan.list.
+	* lib/autoscan/autoscan.list (function): Strip comments, sort.
+
+2002-09-28  Akim Demaille  <akim@epita.fr>
+
+	* lib/autoscan/functions, lib/autoscan/headers,
+	* lib/autoscan/identifiers, lib/autoscan/makevars,
+	* lib/autoscan/programs: Merge into...
+	* lib/autoscan/autoscan.list: this.
+	* bin/autoscan.in (&init_tables): Adjust.
+
+2002-09-28  Akim Demaille  <akim@epita.fr>
+
+	* lib/autoscan/functions, lib/autoscan/headers,
+	* lib/autoscan/identifiers, lib/autoscan/makevars,
+	* lib/autoscan/programs: Make the `kind' explicit, i.e., each
+	`functions' line is now prefixed with `function:'.
+	* bin/autoscan.in (&init_tables): Adjust.
+
+2002-09-28  Akim Demaille  <akim@epita.fr>
+
+	From now on, autoscan files must always map a macro name to a
+	word: there is no `default' macro for autoscan.
+
+	* bin/autoscan.in (&init_tables): Reject entries with no macro at
+	all.
+	* lib/autoscan/functions, lib/autoscan/headers: Make the macro
+	explicit.
+
+2002-09-28  Akim Demaille  <akim@epita.fr>
+
+	* bin/autoscan.in (%c_keywords): Remove.
+	(&used): Keep only track of the words we might be interested in.
+	(&output_kind): It is no longer needed to look for non active
+	checks.
+
+2002-09-27  Akim Demaille  <akim@epita.fr>
+
+	* lib/autoconf/functions.m4 (AC_FUNC_MBRTOWC): New, stolen from
+	jm_FUNC_MBRTOWC, by Paul Eggert, from the Coreutils 4.5.1.
+	* lib/autoscan/functions: Adjust.
+	* doc/autoconf.texi (Particular Functions): Adjust.
+
+2002-09-27  Akim Demaille  <akim@epita.fr>
+
+	* doc/autoconf.texi (Limitations of Usual Tools): Some about mv
+	from /tmp.
+	Thanks to Bill Moseley and Paul Eggert.
+	* lib/m4sugar/m4sh.m4 (AS_TMPDIR): $2 is the directory into which
+	the tmpdir must be created.
+	* lib/autoconf/status.m4 (_AC_OUTPUT_CONFIG_STATUS): Have the tmp
+	dir be in the build tree, instead of $TMPDIR.
+
+2002-09-27  Akim Demaille  <akim@epita.fr>
+
+	* bin/autoscan.in: Improve the comments.
+	(&parse_args): Drop obsolete undocumented options.
+	(&output_kind): Output warnings.
+	* lib/autoscan/functions: (dcgettext): Now trigger AM_GNU_GETTEXT.
+	(getwd): Trigger a warning.
+
+2002-09-26  Akim Demaille  <akim@epita.fr>
+
+	* bin/autoreconf.in: Clarify that -s is meaningless without -i.
+	Reported by Ralf Corsepius.
+	* doc/autoconf.texi (autoreconf Invocation): Likewise.
+
+2002-09-26  Akim Demaille  <akim@epita.fr>
+
+	Single suffix rules and seperated dependencies are not portable.
+
+	* doc/autoconf.texi (Installation Directory Variables): Update.
+	(Limitations of Make): Some about `Single Suffix Rules and
+	Separated Dependencies'.
+	* bin/Makefile.am (autoconf, autoheader, autoreconf, autoupdate)
+	(ifnames, autoscan, autom4te): Un-factor into several rules.
+
+2002-09-25  Paul Eggert  <eggert@twinsun.com>
+
+	* BUGS (Interoperability bugs): New section.  Mention libtool
+	1.4.2, configure.ac, and AC_CONFIG_AUX_DIR interoperability bug.
+
+2002-09-24  Paul Eggert  <eggert@twinsun.com>
+
+	Fix a portability bug reported by Alexandre Duret-Lutz: Solaris 8
+	make handles suffix-rules differently from GNU make.
+
+	* bin/Makefile.am (SUFFIXES, .in): Remove.
+	(autoconf autoheader autoreconf autoupdate ifnames autoscan autom4te):
+	Move the body of the old .in rule here.
+
+2002-09-16  Akim Demaille  <akim@epita.fr>
+
+	i960 compilers create `b.out' files by default.
+	Reported by Ralf Corsepius.
+
+	* lib/autoconf/lang.m4 (_AC_COMPILER_EXEEXT): Remove b.out files.
+	(_AC_COMPILER_EXEEXT_DEFAULT): Adjust to b.out.
+
+2002-09-13  Paul Eggert  <eggert@twinsun.com>
+
+	* doc/autoconf.texi (Particular Headers): Remove obsolete
+	reference to `struct timezone' in the description of
+	AC_HEADER_TIME.
+
+2002-09-13  Akim Demaille  <akim@epita.fr>
+
+	Version 2.54.
+
+	* config/config.sub, config/config.guess: Update.
+	* Makefile.maint: Update from bits of the Coreutils 4.5.1.
+	* Makefile.am: Adjust.
+
+2002-09-13  Akim Demaille  <akim@epita.fr>
+
+	* lib/autoconf/lang.m4 (_AC_COMPILER_EXEEXT_DEFAULT): Suggest
+	reading config.log when the compiler is rejected.
+	Suggested by Guido Draheim.
+
+2002-09-13  Akim Demaille  <akim@epita.fr>
+
+	* bin/autoreconf.in: Don't use Cwd::chdir, since in its internals
+	(chdir_init) might hang when stat'ing mounted directories.
+	Reported by Vance Shipley.
+
+2002-09-12  Akim Demaille  <akim@epita.fr>
+
+	* bin/autoscan.in (&parse_args): Pass a reference to the lists, not
+	the lists.
+
+2002-09-12  Akim Demaille  <akim@epita.fr>
+
+	* doc/autoconf.texi (Defining Symbols): Present two different
+	prototypes for AC_DEFINE and AC_DEFINE_UNQUOTED to emphasize the
+	difference between 1 argument calls, and 2-3 argument calls.
+
+2002-09-12  Peter Eisentraut  <peter_e@gmx.net>
+
+	* doc/autoconf.texi: Review grammar and punctuation.
+
+2002-09-11  Paul Eggert  <eggert@twinsun.com>
+
+	* doc/autoconf.texi: Fix minor formatting, spelling, and
+	grammatical typos.
+	(Defining Symbols): Explain that AC_DEFINE(var) defaults to 1, but
+	AC_DEFINE(var,,description) does not; and the AC_DEFINE(var) case
+	is obsolescent.
+
+2002-09-11  Akim Demaille  <akim@epita.fr>
+
+	* doc/autoconf.texi (Questions): Rename as...
+	(FAQ): this.
+	(Defining Directories): New.
+
+2002-09-09  Akim Demaille  <akim@epita.fr>
+
+	* doc/autoconf.texi (Making testsuite Scripts): Update.
+	Suggested by Nishio Futoshi.
+
+2002-09-09  Koji Arai  <JCA02266@nifty.ne.jp>
+
+	* doc/autoconf.texi (Making testsuite Scripts): Use `@@' where a
+	plain `@' is wanted.
+
+2002-09-09  Akim Demaille  <akim@epita.fr>
+
+	* lib/autoconf/general.m4 (_AC_INIT_PREPARE): Keep the
+	`duplicates', since the algorithm was too naive and could keep
+	`--prefix=1 --prefix=2 --prefix=1' as `--prefix=1 --prefix=2', and
+	keep `--prefix foo --prefix bar' as `--prefix foo bar'.
+	Reported by Ralf Corsepius.
+	* tests/torture.at (Configuring subdirectories): Exercise these
+	cases.
+
+2002-09-09  Akim Demaille  <akim@epita.fr>
+
+	* lib/autoconf/functions.m4 (AC_FUNC_GETLOADAVG): Use $srcdir when
+	looking for a replacement file.
+	* lib/autoconf/general.m4 (AC_CHECK_DECLS): Check that the
+	directory is relative.
+	* doc/autoconf.texi (Generic Functions): Clarify the replacement
+	directory definition.
+	Reported by Andreas Schwab and Jim Meyering.
+
+2002-09-06  Akim Demaille  <akim@epita.fr>
+
+	* doc/autoconf.texi (Setting Output Variables): Clarify what
+	precious variables are.
+	Suggested by Pontus Skoeld.
+
+2002-09-05  Akim Demaille  <akim@epita.fr>
+
+	* bin/Makefile.am (autoconf, autoheader, autoreconf, autoupdate)
+	(ifnames, autoscan, autom4te): Since we don't only depend on
+	configure.ac variables (such as VERSION etc.), but also on prefix
+	and so forth, depend on Makefile, not configure.ac.
+	Reported by Alexandre Duret-Lutz.
+	* doc/autoconf.texi (Installation Directory Variables): Adjust.
+
+2002-09-05  Kevin Ryde  <user42@zip.com.au>
+
+	* autoconf.texi (Limitations of Make): HP-UX trailing backslashes
+	doesn't seem to be confined to ia64, just say "some versions".
+
+2002-09-04  Akim Demaille  <akim@epita.fr>
+
+	* Makefile.am, doc/Makefile.am: Remove pdf targets, handled by
+	Automake 1.6c.
+	* Makefile.am (maintainer-clean-local): Remove.
+	(MAINTAINERCLEANFILES): Remove COPYING.
+
+2002-09-03  Paul Eggert  <eggert@twinsun.com>
+
+	* doc/autoconf.texi (Configuration Commands): Remove obsolete
+	example for AC_CONFIG_COMMANDS_PRE.  Problem reported by Marcus
+	Brinkmann.
+
+2002-09-03  Akim Demaille  <akim@epita.fr>
+
+	* configure.ac: Bump to 2.53d.
+	* Makefile.am (AUTOMAKE_OPTIONS): Require 1.6c, i.e., CVS Automake
+	as of today, on Automake's team suggestion.
+
+2002-09-03  Akim Demaille  <akim@epita.fr>
+
+	Version 2.53c.
+
+2002-09-02  Akim Demaille  <akim@epita.fr>
+
+	* bin/autom4te.in (parse_args): Don't honor AUTOM4TE_PATH and
+	SITE_MACRO_DIR.
+	* configure.ac: Disable SITE_MACRO_DIR.
+
+2002-09-02  Jim Meyering  <meyering@lucent.com>
+
+	* doc/autoconf.texi (AC_SYS_POSIX_TERMIOS): Reflect renaming: s/am/ac/,
+	i.e., change am_cv_sys_posix_termios to ac_cv_sys_posix_termios.
+	Also, tweak grammar: s/make sure to/be sure to/.
+
+2002-09-02  Paul Eggert  <eggert@twinsun.com>
+
+	* doc/autoconf.texi (Limitations of Builtins): Explain why logical
+	directory names are generally preferable to physical names.
+
+2002-09-02  Akim Demaille  <akim@epita.fr>
+
+	* lib/Autom4te/General.pm (&update_file): s/die/error/.
+	Reported by Raja R. Harinath.
+	* bin/autoheader.in, bin/autoreconf.in, bin/autoscan.in,
+	* bin/autoupdate.in: Use error instead of die.
+
+2002-09-01  Paul Eggert  <eggert@twinsun.com>
+
+	* tests/mktests.sh (ac_exclude_egrep, au_exclude_egrep): Use
+	ordinary shell concatenation rather than echo+tr+sed command that
+	runs afoul of a long-line-related sed bug in Solaris 8.
+
+	* bin/autoheader.in (parse_args): --warning -> --warnings.
+
+	* bin/autoconf.as: Work even if "ls" outputs "FOO not found" to
+	stdout, as traditional "ls" does.
+	* lib/autoconf/lang.m4 (_AC_COMPILER_EXEEXT_DEFAULT,
+	_AC_COMPILER_EXEEXT_O): Likewise.
+	* doc/autoconf.texi (Limitations of Usual Tools): Add "ls".
+
+	* bin/autoconf.as: Add --prepend-include option.  This patch was
+	applied to bin/autoconf.in in the 2002-07-17 patch by Mark D. Roth,
+	but bin/autoconf.in is generated automatically from bin/autoconf.as.
+
+	* bin/autoconf.in, configure: Regenerate.
+
+	* doc/autoconf.texi (Special Shell Variables): Mention
+	ENV, MAIL, MAILPATH, PS1, PS2, PS4.  Index PWD.
+
+	* lib/m4sugar/m4sh.m4 (AS_SHELL_SANITIZE): Unset ENV, MAIL,
+	MAILPATH and set PS1, PS2, PS4 to default values, to work
+	around bug in pre-3.0 UWIN ksh reported by Bruce Lilly.
+	For LC_ALL etc, first try to set to "C" as POSIX requires and as
+	the Autoconf documentation specifies; fall back to "unset" only if
+	this fails.  Use a shell for-loop for this rather than an m4 loop,
+	to shorten the output script.
+
+2002-08-30  Paul Eggert  <eggert@twinsun.com>
+
+	* doc/autoconf.texi (Special Shell Variables): Mention POSIX
+	1003.1-2001's requirements for CDPATH.  Give a simpler workaround
+	for the CDPATH problem.  Document PWD.
+	(Limitations of Builtins): Document the problem that "cd $foo" and
+	"ls $foo" may refer to different directories in shells conforming
+	to POSIX 1003.1-2001.  Use PS1 rather than CDPATH for "unset"
+	example, since the old example is now out of date.
+
+	* lib/autoconf/general.m4 (_AC_INIT_SRCDIR): Reject FOO if "cd
+	FOO" and "ls FOO" talk about different directories; this catches
+	problems when POSIX 1003.1-2001 "cd" fails due to symlink
+	spaghetti.
+
+	* lib/m4sugar/m4sh.m4 (AS_SHELL_SANITIZE): Use AS_UNSET instead
+	of rolling our own unset.
+	(_AS_PREPARE): $as_unset CDPATH instead of AS_UNSETting it, since
+	in practice we needn't worry about CDPATH if unset doesn't work.
+
+	* Makefile.in, aclocal.m4, bin/Makefile.in,
+	config/Makefile.in, doc/Makefile.in, lib/Makefile.in,
+	lib/Autom4te/Makefile.in, lib/autoconf/Makefile.in,
+	lib/autoscan/Makefile.in, lib/autotest/Makefile.in,
+	lib/emacs/Makefile.in, lib/m4sugar/Makefile.in, man/Makefile.in,
+	tests/Makefile.in: Regenerate with Automake 1.6.3.
+
+	* config/config.guess, config/config.sub, config/mkinstalldirs:
+	Update.
+
+	* configure: Regenerate with self.
+
+2002-08-30  Kevin Ryde  <user42@zip.com.au>
+
+	* doc/autoconf.texi (Limitations of Usual Tools): Notes on "cc"
+	default output.
+
+2002-08-29  Rainer Orth  <ro@TechFak.Uni-Bielefeld.DE>
+
+	* bin/autom4te.in (Request::load): Correctly test for "do" read
+	failure.
+
+2002-08-29  Akim Demaille  <akim@epita.fr>
+
+	* lib/Autom4te/General.pm (&xqx): New.
+	(&xsystem): Use WIFEXITED and WEXITSTATUS instead of decoding $? by
+	hand, which is not portable.
+	(&error): New.
+	* bin/autom4te.in: Use them.
+	Use &error instead of die.
+	* tests/m4sugar.at (m4_warn, m4_require: circular dependencies):
+	Adjust.
+
+2002-08-17  Paul Eggert  <eggert@twinsun.com>
+
+	* lib/autoconf/fortran.m4 (AC_PROG_F77): Remove fc from the
+	default list of compilers to try, since it was long ago superseded
+	by the ksh fc builtin.  Suggested by Steven G. Johnson.
+
+2002-07-31  Alexandre Duret-Lutz  <duret_g@epita.fr>
+
+	* doc/autoconf.texi (Invoking autom4te): End the option table,
+	fixing a bug introduced by the previous patch.
+	(Limitations of Make): Add a 'target lookup' subentry in the
+	'VPATH' entry.  Rewrite all `make' occurences as `@command{make}'.
+
+2002-07-29  Mark D. Roth  <roth@feep.net>
+
+	* bin/autom4te.in: Remove --include-envvar and --site-macro-subdir
+	options and use $AUTOM4TE_PATH.
+	* doc/autoconf.texi: Remove documentation of autom4te
+	--include-envvar and --site-macro-subdir options and document
+	use of $AUTOM4TE_PATH.
+	* lib/autom4te.in: Remove --include-envvar and --site-macro-subdir
+	arguments from each language section.
+
+2002-07-29  Paul Eggert  <eggert@twinsun.com>
+
+	* doc/install.texi: Include copyright symbol in copyright notice.
+
+	* Makefile.am (MAKEINFO): Remove; it's a user-specified macro.
+	Replace with:
+	(AM_MAKEINFOFLAGS): New macro.
+	* doc/Makefile.am (MAKEINFO, AM_MAKEINFOFLAGS): Likewise.
+	* Makefile.am (INSTALL): Use the new macros.
+	Use -o rather than --output, since "missing" does not grok --output.
+
+2002-07-25  Alexandre Duret-Lutz  <duret_g@epita.fr>
+
+	* doc/autoconf.texi (Limitations of Make): Escaped newlines in
+	comments do not always work. Never trust the exit status of
+	`make -k'.
+
+2002-07-24  Kevin Ryde  <user42@zip.com.au>
+
+	* autoconf.texi (Limitations of Make, Making testsuite Scripts):
+	Untabify, since tabs are not enjoyed by texi2dvi and makeinfo.
+
+2002-07-23  Paul Eggert  <eggert@twinsun.com>
+
+	* lib/m4sugar/m4sh.m4 (_AS_PATH_SEPARATOR_PREPARE):
+	Use PATH="/nonexistent;.", not PATH=".;.", as FreeBSD ksh2002
+	apparently treats PATH="nonexistent" as if it contained ".".
+	Bug reported by Stefan `Sec' Zehl.
+
+2002-07-22  Alexandre Duret-Lutz  <duret_g@epita.fr>
+
+	* doc/autoconf.texi (Limitations of Make): Mention the special
+	handling of the obj/ directory by BSD make.
+
+2002-07-20  Kevin Ryde  <user42@zip.com.au>
+
+	* doc/autoconf.texi (Limitations of Make): Add HP-UX IA-64 trailing
+	backslashes.
+
+2002-07-19  Akim Demaille  <akim@epita.fr>
+
+	* doc/autoconf.texi (Function Portability): `exit'.
+	(Programming in M4sh): Ethymology of M4sh.
+
+2002-07-19  Akim Demaille  <akim@epita.fr>
+
+	* doc/autoconf.texi (AC_LIBOBJ vs LIBOBJS): More about $U.
+
+2002-07-18  Akim Demaille  <akim@epita.fr>
+
+	Version 2.53b.
+
+2002-07-18  Akim Demaille  <akim@epita.fr>
+
+	* config/config.guess, config/config.sub: Update.
+
+2002-07-18  Akim Demaille  <akim@epita.fr>
+
+	Handle LIBOBJS and LTLIBOBJS once for all, including Libtool's and
+	Automake's parts.
+
+	* lib/autoconf/general.m4 (_AC_LIBOBJS_NORMALIZE): New.
+	* lib/autoconf/status.m4 (AC_OUTPUT_COMMANDS_PRE): Call it.
+	* tests/semantics.at (AC_REPLACE_FUNCS): Adjust.
+
+2002-07-18  Akim Demaille  <akim@epita.fr>,
+	    Alexandre Duret-Lutz  <duret_g@epita.fr>
+
+	* lib/autoconf/status.m4 (_AC_OUTPUT_HEADERS): Install
+	_AC_AM_CONFIG_HEADER_HOOK for Automake 1.7.
+
+2002-07-17  Russ Allbery  <rra@stanford.edu>
+
+	* doc/autoconf.texi (Initializing configure): Clarify the
+	description of the tarname default.
+
+2002-07-17  Andreas Buening  <andreas.buening@nexgo.de>
+
+	* lib/autoconf/functions.m4 (AC_FUNC_FORK): Don't set
+	ac_cv_func_fork_works before running _AC_FUNC_FORK, do it if the
+	latter was not run.
+
+2002-07-17  Akim Demaille  <akim@epita.fr>
+
+	* lib/Autom4te/General.pm (find_file): Browse the directories in
+	the order they are given.
+
+2002-07-17  Akim Demaille  <akim@epita.fr>
+
+	* tests/wrapsh.as, tests/wrappl.as: Merge into...
+	* tests/wrapper.as: this.
+	* tests/Makefile.am, configure.ac: Adjust.
+
+2002-07-17  Mark D. Roth  <roth@feep.net>
+
+	* configure.ac: Add --enable-site-macro-dir option.
+	* bin/Makefile.am: Expand @SITE_MACRO_DIR@.
+	* bin/autom4te.in: Add --prepend-include, --include-envvar, and
+	--site-macro-subdir options.
+	* bin/autoconf.in: Add --prepend-include option.
+	* bin/autoheader.in: Add --prepend-include option.
+	* bin/autoreconf.in: Add --prepend-include option.
+	* bin/autoscan.in: Add --prepend-include option.
+	* bin/autoupdate.in: Add --prepend-include option.
+	* doc/autoconf.texi: Document use of $AC_MACRO_PATH and site
+	macro directory, remove note that include path directories are
+	used in reverse order, and document --prepend-include option.
+	* lib/autom4te.in: Use --prepend-include instead of --include.
+	* tests/wrapsh.in: Use --prepend-include instead of --include.
+
+2002-07-17  Akim Demaille  <akim@epita.fr>
+
+	* lib/autoconf/general.m4 (_AC_INIT_PACKAGE): `_' is allowed in
+	tarnames.
+	* doc/autoconf.texi (Initializing configure): Adjust.
+
+2002-07-17  Akim Demaille  <akim@epita.fr>
+
+	* lib/autoconf/functions.m4 (AC_FUNC_REALLOC, _AC_FUNC_REALLOC)
+	(_AC_FUNC_MALLOC): New.
+	(AC_FUNC_MALLOC): Use the latter.
+	Define HAVE_MALLOC to 0 if broken.
+	* doc/autoconf.texi (Particular Functions): Adjust.
+
+2002-07-16  Akim Demaille  <akim@epita.fr>
+
+	* lib/autoconf/c.m4 (AC_C_BACKSLASH_A): New.
+	* doc/autoconf.texi (C Compiler): Adjust.
+
+2002-07-09  Akim Demaille  <akim@epita.fr>
+
+	* doc/autoconf.texi: Properly set the ``header'' part.
+
+2002-07-09  Akim Demaille  <akim@epita.fr>
+
+	* doc/autoconf.texi (Systemology): Some about Darwin.
+
+2002-07-09  Alexandre Duret-Lutz  <duret_g@epita.fr>
+
+	* lib/autoconf/specific.m4 (AC_CYGWIN, AC_EMXOS2, AC_MINGW32):
+	Don't use AC_REQUIRE in AU_DEFUN.
+
+2002-07-09  Art Haas  <ahaas@neosoft.com>
+
+	* doc/autoconf.texi: Use @enddots{} or @dots{} where appropriate.
+
+2002-07-02  Alexandre Duret-Lutz  <duret_g@epita.fr>
+
+	* bin/autoheader.in, bin/autom4te.in, bin/autoreconf.in,
+	bin/autoupdate.in, bin/ifnames.in, lib/Autom4te/General.pm,
+	lib/Autom4te/Struct.pm, lib/Autom4te/XFile.pm: Add local variables
+	so that Emacs setups GNU style for perl-mode and cperl-mode.
+
+2002-06-27  Paul Eggert  <eggert@twinsun.com>
+
+	* config/install-sh: Quote $src.  Prefer || to test's -o option,
+	as per "Limitations of Builtins".
+	* tests/atspecific.m4 (AT_CHECK_ENV): Likewise, for && vs test -a.
+	* tests/semantics.at (AC_C_BIGENDIAN): Likewise.
+
+	* tests/mktests.sh: Use grep instead of fgrep, as per
+	"Limitations of Builtins".
+
+2002-06-15  Paul Eggert  <eggert@twinsun.com>
+
+	* tests/wrapsh.as (AUTOCONF, AUTOHEADER, AUTOM4TE, AUTOM4TE_CFG,
+	autom4te_perllibdir): Set to top build dir or src dir as appropriate,
+	so that we consistently test the just-built programs.
+	* tests/wrappl.as: Likewise.
+
+2002-06-12  Paul Eggert  <eggert@twinsun.com>
+
+	* bin/autoconf.as (AUTOM4TE): Default to a fully qualified path
+	name, so that symlinks to 'autoconf' work properly.  Bug reported
+	by Bruno Haible.
+	* bin/autoheader.in (AUTOM4TE): Likewise.
+	* bin/autoreconf.in (autoconf, autoheader): Likewise.
+	* bin/autoscan.in (autom4te): Likewise.
+	* bin/autoupdate.in (autom4te): Likewise.
+
+	* lib/autoconf/functions.m4 (_AC_LIBOBJ_FNMATCH): Also check for
+	btowc, to fix a portability bug with diffutils-2.8.2/lib/fnmatch.c
+	on Solaris 2.5.1.
+
+2002-06-11  Andreas Schwab  <schwab@suse.de>
+
+	* doc/autoconf.texi: Add more dir entries.
+
+2002-06-10  Alexandre Duret-Lutz  <duret_g@epita.fr>
+
+	* bin/autom4te.in ($cache): Don't define using `$me', the name
+	of the cache should not depend on the name under which autom4te
+	was installed.
+
+2002-06-07  Akim Demaille  <akim@epita.fr>
+
+	* tests/tools.at (autoconf: forbidden tokens, basic)
+	(autoconf: forbidden tokens, exceptions): Adjust to the change of
+	words in autom4te.in.
+
+2002-06-07  Peter Eisentraut  <peter_e@gmx.net>
+
+	* lib/autoconf/c.m4 (AC_LANG_PROGRAM(C)): Use
+	_AC_LANG_PROGRAM_C_F77_HOOKS.
+
+2002-06-07  Akim Demaille  <akim@epita.fr>
+
+	* lib/autoconf/functions.m4 (AC_REPLACE_FUNC_FNMATCH): Typo,
+	rename as...
+	(AC_REPLACE_FNMATCH): this.
+	* tests/mktests.sh (exclude_list): Exclude AC_REPLACE_FNMATCH,
+	AC_FUNC_FNMATCH_GNU.
+
+2002-06-07  Akim Demaille  <akim@epita.fr>
+
+	* doc/autoconf.texi (Systemology): Point to Tru64 docs, and the
+	Rosetta Stone for Unix.
+
+2002-06-07  Akim Demaille  <akim@epita.fr>
+
+	* bin/autom4te.in (warn_forbidden): When rejecting a token,
+	suggest m4_pattern_allow.
+	Suggested by Adam J. Richter.
+
+2002-06-07  Akim Demaille  <akim@epita.fr>
+
+	* lib/autoconf/general.m4 (_AC_INIT_DEFAULTS): Initialize
+	ac_config_libobj_dir.
+	(AC_CONFIG_LIBOBJ_DIR): New.
+	* lib/autoconf/functions.m4 (_AC_FUNC_FNMATCH): Split into...
+	(_AC_FUNC_FNMATCH_IF, _AC_LIBOBJ_FNMATCH): these.
+	Use ac_config_libobj_dir to find the replacement files.
+	(AC_FUNC_FNMATCH, AC_FUNC_FNMATCH_GNU): Split into...
+	(AC_FUNC_FNMATCH, AC_FUNC_FNMATCH_GNU, AC_REPLACE_FNMATCH)
+	(AC_REPLACE_FNMATCH_GNU): these.
+	(AC_FUNC_GETLOADAVG): Use ac_config_libobj_dir.
+	* doc/autoconf.texi (Particular Functions, Generic Functions): Adjust.
+	* tests/mktests.sh (ac_exclude_list): Don't check
+	AC_FUNC_GETLOADAVG as it requires getloadavg.c which is not shipped.
+
+2002-06-06  Paul Eggert  <eggert@twinsun.com>
+
+	* lib/autoconf/status.m4 (_AC_OUTPUT_LINKS): Fall back on cp
+	if ln doesn't work.
+	* NEWS: Likewise.
+	* doc/autoconf.texi (Configuration Links): Likewise.
+	(Limitations of Usual Tools): Prefer $(LN_S) to ln -s || ln.
+
+2002-06-05  Paul Eggert  <eggert@twinsun.com>
+
+	* config/config.guess, config/config.sub, config/texinfo.tex:
+	Update from masters.
+
+2002-05-29  Paul Eggert  <eggert@twinsun.com>
+
+	* bin/autom4te.in ($m4): Do not assume that egrep and fgrep exist.
+	* lib/autoconf/c.m4 (AC_C_BIGENDIAN): Likewise.
+	* lib/autoconf/general.m4 (_AC_RUN_LOG_STDERR, AC_EGREP_CPP):
+	Likewise.
+	* lib/autoconf/Makefile.am (check-local): Likewise.
+	* lib/autoconf/status.m4 (AC_CONFIG_HEADER): Likewise.
+	* lib/autoconf/types.m4 (commentary only): Likewise.
+	* lib/autotest/general.m4 (AT_INIT, AT_CHECK): Likewise.
+	* lib/autotest/Makefile.am (check-local): Likewise.
+	* lib/m4sugar/Makefile.am (check-local): Likewise.
+	* tests/atspecific.m4 (AT_CONFIGURE_AC, AT_CHECK_DEFINES): Likewise.
+	* tests/mktests.sh (egrep): New var; use it instead of plain egrep.
+
+	* lib/autoconf/programs.m4 (AC_PROG_EGREP, AC_PROG_FGREP): New macros.
+	* doc/autoconf.texi (Particular Programs): Document them.
+	(Limitations of Usual Tools): Warn that egrep and fgrep may not exist.
+	* NEWS: Likewise.
+
+2002-05-27  Paul Eggert  <eggert@twinsun.com>
+
+	* lib/autoconf/types.m4 (AC_TYPE_MBSTATE_T): New macro.
+	* NEWS, doc/autoconf.texi (Particular Types): Document it.
+	* lib/autoconf/functions.m4 (_AC_FUNC_FNMATCH): Require it
+	instead of AC_MBSTATE_T, which never existed.
+
+2002-05-23  Akim Demaille  <akim@epita.fr>
+
+	* doc/autoconf.texi (Hosts and Cross-Compilation): Specify the
+	version of Autoconf that is discussed.
+
+2002-05-22  Paul Eggert  <eggert@twinsun.com>
+
+	* lib/autoconf/fortran.m4 (AC_PROG_F77): Remove cf77 and cft77
+	from the default list of compilers to try.  Suggested by
+	Kate Hedstrom.
+	* NEWS: Document the above.
+	* autoconf.texi (Fortran 77 Compiler): Don't suggest cf77.
+
+2002-05-17  Paul Eggert  <eggert@twinsun.com>
+
+	* lib/autoconf/types.m4 (AC_CHECK_MEMBER): Work correctly even if
+	the member is itself an aggregate.  Bug reported by Sergey Poznyakoff.
+	This improves on an earlier suggestion by H. Peter Anvin.
+
+2002-05-16  Paul Eggert  <eggert@twinsun.com>
+
+	AC_FUNC_FNMATCH now tests only for POSIX compatibility.
+	AC_FUNC_FNMATCH_GNU also tests for GNU extensions.
+	Both macros now accept an optional source-dir arg.
+	New macro AC_GNU_SOURCE to define _GNU_SOURCE.
+
+	* NEWS: Document this.
+	* doc/autoconf.texi (Particular Functions, UNIX Variants): Likewise.
+
+	* lib/autoconf/functions.m4 (_AC_FUNC_FNMATCH): New macro.
+	(AC_FUNC_FNMATCH): Use it.  Test only for POSIX conformance,
+	not for GNU extensions; this undoes part of the 2000-11-03 change,
+	reverting to 2.13-compatible behavior.
+	Add new optional argument DIR.
+	(AC_FUNC_FNMATCH_GNU): New macro.
+
+	* lib/autoconf/specific.m4 (AC_GNU_SOURCE): New macro.
+
+2002-05-08  Paul Eggert  <eggert@twinsun.com>
+
+	* lib/autoconf/headers.m4 (AC_HEADER_TIOCGWINSZ):
+	Don't require AC_SYS_POSIX_TERMIOS.  The test is unnecessary,
+	and it causes a 'test' syntax error if it fails.
+	Bug reported by Stephen Gildea.
+
+	* lib/autoconf/functions.m4 (AC_FUNC_SETVBUF_REVERSED):
+	If prototypes are supported, use them to check this at compile-time,
+	instead of trying to check it at run-time.  If we must do a run-time
+	check, assume that setvbuf is standard when cross-compiling, as
+	nonstandard setvbuf occurs only on ancient and unlikely hosts.
+	Bug reported by Paul D. Smith.
+
+	* lib/autoconf/functions.m4 (AC_FUNC_GETLOADAVG): Add optional
+	argument specifying location of getloadavg.c.  This removes a
+	FIXME.  This idea was taken from Jim Meyering's implementation in
+	textutils.
+	* doc/autoconf.texi (Particular Functions): Document this.
+	Also, mention HAVE_NLIST_H rather than NLIST_STRUCT, since
+	that's what the code does; this fixes a bug reported by
+	Paul D. Smith.
+
+2002-05-03  Akim Demaille  <akim@epita.fr>
+
+	* bin/autoreconf.in (autoreconf): Rewrite to use Gettext's
+	autopoint instead of gettextize.
+	($uses_alocal): Rename as...
+	($uses_aclocal): this.
+	* doc/autoconf.texi (autoreconf Invocation): Adjust.
+	Suggested by Bruno Haible.
+
+2002-05-03  Akim Demaille  <akim@epita.fr>
+
+	* lib/m4sugar/m4sugar.m4 (m4_map_sep): New.
+
+2002-04-29  Paul Eggert  <eggert@twinsun.com>
+
+	* bin/autoreconf.in (autoreconf): Don't age aclocal.m4's input
+	files to be 1 second older; just set them to be the same time.
+	Also, sleep 1 second after the first aclocal, to work around
+	problems with sub-second time stamps on the input files.
+
+2002-04-29  Thien-Thi Nguyen  <ttn@gnu.org>
+
+	* doc/autoconf.texi: Mention "set -e -x" lossage
+	under node "Limitations of Builtins".
+
+2002-04-29  Akim Demaille  <akim@epita.fr>
+
+	* doc/install.texi: Better wording for setting variables when
+	running configure.
+	From Christian Cornelssen.
+
+2002-04-29  Akim Demaille  <akim@epita.fr>
+
+	* tests/m4sh.at (LINENO): If testsuite itself is rewritten because
+	of lack of $LINENO support, then the test will compare the $LINENO
+	in testsuite vs. the lineno in the test file.  This is wrong, of
+	course.
+	Be sure to protect it.
+	Reported by Patrick Welche.
+
+2002-04-25  Akim Demaille  <akim@epita.fr>
+
+	* doc/autoconf.texi (Obsolete Macros): Typo.
+	Reported by Vladimir Volovich.
+
+2002-04-25  Akim Demaille  <akim@epita.fr>
+
+	* bin/autoreconf.in (autoreconf): Don't let aclocal.m4 be older
+	than some of the input files, hence, on the second run of aclocal,
+	if some of its input are younger, make them older.
+	Suggested by Paul Eggert.
+
+2002-04-25  Akim Demaille  <akim@epita.fr>
+
+	* doc/autoconf.texi (Limitations of Usual Tools): sed and `!'.
+	Thanks to Paul Eggert.
+
+2002-04-25  Akim Demaille  <akim@epita.fr>
+
+	* lib/autoconf/general.m4 (_AC_INIT_DEFAULTS): Let ac_subst_files
+	and ac_subst_vars be sh variables containing the list of
+	AC_SUBST_FILES'ed and AC_SUBST'ed identifiers.  Output them in the
+	DEFAULT diversion.
+	(_AC_INIT_PREPARE): Use them to log them.
+	(_AC_SUBST, _AC_SUBST_SED_PROGRAM): Remove.
+	(AC_SUBST, AC_SUBST_FILE): Instead of buliding the
+	_AC_SUBST_SED_PROGRAM, store the list of output files/variables in
+	_AC_SUBST_FILES and _AC_SUBST_VARS.
+	* lib/autoconf/status.m4 (_AC_OUTPUT_FILES): Adjust.
+
+2002-04-24  Akim Demaille  <akim@epita.fr>
+
+	* bin/autoreconf.in (autoreconf): Run automake after autoconf and
+	autoheader, so that automake does not complain about a missing
+	config.h.in that was to be created.
+
+2002-04-23  Akim Demaille  <akim@epita.fr>
+
+	* bin/autoheader.in (parse_args): --warning takes an argument.
+	Fixes PR/220.
+
+2002-04-22  Peter Eisentraut  <peter_e@gmx.net>
+
+	* lib/autoconf/general.m4 (_AC_RUN_IFELSE): Remove gmon.out
+	and bb.out when cleaning up.
+
+2002-04-22  Akim Demaille  <akim@epita.fr>
+
+	Version 2.53a.
+
+2002-04-22  Akim Demaille  <akim@epita.fr>
+
+	* tests/m4sh.at (LINENO): Fix the Zsh skip pattern.
+
+2002-04-22  Akim Demaille  <akim@epita.fr>
+
+	* doc/autoconf.texi (Pretty Help Strings): Remove a spurious
+	comma.
+	Reported by Gregory Giannoni.
+
+2002-04-22  Akim Demaille  <akim@epita.fr>
+
+	* tests/m4sh.at (LINENO): Skip the test if LINENO cannot be unset.
+	Fixes false failures on Darwin.
+
+2002-04-21  Paul Eggert  <eggert@twinsun.com>
+
+	* TODO, bin/autoupdate.in, doc/autoconf.texi,
+	lib/autoconf/general.m4, lib/autoconf/libs.m4,
+	lib/autoconf/status.m4, lib/m4sugar/m4sugar.m4, tests/m4sh.at,
+	tests/tools.at: Minor spelling and grammar fixes.
+
+2002-04-20  Paul Eggert  <eggert@twinsun.com>
+
+	* doc/autoconf.texi (Shell Substitutions): Fix typos in yesterday's
+	ZSH_VERSION fixes.  Bug reported by Raja R Harinath.
+	* lib/autotest/general.m4 (AT_INIT): Likewise.
+	* tests/atgeneral.m4 (AT_INIT): Likewise.
+
+2002-04-19  Paul Eggert  <eggert@twinsun.com>
+
+	* NEWS, TODO, bin/autom4te.in, bin/autoreconf.in, bin/autoupdate.in,
+	doc/autoconf.texi, lib/freeze.mk, lib/Autom4te/Struct.pm,
+	lib/autoconf/autoheader.m4, lib/autoconf/c.m4,
+	lib/autoconf/functions.m4, lib/autoconf/general.m4,
+	lib/autoconf/lang.m4, lib/autoconf/libs.m4, lib/autoscan/identifiers,
+	lib/autotest/general.m4, lib/m4sugar/m4sh.m4, tests/atgeneral.m4,
+	tests/atspecific.m4, tests/semantics.at, tests/torture.at:
+	Minor spelling and grammar fixes.
+
+	* doc/autoconf.texi: Follow the outline suggested in the GNU
+	Sample Texts sections of the Texinfo 4.2 manual.  Most
+	importantly, this makes sure that the copyright notices appear in
+	all output formats.  You probably need Texinfo 4.2 to generate
+	the manual now.
+
+	Fix some bugs when using "$@" when there might be zero positional
+	arguments in cases where this matters.
+
+	* bin/autoconf.as: Rewrite so that the problem does not come up.
+	* lib/autoconf/programs.m4 (AC_CHECK_PROG): Likewise.
+	* lib/autoconf/status.m4 (AC_OUTPUT): Likewise.
+	* lib/autotest/general.m4 (AT_INIT): Likewise.
+
+	* bin/autoheader.in: Use 'case' statement to work around problem.
+	* bin/auto4mte.in: Likewise.
+	* bin/autoreconf.in: Likewise.
+	* bin/autoscan.in: Likewise.
+	* bin/autoupdate.in: Likewise.
+	* bin/ifnames.in: Likewise.
+
+	* doc/autoconf.texi (Shell Substitutions): Document the problem.
+
+	* lib/autotest/general.m4 (AT_INIT):
+	Use Zsh alias to work around problem.
+	* tests/atgeneral.m4 (AT_INIT): Likewise.
+
+	* tests/c.at: We can't have zero arguments, so remove workaround
+	that is not portable to Zsh.
+
+2002-04-19  Alexandre Duret-Lutz  <duret_g@epita.fr>
+
+	* bin/autoupdate.in (handle_autoconf_macros): Honor AU_DEFUNs
+	from aclocal.m4 too.
+
+2002-04-12  Akim Demaille  <akim@epita.fr>
+
+	* tests/wrappl.as: New, M4sh precursor of wrappl.in.
+
+2002-04-10  Akim Demaille  <akim@epita.fr>
+
+	* lib/m4sugar/m4sh.m4 (AS_SHELL_SANITIZE): Install the Zsh
+	workaround for ${1+"$@"}.
+	* doc/autoconf.texi (Shell Substitutions): Explain it.
+	From Oliver Kiddle and Peter Stephenson.
+
+	Have M4sh perform minimal shell sanitizing.
+
+	* lib/m4sugar/m4sh.at (AS_SHELL_SANITIZE): Split the `_AS_PREPARE_*'
+	part into...
+	(_AS_PREPARE): this new macro.
+	(AS_PREPARE): New.
+	(AS_INIT): Invoke AS_SHELL_SANITIZE.
+	* tests/m4sh.at (AT_DATA_LINENO): Use _AS_PREPARE.
+
+	Adjust Autoconf and Autotest.
+
+	* lib/autoconf/general.m4 (_AC_INIT_DEFAULTS): Don't invoke
+	AS_SHELL_SANITIZE, AS_INIT did it, but invoke AS_PREPARE.
+	* lib/autotest/general.m4 (AT_INIT): Likewise.
+	* lib/autoconf/status.m4 (_AC_OUTPUT_CONFIG_STATUS):
+	Invoke _AS_PREPARE (not AS_PREPARE) in addition to
+	AS_SHELL_SANITIZE.
+
+	Use this M4sh to generate Autoconf's shell scripts.
+
+	* tests/wrapsh.as: New, precursor of wrapsh.in.
+	* tests/Makefile.am: Include lib/freeze.mk to get the dependencies
+	on Autotest and M4sh.
+	($(TESTSUITE)): Use $(autotest_m4f_dependencies).
+	(wrapsh.in): New target.
+	* bin/autoconf.as: New, precursor of autoconf.in.
+	(autoconf.in): New target.
+
+2002-04-09  Alexandre Duret-Lutz  <duret_g@epita.fr>
+
+	* doc/autoconf.texi (Limitations of Make): Mention the issue
+	with indented comments in rules.
+
+2002-04-09  Andreas Schwab  <schwab@suse.de>
+
+	* lib/autoconf/status.m4 (_AC_SRCPATHS): Handle empty
+	ac_top_builddir when setting ac_abs_top_builddir.
+
+2002-04-06  Kevin Ryde  <user42@zip.com.au>
+
+	* doc/autoconf.texi (Systemology): Add link to Unix V7 online docs.
+	(Portable Shell): Cross reference to Systemology.
+
+2002-04-05  Akim Demaille  <akim@epita.fr>
+
+	* bin/autoreconf.in (autoreconf): Be sure to accumulate the
+	directories when descending in a SUBDIRS.
+	Reported by Ezra Peisach.
+
+2002-04-04  Andreas Schwab  <schwab@suse.de>
+
+	* lib/m4sugar/m4sh.m4 (_AS_PATH_WALK): Only simplify if path
+	contains no literal separators.
+
+2002-04-03  Akim Demaille  <akim@epita.fr>
+
+	* lib/autoconf/status.m4 (_AC_CONFIG_FILE, _AC_CONFIG_HEADER)
+	(_AC_CONFIG_COMMAND, _AC_CONFIG_LINK): New.
+	Use dnl, not the KILL diversion.
+	Extracted from...
+	(AC_CONFIG_FILES, AC_CONFIG_HEADERS, AC_CONFIG_COMMANDS)
+	(AC_CONFIG_LINKS): here.
+	Adjust.
+	Don't use the KILL diversion, as it kills spurious output, which
+	results in failures being hidden.
+	Use m4_defn where appropriate.
+	(AC_CONFIG_IF_MEMBER): Kill the real bug: a spurious parenthesis
+	after the second argument.
+	Use m4_defn.
+	* lib/autom4te.in (Autoconf, Autotest, M4sh): Don't pass --warning
+	syntax, as it is provided by M4sugar.
+	* tests/torture.at (Multiple AC_CONFIG_FILES): New.
+
+2002-04-03  Andreas Schwab  <schwab@suse.de>
+
+	* lib/m4sugar/m4sugar.m4 (m4_bmatch): Make sure m4_bregexp is not
+	expanded if $# <= 2.
+
+	* bin/autoreconf.in (autoreconf): Run automake after rerunning
+	aclocal.
+
+2002-04-03  Akim Demaille  <akim@epita.fr>
+
+	* lib/autoconf/lang.m4 (_AC_COMPILER_OBJEXT_REJECT)
+	(_AC_COMPILER_EXEEXT_REJECT): New.
+	Also recognize *.bb and *.bbg as compilation byproducts.
+	(_AC_COMPILER_EXEEXT_DEFAULT, _AC_COMPILER_EXEEXT_O)
+	(_AC_COMPILER_OBJEXT): Use them.
+	Fixes Debian #138666.
+
+2002-04-02  Peter Eisentraut  <peter_e@gmx.net>
+
+	Integrate AC_PROG_CC_STDC into AC_PROG_CC.
+
+	* lib/autoconf/c.m4 (AC_PROG_CC_STDC): Rename to _AC_PROG_CC_STDC.
+	AU_DEFUN old name.  Use _AC_COMPILE_IFELSE.
+	(AC_PROG_CC): Call _AC_PROG_CC_STDC.
+	(AC_C_INLINE): Do not require AC_PROG_CC_STDC.
+	(AC_C_CONST): Same.
+	(AC_C_INLINE): Same.
+	(AC_C_PROTOTYPES): Same.  Require AC_PROG_CC instead.
+	* doc/autoconf.texi, NEWS: Document.
+	* tests/mktests.sh (au_exclude_list): Add AC_PROG_CC_STDC and
+	AC_C_CROSS.
+
+2002-04-02  Akim Demaille  <akim@epita.fr>
+
+	* lib/m4sugar/m4sh.m4 (AS_SHELL_SANITIZE): Invoke
+	_AS_MKDIR_P_PREPARE.
+
+2002-03-28  Kevin Ryde  <user42@zip.com.au>
+
+	* lib/autoconf/c.m4 (AC_C_INLINE): Test with a typedef return value,
+	to avoid versions of HP C which don't allow that.
+
+2002-03-27  Paul Eggert  <eggert@twinsun.com>
+
+	* lib/m4sugar/m4sh.m4 (_AS_BASENAME_PREPARE): New macro.
+	(AS_SHELL_SANITIZE): Invoke it.
+	(AS_BASENAME): AS_REQUIRE it, and use $as_basename.
+
+2002-03-26  Akim Demaille  <akim@epita.fr>
+
+	* doc/autoconf.texi (Portable Shell): Add pointers to FAQs.
+
+2002-03-26  Akim Demaille  <akim@epita.fr>
+
+	* doc/autoconf.texi (Introduction): The GNATS base moved.
+
+2002-03-25  Paul Eggert  <eggert@twinsun.com>
+
+	* tests/m4sh.at: Don't rely on "PATH=test:$PATH test-1" working
+	as POSIX requires, as it doesn't work with Zsh.
+	* doc/autoconf.texi (Assignments): Document the problem.
+
+2002-03-25  Alexandre Duret-Lutz  <duret_g@epita.fr>
+
+	* doc/autoconf.texi (Limitations of Make): Mention more issue
+	about VPATH, overriding of macros in sub-makes, and handling of
+	SHELL.
+
+2002-03-21  Paul Eggert  <eggert@twinsun.com>
+
+	* doc/autoconf.texi (Here-Documents): Mention Solaris 8 dtksh
+	problem with here-document buffer boundaries.
+
+	* lib/m4sugar/m4sh.m4 (_AS_LINENO_PREPARE): Unset ENV and BASH_ENV
+	when reinvoking the shell, to work around problems with installers
+	who put strange things like "cd" commands in their environments.
+
+2002-03-19  Akim Demaille  <akim@epita.fr>
+
+	* tests/semantics.at (AC_C_BIGENDIAN): s/unknow/unknown/.
+	From Aaron Ucko.
+
+2002-03-19  Akim Demaille  <akim@epita.fr>
+
+	* bin/autoscan.in (scan_file): Specify the location in `&used'
+	invocations.
+	From Nicolas Joly.
+
+2002-03-19  Akim Demaille  <akim@epita.fr>
+
+	* doc/autoconf.texi: Adjust @code/@command, @xref/@ref usage.
+	From Nishio Futoshi.
+
+2002-03-19  Akim Demaille  <akim@epita.fr>
+
+	* lib/m4sugar/m4sugar.m4 (m4_define_default, m4_fst, m4_map): New.
+
+2002-03-18  Paul Eggert  <eggert@twinsun.com>
+
+	* doc/autoconf.texi (Programming in M4sh): Add AS_MKDIR_P.
+	(Limitations of Usual Tools): Add mkdir section.
+
+	* lib/m4sugar/m4sh.m4 (_AS_MKDIR_P_PREPARE): New macro.
+	(AS_MKDIR_P): Require it.  Use mkdir -p if available, falling
+	back on AS_DIRNAME to compute prefixes otherwise; this is
+	roughly what mkinstalldirs does.  That way, we need not have
+	our own filename disassembler.  The old disassembler did not
+	work with Solaris 8 dtksh, which is ksh Version M-12/28/93d.
+
+	* lib/autotest/general.m4 (AT_INIT, AT_CLEANUP):
+	Create at_test_all by a series of assignments,
+	not by a single assignment of a long string.  The latter causes ksh
+	version 11/16/88g to silently misbehave on OpenServer 5.0.6a,
+	presumably because of a buffer overrun.
+
+2002-03-14  Paul Eggert  <eggert@twinsun.com>
+
+	* lib/autotest/general.m4 (at_times_skip):
+	Renamed from at_times.  Now a boolean.
+	ksh93 Version M-12/28/93d doesn't like 'x=times; $x'; it
+	says 'times: not found'.
+
+2002-03-14  Akim Demaille  <akim@epita.fr>
+
+	* bin/autoreconf.in (&study_gettextize): New.
+	(&autoreconf): Handle newest gettextize.
+	Rerun aclocal if needed.
+	Suggested by Andreas Schwab.
+
+2002-03-13  Akim Demaille  <akim@epita.fr>
+
+	* doc/autoconf.texi (Special Shell Variables): More about IFS.
+
+2002-03-13  Akim Demaille  <akim@epita.fr>
+
+	* doc/autoconf.texi (Header Portability): New.
+	Add information about stdint.h and inttypes.h from Paul Eggert.
+
+2002-03-13  Akim Demaille  <akim@epita.fr>
+
+	* doc/autoconf.texi (Limitations of Usual Tools): Some about `cp
+	-p'.
+	From Bob Proulx.
+
+2002-03-12  Akim Demaille  <akim@epita.fr>
+
+	* lib/m4sugar/m4sh.m4 (AS_BASENAME_EXPR): AS_REQUIRE, not
+	m4_require.
+
+2002-03-11  Andreas Schwab  <schwab@suse.de>
+
+	* configure.ac: Explicitly check for EMACS since AM_PATH_LISPDIR
+	does not do it if --with-lispdir is given.
+
+2002-03-08  Akim Demaille  <akim@epita.fr>
+
+	Version 2.53.
+
+2002-03-08  Akim Demaille  <akim@epita.fr>
+
+	* doc/autoconf.texi (Subdirectories): Clarify that the
+	subdirectory should exist.
+
+2002-03-08  Akim Demaille  <akim@epita.fr>
+
+	* Makefile.am (AUTOMAKE_OPTIONS): 1.6.
+
+2002-03-08  Akim Demaille  <akim@epita.fr>
+
+	* bin/autom4te.in (&handle_m4): Do not foreach with `$_' as it
+	aliases the actual variables, and modifications of the former
+	affect the latter.
+
+2002-03-08  Akim Demaille  <akim@epita.fr>
+
+	* bin/autom4te.in (&handle_m4): Protect us from corrupted file
+	because of C-c: have m4 output in tmp files, then mv them.
+
+2002-03-08  Akim Demaille  <akim@epita.fr>
+
+	* bin/autoconf.in, bin/autoheader.in, bin/autom4te.in,
+	* bin/autoreconf.in, bin/autoscan.in, bin/autoupdate.in,
+	* bin/ifnames.in: Copyright update.
+
+2002-03-08  Akim Demaille  <akim@epita.fr>
+
+	* doc/autoconf.texi (Invoking autom4te): New.
+
+2002-03-05  Akim Demaille  <akim@epita.fr>
+
+	* doc/autoconf.texi (Specifying Names): Clarification suggested by
+	Kevin Ryde.
+
+2002-03-05  Akim Demaille  <akim@epita.fr>
+
+	Version 2.52i.
+
+2002-03-04  Akim Demaille  <akim@epita.fr>
+
+	* doc/autoconf.texi (AC_LIBOBJ vs. LIBOBJS): New.
+	* lib/autoconf/general.m4 (AC_INIT): More informative error
+	message for LIBOBJ.
+
+2002-03-04  Akim Demaille  <akim@epita.fr>
+
+	* lib/freeze.mk ($(build_libdir)/m4sugar/version.m4): New, for
+	parallel builds.
+
+2002-03-04  Akim Demaille  <akim@epita.fr>
+
+	* doc/autoconf.texi (Transforming Names): Equality between target
+	and host is irrelevant.
+	(Specifying Names, Canonicalizing): Remove all references to the
+	backward compatibility hooks.  Rather, collect them all into...
+	(Hosts and Cross-Compilation): this new section.
+	* doc/install.texi (System Type): Ditto.
+	* lib/autoconf/general.m4 (AC_CANONICAL_HOST): Explicitly state
+	that `--host' implies cross-compilation.
+
+2002-03-04  Akim Demaille  <akim@epita.fr>
+
+	* doc/autoconf.texi (Evaluation Macros): New.
+	* lib/m4sugar/m4sugar.m4 (m4_lquote): Remove, it is totally
+	useless.
+	(_m4_foreach): Define the variant with immediate evaluation so
+	that it contains exactly the items, not an expression which
+	evaluation is the current item.
+	(m4_re_string, m4_re_word): Don't over quote them.
+
+2002-03-04  Akim Demaille  <akim@epita.fr>
+
+	Instead of having stacking `shift's evaluated at the end, let
+	`foreach' loops immediately evaluate them.
+
+	* lib/m4sugar/m4sugar.m4 (m4_quote, m4_dquote): Use $@ rather than
+	$*.  This is the n-th time I change my mind, but hopefully this is
+	the last...
+	(m4_lquote): New.
+	(m4_text_wrap): Use m4_foreach, which is finally correct _and_
+	efficient.
+	(m4_foreach_quoted, m4_car_quoted, _m4_foreach_quoted): Remove, as
+	it was only a hack for m4_text_wrap.
+	(m4_car2): Remove, replaced by...
+	(m4_cdr): New.
+	(_m4_foreach): Adjust.
+	* lib/autoconf/general.m4 (_AC_INIT_PREPARE): Adjust, and use
+	m4_bpatsubst for clarification.
+
+2002-03-04  Akim Demaille  <akim@epita.fr>
+
+	* doc/autoconf.texi (Changequote is Evil): New.
+
+2002-03-03  Kevin Ryde  <user42@zip.com.au>
+
+	* doc/autoconf.texi (Portable Shell): Mention 32-byte #! length limit
+	on old systems like SunOS.
+
+2002-03-01  Peter Eisentraut  <peter_e@gmx.net>
+
+	* lib/autoconf/c.m4, lib/autoconf/fortran.m4,
+	lib/autoconf/functions.m4, lib/autoconf/general.m4,
+	lib/autoconf/headers.m4, lib/autoconf/lang.m4,
+	lib/autoconf/programs.m4, lib/autoconf/status.m4: Improve spelling
+	of messages.
+
+2002-02-28  Akim Demaille  <akim@epita.fr>
+
+	* lib/autotest/general.m4 (AT_INIT): Suggest a title to the
+	message to be sent.
+
+2002-02-28  Kevin Ryde  <user42@zip.com.au>
+
+	* doc/autoconf.texi (Function Portability): Add va_copy and va_list.
+
+2002-02-25  Akim Demaille  <akim@epita.fr>
+
+	* lib/autoconf/functions.m4 (AC_FUNC_SETPGRP): Fix the test.
+	From Akinori Musha.
+
+2002-02-13  Alexandre Duret-Lutz  <duret_g@epita.fr>
+
+	* lib/Autom4te/XFile.pm (getline, getlines): New functions,
+	translate \r\n to \n.
+
+2002-02-07  Akim Demaille  <akim@epita.fr>
+
+	Version 2.52h.
+
+2002-02-07  Akim Demaille  <akim@epita.fr>
+
+	Fix Autoconf PR/209.
+	Also reported by Frank Denis.
+
+	* lib/m4sugar/m4sh.m4 (_AS_PATH_WALK): Don't over quote.
+
+2002-02-07  Akim Demaille  <akim@epita.fr>
+
+	Fix Autoconf PR/207:
+	AC_PREFIX_PROGRAM fails with dashed program names
+
+	* lib/autoconf/general.m4 (AC_PREFIX_PROGRAM): Just use a fresh
+	variable when looking for the prefix program.
+	Now it also works for shell variables.
+
+2002-02-07  Akim Demaille  <akim@epita.fr>
+
+	* doc/autoconf.texi (Limitations of Builtins): More about
+	case/esac.
+
+2002-02-06  Akim Demaille  <akim@epita.fr>
+
+	* lib/autoconf/status.m4 (_AC_OUTPUT_COMMANDS): Don't output empty
+	case/esac, some shells don't support it.
+	Reported by Zack Weinberg.
+	* tests/torture.at (AC_CONFIG_COMMANDS with empty commands): New.
+
+2002-02-06  Akim Demaille  <akim@epita.fr>
+
+	* lib/autotest/general.m4 (AT_INIT): When handling --keywords, be
+	sure not to introduce newlines in at_groups.
+	* lib/autotest/Makefile.am (autotest.m4f): Typo.
+
+2002-02-06  Akim Demaille  <akim@epita.fr>
+
+	* tests/torture.at (Configuring subdirectories): Skip if aclocal
+	is not available.
+
+2002-02-05  Paul Eggert  <eggert@twinsun.com>
+
+	* doc/autoconf.texi (Specific Compiler Characteristics):
+	Describe HP-UX cc bug workaround more accurately.
+	* lib/autoconf/types.m4 (AC_CHECK_SIZEOF): Cast to long,
+	not unsigned long.
+	* tests/semantics.at (AC_CHECK_SIZEOF): Check non-GCC
+	cross-compilers, too.  This undoes some of the most recent change
+	to this file.
+
+2002-02-05  Akim Demaille  <akim@epita.fr>
+
+	* tests/Makefile.am (check_SCRIPTS): Use it, instead of WRAPPERS,
+	to make sure they are up to date when `check' is run.
+
+2002-02-05  Akim Demaille  <akim@epita.fr>
+
+	* doc/autoconf.texi (Making testsuite Scripts): Document
+	package.m4.
+
+2002-02-05  Akim Demaille  <akim@epita.fr>
+
+	* lib/freeze.mk: New.
+
+2002-02-05  Akim Demaille  <akim@epita.fr>
+
+	Implement `autom4te --freeze'.
+
+	* bin/autom4te.in (&freeze): New.
+	* lib/autoconf/autoconf.m4, lib/autotest/general.m4,
+	* lib/m4sugar/m4sh.m4: Don't include files given by autom4te.
+
+2002-02-05  Akim Demaille  <akim@epita.fr>
+
+	* bin/autom4te.in (&parse_args): Implement `frozen files are
+	optional are the sum of the previous files on the command line'.
+	Also, pass `--reload-state=' on them, so...
+	(handle_m4): don't.
+	* lib/autom4te.in (Autotest, Autoconf): Rely on M4sh.
+	(M4sh): Rely on M4sugar.
+	(Autotest, M4sh, M4sugar): Use frozen files.
+
+2002-01-31  Akim Demaille  <akim@epita.fr>
+
+	* lib/autoconf/general.m4 (_AC_INIT_PACKAGE): Accept $4.
+	* doc/autoconf.texi (Initializing configure): Adjust.
+
+2002-01-30  Akim Demaille  <akim@epita.fr>
+
+	* lib/autoconf/general.m4 (_AC_INIT_PACKAGE): Map non
+	alphanumeric to `-' instead of `_'.
+
+2002-01-30  Akim Demaille  <akim@epita.fr>
+
+	* tests/semantics.at (AC_CHECK_SIZEOF): Split into two tests: one
+	for plain code, the other for cross-compilation code.  The latter
+	is now run with GCC only.
+	* doc/autoconf.texi (Compilers and Preprocessors): New.
+
+2002-01-30  Akim Demaille  <akim@epita.fr>
+
+	* lib/autoconf/general.m4 (_AC_INIT_PACKAGE): Support pre-defined
+	values.
+	* doc/autoconf.texi (Initializing configure): Explain how to
+	change AC_INIT default values.
+
+2002-01-29  Akim Demaille  <akim@epita.fr>
+
+	* tests/torture.at (Configuring subdirectories): Use configure.in,
+	so that aclocal 1.4 works.
+	Reported by Alexandre Duret-Lutz and Larry Schmitt.
+
+2002-01-28  Akim Demaille  <akim@epita.fr>
+
+	* doc/autoconf.texi (Writing testsuite.at): AT_CLEANUP no longer
+	needs an argument.
+
+2002-01-28  Akim Demaille  <akim@epita.fr>
+
+	* lib/autotest/general.m4 (AT_INIT): Don't be ridiculous: adjust
+	AUTOTEST_PATH *after* it was set.
+	Don't put `.' in the PATH: the user should be precise and `./' if
+	needed.  In addition, given that the test suite does some `cd', if
+	`.' is in the path, the `tested programs' sections will report
+	programs found in the test suite's directory, while during the
+	tests (performed in their own directory), these programs are no
+	longer visible.  In other words, the results is confusing and
+	useless.
+	* tests/m4sh.at: Adjust: don't rely on `.' being in the PATH.
+
+2002-01-24  Akim Demaille  <akim@epita.fr>
+
+	Version 2.52g.
+
+2002-01-24  Akim Demaille  <akim@epita.fr>
+
+	* bin/autoheader.in, bin/autoconf.in, bin/autoscan.in,
+	* doc/autoconf.texi: Finally add Akim as an author.
+
+2002-01-24  Akim Demaille  <akim@epita.fr>
+
+	* lib/m4sugar/m4sh.m4 (_AS_LINENO_PREPARE): Use PATH_SEPARATOR.
+	(_AS_PATH_SEPARATOR_PREPARE): Don't expect $SHELL to be
+	Bourne. Use /bin/sh.
+	From Andreas Buening.
+
+2002-01-24  Akim Demaille  <akim@epita.fr>
+
+	* config/config.guess, config/config.sub, config/texinfo.tex:
+	Update from masters.
+
+2002-01-24  Akim Demaille  <akim@epita.fr>
+
+	* Makefile.am (AUTOMAKE_OPTIONS): 1.5b.
+	* config/auxdir.m4, config/cond.m4, config/depend.m4,
+	* config/init.m4, config/install-sh.m4, config/lispdir.m4,
+	* config/missing.m4, config/sanity.m4, config/select.m4,
+	* config/strip.m4: Remove, to ease sync'ing with any version of
+	Automake.
+
+2002-01-24  Akim Demaille  <akim@epita.fr>
+
+	* lib/autoconf/general.m4 (_AC_INIT_PARSE_ARGS)
+	(_AC_INIT_PREPARE): Support -n as --no-create, as documented.
+	Reported by Geir Ove Myhr.
+
+2002-01-21  Akim Demaille  <akim@epita.fr>
+
+	* lib/autoconf/functions.m4 (AC_FUNC_MMAP): #Undef malloc.
+
+2002-01-21  Akim Demaille  <akim@epita.fr>
+
+	* lib/Autom4te/General.pm (getopt): Use a more GNUish error
+	message on invalid options.
+	* bin/autom4te.in (parse_args): Don't use
+	Autoconf::General::getopt with non valid options.
+
+2002-01-17  Jim Meyering  <meyering@lucent.com>
+
+	* lib/autoconf/lang.m4 (_AC_COMPILER_EXEEXT_DEFAULT): Initialize
+	$ac_cv_exeext so we don't use an old, invalid, cached value.
+
+2002-01-11  Akim Demaille  <akim@epita.fr>
+
+	* lib/autoconf/functions.m4 (AC_FUNC_STRNLEN): New, from Jim
+	Meyering.
+	* doc/autoconf.texi (Function Portability): Document the strnlen
+	limitation.
+	(Particular Functions): Document AC_FUNC_STRNLEN.
+	* lib/autoscan/functions: Adjust.
+
+2002-01-06  Akim Demaille  <akim@epita.fr>
+
+	* lib/autoconf/autotest.m4 (AC_CONFIG_TESTDIR): Don't create
+	package.m4, since is really depends upon configure.ac, not
+	configure.
+	* doc/autoconf.texi (testsuite Scripts): Adjust.
+	* tests/Makefile.am (package.m4): New.
+	EXTRA_DIST it since its a source.
+
+2002-01-06  Akim Demaille  <akim@epita.fr>
+
+	* lib/autoconf/general.m4 (_AC_INIT_PARSE_ARGS): Move the AC_SUBST
+	of PACKAGE_NAME, PACKAGE_TARNAME, PACKAGE_VERSION, PACKAGE_STRING,
+	and PACKAGE_BUGREPORT from here...
+	(_AC_INIT_DEFAULTS): to here, since it is unrelated to the
+	arguments.
+	(_AC_INIT_PREPARE): AC_DEFINE these symbols.
+	* lib/autotest/general.m4: Use AT_PACKAGE_*, not PACKAGE_*.
+	(AT_INIT): No longer catch `^PACKAGE_(BUGREPORT|STRING)$'.
+	* tests/tools.at (autoheader): Adjust.
+	* tests/atspecific.m4 (AT_CHECK_DEFINES): Adjust.
+
+2002-01-06  Akim Demaille  <akim@epita.fr>
+
+	* bin/autoscan.in (scan_file): Use `&used'.
+
+2002-01-03  Akim Demaille  <akim@epita.fr>
+
+	* doc/autoconf.texi (Output): Improved wording regarding use of
+	AC_OUTPUT.
+	From Olly Betts.
+
+2001-12-18  Kevin Ryde  <user42@zip.com.au>
+
+	* doc/autoconf.texi (Function Portability): Add notes on sscanf
+	sometimes needing writable input.
+
+2001-12-17  Jim Meyering  <meyering@lucent.com>
+
+	* doc/autoconf.texi (New Macros): Tweak wording.
+
+2001-12-14  Akim Demaille  <akim@epita.fr>
+
+	* lib/autoconf/general.m4 (_AC_INIT_PREPARE): We cleaning up the
+	trailing files, don't apply `-rf' to files which might not be
+	created by configure (core, core.*, and *.core), but just `rm -f'.
+	Suggested by Jonathan Kamens.
+
+2001-12-14  Aaron M. Ucko  <amu@alum.mit.edu>
+
+	* lib/autoconf/general.m4: Avoid duplicates in `$ac_configure_args'.
+
+2001-12-14  Akim Demaille  <akim@epita.fr>
+
+	* Makefile.am (MAINTAINERCLEANFILES): Remove configure.
+
+2001-12-13  Peter Eisentraut  <peter_e@gmx.net>
+
+	* lib/autoconf/status.m4 (_AC_SRCPATHS): Rename buildpath to
+	abs_builddir, top_buildpath to abs_top_builddir, srcpath to
+	abs_srcdir, top_srcpath to abs_top_srcdir.
+	(_AC_OUTPUT_FILES): Adjust.
+	* NEWS, doc/autoconf.texi, lib/autoconf/autotest.m4,
+	* tests/atspecific.m4, tests/autoreconf.in, tests/tools.at,
+	* tests/wrappl.in, tests/wrapsh.in: Adjust.
+
+2001-12-12  Steven G. Johnson  <stevenj@alum.mit.edu>
+
+	* lib/autoconf/fortran.m4 (_AC_PROG_F77_V_OUTPUT): Fix failed
+	C/Fortran linking on HP/UX, by extracting the Fortran library
+	search path from the LPATH line in the $F77 -v output.
+
+2001-12-12  Kevin Ryde  <user42@zip.com.au>
+
+	* doc/autoconf.texi (File Descriptors): Use a clearer layout for the
+	forbidden file descriptors table.
+
+2001-11-26  Akim Demaille  <akim@epita.fr>
+
+	* bin/autoscan.in (%c_keywords): Build it at top level.
+	Map to 1 in order to simplify its uses.
+
+2001-11-26  Akim Demaille  <akim@epita.fr>
+
+	* bin/autoscan.in (&scan_c_file, &scan_sh_file, &scan_makefile):
+	Remove $filepath, useless.
+	(&scan_makefile): Don't remove the $(FOO), ${FOO} and @FOO@
+	variables, they are really part of the tokens.
+	Split the input line on spaces and then look for tokens.
+	Now autoscan ceases to ask for AC_PROG_LEX for the package Bison
+	because of `lex$U.$(OBJEXT)'.
+	(&scan_files): Use "@list" instead of join.
+	* doc/Makefile.am (CLEANFILES): Add *.fns.
+
+2001-11-26  Akim Demaille  <akim@epita.fr>
+
+	* tests/autoreconf.in, tests/autom4te.in, tests/autoupdate.in:
+	Remove, replaced by...
+	* tests/wrappl.in: Be common for all the Perl executables.
+	In particular autoscan and autoheader want -I.
+	* configure.ac: Adjust.
+	* lib/autoscan/headers: errno.h is portable.
+
+2001-11-26  Akim Demaille  <akim@epita.fr>
+
+	* bin/autoscan.in (used): New.
+	Use it.
+
+2001-11-26  Akim Demaille  <akim@epita.fr>
+
+	* bin/autoscan.in (&scan_c_file): Better parsing of CPP
+	directives.
+	(&scan_sh_file): Remove a duplicate pattern.
+	(&check_configure_ac): Use long options.
+	* lib/autoscan/headers (alloca.h): Check with AC_FUNC_ALLOCA.
+
+2001-11-26  Akim Demaille  <akim@epita.fr>
+
+	* bin/autoscan.in (scan_c_file): Fix the handling of C comments.
+	Before, having a line containing the opening of a multi line
+	comment made the whole line be ignored.
+
+2001-11-26  Akim Demaille  <akim@epita.fr>
+
+	* doc/autoconf.texi (Using an Autotest Test Suite): New.
+	(testsuite Scripts): Be one of its subsection.
+	(Autotest Logs): New.
+
+2001-11-26  Akim Demaille  <akim@epita.fr>
+
+	Test groups are now run two directories deeper.
+
+	* lib/autoconf/autotest.m4 (AC_CONFIG_TESTDIR): Replace srcdir,
+	top_srcdir and top_builddir with at_srcdir, at_top_srcdir and
+	at_top_builddir.
+	* lib/autotest/general.m4 (AT_INIT): Compute srcdir,
+	top_srcdir, builddir and top_builddir.
+	Use `at_*dir' relatively to the directory containing the
+	suite, use `*dir' when relatively to the current group dir.
+
+2001-11-25  Joseph S. Myers  <jsm28@cam.ac.uk>
+
+	* doc/autoconf.texi, TODO, lib/autoconf/fortran.m4,
+	lib/autoconf/functions.m4, lib/autoconf/headers.m4,
+	tests/atgeneral.m4, tests/tools.at, tests/atspecific.m4: Fix
+	spelling errors.
+
+2001-11-22  Alexandre Duret-Lutz  <duret_g@epita.fr>
+
+	* doc/autoconf.texi (Using System Type): Add an example of `case
+	$host' usage so people quit using `case $target' everywhere.
+
+2001-11-22  Akim Demaille  <akim@epita.fr>
+
+	* doc/autoconf.texi (Installation Directory Variables): Englishoes
+	spotted by Jim Meyering.
+
+2001-11-16  Paul Eggert  <eggert@twinsun.com>
+
+	This patch implements a `long double' suggestion by Oliver Kiddle.
+
+	* lib/autoconf/c.m4 (AC_LANG_BOOL_COMPILE_TRY(C)): Make the array
+	static, to catch errors if the value isn't known at compile-time
+	and the compiler supports dynamic arrays.  Change its name from
+	`_array_' to `test_array' to avoid potential name clashes.
+	(AC_C_LONG_DOUBLE): Make it a compile-time test, not a run-time
+	test.  Do not define HAVE_LONG_DOUBLE if `long double' is no
+	better than double.  Catch a bug in GCC 2.95.2 x86.
+	* doc/autoconf.texi (C Compiler): Document the above.
+	* NEWS: Likewise.
+
+2001-11-13  Akim Demaille  <akim@epita.fr>
+
+	* tests/m4sh.at (LINENO): Protect from autom4te's substitution by
+	hand.
+	* tests/tools.at: Don't protect dnl, AT_DATA_M4SH does.
+
+2001-11-13  Akim Demaille  <akim@epita.fr>
+
+	* lib/autotest/general.m4 (AT_INIT): After having run the test
+	group, go back to the initial directory, not to at_suite_dir.
+
+2001-11-13  Akim Demaille  <akim@epita.fr>
+
+	* tests/atspecific.m4 (AT_DATA_M4SUGAR, AT_DATA_M4SH)
+	(AT_DATA_AUTOCONF):  Also protect @&t@ from autom4te.
+	(AT_CHECK_AUTOCONF, AT_CHECK_AUTOHEADER): Pass no --include
+	option.
+	(AT_CHECK_CONFIGURE): Use absolute paths.
+	(_AT_CHECK_AC_MACRO): Create aclocal.m4 with AC_STATE_SAVE in it.
+	The problem is still the old one: there is no means in M4 (that I
+	know about) to create a defining macro, because there is no means
+	to create `$1' etc., therefore, the defining macro ``swallows''
+	all the arguments meant to the defined macro.
+
+2001-11-13  Akim Demaille  <akim@epita.fr>
+
+	* tests/atspecific.m4 (AT_DATA_AUTOCONF): New.
+	(AT_CONFIGURE_AC): Output the definition of AC_STATE_SAVE in
+	configure.ac.
+	* tests/aclocal.m4: Remove, as it is no longer used.
+
+2001-11-13  Akim Demaille  <akim@epita.fr>
+
+	* lib/autotest/general.m4: Change `tests?' into `groups?' in
+	variable names when referring to a single test group, or to
+	`suite' when referring to the whole test suite.
+	`at_last_test' is removed: m4 compute at_format itself.
+	(at_stdout, at_stder1, at_stderr): New variables.
+	(AT_CHECK): Use them.
+
+2001-11-13  Akim Demaille  <akim@epita.fr>
+
+	* lib/autotest/general.m4 (AT_INIT): Be sure to put `.', relative,
+	in PATH.
+	Create `testsuite.dir/003/run' instead of `testsuite.003'.
+	Do it as soon as a test fails, don't wait till the end of the test
+	suite.
+	Don't remove $as_me.[0-9]*, since these files no longer exist.
+
+2001-11-13  Akim Demaille  <akim@epita.fr>
+
+	* tests/tools.at: Use absolute paths, since we are no longer run
+	in place.
+
+2001-11-13  Akim Demaille  <akim@epita.fr>
+
+	Now that tests are running in their own private dir, there is no
+	need to list the files to remove at the end of tests groups.
+
+	* lib/autotest/general.m4 (_AT_CLEANUP_FILE, AT_CLEANUP_FILES):
+	(AT_data_files, at_data_files): Remove.
+	(AT_CLEANUP, AT_DATA): Simplify.
+	(AT_INIT): Adjust.
+	Remove the group dir if !debug && !failed.
+	* tests/atspecific.m4: Adjust.
+
+2001-11-13  Akim Demaille  <akim@epita.fr>
+
+	Start a new layout for Autotest: `testsuite' creates
+	`testsuite.dir' in which the at-check-line etc. files are to be
+	found, and `testsuite.dir/003' where the test group 3 is run.
+
+	* lib/autotest/general.m4 (AT_INIT): at_tests_dir,
+	at_check_line_file, at_format, at_test_normalized, at_group_dir
+	are new variables.
+	Create the directories.
+	Use absolute paths for at- files.
+	(AT_CHECK): Adjust.
+
+2001-11-11  Michael Matz  <matz@kde.org>
+
+	* m4sugar.m4 (_m4_foreach): Make it linear instead quadratic.
+	(m4_car2): New.
+	(m4_car): Properly quote arguments.
+
+2001-11-13  Akim Demaille  <akim@epita.fr>
+
+	* tests/aclocal.m4 (AC_STATE_SAVE): s/LIBOBJS/LIB@&t@OBJS/ to cope
+	with stricter rules on LIBOBJS.
+
+2001-11-12  Paul Eggert  <eggert@twinsun.com>
+
+	* lib/autoconf/c.m4 (AC_C_PROTOTYPES): Define __PROTOTYPES too.
+	* doc/autoconf.texi (C Compiler): AC_C_PROTOTYPES now defines
+	__PROTOTYPES too.
+
+2001-11-12  Akim Demaille  <akim@epita.fr>
+
+	* lib/autoconf/functions.m4 (AC_FUNC_GETMNTENT): Use AC_CHECK_FUNCS.
+
+2001-11-12  Akim Demaille  <akim@epita.fr>
+
+	* lib/autoconf/c.m4, lib/autoconf/fortran.m4,
+	* lib/autoconf/functions.m4, lib/autoconf/general.m4,
+	* lib/autoconf/headers.m4, lib/autoconf/libs.m4,
+	* lib/autoconf/programs.m4, lib/autoconf/specific.m4,
+	* lib/autoconf/types.m4: When invoking AC_DEFINE and friends,
+	specify to what the macro should be defined (typically to 1).
+
+2001-11-12  Akim Demaille  <akim@epita.fr>
+
+	* lib/autoconf/functions.m4 (AC_FUNC_STRTOD): AC_SUBST POW_LIB.
+	From Jim Meyering.
+
+2001-11-12  Akim Demaille  <akim@epita.fr>
+
+	* lib/autoconf/programs.m4 (_AC_PROG_LEX_YYTEXT_DECL): Use
+	AC_TRY_EVAL to run $LEX, not AC_TRY_COMMAND.  This validates the
+	definition used by Automake where LEX is +/- "${missing} lex" and
+	`missing' itself contains variables.
+
+2001-11-12  Akim Demaille  <akim@epita.fr>
+
+	* lib/autotest/general.m4 (AT_INIT): Push KILL at the end.
+	Now that M4sh pushes BODY, the comments were output at the end of
+	the test suites.
+
+2001-11-08  Akim Demaille  <akim@epita.fr>
+
+	* bin/autoreconf.in (&autoreconf): Run aclocal before tracing, so
+	that we can trace macros from aclocal.m4.
+	Trace AC_PROG_LIBTOOL, not AM_PROG_LIBTOOL, since the latter is
+	obsoleted, and redirect to the former anyway.
+	Reported by Ralf Corsepius.
+
+2001-11-08  Akim Demaille  <akim@epita.fr>
+
+	* bin/autoreconf.in (&autoreconf): AC_CONFIG_SUBIDRS are to be
+	processed only if present.
+	* tests/torture.at (Configuring subdirectories): Use autoreconf
+	instead of successive calls to autoconf.
+	Add a nonexistent subdirectory to exercise the patch above.
+	Reported by Ralf Corsepius.
+
+2001-11-08  Kevin Ryde  <user42@zip.com.au>
+
+	* autoconf.texi (Limitations of Usual Tools): Note HP-UX cc
+	doesn't accept .S files.
+
+2001-11-07  Akim Demaille  <akim@epita.fr>
+
+	* lib/m4sugar/m4sugar.m4 (m4_pattern_forbid): Accepts $2.
+	* lib/autoconf/general.m4 (AC_INTI): Forbid LIBOBJS.
+	(_AC_LIBOBJ): s/LIBOBJS/LIB@&t@OBJS/.
+	* bin/autom4te.in (warn_forbidden): New.
+	(handle_output): Use it.
+	Read m4_pattern_forbid with messages.
+
+2001-11-05  Akim Demaille  <akim@epita.fr>
+
+	* bin/autom4te.in (--normalize): Remove.
+	* lib/autom4te.in: Adjust.
+
+2001-11-05  Akim Demaille  <akim@epita.fr>
+
+	* tests/Makefile.am (testsuite): Rename this target as...
+	($(TESTSUITE)): this.
+	From Nicolas Joly.
+
+2001-11-05  Alexandre Duret-Lutz  <duret_g@epita.fr>
+
+	* lib/autoconf/status.m4 (_AC_OUTPUT_SUBDIRS): When removing
+	the --prefix option, also remove it's argument.
+
+2001-11-05  Akim Demaille  <akim@epita.fr>
+
+	* doc/autoconf.texi (testsuite Invocation): Update.
+	(Writing testsuite.at): Update.
+
+2001-11-03  Akim Demaille  <akim@epita.fr>
+
+	* doc/autoconf.texi: s/@code/@command/ where appropriate.
+
+2001-11-03  Akim Demaille  <akim@epita.fr>
+
+	* lib/Autom4te/General.pm: (&catfile, &canonfile)
+	(&file_name_is_absolute): New, wrappers around routines from
+	File::Spec.
+	Use and export them.
+	(&find_configure_ac): Optionally take a directory where to look at.
+	* bin/autoreconf.in (&parse_args): Trim the configure.ac part of
+	the arguments.
+	Default @ARGV to `.', not find_configure_ac.
+	(&autoreconf): Argument is a directory.
+	Trace AC_CONFIG_SUBDIRS and schedule the subdirs for autoreconf'ing.
+	* doc/autoconf.texi (autoreconf Invocation): Update.
+
+2001-11-03  Akim Demaille  <akim@epita.fr>
+
+	* lib/Autom4te/General.pm (@export_vars, @export_subs)
+	(@export_forward_subs): New.
+	Add basename, dirname, and fileparse.
+	(@EXPORT): Adjust.
+	* bin/autoreconf.in (&autoreconf): Fix call to fileparse.
+	Don't look for aclocal flags if we already know aclocal is not
+	used.
+	Move aclocal.m4t only if it exists.
+	Reported by Ezra Peisach.
+
+2001-11-03  Akim Demaille  <akim@epita.fr>
+
+	* bin/autoreconf.in (&parse_args): Work only on the configure.ac
+	passed on command line, defaulting to ./configure.ac if present.
+	(&maybe_autoreconf, File::Find): Remove, unused.
+	(&autoreconf): If autoconf is not used, don't try to trace.
+
+2001-11-02  Akim Demaille  <akim@epita.fr>
+
+	* configure.ac: Bump to 2.52g.
+
+2001-11-02  Akim Demaille  <akim@epita.fr>
+
+	Version 2.52f.
+
+2001-11-02  Akim Demaille  <akim@epita.fr>
+
+	* config/config.guess, config/config.sub, doc/standards.texi:
+	* config/lispdir.m4: Update from masters.
+	* configure.ac: Bump to 2.52f.
+
+2001-11-02  Akim Demaille  <akim@epita.fr>
+
+	* bin/autoreconf.in (&autoreconf): Set `$aclocal_flags' to ''.
+	Don't run aclocal when aclocal.m4 is not from aclocal.
+	From Ezra Peisach.
+	Don't run libtoolize and gettextize if --install is not given.
+
+2001-11-01  Paul Eggert  <eggert@twinsun.com>
+
+	* lib/m4sugar/m4sh.m4 (AS_SHELL_SANITIZE): _AS_CR_PREPARE needs to
+	be invoked before _AS_LINENO_PREPARE.
+	(_AS_LINENO_PREPARE): Use as_cr_digits and as_cr_alnum rather
+	than character ranges.
+
+	* lib/m4sugar/m4sh.m4 (AS_SHELL_SANITIZE): Fix NLS before
+	invoking AS_BASENAME.  Set the locale variables to 'C' if
+	possible, as POSIX requires this to get the traditional
+	behavior.
+	* doc/autoconf.texi (Special Shell Variables): Describe the above.
+
+2001-10-31  Paul Eggert  <eggert@twinsun.com>
+
+	* lib/m4sugar/m4sh.m4 (_AS_LINENO_WORKS): Do not surround body
+	with {}, as that triggers a bug in Bash 2.05.
+
+	(_AS_LINENO_PREPARE): Use Sed rather than
+	Awk.  Fix the sed prepass to work even if there are multiple
+	instances of $LINENO on the same line.  Do not substitute for
+	other variables like $LINENOT.  Do not check file dates; such a
+	check is unreliable on sufficiently fast machines, and removing
+	the check makes the code simpler and more reliable.  Check for
+	output and chmod failures.
+
+	* doc/autoconf.texi (Special Shell Variables): Document
+	the above.
+
+2001-10-31  Akim Demaille  <akim@epita.fr>
+
+	* tests/Makefile.am (atconfig): Remove this target, Automake
+	handles it now.
+
+2001-10-31  Akim Demaille  <akim@epita.fr>
+
+	* lib/autoconf/autotest.m4 (AC_CONFIG_TESTDIR): Do not
+	AC_CONFIG_FILES(atlocal) as it means a file atlocal.in *must* be
+	provided, while it is optional.
+	* configure.ac: Adjust.
+
+2001-10-26  Paul Eggert  <eggert@twinsun.com>
+
+	* NEWS, README, configure.ac, lib/Autom4te/General.pm,
+	  lib/Autom4te/Struct.pm:
+	Require Perl 5.005_03 instead of just 5.005, as some tests fail
+	with 5.005_02.
+
+	* doc/autoconf.texi (Special Shell Variables): Document some
+	more LINENO gotchas, particularly with respect to the Awk+Sed hack.
+
+	* lib/m4sugar/m4sh.m4 (_AS_LINENO_WORKS): New macro.
+	(_AS_LINENO_PREPARE): Use it instead of shell eval, since
+	eval $LINENO is not portable in practice.
+
+2001-10-24  Akim Demaille  <akim@epita.fr>
+
+	* lib/Autom4te/General.pm (backname): New.
+
+2001-10-24  Akim Demaille  <akim@epita.fr>
+
+	* m4/: Remove, merged into...
+	* config/: here.
+
+2001-10-23  Tim Van Holder  <tim.van.holder@pandora.be>
+
+	* doc/autoconf.texi (Shellology): Mention the problems with bash
+	2.05's use of ANSI quoting in its `set' builtin.
+
+2001-10-22  Paul Eggert  <eggert@twinsun.com>
+
+	* lib/autoconf/functions.m4 (AC_FUNC_STRERROR_R):
+	Rename ac_cv_func_strerror_r_works to ac_cv_func_strerror_r_char_p,
+	and rename HAVE_WORKING_STRERROR_R to STRERROR_R_CHAR_P, since
+	POSIX decided to standardize on the int flavor of strerror_r.
+	Always do char* test, as there's no reason not to.
+	Assign to a char* var, to catch strerror_r that returns int*.
+
+	* doc/autoconf.texi (Particular Functions):
+	Document the above changes.  Also, document the fact that
+	AC_FUNC_STRERROR_R defines HAVE_DECL_STRERROR_R.
+
+	* NEWS: Mention HAVE_WORKING_STRERROR_R -> STRERROR_R_CHAR_P.
+
+2001-10-20  Akim Demaille  <akim@epita.fr>
+
+	* lib/autoconf/status.m4 (_AC_OUTPUT_CONFIG_STATUS): The name of
+	the executable was missing from the log.
+
+2001-10-20  Akim Demaille  <akim@epita.fr>
+
+	* lib/Autom4te/General.pm (&update_file): If destination is
+	unchanged, remove the source.
+	(&up_to_date_p): Don't be verbose, be debug.
+	* bin/autoreconf.in: No longer support --m4dir.
+	(&autoreconf): Display the full path of the configure.ac we are
+	studying.
+	Trace it only once.
+	Be sure to honor --force with gettextize.
+	Always run aclocal.
+	* doc/autoconf.texi: Adjust.
+
+2001-10-20  Akim Demaille  <akim@epita.fr>
+
+	* bin/autoheader.in ($localdir, $m4, $SIMPLE_BACKUP_SUFFIX):
+	Remove, dead.
+	* bin/autoreconf.in (&autoreconf): Do not run gettextize when
+	`intl' is already present, as it refuses unless --force.
+	(&parse_args): Use -I, --include instead of the old Autoconf
+	options.
+	($localdir, $autoconf_dir): Remove.
+	(@include): New.
+	(&maybe_autoreconf): New, to preserve $_ for File::Find.
+
+2001-10-19  Jens Petersen  <petersen@redhat.com>
+
+	* lib/autoconf/programs.m4 (AC_PROG_AWK): Prefer gawk to mawk.
+	* doc/autoconf.texi (Particular Programs): Likewise.
+
+2001-10-19  Akim Demaille  <akim@epita.fr>
+
+	* lib/autoconf/status.m4 (_AC_OUTPUT_FILES): Name the generated
+	file in @configure_input@.
+	Don't mention `automatically' in addition to `generated'.
+	* tests/torture.at (#define header templates): Adjust.
+
+2001-10-19  Akim Demaille  <akim@epita.fr>
+
+	* lib/emacs/autoconf-mode.el, lib/emacs/autotest-mode.el: In a
+	comment, explain how to install automatic mode selection.
+	From Russ Allbery.
+
+2001-10-19  Ezra Peisach  <epeisach@zif.mit.edu>
+
+	* bin/autoreconf.in (autoreconf): Display the path to the
+	configure.ac being studied.
+
+2001-10-18  Paul Eggert  <eggert@twinsun.com>
+
+	* lib/autoconf/types.m4 (AC_CHECK_SIZEOF): Cast sizeof to unsigned
+	long, to work around a bug in the HP C compiler version HP92453-01
+	B.11.11.23709.GP.
+
+	* lib/m4sugar/m4sh.m4 (AS_DIRNAME): Use 'dirname' if that works.
+	(AS_BASENAME_EXPR): New macro.
+	(AS_BASENAME_SED): Do not assume GNU sed semantics.
+	(AS_BASENAME): Use 'basename' if that works; then try 'expr';
+	and fall back on 'sed' only if the other two fail.  This makes
+	AS_BASENAME act more like AS_DIRNAME.
+	(as_me): Shell-quote the argument of AS_BASENAME, in case $0
+	contains white space.
+	* lib/autoconf/general.m4 (_AC_INIT_SRCDIR):
+	Use AS_DIRNAME, since I think it's now DOS-friendly.
+	* tests/m4sh.at (DIRNAME_TEST): New arg $3.
+	Allow "dirname //FOO" to return either / or //, as POSIX allows
+	either behavior.
+
+2001-10-10  Akim Demaille  <akim@epita.fr>
+
+	* lib/autoconf/lang.m4 (_AC_COMPILER_EXEEXT_DEFAULT): Recognize
+	`a_out.exe' for OpenVMS 7.1, DEC C 5.5 compiler, via GNV.
+	From Eric Sharkey.
+
+2001-10-10  Akim Demaille  <akim@epita.fr>
+
+	* lib/m4sugar/m4sh.m4 (_AS_ECHO_N_PREPARE): m4_defun, not
+	m4_define, since...
+	(_AS_ECHO_N): AS_REQUIREs it.
+
+2001-10-10  Akim Demaille  <akim@epita.fr>
+
+	* lib/autoconf/general.m4 (_AC_INCLUDES_DEFAULT_REQUIREMENTS)
+	(AC_INCLUDES_DEFAULT): Move to...
+	* lib/autoconf/headers.m4: here.
+	* lib/autoconf/types.m4: Comment changes.
+	* doc/autoconf.texi: Specify where the default includes are used
+	in the macro prototypes.
+
+2001-10-09  Akim Demaille  <akim@epita.fr>
+
+	* lib/autoconf/autoconf.m4 (m4_patsubst, m4_regexp): New
+	transition code.
+
+2001-10-08  Akim Demaille  <akim@epita.fr>
+
+	* bin/autoreconf.in (&autoreconf): Remove debugging code.
+	(&parse_args): Pass verbosity/debugging options to subtools when
+	--debug, not when --verbose.
+	* lib/autom4te.in (Autoreconf-preselections): New.
+	(Autoconf): Use it.
+
+2001-10-08  Akim Demaille  <akim@epita.fr>
+
+	* bin/autoreconf.in (autoreconf): Run libtoolize when appropriate.
+
+2001-10-08  Akim Demaille  <akim@epita.fr>
+
+	* doc/autoconf.texi (autoreconf Invocation): Adjust.
+	* bin/autoreconf.in (autoreconf): Run gettextize when appropriate.
+
+2001-10-08  Akim Demaille  <akim@epita.fr>
+
+	* tests/tools.at (AT_CHECK_PERL_SYNTAX): Check autoreconf.
+	(Syntax of the shell scripts): Don't.
+	* bin/autoheader.in, bin/autom4te.in, bin/autoreconf.in: Don't
+	bother with $force since...
+	* lib/Autom4te/General.pm: does.
+
+2001-10-08  Akim Demaille  <akim@epita.fr>
+
+	* bin/autoreconf.in: Rewrite in Perl.
+	* configure.ac: Adjust.
+	* lib/Autom4te/General.pm (&up_to_date_p): New.
+	* bin/autom4te.in (&up_to_date_p): Use it.
+	Rename as...
+	(&up_to_date): this.
+
+2001-10-08  Akim Demaille  <akim@epita.fr>
+
+	* lib/m4sugar/m4sugar.m4 (m4_case, m4_bmatch, m4_normalize)
+	(m4_list_cmp): Use $0 to reinvoke yourself.
+	(m4_patsubsts): New.
+	(m4_strip, m4_version_unletter): Use it.
+	* tests/atspecific.m4 (AT_DATA_M4SUGAR, AT_DATA_M4SH): Likewise.
+
+2001-10-08  Akim Demaille  <akim@epita.fr>
+
+	* lib/autoconf/autoconf.m4, lib/autoconf/general.m4,
+	* lib/autoconf/libs.m4, lib/autoconf/status.m4,
+	* lib/autoconf/types.m4, lib/autotest/general.m4,
+	* lib/m4sugar/m4sh.m4, lib/m4sugar/m4sugar.m4, tests/atspecific.m4,
+	* tests/torture.at: Rename m4_regexp, m4_patsubst, and m4_match to
+	m4_bregexp, m4_bpatsubst, and m4_bmatch.
+	* doc/autoconf.texi (Redefined M4 Macros): Adjust.
+
+2001-10-08  Akim Demaille  <akim@epita.fr>
+
+	* lib/m4sugar/m4sh.m4: Use AS_REQUIRE.
+
+2001-10-08  Akim Demaille  <akim@epita.fr>
+
+	* lib/m4sugar/m4sh.m4 (AS_DIRNAME_EXPR): Use AS_REQUIRE.
+	* tests/tools.at (AT_DATA_FORBIDDEN): Rename/move/duplicate to...
+	* tests/atspecific.m4 (AT_DATA_M4SUGAR, AT_DATA_M4SH): here.
+	* tests/tools.at, tests/m4sh.at: Use it.
+	* tests/m4sh.at: Don't rely on Autoconf macros.
+	(DIRNAME_TEST): Also exercise the expr variant.
+	* tests/m4sugar.at, tests/atspecific.m4 (AT_CHECK_M4SUGAR): The
+	preferred M4sugar extension is now `.4s'.
+	* tests/README: Remove.
+
+2001-10-08  Akim Demaille  <akim@epita.fr>
+
+	* lib/m4sugar/m4sugar.m4 (m4_provide_ifelse): Rename as...
+	(m4_provide_if): this.
+	* lib/m4sugar/m4sh.m4 (AS_REQUIRE): New.
+	* lib/autoconf/general.m4 (AS_DEFUN, AC_DEFUN_ONCE, AC_BEFORE)
+	(AC_REQUIRE, AC_PROVIDE, AC_PROVIDE_IFELSE): Be exact copy of the
+	M4sugar peer, i.e., drop the `AC_PROVIDE_$1' broken marker.
+
+2001-10-08  Akim Demaille  <akim@epita.fr>
+
+	Use `add-log-current-defun-function' for ChangeLog creation.
+	Suggested by Tom Tromey.
+
+	* lib/emacs/autotest-mode.el (autotest-mode-map): New.
+	(autotest-mode): Adjust.
+	* lib/emacs/autoconf-mode.el (autoconf-mode-map): Modernize, map
+	'comment-region onto `C-c ;'.
+	Comments are `#', not `dnl'.
+	(autoconf-current-defun): New.
+	(autoconf-font-lock-keywords): Recognize `m4_defun'.
+
+2001-10-08  Akim Demaille  <akim@epita.fr>
+
+	* lib/autoconf/general.m4 (_m4_divert(BODY)): Move to...
+	* lib/m4sugar/m4sh.m4: here.
+	(AS_INIT): Push the BODY diversion, set the #! /bin/sh line.
+	* lib/autoconf/general.m4 (AC_PLAIN_SCRIPT) : Remove.
+	(AT_INIT): Replace AC_PLAIN_SCRIPT with AS_INIT invocation,
+	include handle the m4_pattern_*, no longer push the
+	BODY diversion nor set the /bin/sh line, AS_INIT does it.
+	* lib/autotest/general.m4 (AT_INIT): Likewise.
+	* tests/base.at: Adjust the tests to use AS_INIT.
+	* tests/tools.at (AT_DATA_FORBIDDEN): New.
+	(autoconf: forbidden tokens): Adjust to work on M4sh instead of
+	Autoconf.
+
+2001-10-07  Paul Eggert  <eggert@twinsun.com>
+
+	* doc/autoconf.texi (config.status Invocation):
+	CONFIG_SHELL defaults to a shell that supports LINENO if available.
+
+	* lib/m4sugar/m4sh.m4 (_AS_LINENO_PREPARE): If the current
+	shell does not support LINENO, and if CONFIG_SHELL is unset or
+	empty, and if we can find a shell that does support LINENO,
+	then set CONFIG_SHELL to that shell and then re-execute
+	ourselves with CONFIG_SHELL.
+
+2001-10-05  Paul Eggert  <eggert@twinsun.com>
+
+	* tests/Makefile.am (clean-local): Don't invoke $(TESTSUITE) if it
+	doesn't exist.  Remove *.tmp, as a .tmp file is created during the
+	build of $(TESTSUITE).
+
+2001-10-05  Akim Demaille  <akim@epita.fr>
+
+	* lib/m4sugar/m4sh.m4 (_AS_LINENO_PREPARE): Look in the path
+	iff we are a bareword.
+	Reported by Raja R Harinath.
+
+2001-10-05  Akim Demaille  <akim@epita.fr>
+
+	* tests/m4sh.at (LINENO): New.
+	* lib/m4sugar/m4sh.m4 (AS_SHELL_SANITIZE): Be sure to set
+	PATH_SEPARATOR before using it.
+	Fix the absolute path case/esac pattern.
+	Provide $0 as fallback for as_myself.
+	Reported by Raja R Harinath.
+
+2001-10-05  Akim Demaille  <akim@epita.fr>
+
+	* Makefile.am, config/Makefile.am, lib/emacs/Makefile.am,
+	* m4/Makefile.am, man/Makefile.am: Add/adjust MAINTAINERCLEANFILES.
+
+2001-10-05  Akim Demaille  <akim@epita.fr>
+
+	* lib/m4sugar/m4sh.m4 (_AS_LINENO_PREPARE): New, extracted from...
+	(AS_SHELL_SANITIZE): here.  Use it.
+	(_AS_LINENO_PREPARE): Preserve the exit status of $0.lineno.
+	From Paul Eggert.
+
+2001-10-04  Akim Demaille  <akim@epita.fr>
+
+	* lib/m4sugar/m4sh.m4 (AS_SHELL_SANITIZE): Use a portable
+	combination of Awk and sed to replace $LINENO.
+
+2001-10-02  Paul Eggert  <eggert@twinsun.com>
+
+	* doc/autoconf.texi (Limitations of Builtins): You can't use
+	"source"; it's not portable.  Remove confusing and
+	somewhat-incorrect example involving "." and "/".
+
+	* lib/m4sugar/m4sh.m4 (AS_SHELL_SANITIZE): "source" -> ".", for
+	compatibility with POSIX shells.
+
+2001-10-02  Akim Demaille  <akim@epita.fr>
+
+	* lib/m4sugar/m4sh.m4 (AS_SHELL_SANITIZE): Just source 40.lineno
+	instead of exec'ing to preserve $0 and $@.
+
+2001-10-01  Akim Demaille  <akim@epita.fr>
+
+	* tests/testsuite (AT_INIT) <at_pass_list>: New.
+	Don't run twice the same test.
+
+2001-10-01  Akim Demaille  <akim@epita.fr>
+
+	* lib/autotest/general.m4 (AT_INIT) <--help>: Catch up with reality.
+	No longer output the list of tests.
+	<--list>: New option.
+	<--full-help>: Remove.
+	Complete the short/long options duality.
+	Various small adjustments.
+
+2001-10-01  Akim Demaille  <akim@epita.fr>
+
+	* doc/autoconf.texi: Use @kbd for user input.
+	Always use `$' as shell prompt.
+
+2001-09-30  Paul Eggert  <eggert@twinsun.com>
+
+	* lib/autoconf/status.m4 (AC_OUTPUT_MAKE_DEFS):
+	Don't use nested parenthesization.  This patch was originally
+	suggested to bug-autoconf by Philippe De Muyter on 2000-05-28,
+	but somehow it didn't get incorporated then.
+	* doc/autoconf.texi (Limitations of Usual Tools):
+	Clarify remark about sed and nested parenthesization.
+
+	* lib/autoconf/types.m4 (AC_CHECK_SIZEOF):
+	Report an error if the size cannot be determined even though
+	the type exists.
+	* lib/autoconf/general.m4 (_AC_COMPUTE_INT_COMPILE):
+	Check for `expr' arithmetic overflow, and for compilation failure,
+	and invoke a new argument $4 if either is discovered.
+	This makes _AC_COMPUTE_INT_COMPILE more like _AC_COMPUTE_INT_RUN.
+	(_AC_COMPUTE_INT): Pass IF-FAILS arg to _AC_COMPUTE_INT_COMPILE.
+
+2001-09-28  Akim Demaille  <akim@epita.fr>
+
+	* lib/emacs/autoconf-mode.el, lib/emacs/autotest-mode.el: New.
+	* m4/lispdir.m4: New.
+	* aclocal.m4, configure.ac: Adjust.
+
+2001-09-28  Akim Demaille  <akim@epita.fr>
+
+	* lib/autotest/general.m4 (AT_VICTIMS): Rename as...
+	(AT_TESTED): this.
+	(AT_INIT): More the wrapped section to where it will be expanded.
+	Output `AT_tested' only when existing.
+	Catch unexpanded PACKAGE_STRING and PACKAGE_BUGREPORT.
+
+2001-09-27  Akim Demaille  <akim@epita.fr>
+
+	Fix the passing of $? to ACTION-IF-FAILED in AC_TRY_RUN, that
+	generates too many bug reports.
+
+	* lib/autoconf/general.m4 (_AC_RUN_IFELSE): Pass the right exit
+	status when executing the ACTION-IF-FALSE.
+	* tests/base.at (AC_TRY_*): Rename as...
+	(AC_TRY_COMMAND): this.
+	(AC_RUN_IFELSE): New.
+	* tests/compile.at (Extensions, C keywords)
+	(AC_PROG_CPP requires AC_PROG_CC, GNU Fortran 77)
+	(Broken/missing compilers, AC_PROG_CPP with warnings)
+	(AC_PROG_CPP without warnings, AC_PROG_CPP via CC): Move to...
+	* tests/c.at (Extensions, C keywords)
+	(Broken/missing compilers, AC_PROG_CPP with warnings)
+	(AC_PROG_CPP without warnings, AC_PROG_CPP via CC)
+	(AC_PROG_CPP requires AC_PROG_CC): here and...
+	* tests/fortran.at (GNU Fortran 77): there.
+	* doc/autoconf.texi (autoconf Invocation): Fix the example:
+	AC_TRY_RUN is about compilation, not shell commands.
+	(Test Programs): AC_TRY_RUN works as used to be advertised.
+
+2001-09-27  Akim Demaille  <akim@epita.fr>
+
+	* lib/m4sugar/m4sh.m4 (AS_SHELL_SANITIZE): Fix bugs spotted by
+	Raja R Harinath:
+	Be sure to detect when $LINENO always returns the same value.
+	Look for the original script, basename($0) is certainly not
+	enough.
+	Pass the CLI arguments to `$as_me.lineno'.
+
+2001-09-25  Akim Demaille  <akim@epita.fr>
+
+	* lib/autotest/general.m4 (AT_INIT): Dump the whole config.log.
+	Be sure the close and reopen the LOG fd before and after using tee
+	to extend the log.
+	<at_tests_pattern>: Adjust to the new format of at_help_all.
+
+2001-09-23  Akim Demaille  <akim@epita.fr>
+
+	* bin/autom4te.in (parse_args): There can be several invocations
+	of --language now.
+
+2001-09-23  Akim Demaille  <akim@epita.fr>
+
+	* doc/autoconf.texi (Top): Wrap in @ifnottex.
+
+2001-09-23  Akim Demaille  <akim@epita.fr>
+
+	* lib/autoconf/status.m4 (_AC_SRCPATHS): Compute and provide
+	ac_buildpath, ac_top_buildpath, ac_srcpath, and ac_top_srcpath.
+	(_AC_OUTPUT_FILES): Also substitute srcpath, top_srcpath,
+	builddir, buildpath, top_builddir, and top_buildpath.
+	(_AC_OUTPUT_SUBDIRS): Compute the dir variables *before* changing
+	the current directory.
+	* lib/autoconf/general.m4 (_AC_INIT_HELP): Compute the dir
+	variables *before* changing the current directory.
+	Skip nonexistent dirs.
+	* doc/autoconf.texi (Preset Output Variables): Document these
+	variables.
+
+	* lib/autotest/general.m4: Do not reset AT_victims.
+	Don't compute at_srcdir nor at_top_srcdir.
+
+	* tests/tools.at: Hence use top_srcdir.
+
+	* tests/Makefile.am, tests/autoconf, tests/autoheader,
+	* tests/autom4te, tests/autoreconf, tests/autoupdate, tests/ifnames:
+	Remove.
+	* tests/autoreconf.in, tests/wrappl.in, tests/autom4te.in,
+	* tests/wrapsh.in, tests/autoupdate.in: New.
+	* tests/Makefile.am (DISTCLEANFILES, EXTRA_DIST): Adjust.
+	* configure.ac: Build the position independent wrappers.
+
+	* man/Makefile.am: Now that test wrappers are position
+	independent, use them and drop dark envvar magic.
+
+2001-09-23  Akim Demaille  <akim@epita.fr>
+
+	* doc/autoconf.texi (Common Shell Constructs): Rename as...
+	(Programming in M4sh): this.
+	Promote to @section.
+
+2001-09-23  Akim Demaille  <akim@epita.fr>
+
+	* lib/autotest/general.m4 (AT_INIT): Dump config.log last.
+	Pass $at_debug_args to the rerun test suite.
+	* lib/m4sugar/Makefile.am (DISTCLEANFILES): New.
+	* bin/Makefile.am (ETAGS_SH): Don't use characters ranges.
+	From Paul Eggert.
+
+2001-09-23  Akim Demaille  <akim@epita.fr>
+
+	* bin/autom4te.in (@my_warning): Remove, handled by `autom4te.cfg'.
+
+2001-09-23  Akim Demaille  <akim@epita.fr>
+
+	* lib/autoconf/status.m4 (_AC_OUTPUT_CONFIG_STATUS): Fix shell
+	over-escaping.
+
+2001-09-23  Akim Demaille  <akim@epita.fr>
+
+	* lib/Autom4te/General.pm (&debug): New.
+	* bin/autom4te.in ($language): Move to...
+	(parse_args): here.
+	Handle --language in languages.
+	* lib/autom4te.in (Automake-selections, Autoheader-selections)
+	(Autoscan-selections): New.
+	(Autoconf): Adjust.
+
+2001-09-23  Tim Van Holder  <tim.van.holder@pandora.be>
+
+	* m4/auxdir.m4, m4/cond.m4, m4/depend.m4, m4/init.m4,
+	* m4/install-sh.m4, m4/missing.m4, m4/sanity.m4, m4/strip.m4: Updated
+	to match current versions from CVS Automake.
+
+2001-09-23  Alexandre Duret-Lutz  <duret_g@epita.fr>
+
+	* doc/autoconf.texi (Special Shell Variables): Add pdksh output
+	for $LINENO.
+
+2001-09-22  Akim Demaille  <akim@epita.fr>
+
+	* lib/autoconf/autotest.m4: Create `package.m4'.
+	* tests/Makefile.am (package.m4): Remove.
+
+2001-09-22  Akim Demaille  <akim@epita.fr>
+
+	Rely on `$LINENO' when possible instead of `__oline__'.
+
+	* lib/m4sugar/m4sh.m4 (AS_SHELL_SANITIZE): Provide some form of
+	`$LINENO' support replacement when not supported.
+	(_AS_CR_PREPARE, _AS_TR_CPP_PREPARE, _AS_TR_SH_PREPARE): Invoke
+	them explicitly to be sure they are not output before this section
+	(via m4_require).  Cosmetic only.
+	* lib/autoconf/c.m4, lib/autoconf/general.m4,
+	* lib/autoconf/programs.m4: Replace all the occurrences of
+	`__oline__' with `$LINENO'.
+	* doc/autoconf.texi (Special Shell Variables): Document LINENO.
+
+2001-09-21  Tim Van Holder  <tim.van.holder@pandora.be>
+
+	* lib/autoconf/functions.m4 (_AC_FUNC_FORK): Replaceded an 8-bit
+	character (u: -> ue) in a code comment.
+	(AC_FUNC_LSTAT_FOLLOWS_SLASHED_SYMLINK): Only run 'ln -s' if we know
+	it works.
+
+2001-09-21  Akim Demaille  <akim@epita.fr>
+
+	* Makefile.maint (AUTOM4TE): Neutralize autom4te.
+	Suggested by Jim Meyering.
+
+2001-09-20  Tim Van Holder  <tim.van.holder@pandora.be>
+
+	* lib/autoconf/programs.m4: Use extensions listed in
+	$ac_executable_extensions when looking for programs.
+
+2001-09-20  Tim Van Holder  <tim.van.holder@pandora.be>
+
+	* lib/autoconf/general.m4: Fix a small Englisho.
+	* lib/autoconf/status.m4: Fix a small typo.  Handle DOS paths when
+	setting up ac_dir_suffix and ac_top_builddir.
+	* lib/m4sugar/m4sh.m4: Default CDPATH to $PATH_SEPARATOR, not ':'.
+
+2001-09-20  Tim Van Holder  <tim.van.holder@pandora.be>
+
+	* doc/autoconf.texi (File System Conventions): Clarify the use of
+	PATH_SEPARATOR.
+	(Special Shell Variables[PATH_SEPARATOR]): Ditto.
+	(Special Shell Variables[CDPATH]): Mention that $PATH_SEPRATOR should
+	be used instead of ':'.
+	* lib/autotest/general.m4: Replace occurrences of ':' in
+	AUTOTEST_PATH with $PATH_SEPARATOR at test suite startup.
+
+2001-09-20  Tim Van Holder  <tim.van.holder@pandora.be>
+
+	* tests/atgeneral.m4: Add basic support for test ranges (e.g. 7-34) as
+	arguments.  Fixed a typo.
+
+2001-09-20  Tim Van Holder  <tim.van.holder@pandora.be>
+
+	* man/Makefile.am (.x.1): Use @PATH_SEPARATOR@, not ':' to set up
+	$PATH.  Also set AUTOM4TE_CFG, so we can process autom4te properly.
+
+2001-09-20  Tim Van Holder  <tim.van.holder@pandora.be>
+
+	* bin/autoscan.in: Add 'exec-perl-if-not-run-by-perl'.
+	* bin/autoupdate.in: Ditto.
+	* bin/autoheader.in: Reworded a few comments.
+	* bin/autoconf.in: Reworded help text for a few options.
+	* bin/autoheader.in, bin/autom4te.in, bin/autoreconf.in,
+	* bin/autoscan.in, bin/autoupdate.in: Ditto.
+
+2001-09-20  Tim Van Holder  <tim.van.holder@pandora.be>
+
+	* lib/Autom4te/XFile.pm (open): Simplified the error message (we
+	already have $file).  Set output files to binary mode (helps avoid
+	CR issues on DOSish systems).
+
+2001-09-19  Akim Demaille  <akim@epita.fr>
+
+	* lib/autotest/general.m4: Englishoes.
+	From Tim Van Holder and Alexey Mahotkin.
+
+2001-09-18  Paul Eggert  <eggert@twinsun.com>
+
+	* doc/autoconf.texi (Common Shell Constructs): New node,
+	documenting AS_DIRNAME.
+	(Limitations of Usual Tools): Refer to it when discussing dirname.
+	Also, update discussion of POSIX standard to reflect latest draft.
+
+	* lib/autoconf/c.m4:
+	(AC_LANG_INT_SAVE(C)): Also support negative values, down to LONG_MIN.
+
+	* lib/autoconf/general.m4 (_AC_COMPUTE_INT_COMPILE):
+	Do not pass a first argument with leading '-'
+	to expr, by parenthesizing initial integers that might be negative.
+
+	* doc/autoconf.texi (Particular Functions): AC_FUNC_GETPGRP
+	now merely checks whether it is an error to pass an argument
+	to getpgrp.
+
+	* lib/autoconf/functions.m4 (_AC_FUNC_GETPGRP_TEST): Remove.
+	(AC_FUNC_GETPGRP): Don't bother with a runtime test.  Just check
+	whether it is a (compile-time) error to pass an argument to
+	getpgrp.  This simpler test supports the revised documentation,
+	and is all that AC_FUNC_GETPGRP's users really need.
+
+2001-09-18  Akim Demaille  <akim@epita.fr>
+
+	* doc/autoconf.texi (Limitations of Make) <$<>: New.
+
+2001-09-18  Akim Demaille  <akim@epita.fr>
+
+	* doc/autoconf.texi (Limitations of Usual Tools) <find>: More about
+	`{}'.
+	* lib/autotest/general.m4 (AT_INIT): Adjust.
+
+2001-09-18  Paul Wagland   <paul@wagland.net>
+
+	* tests/m4sh.at: Ensure that AS_DIRNAME handles '/', '//' and '///'
+	correctly.
+	Add test for AS_BASENAME.
+	* lib/m4sugar/m4sh.m4: Fix AS_BASENAME so that it passes the previous
+	added test. It now correctly handles /1/2/3/, returning '3' not ''.
+	Added AS_BASENAME_SED to make the interface the same as AS_DIRNAME.
+	* tests/base.at: Fixed the expected responses. The old ones were
+	one line out...
+	* lib/autoconf/general.m4: Fixed AC_PREFIX_PROGRAM, it now behaves as
+	the documentation claims it should (and how it behaved in 2.13).
+
+2001-09-18  Akim Demaille  <akim@epita.fr>
+
+	* lib/autoconf/autotest.m4 (AC_CONFIG_TESTDIR): No INIT-CMDS in
+	the AC_CONFIG_COMMANDS invocation.
+	This also solves the name clash problems.
+	Don't set the package's ID.
+	* lib/m4sugar/Makefile.am (version.m4): Revamp.
+	No longer to be shipped.
+	(version.in): Remove.
+	* lib/m4sugar/m4sugar.m4, lib/autoconf/general.m4,
+	* lib/autoconf/status.m4: Adjust.
+	Use `m4_PACKAGE_STRING'.
+	* lib/autotest/general.m4 (AT_INIT): N-th signature change: now
+	the only optional argument is the name of the test suite.
+	Expect `package.m4' to define the package signature.
+	* lib/autom4te.in (Autotest): Add `package.m4?'.
+	* tests/Makefile.am (package.m4): New.
+	* tests/suite.at: ifnames is a victim.
+
+2001-09-18  Akim Demaille  <akim@epita.fr>
+
+	* lib/autom4te.in (Autoconf): Preselect AM_CONDITIONAL,
+	AC_LIBSOURCE, AC_CONFIG_FILES.
+	* lib/autotest/general.m4 (AT_INIT): Don't abort when a tested
+	program version string doesn't match the package's.
+	* lib/autoconf/general.m4 (AC_CACHE_VAL): Reestablish the space
+	after `(cached)'.
+
+2001-09-17  Paul Eggert  <eggert@twinsun.com>
+
+	* lib/autoconf/c.m4: (AC_LANG_INT_SAVE(C)):
+	Allow expression to return any value that can fit into unsigned long
+	(not int, as before).  Check for output errors.
+
+2001-09-17  Bruno Haible <haible@ilog.fr>
+
+	* lib/autoconf/c.m4: (AC_LANG_INT_SAVE(C)):
+	Always include <stdio.h> and <stdlib.h>. Evaluate
+	the expression in an extra function before these includes. Call
+	fprintf "%d" only after ensuring the argument is of type 'int'.
+	Reported by Wayne Chapeskie <waynec@spinnaker.com>.
+
+2001-09-17  Paul Eggert  <eggert@twinsun.com>
+
+	Fix bug reported by Paul Townsend on AIX 4.3.3.0 with CFLAGS=-O4
+	or CFLAGS=-O5.  In that case, the linker has a relaxed view of
+	fatal errors, and AC_CHECK_LIB causes it to include libraries even
+	when they don't exist.
+
+	* lib/autoconf/headers.m4 (AC_HEADER_DIRENT): Use AC_SEARCH_LIBS,
+	not AC_CHECK_LIB, so that we don't use -ldir or -lx if we don't
+	need it.
+
+	* lib/autoconf/specific.m4 (AC_ISC_POSIX): Replace the old, crufty
+	version with the version used by fileutils 4.1, except use
+	AC_SEARCH_LIBS, not AC_CHECK_LIB, so that we don't use -lcposix if
+	we don't need it.
+
+	* doc/autoconf.texi (AC_ISC_POSIX): Describe new behavior.
+
+2001-09-13  Akim Demaille  <akim@epita.fr>
+
+	* tests/base.at, tests/m4sh.at: Be sure to issue the bangshe line
+	_first_.
+	Reported by Gerrit P. Haase.
+
+2001-09-13  Akim Demaille  <akim@epita.fr>
+
+	* lib/autotest/general.m4 (AT_INIT): Reset `AT_victims' so that
+	m4_defn'ing is valid.
+
+2001-09-13  Akim Demaille  <akim@epita.fr>
+
+	* lib/m4sugar/m4sugar.m4 (m4_append_uniq): New.
+	* lib/autotest/general.m4 (AT_VICTIMS, AT_KEYWORDS, _AT_CLEANUP_FILE):
+	Use it.
+
+2001-09-13  Akim Demaille  <akim@epita.fr>
+
+	* lib/m4sugar/m4sugar.m4 (_AS_QUOTE_IFELSE, _AS_BOX_INDIR): Use
+	m4_match.
+	(m4_re_escape): New.
+	* lib/autoconf/status.m4 (AC_CONFIG_IF_MEMBER): Use it.
+	* lib/autoconf/general.m4 (AC_CACHE_SAVE): Use m4_match.
+	* lib/autoconf/status.m4 (AC_CONFIG_IF_MEMBER, AC_CONFIG_LINKS):
+	Likewise.
+	* lib/autoconf/types.m4 (_AC_CHECK_TYPE_REPLACEMENT_TYPE_P)
+	(_AC_CHECK_TYPE_MAYBE_TYPE_P, AC_CHECK_MEMBER): Likewise.
+	* lib/autotest/general.m4 (AT_INIT): Rename AT_TESTS_ALL as
+	AT_tests_all for consistency.
+	Set at_victims.
+	(AT_VICTIMS): Similar to AT_KEYWORDS.
+	(_AT_CLEANUP_FILE_IF): Use m4_match and m4_re_escape.
+
+2001-09-13  Akim Demaille  <akim@epita.fr>
+
+	* lib/autotest/general.m4 (AT_INIT): Fix stupid bugs.
+
+2001-09-13  Akim Demaille  <akim@epita.fr>
+
+	* lib/autotest/general.m4 (AT_INIT): Create and remove
+	`$as_me.[0-9]+' instead of `debug-[0-9]+.sh', so that multiple
+	test suites can cohabit.
+
+2001-09-13  Akim Demaille  <akim@epita.fr>
+
+	* tests/mktests.sh: Don't output banners for empty test files.
+
+2001-09-13  Akim Demaille  <akim@epita.fr>
+
+	Test suites can be run independently of configure.
+
+	* lib/m4sugar/m4sh.m4 (_AS_ECHO, _AS_ECHO_N_PREPARE): New.
+	* lib/autoconf/programs.m4 (_AC_PROG_ECHO): Remove.
+	* lib/autoconf/general.m4 (_AC_INIT_PREPARE): Adjust: AC_SUBST
+	ECHO_N etc.
+	* lib/autoconf/autotest.m4 (AC_CONFIG_TESTDIR): Don't ask for at_n
+	and at_c.
+	* lib/autotest/general.m4: Use ECHO_*.
+
+2001-09-13  Akim Demaille  <akim@epita.fr>
+
+	* bin/ifnames.in: Rewrite in Perl.
+	* configure.ac: Don't look for AWK.
+	* tests/tools.at (AWK portability): Remove.
+	(Syntax of the shell scripts): Don't check ifnames.
+	(AT_CHECK_PERL_SYNTAX): New.
+	(Syntax of the Perl scripts): Check ifnames.
+	* tests/ifnames: New.
+
+2001-09-13  Akim Demaille  <akim@epita.fr>
+
+	* lib/autotest/general.m4 (AT_INIT): Let --keywords also match
+	test group titles.
+	* tests/atspecific.m4 (AT_CHECK_AU_MACRO): AT_KEYWORDS(autoupdate).
+	Remove all the other keywords.
+
+2001-09-10  Akim Demaille  <akim@epita.fr>
+
+	* lib/autotest/general.m4 (AT_INIT): Remove the diversion HELP and
+	SETUP: no longer used.
+	Support -k, --keywords.
+	<at_help>: Be `no', `short', or `long'.
+	<at_help_all>: New variable.
+	(AT_KEYWORDS): New.
+	(AT_CLEANUP_FILE_IFELSE, AT_CLEANUP_FILE): Rename as...
+	(_AT_CLEANUP_FILE_IF, _AT_CLEANUP_FILE): these.
+	(_AT_CLEANUP_FILE_IF): Simplify the regexp.
+	(AT_SETUP): Reset AT_line, AT_keywords, AT_description.
+	No longer fill the HELP diversion.
+	(AT_CLEANUP): Use them.
+	* lib/m4sugar/m4sugar.m4 (m4_append): Support a separator.
+	(m4_list_append): Remove.
+
+	Spread a few keywords in the Autoconf test suite.
+
+2001-09-10  Akim Demaille  <akim@epita.fr>
+
+	* lib/autoconf/autotest.m4 (AC_CONFIG_TESTDIR): Don't pass
+	PATH_SEPARATOR, let M4sh compute it.
+	* lib/m4sugar/m4sh.m4 (_AS_PATH_SEPARATOR_PREPARE): New.
+	* lib/autoconf/programs.m4 (AC_SHELL_PATH_WALK): Use PATH_SEPARATOR.
+	Move to...
+	* lib/m4sugar/m4sh.m4 (_AS_PATH_WALK): Here.
+	Simplify when the path is not a literal.
+	(AS_UNAME): Use it to report PATH.
+	* lib/autoconf/general.m4 (_AC_INIT_PREPARE_FS_SEPARATORS): Remove.
+	(_AC_INIT_DEFAULTS): AC_SUBST PATH_SEPARATOR.
+	* lib/autoconf/programs.m4 (AC_PROG_INSTALL): Use _AS_PATH_WALK.
+	* lib/autotest/general.m4 (AT_INIT): Use _AS_PATH_WALK to
+	normalize the path, and to look for victims.
+	* tests/semantics.at (AC_PATH_PROG & AC_PATH_PROGS)
+	(AC_CHECK_PROG & AC_CHECK_PROGS): Use PATH_SEPARATOR.
+
+2001-09-07  Akim Demaille  <akim@epita.fr>
+
+	* bin/autom4te.in (&handle_m4): `< /dev/null' so that GNU M4 1.5
+	doesn't neutralize SIGINT, making autoconf etc. non interruptible.
+	* lib/autoconf/autotest.m4 (AC_CONFIG_TESTDIR): Move the package
+	related variables into `at_package_*'.
+	* lib/autotest/general.m4 (AT_VICTIMS): New.
+	(AT_INIT): Adjust for stand-alone/embedded test suites.
+	(AS_MESSAGE_LOG_FD): Define and use it.
+	* tests/suite.at (AT_VICTIMS): Use it.
+	* tests/tools.at (autoupdating AC_PREREQ): Don't depend upon
+	at_version.
+
+2001-09-07  Akim Demaille  <akim@epita.fr>
+
+	Move toward possibly stand-alone test suites.
+
+	* lib/autotest/general.m4: Stop displaying srcdir everywhere as,
+	in addition, it introduces useless differences in logs.
+	(AT_INIT): Let atconfig and atlocal be both optional.
+	Adjust PATH computation.
+	* lib/m4sugar/m4sh.m4 (AS_UNAME): More readable display of PATH.
+
+2001-09-07  Akim Demaille  <akim@epita.fr>
+
+	* lib/autoconf/Makefile.am (autoconf.m4f): Depends upon
+	m4sugar/version.m4.
+
+2001-09-05  Akim Demaille  <akim@epita.fr>
+
+	* lib/autoconf/c.m4 (AC_LANG_BOOL_COMPILE_TRY(C)): Use `_array_'
+	to avoid GCC warnings.
+	From Uwe Seimet.
+
+2001-09-05  Akim Demaille  <akim@epita.fr>
+
+	* bin/autom4te.in: --language is -l, not -s.
+
+2001-09-05  Akim Demaille  <akim@epita.fr>
+
+	Be ready to handle filenames as stupid as `dnl.at', for if even
+	the maintainer is dumb enough to do that...
+
+	* lib/autotest/general.m4 (AT_SETUP, AT_LINE): Demonstrates your
+	excellence in M4 quotation: consider `__file__' is active.
+
+	And BTW, when invoking m4, pass the --include in the right order:
+	the wrong one.
+
+	* bin/autom4te.in, bin/autoupdate.in: Use reverse when kingtal to
+	4m.
+
+2001-09-05  Akim Demaille  <akim@epita.fr>
+
+	* lib/Autom4te/XFile.pm: New lib file.
+	* bin/autoupdate.in, bin/autoscan.pl, bin/autom4te.in,
+	* bin/autoheader.in: Use it.
+
+2001-09-05  Akim Demaille  <akim@epita.fr>
+
+	* bin/autoupdate.in (&handle_m4_macros) <unm4.m4>: Undefine iff
+	defined.
+
+2001-09-05  Akim Demaille  <akim@epita.fr>
+
+	* lib/Autom4te/General.pm (&getopt): Work around the `-' Getopt bug.
+	* bin/autoheader.in, bin/autoupdate.in (&parse_args): Adjust.
+
+	* bin/autoscan.in: Use `getopt' and `find_files' etc.
+	Add -I, --include support.
+	* doc/autoconf.texi (autoscan Invocation): Adjust.
+
+2001-09-05  Akim Demaille  <akim@epita.fr>
+
+	CVS GNU M4 doesn't like `undefine(undefined)'.
+
+	* bin/autoupdate.in (&handle_m4_macros, &handle_autoconf_macros):
+	New, extracted from main.
+	Use IO::File wherever possible.
+	(input.m4): Be constant, use -I instead of hard coding $tmp.
+	Therefore be a quoted heredoc.
+	Don't invoke `_au_disable', since ac was not loaded, but just
+	`unm4.m4'.
+
+2001-08-31  Akim Demaille  <akim@epita.fr>
+
+	Version 2.52d.
+
+2001-08-31  Akim Demaille  <akim@epita.fr>
+
+	* lib/autoconf/status.m4 (_AC_OUTPUT_CONFIG_STATUS): Fix the
+	previous patch.
+	* tests/atspecific.m4 (AT_CHECK_AUTOHEADER): Can create `config.hin~'.
+
+2001-08-31  Akim Demaille  <akim@epita.fr>
+
+	* lib/autoconf/status.m4 (_AC_OUTPUT_CONFIG_STATUS): DU 5.0 has
+	serious problems handling heredocs in heredocs.
+	Reported by Nicolas Joly.
+
+2001-08-31  Akim Demaille  <akim@epita.fr>
+
+	* doc/autoconf.texi: Don't promote non `m4_*' M4 macros.
+	(Making testsuite Scripts): Update.
+
+2001-08-31  Akim Demaille  <akim@epita.fr>
+
+	* lib/Makefile.am (CLEANFILES): Add autom4te.cfg.
+
+2001-08-31  Akim Demaille  <akim@epita.fr>
+
+	* doc/autoconf.texi (Quadrigraphs): Document `@&t@'.
+	(testsuite Scripts): There is no such thing as `atconfig.in'.
+	And actually one diagram is missing: test suite runtime.
+
+2001-08-31  Akim Demaille  <akim@epita.fr>
+
+	* lib/Autom4te/General.pm (&find_file): Browse the includes in the
+	inverse order.
+
+2001-08-31  Akim Demaille  <akim@epita.fr>
+
+	* bin/autoupdate.in (@include): `installcheck' revealed the path
+	to m4sugar was lacking!
+
+2001-08-31  Akim Demaille  <akim@epita.fr>
+
+	* man/Makefile.am (.x.1): We really have to pass
+	autom4te_perllibdir.
+
+2001-08-31  Akim Demaille  <akim@epita.fr>
+
+	* lib/autotest/general.m4 (AT_INIT): Don't pass all the args to
+	debug scripts, in particular passing explicitly listed tests to
+	run is stupid.
+
+2001-08-31  Akim Demaille  <akim@epita.fr>
+
+	* bin/autom4te.in (&parse_args): Strip `.' from `@include'.
+	* bin/autoupdate.in: Use --include, -I, and --force, -f, too.
+	Use directly autom4te, not autoconf.
+	* tests/autoupdate: $top_srcdir/lib is needed too for melt files.
+
+2001-08-31  Akim Demaille  <akim@epita.fr>
+
+	* tests/semantics.at (AC_C_BIGENDIAN): Missing eol.
+	* bin/autoheader.in (%symbol): Strip arguments of macros.
+
+2001-08-31  Akim Demaille  <akim@epita.fr>
+
+	* doc/autoconf.texi: Catch up -I, --include changes.
+
+2001-08-31  Akim Demaille  <akim@epita.fr>
+
+	* bin/autom4te.in (&parse_args): Die on unknown languages.
+	* bin/autoheader.in: Run directly autom4te --mode=autoconf, no
+	need for autoconf.
+	Promote --include over --macrodir and other obsolete options.
+
+2001-08-31  Akim Demaille  <akim@epita.fr>
+
+	* lib/Autom4te/General.pm ($version, $help, &getopt): New.
+	* bin/autoupdate.in, bin/autoheader.in, bin/autom4te.in: Use them.
+	* bin/autom4te.in ($autoconf): Pass --force.
+	`print $out' doesn't print `$_' but `$out'.
+	* tests/tools.at (Syntax of the Perl scripts): Pass the lib dir.
+	(autoheader): Pass --force since the test suite goes too fast for
+	the time stamps.
+	Adjust to the new autoheader messages.
+
+2001-08-31  Akim Demaille  <akim@epita.fr>
+
+	* bin/autoheader.in: Handle the acconfig.h etc. junk files.
+	Check the completeness of the #template.
+	* lib/Autom4te/General.pm (&update_file): s/remove/unlink/.
+	* tests/semantics.at (AC_C_BIGENDIAN): Adjust AT_CHECK_AUTOHEADER
+	invocation.
+
+2001-08-31  Akim Demaille  <akim@epita.fr>
+
+	* lib/Autom4te/General.pm (&find_file, &update_file): New.
+	* bin/autoupdate.in, bin/autoheader.in: Adjust.
+	Drop AC_MACRODIR dead for real.
+	* tests/atspecific.m4 (AT_CHECK_AUTOHEADER): Now autoheader says
+	`autoheader: `config.hin' is created'.
+	* tests/tools.at (Syntax of the Perl scripts): Check autoheader.
+
+2001-08-31  Akim Demaille  <akim@epita.fr>
+
+	* bin/autoheader.in: Rewrite in Perl.
+	* tests/autoheader: Adjust.
+
+2001-08-31  Akim Demaille  <akim@epita.fr>
+
+	* bin/autoconf.in (--include, -I): New option.
+	Map --localdir, --autoconf-dir onto it.
+	Forward autom4te's options instead of interpreting them.
+	* bin/autoconf.in, bin/autoheader.in (AC_MACRODIR, autoconf_dir):
+	There is no such envvar since the inception of autom4te.cfg.
+	* bin/autom4te.in (&parse_args): Uniquify `@include'.
+	* bin/autoupdate.in: Adjust, and perform more control.
+	* tests/atspecific.m4 (AT_CHECK_AUTOCONF): Adjust.
+	* tests/autoconf: Dittowise.
+
+2001-08-31  Akim Demaille  <akim@epita.fr>
+
+	* bin/autoconf.in: Don't bother with `acsite.m4' and `aclocal.m4'.
+	* bin/autom4te.in (&find_file): Support `FILE?' standing for
+	optionally `FILE'.
+	Use -e, not -f, since /dev/null for instance is OK.
+	(&parse_args): Adjust.
+	* lib/autom4te.in (Autoconf): Add `acsite.m4?' and `aclocal.m4?'.
+
+2001-08-31  Akim Demaille  <akim@epita.fr>
+
+	* configure.ac: Also find tested executables in bin.
+	* bin/autoconf.in, bin/autoheader.in, bin/autoreconf.in,
+	* bin/autoscan.in, autoupdate.in: Use exclusively the name of the
+	installed peer executables, only PATH is allowed to resolve it.
+	Pass `autoconf_dir' via options, not via invisible envvars.
+	* lib/Autom4te/General.pm (&find_peer): Remove.
+	* lib/autotest/general.m4 (AT_INIT): `AUTOTEST_PATH=a:b' gives
+	`abuild:asrc:bbuild:bsrc', not `abuild:bbuild:asrc:bsrc'.
+	* man/Makefile.am: Let help2man rely on PATH instead of trying to
+	find the executables for it.
+	* tests/Makefile.am: Major cleanup.  Too lazy to document...
+	* tests/atlocal.in: Remove all the obscure envvar manipulations.
+	We only need PERL.
+	* tests/atspecific.m4, tests/tools.at: Passing --localdir is
+	indeed related to running the test suite, while passing
+	--autoconf-dir and others is related to running non installed
+	Autoconf executables.  So don't do that, leave it to...
+	* tests/autoconf, tests/autoheader, tests/autom4te, tests/autoupdate,
+	* tests/autoscan: New.
+	* tests/atspecific.m4 (AT_CHECK_M4SUGAR, AT_CHECK_M4SH): Don't
+	refer to library files: rely on --language.
+
+2001-08-29  Akim Demaille  <akim@epita.fr>
+
+	* bin/autom4te.in, lib/autom4te.in, bin/autoconf.in:
+	s/--set/--language/.
+
+2001-08-29  Akim Demaille  <akim@epita.fr>
+
+	* doc/autoconf.texi: Strip the @nodes.
+	Suggested by Paul Eggert.
+	(Initializing configure): Typo.
+
+2001-08-29  Akim Demaille  <akim@epita.fr>
+
+	* bin/autom4te.in (&handle_output): s/@__@/@&t@/.
+	Suggested by Paul Eggert.
+
+2001-08-29  Akim Demaille  <akim@epita.fr>
+
+	* Makefile.maint (do-po-update): Wget refuses to overwrite files:
+	download in a tmp dir.
+
+2001-08-29  Akim Demaille  <akim@epita.fr>
+
+	* lib/autotest/general.m4: s/AT-devnull/devnull/ since there are
+	case insensitive OSes out there :(
+	From Tim Van Holder.
+
+2001-08-29  Akim Demaille  <akim@epita.fr>
+
+	* lib/autom4te.in: New.
+	* lib/Makefile.am (edit, autom4te.cfg): New.
+	* bin/autom4te.in (BEGIN): Simplify.
+	Rely on `AC_MACRODIR' in addition of `autom4te_perllibdir'.
+	(&load_configuration): New.  Use it.
+	(&parse_args): Support --mode, --set, and --melt.
+	* bin/autoconf.in: Simplify and adjust.
+	* tests/Makefile.am (AUTOMAKE): Use --set.
+	* tests/atlocal.in: Adjust.
+	* BUGS: distcheck and check are weak.
+
+2001-08-29  Akim Demaille  <akim@epita.fr>
+
+	* lib/autotest/general.m4: Use
+		foo=`(command) 2>/dev/null`
+	not
+		foo=`command` 2>/dev/null
+	(at-devnull): Rename as...
+	(AT-devnull): this.
+	(--clean): Remove AT-* files too.
+	* doc/autoconf.texi (Limitations of Usual Tools): Document `date'.
+	Reported by Nicolas Joly.
+
+2001-08-28  Akim Demaille  <akim@epita.fr>
+
+	* lib/autoconf/general.m4 (_AC_INIT_PREPARE): Don't use single
+	quotes inside single quotes.
+	Reported by Nicolas Joly.
+
+2001-08-28  Kevin Ryde  <user42@zip.com.au>
+
+	* doc/autoconf.texi (Function Portability): Mention C right shifts.
+
+2001-08-27  Tim Van Holder  <tim.van.holder@pandora.be>
+
+	* lib/autotest/general.m4: Reword some messages.
+	(AT_INIT): Check for the `times' builtin before using it.
+	Support test ranges as arguments to the testsuite.
+	Have -e imply -d as the help text suggested.
+
+2001-08-27  Akim Demaille  <akim@epita.fr>
+
+	* Makefile.maint: Formatting changes.
+	(do-po-update, po-update, cvs-update, update): New targets.
+	(AMTAR): Remove.
+
+2001-08-27  Akim Demaille  <akim@epita.fr>
+
+	* lib/autotest/general.m4 (AT_INIT) <at_cmd_line>: Remove.
+	<at_cmd_line>: New.
+	Pass it to debug-*.sh scripts.
+	<AUTOTEST_PATH>: May contain absolute dir names.
+
+2001-08-27  Akim Demaille  <akim@epita.fr>
+
+	* lib/autotest/general.m4 (AT_INIT): Log the command line.
+	Support `VAR=VAL' as arguments.
+	Compute PATH _after_ the options processing, so that AUTOTEST_PATH
+	may be set via the command line.
+
+2001-08-27  Akim Demaille  <akim@epita.fr>
+
+	* lib/autoconf/autotest.m4 (AC_CONFIG_TESTDIR): $2 defaults to $1.
+	* lib/autotest/autotest.m4 (AT_INIT): Expand AUTOTEST_PATH into
+	first the build dirs, then the src dirs.
+	* configure.ac (AC_CONFIG_TESTDIR): Adjust.
+
+2001-08-27  Akim Demaille  <akim@epita.fr>
+
+	* lib/autotest/general.m4 (AT_INIT): Output the definition of
+	at_data_files earlier.
+	(--clean, -c): New option.
+	* tests/Makefile.am: Use this option.
+
+2001-08-27  Akim Demaille  <akim@epita.fr>
+
+	* lib/autoconf/status.m4 (_AC_SRCPATHS): Rename `ac_dots' as
+	`ac_top_builddir' to mimic Automake's vocabulary, which much more
+	readable.
+	Adjust callers.
+	* doc/autoconf.texi (Configuration Actions): Document the vars
+	available in commands.
+	Emphasize the risks of collisions in init-cmds.
+
+2001-08-27  Akim Demaille  <akim@epita.fr>
+
+	* doc/autoconf.texi (Input) <AC_INIT>: Move to..
+	(Initializing configure): this new node.
+
+2001-08-27  Akim Demaille  <akim@epita.fr>
+
+	* Makefile.am (EXTRA_DIST): INSTALL.txt is a dead hack.
+
+2001-08-27  Akim Demaille  <akim@epita.fr>
+
+	* m4/atconfig.m4 (AT_CONFIG): Remove, replaced by...
+	* lib/autoconf/autotest.m4 (AC_CONFIG_TESTDIR): this.
+	New file.
+	* m4/Makefile.am (EXTRA_DIST): Oops, adjust...
+
+2001-08-27  Akim Demaille  <akim@epita.fr>
+
+	* lib/autoconf/general.m4 (AU_DEFINE, AU_DEFUN, AU_ALIAS): Move
+	to...
+	* lib/autoconf/autoheader.m4: this new file.
+	* lib/autoconf/general.m4 (AH_OUTPUT, AH_VERBATIM)
+	(_AH_VERBATIM_OLD, AH_TEMPLATE, _AH_TEMPLATE_OLD, AH_TOP, AH_BOTTOM):
+	Move to...
+	* lib/autoconf/autoupdate.m4: this new file.
+
+2001-08-27  Akim Demaille  <akim@epita.fr>
+
+	* lib/autoconf/status.m4 (_AC_SRCPATHS): New.
+	(_AC_OUTPUT_LINKS, _AC_OUTPUT_FILES, _AC_OUTPUT_SUBDIRS): Use it.
+	Standardize the var names (ac_sub_srcdir -> ac_srcdir, ac_subdir
+	-> ac_dir).
+	(_AC_OUTPUT_HEADERS): AS_DIRNAME always return a dir name.
+	* lib/autoconf/general.m4 (_AC_INIT_HELP): Ditto.
+
+2001-08-27  Akim Demaille  <akim@epita.fr>
+
+	* lib/autoconf/autoconf.m4 (AC_CONFIG_COMMANDS)
+	(AC_CONFIG_COMMANDS_POST, AC_CONFIG_COMMANDS_PRE, AC_CONFIG_FILES)
+	(AC_CONFIG_HEADER, AC_CONFIG_HEADERS, AC_CONFIG_IF_MEMBER)
+	(AC_CONFIG_LINKS, AC_CONFIG_SUBDIRS, AC_FILE_DEPENDENCY_TRACE)
+	(AC_LINK_FILES, AC_LIST_COMMANDS, AC_LIST_COMMANDS_COMMANDS)
+	(AC_LIST_FILES, AC_LIST_FILES_COMMANDS, AC_LIST_HEADERS)
+	(AC_LIST_HEADERS_COMMANDS, AC_LIST_LINKS, AC_LIST_LINKS_COMMANDS)
+	(AC_OUTPUT, AC_OUTPUT_COMMANDS, AC_OUTPUT_COMMANDS_POST)
+	(AC_OUTPUT_COMMANDS_PRE, AC_OUTPUT_MAKE_DEFS)
+	(_AC_CONFIG_COMMANDS_INIT, _AC_CONFIG_DEPENDENCIES)
+	(_AC_CONFIG_DEPENDENCY, _AC_CONFIG_UNIQUE, _AC_LINK_FILES_CNT)
+	(_AC_LIST_SUBDIRS, _AC_OUTPUT_COMMANDS, _AC_OUTPUT_COMMANDS_CNT)
+	(_AC_OUTPUT_COMMANDS_INIT, _AC_OUTPUT_CONFIG_STATUS)
+	(_AC_OUTPUT_FILES, _AC_OUTPUT_HEADERS, _AC_OUTPUT_LINKS)
+	(_AC_OUTPUT_SUBDIRS): Move to...
+	* lib/autoconf/status.m4: this new file.
+	* lib/autoconf/general.m4, lib/autoconf/Makefile.am: Adjust.
+	* tests/Makefile.am, tests/suite.at: Adjust.
+
+2001-08-27  Akim Demaille  <akim@epita.fr>
+
+	Automake 1.5.
+
+	* Makefile.am (AUTOMAKE_OPTIONS): Add 1.5 and dist-bzip2.
+	(AMTAR): Help automake define it.
+	(INSTALL, install-data-hook): The INSTALL.txt trick is no longer
+	needed, 1.5 can have a macro and a target with the same name.
+	* m4/auxdir.m4, m4/cond.m4, m4/depend.m4, m4/install-sh.m4,
+	* m4/strip.m4: New.
+	* m4/init.m4, m4/sanity.m4: Update.
+	* doc/Makefile.am (CLEANFILES): 1.5 knows the texi2dvi files.
+	* lib/autoconf/Makefile.am, lib/autotest/Makefile.am,
+	* lib/m4sugar/Makefile.am, lib/autoscan/Makefile.am,
+	* lib/Autom4te/Makefile.am, man/Makefile.am: Use dist/nodist.
+
+2001-08-27  Akim Demaille  <akim@epita.fr>
+
+	Provide a mean to ``AC_PREREQ'' for M4sugar, M4sh and Autotest.
+
+	* lib/autoconf/version.in: Remove.
+	* lib/m4sugar/version.in: New.
+	* lib/m4sugar/m4sugar.m4 (m4_acversion, m4_version_prereq): New.
+	Adjust callers.
+	* bin/autoupdate.in: Distinguish M4sugar vs. Autoconf macros by
+	the name of the directory they're in, instead of the filename,
+	since version.m4 is now in m4sugar, but m4_acversion must not be
+	classified as an Autoconf macro.
+	($input_m4): Don't qualify the path to m4sugar.
+	Rather, pass autoconf_dir to m4.
+	* tests/Makefile.am (testsuite): Remove -I top_srcdir, unneeded.
+	* tests/suite.at: Require 2.52c.
+
+2001-08-27  Akim Demaille  <akim@epita.fr>
+
+	testsuite.log should include config.log.
+
+	* lib/autotest/autotest.m4: New.
+	* lib/autotest/general.m4, tests/atspecific.m4:	Adjust.
+	* tests/suite.at : Adjust.
+	(AT_INIT): Log config.log.
+	* lib/m4sugar/m4sugar.m4 (m4_text_box): New.
+	* lib/m4sugar/m4sh.m4 (_AS_BOX_LITERAL): Adjust.
+	* lib/autoconf/general.m4 (_AC_INIT_CONFIG_LOG): Use them.
+	(_AC_INIT_PREPARE): Fix the incredibly messy and buggy completion
+	of config.log on traps.
+	(_AC_OUTPUT_CONFIG_STATUS): Use AS_BOX.
+	Use consistently `_ACEOF' for configure's here docs, and `_CSEOF'
+	for config.status'.
+	Open the log as soon as possible.
+	Use the same log introduction as configure's.
+
+2001-08-22  Paul Eggert  <eggert@twinsun.com>
+
+	* doc/autoconf.texi (Indices): New node.
+	Move indices out of the top level menu and into this submenu.
+
+2001-08-22  Akim Demaille  <akim@epita.fr>
+
+	* lib/autoconf/programs.m4 (_AC_PROG_LEX_YYTEXT_DECL): Use
+	AC_TRY_COMMAND.
+	(AC_DECL_YYTEXT): Fix the previous patch: it points to AC_PROG_LEX.
+
+2001-08-22  Akim Demaille  <akim@epita.fr>
+
+	* lib/autoconf/general.m4 (AC_SHELL_PATH_WALK, AC_CHECK_PROG)
+	(AC_CHECK_PROGS, AC_PATH_PROG, AC_PATH_PROGS, AC_CHECK_TOOL_PREFIX)
+	(AC_PATH_TOOL, AC_CHECK_TOOL, AC_CHECK_TOOLS): Move to...
+	* lib/autoconf/programs.m4: here.
+	* lib/autoconf/specific.m4 (_AC_PROG_ECHO, AC_PROG_MAKE_SET)
+	(AC_PROG_RANLIB, AC_PROG_YACC, AC_PROG_LEX, _AC_DECL_YYTEXT)
+	(AC_PROG_INSTALL, AC_PROG_LN_S, AC_RSH): Move to...
+	* lib/autoconf/programs.m4: here.
+	(_AC_DECL_YYTEXT): Rename as...
+	(_AC_PROG_LEX_YYTEXT_DECL): this.
+	* lib/autoconf/autoconf.m4, lib/autoconf/Makefile.am
+	* tests/Makefile.am, tests/suite.am: Adjust.
+
+2001-08-22  Akim Demaille  <akim@epita.fr>
+
+	* lib/autoconf/general.m4 (AC_LIST_MEMBER_OF, AC_LINKER_OPTION):
+	Move to...
+	* lib/autoconf/fortran.m4 (_AC_LIST_MEMBER_IF, _AC_LINKER_OPTION):
+	here.
+	* lib/autoconf/general.m4 (AC_TRY_LINK_FUNC): Move to...
+	* lib/autoconf/functions.m4: here.
+	* lib/autoconf/general.m4 (AC_SEARCH_LIBS, AC_CHECK_LIB)
+	(AH_CHECK_LIB): Move to...
+	* lib/autoconf/libs: this new file.
+	* lib/autoconf/specific.m4 (_AC_PATH_X_XMKMF, _AC_PATH_X_DIRECT)
+	(_AC_PATH_X, AC_PATH_X, AC_PATH_XTRA): Move to...
+	* lib/autoconf/libs.m4: here.
+	* lib/autoconf/autoconf.m4, lib/autoconf/Makefile.am: Adjust.
+
+2001-08-22  Akim Demaille  <akim@epita.fr>
+
+	* lib/m4sugar/m4sh.m4 (AS_MKDIR_P): Fail if fails.
+	* lib/autoconf/general.m4 (_AC_OUTPUT_SUBDIRS): Adjust.
+	(AC_SITE_LOAD): Better logging of config.site.
+
+2001-08-20  Akim Demaille  <akim@epita.fr>
+
+	* configure.ac (AT_CONFIG): Fix the path.
+	* m4/atconfig.m4 (AT_CONFIG): Don't use EOF but ATEOF so that 2.52
+	can be used.
+
+2001-08-20  Alexandre Duret-Lutz  <duret_g@epita.fr>
+
+	* lib/autoconf/c.m4 (AC_C_BIGENDIAN): Prepare the cross-compile
+	program with AC_LANG_PROGRAM before feeding it to
+	AC_COMPILE_IFELSE.  Cleanup grep usage.
+
+2001-08-20  Akim Demaille  <akim@epita.fr>
+
+	* ChangeLog, ChangeLog.0, ChangeLog.1, ChangeLog.2, AUTHORS, BUGS,
+	* NEWS, README, README-alpha, TODO, tests/README: This package is
+	`Autoconf', not `autoconf' (the executable).
+
+2001-08-20  Akim Demaille  <akim@epita.fr>
+
+	Info readers seem to need `Index' in the index node title :(
+
+	* doc/autoconf.texi: Reverse the 2001-08-15 change which
+	simplified index node names.
+
+2001-08-20  Akim Demaille  <akim@epita.fr>
+
+	* lib/autoconf/general.m4 (_AC_INIT_PACKAGE): Warn if the
+	arguments are not literals.
+	* doc/autoconf.texi (Input) <AC_INIT>: Arguments must be literals.
+	Specify the output variables, and macros defined.
+
+2001-08-20  Akim Demaille  <akim@epita.fr>
+
+	* doc/autoconf.texi (Examining Declarations) <AC_TRY_CPP>:
+	(Examining Syntax) <AC_TRY_COMPILE>
+	(Examining Libraries) <AC_TRY_LINK>
+	(Test Programs) <AC_TRY_RUN>: These macros double quote some of
+	their arguments.
+	Reported by Werner Lemberg.
+
+2001-08-20  Akim Demaille  <akim@epita.fr>
+
+	* lib/autotest/general.m4 (AT_INIT): Compute top_builddir,
+	top_srcdir and srcdir from at_topbuild_2_topsrc and at_testdir.
+	Load atlocal late enough to dump it in the log.
+	* m4/atconfig.m4 (AT_CONFIG): Pass them to atconfig.
+
+2001-08-20  Akim Demaille  <akim@epita.fr>
+
+	* tests/torture.at (Configuring subdirectories): New test.
+	* lib/autoconf/general.m4 (_AC_INIT_SRCDIR): Say what you are
+	looking for.
+	* m4/atconfig.m4: Be sure the let $[0] be expandable.
+	(top_srcdir): Fix its computation.
+
+2001-08-20  Akim Demaille  <akim@epita.fr>
+
+	* lib/autoconf/general.m4 (_AC_OUTPUT_COMMANDS): Say what you do.
+	* m4/atconfig.m4 (AT_CONFIG): $1 is now the directory where the
+	test suite lives.
+	Create `atconfig' automagically.
+	Configure atlocal.in if present.
+	* tests/atconfig.in: Remove.
+	* tests/atlocal.in: New.
+	* tests/Makefile.am: Adjust.
+
+2001-08-20  Akim Demaille  <akim@epita.fr>
+
+	Huh!?!?!  There are still some user EOF tags used, which prevents
+	their use in AC_CONFIG_COMMANDS for instance...
+
+	* lib/autoconf/general.m4, lib/autoconf/specific.m4,
+	* lib/autotest/general.m4: Rename the EOF tags as `_ACEOF',
+	`_CSEOF', or `_ATEOF', as appropriate.
+	* lib/m4sugar/Makefile.am, lib/autoconf/Makefile.am,
+	* lib/autotest/Makefile.am (check-local): Enforce this constraint.
+
+2001-08-20  Akim Demaille  <akim@epita.fr>
+
+	* tests/base.at, tests/m4sh.at, tests/m4sugar.at,
+	* tests/semantics.at, tests/tools.at, tests/torture.at:
+	s/^AT_DATA\(([^][]+),/AT_DATA([$1],/.
+
+2001-08-20  Akim Demaille  <akim@epita.fr>
+
+	Autotest invokes M4sh's initialization.
+
+	* lib/autotest/general.m4: Adjust the diversion names.
+	(AT_INIT): Run AS_INIT.
+	Use the BINSH diversion to invoke /bin/sh.
+	* tests/base.at, tests/m4sh.at, tests/m4sugar.at, tests/tools.at:
+	* tests/torture.at: Respect M4sugar and M4sh macro name spaces.
+
+2001-08-20  Akim Demaille  <akim@epita.fr>
+
+	Let M4sh have its own diversions.
+
+	* lib/autoconf/general.m4 (_m4_divert(BINSH), _m4_divert(REVISION))
+	(_m4_divert(NOTICE)): Rename as...
+	* lib/m4sugar/m4msh.m4 (_m4_divert(BINSH), _m4_divert(HEADER-REVISION))
+	(_m4_divert(HEADER-COMMENT)): these.
+	(_m4_divert(HEADER-COPYRIGHT), _m4_divert(HEADER-COPYRIGHT)): New.
+	(_m4_divert(NOTICE)): New, for Libtool.
+	* lib/autoconf/general.m4 (_m4_divert(PREPARE)): Remove, replaced
+	long ago with `_m4_divert(GROW)'.
+	(AC_COPYRIGHT, AC_REVISION, _AC_INIT_NOTICE): Adjust.
+
+2001-08-20  Akim Demaille  <akim@epita.fr>
+
+	* tests/base.at, tests/compile.at, tests/foreign.at,
+	* tests/m4sh.at, tests/m4sugar.at, tests/mktests.sh,
+	* tests/semantics.at, tests/suite.at, tests/tools.at,
+	* tests/torture.at: Ask Autotest mode, not Autoconf mode.
+
+2001-08-20  Akim Demaille  <akim@epita.fr>
+
+	* bin/autom4te.in (handle_output): Handle @__@.
+
+2001-08-20  Akim Demaille  <akim@epita.fr>
+
+	* lib/autoconf/autoconf.m4, lib/autoconf/oldnames.m4,
+	* lib/autotest/general.m4: Adjust the license.
+
+2001-08-17  Paul Eggert  <eggert@twinsun.com>
+
+	* doc/autoconf.texi (Function Portability): Mention snprintf,
+	following up on a suggestion by Kevin Ryde.
+
+2001-08-17  Akim Demaille  <akim@epita.fr>
+
+	* doc/install.texi, doc/autoconf.texi: Use `autoconf', not
+	`autoconf_manual', as texinfo.tex 2001-06-21.10 chokes on it.
+
+2001-08-17  Akim Demaille  <akim@epita.fr>
+
+	* lib/autotest/general.m4 (AT_INIT): Refer to `$as_me.log', not
+	`$0.log' as for projects where testsuite is in src, we'd have
+	testsuite.log created in src.
+
+2001-08-17  Akim Demaille  <akim@epita.fr>
+
+	* bin/autom4te.in (&parse_args): Recognize --normalize.
+
+2001-08-17  Akim Demaille  <akim@epita.fr>
+
+	Start implementing the AC_CHECK_HEADER transition scheme.
+
+	* lib/autoconf/headers.m4 (_AC_CHECK_HEADER_NEW)
+	(_AC_CHECK_HEADER_OLD, _AC_CHECK_HEADER_MONGREL): New.
+	(AC_CHECK_HEADER): Use them.
+
+2001-08-17  Akim Demaille  <akim@epita.fr>
+
+	* doc/autoconf.texi: Work around Texinfo buglets.
+	(Transformation Rules): One example is enough, users are expected
+	to have their brains on. And BTW, use DESTDIR.
+	(dvar): New macro.  Use it.
+
+2001-08-17  Akim Demaille  <akim@epita.fr>
+
+	* doc/autoconf.texi (Writing testsuite.at) <AT_CHECK>: Complete.
+	* lib/autotest/general.m4 (AT_INIT): Use the relative dir when
+	looking for ChangeLogs.
+
+2001-08-17  Akim Demaille  <akim@epita.fr>
+
+	* bin/autom4te.in: --normalize is a new option.
+	* bin/autoconf.in: Use it.
+
+2001-08-17  Akim Demaille  <akim@epita.fr>
+
+	* bin/Makefile.am, lib/Autom4te/Makefile.am, lib/autoconf/Makefile.am
+	* lib/autotest/Makefile.am, lib/m4sugar/Makefile.am: Add TAGS support.
+
+2001-08-16  Paul Eggert  <eggert@twinsun.com>
+
+	* doc/autoconf.texi, doc/install.texi: Put copyright notice at
+	start, not at end.
+
+2001-08-15  Akim Demaille  <akim@epita.fr>
+
+	* doc/Makefile.am (fu): New index, can't use fn because of defmac.
+	Use it.
+
+2001-08-15  Akim Demaille  <akim@epita.fr>
+
+	* doc/autoconf.texi (pr): New index.
+	(prindex, findex): Use, merge, and output them.
+	(Environment Variable Index, Output Variable Index)
+	(Preprocessor Symbol Index, Autoconf Macro Index, M4 Macro Index)
+	(Autotest Macro Index): Rename as...
+	(Environment Variables, Output Variables,Preprocessor Symbols)
+	(Autoconf Macros, M4 Macros, Autotest Macros): these.
+	* doc/install.texi: Use @command.
+	(Environment Variables): Rename as...
+	(Defining Variables): this.
+
+2001-08-15  Akim Demaille  <akim@epita.fr>
+
+	* doc/autoconf.texi (Function Portability): sprintf's return
+	value.
+	From Kevin Ryde.
+
+2001-08-15  Akim Demaille  <akim@epita.fr>
+
+	* Makefile.maint (CVS): New.
+	(local-check): Run changelog-check. last.
+	(alpha): Don't depend upon local-check, since...
+	(cvs-dist): depends upon it.
+
+2001-08-15  Tim Van Holder  <tim.van.holder@pandora.be>
+
+	* tests/Makefile.am: Use a clean-local rule to remove
+	autom4te.cache (it's a directory, not a file.
+	* Makefile.am: Ditto (but maintainer-clean-local).
+
+2001-08-15  Akim Demaille  <akim@epita.fr>
+
+	* bin/autom4te.in (@m4_warning): New.
+	(&handle_m4): Use it.
+	* tests/m4sugar.at (m4_warn): Pass `-f' to autom4te to ensure the
+	warnings are issued at each run.
+	* tests/atspecific.m4 (AT_CHECK_M4SUGAR, AT_CHECK_M4SH): M4sugar
+	is in the src tree.
+
+2001-08-15  Akim Demaille  <akim@epita.fr>
+
+	* tests/atspecific.m4 (AT_CHECK_AUTOUPDATE): Perl is now required:
+	don't waste time running `autoupdate --version' works.
+	* tests/tools.at (autoupdating AC_PREREQ): Likewise.
+
+2001-08-13  Akim Demaille  <akim@epita.fr>
+
+	* doc/autoconf.texi (ma): Rename this index as...
+	(ac): this.
+
+2001-08-13  Akim Demaille  <akim@epita.fr>
+
+	* Makefile.am: Remove dead code and dead comments.
+	(pdf, html): New targets.
+	* doc/autoconf.texi (Using Autotest): New chapter.
+	* doc/Makefile.am (pdf): New targets.
+	(CLEANFILES): Adjust.
+
+2001-08-13  Akim Demaille  <akim@epita.fr>
+
+	* lib/autotest/general.m4 (AT_INIT): Log the start/stop dates and
+	duration of the test suite.
+
+2001-08-12  Alexandre Duret-Lutz  <duret_g@epita.fr>
+
+	* tests/semantics.at (AC_C_BIGENDIAN): Explicitelly save and load
+	endianness for comparison instead of relying on AT_CHECK_ENV.
+
+2001-08-11  Paul Eggert  <eggert@twinsun.com>
+
+	* doc/autoconf.texi, doc/install.texi: Add a copyright notice
+	to the INSTALL file.
+
+2001-08-11  Paul Eggert  <eggert@twinsun.com>
+
+	* NEWS: The autoconf manual now is distributed under the terms
+	of the GNU Free Documentation License.
+
+	* doc/autoconf.texi: Switch from old style copyright notice to FDL.
+	Add an appendix "Copying This Manual" for the FDL.
+
+	* doc/fdl.texi: New file, from
+	<http://www.gnu.org/licenses/fdl.texi>.
+
+	* doc/Makefile.am (autoconf_TEXINFOS): Add fdl.texi.
+
+2001-08-10  Paul Eggert  <eggert@twinsun.com>
+
+	* AUTHORS, BUGS, ChangeLog, ChangeLog.0, ChangeLog.1,
+	ChangeLog.2, GNUmakefile, Makefile.maint, NEWS, README,
+	README-alpha, TODO, configure.ac, lib/autoconf/Makefile.am,
+	m4/atconfig.m4, m4/init.m4, m4/m4.m4, m4/missing.m4,
+	m4/sanity.m4, tests/README, tests/aclocal.m4,
+	tests/atspecific.m4, tests/base.at, tests/compile.at,
+	tests/foreign.at, tests/m4sh.at, tests/m4sugar.at,
+	tests/semantics.at, tests/suite.at, tests/tools.at,
+	tests/torture.at: Add copyright notice.
+
+	* tests/mktests.sh: Update year in copyright notice.
+
+2001-08-12  Alexandre Duret-Lutz  <duret_g@epita.fr>
+
+	* tests/semantics.at (AC_C_BIGENDIAN): New test.
+
+2001-08-11  Alexandre Duret-Lutz  <duret_g@epita.fr>
+
+	* lib/autoconf/c.m4 (AC_C_BIGENDIAN): Handle ACTION-IF-TRUE,
+	ACTION-IF-FALSE, and ACTION-IF-UNKNOWN.
+	* doc/autoconf.texi (C Compiler Characteristics): Update
+	documentation for AC_C_BIGENDIAN.
+
+2001-08-11  Alexandre Duret-Lutz  <duret_g@epita.fr>
+
+	* lib/autoconf/c.m4 (AC_C_BIGENDIAN): Guess endianness by grep'ing
+	magic values from an object file when cross-compiling.
+	Based on code by Guido Draheim <Guido.Draheim@gmx.de>.
+
+2001-08-10  Akim Demaille  <akim@epita.fr>
+
+	* bin/autom4te.in (&handle_output): Don't use `grep' with side
+	effects.
+	Suggested by Russ Allbery.
+
+2001-08-10  Ralf Corsepius  <corsepiu@faw.uni-ulm.de>
+
+	* lib/autoconf/general.m4 (_AC_OUTPUT_SUBDIRS): Propagate the
+	current $prefix to the sub-configures.
+
+2001-08-09  Tim Van Holder  <tim.van.holder@pandora.be>
+
+	* lib/autoconf/lang.m4: Ignore *.xSYM when looking for an executable
+	extension (needed on BeOS).  Reported by Guido van Rossum.
+
+2001-08-09  Akim Demaille  <akim@epita.fr>
+
+	* bin/autom4te.in ($icache): Load it only if older than autom4te.
+
+2001-08-07  Akim Demaille  <akim@epita.fr>
+
+	* lib/autotest/general.m4 (AT_INIT): All the `at-*' are to be
+	removed.
+	(at-setup-line): Huh?  Be a variable `at_setup_line', not a file.
+	No need to remove the files before and after the each test, before
+	each test and at the end of the suite is enough.
+	Display only the children `times', not the shell's.
+	If the test failed or was skipped, at-times is not available.
+
+2001-08-07  Akim Demaille  <akim@epita.fr>
+
+	Always produce testsuite.log, including when there are no
+	failures.  This helps getting information on skipped tests, and
+	duration of the tests.  Err, implement the latter btw.
+
+	* lib/autotest/general.m4 (AT_INIT): Set up fd 6 for the log.
+	Dump information on the first run of each test.
+	(AT_CLEANUP): Create `at-times' containing the duration of the
+	test group.
+
+2001-08-07  Akim Demaille  <akim@epita.fr>
+
+	The use of `dumpstat' revealed that `len' was used although it
+	should not.  m4_text_wrap was using it, but in the Autoconf world
+	where it is legal.  Hence (i) test M4sh in its own world, not
+	Autoconf's, and (ii), ahem, fix the bug :)
+
+	* lib/autotest/general.m4: Be sure the set good quotes, as tracing
+	does not like `' instead of [].
+	(AT_INIT): Forbid `^_?AT_'.
+	And don't output such tokens.
+	* tests/Makefile.am (CLEANFILES): Add `script', `script.s4g',
+	`script.as', and `autom4te.cache'.
+	Remove `empty' and `macro' which are no longer used.
+	* tests/atspecific.m4 (AT_CHECK_M4SUGAR, AT_CHECK_M4SH): New.
+	* tests/m4sugar.at: Use it.
+	* lib/m4sugar/m4sugar.m4: Use `m4_len' not `len'.
+
+2001-08-07  Akim Demaille  <akim@epita.fr>
+
+	* bin/autoconf.in, bin/autoheader.in: --force, -f is a new option.
+
+2001-08-07  Alexandre Duret-Lutz  <duret_g@epita.fr>
+
+	* bin/autom4te.in (handle_output): Typo in quadrigraph substitution.
+
+2001-08-04  Akim Demaille  <akim@epita.fr>
+
+	* lib/autoconf/functions.m4 (AC_FUNC_ALLOCA, AC_FUNC_ERROR_AT_LINE)
+	(AC_FUNC_FSEEKO, AC_FUNC_OBSTACK): Use AC_LANG_IFELSE, not
+	AC_TRY_LINK.
+	* lib/autoconf/headers.m4 (AC_HEADER_MAJOR): Likewise.
+	* lib/autoconf/fortran.m4 (_AC_LANG_PROGRAM_C_F77_HOOKS)
+	(AC_F77_MAIN): Likewise.
+
+2001-08-04  Akim Demaille  <akim@epita.fr>
+
+	Don't rely on M4sugar outputting the patterns in files, since we
+	might process the output _without_ running m4, hence without these
+	files.
+
+	* lib/m4sugar/m4sugar.m4 (m4_init): No need for `m4_tmpdir'.
+	* bin/autom4te.in (@Request::includes): Remove, unused.
+	(@Request::source): Rename as...
+	(@Request::input): this.
+	(@preselect): Add `m4_pattern_forbid' and `m4_pattern_allow'.
+	(&handle_output): Fetch the patterns from the traces.
+	`$forbidden' and `$allowed' are constant: use m//o.
+	(&handle_m4): M4sugar no longer wants `m4_tmpdir'.
+	(m4_pattern_forbid, m4_pattern_allow): Adjust for tracing only.
+
+2001-08-04  Akim Demaille  <akim@epita.fr>
+
+	`autoconf && autoheader' is sped up.  Now, speed up `autoheader &&
+	autoconf', i.e., in addition to caching traces, cache the output.
+
+	* bin/autom4te.in (Request::cache): Rename as...
+	(Request::id): this.
+	($cache, $icache, $tcache, $ocache): New.
+	(&handle_m4): Save M4 output in the cache instead of $tmp.
+	(&handle_output): Adjust.
+	(&up_to_date_p): Check that the output cache is up to date too.
+	(top level): Run `&handle_m4' iff force or the cache is invalid.
+	Run `&handle_output' if the output cache is more recent.
+
+2001-08-04  Akim Demaille  <akim@epita.fr>
+
+	* bin/autom4te.in ($force): New.
+	(&parse_args, &print_usage): -f, --force is a new option.
+	(&handle_output): CPP directives might have spaces after `#'.
+	(&parse_args): The first file only can be frozen.
+
+2001-08-04  Akim Demaille  <akim@epita.fr>
+
+	Don't let autom4te compute the `include' traces several times:
+	first check that the trace cache file is up to date, and then
+	compare its timestamp with that of the output.
+
+	* bin/autom4te.in, bin/autoupdate.in, bin/autoscan.in: Normalize
+	the preamble.  Don't require 5.005 as Autom4te::General does it,
+	and better yet (use `use', not `require'!).
+	* lib/Autom4te/Struct.pm: Rename the last occurrences of
+	Class::Struct as Autom4te::Struct.
+	* lib/Autom4te/General.pm (File::stat): Use it.
+	(&mtime): New, export it.
+	* bin/autom4te.in: Use it.
+	Declare `$req' is invalid if it is outdated.
+	Don't declare it valid before saving it if something went wrong.
+
+2001-08-04  Akim Demaille  <akim@epita.fr>
+
+	Autom4te shall not encode Autoconf data, and preselecting traces
+	must be proposed to the users.
+
+	* bin/autom4te.in (@required_trace): Remove.
+	(@preselect): New.
+	(&parse_args, &print_usage): -p, --preselect is a new option.
+	(&up_to_date_p): Adjust.
+	* bin/autoconf.in: Preselect some Autoconf macros.
+
+2001-08-04  Akim Demaille  <akim@epita.fr>
+
+	* tests/tools.at (autoconf --trace: user macros): Check traces on
+	macros invoked without arguments, and macros invoked with multiple
+	lines arguments.
+
+2001-08-03  Alexandre Duret-Lutz  <duret_g@epita.fr>
+
+	* bin/autom4te.in (handle_traces): Fix rewriting of traces without
+	arguments.
+
+2001-08-03  Akim Demaille  <akim@epita.fr>
+
+	* bin/autoconf.in ($@): Work around the usual sh bug.
+	From Nicolas Joly.
+
+2001-08-03  Akim Demaille  <akim@epita.fr>
+
+	Clean up the handling of the M4 builtins tracing exception.
+
+	* bin/autom4te.in (Request::request): Don't complete M4 builtins
+	trace requests.
+	(@m4_builtins): Rename as...
+	(@m4_builtin): this.
+	(%m4_builtin_alternate_name): New.
+	(&parse_args): Complete the trace requests with alternate names.
+	(&handle_traces): Hence no longer do it here.
+	(&trace_requests): Remove, unused.
+
+2001-08-03  Akim Demaille  <akim@epita.fr>
+
+	* doc/autoconf.texi (Redefined M4 Macros): Document m4_exit,
+	m4_if, and m4_wrap.
+
+2001-08-03  Akim Demaille  <akim@epita.fr>
+
+	* lib/m4sugar/m4sugar.m4 (m4_init): Also forbid `_m4_*' tokens.
+	(m4_divert_pop): Dump the whole diversion stack when a diversion
+	mismatch happens.
+	* bin/autom4te.in (&handle_output): Remember of the first
+	occurrence of a possibly undefined macro, not the last.
+	Complain about the possibly undefined macros in the same order as
+	the appear in the output.
+	* lib/autoconf/Makefile.am (autoconf.m4f): List its dependencies.
+	* tests/tools.at (autoconf: forbidden tokens, basic)
+	(autoconf: forbidden tokens, exceptions): No longer sort
+	autoconf's stderr, as it is now deterministic.
+	Check that `dnl' is caught.
+
+2001-08-01  Akim Demaille  <akim@epita.fr>
+
+	* configure.ac: Bump to 2.52c.
+
+2001-08-01  Akim Demaille  <akim@epita.fr>
+
+	Version 2.52b.
+
+	* lib/Autom4te/Makefile.am (perllibdir): s/Autoconf/Autom4te/.
+
+2001-08-01  Akim Demaille  <akim@epita.fr>
+
+	Version 2.52a.
+
+2001-08-01  Akim Demaille  <akim@epita.fr>
+
+	* lib/Autom4te/General.pm: Use `carp' and `croak', not `warn' and
+	`die'.
+	(&END): New.
+	* bin/autoconf.in, bin/autom4te.in, bin/autoupdate.in: Remove your
+	`END', as `Autom4te::General::END' will be triggered.
+	* bin/autoupdate.in, bin/autoscan.in: Improve error messages accuracy.
+	* bin/autoupdate.in (File::Compare, File::Copy): Use them instead of
+	system to run `mv', `rm', and `cmp'.
+
+2001-08-01  Akim Demaille  <akim@epita.fr>
+
+	* lib/Autom4te/General.pm (&unique): New.
+	* bin/autoscan.in (&output): Use it to issue trace requests once.
+
+2001-08-01  Akim Demaille  <akim@epita.fr>
+
+	* lib/Autom4te/General.pm: New.
+	* bin/autom4te.in (Autom4te::General): Use it.
+	($me, $tmp, $verbose, $debug, &mktmpdir, &verbose, &xsystem)
+	(&find_configure_ac, &find_slave): Remove.
+	* bin/autoscan.in: Likewise.
+	* bin/autoupdate.in: Likewise.
+
+2001-08-01  Akim Demaille  <akim@epita.fr>
+
+	* autoconf.in, autom4te.in, autoscan.in, ifnames.in,
+	* autoheader.in, autoreconf.in, autoupdate.in: Move to...
+	* bin: here, new directory.
+	* lib/Autoconf: Rename as...
+	* lib/Autom4te: this, to please case insensitive junkie OSes.
+
+2001-08-01  Akim Demaille  <akim@epita.fr>
+
+	* autom4te.in ($m4): Handle the --nesting-limit.
+	* autoconf.in (M4): Remove.
+
+2001-08-01  Akim Demaille  <akim@epita.fr>
+
+	* autoconf.in ($AWK): Remove, no longer used.
+	* test/tools.at: Use AT_CHECK_AUTOCONF.
+	(AWK portability): Remove, for autoconf no longer uses AWK.
+	(Syntax of the Perl scripts): New.
+	* configure.ac: autoconf no longer needs an AWK with a good
+	regexp engine.
+	Use a static test on AC_PACKAGE_VERSION.
+	* autom4te.in (&up_to_date_p): Output depends on the arguments.
+	* lib/autoconf/Makefile.am: Ship version.m4, maintainer file.
+	* tests/atconfig.in (PERL): New.
+
+2001-08-01  Akim Demaille  <akim@epita.fr>
+
+	* lib/autoconf/lang.m4 (AC_LANG(C), AC_LANG_C, _AC_LANG_ABBREV(C))
+	(AC_LANG(C++), AC_LANG_CPLUSPLUS, _AC_LANG_ABBREV(C++))
+	(AC_LANG_SOURCE(C), AC_LANG_PROGRAM(C), AC_LANG_CALL(C))
+	(AC_LANG_FUNC_LINK_TRY(C), AC_LANG_BOOL_COMPILE_TRY(C))
+	(AC_LANG_INT_SAVE(C), _AC_ARG_VAR_CPPFLAGS, _AC_ARG_VAR_LDFLAGS)
+	(AC_LANG_PREPROC(C), _AC_PROG_PREPROC_WORKS_IFELSE, AC_PROG_CPP)
+	(AC_LANG_COMPILER(C), ac_cv_prog_gcc, AC_PROG_CC, _AC_PROG_CC_G)
+	(AC_PROG_GCC_TRADITIONAL, AC_PROG_CC_C_O, AC_LANG_PREPROC(C++))
+	(AC_PROG_CXXCPP, AC_LANG_COMPILER(C++), ac_cv_prog_gxx)
+	(AC_PROG_CXX, _AC_PROG_CXX_G, _AC_PROG_CXX_EXIT_DECLARATION)
+	(AC_PROG_CC_STDC, AC_C_CROSS, AC_C_CHAR_UNSIGNED, AC_C_LONG_DOUBLE)
+	(AC_C_BIGENDIAN, AC_C_INLINE, AC_C_CONST, AC_C_VOLATILE)
+	(AC_C_STRINGIZE, AC_C_PROTOTYPES): Move to...
+	* lib/autoconf/c.m4: here, new file.
+
+	* lib/autoconf/lang.m4 (AC_LANG(Fortran 77), AC_LANG_FORTRAN77)
+	(_AC_LANG_ABBREV(Fortran 77), AC_LANG_SOURCE(Fortran 77))
+	(AC_LANG_PROGRAM(Fortran 77), AC_LANG_CALL(Fortran 77))
+	(AC_LANG_PREPROC(Fortran 77), AC_LANG_COMPILER(Fortran 77))
+	(ac_cv_prog_g77, AC_PROG_F77, _AC_PROG_F77_G, AC_PROG_F77_C_O)
+	(_AC_PROG_F77_V_OUTPUT, _AC_PROG_F77_V, AC_F77_LIBRARY_LDFLAGS)
+	(AC_F77_DUMMY_MAIN, _AC_LANG_PROGRAM_C_F77_HOOKS, AC_F77_MAIN)
+	(_AC_F77_NAME_MANGLING, AC_F77_NAME_MANGLING, AC_F77_WRAPPERS)
+	(AC_F77_FUNC): Move to...
+	* lib/autoconf/fortran.m4: here, new file.
+
+2001-08-01  Akim Demaille  <akim@epita.fr>
+
+	* acfunctions.m4: Rename as...
+	* lib/autoconf/functions.m4: this.
+	* acgeneral.m4: Rename as...
+	* lib/autoconf/general.m4: this.
+	* acheaders.m4: Rename as...
+	* lib/autoconf/headers.m4: this.
+	* aclang.m4: Rename as...
+	* lib/autoconf/lang.m4: this.
+	* acoldnames.m4: Rename as...
+	* lib/autoconf/oldnames.m4: this.
+	* acspecific.m4: Rename as...
+	* lib/autoconf/specific.m4: this.
+	* actypes.m4: Rename as...
+	* lib/autoconf/types.m4: this.
+	* autoconf.m4: Rename as...
+	* lib/autoconf/autoconf.m4: this.
+
+	* m4sugar.m4: Rename as...
+	* lib/m4sugar/m4sugar.m4: this.
+	* m4sh.m4: Rename as...
+	* lib/m4sugar/m4sh.m4: this.
+
+	* tests/atgeneral.m4: Rename as...
+	* lib/autotest/general.m4: this.
+
+	* acfunctions: Rename as...
+	* lib/autoscan/functions: this.
+	* acheaders: Rename as...
+	* lib/autoscan/headers: this.
+	* acidentifiers: Rename as...
+	* lib/autoscan/identifiers: this.
+	* aclibraries: Rename as...
+	* lib/autoscan/libraries: this.
+	* acmakevars: Rename as...
+	* lib/autoscan/makevars: this.
+	* acprograms: Rename as...
+	* lib/autoscan/programs: this.
+
+2001-08-01  Akim Demaille  <akim@epita.fr>
+
+	* doc/autoconf.texi: Moving/deleting open files is not portable.
+	Portability issues for `.' (source), and more information about sed.
+
+2001-07-25  Steven G. Johnson  <stevenj@alum.mit.edu>
+
+	* aclang.m4 (AC_F77_LIBRARY_LDFLAGS): Ignore -libmil (on Solaris),
+	which has a special meaning and is not a reference to libibmil.a.
+	Reported by Matteo Frigo.
+
+2001-07-25  Pavel Roskin  <proski@gnu.org>
+
+	* autom4te.in (mktmpdir): Strip trailing newline from mktemp
+	output.
+
+2001-07-25  Akim Demaille  <akim@epita.fr>
+
+	* autoconf.in: Try to define the variables before using them.
+	* autom4te.in ($perllibdir): Use `$autom4te_perllibdir' as envvar
+	instead of `$perllibdir'.
+	* tests/atconfig.in ($autom4te_perllibdir): Export it.
+
+2001-07-25  Akim Demaille  <akim@epita.fr>
+
+	* autoconf.in (ac_LF_and_DOT): Remove, unused.
+
+2001-07-24  Akim Demaille  <akim@epita.fr>
+
+	Let autoconf use autom4te for traces.
+
+	* autoconf.in ($task, task trace): Remove, merely pass --trace to
+	autom4te.
+	* autoheader.in: Don't pass `-' to autoconf, rather, a tmp file.
+	(Because I found no way for autom4te to accept `-').
+	* autom4te.in (&Request::request): Beware of M4 builtins.
+	(END): Don't try to remove the content of an empty dir.
+	(&parse_args): Default is `$f:$l:$n:$%', not `$f:$l:$n:$*'.
+	(&handle_output): Set a default value to `$forbidden'.
+	* autoupdate.in (&verbose, &xsystem): New, from autom4te.in.
+	($autoconf): Pass --debug and --verbose.
+	* tests/atspecific.m4 (AT_CHECK_AUTOCONF): Clean up autom4te's
+	cache.
+
+2001-07-24  Akim Demaille  <akim@epita.fr>
+
+	Let autoconf use autom4te to create configure.
+
+	* autoconf.in ($automate): New var.
+	(task script): Use autom4te.
+	* autom4te.in (File::Spec): Use it.
+	(&find_file): New.
+	(&parse_args): --warning is -W, not -w.
+	Find the top level files.
+	(&handle_m4): Pass the warnings flags.
+	Don't report verbosely m4's failures, unless requested.
+	(&handle_output): Don't complain for forbidden tokens in comments.
+	Be sure to report all the forbidden tokens within a single line.
+	(&trace_format_to_m4): Preserve `$_'.
+	(&handle_traces): Sort the output macros.
+	(&up_to_date_p): Find the files before trying to get its time stamp.
+
+2001-07-24  Akim Demaille  <akim@epita.fr>
+
+	* Makefile.am: Ship, build and install Autom4te.
+	(SUBDIRS): Add lib.
+	* lib/Autoconf/Struct.pm: New, from Automake 1.5.
+	* configure.in: Require Perl.
+	* man/autom4te.in: New.
+
+2001-07-19  Paul Eggert  <eggert@twinsun.com>
+
+	* doc/autoconf.texi (Cache Checkpointing): Use AC_MSG_ERROR in
+	example, rather than (exit 1); exit (which isn't portable).
+
 2001-07-18  Akim Demaille  <akim@epita.fr>
 
 	Version 2.52.
@@ -317,7 +4858,6 @@
 
 	* autoconf.in (Task traces): Separate the error messages from the
 	traces to improve robustness.
-
 
 2001-06-23  Akim Demaille  <akim@epita.fr>
 
@@ -759,3 +5299,24 @@
 2001-05-21  Akim Demaille  <akim@epita.fr>
 
 	* configure.in: Bump to 2.50a.
+
+-----
+
+Copyright (C) 2001, 2002 Free Software Foundation, Inc.
+
+This file is part of GNU Autoconf.
+
+GNU Autoconf is free software; you can redistribute it and/or modify
+it under the terms of the GNU General Public License as published by
+the Free Software Foundation; either version 2, or (at your option)
+any later version.
+
+GNU Autoconf is distributed in the hope that it will be useful,
+but WITHOUT ANY WARRANTY; without even the implied warranty of
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+GNU General Public License for more details.
+
+You should have received a copy of the GNU General Public License
+along with autoconf; see the file COPYING.  If not, write to
+the Free Software Foundation, Inc., 59 Temple Place - Suite 330,
+Boston, MA 02111-1307, USA.

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1998-2000 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 1998-2003 Apple Computer, Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -210,6 +210,22 @@ protected:
                                                      UInt32       partitionID,
                                                      UInt32       fdiskBlock );
 
+    /*
+     * Attach the given media object to the device tree plane.
+     */
+
+    virtual bool attachMediaObjectToDeviceTree(IOMedia * media);
+
+    OSMetaClassDeclareReservedUsed(IOFDiskPartitionScheme, 0); /* 10.3.0 */
+
+    /*
+     * Detach the given media object from the device tree plane.
+     */
+
+    virtual void detachMediaObjectFromDeviceTree(IOMedia * media);
+
+    OSMetaClassDeclareReservedUsed(IOFDiskPartitionScheme, 1); /* 10.3.0 */
+
 public:
 
     /*
@@ -230,8 +246,12 @@ public:
 
     virtual bool start(IOService * provider);
 
-    OSMetaClassDeclareReservedUnused(IOFDiskPartitionScheme,  0);
-    OSMetaClassDeclareReservedUnused(IOFDiskPartitionScheme,  1);
+    /*
+     * Clean up after the media objects we published before terminating.
+     */
+
+    virtual void stop(IOService * provider);
+
     OSMetaClassDeclareReservedUnused(IOFDiskPartitionScheme,  2);
     OSMetaClassDeclareReservedUnused(IOFDiskPartitionScheme,  3);
     OSMetaClassDeclareReservedUnused(IOFDiskPartitionScheme,  4);

@@ -3,21 +3,22 @@
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
- * Portions Copyright (c) 1999 Apple Computer, Inc.  All Rights
- * Reserved.  This file contains Original Code and/or Modifications of
- * Original Code as defined in and that are subject to the Apple Public
- * Source License Version 1.1 (the "License").  You may not use this file
- * except in compliance with the License.  Please obtain a copy of the
- * License at http://www.apple.com/publicsource and read it before using
- * this file.
+ * Copyright (c) 1999-2003 Apple Computer, Inc.  All Rights Reserved.
+ * 
+ * This file contains Original Code and/or Modifications of Original Code
+ * as defined in and that are subject to the Apple Public Source License
+ * Version 2.0 (the 'License'). You may not use this file except in
+ * compliance with the License. Please obtain a copy of the License at
+ * http://www.opensource.apple.com/apsl/ and read it before using this
+ * file.
  * 
  * The Original Code and all software distributed under the License are
- * distributed on an "AS IS" basis, WITHOUT WARRANTY OF ANY KIND, EITHER
+ * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
  * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
  * INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY,
- * FITNESS FOR A PARTICULAR PURPOSE OR NON- INFRINGEMENT.  Please see the
- * License for the specific language governing rights and limitations
- * under the License.
+ * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
+ * Please see the License for the specific language governing rights and
+ * limitations under the License.
  * 
  * @APPLE_LICENSE_HEADER_END@
  */
@@ -85,42 +86,13 @@ void enableA20()
 
     /* write output port */
     outb(PORT_B, CMD_WOUT);
+    delay(100);
 
     /* wait until command is accepted */
     while (inb(PORT_B) & KB_INFULL);
 
     outb(PORT_A, KB_A20);
+    delay(100);
 
     while (inb(PORT_B) & KB_INFULL);   /* wait until done */
-}
-
-void sleep(int n)
-{
-    int endtime = (time18() + 18*n);
-    while (time18() < endtime);
-}
-
-void turnOffFloppy(void)
-{
-    /*
-     * Disable floppy:
-     * Hold controller in reset,
-     * disable DMA and IRQ,
-     * turn off floppy motors.
-     */
-    outb(0x3F2, 0x00);
-}
-
-char * newString(const char * oldString)
-{
-    if ( oldString )
-        return strcpy(malloc(strlen(oldString)+1), oldString);
-    else
-        return NULL;
-}
-
-void stop(const char * msg)
-{
-    error("\n%s\n", msg);
-    halt();
 }

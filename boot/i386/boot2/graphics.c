@@ -3,21 +3,22 @@
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
- * Portions Copyright (c) 1999 Apple Computer, Inc.  All Rights
- * Reserved.  This file contains Original Code and/or Modifications of
- * Original Code as defined in and that are subject to the Apple Public
- * Source License Version 1.1 (the "License").  You may not use this file
- * except in compliance with the License.  Please obtain a copy of the
- * License at http://www.apple.com/publicsource and read it before using
- * this file.
+ * Copyright (c) 1999-2003 Apple Computer, Inc.  All Rights Reserved.
+ * 
+ * This file contains Original Code and/or Modifications of Original Code
+ * as defined in and that are subject to the Apple Public Source License
+ * Version 2.0 (the 'License'). You may not use this file except in
+ * compliance with the License. Please obtain a copy of the License at
+ * http://www.opensource.apple.com/apsl/ and read it before using this
+ * file.
  * 
  * The Original Code and all software distributed under the License are
- * distributed on an "AS IS" basis, WITHOUT WARRANTY OF ANY KIND, EITHER
+ * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
  * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
  * INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY,
- * FITNESS FOR A PARTICULAR PURPOSE OR NON- INFRINGEMENT.  Please see the
- * License for the specific language governing rights and limitations
- * under the License.
+ * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
+ * Please see the License for the specific language governing rights and
+ * limitations under the License.
  * 
  * @APPLE_LICENSE_HEADER_END@
  */
@@ -29,7 +30,8 @@
 #include "boot.h"
 #include "vbe.h"
 #include "appleClut8.h"
-#include "happy_screen.h"
+#include "appleboot.h"
+#include "bootstruct.h"
 
 /*
  * for spinning disk
@@ -51,7 +53,7 @@ static void drawDataRectangle( unsigned short  x,
                                unsigned short  height,
                                unsigned char * data );
 
-#define VIDEO(x) (kernBootStruct->video.v_ ## x)
+#define VIDEO(x) (bootArgs->video.v_ ## x)
 
 
 //==========================================================================
@@ -95,11 +97,12 @@ getVESAModeWithProperties( unsigned short     width,
                            unsigned char      bitsPerPixel,
                            unsigned short     attributesSet,
                            unsigned short     attributesClear,
-                           VBEModeInfoBlock * outModeInfo )
+                           VBEModeInfoBlock * outModeInfo,
+                           unsigned short *   vesaVersion )
 {
     VBEInfoBlock     vbeInfo;
     unsigned short * modePtr;
-	VBEModeInfoBlock modeInfo;
+    VBEModeInfoBlock modeInfo;
     unsigned char    modeBitsPerPixel;
     unsigned short   matchedMode = modeEndOfList;
     int              err;
@@ -116,6 +119,10 @@ getVESAModeWithProperties( unsigned short     width,
     {
         return modeEndOfList;
     }
+
+    // Report the VESA major/minor version number.
+
+    if (vesaVersion) *vesaVersion = vbeInfo.VESAVersion;
 
     // Loop through the mode list, and find the matching mode.
 
@@ -199,16 +206,23 @@ getVESAModeWithProperties( unsigned short     width,
             break;
         }
 
-        // Save the next "best" mode in case a perfect match
-        // is not found.
+        // Save the next "best" mode in case a perfect match is not found.
 
-        if ( ( modeInfo.XResolution >= outModeInfo->XResolution  ) &&
-             ( modeInfo.YResolution >= outModeInfo->YResolution  ) &&
-             ( modeBitsPerPixel     >= outModeInfo->BitsPerPixel ) )
+        if ( modeInfo.XResolution == outModeInfo->XResolution &&
+             modeInfo.YResolution == outModeInfo->YResolution &&
+             modeBitsPerPixel     <= outModeInfo->BitsPerPixel )
         {
-            matchedMode = *modePtr;
-            bcopy( &modeInfo, outModeInfo, sizeof(modeInfo) );
+            continue;  // Saved mode has more depth.
         }
+        if ( modeInfo.XResolution < outModeInfo->XResolution ||
+             modeInfo.YResolution < outModeInfo->YResolution ||
+             modeBitsPerPixel     < 16 )
+        {
+            continue;  // Saved mode has more resolution.
+        }
+
+        matchedMode = *modePtr;
+        bcopy( &modeInfo, outModeInfo, sizeof(modeInfo) );
     }
 
     return matchedMode;
@@ -232,15 +246,42 @@ static void setupPalette( VBEPalette * p, const unsigned char * g )
 }
 
 //==========================================================================
+// Simple decompressor for boot images encoded in RLE format.
+
+static char * decodeRLE( const void * rleData, int rleBlocks, int outBytes )
+{
+    char *out, *cp;
+
+    struct RLEBlock {
+        unsigned char count;
+        unsigned char value;
+    } * bp = (struct RLEBlock *) rleData;
+
+    out = cp = (char *) malloc( outBytes );
+    if ( out == NULL ) return NULL;
+
+    while ( rleBlocks-- )
+    {
+        memset( cp, bp->value, bp->count );
+        cp += bp->count;
+        bp++;
+    }
+
+    return out;
+}
+
+//==========================================================================
 // setVESAGraphicsMode
 
 static int
 setVESAGraphicsMode( unsigned short width,
                      unsigned short height,
-                     unsigned char  bitsPerPixel )
+                     unsigned char  bitsPerPixel,
+                     unsigned short refreshRate )
 {
     VBEModeInfoBlock  minfo;
     unsigned short    mode;
+    unsigned short    vesaVersion;
     int               err = errFuncNotSupported;
 
     do {
@@ -250,15 +291,44 @@ setVESAGraphicsMode( unsigned short width,
                                           maGraphicsModeBit          |
                                           maLinearFrameBufferAvailBit,
                                           0,
-                                          &minfo );
+                                          &minfo, &vesaVersion );
         if ( mode == modeEndOfList )
         {
             break;
         }
 
-        // Set the mode.
+        if ( (vesaVersion >> 8) >= 3 && refreshRate >= 60 &&
+             (gBootMode & kBootModeSafe) == 0 )
+        {
+            VBECRTCInfoBlock timing;
+    
+            // Generate CRTC timing for given refresh rate.
 
-        err = setVBEMode( mode | kLinearFrameBufferBit );
+            generateCRTCTiming( minfo.XResolution, minfo.YResolution,
+                                refreshRate, kCRTCParamRefreshRate,
+                                &timing );
+
+            // Find the actual pixel clock supported by the hardware.
+
+            getVBEPixelClock( mode, &timing.PixelClock );
+
+            // Re-compute CRTC timing based on actual pixel clock.
+
+            generateCRTCTiming( minfo.XResolution, minfo.YResolution,
+                                timing.PixelClock, kCRTCParamPixelClock,
+                                &timing );
+
+            // Set the video mode and use specified CRTC timing.
+
+            err = setVBEMode( mode | kLinearFrameBufferBit |
+                              kCustomRefreshRateBit, &timing );
+        }
+        else
+        {
+            // Set the mode with default refresh rate.
+
+            err = setVBEMode( mode | kLinearFrameBufferBit, NULL );
+        }
         if ( err != errSuccess )
         {
             break;
@@ -286,58 +356,100 @@ setVESAGraphicsMode( unsigned short width,
         // Update KernBootStruct using info provided by the selected
         // VESA mode.
 
-        kernBootStruct->graphicsMode     = GRAPHICS_MODE;
-        kernBootStruct->video.v_width    = minfo.XResolution;
-        kernBootStruct->video.v_height   = minfo.YResolution;
-        kernBootStruct->video.v_depth    = minfo.BitsPerPixel;
-        kernBootStruct->video.v_rowBytes = minfo.BytesPerScanline;
-        kernBootStruct->video.v_baseAddr = VBEMakeUInt32(minfo.PhysBasePtr);
+        bootArgs->graphicsMode     = GRAPHICS_MODE;
+        bootArgs->video.v_width    = minfo.XResolution;
+        bootArgs->video.v_height   = minfo.YResolution;
+        bootArgs->video.v_depth    = minfo.BitsPerPixel;
+        bootArgs->video.v_rowBytes = minfo.BytesPerScanline;
+        bootArgs->video.v_baseAddr = VBEMakeUInt32(minfo.PhysBasePtr);
     }
     while ( 0 );
 
-    if ( err == errSuccess )
-    {
-        char  * happyScreen;
-        short * happyScreen16;
-        long  * happyScreen32;
-        long    cnt, x, y;
-  
-        // Fill the background to white (same as BootX).
+    return err;
+}
+
+//==========================================================================
+// drawBootGraphics
+
+static int
+drawBootGraphics( unsigned short width,
+                  unsigned short height,
+                  unsigned char  bitsPerPixel,
+                  unsigned short refreshRate )
+{
+    VBEModeInfoBlock  minfo;
+    unsigned short    mode;
+    unsigned short    vesaVersion;
+    int               err = errFuncNotSupported;
+
+    char  * appleBoot = 0;
+    short * appleBoot16;
+    long  * appleBoot32;
+    long    cnt, x, y;
+    char  * appleBootPict;
+
+    do {
+        mode = getVESAModeWithProperties( width, height, bitsPerPixel,
+                                          maColorModeBit             |
+                                          maModeIsSupportedBit       |
+                                          maGraphicsModeBit          |
+                                          maLinearFrameBufferAvailBit,
+                                          0,
+                                          &minfo, &vesaVersion );
+        if ( mode == modeEndOfList )
+        {
+            break;
+        }
+
+        // Fill the background to 75% grey (same as BootX).
 
         drawColorRectangle( 0, 0, minfo.XResolution, minfo.YResolution,
-                            0x00 /* color index */ );
+                            0x01 /* color index */ );
+
+        appleBootPict = decodeRLE( gAppleBootPictRLE, kAppleBootRLEBlocks,
+                                   kAppleBootWidth * kAppleBootHeight );
 
         // Prepare the data for the happy mac.
 
-        switch ( VIDEO(depth) )
+        if ( appleBootPict )
         {
-            case 16 :
-                happyScreen16 = malloc(kHappyScreenWidth * kHappyScreenHeight * 2);
-                for (cnt = 0; cnt < (kHappyScreenWidth * kHappyScreenHeight); cnt++)
-                    happyScreen16[cnt] = lookUpCLUTIndex(gHappyScreenPict[cnt], 16);
-                happyScreen = (char *) happyScreen16;
-                break;
+            switch ( VIDEO(depth) )
+            {
+                case 16 :
+                    appleBoot16 = malloc(kAppleBootWidth * kAppleBootHeight * 2);
+                    if ( !appleBoot16 ) break;
+                    for (cnt = 0; cnt < (kAppleBootWidth * kAppleBootHeight); cnt++)
+                        appleBoot16[cnt] = lookUpCLUTIndex(appleBootPict[cnt], 16);
+                    appleBoot = (char *) appleBoot16;
+                    break;
+    
+                case 32 :
+                    appleBoot32 = malloc(kAppleBootWidth * kAppleBootHeight * 4);
+                    if ( !appleBoot32 ) break;
+                    for (cnt = 0; cnt < (kAppleBootWidth * kAppleBootHeight); cnt++)
+                        appleBoot32[cnt] = lookUpCLUTIndex(appleBootPict[cnt], 32);
+                    appleBoot = (char *) appleBoot32;
+                    break;
+    
+                default :
+                    appleBoot = (char *) appleBootPict;
+                    break;
+            }
 
-            case 32 :
-                happyScreen32 = malloc(kHappyScreenWidth * kHappyScreenHeight * 4);
-                for (cnt = 0; cnt < (kHappyScreenWidth * kHappyScreenHeight); cnt++)
-                    happyScreen32[cnt] = lookUpCLUTIndex(gHappyScreenPict[cnt], 32);
-                happyScreen = (char *) happyScreen32;
-                break;
+            x = ( VIDEO(width) - kAppleBootWidth ) / 2;
+            y = ( VIDEO(height) - kAppleBootHeight ) / 2 + kAppleBootOffset;
+    
+            // Draw the happy mac in the center of the display.
+            
+            if ( appleBoot )
+            {
+                drawDataRectangle( x, y, kAppleBootWidth, kAppleBootHeight,
+                                   appleBoot );
+            }
 
-            default :
-                happyScreen = (char *) gHappyScreenPict;
-                break;
+            free( appleBootPict );
         }
-
-        x = ( VIDEO(width) - kHappyScreenWidth ) / 2;
-        y = ( VIDEO(height) - kHappyScreenHeight ) / 2 + kHappyScreenOffset;
-
-        // Draw the happy mac in the center of the display.
-
-        drawDataRectangle( x, y, kHappyScreenWidth, kHappyScreenHeight,
-                           happyScreen );
-	}
+    } while (0);
 
     return err;
 }
@@ -348,13 +460,13 @@ setVESAGraphicsMode( unsigned short width,
 static unsigned long lookUpCLUTIndex( unsigned char index,
                                       unsigned char depth )
 {
-	long result, red, green, blue;
+    long result, red, green, blue;
   
-	red   = appleClut8[index * 3 + 0];
-	green = appleClut8[index * 3 + 1];
-	blue  = appleClut8[index * 3 + 2];
+    red   = appleClut8[index * 3 + 0];
+    green = appleClut8[index * 3 + 1];
+    blue  = appleClut8[index * 3 + 2];
 
-	switch (depth) {
+    switch (depth) {
         case 16 :
             result = ((red   & 0xF8) << 7) | 
                      ((green & 0xF8) << 2) |
@@ -372,7 +484,7 @@ static unsigned long lookUpCLUTIndex( unsigned char index,
             break;
     }
 
-	return result;
+    return result;
 }
 
 //==========================================================================
@@ -449,10 +561,10 @@ setVESATextMode( unsigned short cols,
                                           maColorModeBit |
                                           maModeIsSupportedBit,
                                           maGraphicsModeBit,
-                                          &minfo );
+                                          &minfo, NULL );
     }
 
-    if ( ( mode == modeEndOfList ) || ( setVBEMode(mode) != errSuccess ) )
+    if ( ( mode == modeEndOfList ) || ( setVBEMode(mode, NULL) != errSuccess ) )
     {
         video_mode( 2 );  // VGA BIOS, 80x25 text mode.
         minfo.XResolution = 80;
@@ -462,12 +574,12 @@ setVESATextMode( unsigned short cols,
     // Update KernBootStruct using info provided by the selected
     // VESA mode.
 
-    kernBootStruct->graphicsMode     = TEXT_MODE;
-    kernBootStruct->video.v_baseAddr = 0xb8000;
-    kernBootStruct->video.v_width    = minfo.XResolution;
-    kernBootStruct->video.v_height   = minfo.YResolution;
-    kernBootStruct->video.v_depth    = 8;
-    kernBootStruct->video.v_rowBytes = 0x8000;
+    bootArgs->graphicsMode     = TEXT_MODE;
+    bootArgs->video.v_baseAddr = 0xb8000;
+    bootArgs->video.v_width    = minfo.XResolution;
+    bootArgs->video.v_height   = minfo.YResolution;
+    bootArgs->video.v_depth    = 8;
+    bootArgs->video.v_rowBytes = 0x8000;
 
     return errSuccess;  // always return success
 }
@@ -480,8 +592,8 @@ getNumberArrayFromProperty( const char *  propKey,
                             unsigned long numbers[],
                             unsigned long maxArrayCount )
 {
-	char * propStr;
-    int    count = 0;
+    char * propStr;
+    unsigned long    count = 0;
 
 #define _isdigit(c) ((c) >= '0' && (c) <= '9')
 
@@ -489,17 +601,18 @@ getNumberArrayFromProperty( const char *  propKey,
     if ( propStr )
     {
         char * delimiter = propStr;
+        char * p = propStr;
 
-        while ( count < maxArrayCount && *propStr != '\0' )
+        while ( count < maxArrayCount && *p != '\0' )
         {
-            unsigned long val = strtoul( propStr, &delimiter, 10 );
-            if ( propStr != delimiter )
+            unsigned long val = strtoul( p, &delimiter, 10 );
+            if ( p != delimiter )
             {
                 numbers[count++] = val;
-                propStr = delimiter;
+                p = delimiter;
             }
-            while ( ( *propStr != '\0' ) && !_isdigit(*propStr) )
-                propStr++;
+            while ( ( *p != '\0' ) && !_isdigit(*p) )
+                p++;
         }
 
         free( propStr );
@@ -516,13 +629,14 @@ getNumberArrayFromProperty( const char *  propKey,
 void
 setVideoMode( int mode )
 {
-    unsigned long params[3];
+    unsigned long params[4];
     int           count;
     int           err = errSuccess;
 
     if ( mode == GRAPHICS_MODE )
     {
-        count = getNumberArrayFromProperty( kGraphicsModeKey, params, 3 );
+        params[3] = 0;
+        count = getNumberArrayFromProperty( kGraphicsModeKey, params, 4 );
         if ( count < 3 )
         {
             params[0] = 1024;  // Default graphics mode is 1024x768x16.
@@ -536,14 +650,18 @@ setVideoMode( int mode )
         if ( params[2] == 555 ) params[2] = 16;
         if ( params[2] == 888 ) params[2] = 32;
 
-        err = setVESAGraphicsMode( params[0], params[1], params[2] );
+        err = setVESAGraphicsMode( params[0], params[1], params[2], params[3] );
         if ( err == errSuccess )
         {
             // If this boolean is set to true, then the console driver
             // in the kernel will show the animated color wheel on the
             // upper left corner.
 
-            kernBootStruct->video.v_display = !gVerboseMode;
+            bootArgs->video.v_display = !gVerboseMode;
+            
+            if (!gVerboseMode) {
+                drawBootGraphics( params[0], params[1], params[2], params[3] );
+            }
         }
     }
 
@@ -557,10 +675,10 @@ setVideoMode( int mode )
         }
 
         setVESATextMode( params[0], params[1], 4 );
-        kernBootStruct->video.v_display = 0;
+        bootArgs->video.v_display = 0;
     }
 
-	currentIndicator = 0;
+    currentIndicator = 0;
 }
 
 //==========================================================================
@@ -568,7 +686,7 @@ setVideoMode( int mode )
 
 int getVideoMode(void)
 {
-    return kernBootStruct->graphicsMode;
+    return bootArgs->graphicsMode;
 }
 
 //==========================================================================
@@ -591,7 +709,7 @@ spinActivityIndicator( void )
         return;
     else
         lastTickTime = currentTickTime;
-	
+
     if ( getVideoMode() == TEXT_MODE )
     {
         string[0] = indicator[currentIndicator];

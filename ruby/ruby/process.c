@@ -2,8 +2,8 @@
 
   process.c -
 
-  $Author: jkh $
-  $Date: 2002/05/27 17:59:44 $
+  $Author: melville $
+  $Date: 2003/05/14 13:58:44 $
   created at: Tue Aug 10 14:30:50 JST 1993
 
   Copyright (C) 1993-2000 Yukihiro Matsumoto
@@ -843,6 +843,7 @@ proc_getpgid(obj, pid)
     int i;
 
     i = getpgid(NUM2INT(pid));
+    if (i < 0) rb_sys_fail(0);
     return INT2NUM(i);
 #else
     rb_notimplement();
@@ -940,6 +941,7 @@ proc_setpriority(obj, which, who, prio)
 #else
     rb_notimplement();
 #endif
+    return INT2FIX(0);
 }
 
 static VALUE

@@ -1,3 +1,27 @@
+/*
+ * Copyright (c) 2003 Apple Computer, Inc. All rights reserved.
+ *
+ * @APPLE_LICENSE_HEADER_START@
+ * 
+ * Copyright (c) 1999-2003 Apple Computer, Inc.  All Rights Reserved.
+ * 
+ * This file contains Original Code and/or Modifications of Original Code
+ * as defined in and that are subject to the Apple Public Source License
+ * Version 2.0 (the 'License'). You may not use this file except in
+ * compliance with the License. Please obtain a copy of the License at
+ * http://www.opensource.apple.com/apsl/ and read it before using this
+ * file.
+ * 
+ * The Original Code and all software distributed under the License are
+ * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
+ * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
+ * INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY,
+ * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
+ * Please see the License for the specific language governing rights and
+ * limitations under the License.
+ * 
+ * @APPLE_LICENSE_HEADER_END@
+ */
 
 /*
  * mslplib_net.c : Minimal SLP v2 User Agent network functions implementation.
@@ -25,6 +49,9 @@
  * (c) Sun Microsystems, 1998, All Rights Reserved.
  * Author: Erik Guttman
  */
+ /*
+	Portions Copyright (c) 2002 Apple Computer, Inc. All rights reserved.
+ */
 
 #include <stdio.h>
 #include <string.h>
@@ -37,10 +64,6 @@
 #include "mslp.h"
 #include "mslp_dat.h"
 #include "mslplib.h"
-
-#ifndef NDEBUG
-//static char errbuf[120];
-#endif /* NDEBUG */
 
 static SLPBoolean time_remaining(long lTimeStart, time_t tMaxwait, 
   long *plWaits, int *piSend, int iNumSent, struct timeval *ptv);
@@ -55,11 +78,12 @@ static SLPBoolean time_remaining(long lTimeStart, time_t tMaxwait,
 SLPInternalError  mslplib_init_network(SOCKET *psdUDP, SOCKET *psdTCP, SOCKET *psdMax)
 {
     int iErr;
-    unsigned char ttl;
+    unsigned char ttl = 255;
     u_char	loop = 1;	// enable
     char*	endPtr = NULL;
 	
-    ttl = (unsigned char) strtol(SLPGetProperty("net.slp.multicastTTL"),&endPtr,10);
+    if ( SLPGetProperty("net.slp.multicastTTL") )
+		ttl = (unsigned char) strtol(SLPGetProperty("net.slp.multicastTTL"),&endPtr,10);
     
     if (OPEN_NETWORKING() < 0) return SLP_NETWORK_INIT_FAILED;
     
@@ -75,7 +99,6 @@ SLPInternalError  mslplib_init_network(SOCKET *psdUDP, SOCKET *psdTCP, SOCKET *p
     iErr = setsockopt(*psdUDP, IPPROTO_IP, IP_MULTICAST_TTL, (char*)&ttl, sizeof(ttl));
     if (iErr < 0)
         mslplog(SLP_LOG_DEBUG,"mslplib_init_network: Could not set multicast TTL",strerror(errno));
-        //LOG(SLP_LOG_ERR,"mslplib_init_network: Could not set multicast TTL");
     
     iErr = setsockopt( *psdUDP, IPPROTO_IP, IP_MULTICAST_LOOP, &loop, sizeof(loop) );
     
@@ -245,7 +268,7 @@ SLPInternalError get_tcp_result(const char *pcSendBuf, int iSendSz, struct socka
     
     *piInSz = GETLEN(pcHeader);
     *ppcInBuf = safe_malloc(*piInSz,pcHeader,HDRLEN);
-    assert( *ppcInBuf );
+    if( !*ppcInBuf ) return SLP_NETWORK_ERROR;
     
     if ((iResult = readn(sd,&(*ppcInBuf)[HDRLEN],(*piInSz)-HDRLEN)) < 0) 
     {
@@ -347,7 +370,7 @@ SLPInternalError get_unicast_result(
     return SLP_NETWORK_TIMED_OUT;
 }
 
-#define NUM_SECS_BETWEEN_REQUESTS 3
+#define NUM_SECS_BETWEEN_REQUESTS 5
 #define INTERVALS 15
 /*
  * get_converge_result
@@ -388,7 +411,6 @@ SLPInternalError get_converge_result(
 {
     int iLast = 0;         /* The client callback may set this and cause  */
                     /* the multicast convergence sequence to stop. */
-    int					got = 0;
     int					loop = 0;
     int					sendit=0,numsent=0;
     int					result;            /* for testing results of system calls      */
@@ -407,9 +429,9 @@ SLPInternalError get_converge_result(
     long				tMaxWaitSecs = tMaxwait/1000;
     char				errbuf[120];
 	char*				endPtr = NULL;
+	bool				prListMaxedOut = false;
 	
     divResult = div(tMaxwait,NUM_SECS_BETWEEN_REQUESTS*1000);		// figure out how many intervals
-//    divResult = div(NUM_SECS_BETWEEN_REQUESTS,tMaxwait);		// figure out how many intervals
     
     if ( divResult.quot > INTERVALS )
         numIntervals = INTERVALS;
@@ -441,9 +463,12 @@ SLPInternalError get_converge_result(
     FD_SET(sd,&allset);
     
     pthread_mutex_lock( &gMulticastTTLLock );
-	unsigned char	defaultTTL = (unsigned char) strtol(SLPGetProperty("net.slp.multicastTTL"), &endPtr, 10);
+	unsigned char	defaultTTL = 255;
 	char			temp[16] = {0};
 	
+	if (SLPGetProperty("net.slp.multicastTTL"))
+		defaultTTL = (unsigned char) strtol(SLPGetProperty("net.slp.multicastTTL"), &endPtr, 10);
+		
 	sprintf( temp, "%d", ttl );
 	SLPSetProperty("net.slp.multicastTTL",temp);
 	sprintf( temp, "%d", defaultTTL );
@@ -465,23 +490,32 @@ SLPInternalError get_converge_result(
         {
             /* signal the calling application that we have timed out */
             iLast = SLP_TRUE;
-//            err=process_reply(NULL, NULL, 0, &iLast, pvUser,hSLP,pvCallback,cbt);
 
             break; /* no time left */
         }
 
-        if (sendit) /* only send stuff when we are crossing 'intervals' */
+        if (sendit && !prListMaxedOut) /* only send stuff when we are crossing 'intervals' */
         {
             if (   (pcPRList != NULL && pcPrevPRList == NULL)
-                || (pcPRList != NULL && pcPrevPRList != NULL && SDstrcasecmp(pcPRList,pcPrevPRList) ) )
+					|| (pcPRList != NULL && pcPrevPRList != NULL && SDstrcasecmp(pcPRList,pcPrevPRList) ) )
             {
 
                 /* only recalc the buffer after a sequence of receives */
                 char*	endPtr = NULL;
-				recalc_sendBuf(pcSendBuf,strtol(SLPGetProperty("net.slp.MTU"),&endPtr,10),pcPRList);
-                SLPFree(pcPrevPRList);
-                pcPrevPRList = safe_malloc(strlen(pcPRList)+1,pcPRList,strlen(pcPRList));
-                iSendSz = GETLEN(pcSendBuf); /* the length of the buffer to send */
+				int		mtu = 1400;
+				
+				if ( SLPGetProperty("net.slp.MTU") )
+					mtu = strtol(SLPGetProperty("net.slp.MTU"),&endPtr,10);
+				
+				if ( recalc_sendBuf(pcSendBuf,mtu,pcPRList) == 0 )
+				{
+					SLPFree(pcPrevPRList);
+					pcPrevPRList = safe_malloc(strlen(pcPRList)+1,pcPRList,strlen(pcPRList));
+				}
+				else
+					prListMaxedOut = true;
+					
+				iSendSz = GETLEN(pcSendBuf); /* the length of the buffer to send */
             }
 
             numsent++; /* count the number of times sent to find the right delay */
@@ -499,7 +533,6 @@ SLPInternalError get_converge_result(
             if (sendto(sd, pcSendBuf, iSendSz, 0, (struct sockaddr*) &sin, sizeof(struct sockaddr_in)) < 0)
             {
                 mslplog(SLP_LOG_DROP,"get_converge_result: multicast sendto",strerror(errno));
-//                mslplog(SLP_LOG_ERR,"get_converge_result: multicast sendto",strerror(errno));
                 err = SLP_NETWORK_ERROR;
                 break;
             }
@@ -533,7 +566,6 @@ SLPInternalError get_converge_result(
 
                 /* signal the calling application that we have timed out */
                 iLast = SLP_TRUE;
-//                err=process_reply(NULL, NULL, 0, &iLast, pvUser,hSLP,pvCallback,cbt);
 
                 break;
             }
@@ -600,11 +632,10 @@ SLPInternalError get_converge_result(
             {
                 break;
             }
-            else if (err == SLP_OK)
+            else if (err == SLP_OK && !prListMaxedOut)
             {
-                got++;
-                /* on a successful receive and process reply, add to PR list */
-                prlist_modify(&pcPRList,insin);
+				/* on a successful receive and process reply, add to PR list */
+				prlist_modify(&pcPRList,insin);
             }
             else if ( err == SLP_REPLY_DOESNT_MATCH_REQUEST )
             {
@@ -690,7 +721,7 @@ static SLPBoolean time_remaining(long lTimeStart, time_t tMaxwait,
             else 
             {
                 lDelay = lTillNext;           /* otherwise, return piece of time    */
-        //        SLP_LOG( SLP_LOG_DEBUG,"         use tillnext\n");
+
                 break;
             }
         }
@@ -700,9 +731,7 @@ static SLPBoolean time_remaining(long lTimeStart, time_t tMaxwait,
         return SLP_FALSE;  /* we are past all timeouts           */
 
     ptv->tv_sec = lDelay;
-//  ptv->tv_sec = lDelay/1000;
     ptv->tv_usec = 0;  
-//  ptv->tv_usec = (lDelay%1000) *1000; /* convert 0-999 ms into microsecs    */
 
 #ifndef NDEBUG
     if ( getenv("SLPTRACE") )

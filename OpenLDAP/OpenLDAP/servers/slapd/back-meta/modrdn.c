@@ -1,5 +1,5 @@
 /*
- * Copyright 1998-2002 The OpenLDAP Foundation, All Rights Reserved.
+ * Copyright 1998-2003 The OpenLDAP Foundation, All Rights Reserved.
  * COPYING RESTRICTIONS APPLY, see COPYRIGHT file
  *
  * Copyright 2001, Pierangelo Masarati, All rights reserved. <ando@sys-net.it>
@@ -97,9 +97,10 @@ meta_back_modrdn(
 
 	lc = meta_back_getconn( li, conn, op, META_OP_REQUIRE_SINGLE,
 			ndn, &candidate );
-	if ( !lc || !meta_back_dobind( lc, op ) || !meta_back_is_valid( lc, candidate ) ) {
-		send_ldap_result( conn, op, LDAP_OPERATIONS_ERROR,
-				NULL, NULL, NULL, NULL );
+	if ( !lc || !meta_back_dobind( lc, op ) 
+			|| !meta_back_is_valid( lc, candidate ) ) {
+ 		send_ldap_result( conn, op, LDAP_OTHER,
+ 				NULL, NULL, NULL, NULL );
 		return -1;
 	}
 
@@ -127,7 +128,7 @@ meta_back_modrdn(
 			return -1;
 		}
 
-		ldap_set_option( lc->conns[ nsCandidate ]->ld,
+		ldap_set_option( lc->conns[ nsCandidate ].ld,
 				LDAP_OPT_PROTOCOL_VERSION, &version );
 		
 		/*
@@ -143,10 +144,9 @@ meta_back_modrdn(
 				mnewSuperior = ( char * )newSuperior;
 			}
 #ifdef NEW_LOGGING
-			LDAP_LOG(( "backend", LDAP_LEVEL_DETAIL1,
-					"[rw] newSuperiorDn:"
-					" \"%s\" -> \"%s\"\n",
-					newSuperior, mnewSuperior ));
+			LDAP_LOG( BACK_META, DETAIL1,
+				"[rw] newSuperiorDn: \"%s\" -> \"%s\"\n",
+				newSuperior, mnewSuperior, 0 );
 #else /* !NEW_LOGGING */
 			Debug( LDAP_DEBUG_ARGS, "rw> newSuperiorDn:"
 					" \"%s\" -> \"%s\"\n%s",
@@ -156,12 +156,13 @@ meta_back_modrdn(
 
 		case REWRITE_REGEXEC_UNWILLING:
 			send_ldap_result( conn, op, LDAP_UNWILLING_TO_PERFORM,
-					NULL, NULL, NULL, NULL );
+					NULL, "Operation not allowed", 
+					NULL, NULL );
 			return -1;
 
 		case REWRITE_REGEXEC_ERR:
-			send_ldap_result( conn, op, LDAP_OPERATIONS_ERROR,
-					NULL, NULL, NULL, NULL );
+			send_ldap_result( conn, op, LDAP_OTHER,
+					NULL, "Rewrite error", NULL, NULL );
 			return -1;
 		}
 	}
@@ -176,9 +177,8 @@ meta_back_modrdn(
 			mdn = ( char * )dn->bv_val;
 		}
 #ifdef NEW_LOGGING
-		LDAP_LOG(( "backend", LDAP_LEVEL_DETAIL1,
-				"[rw] modrDn: \"%s\" -> \"%s\"\n",
-				dn->bv_val, mdn ));
+		LDAP_LOG( BACK_META, DETAIL1,
+			"[rw] modrDn: \"%s\" -> \"%s\"\n", dn->bv_val, mdn, 0 );
 #else /* !NEW_LOGGING */
 		Debug( LDAP_DEBUG_ARGS, "rw> modrDn: \"%s\" -> \"%s\"\n%s",
 				dn->bv_val, mdn, "" );
@@ -187,16 +187,16 @@ meta_back_modrdn(
 		
 	case REWRITE_REGEXEC_UNWILLING:
 		send_ldap_result( conn, op, LDAP_UNWILLING_TO_PERFORM,
-				NULL, NULL, NULL, NULL );
+				NULL, "Operation not allowed", NULL, NULL );
 		return -1;
 
 	case REWRITE_REGEXEC_ERR:
-		send_ldap_result( conn, op, LDAP_OPERATIONS_ERROR,
-				NULL, NULL, NULL, NULL );
+		send_ldap_result( conn, op, LDAP_OTHER,
+				NULL, "Rewrite error", NULL, NULL );
 		return -1;
 	}
 
-	ldap_rename2_s( lc->conns[ candidate ]->ld, mdn, newrdn->bv_val,
+	ldap_rename2_s( lc->conns[ candidate ].ld, mdn, newrdn->bv_val,
 			mnewSuperior, deleteoldrdn );
 
 	if ( mdn != dn->bv_val ) {

@@ -1,8 +1,8 @@
 /*
    +----------------------------------------------------------------------+
-   | PHP version 4.0                                                      |
+   | PHP Version 4                                                        |
    +----------------------------------------------------------------------+
-   | Copyright (c) 1997-2001 The PHP Group                                |
+   | Copyright (c) 1997-2003 The PHP Group                                |
    +----------------------------------------------------------------------+
    | This source file is subject to version 2.02 of the PHP license,      |
    | that is bundled with this package in the file LICENSE, and is        |
@@ -12,15 +12,51 @@
    | obtain it through the world-wide-web, please send a note to          |
    | license@php.net so we can mail you a copy immediately.               |
    +----------------------------------------------------------------------+
-   | Authors: Rasmus Lerdorf                                              |
+   | Authors: Rasmus Lerdorf <rasmus@php.net>                             |
+   |          Marcus Boerger <helly@php.net>                              |
    +----------------------------------------------------------------------+
 */
 
-/* $Id: php_image.h,v 1.1.1.3 2001/07/19 00:20:19 zarzycki Exp $ */
+/* $Id: php_image.h,v 1.1.1.6 2003/07/18 18:07:43 zarzycki Exp $ */
 
 #ifndef PHP_IMAGE_H
 #define PHP_IMAGE_H
 
 PHP_FUNCTION(getimagesize);
+
+PHP_FUNCTION(image_type_to_mime_type);
+
+/* {{{ enum image_filetype
+   This enum is used to have ext/standard/image.c and ext/exif/exif.c use
+   the same constants for file types.
+*/
+typedef enum
+{ IMAGE_FILETYPE_UNKNOWN=0,
+  IMAGE_FILETYPE_GIF=1,
+  IMAGE_FILETYPE_JPEG,
+  IMAGE_FILETYPE_PNG,
+  IMAGE_FILETYPE_SWF,
+  IMAGE_FILETYPE_PSD,
+  IMAGE_FILETYPE_BMP,
+  IMAGE_FILETYPE_TIFF_II, /* intel */
+  IMAGE_FILETYPE_TIFF_MM, /* motorola */
+  IMAGE_FILETYPE_JPC,
+  IMAGE_FILETYPE_JP2,
+  IMAGE_FILETYPE_JPX,
+  IMAGE_FILETYPE_JB2,
+  IMAGE_FILETYPE_SWC,
+  IMAGE_FILETYPE_IFF,
+  IMAGE_FILETYPE_WBMP,
+  /* IMAGE_FILETYPE_JPEG2000 is a userland alias for IMAGE_FILETYPE_JPC */
+  IMAGE_FILETYPE_XBM
+/* WHEN EXTENDING: PLEASE ALSO REGISTER IN image.c:PHP_MINIT_FUNCTION(imagetypes) */
+} image_filetype;
+/* }}} */
+
+PHP_MINIT_FUNCTION(imagetypes);
+
+PHPAPI int php_getimagetype(php_stream *stream, char *filetype TSRMLS_DC);
+
+PHPAPI const char * php_image_type_to_mime_type(int image_type);
 
 #endif /* PHP_IMAGE_H */

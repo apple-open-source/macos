@@ -1,0 +1,6 @@
+Specification-Title: Hello-@version.major@.@version.minor@.@version.revision@@version.tag@
+Specification-Version: @version.major@.@version.minor@.@version.revision@@version.tag@
+Specification-Vendor: Multideck Corporation
+Implementation-Title: Hello-@version.major@.@version.minor@.@version.revision@@version.tag@ CVSTag=@version.name@
+Implementation-Version: @version.major@.@version.minor@.@version.revision@@version.tag@ Date:@build.id@
+Implementation-Vendor: Multideck Corporation

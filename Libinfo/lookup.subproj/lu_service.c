@@ -3,21 +3,22 @@
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
- * Portions Copyright (c) 1999 Apple Computer, Inc.  All Rights
- * Reserved.  This file contains Original Code and/or Modifications of
- * Original Code as defined in and that are subject to the Apple Public
- * Source License Version 1.1 (the "License").  You may not use this file
- * except in compliance with the License.  Please obtain a copy of the
- * License at http://www.apple.com/publicsource and read it before using
- * this file.
+ * Copyright (c) 1999-2003 Apple Computer, Inc.  All Rights Reserved.
+ * 
+ * This file contains Original Code and/or Modifications of Original Code
+ * as defined in and that are subject to the Apple Public Source License
+ * Version 2.0 (the 'License'). You may not use this file except in
+ * compliance with the License. Please obtain a copy of the License at
+ * http://www.opensource.apple.com/apsl/ and read it before using this
+ * file.
  * 
  * The Original Code and all software distributed under the License are
- * distributed on an "AS IS" basis, WITHOUT WARRANTY OF ANY KIND, EITHER
+ * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
  * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
  * INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY,
- * FITNESS FOR A PARTICULAR PURPOSE OR NON- INFRINGEMENT.  Please see the
- * License for the specific language governing rights and limitations
- * under the License.
+ * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
+ * Please see the License for the specific language governing rights and
+ * limitations under the License.
  * 
  * @APPLE_LICENSE_HEADER_END@
  */
@@ -38,6 +39,15 @@
 #include "_lu_types.h"
 #include "lookup.h"
 #include "lu_utils.h"
+
+#define SERVICE_CACHE_SIZE 10
+#define DEFAULT_SERVICE_CACHE_TTL 10
+
+static pthread_mutex_t _service_cache_lock = PTHREAD_MUTEX_INITIALIZER;
+static void *_service_cache[SERVICE_CACHE_SIZE] = { NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL };
+static unsigned int _service_cache_best_before[SERVICE_CACHE_SIZE] = { 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 };
+static unsigned int _service_cache_index = 0;
+static unsigned int _service_cache_ttl = DEFAULT_SERVICE_CACHE_TTL;
 
 static pthread_mutex_t _service_lock = PTHREAD_MUTEX_INITIALIZER;
 
@@ -232,6 +242,156 @@ recycle_service(struct lu_thread_info *tdata, struct servent *in)
 	s->s_port = in->s_port;
 
 	free(in);
+}
+
+__private_extern__ unsigned int
+get_service_cache_ttl()
+{
+	return _service_cache_ttl;
+}
+
+__private_extern__ void
+set_service_cache_ttl(unsigned int ttl)
+{
+	int i;
+
+	pthread_mutex_lock(&_service_cache_lock);
+
+	_service_cache_ttl = ttl;
+
+	if (ttl == 0)
+	{
+		for (i = 0; i < SERVICE_CACHE_SIZE; i++)
+		{
+			if (_service_cache[i] == NULL) continue;
+
+			free_service((struct servent *)_service_cache[i]);
+			_service_cache[i] = NULL;
+			_service_cache_best_before[i] = 0;
+		}
+	}
+
+	pthread_mutex_unlock(&_service_cache_lock);
+}
+
+static void
+cache_service(struct servent *s)
+{
+	struct timeval now;
+	struct servent *scache;
+
+	if (_service_cache_ttl == 0) return;
+	if (s == NULL) return;
+
+	pthread_mutex_lock(&_service_cache_lock);
+
+	scache = copy_service(s);
+
+	gettimeofday(&now, NULL);
+        
+	if (_service_cache[_service_cache_index] != NULL)
+		free_service((struct servent *)_service_cache[_service_cache_index]);
+
+	_service_cache[_service_cache_index] = scache;
+	_service_cache_best_before[_service_cache_index] = now.tv_sec + _service_cache_ttl;
+	_service_cache_index = (_service_cache_index + 1) % SERVICE_CACHE_SIZE;
+
+	pthread_mutex_unlock(&_service_cache_lock);
+}
+
+static struct servent *
+cache_getservbyname(const char *name, const char *proto)
+{
+	int i;
+	struct servent *s, *res;
+	struct timeval now;
+	char **aliases;
+
+	if (_service_cache_ttl == 0) return NULL;
+	if (name == NULL) return NULL;
+
+	pthread_mutex_lock(&_service_cache_lock);
+
+	gettimeofday(&now, NULL);
+
+	for (i = 0; i < SERVICE_CACHE_SIZE; i++)
+	{
+		if (_service_cache_best_before[i] == 0) continue;
+		if ((unsigned int)now.tv_sec > _service_cache_best_before[i]) continue;
+
+		s = (struct servent *)_service_cache[i];
+
+		if (s->s_name != NULL) 
+		{
+			if (!strcmp(name, s->s_name))
+			{
+				if ((proto == NULL) || ((s->s_proto != NULL) && (!strcmp(proto, s->s_proto))))
+				{
+					res = copy_service(s);
+					pthread_mutex_unlock(&_service_cache_lock);
+					return res;
+				}
+			}
+		}
+
+		aliases = s->s_aliases;
+		if (aliases == NULL)
+		{
+			pthread_mutex_unlock(&_service_cache_lock);
+			return NULL;
+		}
+
+		for (; *aliases != NULL; *aliases++)
+		{
+			if (!strcmp(name, *aliases))
+			{
+				if ((proto == NULL) || ((s->s_proto != NULL) && (!strcmp(proto, s->s_proto))))
+				{
+					res = copy_service(s);
+					pthread_mutex_unlock(&_service_cache_lock);
+					return res;
+				}
+			}
+		}
+	}
+
+	pthread_mutex_unlock(&_service_cache_lock);
+	return NULL;
+}
+
+static struct servent *
+cache_getservbyport(int port, const char *proto)
+{
+	int i;
+	struct servent *s, *res;
+	struct timeval now;
+
+	if (_service_cache_ttl == 0) return NULL;
+
+	pthread_mutex_lock(&_service_cache_lock);
+
+	gettimeofday(&now, NULL);
+
+	for (i = 0; i < SERVICE_CACHE_SIZE; i++)
+	{
+		if (_service_cache_best_before[i] == 0) continue;
+		if ((unsigned int)now.tv_sec > _service_cache_best_before[i]) continue;
+
+		s = (struct servent *)_service_cache[i];
+
+		if (port == s->s_port)
+		{
+			if ((proto == NULL) || ((s->s_proto != NULL) && (!strcmp(proto, s->s_proto))))
+			{
+				res = copy_service(s);
+				pthread_mutex_unlock(&_service_cache_lock);
+				return res;
+			}
+		}
+	}
+
+	pthread_mutex_unlock(&_service_cache_lock);
+	return NULL;
 }
 
 static struct servent *
@@ -474,6 +634,7 @@ getserv(const char *name, const char *proto, int port, int source)
 {
 	struct servent *res = NULL;
 	struct lu_thread_info *tdata;
+	int from_cache;
 
 	tdata = _lu_data_create_key(_lu_data_key_service, free_lu_thread_info_service);
 	if (tdata == NULL)
@@ -482,7 +643,25 @@ getserv(const char *name, const char *proto, int port, int source)
 		_lu_data_set_key(_lu_data_key_service, tdata);
 	}
 
-	if (_lu_running())
+	from_cache = 0;
+	res = NULL;
+
+	switch (source)
+	{
+		case S_GET_NAME:
+			res = cache_getservbyname(name, proto);
+			break;
+		case S_GET_PORT:
+			res = cache_getservbyport(port, proto);
+			break;
+		default: res = NULL;
+	}
+
+	if (res != NULL)
+	{
+		from_cache = 1;
+	}
+	else if (_lu_running())
 	{
 		switch (source)
 		{
@@ -516,6 +695,8 @@ getserv(const char *name, const char *proto, int port, int source)
 		}
 		pthread_mutex_unlock(&_service_lock);
 	}
+
+	if (from_cache == 0) cache_service(res);
 
 	recycle_service(tdata, res);
 	return (struct servent *)tdata->lu_entry;

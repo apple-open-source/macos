@@ -1,8 +1,8 @@
 /*
    +----------------------------------------------------------------------+
-   | PHP version 4.0                                                      |
+   | PHP Version 4                                                        |
    +----------------------------------------------------------------------+
-   | Copyright (c) 1997, 1998, 1999, 2000 The PHP Group                   |
+   | Copyright (c) 1997-2003 The PHP Group                                |
    +----------------------------------------------------------------------+
    | This source file is subject to version 2.02 of the PHP license,      |
    | that is bundled with this package in the file LICENSE, and is        |
@@ -16,9 +16,8 @@
    +----------------------------------------------------------------------+
 */
 
-/* $Id: tsrm_win32.c,v 1.1.1.2 2001/12/14 22:15:52 zarzycki Exp $ */
+/* $Id: tsrm_win32.c,v 1.1.1.5 2003/07/18 18:07:25 zarzycki Exp $ */
 
-#include <stdlib.h>
 #include <stdio.h>
 #include <fcntl.h>
 #include <io.h>
@@ -28,7 +27,6 @@
 #include "TSRM.h"
 
 #ifdef TSRM_WIN32
-#include <windows.h>
 #include "tsrm_win32.h"
 
 #ifdef ZTS
@@ -151,6 +149,11 @@ static HANDLE dupHandle(HANDLE fh, BOOL inherit) {
 
 TSRM_API FILE *popen(const char *command, const char *type)
 {
+	return popen_ex(command, type, NULL, NULL);
+}
+
+TSRM_API FILE *popen_ex(const char *command, const char *type, const char *cwd, char *env)
+{
 	FILE *stream = NULL;
 	int fno, str_len = strlen(type), read, mode;
 	STARTUPINFO startup;
@@ -192,7 +195,7 @@ TSRM_API FILE *popen(const char *command, const char *type)
 
 	cmd = (char*)malloc(strlen(command)+strlen(TWG(comspec))+sizeof(" /c "));
 	sprintf(cmd, "%s /c %s", TWG(comspec), command);
-	if (!CreateProcess(NULL, cmd, &security, &security, security.bInheritHandle, NORMAL_PRIORITY_CLASS, NULL, NULL, &startup, &process)) {
+	if (!CreateProcess(NULL, cmd, &security, &security, security.bInheritHandle, NORMAL_PRIORITY_CLASS, env, cwd, &startup, &process)) {
 		return NULL;
 	}
 	free(cmd);

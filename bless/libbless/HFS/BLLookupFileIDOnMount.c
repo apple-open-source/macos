@@ -1,21 +1,24 @@
 /*
- * Copyright (c) 2001 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 2001-2003 Apple Computer, Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
- * The contents of this file constitute Original Code as defined in and
- * are subject to the Apple Public Source License Version 1.1 (the
- * "License").  You may not use this file except in compliance with the
- * License.  Please obtain a copy of the License at
- * http://www.apple.com/publicsource and read it before using this file.
+ * Copyright (c) 1999-2003 Apple Computer, Inc.  All Rights Reserved.
  * 
- * This Original Code and all software distributed under the License are
- * distributed on an "AS IS" basis, WITHOUT WARRANTY OF ANY KIND, EITHER
+ * This file contains Original Code and/or Modifications of Original Code
+ * as defined in and that are subject to the Apple Public Source License
+ * Version 2.0 (the 'License'). You may not use this file except in
+ * compliance with the License. Please obtain a copy of the License at
+ * http://www.opensource.apple.com/apsl/ and read it before using this
+ * file.
+ * 
+ * The Original Code and all software distributed under the License are
+ * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
  * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
  * INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY,
- * FITNESS FOR A PARTICULAR PURPOSE OR NON-INFRINGEMENT.  Please see the
- * License for the specific language governing rights and limitations
- * under the License.
+ * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
+ * Please see the License for the specific language governing rights and
+ * limitations under the License.
  * 
  * @APPLE_LICENSE_HEADER_END@
  */
@@ -24,7 +27,7 @@
  *  bless
  *
  *  Created by Shantonu Sen <ssen@apple.com> on Thu Apr 19 2001.
- *  Copyright (c) 2001 Apple Computer, Int. All rights reserved.
+ *  Copyright (c) 2001-2003 Apple Computer, Int. All rights reserved.
  *
  */
 
@@ -37,6 +40,7 @@
 #include <sys/attr.h>
 
 #include "bless.h"
+#include "bless_private.h"
 
 struct cataloginfo {
   attrreference_t name;
@@ -47,18 +51,18 @@ struct cataloginfo {
 };
 
 struct cataloginforeturn {
-  u_int32_t length;
+  uint32_t length;
   struct cataloginfo c;
 };
 
-static int lookupIDOnVolID(u_int32_t volid, u_int32_t fileID, unsigned char out[]);
+static int lookupIDOnVolID(uint32_t volid, uint32_t fileID, unsigned char out[]);
 
-int BLLookupFileIDOnMount(BLContext context, unsigned char mount[], u_int32_t fileID, unsigned char out[]) {
+int BLLookupFileIDOnMount(BLContextPtr context, unsigned char mount[], uint32_t fileID, unsigned char out[]) {
     struct attrlist alist;
     struct cataloginforeturn catinfo;
     int err;
 
-    u_int32_t volid;
+    uint32_t volid;
     unsigned char relpath[MAXPATHLEN];
 
     if(fileID < 2) {
@@ -78,7 +82,7 @@ int BLLookupFileIDOnMount(BLContext context, unsigned char mount[], u_int32_t fi
         return 1;
     }
 
-    volid = (u_int32_t)catinfo.c.volid.val[0];
+    volid = (uint32_t)catinfo.c.volid.val[0];
 
     err = lookupIDOnVolID(volid, fileID, relpath);
     if(err) {
@@ -95,11 +99,11 @@ int BLLookupFileIDOnMount(BLContext context, unsigned char mount[], u_int32_t fi
     return 0;
 }
 
-static int lookupIDOnVolID(u_int32_t volid, u_int32_t fileID, unsigned char out[]) {
+static int lookupIDOnVolID(uint32_t volid, uint32_t fileID, unsigned char out[]) {
 
     unsigned char *bp;
 
-    u_int32_t dirID = fileID; /* to initialize loop */
+    uint32_t dirID = fileID; /* to initialize loop */
     unsigned char volpath[MAXPATHLEN];
 
     struct attrlist alist;
@@ -142,7 +146,7 @@ static int lookupIDOnVolID(u_int32_t volid, u_int32_t fileID, unsigned char out[
             return 3;
         }
 
-        dirID = (u_int32_t)catinfo.c.parentid.fid_objno;
+        dirID = (uint32_t)catinfo.c.parentid.fid_objno;
         nameptr = (char *)(&catinfo.c.name) + catinfo.c.name.attr_dataoffset;
         namelen = strlen(nameptr); /* move bp by this many and copy */
         bp -= namelen;

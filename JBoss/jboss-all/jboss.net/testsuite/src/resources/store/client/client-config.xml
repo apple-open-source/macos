@@ -1,0 +1,48 @@
+<!-- Use this file to deploy some handlers/chains and services   -->
+<!-- Two ways to do this:                                        -->
+<!--   java org.apache.axis.utils.Admin deploy.wsdd              -->
+<!--      from the same directory that the Axis engine runs      -->
+<!-- or                                                          -->
+<!--   java org.apache.axis.client.AdminClient deploy.wsdd       -->
+<!--      after the axis server is running                       -->
+
+<deployment
+    xmlns="http://xml.apache.org/axis/wsdd/"
+    xmlns:java="http://xml.apache.org/axis/wsdd/providers/java"
+    xmlns:store="http://net.jboss.org/samples/store">
+
+  <transport name="http" pivot="java:org.apache.axis.transport.http.HTTPSender">
+  </transport>
+
+  <typeMapping qname="store:Item" 
+        type="java:org.jboss.net.samples.store.Item$Impl"
+        serializer="org.apache.axis.encoding.ser.BeanSerializerFactory"
+        deserializer="org.apache.axis.encoding.ser.BeanDeserializerFactory"
+        encodingStyle="http://schemas.xmlsoap.org/soap/encoding/"/>
+
+  <typeMapping qname="store:BusinessPartner" 
+        type="java:org.jboss.net.samples.store.BusinessPartner$Impl"
+        serializer="org.apache.axis.encoding.ser.BeanSerializerFactory"
+        deserializer="org.apache.axis.encoding.ser.BeanDeserializerFactory"
+        encodingStyle="http://schemas.xmlsoap.org/soap/encoding/"/>
+
+  <typeMapping qname="store:Address" 
+        type="java:org.jboss.net.samples.store.Address"
+        serializer="org.apache.axis.encoding.ser.BeanSerializerFactory"
+        deserializer="org.apache.axis.encoding.ser.BeanDeserializerFactory"
+        encodingStyle="http://schemas.xmlsoap.org/soap/encoding/"/>
+
+ <typeMapping qname="store:Phone" 
+        type="java:org.jboss.net.samples.store.Phone"
+        serializer="org.apache.axis.encoding.ser.BeanSerializerFactory"
+        deserializer="org.apache.axis.encoding.ser.BeanDeserializerFactory"
+        encodingStyle="http://schemas.xmlsoap.org/soap/encoding/"/>
+
+ <typeMapping qname="store:StateType" 
+        type="java:org.jboss.net.samples.store.StateType"
+        serializer="org.apache.axis.encoding.ser.EnumSerializerFactory"
+        deserializer="org.apache.axis.encoding.ser.EnumDeserializerFactory"
+        encodingStyle="http://schemas.xmlsoap.org/soap/encoding/"/>
+
+
+</deployment>

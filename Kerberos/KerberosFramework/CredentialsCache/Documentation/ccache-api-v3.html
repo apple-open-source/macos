@@ -1,0 +1,1028 @@
+<!-- #include "header.html"
+  #PAGETITLE#="Credentials Cache API v3 Specification"
+  #BASEHREF#="" 
+-->
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.0 Transitional//EN">
+<HTML> 
+<HEAD>  
+	<TITLE> Credentials Cache API v3 Specification </TITLE>
+</HEAD>
+<BODY BGCOLOR="#FFFFFF" TEXT="#000000" LINK="#0000FF" VLINK="#663399">
+<CENTER>
+	<TABLE BORDER=0 CELLSPACING=8>
+		<TR> 
+			<TD><IMG SRC="http://web.mit.edu/macdev/www/is-logo.gif" ALT="MIT Information Systems"></TD>
+			<TD><BR><H1>Macintosh Development</H1></TD> 
+		</TR>
+	</TABLE> <P>
+	[<A HREF="http://web.mit.edu/macdev/www/macdev.html">Home</A>]
+	[<A HREF="http://web.mit.edu/macdev/www/about.html">About Us</A>]
+	[<A HREF="http://web.mit.edu/macdev/www/people.html">People</A>]
+	[<A HREF="http://web.mit.edu/macdev/www/support.html">MIT Support Library</A>]
+	[<A HREF="http://web.mit.edu/macdev/www/kerberos.html">MIT Kerberos for Macintosh</A>] <BR>
+	[<A HREF="http://web.mit.edu/macdev/www/applications.html">Applications</A>]
+	[<A HREF="http://web.mit.edu/macdev/www/macosx.html">Mac OS X</A>]
+	[<A HREF="http://web.mit.edu/macdev/www/documentation.html">Miscellaneous Documentation</A>]
+	[<A HREF="http://web.mit.edu/is/">Information Systems</A>] </P> 
+</CENTER> <HR>
+<!-- end include -->
+		<table border="0" cellspacing="4">
+			<tr>
+				<td><img src="../../../Common/Documentation/graphics/ThreeHeadsAndKey.gif"></td>
+				<td><font size="6"><b>Credentials Cache API v3 Specification</b></font></td>
+			</tr>
+		</table>
+		</p>
+		<blockquote>
+			<ul>
+				<li><a href="#NewInThisRevision">Abstract</a>
+				<li><a href="#NewInThisRevision">New in revision 6</a>
+				<li><a href="#Constants">Constants</a>
+				<li><a href="#TypesAndFunctions">Types and functions</a>
+				<ul>
+					<li><a href="#BasicTypes">Basic types</a>
+					<li><a href="#OpaqueTypes">Opaque types</a>
+					<ul>
+						<li><a href="#cc_context_t">cc_context_t</a>
+						<li><a href="#cc_ccache_t">cc_ccache_t</a>
+						<li><a href="#cc_ccache_iterator_t">cc_ccache_iterator_t</a>
+						<li><a href="#cc_credentials_iterator_t">cc_credentials_iterator_t</a>
+						<li><a href="#cc_credentials_t">cc_credentials_t</a>
+						<li><a href="#cc_string_t">cc_string_t</a>
+					</ul>
+				</ul>
+				<li><a href="#ImplementationRequirements">Implementation requirements</a>
+				<li><a href="#RevisionHistory">Revision history</a>
+			</ul>
+			<p>
+			<hr>
+			</p>
+			<h2><a name="Abstract"></a>Abstract</h2>
+			<p>This is the specification for an API which provides Credentials Cache services for both <a href="http://web.mit.edu/kerberos/www/">Kerberos v5</a> and v4. The idea behind this API is that multiple Kerberos implementations can share a single collection of credentials caches, mediated by this API specification. On the Mac OS and Microsoft Windows platforms this will allow single-login, even when more than one Kerberos shared library is in use on a particular system.</p>
+			<p>Abstractly, a credentials cache collection contains one or more credentials caches, or ccaches. A ccache is uniquely identified by its name, which is a string internal to the API and not intended to be presented to users. The user presentable identifier of a ccache is its principal.</p>
+			<p>Unlike the previous versions of the API, version 3 of the API stores both Kerberos v4 and v5 credentials in the same ccache.</p>
+			<p>At any given time, one ccache is the &quot;default&quot; ccache. The exact meaning of a default ccache is OS-specific; refer to implementation requirements for details.</p>
+			<h2>
+			<hr>
+			</h2>
+			<h2><a name="NewInThisRevision"></a>New in revision 7 (API Version 3 second draft)</h2>
+			<p>March 11, 2000, by <a href="mailto:meeroh@mit.edu">meeroh</a></p>
+			<ul>
+				<li>Opaque types are not pointers as the should have been
+				<li>Kerberos versions are now a bitfield
+				<li>Lock type agrument broken up
+				<li>Error constant explanations tweaked
+				<li>Added an example of changing and extending the API
+				<li>Specified API behavior on error returns
+				<li>Clarified <code>cc_context_open_default_ccache</code>
+				<li>Fixed a bunch of typos and pasteos
+				<li>Moved API behavior specification near the top
+				<li>Added <code>cc_v4_key_length</code>
+				<li>Added <code>skip</code>, <code>clone</code>, and <code>reset</code> to iterators
+				<li>Added <code>clone</code> to ccaches
+				<li>Changed iterators to lock the iteration object on creation and release it when released.
+			</ul>
+			<h2><a name="NewInThisRevision"></a>New in revision 6 (API Version 3 draft)</h2>
+			<p>October 11, 1999, by <a href="mailto:meeroh@mit.edu">meeroh</a></p>
+			<ul>
+				<li>Renamed &quot;NCs&quot; back to credentials caches. Despite good intentions on Steve's part, noone really called them NCs. Much better to rename the agglomerate object (now a &quot;collection&quot;), to which very few references are made.
+				<li>Renamed iterator functions for consistency
+				<li>Changed all opaque types to new consistent names and one fewer level of indirection
+				<li>Renamed most other types for consistency
+				<li>Added &quot;Columbia special&quot; string-to-key type (Columbia University has some weird case where they want to truncate the password at 8th character before hashing it with the MIT hash.)
+				<li>Changed the abstraction of a ccache to hold v4 and v5
+				<li>Added the default ccache API
+				<li>Changed the API to object-like approach to allow for easier future extensions
+				<li>Added <code>cc_context_get_version()</code>, <code>cc_context_clone()</code>, <code>cc_ccache_get_change_time</code>
+				<li>Added specification for locking
+				<li>Added change time and default time accessors to ccaches
+				<li>Changed credentials removal to remove exact credentials
+				<li>Added <code>cc_ccache_move()</code>
+				<li>Added <code>ccErrCCacheNotFound</code> errors to all ccache functions
+			</ul>
+			<p>Also see the revision history for previous versions</p>
+			<p>
+			<hr>
+			</p>
+			<h2><a name="Constants"></a>Constants</h2>
+			<h3>CCache API version constants</h3>
+			<pre>// enums for API versions used in cc_initialize()
+enum {
+   ccapi_version_2 = 2,
+   ccapi_version_3 = 3
+};</pre>
+			<p>These constants are passed into <code>cc_initialize()</code> to indicate the version of the API the caller wants to use.</p>
+			<p>CCache API v1 and v2 are incompatible, and therefore the v1 version number has been removed. Clients shouldn't be using the v1 API.</p>
+			<h3>Credentials versions constants</h3>
+			<pre>enum {&nbsp;&nbsp;
+&nbsp;&nbsp;&nbsp; cc_credentials_v4 = 1,             // Kerberos v4 credentials
+&nbsp;&nbsp;&nbsp; cc_credentials_v5 = 2,             // Kerberos v5 credentials
+    cc_credentials_v4_v5 = cc_credentials_v4 | cc_credentials_v5
+                                       // Kerberos v4 and v5 credentials
+};</pre>
+			<p>These constants are used in several places in the API to discern between Kerberos v4 and Kerberos v5. Not all values are valid inputs and outputs for all functions; function specifications below detail the allowed values.</p>
+			<p>Kerberos version constants will always be a bit-field, and can be tested as such; for example:</p>
+			<p><code>if ((ccacheVersion &amp; cc_credentials_v5) != 0) /* ccache has v5 credentials */</code></p>
+			<h3>Lock types</h3>
+			<pre>enum cc_lock_type {
+&nbsp;&nbsp;&nbsp; cc_lock_read = 0,
+    cc_lock_write = 1,
+    cc_lock_block = 2,
+    cc_lock_noblock = 3,
+};</pre>
+			<p>These constants are used in locking functions to describe the type of lock requested. Read locks, when granted, give the owner of the lock the ability to inspect the locked object. Write locks, when granted, give the owner of the lock the ability to modify the locked object. Attempting to acquire a lock with a non-blocking call will result in an error if the lock cannot be acquired; otherwise, the call will block until the lock can be acquired.</p>
+			<h3>Error constants</h3>
+			<p>
+			<table border="1">
+				<tr>
+					<td>0&nbsp;</td>
+					<td><code>ccNoError</code></td>
+					<td>Successful return</td>
+				</tr>
+				<tr>
+					<td>201&nbsp;</td>
+					<td><code>ccIteratorEnd</code></td>
+					<td>Iterator is done iterating</td>
+				</tr>
+				<tr>
+					<td>202</td>
+					<td><code>ccErrBadParam</code></td>
+					<td>Bad parameter (NULL or invalid pointer where valid pointer expected)</td>
+				</tr>
+				<tr>
+					<td>203</td>
+					<td><code>ccErrNoMem</code></td>
+					<td>Not enough memory to complete the operation</td>
+				</tr>
+				<tr>
+					<td>204</td>
+					<td><code>ccErrInvalidContext</code></td>
+					<td>Context is invalid (e.g., it was released)</td>
+				</tr>
+				<tr>
+					<td>205</td>
+					<td><code>ccErrInvalidCCache</code></td>
+					<td>CCache is invalid (e.g., it was released or destroyed)</td>
+				</tr>
+				<tr>
+					<td>206</td>
+					<td><code>ccErrInvalidString</code></td>
+					<td>String is invalid (e.g., it was released)</td>
+				</tr>
+				<tr>
+					<td>207</td>
+					<td><code>ccErrInvalidCredentials</code></td>
+					<td>Credentials are invalid (e.g., they were released), or they have a bad version</td>
+				</tr>
+				<tr>
+					<td>208</td>
+					<td><code>ccErrInvalidCCacheIterator</code></td>
+					<td>CCache iterator is invalid (e.g., it was released)</td>
+				</tr>
+				<tr>
+					<td>209</td>
+					<td><code>ccErrInvalidCredentialsIterator</code></td>
+					<td>Credentials iterator is invalid (e.g., it was released)</td>
+				</tr>
+				<tr>
+					<td>210</td>
+					<td><code>ccErrInvalidLock</code></td>
+					<td>Lock is invalid (e.g., it was released)</td>
+				</tr>
+				<tr>
+					<td>211</td>
+					<td><code>ccErrBadName</code></td>
+					<td>Bad credential cache name format</td>
+				</tr>
+				<tr>
+					<td>212</td>
+					<td><code>ccErrBadCredentialsVersion</code></td>
+					<td>Credentials version is invalid</td>
+				</tr>
+				<tr>
+					<td>213</td>
+					<td><code>ccErrBadAPIVersion</code></td>
+					<td>Unsupported API version</td>
+				</tr>
+				<tr>
+					<td>214</td>
+					<td><code>ccErrContextLocked</code></td>
+					<td>Context is already locked</td>
+				</tr>
+				<tr>
+					<td>215</td>
+					<td><code>ccErrContextUnlocked</code></td>
+					<td>Context is not locked by the caller</td>
+				</tr>
+				<tr>
+					<td>216</td>
+					<td><code>ccErrCCacheLocked</code></td>
+					<td>CCache is already locked</td>
+				</tr>
+				<tr>
+					<td>217</td>
+					<td><code>ccErrCCacheUnlocked</code></td>
+					<td>CCache is not locked by the caller</td>
+				</tr>
+				<tr>
+					<td>218</td>
+					<td><code>ccErrBadLockType</code></td>
+					<td>Bad lock type</td>
+				</tr>
+				<tr>
+					<td>219</td>
+					<td><code>ccErrNeverDefault</code></td>
+					<td>CCache was never default</td>
+				</tr>
+				<tr>
+					<td>220</td>
+					<td><code>ccErrCredentialsNotFound</code></td>
+					<td>Matching credentials not found in the ccache</td>
+				</tr>
+				<tr>
+					<td>221</td>
+					<td><code>ccErrCCacheNotFound</code></td>
+					<td>Matching ccache not found in the collection (either a name was supplied to a function, and no ccache with that name exists, or a <code>cc_ccache_t</code> was supplied and the corresponding ccache has been destroyed).</td>
+				</tr>
+			</table>
+			</p>
+			<h2>API behavior</h2>
+			<h3>Error handling</h3>
+			<p>All functions of the API return some of the error constants listed above; the exact list of error constants returned by any API function is provided in the function descriptions below.</p>
+			<p>When returning an error constant other than <code>ccNoError</code> or <code>ccIteratorEnd</code>, API functions never modify any of the values passed in by reference.</p>
+			<h3>Synchronization and atomicity</h3>
+			<p>Every function in the API is atomic. Every function acquires a lock before accessing any ccache or the collection, and releases the lock before returning; the scope of the lock is the smallest possible i.e. only as few individual ccaches as needed are locked; otherwise, the entire collection is locked. The restrictions of the lock are the narrowest possible, i.e. the lock is a read lock unless the ccache or the collection need to be modified.</p>
+			<p>Iterators, in addition to every function being atomic, iterate over ccacches or credentials atomically. That means that the caller is guaranteed that the set of ccaches or credentials that is iterated over will not change during the lifetime of the iterator (except as noted below). The lock is acquired when the iterator is created. The lock is released when the iterator is released. The lock is a reader lock, which means that if you intend to make modifications to the iteration set while iterating, you need to upgrade to a writer lock first.</p>
+			<p>The only case when the iteration set will be modified while the iterator is active is when the owner of the iterator makes modifications. The only guarantee made in this case is that deleting an element on the iteration set has no effect on which elements will be subsequently returned by the iterator (note that their order can be affected, however). This allows one to iterate over an iteration set and delete all its elements.</p>
+			<p>Locking implementation should not use copy-on-write techniques to implement locks, because those techniques imply that same parts of the ccache collection remain visible to some callers even though they are not present in the collection, which is a potential security risk. For example, a copy-on-write technique might make a copy of the entire collection when a read lock is acquired, so as to allow the owner of the lock to access the collection in an apparently unmodified state, while also allowing others to make modifications to the collection. However, this would also enable the owner of the lock to indefinitely (until the expiration time) use credentials that have actually been deleted from the collection.</p>
+			<h3>Object lifetimes and management</h3>
+			<p>The lifetime of an object returned by the API is until <code>release()</code> is called for it. Releasing one object has no effect on existence of any other object. For example, a ccache obtained within a context continue to exist when the context is released.</p>
+			<p>Every object returned by the API (<code>cc_context_t</code>, <code>cc_ccache_t</code>, <code>cc_ccache_iterator_t</code>, <code>cc_credentials_t</code>, <code>cc_credentials_iterator_t</code>, <code>cc_string_t</code>) is owned by the caller of the API, and it is the responsibility of the caller to call <code>release()</code>&nbsp;for every object to prevent memory leaks.</p>
+			<h3><b>Platform-specific behaviors and requirements</b></h3>
+			<h4><b>Mac OS</b></h4>
+			<p>It is an error to hold any lock across a call to <code>WaitNextEvent()</code> under Mac OS, whether the lock is explicit (acquired by calling <code>lock()</code>) or implicit (acquired by an iterator or other API functions). If you do that, all your locks might be automatically unlocked, to allow other processes to access the cache. (In other words, blocking locks can't be used on Mac OS for inter-process synchronization.)</p>
+			<p>Under Mac OS 7, 8, and 9, the default cache is maintained on a system-wide basis, since all the processes running on the machine have the same privileges anyway (the privileges of the currently logged in user).</p>
+			<p>For Mac OS X Server, see the UNIX section below.</p>
+			<h4><b>MS Windows</b></h4>
+			<p>DLLs should be named KrbCC16.dll and KrbCC32.dll.</p>
+			<p>The semantics of default ccaches under MS Windows are unspecified so far (will be fixed before final version of the API specification).</p>
+			<p><b>UNIX</b></p>
+			<p>The semantics of default ccaches on various variant of UNIX are unspecified so far (will be fixed before final version of the API specification).</p>
+			<h2><a name="TypesAndFunctions"></a>Types and functions</h2>
+			<h3><a name="BasicTypes"></a>Basic types</h3>
+			<p>The <code>cc_int32</code> and <code>cc_uint32</code> are the signed and unsigned 32-bit integer types. <code>cc_uint32</code> is <code>unsigned int</code> on platforms where <code>4 &lt;= sizeof (unsigned int) &lt; sizeof (unsigned long)</code> and <code>long</code> on all other platforms. <code>cc_int32</code> is <code>int</code> on platforms where <code>4 &lt;= sizeof (int) &lt; sizeof (long)</code> and <code>long</code> on all other platforms.</p>
+			<pre>typedef cc_int32 cc_time_t;</pre>
+			<p>The <code>cc_time_t</code> type is used to represent a time in seconds. The time must be stored as the number of seconds since midnight GMT on January 1, 1970.</p>
+			<h3><a name="OpaqueTypes"></a>Opaque types</h3>
+			<p>All of the opaque high-level types in CCache API are implemented as structures of function pointers and private data. To perform some operation on a type, the caller of the API has to first obtain an instance of that type, and then call the appropriate function pointer from that instance. For example, to call <code>get_change_time()</code> on a <code>cc_context_t</code>, one would call <code>cc_initialize()</code> (which creates a new <code>cc_context_t</code>) and then call its <code>get_change_time()</code>, like this:</p>
+			<pre>cc_context_t context;
+cc_int32 err = cc_initialize (&amp;context, ccapi_version_3, nil, nil);
+if (err == ccNoError)
+    time = context -&gt; functions -&gt; get_change_time (context)</pre>
+			<p>All API functions also have convenience preprocessor macros, which make the API seem completely function-based. For example, <code>cc_context_get_change_time (context, time)</code> is equivalent to <code>context -&gt; functions -&gt; get_change_time (context, time)</code>. The convenience macros follow the following naming convention: the function call</p>
+			<pre>cc_type_t opaque_pointer;
+result = opaque_pointer -&gt; functions -&gt; somefunction (opaque_pointer, args)</pre>
+			<p>can be written using a convenience macro as:</p>
+			<pre>cc_type_t opaque_pointer;
+result = cc_type_somefunction (opaque_pointer, args)</pre>
+			<p>The specifications below include the names for both the functions and the convenience macros, in that order. For clarity, it is recommended that clients using the API use the convenience macros, but that is merely a stylistic choice.</p>
+			<p>Implementing the API in this manner allows us to extend and change the interface in the future, while preserving compatibility with older clients.</p>
+			<p>For example, consider the case when the signature or the semantics of a <code>cc_ccache_t</code> function is changed. The API version number is incremented. The library implementation contains both a function with the old signature and semantics and a function with the new signature and semantics. When a context is created, the API version number used in that context is stored in the context, and therefore it can be used whenever a ccache is created in that context. When a ccache is created in a context with the old API version number, the function pointer structure for the ccache is filled with pointers to functions implementing the old semantics; when a ccache is created in a context with the new API version number, the function pointer structure for the ccache is filled with poitners to functions implementing the new semantics.</p>
+			<p>Similarly, if a function is added to the API, the version number in the context can be used to decide whether to include the implementation of the new function in the appropriate function pointer structure or not.</p>
+			<h3>
+			<hr>
+			<a name="cc_context_t"></a>cc_context_t</h3>
+			<pre>typedef struct {
+    cc_int32    (*release) (
+                                cc_context_t context);
+    cc_int32    (*get_version) (
+                                cc_context_t context,
+                                cc_int32* version);
+    cc_int32    (*get_change_time) (
+                                cc_context_t context,
+                                cc_time_t* time);
+    cc_int32    (*get_default_ccache_name) (
+                                cc_context_t context,
+                                cc_string_t* name);
+    cc_int32    (*open_ccache) (
+                                cc_context_t context,
+                                const char* name,
+                                cc_ccache_t* ccache);
+    cc_int32    (*open_default_ccache) (
+                                cc_context_t context,
+                                cc_ccache_t* ccache);
+    cc_int32    (*create_ccache) (
+                                cc_context_t context,
+                                const char* name,
+                                cc_int_32 cred_vers,
+                                const char* principal, 
+                                cc_ccache_t* ccache);
+    cc_int32    (*create_default_ccache) (
+                                cc_context_t context,
+                                cc_int_32 cred_vers,
+                                const char* principal, 
+                                cc_ccache_t* ccache);
+    cc_int32    (*create_new_ccache) (
+                                cc_context_t context,
+                                cc_int_32 cred_vers,
+                                const char* principal, 
+                                cc_ccache_t* ccache);
+    cc_int32    (*new_ccache_iterator) (
+                                cc_context_t context,
+                                cc_ccache_iterator_t* iterator);
+    cc_uint32   (*lock) (
+                                cc_context_t context,
+                                cc_uint32 lock_type,
+                                cc_uint32 block);
+    cc_uint32   (*unlock) (
+                                cc_context_t context);
+} cc_context_f;
+
+typedef struct {
+    const cc_context_f* functions;
+}* cc_context_t;</pre>
+			<p>The <code>cc_context_t</code> type gives the caller access to a ccache collection. Before being able to call any functions in the CCache API, the caller needs to acquire an instance of <code>cc_context_t</code> by calling <code>cc_initialize</code> or <code>cc_context_clone</code>. The <code>cc_context_t</code> type has the following functions:</p>
+			<h4>cc_initialize</h4>
+			<pre>cc_int32 cc_initialize (
+    cc_context_t*         cc_context,
+    cc_int32              api_version,
+    cc_int32*             api_supported,
+    char**                vendor)</pre>
+			<p>This function performs any initialization required by the API. It must be called before any other function in the API is called.</p>
+			<p>The application must pass in the maximum version number of the API it supports in the <code>api_version</code> parameter.</p>
+			<p>If <code>api_supported</code> is non-NULL, then <code>cc_initialize</code> will store the maximum API version number supported by the library implementing the API there.</p>
+			<p>If the version requested by <code>api_version</code> is not equal to a version supported by the library, <code>ccErrBadAPIVersion</code> will be returned as the error code (along with the version the library does support in <code>api_supported</code>) and <code>cc_initialize()</code> will not allocate any memory.</p>
+			<p>If <code>vendor</code> is non-NULL, then <code>cc_initialize()</code> will store in <code>*vendor</code> a pointer to a read-only C string which contains a string describing the vendor which implemented the credentials cache API.</p>
+			<p>Possible return values: <code>ccNoError</code>, <code>ccErrNoMem</code>, <code>ccErrBadAPIVersion</code>, <code>ccErrBadParam</code></p>
+			<h4>cc_context_get_version</h4>
+			<pre>cc_int32 get_version (
+    cc_context_t          cc_context,
+    cc_int32*             api_version)
+cc_int32 cc_context_get_version (
+    cc_context_t          cc_context,
+    cc_int32*             api_version)</pre>
+			<p>This function returns the API version with which a context was initialized.</p>
+			<p>This is useful for cases where a context is passed between different pieces of code (an application and a library, for example), and the recipient of a context wants to ascertain that the context was initialized with the appropriate version of the API.</p>
+			<p>Possible return values: <code>ccNoError</code>, <code>ccErrInvalidContext</code>, <code>ccErrBadParam</code></p>
+			<h4>cc_context_release</h4>
+			<pre>cc_int32 release (
+    cc_context_t          cc_context)
+cc_int32 cc_context_release (
+    cc_context_t          cc_context)</pre>
+			<p>This function releases the context and performs any cleanup required by the API.</p>
+			<p>Possible return values: <code>ccNoError</code>, <code>ccErrInvalidContext</code></p>
+			<h4>cc_context_get_change_time</h4>
+			<pre>cc_int32 get_change_time (
+    cc_context_t          cc_context,
+    cc_time_t*            time)
+cc_int32 cc_context_get_change_time (
+    cc_context_t          cc_context,
+    cc_time_t*            time)</pre>
+			<p>This function returns the time of the most recent change for the entire ccache collection. By maintaining a local copy the caller can deduce whether the ccache collection has been modified since the previous call to <code>cc_context_get_change_time()</code> or not.</p>
+			<p>The time returned by <code>cc_context_get_changed_time()</code> increases whenever:</p>
+			<ul>
+				<li>a ccache is created
+				<li>a ccache is destroyed
+				<li>a credential is stored
+				<li>a credential is removed
+				<li>a ccache principal is changed
+				<li>the default ccache is changed
+			</ul>
+			<p><b>NOTE:</b> In order to be able to compare two values returned by <code>cc_context_get_change_time()</code>, the caller must use the same context to acquire them.  Callers should maintain a single context in memory for <code>cc_context_get_change_time()</code> calls rather than creating a new context for every call.</p>
+			<p>Possible return values: <code>ccNoError</code>, <code>ccErrInvalidContext</code>, <code>ccBadParam</code></p>
+			<h4>cc_context_get_default_ccache_name</h4>
+			<pre>cc_int32 get_default_ccache_name (
+    cc_context_t          cc_context,
+    cc_string_t*          name)
+cc_int32 cc_context_get_default_ccache_name (
+    cc_context_t          cc_context,
+    cc_string_t*          name)</pre>
+			<p>This function returns the name of the default ccache. When the default ccache exists, its name is returned. If there are no ccaches in the collection, and thus there is no default ccache, the name that the default ccache should have is returned. The ccache with that name will be used as the default ccache by all processes which initialized Kerberos libraries before the ccache was created.</p>
+			<p>If there is no default ccache, and the client is creating a new ccache, it should be created with the default name. If there already is a default ccache, and the client wants to create a new ccache (as opposed to reusing an existing ccache), it should be created with any unique name; <code>cc_context_create_new_ccache()</code> can be used to accomplish that more easily.</p>
+			<p>If the first ccache is created with a name other than the default name, then the processes already running will not notice the credentials stored in the new ccache, which is normally undesirable.</p>
+			<p>Possible return values: <code>ccNoError</code>, <code>ccErrInvalidContext</code>, <code>ccBadParam</code>, <code>ccErrNoMem</code></p>
+			<h4>cc_context_open_ccache</h4>
+			<pre>cc_int32 open_ccache (
+    cc_context_t          cc_context,
+    const char*           name,
+    cc_ccache_t*          ccache)
+cc_int32 cc_context_open_ccache (
+    cc_context_t          cc_context,
+    const char*           name,
+    cc_ccache_t*          ccache)</pre>
+			<p>Opens an already existing ccache identified by its name. It returns a reference to the ccache in <code>*ccache</code>.</p>
+			<p>The list of all ccache names, principals, and credentials versions may be retrieved by calling <code>cc_context_new_cache_iterator()</code>, <code>cc_ccache_get_name()</code>, <code>cc_ccache_get_principal()</code>, and <code>cc_ccache_get_cred_version()</code>.</p>
+			<p>Possible error codes: <code>ccNoError</code>, <code>ccErrBadName</code>, <code>ccErrInvalidContext</code>, <code>ccErrNoMem</code>, <code>ccErrCCacheNotFound</code>, <code>ccErrBadParam</code></p>
+			<h4>cc_context_open_default_ccache</h4>
+			<pre>cc_int32 open_default_ccache (
+    cc_context_t          cc_context,
+    cc_ccache_t*          ccache)
+cc_int32 cc_context_open_default_ccache (
+    cc_context_t          cc_context,
+    cc_ccache_t*          ccache)</pre>
+			<p>Opens the default ccache. It returns a reference to the ccache in <code>*ccache</code>.</p>
+			<p>This function performs the same function as calling <code>cc_context_get_default_ccache_name</code> followed by <code>cc_context_open_ccache</code>, but it performs it atomically.</p>
+			<p>Possible error codes: <code>ccNoError</code>, <code>ccErrInvalidContext</code>, <code>ccErrNoMem</code>, <code>ccErrCCacheNotFound</code>, <code>ccErrBadParam</code></p>
+			<h4>cc_context_create_ccache</h4>
+			<pre>cc_int32 create_ccache (
+    cc_context_t          cc_context,
+    const char*           name,
+    cc_int32              cred_vers, 
+    const char*           principal,
+    cc_ccache_t*          ccache)
+cc_int32 cc_context_create_ccache (
+    cc_context_t          cc_context,
+    const char*           name,
+    cc_int32              cred_vers, 
+    const char*           principal,
+    cc_ccache_t*          ccache)</pre>
+			<p>Create a new credentials cache. The ccache is uniquely identified by its name. The principal given is also associated with the ccache and the credentials version specified. A NULL name is not allowed (and <code>ccErrBadName</code> is returned if one is passed in). Only <code>cc_credentials_v4</code> and <code>cc_credentials_v5</code> are valid input values for <code>cred_vers</code>. If you want to create a new ccache that will hold both versions of credentials, call <code>cc_context_create_ccache()</code> with one version, and then <code>cc_ccache_set_principal()</code> with the other version.</p>
+			<p>If you want to create a new ccache (with a unique name), you should use <code>cc_context_create_new_ccache()</code> instead. If you want to create or reinitialize the default cache, you should use <code>cc_context_create_default_ccache()</code>.</p>
+			<p>If name is non-NULL and there is already a ccache named <code>name</code>:</p>
+			<ul>
+				<li>the credentials in the ccache whose version is <code>cred_vers</code> are removed
+				<li>the principal (of the existing ccache) associated with <code>cred_vers</code> is set to <code>principal</code>
+				<li>a handle for the existing ccache is returned and all existing handles for the ccache remain valid
+			</ul>
+			<p>If no ccache named name already exists:</p>
+			<ul>
+				<li>a new empty ccache is created
+				<li>the principal of the new ccache associated with <code>cred_vers</code> is set to <code>principal</code>
+				<li>a handle for the new ccache is returned
+			</ul>
+			<p>For a new ccache, the name should be any unique string. The name is not intended to be presented to users.</p>
+			<p>If the created ccache is the first ccache in the collection, it is made the default ccache. Note that normally it is undesirable to create the first ccache with a name different from the default ccache name (as returned by <code>cc_context_get_default_ccache_name()</code>); see the description of <code>cc_context_get_default_ccache_name()</code> for details.</p>
+			<p>The principal should be a C string containing an unparsed Kerberos principal in the format of the appropriate Kerberos version, i.e. foo.bar@BAZ for Kerberos v4 and foo/bar@BAZ for Kerberos v5.</p>
+			<p>Possible error codes: <code>ccNoError</code>, <code>ccErrorBadName</code>, <code>ccErrBadParam</code>, <code>ccErrInvalidContext</code>, <code>ccErrNoMem</code>, <code>ccErrBadCredentialsVersion</code></p>
+			<h4>cc_context_create_default_ccache</h4>
+			<pre>cc_int32 create_default_ccache (
+    cc_context_t          cc_context,
+    cc_int32              cred_vers, 
+    const char*           principal,
+    cc_ccache_t*          ccache)
+cc_int32 cc_context_create_default_ccache (
+    cc_context_t          cc_context,
+    cc_int32              cred_vers, 
+    const char*           principal,
+    cc_ccache_t*          ccache)</pre>
+			<p>Create the default credentials cache. The behavior of this function is similar to that of <code>cc_create_ccache()</code>. If there is a default ccache (which is always the case except when there are no ccaches at all in the collection), it is initialized with the specified credentials version and principal, as per <code>cc_create_ccache()</code>; otherwise, a new ccache is created, and its name is the name returned by <code>cc_context_get_default_ccache_name()</code>.</p>
+			<p>Possible error codes: <code>ccNoError</code>, <code>ccErrBadName</code>, <code>ccErrBadParam</code>, <code>ccErrInvalidContext</code>, <code>ccErrNoMem</code>, <code>ccErrBadCredentialsVersion</code></p>
+			<h4>cc_context_create_new_ccache</h4>
+			<pre>cc_int32 create_new_ccache (
+    cc_context_t          cc_context,
+    cc_int32              cred_vers, 
+    const char*           principal,
+    cc_ccache_t*          ccache)
+cc_int32 cc_context_create_new_ccache (
+    cc_context_t          cc_context,
+    cc_int32              cred_vers, 
+    const char*           principal,
+    cc_ccache_t*          ccache)</pre>
+			<p>Create a new unique credentials cache. The behavior of this function is similar to that of <code>cc_create_ccache()</code>. If there are no ccaches, and therefore no default ccache, the new ccache is created with the default ccache name as would be returned by <code>get_default_ccache_name()</code>. If there are some ccaches, and therefore there is a default ccache, the new ccache is created with a new unique name. Clearly, this function never reinitializes a ccache, since it always uses a unique name.</p>
+			<p>Possible error codes: <code>ccNoError</code>, <code>ccErrBadName</code>, <code>ccErrBadParam</code>, <code>ccErrInvalidContext</code>, <code>ccErrNoMem</code>, <code>ccErrBadCredentialsVersion</code></p>
+			<h4>cc_context_new_ccache_iterator</h4>
+			<pre>cc_int32 new_ccache_iterator (
+    cc_context_t          cc_context,
+    cc_ccache_iterator_t* iterator)
+cc_int32 cc_context_new_ccache_iterator (
+    cc_context_t          cc_context,
+    cc_ccache_iterator_t* iterator)</pre>
+			<p>Used to allocate memory and initialize <code>iterator</code>. Successive calls to <code>iterator</code>'s <code>next()</code> function will return ccaches in the collection.</p>
+			<p>If changes are made to the collection while an iterator is being used on it, the iterator must return at least the intersection, and at most the union, of the set of ccaches that were present when the iteration began and the set of ccaches that are present when it ends.</p>
+			<p>Possible error codes: <code>ccNoError</code>, <code>ccBadParam</code>, <code>ccErrNoMem</code>, <code>ccErrInvalidContext</code></p>
+			<h4>cc_context_lock</h4>
+			<pre>cc_int32 lock (
+    cc_context_t          context,
+    cc_int32              lock_type,
+    cc_int32              block)
+cc_int32 cc_context_lock (
+    cc_context_t          context,
+    cc_int32              lock_type,
+    cc_int32              block)</pre>
+			<p>Attempts to acquire a lock for the ccache collection. Allowed values for <code>lock_type</code> are:</p>
+			<ul>
+				<li><code>cc_lock_read</code>: if acquired, the lock is a read lock, and the owner of the lock is guaranteed that the context will not be modified until the lock is released.
+				<li><code>cc_lock_write</code>: if acquired, the lock is a write lock, and the owner of the lock is guaranteed that noone else will be allowed to inspect or modify the context until the lock is released
+			</ul>
+			<p>If <code>block</code> is <code>cc_lock_block</code>, <code>lock()</code> will not return until the lock is acquired. If <code>block</code> is <code>cc_lock_noblock</code>, <code>lock()</code> will return immediately, either acquiring the lock and returning <code>ccNoError</code>, or failing to acquire the lock and returning <code>ccErrContextLocked</code>.</p>
+			<p>Attempting to acquire a write lock on a context that is already read-locked is allowed; if successful, the context acquires two different locks (a read and a write lock), which is the same as having just a write lock. To release them, <code>cc_lock_release()</code> should be called twice. If unsuccessful, the context still has one read lock.</p>
+			<p>To avoid having to deal with differences between thread semantics on different platforms, locks are granted per context, rather than per thread or per process. That means that different threads of execution have to acquire separate contexts in order to be able to synchronize with each other.</p>
+			<p>The lock should be unlocked by using <code>cc_context_unlock()</code>.</p>
+			<p>Possible error codes: <code>ccNoError</code>, <code>ccErrContextLocked</code>, <code>ccErrBadLockType</code>, <code>ccErrInvalidContext</code>, <code>ccErrNoMem</code></p>
+			<h3>cc_context_unlock</h3>
+			<pre>cc_int32 unlock (
+    cc_context_t          context);
+cc_int32 cc_context_lock (
+    cc_context_t          context);</pre>
+			<p>Attempts to release a lock for the ccache collection.</p>
+			<p>The lock released is the last lock acquired on the context.</p>
+			<p>Possible error codes: <code>ccNoError</code>, <code>ccErrContextUnlocked</code>, <code>ccErrInvalidContext</code>, <code>ccErrNoMem</code></p>
+			<h3>
+			<hr>
+			<a name="cc_ccache_t"></a>cc_ccache_t</h3>
+			<pre>typedef struct {
+    cc_int32    (*release) (
+                                 cc_ccache_t ccache);
+    cc_int32    (*destroy) (
+                                 cc_ccache_t ccache);
+    cc_int32    (*set_default) (
+                                 cc_ccache_t ccache);
+    cc_int32    (*get_credentials_version) (
+                                 cc_ccache_t ccache,
+                                 cc_int32* credentials_version);
+    cc_int32    (*get_name) (
+                                 cc_ccache_t ccache,
+                                 cc_string_t* name);
+    cc_int32    (*get_principal) (
+                                 cc_ccache_t ccache,
+                                 cc_int32 credentials_version,
+                                 cc_string_t* principal);
+    cc_int32    (*set_principal) (
+                                 cc_ccache_t ccache,
+                                 cc_int32 credentials_version,
+                                 const char* principal);
+    cc_int32    (*store_credentials) (
+                                 cc_ccache_t ccache,
+                                 const cc_credentials_union* credentials);
+    cc_int32    (*remove_credentials) (
+                                 cc_ccache_t ccache,
+                                 cc_credentials_t credentials);
+    cc_int32    (*new_credentials_iterator) (
+                                 cc_ccache_t ccache,
+                                 cc_credentials_iterator_t* iterator);
+    cc_int32    (*lock) (
+                                 cc_ccache_t ccache,
+                                 cc_uint32 lock_type,
+                                 cc_uint32 block);
+    cc_uint32   (*unlock) (
+                                 cc_ccache_t context);
+    cc_int_32   (*get_last_default_time) (
+                                 cc_ccache_t ccache,
+                                 cc_time_t* time);
+    cc_int_32   (*get_change_time) (
+                                 cc_ccache_t ccache,
+                                 cc_time_t* time);
+    cc_int_32   (*move) (
+                                 cc_ccache_t source,
+                                 cc_ccache_t destination);
+} cc_ccache_f;
+
+typedef struct {
+    const cc_ccache_f* functions;
+}* cc_ccache_t;</pre>
+			<p>The <code>cc_ccache_t</code> type represents a reference to a ccache. Callers can access a ccache and the credentials stored in it via a <code>cc_ccache_t.</code> A <code>cc_ccache_t</code> can be acquired via <code>cc_context_open_ccache()</code>, <code>cc_context_open_default_ccache()</code>, or <code>cc_ccache_iterator_next()</code>. The functions in a <code>cc_ccache_t</code> are:</p>
+			<h4>cc_ccache_release</h4>
+			<pre>cc_int32 release (
+    cc_ccache_t           ccache)
+cc_int32 cc_ccache_release (
+    cc_ccache_t           ccache)</pre>
+			<p>Close the ccache reference. Memory associated with the ccache reference is deallocated; the ccache itself remains unchanged. The reference is invalid after being released.</p>
+			<p>Possible return values: <code>ccNoError</code>, <code>ccErrInvalidCCache</code></p>
+			<h4>cc_ccache_destroy</h4>
+			<pre>cc_int32 destroy (
+    cc_ccache_t           ccache)
+cc_int32 cc_ccache_destroy (
+    cc_ccache_t           ccache)</pre>
+			<p>Destroy the ccache referenced by the ccache reference. All credentials in the ccache are removed. The associated memory is deallocated. The reference itself is released at the same time, and is therefore invalid after the call to <code>cc_ccache_destroy()</code>.</p>
+			<p>If the default ccache is destroyed, the ccache that was most recently default before it is made the default ccache, unless the default ccache was the only ccache in the collection; in that case, no ccache is made default, as there are no ccaches left.</p>
+			<p>Possible return values: <code>ccNoError</code>, <code>ccErrInvalidCCache</code>, <code>ccErrCCacheNotFound</code></p>
+			<h4>cc_ccache_set_default_ccache</h4>
+			<pre>cc_int32 set_default (
+    cc_ccache_t           ccache)
+cc_int32 cc_ccache_set_default (
+    cc_ccache_t           ccache)</pre>
+			<p>Makes the ccache referenced the default ccache.</p>
+			<p>Possible return values: <code>ccNoError</code>, <code>ccErrInvalidCCache</code>, <code>ccErrCCacheNotFound</code></p>
+			<h4>cc_cache_get_credentials_version</h4>
+			<pre>cc_int32 get_credentials_version (
+    cc_ccache_t           ccache,
+    cc_int32*             credentials_version)
+cc_int32 cc_ccache_get_credentials_version (
+    cc_ccache_t           ccache,
+    cc_int32*             credentials_version)</pre>
+			<p><code>cc_get_credentials_version()</code> returns one value of the enumerated type <code>cc_credentials_vers</code>. The possible return values are <code>cc_credentials_v4</code> (if ccache's v4 principal has been set), <code>cc_credentials_v5</code> (if ccache's v5 principal has been set), or <code>cc_credentials_v4_v5</code> (if both ccache's v4 and v5 principals have been set). A ccache's principal is set with one of <code>cc_context_create_ccache()</code>, <code>cc_context_create_new_ccache()</code>, <code>cc_create_default_ccache()</code>, or <code>cc_ccache_set_principal()</code>.</p>
+			<p>Possible return values: <code>ccNoError</code>, <code>ccErrInvalidCCache</code>, <code>ccErrBadParam</code>, <code>ccErrCCacheNotFound</code></p>
+			<h4>cc_ccache_get_name</h4>
+			<pre>cc_int32 get_name (
+    cc_ccache_t           ccache,
+    cc_string_t*          name)
+cc_int32 cc_ccache_get_name (
+    cc_ccache_t           ccache,
+    cc_string_t*          name)</pre>
+			<p><code>get_name()</code> returns the name of the ccache. The name can be used in <code>cc_context_open_ccache()</code> or <code>cc_context_create_ccache()</code>. The name uniquely identifies a ccache. The returned name should be freed via the <code>cc_string_release()</code> function.</p>
+			<p>Possible error codes: <code>ccNoError</code>, <code>ccErrNoMem</code>, <code>ccErrBadParam</code>, <code>ccErrInvalidCCache</code>, <code>ccErrCCacheNotFound</code></p>
+			<h4>cc_ccache_get_principal</h4>
+			<pre>cc_int32 get_principal (
+    cc_ccache_t           ccache,
+    cc_int32              cred_vers,
+    cc_string_t*          principal)
+cc_int32 cc_ccache_get_principal (
+    cc_ccache_t           ccache,
+    cc_int32              cred_vers,
+    cc_string_t*          principal)</pre>
+			<p>Return the principal for the ccache that was set via <code>cc_context_create_ccache()</code>, <code>cc_context_create_default_ccache()</code>, <code>cc_context_create_new_ccache()</code>, or <code>cc_ccache_set_principal()</code>. The returned principal should be freed via the <code>cc_string_release()</code> function. Principals for v4 and v5 are separate, but should be kept synchronized for each ccache; they can be retrieved by passing <code>cc_credentials_v4</code> or <code>cc_credentials_v5</code> in <code>cred_vers</code>. Passing <code>cc_credentials_v4_v5</code> is an error (<code>ccErrBadCredentialsVersion</code>).</p>
+			<p>Possible error codes: <code>ccNoError</code>, <code>ccErrNoMem</code>, <code>ccErrBadCredentialsVersion</code>, <code>ccErrBadParam</code>, <code>ccErrInvalidCCache</code>, <code>ccErrCCacheNotFound</code></p>
+			<h4>cc_ccache_set_principal</h4>
+			<pre>cc_int32 set_principal (
+    cc_ccache_t           ccache,
+    cc_int32              cred_vers,
+    const char*           principal)
+cc_int32 cc_ccache_set_principal (
+    cc_ccache_t           ccache,
+    cc_int32              cred_vers,
+    const char*           principal)</pre>
+			<p>Set the a principal for <code>ccache</code>. The v4 and v5 principals can be set independently, but they should always be kept equal, up to differences in string representation between v4 and v5. Passing <code>cc_credentials_v4_v5</code> in <code>cred_vers</code> is an error (<code>ccErrBadCredentialsVersion</code>).</p>
+			<p><code>principal</code> points to a nul-terminated string that will be copied into the ccache. This new principal will be returned if you call <code>cc_ccache_get_principal()</code> for this ccache.</p>
+			<p>Possible error codes: <code>ccNoError</code>, <code>ccErrNoMem</code>, <code>ccErrInvalidCCache</code>, <code>ccErrBadCredentialsVersion</code>, <code>ccErrBadParam</code>, <code>ccErrCCacheNotFound</code></p>
+			<h4>cc_ccache_store_credentials</h4>
+			<pre>cc_int32 store_credentials (
+    cc_ccache_t                   ccache,
+    const cc_credentials_union*   credentials)
+cc_int32 cc_ccache_store_credentials (
+    cc_ccache_t                   ccache,
+    const cc_credentials_union*   credentials)</pre>
+			<p>Store a copy of <code>credentials</code> in the ccache.</p>
+			<p>See the description of the credentials types for the meaning of <code>cc_credentials_union</code> fields.</p>
+			<p>Before credentials of a specific credential type can be stored in a ccache, the corresponding principal version has to be set. I.e., before you can store Kerberos v4 credentials in a ccache, the Kerberos v4 principal has to be set either by <code>cc_context_create_ccache()</code>, <code>cc_context_create_default_ ccache()</code>, <code>cc_context_create_new_ccache()</code>, or <code>cc_set_principal()</code>; likewise for Kerberos v5. Otherwise, <code>ccErrBadCredentialsVersion</code> is returned.</p>
+			<p>Possible error codes: <code>ccNoError</code>, <code>ccErrInvalidCCache</code>, <code>ccErrInvalidCredentials</code>, <code>ccErrBadCredentialsVersion</code>, <code>ccErrCCacheNotFound</code></p>
+			<h4>cc_ccache_remove_credentials</h4>
+			<pre>cc_int32 remove_credentials (
+    cc_ccache_t                   ccache,
+    cc_credentials_t              credentials)
+cc_int32 cc_ccache_remove_credentials (
+    cc_ccache_t                   ccache,
+    cc_credentials_t              credentials)</pre>
+			<p>Removes <code>credentials</code> from a ccache. Note that credentials must be previously acquired from the CCache API; only exactly matching credentials will be removed. (This places the burden of determining exactly which credentials to remove on the caller, but ensures there is no ambigity about which credentials will be removed.)</p>
+			<p>If found, the credentials are removed from the ccache. The <code>credentials</code> parameter is not modified and should be freed by the caller. It is legitimate to call this function while an iterator is traversing the ccache, and the deletion of a credential already returned by <code>cc_credentials_iterator_next()</code> will not disturb sequence of credentials returned by <code>cc_credentials_iterator_next()</code>.</p>
+			<p>Possible error codes: <code>ccNoError</code>, <code>ccErrInvalidCCache</code>, <code>ccErrInvalidCredentials</code>, <code>ccErrCredentialsNotFound</code>, <code>ccErrCCacheNotFound</code></p>
+			<h4>cc_ccache_new_credentials_iterator</h4>
+			<pre>cc_int32 new_credentials_iterator (
+    cc_ccache_t           ccache,
+    cc_creds_iterator_t*  iterator)
+cc_int32 cc_cccache_new_credentials_iterator (
+    cc_ccache_t           ccache,
+    cc_creds_iterator_t*  iterator)</pre>
+			<p>Allocates memory for <code>iterator</code> and initializes it. Successive calls to <code>cc_credentials_iterator_next()</code> will return credentials from the ccache.</p>
+			<p>If changes are made to the ccache while an iterator is being used on it, the iterator must return at least the intersection, and at most the union, of the set of credentials that were in the ccache when the iteration began and the set of credentials that are in the ccache when it ends.</p>
+			<p>Possible error codes: <code>ccNoError</code>, <code>ccErrBadParam</code>, <code>ccErrNoMem</code>, <code>ccErrCCacheNotFound</code></p>
+			<h4>cc_ccache_lock</h4>
+			<pre>cc_int32 lock (
+    cc_ccache_t           ccache,
+    cc_int32              lock_type,
+    cc_uint32             block)
+cc_int32 cc_ccache_lock (
+    cc_ccache_t           ccache,
+    cc_int32              lock_type,
+    cc_uint32             block)</pre>
+			<p>Attempts to acquire a lock for the ccache. Allowed values for <code>lock_type</code> are:</p>
+			<ul>
+				<li><code>cc_lock_read</code>: if acquired, the lock is a read lock, and the owner of the lock is guaranteed that the ccache will not be modified until the lock is released.
+				<li><code>cc_lock_write</code>: if acquired, the lock is a write lock, and the owner of the lock is guaranteed that noone else will be allowed to inspect or modify the ccache until the lock is released
+			</ul>
+			<p>If <code>block</code> is <code>cc_lock_block</code>, <code>lock()</code> will not return until the lock is acquired. If <code>block</code> is <code>cc_lock_noblock</code>, <code>lock()</code> will return immediately, either acquiring the lock and returning <code>ccNoError</code>, or failing to acquire the lock and returning <code>ccErrCCacheLocked</code>.</p>
+			<p>Attempting to acquire a write lock on a ccache that is already read-locked is allowed; if successful, the context acquires two different locks (a read and a write lock), which is the same as having just a write lock. To release them, <code>cc_lock_release()</code> should be called twice. If unsuccessful, the context still has one read lock.</p>
+			<p>To avoid having to deal with differences between thread semantics on different platforms, locks are granted per context, rather than per thread or per process. That means that different threads of execution have to acquire separate contexts in order to be able to synchronize with each other.</p>
+			<p>The lock object is returned in the lock parameter, and should be unlocked by using <code>cc_lock_release()</code>.</p>
+			<p>Possible error codes: <code>ccNoError</code>, <code>ccErrCCacheLocked</code>, <code>ccErrBadLockType</code>, <code>ccErrNoMem</code>, <code>ccErrCCacheNotFound</code></p>
+			<h4>cc_ccache_unlock</h4>
+			<pre>cc_int32 unlock (
+    cc_ccache_t          ccache);
+cc_int32 cc_ccache_lock (
+    cc_ccache_t          ccache);</pre>
+			<p>Attempts to release a lock for the ccache.</p>
+			<p>The lock released is the last lock acquired on the ccache.</p>
+			<p>Possible error codes: <code>ccNoError</code>, <code>ccErrCCacheUnlocked</code>, <code>ccErrInvalidCCache</code>, <code>ccErrNoMem</code></p>
+			<h4>cc_ccache_get_change_time</h4>
+			<pre>cc_int32 get_change_time (
+    cc_ccache_t           ccache,
+    cc_time_t*            time)
+cc_int32 cc_ccache_get_change_time (
+    cc_ccache_t           ccache,
+    cc_time_t*            time)</pre>
+			<p>This function returns the time of the most recent change for the ccache. By maintaining a local copy the caller can deduce whether the ccache has been modified since the previous call to <code>cc_ccache_get_change_time()</code> or not.</p>
+			<p>The time returned by <code>cc_ccache_get_changed_time()</code> increases whenever:</p>
+			<ul>
+				<li>the ccache is created
+				<li>a credential is stored
+				<li>a credential is removed
+				<li>a ccache principal is changed
+				<li>the ccache is made default or not-default
+			</ul>
+			<p>Possible return values: <code>ccNoError</code>, <code>ccErrInvalidCCache</code>, <code>ccBadParam</code>, <code>ccErrCCacheNotFound</code></p>
+			<h4>cc_ccache_get_last_default_time</h4>
+			<pre>cc_int32 get_last_default_time (
+    cc_ccache_t           ccache,
+    cc_time_t*            time)
+cc_int32 cc_ccache_get_last_default_time (
+    cc_ccache_t           ccache,
+    cc_time_t*            time)</pre>
+			<p>This function returns the last time when the ccache was made the default ccache. This allows clients to sort the ccaches by how recently they were default, which is useful for user listing of ccaches. If the ccache was never default, <code>ccErrNeverDefault</code> is returned.</p>
+			<p>Possible return values: <code>ccNoError</code>, <code>ccErrInvalidCCache</code>, <code>ccBadParam</code>, <code>ccErrNeverDefault</code>, <code>ccErrCCacheNotFound</code></p>
+			<h4>cc_ccache_move</h4>
+			<pre>cc_int32 move (
+    cc_ccache_t           source,
+    cc_ccache_t           destination)
+cc_int32 cc_ccache_move (
+    cc_ccache_t           source,
+    cc_ccache_t           destination)</pre>
+			<p>This function takes one ccache (the source) and moves all of its credentials and all of its principals to a different ccache (the destination). All the credentials in the destination are destroyed; both principals of the destination are reset to the corresponding principals of the source ccache.</p>
+			<p>Assuming that the ccaches are valid, the function cannot fail. This makes it extremely useful for callers that want to atomically and safely replace all the credentials in a ccache -- for example, to renew user's credentials. The new credentials can be placed in a new ccache, and when they are all available, atomically placed into the destination ccache.</p>
+			<p>All ccache handles for the source ccache, including the one passed to <code>cc_ccache_move()</code>, become invalid, just as <code>cc_ccache_destroy</code> had been called.</p>
+			<p>Any locks held on the source ccache are transferred to the destination ccache; this is okay because those locks must be held by the caller.</p>
+			<p>Possible return values: <code>ccNoError</code>, <code>ccErrInvalidCCache</code>, <code>ccErrCCacheNotFound</code></p>
+			<h3>
+			<hr>
+			<a name="cc_ccache_iterator_t"></a>cc_ccache_iterator_t</h3>
+			<pre>typedef struct {
+    cc_int32    (*release) (
+                                 cc_ccache_iterator_t iter);
+    cc_int32    (*clone) (
+                                 cc_ccache_iterator_t iter,
+                                 cc_ccache_iterator_t* new_iter);
+    cc_int32    (*next) (
+                                 cc_ccache_iterator_t iter,
+                                 cc_ccache_t* ccache);
+} cc_ccache_iterator_f;
+
+typedef struct {
+    const cc_ccache_iterator_f* functions;
+}* cc_ccache_iterator_t;</pre>
+			<p>The <code>cc_ccache_iterator_t</code> type represents an iterator that iterates over a set of ccaches and returns them in all in some order. A new instance of this type can be obtained by calling <code>cc_context_new_ccache_iterator()</code>. The type has the following functions:</p>
+			<h4>cc_ccache_iterator_release</h4>
+			<pre>cc_int32 release (
+    cc_ccache_iterator_t  iterator)
+cc_int32 cc_ccache_iterator_release (
+    cc_ccache_iterator_t  iterator)</pre>
+			<p>Deallocates the memory used by a ccache iterator.</p>
+			<p>Possible error codes: <code>ccNoError</code>, <code>ccErrInvalidCCacheIterator</code></p>
+			<h4>cc_ccache_iterator_clone</h4>
+			<pre>cc_int32 clone (
+    cc_ccache_iterator_t  iter,
+    cc_ccache_iterator_t* new_iter)
+cc_int32 cc_ccache_iterator_clone (
+    cc_ccache_iterator_t  iter,
+    cc_ccache_iterator_t* new_iter)</pre>
+			<p>Creates a new iterator by cloning an existing one.</p>
+			<p>Since the original iterator acquires a lock on the entire collection when it's created, the newly created iterator will always iterate over exactly the same set of ccaches. The newly created iterator will not return the ccaches that the original iterator had already returned, unless <code>cc_ccache_iterator_reset()</code>&nbsp;is called on the new iterator.</p>
+			<p>Possible error codes: <code>ccNoError</code>, <code>ccErrNoMem</code>, <code>ccErrInvalidCCacheIterator</code></p>
+			<h4>cc_ccache_iterator_next</h4>
+			<pre>cc_int32 next (
+    cc_ccache_iterator_t  iterator,
+    cc_ccache_t*          ccache)
+cc_int32 cc_ccache_iterator_next (
+    cc_ccache_iterator_t  iterator,
+    cc_ccache_t*          ccache)</pre>
+			<p>Used to sequentially open every ccache in the iteration set.</p>
+			<p><code>ccache</code> must be a pointer to a <code>cc_ccache_t</code>. The ccache returned may be used to get information about the ccache by calling <code>cc_ccache_get_name()</code>, <code>cc_ccache_get_cred_version()</code>, and <code>cc_ccache_get_principal()</code>. CCaches returned must be released between or after calls to <code>cc_ccache_iterator_next()</code>.</p>
+			<p>When the last ccache in the sequence is returned, the return code from <code>next()</code> will be <code>ccIteratorEnd</code>.</p>
+			<p>Possible error codes: <code>ccNoError</code>, <code>ccIteratorEnd</code>, <code>ccErrBadParam</code>, <code>ccErrNoMem</code>, <code>ccErrInvalidCCacheIterator</code>, <code>ccErrCCacheNotFound</code></p>
+			<h3>
+			<hr>
+			<a name="cc_credentials_iterator_t"></a>cc_credentials_iterator_t</h3>
+			<pre>typedef struct {
+    void        (*release) (
+                                 cc_credentials_iterator_t iterator);
+    cc_int32    (*clone) (
+                                 cc_credentials_iterator_t iter,
+                                 cc_credentials_iterator_t* new_iter);
+    cc_int32    (*next) (
+                                 cc_credentials_iterator_t iterator,
+                                 cc_credentials_t* ccache);
+} cc_credentials_iterator_f;
+
+typedef struct {
+    const cc_credentials_iterator_f* functions;
+}* cc_credentials_iterator_t;</pre>
+			<p>The <code>cc_credentials_iterator_t</code> type represents an iterator that iterates over a set of credentials. A new instance of this type can be obtained by calling <code>cc_ccache_new_credentials_iterator()</code>. The type has the following functions:</p>
+			<h4>cc_ccache_credentials_iterator_release</h4>
+			<pre>cc_int32 release (
+    cc_credentials_iterator_t  iterator)
+cc_int32 cc_ccache_iterator_release (
+    cc_credentials_iterator_t  iterator)</pre>
+			<p>Deallocates memory used by a credentials iterator.</p>
+			<p>Possible error codes: <code>ccNoErr</code>, <code>ccErrInvalidCredentialsIterator</code></p>
+			<h4>cc_credentials_iterator_clone</h4>
+			<pre>cc_int32 clone (
+    cc_credentials_iterator_t  iter,
+    cc_credentials_iterator_t* new_iter)
+cc_int32 cc_credentials_iterator_clone (
+    cc_credentials_iterator_t  iter,
+    cc_credentials_iterator_t* new_iter)</pre>
+			<p>Creates a new iterator by cloning an existing one.</p>
+			<p>Since the original iterator acquires a lock on the entire ccache when it's created, the newly created iterator will always iterate over exactly the same set of credentials. The newly created iterator will not return the credentials that the original iterator had already returned, unless <code>cc_credentials_iterator_reset()</code>&nbsp;is called on the new iterator.</p>
+			<p>Possible error codes: <code>ccNoError</code>, <code>ccErrNoMem</code>, <code>ccErrInvalidCredentialsIterator</code></p>
+			<h4>cc_credentials_iterator_next</h4>
+			<pre>cc_int32 next (
+    cc_credentials_iterator_t  iterator,
+    cc_credentials_t*     credentials)
+cc_int32 cc_credentials_iterator_next (
+    cc_credentials_iterator_t  iterator,
+    cc_credentials_t*     credentials)</pre>
+			<p><code>cc_ccache_creds_iterator_t -&gt; next()</code> is used to sequentially access a set of credentials. Both Kerberos v4 and v5 credentials are returned by the iterator; callers interested in only one kind need to check the version of the returned credentials and ignore the ones they don't care about.</p>
+			<p>The credentials are returned in a <code>cc_credentials_t</code> pointed to by <code>credentials</code>.</p>
+			<p>When the last credential in the sequence is returned, the return code from <code>next()</code> will be <code>ccIteratorEnd</code>.</p>
+			<p>Possible error codes: <code>ccNoErr</code>, <code>ccIteratorEnd</code>, <code>ccErrBadParam</code>, <code>ccErrNoMem</code>, <code>ccErrInvalidCredentialsIterator</code></p>
+			<h3>
+			<hr>
+			<a name="cc_credentials_t"></a>cc_credentials_t</h3>
+			<pre>typedef struct {
+&nbsp;&nbsp;&nbsp; cc_int32                  version;
+    union {
+&nbsp;&nbsp;&nbsp;     cc_credentials_v4_t*  credentials_v4;
+&nbsp;&nbsp;&nbsp;     cc_credentials_v5_t*&nbsp; credentials_v5;
+    } credentials;
+} cc_credentials_union;
+
+typedef struct {
+    cc_int32                  (*release) (
+                                 cc_credentials_t credentials);
+} cc_credentials_f;
+
+typedef struct {
+    const cc_credentials_union* data;
+    const cc_credentials_f* functions;
+}* cc_credentials_t;</pre>
+			<p>The <code>cc_credentials_t</code> type is used to store a single set of credentials for either Kerberos v4 or Kerberos v5. In addition to its only function, <code>release()</code>, it contains a pointer to a <code>cc_credentials_union</code> structure. A <code>cc_credentials_union</code> structure contains an integer of the enumerator type <code>cc_credentials_version</code>, which is either <code>cc_credentials_v4</code> or <code>cc_credentials_v5</code>, and a pointer union, which contains either a <code>cc_credentials_v4_t</code> pointer or a <code>cc_credentials_v5_t</code> pointer, depending on the value in <code>version</code>.</p>
+			<p>Variables of the type <code>cc_credentials_t</code> are allocated by the CCache implementation, and should be released with their <code>release()</code> function. API functions which receive credentials structures from the caller always accept <code>cc_credentials_union</code>, which is allocated by the caller, and accordingly disposed by the caller.</p>
+			<p>If a <code>cc_credentials_t</code> variable is used to store Kerberos v4 credentials, then <code>credentials.credentials_v4</code> points to a v4 credentials structure:</p>
+			<pre>enum {
+  cc_v4_ticket_size = 1250
+&nbsp;&nbsp;cc_v4_name_size = 40,
+&nbsp;&nbsp;cc_v4_instance_size = 40,
+&nbsp;&nbsp;cc_v4_realm_size = 40,
+  cc_v4_key_size = 8
+};
+
+enum cc_string_to_key_type {
+   cc_v4_stk_unknown = 0,
+   cc_v4_stk_afs = 1,
+   cc_v4_stk_des = 2,
+   cc_v4_stk_columbia_special = 3
+};
+&nbsp;
+typedef struct {
+&nbsp;&nbsp;&nbsp; unsigned char&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;  &nbsp;      version;
+&nbsp;&nbsp;&nbsp; char&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;  &nbsp;&nbsp;     principal[cc_v4_name_size];
+&nbsp;&nbsp;&nbsp; char&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;  &nbsp;&nbsp;     principal_instance[cc_v4_instance_size];
+&nbsp;&nbsp;&nbsp; char&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;  &nbsp;&nbsp;     service[cc_v4_name_size];
+&nbsp;&nbsp;&nbsp; char&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;  &nbsp;&nbsp;     service_instance[cc_v4_instance_size];
+&nbsp;&nbsp;&nbsp; char&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; &nbsp;     realm[cc_v4_realm_size];
+&nbsp;&nbsp;&nbsp; unsigned char&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;        session_key[cc_v4_key_size];
+&nbsp;&nbsp;&nbsp; cc_int32&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;        kvno;
+&nbsp;&nbsp;&nbsp; cc_int32&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; string_to_key;
+&nbsp;&nbsp;&nbsp; cc_time_t&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;     issue_date;
+&nbsp;&nbsp;&nbsp; cc_int32&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;        lifetime;
+&nbsp;&nbsp;&nbsp; cc_uint32    &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;address;
+&nbsp;&nbsp;&nbsp; cc_int32&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;        ticket_size;
+&nbsp;&nbsp;&nbsp; unsigned char&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;        ticket[cc_v4_ticket_size];
+} cc_cred_v4;</pre>
+			<p>The <code>realm</code>, <code>principal</code>, <code>principal_instance</code>, <code>service</code>, and <code>service_instance</code> fields should contain (properly quoted) string representation of the realm, the principal, and the instance of the ticket and the service it was issued for. The <code>session_key</code> field should contain the session key for the ticket. The <code>kvno</code> field should contain the key version number of the ticket. The <code>string_to_key</code> field should contain a value of the enumerated type <code>cc_string_to_key_type</code>. The <code>issue_date</code> field should contain the issue time of the ticket. The <code>lifetime</code> field should contain the lifetime of the ticket in units of 5 minutes. The <code>address</code> field should contain the IP address that the ticket was issued for as an unsigned 32-bit integer. The <code>ticket</code> field should contain the ticket itself, and its size should be in the <code>ticket_size</code> field.</p>
+			<p>Otherwise, <code>cc_credentials_t</code> is used to store Kerberos v5 credentials, and then <code>credentials.credentials_v5</code> points to a a v5 credentials structure. In a v5 credentials structure, <code>cc_data</code> structures are used to store tagged variable-length binary data. Specifically, for <code>cc_credentials_v5.ticket</code> and <code>cc_credentials_v5.second_ticket</code>, the <code>cc_data.type</code> field must be zero. For the <code>cc_credentials_v5.addresses</code>, <code>cc_credentials_v5.authdata</code>, and <code>cc_credentials_v5.keyblock</code>, the <code>cc_data.type</code> field should be the address type, authorization data type, and encryption type, as defined by the Kerberos v5 protocol definition.</p>
+			<pre>typedef struct {
+&nbsp;&nbsp;&nbsp; cc_uint32&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; type;
+&nbsp;&nbsp;&nbsp; cc_uint32&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; length;
+&nbsp;&nbsp;&nbsp; unsigned char*&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; data;
+} cc_data;
+&nbsp;
+typedef struct {
+&nbsp;&nbsp;&nbsp; char*&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; client;
+&nbsp;&nbsp;&nbsp; char*&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; server;
+&nbsp;&nbsp;&nbsp; cc_data&nbsp;&nbsp;&nbsp;&nbsp; keyblock;
+&nbsp;&nbsp;&nbsp; cc_time_t&nbsp;&nbsp; authtime;
+&nbsp;&nbsp;&nbsp; cc_time_t&nbsp;&nbsp; starttime;
+&nbsp;&nbsp;&nbsp; cc_time_t&nbsp;&nbsp; endtime;
+&nbsp;&nbsp;&nbsp; cc_time_t&nbsp;&nbsp; renew_till;
+&nbsp;&nbsp;&nbsp; cc_uint32&nbsp;&nbsp;&nbsp;is_skey;
+&nbsp;&nbsp;&nbsp; cc_uint32&nbsp;&nbsp;&nbsp;ticket_flags;
+&nbsp;&nbsp;&nbsp; cc_data**&nbsp;&nbsp; addresses;
+&nbsp;&nbsp;&nbsp; cc_data&nbsp;&nbsp;&nbsp;&nbsp; ticket;
+&nbsp;&nbsp;&nbsp; cc_data&nbsp;&nbsp;&nbsp;&nbsp; second_ticket;
+&nbsp;&nbsp;&nbsp; cc_data**&nbsp;&nbsp; authdata;
+} cc_cred_v5;</pre>
+			<p>The <code>client</code> and the <code>server</code> field should contain the client's and the server's principal identifier, respectively, in properly quoted string representation. The <code>keyblock</code> fiels should contain the session encryption key info. The <code>authtime</code> field should contain the time when the ticket was issued. The <code>starttime</code> and the <code>endtime</code> fields should contain the beginning and the end of the time period during which the credentials are valid. The <code>renew_till</code> field should contain the maximal time until which the credentials can be renewed. The <code>is_skey</code> field should be set to 1 if the ticket is encrypted in another ticket's key, or 0 otherwise. The <code>ticket_flags</code> field should contain the ticket flags of the ticket, as presented by the Kerberos v5 API. The <code>addresses</code> field should contain the list of network addresses of hosts that are allowed to authenticate using this ticket. The <code>ticket</code> field should contain the ticket data, and the <code>second_ticket</code> field should contain the data for the second ticket, if there is one (for example, if the ticket is encrypted in second ticket's key). The <code>authdata</code> field should contain the autorization data.</p>
+			<h4>cc_credentials_release</h4>
+			<pre>cc_int32 release (
+    cc_credentials_t  credentials)
+cc_int32 cc_credentials_release (
+    cc_credentials_t  credentials)</pre>
+			<p>This function frees all storage associated with a variable of <code>cc_credentials_t</code>.</p>
+			<p>Possible error codes: <code>ccNoError</code>, <code>ccErrInvalidCredentials</code></p>
+			<h3>
+			<hr>
+			<a name="cc_string_t"></a>cc_string_t</h3>
+			<pre>typedef struct {
+    cc_int32                  (*release) (
+                                 cc_string_t string);
+} cc_string_f;
+
+typedef struct {
+    const char* data;
+    const cc_string_f* functions;
+}* cc_string_t;</pre>
+			<p>The <code>cc_string_t</code> represents a C string returned by the API. It has a pointer to the string data and a <code>release()</code> function. This type is used for both principal names and ccache names returned by the API. Principal names may contain UTF-8 encoded strings for internationalization purposes.</p>
+			<h4>cc_string_release</h4>
+			<pre>cc_int32 release (
+    cc_string_t  string)
+cc_int32 cc_string_release (
+    cc_string_t  string)</pre>
+			<p>This function frees the string returned by an API function.</p>
+			<p>Possible error codes: <code>ccNoError</code>, <code>ccErrInvalidString</code></p>
+			<p>
+			<hr>
+			</p>
+			<h2><a name="RevisionHistory"></a><b>Revision History and Notes</b></h2>
+			<h4>Original version (Draft Version 1)</h4>
+			<p>1/27/96 by <a href="http://web.mit.edu/tytso/www/home.html">Theodore Ts'o</a></p>
+			<h4>Revision 2 (Draft Version 1)</h4>
+			<p>970628 by <a href="http://www.umich.edu/~sgr">Steve Rothwell</a> for the V4Cache Team (Paul Hill, Jenny Khuon, Jean Luker, Dave Detlefs, Allan Bjorklund, &amp; Steve Rothwell)</p>
+			<h3>Revision 3 (Draft Version 1)</h3>
+			<p>970725 by Steve Rothwell after initial implementation and alpha release. The term &quot;credentials cache&quot; was previously used to mean both &quot;the main cache&quot; and individual &quot;named cache&quot;s within the main cache. I have started using the term &quot;NC&quot; for &quot;named cache&quot; to make the distinction clearer and to reduce the overloading of the word &quot;cache&quot;.</p>
+			<h5>Changes made for revision 3 of this API:</h5>
+			<ul>
+				<li>Added cred version type to cc_create() &amp; cc_open()
+				<li>New functions
+				<ul>
+					<li>cc_get_NC_info(), returns NC_info list for all NCs
+					<li>cc_free_NC_info(), frees NC_info list
+					<li>cc_get_cred_version(), returns version type of NC
+					<li>cc_get_name(), returns name of NC
+					<li>cc_free_name(), frees name aquired via cc_get_name()
+					<li>cc_seq_fetch_NCs(), iterate over all NCs
+				</ul>
+				<li>New return codes
+				<ul>
+					<li><code>CC_BAD_PARAM</code>
+					<li>CC_ERR_CACHE_ATTACH
+					<li>CC_ERR_CACHE_RELEASE
+					<li>CC_ERR_CACHE_FULL
+					<li><code>CC_ERR_CRED_VERSION</code>
+				</ul>
+				<li>Modified functions
+				<ul>
+					<li>cc_create(), cc_open(), pass version type of NC
+					<li>cc_store(), cc_remove(), cc_
+				</ul>
+				<li>New &amp; Modified typedefs &amp; data structures
+				<ul>
+					<li>cc_cred_vers { CC_CRED_VUNKNOWN, CC_CRED_V4, CC_CRED_V5 }
+					<li>cred_ptr_union : contains pointer to credentials (either V4 or V5)
+					<li>cred_union : contains version type and cred_ptr_union
+					<li>modified V4Cred_type
+					<li>enum StringToKey_Type { STK_AFS or STK_DES }
+					<li>copies of the maximum V4 string size indicators KRB_PRINCIPAL_SZ, KRB_SERVICE_SZ, KRB_INSTANCE_SZ, KRB_REALM_SZ, ADDR_SZ
+				</ul>
+			</ul>
+			<h4>Revision 4 (Draft Version 1)</h4>
+			<p>970908 by Steve Rothwell to incorporate changes initiated by Ted Tso. Further changes are expected in the comments for cc_create() and cc_get_change_time().</p>
+			<h4>Revision 4a (Final Version 1)</h4>
+			<p>980603 by <a href="mailto:smcguire@mit.edu">Scott McGuire</a> to correct typographical errors, HTML errors, and minor clarifications. Final API Version 1 spec.</p>
+			<h4>Revision 5 (Draft Version 2)</h4>
+			<p>990201 by <a href="mailto:smcguire@mit.edu">Scott McGuire</a>.</p>
+			<ul>
+				<li>Increased API version number to 2.
+				<li>Added enum's defining version numbers.
+				<li>Changes to cc_initialize() to specify how to deal with different API version numbers.
+				<li>Added description of cc_int32 and cc_uint32 types.
+				<li>Change some cc_int32's to cc_uint32's.
+				<li>Changed way cc_create() will behave when called on an existing cache.
+				<li>Replaced cc_seq_fetch_NCs() with cc_seq_fetch_NCs_begin(), cc_seq_fetch_NCs_next(), and cc_seq_fetch_NCs_end();
+				<li>Replaced cc_seq_fetch_creds() with cc_seq_fetch_creds_begin(), cc_seq_fetch_creds_next(), and cc_seq_fetch_creds_end();
+				<li>Replaced enum type references in structs and function paramenters with cc_int32 references;
+				<li>Replaced int type references in function parameters with cc_int32;
+				<li>Added return type of cc_int32 to all functions;
+				<li>Removed #ifdef from cred_union structure;
+				<li>Constant definitions and changes to V4Cred_type structure;
+				<li>Removed incorrect const ccache_p * parameters from cc_store() and cc_remove_cred();
+				<li>Added <code>CC_NO_ERROR</code> and <code>CC_BAD_PARAM</code> as possible return codes from all functions (except no <code>CC_BAD_PARAM</code> from cc_shutdown() );
+				<li>Added <code>CC_ERR_CRED_VERSION</code> as possible return code from cc_open() and cc_create();
+				<li>Moved infoNC structure definition up to be with rest of structure definitions;
+				<li>Changed &quot;struct _infoNC&quot; to &quot;infoNC&quot; in parameter type references.
+				<li>cc_free_principal() and cc_free_name() now take char ** instead of char * for final parameter. (This change was made between rev 4a and rev 5, but I'm re-emphasizing it here.)
+				<li>Added Implementation Notes section with requirement that all functions must be atomic and name requirements for Windows DLL's.
+				<li>Renamed &quot;the proposed changes to this API are&quot; section to &quot;Ideas for Future Versions&quot; -- but removed all items but one because they'd all been done.
+				<li>Removed most of the notes about differences with the Win NT/95 implementation of the API -- the differences have been reconciled.
+				<li>Removed unnecessary and inconsistent italicizing.
+			</ul>
+			<h4>Revision 5a (Final Version 2)</h4>
+			<p>990723 by <a href="mailto:smcguire@mit.edu">Scott McGuire</a>.</p>
+			<ul>
+				<li>cc_create(): Removed text about &quot;expected&quot; form of name. Removed note about &quot;the alpha version does not do this.&quot;
+				<li>cc_destroy(): Clarified that you do not need to call cc_close() on the cache_pointer after calling this function.
+				<li>Removed note about Windows cc_get_instance() and cc_set_instance() functions, they are no longer part of the Windows code!Function definitions<a name="FunctionDefinitions"></a>
+			</ul>
+		</blockquote>
+		<p><!-- #include "footer.html" -->
+<HR> 
+<P> 
+	<FONT SIZE="+1"> <B> 
+		Questions or comments? Send mail to <A HREF="mailto:macdev@mit.edu">macdev@mit.edu</A> 
+	</B> </FONT> <BR>
+	Last updated on $Date: 2003/09/29 19:12:09 $ <BR> 
+	Last modified by $Author: smcguire $<BR>
+
+</P>
+<!-- Begin MIT-use only web reporting counter -->
+	<IMG SRC="//counter.mit.edu/tally" WIDTH=1 HEIGHT=1 ALT="">
+<!-- End MIT-use only web reporting counter -->
+</BODY> </HTML>
+<!-- end include -->

@@ -1,4 +1,4 @@
-#serial 2
+#serial 4
 
 dnl From Jim Meyering
 
@@ -6,7 +6,7 @@ dnl Define HAVE_STRUCT_UTIMBUF if `struct utimbuf' is declared --
 dnl usually in <utime.h>.
 dnl Some systems have utime.h but don't declare the struct anywhere.
 
-AC_DEFUN(jm_STRUCT_UTIMBUF,
+AC_DEFUN([jm_CHECK_TYPE_STRUCT_UTIMBUF],
 [
   AC_CHECK_HEADERS(utime.h)
   AC_REQUIRE([AC_HEADER_TIME])
@@ -33,7 +33,7 @@ AC_DEFUN(jm_STRUCT_UTIMBUF,
     ])
 
   if test $fu_cv_sys_struct_utimbuf = yes; then
-    AC_DEFINE_UNQUOTED(HAVE_STRUCT_UTIMBUF, 1,
+    AC_DEFINE(HAVE_STRUCT_UTIMBUF, 1,
 [Define if struct utimbuf is declared -- usually in <utime.h>.
    Some systems have utime.h but don't declare the struct anywhere. ])
   fi

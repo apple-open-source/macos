@@ -1,8 +1,8 @@
 /* 
    +----------------------------------------------------------------------+
-   | PHP version 4.0                                                      |
+   | PHP Version 4                                                        |
    +----------------------------------------------------------------------+
-   | Copyright (c) 1997-2001 The PHP Group                                |
+   | Copyright (c) 1997-2003 The PHP Group                                |
    +----------------------------------------------------------------------+
    | This source file is subject to version 2.02 of the PHP license,      |
    | that is bundled with this package in the file LICENSE, and is        |
@@ -12,19 +12,21 @@
    | obtain it through the world-wide-web, please send a note to          |
    | license@php.net so we can mail you a copy immediately.               |
    +----------------------------------------------------------------------+
-   | Authors: Rasmus Lerdorf <rasmus@lerdorf.on.ca>                       |
+   | Authors: Rasmus Lerdorf <rasmus@php.net>                             |
    |          Jim Winstead <jimw@php.net>                                 |
    |          Hartmut Holzgraefe <hholzgra@php.net>                       |
    +----------------------------------------------------------------------+
 */
 
-/* $Id: php_fopen_wrappers.h,v 1.1.1.3 2001/12/14 22:13:26 zarzycki Exp $ */
+/* $Id: php_fopen_wrappers.h,v 1.1.1.6 2003/07/18 18:07:43 zarzycki Exp $ */
 
 #ifndef PHP_FOPEN_WRAPPERS_H
 #define PHP_FOPEN_WRAPPERS_H
 
-FILE *php_fopen_url_wrap_http(const char *, char *, int, int *, int *, char ** TSRMLS_DC);
-FILE *php_fopen_url_wrap_ftp(const char *, char *, int, int *, int *, char ** TSRMLS_DC);
-FILE *php_fopen_url_wrap_php(const char *, char *, int, int *, int *, char ** TSRMLS_DC);
+php_stream *php_stream_url_wrap_http(php_stream_wrapper *wrapper, char *path, char *mode, int options, char **opened_path, php_stream_context *context STREAMS_DC TSRMLS_DC);
+php_stream *php_stream_url_wrap_ftp(php_stream_wrapper *wrapper, char *path, char *mode, int options, char **opened_path, php_stream_context *context STREAMS_DC TSRMLS_DC);
+extern php_stream_wrapper php_stream_http_wrapper;
+extern php_stream_wrapper php_stream_ftp_wrapper;
+extern php_stream_wrapper php_stream_php_wrapper;
 
 #endif

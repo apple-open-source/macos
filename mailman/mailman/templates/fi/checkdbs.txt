@@ -1,0 +1,6 @@
+%(real_name)s@%(host_name)s postituslistalla on %(count)d 
+pyyntöä odottamassa käsittelyäsi:
+
+	%(adminDB)s
+Hoida nämä ensi tilassa. Ilmoitus kesken olevista 
+pyynnöistä, jos niitä on, lähetetään päivittäin.

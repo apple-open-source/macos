@@ -1,7 +1,7 @@
 /* search.c - shell backend search function */
-/* $OpenLDAP: pkg/ldap/servers/slapd/back-shell/search.c,v 1.16 2002/01/04 20:17:55 kurt Exp $ */
+/* $OpenLDAP: pkg/ldap/servers/slapd/back-shell/search.c,v 1.16.2.6 2003/03/03 17:10:11 kurt Exp $ */
 /*
- * Copyright 1998-2002 The OpenLDAP Foundation, All Rights Reserved.
+ * Copyright 1998-2003 The OpenLDAP Foundation, All Rights Reserved.
  * COPYING RESTRICTIONS APPLY, see COPYRIGHT file
  */
 
@@ -33,7 +33,6 @@ shell_back_search(
 )
 {
 	struct shellinfo	*si = (struct shellinfo *) be->be_private;
-	int 			i;
 	FILE			*rfp, *wfp;
 	AttributeName		*an;
 
@@ -45,7 +44,7 @@ shell_back_search(
 
 	if ( (op->o_private = (void *) forkandexec( si->si_search, &rfp, &wfp ))
 	    == (void *) -1 ) {
-		send_ldap_result( conn, op, LDAP_OPERATIONS_ERROR, NULL,
+		send_ldap_result( conn, op, LDAP_OTHER, NULL,
 		    "could not fork/exec", NULL, NULL );
 		return( -1 );
 	}
@@ -59,7 +58,7 @@ shell_back_search(
 	fprintf( wfp, "deref: %d\n", deref );
 	fprintf( wfp, "sizelimit: %d\n", size );
 	fprintf( wfp, "timelimit: %d\n", time );
-	fprintf( wfp, "filter: %s\n", filterstr );
+	fprintf( wfp, "filter: %s\n", filterstr->bv_val );
 	fprintf( wfp, "attrsonly: %d\n", attrsonly ? 1 : 0 );
 	fprintf( wfp, "attrs:%s", attrs == NULL ? " all" : "" );
 	for ( an = attrs; an && an->an_name.bv_val; an++ ) {

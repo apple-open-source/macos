@@ -25,5 +25,4 @@
 #include "SYS.h"
 
 SYSCALL(sendmsg, 3)
-	blr
 

@@ -1,9 +1,9 @@
 /*
- * "$Id: encode.c,v 1.1.1.3 2002/03/02 18:27:44 jlovell Exp $"
+ * "$Id: encode.c,v 1.1.1.10 2003/03/04 19:06:18 jlovell Exp $"
  *
  *   Option encoding routines for the Common UNIX Printing System (CUPS).
  *
- *   Copyright 1997-2002 by Easy Software Products.
+ *   Copyright 1997-2003 by Easy Software Products.
  *
  *   These coded instructions, statements, and computer programs are the
  *   property of Easy Software Products and are protected by Federal
@@ -49,7 +49,7 @@ typedef struct
   ipp_tag_t	value_tag;
 } ipp_option_t;
 
-static ipp_option_t	ipp_options[] =
+static const ipp_option_t ipp_options[] =
 			{
 			  { "blackplot",		IPP_TAG_BOOLEAN },
 			  { "brightness",		IPP_TAG_INTEGER },
@@ -59,8 +59,13 @@ static ipp_option_t	ipp_options[] =
 			  { "fitplot",			IPP_TAG_BOOLEAN },
 			  { "gamma",			IPP_TAG_INTEGER },
 			  { "hue",			IPP_TAG_INTEGER },
+			  { "job-k-limit",		IPP_TAG_INTEGER },
+			  { "job-page-limit",		IPP_TAG_INTEGER },
 			  { "job-priority",		IPP_TAG_INTEGER },
+			  { "job-quota-period",		IPP_TAG_INTEGER },
 			  { "landscape",		IPP_TAG_BOOLEAN },
+			  { "media",			IPP_TAG_KEYWORD },
+			  { "mirror",			IPP_TAG_BOOLEAN },
 			  { "natural-scaling",		IPP_TAG_INTEGER },
 			  { "number-up",		IPP_TAG_INTEGER },
 			  { "orientation-requested",	IPP_TAG_ENUM },
@@ -76,6 +81,7 @@ static ipp_option_t	ipp_options[] =
 			  { "print-quality",		IPP_TAG_ENUM },
 			  { "saturation",		IPP_TAG_INTEGER },
 			  { "scaling",			IPP_TAG_INTEGER },
+			  { "sides",			IPP_TAG_KEYWORD },
 			  { "wrap",			IPP_TAG_BOOLEAN }
 			};
 
@@ -195,7 +201,8 @@ cupsEncodeOptions(ipp_t         *ipp,		/* I - Request to add to */
 
     attr->group_tag = IPP_TAG_JOB;
 
-    if (strncasecmp(options[i].name, "no", 2) == 0)
+    if (strcasecmp(options[i].value, "true") == 0 ||
+        strcasecmp(options[i].value, "false") == 0)
       attr->value_tag = IPP_TAG_BOOLEAN;
     else
       attr->value_tag = IPP_TAG_NAME;
@@ -253,7 +260,7 @@ cupsEncodeOptions(ipp_t         *ipp,		/* I - Request to add to */
     * Scan the value string for values...
     */
 
-    for (j = 0; *val != '\0' || j == 0; val = sep, j ++)
+    for (j = 0; j < count; val = sep, j ++)
     {
      /*
       * Find the end of this value and mark it if needed...
@@ -283,28 +290,7 @@ cupsEncodeOptions(ipp_t         *ipp,		/* I - Request to add to */
             break;
 
 	case IPP_TAG_BOOLEAN :
-            if (!*val)
-	    {
-	     /*
-	      * Add a boolean option without a value, so the option is
-	      * passed in as "name" or "noname" for true/false...
-	      */
-
-	      if (strncasecmp(attr->name, "no", 2) == 0)
-	      {
-        	DEBUG_puts("cupsEncodeOptions: Added boolean false value...");
-        	strcpy(attr->name, attr->name + 2);
-		attr->values[0].boolean = 0;
-	      }
-	      else
-	      {
-        	DEBUG_puts("cupsEncodeOptions: Added boolean true value...");
-		attr->values[0].boolean = 1;
-	      }
-	    }
-	    else if (strcasecmp(val, "true") == 0 ||
-        	     strcasecmp(val, "on") == 0 ||
-		     strcasecmp(val, "yes") == 0)
+	    if (strcasecmp(val, "true") == 0)
 	    {
 	     /*
 	      * Boolean value - true...
@@ -314,9 +300,7 @@ cupsEncodeOptions(ipp_t         *ipp,		/* I - Request to add to */
 
               DEBUG_puts("cupsEncodeOptions: Added boolean true value...");
 	    }
-	    else if (strcasecmp(val, "false") == 0 ||
-        	     strcasecmp(val, "off") == 0 ||
-		     strcasecmp(val, "no") == 0)
+	    else
 	    {
 	     /*
 	      * Boolean value - false...
@@ -398,5 +382,5 @@ cupsEncodeOptions(ipp_t         *ipp,		/* I - Request to add to */
 
 
 /*
- * End of "$Id: encode.c,v 1.1.1.3 2002/03/02 18:27:44 jlovell Exp $".
+ * End of "$Id: encode.c,v 1.1.1.10 2003/03/04 19:06:18 jlovell Exp $".
  */

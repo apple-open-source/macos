@@ -1,8 +1,8 @@
 /*
    +----------------------------------------------------------------------+
-   | PHP version 4.0                                                      |
+   | PHP Version 4                                                        |
    +----------------------------------------------------------------------+
-   | Copyright (c) 1997-2001 The PHP Group                                |
+   | Copyright (c) 1997-2003 The PHP Group                                |
    +----------------------------------------------------------------------+
    | This source file is subject to version 2.02 of the PHP license,      |
    | that is bundled with this package in the file LICENSE, and is        |
@@ -16,7 +16,7 @@
    +----------------------------------------------------------------------+
  */
 
-/* $Id: gettext.c,v 1.1.1.5 2001/12/14 22:12:22 zarzycki Exp $ */
+/* $Id: gettext.c,v 1.1.1.8 2003/07/18 18:07:33 zarzycki Exp $ */
 
 #include <stdio.h>
 #ifdef HAVE_CONFIG_H
@@ -40,13 +40,35 @@ function_entry php_gettext_functions[] = {
 	PHP_FE(dgettext,			NULL)
 	PHP_FE(dcgettext,			NULL)
 	PHP_FE(bindtextdomain,		NULL)
+#if HAVE_NGETTEXT
+	PHP_FE(ngettext,			NULL)
+#endif
+#if HAVE_DNGETTEXT
+	PHP_FE(dngettext,			NULL)
+#endif
+#if HAVE_DCNGETTEXT
+	PHP_FE(dcngettext,			NULL)
+#endif
+#if HAVE_BIND_TEXTDOMAIN_CODESET
+	PHP_FE(bind_textdomain_codeset,		NULL)
+#endif
+
+
     {NULL, NULL, NULL}
 };
 /* }}} */
 
 zend_module_entry php_gettext_module_entry = {
     STANDARD_MODULE_HEADER,
-	"gettext", php_gettext_functions, NULL, NULL, NULL, NULL, PHP_MINFO(gettext), NO_VERSION_YET, STANDARD_MODULE_PROPERTIES
+	"gettext",
+	php_gettext_functions,
+	NULL,
+	NULL,
+	NULL,
+	NULL,
+	PHP_MINFO(gettext),
+    NO_VERSION_YET,
+	STANDARD_MODULE_PROPERTIES
 };
 
 #ifdef COMPILE_DL_GETTEXT
@@ -64,7 +86,7 @@ PHP_MINFO_FUNCTION(gettext)
    Set the textdomain to "domain". Returns the current domain */
 PHP_FUNCTION(textdomain)
 {
-	pval **domain;
+	zval **domain;
 	char *domain_name, *retval;
 	char *val;
 
@@ -73,7 +95,7 @@ PHP_FUNCTION(textdomain)
 	}
 	convert_to_string_ex(domain);
 
-	val = (*domain)->value.str.val;
+	val = Z_STRVAL_PP(domain);
 	if (strcmp(val, "") && strcmp(val, "0")) {
 		domain_name = val;
 	} else {
@@ -90,7 +112,7 @@ PHP_FUNCTION(textdomain)
    Return the translation of msgid for the current domain, or msgid unaltered if a translation does not exist */
 PHP_FUNCTION(gettext)
 {
-	pval **msgid;
+	zval **msgid;
 	char *msgstr;
 
 	if (ZEND_NUM_ARGS() != 1 || zend_get_parameters_ex(1, &msgid) == FAILURE) {
@@ -98,7 +120,7 @@ PHP_FUNCTION(gettext)
 	}
 	convert_to_string_ex(msgid);
 
-	msgstr = gettext((*msgid)->value.str.val);
+	msgstr = gettext(Z_STRVAL_PP(msgid));
 
 	RETURN_STRING(msgstr, 1);
 }
@@ -108,7 +130,7 @@ PHP_FUNCTION(gettext)
    Return the translation of msgid for domain_name, or msgid unaltered if a translation does not exist */
 PHP_FUNCTION(dgettext)
 {
-	pval **domain_name, **msgid;
+	zval **domain_name, **msgid;
 	char *msgstr;
 
 	if (ZEND_NUM_ARGS() != 2 || zend_get_parameters_ex(2, &domain_name, &msgid) == FAILURE)	{
@@ -117,7 +139,7 @@ PHP_FUNCTION(dgettext)
 	convert_to_string_ex(domain_name);
 	convert_to_string_ex(msgid);
 
-	msgstr = dgettext((*domain_name)->value.str.val, (*msgid)->value.str.val);
+	msgstr = dgettext(Z_STRVAL_PP(domain_name), Z_STRVAL_PP(msgid));
 
 	RETURN_STRING(msgstr, 1);
 }
@@ -127,7 +149,7 @@ PHP_FUNCTION(dgettext)
    Return the translation of msgid for domain_name and category, or msgid unaltered if a translation does not exist */
 PHP_FUNCTION(dcgettext)
 {
-	pval **domain_name, **msgid, **category;
+	zval **domain_name, **msgid, **category;
 	char *msgstr;
 
 	if (ZEND_NUM_ARGS() != 3 || zend_get_parameters_ex(3, &domain_name, &msgid, &category) == FAILURE) {
@@ -137,9 +159,7 @@ PHP_FUNCTION(dcgettext)
 	convert_to_string_ex(msgid);
 	convert_to_long_ex(category);
 
-	msgstr = dcgettext(	(*domain_name)->value.str.val,
-						(*msgid)->value.str.val,
-						(*category)->value.lval);
+	msgstr = dcgettext(Z_STRVAL_PP(domain_name), Z_STRVAL_PP(msgid), Z_LVAL_PP(category));
 
 	RETURN_STRING(msgstr, 1);
 }
@@ -149,7 +169,7 @@ PHP_FUNCTION(dcgettext)
    Bind to the text domain domain_name, looking for translations in dir. Returns the current domain */
 PHP_FUNCTION(bindtextdomain)
 {
-	pval **domain_name, **dir;
+	zval **domain_name, **dir;
 	char *retval, dir_name[MAXPATHLEN];
 
 	if (ZEND_NUM_ARGS() != 2 || zend_get_parameters_ex(2, &domain_name, &dir) == FAILURE) {
@@ -158,17 +178,133 @@ PHP_FUNCTION(bindtextdomain)
 	convert_to_string_ex(domain_name);
 	convert_to_string_ex(dir);
 
-	if (strcmp((*dir)->value.str.val, "") && strcmp((*dir)->value.str.val, "0")) {
-		VCWD_REALPATH((*dir)->value.str.val, dir_name);
+	if (Z_STRVAL_PP(domain_name)[0] == '\0') {
+		php_error(E_WARNING, "The first parameter of bindtextdomain must not be empty");
+		RETURN_FALSE;
+	}
+	
+	if (Z_STRVAL_PP(dir)[0] != '\0' && strcmp(Z_STRVAL_PP(dir), "0")) {
+		VCWD_REALPATH(Z_STRVAL_PP(dir), dir_name);
 	} else {
 		VCWD_GETCWD(dir_name, MAXPATHLEN);
 	}
 
-	retval = bindtextdomain((*domain_name)->value.str.val, dir_name);
+	retval = bindtextdomain(Z_STRVAL_PP(domain_name), dir_name);
 
 	RETURN_STRING(retval, 1);
 }
 /* }}} */
+
+#if HAVE_NGETTEXT
+/* {{{ proto string ngettext(string MSGID1, string MSGID2, int N)
+   Plural version of gettext() */
+PHP_FUNCTION(ngettext)
+{
+	zval **msgid1, **msgid2, **count;
+	char *msgstr;
+
+	RETVAL_FALSE;
+
+	if (ZEND_NUM_ARGS() != 3 || zend_get_parameters_ex(3, &msgid1, &msgid2, &count) == FAILURE) {
+		WRONG_PARAM_COUNT;
+	} else {
+		convert_to_string_ex(msgid1);
+		convert_to_string_ex(msgid2);
+		convert_to_long_ex(count);
+
+		msgstr = ngettext(Z_STRVAL_PP(msgid1), Z_STRVAL_PP(msgid2), Z_LVAL_PP(count));
+		if (msgstr) {
+			RETVAL_STRING (msgstr, 1);
+		}
+	}
+}
+/* }}} */
+#endif
+
+#if HAVE_DNGETTEXT
+/* {{{ proto string dngettext (string domain, string msgid1, string msgid2, int count)
+   Plural version of dgettext() */
+PHP_FUNCTION(dngettext)
+{
+	zval **domain, **msgid1, **msgid2, **count;
+
+	RETVAL_FALSE;
+
+	if (ZEND_NUM_ARGS() != 4 || zend_get_parameters_ex(4, &domain, &msgid1, &msgid2, &count) == FAILURE) {
+		WRONG_PARAM_COUNT;
+	} else {
+		char *msgstr;
+		
+		convert_to_string_ex(domain);
+		convert_to_string_ex(msgid1);
+		convert_to_string_ex(msgid2);
+		convert_to_long_ex(count);
+
+		msgstr = dngettext(Z_STRVAL_PP(domain), Z_STRVAL_PP(msgid1), Z_STRVAL_PP(msgid2), Z_LVAL_PP(count));
+		if (msgstr) {
+			RETVAL_STRING(msgstr, 1);
+		}
+	}
+}
+/* }}} */
+#endif
+
+#if HAVE_DCNGETTEXT
+/* {{{ proto string dcngettext (string domain, string msgid1, string msgid2, int n, int category)
+   Plural version of dcgettext() */								
+PHP_FUNCTION(dcngettext)
+{
+	zval **domain, **msgid1, **msgid2, **count, **category;
+
+	RETVAL_FALSE;
+
+	if (ZEND_NUM_ARGS() != 5 || zend_get_parameters_ex(4, &domain, &msgid1, &msgid2, &count, &category) == FAILURE) {
+		WRONG_PARAM_COUNT;
+	} else {
+		char* msgstr = NULL;
+
+		convert_to_string_ex(domain);
+		convert_to_string_ex(msgid1);
+		convert_to_string_ex(msgid2);
+		convert_to_long_ex(count);
+		convert_to_long_ex(category);
+
+		msgstr = dcngettext(Z_STRVAL_PP(domain), Z_STRVAL_PP(msgid1), Z_STRVAL_PP(msgid2), Z_LVAL_PP(count), Z_LVAL_PP(category));
+
+		if (msgstr) {
+			RETVAL_STRING(msgstr, 1);
+		}
+	}
+}
+/* }}} */
+#endif
+
+#if HAVE_BIND_TEXTDOMAIN_CODESET
+
+/* {{{ proto string bind_textdomain_codeset (string domain, string codeset)
+   Specify the character encoding in which the messages from the DOMAIN message catalog will be returned. */
+PHP_FUNCTION(bind_textdomain_codeset)
+{
+	zval **domain, **codeset;
+	char *retval;
+	
+	if (ZEND_NUM_ARGS() != 2 || zend_get_parameters_ex(2, &domain, &codeset) == FAILURE) {
+		WRONG_PARAM_COUNT;
+	} else {
+		convert_to_string_ex(domain);
+		convert_to_string_ex(codeset);
+		
+		retval = bind_textdomain_codeset(Z_STRVAL_PP(domain), Z_STRVAL_PP(codeset));
+
+		if (!retval) {
+			RETURN_FALSE;
+		}
+		RETURN_STRING(retval, 1);
+	}
+}
+/* }}} */
+#endif
+
 
 #endif /* HAVE_LIBINTL */
 
@@ -177,6 +313,7 @@ PHP_FUNCTION(bindtextdomain)
  * tab-width: 4
  * c-basic-offset: 4
  * End:
- * vim600: sw=4 ts=4 tw=78 fdm=marker
- * vim<600: sw=4 ts=4 tw=78
+ * vim600: sw=4 ts=4 fdm=marker
+ * vim<600: sw=4 ts=4
  */
+

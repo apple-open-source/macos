@@ -30,6 +30,13 @@
 #include "zle.mdh"
 #include "zle_main.pro"
 
+#ifdef HAVE_POLL_H
+# include <poll.h>
+#endif
+#if defined(HAVE_POLL) && !defined(POLLIN) && !defined(POLLNORM)
+# undef HAVE_POLL
+#endif
+
 /* != 0 if in a shell function called from completion, such that read -[cl]  *
  * will work (i.e., the line is metafied, and the above word arrays are OK). */
 
@@ -82,10 +89,11 @@ mod_export int eofchar;
 static int eofsent;
 static long keytimeout;
 
-#ifdef HAVE_SELECT
+#if defined(HAVE_SELECT) || defined(HAVE_POLL)
 /* Terminal baud rate */
 
 static int baud;
+static long costmult;
 #endif
 
 /* flags associated with last command */
@@ -140,6 +148,17 @@ mod_export char *zlenoargs[1] = { NULL };
 #ifdef FIONREAD
 static int delayzsetterm;
 #endif
+
+/*
+ * File descriptors we are watching as well as the terminal fd. 
+ * These are all for reading; we don't watch for writes or exceptions.
+ */
+/**/
+int nwatch;		/* Number of fd's we are watching */
+/**/
+int *watch_fds;		/* The list of fds, not terminated! */
+/**/
+char **watch_funcs;	/* The corresponding functions to call, normal array */
 
 /* set up terminal */
 
@@ -324,25 +343,247 @@ breakread(int fd, char *buf, int n)
 # define read    breakread
 #endif
 
+static int
+raw_getkey(int keytmout, char *cptr)
+{
+    long exp100ths;
+    int ret;
+#ifdef HAS_TIO
+    struct ttyinfo ti;
+#endif
+#ifndef HAVE_POLL
+# ifdef HAVE_SELECT
+    fd_set foofd;
+# endif
+#endif
+
+    /*
+     * Handle timeouts and watched fd's.  We only do one at once;
+     * key timeouts take precedence.  This saves tricky timing
+     * problems with the key timeout.
+     */
+    if ((nwatch || keytmout)
+#ifdef FIONREAD
+	&& ! delayzsetterm
+#endif
+	) {
+	if (!keytmout || keytimeout <= 0)
+	    exp100ths = 0;
+	else if (keytimeout > 500)
+	    exp100ths = 500;
+	else
+	    exp100ths = keytimeout;
+#if defined(HAVE_SELECT) || defined(HAVE_POLL)
+	if (!keytmout || exp100ths) {
+	    int i, errtry = 0, selret;
+# ifdef HAVE_POLL
+	    int poll_timeout;
+	    int nfds;
+	    struct pollfd *fds;
+# else
+	    int fdmax;
+	    struct timeval *tvptr;
+	    struct timeval expire_tv;
+# endif
+# if defined(HAS_TIO) && defined(sun)
+	    /*
+	     * Yes, I know this is complicated.  Yes, I know we
+	     * already have three bits of code to poll the terminal
+	     * down below.  No, I don't want to do this either.
+	     * However, it turns out on certain OSes, specifically
+	     * Solaris, that you can't poll typeahead for love nor
+	     * money without actually trying to read it.  But
+	     * if we are trying to select (and we need to if we
+	     * are watching other fd's) we won't pick that up.
+	     * So we just try and read it without blocking in
+	     * the time-honoured (i.e. absurdly baroque) termios
+	     * fashion.
+	     */
+	    gettyinfo(&ti);
+	    ti.tio.c_cc[VMIN] = 0;
+	    settyinfo(&ti);
+	    ret = read(SHTTY, cptr, 1);
+	    ti.tio.c_cc[VMIN] = 1;
+	    settyinfo(&ti);
+	    if (ret > 0)
+		return 1;
+# endif
+# ifdef HAVE_POLL
+	    nfds = keytmout ? 1 : 1 + nwatch;
+	    /* First pollfd is SHTTY, following are the nwatch fds */
+	    fds = zalloc(sizeof(struct pollfd) * nfds);
+	    if (exp100ths)
+		poll_timeout = exp100ths * 10;
+	    else
+		poll_timeout = -1;
+
+	    fds[0].fd = SHTTY;
+	    /*
+	     * POLLIN, POLLIN, POLLIN,
+	     * Keep those fd's POLLIN...
+	     */
+	    fds[0].events = POLLIN;
+	    if (!keytmout) {
+		for (i = 0; i < nwatch; i++) {
+		    fds[i+1].fd = watch_fds[i];
+		    fds[i+1].events = POLLIN;
+		}
+	    }
+# else
+	    fdmax = SHTTY;
+	    tvptr = NULL;
+	    if (exp100ths) {
+		expire_tv.tv_sec = exp100ths / 100;
+		expire_tv.tv_usec = (exp100ths % 100) * 10000L;
+		tvptr = &expire_tv;
+	    }
+# endif
+	    do {
+# ifdef HAVE_POLL
+		selret = poll(fds, errtry ? 1 : nfds, poll_timeout);
+# else
+		FD_ZERO(&foofd);
+		FD_SET(SHTTY, &foofd);
+		if (!keytmout && !errtry) {
+		    for (i = 0; i < nwatch; i++) {
+			int fd = watch_fds[i];
+			FD_SET(fd, &foofd);
+			if (fd > fdmax)
+			    fdmax = fd;
+		    }
+		}
+		selret = select(fdmax+1, (SELECT_ARG_2_T) & foofd,
+				NULL, NULL, tvptr);
+# endif
+		/*
+		 * Make sure a user interrupt gets passed on straight away.
+		 */
+		if (selret < 0 && errflag)
+		    break;
+		/*
+		 * Try to avoid errors on our special fd's from
+		 * messing up reads from the terminal.  Try first
+		 * with all fds, then try unsetting the special ones.
+		 */
+		if (selret < 0 && !keytmout && !errtry) {
+		    errtry = 1;
+		    continue;
+		}
+		if (selret == 0) {
+		    /* Special value -2 signals nothing ready */
+		    selret = -2;
+		}
+		if (selret < 0)
+		    break;
+		if (!keytmout && nwatch) {
+		    /*
+		     * Copy the details of the watch fds in case the
+		     * user decides to delete one from inside the
+		     * handler function.
+		     */
+		    int lnwatch = nwatch;
+		    int *lwatch_fds = zalloc(lnwatch*sizeof(int));
+		    char **lwatch_funcs = zarrdup(watch_funcs);
+		    memcpy(lwatch_fds, watch_fds, lnwatch*sizeof(int));
+		    for (i = 0; i < lnwatch; i++) {
+			if (
+# ifdef HAVE_POLL
+			    (fds[i+1].revents & POLLIN)
+# else
+			    FD_ISSET(lwatch_fds[i], &foofd)
+# endif
+			    ) {
+			    /* Handle the fd. */
+			    LinkList funcargs = znewlinklist();
+			    zaddlinknode(funcargs, ztrdup(lwatch_funcs[i]));
+			    {
+				char buf[BDIGBUFSIZE];
+				convbase(buf, lwatch_fds[i], 10);
+				zaddlinknode(funcargs, ztrdup(buf));
+			    }
+# ifdef HAVE_POLL
+#  ifdef POLLERR
+			    if (fds[i+1].revents & POLLERR)
+				zaddlinknode(funcargs, ztrdup("err"));
+#  endif
+#  ifdef POLLHUP
+			    if (fds[i+1].revents & POLLHUP)
+				zaddlinknode(funcargs, ztrdup("hup"));
+#  endif
+#  ifdef POLLNVAL
+			    if (fds[i+1].revents & POLLNVAL)
+				zaddlinknode(funcargs, ztrdup("nval"));
+#  endif
+# endif
+
+
+			    callhookfunc(lwatch_funcs[i], funcargs);
+			    if (errflag) {
+				/* No sensible way of handling errors here */
+				errflag = 0;
+				/*
+				 * Paranoia: don't run the hooks again this
+				 * time.
+				 */
+				errtry = 1;
+			    }
+			    freelinklist(funcargs, freestr);
+			}
+		    }
+		    /* Function may have invalidated the display. */
+		    if (resetneeded)
+			zrefresh();
+		    zfree(lwatch_fds, lnwatch*sizeof(int));
+		    freearray(lwatch_funcs);
+		}
+	    } while (!
+# ifdef HAVE_POLL
+		     (fds[0].revents & POLLIN)
+# else
+		     FD_ISSET(SHTTY, &foofd)
+# endif
+		);
+# ifdef HAVE_POLL
+	    zfree(fds, sizeof(struct pollfd) * nfds);
+# endif
+	    if (selret < 0)
+		return selret;
+	}
+#else
+# ifdef HAS_TIO
+	ti = shttyinfo;
+	ti.tio.c_lflag &= ~ICANON;
+	ti.tio.c_cc[VMIN] = 0;
+	ti.tio.c_cc[VTIME] = exp100ths / 10;
+#  ifdef HAVE_TERMIOS_H
+	tcsetattr(SHTTY, TCSANOW, &ti.tio);
+#  else
+	ioctl(SHTTY, TCSETA, &ti.tio);
+#  endif
+	ret = read(SHTTY, cptr, 1);
+#  ifdef HAVE_TERMIOS_H
+	tcsetattr(SHTTY, TCSANOW, &shttyinfo.tio);
+#  else
+	ioctl(SHTTY, TCSETA, &shttyinfo.tio);
+#  endif
+	return (ret <= 0) ? ret : *cptr;
+# endif
+#endif
+    }
+
+    ret = read(SHTTY, cptr, 1);
+
+    return ret;
+}
+
 /**/
 mod_export int
 getkey(int keytmout)
 {
     char cc;
     unsigned int ret;
-    long exp100ths;
     int die = 0, r, icnt = 0;
     int old_errno = errno, obreaks = breaks;
-
-#ifdef HAVE_SELECT
-    fd_set foofd;
-
-#else
-# ifdef HAS_TIO
-    struct ttyinfo ti;
-
-# endif
-#endif
 
     if (kungetct)
 	ret = STOUC(kungetbuf[--kungetct]);
@@ -355,55 +596,13 @@ getkey(int keytmout)
 		zsetterm();
 	}
 #endif
-	if (keytmout
-#ifdef FIONREAD
-	    && ! delayzsetterm
-#endif
-	    ) {
-	    if (keytimeout > 500)
-		exp100ths = 500;
-	    else if (keytimeout > 0)
-		exp100ths = keytimeout;
-	    else
-		exp100ths = 0;
-#ifdef HAVE_SELECT
-	    if (exp100ths) {
-		struct timeval expire_tv;
-
-		expire_tv.tv_sec = exp100ths / 100;
-		expire_tv.tv_usec = (exp100ths % 100) * 10000L;
-		FD_ZERO(&foofd);
-		FD_SET(SHTTY, &foofd);
-		if (select(SHTTY+1, (SELECT_ARG_2_T) & foofd,
-			   NULL, NULL, &expire_tv) <= 0)
-		    return EOF;
-	    }
-#else
-# ifdef HAS_TIO
-	    ti = shttyinfo;
-	    ti.tio.c_lflag &= ~ICANON;
-	    ti.tio.c_cc[VMIN] = 0;
-	    ti.tio.c_cc[VTIME] = exp100ths / 10;
-#  ifdef HAVE_TERMIOS_H
-	    tcsetattr(SHTTY, TCSANOW, &ti.tio);
-#  else
-	    ioctl(SHTTY, TCSETA, &ti.tio);
-#  endif
-	    r = read(SHTTY, &cc, 1);
-#  ifdef HAVE_TERMIOS_H
-	    tcsetattr(SHTTY, TCSANOW, &shttyinfo.tio);
-#  else
-	    ioctl(SHTTY, TCSETA, &shttyinfo.tio);
-#  endif
-	    return (r <= 0) ? EOF : cc;
-# endif
-#endif
-	}
 	for (;;) {
 	    int q = queue_signal_level();
 	    dont_queue_signals();
-	    r = read(SHTTY, &cc, 1);
+	    r = raw_getkey(keytmout, &cc);
 	    restore_queue_signals(q);
+	    if (r == -2)	/* timeout */
+		return EOF;
 	    if (r == 1)
 		break;
 	    if (r == 0) {
@@ -417,7 +616,7 @@ getkey(int keytmout)
 		   an infinite loop.  The simple way around this was to add
 		   the counter (icnt) so that this happens 20 times and than
 		   the shell gives up (yes, this is a bit dirty...). */
-		if (isset(IGNOREEOF) && icnt++ < 20)
+		if ((zlereadflags & ZLRF_IGNOREEOF) && icnt++ < 20)
 		    continue;
 		stopmsg = 1;
 		zexit(1, 0);
@@ -462,6 +661,75 @@ getkey(int keytmout)
     return ret;
 }
 
+/**/
+void
+zlecore(void)
+{
+#if !defined(HAVE_POLL) && defined(HAVE_SELECT)
+    struct timeval tv;
+    fd_set foofd;
+
+    FD_ZERO(&foofd);
+#endif
+
+    zrefresh();
+
+    while (!done && !errflag) {
+
+	statusline = NULL;
+	vilinerange = 0;
+	reselectkeymap();
+	selectlocalmap(NULL);
+	bindk = getkeycmd();
+	if (!ll && isfirstln && !(zlereadflags & ZLRF_IGNOREEOF) &&
+	    c == eofchar) {
+	    eofsent = 1;
+	    break;
+	}
+	if (bindk) {
+	    if (execzlefunc(bindk, zlenoargs))
+		handlefeep(zlenoargs);
+	    handleprefixes();
+	    /* for vi mode, make sure the cursor isn't somewhere illegal */
+	    if (invicmdmode() && cs > findbol() &&
+		(cs == ll || line[cs] == '\n'))
+		cs--;
+	    if (undoing)
+		handleundo();
+	} else {
+	    errflag = 1;
+	    break;
+	}
+#ifdef HAVE_POLL
+	if (baud && !(lastcmd & ZLE_MENUCMP)) {
+	    struct pollfd pfd;
+	    int to = cost * costmult / 1000; /* milliseconds */
+
+	    if (to > 500)
+		to = 500;
+	    pfd.fd = SHTTY;
+	    pfd.events = POLLIN;
+	    if (!kungetct && poll(&pfd, 1, to) <= 0)
+		zrefresh();
+	} else
+#else
+# ifdef HAVE_SELECT
+	if (baud && !(lastcmd & ZLE_MENUCMP)) {
+	    FD_SET(SHTTY, &foofd);
+	    tv.tv_sec = 0;
+	    if ((tv.tv_usec = cost * costmult) > 500000)
+		tv.tv_usec = 500000;
+	    if (!kungetct && select(SHTTY+1, (SELECT_ARG_2_T) & foofd,
+				    NULL, NULL, &tv) <= 0)
+		zrefresh();
+	} else
+# endif
+#endif
+	    if (!kungetct)
+		zrefresh();
+    }
+}
+
 /* Read a line.  It is returned metafied. */
 
 /**/
@@ -472,11 +740,7 @@ zleread(char *lp, char *rp, int flags)
     int old_errno = errno;
     int tmout = getiparam("TMOUT");
 
-#ifdef HAVE_SELECT
-    long costmult;
-    struct timeval tv;
-    fd_set foofd;
-
+#if defined(HAVE_POLL) || defined(HAVE_SELECT)
     baud = getiparam("BAUD");
     costmult = (baud) ? 3840000L / baud : 0;
 #endif
@@ -518,12 +782,10 @@ zleread(char *lp, char *rp, int flags)
     pmpt_attr = txtchange;
     rpromptbuf = promptexpand(rp, 1, NULL, NULL);
     rpmpt_attr = txtchange;
+    free_prepostdisplay();
 
     zlereadflags = flags;
     histline = curhist;
-#ifdef HAVE_SELECT
-    FD_ZERO(&foofd);
-#endif
     undoing = 1;
     line = (unsigned char *)zalloc((linesz = 256) + 2);
     virangeflag = lastcmd = done = cs = ll = mark = 0;
@@ -558,46 +820,9 @@ zleread(char *lp, char *rp, int flags)
     lastcol = -1;
     initmodifier(&zmod);
     prefixflag = 0;
-    zrefresh();
-    while (!done && !errflag) {
 
-	statusline = NULL;
-	vilinerange = 0;
-	reselectkeymap();
-	selectlocalmap(NULL);
-	bindk = getkeycmd();
-	if (!ll && isfirstln && unset(IGNOREEOF) && c == eofchar) {
-	    eofsent = 1;
-	    break;
-	}
-	if (bindk) {
-	    if (execzlefunc(bindk, zlenoargs))
-		handlefeep(zlenoargs);
-	    handleprefixes();
-	    /* for vi mode, make sure the cursor isn't somewhere illegal */
-	    if (invicmdmode() && cs > findbol() &&
-		(cs == ll || line[cs] == '\n'))
-		cs--;
-	    if (undoing)
-		handleundo();
-	} else {
-	    errflag = 1;
-	    break;
-	}
-#ifdef HAVE_SELECT
-	if (baud && !(lastcmd & ZLE_MENUCMP)) {
-	    FD_SET(SHTTY, &foofd);
-	    tv.tv_sec = 0;
-	    if ((tv.tv_usec = cost * costmult) > 500000)
-		tv.tv_usec = 500000;
-	    if (!kungetct && select(SHTTY+1, (SELECT_ARG_2_T) & foofd,
-				    NULL, NULL, &tv) <= 0)
-		zrefresh();
-	} else
-#endif
-	    if (!kungetct)
-		zrefresh();
-    }
+    zlecore();
+
     statusline = NULL;
     invalidatelist();
     trashzle();
@@ -641,7 +866,7 @@ execzlefunc(Thingy func, char **args)
 	int wflags = w->flags;
 
 	if (keybuf[0] == eofchar && !keybuf[1] &&
-	    !ll && isfirstln && isset(IGNOREEOF)) {
+	    !ll && isfirstln && (zlereadflags & ZLRF_IGNOREEOF)) {
 	    showmsg((!islogin) ? "zsh: use 'exit' to exit." :
 		    "zsh: use 'logout' to logout.");
 	    ret = 1;
@@ -672,7 +897,8 @@ execzlefunc(Thingy func, char **args)
 	}
 	r = 1;
     } else {
-	Eprog prog = getshfunc(w->u.fnnam);
+	Shfunc shf = (Shfunc) shfunctab->getnode(shfunctab, w->u.fnnam);
+	Eprog prog = (shf ? shf->funcdef : &dummy_eprog);
 
 	if(prog == &dummy_eprog) {
 	    /* the shell function doesn't exist */
@@ -685,6 +911,7 @@ execzlefunc(Thingy func, char **args)
 	    ret = 1;
 	} else {
 	    int osc = sfcontext, osi = movefd(0), olv = lastval;
+	    int oxt = isset(XTRACE);
 	    LinkList largs = NULL;
 
 	    if (*args) {
@@ -696,7 +923,9 @@ execzlefunc(Thingy func, char **args)
 	    startparamscope();
 	    makezleparams(0);
 	    sfcontext = SFC_WIDGET;
-	    doshfunc(w->u.fnnam, prog, largs, 0, 0);
+	    opts[XTRACE] = 0;
+	    doshfunc(w->u.fnnam, prog, largs, shf->flags, 0);
+	    opts[XTRACE] = oxt;
 	    ret = lastval;
 	    lastval = olv;
 	    sfcontext = osc;
@@ -752,13 +981,13 @@ mod_export char *varedarg;
 
 /**/
 static int
-bin_vared(char *name, char **args, char *ops, int func)
+bin_vared(char *name, char **args, Options ops, int func)
 {
     char *s, *t, *ova = varedarg;
     struct value vbuf;
     Value v;
     Param pm = 0;
-    int create = 0, ifl, ieof;
+    int create = 0, ifl;
     int type = PM_SCALAR, obreaks = breaks, haso = 0;
     char *p1 = NULL, *p2 = NULL;
     FILE *oshout = NULL;
@@ -813,11 +1042,11 @@ bin_vared(char *name, char **args, char *ops, int func)
 		break;
 	    case 'h':
 		/* -h option -- enable history */
-		ops['h'] = 1;
+		ops->ind['h'] = 1;
 		break;
 	    case 'e':
 		/* -e option -- enable EOF */
-		ops['e'] = 1;
+		ops->ind['e'] = 1;
 		break;
 	    default:
 		/* unrecognised option character */
@@ -914,14 +1143,11 @@ bin_vared(char *name, char **args, char *ops, int func)
 
     varedarg = *args;
     ifl = isfirstln;
-    if (ops['h'])
+    if (OPT_ISSET(ops,'h'))
 	hbegin(2);
-    isfirstln = ops['e'];
-    ieof = opts[IGNOREEOF];
-    opts[IGNOREEOF] = 0;
-    t = (char *) zleread(p1, p2, ops['h'] ? ZLRF_HISTORY : 0);
-    opts[IGNOREEOF] = ieof;
-    if (ops['h'])
+    isfirstln = OPT_ISSET(ops,'e');
+    t = (char *) zleread(p1, p2, OPT_ISSET(ops,'h') ? ZLRF_HISTORY : 0);
+    if (OPT_ISSET(ops,'h'))
 	hend(NULL);
     isfirstln = ifl;
     varedarg = ova;
@@ -951,9 +1177,10 @@ bin_vared(char *name, char **args, char *ops, int func)
 
 	/*
 	 * Use spacesplit with fourth argument 1: identify quoted separators,
-	 * unquote but don't split.
+	 * and unquote.  This duplicates the string, so we still need to free.
 	 */
 	a = spacesplit(t, 1, 0, 1);
+	zsfree(t);
 	if (PM_TYPE(pm->flags) == PM_ARRAY)
 	    setaparam(args[0], a);
 	else
@@ -1042,6 +1269,20 @@ whereis(char **args)
 }
 
 /**/
+int
+recursiveedit(char **args)
+{
+    int locerror;
+
+    zlecore();
+
+    locerror = errflag;
+    errflag = done = 0;
+
+    return locerror;
+}
+
+/**/
 mod_export void
 trashzle(void)
 {
@@ -1053,6 +1294,7 @@ trashzle(void)
 	 * extra `inlist' check]).                                          */
 	int sl = showinglist;
 	showinglist = 0;
+	trashedzle = 1;
 	zrefresh();
 	showinglist = sl;
 	moveto(nlnct, 0);
@@ -1094,9 +1336,9 @@ zleaftertrap(Hookdef dummy, void *dat)
 }
 
 static struct builtin bintab[] = {
-    BUILTIN("bindkey", 0, bin_bindkey, 0, -1, 0, "evaMldDANmrsLRp", NULL),
+    BUILTIN("bindkey", 0, bin_bindkey, 0, -1, 0, "evaM:ldDANmrsLRp", NULL),
     BUILTIN("vared",   0, bin_vared,   1,  7, 0, NULL,             NULL),
-    BUILTIN("zle",     0, bin_zle,     0, -1, 0, "lDANCLmMgGcRaUI", NULL),
+    BUILTIN("zle",     0, bin_zle,     0, -1, 0, "aAcCDFgGIKlLmMNRU", NULL),
 };
 
 /* The order of the entries in this table has to match the *HOOK
@@ -1122,6 +1364,7 @@ setup_(Module m)
     refreshptr = zrefresh;
     spaceinlineptr = spaceinline;
     zlereadptr = zleread;
+    zlesetkeymapptr = zlesetkeymap;
 
     getkeyptr = getkey;
 
@@ -1133,6 +1376,7 @@ setup_(Module m)
     stackhist = stackcs = -1;
     kungetbuf = (char *) zalloc(kungetsz = 32);
     comprecursive = 0;
+    rdstrs = NULL;
 
     /* initialise the keymap system */
     init_keymaps();
@@ -1140,6 +1384,7 @@ setup_(Module m)
     varedarg = NULL;
 
     incompfunc = incompctlfunc = hascompmod = 0;
+    hascompwidgets = 0;
 
     clwords = (char **) zcalloc((clwsize = 16) * sizeof(char *));
 
@@ -1187,10 +1432,14 @@ finish_(Module m)
     zfree(vichgbuf, vichgbufsz);
     zfree(kungetbuf, kungetsz);
     free_isrch_spots();
-
+    if (rdstrs)
+        freelinklist(rdstrs, freestr);
     zfree(cutbuf.buf, cutbuf.len);
-    for(i = KRINGCT; i--; )
-	zfree(kring[i].buf, kring[i].len);
+    if (kring) {
+	for(i = kringsize; i--; )
+	    zfree(kring[i].buf, kring[i].len);
+	zfree(kring, kringsize * sizeof(struct cutbuffer));
+    }
     for(i = 35; i--; )
 	zfree(vibuf[i].buf, vibuf[i].len);
 
@@ -1199,6 +1448,7 @@ finish_(Module m)
     refreshptr = noop_function;
     spaceinlineptr = noop_function_int;
     zlereadptr = fallback_zleread;
+    zlesetkeymapptr= noop_function_int;
 
     getkeyptr = NULL;
 

@@ -1,0 +1,11 @@
+Your authorization is required for a mailing list unsubscription
+request approval:
+
+    By:   %(username)s
+    From: %(listname)s@%(hostname)s
+
+At your convenience, visit:
+
+    %(admindb_url)s
+
+to process the request.

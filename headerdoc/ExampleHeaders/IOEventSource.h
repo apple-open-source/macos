@@ -38,7 +38,7 @@ __END_DECLS
 class IOWorkLoop;
 
 /*!
-     @class IOEventSource : public OSObject
+     @class IOEventSource
      @abstract Abstract class for all work-loop event sources.
      @discussion The IOEventSource declares the abstract super class that all
 event sources must inherit from if an IOWorkLoop is to receive events 
@@ -105,7 +105,8 @@ protected:
          The next event source in the event chain. nil at end of chain. */
      IOEventSource *eventChainNext;
 
-/*! @var owner The owner object called when an event has been delivered. */
+/*! @var owner The owner object called when an event has been delivered.
+*/
      OSObject *owner;
 
 /*! @var action

@@ -63,7 +63,7 @@ void OSXCode::scanFile(const char *pathname, Signer::State &state)
 		UnixError::throwMe();
 	
 	// scan it
-	debug("codesign", "scanning file %s (%ld bytes)", pathname, long(st.st_size));
+	secdebug("codesign", "scanning file %s (%ld bytes)", pathname, long(st.st_size));
 	state.enumerateContents(p, st.st_size);
 	
 	// unmap it (ignore error)
@@ -147,7 +147,13 @@ OSXCode *OSXCode::at(const char *path)
 		UnixError::throwMe();
 	if ((st.st_mode & S_IFMT) == S_IFDIR) {	// directory - assume bundle
 		return new GenericBundle(path);
-	} else {								// not directory - assume tool
+	} else {
+		// look for .../Contents/MacOS/<base>
+		if (const char *slash = strrchr(path, '/'))
+			if (const char *contents = strstr(path, "/Contents/MacOS/"))
+				if (contents + 15 == slash)
+					return new GenericBundle(string(path).substr(0, contents-path).c_str());
+		// assume tool (single executable)
 		return new ExecutableTool(path);
 	}
 }
@@ -224,12 +230,12 @@ void LoadableBundle::load()
 {
 	if (!CFBundleLoadExecutable(mBundle))
 		CssmError::throwMe(CSSMERR_CSSM_ADDIN_LOAD_FAILED);
-    IFDEBUG(debug("bundle", "%p (%s) loaded", this, path().c_str()));
+    secdebug("bundle", "%p (%s) loaded", this, path().c_str());
 }
 
 void LoadableBundle::unload()
 {
-    IFDEBUG(debug("bundle", "%p (%s) unloaded", this, path().c_str()));
+    secdebug("bundle", "%p (%s) unloaded", this, path().c_str());
 	CFBundleUnloadExecutable(mBundle);
 }
 

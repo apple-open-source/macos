@@ -3,7 +3,7 @@
     FILESTABLE = {
         H_FILES = (IOAudioLib.h); 
         OTHER_LINKED = (IOAudioLib.c); 
-        OTHER_SOURCES = (Makefile.preamble, Makefile, audiotest.c); 
+        OTHER_SOURCES = (Makefile.preamble, Makefile); 
         PROJECT_HEADERS = (IOAudioLib.h); 
         PUBLIC_HEADERS = (IOAudioLib.h); 
         SUBPROJECTS = (); 

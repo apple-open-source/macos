@@ -1,27 +1,11 @@
 /*
- * Copyright (c) 1984,1985,1989,1994,1995,1996,1999  Mark Nudelman
- * All rights reserved.
+ * Copyright (C) 1984-2002  Mark Nudelman
  *
- * Redistribution and use in source and binary forms, with or without
- * modification, are permitted provided that the following conditions
- * are met:
- * 1. Redistributions of source code must retain the above copyright
- *    notice, this list of conditions and the following disclaimer.
- * 2. Redistributions in binary form must reproduce the above copyright
- *    notice in the documentation and/or other materials provided with 
- *    the distribution.
+ * You may distribute under the terms of either the GNU General Public
+ * License or the Less License, as specified in the README file.
  *
- * THIS SOFTWARE IS PROVIDED BY THE AUTHOR ``AS IS'' AND ANY
- * EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
- * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR 
- * PURPOSE ARE DISCLAIMED.  IN NO EVENT SHALL THE AUTHOR BE LIABLE
- * FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR 
- * CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT 
- * OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR 
- * BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, 
- * WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE 
- * OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN 
- * IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+ * For more information about less, or for information on how to 
+ * contact the author, see the README file.
  */
 
 
@@ -36,21 +20,34 @@
 #include <ctype.h>
 #endif
 
+public int utf_mode = 0;
+
 /*
  * Predefined character sets,
  * selected by the LESSCHARSET environment variable.
  */
 struct charset {
 	char *name;
+	int *p_flag;
 	char *desc;
 } charsets[] = {
-	{ "ascii",	"8bcccbcc18b95.b"		},
-	{ "dos",	"8bcccbcc12bc5b95.b."		},
-	{ "ebcdic",	"5bc6bcc7bcc41b.9b7.9b5.b..8b6.10b6.b9.7b9.8b8.17b3.3b9.7b9.8b8.6b10.b.b.b." },
-	{ "iso8859",	"8bcccbcc18b95.33b."		},
-	{ "koi8-r",	"8bcccbcc18b95.b128."		},
-	{ "latin1",	"8bcccbcc18b95.33b."		},
-	{ "next",	"8bcccbcc18b95.bb125.bb"	},
+	{ "ascii",	NULL,       "8bcccbcc18b95.b" },
+	{ "dos",	NULL,       "8bcccbcc12bc5b223.b" },
+	{ "ebcdic",	NULL,       "5bc6bcc7bcc41b.9b7.9b5.b..8b6.10b6.b9.7b9.8b8.17b3.3b9.7b9.8b8.6b10.b.b.b." },
+	{ "IBM-1047",	NULL,       "4cbcbc3b9cbccbccbb4c6bcc5b3cbbc4bc4bccbc191.b" },
+	{ "iso8859",	NULL,       "8bcccbcc18b95.33b." },
+	{ "koi8-r",	NULL,       "8bcccbcc18b95.b128." },
+	{ "next",	NULL,       "8bcccbcc18b95.bb125.bb" },
+	{ "utf-8",	&utf_mode,  "8bcccbcc18b." },
+	{ NULL, NULL, NULL }
+};
+
+struct cs_alias {
+	char *name;
+	char *oname;
+} cs_aliases[] = {
+	{ "latin1",	"iso8859" },
+	{ "latin9",	"iso8859" },
 	{ NULL, NULL }
 };
 
@@ -138,15 +135,28 @@ icharset(name)
 	register char *name;
 {
 	register struct charset *p;
+	register struct cs_alias *a;
 
 	if (name == NULL || *name == '\0')
 		return (0);
+
+	/* First see if the name is an alias. */
+	for (a = cs_aliases;  a->name != NULL;  a++)
+	{
+		if (strcmp(name, a->name) == 0)
+		{
+			name = a->oname;
+			break;
+		}
+	}
 
 	for (p = charsets;  p->name != NULL;  p++)
 	{
 		if (strcmp(name, p->name) == 0)
 		{
 			ichardef(p->desc);
+			if (p->p_flag != NULL)
+				*(p->p_flag) = 1;
 			return (1);
 		}
 	}
@@ -154,6 +164,7 @@ icharset(name)
 	error("invalid charset name", NULL_PARG);
 	quit(QUIT_ERROR);
 	/*NOTREACHED*/
+	return (0);
 }
 
 #if HAVE_LOCALE
@@ -166,7 +177,7 @@ ilocale()
 	register int c;
 
 	setlocale(LC_ALL, "");
-	for (c = 0;  c < sizeof(chardef);  c++)
+	for (c = 0;  c < (int) sizeof(chardef);  c++)
 	{
 		if (isprint(c))
 			chardef[c] = 0;
@@ -231,16 +242,38 @@ init_charset()
 		ichardef(s);
 		return;
 	}
+
+#if HAVE_STRSTR
+	/*
+	 * Check whether LC_ALL, LC_CTYPE or LANG look like UTF-8 is used.
+	 */
+	if ((s = lgetenv("LC_ALL")) != NULL ||
+	    (s = lgetenv("LC_CTYPE")) != NULL ||
+	    (s = lgetenv("LANG")) != NULL)
+	{
+		if (strstr(s, "UTF-8") != NULL || strstr(s, "utf-8") != NULL)
+			if (icharset("utf-8"))
+				return;
+	}
+#endif
+
 #if HAVE_LOCALE
 	/*
 	 * Use setlocale.
 	 */
 	ilocale();
 #else
+#if MSDOS_COMPILER
 	/*
-	 * Default to "ascii".
+	 * Default to "dos".
 	 */
-	(void) icharset("ascii");
+	(void) icharset("dos");
+#else
+	/*
+	 * Default to "latin1".
+	 */
+	(void) icharset("latin1");
+#endif
 #endif
 }
 
@@ -281,8 +314,22 @@ prchar(c)
 		sprintf(buf, "%c", c);
 	else if (c == ESC)
 		sprintf(buf, "ESC");
-	else if (c < 128 && !control_char(c ^ 0100))
-		sprintf(buf, "^%c", c ^ 0100);
+#if IS_EBCDIC_HOST
+	else if (!binary_char(c) && c < 64)
+		sprintf(buf, "^%c",
+		/*
+		 * This array roughly inverts CONTROL() #defined in less.h,
+	 	 * and should be kept in sync with CONTROL() and IBM-1047.
+ 	 	 */
+		"@ABC.I.?...KLMNO"
+		"PQRS.JH.XY.."
+		"\\]^_"
+		"......W[.....EFG"
+		"..V....D....TU.Z"[c]);
+#else
+  	else if (c < 128 && !control_char(c ^ 0100))
+  		sprintf(buf, "^%c", c ^ 0100);
+#endif
 	else
 		sprintf(buf, binfmt, c);
 	return (buf);

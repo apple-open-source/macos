@@ -1544,10 +1544,10 @@ variables, and widgets described in this manual.
 * activate a widget:                     Widget Properties.
 * active widget:                         Widget Properties.
 * append-button-args keyword:            editable-list.
-* args keyword <1>:                      checklist.
-* args keyword <2>:                      editable-list.
-* args keyword <3>:                      menu-choice.
-* args keyword:                          radio-button-choice.
+* args keyword <1>:                      editable-list.
+* args keyword <2>:                      checklist.
+* args keyword <3>:                      radio-button-choice.
+* args keyword:                          menu-choice.
 * atomic sexp widget:                    atoms.
 * basic widgets:                         Introduction.
 * boolean:                               atoms.
@@ -1558,20 +1558,20 @@ variables, and widgets described in this manual.
 * button-face keyword:                   Basic Types.
 * button-prefix keyword:                 Basic Types.
 * button-suffix keyword:                 Basic Types.
-* buttons keyword <1>:                   checklist.
-* buttons keyword <2>:                   editable-list.
+* buttons keyword <1>:                   editable-list.
+* buttons keyword <2>:                   checklist.
 * buttons keyword:                       radio-button-choice.
 * case-fold keyword:                     menu-choice.
 * character:                             atoms.
 * checkbox widget:                       checkbox.
 * checklist widget:                      checklist.
-* children keyword <1>:                  menu-choice.
-* children keyword <2>:                  editable-list.
-* children keyword <3>:                  checklist.
-* children keyword:                      radio-button-choice.
+* children keyword <1>:                  editable-list.
+* children keyword <2>:                  checklist.
+* children keyword <3>:                  radio-button-choice.
+* children keyword:                      menu-choice.
 * choice:                                composite.
-* choice keyword <1>:                    menu-choice.
-* choice keyword:                        radio-button-choice.
+* choice keyword <1>:                    radio-button-choice.
+* choice keyword:                        menu-choice.
 * choice-item widget:                    choice-item.
 * composite sexp widgets:                composite.
 * cons:                                  composite.
@@ -1590,9 +1590,9 @@ variables, and widgets described in this manual.
 * editable-field widget:                 editable-field.
 * editable-list widget:                  editable-list.
 * embedded buttons:                      User Interface.
-* entry-format keyword <1>:              radio-button-choice.
+* entry-format keyword <1>:              editable-list.
 * entry-format keyword <2>:              checklist.
-* entry-format keyword:                  editable-list.
+* entry-format keyword:                  radio-button-choice.
 * example of using widgets:              Programming Example.
 * extra-offset keyword:                  Basic Types.
 * file:                                  atoms.
@@ -1673,8 +1673,8 @@ variables, and widgets described in this manual.
 * widget-browse:                         Widget Browser.
 * widget-browse-at:                      Widget Browser.
 * widget-browse-other-window:            Widget Browser.
-* widget-button-click <1>:               User Interface.
-* widget-button-click:                   Setting Up the Buffer.
+* widget-button-click <1>:               Setting Up the Buffer.
+* widget-button-click:                   User Interface.
 * widget-button-face:                    User Interface.
 * widget-button-prefix:                  Basic Types.
 * widget-button-press <1>:               Setting Up the Buffer.

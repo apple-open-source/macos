@@ -1,5 +1,5 @@
 /* suffixmassage.c - massages ldap backend dns */
-/* $OpenLDAP: pkg/ldap/servers/slapd/back-ldap/suffixmassage.c,v 1.4 2002/01/03 23:49:34 hyc Exp $ */
+/* $OpenLDAP: pkg/ldap/servers/slapd/back-ldap/suffixmassage.c,v 1.4.2.4 2003/02/09 16:31:38 kurt Exp $ */
 
 /* 
  * Copyright 1999, Howard Chu, All rights reserved. <hyc@highlandsun.com>
@@ -55,6 +55,8 @@ ldap_back_dn_massage(
 {
 	int     i, src, dst;
 
+	assert( res );
+
         if ( dn == NULL ) {
 		res->bv_val = NULL;
 		res->bv_len = 0;
@@ -74,9 +76,9 @@ ldap_back_dn_massage(
 	}
 
         for ( i = 0;
-                li->suffix_massage[i] != NULL;
+                li->suffix_massage[i].bv_val != NULL;
                 i += 4 ) {
-                int aliasLength = li->suffix_massage[i+src]->bv_len;
+                int aliasLength = li->suffix_massage[i+src].bv_len;
                 int diff = dn->bv_len - aliasLength;
 
                 if ( diff < 0 ) {
@@ -91,15 +93,21 @@ ldap_back_dn_massage(
                         /* XXX or an escaped separator... oh well */
                 }
 
-                if ( !strcmp( li->suffix_massage[i+src]->bv_val, &dn->bv_val[diff] ) ) {
-			res->bv_len = diff + li->suffix_massage[i+dst]->bv_len;
+                if ( !strcmp( li->suffix_massage[i+src].bv_val, &dn->bv_val[diff] ) ) {
+			res->bv_len = diff + li->suffix_massage[i+dst].bv_len;
                         res->bv_val = ch_malloc( res->bv_len + 1 );
                         strncpy( res->bv_val, dn->bv_val, diff );
-                        strcpy( &res->bv_val[diff], li->suffix_massage[i+dst]->bv_val );
+                        strcpy( &res->bv_val[diff], li->suffix_massage[i+dst].bv_val );
+#ifdef NEW_LOGGING
+					LDAP_LOG ( BACK_LDAP, ARGS, 
+						"ldap_back_dn_massage: converted \"%s\" to \"%s\"\n",
+						dn->bv_val, res->bv_val, 0 );
+#else
                         Debug( LDAP_DEBUG_ARGS,
                                 "ldap_back_dn_massage:"
 				" converted \"%s\" to \"%s\"\n",
                                 dn->bv_val, res->bv_val, 0 );
+#endif
                         break;
                 }
         }

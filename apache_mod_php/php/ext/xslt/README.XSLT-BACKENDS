@@ -39,6 +39,7 @@
 	- xslt_set_sax_handlers()
 	- xslt_set_error_handler()
 	- xslt_set_log()
+	- xslt_set_object()
 	- xslt_process()
 	- xslt_error()
 	- xslt_errno()

@@ -1,0 +1,42 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE jboss PUBLIC "-//JBoss//DTD JBOSS 3.0//EN" "http://www.jboss.org/j2ee/dtd/jboss_3_0.dtd">
+
+<jboss>
+   <container-configurations>
+      <container-configuration extends="Standard CMP 2.x EntityBean">
+         <container-name>Secured CMP 2.x EnitityBean</container-name>
+         <security-domain>java:/jaas/other</security-domain>
+      </container-configuration>
+   </container-configurations>
+   <enterprise-beans>
+      <session>
+         <ejb-name>AuditSessionEJB</ejb-name>
+         <jndi-name>cmp2/audit/AuditSession</jndi-name>
+         <resource-ref>
+            <res-ref-name>jdbc/DataSource</res-ref-name>
+            <resource-name>DataSource</resource-name>
+         </resource-ref>
+      </session>
+      <entity>
+         <ejb-name>AuditEJB</ejb-name>
+         <configuration-name>Secured CMP 2.x EnitityBean</configuration-name>
+         <local-jndi-name>cmp2/audit/Audit</local-jndi-name>
+      </entity>
+      <entity>
+         <ejb-name>AuditChangedNamesEJB</ejb-name>
+         <configuration-name>Secured CMP 2.x EnitityBean</configuration-name>
+         <local-jndi-name>cmp2/audit/AuditChangedNames</local-jndi-name>
+      </entity>
+      <entity>
+         <ejb-name>AuditMappedEJB</ejb-name>
+         <configuration-name>Secured CMP 2.x EnitityBean</configuration-name>
+         <local-jndi-name>cmp2/audit/AuditMapped</local-jndi-name>
+      </entity>
+   </enterprise-beans>
+   <resource-managers>
+      <resource-manager>
+         <res-name>DataSource</res-name>
+         <res-jndi-name>java:/DefaultDS</res-jndi-name>
+      </resource-manager>
+   </resource-managers>
+</jboss>

@@ -13,11 +13,12 @@
 #include <unistd.h>
 
 #include <sys/fcntl.h>
+#include <CoreFoundation/CoreFoundation.h>
 
 #include "../scheduler/mime.h"
 
 #define HAVE_TM_GMTOFF		1
-
+#define MAX_FILTERS             20      /* Maximum number of filters */
 #define ErrorFile		stderr
 
 /*
@@ -42,11 +43,13 @@
 
 /*** Prototypes ***/
 
-static void ConvertJob(const char *filename, mime_type_t *inMimeType, const char *options, const char *ppdPath, mime_type_t *outMimeType, mime_t *mimeDatabase, const char *out, const char *userName, const char *jobName, const char *numCopies);
+static int ConvertJob(const char *filename, mime_type_t *inMimeType, const char *options, const char *ppdPath, mime_type_t *outMimeType, mime_t *mimeDatabase, const char *out, const char *userName, const char *jobName, const char *numCopies);
 int LogMessage(int level, const char *message,	...);
 char *getDateTime(time_t t);
 static int start_process(const char *command, const char *const argv[], const char *const envp[], int infd, int outfd, int errfd, int root);
 static mime_type_t *getMimeType(mime_t *mimeDatabase, const char *mimeStr);
+static const char	*appleLangDefault(void);
+static int getCupsLogLevelFromUserPrefs(void);
 
 /* Constants */
 
@@ -58,10 +61,10 @@ static const char *ServerRoot = 	"/etc/cups";
 static const char *TempDir = 		"/tmp";
 static const char *DataDir = 		"/usr/share/cups";
 static const char *FontPath = 		"/usr/share/cups/fonts";
-static const int LogLevel =		L_INFO;
 
 /*** Globals ***/
 
+static int LogLevel = L_ERROR;
 static int MaxFDs = 0;
 
 /*!
@@ -192,6 +195,8 @@ int main (int argc, char *argv[])
      } else {
 	char directory[1024]; /* Configuration directory */
 
+	LogLevel = getCupsLogLevelFromUserPrefs();
+
 	/*
 	* Read the MIME type and conversion database...
 	*/
@@ -201,14 +206,14 @@ int main (int argc, char *argv[])
 	mimeMerge(mimeDatabase, ServerRoot, directory);
     
 	if (inMimeStr == NULL) {
-	    inMimeType = mimeFileType(mimeDatabase, filename);
+	    inMimeType = mimeFileType(mimeDatabase, filename, NULL);
 	} else {
 	    inMimeType = getMimeType(mimeDatabase, inMimeStr);
 	}
 	
 	outMimeType = getMimeType(mimeDatabase, outMimeStr);
 	
-	ConvertJob(filename, inMimeType, options, ppd, outMimeType,  mimeDatabase, outFilename, userName, jobName, numCopies);
+	status = ConvertJob(filename, inMimeType, options, ppd, outMimeType,  mimeDatabase, outFilename, userName, jobName, numCopies);
 	
 	/* Wait until all of the children have finished.
 	 */
@@ -234,7 +239,7 @@ int main (int argc, char *argv[])
  * @abstract	Convert the a file the specified MIME type. The
  *		MIME output is written to stdout.
  */
-static void ConvertJob(const char *filename, mime_type_t *inMimeType, const char *options, const char *ppdPath, mime_type_t *outMimeType, mime_t *mimeDatabase, const char *out, const char *userName, const char *jobName, const char *numCopies)
+static int ConvertJob(const char *filename, mime_type_t *inMimeType, const char *options, const char *ppdPath, mime_type_t *outMimeType, mime_t *mimeDatabase, const char *out, const char *userName, const char *jobName, const char *numCopies)
 {
   int		i;		/* Looping var */
   int		slot;		/* Pipe slot */
@@ -244,30 +249,40 @@ static void ConvertJob(const char *filename, mime_type_t *inMimeType, const char
   int		pid;		/* Process ID of new filter process */
   int		statusfds[2],	/* Pipes used between the filters and scheduler */
 		filterfds[2][2];/* Pipes used between the filters */
+  int		envc;			/* Number of environment variables */
   const char	*argv[8];		/* Filter command-line arguments */
-  const char  *envp[20];	/* Environment variables */
-
+  const char    *envp[100];	/* Environment variables */
   char		command[1024],	/* Full path to filter/backend command */
+#ifdef __APPLE__
+		processPath[1050],	/* CFProcessPath environment variable */
+#endif	/* __APPLE__ */
 		path[1024],	/* PATH environment variable */
+		ipp_port[1024],		/* IPP_PORT environment variable */
 		language[255],	/* LANG environment variable */
 		charset[255],	/* CHARSET environment variable */
-		classification[1024],	/* CLASSIFICATION environment variable */
-		content_type[255],/* CONTENT_TYPE environment variable */
-		out_url[1024],
+		content_type[1024],	/* CONTENT_TYPE environment variable */
 		device_uri[1024],/* DEVICE_URI environment variable */
 		ppd[1024],	/* PPD environment variable */
 		printer_name[255],/* PRINTER environment variable */
 		root[1024],	/* CUPS_SERVERROOT environment variable */
 		cache[255],	/* RIP_MAX_CACHE environment variable */
 		tmpdir[1024],	/* TMPDIR environment variable */
-		ldpath[1024],	/* LD_LIBRARY_PATH environment variable */
+		ld_library_path[1024],	/* LD_LIBRARY_PATH environment variable */
+		ld_preload[1024],	/* LD_PRELOAD environment variable */
+		dyld_library_path[1024],/* DYLD_LIBRARY_PATH environment variable */
+		shlib_path[1024],	/* SHLIB_PATH environment variable */
+		nlspath[1024],		/* NLSPATH environment variable */
 		datadir[1024],	/* CUPS_DATADIR environment variable */
-		fontpath[1050];	/* CUPS_FONTPATH environment variable */
+		fontpath[1050],		/* CUPS_FONTPATH environment variable */
+		vg_args[1024],		/* VG_ARGS environment variable */
+		ld_assume_kernel[1024];	/* LD_ASSUME_KERNEL environment variable */
     int currentCost = 0;
     int id = 1;
+    char out_url[1024];
     static const char *outputURL = "file://dev/stdout";
     struct rlimit limit;
-    static const int filterLimit = 0;	// unlimited;
+    static const int FilterLimit = 0;	// unlimited;
+    char *TZ = getenv("TZ");;
     
     if (out != NULL) {
 	snprintf(out_url, sizeof(out_url), "file:/%s", out);
@@ -300,13 +315,13 @@ static void ConvertJob(const char *filename, mime_type_t *inMimeType, const char
     * Local jobs get filtered...
     */
 
-    filters = mimeFilter(mimeDatabase, inMimeType, outMimeType, &num_filters);
+    filters = mimeFilter(mimeDatabase, inMimeType, outMimeType, &num_filters, MAX_FILTERS);
 
     if (num_filters == 0)
     {
-      LogMessage(L_ERROR, "Unable to convert file!");
+      LogMessage(L_ERROR, "Unable to convert file to printable format!");
 
-      return;
+      return EINVAL;	/* Invalid argument (unknown file type) */
     }
 
    /*
@@ -344,8 +359,8 @@ static void ConvertJob(const char *filename, mime_type_t *inMimeType, const char
   * See if the filter cost is too high...
   */
 
-  if ((FilterLevel + currentCost) > filterLimit && FilterLevel > 0 &&
-      filterLimit > 0)
+  if ((FilterLevel + currentCost) > FilterLimit && FilterLevel > 0 &&
+      FilterLimit > 0)
   {
    /*
     * Don't print this job quite yet...
@@ -354,9 +369,14 @@ static void ConvertJob(const char *filename, mime_type_t *inMimeType, const char
     if (filters != NULL)
       free(filters);
 
-    LogMessage(L_INFO, "Holding job %d because filter limit has been reached.", id);
+    LogMessage(L_INFO, "Holding job %d because filter limit has been reached.",
+               id);
+    LogMessage(L_DEBUG, "StartJob: id = %d, file = %d, "
+                        "cost = %d, level = %d, limit = %d",
+               id, 1, currentCost, FilterLevel,
+	       FilterLimit);
 
-    return;
+    return EPROCLIM;	/* Too many processes */
   }
 
   FilterLevel += currentCost;
@@ -377,7 +397,7 @@ static void ConvertJob(const char *filename, mime_type_t *inMimeType, const char
   * printing interface to be used by CUPS.
   */
 
-  argv[0] = "tofile";
+  argv[0] = "tofile";	/* this had better not change as this is relied on by Mac OS X printing */
   argv[1] = "1";
   argv[2] = userName;				
   argv[3] = jobName;
@@ -392,10 +412,9 @@ static void ConvertJob(const char *filename, mime_type_t *inMimeType, const char
  /*
   * Create environment variable strings for the filters...
   */
-    strcpy(language, "LANG=C");
-    //File: should get a language code from user's prefs.
+  snprintf(language, sizeof(language), "LANG=%s", appleLangDefault());
     
-    strcpy(charset, "utf-8");
+  strcpy(charset, "CHARSET=utf-8");
     
 
   snprintf(path, sizeof(path), "PATH=%s/filter:/bin:/usr/bin", ServerBin);
@@ -410,42 +429,85 @@ static void ConvertJob(const char *filename, mime_type_t *inMimeType, const char
   snprintf(tmpdir, sizeof(tmpdir), "TMPDIR=%s", TempDir);
   snprintf(datadir, sizeof(datadir), "CUPS_DATADIR=%s", DataDir);
   snprintf(fontpath, sizeof(fontpath), "CUPS_FONTPATH=%s", FontPath);
+  sprintf(ipp_port, "IPP_PORT=%d", 631);
 
-    classification[0] = '\0';
+  envc = 0;
+
+  envp[envc ++] = path;
+  envp[envc ++] = "SOFTWARE=CUPS/1.1";
+  envp[envc ++] = "USER=root";
+  envp[envc ++] = charset;
+  envp[envc ++] = language;
+  if (TZ && TZ[0])
+    envp[envc ++] = TZ;
+  envp[envc ++] = ppd;
+  envp[envc ++] = root;
+  envp[envc ++] = cache;
+  envp[envc ++] = tmpdir;
+  envp[envc ++] = content_type;
+  envp[envc ++] = device_uri;
+  envp[envc ++] = printer_name;
+  envp[envc ++] = datadir;
+  envp[envc ++] = fontpath;
+  envp[envc ++] = "CUPS_SERVER=localhost";
+  envp[envc ++] = ipp_port;
+
+  if (getenv("VG_ARGS") != NULL)
+  {
+    snprintf(vg_args, sizeof(vg_args), "VG_ARGS=%s", getenv("VG_ARGS"));
+    envp[envc ++] = vg_args;
+  }
+    
+  if (getenv("LD_ASSUME_KERNEL") != NULL)
+  {
+    snprintf(ld_assume_kernel, sizeof(ld_assume_kernel), "LD_ASSUME_KERNEL=%s",
+             getenv("LD_ASSUME_KERNEL"));
+    envp[envc ++] = ld_assume_kernel;
+  }
     
   if (getenv("LD_LIBRARY_PATH") != NULL)
-    snprintf(ldpath, sizeof(ldpath), "LD_LIBRARY_PATH=%s", getenv("LD_LIBRARY_PATH"));
-  else
-    ldpath[0] = '\0';
+  {
+    snprintf(ld_library_path, sizeof(ld_library_path), "LD_LIBRARY_PATH=%s",
+             getenv("LD_LIBRARY_PATH"));
+    envp[envc ++] = ld_library_path;
+  }
 
-  envp[0]  = path;
-  envp[1]  = "SOFTWARE=CUPS/1.1";
-  envp[2]  = "USER=root";
-  envp[3]  = charset;
-  envp[4]  = language;
-  envp[5]  = "GMT";	//FIX: should getenv("TZ") is possible
-  envp[6]  = ppd;
-  envp[7]  = root;
-  envp[8]  = cache;
-  envp[9]  = tmpdir;
-  envp[10] = content_type;
-  envp[11] = device_uri;
-  envp[12] = printer_name;
-  envp[13] = datadir;
-  envp[14] = fontpath;
-  envp[15] = ldpath;
-  envp[16] = classification;
-  envp[17] = NULL;
+  if (getenv("LD_PRELOAD") != NULL)
+  {
+    snprintf(ld_preload, sizeof(ld_preload), "LD_PRELOAD=%s",
+             getenv("LD_PRELOAD"));
+    envp[envc ++] = ld_preload;
+  }
 
-  LogMessage(L_DEBUG, "StartJob: envp = \"%s\",\"%s\",\"%s\",\"%s\","
-                      "\"%s\",\"%s\",\"%s\",\"%s\",\"%s\",\"%s\",\"%s\","
-		      "\"%s\",\"%s\",\"%s\",\"%s\",\"%s\",\"%s\"",
-	     envp[0], envp[1], envp[2], envp[3], envp[4],
-	     envp[5], envp[6], envp[7], envp[8], envp[9],
-	     envp[10], envp[11], envp[12], envp[13], envp[14],
-	     envp[15], envp[16]);
+  if (getenv("DYLD_LIBRARY_PATH") != NULL)
+  {
+    snprintf(dyld_library_path, sizeof(dyld_library_path), "DYLD_LIBRARY_PATH=%s",
+             getenv("DYLD_LIBRARY_PATH"));
+    envp[envc ++] = dyld_library_path;
+  }
 
+  if (getenv("SHLIB_PATH") != NULL)
+  {
+    snprintf(shlib_path, sizeof(shlib_path), "SHLIB_PATH=%s",
+             getenv("SHLIB_PATH"));
+    envp[envc ++] = shlib_path;
+  }
 
+  if (getenv("NLSPATH") != NULL)
+  {
+    snprintf(nlspath, sizeof(nlspath), "NLSPATH=%s", getenv("NLSPATH"));
+    envp[envc ++] = nlspath;
+  }
+
+#ifdef __APPLE__
+  strlcpy(processPath, "<CFProcessPath>", sizeof(processPath));
+  envp[envc ++] = processPath;
+#endif	/* __APPLE__ */
+
+  envp[envc] = NULL;
+
+  for (i = 0; i < envc; i ++)
+    LogMessage(L_DEBUG, "StartJob: envp[%d]=\"%s\"", i, envp[i]);
 
  /*
   * Now create processes for all of the filters...
@@ -455,24 +517,31 @@ static void ConvertJob(const char *filename, mime_type_t *inMimeType, const char
   {
     LogMessage(L_ERROR, "Unable to create job status pipes - %s.",
 	       strerror(errno));
-    //snprintf(printer->state_message, sizeof(printer->state_message),
-    //         "Unable to create status pipes - %s.", strerror(errno));
+    snprintf(printer->state_message, sizeof(printer->state_message),
+             "Unable to create status pipes - %s.", strerror(errno));
+
+    AddPrinterHistory(printer);
     return;
   }
 
-  LogMessage(L_DEBUG, "StartJob: statusfds = %d, %d",
+  LogMessage(L_DEBUG, "StartJob: statusfds = [ %d %d ]",
              statusfds[0], statusfds[1]);
 
-  *statusFD   = statusfds[0];
+  current->pipe   = statusfds[0];
+  current->status = 0;
+  memset(current->procs, 0, sizeof(current->procs));
 #else
     statusfds[0] = -1;
-    statusfds[1] = STDERR_FILENO;
+    if (LogLevel < L_DEBUG)
+        statusfds[1] = open("/dev/null", O_WRONLY);
+    else
+        statusfds[1] = STDERR_FILENO;
 #endif
 
   filterfds[1][0] = open("/dev/null", O_RDONLY);
   filterfds[1][1] = -1;
 
-  LogMessage(L_DEBUG, "StartJob: filterfds[%d] = %d, %d", 1, filterfds[1][0],
+  LogMessage(L_DEBUG, "StartJob: filterfds[%d] = [ %d %d ]", 1, filterfds[1][0],
              filterfds[1][1]);
 
   for (i = 0, slot = 0; i < num_filters; i ++)
@@ -481,11 +550,17 @@ static void ConvertJob(const char *filename, mime_type_t *inMimeType, const char
       snprintf(command, sizeof(command), "%s/filter/%s", ServerBin,
                filters[i].filter);
     else
-    {
-      strncpy(command, filters[i].filter, sizeof(command) - 1);
-      command[sizeof(command) - 1] = '\0';
-    }
+      strlcpy(command, filters[i].filter, sizeof(command));
 
+#ifdef __APPLE__
+   /*
+    * Setting CFProcessPath lets OS X's Core Foundation code find
+    * the bundle that may be associated with a filter or backend.
+    */
+
+    snprintf(processPath, sizeof(processPath), "CFProcessPath=%s", command);
+    LogMessage(L_DEBUG, "StartJob: %s\n", processPath);
+#endif	/* __APPLE__ */
 
     if (i < (num_filters - 1) ||
 	strncmp(outputURL, "file:", 5) != 0)
@@ -501,9 +576,8 @@ static void ConvertJob(const char *filename, mime_type_t *inMimeType, const char
 	                          O_WRONLY | O_CREAT | O_TRUNC, 0600);
     }
 
-
     LogMessage(L_DEBUG, "StartJob: filter = \"%s\"", command);
-    LogMessage(L_DEBUG, "StartJob: filterfds[%d] = %d, %d",
+    LogMessage(L_DEBUG, "StartJob: filterfds[%d] = [ %d %d ]",
                slot, filterfds[slot][0], filterfds[slot][1]);
 
     pid = start_process(command, argv, envp, filterfds[!slot][0],
@@ -516,15 +590,12 @@ static void ConvertJob(const char *filename, mime_type_t *inMimeType, const char
     {
       LogMessage(L_ERROR, "Unable to start filter \"%s\" - %s.",
                  filters[i].filter, strerror(errno));
-      //snprintf(printer->state_message, sizeof(printer->state_message),
-      //         "Unable to start filter \"%s\" - %s.",
-      //         filters[i].filter, strerror(errno));
-      return;
+
+      return errno;
     }
 
-
-    LogMessage(L_INFO, "Started filter %s (PID %d).",
-               command, pid);
+    LogMessage(L_INFO, "Started filter %s (PID %d) for job %d.",
+               command, pid, 1);
 
     argv[6] = NULL;
     slot    = !slot;
@@ -542,13 +613,23 @@ static void ConvertJob(const char *filename, mime_type_t *inMimeType, const char
     sscanf(outputURL, "%254[^:]", method);
     snprintf(command, sizeof(command), "%s/backend/%s", ServerBin, method);
 
-    argv[0] = outputURL;
+#ifdef __APPLE__
+   /*
+    * Setting CFProcessPath lets OS X's Core Foundation code find
+    * the bundle that may be associated with a filter or backend.
+    */
+
+    snprintf(processPath, sizeof(processPath), "CFProcessPath=%s", command);
+    LogMessage(L_DEBUG, "StartJob: %s\n", processPath);
+#endif	/* __APPLE__ */
+
+    argv[0] = (char*)outputURL;
 
     filterfds[slot][0] = -1;
     filterfds[slot][1] = open("/dev/null", O_WRONLY);
 
     LogMessage(L_DEBUG, "StartJob: backend = \"%s\"", command);
-    LogMessage(L_DEBUG, "StartJob: filterfds[%d] = %d, %d",
+    LogMessage(L_DEBUG, "StartJob: filterfds[%d] = [ %d %d ]",
                slot, filterfds[slot][0], filterfds[slot][1]);
 
     pid = start_process(command, argv, envp, filterfds[!slot][0],
@@ -561,14 +642,12 @@ static void ConvertJob(const char *filename, mime_type_t *inMimeType, const char
     {
       LogMessage(L_ERROR, "Unable to start backend \"%s\" - %s.",
                  method, strerror(errno));
-      //snprintf(printer->state_message, sizeof(printer->state_message),
-      //         "Unable to start backend \"%s\" - %s.", method, strerror(errno));
-      return;
+      return errno;
     }
     else
     {
-
-      LogMessage(L_INFO, "Started backend %s (PID %d).", command, pid);
+      LogMessage(L_INFO, "Started backend %s (PID %d) for job %d.", command, pid,
+                 1);
     }
   }
   else
@@ -585,11 +664,7 @@ static void ConvertJob(const char *filename, mime_type_t *inMimeType, const char
 
   close(statusfds[1]);
 
-  //LogMessage(L_DEBUG2, "StartJob: Adding fd %d to InputSet...", current->pipe);
-
-  //FD_SET(current->pipe, &InputSet);
-
-
+  return 0;
 }
 
 int				/* O - 1 on success, 0 on error */
@@ -787,7 +862,11 @@ start_process(const char *command,	/* I - Full path to command */
     * Reset group membership to just the main one we belong to.
     */
 
+#ifdef __APPLE__
+    initgroups(UserName, Group);
+#else
     setgroups(0, NULL);
+#endif  /* __APPLE__ */
 
    /*
     * Change umask to restrict permissions on created files...
@@ -849,3 +928,202 @@ static mime_type_t *getMimeType(mime_t *mimeDatabase, const char *mimeStr)
 
 }
 
+/*
+ * Code & data to translate OSX's language names to their ISO 639-1 locale.
+ *
+ * In Radar bug #2563420 there's a request to have CoreFoundation export a
+ * function to do this mapping. If this function gets implemented we should
+ * use it.
+ */
+
+typedef struct
+{
+  const char * const name;			/* Language name */
+  const char * const locale;			/* Locale name */
+} apple_name_locale_t;
+
+static const apple_name_locale_t apple_name_locale[] =
+{
+  { "English"     , "en_US.UTF-8" },	{ "French"     , "fr.UTF-8" },
+  { "German"      , "de.UTF-8" },	{ "Italian"    , "it.UTF-8" },  
+  { "Dutch"       , "nl.UTF-8" },	{ "Swedish"    , "sv.UTF-8" },
+  { "Spanish"     , "es.UTF-8" },	{ "Danish"     , "da.UTF-8" },  
+  { "Portuguese"  , "pt.UTF-8" },	{ "Norwegian"  , "no.UTF-8" },
+  { "Hebrew"      , "he.UTF-8" },	{ "Japanese"   , "ja.UTF-8" },  
+  { "Arabic"      , "ar.UTF-8" },	{ "Finnish"    , "fi.UTF-8" },
+  { "Greek"       , "el.UTF-8" },	{ "Icelandic"  , "is.UTF-8" },  
+  { "Maltese"     , "mt.UTF-8" },	{ "Turkish"    , "tr.UTF-8" },
+  { "Croatian"    , "hr.UTF-8" },	{ "Chinese"    , "zh.UTF-8" },  
+  { "Urdu"        , "ur.UTF-8" },	{ "Hindi"      , "hi.UTF-8" },
+  { "Thai"        , "th.UTF-8" },	{ "Korean"     , "ko.UTF-8" },  
+  { "Lithuanian"  , "lt.UTF-8" },	{ "Polish"     , "pl.UTF-8" },
+  { "Hungarian"   , "hu.UTF-8" },	{ "Estonian"   , "et.UTF-8" },  
+  { "Latvian"     , "lv.UTF-8" },	{ "Sami"       , "se.UTF-8" },
+  { "Faroese"     , "fo.UTF-8" },	{ "Farsi"      , "fa.UTF-8" },  
+  { "Russian"     , "ru.UTF-8" },	{ "Chinese"    , "zh.UTF-8" },
+  { "Dutch"       , "nl.UTF-8" },	{ "Irish"      , "ga.UTF-8" },  
+  { "Albanian"    , "sq.UTF-8" },	{ "Romanian"   , "ro.UTF-8" },
+  { "Czech"       , "cs.UTF-8" },	{ "Slovak"     , "sk.UTF-8" },  
+  { "Slovenian"   , "sl.UTF-8" },	{ "Yiddish"    , "yi.UTF-8" },
+  { "Serbian"     , "sr.UTF-8" },	{ "Macedonian" , "mk.UTF-8" },  
+  { "Bulgarian"   , "bg.UTF-8" },	{ "Ukrainian"  , "uk.UTF-8" },
+  { "Byelorussian", "be.UTF-8" },	{ "Uzbek"      , "uz.UTF-8" },  
+  { "Kazakh"      , "kk.UTF-8" },	{ "Azerbaijani", "az.UTF-8" },
+  { "Azerbaijani" , "az.UTF-8" },	{ "Armenian"   , "hy.UTF-8" },  
+  { "Georgian"    , "ka.UTF-8" },	{ "Moldavian"  , "mo.UTF-8" },
+  { "Kirghiz"     , "ky.UTF-8" },	{ "Tajiki"     , "tg.UTF-8" },  
+  { "Turkmen"     , "tk.UTF-8" },	{ "Mongolian"  , "mn.UTF-8" },
+  { "Mongolian"   , "mn.UTF-8" },	{ "Pashto"     , "ps.UTF-8" },  
+  { "Kurdish"     , "ku.UTF-8" },	{ "Kashmiri"   , "ks.UTF-8" },
+  { "Sindhi"      , "sd.UTF-8" },	{ "Tibetan"    , "bo.UTF-8" },  
+  { "Nepali"      , "ne.UTF-8" },	{ "Sanskrit"   , "sa.UTF-8" },
+  { "Marathi"     , "mr.UTF-8" },	{ "Bengali"    , "bn.UTF-8" },  
+  { "Assamese"    , "as.UTF-8" },	{ "Gujarati"   , "gu.UTF-8" },
+  { "Punjabi"     , "pa.UTF-8" },	{ "Oriya"      , "or.UTF-8" },  
+  { "Malayalam"   , "ml.UTF-8" },	{ "Kannada"    , "kn.UTF-8" },
+  { "Tamil"       , "ta.UTF-8" },	{ "Telugu"     , "te.UTF-8" },  
+  { "Sinhalese"   , "si.UTF-8" },	{ "Burmese"    , "my.UTF-8" },
+  { "Khmer"       , "km.UTF-8" },	{ "Lao"        , "lo.UTF-8" },  
+  { "Vietnamese"  , "vi.UTF-8" },	{ "Indonesian" , "id.UTF-8" },
+  { "Tagalog"     , "tl.UTF-8" },	{ "Malay"      , "ms.UTF-8" },  
+  { "Malay"       , "ms.UTF-8" },	{ "Amharic"    , "am.UTF-8" },
+  { "Tigrinya"    , "ti.UTF-8" },	{ "Oromo"      , "om.UTF-8" },  
+  { "Somali"      , "so.UTF-8" },	{ "Swahili"    , "sw.UTF-8" },
+  { "Kinyarwanda" , "rw.UTF-8" },	{ "Rundi"      , "rn.UTF-8" },  
+  { "Nyanja"      , ""   },		{ "Malagasy"   , "mg.UTF-8" },
+  { "Esperanto"   , "eo.UTF-8" },	{ "Welsh"      , "cy.UTF-8" },  
+  { "Basque"      , "eu.UTF-8" },	{ "Catalan"    , "ca.UTF-8" },
+  { "Latin"       , "la.UTF-8" },	{ "Quechua"    , "qu.UTF-8" },  
+  { "Guarani"     , "gn.UTF-8" },	{ "Aymara"     , "ay.UTF-8" },
+  { "Tatar"       , "tt.UTF-8" },	{ "Uighur"     , "ug.UTF-8" },  
+  { "Dzongkha"    , "dz.UTF-8" },	{ "Javanese"   , "jv.UTF-8" },
+  { "Sundanese"   , "su.UTF-8" },	{ "Galician"   , "gl.UTF-8" },  
+  { "Afrikaans"   , "af.UTF-8" },	{ "Breton"     , "br.UTF-8" },
+  { "Inuktitut"   , "iu.UTF-8" },	{ "Scottish"   , "gd.UTF-8" },  
+  { "Manx"        , "gv.UTF-8" },	{ "Irish"      , "ga.UTF-8" },
+  { "Tongan"      , "to.UTF-8" },	{ "Greek"      , "el.UTF-8" },  
+  { "Greenlandic" , "kl.UTF-8" },	{ "Azerbaijani", "az.UTF-8" }
+};
+
+
+/*
+ * 'appleLangDefault()' - Get the default locale string.
+ */
+
+static const char *				/* O - Locale string */
+appleLangDefault(void)
+{
+  int			i;			/* Looping var */
+  CFPropertyListRef 	localizationList;	/* List of localization data */
+  CFStringRef		localizationName;	/* Current name */
+  char			buff[256];		/* Temporary buffer */
+  static const char	*language = NULL;	/* Cached language */
+
+
+ /*
+  * Only do the lookup and translation the first time.
+  */
+
+  if (language == NULL)
+  {
+    localizationList =
+        CFPreferencesCopyAppValue(CFSTR("AppleLanguages"),
+                                                 kCFPreferencesCurrentApplication);
+
+    if (localizationList != NULL)
+    {
+      if (CFGetTypeID(localizationList) == CFArrayGetTypeID() &&
+	  CFArrayGetCount(localizationList) > 0)
+      {
+        localizationName = CFArrayGetValueAtIndex(localizationList, 0);
+
+        if (localizationName != NULL &&
+            CFGetTypeID(localizationName) == CFStringGetTypeID())
+        {
+	  CFIndex length = CFStringGetLength(localizationName);
+
+	  if (length <= sizeof(buff) &&
+	      CFStringGetCString(localizationName, buff, sizeof(buff),
+	                         kCFStringEncodingASCII))
+	  {
+	    buff[sizeof(buff) - 1] = '\0';
+
+	    for (i = 0;
+	      i < sizeof(apple_name_locale) / sizeof(apple_name_locale[0]);
+	      i++)
+	    {
+	      if (strcasecmp(buff, apple_name_locale[i].name) == 0)
+	      {
+		language = apple_name_locale[i].locale;
+		break;
+	      }
+	    }
+	  }
+        }
+      }
+
+      CFRelease(localizationList);
+    }
+  
+   /*
+    * If we didn't find the language, default to en_US...
+    */
+
+    if (language == NULL)
+      language = apple_name_locale[0].locale;
+  }
+
+ /*
+  * Return the cached locale...
+  */
+
+  return (language);
+}
+
+
+static int getCupsLogLevelFromUserPrefs(void)
+{
+  /*
+   *  To set a log level, use the following command:
+   *	defaults write com.apple.print cupsloglevel debug
+   *  where 'debug' above could be:
+   *	none, error, warn, info, debug, debug2 
+   */
+  int loglevel = L_ERROR;
+  int i;
+  char loglevelstr[64];
+
+  static struct cups_loglevel_tbl_t {
+    int		loglevel;
+    const char * const	str;
+  } cups_loglevel_tbl[] = {
+    { L_NONE,   "NONE"  },
+    { L_ERROR,  "ERROR" },
+    { L_WARN,   "WARN"  },
+    { L_INFO,   "INFO"  },
+    { L_DEBUG,  "DEBUG" },
+    { L_DEBUG2, "DEBUG2"}
+  };
+
+  CFStringRef loglevelRef = (CFStringRef)CFPreferencesCopyValue(CFSTR("cupsloglevel"), 
+				CFSTR("com.apple.print"), kCFPreferencesCurrentUser, 
+				kCFPreferencesAnyHost);
+  if (loglevelRef)
+  {
+    if (CFGetTypeID(loglevelRef) == CFStringGetTypeID() && 
+	CFStringGetCString(loglevelRef, loglevelstr, sizeof(loglevelstr), kCFStringEncodingASCII))
+    {
+      for (i = 0; i < sizeof(cups_loglevel_tbl)/sizeof(cups_loglevel_tbl[0]); i++)
+      {
+	if (strcasecmp(loglevelstr, cups_loglevel_tbl[i].str) == 0)
+	{
+	  loglevel = cups_loglevel_tbl[i].loglevel;
+	  break;
+	}
+      }
+    }
+    CFRelease(loglevelRef);
+  }
+
+  return loglevel;
+}

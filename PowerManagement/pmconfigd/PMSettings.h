@@ -38,8 +38,8 @@ __private_extern__ void PMSettings_prime(void);
  
 __private_extern__ void PMSettingsSleepWakeNotification(natural_t);
 
-__private_extern__ void PMSettingsPrefsHaveChanged(SCDynamicStoreRef, CFArrayRef, CFStringRef);
+__private_extern__ void PMSettingsPrefsHaveChanged(void);
 
-__private_extern__ void PMSettingsBatteryPollingTimer(CFArrayRef);
+__private_extern__ void PMSettingsBatteriesHaveChanged(CFArrayRef);
 
 #endif _PMSettings_h_

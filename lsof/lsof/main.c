@@ -34,7 +34,7 @@
 #ifndef lint
 static char copyright[] =
 "@(#) Copyright 1994 Purdue Research Foundation.\nAll rights reserved.\n";
-static char *rcsid = "$Id: main.c,v 1.38 2001/11/01 20:19:44 abe Exp $";
+static char *rcsid = "$Id: main.c,v 1.43 2003/06/11 11:36:43 abe Exp $";
 #endif
 
 
@@ -89,6 +89,23 @@ main(argc, argv)
 	    Pn++;
 	else
 	    Pn = argv[0];
+/*
+ * Close all file descriptors above 2.
+ *
+ * Make sure stderr, stdout, and stdin are open descriptors.  Open /dev/null
+ * for ones that aren't.  Be terse.
+ *
+ * Make sure umask allows lsof to define its own file permissions.
+ */
+	for (i = 3, n = GET_MAX_FD(); i < n; i++)
+	    (void) close(i);
+	while (((i = open("/dev/null", O_RDWR, 0)) >= 0) && (i < 2))
+	    ;
+	if (i < 0)
+	    Exit(1);
+	if (i > 2)
+	    (void) close(i);
+	(void) umask(0);
 
 #if	defined(HASSETLOCALE)
 /*
@@ -184,11 +201,22 @@ main(argc, argv)
 		Fblock = 1;
 		break;
 	    case 'c':
+		if (GOp == '+') {
+		    if (!GOv || (*GOv == '-') || (*GOv == '+')
+		    ||  !isdigit((int)*GOv))
+		    {
+			(void) fprintf(stderr,
+			    "%s: +c not followed by width number\n", Pn);
+			err = 1;
+		    } else
+			CmdLim = atoi(GOv);
+		    break;
+		}
 		if (GOv && (*GOv == '/')) {
 		    if (enter_cmd_rx(GOv))
 			err = 1;
 		} else {
-		    if (enter_str_lst("c", GOv, &Cmdl))
+		    if (enter_str_lst("-c", GOv, &Cmdl))
 			err = 1;
 		}
 		break;

@@ -29,7 +29,7 @@
  * OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
  * SUCH DAMAGE.
  *
- * $Id: nbns_rq.c,v 1.5 2002/03/22 22:22:11 lindak Exp $
+ * $Id: nbns_rq.c,v 1.6 2003/05/06 21:54:47 lindak Exp $
  */
 #include <sys/param.h>
 #include <sys/socket.h>
@@ -163,7 +163,7 @@ nbns_getnodestatus(struct sockaddr *targethost,
 	struct nb_name nn;
 	struct nbns_nr *nrp;
 	char nrtype;
-	char *retname, *cp;
+	char *cp, *retname = NULL;
 	struct sockaddr_in *dest;
 	unsigned char nrcount;
 	int error, rdrcount, i, foundserver = 0, foundgroup = 0;

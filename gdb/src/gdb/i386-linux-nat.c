@@ -25,12 +25,17 @@
 #include "regcache.h"
 
 #include "gdb_assert.h"
+#include "gdb_string.h"
 #include <sys/ptrace.h>
 #include <sys/user.h>
 #include <sys/procfs.h>
 
 #ifdef HAVE_SYS_REG_H
 #include <sys/reg.h>
+#endif
+
+#ifndef ORIG_EAX
+#define ORIG_EAX -1
 #endif
 
 #ifdef HAVE_SYS_DEBUGREG_H
@@ -57,10 +62,13 @@
 #include "gregset.h"
 
 /* Prototypes for i387_supply_fsave etc.  */
-#include "i387-nat.h"
+#include "i387-tdep.h"
 
 /* Defines for XMM0_REGNUM etc. */
 #include "i386-tdep.h"
+
+/* Defines I386_LINUX_ORIG_EAX_REGNUM.  */
+#include "i386-linux-tdep.h"
 
 /* Prototypes for local functions.  */
 static void dummy_sse_values (void);
@@ -86,7 +94,15 @@ static int regmap[] =
   EAX, ECX, EDX, EBX,
   UESP, EBP, ESI, EDI,
   EIP, EFL, CS, SS,
-  DS, ES, FS, GS
+  DS, ES, FS, GS,
+  -1, -1, -1, -1,		/* st0, st1, st2, st3 */
+  -1, -1, -1, -1,		/* st4, st5, st6, st7 */
+  -1, -1, -1, -1,		/* fctrl, fstat, ftag, fiseg */
+  -1, -1, -1, -1,		/* fioff, foseg, fooff, fop */
+  -1, -1, -1, -1,		/* xmm0, xmm1, xmm2, xmm3 */
+  -1, -1, -1, -1,		/* xmm4, xmm5, xmm6, xmm6 */
+  -1,				/* mxcsr */
+  ORIG_EAX
 };
 
 /* Which ptrace request retrieves which registers?
@@ -144,155 +160,58 @@ kernel_u_size (void)
 }
 
 
-/* Fetching registers directly from the U area, one at a time.  */
-
-/* FIXME: kettenis/2000-03-05: This duplicates code from `inptrace.c'.
-   The problem is that we define FETCH_INFERIOR_REGISTERS since we
-   want to use our own versions of {fetch,store}_inferior_registers
-   that use the GETREGS request.  This means that the code in
-   `infptrace.c' is #ifdef'd out.  But we need to fall back on that
-   code when GDB is running on top of a kernel that doesn't support
-   the GETREGS request.  I want to avoid changing `infptrace.c' right
-   now.  */
-
-#ifndef PT_READ_U
-#define PT_READ_U PTRACE_PEEKUSR
-#endif
-#ifndef PT_WRITE_U
-#define PT_WRITE_U PTRACE_POKEUSR
-#endif
-
-/* Default the type of the ptrace transfer to int.  */
-#ifndef PTRACE_XFER_TYPE
-#define PTRACE_XFER_TYPE int
-#endif
-
-/* Registers we shouldn't try to fetch.  */
-#define OLD_CANNOT_FETCH_REGISTER(regno) ((regno) >= NUM_GREGS)
+/* Accessing registers through the U area, one at a time.  */
 
 /* Fetch one register.  */
 
 static void
 fetch_register (int regno)
 {
-  /* This isn't really an address.  But ptrace thinks of it as one.  */
-  CORE_ADDR regaddr;
-  char mess[128];		/* For messages */
-  register int i;
-  unsigned int offset;		/* Offset of registers within the u area.  */
-  char buf[MAX_REGISTER_RAW_SIZE];
   int tid;
+  int val;
 
-  if (OLD_CANNOT_FETCH_REGISTER (regno))
+  gdb_assert (!have_ptrace_getregs);
+  if (cannot_fetch_register (regno))
     {
-      memset (buf, '\0', REGISTER_RAW_SIZE (regno));	/* Supply zeroes */
-      supply_register (regno, buf);
+      supply_register (regno, NULL);
       return;
     }
 
-  /* Overload thread id onto process id */
+  /* GNU/Linux LWP ID's are process ID's.  */
   if ((tid = TIDGET (inferior_ptid)) == 0)
-    tid = PIDGET (inferior_ptid);	/* no thread id, just use process id */
+    tid = PIDGET (inferior_ptid);	/* Not a threaded program.  */
 
-  offset = U_REGS_OFFSET;
+  errno = 0;
+  val = ptrace (PTRACE_PEEKUSER, tid, register_addr (regno, 0), 0);
+  if (errno != 0)
+    error ("Couldn't read register %s (#%d): %s.", REGISTER_NAME (regno),
+	   regno, safe_strerror (errno));
 
-  regaddr = register_addr (regno, offset);
-  for (i = 0; i < REGISTER_RAW_SIZE (regno); i += sizeof (PTRACE_XFER_TYPE))
-    {
-      errno = 0;
-      *(PTRACE_XFER_TYPE *) & buf[i] = ptrace (PT_READ_U, tid,
-					       (PTRACE_ARG3_TYPE) regaddr, 0);
-      regaddr += sizeof (PTRACE_XFER_TYPE);
-      if (errno != 0)
-	{
-	  sprintf (mess, "reading register %s (#%d)", 
-		   REGISTER_NAME (regno), regno);
-	  perror_with_name (mess);
-	}
-    }
-  supply_register (regno, buf);
+  supply_register (regno, &val);
 }
-
-/* Fetch register values from the inferior.
-   If REGNO is negative, do this for all registers.
-   Otherwise, REGNO specifies which register (so we can save time). */
-
-void
-old_fetch_inferior_registers (int regno)
-{
-  if (regno >= 0)
-    {
-      fetch_register (regno);
-    }
-  else
-    {
-      for (regno = 0; regno < NUM_REGS; regno++)
-	{
-	  fetch_register (regno);
-	}
-    }
-}
-
-/* Registers we shouldn't try to store.  */
-#define OLD_CANNOT_STORE_REGISTER(regno) ((regno) >= NUM_GREGS)
 
 /* Store one register. */
 
 static void
 store_register (int regno)
 {
-  /* This isn't really an address.  But ptrace thinks of it as one.  */
-  CORE_ADDR regaddr;
-  char mess[128];		/* For messages */
-  register int i;
-  unsigned int offset;		/* Offset of registers within the u area.  */
   int tid;
+  int val;
 
-  if (OLD_CANNOT_STORE_REGISTER (regno))
-    {
-      return;
-    }
+  gdb_assert (!have_ptrace_getregs);
+  if (cannot_store_register (regno))
+    return;
 
-  /* Overload thread id onto process id */
+  /* GNU/Linux LWP ID's are process ID's.  */
   if ((tid = TIDGET (inferior_ptid)) == 0)
-    tid = PIDGET (inferior_ptid);	/* no thread id, just use process id */
+    tid = PIDGET (inferior_ptid);	/* Not a threaded program.  */
 
-  offset = U_REGS_OFFSET;
-
-  regaddr = register_addr (regno, offset);
-  for (i = 0; i < REGISTER_RAW_SIZE (regno); i += sizeof (PTRACE_XFER_TYPE))
-    {
-      errno = 0;
-      ptrace (PT_WRITE_U, tid, (PTRACE_ARG3_TYPE) regaddr,
-	      *(PTRACE_XFER_TYPE *) & registers[REGISTER_BYTE (regno) + i]);
-      regaddr += sizeof (PTRACE_XFER_TYPE);
-      if (errno != 0)
-	{
-	  sprintf (mess, "writing register %s (#%d)", 
-		   REGISTER_NAME (regno), regno);
-	  perror_with_name (mess);
-	}
-    }
-}
-
-/* Store our register values back into the inferior.
-   If REGNO is negative, do this for all registers.
-   Otherwise, REGNO specifies which register (so we can save time).  */
-
-void
-old_store_inferior_registers (int regno)
-{
-  if (regno >= 0)
-    {
-      store_register (regno);
-    }
-  else
-    {
-      for (regno = 0; regno < NUM_REGS; regno++)
-	{
-	  store_register (regno);
-	}
-    }
+  errno = 0;
+  regcache_collect (regno, &val);
+  ptrace (PTRACE_POKEUSER, tid, register_addr (regno, 0), val);
+  if (errno != 0)
+    error ("Couldn't read register %s (#%d): %s.", REGISTER_NAME (regno),
+	   regno, safe_strerror (errno));
 }
 
 
@@ -308,10 +227,11 @@ supply_gregset (elf_gregset_t *gregsetp)
   elf_greg_t *regp = (elf_greg_t *) gregsetp;
   int i;
 
-  for (i = 0; i < NUM_GREGS; i++)
+  for (i = 0; i < I386_NUM_GREGS; i++)
     supply_register (i, (char *) (regp + regmap[i]));
 
-  supply_register (I386_LINUX_ORIG_EAX_REGNUM, (char *) (regp + ORIG_EAX));
+  if (I386_LINUX_ORIG_EAX_REGNUM < NUM_REGS)
+    supply_register (I386_LINUX_ORIG_EAX_REGNUM, (char *) (regp + ORIG_EAX));
 }
 
 /* Fill register REGNO (if it is a general-purpose register) in
@@ -324,11 +244,12 @@ fill_gregset (elf_gregset_t *gregsetp, int regno)
   elf_greg_t *regp = (elf_greg_t *) gregsetp;
   int i;
 
-  for (i = 0; i < NUM_GREGS; i++)
-    if ((regno == -1 || regno == i))
+  for (i = 0; i < I386_NUM_GREGS; i++)
+    if (regno == -1 || regno == i)
       regcache_collect (i, regp + regmap[i]);
 
-  if (regno == -1 || regno == I386_LINUX_ORIG_EAX_REGNUM)
+  if ((regno == -1 || regno == I386_LINUX_ORIG_EAX_REGNUM)
+      && I386_LINUX_ORIG_EAX_REGNUM < NUM_REGS)
     regcache_collect (I386_LINUX_ORIG_EAX_REGNUM, regp + ORIG_EAX);
 }
 
@@ -535,15 +456,17 @@ store_fpxregs (int tid, int regno)
 static void
 dummy_sse_values (void)
 {
+  struct gdbarch_tdep *tdep = gdbarch_tdep (current_gdbarch);
   /* C doesn't have a syntax for NaN's, so write it out as an array of
      longs.  */
   static long dummy[4] = { 0xffffffff, 0xffffffff, 0xffffffff, 0xffffffff };
   static long mxcsr = 0x1f80;
   int reg;
 
-  for (reg = 0; reg < 8; reg++)
+  for (reg = 0; reg < tdep->num_xmm_regs; reg++)
     supply_register (XMM0_REGNUM + reg, (char *) dummy);
-  supply_register (MXCSR_REGNUM, (char *) &mxcsr);
+  if (tdep->num_xmm_regs > 0)
+    supply_register (MXCSR_REGNUM, (char *) &mxcsr);
 }
 
 #else
@@ -565,16 +488,15 @@ static void dummy_sse_values (void) {}
 int
 cannot_fetch_register (int regno)
 {
-  if (! have_ptrace_getregs)
-    return OLD_CANNOT_FETCH_REGISTER (regno);
-  return 0;
+  gdb_assert (regno >= 0 && regno < NUM_REGS);
+  return (!have_ptrace_getregs && regmap[regno] == -1);
 }
+
 int
 cannot_store_register (int regno)
 {
-  if (! have_ptrace_getregs)
-    return OLD_CANNOT_STORE_REGISTER (regno);
-  return 0;
+  gdb_assert (regno >= 0 && regno < NUM_REGS);
+  return (!have_ptrace_getregs && regmap[regno] == -1);
 }
 
 /* Fetch register REGNO from the child process.  If REGNO is -1, do
@@ -588,9 +510,14 @@ fetch_inferior_registers (int regno)
 
   /* Use the old method of peeking around in `struct user' if the
      GETREGS request isn't available.  */
-  if (! have_ptrace_getregs)
+  if (!have_ptrace_getregs)
     {
-      old_fetch_inferior_registers (regno);
+      int i;
+
+      for (i = 0; i < NUM_REGS; i++)
+	if (regno == -1 || regno == i)
+	  fetch_register (i);
+
       return;
     }
 
@@ -607,9 +534,9 @@ fetch_inferior_registers (int regno)
       fetch_regs (tid);
 
       /* The call above might reset `have_ptrace_getregs'.  */
-      if (! have_ptrace_getregs)
+      if (!have_ptrace_getregs)
 	{
-	  old_fetch_inferior_registers (-1);
+	  fetch_inferior_registers (regno);
 	  return;
 	}
 
@@ -654,9 +581,14 @@ store_inferior_registers (int regno)
 
   /* Use the old method of poking around in `struct user' if the
      SETREGS request isn't available.  */
-  if (! have_ptrace_getregs)
+  if (!have_ptrace_getregs)
     {
-      old_store_inferior_registers (regno);
+      int i;
+
+      for (i = 0; i < NUM_REGS; i++)
+	if (regno == -1 || regno == i)
+	  store_register (i);
+
       return;
     }
 
@@ -716,7 +648,7 @@ i386_linux_dr_get (int regnum)
      stuff to the target vectore.  For now, just return zero if the
      ptrace call fails.  */
   errno = 0;
-  value = ptrace (PT_READ_U, tid,
+  value = ptrace (PTRACE_PEEKUSER, tid,
 		  offsetof (struct user, u_debugreg[regnum]), 0);
   if (errno != 0)
 #if 0
@@ -739,7 +671,7 @@ i386_linux_dr_set (int regnum, unsigned long value)
   tid = PIDGET (inferior_ptid);
 
   errno = 0;
-  ptrace (PT_WRITE_U, tid,
+  ptrace (PTRACE_POKEUSER, tid,
 	  offsetof (struct user, u_debugreg[regnum]), value);
   if (errno != 0)
     perror_with_name ("Couldn't write debug register");

@@ -1,4 +1,4 @@
-/*	$KAME: vmbuf.h,v 1.7 2000/10/04 17:41:05 itojun Exp $	*/
+/*	$KAME: vmbuf.h,v 1.8 2001/12/12 21:18:33 sakane Exp $	*/
 
 /*
  * Copyright (C) 1995, 1996, 1997, and 1998 WIDE Project.

@@ -1,7 +1,7 @@
 /* Target machine sub-parameters for SPARC, for GDB, the GNU debugger.
    This is included by other tm-*.h files to define SPARC cpu-related info.
    Copyright 1986, 1987, 1989, 1991, 1992, 1993, 1994, 1995, 1996, 1997,
-   1998, 1999, 2000
+   1998, 1999, 2000, 2001, 2002, 2003
    Free Software Foundation, Inc.
    Contributed by Michael Tiemann (tiemann@mcc.com)
 
@@ -237,8 +237,8 @@ extern int sparc_intreg_size (void);
    of data in register N.  */
 
 #define REGISTER_VIRTUAL_TYPE(N) \
-     ((N) < 32 ? builtin_type_unsigned_int : (N) < 64 ? builtin_type_float : \
-      builtin_type_unsigned_int)
+     ((N) < 32 ? builtin_type_int : (N) < 64 ? builtin_type_float : \
+      builtin_type_int)
 
 /* Sun /bin/cc gets this right as of SunOS 4.1.x.  We need to define
    BELIEVE_PCC_PROMOTION to get this right now that the code which
@@ -248,12 +248,10 @@ extern int sparc_intreg_size (void);
 #define BELIEVE_PCC_PROMOTION 1
 
 /* Advance PC across any function entry prologue instructions
-   to reach some "real" code.  SKIP_PROLOGUE_FRAMELESS_P advances
-   the PC past some of the prologue, but stops as soon as it
-   knows that the function has a frame.  Its result is equal
-   to its input PC if the function is frameless, unequal otherwise.  */
+   to reach some "real" code.  */
 
-#define SKIP_PROLOGUE(PC) sparc_skip_prologue (PC, 0)
+extern CORE_ADDR sparc_skip_prologue (CORE_ADDR);
+#define SKIP_PROLOGUE(PC) sparc_skip_prologue (PC)
 
 /* Immediately after a function call, return the saved pc.
    Can't go through the frames for this because on some machines
@@ -269,7 +267,7 @@ extern int sparc_intreg_size (void);
 /* Write into appropriate registers a function return value of type
    TYPE, given in virtual format.  */
 
-#define STORE_RETURN_VALUE(TYPE, VALBUF) \
+#define DEPRECATED_STORE_RETURN_VALUE(TYPE, VALBUF) \
      sparc_store_return_value (TYPE, VALBUF)
 extern void sparc_store_return_value (struct type *, char *);
 
@@ -277,18 +275,10 @@ extern void sparc_store_return_value (struct type *, char *);
    the address in which a function should return its structure value,
    as a CORE_ADDR (or an expression that can be used as one).  */
 
-#define EXTRACT_STRUCT_VALUE_ADDRESS(REGBUF) \
+#define DEPRECATED_EXTRACT_STRUCT_VALUE_ADDRESS(REGBUF) \
      sparc_extract_struct_value_address (REGBUF)
 
 extern CORE_ADDR sparc_extract_struct_value_address (char *);
-
-/* If the current gcc for for this target does not produce correct
-   debugging information for float parameters, both prototyped and
-   unprototyped, then define this macro.  This forces gdb to always
-   assume that floats are passed as doubles and then converted in the
-   callee. */
-
-#define COERCE_FLOAT_TO_DOUBLE(FORMAL, ACTUAL) (1)
 
 /* Stack must be aligned on 64-bit boundaries when synthesizing
    function calls (128-bit for sparc64).  */
@@ -312,6 +302,10 @@ extern CORE_ADDR sparc32_stack_align (CORE_ADDR addr);
      sparc_reg_struct_has_addr (GCC_P, TYPE)
 extern int sparc_reg_struct_has_addr (int, struct type *);
 
+/* Is the prologue at PC frameless?  */
+#define PROLOGUE_FRAMELESS_P(PC) sparc_prologue_frameless_p (PC)
+extern int sparc_prologue_frameless_p (CORE_ADDR);
+
 #endif /* GDB_MULTI_ARCH */
 
 #if defined (GDB_MULTI_ARCH) && (GDB_MULTI_ARCH > 0)
@@ -332,15 +326,6 @@ extern int sparc_y_regnum (void);
 
 #define PC_ADJUST(PC) sparc_pc_adjust (PC)
 extern CORE_ADDR sparc_pc_adjust (CORE_ADDR);
-
-/* Advance PC across any function entry prologue instructions to reach
-   some "real" code.  SKIP_PROLOGUE_FRAMELESS_P advances the PC past
-   some of the prologue, but stops as soon as it knows that the
-   function has a frame.  Its result is equal to its input PC if the
-   function is frameless, unequal otherwise.  */
-
-#define SKIP_PROLOGUE_FRAMELESS_P(PC) sparc_skip_prologue (PC, 1)
-extern CORE_ADDR sparc_skip_prologue (CORE_ADDR, int);
 
 /* If an argument is declared "register", Sun cc will keep it in a register,
    never saving it onto the stack.  So we better not believe the "p" symbol
@@ -468,9 +453,8 @@ extern CORE_ADDR sparc_skip_prologue (CORE_ADDR, int);
   /* time of the register saves.  */ \
   int sp_offset;
 
-/* We need to override GET_SAVED_REGISTER so that we can deal with the way
-   outs change into ins in different frames.  HAVE_REGISTER_WINDOWS can't
-   deal with this case and also handle flat frames at the same time.  */
+/* We need to override GET_SAVED_REGISTER so that we can deal with the
+   way outs change into ins in different frames.  */
 
 void sparc_get_saved_register (char *raw_buffer,
 			       int *optimized,
@@ -504,9 +488,9 @@ extern CORE_ADDR sparc_frame_chain (struct frame_info *);
 extern CORE_ADDR sparc_frame_saved_pc (struct frame_info *);
 
 /* If the argument is on the stack, it will be here.  */
-#define FRAME_ARGS_ADDRESS(FI) ((FI)->frame)
+#define FRAME_ARGS_ADDRESS(FI) (get_frame_base (FI))
 
-#define FRAME_LOCALS_ADDRESS(FI) ((FI)->frame)
+#define FRAME_LOCALS_ADDRESS(FI) (get_frame_base (FI))
 
 /* Set VAL to the number of args passed to frame described by FI.
    Can set VAL to -1, meaning no way to tell.  */
@@ -527,10 +511,10 @@ extern void sparc_print_extra_frame_info (struct frame_info *);
 
 /* INIT_EXTRA_FRAME_INFO needs the PC to detect flat frames.  */
 
-#define	INIT_FRAME_PC(FROMLEAF, PREV)	/* nothing */
-#define INIT_FRAME_PC_FIRST(FROMLEAF, PREV) \
-  (PREV)->pc = ((FROMLEAF) ? SAVED_PC_AFTER_CALL ((PREV)->next) : \
-	      (PREV)->next ? FRAME_SAVED_PC ((PREV)->next) : read_pc ());
+#define	DEPRECATED_INIT_FRAME_PC(FROMLEAF, PREV)	(init_frame_pc_noop (FROMLEAF, PREV))
+#define DEPRECATED_INIT_FRAME_PC_FIRST(FROMLEAF, PREV) \
+  ((FROMLEAF) ? SAVED_PC_AFTER_CALL ((PREV)->next) : \
+	      (PREV)->next ? FRAME_SAVED_PC ((PREV)->next) : read_pc ())
 
 /* Define other aspects of the stack frame.  */
 
@@ -542,7 +526,7 @@ extern void sparc_print_extra_frame_info (struct frame_info *);
 #define	FRAME_SAVED_L0	0
 #define	FRAME_SAVED_I0	(8 * REGISTER_RAW_SIZE (L0_REGNUM))
 
-#define FRAME_STRUCT_ARGS_ADDRESS(FI) ((FI)->frame)
+#define FRAME_STRUCT_ARGS_ADDRESS(FI) (get_frame_base (FI))
 
 /* Things needed for making the inferior call functions.  */
 /*
@@ -668,8 +652,8 @@ extern void sparc_print_extra_frame_info (struct frame_info *);
 
 /* Method for detecting dummy frames.  */
 
-#define PC_IN_CALL_DUMMY(PC, SP, FRAME_ADDRESS) \
-     pc_in_call_dummy_on_stack (PC, SP, FRAME_ADDRESS)
+#define DEPRECATED_PC_IN_CALL_DUMMY(PC, SP, FRAME_ADDRESS) \
+     deprecated_pc_in_call_dummy_on_stack (PC, SP, FRAME_ADDRESS)
 
 #endif /* GDB_MULTI_ARCH */
 
@@ -702,8 +686,8 @@ void sparc_pop_frame (void);
 #define PUSH_ARGUMENTS(NARGS, ARGS, SP, STRUCT_RETURN, STRUCT_ADDR) \
      sparc32_push_arguments (NARGS, ARGS, SP, STRUCT_RETURN, STRUCT_ADDR)
 
-extern CORE_ADDR
-sparc32_push_arguments (int, struct value **, CORE_ADDR, int, CORE_ADDR);
+extern CORE_ADDR sparc32_push_arguments (int, struct value **, CORE_ADDR, int,
+					 CORE_ADDR);
 
 /* Store the address of the place in which to copy the structure the
    subroutine will return.  This is called from call_function_by_hand. 
@@ -725,7 +709,7 @@ sparc32_push_arguments (int, struct value **, CORE_ADDR, int, CORE_ADDR);
    function return value of type TYPE, and copy that, in virtual
    format, into VALBUF.  */
 
-#define EXTRACT_RETURN_VALUE(TYPE, REGBUF, VALBUF) \
+#define DEPRECATED_EXTRACT_RETURN_VALUE(TYPE, REGBUF, VALBUF) \
      sparc32_extract_return_value (TYPE, REGBUF, VALBUF)
 extern void sparc32_extract_return_value (struct type *, char[], char *);
 
@@ -744,14 +728,9 @@ extern void sparc_software_single_step (enum target_signal, int);
 #define SETUP_ARBITRARY_FRAME(argc, argv) setup_arbitrary_frame (argc, argv)
 extern struct frame_info *setup_arbitrary_frame (int, CORE_ADDR *);
 
-/* To print every pair of float registers as a double, we use this hook.
-   We also print the condition code registers in a readable format
-   (FIXME: can expand this to all control regs).  */
-
-#undef 	PRINT_REGISTER_HOOK
-#define	PRINT_REGISTER_HOOK(regno)	\
-  sparc_print_register_hook (regno)
-extern void sparc_print_register_hook (int regno);
+extern void sparc_do_registers_info (int regnum, int all);
+#undef DEPRECATED_DO_REGISTERS_INFO
+#define DEPRECATED_DO_REGISTERS_INFO(REGNUM,ALL) sparc_do_registers_info (REGNUM, ALL)
 
 /* Optimization for storing registers to the inferior.  The hook
    DO_DEFERRED_STORES

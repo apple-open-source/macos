@@ -3,7 +3,7 @@
 # and conditions for redistribution.
 
 #
-# $Id: Makefile.in,v 1.1.1.3 2002/10/02 21:07:26 bbraun Exp $
+# $Id: Makefile.in,v 1.1.1.5 2003/06/15 17:31:44 rbraun Exp $
 #
 # Based on Program makefile template: *Revision: 1.14 *
 #
@@ -19,6 +19,7 @@
 NAME		= xinetd
 VPATH		= @srcdir@
 SRCDIR		= @srcdir@
+TOPSRC		= @top_srcdir@
 
 # Available debug flags:
 #     DEBUG                      code is being debugged
@@ -115,7 +116,7 @@ INSTALL		= @INSTALL@
 all: xinetd itox
 
 itox: itox.c
-	$(CC) $(DEBUG) $(INCLUDEDIR) $(SRCDIR)/itox.c -o $@ $(LDFLAGS) -lmisc -lsio -lstr -lportable $(LIBS)
+	$(CC) $(CFLAGS) $(DEBUG) $(SRCDIR)/itox.c -o $@ $(LDFLAGS) $(LIBS)
 
 xinetd: $(OBJS)
 	$(CC) $(CFLAGS) $(DEBUG) -o $@ $(OBJS) $(LDFLAGS) $(LIBS) || rm -f $@
@@ -157,76 +158,80 @@ uninstall:
 #
 # Header file dependencies
 #
-addr.h: defs.h
+$(SRCDIR)/addr.h: defs.h
 	@if test -f $@ ; then touch $@ ; else echo $@ is missing ; exit 1 ; fi
 
-builtins.h: defs.h
+$(SRCDIR)/builtins.h: defs.h
 	@if test -f $@ ; then touch $@ ; else echo $@ is missing ; exit 1 ; fi
 
-conf.h: service.h
+$(SRCDIR)/conf.h: service.h
 	@if test -f $@ ; then touch $@ ; else echo $@ is missing ; exit 1 ; fi
 
-int.h: server.h
+$(SRCDIR)/int.h: server.h
 	@if test -f $@ ; then touch $@ ; else echo $@ is missing ; exit 1 ; fi
 
-parse.h: defs.h
+$(SRCDIR)/parse.h: defs.h
 	@if test -f $@ ; then touch $@ ; else echo $@ is missing ; exit 1 ; fi
 
-sconf.h: defs.h log.h mask.h
+$(SRCDIR)/sconf.h: defs.h log.h mask.h
 	@if test -f $@ ; then touch $@ ; else echo $@ is missing ; exit 1 ; fi
 
-sensor.h: defs.h service.h
+$(SRCDIR)/sensor.h: defs.h service.h
 	@if test -f $@ ; then touch $@ ; else echo $@ is missing ; exit 1 ; fi
 
-server.h: defs.h service.h connection.h
+$(SRCDIR)/server.h: defs.h service.h connection.h
 	@if test -f $@ ; then touch $@ ; else echo $@ is missing ; exit 1 ; fi
 
-service.h: defs.h sconf.h builtins.h
+$(SRCDIR)/service.h: defs.h sconf.h builtins.h
 	@if test -f $@ ; then touch $@ ; else echo $@ is missing ; exit 1 ; fi
 
-state.h: mask.h sconf.h conf.h
+$(SRCDIR)/state.h: mask.h sconf.h conf.h
 	@if test -f $@ ; then touch $@ ; else echo $@ is missing ; exit 1 ; fi
 
-connection.h: mask.h service.h
+$(SRCDIR)/connection.h: mask.h service.h
 	@if test -f $@ ; then touch $@ ; else echo $@ is missing ; exit 1 ; fi
 
 #
 # Object file dependencies
 #
-access.o:	access.h addr.h connection.h sensor.h service.h state.h
-addr.o: 	addr.h defs.h
-builtins.o: 	builtins.h xconfig.h defs.h sconf.h server.h
-child.o: 	attr.h xconfig.h sconst.h server.h state.h $(OPT_HEADER)
-conf.o: 	attr.h conf.h xconfig.h defs.h service.h state.h 
+access.o:	access.h addr.h connection.h sensor.h service.h state.h msg.h
+addr.o: 	addr.h defs.h msg.h
+builtins.o: 	builtins.h xconfig.h defs.h sconf.h server.h msg.h
+child.o: 	attr.h xconfig.h sconst.h server.h state.h msg.h $(OPT_HEADER)
+conf.o: 	attr.h conf.h xconfig.h defs.h service.h state.h msg.h
 confparse.o:	attr.h xconfig.h conf.h defs.h parse.h sconst.h \
-		sconf.h sensor.h state.h
-connection.o:	connection.h service.h state.h
+		sconf.h sensor.h state.h msg.h
+connection.o:	connection.h service.h state.h msg.h
 sconf.o:	addr.h attr.h defs.h sconf.h state.h
-env.o:		attr.h defs.h sconf.h 
-ident.o:	defs.h sconst.h server.h
-init.o:		defs.h conf.h xconfig.h state.h $(OPT_HEADER)
-int.o:		xconfig.h connection.h defs.h int.h server.h service.h
-intcommon.o:	xconfig.h defs.h int.h server.h service.h state.h 
-internals.o:	xconfig.h server.h service.h state.h
-log.o:		access.h defs.h connection.h sconst.h server.h service.h
-logctl.o:	xconfig.h defs.h log.h service.h state.h
-main.o:		service.h state.h $(OPT_HEADER)
+env.o:		attr.h defs.h sconf.h msg.h
+ident.o:	defs.h sconst.h server.h msg.h
+includedir.o:	parse.h msg.h
+inet.o:		parse.h parsesup.h msg.h
+init.o:		defs.h conf.h xconfig.h state.h msg.h $(OPT_HEADER)
+int.o:		xconfig.h connection.h defs.h int.h server.h service.h msg.h
+intcommon.o:	xconfig.h defs.h int.h server.h service.h state.h msg.h
+internals.o:	xconfig.h server.h service.h state.h msg.h
+log.o:		access.h defs.h connection.h sconst.h server.h service.h msg.h
+logctl.o:	xconfig.h defs.h log.h service.h state.h msg.h
+main.o:		service.h state.h msg.h $(OPT_HEADER)
 msg.o:		xconfig.h defs.h state.h $(OPT_HEADER)
 nvlists.o:	defs.h sconf.h
-parse.o:	addr.h attr.h conf.h defs.h parse.h service.h
-parsesup.o:	defs.h parse.h
-parsers.o:	addr.h xconfig.h defs.h parse.h sconf.h
-reconfig.o:	access.h conf.h xconfig.h defs.h server.h service.h state.h
-retry.o:	access.h xconfig.h connection.h server.h state.h
+parse.o:	addr.h attr.h conf.h defs.h parse.h service.h msg.h
+parsers.o:	addr.h xconfig.h defs.h parse.h sconf.h msg.h
+parsesup.o:	defs.h parse.h msg.h
+reconfig.o:	access.h conf.h xconfig.h defs.h server.h service.h state.h \
+		msg.h
+redirect.o:	service.h log.h sconf.h msg.h
+retry.o:	access.h xconfig.h connection.h server.h state.h msg.h
 sensor.o:	addr.h msg.h sconf.h server.h xconfig.h xtimer.h
-server.o:	access.h xconfig.h connection.h server.h state.h
+server.o:	access.h xconfig.h connection.h server.h state.h msg.h
 service.o:	access.h attr.h xconfig.h connection.h defs.h \
-			server.h service.h state.h $(OPT_HEADER)
-signals.o:	xconfig.h defs.h state.h
-special.o:	builtins.h conf.h xconfig.h connection.h \
-			server.h sconst.h state.h $(OPT_HEADER)
-tcpint.o:	access.h xconfig.h defs.h int.h 
-time.o:		defs.h
-udpint.o:	access.h defs.h int.h
-util.o:		xconfig.h defs.h
+			server.h service.h state.h msg.h $(OPT_HEADER)
+signals.o:	xconfig.h defs.h state.h msg.h
+special.o:	builtins.h conf.h xconfig.h connection.h server.h sconst.h \
+		state.h msg.h $(OPT_HEADER)
+tcpint.o:	access.h xconfig.h defs.h int.h msg.h
+time.o:		defs.h msg.h
+udpint.o:	access.h defs.h int.h msg.h
+util.o:		xconfig.h defs.h msg.h
 xtimer.o:	msg.h

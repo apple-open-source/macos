@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1998-2002 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 1998-2003 Apple Computer, Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -22,6 +22,7 @@
  * 
  * @APPLE_LICENSE_HEADER_END@
  */
+
 #ifndef _IOKIT_IOUSBCONTROLLER_H
 #define _IOKIT_IOUSBCONTROLLER_H
 
@@ -140,6 +141,7 @@ class IOMemoryDescriptor;
 class IOUSBController : public IOUSBBus
 {
     OSDeclareAbstractStructors(IOUSBController)
+    friend class IOUSBControllerV2;
 
 protected:
 

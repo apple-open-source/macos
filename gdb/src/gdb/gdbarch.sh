@@ -1,7 +1,7 @@
 #!/bin/sh -u
 
 # Architecture commands for GDB, the GNU debugger.
-# Copyright 1998, 1999, 2000, 2001, 2002 Free Software Foundation, Inc.
+# Copyright 1998, 1999, 2000, 2001, 2002, 2003 Free Software Foundation, Inc.
 #
 # This file is part of GDB.
 #
@@ -18,6 +18,12 @@
 # You should have received a copy of the GNU General Public License
 # along with this program; if not, write to the Free Software
 # Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
+
+# Make certain that the script is running in an internationalized
+# environment.
+LANG=c ; export LANG
+LC_ALL=c ; export LC_ALL
+
 
 compare_new ()
 {
@@ -109,19 +115,25 @@ EOF
 	    test "${fmt}" || fmt="%ld"
 	    test "${print}" || print="(long) ${macro}"
 
-	    case "${invalid_p}" in
-		0 ) valid_p=1 ;;
+	    case "${class}" in
+	    F | V | M )
+		case "${invalid_p}" in
 		"" )
-		    if [ -n "${predefault}" ]
+		    if test -n "${predefault}" -a "${predefault}" != "0"
 		    then
 			#invalid_p="gdbarch->${function} == ${predefault}"
-			valid_p="gdbarch->${function} != ${predefault}"
+			predicate="gdbarch->${function} != ${predefault}"
 		    else
-			#invalid_p="gdbarch->${function} == 0"
-			valid_p="gdbarch->${function} != 0"
+			# filled in later
+			predicate=""
 		    fi
 		    ;;
-		* ) valid_p="!(${invalid_p})"
+		* )
+		    echo "Predicate function ${function} with invalid_p." 1>&2
+		    kill $$
+		    exit 1
+		    ;;
+		esac
 	    esac
 
 	    # PREDEFAULT is a valid fallback definition of MEMBER when
@@ -375,6 +387,8 @@ function_list ()
 i:2:TARGET_ARCHITECTURE:const struct bfd_arch_info *:bfd_arch_info::::&bfd_default_arch_struct::::%s:TARGET_ARCHITECTURE->printable_name:TARGET_ARCHITECTURE != NULL
 #
 i:2:TARGET_BYTE_ORDER:int:byte_order::::BFD_ENDIAN_BIG
+#
+i:2:TARGET_OSABI:enum gdb_osabi:osabi::::GDB_OSABI_UNKNOWN
 # Number of bits in a char or unsigned char for the target machine.
 # Just like CHAR_BIT in <limits.h> but describes the target machine.
 # v::TARGET_CHAR_BIT:int:char_bit::::8 * sizeof (char):8::0:
@@ -422,8 +436,8 @@ f::TARGET_WRITE_SP:void:write_sp:CORE_ADDR val:val::0:generic_target_write_sp::0
 # serious shakedown.
 f::TARGET_VIRTUAL_FRAME_POINTER:void:virtual_frame_pointer:CORE_ADDR pc, int *frame_regnum, LONGEST *frame_offset:pc, frame_regnum, frame_offset::0:legacy_virtual_frame_pointer::0
 #
-M:::void:register_read:int regnum, char *buf:regnum, buf:
-M:::void:register_write:int regnum, char *buf:regnum, buf:
+M:::void:pseudo_register_read:struct regcache *regcache, int cookednum, void *buf:regcache, cookednum, buf:
+M:::void:pseudo_register_write:struct regcache *regcache, int cookednum, const void *buf:regcache, cookednum, buf:
 #
 v:2:NUM_REGS:int:num_regs::::0:-1
 # This macro gives the number of pseudo-registers that live in the
@@ -441,7 +455,6 @@ v:2:PC_REGNUM:int:pc_regnum::::-1:-1::0
 v:2:PS_REGNUM:int:ps_regnum::::-1:-1::0
 v:2:FP0_REGNUM:int:fp0_regnum::::0:-1::0
 v:2:NPC_REGNUM:int:npc_regnum::::0:-1::0
-v:2:NNPC_REGNUM:int:nnpc_regnum::::0:-1::0
 # Convert stab register number (from \`r\' declaration) to a gdb REGNUM.
 f:2:STAB_REG_TO_REGNUM:int:stab_reg_to_regnum:int stab_regnr:stab_regnr:::no_op_reg_to_regnum::0
 # Provide a default mapping from a ecoff register number to a gdb REGNUM.
@@ -453,20 +466,23 @@ f:2:DWARF_REG_TO_REGNUM:int:dwarf_reg_to_regnum:int dwarf_regnr:dwarf_regnr:::no
 # to map one to one onto the sdb register numbers.
 f:2:SDB_REG_TO_REGNUM:int:sdb_reg_to_regnum:int sdb_regnr:sdb_regnr:::no_op_reg_to_regnum::0
 f:2:DWARF2_REG_TO_REGNUM:int:dwarf2_reg_to_regnum:int dwarf2_regnr:dwarf2_regnr:::no_op_reg_to_regnum::0
-f:2:REGISTER_NAME:char *:register_name:int regnr:regnr:::legacy_register_name::0
+f:2:REGISTER_NAME:const char *:register_name:int regnr:regnr:::legacy_register_name::0
 v:2:REGISTER_SIZE:int:register_size::::0:-1
 v:2:REGISTER_BYTES:int:register_bytes::::0:-1
-f:2:REGISTER_BYTE:int:register_byte:int reg_nr:reg_nr::0:0
-f:2:REGISTER_RAW_SIZE:int:register_raw_size:int reg_nr:reg_nr::generic_register_raw_size:0
+f:2:REGISTER_BYTE:int:register_byte:int reg_nr:reg_nr::generic_register_byte:generic_register_byte::0
+f:2:REGISTER_RAW_SIZE:int:register_raw_size:int reg_nr:reg_nr::generic_register_size:generic_register_size::0
 v:2:MAX_REGISTER_RAW_SIZE:int:max_register_raw_size::::0:-1
-f:2:REGISTER_VIRTUAL_SIZE:int:register_virtual_size:int reg_nr:reg_nr::generic_register_virtual_size:0
+f:2:REGISTER_VIRTUAL_SIZE:int:register_virtual_size:int reg_nr:reg_nr::generic_register_size:generic_register_size::0
 v:2:MAX_REGISTER_VIRTUAL_SIZE:int:max_register_virtual_size::::0:-1
 f:2:REGISTER_VIRTUAL_TYPE:struct type *:register_virtual_type:int reg_nr:reg_nr::0:0
-f:2:DO_REGISTERS_INFO:void:do_registers_info:int reg_nr, int fpregs:reg_nr, fpregs:::do_registers_info::0
-f:2:PRINT_FLOAT_INFO:void:print_float_info:void::::default_print_float_info::0
+#
+F:2:DEPRECATED_DO_REGISTERS_INFO:void:deprecated_do_registers_info:int reg_nr, int fpregs:reg_nr, fpregs
+m:2:PRINT_REGISTERS_INFO:void:print_registers_info:struct ui_file *file, struct frame_info *frame, int regnum, int all:file, frame, regnum, all:::default_print_registers_info::0
+M:2:PRINT_FLOAT_INFO:void:print_float_info:struct ui_file *file, struct frame_info *frame, const char *args:file, frame, args
+M:2:PRINT_VECTOR_INFO:void:print_vector_info:struct ui_file *file, struct frame_info *frame, const char *args:file, frame, args
 # MAP a GDB RAW register number onto a simulator register number.  See
 # also include/...-sim.h.
-f:2:REGISTER_SIM_REGNO:int:register_sim_regno:int reg_nr:reg_nr:::default_register_sim_regno::0
+f:2:REGISTER_SIM_REGNO:int:register_sim_regno:int reg_nr:reg_nr:::legacy_register_sim_regno::0
 F:2:REGISTER_BYTES_OK:int:register_bytes_ok:long nr_bytes:nr_bytes::0:0
 f:2:CANNOT_FETCH_REGISTER:int:cannot_fetch_register:int regnum:regnum:::cannot_register_not::0
 f:2:CANNOT_STORE_REGISTER:int:cannot_store_register:int regnum:regnum:::cannot_register_not::0
@@ -480,67 +496,69 @@ F:2:GET_LONGJMP_TARGET:int:get_longjmp_target:CORE_ADDR *pc:pc::0:0
 # behaviour here (and hence entrench it further) gdbarch simply
 # reqires that these methods be set up from the word go.  This also
 # avoids any potential problems with moving beyond multi-arch partial.
-v:1:USE_GENERIC_DUMMY_FRAMES:int:use_generic_dummy_frames::::0:-1
-v:1:CALL_DUMMY_LOCATION:int:call_dummy_location::::0:0
+v:1:DEPRECATED_USE_GENERIC_DUMMY_FRAMES:int:deprecated_use_generic_dummy_frames:::::1::0
+v:1:CALL_DUMMY_LOCATION:int:call_dummy_location:::::AT_ENTRY_POINT::0
 f:2:CALL_DUMMY_ADDRESS:CORE_ADDR:call_dummy_address:void:::0:0::gdbarch->call_dummy_location == AT_ENTRY_POINT && gdbarch->call_dummy_address == 0
 v:2:CALL_DUMMY_START_OFFSET:CORE_ADDR:call_dummy_start_offset::::0:-1:::0x%08lx
 v:2:CALL_DUMMY_BREAKPOINT_OFFSET:CORE_ADDR:call_dummy_breakpoint_offset::::0:-1::gdbarch->call_dummy_breakpoint_offset_p && gdbarch->call_dummy_breakpoint_offset == -1:0x%08lx::CALL_DUMMY_BREAKPOINT_OFFSET_P
 v:1:CALL_DUMMY_BREAKPOINT_OFFSET_P:int:call_dummy_breakpoint_offset_p::::0:-1
-v:2:CALL_DUMMY_LENGTH:int:call_dummy_length::::0:-1:::::CALL_DUMMY_LOCATION == BEFORE_TEXT_END || CALL_DUMMY_LOCATION == AFTER_TEXT_END
-f:1:PC_IN_CALL_DUMMY:int:pc_in_call_dummy:CORE_ADDR pc, CORE_ADDR sp, CORE_ADDR frame_address:pc, sp, frame_address::0:0
+v:2:CALL_DUMMY_LENGTH:int:call_dummy_length::::0:-1:::::gdbarch->call_dummy_length >= 0
+# NOTE: cagney/2002-11-24: This function with predicate has a valid
+# (callable) initial value.  As a consequence, even when the predicate
+# is false, the corresponding function works.  This simplifies the
+# migration process - old code, calling DEPRECATED_PC_IN_CALL_DUMMY(),
+# doesn't need to be modified.
+F:1:DEPRECATED_PC_IN_CALL_DUMMY:int:deprecated_pc_in_call_dummy:CORE_ADDR pc, CORE_ADDR sp, CORE_ADDR frame_address:pc, sp, frame_address::generic_pc_in_call_dummy:generic_pc_in_call_dummy
 v:1:CALL_DUMMY_P:int:call_dummy_p::::0:-1
 v:2:CALL_DUMMY_WORDS:LONGEST *:call_dummy_words::::0:legacy_call_dummy_words::0:0x%08lx
 v:2:SIZEOF_CALL_DUMMY_WORDS:int:sizeof_call_dummy_words::::0:legacy_sizeof_call_dummy_words::0:0x%08lx
 v:1:CALL_DUMMY_STACK_ADJUST_P:int:call_dummy_stack_adjust_p::::0:-1:::0x%08lx
 v:2:CALL_DUMMY_STACK_ADJUST:int:call_dummy_stack_adjust::::0:::gdbarch->call_dummy_stack_adjust_p && gdbarch->call_dummy_stack_adjust == 0:0x%08lx::CALL_DUMMY_STACK_ADJUST_P
 f:2:FIX_CALL_DUMMY:void:fix_call_dummy:char *dummy, CORE_ADDR pc, CORE_ADDR fun, int nargs, struct value **args, struct type *type, int gcc_p:dummy, pc, fun, nargs, args, type, gcc_p:::0
-f:2:INIT_FRAME_PC_FIRST:void:init_frame_pc_first:int fromleaf, struct frame_info *prev:fromleaf, prev:::init_frame_pc_noop::0
-f:2:INIT_FRAME_PC:void:init_frame_pc:int fromleaf, struct frame_info *prev:fromleaf, prev:::init_frame_pc_default::0
+F:2:DEPRECATED_INIT_FRAME_PC_FIRST:CORE_ADDR:deprecated_init_frame_pc_first:int fromleaf, struct frame_info *prev:fromleaf, prev
+F::DEPRECATED_INIT_FRAME_PC:CORE_ADDR:deprecated_init_frame_pc:int fromleaf, struct frame_info *prev:fromleaf, prev
 #
 v:2:BELIEVE_PCC_PROMOTION:int:believe_pcc_promotion:::::::
 v:2:BELIEVE_PCC_PROMOTION_TYPE:int:believe_pcc_promotion_type:::::::
-f:2:COERCE_FLOAT_TO_DOUBLE:int:coerce_float_to_double:struct type *formal, struct type *actual:formal, actual:::default_coerce_float_to_double::0
-# GET_SAVED_REGISTER is like DUMMY_FRAMES.  It is at level one as the
-# old code has strange #ifdef interaction.  So far no one has found
-# that default_get_saved_register() is the default they are after.
-f:1:GET_SAVED_REGISTER:void:get_saved_register:char *raw_buffer, int *optimized, CORE_ADDR *addrp, struct frame_info *frame, int regnum, enum lval_type *lval:raw_buffer, optimized, addrp, frame, regnum, lval::generic_get_saved_register:0
+F:2:GET_SAVED_REGISTER:void:get_saved_register:char *raw_buffer, int *optimized, CORE_ADDR *addrp, struct frame_info *frame, int regnum, enum lval_type *lval:raw_buffer, optimized, addrp, frame, regnum, lval
 #
 f:2:REGISTER_CONVERTIBLE:int:register_convertible:int nr:nr:::generic_register_convertible_not::0
 f:2:REGISTER_CONVERT_TO_VIRTUAL:void:register_convert_to_virtual:int regnum, struct type *type, char *from, char *to:regnum, type, from, to:::0::0
 f:2:REGISTER_CONVERT_TO_RAW:void:register_convert_to_raw:struct type *type, int regnum, char *from, char *to:type, regnum, from, to:::0::0
-# This function is called when the value of a pseudo-register needs to
-# be updated.  Typically it will be defined on a per-architecture
-# basis.
-F:2:FETCH_PSEUDO_REGISTER:void:fetch_pseudo_register:int regnum:regnum:
-# This function is called when the value of a pseudo-register needs to
-# be set or stored.  Typically it will be defined on a
-# per-architecture basis.
-F:2:STORE_PSEUDO_REGISTER:void:store_pseudo_register:int regnum:regnum:
 #
-f:2:POINTER_TO_ADDRESS:CORE_ADDR:pointer_to_address:struct type *type, void *buf:type, buf:::unsigned_pointer_to_address::0
+f:1:CONVERT_REGISTER_P:int:convert_register_p:int regnum:regnum::0:legacy_convert_register_p::0
+f:1:REGISTER_TO_VALUE:void:register_to_value:int regnum, struct type *type, char *from, char *to:regnum, type, from, to::0:legacy_register_to_value::0
+f:1:VALUE_TO_REGISTER:void:value_to_register:struct type *type, int regnum, char *from, char *to:type, regnum, from, to::0:legacy_value_to_register::0
+#
+f:2:POINTER_TO_ADDRESS:CORE_ADDR:pointer_to_address:struct type *type, const void *buf:type, buf:::unsigned_pointer_to_address::0
 f:2:ADDRESS_TO_POINTER:void:address_to_pointer:struct type *type, void *buf, CORE_ADDR addr:type, buf, addr:::unsigned_address_to_pointer::0
 F:2:INTEGER_TO_ADDRESS:CORE_ADDR:integer_to_address:struct type *type, void *buf:type, buf
 #
 f:2:RETURN_VALUE_ON_STACK:int:return_value_on_stack:struct type *type:type:::generic_return_value_on_stack_not::0
-f:2:EXTRACT_RETURN_VALUE:void:extract_return_value:struct type *type, char *regbuf, char *valbuf:type, regbuf, valbuf::0:0
 f:2:PUSH_ARGUMENTS:CORE_ADDR:push_arguments:int nargs, struct value **args, CORE_ADDR sp, int struct_return, CORE_ADDR struct_addr:nargs, args, sp, struct_return, struct_addr:::default_push_arguments::0
 f:2:PUSH_DUMMY_FRAME:void:push_dummy_frame:void:-:::0
 F:2:PUSH_RETURN_ADDRESS:CORE_ADDR:push_return_address:CORE_ADDR pc, CORE_ADDR sp:pc, sp:::0
-f:2:POP_FRAME:void:pop_frame:void:-:::0
+F:2:POP_FRAME:void:pop_frame:void:-:::0
 #
 f:2:STORE_STRUCT_RETURN:void:store_struct_return:CORE_ADDR addr, CORE_ADDR sp:addr, sp:::0
-f:2:STORE_RETURN_VALUE:void:store_return_value:struct type *type, char *valbuf:type, valbuf:::0
-F:2:EXTRACT_STRUCT_VALUE_ADDRESS:CORE_ADDR:extract_struct_value_address:char *regbuf:regbuf:::0
+#
+f::EXTRACT_RETURN_VALUE:void:extract_return_value:struct type *type, struct regcache *regcache, void *valbuf:type, regcache, valbuf:::legacy_extract_return_value::0
+f::STORE_RETURN_VALUE:void:store_return_value:struct type *type, struct regcache *regcache, const void *valbuf:type, regcache, valbuf:::legacy_store_return_value::0
+f::DEPRECATED_EXTRACT_RETURN_VALUE:void:deprecated_extract_return_value:struct type *type, char *regbuf, char *valbuf:type, regbuf, valbuf
+f::DEPRECATED_STORE_RETURN_VALUE:void:deprecated_store_return_value:struct type *type, char *valbuf:type, valbuf
+#
+F:2:EXTRACT_STRUCT_VALUE_ADDRESS:CORE_ADDR:extract_struct_value_address:struct regcache *regcache:regcache:::0
+F:2:DEPRECATED_EXTRACT_STRUCT_VALUE_ADDRESS:CORE_ADDR:deprecated_extract_struct_value_address:char *regbuf:regbuf:::0
 f:2:USE_STRUCT_CONVENTION:int:use_struct_convention:int gcc_p, struct type *value_type:gcc_p, value_type:::generic_use_struct_convention::0
 #
-f:2:FRAME_INIT_SAVED_REGS:void:frame_init_saved_regs:struct frame_info *frame:frame::0:0
+F:2:FRAME_INIT_SAVED_REGS:void:frame_init_saved_regs:struct frame_info *frame:frame:::0
 F:2:INIT_EXTRA_FRAME_INFO:void:init_extra_frame_info:int fromleaf, struct frame_info *frame:fromleaf, frame:::0
-f:2:PRINT_EXTRA_FRAME_INFO:void:print_extra_frame_info:itrust frame_info *frame:frame:::0:0
+# f:2:PRINT_EXTRA_FRAME_INFO:void:print_extra_frame_info:itrust frame_info *frame:frame:::0:0
 #
 f:2:SKIP_PROLOGUE:CORE_ADDR:skip_prologue:CORE_ADDR ip:ip::0:0
 f:2:PROLOGUE_FRAMELESS_P:int:prologue_frameless_p:CORE_ADDR ip:ip::0:generic_prologue_frameless_p::0
 f:2:INNER_THAN:int:inner_than:CORE_ADDR lhs, CORE_ADDR rhs:lhs, rhs::0:0
-f:2:BREAKPOINT_FROM_PC:unsigned char *:breakpoint_from_pc:CORE_ADDR *pcptr, int *lenptr:pcptr, lenptr:::legacy_breakpoint_from_pc::0
+f:2:BREAKPOINT_FROM_PC:const unsigned char *:breakpoint_from_pc:CORE_ADDR *pcptr, int *lenptr:pcptr, lenptr:::legacy_breakpoint_from_pc::0
 f:2:MEMORY_INSERT_BREAKPOINT:int:memory_insert_breakpoint:CORE_ADDR addr, char *contents_cache:addr, contents_cache::0:default_memory_insert_breakpoint::0
 f:2:MEMORY_REMOVE_BREAKPOINT:int:memory_remove_breakpoint:CORE_ADDR addr, char *contents_cache:addr, contents_cache::0:default_memory_remove_breakpoint::0
 v:2:DECR_PC_AFTER_BREAK:CORE_ADDR:decr_pc_after_break::::0:-1
@@ -552,29 +570,23 @@ f:2:REMOTE_TRANSLATE_XFER_ADDRESS:void:remote_translate_xfer_address:CORE_ADDR g
 v:2:FRAME_ARGS_SKIP:CORE_ADDR:frame_args_skip::::0:-1
 f:2:FRAMELESS_FUNCTION_INVOCATION:int:frameless_function_invocation:struct frame_info *fi:fi:::generic_frameless_function_invocation_not::0
 f:2:FRAME_CHAIN:CORE_ADDR:frame_chain:struct frame_info *frame:frame::0:0
-# Define a default FRAME_CHAIN_VALID, in the form that is suitable for
-# most targets.  If FRAME_CHAIN_VALID returns zero it means that the
-# given frame is the outermost one and has no caller.
-#
-# XXXX - both default and alternate frame_chain_valid functions are
-# deprecated.  New code should use dummy frames and one of the generic
-# functions.
-f:2:FRAME_CHAIN_VALID:int:frame_chain_valid:CORE_ADDR chain, struct frame_info *thisframe:chain, thisframe:::func_frame_chain_valid::0
+F:2:FRAME_CHAIN_VALID:int:frame_chain_valid:CORE_ADDR chain, struct frame_info *thisframe:chain, thisframe::0:0
 f:2:FRAME_SAVED_PC:CORE_ADDR:frame_saved_pc:struct frame_info *fi:fi::0:0
-f:2:FRAME_ARGS_ADDRESS:CORE_ADDR:frame_args_address:struct frame_info *fi:fi::0:0
-f:2:FRAME_LOCALS_ADDRESS:CORE_ADDR:frame_locals_address:struct frame_info *fi:fi::0:0
+f:2:FRAME_ARGS_ADDRESS:CORE_ADDR:frame_args_address:struct frame_info *fi:fi::0:get_frame_base::0
+f:2:FRAME_LOCALS_ADDRESS:CORE_ADDR:frame_locals_address:struct frame_info *fi:fi::0:get_frame_base::0
 f:2:SAVED_PC_AFTER_CALL:CORE_ADDR:saved_pc_after_call:struct frame_info *frame:frame::0:0
 f:2:FRAME_NUM_ARGS:int:frame_num_args:struct frame_info *frame:frame::0:0
 #
 F:2:STACK_ALIGN:CORE_ADDR:stack_align:CORE_ADDR sp:sp::0:0
+M:::CORE_ADDR:frame_align:CORE_ADDR address:address
 v:2:EXTRA_STACK_ALIGNMENT_NEEDED:int:extra_stack_alignment_needed::::0:1::0:::
 F:2:REG_STRUCT_HAS_ADDR:int:reg_struct_has_addr:int gcc_p, struct type *type:gcc_p, type::0:0
 F:2:SAVE_DUMMY_FRAME_TOS:void:save_dummy_frame_tos:CORE_ADDR sp:sp::0:0
 v:2:PARM_BOUNDARY:int:parm_boundary
 #
-v:2:TARGET_FLOAT_FORMAT:const struct floatformat *:float_format::::::default_float_format (gdbarch)
-v:2:TARGET_DOUBLE_FORMAT:const struct floatformat *:double_format::::::default_double_format (gdbarch)
-v:2:TARGET_LONG_DOUBLE_FORMAT:const struct floatformat *:long_double_format::::::default_double_format (gdbarch)
+v:2:TARGET_FLOAT_FORMAT:const struct floatformat *:float_format::::::default_float_format (gdbarch)::%s:(TARGET_FLOAT_FORMAT)->name
+v:2:TARGET_DOUBLE_FORMAT:const struct floatformat *:double_format::::::default_double_format (gdbarch)::%s:(TARGET_DOUBLE_FORMAT)->name
+v:2:TARGET_LONG_DOUBLE_FORMAT:const struct floatformat *:long_double_format::::::default_double_format (gdbarch)::%s:(TARGET_LONG_DOUBLE_FORMAT)->name
 f:2:CONVERT_FROM_FUNC_PTR_ADDR:CORE_ADDR:convert_from_func_ptr_addr:CORE_ADDR addr:addr:::core_addr_identity::0
 # On some machines there are bits in addresses which are not really
 # part of the address, but are used by the kernel, the hardware, etc.
@@ -600,10 +612,39 @@ f:2:SMASH_TEXT_ADDRESS:CORE_ADDR:smash_text_address:CORE_ADDR addr:addr:::core_a
 F:2:SOFTWARE_SINGLE_STEP:void:software_single_step:enum target_signal sig, int insert_breakpoints_p:sig, insert_breakpoints_p::0:0
 f:2:TARGET_PRINT_INSN:int:print_insn:bfd_vma vma, disassemble_info *info:vma, info:::legacy_print_insn::0
 f:2:SKIP_TRAMPOLINE_CODE:CORE_ADDR:skip_trampoline_code:CORE_ADDR pc:pc:::generic_skip_trampoline_code::0
+f:2:DYNAMIC_TRAMPOLINE_NEXTPC:CORE_ADDR:dynamic_trampoline_nextpc:CORE_ADDR pc:pc:::generic_dynamic_trampoline_nextpc::0
+
 # For SVR4 shared libraries, each call goes through a small piece of
 # trampoline code in the ".plt" section.  IN_SOLIB_CALL_TRAMPOLINE evaluates
-# to nonzero if we are current stopped in one of these.
+# to nonzero if we are currently stopped in one of these.
 f:2:IN_SOLIB_CALL_TRAMPOLINE:int:in_solib_call_trampoline:CORE_ADDR pc, char *name:pc, name:::generic_in_solib_call_trampoline::0
+
+# Some systems also have trampoline code for returning from shared libs.
+f:2:IN_SOLIB_RETURN_TRAMPOLINE:int:in_solib_return_trampoline:CORE_ADDR pc, char *name:pc, name:::generic_in_solib_return_trampoline::0
+
+# Sigtramp is a routine that the kernel calls (which then calls the
+# signal handler).  On most machines it is a library routine that is
+# linked into the executable.
+#
+# This macro, given a program counter value and the name of the
+# function in which that PC resides (which can be null if the name is
+# not known), returns nonzero if the PC and name show that we are in
+# sigtramp.
+#
+# On most machines just see if the name is sigtramp (and if we have
+# no name, assume we are not in sigtramp).
+#
+# FIXME: cagney/2002-04-21: The function find_pc_partial_function
+# calls find_pc_sect_partial_function() which calls PC_IN_SIGTRAMP.
+# This means PC_IN_SIGTRAMP function can't be implemented by doing its
+# own local NAME lookup.
+#
+# FIXME: cagney/2002-04-21: PC_IN_SIGTRAMP is something of a mess.
+# Some code also depends on SIGTRAMP_START and SIGTRAMP_END but other
+# does not.
+f:2:PC_IN_SIGTRAMP:int:pc_in_sigtramp:CORE_ADDR pc, char *name:pc, name:::legacy_pc_in_sigtramp::0
+F:2:SIGTRAMP_START:CORE_ADDR:sigtramp_start:CORE_ADDR pc:pc
+F::SIGTRAMP_END:CORE_ADDR:sigtramp_end:CORE_ADDR pc:pc
 # A target might have problems with watchpoints as soon as the stack
 # frame of the current function has been destroyed.  This mostly happens
 # as the first action in a funtion's epilogue.  in_function_epilogue_p()
@@ -626,6 +667,14 @@ m::CONSTRUCT_INFERIOR_ARGUMENTS:char *:construct_inferior_arguments:int argc, ch
 F:2:DWARF2_BUILD_FRAME_INFO:void:dwarf2_build_frame_info:struct objfile *objfile:objfile:::0
 f:2:ELF_MAKE_MSYMBOL_SPECIAL:void:elf_make_msymbol_special:asymbol *sym, struct minimal_symbol *msym:sym, msym:::default_elf_make_msymbol_special::0
 f:2:COFF_MAKE_MSYMBOL_SPECIAL:void:coff_make_msymbol_special:int val, struct minimal_symbol *msym:val, msym:::default_coff_make_msymbol_special::0
+v::NAME_OF_MALLOC:const char *:name_of_malloc::::"malloc":"malloc"::0:%s:NAME_OF_MALLOC
+v::CANNOT_STEP_BREAKPOINT:int:cannot_step_breakpoint::::0:0::0
+v::HAVE_NONSTEPPABLE_WATCHPOINT:int:have_nonsteppable_watchpoint::::0:0::0
+F:2:ADDRESS_CLASS_TYPE_FLAGS:int:address_class_type_flags:int byte_size, int dwarf2_addr_class:byte_size, dwarf2_addr_class
+M:2:ADDRESS_CLASS_TYPE_FLAGS_TO_NAME:const char *:address_class_type_flags_to_name:int type_flags:type_flags:
+M:2:ADDRESS_CLASS_NAME_TO_TYPE_FLAGS:int:address_class_name_to_type_flags:const char *name, int *type_flags_ptr:name, type_flags_ptr
+# Is a register in a group
+m:::int:register_reggroup_p:int regnum, struct reggroup *reggroup:regnum, reggroup:::default_register_reggroup_p::0
 EOF
 }
 
@@ -643,9 +692,6 @@ EOF
     do
 	eval echo \"\ \ \ \ ${r}=\${${r}}\"
     done
-#    #fallbackdefault=${fallbackdefault}
-#    #valid_p=${valid_p}
-#EOF
     if class_is_predicate_p && fallback_default_p
     then
 	echo "Error: predicate function ${macro} can not have a non- multi-arch default" 1>&2
@@ -681,7 +727,7 @@ cat <<EOF
 /* *INDENT-OFF* */ /* THIS FILE IS GENERATED */
 
 /* Dynamic architecture support for GDB, the GNU debugger.
-   Copyright 1998, 1999, 2000, 2001, 2002 Free Software Foundation, Inc.
+   Copyright 1998, 1999, 2000, 2001, 2002, 2003 Free Software Foundation, Inc.
 
    This file is part of GDB.
 
@@ -727,13 +773,16 @@ cat <<EOF
 
 #include "dis-asm.h" /* Get defs for disassemble_info, which unfortunately is a typedef. */
 #if !GDB_MULTI_ARCH
-#include "value.h" /* For default_coerce_float_to_double which is referenced by a macro.  */
+/* Pull in function declarations refered to, indirectly, via macros.  */
+#include "inferior.h"		/* For unsigned_address_to_pointer().  */
 #endif
 
 struct frame_info;
 struct value;
 struct objfile;
 struct minimal_symbol;
+struct regcache;
+struct reggroup;
 
 extern struct gdbarch *current_gdbarch;
 
@@ -859,7 +908,13 @@ do
 	    printf "#if (!GDB_MULTI_ARCH) && !defined (${macro})\n"
 	    if [ "x${fallbackdefault}" = "x0" ]
 	    then
-		printf "#define ${macro}(${actual}) (internal_error (__FILE__, __LINE__, \"${macro}\"), 0)\n"
+		if [ "x${actual}" = "x-" ]
+		then
+		    printf "#define ${macro} (internal_error (__FILE__, __LINE__, \"${macro}\"), 0)\n"
+		    printf "#define ${macro} (gdbarch_${function} (current_gdbarch))\n"
+		else
+		    printf "#define ${macro}(${actual}) (internal_error (__FILE__, __LINE__, \"${macro}\"), 0)\n"
+		fi
 	    else
 		# FIXME: Should be passing current_gdbarch through!
 		echo "#define ${macro}(${actual}) (${fallbackdefault} (${actual}))" \
@@ -949,9 +1004,16 @@ extern struct gdbarch_tdep *gdbarch_tdep (struct gdbarch *gdbarch);
    architecture; ARCHES which is a list of the previously created
    \`\`struct gdbarch'' for this architecture.
 
-   The INIT function parameter INFO shall, as far as possible, be
-   pre-initialized with information obtained from INFO.ABFD or
-   previously selected architecture (if similar).
+   The INFO parameter is, as far as possible, be pre-initialized with
+   information obtained from INFO.ABFD or the previously selected
+   architecture.
+
+   The ARCHES parameter is a linked list (sorted most recently used)
+   of all the previously created architures for this architecture
+   family.  The (possibly NULL) ARCHES->gdbarch can used to access
+   values from the previously selected architecture for this
+   architecture family.  The global \`\`current_gdbarch'' shall not be
+   used.
 
    The INIT function shall return any of: NULL - indicating that it
    doesn't recognize the selected architecture; an existing \`\`struct
@@ -983,6 +1045,9 @@ struct gdbarch_info
 
   /* Use default: NULL (ZERO). */
   struct gdbarch_tdep_info *tdep_info;
+
+  /* Use default: GDB_OSABI_UNINITIALIZED (-1).  */
+  enum gdb_osabi osabi;
 };
 
 typedef struct gdbarch *(gdbarch_init_ftype) (struct gdbarch_info info, struct gdbarch_list *arches);
@@ -1044,20 +1109,15 @@ extern int gdbarch_update_p (struct gdbarch_info info);
    for the reserved data-pointer is returned.  That identifer should
    be saved in a local static variable.
 
-   The per-architecture data-pointer can be initialized in one of two
-   ways: The value can be set explicitly using a call to
-   set_gdbarch_data(); the value can be set implicitly using the value
-   returned by a non-NULL INIT() callback.  INIT(), when non-NULL is
-   called after the basic architecture vector has been created.
+   The per-architecture data-pointer is either initialized explicitly
+   (set_gdbarch_data()) or implicitly (by INIT() via a call to
+   gdbarch_data()).  FREE() is called to delete either an existing
+   data-pointer overridden by set_gdbarch_data() or when the
+   architecture object is being deleted.
 
    When a previously created architecture is re-selected, the
    per-architecture data-pointer for that previous architecture is
-   restored.  INIT() is not called.
-
-   During initialization, multiple assignments of the data-pointer are
-   allowed, non-NULL values are deleted by calling FREE().  If the
-   architecture is deleted using gdbarch_free() all non-NULL data
-   pointers are also deleted using FREE().
+   restored.  INIT() is not re-called.
 
    Multiple registrarants for any architecture are allowed (and
    strongly encouraged).  */
@@ -1073,7 +1133,7 @@ extern void set_gdbarch_data (struct gdbarch *gdbarch,
 			      struct gdbarch_data *data,
 			      void *pointer);
 
-extern void *gdbarch_data (struct gdbarch_data*);
+extern void *gdbarch_data (struct gdbarch *gdbarch, struct gdbarch_data *);
 
 
 /* Register per-architecture memory region.
@@ -1154,12 +1214,16 @@ extern void initialize_current_architecture (void);
 /* For non-multiarched targets, do any initialization of the default
    gdbarch object necessary after the _initialize_MODULE functions
    have run.  */
-extern void initialize_non_multiarch ();
+extern void initialize_non_multiarch (void);
 
 /* gdbarch trace variable */
 extern int gdbarch_debug;
 
 extern void gdbarch_dump (struct gdbarch *gdbarch, struct ui_file *file);
+
+extern void clear_gdbarch_swap (struct gdbarch *);
+extern void swapout_gdbarch_swap (struct gdbarch *);
+extern void swapin_gdbarch_swap (struct gdbarch *);
 
 #endif
 EOF
@@ -1205,17 +1269,20 @@ cat <<EOF
 #include "floatformat.h"
 
 #include "gdb_assert.h"
+#include "gdb_string.h"
 #include "gdb-events.h"
+#include "reggroups.h"
+#include "osabi.h"
 
 /* Static function declarations */
 
 static void verify_gdbarch (struct gdbarch *gdbarch);
 static void alloc_gdbarch_data (struct gdbarch *);
-static void init_gdbarch_data (struct gdbarch *);
 static void free_gdbarch_data (struct gdbarch *);
 static void init_gdbarch_swap (struct gdbarch *);
-static void swapout_gdbarch_swap (struct gdbarch *);
-static void swapin_gdbarch_swap (struct gdbarch *);
+void clear_gdbarch_swap (struct gdbarch *);
+void swapout_gdbarch_swap (struct gdbarch *);
+void swapin_gdbarch_swap (struct gdbarch *);
 
 /* Non-zero if we want to trace architecture code.  */
 
@@ -1232,6 +1299,8 @@ printf "/* Maintain the struct gdbarch object */\n"
 printf "\n"
 printf "struct gdbarch\n"
 printf "{\n"
+printf "  /* Has this architecture been fully initialized?  */\n"
+printf "  int initialized_p;\n"
 printf "  /* basic architectural information */\n"
 function_list | while do_read
 do
@@ -1304,6 +1373,7 @@ printf "extern const struct bfd_arch_info bfd_default_arch_struct;\n"
 printf "\n"
 printf "struct gdbarch startup_gdbarch =\n"
 printf "{\n"
+printf "  1, /* Always initialized.  */\n"
 printf "  /* basic architecture information */\n"
 function_list | while do_read
 do
@@ -1335,11 +1405,13 @@ struct gdbarch *current_gdbarch = &startup_gdbarch;
 /* Do any initialization needed for a non-multiarch configuration
    after the _initialize_MODULE functions have been run.  */
 void
-initialize_non_multiarch ()
+initialize_non_multiarch (void)
 {
   alloc_gdbarch_data (&startup_gdbarch);
+  /* Ensure that all swap areas are zeroed so that they again think
+     they are starting from scratch.  */
+  clear_gdbarch_swap (&startup_gdbarch);
   init_gdbarch_swap (&startup_gdbarch);
-  init_gdbarch_data (&startup_gdbarch);
 }
 EOF
 
@@ -1506,8 +1578,29 @@ gdbarch_dump (struct gdbarch *gdbarch, struct ui_file *file)
                       "gdbarch_dump: GDB_MULTI_ARCH = %d\\n",
                       GDB_MULTI_ARCH);
 EOF
-function_list | sort -t: +2 | while do_read
+function_list | sort -t: -k 3 | while do_read
 do
+    # First the predicate
+    if class_is_predicate_p
+    then
+	if class_is_multiarch_p
+	then
+	    printf "  if (GDB_MULTI_ARCH)\n"
+	    printf "    fprintf_unfiltered (file,\n"
+	    printf "                        \"gdbarch_dump: gdbarch_${function}_p() = %%d\\\\n\",\n"
+	    printf "                        gdbarch_${function}_p (current_gdbarch));\n"
+	else
+	    printf "#ifdef ${macro}_P\n"
+	    printf "  fprintf_unfiltered (file,\n"
+	    printf "                      \"gdbarch_dump: %%s # %%s\\\\n\",\n"
+	    printf "                      \"${macro}_P()\",\n"
+	    printf "                      XSTRING (${macro}_P ()));\n"
+	    printf "  fprintf_unfiltered (file,\n"
+	    printf "                      \"gdbarch_dump: ${macro}_P() = %%d\\\\n\",\n"
+	    printf "                      ${macro}_P ());\n"
+	    printf "#endif\n"
+	fi
+    fi
     # multiarch functions don't have macros.
     if class_is_multiarch_p
     then
@@ -1556,7 +1649,7 @@ do
     then
 	printf "  if (GDB_MULTI_ARCH)\n"
 	printf "    fprintf_unfiltered (file,\n"
-	printf "                        \"gdbarch_dump: ${macro} = 0x%%08lx\\\\n\",\n"
+	printf "                        \"gdbarch_dump: ${macro} = <0x%%08lx>\\\\n\",\n"
 	printf "                        (long) current_gdbarch->${function}\n"
 	printf "                        /*${macro} ()*/);\n"
     else
@@ -1593,11 +1686,12 @@ do
 	printf "int\n"
 	printf "gdbarch_${function}_p (struct gdbarch *gdbarch)\n"
 	printf "{\n"
-	if [ -n "${valid_p}" ]
+        printf "  gdb_assert (gdbarch != NULL);\n"
+	if [ -n "${predicate}" ]
 	then
-	    printf "  return ${valid_p};\n"
+	    printf "  return ${predicate};\n"
 	else
-	    printf "#error \"gdbarch_${function}_p: not defined\"\n"
+	    printf "  return gdbarch->${function} != 0;\n"
 	fi
 	printf "}\n"
     fi
@@ -1612,9 +1706,15 @@ do
 	  printf "gdbarch_${function} (struct gdbarch *gdbarch, ${formal})\n"
 	fi
 	printf "{\n"
+        printf "  gdb_assert (gdbarch != NULL);\n"
         printf "  if (gdbarch->${function} == 0)\n"
         printf "    internal_error (__FILE__, __LINE__,\n"
 	printf "                    \"gdbarch: gdbarch_${function} invalid\");\n"
+	if class_is_predicate_p && test -n "${predicate}"
+	then
+	    # Allow a call to a function with a predicate.
+	    printf "  /* Ignore predicate (${predicate}).  */\n"
+	fi
 	printf "  if (gdbarch_debug >= 2)\n"
 	printf "    fprintf_unfiltered (gdb_stdlog, \"gdbarch_${function} called\\\\n\");\n"
 	if [ "x${actual}" = "x-" -o "x${actual}" = "x" ]
@@ -1653,6 +1753,7 @@ do
 	printf "${returntype}\n"
 	printf "gdbarch_${function} (struct gdbarch *gdbarch)\n"
 	printf "{\n"
+        printf "  gdb_assert (gdbarch != NULL);\n"
 	if [ "x${invalid_p}" = "x0" ]
 	then
 	    printf "  /* Skip verify of ${function}, invalid_p == 0 */\n"
@@ -1684,6 +1785,7 @@ do
 	printf "${returntype}\n"
 	printf "gdbarch_${function} (struct gdbarch *gdbarch)\n"
 	printf "{\n"
+        printf "  gdb_assert (gdbarch != NULL);\n"
 	printf "  if (gdbarch_debug >= 2)\n"
 	printf "    fprintf_unfiltered (gdb_stdlog, \"gdbarch_${function} called\\\\n\");\n"
 	printf "  return gdbarch->${function};\n"
@@ -1701,6 +1803,7 @@ cat <<EOF
 struct gdbarch_data
 {
   unsigned index;
+  int init_p;
   gdbarch_data_init_ftype *init;
   gdbarch_data_free_ftype *free;
 };
@@ -1727,6 +1830,7 @@ register_gdbarch_data (gdbarch_data_init_ftype *init,
                        gdbarch_data_free_ftype *free)
 {
   struct gdbarch_data_registration **curr;
+  /* Append the new registraration.  */
   for (curr = &gdbarch_data_registry.registrations;
        (*curr) != NULL;
        curr = &(*curr)->next);
@@ -1735,30 +1839,11 @@ register_gdbarch_data (gdbarch_data_init_ftype *init,
   (*curr)->data = XMALLOC (struct gdbarch_data);
   (*curr)->data->index = gdbarch_data_registry.nr++;
   (*curr)->data->init = init;
+  (*curr)->data->init_p = 1;
   (*curr)->data->free = free;
   return (*curr)->data;
 }
 
-
-/* Walk through all the registered users initializing each in turn. */
-
-static void
-init_gdbarch_data (struct gdbarch *gdbarch)
-{
-  struct gdbarch_data_registration *rego;
-  for (rego = gdbarch_data_registry.registrations;
-       rego != NULL;
-       rego = rego->next)
-    {
-      struct gdbarch_data *data = rego->data;
-      gdb_assert (data->index < gdbarch->nr_data);
-      if (data->init != NULL)
-        {
-          void *pointer = data->init (gdbarch);
-          set_gdbarch_data (gdbarch, data, pointer);
-        }
-    }
-}
 
 /* Create/delete the gdbarch data vector. */
 
@@ -1792,7 +1877,7 @@ free_gdbarch_data (struct gdbarch *gdbarch)
 }
 
 
-/* Initialize the current value of thee specified per-architecture
+/* Initialize the current value of the specified per-architecture
    data-pointer. */
 
 void
@@ -1801,8 +1886,11 @@ set_gdbarch_data (struct gdbarch *gdbarch,
                   void *pointer)
 {
   gdb_assert (data->index < gdbarch->nr_data);
-  if (data->free != NULL && gdbarch->data[data->index] != NULL)
-    data->free (gdbarch, gdbarch->data[data->index]);
+  if (gdbarch->data[data->index] != NULL)
+    {
+      gdb_assert (data->free != NULL);
+      data->free (gdbarch, gdbarch->data[data->index]);
+    }
   gdbarch->data[data->index] = pointer;
 }
 
@@ -1810,10 +1898,24 @@ set_gdbarch_data (struct gdbarch *gdbarch,
    data-pointer. */
 
 void *
-gdbarch_data (struct gdbarch_data *data)
+gdbarch_data (struct gdbarch *gdbarch, struct gdbarch_data *data)
 {
-  gdb_assert (data->index < current_gdbarch->nr_data);
-  return current_gdbarch->data[data->index];
+  gdb_assert (data->index < gdbarch->nr_data);
+  /* The data-pointer isn't initialized, call init() to get a value but
+     only if the architecture initializaiton has completed.  Otherwise
+     punt - hope that the caller knows what they are doing.  */
+  if (gdbarch->data[data->index] == NULL
+      && gdbarch->initialized_p)
+    {
+      /* Be careful to detect an initialization cycle.  */
+      gdb_assert (data->init_p);
+      data->init_p = 0;
+      gdb_assert (data->init != NULL);
+      gdbarch->data[data->index] = data->init (gdbarch);
+      data->init_p = 1;
+      gdb_assert (gdbarch->data[data->index] != NULL);
+    }
+  return gdbarch->data[data->index];
 }
 
 
@@ -1862,6 +1964,17 @@ register_gdbarch_swap (void *data,
   (*rego)->sizeof_data = sizeof_data;
 }
 
+void
+clear_gdbarch_swap (struct gdbarch *gdbarch)
+{
+  struct gdbarch_swap *curr;
+  for (curr = gdbarch->swap;
+       curr != NULL;
+       curr = curr->next)
+    {
+      memset (curr->source->data, 0, curr->source->sizeof_data);
+    }
+}
 
 static void
 init_gdbarch_swap (struct gdbarch *gdbarch)
@@ -1878,7 +1991,6 @@ init_gdbarch_swap (struct gdbarch *gdbarch)
 	  (*curr)->source = rego;
 	  (*curr)->swap = xmalloc (rego->sizeof_data);
 	  (*curr)->next = NULL;
-	  memset (rego->data, 0, rego->sizeof_data);
 	  curr = &(*curr)->next;
 	}
       if (rego->init != NULL)
@@ -1886,7 +1998,7 @@ init_gdbarch_swap (struct gdbarch *gdbarch)
     }
 }
 
-static void
+void
 swapout_gdbarch_swap (struct gdbarch *gdbarch)
 {
   struct gdbarch_swap *curr;
@@ -1896,7 +2008,7 @@ swapout_gdbarch_swap (struct gdbarch *gdbarch)
     memcpy (curr->swap, curr->source->data, curr->source->sizeof_data);
 }
 
-static void
+void
 swapin_gdbarch_swap (struct gdbarch *gdbarch)
 {
   struct gdbarch_swap *curr;
@@ -2031,6 +2143,8 @@ gdbarch_list_lookup_by_info (struct gdbarch_list *arches,
 	continue;
       if (info->byte_order != arches->gdbarch->byte_order)
 	continue;
+      if (info->osabi != arches->gdbarch->osabi)
+	continue;
       return arches;
     }
   return NULL;
@@ -2044,7 +2158,7 @@ int
 gdbarch_update_p (struct gdbarch_info info)
 {
   struct gdbarch *new_gdbarch;
-  struct gdbarch_list **list;
+  struct gdbarch *old_gdbarch;
   struct gdbarch_registration *rego;
 
   /* Fill in missing parts of the INFO struct using a number of
@@ -2076,6 +2190,12 @@ gdbarch_update_p (struct gdbarch_info info)
   if (info.byte_order == BFD_ENDIAN_UNKNOWN)
     info.byte_order = TARGET_BYTE_ORDER;
 
+  /* \`\`(gdb) set osabi ...'' is handled by gdbarch_lookup_osabi.  */
+  if (info.osabi == GDB_OSABI_UNINITIALIZED)
+    info.osabi = gdbarch_lookup_osabi (info.abfd);
+  if (info.osabi == GDB_OSABI_UNINITIALIZED)
+    info.osabi = current_gdbarch->osabi;
+
   /* Must have found some sort of architecture. */
   gdb_assert (info.bfd_arch_info != NULL);
 
@@ -2092,6 +2212,9 @@ gdbarch_update_p (struct gdbarch_info info)
 			  (info.byte_order == BFD_ENDIAN_BIG ? "big"
 			   : info.byte_order == BFD_ENDIAN_LITTLE ? "little"
 			   : "default"));
+      fprintf_unfiltered (gdb_stdlog,
+			  "gdbarch_update: info.osabi %d (%s)\n",
+			  info.osabi, gdbarch_osabi_name (info.osabi));
       fprintf_unfiltered (gdb_stdlog,
 			  "gdbarch_update: info.abfd 0x%lx\n",
 			  (long) info.abfd);
@@ -2113,56 +2236,92 @@ gdbarch_update_p (struct gdbarch_info info)
       return 0;
     }
 
+  /* Swap the data belonging to the old target out setting the
+     installed data to zero.  This stops the ->init() function trying
+     to refer to the previous architecture's global data structures.  */
+  swapout_gdbarch_swap (current_gdbarch);
+  clear_gdbarch_swap (current_gdbarch);
+
+  /* Save the previously selected architecture, setting the global to
+     NULL.  This stops ->init() trying to use the previous
+     architecture's configuration.  The previous architecture may not
+     even be of the same architecture family.  The most recent
+     architecture of the same family is found at the head of the
+     rego->arches list.  */
+  old_gdbarch = current_gdbarch;
+  current_gdbarch = NULL;
+
   /* Ask the target for a replacement architecture. */
   new_gdbarch = rego->init (info, rego->arches);
 
-  /* Did the target like it?  No. Reject the change. */
+  /* Did the target like it?  No. Reject the change and revert to the
+     old architecture.  */
   if (new_gdbarch == NULL)
     {
       if (gdbarch_debug)
 	fprintf_unfiltered (gdb_stdlog, "gdbarch_update: Target rejected architecture\\n");
+      swapin_gdbarch_swap (old_gdbarch);
+      current_gdbarch = old_gdbarch;
       return 0;
     }
 
-  /* Did the architecture change?  No. Do nothing. */
-  if (current_gdbarch == new_gdbarch)
+  /* Did the architecture change?  No.  Oops, put the old architecture
+     back.  */
+  if (old_gdbarch == new_gdbarch)
     {
       if (gdbarch_debug)
 	fprintf_unfiltered (gdb_stdlog, "gdbarch_update: Architecture 0x%08lx (%s) unchanged\\n",
 			    (long) new_gdbarch,
 			    new_gdbarch->bfd_arch_info->printable_name);
+      swapin_gdbarch_swap (old_gdbarch);
+      current_gdbarch = old_gdbarch;
       return 1;
     }
 
-  /* Swap all data belonging to the old target out */
-  swapout_gdbarch_swap (current_gdbarch);
+  /* Is this a pre-existing architecture?  Yes. Move it to the front
+     of the list of architectures (keeping the list sorted Most
+     Recently Used) and then copy it in.  */
+  {
+    struct gdbarch_list **list;
+    for (list = &rego->arches;
+	 (*list) != NULL;
+	 list = &(*list)->next)
+      {
+	if ((*list)->gdbarch == new_gdbarch)
+	  {
+	    struct gdbarch_list *this;
+	    if (gdbarch_debug)
+	      fprintf_unfiltered (gdb_stdlog,
+				  "gdbarch_update: Previous architecture 0x%08lx (%s) selected\n",
+				  (long) new_gdbarch,
+				  new_gdbarch->bfd_arch_info->printable_name);
+	    /* Unlink this.  */
+	    this = (*list);
+	    (*list) = this->next;
+	    /* Insert in the front.  */
+	    this->next = rego->arches;
+	    rego->arches = this;
+	    /* Copy the new architecture in.  */
+	    current_gdbarch = new_gdbarch;
+	    swapin_gdbarch_swap (new_gdbarch);
+	    architecture_changed_event ();
+	    return 1;
+	  }
+      }
+  }
 
-  /* Is this a pre-existing architecture?  Yes. Swap it in.  */
-  for (list = &rego->arches;
-       (*list) != NULL;
-       list = &(*list)->next)
-    {
-      if ((*list)->gdbarch == new_gdbarch)
-	{
-	  if (gdbarch_debug)
-	    fprintf_unfiltered (gdb_stdlog,
-                                "gdbarch_update: Previous architecture 0x%08lx (%s) selected\\n",
-				(long) new_gdbarch,
-				new_gdbarch->bfd_arch_info->printable_name);
-	  current_gdbarch = new_gdbarch;
-	  swapin_gdbarch_swap (new_gdbarch);
-	  architecture_changed_event ();
-	  return 1;
-	}
-    }
+  /* Prepend this new architecture to the architecture list (keep the
+     list sorted Most Recently Used).  */
+  {
+    struct gdbarch_list *this = XMALLOC (struct gdbarch_list);
+    this->next = rego->arches;
+    this->gdbarch = new_gdbarch;
+    rego->arches = this;
+  }    
 
-  /* Append this new architecture to this targets list. */
-  (*list) = XMALLOC (struct gdbarch_list);
-  (*list)->next = NULL;
-  (*list)->gdbarch = new_gdbarch;
-
-  /* Switch to this new architecture.  Dump it out. */
+  /* Switch to this new architecture marking it initialized.  */
   current_gdbarch = new_gdbarch;
+  current_gdbarch->initialized_p = 1;
   if (gdbarch_debug)
     {
       fprintf_unfiltered (gdb_stdlog,
@@ -2181,10 +2340,8 @@ gdbarch_update_p (struct gdbarch_info info)
      called. */
   init_gdbarch_swap (new_gdbarch);
   
-  /* Initialize the per-architecture data-pointer of all parties that
-     registered an interest in this architecture.  CURRENT_GDBARCH
+  /* Initialize the per-architecture data.  CURRENT_GDBARCH
      must be updated before these modules are called. */
-  init_gdbarch_data (new_gdbarch);
   architecture_changed_event ();
 
   if (gdbarch_debug)

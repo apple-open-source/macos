@@ -3,19 +3,22 @@
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
- * The contents of this file constitute Original Code as defined in and
- * are subject to the Apple Public Source License Version 1.1 (the
- * "License").  You may not use this file except in compliance with the
- * License.  Please obtain a copy of the License at
- * http://www.apple.com/publicsource and read it before using this file.
+ * Copyright (c) 1999-2003 Apple Computer, Inc.  All Rights Reserved.
  * 
- * This Original Code and all software distributed under the License are
- * distributed on an "AS IS" basis, WITHOUT WARRANTY OF ANY KIND, EITHER
+ * This file contains Original Code and/or Modifications of Original Code
+ * as defined in and that are subject to the Apple Public Source License
+ * Version 2.0 (the 'License'). You may not use this file except in
+ * compliance with the License. Please obtain a copy of the License at
+ * http://www.opensource.apple.com/apsl/ and read it before using this
+ * file.
+ * 
+ * The Original Code and all software distributed under the License are
+ * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
  * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
  * INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY,
- * FITNESS FOR A PARTICULAR PURPOSE OR NON-INFRINGEMENT.  Please see the
- * License for the specific language governing rights and limitations
- * under the License.
+ * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
+ * Please see the License for the specific language governing rights and
+ * limitations under the License.
  * 
  * @APPLE_LICENSE_HEADER_END@
  */
@@ -66,6 +69,7 @@
 #include <sys/wait.h>
 #include <sys/resource.h>
 #include <ctype.h>
+#include <sys/attr.h>
 
 #include "dhcp.h"
 #include "netinfo.h"
@@ -92,8 +96,29 @@ S_timestamp(char * msg)
 }
 
 static boolean_t
+S_set_dimg_ddsk(char * path)
+{
+    struct attrlist 	attrspec;
+    struct {
+	char	type_creator[8];
+	u_long	pad[6];
+    } finder =  {
+	{ 'd', 'i', 'm', 'g', 'd', 'd', 's', 'k' },
+	{ 0, 0, 0, 0, 0, 0 }
+    };
+
+    bzero(&attrspec, sizeof(attrspec));
+    attrspec.bitmapcount	= ATTR_BIT_MAP_COUNT;
+    attrspec.commonattr		= ATTR_CMN_FNDRINFO;
+    if (setattrlist(path, &attrspec, &finder, sizeof(finder), 0)) {
+	return (FALSE);
+    }
+    return (TRUE);
+}
+
+static boolean_t
 set_privs_no_stat(u_char * path, struct stat * sb_p, uid_t uid, gid_t gid,
-		  mode_t mode, boolean_t lock)
+		  mode_t mode, boolean_t unlock)
 {
     boolean_t		needs_chown = FALSE;
     boolean_t		needs_chmod = FALSE;
@@ -117,32 +142,24 @@ set_privs_no_stat(u_char * path, struct stat * sb_p, uid_t uid, gid_t gid,
 	    if (chmod(path, mode) < 0)
 		return (FALSE);
 	}
-	if (lock) {
-	    if (chflags(path, UF_IMMUTABLE) < 0)
+    }
+    else if (unlock) {
+	if (sb_p->st_flags & UF_IMMUTABLE) {
+	    if (chflags(path, 0) < 0)
 		return (FALSE);
 	}
-    }
-    else if (lock) {
-	if ((sb_p->st_flags & UF_IMMUTABLE) == 0) {
-	    if (chflags(path, UF_IMMUTABLE) < 0)
-		return (FALSE);
-	}
-    }
-    else if (sb_p->st_flags & UF_IMMUTABLE) {
-	if (chflags(path, 0) < 0)
-	    return (FALSE);
     }
     return (TRUE);
 }
 
 boolean_t
 set_privs(u_char * path, struct stat * sb_p, uid_t uid, gid_t gid,
-	  mode_t mode, boolean_t lock)
+	  mode_t mode, boolean_t unlock)
 {
     if (stat(path, sb_p) != 0) {
 	return (FALSE);
     }
-    return (set_privs_no_stat(path, sb_p, uid, gid, mode, lock));
+    return (set_privs_no_stat(path, sb_p, uid, gid, mode, unlock));
 }
 
 /*
@@ -217,13 +234,6 @@ macNC_get_client_info(struct dhcp * pkt, int pkt_size, dhcpol_t * options,
     return (TRUE);
 }
 
-static __inline__ boolean_t
-S_make_finder_info(u_char * shadow_path, u_char * real_path)
-{
-    return (hfs_copy_finder_info(shadow_path, real_path));
-}
-
-
 /*
  * Function: S_get_volpath
  *
@@ -231,7 +241,8 @@ S_make_finder_info(u_char * shadow_path, u_char * real_path)
  *   Format a volume pathname given a volume, directory and file name.
  */
 static void
-S_get_volpath(u_char * path, NBSPEntry * entry, u_char * dir, u_char * file)
+S_get_volpath(u_char * path, const NBSPEntry * entry, const u_char * dir, 
+	      const u_char * file)
 {
     snprintf(path, PATH_MAX, "%s%s%s%s%s",
 	     entry->path,
@@ -267,12 +278,12 @@ S_create_volume_dir(NBSPEntry * entry, u_char * dirname, mode_t mode)
  * Function: S_create_shadow_file
  *
  * Purpose:
- *   Create a new empty file with the given size and attributes
- *   from another file.
+ *   Create a new empty file with the right permissions, and optionally,
+ *   set to type dimg/ddsk.
  */
 static boolean_t
-S_create_shadow_file(u_char * shadow_path, u_char * real_path,
-		     uid_t uid, gid_t gid, unsigned long long size)
+S_create_shadow_file(u_char * shadow_path, uid_t uid, gid_t gid, 
+		     unsigned long long size, boolean_t set_dimg)
 {
     int 		fd;
 
@@ -289,8 +300,13 @@ S_create_shadow_file(u_char * shadow_path, u_char * real_path,
 	goto err;
     }
 
-    if (S_make_finder_info(shadow_path, real_path) == FALSE) 
-	goto err;
+    if (set_dimg) {
+	if (S_set_dimg_ddsk(shadow_path) == FALSE) {
+	    my_log(LOG_INFO, "macNC: set type/creator '%s' failed, %m", 
+		   shadow_path);
+	    goto err;
+	}
+    }
 
     fchmod(fd, CLIENT_FILE_PERMS);
     close(fd);
@@ -425,6 +441,141 @@ S_remove_shadow(u_char * shadow_path, NBSPEntry * entry, u_char * dir)
     return (TRUE);
 }
 
+NBSPEntry *
+macNC_allocate_shadow(const char * machine_name, int host_number, 
+		      uid_t uid, gid_t gid, const char * shadow_name)
+{
+    int			def_vol_index;
+    u_char		dir_path[PATH_MAX];
+    struct stat		dir_statb;
+    int			i;
+    u_char		nc_images_dir[PATH_MAX];
+    NBSPEntry *		nc_volume = NULL;
+    unsigned long long	needspace;
+    char		shadow_path[PATH_MAX];
+    int			vol_index;
+
+    strncpy(nc_images_dir, machine_name, sizeof(nc_images_dir));
+
+    /* attempt to round-robin images across multiple volumes */
+    def_vol_index = (host_number - 1) % NBSPList_count(G_client_sharepoints);
+
+    /* check all volumes for a client image directory starting at default */
+    nc_volume = NULL;
+    for (i = 0, vol_index = def_vol_index; i < NBSPList_count(G_client_sharepoints);
+	 i++) {
+	NBSPEntry * entry = NBSPList_element(G_client_sharepoints, vol_index);
+	if (S_stat_path_vol_file(dir_path, entry,
+				 nc_images_dir, NULL, &dir_statb) == 0) {
+	    nc_volume = entry;
+	    break;
+	}
+	vol_index = (vol_index + 1) % NBSPList_count(G_client_sharepoints);
+    }
+#define ONE_MEG		(1024UL * 1024UL)
+    needspace = ((unsigned long long)G_shadow_size_meg) * ONE_MEG;
+    if (nc_volume != NULL) {
+	struct stat		sb_shadow;
+	boolean_t		set_file_size = FALSE;
+	boolean_t		set_owner_perms = FALSE;
+	    
+	S_get_volpath(shadow_path, nc_volume, nc_images_dir, 
+		      shadow_name);
+	if (stat(shadow_path, &sb_shadow) == 0) { /* shadow exists */
+	    S_timestamp("shadow file exists");
+	    if (debug)
+		printf("shadow %qu need %qu\n", 
+		       sb_shadow.st_size, needspace);
+	    
+	    if (sb_shadow.st_uid != uid
+		|| sb_shadow.st_gid != gid
+		|| (sb_shadow.st_mode & ACCESSPERMS) != CLIENT_FILE_PERMS)
+		set_owner_perms = TRUE;
+	    
+	    if (sb_shadow.st_size < needspace) {
+		unsigned long long  	difference;
+		unsigned long long	freespace = 0;
+		
+		set_file_size = TRUE;
+		S_timestamp("shadow file needs to be grown");
+		/* check for enough space */
+		(void)S_freespace(shadow_path, &freespace);
+		difference = (needspace - sb_shadow.st_size);
+		if (freespace < difference) {
+		    my_log(LOG_INFO, "macNC: device full, "
+			   "attempting to relocate %s",
+			   shadow_path);
+		    /* blow away the shadow */
+		    if (S_remove_shadow(shadow_path, nc_volume,
+					nc_images_dir) == FALSE) {
+			my_log(LOG_INFO, "macNC: couldn't remove"
+			       " shadow %s, %m", shadow_path);
+			goto failed;
+		    }
+		    /* start fresh */
+		    nc_volume = NULL;
+		}
+	    }
+	}
+	else {
+	    /* start fresh */
+	    if (S_remove_shadow(shadow_path, nc_volume, nc_images_dir)
+		== FALSE) {
+		my_log(LOG_INFO, "macNC: couldn't remove"
+		       " shadow %s, %m", shadow_path);
+		goto failed;
+	    }
+	    nc_volume = NULL;
+	}
+	if (nc_volume != NULL) {
+	    if (set_file_size) {
+		S_timestamp("setting shadow file size");
+		if (S_create_shadow_file(shadow_path, uid, gid, needspace,
+					 FALSE) == FALSE) {
+		    my_log(LOG_INFO, "macNC: couldn't create %s, %m",
+			   shadow_path);
+		    goto failed;
+		}
+		S_timestamp("shadow file size set");
+	    }
+	    else if (set_owner_perms) {
+		S_timestamp("setting shadow file perms/owner");
+		chmod(shadow_path, CLIENT_FILE_PERMS);
+		S_set_uid_gid(shadow_path, uid, gid);
+		S_timestamp("shadow file perms/owner set");
+	    }
+	}
+    }
+    if (nc_volume == NULL) { /* locate the client's image dir */
+	nc_volume = S_find_volume_with_space(needspace, def_vol_index);
+	if (nc_volume == NULL) {
+	    if (G_disk_space_warned == FALSE)
+		my_log(LOG_INFO, "macNC: can't create client image: "
+		       "OUT OF DISK SPACE");
+	    G_disk_space_warned = TRUE; /* don't keep complaining */
+	    goto failed;
+	}
+	S_get_volpath(shadow_path, nc_volume, nc_images_dir, 
+		      shadow_name);
+	G_disk_space_warned = FALSE;
+	if (S_create_volume_dir(nc_volume, nc_images_dir,
+				CLIENT_DIR_PERMS) == FALSE) {
+	    goto failed;
+	}
+	if (S_create_shadow_file(shadow_path, uid, gid, needspace,
+				 FALSE) == FALSE) {
+	    my_log(LOG_INFO, "macNC: couldn't create %s, %m",
+		   shadow_path);
+	    goto failed;
+	}
+    }
+    return (nc_volume);
+
+ failed:
+    return (NULL);
+}
+
+
 /* 
  * Function: S_add_image_options
  * 
@@ -454,7 +605,7 @@ S_add_image_options(NBImageEntryRef image_entry,
 	     image_entry->dir_name,
 	     image_entry->bootfile);
     if (set_privs(path, &statb, ROOT_UID, G_admin_gid,
-		  SHARED_FILE_PERMS, TRUE) == FALSE) {
+		  SHARED_FILE_PERMS, FALSE) == FALSE) {
 	syslog(LOG_INFO, "macNC: '%s' does not exist", path);
 	return (FALSE);
     }
@@ -485,14 +636,14 @@ S_add_image_options(NBImageEntryRef image_entry,
 				&statb) == 0) {
 	/* set the image file perms */
 	if (set_privs_no_stat(path, &statb, uid, gid, CLIENT_FILE_PERMS, 
-			      FALSE) == FALSE) {
+			      TRUE) == FALSE) {
 	    my_log(LOG_INFO, "macNC: couldn't set permissions on path %s: %m",
 		   path);
 	    return (FALSE);
 	}
 	/* set the client dir perms */
 	if (set_privs_no_stat(dir_path, &dir_statb, uid, gid, 
-			      CLIENT_DIR_PERMS, FALSE) == FALSE) {
+			      CLIENT_DIR_PERMS, TRUE) == FALSE) {
 	    my_log(LOG_INFO, "macNC: couldn't set permissions on path %s: %m",
 		   dir_path);
 	    return (FALSE);
@@ -508,7 +659,7 @@ S_add_image_options(NBImageEntryRef image_entry,
 				     image_entry->type_info.classic.private, 
 				     &statb) == 0) {
 		if (set_privs_no_stat(path, &statb, uid, gid, 
-				      CLIENT_FILE_PERMS, FALSE) == FALSE) {
+				      CLIENT_FILE_PERMS, TRUE) == FALSE) {
 		    my_log(LOG_INFO, 
 			   "macNC: couldn't set permissions on path %s: %m", 
 			   path);
@@ -545,7 +696,7 @@ S_add_image_options(NBImageEntryRef image_entry,
 		 image_entry->type_info.classic.shared);
 	/* set the shared system image permissions */
 	if (set_privs(shared_path, &statb, ROOT_UID, G_admin_gid,
-		      SHARED_FILE_PERMS, TRUE) == FALSE) {
+		      SHARED_FILE_PERMS, FALSE) == FALSE) {
 	    syslog(LOG_INFO, "macNC: '%s' does not exist", shared_path);
 	    return (FALSE);
 	}
@@ -566,7 +717,7 @@ S_add_image_options(NBImageEntryRef image_entry,
 		     image_entry->dir_name,
 		     image_entry->type_info.classic.private);
 	    if (set_privs(private_path, &statb, ROOT_UID, G_admin_gid,
-			  SHARED_FILE_PERMS, TRUE) == TRUE) {
+			  SHARED_FILE_PERMS, FALSE) == TRUE) {
 		/* add the private image option */
 		if (S_add_afppath_option(servip, options, 
 					 &image_entry->sharepoint,
@@ -637,18 +788,22 @@ S_add_image_options(NBImageEntryRef image_entry,
 	    if (nc_volume != NULL) {
 		if (set_file_size) {
 		    S_timestamp("setting shadow file size");
-		    if (S_create_shadow_file(shadow_path, shared_path, 
-					     uid, gid, needspace) == FALSE) {
+		    if (S_create_shadow_file(shadow_path, uid, gid, needspace,
+					     TRUE) 
+			== FALSE) {
 			my_log(LOG_INFO, "macNC: couldn't create %s, %m",
 			       shadow_path);
 			return (FALSE);
 		    }
 		    S_timestamp("shadow file size set");
 		}
-		else if (set_owner_perms) {
-		    S_timestamp("setting shadow file perms/owner");
-		    chmod(shadow_path, CLIENT_FILE_PERMS);
-		    S_set_uid_gid(shadow_path, uid, gid);
+		else {
+		    if (set_owner_perms) {
+			S_timestamp("setting shadow file perms/owner");
+			chmod(shadow_path, CLIENT_FILE_PERMS);
+			S_set_uid_gid(shadow_path, uid, gid);
+		    }
+		    S_set_dimg_ddsk(shadow_path);
 		    S_timestamp("shadow file perms/owner set");
 		}
 	    }
@@ -669,8 +824,8 @@ S_add_image_options(NBImageEntryRef image_entry,
 				    CLIENT_DIR_PERMS) == FALSE) {
 		return (FALSE);
 	    }
-	    if (S_create_shadow_file(shadow_path, shared_path, 
-				     uid, gid, needspace) == FALSE) {
+	    if (S_create_shadow_file(shadow_path, uid, gid, needspace,
+				     TRUE) == FALSE) {
 		my_log(LOG_INFO, "macNC: couldn't create %s, %m",
 		       shadow_path);
 		return (FALSE);

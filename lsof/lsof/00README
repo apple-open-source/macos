@@ -3,11 +3,12 @@
 
 ********************************************************************
 | The latest release of lsof is always available via anonymous ftp |
-| from vic.cc.purdue.edu.  Look in pub/tools/unix/lsof.            |
+| from lsof.itap.purdue.edu.  Look in pub/tools/unix/lsof.         |
 ********************************************************************
 
 				Contents
 
+	Pre-built Lsof Binaries
 	Making Lsof
 	    Other Configure Script Options
 	    Environment Variables
@@ -23,10 +24,13 @@
 	    The Customize Script
 	    Cautions
 	    Warranty
+	    License
 	    Bug Reports
 	    The 00FAQ File
 	    The lsof-l Mailing List
 	    Field Output Example Scripts
+	    Field Output C Library
+	Testing Lsof
 	Dialect Notes
 	    AFS
 	    AIX
@@ -44,8 +48,8 @@
 	    Pyramid DC/OSx and Reliant UNIX (no longer available)
 	    Caldera OpenUNIX
 	    SCO OpenServer
-	    SCO UnixWare
-	    Solaris 2.x, 7, 8, and 9-BETA
+	    SCO|Caldera UnixWare
+	    Solaris 2.x, 7, 8, and 9
 	    Ultrix (no longer available)
 	    Veritas VxFS and VxVM
 	User-contributed Dialect Support
@@ -59,6 +63,31 @@
 	Environment Variables Affecting the Configure Script
 
 
+=======================
+Pre-built Lsof Binaries
+=======================
+
+Avoid using pre-built lsof binaries if you can; build your own
+instead.
+
+When lsof is built its Configure script tunes lsof to the features
+available on the building system, often embodied in supporting
+header files and libraries.  If the building system doesn't have
+support for a particular feature, lsof won't be built to support
+the feature on any system.
+
+The Veritas VxFS file system is a good example of a feature that
+requires build-time support.
+
+UNIX dialect version differences --  Solaris 8 versus 9, AIX 4.3.3
+vesus 5.2, etc. -- can also render a pre-built lsof binary useless
+on a different version.  So can kernel bit size.
+
+There are so many potential pitfalls to using an lsof binary
+improperly that I strongly recommend lsof be used only where it is
+built.
+
+
 ===========
 Making Lsof
 ===========
@@ -67,9 +96,9 @@ Making Lsof
 	$ ./Configure <your dialect's abbreviation>
 	$ make
 
-(Consult the 00XCONFIG file of the lsof distribution for information
-about using the CFGF, CFGL, and DEBUG make strings to override lsof
-default Makefile options.)
+(Consult the 00FAQ and 00XCONFIG files of the lsof distribution
+for information about using make command invocations and environment
+variables to override lsof default Makefile strings.)
 
 This lsof distribution can be used with many UNIX dialects.  However,
 it must be configured specifically for each dialect.  Configuration
@@ -113,11 +142,11 @@ which you want to build lsof, and made any changes you need, run
 the Configure script, supplying it with the abbreviation for the
 dialect.  (See the following table.)  Configure selects the
 appropriate options for the dialect and runs the Mksrc shell script
-in the dialect subdirectory to construct the appropriate source
+in the dialect sub-directory to construct the appropriate source
 files in the top-level distribution directory.
 
 Configure may also run the MkKernOpts script in the dialect
-subdirectory to propagate kernel build options to the dialect
+sub-directory to propagate kernel build options to the dialect
 Makefile.  This is done for only a few dialects -- e.g., DC/OSx,
 and Reliant UNIX.
 
@@ -138,39 +167,41 @@ the ``osr'' or the ``sco'' abbreviation:
  Abbreviations		UNIX Dialect
  -------------		------------
 
-    aix			IBM AIX 4.3.[23], 5L, and 5.1 using IBM's C Compiler
+    aix			IBM AIX 4.3.[23], 5L, and 5.[12] using IBM's C Compiler
     aixgcc		IBM AIX 4.3.[23], using gcc
-    bsdi		BSDI BSD/OS 4.1
-    darwin		Apple Darwin 1.[23] and 1.4 for Power Macintosh
-			systems
+    bsdi		BSDI BSD/OS 4.[13]
+    darwin		Apple Darwin 1.[2-5], 5.x, and 6.x for Power
+			Macintosh systems
     decosf		DEC OSF/1, Digital UNIX, Tru64 UNIX 4.0 and 5.[01]
     digital_unix	Digital UNIX, DEC OSF/1, Tru64 UNIX 4.0 and 5.[01]
     du			Digital UNIX, DEC OSF/1, Tru64 UNIX 4.0 and 5.[01]
-    freebsd		FreeBSD 4.[234] and 5.0
+    freebsd		FreeBSD 4.[2345678] and 5.[01]
     hpux		HP-UX 11.00 and 11.11, using HP's C
 			Compiler, both /dev/kmem-based and PSTAT-based
     hpuxgcc		HP-UX 11.00 and 11.11, using gcc, both /dev/kmem-
 			based and PSTAT-based
-    linux		Linux 2.1.72 and above for Intel-based systems
-    netbsd		NetBSD 1.5
+    linux		Linux 2.1.72 and above for x86-based systems
+    netbsd		NetBSD 1.[456]
     next		NEXTSTEP 3.[13]
     nextstep		NEXTSTEP 3.[13]
     ns			NEXTSTEP 3.[13]
     nxt			NEXTSTEP 3.[13]
-    openbsd		OpenBSD 2.[89] and 3.0
+    openbsd		OpenBSD 2.[89] and 3.[0123]
     openstep		OPENSTEP 4.x
+    openunix		Caldera OpenUNIX 8
     os			OPENSTEP 4.x
     osr			SCO OpenServer Release 5.0.[46], using the C compiler
 			from the SCO developer's kit
     osrgcc		SCO OpenServer Release 5.0.[46], using gcc
+    ou			Caldera OpenUNIX 8
     sco			SCO OpenServer Release 5.0.[46], using the C compiler
 			from the SCO developer's kit
     scogcc		SCO OpenServer Release 5.0.[46], using gcc
-    solaris		Solaris 2.6, 7, and 8, using gcc
-    solariscc		Solaris 2.6, 7, 8, and 9 BETA, using Sun's cc
+    solaris		Solaris 2.6, 7, 8, and 9, using gcc
+    solariscc		Solaris 2.6, 7, 8, and 9, using Sun's cc
     tru64		Tru64 UNIX, DEC OSF/1, Digital UNIX 4.0 and 5.[01]
-    unixware		SCO UnixWare 7.1.1
-    uw			SCO UnixWare 7.1.1
+    unixware		SCO|Caldera UnixWare 7.1.[13]
+    uw			SCO|Caldera UnixWare 7.1.[13]
 
 If you have an earlier version of a dialect not named in the above
 list, lsof may still work on your system.  I have no way of testing
@@ -233,18 +264,35 @@ Non-root users may list only open files whose processes have the
 same user ID as the real user ID of the lsof process (the one that
 its user logged on with).
 
-Lsof is distributed with the security mode disabled -- HASSECURITY
-is not defined.  You can enable the security mode by defining
-HASSECURITY in the Makefile or in the machine.h header file for
-the specific dialect you're using -- e.g. dialects/aix/machine.h.
-The Customize script, run by Configure when it has finished its
-work, gives you the opportunity to define HASSECURITY.  (See the
-The Customize Script section.)
+However, if HASNOSOCKSECURITY is also defined, anyone may list
+anyone else's open socket files, provided their listing is enabled
+with the "-i" option.
 
-The lsof -h output indicates the state HASSECURITY had when lsof
-was built, reporting: "Only root can list all files," if only root
-can list all open files; or "Anyone can list all files," if anyone
-is permitted to list all open files.
+Lsof is distributed with the security mode disabled -- HASSECURITY
+is not defined.  (When HASSECURITY is not defined, the definition
+of HASNOSOCKSECURITY has no meaning.)  You can enable the security
+mode by defining HASSECURITY in the Makefile or in the machine.h
+header file for the specific dialect you're using -- e.g.
+dialects/aix/machine.h.
+
+The Customize script, run by Configure when it has finished its
+work, gives you the opportunity to define HASSECURITY and
+HASNOSOCKSECURITY.  (See the The Customize Script section.)
+
+The lsof -h output indicates the state HASSECURITY and HASNOSOCKSECURITY
+had when lsof was built, reporting:
+
+    "Only root can list all files;"
+	if HASSECURITY was defined and HASNOSOCKSECURITY wasn't
+	defined;
+
+    "Only root can list all files, but anyone can list socket files."
+	if HASSECURITY and HASNOSOCKSECURITY were both defined;
+
+    "Anyone can list all files;"
+	if HASSECURITY wasn't defined.  (The definition of
+	HASNOSOCKSECURITY doesn't matter when HASSECURITY isn't
+	defined.)
 
 You should carefully consider the implications of using the default
 security mode.  When lsof is compiled in the absence of the
@@ -253,8 +301,8 @@ see the presence of all open files.  This may allow the lsof user
 to observe open files -- e.g., log files used to track intrusions
 -- whose presence you would rather not disclose.
 
-All pre-compiled binaries on vic.cc.purdue.edu or its mirrors were
-constructed without the HASSECURITY definition.
+All pre-compiled binaries on lsof.itap.purdue.edu and mirrored from
+it were constructed without the HASSECURITY definition.
 
 As distributed, lsof writes a user-readable and user-writable device
 cache file in the home directory of the real user ID executing
@@ -282,7 +330,7 @@ memory files, declared with the -k and -m options, that the lsof
 user can't normally access, lsof uses access(2) to establish its
 real user's authority to read such files when it can't surrender
 its power before opening them.  This change was added at the
-suggestion of Tim Ramsey <tar@ksu.ksu.edu>.
+suggestion of Tim Ramsey.
 
 Lsof surrenders setgid permission on most dialects when it has
 gained access to the kernel's memory devices.  There are exceptions
@@ -321,7 +369,7 @@ Device Access Warnings
 ======================
 
 When lsof encounters a /dev (or /devices) directory, one of its
-subdirectories, or one of their files that it cannot access with
+sub-directories, or one of their files that it cannot access with
 opendir(3) or stat(2), it issues a warning message and continues.
 Lsof will be more likely to issue such a warning when it has been
 installed with setgid(<some group name>) permission; it won't have
@@ -387,9 +435,9 @@ child process.  Unless warnings are inhibited by default or with
 the -w option, lsof reports the possible hung child.
 
 NFS block handling was updated with suggestions made by Andreas
-Stolcke <stolcke@ICSI.Berkeley.EDU>.  Andreas suggested using the
-alternate device numbers that appear in the mount tables of some
-dialects when it is not possible to stat(2) the mount points.
+Stolcke.  Andreas suggested using the alternate device numbers that
+appear in the mount tables of some dialects when it is not possible
+to stat(2) the mount points.
 
 The -b option was added to direct lsof to avoid the stat(2) and
 readlink(2) calls that might block on NFS mount points and always
@@ -406,10 +454,10 @@ it can cause lsof to hang, so I advise you to use -O sparingly.
 Caches -- Name and Device
 ==========================
 
-Robert Ehrlich <Robert.Ehrlich@inria.fr> suggested that lsof obtain
-path name components for open files from the kernel's name cache.
-Where possible, lsof dialect implementations do that.  The -C option
-inhibits kernel name cache examination.
+Robert Ehrlich suggested that lsof obtain path name components for
+open files from the kernel's name cache.  Where possible, lsof
+dialect implementations do that.  The -C option inhibits kernel
+name cache examination.
 
 Since AFS apparently does not use the kernel's name cache, where
 lsof supports AFS it is unable to identify AFS files with path name
@@ -526,6 +574,8 @@ compile-time definitions for the dialect's machine.h header file:
 	HASKERNIDCK		the build-time to run-time kernel
 				identity check
 	HASSECURITY		the security option
+	HASNOSOCKSECURITY	the open socket listing option whe
+				HASSECURITY is defined
 	WARNDEVACCESS		/dev (or /devices) warning message
 				control
 	WARNINGSTATE		warning message issuance state
@@ -589,6 +639,43 @@ you.  Should lsof prove defective, you assume the cost of all
 necessary servicing, repair, or correction.
 
 
+License
+=======
+
+Lsof has no license.  Its use and distribution are subject to these
+terms and conditions, found in each lsof source file.  (The copyright
+year in or format of the notice may vary slightly.)
+
+    /*
+     * Copyright 2002 Purdue Research Foundation, West Lafayette,
+     * Indiana 47907.  All rights reserved.
+     *
+     * Written by Victor A. Abell
+     *
+     * This software is not subject to any license of the American
+     * Telephone and Telegraph Company or the Regents of the
+     * University of California.
+     *
+     * Permission is granted to anyone to use this software for
+     * any purpose on any computer system, and to alter it and
+     * redistribute it freely, subject to the following
+     * restrictions:
+     *
+     * 1. Neither the authors nor Purdue University are responsible
+     *    for any consequences of the use of this software.
+     *
+     * 2. The origin of this software must not be misrepresented,
+     *    either by explicit claim or by omission.  Credit to the
+     *    authors and Purdue University must appear in documentation
+     *    and sources.
+     *
+     * 3. Altered versions must be plainly marked as such, and must
+     *    not be misrepresented as being the original software.
+     *
+     * 4. This notice may not be removed or altered.
+     */
+
+
 Bug Reports
 ===========
 
@@ -609,11 +696,11 @@ Before you send me a bug report, please do these things:
 
        +  Download the latest revision from:
 
-	    ftp://vic.cc.purdue.edu/pub/tools/unix/lsof
+	    ftp://lsof.itap.purdue.edu/pub/tools/unix/lsof
 
-       +  While connected to vic.cc.purdue.edu, check for patches:
+       +  While connected to lsof.itap.purdue.edu, check for patches:
 
-	    ftp://vic.cc.purdue.edu/pub/tools/unix/lsof/patches
+	    ftp://lsof.itap.purdue.edu/pub/tools/unix/lsof/patches
 
        +  If patches exist, install them in the latest revision
 	  you just downloaded.  Then build the latest revision and
@@ -623,9 +710,19 @@ Before you send me a bug report, please do these things:
        to see if there's a question and answer relevant to your
        problem.
 
-When you send a bug report, make sure you include output from lsof's
--v option.  That will tell me what UNIX dialect and lsof revision
-is involved.
+When you send a bug report, make sure you include output from your
+running of lsof's Configure script.  If you were able to compile
+a running lsof, please include output from its -h and -v options.
+
+If you weren't able to compile a running lsof, please send me: the
+compiler error output; identification of the lsof revision you're
+using (contents of the lsof version.c file); identification of your
+system (full uname output or output from whatever other tool
+identifies the system); and compiler identification (e.g., gcc -v
+output).
+
+Either set of output will help me understand how lsof was configured
+and what UNIX dialect and lsof revision is involved.
 
 Please send all bug reports, requests, etc. to me via email at
 <abe@purdue.edu>.
@@ -654,9 +751,74 @@ Field Output Example Scripts
 ============================
 
 Example AWK and Perl 4 or 5 scripts for post-processing lsof field
-output are locate in the scripts subdirectory of the lsof distribution.
-The scripts subdirectory contains a 00README file with information
+output are locate in the scripts sub-directory of the lsof distribution.
+The scripts sub-directory contains a 00README file with information
 about the scripts.
+
+
+Field Output C Library
+======================
+
+The lsof test suite (See "Testing Lsof."), checks basic lsof
+operations using field output.  The test suite has its own library
+of C functions for common test program operations, including
+processing of field output.  The library or selections of its
+functions could be adapted for use by C programs that want to
+process lsof field output.  See the library in the file LTlib.c
+in the tests/ sub-directory
+
+
+Testing Lsof
+============
+
+Lsof has an automated test suite in the tests/ sub-directory that
+can be used to test some basic lsof features -- once lsof has been
+configured and made.  Tests are arranged in three groups: basic
+tests that should run on all dialects; standard tests that should
+run on all dialects; and optional tests that may not run on all
+dialects or may need special resources to run.  See 00TEST for more
+information.)
+
+CAUTION!!!  Before you attempt to use the test suite make sure that
+the lsof you want to test can access the necessary kernel resources
+-- e.g., /dev/mem, /dev/kmem, /proc, etc.  Usually you want to test
+the lsof you just built, so this is an important check.  (See
+00TEST.)
+
+To run the basic and standard tests, using the lsof in the parent
+directory of tests/, do this:
+
+	$ cd tests
+	$ make test
+    or	$ make std
+    or	$ make standard
+
+The basic and standard tests may be run as silently as possible,
+using the lsof in the parent directory of tests/, with:
+
+	$ cd tests
+	$ make auto
+
+This is the "automatic" test mode, designed for use by scripts that
+build lsof.  The caller is expected to test the make exit code to
+determine if the tests succeeded.  The caller should divert standard
+output and standard error to /dev/null to suppress make's error
+exit message.
+
+The optional tests may be run, using the lsof in the parent directory
+of tests/, with:
+
+	$ cd tests
+	$ make opt
+    or	$ make optional
+
+It's possible to excute individual tests, too.  See the 00TEST file
+of this distribution for more informaiton on the tests, what they
+do, and how to run and possibly customize each test.
+
+It's possible to run the tests, using an lsof other than the one
+in the parent directory of /tests, too.  See 00TEST for information
+about using the LT_LSOF_PATH environment variable to do that.
 
 
 =============
@@ -686,11 +848,19 @@ AIX
 ===
 
 Specify the aix Configure abbreviation for AIX 4.1.[45], 4.2[.1],
-4.3[.123], 5L, and 5.1.  Specify aixgcc to use the gcc compiler
+4.3[.123], 5L, and 5.[12].  Specify aixgcc to use the gcc compiler
 for AIX at 4.1 and below 5L.  (Gcc can only be used to compile lsof
 for AIX 4.1 and above, because of kernel structure alignment
 differences between it and xlc.)  Compilation of lsof with gcc on
-AIX 4.3[.123], 5L, and 5.1  hasn't been tested.
+AIX 4.3[.123], 5L, and 5.[12] has been sparsely tested with varying
+degrees of success: it has been reported to succeed on AIX 4.3.3
+and 32 bit Power AIX 5.1; to fail on ia64 AIX 5.1 and 64 bit Power
+AIX 5.1.  Gcc compilation hasn't been tested on AIX 5.2.
+
+At revision 4.61 and above lsof is configured and built to match
+the bit size of the kernel of Power architecture AIX 5.1 systems.
+Lsof binaries built for 32 and 64 bit kernels are not interchangeable.
+See 00FAQ for more information.
 
 The Configure script uses /usr/bin/oslevel to determine the AIX
 version.  If /usr/bin/oslevel isn't executable, the Configure script
@@ -710,13 +880,13 @@ information readx() supplies.
 
 Lsof avoids readx() to avoid the possibility of triggering a kernel
 problem, known as the Stale Segment ID kernel bug.  Kevin Ruderman
-<rudi@acs.bu.edu> reported this bug to me.  The bug shows up when
-the kernel's dir_search() function hangs, hanging the application
-process that called it so completely that the application process
-can neither be killed nor stopped.  The hang is the consequence of
-another process (perhaps lsof) making legitimate use of the kernel's
-readx() function to access the kernel memory that dir_search() is
-examining.  IBM has indicated they have no plans to fix the bug.
+reported this bug to me.  The bug shows up when the kernel's
+dir_search() function hangs, hanging the application process that
+called it so completely that the application process can neither
+be killed nor stopped.  The hang is the consequence of another
+process (perhaps lsof) making legitimate use of the kernel's readx()
+function to access the kernel memory that dir_search() is examining.
+IBM has indicated they have no plans to fix the bug.
 
 A fuller discussion of this bug may be found in the 00FAQ file of
 the lsof distribution.  There you will find a description of the
@@ -742,20 +912,15 @@ I have never seen lsof cause the Stale Segment ID bug to occur and
 haven't had a report that it has, but I believe there is a possibility
 it could.
 
-AFS support for AIX was added with help help from Bob Cook
-<bobcook@SLAC.Stanford.EDU> and Jan Tax <jan_tax@unc.edu> who
-provided test systems.
+AFS support for AIX was added with help help from Bob Cook and Jan
+Tax who provided test systems.
 
-Henry Grebler <henryg@optimation.com.au> and David J. Wilson
-<davidw@optimation.com.au> helped with lsof for AIX 4.2.
+Henry Grebler and David J. Wilson helped with lsof for AIX 4.2.
 
-Bill Pemberton <wfp5p@tigger.itc.virginia.edu> provided an AIX 4.3
-test system.  Andrew Kephart <akephart@austin.ibm.com> and Tom
-Weaver <tvweaver@austin.ibm.com> provided AIX 4.3 technical
-assistance.   Niklas Edmundsson <nikke@ing.umu.se> did 4.3.1 testing.
-Doug Crabill <dgc@purdue.edu> provided an AIX 4.3.2 test system.
-Jeff W. Stewart <jws@anaconda.cc.purdue.edu> provided an AIX 4.3.3
-test system.
+Bill Pemberton provided an AIX 4.3 test system.  Andrew Kephart
+and Tom Weaver provided AIX 4.3 technical assistance.   Niklas
+Edmundsson did 4.3.1 testing.  Doug Crabill provided an AIX 4.3.2
+test system.  Jeff W. Stewart provided an AIX 4.3.3 test system.
 
 The SMT file type for AIX 4.1.[45], 4.2[.1], and 4.3[.12] is my
 fabrication.  See the 00FAQ file more information on it.
@@ -765,42 +930,43 @@ Loc Le and Nasser Momtaheni of IBM provided test systems for AIX
 to process the -X option on systems whose architecture type is
 ia64.
 
+Dale Talcott of Purdue has provided AIX 5.1 and 5.2 test systems.
+
 
 Apple Darwin
 ============
 
-The Apple Darwin port was provided by Allan Nathanson <ajn@apple.com>
-for version 1.2.  Allan also arranged for access to a test system
-for maintenance and regression testing.  Dale Talcott provided a
-test system, too.  Allan provided 1.4 changes.
+The Apple Darwin port was provided by Allan Nathanson for version
+1.2.  Allan also arranged for access to a test system for maintenance
+and regression testing.  Dale Talcott provided a test system, too.
+Allan provided 1.4 changes.
+
+Allan supplied patches for updates to 1.4, 5.x and 6.0.
 
 
 BSDI BSD/OS
 ===========
 
-Terry Kennedy <terry@spcvxa.spc.edu> provided a 2.1 test system so
-that support for BSDI BSD/OS could be revived.  (BSDI BSD/OS support
-was dropped at from version 3 at revision 3.21 when a test system
-was no longer available.)  Terry has also provided 3.0 and 3.1 test
+Terry Kennedy provided a 2.1 test system so that support for BSDI
+BSD/OS could be revived.  (BSDI BSD/OS support was dropped at from
+version 3 at revision 3.21 when a test system was no longer
+available.)  Terry has also provided 3.0, 3.1, 4.1 and 4.3 test
 systems.
 
-Jim Reid <jim@mpn.cp.philips.com> helped with the 3.0 port and
-Terry Kennedy provided a test system.
+Jim Reid helped with the 3.0 port and Terry Kennedy provided a test
+system.
 
-Jeffrey C. Honig <jch@bsdi.com> packaged lsof for inclusion on the
-BSDI user-contributed software CD.
+Jeffrey C. Honig packaged lsof for inclusion on the BSDI user-contributed
+software CD.
 
 
 DEC OSF/1, Digital UNIX, Tru64 UNIX
 ===================================
 
-Dean Brock <brock@cs.unca.edu>, Angel Li <angel@flipper.rsmas.miami.edu>,
-Dwight McKay <mckay@gimli.bio.purdue.edu>, Berkley Shands
-<berkley@cs.wustl.edu>, and Ron Young <ron@screamer.nevada.edu>
-have kindly provided test systems.  Jeffrey Mogul <mogul@pa.dec.com>
-has provided technical assistance.  Dave Morrison <dmorriso@us.oracle.com>
-and Lawrence MacIntyre <lpz@nautique.epm.ornl.gov> did Digital UNIX
-V3.2 testing.
+Robert Benites, Dean Brock, Angel Li, Dwight McKay, Berkley Shands,
+Ron Young and Steve Wilson have kindly provided test systems.
+Jeffrey Mogul has provided technical assistance.  Dave Morrison
+and Lawrence MacIntyre did Digital UNIX V3.2 testing.
 
 Lsof supports the ADVFS/MSFS layered file system product.  Lsof
 can locate all the open files of an ADVFS/MSFS file system when
@@ -815,17 +981,14 @@ FreeBSD
 =======
 
 Bill Bormann of Purdue University provided access to several FreeBSD
-test systems.  Ade Barkah <mbarkah@hemi.com>, John Clear
-<jac@dragonfly.vet.purdue.edu>, Ralph Forsythe <ralph@contact-paging.com>,
-Michael Haro <mharo@area51.fremont.ca.us>, Kurt Jaeger
-<pi@complx.stgt.sub.org>, and William McVey have also provided
-FreeBSD test systems.
+test systems.  Ade Barkah, John Clear, Ralph Forsythe, Michael
+Haro, Kurt Jaeger, and William McVey have also provided FreeBSD
+test systems.
 
 The FreeBSD distribution header files are augmented by header files
 in the dialects/freebsd/include directory.
 
-David O'Brien <obrien@NUXI.com> maintains the lsof FreeBSD port
-package.
+David O'Brien maintains the lsof FreeBSD port package.
 
 
 HP-UX
@@ -838,18 +1001,16 @@ will pick the appropriate base.
 To use the CCITT x.25 socket support for HP-UX, you must have the
 x.25 header files in /etc/conf/x25
 
-Pasi Kaara <ppk@atk.tpo.fi> helped with the HP-UX port, especially
-with its CCITT x.25 socket support.
+Pasi Kaara helped with the HP-UX port, especially with its CCITT
+x.25 socket support.
 
-Richard Allen <ra@rhi.hi.is> provided HP-UX 10.x and 11.x test
-systems, as did Mark Bixby <markb@cccd.edu>, and Elias Halldor
-Agustsson <elias@rhi.hi.is>.   Marc Winkler <marc@healthchex.com>
-helped test the 10.20 port.  Richard J. Rauenzahn <rrauenza@cup.hp.com>
-provided a 64 bit HP-UX 11 test system and an HP-UX 11.11 development
-system.
+Richard Allen provided HP-UX 10.x and 11.x test systems, as did
+Mark Bixby, and Elias Halldor Agustsson.   Marc Winkler helped test
+the 10.20 port.  Richard J. Rauenzahn provided a 64 bit HP-UX 11
+test system and an HP-UX 11.11 development system.
 
 AFS support for HP-UX was added thanks to help from Chaskiel Moses
-Grundman <cg2v+@andrew.cmu.edu>, who provided a test system.
+Grundman, who provided a test system.
 
 The /dev/kmem-based HP-UX 11.00 support is extremely fragile.  It
 depends on privately developed kernel structure definitions.  (See
@@ -874,10 +1035,11 @@ IPv6
 ====
 
 Lsof has IPv6 support that has been tested for these UNIX dialects:
-AIX 4.3.x; the INRIA and KAME FreeBSD IPv6 implementations;
-/proc-based Linux; the INRIA and KAME NetBSD implementations; and
-Solaris 8 and 9-BETA.  Lsof has IPv6 support that hasn't been tested
-for:  BSDI 4.x; OpenBSD (KAME); OpenUNIX 8; and Tru64 Unix 5.[01].
+AIX 4.3.x; Apple Darwin 5.[12] and 6.0; the INRIA and KAME FreeBSD
+IPv6 implementations; /proc-based Linux; the INRIA and KAME NetBSD
+implementations; and Solaris 8 and 9.  Lsof has IPv6 support that
+hasn't been tested for: BSDI BSD/OS4.x; OpenBSD (KAME); OpenUNIX
+8; Tru64 Unix 5.[01]; and UnixWare 7.1.3.
 
 Please let me know if your UNIX dialect has IPv6 support and I'll
 see if it can be supported by lsof.
@@ -886,15 +1048,13 @@ see if it can be supported by lsof.
 Linux
 =====
 
-Tim Korb <jtk@arthur.cs.purdue.edu>, Steve Logue <stevel@mail.cdsnet.net>
-Joseph J. Nuspl Jr.  <nuspl@nvwls.cc.purdue.edu>, and Jonathan
-Sergent <sergent@purdue.edu> have provided Linux test systems.
+Tim Korb, Steve Logue, Joseph J. Nuspl Jr., and Jonathan Sergent
+have provided Linux test systems.
 
-Michael Shields <shields@tembel.org> helped add and test automatic
-handling of ELF/COFF form names in /System.map, Marty Leisner and
-Keith Parks <emkxp01@mtcc.demon.co.uk> have helped test many lsof
-revisions.  Marty has provided valuable suggestions, Linux hints,
-and code, too.
+Michael Shields helped add and test automatic handling of ELF/COFF
+form names in /System.map, Marty Leisner and Keith Parks have helped
+test many lsof revisions.  Marty has provided valuable suggestions,
+Linux hints, and code, too.
 
 The 00FAQ file gives some Linux tips, including information on
 coping with system map file problems.
@@ -913,14 +1073,12 @@ information.
 NetBSD
 ======
 
-Greg Earle <earle@isolar.Tujunga.CA.US> and Paul Kranenburg
-<pk@cs.few.eur.nl> have assisted with the NetBSD ports.  Paul has
-provided test systems.  Ray Phillips <r.phillips@mailbox.uq.edu.au>
-provided a NetBSA Alpha test system.  Andrew Brown <atatat@atatdot.net>
-also provided a test system.
+Greg Earle  and Paul Kranenburg have assisted with the NetBSD ports.
+Paul has provided test systems.  Ray Phillips provided a NetBSA
+Alpha test system.  Andrew Brown also provided a test system.
 
 The NetBSD dialect version of lsof is compiled using the dialect
-sources it shares with OpenBSD in the n+obsd dialect subdirectory.
+sources it shares with OpenBSD in the n+obsd dialect sub-directory.
 
 
 NEXTSTEP and OPENSTEP
@@ -940,28 +1098,25 @@ See the comments in dialects/next/Makefile for an example.
 OpenBSD
 =======
 
-David Mazieres <dm@cs.nyu.edu> has provided OpenBSD test systems.
-The OpenBSD dialect version of lsof is compiled using the dialect
-sources it shares with NetBSD in the n+obsd dialect subdirectory.
+David Mazieres has provided OpenBSD test systems.  The OpenBSD
+dialect version of lsof is compiled using the dialect sources it
+shares with NetBSD in the n+obsd dialect sub-directory.
 
-Kenneth Stailey <kstailey@disclosure.com> has provided OpenBSD
-testing and advice.
+Kenneth Stailey has provided OpenBSD testing and advice.
 
-<Zube@cs.colostate.edu> reports, "lsof 4.33 compiles and runs on
-OpenBSD 2.3 for the pmax architecture (decstation 3100)."
+John Dzubera (Zube) reports, "lsof 4.33 compiles and runs on OpenBSD
+2.3 for the pmax architecture (decstation 3100)."
 
 
 Pyramid DC/OSx and Reliant UNIX
 ===============================
 
 As of lsof revision 4.52 support for all Pyramid dialects has been
-discontinued.  Lsof revision 4.51 with Pyramid support may be found
-at:
-
-ftp://vic.cc.purdue.edu/pub/tools/unix/lsof/OLD/src/lsof_4.51.pyramid.tar.gz
+discontinued.  Lsof revision 4.51 with Pyramid support may be
+obtained upon request.  Send the request to abe@purdue.edu.
 
 These two UNIX dialects are very similar and share dialect-specific
-source files from the pyramid subdirectory.
+source files from the pyramid sub-directory.
 
 The Reliant Unix Pyramid C compiler issues warning messages that
 I haven't found a convenient way to suppress.  You can ignore
@@ -971,39 +1126,39 @@ the lsof MkKernOpts configuration script to suppress warning messages
 about cast and conversion problems in standard system header files,
 such as <stdio.h> and <string.h>.
 
-Bruce Beare <bjb@pyramid.com> and Kevin Smith <kevin@pyramid.com>
-provided test systems.
+Bruce Beare and Kevin Smith provided test systems.
 
 
 Caldera OpenUNIX
 ================
 
-Larry Rosenman <ler@lerctr.org> provided an OpenUNIX 8 test system.
-Matthew Thurmaier <matt@compclass.com> provided technical assistance,
-along with these people from Caldera: Jack Craig, Robert Lipe, and
-Bela Lubkin.
+Larry Rosenman provided an OpenUNIX 8 test system.  Matthew Thurmaier
+provided technical assistance, along with these people from Caldera:
+Jack Craig, Robert Lipe, and Bela Lubkin.
+
+Robert Lipe supplied changes to lsof for OpenUNIX 8.0.1.  Those
+changes were also incorporated in UnixWare 7.1.3 when it became
+the release name for OpenUNIX 8.0.1.
 
 
 SCO OpenServer
 ==============
 
-Dion Johnson <dionj@sco.com>, Bela Lubkin <belal@sco.com>, and
-Nathan Peterson <nathanp@sco.com> of SCO gave me copies of SCO
-OpenServer and the SCO OpenServer Development System 3.0 and provided
-technical advice for the lsof port.
+Dion Johnson, Bela Lubkin, and Nathan Peterson of SCO gave me copies
+of SCO OpenServer and the SCO OpenServer Development System 3.0
+and provided technical advice for the lsof port.
 
-Hugh Dickins <hughd@sco.COM>, Bela Lubkin, Craig B. Olofson
-<craigo@sco.COM>, and Nathan Peterson provided version 5.0 and gave
-technical advice for porting lsof to it.  Bela provided the 5.0.4
-changes.  D. Chris Daniels <chrisd@dlpco.com> provided a 5.0.4 test
-system, Lee Penn <lee@dlpco.com> provided one for 5.0.5, and John
-Dubois <spcecdt@armory.com> for 5.0.6.
+Hugh Dickins, Bela Lubkin, Craig B. Olofson, and Nathan Peterson
+provided version 5.0 and gave technical advice for porting lsof to
+it.  Bela provided the 5.0.4 changes.  D. Chris Daniels provided
+a 5.0.4 test system, Lee Penn provided one for 5.0.5, and John
+Dubois for 5.0.6.
 
 The <netdb.h> header file was accidentally omitted from some SCO
 OpenServer Development System releases.  The Configure script will
 sense its absence and substitute an equivalent from the BSD
 distribution.  The BSD <netdb.h> and the <sys/cdefs.h> header file
-it includes are located in the dialects/os/include subdirectory
+it includes are located in the dialects/os/include sub-directory
 tree.
 
 To compile lsof from its distribution sources you must have the
@@ -1025,18 +1180,16 @@ The optional osrgcc and scogcc Configure abbreviations construct
 Makefiles for compiling lsof with gcc.
 
 
-SCO UnixWare
+SCO|Caldera UnixWare
 ============
 
-D. Chris Daniels <chrisd@dlpco.com>, John Hughes <john@calva.com>,
-Ken Laing <ken@compclass.com>, Andrew Merril <andrew@compclass.com>,
-Lee Penn <lee@dlpco.com>, and Matthew Thurmaier <matt@compclass.com>
-provided test systems.  Bela Lubkin <belal@sco.COM> provided
-technical assistance.
+D. Chris Daniels, John Hughes, Ken Laing, Andrew Merril, Lee Penn,
+and Matthew Thurmaier provided test systems.  Bela Lubkin provided
+technical assistance.  Larry Rosenman provided a 7.1.3 test system.
 
 
-Solaris 2.x, 7, 8, and 9-BETA
-=============================
+Solaris 2.x, 7, 8, and 9
+========================
 
 SEE THE CAUTIONS SECTION OF THIS DOCUMENT.
 
@@ -1049,57 +1202,48 @@ abbreviation.  If you use a gcc version less than 2.8 on Solaris,
 make sure the gcc-specific includes have been updated for your
 version of Solaris -- i.e., run the gcc fixincludes script.
 
-Solaris 7, 8, and 9-BETA support for 64 bit kernels depends on a
-Sun WorkShop or Forte C compiler version that supports the "-xarch=v9"
+Solaris 7, 8, and 9 support for 64 bit kernels depends on a Sun
+WorkShop or Forte C compiler version that supports the "-xarch=v9"
 flag -- usually 5.0 or greater.  Gcc versions 2.95 and above *may*
 be configured and built for 64 bit support, but it takes some extra
 work, the resulting compiler may be fragile, and the gcc developers
 discourage it.  I've built 64 bit capable gcc compilers for Solaris
-7, 8 and 9-BETA from gcc versions 2.95 through 3.0.1 and produced
-working lsof executables with them.  More information on 64 bit
-gcc for Solaris may be found in the 00FAQ file.
+7, 8 and 9 from gcc versions 2.95 through 3.0.1 and produced working
+lsof executables with them.  More information on 64 bit gcc for
+Solaris may be found in the 00FAQ file.
 
-Dave Curry <davy@ecn.purdue.edu> and Steve Kirsch <stk@infoseek.com>
-provided resources for Solaris 2.x ports.  Casper Dik <casper@fwi.uva.nl>
-and Gerry Singleton <Gerry.Singleton@Canada.Sun.COM> consulted and
-provided valuable assistance.
+Dave Curry and Steve Kirsch provided resources for Solaris 2.x
+ports.  Casper Dik and Gerry Singleton consulted and provided
+valuable assistance.
 
-Henry Katz <hkatz@panix.com>, Joseph Kowalski <jek3@jurassic.Eng.Sun.COM>,
-Charles Stephens <cfs@jurassic.eng.Sun.COM>, Mike Sullivan
-<Mike.Sullivan@Eng.Sun.COM>, and Mike Tracy <mtrac@jurassic-45.Eng.Sun.COM>
-provided technical assistance.
+Henry Katz, Joseph Kowalski, Charles Stephens, Mike Sullivan, and
+Mike Tracy provided technical assistance.
 
-AFS support was added to Solaris lsof with help from Curt Freeland
-<curt@grumpy.cse.nd.edu>, Heidi Hornstein <heidi@cmf.nrl.navy.mil>,
-Michael L. Lewis <mlewis@morgan.com>, Terry McCoy <terry@anubis.cc.nd.edu>,
-Phillip Moore <wpm@morgan.com>, and Sushila R. Subramanian
-<sushi@cmf.nrl.navy.mil>
+AFS support was added to Solaris lsof with help from Curt Freeland,
+Heidi Hornstein, Michael L. Lewis, Terry McCoy, Phillip Moore, and
+Sushila R. Subramanian.
 
-Casper Dik <casper@holland.Sun.COM> provided valuable assistance
-for the Solaris 8 support.
+Casper Dik provided valuable assistance for the Solaris 8 support.
 
 Sun has graciously provided me access to BETA versions of Solaris
 2.5, 2.6, 7, 8, and 9.
+
+John Dzubera provided Solaris 7 and 8 test systems.
 
 
 Ultrix
 ======
 
 As of lsof revision 4.52 support for Ultrix is no longer available,
-because I no longer have an Ultrix test system.  The lsof 4.51
-distribution for Ultrix is available at:
+because I no longer have an Ultrix test system.
 
-ftp://vic.cc.purdue.edu/pub/tools/unix/lsof/OLD/src/lsof_4.51.ultrix.tar.gz
+Terry Friedrichsen, Dwight McKay, and Jeffrey Mogul helped me with
+this port.
 
-Terry Friedrichsen <terry@venus.sunquest.com>, Dwight McKay
-<mckay@gimli.bio.purdue.edu>, and Jeffrey Mogul <mogul@pa.dec.com>
-helped me with this port.
-
-DECnet support was added to Ultrix lsof with the help of John Beacom
-<beacom@wisnud.physics.wisc.edu>, who kindly provided a test system.
-The Configure script decides that DECnet support is available if
-/usr/lib/libdnet.a and /usr/include/netdnet/dn.h exist and are
-readable.
+DECnet support was added to Ultrix lsof with the help of John
+Beacom, who kindly provided a test system.  The Configure script
+decides that DECnet support is available if /usr/lib/libdnet.a and
+/usr/include/netdnet/dn.h exist and are readable.
 
 
 Veritas VxFS and VxVM
@@ -1124,8 +1268,8 @@ will depend in the dialect's header file conventions.)
 Some information on lsof support for Veritas extensions may be
 found in the lsof 00DIST file.
 
-Chris Kordish <kordish@mediaone.net> and Andy Thomas
-<ajt@icd.cc.purdue.edu> have provided Solaris VxFS test systems.
+Chris Kordish and Andy Thomas have provided Solaris VxFS test
+systems.
 
 
 ================================
@@ -1135,7 +1279,7 @@ User-contributed Dialect Support
 There are some user-contributed dialect versions of lsof; more
 information on them can be found at:
 
-	ftp://vic.cc.purdue.edu/pub/tools/unix/lsof/contrib
+	ftp://lsof.itap.purdue.edu/pub/tools/unix/lsof/contrib
 
 Check the 00INDEX file there for details.
 
@@ -1162,9 +1306,9 @@ are no longer supported by lsof:
 Remnants of the support lsof once provided for these dialects may
 be found in:
 
-	ftp://vic.cc.purdue.edu/pub/tools/unix/lsof/OLD/binaries
+	ftp://lsof.itap.purdue.edu/pub/tools/unix/lsof/OLD/binaries
 and
-	ftp://vic.cc.purdue.edu/pub/tools/unix/lsof/OLD/dialects
+	ftp://lsof.itap.purdue.edu/pub/tools/unix/lsof/OLD/dialects
 
 
 ===============
@@ -1262,17 +1406,17 @@ be another mechanism (e.g., under AIX or Solaris 8) you can use to
 grant read permission to the kernel memory devices.
 
 	AIX 4.1.[45], 4.2[.1], and 4.3[.123]
-	BSDI BSD/OS 2.1, 3.[01], and 4.[01]
+	BSDI BSD/OS 2.1, 3.[01], and 4.[013]
 	DEC OSF/1, Digital UNIX, Tru64 UNIX 2.0, 3.2, 4.0, and 5.[01]
-	FreeBSD 2.1.6, 2.2[.x], 3.[012345], 4.[0123], and 5.0
+	FreeBSD 2.1.6, 2.2[.x], 3.[012345], 4.[234567], and 5.0
 	/dev/kmem-based 11.00
-	NetBSD 1.[2345]
+	NetBSD 1.[456]
 	NEXTSTEP 3.[13]
-	OpenBSD 2.[01234567]
+	OpenBSD 2.[89] and 3.[01]
 	OPENSTEP 4.x
 	Caldera OpenUNIX 8
 	SCO OpenServer 5.0.[46]
-	SCO UnixWare 7.0 and 7.1.[01]
+	SCO UnixWare 7.0 and 7.1.[013]
 	Solaris 2.6, 7, and 8
 	Ultrix 4.2 (no longer available)
 
@@ -1285,7 +1429,7 @@ file.  Please contact me before you start.  I might be able to help
 you or even do the port myself.
 
 Don't overlook the contrib/ directory in pub/tools/unix/lsof on my
-ftp server, vic.cc.purdue.edu.  It contains user-contributed ports
+ftp server, lsof.itap.purdue.edu.  It contains user-contributed ports
 of lsof to dialects I don't distribute, because I can't test new
 revisions of lsof on them.
 
@@ -1331,4 +1475,4 @@ you are trying to configure.
 
 
 Vic Abell <abe@purdue.edu>
-November 7, 2001
+June 11, 2003

@@ -24,40 +24,46 @@
 
 #include <Security/walkers.h>
 
-#ifdef _CPP_CSSMWALKERS
-# pragma export on
-#endif
 
+namespace Security {
+namespace DataWalkers {
 
-namespace Security
-{
-
-namespace DataWalkers
-{
 
 //
-// Walk an INLINE CSSM_DATA by dealing with the data it points to.
-// Note that this is not the walker for an OUT OF LINE CSSM_DATA,
-// which is quite regular and handled below.
+// The full set of walkers for CssmData in all its forms.
 //
 template <class Action>
-void walk(Action &operate, CSSM_DATA &data)
+void walk(Action &operate, CssmData &data)
 {
-	void *p = data.Data;
-	operate(p, data.Length);
-	data.Data = reinterpret_cast<unsigned char *>(p);
+	operate(data);
+	operate.blob(data.Data, data.Length);
 }
+
+template <class Action>
+CssmData *walk(Action &operate, CssmData * &data)
+{
+	operate(data);
+	operate.blob(data->Data, data->Length);
+	return data;
+}
+
+template <class Action>
+void walk(Action &operate, CSSM_DATA &data)
+{ walk(operate, CssmData::overlay(data)); }
+
+template <class Action>
+CSSM_DATA *walk(Action &operate, CSSM_DATA * &data)
+{ return walk(operate, CssmData::overlayVar(data)); }
+
 
 
 //
 // Walking a C string is almost regular (the size comes from strlen()).
+// Just make sure you honor the needsSize preference of the operator.
 //
 template <class Action>
 char *walk(Action &operate, char * &s)
 {
-    // A string's length is obtained by reading the string value.
-    // We must honor the operator's preference for not calculating length
-    // (e.g. because s won't be valid until some magic thing was done to it).
 	operate(s, operate.needsSize ? (strlen(s) + 1) : 0);
 	return s;
 }
@@ -82,18 +88,6 @@ uint32 walk(Action &, uint32 arg)
 // Flattener functions for common CSSM data types that have internal
 // structure. (The flat ones are handled by the default above.)
 //
-template <class Action>
-CssmData *walk(Action &operate, CssmData * &data)
-{
-	operate(data);
-	walk(operate, *data);
-	return data;
-}
-
-template <class Action>
-CSSM_DATA *walk(Action &operate, CSSM_DATA * &data)
-{ return walk(operate, CssmData::overlayVar(data)); }
-
 template <class Action>
 CssmKey *walk(Action &operate, CssmKey * &key)
 {
@@ -128,11 +122,6 @@ CSSM_PKCS5_PBKDF2_PARAMS *walk(Action &operate, CSSM_PKCS5_PBKDF2_PARAMS * &data
 
 
 } // end namespace DataWalkers
-
 } // end namespace Security
-
-#ifdef _CPP_CSSMWALKERS
-# pragma export off
-#endif
 
 #endif //_H_CSSMWALKERS

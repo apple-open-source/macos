@@ -1,5 +1,5 @@
-# $OpenLDAP: pkg/ldap/include/Makefile.in,v 1.18 2002/01/04 19:40:29 kurt Exp $
-## Copyright 1998-2002 The OpenLDAP Foundation, All Rights Reserved.
+# $OpenLDAP: pkg/ldap/include/Makefile.in,v 1.18.2.3 2003/03/31 16:48:17 kurt Exp $
+## Copyright 1998-2003 The OpenLDAP Foundation, All Rights Reserved.
 ## COPYING RESTRICTIONS APPLY, See COPYRIGHT file
 ##
 ## include Makefile.in for OpenLDAP
@@ -43,12 +43,6 @@ ldap_config.h: $(LDAP_CONFIG) Makefile
 		$(SED) -e 's/\\\\/\\\\\\\\\\\\\\\\/g'`; \
 	    localstatedir=`cygpath -w $(localstatedir) | \
 		$(SED) -e 's/\\\\/\\\\\\\\\\\\\\\\/g'`; \
-	    editor=`cygpath -w $(EDITOR) | \
-		$(SED) -e 's/\\\\/\\\\\\\\\\\\\\\\/g'`; \
-	    finger=`cygpath -w $(FINGER) | \
-		$(SED) -e 's/\\\\/\\\\\\\\\\\\\\\\/g'`; \
-	    sendmail=`cygpath -w $(SENDMAIL) | \
-		$(SED) -e 's/\\\\/\\\\\\\\\\\\\\\\/g'`; \
 	else \
 	    sysconfdir=$(sysconfdir); \
 	    datadir=$(datadir); \
@@ -56,9 +50,6 @@ ldap_config.h: $(LDAP_CONFIG) Makefile
 	    sbindir=$(sbindir); \
 	    libexecdir=$(libexecdir); \
 	    localstatedir=$(localstatedir); \
-	    editor=$(EDITOR); \
-	    finger=$(FINGER); \
-	    sendmail=$(SENDMAIL); \
 	fi; \
 	$(SED) \
 			-e "s;%SYSCONFDIR%;$$sysconfdir;" \
@@ -67,9 +58,6 @@ ldap_config.h: $(LDAP_CONFIG) Makefile
 			-e "s;%SBINDIR%;$$sbindir;" \
 			-e "s;%LIBEXECDIR%;$$libexecdir;" \
 			-e "s;%RUNDIR%;$$localstatedir;" \
-			-e "s;%EDITOR%;$$editor;" \
-			-e "s;%FINGER%;$$finger;" \
-			-e "s;%SENDMAIL%;$$sendmail;" \
 			 $(LDAP_CONFIG) >> $@; \
 	$(CHMOD) 444 $@
 

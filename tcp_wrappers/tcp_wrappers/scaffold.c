@@ -35,8 +35,8 @@ extern char *malloc();
  /*
   * These are referenced by the options module and by rfc931.c.
   */
-int     allow_severity = ALLOW_SEVERITY;
-int     deny_severity = DENY_SEVERITY;
+int     allow_severity = SEVERITY;
+int     deny_severity = LOG_WARNING;
 int     rfc931_timeout = RFC931_TIMEOUT;
 
 /* dup_hostent - create hostent in one memory block */
@@ -62,6 +62,7 @@ struct hostent *hp;
 	exit(1);
     }
     memset((char *) &hb->host, 0, sizeof(hb->host));
+    hb->host.h_addrtype = hp->h_addrtype;;
     hb->host.h_length = hp->h_length;
     hb->host.h_addr_list = hb->addr_list;
     hb->host.h_addr_list[count] = 0;
@@ -79,7 +80,7 @@ struct hostent *hp;
 struct hostent *find_inet_addr(host)
 char   *host;
 {
-    struct in_addr addr;
+    union gen_addr addr;
     struct hostent *hp;
     static struct hostent h;
     static char *addr_list[2];
@@ -87,10 +88,9 @@ char   *host;
     /*
      * Host address: translate it to internal form.
      */
-    if ((addr.s_addr = dot_quad_addr(host)) != INADDR_NONE) {
+    if (numeric_addr(host, &addr, &h.h_addrtype, &h.h_length) != -1) {
 	h.h_addr_list = addr_list;
 	h.h_addr_list[0] = (char *) &addr;
-	h.h_length = sizeof(addr);
 	return (dup_hostent(&h));
     }
 
@@ -104,11 +104,11 @@ char   *host;
 	tcpd_warn("%s: not an internet address", host);
 	return (0);
     }
-    if ((hp = gethostbyname(host)) == 0) {
+    if ((hp = tcpd_gethostbyname(host, 0)) == 0) {
 	tcpd_warn("%s: host not found", host);
 	return (0);
     }
-    if (hp->h_addrtype != AF_INET) {
+    if (!VALID_ADDRTYPE(hp->h_addrtype)) {
 	tcpd_warn("%d: not an internet host", hp->h_addrtype);
 	return (0);
     }
@@ -125,7 +125,7 @@ int     check_dns(host)
 char   *host;
 {
     struct request_info request;
-    struct sockaddr_in sin;
+    struct sockaddr_gen sin;
     struct hostent *hp;
     int     count;
     char   *addr;
@@ -135,10 +135,10 @@ char   *host;
     request_init(&request, RQ_CLIENT_SIN, &sin, 0);
     sock_methods(&request);
     memset((char *) &sin, 0, sizeof(sin));
-    sin.sin_family = AF_INET;
+    sin.sg_family = hp->h_addrtype;
 
     for (count = 0; (addr = hp->h_addr_list[count]) != 0; count++) {
-	memcpy((char *) &sin.sin_addr, addr, sizeof(sin.sin_addr));
+	memcpy((char *) SGADDRP(&sin), addr, SGADDRSZ(&sin));
 
 	/*
 	 * Force host name and address conversions. Use the request structure

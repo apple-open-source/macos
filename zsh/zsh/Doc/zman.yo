@@ -46,6 +46,7 @@ def(texinfo)(2)(CMT())
 
 def(texiifinfo)(1)()
 def(texiiftex)(1)()
+def(texiifnottex)(1)()
 
 def(texipage)(0)(CMT())
 def(texititlepage)(0)(CMT())

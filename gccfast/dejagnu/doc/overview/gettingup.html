@@ -1,0 +1,247 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01//EN">
+<HTML
+><HEAD
+><TITLE
+>Getting DejaGnu up and running</TITLE
+><META
+NAME="GENERATOR"
+CONTENT="Modular DocBook HTML Stylesheet Version 1.64
+"><LINK
+REL="HOME"
+TITLE="DejaGnu"
+HREF="book1.html"><LINK
+REL="PREVIOUS"
+TITLE="A POSIX conforming test framework"
+HREF="posix.html"><LINK
+REL="NEXT"
+TITLE="Create a minimal project, e.g. calc"
+HREF="x227.html"></HEAD
+><BODY
+CLASS="CHAPTER"
+BGCOLOR="#FFFFFF"
+TEXT="#000000"
+LINK="#0000FF"
+VLINK="#840084"
+ALINK="#0000FF"
+><DIV
+CLASS="NAVHEADER"
+><TABLE
+WIDTH="100%"
+BORDER="0"
+CELLPADDING="0"
+CELLSPACING="0"
+><TR
+><TH
+COLSPAN="3"
+ALIGN="center"
+>DejaGnu: The GNU Testing Framework</TH
+></TR
+><TR
+><TD
+WIDTH="10%"
+ALIGN="left"
+VALIGN="bottom"
+><A
+HREF="posix.html"
+>&#60;&#60;&#60; Previous</A
+></TD
+><TD
+WIDTH="80%"
+ALIGN="center"
+VALIGN="bottom"
+></TD
+><TD
+WIDTH="10%"
+ALIGN="right"
+VALIGN="bottom"
+><A
+HREF="x227.html"
+>Next &#62;&#62;&#62;</A
+></TD
+></TR
+></TABLE
+><HR
+ALIGN="LEFT"
+WIDTH="100%"></DIV
+><DIV
+CLASS="CHAPTER"
+><H1
+><A
+NAME="GETTINGUP"
+>Getting DejaGnu up and running</A
+></H1
+><P
+>This chapter was originally written by Niklaus Giger (ngiger@mus.ch) because he lost a week to figure out how DejaGnu works and how to write a first test.</P
+><P
+>Follow these instructions as closely a possible in order get a good insight into how DejaGnu works, else you might run into a lot of subtle problems. You have been warned.</P
+><P
+>It should be no big problems installing DejaGnu using your package manager or from the source code. Under a Debian/GNU/Linux systems just type (as root) <TABLE
+BORDER="0"
+BGCOLOR="#E0E0E0"
+WIDTH="100%"
+><TR
+><TD
+><PRE
+CLASS="PROGRAMLISTING"
+>apt-get dejagnu</PRE
+></TD
+></TR
+></TABLE
+>. These examples were run on a primary machine with a AMD K6 and a Mac Powerbook G3 serving as a remote target.</P
+><P
+> The tests for Windows were run under Windows NT using the actual cygwin version (1.3.x as of October 2001). It's target system was a PPC embedded system running vxWorks. </P
+><DIV
+CLASS="SECT1"
+><H1
+CLASS="SECT1"
+><A
+NAME="AEN210"
+>Test your installation</A
+></H1
+><P
+>Create a new user called "dgt" (DejaGnuTest), which uses bash as it login shell. PS1 must be set to '\u:\w\$ ' in its ~/.bashrc. Login as this user, create an empty directory and change the working directory to it. e.g</P
+><TABLE
+BORDER="0"
+BGCOLOR="#E0E0E0"
+WIDTH="100%"
+><TR
+><TD
+><PRE
+CLASS="PROGRAMLISTING"
+>dgt:~$ mkdir ~/dejagnu.test
+dgt:~$ cd ~/dejagnu.test</PRE
+></TD
+></TR
+></TABLE
+><P
+>Now you are ready to test DejaGnu's main program called ruuntest. The expecteted output is shown</P
+><DIV
+CLASS="EXAMPLE"
+><A
+NAME="AEN215"
+></A
+><P
+><B
+>Example 1. Runtest output in a empty directory</B
+></P
+><TABLE
+BORDER="0"
+BGCOLOR="#E0E0E0"
+WIDTH="100%"
+><TR
+><TD
+><PRE
+CLASS="PROGRAMLISTING"
+>dgt:~/dejagnu.test$ runtest 
+WARNING: Couldn't find the global config file. 
+WARNING: No tool specified Test 
+Run By dgt on Sun Nov 25 17:07:03 2001 Native configuration is i586-pc-linux-gnu
+=== tests ===
+Schedule of variations: unix
+Running target unix Using /usr/share/dejagnu/baseboards/unix.exp as board description file for target. 
+Using /usr/share/dejagnu/config/unix.exp as generic interface file for target. 
+ERROR: Couldn't find tool config file for unix.
+=== Summary ===</PRE
+></TD
+></TR
+></TABLE
+><P
+>We will show you later how to get rid of all the WARNING- and ERROR-messages. The files testrun.sum and testrun.log have been created, which do not interest us at this point. Let's remove them.</P
+><TABLE
+BORDER="0"
+BGCOLOR="#E0E0E0"
+WIDTH="100%"
+><TR
+><TD
+><PRE
+CLASS="PROGRAMLISTING"
+>:~/dejagnu.test$ rm testrun.sum testrun.log </PRE
+></TD
+></TR
+></TABLE
+></DIV
+><DIV
+CLASS="SECT2"
+><H2
+CLASS="SECT2"
+><A
+NAME="AEN220"
+>Windows</A
+></H2
+><P
+>On Windows systems DejaGnu is part of a port of a lot of Unix tools to the Windows OS, called cygwin. Cygwin may be downloaded and installed from a mirror of http://sources.redhat.com/cygwin/. All examples were also run on Windows NT. If nothing is said, you can assume that you should get the same output as on a Unix system.</P
+><P
+>You will need a telnet daemon if you want to use a WindowsNT box as a remote target. There seems to be a freeware telnet daemon at http://www.fictional.net/.</P
+></DIV
+><DIV
+CLASS="SECT2"
+><H2
+CLASS="SECT2"
+><A
+NAME="AEN224"
+>Getting the source code for the calc example</A
+></H2
+><P
+>If you are running a Debian distribution you can find the examples under /usr/share/doc/dejagnu/examples. 
+These examples seem to be missing in RedHat's RPM. 
+In this case download the sources of DejaGnu and adjust the pathes to the DejaGnu examples accordingly.</P
+></DIV
+></DIV
+></DIV
+><DIV
+CLASS="NAVFOOTER"
+><HR
+ALIGN="LEFT"
+WIDTH="100%"><TABLE
+WIDTH="100%"
+BORDER="0"
+CELLPADDING="0"
+CELLSPACING="0"
+><TR
+><TD
+WIDTH="33%"
+ALIGN="left"
+VALIGN="top"
+><A
+HREF="posix.html"
+>&#60;&#60;&#60; Previous</A
+></TD
+><TD
+WIDTH="34%"
+ALIGN="center"
+VALIGN="top"
+><A
+HREF="book1.html"
+>Home</A
+></TD
+><TD
+WIDTH="33%"
+ALIGN="right"
+VALIGN="top"
+><A
+HREF="x227.html"
+>Next &#62;&#62;&#62;</A
+></TD
+></TR
+><TR
+><TD
+WIDTH="33%"
+ALIGN="left"
+VALIGN="top"
+>A POSIX conforming test framework</TD
+><TD
+WIDTH="34%"
+ALIGN="center"
+VALIGN="top"
+>&nbsp;</TD
+><TD
+WIDTH="33%"
+ALIGN="right"
+VALIGN="top"
+>Create a minimal project, e.g. calc</TD
+></TR
+></TABLE
+></DIV
+></BODY
+></HTML
+>

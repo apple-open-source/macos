@@ -76,8 +76,8 @@
 1:${...:?...}, ${...?...}
 >set1v
 >
-?ZTST_execchunk:2: unset1: exiting1
-?ZTST_execchunk:2: null1: exiting2
+?(eval):1: unset1: exiting1
+?(eval):2: null1: exiting2
 
   print ${set1:+word1} ${set1+word2} ${null1:+word3} ${null1+word4}
   print ${unset1:+word5} ${unset1+word6}
@@ -145,6 +145,18 @@
   print ${array1:/[aeiou]*/expletive deleted}
 0:array ${...:/...}
 >expletive deleted boldly claws dogs expletive deleted fight
+
+  str1='a\string\with\backslashes'
+  str2='a/string/with/slashes'
+  print "${str1//\\/-}"
+  print ${str1//\\/-}
+  print "${str2//\//-}"
+  print ${str2//\//-}
+0:use of backslashes in //-substitutions
+>a-string-with-backslashes
+>a-string-with-backslashes
+>a-string-with-slashes
+>a-string-with-slashes
 
   str1='twocubed'
   array=(the number of protons in an oxygen nucleus)
@@ -288,7 +300,7 @@
   foo='unmatched "'
   print ${(QX)foo}
 1:${(QX)...}
-?ZTST_execchunk:2: unmatched "
+?(eval):2: unmatched "
 
   array=(characters in an array)
   print ${(c)#array}
@@ -555,3 +567,35 @@
 >/here:/there
 >0
 >/elsewhere /somewhere
+
+  string='look for a match in here'
+  if [[ ${string%%(#b)(match)*} = "look for a " ]]; then
+    print $match[1] $mbegin[1] $mend[1] $string[$mbegin[1],$mend[1]]
+    print $#match $#mbegin $#mend
+  else
+    print That didn\'t work.
+  fi
+0:Parameters associated with backreferences
+>match 12 16 match
+>1 1 1
+
+  string='and look for a MATCH in here'
+  if [[ ${(S)string%%(#m)M*H} = "and look for a  in here" ]]; then
+    print $MATCH $MBEGIN $MEND $string[$MBEGIN,$MEND]
+    print $#MATCH
+  else
+    print Oh, dear.  Back to the drawing board.
+  fi
+0:Parameters associated with (#m) flag
+>MATCH 16 20 MATCH
+>5
+
+  print -l JAMES${(u)${=:-$(echo yes yes)}}JOYCE
+  print -l JAMES${(u)${=:-$(echo yes yes she said yes i will yes)}}JOYCE
+0:Bug with (u) flag reducing arrays to one element
+>JAMESyesJOYCE
+>JAMESyes
+>she
+>said
+>i
+>willJOYCE

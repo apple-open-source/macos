@@ -35,7 +35,7 @@
 #include <assert.h>
 #include <Security/debugging.h>
 
-#define feeKeyDebug(args...)	debug("feeKey", ## args)
+#define feeKeyDebug(args...)	secdebug("feeKey", ## args)
 
 /***
  *** FEE-style BinaryKey
@@ -64,12 +64,17 @@ CryptKit::FEEBinaryKey::~FEEBinaryKey()
 void CryptKit::FEEBinaryKey::generateKeyBlob(
 		CssmAllocator 		&allocator,
 		CssmData			&blob,
-		CSSM_KEYBLOB_FORMAT	&format)
+		CSSM_KEYBLOB_FORMAT	&format,
+		AppleCSPSession		&session,
+		const CssmKey		*paramKey,	/* optional, unused here */
+		CSSM_KEYATTR_FLAGS 	&attrFlags)	/* IN/OUT */
 {
 	unsigned char 	*keyBlob;
 	unsigned 		len;
 	feeReturn		frtn;
 	bool			derBlob;
+	bool			freeTheKey = false;
+	feePubKey		keyToEncode = mFeeKey;
 	
 	assert(mFeeKey != NULL);
 	switch(format) {
@@ -77,6 +82,26 @@ void CryptKit::FEEBinaryKey::generateKeyBlob(
 		case CSSM_KEYBLOB_RAW_FORMAT_NONE:
 			derBlob = true;
 			break;
+		case CSSM_KEYBLOB_RAW_FORMAT_DIGEST:
+		{
+			/* key digest calculation; special case for private keys: cook
+			 * up the associated public key and encode that */
+			if(mKeyHeader.KeyClass == CSSM_KEYCLASS_PRIVATE_KEY) {
+				keyToEncode = feePubKeyAlloc();
+				if(keyToEncode == NULL) {
+					CssmError::throwMe(CSSMERR_CSP_MEMORY_ERROR);
+				}
+				frtn = feePubKeyInitPubKeyFromPriv(mFeeKey, keyToEncode);
+				if(frtn) {
+					feePubKeyFree(keyToEncode);
+					throwCryptKit(frtn, "feePubKeyInitPubKeyFromPriv");
+				}
+				freeTheKey = true;
+			}
+			/* in any case, DER-encode a public key */
+			derBlob = true;
+			break;
+		}
 		case CSSM_KEYBLOB_RAW_FORMAT_OCTET_STRING:
 			/* native non-DER-encoded blob */
 			derBlob = false;
@@ -87,20 +112,20 @@ void CryptKit::FEEBinaryKey::generateKeyBlob(
 				CSSMERR_CSP_INVALID_ATTR_PRIVATE_KEY_FORMAT :
 				CSSMERR_CSP_INVALID_ATTR_PUBLIC_KEY_FORMAT);
 	}
-	if(feePubKeyIsPrivate(mFeeKey)) {
+	if(feePubKeyIsPrivate(keyToEncode)) {
 		if(derBlob) {
-			frtn = feePubKeyCreateDERPrivBlob(mFeeKey, &keyBlob, &len);
+			frtn = feePubKeyCreateDERPrivBlob(keyToEncode, &keyBlob, &len);
 		}
 		else {
-			frtn = feePubKeyCreatePrivBlob(mFeeKey, &keyBlob, &len);
+			frtn = feePubKeyCreatePrivBlob(keyToEncode, &keyBlob, &len);
 		}
 	}
 	else {
 		if(derBlob) {
-			frtn = feePubKeyCreateDERPubBlob(mFeeKey, &keyBlob, &len);
+			frtn = feePubKeyCreateDERPubBlob(keyToEncode, &keyBlob, &len);
 		}
 		else {
-			frtn = feePubKeyCreatePubBlob(mFeeKey, &keyBlob, &len);
+			frtn = feePubKeyCreatePubBlob(keyToEncode, &keyBlob, &len);
 		}
 	}
 	if(frtn) {
@@ -112,6 +137,10 @@ void CryptKit::FEEBinaryKey::generateKeyBlob(
 	ffree(keyBlob);
 	format = derBlob ? FEE_KEYBLOB_DEFAULT_FORMAT : 
 		CSSM_KEYBLOB_RAW_FORMAT_OCTET_STRING;
+	if(freeTheKey) {
+		/* free the temp pub key we created here */
+		feePubKeyFree(keyToEncode);
+	}
 }
 		
 /***
@@ -249,12 +278,14 @@ void CryptKit::FEEKeyPairGenContext::generate(
  *** FEE-style CSPKeyInfoProvider.
  ***/
 CryptKit::FEEKeyInfoProvider::FEEKeyInfoProvider(
-	const CssmKey &cssmKey) :
-		CSPKeyInfoProvider(cssmKey)
+	const CssmKey 	&cssmKey,
+	AppleCSPSession	&session) :
+		CSPKeyInfoProvider(cssmKey, session)
 {
 }
 CSPKeyInfoProvider *FEEKeyInfoProvider::provider(
-		const CssmKey &cssmKey)
+	const CssmKey 	&cssmKey,
+	AppleCSPSession	&session)
 {
 	switch(cssmKey.algorithm()) {
 		case CSSM_ALGID_FEE:
@@ -271,12 +302,14 @@ CSPKeyInfoProvider *FEEKeyInfoProvider::provider(
 			return NULL;
 	}
 	/* OK, we'll handle this one */
-	return new FEEKeyInfoProvider(cssmKey);
+	return new FEEKeyInfoProvider(cssmKey, session);
 }
 
 /* Given a raw key, cook up a Binary key */
 void CryptKit::FEEKeyInfoProvider::CssmKeyToBinary(
-	BinaryKey **binKey)
+	CssmKey				*paramKey,		// optional, ignored
+	CSSM_KEYATTR_FLAGS	&attrFlags,		// IN/OUT
+	BinaryKey 			**binKey)
 {
 	*binKey = NULL;
 	feePubKey feeKey = NULL;
@@ -305,6 +338,29 @@ void CryptKit::FEEKeyInfoProvider::QueryKeySizeInBits(
 	keySize.LogicalKeySizeInBits = feePubKeyBitsize(feeKey);
 	keySize.EffectiveKeySizeInBits = keySize.LogicalKeySizeInBits;
 	feePubKeyFree(feeKey);
+}
+
+/* 
+ * Obtain blob suitable for hashing in CSSM_APPLECSP_KEYDIGEST 
+ * passthrough.
+ */
+bool CryptKit::FEEKeyInfoProvider::getHashableBlob(
+	CssmAllocator 	&allocator,
+	CssmData		&blob)			// blob to hash goes here
+{
+	/*
+	 * The optimized case, a raw key in the "proper" format already.
+	 */
+	assert(mKey.blobType() == CSSM_KEYBLOB_RAW);
+	if((mKey.blobFormat() == CSSM_KEYBLOB_RAW_FORMAT_NONE) &&
+	   (mKey.keyClass() == CSSM_KEYCLASS_PUBLIC_KEY)) {
+		const CssmData &keyBlob = CssmData::overlay(mKey.KeyData);
+		copyCssmData(keyBlob, blob, allocator);
+		return true;
+	}
+	
+	/* caller converts to binary and proceeds */
+	return false;
 }
 
 #endif	/* CRYPTKIT_CSP_ENABLE */

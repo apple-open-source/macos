@@ -1,0 +1,201 @@
+AC_INIT(configure.in)
+CONFIG_RULES
+dnl
+AH_TEMPLATE([HAVE_STRUCT_SOCKADDR_STORAGE], 
+[Define if "struct sockaddr_storage" is available.])
+dnl
+AC_CONFIG_HEADER(krb5/autoconf.h)
+AC_PROG_INSTALL
+AC_PROG_AWK
+AC_PROG_LEX
+AC_C_CONST
+AC_CHECK_FUNCS(strdup labs setvbuf memmove bcopy inet_ntoa inet_aton seteuid setresuid setreuid setegid setresgid setregid)
+dnl
+dnl Check what the return types for gethostbyname_r and getservbyname_r are.
+dnl
+AC_CHECK_FUNC(gethostbyname_r,[
+ac_cv_func_gethostbyname_r=yes
+if test "$ac_cv_func_gethostbyname_r" = yes; then
+  AC_MSG_CHECKING([if gethostbyname_r returns an int])
+  AC_CACHE_VAL(krb5_cv_gethostbyname_r_returns_int,
+  [AC_TRY_COMPILE([#include <netdb.h>
+  extern int gethostbyname_r ();], [1;],
+  krb5_cv_gethostbyname_r_returns_int=yes,
+  krb5_cv_gethostbyname_r_returns_int=no)])
+  AC_MSG_RESULT($krb5_cv_gethostbyname_r_returns_int)
+
+  AC_MSG_CHECKING([if gethostbyname_r returns a pointer])
+  AC_CACHE_VAL(krb5_cv_gethostbyname_r_returns_ptr,
+  [AC_TRY_COMPILE([#include <netdb.h>
+  extern struct hostent *gethostbyname_r ();], [1;],
+  krb5_cv_gethostbyname_r_returns_ptr=yes,
+  krb5_cv_gethostbyname_r_returns_ptr=no)])
+  AC_MSG_RESULT($krb5_cv_gethostbyname_r_returns_ptr)
+
+  if test "$krb5_cv_gethostbyname_r_returns_int" = "$krb5_cv_gethostbyname_r_returns_ptr"; then
+    AC_MSG_WARN(cannot determine return type of gethostbyname_r -- disabling)
+    ac_cv_func_gethostbyname_r=no
+  fi
+  if test "$krb5_cv_gethostbyname_r_returns_int" = yes; then
+    AC_DEFINE(GETHOSTBYNAME_R_RETURNS_INT, 1, [Define if gethostbyname_r returns int rather than struct hostent * ])
+  fi
+fi
+if test "$ac_cv_func_gethostbyname_r" = yes; then
+  AC_DEFINE(HAVE_GETHOSTBYNAME_R, 1, [Define if gethostbyname_r exists and its return type is known])
+  AC_CHECK_FUNC(gethostbyaddr_r)
+fi
+])
+dnl
+AC_CHECK_FUNC(getservbyname_r,[
+ac_cv_func_getservbyname_r=yes
+if test "$ac_cv_func_getservbyname_r" = yes; then
+  AC_MSG_CHECKING([if getservbyname_r returns an int])
+  AC_CACHE_VAL(krb5_cv_getservbyname_r_returns_int,
+  [AC_TRY_COMPILE([#include <netdb.h>
+  extern int getservbyname_r ();], [1;],
+  krb5_cv_getservbyname_r_returns_int=yes,
+  krb5_cv_getservbyname_r_returns_int=no)])
+  AC_MSG_RESULT($krb5_cv_getservbyname_r_returns_int)
+
+  AC_MSG_CHECKING([if getservbyname_r returns a pointer])
+  AC_CACHE_VAL(krb5_cv_getservbyname_r_returns_ptr,
+  [AC_TRY_COMPILE([#include <netdb.h>
+  extern struct servent *getservbyname_r ();], [1;],
+  krb5_cv_getservbyname_r_returns_ptr=yes,
+  krb5_cv_getservbyname_r_returns_ptr=no)])
+  AC_MSG_RESULT($krb5_cv_getservbyname_r_returns_ptr)
+
+  if test "$krb5_cv_getservbyname_r_returns_int" = "$krb5_cv_getservbyname_r_returns_ptr"; then
+    AC_MSG_WARN(cannot determine return type of getservbyname_r -- disabling)
+    ac_cv_func_getservbyname_r=no
+  fi
+  if test "$krb5_cv_getservbyname_r_returns_int" = yes; then
+    AC_DEFINE(GETSERVBYNAME_R_RETURNS_INT, 1, [Define if getservbyname_r returns int rather than struct servent * ])
+  fi
+fi
+if test "$ac_cv_func_getservbyname_r" = yes; then
+  AC_DEFINE(HAVE_GETSERVBYNAME_R, 1, [Define if getservbyname_r exists and its return type is known])
+  AC_CHECK_FUNC(getservbyport_r)
+fi
+])
+dnl
+HAVE_YYLINENO
+CHECK_DIRENT
+AC_TYPE_UID_T
+dnl
+AC_CHECK_HEADER(termios.h,dnl
+[AC_CHECK_FUNC([tcsetattr],dnl
+  AC_DEFINE(POSIX_TERMIOS,1,[Define if termios.h exists and tcsetattr exists]))])
+dnl
+KRB5_SIGTYPE
+AC_CHECK_HEADERS(stdlib.h string.h stddef.h unistd.h sys/types.h sys/file.h sys/param.h sys/stat.h sys/time.h netinet/in.h macsock.h xom.h sys/uio.h sys/filio.h sys/select.h time.h)
+AC_HEADER_STDARG
+KRB5_AC_INET6
+dnl
+dnl If compiling with IPv6 support, test if in6addr_any functions.
+dnl Irix 6.5.16 defines it, but lacks support in the C library.
+if test $krb5_cv_inet6 = yes ; then
+AC_CACHE_CHECK([for in6addr_any definition in library], 
+  krb5_cv_var_in6addr_any,
+[AC_TRY_LINK([
+#ifdef HAVE_SYS_TYPES_H
+#include <sys/types.h>
+#endif
+#ifdef HAVE_MACSOCK_H
+#include <macsock.h>
+#else
+#include <sys/socket.h>
+#endif
+#include <netinet/in.h>
+#include <netdb.h>
+],[
+  struct sockaddr_in6 in;
+  in.sin6_addr = in6addr_any;
+  printf("%x", &in);
+],krb5_cv_var_in6addr_any=yes, krb5_cv_var_in6addr_any=no)])
+  if test $krb5_cv_var_in6addr_any = no; then
+    AC_DEFINE(NEED_INSIXADDR_ANY,1,[Define if in6addr_any is not defined in libc])
+  fi
+fi
+
+dnl
+dnl
+dnl check for ANSI stdio, esp "b" option to fopen().  This (unfortunately)
+dnl requires a run check...
+dnl
+AC_MSG_CHECKING([for ANSI stdio])
+AC_CACHE_VAL(krb5_cv_has_ansi_stdio,
+[AC_TRY_RUN(
+[#include <stdio.h>
+int main()
+{
+  FILE *conftest;
+  if ((conftest = fopen("conftest.dat", "w")) == NULL) exit(1);
+  if (fclose(conftest)) exit(1);
+  if ((conftest = fopen("conftest.dat", "rb+")) == NULL) exit(1);
+  if (fputs("testing ANSI for stdio\n", conftest) == EOF) exit(1);
+  exit(0);
+}],
+krb5_cv_has_ansi_stdio=yes, krb5_cv_has_ansi_stdio=no,
+krb5_cv_has_ansi_stdio=yes)])dnl assume ANSI in cross environment
+AC_MSG_RESULT($krb5_cv_has_ansi_stdio)
+if test $krb5_cv_has_ansi_stdio = yes; then
+AC_DEFINE(ANSI_STDIO,1,[Define if ANSI stdio is present (in particular "b" option to fopen)])
+fi
+dnl
+dnl Word sizes...
+AC_CHECK_SIZEOF(short)
+AC_CHECK_SIZEOF(int)
+AC_CHECK_SIZEOF(long)
+dnl
+dnl then from osconf.h, we have
+dnl
+AC_HEADER_TIME
+AC_CHECK_TYPE(time_t, long)
+dnl
+dnl Determine where to put the replay cache.
+dnl
+AC_MSG_CHECKING([for replay cache directory])
+AC_CACHE_VAL(krb5_cv_sys_rcdir,
+[
+for t_dir in /var/tmp /usr/tmp /var/usr/tmp /tmp ; do
+	test -d $t_dir || continue
+	krb5_cv_sys_rcdir=$t_dir
+	break
+done])dnl
+AC_MSG_RESULT($krb5_cv_sys_rcdir)
+KRB5_RCTMPDIR=$krb5_cv_sys_rcdir
+AC_SUBST(KRB5_RCTMPDIR)
+dnl
+dnl
+AC_MSG_CHECKING(for socklen_t)
+AC_CACHE_VAL(krb5_cv_has_type_socklen_t,
+[AC_TRY_COMPILE(
+[#include <sys/types.h>
+#include <sys/socket.h>
+],[sizeof (socklen_t);],
+krb5_cv_has_type_socklen_t=yes,krb5_cv_has_type_socklen_t=no)])
+AC_MSG_RESULT($krb5_cv_has_type_socklen_t)
+if test $krb5_cv_has_type_socklen_t = yes; then
+    AC_DEFINE(HAVE_SOCKLEN_T,1,[Define if there is a socklen_t type. If not, probably use size_t])
+fi
+dnl
+dnl
+KRB5_AC_NEED_BIND_8_COMPAT
+dnl
+dnl
+AC_ARG_ENABLE([athena],
+[  --enable-athena         build with MIT Project Athena configuration],
+AC_DEFINE(KRB5_ATHENA_COMPAT,1,[Define if MIT Project Athena default configuration should be used]),)
+
+if test "$KRB4_LIB" = ''; then
+	AC_MSG_RESULT(No Kerberos 4 compatibility)
+	maybe_kerberosIV=
+else
+	AC_MSG_RESULT(Kerberos 4 compatibility enabled)
+	maybe_kerberosIV=kerberosIV
+	AC_DEFINE(KRB5_KRB4_COMPAT,1,[Define if Kerberos V4 backwards compatibility should be supported])
+fi
+AC_SUBST(maybe_kerberosIV)
+dnl
+V5_AC_OUTPUT_MAKEFILE(. krb5 kerberosIV)

@@ -31,16 +31,12 @@
  *
  */
 
-#include <libkern/c++/OSCollectionIterator.h>
-#include <libkern/c++/OSSet.h>
-#include <IOKit/firewire/IOFireWireController.h>
-#include <IOKit/firewire/IOFWCommand.h>
-#include <IOKit/firewire/IOFWIsochPort.h>
+#import <IOKit/firewire/IOFireWireController.h>
+#import <IOKit/firewire/IOFWCommand.h>
+#import <IOKit/firewire/IOFWIsochPort.h>
 
-#include "IOFWUserIsochChannel.h"
-
-// so niels can use the IOFireWireUserClientLog_ macro (et. al.)
-#include"IOFireWireUserClient.h"
+#import "IOFireWireUserClient.h"
+#import "IOFWUserIsochChannel.h"
 
 OSDefineMetaClassAndStructors(IOFWUserIsochChannel, IOFWIsochChannel)
 
@@ -48,7 +44,7 @@ IOReturn
 IOFWUserIsochChannel::allocateChannel()
 {
 	// maybe we should call user space lib here?
-	IOLog("IOFWUserIsochChannel::allocateChannel called!\n") ;
+//	IOLog("IOFWUserIsochChannel::allocateChannel called!\n") ;
 	return kIOReturnUnsupported ;
 }
 
@@ -56,7 +52,7 @@ IOReturn
 IOFWUserIsochChannel::releaseChannel()
 {
 	// maybe we should call user space lib here?
-	IOLog("IOFWUserIsochChannel::releaseChannel called!\n") ;
+//	IOLog("IOFWUserIsochChannel::releaseChannel called!\n") ;
 	return kIOReturnUnsupported ;
 }
 
@@ -65,7 +61,7 @@ IOReturn
 IOFWUserIsochChannel::start()
 {
 	// maybe we should call user space lib here?
-	IOLog("IOFWUserIsochChannel::start called!\n") ;
+//	IOLog("IOFWUserIsochChannel::start called!\n") ;
 	return kIOReturnUnsupported ;
 }
 
@@ -73,7 +69,7 @@ IOReturn
 IOFWUserIsochChannel::stop()
 {
 	// maybe we should call user space lib here?
-	IOLog("IOFWUserIsochChannel::stop called!\n") ;
+//	IOLog("IOFWUserIsochChannel::stop called!\n") ;
 	return kIOReturnUnsupported ;
 }
 
@@ -86,25 +82,25 @@ IOFWUserIsochChannel::stop()
 
 IOReturn
 IOFWUserIsochChannel::userAllocateChannelBegin(
-	IOFWSpeed		inSpeed,
-	UInt32			inAllowedChansHi,
-	UInt32			inAllowedChansLo,
+	IOFWSpeed		speed,
+	UInt32			allowedChansHi,
+	UInt32			allowedChansLo,
 	IOFWSpeed*		outActualSpeed,
 	UInt32*			outActualChannel)
 {
 	IOReturn 	err = kIOReturnSuccess;
 
 	if (!fBandwidthAllocated)
-		do {
-			err = allocateChannelBegin( inSpeed, (UInt64)inAllowedChansHi<<32 | inAllowedChansLo, fChannel ) ;
-		} while ( err == kIOFireWireBusReset || err == kIOReturnCannotLock ) ;
-
+	{
+		err = allocateChannelBegin( speed, (UInt64)allowedChansHi<<32 | allowedChansLo, fChannel ) ;
+	}
+	
 	if ( !err )
 	{
-		IOFireWireUserClientLog_("-IOFWUserIsochChannel::userAllocateChannelBegin: result=0x%08x, fSpeed=%u, fChannel=0x%08lX\n", err, fSpeed, fChannel) ;
+//		DebugLog("IOFWUserIsochChannel :: userAllocateChannelBegin: result=0x%08x, fSpeed=%u, fChannel=0x%08lX\n", err, fSpeed, fChannel) ;
 
 		// set channel's speed
-		fSpeed = inSpeed ;
+		fSpeed = speed ;
 
 		fBandwidthAllocated = true ;
 
@@ -121,7 +117,7 @@ IOFWUserIsochChannel::userAllocateChannelBegin(
 }
 
 IOReturn
-IOFWUserIsochChannel::userReleaseChannelComplete()
+IOFWUserIsochChannel :: userReleaseChannelComplete ()
 {
 	// allocate hardware resources for each port
 	// ** note: this bit of the code moved to user space. this allows us to directly call
@@ -164,4 +160,15 @@ IOFWUserIsochChannel::allocateTalkerPort()
 		result = fTalker->allocatePort(fSpeed, fChannel);
 	
 	return result ;
+}
+
+void
+IOFWUserIsochChannel :: s_exporterCleanup ( IOFWUserIsochChannel * channel )
+{
+	DebugLog( "+IOFWUserIsochChannel :: s_exporterCleanup channel=%p\n", channel) ;
+	
+	channel->fControl->removeAllocatedChannel( channel ) ;
+
+	channel->stop() ;
+	channel->releaseChannel() ;
 }

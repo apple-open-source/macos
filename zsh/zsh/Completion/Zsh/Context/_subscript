@@ -1,6 +1,6 @@
 #compdef -subscript-
 
-local expl ind osuf=']' flags
+local expl ind osuf=']' flags sep
 
 if [[ "$1" = -q ]]; then
   osuf='] '
@@ -12,7 +12,7 @@ compset -P '\(([^\(\)]|\(*\))##\)' # remove subscript flags
 
 if [[ "$PREFIX" = :* ]]; then
   _wanted characters expl 'character class' \
-      compadd -p: -S ':]' alnum alpha blank cntrl digit graph \
+      compadd -p: -S ':]' alnum alpha ascii blank cntrl digit graph \
                           lower print punct space upper xdigit
 elif compset -P '\('; then
   local match
@@ -22,7 +22,7 @@ elif compset -P '\('; then
     local f=$match[1] d=$match[2] e=$match[2] v=$match[3]
     [[ $f = s && ${(Pt)${compstate[parameter]}} != scalar* ]] && return 1
     if [[ -z $d ]]; then
-      _message 'delimiter'
+      _message -e delimiters 'delimiter'
       return
     else
       case $d in
@@ -91,7 +91,8 @@ elif [[ ${(Pt)${compstate[parameter]}} = array* ]]; then
 	      list=( "$list[@]" '' )
 	  fi
         done
-        zformat -a list ' -- ' "$list[@]"
+        zstyle -s ":completion:${curcontext}:indexes" list-separator sep || sep=--
+        zformat -a list " $sep " "$list[@]"
 	disp=( -d list)
       else
         disp=()
@@ -112,5 +113,5 @@ elif [[ ${(Pt)${compstate[parameter]}} = array* ]]; then
 
   return 1
 else
-  _contexts -math-
+  _dispatch -math- -math-
 fi

@@ -1,0 +1,115 @@
+<HTML>
+<HEAD>
+<!-- This HTML file has been created by texi2html 1.51
+     from .././gimpprint.texi on 22 January 2003 -->
+
+<TITLE>GIMP-Print - printers.xml</TITLE>
+</HEAD>
+<BODY>
+Go to the <A HREF="gimpprint_1.html">first</A>, <A HREF="gimpprint_39.html">previous</A>, <A HREF="gimpprint_41.html">next</A>, <A HREF="gimpprint_47.html">last</A> section, <A HREF="gimpprint_toc.html">table of contents</A>.
+<P><HR><P>
+
+
+<H2><A NAME="SEC55" HREF="gimpprint_toc.html#TOC55">D.1  <TT>`printers.xml'</TT></A></H2>
+
+<P>
+<TT>`printers.xml'</TT> is an XML-like file (there's no formal DTD) that
+contains very simple printer definitions.  A typical definition follows:
+
+</P>
+
+<PRE>
+&#60;printer name="EPSON Stylus Color 1500" driver="escp2-1500"&#62;
+&#60;color&#62;
+&#60;model value=2&#62;
+&#60;gamma value=0.597&#62;
+&#60;density value=1.0&#62;
+&#60;language value=escp2&#62;
+&#60;/printer&#62;
+</PRE>
+
+<P>
+There are other tags that may be present.  The only ones that are
+mandatory are <SAMP>`&#60;printer&#62;'</SAMP>, <SAMP>`&#60;color&#62;'</SAMP>, <SAMP>`&#60;model&#62;'</SAMP>, and
+<SAMP>`&#60;language&#62;'</SAMP>.  The other optional parameters (gamma and density in
+this case) can be used to adjust control settings.  This is probably not
+the right place for them; the printer drivers themselves should contain
+this information.  There's probably no good reason for anything but
+gamma and density to be in here.  Gamma refers to the printer's gamma
+factor; density is the desired base ink density for the printer.  The
+Epson driver contains the density information for each printer at each
+resolution internally.  An even better driver would adjust density and
+possibly even gamma for paper type.  All the more reason not to have
+that information here.
+
+</P>
+<P>
+If you really are curious about what tags are permitted, please see
+<TT>`printdefl.l'</TT>.  I deliberately want to make this obscure.
+
+</P>
+<P>
+Anyway, here's the definition of the tags that do matter:
+
+</P>
+<P>
+<DL>
+<DT><U><TT>`printers.xml'</TT> tag:</U> <B><CODE>&#60;printer name="<VAR>longname</VAR>" driver="<VAR>drivername</VAR>"&#62;</CODE></B>
+<DD><A NAME="IDX256"></A>
+This starts the definition of a printer.  The <VAR>longname</VAR> should be
+something human readable; the <VAR>drivername</VAR> should consist of
+alphanumerics and hyphens, and be fairly short.  The <VAR>longname</VAR> is
+what will appear in the GUI listing of printers; the <VAR>drivername</VAR> is
+what is actually used to key into the list of printers.  It is legal to
+have multiple printers with the same driver name.
+</DL>
+
+</P>
+<P>
+<DL>
+<DT><U><TT>`printers.xml'</TT> tag:</U> <B><CODE>&#60;color&#62;</CODE></B>
+<DD><A NAME="IDX257"></A>
+<DT><U><TT>`printers.xml'</TT> tag:</U> <B><CODE>&#60;nocolor&#62;</CODE></B>
+<DD><A NAME="IDX258"></A>
+Indicates that this printer is capable of color, or is not capable of
+color respectively
+</DL>
+
+</P>
+<P>
+<DL>
+<DT><U><TT>`printers.xml'</TT> tag:</U> <B><CODE>&#60;model value=<VAR>int</VAR>&#62;</CODE></B>
+<DD><A NAME="IDX259"></A>
+This defines a model number.  This is passed into the driver, which may
+do whatever it cares to with it--index into a table, compute on, or
+whatever.  This need not be unique.
+</DL>
+
+</P>
+<P>
+<DL>
+<DT><U><TT>`printers.xml'</TT> tag:</U> <B><CODE>&#60;language value=<VAR>type</VAR>&#62;</CODE></B>
+<DD><A NAME="IDX260"></A>
+This defines what driver module this printer uses.  <VAR>type</VAR> should be
+<SAMP>`escp2'</SAMP>, <SAMP>`pcl'</SAMP>, <SAMP>`canon'</SAMP>, or <SAMP>`ps'</SAMP>.
+</DL>
+
+</P>
+<P>
+<DL>
+<DT><U><TT>`printers.xml'</TT> tag:</U> <B><CODE>&#60;/printer&#62;</CODE></B>
+<DD><A NAME="IDX261"></A>
+This, of course, closes off a printer definition.
+</DL>
+
+</P>
+<P>
+This is handled very ad-hoc.  It's ugly.  But it's reasonably easy to
+extend, and it's buzzword-compliant.
+
+</P>
+
+<P><HR><P>
+Go to the <A HREF="gimpprint_1.html">first</A>, <A HREF="gimpprint_39.html">previous</A>, <A HREF="gimpprint_41.html">next</A>, <A HREF="gimpprint_47.html">last</A> section, <A HREF="gimpprint_toc.html">table of contents</A>.
+</BODY>
+</HTML>

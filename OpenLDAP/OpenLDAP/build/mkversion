@@ -1,6 +1,6 @@
 #! /bin/sh
-# $OpenLDAP: pkg/ldap/build/mkversion,v 1.6 2002/02/10 16:50:58 kurt Exp $
-## Copyright 1998-2002 The OpenLDAP Foundation
+# $OpenLDAP: pkg/ldap/build/mkversion,v 1.6.2.2 2003/03/29 15:45:42 kurt Exp $
+## Copyright 1998-2003 The OpenLDAP Foundation
 ## COPYING RESTRICTIONS APPLY.  See COPYRIGHT File in top level directory
 ## of this package for details.
 #
@@ -42,20 +42,19 @@ if test $# != 1 ; then
 fi
 
 APPLICATION=$1
-WHEN=`date`
 WHOWHERE="$USER@`uname -n`:`pwd`"
 
 cat << __EOF__
 /*
- * Copyright 1998-2002 The OpenLDAP Foundation
+ * Copyright 1998-2003 The OpenLDAP Foundation
  * COPYING RESTRICTIONS APPLY.  See COPYRIGHT file in top level directory
  * of this package for details.
  */
 static const char copyright[] =
-"Copyright 1998-2002 The OpenLDAP Foundation\n"
+"Copyright 1998-2003 The OpenLDAP Foundation\n"
 "COPYING RESTRICTIONS APPLY\n";
 
 $static $const char $SYMBOL[] =
-"@(#) \$$PACKAGE: $APPLICATION $VERSION ($WHEN) \$\n\t$WHOWHERE\n";
+"@(#) \$$PACKAGE: $APPLICATION $VERSION (" __DATE__ " " __TIME__ ") \$\n\t$WHOWHERE\n";
 
 __EOF__

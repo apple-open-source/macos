@@ -1,3 +1,41 @@
+2002-03-16  Eli Zaretskii  <eliz@is.elta.co.il>
+
+	* Version 21.2 released.
+
+2002-03-12  Francesco Potorti`  <pot@gnu.org>
+
+	* etags.c (Python_functions): Skip spaces at beginning of lines.
+
+2002-02-15  Richard M. Stallman  <rms@gnu.org>
+
+	* cvtmail.c (xrealloc): Always pass two args to `fatal'.
+
+	* movemail.c (popmail): Always pass two args to `error'.
+
+2002-02-15  Gerd Moellmann  <gerd@gnu.org>
+
+	* emacsserver.c (main): Cast geteuid in sprintf to int.
+
+	* emacsclient.c (main): Cast isdigit argument to unsigned char.
+
+2002-02-10  Paul Eggert  <eggert@twinsun.com>
+
+	* rcs-checkin: Use `sort -k 2', not `sort +1', as POSIX 1003.1-2001
+	disallows the old syntax.
+
+2002-02-03  Paul Eggert  <eggert@twinsun.com>
+
+	* rcs2log (Copyright): Update to 2002.
+	Add '(C)' as per coding guidelines.
+	(AWK, TMPDIR): Work around portability problem in broken shells that
+	don't understand `: ${VAR=val}'.
+	(SORT_K_OPTIONS): New var, for hosts that conform to POSIX 1003.1-2001.
+	Prefer the new -k option to the traditional +M -N option.
+
+2001-11-16  Gerd Moellmann  <gerd@gnu.org>
+
+	* ebrowse.c (matching_regexp): Escape '\\'.
+
 2001-10-20  Gerd Moellmann  <gerd@gnu.org>
 
 	* Version 21.1 released.

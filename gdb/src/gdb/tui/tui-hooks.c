@@ -46,9 +46,13 @@
 #include "target.h"
 #include "gdbcore.h"
 #include "event-loop.h"
+#include "event-top.h"
 #include "frame.h"
 #include "breakpoint.h"
 #include "gdb-events.h"
+#include "ui-out.h"
+#include "top.h"
+#include <readline/readline.h>
 #include <unistd.h>
 #include <fcntl.h>
 
@@ -65,15 +69,14 @@
 int tui_target_has_run = 0;
 
 static void (* tui_target_new_objfile_chain) (struct objfile*);
-extern void (*selected_frame_level_changed_hook) (int);
+static void tui_event_loop (void);
+static void tui_command_loop (void);
 
 static void
 tui_new_objfile_hook (struct objfile* objfile)
 {
   if (tui_active)
-    {
-      tuiDisplayMainFunction ();
-    }
+    tui_display_main ();
   
   if (tui_target_new_objfile_chain)
     tui_target_new_objfile_chain (objfile);
@@ -144,7 +147,7 @@ tui_registers_changed_hook (void)
 {
   struct frame_info *fi;
 
-  fi = selected_frame;
+  fi = deprecated_selected_frame;
   if (fi && tui_refreshing_registers == 0)
     {
       tui_refreshing_registers = 1;
@@ -160,7 +163,7 @@ tui_register_changed_hook (int regno)
 {
   struct frame_info *fi;
 
-  fi = selected_frame;
+  fi = deprecated_selected_frame;
   if (fi && tui_refreshing_registers == 0)
     {
       tui_refreshing_registers = 1;
@@ -169,44 +172,12 @@ tui_register_changed_hook (int regno)
     }
 }
 
-extern struct breakpoint *breakpoint_chain;
-
-/* Find a breakpoint given its number.  Returns null if not found.  */
-static struct breakpoint *
-get_breakpoint (int number)
-{
-  struct breakpoint *bp;
-
-  for (bp = breakpoint_chain; bp; bp = bp->next)
-    {
-      if (bp->number == number)
-        return bp;
-    }
-  return 0;
-}
-
 /* Breakpoint creation hook.
    Update the screen to show the new breakpoint.  */
 static void
 tui_event_create_breakpoint (int number)
 {
-  struct breakpoint *bp;
-
-  bp = get_breakpoint (number);
-  if (bp)
-    {
-      switch (bp->type)
-        {
-        case bp_breakpoint:
-        case bp_hardware_breakpoint:
-          tuiAllSetHasBreakAt (bp, 1);
-          tuiUpdateAllExecInfos ();
-          break;
-
-        default:
-          break;
-        }
-    }
+  tui_update_all_breakpoint_info ();
 }
 
 /* Breakpoint deletion hook.
@@ -214,35 +185,13 @@ tui_event_create_breakpoint (int number)
 static void
 tui_event_delete_breakpoint (int number)
 {
-  struct breakpoint *bp;
-  struct breakpoint *b;
-  int clearIt;
-
-  bp = get_breakpoint (number);
-  if (bp == 0)
-    return;
-
-  /* Before turning off the visuals for the bp, check to see that
-     there are no other bps at the same address. */
-  clearIt = 0;
-  for (b = breakpoint_chain; b; b = b->next)
-    {
-      clearIt = (b == bp || b->address != bp->address);
-      if (!clearIt)
-        break;
-    }
-
-  if (clearIt)
-    {
-      tuiAllSetHasBreakAt (bp, 0);
-      tuiUpdateAllExecInfos ();
-    }
+  tui_update_all_breakpoint_info ();
 }
 
 static void
 tui_event_modify_breakpoint (int number)
 {
-  ;
+  tui_update_all_breakpoint_info ();
 }
 
 static void
@@ -280,7 +229,7 @@ tui_target_wait_hook (ptid_t pid, struct target_waitstatus *status)
     }
 #endif
   tui_target_has_run = 1;
-  res = target_wait (pid, status);
+  res = target_wait (pid, status, NULL);
 
   if (tui_active)
     {
@@ -296,7 +245,7 @@ tui_selected_frame_level_changed_hook (int level)
 {
   struct frame_info *fi;
 
-  fi = selected_frame;
+  fi = deprecated_selected_frame;
   /* Ensure that symbols for this frame are read in.  Also, determine the
      source language of this frame, and switch to it if desired.  */
   if (fi)
@@ -309,10 +258,10 @@ tui_selected_frame_level_changed_hook (int level)
          would be 0 here, and select_source_symtab would abort the
          command by calling the 'error' function */
       if (s)
-	{
-          select_source_symtab (s);
-          tuiShowFrameInfo (fi);
-	}
+        select_source_symtab (s);
+
+      /* Display the frame position (even if there is no symbols).  */
+      tuiShowFrameInfo (fi);
 
       /* Refresh the register window if it's visible.  */
       if (tui_is_window_visible (DATA_WIN))
@@ -330,7 +279,16 @@ tui_print_frame_info_listing_hook (struct symtab *s, int line,
                                    int stopline, int noerror)
 {
   select_source_symtab (s);
-  tuiShowFrameInfo (selected_frame);
+  tuiShowFrameInfo (deprecated_selected_frame);
+}
+
+/* Called when the target process died or is detached.
+   Update the status line.  */
+static void
+tui_detach_hook (void)
+{
+  tuiShowFrameInfo (0);
+  tui_display_main ();
 }
 
 /* Install the TUI specific hooks.  */
@@ -348,6 +306,7 @@ tui_install_hooks (void)
 
   registers_changed_hook = tui_registers_changed_hook;
   register_changed_hook = tui_register_changed_hook;
+  detach_hook = tui_detach_hook;
 }
 
 /* Remove the TUI specific hooks.  */
@@ -360,6 +319,7 @@ tui_remove_hooks (void)
   query_hook = 0;
   registers_changed_hook = 0;
   register_changed_hook = 0;
+  detach_hook = 0;
 
   /* Restore the previous event hooks.  */
   set_gdb_event_hooks (tui_old_event_hooks);
@@ -374,11 +334,95 @@ tui_exit (void)
   tui_disable ();
 }
 
+/* Initialize all the necessary variables, start the event loop,
+   register readline, and stdin, start the loop. */
+static void
+tui_command_loop (void)
+{
+  int length;
+  char *a_prompt;
+  char *gdb_prompt = get_prompt ();
+
+  /* If we are using readline, set things up and display the first
+     prompt, otherwise just print the prompt. */
+  if (async_command_editing_p)
+    {
+      /* Tell readline what the prompt to display is and what function it
+         will need to call after a whole line is read. This also displays
+         the first prompt. */
+      length = strlen (PREFIX (0)) + strlen (gdb_prompt) + strlen (SUFFIX (0)) + 1;
+      a_prompt = (char *) xmalloc (length);
+      strcpy (a_prompt, PREFIX (0));
+      strcat (a_prompt, gdb_prompt);
+      strcat (a_prompt, SUFFIX (0));
+      rl_callback_handler_install (a_prompt, input_handler);
+    }
+  else
+    display_gdb_prompt (0);
+
+  /* Now it's time to start the event loop. */
+  tui_event_loop ();
+}
+
+/* Start up the event loop. This is the entry point to the event loop
+   from the command loop. */
+
+static void
+tui_event_loop (void)
+{
+  /* Loop until there is nothing to do. This is the entry point to the
+     event loop engine. gdb_do_one_event, called via catch_errors()
+     will process one event for each invocation.  It blocks waits for
+     an event and then processes it.  >0 when an event is processed, 0
+     when catch_errors() caught an error and <0 when there are no
+     longer any event sources registered. */
+  while (1)
+    {
+      int result = catch_errors (gdb_do_one_event, 0, "", RETURN_MASK_ALL);
+      if (result < 0)
+	break;
+
+      /* Update gdb output according to TUI mode.  Since catch_errors
+         preserves the uiout from changing, this must be done at top
+         level of event loop.  */
+      if (tui_active)
+        uiout = tui_out;
+      else
+        uiout = tui_old_uiout;
+      
+      if (result == 0)
+	{
+	  /* FIXME: this should really be a call to a hook that is
+	     interface specific, because interfaces can display the
+	     prompt in their own way. */
+	  display_gdb_prompt (0);
+	  /* This call looks bizarre, but it is required.  If the user
+	     entered a command that caused an error,
+	     after_char_processing_hook won't be called from
+	     rl_callback_read_char_wrapper.  Using a cleanup there
+	     won't work, since we want this function to be called
+	     after a new prompt is printed.  */
+	  if (after_char_processing_hook)
+	    (*after_char_processing_hook) ();
+	  /* Maybe better to set a flag to be checked somewhere as to
+	     whether display the prompt or not. */
+	}
+    }
+
+  /* We are done with the event loop. There are no more event sources
+     to listen to.  So we exit GDB. */
+  return;
+}
+
 /* Initialize the tui by installing several gdb hooks, initializing
    the tui IO and preparing the readline with the kind binding.  */
 static void
 tui_init_hook (char *argv0)
 {
+  /* Don't enable the TUI if a specific interpreter is installed.  */
+  if (interpreter_p)
+    return;
+
   /* Install exit handler to leave the screen in a good shape.  */
   atexit (tui_exit);
 
@@ -390,6 +434,9 @@ tui_init_hook (char *argv0)
 
   tui_initialize_io ();
   tui_initialize_readline ();
+
+  /* Tell gdb to use the tui_command_loop as the main loop. */
+  command_loop_hook = tui_command_loop;
 
   /* Decide in which mode to start using GDB (based on -tui).  */
   if (tui_version)
@@ -403,6 +450,6 @@ void
 _initialize_tui (void)
 {
   /* Setup initialization hook.  */
-  init_ui_hook = tui_init_hook;
+  /* init_ui_hook = tui_init_hook; */
 }
 

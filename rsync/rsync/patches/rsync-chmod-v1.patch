@@ -1,0 +1,329 @@
+diff --unified -r --new-file rsync-2.5.5.orig/Makefile.in rsync-2.5.5/Makefile.in
+--- rsync-2.5.5.orig/Makefile.in	Mon Mar 25 15:36:56 2002
++++ rsync-2.5.5/Makefile.in	Wed Apr  3 21:45:22 2002
+@@ -31,7 +31,7 @@
+ 	zlib/zutil.o zlib/adler32.o 
+ OBJS1=rsync.o generator.o receiver.o cleanup.o sender.o exclude.o util.o main.o checksum.o match.o syscall.o log.o backup.o
+ OBJS2=options.o flist.o io.o compat.o hlink.o token.o uidlist.o socket.o fileio.o batch.o \
+-	clientname.o
++	clientname.o chmod.o
+ DAEMON_OBJ = params.o loadparm.o clientserver.o access.o connection.o authenticate.o
+ popt_OBJS=popt/findme.o  popt/popt.o  popt/poptconfig.o \
+ 	popt/popthelp.o popt/poptparse.o
+diff --unified -r --new-file rsync-2.5.5.orig/chmod.c rsync-2.5.5/chmod.c
+--- rsync-2.5.5.orig/chmod.c	Thu Jan  1 10:00:00 1970
++++ rsync-2.5.5/chmod.c	Wed Apr  3 22:56:30 2002
+@@ -0,0 +1,134 @@
++#include "rsync.h"
++
++struct chmod_mode_struct {
++	int ModeAND;
++	int ModeOR;
++	char Xkeep;
++	struct chmod_mode_struct *next;
++};
++
++#define CHMOD_ADD 1
++#define CHMOD_SUB 2
++#define CHMOD_EQ  3
++
++/* Parse a chmod-style argument, and break it down into one or more AND/OR
++   pairs in a linked list.
++   We use a state machine to walk through the options - states 1 and 3
++   before/including the operation (+, - or =), state 2 after the operation and
++   state 4 if we hit an error.
++*/
++struct chmod_mode_struct *parse_chmod (char *modestr)
++{
++	int state = 1;
++	int where = 0, what = 0, op = 0, topbits = 0, topoct = 0, Xkeep=0;
++	struct chmod_mode_struct *first_mode = NULL, *curr_mode = NULL, *prev_mode = NULL;
++
++	while (*modestr) {
++	    if (state!=2) {
++		switch (*modestr) {
++			case 'u' : where |= 0100; topbits |= 04000;  break;
++			case 'g' : where |= 0010; topbits |= 02000;  break;
++			case 'o' : where |= 0001;  break;
++			case 'a' : where |= 0111;  break;
++			case '+' : op = CHMOD_ADD; state=2;  break;
++			case '-' : op = CHMOD_SUB; state=2;  break;
++			case '=' : op = CHMOD_EQ; state=2;  break;
++			case ',' : break;
++			default  : state=4;  /* Invalid Mode! */
++		}
++	    } else if (state==2) {
++		switch (*modestr) {
++			case 'r' : what |= 4;  break;
++			case 'w' : what |= 2;  break;
++			case 'X' : Xkeep = 1;
++			case 'x' : what |= 1;  break;
++			case 's' : if (topbits) {
++					topoct |= topbits;
++				   } else {
++					topoct = 04000;
++				   }
++				   break;
++			case 't' : topoct |= 01000;  break;
++			default  : state=4;  /* Invalid Mode! */
++		}
++	    }
++
++	    if (state==4) {
++		break;
++	    }
++
++	    modestr++;
++	    if (!*modestr || *modestr == ',') {
++		prev_mode = curr_mode;
++		curr_mode = malloc(sizeof(struct chmod_mode_struct));
++		if (prev_mode) {
++			prev_mode->next = curr_mode;
++		} else {
++			first_mode = curr_mode;
++		}
++		curr_mode->next = NULL;
++
++		switch (op) {
++			case CHMOD_ADD:
++				curr_mode->ModeAND = 07777;
++				curr_mode->ModeOR  = (where * what) + topoct;
++				break;
++			case CHMOD_SUB:
++				curr_mode->ModeAND = 07777 - (where * what) - topoct;
++				curr_mode->ModeOR  = 0;
++				break;
++			case CHMOD_EQ:
++				curr_mode->ModeAND = 07777 - (where * 7);
++				curr_mode->ModeOR  = where * what - topoct;
++				break;
++		}
++
++		curr_mode->Xkeep = Xkeep;
++		
++		state=3;
++		where = what = topoct = topbits = Xkeep = 0;
++	    }
++	}
++
++	if (state==4) {
++		free_chmod_mode(first_mode);
++		first_mode=NULL;
++	}
++	return first_mode;
++}
++
++
++/* Takes an existing file permission and a list of AND/OR changes, and create a
++   new permissions
++*/
++int newmode (int oldmode, struct chmod_mode_struct *chmod_modes)
++{
++	int IsX = (oldmode & 0111);
++	int NonPerm = oldmode - (oldmode & 07777);
++
++	while (chmod_modes) {
++		oldmode &= chmod_modes->ModeAND;
++		if (chmod_modes->Xkeep && !IsX) {
++			oldmode |= chmod_modes->ModeOR & (07777 - 0111);
++		} else {
++			oldmode |= chmod_modes->ModeOR;
++		}
++		chmod_modes = chmod_modes->next;
++	}
++
++	return (oldmode + NonPerm);
++}
++
++/* Free the linked list created by parse_chmod
++*/
++int free_chmod_mode (struct chmod_mode_struct *chmod_modes)
++{
++	struct chmod_mode_struct *next;
++
++	while (chmod_modes) {
++		next = chmod_modes->next;
++		free(chmod_modes);
++		chmod_modes = next;
++	}
++	return 0;
++}
+diff --unified -r --new-file rsync-2.5.5.orig/flist.c rsync-2.5.5/flist.c
+--- rsync-2.5.5.orig/flist.c	Fri Mar 15 08:20:20 2002
++++ rsync-2.5.5/flist.c	Wed Apr  3 21:54:42 2002
+@@ -36,6 +36,7 @@
+ extern int verbose;
+ extern int do_progress;
+ extern int am_server;
++extern int am_sender;
+ extern int always_checksum;
+ 
+ extern int cvs_exclude;
+@@ -61,6 +62,8 @@
+ extern int read_batch;
+ extern int write_batch;
+ 
++extern struct chmod_mode_struct *chmod_modes;
++
+ static char topsrcname[MAXPATHLEN];
+ 
+ static struct exclude_struct **local_exclude_list;
+@@ -715,6 +718,10 @@
+ #ifdef HAVE_STRUCT_STAT_ST_RDEV
+ 	file->rdev = st.st_rdev;
+ #endif
++
++	if (am_sender && chmod_modes && S_ISREG(st.st_mode)) {
++		file->mode = newmode(file->mode, chmod_modes);
++	}
+ 
+ #if SUPPORT_LINKS
+ 	if (S_ISLNK(st.st_mode)) {
+diff --unified -r --new-file rsync-2.5.5.orig/options.c rsync-2.5.5/options.c
+--- rsync-2.5.5.orig/options.c	Wed Mar 20 07:16:42 2002
++++ rsync-2.5.5/options.c	Wed Apr  3 22:24:46 2002
+@@ -112,6 +112,7 @@
+ char *password_file = NULL;
+ char *rsync_path = RSYNC_PATH;
+ char *backup_dir = NULL;
++char *chmod_mode = NULL;
+ int rsync_port = RSYNC_PORT;
+ 
+ int verbose = 0;
+@@ -128,6 +129,7 @@
+  * address, or a hostname. **/
+ char *bind_address;
+ 
++struct chmod_mode_struct *chmod_modes = NULL;
+ 
+ static void print_rsync_version(enum logcode f)
+ {
+@@ -220,6 +222,7 @@
+   rprintf(F," -g, --group                 preserve group\n");
+   rprintf(F," -D, --devices               preserve devices (root only)\n");
+   rprintf(F," -t, --times                 preserve times\n");  
++  rprintf(F,"     --chmod=CHMOD           change destination permissions\n");  
+   rprintf(F," -S, --sparse                handle sparse files efficiently\n");
+   rprintf(F," -n, --dry-run               show what would have been transferred\n");
+   rprintf(F," -W, --whole-file            copy whole files, no incremental checks\n");
+@@ -285,7 +288,7 @@
+       OPT_COPY_UNSAFE_LINKS, OPT_SAFE_LINKS, OPT_COMPARE_DEST,
+       OPT_LOG_FORMAT, OPT_PASSWORD_FILE, OPT_SIZE_ONLY, OPT_ADDRESS,
+       OPT_DELETE_AFTER, OPT_EXISTING, OPT_MAX_DELETE, OPT_BACKUP_DIR, 
+-      OPT_IGNORE_ERRORS, OPT_BWLIMIT, OPT_BLOCKING_IO,
++      OPT_IGNORE_ERRORS, OPT_BWLIMIT, OPT_BLOCKING_IO, OPT_CHMOD,
+       OPT_NO_BLOCKING_IO, OPT_WHOLE_FILE, OPT_NO_WHOLE_FILE,
+       OPT_MODIFY_WINDOW, OPT_READ_BATCH, OPT_WRITE_BATCH, OPT_IGNORE_EXISTING};
+ 
+@@ -325,6 +328,7 @@
+   {"perms",           'p', POPT_ARG_NONE,   &preserve_perms , 0, 0, 0 },
+   {"owner",           'o', POPT_ARG_NONE,   &preserve_uid , 0, 0, 0 },
+   {"group",           'g', POPT_ARG_NONE,   &preserve_gid , 0, 0, 0 },
++  {"chmod",            0,  POPT_ARG_STRING, &chmod_mode,    OPT_CHMOD, 0, 0 },
+   {"devices",         'D', POPT_ARG_NONE,   &preserve_devices , 0, 0, 0 },
+   {"times",           't', POPT_ARG_NONE,   &preserve_times , 0, 0, 0 },
+   {"checksum",        'c', POPT_ARG_NONE,   &always_checksum , 0, 0, 0 },
+@@ -563,6 +567,15 @@
+ 			read_batch = 1;
+ 			break;
+ 
++		case OPT_CHMOD:
++			chmod_modes = parse_chmod(chmod_mode);
++			if (!chmod_modes) {
++	    			snprintf(err_buf,sizeof(err_buf),
++					"Invalud argument passed to chmod\n");
++				rprintf(FERROR,"ERROR: Invalid argument passed to chmod\n");
++				return 0;
++			}
++			break;
+ 		default:
+                         /* FIXME: If --daemon is specified, then errors for later
+                          * parameters seem to disappear. */
+@@ -787,6 +800,11 @@
+ 		 */
+ 		args[ac++] = "--compare-dest";
+ 		args[ac++] = compare_dest;
++	}
++
++	if (chmod_mode && !am_sender) {
++		args[ac++] = "--chmod";
++		args[ac++] = chmod_mode;
+ 	}
+ 
+ 	*argc = ac;
+diff --unified -r --new-file rsync-2.5.5.orig/proto.h rsync-2.5.5/proto.h
+--- rsync-2.5.5.orig/proto.h	Mon Mar 25 14:51:17 2002
++++ rsync-2.5.5/proto.h	Wed Apr  3 21:51:32 2002
+@@ -31,6 +31,9 @@
+ void sum_init(void);
+ void sum_update(char *p,int len);
+ void sum_end(char *sum);
++struct chmod_mode_struct *parse_chmod (char *modestr);
++int newmode (int oldmode, struct chmod_mode_struct *chmod_modes);
++int free_chmod_mode (struct chmod_mode_struct *chmod_modes);
+ void _exit_cleanup(int code, const char *file, int line);
+ void cleanup_disable(void);
+ void cleanup_set(char *fnametmp, char *fname, struct file_struct *file,
+diff --unified -r --new-file rsync-2.5.5.orig/rsync.yo rsync-2.5.5/rsync.yo
+--- rsync-2.5.5.orig/rsync.yo	Thu Feb  7 08:20:49 2002
++++ rsync-2.5.5/rsync.yo	Wed Apr  3 23:32:30 2002
+@@ -236,6 +236,7 @@
+  -g, --group                 preserve group
+  -D, --devices               preserve devices (root only)
+  -t, --times                 preserve times
++     --chmod=CHMOD           change destination permissions
+  -S, --sparse                handle sparse files efficiently
+  -n, --dry-run               show what would have been transferred
+  -W, --whole-file            copy whole files, no incremental checks
+@@ -440,6 +441,9 @@
+ cause the next transfer to behave as if it used -I, and all files will have
+ their checksums compared and show up in log messages even if they haven't
+ changed.
++
++dit(bf(--chmod)) This options tells rsync to apply the listed "chmod" pattern
++to the permission of the files on the destination.
+ 
+ dit(bf(-n, --dry-run)) This tells rsync to not do any file transfers,
+ instead it will just report the actions it would have taken.
+diff --unified -r --new-file rsync-2.5.5.orig/testsuite/chmod.test rsync-2.5.5/testsuite/chmod.test
+--- rsync-2.5.5.orig/testsuite/chmod.test	Thu Jan  1 10:00:00 1970
++++ rsync-2.5.5/testsuite/chmod.test	Wed Apr  3 23:23:36 2002
+@@ -0,0 +1,38 @@
++#! /bin/sh
++
++# Copyright (C) 2002 by Martin Pool <mbp@samba.org>
++
++# This program is distributable under the terms of the GNU GPL (see
++# COPYING).
++
++# Test that the --chmod option functions correctly.
++
++. $srcdir/testsuite/rsync.fns
++
++set -x
++
++# Build some files
++
++fromdir="$scratchdir/from"
++todir="$scratchdir/to"
++checkdir="$scratchdir/check"
++
++mkdir "$fromdir"
++name1="$fromdir/name1"
++name2="$fromdir/name2"
++echo "This is the file" > "$name1"
++echo "This is the other file" > "$name2"
++
++chmod 4700 "$name1" || test_skipped "Can't chown"
++
++# Copy the files we've created over to another directory
++checkit "rsync -avv \"$fromdir/\" \"$checkdir/\"" "$fromdir" "$checkdir"
++
++# And then manually make the changes which should occur 
++chmod ug-s,a+rX $checkdir/*
++
++checkit "rsync -avv --chmod ug-s,a+rX \"$fromdir/\" \"$todir/\"" "$checkdir" "$todir"
++
++exit 0
++# last [] may have failed but if we get here then we've won
++

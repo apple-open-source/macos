@@ -32,6 +32,9 @@
 #ifndef __MONITOR_HEADER__
 #define __MONITOR_HEADER__
 
+#include <sys/cdefs.h>
+
+__BEGIN_DECLS
 extern void monstartup (char *lowpc, char *highpc);
 
 extern void monitor (char *lowpc, char *highpc, char *buf, int bufsiz, int cntsiz);
@@ -43,5 +46,6 @@ extern void monoutput (const char *filename);
 extern void moninit (void);
 
 extern void monreset (void);
+__END_DECLS
 
 #endif	/* __MONITOR_HEADER__ */

@@ -29,21 +29,62 @@
  *  Created on Mon Mar 12 2001.
  *  Copyright (c) 2001-2002 Apple Computer, Inc. All rights reserved.
  *
+ * $Log: IOFireWireLibIsochPort.cpp,v $
+ * Revision 1.29  2003/08/25 08:39:17  niels
+ * *** empty log message ***
+ *
+ * Revision 1.28  2003/08/20 23:33:37  niels
+ * *** empty log message ***
+ *
+ * Revision 1.27  2003/08/20 18:48:45  niels
+ * *** empty log message ***
+ *
+ * Revision 1.26  2003/08/18 23:18:15  niels
+ * *** empty log message ***
+ *
+ * Revision 1.25  2003/08/14 17:47:33  niels
+ * *** empty log message ***
+ *
+ * Revision 1.24  2003/07/29 22:49:25  niels
+ * *** empty log message ***
+ *
+ * Revision 1.23  2003/07/24 20:49:50  collin
+ * *** empty log message ***
+ *
+ * Revision 1.22  2003/07/24 06:30:59  collin
+ * *** empty log message ***
+ *
+ * Revision 1.21  2003/07/21 06:53:10  niels
+ * merge isoch to TOT
+ *
+ * Revision 1.20.6.6  2003/07/21 06:44:48  niels
+ * *** empty log message ***
+ *
+ * Revision 1.20.6.5  2003/07/18 00:17:47  niels
+ * *** empty log message ***
+ *
+ * Revision 1.20.6.4  2003/07/10 00:11:58  niels
+ * *** empty log message ***
+ *
+ * Revision 1.20.6.3  2003/07/09 21:24:07  niels
+ * *** empty log message ***
+ *
+ * Revision 1.20.6.2  2003/07/03 22:10:26  niels
+ * fix iidc/dv rcv
+ *
+ * Revision 1.20.6.1  2003/07/01 20:54:24  niels
+ * isoch merge
+ *
  */
 
 #import "IOFireWireLibIsochPort.h"
+#import "IOFireWireLibDevice.h"
+#import "IOFireWireLibNuDCLPool.h"
+#import "IOFireWireLibNuDCL.h"
+#import "IOFireWireLibCoalesceTree.h"
+
 #import <IOKit/iokitmig.h>
-#import <unistd.h>
-#import <pthread.h>
-#import <exception>
-
-#ifndef MAX
-#define MAX(a,b) ((a) > (b) ? (a) : (b))
-#endif
-
-#ifndef MIN
-#define MIN(a,b) ((a) < (b) ? (a) : (b))
-#endif
+#import <mach/mach.h>
 
 #define IOFIREWIREISOCHPORTIMP_INTERFACE	\
 	& IsochPortCOM::SGetSupported,	\
@@ -87,8 +128,8 @@ namespace IOFireWireLib {
 			case kDCLSendPacketOp:
 			case kDCLReceivePacketStartOp:
 			case kDCLReceivePacketOp:
-				*outDataBuffer		= (IOVirtualAddress)((DCLTransferPacketStruct*)dcl)->buffer ;
-				*outDataLength		= ((DCLTransferPacketStruct*)dcl)->size ;
+				*outDataBuffer		= (IOVirtualAddress)((DCLTransferPacket*)dcl)->buffer ;
+				*outDataLength		= ((DCLTransferPacket*)dcl)->size ;
 				result = true ;
 				break ;
 				
@@ -98,8 +139,8 @@ namespace IOFireWireLib {
 				break ;
 	
 			case kDCLPtrTimeStampOp:
-				*outDataBuffer		= (IOVirtualAddress)((DCLPtrTimeStampStruct*)dcl)->timeStampPtr ;
-				*outDataLength		= sizeof( *( ((DCLPtrTimeStampStruct*)dcl)->timeStampPtr) ) ;
+				*outDataBuffer		= (IOVirtualAddress)((DCLPtrTimeStamp*)dcl)->timeStampPtr ;
+				*outDataLength		= sizeof( *( ((DCLPtrTimeStamp*)dcl)->timeStampPtr) ) ;
 				result = true ;
 				break ;
 			
@@ -163,177 +204,33 @@ namespace IOFireWireLib {
 	
 #pragma mark -
 	// ============================================================
-	// CoalesceTree
-	// ============================================================
-	CoalesceTree::CoalesceTree()
-	{
-		mTop = nil ;
-	}
-	
-	CoalesceTree::~CoalesceTree()
-	{
-		DeleteNode(mTop) ;
-	}
-	
-	void
-	CoalesceTree::DeleteNode(Node* inNode)
-	{
-		if (inNode)
-		{
-			DeleteNode(inNode->left) ;
-			DeleteNode(inNode->right) ;
-			delete inNode ;
-		}
-	}
-				
-	void
-	CoalesceTree::CoalesceRange(const IOVirtualRange& inRange)
-	{
-		if ( inRange.address == NULL or inRange.length == 0)
-			return ;
-	
-		// ranges must be page aligned and have lengths in multiples of the vm page size only:
-		IOVirtualRange range = { trunc_page(inRange.address), round_page( (inRange.address & getpagesize() - 1) + inRange.length - 1) } ;
-	
-		if (mTop)
-			CoalesceRange(range, mTop) ;
-		else
-		{
-			mTop					= new Node ;
-			mTop->left 				= nil ;
-			mTop->right				= nil ;
-			mTop->range.address		= range.address ;
-			mTop->range.length		= range.length ;
-		}
-	}
-	
-	void
-	CoalesceTree::CoalesceRange(const IOVirtualRange& inRange, Node* inNode)
-	{
-		if (inRange.address > inNode->range.address)
-		{
-			if ( (inRange.address - inNode->range.address) <= inNode->range.length)
-			{
-				// merge
-				inNode->range.length = MAX(inNode->range.length, inRange.address + inRange.length - inNode->range.address) ;
-			}
-			else
-				if (inNode->right)
-					CoalesceRange(inRange, inNode->right) ;
-				else
-				{
-					inNode->right 					= new Node ;
-					inNode->right->left				= nil ;
-					inNode->right->right			= nil ;
-					
-					inNode->right->range.address	= inRange.address ;
-					inNode->right->range.length		= inRange.length ;
-				}
-		}
-		else	
-		{
-			if ((inNode->range.address - inRange.address) <= inRange.length)
-			{
-				// merge
-				inNode->range.length 	= MAX(inRange.length, inNode->range.address + inNode->range.length - inRange.address) ;
-				inNode->range.address 	= inRange.address ;
-			}
-			else
-				if (inNode->left)
-					CoalesceRange(inRange, inNode->left) ;
-				else
-				{
-					inNode->left					= new Node ;
-					inNode->left->left			= nil ;
-					inNode->left->right			= nil ;
-					
-					inNode->left->range.address	= inRange.address ;
-					inNode->left->range.length	= inRange.length ;
-				}
-		}
-	}
-	
-	const UInt32
-	CoalesceTree::GetCount() const
-	{
-		return GetCount(mTop) ;
-	}
-	
-	const UInt32
-	CoalesceTree::GetCount(Node* inNode) const
-	{
-		if (inNode)
-			return 1 + GetCount(inNode->left) + GetCount(inNode->right) ;
-		else
-			return 0 ;
-	}
-	
-	void
-	CoalesceTree::GetCoalesceList(IOVirtualRange* outRanges) const
-	{
-		UInt32 index = 0 ;
-		GetCoalesceList(outRanges, mTop, & index) ;
-	}
-	
-	void
-	CoalesceTree::GetCoalesceList(IOVirtualRange* outRanges, Node* inNode, UInt32* pIndex) const
-	{
-		if (inNode)
-		{
-			// add ranges less than us first
-			GetCoalesceList(outRanges, inNode->left, pIndex) ;
-	
-			// add us
-			outRanges[*pIndex].address	= inNode->range.address ;
-			outRanges[*pIndex].length	= inNode->range.length ;
-			++(*pIndex) ;
-			
-			// add ranges to the right of us
-			GetCoalesceList(outRanges, inNode->right, pIndex) ;
-		}
-	}
-	
-#pragma mark -
-	// ============================================================
 	//
 	// IsochPort
 	//
 	// ============================================================
 	
-	IsochPort::IsochPort( IUnknownVTbl* interface, Device& userclient, bool talking, bool allocateKernPort )
+	IsochPort::IsochPort( const IUnknownVTbl & interface, Device & device, bool talking, bool allocateKernPort )
 	: IOFireWireIUnknown( interface ),
-	  mUserClient( userclient ),
+	  mDevice( device ),
 	  mKernPortRef( 0 ),
 	  mTalking( talking )
 	{
-		mUserClient.AddRef() ;
-
-		if (allocateKernPort)
-		{
-			IsochPortAllocateParams	params ;
-			IOByteCount					outputSize = sizeof(KernIsochPortRef) ;
-			
-			IOReturn err = ::IOConnectMethodStructureIStructureO( mUserClient.GetUserClientConnection(), 
-								kIsochPort_Allocate, sizeof(IsochPortAllocateParams), & outputSize, & params, 
-								& mKernPortRef) ;
-			if(err)
-				throw std::exception() ;
-		}
+		mDevice.AddRef() ;
 	}
 	
 	IsochPort::~IsochPort()
 	{
 		if ( mKernPortRef )
 		{
-			IOReturn	err = kIOReturnSuccess;
+			IOReturn error = kIOReturnSuccess;
 			
-			err = ::IOConnectMethodScalarIScalarO( mUserClient.GetUserClientConnection(),
-									               kIsochPort_Release, 1, 0, mKernPortRef ) ;
-		
-			IOFireWireLibLogIfErr_( err, "%s %u: Couldn't release kernel port", __FILE__, __LINE__) ;
+			error = IOConnectMethodScalarIScalarO( mDevice.GetUserClientConnection(), 
+												   kReleaseUserObject, 1, 0, mKernPortRef ) ;
+
+			DebugLogCond( error, "Couldn't release kernel port" ) ;
 		}
 		
-		mUserClient.Release() ;
+		mDevice.Release() ;
 	}
 	
 	IOReturn
@@ -341,36 +238,40 @@ namespace IOFireWireLib {
 		IOFWSpeed&					maxSpeed, 
 		UInt64& 					chanSupported )
 	{
-		return ::IOConnectMethodScalarIScalarO( mUserClient.GetUserClientConnection(), kIsochPort_GetSupported,
+		return ::IOConnectMethodScalarIScalarO( mDevice.GetUserClientConnection(), kIsochPort_GetSupported,
 						1, 3, mKernPortRef, & maxSpeed, (UInt32*)&chanSupported, (UInt32*)&chanSupported + 1) ;
 	}
 	
 	IOReturn
 	IsochPort::AllocatePort( IOFWSpeed speed, UInt32 chan )
 	{
-		return ::IOConnectMethodScalarIScalarO( mUserClient.GetUserClientConnection(), kIsochPort_AllocatePort,
-						3, 0, mKernPortRef, speed, chan ) ;
+		return ::IOConnectMethodScalarIScalarO( mDevice.GetUserClientConnection(), 
+												mDevice.MakeSelectorWithObject( kIsochPort_AllocatePort_d, mKernPortRef ),
+												2, 0, speed, chan ) ;
 	}
 	
 	IOReturn
 	IsochPort::ReleasePort()
 	{
-		return ::IOConnectMethodScalarIScalarO( mUserClient.GetUserClientConnection(),
-						kIsochPort_ReleasePort, 1, 0, mKernPortRef ) ;
+		return ::IOConnectMethodScalarIScalarO( mDevice.GetUserClientConnection(),
+												mDevice.MakeSelectorWithObject( kIsochPort_ReleasePort_d, mKernPortRef ), 
+												0, 0 ) ;
 	}
 	
 	IOReturn
 	IsochPort::Start()
 	{
-		return ::IOConnectMethodScalarIScalarO( mUserClient.GetUserClientConnection(),
-						kIsochPort_Start, 1, 0, mKernPortRef ) ;
+		return ::IOConnectMethodScalarIScalarO( mDevice.GetUserClientConnection(),
+												mDevice.MakeSelectorWithObject( kIsochPort_Start_d, mKernPortRef ),
+												0, 0 ) ;
 	}
 	
 	IOReturn
 	IsochPort::Stop()
 	{
-		return ::IOConnectMethodScalarIScalarO( mUserClient.GetUserClientConnection(), kIsochPort_Stop, 1, 0, 
-						mKernPortRef ) ;
+		return ::IOConnectMethodScalarIScalarO( mDevice.GetUserClientConnection(), 
+												mDevice.MakeSelectorWithObject( kIsochPort_Stop_d, mKernPortRef ), 
+												0, 0 ) ;
 	}
 	
 #pragma mark -
@@ -380,8 +281,8 @@ namespace IOFireWireLib {
 	//
 	// ============================================================
 	
-	IsochPortCOM::IsochPortCOM( IUnknownVTbl* interface, Device& inUserClient, bool talking, bool allocateKernPort )
-	:	IsochPort( interface, inUserClient, talking, allocateKernPort )
+	IsochPortCOM::IsochPortCOM( const IUnknownVTbl & interface, Device& userclient, bool talking, bool allocateKernPort )
+	:	IsochPort( interface, userclient, talking, allocateKernPort )
 	{
 	}
 	
@@ -457,7 +358,7 @@ namespace IOFireWireLib {
 	//
 	// ============================================================
 	
-	RemoteIsochPort::RemoteIsochPort( IUnknownVTbl* interface, Device& userclient, bool talking )
+	RemoteIsochPort::RemoteIsochPort( const IUnknownVTbl & interface, Device& userclient, bool talking )
 	:	IsochPortCOM( interface, userclient, talking ),
 		mGetSupportedHandler(0),
 		mAllocatePortHandler(0),
@@ -575,7 +476,7 @@ namespace IOFireWireLib {
 	//
 	// ============================================================
 	RemoteIsochPortCOM::RemoteIsochPortCOM( Device& userclient, bool talking )
-	: RemoteIsochPort( reinterpret_cast<IUnknownVTbl*>(& sInterface), userclient, talking )
+	: RemoteIsochPort( reinterpret_cast<const IUnknownVTbl &>( sInterface ), userclient, talking )
 	{
 	}
 								
@@ -663,246 +564,589 @@ namespace IOFireWireLib {
 #pragma mark -
 	LocalIsochPortCOM::Interface	LocalIsochPortCOM::sInterface = 
 	{
-		INTERFACEIMP_INTERFACE,
-		1, 0,
+		INTERFACEIMP_INTERFACE
+		,4,0
 		
-		IOFIREWIREISOCHPORTIMP_INTERFACE,
-		& LocalIsochPortCOM::SModifyJumpDCL,
-		& LocalIsochPortCOM::SPrintDCLProgram,
-		& LocalIsochPortCOM::SModifyTransferPacketDCLSize,
-		& LocalIsochPortCOM::SModifyTransferPacketDCLBuffer,
-		& LocalIsochPortCOM::SModifyTransferPacketDCL
+		,IOFIREWIREISOCHPORTIMP_INTERFACE
+		,& LocalIsochPortCOM::SModifyJumpDCL
+		,& LocalIsochPortCOM::SPrintDCLProgram
+		,& LocalIsochPortCOM::SModifyTransferPacketDCLSize
+		,& LocalIsochPortCOM::SModifyTransferPacketDCLBuffer
+		,& LocalIsochPortCOM::SModifyTransferPacketDCL
+		,& LocalIsochPortCOM::S_SetFinalizeCallback
+		, & LocalIsochPortCOM::S_SetResourceUsageFlags
+		, & LocalIsochPortCOM::S_Notify
 	} ;
-	
-	LocalIsochPort::LocalIsochPort( IUnknownVTbl* interface, Device& userclient, bool talking, DCLCommand* inDCLProgram, 
-										UInt32 inStartEvent, UInt32 inStartState, UInt32 inStartMask, IOVirtualRange inDCLProgramRanges[], 
-										UInt32 inDCLProgramRangeCount, IOVirtualRange inBufferRanges[], UInt32 inBufferRangeCount )
-	: IsochPortCOM( interface, userclient, talking, false ), 
-	  mDCLProgram(inDCLProgram),
-	  mStartEvent(inStartEvent),
-	  mStartState(inStartState),
-	  mStartMask(inStartMask),
-	  mExpectedStopTokens(0),
-	  mDeferredRelease(false)
+
+	LocalIsochPort::LocalIsochPort( const IUnknownVTbl & interface, Device & userclient, bool talking,
+			DCLCommand* program, UInt32 startEvent, UInt32 startState, UInt32 startMask,
+			IOVirtualRange userProgramRanges[], UInt32 userProgramRangeCount, 
+			IOVirtualRange userBufferRanges[], UInt32 userBufferRangeCount )
+	: IsochPortCOM( interface, userclient, talking, false )
+	, mDCLProgram( program )
+	, mExpectedStopTokens(0)
+	, mDeferredReleaseCount(0)
+	, mFinalizeCallback(nil)
+	, mBufferRanges( nil )
 	{
-		if ( !inDCLProgram )
+		// sorry about the spaghetti.. hope you're hungry:
+		
+		if ( !program )
 		{
-			IOFireWireLibLog_("%s %u:no DCL program!\n", __FILE__, __LINE__) ;
-			throw;//return kIOReturnBadArgument ;
+			DebugLog( "no DCL program!\n" ) ;
+			throw kIOReturnBadArgument ;
 		}
+
+//		DeviceCOM :: SPrintDCLProgram ( nil, program, 0 ) ;
+
+		IOReturn	error = kIOReturnSuccess ;
 
 		// trees used to coalesce program/data ranges
-		CoalesceTree		programTree ;
 		CoalesceTree		bufferTree ;
-		
+
 		// check if user passed in any virtual memory ranges to start with...
-		//zzz maybe we should try to validate that the ranges are actually in
-		//zzz client memory?
-		if (inDCLProgramRanges)
-			for(UInt32 index=0; index < inDCLProgramRangeCount; ++index)
-				programTree.CoalesceRange(inDCLProgramRanges[index]) ;
-	
-		if (inBufferRanges)
-			for(UInt32 index=0; index < inBufferRangeCount; ++index)
-				bufferTree.CoalesceRange(inBufferRanges[index]) ;
-	
-		// point to beginning of DCL program
-		DCLCommand*							pCurrentDCLStruct = mDCLProgram ;
-		IOVirtualRange						tempRange ;
-		LocalIsochPortAllocateParams		params ;
-	
-		params.userDCLProgramDCLCount = 0 ;
-		while (pCurrentDCLStruct)
+		if ( userBufferRanges )
 		{
-			++params.userDCLProgramDCLCount ;
-		
-			tempRange.address	= (IOVirtualAddress) pCurrentDCLStruct ;
-			tempRange.length	= GetDCLSize(pCurrentDCLStruct) ;
+			for( unsigned index=0; index < userBufferRangeCount; ++index )
+				bufferTree.CoalesceRange( userBufferRanges[index]) ;
+		}		
+
+		LocalIsochPortAllocateParams params ;
+		{
+			params.programExportBytes = 0 ;
+			params.programData = NULL ;
+		}
+
+		if ( program->opcode == kDCLNuDCLLeaderOp )
+		{
+			NuDCLPool*	pool	= reinterpret_cast<NuDCLPool*>( reinterpret_cast< DCLNuDCLLeader* >( program )->program ) ;
+
+			params.version 				= 1 ;		// new-style DCL program
+
+			pool->CoalesceBuffers( bufferTree ) ;
 			
-			programTree.CoalesceRange(tempRange) ;
-			
-			if ( GetDCLDataBuffer(pCurrentDCLStruct, & tempRange.address, & tempRange.length) )
+			mBufferRangeCount = bufferTree.GetCount() ;
+			mBufferRanges = new IOVirtualRange[ mBufferRangeCount ] ;
+			if ( !mBufferRanges )
 			{
-				bufferTree.CoalesceRange(tempRange) ;
+				error = kIOReturnNoMemory ;
+			}
+			else
+			{
+				bufferTree.GetCoalesceList( mBufferRanges ) ;
+			
+				params.programExportBytes 	= pool->Export( & params.programData, mBufferRanges, mBufferRangeCount ) ;
+			}
+		}
+		else
+		{	
+			unsigned programCount = 0 ;
+			
+			params.version = 0 ;					// old-style DCL program
+			
+			// count DCLs in program and coalesce buffers:
+			for( DCLCommand * dcl = mDCLProgram; dcl != nil; dcl = dcl->pNextDCLCommand )
+			{
+				IOVirtualRange tempRange ;
+				if ( GetDCLDataBuffer ( dcl, & tempRange.address, & tempRange.length ) )
+				{
+					bufferTree.CoalesceRange ( tempRange ) ;
+				}
+
+				++programCount ;
 			}
 			
-			pCurrentDCLStruct = pCurrentDCLStruct->pNextDCLCommand ;
-		}
-	
-		IOVirtualRange*				programRanges 		= nil ;
-		IOVirtualRange*				bufferRanges		= nil ;
-		UInt32						programRangeCount	= programTree.GetCount() ;
-		UInt32						bufferRangeCount	= bufferTree.GetCount() ;
-	
-		// allocate lists to store coalesced ranges
-		// and get trees' coalesced buffer lists into the buffers
-		if ( nil == (programRanges = new IOVirtualRange[programRangeCount] ))
-			throw;//result = kIOReturnNoMemory ;
-		else
-			programTree.GetCoalesceList(programRanges) ;
-		
+			InfoLog("program count is %d\n", programCount) ;
 			
-		if ( bufferRangeCount > 0)
-		{
-			if (nil == (bufferRanges = new IOVirtualRange[bufferRangeCount] ))
-				throw;//result = kIOReturnNoMemory ;
-			else
-				bufferTree.GetCoalesceList(bufferRanges) ;
+			if ( !error )
+			{
+				error = ExportDCLs( & params.programData, & params.programExportBytes ) ;
+			}
+
+			if ( !error )
+			{
+				mBufferRangeCount = bufferTree.GetCount() ;
+				mBufferRanges = new IOVirtualRange[ mBufferRangeCount ] ;
+	
+				if ( !mBufferRanges )
+				{
+					error = kIOReturnNoMemory ;
+				}
+				else
+				{
+					bufferTree.GetCoalesceList( mBufferRanges ) ;
+				}
+			}
 		}
+		
+		if ( error )
+		{
+			throw error ;
+		}
+	
+//		// allocate lists to store buffer ranges
+//		// and get coalesced buffer lists
+//
+//		UInt32			bufferRangeCount					= bufferTree.GetCount() ;
+//		IOVirtualRange	bufferRanges[ bufferRangeCount ] ;
+//
+//		bufferTree.GetCoalesceList ( bufferRanges ) ;
 	
 		// fill out param struct and submit to kernel
-		params.userDCLProgram				= mDCLProgram ;
-		params.userDCLProgramRanges 		= programRanges ;
-		params.userDCLProgramRangeCount		= programRangeCount ;
-		params.userDCLBufferRanges			= bufferRanges ;
-		params.userDCLBufferRangeCount		= bufferRangeCount ;
+		params.bufferRanges					= mBufferRanges ;
+		params.bufferRangeCount				= mBufferRangeCount ;
 		params.talking						= mTalking ;	
-		params.startEvent					= mStartEvent ;
-		params.startState					= mStartState ;
-		params.startMask					= mStartMask ;
+		params.startEvent					= startEvent ;
+		params.startState					= startState ;
+		params.startMask					= startMask ;
 		params.userObj						= this ;
 		
-		IOByteCount	outputSize = sizeof(KernIsochPortRef) ;
-		IOReturn err = ::IOConnectMethodStructureIStructureO( mUserClient.GetUserClientConnection(), 
-							kLocalIsochPort_Allocate, sizeof(params), & outputSize, & params, & mKernPortRef) ;
-		if (err)
+		InfoLog("startEvent=%x, startState=%x, startMask=%x\n", params.startEvent, params.startState, params.startMask) ;
+
+		IOByteCount	outputSize = sizeof( UserObjectHandle ) ;
+		error = :: IOConnectMethodStructureIStructureO (	mDevice.GetUserClientConnection(),
+															kLocalIsochPort_Allocate, sizeof ( params ), 
+															& outputSize, & params, & mKernPortRef ) ;
+		if (error)
 		{
-			IOFireWireLibLog_("Couldn't create local isoch port\nCheck your buffers!\n") ;
-			IOFireWireLibLog_("Found buffers:\n") ;
+			DebugLog ( "Couldn't create local isoch port (error=%x)\nCheck your buffers!\n", error ) ;
+			DebugLog ( "Found buffers:\n" ) ;
 
 #if IOFIREWIRELIBDEBUG
-			for( unsigned index=0; index < bufferRangeCount; ++index )
+			for( unsigned index=0; index < mBufferRangeCount; ++index )
 			{
-				IOFireWireLibLog_("\%u: <0x%lx>-<0x%lx>\n", index, bufferRanges[index].address, 
-						(unsigned)bufferRanges[index].address + bufferRanges[index].length ) ;
+				DebugLog (	"\%u: <0x%x>-<0x%lx>\n", index, mBufferRanges[index].address, 
+							(unsigned)mBufferRanges[index].address + mBufferRanges[index].length ) ;
 			}
 #endif
-			
-			throw std::exception() ;
+
+			throw error ;
 		}
-		
-		// done with these:
-		delete[] programRanges ;
-		delete[] bufferRanges ;
 		
 		{
 			mach_msg_type_number_t 	outputSize = 0 ;
-			io_scalar_inband_t		params = { (int)mKernPortRef, (int)& DCLCallProcHandler, (int)this } ;
-			
-	//		params[0]	= (UInt32) mKernPortRef ;
-	//		params[1]	= (UInt32) & DCLCallProcHandler ;
-	//		params[2]	= (UInt32) this ;
-			
-			err = ::io_async_method_scalarI_scalarO( mUserClient.GetUserClientConnection(), 
-							mUserClient.GetIsochAsyncPort(), mAsyncRef, 1, kSetAsyncRef_DCLCallProc, params, 2, 
-							NULL, & outputSize) ;
-			if(err)
-				throw std::exception() ;
+			io_scalar_inband_t		params = { (int) mKernPortRef } ;
+
+			// nnn a bit skanky: turn a function pointer to member function into an integer:
+			OSAsyncReference asyncRef ;
+			asyncRef[ kIOAsyncCalloutFuncIndex ] =  (natural_t) (void (*)(IOReturn)) & LocalIsochPort::DCLStopTokenCallProcHandler ;
+			asyncRef[ kIOAsyncCalloutRefconIndex ] = (natural_t) this ;
+
+			error = :: io_async_method_scalarI_scalarO (	mDevice.GetUserClientConnection(), 
+															mDevice.GetIsochAsyncPort(), 
+															asyncRef, kOSAsyncRefCount, kSetAsyncRef_DCLCallProc, 
+															params, 1, nil, & outputSize) ;
+
+			if( error )
+			{
+				throw error ;
+			}
 		}
 		
+		if ( params.programData )
+			vm_deallocate( mach_task_self (), (vm_address_t) params.programData, params.programExportBytes ) ;		// this is temporary storage
+						
 		// make our mutex
-		pthread_mutex_init( & mMutex, nil ) ;	
+		pthread_mutex_init ( & mMutex, nil ) ;	
 	}
 	
-	LocalIsochPort::~LocalIsochPort()
+	LocalIsochPort :: ~LocalIsochPort ()
 	{
+		delete[] mBufferRanges ;
+		
 		pthread_mutex_destroy( & mMutex ) ;
 	}
 	
 	ULONG
-	LocalIsochPort::Release()
+	LocalIsochPort :: Release ()
 	{
-		Lock() ;
+		Lock () ;
+		
 		if ( mExpectedStopTokens > 0 )
 		{
-			Unlock() ;
-			mDeferredRelease = true ;
+			Unlock () ;
+			++ mDeferredReleaseCount ;
 			return mRefCount ;
 		}
 	
-		Unlock() ;
-		
+		Unlock () ;
+
+//		while( true )
+//		{
+//			Lock() ;
+//			bool run = ( mExpectedStopTokens > 0 ) ;
+//			Unlock() ;
+//			
+//			if ( !run )
+//			{
+//				break ;
+//			}
+//			
+//			::CFRunLoopRunInMode( kCFRunLoopDefaultMode, 1, true ) ;
+//		}
+
 		return IsochPortCOM::Release() ;
 	}
 
+//	IOReturn
+//	LocalIsochPort :: Start()
+//	{
+//		DeviceCOM :: SPrintDCLProgram ( nil, mDCLProgram, 0 ) ;
+//		return IsochPort::Start() ;
+//	}
+	
 	IOReturn
-	LocalIsochPort::Stop()
+	LocalIsochPort :: Stop ()
 	{
 		Lock() ;
 		++mExpectedStopTokens ;
-		IOFireWireLibLog_("waiting for %lu stop tokens\n", mExpectedStopTokens) ;
+		InfoLog("waiting for %lu stop tokens\n", mExpectedStopTokens) ;
 		Unlock() ;
-		
+						
 		return IsochPortCOM::Stop() ;	// call superclass Stop()
 	}
 	
 	IOReturn
-	LocalIsochPort::ModifyJumpDCL( DCLJump* inJump, DCLLabelStruct* inLabel )
+	LocalIsochPort :: ModifyJumpDCL ( DCLJump* inJump, DCLLabel* inLabel )
 	{		
 		inJump->pJumpDCLLabel = inLabel ;
 	
-		IOReturn result = ::IOConnectMethodScalarIScalarO( mUserClient.GetUserClientConnection(), 
-						kLocalIsochPort_ModifyJumpDCL, 3, 0, mKernPortRef, inJump->compilerData, 
-						inLabel->compilerData ) ;
-		
+		IOReturn result = ::IOConnectMethodScalarIScalarO(  mDevice.GetUserClientConnection(), 
+															mDevice.MakeSelectorWithObject( kLocalIsochPort_ModifyJumpDCL_d, 
+																mKernPortRef ), 
+															2, 0, inJump->compilerData, 
+															inLabel->compilerData ) ;
 		return result ;
 	}
 	
 	IOReturn
-	LocalIsochPort::ModifyTransferPacketDCLSize( DCLTransferPacket* dcl, IOByteCount newSize )
+	LocalIsochPort :: ModifyTransferPacketDCLSize ( DCLTransferPacket* dcl, IOByteCount newSize )
 	{
-		return ::IOConnectMethodScalarIScalarO( mUserClient.GetUserClientConnection(), kLocalIsochPort_ModifyTransferPacketDCLSize, 3, 0,
-						mKernPortRef, dcl->compilerData, newSize ) ;
+//		return :: IOConnectMethodScalarIScalarO (	mDevice.GetUserClientConnection(), kLocalIsochPort_ModifyTransferPacketDCLSize, 
+//													3, 0, mKernPortRef, dcl->compilerData, newSize ) ;
+		return kIOReturnUnsupported ;
 	}
 
 	void
-	LocalIsochPort::DCLCallProcHandler(
-		void*				inRefCon,
-		IOReturn			result,
-		LocalIsochPort*		me )
+	LocalIsochPort :: DCLStopTokenCallProcHandler( IOReturn )
 	{
-		if ( me->mExpectedStopTokens > 0 )
+		if ( mExpectedStopTokens > 0 )
 		{
-			if ( result == kIOFireWireLastDCLToken && inRefCon==(void*)0xFFFFFFFF )
-			{			
-				me->Lock() ;
-				me->mExpectedStopTokens-- ;
-				me->Unlock() ;
-	
-				if ( me->mExpectedStopTokens == 0 && me->mDeferredRelease )
-					me->Release() ;
+			Lock() ;
+			mExpectedStopTokens-- ;
+			Unlock() ;
+
+			if ( mExpectedStopTokens == 0 )
+			{
+				if ( mFinalizeCallback )
+					(*mFinalizeCallback)(mRefCon) ;
+				while ( mDeferredReleaseCount > 0 )
+				{
+					Release() ;
+					--mDeferredReleaseCount ;
+				}
 			}
-			return ;		
+		}		
+	}
+#if 0	
+	void
+	LocalIsochPort :: S_DCLKernelCallout( DCLCallProc * dcl )
+	{
+		(*dcl->proc)(dcl->procData) ;
+		
+		::IOConnectMethodScalarIScalarO( port->mDevice.GetUserClientConnection(), 
+				Device::MakeSelectorWithObject( kLocalIsochPort_RunDCLUpdateList_d, port->mKernPortRef ), 1, 0, dcl->compilerData ) ;
+	}
+
+	void
+	LocalIsochPort :: S_NuDCLKernelCallout ( NuDCL * dcl )
+	{
+		(*dcl->fData.callback)(dcl->fData.refcon, (NuDCLRef)dcl) ;
+		
+		::IOConnectMethodScalarIScalarO( 
+				mDevice.GetUserClientConnection(), 
+				Device::MakeSelectorWithObject( kLocalIsochPort_RunNuDCLUpdateList_d, mKernPortRef ), 1, 0, dcl->fExportIndex ) ;
+	}
+#endif	
+	
+	IOReturn
+	LocalIsochPort :: SetResourceUsageFlags (
+				IOFWIsochResourceFlags 			flags )
+	{
+		return ::IOConnectMethodScalarIScalarO(	mDevice.GetUserClientConnection(), 
+												mDevice.MakeSelectorWithObject( kIsochPort_SetIsochResourceFlags_d, mKernPortRef ), 
+												1, 0, flags ) ;
+	}
+
+	IOReturn
+	LocalIsochPort :: ExportDCLs( IOVirtualAddress * exportBuffer, IOByteCount * exportBytes )
+	{
+		IOReturn error = kIOReturnSuccess ;
+	
+		// see how much space we need for serialization...
+		
+//		unsigned byteCount = 0 ;
+		*exportBytes = 0 ;
+		for( DCLCommand * dcl = mDCLProgram; dcl != NULL; dcl = dcl->pNextDCLCommand )
+		{
+			*exportBytes += GetDCLSize( dcl ) ;
+			
+			switch ( dcl->opcode & ~kFWDCLOpFlagMask )
+			{
+				case kDCLUpdateDCLListOp :
+				{
+					// update DCLs store a copy of their update list in the export buffer
+					*exportBytes += sizeof( DCLCommand* ) * ((DCLUpdateDCLList*)dcl)->numDCLCommands ;
+					break ;
+				}
+				case kDCLCallProcOp :
+				{
+					*exportBytes += sizeof( OSAsyncReference ) ;
+					break ;
+				}
+			}
+		}
+
+		// buffer to hold copy of DCLs in program
+		error = vm_allocate( mach_task_self (), exportBuffer, *exportBytes, true /*anywhere*/ ) ;
+
+		if ( !*exportBuffer && !error )
+		{
+			error = kIOReturnNoMemory ;
+		}
+
+		// start from beginning
+		{
+			unsigned offset = 0 ;
+			IOVirtualAddress buffer = *exportBuffer ;
+			
+			InfoLog("exporting DCLs, pass 1...\n") ;
+
+			for( DCLCommand * dcl = mDCLProgram; dcl != NULL ; dcl = dcl->pNextDCLCommand )
+			{
+
+				unsigned size = GetDCLSize( dcl ) ;
+		
+				bcopy( dcl, (void*)buffer, size ) ;
+				dcl->compilerData = offset ;		// save for later.
+
+				switch ( dcl->opcode & ~kFWDCLOpFlagMask )
+				{
+					case kDCLUpdateDCLListOp :
+					
+						size += ( sizeof( DCLCommand* ) * ((DCLUpdateDCLList*)dcl)->numDCLCommands ) ;
+						
+						break ;
+
+					case kDCLCallProcOp :
+
+						// if this is a callproc DCL, fill in the procData
+						// field in our exported copy of the DCL with a pointer
+						// to the original DCL. This is for the kernel use...
+						// We also leave room in the buffer for an OSAsyncReference..
+						// This means the kernel can avoid allocating it...
+
+						((DCLCallProc*)buffer)->procData = (UInt32)dcl ;
+						size += sizeof( OSAsyncReference ) ;
+						
+						break ;
+
+//					// nnn debug only:
+//					case kDCLJumpOp :
+//					{
+//						if ( ((DCLJump*)dcl)->pJumpDCLLabel && ( ( ((DCLJump*)dcl)->pJumpDCLLabel->opcode & ~kFWDCLOpFlagMask ) != kDCLLabelOp ) )
+//						{
+//							DebugLog("dcl=%p, dcl->pJumpDCLLabel=%p\n", dcl, ((DCLJump*)dcl)->pJumpDCLLabel) ;
+//							assert( false ) ;
+//						}
+//						break ;
+//					}
+							
+					default :
+						break ;
+				}
+				
+				buffer += size ;
+				offset += size ;
+			}
+
+			InfoLog("...done\n") ;
 		}
 		
-		if ( result == kIOReturnSuccess )
+		// some DCLs (jumps and update list DCLs) refer to other DCLs with 
+		// user space pointers which makes translation a bit harder.
+		// The 'compilerData' field of all the DCLs in our export data block 
+		// contain an offset in bytes from the beginning of the exported data
+		// block..
+		// We now replace any user space pointers with offsets for kernel use..
 		{
-			DCLCallProcStruct*	callProcDCL = (DCLCallProcStruct*)inRefCon ;
+			unsigned offset = 0 ;
+
+			InfoLog("exporting DCLs, pass 2... export size=%d bytes\n", (int)*exportBytes ) ;
+
+			while( offset < *exportBytes )
+			{
+				DCLCommand * dcl = (DCLCommand*)(*exportBuffer + offset ) ;
+				
+//				DebugLog("DCL=%p, offset=%x, opcode=%x\n", dcl, offset, dcl->opcode) ;
+	
+				{
+					unsigned opcode = dcl->opcode & ~kFWDCLOpFlagMask ;
+					assert( opcode <= 15 || opcode == 20 ) ;
+				}
+	
+				unsigned size = GetDCLSize( dcl ) ;
+				
+				switch ( dcl->opcode & ~kFWDCLOpFlagMask )
+				{
+					case kDCLUpdateDCLListOp :
+					{
+						// make list of offsets from list of user space DCL pointers
+						// List starts after DCL in question on export buffer
+						
+						DCLCommand ** list = (DCLCommand**)( ((DCLUpdateDCLList*)dcl) + 1 )  ;
+						for( unsigned index=0; index < ((DCLUpdateDCLList*)dcl)->numDCLCommands; ++index )
+						{
+							list[ index ] = (DCLCommand*) ((DCLUpdateDCLList*)dcl)->dclCommandList[ index ]->compilerData ;
+						}
+	
+						size += sizeof( DCLCommand* ) * ((DCLUpdateDCLList*)dcl)->numDCLCommands ;
+						
+						break ;
+					}
+					
+					case kDCLJumpOp :
+					{
+						((DCLJump*)dcl)->pJumpDCLLabel = (DCLLabel*) ((DCLJump*)dcl)->pJumpDCLLabel->compilerData ;
+						break ;
+					}
+					
+					case kDCLCallProcOp :
+					{
+						size += sizeof( OSAsyncReference ) ;
+						break ;
+					}
+						
+					default :
+					
+						break ;
+				}
+				
+				offset += size ;
+				
+			}
+
+			InfoLog("...done\n") ;
 			
-			(*callProcDCL->proc)((DCLCommand*)inRefCon) ;
 		}
+		
+		// fill in DCL compiler data fields with ( program index + 1 ) ;
+		{
+			unsigned count = 0 ;
+			for( DCLCommand * dcl = mDCLProgram; dcl != nil; dcl = dcl->pNextDCLCommand )
+			{
+				dcl->compilerData = ++count ;		// index incremented here..
+													// compiler data for DCL should be index + 1
+			}
+		}
+		
+		return error ;
 	}
 	
-	void
-	LocalIsochPort::Lock()
+	IOReturn
+	LocalIsochPort :: Notify (
+		IOFWDCLNotificationType 	notificationType,
+		void ** 					inDCLList, 
+		UInt32 						numDCLs )
 	{
-		pthread_mutex_lock( & mMutex ) ;
-	}
+		IOReturn error = kIOReturnSuccess ;
 	
-	void
-	LocalIsochPort::Unlock()
-	{
-		pthread_mutex_unlock( & mMutex ) ;
+		switch( notificationType )
+		{
+			case kFWNuDCLModifyNotification:
+			{
+				IOByteCount dataSize = 0 ;
+				for( unsigned index=0; index < numDCLs; ++index )
+				{
+					dataSize += 4 + ((NuDCL**)inDCLList)[ index ]->Export( NULL, NULL, NULL ) ;
+				}
+				
+				UInt8 data[ dataSize ] ;
+
+				{
+					UInt8 * exportCursor = data ;
+					for( unsigned index=0; index < numDCLs; ++index )				
+					{
+						NuDCL * dcl = ((NuDCL**)inDCLList)[ index ] ;
+						*(UInt32*)exportCursor = dcl->GetExportIndex() ;
+						exportCursor += sizeof( UInt32 ) ;
+						
+						dcl->Export( (IOVirtualAddress*) & exportCursor, mBufferRanges, mBufferRangeCount ) ;
+					}
+				}
+				
+				error = ::IOConnectMethodScalarIStructureI( 
+						mDevice.GetUserClientConnection(),
+						Device::MakeSelectorWithObject( kLocalIsochPort_Notify_d, mKernPortRef ), 
+						2, dataSize, (UInt32)notificationType, numDCLs, data ) ;
+				
+				break ;
+			}
+			
+			case kFWNuDCLModifyJumpNotification:
+			{
+				unsigned pairCount = numDCLs << 1 ;
+				
+				unsigned dcls[ pairCount ] ;
+				
+				{
+					unsigned index = 0 ;
+					unsigned pairIndex=0; 
+					
+					while( pairIndex < pairCount )
+					{
+						NuDCL * theDCL = ((NuDCL**)inDCLList)[ index++ ] ;
+						dcls[ pairIndex++ ] = theDCL->GetExportIndex() ;
+						dcls[ pairIndex++ ] = theDCL->GetBranch()->GetExportIndex() ;
+					}
+				}
+
+				error = ::IOConnectMethodScalarIStructureI( 
+						mDevice.GetUserClientConnection(),
+						Device::MakeSelectorWithObject( kLocalIsochPort_Notify_d, mKernPortRef ), 
+						2, sizeof( dcls ), (UInt32)notificationType, numDCLs, dcls ) ;
+				break ;
+			}
+			
+			case kFWNuDCLUpdateNotification:
+			{
+				unsigned dcls[ numDCLs ] ;
+
+				for( unsigned index=0; index < numDCLs; ++index )
+				{
+					dcls[ index ] = ((NuDCL*)inDCLList[ index ])->GetExportIndex() ;
+				}
+
+				error = ::IOConnectMethodScalarIStructureI( 
+						mDevice.GetUserClientConnection(),
+						Device::MakeSelectorWithObject( kLocalIsochPort_Notify_d, mKernPortRef ), 
+						2, sizeof( dcls ), (UInt32)notificationType, numDCLs, dcls ) ;
+				break ;
+			}
+			
+			case kFWDCLUpdateNotification:
+			case kFWDCLModifyNotification:
+			{
+				error = kIOReturnUnsupported ;
+			}
+				
+			default:
+				error = kIOReturnBadArgument ;
+		}		
+		
+		return error ;
 	}
-	
-	void
-	LocalIsochPort::PrintDCLProgram(
-		const DCLCommand*		dcl,
-		UInt32						inDCLCount) 
-	{
-		mUserClient.PrintDCLProgram(dcl, inDCLCount) ;
-	}
-	
+
 #pragma mark -
 	// ============================================================
 	//
@@ -910,11 +1154,12 @@ namespace IOFireWireLib {
 	//
 	// ============================================================
 	
-	LocalIsochPortCOM::LocalIsochPortCOM( Device& userclient, bool inTalking, DCLCommand* inDCLProgram, UInt32 inStartEvent,
-			UInt32 inStartState, UInt32 inStartMask, IOVirtualRange inDCLProgramRanges[], UInt32 inDCLProgramRangeCount,
-			IOVirtualRange inBufferRanges[], UInt32 inBufferRangeCount)
-	: LocalIsochPort( reinterpret_cast<IUnknownVTbl*>(& sInterface), userclient, inTalking, inDCLProgram, inStartEvent, 
-			inStartState, inStartMask, inDCLProgramRanges, inDCLProgramRangeCount, inBufferRanges, inBufferRangeCount )
+	LocalIsochPortCOM::LocalIsochPortCOM( Device& userclient, bool talking, DCLCommand* program, UInt32 startEvent,
+			UInt32 startState, UInt32 startMask, IOVirtualRange programRanges[], UInt32 programRangeCount,
+			IOVirtualRange bufferRanges[], UInt32 bufferRangeCount)
+	: LocalIsochPort( reinterpret_cast<const IUnknownVTbl &>( sInterface ), userclient, talking, program, 
+			startEvent, startState, startMask, programRanges, 
+			programRangeCount, bufferRanges, bufferRangeCount )
 	{
 	}
 	
@@ -923,83 +1168,87 @@ namespace IOFireWireLib {
 	}
 	
 	IUnknownVTbl**
-	LocalIsochPortCOM::Alloc(
-		Device&							inUserClient, 
-		Boolean							inTalking,
-		DCLCommand*				inDCLProgram,
-		UInt32							inStartEvent,
-		UInt32							inStartState,
-		UInt32							inStartMask,
-		IOVirtualRange					inDCLProgramRanges[],			// optional optimization parameters
-		UInt32							inDCLProgramRangeCount,
-		IOVirtualRange					inBufferRanges[],
-		UInt32							inBufferRangeCount)
+	LocalIsochPortCOM::Alloc( Device & userclient, Boolean talking, DCLCommand * program,
+			UInt32 startEvent, UInt32 startState, UInt32 startMask,
+			IOVirtualRange programRanges[], UInt32 programRangeCount, 
+			IOVirtualRange bufferRanges[], UInt32 bufferRangeCount )
 	{
 		LocalIsochPortCOM*	me = nil ;
 		
-		try {
-			me = new LocalIsochPortCOM(inUserClient, inTalking, inDCLProgram, inStartEvent, inStartState, inStartMask,
-							inDCLProgramRanges, inDCLProgramRangeCount, inBufferRanges, inBufferRangeCount ) ;
-		} catch(...) {
+		try
+		{
+			me = new LocalIsochPortCOM (	userclient, (bool)talking, program, startEvent, startState, startMask,
+											programRanges, programRangeCount, bufferRanges, bufferRangeCount ) ;
+		}
+		catch(...)
+		{
 		}
 
-		return (nil == me) ? nil : reinterpret_cast<IUnknownVTbl**>(& me->GetInterface()) ;
+		return ( nil == me ) ? nil : reinterpret_cast < IUnknownVTbl ** > ( & me->GetInterface () ) ;
 	}
 	
 	HRESULT
-	LocalIsochPortCOM::QueryInterface(REFIID iid, void ** ppv )
+	LocalIsochPortCOM :: QueryInterface (	REFIID iid, void ** ppv )
 	{
-		HRESULT		result = S_OK ;
+		HRESULT		result			= S_OK ;
+		CFUUIDRef	interfaceID		= CFUUIDCreateFromUUIDBytes(kCFAllocatorDefault, iid) ;
+
 		*ppv = nil ;
 	
-		CFUUIDRef	interfaceID	= CFUUIDCreateFromUUIDBytes(kCFAllocatorDefault, iid) ;
-	
-		if ( 	CFEqual(interfaceID, IUnknownUUID) 
+		if ( CFEqual(interfaceID, IUnknownUUID) 
 				|| CFEqual(interfaceID, kIOFireWireLocalIsochPortInterfaceID ) 
 				|| CFEqual( interfaceID, kIOFireWireLocalIsochPortInterfaceID_v2 )
 #if 0
 				|| CFEqual( interfaceID, kIOFireWireLocalIsochPortInterfaceID_v3 )	// don't support this yet...
 #endif
+				|| CFEqual( interfaceID, kIOFireWireLocalIsochPortInterfaceID_v4 )
+				|| CFEqual( interfaceID, kIOFireWireLocalIsochPortInterfaceID_v5 )
 			)
 		{
-			*ppv = & GetInterface() ;
-			AddRef() ;
+			* ppv = & GetInterface () ;
+			AddRef () ;
 		}
 		else
 		{
-			*ppv = nil ;
+			* ppv = nil ;
 			result = E_NOINTERFACE ;
 		}	
 		
-		CFRelease(interfaceID) ;
+		:: CFRelease ( interfaceID ) ;
 		return result ;
 	}
 	
 	IOReturn
-	LocalIsochPortCOM::SModifyJumpDCL(
-		IOFireWireLibLocalIsochPortRef 	self, 
-		DCLJump* 					inJump, 
-		DCLLabelStruct* 				inLabel)
+	LocalIsochPortCOM :: SModifyJumpDCL(
+				IOFireWireLibLocalIsochPortRef 	self, 
+				DCLJump *	 					jump, 
+				DCLLabel *		 				label)
 	{
-		return IOFireWireIUnknown::InterfaceMap<LocalIsochPortCOM>::GetThis(self)->ModifyJumpDCL(inJump, inLabel) ;
+		return IOFireWireIUnknown :: InterfaceMap< LocalIsochPortCOM > :: GetThis ( self )->ModifyJumpDCL ( jump, label ) ;
 	}
 	
-	// --- utility functions ----------
+	//
+	// utility functions
+	//
+	
 	void
-	LocalIsochPortCOM::SPrintDCLProgram(
-		IOFireWireLibLocalIsochPortRef 	self, 
-		const DCLCommand*			inProgram,
-		UInt32							inLength)
+	LocalIsochPortCOM :: SPrintDCLProgram (
+				IOFireWireLibLocalIsochPortRef 	self ,
+				const DCLCommand *				program ,
+				UInt32							length )
 	{
-		IOFireWireIUnknown::InterfaceMap<LocalIsochPortCOM>::GetThis(self)->PrintDCLProgram(inProgram, inLength) ;
+		DeviceCOM :: SPrintDCLProgram ( nil, program, length ) ;
 	}	
 
 	IOReturn
-	LocalIsochPortCOM::SModifyTransferPacketDCLSize( PortRef self, DCLTransferPacket* dcl, IOByteCount newSize )
+	LocalIsochPortCOM :: SModifyTransferPacketDCLSize ( 
+				PortRef 				self, 
+				DCLTransferPacket * 	dcl, 
+				IOByteCount 			newSize )
 	{
-		IOReturn err = kIOReturnBadArgument ;
+		IOReturn error = kIOReturnBadArgument ;
 	
-		switch(dcl->opcode)
+		switch ( dcl->opcode )
 		{
 			case kDCLSendPacketStartOp:
 			case kDCLSendPacketWithHeaderStartOp:
@@ -1007,21 +1256,62 @@ namespace IOFireWireLib {
 			case kDCLReceivePacketStartOp:
 			case kDCLReceivePacketOp:
 			case kDCLReceiveBufferOp:			
-				err = IOFireWireIUnknown::InterfaceMap<LocalIsochPortCOM>::GetThis(self)->ModifyTransferPacketDCLSize(dcl, newSize) ;
+				error = IOFireWireIUnknown::InterfaceMap<LocalIsochPortCOM>::GetThis( self )->ModifyTransferPacketDCLSize( dcl, newSize ) ;
 		}
 
-		return err ;
+		return error ;
 	}
 
 	IOReturn
-	LocalIsochPortCOM::SModifyTransferPacketDCLBuffer( PortRef self, DCLTransferPacket* dcl, void* newBuffer )
+	LocalIsochPortCOM :: SModifyTransferPacketDCLBuffer (
+				PortRef 				self, 
+				DCLTransferPacket * 	dcl, 
+				void * 					newBuffer )
 	{
 		return kIOReturnUnsupported ;
 	}
 	
 	IOReturn
-	LocalIsochPortCOM::SModifyTransferPacketDCL( PortRef self, DCLTransferPacket* dcl, void* newBuffer, IOByteCount newSize )
+	LocalIsochPortCOM :: SModifyTransferPacketDCL ( PortRef self, DCLTransferPacket * dcl, void * newBuffer, IOByteCount newSize )
 	{
 		return kIOReturnUnsupported ;
+	}
+
+	//
+	// v4
+	//
+	
+	IOReturn
+	LocalIsochPortCOM :: S_SetFinalizeCallback( 
+				IOFireWireLibLocalIsochPortRef 				self, 
+				IOFireWireLibIsochPortFinalizeCallback	 	finalizeCallback )
+	{
+		LocalIsochPortCOM * 	me = IOFireWireIUnknown :: InterfaceMap< LocalIsochPortCOM > :: GetThis( self ) ;
+
+		me->mFinalizeCallback = finalizeCallback ;
+		
+		return kIOReturnSuccess ;
+	}
+
+	//
+	// v5 (panther)
+	//
+	
+	IOReturn
+	LocalIsochPortCOM :: S_SetResourceUsageFlags (
+				IOFireWireLibLocalIsochPortRef	self, 
+				IOFWIsochResourceFlags 			flags )
+	{
+		return IOFireWireIUnknown::InterfaceMap< LocalIsochPortCOM >::GetThis( self )->SetResourceUsageFlags( flags ) ;
+	}
+
+	IOReturn
+	LocalIsochPortCOM :: S_Notify( 
+				IOFireWireLibLocalIsochPortRef self, 
+				IOFWDCLNotificationType notificationType, 
+				void ** inDCLList, 
+				UInt32 numDCLs )
+	{
+		return  IOFireWireIUnknown::InterfaceMap< LocalIsochPortCOM >::GetThis( self )->Notify( notificationType, inDCLList, numDCLs ) ;
 	}
 }

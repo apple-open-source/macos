@@ -1,8 +1,8 @@
 /*
    +----------------------------------------------------------------------+
-   | PHP version 4.0                                                      |
+   | PHP Version 4                                                        |
    +----------------------------------------------------------------------+
-   | Copyright (c) 1997, 1998, 1999, 2000 The PHP Group                   |
+   | Copyright (c) 1997-2003 The PHP Group                                |
    +----------------------------------------------------------------------+
    | This source file is subject to version 2.02 of the PHP license,      |
    | that is bundled with this package in the file LICENSE, and is        |
@@ -16,14 +16,12 @@
    +----------------------------------------------------------------------+
 */
 
-/* $Id: tsrm_win32.h,v 1.1.1.2 2001/12/14 22:15:52 zarzycki Exp $ */
+/* $Id: tsrm_win32.h,v 1.1.1.5 2003/07/18 18:07:25 zarzycki Exp $ */
 
 #ifndef TSRM_WIN32_H
 #define TSRM_WIN32_H
 
 #include "TSRM.h"
-
-#ifdef TSRM_WIN32
 #include <windows.h>
 
 struct ipc_perm {
@@ -73,8 +71,6 @@ typedef struct {
 # define TWG(v) (win32_globals.v)
 #endif
 
-#endif
-
 #define IPC_PRIVATE	0
 #define IPC_CREAT	00001000
 #define IPC_EXCL	00002000
@@ -96,6 +92,7 @@ typedef struct {
 TSRM_API void tsrm_win32_startup(void);
 TSRM_API void tsrm_win32_shutdown(void);
 
+TSRM_API FILE *popen_ex(const char *command, const char *type, const char *cwd, char *env);
 TSRM_API FILE *popen(const char *command, const char *type);
 TSRM_API int pclose(FILE *stream);
 

@@ -11,7 +11,7 @@
  * See the file "license.terms" for information on usage and redistribution
  * of this file, and for a DISCLAIMER OF ALL WARRANTIES.
  *
- * RCS: @(#) $Id: tclThreadTest.c,v 1.1.1.4 2002/04/05 16:13:27 jevans Exp $
+ * RCS: @(#) $Id: tclThreadTest.c,v 1.1.1.5 2003/03/06 00:11:06 landonf Exp $
  */
 
 #include "tclInt.h"
@@ -118,7 +118,7 @@ EXTERN int	TclThread_Init _ANSI_ARGS_((Tcl_Interp *interp));
 EXTERN int	Tcl_ThreadObjCmd _ANSI_ARGS_((ClientData clientData,
 	Tcl_Interp *interp, int objc, Tcl_Obj *CONST objv[]));
 EXTERN int	TclCreateThread _ANSI_ARGS_((Tcl_Interp *interp,
-	CONST char *script));
+	char *script, int joinable));
 EXTERN int	TclThreadList _ANSI_ARGS_((Tcl_Interp *interp));
 EXTERN int	TclThreadSend _ANSI_ARGS_((Tcl_Interp *interp, Tcl_ThreadId id,
 	char *script, int wait));
@@ -175,13 +175,14 @@ TclThread_Init(interp)
  *	This procedure is invoked to process the "testthread" Tcl command.
  *	See the user documentation for details on what it does.
  *
- *	thread create
+ *	thread create ?-joinable? ?script?
  *	thread send id ?-async? script
  *	thread exit
  *	thread info id
  *	thread names
  *	thread wait
  *	thread errorproc proc
+ *	thread join id
  *
  * Results:
  *	A standard Tcl result.
@@ -202,10 +203,11 @@ Tcl_ThreadObjCmd(dummy, interp, objc, objv)
 {
     ThreadSpecificData *tsdPtr = TCL_TSD_INIT(&dataKey);
     int option;
-    static char *threadOptions[] = {"create", "exit", "id", "names",
-				    "send", "wait", "errorproc", (char *) NULL};
-    enum options {THREAD_CREATE, THREAD_EXIT, THREAD_ID, THREAD_NAMES,
-		  THREAD_SEND, THREAD_WAIT, THREAD_ERRORPROC};
+    static CONST char *threadOptions[] = {"create", "exit", "id", "join", "names",
+				    "send", "wait", "errorproc",
+				    (char *) NULL};
+    enum options {THREAD_CREATE, THREAD_EXIT, THREAD_ID, THREAD_JOIN,
+		  THREAD_NAMES, THREAD_SEND, THREAD_WAIT, THREAD_ERRORPROC};
 
     if (objc < 2) {
 	Tcl_WrongNumArgs(interp, 1, objv, "option ?args?");
@@ -231,15 +233,51 @@ Tcl_ThreadObjCmd(dummy, interp, objc, objv)
     switch ((enum options)option) {
 	case THREAD_CREATE: {
 	    char *script;
+	    int   joinable, len;
+
 	    if (objc == 2) {
-		script = "testthread wait";	/* Just enter the event loop */
+	        /* Neither joinable nor special script
+		 */
+
+	        joinable = 0;
+		script   = "testthread wait";	/* Just enter the event loop */
+
 	    } else if (objc == 3) {
-		script = Tcl_GetString(objv[2]);
+	        /* Possibly -joinable, then no special script,
+		 * no joinable, then its a script.
+		 */
+
+	        script = Tcl_GetString(objv[2]);
+		len    = strlen (script);
+
+		if ((len > 1) &&
+		    (script [0] == '-') && (script [1] == 'j') &&
+		    (0 == strncmp (script, "-joinable", (size_t) len))) {
+		    joinable = 1;
+		    script   = "testthread wait"; /* Just enter the event loop
+						   */
+		} else {
+		    /* Remember the script */
+		    joinable = 0;
+		}
+	    } else if (objc == 4) {
+	        /* Definitely a script available, but is the flag
+		 * -joinable ?
+		 */
+
+	        script = Tcl_GetString(objv[2]);
+		len    = strlen (script);
+
+		joinable = ((len > 1) &&
+			    (script [0] == '-') && (script [1] == 'j') &&
+			    (0 == strncmp (script, "-joinable", (size_t) len)));
+
+		script = Tcl_GetString(objv[3]);
 	    } else {
-		Tcl_WrongNumArgs(interp, 2, objv, "?script?");
+		Tcl_WrongNumArgs(interp, 2, objv, "?-joinable? ?script?");
 		return TCL_ERROR;
 	    }
-	    return TclCreateThread(interp, script);
+	    return TclCreateThread(interp, script, joinable);
 	}
 	case THREAD_EXIT: {
 	    if (objc > 2) {
@@ -259,6 +297,28 @@ Tcl_ThreadObjCmd(dummy, interp, objc, objv)
 		Tcl_WrongNumArgs(interp, 2, objv, NULL);
 		return TCL_ERROR;
 	    }
+        case THREAD_JOIN: {
+	    long id;
+	    int result, status;
+
+	    if (objc != 3) {
+		Tcl_WrongNumArgs(interp, 1, objv, "join id");
+		return TCL_ERROR;
+	    }
+	    if (Tcl_GetLongFromObj(interp, objv[2], &id) != TCL_OK) {
+		return TCL_ERROR;
+	    }
+
+	    result = Tcl_JoinThread ((Tcl_ThreadId) id, &status);
+	    if (result == TCL_OK) {
+	        Tcl_SetIntObj (Tcl_GetObjResult (interp), status);
+	    } else {
+	        char buf [20];
+		sprintf (buf, "%ld", id);
+		Tcl_AppendResult (interp, "cannot join thread ", buf, NULL);
+	    }
+	    return result;
+	}
 	case THREAD_NAMES: {
 	    if (objc > 2) {
 		Tcl_WrongNumArgs(interp, 2, objv, NULL);
@@ -343,20 +403,23 @@ Tcl_ThreadObjCmd(dummy, interp, objc, objv)
 
 	/* ARGSUSED */
 int
-TclCreateThread(interp, script)
+TclCreateThread(interp, script, joinable)
     Tcl_Interp *interp;			/* Current interpreter. */
-    CONST char *script;			/* Script to execute */
+    char *script;			/* Script to execute */
+    int         joinable;		/* Flag, joinable thread or not */
 {
     ThreadCtrl ctrl;
     Tcl_ThreadId id;
 
-    ctrl.script = (char *) script;
+    ctrl.script = script;
     ctrl.condWait = NULL;
     ctrl.flags = 0;
 
+    joinable = joinable ? TCL_THREAD_JOINABLE : TCL_THREAD_NOFLAGS;
+
     Tcl_MutexLock(&threadMutex);
     if (Tcl_CreateThread(&id, NewTestThread, (ClientData) &ctrl,
-		 TCL_THREAD_STACK_DEFAULT, TCL_THREAD_NOFLAGS) != TCL_OK) {
+		 TCL_THREAD_STACK_DEFAULT, joinable) != TCL_OK) {
 	Tcl_MutexUnlock(&threadMutex);
         Tcl_AppendResult(interp,"can't create a new thread",0);
 	ckfree((void*)ctrl.script);
@@ -483,8 +546,8 @@ ThreadErrorProc(interp)
     Tcl_Interp *interp;		/* Interp that failed */
 {
     Tcl_Channel errChannel;
-    char *errorInfo, *script;
-    char *argv[3];
+    CONST char *errorInfo, *argv[3];
+    char *script;
     char buf[TCL_DOUBLE_SPACE+1];
     sprintf(buf, "%ld", (long) Tcl_GetCurrentThread());
 
@@ -780,7 +843,7 @@ TclThreadSend(interp, id, script, wait)
  *
  *------------------------------------------------------------------------
  */
-int
+static int
 ThreadEventProc(evPtr, mask)
     Tcl_Event *evPtr;		/* Really ThreadEvent */
     int mask;
@@ -790,7 +853,7 @@ ThreadEventProc(evPtr, mask)
     ThreadEventResult *resultPtr = threadEventPtr->resultPtr;
     Tcl_Interp *interp = tsdPtr->interp;
     int code;
-    char *result, *errorCode, *errorInfo;
+    CONST char *result, *errorCode, *errorInfo;
 
     if (interp == NULL) {
 	code = TCL_ERROR;
@@ -853,7 +916,7 @@ ThreadEventProc(evPtr, mask)
  *------------------------------------------------------------------------
  */
      /* ARGSUSED */
-void
+static void
 ThreadFreeProc(clientData)
     ClientData clientData;
 {
@@ -879,7 +942,7 @@ ThreadFreeProc(clientData)
  *------------------------------------------------------------------------
  */
      /* ARGSUSED */
-int
+static int
 ThreadDeleteEvent(eventPtr, clientData)
     Tcl_Event *eventPtr;		/* Really ThreadEvent */
     ClientData clientData;		/* dummy */
@@ -912,7 +975,7 @@ ThreadDeleteEvent(eventPtr, clientData)
  *------------------------------------------------------------------------
  */
      /* ARGSUSED */
-void
+static void
 ThreadExitProc(clientData)
     ClientData clientData;
 {

@@ -1,0 +1,6 @@
+<jboss-app>
+   <loader-repository>jboss.test.classloader:loader=concurrentloader.ear</loader-repository>
+   <module>
+      <service>concurrentloader.sar</service>
+   </module>
+</jboss-app>

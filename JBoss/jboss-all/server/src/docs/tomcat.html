@@ -1,0 +1,57 @@
+<html>
+<head>
+<title>Running Tomcat in jBoss</title>
+<meta http-equiv="Content-Type" content="text/html; charset=iso-8859-1">
+</head>
+
+<body bgcolor="#FFFFFF">
+<h1>Running Tomcat in jBoss 2.0</h1>
+<h2>Goal</h2>
+<p>Running Tomcat inside the same VM as jBoss provides a couple of benefits :</p>
+<ul>
+  <li>Better performance: if you have servlets, Java Beans or JSPs which access 
+    some EJBs, the speed will dramatically increase since there's no more RMI 
+    calls. Plain Java calls are used instead. <i><br>
+    Nota : As of 07/03/2000, due to some ClassLoader problems, this feature is 
+    not yet implemented, and the calls are not as fast as we would like. We hope 
+    to fix this soon.</i></li>
+  <li>Provides a more complete J2EE server, requiring only one command to startup 
+    both the EJB server and the Servlet/JSP server.</li>
+</ul>
+<h2>How-To</h2>
+<p>By default, when you start jBoss, it automatically tries to launch Tomcat as 
+  well. To disable this feature, suppress the lines<br>
+  <font face="Courier New, Courier, mono" size="2">&lt;MLET CODE = &quot;org.jboss.tomcat.TomcatService&quot; 
+  ARCHIVE=&quot;jboss.jar&quot; CODEBASE=&quot;../lib/ext/&quot;&gt;<br>
+  &lt;/MLET&gt;<mlet code = "org.jboss.tomcat.TomcatService" archive="jboss.jar" codebase="../lib/ext/"> 
+  </mlet></font><font face="Courier New, Courier, mono"><mlet code = "org.jboss.tomcat.TomcatService" archive="jboss.jar" codebase="../lib/ext/"> 
+  </mlet></font><mlet code = "org.jboss.tomcat.TomcatService" archive="jboss.jar" codebase="../lib/ext/"> 
+  </mlet><br>
+  <mlet code = "org.jboss.tomcat.TomcatService" archive="jboss.jar" codebase="../lib/ext/">at 
+  the end of the file <i>jboss.conf</i></mlet><mlet code = "org.jboss.tomcat.TomcatService" archive="jboss.jar" codebase="../lib/ext/"> 
+  .</mlet></p>
+<p>In order for jBoss to find Tomcat's classes, you need to set a couple of environment 
+  variables :</p>
+<ul>
+  <li>TOMCAT_HOME must point to the base directory of Tomcat's binaries. Typically, 
+    if you built Tomcat from jakarta/jakarta-tomcat, TOMCAT_HOME should point 
+    to jakarta/build/tomcat.</li>
+  <li>SERVLETAPI_HOME must point to the source directory &quot;jakarta-servletapi&quot;. 
+    The file $SERVLETAPI_HOME/lib/servlet.jar will be required.</li>
+  <li>Your CLASSPATH must contain $JAVA_HOME/lib/tools.jar since Tomcat needs 
+    this to compile JSPs.</li>
+</ul>
+<p>Note that all these requirements are those of Tomcat. If you fail in any of 
+  these, you won't be able to start Tomcat in jBoss VM.</p>
+<h2>Future enhancements</h2>
+<p>Integrate Tomcat more tightly to jBoss. Fix the invocation speed problem. Provide 
+  an EAR deployer. Unify the security model... What else ?<mlet code = "org.jboss.tomcat.TomcatService" archive="jboss.jar" codebase="../lib/ext/"> 
+  </mlet><mlet code = "org.jboss.tomcat.TomcatService" archive="jboss.jar" codebase="../lib/ext/"> 
+  </mlet><mlet code = "org.jboss.tomcat.TomcatService" archive="jboss.jar" codebase="../lib/ext/"> 
+  </mlet><mlet code = "org.jboss.tomcat.TomcatService" archive="jboss.jar" codebase="../lib/ext/"> 
+  </mlet><mlet code = "org.jboss.tomcat.TomcatService" archive="jboss.jar" codebase="../lib/ext/"> 
+  </mlet><mlet code = "org.jboss.tomcat.TomcatService" archive="jboss.jar" codebase="../lib/ext/"> 
+  </mlet><mlet code = "org.jboss.tomcat.TomcatService" archive="jboss.jar" codebase="../lib/ext/"> 
+  </mlet></p>
+</body>
+</html>

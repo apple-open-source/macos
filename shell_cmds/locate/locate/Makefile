@@ -17,7 +17,7 @@ HFILES = locate.h pathnames.h
 CFILES = locate.c
 
 OTHERSRCS = Makefile Makefile.preamble Makefile.postamble locate.1\
-            updatedb.csh
+            updatedb.csh locate.updatedb.8
 
 
 MAKEFILEDIR = $(MAKEFILEPATH)/pb_makefiles

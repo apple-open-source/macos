@@ -1,0 +1,51 @@
+<?xml version="1.0"?>
+
+<!-- The jboss.xml descriptor for the secure-perf.jar
+This descriptor redefines the JNDI names of the beans in the ejb-jar.xml
+descriptor so that there is no conflict with the perf.jar deployment.
+-->
+<jboss>
+   <security-domain>java:/jaas/other</security-domain>
+
+  <enterprise-beans>
+    <session>
+      <ejb-name>perf.Session</ejb-name>
+      <jndi-name>secure/perf/Session</jndi-name>
+    </session>
+    <session>
+      <ejb-name>perf.ClientSession</ejb-name>
+      <jndi-name>secure/perf/ClientSession</jndi-name>
+      <ejb-ref>
+         <ejb-ref-name>ejb/Session</ejb-ref-name>
+         <jndi-name>Session</jndi-name>
+      </ejb-ref>
+    </session>
+    <session>
+      <ejb-name>perf.Probe</ejb-name>
+      <jndi-name>secure/perf/Probe</jndi-name>
+    </session>
+    <session>
+      <ejb-name>perf.ProbeCMT</ejb-name>
+      <jndi-name>secure/perf/ProbeCMT</jndi-name>
+    </session>
+    <session>
+      <ejb-name>perf.TxSession</ejb-name>
+      <jndi-name>secure/perf/TxSession</jndi-name>
+    </session>
+    <entity>
+      <ejb-name>perfEntity</ejb-name>
+      <jndi-name>secure/perf/Entity</jndi-name>
+    </entity>
+    <entity>
+      <ejb-name>perfClientEntity</ejb-name>
+      <jndi-name>secure/perf/ClientEntity</jndi-name>
+    </entity>
+    <entity>
+      <ejb-name>perfEntity2</ejb-name>
+      <jndi-name>secure/perf/Entity2</jndi-name>
+    </entity>
+
+  </enterprise-beans>
+
+</jboss>
+

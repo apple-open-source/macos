@@ -1,7 +1,7 @@
 /* group.c - bdb backend acl group routine */
-/* $OpenLDAP: pkg/ldap/servers/slapd/back-bdb/group.c,v 1.9 2002/01/29 03:53:48 kurt Exp $ */
+/* $OpenLDAP: pkg/ldap/servers/slapd/back-bdb/group.c,v 1.9.2.12 2003/04/25 08:30:00 hyc Exp $ */
 /*
- * Copyright 1998-2002 The OpenLDAP Foundation, All Rights Reserved.
+ * Copyright 1998-2003 The OpenLDAP Foundation, All Rights Reserved.
  * COPYING RESTRICTIONS APPLY, see COPYRIGHT file
  */
 
@@ -30,19 +30,22 @@ bdb_group(
 	struct berval	*gr_ndn,
 	struct berval	*op_ndn,
 	ObjectClass *group_oc,
-	AttributeDescription *group_at
-)
+	AttributeDescription *group_at )
 {
 	struct bdb_info *bdb = (struct bdb_info *) be->be_private;
-	struct bdb_op_info *boi = (struct bdb_op_info *) op->o_private;
-	DB_TXN *txn;
+	struct bdb_op_info *boi = NULL;
+	DB_TXN *txn = NULL;
 	Entry *e;
 	int	rc = 1;
 	Attribute *attr;
+	struct berval *op_name = op_ndn;
 
-	AttributeDescription *ad_objectClass = slap_schema.si_ad_objectClass;
 	const char *group_oc_name = NULL;
 	const char *group_at_name = group_at->ad_cname.bv_val;
+
+	u_int32_t	locker = 0;
+	DB_LOCK		lock;
+	int		free_lock_id = 0;
 
 	if( group_oc->soc_names && group_oc->soc_names[0] ) {
 		group_oc_name = group_oc->soc_names[0];
@@ -51,65 +54,97 @@ bdb_group(
 	}
 
 #ifdef NEW_LOGGING
-	LDAP_LOG(( "backend", LDAP_LEVEL_ENTRY,
+	LDAP_LOG( BACK_BDB, ENTRY, 
 		"bdb_group: check (%s) member of (%s), oc %s\n",
-		op_ndn->bv_val, gr_ndn->bv_val, group_oc_name ));
+		op_ndn->bv_val, gr_ndn->bv_val, group_oc_name );
 #else
 	Debug( LDAP_DEBUG_ARGS,
-		"=> bdb_group: gr dn: \"%s\"\n",
+		"=> bdb_group: group ndn: \"%s\"\n",
 		gr_ndn->bv_val, 0, 0 ); 
 
 	Debug( LDAP_DEBUG_ARGS,
-		"=> bdb_group: op dn: \"%s\"\n",
+		"=> bdb_group: op ndn: \"%s\"\n",
 		op_ndn->bv_val, 0, 0 ); 
+
 	Debug( LDAP_DEBUG_ARGS,
 		"=> bdb_group: oc: \"%s\" at: \"%s\"\n", 
 		group_oc_name, group_at_name, 0 ); 
 
 	Debug( LDAP_DEBUG_ARGS,
-		"=> bdb_group: tr dn: \"%s\"\n",
-		target->e_ndn, 0, 0 ); 
+		"=> bdb_group: tr ndn: \"%s\"\n",
+		target ? target->e_ndn : "", 0, 0 ); 
 #endif
 
+	if( op ) boi = (struct bdb_op_info *) op->o_private;
 	if( boi != NULL && be == boi->boi_bdb ) {
 		txn = boi->boi_txn;
+		locker = boi->boi_locker;
 	}
 
-	if (dn_match(&target->e_name, gr_ndn)) {
+	if ( txn ) {
+		locker = TXN_ID( txn );
+	} else if ( !locker ) {
+		rc = LOCK_ID ( bdb->bi_dbenv, &locker );
+		free_lock_id = 1;
+		switch(rc) {
+		case 0:
+			break;
+		default:
+			return 1;
+		}
+	}
+
+	if ( target != NULL && dn_match( &target->e_nname, gr_ndn )) {
 		/* we already have a LOCKED copy of the entry */
 		e = target;
 #ifdef NEW_LOGGING
-		LDAP_LOG(( "backend", LDAP_LEVEL_DETAIL1,
-			"bdb_group: target is group (%s)\n", gr_ndn->bv_val ));
+		LDAP_LOG( BACK_BDB, DETAIL1, 
+			"bdb_group: target is group (%s)\n", gr_ndn->bv_val, 0, 0 );
 #else
 		Debug( LDAP_DEBUG_ARGS,
 			"=> bdb_group: target is group: \"%s\"\n",
 			gr_ndn->bv_val, 0, 0 );
 #endif
 	} else {
+dn2entry_retry:
 		/* can we find group entry */
-		rc = bdb_dn2entry_r( be, NULL, gr_ndn, &e, NULL, 0 ); 
+		rc = bdb_dn2entry_r( be, txn, gr_ndn, &e, NULL, 0, locker, &lock ); 
 		if( rc ) {
-			if( txn ) {
-				boi->boi_err = rc;
+			if ( boi ) boi->boi_err = rc;
+			if ( rc == DB_LOCK_DEADLOCK || rc == DB_LOCK_NOTGRANTED ) {
+				if ( txn ) {
+				/* must let owning txn abort, but our result
+				 * is still inconclusive, so don't let it
+				 * get cached.
+				 */
+					op->o_do_not_cache = 1;
+					return( 1 );
+				}
+				ldap_pvt_thread_yield();
+				goto dn2entry_retry;
+			}
+			if ( free_lock_id ) {
+				LOCK_ID_FREE ( bdb->bi_dbenv, locker );
 			}
 			return( 1 );
 		}
 		if (e == NULL) {
 #ifdef NEW_LOGGING
-			LDAP_LOG(( "backend", LDAP_LEVEL_DETAIL1,
-				"bdb_group: cannot find group (%s)\n",
-				gr_ndn->bv_val ));
+			LDAP_LOG( BACK_BDB, DETAIL1, 
+				"bdb_group: cannot find group (%s)\n", gr_ndn->bv_val, 0, 0 );
 #else
 			Debug( LDAP_DEBUG_ACL,
 				"=> bdb_group: cannot find group: \"%s\"\n",
 					gr_ndn->bv_val, 0, 0 ); 
 #endif
+			if ( free_lock_id ) {
+				LOCK_ID_FREE ( bdb->bi_dbenv, locker );
+			}
 			return( 1 );
 		}
 #ifdef NEW_LOGGING
-		LDAP_LOG(( "backend", LDAP_LEVEL_DETAIL1,
-			"bdb_group: found group (%s)\n", gr_ndn->bv_val ));
+		LDAP_LOG( BACK_BDB, DETAIL1, 
+			"bdb_group: found group (%s)\n", gr_ndn->bv_val, 0, 0 );
 #else
 		Debug( LDAP_DEBUG_ACL,
 			"=> bdb_group: found group: \"%s\"\n",
@@ -126,8 +161,8 @@ bdb_group(
 #ifdef BDB_ALIASES
 	if( is_entry_alias( e ) ) {
 #ifdef NEW_LOGGING
-		LDAP_LOG(( "backend", LDAP_LEVEL_INFO,
-			"bdb_group: group (%s) is an alias\n", gr_ndn->bv_val ));
+		LDAP_LOG( BACK_BDB, INFO, 
+			"bdb_group: group (%s) is an alias\n", gr_ndn->bv_val, 0, 0);
 #else
 		Debug( LDAP_DEBUG_ACL,
 			"<= bdb_group: group is an alias\n", 0, 0, 0 );
@@ -138,8 +173,8 @@ bdb_group(
 
 	if( is_entry_referral( e ) ) {
 #ifdef NEW_LOGGING
-		LDAP_LOG(( "backend", LDAP_LEVEL_INFO,
-			"bdb_group: group (%s) is a referral.\n", gr_ndn->bv_val ));
+		LDAP_LOG( BACK_BDB, INFO, 
+			"bdb_group: group (%s) is a referral.\n", gr_ndn->bv_val, 0, 0 );
 #else
 		Debug( LDAP_DEBUG_ACL,
 			"<= bdb_group: group is a referral\n", 0, 0, 0 );
@@ -149,9 +184,9 @@ bdb_group(
 
 	if( !is_entry_objectclass( e, group_oc, 0 ) ) {
 #ifdef NEW_LOGGING
-		LDAP_LOG(( "backend", LDAP_LEVEL_ERR,
-			"bdb_group: failed to find %s in objectClass.\n",
-			group_oc_name ));
+		LDAP_LOG( BACK_BDB, ERR, 
+			"bdb_group: failed to find %s in objectClass.\n", 
+			group_oc_name, 0, 0 );
 #else
 		Debug( LDAP_DEBUG_ACL,
 			"<= bdb_group: failed to find %s in objectClass\n", 
@@ -162,8 +197,8 @@ bdb_group(
 
 	if ((attr = attr_find(e->e_attrs, group_at)) == NULL) {
 #ifdef NEW_LOGGING
-		LDAP_LOG(( "backend", LDAP_LEVEL_INFO,
-			"bdb_group: failed to find %s\n", group_at_name ));
+		LDAP_LOG( BACK_BDB, INFO, 
+			"bdb_group: failed to find %s\n", group_at_name, 0, 0 );
 #else
 		Debug( LDAP_DEBUG_ACL,
 			"<= bdb_group: failed to find %s\n",
@@ -173,20 +208,32 @@ bdb_group(
 	}
 
 #ifdef NEW_LOGGING
-	LDAP_LOG(( "backend", LDAP_LEVEL_ENTRY,
+	LDAP_LOG( BACK_BDB, ENTRY, 
 		"bdb_group: found objectClass %s and %s\n",
-		group_oc_name, group_at_name ));
+		group_oc_name, group_at_name, 0 );
 #else
 	Debug( LDAP_DEBUG_ACL,
 		"<= bdb_group: found objectClass %s and %s\n",
 		group_oc_name, group_at_name, 0 ); 
 #endif
 
-	if( value_find( group_at, attr->a_vals, op_ndn ) != LDAP_SUCCESS ) {
+	if( is_at_syntax( group_at->ad_type, SLAPD_IA5STRING_SYNTAX ) ) {
+		if ( strncmp( op_ndn->bv_val, "uid=", sizeof("uid=") - 1 ) == 0 ) {
+			char* begin = op_ndn->bv_val + sizeof("uid=") - 1;
+			char* end = strchr( op_ndn->bv_val, ',' );
+			ber_len_t len = end ? end - begin : strlen( begin );
+			op_name = ber_str2bv(begin, len, 1, NULL);
+		}
+	}
+
+	if( value_find_ex( group_at,
+		SLAP_MR_VALUE_NORMALIZED_MATCH,
+		attr->a_vals, op_name ) != LDAP_SUCCESS )
+	{
 #ifdef NEW_LOGGING
-		LDAP_LOG(( "backend", LDAP_LEVEL_DETAIL1,
+		LDAP_LOG( BACK_BDB, DETAIL1, 
 			"bdb_group: \"%s\" not in \"%s\": %s\n",
-			op_ndn->bv_val, gr_ndn->bv_val, group_at_name ));
+			op_ndn->bv_val, gr_ndn->bv_val, group_at_name );
 #else
 		Debug( LDAP_DEBUG_ACL,
 			"<= bdb_group: \"%s\" not in \"%s\": %s\n", 
@@ -196,9 +243,8 @@ bdb_group(
 	}
 
 #ifdef NEW_LOGGING
-	LDAP_LOG(( "backend", LDAP_LEVEL_DETAIL1,
-		"bdb_group: %s is in %s: %s\n",
-		op_ndn->bv_val, gr_ndn->bv_val, group_at_name ));
+	LDAP_LOG( BACK_BDB, DETAIL1, "bdb_group: %s is in %s: %s\n",
+		op_ndn->bv_val, gr_ndn->bv_val, group_at_name );
 #else
 	Debug( LDAP_DEBUG_ACL,
 		"<= bdb_group: \"%s\" is in \"%s\": %s\n", 
@@ -210,12 +256,19 @@ bdb_group(
 return_results:
 	if( target != e ) {
 		/* free entry */
-		bdb_cache_return_entry_r( &bdb->bi_cache, e );
+		bdb_cache_return_entry_r( bdb->bi_dbenv, &bdb->bi_cache, e, &lock );
+	}
+
+	if ( free_lock_id ) {
+		LOCK_ID_FREE ( bdb->bi_dbenv, locker );
+	}
+
+	if ( op_name != op_ndn ) {
+		ber_bvfree(op_name);
 	}
 
 #ifdef NEW_LOGGING
-	LDAP_LOG(( "backend", LDAP_LEVEL_ENTRY,
-		"bdb_group: rc=%d\n", rc ));
+	LDAP_LOG( BACK_BDB, ENTRY, "bdb_group: rc=%d\n", rc, 0, 0 );
 #else
 	Debug( LDAP_DEBUG_TRACE, "bdb_group: rc=%d\n", rc, 0, 0 ); 
 #endif

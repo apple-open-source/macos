@@ -71,21 +71,17 @@ main(int argc, char *argv[])
 	
 	if (argc < 1)
 		return(usage("missing command"));
+	/* documented interface */
 	if (!strcmp(argv[0], "start"))
 		return(start_cache(pfname));
 	if (!strcmp(argv[0], "stop"))
 		return(stop_cache(pfname, 0));
-	if (!strcmp(argv[0], "autostop")) {
-		if (argc < 2) 
-			return(usage("missing autostop delay"));
-		return(autostop_cache(argv[1]));
-	}
-	if (!strcmp(argv[0], "merge"))
-		return(merge_playlists(pfname, argc - 1, argv + 1));
-	if (!strcmp(argv[0], "statistics"))
-		return(print_statistics(NULL));
 	if (!strcmp(argv[0], "tag"))
 		return(BC_tag_history());
+	if (!strcmp(argv[0], "statistics"))
+		return(print_statistics(NULL));
+	if (!strcmp(argv[0], "merge"))
+		return(merge_playlists(pfname, argc - 1, argv + 1));
 	if (!strcmp(argv[0], "print"))
 		return(print_playlist(pfname, cflag));
 	if (!strcmp(argv[0], "unprint"))
@@ -94,6 +90,21 @@ main(int argc, char *argv[])
 		if (argc < 2) 
 			return(usage("missing truncate length"));
 		return(truncate_playlist(pfname, argv[1]));
+	}
+
+	/* internal interface */
+	if (!strcmp(argv[0], "autostop")) {
+		if (argc < 2) 
+			return(usage("missing autostop delay"));
+		return(autostop_cache(argv[1]));
+	}
+	if (!strcmp(argv[0], "unload")) {
+		if (BC_unload()) {
+			warnx("could not unload cache");
+			return(1);
+		} else {
+			return(0);
+		}
 	}
 	return(usage("invalid command"));
 }
@@ -110,6 +121,8 @@ usage(const char *reason)
 	fprintf(stderr, "           Start/stop the cache using <playlistfile>.\n");
 	fprintf(stderr, "       %s statistics\n", myname);
 	fprintf(stderr, "           Print statistics for the currently-active cache.\n");
+	fprintf(stderr, "       %s tag\n", myname);
+	fprintf(stderr, "           Insert the end-prefetch tag.\n");
 	fprintf(stderr, "       %s [-vvv] -f <playlistfile> merge <playlistfile1> [<playlistfile2>...]\n",
 	    myname);
 	fprintf(stderr, "           Merge <playlistfile1>... into <playlistfile>.\n");
@@ -326,7 +339,9 @@ autostop_cache(char *delay)
 	/* reopen the logfile and attach to standard out/error if requested */
 	if (debugging) {
 		freopen(BC_BOOT_LOGFILE, "a", stdout);
+		setlinebuf(stdout);
 		freopen(BC_BOOT_LOGFILE, "a", stderr);
+		setlinebuf(stderr);
 	}
 	
 	/* now sleep for the specified delay */
@@ -339,6 +354,10 @@ autostop_cache(char *delay)
 	/* and save */
 	result = stop_cache(BC_BOOT_PLAYLIST, debugging);
 
+	/* unload kext */
+	if ((result == 0) && BC_unload())
+		warnx("could not unload kext");
+	
 	time(&t);
 	warnx("autostop finished at %s", ctime(&t));
 	return(result);

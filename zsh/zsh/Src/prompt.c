@@ -75,7 +75,7 @@ static char *bp;
 
 static char *bufline;
 
-/* bp1 is an auxilliary pointer into the buffer, which when non-NULL is *
+/* bp1 is an auxiliary pointer into the buffer, which when non-NULL is *
  * moved whenever the buffer is reallocated.  It is used when data is   *
  * being temporarily held in the buffer.                                */
 
@@ -92,6 +92,10 @@ static int trunclen;
 /* Current level of nesting of %{ / %} sequences. */
 
 static int dontcount;
+
+/* Level of %{ / %} surrounding a truncation segment. */
+
+static int trunccount;
 
 /* Strings to use for %r and %R (for the spelling prompt). */
 
@@ -202,7 +206,7 @@ static int
 putpromptchar(int doprint, int endchar)
 {
     char *ss, *tmbuf = NULL, *hostnam;
-    int t0, arg, test, sep;
+    int t0, arg, test, sep, j, numjobs;
     struct tm *tm;
     time_t timet;
     Nameddir nd;
@@ -285,6 +289,13 @@ putpromptchar(int doprint, int endchar)
 		case 'g':
 		    if (getegid() == arg)
 			test = 1;
+		    break;
+		case 'j':
+		    for (numjobs = 0, j = 1; j < MAXJOB; j++)
+			if (jobtab[j].stat && jobtab[j].procs &&
+		    	    !(jobtab[j].stat & STAT_NOPRINT)) numjobs++;
+		    if (numjobs >= arg)
+		    	test = 1;
 		    break;
 		case 'l':
 		    *bp = '\0';
@@ -371,6 +382,14 @@ putpromptchar(int doprint, int endchar)
 		sprintf(bp, "%d", curhist);
 		bp += strlen(bp);
 		break;
+	    case 'j':
+		for (numjobs = 0, j = 1; j < MAXJOB; j++)
+		    if (jobtab[j].stat && jobtab[j].procs &&
+		    	!(jobtab[j].stat & STAT_NOPRINT)) numjobs++;
+		addbufspc(DIGBUFSIZE);
+		sprintf(bp, "%d", numjobs);
+		bp += strlen(bp);
+		break;
 	    case 'M':
 		queue_signals();
 		if ((hostnam = getsparam("HOST")))
@@ -450,6 +469,8 @@ putpromptchar(int doprint, int endchar)
 		}
 		break;
 	    case /*{*/ '}':
+		if (trunccount && trunccount >= dontcount)
+		    return *fm;
 		if (dontcount && !--dontcount) {
 		    addbufspc(1);
 		    *bp++ = Outpar;
@@ -559,15 +580,54 @@ putpromptchar(int doprint, int endchar)
 	    case 'E':
                 tsetcap(TCCLEAREOL, 1);
 		break;
+	    case '^':
+		if (cmdsp) {
+		    if (arg >= 0) {
+			if (arg > cmdsp || arg == 0)
+			    arg = cmdsp;
+			for (t0 = cmdsp - 1; arg--; t0--) {
+			    stradd(cmdnames[cmdstack[t0]]);
+			    if (arg) {
+				addbufspc(1);
+				*bp++=' ';
+			    }
+			}
+		    } else {
+			arg = -arg;
+			if (arg > cmdsp)
+			    arg = cmdsp;
+			for (t0 = arg - 1; arg--; t0--) {
+			    stradd(cmdnames[cmdstack[t0]]);
+			    if (arg) {
+				addbufspc(1);
+				*bp++=' ';
+			    }
+			}
+		    }
+		}
+		break;
 	    case '_':
 		if (cmdsp) {
-		    if (arg > cmdsp || arg <= 0)
-			arg = cmdsp;
-		    for (t0 = cmdsp - arg; arg--; t0++) {
-			stradd(cmdnames[cmdstack[t0]]);
-			if (arg) {
-			    addbufspc(1);
-			    *bp++=' ';
+		    if (arg >= 0) {
+			if (arg > cmdsp || arg == 0)
+			    arg = cmdsp;
+			for (t0 = cmdsp - arg; arg--; t0++) {
+			    stradd(cmdnames[cmdstack[t0]]);
+			    if (arg) {
+				addbufspc(1);
+				*bp++=' ';
+			    }
+			}
+		    } else {
+			arg = -arg;
+			if (arg > cmdsp)
+			    arg = cmdsp;
+			for (t0 = 0; arg--; t0++) {
+			    stradd(cmdnames[cmdstack[t0]]);
+			    if (arg) {
+				addbufspc(1);
+				*bp++=' ';
+			    }
 			}
 		    }
 		}
@@ -814,7 +874,9 @@ prompttrunc(int arg, int truncchar, int doprint, int endchar)
 	bp = ptr;
 	w = bp - buf;
 	fm++;
+	trunccount = dontcount;
 	putpromptchar(doprint, endchar);
+	trunccount = 0;
 	ptr = buf + w;		/* putpromptchar() may have realloc()'d */
 	*bp = '\0';
 

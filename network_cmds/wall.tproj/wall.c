@@ -1,27 +1,4 @@
 /*
- * Copyright (c) 1999 Apple Computer, Inc. All rights reserved.
- *
- * @APPLE_LICENSE_HEADER_START@
- * 
- * "Portions Copyright (c) 1999 Apple Computer, Inc.  All Rights
- * Reserved.  This file contains Original Code and/or Modifications of
- * Original Code as defined in and that are subject to the Apple Public
- * Source License Version 1.0 (the 'License').  You may not use this file
- * except in compliance with the License.  Please obtain a copy of the
- * License at http://www.apple.com/publicsource and read it before using
- * this file.
- * 
- * The Original Code and all software distributed under the License are
- * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
- * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
- * INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY,
- * FITNESS FOR A PARTICULAR PURPOSE OR NON-INFRINGEMENT.  Please see the
- * License for the specific language governing rights and limitations
- * under the License."
- * 
- * @APPLE_LICENSE_HEADER_END@
- */
-/*
  * Copyright (c) 1988, 1990, 1993
  *	The Regents of the University of California.  All rights reserved.
  *
@@ -54,12 +31,18 @@
  * SUCH DAMAGE.
  */
 
+#include <sys/cdefs.h>
+
 
 #ifndef lint
-static char copyright[] =
+static const char copyright[] =
 "@(#) Copyright (c) 1988, 1990, 1993\n\
 	The Regents of the University of California.  All rights reserved.\n";
-#endif /* not lint */
+#endif
+
+#ifndef lint
+static const char sccsid[] = "@(#)wall.c	8.2 (Berkeley) 11/16/93";
+#endif
 
 /*
  * This program is not related to David Wall, whose Stanford Ph.D. thesis
@@ -68,101 +51,158 @@ static char copyright[] =
 
 #include <sys/param.h>
 #include <sys/stat.h>
-#include <sys/time.h>
 #include <sys/uio.h>
 
+#include <ctype.h>
+#include <err.h>
+#include <grp.h>
+#include <locale.h>
 #include <paths.h>
 #include <pwd.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <time.h>
 #include <unistd.h>
 #include <utmp.h>
 
-void	makemsg __P((char *));
+#include "ttymsg.h"
 
-#define	IGNOREUSER	"sleeper"
+static void makemsg(char *);
+static void usage(void);
 
+struct wallgroup {
+	struct wallgroup *next;
+	char		*name;
+	gid_t		gid;
+} *grouplist;
 int nobanner;
 int mbufsize;
 char *mbuf;
 
-/* ARGSUSED */
 int
-main(argc, argv)
-	int argc;
-	char **argv;
+main(int argc, char *argv[])
 {
-	extern int optind;
-	int ch;
 	struct iovec iov;
 	struct utmp utmp;
+	int ch;
+	int ingroup;
 	FILE *fp;
-	char *p, *ttymsg();
+	struct wallgroup *g;
+	struct group *grp;
+	char **np;
+	const char *p;
+	struct passwd *pw;
 	char line[sizeof(utmp.ut_line) + 1];
+	char username[sizeof(utmp.ut_name) + 1];
 
-	while ((ch = getopt(argc, argv, "n")) != EOF)
+	(void)setlocale(LC_CTYPE, "");
+
+	while ((ch = getopt(argc, argv, "g:n")) != -1)
 		switch (ch) {
 		case 'n':
 			/* undoc option for shutdown: suppress banner */
 			if (geteuid() == 0)
 				nobanner = 1;
 			break;
+		case 'g':
+			g = (struct wallgroup *)malloc(sizeof *g);
+			g->next = grouplist;
+			g->name = optarg;
+			g->gid = -1;
+			grouplist = g;
+			break;
 		case '?':
 		default:
-usage:
-			(void)fprintf(stderr, "usage: wall [file]\n");
-			exit(1);
+			usage();
 		}
 	argc -= optind;
 	argv += optind;
 	if (argc > 1)
-		goto usage;
+		usage();
+
+	for (g = grouplist; g; g = g->next) {
+		grp = getgrnam(g->name);
+		if (grp != NULL)
+			g->gid = grp->gr_gid;
+		else
+			warnx("%s: no such group", g->name);
+	}
 
 	makemsg(*argv);
 
-	if (!(fp = fopen(_PATH_UTMP, "r"))) {
-		(void)fprintf(stderr, "wall: cannot read %s.\n", _PATH_UTMP);
-		exit(1);
-	}
+	if (!(fp = fopen(_PATH_UTMP, "r")))
+		err(1, "cannot read %s", _PATH_UTMP);
 	iov.iov_base = mbuf;
 	iov.iov_len = mbufsize;
 	/* NOSTRICT */
 	while (fread((char *)&utmp, sizeof(utmp), 1, fp) == 1) {
-		if (!utmp.ut_name[0] ||
-		    !strncmp(utmp.ut_name, IGNOREUSER, sizeof(utmp.ut_name)))
+		if (!utmp.ut_name[0])
 			continue;
+		if (grouplist) {
+			ingroup = 0;
+			strlcpy(username, utmp.ut_name, sizeof(utmp.ut_name));
+			pw = getpwnam(username);
+			if (!pw)
+				continue;
+			for (g = grouplist; g && ingroup == 0; g = g->next) {
+				if (g->gid == (gid_t)-1)
+					continue;
+				if (g->gid == pw->pw_gid)
+					ingroup = 1;
+				else if ((grp = getgrgid(g->gid)) != NULL) {
+					for (np = grp->gr_mem; *np; np++) {
+						if (strcmp(*np, username) == 0) {
+							ingroup = 1;
+							break;
+						}
+					}
+				}
+			}
+			if (ingroup == 0)
+				continue;
+		}
 		strncpy(line, utmp.ut_line, sizeof(utmp.ut_line));
 		line[sizeof(utmp.ut_line)] = '\0';
 		if ((p = ttymsg(&iov, 1, line, 60*5)) != NULL)
-			(void)fprintf(stderr, "wall: %s\n", p);
+			warnx("%s", p);
 	}
 	exit(0);
 }
 
-void
-makemsg(fname)
-	char *fname;
+static void
+usage()
 {
-	register int ch, cnt;
+	(void)fprintf(stderr, "usage: wall [-g group] [file]\n");
+	exit(1);
+}
+
+void
+makemsg(char *fname)
+{
+	int cnt;
+	unsigned char ch;
 	struct tm *lt;
 	struct passwd *pw;
 	struct stat sbuf;
-	time_t now, time();
+	time_t now;
 	FILE *fp;
 	int fd;
-	char *p, *whom, hostname[MAXHOSTNAMELEN], lbuf[100], tmpname[15];
-	char *getlogin(), *strcpy(), *ttyname();
+	char *p, hostname[MAXHOSTNAMELEN], lbuf[256], tmpname[64];
+	const char *tty;
+	const char *whom;
+	gid_t egid;
 
-	(void)strcpy(tmpname, _PATH_TMP);
-	(void)strcat(tmpname, "/wall.XXXXXX");
-	if (!(fd = mkstemp(tmpname)) || !(fp = fdopen(fd, "r+"))) {
-		(void)fprintf(stderr, "wall: can't open temporary file.\n");
-		exit(1);
-	}
+	(void)snprintf(tmpname, sizeof(tmpname), "%s/wall.XXXXXX", _PATH_TMP);
+	if ((fd = mkstemp(tmpname)) == -1 || !(fp = fdopen(fd, "r+")))
+		err(1, "can't open temporary file");
 	(void)unlink(tmpname);
 
 	if (!nobanner) {
+		tty = ttyname(STDERR_FILENO);
+		if (tty == NULL)
+			tty = "no tty";
+
 		if (!(whom = getlogin()))
 			whom = (pw = getpwuid(getuid())) ? pw->pw_name : "???";
 		(void)gethostname(hostname, sizeof(hostname));
@@ -177,45 +217,78 @@ makemsg(fname)
 		 * in column 80, but that can't be helped.
 		 */
 		(void)fprintf(fp, "\r%79s\r\n", " ");
-		(void)sprintf(lbuf, "Broadcast Message from %s@%s",
+		(void)snprintf(lbuf, sizeof(lbuf), 
+		    "Broadcast Message from %s@%s",
 		    whom, hostname);
 		(void)fprintf(fp, "%-79.79s\007\007\r\n", lbuf);
-		(void)sprintf(lbuf, "        (%s) at %d:%02d ...", ttyname(2),
-		    lt->tm_hour, lt->tm_min);
+		(void)snprintf(lbuf, sizeof(lbuf),
+		    "        (%s) at %d:%02d %s...", tty,
+		    lt->tm_hour, lt->tm_min, lt->tm_zone);
 		(void)fprintf(fp, "%-79.79s\r\n", lbuf);
 	}
 	(void)fprintf(fp, "%79s\r\n", " ");
 
-	if (fname && !(freopen(fname, "r", stdin))) {
-		(void)fprintf(stderr, "wall: can't read %s.\n", fname);
-		exit(1);
+	if (fname) {
+		egid = getegid();
+		setegid(getgid());
+	       	if (freopen(fname, "r", stdin) == NULL)
+			err(1, "can't read %s", fname);
+		setegid(egid);
 	}
 	while (fgets(lbuf, sizeof(lbuf), stdin))
 		for (cnt = 0, p = lbuf; (ch = *p) != '\0'; ++p, ++cnt) {
-			if (cnt == 79 || ch == '\n') {
+			if (ch == '\r') {
+				cnt = 0;
+			} else if (cnt == 79 || ch == '\n') {
 				for (; cnt < 79; ++cnt)
 					putc(' ', fp);
 				putc('\r', fp);
 				putc('\n', fp);
 				cnt = 0;
-			} else
+			} 
+			if (((ch & 0x80) && ch < 0xA0) ||
+				   /* disable upper controls */
+				   (!isprint(ch) && !isspace(ch) &&
+				    ch != '\a' && ch != '\b')
+				  ) {
+				if (ch & 0x80) {
+					ch &= 0x7F;
+					putc('M', fp);
+					if (++cnt == 79) {
+						putc('\r', fp);
+						putc('\n', fp);
+						cnt = 0;
+					}
+					putc('-', fp);
+					if (++cnt == 79) {
+						putc('\r', fp);
+						putc('\n', fp);
+						cnt = 0;
+					}
+				}
+				if (iscntrl(ch)) {
+					ch ^= 040;
+					putc('^', fp);
+					if (++cnt == 79) {
+						putc('\r', fp);
+						putc('\n', fp);
+						cnt = 0;
+					}
+				}
 				putc(ch, fp);
+			} else {
+				putc(ch, fp);
+			}
 		}
 	(void)fprintf(fp, "%79s\r\n", " ");
 	rewind(fp);
 
-	if (fstat(fd, &sbuf)) {
-		(void)fprintf(stderr, "wall: can't stat temporary file.\n");
-		exit(1);
-	}
+	if (fstat(fd, &sbuf))
+		err(1, "can't stat temporary file");
 	mbufsize = sbuf.st_size;
-	if (!(mbuf = malloc((u_int)mbufsize))) {
-		(void)fprintf(stderr, "wall: out of memory.\n");
-		exit(1);
-	}
-	if (fread(mbuf, sizeof(*mbuf), mbufsize, fp) != mbufsize) {
-		(void)fprintf(stderr, "wall: can't read temporary file.\n");
-		exit(1);
-	}
+	if (!(mbuf = malloc((u_int)mbufsize)))
+		err(1, "out of memory");
+	if ((int)fread(mbuf, sizeof(*mbuf), mbufsize, fp) != mbufsize)
+		err(1, "can't read temporary file");
 	(void)close(fd);
 }

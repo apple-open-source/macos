@@ -1,25 +1,28 @@
-/*****************************************************************************
+/***************************************************************************
  *                                  _   _ ____  _     
  *  Project                     ___| | | |  _ \| |    
  *                             / __| | | | |_) | |    
  *                            | (__| |_| |  _ <| |___ 
  *                             \___|\___/|_| \_\_____|
  *
- * Copyright (C) 2000, Daniel Stenberg, <daniel@haxx.se>, et al.
+ * Copyright (C) 1998 - 2002, Daniel Stenberg, <daniel@haxx.se>, et al.
  *
- * In order to be useful for every potential user, curl and libcurl are
- * dual-licensed under the MPL and the MIT/X-derivate licenses.
- *
+ * This software is licensed as described in the file COPYING, which
+ * you should have received as part of this distribution. The terms
+ * are also available at http://curl.haxx.se/docs/copyright.html.
+ * 
  * You may opt to use, copy, modify, merge, publish, distribute and/or sell
  * copies of the Software, and permit persons to whom the Software is
- * furnished to do so, under the terms of the MPL or the MIT/X-derivate
- * licenses. You may pick one of these licenses.
+ * furnished to do so, under the terms of the COPYING file.
  *
  * This software is distributed on an "AS IS" basis, WITHOUT WARRANTY OF ANY
  * KIND, either express or implied.
  *
- * $Id: urlglob.c,v 1.1.1.1 2001/02/15 19:52:31 wsanchez Exp $
- *****************************************************************************/
+ * $Id: urlglob.c,v 1.1.1.2 2002/11/26 19:08:07 zarzycki Exp $
+ ***************************************************************************/
+
+/* client-local setup.h */
+#include "setup.h"
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -219,15 +222,19 @@ GlobCode glob_word(URLGlob *glob, char *pattern, int pos, int *amount)
   *amount = 1; /* default is one single string */
 
   while (*pattern != '\0' && *pattern != '{' && *pattern != '[') {
-    if (*pattern == '}' || *pattern == ']') {
+    if (*pattern == '}' || *pattern == ']')
       return GLOB_ERROR;
-    }
-    if (*pattern == '\\') {		/* escape character, skip '\' */
+
+    /* only allow \ to escape known "special letters" */
+    if (*pattern == '\\' &&
+        (*(pattern+1) == '{' || *(pattern+1) == '[' ||
+         *(pattern+1) == '}' || *(pattern+1) == ']') ) {
+
+      /* escape character, skip '\' */
       ++pattern;
       ++pos;
-      if (*pattern == '\0') {		/* but no escaping of '\0'! */
+      if (*pattern == '\0')		/* but no escaping of '\0'! */
 	return GLOB_ERROR;
-      }
     }
     *buf++ = *pattern++;		/* copy character to literal */
     ++pos;
@@ -395,7 +402,7 @@ char *match_url(char *filename, URLGlob *glob)
   int stringlen=0;
   char numbuf[18];
   char *appendthis;
-  size_t appendlen;
+  int appendlen;
 
   /* We cannot use the glob_buffer for storage here since the filename may
    * be longer than the URL we use. We allocate a good start size, then
@@ -424,7 +431,7 @@ char *match_url(char *filename, URLGlob *glob)
       switch (pat.type) {
       case UPTSet:
 	appendthis = pat.content.Set.elements[pat.content.Set.ptr_s];
-	appendlen = strlen(pat.content.Set.elements[pat.content.Set.ptr_s]);
+	appendlen = (int)strlen(pat.content.Set.elements[pat.content.Set.ptr_s]);
 	break;
       case UPTCharRange:
         numbuf[0]=pat.content.CharRange.ptr_c;
@@ -435,7 +442,7 @@ char *match_url(char *filename, URLGlob *glob)
       case UPTNumRange:
 	sprintf(numbuf, "%0*d", pat.content.NumRange.padlength, pat.content.NumRange.ptr_n);
         appendthis = numbuf;
-        appendlen = strlen(numbuf);
+        appendlen = (int)strlen(numbuf);
 	break;
       default:
 	printf("internal error: invalid pattern type (%d)\n", pat.type);

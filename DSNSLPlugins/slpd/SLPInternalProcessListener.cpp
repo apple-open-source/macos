@@ -1,29 +1,34 @@
 /*
-	File:		SLPInternalProcessListener.cp
-
-	Contains:	A thread that will actively listen for communications from our SA Plugin or
-				RAdmin plugin to administer this deamon
-
-	Written by:	Kevin Arnold
-
-	Copyright:	© 2000 - 2001 by Apple Computer, Inc., all rights reserved.
-
-	Change History (most recent first):
-
-
-*/
-/*
-#include <stdio.h>
-#include <string.h>
-#include <sys/un.h>
-
-#include "mslp_sd.h"
-#include "slp.h"
-#include "mslp.h"
-#include "mslpd_store.h"
-#include "mslp_dat.h"
-#include "mslpd.h"
-*/
+ * Copyright (c) 2002 Apple Computer, Inc. All rights reserved.
+ *
+ * @APPLE_LICENSE_HEADER_START@
+ * 
+ * Copyright (c) 1999-2003 Apple Computer, Inc.  All Rights Reserved.
+ * 
+ * This file contains Original Code and/or Modifications of Original Code
+ * as defined in and that are subject to the Apple Public Source License
+ * Version 2.0 (the 'License'). You may not use this file except in
+ * compliance with the License. Please obtain a copy of the License at
+ * http://www.opensource.apple.com/apsl/ and read it before using this
+ * file.
+ * 
+ * The Original Code and all software distributed under the License are
+ * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
+ * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
+ * INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY,
+ * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
+ * Please see the License for the specific language governing rights and
+ * limitations under the License.
+ * 
+ * @APPLE_LICENSE_HEADER_END@
+ */
+ 
+/*!
+ *  @header SLPInternalProcessListener
+ *  A thread that will actively listen for communications from our SA Plugin or
+ *  RAdmin plugin to administer this deamon
+ */
+ 
 #include <stdio.h>
 #include <string.h>
 #include <errno.h>
@@ -38,12 +43,11 @@
 #include "mslpd.h"
 #include "slpipc.h"
 
-#include <Carbon/Carbon.h>
-#include <LThread.h>
+#include <DirectoryServiceCore/DSLThread.h>
+#include <DirectoryService/DirServicesTypes.h>
 
 #include "SLPDefines.h"
 #include "SLPComm.h"
-//#include "URLUtilities.h"
 #include "SLPRegistrar.h"
 #include "SLPDAAdvertiser.h"
 #include "SLPDARegisterer.h"
@@ -59,11 +63,10 @@ int InitializeInternalProcessListener( SAState* psa )
     {
         SLP_LOG( SLP_LOG_DEBUG, "RunSLPInternalProcessListener is creating a new listener" );
         
-        new UMainThread();		// this needs to be called first
         gIPL = new SLPInternalProcessListener( psa, &status );
 	
         if ( !gIPL )
-            status = memFullErr;
+            status = eMemoryAllocError;
         else
         {
             status = gIPL->Initialize();
@@ -98,16 +101,12 @@ SLPInternalProcessListener::SLPInternalProcessListener( SAState* psa, OSStatus *
     mServerState = psa;
     mSLPSA = NULL;
     
-//	remove( kSLPdPath );
-    
     mSelfPtr = this;
 }
 
 SLPInternalProcessListener::~SLPInternalProcessListener()
 {
     mSelfPtr = NULL;
-// delete our kSLPdPath file as we are done listening
-//    remove( kSLPdPath );
 
     if ( mSLPSA )
         SLPClose( mSLPSA );
@@ -135,7 +134,6 @@ OSStatus SLPInternalProcessListener::Initialize()
         serv_addr.sun_family = AF_LOCAL;
         strcpy( serv_addr.sun_path, kSLPdPath );
 
-//        servlen = strlen(serv_addr.sun_path) + sizeof(serv_addr.sun_family) +1;
         servlen = sizeof(serv_addr);	// Richard Stevens Unix Network Programming pg 379
 
 
@@ -205,7 +203,6 @@ void* SLPInternalProcessListener::Run()
         }
         else
         {
-//	        SLP_LOG( SLP_LOG_DEBUG, "SLPInternalProcessListener, calling HandleCommunication" );
             SLPInternalProcessHandlerThread*	newHandler = new SLPInternalProcessHandlerThread();
             
             if ( newHandler )
@@ -213,12 +210,7 @@ void* SLPInternalProcessListener::Run()
                 newHandler->Initialize( newsockfd, mServerState );
                 newHandler->Resume();
             }
-//	        HandleCommunication( newsockfd, cli_addr, clientLen );
-
-//	        SLP_LOG( SLP_LOG_DEBUG, "SLPInternalProcessListener, HandleCommunication finished" );
         }
-            
-//        close( newsockfd );			// parent process
     }
 
     return NULL;
@@ -226,7 +218,7 @@ void* SLPInternalProcessListener::Run()
 
 
 SLPInternalProcessHandlerThread::SLPInternalProcessHandlerThread()
-    : LThread(threadOption_Default)
+    : DSLThread()
 {
 
 }
@@ -283,12 +275,26 @@ void SLPInternalProcessHandlerThread::HandleCommunication()
     
     switch ( messageType )
     {
+#pragma mark case kSLPStartUp:
+		case kSLPStartUp:
+		{
+			// nothing to do, we already up and running!
+		}
+		break;
+		
+#pragma mark case kSLPShutDown:
+		case kSLPShutDown:
+		{
+            SLP_LOG( SLP_LOG_STATE, "slpd: received a quit command.");
+			exit(0);
+		}
+		break;
+		
 #pragma mark case kSLPRegisterURL:
 #pragma mark case kSLPDeregisterURL:
         case kSLPRegisterURL:
         case kSLPDeregisterURL:
         {
-//			char		serviceType[256];
             char*		urlPtr = NULL;
             char*		scopeListPtr = NULL;
             char*		scopeList = NULL;
@@ -335,8 +341,6 @@ void SLPInternalProcessHandlerThread::HandleCommunication()
                 }
                 else
                 {
-//					status = (OSStatus)SLPDereg( mSLPSA, newURL, scopeList, SLPHandleRegReport, &regCookie );
-                        
                     RegData*	newReg = new RegData( urlPtr, urlLen, scopeListPtr, scopeListLen, attributeList, strlen(attributeList) );
                     
                     DeregisterService( newReg );		// takes responsibility of newReg
@@ -363,11 +367,8 @@ void SLPInternalProcessHandlerThread::HandleCommunication()
             // we need to reset the slpd by pointing at the proper config file
             if ( messageType == kSLPTurnOnDA )
             {
-                //SLPSetProperty("com.apple.slp.isDA", "true");
                 TurnOnDA();
                 propertyListIsDirty = true;
-                
-//                SLP_LOG( SLP_LOG_RADMIN, "Setting property: \"com.apple.slp.isDA\" to true" );
                 
                 if ( AreWeADirectoryAgent() )
                 {
@@ -382,11 +383,8 @@ void SLPInternalProcessHandlerThread::HandleCommunication()
             }
             else
             {
-                //SLPSetProperty("com.apple.slp.isDA", "false");
-//                TurnOffDA();
                 propertyListIsDirty = true;
                 
-//                SLP_LOG( SLP_LOG_RADMIN, "Setting property: \"com.apple.slp.isDA\" to false" );
                 TearDownSLPRegistrar();					// this also sets the boottime to zero for the next call...
                 StartSLPDAAdvertiser( mServerState );	// this will send out an advert saying we are shutting down
                 StopSLPDAAdvertiser();
@@ -464,7 +462,7 @@ void SLPInternalProcessHandlerThread::HandleCommunication()
                 if ( !tempPtr )
                 {
                     free( newScopeList );
-                    SLP_LOG( SLP_LOG_DROP, "we can't fit a single scope in our advertisement!" );			// ug we are screwed
+                    SLP_LOG( SLP_LOG_DROP, "we can't fit a single scope in our advertisement!" );			// bad error
                     break;
                 }
                 
@@ -541,7 +539,7 @@ void SLPInternalProcessHandlerThread::HandleCommunication()
                             if ( !tempPtr )
                             {
                                 free( daScopeListTemp );
-                                SLP_LOG( SLP_LOG_DROP, "we can't fit a single scope in our advertisement!" );			// ug we are screwed
+                                SLP_LOG( SLP_LOG_DROP, "we can't fit a single scope in our advertisement!" );			// bad error
                                 break;
                             }
                             
@@ -561,8 +559,7 @@ void SLPInternalProcessHandlerThread::HandleCommunication()
  
                         propertyListIsDirty = true;
                    }
-    //                status = (OSStatus)reset_slpd( 1, argv, &sin, mServerState );
-                    
+
                     if ( daScopeListTemp )
                         free( daScopeListTemp );
                     
@@ -626,7 +623,7 @@ void SLPInternalProcessHandlerThread::HandleCommunication()
                         if ( !tempPtr )
                         {
                             free( daScopeListTemp );
-                            SLP_LOG( SLP_LOG_DROP, "we can't fit a single scope in our advertisement!" );			// ug we are screwed
+                            SLP_LOG( SLP_LOG_DROP, "we can't fit a single scope in our advertisement!" );			// bad error
                             break;
                         }
                         
@@ -646,7 +643,6 @@ void SLPInternalProcessHandlerThread::HandleCommunication()
                     
                     mslplog( SLP_LOG_RADMIN, "Deleting Scope:", scopeToDelete );
                     mslplog( SLP_LOG_RADMIN, "Setting property: \"com.apple.slp.daScopeList\" to", SLPGetProperty("com.apple.slp.daScopeList") );
-    //                status = (OSStatus)reset_slpd( 1, argv, &sin, mServerState );
                   
                     SLPRegistrar::TheSLPR()->RemoveScope( scopeToDelete );
                }
@@ -877,22 +873,13 @@ void SLPInternalProcessHandlerThread::HandleCommunication()
         break;
         
 		default:
-/*			printf("SLPInternalProcessHandlerThread::HandleCommunication received unsupported messageType:%d!\n", messageType);
-			printf("data:");
-			for (int i=0; i<5 ; i++ )
-				printf(" 0x%0x", internalBuffer[i] );
-			printf("\n");
-*/		break;
+		break;
 	}
     
     if ( propertyListIsDirty )
         SLPWriteConfigFile( kSAConfigFilePath );
 }
 
-
 #ifdef EXTRA_MSGS
 
 #endif /* EXTRA_MSGS */
-
-
-

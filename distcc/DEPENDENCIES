@@ -1,0 +1,96 @@
+Dependencies for building and using distcc          -*- indented-text -*-
+
+
+
+To use distcc:
+
+  Nothing special is required, however it will be more fun if you have
+  a C/C++ compiler and a make that can run commands in parallel, like
+  GNU Make or BSD make.
+
+
+To build distcc:
+
+  libpopt (headers and library)
+ 
+    distccd uses the popt library for parsing command-line arguments.
+
+    You can either link distcc against a shared library installed on
+    your system, or use the included copy.  The configure scripts
+    should automatically fall back to the included copy, or you can
+    force this using --with-included-popt.
+
+    On some platforms, libpopt may not be on the default library and
+    header search paths.  You must in that case specify it's location
+    either by setting the CPPFLAGS and LDFLAGS before running
+    configure.
+
+    popt can be obtained from 
+
+      ftp://ftp.rpm.org/pub/rpm/dist/rpm-4.1.x/
+
+  GNU Make, or something close to it
+
+  C compiler
+
+  dietlibc (optional)
+
+    You can build distcc with dietlibc, which will work although there
+    are some compiler warnings.  This may be useful in making distcc
+    faster or smaller in some cases.
+
+      http://www.fefe.de/dietlibc/
+
+    
+To run the test suite:
+
+  Invoke with with "make check"
+
+  Python 2.2
+
+
+To run the macrobenchmark:
+
+  The macrobenchmark tests distcc's performance and correctness in
+  building various representative free software projects.  It
+  automatically downloads the source the first time it's run,
+  configures the project, and measures the time to build it.  It's
+  your responsibility to install and configure distcc on the machines
+  that will be used.
+
+  At the moment it downloads about 104MB of source to build all
+  packages.  Actually building them requires a good fraction of a
+  gigabyte of disk.
+
+  Python2.2
+
+  snarf <http://www.xach.com/snarf/>
+
+  Plenty of time, disk, and network bandwidth.  
+
+  Assorted libraries and headers required by the projects that the
+  benchmark builds.  The benchmark tool does not attempt to find these
+  for you.  In practice if you have a reasonably current free Unix
+  machine then it should be fine; if you are downlevel it may be
+  difficult.
+
+
+To build the documentation:
+
+  This is only required if you modify the SGML source, or if you are
+  building from CVS.  Built documents are included in release
+  tarballs.
+
+  Linuxdoc SGML tools
+
+
+To build the web pages:
+  
+  Latte <www.latte.org>
+  rsync (to upload)
+
+
+To change the Makefiles or configure.ac:
+
+  autoconf2.53 or later
+

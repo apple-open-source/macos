@@ -1,4 +1,4 @@
-/*	$KAME: oakley.h,v 1.27 2001/08/17 10:50:27 sakane Exp $	*/
+/*	$KAME: oakley.h,v 1.28 2001/12/12 18:23:42 sakane Exp $	*/
 
 /*
  * Copyright (C) 1995, 1996, 1997, and 1998 WIDE Project.

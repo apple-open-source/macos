@@ -626,7 +626,7 @@ writetouched(overwrite)
 	botch = 0;
 	oktorm = 1;
 	while ((nread = fread(edbuf, 1, sizeof(edbuf), o_touchedfile)) != 0) {
-		if (nread != fwrite(edbuf, 1, nread, n_touchedfile)){
+		if (nread != (int)fwrite(edbuf, 1, nread, n_touchedfile)){
 			/*
 			 *	Catastrophe in temporary area: file system full?
 			 */

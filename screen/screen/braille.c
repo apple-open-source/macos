@@ -25,7 +25,7 @@
  ****************************************************************
  */
 #include "rcs.h"
-RCS_ID("$Id: braille.c,v 1.1.1.1 2001/12/14 22:08:28 bbraun Exp $")
+RCS_ID("$Id: braille.c,v 1.1.1.2 2003/03/19 21:16:18 landonf Exp $")
 
 #include <stdio.h>
 #include <fcntl.h>
@@ -229,17 +229,23 @@ char *tablename;
   FILE *fp;
   char buffer[80], a[10];
 
-  if ((fp = fopen(tablename, "r")) == 0) 
+  if ((fp = secfopen(tablename, "r")) == 0) 
     {
-      Msg(0, "Braille table not found: %s ", tablename);
+      Msg(errno, "Braille table not found: %s ", tablename);
       return -1;
     }
   bzero(bd.bd_btable, 256);
+  /* format:
+   * Dec  Hex    Braille      Description
+   *  7   07    (12-45--8)    BEL
+   */
   while (fgets(buffer, sizeof(buffer), fp))
     {
       if (buffer[0] == '#') 
 	continue;
-      sscanf(buffer,"%d %x %s", &i, &j, a);
+      sscanf(buffer,"%d %x %8s", &i, &j, a);
+      if (i < 0 || i > 255)
+	continue;
       for (j=1, p=1, c=0; j<9; j++, p*=2)
 	if (a[j] == '0' + j)
 	  c += p;

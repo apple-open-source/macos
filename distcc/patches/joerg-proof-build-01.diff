@@ -1,0 +1,231 @@
+Martin Pool wrote:
+> On 25 Jul 2002, joerg.beyer@email.de wrote:
+> Dear Joerg,
+> 
+> You should be able to simply chain ccache and distcc
+> 
+>   CC='ccache distcc gcc'
+> 
+> Also, if you wish, you can put the ccache cache on a NFS filesystem.
+> 
+> If you have ideas for improvement of course they are welcome.
+> 
+
+
+Hi Martin,
+
+I have a patch, that kind of "proofs", that a distcc run did fine. I
+wanted to test if all machines produce always the same *.o file,
+since my machine setup differs.
+
+For this test, I compile the source files not only on one remove
+machine, but on all remote machine. This is only enabled if the
+envvar DISTCC_PROFBUILD is set.
+
+The patch could of course be improved, e.g. the diagnostics are always
+printed to stderr - it could be written to the logfile instead.
+
+	hope this helps
+	Joerg
+diff -bur distcc-0.6/src/bulk.c distcc/src/bulk.c
+--- distcc-0.6/src/bulk.c	Thu Jun 13 07:14:21 2002
++++ distcc/src/bulk.c	Tue Jul 30 16:58:03 2002
+@@ -189,3 +189,55 @@
+ 
+     return 0;
+ }
++
++static ssize_t read_block(int fd, char* buffer, ssize_t max_size)
++{
++    ssize_t bytes_read = 0;
++    while(max_size>0) {
++        int rc = read(fd, buffer, max_size);
++        if (rc == 0) {
++            return bytes_read;
++        }
++        if (rc>0) {
++            max_size   -= rc;
++            bytes_read += rc;
++        }
++        return -1;
++    }
++    /* never reached */
++    return -1;
++}
++
++int compare_files(const char* fn1, const char* fn2)
++{
++    char buffer1[10240];
++    char buffer2[10240];
++    ssize_t size1, size2;
++    int fd1, fd2;
++
++    fd1 = open(fn1, O_RDONLY);
++    if(fd1<0) return -1;
++    fd2 = open(fn2, O_RDONLY);
++    if(fd1<0) {
++        close(fd1);
++        return -1;
++    }
++    do {
++        if ((size1 = read_block(fd1,buffer1, sizeof(buffer1))) > 0) { 
++            size2 = read_block(fd1,buffer1, sizeof(buffer1)); 
++            if (size1 != size2) 
++                goto error;
++
++            if (memcmp(buffer1, buffer2, size1) != 0)
++                goto error;
++        }
++    }while(size1>0);
++
++    close(fd1);
++    close(fd2);
++    return 0;
++error:
++    close(fd1);
++    close(fd2);
++    return -1;
++}
+diff -bur distcc-0.6/src/distcc.c distcc/src/distcc.c
+--- distcc-0.6/src/distcc.c	Fri Jul 12 03:34:03 2002
++++ distcc/src/distcc.c	Tue Jul 30 16:59:08 2002
+@@ -52,6 +52,7 @@
+ #include "exitcode.h"
+ #include "util.h"
+ #include "clinet.h"
++#include "hosts.h"
+ 
+ /* for trace.c */
+ const char *rs_program_name = "distcc";
+@@ -166,7 +167,7 @@
+     }
+ 
+     if (dcc_x_file(fd, cpp_fname, "DOTI", NULL))
+-        return -1;
++        fprintf(stderr, "%s:%d\n",__FILE__,__LINE__);
+ 
+     tcp_cork_sock(fd, 0);
+     rs_trace("client finished sending request to server");
+@@ -174,8 +175,10 @@
+     if (dcc_r_result_header(fd)
+         || dcc_r_cc_status(fd, status)
+         || dcc_r_fd(fd, STDERR_FILENO, "SERR", NULL)
+-        || dcc_r_fd(fd, STDOUT_FILENO, "SOUT", NULL))
++        || dcc_r_fd(fd, STDOUT_FILENO, "SOUT", NULL)) {
++        fprintf(stderr, "%s:%d\n",__FILE__,__LINE__);
+         return -1;
++    }
+ 
+     /* Only try to retrieve the .o file if the compiler completed
+      * successfully */
+@@ -321,6 +324,87 @@
+     }
+ }
+ 
++/*
++ * build an object file on all possible machines and compare
++ * them. if everything went fine, than all object file must
++ * be equal copies.
++ * 
++ * this is not for normal operation but for testing.
++ */
++static int dcc_proof_build(char *argv[], int *status)
++{
++    char *input_fname, *output_fname, *cpp_fname;
++    pid_t cpp_pid = 0;
++    int ret;
++    char *buildhost;
++    int must_be_local = 0;
++    struct dcc_hostdef *hostlist, *h;
++    int n_hosts;
++    int build_rc = 0;
++    char local_dot_o_file[512]; /* should be enough */
++    snprintf(local_dot_o_file, sizeof(local_dot_o_file), "distcc__local__tmp_objfile_%d.o", getpid());
++
++    if (dcc_scan_args(argv, &input_fname, &output_fname, &argv) != 0) {
++        /* we need to scan the arguments even if we already know it's local, so that
++         * we can pick up distcc client options. */
++        must_be_local = 1;
++    }
++    printf("%s:%d> in '%s' out '%s'\n", __FILE__, __LINE__, input_fname, output_fname); 
++
++    if (must_be_local) {
++        /* This one returns -1 for jobs that can't be remote. */
++        return dcc_compile_local(argv);
++    } else {
++        fprintf(stderr, "%s:%d> will compile local\n", __FILE__, __LINE__);
++        if ((ret = dcc_compile_local(argv))) {
++            fprintf(stderr, "local compile failed\n");
++            return ret;
++        }
++        fprintf(stderr, "%s:%d> have compiled\n", __FILE__, __LINE__);
++
++        /* TODO: for rename(2) to succeed, both files need to
++         * be on the same filesystem. */
++        if(rename(output_fname, local_dot_o_file)) {
++            perror("rename");
++            assert(0);
++        }
++        fprintf(stderr, "%s:%d> have renamed '%s' -> '%s'\n", __FILE__, __LINE__, output_fname, local_dot_o_file);
++
++        if ((ret = dcc_parse_hosts_env(&hostlist, &n_hosts)) != 0) {
++            return ret;
++        }
++
++        for (h = hostlist; h; h = h->next) {
++            buildhost = h->hostname;
++            cpp_pid = 0;
++            if ((ret = dcc_cpp_maybe(argv, input_fname, &cpp_fname, &cpp_pid) != 0))
++                return ret;
++
++            if ((ret = dcc_compile_remote(argv, cpp_fname, output_fname,
++                                  cpp_pid, buildhost, status)) != 0) {
++                fprintf(stderr, "remote compile of '%s' on host '%s' failed\n", 
++                    input_fname, buildhost);
++                build_rc = 1;
++            }
++            if(dcc_critique_status(*status, argv[0], buildhost)) {
++                fprintf(stderr, "remote compile on host '%s' ended "
++                                "with status: %d\n", buildhost, *status);
++                build_rc = 1;
++            }
++            if(compare_files(output_fname, local_dot_o_file)) {
++                fprintf(stderr, "error: files '%s' and '%s' differ.\n", 
++                    output_fname, local_dot_o_file); 
++                build_rc = 1;
++            }
++            fprintf(stderr, "%s:%d> remove '%s'\n", __FILE__, __LINE__, output_fname);
++            unlink(output_fname);
++
++        }
++        rename(local_dot_o_file, output_fname);
++        
++    }
++    return 0;
++}
+ 
+ static void dcc_set_trace_from_env(void)
+ {
+@@ -365,6 +449,10 @@
+         dcc_show_version("distcc");
+         exit(0);
+     } 
++
++    if (getenv("DISTCC_PROFBUILD")) {
++        dcc_exit(dcc_proof_build(&argv[1], &status));
++    }
+ 
+     dcc_exit(dcc_build_somewhere(&argv[1], &status));
+ }
+diff -bur distcc-0.6/src/distcc.h distcc/src/distcc.h
+--- distcc-0.6/src/distcc.h	Wed Jul 10 07:11:16 2002
++++ distcc/src/distcc.h	Tue Jul 30 15:02:02 2002
+@@ -120,7 +120,7 @@
+ 
+ /* bulk.c */
+ int dcc_open_read(const char *fname, int *ifd, off_t *fsize);
+-
++int compare_files(const char* fn1, const char* fn2);
+ 
+ /* hosts.c */
+ int dcc_parse_hosts_env(struct dcc_hostdef **ret_list,

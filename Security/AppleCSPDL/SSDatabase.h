@@ -50,6 +50,8 @@ public:
 	SSUniqueRecord insert(CSSM_DB_RECORDTYPE recordType,
 						  const CSSM_DB_RECORD_ATTRIBUTE_DATA *attributes,
 						  const CSSM_DATA *data, bool);
+	void authenticate(CSSM_DB_ACCESS_TYPE inAccessRequest,
+						const CSSM_ACCESS_CREDENTIALS *inAccessCredentials);
 
 	// Passthrough functions (only implemented by AppleCSPDL).
 	void lock();
@@ -66,6 +68,9 @@ public:
 	// New methods not inherited from DbImpl
 	SecurityServer::DbHandle dbHandle();
 
+protected:
+	CssmClient::DbUniqueRecord getDbBlobId(CssmDataContainer *dbb);
+
 private:
 	enum
 	{
@@ -78,7 +83,6 @@ private:
 	
 	SecurityServer::ClientSession &mClientSession;
 	SecurityServer::DbHandle mSSDbHandle;
-	CssmClient::DbUniqueRecord mDbBlobId;
 };
 
 

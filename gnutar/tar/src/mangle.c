@@ -1,5 +1,5 @@
 /* Encode long filenames for GNU tar.
-   Copyright (C) 1988, 1992, 1994, 1996, 1997 Free Software Foundation, Inc.
+   Copyright 1988, 92, 94, 96, 97, 99, 2000 Free Software Foundation, Inc.
 
    This program is free software; you can redistribute it and/or modify it
    under the terms of the GNU General Public License as published by the
@@ -16,11 +16,8 @@
    59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.  */
 
 #include "system.h"
-
-#include <time.h>
-time_t time ();
-
 #include "common.h"
+#include <quotearg.h>
 
 struct mangled
   {
@@ -31,16 +28,9 @@ struct mangled
     char normal[1];
   };
 
-/* Should use a hash table, etc. .  */
-struct mangled *first_mangle;
-int mangled_num = 0;
-
-/*---------------------------------------------------------------------.
-| Extract a GNUTYPE_NAMES record contents.  It seems that such are not |
-| produced anymore by GNU tar, but we leave the reading code around    |
-| nevertheless, for salvaging old tapes.			       |
-`---------------------------------------------------------------------*/
-
+/* Extract a GNUTYPE_NAMES record contents.  It seems that such are
+   not produced anymore by GNU tar, but we leave the reading code
+   around nevertheless, for salvaging old tapes.  */
 void
 extract_mangle (void)
 {
@@ -50,7 +40,7 @@ extract_mangle (void)
   char *cursor = buffer;
 
   if (size != (size_t) size || size == (size_t) -1)
-    FATAL_ERROR ((0, 0, _("Memory exhausted")));
+    xalloc_die ();
 
   buffer[size] = '\0';
 
@@ -97,11 +87,12 @@ extract_mangle (void)
 	    next_cursor[-2] = '\0';
 	  unquote_string (name_end + 4);
 	  if (rename (name, name_end + 4))
-	    ERROR ((0, errno, _("Cannot rename %s to %s"), name, name_end + 4));
+	    ERROR ((0, errno, _("%s: Cannot rename to %s"),
+		    quotearg_colon (name), quote_n (1, name_end + 4)));
 	  else if (verbose_option)
 	    WARN ((0, 0, _("Renamed %s to %s"), name, name_end + 4));
 	}
-#ifdef S_ISLNK
+#ifdef HAVE_SYMLINK
       else if (!strncmp (cursor, "Symlink ", 8))
 	{
 	  name = cursor + 8;
@@ -116,8 +107,8 @@ extract_mangle (void)
 	  unquote_string (name_end + 4);
 	  if (symlink (name, name_end + 4)
 	      && (unlink (name_end + 4) || symlink (name, name_end + 4)))
-	    ERROR ((0, errno, _("Cannot symlink %s to %s"),
-		    name, name_end + 4));
+	    ERROR ((0, errno, _("%s: Cannot symlink to %s"),
+		    quotearg_colon (name), quote_n (1, name_end + 4)));
 	  else if (verbose_option)
 	    WARN ((0, 0, _("Symlinked %s to %s"), name, name_end + 4));
 	}

@@ -1,7 +1,7 @@
 /* search.c - ldbm backend search function */
-/* $OpenLDAP: pkg/ldap/servers/slapd/back-ldbm/search.c,v 1.93 2002/01/29 16:58:36 kurt Exp $ */
+/* $OpenLDAP: pkg/ldap/servers/slapd/back-ldbm/search.c,v 1.93.2.8 2003/02/09 17:41:28 kurt Exp $ */
 /*
- * Copyright 1998-2002 The OpenLDAP Foundation, All Rights Reserved.
+ * Copyright 1998-2003 The OpenLDAP Foundation, All Rights Reserved.
  * COPYING RESTRICTIONS APPLY, see COPYRIGHT file
  */
 
@@ -58,8 +58,7 @@ ldbm_back_search(
 	int isroot = 0;
 		
 #ifdef NEW_LOGGING
-	LDAP_LOG(( "backend", LDAP_LEVEL_ENTRY,
-		"ldbm_back_search: enter\n" ));
+	LDAP_LOG( BACK_LDBM, ENTRY, "ldbm_back_search: enter\n", 0, 0, 0 );
 #else
 	Debug(LDAP_DEBUG_TRACE, "=> ldbm_back_search\n", 0, 0, 0);
 #endif
@@ -75,7 +74,7 @@ ldbm_back_search(
 		ber_dupbv( &realbase, &e->e_nname );
 
 		candidates = search_candidates( be, e, filter,
-		    scope, deref, manageDSAit );
+		    scope, deref, manageDSAit || get_domainScope(op) );
 
 		goto searchit;
 		
@@ -142,9 +141,9 @@ ldbm_back_search(
 		ldap_pvt_thread_rdwr_runlock(&li->li_giant_rwlock);
 
 #ifdef NEW_LOGGING
-		LDAP_LOG(( "backend", LDAP_LEVEL_INFO,
+		LDAP_LOG( BACK_LDBM, INFO,
 			"ldbm_search: entry (%s) is a referral.\n",
-			e->e_dn ));
+			e->e_dn, 0, 0 );
 #else
 		Debug( LDAP_DEBUG_TRACE,
 			"ldbm_search: entry is referral\n",
@@ -198,8 +197,8 @@ searchit:
 	if ( candidates == NULL ) {
 		/* no candidates */
 #ifdef NEW_LOGGING
-		LDAP_LOG(( "backend", LDAP_LEVEL_INFO,
-			"ldbm_search: no candidates\n" ));
+		LDAP_LOG( BACK_LDBM, INFO,
+			"ldbm_search: no candidates\n" , 0, 0, 0);
 #else
 		Debug( LDAP_DEBUG_TRACE, "ldbm_search: no candidates\n",
 			0, 0, 0 );
@@ -223,7 +222,7 @@ searchit:
 	/* if candidates exceed to-be-checked entries, abort */
 	if ( !isroot && limit->lms_s_unchecked != -1 ) {
 		if ( ID_BLOCK_NIDS( candidates ) > (unsigned) limit->lms_s_unchecked ) {
-			send_search_result( conn, op, LDAP_UNWILLING_TO_PERFORM,
+			send_search_result( conn, op, LDAP_ADMINLIMIT_EXCEEDED,
 					NULL, NULL, NULL, NULL, 0 );
 			rc = 0;
 			goto done;
@@ -248,13 +247,15 @@ searchit:
 		/* if requested limit higher than hard limit, abort */
 		} else if ( tlimit > limit->lms_t_hard ) {
 			/* no hard limit means use soft instead */
-			if ( limit->lms_t_hard == 0 ) {
+			if ( limit->lms_t_hard == 0
+					&& limit->lms_t_soft > -1
+					&& tlimit > limit->lms_t_soft ) {
 				tlimit = limit->lms_t_soft;
 			
 			/* positive hard limit means abort */
 			} else if ( limit->lms_t_hard > 0 ) {
 				send_search_result( conn, op, 
-						LDAP_UNWILLING_TO_PERFORM,
+						LDAP_ADMINLIMIT_EXCEEDED,
 						NULL, NULL, NULL, NULL, 0 );
 				rc = 0; 
 				goto done;
@@ -270,13 +271,15 @@ searchit:
 		/* if requested limit higher than hard limit, abort */
 		} else if ( slimit > limit->lms_s_hard ) {
 			/* no hard limit means use soft instead */
-			if ( limit->lms_s_hard == 0 ) {
+			if ( limit->lms_s_hard == 0
+					&& limit->lms_s_soft > -1
+					&& slimit > limit->lms_s_soft ) {
 				slimit = limit->lms_s_soft;
 
 			/* positive hard limit means abort */
 			} else if ( limit->lms_s_hard > 0 ) {
 				send_search_result( conn, op,
-						LDAP_UNWILLING_TO_PERFORM,
+						LDAP_ADMINLIMIT_EXCEEDED,
 						NULL, NULL, NULL, NULL, 0 );
 				rc = 0;
 				goto done;
@@ -293,17 +296,13 @@ searchit:
 	    id = idl_nextid( candidates, &cursor ) )
 	{
 		int scopeok = 0;
+		int result = 0;
 
 		/* check for abandon */
-		ldap_pvt_thread_mutex_lock( &op->o_abandonmutex );
-
 		if ( op->o_abandon ) {
-			ldap_pvt_thread_mutex_unlock( &op->o_abandonmutex );
 			rc = 0;
 			goto done;
 		}
-
-		ldap_pvt_thread_mutex_unlock( &op->o_abandonmutex );
 
 		/* check time limit */
 		if ( tlimit != -1 && slap_get_time() > stoptime ) {
@@ -318,8 +317,8 @@ searchit:
 
 		if ( e == NULL ) {
 #ifdef NEW_LOGGING
-			LDAP_LOG(( "backend", LDAP_LEVEL_INFO,
-				"ldbm_search: candidate %ld not found.\n", id ));
+			LDAP_LOG( BACK_LDBM, INFO,
+				"ldbm_search: candidate %ld not found.\n", id, 0, 0 );
 #else
 			Debug( LDAP_DEBUG_TRACE,
 				"ldbm_search: candidate %ld not found\n",
@@ -357,8 +356,8 @@ searchit:
 			} else if ( dnIsSuffix( &e->e_nname, &realbase ) ) {
 				/* alias is within scope */
 #ifdef NEW_LOGGING
-				LDAP_LOG(( "backend", LDAP_LEVEL_DETAIL1,
-					"ldbm_search: alias \"%s\" in subtree\n", e->e_dn ));
+				LDAP_LOG( BACK_LDBM, DETAIL1,
+					"ldbm_search: alias \"%s\" in subtree\n", e->e_dn, 0, 0 );
 #else
 				Debug( LDAP_DEBUG_TRACE,
 					"ldbm_search: alias \"%s\" in subtree\n",
@@ -413,9 +412,9 @@ searchit:
 
 			} else {
 #ifdef NEW_LOGGING
-				LDAP_LOG(( "backend", LDAP_LEVEL_DETAIL2,
+				LDAP_LOG( BACK_LDBM, DETAIL2,
 					"ldbm_search: candidate referral %ld scope not okay\n",
-					id ));
+					id, 0, 0 );
 #else
 				Debug( LDAP_DEBUG_TRACE,
 					"ldbm_search: candidate referral %ld scope not okay\n",
@@ -427,7 +426,9 @@ searchit:
 		}
 
 		/* if it matches the filter and scope, send it */
-		if ( test_filter( be, conn, op, e, filter ) == LDAP_COMPARE_TRUE ) {
+		result = test_filter( be, conn, op, e, filter );
+
+		if ( result == LDAP_COMPARE_TRUE ) {
 			struct berval	dn;
 
 			/* check scope */
@@ -458,7 +459,7 @@ searchit:
 				}
 
 				if (e) {
-					int result = send_search_entry(be, conn, op,
+					result = send_search_entry(be, conn, op,
 						e, attrs, attrsonly, NULL);
 
 					switch (result) {
@@ -475,8 +476,9 @@ searchit:
 				}
 			} else {
 #ifdef NEW_LOGGING
-				LDAP_LOG(( "backend", LDAP_LEVEL_DETAIL2,
-					"ldbm_search: candidate entry %ld scope not okay\n", id ));
+				LDAP_LOG( BACK_LDBM, DETAIL2,
+					"ldbm_search: candidate entry %ld scope not okay\n", 
+					id, 0, 0 );
 #else
 				Debug( LDAP_DEBUG_TRACE,
 					"ldbm_search: candidate entry %ld scope not okay\n",
@@ -486,8 +488,9 @@ searchit:
 
 		} else {
 #ifdef NEW_LOGGING
-			LDAP_LOG(( "backend", LDAP_LEVEL_DETAIL2,
-				"ldbm_search: candidate entry %ld does not match filter\n", id ));
+			LDAP_LOG( BACK_LDBM, DETAIL2,
+				"ldbm_search: candidate entry %ld does not match filter\n", 
+				id, 0, 0 );
 #else
 			Debug( LDAP_DEBUG_TRACE,
 				"ldbm_search: candidate entry %ld does not match filter\n",
@@ -530,8 +533,7 @@ base_candidate(
 	ID_BLOCK		*idl;
 
 #ifdef NEW_LOGGING
-	LDAP_LOG(( "backend", LDAP_LEVEL_ENTRY,
-		   "base_candidate: base (%s)\n", e->e_dn ));
+	LDAP_LOG( BACK_LDBM, ENTRY, "base_candidate: base (%s)\n", e->e_dn, 0, 0 );
 #else
 	Debug(LDAP_DEBUG_TRACE, "base_candidates: base: \"%s\"\n",
 		e->e_dn, 0, 0);
@@ -556,13 +558,13 @@ search_candidates(
 	ID_BLOCK		*candidates;
 	Filter		f, fand, rf, af, xf;
     AttributeAssertion aa_ref, aa_alias;
-	struct berval bv_ref = { sizeof("REFERRAL")-1, "REFERRAL" };
-	struct berval bv_alias = { sizeof("ALIAS")-1, "ALIAS" };
+	struct berval bv_ref = { sizeof("referral")-1, "referral" };
+	struct berval bv_alias = { sizeof("alias")-1, "alias" };
 
 #ifdef NEW_LOGGING
-	LDAP_LOG(( "backend", LDAP_LEVEL_DETAIL1,
+	LDAP_LOG( BACK_LDBM, DETAIL1,
 		   "search_candidates: base (%s) scope %d deref %d\n",
-		   e->e_ndn, scope, deref ));
+		   e->e_ndn, scope, deref );
 #else
 	Debug(LDAP_DEBUG_TRACE,
 		"search_candidates: base=\"%s\" s=%d d=%d\n",

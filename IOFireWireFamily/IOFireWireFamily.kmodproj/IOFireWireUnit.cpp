@@ -130,7 +130,7 @@ bool IOFireWireUnit::attach( IOService *provider )
 {
     fDevice = OSDynamicCast(IOFireWireDevice, provider);
     if(!fDevice)
-	return false;
+		return false;
 	fDevice->retain();
     if( !IOFireWireNub::attach(provider))
         return (false);

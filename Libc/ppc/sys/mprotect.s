@@ -27,4 +27,3 @@
 #include "SYS.h"
 
 SYSCALL(mprotect, 3)
-	blr

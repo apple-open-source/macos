@@ -1,9 +1,9 @@
 #
-# "$Id: Makefile,v 1.22 2002/07/21 22:02:26 jlovell Exp $"
+# "$Id: Makefile,v 1.25 2003/03/06 00:09:21 jlovell Exp $"
 #
 #   Top-level Makefile for the Common UNIX Printing System (CUPS).
 #
-#   Copyright 1997-2002 by Easy Software Products, all rights reserved.
+#   Copyright 1997-2003 by Easy Software Products, all rights reserved.
 #
 #   These coded instructions, statements, and computer programs are the
 #   property of Easy Software Products and are protected by Federal
@@ -33,6 +33,8 @@ DIRS	=	cups backend berkeley cgi-bin filter man pdftops \
 
 CHANGE_OWNERS =	$(SERVERROOT) $(SERVERROOT)/certs $(SERVERROOT)/ppd \
 				$(SERVERROOT)/cupsd.conf $(SERVERROOT)/classes.conf \
+				$(SERVERROOT)/client.conf $(SERVERROOT)/interfaces \
+				$(SERVERROOT)/mime.convs $(SERVERROOT)/mime.types \
 				$(SERVERROOT)/printers.conf $(REQUESTS) $(REQUESTS)/tmp
 
 #
@@ -121,8 +123,10 @@ install:	installhdrs
 	# Fix ownerships to match what is set at startup in scheduler/conf.c
 	#
 	for file in $(CHANGE_OWNERS); do \
-		chown $(CUPS_USER):$(CUPS_GROUP) $$file; \
-	done \
+		chown root:$(CUPS_GROUP) $$file; \
+	done; \
+	chmod 0600 $(SERVERROOT)/classes.conf; \
+	chmod 0600 $(SERVERROOT)/printers.conf; \
 	#
 	# When we're being built by the B&I group do a 'make clean' at the end of 
 	# the install so that the next B&I build starts with a clean environment
@@ -183,5 +187,5 @@ tardist:
 	epm $(EPMFLAGS) -f tardist cups
 
 #
-# End of "$Id: Makefile,v 1.22 2002/07/21 22:02:26 jlovell Exp $".
+# End of "$Id: Makefile,v 1.25 2003/03/06 00:09:21 jlovell Exp $".
 #

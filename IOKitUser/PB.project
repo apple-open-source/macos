@@ -66,6 +66,9 @@
             "IODataQueueClient.h", 
             "iokitmig.h"
         ); 
+        "PRIVATE_HEADERS" = (
+            "IOKitLibPrivate.h"
+        ); 
         "Portuguese_OTHER_RESOURCES" = (); 
         SUBPROJECTS = (
             "adb.subproj", 

@@ -37,15 +37,13 @@ Apple
 disk partitioning scheme described in "Inside Macintosh: Devices".
 It does not support the intel/dos partitioning scheme supported by
 .Nm fdisk .
+.Pp
 .Ar device
 is of the following form:
-.Bl -compact -indent
-.It
-.Nm /dev/disk0s
-.It
-.Nm /dev/disk0s1
-.It
-.Nm etc.
+.Bl -tag -compact
+.It /dev/disk0s
+.It /dev/disk0s1
+.It etc.
 .El
 .Sh OPTIONS
 .Bl -tag -width -indent
@@ -71,6 +69,7 @@ Otherwise, lists the partition tables for the specified
 Prevents
 .Nm
 from writing to the device.
+.El
 .Sh "Editing Partition Tables"
 An argument which is simply the name of a
 device
@@ -166,8 +165,7 @@ The
 .Nm i
 (initialize) command prompts for the size of the device.
 This was done to get around a bug in the kernel where it reports the
-wrong
-size for the device.
+wrong size for the device.
 .Pp
 The
 .Nm w

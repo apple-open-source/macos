@@ -1,0 +1,220 @@
+Hi Eckert,
+
+On Thu, Mar 21, 2002 at 03:15:39PM -0500, Eckert, Robert D wrote:
+> Greetings, here is the output of the 'configure' step and
+> the compile step (using the Compaq cc compiler that comes 
+> with Tru64 V5.1A. The configure reported success and most of
+> the compile steps cam through error/warning free except for
+> the one that stumbled. Can someone help me out here? I am willing
+> to provide a binary for Tru64 V5.1A if we can swat this bug.
+
+I had the same problem. I managed to have rsync compiled OK on my
+Tru64 5.1 box with helps from couple of people from this list.
+Try with the patch I attach here. 
+I am not a C programmer so you'd better check to make sure it is
+correct.
+
+> We depend greatly on Rsync to keep a fresh backup of our 
+> 70gb storage system that is the backend of http://www.indiana.edu/,
+> Indiana University's main web site to the Internet. 
+
+I plan to do the same here instead of Tru64 vdump and vrestore
+once I am sure backups by rsync is as reliable as vdump/vrestore.
+Do you use rsync for root, usr partitions and and database files?
+Have you had any problem with rsync so far?
+
+Cheers,
+-- 
+Zoong Pham                        zpham@mercy.com.au
+UNIX Systems Administrator        Mercy Health and Aged Care Inc.
+
+To get my PGP public key, email me with the subject:
+Request for Zoong Pham's PGP public key
+
+
+
+
+diff -u -r rsync-2.5.4/batch.c rsync-2.5.4.new/batch.c
+--- rsync-2.5.4/batch.c	Thu Feb  7 08:20:48 2002
++++ rsync-2.5.4.new/batch.c	Fri Mar 22 09:24:01 2002
+@@ -405,7 +405,15 @@
+ 
+ 	/* FIXME: This will break if s->count is ever not exactly an int. */
+ 	write_batch_csums_file(flist_entry, sizeof(int));
++	if (s) {
++		write_batch_csums_file(&s->count,  sizeof(int));
++	}
++	else if (!s) {
++		write_batch_csums_file(&int_zero,  sizeof(int));
++	}
++	/*
+ 	write_batch_csums_file(s ? &s->count : &int_zero, sizeof(int));
++	*/
+ 	
+ 	if (s) {
+ 		for (i = 0; i < s->count; i++) {
+diff -u -r rsync-2.5.4/config.h.in rsync-2.5.4.new/config.h.in
+--- rsync-2.5.4/config.h.in	Thu Feb 28 10:15:55 2002
++++ rsync-2.5.4.new/config.h.in	Fri Mar 22 09:24:01 2002
+@@ -140,6 +140,9 @@
+ /* Define if you have the `mknod' function. */
+ #undef HAVE_MKNOD
+ 
++/* Define if you have the `mkfifo' function. */
++#undef HAVE_MKFIFO
++
+ /* Define if you have the `mtrace' function. */
+ #undef HAVE_MTRACE
+ 
+@@ -244,6 +247,9 @@
+ 
+ /* Define if you have the <sys/socket.h> header file. */
+ #undef HAVE_SYS_SOCKET_H
++
++/* Define if you have the <sys/un.h> header file. */
++#undef HAVE_SYS_UN_H
+ 
+ /* Define if you have the <sys/stat.h> header file. */
+ #undef HAVE_SYS_STAT_H
+diff -u -r rsync-2.5.4/configure rsync-2.5.4.new/configure
+--- rsync-2.5.4/configure	Wed Mar 13 11:03:50 2002
++++ rsync-2.5.4.new/configure	Fri Mar 22 09:24:01 2002
+@@ -3414,7 +3414,7 @@
+ fi
+ done
+ 
+-for ac_header in sys/filio.h string.h stdlib.h sys/socket.h sys/mode.h
++for ac_header in sys/filio.h string.h stdlib.h sys/socket.h sys/mode.h sys/un.h
+ do
+ as_ac_Header=`echo "ac_cv_header_$ac_header" | $as_tr_sh`
+ echo "$as_me:3420: checking for $ac_header" >&5
+@@ -6165,7 +6165,7 @@
+ fi
+ rm -f conftest.data
+ 
+-for ac_func in waitpid wait4 getcwd strdup strerror chown chmod mknod
++for ac_func in waitpid wait4 getcwd strdup strerror chown chmod mknod mkfifo
+ do
+ as_ac_var=`echo "ac_cv_func_$ac_func" | $as_tr_sh`
+ echo "$as_me:6171: checking for $ac_func" >&5
+diff -u -r rsync-2.5.4/configure.in rsync-2.5.4.new/configure.in
+--- rsync-2.5.4/configure.in	Wed Mar 13 11:03:34 2002
++++ rsync-2.5.4.new/configure.in	Fri Mar 22 09:24:01 2002
+@@ -242,7 +242,7 @@
+ AC_HEADER_SYS_WAIT
+ AC_CHECK_HEADERS(sys/fcntl.h sys/select.h fcntl.h sys/time.h sys/unistd.h unistd.h utime.h grp.h)
+ AC_CHECK_HEADERS(compat.h sys/param.h ctype.h sys/wait.h sys/ioctl.h)
+-AC_CHECK_HEADERS(sys/filio.h string.h stdlib.h sys/socket.h sys/mode.h)
++AC_CHECK_HEADERS(sys/filio.h string.h stdlib.h sys/socket.h sys/mode.h sys/un.h)
+ AC_CHECK_HEADERS(glob.h alloca.h mcheck.h sys/sysctl.h arpa/inet.h arpa/nameser.h)
+ AC_CHECK_HEADERS(netdb.h)
+ AC_CHECK_HEADERS(malloc.h)
+@@ -315,7 +315,19 @@
+ AC_CHECK_FUNCS(inet_ntop, , AC_LIBOBJ(lib/inet_ntop)) 
+ AC_CHECK_FUNCS(inet_pton, , AC_LIBOBJ(lib/inet_pton))
+ 
+-AC_CHECK_FUNCS(getaddrinfo, , AC_LIBOBJ(lib/getaddrinfo))
++# Tru64 UNIX has getaddrinfo() but has it renamed in libc as
++# something else so we must include <netdb.h> to get the
++# redefinition.
++AC_MSG_CHECKING([for getaddrinfo])
++AC_TRY_LINK([#include <sys/types.h>
++#include <sys/socket.h>
++#include <netdb.h>],[getaddrinfo(NULL, NULL, NULL, NULL);],
++       [AC_MSG_RESULT([yes])
++       AC_DEFINE(HAVE_GETADDRINFO, 1,
++               [Define if you have the `getaddrinfo' function.])],
++       [AC_MSG_RESULT([no])
++       AC_LIBOBJ(lib/getaddrinfo)])
++
+ AC_CHECK_FUNCS(getnameinfo, , AC_LIBOBJ(lib/getnameinfo))
+ 
+ AC_CHECK_MEMBER([struct sockaddr.sa_len], 
+@@ -348,7 +360,7 @@
+ dnl AC_FUNC_MEMCMP
+ 
+ AC_FUNC_UTIME_NULL
+-AC_CHECK_FUNCS(waitpid wait4 getcwd strdup strerror chown chmod mknod)
++AC_CHECK_FUNCS(waitpid wait4 getcwd strdup strerror chown chmod mknod mkfifo)
+ AC_CHECK_FUNCS(fchmod fstat strchr readlink link utime utimes strftime)
+ AC_CHECK_FUNCS(memmove lchown vsnprintf snprintf asprintf setsid glob strpbrk)
+ AC_CHECK_FUNCS(strlcat strlcpy mtrace mallinfo setgroups)
+diff -u -r rsync-2.5.4/lib/getaddrinfo.c rsync-2.5.4.new/lib/getaddrinfo.c
+--- rsync-2.5.4/lib/getaddrinfo.c	Fri Dec 14 16:33:12 2001
++++ rsync-2.5.4.new/lib/getaddrinfo.c	Fri Mar 22 09:24:10 2002
+@@ -41,6 +41,20 @@
+ 
+ #include <rsync.h>
+ 
++/****** Start Zoong added here */
++
++#define EAI_BADHINTS    12
++#define EAI_PROTOCOL    13
++#define EAI_MAX         14
++
++#define AI_PASSIVE      0x00000001 /* get address to use bind() */
++#define AI_CANONNAME    0x00000002 /* fill ai_canonname */
++#define AI_NUMERICHOST  0x00000004 /* prevent name resolution */
++#define AI_MASK         (AI_PASSIVE | AI_CANONNAME | AI_NUMERICHOST)
++
++/****** End Zoong added here */
++
++
+ #if defined(__KAME__) && defined(INET6)
+ # define FAITH
+ #endif
+diff -u -r rsync-2.5.4/rsync.h rsync-2.5.4.new/rsync.h
+--- rsync-2.5.4/rsync.h	Sat Feb 23 11:17:50 2002
++++ rsync-2.5.4.new/rsync.h	Fri Mar 22 09:24:01 2002
+@@ -109,6 +109,11 @@
+ #include <sys/socket.h>
+ #endif
+ 
++#ifdef HAVE_SYS_UN_H
++#define _SOCKADDR_LEN
++#include <sys/un.h>
++#endif
++
+ #ifdef HAVE_STRING_H
+ #include <string.h>
+ #endif
+diff -u -r rsync-2.5.4/syscall.c rsync-2.5.4.new/syscall.c
+--- rsync-2.5.4/syscall.c	Tue Feb 19 09:44:23 2002
++++ rsync-2.5.4.new/syscall.c	Fri Mar 22 09:24:01 2002
+@@ -67,6 +67,36 @@
+ {
+ 	if (dry_run) return 0;
+ 	CHECK_RO
++
++#if HAVE_MKFIFO
++       if (S_ISFIFO(mode)) {
++               return mkfifo(pathname, mode);
++       }
++#endif
++
++#if HAVE_SYS_UN_H
++       if (S_ISSOCK(mode)) {
++               int sock;
++               struct sockaddr_un saddr;
++               int len = strlen(pathname) + 1; /* include null */
++
++               saddr.sun_family = AF_UNIX;
++               strncpy(saddr.sun_path, pathname, sizeof(saddr.sun_path));
++               saddr.sun_len = len > sizeof(saddr.sun_path) ?  sizeof(saddr.sun_path): len;
++
++               if ((sock = socket(PF_UNIX, SOCK_STREAM, 0)) < 0) {
++                       return -1;
++               }
++               unlink(pathname);
++               if ((bind(sock, (struct sockaddr*)&saddr, sizeof(saddr))) < 0) {
++                       return -1;
++               }
++               close(sock);
++               return do_chmod(pathname, mode);
++       }
++#endif
++
++
+ 	return mknod(pathname, mode, dev);
+ }
+ #endif

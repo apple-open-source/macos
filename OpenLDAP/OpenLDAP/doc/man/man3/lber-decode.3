@@ -1,6 +1,6 @@
-.TH LBER_DECODE 3 "25 January 2002" "OpenLDAP LDVERSION"
-.\" $OpenLDAP: pkg/ldap/doc/man/man3/lber-decode.3,v 1.13 2002/01/25 11:34:57 hyc Exp $
-.\" Copyright 1998-2002 The OpenLDAP Foundation All Rights Reserved.
+.TH LBER_DECODE 3 "RELEASEDATE" "OpenLDAP LDVERSION"
+.\" $OpenLDAP: pkg/ldap/doc/man/man3/lber-decode.3,v 1.13.2.5 2003/03/03 17:10:02 kurt Exp $
+.\" Copyright 1998-2003 The OpenLDAP Foundation All Rights Reserved.
 .\" Copying restrictions apply.  See COPYRIGHT/LICENSE.
 .SH NAME
 ber_get_next, ber_skip_tag, ber_peek_tag, ber_scanf, ber_get_int,
@@ -8,6 +8,8 @@ ber_get_enum, ber_get_stringb, ber_get_stringa, ber_get_stringal,
 ber_get_stringbv, ber_get_null, ber_get_boolean, ber_get_bitstring,
 ber_first_element, ber_next_element
 \- LBER simplified Basic Encoding Rules library routines for decoding
+.SH LIBRARY
+OpenLDAP LBER (liblber, -llber)
 .SH SYNOPSIS
 .B #include <lber.h>
 .LP
@@ -334,7 +336,7 @@ as follows.
 .fi
 .SH ERRORS
 If an error occurs during decoding, generally these routines return
-LBER_ERROR (\-1).
+LBER_ERROR ((ber_tag_t)\-1).
 .LP
 .SH NOTES
 .LP
@@ -343,9 +345,9 @@ The return values for all of these functions are declared in the
 header file.  Some routines may dynamically allocate memory
 which must be freed by the caller using supplied deallocation routines.
 .SH SEE ALSO
-.BR lber-encode (3)
-.BR lber-memory (3)
-.BR lber-sockbuf (3)
+.BR lber-encode (3),
+.BR lber-memory (3),
+.BR lber-sockbuf (3),
 .BR lber-types (3)
 .SH ACKNOWLEDGEMENTS
 .B	OpenLDAP

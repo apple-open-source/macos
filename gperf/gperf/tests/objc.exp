@@ -1,0 +1,165 @@
+/* C code produced by gperf version 2.7.2 */
+/* Command-line: ../src/gperf -p -j1 -i 1 -g -o -t -N is_reserved_word -k'1,3,$'  */
+/* Command-line: gperf -p -j1 -i 1 -g -o -t -N is_reserved_word -k1,3,$ objc.gperf  */ 
+struct resword { char *name; short token; enum rid rid; };
+
+#define TOTAL_KEYWORDS 59
+#define MIN_WORD_LENGTH 2
+#define MAX_WORD_LENGTH 15
+#define MIN_HASH_VALUE 11
+#define MAX_HASH_VALUE 98
+/* maximum key range = 88, duplicates = 0 */
+
+#ifdef __GNUC__
+__inline
+#else
+#ifdef __cplusplus
+inline
+#endif
+#endif
+static unsigned int
+hash (str, len)
+     register const char *str;
+     register unsigned int len;
+{
+  static unsigned char asso_values[] =
+    {
+      99, 99, 99, 99, 99, 99, 99, 99, 99, 99,
+      99, 99, 99, 99, 99, 99, 99, 99, 99, 99,
+      99, 99, 99, 99, 99, 99, 99, 99, 99, 99,
+      99, 99, 99, 99, 99, 99, 99, 99, 99, 99,
+      99, 99, 99, 99, 99, 99, 99, 99, 99, 99,
+      99, 99, 99, 99, 99, 99, 99, 99, 99, 99,
+      99, 99, 99, 99, 16, 99, 99, 99, 99, 99,
+      99, 99, 99, 99, 99, 99, 99, 99, 99, 99,
+      99, 99, 99, 99, 99, 99, 99, 99, 99, 99,
+      99, 99, 99, 99, 99,  1, 99,  2,  1, 32,
+       1,  5, 19, 36, 25, 13, 99,  1,  8, 37,
+       2, 41, 34, 99, 27, 12,  1, 42, 21, 28,
+      99, 99, 12, 99, 99, 99, 99, 99, 99, 99,
+      99, 99, 99, 99, 99, 99, 99, 99, 99, 99,
+      99, 99, 99, 99, 99, 99, 99, 99, 99, 99,
+      99, 99, 99, 99, 99, 99, 99, 99, 99, 99,
+      99, 99, 99, 99, 99, 99, 99, 99, 99, 99,
+      99, 99, 99, 99, 99, 99, 99, 99, 99, 99,
+      99, 99, 99, 99, 99, 99, 99, 99, 99, 99,
+      99, 99, 99, 99, 99, 99, 99, 99, 99, 99,
+      99, 99, 99, 99, 99, 99, 99, 99, 99, 99,
+      99, 99, 99, 99, 99, 99, 99, 99, 99, 99,
+      99, 99, 99, 99, 99, 99, 99, 99, 99, 99,
+      99, 99, 99, 99, 99, 99, 99, 99, 99, 99,
+      99, 99, 99, 99, 99, 99, 99, 99, 99, 99,
+      99, 99, 99, 99, 99, 99
+    };
+  register int hval = len;
+
+  switch (hval)
+    {
+      default:
+      case 3:
+        hval += asso_values[(unsigned char)str[2]];
+      case 2:
+      case 1:
+        hval += asso_values[(unsigned char)str[0]];
+        break;
+    }
+  return hval + asso_values[(unsigned char)str[len - 1]];
+}
+
+#ifdef __GNUC__
+__inline
+#endif
+struct resword *
+is_reserved_word (str, len)
+     register const char *str;
+     register unsigned int len;
+{
+  static struct resword wordlist[] =
+    {
+      {""}, {""}, {""}, {""}, {""}, {""}, {""}, {""}, {""},
+      {""}, {""},
+      {"__asm__", ASM, NORID},
+      {"break", BREAK, NORID},
+      {"__typeof__", TYPEOF, NORID},
+      {"extern", SCSPEC, RID_EXTERN},
+      {"__alignof__", ALIGNOF, NORID},
+      {""},
+      {"__attribute__", ATTRIBUTE, NORID},
+      {"int", TYPESPEC, RID_INT},
+      {"__attribute", ATTRIBUTE, NORID},
+      {"__extension__", EXTENSION, NORID},
+      {""},
+      {"__signed", TYPESPEC, RID_SIGNED},
+      {"@end", END, NORID},
+      {"__signed__", TYPESPEC, RID_SIGNED},
+      {"__inline__", SCSPEC, RID_INLINE},
+      {"else", ELSE, NORID},
+      {"__inline", SCSPEC, RID_INLINE},
+      {"default", DEFAULT, NORID},
+      {"__typeof", TYPEOF, NORID},
+      {"@encode", ENCODE, NORID},
+      {"__alignof", ALIGNOF, NORID},
+      {"inline", SCSPEC, RID_INLINE},
+      {"@interface", INTERFACE, NORID},
+      {"if", IF, NORID},
+      {"__volatile__", TYPE_QUAL, RID_VOLATILE},
+      {"return", RETURN, NORID},
+      {"__volatile", TYPE_QUAL, RID_VOLATILE},
+      {"@defs", DEFS, NORID},
+      {"void", TYPESPEC, RID_VOID},
+      {"const", TYPE_QUAL, RID_CONST},
+      {"__const", TYPE_QUAL, RID_CONST},
+      {"volatile", TYPE_QUAL, RID_VOLATILE},
+      {"__const__", TYPE_QUAL, RID_CONST},
+      {"do", DO, NORID},
+      {"__asm", ASM, NORID},
+      {"struct", STRUCT, NORID},
+      {"continue", CONTINUE, NORID},
+      {"auto", SCSPEC, RID_AUTO},
+      {"sizeof", SIZEOF, NORID},
+      {"long", TYPESPEC, RID_LONG},
+      {"while", WHILE, NORID},
+      {"static", SCSPEC, RID_STATIC},
+      {"case", CASE, NORID},
+      {"double", TYPESPEC, RID_DOUBLE},
+      {"signed", TYPESPEC, RID_SIGNED},
+      {"switch", SWITCH, NORID},
+      {"@selector", SELECTOR, NORID},
+      {""},
+      {"short", TYPESPEC, RID_SHORT},
+      {"typeof", TYPEOF, NORID},
+      {"typedef", SCSPEC, RID_TYPEDEF},
+      {"union", UNION, NORID},
+      {"unsigned", TYPESPEC, RID_UNSIGNED},
+      {""},
+      {"char", TYPESPEC, RID_CHAR},
+      {"float", TYPESPEC, RID_FLOAT},
+      {""}, {""}, {""},
+      {"@implementation", IMPLEMENTATION, NORID},
+      {""}, {""}, {""}, {""}, {""},
+      {"for", FOR, NORID},
+      {""}, {""},
+      {"asm", ASM, NORID},
+      {""}, {""},
+      {"goto", GOTO, NORID},
+      {""}, {""}, {""}, {""}, {""},
+      {"enum", ENUM, NORID},
+      {""}, {""}, {""}, {""}, {""}, {""}, {""}, {""},
+      {"@public", PUBLIC, NORID},
+      {"register", SCSPEC, RID_REGISTER}
+    };
+
+  if (len <= MAX_WORD_LENGTH && len >= MIN_WORD_LENGTH)
+    {
+      register int key = hash (str, len);
+
+      if (key <= MAX_HASH_VALUE && key >= 0)
+        {
+          register const char *s = wordlist[key].name;
+
+          if (*str == *s && !strcmp (str + 1, s + 1))
+            return &wordlist[key];
+        }
+    }
+  return 0;
+}

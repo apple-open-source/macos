@@ -50,6 +50,7 @@
 
 #define SPACE	1
 #define ZERO	2
+#define UCASE	16
 
 /*
  * Scaled down version of C Library printf.
@@ -80,7 +81,7 @@ printn(n, b, flag, minwidth, putfn_p, putfn_arg)
 	}
 	cp = prbuf;
 	do {
-		*cp++ = "0123456789abcdef"[n%b];
+		*cp++ = "0123456789abcdef0123456789ABCDEF"[(flag & UCASE) + n%b];
 		n /= b;
 		width++;
 	} while (n);
@@ -140,7 +141,10 @@ again:
 		minwidth *= 10;
 		minwidth += c - '0';
 		goto again;
-	case 'x': case 'X':
+	case 'X':
+		flag |= UCASE;
+		/* fall through */
+	case 'x':
 		b = 16;
 		goto number;
 	case 'd':

@@ -1,0 +1,134 @@
+#! @PYTHON@
+#
+# Copyright (C) 1998,1999,2000,2001,2002 by the Free Software Foundation, Inc.
+#
+# This program is free software; you can redistribute it and/or
+# modify it under the terms of the GNU General Public License
+# as published by the Free Software Foundation; either version 2
+# of the License, or (at your option) any later version.
+# 
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+# 
+# You should have received a copy of the GNU General Public License
+# along with this program; if not, write to the Free Software 
+# Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
+
+"""Dump the contents of any Mailman `database' file.
+
+Usage: %(PROGRAM)s [options] filename
+
+Options:
+
+    --marshal/-m
+        Assume the file contains a Python marshal, overridding any automatic
+        guessing.
+
+    --pickle/-p
+        Assume the file contains a Python pickle, overridding any automatic
+        guessing.
+
+    --noprint/-n
+        Don't attempt to pretty print the object.  This is useful if there's
+        some problem with the object and you just want to get an unpickled
+        representation.  Useful with `python -i bin/dumpdb <file>'.  In that
+        case, the root of the tree will be left in a global called "msg".
+
+    --help/-h
+        Print this help message and exit
+
+If the filename ends with `.db', then it is assumed that the file contains a
+Python marshal.  If the file ends with `.pck' then it is assumed to contain a
+Python pickle.  In either case, if you want to override the default assumption
+-- or if the file ends in neither suffix -- use the -p or -m flags.
+"""
+
+import sys
+import os
+import getopt
+import pprint
+import cPickle
+
+import paths
+# Import this /after/ paths so that the sys.path is properly hacked
+from email.Generator import Generator
+
+from Mailman.Queue.Switchboard import DumperSwitchboard
+from Mailman.i18n import _
+
+PROGRAM = sys.argv[0]
+COMMASPACE = ', '
+
+
+
+def usage(code, msg=''):
+    if code:
+        fd = sys.stderr
+    else:
+        fd = sys.stdout
+    print >> fd, _(__doc__) % globals()
+    if msg:
+        print >> fd, msg
+    sys.exit(code)
+
+
+
+def main():
+    try:
+        opts, args = getopt.getopt(sys.argv[1:], 'mphn',
+                                   ['marshal', 'pickle', 'help', 'noprint'])
+    except getopt.error, msg:
+        usage(1, msg)
+
+    # Options.
+    # None == guess, 0 == pickle, 1 == marshal
+    filetype = None
+    doprint = 1
+
+    for opt, arg in opts:
+        if opt in ('-h', '--help'):
+            usage(0)
+        elif opt in ('-p', '--pickle'):
+            filetype = 0
+        elif opt in ('-m', '--marshal'):
+            filetype = 1
+        elif opt in ('-n', '--noprint'):
+            doprint = 0
+
+    if len(args) < 1:
+        usage(1, _('No filename given.'))
+    elif len(args) > 1:
+        pargs = COMMASPACE.join(args)
+        usage(1, _('Bad arguments: %(pargs)s'))
+    else:
+        filename = args[0]
+
+    if filetype is None:
+        if filename.endswith('.db'):
+            filetype = 1
+        elif filename.endswith('.pck'):
+            filetype = 0
+        else:
+            usage(1, _('Please specify either -p or -m.'))
+
+    # Handle dbs
+    pp = pprint.PrettyPrinter(indent=4)
+    if filetype == 1:
+        # BAW: this probably doesn't work if there are mixed types of .db
+        # files (i.e. some marshals, some bdbs).
+        d = DumperSwitchboard().read(filename)
+        if doprint:
+            pp.pprint(d)
+        return d
+    else:
+        m = cPickle.load(open(filename))
+        if doprint:
+            pp.pprint(m)
+        return m
+
+
+
+if __name__ == '__main__':
+    msg = main()

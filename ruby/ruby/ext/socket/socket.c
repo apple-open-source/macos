@@ -2,8 +2,8 @@
 
   socket.c -
 
-  $Author: jkh $
-  $Date: 2002/05/27 17:59:47 $
+  $Author: melville $
+  $Date: 2003/05/14 13:58:47 $
   created at: Thu Mar 31 12:21:29 JST 1994
 
   Copyright (C) 1993-2000 Yukihiro Matsumoto
@@ -154,19 +154,9 @@ rb_getaddrinfo(nodename, servname, hints, res)
 #define getaddrinfo(node,serv,hints,res) rb_getaddrinfo((node),(serv),(hints),(res))
 #endif
 
-#ifdef NT
-static void
-sock_finalize(fptr)
-    OpenFile *fptr;
-{
-    SOCKET s;
-
-    if (!fptr->f) return;
-    s = get_osfhandle(fileno(fptr->f));
-    myfdclose(fptr->f);
-    if (fptr->f2) myfdclose(fptr->f2);
-    closesocket(s);
-}
+#ifdef HAVE_CLOSESOCKET
+#undef close
+#define close closesocket
 #endif
 
 static VALUE
@@ -180,12 +170,7 @@ sock_new(class, fd)
 
     MakeOpenFile(sock, fp);
     fp->f = rb_fdopen(fd, "r");
-#ifdef NT
-    fp->finalize = sock_finalize;
-    fd = myfddup(fd);
-#else
     fd = dup(fd);
-#endif
     fp->f2 = rb_fdopen(fd, "w");
     fp->mode = FMODE_READWRITE;
     rb_io_synchronized(fp);
@@ -238,11 +223,7 @@ bsock_close_read(sock)
     }
     rb_thread_fd_close(fileno(fptr->f));
     fptr->mode &= ~FMODE_READABLE;
-#ifdef NT
-    myfdclose(fptr->f);
-#else
     fclose(fptr->f);
-#endif
     fptr->f = fptr->f2;
     fptr->f2 = 0;
 
@@ -264,11 +245,7 @@ bsock_close_write(sock)
     }
     shutdown(fileno(fptr->f2), 1);
     fptr->mode &= ~FMODE_WRITABLE;
-#ifdef NT
-    myfdclose(fptr->f2);
-#else
     fclose(fptr->f2);
-#endif
     fptr->f2 = 0;
 
     return Qnil;
@@ -329,7 +306,7 @@ bsock_getsockopt(sock, lev, optname)
     if (getsockopt(fileno(fptr->f), level, option, buf, &len) < 0)
 	rb_sys_fail(fptr->path);
 
-    return rb_tainted_str_new(buf, len);
+    return rb_str_new(buf, len);
 #else
     rb_notimplement();
 #endif
@@ -346,7 +323,7 @@ bsock_getsockname(sock)
     GetOpenFile(sock, fptr);
     if (getsockname(fileno(fptr->f), (struct sockaddr*)buf, &len) < 0)
 	rb_sys_fail("getsockname(2)");
-    return rb_tainted_str_new(buf, len);
+    return rb_str_new(buf, len);
 }
 
 static VALUE
@@ -360,7 +337,7 @@ bsock_getpeername(sock)
     GetOpenFile(sock, fptr);
     if (getpeername(fileno(fptr->f), (struct sockaddr*)buf, &len) < 0)
 	rb_sys_fail("getpeername(2)");
-    return rb_tainted_str_new(buf, len);
+    return rb_str_new(buf, len);
 }
 
 static VALUE
@@ -429,6 +406,7 @@ s_recvfrom(sock, argc, argv, from)
     char buf[1024];
     socklen_t alen = sizeof buf;
     VALUE len, flg;
+    long slen;
     int fd, flags;
 
     rb_scan_args(argc, argv, "11", &len, &flg);
@@ -442,22 +420,26 @@ s_recvfrom(sock, argc, argv, from)
     }
     fd = fileno(fptr->f);
 
-    str = rb_tainted_str_new(0, NUM2INT(len));
+    slen = NUM2INT(len);
+    str = rb_tainted_str_new(0, slen);
 
   retry:
     rb_thread_wait_fd(fd);
     TRAP_BEG;
-    RSTRING(str)->len = recvfrom(fd, RSTRING(str)->ptr, RSTRING(str)->len, flags,
-				 (struct sockaddr*)buf, &alen);
+    slen = recvfrom(fd, RSTRING(str)->ptr, slen, flags, (struct sockaddr*)buf, &alen);
     TRAP_END;
 
-    if (RSTRING(str)->len < 0) {
+    if (slen < 0) {
 	switch (errno) {
 	  case EINTR:
 	    rb_thread_schedule();
 	    goto retry;
 	}
 	rb_sys_fail("recvfrom(2)");
+    }
+    if (slen < RSTRING(str)->len) {
+	RSTRING(str)->len = slen;
+	RSTRING(str)->ptr[slen] = '\0';
     }
     rb_obj_taint(str);
     switch (from) {
@@ -475,7 +457,7 @@ s_recvfrom(sock, argc, argv, from)
 	return rb_assoc_new(str, unixaddr((struct sockaddr_un *)buf));
 #endif
       case RECV_SOCKET:
-	return rb_assoc_new(str, rb_tainted_str_new(buf, alen));
+	return rb_assoc_new(str, rb_str_new(buf, alen));
       default:
 	rb_bug("s_recvfrom called with bad value");
     }
@@ -499,6 +481,7 @@ bsock_do_not_rev_lookup()
 static VALUE
 bsock_do_not_rev_lookup_set(self, val)
 {
+    rb_secure(4);
     do_not_reverse_lookup = RTEST(val);
     return val;
 }
@@ -524,7 +507,7 @@ mkipaddr(addr)
     char buf[1024];
 
     mkipaddr0(addr, buf, sizeof(buf));
-    return rb_tainted_str_new2(buf);
+    return rb_str_new2(buf);
 }
 
 static void
@@ -583,7 +566,7 @@ ip_addrsetup(host, port)
 	portp = 0;
     }
     else if (FIXNUM_P(port)) {
-	snprintf(pbuf, sizeof(pbuf), "%ld", FIX2INT(port));
+	snprintf(pbuf, sizeof(pbuf), "%d", FIX2INT(port));
 	portp = pbuf;
     }
     else {
@@ -658,14 +641,14 @@ ipaddr(sockaddr)
 	if (error) {
 	    rb_raise(rb_eSocket, "getnameinfo: %s", gai_strerror(error));
 	}
-	addr1 = rb_tainted_str_new2(hbuf);
+	addr1 = rb_str_new2(hbuf);
     }
     error = getnameinfo(sockaddr, SA_LEN(sockaddr), hbuf, sizeof(hbuf),
 			pbuf, sizeof(pbuf), NI_NUMERICHOST | NI_NUMERICSERV);
     if (error) {
-	rb_raise(rb_eSocket, "getnameinfo %s", gai_strerror(error));
+	rb_raise(rb_eSocket, "getnameinfo: %s", gai_strerror(error));
     }
-    addr2 = rb_tainted_str_new2(hbuf);
+    addr2 = rb_str_new2(hbuf);
     if (do_not_reverse_lookup) {
 	addr1 = addr2;
     }
@@ -783,55 +766,79 @@ ruby_connect(fd, sockaddr, len, socks)
     }
 }
 
-static VALUE
-open_inet(class, h, serv, type)
-    VALUE class, h, serv;
-    int type;
+struct inetsock_arg
 {
-    struct addrinfo hints, *res, *res0;
+    VALUE sock;
+    VALUE host, serv;
+    struct addrinfo *res;
+    int type;
+    int fd;
+};
+
+static VALUE
+inetsock_cleanup(arg)
+    struct inetsock_arg *arg;
+{
+    if (arg->res) {
+	freeaddrinfo(arg->res);
+	arg->res = 0;
+    }
+    if (arg->fd >= 0) {
+	close(arg->fd);
+    }
+    return Qnil;
+}
+
+static VALUE
+open_inet_internal(arg)
+    struct inetsock_arg *arg;
+{
+    int type = arg->type;
+    struct addrinfo hints, *res;
     int fd, status;
     char *syscall;
     char pbuf[1024], *portp;
     char *host;
     int error;
 
-    if (h) {
-	Check_SafeStr(h);
-	host = RSTRING(h)->ptr;
+    if (arg->host) {
+	Check_SafeStr(arg->host);
+	host = RSTRING(arg->host)->ptr;
     }
     else {
 	host = NULL;
     }
-    if (FIXNUM_P(serv)) {
-	snprintf(pbuf, sizeof(pbuf), "%ld", FIX2UINT(serv));
+    if (FIXNUM_P(arg->serv)) {
+	snprintf(pbuf, sizeof(pbuf), "%ld", FIX2UINT(arg->serv));
 	portp = pbuf;
     }
     else {
-	Check_SafeStr(serv);
-	if (RSTRING(serv)->len >= sizeof(pbuf))
-	    rb_raise(rb_eArgError, "servicename too long (%d)", RSTRING(serv)->len);
-	strcpy(pbuf, RSTRING(serv)->ptr);
+	Check_SafeStr(arg->serv);
+	if (RSTRING(arg->serv)->len >= sizeof(pbuf))
+	    rb_raise(rb_eArgError, "servicename too long (%ld)", RSTRING(arg->serv)->len);
+	strcpy(pbuf, RSTRING(arg->serv)->ptr);
 	portp = pbuf;
     }
     MEMZERO(&hints, struct addrinfo, 1);
     hints.ai_family = PF_UNSPEC;
     hints.ai_socktype = SOCK_STREAM;
-    if (type == INET_SERVER) {
+    if (arg->type == INET_SERVER) {
 	hints.ai_flags = AI_PASSIVE;
     }
-    error = getaddrinfo(host, portp, &hints, &res0);
+    error = getaddrinfo(host, portp, &hints, &arg->res);
     if (error) {
 	rb_raise(rb_eSocket, "getaddrinfo: %s", gai_strerror(error));
     }
 
     fd = -1;
-    for (res = res0; res; res = res->ai_next) {
+    for (res = arg->res; res; res = res->ai_next) {
 	status = ruby_socket(res->ai_family,res->ai_socktype,res->ai_protocol);
 	syscall = "socket(2)";
 	fd = status;
 	if (fd < 0) {
 	    continue;
 	}
+	arg->fd = fd;
 	if (type == INET_SERVER) {
 #ifndef NT
 	    status = 1;
@@ -848,33 +855,39 @@ open_inet(class, h, serv, type)
 	}
 
 	if (status < 0) {
-#if defined(HAVE_CLOSESOCKET)
-	    closesocket(fd);
-#else
 	    close(fd);
-#endif
-	    fd = -1;
+	    arg->fd = fd = -1;
 	    continue;
 	} else
 	    break;
     }
     if (status < 0) {
-	if (fd >= 0)
-#if defined(HAVE_CLOSESOCKET)
-	    closesocket(fd);
-#else
-	    close(fd);
-#endif
-	freeaddrinfo(res0);
 	rb_sys_fail(syscall);
     }
+
+    arg->fd = -1;
 
     if (type == INET_SERVER)
 	listen(fd, 5);
 
     /* create new instance */
-    freeaddrinfo(res0);
-    return sock_new(class, fd);
+    return sock_new(arg->sock, fd);
+}
+
+static VALUE
+open_inet(class, h, serv, type)
+    VALUE class, h, serv;
+    int type;
+{
+    struct inetsock_arg arg;
+    arg.sock = class;
+    arg.host = h;
+    arg.serv = serv;
+    arg.res = 0;
+    arg.type = type;
+    arg.fd = -1;
+    return rb_ensure(open_inet_internal, (VALUE)&arg,
+		     inetsock_cleanup, (VALUE)&arg);
 }
 
 static VALUE
@@ -980,11 +993,11 @@ tcp_s_gethostbyname(obj, host)
 #endif
     }
     ary = rb_ary_new();
-    rb_ary_push(ary, rb_tainted_str_new2(h->h_name));
+    rb_ary_push(ary, rb_str_new2(h->h_name));
     names = rb_ary_new();
     rb_ary_push(ary, names);
     for (pch = h->h_aliases; *pch; pch++) {
-	rb_ary_push(names, rb_tainted_str_new2(*pch));
+	rb_ary_push(names, rb_str_new2(*pch));
     }
     rb_ary_push(ary, INT2NUM(h->h_addrtype));
 #ifdef h_addr
@@ -1098,6 +1111,19 @@ tcp_accept(sock)
 }
 
 #ifdef HAVE_SYS_UN_H
+struct unixsock_arg {
+    struct sockaddr_un *sockaddr;
+    int fd;
+};
+
+static VALUE
+unixsock_connect_internal(arg)
+    struct unixsock_arg *arg;
+{
+    return (VALUE)ruby_connect(arg->fd, arg->sockaddr, sizeof(*arg->sockaddr),
+			       0);
+}
+
 static VALUE
 open_unix(class, path, server)
     VALUE class;
@@ -1124,15 +1150,19 @@ open_unix(class, path, server)
         status = bind(fd, (struct sockaddr*)&sockaddr, sizeof(sockaddr));
     }
     else {
-        status = ruby_connect(fd, (struct sockaddr*)&sockaddr, sizeof(sockaddr), 0);
+	int prot;
+	struct unixsock_arg arg;
+	arg.sockaddr = &sockaddr;
+	arg.fd = fd;
+        status = rb_protect(unixsock_connect_internal, (VALUE)&arg, &prot);
+	if (prot) {
+	    close(fd);
+	    rb_jump_tag(prot);
+	}
     }
 
     if (status < 0) {
-#if defined(HAVE_CLOSESOCKET)
-	closesocket(fd);
-#else
 	close(fd);
-#endif
 	rb_sys_fail(sockaddr.sun_path);
     }
 
@@ -1217,27 +1247,44 @@ udp_s_open(argc, argv, class)
     return sock_new(class, fd);
 }
 
+struct udp_arg
+{
+    struct addrinfo *res;
+    int fd;
+};
+
+static VALUE
+udp_connect_internal(arg)
+    struct udp_arg *arg;
+{
+    int fd = arg->fd;
+    struct addrinfo *res;
+
+    for (res = arg->res; res; res = res->ai_next) {
+	if (ruby_connect(fd, res->ai_addr, res->ai_addrlen, 0) >= 0) {
+	    return Qtrue;
+	}
+    }
+    return Qfalse;
+}
+
 static VALUE
 udp_connect(sock, host, port)
     VALUE sock, host, port;
 {
     OpenFile *fptr;
     int fd;
-    struct addrinfo *res0, *res;
+    struct udp_arg arg;
+    VALUE ret;
 
     rb_secure(3);
     GetOpenFile(sock, fptr);
     fd = fileno(fptr->f);
-    res0 = ip_addrsetup(host, port);
-    for (res = res0; res; res = res->ai_next) {
-	if (ruby_connect(fd, res->ai_addr, res->ai_addrlen, 0) >= 0) {
-	    freeaddrinfo(res0);
-	    return INT2FIX(0);
-	}
-    }
-
-    freeaddrinfo(res0);
-    rb_sys_fail("connect(2)");
+    arg.res = ip_addrsetup(host, port);
+    arg.fd = fileno(fptr->f);
+    ret = rb_ensure(udp_connect_internal, (VALUE)&arg,
+		    RUBY_METHOD_FUNC(freeaddrinfo), (VALUE)arg.res);
+    if (!ret) rb_sys_fail("connect(2)");
     return INT2FIX(0);
 }
 
@@ -1328,7 +1375,7 @@ unix_path(sock)
 	    rb_sys_fail(0);
 	fptr->path = strdup(addr.sun_path);
     }
-    return rb_tainted_str_new2(fptr->path);
+    return rb_str_new2(fptr->path);
 }
 
 static VALUE
@@ -1366,7 +1413,7 @@ unixaddr(sockaddr)
     struct sockaddr_un *sockaddr;
 {
     return rb_assoc_new(rb_str_new2("AF_UNIX"),
-			rb_tainted_str_new2(sockaddr->sun_path));
+			rb_str_new2(sockaddr->sun_path));
 }
 
 static VALUE
@@ -1621,7 +1668,7 @@ sock_gethostname(obj)
 	rb_sys_fail("gethostname");
 
     buf[sizeof buf - 1] = '\0';
-    return rb_tainted_str_new2(buf);
+    return rb_str_new2(buf);
 }
 #else
 #ifdef HAVE_UNAME
@@ -1636,7 +1683,7 @@ sock_gethostname(obj)
 
     rb_secure(3);
     uname(&un);
-    return rb_tainted_str_new2(un.nodename);
+    return rb_str_new2(un.nodename);
 }
 #else
 static VALUE
@@ -1664,19 +1711,19 @@ mkhostent(h)
 #endif
     }
     ary = rb_ary_new();
-    rb_ary_push(ary, rb_tainted_str_new2(h->h_name));
+    rb_ary_push(ary, rb_str_new2(h->h_name));
     names = rb_ary_new();
     rb_ary_push(ary, names);
     for (pch = h->h_aliases; *pch; pch++) {
-	rb_ary_push(names, rb_tainted_str_new2(*pch));
+	rb_ary_push(names, rb_str_new2(*pch));
     }
     rb_ary_push(ary, INT2NUM(h->h_addrtype));
 #ifdef h_addr
     for (pch = h->h_addr_list; *pch; pch++) {
-	rb_ary_push(ary, rb_tainted_str_new(*pch, h->h_length));
+	rb_ary_push(ary, rb_str_new(*pch, h->h_length));
     }
 #else
-    rb_ary_push(ary, rb_tainted_str_new(h->h_addr, h->h_length));
+    rb_ary_push(ary, rb_str_new(h->h_addr, h->h_length));
 #endif
 
     return ary;
@@ -1934,7 +1981,7 @@ sock_s_getnameinfo(argc, argv)
 	    }
 	}
 	else {
-	    rb_raise(rb_eArgError, "array size should be 3 or 4, %d given",
+	    rb_raise(rb_eArgError, "array size should be 3 or 4, %ld given",
 		     RARRAY(sa)->len);
 	}
 	/* host */
@@ -2002,7 +2049,7 @@ sock_s_getnameinfo(argc, argv)
 	}
 	freeaddrinfo(res);
     }
-    return rb_assoc_new(rb_tainted_str_new2(hbuf), rb_tainted_str_new2(pbuf));
+    return rb_assoc_new(rb_str_new2(hbuf), rb_str_new2(pbuf));
 
   error_exit_addr:
     if (res) freeaddrinfo(res);

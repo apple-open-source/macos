@@ -21,7 +21,7 @@
 /* This file is derived from c-valprint.c */
 
 #include "defs.h"
-#include "obstack.h"
+#include "gdb_obstack.h"
 #include "symtab.h"
 #include "gdbtypes.h"
 #include "expression.h"
@@ -190,8 +190,8 @@ pascal_val_print (struct type *type, char *valaddr, int embedded_offset,
 	     as GDB does not recognize stabs pascal strings
 	     Pascal strings are mapped to records
 	     with lowercase names PM  */
-          if (is_pascal_string_type (elttype, &length_pos,
-                                     &length_size, &string_pos, &char_size)
+          if (is_pascal_string_type (elttype, &length_pos, &length_size,
+                                     &string_pos, &char_size, NULL)
 	      && addr != 0)
 	    {
 	      ULONGEST string_length;
@@ -320,7 +320,7 @@ pascal_val_print (struct type *type, char *valaddr, int embedded_offset,
       else
 	{
           if (is_pascal_string_type (type, &length_pos, &length_size,
-                                     &string_pos, &char_size))
+                                     &string_pos, &char_size, NULL))
 	    {
 	      len = extract_unsigned_integer (valaddr + embedded_offset + length_pos, length_size);
 	      LA_PRINT_STRING (stream, valaddr + embedded_offset + string_pos, len, char_size, 0);
@@ -514,7 +514,7 @@ pascal_val_print (struct type *type, char *valaddr, int embedded_offset,
       break;
 
     case TYPE_CODE_ERROR:
-      fprintf_filtered (stream, "<error type>");
+      fprintf_filtered (stream, "<unknown type>");
       break;
 
     case TYPE_CODE_UNDEF:
@@ -620,13 +620,11 @@ pascal_object_print_class_method (char *valaddr, struct type *type,
 	  f = TYPE_FN_FIELDLIST1 (domain, i);
 	  len2 = TYPE_FN_FIELDLIST_LENGTH (domain, i);
 
+	  check_stub_method_group (domain, i);
 	  for (j = 0; j < len2; j++)
 	    {
-	      QUIT;
 	      if (TYPE_FN_FIELD_VOFFSET (f, j) == offset)
 		{
-		  if (TYPE_FN_FIELD_STUB (f, j))
-		    check_stub_method (domain, i, j);
 		  kind = "virtual ";
 		  goto common;
 		}
@@ -646,15 +644,11 @@ pascal_object_print_class_method (char *valaddr, struct type *type,
 	  f = TYPE_FN_FIELDLIST1 (domain, i);
 	  len2 = TYPE_FN_FIELDLIST_LENGTH (domain, i);
 
+	  check_stub_method_group (domain, i);
 	  for (j = 0; j < len2; j++)
 	    {
-	      QUIT;
-	      if (TYPE_FN_FIELD_STUB (f, j))
-		check_stub_method (domain, i, j);
 	      if (STREQ (SYMBOL_NAME (sym), TYPE_FN_FIELD_PHYSNAME (f, j)))
-		{
-		  goto common;
-		}
+		goto common;
 	    }
 	}
     }

@@ -6,7 +6,7 @@
  *
  * $Date: 2000/05/06 03:03:58 $
  *
- * $Source: /cvs/Darwin/src/live/gnumake/make/w32/include/sub_proc.h,v $
+ * $Source: /cvs/root/gnumake/make/w32/include/sub_proc.h,v $
  *
  * $Revision: 1.1.1.2 $
  */

@@ -1,11 +1,11 @@
-/* $Source: /cvs/Darwin/apache_mod_php/php/ext/mnogosearch/php_mnogo.h,v $ */
-/* $Id: php_mnogo.h,v 1.1.1.1 2001/07/19 00:19:24 zarzycki Exp $ */
+/* $Source: /cvs/root/apache_mod_php/php/ext/mnogosearch/php_mnogo.h,v $ */
+/* $Id: php_mnogo.h,v 1.1.1.4 2003/07/18 18:07:37 zarzycki Exp $ */
 
 /* 
    +----------------------------------------------------------------------+
-   | PHP version 4.0                                                      |
+   | PHP Version 4                                                        |
    +----------------------------------------------------------------------+
-   | Copyright (c) 1997, 1998, 1999, 2000, 2001 The PHP Group             |
+   | Copyright (c) 1997-2003 The PHP Group                                |
    +----------------------------------------------------------------------+
    | This source file is subject to version 2.02 of the PHP license,      |
    | that is bundled with this package in the file LICENSE, and is        |
@@ -15,10 +15,10 @@
    | obtain it through the world-wide-web, please send a note to          |
    | license@php.net so we can mail you a copy immediately.               |
    +----------------------------------------------------------------------+
-   | Authors: 								  |
+   | Authors: 								                                            |
    |  Initial version     by  Alex Barkov <bar@izhcom.ru>                 |
    |                      and Ramil Kalimullin <ram@izhcom.ru>            |
-   |  Further development by  Sergey Kartashoff <gluke@biosys.net>        |
+   |  Further development by  Sergey Kartashoff <gluke@mail.ru>           |
    +----------------------------------------------------------------------+
  */
 
@@ -27,8 +27,15 @@
 
 #if HAVE_MNOGOSEARCH
 
+#undef HAVE_PGSQL
+#undef HAVE_MYSQL
 #include <udm_config.h>
 #include <udmsearch.h>
+
+#if UDM_VERSION_ID >= 30203
+#include <udm_crc32.h>
+#include <udm_store.h>
+#endif
 
 extern zend_module_entry mnogosearch_module_entry;
 #define mnogosearch_module_ptr &mnogosearch_module_entry
@@ -50,6 +57,21 @@ DLEXPORT PHP_MSHUTDOWN_FUNCTION(mnogosearch);
 DLEXPORT PHP_MINFO_FUNCTION(mnogosearch);
 
 DLEXPORT PHP_FUNCTION(udm_api_version);
+#if UDM_VERSION_ID >= 30200
+DLEXPORT PHP_FUNCTION(udm_check_charset);
+#if UDM_VERSION_ID == 30203
+DLEXPORT PHP_FUNCTION(udm_open_stored);
+DLEXPORT PHP_FUNCTION(udm_check_stored);
+DLEXPORT PHP_FUNCTION(udm_close_stored);
+#endif
+#if UDM_VERSION_ID >= 30203
+DLEXPORT PHP_FUNCTION(udm_crc32);
+#endif
+#if UDM_VERSION_ID >= 30204
+DLEXPORT PHP_FUNCTION(udm_parse_query_string);
+DLEXPORT PHP_FUNCTION(udm_make_excerpt);
+#endif
+#endif
 
 DLEXPORT PHP_FUNCTION(udm_alloc_agent);
 DLEXPORT PHP_FUNCTION(udm_set_agent_param);

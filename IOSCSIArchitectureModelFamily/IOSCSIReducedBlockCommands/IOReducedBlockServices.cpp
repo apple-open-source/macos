@@ -234,45 +234,6 @@ ErrorExit:
 
 
 //ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
-//	¥ doSyncReadWrite - Performs a synchronous read or write		   [PUBLIC]
-//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
-
-IOReturn
-IOReducedBlockServices::doSyncReadWrite (
-				IOMemoryDescriptor * 	buffer,
-				UInt32 					block,
-				UInt32 					nblks )
-{
-	
-	IOReturn	status = kIOReturnNotAttached;
-	
-	// Return an error for incoming activity if we have been terminated
-	require ( isInactive ( ) == false, ErrorExit );
-	
-	// Make sure we don't go away while the command in being executed.
-	retain ( );
-	fProvider->retain ( );
-	
-	// Make sure our provider is in the correct power state to handle the I/O.
-	fProvider->CheckPowerState ( );	
-	
-	// Execute the command
-	status = fProvider->SyncReadWrite ( buffer, block, nblks );
-	
-	// Release the retain for this command.	
-	fProvider->release ( );
-	release ( );
-	
-	
-ErrorExit:
-	
-	
-	return status;
-	
-}
-
-
-//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
 //	¥ doEjectMedia - Ejects the media								   [PUBLIC]
 //ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
 

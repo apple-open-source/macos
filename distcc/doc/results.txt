@@ -1,0 +1,130 @@
+2002-12-12
+
+With 
+
+ nevada		0.12
+ proforma	HEAD
+ vexed		HEAD 
+
+Now on 100Mbps switched copper.
+
+Building linux-2.4.19 with vexed's configuration, making bzImage
+
+CC=gcc-3.2 make  266.51s user 13.92s system 89% cpu 5:13.67 total
+
+CC='distcc gcc-3.2' make -j6  266.78s user 12.09s system 95% cpu 4:51.52 total
+
+Not very good!
+
+The kernel requires CC to be on the RHS of the make command!
+
+Better
+
+  make -j6 CC='distcc gcc-3.2'  140.07s user 11.31s system 87% cpu 2:52.95 total
+
+The original number was not using gcc-3.2, which is probably slower
+than 2.95.
+
+  make CC=gcc-3.2 bzImage  362.28s user 15.12s system 93% cpu 6:45.13 total
+
+  == 405.13s
+
+So three machines are about 2.34 times faster, or 0.78% of theoretical
+efficiency.
+
+With localhost at the back:
+
+  make -j6 CC='distcc gcc-3.2'  149.44s user 12.45s system 94% cpu 2:51.79 total
+
+In a way, this is a good sign, because we would hope that the ordering
+doesn't make too much difference.
+
+What about lots of jobs?
+
+  make -j18 CC='distcc gcc-3.2'  125.03s user 11.02s system 90% cpu 2:30.15 total
+
+At this level there is probably some thrashing, but I guess the
+network is fully loaded.  This is a 2.6x speedup, or 0.899% of maximum
+theoretical efficiency.  Not bad.
+
+Without localhost it presumably can't be much better than 2.0x.
+
+  make -j10 CC='distcc gcc-3.2'  42.65s user 9.11s system 27% cpu 3:07.25 total
+  = 187.25s
+
+2.164x speedup.
+
+With distcc HEAD 2002-06-05
+
+building linux-2.4.18 only on vexed:
+
+real	4m47.966s
+user	4m30.310s
+sys	0m11.910s
+
+building across "vexed jonquille nevada" -j6
+
+119.94user 10.09system 2:22.60elapsed 91%CPU (0avgtext+0avgdata 0maxresident)k
+0inputs+0outputs (520506major+473003minor)pagefaults 0swaps
+
+
+
+--- 
+
+building 2.4.18
+
+on vexed only
+make CC='gcc' -j5  239.01s user 10.32s system 81% cpu 5:05.11 total
+
+across nevada, jonquille, localhost, with -j8
+
+nice make -j8 CC='distcc gcc'  73.83s user 9.76s system 67% cpu 2:04.76 total
+
+down to 40% of the time; ideally with three equal machines it would be
+33%, i.e. 1:40.
+
+
+---
+
+distcc 0.10.1: building linux 2.2.18 without many options, on Linux
+2.2 inside VMWare GSX server on Nevada (1x1700MHz):
+
+Without:
+
+real	4m16.888s
+user	1m35.530s
+sys	2m40.200s
+
+Running only to the non-VMWare CPU of the same machine, is
+interestingly enough marginally faster:
+
+real	3m49.155s
+user	0m5.300s
+sys	0m49.340s
+
+Running across the host CPU plus one others, with one invalid hostname
+:-), with -j8:
+
+real	2m13.100s
+user	0m36.890s
+sys	1m29.730s
+
+With the host and two others:
+real	1m42.437s
+user	0m8.700s
+sys	0m56.320s
+
+With the guest CPU listed, rather than the native one:
+(This might get better load balancing?)
+real	1m44.003s
+user	0m28.810s
+sys	1m13.890s
+
+With only the two other hosts and no avoidable jobs run locally:
+real	2m19.007s
+user	0m4.970s
+sys	0m47.740s
+
+So, interesting.  The current model of tries to balance up local and
+remote jobs, taking into account that some (cpp and ld) can only be
+run locally.  It seems to be doing a pretty good job.

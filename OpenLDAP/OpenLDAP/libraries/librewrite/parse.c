@@ -24,6 +24,8 @@
 
 #include <portable.h>
 
+#include <stdio.h>
+
 #include "rewrite-int.h"
 
 static int
@@ -38,14 +40,14 @@ parse_line(
 	int in_quoted_field = 0, cnt = 0;
 	char quote = '\0';
 	
-	for ( p = buf; isspace( p[ 0 ] ); p++ );
+	for ( p = buf; isspace( (unsigned char) p[ 0 ] ); p++ );
 	
 	if ( p[ 0 ] == '#' ) {
 		return 0;
 	}
 	
 	for ( begin = p;  p[ 0 ] != '\0'; p++ ) {
-		if ( p[ 0 ] == '\\' ) {
+		if ( p[ 0 ] == '\\' && p[ 1 ] != '\0' ) {
 			p++;
 		} else if ( p[ 0 ] == '\'' || p[ 0 ] == '\"') {
 			if ( in_quoted_field && p[ 0 ] == quote ) {
@@ -57,7 +59,7 @@ parse_line(
 					*argc = cnt;
 					return 1;
 				}
-				for ( p++; isspace( p[ 0 ] ); p++ );
+				for ( p++; isspace( (unsigned char) p[ 0 ] ); p++ );
 				begin = p;
 				p--;
 				
@@ -69,7 +71,7 @@ parse_line(
 				in_quoted_field = 1 - in_quoted_field;
 				quote = p[ 0 ];
 			}
-		} else if ( isspace( p[ 0 ] ) && !in_quoted_field ) {
+		} else if ( isspace( (unsigned char) p[ 0 ] ) && !in_quoted_field ) {
 			p[ 0 ] = '\0';
 			argv[ cnt ] = begin;
 
@@ -78,7 +80,7 @@ parse_line(
 				return 1;
 			}
 
-			for ( p++; isspace( p[ 0 ] ); p++ );
+			for ( p++; isspace( (unsigned char) p[ 0 ] ); p++ );
 			begin = p;
 			p--;
 		}

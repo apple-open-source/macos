@@ -1,9 +1,11 @@
 /* reading patches */
 
-/* $Id: pch.c,v 1.2 2000/05/06 23:23:15 wsanchez Exp $ */
+/* $Id: pch.c,v 1.4 2003/05/22 20:10:31 rbraun Exp $ */
 
-/* Copyright 1986, 1987, 1988 Larry Wall
-   Copyright 1990, 1991-1993, 1997-1998, 1999 Free Software Foundation, Inc.
+/* Copyright (C) 1986, 1987, 1988 Larry Wall
+
+   Copyright (C) 1990, 1991, 1992, 1993, 1997, 1998, 1999, 2000, 2001,
+   2002 Free Software Foundation, Inc.
 
    This program is free software; you can redistribute it and/or modify
    it under the terms of the GNU General Public License as published by
@@ -23,7 +25,7 @@
 #define XTERN extern
 #include <common.h>
 #include <backupfile.h>
-#include <basename.h>
+#include <dirname.h>
 #include <inp.h>
 #include <quotearg.h>
 #include <util.h>
@@ -68,17 +70,17 @@ static LINENUM p_bfake = -1;		/* beg of faked up lines */
 
 enum nametype { OLD, NEW, INDEX, NONE };
 
-static char *scan_linenum PARAMS ((char *, LINENUM *));
-static enum diff intuit_diff_type PARAMS ((void));
-static enum nametype best_name PARAMS ((char * const *, int const *));
-static int prefix_components PARAMS ((char *, int));
-static size_t pget_line PARAMS ((int, int, int));
-static size_t get_line PARAMS ((void));
-static bool incomplete_line PARAMS ((void));
-static bool grow_hunkmax PARAMS ((void));
-static void malformed PARAMS ((void)) __attribute__ ((noreturn));
-static void next_intuit_at PARAMS ((file_offset, LINENUM));
-static void skip_to PARAMS ((file_offset, LINENUM));
+static char *scan_linenum (char *, LINENUM *);
+static enum diff intuit_diff_type (void);
+static enum nametype best_name (char * const *, int const *);
+static int prefix_components (char *, int);
+static size_t pget_line (int, int, int);
+static size_t get_line (void);
+static bool incomplete_line (void);
+static bool grow_hunkmax (void);
+static void malformed (void) __attribute__ ((noreturn));
+static void next_intuit_at (file_offset, LINENUM);
+static void skip_to (file_offset, LINENUM);
 
 /* Prepare to look for the next patch in the patch file. */
 
@@ -264,6 +266,7 @@ there_is_another_patch (void)
 	    else
 	      {
 		perror (inname);
+		fflush (stderr);
 		free (inname);
 		inname = 0;
 	      }
@@ -363,8 +366,14 @@ intuit_diff_type (void)
 	    for (t = s + 7;  ISSPACE ((unsigned char) *t);  t++)
 	      continue;
 	    revision = t;
-	    for (t = revision;  *t && !ISSPACE ((unsigned char) *t);  t++)
-	      continue;
+	    for (t = revision;  *t;  t++)
+	      if (ISSPACE ((unsigned char) *t))
+		{
+		  char numbuf[LINENUM_LENGTH_BOUND + 1];
+		  say ("Prereq: with multiple words at line %s of patch\n",
+		       format_linenum (numbuf, this_line));
+		  break;
+		}
 	    if (t == revision)
 		revision = 0;
 	    else {
@@ -391,8 +400,6 @@ intuit_diff_type (void)
 	if ((diff_type == NO_DIFF || diff_type == ED_DIFF) &&
 	  first_command_line >= 0 &&
 	  strEQ(s, ".\n") ) {
-	    p_indent = indent;
-	    p_strip_trailing_cr = strip_trailing_cr;
 	    p_start = first_command_line;
 	    p_sline = fcl_line;
 	    retval = ED_DIFF;
@@ -424,7 +431,8 @@ intuit_diff_type (void)
 	    p_sline = p_input_line;
 	    retval = UNI_DIFF;
 	    if (! ((name[OLD] || ! p_timestamp[OLD])
-		   && (name[NEW] || ! p_timestamp[NEW])))
+		   && (name[NEW] || ! p_timestamp[NEW]))
+		&& ! name[INDEX])
 	      {
 		char numbuf[LINENUM_LENGTH_BOUND + 1];
 		say ("missing header for unified diff at line %s of patch\n",
@@ -464,7 +472,8 @@ intuit_diff_type (void)
 	    }
 
 	    if (! ((name[OLD] || ! p_timestamp[OLD])
-		   && (name[NEW] || ! p_timestamp[NEW])))
+		   && (name[NEW] || ! p_timestamp[NEW]))
+		&& ! name[INDEX])
 	      {
 		char numbuf[LINENUM_LENGTH_BOUND + 1];
 		say ("missing header for context diff at line %s of patch\n",
@@ -487,7 +496,7 @@ intuit_diff_type (void)
   scan_exit:
 
     /* To intuit `inname', the name of the file to patch,
-       use the algorithm specified by POSIX 1003.2b/D11 section 5.22.7.2
+       use the algorithm specified by POSIX 1003.1-2001 XCU lines 25680-26599
        (with some modifications if posixly_correct is zero):
 
        - Take the old and new names from the context header if present,
@@ -788,11 +797,11 @@ scan_linenum (char *s0, LINENUM *linenum)
       overflow |= new_n / 10 != n;
       n = new_n;
     }
-  
+
   if (s == s0)
     fatal ("missing line number at line %s: %s",
 	   format_linenum (numbuf, p_input_line), buf);
-  
+
   if (overflow)
     fatal ("line number %.*s is too large at line %s: %s",
 	   (int) (s - s0), s0, format_linenum (numbuf, p_input_line), buf);
@@ -836,7 +845,8 @@ another_hunk (enum diff difftype, int rev)
 	bool ptrn_spaces_eaten = FALSE;	/* ptrn was slightly misformed */
 	bool some_context = FALSE;	/* (perhaps internal) context seen */
 	register bool repl_could_be_missing = TRUE;
-	bool repl_missing = FALSE;	/* we are now backtracking */
+	bool ptrn_missing = FALSE;	/* The pattern was missing.  */
+	bool repl_missing = FALSE;	/* Likewise for replacement.  */
 	file_offset repl_backtrack_position = 0;
 					/* file pos of first repl line */
 	LINENUM repl_patch_line;	/* input line number for same */
@@ -844,8 +854,8 @@ another_hunk (enum diff difftype, int rev)
 	LINENUM ptrn_prefix_context = -1; /* lines in pattern prefix context */
 	LINENUM ptrn_suffix_context = -1; /* lines in pattern suffix context */
 	LINENUM repl_prefix_context = -1; /* lines in replac. prefix context */
-	register LINENUM ptrn_copiable = 0;
-					/* # of copiable lines in ptrn */
+	LINENUM ptrn_copiable = 0;	/* # of copiable lines in ptrn */
+	LINENUM repl_copiable = 0;	/* Likewise for replacement.  */
 
 	/* Pacify `gcc -Wall'.  */
 	fillsrc = filldst = repl_patch_line = repl_context = 0;
@@ -945,6 +955,7 @@ another_hunk (enum diff difftype, int rev)
 		      {
 			/* `Old' lines were omitted.  Set up to fill
 			   them in from `new' context lines.  */
+			ptrn_missing = TRUE;
 			p_end = p_ptrn_lines + 1;
 			ptrn_prefix_context = ptrn_suffix_context = -1;
 			fillsrc = p_end + 1;
@@ -1073,7 +1084,9 @@ another_hunk (enum diff difftype, int rev)
 		    ptrn_spaces_eaten |= (repl_beginning != 0);
 		    some_context = TRUE;
 		    context++;
-		    if (!repl_beginning)
+		    if (repl_beginning)
+			repl_copiable++;
+		    else
 			ptrn_copiable++;
 		    p_Char[p_end] = ' ';
 		}
@@ -1094,7 +1107,9 @@ another_hunk (enum diff difftype, int rev)
 		}
 		some_context = TRUE;
 		context++;
-		if (!repl_beginning)
+		if (repl_beginning)
+		    repl_copiable++;
+		else
 		    ptrn_copiable++;
 		chars_read -=
 		  (1 < chars_read
@@ -1136,6 +1151,9 @@ another_hunk (enum diff difftype, int rev)
 	    fillcnt = p_repl_lines;
 	    p_end = p_max;
 	}
+	else if (! ptrn_missing && ptrn_copiable != repl_copiable)
+	  fatal ("context mangled in hunk at line %s",
+		 format_linenum (numbuf0, p_hunk_beg));
 	else if (!some_context && fillcnt == 1) {
 	    /* the first hunk was a null hunk with no context */
 	    /* and we were expecting one line -- fix it up. */
@@ -1505,6 +1523,7 @@ get_line (void)
 /* Input a line from the patch file, worrying about indentation.
    Strip up to INDENT characters' worth of leading indentation.
    Then remove up to RFC934_NESTING instances of leading "- ".
+   Ignore any resulting lines that begin with '#'; they're comments.
    If STRIP_TRAILING_CR is nonzero, remove any trailing carriage-return.
    Ignore any partial lines at end of input, but warn about them.
    Succeed if a line was read; it is terminated by "\n\0" for convenience.
@@ -1516,77 +1535,83 @@ pget_line (int indent, int rfc934_nesting, int strip_trailing_cr)
 {
   register FILE *fp = pfp;
   register int c;
-  register int i = 0;
+  register int i;
   register char *b;
   register size_t s;
 
-  for (;;)
+  do
     {
-      c = getc (fp);
-      if (c == EOF)
+      i = 0;
+      for (;;)
 	{
-	  if (ferror (fp))
-	    read_fatal ();
-	  return 0;
-	}
-      if (indent <= i)
-	break;
-      if (c == ' ' || c == 'X')
-	i++;
-      else if (c == '\t')
-	i = (i + 8) & ~7;
-      else
-	break;
-    }
-
-  i = 0;
-  b = buf;
-
-  while (c == '-' && 0 <= --rfc934_nesting)
-    {
-      c = getc (fp);
-      if (c == EOF)
-	goto patch_ends_in_middle_of_line;
-      if (c != ' ')
-	{
-	  i = 1;
-	  b[0] = '-';
-	  break;
-	}
-      c = getc (fp);
-      if (c == EOF)
-	goto patch_ends_in_middle_of_line;
-    }
-
-  s = bufsize;
-
-  for (;;)
-    {
-      if (i == s - 1)
-	{
-	  s *= 2;
-	  b = realloc (b, s);
-	  if (!b)
+	  c = getc (fp);
+	  if (c == EOF)
 	    {
-	      if (!using_plan_a)
-		memory_fatal ();
-	      return (size_t) -1;
+	      if (ferror (fp))
+		read_fatal ();
+	      return 0;
 	    }
-	  buf = b;
-	  bufsize = s;
+	  if (indent <= i)
+	    break;
+	  if (c == ' ' || c == 'X')
+	    i++;
+	  else if (c == '\t')
+	    i = (i + 8) & ~7;
+	  else
+	    break;
 	}
-      b[i++] = c;
-      if (c == '\n')
-	break;
-      c = getc (fp);
-      if (c == EOF)
-	goto patch_ends_in_middle_of_line;
+
+      i = 0;
+      b = buf;
+
+      while (c == '-' && 0 <= --rfc934_nesting)
+	{
+	  c = getc (fp);
+	  if (c == EOF)
+	    goto patch_ends_in_middle_of_line;
+	  if (c != ' ')
+	    {
+	      i = 1;
+	      b[0] = '-';
+	      break;
+	    }
+	  c = getc (fp);
+	  if (c == EOF)
+	    goto patch_ends_in_middle_of_line;
+	}
+
+      s = bufsize;
+
+      for (;;)
+	{
+	  if (i == s - 1)
+	    {
+	      s *= 2;
+	      b = realloc (b, s);
+	      if (!b)
+		{
+		  if (!using_plan_a)
+		    memory_fatal ();
+		  return (size_t) -1;
+		}
+	      buf = b;
+	      bufsize = s;
+	    }
+	  b[i++] = c;
+	  if (c == '\n')
+	    break;
+	  c = getc (fp);
+	  if (c == EOF)
+	    goto patch_ends_in_middle_of_line;
+	}
+
+      p_input_line++;
     }
+  while (*b == '#');
 
   if (strip_trailing_cr && 2 <= i && b[i - 2] == '\r')
     b[i-- - 2] = '\n';
   b[i] = '\0';
-  p_input_line++;
   return i;
 
  patch_ends_in_middle_of_line:
@@ -1848,7 +1873,7 @@ do_ed_script (FILE *ofp)
     register FILE *pipefp = 0;
     register size_t chars_read;
 
-    if (!skip_rest_of_patch) {
+    if (! dry_run && ! skip_rest_of_patch) {
 	int exclusive = TMPOUTNAME_needs_removal ? 0 : O_EXCL;
 	assert (! inerrno);
 	TMPOUTNAME_needs_removal = 1;

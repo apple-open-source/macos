@@ -1,6 +1,6 @@
-/* $OpenLDAP: pkg/ldap/libraries/libldap/url.c,v 1.64 2002/01/04 20:17:40 kurt Exp $ */
+/* $OpenLDAP: pkg/ldap/libraries/libldap/url.c,v 1.64.2.5 2003/03/03 17:10:05 kurt Exp $ */
 /*
- * Copyright 1998-2002 The OpenLDAP Foundation, All Rights Reserved.
+ * Copyright 1998-2003 The OpenLDAP Foundation, All Rights Reserved.
  * COPYING RESTRICTIONS APPLY, see COPYRIGHT file
  */
 /*  Portions
@@ -33,7 +33,6 @@
 #include <ac/time.h>
 
 #include "ldap-int.h"
-
 
 /* local functions */
 static const char* skip_url_prefix LDAP_P((
@@ -445,7 +444,11 @@ ldap_url_parse_ext( LDAP_CONST char *url_in, LDAPURLDesc **ludpp )
 	 * because a call to LDAP_INT_GLOBAL_OPT() will try to allocate
 	 * the options and cause infinite recursion
 	 */
+#ifdef NEW_LOGGING
+	LDAP_LOG ( OPERATION, ENTRY, "ldap_url_parse_ext(%s)\n", url_in, 0, 0 );
+#else
 	Debug( LDAP_DEBUG_TRACE, "ldap_url_parse_ext(%s)\n", url_in, 0, 0 );
+#endif
 #endif
 
 	*ludpp = NULL;	/* pessimistic */
@@ -878,16 +881,22 @@ ldap_url_duplist (LDAPURLDesc *ludlist)
 int
 ldap_url_parselist (LDAPURLDesc **ludlist, const char *url )
 {
+	return ldap_url_parselist_ext( ludlist, url, ", " );
+}
+
+int
+ldap_url_parselist_ext (LDAPURLDesc **ludlist, const char *url, const char *sep )
+{
 	int i, rc;
 	LDAPURLDesc *ludp;
 	char **urls;
 
+	assert( ludlist != NULL );
+	assert( url != NULL );
+
 	*ludlist = NULL;
 
-	if (url == NULL)
-		return LDAP_PARAM_ERROR;
-
-	urls = ldap_str2charray((char *)url, ", ");
+	urls = ldap_str2charray(url, sep);
 	if (urls == NULL)
 		return LDAP_NO_MEMORY;
 
@@ -919,12 +928,12 @@ ldap_url_parsehosts(
 	LDAPURLDesc *ludp;
 	char **specs, *p;
 
+	assert( ludlist != NULL );
+	assert( hosts != NULL );
+
 	*ludlist = NULL;
 
-	if (hosts == NULL)
-		return LDAP_PARAM_ERROR;
-
-	specs = ldap_str2charray((char *)hosts, ", ");
+	specs = ldap_str2charray(hosts, ", ");
 	if (specs == NULL)
 		return LDAP_NO_MEMORY;
 
@@ -1039,9 +1048,13 @@ ldap_url_list2urls(
 	/* figure out how big the string is */
 	size = 1;	/* nul-term */
 	for (ludp = ludlist; ludp != NULL; ludp = ludp->lud_next) {
-		size += strlen(ludp->lud_scheme) + strlen(ludp->lud_host);
-		if (strchr(ludp->lud_host, ':'))        /* will add [ ] below */
-			size += 2;
+		size += strlen(ludp->lud_scheme);
+		if ( ludp->lud_host ) {
+			size += strlen(ludp->lud_host);
+			/* will add [ ] below */
+			if (strchr(ludp->lud_host, ':'))
+				size += 2;
+		}
 		size += sizeof(":/// ");
 
 		if (ludp->lud_port != 0) {
@@ -1056,9 +1069,11 @@ ldap_url_list2urls(
 
 	p = s;
 	for (ludp = ludlist; ludp != NULL; ludp = ludp->lud_next) {
-		p += sprintf(p,
-			     strchr(ludp->lud_host, ':') ? "%s://[%s]" : "%s://%s",
-			     ludp->lud_scheme, ludp->lud_host);
+		p += sprintf(p, "%s://", ludp->lud_scheme);
+		if ( ludp->lud_host ) {
+			p += sprintf(p, strchr(ludp->lud_host, ':') 
+					? "[%s]" : "%s", ludp->lud_host);
+		}
 		if (ludp->lud_port != 0)
 			p += sprintf(p, ":%d", ludp->lud_port);
 		*p++ = '/';
@@ -1134,12 +1149,14 @@ ldap_pvt_hex_unescape( char *s )
 
 	for ( p = s; *s != '\0'; ++s ) {
 		if ( *s == '%' ) {
-			if ( *++s != '\0' ) {
-				*p = ldap_int_unhex( *s ) << 4;
+			if ( *++s == '\0' ) {
+				break;
 			}
-			if ( *++s != '\0' ) {
-				*p++ += ldap_int_unhex( *s );
+			*p = ldap_int_unhex( *s ) << 4;
+			if ( *++s == '\0' ) {
+				break;
 			}
+			*p++ += ldap_int_unhex( *s );
 		} else {
 			*p++ = *s;
 		}

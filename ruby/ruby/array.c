@@ -2,8 +2,8 @@
 
   array.c -
 
-  $Author: jkh $
-  $Date: 2002/05/27 17:59:43 $
+  $Author: melville $
+  $Date: 2003/05/14 13:58:42 $
   created at: Fri Aug  6 09:46:12 JST 1993
 
   Copyright (C) 1993-2000 Yukihiro Matsumoto
@@ -80,7 +80,7 @@ rb_ary_new2(len)
     if (len < 0) {
 	rb_raise(rb_eArgError, "negative array size (or size too big)");
     }
-    if (len > 0 && len*sizeof(VALUE) <= 0) {
+    if (len > 0 && len*sizeof(VALUE) <= len) {
 	rb_raise(rb_eArgError, "array size too big");
     }
     ary->len = 0;
@@ -120,7 +120,7 @@ rb_ary_new3(n, va_alist)
     long i;
 
     if (n < 0) {
-	rb_raise(rb_eIndexError, "negative number of items(%d)", n);
+	rb_raise(rb_eIndexError, "negative number of items(%ld)", n);
     }
     ary = rb_ary_new2(n<ARY_DEFAULT_SIZE?ARY_DEFAULT_SIZE:n);
 
@@ -195,7 +195,7 @@ rb_ary_initialize(argc, argv, ary)
     if (len < 0) {
 	rb_raise(rb_eArgError, "negative array size");
     }
-    if (len > 0 && len*sizeof(VALUE) <= 0) {
+    if (len > 0 && len*sizeof(VALUE) <= len) {
 	rb_raise(rb_eArgError, "array size too big");
     }
     if (len > RARRAY(ary)->capa) {
@@ -240,7 +240,7 @@ rb_ary_store(ary, idx, val)
     if (idx < 0) {
 	idx += RARRAY(ary)->len;
 	if (idx < 0) {
-	    rb_raise(rb_eIndexError, "index %d out of array",
+	    rb_raise(rb_eIndexError, "index %ld out of array",
 		     idx - RARRAY(ary)->len);
 	}
     }
@@ -533,13 +533,13 @@ rb_ary_replace(ary, beg, len, rpl)
 {
     long rlen;
 
-    if (len < 0) rb_raise(rb_eIndexError, "negative length %d", len);
+    if (len < 0) rb_raise(rb_eIndexError, "negative length %ld", len);
     if (beg < 0) {
 	beg += RARRAY(ary)->len;
     }
     if (beg < 0) {
 	beg -= RARRAY(ary)->len;
-	rb_raise(rb_eIndexError, "index %d out of array", beg);
+	rb_raise(rb_eIndexError, "index %ld out of array", beg);
     }
     if (beg + len > RARRAY(ary)->len) {
 	len = RARRAY(ary)->len - beg;
@@ -958,19 +958,22 @@ sort_1(a, b)
 }
 
 static int
-sort_2(a, b)
-    VALUE *a, *b;
+sort_2(ap, bp)
+    VALUE *ap, *bp;
 {
     VALUE retval;
+    long a = (long)*ap, b = (long)*bp;
 
-    if (FIXNUM_P(*a)) {
-	if (FIXNUM_P(*b)) return *a - *b;
+    if (FIXNUM_P(a) && FIXNUM_P(b)) {
+	if (a > b) return 1;
+	if (a < b) return -1;
+	return 0;
     }
-    else if (TYPE(*a) == T_STRING && TYPE(*b) == T_STRING) {
-	return rb_str_cmp(*a, *b);
+    if (TYPE(a) == T_STRING && TYPE(b) == T_STRING) {
+	return rb_str_cmp(a, b);
     }
 
-    retval = rb_funcall(*a, cmp, 1, *b);
+    retval = rb_funcall(a, cmp, 1, b);
     return rb_cmpint(retval);
 }
 

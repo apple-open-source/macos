@@ -1,0 +1,40 @@
+diff -u -r /home/sharkey/gstemp/gs-5.10/debian/control ./control
+--- /home/sharkey/gstemp/gs-5.10/debian/control Sat May 13 09:14:33 2000
++++ ./control   Sat May 13 08:48:54 2000
+@@ -36,3 +36,6 @@
+  .
+  This package also contains the hpdj driver contributed by
+  Martin Lottermoser and the hp8xx driver by Uli Wortmann.
++ .
++ This package is identical to the official gs package, except the
++ Gimp-Print printer driver suite (stp) has been added.
+--- gs-5.10/debian/rules	Sat May 13 09:57:03 2000
++++ /home/sharkey/gstemp/gs-5.10/debian/rules	Mon May  8 23:05:00 2000
+@@ -22,6 +22,7 @@
+ jpdrivers-support	= $(INCLUDE_GPL)
+ lexmark-support		= $(INCLUDE_GPL)
+ hpdj-support		= $(INCLUDE_LGPL)
++stp-support		= $(INCLUDE_GPL)
+
+ # Uncomment following line for conflicted jpdrivers support.
+ # Be sure to disable hp8xx-support and enable jpdrivers support.
+@@ -68,6 +69,7 @@
+ include debian/patches/jpdrivers
+ include debian/patches/lexmark
+ include debian/patches/hpdj
++include debian/patches/stp
+
+ patch-contrib:		$(APPLY_PATCHES)
+ unpatch-contrib:	$(UNAPPLY_PATCHES)
+--- gs-5.10/debian/changelog      Sun Nov 12 18:31:32 2000
++++ /home/sharkey/gstemp/gs-5.10/debian/changelog   Sun Nov 12 18:38:15 2000
+@@ -1,3 +1,9 @@
++gs (5.10stp-11) unstable; urgency=low
++
++  * Added Gimp-Print STP driver
++
++ -- Eric Sharkey <sharkey@debian.org>  Sun,  4 Feb 2001 15:41:17 +0900
++
+ gs (5.10-11) unstable; urgency=low
+
+   * debian/control: Added build time dependency for libfreetype2-dev

@@ -1,7 +1,7 @@
 /* group.c - ldbm backend acl group routine */
-/* $OpenLDAP: pkg/ldap/servers/slapd/back-ldbm/group.c,v 1.40 2002/01/19 01:58:01 hyc Exp $ */
+/* $OpenLDAP: pkg/ldap/servers/slapd/back-ldbm/group.c,v 1.40.2.3 2003/03/03 17:10:10 kurt Exp $ */
 /*
- * Copyright 1998-2002 The OpenLDAP Foundation, All Rights Reserved.
+ * Copyright 1998-2003 The OpenLDAP Foundation, All Rights Reserved.
  * COPYING RESTRICTIONS APPLY, see COPYRIGHT file
  */
 
@@ -48,9 +48,9 @@ ldbm_back_group(
 	}
 
 #ifdef NEW_LOGGING
-	LDAP_LOG(( "backend", LDAP_LEVEL_ENTRY,
+	LDAP_LOG( BACK_LDBM, ENTRY, 
 		"ldbm_back_group: check (%s) member of (%s), oc %s\n",
-		op_ndn->bv_val, gr_ndn->bv_val, group_oc_name ));
+		op_ndn->bv_val, gr_ndn->bv_val, group_oc_name );
 #else
 	Debug( LDAP_DEBUG_ARGS,
 		"=> ldbm_back_group: gr dn: \"%s\"\n",
@@ -72,9 +72,8 @@ ldbm_back_group(
 		/* we already have a LOCKED copy of the entry */
 		e = target;
 #ifdef NEW_LOGGING
-		LDAP_LOG(( "backend", LDAP_LEVEL_DETAIL1,
-			"ldbm_back_group: target is group (%s)\n",
-			gr_ndn->bv_val ));
+		LDAP_LOG( BACK_LDBM, DETAIL1, 
+			"ldbm_back_group: target is group (%s)\n", gr_ndn->bv_val, 0, 0 );
 #else
 		Debug( LDAP_DEBUG_ARGS,
 			"=> ldbm_back_group: target is group: \"%s\"\n",
@@ -86,9 +85,9 @@ ldbm_back_group(
 		/* can we find group entry with reader lock */
 		if ((e = dn2entry_r(be, gr_ndn, NULL )) == NULL) {
 #ifdef NEW_LOGGING
-			LDAP_LOG(( "backend", LDAP_LEVEL_DETAIL1,
-				"ldbm_back_group: cannot find group (%s)\n",
-				gr_ndn->bv_val ));
+			LDAP_LOG( BACK_LDBM, DETAIL1, 
+				"ldbm_back_group: cannot find group (%s)\n", 
+				gr_ndn->bv_val, 0, 0 );
 #else
 			Debug( LDAP_DEBUG_ACL,
 				"=> ldbm_back_group: cannot find group: \"%s\"\n",
@@ -99,8 +98,8 @@ ldbm_back_group(
 		}
 		
 #ifdef NEW_LOGGING
-		LDAP_LOG(( "backend", LDAP_LEVEL_DETAIL1,
-			"ldbm_back_group: found group (%s)\n", gr_ndn->bv_val ));
+		LDAP_LOG( BACK_LDBM, DETAIL1, 
+			"ldbm_back_group: found group (%s)\n", gr_ndn->bv_val, 0, 0 );
 #else
 		Debug( LDAP_DEBUG_ACL,
 			"=> ldbm_back_group: found group: \"%s\"\n",
@@ -119,9 +118,8 @@ ldbm_back_group(
 	
 	if( is_entry_alias( e ) ) {
 #ifdef NEW_LOGGING
-		LDAP_LOG(( "backend", LDAP_LEVEL_INFO,
-			"ldbm_back_group: group (%s) is an alias\n",
-			gr_ndn->bv_val ));
+		LDAP_LOG( BACK_LDBM, INFO, 
+			"ldbm_back_group: group (%s) is an alias\n", gr_ndn->bv_val, 0, 0 );
 #else
 		Debug( LDAP_DEBUG_ACL,
 			"<= ldbm_back_group: group is an alias\n", 0, 0, 0 );
@@ -132,9 +130,8 @@ ldbm_back_group(
 
 	if( is_entry_referral( e ) ) {
 #ifdef NEW_LOGGING
-		LDAP_LOG(( "backend", LDAP_LEVEL_INFO,
-			"ldbm_back_group: group (%s) is a referral.\n",
-			gr_ndn->bv_val ));
+		LDAP_LOG( BACK_LDBM, INFO, 
+			"ldbm_back_group: group (%s) is a referral.\n", gr_ndn->bv_val,0,0);
 #else
 		Debug( LDAP_DEBUG_ACL,
 			"<= ldbm_back_group: group is an referral\n", 0, 0, 0 );
@@ -145,9 +142,9 @@ ldbm_back_group(
 
 	if( !is_entry_objectclass( e, group_oc, 0 ) ) {
 #ifdef NEW_LOGGING
-		LDAP_LOG(( "backend", LDAP_LEVEL_ERR,
+		LDAP_LOG( BACK_LDBM, ERR, 
 			"ldbm_back_group: failed to find %s in objectClass.\n",
-			group_oc_name ));
+			group_oc_name, 0, 0 );
 #else
 		Debug( LDAP_DEBUG_ACL,
 			"<= ldbm_back_group: failed to find %s in objectClass\n", 
@@ -159,8 +156,8 @@ ldbm_back_group(
 
 	if ((attr = attr_find(e->e_attrs, group_at)) == NULL) {
 #ifdef NEW_LOGGING
-		LDAP_LOG(( "backend", LDAP_LEVEL_INFO,
-			"ldbm_back_group: failed to find %s\n", group_at_name ));
+		LDAP_LOG( BACK_LDBM, INFO, 
+			"ldbm_back_group: failed to find %s\n", group_at_name, 0, 0 );
 #else
 		Debug( LDAP_DEBUG_ACL,
 			"<= ldbm_back_group: failed to find %s\n",
@@ -171,9 +168,9 @@ ldbm_back_group(
 	}
 
 #ifdef NEW_LOGGING
-	LDAP_LOG(( "backend", LDAP_LEVEL_ENTRY,
+	LDAP_LOG( BACK_LDBM, ENTRY, 
 		   "ldbm_back_group: found objectClass %s and %s\n",
-		   group_oc_name, group_at_name ));
+		   group_oc_name, group_at_name, 0 );
 #else
 	Debug( LDAP_DEBUG_ACL,
 		"<= ldbm_back_group: found objectClass %s and %s\n",
@@ -181,11 +178,12 @@ ldbm_back_group(
 #endif
 
 
-	if( value_find( group_at, attr->a_vals, op_ndn ) != LDAP_SUCCESS ) {
+	if( value_find_ex( group_at, SLAP_MR_VALUE_NORMALIZED_MATCH,
+		attr->a_vals, op_ndn ) != LDAP_SUCCESS ) {
 #ifdef NEW_LOGGING
-		LDAP_LOG(( "backend", LDAP_LEVEL_DETAIL1,
+		LDAP_LOG( BACK_LDBM, DETAIL1, 
 			"ldbm_back_group: \"%s\" not in \"%s\": %s\n",
-			op_ndn->bv_val, gr_ndn->bv_val, group_at_name ));
+			op_ndn->bv_val, gr_ndn->bv_val, group_at_name );
 #else
 		Debug( LDAP_DEBUG_ACL,
 			"<= ldbm_back_group: \"%s\" not in \"%s\": %s\n", 
@@ -197,9 +195,9 @@ ldbm_back_group(
 
 
 #ifdef NEW_LOGGING
-	LDAP_LOG(( "backend", LDAP_LEVEL_DETAIL1,
+	LDAP_LOG( BACK_LDBM, DETAIL1, 
 		"ldbm_back_group: %s is in %s: %s\n",
-		op_ndn->bv_val, gr_ndn->bv_val, group_at_name ));
+		op_ndn->bv_val, gr_ndn->bv_val, group_at_name );
 #else
 	Debug( LDAP_DEBUG_ACL,
 		"<= ldbm_back_group: \"%s\" is in \"%s\": %s\n", 
@@ -216,8 +214,7 @@ return_results:
 	}
 
 #ifdef NEW_LOGGING
-	LDAP_LOG(( "backend", LDAP_LEVEL_ENTRY,
-		"ldbm_back_group: rc=%d\n", rc ));
+	LDAP_LOG( BACK_LDBM, ENTRY, "ldbm_back_group: rc=%d\n", rc, 0, 0 );
 #else
 	Debug( LDAP_DEBUG_TRACE, "ldbm_back_group: rc=%d\n", rc, 0, 0 ); 
 #endif

@@ -2,21 +2,24 @@
  * Copyright (c) 2000 Apple Computer, Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
- *
- * The contents of this file constitute Original Code as defined in and
- * are subject to the Apple Public Source License Version 1.1 (the
- * "License").  You may not use this file except in compliance with the
- * License.  Please obtain a copy of the License at
- * http://www.apple.com/publicsource and read it before using this file.
- *
- * This Original Code and all software distributed under the License are
- * distributed on an "AS IS" basis, WITHOUT WARRANTY OF ANY KIND, EITHER
+ * 
+ * Copyright (c) 1999-2003 Apple Computer, Inc.  All Rights Reserved.
+ * 
+ * This file contains Original Code and/or Modifications of Original Code
+ * as defined in and that are subject to the Apple Public Source License
+ * Version 2.0 (the 'License'). You may not use this file except in
+ * compliance with the License. Please obtain a copy of the License at
+ * http://www.opensource.apple.com/apsl/ and read it before using this
+ * file.
+ * 
+ * The Original Code and all software distributed under the License are
+ * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
  * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
  * INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY,
- * FITNESS FOR A PARTICULAR PURPOSE OR NON-INFRINGEMENT.  Please see the
- * License for the specific language governing rights and limitations
- * under the License.
- *
+ * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
+ * Please see the License for the specific language governing rights and
+ * limitations under the License.
+ * 
  * @APPLE_LICENSE_HEADER_END@
  */
 
@@ -64,6 +67,8 @@
 #include <pthread.h>
 #include <sys/kern_event.h>
 #include <netinet/in_var.h>
+#include <netinet/tcp.h>
+#include <net/if_dl.h>
 
 #include <CoreFoundation/CFNumber.h>
 #include <CoreFoundation/CFBundle.h>
@@ -89,22 +94,21 @@
 #define MODE_LISTEN	"listen"
 #define MODE_ANSWER	"answer"
 
-#define PPTP_NKE	"PPTP.kext"
-
 
 /* -----------------------------------------------------------------------------
  Forward declarations
 ----------------------------------------------------------------------------- */
 
-void pptp_device_check();
+void pptp_process_extra_options();
 void pptp_check_options();
 int pptp_connect();
 void pptp_disconnect();
-void pptp_close_fds();
+void pptp_close();
 void pptp_cleanup();
 int pptp_establish_ppp(int);
 void pptp_wait_input();
 void pptp_disestablish_ppp(int);
+void pptp_link_down(void *arg, int p);
 
 static void pptp_echo_check();
 static void pptp_echo_timeout(void *arg);
@@ -112,9 +116,10 @@ static void pptp_send_echo_request();
 static void pptp_link_failure();
 static void closeall();
 static u_long load_kext(char *kext);
+static boolean_t host_gateway(int cmd, struct in_addr host, struct in_addr gateway, char *ifname, int isnet);
+static int pptp_set_peer_route();
+static int pptp_clean_peer_route();
 static void pptp_ip_up(void *arg, int p);
-static void pptp_ip_down(void *arg, int p);
-static boolean_t host_gateway(int cmd, struct in_addr host, struct in_addr gateway);
 
 
 /* -----------------------------------------------------------------------------
@@ -144,6 +149,8 @@ static u_int8_t routeraddress[16];
 static u_int8_t interface[17];
 static pthread_t resolverthread = 0;
 static int 	resolverfds[2];
+static bool	linkdown = 0; 			/* flag set when we receive link down event */
+static int 	peer_route_set = 0;		/* has a route to the peer been set ? */
 
 /* 
 Fast echo request procedure is run when a networking change is detected 
@@ -157,6 +164,7 @@ static int	echo_timer_running = 0;
 static int 	echos_pending = 0;	
 static int	echo_identifier = 0; 	
 static int	echo_active = 0;
+static int	tcp_keepalive = 0;
 
 extern int 		kill_link;
 extern CFStringRef	serviceidRef;		/* from pppd/sys_MacOSX.c */
@@ -174,6 +182,8 @@ option_t pptp_options[] = {
       "Fast echo interval to reassert link" },
     { "pptp-fast-echo-failure", o_int, &echo_fails,
       "Fast echo failure to reassert link" },
+    { "pptp-tcp-keepalive", o_int, &tcp_keepalive,
+      "TCP keepalive interval" },
     { NULL }
 };
 
@@ -186,30 +196,32 @@ int start(CFBundleRef ref)
  
     bundle = ref;
     CFRetain(bundle);
-    
-    // add the socket specific options
-    add_options(pptp_options);
-    
-    // hookup our socket handlers
-    dev_device_check_hook = pptp_device_check;
-    dev_wait_input_hook = pptp_wait_input;
-    dev_check_options_hook = pptp_check_options;
-    dev_connect_hook = pptp_connect;
-    dev_disconnect_hook = pptp_disconnect;
-    dev_cleanup_hook = pptp_cleanup;
-    dev_close_fds_hook = pptp_close_fds;
-    dev_establish_ppp_hook = pptp_establish_ppp;
-    dev_disestablish_ppp_hook = pptp_disestablish_ppp;
 
+    // hookup our socket handlers
+    bzero(the_channel, sizeof(struct channel));
+    the_channel->options = pptp_options;
+    the_channel->process_extra_options = pptp_process_extra_options;
+    the_channel->wait_input = pptp_wait_input;
+    the_channel->check_options = pptp_check_options;
+    the_channel->connect = pptp_connect;
+    the_channel->disconnect = pptp_disconnect;
+    the_channel->cleanup = pptp_cleanup;
+    the_channel->close = pptp_close;
+    the_channel->establish_ppp = pptp_establish_ppp;
+    the_channel->disestablish_ppp = pptp_disestablish_ppp;
+    // use the default config functions
+    the_channel->send_config = generic_send_config;
+    the_channel->recv_config = generic_recv_config;
+
+    add_notifier(&link_down_notifier, pptp_link_down, 0);
     add_notifier(&ip_up_notify, pptp_ip_up, 0);
-    add_notifier(&ip_down_notify, pptp_ip_down, 0);
 
     return 0;
 }
 
 /* ----------------------------------------------------------------------------- 
 ----------------------------------------------------------------------------- */
-void pptp_device_check()
+void pptp_process_extra_options()
 {
     if (!strcmp(mode, MODE_ANSWER)) {
         // make sure we get a file descriptor > 2 so that pppd can detach and close 0,1,2
@@ -228,6 +240,13 @@ void pptp_check_options()
         error("PPTP incorrect mode : '%s'", mode ? mode : "");
         mode = MODE_CONNECT;
     }
+}
+
+/* -----------------------------------------------------------------------------
+----------------------------------------------------------------------------- */
+void pptp_link_down(void *arg, int p)
+{
+    linkdown = 1;
 }
 
 /* ----------------------------------------------------------------------------- 
@@ -263,6 +282,10 @@ void pptp_wait_input()
                             pptp_link_failure();
                         }
                         else {
+                            // don't disconnect if an address has been removed
+                            if (ev_msg->event_code == KEV_INET_ADDR_DELETED)
+                                break;
+                                
                             // give time to check for connectivity
                             /* Clear the parameters for generating echo frames */
                             echos_pending      = 0;
@@ -283,8 +306,8 @@ void pptp_wait_input()
        err = pptp_data_in(ctrlsockfd);
        if (err < 0) {
             // looks like we have been disconnected...
-            // it's OK to get a hangup during terminate phase
-            if (phase != PHASE_TERMINATE) {
+            // the status is updated only if link is not already down
+            if (linkdown == 0) {
                 notice("PPTP hangup");
                 status = EXIT_HANGUP;
             }
@@ -324,7 +347,7 @@ That is, open the socket and start the PPTP dialog
 int pptp_connect()
 {
     char 		dev[32], name[MAXPATHLEN], c; 
-    int 		err = 0, len, fd;  
+    int 		err = 0, len, fd, val;  
     CFURLRef		url;
     CFDictionaryRef	dict;
     CFStringRef		string, key;
@@ -340,6 +363,7 @@ int pptp_connect()
 
     hungup = 0;
     kill_link = 0;
+    linkdown = 0;
     our_call_id = getpid();
     routeraddress[0] = 0;
     interface[0] = 0;
@@ -349,9 +373,9 @@ int pptp_connect()
         dict = SCDynamicStoreCopyValue(cfgCache, key);
 	CFRelease(key);
         if (dict) {
-            if (string  = CFDictionaryGetValue(dict, kSCPropNetIPv4Router));
+            if (string  = CFDictionaryGetValue(dict, kSCPropNetIPv4Router))
                 CFStringGetCString(string, routeraddress, sizeof(routeraddress), kCFStringEncodingUTF8);
-            if (string  = CFDictionaryGetValue(dict, kSCDynamicStorePropNetPrimaryInterface));
+            if (string  = CFDictionaryGetValue(dict, kSCDynamicStorePropNetPrimaryInterface))
                 CFStringGetCString(string, interface, sizeof(interface), kCFStringEncodingUTF8);
             CFRelease(dict);
         }
@@ -422,6 +446,7 @@ int pptp_connect()
         addr.sin_family = AF_INET;
         addr.sin_port = PPTP_TCP_PORT;
         addr.sin_addr = peeraddress; 
+
         while (connect(ctrlsockfd, (struct sockaddr *)&addr, sizeof(addr))) {
             if (errno != EINTR) {
                 error("PPTP connect errno = %d %m\n", errno);
@@ -435,6 +460,8 @@ int pptp_connect()
         err = pptp_outgoing_call(ctrlsockfd, 
             our_call_id, our_window, our_ppd, &peer_call_id, &peer_window, &peer_ppd);
         
+        /* setup the specific route */
+        pptp_set_peer_route();
     }
     /* -------------------------------------------------------------*/
     /* answer mode : we need a valid remote address or name */
@@ -446,8 +473,9 @@ int pptp_connect()
             goto fail;
         }
         peeraddress = addr.sin_addr;
-
-        info("PPTP incoming call in progress from '%s'...", inet_ntoa(peeraddress));
+        remoteaddress = inet_ntoa(peeraddress);
+        
+        info("PPTP incoming call in progress from '%s'...", remoteaddress);
         
         err = pptp_incoming_call(ctrlsockfd, 
             our_call_id, our_window, our_ppd, &peer_call_id, &peer_window, &peer_ppd);
@@ -461,6 +489,9 @@ int pptp_connect()
             error("PPTP can't create listening socket...\n");
             goto fail;
         }    
+
+        val = 1;
+        setsockopt(fd, SOL_SOCKET, SO_REUSEADDR, &val, sizeof(val));
 
         bzero(&addr, sizeof(addr));
         addr.sin_len = sizeof(addr);
@@ -486,8 +517,9 @@ int pptp_connect()
         }
     
         peeraddress = addr.sin_addr;
-
-        info("PPTP incoming call in progress from '%s'...", inet_ntoa(peeraddress));
+        remoteaddress = inet_ntoa(peeraddress);
+        
+        info("PPTP incoming call in progress from '%s'...", remoteaddress);
 
         err = pptp_incoming_call(ctrlsockfd, 
                 our_call_id, our_window, our_ppd, &peer_call_id, &peer_window, &peer_ppd);
@@ -503,6 +535,20 @@ int pptp_connect()
     }
     
     info("PPTP connection established.");
+
+    /* enable keepalive on control connection */
+    if (tcp_keepalive) {
+        val = 1;
+        setsockopt(ctrlsockfd, SOL_SOCKET, SO_KEEPALIVE, &val, sizeof(val));
+        setsockopt(ctrlsockfd, IPPROTO_TCP, TCP_KEEPALIVE, &tcp_keepalive, sizeof(tcp_keepalive));
+    }
+
+    /* get reachability flags of peer */
+    bzero(&addr, sizeof(addr));
+    addr.sin_len = sizeof(addr);
+    addr.sin_family = AF_INET;
+    addr.sin_port = PPTP_TCP_PORT;
+    addr.sin_addr = peeraddress; 
 
     /* open the data socket */
     datasockfd = socket(PF_PPP, SOCK_DGRAM, PPPPROTO_PPTP);
@@ -539,6 +585,15 @@ int pptp_connect()
         }
     }
 
+    len = sizeof(addr);
+    if (getsockname(ctrlsockfd, (struct sockaddr *)&addr, &len) < 0) {
+        error("PPTP: cannot get our address... %m\n");
+        goto fail;
+    }
+    if (setsockopt(datasockfd, PPPPROTO_PPTP, PPTP_OPT_OURADDRESS, &addr.sin_addr.s_addr, 4)) {
+        error("PPTP can't set our PPTP address...\n");
+        goto fail;
+    }
     if (setsockopt(datasockfd, PPPPROTO_PPTP, PPTP_OPT_PEERADDRESS, &peeraddress.s_addr, 4)) {
         error("PPTP can't set PPTP server address...\n");
         goto fail;
@@ -608,8 +663,9 @@ void pptp_disconnect()
 /* ----------------------------------------------------------------------------- 
 close the socket descriptors
 ----------------------------------------------------------------------------- */
-void pptp_close_fds()
+void pptp_close()
 {
+
     echo_active = 0; 
     if (echo_timer_running) {
         UNTIMEOUT (pptp_echo_timeout, 0);
@@ -634,7 +690,8 @@ clean up before quitting
 ----------------------------------------------------------------------------- */
 void pptp_cleanup()
 {
-    pptp_close_fds();
+    pptp_close();
+    pptp_clean_peer_route();
 }
 
 /* ----------------------------------------------------------------------------- 
@@ -642,22 +699,26 @@ establish the socket as a ppp link
 ----------------------------------------------------------------------------- */
 int pptp_establish_ppp(int fd)
 {
-    int 	x;
+    int x, new_fd;
 
     if (ioctl(fd, PPPIOCATTACH, &x) < 0) {
         error("Couldn't attach socket to the link layer: %m");
         return -1;
     }
 
-    // add just the control socket
+    new_fd = generic_establish_ppp(fd);
+    if (new_fd == -1)
+        return -1;
+
+    // add just the control socket to the select
     // the data socket is just for moving data in the kernel
     add_fd(ctrlsockfd);		
     add_fd(eventsockfd);		
-    return 0;
+    return new_fd;
 }
 
 /* ----------------------------------------------------------------------------- 
-establish the socket as a ppp link
+disestablish the socket as a ppp link
 ----------------------------------------------------------------------------- */
 void pptp_disestablish_ppp(int fd)
 {
@@ -668,6 +729,8 @@ void pptp_disestablish_ppp(int fd)
 
     if (ioctl(fd, PPPIOCDETACH, &x) < 0)
         error("Couldn't detach socket from link layer: %m");
+
+    generic_disestablish_ppp(fd);
 }
 
 /* -----------------------------------------------------------------------------
@@ -707,28 +770,76 @@ u_long load_kext(char *kext)
     return 0;
 }
 
-/* -----------------------------------------------------------------------------
+/* ----------------------------------------------------------------------------- 
+----------------------------------------------------------------------------- */
+int pptp_set_peer_route()
+{
+    SCNetworkReachabilityRef	ref;
+    SCNetworkConnectionFlags	flags;
+    bool 			is_peer_local;
+    struct in_addr		gateway;
+    struct sockaddr_in  	addr;   
+
+   if (peeraddress.s_addr == 0)
+        return -1;
+
+    /* check if is peer on our local subnet */
+    bzero(&addr, sizeof(addr));
+    addr.sin_len = sizeof(addr);
+    addr.sin_family = AF_INET;
+    addr.sin_port = PPTP_TCP_PORT;
+    addr.sin_addr = peeraddress; 
+    ref = SCNetworkReachabilityCreateWithAddress(NULL, (struct sockaddr *)&addr);
+    is_peer_local = SCNetworkReachabilityGetFlags(ref, &flags) && (flags & kSCNetworkFlagsIsDirect);
+    CFRelease(ref);
+
+    host_gateway(RTM_DELETE, peeraddress, ip_zeros, 0, 0);
+
+    if (is_peer_local 
+        || routeraddress[0] == 0
+        || inet_aton(routeraddress, &gateway) != 1) {
+        
+        if (interface[0]) {
+            bzero(&gateway, sizeof(gateway));
+            /* subnet route */
+            host_gateway(RTM_ADD, peeraddress, gateway, interface, 1);
+            peer_route_set = 2;
+        }
+    }
+    else {
+        /* host route */
+        host_gateway(RTM_ADD, peeraddress, gateway, 0, 0);
+        peer_route_set = 1;
+    }
+            
+    return 0;
+}
+
+/* ----------------------------------------------------------------------------- 
+----------------------------------------------------------------------------- */
+int pptp_clean_peer_route()
+{
+
+    if (peeraddress.s_addr == 0)
+        return -1;
+
+    if (peer_route_set) {
+	host_gateway(RTM_DELETE, peeraddress, ip_zeros, 0, peer_route_set == 1 ? 0 : 1);
+        peer_route_set = 0;
+    }
+     
+    return 0;
+}
+
+/* ----------------------------------------------------------------------------- 
 ----------------------------------------------------------------------------- */
 void pptp_ip_up(void *arg, int p)
 {
-    struct in_addr	gateway;
 
-    if (routeraddress[0] == 0
-        || inet_aton(routeraddress, &gateway) != 1)
-	return;
-    
-    if (peeraddress.s_addr) {
-	host_gateway(RTM_DELETE, peeraddress, ip_zeros);
-	host_gateway(RTM_ADD,    peeraddress, gateway);
-    }
-}
-
-/* -----------------------------------------------------------------------------
------------------------------------------------------------------------------ */
-void pptp_ip_down(void *arg, int p)
-{
-    if (peeraddress.s_addr) {
-	host_gateway(RTM_DELETE, peeraddress, ip_zeros);
+    if (peer_route_set == 2) {
+        /* in the link local case, delete the route to the server, 
+            in case it conflicts with the one from the ppp interface */
+	host_gateway(RTM_DELETE, peeraddress, ip_zeros, 0, 0);
     }
 }
 
@@ -736,7 +847,7 @@ void pptp_ip_down(void *arg, int p)
 add/remove a host route
 ----------------------------------------------------------------------------- */
 static boolean_t
-host_gateway(int cmd, struct in_addr host, struct in_addr gateway)
+host_gateway(int cmd, struct in_addr host, struct in_addr gateway, char *ifname, int isnet)
 {
     int 			len;
     int 			rtm_seq = 0;
@@ -744,6 +855,8 @@ host_gateway(int cmd, struct in_addr host, struct in_addr gateway)
 	struct rt_msghdr	hdr;
 	struct sockaddr_in	dst;
 	struct sockaddr_in	gway;
+	struct sockaddr_in	mask;
+	struct sockaddr_dl	link;
     } 				rtmsg;
     int 			sockfd = -1;
 
@@ -755,18 +868,39 @@ host_gateway(int cmd, struct in_addr host, struct in_addr gateway)
 
     memset(&rtmsg, 0, sizeof(rtmsg));
     rtmsg.hdr.rtm_type = cmd;
-    rtmsg.hdr.rtm_flags = RTF_UP | RTF_GATEWAY | RTF_STATIC | RTF_HOST;
+    rtmsg.hdr.rtm_flags = RTF_UP | RTF_STATIC;
+    if (isnet)
+        rtmsg.hdr.rtm_flags |= RTF_CLONING;
+    else 
+        rtmsg.hdr.rtm_flags |= RTF_HOST;
+    if (gateway.s_addr)
+        rtmsg.hdr.rtm_flags |= RTF_GATEWAY;
     rtmsg.hdr.rtm_version = RTM_VERSION;
     rtmsg.hdr.rtm_seq = ++rtm_seq;
-    rtmsg.hdr.rtm_addrs = RTA_DST | RTA_GATEWAY;
+    rtmsg.hdr.rtm_addrs = RTA_DST | RTA_NETMASK;
     rtmsg.dst.sin_len = sizeof(rtmsg.dst);
     rtmsg.dst.sin_family = AF_INET;
     rtmsg.dst.sin_addr = host;
+    rtmsg.hdr.rtm_addrs |= RTA_GATEWAY;
     rtmsg.gway.sin_len = sizeof(rtmsg.gway);
     rtmsg.gway.sin_family = AF_INET;
     rtmsg.gway.sin_addr = gateway;
+    rtmsg.mask.sin_len = sizeof(rtmsg.mask);
+    rtmsg.mask.sin_family = AF_INET;
+    rtmsg.mask.sin_addr.s_addr = 0xFFFFFFFF;
 
     len = sizeof(rtmsg);
+    if (ifname) {
+	rtmsg.link.sdl_len = sizeof(rtmsg.link);
+	rtmsg.link.sdl_family = AF_LINK;
+	rtmsg.link.sdl_nlen = strlen(ifname);
+	rtmsg.hdr.rtm_addrs |= RTA_IFP;
+	bcopy(ifname, rtmsg.link.sdl_data, rtmsg.link.sdl_nlen);
+    }
+    else {
+	/* no link information */
+	len -= sizeof(rtmsg.link);
+    }
     rtmsg.hdr.rtm_msglen = len;
     if (write(sockfd, &rtmsg, len) < 0) {
 	syslog(LOG_DEBUG, "host_gateway: write routing socket failed, %s",
@@ -822,11 +956,8 @@ static void pptp_link_failure ()
     // disconnect PPTP 
     // Enhancement : should check if link is still usable
     notice("PPTP has detected change in the network and lost connection with the server.");
-    // Fix me : Don't generate error message 
-    // Additionnal exit code requires localization
-    status = EXIT_USER_REQUEST;
-    //devstatus = EXIT_PPTP_NETWORKCHANGED;
-    //status = EXIT_HANGUP;
+    devstatus = EXIT_PPTP_NETWORKCHANGED;
+    status = EXIT_HANGUP;
     remove_fd(ctrlsockfd);
     remove_fd(eventsockfd);
     hungup = 1;

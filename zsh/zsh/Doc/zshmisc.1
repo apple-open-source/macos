@@ -1,4 +1,4 @@
-.TH "ZSHMISC" "1" "October 26, 2001" "zsh 4\&.0\&.4"
+.TH "ZSHMISC" "1" "June 18, 2003" "zsh 4\&.1\&.1"
 .SH "NAME"
 zshmisc \- everything and then some
 .\" Yodl file: Zsh/grammar.yo
@@ -134,12 +134,23 @@ Otherwise, the \fBelif\fP \fIlist\fP is executed and if its value is zero,
 the \fBthen\fP \fIlist\fP is executed\&.
 If each \fBelif\fP \fIlist\fP returns nonzero, the \fBelse\fP \fIlist\fP is executed\&.
 .TP
-\fBfor\fP \fIname\fP [ \fBin\fP \fIword\fP \&.\&.\&. \fIterm\fP ] \fBdo\fP \fIlist\fP \fBdone\fP
+\fBfor\fP \fIname\fP \&.\&.\&. [ \fBin\fP \fIword\fP \&.\&.\&. ] \fIterm\fP \fBdo\fP \fIlist\fP \fBdone\fP
 where \fIterm\fP is at least one newline or \fB;\fP\&.
 Expand the list of \fIword\fPs, and set the parameter
 \fIname\fP to each of them in turn, executing
 \fIlist\fP each time\&.  If the \fBin\fP \fIword\fP is omitted,
 use the positional parameters instead of the \fIword\fPs\&.
+.RS
+.PP
+More than one parameter \fIname\fP can appear before the list of
+\fIword\fPs\&.  If \fIN\fP \fIname\fPs are given, then on each execution of the
+loop the next \fBN\fP \fIword\fPs are assigned to the corresponding
+parameters\&.  If there are more \fIname\fPs than remaining \fIword\fPs, the
+remaining parameters are each set to the empty string\&.  Execution of the
+loop ends when there is no remaining \fIword\fP to assign to the first
+\fIname\fP\&.  It is only possible for \fBin\fP to appear as the first \fIname\fP
+in the list, else it will be treated as marking the end of the list\&.
+.RE
 .TP
 \fBfor ((\fP [\fIexpr1\fP] \fB;\fP [\fIexpr2\fP] \fB;\fP [\fIexpr3\fP] \fB)) do\fP \fIlist\fP \fBdone\fP
 The arithmetic expression \fIexpr1\fP is evaluated first (see
@@ -275,17 +286,17 @@ does \fInot\fP, since the test is not suitably delimited\&.
 A short form of the alternate `if'\&.  The same limitations on the form of
 \fIlist\fP apply as for the previous form\&.
 .TP
-\fBfor\fP \fIname\fP \fB(\fP \fIword\fP \&.\&.\&. \fB)\fP \fIsublist\fP
+\fBfor\fP \fIname\fP \&.\&.\&. \fB(\fP \fIword\fP \&.\&.\&. \fB)\fP \fIsublist\fP
 A short form of \fBfor\fP\&.
 .TP
-\fBfor\fP \fIname\fP [ \fBin\fP \fIword\fP \&.\&.\&. \fIterm\fP ] \fIsublist\fP
+\fBfor\fP \fIname\fP \&.\&.\&. [ \fBin\fP \fIword\fP \&.\&.\&. ] \fIterm\fP \fIsublist\fP
 where \fIterm\fP is at least one newline or \fB;\fP\&.
 Another short form of \fBfor\fP\&.
 .TP
 \fBfor ((\fP [\fIexpr1\fP] \fB;\fP [\fIexpr2\fP] \fB;\fP [\fIexpr3\fP] \fB))\fP \fIsublist\fP
 A short form of the arithmetic \fBfor\fP command\&.
 .TP
-\fBforeach\fP \fIname\fP \fB(\fP \fIword\fP \&.\&.\&. \fB)\fP \fIlist\fP \fBend\fP
+\fBforeach\fP \fIname\fP \&.\&.\&. \fB(\fP \fIword\fP \&.\&.\&. \fB)\fP \fIlist\fP \fBend\fP
 Another form of \fBfor\fP\&.
 .TP
 \fBwhile\fP \fIlist\fP \fB{\fP \fIlist\fP \fB}\fP
@@ -542,6 +553,15 @@ If the order of redirections were reversed,
 file descriptor 2 would be associated
 with the terminal (assuming file descriptor 1 had been)
 and then file descriptor 1 would be associated with file \fIfname\fP\&.
+.PP
+The `\fB|&\fP' command separator described in
+\fISimple Commands & Pipelines\fP in \fIzshmisc\fP(1)
+is a shorthand for `\fB2>&1 |\fP'\&.
+.PP
+For output redirections only, if \fIword\fP is of the form
+`\fB>(\fP\fIlist\fP\fB)\fP' then the output is piped to the command
+represented by \fIlist\fP\&.  See
+\fIProcess Substitution\fP in \fIzshexpn\fP(1)\&.
 .SH "MULTIOS"
 If the user tries to open a file descriptor for writing more than once,
 the shell opens the file descriptor as a pipe to a process that copies
@@ -629,6 +649,36 @@ However, all files redirected to are actually opened, so
 .RE
 .PP
 when \fBMULTIOS\fP is unset will truncate bar, and write `\fBfoo\fP' into baz\&.
+.PP
+There is a problem when an output multio is attached to an external
+program\&.  A simple example shows this:
+.PP
+.RS
+.nf
+\fBcat file >file1 >file2
+cat file1 file2\fP
+.fi
+.RE
+.PP
+Here, it is possible that the second `\fBcat\fP' will not display the full
+contents of \fBfile1\fP and \fBfile2\fP (i\&.e\&. the original contents of
+\fBfile\fP repeated twice)\&.
+.PP
+The reason for this is that the multios are spawned after the \fBcat\fP
+process is forked from the parent shell, so the parent shell does not
+wait for the multios to finish writing data\&.  This means the command as
+shown can exit before \fBfile1\fP and \fBfile2\fP are completely written\&.
+As a workaround, it is possible to run the \fBcat\fP process as part of a
+job in the current shell:
+.PP
+.RS
+.nf
+\fB{ cat file } >file >file2\fP
+.fi
+.RE
+.PP
+Here, the \fB{\fP\fI\&.\&.\&.\fP\fB}\fP job will pause to wait for both files to be
+written\&.
 .PP
 .SH "REDIRECTIONS WITH NO COMMAND"
 When a simple command consists of one or more redirection operators
@@ -820,10 +870,7 @@ myfunc args\&.\&.\&.\fP
 .RE
 .PP
 In fact, the \fBfunctions\fP command outputs `\fBbuiltin autoload \-X\fP' as
-the body of an autoloaded function\&.  A true autoloaded function can be
-identified by the presence of the comment `\fB# undefined\fP' in the body,
-because all comments are discarded from defined functions\&.  This is done
-so that
+the body of an autoloaded function\&.  This is done so that
 .PP
 .RS
 .nf
@@ -831,7 +878,9 @@ so that
 .fi
 .RE
 .PP
-produces a reasonable result\&.
+produces a reasonable result\&.  A true autoloaded function can be
+identified by the presence of the comment `\fB# undefined\fP' in the body,
+because all comments are discarded from defined functions\&.
 .PP
 To load the definition of an autoloaded function \fBmyfunc\fP without
 executing \fBmyfunc\fP, use:
@@ -868,7 +917,7 @@ passed as the first argument, otherwise it is an empty string\&.  The
 actual command that will be executed (including expanded aliases) is
 passed in two different forms: the second argument is a single\-line,
 size\-limited version of the command (with things like function bodies
-elided); the third argument contains the full text what what is being
+elided); the third argument contains the full text that is being
 executed\&.
 .TP
 \fBTRAP\fP\fINAL\fP
@@ -1052,7 +1101,7 @@ is equivalent to
 .fi
 .RE
 .PP
-both assigning the value 3 to the shell variable \fBvar\fP and returning a
+both assigning the value 3 to the shell variable \fBval\fP and returning a
 zero status\&.
 .PP
 Integers can be in bases other than 10\&.
@@ -1090,6 +1139,13 @@ then `\fB8#40 16#20\fP', because \fBy\fP has been explicitly declared to
 have output base 16, while \fBx\fP (assuming it does not already exist) is
 implicitly typed by the arithmetic evaluation, where it acquires the output
 base 8\&.
+.PP
+If the \fBC_BASES\fP option is set, hexadecimal numbers in the standard C
+format, for example \fB0xFF\fP instead of the usual `\fB16#FF\fP'\&.  If the
+option \fBOCTAL_ZEROES\fP is also set (it is not by default), octal numbers
+will be treated similarly and hence appear as `\fB077\fP' instead of
+`\fB8#77\fP'\&.  This option has no effect on the output of bases other than
+hexadecimal and octal, and these formats are always understood on input\&.
 .PP
 When an output base is specified using the `\fB[#\fP\fIbase\fP\fB]\fP' syntax,
 an appropriate base prefix will be output if necessary, so that the value
@@ -1434,6 +1490,7 @@ Some escapes take an optional integer argument, which
 should appear between the `\fB%\fP' and the next character of the
 sequence\&.  The following escape sequences are recognized:
 .PP
+.SS "Special characters"
 .PD 0
 .TP
 .PD
@@ -1442,6 +1499,53 @@ A `\fB%\fP'\&.
 .TP
 \fB%)\fP
 A `\fB)\fP'\&.
+.PP
+.SS "Login information"
+.PD 0
+.TP
+.PD
+\fB%l\fP
+The line (tty) the user is logged in on, without `\fB/dev/\fP' prefix\&.
+If the name starts with `\fB/dev/tty\fP', that prefix is stripped\&.
+.TP
+\fB%M\fP
+The full machine hostname\&.
+.TP
+\fB%m\fP
+The hostname up to the first `\fB\&.\fP'\&.
+An integer may follow the `\fB%\fP' to specify
+how many components of the hostname are desired\&.  With a negative integer,
+trailing components of the hostname are shown\&.
+.TP
+\fB%n\fP
+\fB$USERNAME\fP\&.
+.TP
+\fB%y\fP
+The line (tty) the user is logged in on, without `\fB/dev/\fP' prefix\&.
+This does not treat `\fB/dev/tty\fP' names specially\&.
+.PP
+.SS "Shell state"
+.PD 0
+.TP
+.PD
+\fB%#\fP
+A `\fB#\fP' if the shell is running with privileges, a `\fB%\fP' if not\&.
+Equivalent to `\fB%(!\&.#\&.%%)\fP'\&.
+The definition of `privileged', for these purposes, is that either the
+effective user ID is zero, or, if POSIX\&.1e capabilities are supported, that
+at least one capability is raised in either the Effective or Inheritable
+capability vectors\&.
+.TP
+\fB%?\fP
+The return code of the last command executed just before the prompt\&.
+.TP
+\fB%_\fP
+The status of the parser, i\&.e\&. the shell constructs (like `\fBif\fP' and
+`\fBfor\fP') that have been started on the command line\&. If given an integer
+number that many strings will be printed; zero or negative or no integer means
+print as many as there are\&.  This is most useful in prompts \fBPS2\fP for
+continuation lines and \fBPS4\fP for debugging with the \fBXTRACE\fP option; in
+the latter case it will also work non\-interactively\&.
 .TP
 .PD 0
 \fB%d\fP
@@ -1465,42 +1569,16 @@ If it starts with \fB$HOME\fP, that part is replaced by a `\fB~\fP'\&.
 \fB%!\fP
 Current history event number\&.
 .TP
+\fB%i\fP
+The line number currently being executed in the script, sourced file, or
+shell function given by \fB%N\fP\&.  This is most useful for debugging as part
+of \fB$PS4\fP\&.
+.TP
+\fB%j\fP
+The number of jobs\&.
+.TP
 \fB%L\fP
 The current value of \fB$SHLVL\fP\&.
-.TP
-\fB%M\fP
-The full machine hostname\&.
-.TP
-\fB%m\fP
-The hostname up to the first `\fB\&.\fP'\&.
-An integer may follow the `\fB%\fP' to specify
-how many components of the hostname are desired\&.  With a negative integer,
-trailing components of the hostname are shown\&.
-.TP
-\fB%S\fP (\fB%s\fP)
-Start (stop) standout mode\&.
-.TP
-\fB%U\fP (\fB%u\fP)
-Start (stop) underline mode\&.
-.TP
-\fB%B\fP (\fB%b\fP)
-Start (stop) boldface mode\&.
-.TP
-.PD 0
-\fB%t\fP
-.TP
-.PD
-\fB%@\fP
-Current time of day, in 12\-hour, am/pm format\&.
-.TP
-\fB%T\fP
-Current time of day, in 24\-hour format\&.
-.TP
-\fB%*\fP
-Current time of day in 24\-hour format, with seconds\&.
-.TP
-\fB%n\fP
-\fB$USERNAME\fP\&.
 .TP
 \fB%N\fP
 The name of the script, sourced file, or shell function that zsh is
@@ -1509,19 +1587,46 @@ none, this is equivalent to the parameter \fB$0\fP\&.  An integer may follow
 the `\fB%\fP' to specify a number of trailing path components to show; zero
 means the full path\&.  A negative integer specifies leading components\&.
 .TP
-\fB%i\fP
-The line number currently being executed in the script, sourced file, or
-shell function given by \fB%N\fP\&.  This is most useful for debugging as part
-of \fB$PS4\fP\&.
+.PD 0
+\fB%c\fP
+.TP
+.PD 0
+\fB%\&.\fP
+.TP
+.PD
+\fB%C\fP
+Trailing component of \fB$PWD\fP\&.
+An integer may follow the `\fB%\fP' to get more than one component\&.
+Unless `\fB%C\fP' is used, tilde contraction is performed first\&.  These are
+deprecated as \fB%c\fP and \fB%C\fP are equivalent to \fB%1~\fP and \fB%1/\fP,
+respectively, while explicit positive integers have the same effect as for
+the latter two sequences\&.
+.PP
+.SS "Date and time"
+.PD 0
+.TP
+.PD
+\fB%D\fP
+The date in \fIyy\fP\fB\-\fP\fImm\fP\fB\-\fP\fIdd\fP format\&.
+.TP
+\fB%T\fP
+Current time of day, in 24\-hour format\&.
+.TP
+.PD 0
+\fB%t\fP
+.TP
+.PD
+\fB%@\fP
+Current time of day, in 12\-hour, am/pm format\&.
+.TP
+\fB%*\fP
+Current time of day in 24\-hour format, with seconds\&.
 .TP
 \fB%w\fP
 The date in \fIday\fP\fB\-\fP\fIdd\fP format\&.
 .TP
 \fB%W\fP
 The date in \fImm\fP\fB/\fP\fIdd\fP\fB/\fP\fIyy\fP format\&.
-.TP
-\fB%D\fP
-The date in \fIyy\fP\fB\-\fP\fImm\fP\fB\-\fP\fIdd\fP format\&.
 .TP
 \fB%D{\fP\fIstring\fP\fB}\fP
 \fIstring\fP is formatted using the \fBstrftime\fP function\&.
@@ -1530,46 +1635,36 @@ available:  \fB%f\fP prints the day of the month, like \fB%e\fP but
 without any preceding space if the day is a single digit, and
 \fB%K\fP/\fB%L\fP correspond to \fB%k\fP/\fB%l\fP for the hour of the day
 (24/12 hour clock) in the same way\&.
+.PP
+.SS "Visual effects"
+.PD 0
 .TP
-\fB%l\fP
-The line (tty) the user is logged in on without \fB/dev/\fP prefix\&.
-If name starts with \fB/dev/tty\fP this is stripped\&.
-.TP
-\fB%y\fP
-The line (tty) the user is logged in on without \fB/dev/\fP prefix\&.
-It does not treat \fB/dev/tty*\fP specially\&.
-.TP
-\fB%?\fP
-The return code of the last command executed just before the prompt\&.
-.TP
-\fB%_\fP
-The status of the parser, i\&.e\&. the shell constructs (like `\fBif\fP' and
-`\fBfor\fP') that have been started on the command line\&. If given an integer
-number that many strings will be printed; zero or negative or no integer means
-print as many as there are\&.  This is most useful in prompts \fBPS2\fP for
-continuation lines and \fBPS4\fP for debugging with the \fBXTRACE\fP option; in
-the latter case it will also work non\-interactively\&.
+.PD
+\fB%B\fP (\fB%b\fP)
+Start (stop) boldface mode\&.
 .TP
 \fB%E\fP
-Clears to end of line\&.
+Clear to end of line\&.
 .TP
-\fB%#\fP
-A `\fB#\fP' if the shell is running with privileges, a `\fB%\fP' if not\&.
-Equivalent to `\fB%(!\&.#\&.%%)\fP'\&.
-The definition of `privileged', for these purposes, is that either the
-effective user ID is zero, or, if POSIX\&.1e capabilities are supported, that
-at least one capability is raised in either the Effective or Inheritable
-capability vectors\&.
+\fB%U\fP (\fB%u\fP)
+Start (stop) underline mode\&.
 .TP
-\fB%v\fP
-The value of the first element of the \fBpsvar\fP array parameter\&.  Following
-the `\fB%\fP' with an integer gives that element of the array\&.  Negative
-integers count from the end of the array\&.
+\fB%S\fP (\fB%s\fP)
+Start (stop) standout mode\&.
 .TP
 \fB%{\fP\&.\&.\&.\fB%}\fP
 Include a string as a literal escape sequence\&.
 The string within the braces should not change the cursor
 position\&.  Brace pairs can nest\&.
+.PP
+.SS "Conditional substrings"
+.PD 0
+.TP
+.PD
+\fB%v\fP
+The value of the first element of the \fBpsvar\fP array parameter\&.  Following
+the `\fB%\fP' with an integer gives that element of the array\&.  Negative
+integers count from the end of the array\&.
 .TP
 \fB%(\fP\fIx\&.true\-text\&.false\-text\fP\fB)\fP
 Specifies a ternary expression\&.  The character following the \fIx\fP is
@@ -1589,60 +1684,64 @@ The test character \fIx\fP may be any of the following:
 .PP
 .PD 0
 .TP
+\fB!\fP
+True if the shell is running with privileges\&.
+.TP
+\fB#\fP
+True if the effective uid of the current process is \fIn\fP\&.
+.TP
+\fB?\fP
+True if the exit status of the last command was \fIn\fP\&.
+.TP
+\fB_\fP
+True if at least \fIn\fP shell constructs were started\&.
+.TP
+\fBC\fP
+.TP
+\fB/\fP
+True if the current absolute path has at least \fIn\fP elements\&.
+.TP
 \fBc\fP
 .TP
 \fB\&.\fP
 .TP
 \fB~\fP
-True if the current path, with prefix replacement, has at least \fIn\fP elements\&.
-.TP
-\fB/\fP
-.TP
-\fBC\fP
-True if the current absolute path has at least \fIn\fP elements\&.
-.TP
-\fBt\fP
-True if the time in minutes is equal to \fIn\fP\&.
-.TP
-\fBT\fP
-True if the time in hours is equal to \fIn\fP\&.
-.TP
-\fBd\fP
-True if the day of the month is equal to \fIn\fP\&.
+True if the current path, with prefix replacement, has at
+least \fIn\fP elements\&.
 .TP
 \fBD\fP
 True if the month is equal to \fIn\fP (January = 0)\&.
 .TP
-\fBw\fP
-True if the day of the week is equal to \fIn\fP (Sunday = 0)\&.
-.TP
-\fB?\fP
-True if the exit status of the last command was \fIn\fP\&.
-.TP
-\fB#\fP
-True if the effective uid of the current process is \fIn\fP\&.
+\fBd\fP
+True if the day of the month is equal to \fIn\fP\&.
 .TP
 \fBg\fP
 True if the effective gid of the current process is \fIn\fP\&.
+.TP
+\fBj\fP
+True if the number of jobs is at least \fIn\fP\&.
+.TP
+\fBL\fP
+True if the \fBSHLVL\fP parameter is at least \fIn\fP\&.
 .TP
 \fBl\fP
 True if at least \fIn\fP characters have already been
 printed on the current line\&.
 .TP
-\fBL\fP
-True if the \fBSHLVL\fP parameter is at least \fIn\fP\&.
-.TP
 \fBS\fP
 True if the \fBSECONDS\fP parameter is at least \fIn\fP\&.
+.TP
+\fBT\fP
+True if the time in hours is equal to \fIn\fP\&.
+.TP
+\fBt\fP
+True if the time in minutes is equal to \fIn\fP\&.
 .TP
 \fBv\fP
 True if the array \fBpsvar\fP has at least \fIn\fP elements\&.
 .TP
-\fB_\fP
-True if at least \fIn\fP shell constructs were started\&.
-.TP
-\fB!\fP
-True if the shell is running with privileges\&.
+\fBw\fP
+True if the day of the week is equal to \fIn\fP (Sunday = 0)\&.
 .PD
 .RE
 .TP
@@ -1691,18 +1790,4 @@ current directory, followed by a `\fB%\fP' or `\fB#\fP', followed by a
 space\&.  Without the `\fB%<<\fP', those two characters would be included
 in the string to be truncated\&.
 .RE
-.TP
-.PD 0
-\fB%c\fP
-.TP
-.PD 0
-\fB%\&.\fP
-.TP
-.PD
-\fB%C\fP
-Trailing component of \fB$PWD\fP\&.
-An integer may follow the `\fB%\fP' to get more than one component\&.
-Unless `\fB%C\fP' is used, tilde contraction is performed first\&.  These are
-deprecated as \fB%c\fP and \fB%C\fP are equivalent to \fB%1~\fP and \fB%1/\fP,
-respectively, while explicit positive integers have the same effect as for
-the latter two sequences\&.
+.RE

@@ -1,5 +1,5 @@
 .\"
-.\" $Id: groff_mmse.man,v 1.1.1.1 2001/10/30 01:46:40 bbraun Exp $
+.\" $Id: groff_mmse.man,v 1.1.1.2 2002/11/06 23:21:39 jevans Exp $
 .\" Skrivet av Jörgen Hägg, Lund, Sverige
 .\"
 .TH GROFF_MMSE @MAN7EXT@ "@MDATE@" "Groff Version @VERSION@"
@@ -79,7 +79,7 @@ Jörgen Hägg, Lund, Sweden <Jorgen.Hagg@axis.se>
 .BR @g@pic (@MAN1EXT@),
 .BR @g@eqn (@MAN1EXT@)
 .br
-.BR m@TMAC_M_PREFIX@m (@MAN7EXT@)
+.BR groff_mm (@MAN7EXT@)
 .
 .\" Local Variables:
 .\" mode: nroff

@@ -69,7 +69,7 @@ const struct name_value success_log_options[] =
       { "EXIT",        LO_EXIT     },
       { "PID",         LO_PID      },
       { "USERID",      LO_USERID   },
-
+      { "TRAFFIC",     LO_TRAFFIC  },
    } ;
 
 
@@ -77,7 +77,6 @@ const struct name_value failure_log_options[] =
    {
       { "HOST",        LO_HOST     },
       { "ATTEMPT",     LO_ATTEMPT  },
-      { "RECORD",      LO_RECORD   },
       { "USERID",      LO_USERID   },
       { CHAR_NULL,     0           }
    } ;
@@ -92,11 +91,21 @@ const struct name_value syslog_facilities[] =
       { "authpriv",       LOG_AUTHPRIV    },
 #endif
       { "user",           LOG_USER        },
+#ifdef LOG_MAIL
       { "mail",           LOG_MAIL        },
+#endif
+#ifdef LOG_LPR
       { "lpr",            LOG_LPR         },
+#endif
+#ifdef LOG_NEWS
       { "news",           LOG_NEWS        },
+#endif
+#ifdef LOG_UUCP
       { "uucp",           LOG_UUCP        },
+#endif
+#ifdef LOG_FTP
       { "ftp",            LOG_FTP         },
+#endif
       { "local0",         LOG_LOCAL0      },
       { "local1",         LOG_LOCAL1      },
       { "local2",         LOG_LOCAL2      },

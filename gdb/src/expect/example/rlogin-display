@@ -1,0 +1,18 @@
+#!/depot/path/expect --
+# rlogin.exp - rlogin but with current DISPLAY
+#
+# You can extend this idea to save any arbitrary information across rlogin
+# Don Libes -  Oct 17, 1991.
+
+set prompt "(%|#|\\$) $"		;# default prompt
+catch {set prompt $env(EXPECT_PROMPT)}
+
+eval spawn rlogin $argv
+set timeout 60
+expect eof exit timeout {send_user "timed out\n"; exit} -re $prompt
+if [string match "unix:0.0" $env(DISPLAY)] {
+	send "setenv DISPLAY [exec hostname].[exec domainname]:0.0\r"
+} else {
+	send "setenv DISPLAY $env(DISPLAY)\r"
+}
+interact

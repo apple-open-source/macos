@@ -1,7 +1,7 @@
 /* schemaparse.c - routines to parse config file objectclass definitions */
-/* $OpenLDAP: pkg/ldap/servers/slapd/schemaparse.c,v 1.53 2002/01/19 03:50:26 hyc Exp $ */
+/* $OpenLDAP: pkg/ldap/servers/slapd/schemaparse.c,v 1.53.2.7 2003/03/03 17:10:07 kurt Exp $ */
 /*
- * Copyright 1998-2002 The OpenLDAP Foundation, All Rights Reserved.
+ * Copyright 1998-2003 The OpenLDAP Foundation, All Rights Reserved.
  * COPYING RESTRICTIONS APPLY, see COPYRIGHT file
  */
 
@@ -21,31 +21,38 @@ int	global_schemacheck = 1; /* schemacheck ON is default */
 static void		oc_usage(void); 
 static void		at_usage(void);
 
-static char *const err2text[SLAP_SCHERR_LAST+1] = {
+static char *const err2text[] = {
 	"Success",
 	"Out of memory",
 	"ObjectClass not found",
-	"ObjectClass inappropriate SUPerior",
-	"AttributeType not found",
-	"AttributeType inappropriate USAGE",
+	"user-defined ObjectClass includes operational attributes",
+	"user-defined ObjectClass has inappropriate SUPerior",
 	"Duplicate objectClass",
+	"AttributeType not found",
+	"AttributeType inappropriate matching rule",
+	"AttributeType inappropriate USAGE",
+	"AttributeType inappropriate SUPerior",
+	"AttributeType SYNTAX or SUPerior required",
 	"Duplicate attributeType",
-	"Duplicate ldapSyntax",
-	"Duplicate matchingRule",
-	"OID or name required",
-	"SYNTAX or SUPerior required",
 	"MatchingRule not found",
+	"MatchingRule incomplete",
+	"Duplicate matchingRule",
 	"Syntax not found",
-	"Syntax required",
+	"Duplicate ldapSyntax",
+	"OID or name required",
 	"Qualifier not supported",
 	"Invalid NAME",
-	"OID could not be expanded"
+	"OID could not be expanded",
+	"Duplicate Content Rule",
+	"Content Rule not for STRUCTURAL object class",
+	"Content Rule AUX contains non-AUXILIARY object class"
+	"Content Rule attribute type list contains duplicate"
 };
 
 char *
 scherr2str(int code)
 {
-	if ( code < 0 || code >= (sizeof(err2text)/sizeof(char *)) ) {
+	if ( code < 0 || SLAP_SCHERR_LAST <= code ) {
 		return "Unknown error";
 	} else {
 		return err2text[code];
@@ -89,6 +96,64 @@ dscompare(const char *s1, const char *s2, char delim)
 	return 0;
 }
 
+#ifdef SLAP_EXTENDED_SCHEMA
+
+static void
+cr_usage( void )
+{
+	fprintf( stderr,
+		"DITContentRuleDescription = \"(\" whsp\n"
+		"  numericoid whsp       ; StructuralObjectClass identifier\n"
+		"  [ \"NAME\" qdescrs ]\n"
+		"  [ \"DESC\" qdstring ]\n"
+		"  [ \"OBSOLETE\" whsp ]\n"
+		"  [ \"AUX\" oids ]      ; Auxiliary ObjectClasses\n"
+		"  [ \"MUST\" oids ]     ; AttributeTypes\n"
+		"  [ \"MAY\" oids ]      ; AttributeTypes\n"
+		"  [ \"NOT\" oids ]      ; AttributeTypes\n"
+		"  whsp \")\"\n" );
+}
+
+int
+parse_cr(
+    const char	*fname,
+    int		lineno,
+    char	*line,
+    char	**argv
+)
+{
+	LDAPContentRule *cr;
+	int		code;
+	const char	*err;
+
+	cr = ldap_str2contentrule(line, &code, &err, LDAP_SCHEMA_ALLOW_ALL );
+	if ( !cr ) {
+		fprintf( stderr, "%s: line %d: %s before %s\n",
+			 fname, lineno, ldap_scherr2str(code), err );
+		cr_usage();
+		return 1;
+	}
+
+	if ( cr->cr_oid == NULL ) {
+		fprintf( stderr,
+			"%s: line %d: Content rule has no OID\n",
+			fname, lineno );
+		cr_usage();
+		return 1;
+	}
+
+	code = cr_add(cr,1,&err);
+	if ( code ) {
+		fprintf( stderr, "%s: line %d: %s: \"%s\"\n",
+			 fname, lineno, scherr2str(code), err);
+		return 1;
+	}
+
+	ldap_memfree(cr);
+	return 0;
+}
+
+#endif
 
 int
 parse_oc(
@@ -118,7 +183,7 @@ parse_oc(
 		return 1;
 	}
 
-	code = oc_add(oc,&err);
+	code = oc_add(oc,1,&err);
 	if ( code ) {
 		fprintf( stderr, "%s: line %d: %s: \"%s\"\n",
 			 fname, lineno, scherr2str(code), err);
@@ -145,7 +210,6 @@ oc_usage( void )
 		"  [ \"MAY\" oids ]                ; AttributeTypes\n"
 		"  whsp \")\"\n" );
 }
-
 
 static void
 at_usage( void )

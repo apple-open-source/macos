@@ -127,7 +127,7 @@ IOReturn IOFireWireSBP2ManagementORB::getUnitInformation( void )
 		fManagementOffset = ((OSNumber*)prop)->unsigned32BitValue();
 	}
 	
-    FWKLOG( ("IOFireWireSBP2Login : status = %d, fManagementOffset = %d\n", status, fManagementOffset) );
+    FWKLOG( ("IOFireWireSBP2ManagementORB<0x%08lx> : status = %d, fManagementOffset = %d\n", (UInt32)this, status, fManagementOffset) );
 
     //
     // find unit characteristics
@@ -467,7 +467,7 @@ IOReturn IOFireWireSBP2ManagementORB::setResponseBuffer
 
 IOReturn IOFireWireSBP2ManagementORB::execute( void )
 {
-    FWKLOG( ( "IOFireWireSBP2ManagementORB : execute\n" ) );
+    FWKLOG( ( "IOFireWireSBP2ManagementORB<0x%08lx> : execute\n", (UInt32)this ) );
 	IOReturn status = kIOReturnSuccess;
     
     IOFireWireSBP2Login * 	login 	= NULL;
@@ -553,7 +553,7 @@ void IOFireWireSBP2ManagementORB::writeCompleteStatic( void *refcon, IOReturn st
 
 void IOFireWireSBP2ManagementORB::writeComplete( IOReturn status, IOFireWireNub *device, IOFWCommand *fwCmd )
 {
-    FWKLOG( ( "IOFireWireSBP2ManagementORB : write complete\n" ) );
+    FWKLOG( ( "IOFireWireSBP2ManagementORB<0x%08lx> : write complete\n", (UInt32)this ) );
 
     if( status == kIOReturnSuccess )
     {
@@ -582,7 +582,7 @@ void IOFireWireSBP2ManagementORB::handleTimeout( IOReturn status, IOFireWireBus 
 
     if( status == kIOReturnTimeout )
     {
-        FWKLOG( ( "IOFireWireSBP2ManagementORB : handle timeout\n" ) );
+        FWKLOG( ( "IOFireWireSBP2ManagementORB<0x%08lx> : handle timeout\n", (UInt32)this ) );
         complete( kIOReturnTimeout );
     }
 }
@@ -628,7 +628,7 @@ UInt32 IOFireWireSBP2ManagementORB::statusBlockWrite( UInt16 nodeID, FWAddress a
 IOReturn IOFireWireSBP2ManagementORB::complete( IOReturn state )
 {
     state = IOFWCommand::complete( state );
-    FWKLOG( ( "IOFireWireSBP2ManagementORB : complete\n" ) );
+    FWKLOG( ( "IOFireWireSBP2ManagementORB<0x%08lx> : complete\n", (UInt32)this ) );
     if( fCompletionCallback != NULL )
         (*fCompletionCallback)(fCompletionRefCon, state, this);
 

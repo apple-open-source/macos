@@ -13,12 +13,14 @@
 #ifndef TSRM_H
 #define TSRM_H
 
-#ifdef HAVE_CONFIG_H
+/* #ifndef WIN32 */
+#if !defined(WIN32) && !defined(NETWARE)
 # include "tsrm_config.h"
 #endif
 
 #ifdef WIN32
 # define TSRM_WIN32
+# include "tsrm_config.w32.h"
 #endif
 
 #ifdef TSRM_WIN32
@@ -36,12 +38,18 @@
 
 #ifdef TSRM_WIN32
 # include <windows.h>
+#elif defined(NETWARE)
+# include <nks/thread.h>
+# include <nks/synch.h>
 #elif defined(GNUPTH)
 # include <pth.h>
 #elif defined(PTHREADS)
 # include <pthread.h>
 #elif defined(TSRM_ST)
 # include <st.h>
+#elif defined(BETHREADS)
+#include <kernel/OS.h> 
+#include <TLS.h>
 #endif
 
 typedef int ts_rsrc_id;
@@ -50,6 +58,9 @@ typedef int ts_rsrc_id;
 #ifdef TSRM_WIN32
 # define THREAD_T DWORD
 # define MUTEX_T CRITICAL_SECTION *
+#elif defined(NETWARE)
+# define THREAD_T NXThreadId_t
+# define MUTEX_T NXMutex_t *
 #elif defined(GNUPTH)
 # define THREAD_T pth_t
 # define MUTEX_T pth_mutex_t *
@@ -65,6 +76,13 @@ typedef int ts_rsrc_id;
 #elif defined(TSRM_ST)
 # define THREAD_T st_thread_t
 # define MUTEX_T st_mutex_t
+#elif defined(BETHREADS)
+# define THREAD_T thread_id
+typedef struct {
+  sem_id sem;
+  int32 ben;
+} beos_ben;
+# define MUTEX_T beos_ben * 
 #endif
 
 typedef void (*ts_allocate_ctor)(void *, void ***);

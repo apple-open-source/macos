@@ -1,0 +1,23 @@
+Te, vagy valaki a nevedben, a %(fqdn_lname)s levelezõlistához tartozó
+jelszavadat kérte ki e-mailben. A jelszóval a listatagsági beállításaidat
+(mint pl. a levelek küldésének módját) tudod beállítani. A jelszó
+ismeretében a listáról le is tudsz iratkozni.
+
+A következõ címmel vagy feliratkozva: %(user)s
+
+A %(listname)s jelszavad a következõ: %(password)s
+
+A beállításaid megváltoztatásához jelszavad ismeretében lépj be a
+következõ weboldalra:
+
+    %(options_url)s
+
+Ugyanezeket e-mailen keresztül is el tudod végezni ezen a címen:
+
+    %(requestaddr)s
+
+A fenti címre egy "help" tartalmú levél elküldésével bõvebb információt
+lehet megtudni a beállításokról.
+
+Kérdések, észrevételek? Küldj egy levelet a(z) %(listname)s levelezõlista
+adminisztrátorának, a(z) %(owneraddr)s címre.

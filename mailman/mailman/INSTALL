@@ -1,0 +1,590 @@
+Mailman - The GNU Mailing List Management System
+Copyright (C) 1998-2003 Free Software Foundation, Inc.
+59 Temple Place - Suite 330, Boston, MA 02111-1307, USA
+
+This file contains installation instructions for GNU Mailman, which is
+configured using the standard GNU autoconf software.  You first need
+to prepare your system as outlined in the sections below, and then
+configure and install the Mailman software.
+
+UPGRADING: Upgrading is usually as easy as just installing the new
+version over the existing installation.  However, you should read the
+notes in the file UPGRADING for important information before you
+upgrade.
+
+
+0. Installation requirements
+
+    You must have a mail server (MTA) that you can send messages to,
+    and a web server that supports the CGI/1.1 API.  Apache makes a
+    fine choice for web server, and MTAs such as Postfix, Exim,
+    Sendmail, and qmail should work just fine.
+
+    You will need an ANSI C compiler to build Mailman's security
+    wrappers.  The GNU C compiler gcc 2.8.1 or later is known to work
+    well.  For more information about obtaining gcc, see
+
+        http://www.gnu.org
+
+    You must have the Python interpreter installed somewhere on your
+    system.  Currently Python 2.1.3 or Python 2.2.1 is recommended.
+    For information about obtaining Python source code, RPM packages,
+    or pre-compiled binaries please see:
+
+        http://www.python.org
+
+    If you are building Python from source, you should be fine with
+    the standard "./configure ; make install" for most Unix-like
+    OSes.  If you run "make test", you'll see a bunch of tests skipped
+    -- don't worry, you probably won't need them.  Mailman tries to
+    stick to the basics that compile on most systems.
+
+    If there is a README.<yourMTA> file that describes your mail
+    server (MTA), read it now.  Some MTAs can be integrated more
+    seamlessly with Mailman for support of some advanced features
+    (like creation and removal of lists through-the-web).  Examples
+    are Exim and Postfix.  Setup instructions for specific MTAs are
+    contained in these README files.
+
+
+1. System setup
+
+    You will need to be root to perform the steps in this section.
+
+    Before installing the Mailman software, you need to prepare your
+    system by adding certain users and groups.
+
+    - Add a new user called `mailman'.  Typically this is added to
+      your /etc/passwd file.  If username `mailman' is already in use,
+      choose something else unique and see the --with-username flag
+      below.
+
+    - Add a new group called `mailman'.  Typically this is added to
+      your /etc/group file.  The Mailman files will be installed under
+      the `mailman' group, with the set-group-id bit.  Mailman's
+      security is based on group-ownership permissions, so it is
+      important to get this step right.  If groupname `mailman' is
+      already in use, choose something else unique and see the
+      --with-groupname below.  The mailman user created in the
+      previous step must be a member of this group.
+
+    - Create an installation directory (called $prefix in the
+      documentation that follows).  All of the Mailman files will be
+      installed under $prefix.  Run "configure --help" for ways to
+      split the installation based on read-only vs. read/write files.
+
+      The default installation directory for Mailman 2.1 is
+      /usr/local/mailman.  It used to be /home/mailman for all
+      versions prior to Mailman 2.1alpha2.  You can override the
+      default by using the --prefix option to configure (see below).
+      If you're upgrading from a version previous to Mailman 2.1, you
+      will need to use --prefix unless you move your mailing lists
+      (this can be a wise upgrade strategy).
+
+      Watch out if your site does something like mount /usr/local with
+      the nosuid option.  This will break Mailman, which relies on
+      set-gid programs for its security.  If this describes your
+      environment, simply install Mailman in a location that allows
+      setgid programs.
+
+      Make sure the install directory is set to group `mailman' (or
+      whatever you're going to specify as --with-groupname) and has
+      the setgid bit set (but see README.BSD if you're on a BSD
+      system).  You probably also want to guarantee that this
+      directory is readable and executable by everyone.  For example,
+      these shell commands will accomplish this:
+
+          % cd $prefix
+          % chgrp mailman .
+          % chmod a+rx,g+ws .
+
+      You are now ready to configure and install the Mailman software.
+
+
+2. Running configure
+
+    TAKE SPECIAL NOTE OF THE --with-mail-gid AND --with-cgi-gid
+    OPTIONS BELOW.  YOU WILL PROBABLY NEED TO USE THESE!
+
+    You should not be root while performing the steps in this section.
+    Do them under your own login, or whatever account you typically
+    use to install software.  You do not need to do these steps as
+    user mailman, but you could.  However, make sure that the login
+    used is a member of the mailman group as that that group has write
+    permissions to the $prefix directory made in the previous step.
+
+    Make sure that you have write permissions to the target
+    installation directory, and permission to create a setgid file in
+    the file system where it resides (NFS and other mounts can be
+    configured to inhibit setgid settings).
+
+    If you've installed other GNU software, you should be familiar
+    with the configure script.  Usually you can just cd to the
+    directory you unpacked the Mailman source tarball into, and run
+    configure with no arguments:
+
+        % cd mailman-<version>
+        % ./configure
+        % make install
+
+    The following options allow you to customize your Mailman
+    installation.
+
+      --prefix=<dir>
+            Standard GNU configure option which changes the base
+            directory that Mailman is installed into.  By default
+            $prefix is /usr/local/mailman.  This directory must
+            already exist, and be set up as described in section 1
+            above.
+
+      --exec-prefix=<dir>
+            Standard GNU configure option which lets you specify a
+            different installation directory for architecture
+            dependent binaries.
+
+      --with-var-prefix=<dir>
+            Store mutable data under <dir> instead of under the prefix
+            or exec_prefix.
+
+      --with-python=</path/to/python>
+            Specify an alternative Python interpreter to use for the
+            wrapper programs.  The default is to use the interpreter
+            found first on your shell's $PATH.  Note that when running
+            the scripts from the command line, the first Python
+            interpreter found on $PATH is always used.
+
+      --with-username=<username-or-uid>
+            Specify a different username than `mailman' to use as a
+            default.  Use this only if the username `mailman' is
+            already in use by somebody (e.g. Mark Ailman's login
+            name).  This switch can take an integer user id or a user
+            name.  Be sure your $prefix directory is owned by this
+            user.
+
+      --with-groupname=<groupname-or-gid>
+            Specify a different groupname than `mailman' to use as a
+            default.  Use this only if the groupname `mailman' is
+            already in use.  This switch can take an integer group id
+            or a group name.  Be sure your $prefix directory is
+            group-owned by this group.
+
+      --with-mail-gid=<group-or-groups>
+            Specify an alternative group for running scripts via the
+            mail wrapper.  <group-or-groups> can be a list of one or
+            more integer group ids or symbolic group names.  The first
+            value in the list that resolves to an existing group is
+            used.  By default, the value is the list
+            `mailman other mail daemon'.
+
+            This is highly system dependent and you must get this
+            right, because the group id is compiled into the mail
+            wrapper program for added security.  On systems using
+            sendmail, the sendmail.cf configuration file designates
+            the group id of sendmail processes using the "DefaultUser"
+            option.  (If commented out, it still may be indicating the
+            default...)
+
+            Check your MTA's documentation and configuration files to
+            find the right value for this switch.
+
+      --with-cgi-gid=<group-or-groups>
+            Specify an alternative group for running scripts via the
+            CGI wrapper.  <group-or-groups> can be a list of one or
+            more integer group ids or symbolic group names.  The first
+            value in the list that resolves to an existing group is
+            used.  By default, the value is the the list
+            `www www-data nobody'.
+
+            The proper value for this is dependent on your web server
+            configuration.  You must get this right, because the group
+            id is compiled into the CGI wrapper program for added
+            security, and no Mailman CGI scripts will run if this is
+            incorrect.
+
+            If you're using Apache, check the values for the `Group'
+            option in your httpd.conf file.
+
+      --with-cgi-ext=<extension>
+            Specify an extension for cgi-bin programs.  The CGI
+            wrappers placed in $PREFIX/cgi-bin will have this
+            extension (some web servers require an extension).
+            <extension> must include the dot.
+
+      --with-gcc=no
+            Don't use gcc, even if it is found.  In this case, `cc'
+            must be found on your $PATH.
+
+
+3. Check your installation
+
+    After you've run "make install", you can check that your
+    installation has all the correct permissions and group ownerships
+    by running the check_perms script:
+
+    - cd to $prefix
+
+    - Run bin/check_perms
+
+    Don't try to run bin/check_perms from the source directory; it
+    will only run from the install (i.e. $prefix) directory.
+
+    If this reports no problems, then it's very likely <wink> that
+    your installation is set up correctly.  If it reports problems,
+    then you can either fix them manually, re-run the installation, or
+    use check_perms to fix the problems (probably the easiest
+    solution):
+
+    - You need to become the user that did the installation (and that
+      owns all the files in $prefix), or root.
+
+    - Run bin/check_perms -f
+
+    - Repeat previous step until no more errors are reported!
+
+
+4. Final system set-up
+
+    Congratulations!  You've installed the Mailman software.  To get
+    everything running you need to hook Mailman up to both your web
+    server and your mail system.
+
+    - If you plan on running your MTA and web server on different
+      machines, sharing Mailman installations via NFS, be sure that
+      the clocks on those two machines are synchronized closely.  You
+      might take a look at the file Mailman/LockFile.py; the constant
+      CLOCK_SLOP helps the locking mechanism compensate for clock skew
+      in this type of environment.
+
+    - Configure your web server to give $prefix/cgi-bin permission to
+      run CGI scripts.  You probably need to be root to do this.
+
+      The line you should add might look something like the following
+      (with the real absolute directory substituted for $prefix, of
+      course):
+
+          Exec          /mailman/*      $prefix/cgi-bin/*
+      or:
+          ScriptAlias   /mailman/       $prefix/cgi-bin/
+
+      Consult your web server's documentation for details.
+
+    - You want to be very sure that the user id under which your CGI
+      scripts run is *not* in the `mailman' group you created above,
+      otherwise private archives will be accessible to anyone.
+
+    - Copy the Mailman, Python, and GNU logos to a location accessible
+      to your web server.  E.g. with Apache, you've usually got an
+      `icons' directory that you can drop the images into.  For
+      example:
+
+        % cp $prefix/icons/*.{jpg,png} /path/to/apache/icons
+
+      You then want to add a line to your $prefix/Mailman/mm_cfg.py
+      file which sets the base URL for the logos.  For example:
+
+      IMAGE_LOGOS = '/images/'
+
+      The default value for IMAGE_LOGOS is '/icons/'.  Read the
+      comment in Defaults.py.in for details.
+
+    - Configure your web server to point to the Pipermail public
+      mailing list archives:
+
+      For example, in Apache:
+
+         Alias /pipermail/ $varprefix/archives/public/
+
+      where $varprefix is usually $prefix unless you've used the
+      --with-var-prefix option to configure.
+
+      Consult your web server's documentation for details.  Also be
+      sure to configure your web server to follow symbolic links in
+      this directory, otherwise public Pipermail archives won't be
+      accessible.  For Apache users, consult the FollowSymLinks
+      option.
+
+      Also, if you're going to be supporting internationalized public
+      archives, you will probably want to turn off any default charset
+      directive for the Pipermail directory, otherwise your
+      multilingual archive pages won't show up correctly.  Here's an
+      example for Apache, based on the standard installation
+      directories:
+
+      <Directory "/usr/local/mailman/archives/public/">
+          AddDefaultCharset Off
+      </Directory>
+
+      Now restart your web server.
+
+    - Create a "site-wide" mailing list.  This is the one that
+      password reminders will appear to come from.  Usually this
+      should be the "mailman" mailing list, but if you need to change
+      this, be sure to change the MAILMAN_SITE_LIST variable in
+      mm_cfg.py (see below).
+
+          % bin/newlist mailman
+
+      Follow the prompts, and see the README file for more
+      information.
+
+      Now configure your site list.  There is a convenient template
+      for a generic site list in misc/sitelist.cfg to help you with
+      this.  The template can be applied to your site list by running:
+
+          % bin/config_list -i data/sitelist.cfg mailman
+
+      Before doing this, review the configuration options in the
+      template (note that many options are not changed by
+      sitelist.cfg).  After you do this, be sure you review the
+      configurations via the admin pages for this list.
+
+      Be sure to subscribe yourself to the site list, but use the
+      admin interface because mailback subscription confirmations
+      won't work at this point.
+
+    - Set up the crontab entries.  Mailman runs a number of cron jobs
+      for its basic functionality.  Note that if you're upgrading from
+      a previous version of Mailman, you'll want to install the new
+      crontab, but be careful if you're running multiple Mailman
+      installations on your site!  Changing the crontab could mess
+      with other parallel Mailman installations.
+
+      If your version of crontab supports the -u option, you must be
+      root to do this next step.  Add $prefix/cron/crontab.in as a
+      crontab entry by executing these commands:
+
+          % cd $prefix/cron
+          % crontab -u mailman crontab.in
+
+      If you used the --with-username option, use that user name
+      instead of mailman for the -u argument value.  If your crontab
+      does not support the -u option, try these commands:
+
+          % cd $prefix/cron
+          % su - mailman
+          % crontab crontab.in
+
+    - Start the Mailman qrunner daemon, by executing the following
+      from the $prefix directory:
+
+          % bin/mailmanctl start
+
+      If you want to start Mailman every time you reboot your system,
+      and your OS supports the chkconfig command (e.g. RedHat and
+      Mandrake Linuxes) you can simply do the following (as root, from
+      the Mailman install directory):
+
+          % cp scripts/mailman /etc/init.d/mailman
+          % chkconfig --add mailman
+
+      (Note that /etc/init.d may be /etc/rc.d/init.d on some systems.)
+
+      On Debian, you probably want to use
+
+          % update-rc.d mailman defaults
+
+      instead of chkconfig.
+
+      For Unixes that don't support chkconfig, simply copy
+      scripts/mailman as above:
+
+          % cp scripts/mailman /etc/init.d/mailman
+
+      then set up the following symbolic links, again as root:
+
+          % cp misc/mailman /etc/init.d
+          % cd /etc/rc.d/rc0.d
+          % ln -s ../init.d/mailman K12mailman
+          % cd ../rc1.d
+          % ln -s ../init.d/mailman K12mailman
+          % cd ../rc2.d
+          % ln -s ../init.d/mailman S98mailman
+          % cd ../rc3.d
+          % ln -s ../init.d/mailman S98mailman
+          % cd ../rc4.d
+          % ln -s ../init.d/mailman S98mailman
+          % cd ../rc5.d
+          % ln -s ../init.d/mailman S98mailman
+          % cd ../rc6.d
+          % ln -s ../init.d/mailman K12mailman
+
+    - Check the values for DEFAULT_EMAIL_HOST and DEFAULT_URL_HOST in
+      Defaults.py.  Make any necessary changes in the mm_cfg.py file.
+      Note that if you change either of these two values, you'll want
+      to add the following afterwards in the mm_cfg.py file:
+
+          add_virtualhost(DEFAULT_URL_HOST, DEFAULT_EMAIL_HOST)
+
+
+5. Customize Mailman
+
+    You should do these steps using the account you installed Mailman
+    under in section 2 above.
+
+    - The file $prefix/Mailman/Defaults.py contains a number of
+      defaults for your installation.  If any of these are incorrect,
+      override them in $prefix/Mailman/mm_cfg.py, NOT IN Defaults.py!
+      See the comments in Defaults.py for details.  Once a list is
+      created, editing many of these variables will have no effect.
+      At that point, you'll need to configure your lists through the
+      web admin interface or through the command line script
+      bin/withlist or bin/config_list.
+
+      The install process will not overwrite an existing mm_cfg.py
+      file so you can freely make changes to this file.
+
+      Note: Do *not* change HOME_DIR or MAILMAN_DIR.  These are set
+      automatically by the configure script.
+
+    - Create the site password using:
+
+        % $prefix/bin/mmsitepass <your-site-password>
+
+      This password can be used anywhere that individual user or
+      mailing list administrator passwords are required, giving the
+      mailman site administrator the ability to adjust these things
+      when necessary.
+
+      You may also want to create a password for the site-wide "list
+      creator" role (someone other than the site administrator who as
+      privileges to create and remove lists through the web).  Use the
+      -c option to mmsitepass to set this.
+
+
+6. Getting started
+
+    See the README file under the section "CREATE YOUR FIRST LIST" for
+    a quick introduction to creating an initial test list.
+
+
+7. Troubleshooting
+
+    If you encounter problems with running Mailman, first check the
+    "Common Problems" section, below.  If your problem is not covered
+    there, check both the FAQ file and the online FAQ Wizard.  Also
+    check for errors your syslog files and in the $prefix/logs/error
+    file.
+
+    Where syslog lives on your particular machine may vary.  It may be
+    in /var/log/maillog.  It may also be in /var/log/syslog.  On many
+    machines, syslog files live in /adm/log/ instead of /var/log.
+
+    If you encounter an error, send an error report to
+    mailman-users@python.org.  Include a description of what you're
+    doing to cause the problem, and the relevant lines from your
+    syslog.  Also include information on your operating system, which
+    version of Python you're using, and which version of Mailman
+    you're installing.
+
+
+8. Common Problems
+
+    Problem:  All Mailman web pages give a 404 File not found error.
+
+    Solution: Your web server has not been set up properly for handling
+              Mailman's cgi commands.  Make sure you've:
+
+              1) Configured the web server to give permissions to
+                 $prefix/cgi-bin
+              2) Restarted the web server properly.
+
+              Consult your web server's documentation for instructions
+              on how to do these things.
+
+
+    Problem:  All Mailman web pages give an "Internal Server Error".
+
+    Solution: The likely problem is that you are using the wrong GID or
+              UID for CGI scripts.  Check your syslog.  If you see, for
+              example, a line like:
+
+                  Attempt to exec script with invalid gid 51, expected 99
+
+              You need to reinstall Mailman, and specify $CGI_GID to be 51,
+              as described in the installation instructions.
+
+
+    Problem:  I send mail to the list, and get back mail saying the
+              list is not found!
+
+    Solution: You probably didn't add the necessary aliases to the system
+              alias database, given to you when you ran the newlist
+              command.  If you did add them, you likely did not update
+              the alias database, or your system requires you to run
+              newaliases explicitly.  Refer to section 5 above for
+              more information.
+
+
+    Problem:  I send mail to the list, and get back mail saying,
+              "unknown mailer error".
+
+    Solution: The likely problem is that you are using the wrong GID or
+              UID for mail.  Check your syslog.  If you see, for
+              example, a line like:
+
+                  Attempt to exec script with invalid gid 51, expected 99
+
+              You need to reinstall Mailman, and specify $MAIL_GID to
+              be 51, as described in the installation
+              instructions. see notes on Postfix below, as by default
+              it will create these problems on installation.
+
+
+    Problem:  I use Postfix for my MTA and the mail wrapper programs
+              are logging complaints about the wrong GID.
+
+    Solution: Create a separate aliases file for Postfix in its
+              main.cf config file under the variable "alias_maps". Put
+              the file somewhere in Mailman's home directory, or
+              somewhere else where the user mailman has write access
+              to it; *as user mailman* call Postfix's "postalias" on the
+              alias file.
+
+              % postalias <the alias file>
+
+              Also as user mailman, run
+
+              % python -c'import os; print os.getgid()'
+
+              This should print out the group id that Mailman should
+              be configured to expect when the mail wrapper programs
+              are run.  Call it "thegid".  Rebuild Mailman with
+
+              % ./configure --with-mail-gid=thegid
+
+              See also the README.POSTFIX file for more information on
+              connecting Postfix and Mailman.
+
+
+    Problem:  I send mail to the list, and get back mail saying,
+              "sh: mailman not available for sendmail programs"
+
+    Solution: Your system uses sendmail restricted shell (smrsh).  You
+              need to configure smrsh by creating a symbolic link from
+              the mail wrapper ($prefix/mail/mailman) to the directory
+              identifying executables allowed to run under smrsh.
+
+              Some common names for this directory are
+              /var/admin/sm.bin, /usr/admin/sm.bin or /etc/smrsh.
+
+              Note that on Debian Linux, the system makes
+              /usr/lib/sm.bin, which is wrong, you will need to create
+              the directory /usr/admin/sm.bin and add the link there.
+              Note further any aliases newaliases spits out will need
+              to be adjusted to point to the secure link to the
+              wrapper.
+
+
+    Problem:  I messed up when I called configure.  How do I clean
+              things up and re-install?
+
+    Solution: % make clean
+              % ./configure --with-the-right-options
+              % make install
+
+
+
+Local Variables:
+mode: indented-text
+indent-tabs-mode: nil
+End:

@@ -113,7 +113,8 @@ L_start:
 start:
 	pushl	$0		# push a zero for debugger end of frames marker
 	movl	%esp,%ebp	# pointer to base of kernel frame
-	subl	$12,%esp	# room for new argc, argv, & envp
+	andl    $-16,%esp       # force SSE alignment
+	subl    $16,%esp        # room for new argc, argv, & envp, SSE aligned
 	movl	4(%ebp),%ebx	# pickup argc in %ebx
 	movl	%ebx,0(%esp)	# argc to reserved stack word
 	lea	8(%ebp),%ecx	# addr of arg[0], argv, into %ecx

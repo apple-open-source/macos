@@ -1,5 +1,5 @@
 /*
- * Copyright 1998-2002 The OpenLDAP Foundation, All Rights Reserved.
+ * Copyright 1998-2003 The OpenLDAP Foundation, All Rights Reserved.
  * COPYING RESTRICTIONS APPLY, see COPYRIGHT file
  *
  * Copyright 2001, Pierangelo Masarati, All rights reserved. <ando@sys-net.it>
@@ -95,6 +95,8 @@ meta_back_initialize(
 		BackendInfo	*bi
 )
 {
+	bi->bi_controls = slap_known_controls;
+
 	bi->bi_open = 0;
 	bi->bi_config = 0;
 	bi->bi_close = 0;
@@ -155,19 +157,20 @@ meta_back_db_init(
 
 static void
 conn_free( 
-	struct metaconn *lc
+	void *v_lc
 )
 {
-	struct metasingleconn **lsc;
+	struct metaconn *lc = v_lc;
+	struct metasingleconn *lsc;
 
-	for ( lsc = lc->conns; lsc[ 0 ] != NULL; lsc++ ) {
-		if ( lsc[ 0 ]->ld != NULL ) {
-			ldap_unbind( lsc[ 0 ]->ld );
+	for ( lsc = lc->conns; !META_LAST(lsc); lsc++ ) {
+		if ( lsc->ld != NULL ) {
+			ldap_unbind( lsc->ld );
 		}
-		if ( lsc[ 0 ]->bound_dn.bv_val ) {
-			ber_memfree( lsc[ 0 ]->bound_dn.bv_val );
+		if ( lsc->bound_dn.bv_val ) {
+			ber_memfree( lsc->bound_dn.bv_val );
 		}
-		free( lsc[ 0 ] );
+		free( lsc );
 	}
 	free( lc->conns );
 	free( lc );
@@ -203,9 +206,9 @@ target_free(
 		rewrite_info_delete( lt->rwinfo );
 	}
 	avl_free( lt->oc_map.remap, NULL );
-	avl_free( lt->oc_map.map, ( AVL_FREE )mapping_free );
+	avl_free( lt->oc_map.map, mapping_free );
 	avl_free( lt->at_map.remap, NULL );
-	avl_free( lt->at_map.map, ( AVL_FREE )mapping_free );
+	avl_free( lt->at_map.map, mapping_free );
 }
 
 int
@@ -226,12 +229,8 @@ meta_back_db_destroy(
 		ldap_pvt_thread_mutex_lock( &li->conn_mutex );
 
 		if ( li->conntree ) {
-			avl_free( li->conntree,
-					( AVL_FREE )conn_free );
+			avl_free( li->conntree, conn_free );
 		}
-
-		ldap_pvt_thread_mutex_unlock( &li->cache.mutex );
-		ldap_pvt_thread_mutex_destroy( &li->cache.mutex );
 
 		/*
 		 * Destroy the per-target stuff (assuming there's at
@@ -246,14 +245,14 @@ meta_back_db_destroy(
 
 		ldap_pvt_thread_mutex_lock( &li->cache.mutex );
 		if ( li->cache.tree ) {
-			avl_free( li->cache.tree,
-					( AVL_FREE )meta_dncache_free );
+			avl_free( li->cache.tree, meta_dncache_free );
 		}
 		
 		ldap_pvt_thread_mutex_unlock( &li->cache.mutex );
 		ldap_pvt_thread_mutex_destroy( &li->cache.mutex );
 
-						
+		ldap_pvt_thread_mutex_unlock( &li->conn_mutex );
+		ldap_pvt_thread_mutex_destroy( &li->conn_mutex );
 	}
 
 	free( be->be_private );

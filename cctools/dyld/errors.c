@@ -3,8 +3,6 @@
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
- * Copyright (c) 1999-2003 Apple Computer, Inc.  All Rights Reserved.
- * 
  * This file contains Original Code and/or Modifications of Original Code
  * as defined in and that are subject to the Apple Public Source License
  * Version 2.0 (the 'License'). You may not use this file except in
@@ -49,6 +47,14 @@
  * DYLD_ERROR_PRINT is set.
  */
 enum bool dyld_error_print = FALSE;
+
+/*
+ * If user_undefined_handler links in images or makes other changes to resolve
+ * undefined symbols this variable keeps track of the recursion depth.   This
+ * is used to avoid calling gdb_dyld_state_changed() while undefined symbols are
+ * still being resolved.
+ */
+unsigned long undefined_handler_recursion_level = 0;
 
 /*
  * These are the pointers to the user's three error handler functions.
@@ -111,7 +117,7 @@ int NSLinkEditError_errorNumber = 0;
  */
 enum bool
 check_and_report_undefineds(
-void)
+enum bool invoke_user_handler_with_last_undefined)
 {
     struct symbol_list *undefined;
     struct image *primary_image;
@@ -123,7 +129,7 @@ void)
 	 * If the there is a handler and we are not doing return on error
 	 * call the user's handler.
 	 */
-	if(user_multiple_handler != NULL && return_on_error == FALSE){
+	if(user_undefined_handler != NULL && return_on_error == FALSE){
 	    /*
 	     * Call the user's undefined symbol handler while there are
 	     * undefined symbols and the handler is set.
@@ -131,11 +137,23 @@ void)
 	    while(undefined_list.next != &undefined_list &&
 		  user_undefined_handler != NULL){
 		linkedit_error_enter();
+		undefined_handler_recursion_level++;
 		release_lock();
-		user_undefined_handler((const char *)undefined_list.next->name);
+		if(invoke_user_handler_with_last_undefined)
+		    user_undefined_handler((const char *)undefined_list.prev->name);
+		else
+		    user_undefined_handler((const char *)undefined_list.next->name);
 		set_lock();
+		undefined_handler_recursion_level--;
 	    }
 	}
+
+	/*
+	 * See if the user_undefined_handler linked in some code that resolves
+	 * the missing symbols
+	 */
+	if(undefined_list.next == &undefined_list)
+		return(TRUE);
 
 	/* create the error message */
 	error("Undefined symbols:");
@@ -165,6 +183,10 @@ void)
 			    undefined->image->umbrella_name);
 		    else
 			add_error_string("%s\n", undefined->image->name);
+		}
+		else if(GET_LIBRARY_ORDINAL(undefined->symbol->n_desc) ==
+			DYNAMIC_LOOKUP_ORDINAL){
+		    add_error_string("a dynamic image\n");
 		}
 		else{
 		    /* could make this check

@@ -1,0 +1,1265 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01//EN" "http://www.w3.org/TR/html4/strict.dtd">
+<html xmlns="http://www.w3.org/TR/xhtml1/strict">
+<head>
+<title>AJPv13</title>
+<meta content="1999-2002 The Apache Software Foundation" name="copyright"/>
+<meta content="$Date: 2002/11/28 08:52:48 $" name="last-changed"/>
+<meta content="danmil@shore.net" name="author"/>
+<meta content="danmil@shore.net" name="email"/>
+<meta content="Jean-Frederic Clere" name="author"/>
+<meta content="jfrederic.clere@fujitsu-siemens.com" name="email"/>
+<link href="..//style.css" type="text/css" rel="stylesheet"/>
+<link href="../images/tomcat.ico" rel="shortcut icon"/>
+</head>
+<body link="#525D76" vlink="#525D76" alink="#525D76" text="#000000" bgcolor="#ffffff">
+<a name="TOP"/>
+<table width="100%" cellpadding="0" cellspacing="0" border="0">
+<tr height="1">
+<td class="nil" height="1" bgcolor="#ffffff" width="150">
+<img hspace="0" vspace="0" height="1" width="150" border="0" src="../images/pixel.gif"/>
+</td>
+<td class="nil" height="1" bgcolor="#ffffff" width="*">
+<img hspace="0" vspace="0" height="1" width="370" border="0" src="../images/pixel.gif"/>
+</td>
+</tr>
+<tr>
+<td width="*" colspan="2" class="logo" bgcolor="#ffffff">
+<table width="100%" cellpadding="0" cellspacing="0" border="0">
+<tr>
+<td align="left">
+<img align="left" height="48" width="505" border="0" src="../images/jakarta.gif"/>
+</td>
+<td align="right">
+<img align="right" border="0" src="../images/mod_jk.jpg"/>
+</td>
+</tr>
+</table>
+</td>
+</tr>
+<tr>
+<td colspan="2" width="*" align="right" class="head" bgcolor="#999999">
+<nobr>
+<a href="http://www.apache.org/" class="head">Apache Software Foundation</a> |
+                <a href="http://jakarta.apache.org/" class="head">Jakarta Project</a> |
+                <a href="http://jakarta.apache.org/tomcat/" class="head">Apache Tomcat</a>
+</nobr>
+</td>
+</tr>
+<tr>
+<td valign="top" width="150" bgcolor="#ffffff">
+<table class="menu" cellpadding="0" cellspacing="0" width="150" border="0">
+<tr height="1">
+<td class="nil" height="1" bgcolor="#cccccc" width="10">
+<img hspace="0" vspace="0" height="1" width="10" border="0" src="../images/pixel.gif"/>
+</td>
+<td class="nil" height="1" bgcolor="#cccccc" width="140">
+<img hspace="0" vspace="0" height="1" width="140" border="0" src="../images/pixel.gif"/>
+</td>
+</tr>
+<tr height="6">
+<td colspan="2" width="150" bgcolor="#d0d0d0">Presentation</td>
+</tr>
+<tr>
+<td colspan="2" width="150" bgcolor="#cccccc">
+<nobr>
+<a class="menu" href="../index.html">Overview</a>
+</nobr>
+</td>
+</tr>
+<tr height="2"/>
+<tr height="6"/>
+<tr height="6">
+<td colspan="2" width="150" bgcolor="#d0d0d0">Commons</td>
+</tr>
+<tr>
+<td colspan="2" width="150" bgcolor="#cccccc">
+<nobr>
+<a class="menu" href="../common/AJPv13.html">AJPv13</a>
+</nobr>
+</td>
+</tr>
+<tr height="2"/>
+<tr>
+<td width="10" bgcolor="#cccccc"/>
+<td width="140" bgcolor="#cccccc">
+<a href="#Intro" class="menu">Intro</a>
+</td>
+</tr>
+<tr height="1"/>
+<tr>
+<td width="10" bgcolor="#cccccc"/>
+<td width="140" bgcolor="#cccccc">
+<a href="#author" class="menu">author</a>
+</td>
+</tr>
+<tr height="1"/>
+<tr>
+<td width="10" bgcolor="#cccccc"/>
+<td width="140" bgcolor="#cccccc">
+<a href="#Design Goals" class="menu">Design Goals</a>
+</td>
+</tr>
+<tr height="1"/>
+<tr>
+<td width="10" bgcolor="#cccccc"/>
+<td width="140" bgcolor="#cccccc">
+<a href="#Overview of the protocol" class="menu">Overview of the protocol</a>
+</td>
+</tr>
+<tr height="1"/>
+<tr>
+<td width="10" bgcolor="#cccccc"/>
+<td width="140" bgcolor="#cccccc">
+<a href="#Basic Packet Structure" class="menu">Basic Packet Structure</a>
+</td>
+</tr>
+<tr height="1"/>
+<tr>
+<td width="10" bgcolor="#cccccc"/>
+<td width="140" bgcolor="#cccccc">
+<a href="#Request Packet Structure" class="menu">Request Packet Structure</a>
+</td>
+</tr>
+<tr height="1"/>
+<tr>
+<td width="10" bgcolor="#cccccc"/>
+<td width="140" bgcolor="#cccccc">
+<a href="#Response Packet Structure" class="menu">Response Packet Structure</a>
+</td>
+</tr>
+<tr height="1"/>
+<tr>
+<td width="10" bgcolor="#cccccc"/>
+<td width="140" bgcolor="#cccccc">
+<a href="#Questions I Have" class="menu">Questions I Have</a>
+</td>
+</tr>
+<tr height="1"/>
+<tr>
+<td colspan="2" width="150" bgcolor="#cccccc">
+<nobr>
+<a class="menu" href="../common/AJPv13-extensions-proposal.html">AJPv13 extensions Proposal</a>
+</nobr>
+</td>
+</tr>
+<tr height="2"/>
+<tr>
+<td colspan="2" width="150" bgcolor="#cccccc">
+<nobr>
+<a class="menu" href="../faq.html">FAQ</a>
+</nobr>
+</td>
+</tr>
+<tr height="2"/>
+<tr height="6"/>
+<tr height="6">
+<td colspan="2" width="150" bgcolor="#d0d0d0">JK</td>
+</tr>
+<tr>
+<td colspan="2" width="150" bgcolor="#cccccc">
+<nobr>
+<a class="menu" href="../jk/quickhowto.html">Quick Start HowTo</a>
+</nobr>
+</td>
+</tr>
+<tr height="2"/>
+<tr>
+<td colspan="2" width="150" bgcolor="#cccccc">
+<nobr>
+<a class="menu" href="../jk/aphowto.html">Apache HowTo</a>
+</nobr>
+</td>
+</tr>
+<tr height="2"/>
+<tr>
+<td colspan="2" width="150" bgcolor="#cccccc">
+<nobr>
+<a class="menu" href="../jk/domhowto.html">Domino HowTo</a>
+</nobr>
+</td>
+</tr>
+<tr height="2"/>
+<tr>
+<td colspan="2" width="150" bgcolor="#cccccc">
+<nobr>
+<a class="menu" href="../jk/iishowto.html">IIS HowTo</a>
+</nobr>
+</td>
+</tr>
+<tr height="2"/>
+<tr>
+<td colspan="2" width="150" bgcolor="#cccccc">
+<nobr>
+<a class="menu" href="../jk/neshowto.html">Netscape/iPlanet HowTo</a>
+</nobr>
+</td>
+</tr>
+<tr height="2"/>
+<tr>
+<td colspan="2" width="150" bgcolor="#cccccc">
+<nobr>
+<a class="menu" href="../jk/workershowto.html">Workers HowTo</a>
+</nobr>
+</td>
+</tr>
+<tr height="2"/>
+<tr height="6"/>
+<tr height="6">
+<td colspan="2" width="150" bgcolor="#d0d0d0">JK2</td>
+</tr>
+<tr height="6"/>
+<tr height="6">
+<td colspan="2" width="150" bgcolor="#d0d0d0">Configuration in the Tomcat</td>
+</tr>
+<tr>
+<td colspan="2" width="150" bgcolor="#cccccc">
+<nobr>
+<a class="menu" href="../jk2/configtc.html">Configuration options</a>
+</nobr>
+</td>
+</tr>
+<tr height="2"/>
+<tr>
+<td colspan="2" width="150" bgcolor="#cccccc">
+<nobr>
+<a class="menu" href="../jk2/configtcex.html">Examples</a>
+</nobr>
+</td>
+</tr>
+<tr height="2"/>
+<tr height="6"/>
+<tr height="6">
+<td colspan="2" width="150" bgcolor="#d0d0d0">Configuration in the Web Server</td>
+</tr>
+<tr>
+<td colspan="2" width="150" bgcolor="#cccccc">
+<nobr>
+<a class="menu" href="../jk2/configweb.html">Configuration file</a>
+</nobr>
+</td>
+</tr>
+<tr height="2"/>
+<tr>
+<td colspan="2" width="150" bgcolor="#cccccc">
+<nobr>
+<a class="menu" href="../jk2/configwebcom.html">Components</a>
+</nobr>
+</td>
+</tr>
+<tr height="2"/>
+<tr>
+<td colspan="2" width="150" bgcolor="#cccccc">
+<nobr>
+<a class="menu" href="../jk2/configwebex.html">Examples</a>
+</nobr>
+</td>
+</tr>
+<tr height="2"/>
+<tr height="6"/>
+<tr height="6">
+<td colspan="2" width="150" bgcolor="#d0d0d0">Installation</td>
+</tr>
+<tr>
+<td colspan="2" width="150" bgcolor="#cccccc">
+<nobr>
+<a class="menu" href="../jk2/installhowto.html">Installation of jk2 in the Web Server</a>
+</nobr>
+</td>
+</tr>
+<tr height="2"/>
+<tr height="6"/>
+<tr height="6">
+<td colspan="2" width="150" bgcolor="#d0d0d0">Howto</td>
+</tr>
+<tr>
+<td colspan="2" width="150" bgcolor="#cccccc">
+<nobr>
+<a class="menu" href="../jk2/confighowto.html">Quick Start JK2 Configuration Guide</a>
+</nobr>
+</td>
+</tr>
+<tr height="2"/>
+<tr height="6"/>
+</table>
+</td>
+<td class="body" valign="top" width="*" bgcolor="#ffffff">
+<a name="Intro">
+<table width="100%" cellpadding="0" cellspacing="0" border="0">
+<tr>
+<td align="left" valign="top" class="section" bgcolor="#525D76">
+<img border="0" vspace="0" hspace="0" align="left" valign="top" src="../images/corner.gif"/>Intro</td>
+</tr>
+</table>
+</a>
+<p class="section">
+The original document was written by
+Dan Milstein, <a href="mailto:danmil@shore.net">danmil@shore.net</a>
+on December 2000. The present document is generated out of an xml file
+to allow a more easy integration in the Tomcat documentation.
+
+</p>
+<p class="section">
+This describes the Apache JServ Protocol version 1.3 (hereafter
+<b>
+<font color="#333333">ajp13</font>
+</b>).  There is, apparently, no current documentation of how the
+protocol works.  This document is an attempt to remedy that, in order to
+make life easier for maintainers of JK, and for anyone who wants to
+port the protocol somewhere (into jakarta 4.x, for example).
+</p>
+<br/>
+<a name="author">
+<table width="100%" cellpadding="0" cellspacing="0" border="0">
+<tr>
+<td align="left" valign="top" class="section" bgcolor="#525D76">
+<img border="0" vspace="0" hspace="0" align="left" valign="top" src="../images/corner.gif"/>author</td>
+</tr>
+</table>
+</a>
+<p class="section">
+I am not one of the designers of this protocol -- I believe that Gal
+Shachor was the original designer.  Everything in this document is derived
+from the actual implementation I found in the tomcat 3.x code.  I hope it
+is useful, but I can't make any grand claims to perfect accuracy.  I also
+don't know why certain design decisions were made.  Where I was able, I've
+offered some possible justifications for certain choices, but those are
+only my guesses.  In general, the C code which Shachor wrote is very clean
+and comprehensible (if almost totally undocumented).  I've cleaned up the
+Java code, and I think it's reasonably readable.
+</p>
+<br/>
+<a name="Design Goals">
+<table width="100%" cellpadding="0" cellspacing="0" border="0">
+<tr>
+<td align="left" valign="top" class="section" bgcolor="#525D76">
+<img border="0" vspace="0" hspace="0" align="left" valign="top" src="../images/corner.gif"/>Design Goals</td>
+</tr>
+</table>
+</a>
+<p class="section">
+According to email from Gal Shachor to the jakarta-dev mailing list,
+the original goals of <b>
+<font color="#333333">JK</font>
+</b> (and thus <b>
+<font color="#333333">ajp13</font>
+</b>) were to extend
+<b>
+<font color="#333333">mod_jserv</font>
+</b> and <b>
+<font color="#333333">ajp12</font>
+</b> by (I am only including the goals which
+relate to communication between the web server and the servlet container):
+
+<ul>
+<li> Increasing performance (speed, specifically). </li>
+<li> Adding support for SSL, so that  and
+        will function correctly within the servlet
+       container.  The client certificates and cipher suite will be
+       available to servlets as request attributes. </li>
+</ul>
+</p>
+<br/>
+<a name="Overview of the protocol">
+<table width="100%" cellpadding="0" cellspacing="0" border="0">
+<tr>
+<td align="left" valign="top" class="section" bgcolor="#525D76">
+<img border="0" vspace="0" hspace="0" align="left" valign="top" src="../images/corner.gif"/>Overview of the protocol</td>
+</tr>
+</table>
+</a>
+<p class="section">
+The <b>
+<font color="#333333">ajp13</font>
+</b> protocol is packet-oriented.  A binary format was
+presumably chosen over the more readable plain text for reasons of
+performance.  The web server communicates with the servlet container over
+TCP connections.  To cut down on the expensive process of socket creation,
+the web server will attempt to maintain persistent TCP connections to the
+servlet container, and to reuse a connection for multiple request/response
+cycles.
+</p>
+<p class="section">
+Once a connection is assigned to a particular request, it will not be
+used for any others until the request-handling cycle has terminated.  In
+other words, requests are not multiplexed over connections.  This makes
+for much simpler code at either end of the connection, although it does
+cause more connections to be open at once.
+</p>
+<p class="section">
+Once the web server has opened a connection to the servlet container,
+the connection can be in one of the following states:
+</p>
+<p class="section">
+<ul>
+<li> Idle <br/> No request is being handled over this connection. </li>
+<li> Assigned <br/> The connecton is handling a specific request.</li>
+</ul>
+
+</p>
+<p class="section">
+Once a connection is assigned to handle a particular request, the basic
+request informaton (e.g. HTTP headers, etc) is sent over the connection in
+a highly condensed form (e.g. common strings are encoded as integers).
+Details of that format are below in Request Packet Structure. If there is a
+body to the request (content-length &gt; 0), that is sent in a separate
+packet immediately after.
+</p>
+<p class="section">
+At this point, the servlet container is presumably ready to start
+processing the request.  As it does so, it can send the
+following messages back to the web server:
+
+<ul>
+<li>SEND_HEADERS <br/>Send a set of headers back to the browser.</li>
+<li>SEND_BODY_CHUNK <br/>Send a chunk of body data back to the browser.</li>
+<li>GET_BODY_CHUNK <br/>Get further data from the request if it hasn't all
+  been transferred yet.  This is necessary because the packets have a fixed
+  maximum size and arbitrary amounts of data can be included the body of a
+  request (for uploaded files, for example).  (Note: this is unrelated to
+  HTTP chunked tranfer).</li>
+<li>END_RESPONSE <br/> Finish the request-handling cycle.</li>
+</ul>
+</p>
+<p class="section">
+
+Each message is accompanied by a differently formatted packet of data.  See
+Response Packet Structures below for details.
+</p>
+<br/>
+<a name="Basic Packet Structure">
+<table width="100%" cellpadding="0" cellspacing="0" border="0">
+<tr>
+<td align="left" valign="top" class="section" bgcolor="#525D76">
+<img border="0" vspace="0" hspace="0" align="left" valign="top" src="../images/corner.gif"/>Basic Packet Structure</td>
+</tr>
+</table>
+</a>
+<p class="section">
+There is a bit of an XDR heritage to this protocol, but it differs in
+lots of ways (no 4 byte alignment, for example).
+</p>
+<p class="section">
+Byte order: I am not clear about the endian-ness of the individual
+bytes.  I'm guessing the bytes are little-endian, because that's what XDR
+specifies, and I'm guessing that sys/socket library is magically making
+that so (on the C side).  If anyone with a better knowledge of socket calls
+can step in, that would be great.
+</p>
+<p class="section">
+There are four data types in the protocol: bytes, booleans, integers and
+strings.
+
+
+</p>
+<a name="sub_Packet Size">
+<table width="100%" cellpadding="0" cellspacing="0" border="0">
+<tr>
+<td align="left" valign="top" class="subsection" bgcolor="#828DA6">
+<img border="0" vspace="0" hspace="0" align="left" valign="top" src="../images/corner.gif"/>Packet Size</td>
+</tr>
+</table>
+</a>
+<p class="section">
+According to much of the code, the max packet
+size is 8 * 1024 bytes (8K).  The actual length of the packet is encoded in the
+header.
+</p>
+<br/>
+<a name="sub_Packet Headers">
+<table width="100%" cellpadding="0" cellspacing="0" border="0">
+<tr>
+<td align="left" valign="top" class="subsection" bgcolor="#828DA6">
+<img border="0" vspace="0" hspace="0" align="left" valign="top" src="../images/corner.gif"/>Packet Headers</td>
+</tr>
+</table>
+</a>
+<p class="section">
+Packets sent from the server to the container begin with
+<b class="code">0x1234</b>.  Packets sent from the container to the server begin
+with <b class="code">AB</b> (that's the ASCII code for A followed by the ASCII
+code for B).  After those first two bytes, there is an integer (encoded as
+above) with the length of the payload.  Although this might suggest that
+the maximum payload could be as large as 2^16, in fact, the code sets the
+maximum to be 8K.
+
+
+<table border="0">
+<tr>
+<td align="middle" valign="top" bgcolor="#039acc" colspan="6">Packet Format (Server-&gt;Container)</td>
+</tr>
+<tr>
+<td align="middle" valign="top" bgcolor="#039acc">Byte</td>
+<td align="left" valign="top" bgcolor="#a0ddf0">0</td>
+<td align="left" valign="top" bgcolor="#a0ddf0">1</td>
+<td align="left" valign="top" bgcolor="#a0ddf0">2</td>
+<td align="left" valign="top" bgcolor="#a0ddf0">3</td>
+<td align="left" valign="top" bgcolor="#a0ddf0">4...(n+3)</td>
+</tr>
+<tr>
+<td align="middle" valign="top" bgcolor="#039acc">Contents</td>
+<td align="left" valign="top" bgcolor="#a0ddf0">0x12</td>
+<td align="left" valign="top" bgcolor="#a0ddf0">0x34</td>
+<td align="left" valign="top" bgcolor="#a0ddf0" colspan="2">Data Length (n)</td>
+<td align="left" valign="top" bgcolor="#a0ddf0">Data</td>
+</tr>
+</table>
+
+<table border="0">
+<tr>
+<td align="middle" valign="top" bgcolor="#039acc" colspan="6">
+<b>
+<font color="#333333">Packet Format (Container-&gt;Server)</font>
+</b>
+</td>
+</tr>
+<tr>
+<td align="middle" valign="top" bgcolor="#039acc">Byte</td>
+<td align="left" valign="top" bgcolor="#a0ddf0">0</td>
+<td align="left" valign="top" bgcolor="#a0ddf0">1</td>
+<td align="left" valign="top" bgcolor="#a0ddf0">2</td>
+<td align="left" valign="top" bgcolor="#a0ddf0">3</td>
+<td align="left" valign="top" bgcolor="#a0ddf0">4...(n+3)</td>
+</tr>
+<tr>
+<td align="middle" valign="top" bgcolor="#039acc">Contents</td>
+<td align="left" valign="top" bgcolor="#a0ddf0">A</td>
+<td align="left" valign="top" bgcolor="#a0ddf0">B</td>
+<td align="left" valign="top" bgcolor="#a0ddf0" colspan="2">Data Length (n)</td>
+<td align="left" valign="top" bgcolor="#a0ddf0">Data</td>
+</tr>
+</table>
+
+
+ For most packets, the first byte of the
+payload encodes the type of message.  The exception is for request body
+packets sent from the server to the container -- they are sent with a
+standard packet header (0x1234 and then length of the packet), but without
+any prefix code after that (this seems like a mistake to me).
+</p>
+<p class="section">
+The web server can send the following messages to the servlet container:
+
+<table border="0">
+<tr>
+<td align="middle" valign="top" bgcolor="#039acc">Code</td>
+<td align="middle" valign="top" bgcolor="#039acc">Type of Packet</td>
+<td align="middle" valign="top" bgcolor="#039acc">Meaning</td>
+</tr>
+<tr>
+<td align="left" valign="top" bgcolor="#a0ddf0">2</td>
+<td align="left" valign="top" bgcolor="#a0ddf0">Forward Request</td>
+<td align="left" valign="top" bgcolor="#a0ddf0">Begin the request-processing cycle with the following data</td>
+</tr>
+<tr>
+<td align="left" valign="top" bgcolor="#a0ddf0">7</td>
+<td align="left" valign="top" bgcolor="#a0ddf0">Shutdown</td>
+<td align="left" valign="top" bgcolor="#a0ddf0">The web server asks the container to shut itself down.</td>
+</tr>
+</table>
+
+</p>
+<p class="section">The servlet container can send the following types of messages to the web
+server:
+<table border="0">
+<tr>
+<td align="middle" valign="top" bgcolor="#039acc">Code</td>
+<td align="middle" valign="top" bgcolor="#039acc">Type of Packet</td>
+<td align="middle" valign="top" bgcolor="#039acc">Meaning</td>
+</tr>
+<tr>
+<td align="left" valign="top" bgcolor="#a0ddf0">3</td>
+<td align="left" valign="top" bgcolor="#a0ddf0">Send Body Chunk</td>
+<td align="left" valign="top" bgcolor="#a0ddf0">Send a chunk of the body from the servlet container to the web
+    server (and presumably, onto the browser). </td>
+</tr>
+<tr>
+<td align="left" valign="top" bgcolor="#a0ddf0">4</td>
+<td align="left" valign="top" bgcolor="#a0ddf0">Send Headers</td>
+<td align="left" valign="top" bgcolor="#a0ddf0">Send the response headers from the servlet container to the web
+    server (and presumably, onto the browser).</td>
+</tr>
+<tr>
+<td align="left" valign="top" bgcolor="#a0ddf0">5</td>
+<td align="left" valign="top" bgcolor="#a0ddf0">End Response</td>
+<td align="left" valign="top" bgcolor="#a0ddf0">Marks the end of the response (and thus the request-handling cycle).</td>
+</tr>
+<tr>
+<td align="left" valign="top" bgcolor="#a0ddf0">6</td>
+<td align="left" valign="top" bgcolor="#a0ddf0">Get Body Chunk</td>
+<td align="left" valign="top" bgcolor="#a0ddf0">Get further data from the request if it hasn't all been transferred
+    yet.</td>
+</tr>
+</table>
+</p>
+<p class="section">
+Each of the above messages has a different internal structure, detailed below.
+</p>
+<br/>
+<br/>
+<a name="Request Packet Structure">
+<table width="100%" cellpadding="0" cellspacing="0" border="0">
+<tr>
+<td align="left" valign="top" class="section" bgcolor="#525D76">
+<img border="0" vspace="0" hspace="0" align="left" valign="top" src="../images/corner.gif"/>Request Packet Structure</td>
+</tr>
+</table>
+</a>
+<p class="section">
+For messages from the server to the container of type "Forward Request":
+</p>
+<p class="section">
+<pre class="section">
+AJP13_FORWARD_REQUEST :=
+    prefix_code      (byte) 0x02 = JK_AJP13_FORWARD_REQUEST
+    method           (byte)
+    protocol         (string)
+    req_uri          (string)
+    remote_addr      (string)
+    remote_host      (string)
+    server_name      (string)
+    server_port      (integer)
+    is_ssl           (boolean)
+    num_headers      (integer)
+    request_headers *(req_header_name req_header_value)
+    attributes      *(attribut_name attribute_value)
+    request_terminator (byte) OxFF
+</pre>
+</p>
+<p class="section">
+The <b class="code">request_headers</b> have the following structure:
+</p>
+<p class="section">
+<pre class="section">
+req_header_name := 
+    sc_req_header_name | (string)  [see below for how this is parsed]
+
+sc_req_header_name := 0xA0xx (integer)
+
+req_header_value := (string)
+</pre>
+</p>
+<p class="section">
+
+The <b class="code">attributes</b> are optional and have the following structure:
+</p>
+<p class="section">
+<pre class="section">
+attribute_name := (string)
+
+attribute_value := (string)
+
+</pre>
+</p>
+<p class="section">
+Not that the all-important header is "content-length', because it
+determines whether or not the container looks for another packet
+immediately.
+</p>
+<p class="section">
+Detailed description of the elements of Forward Request.
+</p>
+<a name="sub_request_prefix">
+<table width="100%" cellpadding="0" cellspacing="0" border="0">
+<tr>
+<td align="left" valign="top" class="subsection" bgcolor="#828DA6">
+<img border="0" vspace="0" hspace="0" align="left" valign="top" src="../images/corner.gif"/>request_prefix</td>
+</tr>
+</table>
+</a>
+<p class="section">
+For all requests, this will be 2.
+See above for details on other .
+</p>
+<br/>
+<a name="sub_method">
+<table width="100%" cellpadding="0" cellspacing="0" border="0">
+<tr>
+<td align="left" valign="top" class="subsection" bgcolor="#828DA6">
+<img border="0" vspace="0" hspace="0" align="left" valign="top" src="../images/corner.gif"/>method</td>
+</tr>
+</table>
+</a>
+<p class="section">
+The HTTP method, encoded as a single byte:
+</p>
+<p class="section">
+<table border="0">
+<tr>
+<td align="middle" valign="top" bgcolor="#039acc">Command Name</td>
+<td align="middle" valign="top" bgcolor="#039acc">Code</td>
+</tr>
+<tr>
+<td align="left" valign="top" bgcolor="#a0ddf0">OPTIONS</td>
+<td align="left" valign="top" bgcolor="#a0ddf0">1</td>
+</tr>
+<tr>
+<td align="left" valign="top" bgcolor="#a0ddf0">GET</td>
+<td align="left" valign="top" bgcolor="#a0ddf0">2</td>
+</tr>
+<tr>
+<td align="left" valign="top" bgcolor="#a0ddf0">HEAD</td>
+<td align="left" valign="top" bgcolor="#a0ddf0">3</td>
+</tr>
+<tr>
+<td align="left" valign="top" bgcolor="#a0ddf0">POST</td>
+<td align="left" valign="top" bgcolor="#a0ddf0">4</td>
+</tr>
+<tr>
+<td align="left" valign="top" bgcolor="#a0ddf0">PUT</td>
+<td align="left" valign="top" bgcolor="#a0ddf0">5</td>
+</tr>
+<tr>
+<td align="left" valign="top" bgcolor="#a0ddf0">DELETE</td>
+<td align="left" valign="top" bgcolor="#a0ddf0">6</td>
+</tr>
+<tr>
+<td align="left" valign="top" bgcolor="#a0ddf0">TRACE</td>
+<td align="left" valign="top" bgcolor="#a0ddf0">7</td>
+</tr>
+<tr>
+<td align="left" valign="top" bgcolor="#a0ddf0">PROPFIND</td>
+<td align="left" valign="top" bgcolor="#a0ddf0">8</td>
+</tr>
+<tr>
+<td align="left" valign="top" bgcolor="#a0ddf0">PROPPATCH</td>
+<td align="left" valign="top" bgcolor="#a0ddf0">9</td>
+</tr>
+<tr>
+<td align="left" valign="top" bgcolor="#a0ddf0">MKCOL</td>
+<td align="left" valign="top" bgcolor="#a0ddf0">10</td>
+</tr>
+<tr>
+<td align="left" valign="top" bgcolor="#a0ddf0">COPY</td>
+<td align="left" valign="top" bgcolor="#a0ddf0">11</td>
+</tr>
+<tr>
+<td align="left" valign="top" bgcolor="#a0ddf0">MOVE</td>
+<td align="left" valign="top" bgcolor="#a0ddf0">12</td>
+</tr>
+<tr>
+<td align="left" valign="top" bgcolor="#a0ddf0">LOCK</td>
+<td align="left" valign="top" bgcolor="#a0ddf0">13</td>
+</tr>
+<tr>
+<td align="left" valign="top" bgcolor="#a0ddf0">UNLOCK</td>
+<td align="left" valign="top" bgcolor="#a0ddf0">14</td>
+</tr>
+<tr>
+<td align="left" valign="top" bgcolor="#a0ddf0">ACL</td>
+<td align="left" valign="top" bgcolor="#a0ddf0">15</td>
+</tr>
+<tr>
+<td align="left" valign="top" bgcolor="#a0ddf0">REPORT</td>
+<td align="left" valign="top" bgcolor="#a0ddf0">16</td>
+</tr>
+<tr>
+<td align="left" valign="top" bgcolor="#a0ddf0">VERSION-CONTROL</td>
+<td align="left" valign="top" bgcolor="#a0ddf0">17</td>
+</tr>
+<tr>
+<td align="left" valign="top" bgcolor="#a0ddf0">CHECKIN</td>
+<td align="left" valign="top" bgcolor="#a0ddf0">18</td>
+</tr>
+<tr>
+<td align="left" valign="top" bgcolor="#a0ddf0">CHECKOUT</td>
+<td align="left" valign="top" bgcolor="#a0ddf0">19</td>
+</tr>
+<tr>
+<td align="left" valign="top" bgcolor="#a0ddf0">UNCHECKOUT</td>
+<td align="left" valign="top" bgcolor="#a0ddf0">20</td>
+</tr>
+<tr>
+<td align="left" valign="top" bgcolor="#a0ddf0">SEARCH</td>
+<td align="left" valign="top" bgcolor="#a0ddf0">21</td>
+</tr>
+<tr>
+<td align="left" valign="top" bgcolor="#a0ddf0">MKWORKSPACE</td>
+<td align="left" valign="top" bgcolor="#a0ddf0">22</td>
+</tr>
+<tr>
+<td align="left" valign="top" bgcolor="#a0ddf0">UPDATE</td>
+<td align="left" valign="top" bgcolor="#a0ddf0">23</td>
+</tr>
+<tr>
+<td align="left" valign="top" bgcolor="#a0ddf0">LABEL</td>
+<td align="left" valign="top" bgcolor="#a0ddf0">24</td>
+</tr>
+<tr>
+<td align="left" valign="top" bgcolor="#a0ddf0">MERGE</td>
+<td align="left" valign="top" bgcolor="#a0ddf0">25</td>
+</tr>
+<tr>
+<td align="left" valign="top" bgcolor="#a0ddf0">BASELINE_CONTROL</td>
+<td align="left" valign="top" bgcolor="#a0ddf0">26</td>
+</tr>
+<tr>
+<td align="left" valign="top" bgcolor="#a0ddf0">MKACTIVITY</td>
+<td align="left" valign="top" bgcolor="#a0ddf0">27</td>
+</tr>
+</table>
+</p>
+<br/>
+<a name="sub_protocol, req_uri, remote_addr, remote_host, server_name, server_port, is_ssl">
+<table width="100%" cellpadding="0" cellspacing="0" border="0">
+<tr>
+<td align="left" valign="top" class="subsection" bgcolor="#828DA6">
+<img border="0" vspace="0" hspace="0" align="left" valign="top" src="../images/corner.gif"/>protocol, req_uri, remote_addr, remote_host, server_name, server_port, is_ssl</td>
+</tr>
+</table>
+</a>
+<p class="section">
+  These are all fairly self-explanatory.  Each of these is required, and
+  will be sent for every request.
+</p>
+<br/>
+<a name="sub_Headers">
+<table width="100%" cellpadding="0" cellspacing="0" border="0">
+<tr>
+<td align="left" valign="top" class="subsection" bgcolor="#828DA6">
+<img border="0" vspace="0" hspace="0" align="left" valign="top" src="../images/corner.gif"/>Headers</td>
+</tr>
+</table>
+</a>
+<p class="section">
+  The structure of <b class="code">request_headers</b> is the following:
+  First, the number of headers <b class="code">num_headers</b> is encoded.
+  Then, a series of header name <b class="code">req_header_name</b> / value
+  <b class="code">req_header_value</b> pairs follows.
+  Common header names are encoded as integers,
+  to save space.  If the header name is not in the list of basic headers,
+  it is encoded normally (as a string, with prefixed length).  The list of
+  common headers <b class="code">sc_req_header_name</b>and their codes
+  is as follows (all are case-sensitive):
+</p>
+<p class="section">
+<table border="0">
+<tr>
+<td align="middle" valign="top" bgcolor="#039acc">Name</td>
+<td align="middle" valign="top" bgcolor="#039acc">Code value</td>
+<td align="middle" valign="top" bgcolor="#039acc">Code name</td>
+</tr>
+<tr>
+<td align="left" valign="top" bgcolor="#a0ddf0">accept</td>
+<td align="left" valign="top" bgcolor="#a0ddf0">0xA001</td>
+<td align="left" valign="top" bgcolor="#a0ddf0">SC_REQ_ACCEPT</td>
+</tr>
+<tr>
+<td align="left" valign="top" bgcolor="#a0ddf0">accept-charset</td>
+<td align="left" valign="top" bgcolor="#a0ddf0">0xA002</td>
+<td align="left" valign="top" bgcolor="#a0ddf0">SC_REQ_ACCEPT_CHARSET</td>
+</tr>
+<tr>
+<td align="left" valign="top" bgcolor="#a0ddf0">accept-encoding</td>
+<td align="left" valign="top" bgcolor="#a0ddf0">0xA003</td>
+<td align="left" valign="top" bgcolor="#a0ddf0">SC_REQ_ACCEPT_ENCODING</td>
+</tr>
+<tr>
+<td align="left" valign="top" bgcolor="#a0ddf0">accept-language</td>
+<td align="left" valign="top" bgcolor="#a0ddf0">0xA004</td>
+<td align="left" valign="top" bgcolor="#a0ddf0">SC_REQ_ACCEPT_LANGUAGE</td>
+</tr>
+<tr>
+<td align="left" valign="top" bgcolor="#a0ddf0">authorization</td>
+<td align="left" valign="top" bgcolor="#a0ddf0">0xA005</td>
+<td align="left" valign="top" bgcolor="#a0ddf0">SC_REQ_AUTHORIZATION</td>
+</tr>
+<tr>
+<td align="left" valign="top" bgcolor="#a0ddf0">connection</td>
+<td align="left" valign="top" bgcolor="#a0ddf0">0xA006</td>
+<td align="left" valign="top" bgcolor="#a0ddf0">SC_REQ_CONNECTION</td>
+</tr>
+<tr>
+<td align="left" valign="top" bgcolor="#a0ddf0">content-type</td>
+<td align="left" valign="top" bgcolor="#a0ddf0">0xA007</td>
+<td align="left" valign="top" bgcolor="#a0ddf0">SC_REQ_CONTENT_TYPE</td>
+</tr>
+<tr>
+<td align="left" valign="top" bgcolor="#a0ddf0">content-length</td>
+<td align="left" valign="top" bgcolor="#a0ddf0">0xA008</td>
+<td align="left" valign="top" bgcolor="#a0ddf0">SC_REQ_CONTENT_LENGTH</td>
+</tr>
+<tr>
+<td align="left" valign="top" bgcolor="#a0ddf0">cookie</td>
+<td align="left" valign="top" bgcolor="#a0ddf0">0xA009</td>
+<td align="left" valign="top" bgcolor="#a0ddf0">SC_REQ_COOKIE</td>
+</tr>
+<tr>
+<td align="left" valign="top" bgcolor="#a0ddf0">cookie2</td>
+<td align="left" valign="top" bgcolor="#a0ddf0">0xA00A</td>
+<td align="left" valign="top" bgcolor="#a0ddf0">SC_REQ_COOKIE2</td>
+</tr>
+<tr>
+<td align="left" valign="top" bgcolor="#a0ddf0">host</td>
+<td align="left" valign="top" bgcolor="#a0ddf0">0xA00B</td>
+<td align="left" valign="top" bgcolor="#a0ddf0">SC_REQ_HOST</td>
+</tr>
+<tr>
+<td align="left" valign="top" bgcolor="#a0ddf0">pragma</td>
+<td align="left" valign="top" bgcolor="#a0ddf0">0xA00C</td>
+<td align="left" valign="top" bgcolor="#a0ddf0">SC_REQ_PRAGMA</td>
+</tr>
+<tr>
+<td align="left" valign="top" bgcolor="#a0ddf0">referer</td>
+<td align="left" valign="top" bgcolor="#a0ddf0">0xA00D</td>
+<td align="left" valign="top" bgcolor="#a0ddf0">SC_REQ_REFERER</td>
+</tr>
+<tr>
+<td align="left" valign="top" bgcolor="#a0ddf0">user-agent</td>
+<td align="left" valign="top" bgcolor="#a0ddf0">0xA00E</td>
+<td align="left" valign="top" bgcolor="#a0ddf0">SC_REQ_USER_AGENT</td>
+</tr>
+</table>
+</p>
+<p class="section">
+  The Java code that reads this grabs the first two-byte integer and if
+  it sees an <b class="code">'0xA0'</b> in the most significant
+  byte, it uses the integer in the second byte as an index into an array of
+  header names.  If the first byte is not '0xA0', it assumes that the
+  two-byte integer is the length of a string, which is then read in.
+</p>
+<p class="section">
+  This works on the assumption that no header names will have length
+  greater than 0x9999 (==0xA000 - 1), which is perfectly reasonable, though
+  somewhat arbitrary. (If you, like me, started to think about the cookie
+  spec here, and about how long headers can get, fear not -- this limit is
+  on header <b>
+<font color="#333333">names</font>
+</b> not header <b>
+<font color="#333333">values</font>
+</b>.  It seems unlikely that
+  unmanageably huge header names will be showing up in the HTTP spec any time
+  soon).
+</p>
+<p class="section">
+  <b>
+<font color="#333333">Note:</font>
+</b> The <b class="code">content-length</b> header is extremely
+  important.  If it is present and non-zero, the container assumes that
+  the request has a body (a POST request, for example), and immediately
+  reads a separate packet off the input stream to get that body.
+</p>
+<br/>
+<a name="sub_Optional Information">
+<table width="100%" cellpadding="0" cellspacing="0" border="0">
+<tr>
+<td align="left" valign="top" class="subsection" bgcolor="#828DA6">
+<img border="0" vspace="0" hspace="0" align="left" valign="top" src="../images/corner.gif"/>Optional Information</td>
+</tr>
+</table>
+</a>
+<p class="section">
+
+  The list of attributes prefixed with a <b class="code">?</b>
+  (e.g. <b class="code">?context</b>) are all optional.  For each, there is a
+  single byte code to indicate the type of attribute, and then a string to
+  give its value.  They can be sent in any order (thogh the C code always
+  sends them in the order listed below).  A special terminating code is
+  sent to signal the end of the list of optional attributes. The list of
+  byte codes is:
+</p>
+<p class="section">
+
+<table border="0">
+<tr>
+<td align="middle" valign="top" bgcolor="#039acc">Information</td>
+<td align="middle" valign="top" bgcolor="#039acc">Code Value</td>
+<td align="middle" valign="top" bgcolor="#039acc">Note</td>
+</tr>
+<tr>
+<td align="left" valign="top" bgcolor="#a0ddf0">context</td>
+<td align="left" valign="top" bgcolor="#a0ddf0">0x01</td>
+<td align="left" valign="top" bgcolor="#a0ddf0">Not currently implemented</td>
+</tr>
+<tr>
+<td align="left" valign="top" bgcolor="#a0ddf0">servlet_path</td>
+<td align="left" valign="top" bgcolor="#a0ddf0">0x02</td>
+<td align="left" valign="top" bgcolor="#a0ddf0">Not currently implemented</td>
+</tr>
+<tr>
+<td align="left" valign="top" bgcolor="#a0ddf0">remote_user</td>
+<td align="left" valign="top" bgcolor="#a0ddf0">0x03</td>
+<td align="left" valign="top" bgcolor="#a0ddf0"/>
+</tr>
+<tr>
+<td align="left" valign="top" bgcolor="#a0ddf0">auth_type</td>
+<td align="left" valign="top" bgcolor="#a0ddf0">0x04</td>
+<td align="left" valign="top" bgcolor="#a0ddf0"/>
+</tr>
+<tr>
+<td align="left" valign="top" bgcolor="#a0ddf0">query_string</td>
+<td align="left" valign="top" bgcolor="#a0ddf0">0x05</td>
+<td align="left" valign="top" bgcolor="#a0ddf0"/>
+</tr>
+<tr>
+<td align="left" valign="top" bgcolor="#a0ddf0">jvm_route</td>
+<td align="left" valign="top" bgcolor="#a0ddf0">0x06</td>
+<td align="left" valign="top" bgcolor="#a0ddf0"/>
+</tr>
+<tr>
+<td align="left" valign="top" bgcolor="#a0ddf0">ssl_cert</td>
+<td align="left" valign="top" bgcolor="#a0ddf0">0x07</td>
+<td align="left" valign="top" bgcolor="#a0ddf0"/>
+</tr>
+<tr>
+<td align="left" valign="top" bgcolor="#a0ddf0">ssl_cipher</td>
+<td align="left" valign="top" bgcolor="#a0ddf0">0x08</td>
+<td align="left" valign="top" bgcolor="#a0ddf0"/>
+</tr>
+<tr>
+<td align="left" valign="top" bgcolor="#a0ddf0">ssl_session</td>
+<td align="left" valign="top" bgcolor="#a0ddf0">0x09</td>
+<td align="left" valign="top" bgcolor="#a0ddf0"/>
+</tr>
+<tr>
+<td align="left" valign="top" bgcolor="#a0ddf0">req_attribute</td>
+<td align="left" valign="top" bgcolor="#a0ddf0">0x0A</td>
+<td align="left" valign="top" bgcolor="#a0ddf0"/>
+</tr>
+<tr>
+<td align="left" valign="top" bgcolor="#a0ddf0">terminator</td>
+<td align="left" valign="top" bgcolor="#a0ddf0">0xFF</td>
+<td align="left" valign="top" bgcolor="#a0ddf0"/>
+</tr>
+</table>
+
+</p>
+<p class="section">
+
+  The <b class="code">context</b> and <b class="code">servlet_path</b> are not currently
+  set by the C code, and most of the Java code completely ignores whatever
+  is sent over for those fields (and some of it will actually break if a
+  string is sent along after one of those codes).  I don't know if this is
+  a bug or an unimplemented feature or just vestigial code, but it's
+  missing from both sides of the connection.
+</p>
+<p class="section">
+  The <b class="code">remote_user</b> and <b class="code">auth_type</b> presumably refer
+  to HTTP-level authentication, and communicate the remote user's username
+  and the type of authentication used to establish their identity (e.g. Basic,
+  Digest).  I'm not clear on why the password isn't also sent, but I don't
+  know HTTP authentication inside and out.
+</p>
+<p class="section">
+  The <b class="code">query_string</b>, <b class="code">ssl_cert</b>,
+  <b class="code">ssl_cipher</b>, and <b class="code">ssl_session</b> refer to the
+  corresponding pieces of HTTP and HTTPS.
+</p>
+<p class="section">
+  The <b class="code">jvm_route</b>, as I understand it, is used to support sticky
+  sessions -- associating a user's sesson with a particular Tomcat instance
+  in the presence of multiple, load-balancing servers.  I don't know the
+  details.
+</p>
+<p class="section">
+  Beyond this list of basic attributes, any number of other attributes can
+  be sent via the <b class="code">req_attribute</b> code (0x0A).  A pair of strings
+  to represent the attribute name and value are sent immediately after each
+  instance of that code.  Environment values are passed in via this method.
+</p>
+<p class="section">
+  Finally, after all the attributes have been sent, the attribute terminator,
+  0xFF, is sent.  This signals both the end of the list of attributes, and
+  also then end of the Request Packets as a whole.
+</p>
+<p class="section">
+
+The server can also send a <b class="code">shutdown</b> packet.  To ensure some
+basic security, the container will only actually do the shutdown if the
+request comes from the same machine on which it's hosted.
+</p>
+<br/>
+<br/>
+<a name="Response Packet Structure">
+<table width="100%" cellpadding="0" cellspacing="0" border="0">
+<tr>
+<td align="left" valign="top" class="section" bgcolor="#525D76">
+<img border="0" vspace="0" hspace="0" align="left" valign="top" src="../images/corner.gif"/>Response Packet Structure</td>
+</tr>
+</table>
+</a>
+<p class="section">
+For messages which the container can send back to the server.
+
+<pre class="section">
+AJP13_SEND_BODY_CHUNK := 
+  prefix_code   3
+  chunk_length  (integer)
+  chunk        *(byte)
+
+
+AJP13_SEND_HEADERS :=
+  prefix_code       4
+  http_status_code  (integer)
+  http_status_msg   (string)
+  num_headers       (integer)
+  response_headers *(res_header_name header_value)
+
+res_header_name := 
+    sc_res_header_name | (string)   [see below for how this is parsed]
+
+sc_res_header_name := 0xA0 (byte)
+
+header_value := (string)
+
+AJP13_END_RESPONSE :=
+  prefix_code       5
+  reuse             (boolean)
+
+
+AJP13_GET_BODY_CHUNK :=
+  prefix_code       6
+  requested_length  (integer)
+</pre>
+
+</p>
+<p class="section">
+Details:
+</p>
+<a name="sub_Send Body Chunk">
+<table width="100%" cellpadding="0" cellspacing="0" border="0">
+<tr>
+<td align="left" valign="top" class="subsection" bgcolor="#828DA6">
+<img border="0" vspace="0" hspace="0" align="left" valign="top" src="../images/corner.gif"/>Send Body Chunk</td>
+</tr>
+</table>
+</a>
+<p class="section">
+  The chunk is basically binary data, and is sent directly back to the browser.
+</p>
+<br/>
+<a name="sub_Send Headers">
+<table width="100%" cellpadding="0" cellspacing="0" border="0">
+<tr>
+<td align="left" valign="top" class="subsection" bgcolor="#828DA6">
+<img border="0" vspace="0" hspace="0" align="left" valign="top" src="../images/corner.gif"/>Send Headers</td>
+</tr>
+</table>
+</a>
+<p class="section">
+  The status code and message are the usual HTTP things (e.g. "200" and "OK").
+  The response header names are encoded the same way the request header names are.
+  See  for details about how the the
+  codes are distinguished from the strings.  The codes for common headers are:
+</p>
+<p class="section">
+<table border="0">
+<tr>
+<td align="middle" valign="top" bgcolor="#039acc">Name</td>
+<td align="middle" valign="top" bgcolor="#039acc">Code value</td>
+</tr>
+<tr>
+<td align="left" valign="top" bgcolor="#a0ddf0">Content-Type</td>
+<td align="left" valign="top" bgcolor="#a0ddf0">0xA001</td>
+</tr>
+<tr>
+<td align="left" valign="top" bgcolor="#a0ddf0">Content-Language</td>
+<td align="left" valign="top" bgcolor="#a0ddf0">0xA002</td>
+</tr>
+<tr>
+<td align="left" valign="top" bgcolor="#a0ddf0">Content-Length</td>
+<td align="left" valign="top" bgcolor="#a0ddf0">0xA003</td>
+</tr>
+<tr>
+<td align="left" valign="top" bgcolor="#a0ddf0">Date</td>
+<td align="left" valign="top" bgcolor="#a0ddf0">0xA004</td>
+</tr>
+<tr>
+<td align="left" valign="top" bgcolor="#a0ddf0">Last-Modified</td>
+<td align="left" valign="top" bgcolor="#a0ddf0">0xA005</td>
+</tr>
+<tr>
+<td align="left" valign="top" bgcolor="#a0ddf0">Location</td>
+<td align="left" valign="top" bgcolor="#a0ddf0">0xA006</td>
+</tr>
+<tr>
+<td align="left" valign="top" bgcolor="#a0ddf0">Set-Cookie</td>
+<td align="left" valign="top" bgcolor="#a0ddf0">0xA007</td>
+</tr>
+<tr>
+<td align="left" valign="top" bgcolor="#a0ddf0">Set-Cookie2</td>
+<td align="left" valign="top" bgcolor="#a0ddf0">0xA008</td>
+</tr>
+<tr>
+<td align="left" valign="top" bgcolor="#a0ddf0">Servlet-Engine</td>
+<td align="left" valign="top" bgcolor="#a0ddf0">0xA009</td>
+</tr>
+<tr>
+<td align="left" valign="top" bgcolor="#a0ddf0">Status</td>
+<td align="left" valign="top" bgcolor="#a0ddf0">0xA00A</td>
+</tr>
+<tr>
+<td align="left" valign="top" bgcolor="#a0ddf0">WWW-Authenticate</td>
+<td align="left" valign="top" bgcolor="#a0ddf0">0xA00B</td>
+</tr>
+</table>
+
+</p>
+<p class="section"> 
+  After the code or the string header name, the header value is immediately
+  encoded.
+</p>
+<br/>
+<a name="sub_End Response">
+<table width="100%" cellpadding="0" cellspacing="0" border="0">
+<tr>
+<td align="left" valign="top" class="subsection" bgcolor="#828DA6">
+<img border="0" vspace="0" hspace="0" align="left" valign="top" src="../images/corner.gif"/>End Response</td>
+</tr>
+</table>
+</a>
+<p class="section">
+  Signals the end of this request-handling cycle.  If the
+  <b class="code">reuse</b> flag is true (==1), this TCP connection can now be used to
+  handle new incoming requests.  If <b class="code">reuse</b> is false (anything
+  other than 1 in the actual C code), the connection should be closed.
+</p>
+<br/>
+<a name="sub_Get Body Chunk">
+<table width="100%" cellpadding="0" cellspacing="0" border="0">
+<tr>
+<td align="left" valign="top" class="subsection" bgcolor="#828DA6">
+<img border="0" vspace="0" hspace="0" align="left" valign="top" src="../images/corner.gif"/>Get Body Chunk</td>
+</tr>
+</table>
+</a>
+<p class="section">
+  The container asks for more data from the request (If the body was
+  too large to fit in the first packet sent over or when the request is
+  chuncked).
+  The server will send a body packet back with an amount of data which is
+  the minimum of the <b class="code">request_length</b>,
+  the maximum send body size (8186 (8 Kbytes - 6)), and the
+  number of bytes actually left to send from the request body.
+<br/>
+  If there is no more data in the body (i.e. the servlet container is
+  trying to read past the end of the body), the server will send back an
+  "empty" packet, which is a body packet with a payload length of 0.
+  (0x12,0x34,0x00,0x00)
+</p>
+<br/>
+<br/>
+<a name="Questions I Have">
+<table width="100%" cellpadding="0" cellspacing="0" border="0">
+<tr>
+<td align="left" valign="top" class="section" bgcolor="#525D76">
+<img border="0" vspace="0" hspace="0" align="left" valign="top" src="../images/corner.gif"/>Questions I Have</td>
+</tr>
+</table>
+</a>
+<p class="section"> What happens if the request headers &gt; max packet size?  There is no
+provision to send a second packet of request headers in case there are more
+than 8K (I think this is correctly handled for response headers, though I'm
+not certain).  I don't know if there is a way to get more than 8K worth of
+data into that initial set of request headers, but I'll bet there is
+(combine long cookies with long ssl information and a lot of environment
+variables, and you should hit 8K easily).  I think the connector would just
+fail before trying to send any headers in this case, but I'm not certain.</p>
+<p class="section"> What about authentication?  There doesn't seem to be any authentication
+of the connection between the web server and the container.  This strikes
+me as potentially dangerous.</p>
+<br/>
+</td>
+</tr>
+</table>
+</body>
+</html>

@@ -26,6 +26,7 @@
 #include "sslContext.h"
 #include "sslSession.h"
 #include "sslDebug.h"
+#include "sslUtils.h"
 
 #include <assert.h>
 
@@ -34,6 +35,41 @@
 #else
 static void SSLLogAlertMsg(AlertDescription msg, bool sent);
 #endif
+
+static OSStatus SSLEncodeAlert(
+	SSLRecord &rec, 
+	AlertLevel level, 
+	AlertDescription desc, 
+	SSLContext *ctx);
+
+/*
+ * If a peer sends us any kind of a bad cert alert, we may need to adjust
+ * ctx->clientCertState accordingly.
+ */
+static void 
+SSLDetectCertRejected(
+	SSLContext 			*ctx,
+	AlertDescription	desc)
+{
+	if(ctx->protocolSide == SSL_ServerSide) {
+		return;
+	}
+	if(ctx->clientCertState != kSSLClientCertSent) {
+		return;
+	}
+	switch(desc) {
+		case SSL_AlertBadCert:
+		case SSL_AlertUnsupportedCert:
+		case SSL_AlertCertRevoked:
+		case SSL_AlertCertExpired:
+		case SSL_AlertCertUnknown:
+		case SSL_AlertUnknownCA:
+			ctx->clientCertState = kSSLClientCertRejected;
+			break;
+		default:
+			break;
+	}
+}
 
 OSStatus
 SSLProcessAlert(SSLRecord rec, SSLContext *ctx)
@@ -54,38 +90,101 @@ SSLProcessAlert(SSLRecord rec, SSLContext *ctx)
     
     charPtr = rec.contents.data;
     remaining = rec.contents.length;
+	bool fatal = false;
+	
     while (remaining > 0)
     {   level = (AlertLevel)*charPtr++;
         desc = (AlertDescription)*charPtr++;
-		sslHdskMsgDebug("alert msg recieved level %d   desc %d\n",
+		sslHdskMsgDebug("alert msg recieved level %d   desc %d",
 			(int)level, (int)desc);
         remaining -= 2;
         SSLLogAlertMsg(desc, false);
 		
-        /* 
-         * Ignore sessionID-related failures here;
-         * the important thing is the alert. 
-         */
-        if (level == SSL_AlertLevelFatal)
-        {   
-        	SSLDeleteSessionData(ctx);
-            sslErrorLog("***Fatal alert %d received\n", desc);
-            return errSSLFatalAlert;
+        if (level == SSL_AlertLevelFatal) {
+			/* explicit fatal errror */
+			fatal = true;
+            sslHdskMsgDebug("***Fatal alert %d received\n", desc);
         }
-        
-        switch (desc)
-        {   case SSL_AlertUnexpectedMsg:
+        SSLDetectCertRejected(ctx, desc);
+		
+        switch (desc) {
+			/* A number of these are fatal by implication */
+            case SSL_AlertUnexpectedMsg:
+				err = errSSLPeerUnexpectedMsg;
+				fatal = true;
+				break;
             case SSL_AlertBadRecordMac:
+ 				err = errSSLPeerBadRecordMac;
+				fatal = true;
+				break;
+			case SSL_AlertDecryptionFail:
+ 				err = errSSLPeerDecryptionFail;
+				fatal = true;
+				break;
+            case SSL_AlertRecordOverflow:
+ 				err = errSSLPeerRecordOverflow;
+				fatal = true;
+				break;
             case SSL_AlertDecompressFail:
+ 				err = errSSLPeerDecompressFail;
+				fatal = true;
+				break;
             case SSL_AlertHandshakeFail:
+ 				err = errSSLPeerHandshakeFail;
+				fatal = true;
+				break;
             case SSL_AlertIllegalParam:
-                /* These must always be fatal; if we got here, the level is warning;
-                 *  die anyway
-                 */
-                SSLDeleteSessionData(ctx);
-                err = errSSLFatalAlert;
+ 				err = errSSLIllegalParam;
+				fatal = true;
+				break;
+            case SSL_AlertBadCert:
+				err = errSSLPeerBadCert;
+				break;
+            case SSL_AlertUnsupportedCert:
+				err = errSSLPeerUnsupportedCert;
+				break;
+            case SSL_AlertCertRevoked:
+				err = errSSLPeerCertRevoked;
+				break;
+            case SSL_AlertCertExpired:
+				err = errSSLPeerCertExpired;
+				break;
+            case SSL_AlertCertUnknown:
+                err = errSSLPeerCertUnknown;
                 break;
+            case SSL_AlertUnknownCA:
+                err = errSSLPeerUnknownCA;
+                break;
+            case SSL_AlertAccessDenied:
+                err = errSSLPeerAccessDenied;
+                break;
+            case SSL_AlertDecodeError:
+                err = errSSLPeerDecodeError;
+                break;
+            case SSL_AlertDecryptError:
+                err = errSSLPeerDecryptError;
+                break;
+            case SSL_AlertExportRestriction:
+                err = errSSLPeerExportRestriction;
+                break;
+            case SSL_AlertProtocolVersion:
+                err = errSSLPeerProtocolVersion;
+                break;
+            case SSL_AlertInsufficientSecurity:
+                err = errSSLPeerInsufficientSecurity;
+                break;
+            case SSL_AlertInternalError:
+                err = errSSLPeerInternalError;
+                break;
+            case SSL_AlertUserCancelled:
+                err = errSSLPeerUserCancelled;
+                break;
+            case SSL_AlertNoRenegotiation:
+                err = errSSLPeerNoRenegotiation;
+                break;
+			/* unusual cases.... */
             case SSL_AlertCloseNotify:
+				/* the clean "we're done" case */
                 SSLClose(ctx);
                 err = noErr;
                 break;
@@ -110,19 +209,24 @@ SSLProcessAlert(SSLRecord rec, SSLContext *ctx)
 					}
 				}
                 break;
-            case SSL_AlertBadCert:
-            case SSL_AlertUnsupportedCert:
-            case SSL_AlertCertRevoked:
-            case SSL_AlertCertExpired:
-            case SSL_AlertCertUnknown:
-                err = noErr;
-                break;
             default:
-                /* Unknown alert, but not fatal; ignore it */
+                /* Unknown alert, ignore if not fatal */
+				if(level == SSL_AlertLevelFatal) {
+					err = errSSLFatalAlert;
+				}
+				else {
+					err = noErr;
+				}
                 break;
         }
+		if(fatal) {
+			/* don't bother processing any more */
+			break;
+		}
     }
-    
+    if(fatal) {
+       	SSLDeleteSessionData(ctx);
+	}
     return err;
 }
 
@@ -131,8 +235,21 @@ SSLSendAlert(AlertLevel level, AlertDescription desc, SSLContext *ctx)
 {   SSLRecord       rec;
     OSStatus        err;
     
-    assert((ctx->negProtocolVersion != SSL_Version_2_0));
-    
+	switch(ctx->negProtocolVersion) {
+		case SSL_Version_Undetermined:
+			/* Too early in negotiation to send an alert */
+			return noErr;
+		case SSL_Version_2_0:
+			/* shouldn't be here */
+			assert(0);
+			return errSSLInternal;
+		default:
+			break;
+	}
+	if(ctx->sentFatalAlert) {
+		/* no more alerts allowed */
+		return noErr;
+	}
     if ((err = SSLEncodeAlert(rec, level, desc, ctx)) != 0)
         return err;
 	assert(ctx->sslTslCalls != NULL);
@@ -141,23 +258,19 @@ SSLSendAlert(AlertLevel level, AlertDescription desc, SSLContext *ctx)
         return err;
     if ((err = SSLFreeBuffer(rec.contents, ctx)) != 0)
         return err;
-    
+    if(desc == SSL_AlertCloseNotify) {
+		/* no more alerts allowed */
+		ctx->sentFatalAlert = true;
+	}
     return noErr;
 }
 
-OSStatus
+static OSStatus
 SSLEncodeAlert(SSLRecord &rec, AlertLevel level, AlertDescription desc, SSLContext *ctx)
 {   OSStatus          err;
     
-    rec.contentType = SSL_RecordTypeAlert;
-    assert((ctx->negProtocolVersion != SSL_Version_2_0));
-	if(ctx->negProtocolVersion == SSL_Version_Undetermined) {
-		/* error while negotiating */
-		rec.protocolVersion = ctx->maxProtocolVersion;
-	}
-	else {
-		rec.protocolVersion = ctx->negProtocolVersion;
-	}
+	rec.protocolVersion = ctx->negProtocolVersion;
+	rec.contentType = SSL_RecordTypeAlert;
     rec.contents.length = 2;
     if ((err = SSLAllocBuffer(rec.contents, 2, ctx)) != 0)
         return err;
@@ -172,10 +285,36 @@ SSLFatalSessionAlert(AlertDescription desc, SSLContext *ctx)
 {   OSStatus          err1, err2;
     
     if(desc != SSL_AlertCloseNotify) {
-    	sslErrorLog("SSLFatalSessionAlert: desc %d\n", desc);
+    	sslHdskMsgDebug("SSLFatalSessionAlert: desc %d\n", desc);
     }
     SSLChangeHdskState(ctx, SSL_HdskStateErrorClose);
     
+	if(ctx->negProtocolVersion < TLS_Version_1_0) {
+		/* translate to SSL3 if necessary */
+		switch(desc) {
+			case SSL_AlertDecryptionFail:
+			case SSL_AlertRecordOverflow:
+			case SSL_AlertAccessDenied:
+			case SSL_AlertDecodeError:
+			case SSL_AlertDecryptError:
+			case SSL_AlertExportRestriction:
+			case SSL_AlertProtocolVersion:
+			case SSL_AlertInsufficientSecurity:
+			case SSL_AlertUserCancelled:
+			case SSL_AlertNoRenegotiation:
+				desc = SSL_AlertHandshakeFail;
+				break;
+			case SSL_AlertUnknownCA:
+				desc = SSL_AlertUnsupportedCert;
+				break;
+			case SSL_AlertInternalError:
+				desc = SSL_AlertCloseNotify;
+				break;
+			default:
+				/* send as is */
+				break;
+		}
+	}
     /* Make session unresumable; I'm not stopping if I get an error,
         because I'd like to attempt to send the alert anyway */
     err1 = SSLDeleteSessionData(ctx);
@@ -183,6 +322,8 @@ SSLFatalSessionAlert(AlertDescription desc, SSLContext *ctx)
     /* Second, send the alert */
     err2 = SSLSendAlert(SSL_AlertLevelFatal, desc, ctx);
     
+	ctx->sentFatalAlert = true;
+	
     /* If they both returned errors, arbitrarily return the first */
     return err1 != 0 ? err1 : err2;
 }

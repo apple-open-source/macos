@@ -1,0 +1,130 @@
+.TH TLSMGR 8 
+.ad
+.fi
+.SH NAME
+tlsmgr
+\-
+Postfix TLS session cache and PRNG handling manager
+.SH SYNOPSIS
+.na
+.nf
+\fBtlsmgr\fR [generic Postfix daemon options]
+.SH DESCRIPTION
+.ad
+.fi
+The tlsmgr process does housekeeping on the session cache database
+files. It runs through the databases and removes expired entries
+and entries written by older (incompatible) versions.
+
+The tlsmgr is responsible for the PRNG handling. The used internal
+OpenSSL PRNG has a pool size of 8192 bits (= 1024 bytes). The pool
+is initially seeded at startup from an external source (EGD or
+/dev/urandom) and additional seed is obtained later during program
+run at a configurable period. The exact time of seed query is
+using random information and is equally distributed in the range of
+[0-\fBtls_random_reseed_period\fR] with a \fBtls_random_reseed_period\fR
+having a default of 1 hour.
+
+Tlsmgr can be run chrooted and with dropped privileges, as it will
+connect to the entropy source at startup.
+
+The PRNG is additionally seeded internally by the data found in the
+session cache and timevalues.
+
+Tlsmgr reads the old value of the exchange file at startup to keep
+entropy already collected during previous runs.
+
+From the PRNG random pool a cryptographically strong 1024 byte random
+sequence is written into the PRNG exchange file. The file is updated
+periodically with the time changing randomly from
+[0-\fBtls_random_prng_update_period\fR].
+.SH STANDARDS
+.na
+.nf
+.SH SECURITY
+.na
+.nf
+.ad
+.fi
+Tlsmgr is not security-sensitive. It only deals with external data
+to be fed into the PRNG, the contents is never trusted. The session
+cache housekeeping will only remove entries if expired and will never
+touch the contents of the cached data.
+.SH DIAGNOSTICS
+.ad
+.fi
+Problems and transactions are logged to the syslog daemon.
+.SH BUGS
+.ad
+.fi
+There is no automatic means to limit the number of entries in the
+session caches and/or the size of the session cache files.
+.SH CONFIGURATION PARAMETERS
+.na
+.nf
+.ad
+.fi
+The following \fBmain.cf\fR parameters are especially relevant to
+this program. See the Postfix \fBmain.cf\fR file for syntax details
+and for default values. Use the \fBpostfix reload\fR command after
+a configuration change.
+.SH Session Cache
+.ad
+.fi
+.IP \fBsmtpd_tls_session_cache_database\fR
+Name of the SDBM file (type sdbm:) containing the SMTP server session
+cache. If the file does not exist, it is created.
+.IP \fBsmtpd_tls_session_cache_timeout\fR
+Expiry time of SMTP server session cache entries in seconds. Entries
+older than this are removed from the session cache. A cleanup-run is
+performed periodically every \fBsmtpd_tls_session_cache_timeout\fR
+seconds. Default is 3600 (= 1 hour).
+.IP \fBsmtp_tls_session_cache_database\fR
+Name of the SDBM file (type sdbm:) containing the SMTP client session
+cache. If the file does not exist, it is created.
+.IP \fBsmtp_tls_session_cache_timeout\fR
+Expiry time of SMTP client session cache entries in seconds. Entries
+older than this are removed from the session cache. A cleanup-run is
+performed periodically every \fBsmtp_tls_session_cache_timeout\fR
+seconds. Default is 3600 (= 1 hour).
+.SH Pseudo Random Number Generator
+.ad
+.fi
+.IP \fBtls_random_source\fR
+Name of the EGD socket or device or regular file to obtain entropy
+from. The type of entropy source must be specified by preceding the
+name with the appropriate type: egd:/path/to/egd_socket,
+dev:/path/to/devicefile, or /path/to/regular/file.
+tlsmgr opens \fBtls_random_source\fR and tries to read
+\fBtls_random_bytes\fR from it.
+.IP \fBtls_random_bytes\fR
+Number of bytes to be read from \fBtls_random_source\fR.
+Default value is 32 bytes. If using EGD, a maximum of 255 bytes is read.
+.IP \fBtls_random_exchange_name\fR
+Name of the file written by tlsmgr and read by smtp and smtpd at
+startup. The length is 1024 bytes. Default value is
+/etc/postfix/prng_exch.
+.IP \fBtls_random_reseed_period\fR
+Time in seconds until the next reseed from external sources is due.
+This is the maximum value. The actual point in time is calculated
+with a random factor equally distributed between 0 and this maximum
+value. Default is 3600 (= 60 minutes).
+.IP \fBtls_random_prng_update_period\fR
+Time in seconds until the PRNG exchange file is updated with new
+pseude random values. This is the maximum value. The actual point
+in time is calculated with a random factor equally distributed
+between 0 and this maximum value. Default is 60 (= 1 minute).
+.SH SEE ALSO
+.na
+.nf
+smtp(8) SMTP client
+smtpd(8) SMTP server
+.SH LICENSE
+.na
+.nf
+.ad
+.fi
+The Secure Mailer license must be distributed with this software.
+.SH AUTHOR(S)
+.na
+.nf

@@ -3,21 +3,22 @@
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
- * Portions Copyright (c) 1999 Apple Computer, Inc.  All Rights
- * Reserved.  This file contains Original Code and/or Modifications of
- * Original Code as defined in and that are subject to the Apple Public
- * Source License Version 1.1 (the "License").  You may not use this file
- * except in compliance with the License.  Please obtain a copy of the
- * License at http://www.apple.com/publicsource and read it before using
- * this file.
+ * Copyright (c) 1999-2003 Apple Computer, Inc.  All Rights Reserved.
+ * 
+ * This file contains Original Code and/or Modifications of Original Code
+ * as defined in and that are subject to the Apple Public Source License
+ * Version 2.0 (the 'License'). You may not use this file except in
+ * compliance with the License. Please obtain a copy of the License at
+ * http://www.opensource.apple.com/apsl/ and read it before using this
+ * file.
  * 
  * The Original Code and all software distributed under the License are
- * distributed on an "AS IS" basis, WITHOUT WARRANTY OF ANY KIND, EITHER
+ * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
  * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
  * INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY,
- * FITNESS FOR A PARTICULAR PURPOSE OR NON- INFRINGEMENT.  Please see the
- * License for the specific language governing rights and limitations
- * under the License.
+ * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
+ * Please see the License for the specific language governing rights and
+ * limitations under the License.
  * 
  * @APPLE_LICENSE_HEADER_END@
  */
@@ -84,7 +85,7 @@ static char sccsid[] = "@(#)rcmd.c	8.3 (Berkeley) 3/26/94";
 #include <rpcsvc/yp_prot.h>
 #include <rpcsvc/ypclnt.h>
 #endif
-#include <arpa/nameser.h>
+#include <arpa/nameser8_compat.h>
 
 /* wrapper for KAME-special getnameinfo() */
 #ifndef NI_WITHSCOPEID
@@ -96,6 +97,7 @@ static char sccsid[] = "@(#)rcmd.c	8.3 (Berkeley) 3/26/94";
 #endif
 
 extern int innetgr __P(( const char *, const char *, const char *, const char * ));
+extern int bindresvport_sa(int, struct sockaddr *);
 
 #define max(a, b)	((a > b) ? a : b)
 
@@ -106,17 +108,6 @@ int __ivaliduser_sa __P((FILE *, const struct sockaddr *, socklen_t,
 	const char *,const char *));
 static int __icheckhost __P((const struct sockaddr *, socklen_t,
 	const char *));
-
-
-int
-rcmd(ahost, rport, locuser, remuser, cmd, fd2p)
-	char **ahost;
-	in_port_t rport;
-	const char *locuser, *remuser, *cmd;
-	int *fd2p;
-{
-	return rcmd_af(ahost, rport, locuser, remuser, cmd, fd2p, AF_INET);
-}
 
 int
 rcmd_af(ahost, rport, locuser, remuser, cmd, fd2p, af)
@@ -346,6 +337,16 @@ bad:
 }
 
 int
+rcmd(ahost, rport, locuser, remuser, cmd, fd2p)
+	char **ahost;
+	in_port_t rport;
+	const char *locuser, *remuser, *cmd;
+	int *fd2p;
+{
+	return rcmd_af(ahost, rport, locuser, remuser, cmd, fd2p, AF_INET);
+}
+
+int
 rresvport(port)
 	int *port;
 {
@@ -403,57 +404,6 @@ rresvport_af(alport, family)
 
 int	__check_rhosts_file = 1;
 char	*__rcmd_errstr;
-
-int
-ruserok(rhost, superuser, ruser, luser)
-	const char *rhost, *ruser, *luser;
-	int superuser;
-{
-	struct addrinfo hints, *res, *r;
-	int error;
-
-	memset(&hints, 0, sizeof(hints));
-	hints.ai_family = PF_UNSPEC;
-	hints.ai_socktype = SOCK_DGRAM;	/*dummy*/
-	error = getaddrinfo(rhost, "0", &hints, &res);
-	if (error)
-		return (-1);
-
-	for (r = res; r; r = r->ai_next) {
-		if (iruserok_sa(r->ai_addr, r->ai_addrlen, superuser, ruser,
-		    luser) == 0) {
-			freeaddrinfo(res);
-			return (0);
-		}
-	}
-	freeaddrinfo(res);
-	return (-1);
-}
-
-/*
- * New .rhosts strategy: We are passed an ip address. We spin through
- * hosts.equiv and .rhosts looking for a match. When the .rhosts only
- * has ip addresses, we don't have to trust a nameserver.  When it
- * contains hostnames, we spin through the list of addresses the nameserver
- * gives us and look for a match.
- *
- * Returns 0 if ok, -1 if not ok.
- */
-int
-iruserok(raddr, superuser, ruser, luser)
-	unsigned long raddr;
-	int superuser;
-	const char *ruser, *luser;
-{
-	struct sockaddr_in sin;
-
-	memset(&sin, 0, sizeof(sin));
-	sin.sin_family = AF_INET;
-	sin.sin_len = sizeof(struct sockaddr_in);
-	memcpy(&sin.sin_addr, &raddr, sizeof(sin.sin_addr));
-	return iruserok_sa((struct sockaddr *)&sin, sin.sin_len, superuser,
-		ruser, luser);
-}
 
 /*
  * AF independent extension of iruserok.
@@ -536,6 +486,57 @@ again:
 		goto again;
 	}
 	return (-1);
+}
+
+int
+ruserok(rhost, superuser, ruser, luser)
+	const char *rhost, *ruser, *luser;
+	int superuser;
+{
+	struct addrinfo hints, *res, *r;
+	int error;
+
+	memset(&hints, 0, sizeof(hints));
+	hints.ai_family = PF_UNSPEC;
+	hints.ai_socktype = SOCK_DGRAM;	/*dummy*/
+	error = getaddrinfo(rhost, "0", &hints, &res);
+	if (error)
+		return (-1);
+
+	for (r = res; r; r = r->ai_next) {
+		if (iruserok_sa(r->ai_addr, r->ai_addrlen, superuser, ruser,
+		    luser) == 0) {
+			freeaddrinfo(res);
+			return (0);
+		}
+	}
+	freeaddrinfo(res);
+	return (-1);
+}
+
+/*
+ * New .rhosts strategy: We are passed an ip address. We spin through
+ * hosts.equiv and .rhosts looking for a match. When the .rhosts only
+ * has ip addresses, we don't have to trust a nameserver.  When it
+ * contains hostnames, we spin through the list of addresses the nameserver
+ * gives us and look for a match.
+ *
+ * Returns 0 if ok, -1 if not ok.
+ */
+int
+iruserok(raddr, superuser, ruser, luser)
+	unsigned long raddr;
+	int superuser;
+	const char *ruser, *luser;
+{
+	struct sockaddr_in sin;
+
+	memset(&sin, 0, sizeof(sin));
+	sin.sin_family = AF_INET;
+	sin.sin_len = sizeof(struct sockaddr_in);
+	memcpy(&sin.sin_addr, &raddr, sizeof(sin.sin_addr));
+	return iruserok_sa((struct sockaddr *)&sin, sin.sin_len, superuser,
+		ruser, luser);
 }
 
 /*
@@ -632,10 +633,12 @@ __ivaliduser_sa(hostf, raddr, salen, luser, ruser)
 #else
 #define	ypdomain NULL
 #endif
-	/* We need to get the damn hostname back for netgroup matching. */
-	if (getnameinfo(raddr, salen, hname, sizeof(hname), NULL, 0,
-			NI_NAMEREQD) != 0)
-		return (-1);
+	/*
+	 * We try to get the hostname back for netgroup matching.
+	 * However, the .rosts file may contain IP addresses as well
+	 * as names, so a name is not always required.
+	 */
+	getnameinfo(raddr, salen, hname, sizeof(hname), NULL, 0, NI_NAMEREQD);
 
 	while (fgets(buf, sizeof(buf), hostf)) {
 		p = buf;

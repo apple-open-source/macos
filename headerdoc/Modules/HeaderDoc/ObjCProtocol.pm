@@ -7,7 +7,7 @@
 # Initial modifications: SKoT McDonald <skot@tomandandy.com> Aug 2001
 #
 # Based on CPPClass by Matt Morse (matt@apple.com)
-# Last Updated: $Date: 2001/11/30 22:43:17 $
+# Last Updated: $Date: 2003/06/17 23:55:07 $
 # 
 # Copyright (c) 1999-2001 Apple Computer, Inc.  All Rights Reserved.
 # The contents of this file constitute Original Code as defined in and are
@@ -75,18 +75,27 @@ sub getMethodType {
 	return "intfm";
 }
 
+# we add the apple_ref markup to the navigator comment to identify
+# to Project Builder and other applications indexing the documentation
+# that this is the entry point for documentation for this protocol
 sub docNavigatorComment {
     my $self = shift;
     my $name = $self->name();
+    my $navComment = "<!-- headerDoc=intf; name=$name-->";
+    my $appleRef = "<a name=\"//apple_ref/occ/intf/$name\"></a>";
     
-    return "<-- headerDoc=intf; name=$name-->";
+    return "$navComment\n$appleRef";
 }
 
 ################## Misc Functions ###################################
 sub objName { # used for sorting
    my $obj1 = $a;
    my $obj2 = $b;
-   return ($obj1->name() cmp $obj2->name());
+   if ($HeaderDoc::sort_entries) {
+        return ($obj1->name() cmp $obj2->name());
+   } else {
+        return (1 cmp 2);
+   }
 }
 
 1;

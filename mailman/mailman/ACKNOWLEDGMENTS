@@ -1,0 +1,195 @@
+Mailman - The GNU Mailing List Management System
+Copyright (C) 1998-2003 by the Free Software Foundation, Inc.
+59 Temple Place - Suite 330, Boston, MA 02111-1307, USA
+
+The following folks are or have been the primary maintainers of Mailman:
+
+    Barry Warsaw, Mailman's yappy guard dog
+    Thomas Wouters, Mailman's Dutch treat
+    John Viega, Mailman's inventor
+    Harald Meland, Norse Mailman
+    Ken Manheimer, Mailman's savior
+    Scott Cotton, Cookie-Monster
+
+They can be contacted directly via mailman-cabal@python.org.
+
+Here is the list of other contributors who have donated large bits of
+code, and have assigned copyright for contributions to the FSF:
+
+    Juan Carlos Rey Anaya
+    Richard Barrett
+    Norbert Bollow
+    Ben Gertzfield
+    Victoriano Giralt
+    Mads Kiilerich
+    The Dragon De Monsyne
+    Les Niles
+    Terri Oda
+    Simone Piunno
+
+Thanks also to Dragon for his winning Mailman logo contribution, and
+to Terri Oda for the neat shortcut icon.
+
+Control.com sponsored development of several Mailman 2.1 features,
+including topics filters, external membership sources, and initial
+virtual mailing list support.  My thanks especially to Dan Pierson and
+Ken Crater from Control.com.
+
+Here is the list of other people who have contributed useful ideas,
+suggestions, bug fixes, testing, etc., or who have been very helpful
+in answering questions on mailman-users.
+
+    David Abrahams
+    William Ahern
+    Jose Paulo Moitinho de Almeida
+    Sven Anderson
+    Matthias Andree
+    Anton Antonov
+    Stonewall Ballard
+    Jeff Berliner
+    Stuart Bishop
+    Alessio Bragadini
+    J. D. Bronson
+    Stan Bubrouski
+    Daniel Buchmann
+    Ben Burnett
+    Ted Cabeen
+    Mentor Cana
+    John Carnes
+    Donn Cave
+    David Champion
+    Hye-Shik Chang
+    Eric D. Christensen
+    Paul Cox
+    Emilio Delgado
+    John Dennis
+    Stefan Divjak
+    Maximillian Dornseif
+    Fred Drake
+    Rob Ellis
+    Fil
+    Patrick Finnerty
+    Erik Forsberg
+    Darrell Fuhriman
+    Carson Gaspar
+    Pascal GEORGE
+    David Gibbs
+    Terry Grace
+    Federico Grau
+    Pekka Haavisto
+    David Habben
+    Stig Hackvan
+    Jeff Hahn
+    Terry Hardie
+    Paul Hebble
+    Tollef Fog Heen
+    Peer Heinlein
+    Walter Hop
+    Bert Hubert
+    Henny Huisman
+    Jeremy Hylton
+    Rostyk Ivantsiv
+    Ron Jarrell
+    Matthias Juchem
+    Tamito KAJIYAMA
+    Tokio Kikuchi
+    Ashley M. Kirchner
+    Matthias Klose
+    Harald Koch
+    Chris Kolar
+    Andrew Kuchling
+    Ricardo Kustner
+    L'homme Moderne
+    Sylvain Langlade
+    Ed Lau
+    J C Lawrence
+    Greg Lindahl
+    Christopher P. Lindsey
+    Martin von Loewis
+    Dario Lopez-Kästen
+    Tanner Lovelace
+    Jay Luker
+    Gergely Madarasz
+    Luca Maranzano
+    John A. Martin
+    Michael Mclay
+    Michael Meltzer
+    Marc MERLIN
+    Nigel Metheringham
+    Dan Mick
+    Garey Mills
+    Erik Myllymaki
+    Balazs Nagy
+    Dale Newfield
+    Hrvoje Niksic
+    Les Niles
+    Mike Noyes
+    David B. O'Donnell
+    Timothy O'Malley
+    Jason R. Mastaler
+    Michael Meltzer
+    "office"
+    Dan Ohnesorg
+    Gerald Oskoboiny
+    Eva Österlind
+    Jon Parise
+    Tim Peters
+    Joe Peterson
+    PieterB
+    Rodolfo Pilas
+    Skye Poier
+    Martin Pool
+    Don Porter
+    Bob Puff
+    John Read
+    Sean Reifschneider
+    Christian Reis
+    Ademar de Souza Reis, Jr.
+    Bernhard Reiter
+    Stephan Richter
+    Tristan Roddis
+    Heiko Rommel
+    Luigi Rosa
+    Guido van Rossum
+    Nicholas Russo
+    Chris Ryan
+    Cabel Sasser
+    Bartosz Sawicki
+    Gleydson Mazioli da Silva
+    Chris Snell
+    Mikhail Sobolev
+    Greg Stein
+    Dale Stimson
+    Szabolcs Szigeti
+    Vizi Szilard
+    David T-G
+    Owen Taylor
+    Danny Terweij
+    Jim Tittsler
+    Todd (Freedom Lover)
+    Roger Tsang
+    Chuq Von Rospach
+    Jens Vagelpohl
+    Anti Veeranna
+    Todd Vierling
+    Bill Wagner
+    Greg Ward
+    Mark Weaver
+    Kathleen Webb
+    Ousmane Wilane
+    Dan Wilder
+    Seb Wills
+    Michael Yount
+    Blair Zajac
+    Noam Zeilberger
+    Todd Zullinger
+
+And everyone else on mailman-developers@python.org and
+mailman-users@python.org!  Thank you, all.
+
+
+
+Local Variables:
+mode: indented-text
+indent-tabs-mode: nil
+End:

@@ -96,10 +96,7 @@ void macosx_inferior_reset (macosx_inferior_status *s)
 
   s->last_thread = THREAD_NULL;
 
-  /* Default to uses_dyld.  This really only matters when we go to set the
-     dyld breakpoint, and we will always check before then. */
-
-  s->dyld_status.uses_dyld = 1;
+  macosx_dyld_thread_init (&s->dyld_status);
 
   macosx_signal_thread_init (&s->signal_status);
 
@@ -242,7 +239,7 @@ void macosx_inferior_resume_ptrace (macosx_inferior_status *s, unsigned int thre
   if ((s->stopped_in_softexc) && (thread != 0)) {
     if (call_ptrace (PTRACE_THUPDATE, s->pid, thread, nsignal) != 0) 
       error ("Error calling ptrace (%s (0x%lx), %d, %d, %d): %s",
-	     ptrace_request_unparse (PTRACE_THUPDATE), PTRACE_THUPDATE,
+	     ptrace_request_unparse (PTRACE_THUPDATE), (unsigned long) PTRACE_THUPDATE,
 	     s->pid, 1, nsignal, strerror (errno));
   }
 
@@ -250,7 +247,7 @@ void macosx_inferior_resume_ptrace (macosx_inferior_status *s, unsigned int thre
       || (val == PTRACE_DETACH)) {
     if (call_ptrace (val, s->pid, 1, nsignal) != 0)
       error ("Error calling ptrace (%s (0x%lx), %d, %d, %d): %s",
-	     ptrace_request_unparse (val), val,
+	     ptrace_request_unparse (val), (unsigned long) val,
 	     s->pid, 1, nsignal, strerror (errno));
   }
 

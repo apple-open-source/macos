@@ -9,7 +9,7 @@
 #define SCONST_H
 
 /*
- * $Id: sconst.h,v 1.1.1.2 2002/06/17 22:51:22 zarzycki Exp $
+ * $Id: sconst.h,v 1.1.1.3 2003/05/22 01:16:36 rbraun Exp $
  */
 
 /*

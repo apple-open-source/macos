@@ -139,7 +139,7 @@ all				:	$(OFILE_DIR) 		\
 installsrc			:
 	mkdir -p  $(SRCROOT)
 	chmod 755 $(SRCROOT)
-	gnutar cf - $(INSTALLSRC_FILES) | (cd $(SRCROOT); gnutar xf -)
+	gnutar cf - $(INSTALLSRC_FILES) | (cd $(SRCROOT) && gnutar xf -)
 	chmod 444 $(SRCROOT)/*
 
 clean				:

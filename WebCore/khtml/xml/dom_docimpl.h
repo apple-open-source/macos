@@ -76,7 +76,6 @@ namespace DOM {
     class GenericRONamedNodeMapImpl;
     class HTMLDocumentImpl;
     class HTMLElementImpl;
-    class HTMLInputElementImpl;
     class NodeFilter;
     class NodeFilterImpl;
     class NodeIteratorImpl;
@@ -436,9 +435,13 @@ public:
     void removeImage(khtml::RenderImage *);
     virtual void timerEvent(QTimerEvent *);
     
-    void addCheckedRadioButton(HTMLInputElementImpl *);
-    void removeCheckedRadioButton(HTMLInputElementImpl *);
+    // Returns the owning element in the parent document.
+    // Returns 0 if this is the top level document.
+    ElementImpl *ownerElement();
 
+    DOMString domain() const;
+    void setDomain( const DOMString &newDomain, bool force = false ); // not part of the DOM
+    
 signals:
     void finishedParsing();
 
@@ -518,8 +521,6 @@ protected:
     QPtrList<khtml::RenderImage> m_imageLoadEventDispatchingList;
     int m_imageLoadEventTimer;
 
-    QMap<QString, HTMLInputElementImpl *> m_checkedRadioButtons;
-
     NodeImpl* m_cssTarget;
     
 #if APPLE_CHANGES
@@ -547,6 +548,7 @@ public:
     khtml::Decoder *decoder() const { return m_decoder; }
 
 private:
+    mutable DOMString m_domain;
     bool m_inPageCache;
     int m_passwordFields;
     int m_secureForms;

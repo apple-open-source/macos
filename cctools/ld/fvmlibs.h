@@ -3,8 +3,6 @@
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
- * Copyright (c) 1999-2003 Apple Computer, Inc.  All Rights Reserved.
- * 
  * This file contains Original Code and/or Modifications of Original Code
  * as defined in and that are subject to the Apple Public Source License
  * Version 2.0 (the 'License'). You may not use this file except in
@@ -60,5 +58,5 @@ __private_extern__ void print_load_fvmlibs_list(
     void);
 __private_extern__ void print_fvmlib_segments(
     void);
-#endif DEBUG
-#endif !defined(RLD)
+#endif /* DEBUG */
+#endif /* !defined(RLD) */

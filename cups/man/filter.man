@@ -1,9 +1,9 @@
 .\"
-.\" "$Id: filter.man,v 1.1.1.2 2002/02/10 04:49:12 jlovell Exp $"
+.\" "$Id: filter.man,v 1.1.1.7 2003/02/10 21:58:46 jlovell Exp $"
 .\"
 .\"   filter man page for the Common UNIX Printing System (CUPS).
 .\"
-.\"   Copyright 1997-2002 by Easy Software Products.
+.\"   Copyright 1997-2003 by Easy Software Products.
 .\"
 .\"   These coded instructions, statements, and computer programs are the
 .\"   property of Easy Software Products and are protected by Federal
@@ -48,6 +48,12 @@ executing each filter:
 CHARSET
 .br
 The default text character set (typically us-ascii or iso-8859-1).
+.TP 5
+CLASS
+.br
+When a job is submitted to a printer class, contains the name of
+the destination printer class. Otherwise this environment
+variable will not be set.
 .TP 5
 CONTENT_TYPE
 .br
@@ -97,7 +103,8 @@ The timezone of the server.
 .TP 5
 USER
 .br
-The user executing the filter (typically lp).
+The user executing the filter, typically lp; consult the cupsd.conf file for
+the current setting.
 .SH COMPATIBILITY
 While the filter interface is compatible with System V interface
 scripts, it will only work with the System V interface script as the
@@ -110,7 +117,7 @@ CUPS Software Administrators Manual,
 CUPS Software Programmers Manual,
 http://localhost:631/documentation.html
 .SH COPYRIGHT
-Copyright 1993-2002 by Easy Software Products, All Rights Reserved.
+Copyright 1993-2003 by Easy Software Products, All Rights Reserved.
 .\"
-.\" End of "$Id: filter.man,v 1.1.1.2 2002/02/10 04:49:12 jlovell Exp $".
+.\" End of "$Id: filter.man,v 1.1.1.7 2003/02/10 21:58:46 jlovell Exp $".
 .\"

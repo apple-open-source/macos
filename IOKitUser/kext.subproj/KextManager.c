@@ -7,7 +7,7 @@
 #include <mach/mach_error.h>
 #include <servers/bootstrap.h>
 
-static const char * KEXTD_SERVER_NAME = "Kernel Extension Server";
+static const char * KEXTD_SERVER_NAME = "com.apple.KernelExtensionServer";
 
 CFURLRef KextManagerCreateURLForBundleIdentifier(
     CFAllocatorRef allocator,

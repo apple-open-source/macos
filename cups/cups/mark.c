@@ -1,9 +1,9 @@
 /*
- * "$Id: mark.c,v 1.2.2.1 2002/10/22 17:46:04 gelphman Exp $"
+ * "$Id: mark.c,v 1.5 2002/12/24 02:13:22 jlovell Exp $"
  *
  *   Option marking routines for the Common UNIX Printing System (CUPS).
  *
- *   Copyright 1997-2002 by Easy Software Products, all rights reserved.
+ *   Copyright 1997-2003 by Easy Software Products, all rights reserved.
  *
  *   These coded instructions, statements, and computer programs are the
  *   property of Easy Software Products and are protected by Federal
@@ -331,11 +331,13 @@ ppdMarkOption(ppd_file_t *ppd,		/* I - PPD file record */
   if (ppd == NULL)
     return (0);
 
+#if defined(__APPLE__)
   if (strcasecmp(option, "AP_D_InputSlot") == 0){
       if ((o = ppdFindOption(ppd, "InputSlot")) != NULL)
 	for (i = 0; i < o->num_choices; i ++)
           o->choices[i].marked = 0;
   }
+#endif
 
   if (strcasecmp(option, "PageSize") == 0 && strncasecmp(choice, "Custom.", 7) == 0)
   {
@@ -396,29 +398,33 @@ ppdMarkOption(ppd_file_t *ppd,		/* I - PPD file record */
     else if (strcasecmp(option, "InputSlot") == 0)
     {
      /*
-      * Mark ManualFeed option to false
+      * Unmark ManualFeed option...
       */
 
       if ((o = ppdFindOption(ppd, "ManualFeed")) != NULL)
-	for (i = 0; i < o->num_choices; i ++){
+	for (i = 0; i < o->num_choices; i ++)
           o->choices[i].marked = 0;
-          // mark manual feed false on
-          if(strcasecmp(o->choices[i].choice, "False") == 0)
-            o->choices[i].marked = 1;
-        }
+
+#if defined(__APPLE__)
+       if (o != NULL && (c = ppdFindChoice(o, "False")) != NULL)
+          c->marked = 1;
+#endif
     }
     else if (strcasecmp(option, "ManualFeed") == 0)
     {
      /*
       * Unmark InputSlot option...
-      
-        Only unmark input slot if manual feed is set to True
       */
-        if(strcasecmp(choice, "True") == 0){
-            if ((o = ppdFindOption(ppd, "InputSlot")) != NULL)
-                for (i = 0; i < o->num_choices; i ++)
-                o->choices[i].marked = 0;
-        }
+
+#if defined(__APPLE__)
+     /*      
+      * Only unmark input slot if manual feed is set to True
+      */
+      if(strcasecmp(choice, "True") == 0)
+#endif
+      if ((o = ppdFindOption(ppd, "InputSlot")) != NULL)
+	for (i = 0; i < o->num_choices; i ++)
+          o->choices[i].marked = 0;
     }
   }
 
@@ -452,5 +458,5 @@ ppd_defaults(ppd_file_t  *ppd,	/* I - PPD file */
 
 
 /*
- * End of "$Id: mark.c,v 1.2.2.1 2002/10/22 17:46:04 gelphman Exp $".
+ * End of "$Id: mark.c,v 1.5 2002/12/24 02:13:22 jlovell Exp $".
  */

@@ -19,19 +19,19 @@ export deferred _PBDEVELOPMENT_PLIST_FILE_PATH = "$(SRCROOT)/pbxbuild.data/IOATA
 
 # Implicitly computed build settings for target "IOATABlockStorage"
 export deferred CLONE_HEADERS = NO ;
-export deferred PFE_FILE_C_DIALECTS = "c++" ;
+export deferred PFE_FILE_C_DIALECTS = c++ ;
 export deferred TARGETNAME = $(TARGET_NAME) ;
 export deferred TARGET_NAME = IOATABlockStorage ;
 
 # User-defined build settings for target "IOATABlockStorage"
 export deferred FRAMEWORK_SEARCH_PATHS =  ;
 export deferred HEADER_SEARCH_PATHS =  ;
-export deferred INSTALL_PATH = "$(SYSTEM_LIBRARY_DIR)/Extensions" ;
+export deferred INSTALL_PATH = "$(SYSTEM_LIBRARY_DIR)/Extensions/IOATAFamily.kext/Contents/PlugIns" ;
 export deferred KERNEL_MODULE = YES ;
 export deferred LIBRARY_SEARCH_PATHS =  ;
 export deferred MODULE_IOKIT = YES ;
 export deferred MODULE_NAME = com.apple.iokit.IOATABlockStorage ;
-export deferred MODULE_VERSION = 1.2.0 ;
+export deferred MODULE_VERSION = 1.3.0 ;
 export deferred OTHER_CFLAGS =  ;
 export deferred OTHER_LDFLAGS =  ;
 export deferred OTHER_REZFLAGS =  ;
@@ -113,6 +113,12 @@ ProcessRezFiles "<IOATABlockStorage>IOATABlockStorage.kext" : "$(REZ_FILES)" : B
 # Script Build Phase Files
 SCRIPT_BUILD_PHASE_FILES = "$(SRCROOT)/pbxbuild.data/IOATABlockStorage.build/BPTag007-script.sh" ;
 ProcessScriptBuildPhaseFiles "<IOATABlockStorage>IOATABlockStorage.kext" : "$(SCRIPT_BUILD_PHASE_FILES)" : BPTag006 : BPTag007 ;
+
+rule DefineHeaderDependencies
+{
+}
+
+DefineHeaderDependencies "<IOATABlockStorage>IOATABlockStorage.kext" ;
 
 EndBundle "<IOATABlockStorage>IOATABlockStorage.kext" ;
 

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1998-2000 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 1998-2003 Apple Computer, Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -25,6 +25,7 @@
 
 #include <IOKit/assert.h>
 #include <IOKit/IOBufferMemoryDescriptor.h>
+#include <IOKit/IODeviceTreeSupport.h>
 #include <IOKit/IOLib.h>
 #include <IOKit/storage/IOFDiskPartitionScheme.h>
 #include <libkern/OSByteOrder.h>
@@ -54,7 +55,7 @@ OSDefineMetaClassAndStructors(IOFDiskPartitionScheme, IOPartitionScheme);
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
-bool IOFDiskPartitionScheme::init(OSDictionary * properties = 0)
+bool IOFDiskPartitionScheme::init(OSDictionary * properties)
 {
     //
     // Initialize this object's minimal state.
@@ -150,6 +151,8 @@ bool IOFDiskPartitionScheme::start(IOService * provider)
     {
         if ( partition->attach(this) )
         {
+            attachMediaObjectToDeviceTree(partition);
+
             partition->registerService();
         }
     }
@@ -157,6 +160,38 @@ bool IOFDiskPartitionScheme::start(IOService * provider)
     partitionIterator->release();
 
     return true;
+}
+
+// - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+
+void IOFDiskPartitionScheme::stop(IOService * provider)
+{
+    //
+    // Clean up after the media objects we published before terminating.
+    //
+
+    IOMedia *    partition;
+    OSIterator * partitionIterator;
+
+    // State our assumptions.
+
+    assert(_partitions);
+
+    // Detach the media objects we previously attached to the device tree.
+
+    partitionIterator = OSCollectionIterator::withCollection(_partitions);
+
+    if ( partitionIterator )
+    {
+        while ( (partition = (IOMedia *) partitionIterator->getNextObject()) )
+        {
+            detachMediaObjectFromDeviceTree(partition);
+        }
+
+        partitionIterator->release();
+    }
+
+    super::stop(provider);
 }
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
@@ -387,7 +422,7 @@ bool IOFDiskPartitionScheme::isPartitionInvalid( fdisk_part * partition,
 
     // Determine whether the partition shares space with the partition map.
 
-    if ( partitionBase == fdiskBlock )  return true;
+    if ( partitionBase == fdiskBlock * mediaBlockSize )  return true;
 
     // Determine whether the partition starts at (or past) the end-of-media.
 
@@ -505,11 +540,64 @@ IOMedia * IOFDiskPartitionScheme::instantiateDesiredMediaObject(
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
-OSMetaClassDefineReservedUnused(IOFDiskPartitionScheme, 0);
+bool IOFDiskPartitionScheme::attachMediaObjectToDeviceTree( IOMedia * media )
+{
+    //
+    // Attach the given media object to the device tree plane.
+    //
+
+    IORegistryEntry * parent = this;
+
+    while ( (parent = parent->getParentEntry(gIOServicePlane)) )
+    {
+        if ( parent->inPlane(gIODTPlane) )
+        {
+            char         location[ 32 ];
+            const char * locationOfParent = parent->getLocation(gIODTPlane);
+            const char * nameOfParent     = parent->getName(gIODTPlane);
+
+            if ( locationOfParent == 0 )  break;
+
+            if ( OSDynamicCast(IOMedia, parent) == 0 )  break;
+
+            parent = parent->getParentEntry(gIODTPlane);
+
+            if ( parent == 0 )  break;
+
+            if ( media->attachToParent(parent, gIODTPlane) == false )  break;
+
+            strcpy(location, locationOfParent);
+            if ( strchr(location, ':') )  *(strchr(location, ':') + 1) = 0;
+            strcat(location, media->getLocation());
+            media->setLocation(location, gIODTPlane);
+            media->setName(nameOfParent, gIODTPlane);
+
+            return true;
+        }
+    }
+
+    return false;
+}
+
+OSMetaClassDefineReservedUsed(IOFDiskPartitionScheme, 0);
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
-OSMetaClassDefineReservedUnused(IOFDiskPartitionScheme, 1);
+void IOFDiskPartitionScheme::detachMediaObjectFromDeviceTree( IOMedia * media )
+{
+    //
+    // Detach the given media object from the device tree plane.
+    //
+
+    IORegistryEntry * parent;
+
+    if ( (parent = media->getParentEntry(gIODTPlane)) )
+    {
+        media->detachFromParent(parent, gIODTPlane);
+    }
+}
+
+OSMetaClassDefineReservedUsed(IOFDiskPartitionScheme, 1);
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 

@@ -1,0 +1,64 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<!DOCTYPE connector PUBLIC "-//Sun Microsystems, Inc.//DTD Connector 1.0//EN" "http://java.sun.com/dtd/connector_1_0.dtd">
+
+
+<connector>
+  <display-name>JBoss LocalTransaction JDBC Wrapper</display-name>
+  <vendor-name>JBoss</vendor-name>
+  <spec-version>1.0</spec-version>
+  <eis-type>Relational Database</eis-type>
+  <version>1.0</version>
+  <resourceadapter>
+    <managedconnectionfactory-class>org.jboss.resource.adapter.jdbc.local.LocalManagedConnectionFactory</managedconnectionfactory-class>
+    <connectionfactory-interface>javax.sql.DataSource</connectionfactory-interface>
+    <connectionfactory-impl-class>org.jboss.resource.adapter.jdbc.WrapperDataSource</connectionfactory-impl-class>
+    <connection-interface>java.sql.Connection</connection-interface>
+    <connection-impl-class>org.jboss.resource.adapter.jdbc.WrappedConnection</connection-impl-class>
+    <transaction-support>LocalTransaction</transaction-support>
+    <config-property>
+      <config-property-name>DriverClass</config-property-name>
+      <config-property-type>java.lang.String</config-property-type>
+    </config-property>
+    <config-property>
+      <config-property-name>ConnectionURL</config-property-name>
+      <config-property-type>java.lang.String</config-property-type>
+    </config-property>
+    <config-property>
+      <config-property-name>TransactionIsolation</config-property-name>
+      <config-property-type>java.lang.String</config-property-type>
+    </config-property>
+    <config-property>
+      <config-property-name>UserName</config-property-name>
+      <config-property-type>java.lang.String</config-property-type>
+    </config-property>
+    <config-property>
+      <config-property-name>Password</config-property-name>
+      <config-property-type>java.lang.String</config-property-type>
+    </config-property>
+    <config-property>
+      <config-property-name>ConnectionProperties</config-property-name>
+      <config-property-type>java.lang.String</config-property-type>
+    </config-property>
+    <config-property>
+      <description>An SQL statement to be executed when a new connection is created as auxillary setup.</description>
+      <config-property-name>NewConnectionSQL</config-property-name>
+      <config-property-type>java.lang.String</config-property-type>
+    </config-property>
+    <config-property>
+      <description>An SQL statement that may be executed when a managed connection is taken out of the pool and is about to be given to a client: the purpose is to verify that the connection still works.</description>
+      <config-property-name>CheckValidConnectionSQL</config-property-name>
+      <config-property-type>java.lang.String</config-property-type>
+    </config-property>
+    <config-property>
+      <description>The fully qualified name of a class implementing org.jboss.resource.adapter.jdbc.ExceptionSorter that can determine for a particular vender db which exceptions are fatal and mean a connection should be discarded.</description>
+      <config-property-name>ExceptionSorterClassName</config-property-name>
+      <config-property-type>java.lang.String</config-property-type>
+    </config-property>
+    <authentication-mechanism>
+      <authentication-mechanism-type>BasicPassword</authentication-mechanism-type>
+      <credential-interface>javax.resource.security.PasswordCredential</credential-interface>
+    </authentication-mechanism>
+    <reauthentication-support>false</reauthentication-support>
+  </resourceadapter>
+</connector>

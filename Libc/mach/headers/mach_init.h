@@ -58,6 +58,9 @@
 #include <mach/mach_types.h>
 #include <stdarg.h>
 
+#include <sys/cdefs.h>
+
+__BEGIN_DECLS
 /*
  *	Kernel-related ports; how a task/thread controls itself
  */
@@ -110,6 +113,6 @@ extern	vm_size_t	vm_page_size;
  */
 
 extern int (*vprintf_stderr_func)(const char *format, va_list ap);
-
+__END_DECLS
 
 #endif	/* _MACH_INIT_ */

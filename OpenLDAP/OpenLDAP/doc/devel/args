@@ -1,29 +1,22 @@
 Tools           ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz
-ldapdelete        CD*  HI K M OPQR  U*WXYZ  cd*f h  k  n p     vwx
-ldapmodify        CD*F HI K M OPQR  U*WXYZabcd*f h  k  n p r t vwx
-ldapmodrdn        CD*  HI K M OPQR  U*WXYZ  cd*f h  k  n p rs  vwx
-ldappasswd      A CD*  HI     O QRS U*WXYZa  d*  h          s  vwx   
-ldapsearch      A CD*  HI KLM OPQRSTU*WXYZab*d*f h  kl n p  stuvwx z
-
-Other Clients   ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz
-fax500                               *         f h    m
-finger                               *      c  f  i  l  p    t   x
-go500                   I            *     bcd f     l  p    t   x
-go500gw                 I      P     *    a cd f h   l  p    t   x
-mail500           C                  *       d f h   lm        v
-rcpt500                             U*    abc  f h   l  p   st     z
-rp500                                *    ab d f                 x z
-ud                 D                 *      cd f     l  p   s uv
+ldapcompare		 * DE**HI*K M*OPQR  UVWXYZ   de *h**k *n*p*    vwxyz
+ldapdelete       *CDE**HI*K M*OPQR  UVWXYZ  cdef*h**k *n*p*    vwxy
+ldapmodify       *CDE**HI*K M*OPQRS UVWXYZabcde *h**k *n*p*r t vwxy
+ldapmodrdn       *CDE**HI*K M*OPQR  UVWXYZ  cdef*h**k *n*p*rs  vwxy
+ldappasswd      A*CDE**HI*   *O QRS UVWXYZa  def*h**  * * * s  vwxy  
+ldapsearch      A*CDE**HI*KLM*OPQRSTUVWXYZab*def*h**kl*n*p* stuvwxyz
+ldapwhoami		 * DE**HI*   *O QR  UVWXYZ   def*h**  *n*p*    vwxy 
 
 
 * reserved
-	GJNgijmoqy
+	BFGJNgijmoq01235789
 
 * General flags:
 	-C Chase Referrals
 	-D Bind DN
-	-E CommandSpecific Extensions	(e.g., -E <[!]oid[=options]>*)
-	-e General Extensions			(e.g., -e <[!]oid[=options]>*)
+	-E Tool-specific Extensions	(e.g., -E <[!]oid[=options]>*)
+	-e General Extensions		(e.g., -e <[!]oid[=options]>*)
+	-f file
 	-H URI
 	-P protocol version
 	-V version information
@@ -33,7 +26,12 @@ ud                 D                 *      cd f     l  p   s uv
 	-n no-op
 	-p port
 	-v verbose
+	-V version
+	-x simple bind
+	-y Bind password-file
 	-w Bind password
+	-4 IPv4 only
+	-6 IPv6 only
 
 
 * LDAPv3 Only 
@@ -59,4 +57,4 @@ ud                 D                 *      cd f     l  p   s uv
 
 
 ---
-$OpenLDAP: pkg/ldap/doc/devel/args,v 1.17 2001/12/26 23:42:04 kurt Exp $
+$OpenLDAP: pkg/ldap/doc/devel/args,v 1.17.2.7 2003/03/31 16:48:17 kurt Exp $

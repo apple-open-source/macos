@@ -30,42 +30,43 @@
 .\" SUCH DAMAGE.
 .\"
 .\"     @(#)shutdown.8	8.2 (Berkeley) 4/27/95
+.\" $FreeBSD: src/sbin/shutdown/shutdown.8,v 1.21 2002/12/23 16:04:50 ru Exp $
 .\"
-.Dd April 27, 1995
+.Dd December 11, 1998
 .Dt SHUTDOWN 8
-.Os BSD 4
+.Os
 .Sh NAME
 .Nm shutdown
 .Nd "close down the system at a given time"
 .Sh SYNOPSIS
-.Nm shutdown
-.Op Fl 
-.Op Fl fhkrn
+.Nm
+.Op Fl
+.Oo
+.Fl h | 
+.Fl r | Fl k
+.Oc
+.Oo
+.Fl o
+.Op Fl n
+.Oc
 .Ar time
 .Op Ar warning-message ...
 .Sh DESCRIPTION
-.Nm Shutdown
-provides an automated shutdown procedure for super-users
+The
+.Nm
+utility provides an automated shutdown procedure for super-users
 to nicely notify users when the system is shutting down,
 saving them from system administrators, hackers, and gurus, who
 would otherwise not bother with such niceties.
 .Pp
-Available friendlinesses:
-.Bl -tag -width time
-.It Fl f
-.Nm Shutdown
-arranges, in the manner of
-.Xr fastboot 8 ,
-for the file systems
-.Em not to be
-checked on reboot.
+The following options are available:
+.Bl -tag -width indent
 .It Fl h
 The system is halted at the specified
-.Ar time
-when
-.Nm shutdown
-execs
-.Xr halt 8 .
+.Ar time .
+.It Fl r
+The system is rebooted at the specified
+.Ar time .
 .It Fl k
 Kick everybody off.
 The
@@ -73,20 +74,34 @@ The
 option
 does not actually halt the system, but leaves the
 system multi-user with logins disabled (for all but super-user).
-.It Fl n
-Prevent the normal
-.Xr sync 2
-before stopping.
-.It Fl r 
-.Nm Shutdown
-execs
+.It Fl o
+If one of the
+.Fl h ,
+.Fl p
+or
+.Fl r
+is specified,
+.Nm
+will execute
+.Xr halt 8
+or
 .Xr reboot 8
-at the specified
-.Ar time .
+instead of sending signal to
+.Xr init 8 .
+.It Fl n
+If the
+.Fl o
+is specified, prevent the file system cache from being flushed by passing
+.Fl n
+option to
+.Xr halt 8
+or
+.Xr reboot 8 .
+This option should probably not be used.
 .It Ar time
 .Ar Time
 is the time at which
-.Nm shutdown
+.Nm
 will bring the system down and
 may be the word
 .Ar now
@@ -104,7 +119,7 @@ Any other arguments comprise the warning message that is broadcast
 to users currently logged into the system.
 .It Fl
 If
-.Ql Fl
+.Sq Fl
 is supplied as an option, the warning message is read from the standard
 input.
 .El
@@ -114,43 +129,51 @@ and starting at ten hours before shutdown, warning messages are displayed
 on the terminals of all users logged in.  Five minutes before
 shutdown, or immediately if shutdown is in less than 5 minutes,
 logins are disabled by creating
-.Pa /etc/nologin
+.Pa /var/run/nologin
 and copying the
 warning message there.  If this file exists when a user attempts to
 log in,
 .Xr login 1
 prints its contents and exits.  The file is
 removed just before
-.Nm shutdown
+.Nm
 exits.
 .Pp
-At shutdown time a message is written in the system log, containing the
-time of shutdown, who initiated the shutdown and the reason.
-A terminate
-signal is then sent to
-.Xr init
-to bring the system down to single-user state (depending on above
-options).
+At shutdown time a message is written to the system log, containing the
+time of shutdown, the person who initiated the shutdown and the reason.
+Corresponding signal is then sent to
+.Xr init 8
+to respectively halt, reboot or bring the system down to single-user state
+(depending on the above options).
 The time of the shutdown and the warning message
 are placed in
-.Pa /etc/nologin
+.Pa /var/run/nologin
 and should be used to
 inform the users about when the system will be back up
 and why it is going down (or anything else).
+.Pp
+A scheduled shutdown can be canceled by killing the
+.Nm
+process (a
+.Dv SIGTERM
+should suffice).
+The
+.Pa /var/run/nologin
+file that
+.Nm
+created will be removed automatically.
 .Sh FILES
-.Bl -tag -width /etc/nologin -compact
-.It Pa /etc/nologin
+.Bl -tag -width /var/run/nologin -compact
+.It Pa /var/run/nologin
 tells login not to let anyone log in
-.It Pa /fastboot
-tells
-.Xr rc 8
-not to run fsck when rebooting
 .El
 .Sh SEE ALSO
+.Xr kill 1 ,
 .Xr login 1 ,
 .Xr wall 1 ,
-.Xr fastboot 8 ,
+.Xr nologin 5 ,
 .Xr halt 8 ,
+.Xr init 8 ,
 .Xr reboot 8
 .Sh BACKWARD COMPATIBILITY
 The hours and minutes in the second time format may be separated by
@@ -158,5 +181,5 @@ a colon (``:'') for backward compatibility.
 .Sh HISTORY
 The
 .Nm
-command appeared in
+utility appeared in
 .Bx 4.0 .

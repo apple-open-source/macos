@@ -1,0 +1,24 @@
+--- isatty.c.orig	Thu Jan 31 16:57:29 2002
++++ isatty.c	Sun May 18 00:50:20 2003
+@@ -39,14 +39,19 @@
+ 
+ #include <termios.h>
+ #include <unistd.h>
++#include <sys/filio.h>
++#include <sys/conf.h>
+ 
+ int
+ isatty(fd)
+ 	int fd;
+ {
+-	int retval;
++	int retval, type;
+ 	struct termios t;
+ 
+-	retval = (tcgetattr(fd, &t) != -1);
++	if(ioctl(fd, FIODTYPE, &type) != -1)
++	    retval = (type == D_TTY);
++	else
++	    retval = (tcgetattr(fd, &t) != -1);
+ 	return(retval);
+ }

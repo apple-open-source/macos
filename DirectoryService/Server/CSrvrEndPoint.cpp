@@ -3,19 +3,22 @@
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
- * The contents of this file constitute Original Code as defined in and
- * are subject to the Apple Public Source License Version 1.1 (the
- * "License").  You may not use this file except in compliance with the
- * License.  Please obtain a copy of the License at
- * http://www.apple.com/publicsource and read it before using this file.
+ * Copyright (c) 1999-2003 Apple Computer, Inc.  All Rights Reserved.
  * 
- * This Original Code and all software distributed under the License are
- * distributed on an "AS IS" basis, WITHOUT WARRANTY OF ANY KIND, EITHER
+ * This file contains Original Code and/or Modifications of Original Code
+ * as defined in and that are subject to the Apple Public Source License
+ * Version 2.0 (the 'License'). You may not use this file except in
+ * compliance with the License. Please obtain a copy of the License at
+ * http://www.opensource.apple.com/apsl/ and read it before using this
+ * file.
+ * 
+ * The Original Code and all software distributed under the License are
+ * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
  * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
  * INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY,
- * FITNESS FOR A PARTICULAR PURPOSE OR NON-INFRINGEMENT.  Please see the
- * License for the specific language governing rights and limitations
- * under the License.
+ * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
+ * Please see the License for the specific language governing rights and
+ * limitations under the License.
  * 
  * @APPLE_LICENSE_HEADER_END@
  */
@@ -26,6 +29,8 @@
 
 #include "CSrvrEndPoint.h"
 #include "DirServicesTypes.h"
+#include "DirServicesConst.h"
+#include "DirServicesPriv.h"
 #include "PrivateTypes.h"
 #include "CLog.h"
 
@@ -34,6 +39,7 @@
 #include <mach/mach_error.h>
 #include <servers/bootstrap.h>
 #include <string.h>
+#include <syslog.h>
 
 #define kIPCMsgSize	sizeof( sIPCMsg )
 
@@ -50,15 +56,11 @@ CSrvrEndPoint::CSrvrEndPoint ( char *inSrvrName )
 
 	if ( inSrvrName != nil )
 	{
-		fSrvrName = new char[ ::strlen( inSrvrName ) + 1 ];
-		if ( fSrvrName != nil )
-		{
-			::strcpy( fSrvrName, inSrvrName );
-		}
+		fSrvrName = strdup(inSrvrName);
 	}
 
-	fServerPort		= 0;
-	fBootStrapPort	= 0;
+	fServerPort		= MACH_PORT_NULL;
+	fMachInitPort	= MACH_PORT_NULL;
 	fHeadPtr		= nil;
 } // CSrvrEndPoint
 
@@ -74,13 +76,12 @@ CSrvrEndPoint::~CSrvrEndPoint ( void )
 
 	if ( fSrvrName != nil )
 	{
-		delete( fSrvrName );
+		free( fSrvrName );
 		fSrvrName = nil;
 	}
 
 	if ( fServerPort != 0)
 	{
-//		result = mach_port_deallocate( mach_task_self(), fServerPort );
 		result = mach_port_destroy( mach_task_self(), fServerPort );
 	}
 
@@ -88,19 +89,48 @@ CSrvrEndPoint::~CSrvrEndPoint ( void )
 
 
 //------------------------------------------------------------------------------
-//	* RegisterName *****ONLY used by CListener class
-//
-//		- Server only
+//	* Initialize *****used only by CListener class
 //
 //------------------------------------------------------------------------------
 
-sInt32 CSrvrEndPoint::RegisterName ( void )
+sInt32 CSrvrEndPoint::Initialize ( void )
 {
-	kern_return_t	result	= eDSNoErr;
+	kern_return_t		result	= eDSNoErr;
+	mach_port_limits_t  qlimits;
 
 	try
 	{
-		result = bootstrap_register( fBootStrapPort, fSrvrName, fServerPort );
+		result = mach_port_allocate( (mach_task_self)(), MACH_PORT_RIGHT_RECEIVE, &fServerPort );
+		if ( result != eDSNoErr )
+		{
+			DBGLOG1( kLogEndpoint, "mach_port_allocate() failed: %s", mach_error_string( result ) );
+			ERRORLOG1( kLogEndpoint, "Unable to allocate mach port: %s", mach_error_string( result ) );
+			throw( (sInt32)result );
+		}
+
+        qlimits.mpl_qlimit = MACH_PORT_QLIMIT_MAX;
+		//increase the queue depth to the maximum
+		result = mach_port_set_attributes(  (mach_task_self)(),
+											fServerPort,
+											MACH_PORT_LIMITS_INFO,
+											(mach_port_info_t)&qlimits,
+											MACH_PORT_LIMITS_INFO_COUNT);
+		if ( result != eDSNoErr )
+		{
+			DBGLOG1( kLogEndpoint, "mach_port_set_attributes() failed: %s", mach_error_string( result ) );
+			ERRORLOG1( kLogEndpoint, "Unable to increase the mach server listener queue depth to the maximum: %s", mach_error_string( result ) );
+			throw( (sInt32)result );
+		}
+
+		result = mach_port_insert_right( (mach_task_self)(), fServerPort, fServerPort, MACH_MSG_TYPE_MAKE_SEND );
+		if ( result != eDSNoErr )
+		{
+			DBGLOG1( kLogEndpoint, "mach_port_insert_right() failed: %s", mach_error_string( result ) );
+			ERRORLOG1( kLogEndpoint, "Unable to set mach port rights: %s", mach_error_string( result ) );
+			throw( (sInt32)result );
+		}
+
+		result = bootstrap_register( bootstrap_port, kDSServiceName, fServerPort );
 		if ( result != eDSNoErr )
 		{
 			DBGLOG2( kLogEndpoint, "File: %s. Line: %d", __FILE__, __LINE__ );
@@ -118,53 +148,7 @@ sInt32 CSrvrEndPoint::RegisterName ( void )
 
 	return( result );
 
-} // RegisterName
-
-
-//------------------------------------------------------------------------------
-//	* Initialize *****used only by CListener class
-//
-//------------------------------------------------------------------------------
-
-sInt32 CSrvrEndPoint::Initialize ( void )
-{
-	kern_return_t	result	= eDSNoErr;
-
-	try
-	{
-		result = mach_port_allocate( (mach_task_self)(), MACH_PORT_RIGHT_RECEIVE, &fServerPort );
-		if ( result != eDSNoErr )
-		{
-			DBGLOG1( kLogEndpoint, "mach_port_allocate() failed: %s", mach_error_string( result ) );
-			ERRORLOG1( kLogEndpoint, "Unable to allocate mach port: %s", mach_error_string( result ) );
-			throw( (sInt32)result );
-		}
-
-		result = mach_port_insert_right( (mach_task_self)(), fServerPort, fServerPort, MACH_MSG_TYPE_MAKE_SEND );
-		if ( result != eDSNoErr )
-		{
-			DBGLOG1( kLogEndpoint, "mach_port_insert_right() failed: %s", mach_error_string( result ) );
-			ERRORLOG1( kLogEndpoint, "Unable to set mach port rights: %s", mach_error_string( result ) );
-			throw( (sInt32)result );
-		}
-
-		result = task_get_bootstrap_port( mach_task_self(), &fBootStrapPort );
-		if ( result != eDSNoErr )
-		{
-			mach_error( (char *)"task_get_bootstrap_port(): ", result );
-			ERRORLOG1( kLogEndpoint, "Unable to bootstrap mach port: %d", result );
-			throw( (sInt32)result );
-		}
-	}
-
-	catch( sInt32 err )
-	{
-		result = err;
-	}
-
-	return( result );
-
-} // InitServer
+} // Initialize
 
 
 //------------------------------------------------------------------------------
@@ -190,14 +174,14 @@ void * CSrvrEndPoint::GetClientMessage ( void )
 		}
 		::memset( &msg, 0, sizeof( sIPCMsg ) );
 
-		// use MACH_RCV_INTERRUPT to handle the scrambled mach messages when the client dies
-		result = ::mach_msg( (mach_msg_header_t *)&msg, MACH_RCV_MSG|MACH_RCV_INTERRUPT, 0, kIPCMsgSize, fServerPort, MACH_MSG_TIMEOUT_NONE, MACH_PORT_NULL );
+		result = ::mach_msg( (mach_msg_header_t *)&msg, MACH_RCV_MSG, 0, kIPCMsgSize, fServerPort, MACH_MSG_TIMEOUT_NONE, MACH_PORT_NULL );
 		if ( (	result == MACH_MSG_SUCCESS )
 				&& (msg.fHeader.msgh_size == (kIPCMsgSize - sizeof( mach_msg_security_trailer_t ))) )
 				//&& (msg.fHeader.msgh_bits == MACH_MSGH_BITS( MACH_MSG_TYPE_COPY_SEND, MACH_MSG_TYPE_MAKE_SEND ) ) )
 		{
 			AddDataToMessage( &msg );
 		}
+
 		// at this point we can put in an else statement to handle different messages
 		// other than our "data" ones that have the fixed data size ie. notifications
 		else
@@ -276,8 +260,9 @@ sInt32 CSrvrEndPoint::SendClientReply ( void *inMsg )
 		{
 			msg.fHeader.msgh_bits = MACH_MSGH_BITS( MACH_MSG_TYPE_MOVE_SEND, 0 );
 		}
-		result = ::mach_msg(	(mach_msg_header_t *)&msg, MACH_SEND_MSG | MACH_SEND_TIMEOUT | MACH_SEND_INTERRUPT,
-								msg.fHeader.msgh_size, 0, MACH_PORT_NULL, 300 * 1000, MACH_PORT_NULL );
+		//only have wait of 15 secs for our reply back to our FW
+		result = ::mach_msg(	(mach_msg_header_t *)&msg, MACH_SEND_MSG | MACH_SEND_TIMEOUT,
+								msg.fHeader.msgh_size, 0, MACH_PORT_NULL, 15 * 1000, MACH_PORT_NULL );
 		if ( result == MACH_MSG_SUCCESS )
 		{
 			msg.fCount++;

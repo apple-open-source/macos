@@ -9,6 +9,7 @@
 00PORTING
 00QUICKSTART
 00README
+00TEST
 00XCONFIG
 AFSConfig*
 Configure*
@@ -30,6 +31,7 @@ proto.h
 regex.h
 scripts/
 store.c
+tests/
 usage.c
 version
 
@@ -51,24 +53,27 @@ uw/
 dialects/aix:
 Makefile
 Mksrc*
-aix5l/
+aix5/
 ddev.c
 dfile.c
 dlsof.h
 dmnt.c
 dnode.c
 dnode1.c
+dnode2.c
 dproc.c
 dproto.h
 dsock.c
 dstore.c
 machine.h
 
-dialects/aix/aix5l:
+dialects/aix/aix5:
+README
 j2/
 
-dialects/aix/aix5l/j2:
+dialects/aix/aix5/j2:
 j2_lock.h
+j2_snapshot.h
 
 dialects/bsdi:
 Makefile
@@ -254,16 +259,8 @@ ou8/
 
 dialects/ou/ou8:
 README
-fs/
 sys/
 vm/
-
-dialects/ou/ou8/fs:
-procfs/
-
-dialects/ou/ou8/fs/procfs:
-README
-prdata.h
 
 dialects/ou/ou8/sys:
 fs/
@@ -273,6 +270,7 @@ README
 fifonode.h
 memfs_mnode.h
 namenode.h
+prdata.h
 
 dialects/ou/ou8/vm:
 README
@@ -405,3 +403,21 @@ list_fields.perl*
 shared.perl5*
 watch_a_file.perl*
 xusers.awk*
+
+tests:
+00README
+Add2TestDB*
+CkTestDB*
+LTbasic.c
+LTbigf.c
+LTdnlc.c
+LTlib.c
+LTlock.c
+LTnfs.c
+LTnlink.c
+LTsock.c
+LTszoff.c
+LTunix.c
+LsofTest.h
+Makefile
+TestDB

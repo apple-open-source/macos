@@ -1,6 +1,6 @@
-/* $OpenLDAP: pkg/ldap/servers/slapd/at.c,v 1.38.2.1 2002/02/18 19:16:54 kurt Exp $ */
+/* $OpenLDAP: pkg/ldap/servers/slapd/at.c,v 1.38.2.9 2003/02/09 16:31:35 kurt Exp $ */
 /*
- * Copyright 1998-2002 The OpenLDAP Foundation, All Rights Reserved.
+ * Copyright 1998-2003 The OpenLDAP Foundation, All Rights Reserved.
  * COPYING RESTRICTIONS APPLY, see COPYRIGHT file
  */
 /* at.c - routines for dealing with attribute types */
@@ -49,14 +49,17 @@ struct aindexrec {
 };
 
 static Avlnode	*attr_index = NULL;
-static AttributeType *attr_list = NULL;
+static LDAP_SLIST_HEAD(ATList, slap_attribute_type) attr_list
+	= LDAP_SLIST_HEAD_INITIALIZER(&attr_list);
 
 static int
 attr_index_cmp(
-    struct aindexrec	*air1,
-    struct aindexrec	*air2
+    const void	*v_air1,
+    const void	*v_air2
 )
 {
+	const struct aindexrec	*air1 = v_air1;
+	const struct aindexrec	*air2 = v_air2;
 	int i = air1->air_name.bv_len - air2->air_name.bv_len;
 	if (i)
 		return i;
@@ -65,10 +68,12 @@ attr_index_cmp(
 
 static int
 attr_index_name_cmp(
-    struct berval	*type,
-    struct aindexrec	*air
+    const void	*v_type,
+    const void	*v_air
 )
 {
+    const struct berval    *type = v_type;
+    const struct aindexrec *air  = v_air;
 	int i = type->bv_len - air->air_name.bv_len;
 	if (i)
 		return i;
@@ -96,8 +101,7 @@ at_bvfind(
 {
 	struct aindexrec *air;
 
-	air = (struct aindexrec *) avl_find( attr_index, name,
-            (AVL_CMP) attr_index_name_cmp );
+	air = avl_find( attr_index, name, attr_index_name_cmp );
 
 	return air != NULL ? air->air_at : NULL;
 }
@@ -194,19 +198,59 @@ at_find_in_list(
 void
 at_destroy( void )
 {
-	AttributeType *a, *n;
+	AttributeType *a;
 	avl_free(attr_index, ldap_memfree);
 
-	for (a=attr_list; a; a=n) {
-		n = a->sat_next;
+	while( !LDAP_SLIST_EMPTY(&attr_list) ) {
+		a = LDAP_SLIST_FIRST(&attr_list);
+		LDAP_SLIST_REMOVE_HEAD(&attr_list, sat_next);
+
 		if (a->sat_subtypes) ldap_memfree(a->sat_subtypes);
 		ad_destroy(a->sat_ad);
 		ldap_pvt_thread_mutex_destroy(&a->sat_ad_mutex);
 		ldap_attributetype_free((LDAPAttributeType *)a);
 	}
-	if ( slap_schema.si_at_undefined )
+
+	if ( slap_schema.si_at_undefined ) {
 		ad_destroy(slap_schema.si_at_undefined->sat_ad);
+	}
 }
+
+int
+at_start( AttributeType **at )
+{
+	assert( at );
+
+	*at = LDAP_SLIST_FIRST(&attr_list);
+
+	return (*at != NULL);
+}
+
+int
+at_next( AttributeType **at )
+{
+	assert( at );
+
+#if 1	/* pedantic check */
+	{
+		AttributeType *tmp = NULL;
+
+		LDAP_SLIST_FOREACH(tmp,&attr_list,sat_next) {
+			if ( tmp == *at ) {
+				break;
+			}
+		}
+
+		assert( tmp );
+	}
+#endif
+
+	*at = LDAP_SLIST_NEXT(*at,sat_next);
+
+	return (*at != NULL);
+}
+	
+
 
 static int
 at_insert(
@@ -214,15 +258,10 @@ at_insert(
     const char		**err
 )
 {
-	AttributeType		**atp;
 	struct aindexrec	*air;
 	char			**names;
 
-	atp = &attr_list;
-	while ( *atp != NULL ) {
-		atp = &(*atp)->sat_next;
-	}
-	*atp = sat;
+	LDAP_SLIST_INSERT_HEAD( &attr_list, sat, sat_next );
 
 	if ( sat->sat_oid ) {
 		air = (struct aindexrec *)
@@ -231,11 +270,10 @@ at_insert(
 		air->air_name.bv_len = strlen(sat->sat_oid);
 		air->air_at = sat;
 		if ( avl_insert( &attr_index, (caddr_t) air,
-				 (AVL_CMP) attr_index_cmp,
-				 (AVL_DUP) avl_dup_error ) ) {
+		                 attr_index_cmp, avl_dup_error ) ) {
 			*err = sat->sat_oid;
 			ldap_memfree(air);
-			return SLAP_SCHERR_DUP_ATTR;
+			return SLAP_SCHERR_ATTR_DUP;
 		}
 		/* FIX: temporal consistency check */
 		at_bvfind(&air->air_name);
@@ -249,11 +287,10 @@ at_insert(
 			air->air_name.bv_len = strlen(*names);
 			air->air_at = sat;
 			if ( avl_insert( &attr_index, (caddr_t) air,
-					 (AVL_CMP) attr_index_cmp,
-					 (AVL_DUP) avl_dup_error ) ) {
+			                 attr_index_cmp, avl_dup_error ) ) {
 				*err = *names;
 				ldap_memfree(air);
-				return SLAP_SCHERR_DUP_ATTR;
+				return SLAP_SCHERR_ATTR_DUP;
 			}
 			/* FIX: temporal consistency check */
 			at_bvfind(&air->air_name);
@@ -273,6 +310,7 @@ at_add(
 	AttributeType	*sat;
 	MatchingRule	*mr;
 	Syntax		*syn;
+	int		i;
 	int		code;
 	char	*cname;
 	char	*oid;
@@ -301,7 +339,6 @@ at_add(
 			ldap_memfree( at->at_syntax_oid );
 			at->at_syntax_oid = oid;
 		}
-
 	}
 
 	if ( at->at_names && at->at_names[0] ) {
@@ -341,9 +378,6 @@ at_add(
 			/* collective attributes cannot be single-valued */
 			return SLAP_SCHERR_ATTR_BAD_USAGE;
 		}
-
-		/* collective attributes not supported */
-		return SLAP_SCHERR_NOT_SUPPORTED;
 	}
 
 	sat = (AttributeType *) ch_calloc( 1, sizeof(AttributeType) );
@@ -356,7 +390,7 @@ at_add(
 	if ( at->at_sup_oid ) {
 		AttributeType *supsat = at_find(at->at_sup_oid);
 
-		if ( (supsat == NULL ) ) {
+		if ( supsat == NULL ) {
 			*err = at->at_sup_oid;
 			return SLAP_SCHERR_ATTR_NOT_FOUND;
 		}
@@ -370,6 +404,16 @@ at_add(
 		if ( sat->sat_usage != supsat->sat_usage ) {
 			/* subtypes must have same usage as their SUP */
 			return SLAP_SCHERR_ATTR_BAD_USAGE;
+		}
+
+		if ( supsat->sat_obsolete && !sat->sat_obsolete ) {
+			/* subtypes must be obsolete if super is */
+			return SLAP_SCHERR_ATTR_BAD_SUP;
+		}
+
+		if ( sat->sat_flags & SLAP_AT_FINAL ) {
+			/* cannot subtype a "final" attribute type */
+			return SLAP_SCHERR_ATTR_BAD_SUP;
 		}
 	}
 
@@ -387,45 +431,135 @@ at_add(
 	}
 
 	if ( at->at_syntax_oid ) {
-		if ( (syn = syn_find(sat->sat_syntax_oid)) ) {
-			sat->sat_syntax = syn;
-		} else {
+		syn = syn_find(sat->sat_syntax_oid);
+		if ( syn == NULL ) {
 			*err = sat->sat_syntax_oid;
 			return SLAP_SCHERR_SYN_NOT_FOUND;
 		}
 
+		if( sat->sat_syntax != NULL && sat->sat_syntax != syn ) {
+			return SLAP_SCHERR_ATTR_BAD_SUP;
+		}
+
+		sat->sat_syntax = syn;
 
 	} else if ( sat->sat_syntax == NULL ) {
 		return SLAP_SCHERR_ATTR_INCOMPLETE;
 	}
 
 	if ( sat->sat_equality_oid ) {
-		if ( (mr = mr_find(sat->sat_equality_oid)) ) {
-			sat->sat_equality = mr;
-			sat->sat_approx = mr->smr_associated;
-		} else {
+		mr = mr_find(sat->sat_equality_oid);
+
+		if( mr == NULL ) {
 			*err = sat->sat_equality_oid;
 			return SLAP_SCHERR_MR_NOT_FOUND;
 		}
 
+		if(( mr->smr_usage & SLAP_MR_EQUALITY ) != SLAP_MR_EQUALITY ) {
+			*err = sat->sat_equality_oid;
+			return SLAP_SCHERR_ATTR_BAD_MR;
+		}
+
+		if( sat->sat_syntax != mr->smr_syntax ) {
+			if( mr->smr_compat_syntaxes == NULL ) {
+				*err = sat->sat_equality_oid;
+				return SLAP_SCHERR_ATTR_BAD_MR;
+			}
+
+			for(i=0; mr->smr_compat_syntaxes[i]; i++) {
+				if( sat->sat_syntax == mr->smr_compat_syntaxes[i] ) {
+					i = -1;
+					break;
+				}
+			}
+
+			if( i >= 0 ) {
+				*err = sat->sat_equality_oid;
+				return SLAP_SCHERR_ATTR_BAD_MR;
+			}
+		}
+
+		sat->sat_equality = mr;
+		sat->sat_approx = mr->smr_associated;
 	}
 
 	if ( sat->sat_ordering_oid ) {
-		if ( (mr = mr_find(sat->sat_ordering_oid)) ) {
-			sat->sat_ordering = mr;
-		} else {
+		mr = mr_find(sat->sat_ordering_oid);
+
+		if( mr == NULL ) {
 			*err = sat->sat_ordering_oid;
 			return SLAP_SCHERR_MR_NOT_FOUND;
 		}
+
+		if(( mr->smr_usage & SLAP_MR_ORDERING ) != SLAP_MR_ORDERING ) {
+			*err = sat->sat_ordering_oid;
+			return SLAP_SCHERR_ATTR_BAD_MR;
+		}
+
+		if( sat->sat_syntax != mr->smr_syntax ) {
+			if( mr->smr_compat_syntaxes == NULL ) {
+				*err = sat->sat_ordering_oid;
+				return SLAP_SCHERR_ATTR_BAD_MR;
+			}
+
+			for(i=0; mr->smr_compat_syntaxes[i]; i++) {
+				if( sat->sat_syntax == mr->smr_compat_syntaxes[i] ) {
+					i = -1;
+					break;
+				}
+			}
+
+			if( i >= 0 ) {
+				*err = sat->sat_ordering_oid;
+				return SLAP_SCHERR_ATTR_BAD_MR;
+			}
+		}
+
+		sat->sat_ordering = mr;
 	}
 
 	if ( sat->sat_substr_oid ) {
-		if ( (mr = mr_find(sat->sat_substr_oid)) ) {
-			sat->sat_substr = mr;
-		} else {
+		mr = mr_find(sat->sat_substr_oid);
+
+		if( mr == NULL ) {
 			*err = sat->sat_substr_oid;
 			return SLAP_SCHERR_MR_NOT_FOUND;
 		}
+
+		if(( mr->smr_usage & SLAP_MR_SUBSTR ) != SLAP_MR_SUBSTR ) {
+			*err = sat->sat_substr_oid;
+			return SLAP_SCHERR_ATTR_BAD_MR;
+		}
+
+		/* due to funky LDAP builtin substring rules, we
+		 * we check against the equality rule assertion
+		 * syntax and compat syntaxes instead of those
+		 * associated with the substrings rule.
+		 */
+		if( sat->sat_equality &&
+			sat->sat_syntax != sat->sat_equality->smr_syntax )
+		{
+			if( sat->sat_equality->smr_compat_syntaxes == NULL ) {
+				*err = sat->sat_substr_oid;
+				return SLAP_SCHERR_ATTR_BAD_MR;
+			}
+
+			for(i=0; sat->sat_equality->smr_compat_syntaxes[i]; i++) {
+				if( sat->sat_syntax ==
+					sat->sat_equality->smr_compat_syntaxes[i] )
+				{
+					i = -1;
+					break;
+				}
+			}
+
+			if( i >= 0 ) {
+				*err = sat->sat_substr_oid;
+				return SLAP_SCHERR_ATTR_BAD_MR;
+			}
+		}
+
+		sat->sat_substr = mr;
 	}
 
 	code = at_insert(sat,err);
@@ -434,9 +568,9 @@ at_add(
 
 #ifdef LDAP_DEBUG
 static int
-at_index_printnode( struct aindexrec *air )
+at_index_printnode( void *v_air, void *ignore )
 {
-
+	struct aindexrec *air = v_air;
 	printf("%s = %s\n",
 		air->air_name.bv_val,
 		ldap_attributetype2str(&air->air_at->sat_atype) );
@@ -447,12 +581,10 @@ static void
 at_index_print( void )
 {
 	printf("Printing attribute type index:\n");
-	(void) avl_apply( attr_index, (AVL_APPLY) at_index_printnode,
-		0, -1, AVL_INORDER );
+	(void) avl_apply( attr_index, at_index_printnode, 0, -1, AVL_INORDER );
 }
 #endif
 
-#if defined( SLAPD_SCHEMA_DN )
 int
 at_schema_info( Entry *e )
 {
@@ -463,17 +595,16 @@ at_schema_info( Entry *e )
 
 	vals[1].bv_val = NULL;
 
-	for ( at = attr_list; at; at = at->sat_next ) {
+	LDAP_SLIST_FOREACH(at,&attr_list,sat_next) {
+		if( at->sat_flags & SLAP_AT_HIDE ) continue;
+
 		if ( ldap_attributetype2bv( &at->sat_atype, vals ) == NULL ) {
 			return -1;
 		}
-#if 0
-		Debug( LDAP_DEBUG_TRACE, "Merging at [%ld] %s\n",
-		       (long) vals[0].bv_len, vals[0].bv_val, 0 );
-#endif
-		attr_merge( e, ad_attributeTypes, vals );
+
+		if( attr_merge( e, ad_attributeTypes, vals ) )
+			return -1;
 		ldap_memfree( vals[0].bv_val );
 	}
 	return 0;
 }
-#endif

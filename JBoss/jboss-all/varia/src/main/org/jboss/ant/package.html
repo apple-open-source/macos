@@ -1,0 +1,111 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
+<html>
+  <head>
+    <!-- $Id: package.html,v 1.1.4.2 2003/03/31 19:55:46 igorfie Exp $ -->
+    <!--
+
+    JBoss: The OpenSource J2EE WebOS 
+
+    Distributable under LGPL license.
+    See terms of license at gnu.org.
+
+    -->
+  </head>
+
+  <body bgcolor="white">
+    <p>An Ant plugin to call jmx operations and set and get attributes on MBeans in JBoss.
+
+    <h2>Package Specification</h2>
+    <ul>
+    <p>To use this plugin with Ant, place the jbossjmx-ant.jar
+       together with the jboss jars jboss-j2ee.jar and
+       jboss-common-client.jar, and the sun jnet.jar in the ant/lib
+       directory you wish to use.</p>
+    <p>To define the task, include something like this in your ant script:
+      <pre>
+    &lt;taskdef name="jmx"
+             classname="org.jboss.ant.JMX"&gt;
+    &lt;/taskdef&gt;
+</pre>
+
+   <p>As an alternative, instead of copying required libraries in the 
+      ant/lib directory you can specify them in &quot;taskdef&quot; 
+      task. For example
+      <pre>
+    &lt;taskdef name="jmx"
+             classname="org.jboss.ant.JMX"&gt;
+       &lt;classpath&gt;
+           &lt;pathelement path=&quot;${jboss.home}/client/jbossjmx-ant.jar&quot;/&gt;
+           &lt;pathelement path=&quot;${jboss.home}/client/jbossall-client.jar&quot;/&gt;
+       &lt;/classpath&gt;
+    &lt;/taskdef&gt;
+</pre>
+
+    <p>What you can do:
+      <ul>
+        <li>Include property editors:
+<pre>
+&lt;propertyEditor type="java.math.BigDecimal" editor="org.jboss.util.propertyeditor.BigDecimalEditor"/&gt;
+</pre>
+        </li>
+        <li>Invoke jmx managed operations:
+<pre>
+      &lt;invoke target="jboss.system:service=MainDeployer"
+              operation="deploy"&gt;
+        &lt;parameter type="java.lang.String"
+	arg="file:${basedir}/jython.jar"/&gt;
+      &lt;/invoke&gt;
+</pre>
+</li>
+
+        <li>Invoke jmx managed operations and put the return value in an ant property:
+<pre>
+      &lt;invoke target="jboss.system:service=MainDeployer"
+              operation="doSomething"
+              property="some.property"&gt;
+        &lt;parameter type="java.lang.String"
+	arg="file:${basedir}/jython.jar"/&gt;
+      &lt;/invoke&gt;
+</pre>
+</li>
+
+        <li>Set a managed attribute:
+
+<pre>
+      &lt;setAttribute target="jboss.system:service=MainDeployer"
+              attribute="SomeAttribute"
+              value="SomeValue"/&gt;
+</pre>
+</li>
+
+        <li>Get a managed attribute and put the value in an ant property:
+
+<pre>
+      &lt;getAttribute target="jboss.system:service=MainDeployer"
+              attribute="SomeAttribute"
+              property="SomeProperty"/&gt;
+</pre>
+</li>
+
+      </ul>
+    </p>
+    </ul>
+      
+    <h2>Related Documentation</h2>
+    <ul>
+      <li><a href="javascript: alert('not available')">Not Available</a>
+    </ul>
+
+    <h2>Package Status</h2>
+    <ul>
+      <li><font color="green"><b>STABLE</b></font>
+    </ul>
+
+    <h2>Todo</h2>
+    <ul>
+      <li>Provide a way to register for notifications and wait until they are received</li>
+    </ul>
+
+    <!-- Put @see and @since tags down here. -->
+  </body>
+</html>

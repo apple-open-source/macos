@@ -1,0 +1,246 @@
+<HTML>
+<HEAD>
+<!-- This HTML file has been created by texi2html 1.51
+     from .././gimpprint.texi on 22 January 2003 -->
+
+<TITLE>GIMP-Print - Perfect weaving</TITLE>
+</HEAD>
+<BODY>
+Go to the <A HREF="gimpprint_1.html">first</A>, <A HREF="gimpprint_29.html">previous</A>, <A HREF="gimpprint_31.html">next</A>, <A HREF="gimpprint_47.html">last</A> section, <A HREF="gimpprint_toc.html">table of contents</A>.
+<P><HR><P>
+
+
+<H3><A NAME="SEC45" HREF="gimpprint_toc.html#TOC45">B.2.2  Perfect weaving</A></H3>
+<P>
+<A NAME="IDX185"></A>
+
+</P>
+<P>
+This simple weave pattern prints every row, but will give conspicuous
+banding patterns for the reasons discussed above.
+
+</P>
+<P>
+Let's start improving this for our simple case.  We can reduce banding
+by making sure that any given jet never prints a row too close to
+another row printed by the same jet.  This means we want to space the
+rows printed by a given jet evenly down the page.  In turn, this
+implies we want to advance the paper by as nearly an equal amount
+after each pass as possible.
+
+</P>
+<P>
+Each pass block prints @math{S*J} lines in @math{S} passes.  The first
+line printed in each pass block is @math{S*J} rows lower on the page
+than the first line printed in the previous pass block.  Therefore, if
+we advance the paper by @math{J} rows between each pass, we can print
+the right number of passes in each block and advance the paper perfectly
+evenly.
+
+</P>
+<P>
+Here's what this "perfect" weave looks like:
+
+</P>
+
+<PRE>
+                    start of full weave
+                    |
+0 *---*---*---*---*---*---*
+1        *---*---*---*---*---*---*
+2               *---*---*---*---*---*---*
+3                      *---*---*---*---*---*---*
+4                             *---*---*---*---*---*---*
+5                                    *---*---*---*---*---*---*
+6                                           *---*---*---*---*---*---*
+7                                                  *---*---*---*---*---*---*
+8                                                         *---*---*---*---*---*-
+9                                                                *---*---*---*--
+10                                                                      *---*---
+11                                                                             *
+</PRE>
+
+<P>
+You'll notice that, for the first few rows, this weave is too sparse.
+It is not until the row marked "start of full weave" that every
+subsequent row is printed.  We can calculate this start position as
+follows:
+
+</P>
+
+<PRE>
+@math{start = (S-1) * (J-1)}
+</PRE>
+
+<P>
+For the moment, we will ignore this problem with the weave.  We'll
+consider later how to fill in the missing rows.
+
+</P>
+<P>
+Let's look at a few more examples of perfect weaves:
+
+</P>
+
+<P>
+@math{S=2},  @math{J=7},  @math{start=(2-1)*(7-1)=6}:
+
+</P>
+
+<PRE>
+        starting row of full weave
+        |
+0 *-*-*-*-*-*-*
+1        *-*-*-*-*-*-*
+2               *-*-*-*-*-*-*
+3                      *-*-*-*-*-*-*
+4                             *-*-*-*-*-*-*
+5                                    *-*-*-*-*-*-*
+6                                           *-*-*-*-*-*-*
+7                                                  *-*-*-*-*-*-*
+</PRE>
+
+<P>
+@math{S=7},  @math{J=2},  @math{start=6}:
+
+</P>
+
+<PRE>
+        start
+        |
+0 *------*
+1   *------*
+2     *------*
+3       *------*
+4         *------*
+5           *------*
+6             *------*
+7               *------*
+8                 *------*
+9                   *------*
+</PRE>
+
+<P>
+@math{S=4},  @math{J=13},  @math{start=36}:
+
+</P>
+
+<PRE>
+                                      start
+                                      |
+0 *---*---*---*---*---*---*---*---*---*---*---*---*
+1              *---*---*---*---*---*---*---*---*---*---*---*---*
+2                           *---*---*---*---*---*---*---*---*---*---*---*---*
+3                                        *---*---*---*---*---*---*---*---*---*--
+4                                                     *---*---*---*---*---*---*-
+5                                                                  *---*---*---*
+</PRE>
+
+<P>
+@math{S=13},  @math{J=4},  @math{start=36}:
+
+</P>
+
+<PRE>
+                                      start
+                                      |
+0 *------------*------------*------------*
+1     *------------*------------*------------*
+2         *------------*------------*------------*
+3             *------------*------------*------------*
+4                 *------------*------------*------------*
+5                     *------------*------------*------------*
+6                         *------------*------------*------------*
+7                             *------------*------------*------------*
+8                                 *------------*------------*------------*
+9                                     *------------*------------*------------*
+10                                        *------------*------------*-----------
+11                                            *------------*------------*-------
+12                                                *------------*------------*---
+13                                                    *------------*------------
+14                                                        *------------*--------
+15                                                            *------------*----
+16                                                                *------------*
+17                                                                    *---------
+18                                                                        *-----
+19                                                                            *-
+</PRE>
+
+<P>
+@math{S=8},  @math{J=5},  @math{start=28}:
+
+</P>
+
+<PRE>
+                              start
+                              |
+0 *-------*-------*-------*-------*
+1      *-------*-------*-------*-------*
+2           *-------*-------*-------*-------*
+3                *-------*-------*-------*-------*
+4                     *-------*-------*-------*-------*
+5                          *-------*-------*-------*-------*
+6                               *-------*-------*-------*-------*
+7                                    *-------*-------*-------*-------*
+8                                         *-------*-------*-------*-------*
+9                                              *-------*-------*-------*-------*
+10                                                  *-------*-------*-------*---
+11                                                       *-------*-------*------
+12                                                            *-------*-------*-
+13                                                                 *-------*----
+14                                                                      *-------
+15                                                                           *--
+</PRE>
+
+<P>
+@math{S=9},  @math{J=5},  @math{start=32}:
+
+</P>
+
+<PRE>
+                                  start
+                                  |
+0 *--------*--------*--------*--------*
+1      *--------*--------*--------*--------*
+2           *--------*--------*--------*--------*
+3                *--------*--------*--------*--------*
+4                     *--------*--------*--------*--------*
+5                          *--------*--------*--------*--------*
+6                               *--------*--------*--------*--------*
+7                                    *--------*--------*--------*--------*
+8                                         *--------*--------*--------*--------*
+9                                              *--------*--------*--------*-----
+10                                                  *--------*--------*--------*
+11                                                       *--------*--------*----
+12                                                            *--------*--------
+13                                                                 *--------*---
+14                                                                      *-------
+15                                                                           *--
+</PRE>
+
+<P>
+@math{S=6},  @math{J=7},  @math{start=30}:
+
+</P>
+
+<PRE>
+                                start
+                                |
+0 *-----*-----*-----*-----*-----*-----*
+1        *-----*-----*-----*-----*-----*-----*
+2               *-----*-----*-----*-----*-----*-----*
+3                      *-----*-----*-----*-----*-----*-----*
+4                             *-----*-----*-----*-----*-----*-----*
+5                                    *-----*-----*-----*-----*-----*-----*
+6                                           *-----*-----*-----*-----*-----*-----
+7                                                  *-----*-----*-----*-----*----
+8                                                         *-----*-----*-----*---
+9                                                                *-----*-----*--
+10                                                                      *-----*-
+11                                                                             *
+</PRE>
+
+<P><HR><P>
+Go to the <A HREF="gimpprint_1.html">first</A>, <A HREF="gimpprint_29.html">previous</A>, <A HREF="gimpprint_31.html">next</A>, <A HREF="gimpprint_47.html">last</A> section, <A HREF="gimpprint_toc.html">table of contents</A>.
+</BODY>
+</HTML>

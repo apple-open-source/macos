@@ -1,0 +1,3 @@
+%(member)s foi inscrito com sucesso em  %(listname)s.
+
+

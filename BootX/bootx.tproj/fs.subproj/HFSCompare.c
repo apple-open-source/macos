@@ -194,6 +194,41 @@ int32_t FastUnicodeCompare (u_int16_t *str1, register u_int32_t length1,
 		return 1;
 }
 
+//
+//  BinaryUnicodeCompare - Compare two Unicode strings; produce a relative ordering
+//  Compared using a 16-bit binary comparison (no case folding)
+//
+int32_t BinaryUnicodeCompare (u_int16_t * str1, u_int32_t length1,
+			      u_int16_t * str2, u_int32_t length2)
+{
+	register u_int16_t c1, c2;
+	int32_t bestGuess;
+	u_int32_t length;
+
+	bestGuess = 0;
+
+	if (length1 < length2) {
+		length = length1;
+		--bestGuess;
+	} else if (length1 > length2) {
+		length = length2;
+		++bestGuess;
+	} else {
+		length = length1;
+	}
+
+	while (length--) {
+		c1 = *(str1++);
+		c2 = *(str2++);
+
+		if (c1 > c2)
+			return (1);
+		if (c1 < c2)
+			return (-1);
+	}
+
+	return (bestGuess);
+}
 
 /*
  * UTF-8 (UCS Transformation Format)

@@ -49,3 +49,24 @@ copy_plist:
 	$(RM) -f $(DSTROOT)$(SystemFramework)/$(VersionDir)/Resources/Info.plist
 	$(CP) $(SRCROOT)/Info.plist $(DSTROOT)$(SystemFramework)/$(VersionDir)/Resources
 	$(CHMOD) 444 $(DSTROOT)$(SystemFramework)/$(VersionDir)/Resources/Info.plist
+
+.PHONY: comm-page-symbols
+comm-page-symbols: spinlock_stub.o spinlocktry_stub.o spinunlock_stub.o CommPageSymbols.o
+
+.SUFFIXES: .st
+
+SLFS_F_PH = /System/Library/Frameworks/System.framework/PrivateHeaders
+
+$(OFILE_DIR)/%.ppc.o %.ppc.o: %.st
+	$(CC) -arch $(CURRENT_ARCH) -x assembler-with-cpp \
+	    -I$(SLFS_F_PH)/$(CURRENT_ARCH) \
+	    $(ALL_CFLAGS) -c -o $(OFILE_DIR)/commsym.$(CURRENT_ARCH).o $<
+	ld -arch $(CURRENT_ARCH) -r -seg1addr 0xffff8000 \
+	    $(OFILE_DIR)/commsym.$(CURRENT_ARCH).o -o $(OFILE_DIR)/$(notdir $@)
+
+$(OFILE_DIR)/%.i386.o %.i386.o: %.st
+	$(CC) -arch $(CURRENT_ARCH) -x assembler-with-cpp \
+	    -I$(SLFS_F_PH)/$(CURRENT_ARCH) \
+	    $(ALL_CFLAGS) -c -o $(OFILE_DIR)/commsym.$(CURRENT_ARCH).o $<
+	ld -arch $(CURRENT_ARCH) -r -seg1addr 0xBFFF8000 \
+	    $(OFILE_DIR)/commsym.$(CURRENT_ARCH).o -o $(OFILE_DIR)/$(notdir $@)

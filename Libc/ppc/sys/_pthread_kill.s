@@ -25,5 +25,4 @@
 #include "SYS.h"
 
 SYSCALL(__pthread_kill, 2)
-	blr
 

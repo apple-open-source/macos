@@ -12,7 +12,7 @@ NAME = uudecode
 PROJECTVERSION = 2.8
 PROJECT_TYPE = Tool
 
-CFILES = uudecode.c
+CFILES = uudecode.c base64.c
 
 OTHERSRCS = Makefile.preamble Makefile Makefile.postamble
 

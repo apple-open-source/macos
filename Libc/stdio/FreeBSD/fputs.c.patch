@@ -1,0 +1,22 @@
+--- fputs.c.orig	Tue May 20 15:22:42 2003
++++ fputs.c	Thu Jul 31 13:19:02 2003
+@@ -48,6 +48,9 @@
+ #include "libc_private.h"
+ #include "local.h"
+ 
++// 3340719: __puts_null__ is used if string is NULL.  Defined in puts.c
++__private_extern__ char const __puts_null__[];
++
+ /*
+  * Write the given string to the given file.
+  */
+@@ -60,6 +63,9 @@
+ 	struct __suio uio;
+ 	struct __siov iov;
+ 
++	// 3340719: __puts_null__ is used if s is NULL
++	if(s == NULL)
++		s = __puts_null__;
+ 	iov.iov_base = (void *)s;
+ 	iov.iov_len = uio.uio_resid = strlen(s);
+ 	uio.uio_iov = &iov;

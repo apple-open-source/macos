@@ -24,7 +24,7 @@
 
 #include "includes.h"
 
-RCSID("$OpenBSD: sftp.c,v 1.30 2002/06/23 09:30:14 deraadt Exp $");
+RCSID("$OpenBSD: sftp.c,v 1.34 2003/01/10 08:19:07 fgsch Exp $");
 
 /* XXX: short-form remote directory listings (like 'ls -C') */
 
@@ -48,6 +48,8 @@ char *__progname;
 FILE* infile;
 size_t copy_buffer_len = 32768;
 size_t num_requests = 16;
+
+extern int showprogress;
 
 static void
 connect_to_server(char *path, char **args, int *in, int *out, pid_t *sshpid)
@@ -108,7 +110,7 @@ usage(void)
 int
 main(int argc, char **argv)
 {
-	int in, out, ch;
+	int in, out, ch, err;
 	pid_t sshpid;
 	char *host, *userhost, *cp, *file2;
 	int debug_level = 0, sshver = 2;
@@ -122,7 +124,6 @@ main(int argc, char **argv)
 	__progname = get_progname(argv[0]);
 	args.list = NULL;
 	addargs(&args, "ssh");		/* overwritten with ssh_program */
-	addargs(&args, "-oFallBackToRsh no");
 	addargs(&args, "-oForwardX11 no");
 	addargs(&args, "-oForwardAgent no");
 	addargs(&args, "-oClearAllForwardings yes");
@@ -163,6 +164,7 @@ main(int argc, char **argv)
 					fatal("%s (%s).", strerror(errno), optarg);
 			} else
 				fatal("Filename already specified.");
+			showprogress = 0;
 			break;
 		case 'P':
 			sftp_direct = optarg;
@@ -198,7 +200,7 @@ main(int argc, char **argv)
 			file1 = cp;
 		}
 
-		if ((host = strchr(userhost, '@')) == NULL)
+		if ((host = strrchr(userhost, '@')) == NULL)
 			host = userhost;
 		else {
 			*host++ = '\0';
@@ -238,7 +240,7 @@ main(int argc, char **argv)
 		    &sshpid);
 	}
 
-	interactive_loop(in, out, file1, file2);
+	err = interactive_loop(in, out, file1, file2);
 
 #if !defined(USE_PIPES)
 	shutdown(in, SHUT_RDWR);
@@ -255,5 +257,5 @@ main(int argc, char **argv)
 			fatal("Couldn't wait for ssh process: %s",
 			    strerror(errno));
 
-	exit(0);
+	exit(err == 0 ? 0 : 1);
 }

@@ -37,7 +37,7 @@
  * SUCH DAMAGE.
  *
  *
- * $Id: amd.h,v 1.1.1.1 2002/05/15 01:21:53 jkh Exp $
+ * $Id: amd.h,v 1.1.1.2 2002/07/15 19:42:34 zarzycki Exp $
  *
  */
 
@@ -75,6 +75,7 @@
 
 #define ereturn(x) { *error_return = x; return 0; }
 
+#define NEVER (time_t) 0
 
 /*
  * TYPEDEFS:
@@ -228,7 +229,7 @@ extern bool_t xdr_amq_mount_info_qelem(XDR *xdrs, qelem *qhead);
 extern fserver *find_nfs_srvr(mntfs *mf);
 extern int auto_fmount(am_node *mp);
 extern int auto_fumount(am_node *mp);
-extern int mount_nfs_fh(am_nfs_handle_t *fhp, char *dir, char *fs_name, char *opts, int on_autofs, mntfs *mf);
+extern int mount_nfs_fh(am_nfs_handle_t *fhp, char *mntdir, char *real_mntdir, char *fs_name, char *opts, int on_autofs, mntfs *mf);
 extern int process_last_regular_map(void);
 extern int set_conf_kv(const char *section, const char *k, const char *v);
 extern int try_mount(voidp mvp);
@@ -285,14 +286,11 @@ extern bool_t xdr_mountres3(XDR *xdrs, mountres3 *objp);
 #ifdef HAVE_FS_AUTOFS
 extern int amd_use_autofs;
 
-/* should go away */
-extern am_node *autofs_lookuppn(am_node *mp, char *fname, int *error_return, int op);
-
 extern autofs_fh_t *autofs_get_fh(am_node *mp);
 extern void autofs_release_fh(autofs_fh_t *fh);
 extern void autofs_add_fdset(fd_set *readfds);
 extern int autofs_handle_fdset(fd_set *readfds, int nsel);
-extern void autofs_mounted(mntfs *mf);
+extern void autofs_mounted(am_node *mp);
 extern void autofs_mount_succeeded(am_node *mp);
 extern void autofs_mount_failed(am_node *mp);
 extern int autofs_umount_succeeded(am_node *mp);
@@ -301,6 +299,7 @@ extern void autofs_get_opts(char *opts, autofs_fh_t *fh);
 extern int autofs_link_mount(am_node *mp);
 extern int autofs_link_umount(am_node *mp);
 extern int autofs_compute_mount_flags(mntent_t *);
+extern void autofs_timeout_mp(am_node *);
 extern int create_autofs_service(void);
 extern int destroy_autofs_service(void);
 #endif /* HAVE_FS_AUTOFS */

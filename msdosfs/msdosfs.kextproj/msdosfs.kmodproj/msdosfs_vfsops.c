@@ -3,19 +3,22 @@
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
- * The contents of this file constitute Original Code as defined in and
- * are subject to the Apple Public Source License Version 1.1 (the
- * "License").  You may not use this file except in compliance with the
- * License.  Please obtain a copy of the License at
- * http://www.apple.com/publicsource and read it before using this file.
+ * Copyright (c) 1999-2003 Apple Computer, Inc.  All Rights Reserved.
  * 
- * This Original Code and all software distributed under the License are
- * distributed on an "AS IS" basis, WITHOUT WARRANTY OF ANY KIND, EITHER
+ * This file contains Original Code and/or Modifications of Original Code
+ * as defined in and that are subject to the Apple Public Source License
+ * Version 2.0 (the 'License'). You may not use this file except in
+ * compliance with the License. Please obtain a copy of the License at
+ * http://www.opensource.apple.com/apsl/ and read it before using this
+ * file.
+ * 
+ * The Original Code and all software distributed under the License are
+ * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
  * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
  * INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY,
- * FITNESS FOR A PARTICULAR PURPOSE OR NON-INFRINGEMENT.  Please see the
- * License for the specific language governing rights and limitations
- * under the License.
+ * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
+ * Please see the License for the specific language governing rights and
+ * limitations under the License.
  * 
  * @APPLE_LICENSE_HEADER_END@
  */
@@ -81,6 +84,7 @@
 #include <sys/malloc.h>
 #include <sys/stat.h> 				/* defines ALLPERMS */
 #include <sys/ubc.h>
+#include <sys/utfconv.h>
 #include <mach/kmod.h>
 #include <kern/thread.h>
 
@@ -96,6 +100,10 @@
 #define MSDOSFS_DFLTBSIZE       4096
 
 extern uid_t console_user;
+
+extern u_int16_t dos2unicode[32];
+
+extern long msdos_secondsWest;	/* In msdosfs_conv.c */
 
 #if 0
 MALLOC_DEFINE(M_MSDOSFSMNT, "MSDOSFS mount", "MSDOSFS mount structure");
@@ -117,6 +125,8 @@ static int	msdosfs_sync __P((struct mount *, int, struct ucred *,
 static int	msdosfs_unmount __P((struct mount *, int, struct proc *));
 static int	msdosfs_vptofh __P((struct vnode *, struct fid *));
 
+static int	get_root_label(struct mount *mp);
+
 static int
 update_mp(mp, argp)
 	struct mount *mp;
@@ -125,7 +135,7 @@ update_mp(mp, argp)
 	struct msdosfsmount *pmp = VFSTOMSDOSFS(mp);
 
 	pmp->pm_gid = argp->gid;
-	pmp->pm_uid = (mp->mnt_flag & MNT_UNKNOWNPERMISSIONS) ? console_user : argp->uid;
+	pmp->pm_uid = argp->uid;
 	pmp->pm_mask = argp->mask & ALLPERMS;
 	pmp->pm_flags |= argp->flags & MSDOSFSMNT_MNTOPT;
 	if (pmp->pm_flags & MSDOSFSMNT_U2WTABLE) {
@@ -137,6 +147,11 @@ update_mp(mp, argp)
 		bcopy(argp->ul, pmp->pm_ul, sizeof(pmp->pm_ul));
 		bcopy(argp->lu, pmp->pm_lu, sizeof(pmp->pm_lu));
 	}
+	if (argp->flags & MSDOSFSMNT_SECONDSWEST)
+		msdos_secondsWest = argp->secondsWest;
+
+	if (argp->flags & MSDOSFSMNT_LABEL)
+		bcopy(argp->label, pmp->pm_label, sizeof(pmp->pm_label));
 
 #if 0
 #ifndef __FreeBSD__
@@ -205,7 +220,7 @@ msdosfs_mountroot()
 	args.uid = 0;
 	args.gid = 0;
 	args.mask = 0777;
-
+        
 	if ((error = mountmsdosfs(rootvp, mp, p, &args)) != 0) {
 		FREE(mp, M_TEMP);
 		return (error);
@@ -522,6 +537,7 @@ mountmsdosfs(devvp, mp, p, argp)
 	pmp->pm_SecPerTrack = getushort(b50->bpbSecPerTrack);
 	pmp->pm_Heads = getushort(b50->bpbHeads);
 	pmp->pm_Media = b50->bpbMedia;
+	pmp->pm_label_cluster = CLUST_EOFE;	/* Assume there is no label in the root */
 
 	/* calculate the ratio of sector size to device block size */
         VOP_DEVBLOCKSIZE(devvp, (int*) &pmp->pm_BlockSize);
@@ -551,17 +567,6 @@ mountmsdosfs(devvp, mp, p, argp)
 		pmp->pm_HugeSectors = getulong(b50->bpbHugeSectors);
 	} else {
 		pmp->pm_HugeSectors = pmp->pm_Sectors;
-	}
-	if (pmp->pm_HugeSectors > 0xffffffff / 
-	    (pmp->pm_BytesPerSec / sizeof(struct direntry)) + 1) {
-		/*
-		 * We cannot deal currently with this size of disk
-		 * due to fileid limitations (see msdosfs_getattr and
-		 * msdosfs_readdir)
-		 */
-		error = EINVAL;
-		printf("mountmsdosfs(): disk too big, sorry\n");
-		goto error_exit;
 	}
 
 	if (pmp->pm_RootDirEnts == 0) {
@@ -698,6 +703,43 @@ mountmsdosfs(devvp, mp, p, argp)
 		goto error_exit;
 	}
 
+	/* Copy volume label from boot sector into mount point */
+	{
+		struct extboot *extboot;
+		int i;
+		u_char uc;
+		
+		/* Start out assuming no label (empty string) */
+		pmp->pm_label[0] = '\0';
+
+		if (FAT32(pmp)) {
+			extboot = (struct extboot *) bsp->bs710.bsExt;
+		} else {
+			extboot = (struct extboot *) bsp->bs50.bsExt;
+		}
+		
+		if (extboot->exBootSignature == EXBOOTSIG) {
+			/*
+			 * Copy the label from the boot sector into the mount point.
+			 *
+			 * We don't call dos2unicodefn() because it assumes the last three
+			 * characters are an extension, and it will put a period before the
+			 * extension.
+			 */
+			for (i=0; i<11; i++) {
+				uc = extboot->exVolumeLabel[i];
+				if (i==0 && uc == SLOT_E5)
+					uc = 0xE5;
+				pmp->pm_label[i] = (uc < 0x80 || uc > 0x9F ? uc : dos2unicode[uc - 0x80]);
+			}
+
+			/* Remove trailing spaces, add NUL terminator */
+			for (i=10; i>=0 && pmp->pm_label[i]==' '; --i)
+				;
+			pmp->pm_label[i+1] = '\0';
+		}
+	}
+        
 	/*
 	 * Release the bootsector buffer.
 	 */
@@ -781,6 +823,7 @@ mountmsdosfs(devvp, mp, p, argp)
 	mp->mnt_flag |= MNT_LOCAL;
 	devvp->v_specflags |= SI_MOUNTEDON;
 
+	(void) get_root_label(mp);
 
 	return 0;
 
@@ -978,13 +1021,23 @@ loop:
 		simple_lock(&vp->v_interlock);
 		nvp = vp->v_mntvnodes.le_next;
 		dep = VTODE(vp);
-		if (vp->v_type == VNON ||
-		    ((dep->de_flag &
-		    (DE_ACCESS | DE_CREATE | DE_UPDATE | DE_MODIFIED)) == 0 &&
-		    ( vp->v_dirtyblkhd.lh_first == NULL && !(vp->v_flag & VHASDIRTY)))) {
+		
+		/* If this node is locked or being reclaimed, then skip it. */
+		if (vp->v_tag != VT_MSDOSFS || dep == NULL || vp->v_flag & (VXLOCK|VORECLAIM))
+		{
 			simple_unlock(&vp->v_interlock);
 			continue;
 		}
+		
+		if (vp->v_type == VNON ||
+		    ((dep->de_flag &
+		    (DE_ACCESS | DE_CREATE | DE_UPDATE | DE_MODIFIED)) == 0 &&
+		    ( vp->v_dirtyblkhd.lh_first == NULL && !(vp->v_flag & VHASDIRTY))))
+		{
+			simple_unlock(&vp->v_interlock);
+			continue;
+		}
+		
 		simple_unlock(&mntvnode_slock);
 		error = vget(vp, LK_EXCLUSIVE | LK_NOWAIT | LK_INTERLOCK, p);
 		if (error) {
@@ -1238,3 +1291,111 @@ msdosfs_module_stop(kmod_info_t *ki, void *data)
 	return (KERN_SUCCESS);
 }   
 
+
+/*
+ * Look through the root directory for a volume label entry.
+ * If found, use it to replace the label in the mount point.
+ */
+static int get_root_label(struct mount *mp)
+{
+    int error;
+    struct msdosfsmount *pmp;
+    struct vnode *rootvp = NULL;
+    struct buf *bp = NULL;
+    u_long frcn;	/* file relative cluster number in root directory */
+    daddr_t bn;		/* block number of current dir block */
+    u_long cluster;	/* cluster number of current dir block */
+    u_long blsize;	/* size of current dir block */
+    int blkoff;		/* dir entry offset within current dir block */
+    struct direntry *dep = NULL;
+    struct denode *root;
+    u_int16_t unichars;
+    u_int16_t ucfn[12];
+    u_char uc;
+    int i;
+    size_t outbytes;
+
+    pmp = VFSTOMSDOSFS(mp);
+
+    error = msdosfs_root(mp, &rootvp);
+    if (error)
+        return error;
+    root = VTODE(rootvp);
+    
+    for (frcn=0; ; frcn++) {
+        error = pcbmap(root, frcn, 1, &bn, &cluster, &blsize);
+        if (error)
+            goto not_found;
+
+        error = meta_bread(pmp->pm_devvp, bn, blsize, NOCRED, &bp);
+        if (error) {
+            goto not_found;
+        }
+
+        for (blkoff = 0; blkoff < blsize; blkoff += sizeof(struct direntry)) {
+            dep = (struct direntry *) (bp->b_data + blkoff);
+
+            /* Skip deleted directory entries */
+            if (dep->deName[0] == SLOT_DELETED)
+                continue;
+            
+            /* Stop if we hit the end of the directory (a never used entry) */
+            if (dep->deName[0] == SLOT_EMPTY) {
+                goto not_found;
+            }
+
+            /* Skip long name entries */
+            if (dep->deAttributes == ATTR_WIN95)
+                continue;
+            
+            if (dep->deAttributes & ATTR_VOLUME) {
+                pmp->pm_label_cluster = cluster;
+                pmp->pm_label_offset = blkoff;
+
+                /*
+                 * Copy the dates from the label to the root vnode.
+                 */
+                root->de_CHun = dep->deCHundredth;
+                root->de_CTime = getushort(dep->deCTime);
+                root->de_CDate = getushort(dep->deCDate);
+                root->de_ADate = getushort(dep->deADate);
+                root->de_MTime = getushort(dep->deMTime);
+                root->de_MDate = getushort(dep->deMDate);
+
+				/*
+                 * We don't call dos2unicodefn() because it assumes the last three
+                 * characters are an extension, and it will put a period before the
+                 * extension.
+                 */
+				for (i=0; i<11; i++) {
+					uc = dep->deName[i];
+					if (i==0 && uc == SLOT_E5)
+						uc = 0xE5;
+					ucfn[i] = (uc < 0x80 || uc > 0x9F ? (u_int16_t)uc : dos2unicode[uc - 0x80]);
+				}
+				for (i=10; i>=0 && ucfn[i]==' '; --i)
+					;
+				unichars = i+1;
+				
+				/* translate the name in ucfn into UTF-8 */
+				error = utf8_encodestr(ucfn, unichars * 2,
+								pmp->pm_label, &outbytes,
+								sizeof(pmp->pm_label), 0, UTF_DECOMPOSED);
+                goto found;
+            }
+        }
+        
+        brelse(bp);
+        bp = NULL;
+    }
+
+found:
+not_found:
+    if (bp)
+        brelse(bp);
+
+    if (rootvp)
+        vput(rootvp);
+
+    return error;
+}

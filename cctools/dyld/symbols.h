@@ -3,8 +3,6 @@
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
- * Copyright (c) 1999-2003 Apple Computer, Inc.  All Rights Reserved.
- * 
  * This file contains Original Code and/or Modifications of Original Code
  * as defined in and that are subject to the Apple Public Source License
  * Version 2.0 (the 'License'). You may not use this file except in
@@ -146,7 +144,8 @@ extern void unlink_object_module(
     enum bool reset_lazy_references);
 extern enum bool link_in_need_modules(
     enum bool bind_now,
-    enum bool release_lock);
+    enum bool release_lock,
+    struct object_image *reloc_just_this_object_image);
 extern enum bool check_executable_for_overrides(
     void);
 extern enum bool check_libraries_for_overrides(
@@ -165,3 +164,14 @@ extern struct twolevel_hint * get_hint(
 /* TODO: make this a static inline */
 extern enum bool get_weak(
     struct nlist *symbol);
+
+/*
+ * These are for the private ZeroLink callbacks.
+ */
+typedef void (*object_image_register_proc)(
+    const char* imageName,
+    struct object_image* image);
+typedef struct object_image * (*object_image_locator_proc)(
+    const char* symbol_name);
+extern object_image_register_proc object_image_register;
+extern object_image_locator_proc object_image_locator;

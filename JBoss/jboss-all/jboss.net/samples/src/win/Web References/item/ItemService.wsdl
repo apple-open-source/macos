@@ -1,0 +1,90 @@
+<?xml version="1.0" encoding="utf-8"?>
+<definitions xmlns:s1="http://localhost/axis/services/ItemService" xmlns:http="http://schemas.xmlsoap.org/wsdl/http/" xmlns:soap="http://schemas.xmlsoap.org/wsdl/soap/" xmlns:s="http://www.w3.org/2001/XMLSchema" xmlns:s0="http://net.jboss.org/samples/store" xmlns:soapenc="http://schemas.xmlsoap.org/soap/encoding/" xmlns:tm="http://microsoft.com/wsdl/mime/textMatching/" xmlns:mime="http://schemas.xmlsoap.org/wsdl/mime/" targetNamespace="http://localhost/axis/services/ItemService" xmlns="http://schemas.xmlsoap.org/wsdl/">
+  <types>
+    <s:schema targetNamespace="http://net.jboss.org/samples/store">
+      <s:complexType name="Item">
+        <s:sequence>
+          <s:element name="name" nillable="true" type="s:string" />
+        </s:sequence>
+      </s:complexType>
+      <s:element name="Item" nillable="true" type="s0:Item" />
+    </s:schema>
+    <s:schema targetNamespace="http://localhost/axis/services/ItemService">
+      <s:complexType name="ArrayOf_tns1_Item">
+        <s:complexContent mixed="false">
+          <s:restriction base="soapenc:Array">
+            <s:attribute d7p1:arrayType="s0:Item[]" ref="soapenc:arrayType" xmlns:d7p1="http://schemas.xmlsoap.org/wsdl/" />
+          </s:restriction>
+        </s:complexContent>
+      </s:complexType>
+      <s:element name="ArrayOf_tns1_Item" nillable="true" type="s1:ArrayOf_tns1_Item" />
+    </s:schema>
+  </types>
+  <message name="deleteResponse" />
+  <message name="deleteRequest">
+    <part name="in0" type="s0:Item" />
+  </message>
+  <message name="findAllRequest" />
+  <message name="createRequest">
+    <part name="in0" type="s:string" />
+  </message>
+  <message name="findAllResponse">
+    <part name="return" type="s1:ArrayOf_tns1_Item" />
+  </message>
+  <message name="createResponse">
+    <part name="return" type="s0:Item" />
+  </message>
+  <message name="StoreException" />
+  <portType name="ItemService">
+    <operation name="delete" parameterOrder="in0">
+      <input message="s1:deleteRequest" />
+      <output message="s1:deleteResponse" />
+      <fault name="StoreException" message="s1:StoreException" />
+    </operation>
+    <operation name="create" parameterOrder="in0">
+      <input message="s1:createRequest" />
+      <output message="s1:createResponse" />
+      <fault name="StoreException" message="s1:StoreException" />
+    </operation>
+    <operation name="findAll">
+      <input message="s1:findAllRequest" />
+      <output message="s1:findAllResponse" />
+      <fault name="StoreException" message="s1:StoreException" />
+    </operation>
+  </portType>
+  <binding name="ItemServiceSoapBinding" type="s1:ItemService">
+    <soap:binding transport="http://schemas.xmlsoap.org/soap/http" style="rpc" />
+    <operation name="delete">
+      <soap:operation soapAction="" />
+      <input>
+        <soap:body use="encoded" namespace="http://localhost/axis/services/ItemService" encodingStyle="http://schemas.xmlsoap.org/soap/encoding/" />
+      </input>
+      <output>
+        <soap:body use="encoded" namespace="http://localhost/axis/services/ItemService" encodingStyle="http://schemas.xmlsoap.org/soap/encoding/" />
+      </output>
+    </operation>
+    <operation name="create">
+      <soap:operation soapAction="" />
+      <input>
+        <soap:body use="encoded" namespace="http://localhost/axis/services/ItemService" encodingStyle="http://schemas.xmlsoap.org/soap/encoding/" />
+      </input>
+      <output>
+        <soap:body use="encoded" namespace="http://localhost/axis/services/ItemService" encodingStyle="http://schemas.xmlsoap.org/soap/encoding/" />
+      </output>
+    </operation>
+    <operation name="findAll">
+      <soap:operation soapAction="" />
+      <input>
+        <soap:body use="encoded" namespace="http://localhost/axis/services/ItemService" encodingStyle="http://schemas.xmlsoap.org/soap/encoding/" />
+      </input>
+      <output>
+        <soap:body use="encoded" namespace="http://localhost/axis/services/ItemService" encodingStyle="http://schemas.xmlsoap.org/soap/encoding/" />
+      </output>
+    </operation>
+  </binding>
+  <service name="ItemServiceService">
+    <port name="ItemService" binding="s1:ItemServiceSoapBinding">
+      <soap:address location="http://localhost/axis/services/ItemService" />
+    </port>
+  </service>
+</definitions>

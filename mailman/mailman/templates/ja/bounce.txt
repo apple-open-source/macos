@@ -1,0 +1,12 @@
+これは Mailman メーリングリストの配送不可通知です.
+
+    リスト:     %(listname)s
+    会員:       %(addr)s
+    措置:       会員への配送を %(negative)s%(did)s.
+    理由:       過剰又は致命的配送不可.
+    %(but)s
+
+%(reenable)s
+最終の配送不可通知を以下に添付します.
+
+質問があれば，Mailman 管理者 %(owneraddr)s に連絡してください.

@@ -90,12 +90,19 @@ bool IOAudioControlUserClient::initWithAudioControl(IOAudioControl *control, tas
     if (!initWithTask(task, securityID, type)) {
         return false;
     }
-
+/*
+	// For 3019260
+	if (clientHasPrivilege(securityID, kIOClientPrivilegeLocalUser)) {
+		// You don't have enough privileges to control the audio
+		return false;
+	}
+*/
     if (!control) {
         return false;
     }
 
     audioControl = control;
+	audioControl->retain();
     clientTask = task;
     notificationMessage = 0;
 
@@ -113,6 +120,10 @@ void IOAudioControlUserClient::free()
         notificationMessage = 0;
     }
 
+	if (reserved) {
+		IOFree (reserved, sizeof(struct ExpansionData));
+	}
+
     super::free();
 }
 
@@ -122,8 +133,11 @@ IOReturn IOAudioControlUserClient::clientClose()
     IOLog("IOAudioControlUserClient[%p]::clientClose()\n", this);
 #endif
 
-    if (audioControl && !isInactive()) {
-        audioControl->clientClosed(this);
+    if (audioControl) {
+		if (!audioControl->isInactive () && !isInactive()) {
+			audioControl->clientClosed(this);
+		}
+		audioControl->release();
         audioControl = 0;
     }
     

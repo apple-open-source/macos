@@ -1,5 +1,6 @@
 /* Parameters for execution on a Mitsubishi m32r processor.
-   Copyright 1996, 1997 Free Software Foundation, Inc. 
+   Copyright 1996, 1997, 1998, 1999, 2000, 2001, 2002, 2003
+   Free Software Foundation, Inc. 
 
    This file is part of GDB.
 
@@ -109,8 +110,8 @@ struct value;
 extern void m32r_init_extra_frame_info (struct frame_info *fi);
 /* mvs_check  INIT_EXTRA_FRAME_INFO */
 #define INIT_EXTRA_FRAME_INFO(fromleaf, fi) m32r_init_extra_frame_info (fi)
-/* mvs_no_check  INIT_FRAME_PC */
-#define INIT_FRAME_PC		/* Not necessary */
+/* mvs_no_check  DEPRECATED_INIT_FRAME_PC */
+#define DEPRECATED_INIT_FRAME_PC		init_frame_pc_noop
 
 extern void
 m32r_frame_find_saved_regs (struct frame_info *fi,
@@ -130,23 +131,21 @@ extern CORE_ADDR m32r_frame_chain (struct frame_info *fi);
 /* mvs_check  FRAME_CHAIN */
 #define FRAME_CHAIN(fi) 		m32r_frame_chain (fi)
 
-#define FRAME_CHAIN_VALID(fp, frame)	generic_file_frame_chain_valid (fp, frame)
-
 extern CORE_ADDR m32r_find_callers_reg (struct frame_info *fi, int regnum);
 extern CORE_ADDR m32r_frame_saved_pc (struct frame_info *);
 /* mvs_check  FRAME_SAVED_PC */
 #define FRAME_SAVED_PC(fi)		m32r_frame_saved_pc (fi)
 
-/* mvs_check  EXTRACT_RETURN_VALUE */
-#define EXTRACT_RETURN_VALUE(TYPE, REGBUF, VALBUF) \
+/* mvs_check  DEPRECATED_EXTRACT_RETURN_VALUE */
+#define DEPRECATED_EXTRACT_RETURN_VALUE(TYPE, REGBUF, VALBUF) \
   memcpy ((VALBUF), \
 	  (char *)(REGBUF) + REGISTER_BYTE (V0_REGNUM) + \
 	  ((TYPE_LENGTH (TYPE) > 4 ? 8 : 4) - TYPE_LENGTH (TYPE)), \
 	  TYPE_LENGTH (TYPE))
 
-/* mvs_check  STORE_RETURN_VALUE */
-#define STORE_RETURN_VALUE(TYPE, VALBUF) \
-  write_register_bytes(REGISTER_BYTE (V0_REGNUM) + \
+/* mvs_check  DEPRECATED_STORE_RETURN_VALUE */
+#define DEPRECATED_STORE_RETURN_VALUE(TYPE, VALBUF) \
+  deprecated_write_register_bytes(REGISTER_BYTE (V0_REGNUM) + \
 		       ((TYPE_LENGTH (TYPE) > 4 ? 8:4) - TYPE_LENGTH (TYPE)),\
 		       (VALBUF), TYPE_LENGTH (TYPE));
 
@@ -164,8 +163,6 @@ extern CORE_ADDR m32r_skip_prologue (CORE_ADDR pc);
 /* mvs_no_check  FRAME_NUM_ARGS */
 #define FRAME_NUM_ARGS(fi) (-1)
 
-#define COERCE_FLOAT_TO_DOUBLE(formal, actual) (1)
-
 extern void m32r_write_sp (CORE_ADDR val);
 #define TARGET_WRITE_SP m32r_write_sp
 
@@ -181,7 +178,7 @@ extern void m32r_write_sp (CORE_ADDR val);
 extern use_struct_convention_fn m32r_use_struct_convention;
 #define USE_STRUCT_CONVENTION(GCC_P, TYPE) m32r_use_struct_convention (GCC_P, TYPE)
 
-#define EXTRACT_STRUCT_VALUE_ADDRESS(REGBUF) \
+#define DEPRECATED_EXTRACT_STRUCT_VALUE_ADDRESS(REGBUF) \
   extract_address (REGBUF + REGISTER_BYTE (V0_REGNUM), \
 		   REGISTER_RAW_SIZE (V0_REGNUM))
 
@@ -191,7 +188,7 @@ extern use_struct_convention_fn m32r_use_struct_convention;
 /* generic dummy frame stuff */
 
 #define PUSH_DUMMY_FRAME             generic_push_dummy_frame ()
-#define PC_IN_CALL_DUMMY(PC, SP, FP) generic_pc_in_call_dummy (PC, SP, FP)
+#define DEPRECATED_PC_IN_CALL_DUMMY(PC, SP, FP) generic_pc_in_call_dummy (PC, SP, FP)
 
 
 /* target-specific dummy_frame stuff */
@@ -221,10 +218,10 @@ extern CORE_ADDR m32r_push_arguments (int nargs,
 /* override the standard get_saved_register function with 
    one that takes account of generic CALL_DUMMY frames */
 #define GET_SAVED_REGISTER(raw_buffer, optimized, addrp, frame, regnum, lval) \
-     generic_get_saved_register (raw_buffer, optimized, addrp, frame, regnum, lval)
+     deprecated_generic_get_saved_register (raw_buffer, optimized, addrp, frame, regnum, lval)
 
 
-#define USE_GENERIC_DUMMY_FRAMES 1
+#define DEPRECATED_USE_GENERIC_DUMMY_FRAMES 1
 #define CALL_DUMMY                   {0}
 #define CALL_DUMMY_LENGTH            (0)
 #define CALL_DUMMY_START_OFFSET      (0)

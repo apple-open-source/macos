@@ -53,38 +53,38 @@ void PowerWatcher::ioCallback(void *refCon, io_service_t service,
     enum { allow, refuse, ignore } reaction;
     switch (messageType) {
     case kIOMessageSystemWillSleep:
-        debug("powerwatch", "system will sleep");
+        secdebug("powerwatch", "system will sleep");
         me->systemWillSleep();
         reaction = allow;
         break;
     case kIOMessageSystemHasPoweredOn:
-        debug("powerwatch", "system has powered on");
+        secdebug("powerwatch", "system has powered on");
         me->systemIsWaking();
         reaction = ignore;
         break;
     case kIOMessageSystemWillPowerOff:
-        debug("powerwatch", "system will power off");
+        secdebug("powerwatch", "system will power off");
         me->systemWillPowerDown();
         reaction = allow;
         break;
     case kIOMessageSystemWillNotPowerOff:
-        debug("powerwatch", "system will not power off");
+        secdebug("powerwatch", "system will not power off");
         reaction = ignore;
         break;
     case kIOMessageCanSystemSleep:
-        debug("powerwatch", "can system sleep");
+        secdebug("powerwatch", "can system sleep");
         reaction = allow;
         break;
     case kIOMessageSystemWillNotSleep:
-        debug("powerwatch", "system will not sleep");
+        secdebug("powerwatch", "system will not sleep");
         reaction = ignore;
         break;
     case kIOMessageCanSystemPowerOff:
-        debug("powerwatch", "can system power off");
+        secdebug("powerwatch", "can system power off");
         reaction = allow;
         break;
     default:
-        debug("powerwatch",
+        secdebug("powerwatch",
             "type 0x%x message received (ignored)", messageType);
         reaction = ignore;
         break;
@@ -93,15 +93,15 @@ void PowerWatcher::ioCallback(void *refCon, io_service_t service,
     // handle acknowledgments
     switch (reaction) {
     case allow:
-		debug("powerwatch", "calling IOAllowPowerChange");
+		secdebug("powerwatch", "calling IOAllowPowerChange");
         IOAllowPowerChange(me->mKernelPort, long(argument));
         break;
     case refuse:
-		debug("powerwatch", "calling IOCancelPowerChange");
+		secdebug("powerwatch", "calling IOCancelPowerChange");
         IOCancelPowerChange(me->mKernelPort, long(argument));
         break;
     case ignore:
-		debug("powerwatch", "sending no response");
+		secdebug("powerwatch", "sending no response");
         break;
     }
 }

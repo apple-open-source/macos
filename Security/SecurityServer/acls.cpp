@@ -47,91 +47,35 @@ const Database *SecurityServerAcl::relatedDatabase() const
 // Provide environmental information to get/change-ACL calls.
 // Also make them virtual so our children can override them.
 //
-void SecurityServerAcl::cssmGetAcl(const char *tag, uint32 &count, AclEntryInfo * &acls)
-{
-	instantiateAcl();
-	return ObjectAcl::cssmGetAcl(tag, count, acls);
-}
-
-void SecurityServerAcl::cssmGetOwner(AclOwnerPrototype &owner)
-{
-	instantiateAcl();
-	return ObjectAcl::cssmGetOwner(owner);
-}
-
 void SecurityServerAcl::cssmChangeAcl(const AclEdit &edit, const AccessCredentials *cred)
 {
-	instantiateAcl();
 	SecurityServerEnvironment env(*this);
 	ObjectAcl::cssmChangeAcl(edit, cred, &env);
-	noticeAclChange();
 }
 
 void SecurityServerAcl::cssmChangeOwner(const AclOwnerPrototype &newOwner,
 	const AccessCredentials *cred)
 {
-	instantiateAcl();
 	SecurityServerEnvironment env(*this);
 	ObjectAcl::cssmChangeOwner(newOwner, cred, &env);
-	noticeAclChange();
 }
 
 
 //
 // Modified validate() methods to connect all the conduits...
 //
-void SecurityServerAcl::validate(AclAuthorization auth, const AccessCredentials *cred) const
+void SecurityServerAcl::validate(AclAuthorization auth, const AccessCredentials *cred)
 {
-	instantiateAcl();
     SecurityServerEnvironment env(*this);
+	StLock<Mutex> objectSequence(aclSequence);
+	StLock<Mutex> processSequence(Server::connection().process.aclSequence);
     ObjectAcl::validate(auth, cred, &env);
 }
 
-void SecurityServerAcl::validate(AclAuthorization auth, const Context &context) const
+void SecurityServerAcl::validate(AclAuthorization auth, const Context &context)
 {
 	validate(auth,
 		context.get<AccessCredentials>(CSSM_ATTRIBUTE_ACCESS_CREDENTIALS));
-}
-
-
-//
-// This function decodes the "special passphrase samples" that provide passphrases
-// to the SecurityServer through ACL sample blocks. Essentially, it trolls a credentials
-// structure's samples for the special markers, resolves anything that contains
-// passphrases outright (and returns true), or returns false if the normal interactive
-// procedures are to be followed.
-// (This doesn't strongly belong to the SecurityServerAcl class, but doesn't really have
-// a better home elsewhere.)
-//
-bool SecurityServerAcl::getBatchPassphrase(const AccessCredentials *cred,
-	CSSM_SAMPLE_TYPE neededSampleType, CssmOwnedData &passphrase)
-{
-    if (cred) {
-		// check all top-level samples
-        const SampleGroup &samples = cred->samples();
-        for (uint32 n = 0; n < samples.length(); n++) {
-            TypedList sample = samples[n];
-            if (!sample.isProper())
-                CssmError::throwMe(CSSM_ERRCODE_INVALID_SAMPLE_VALUE);
-            if (sample.type() == neededSampleType) {
-                sample.snip();
-                if (!sample.isProper())
-                    CssmError::throwMe(CSSM_ERRCODE_INVALID_SAMPLE_VALUE);
-                switch (sample.type()) {
-                case CSSM_SAMPLE_TYPE_KEYCHAIN_PROMPT:
-                    return false;
-                case CSSM_SAMPLE_TYPE_PASSWORD:
-					if (sample.length() != 2)
-						CssmError::throwMe(CSSM_ERRCODE_INVALID_SAMPLE_VALUE);
-					passphrase = sample[1];
-                    return true;
-                default:
-                    CssmError::throwMe(CSSM_ERRCODE_INVALID_SAMPLE_VALUE);
-                }
-            }
-        }
-    }
-	return false;
 }
 
 
@@ -153,7 +97,8 @@ pid_t SecurityServerEnvironment::getpid() const
     return Server::connection().process.pid();
 }
 
-bool SecurityServerEnvironment::verifyCodeSignature(const CodeSigning::Signature *signature)
+bool SecurityServerEnvironment::verifyCodeSignature(const CodeSigning::Signature *signature,
+	const CssmData *comment)
 {
-	return Server::connection().process.verifyCodeSignature(signature);
+	return Server::codeSignatures().verify(Server::connection().process, signature, comment);
 }

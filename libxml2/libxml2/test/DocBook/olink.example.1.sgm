@@ -1,0 +1,22 @@
+
+<!DOCTYPE chapter PUBLIC "-//Davenport//DTD DocBook V3.0//EN" [
+<!ENTITY refbook SYSTEM "refbook.sgm" CDATA SGML>
+]>
+<chapter>
+<docinfo>
+  <modespec id=s1query>query in sect*, title return link text title</modespec>
+</docinfo>
+<title>Printing</title>
+
+<para>
+Blah, blah, blah.
+</para>
+
+<sect1><title>See Also</title>
+
+<para>
+For more information <olink targetdocent=refbook linkmode=s1query 
+localinfo="print or printing">about printing</olink>, consult
+the <ulink url="refbook.sgm">reference manual</ulink>.
+</para>
+</chapter>

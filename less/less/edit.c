@@ -1,27 +1,11 @@
 /*
- * Copyright (c) 1984,1985,1989,1994,1995,1996,1999  Mark Nudelman
- * All rights reserved.
+ * Copyright (C) 1984-2002  Mark Nudelman
  *
- * Redistribution and use in source and binary forms, with or without
- * modification, are permitted provided that the following conditions
- * are met:
- * 1. Redistributions of source code must retain the above copyright
- *    notice, this list of conditions and the following disclaimer.
- * 2. Redistributions in binary form must reproduce the above copyright
- *    notice in the documentation and/or other materials provided with 
- *    the distribution.
+ * You may distribute under the terms of either the GNU General Public
+ * License or the Less License, as specified in the README file.
  *
- * THIS SOFTWARE IS PROVIDED BY THE AUTHOR ``AS IS'' AND ANY
- * EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
- * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR 
- * PURPOSE ARE DISCLAIMED.  IN NO EVENT SHALL THE AUTHOR BE LIABLE
- * FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR 
- * CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT 
- * OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR 
- * BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, 
- * WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE 
- * OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN 
- * IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+ * For more information about less, or for information on how to 
+ * contact the author, see the README file.
  */
 
 
@@ -70,7 +54,10 @@ init_textlist(tlist, str)
 {
 	char *s;
 #if SPACES_IN_FILENAMES
-	int quoted = 0;
+	int meta_quoted = 0;
+	int delim_quoted = 0;
+	char *esc = get_meta_escape();
+	int esclen = strlen(esc);
 #endif
 	
 	tlist->string = skipsp(str);
@@ -78,12 +65,25 @@ init_textlist(tlist, str)
 	for (s = str;  s < tlist->endstring;  s++)
 	{
 #if SPACES_IN_FILENAMES
-		if (*s == ' ' && !quoted)
-			*s = '\0';
-		if (!quoted && *s == openquote)
-			quoted = 1;
-		else if (quoted && *s == closequote)
-			quoted = 0;
+		if (meta_quoted)
+		{
+			meta_quoted = 0;
+		} else if (esclen > 0 && s + esclen < tlist->endstring &&
+		           strncmp(s, esc, esclen) == 0)
+		{
+			meta_quoted = 1;
+			s += esclen - 1;
+		} else if (delim_quoted)
+		{
+			if (*s == closequote)
+				delim_quoted = 0;
+		} else /* (!delim_quoted) */
+		{
+			if (*s == openquote)
+				delim_quoted = 1;
+			else if (*s == ' ')
+				*s = '\0';
+		}
 #else
 		if (*s == ' ')
 			*s = '\0';
@@ -148,7 +148,6 @@ back_textlist(tlist, prev)
 close_file()
 {
 	struct scrpos scrpos;
-	char *filename;
 	
 	if (curr_ifile == NULL_IFILE)
 		return;
@@ -173,9 +172,8 @@ close_file()
 	 */
 	if (curr_altfilename != NULL)
 	{
-		filename = unquote_file(get_filename(curr_ifile));
-		close_altfile(curr_altfilename, filename, curr_altpipe);
-		free(filename);
+		close_altfile(curr_altfilename, get_filename(curr_ifile),
+				curr_altpipe);
 		free(curr_altfilename);
 		curr_altfilename = NULL;
 	}
@@ -210,6 +208,7 @@ edit_ifile(ifile)
 	int chflags;
 	char *filename;
 	char *open_filename;
+	char *qopen_filename;
 	char *alt_filename;
 	void *alt_pipe;
 	IFILE was_curr_ifile;
@@ -260,13 +259,14 @@ edit_ifile(ifile)
 		return (0);
 	}
 
-	filename = unquote_file(get_filename(ifile));
+	filename = save(get_filename(ifile));
 	/*
 	 * See if LESSOPEN specifies an "alternate" file to open.
 	 */
 	alt_pipe = NULL;
 	alt_filename = open_altfile(filename, &f, &alt_pipe);
 	open_filename = (alt_filename != NULL) ? alt_filename : filename;
+	qopen_filename = shell_unquote(open_filename);
 
 	chflags = 0;
 	if (alt_pipe != NULL)
@@ -317,13 +317,14 @@ edit_ifile(ifile)
 			free(alt_filename);
 		}
 		del_ifile(ifile);
+		free(qopen_filename);
 		free(filename);
 		/*
 		 * Re-open the current file.
 		 */
 		reedit_ifile(was_curr_ifile);
 		return (1);
-	} else if ((f = open(open_filename, OPEN_READ)) < 0)
+	} else if ((f = open(qopen_filename, OPEN_READ)) < 0)
 	{
 		/*
 		 * Got an error trying to open it.
@@ -351,6 +352,7 @@ edit_ifile(ifile)
 			}
 		}
 	}
+	free(qopen_filename);
 
 	/*
 	 * Get the new ifile.
@@ -699,7 +701,7 @@ use_logfile(filename)
 	/*
 	 * {{ We could use access() here. }}
 	 */
-	filename = unquote_file(filename);
+	filename = shell_unquote(filename);
 	exists = open(filename, OPEN_READ);
 	close(exists);
 	exists = (exists >= 0);

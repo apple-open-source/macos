@@ -1,0 +1,24 @@
+U, of iemand anders, heeft een paswoord opgevraagd voor uw lidmaatschap
+van de mailinglijst %(fqdn_lname)s.  U heeft dit paswoord nodig om
+wijzigingen in uw lidmaatschap opties aan te brengen (bv. aan/uitzetten van
+de digest etc.), met dit paswoord kunt u ook makkelijker uitschrijven van
+deze mailinglijst.
+
+U bent ingeschreven met het adres: %(user)s
+
+Uw %(listname)s paswoord is: %(password)s
+
+Om wijzigingen aan te brengen in uw lidmaatschap opties, kunt u
+de volgende pagina bezoeken:
+
+    %(options_url)s
+
+U kunt deze wijzigingen ook via e-mail doen, door een bericht te sturen aan:
+
+    %(requestaddr)s
+
+Met de tekst 'help' in het onderwerp (subject) of in het tekstgedeelte.
+U krijgt dan automatisch een bericht terug met verdere aanwijzingen.
+
+Vragen of opmerkingen kunt u sturen aan %(listname)s mailinglijst
+administrator op %(owneraddr)s.

@@ -6,7 +6,7 @@
 # Initial modifications: SKoT McDonald <skot@tomandandy.com> Aug 2001
 #
 # Based on CPPClass by Matt Morse (matt@apple.com)
-# Last Updated: $Date: 2001/11/30 22:43:17 $
+# Last Updated: $Date: 2003/07/23 23:00:55 $
 # 
 # Copyright (c) 1999-2001 Apple Computer, Inc.  All Rights Reserved.
 # The contents of this file constitute Original Code as defined in and are
@@ -80,24 +80,35 @@ sub getMethodType {
 	} elsif ($declaration =~ /^\s*\+/) {
 	    $methodType = "clm";
 	} else {
-		print "### Unable to determine whether declaration is for an instance or class method.\n";
-		print "     '$declaration'\n";
+		my $filename = $HeaderDoc::headerObject->filename();
+		print "$filename:0:Unable to determine whether declaration is for an instance or class method.\n";
+		print "$filename:0:     '$declaration'\n";
 	}
 	return $methodType;
 }
 
+# we add the apple_ref markup to the navigator comment to identify
+# to Project Builder and other applications indexing the documentation
+# that this is the entry point for documentation for this class
 sub docNavigatorComment {
     my $self = shift;
     my $name = $self->name();
+    my $navComment = "<!-- headerDoc=cl; name=$name-->";
+    my $appleRef = "<a name=\"//apple_ref/occ/cl/$name\"></a>";
     
-    return "<-- headerDoc=cl; name=$name-->";
+    return "$navComment\n$appleRef";
 }
 
 ################## Misc Functions ###################################
 sub objName { # used for sorting
    my $obj1 = $a;
    my $obj2 = $b;
-   return ($obj1->name() cmp $obj2->name());
+   if ($HeaderDoc::sort_entries) {
+        return ($obj1->name() cmp $obj2->name());
+   } else {
+        return (1 cmp 2);
+   }
 }
+
 
 1;

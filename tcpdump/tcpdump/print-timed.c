@@ -21,30 +21,30 @@
 
 #ifndef lint
 static const char rcsid[] =
-    "@(#) $Header: /cvs/Darwin/src/live/tcpdump/tcpdump/print-timed.c,v 1.1.1.2 2002/05/29 00:05:44 landonf Exp $";
+    "@(#) $Header: /cvs/root/tcpdump/tcpdump/print-timed.c,v 1.1.1.3 2003/03/17 18:42:20 rbraun Exp $";
 #endif
 
 #ifdef HAVE_CONFIG_H
 #include "config.h"
 #endif
 
-#include <sys/param.h>
-#include <sys/time.h>
-#include <netinet/in.h>
+#include <tcpdump-stdinc.h>
+
 #include <stdio.h>
 #include <string.h>
 
 #include "timed.h"
 #include "interface.h"
+#include "extract.h"
 
-static char *tsptype[TSPTYPENUMBER] =
+static const char *tsptype[TSPTYPENUMBER] =
   { "ANY", "ADJTIME", "ACK", "MASTERREQ", "MASTERACK", "SETTIME", "MASTERUP",
   "SLAVEUP", "ELECTION", "ACCEPT", "REFUSE", "CONFLICT", "RESOLVE", "QUIT",
   "DATE", "DATEREQ", "DATEACK", "TRACEON", "TRACEOFF", "MSITE", "MSITEREQ",
   "TEST", "SETDATE", "SETDATEREQ", "LOOP" };
 
 void
-timed_print(register const u_char *bp, u_int length)
+timed_print(register const u_char *bp)
 {
 #define endof(x) ((u_char *)&(x) + sizeof (x))
 	struct tsp *tsp = (struct tsp *)bp;
@@ -86,8 +86,8 @@ timed_print(register const u_char *bp, u_int length)
 			fputs(" [|timed]", stdout);
 			return;
 		}
-		sec = ntohl((long)tsp->tsp_time.tv_sec);
-		usec = ntohl((long)tsp->tsp_time.tv_usec);
+		sec = EXTRACT_32BITS(&tsp->tsp_time.tv_sec);
+		usec = EXTRACT_32BITS(&tsp->tsp_time.tv_usec);
 		if (usec < 0)
 			/* corrupt, skip the rest of the packet */
 			return;

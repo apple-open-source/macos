@@ -1,5 +1,5 @@
 ;;; gnus-mlspl.el --- a group params-based mail splitting mechanism
-;; Copyright (C) 1998, 1999, 2000
+;; Copyright (C) 1998, 1999, 2000, 2002
 ;;        Free Software Foundation, Inc.
 
 ;; Author: Alexandre Oliva <oliva@lsd.ic.unicamp.br>
@@ -98,8 +98,8 @@ gnus-group-split is a valid value for nnmail-split-methods."
 ;;;###autoload
 (defun gnus-group-split-fancy
   (&optional groups no-crosspost catch-all)
-  "Uses information from group parameters in order to split mail.  It
-can be embedded into nnmail-split-fancy lists with the SPLIT
+  "Uses information from group parameters in order to split mail.
+It can be embedded into `nnmail-split-fancy' lists with the SPLIT
 
 \(: gnus-group-split-fancy GROUPS NO-CROSSPOST CATCH-ALL\)
 

@@ -1,5 +1,3 @@
-/*	$NetBSD: util.c,v 1.15 1998/07/28 05:31:25 mycroft Exp $	*/
-
 /*
  * Copyright (c) 1989, 1993, 1994
  *	The Regents of the University of California.  All rights reserved.
@@ -36,19 +34,19 @@
  * SUCH DAMAGE.
  */
 
-#include <sys/cdefs.h>
-#ifndef lint
 #if 0
-static char sccsid[] = "@(#)util.c	8.5 (Berkeley) 4/28/95";
-#else
-__RCSID("$NetBSD: util.c,v 1.15 1998/07/28 05:31:25 mycroft Exp $");
-#endif
+#ifndef lint
+static char sccsid[] = "@(#)util.c	8.3 (Berkeley) 4/2/94";
 #endif /* not lint */
+#endif
+#include <sys/types.h>
+__RCSID("$FreeBSD: src/bin/ls/util.c,v 1.30 2002/06/30 05:13:54 obrien Exp $");
 
 #include <sys/types.h>
 #include <sys/stat.h>
 
 #include <ctype.h>
+#include <err.h>
 #include <fts.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -57,24 +55,111 @@ __RCSID("$NetBSD: util.c,v 1.15 1998/07/28 05:31:25 mycroft Exp $");
 #include "ls.h"
 #include "extern.h"
 
-void
-prcopy(src, dest, len)
-	char *src, *dest;
-	int len;
+int
+prn_printable(const char *s)
 {
-	int ch;
+	char c;
+	int n;
 
-	while (len--) {
-		ch = *src++;
-		*dest++ = (isprint(ch) || ch == '\0') ? ch : '?';
+	for (n = 0; (c = *s) != '\0'; ++s, ++n)
+		if (isprint((unsigned char)c))
+			putchar(c);
+		else
+			putchar('?');
+	return n;
+}
+
+/*
+ * The fts system makes it difficult to replace fts_name with a different-
+ * sized string, so we just calculate the real length here and do the
+ * conversion in prn_octal()
+ *
+ * XXX when using f_octal_escape (-b) rather than f_octal (-B), the
+ * length computed by len_octal may be too big. I just can't be buggered
+ * to fix this as an efficient fix would involve a lookup table. Same goes
+ * for the rather inelegant code in prn_octal.
+ *
+ *                                              DES 1998/04/23
+ */
+
+size_t
+len_octal(const char *s, int len)
+{
+	size_t r = 0;
+
+	while (len--)
+		if (isprint((unsigned const char)*s++)) r++; else r += 4;
+	return r;
+}
+
+int
+prn_octal(const char *s)
+{
+        unsigned char ch;
+	int len = 0;
+	
+        while ((ch = (unsigned char)*s++)) {
+	        if (isprint(ch) && (ch != '\"') && (ch != '\\'))
+		        putchar(ch), len++;
+	        else if (f_octal_escape) {
+	                putchar('\\');
+		        switch (ch) {
+			case '\\':
+			        putchar('\\');
+				break;
+			case '\"':
+			        putchar('"');
+				break;
+			case '\a':
+			        putchar('a');
+				break;
+			case '\b':
+			        putchar('b');
+				break;
+			case '\f':
+			        putchar('f');
+				break;
+			case '\n':
+			        putchar('n');
+				break;
+			case '\r':
+			        putchar('r');
+				break;
+			case '\t':
+			        putchar('t');
+				break;
+			case '\v':
+			        putchar('v');
+				break;
+ 		        default:
+		                putchar('0' + (ch >> 6));
+		                putchar('0' + ((ch >> 3) & 7));
+		                putchar('0' + (ch & 7));
+		                len += 2;
+			        break;
+		        }
+		        len += 2;
+	        }
+		else {
+			putchar('\\');
+	                putchar('0' + (ch >> 6));
+	                putchar('0' + ((ch >> 3) & 7));
+	                putchar('0' + (ch & 7));
+	                len += 4;
+		}
 	}
+	return len;
 }
 
 void
-usage()
+usage(void)
 {
-	(void)fprintf(stderr, 
-	    "usage: ls [-1ACFLRSTWacdfgiklnoqrstux] [file ...]\n");
+	(void)fprintf(stderr,
+#ifdef COLORLS
+	"usage: ls [-ABCFGHLPRSTWZabcdfghiklnoqrstuvx1]"
+#else
+	"usage: ls [-ABCFHLPRSTWZabcdfghiklnoqrstuvx1]"
+#endif
+		      " [file ...]\n");
 	exit(1);
-	/* NOTREACHED */
 }

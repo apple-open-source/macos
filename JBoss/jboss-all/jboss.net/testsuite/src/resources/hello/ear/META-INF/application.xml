@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="ISO-8859-1"?>
+
+<application>
+  <display-name>Hello WebService</display-name>
+
+  <module>
+    <ejb>hello.jar</ejb>
+  </module>
+
+  <module>
+    <java>hello.wsr</java>
+  </module>
+
+</application>
+

@@ -25,6 +25,10 @@
 
 /* This file requires that you first include "bfd.h".  */
 
+/* Opaque declarations.  */
+
+struct obstack;
+
 /* Partial symbols are stored in the psymbol_cache and pointers to them
    are kept in a dynamically grown array that is obtained from malloc and
    grown as necessary via realloc.  Each objfile typically has two of these,
@@ -135,12 +139,12 @@ struct sym_fns
 /* The default version of sym_fns.sym_offsets for readers that don't
    do anything special.  */
 
-extern void
-default_symfile_offsets (struct objfile *objfile, struct section_addr_info *);
+extern void default_symfile_offsets (struct objfile *objfile,
+				     struct section_addr_info *);
 
 
-extern void
-extend_psymbol_list (struct psymbol_allocation_list *, struct objfile *);
+extern void extend_psymbol_list (struct psymbol_allocation_list *,
+				 struct objfile *);
 
 /* Add any kind of symbol to a psymbol_allocation_list. */
 
@@ -173,8 +177,10 @@ extern void add_symtab_fns (struct sym_fns *);
 
 extern void init_entry_point_info (struct objfile *);
 
-extern void
-syms_from_objfile (struct objfile *, struct section_addr_info *, int, int);
+extern void syms_from_objfile (struct objfile *,
+                               struct section_addr_info *, 
+                               struct section_offsets *, int,
+                               int, int);
 
 extern void new_symfile_objfile (struct objfile *, int, int);
 
@@ -188,8 +194,7 @@ build_section_addr_info_from_section_table (const struct section_table *start,
 
 /* Free all memory allocated by build_section_addr_info_from_section_table. */
 
-extern void
-free_section_addr_info (struct section_addr_info *);
+extern void free_section_addr_info (struct section_addr_info *);
 
 
 extern struct partial_symtab *start_psymtab_common (struct objfile *,
@@ -208,7 +213,7 @@ extern void sort_symtab_syms (struct symtab *);
    (and add a null character at the end in the copy).
    Returns the address of the copy.  */
 
-extern char *obsavestring (char *, int, struct obstack *);
+extern char *obsavestring (const char *, int, struct obstack *);
 
 /* Concatenate strings S1, S2 and S3; return the new string.
    Space is found in the symbol_obstack.  */
@@ -248,9 +253,11 @@ extern struct partial_symtab *allocate_psymtab (char *, struct objfile *);
 
 extern void discard_psymtab (struct partial_symtab *);
 
-extern void find_lowest_section (bfd *, asection *, PTR);
+extern void find_lowest_section (bfd *, asection *, void *);
 
-extern bfd *symfile_bfd_open (const char *);
+extern bfd *symfile_bfd_open (const char *, int mainline);
+
+extern int get_section_index (struct objfile *, char *);
 
 /* Utility functions for overlay sections: */
 extern enum overlay_debugging_state {
@@ -329,6 +336,6 @@ struct objfile *symbol_file_add_bfd_safe (bfd * abfd, int from_tty,
 					  CORE_ADDR mapaddr,
 					  const char *prefix);
 
-bfd *symfile_bfd_open_safe (const char *filename);
+bfd *symfile_bfd_open_safe (const char *filename, int mainline);
 
 #endif /* !defined(SYMFILE_H) */

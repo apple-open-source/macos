@@ -1,0 +1,8 @@
+Sinu kiri teemal
+
+    %(subject)s
+
+edastati listi %(listname)s.
+
+Listi taustinfo on aadressil: %(listinfo_url)s
+Seadeid saad muuta aadressil: %(optionsurl)s

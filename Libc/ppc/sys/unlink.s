@@ -25,5 +25,4 @@
 #include "SYS.h"
 
 SYSCALL(unlink, 1)
-	blr
 

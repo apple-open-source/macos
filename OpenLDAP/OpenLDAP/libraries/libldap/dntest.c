@@ -1,6 +1,6 @@
-/* $OpenLDAP: pkg/ldap/libraries/libldap/dntest.c,v 1.17 2002/02/08 20:53:04 hyc Exp $ */
+/* $OpenLDAP: pkg/ldap/libraries/libldap/dntest.c,v 1.17.2.4 2003/03/03 17:10:04 kurt Exp $ */
 /*
- * Copyright 1998-2002 The OpenLDAP Foundation, All Rights Reserved.
+ * Copyright 1998-2003 The OpenLDAP Foundation, All Rights Reserved.
  * COPYING RESTRICTIONS APPLY, see COPYRIGHT file
  */
 /*
@@ -12,11 +12,11 @@
  */
 #include "portable.h"
 
+#include <stdio.h>
+
 #include <ac/stdlib.h>
 #include <ac/string.h>
 #include <ac/unistd.h>
-
-#include <stdio.h>
 
 #include <ldap.h>
 
@@ -72,8 +72,8 @@ main( int argc, char *argv[] )
 		size_t len;
 		
 		fgets( buf, sizeof( buf ), stdin );
-		len = strlen( buf ) - 1;
-		if ( len >= 0 && buf[ len ] == '\n' ) {
+		len = strlen( buf );
+		if ( len > 0 && buf[ --len ] == '\n' ) {
 			buf[ len ] = '\0';
 		}
 		strin = buf;
@@ -158,6 +158,15 @@ main( int argc, char *argv[] )
 
 		case LDAP_DN_FORMAT_LDAPV3:
 		case LDAP_DN_FORMAT_LDAPV2:
+			n = ldap_dn2domain( strin, &tmp );
+			if( n ) {
+				fprintf( stdout, "\nldap_dn2domain(\"%s\") FAILED\n", strin );
+			} else {
+				fprintf( stdout, "\nldap_dn2domain(\"%s\")\n"
+					"\t= \"%s\"\n", strin, tmp );
+			}
+			ldap_memfree( tmp );
+
 			tmp = ldap_dn2ufn( strin );
 			fprintf( stdout, "\nldap_dn2ufn(\"%s\")\n"
 					"\t= \"%s\"\n", strin, tmp );

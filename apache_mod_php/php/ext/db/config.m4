@@ -1,7 +1,6 @@
-dnl $Id: config.m4,v 1.1.1.4 2001/12/14 22:12:08 zarzycki Exp $
-dnl config.m4 for extension db
-dnl don't forget to call PHP_EXTENSION(db)
-
+dnl
+dnl $Id: config.m4,v 1.1.1.6 2003/03/11 01:09:17 zarzycki Exp $
+dnl 
 
 # Checks for libraries.
 # Prefer gdbm, Berkeley DB and ndbm/dbm, in that order
@@ -26,8 +25,8 @@ AC_DEFUN(AC_PREFERRED_DB_LIB,[
 ])
 
 
-PHP_ARG_WITH(db, whether to include old xDBM support,
-[  --with-db               Include old xDBM support (deprecated)])
+PHP_ARG_WITH(db, for xDBM support,
+[  --with-db               Include old xDBM support (deprecated use --with-dba)])
 
 if test "$PHP_DB" != "no"; then
 
@@ -55,5 +54,5 @@ if test "$PHP_DB" != "no"; then
     EXTRA_LIBS="$EXTRA_LIBS $DBM_LIB"
   fi
 
-  PHP_EXTENSION(db)
+  PHP_NEW_EXTENSION(db, db.c)
 fi

@@ -143,38 +143,6 @@ DOMString HTMLDocumentImpl::referrer() const
     return DOMString();
 }
 
-DOMString HTMLDocumentImpl::domain() const
-{
-    if ( m_domain.isEmpty() ) // not set yet (we set it on demand to save time and space)
-        m_domain = KURL(URL()).host(); // Initially set to the host
-    return m_domain;
-}
-
-void HTMLDocumentImpl::setDomain(const DOMString &newDomain, bool force /*=false*/)
-{
-    if ( force ) {
-        m_domain = newDomain;
-        return;
-    }
-    if ( m_domain.isEmpty() ) // not set yet (we set it on demand to save time and space)
-        m_domain = KURL(URL()).host(); // Initially set to the host
-
-    // Both NS and IE specify that changing the domain is only allowed when
-    // the new domain is a suffix of the old domain.
-    int oldLength = m_domain.length();
-    int newLength = newDomain.length();
-    if ( newLength < oldLength ) // e.g. newDomain=kde.org (7) and m_domain=www.kde.org (11)
-    {
-        DOMString test = m_domain.copy();
-        if ( test[oldLength - newLength - 1] == '.' ) // Check that it's a subdomain, not e.g. "de.org"
-        {
-            test.remove( 0, oldLength - newLength ); // now test is "kde.org" from m_domain
-            if ( test == newDomain )                 // and we check that it's the same thing as newDomain
-                m_domain = newDomain;
-        }
-    }
-}
-
 DOMString HTMLDocumentImpl::lastModified() const
 {
     if ( view() )
@@ -315,6 +283,10 @@ void HTMLDocumentImpl::slotHistoryChanged()
 
 HTMLMapElementImpl* HTMLDocumentImpl::getMap(const DOMString& _url)
 {
+    if (_url.isNull()) {
+        return 0;
+    }
+    
     QString url = _url.string();
     QString s;
     int pos = url.find('#');
@@ -334,7 +306,7 @@ void HTMLDocumentImpl::close()
     // First fire the onload.
     bool doload = !parsing() && m_tokenizer && !processingLoadEvent;
     
-    bool wasNotRedirecting = !view() || view()->part()->d->m_scheduledRedirection == noRedirectionScheduled;
+    bool wasNotRedirecting = !view() || view()->part()->d->m_scheduledRedirection == noRedirectionScheduled || view()->part()->d->m_scheduledRedirection == historyNavigationScheduled;
 
     processingLoadEvent = true;
     if (body() && doload) {
@@ -350,10 +322,10 @@ void HTMLDocumentImpl::close()
     // Make sure both the initial layout and reflow happen after the onload
     // fires. This will improve onload scores, and other browsers do it.
     // If they wanna cheat, we can too. -dwh
-    if (doload && wasNotRedirecting && view()
-            && view()->part()->d->m_scheduledRedirection != noRedirectionScheduled
-            && view()->part()->d->m_delayRedirect == 0
-            && m_startTime.elapsed() < 1000) {
+    
+    bool isRedirectingSoon = view() && view()->part()->d->m_scheduledRedirection != noRedirectionScheduled && view()->part()->d->m_scheduledRedirection != historyNavigationScheduled && view()->part()->d->m_delayRedirect == 0;
+
+    if (doload && wasNotRedirecting && isRedirectingSoon && m_startTime.elapsed() < 1000) {
         static int redirectCount = 0;
         if (redirectCount++ % 4) {
             // When redirecting over and over (e.g., i-bench), to avoid the appearance of complete inactivity,

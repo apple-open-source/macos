@@ -68,6 +68,11 @@ bool AppleVIA::start(IOService *provider)
   if (!super::start(provider))
     return false;
   
+//jml:added
+	if (provider->getProperty("preserveIODeviceTree") != 0)
+		provider->callPlatformFunction ("mac-io-publishChildren", 0, (void*)this, (void*)0, (void*)0, (void*)0);
+//jml:end
+
   // Figure out what kind of via device nub to make.
   if (IODTMatchNubWithKeys(provider, "'via-cuda'"))
     viaDeviceType = kVIADeviceTypeCuda;

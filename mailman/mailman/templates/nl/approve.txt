@@ -1,0 +1,14 @@
+Uw verzoek om %(requestaddr)s:
+
+    %(cmd)s
+
+is doorgestuurd naar de listowner van deze lijst.
+
+Dit komt waarschijnlijk doordat u lid probeert te worden van een
+'gesloten' lijst.
+
+U ontvangt een e-mail van de listowner over uw aanmelding.
+
+Vragen over het beleid van de listowner kunt u sturen naar:
+
+    %(adminaddr)s

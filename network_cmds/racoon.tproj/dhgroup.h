@@ -1,4 +1,4 @@
-/*	$KAME: dhgroup.h,v 1.1 2001/08/14 15:00:47 sakane Exp $	*/
+/*	$KAME: dhgroup.h,v 1.2 2001/12/12 18:23:41 sakane Exp $	*/
 
 /*
  * Copyright (C) 1995, 1996, 1997, and 1998 WIDE Project.

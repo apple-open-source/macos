@@ -187,7 +187,7 @@ private:
 	long clk45RefCount;			// 45.1 MHz clock - Audio, I2S & SCC
 	long clk49RefCount;			// 49.1 MHz clock - Audio & I2S
 	long clk32RefCount;			// 32.0 MHz clock - SCC & VIA (Pangea only)
-  
+    bool fI2SState[2];			// Power state of I2S
 	void resetUniNEthernetPhy(void);
   
 public:

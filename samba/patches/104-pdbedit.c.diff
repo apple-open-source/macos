@@ -1,0 +1,22 @@
+--- samba/source/utils/pdbedit.c.orig	Fri Aug 29 14:17:50 2003
++++ samba/source/utils/pdbedit.c	Fri Aug 29 14:40:39 2003
+@@ -22,6 +22,9 @@
+ */
+ 
+ #include "includes.h"
++#ifdef WITH_OPENDIRECTORY
++#include "libopendirectorycommon.h"
++#endif
+ 
+ #define BIT_BACKEND	0x00000004
+ #define BIT_VERBOSE	0x00000008
+@@ -608,6 +611,9 @@ int main (int argc, char **argv)
+ 	if(!initialize_password_db(False))
+ 		exit(1);
+ 
++#ifdef WITH_OPENDIRECTORY
++	get_opendirectory_authenticator();
++#endif
+ 	if (!init_names())
+ 		exit(1);
+ 

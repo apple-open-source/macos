@@ -9,7 +9,7 @@
  * See the file "license.terms" for information on usage and redistribution
  * of this file, and for a DISCLAIMER OF ALL WARRANTIES.
  *
- * RCS: @(#) $Id: tclWin32Dll.c,v 1.1.1.4 2000/12/06 23:04:26 wsanchez Exp $
+ * RCS: @(#) $Id: tclWin32Dll.c,v 1.1.1.6 2003/07/09 01:34:09 landonf Exp $
  */
 
 #include "tclWinInt.h"
@@ -36,6 +36,15 @@ typedef VOID (WINAPI UTUNREGISTER)(HANDLE hModule);
 
 static HINSTANCE hInstance;	/* HINSTANCE of this DLL. */
 static int platformId;		/* Running under NT, or 95/98? */
+
+#if defined(HAVE_NO_SEH) && defined(TCL_MEM_DEBUG)
+static void *INITIAL_ESP,
+            *INITIAL_EBP,
+            *INITIAL_HANDLER,
+            *RESTORED_ESP,
+            *RESTORED_EBP,
+            *RESTORED_HANDLER;
+#endif /* HAVE_NO_SEH && TCL_MEM_DEBUG */
 
 /*
  * The following function tables are used to dispatch to either the
@@ -78,6 +87,18 @@ static TclWinProcs asciiProcs = {
 	    WCHAR *, TCHAR **)) SearchPathA,
     (BOOL (WINAPI *)(CONST TCHAR *)) SetCurrentDirectoryA,
     (BOOL (WINAPI *)(CONST TCHAR *, DWORD)) SetFileAttributesA,
+    /* 
+     * The three NULL function pointers will only be set when
+     * Tcl_FindExecutable is called.  If you don't ever call that
+     * function, the application will crash whenever WinTcl tries to call
+     * functions through these null pointers.  That is not a bug in Tcl
+     * -- Tcl_FindExecutable is obligatory in recent Tcl releases.
+     */
+    NULL,
+    NULL,
+    (int (__cdecl*)(CONST TCHAR *, struct _utimbuf *)) _utime,
+    NULL,
+    NULL,
 };
 
 static TclWinProcs unicodeProcs = {
@@ -115,6 +136,18 @@ static TclWinProcs unicodeProcs = {
 	    WCHAR *, TCHAR **)) SearchPathW,
     (BOOL (WINAPI *)(CONST TCHAR *)) SetCurrentDirectoryW,
     (BOOL (WINAPI *)(CONST TCHAR *, DWORD)) SetFileAttributesW,
+    /* 
+     * The three NULL function pointers will only be set when
+     * Tcl_FindExecutable is called.  If you don't ever call that
+     * function, the application will crash whenever WinTcl tries to call
+     * functions through these null pointers.  That is not a bug in Tcl
+     * -- Tcl_FindExecutable is obligatory in recent Tcl releases.
+     */
+    NULL,
+    NULL,
+    (int (__cdecl*)(CONST TCHAR *, struct _utimbuf *)) _wutime,
+    NULL,
+    NULL,
 };
 
 TclWinProcs *tclWinProcs;
@@ -127,6 +160,28 @@ static Tcl_Encoding tclWinTCharEncoding;
 BOOL APIENTRY		DllMain(HINSTANCE hInst, DWORD reason, 
 				LPVOID reserved);
 
+/*
+ * The following structure and linked list is to allow us to map between
+ * volume mount points and drive letters on the fly (no Win API exists
+ * for this).
+ */
+typedef struct MountPointMap {
+    CONST WCHAR* volumeName;       /* Native wide string volume name */
+    char driveLetter;              /* Drive letter corresponding to
+                                    * the volume name. */
+    struct MountPointMap* nextPtr; /* Pointer to next structure in list,
+                                    * or NULL */
+} MountPointMap;
+
+/* 
+ * This is the head of the linked list, which is protected by the
+ * mutex which follows, for thread-enabled builds.
+ */
+MountPointMap *driveLetterLookup = NULL;
+TCL_DECLARE_MUTEX(mountPointMap)
+
+/* We will need this below */
+extern Tcl_FSDupInternalRepProc NativeDupInternalRep;
 
 #ifdef __WIN32__
 #ifndef STATIC_BUILD
@@ -338,6 +393,8 @@ TclWinNoBackslash(
 int
 TclpCheckStackSpace()
 {
+    int retval = 0;
+
     /*
      * We can recurse only if there is at least TCL_WIN_STACK_THRESHOLD
      * bytes of stack space left.  alloca() is cheap on windows; basically
@@ -345,14 +402,94 @@ TclpCheckStackSpace()
      * exception if the stack pointer is set below the bottom of the stack.
      */
 
+#ifdef HAVE_NO_SEH
+# ifdef TCL_MEM_DEBUG
+    __asm__ __volatile__ (
+            "movl %%esp,  %0" "\n\t"
+            "movl %%ebp,  %1" "\n\t"
+            "movl %%fs:0, %2" "\n\t"
+            : "=m"(INITIAL_ESP),
+              "=m"(INITIAL_EBP),
+              "=r"(INITIAL_HANDLER) );
+# endif /* TCL_MEM_DEBUG */
+
+    __asm__ __volatile__ (
+            "pushl %ebp" "\n\t"
+            "pushl $__except_checkstackspace_handler" "\n\t"
+            "pushl %fs:0" "\n\t"
+            "movl  %esp, %fs:0");
+#else
     __try {
+#endif /* HAVE_NO_SEH */
+#ifdef HAVE_ALLOCA_GCC_INLINE
+    __asm__ __volatile__ (
+            "movl  %0, %%eax" "\n\t"
+            "call  __alloca" "\n\t"
+            :
+            : "i"(TCL_WIN_STACK_THRESHOLD)
+            : "%eax");
+#else
 	alloca(TCL_WIN_STACK_THRESHOLD);
-	return 1;
-    } __except (1) {}
+#endif /* HAVE_ALLOCA_GCC_INLINE */
+	retval = 1;
+#ifdef HAVE_NO_SEH
+    __asm__ __volatile__ (
+            "movl %%fs:0, %%esp" "\n\t"
+            "jmp  checkstackspace_pop" "\n"
+        "checkstackspace_reentry:" "\n\t"
+            "movl %%fs:0, %%eax" "\n\t"
+            "movl 0x8(%%eax), %%esp" "\n\t"
+            "movl 0x8(%%esp), %%ebp" "\n"
+        "checkstackspace_pop:" "\n\t"
+            "movl (%%esp), %%eax" "\n\t"
+            "movl %%eax, %%fs:0" "\n\t"
+            "add  $12, %%esp" "\n\t"
+            :
+            :
+            : "%eax");
 
-    return 0;
+# ifdef TCL_MEM_DEBUG
+    __asm__ __volatile__ (
+            "movl  %%esp,  %0" "\n\t"
+            "movl  %%ebp,  %1" "\n\t"
+            "movl  %%fs:0, %2" "\n\t"
+            : "=m"(RESTORED_ESP),
+              "=m"(RESTORED_EBP),
+              "=r"(RESTORED_HANDLER) );
+
+    if (INITIAL_ESP != RESTORED_ESP)
+        panic("ESP restored incorrectly");
+    if (INITIAL_EBP != RESTORED_EBP)
+        panic("EBP restored incorrectly");
+    if (INITIAL_HANDLER != RESTORED_HANDLER)
+        panic("HANDLER restored incorrectly");
+# endif /* TCL_MEM_DEBUG */
+#else
+    } __except (EXCEPTION_EXECUTE_HANDLER) {}
+#endif /* HAVE_NO_SEH */
+
+    /*
+     * Avoid using control flow statements in the SEH guarded block!
+     */
+    return retval;
 }
-
+#ifdef HAVE_NO_SEH
+static
+__attribute__ ((cdecl))
+EXCEPTION_DISPOSITION
+_except_checkstackspace_handler(
+    struct _EXCEPTION_RECORD *ExceptionRecord,
+    void *EstablisherFrame,
+    struct _CONTEXT *ContextRecord,
+    void *DispatcherContext)
+{
+    __asm__ __volatile__ (
+            "jmp checkstackspace_reentry");
+    /* Nuke compiler warning about unused static function */
+    _except_checkstackspace_handler(NULL, NULL, NULL, NULL);
+    return 0; /* Function does not return */
+}
+#endif /* HAVE_NO_SEH */
 
 /*
  *----------------------------------------------------------------------
@@ -386,6 +523,10 @@ TclWinGetPlatform()
  *	tclWinProcs structure to dispatch to either the wide-character
  *	or multi-byte versions of the operating system calls, depending
  *	on whether Unicode is the system encoding.
+ *	
+ *	As well as this, we can also try to load in some additional
+ *	procs which may/may not be present depending on the current
+ *	Windows version (e.g. Win95 will not have the procs below).
  *
  * Results:
  *	None.
@@ -406,10 +547,246 @@ TclWinSetInterfaces(
     if (wide) {
 	tclWinProcs = &unicodeProcs;
 	tclWinTCharEncoding = Tcl_GetEncoding(NULL, "unicode");
+	if (tclWinProcs->getFileAttributesExProc == NULL) {
+	    HINSTANCE hInstance = LoadLibraryA("kernel32");
+	    if (hInstance != NULL) {
+	        tclWinProcs->getFileAttributesExProc = 
+		  (BOOL (WINAPI *)(CONST TCHAR *, GET_FILEEX_INFO_LEVELS, 
+		  LPVOID)) GetProcAddress(hInstance, "GetFileAttributesExW");
+		tclWinProcs->createHardLinkProc = 
+		  (BOOL (WINAPI *)(CONST TCHAR *, CONST TCHAR*, 
+		  LPSECURITY_ATTRIBUTES)) GetProcAddress(hInstance, 
+		  "CreateHardLinkW");
+	        tclWinProcs->findFirstFileExProc = 
+		  (HANDLE (WINAPI *)(CONST TCHAR*, UINT,
+		  LPVOID, UINT, LPVOID, DWORD)) GetProcAddress(hInstance, 
+		  "FindFirstFileExW");
+	        tclWinProcs->getVolumeNameForVMPProc = 
+		  (BOOL (WINAPI *)(CONST TCHAR*, TCHAR*, 
+		  DWORD)) GetProcAddress(hInstance, 
+		  "GetVolumeNameForVolumeMountPointW");
+		FreeLibrary(hInstance);
+	    }
+	}
     } else {
 	tclWinProcs = &asciiProcs;
 	tclWinTCharEncoding = NULL;
+	if (tclWinProcs->getFileAttributesExProc == NULL) {
+	    HINSTANCE hInstance = LoadLibraryA("kernel32");
+	    if (hInstance != NULL) {
+		tclWinProcs->getFileAttributesExProc = 
+		  (BOOL (WINAPI *)(CONST TCHAR *, GET_FILEEX_INFO_LEVELS, 
+		  LPVOID)) GetProcAddress(hInstance, "GetFileAttributesExA");
+		tclWinProcs->createHardLinkProc = 
+		  (BOOL (WINAPI *)(CONST TCHAR *, CONST TCHAR*, 
+		  LPSECURITY_ATTRIBUTES)) GetProcAddress(hInstance, 
+		  "CreateHardLinkA");
+		tclWinProcs->findFirstFileExProc = 
+		  (HANDLE (WINAPI *)(CONST TCHAR*, UINT,
+		  LPVOID, UINT, LPVOID, DWORD)) GetProcAddress(hInstance, 
+		  "FindFirstFileExA");
+		tclWinProcs->getVolumeNameForVMPProc = 
+		  (BOOL (WINAPI *)(CONST TCHAR*, TCHAR*, 
+		  DWORD)) GetProcAddress(hInstance, 
+		  "GetVolumeNameForVolumeMountPointA");
+		FreeLibrary(hInstance);
+	    }
+	}
     }
+}
+
+/*
+ *---------------------------------------------------------------------------
+ *
+ * TclWinResetInterfaceEncodings --
+ *
+ *	Called during finalization to free up any encodings we use.
+ *	The tclWinProcs-> look up table is still ok to use after
+ *	this call, provided no encoding conversion is required.
+ *
+ *      We also clean up any memory allocated in our mount point
+ *      map which is used to follow certain kinds of symlinks.
+ *      That code should never be used once encodings are taken
+ *      down.
+ *      
+ * Results:
+ *	None.
+ *
+ * Side effects:
+ *	None.
+ *
+ *---------------------------------------------------------------------------
+ */
+void
+TclWinResetInterfaceEncodings()
+{
+    MountPointMap *dlIter, *dlIter2;
+    if (tclWinTCharEncoding != NULL) {
+	Tcl_FreeEncoding(tclWinTCharEncoding);
+	tclWinTCharEncoding = NULL;
+    }
+    /* Clean up the mount point map */
+    Tcl_MutexLock(&mountPointMap);
+    dlIter = driveLetterLookup; 
+    while (dlIter != NULL) {
+	dlIter2 = dlIter->nextPtr;
+	ckfree((char*)dlIter->volumeName);
+	ckfree((char*)dlIter);
+	dlIter = dlIter2;
+    }
+    Tcl_MutexUnlock(&mountPointMap);
+}
+
+/*
+ *---------------------------------------------------------------------------
+ *
+ * TclWinResetInterfaces --
+ *
+ *	Called during finalization to reset us to a safe state for reuse.
+ *	After this call, it is best not to use the tclWinProcs-> look
+ *	up table since it is likely to be different to what is expected.
+ *
+ * Results:
+ *	None.
+ *
+ * Side effects:
+ *	None.
+ *
+ *---------------------------------------------------------------------------
+ */
+void
+TclWinResetInterfaces()
+{
+    tclWinProcs = &asciiProcs;
+}
+
+/*
+ *--------------------------------------------------------------------
+ *
+ * TclWinDriveLetterForVolMountPoint
+ *
+ * Unfortunately, Windows provides no easy way at all to get hold
+ * of the drive letter for a volume mount point, but we need that
+ * information to understand paths correctly.  So, we have to 
+ * build an associated array to find these correctly, and allow
+ * quick and easy lookup from volume mount points to drive letters.
+ * 
+ * We assume here that we are running on a system for which the wide
+ * character interfaces are used, which is valid for Win 2000 and WinXP
+ * which are the only systems on which this function will ever be called.
+ * 
+ * Result: the drive letter, or -1 if no drive letter corresponds to
+ * the given mount point.
+ * 
+ *--------------------------------------------------------------------
+ */
+char 
+TclWinDriveLetterForVolMountPoint(CONST WCHAR *mountPoint)
+{
+    MountPointMap *dlIter, *dlPtr2;
+    WCHAR Target[55];         /* Target of mount at mount point */
+    WCHAR drive[4] = { L'A', L':', L'\\', L'\0' };
+    
+    /* 
+     * Detect the volume mounted there.  Unfortunately, there is no
+     * simple way to map a unique volume name to a DOS drive letter.  
+     * So, we have to build an associative array.
+     */
+    
+    Tcl_MutexLock(&mountPointMap);
+    dlIter = driveLetterLookup; 
+    while (dlIter != NULL) {
+	if (wcscmp(dlIter->volumeName, mountPoint) == 0) {
+	    /* 
+	     * We need to check whether this information is
+	     * still valid, since either the user or various
+	     * programs could have adjusted the mount points on
+	     * the fly.
+	     */
+	    drive[0] = L'A' + (dlIter->driveLetter - 'A');
+	    /* Try to read the volume mount point and see where it points */
+	    if ((*tclWinProcs->getVolumeNameForVMPProc)((TCHAR*)drive, 
+					       (TCHAR*)Target, 55) != 0) {
+		if (wcscmp((WCHAR*)dlIter->volumeName, Target) == 0) {
+		    /* Nothing has changed */
+		    Tcl_MutexUnlock(&mountPointMap);
+		    return dlIter->driveLetter;
+		}
+	    }
+	    /* 
+	     * If we reach here, unfortunately, this mount point is
+	     * no longer valid at all
+	     */
+	    if (driveLetterLookup == dlIter) {
+		dlPtr2 = dlIter;
+		driveLetterLookup = dlIter->nextPtr;
+	    } else {
+		for (dlPtr2 = driveLetterLookup; 
+		     dlPtr2 != NULL; dlPtr2 = dlPtr2->nextPtr) {
+		    if (dlPtr2->nextPtr == dlIter) {
+			dlPtr2->nextPtr = dlIter->nextPtr;
+			dlPtr2 = dlIter;
+			break;
+		    }
+		}
+	    }
+	    /* Now dlPtr2 points to the structure to free */
+	    ckfree((char*)dlPtr2->volumeName);
+	    ckfree((char*)dlPtr2);
+	    /* 
+	     * Restart the loop --- we could try to be clever
+	     * and continue half way through, but the logic is a 
+	     * bit messy, so it's cleanest just to restart
+	     */
+	    dlIter = driveLetterLookup;
+	    continue;
+	}
+	dlIter = dlIter->nextPtr;
+    }
+   
+    /* We couldn't find it, so we must iterate over the letters */
+    
+    for (drive[0] = L'A'; drive[0] <= L'Z'; drive[0]++) {
+	/* Try to read the volume mount point and see where it points */
+	if ((*tclWinProcs->getVolumeNameForVMPProc)((TCHAR*)drive, 
+					   (TCHAR*)Target, 55) != 0) {
+	    int alreadyStored = 0;
+	    for (dlIter = driveLetterLookup; dlIter != NULL; 
+		 dlIter = dlIter->nextPtr) {
+		if (wcscmp((WCHAR*)dlIter->volumeName, Target) == 0) {
+		    alreadyStored = 1;
+		    break;
+		}
+	    }
+	    if (!alreadyStored) {
+		dlPtr2 = (MountPointMap*) ckalloc(sizeof(MountPointMap));
+		dlPtr2->volumeName = NativeDupInternalRep(Target);
+		dlPtr2->driveLetter = 'A' + (drive[0] - L'A');
+		dlPtr2->nextPtr = driveLetterLookup;
+		driveLetterLookup  = dlPtr2;
+	    }
+	}
+    }
+    /* Try again */
+    for (dlIter = driveLetterLookup; dlIter != NULL; 
+					dlIter = dlIter->nextPtr) {
+	if (wcscmp(dlIter->volumeName, mountPoint) == 0) {
+	    Tcl_MutexUnlock(&mountPointMap);
+	    return dlIter->driveLetter;
+	}
+    }
+    /* 
+     * The volume doesn't appear to correspond to a drive letter -- we
+     * remember that fact and store '-1' so we don't have to look it
+     * up each time.
+     */
+    dlPtr2 = (MountPointMap*) ckalloc(sizeof(MountPointMap));
+    dlPtr2->volumeName = NativeDupInternalRep((ClientData)mountPoint);
+    dlPtr2->driveLetter = -1;
+    dlPtr2->nextPtr = driveLetterLookup;
+    driveLetterLookup  = dlPtr2;
+    Tcl_MutexUnlock(&mountPointMap);
+    return -1;
 }
 
 /*

@@ -1,0 +1,24 @@
+<option type="float" id="opt/@@DRVNAME@@-contrast">
+  <!-- A multilingual <comments> block can appear here, too;
+       it should be treated as documentation for the user. -->
+  <arg_longname>
+   <en>Contrast Level</en>
+  </arg_longname>
+  <arg_shortname>
+   <en>Contrast</en><!-- backends only know <en> shortnames! -->
+  </arg_shortname>
+  <arg_execution>@@GROUP@@
+   <arg_order>100</arg_order>
+   <arg_spot>A</arg_spot>
+   <arg_postscript />
+   <arg_proto>&lt;&lt;/Contrast %s&gt;&gt;setpagedevice</arg_proto>
+  </arg_execution>
+  <constraints>
+     <constraint sense="true">
+      <driver>@@DRVNAME@@</driver>
+      <arg_defval>@@DEFVAL@@</arg_defval>
+     </constraint>
+  </constraints>
+  <arg_max>@@MAXVAL@@</arg_max>
+  <arg_min>@@MINVAL@@</arg_min>
+</option>

@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist SYSTEM "file://localhost/System/Library/DTDs/PropertyList.dtd">
+<plist version="0.9">
+<array>
+        <string>/Applications/Mail.app</string>
+        <string>/Applications/iChat.app</string>
+        <string>/Applications/iSync.app</string>
+        <string>/Applications/System Preferences.app</string>
+        <string>/System/Library/PrivateFrameworks/InstantMessage.framework/iChatAgent.app</string>
+        <string>/System/Library/CoreServices/SyncServer.app</string>
+</array>
+</plist>

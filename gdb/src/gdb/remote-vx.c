@@ -466,7 +466,7 @@ static void
 vx_prepare_to_store (void)
 {
   /* Fetch all registers, if any of them are not yet fetched.  */
-  read_register_bytes (0, NULL, REGISTER_BYTES);
+  deprecated_read_register_bytes (0, NULL, REGISTER_BYTES);
 }
 
 /* Copy LEN bytes to or from remote inferior's memory starting at MEMADDR
@@ -638,7 +638,7 @@ struct find_sect_args
 static void find_sect (bfd *, asection *, void *);
 
 static void
-find_sect (bfd *abfd, asection *sect, PTR obj)
+find_sect (bfd *abfd, asection *sect, void *obj)
 {
   struct find_sect_args *args = (struct find_sect_args *) obj;
 
@@ -820,9 +820,6 @@ net_get_symbols (ldtabl *pLoadTable)
    Returns status of symbol read on target side (0=success, -1=fail)
    Returns -1 and complain()s if rpc fails.  */
 
-struct complaint cant_contact_target =
-{"Lost contact with VxWorks target", 0, 0};
-
 static int
 vx_lookup_symbol (char *name,	/* symbol name */
 		  CORE_ADDR *pAddr)
@@ -837,7 +834,7 @@ vx_lookup_symbol (char *name,	/* symbol name */
 			  xdr_SYMBOL_ADDR, &symbolAddr);
   if (status != RPC_SUCCESS)
     {
-      complain (&cant_contact_target);
+      complaint (&symfile_complaints, "Lost contact with VxWorks target");
       return -1;
     }
 

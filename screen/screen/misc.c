@@ -1,4 +1,4 @@
-/* Copyright (c) 1993-2000
+/* Copyright (c) 1993-2002
  *      Juergen Weigert (jnweiger@immd4.informatik.uni-erlangen.de)
  *      Michael Schroeder (mlschroe@immd4.informatik.uni-erlangen.de)
  * Copyright (c) 1987 Oliver Laumann
@@ -22,7 +22,7 @@
  */
 
 #include "rcs.h"
-RCS_ID("$Id: misc.c,v 1.1.1.1 2001/12/14 22:08:29 bbraun Exp $ FAU")
+RCS_ID("$Id: misc.c,v 1.1.1.2 2003/03/19 21:16:18 landonf Exp $ FAU")
 
 #include <sys/types.h>
 #include <sys/stat.h>	/* mkdir() declaration */
@@ -182,7 +182,11 @@ sigret_t (*func) __P(SIGPROTOARG);
   struct sigaction osa, sa;
   sa.sa_handler = func;
   (void)sigemptyset(&sa.sa_mask);
+#ifdef SA_RESTART
+  sa.sa_flags = (sig == SIGCHLD ? SA_RESTART : 0);
+#else
   sa.sa_flags = 0;
+#endif
   if (sigaction(sig, &sa, &osa))
     return (sigret_t (*)__P(SIGPROTOARG))-1;
   return osa.sa_handler;
@@ -639,7 +643,7 @@ char *value;
 # endif /* NEEDSETENV */
 #else /* USESETENV */
 # if defined(linux) || defined(__convex__) || (BSD >= 199103)
-  setenv(var, value, 0);
+  setenv(var, value, 1);
 # else
   setenv(var, value);
 # endif /* linux || convex || BSD >= 199103 */

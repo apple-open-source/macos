@@ -3,19 +3,22 @@
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
- * The contents of this file constitute Original Code as defined in and
- * are subject to the Apple Public Source License Version 1.1 (the
- * "License").  You may not use this file except in compliance with the
- * License.  Please obtain a copy of the License at
- * http://www.apple.com/publicsource and read it before using this file.
+ * Copyright (c) 1999-2003 Apple Computer, Inc.  All Rights Reserved.
  * 
- * This Original Code and all software distributed under the License are
- * distributed on an "AS IS" basis, WITHOUT WARRANTY OF ANY KIND, EITHER
+ * This file contains Original Code and/or Modifications of Original Code
+ * as defined in and that are subject to the Apple Public Source License
+ * Version 2.0 (the 'License'). You may not use this file except in
+ * compliance with the License. Please obtain a copy of the License at
+ * http://www.opensource.apple.com/apsl/ and read it before using this
+ * file.
+ * 
+ * The Original Code and all software distributed under the License are
+ * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
  * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
  * INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY,
- * FITNESS FOR A PARTICULAR PURPOSE OR NON-INFRINGEMENT.  Please see the
- * License for the specific language governing rights and limitations
- * under the License.
+ * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
+ * Please see the License for the specific language governing rights and
+ * limitations under the License.
  * 
  * @APPLE_LICENSE_HEADER_END@
  */
@@ -101,9 +104,57 @@ enum {
     ds_permErr                     = -54		/*permissions error (on file open)*/
 };
 
+enum {
+	kAuthUnknownMethod			= 1220,
+	kAuthClearText				= 1221,
+	kAuthCrypt					= 1222,
+	kAuthSetPasswd				= 1223,
+	kAuthSetPasswdAsRoot		= 1224,
+	kAuthChangePasswd			= 1225,
+	kAuthAPOP					= 1226,
+	kAuth2WayRandom				= 1227,
+	kAuthNativeClearTextOK		= 1228,
+	kAuthNativeNoClearText		= 1229,
+	kAuthSMB_NT_Key				= 1230,
+	kAuthSMB_LM_Key				= 1231,
+	kAuthNativeMethod			= 1232,
+	kAuthCRAM_MD5				= 1233,
+	kAuthWithAuthorizationRef	= 1234,
+	kAuth2WayRandomChangePass	= 1235,
+	kAuthDIGEST_MD5				= 1236,
+	kAuthDIGEST_MD5Reauth		= 1237,
+	kAuthSecureHash				= 1238,
+	kAuthReadSecureHash			= 1239,
+	kAuthWriteSecureHash		= 1240,
+	
+    kAuthGetPolicy				= 1278,
+    kAuthSetPolicy				= 1279,
+    kAuthGetGlobalPolicy		= 1280,
+    kAuthSetGlobalPolicy		= 1281,
+    kAuthGetUserName			= 1282,
+    kAuthSetUserName			= 1283,
+    kAuthGetUserData			= 1284,
+    kAuthSetUserData			= 1285,
+    kAuthDeleteUser				= 1286,
+    kAuthNewUser				= 1287,
+    kAuthGetIDByName			= 1288,
+	kAuthSyncSetupReplica		= 1289,
+	kAuthListReplicas			= 1290
+};
+
 #ifndef nil
 	#define nil NULL
 #endif
+
+#define kMaxInternalDispatchRecursion 4
+
+typedef enum {
+	eDirectoryRefType		=	'Dire',
+	eNodeRefType			=	'Node',
+	eRecordRefType			=	'Reco',
+	eAttrListRefType		=	'AtLi',
+	eAttrValueListRefType  	=	'AtVa'
+} eRefTypes;
 
 typedef enum
 {
@@ -111,7 +162,6 @@ typedef enum
 	kUniCodeScript		= 1,
 	kASCIICodeScript	= 2,	// means fBufferData is a valid CString
 	kUnKnownScript		= 3
-
 } eScriptCode;
 
 typedef struct
@@ -134,9 +184,10 @@ typedef enum {
 	kSearchNodeType			= 0x00000004,
 	kConfigNodeType			= 0x00000008,
 	kLocalHostedType		= 0x00000010,
-	kDefaultNetworkNodeType		= 0x00000020,
+	kDefaultNetworkNodeType	= 0x00000020,
 	kContactsSearchNodeType	= 0x00000040,
-	kNetworkSearchNodeType	= 0x00000080
+	kNetworkSearchNodeType	= 0x00000080,
+	kDHCPLDAPv3NodeType		= 0x00000100
 } eDirNodeType;
 
 typedef enum {

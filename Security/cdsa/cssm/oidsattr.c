@@ -214,3 +214,87 @@ CSSMOID_QT_CPS				= {OID_QT_LENGTH+1, (uint8 *)OID_QT_CPS},
 CSSMOID_QT_UNOTICE			= {OID_QT_LENGTH+1, (uint8 *)OID_QT_UNOTICE}
 ;
 
+#define OID_PKCS12_BagTypes			OID_PKCS_12,10,1
+#define OID_PKCS12_BagTypesLength	OID_PKCS_12_LENGTH+2
+
+#define ID_PKCS9_CertTypes			OID_PKCS_9, 22
+#define OID_PKCS9_CertTypesLength	OID_PKCS_9_LENGTH+1
+#define ID_PKCS9_CrlTypes			OID_PKCS_9, 23
+#define OID_PKCS9_CrlTypesLength	OID_PKCS_9_LENGTH+1
+
+static const uint8
+	OID_PKCS7_Data[] = 						{ OID_PKCS_7, 1},	
+	OID_PKCS7_SignedData[] = 				{ OID_PKCS_7, 2},	
+	OID_PKCS7_EnvelopedData[] = 			{ OID_PKCS_7, 3},	
+	OID_PKCS7_SignedAndEnvelopedData[] = 	{ OID_PKCS_7, 4},
+	OID_PKCS7_DigestedData[] =		 		{ OID_PKCS_7, 5},
+	OID_PKCS7_EncryptedData[] = 			{ OID_PKCS_7, 6},
+	OID_PKCS7_DataWithAttributes[] = 		{ OID_PKCS_7, 7},
+	OID_PKCS7_EncryptedPrivateKeyInfo[] = 	{ OID_PKCS_7, 8},
+	
+	OID_PKCS9_FriendlyName[] =				{ OID_PKCS_9, 20},
+	OID_PKCS9_LocalKeyId[] =				{ OID_PKCS_9, 21},
+	OID_PKCS9_CertTypes[] =					{ ID_PKCS9_CertTypes },
+	OID_PKCS9_CrlTypes[] =					{ ID_PKCS9_CrlTypes },
+	OID_PKCS9_X509Certificate[] =			{ ID_PKCS9_CertTypes, 1 },
+	OID_PKCS9_SdsiCertificate[] =			{ ID_PKCS9_CertTypes, 2 },
+	OID_PKCS9_X509Crl[] =					{ ID_PKCS9_CrlTypes, 1 },
+	
+	OID_PKCS12_keyBag[] =					{ OID_PKCS12_BagTypes, 1},
+	OID_PKCS12_shroundedKeyBag[] =			{ OID_PKCS12_BagTypes, 2},
+	OID_PKCS12_certBag[] =					{ OID_PKCS12_BagTypes, 3},
+	OID_PKCS12_crlBag[] =					{ OID_PKCS12_BagTypes, 4},
+	OID_PKCS12_secretBag[] =				{ OID_PKCS12_BagTypes, 5},
+	OID_PKCS12_safeContentsBag[] =			{ OID_PKCS12_BagTypes, 6}
+;
+
+const CSSM_OID 
+CSSMOID_PKCS7_Data = {OID_PKCS_7_LENGTH + 1,
+					  (uint8 *)OID_PKCS7_Data },
+CSSMOID_PKCS7_SignedData = {OID_PKCS_7_LENGTH + 1,
+					  (uint8 *)OID_PKCS7_SignedData },
+CSSMOID_PKCS7_EnvelopedData = {OID_PKCS_7_LENGTH + 1,
+					  (uint8 *)OID_PKCS7_EnvelopedData },
+CSSMOID_PKCS7_SignedAndEnvelopedData = {OID_PKCS_7_LENGTH + 1,
+					  (uint8 *)OID_PKCS7_SignedAndEnvelopedData },
+CSSMOID_PKCS7_DigestedData = {OID_PKCS_7_LENGTH + 1,
+					  (uint8 *)OID_PKCS7_DigestedData },
+CSSMOID_PKCS7_EncryptedData = {OID_PKCS_7_LENGTH + 1,
+					  (uint8 *)OID_PKCS7_EncryptedData },
+CSSMOID_PKCS7_DataWithAttributes = {OID_PKCS_7_LENGTH + 1,
+					  (uint8 *)OID_PKCS7_DataWithAttributes },
+CSSMOID_PKCS7_EncryptedPrivateKeyInfo = {OID_PKCS_7_LENGTH + 1,
+					  (uint8 *)OID_PKCS7_EncryptedPrivateKeyInfo },
+					  
+CSSMOID_PKCS9_FriendlyName = {OID_PKCS_9_LENGTH + 1,
+						(uint8 *)OID_PKCS9_FriendlyName },
+CSSMOID_PKCS9_LocalKeyId = {OID_PKCS_9_LENGTH + 1,
+						(uint8 *)OID_PKCS9_LocalKeyId },
+CSSMOID_PKCS9_CertTypes = {OID_PKCS_9_LENGTH + 1,
+						(uint8 *)OID_PKCS9_CertTypes },
+CSSMOID_PKCS9_CrlTypes = {OID_PKCS_9_LENGTH + 1,
+						(uint8 *)OID_PKCS9_CrlTypes },
+CSSMOID_PKCS9_X509Certificate = {OID_PKCS9_CertTypesLength + 1,
+						(uint8 *)OID_PKCS9_X509Certificate },
+CSSMOID_PKCS9_SdsiCertificate = {OID_PKCS9_CertTypesLength + 1,
+						(uint8 *)OID_PKCS9_SdsiCertificate },
+CSSMOID_PKCS9_X509Crl = {OID_PKCS9_CrlTypesLength + 1,
+						(uint8 *)OID_PKCS9_X509Crl },
+	
+
+CSSMOID_PKCS12_keyBag = {OID_PKCS12_BagTypesLength + 1,
+					(uint8 *)OID_PKCS12_keyBag },
+CSSMOID_PKCS12_shroudedKeyBag = {OID_PKCS12_BagTypesLength + 1,
+					(uint8 *)OID_PKCS12_shroundedKeyBag },
+CSSMOID_PKCS12_certBag = {OID_PKCS12_BagTypesLength + 1,
+					(uint8 *)OID_PKCS12_certBag },
+CSSMOID_PKCS12_crlBag = {OID_PKCS12_BagTypesLength + 1,
+					(uint8 *)OID_PKCS12_crlBag },
+CSSMOID_PKCS12_secretBag = {OID_PKCS12_BagTypesLength + 1,
+					(uint8 *)OID_PKCS12_secretBag },
+CSSMOID_PKCS12_safeContentsBag = {OID_PKCS12_BagTypesLength + 1,
+					(uint8 *)OID_PKCS12_safeContentsBag }
+
+;
+
+

@@ -38,6 +38,7 @@
 #include "sslUtils.h"
 #include "cipherSpecs.h"
 #include "appleSession.h"
+#include "sslBER.h"
 #include <string.h>
 #include <Security/SecCertificate.h>
 #include <Security/SecTrust.h>
@@ -81,9 +82,11 @@ static OSStatus sslFreeTrustedRoots(
 }
 
 /*
- * Default attempted version. 
+ * Default version enables.
  */
-#define DEFAULT_MAX_VERSION		TLS_Version_1_0	
+#define DEFAULT_SSL2_ENABLE		true
+#define DEFAULT_SSL3_ENABLE		true
+#define DEFAULT_TLS1_ENABLE		true
 
 OSStatus
 SSLNewContext				(Boolean 			isServer,
@@ -106,17 +109,18 @@ SSLNewContext				(Boolean 			isServer,
     ctx->state = SSL_HdskStateUninit;
     ctx->clientCertState = kSSLClientCertNone;
 	
-    /* different defaults for client and server ... */
+	ctx->versionSsl2Enable = DEFAULT_SSL2_ENABLE;
+	ctx->versionSsl3Enable = DEFAULT_SSL3_ENABLE;
+	ctx->versionTls1Enable = DEFAULT_TLS1_ENABLE;
+	ctx->negProtocolVersion = SSL_Version_Undetermined;
+
     if(isServer) {
     	ctx->protocolSide = SSL_ServerSide;
-    	ctx->reqProtocolVersion = DEFAULT_MAX_VERSION;
     }
     else {
     	ctx->protocolSide = SSL_ClientSide;
-    	ctx->reqProtocolVersion = SSL_Version_Undetermined;
     }
-    ctx->negProtocolVersion = SSL_Version_Undetermined;
-	ctx->maxProtocolVersion = DEFAULT_MAX_VERSION;
+
 	/* Default value so we can send and receive hello msgs */
 	ctx->sslTslCalls = &Ssl3Callouts;
 	
@@ -148,8 +152,8 @@ SSLNewContext				(Boolean 			isServer,
 	/* Initial cert verify state: verify with default system roots */
 	ctx->enableCertVerify = true;
 	
-	/* snag root certs from Keychain, tolerate error */
-	addBuiltInCerts(ctx);
+	/* Default for RSA blinding is ENABLED */
+	ctx->rsaBlindingEnable = true;
 	
     *contextPtr = ctx;
     return noErr;
@@ -177,7 +181,10 @@ SSLDisposeContext				(SSLContext			*ctx)
     sslDeleteCertificateChain(ctx->peerCert, ctx);
     ctx->localCert = ctx->encryptCert = ctx->peerCert = NULL;
     SSLFreeBuffer(ctx->partialReadBuffer, ctx);
-    
+	if(ctx->peerSecTrust) {
+		CFRelease(ctx->peerSecTrust);
+		ctx->peerSecTrust = NULL;
+	}
     wait = ctx->recordWriteQueue;
     while (wait)
     {   SSLFreeBuffer(wait->data, ctx);
@@ -188,10 +195,15 @@ SSLDisposeContext				(SSLContext			*ctx)
         wait = next;
     }
     
+	#if APPLE_DH
+    SSLFreeBuffer(ctx->dhParamsPrime, ctx);
+    SSLFreeBuffer(ctx->dhParamsGenerator, ctx);
+    SSLFreeBuffer(ctx->dhParamsEncoded, ctx);
     SSLFreeBuffer(ctx->dhPeerPublic, ctx);
     SSLFreeBuffer(ctx->dhExchangePublic, ctx);
-    SSLFreeBuffer(ctx->dhPrivate, ctx);
-    
+	sslFreeKey(ctx->cspHand, &ctx->dhPrivate, NULL);
+    #endif	/* APPLE_DH */
+	
 	CloseHash(SSLHashSHA1, ctx->shaState, ctx);
 	CloseHash(SSLHashMD5,  ctx->md5State, ctx);
     
@@ -266,8 +278,8 @@ SSLGetSessionState			(SSLContextRef		context,
 		case SSL_HdskStateNoNotifyClose:
 			rtnState = kSSLAborted;
 			break;
-		case SSL2_HdskStateServerReady:
-		case SSL2_HdskStateClientReady:
+		case SSL_HdskStateServerReady:
+		case SSL_HdskStateClientReady:
 			rtnState = kSSLConnected;
 			break;
 		default:
@@ -311,6 +323,17 @@ SSLSetConnection			(SSLContextRef		ctx,
 	}
 	ctx->ioCtx.ioRef = connection;
     return noErr;
+}
+
+OSStatus
+SSLGetConnection			(SSLContextRef		ctx,
+							 SSLConnectionRef	*connection)
+{
+	if((ctx == NULL) || (connection == NULL)) {
+		return paramErr;
+	}
+	*connection = ctx->ioCtx.ioRef;
+	return noErr;
 }
 
 OSStatus
@@ -371,75 +394,18 @@ SSLGetPeerDomainName		(SSLContextRef		ctx,
 	return noErr;
 }
 
-OSStatus 
-SSLSetProtocolVersion		(SSLContextRef 		ctx,
-							 SSLProtocol		version)
-{   
-	SSLProtocolVersion	versInt;
-	SSLProtocolVersion	versMax;
-	
-	if(ctx == NULL) {
-		return paramErr;
-	}
-	if(sslIsSessionActive(ctx)) {
-		/* can't do this with an active session */
-		return badReqErr;
-	}
-
-	/* convert external representation to private */
-	switch(version) {
-		case kSSLProtocolUnknown:
-			versInt = SSL_Version_Undetermined;
-			versMax = DEFAULT_MAX_VERSION;
-			break;
-		case kSSLProtocol2:
-			versInt = versMax = SSL_Version_2_0;
-			break;
-		case kSSLProtocol3:
-			/* this tells us to do our best but allows 2.0 */
-			versInt = SSL_Version_Undetermined;
-			versMax = SSL_Version_3_0;
-			break;
-		case kSSLProtocol3Only:
-			versInt = SSL_Version_3_0_Only;
-			versMax = SSL_Version_3_0;
-			break;
-		case kTLSProtocol1:
-			/* this tells us to do our best but allows 2.0 */
-			versInt = SSL_Version_Undetermined;
-			versMax = TLS_Version_1_0;
-			break;
-		case kTLSProtocol1Only:
-			versInt = TLS_Version_1_0_Only;
-			versMax = TLS_Version_1_0;
-			break;
-		default:
-			return paramErr;
-	}
-	ctx->reqProtocolVersion = ctx->negProtocolVersion = versInt;
-	ctx->maxProtocolVersion = versMax;
-    return noErr;
-}
-
+/* concert between private SSLProtocolVersion and public SSLProtocol */
 static SSLProtocol convertProtToExtern(SSLProtocolVersion prot)
 {
 	switch(prot) {
 		case SSL_Version_Undetermined:
 			return kSSLProtocolUnknown;
-		case SSL_Version_3_0_Only:
-			return kSSLProtocol3Only;
 		case SSL_Version_2_0:
 			return kSSLProtocol2;
 		case SSL_Version_3_0:
 			return kSSLProtocol3;
-		case TLS_Version_1_0_Only:
-			return kTLSProtocol1Only;
 		case TLS_Version_1_0:
 			return kTLSProtocol1;
-		/* this can happen in an intermediate state while negotiation
-		 * is active...right? */
-		case SSL_Version_3_0_With_2_0_Hello:
-			return kSSLProtocolUnknown;
 		default:
 			sslErrorLog("convertProtToExtern: bad prot\n");
 			return kSSLProtocolUnknown;
@@ -449,14 +415,178 @@ static SSLProtocol convertProtToExtern(SSLProtocolVersion prot)
 }
 
 OSStatus 
+SSLSetProtocolVersionEnabled(SSLContextRef 		ctx,
+							 SSLProtocol		protocol,
+							 Boolean			enable)		/* RETURNED */
+{
+	if(ctx == NULL) {
+		return paramErr;
+	}
+	if(sslIsSessionActive(ctx)) {
+		/* can't do this with an active session */
+		return badReqErr;
+	}
+	switch(protocol) {
+		case kSSLProtocol2:
+			ctx->versionSsl2Enable = enable;
+			break;
+		case kSSLProtocol3:
+			ctx->versionSsl3Enable = enable;
+			break;
+		case kTLSProtocol1:
+			ctx->versionTls1Enable = enable;
+			break;
+		case kSSLProtocolAll:
+			ctx->versionTls1Enable = ctx->versionSsl3Enable = 
+				ctx->versionSsl2Enable = enable;
+			break;
+		default:
+			return paramErr;
+	}
+	return noErr;
+}
+							 
+OSStatus 
+SSLGetProtocolVersionEnabled(SSLContextRef 		ctx,
+							 SSLProtocol		protocol,
+							 Boolean			*enable)		/* RETURNED */
+{
+	if(ctx == NULL) {
+		return paramErr;
+	}
+	switch(protocol) {
+		case kSSLProtocol2:
+			*enable = ctx->versionSsl2Enable;
+			break;
+		case kSSLProtocol3:
+			*enable = ctx->versionSsl3Enable;
+			break;
+		case kTLSProtocol1:
+			*enable = ctx->versionTls1Enable;
+			break;
+		case kSSLProtocolAll:
+			if(ctx->versionTls1Enable && ctx->versionSsl3Enable &&
+					ctx->versionSsl2Enable) {
+				*enable = true;
+			}
+			else {
+				*enable = false;
+			}
+			break;
+		default:
+			return paramErr;
+	}
+	return noErr;
+}
+
+/* deprecated */
+OSStatus 
+SSLSetProtocolVersion		(SSLContextRef 		ctx,
+							 SSLProtocol		version)
+{   
+	if(ctx == NULL) {
+		return paramErr;
+	}
+	if(sslIsSessionActive(ctx)) {
+		/* can't do this with an active session */
+		return badReqErr;
+	}
+
+	/* convert external representation to three booleans */
+	switch(version) {
+		case kSSLProtocolUnknown:
+			ctx->versionSsl2Enable = DEFAULT_SSL2_ENABLE;
+			ctx->versionSsl3Enable = DEFAULT_SSL3_ENABLE;
+			ctx->versionTls1Enable = DEFAULT_TLS1_ENABLE;
+			break;
+		case kSSLProtocol2:
+			ctx->versionSsl2Enable = true;
+			ctx->versionSsl3Enable = false;
+			ctx->versionTls1Enable = false;
+			break;
+		case kSSLProtocol3:
+			/* this tells us to do our best, up to 3.0, but allows 2.0 */
+			ctx->versionSsl2Enable = true;
+			ctx->versionSsl3Enable = true;
+			ctx->versionTls1Enable = false;
+			break;
+		case kSSLProtocol3Only:
+			ctx->versionSsl2Enable = false;
+			ctx->versionSsl3Enable = true;
+			ctx->versionTls1Enable = false;
+			break;
+		case kTLSProtocol1:
+		case kSSLProtocolAll:
+			/* this tells us to do our best, up to TLS, but allows 2.0 or 3.0 */
+			ctx->versionSsl2Enable = true;
+			ctx->versionSsl3Enable = true;
+			ctx->versionTls1Enable = true;
+			break;
+		case kTLSProtocol1Only:
+			ctx->versionSsl2Enable = false;
+			ctx->versionSsl3Enable = false;
+			ctx->versionTls1Enable = true;
+			break;
+		default:
+			return paramErr;
+	}
+    return noErr;
+}
+
+/* deprecated */
+OSStatus 
 SSLGetProtocolVersion		(SSLContextRef		ctx,
 							 SSLProtocol		*protocol)		/* RETURNED */
 {
 	if(ctx == NULL) {
 		return paramErr;
 	}
-	*protocol = convertProtToExtern(ctx->reqProtocolVersion);
-	return noErr;
+	
+	/* translate array of booleans to public value; not all combinations
+	 * are legal (i.e., meaningful) for this call */
+	if(ctx->versionTls1Enable) {
+		if(ctx->versionSsl2Enable) {
+			if(ctx->versionSsl3Enable) {
+				/* traditional 'all enabled' */
+				*protocol = kTLSProtocol1;
+				return noErr;
+			}
+			else {
+				/* SSL2 true, SSL3 false, TLS1 true - invalid here */
+				return paramErr;
+			}
+		}
+		else if(ctx->versionSsl3Enable) {
+			/* SSL2 false, SSL3 true, TLS1 true - invalid here */
+			return paramErr;
+		}
+		else {
+			*protocol = kTLSProtocol1Only;
+			return noErr;
+		}
+	}
+	else {
+		/* TLS1 false */
+		if(ctx->versionSsl3Enable) {
+			*protocol = ctx->versionSsl2Enable ?
+				kSSLProtocol3 : kSSLProtocol3Only;
+			return noErr;
+		}
+		else if(ctx->versionSsl2Enable) {
+			*protocol = kSSLProtocol2;
+			return noErr;
+		}
+		else {
+			/*
+			 * Bogus state - no enables - the API does provide a way
+			 * to get into this state. Other than this path, the app
+			 * will discover this bogon when attempting to do the 
+			 * handshake; sslGetMaxProtVersion will detect this.
+			 */
+			return paramErr;
+		}
+	}
+	/* NOT REACHED */
 }
 
 OSStatus 
@@ -477,6 +607,8 @@ SSLSetEnableCertVerify		(SSLContextRef		ctx,
 	if(ctx == NULL) {
 		return paramErr;
 	}
+	sslCertDebug("SSLSetEnableCertVerify %s",
+		enableVerify ? "true" : "false");
 	if(sslIsSessionActive(ctx)) {
 		/* can't do this with an active session */
 		return badReqErr;
@@ -503,6 +635,8 @@ SSLSetAllowsExpiredCerts(SSLContextRef		ctx,
 	if(ctx == NULL) {
 		return paramErr;
 	}
+	sslCertDebug("SSLSetAllowsExpiredCerts %s",
+		allowExpired ? "true" : "false");
 	if(sslIsSessionActive(ctx)) {
 		/* can't do this with an active session */
 		return badReqErr;
@@ -529,6 +663,8 @@ SSLSetAllowsExpiredRoots(SSLContextRef		ctx,
 	if(ctx == NULL) {
 		return paramErr;
 	}
+	sslCertDebug("SSLSetAllowsExpiredRoots %s",
+		allowExpired ? "true" : "false");
 	if(sslIsSessionActive(ctx)) {
 		/* can't do this with an active session */
 		return badReqErr;
@@ -555,6 +691,7 @@ OSStatus SSLSetAllowsAnyRoot(
 	if(ctx == NULL) {
 		return paramErr;
 	}
+	sslCertDebug("SSLSetAllowsAnyRoot %s",	anyRoot ? "true" : "false");
 	ctx->allowAnyRoot = anyRoot;
 	return noErr;
 }
@@ -593,6 +730,8 @@ SSLSetTrustedRoots			(SSLContextRef 		ctx,
 		return badReqErr;
 	}
 	numCerts = numIncoming = CFArrayGetCount(trustedRoots);
+	sslCertDebug("SSLSetTrustedRoot  numCerts %d  replaceExist %s",
+		(int)numCerts, replaceExisting ? "true" : "false");
 	if(!replaceExisting) {
 		if(ctx->trustedCerts != NULL) {
 			/* adding to existing store */
@@ -787,66 +926,8 @@ SSLSetEncryptionCertificate	(SSLContextRef		ctx,
 		&ctx->encryptCert,
 		&ctx->encryptPubKey,
 		&ctx->encryptPrivKey,
-		&ctx->encryptKeyCsp
-		#if	ST_KC_KEYS_NEED_REF
-		,
-		&ctx->encryptKeyRef);
-		#else
-		);
-		#endif
+		&ctx->encryptKeyCsp);
 }
-
-#if		ST_MANAGES_TRUSTED_ROOTS
-
-/*
- * Add (optional, additional) trusted root certs.
- */
-OSStatus
-SSLSetTrustedRootCertKC		(SSLContextRef		ctx,
-							 KCRef				keyChainRef,
-							 Boolean			deleteExisting)
-{
-	/*
-	 * -- free trustedCerts if deleteExisting
-	 * -- Get raw cert data, add to ctx->trustedCerts
-	 * -- verify that each of these is a valid (self-verifying)
-	 *    root cert
-	 * -- add each subject name to acceptableDNList
-	 */
-	if((ctx == NULL) || (keyChainRef == nil)) {
-		return paramErr;
-	}
-	if(sslIsSessionActive(ctx)) {
-		/* can't do this with an active session */
-		return badReqErr;
-	}
-	if(deleteExisting) {
-		sslFreeTrustedRoots(ctx);
-	}
-	return parseTrustedKeychain(ctx, keyChainRef);
-}
-
-OSStatus 
-SSLSetNewRootKC				(SSLContextRef		ctx,
-							 KCRef				keyChainRef,
-							 void				*accessCreds)
-{
-	if((ctx == NULL) || (keyChainRef == nil)) {
-		return paramErr;
-	}
-	if(sslIsSessionActive(ctx)) {
-		/* can't do this with an active session */
-		return badReqErr;
-	}
-	if(ctx->newRootCertKc != NULL) {
-		/* can't do this multiple times */
-		return badReqErr;
-	}
-	ctx->newRootCertKc = keyChainRef;
-	ctx->accessCreds = accessCreds;
-	return noErr;
-}
-#endif	/* ST_MANAGES_TRUSTED_ROOTS */
 
 OSStatus 
 SSLSetPeerID				(SSLContext 		*ctx, 
@@ -981,6 +1062,92 @@ SSLGetPeerCertificates		(SSLContextRef 		ctx,
 	return noErr;
 }							 								 
    
+/*
+ * Specify Diffie-Hellman parameters. Optional; if we are configured to allow
+ * for D-H ciphers and a D-H cipher is negotiated, and this function has not
+ * been called, a set of process-wide parameters will be calculated. However
+ * that can take a long time (30 seconds). 
+ */
+OSStatus SSLSetDiffieHellmanParams(
+	SSLContextRef	ctx,
+	const void 		*dhParams,
+	size_t			dhParamsLen)
+{
+	if(ctx == NULL) {
+		return paramErr;
+	}
+	if(sslIsSessionActive(ctx)) {
+		return badReqErr;
+	}
+	SSLFreeBuffer(ctx->dhParamsPrime, ctx);
+	SSLFreeBuffer(ctx->dhParamsGenerator, ctx);
+	SSLFreeBuffer(ctx->dhParamsEncoded, ctx);
+	
+	OSStatus ortn;
+	ortn = SSLCopyBufferFromData(dhParams, dhParamsLen,
+		ctx->dhParamsEncoded);
+	if(ortn) {
+		return ortn;
+	}
+
+	/* decode for use by server over the wire */
+	SSLBuffer sParams;
+	sParams.data = (UInt8 *)dhParams;
+	sParams.length = dhParamsLen;
+	return sslDecodeDhParams(&sParams, &ctx->dhParamsPrime,
+		&ctx->dhParamsGenerator);
+}
+
+/*
+ * Return parameter block specified in SSLSetDiffieHellmanParams.
+ * Returned data is not copied and belongs to the SSLContextRef.
+ */
+OSStatus SSLGetDiffieHellmanParams(
+	SSLContextRef	ctx,
+	const void 		**dhParams,
+	size_t			*dhParamsLen)
+{
+	if(ctx == NULL) {
+		return paramErr;
+	}
+	*dhParams = ctx->dhParamsEncoded.data;
+	*dhParamsLen = ctx->dhParamsEncoded.length;
+	return noErr;
+}
+
+OSStatus SSLSetRsaBlinding(
+	SSLContextRef	ctx,
+	Boolean			blinding)
+{
+	if(ctx == NULL) {
+		return paramErr;
+	}
+	ctx->rsaBlindingEnable = blinding;
+	return noErr;
+}
+									 
+OSStatus SSLGetRsaBlinding(
+	SSLContextRef	ctx,
+	Boolean			*blinding)
+{
+	if(ctx == NULL) {
+		return paramErr;
+	}
+	*blinding = ctx->rsaBlindingEnable;
+	return noErr;
+}
+
+OSStatus SSLGetPeerSecTrust(
+	SSLContextRef	ctx,
+	SecTrustRef		*secTrust)	/* RETURNED */
+{
+	if(ctx == NULL) {
+		return paramErr;
+	}
+	*secTrust = ctx->peerSecTrust;
+	return noErr;
+}
+
 OSStatus SSLInternalMasterSecret(
    SSLContextRef ctx,
    void *secret,        // mallocd by caller, SSL_MASTER_SECRET_SIZE 
@@ -1029,5 +1196,33 @@ OSStatus SSLInternalClientRandom(
 	return noErr;
 }
 
+OSStatus 
+SSLGetResumableSessionInfo(
+	SSLContextRef	ctx,
+	Boolean			*sessionWasResumed,		// RETURNED
+	void			*sessionID,				// RETURNED, mallocd by caller
+	size_t			*sessionIDLength)		// IN/OUT
+{
+	if((ctx == NULL) || (sessionWasResumed == NULL) || 
+	   (sessionID == NULL) || (sessionIDLength == NULL) ||
+	   (*sessionIDLength < MAX_SESSION_ID_LENGTH)) {
+		return paramErr;
+	}
+	if(ctx->sessionMatch) {
+		assert(ctx->sessionID.data != NULL);
+		*sessionWasResumed = true;
+		if(ctx->sessionID.length > *sessionIDLength) {
+			/* really should never happen - means ID > 32 */
+			return paramErr;
+		}
+		memmove(sessionID, ctx->sessionID.data, ctx->sessionID.length);
+		*sessionIDLength = ctx->sessionID.length;
+	}
+	else {
+		*sessionWasResumed = false;
+		*sessionIDLength = 0;
+	}
+	return noErr;
+}
 
 

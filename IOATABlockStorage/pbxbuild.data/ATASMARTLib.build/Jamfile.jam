@@ -19,7 +19,7 @@ export deferred _PBDEVELOPMENT_PLIST_FILE_PATH = "$(SRCROOT)/pbxbuild.data/ATASM
 
 # Implicitly computed build settings for target "ATASMARTLib"
 export deferred CLONE_HEADERS = NO ;
-export deferred PFE_FILE_C_DIALECTS = "c++" ;
+export deferred PFE_FILE_C_DIALECTS = c++ ;
 export deferred SKIP_INSTALL = YES ;
 export deferred TARGETNAME = $(TARGET_NAME) ;
 export deferred TARGET_NAME = ATASMARTLib ;
@@ -79,6 +79,12 @@ ProcessFrameworksAndLibraries "<ATASMARTLib>ATASMARTLib.plugin" : "$(FRAMEWORKS_
 # Rez Files
 REZ_FILES = ;
 ProcessRezFiles "<ATASMARTLib>ATASMARTLib.plugin" : "$(REZ_FILES)" : BPTag003 : BPTag004 ;
+
+rule DefineHeaderDependencies
+{
+}
+
+DefineHeaderDependencies "<ATASMARTLib>ATASMARTLib.plugin" ;
 
 EndBundle "<ATASMARTLib>ATASMARTLib.plugin" ;
 

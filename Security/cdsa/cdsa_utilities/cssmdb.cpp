@@ -26,43 +26,6 @@
 
 #include <Security/cssmdb.h>
 
-#if 0
-// XXX Obsolete
-CSSM_RETURN	AddFooToIntelList( void** theIntelListToAddItTo, unsigned long* theNumberOfThingsAlreadyInTheList, const void* theThingToAdd, size_t theSizeOfTheThingToAdd)
-{	// this is to make adding things to Intel LISTs (also called Arrays by the rest of us) easy! We do it everywhere! Join the fun!
-  CSSM_RETURN result = CSSM_OK;
-	void*	theReallocatedBuffer = NULL;
-	if( *theIntelListToAddItTo == NULL )
-	{
-		
-		*theIntelListToAddItTo = malloc(theSizeOfTheThingToAdd);
-		if(!*theIntelListToAddItTo)
-		{
-			result = CSSMERR_CSSM_MEMORY_ERROR;
-		}
-	}
-	 else
-	 {
-			theReallocatedBuffer = realloc((void*)*theIntelListToAddItTo, (*theNumberOfThingsAlreadyInTheList+1) * (theSizeOfTheThingToAdd) );
-			if(!theReallocatedBuffer)
-			{
-				result = CSSMERR_CSSM_MEMORY_ERROR;
-			}	 
-			 else
-			 {
-			 	*theIntelListToAddItTo = theReallocatedBuffer;
-			 }
-	 }
-	 
-	 if(result == CSSM_OK )
-	 {
-	 	memcpy( (void*)((char*)*theIntelListToAddItTo+(theSizeOfTheThingToAdd * (*theNumberOfThingsAlreadyInTheList))), theThingToAdd, theSizeOfTheThingToAdd);
-	 	(*theNumberOfThingsAlreadyInTheList)++;
-	 }
-	 
-   return result;
-}
-#endif
 
 //
 // CssmDbAttributeInfo
@@ -305,7 +268,7 @@ static bool CompareAttributeInfos (const CSSM_DB_ATTRIBUTE_INFO &a, const CSSM_D
 CssmDbAttributeData* CssmAutoDbRecordAttributeData::findAttribute (const CSSM_DB_ATTRIBUTE_INFO &info)
 {
 	// walk through the data, looking for an attribute of the same type
-	int i;
+	unsigned i;
 	for (i = 0; i < size (); ++i)
 	{
 		CssmDbAttributeData& d = at (i);
@@ -363,7 +326,7 @@ CssmAutoDbRecordAttributeData::add(const CSSM_DB_ATTRIBUTE_INFO &info, const Css
 // CssmAutoQuery
 //
 CssmAutoQuery::CssmAutoQuery(const CSSM_QUERY &query, CssmAllocator &allocator)
-: ArrayBuilder<CssmSelectionPredicate>(static_cast<CssmSelectionPredicate *>(SelectionPredicate),
+: ArrayBuilder<CssmSelectionPredicate>(CssmSelectionPredicate::overlayVar(SelectionPredicate),
 									   NumSelectionPredicates,
 									   query.NumSelectionPredicates, allocator)
 {

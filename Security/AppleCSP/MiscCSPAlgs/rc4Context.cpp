@@ -80,8 +80,8 @@ size_t RC4Context::inputSize(
 }
 
 size_t RC4Context::outputSize(
-	bool 			final = false, 
-	size_t 			inSize = 0) 		// output for given input size
+	bool 			final /*= false*/, 
+	size_t 			inSize /*= 0*/) 	// output for given input size
 {
 	return inSize;
 }

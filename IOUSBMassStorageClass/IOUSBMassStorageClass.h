@@ -46,10 +46,11 @@
 
 #pragma mark -
 #pragma mark Vendor Specific Device Support
-#define kIOUSBMassStorageCharacteristics	"USB Mass Storage Characteristics"
-#define kIOUSBMassStoragePreferredSubclass	"Preferred Subclass"
-#define kIOUSBMassStoragePreferredProtocol	"Preferred Protocol"
-#define kIOUSBMassStorageResetOnResume		"Reset On Resume"
+#define kIOUSBMassStorageCharacteristics		"USB Mass Storage Characteristics"
+#define kIOUSBMassStoragePreferredSubclass		"Preferred Subclass"
+#define kIOUSBMassStoragePreferredProtocol		"Preferred Protocol"
+#define kIOUSBMassStorageResetOnResume			"Reset On Resume"
+#define kIOUSBMassStorageMaxLogicalUnitNumber	"Max Logical Unit Number"
 
 #pragma mark -
 #pragma mark CBI Protocol Strutures
@@ -215,7 +216,11 @@ protected:
 	IOUSBPipe *				GetBulkInPipe( void );
 	IOUSBPipe *				GetBulkOutPipe( void );
 	IOUSBPipe *				GetInterruptPipe( void );
-
+	
+	// Methods for getting and setting the maximum LUN of a device.
+	UInt8					GetMaxLogicalUnitNumber( void ) const;
+	void					SetMaxLogicalUnitNumber( UInt8 maxLUN );
+	
 	virtual void 			CompleteSCSICommand( 
 								SCSITaskIdentifier request, 
 								IOReturn status );
@@ -394,7 +399,7 @@ protected:
     OSMetaClassDeclareReservedUsed( IOUSBMassStorageClass, 2 );
 	virtual void		FinishDeviceRecovery( IOReturn	status );
 
-	static void			DeviceRecoveryCompletionAction (
+	static void			DeviceRecoveryCompletionAction(
 		                	void *			target,
 		                	void *			parameter,
 		                	IOReturn		status,

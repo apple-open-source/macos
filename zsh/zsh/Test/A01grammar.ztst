@@ -109,7 +109,7 @@
     :
   fi
 1d:`if ...' (iv)
-?ZTST_execchunk:-1: parse error near `fi'
+?(eval):3: parse error near `fi'
 
   for name in word to term; do
     print $name
@@ -135,6 +135,29 @@
 >0
 >1
 >2
+
+  for keyvar valvar in key1 val1 key2 val2; do
+     print key=$keyvar val=$valvar
+  done
+0:enhanced `for' syntax with two loop variables
+>key=key1 val=val1
+>key=key2 val=val2
+
+  for keyvar valvar stuffvar in keyA valA stuffA keyB valB stuffB; do
+     print key=$keyvar val=$valvar stuff=$stuffvar
+  done
+0:enhanced `for' syntax with three loop variables
+>key=keyA val=valA stuff=stuffA
+>key=keyB val=valB stuff=stuffB
+
+  for in in in in in stop; do
+    print in=$in
+  done
+0:compatibility of enhanced `for' syntax with standard syntax
+>in=in
+>in=in
+>in=in
+>in=stop
 
   name=0
   while (( name < 3 )); do
@@ -208,18 +231,18 @@
 >2
 >3
 
-## This doesn't work, because zsh tries to read from the terminal
-## even in a non-interactive shell.  The manual implies it always reads
-## from stdin, even in an interactive shell.
-#  PS3="input> "
-#  select name in one two three; do
-#    print $name
-#  done
-#0:`select' loop
-#<2
-#>1) one     2) two     3) three   
-#>input> 
-#>two
+## Select now reads from stdin if the shell is not interactive.
+## Its own output goes to stderr.
+  (COLUMNS=80
+  PS3="input> "
+  select name in one two three; do
+    print $name
+  done)
+0:`select' loop
+<2
+?1) one     2) two     3) three   
+?input> input> 
+>two
 
   function name1 name2 () { print This is $0; }
   name2
@@ -319,3 +342,21 @@
   done < /dev/null | { read name; print done }
 0:Bug regression: `while' loop with redirection and pipeline
 >done
+
+# This used to be buggy and print X at the end of each iteration.
+  for f in 1 2 3 4; do
+    print $f || break
+  done && print X
+0:Handling of ||'s and &&'s with a for loop in between
+>1
+>2
+>3
+>4
+>X
+
+# Same bug for &&, used to print `no' at the end of each iteration
+  for f in 1 2 3 4; do
+    false && print strange
+  done || print no
+0:Handling of &&'s and ||'s with a for loop in between
+>no

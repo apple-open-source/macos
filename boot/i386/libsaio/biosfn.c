@@ -3,21 +3,22 @@
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
- * Portions Copyright (c) 1999 Apple Computer, Inc.  All Rights
- * Reserved.  This file contains Original Code and/or Modifications of
- * Original Code as defined in and that are subject to the Apple Public
- * Source License Version 1.1 (the "License").  You may not use this file
- * except in compliance with the License.  Please obtain a copy of the
- * License at http://www.apple.com/publicsource and read it before using
- * this file.
+ * Copyright (c) 1999-2003 Apple Computer, Inc.  All Rights Reserved.
+ * 
+ * This file contains Original Code and/or Modifications of Original Code
+ * as defined in and that are subject to the Apple Public Source License
+ * Version 2.0 (the 'License'). You may not use this file except in
+ * compliance with the License. Please obtain a copy of the License at
+ * http://www.opensource.apple.com/apsl/ and read it before using this
+ * file.
  * 
  * The Original Code and all software distributed under the License are
- * distributed on an "AS IS" basis, WITHOUT WARRANTY OF ANY KIND, EITHER
+ * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
  * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
  * INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY,
- * FITNESS FOR A PARTICULAR PURPOSE OR NON- INFRINGEMENT.  Please see the
- * License for the specific language governing rights and limitations
- * under the License.
+ * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
+ * Please see the License for the specific language governing rights and
+ * limitations under the License.
  * 
  * @APPLE_LICENSE_HEADER_END@
  */
@@ -26,10 +27,12 @@
  * All rights reserved.
  */
 
+#include "bootstruct.h"
 #include "libsaio.h"
 
+#define MAX_DRIVES 8
+
 static biosBuf_t bb;
-unsigned char uses_ebios[8] = {0, 0, 0, 0, 0, 0, 0, 0};
 
 int bgetc(void)
 {
@@ -77,31 +80,138 @@ unsigned int time18(void)
     return time.i;
 }
 
-int memsize(int which)
+unsigned long getMemoryMap( MemoryRange *   rangeArray,
+                            unsigned long   maxRangeCount,
+                            unsigned long * conMemSizePtr,
+                            unsigned long * extMemSizePtr )
 {
-    int size;
-        
-    if ( which )
+    #define kMemoryMapSignature  'SMAP'
+    #define kDescriptorSizeMin   20
+
+    MemoryRange *        range = rangeArray;
+    unsigned long        count = 0;
+    unsigned long long   conMemSize = 0;
+    unsigned long long   extMemTop  = 0;
+
+    // The memory pointed by the rangeArray must reside within the
+    // first megabyte.
+    //
+    // Prepare for the INT15 E820h call. Each call returns a single
+    // memory range. A continuation value is returned that must be
+    // provided on a subsequent call to fetch the next range.
+    //
+    // Certain BIOSes (Award 6.00PG) expect the upper word in EAX
+    // to be cleared on entry, otherwise only a single range will
+    // be reported.
+    //
+    // Some BIOSes will simply ignore the value of ECX on entry.
+    // Probably best to keep its value at 20 to avoid surprises.
+
+    bb.ebx.rx = 0;  // Initial continuation value must be zero.
+
+    while ( count < maxRangeCount )
     {
-        // Get the total system memory discovered by the
-        // BIOS in kilobytes.
-
-        get_memsize(&bb);
-        size = (bb.edx.rr << 16) | bb.eax.rr;
-
-        // Convert to extended memory size.
-
-        size = ( size > 1024 ) ? size - 1024 : 0;
-    }
-    else
-    {
-        // Get amount of conventional memory available.
-
-        bb.intno = 0x12;
+        bb.intno  = 0x15;
+        bb.eax.rx = 0xe820;
+        bb.ecx.rx = kDescriptorSizeMin;
+        bb.edx.rx = kMemoryMapSignature;
+        bb.edi.rr = OFFSET(  (unsigned long) range );
+        bb.es     = SEGMENT( (unsigned long) range );
         bios(&bb);
-        size = bb.eax.rr;
+
+        // Check for errors.
+
+        if ( bb.flags.cf
+        ||   bb.eax.rx != kMemoryMapSignature
+        ||   bb.ecx.rx != kDescriptorSizeMin ) break;
+
+        // Tally up the conventional/extended memory sizes.
+
+        if ( range->type == kMemoryRangeUsable ||
+             range->type == kMemoryRangeACPI   ||
+             range->type == kMemoryRangeNVS )
+        {
+            // Tally the conventional memory ranges.
+            if ( range->base + range->length <= 0xa0000 )
+                conMemSize += range->length;
+
+            // Record the top of extended memory.
+            if ( range->base >= EXTENDED_ADDR &&
+                 range->base >= extMemTop )
+                extMemTop = range->base + range->length;
+        }
+
+        range++;
+        count++;
+
+        // Is this the last address range?
+
+        if ( bb.ebx.rx == 0 ) break;
     }
-    return size;
+
+    if (extMemTop) extMemTop -= EXTENDED_ADDR;  // convert to size
+    *conMemSizePtr = conMemSize / 1024;  // size in KB
+    *extMemSizePtr = extMemTop  / 1024;  // size in KB
+
+    return count;
+}
+
+unsigned long getExtendedMemorySize()
+{
+    // Get extended memory size for large configurations. Not used unless
+    // the INT15, E820H call (Get System Address Map) failed.
+    //
+    // Input:
+    //
+    // AX   Function Code   E801h
+    //
+    // Outputs:
+    //
+    // CF   Carry Flag      Carry cleared indicates no error.
+    // AX   Extended 1      Number of contiguous KB between 1 and 16 MB,
+    //                      maximum 0x3C00 = 15 MB.
+    // BX   Extended 2      Number of contiguous 64 KB blocks between
+    //                      16 MB and 4 GB.
+    // CX   Configured 1    Number of contiguous KB between 1 and 16 MB,
+    //                      maximum 0x3C00 = 15 MB.
+    // DX   Configured 2    Number of contiguous 64 KB blocks between
+    //                      16 MB and 4 GB.
+
+    bb.intno  = 0x15;
+    bb.eax.rx = 0xe801;
+    bios(&bb);
+
+    // Return the size of memory above 1MB (extended memory) in kilobytes.
+
+    if ( bb.flags.cf == 0 ) return (bb.ebx.rr * 64 + bb.eax.rr);
+
+    // Get Extended memory size. Called on last resort since the return
+    // value is limited to 16-bits (a little less than 64MB max). May
+    // not be supported by modern BIOSes.
+    //
+    // Input:
+    //
+    // AX   Function Code   E801h
+    //
+    // Outputs:
+    //
+    // CF   Carry Flag      Carry cleared indicates no error.
+    // AX   Memory Count    Number of contiguous KB above 1MB.
+
+    bb.intno  = 0x15;
+    bb.eax.rx = 0x88;
+    bios(&bb);
+
+    // Return the size of memory above 1MB (extended memory) in kilobytes.
+
+    return bb.flags.cf ? 0 : bb.eax.rr;
+}
+
+unsigned long getConventionalMemorySize()
+{
+    bb.intno = 0x12;
+    bios(&bb);
+    return bb.eax.rr;  // kilobytes
 }
 
 void video_mode(int mode)
@@ -198,27 +308,113 @@ void putca(int ch, int attr, int repeat)
     bios(&bb);
 }
 
-unsigned int get_diskinfo(int drive)
+/* Check to see if the passed-in drive is in El Torito no-emulation mode. */
+int is_no_emulation(int drive)
 {
-    static struct {
-        unsigned short size;
-        unsigned short flags;
-        unsigned long cylinders;
-        unsigned long heads;
-        unsigned long sectors;
-        unsigned long long total_sectors;
-        unsigned short bps;
-        unsigned long params_p;
-    } ebios = {0};
-    unsigned char useEbios = 0;
+    struct packet {
+	unsigned char packet_size;
+	unsigned char media_type;
+	unsigned char drive_num;
+	unsigned char ctrlr_index;
+	unsigned long lba;
+	unsigned short device_spec;
+	unsigned short buffer_segment;
+	unsigned short load_segment;
+	unsigned short sector_count;
+	unsigned char cyl_count;
+	unsigned char sec_count;
+	unsigned char head_count;
+	unsigned char reseved;
+    };
+    static struct packet pkt;
 
-    union {
-        compact_diskinfo_t di;
-        unsigned int ui;
-    } ret;
-    static int maxhd = 0;
+    bzero(&pkt, sizeof(pkt));
+    pkt.packet_size = 0x13;
 
-    ret.ui = 0;
+    bb.intno   = 0x13;
+    bb.eax.r.h = 0x4b;
+    bb.eax.r.l = 0x01;     // subfunc: get info
+    bb.edx.r.l = drive;
+    bb.esi.rr = OFFSET((unsigned)&pkt);
+    bb.ds     = SEGMENT((unsigned)&pkt);
+
+    bios(&bb);
+#if DEBUG
+    printf("el_torito info drive %x\n", drive);
+
+    printf("--> cf %x, eax %x\n", bb.flags.cf, bb.eax.rr);
+
+    printf("pkt_size: %x\n", pkt.packet_size);
+    printf("media_type: %x\n", pkt.media_type);
+    printf("drive_num: %x\n", pkt.drive_num);
+    printf("device_spec: %x\n", pkt.device_spec);
+    printf("press a key->\n");getc();
+#endif
+
+    /* Some BIOSes erroneously return cf = 1 */
+    /* Just check to see if the drive number is the same. */
+    if (pkt.drive_num == drive) {
+	if ((pkt.media_type & 0x0F) == 0) {
+	    /* We are in no-emulation mode. */
+	    return 1;
+	}
+    }
+    
+    return 0;
+}
+
+#if DEBUG
+/*
+ * BIOS drive information.
+ */
+void print_drive_info(boot_drive_info_t *dp)
+{
+    //    printf("buf_size = %x\n", dp->params.buf_size);
+    printf("info_flags = %x\n", dp->params.info_flags);
+    printf(" phys_cyls = %lx\n", dp->params. phys_cyls);
+    printf(" phys_heads = %lx\n", dp->params. phys_heads);
+    printf(" phys_spt = %lx\n", dp->params. phys_spt);
+    printf("phys_sectors = %lx%lx\n", ((unsigned long *)(&dp->params.phys_sectors))[1],
+				      ((unsigned long *)(&dp->params.phys_sectors))[0]);
+    printf("phys_nbps = %x\n", dp->params.phys_nbps);
+    //    printf("dpte_offset = %x\n", dp->params.dpte_offset);
+    //    printf("dpte_segment = %x\n", dp->params.dpte_segment);
+    //    printf("key = %x\n", dp->params.key);
+    //    printf("path_len = %x\n", dp->params. path_len);
+    //    printf("reserved1 = %x\n", dp->params. reserved1);
+    //    printf("reserved2 = %x\n", dp->params.reserved2);
+    //printf("bus_type[4] = %x\n", dp->params. bus_type[4]);
+    //printf("interface_type[8] = %x\n", dp->params. interface_type[8]);
+    //printf("interface_path[8] = %x\n", dp->params. interface_path[8]);
+    //printf("dev_path[8] = %x\n", dp->params. dev_path[8]);
+    //    printf("reserved3 = %x\n", dp->params. reserved3);
+    //    printf("checksum = %x\n", dp->params. checksum);
+
+    printf(" io_port_base = %x\n", dp->dpte.io_port_base);
+    printf(" control_port_base = %x\n", dp->dpte.control_port_base);
+    printf("  head_flags = %x\n", dp->dpte. head_flags);
+    printf("  vendor_info = %x\n", dp->dpte. vendor_info);
+    printf("  irq = %x\n", dp->dpte. irq);
+    //    printf("  irq_unused = %x\n", dp->dpte. irq_unused);
+    printf("  block_count = %x\n", dp->dpte. block_count);
+    printf("  dma_channe = %x\n", dp->dpte. dma_channel);
+    printf("  dma_type = %x\n", dp->dpte. dma_type);
+    printf("  pio_type = %x\n", dp->dpte. pio_type);
+    printf("  pio_unused = %x\n", dp->dpte. pio_unused);
+    printf(" option_flags = %x\n", dp->dpte.option_flags);
+    //    printf(" reserved = %x\n", dp->dpte.reserved);
+    printf("  revision = %x\n", dp->dpte. revision);
+    //    printf("  checksum = %x\n", dp->dpte. checksum);
+}
+
+#endif
+
+int get_drive_info(int drive, struct driveInfo *dp)
+{
+    boot_drive_info_t *di = &dp->di;
+    int ret = 0;
+
+#if 0
     if (maxhd == 0) {
         bb.intno = 0x13;
         bb.eax.r.h = 0x08;
@@ -230,6 +426,13 @@ unsigned int get_diskinfo(int drive)
 
     if (drive > maxhd)
         return 0;
+#endif
+
+    bzero(dp, sizeof(struct driveInfo));
+    dp->biosdev = drive;
+
+    /* Check for El Torito no-emulation mode. */
+    dp->no_emulation = is_no_emulation(drive);
 
     /* Check drive for EBIOS support. */
     bb.intno = 0x13;
@@ -237,48 +440,82 @@ unsigned int get_diskinfo(int drive)
     bb.edx.r.l = drive;
     bb.ebx.rr = 0x55aa;
     bios(&bb);
-    if(bb.ebx.rr == 0xaa55 && bb.flags.cf == 0) {
+    if((bb.ebx.rr == 0xaa55) && (bb.flags.cf == 0)) {
         /* Get flags for supported operations. */
-        useEbios = bb.ecx.r.l;
+        dp->uses_ebios = bb.ecx.r.l;
     }
 
-    if (useEbios & EBIOS_ENHANCED_DRIVE_INFO) {
+    if (dp->uses_ebios & (EBIOS_ENHANCED_DRIVE_INFO | EBIOS_LOCKING_ACCESS | EBIOS_FIXED_DISK_ACCESS)) {
         /* Get EBIOS drive info. */
-        ebios.size = 26;
+	static struct drive_params params;
+
+        params.buf_size = sizeof(params);
         bb.intno = 0x13;
         bb.eax.r.h = 0x48;
         bb.edx.r.l = drive;
-        bb.esi.rr = OFFSET((unsigned)&ebios);
-        bb.ds     = SEGMENT((unsigned)&ebios);
+        bb.esi.rr = OFFSET((unsigned)&params);
+        bb.ds     = SEGMENT((unsigned)&params);
         bios(&bb);
-        if(bb.flags.cf != 0) {
-            useEbios = 0;
-        }
+        if(bb.flags.cf != 0 /* || params.phys_sectors < 2097152 */) {
+            dp->uses_ebios = 0;
+	    di->params.buf_size = 1;
+        } else {
+	    bcopy(&params, &di->params, sizeof(params));
+
+	    if (drive >= BASE_HD_DRIVE &&
+		   (dp->uses_ebios & EBIOS_ENHANCED_DRIVE_INFO) &&
+		   di->params.buf_size >= 30 &&
+		   !(di->params.dpte_offset == 0xFFFF && di->params.dpte_segment == 0xFFFF)) {
+		void *ptr = (void *)(di->params.dpte_offset + ((unsigned int)di->params.dpte_segment << 4));
+		bcopy(ptr, &di->dpte, sizeof(di->dpte));
+	    }
+	}
     }
 
-    bb.intno = 0x13;
-    bb.eax.r.h = 0x08;
-    bb.edx.r.l = drive;
-    bios(&bb);
-    if (bb.flags.cf == 0 && bb.eax.r.h == 0) {
-        unsigned long cyl;
-        unsigned long sec;
-        unsigned long hds;
+    if (di->params.phys_heads == 0 || di->params.phys_spt == 0) {
+	/* Either it's not EBIOS, or EBIOS didn't tell us. */
+	bb.intno = 0x13;
+	bb.eax.r.h = 0x08;
+	bb.edx.r.l = drive;
+	bios(&bb);
+	if (bb.flags.cf == 0 && bb.eax.r.h == 0) {
+	    unsigned long cyl;
+	    unsigned long sec;
+	    unsigned long hds;
 
-        hds = bb.edx.r.h;
-        sec = bb.ecx.r.l & 0x3F;
-        if(useEbios & EBIOS_ENHANCED_DRIVE_INFO) {
-            cyl = (ebios.total_sectors / ((hds + 1) * sec)) - 1;
-        }
-        else {
-            cyl = bb.ecx.r.h | ((bb.ecx.r.l & 0xC0) << 2);
-        }
-        ret.di.heads = hds;
-        ret.di.sectors = sec;
-        ret.di.cylinders = cyl;
+	    hds = bb.edx.r.h;
+	    sec = bb.ecx.r.l & 0x3F;
+	    if((dp->uses_ebios & EBIOS_ENHANCED_DRIVE_INFO) && (sec != 0)) {
+		cyl = (di->params.phys_sectors / ((hds + 1) * sec)) - 1;
+	    }
+	    else {
+		cyl = bb.ecx.r.h | ((bb.ecx.r.l & 0xC0) << 2);
+	    }
+	    di->params.phys_heads = hds; 
+	    di->params.phys_spt = sec;
+	    di->params.phys_cyls = cyl;
+	} else {
+	    ret = -1;
+	}
     }
-    if(drive >= 0x80) uses_ebios[drive - 0x80] = useEbios;
-    return ret.ui;
+
+    if (dp->no_emulation) {
+        /* Some BIOSes give us erroneous EBIOS support information.
+	 * Assume that if you're on a CD, then you can use
+	 * EBIOS disk calls.
+	 */
+        dp->uses_ebios |= EBIOS_FIXED_DISK_ACCESS;
+    }
+#if DEBUG
+    print_drive_info(di);
+    printf("uses_ebios = 0x%x\n", dp->uses_ebios);
+    printf("press a key->\n");getc();
+#endif
+
+    if (ret == 0) {
+	 dp->valid = 1;
+    }
+    return ret;
 }
 
 void setCursorPosition(int x, int y, int page)
@@ -339,7 +576,7 @@ void setActiveDisplayPage( int page )
 
 int terminateDiskEmulation()
 {
-    static char cd_spec[0x12];
+    static char cd_spec[0x13];
 
     bb.intno   = 0x13;
     bb.eax.r.h = 0x4b;
@@ -375,8 +612,6 @@ int readDriveParameters(int drive, struct driveParameters *dp)
 int
 APMPresent(void)
 {
-    KERNBOOTSTRUCT *kbp = kernBootStruct;
-    
     bb.intno = APM_INTNO;
     bb.eax.r.h = APM_INTCODE;
     bb.eax.r.l = 0x00;
@@ -386,9 +621,9 @@ APMPresent(void)
         (bb.ebx.r.h == 'P') &&
         (bb.ebx.r.l == 'M')) {
         /* Success */
-        kbp->apmConfig.major_vers = bb.eax.r.h;
-        kbp->apmConfig.minor_vers = bb.eax.r.l;
-        kbp->apmConfig.flags.data = bb.ecx.rr;
+        bootArgs->apmConfig.major_vers = bb.eax.r.h;
+        bootArgs->apmConfig.minor_vers = bb.eax.r.l;
+        bootArgs->apmConfig.flags.data = bb.ecx.rr;
         return 1;
     }
     return 0;
@@ -397,8 +632,6 @@ APMPresent(void)
 int
 APMConnect32(void)
 {
-    KERNBOOTSTRUCT *kbp = kernBootStruct;
-
     bb.intno = APM_INTNO;
     bb.eax.r.h = APM_INTCODE;
     bb.eax.r.l = 0x03;
@@ -406,19 +639,19 @@ APMConnect32(void)
     bios(&bb);
     if (bb.flags.cf == 0) {
         /* Success */
-        kbp->apmConfig.cs32_base = (bb.eax.rr) << 4;
-        kbp->apmConfig.entry_offset = bb.ebx.rx;
-        kbp->apmConfig.cs16_base = (bb.ecx.rr) << 4;
-        kbp->apmConfig.ds_base = (bb.edx.rr) << 4;
-        if (kbp->apmConfig.major_vers >= 1 &&
-            kbp->apmConfig.minor_vers >= 1) {
-            kbp->apmConfig.cs_length = bb.esi.rr;
-            kbp->apmConfig.ds_length = bb.edi.rr;
+        bootArgs->apmConfig.cs32_base = (bb.eax.rr) << 4;
+        bootArgs->apmConfig.entry_offset = bb.ebx.rx;
+        bootArgs->apmConfig.cs16_base = (bb.ecx.rr) << 4;
+        bootArgs->apmConfig.ds_base = (bb.edx.rr) << 4;
+        if (bootArgs->apmConfig.major_vers >= 1 &&
+            bootArgs->apmConfig.minor_vers >= 1) {
+            bootArgs->apmConfig.cs_length = bb.esi.rr;
+            bootArgs->apmConfig.ds_length = bb.edi.rr;
         } else {
-            kbp->apmConfig.cs_length = 
-                kbp->apmConfig.ds_length = 64 * 1024;
+            bootArgs->apmConfig.cs_length = 
+                bootArgs->apmConfig.ds_length = 64 * 1024;
         }
-        kbp->apmConfig.connected = 1;
+        bootArgs->apmConfig.connected = 1;
         return 1;
     }
     return 0;
@@ -530,4 +763,19 @@ ReadPCIBusInfo(PCI_bus_info_t *pp)
         return 0;
     }
     return -1;
+}
+
+void sleep(int n)
+{
+    unsigned int endtime = (time18() + 18*n);
+    while (time18() < endtime);
+}
+
+void delay(int ms)
+{
+    bb.intno = 0x15;
+    bb.eax.r.h = 0x86;
+    bb.ecx.rr = ms >> 16;
+    bb.edx.rr = ms & 0xFFFF;
+    bios(&bb);
 }

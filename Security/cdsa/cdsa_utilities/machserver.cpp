@@ -58,7 +58,7 @@ MachServer::MachServer(const char *name, const Bootstrap &boot)
 
 void MachServer::setup(const char *name)
 {
-	debug("machsrv", "%p preparing service for \"%s\"", this, name);
+	secdebug("machsrv", "%p preparing service for \"%s\"", this, name);
 	workerTimeout = 60 * 2;	// 2 minutes default timeout
 	maxWorkerCount = 100;	// sanity check limit
     
@@ -69,7 +69,7 @@ MachServer::~MachServer()
 {
 	// The ReceivePort members will clean themselves up.
 	// The bootstrap server will clear us from its map when our receive port dies.
-	debug("machsrv", "%p destroyed", this);
+	secdebug("machsrv", "%p destroyed", this);
 }
 
 
@@ -80,13 +80,13 @@ MachServer::~MachServer()
 //
 void MachServer::add(Port receiver)
 {
-	debug("machsrv", "adding port %d to primary dispatch", receiver.port());
+	secdebug("machsrv", "adding port %d to primary dispatch", receiver.port());
 	mPortSet += receiver;
 }
 
 void MachServer::remove(Port receiver)
 {
-	debug("machsrv", "removing port %d from primary dispatch", receiver.port());
+	secdebug("machsrv", "removing port %d from primary dispatch", receiver.port());
 	mPortSet -= receiver;
 }
 
@@ -159,7 +159,7 @@ void MachServer::runServerThread(bool doTimeout)
 	// all exits from runServerThread are through exceptions
 	try {
 		// register as a worker thread
-		debug("machsrv", "%p starting service on port %d", this, int(mServerPort));
+		secdebug("machsrv", "%p starting service on port %d", this, int(mServerPort));
 		perThread().server = this;
 
 		for (;;) {
@@ -175,13 +175,13 @@ void MachServer::runServerThread(bool doTimeout)
 				// perform self-timeout processing
 				if (doTimeout) {
 					if (workerCount > maxWorkerCount) {
-						debug("machsrv", "%p too many threads; reaping immediately", this);
+						secdebug("machsrv", "%p too many threads; reaping immediately", this);
 						break;
 					}
 					Time::Absolute rightNow = Time::now();
 					if (rightNow >= nextCheckTime) {	// reaping period complete; process
 						uint32 idlers = leastIdleWorkers;
-						debug("machsrv", "%p end of reaping period: %ld (min) idle of %ld total",
+						secdebug("machsrv", "%p end of reaping period: %ld (min) idle of %ld total",
 							this, idlers, workerCount);
 						nextCheckTime = rightNow + workerTimeout;
 						leastIdleWorkers = INT_MAX;
@@ -248,7 +248,7 @@ void MachServer::runServerThread(bool doTimeout)
 			} else {
 				// normal request message
 				{ StLock<Mutex> _(managerLock); idleCount--; }
-				debug("machsrvreq",
+				secdebug("machsrvreq",
                     "servicing port %d request id=%d",
                     bufRequest.localPort().port(), bufRequest.msgId());
 				
@@ -265,7 +265,7 @@ void MachServer::runServerThread(bool doTimeout)
                     handle(bufRequest, bufReply);
                 }
 
-				debug("machsrvreq", "request complete");
+				secdebug("machsrvreq", "request complete");
 				{ StLock<Mutex> _(managerLock); idleCount++; }
 			}
 
@@ -314,11 +314,11 @@ void MachServer::runServerThread(bool doTimeout)
 			}
         }
 		perThread().server = NULL;
-		debug("machsrv", "%p ending service on port %d", this, int(mServerPort));
+		secdebug("machsrv", "%p ending service on port %d", this, int(mServerPort));
 		
 	} catch (...) {
 		perThread().server = NULL;
-		debug("machsrv", "%p aborted by exception (port %d)", this, int(mServerPort));
+		secdebug("machsrv", "%p aborted by exception (port %d)", this, int(mServerPort));
 		throw;
 	}
 }
@@ -367,7 +367,7 @@ void MachServer::releaseWhenDone(CssmAllocator &alloc, void *memory)
     if (memory) {
         set<Allocation> &releaseSet = perThread().deferredAllocations;
         assert(releaseSet.find(Allocation(memory, alloc)) == releaseSet.end());
-        debug("machsrvmem", "%p register %p for release with %p",
+        secdebug("machsrvmem", "%p register %p for release with %p",
             this, memory, &alloc);
         releaseSet.insert(Allocation(memory, alloc));
     }
@@ -385,7 +385,7 @@ void MachServer::releaseDeferredAllocations()
 {
     set<Allocation> &releaseSet = perThread().deferredAllocations;
 	for (set<Allocation>::iterator it = releaseSet.begin(); it != releaseSet.end(); it++) {
-        debug("machsrvmem", "%p release %p with %p", this, it->addr, it->allocator);
+        secdebug("machsrvmem", "%p release %p with %p", this, it->addr, it->allocator);
 		it->allocator->free(it->addr);
     }
 	releaseSet.erase(releaseSet.begin(), releaseSet.end());
@@ -425,7 +425,7 @@ void MachServer::addThread(Thread *thread)
 	StLock<Mutex> _(managerLock);
 	workerCount++;
 	idleCount++;
-	debug("machsrv", "%p adding worker thread (%ld workers, %ld idle)",
+	secdebug("machsrv", "%p adding worker thread (%ld workers, %ld idle)",
 		this, workerCount, idleCount);
 	workers.insert(thread);
 }
@@ -435,7 +435,7 @@ void MachServer::removeThread(Thread *thread)
 	StLock<Mutex> _(managerLock);
 	workerCount--;
 	idleCount--;
-	debug("machsrv", "%p removing worker thread (%ld workers, %ld idle)",
+	secdebug("machsrv", "%p removing worker thread (%ld workers, %ld idle)",
 		this, workerCount, idleCount);
 	workers.erase(thread);
 }
@@ -451,13 +451,13 @@ bool MachServer::processTimer()
 		if (!(top = static_cast<Timer *>(timers.pop(Time::now()))))
 			return false;				// nothing (more) to be done now
 	}	// drop lock; work has been retrieved
-	debug("machsrvtime", "%p timer %p executing at %.3f",
+	secdebug("machsrvtime", "%p timer %p executing at %.3f",
         this, top, Time::now().internalForm());
 	try {
 		top->action();
-		debug("machsrvtime", "%p timer %p done", this, top);
+		secdebug("machsrvtime", "%p timer %p done", this, top);
 	} catch (...) {
-		debug("machsrvtime", "%p server timer %p failed with exception", this, top);
+		secdebug("machsrvtime", "%p server timer %p failed with exception", this, top);
 	}
 	return true;
 }

@@ -34,6 +34,8 @@ class KeyItem : public ItemImpl
 {
 	NOCOPY(KeyItem)
 public:
+	SECCFFUNCTIONS(KeyItem, SecKeyRef, errSecInvalidItemRef)
+
 	// db item contstructor
     KeyItem(const Keychain &keychain, const PrimaryKey &primaryKey, const CssmClient::DbUniqueRecord &uniqueId);
 
@@ -42,14 +44,20 @@ public:
 
 	KeyItem(KeyItem &keyItem);
 
-    virtual ~KeyItem();
+	KeyItem(const CssmClient::Key &key);
+
+    virtual ~KeyItem() throw();
 
 	virtual void update();
-	virtual Item copyTo(const Keychain &keychain);
+	virtual Item copyTo(const Keychain &keychain, Access *newAccess = NULL);
 	virtual void didModify();
 
 	CssmClient::SSDbUniqueRecord ssDbUniqueRecord();
-	const CssmKey &cssmKey();
+	CssmClient::Key &key();
+	CssmClient::CSP csp();
+
+	const CSSM_X509_ALGORITHM_IDENTIFIER& algorithmIdentifier();
+	unsigned int strengthInBits(const CSSM_X509_ALGORITHM_IDENTIFIER *algid);
 
 	const AccessCredentials *getCredentials(
 		CSSM_ACL_AUTHORIZATION_TAG operation,
@@ -64,22 +72,32 @@ public:
         uint32 publicKeyAttr,
         CSSM_KEYUSE privateKeyUsage,
         uint32 privateKeyAttr,
-        RefPointer<Access> initialAccess,
-        RefPointer<KeyItem> &outPublicKey, 
-        RefPointer<KeyItem> &outPrivateKey);
+        SecPointer<Access> initialAccess,
+        SecPointer<KeyItem> &outPublicKey, 
+        SecPointer<KeyItem> &outPrivateKey);
 
 	static void importPair(
 		Keychain keychain,
 		const CSSM_KEY &publicCssmKey,
 		const CSSM_KEY &privateCssmKey,
-        RefPointer<Access> initialAccess,
-        RefPointer<KeyItem> &outPublicKey, 
-        RefPointer<KeyItem> &outPrivateKey);
+        SecPointer<Access> initialAccess,
+        SecPointer<KeyItem> &outPublicKey, 
+        SecPointer<KeyItem> &outPrivateKey);
+
+	static KeyItem *generate(
+		Keychain keychain,
+		CSSM_ALGORITHMS algorithm,
+		uint32 keySizeInBits,
+		CSSM_CC_HANDLE contextHandle,
+		CSSM_KEYUSE keyUsage,
+		uint32 keyAttr,
+		SecPointer<Access> initialAccess);
 
 protected:
 	virtual PrimaryKey add(Keychain &keychain);
 private:
-	CssmKey *mKey;
+	CssmClient::Key mKey;
+	const CSSM_X509_ALGORITHM_IDENTIFIER *algid;
 };
 
 } // end namespace KeychainCore

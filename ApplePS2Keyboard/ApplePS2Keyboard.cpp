@@ -3,19 +3,22 @@
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
- * The contents of this file constitute Original Code as defined in and
- * are subject to the Apple Public Source License Version 1.1 (the
- * "License").  You may not use this file except in compliance with the
- * License.  Please obtain a copy of the License at
- * http://www.apple.com/publicsource and read it before using this file.
+ * Copyright (c) 1999-2003 Apple Computer, Inc.  All Rights Reserved.
  * 
- * This Original Code and all software distributed under the License are
- * distributed on an "AS IS" basis, WITHOUT WARRANTY OF ANY KIND, EITHER
+ * This file contains Original Code and/or Modifications of Original Code
+ * as defined in and that are subject to the Apple Public Source License
+ * Version 2.0 (the 'License'). You may not use this file except in
+ * compliance with the License. Please obtain a copy of the License at
+ * http://www.opensource.apple.com/apsl/ and read it before using this
+ * file.
+ * 
+ * The Original Code and all software distributed under the License are
+ * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
  * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
  * INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY,
- * FITNESS FOR A PARTICULAR PURPOSE OR NON-INFRINGEMENT.  Please see the
- * License for the specific language governing rights and limitations
- * under the License.
+ * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
+ * Please see the License for the specific language governing rights and
+ * limitations under the License.
  * 
  * @APPLE_LICENSE_HEADER_END@
  */
@@ -32,9 +35,11 @@
 //
 
 #define super IOHIKeyboard
+#define APPLEPS2KEYBOARD_DEVICE_TYPE	0x1B
+
 OSDefineMetaClassAndStructors(ApplePS2Keyboard, IOHIKeyboard);
 
-UInt32 ApplePS2Keyboard::deviceType()  { return NX_EVS_DEVICE_TYPE_KEYBOARD; };
+UInt32 ApplePS2Keyboard::deviceType()  { return APPLEPS2KEYBOARD_DEVICE_TYPE; };
 UInt32 ApplePS2Keyboard::interfaceID() { return NX_EVS_DEVICE_INTERFACE_ADB; };
 
 UInt32 ApplePS2Keyboard::maxKeyCodes() { return KBV_NUM_KEYCODES; };
@@ -117,6 +122,17 @@ bool ApplePS2Keyboard::start(IOService * provider)
   _device = (ApplePS2KeyboardDevice *)provider;
   _device->retain();
 
+
+  if (kOSBooleanTrue == getProperty("Make capslock into control")) {
+    emacsMode = true;
+  } else {
+    emacsMode = false;
+  }
+  if (kOSBooleanTrue == getProperty("Swap alt and windows key")) {
+    macintoshMode = true;
+  } else {
+    macintoshMode = false;
+  }
   //
   // Install our driver's interrupt handler, for asynchronous data delivery.
   //
@@ -266,7 +282,32 @@ bool ApplePS2Keyboard::dispatchKeyboardEventWithScancode(UInt8 scanCode)
   //
 
   if (_extendCount == 0)
+  {
     keyCode = scanCode & ~kSC_UpBit;
+
+    // from "The Undocumented PC" chapter 8, The Keyboard System some
+    // keyboard scan codes are single byte, some are multi-byte
+    // 3023805:  I want to swap alt and windows, since the windows
+    // key is located where the alt/option key is on an Apple PowerBook
+    // or USB keyboard, and the alt key is where the Apple/Command
+    // key is on the PB or USB keyboard. Left alt is a single scan
+    // code byte, right alt is a double scan code byte. Left and
+    // right windows keys are double bytes.  This is all set by an
+    // entry in Info.plist for ApplePS2Keyboard.kext
+    switch (keyCode)
+    {
+      case 0x3A: 
+	if (emacsMode == true) {
+	  keyCode = 0x60; 
+	}
+	break;			// caps lock becomes ctrl
+      case 0x38: 
+	if (macintoshMode == true) {
+	  keyCode = 0x70; 
+	}
+	break;		// left alt becomes left windows
+    }
+  }
   else
   {
     _extendCount--;
@@ -280,7 +321,13 @@ bool ApplePS2Keyboard::dispatchKeyboardEventWithScancode(UInt8 scanCode)
     switch (scanCode & ~kSC_UpBit)
     {
       case 0x1D: keyCode = 0x60; break;            // ctrl
-      case 0x38: keyCode = 0x61; break;            // alt
+      case 0x38:             			   // right alt may become right command
+	if (macintoshMode == true) {
+	  keyCode = 0x71; 
+	} else {
+	  keyCode = 0x61;			  
+	}
+	break;
       case 0x1C: keyCode = 0x62; break;            // enter
       case 0x35: keyCode = 0x63; break;            // /
       case 0x48: keyCode = 0x64; break;            // up arrow
@@ -295,8 +342,20 @@ bool ApplePS2Keyboard::dispatchKeyboardEventWithScancode(UInt8 scanCode)
       case 0x4F: keyCode = 0x6D; break;            // end
       case 0x37: keyCode = 0x6E; break;            // PrintScreen
       case 0x45: keyCode = 0x6F; break;            // Pause
-      case 0x5B: keyCode = 0x70; break;            // Left Windows
-      case 0x5C: keyCode = 0x71; break;            // Right Windows
+      case 0x5B: 				   // left Windows key may become alt
+	if (macintoshMode == true) {
+	  keyCode = 0x38; 			   // alt 
+	} else {
+	  keyCode = 0x70;			   // Left command
+	}
+	break;
+      case 0x5c:  				   // right Windows key may become alt
+	if (macintoshMode == true) {
+	  keyCode = 0x61; 			   // alt
+	} else {
+	  keyCode = 0x71; 			   // Right command
+	}
+	break;
       case 0x5D: keyCode = 0x72; break;            // Application
       case 0x2A:             // header or trailer for PrintScreen
       default: return false;
@@ -478,15 +537,26 @@ const unsigned char * ApplePS2Keyboard::defaultKeymapOfLength(UInt32 * length)
 	//
     // Keymap data borrowed from IOUSBFamily/AppleUSBKeyboard.
     //
-    static const unsigned char appleUSAKeyMap[] =
-    {
+    static const unsigned char appleUSAKeyMap[] = {
         0x00,0x00,
-        0x06,   //Number of modifier keys.  Was 7
+        
+        // Modifier Defs
+	0x0a,   //Number of modifier keys.  Was 7
         //0x00,0x01,0x39,  //CAPSLOCK, uses one byte.
         0x01,0x01,0x38,
-        0x02,0x01,0x3b,0x03,0x01,0x3a,0x04,
-        0x01,0x37,0x05,0x15,0x52,0x41,0x4c,0x53,0x54,0x55,0x45,0x58,0x57,0x56,0x5b,0x5c,
-        0x43,0x4b,0x51,0x7b,0x7d,0x7e,0x7c,0x4e,0x59,0x06,0x01,0x72,0x7f,0x0d,0x00,0x61,
+        0x02,0x01,0x3b,
+        0x03,0x01,0x3a,
+        0x04,0x01,0x37,
+        0x05,0x15,0x52,0x41,0x4c,0x53,0x54,0x55,0x45,0x58,0x57,0x56,0x5b,0x5c,
+        0x43,0x4b,0x51,0x7b,0x7d,0x7e,0x7c,0x4e,0x59,
+        0x06,0x01,0x72,
+        0x09,0x01,0x3c, //Right shift
+        0x0a,0x01,0x3e, //Right control
+        0x0b,0x01,0x3d, //Right Option
+        0x0c,0x01,0x36, //Right Command
+        
+        // key deffs
+        0x7f,0x0d,0x00,0x61,
         0x00,0x41,0x00,0x01,0x00,0x01,0x00,0xca,0x00,0xc7,0x00,0x01,0x00,0x01,0x0d,0x00,
         0x73,0x00,0x53,0x00,0x13,0x00,0x13,0x00,0xfb,0x00,0xa7,0x00,0x13,0x00,0x13,0x0d,
         0x00,0x64,0x00,0x44,0x00,0x04,0x00,0x04,0x01,0x44,0x01,0xb6,0x00,0x04,0x00,0x04,
@@ -540,27 +610,31 @@ const unsigned char * ApplePS2Keyboard::defaultKeymapOfLength(UInt32 * length)
         0x00,0x00,0x33,0x00,0x00,0x34,0x00,0x00,0x35,0x00,0x00,0x36,0x00,0x00,0x37,0xff,
         0x00,0x00,0x38,0x00,0x00,0x39,0xff,0xff,0xff,0x00,0xfe,0x24,0x00,0xfe,0x25,0x00,
         0xfe,0x26,0x00,0xfe,0x22,0x00,0xfe,0x27,0x00,0xfe,0x28,0xff,0x00,0xfe,0x2a,0xff,
-        0x00,0xfe,0x32,0xff,0x00,0xfe,0x33,0xff,0x00,0xfe,0x29,0xff,0x00,0xfe,0x2b,0xff,
+        0x00,0xfe,0x32,0x00,0xfe,0x35,0x00,0xfe,0x33,0xff,0x00,0xfe,0x29,0xff,0x00,0xfe,0x2b,0xff,
         0x00,0xfe,0x34,0xff,0x00,0xfe,0x2e,0x00,0xfe,0x30,0x00,0xfe,0x2d,0x00,0xfe,0x23,
         0x00,0xfe,0x2f,0x00,0xfe,0x21,0x00,0xfe,0x31,0x00,0xfe,0x20,
-        0x00,0x01,0xac, // ADB=0x7b is left arrow
-        0x00,0x01,0xae, // ADB = 0x7c is right arrow
-        0x00,0x01,0xaf, // ADB=0x7d is down arrow.  
-        0x00,0x01,0xad, // ADB=0x7e is up arrow	 
+        0x00,0x01,0xac, //ADB=0x7b is left arrow
+        0x00,0x01,0xae, //ADB = 0x7c is right arrow
+        0x00,0x01,0xaf, //ADB=0x7d is down arrow.  
+        0x00,0x01,0xad, //ADB=0x7e is up arrow	 
         0x0f,0x02,0xff,0x04,            
         0x00,0x31,0x02,0xff,0x04,0x00,0x32,0x02,0xff,0x04,0x00,0x33,0x02,0xff,0x04,0x00,
         0x34,0x02,0xff,0x04,0x00,0x35,0x02,0xff,0x04,0x00,0x36,0x02,0xff,0x04,0x00,0x37,
         0x02,0xff,0x04,0x00,0x38,0x02,0xff,0x04,0x00,0x39,0x02,0xff,0x04,0x00,0x30,0x02,
         0xff,0x04,0x00,0x2d,0x02,0xff,0x04,0x00,0x3d,0x02,0xff,0x04,0x00,0x70,0x02,0xff,
         0x04,0x00,0x5d,0x02,0xff,0x04,0x00,0x5b,
-        0x07,       // following are 7 special keys
-        0x04,0x39,  // caps lock
-        0x05,0x72,  // NX_KEYTYPE_HELP is 5, ADB code is 0x72
-        0x06,0x7f,  // NX_POWER_KEY is 6, ADB code is 0x7f
-        0x07,0x4a,  // NX_KEYTYPE_MUTE is 7, ADB code is 0x4a
-        0x08,0x7e,  // NX_UP_ARROW_KEY is 8, ADB is 3e raw, 7e virtual (KMAP)
-        0x09,0x7d,  // NX_DOWN_ARROW_KEY is 9, ADB is 0x3d raw, 7d virtual
-        0x0a,0x47   // NX_KEYTYPE_NUM_LOCK is 10, ADB combines with CLEAR key for numlock
+        0x07, // following are 7 special keys
+        0x04,0x39,  //caps lock
+        0x05,0x72,  //NX_KEYTYPE_HELP is 5, ADB code is 0x72
+        0x06,0x7f,  //NX_POWER_KEY is 6, ADB code is 0x7f
+        0x07,0x4a,  //NX_KEYTYPE_MUTE is 7, ADB code is 0x4a
+        0x00,0x48,  //NX_KEYTYPE_SOUND_UP is 0, ADB code is 0x48
+        0x01,0x49,  //NX_KEYTYPE_SOUND_DOWN is 1, ADB code is 0x49
+        // remove arrow keys as special keys. They are generating double up/down scroll events
+        // in both carbon and coco apps.
+        //0x08,0x7e,  //NX_UP_ARROW_KEY is 8, ADB is 3e raw, 7e virtual (KMAP)
+        //0x09,0x7d,  //NX_DOWN_ARROW_KEY is 9, ADB is 0x3d raw, 7d virtual
+        0x0a,0x47   //NX_KEYTYPE_NUM_LOCK is 10, ADB combines with CLEAR key for numlock
     };
  
     *length = sizeof(appleUSAKeyMap);

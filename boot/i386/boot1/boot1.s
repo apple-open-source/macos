@@ -1,563 +1,533 @@
-; Copyright (c) 1999 Apple Computer, Inc. All rights reserved.
+; Copyright (c) 1999-2002 Apple Computer, Inc. All rights reserved.
 ;
 ; @APPLE_LICENSE_HEADER_START@
 ; 
-; Portions Copyright (c) 1999 Apple Computer, Inc.  All Rights
-; Reserved.  This file contains Original Code and/or Modifications of
-; Original Code as defined in and that are subject to the Apple Public
-; Source License Version 1.1 (the "License").  You may not use this file
-; except in compliance with the License.  Please obtain a copy of the
-; License at http://www.apple.com/publicsource and read it before using
-; this file.
+; Copyright (c) 1999-2003 Apple Computer, Inc.  All Rights Reserved.
+; 
+; This file contains Original Code and/or Modifications of Original Code
+; as defined in and that are subject to the Apple Public Source License
+; Version 2.0 (the 'License'). You may not use this file except in
+; compliance with the License. Please obtain a copy of the License at
+; http://www.opensource.apple.com/apsl/ and read it before using this
+; file.
 ; 
 ; The Original Code and all software distributed under the License are
-; distributed on an "AS IS" basis, WITHOUT WARRANTY OF ANY KIND, EITHER
+; distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
 ; EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
 ; INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY,
-; FITNESS FOR A PARTICULAR PURPOSE OR NON- INFRINGEMENT.  Please see the
-; License for the specific language governing rights and limitations
-; under the License.
+; FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
+; Please see the License for the specific language governing rights and
+; limitations under the License.
 ; 
 ; @APPLE_LICENSE_HEADER_END@
 ;
-; Boot Loader: boot0
+; Partition Boot Loader: boot1h
 ;
-; A small boot sector program written in x86 assembly whose only
-; responsibility is to locate the booter partition, load the
-; booter into memory, and jump to the booter's entry point.
-; The booter partition can be a primary or a logical partition.
-; But the booter partition must reside within the 8GB limit
-; imposed by CHS addressing + translation.
+; This program is designed to reside in sector 0 of an HFS+ partition.
+; The HFS+ partition can be a primary or a logical partition.
+; It expects that the MBR has left the drive number in DL
+; and a pointer to the partition entry in SI.
 ; 
-; This boot loader can be placed at any of the following places:
-; * Master Boot Record (MBR)
-; * Boot sector of an extended partition
-; * Boot sector of a primary partition
-; * Boot sector of a logical partition
-;
-; In order to coexist with a fdisk partition table (64 bytes), and
-; leave room for a two byte signature (0xAA55) in the end, boot0 is
-; restricted to 446 bytes (512 - 64 - 2). If boot0 did not have to
-; live in the MBR, then we would have 510 bytes to play with.
-;
-; boot0 is always loaded by the BIOS or another first level booter
-; to 0:7C00h.
+; This version requires a BIOS with EBIOS (LBA) support.
 ;
 ; This code is written for the NASM assembler.
 ;   nasm boot0.s -o boot0
 
 
-;--------------------------------------------------------------------------
-; Constants.
+;
+; Set to 1 to enable obscure debug messages.
+;
+DEBUG                EQU  0
 
-FLOPPY          EQU  0x00               ; floppy dev number
-HDISK           EQU  0x80               ; hard drive dev number
-DEBUG           EQU  0                  ; enable debugging output
+;
+; Set to 1 to support loading the booter (boot2) from a
+; logical partition.
+;
+EXT_PART_SUPPORT     EQU  0
 
-BOOTSEG         EQU  0x0                ; our sole segment
-BOOTSP          EQU  0xFFF0             ; stack pointer
-BOOTLOAD        EQU  0x7C00             ; booter load address
-BOOTRELOC       EQU  0xE000             ; booter is relocated here
-BOOTSIG         EQU  0xAA55             ; booter signature
+;
+; Various constants.
+;
+kBoot0Segment        EQU  0x0000
+kBoot0Stack          EQU  0xFFF0        ; boot0 stack pointer
+kBoot0LoadAddr       EQU  0x7C00        ; boot0 load address
+kBoot0RelocAddr      EQU  0xE000        ; boot0 relocated address
 
-BOOT2_SIZE      EQU  112                ; load this many blocks for boot2
-BOOT2_ADDR      EQU  0x0200             ; where to load boot2
-BOOT2_SEG       EQU  0x2000
+ebios_lba            EQU  0xEF00	; storage for variables
 
-%IF BOOTDEV = FLOPPY
-DRIVE_NUM       EQU  FLOPPY             ; floppy drive
-%ELSE
-DRIVE_NUM       EQU  HDISK              ; "C" drive
-%ENDIF
-SECTOR_BYTES    EQU  512                ; sector size in bytes
+kMBRBuffer           EQU  0x1000        ; MBR buffer address
+kExtBuffer           EQU  0x1200        ; EXT boot block buffer address
 
-BUF_MBR         EQU  0x1000             ; memory buffer for MBR
-BUF_EXT         EQU  0x1200             ; memory buffer for extended partition
+kPartTableOffset     EQU  0x1be
+kMBRPartTable        EQU  kMBRBuffer + kPartTableOffset
+kExtPartTable        EQU  kExtBuffer + kPartTableOffset
 
-TABLE_MAIN      EQU  BUF_MBR + 0x1be    ; location of main partition table
-TABLE_EXT       EQU  BUF_EXT + 0x1be    ; location of ext partition table
-ENTRY_SIZE      EQU  16                 ; size of each fdisk partition entry
-TYPE_BOOT       EQU  0xab               ; partition type we are looking for
-TYPE_EXT        EQU  0x05               ; extended partition type
-TYPE_EXT_1      EQU  0x0f               ; Windows extended partition
-TYPE_EXT_2      EQU  0x85               ; Linux extended partition
-EXT_LEVELS_MAX  EQU  128                ; max extended partition levels
+kBoot2Sectors        EQU  112           ; sectors to load for boot2
+kBoot2Address        EQU  0x0000        ; boot2 load address
+kBoot2Segment        EQU  0x2000        ; boot2 load segment
+
+kSectorBytes         EQU  512           ; sector size in bytes
+kBootSignature       EQU  0xAA55        ; boot sector signature
+
+kPartCount           EQU  4             ; number of paritions per table
+kPartTypeBoot        EQU  0xab          ; boot2 partition type
+kPartTypeHFS         EQU  0xaf
+kPartTypeExtDOS      EQU  0x05          ; DOS extended partition type
+kPartTypeExtWin      EQU  0x0f          ; Windows extended partition type
+kPartTypeExtLinux    EQU  0x85          ; Linux extended partition type
+	
+kPartActive	     EQU  0x80
+
+;;
+;; HFS constants
+;;
+kHFSSig              EQU  0x4442	; HFS volume signature
+kAlBlStOffset        EQU  0x1c
+kEmbedStartOffset    EQU  0x7e
+kAlBlkSizOffset      EQU  0x14
+
+;;
+;; HFS+ constants
+;;
+kHFSPlusSig          EQU  0x2B48	; HFS+ volume signature
+kBlockSizeOffset     EQU  0x28
+kExtentOffset        EQU  0x1c0
+	
+kHFSBuffer           EQU  0x1400        ; HFS volume header address
+
+kHFSSigAddr          EQU  kHFSBuffer
+kHFSAlBlSt           EQU  kHFSBuffer + kAlBlStOffset
+kHFSEmbedStart       EQU  kHFSBuffer + kEmbedStartOffset
+kHFSAlBlkSiz         EQU  kHFSBuffer + kAlBlkSizOffset
+
+kHFSPlusSigAddr      EQU  kHFSBuffer
+kHFSPlusBlockSize    EQU  kHFSBuffer + kBlockSizeOffset
+kHFSPlusExtent       EQU  kHFSBuffer + kExtentOffset
 
 
+%ifdef FLOPPY
+kDriveNumber         EQU  0x00
+%else
+kDriveNumber         EQU  0x80
+%endif
+
+;
+; Format of fdisk partition entry.
+;
+; The symbol 'part_size' is automatically defined as an `EQU'
+; giving the size of the structure.
+;
+           struc part
+.bootid:   resb 1      ; bootable or not 
+.head:     resb 1      ; starting head, sector, cylinder
+.sect:     resb 1      ;
+.cyl:      resb 1      ;
+.type:     resb 1      ; partition type
+.endhead   resb 1      ; ending head, sector, cylinder
+.endsect:  resb 1      ;
+.endcyl:   resb 1      ;
+.lba:      resd 1      ; starting lba
+.sectors   resd 1      ; size in sectors
+           endstruc
+
+;
+; Macros.
+;
+%macro DebugCharMacro 1
+    mov   al, %1
+    call  print_char
+    call getc
+%endmacro
+
+%if DEBUG
+%define DebugChar(x)  DebugCharMacro x
+%else
+%define DebugChar(x)
+%endif
+
+	
 ;--------------------------------------------------------------------------
 ; Start of text segment.
 
     SEGMENT .text
 
-    ORG     0xE000              ; must match BOOTRELOC
+    ORG     0xE000                  ; must match kBoot0RelocAddr
 
 ;--------------------------------------------------------------------------
-; Loaded at 0:7c00h.
+; Boot code is loaded at 0:7C00h.
 ;
 start
-    ; Set up the stack to grow down from BOOTSEG:BOOTSP.
+    ;
+    ; Set up the stack to grow down from kBoot0Segment:kBoot0Stack.
     ; Interrupts should be off while the stack is being manipulated.
     ;
     cli                         ; interrupts off
-    mov     ax, BOOTSEG         ;
-    mov     ss, ax              ; ss <- BOOTSEG
-    mov     sp, BOOTSP          ; sp <- BOOTSP
+    xor     ax, ax                  ; zero ax
+    mov     ss, ax                  ; ss <- 0
+    mov     sp, kBoot0Stack         ; sp <- top of stack
     sti                         ; reenable interrupts
 
-    ; Relocate the booter code from DS:SI to ES:DI,
-    ; or from 0:7C00h to BOOTSEG:BOOTRELOC.
+    mov     es, ax                  ; es <- 0
+    mov     ds, ax                  ; ds <- 0
+
+    DebugChar('H')
+
+%if DEBUG
+    mov     eax, [si + part.lba]
+    call    print_hex
+%endif
+
     ;
-    mov     es, ax              ; es <- BOOTSEG
-    mov     ds, ax              ; ds <- BOOTSEG
-
-    mov     si, BOOTLOAD        ; si <- BOOTLOAD (source)
-    mov     di, BOOTRELOC       ; di <- BOOTRELOC (destination)
+    ; Clear various flags in memory.
     ;
-    cld                         ; auto-increment SI and/or DI registers
-    mov     cx, 256             ; copy 256 words (512 bytes)
-    repnz   movsw               ; repeat string move (word) operation
+    xor     eax, eax
+    mov     [ebios_lba], eax        ; clear EBIOS LBA offset
 
-    ; Code relocated, jump to start_reloc in relocated location.
-    ;
-    jmp     BOOTSEG:start_reloc
+    cmp     BYTE [si + part.type], kPartTypeHFS
+    jne     .part_err
+    cmp     BYTE [si + part.bootid], kPartActive
+    jne     .part_err
 
-;--------------------------------------------------------------------------
-; Start execution from the relocated location.
-;
-start_reloc
-    mov     al, '='             ; indicate execution start
-    call    putchar
+    jmp     find_startup
+	
+.part_err:
+    DebugChar('P')
+    jmp     hang
 
-    ; Get disk parameters (CHS) using INT13/F8 call.
-    ;
-    mov     dl, DRIVE_NUM       ; boot drive is drive C
-    mov     ah, 8               ; Read Disk Driver Parameter function
-    int     0x13
-    and     cl, 0x3f            ; sectors/track
-    mov     [max_sectors], cl
-    mov     [max_heads], dh
-    jc      error
+;;; ---------------------------------------
+;;; 
+;;; find_startup - Find HFS+ startup file in a partition.
+;;;
+;;; Arguments:
+;;;   DL = drive number (0x80 + unit number)
+;;;   SI = pointer to the partition entry.
+;;;
+;;; On success, loads booter and jumps to it.
+;;;
+find_startup:
+    DebugChar(']')		
 
-    mov     al, '>'             ; indicate INT13/F8 success
-    call    putchar
-
-    ; Since this code may not always reside in the MBR, we will always
-    ; start by loading the MBR to BUF_MBR.
-    ;
-    mov     WORD [chs_cx], 0x0001       ; cyl = 0, sect = 1
-    mov     BYTE [chs_dx + 1], 0        ; head = 0
-    xor     cx, cx                      ; skip 0 sectors
-    mov     ax, 1                       ; read 1 sector
-    mov     bx, BUF_MBR                 ; load buffer
+    mov     al, 1                   ; read 1 sector
+    xor     bx, bx
+    mov     es, bx                  ; es = 0
+    mov     bx, kHFSBuffer          ; load volume header
+    mov     ecx, DWORD 2
     call    load
-    jc      error
+    jnc      .ok                    ; load error
 
-    mov     di, TABLE_MAIN              ; argument for find_booter
-    cmp     WORD [di + 64], BOOTSIG     ; correct signature found?
-    jne     error                       ; Oops! no signature!
-    mov     bl, TYPE_BOOT               ; look for this partition type
-    mov     bh, 0                       ; initial nesting level is 0
-    call    find_booter
+    jmp     startup_err
 
-error
-    mov     si, load_error
-    call    message
-hang_1
-    jmp     hang_1
+.ok
+    mov     ax, [kHFSSigAddr]
+    cmp     ax, kHFSSig
+    jne     .hfs_plus
 
-;--------------------------------------------------------------------------
-; Locate the booter partition and load the booter.
-;
-; Arguments:
-;   di - pointer to fdisk partition table.
-;   bl - partition type to look for.
-;
-; The following registers are modified:
-;   ax, bh
-;
-find_booter
-    push    cx
-    push    si
+    DebugChar('|')
+    mov     ebx, [kHFSAlBlkSiz]
+    bswap   ebx
+    sar     ebx, 9
 
-    mov     si, di              ; si <- pointer to partition table
-    mov     cx, 4               ; 4 partition entries per table
+    xor     eax, eax
+    mov     ax, [kHFSEmbedStart]
+    xchg    al, ah		; byte-swap
+    push    dx
+    mul     ebx 		; result in eax
+    pop     dx
 
-find_booter_pri
-    ;
-    ; Hunt for a fdisk partition type that matches the value in bl.
-    ;
-%IF DEBUG
-    mov     al, bh              ; log partition type seen
-    call    putspace
-    mov     al, [si + 4]
-    call    display_byte
-%ENDIF
+    xor     ebx, ebx
+    mov     bx, [kHFSAlBlSt]
+    xchg    bl, bh		; byte-swap
+    add     eax, ebx
 
-    cmp     BYTE [si + 4], bl   ; Is this the booter partition?
-    je      load_booter         ; yes, load the booter
+    ;; now eax has sector of HFS+ partition
+    inc     eax
+    inc     eax
+    mov     ecx, eax
 
-    add     si, ENTRY_SIZE      ; si <- next partition entry
-    loop    find_booter_pri     ; loop while cx is not zero
-
-    ; No primary (or perhaps logical) booter partition found in the
-    ; current partition table. Restart and look for extended partitions.
-    ;
-    mov     si, di              ; si <- pointer to partition table
-    mov     cx, 4               ; 4 partition entries per table
-
-find_booter_ext
-    ;
-    ; Look for extended partition entries in the partition table.
-    ;
-%IF DEBUG
-    mov     al, bh              ; log partition type seen
-    call    putspace
-    mov     al, 'E'
-    call    putchar
-    mov     al, [si + 4]
-    call    display_byte
-%ENDIF
-
-    cmp     BYTE [si + 4], TYPE_EXT     ; Is this an extended partition?
-    je      find_booter_ext_2           ; yes, load its partition table
-
-    cmp     BYTE [si + 4], TYPE_EXT_1   ; Is this an extended partition?
-    je      find_booter_ext_2           ; yes, load its partition table
-
-    cmp     BYTE [si + 4], TYPE_EXT_2   ; Is this an extended partition?
-    je      find_booter_ext_2           ; yes, load its partition table
-
-find_booter_ext_1
-    ;
-    ; si is not pointing to an extended partition entry,
-    ; try the next entry in the partition table.
-    ;
-    add     si, ENTRY_SIZE      ; si <- next partition entry
-    loop    find_booter_ext     ; loop while cx is not zero
-
-    jmp     find_booter_end     ; give up
-
-find_booter_ext_2
-    cmp     bh, EXT_LEVELS_MAX
-    ja      find_booter_end     ; in too deep!
-
-    inc     bh                  ; increment nesting level counter
-
-    ; Prepare the arguments for the load function call to
-    ; load the extended partition table into memory.
-    ; Note that si points to the extended partition entry.
-    ;
-    mov     ax, [si]            ; DH/DL
-    mov     [chs_dx], ax
-    mov     ax, [si + 2]        ; CH/CL
-    mov     [chs_cx], ax
-    pusha
-    xor     cx, cx              ; skip 0 sectors
-    mov     ax, 1               ; read 1 sector
-    mov     bx, BUF_EXT         ; load to BUF_EXT
+    mov     al, 1                   ; read 1 sector
+    xor     bx, bx
+    mov     es, bx                  ; es = 0
+    mov     bx, kHFSBuffer          ; load volume header
     call    load
-    popa
+    jc      startup_err             ; load error
 
-    jc      find_booter_ext_3   ; bail out if load failed
+.hfs_plus
+    DebugChar('}')
+    mov     ax, [kHFSPlusSigAddr]
+    cmp     ax, kHFSPlusSig
+    jne     startup_err
 
-    mov     di, TABLE_EXT       ; di <- pointer to new partition table
-    cmp     WORD [di + 64], BOOTSIG
-    jne     find_booter_ext_3   ; OhOh! no signature!
+;;; Now the HFS+ volume header is in our buffer.
 
-    call    find_booter         ; recursion...
+    DebugChar('*')
+    mov     eax, [kHFSPlusBlockSize]
+    bswap   eax
+    sar     eax, 9
 
-find_booter_ext_3
-    dec     bh                  ; decrement nesting level counter
+    mov     ebx, [kHFSPlusExtent]
+    bswap   ebx
+    push    dx
+    mul     ebx 		;  result in eax
+    pop     dx
 
-    ; If we got here, then we know there isn't a booter
-    ; partition linked from this partition entry.
+    dec     eax
+    dec     eax
+;     add     [ebios_lba], eax 		;  offset to startup file
+;     mov     ecx, [ebios_lba]
+    add     ecx, eax
 
-    test    bh, bh              ; if we are at level 0, then
-    jz      find_booter_ext_1   ; look for next extended partition entry
-
-find_booter_end
-    pop     si
-    pop     cx
-    ret
-
-;--------------------------------------------------------------------------
-; Yeah! Found the booter partition. The first sector in this partition
-; is reserved for the boot sector code (us). So load the booter
-; starting from the second sector in the partition, then jump to the
-; start of the booter.
-;
-load_booter
-    mov     ax, [si]            ; DH/DL
-    mov     [chs_dx], ax
-    mov     ax, [si + 2]        ; CH/CL
-    mov     [chs_cx], ax
-
-    mov     cx, 1               ; skip the initial boot sector
-    mov     ax, BOOT2_SIZE      ; read BOOT2_SIZE sectors
-    mov     bx, BOOT2_SEG
+    DebugChar('!')	
+	
+    mov     al, kBoot2Sectors
+    mov     bx, kBoot2Segment
     mov     es, bx
-    mov     bx, BOOT2_ADDR      ; where to place boot2 code
-    call    load                ; load it...
+    mov     bx, kBoot2Address + kSectorBytes
+    call    load
+    jc      startup_err
 
-    xor     edx, edx
-    mov     dl, DRIVE_NUM       ; argument for boot2
+    DebugChar('Y')
+    ;
+    ; Jump to boot2. The drive number is already in register DL.
+    ;
+    jmp     kBoot2Segment:kBoot2Address + kSectorBytes
 
-    jmp     BOOT2_SEG:BOOT2_ADDR  ; there is no going back now!
+startup_err:
+
+    DebugChar('X')
+	
+hang:
+    hlt
+    jmp     SHORT hang
 
 ;--------------------------------------------------------------------------
-; Load sectors from disk using INT13/F2 call. The sectors are loaded
-; one sector at a time to avoid any BIOS bugs, and eliminate
-; complexities with crossing track boundaries, and other gotchas.
+; load - Load one or more sectors from a partition.
 ;
 ; Arguments:
-;   cx - number of sectors to skip
-;   ax - number of sectors to read
-;   bx - pointer to the memory buffer (must not cross a segment boundary)
-;   [chs_cx][chs_dx] - CHS starting position
+;   AL = number of 512-byte sectors to read.
+;   ES:BX = pointer to where the sectors should be stored.
+;   ECX = sector offset in partition
+;   DL = drive number (0x80 + unit number)
+;   SI = pointer to the partition entry.
 ;
 ; Returns:
 ;   CF = 0  success
-;   CF = 1  error
+;        1 error
 ;
-; The caller must save any registers it needs.
-;
-load
-    jcxz    load_sectors
-    call    next_sector         ; [chs_cx][chs_dx] <- next sector
-    loop    load
+; load:
+; ;    push    cx
 
-load_sectors
-    mov     cx, ax              ; cx <- number of sectors to read
+; .ebios:
+; ;    mov     cx, 5                   ; load retry count
+; .ebios_loop:
+;     call    read_lba                ; use INT13/F42
+;     jnc     .exit
+; ;     loop    .ebios_loop
 
-load_loop
-    call    read_sector         ; load a single sector
-    jc      load_exit           ; abort if carry flag is set
-    add     bx, SECTOR_BYTES    ; increment buffer pointer
-    call    next_sector         ; [chs_cx][chs_dx] <- next sector
-    loop    load_loop
-    clc                         ; successful exit
-load_exit
-    ret
+; .exit
+;     pop     cx
+;     ret
+
 
 ;--------------------------------------------------------------------------
-; Read a single sector from the hard disk.
+; read_lba - Read sectors from a partition using LBA addressing.
 ;
 ; Arguments:
-;   [chs_cx][chs_dx] - CHS starting position
-;   es:bx - pointer to the sector memory buffer
-;           (must not cross a segment boundary)
+;   AL = number of 512-byte sectors to read (valid from 1-127).
+;   ES:BX = pointer to where the sectors should be stored.
+;   ECX = sector offset in partition 
+;   DL = drive number (0x80 + unit number)
+;   SI = pointer to the partition entry.
 ;
 ; Returns:
 ;   CF = 0  success
-;   CF = 1  error
+;        1 error
 ;
-; Caller's cx register is preserved.
+read_lba:
+load:	
+    pushad                           ; save all registers
+    mov     bp, sp                  ; save current SP
+
 ;
-read_sector
-    push    cx
-    mov     cx, 5               ; try 5 times to read the sector
+    ; Create the Disk Address Packet structure for the
+    ; INT13/F42 (Extended Read Sectors) on the stack.
+    ;
 
-read_sector_1
-    mov     bp, cx              ; save cx
+    ; push    DWORD 0               ; offset 12, upper 32-bit LBA
+    push    ds                      ; For sake of saving memory,
+    push    ds                      ; push DS register, which is 0.
 
-    mov     cx, [chs_cx]
-    mov     dx, [chs_dx]
-    mov     dl, DRIVE_NUM       ; drive number
-    mov     ax, 0x0201          ; Func 2, read 1 sector
-    int     0x13                ; read sector
-    jnc     read_sector_ok      ; CF = 0 indicates success
+    add     ecx, [ebios_lba]        ; offset 8, lower 32-bit LBA
+    add     ecx, [si + part.lba]
 
-    mov     al, '*'             ; sector read error indicator
-    call    putchar
+    push    ecx
 
-    xor     ax, ax              ; Reset the drive and retry the read
+    push    es                      ; offset 6, memory segment
+
+    push    bx                      ; offset 4, memory offset
+
+    xor     ah, ah                  ; offset 3, must be 0
+    push    ax                      ; offset 2, number of sectors
+
+%if DEBUG
+    push ax
+    DebugChar('-')		; absolute sector offset
+    mov     eax, ecx
+    call    print_hex
+    DebugChar('=')		; count
+    pop ax
+    call print_hex
+%endif
+
+    push    WORD 16                 ; offset 0-1, packet size
+
+;
+    ; INT13 Func 42 - Extended Read Sectors
+;
+    ; Arguments:
+    ;   AH    = 0x42
+    ;   DL    = drive number (80h + drive unit)
+    ;   DS:SI = pointer to Disk Address Packet
+;
+    ; Returns:
+    ;   AH    = return status (sucess is 0)
+    ;   carry = 0 success
+    ;           1 error
+;
+    ; Packet offset 2 indicates the number of sectors read
+    ; successfully.
+    ;
+;   mov     dl, kDriveNumber
+    mov     si, sp
+    mov     ah, 0x42
     int     0x13
 
-    mov     cx, bp
-    loop    read_sector_1       ; retry while cx is not zero
+    jnc     .exit
 
-    stc                         ; set carry flag to indicate error
-    pop     cx
-    ret
+%if DEBUG
+    call print_hex
+%endif
+    DebugChar('R')                  ; indicate INT13/F42 error
 
-read_sector_ok
-    mov     al, '.'             ; successful sector read indicator
-    call    putchar
-    clc                         ; success, clear carry flag
-    pop     cx
-    ret
-
-;--------------------------------------------------------------------------
-; Given the current CHS position stored in [chs_cx][chs_dx], update
-; it so that the value in [chs_cx][chs_dx] points to the following
-; sector.
-;
-; Arguments:
-;   [chs_cx][chs_dx] - CHS position
-;
-;   [max_sectors] and [max_heads] must be valid.
-;
-; Caller's ax and bx registers are preserved.
-;
-next_sector
-    push    ax
-    push    bx
-
-    ; Extract the CHS values from the packed register values in memory.
     ;
-    mov     al, [chs_cx]
-    and     al, 0x3f            ; al <- sector number (1-63)
-
-    mov     bx, [chs_cx]
-    rol     bl, 2
-    ror     bx, 8
-    and     bx, 0x03ff          ; bx <- cylinder number
-
-    mov     ah, [chs_dx + 1]    ; ah <- head number
-
-    inc     al                  ; Increment CHS by one sector.
-    cmp     al, [max_sectors]
-    jbe     next_sector_done
-
-    inc     ah
-    cmp     ah, [max_heads]
-    jbe     next_sector_new_head
-
-    inc     bx
-
-next_sector_new_cyl
-    xor     ah, ah              ; head number starts at 0
-
-next_sector_new_head
-    mov     al, 1               ; sector number starts at 1
-
-next_sector_done
-    ; Reassemble the CHS values back into the packed representation
-    ; in memory.
+    ; Issue a disk reset on error.
+    ; Should this be changed to Func 0xD to skip the diskette controller
+    ; reset?
     ;
-    mov     [chs_cx + 1], bl    ; lower 8-bits of the 10-bit cylinder
-    ror     bh, 2
-    or      bh, al
-    mov     [chs_cx], bh        ; cylinder & sector number
-    mov     [chs_dx + 1], ah    ; head number
+    xor     ax, ax                  ; Func 0
+    int     0x13                    ; INT 13
+    stc                             ; set carry to indicate error
 
-    pop     bx
-    pop     ax
+.exit:
+    mov     sp, bp                  ; restore SP
+    popad
     ret
 
-;--------------------------------------------------------------------------
+%if 0
+;-------------------------------------------------------------------------
 ; Write a string to the console.
 ;
 ; Arguments:
-;   ds:si   pointer to a NULL terminated string.
+;   DS:SI   pointer to a NULL terminated string.
 ;
-; The following registers are modified:
-;   ax, bx, si
+; Clobber list:
+;   AX, BX, SI
 ;
-message
-    mov     bx, 1               ; bh=0, bl=1 (blue)
+print_string
+    mov     bx, 1                   ; BH=0, BL=1 (blue)
     cld                         ; increment SI after each lodsb call
-message_loop
-    lodsb                       ; load a byte from DS:SI into al
+.loop
+    lodsb                           ; load a byte from DS:SI into AL
     cmp     al, 0               ; Is it a NULL?
-    je      message_done        ; yes, all done
-    mov     ah, 0xE             ; bios INT10 Func 0xE
-    int     0x10                ; bios display a byte in tty mode
-    jmp     short message_loop
-message_done
+    je      .exit                   ; yes, all done
+    mov     ah, 0xE                 ; INT10 Func 0xE
+    int     0x10                    ; display byte in tty mode
+    jmp     short .loop
+.exit
     ret
+%endif
+
+%if DEBUG
 
 ;--------------------------------------------------------------------------
 ; Write a ASCII character to the console.
 ;
 ; Arguments:
-;   al   contains the ASCII character printed.
+;   AL = ASCII character.
 ;
-putchar
-    push    bx
-    mov     bx, 1               ; bh=0, bl=1 (blue)
-    mov     ah, 0x0e            ; bios int 10, function 0xe
-    int     0x10                ; bios display a byte in tty mode
-    pop     bx
+print_char
+    pushad
+    mov     bx, 1                   ; BH=0, BL=1 (blue)
+    mov     ah, 0x0e                ; bios INT 10, Function 0xE
+    int     0x10                    ; display byte in tty mode
+    popad
     ret
-
-%IF DEBUG
-;==========================================================================
-; DEBUG FUNCTION START
-;
-; If DEBUG is set to 1, this booter will become too large for the MBR,
-; but it will still be less than 510 bytes, which is fine for a partition's
-; boot sector.
-;==========================================================================
 
 ;--------------------------------------------------------------------------
 ; Write a variable number of spaces to the console.
 ;
 ; Arguments:
-;   al   number to spaces to display
+;   AL = number to spaces.
 ;
-putspace
-    push    cx
+print_spaces:
+    pushad
     xor     cx, cx
-    mov     cl, al              ; use cx as the loop counter
+    mov     cl, al                  ; use CX as the loop counter
     mov     al, ' '             ; character to print
-putspace_loop
-    jcxz    putspace_done
-    call    putchar
-    loop    putspace_loop
-putspace_done
-    pop     cx
+.loop:
+    jcxz    .exit
+    call    print_char
+    loop    .loop
+.exit:
+    popad
     ret
 
 ;--------------------------------------------------------------------------
-; Write the hex byte value to the console.
+; Write the byte value to the console in hex.
 ;
 ; Arguments:
-;   al   contains the byte to be displayed. e.g. if al is 0x3f, then 3F
-;        will be displayed on screen.
+;   AL = Value to be displayed in hex.
 ;
-display_byte
+print_hex:
+    pushad
+    mov     cx, WORD 4
+    bswap   eax
+.loop
     push    ax
     ror     al, 4
-    call    display_nibble      ; display upper nibble
+    call    print_nibble            ; display upper nibble
     pop     ax
-    call    display_nibble      ; display lower nibble
-    ;
-    mov     ax, 10              ; display carriage return
-    call    putchar
-    mov     ax, 13
-    call    putchar
+    call    print_nibble            ; display lower nibble
+    ror     eax, 8
+    loop    .loop
+
+    mov     al, 10                  ; carriage return
+    call    print_char
+    mov     al, 13
+    call    print_char
+    popad
     ret
 
-display_nibble
+print_nibble:
     and     al, 0x0f
     add     al, '0'
     cmp     al, '9'
-    jna     display_nibble_1
+    jna     .print_ascii
     add     al, 'A' - '9' - 1
-display_nibble_1
-    call    putchar
+.print_ascii:
+    call    print_char
     ret
 
-;==========================================================================
-; DEBUG FUNCTION END
-;==========================================================================
-%ENDIF
+getc:
+    mov    ah, 0
+    int    0x16
+    ret
 
-; Disk parameters gathered through INT13/F8 call.
-;
-max_sectors     db   0                  ; number of sectors per track
-max_heads       db   0                  ; number of heads
-
-; Parameters to our load function.
-;
-chs_cx          dw   0x0001                  ; cx register for INT13/F2 call
-chs_dx          dw   0x0000                  ; dx register for INT13/F2 call
+%endif ; DEBUG
 
 ;--------------------------------------------------------------------------
 ; NULL terminated strings.
 ;
-load_error   db  10, 13, 'Load Error', 0
+; boot_error_str   db  10, 13, 'Error', 0
 
 ;--------------------------------------------------------------------------
 ; Pad the rest of the 512 byte sized booter with zeroes. The last
@@ -567,9 +537,9 @@ load_error   db  10, 13, 'Load Error', 0
 ; that the 'times' argument is negative.
 
 pad_boot
-    times 446-($-$$) db 0
+    times 510-($-$$) db 0
 
-%IF BOOTDEV = FLOPPY
+%ifdef FLOPPY
 ;--------------------------------------------------------------------------
 ; Put fake partition entries for the bootable floppy image
 ;
@@ -588,10 +558,10 @@ times   3       db        0x00  ; ignore head/cyl/sect #'s
 part2relsect    dd  0x00000082  ; start after booter
 ; part2numsect  dd  0x00000abe  ; 1.44MB - 65K
 part2numsect    dd  0x000015fe  ; 2.88MB - 65K
-%ENDIF
+%endif
 
 pad_table_and_sig
     times 510-($-$$) db 0
-    dw BOOTSIG
+    dw    kBootSignature
 
     END

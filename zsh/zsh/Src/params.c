@@ -65,6 +65,7 @@ char *argzero,		/* $0           */
      *prompt4,		/* $PROMPT4     */
      *readnullcmd,	/* $READNULLCMD */
      *rprompt,		/* $RPROMPT     */
+     *rprompt2,		/* $RPROMPT2    */
      *sprompt,		/* $SPROMPT     */
      *wordchars,	/* $WORDCHARS   */
      *zsh_name;		/* $ZSH_NAME    */
@@ -96,7 +97,9 @@ mod_export unsigned char bangchar;
 /**/
 unsigned char hatchar, hashchar;
  
-/* $SECONDS = time(NULL) - shtimer.tv_sec */
+/* $SECONDS = now.tv_sec - shtimer.tv_sec
+ *          + (now.tv_usec - shtimer.tv_usec) / 1000000.0
+ * (rounded to an integer if the parameter is not set to float) */
  
 /**/
 struct timeval shtimer;
@@ -108,13 +111,12 @@ mod_export int termflags;
  
 /* Nodes for special parameters for parameter hash table */
 
-static
 #ifdef HAVE_UNION_INIT
 # define BR(X) {X}
-struct param
+typedef struct param initparam;
 #else
 # define BR(X) X
-struct iparam {
+typedef struct iparam {
     struct hashnode *next;
     char *nam;			/* hash data                             */
     int flags;			/* PM_* flags (defined in zsh.h)         */
@@ -127,9 +129,10 @@ struct iparam {
     char *ename;		/* name of corresponding environment var */
     Param old;			/* old struct for use with local         */
     int level;			/* if (old != NULL), level of localness  */
-}
+} initparam;
 #endif
-special_params[] ={
+
+static initparam special_params[] ={
 #define SFN(X) BR(((void (*)_((Param, char *)))(X)))
 #define GFN(X) BR(((char *(*)_((Param)))(X)))
 #define IPDEF1(A,B,C,D) {NULL,A,PM_INTEGER|PM_SPECIAL|D,BR(NULL),SFN(C),GFN(B),stdunsetfn,10,NULL,NULL,NULL,0}
@@ -139,7 +142,8 @@ IPDEF1("GID", gidgetfn, gidsetfn, PM_DONTIMPORT | PM_RESTRICTED),
 IPDEF1("EGID", egidgetfn, egidsetfn, PM_DONTIMPORT | PM_RESTRICTED),
 IPDEF1("HISTSIZE", histsizegetfn, histsizesetfn, PM_RESTRICTED),
 IPDEF1("RANDOM", randomgetfn, randomsetfn, 0),
-IPDEF1("SECONDS", secondsgetfn, secondssetfn, 0),
+IPDEF1("SAVEHIST", savehistsizegetfn, savehistsizesetfn, PM_RESTRICTED),
+IPDEF1("SECONDS", intsecondsgetfn, intsecondssetfn, 0),
 IPDEF1("UID", uidgetfn, uidsetfn, PM_DONTIMPORT | PM_RESTRICTED),
 IPDEF1("EUID", euidgetfn, euidsetfn, PM_DONTIMPORT | PM_RESTRICTED),
 IPDEF1("TTYIDLE", ttyidlegetfn, nullintsetfn, PM_READONLY),
@@ -193,12 +197,14 @@ IPDEF7("OPTARG", &zoptarg),
 IPDEF7("NULLCMD", &nullcmd),
 IPDEF7("POSTEDIT", &postedit),
 IPDEF7("READNULLCMD", &readnullcmd),
-IPDEF7("RPROMPT", &rprompt),
 IPDEF7("PS1", &prompt),
+IPDEF7("RPS1", &rprompt),
+IPDEF7("RPROMPT", &rprompt),
 IPDEF7("PS2", &prompt2),
+IPDEF7("RPS2", &rprompt2),
+IPDEF7("RPROMPT2", &rprompt2),
 IPDEF7("PS3", &prompt3),
 IPDEF7("PS4", &prompt4),
-IPDEF7("RPS1", &rprompt),
 IPDEF7("SPROMPT", &sprompt),
 IPDEF7("0", &argzero),
 
@@ -216,13 +222,13 @@ IPDEF8("MODULE_PATH", &module_path, "module_path", PM_DONTIMPORT|PM_RESTRICTED),
 
 #define IPDEF9F(A,B,C,D) {NULL,A,D|PM_ARRAY|PM_SPECIAL|PM_DONTIMPORT,BR((void *)B),SFN(arrvarsetfn),GFN(arrvargetfn),stdunsetfn,0,NULL,C,NULL,0}
 #define IPDEF9(A,B,C) IPDEF9F(A,B,C,0)
-IPDEF9("*", &pparams, NULL),
-IPDEF9("@", &pparams, NULL),
+IPDEF9F("*", &pparams, NULL, PM_ARRAY|PM_SPECIAL|PM_DONTIMPORT|PM_READONLY),
+IPDEF9F("@", &pparams, NULL, PM_ARRAY|PM_SPECIAL|PM_DONTIMPORT|PM_READONLY),
 {NULL, NULL},
 #define IPDEF10(A,B,C) {NULL,A,PM_ARRAY|PM_SPECIAL,BR(NULL),SFN(C),GFN(B),stdunsetfn,10,NULL,NULL,NULL,0}
 
-/* The following parameters are not avaible in sh/ksh compatibility *
- * mode. All of these has sh compatible equivalents.                */
+/* The following parameters are not available in sh/ksh compatibility *
+ * mode. All of these have sh compatible equivalents.                */
 IPDEF1("ARGC", poundgetfn, nullintsetfn, PM_READONLY),
 IPDEF2("HISTCHARS", histcharsgetfn, histcharssetfn, PM_DONTIMPORT),
 IPDEF4("status", &lastval),
@@ -248,6 +254,15 @@ IPDEF10("pipestatus", pipestatgetfn, pipestatsetfn),
 
 {NULL, NULL}
 };
+
+/*
+ * Special way of referring to the positional parameters.  Unlike $*
+ * and $@, this is not readonly.  This parameter is not directly
+ * visible in user space.
+ */
+initparam argvparam_pm = IPDEF9F("", &pparams, NULL, \
+				 PM_ARRAY|PM_SPECIAL|PM_DONTIMPORT);
+
 #undef BR
 
 #define IS_UNSET_VALUE(V) \
@@ -447,7 +462,7 @@ getvaluearr(Value v)
 }
 
 /*
- * Split environment string into (name, vlaue) pair.
+ * Split environment string into (name, value) pair.
  * this is used to avoid in-place editing of environment table
  * that results in core dump on some systems
  */
@@ -502,13 +517,13 @@ createparamtable(void)
 	while ((++ip)->nam)
 	    paramtab->addnode(paramtab, ztrdup(ip->nam), ip);
 
-    argvparam = (Param) paramtab->getnode(paramtab, "*");
+    argvparam = (Param) &argvparam_pm;
 
     noerrs = 2;
 
     /* Add the standard non-special parameters which have to    *
      * be initialized before we copy the environment variables. *
-     * We don't want to override whatever values the users has  *
+     * We don't want to override whatever values the user has   *
      * given them in the environment.                           */
     opts[ALLEXPORT] = 0;
     setiparam("MAILCHECK", 60);
@@ -665,7 +680,7 @@ createparam(char *name, int flags)
 			 paramtab->getnode(paramtab, name));
 
 	DPUTS(oldpm && oldpm->level > locallevel,
-	      "BUG:  old local parameter not deleteed");
+	      "BUG: old local parameter not deleted");
 	if (oldpm && (oldpm->level == locallevel || !(flags & PM_LOCAL))) {
 	    if (!(oldpm->flags & PM_UNSET) || (oldpm->flags & PM_SPECIAL)) {
 		oldpm->flags &= ~PM_UNSET;
@@ -1192,7 +1207,7 @@ getindex(char **pptr, Value v, int dq)
 
     *s++ = '[';
     s = parse_subscript(s, dq);	/* Error handled after untokenizing */
-    /* Now we untokenize everthing except INULL() markers so we can check *
+    /* Now we untokenize everything except INULL() markers so we can check *
      * for the '*' and '@' special subscripts.  The INULL()s are removed  *
      * in getarg() after we know whether we're doing reverse indexing.    */
     for (tbrack = *pptr + 1; *tbrack && tbrack != s; tbrack++) {
@@ -1715,9 +1730,12 @@ setarrvalue(Value v, char **val)
     }
     if (v->start == 0 && v->end == -1) {
 	if (PM_TYPE(v->pm->flags) == PM_HASHED)
-	    arrhashsetfn(v->pm, val);
+	    arrhashsetfn(v->pm, val, 0);
 	else
 	    (v->pm->sets.afn) (v->pm, val);
+    } else if (v->start == -1 && v->end == 0 &&
+    	    PM_TYPE(v->pm->flags) == PM_HASHED) {
+    	arrhashsetfn(v->pm, val, 1);
     } else {
 	char **old, **new, **p, **q, **r;
 	int n, ll, i;
@@ -1861,12 +1879,15 @@ gethkparam(char *s)
 
 /**/
 mod_export Param
-setsparam(char *s, char *val)
+assignsparam(char *s, char *val, int augment)
 {
     struct value vbuf;
     Value v;
     char *t = s;
-    char *ss;
+    char *ss, *copy, *var;
+    size_t lvar;
+    mnumber lhs, rhs;
+    int sstart;
 
     if (!isident(s)) {
 	zerr("not an identifier: %s", s, 0);
@@ -1884,8 +1905,10 @@ setsparam(char *s, char *val)
     } else {
 	if (!(v = getvalue(&vbuf, &s, 1)))
 	    createparam(t, PM_SCALAR);
-	else if ((PM_TYPE(v->pm->flags) & (PM_ARRAY|PM_HASHED)) &&
-		 !(v->pm->flags & (PM_SPECIAL|PM_TIED)) && unset(KSHARRAYS)) {
+	else if ((((v->pm->flags & PM_ARRAY) && !augment) ||
+	    	 (v->pm->flags & PM_HASHED)) &&
+		 !(v->pm->flags & (PM_SPECIAL|PM_TIED)) && 
+		 unset(KSHARRAYS)) {
 	    unsetparam(t);
 	    createparam(t, PM_SCALAR);
 	    v = NULL;
@@ -1896,6 +1919,78 @@ setsparam(char *s, char *val)
 	zsfree(val);
 	return NULL;
     }
+    if (augment) {
+	if (v->start == 0 && v->end == -1) {
+	    switch (PM_TYPE(v->pm->flags)) {
+	    case PM_SCALAR:
+		v->start = INT_MAX;  /* just append to scalar value */
+		break;
+	    case PM_INTEGER:
+	    case PM_EFLOAT:
+	    case PM_FFLOAT:
+		rhs = matheval(val);
+		lhs = getnumvalue(v);
+		if (lhs.type == MN_FLOAT) {
+		    if ((rhs.type) == MN_FLOAT)
+        		lhs.u.d = lhs.u.d + rhs.u.d;
+		    else
+			lhs.u.d = lhs.u.d + (double)rhs.u.l;
+		} else {
+        	    if ((rhs.type) == MN_INTEGER)
+			lhs.u.l = lhs.u.l + rhs.u.l;
+		    else
+			lhs.u.l = lhs.u.l + (zlong)rhs.u.d;
+		}
+		setnumvalue(v, lhs);
+    	    	unqueue_signals();
+		zsfree(val);
+		return v->pm; /* avoid later setstrvalue() call */
+	    case PM_ARRAY:
+	    	if (unset(KSHARRAYS)) {
+		    v->start = arrlen(v->pm->gets.afn(v->pm));
+		    v->end = v->start + 1;
+		} else {
+		    /* ksh appends scalar to first element */
+		    v->end = 1;
+		    goto kshappend;
+		}
+		break;
+	    }
+	} else {
+	    switch (PM_TYPE(v->pm->flags)) {
+	    case PM_SCALAR:
+    		if (v->end > 0)
+		    v->start = v->end;
+		else
+		    v->start = v->end = strlen(v->pm->gets.cfn(v->pm)) +
+			v->end + 1;
+	    	break;
+	    case PM_INTEGER:
+	    case PM_EFLOAT:
+	    case PM_FFLOAT:
+		unqueue_signals();
+		zerr("attempt to add to slice of a numeric variable",
+		    NULL, 0);
+		zsfree(val);
+		return NULL;
+	    case PM_ARRAY:
+	      kshappend:
+		/* treat slice as the end element */
+		v->start = sstart = v->end > 0 ? v->end - 1 : v->end;
+		v->isarr = 0;
+		var = getstrvalue(v);
+		v->start = sstart;
+		copy = val;
+		lvar = strlen(var);
+		val = (char *)zalloc(lvar + strlen(val) + 1);
+		strcpy(val, var);
+		strcpy(val + lvar, copy);
+		zsfree(copy);
+		break;
+	    }
+	}
+    }
+    
     setstrvalue(v, val);
     unqueue_signals();
     return v->pm;
@@ -1903,7 +1998,7 @@ setsparam(char *s, char *val)
 
 /**/
 mod_export Param
-setaparam(char *s, char **val)
+assignaparam(char *s, char **val, int augment)
 {
     struct value vbuf;
     Value v;
@@ -1937,6 +2032,18 @@ setaparam(char *s, char **val)
 	else if (!(PM_TYPE(v->pm->flags) & (PM_ARRAY|PM_HASHED)) &&
 		 !(v->pm->flags & (PM_SPECIAL|PM_TIED))) {
 	    int uniq = v->pm->flags & PM_UNIQUE;
+	    if (augment) {
+	    	/* insert old value at the beginning of the val array */
+		char **new;
+		int lv = arrlen(val);
+
+		new = (char **) zalloc(sizeof(char *) * (lv + 2));
+		*new = ztrdup(getstrvalue(v));
+		memcpy(new+1, val, sizeof(char *) * (lv + 1));
+		free(val);
+		val = new;
+		
+	    }
 	    unsetparam(t);
 	    createparam(t, PM_ARRAY | uniq);
 	    v = NULL;
@@ -1945,8 +2052,27 @@ setaparam(char *s, char **val)
     if (!v)
 	if (!(v = fetchvalue(&vbuf, &t, 1, SCANPM_ASSIGNING))) {
 	    unqueue_signals();
+	    freearray(val);
 	    return NULL;
 	}
+
+    if (augment) {
+    	if (v->start == 0 && v->end == -1) {
+	    if (PM_TYPE(v->pm->flags) & PM_ARRAY) {
+	    	v->start = arrlen(v->pm->gets.afn(v->pm));
+	    	v->end = v->start + 1;
+	    } else if (PM_TYPE(v->pm->flags) & PM_HASHED)
+	    	v->start = -1, v->end = 0;
+	} else {
+	    if (v->end > 0)
+		v->start = v->end--;
+	    else if (PM_TYPE(v->pm->flags) & PM_ARRAY) {
+		v->end = arrlen(v->pm->gets.afn(v->pm)) + v->end;
+		v->start = v->end + 1;
+	    }
+	}
+    }
+
     setarrvalue(v, val);
     unqueue_signals();
     return v->pm;
@@ -2088,18 +2214,18 @@ unsetparam(char *s)
 /* Unset a parameter */
 
 /**/
-mod_export void
+mod_export int
 unsetparam_pm(Param pm, int altflag, int exp)
 {
     Param oldpm, altpm;
 
     if ((pm->flags & PM_READONLY) && pm->level <= locallevel) {
 	zerr("read-only variable: %s", pm->nam, 0);
-	return;
+	return 1;
     }
     if ((pm->flags & PM_RESTRICTED) && isset(RESTRICTED)) {
 	zerr("%s: restricted", pm->nam, 0);
-	return;
+	return 1;
     }
     pm->unsetfn(pm, exp);
     if ((pm->flags & PM_EXPORTED) && pm->env) {
@@ -2110,8 +2236,21 @@ unsetparam_pm(Param pm, int altflag, int exp)
     /* remove it under its alternate name if necessary */
     if (pm->ename && !altflag) {
 	altpm = (Param) paramtab->getnode(paramtab, pm->ename);
-	if (altpm)
+	/* tied parameters are at the same local level as each other */
+	oldpm = NULL;
+	while (altpm && altpm->level > pm->level) {
+	    /* param under alternate name hidden by a local */
+	    oldpm = altpm;
+	    altpm = altpm->old;
+	}
+	if (altpm) {
+	    if (oldpm && !altpm->level) {
+		oldpm->old = NULL;
+		/* fudge things so removenode isn't called */
+		altpm->level = 1;
+	    }
 	    unsetparam_pm(altpm, 1, exp);
+	}
     }
 
     /*
@@ -2128,7 +2267,7 @@ unsetparam_pm(Param pm, int altflag, int exp)
      */
     if ((pm->level && locallevel >= pm->level) ||
 	(pm->flags & (PM_SPECIAL|PM_REMOVABLE)) == PM_SPECIAL)
-	return;
+	return 0;
 
     /* remove parameter node from table */
     paramtab->removenode(paramtab, pm->nam);
@@ -2138,13 +2277,14 @@ unsetparam_pm(Param pm, int altflag, int exp)
 	paramtab->addnode(paramtab, oldpm->nam, oldpm);
 	if ((PM_TYPE(oldpm->flags) == PM_SCALAR) &&
 	    !(pm->flags & PM_HASHELEM) &&
+	    (oldpm->flags & PM_NAMEDDIR) &&
 	    oldpm->sets.cfn == strsetfn)
 	    adduserdir(oldpm->nam, oldpm->u.str, 0, 0);
 	if (oldpm->flags & PM_EXPORTED) {
 	    /*
 	     * Re-export the old value which we removed in typeset_single().
 	     * I don't think we need to test for ALL_EXPORT here, since if
-	     * it was used to export the parameter originally the parmeter
+	     * it was used to export the parameter originally the parameter
 	     * should still have the PM_EXPORTED flag.
 	     */
 	    export_param(oldpm);
@@ -2152,6 +2292,8 @@ unsetparam_pm(Param pm, int altflag, int exp)
     }
 
     paramtab->freenode((HashNode) pm); /* free parameter node */
+
+    return 0;
 }
 
 /* Standard function to unset a parameter.  This is mostly delegated to *
@@ -2164,7 +2306,11 @@ stdunsetfn(Param pm, int exp)
     switch (PM_TYPE(pm->flags)) {
 	case PM_SCALAR: pm->sets.cfn(pm, NULL); break;
 	case PM_ARRAY:  pm->sets.afn(pm, NULL); break;
-        case PM_HASHED: pm->sets.hfn(pm, NULL); break;
+	case PM_HASHED: pm->sets.hfn(pm, NULL); break;
+	default:
+	    if (!(pm->flags & PM_SPECIAL))
+	    	pm->u.str = NULL;
+	    break;
     }
     pm->flags |= PM_UNSET;
 }
@@ -2222,8 +2368,11 @@ strsetfn(Param pm, char *x)
 {
     zsfree(pm->u.str);
     pm->u.str = x;
-    if (!(pm->flags & PM_HASHELEM))
+    if (!(pm->flags & PM_HASHELEM) &&
+	((pm->flags & PM_NAMEDDIR) || isset(AUTONAMEDIRS))) {
+	pm->flags |= PM_NAMEDDIR;
 	adduserdir(pm->nam, x, 0, 0);
+    }
 }
 
 /* Function to get value of an array parameter */
@@ -2277,7 +2426,7 @@ hashsetfn(Param pm, HashTable x)
 
 /**/
 static void
-arrhashsetfn(Param pm, char **val)
+arrhashsetfn(Param pm, char **val, int augment)
 {
     /* Best not to shortcut this by using the existing hash table,   *
      * since that could cause trouble for special hashes.  This way, *
@@ -2295,7 +2444,8 @@ arrhashsetfn(Param pm, char **val)
 	return;
     }
     if (alen)
-	ht = paramtab = newparamtable(17, pm->nam);
+    	if (!(augment && (ht = paramtab = pm->gets.hfn(pm))))
+	    ht = paramtab = newparamtable(17, pm->nam);
     while (*aptr) {
 	/* The parameter name is ztrdup'd... */
 	v->pm = createparam(*aptr, PM_SCALAR|PM_UNSET);
@@ -2477,6 +2627,22 @@ uniqarray(char **x)
 	    }
 }
 
+/**/
+void
+zhuniqarray(char **x)
+{
+    char **t, **p = x;
+
+    if (!x || !*x)
+	return;
+    while (*++p)
+	for (t = x; t < p; t++)
+	    if (!strcmp(*p, *t)) {
+		for (t = p--; (*t = t[1]) != NULL; t++);
+		break;
+	    }
+}
+
 /* Function to get value of special parameter `#' and `ARGC' */
 
 /**/
@@ -2508,19 +2674,81 @@ randomsetfn(Param pm, zlong v)
 
 /**/
 zlong
-secondsgetfn(Param pm)
+intsecondsgetfn(Param pm)
 {
-    return time(NULL) - shtimer.tv_sec;
+    return (zlong)floatsecondsgetfn(pm);
 }
 
 /* Function to set value of special parameter `SECONDS' */
 
 /**/
 void
-secondssetfn(Param pm, zlong x)
+intsecondssetfn(Param pm, zlong x)
 {
-    shtimer.tv_sec = time(NULL) - x;
-    shtimer.tv_usec = 0;
+    floatsecondssetfn(pm, (double)x);
+}
+
+/**/
+double
+floatsecondsgetfn(Param pm)
+{
+    struct timeval now;
+    struct timezone dummy_tz;
+
+    gettimeofday(&now, &dummy_tz);
+
+    return (double)(now.tv_sec - shtimer.tv_sec) +
+	(double)(now.tv_usec - shtimer.tv_usec) / 1000000.0;
+}
+
+/**/
+void
+floatsecondssetfn(Param pm, double x)
+{
+    struct timeval now;
+    struct timezone dummy_tz;
+
+    gettimeofday(&now, &dummy_tz);
+    shtimer.tv_sec = now.tv_sec - (zlong)x;
+    shtimer.tv_usec = now.tv_usec - (zlong)((x - (zlong)x) * 1000000.0);
+}
+
+/**/
+double
+getrawseconds(void)
+{
+    return (double)shtimer.tv_sec + (double)shtimer.tv_usec / 1000000.0;
+}
+
+/**/
+void
+setrawseconds(double x)
+{
+    shtimer.tv_sec = (zlong)x;
+    shtimer.tv_usec = (zlong)((x - (zlong)x) * 1000000.0);
+}
+
+/**/
+int
+setsecondstype(Param pm, int on, int off)
+{
+    int newflags = (pm->flags | on) & ~off;
+    int tp = PM_TYPE(newflags);
+    /* Only one of the numeric types is allowed. */
+    if (tp == PM_EFLOAT || tp == PM_FFLOAT)
+    {
+	pm->gets.ffn = floatsecondsgetfn;
+	pm->sets.ffn = floatsecondssetfn;
+    }
+    else if (tp == PM_INTEGER)
+    {
+	pm->gets.ifn = intsecondsgetfn;
+	pm->sets.ifn = intsecondssetfn;
+    }
+    else
+	return 1;
+    pm->flags = newflags;
+    return 0;
 }
 
 /* Function to get value for special parameter `USERNAME' */
@@ -2762,9 +2990,28 @@ histsizegetfn(Param pm)
 void
 histsizesetfn(Param pm, zlong v)
 {
-    if ((histsiz = v) <= 2)
-	histsiz = 2;
+    if ((histsiz = v) < 1)
+	histsiz = 1;
     resizehistents();
+}
+
+/* Function to get value for special parameter `SAVEHIST' */
+
+/**/
+zlong
+savehistsizegetfn(Param pm)
+{
+    return savehistsiz;
+}
+
+/* Function to set value of special parameter `SAVEHIST' */
+
+/**/
+void
+savehistsizesetfn(Param pm, zlong v)
+{
+    if ((savehistsiz = v) < 0)
+	savehistsiz = 0;
 }
 
 /* Function to get value for special parameter `ERRNO' */
@@ -3005,8 +3252,8 @@ findenv(char *name, int *pos)
     return 0;
 }
 
-/* Given *name = "foo", it searchs the environment for string *
- * "foo=bar", and returns a pointer to the beginning of "bar" */
+/* Given *name = "foo", it searches the environment for string *
+ * "foo=bar", and returns a pointer to the beginning of "bar"  */
 
 /**/
 mod_export char *
@@ -3061,7 +3308,7 @@ addenv(char *name, char *value, int flags)
     /*
      * Under Cygwin we must use putenv() to maintain consistency.
      * Unfortunately, current version (1.1.2) copies argument and may
-     * silently reuse exisiting environment string. This tries to
+     * silently reuse existing environment string. This tries to
      * check for both cases
      */
     if (findenv(name, &pos)) {
@@ -3164,7 +3411,7 @@ convbase(char *s, zlong v, int base)
 /*
  * Convert a floating point value for output.
  * Unlike convbase(), this has its own internal storage and returns
- * a value from the heap;
+ * a value from the heap.
  */
 
 /**/
@@ -3172,6 +3419,7 @@ char *
 convfloat(double dval, int digits, int flags, FILE *fout)
 {
     char fmt[] = "%.*e";
+    char *prev_locale, *ret;
 
     /*
      * The difficulty with the buffer size is that a %f conversion
@@ -3206,14 +3454,24 @@ convfloat(double dval, int digits, int flags, FILE *fout)
 	    digits--;
 	}
     }
+#ifdef USE_LOCALE
+    prev_locale = dupstring(setlocale(LC_NUMERIC, NULL));
+    setlocale(LC_NUMERIC, "POSIX");
+#endif
     if (fout) {
 	fprintf(fout, fmt, digits, dval);
-	return NULL;
+	ret = NULL;
     } else {
 	VARARR(char, buf, 512 + digits);
 	sprintf(buf, fmt, digits, dval);
-	return dupstring(buf);
+	if (!strchr(buf, 'e') && !strchr(buf, '.'))
+	    strcat(buf, ".");
+	ret = dupstring(buf);
     }
+#ifdef USE_LOCALE
+    if (prev_locale) setlocale(LC_NUMERIC, prev_locale);
+#endif
+    return ret;
 }
 
 /* Start a parameter scope */
@@ -3252,6 +3510,16 @@ scanendscope(HashNode hn, int flags)
 	     */
 	    Param tpm = pm->old;
 
+	    if (!strcmp(pm->nam, "SECONDS"))
+	    {
+		setsecondstype(pm, PM_TYPE(tpm->flags), PM_TYPE(pm->flags));
+		/*
+		 * We restore SECONDS by restoring its raw internal value
+		 * that we cached off into tpm->u.dval.
+		 */
+		setrawseconds(tpm->u.dval);
+		tpm->flags |= PM_NORESTORE;
+	    }
 	    DPUTS(!tpm || PM_TYPE(pm->flags) != PM_TYPE(tpm->flags) ||
 		  !(tpm->flags & PM_SPECIAL),
 		  "BUG: in restoring scope of special parameter");
@@ -3316,6 +3584,36 @@ freeparamnode(HashNode hn)
 
 /* Print a parameter */
 
+enum paramtypes_flags {
+    PMTF_USE_CT		= (1<<0),
+    PMTF_TEST_LEVEL	= (1<<1)
+};
+
+struct paramtypes {
+    int binflag;	/* The relevant PM_FLAG(S) */
+    const char *string;	/* String for verbose output */
+    int typeflag;	/* Flag for typeset -? */
+    int flags;		/* The enum above */
+};
+
+static const struct paramtypes pmtypes[] = {
+    { PM_AUTOLOAD, "undefined", 0, 0},
+    { PM_INTEGER, "integer", 'i', PMTF_USE_CT},
+    { PM_EFLOAT, "float", 'E', 0},
+    { PM_FFLOAT, "float", 'F', 0},
+    { PM_ARRAY, "array", 'a', 0},
+    { PM_HASHED, "association", 'A', 0},
+    { 0, "local", 0, PMTF_TEST_LEVEL},
+    { PM_LEFT, "left justified", 'L', PMTF_USE_CT},
+    { PM_RIGHT_B, "right justified", 'R', PMTF_USE_CT},
+    { PM_RIGHT_Z, "zero filled", 'Z', PMTF_USE_CT},
+    { PM_LOWER, "lowercase", 'l', 0},
+    { PM_UPPER, "uppercase", 'u', 0},
+    { PM_READONLY, "readonly", 'r', 0},
+    { PM_TAGGED, "tagged", 't', 0},
+    { PM_EXPORTED, "exported", 'x', 0}
+};
+
 /**/
 mod_export void
 printparamnode(HashNode hn, int printflags)
@@ -3326,36 +3624,43 @@ printparamnode(HashNode hn, int printflags)
     if (p->flags & PM_UNSET)
 	return;
 
+    if (printflags & PRINT_TYPESET)
+	printf("typeset ");
+
     /* Print the attributes of the parameter */
-    if (printflags & PRINT_TYPE) {
-	if (p->flags & PM_AUTOLOAD)
-	    printf("undefined ");
-	if (p->flags & PM_INTEGER)
-	    printf("integer ");
-	if (p->flags & (PM_EFLOAT|PM_FFLOAT))
-	    printf("float ");
-	else if (p->flags & PM_ARRAY)
-	    printf("array ");
-	else if (p->flags & PM_HASHED)
-	    printf("association ");
-	if (p->level)
-	    printf("local ");
-	if (p->flags & PM_LEFT)
-	    printf("left justified %d ", p->ct);
-	if (p->flags & PM_RIGHT_B)
-	    printf("right justified %d ", p->ct);
-	if (p->flags & PM_RIGHT_Z)
-	    printf("zero filled %d ", p->ct);
-	if (p->flags & PM_LOWER)
-	    printf("lowercase ");
-	if (p->flags & PM_UPPER)
-	    printf("uppercase ");
-	if (p->flags & PM_READONLY)
-	    printf("readonly ");
-	if (p->flags & PM_TAGGED)
-	    printf("tagged ");
-	if (p->flags & PM_EXPORTED)
-	    printf("exported ");
+    if (printflags & (PRINT_TYPE|PRINT_TYPESET)) {
+	int doneminus = 0, i;
+	const struct paramtypes *pmptr;
+
+	for (pmptr = pmtypes, i = 0; i < sizeof(pmtypes)/sizeof(*pmptr);
+	     i++, pmptr++) {
+	    int doprint = 0;
+	    if (pmptr->flags & PMTF_TEST_LEVEL) {
+		if (p->level)
+		    doprint = 1;
+	    } else if (p->flags & pmptr->binflag)
+		doprint = 1;
+
+	    if (doprint) {
+		if (printflags & PRINT_TYPESET) {
+		    if (pmptr->typeflag) {
+			if (!doneminus) {
+			    putchar('-');
+			    doneminus = 1;
+			}
+			putchar(pmptr->typeflag);
+		    }
+		} else {
+		    printf("%s ", pmptr->string);
+		}
+		if ((pmptr->flags & PMTF_USE_CT) && p->ct) {
+		    printf("%d ", p->ct);
+		    doneminus = 0;
+		}
+	    }
+	}
+	if (doneminus)
+	    putchar(' ');
     }
 
     if ((printflags & PRINT_NAMEONLY) ||
@@ -3373,6 +3678,9 @@ printparamnode(HashNode hn, int printflags)
     }
     if (printflags & PRINT_KV_PAIR)
 	putchar(' ');
+    else if ((printflags & PRINT_TYPESET) &&
+	     (PM_TYPE(p->flags) == PM_ARRAY || PM_TYPE(p->flags) == PM_HASHED))
+	printf("\n%s=", p->nam);
     else
 	putchar('=');
 

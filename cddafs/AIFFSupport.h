@@ -217,7 +217,7 @@ struct CDAIFFHeader {
 			SoundDataChunk					soundDataChunk;
 		} AIFFHeader;
 		struct {
-			UInt8	filler[80];				// force 80-byte alignment
+			UInt8	filler[2352];				// force CD block alignment
 		} alignedHeader;
 	} u;
 };

@@ -1,6 +1,6 @@
-/* $OpenLDAP: pkg/ldap/servers/slapd/tools/slappasswd.c,v 1.12 2002/01/04 20:17:56 kurt Exp $ */
+/* $OpenLDAP: pkg/ldap/servers/slapd/tools/slappasswd.c,v 1.12.2.3 2003/06/21 17:20:34 kurt Exp $ */
 /*
- * Copyright 1998-2002 The OpenLDAP Foundation, All Rights Reserved.
+ * Copyright 1998-2003 The OpenLDAP Foundation, All Rights Reserved.
  * COPYING RESTRICTIONS APPLY, see COPYRIGHT file
  */
 
@@ -34,6 +34,7 @@ usage(const char *s)
 		"  -c format\tcrypt(3) salt format\n"
 		"  -u\t\tgenerate RFC2307 values (default)\n"
 		"  -v\t\tincrease verbosity\n"
+		"  -T file\tread file for new password\n"
 		, s );
 
 	exit( EXIT_FAILURE );
@@ -44,13 +45,14 @@ main( int argc, char *argv[] )
 {
 	char	*scheme = "{SSHA}";
 	char	*newpw = NULL;
+	char	*pwfile = NULL;
 
 	int		i;
 	struct berval passwd;
 	struct berval *hash = NULL;
 
 	while( (i = getopt( argc, argv,
-		"c:d:h:s:vu" )) != EOF )
+		"c:d:h:s:T:vu" )) != EOF )
 	{
 		switch (i) {
 		case 'c':	/* crypt salt format */
@@ -70,8 +72,11 @@ main( int argc, char *argv[] )
 				for( p = optarg; *p != '\0'; p++ ) {
 					*p = '\0';
 				}
-
 			} break;
+
+		case 'T':	/* password file */
+			pwfile = optarg;
+			break;
 
 		case 'u':	/* RFC2307 userPassword */
 			break;
@@ -89,20 +94,26 @@ main( int argc, char *argv[] )
 		usage( argv[0] );
 	} 
 
-	if( newpw == NULL ) {
-		/* prompt for new password */
-		char *cknewpw;
-		newpw = strdup(getpassphrase("New password: "));
-		cknewpw = getpassphrase("Re-enter new password: ");
-
-		if( strcmp( newpw, cknewpw )) {
-			fprintf( stderr, "Password values do not match\n" );
+	if( pwfile != NULL ) {
+		if( lutil_get_filed_password( pwfile, &passwd )) {
 			return EXIT_FAILURE;
 		}
-	}
+	} else {
+		if( newpw == NULL ) {
+			/* prompt for new password */
+			char *cknewpw;
+			newpw = strdup(getpassphrase("New password: "));
+			cknewpw = getpassphrase("Re-enter new password: ");
+	
+			if( strcmp( newpw, cknewpw )) {
+				fprintf( stderr, "Password values do not match\n" );
+				return EXIT_FAILURE;
+			}
+		}
 
-	passwd.bv_val = newpw;
-	passwd.bv_len = strlen(passwd.bv_val);
+		passwd.bv_val = newpw;
+		passwd.bv_len = strlen(passwd.bv_val);
+	}
 
 	hash = lutil_passwd_hash( &passwd, scheme );
 

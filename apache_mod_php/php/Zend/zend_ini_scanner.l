@@ -3,12 +3,12 @@
    +----------------------------------------------------------------------+
    | Zend Engine                                                          |
    +----------------------------------------------------------------------+
-   | Copyright (c) 1998-2001 Zend Technologies Ltd. (http://www.zend.com) |
+   | Copyright (c) 1998-2002 Zend Technologies Ltd. (http://www.zend.com) |
    +----------------------------------------------------------------------+
-   | This source file is subject to version 0.92 of the Zend license,     |
+   | This source file is subject to version 2.00 of the Zend license,     |
    | that is bundled with this package in the file LICENSE, and is        |
    | available at through the world-wide-web at                           |
-   | http://www.zend.com/license/0_92.txt.                                |
+   | http://www.zend.com/license/2_00.txt.                                |
    | If you did not receive a copy of the Zend license and are unable to  |
    | obtain it through the world-wide-web, please send a note to          |
    | license@zend.com so we can mail you a copy immediately.              |
@@ -27,6 +27,7 @@
 #define yy_more_flag SCNG(_yy_more_flag)
 #define yy_more_len SCNG(_yy_more_len)
 
+#include <errno.h>
 #include "zend.h"
 #include "zend_globals.h"
 #include "zend_ini_parser.h"
@@ -48,15 +49,15 @@ ZEND_API zend_scanner_globals ini_scanner_globals;
 
 static char *ini_filename;
 
-void init_ini_scanner()
+void init_ini_scanner(TSRMLS_D)
 {
-	ini_lineno=1;
+       SCNG(lineno)=1;
 }
 
 
 int zend_ini_scanner_get_lineno(TSRMLS_D)
 {
-	return ini_lineno;
+       return SCNG(lineno);
 }
 
 
@@ -82,7 +83,7 @@ int zend_ini_open_file_for_scanning(zend_file_handle *fh TSRMLS_DC)
 			return FAILURE;
 	}
 
-	init_ini_scanner();
+	init_ini_scanner(TSRMLS_C);
 	yyin = fp;
 	yy_switch_to_buffer(yy_create_buffer(yyin, YY_BUF_SIZE TSRMLS_CC) TSRMLS_CC);
 	ini_filename = fh->filename;
@@ -104,7 +105,7 @@ void zend_ini_close_file(zend_file_handle *fh TSRMLS_DC)
 NEWLINE ("\r"|"\n"|"\r\n")
 
 %option noyywrap
-%option yylineno
+%option never-interactive
 
 %%
 
@@ -124,14 +125,16 @@ NEWLINE ("\r"|"\n"|"\r\n")
 	return CFG_FALSE;
 }
 
-<INITIAL>[[][^[]+[\]]{NEWLINE}? {
+<INITIAL>[[][^[]+[\]][ ]*{NEWLINE}? {
 	/* SECTION */
 
-	/* eat trailng ] */
-	while (yyleng>0 && (yytext[yyleng-1]=='\n' || yytext[yyleng-1]=='\r' || yytext[yyleng-1]==']')) {
+	/* eat trailing ] and spaces */
+	while (yyleng>0 && (yytext[yyleng-1]=='\n' || yytext[yyleng-1]=='\r' || yytext[yyleng-1]==']' || yytext[yyleng-1]==' ')) {
 		yyleng--;
 		yytext[yyleng]=0;
 	}
+
+	SCNG(lineno)++;
 
 	/* eat leading [ */
 	yytext++;
@@ -199,15 +202,20 @@ NEWLINE ("\r"|"\n"|"\r\n")
 
 
 <INITIAL>[=\n] {
+	if (yytext[0] == '\n') {
+		SCNG(lineno)++;
+	}	
 	return yytext[0];
 }
 
 <INITIAL>{NEWLINE} {
+	SCNG(lineno)++;
 	return '\n';
 }
 
 <INITIAL>[;][^\r\n]*{NEWLINE}? {
 	/* comment */
+	SCNG(lineno)++;
 	return '\n';
 }
 

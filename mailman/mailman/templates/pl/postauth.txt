@@ -1,0 +1,13 @@
+Na Twoje, jako administratora, potwierdzenie czeka wiadomo¶æ wys³ana
+na listê dyskusyjn±:
+
+    Lista:   %(listname)s@%(hostname)s
+    Od:      %(sender)s
+    Tytu³:   %(subject)s
+    Powód:   %(reason)s
+
+Wejd¼ na stronê:
+
+    %(admindb_url)s
+        
+¿eby potwierdziæ lub odrzuciæ t± wiadomo¶æ.

@@ -1,4 +1,4 @@
-# $Id: Makefile.am,v 1.1.1.1 2002/04/19 01:00:35 jkh Exp $
+# $Id: Makefile.am,v 1.2 2003/07/25 18:37:02 jkh Exp $
 # Makefile.am for texinfo/doc.
 # Run automake in .. to produce Makefile.in from this.
 #
@@ -24,11 +24,11 @@ MAKEINFO = ../makeinfo/makeinfo
 INSTALL_INFO = ../util/install-info
 
 TXI_XLATE = txi-cs.tex txi-de.tex txi-en.tex txi-es.tex txi-fr.tex \
-	    txi-nl.tex txi-no.tex txi-pt.tex
+	    txi-it.tex txi-nl.tex txi-no.tex txi-pl.tex txi-pt.tex txi-tr.tex
 
 # Include our texinfo.tex, not Automake's.
 EXTRA_DIST = epsf.tex pdfcolor.tex texinfo.tex \
-             fdl.texi macro.texi userdoc.texi \
+             fdl.texi \
 	     $(man_MANS) $(noinst_SCRIPTS) $(TXI_XLATE)
 
 install-data-local:
@@ -56,26 +56,26 @@ install-tex:
 	for f in $(TXI_XLATE); do \
 	  $(INSTALL_DATA) $(srcdir)/$$f $(DESTDIR)$(texmf_texinfo)/$$f; done
 
-# Don't want to run help2man at every installation.
+# The man pages depend on the --help strings and the version number.
 if TEXINFO_MAINT
-info.1: ../info/ginfo $(HELP2MAN)
-	$(HELP2MAN) --name="read Info documents" $< >$@
-install-info.1: $(INSTALL_INFO) $(HELP2MAN)
-	$(HELP2MAN) --name="update info/dir entries" $< >$@
-makeinfo.1: $(MAKEINFO) $(HELP2MAN)
-	$(HELP2MAN) --name="translate Texinfo documents" $< >$@
-texi2dvi.1: ../util/texi2dvi $(HELP2MAN)
-	$(HELP2MAN) --name="print Texinfo documents" $< >$@
-texindex.1: ../util/texindex $(HELP2MAN)
-	$(HELP2MAN) --name="sort Texinfo index files" $< >$@
+common_mandeps = $(top_srcdir)/configure.ac $(HELP2MAN)
+info.1: $(top_srcdir)/info/info.c $(common_mandeps)
+	$(HELP2MAN) --name="read Info documents" `basename $< .c` >$@
+install-info.1: $(top_srcdir)/util/install-info.c $(top_srcdir)/configure.ac $(HELP2MAN)
+	$(HELP2MAN) --name="update info/dir entries" `basename $< .c` >$@
+makeinfo.1: $(top_srcdir)/makeinfo/makeinfo.c $(common_mandeps)
+	$(HELP2MAN) --name="translate Texinfo documents" `basename $< .c` >$@
+texi2dvi.1: $(top_srcdir)/util/texi2dvi $(common_mandeps)
+	$(HELP2MAN) --name="print Texinfo documents" `basename $< .c` >$@
+texindex.1: $(top_srcdir)/util/texindex.c $(common_mandeps)
+	$(HELP2MAN) --name="sort Texinfo index files" `basename $< .c` >$@
 endif
 
 # Do not create info files for distribution, but do create man pages.
 dist-info:
 
-# Do not try to build the info files in $(srcdir),
-# since we don't distribute them.
-.texi.info:
-	$(MAKEINFO) -I$(srcdir) `echo $< | sed 's,.*/,,'`
-texinfo: $(srcdir)/texinfo.txi
+# Do not try to build the info files in $(srcdir), since we don't
+# distribute them.  (This will be fixed for no-suffix info files such as
+# `texinfo' in automake 1.7.2, and is already fixed for normal info files.)
+texinfo: $(srcdir)/texinfo.txi version.texi
 	$(MAKEINFO) -I$(srcdir) texinfo.txi

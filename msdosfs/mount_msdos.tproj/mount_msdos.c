@@ -3,19 +3,22 @@
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
- * The contents of this file constitute Original Code as defined in and
- * are subject to the Apple Public Source License Version 1.1 (the
- * "License").  You may not use this file except in compliance with the
- * License.  Please obtain a copy of the License at
- * http://www.apple.com/publicsource and read it before using this file.
+ * Copyright (c) 1999-2003 Apple Computer, Inc.  All Rights Reserved.
  * 
- * This Original Code and all software distributed under the License are
- * distributed on an "AS IS" basis, WITHOUT WARRANTY OF ANY KIND, EITHER
+ * This file contains Original Code and/or Modifications of Original Code
+ * as defined in and that are subject to the Apple Public Source License
+ * Version 2.0 (the 'License'). You may not use this file except in
+ * compliance with the License. Please obtain a copy of the License at
+ * http://www.opensource.apple.com/apsl/ and read it before using this
+ * file.
+ * 
+ * The Original Code and all software distributed under the License are
+ * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
  * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
  * INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY,
- * FITNESS FOR A PARTICULAR PURPOSE OR NON-INFRINGEMENT.  Please see the
- * License for the specific language governing rights and limitations
- * under the License.
+ * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
+ * Please see the License for the specific language governing rights and
+ * limitations under the License.
  * 
  * @APPLE_LICENSE_HEADER_END@
  */
@@ -60,6 +63,7 @@ static const char rcsid[] =
 #include <sys/mount.h>
 #include <sys/stat.h>
 #include <sys/sysctl.h>
+#include <sys/time.h>
 #include <sys/wait.h>
 
 #include "../msdosfs.kextproj/msdosfs.kmodproj/msdosfsmount.h"
@@ -75,7 +79,12 @@ static const char rcsid[] =
 #include <string.h>
 #include <sysexits.h>
 #include <unistd.h>
+#include <fcntl.h>
+
 //#include <util.h>
+
+#include <CoreFoundation/CFString.h>
+#include <CoreFoundation/CFStringEncodingExt.h>
 
 /* bek 5/20/98 - [2238317] - mntopts.h needs to be installed in a public place */
 
@@ -204,6 +213,7 @@ static void     load_ultable __P((struct msdosfs_args *, char *));
 static int checkLoadable();
 static char *progname;
 static int load_kmod();
+static void FindVolumeName(struct msdosfs_args *args);
 
 #define DEBUG 0
 #if DEBUG
@@ -223,7 +233,8 @@ main(argc, argv)
         //int error;
         char *dev, *dir, mntpath[MAXPATHLEN];
         // struct vfsconf vfc;
-
+        struct timezone local_tz;
+        
 	mntflags = set_gid = set_uid = set_mask = 0;
 	(void)memset(&args, '\0', sizeof(args));
 	args.magic = MSDOSFS_ARGSMAGIC;
@@ -313,6 +324,14 @@ main(argc, argv)
 			mntflags |= MNT_UNKNOWNPERMISSIONS;
 			}
 	}
+        
+	/* Pass the number of seconds that local time (including DST) is west of GMT */
+	gettimeofday(NULL, &local_tz);
+	args.secondsWest = local_tz.tz_minuteswest * 60 -
+			(local_tz.tz_dsttime ? 3600 : 0);
+	args.flags |= MSDOSFSMNT_SECONDSWEST;
+
+	FindVolumeName(&args);
 
 #if 0
 	error = getvfsbyname("msdos", &vfc);
@@ -470,6 +489,311 @@ static int load_kmod()
 Err_Exit:
 
                 return (result);
+}
+
+/*
+ * Check a volume label.
+ */
+static int
+oklabel(const char *src)
+{
+    int c, i;
+
+    for (i = 0, c = 0; i <= 11; i++) {
+        c = (u_char)*src++;
+        if (c < ' ' + !i || strchr("\"*+,./:;<=>?[\\]|", c))
+            break;
+    }
+    return i && !c;
+}
+
+static CFStringEncoding GetDefaultDOSEncoding(void)
+{
+	CFStringEncoding encoding;
+    struct passwd *passwdp;
+	int fd;
+	size_t size;
+	char buffer[MAXPATHLEN + 1];
+
+	/*
+	 * Get a default (Mac) encoding.  We use the CFUserTextEncoding
+	 * file since CFStringGetSystemEncoding() always seems to
+	 * return 0 when msdos.util is executed via disk arbitration.
+	 */
+	encoding = kCFStringEncodingMacRoman;	/* Default to Roman/Latin */
+	if ((passwdp = getpwuid(getuid()))) {
+		strcpy(buffer, passwdp->pw_dir);
+		strcat(buffer, "/.CFUserTextEncoding");
+
+		if ((fd = open(buffer, O_RDONLY, 0)) > 0) {
+			size = read(fd, buffer, MAXPATHLEN);
+			buffer[(size < 0 ? 0 : size)] = '\0';
+			close(fd);
+			encoding = strtol(buffer, NULL, 0);
+		}
+	}
+
+	/* Convert the Mac encoding to a DOS/Windows encoding. */
+	switch (encoding) {
+		case kCFStringEncodingMacRoman:
+			encoding = kCFStringEncodingDOSLatin1;
+			break;
+		case kCFStringEncodingMacJapanese:
+			encoding = kCFStringEncodingDOSJapanese;
+			break;
+		case kCFStringEncodingMacChineseTrad:
+			encoding = kCFStringEncodingDOSChineseTrad;
+			break;
+		case kCFStringEncodingMacKorean:
+			encoding = kCFStringEncodingDOSKorean;
+			break;
+		case kCFStringEncodingMacArabic:
+			encoding = kCFStringEncodingDOSArabic;
+			break;
+		case kCFStringEncodingMacHebrew:
+			encoding = kCFStringEncodingDOSHebrew;
+			break;
+		case kCFStringEncodingMacGreek:
+			encoding = kCFStringEncodingDOSGreek;
+			break;
+		case kCFStringEncodingMacCyrillic:
+		case kCFStringEncodingMacUkrainian:
+			encoding = kCFStringEncodingDOSCyrillic;
+			break;
+		case kCFStringEncodingMacThai:
+			encoding = kCFStringEncodingDOSThai;
+			break;
+		case kCFStringEncodingMacChineseSimp:
+			encoding = kCFStringEncodingDOSChineseSimplif;
+			break;
+		case kCFStringEncodingMacCentralEurRoman:
+		case kCFStringEncodingMacCroatian:
+		case kCFStringEncodingMacRomanian:
+			encoding = kCFStringEncodingDOSLatin2;
+			break;
+		case kCFStringEncodingMacTurkish:
+			encoding = kCFStringEncodingDOSTurkish;
+			break;
+		case kCFStringEncodingMacIcelandic:
+			encoding = kCFStringEncodingDOSIcelandic;
+			break;
+		case kCFStringEncodingMacFarsi:
+			encoding = kCFStringEncodingDOSArabic;
+			break;
+		default:
+			encoding = kCFStringEncodingInvalidId;	/* Error: no corresponding Windows encoding */
+			break;
+	}
+	
+	return encoding;
+}
+
+#define MAX_DOS_BLOCKSIZE	2048
+
+struct direntry {
+	u_int8_t name[11];
+	u_int8_t attr;
+	u_int8_t reserved;
+	u_int8_t createTimeTenth;
+	u_int16_t createTime;
+	u_int16_t createDate;
+	u_int16_t accessDate;
+	u_int16_t clusterHi;
+	u_int16_t modTime;
+	u_int16_t modDate;
+	u_int16_t clusterLo;
+	u_int32_t size;
+};
+#define ATTR_VOLUME_NAME	0x08
+#define ATTR_VOLUME_MASK	0x18
+#define ATTR_LONG_NAME		0x0F
+#define ATTR_MASK			0x3F
+
+#define SLOT_EMPTY			0x00
+#define SLOT_DELETED		0xE5U
+#define SLOT_E5				0x05
+
+#define CLUST_FIRST			2
+#define CLUST_RESERVED		0x0FFFFFF7
+
+static void FindVolumeName(struct msdosfs_args *args)
+{
+	int fd;
+	u_int32_t i;
+	struct direntry *dir;
+	void *rootBuffer;
+	unsigned bytesPerSector;
+	unsigned sectorsPerCluster;
+	unsigned rootDirEntries;
+	unsigned reservedSectors;
+	unsigned numFATs;
+	u_int32_t sectorsPerFAT;
+	off_t	readOffset;		/* Byte offset of current sector */
+	ssize_t	readAmount;
+	unsigned char buf[MAX_DOS_BLOCKSIZE];
+	unsigned char label[12];
+	CFStringRef cfstr;
+
+	bzero(label, sizeof(label));	/* Default to no label */
+	rootBuffer = NULL;
+
+	fd = open(args->fspec, O_RDONLY, 0);
+	if (fd<0)
+		err(EX_OSERR, "%s", args->fspec);
+
+	/* Read the boot sector */
+	if (pread(fd, buf, MAX_DOS_BLOCKSIZE, 0) != MAX_DOS_BLOCKSIZE)
+		err(EX_OSERR, "%s", args->fspec);
+	
+	/* Check the jump field (first 3 bytes)? */
+	
+	/* Get the bytes per sector */
+	bytesPerSector = buf[11] + buf[12]*256;
+	if (bytesPerSector < 512 || bytesPerSector > 2048 || (bytesPerSector & (bytesPerSector-1)))
+		errx(EX_OSERR, "Unsupported sector size (%u)", bytesPerSector);
+
+	/* Get the sectors per cluster */
+	sectorsPerCluster = buf[13];
+	if (sectorsPerCluster==0 || (sectorsPerCluster & (sectorsPerCluster-1)))
+		errx(EX_OSERR, "Unsupported sectors per cluster (%u)", sectorsPerCluster);
+
+	reservedSectors = buf[14] + buf[15]*256;
+	numFATs = buf[16];
+	
+	/* Get the size of the root directory, in sectors */
+	rootDirEntries = buf[17] + buf[18]*256;
+
+	/* If there is a label in the boot parameter block, copy it */
+	if (rootDirEntries == 0) {
+		bcopy(&buf[71], label, 11);
+	} else {
+		if (buf[38] == 0x29)
+			bcopy(&buf[43], label, 11);
+	}
+	
+	/* If there is a label in the root directory, copy it */
+	if (rootDirEntries != 0) {
+		/* FAT12 or FAT16 */
+		u_int32_t	firstRootSector;
+		
+		sectorsPerFAT = buf[22] + buf[23]*256;
+		firstRootSector = reservedSectors + numFATs * sectorsPerFAT;
+
+		readOffset = firstRootSector * bytesPerSector;
+		readAmount = (rootDirEntries * sizeof(struct direntry) + bytesPerSector-1) / bytesPerSector;
+		readAmount *= bytesPerSector;
+
+		rootBuffer = malloc(readAmount);
+		if (rootBuffer == NULL)
+			errx(EX_OSERR, "Out of memory");
+
+		/* Read the root directory */
+		if (pread(fd, rootBuffer, readAmount, readOffset) != readAmount)
+			err(EX_OSERR, "%s", args->fspec);
+
+		/* Loop over root directory entries */
+		for (i=0,dir=rootBuffer; i<rootDirEntries; ++i,++dir) {
+			if (dir->name[0] == SLOT_EMPTY)
+				goto end_of_dir;
+			if (dir->name[0] == SLOT_DELETED)
+				continue;
+			if ((dir->attr & ATTR_MASK) == ATTR_LONG_NAME)
+				continue;
+			if ((dir->attr & ATTR_VOLUME_MASK) == ATTR_VOLUME_NAME) {
+				bcopy(dir->name, label, 11);
+				goto end_of_dir;
+			}
+		}
+	} else {
+		/* FAT32 */
+		u_int32_t	cluster;		/* Current cluster number */
+		u_int32_t	clusterOffset;	/* Sector where cluster data starts */
+
+		sectorsPerFAT = buf[36] + (buf[37]<<8L) + (buf[38]<<16L) + (buf[39]<<24L);
+		clusterOffset = reservedSectors + numFATs * sectorsPerFAT;
+
+		readAmount = bytesPerSector * sectorsPerCluster;
+		rootBuffer = malloc(readAmount);
+		if (rootBuffer == NULL)
+			errx(EX_OSERR, "Out of memory");
+		
+		/* Figure out the number of directory entries per cluster */
+		rootDirEntries = readAmount / sizeof(struct direntry);
+		
+		/* Start with the first cluster of the root directory */
+		cluster = buf[44] + (buf[45]<<8L) + (buf[46]<<16L) + (buf[47]<<24L);
+		
+		/* Loop over clusters in the root directory */
+		while (cluster >= CLUST_FIRST && cluster < CLUST_RESERVED) {
+			readOffset = (cluster - CLUST_FIRST) * sectorsPerCluster + clusterOffset;
+			readOffset *= bytesPerSector;
+
+			/* Read the cluster */
+			if (pread(fd, rootBuffer, readAmount, readOffset) != readAmount)
+				err(EX_OSERR, "%s", args->fspec);
+
+			/* Loop over every directory entry in the cluster */
+			for (i=0,dir=rootBuffer; i<rootDirEntries; ++i,++dir) {
+				if (dir->name[0] == SLOT_EMPTY)
+					goto end_of_dir;
+				if (dir->name[0] == SLOT_DELETED)
+					continue;
+				if ((dir->attr & ATTR_MASK) == ATTR_LONG_NAME)
+					continue;
+				if ((dir->attr & ATTR_VOLUME_MASK) == ATTR_VOLUME_NAME) {
+					bcopy(dir->name, label, 11);
+					goto end_of_dir;
+				}
+			}
+
+			/* Read the FAT so we can find the next cluster */
+			readOffset = reservedSectors + ((cluster * 4) / bytesPerSector);
+			readOffset *= bytesPerSector;
+			
+			if (pread(fd, buf, bytesPerSector, readOffset) != bytesPerSector)
+				err(EX_OSERR, "%s", args->fspec);
+			
+			/* Determine byte offset in FAT sector for "cluster" */
+			i = (cluster * 4) % bytesPerSector;
+			cluster = buf[i] + (buf[i+1]<<8L) + (buf[i+2]<<16L) + (buf[i+3]<<24L);
+			cluster &= 0x0FFFFFFF;	/* Ignore the reserved upper bits */
+		}
+	}
+
+end_of_dir:
+	if (rootBuffer)
+		free(rootBuffer);
+	close(fd);
+
+	/* Convert a leading 0x05 to 0xE5 for multibyte encodings */
+	if (label[0] == 0x05)
+		label[0] = 0xE5;
+
+	/* Check for illegal characters */
+	if (!oklabel(label))
+		label[0] = 0;
+	
+	/* Remove any trailing spaces. */
+	i = 11;
+	do {
+		--i;
+		if (label[i] == ' ')
+			label[i] = 0;
+		else
+			break;
+	} while (i != 0);
+
+	/* Convert using default encoding, or Latin1 */
+	cfstr = CFStringCreateWithCString(NULL, label, GetDefaultDOSEncoding());
+	if (cfstr == NULL)
+		cfstr = CFStringCreateWithCString(NULL, label, kCFStringEncodingDOSLatin1);
+	if (cfstr == NULL)
+		args->label[0] = 0;
+	else {
+		CFStringGetCString(cfstr, args->label, sizeof(args->label), kCFStringEncodingUTF8);
+		CFRelease(cfstr);
+	}
+	args->flags |= MSDOSFSMNT_LABEL;
 }
 
 

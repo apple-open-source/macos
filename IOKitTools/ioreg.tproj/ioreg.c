@@ -7,6 +7,7 @@
 #include <CoreFoundation/CoreFoundation.h>            // (CFDictionary, ...)
 #include <IOKit/IOCFSerialize.h>                      // (IOCFSerialize, ...)
 #include <IOKit/IOKitLib.h>                           // (IOMasterPort, ...)
+#include <IOKit/IOKitLibPrivate.h>                    // (IOMasterPort, ...)
 #include <sys/ioctl.h>                                // (TIOCGWINSZ, ...)
 #include <term.h>                                     // (tputs, ...)
 #include <unistd.h>                                   // (getopt, ...)
@@ -104,8 +105,9 @@ int main(int argc, char ** argv)
         options.width = winsize.ws_col;
 
     // Obtain the command-line arguments.
+    options.flags |= kIORegFlagShowState;
 
-    while ( (argument = getopt(argc, argv, ":bc:ln:p:sw:x")) != -1 )
+    while ( (argument = getopt(argc, argv, ":bc:ln:p:sSw:x")) != -1 )
     {
         switch (argument)
         {
@@ -126,6 +128,9 @@ int main(int argc, char ** argv)
                 break;
             case 's':
                 options.flags |= kIORegFlagShowState;
+                break;
+            case 'S':
+                options.flags &= ~kIORegFlagShowState;
                 break;
             case 'w':
                 options.width = atoi(optarg);
@@ -240,6 +245,7 @@ static void show( io_registry_entry_t service,
     io_name_t       class;          // (don't release)
     struct context  context    = { serviceDepth, stackOfBits };
     int             integer    = 0; // (don't release)
+    uint64_t	    state;
     io_name_t       location;       // (don't release)
     io_name_t       name;           // (don't release)
     CFDictionaryRef properties = 0; // (needs release)
@@ -278,6 +284,14 @@ static void show( io_registry_entry_t service,
 
         if (IOObjectConformsTo(service, "IOService"))
         {
+            status = IOServiceGetState(service, &state);
+            assertion(status == KERN_SUCCESS, "can't obtain state");
+
+            print(", %sregistered, %smatched, %sactive",
+		    state & kIOServiceMatchedState    ? "" : "!",
+		    state & kIOServiceRegisteredState ? "" : "!",
+		    state & kIOServiceInactiveState   ? "in" : "" );
+
             status = IOServiceGetBusyState(service, &integer);
             assertion(status == KERN_SUCCESS, "can't obtain busy state");
 

@@ -1,7 +1,7 @@
 /* referral.c - BDB backend referral handler */
-/* $OpenLDAP: pkg/ldap/servers/slapd/back-bdb/referral.c,v 1.15 2002/01/25 06:19:01 hyc Exp $ */
+/* $OpenLDAP: pkg/ldap/servers/slapd/back-bdb/referral.c,v 1.15.2.7 2003/03/03 17:10:07 kurt Exp $ */
 /*
- * Copyright 2000-2002 The OpenLDAP Foundation, All Rights Reserved.
+ * Copyright 2000-2003 The OpenLDAP Foundation, All Rights Reserved.
  * COPYING RESTRICTIONS APPLY, see COPYRIGHT file
  */
 
@@ -23,7 +23,11 @@ bdb_referrals(
 {
 	struct bdb_info *bdb = (struct bdb_info *) be->be_private;
 	int rc = LDAP_SUCCESS;
-	Entry *e = NULL, *matched;
+	Entry *e = NULL;
+	Entry *matched = NULL;
+
+	u_int32_t	locker;
+	DB_LOCK		lock;
 
 	if( op->o_tag == LDAP_REQ_SEARCH ) {
 		/* let search take care of itself */
@@ -35,26 +39,56 @@ bdb_referrals(
 		return rc;
 	} 
 
+	rc = LOCK_ID(bdb->bi_dbenv, &locker);
+	switch(rc) {
+	case 0:
+		break;
+	default:
+		return LDAP_OTHER;
+	}
+
+dn2entry_retry:
 	/* get entry */
-	rc = bdb_dn2entry_r( be, NULL, ndn, &e, &matched, 0 );
+	rc = bdb_dn2entry_r( be, NULL, ndn, &e, &matched, 0, locker, &lock );
 
 	switch(rc) {
 	case DB_NOTFOUND:
 		rc = 0;
 	case 0:
 		break;
+	case LDAP_BUSY:
+		if (e != NULL) {
+			bdb_cache_return_entry_r(bdb->bi_dbenv, &bdb->bi_cache, e, &lock);
+		}
+		if (matched != NULL) {
+			bdb_cache_return_entry_r(bdb->bi_dbenv, &bdb->bi_cache, matched, &lock);
+		}
+		send_ldap_result( conn, op, LDAP_BUSY,
+			NULL, "ldap server busy", NULL, NULL );
+		LOCK_ID_FREE ( bdb->bi_dbenv, locker );
+		return LDAP_BUSY;
+	case DB_LOCK_DEADLOCK:
+	case DB_LOCK_NOTGRANTED:
+		goto dn2entry_retry;
 	default:
+#ifdef NEW_LOGGING
+		LDAP_LOG ( OPERATION, ERR, 
+			"bdb_referrals: dn2entry failed: %s (%d)\n", 
+			db_strerror(rc), rc, 0 );
+#else
 		Debug( LDAP_DEBUG_TRACE,
 			"bdb_referrals: dn2entry failed: %s (%d)\n",
 			db_strerror(rc), rc, 0 ); 
+#endif
 		if (e != NULL) {
-                        bdb_cache_return_entry_r(&bdb->bi_cache, e);
+                        bdb_cache_return_entry_r(bdb->bi_dbenv, &bdb->bi_cache, e, &lock);
 		}
                 if (matched != NULL) {
-                        bdb_cache_return_entry_r(&bdb->bi_cache, matched);
+                        bdb_cache_return_entry_r(bdb->bi_dbenv, &bdb->bi_cache, matched, &lock);
 		}
 		send_ldap_result( conn, op, rc=LDAP_OTHER,
 			NULL, "internal error", NULL, NULL );
+		LOCK_ID_FREE ( bdb->bi_dbenv, locker );
 		return rc;
 	}
 
@@ -65,16 +99,22 @@ bdb_referrals(
 		if ( matched != NULL ) {
 			matched_dn = ch_strdup( matched->e_dn );
 
+#ifdef NEW_LOGGING
+		LDAP_LOG ( OPERATION, DETAIL1, 
+			"bdb_referrals: op=%ld target=\"%s\" matched=\"%s\"\n",
+			(long) op->o_tag, dn->bv_val, matched_dn );
+#else
 			Debug( LDAP_DEBUG_TRACE,
 				"bdb_referrals: op=%ld target=\"%s\" matched=\"%s\"\n",
 				(long) op->o_tag, dn->bv_val, matched_dn );
+#endif
 
 			if( is_entry_referral( matched ) ) {
 				rc = LDAP_OTHER;
 				refs = get_entry_referrals( be, conn, op, matched );
 			}
 
-			bdb_cache_return_entry_r (&bdb->bi_cache, matched);
+			bdb_cache_return_entry_r (bdb->bi_dbenv, &bdb->bi_cache, matched, &lock);
 			matched = NULL;
 		} else if ( default_referral != NULL ) {
 			rc = LDAP_OTHER;
@@ -93,6 +133,7 @@ bdb_referrals(
 				NULL, NULL );
 		}
 
+		LOCK_ID_FREE ( bdb->bi_dbenv, locker );
 		free( matched_dn );
 		return rc;
 	}
@@ -103,9 +144,15 @@ bdb_referrals(
 		BerVarray rrefs = referral_rewrite(
 			refs, &e->e_name, dn, LDAP_SCOPE_DEFAULT );
 
+#ifdef NEW_LOGGING
+		LDAP_LOG ( OPERATION, DETAIL1, 
+			"bdb_referrals: op=%ld target=\"%s\" matched=\"%s\"\n",
+			(long) op->o_tag, dn->bv_val, e->e_dn );
+#else
 		Debug( LDAP_DEBUG_TRACE,
 			"bdb_referrals: op=%ld target=\"%s\" matched=\"%s\"\n",
 			(long) op->o_tag, dn->bv_val, e->e_dn );
+#endif
 
 		if( rrefs != NULL ) {
 			send_ldap_result( conn, op, rc = LDAP_REFERRAL,
@@ -119,6 +166,7 @@ bdb_referrals(
 		ber_bvarray_free( refs );
 	}
 
-	bdb_cache_return_entry_r(&bdb->bi_cache, e);
+	bdb_cache_return_entry_r(bdb->bi_dbenv, &bdb->bi_cache, e, &lock);
+	LOCK_ID_FREE ( bdb->bi_dbenv, locker );
 	return rc;
 }

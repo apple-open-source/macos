@@ -122,7 +122,7 @@ mod_export int parend;
 /**/
 mod_export int nocomments;
 
-/* text of puctuation tokens */
+/* text of punctuation tokens */
 
 /**/
 mod_export char *tokstrings[WHILE + 1] = {
@@ -993,8 +993,12 @@ gettokstr(int c, int sub)
 	    c = Outbrack;
 	    break;
 	case LX2_INPAR:
-	    if ((sub || in_brace_param) && isset(SHGLOB))
-		break;
+	    if (isset(SHGLOB)) {
+		if (sub || in_brace_param)
+		    break;
+		if (incasepat && !len)
+		    return INPAR;
+	    }
 	    if (!in_brace_param) {
 		if (!sub) {
 		    e = hgetc();
@@ -1140,6 +1144,8 @@ gettokstr(int c, int sub)
 			skipparens(Inbrack, Outbrack, &t);
 		    }
 		}
+		if (*t == '+')
+                    t++;
 		if (t == bptr) {
 		    e = hgetc();
 		    if (e == '(' && incmdpos) {
@@ -1395,7 +1401,9 @@ dquote_parse(char endchar, int sub)
 		break;
 	    if (bct) {
 		add(Dnull);
+		cmdpush(CS_DQUOTE);
 		err = dquote_parse('"', sub);
+		cmdpop();
 		c = Dnull;
 	    } else
 		err = 1;

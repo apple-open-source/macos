@@ -127,10 +127,12 @@ DoAgain:
 	    && scanCount == 0
 	    && checkLevel != kForceCheck
 	    && !(checkLevel == kPartialCheck && repairLevel == kForceRepairs)) {
-	    printf("fsck_hfs: Volume is journaled.  No checking performed.\n");
-	    printf("fsck_hfs: Use the -f option to force checking.\n");
-	    scavError = 0;
-	    goto termScav;
+		if (!guiControl) {
+	    		printf("fsck_hfs: Volume is journaled.  No checking performed.\n");
+	    		printf("fsck_hfs: Use the -f option to force checking.\n");
+		}
+		scavError = 0;
+		goto termScav;
 	}
 	dataArea.calculatedVCB->vcbDriveNumber = fsReadRef;
 	dataArea.calculatedVCB->vcbDriverWriteRef = fsWriteRef;
@@ -302,8 +304,17 @@ void ScavCtrl( SGlobPtr GPtr, UInt32 ScavOp, short *ScavRes )
 				if (GPtr->chkLevel == kNeverCheck) {
 					if (clean == -1)
 						result = R_BadSig;
-					else if (clean == 0)
-						result = R_Dirty;
+					else if (clean == 0) {
+						/*
+						 * We lie for journaled file systems since
+						 * they get cleaned up in mount by replaying
+						 * the journal.
+						 */
+						if (CheckIfJournaled(GPtr))
+							GPtr->cleanUnmount = true;
+						else
+							result = R_Dirty;
+					}
 					break;
 				}
 

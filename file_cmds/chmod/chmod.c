@@ -1,5 +1,3 @@
-/*	$NetBSD: chmod.c,v 1.20 1998/07/28 05:31:22 mycroft Exp $	*/
-
 /*
  * Copyright (c) 1989, 1993, 1994
  *	The Regents of the University of California.  All rights reserved.
@@ -33,20 +31,19 @@
  * SUCH DAMAGE.
  */
 
-#include <sys/cdefs.h>
 #ifndef lint
-__COPYRIGHT(
+static char const copyright[] =
 "@(#) Copyright (c) 1989, 1993, 1994\n\
-	The Regents of the University of California.  All rights reserved.\n");
+	The Regents of the University of California.  All rights reserved.\n";
 #endif /* not lint */
 
 #ifndef lint
 #if 0
 static char sccsid[] = "@(#)chmod.c	8.8 (Berkeley) 4/1/94";
-#else
-__RCSID("$NetBSD: chmod.c,v 1.20 1998/07/28 05:31:22 mycroft Exp $");
 #endif
 #endif /* not lint */
+#include <sys/cdefs.h>
+__RCSID("$FreeBSD: src/bin/chmod/chmod.c,v 1.27 2002/08/04 05:29:13 obrien Exp $");
 
 #include <sys/types.h>
 #include <sys/stat.h>
@@ -54,37 +51,33 @@ __RCSID("$NetBSD: chmod.c,v 1.20 1998/07/28 05:31:22 mycroft Exp $");
 #include <err.h>
 #include <errno.h>
 #include <fts.h>
-#include <locale.h>
+#include <limits.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
-#include <limits.h>
 
-int main __P((int, char *[]));
-void usage __P((void));
+int main(int, char *[]);
+void usage(void);
 
 int
-main(argc, argv)
-	int argc;
-	char *argv[];
+main(int argc, char *argv[])
 {
 	FTS *ftsp;
 	FTSENT *p;
 	mode_t *set;
 	long val;
-	int oct, omode;
+	int oct;
 	int Hflag, Lflag, Rflag, ch, fflag, fts_options, hflag, rval;
+	int vflag;
 	char *ep, *mode;
-	int (*change_mode) __P((const char *, mode_t));
+	mode_t newmode, omode;
+	int (*change_mode)(const char *, mode_t);
 
-	set = NULL;	/* XXX gcc -Wuninitialized */
-	omode = 0;	/* XXX gcc -Wuninitialized */
-
-	(void)setlocale(LC_ALL, "");
-
-	Hflag = Lflag = Rflag = fflag = hflag = 0;
-	while ((ch = getopt(argc, argv, "HLPRXfghorstuwx")) != -1)
+	set = NULL;
+	omode = 0;
+	Hflag = Lflag = Rflag = fflag = hflag = vflag = 0;
+	while ((ch = getopt(argc, argv, "HLPRXfghorstuvwx")) != -1)
 		switch (ch) {
 		case 'H':
 			Hflag = 1;
@@ -100,7 +93,7 @@ main(argc, argv)
 		case 'R':
 			Rflag = 1;
 			break;
-		case 'f':		/* XXX: undocumented. */
+		case 'f':
 			fflag = 1;
 			break;
 #ifndef __APPLE__
@@ -109,13 +102,13 @@ main(argc, argv)
 			 * In System V (and probably POSIX.2) the -h option
 			 * causes chmod to change the mode of the symbolic
 			 * link.  4.4BSD's symbolic links didn't have modes,
-			 * so it was an undocumented noop.  In NetBSD 1.3,
+			 * so it was an undocumented noop.  In FreeBSD 3.0,
 			 * lchmod(2) is introduced and this option does real
 			 * work.
 			 */
 			hflag = 1;
 			break;
-#endif
+#endif /* __APPLE__ */
 		/*
 		 * XXX
 		 * "-[rwx]" are valid mode commands.  If they are the entire
@@ -129,6 +122,9 @@ main(argc, argv)
 			    argv[optind - 1][2] == '\0')
 				--optind;
 			goto done;
+		case 'v':
+			vflag++;
+			break;
 		case '?':
 		default:
 			usage();
@@ -139,8 +135,8 @@ done:	argv += optind;
 	if (argc < 2)
 		usage();
 
-	fts_options = FTS_PHYSICAL;
 	if (Rflag) {
+		fts_options = FTS_PHYSICAL;
 		if (hflag)
 			errx(1,
 		"the -R and -h options may not be specified together.");
@@ -150,27 +146,29 @@ done:	argv += optind;
 			fts_options &= ~FTS_PHYSICAL;
 			fts_options |= FTS_LOGICAL;
 		}
-	}
+	} else
+		fts_options = hflag ? FTS_PHYSICAL : FTS_LOGICAL;
+
 #ifndef __APPLE__
 	if (hflag)
 		change_mode = lchmod;
 	else
-            change_mode = chmod;
+		change_mode = chmod;
 #else
-        change_mode = chmod;
-#endif
+	change_mode = chmod;
+#endif /* __APPLE__ */
 
 	mode = *argv;
 	if (*mode >= '0' && *mode <= '7') {
 		errno = 0;
 		val = strtol(mode, &ep, 8);
-		if (val > INT_MAX || val < 0)
+		if (val > USHRT_MAX || val < 0)
 			errno = ERANGE;
 		if (errno)
 			err(1, "invalid file mode: %s", mode);
 		if (*ep)
 			errx(1, "invalid file mode: %s", mode);
-		omode = val;
+		omode = (mode_t)val;
 		oct = 1;
 	} else {
 		if ((set = setmode(mode)) == NULL)
@@ -179,19 +177,17 @@ done:	argv += optind;
 	}
 
 	if ((ftsp = fts_open(++argv, fts_options, 0)) == NULL)
-		err(1, argv[0]);
+		err(1, "fts_open");
 	for (rval = 0; (p = fts_read(ftsp)) != NULL;) {
 		switch (p->fts_info) {
-		case FTS_D:
+		case FTS_D:			/* Change it at FTS_DP. */
 			if (!Rflag)
-				(void)fts_set(ftsp, p, FTS_SKIP);
-			break;
+				fts_set(ftsp, p, FTS_SKIP);
+			continue;
 		case FTS_DNR:			/* Warn, chmod, continue. */
 			warnx("%s: %s", p->fts_path, strerror(p->fts_errno));
 			rval = 1;
 			break;
-		case FTS_DP:			/* Already changed at FTS_D. */
-			continue;
 		case FTS_ERR:			/* Warn, continue. */
 		case FTS_NS:
 			warnx("%s: %s", p->fts_path, strerror(p->fts_errno));
@@ -204,39 +200,55 @@ done:	argv += optind;
 			 * don't point to anything and ones that we found
 			 * doing a physical walk.
 			 */
-#ifndef __APPLE__
 			if (!hflag)
 				continue;
 			/* else */
 			/* FALLTHROUGH */
-#else
-			continue;
-#endif
 		default:
 			break;
 		}
-		if ((*change_mode)(p->fts_accpath, oct ? omode :
-		    getmode(set, p->fts_statp->st_mode)) && !fflag) {
+		newmode = oct ? omode : getmode(set, p->fts_statp->st_mode);
+		if ((newmode & ALLPERMS) == (p->fts_statp->st_mode & ALLPERMS))
+			continue;
+		if ((*change_mode)(p->fts_accpath, newmode) && !fflag) {
 			warn("%s", p->fts_path);
 			rval = 1;
+		} else {
+			if (vflag) {
+				(void)printf("%s", p->fts_accpath);
+
+				if (vflag > 1) {
+					char m1[12], m2[12];
+
+					strmode(p->fts_statp->st_mode, m1);
+					strmode((p->fts_statp->st_mode &
+					    S_IFMT) | newmode, m2);
+
+					(void)printf(": 0%o [%s] -> 0%o [%s]",
+					    p->fts_statp->st_mode, m1,
+					    (p->fts_statp->st_mode & S_IFMT) |
+					    newmode, m2);
+				}
+				(void)printf("\n");
+			}
+
 		}
 	}
 	if (errno)
 		err(1, "fts_read");
+	free(set);
 	exit(rval);
-	/* NOTREACHED */
 }
 
 void
-usage()
+usage(void)
 {
-#ifndef __APPLE__
+#ifdef __APPLE__
 	(void)fprintf(stderr,
-	    "usage: chmod [-R [-H | -L | -P]] [-h] mode file ...\n");
+	    "usage: chmod [-fv] [-R [-H | -L | -P]] mode file ...\n");
 #else
 	(void)fprintf(stderr,
-	    "usage: chmod [-R [-H | -L | -P]] mode file ...\n");
-#endif
+	    "usage: chmod [-fhv] [-R [-H | -L | -P]] mode file ...\n");
+#endif /* __APPLE__ */
 	exit(1);
-	/* NOTREACHED */
 }

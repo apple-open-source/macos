@@ -1,8 +1,8 @@
 /*
    +----------------------------------------------------------------------+
-   | PHP version 4.0                                                      |
+   | PHP Version 4                                                        |
    +----------------------------------------------------------------------+
-   | Copyright (c) 1997-2001 The PHP Group                                |
+   | Copyright (c) 1997-2003 The PHP Group                                |
    +----------------------------------------------------------------------+
    | This source file is subject to version 2.02 of the PHP license,      |
    | that is bundled with this package in the file LICENSE, and is        |
@@ -12,7 +12,7 @@
    | obtain it through the world-wide-web, please send a note to          |
    | license@php.net so we can mail you a copy immediately.               |
    +----------------------------------------------------------------------+
-   | Authors: Stanislav Malyshev <stas@php.net>                           |
+   | Author: Stanislav Malyshev <stas@php.net>                            |
    +----------------------------------------------------------------------+
  */
 
@@ -86,15 +86,15 @@ function_entry gmp_functions[] = {
 /* {{{ gmp_module_entry
  */
 zend_module_entry gmp_module_entry = {
-    STANDARD_MODULE_HEADER,
+	STANDARD_MODULE_HEADER,
 	"gmp",
 	gmp_functions,
 	ZEND_MODULE_STARTUP_N(gmp),
 	ZEND_MODULE_SHUTDOWN_N(gmp),
-	NULL,		/* Replace with NULL if there's nothing to do at request start */
-	NULL,	    /* Replace with NULL if there's nothing to do at request end */
+	NULL,
+	NULL,
 	ZEND_MODULE_INFO_N(gmp),
-    NO_VERSION_YET,
+	NO_VERSION_YET,
 	STANDARD_MODULE_PROPERTIES
 };
 /* }}} */
@@ -163,7 +163,7 @@ ZEND_MODULE_SHUTDOWN_D(gmp)
 ZEND_MODULE_INFO_D(gmp)
 {
 	php_info_print_table_start();
-	php_info_print_table_header(2, "gmp support", "enabled");
+	php_info_print_table_row(2, "gmp support", "enabled");
 	php_info_print_table_end();
 
 	/* Remove comments if you have entries in php.ini
@@ -193,6 +193,7 @@ if(Z_TYPE_PP(zval) == IS_RESOURCE) { \
 static int convert_to_gmp(mpz_t * *gmpnumber, zval **val, int base) 
 {
 	int ret = 0;
+	int skip_lead = 0;
 
 	*gmpnumber = emalloc(sizeof(mpz_t));
 	switch(Z_TYPE_PP(val)) {
@@ -207,14 +208,19 @@ static int convert_to_gmp(mpz_t * *gmpnumber, zval **val, int base)
 	case IS_STRING:
 		{
 			char *numstr = Z_STRVAL_PP(val);
-			if (base==0) {
-				if(numstr[0] == '0' && (numstr[1] == 'x' || numstr[1] == 'X')) {
-					base=16;
-				} else {
-					base=10;
+
+			if (Z_STRLEN_PP(val) > 2) {
+				if (numstr[0] == '0') {
+					if (numstr[1] == 'x' || numstr[1] == 'X') {
+						base = 16;
+						skip_lead = 1;
+					} else if (base != 16 && (numstr[1] == 'b' || numstr[1] == 'B')) {
+						base = 2;
+						skip_lead = 1;
+					}
 				}
 			}
-			ret = mpz_init_set_str(**gmpnumber, numstr, base);
+			ret = mpz_init_set_str(**gmpnumber, (skip_lead ? &numstr[2] : numstr), base);
 		}
 		break;
 	default:
@@ -222,8 +228,13 @@ static int convert_to_gmp(mpz_t * *gmpnumber, zval **val, int base)
 		efree(*gmpnumber);
 		return FAILURE;
 	}
+
+	if (ret) {
+		FREE_GMP_NUM(*gmpnumber);
+		return FAILURE;
+	}
 	
-	return ret?FAILURE:SUCCESS;
+	return SUCCESS;
 }
 /* }}} */
 
@@ -530,7 +541,19 @@ ZEND_FUNCTION(gmp_strval)
 		num_len++;
 	}
 	mpz_get_str(out_string, base, *gmpnum);
-	out_string[num_len] = '\0';
+
+	/* 
+	From GMP documentation for mpz_sizeinbase():
+	The returned value will be exact or 1 too big.  If base is a power of
+	2, the returned value will always be exact.
+
+	So let's check to see if we already have a \0 byte...
+	*/
+
+	if (out_string[num_len-1] == '\0')
+		num_len--;
+	else
+		out_string[num_len] = '\0';
 
 	RETVAL_STRINGL(out_string, num_len, 0);
 }
@@ -793,7 +816,7 @@ ZEND_FUNCTION(gmp_sqrt)
 /* }}} */
 
 /* {{{ proto array gmp_sqrtrem(resource a)
-   Takes integer part of square root of a */
+   Square root with remainder */
 ZEND_FUNCTION(gmp_sqrtrem)
 {
 	zval **a_arg;
@@ -892,7 +915,7 @@ ZEND_FUNCTION(gmp_gcdext)
 	}
 
 	FETCH_GMP_ZVAL(gmpnum_a, a_arg);
-	FETCH_GMP_ZVAL(gmpnum_b, a_arg);
+	FETCH_GMP_ZVAL(gmpnum_b, b_arg);
 
 	INIT_GMP_NUM(gmpnum_g);
 	INIT_GMP_NUM(gmpnum_s);
@@ -923,7 +946,7 @@ ZEND_FUNCTION(gmp_invert)
 	}
 
 	FETCH_GMP_ZVAL(gmpnum_a, a_arg);
-	FETCH_GMP_ZVAL(gmpnum_b, a_arg);
+	FETCH_GMP_ZVAL(gmpnum_b, b_arg);
 
 	INIT_GMP_NUM(gmpnum_result);
 	if(mpz_invert(*gmpnum_result, *gmpnum_a, *gmpnum_b)) {
@@ -1084,12 +1107,12 @@ ZEND_FUNCTION(gmp_xor)
    Sets or clear bit in a */
 ZEND_FUNCTION(gmp_setbit)
 {
-	zval **a_arg, **ind_arg, **sc_arg;
+	zval **a_arg, **ind_arg, **set_c_arg;
 	int argc, index, set=1;
 	mpz_t *gmpnum_a;
 
 	argc = ZEND_NUM_ARGS();
-	if (argc < 2 || argc > 3 || zend_get_parameters_ex(argc, &a_arg, &ind_arg, &sc_arg) == FAILURE){
+	if (argc < 2 || argc > 3 || zend_get_parameters_ex(argc, &a_arg, &ind_arg, &set_c_arg) == FAILURE){
 		WRONG_PARAM_COUNT;
 	}
 
@@ -1100,8 +1123,8 @@ ZEND_FUNCTION(gmp_setbit)
 
 	switch (argc) {
 		case 3:
-			convert_to_long_ex(sc_arg);
-			set = Z_LVAL_PP(sc_arg);
+			convert_to_long_ex(set_c_arg);
+			set = Z_LVAL_PP(set_c_arg);
 			break;
 		case 2:
 			set = 1;
@@ -1225,6 +1248,6 @@ static void _php_gmpnum_free(zend_rsrc_list_entry *rsrc TSRMLS_DC)
  * tab-width: 4
  * c-basic-offset: 4
  * End:
- * vim600: sw=4 ts=4 tw=78 fdm=marker
- * vim<600: sw=4 ts=4 tw=78
+ * vim600: sw=4 ts=4 fdm=marker
+ * vim<600: sw=4 ts=4
  */

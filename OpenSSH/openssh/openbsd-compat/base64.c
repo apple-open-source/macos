@@ -1,4 +1,4 @@
-/*	$OpenBSD: base64.c,v 1.3 1997/11/08 20:46:55 deraadt Exp $	*/
+/*	$OpenBSD: base64.c,v 1.4 2002/01/02 23:00:10 deraadt Exp $	*/
 
 /*
  * Copyright (c) 1996 by Internet Software Consortium.
@@ -42,9 +42,9 @@
  * IF IBM IS APPRISED OF THE POSSIBILITY OF SUCH DAMAGES.
  */
 
-#include "config.h"
+#include "includes.h"
 
-#if !defined(HAVE_B64_NTOP) && !defined(HAVE___B64_NTOP)
+#if (!defined(HAVE_B64_NTOP) && !defined(HAVE___B64_NTOP)) || (!defined(HAVE_B64_PTON) && !defined(HAVE___B64_PTON))
 
 #include <sys/types.h>
 #include <sys/param.h>
@@ -60,6 +60,7 @@
 
 #include "base64.h"
 
+/* XXX abort illegal in library */
 #define Assert(Cond) if (!(Cond)) abort()
 
 static const char Base64[] =
@@ -129,6 +130,7 @@ static const char Pad64 = '=';
 	   characters followed by one "=" padding character.
    */
 
+#if !defined(HAVE_B64_NTOP) && !defined(HAVE___B64_NTOP) 
 int
 b64_ntop(u_char const *src, size_t srclength, char *target, size_t targsize)
 {
@@ -189,6 +191,9 @@ b64_ntop(u_char const *src, size_t srclength, char *target, size_t targsize)
 	target[datalength] = '\0';	/* Returned value doesn't count \0. */
 	return (datalength);
 }
+#endif /* !defined(HAVE_B64_NTOP) && !defined(HAVE___B64_NTOP) */
+
+#if !defined(HAVE_B64_PTON) && !defined(HAVE___B64_PTON)
 
 /* skips all whitespace anywhere.
    converts characters, four at a time, starting at (or after)
@@ -313,4 +318,5 @@ b64_pton(char const *src, u_char *target, size_t targsize)
 	return (tarindex);
 }
 
-#endif /* !defined(HAVE_B64_NTOP) && !defined(HAVE___B64_NTOP) */
+#endif /* !defined(HAVE_B64_PTON) && !defined(HAVE___B64_PTON) */
+#endif 

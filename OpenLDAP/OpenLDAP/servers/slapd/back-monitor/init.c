@@ -1,6 +1,6 @@
 /* init.c - initialize monitor backend */
 /*
- * Copyright 1998-2002 The OpenLDAP Foundation, All Rights Reserved.
+ * Copyright 1998-2003 The OpenLDAP Foundation, All Rights Reserved.
  * COPYING RESTRICTIONS APPLY, see COPYRIGHT file
  */
 /*
@@ -37,6 +37,7 @@
 #include <ac/string.h>
 
 #include "slap.h"
+#include "lber_pvt.h"
 #include "back-monitor.h"
 
 /*
@@ -51,7 +52,7 @@ BackendDB *be_monitor = NULL;
 struct monitorsubsys monitor_subsys[] = {
 	{ 
 		SLAPD_MONITOR_LISTENER, SLAPD_MONITOR_LISTENER_NAME, 	
-		{ 0L, NULL }, { 0L, NULL }, { 0L, NULL },
+		BER_BVNULL, BER_BVNULL, BER_BVNULL,
 		MONITOR_F_PERSISTENT_CH,
 		monitor_subsys_listener_init,
 		NULL,	/* update */
@@ -59,7 +60,7 @@ struct monitorsubsys monitor_subsys[] = {
 		NULL	/* modify */
        	}, { 
 		SLAPD_MONITOR_DATABASE, SLAPD_MONITOR_DATABASE_NAME, 	
-		{ 0L, NULL }, { 0L, NULL }, { 0L, NULL },
+		BER_BVNULL, BER_BVNULL, BER_BVNULL,
 		MONITOR_F_PERSISTENT_CH,
 		monitor_subsys_database_init,
 		NULL,   /* update */
@@ -67,7 +68,7 @@ struct monitorsubsys monitor_subsys[] = {
 		NULL	/* modify */
        	}, { 
 		SLAPD_MONITOR_BACKEND, SLAPD_MONITOR_BACKEND_NAME, 
-		{ 0L, NULL }, { 0L, NULL }, { 0L, NULL },
+		BER_BVNULL, BER_BVNULL, BER_BVNULL,
 		MONITOR_F_PERSISTENT_CH,
 		monitor_subsys_backend_init,
 		NULL,   /* update */
@@ -75,7 +76,7 @@ struct monitorsubsys monitor_subsys[] = {
 		NULL	/* modify */
        	}, { 
 		SLAPD_MONITOR_THREAD, SLAPD_MONITOR_THREAD_NAME, 	
-		{ 0L, NULL }, { 0L, NULL }, { 0L, NULL },
+		BER_BVNULL, BER_BVNULL, BER_BVNULL,
 		MONITOR_F_NONE,
 		monitor_subsys_thread_init,
 		monitor_subsys_thread_update,
@@ -83,7 +84,7 @@ struct monitorsubsys monitor_subsys[] = {
 		NULL	/* modify */
        	}, { 
 		SLAPD_MONITOR_SASL, SLAPD_MONITOR_SASL_NAME, 	
-		{ 0L, NULL }, { 0L, NULL }, { 0L, NULL },
+		BER_BVNULL, BER_BVNULL, BER_BVNULL,
 		MONITOR_F_NONE,
 		NULL,   /* init */
 		NULL,   /* update */
@@ -91,7 +92,7 @@ struct monitorsubsys monitor_subsys[] = {
 		NULL	/* modify */
        	}, { 
 		SLAPD_MONITOR_TLS, SLAPD_MONITOR_TLS_NAME,
-		{ 0L, NULL }, { 0L, NULL }, { 0L, NULL },
+		BER_BVNULL, BER_BVNULL, BER_BVNULL,
 		MONITOR_F_NONE,
 		NULL,   /* init */
 		NULL,   /* update */
@@ -99,7 +100,7 @@ struct monitorsubsys monitor_subsys[] = {
 		NULL	/* modify */
        	}, { 
 		SLAPD_MONITOR_CONN, SLAPD_MONITOR_CONN_NAME,
-		{ 0L, NULL }, { 0L, NULL }, { 0L, NULL },
+		BER_BVNULL, BER_BVNULL, BER_BVNULL,
 		MONITOR_F_VOLATILE_CH,
 		monitor_subsys_conn_init,
 		monitor_subsys_conn_update,
@@ -107,7 +108,7 @@ struct monitorsubsys monitor_subsys[] = {
 		NULL	/* modify */
        	}, { 
 		SLAPD_MONITOR_READW, SLAPD_MONITOR_READW_NAME,
-		{ 0L, NULL }, { 0L, NULL }, { 0L, NULL },
+		BER_BVNULL, BER_BVNULL, BER_BVNULL,
 		MONITOR_F_NONE,
 		NULL,	/* init */
 		monitor_subsys_readw_update,
@@ -115,7 +116,7 @@ struct monitorsubsys monitor_subsys[] = {
 		NULL	/* modify */
        	}, { 
 		SLAPD_MONITOR_WRITEW, SLAPD_MONITOR_WRITEW_NAME,
-		{ 0L, NULL }, { 0L, NULL }, { 0L, NULL },
+		BER_BVNULL, BER_BVNULL, BER_BVNULL,
 		MONITOR_F_NONE,
 		NULL,   /* init */
 		monitor_subsys_writew_update,
@@ -123,7 +124,7 @@ struct monitorsubsys monitor_subsys[] = {
 		NULL	/* modify */
        	}, { 
 		SLAPD_MONITOR_LOG, SLAPD_MONITOR_LOG_NAME,
-		{ 0L, NULL }, { 0L, NULL }, { 0L, NULL },
+		BER_BVNULL, BER_BVNULL, BER_BVNULL,
 		MONITOR_F_NONE,
 		monitor_subsys_log_init,
 		NULL,	/* update */
@@ -131,7 +132,7 @@ struct monitorsubsys monitor_subsys[] = {
 		monitor_subsys_log_modify
        	}, { 
 		SLAPD_MONITOR_OPS, SLAPD_MONITOR_OPS_NAME,
-		{ 0L, NULL }, { 0L, NULL }, { 0L, NULL },
+		BER_BVNULL, BER_BVNULL, BER_BVNULL,
 		MONITOR_F_PERSISTENT_CH,
 		monitor_subsys_ops_init,
 		monitor_subsys_ops_update,
@@ -139,7 +140,7 @@ struct monitorsubsys monitor_subsys[] = {
 		NULL,	/* modify */
        	}, { 
 		SLAPD_MONITOR_SENT, SLAPD_MONITOR_SENT_NAME,
-		{ 0L, NULL }, { 0L, NULL }, { 0L, NULL },
+		BER_BVNULL, BER_BVNULL, BER_BVNULL,
 		MONITOR_F_PERSISTENT_CH,
 		monitor_subsys_sent_init,
 		monitor_subsys_sent_update,
@@ -147,7 +148,7 @@ struct monitorsubsys monitor_subsys[] = {
 		NULL,	/* modify */
        	}, { 
 		SLAPD_MONITOR_TIME, SLAPD_MONITOR_TIME_NAME,
-		{ 0L, NULL }, { 0L, NULL }, { 0L, NULL },
+		BER_BVNULL, BER_BVNULL, BER_BVNULL,
 		MONITOR_F_PERSISTENT_CH,
 		monitor_subsys_time_init,
 		monitor_subsys_time_update,
@@ -156,6 +157,22 @@ struct monitorsubsys monitor_subsys[] = {
 	}, { -1, NULL }
 };
 
+#ifdef SLAPD_MONITOR_DYNAMIC
+
+int
+back_monitor_LTX_init_module( int argc, char *argv[] )
+{
+	BackendInfo bi;
+
+	memset( &bi, '\0', sizeof(bi) );
+	bi.bi_type = "monitor";
+	bi.bi_init = monitor_back_initialize;
+	backend_add( &bi );
+	return 0;
+}
+
+#endif /* SLAPD_MONITOR_DYNAMIC */
+
 int
 monitor_back_initialize(
 	BackendInfo	*bi
@@ -163,20 +180,21 @@ monitor_back_initialize(
 {
 	static char *controls[] = {
 		LDAP_CONTROL_MANAGEDSAIT,
+		LDAP_CONTROL_VALUESRETURNFILTER,
 		NULL
 	};
 
 	bi->bi_controls = controls;
 
 	bi->bi_init = 0;
-	bi->bi_open = monitor_back_open;
+	bi->bi_open = 0;
 	bi->bi_config = monitor_back_config;
 	bi->bi_close = 0;
 	bi->bi_destroy = 0;
 
 	bi->bi_db_init = monitor_back_db_init;
 	bi->bi_db_config = monitor_back_db_config;
-	bi->bi_db_open = 0;
+	bi->bi_db_open = monitor_back_db_open;
 	bi->bi_db_close = 0;
 	bi->bi_db_destroy = monitor_back_db_destroy;
 
@@ -226,7 +244,7 @@ monitor_back_db_init(
 	struct monitorentrypriv	*mp;
 	int			i, rc;
 	char 			buf[1024], *end_of_line;
-	struct berval		dn, *ndn;
+	struct berval		dn, ndn;
 	const char 		*text;
 	struct berval		bv[2];
 
@@ -235,8 +253,8 @@ monitor_back_db_init(
 	 */
 	if ( be_monitor ) {
 #ifdef NEW_LOGGING
-		LDAP_LOG(( "operation", LDAP_LEVEL_CRIT,
-			"only one monitor backend is allowed\n" ));
+		LDAP_LOG( OPERATION, CRIT,
+			"only one monitor backend is allowed\n" , 0, 0, 0);
 #else
 		Debug( LDAP_DEBUG_ANY,
 			"only one monitor backend is allowed\n%s%s%s",
@@ -249,15 +267,14 @@ monitor_back_db_init(
 	/* indicate system schema supported */
 	be->be_flags |= SLAP_BFLAG_MONITOR;
 
-	ndn = NULL;
 	dn.bv_val = SLAPD_MONITOR_DN;
 	dn.bv_len = sizeof( SLAPD_MONITOR_DN ) - 1;
 
-	rc = dnNormalize( NULL, &dn, &ndn );
+	rc = dnNormalize2( NULL, &dn, &ndn );
 	if( rc != LDAP_SUCCESS ) {
 #ifdef NEW_LOGGING
-		LDAP_LOG(( "operation", LDAP_LEVEL_CRIT,
-			"monitor DN \"" SLAPD_MONITOR_DN "\" backend is allowed\n" ));
+		LDAP_LOG( OPERATION, CRIT,
+			"monitor DN \"" SLAPD_MONITOR_DN "\" backend is allowed\n" , 0, 0, 0 );
 #else
 		Debug( LDAP_DEBUG_ANY,
 			"monitor DN \"" SLAPD_MONITOR_DN "\" backend is allowed\n",
@@ -266,16 +283,17 @@ monitor_back_db_init(
 		return -1;
 	}
 
-	ber_bvecadd( &be->be_suffix, ber_dupbv( NULL, &dn ) );
-	ber_bvecadd( &be->be_nsuffix, ndn );
+	ber_dupbv( &bv[0], &dn );
+	ber_bvarray_add( &be->be_suffix, &bv[0] );
+	ber_bvarray_add( &be->be_nsuffix, &ndn );
 
 	mi = ( struct monitorinfo * )ch_calloc( sizeof( struct monitorinfo ), 1 );
 	ldap_pvt_thread_mutex_init( &mi->mi_cache_mutex );
 
 	if ( slap_str2ad( "description", &monitor_ad_desc, &text ) ) {
 #ifdef NEW_LOGGING
-		LDAP_LOG(( "operation", LDAP_LEVEL_CRIT,
-			"monitor_back_db_init: %s\n", text ));
+		LDAP_LOG( OPERATION, CRIT,
+			"monitor_back_db_init: %s\n", text, 0, 0 );
 #else
 		Debug( LDAP_DEBUG_ANY,
 			"monitor_subsys_backend_init: %s\n%s%s", 
@@ -301,9 +319,9 @@ monitor_back_db_init(
 		free( dn.bv_val );
 		if ( rc != LDAP_SUCCESS ) {
 #ifdef NEW_LOGGING
-			LDAP_LOG(( "operation", LDAP_LEVEL_CRIT,
+			LDAP_LOG( OPERATION, CRIT,
 				"monitor RDN \"%s\" is invalid\n", 
-				dn.bv_val ));
+				dn.bv_val, 0, 0 );
 #else
 			Debug( LDAP_DEBUG_ANY,
 				"monitor RDN \"%s\" is invalid\n", 
@@ -321,9 +339,9 @@ monitor_back_db_init(
 		free( dn.bv_val );
 		if ( rc != LDAP_SUCCESS ) {
 #ifdef NEW_LOGGING
-			LDAP_LOG(( "operation", LDAP_LEVEL_CRIT,
+			LDAP_LOG( OPERATION, CRIT,
 				"monitor DN \"%s\" is invalid\n", 
-				dn.bv_val ));
+				dn.bv_val, 0, 0 );
 #else
 			Debug( LDAP_DEBUG_ANY,
 				"monitor DN \"%s\" is invalid\n", 
@@ -343,9 +361,9 @@ monitor_back_db_init(
 		
 		if ( e == NULL) {
 #ifdef NEW_LOGGING
-			LDAP_LOG(( "operation", LDAP_LEVEL_CRIT,
+			LDAP_LOG( OPERATION, CRIT,
 				"unable to create '%s' entry\n", 
-				monitor_subsys[ i ].mss_dn.bv_val ));
+				monitor_subsys[ i ].mss_dn.bv_val, 0, 0 );
 #else
 			Debug( LDAP_DEBUG_ANY,
 				"unable to create '%s' entry\n", 
@@ -363,9 +381,9 @@ monitor_back_db_init(
 
 		if ( monitor_cache_add( mi, e ) ) {
 #ifdef NEW_LOGGING
-			LDAP_LOG(( "operation", LDAP_LEVEL_CRIT,
+			LDAP_LOG( OPERATION, CRIT,
 				"unable to add entry '%s' to cache\n",
-				monitor_subsys[ i ].mss_dn.bv_val ));
+				monitor_subsys[ i ].mss_dn.bv_val, 0, 0 );
 #else
 			Debug( LDAP_DEBUG_ANY,
 				"unable to add entry '%s' to cache\n",
@@ -391,9 +409,9 @@ monitor_back_db_init(
 	e = str2entry( buf );
 	if ( e == NULL) {
 #ifdef NEW_LOGGING
-		LDAP_LOG(( "operation", LDAP_LEVEL_CRIT,
+		LDAP_LOG( OPERATION, CRIT,
 			"unable to create '%s' entry\n",
-			SLAPD_MONITOR_DN ));
+			SLAPD_MONITOR_DN, 0, 0 );
 #else
 		Debug( LDAP_DEBUG_ANY,
 			"unable to create '%s' entry\n%s%s",
@@ -411,9 +429,9 @@ monitor_back_db_init(
 	}
 	if ( attr_merge( e, monitor_ad_desc, bv ) ) {
 #ifdef NEW_LOGGING
-		LDAP_LOG(( "operation", LDAP_LEVEL_CRIT,
+		LDAP_LOG( OPERATION, CRIT,
 			"unable to add description to '%s' entry\n",
-			SLAPD_MONITOR_DN ));
+			SLAPD_MONITOR_DN, 0, 0 );
 #else
 		Debug( LDAP_DEBUG_ANY,
 			"unable to add description to '%s' entry\n%s%s",
@@ -431,9 +449,9 @@ monitor_back_db_init(
 
 	if ( monitor_cache_add( mi, e ) ) {
 #ifdef NEW_LOGGING
-		LDAP_LOG(( "operation", LDAP_LEVEL_CRIT,
+		LDAP_LOG( OPERATION, CRIT,
 			"unable to add entry '%s' to cache\n",
-			SLAPD_MONITOR_DN ));
+			SLAPD_MONITOR_DN, 0, 0 );
 #else
 		Debug( LDAP_DEBUG_ANY,
 			"unable to add entry '%s' to cache\n%s%s",
@@ -448,46 +466,17 @@ monitor_back_db_init(
 }
 
 int
-monitor_back_open(
-	BackendInfo	*bi
+monitor_back_db_open(
+	BackendDB	*be
 )
 {
-	BackendDB		*be;
 	struct monitorsubsys	*ms;
-	struct berval dn = { sizeof(SLAPD_MONITOR_DN)-1, SLAPD_MONITOR_DN };
-	struct berval ndn;
-	int rc;
+
+	assert( be );
 
 	/*
-	 * adds the monitor backend
+	 * opens the monitor backend
 	 */
-	rc = dnNormalize2( NULL, &dn, &ndn );
-	if( rc != LDAP_SUCCESS ) {
-#ifdef NEW_LOGGING
-		LDAP_LOG(( "operation", LDAP_LEVEL_CRIT,
-			"monitor DN \"" SLAPD_MONITOR_DN "\" is invalid\n" ));
-#else
-		Debug( LDAP_DEBUG_ANY,
-			"monitor DN \"" SLAPD_MONITOR_DN "\" is invalid\n",
-			0, 0, 0 );
-#endif
-		return( -1 );
-	}
-
-	be = select_backend( &ndn , 0, 0 );
-	free( ndn.bv_val );
-
-	if ( be == NULL ) {
-#ifdef NEW_LOGGING
-		LDAP_LOG(( "operation", LDAP_LEVEL_CRIT,
-			"unable to get monitor backend\n" ));
-#else
-		Debug( LDAP_DEBUG_ANY,
-			"unable to get monitor backend\n", 0, 0, 0 );
-#endif
-		return( -1 );
-	}
-
 	for ( ms = monitor_subsys; ms->mss_name != NULL; ms++ ) {
 		if ( ms->mss_init && ( *ms->mss_init )( be ) ) {
 			return( -1 );
@@ -521,9 +510,12 @@ monitor_back_db_config(
 	char        **argv
 )
 {
+	/*
+	 * eventually, will hold database specific configuration parameters
+	 */
 #ifdef NEW_LOGGING
-	LDAP_LOG(( "config", LDAP_DEBUG_NOTICE,
-		"line %d of file '%s' will be ignored\n", lineno, fname ));
+	LDAP_LOG( CONFIG, INFO,
+		"line %d of file '%s' will be ignored\n", lineno, fname, 0 );
 #else
 	Debug( LDAP_DEBUG_CONFIG, 
 		"line %d of file '%s' will be ignored\n%s", lineno, fname, "" );

@@ -31,44 +31,42 @@
  * SUCH DAMAGE.
  */
 
-#include <sys/cdefs.h>
 #ifndef lint
-__COPYRIGHT("@(#) Copyright (c) 1988, 1993, 1994\n\
-	The Regents of the University of California.  All rights reserved.\n");
+static const char copyright[] =
+"@(#) Copyright (c) 1988, 1993, 1994\n\
+	The Regents of the University of California.  All rights reserved.\n";
 #endif /* not lint */
 
+#if 0
 #ifndef lint
-/*static char sccsid[] = "@(#)env.c	8.3 (Berkeley) 4/2/94";*/
-__RCSID("$NetBSD: env.c,v 1.10 1997/10/18 13:55:28 lukem Exp $");
+static char sccsid[] = "@(#)env.c	8.3 (Berkeley) 4/2/94";
 #endif /* not lint */
+#endif
+
+#include <sys/cdefs.h>
+__RCSID("$FreeBSD: src/usr.bin/env/env.c,v 1.11 2002/09/04 23:28:59 dwmalone Exp $");
 
 #include <err.h>
+#include <errno.h>
 #include <stdio.h>
 #include <string.h>
 #include <stdlib.h>
 #include <unistd.h>
-#include <locale.h>
-#include <errno.h>
 
-int	main __P((int, char **));
-static void usage __P((void));
+extern char **environ;
+
+static void usage(void);
 
 int
-main(argc, argv)
-	int argc;
-	char **argv;
+main(int argc, char **argv)
 {
-	extern char **environ;
-	extern int optind;
 	char **ep, *p;
 	char *cleanenv[1];
 	int ch;
 
-	setlocale(LC_ALL, "");
-
 	while ((ch = getopt(argc, argv, "-i")) != -1)
-		switch((char)ch) {
-		case '-':			/* obsolete */
+		switch(ch) {
+		case '-':
 		case 'i':
 			environ = cleanenv;
 			cleanenv[0] = NULL;
@@ -77,28 +75,21 @@ main(argc, argv)
 		default:
 			usage();
 		}
-
 	for (argv += optind; *argv && (p = strchr(*argv, '=')); ++argv)
 		(void)setenv(*argv, ++p, 1);
-
 	if (*argv) {
-		/* return 127 if the command to be run could not be found; 126
-		   if the command was was found but could not be invoked */
-
 		execvp(*argv, argv);
-		err((errno == ENOENT) ? 127 : 126, "%s", *argv);
-		/* NOTREACHED */
+		err(errno == ENOENT ? 127 : 126, "%s", *argv);
 	}
-
 	for (ep = environ; *ep; ep++)
 		(void)printf("%s\n", *ep);
-
 	exit(0);
 }
 
 static void
-usage ()
+usage(void)
 {
-	(void) fprintf(stderr, "usage: env [-i] [name=value ...] [command]\n");
-	exit (1);
+	(void)fprintf(stderr,
+	    "usage: env [-i] [name=value ...] [utility [argument ...]]\n");
+	exit(1);
 }

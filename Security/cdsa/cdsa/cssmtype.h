@@ -1126,7 +1126,7 @@ typedef struct cssm_context_attribute {
         CSSM_RANGE_PTR Range;
         CSSM_CRYPTO_DATA_PTR CryptoData;
         CSSM_VERSION_PTR Version;
-        CSSM_DL_DB_HANDLE_PTR DLDbHandle;
+        CSSM_DL_DB_HANDLE_PTR DLDBHandle;
         struct cssm_kr_profile *KRProfile;
     } Attribute;
 } CSSM_CONTEXT_ATTRIBUTE, *CSSM_CONTEXT_ATTRIBUTE_PTR;

@@ -1,0 +1,58 @@
+#! /bin/sh
+
+# Make sure we reuse variables whenever possible, to limit
+# combinational explosion.  (This test is named after the &subobjname
+# sub in Automake).
+
+. $srcdir/defs || exit 1
+
+set -e
+
+cat >> configure.in << 'END'
+AC_PROG_CC
+AM_CONDITIONAL([FOO1], [some test])
+AM_CONDITIONAL([FOO2], [some test])
+AM_CONDITIONAL([FOO3], [some test])
+AC_OUTPUT
+END
+
+cat > Makefile.am << 'END'
+noinst_PROGRAMS = c d
+
+if FOO1
+A1=a1.c
+endif
+
+if FOO2
+A2=a2.c
+endif
+
+if FOO3
+A3=a3.c
+endif
+
+B=$(A1) $(A2) $(A3)
+
+c_SOURCES=$(B)
+d_SOURCES=$(B)
+END
+
+$ACLOCAL
+$AUTOMAKE -a
+
+# Sanity check: make sure am_c_OBJECTS and am_d_OBJECTS are used
+# in the Makefile.  (This is an internal detail, so better make
+# sure we update this test if the naming changes in the future.)
+grep '^am_c_OBJECTS = ' Makefile.in
+grep '^am_d_OBJECTS = ' Makefile.in
+
+# Now the actual test.  Are both values equal?
+cobj=`sed -n '/^am_c_OBJECTS = / {
+	        s/.* = \(.*\)$/\1/
+	        p
+              }' Makefile.in`
+dobj=`sed -n '/^am_d_OBJECTS = / {
+	        s/^.* = \(.*\)$/\1/
+	        p
+              }' Makefile.in`
+test "$cobj" = "$dobj"

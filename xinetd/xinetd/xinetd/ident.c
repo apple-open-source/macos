@@ -46,7 +46,9 @@ static char *verify_line( char *line, unsigned local_port, unsigned remote_port 
 
 static sigjmp_buf env ;
 
-
+#ifdef __GNUC__
+__attribute__ ((noreturn))
+#endif
 static void sigalrm_handler(int signum)
 {
    siglongjmp( env, 1 ) ;
@@ -60,7 +62,7 @@ idresult_e log_remote_user( const struct server *serp, unsigned timeout )
 {
    static char         buf[ IBUFSIZE ] ;
    int                 cc ;
-   union xsockaddr     sin_local, sin_remote, sin_contact;
+   union xsockaddr     sin_local, sin_remote, sin_contact, sin_bind;
    volatile unsigned   local_port;
    volatile unsigned   remote_port;
    int                 sd ;
@@ -97,23 +99,27 @@ idresult_e log_remote_user( const struct server *serp, unsigned timeout )
    CLEAR( sin_contact );
    sin_remote = *CONN_XADDRESS( SERVER_CONNECTION( serp ) ) ;
    sin_contact = sin_remote;
+   memcpy( &sin_bind, &sin_local, sizeof(sin_bind) ) ;
    local_port = 0;
    remote_port = 0;
    if( sin_remote.sa.sa_family == AF_INET ) {
       local_port = ntohs( sin_local.sa_in6.sin6_port ) ;
       remote_port = ntohs( sin_remote.sa_in6.sin6_port ) ;
-
       sin_contact.sa_in6.sin6_port = htons( IDENTITY_SERVICE_PORT ) ;
+      sin_bind.sa_in.sin_port = 0 ;
    } else if( sin_remote.sa.sa_family == AF_INET6 ) {
       local_port = ntohs( sin_local.sa_in.sin_port ) ;
       remote_port = ntohs( sin_remote.sa_in.sin_port ) ;
       sin_contact.sa_in.sin_port = htons( IDENTITY_SERVICE_PORT ) ;
+      sin_bind.sa_in6.sin6_port = 0 ;
    }
 
    /*
-    * Create a socket and set the close-on-exec flag on the descriptor.
-    * We set the flag in case we are called as part of a successful
-    * attempt to start a server (i.e. execve will follow).
+    * Create a socket, bind it, and set the close-on-exec flag on the
+    * descriptor. We set the flag in case we are called as part of a 
+    * successful attempt to start a server (i.e. execve will follow). 
+    * The socket must be bound to the receiving address or ident might 
+    * fail for multi-homed hosts.
     */
    sd = socket( sin_remote.sa.sa_family, SOCK_STREAM, 0 ) ;
    if ( sd == -1 )
@@ -121,10 +127,16 @@ idresult_e log_remote_user( const struct server *serp, unsigned timeout )
       msg( LOG_ERR, func, "socket creation: %m" ) ;
       return( IDR_ERROR ) ;
    }
-   if ( fcntl( sd, F_SETFD, 1 ) == -1 )
+   if ( bind(sd, &sin_bind.sa, sizeof(sin_bind.sa)) == -1 )
+   { 
+      msg( LOG_ERR, func, "socket bind: %m" ) ;
+      (void) Sclose( sd ) ;
+      return( IDR_ERROR ) ;
+   }
+   if ( fcntl( sd, F_SETFD, FD_CLOEXEC ) == -1 )
    {
       msg( LOG_ERR, func, "fcntl F_SETFD: %m" ) ;
-      (void) close( sd ) ;
+      (void) Sclose( sd ) ;
       return( IDR_ERROR ) ;
    }
 
@@ -132,7 +144,7 @@ idresult_e log_remote_user( const struct server *serp, unsigned timeout )
       if ( sigsetjmp( env, 1 ) == 0 )
          START_TIMER( timeout ) ;
       else {
-         close( sd ) ;
+         Sclose( sd ) ;
          return( IDR_TIMEDOUT ) ;
       }
    }
@@ -143,7 +155,7 @@ idresult_e log_remote_user( const struct server *serp, unsigned timeout )
          STOP_TIMER() ;
          signal ( SIGALRM, SIG_DFL ) ;
       }
-      close( sd );
+      Sclose( sd );
       return( IDR_NOSERVER ) ;
    }
 
@@ -155,7 +167,7 @@ idresult_e log_remote_user( const struct server *serp, unsigned timeout )
          STOP_TIMER() ;
          signal ( SIGALRM, SIG_DFL ) ;
       }
-      close( sd );
+      Sclose( sd );
       return( IDR_ERROR ) ;
    }
 
@@ -167,7 +179,7 @@ idresult_e log_remote_user( const struct server *serp, unsigned timeout )
    }
 
    if ( p == NULL ) {
-      close( sd );
+      Sclose( sd );
       return( IDR_RESPERR ) ;
    }
    
@@ -178,7 +190,7 @@ idresult_e log_remote_user( const struct server *serp, unsigned timeout )
    {
       msg(LOG_ERR, func, "Bad line received from identity server at %s: %s",
          xaddrname( &sin_remote ), buf ) ;
-      close( sd );
+      Sclose( sd );
       return( IDR_BADRESP ) ;
    }
 
@@ -223,8 +235,8 @@ static char *verify_line( char *line,
     * Look for the 'USERID' string
     */
    {
-      char *line_id = "USERID" ;
-      int line_id_len = strlen( line_id ) ;
+      const char *line_id = "USERID" ;
+      unsigned int line_id_len = strlen( line_id ) ;
 
       start = p+1 ;
       for ( p = start ; isspace( *p ) ; p++ ) ;

@@ -25,5 +25,4 @@
 #include "SYS.h"
 
 SYSCALL(mlock, 3)
-	blr
 

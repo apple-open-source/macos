@@ -420,19 +420,18 @@ _bfd_vms_slurp_gsd (abfd, objtype)
 			{
 			  bfd_set_error (bfd_error_no_memory);
 			  return -1;
-		        }
+			}
 		    }
 		}
 	      else
 		{
 		  section->contents = ((unsigned char *)
-				       bfd_malloc (section->_raw_size));
+				       bfd_zmalloc (section->_raw_size));
 		  if (section->contents == NULL)
 		    {
 		      bfd_set_error (bfd_error_no_memory);
 		      return -1;
 		    }
-		  memset (section->contents, 0, (size_t) section->_raw_size);
 		}
 	      section->_cooked_size = section->_raw_size;
 #if VMS_DEBUG
@@ -618,10 +617,9 @@ _bfd_vms_slurp_gsd (abfd, objtype)
 	    section->vma = (bfd_vma)base_addr;
 	    base_addr += section->_raw_size;
 	    section->contents = ((unsigned char *)
-				 bfd_malloc (section->_raw_size));
+				 bfd_zmalloc (section->_raw_size));
 	    if (section->contents == NULL)
 	      return -1;
-	    memset (section->contents, 0, (size_t) section->_raw_size);
 	    section->_cooked_size = section->_raw_size;
 #if VMS_DEBUG
 	    vms_debug(4, "egsd psc %d (%s, flags %04x=%s) ",
@@ -663,20 +661,22 @@ _bfd_vms_slurp_gsd (abfd, objtype)
 	      }
 	    else	/* symbol reference */
 	      {
-	        symbol->name =
+		symbol->name =
 		  _bfd_vms_save_counted_string (vms_rec+8);
 #if VMS_DEBUG
 		vms_debug(4, "egsd sym ref #%d (%s, %04x=%s)\n", abfd->symcount,
 			   symbol->name, old_flags, flag2str(gsyflagdesc, old_flags));
 #endif
-	        symbol->section = bfd_make_section (abfd, BFD_UND_SECTION_NAME);
+		symbol->section = bfd_make_section (abfd, BFD_UND_SECTION_NAME);
 	      }
 
 	    symbol->flags = new_flags;
 
 	    /* save symbol in vms_symbol_table  */
 
-	    entry = (vms_symbol_entry *) bfd_hash_lookup (PRIV(vms_symbol_table), symbol->name, true, false);
+	    entry = (vms_symbol_entry *) bfd_hash_lookup (PRIV(vms_symbol_table),
+							  symbol->name,
+							  TRUE, FALSE);
 	    if (entry == (vms_symbol_entry *)NULL)
 	      {
 		bfd_set_error (bfd_error_no_memory);
@@ -903,7 +903,7 @@ _bfd_vms_write_gsd (abfd, objtype)
 	  unsigned long ca_psindx = 0;
 	  unsigned long psindx;
 
-	  if (old_flags & BSF_FUNCTION)
+	  if ((old_flags & BSF_FUNCTION) && symbol->udata.p != NULL)
 	    {
 	      code_address = ((asymbol *) (symbol->udata.p))->value;
 	      ca_psindx = ((asymbol *) (symbol->udata.p))->section->index;

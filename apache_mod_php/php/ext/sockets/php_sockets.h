@@ -1,8 +1,8 @@
 /*
    +----------------------------------------------------------------------+
-   | PHP version 4.0                                                      |
+   | PHP Version 4                                                        |
    +----------------------------------------------------------------------+
-   | Copyright (c) 1997-2001 The PHP Group                                |
+   | Copyright (c) 1997-2003 The PHP Group                                |
    +----------------------------------------------------------------------+
    | This source file is subject to version 2.02 of the PHP license,      |
    | that is bundled with this package in the file LICENSE, and is        |
@@ -22,7 +22,7 @@
 #ifndef PHP_SOCKETS_H
 #define PHP_SOCKETS_H
 
-/* $Id: php_sockets.h,v 1.1.1.4 2001/12/14 22:13:15 zarzycki Exp $ */
+/* $Id: php_sockets.h,v 1.1.1.7 2003/07/18 18:07:42 zarzycki Exp $ */
 
 #if HAVE_SOCKETS
 
@@ -41,13 +41,9 @@ extern zend_module_entry sockets_module_entry;
 
 PHP_MINIT_FUNCTION(sockets);
 PHP_MINFO_FUNCTION(sockets);
+PHP_RINIT_FUNCTION(sockets);
+PHP_RSHUTDOWN_FUNCTION(sockets);
 
-PHP_FUNCTION(socket_fd_alloc);
-PHP_FUNCTION(socket_fd_free);
-PHP_FUNCTION(socket_fd_set);
-PHP_FUNCTION(socket_fd_isset);
-PHP_FUNCTION(socket_fd_clear);
-PHP_FUNCTION(socket_fd_zero);
 PHP_FUNCTION(socket_iovec_alloc);
 PHP_FUNCTION(socket_iovec_free);
 PHP_FUNCTION(socket_iovec_set);
@@ -59,6 +55,7 @@ PHP_FUNCTION(socket_create_listen);
 PHP_FUNCTION(socket_create_pair);
 PHP_FUNCTION(socket_accept);
 PHP_FUNCTION(socket_set_nonblock);
+PHP_FUNCTION(socket_set_block);
 PHP_FUNCTION(socket_listen);
 PHP_FUNCTION(socket_close);
 PHP_FUNCTION(socket_write);
@@ -73,14 +70,17 @@ PHP_FUNCTION(socket_recv);
 PHP_FUNCTION(socket_send);
 PHP_FUNCTION(socket_recvfrom);
 PHP_FUNCTION(socket_sendto);
+#ifdef HAVE_CMSGHDR
 PHP_FUNCTION(socket_recvmsg);
+#endif
 PHP_FUNCTION(socket_sendmsg);
 PHP_FUNCTION(socket_readv);
 PHP_FUNCTION(socket_writev);
-PHP_FUNCTION(socket_getopt);
-PHP_FUNCTION(socket_setopt);
+PHP_FUNCTION(socket_get_option);
+PHP_FUNCTION(socket_set_option);
 PHP_FUNCTION(socket_shutdown);
 PHP_FUNCTION(socket_last_error);
+PHP_FUNCTION(socket_clear_error);
 
 typedef struct php_iovec {
 	struct iovec	*iov_array;
@@ -98,30 +98,24 @@ typedef struct {
 } php_socket;
 
 typedef struct {
-	fd_set	set;
-	SOCKET	max_fd;
-} php_fd_set;
-
-typedef struct {
-	long family;
-	char info[256];
-} php_sockaddr_storage;
-
-typedef struct {
 	zend_bool	use_system_read;
 } php_sockets_globals;
 
 /* Prototypes */
-int open_listen_sock(php_socket **php_sock, int port, int backlog TSRMLS_DC);
-int accept_connect(php_socket *in_sock, php_socket **new_sock, struct sockaddr *la TSRMLS_DC);
-int php_read(int bsd_socket, void *buf, int maxlen);
+static int php_open_listen_sock(php_socket **php_sock, int port, int backlog TSRMLS_DC);
+static int php_accept_connect(php_socket *in_sock, php_socket **new_sock, struct sockaddr *la TSRMLS_DC);
+static int php_read(int bsd_socket, void *buf, size_t maxlen, int flags);
+static char *php_strerror(int error TSRMLS_DC);
+
+ZEND_BEGIN_MODULE_GLOBALS(sockets)
+	int last_error;
+	char *strerror_buf;
+ZEND_END_MODULE_GLOBALS(sockets)
 
 #ifdef ZTS
-#define SOCKETSG(v) (sockets_globals->v)
-#define SOCKETSLS_FETCH() php_sockets_globals *sockets_globals = ts_resource(sockets_globals_id)
+#define SOCKETS_G(v) TSRMG(sockets_globals_id, zend_sockets_globals *, v)
 #else
-#define SOCKETSG(v) (sockets_globals.v)
-#define SOCKETSLS_FETCH()
+#define SOCKETS_G(v) (sockets_globals.v)
 #endif
 
 #else

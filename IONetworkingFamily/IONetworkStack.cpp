@@ -50,10 +50,8 @@ extern "C" {
 #include <sys/socket.h>
 #include <net/bpf.h>
 #include <net/if.h>
-#include <netinet/if_ether.h>
 #include <net/dlil.h>
 #include <sys/sockio.h>
-void ether_ifattach(struct ifnet * ifp);   // FIXME
 }
 
 #include <IOKit/assert.h>
@@ -624,6 +622,7 @@ static int nop_if_output( struct ifnet * ifp, struct mbuf * m )
 void IONetworkStack::unregisterBSDInterface( IONetworkInterface * netif ) 
 {
     struct ifnet * ifp;
+    int    detach_ret = 0;
 
     assert( netif );
 
@@ -633,19 +632,17 @@ void IONetworkStack::unregisterBSDInterface( IONetworkInterface * netif )
 
     netif->setInterfaceState( 0, kIONetworkInterfaceRegisteredState );
 
-    // If dlil_if_detach() returns DLIL_WAIT_FOR_FREE, then we
-    // must not close the interface until we receive a callback
-    // from DLIL. Otherwise, proceed with the close.
-
     DLOG("%p\n", netif);
 
     boolean_t funnel_state = thread_funnel_set( network_flock, TRUE );
 
-    // I/O Kit network interface relies on DLIL ifnet recycling, thus
-    // it is not necessary to wait until all protocols have detached
-    // from the ifnet before commencing the driver stack teardown.
+    // Ethernet interfaces rely on DLIL ifnet recycling, thus it is
+    // not necessary to wait until all protocols have detached from
+    // the ifnet before commencing the driver stack teardown. Other
+    // interface types may return DLIL_WAIT_FOR_FREE to wait for an
+    // orderly protocol teardown.
 
-    dlil_if_detach( ifp );
+    netif->detachFromDataLinkLayer( 0, &detach_ret );
 
     // DLIL may still call the following ifnet functions if
     // DLIL_WAIT_FOR_FREE is returned from the detach call.
@@ -655,7 +652,11 @@ void IONetworkStack::unregisterBSDInterface( IONetworkInterface * netif )
     ifp->if_output      = nop_if_output;
     ifp->if_ioctl       = nop_if_ioctl;
     ifp->if_set_bpf_tap = nop_if_bpf;
-    ifp->if_free        = nop_if_free;
+
+	if ( detach_ret != DLIL_WAIT_FOR_FREE )
+        ifp->if_free = nop_if_free;
+    else
+        ifp->if_free = bsdInterfaceWasUnregistered;
 
     // Wait until all pending ioctl are complete on the netif.
 
@@ -667,14 +668,14 @@ void IONetworkStack::unregisterBSDInterface( IONetworkInterface * netif )
 
     thread_funnel_set( network_flock, funnel_state );
 
-    bsdInterfaceWasUnregistered( netif->getIfnet() );
+    // If dlil_if_detach() returns DLIL_WAIT_FOR_FREE, then we
+    // must not close the interface until we receive a callback
+    // from DLIL. Otherwise, proceed with the close.
 
-#if 0 // The original detach call left for future reference.
-    if ( dlil_if_detach(netif->getIfnet()) != DLIL_WAIT_FOR_FREE )
+	if ( detach_ret != DLIL_WAIT_FOR_FREE )
     {
         bsdInterfaceWasUnregistered( netif->getIfnet() );
     }
-#endif
 }
 
 //---------------------------------------------------------------------------
@@ -686,12 +687,12 @@ int IONetworkStack::bsdInterfaceWasUnregistered( struct ifnet * ifp )
 {
     IONetworkInterface * netif;
 
-    assert( ifp );
+    assert( gIONetworkStack );
+
+    if ( ifp == 0 || ifp->if_private == 0 ) return 0;
 
     netif = (IONetworkInterface *) ifp->if_private;
     DLOG("%p\n", netif);
-
-    assert( netif && gIONetworkStack );
 
     // An interface was detached from DLIL. It is now safe to close the 
     // interface object.
@@ -872,8 +873,11 @@ void IONetworkStack::registerBSDInterface( IONetworkInterface * netif )
 
     // Attach the (Ethernet) interface to DLIL.
 
-    ether_ifattach( netif->getIfnet() );
-    bpfattach( netif->getIfnet(), DLT_EN10MB, sizeof(struct ether_header) );
+    if ( netif->attachToDataLinkLayer( 0, 0 ) != kIOReturnSuccess )
+    {
+        thread_funnel_set( network_flock, funnel_state );
+        return;  // interface attach failed
+    }
 
     // Hack to sync up the interface flags. The UP flag may already
     // be set, and this will issue an SIOCSIFFLAGS to the interface.

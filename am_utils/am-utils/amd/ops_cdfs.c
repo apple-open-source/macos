@@ -37,7 +37,7 @@
  * SUCH DAMAGE.
  *
  *
- * $Id: ops_cdfs.c,v 1.1.1.1 2002/05/15 01:21:55 jkh Exp $
+ * $Id: ops_cdfs.c,v 1.1.1.2 2002/07/15 19:42:39 zarzycki Exp $
  *
  */
 
@@ -74,7 +74,9 @@ am_ops cdfs_ops =
   0,				/* cdfs_umounted */
   find_amfs_auto_srvr,
   FS_MKMNT | FS_UBACKGROUND | FS_AMQINFO,	/* nfs_fs_flags */
-  FS_MKMNT | FS_UBACKGROUND | FS_AMQINFO	/* autofs_fs_flags */
+#ifdef HAVE_FS_AUTOFS
+  AUTOFS_CDFS_FS_FLAGS,
+#endif /* HAVE_FS_AUTOFS */
 };
 
 
@@ -99,7 +101,7 @@ cdfs_match(am_opts *fo)
 
 
 static int
-mount_cdfs(char *dir, char *fs_name, char *opts, int on_autofs, char **lpname)
+mount_cdfs(char *mntdir, char *real_mntdir, char *fs_name, char *opts, int on_autofs, char **lpname)
 {
   cdfs_args_t cdfs_args;
   mntent_t mnt;
@@ -117,7 +119,7 @@ mount_cdfs(char *dir, char *fs_name, char *opts, int on_autofs, char **lpname)
    * Fill in the mount structure
    */
   memset((voidp) &mnt, 0, sizeof(mnt));
-  mnt.mnt_dir = dir;
+  mnt.mnt_dir = mntdir;
   mnt.mnt_fsname = fs_name;
   mnt.mnt_type = MNTTAB_TYPE_CDFS;
   mnt.mnt_opts = opts;
@@ -210,7 +212,7 @@ mount_cdfs(char *dir, char *fs_name, char *opts, int on_autofs, char **lpname)
       }
     } else {
       plog(XLOG_ERROR, "failed to set up a loop device: %m");
-      return -1;
+      return errno;
     }
   }
 #endif /* HAVE_LOOP_DEVICE */
@@ -218,11 +220,11 @@ mount_cdfs(char *dir, char *fs_name, char *opts, int on_autofs, char **lpname)
   /*
    * Call generic mount routine
    */
-  retval = mount_fs(&mnt, genflags, (caddr_t) &cdfs_args, 0, type, 0, NULL, mnttab_file_name);
+  retval = mount_fs2(&mnt, real_mntdir, genflags, (caddr_t) &cdfs_args, 0, type, 0, NULL, mnttab_file_name);
 
 #ifdef HAVE_LOOP_DEVICE
   /* if mount failed and we used a loop device, then undo it */
-  if (retval < 0  &&  *lpname != NULL) {
+  if (retval != 0  &&  *lpname != NULL) {
     if (delete_loop_device(*lpname) < 0) {
       plog(XLOG_WARNING, "mount() failed to release loop device %s: %m", *lpname);
     } else {
@@ -241,8 +243,7 @@ cdfs_mount(am_node *am, mntfs *mf)
 {
   int error;
 
-  /* XXX: ion: is it correct to "& AMF_AUTOFS" here? */
-  error = mount_cdfs(mf->mf_mount, mf->mf_info, mf->mf_mopts,
+  error = mount_cdfs(mf->mf_mount, mf->mf_real_mount, mf->mf_info, mf->mf_mopts,
 		     am->am_flags & AMF_AUTOFS, &mf->mf_loopdev);
   if (error) {
     errno = error;
@@ -258,7 +259,7 @@ cdfs_umount(am_node *am, mntfs *mf)
 {
   int retval;
 
-  retval = UMOUNT_FS(mf->mf_mount, mnttab_file_name);
+  retval = UMOUNT_FS(mf->mf_mount, mf->mf_real_mount, mnttab_file_name);
 
 #ifdef HAVE_LOOP_DEVICE
   if (retval >= 0  &&  mf->mf_loopdev) {

@@ -139,6 +139,7 @@ typedef UInt8	SecAFPServerSignature[16];
 */
 typedef UInt8	SecPublicKeyHash[20];
 
+#pragma mark ÑÑÑÑ Keychain Item Management ÑÑÑÑ
 /*!
 	@function SecKeychainItemGetTypeID
 	@abstract Returns the type identifier of SecKeychainItem instances.
@@ -149,7 +150,7 @@ CFTypeID SecKeychainItemGetTypeID(void);
 /*!
 	@function SecKeychainItemModifyAttributesAndData
 	@abstract Updates an existing keychain item after changing its attributes or data.
-	@param itemRef A reference of the keychain item to modify.
+	@param itemRef A reference to the keychain item to modify.
 	@param attrList The list of attributes to set.
 	@param length The length of the buffer pointed to by data.
 	@param data Pointer to a buffer containing the data to store.
@@ -158,7 +159,6 @@ CFTypeID SecKeychainItemGetTypeID(void);
 */
 OSStatus SecKeychainItemModifyAttributesAndData(SecKeychainItemRef itemRef, const SecKeychainAttributeList *attrList, UInt32 length, const void *data);
 
-#pragma mark ÑÑÑÑ Keychain Item Management ÑÑÑÑ
 /*!
 	@function SecKeychainItemCreateFromContent
 	@abstract Creates a new keychain item from the supplied parameters.
@@ -177,7 +177,7 @@ OSStatus SecKeychainItemCreateFromContent(SecItemClass itemClass, SecKeychainAtt
 
 /*!
 	@function SecKeychainItemModifyContent
-	@abstract Updates an existing keychain item after changing its attributes or data.
+	@abstract Updates an existing keychain item after changing its attributes or data. This call should only be used in conjunction with SecKeychainItemCopyContent().
 	@param itemRef A reference to the keychain item to modify.
 	@param attrList The list of attributes to set.
 	@param length The length of the buffer pointed to by data.
@@ -188,12 +188,12 @@ OSStatus SecKeychainItemModifyContent(SecKeychainItemRef itemRef, const SecKeych
 
 /*!
 	@function SecKeychainItemCopyContent
-	@abstract Copies the data and/or attributes stored in the given keychain item.
+	@abstract Copies the data and/or attributes stored in the given keychain item. It is recommended that you use SecKeychainItemCopyAttributesAndData(). You must call SecKeychainItemFreeContent when you no longer need the attributes and data. If you want to modify the attributes returned here, use SecKeychainModifyContent().
 	@param itemRef A reference to the keychain item to modify.
 	@param itemClass The item's class. You should pass NULL if it is not required.
-	@param attrList The list of attributes to get in this item on input, on output the attributes are filled in. You must call SecKeychainItemFreeContent when you no longer need the attributes and data.
+	@param attrList The list of attributes to get in this item on input, on output the attributes are filled in. You must call SecKeychainItemFreeContent when you no longer need the attributes.
 	@param length On return, the length of the buffer pointed to by outData.
-	@param outData On return, a pointer to a buffer containing the data in this item. You must call SecKeychainItemFreeContent when you no longer need the attributes and data.
+	@param outData On return, a pointer to a buffer containing the data in this item. You must call SecKeychainItemFreeContent when you no longer need the data.
     @result A result code.  See "Security Error Codes" (SecBase.h). In addition, paramErr (-50) may be returned if not enough valid parameters are supplied.
 */
 OSStatus SecKeychainItemCopyContent(SecKeychainItemRef itemRef, SecItemClass *itemClass, SecKeychainAttributeList *attrList, UInt32 *length, void **outData);
@@ -208,13 +208,13 @@ OSStatus SecKeychainItemFreeContent(SecKeychainAttributeList *attrList, void *da
 
 /*!
 	@function SecKeychainItemCopyAttributesAndData
-	@abstract  Copies the data and/or attributes stored in the given keychain item. You must call SecKeychainItemFreeAttributesAndData() when you no longer need the attributes and data.
-	@param itemRef A reference of the keychain item to modify.
+	@abstract Copies the data and/or attributes stored in the given keychain item. You must call SecKeychainItemFreeAttributesAndData() when you no longer need the attributes and data. If you want to modify the attributes returned here, use SecKeychainModifyAttributesAndData().
+	@param itemRef A reference to the keychain item to copy.
 	@param info List of tags of attributes to retrieve.
 	@param itemClass The item's class. You should pass NULL if not required.
-	@param attrList The list of attributes to get in this item on input, on output the attributes are filled in. You must call SecKeychainItemFreeAttributesAndData() when you no longer need the attributes and data.
+	@param attrList on output, an attribute list with the attributes specified by info. You must call SecKeychainItemFreeAttributesAndData() when you no longer need this list.
 	@param length on output the actual length of the data.
-	@param outData Pointer to a buffer containing the data in this item. Pass NULL if not required. You must call SecKeychainItemFreeAttributesAndData() when you no longer need the attributes and data.
+	@param outData Pointer to a buffer containing the data in this item. Pass NULL if not required. You must call SecKeychainItemFreeAttributesAndData() when you no longer need the data.
     @result A result code.  See "Security Error Codes" (SecBase.h). In addition, paramErr (-50) may be returned if not enough valid parameters are supplied.
 */
 OSStatus SecKeychainItemCopyAttributesAndData(SecKeychainItemRef itemRef, SecKeychainAttributeInfo *info, SecItemClass *itemClass, SecKeychainAttributeList **attrList, UInt32 *length, void **outData);
@@ -261,10 +261,10 @@ OSStatus SecKeychainItemCreateCopy(SecKeychainItemRef itemRef, SecKeychainRef de
 
 #pragma mark ÑÑÑÑ CSSM Bridge Functions ÑÑÑÑ
 /*!
-	@function SecKeychainItemGetDLDBHandle
-	@abstract Returns the CSSM_DL_DB_HANDLE for a given key reference.
-    @param keyItemRef A keychain item key reference. The key item must be of class type kSecAppleKeyItemClass.
-    @param dldbHandle keychainRef On return, a CSSM_DL_DB_HANDLE for the given key. The handle is valid until the keychain reference is released.
+    @function SecKeychainItemGetDLDBHandle
+    @abstract Returns the CSSM_DL_DB_HANDLE for a given keychain item reference.
+    @param keyItemRef A keychain item reference.
+    @param dldbHandle On return, a CSSM_DL_DB_HANDLE for the keychain database containing the given item. The handle is valid until the keychain reference is released.
     @result A result code.  See "Security Error Codes" (SecBase.h).
 */
 OSStatus SecKeychainItemGetDLDBHandle(SecKeychainItemRef keyItemRef, CSSM_DL_DB_HANDLE *dldbHandle);
@@ -276,7 +276,7 @@ OSStatus SecKeychainItemGetDLDBHandle(SecKeychainItemRef keyItemRef, CSSM_DL_DB_
     @param uniqueRecordID On return, a pointer to a CSSM_DB_UNIQUE_RECORD structure for the given item.  The unique record is valid until the item reference is released.
     @result A result code.  See "Security Error Codes" (SecBase.h).
 */
-OSStatus SecKeychainItemGetUniqueRecordID(SecKeychainItemRef itemRef, CSSM_DB_UNIQUE_RECORD *uniqueRecordID);
+OSStatus SecKeychainItemGetUniqueRecordID(SecKeychainItemRef itemRef, const CSSM_DB_UNIQUE_RECORD **uniqueRecordID);
 
 #pragma mark ÑÑÑÑ Keychain Item Access Management ÑÑÑÑ
 /*!

@@ -1,0 +1,22 @@
+Listi %(listname)s haldur soovib lisada teie aadressi
+"%(email)s" listi %(listname)s@%(hostname)s tellijate
+nimekirja. Kui olete sellega nõus, siis saatke sellele
+kirjale lihtne vastus jättes kirja Teema selliseks
+nagu ta praegu on. 
+
+Alternatiivina külastage veebilehte:
+
+    %(confirmurl)s
+
+Veel ühe alternatiivina võite saata kirja, mille sisuks
+on järgnev -- ja ainult see -- tekst aadressile
+%(requestaddr)s:
+
+    confirm %(cookie)s
+
+Enamustes meilerites piisab lihtsalt "vastuse" saatmisest
+sellele kirjale.
+
+Kui te ei soovi selle listiga liituda, siis ignoreerige seda
+kirja. Kui teil on küsimusi, siis adresseerige need
+listi haldurile aadressil %(listowner)s.

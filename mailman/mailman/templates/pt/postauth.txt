@@ -1,0 +1,13 @@
+Como administrador da lista, é necessária a sua autorização para 
+a enviar a seguinte mensagem da lista:
+
+    Lista ..: %(listname)s@%(hostname)s
+    De .....: %(sender)s
+    Assunto : %(subject)s
+    Razão ..: %(reason)s
+
+Para sua conveniência, visite:
+
+    %(admindb_url)s
+
+para aprovar ou não a mensagem.

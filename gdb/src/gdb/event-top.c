@@ -24,7 +24,6 @@
 #include "inferior.h"
 #include "target.h"
 #include "terminal.h"		/* for job_control */
-#include "signals.h"
 #include "interpreter.h"
 #include "event-loop.h"
 #include "event-top.h"
@@ -560,8 +559,10 @@ command_handler (char *command)
 	(struct continuation_arg *) xmalloc (sizeof (struct continuation_arg));
       arg1->next = arg2;
       arg2->next = NULL;
-      arg1->data.integer = time_at_cmd_start;
-      arg2->data.integer = space_at_cmd_start;
+      arg1->data.longint = time_at_cmd_start;
+#ifdef HAVE_SBRK
+      arg2->data.longint = space_at_cmd_start;
+#endif
       add_continuation (command_line_handler_continuation, arg1);
     }
 
@@ -727,7 +728,7 @@ command_line_handler (char *rl)
 
   xfree (rl);			/* Allocated in readline.  */
 
-  if (*(p - 1) == '\\')
+  if (p > linebuffer && *(p - 1) == '\\')
     {
       p--;			/* Put on top of '\'.  */
 
@@ -1001,6 +1002,16 @@ handle_sigint (int sig)
 {
   signal (sig, handle_sigint);
 
+  /* We used to set the quit flag in async_request_quit, which is either
+     called when immediate_quit is 1, or when we get back to the event
+     loop.  This is wrong, because you could be running in a loop reading
+     in symfiles or something, and it could be quite a while before you 
+     get to the event loop.  Instead, set quit_flag to 1 here, then mark
+     the sigint handler as ready.  Then if somebody calls QUIT before you
+     get to the event loop, they will unwind as expected.  */
+
+  quit_flag = 1;
+
   /* If immediate_quit is set, we go ahead and process the SIGINT right
      away, even if we usually would defer this to the event loop. The
      assumption here is that it is safe to process ^C immediately if
@@ -1013,14 +1024,22 @@ handle_sigint (int sig)
   else
     /* If immediate quit is not set, we process SIGINT the next time
        through the loop, which is fine. */
-    mark_async_signal_handler_wrapper (sigint_token);
+      mark_async_signal_handler_wrapper (sigint_token);
 }
 
 /* Do the quit. All the checks have been done by the caller. */
 void
 async_request_quit (gdb_client_data arg)
 {
-  quit_flag = 1;
+
+  /* If the quit_flag has gotten reset back to 0 by the time we get
+     back here, that means that an exception was thrown to unwind
+     the current command before we got back to the event loop.  So
+     there is no reason to call quit again here. */
+
+  if (quit_flag == 0)
+    return;
+
 #ifdef REQUEST_QUIT
   REQUEST_QUIT;
 #else
@@ -1157,30 +1176,15 @@ set_async_prompt (char *args, int from_tty, struct cmd_list_element *c)
   PROMPT (0) = savestring (new_async_prompt, strlen (new_async_prompt));
 }
 
-/* Don't set up readline now, this is better done in the interpreter's
-   resume method, since we will have to do this coming back & forth
-   among interpreters anyway... */
-
-void
-_initialize_event_loop (void)
-{
-  /* Tell gdb to use the cli_command_loop as the main loop. */
-  if (event_loop_p && command_loop_hook == NULL)
-    {
-      command_loop_hook = cli_command_loop;
-    }
-}
-
 /* Set things up for readline to be invoked via the alternate
    interface, i.e. via a callback function (rl_callback_read_char),
    and hook up instream to the event loop. */
 void
 gdb_setup_readline (void)
 {
-
-  /* This function is a noop for the async case.  The assumption is that
-     the async setup is ALL done in gdb_init, and we would only mess it up
-     here.  The async stuff should really go away over time. */
+  /* This function is a noop for the sync case.  The assumption is that
+     the sync setup is ALL done in gdb_init, and we would only mess it up
+     here.  The sync stuff should really go away over time. */
 
   /* Note also that if instream == NULL, then we don't want to setup
      readline even IF event_loop_p is true, because we don't have an
@@ -1240,7 +1244,7 @@ gdb_setup_readline (void)
 
 /* Disable command input through the standard CLI channels.  Used in
    the suspend proc for interpreters that use the standard gdb readline
-   interface, like the cli & the mi. */
+   interface, like the cli & the mi.  */
 
 void
 gdb_disable_readline (void)
@@ -1265,4 +1269,16 @@ gdb_disable_readline (void)
     }
 }
 
+/* Don't set up readline now, this is better done in the interpreter's
+   resume method, since we will have to do this coming back & forth
+   among interpreters anyway... */
+
+void
+_initialize_event_loop (void)
+{
+  /* Tell gdb to use the cli_command_loop as the main loop. */
+
+  if (event_loop_p && command_loop_hook == NULL)
+    command_loop_hook = cli_command_loop;
+}
 

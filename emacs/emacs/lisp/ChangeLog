@@ -1,3 +1,690 @@
+2002-03-16  Eli Zaretskii  <eliz@is.elta.co.il>
+
+	* Version 21.2 released.
+
+2002-03-15  Pavel Jan,Bm(Bk  <Pavel@Janik.cz>
+
+	* calendar/cal-french.el (calendar-goto-french-date): Fix prompt
+	to match the actual code.
+
+2002-03-11  Pavel Jan,Bm(Bk  <Pavel@Janik.cz>
+
+	* image.el (image-type-from-file-header): Make temporary buffer
+	unibyte.
+
+2002-03-09  Eli Zaretskii  <eliz@is.elta.co.il>
+
+	* simple.el (shell-command-on-region): Call push-mark with
+	non-nil second arg, to suppress the "Mark set" message.
+
+2002-03-07  Gerd Moellmann  <gerd@gnu.org>
+
+	* progmodes/ebrowse.el (ebrowse-view/find-file-and-search-pattern): 
+	Use the other-window instead of the other-frame functions when
+	the window is dedicated.
+
+2002-03-05  Eli Zaretskii  <eliz@is.elta.co.il>
+
+	* language/european.el (mac-roman): Fix the safe-chars property.
+
+2002-03-05  Andre Spiegel  <spiegel@gnu.org>
+
+	* vc.el (vc-revert-buffer): If the buffer is not saved, prompt
+	the user to do that first.
+
+2002-03-03  Stefan Monnier  <monnier@cs.yale.edu>
+
+	* textmodes/tex-mode.el (tex-guess-main-file): Handle the case
+	where one of the buffers is narrowed.
+
+	* newcomment.el (comment-forward): Use forward-comment to skip
+	over whitespace (or comments) even when comment-use-syntax is nil.
+
+2002-03-02  Pavel Jan,Bm(Bk  <Pavel@Janik.cz>
+
+	* textmodes/tildify.el (tildify-string-alist): Entry for xml-mode
+	added.  From Milan Zamazal <pdm@zamazal.org>.
+
+2002-03-01  Andreas Schwab  <schwab@suse.de>
+
+	* textmodes/texnfo-upd.el (texinfo-start-menu-description): Remove
+	extra paren in regexp.  From Michael Scholz <scholz-micha@gmx.de>.
+
+2002-02-26  Eli Zaretskii  <eliz@is.elta.co.il>
+
+	* international/mule-conf.el (ctext-no-compositions): Remove the
+	mime-charset property.
+
+	* language/european.el ("Dutch"): Doc fix.
+
+2002-02-25  Jason Rumney  <jasonr@gnu.org>
+
+	* language/japanese.el (iso-2022-jp-2): Add init-bol flag.
+
+2002-02-24  Jason Rumney  <jasonr@gnu.org>
+
+	* w32-fns.el (w32-charset-info-alist): Use ansi fonts for
+	iso10646-1 if unicode is not available.
+
+2002-02-22  Stefan Monnier  <monnier@cs.yale.edu>
+
+	* diff-mode.el (diff-end-of-hunk): Watch out for ambiguous headers.
+
+2002-02-22  Eli Zaretskii  <eliz@is.elta.co.il>
+
+	* progmodes/etags.el (find-tag-noselect, find-tag)
+	(find-tag-other-window, find-tag-other-frame, find-tag-regexp):
+	Fix a typo in doc strings.
+
+2002-02-22  Eli Zaretskii  <eliz@is.elta.co.il>
+
+	Support for ICCCM  Extended Segments in X selections:
+
+	* international/mule-conf.el (ctext-no-compositions)
+	(compound-text-with-extensions): New coding systems.
+	(x-ctext-with-extensions, ctext-with-extensions): Aliases for
+	compound-text-with-extensions.
+	(non-standard-icccm-encodings-alist)
+	(non-standard-designations-alist): New variables.
+	(ctext-post-read-conversion, ctext-pre-write-conversion):
+	New functions.
+
+2002-02-18  Andreas Schwab  <schwab@suse.de>
+
+	* replace.el (query-replace-regexp-eval): Doc fix.
+
+2002-02-15  Andreas Schwab  <schwab@suse.de>
+
+	* textmodes/tex-mode.el (tex-font-lock-keywords-2):
+	Require non-letter after specials.
+
+2002-02-12  Eli Zaretskii  <eliz@is.elta.co.il>
+
+	* window.el (save-selected-window): If the saved window has
+	become dead while macro body was running, refrain from switching
+	to it.
+
+	* progmodes/pascal.el (pascal-imenu-generic-expression):
+	Add menu-title and fix parentheses.
+
+2002-02-08  Eli Zaretskii  <eliz@is.elta.co.il>
+
+	* ffap.el (ffap-newsgroup-p): Test for non-nil symbol-value of htb.
+
+	* calendar/cal-menu.el (calendar-mode-map): Change the menu item's
+	name to "Insert Diary Entry".
+
+2002-02-08  Eli Zaretskii  <eliz@is.elta.co.il>
+
+	* net/ange-ftp.el (ange-ftp-process-handle-line)
+	(ange-ftp-set-xfer-size): If the file's size is a float, divide
+	by 1024 instead of using ash.
+
+2002-02-07  ShengHuo ZHU  <zsh@cs.rochester.edu>
+
+	* mail/rmail.el (rmail-enable-mime-composing): New. A lightweight
+	version of rmail-enable-mime.
+	(rmail-forward): Use it.
+
+2002-02-06  Pavel Jan,Am(Bk  <Pavel@Janik.cz>
+
+	* textmodes/sgml-mode.el (sgml-start-tag-regex)
+	(sgml-font-lock-keywords-1, sgml-mode-common): Allow underscore,
+	colon, non-ASCII letters.
+	(sgml-name-char): Don't assume anything about charsets handled by
+	encode-char.
+	(sgml-name-8bit-mode): Doc fix.
+	(sgml-font-lock-keywords-1): Remove comment pattern.
+	(sgml-mode-common): Set font-lock-syntactic-keywords.
+	From Dave Love <fx@gnu.org>.
+
+2002-02-06  Eli Zaretskii  <eliz@is.elta.co.il>
+
+	* play/pong.el (pong-height): Don't use height that exceeds the
+	frame height.
+	(pong-border-options): Make the border colors slightly more bright.
+
+	* play/gamegrid.el (gamegrid-display-type): Treat any
+	color-capable display as color-x, if display-color-p is fboundp.
+	(gamegrid-make-color-x-face): Don't call gamegrid-color twice.
+	(gamegrid-make-color-tty-face): Use the value of color, not the
+	symbol itself.  Don't call gamegrid-color.
+
+2002-02-05  Eli Zaretskii  <eliz@is.elta.co.il>
+
+	* gud.el (gud-refresh): Call recenter only after we are sure we
+	are in the right window.
+
+2002-02-03  Eli Zaretskii  <eliz@is.elta.co.il>
+
+	* mail/rmail.el (rmail): Use find-buffer-visiting instead of
+	get-file-buffer to check for rmail buffer existence.
+
+	* term.el (term-emulate-terminal): Extract proper command string
+	which is supplied to term-command-hook.
+
+2002-02-02  Eli Zaretskii  <eliz@is.elta.co.il>
+
+	* mail/uce.el (uce-reply-to-uce): Prune the headers before copying
+	the message text into the *mail* buffer, and restore the pruned
+	state after that.
+
+	* mail/rmail.el (rmail-redecode-body): Prune the headers before
+	looking for X-Coding-System header, and restore the pruned state
+	before returning.
+
+2002-02-02  Pavel Jan,Am(Bk  <Pavel@Janik.cz>
+
+	* cus-edit.el (customize-save-variable): Fix typo in prompt.
+
+2002-02-02  Eli Zaretskii  <eliz@is.elta.co.il>
+
+	* novice.el (disable-command, enable-command): If user-init-file
+	is nil or does not exist, default to "~/.emacs" (~/_emacs on DOS
+	and, maybe, Windows).  But don't alter the init file if Emacs was
+	invoked as "emacs -q"
+
+2002-02-01  Stefan Monnier  <monnier@cs.yale.edu>
+
+	* mail/sendmail.el (mail-mode) <adaptive-fill-first-line-regexp>:
+	Undo half of last change.
+
+	* hi-lock.el (hi-lock-find-patterns): Save restriction.
+
+2002-01-29  Pavel Jan,Am(Bk  <Pavel@Janik.cz>
+
+	* tmm.el (tmm-get-keymap): Honour :visible in `menu-item'.
+	Add Keywords header.  Update Commentary section.
+	Update copyright notice.
+
+2002-01-28  Richard Stallman  <rms@gnu.org>
+
+	* cus-edit.el (custom-save-all): Bind file-precious-flag to t
+	for saving .emacs.
+
+	* files.el (basic-save-buffer-2): Ignore file-error in delete-file.
+
+2002-01-26  Eli Zaretskii  <eliz@is.elta.co.il>
+
+	* eshell/esh-cmd.el (eshell-eval-command): If eshell-resume-eval
+	returns t, don't treat that as an error.
+
+2002-01-25  Jason Rumney  <jasonr@gnu.org>
+
+	* faces.el (face-font-registry-alternatives) [windows-nt]:
+	Add ms-oemlatin as an alternative for iso8859-1.
+
+2002-01-25  Eli Zaretskii  <eliz@is.elta.co.il>
+
+	* emacs-lisp/cl-seq.el (mismatch): Doc fix.
+
+2002-01-22  Stefan Monnier  <monnier@cs.yale.edu>
+
+	* mail/sendmail.el (mail-mode): ">" is not a supercite-style prefix
+	and is already matched by adaptive-fill-regexp.
+
+2002-01-22  Richard M. Stallman  <rms@gnu.org>
+
+	* net/ange-ftp.el (ange-ftp-canonize-filename): Avoid duplicate
+	slash if DIR is just slash.
+
+	* textmodes/ispell.el (ispell-help): Clean up echo area if user quits.
+
+2002-01-20  Eli Zaretskii  <eliz@is.elta.co.il>
+
+	* international/quail.el (quail-start-translation)
+	(quail-start-conversion): Bind last-command-event, last-command,
+	and this-command in the first let.  This fixes the change from
+	2000-08-30.
+
+2002-01-18  Juanma Barranquero  <lektu@terra.es>
+
+	* files.el (save-abbrevs, save-some-buffers): Don't ask the user
+	before saving abbrevs if `save-abbrevs' has the value `silently'.
+
+2002-01-16  Richard M. Stallman  <rms@gnu.org>
+
+	* net/net-utils.el (network-connection-service-abbrev-alist):
+	New variable.
+	(network-connection-mode-setup): Use it.
+
+	* delsel.el (delete-selection-pre-hook): Handle and resignal
+	file-supersession errors to interact properly with userlock.el.
+
+2002-01-16  Andreas Schwab  <schwab@suse.de>
+
+	* mail/feedmail.el (feedmail): Fix :link spec.
+
+2002-01-15  Eli Zaretskii  <eliz@is.elta.co.il>
+
+	* calendar/calendar.el (diary-date-forms): Doc fix.
+
+2002-01-14  Stefan Monnier  <monnier@cs.yale.edu>
+
+	* net/ange-ftp.el (ange-ftp-get-process, ange-ftp-send-cmd)
+	(ange-ftp-file-name-all-completions, ange-ftp-file-name-completion)
+	(ange-ftp-insert-directory): Preserve match-data.
+	(ange-ftp-shell-command): Strip port number from the host if present.
+
+2002-01-13  Eli Zaretskii  <eliz@is.elta.co.il>
+
+	* files.el (find-file-noselect): Don't consider a buffer as
+	visiting a file literally if it is in hexl-mode.
+
+2001-12-29  Richard M. Stallman  <rms@gnu.org>
+
+	* net/ange-ftp.el (ange-ftp-allow-child-lookup): Always return nil.
+	This fixes a bug that treated all files as directories.
+	(ange-ftp-insert-directory): Explicitly follow symlinks.
+
+2001-12-28  Simon Josefsson  <jas@extundo.com>
+
+	* mail/sendmail.el (mail-envelope-from): Fix :type.
+	(sendmail-send-it): Copy `mail-envelope-from' from calling buffer.
+
+2001-12-28  Richard M. Stallman  <rms@gnu.org>
+
+	* net/ldap.el (ldap-search-internal): Handle <file://...> in results.
+
+2001-12-26  Markus Rost  <rost@math.ohio-state.edu>
+
+	* find-dired.el (find-dired-sentinel): Precede exit message by
+	two spaces, to match the regexp in dired-between-files.
+
+2001-12-26  Richard M. Stallman  <rms@gnu.org>
+
+	* progmodes/compile.el (compile-internal):
+	Set TERM variable in process-environment.
+
+2001-12-21  Eli Zaretskii  <eliz@is.elta.co.il>
+
+	* info.el (Info-select-node): If Info-use-header-line is nil, set
+	header-line-format to nil.
+	(Info-fontify-node): Don't put a keymap text property on the
+	heading if we are not going to display the header line.  Remove
+	any such text properties left over from past visits to this node.
+
+2001-12-21  Richard M. Stallman  <rms@gnu.org>
+
+	* net/ange-ftp.el (ange-ftp-file-modtime): Use save-match-data.
+
+	* emacs-lisp/easy-mmode.el (define-minor-mode):
+	Make no arg by default in an interactive call,
+	so that repeating the command toggles again.
+
+	* emacs-lisp/lisp-mode.el (eval-defun-1): Cope with atoms as args.
+
+2001-12-18  Dave Love  <fx@gnu.org>
+
+	* progmodes/f90.el (f90-break-line): Avoid infinite recursion
+	calling `newline'.
+
+2001-12-14  Andre Spiegel  <spiegel@gnu.org>
+
+	* vc-hooks.el (vc-checkout-model, vc-state, vc-workfile-version):
+	Return nil if FILE is not registered.
+	(vc-check-master-templates, vc-default-make-version-backups-p):
+	Doc fix.
+
+2001-12-13  Richard M. Stallman  <rms@gnu.org>
+
+	* font-lock.el (font-lock-mode):
+	Put our function at the end of after-change-functions.
+
+	* emacs-lisp/advice.el (ad-compile-function):
+	Byte compile the function under another (uninterned) name.
+
+2001-12-10  Eli Zaretskii  <eliz@is.elta.co.il>
+
+	* mail/smtpmail.el (smtpmail-send-queued-mail): Insert the
+	enqueued messages literally.
+
+2001-12-01  Stefan Monnier  <monnier@cs.yale.edu>
+
+	* indent.el (tab-to-tab-stop): Use delete-horizontal-space.
+
+2001-12-01  Eli Zaretskii  <eliz@is.elta.co.il>
+
+	* progmodes/idlwave.el, progmodes/idlw-rinfo.el:
+	* progmodes/idlw-shell.el, progmodes/idlw-toolbar.el:
+	Update maintainer.
+
+2001-11-30  Andre Spiegel  <spiegel@gnu.org>
+
+	* vc-cvs.el (vc-cvs-parse-status): Store file state in property,
+	don't just return it.
+
+2001-11-29  Dave Love  <fx@gnu.org>
+
+	* progmodes/fortran.el: Fontify rewind, backspace.  Doc fixes.
+	(fortran-beginning-do, fortran-beginning-if): Fix regexp typos.
+
+	* international/mule.el (map-charset-chars): New function.
+	(register-char-codings): Use it to cope with generic chars in
+	safe-chars.
+
+2001-11-27  Stefan Monnier  <monnier@cs.yale.edu>
+
+	* emacs-lisp/regexp-opt.el (regexp-opt-depth): Fix off-by-two error.
+
+2001-11-21  Richard M. Stallman  <rms@gnu.org>
+
+	* files.el (temporary-file-directory, null-device)
+	(small-temporary-file-directory): Definitions moved up.
+
+	* international/encoded-kb.el: Don't alter minor-mode-alist.
+
+2001-11-20  Kai Grossjohann  <Kai.Grossjohann@CS.Uni-Dortmund.DE>
+
+	* files.el (auto-save-file-name-transforms): Put remote files in
+	temporary-file-directory rather than /tmp.
+
+2001-11-20  Stefan Monnier  <monnier@cs.yale.edu>
+
+	* progmodes/tcl.el (tcl-indent-for-comment): Handle the case where
+	`comment-indent-function' returns nil.
+
+2001-11-20  Jason Rumney  <jasonr@gnu.org>
+
+	* w32-fns.el (w32-system-coding-system): Initialize from
+	locale-coding-system.
+
+2001-11-20  Eli Zaretskii  <eliz@is.elta.co.il>
+
+	* play/landmark.el: Mark lm-mode as special.
+
+	* play/gomoku.el: Mark gomoku-mode as special.
+
+2001-11-20  Stefan Monnier  <monnier@cs.yale.edu>
+
+	* progmodes/cperl-mode.el (cperl-perldoc): Require man before binding
+	`manual-program'.
+
+2001-11-19  Stefan Monnier  <monnier@cs.yale.edu>
+
+	* progmodes/cc-engine.el (c-parse-state): Typo. From Martin Stjernholm.
+
+	* newcomment.el (comment-padding): Add :type and :group.
+
+2001-11-18  Stefan Monnier  <monnier@cs.yale.edu>
+
+	* newcomment.el (comment-indent):
+	Fix misindentation for comment-only lines.
+
+2001-11-16  Stefan Monnier  <monnier@cs.yale.edu>
+
+	* rect.el (delete-rectangle-line): Fix pos/column confusion.
+
+2001-11-15  Stefan Monnier  <monnier@cs.yale.edu>
+
+	* menu-bar.el (menu-bar-edit-menu) <copy>: Put an explicit key binding.
+
+2001-11-15  Andreas Schwab  <schwab@suse.de>
+
+	* progmodes/ada-mode.el (ada-add-extensions): Quote regexp special
+	characters and append anchor to pattern added to auto-mode-alist.
+
+2001-11-15  Andre Spiegel  <spiegel@gnu.org>
+
+	* vc.el: Documentation fixes.
+
+2001-11-14  Stefan Monnier  <monnier@cs.yale.edu>
+
+	* smerge-mode.el (smerge-match-conflict): Fix typo.
+	(smerge-diff): Be careful to read match-data early enough.
+
+2001-11-14  Andre Spiegel  <spiegel@gnu.org>
+
+	* vc.el (vc-diff-internal, vc-coding-system-for-diff)
+	(vc-default-diff-tree): New functions.
+	(vc-version-diff): Use them.  As a result, coding systems are now
+	set up properly for all sorts of diffs, and tree diffs can now
+	also be done locally.
+	(vc-diff): With a prefix argument, don't require that it's called
+	from a buffer under version control.
+
+	* vc-cvs.el (vc-cvs-diff-tree): New function.
+
+2001-11-13  Stefan Monnier  <monnier@cs.yale.edu>
+
+	* newcomment.el (comment-normalize-vars): Handle a nil comment-padding.
+
+	* progmodes/ada-mode.el (ada-fill-comment-prefix): GNAT wants 2 spaces.
+	From Emmanuel Briot <briot@act-europe.fr>.
+
+2001-11-12  Richard M. Stallman  <rms@gnu.org>
+
+	* calendar/todo-mode.el (todo-save): Add save-excursion
+	and save-restriction.
+
+2001-11-12  Eli Zaretskii  <eliz@is.elta.co.il>
+
+	* menu-bar.el (menu-bar-edit-menu): Don't use x-selection-exists-p if
+	it is not fboundp.
+	(clipboard-yank): Ditto.
+
+2001-11-10  Jason Rumney  <jasonr@gnu.org>
+
+	* term/w32-win.el (redisplay-dont-pause): Don't set.
+
+2001-11-09  Andre Spiegel  <spiegel@gnu.org>
+
+	Suggested by Kalle Olavi Niemitalo <kon@iki.fi>:
+
+	* vc-hooks.el (vc-error-occured): Backquotified.
+	(vc-file-prop-obarray): Use prime length for better efficiency.
+
+	* vc.el (vc-clear-context): Fill obarray with 0, not nil.
+	(vc-annotate-color-map): Doc fix.
+
+2001-11-08  Eli Zaretskii  <eliz@is.elta.co.il>
+
+	* international/mule.el (make-translation-table): Doc fix.
+	Suggested by Alex Schroeder <alex@gnu.org>.
+
+2001-11-05  Richard M. Stallman  <rms@gnu.org>
+
+	* emacs-lisp/lisp-mode.el (eval-last-sexp-1): Return the value
+	of the evaluated form.
+
+2001-11-03  Stefan Monnier  <monnier@cs.yale.edu>
+
+	* term.el (all faces): Don't (copy-face 'default <foo>).
+
+2001-11-03  Eli Zaretskii  <eliz@is.elta.co.il>
+
+	* tooltip.el (tooltip-delay): Decrease to 0.7.
+	(tooltip-hide-delay): Enlarge to 10.
+
+2001-11-03  Richard M. Stallman  <rms@gnu.org>
+
+	* mouse.el (popup-menu): If the user refuses to select
+	from a menu, don't try to invoke the menu.
+
+2001-11-03  Eli Zaretskii  <eliz@is.elta.co.il>
+
+	* frame.el (set-background-color, set-foreground-color):
+	Call face-set-after-frame-default, to propagate the new colors to
+	the frame's parameters alist.
+
+	* calendar/timeclock.el (timeclock-out): Signal an error if
+	timeclock-last-event is nil.
+
+2001-11-01  Richard M. Stallman  <rms@gnu.org>
+
+	* files.el (find-backup-file-name): Use make-backup-file-name.
+
+2001-11-01  Gerd Moellmann  <gerd@gnu.org>
+
+	* startup.el (command-line): If the terminal Emacs is running on
+	has erase char set to ^H, use the Backspace key for deleting
+	backward, and the Delete key for deleting forward.
+
+2001-10-31  Jason Rumney  <jasonr@gnu.org>
+
+	* international/mule-cmds.el (locale-language-names): Add chs and
+	cht as aliases for Chinese-GB and Chinese-BIG5.
+
+2001-10-30  Stefan Monnier  <monnier@cs.yale.edu>
+
+	* progmodes/perl-mode.el (perl-indent-line): Use `eq' to compare
+	output of `char-after'.
+
+	* progmodes/autoconf.el (autoconf-mode): Fix comment-start-skip.
+
+2001-10-30  Gerd Moellmann  <gerd@gnu.org>
+
+	* international/iso-acc.el (iso-accents-compose): Remove a
+	superfluous setq.
+
+2001-10-29  Eli Zaretskii  <eliz@is.elta.co.il>
+
+	* faces.el (invert-face): Check for 'unspecified, not for nil,
+	when testing whether face colors are not specified.
+	From David.Kastrup@t-online.de (David Kastrup).
+
+2001-10-29  Gerd Moellmann  <gerd@gnu.org>
+
+	* international/iso-acc.el (iso-accents-compose): Push SECOND-CHAR
+	as is on unread-command-events instead of `(SECOND-CHAR)'.
+
+	* enriched.el (enriched-face-ans): Handle face attributes
+	of the form `(FACE1 FACE2 ...)'.
+
+	* dired-x.el (dired-omit-startup): Show ``Omit'' only in Dired buffers.
+
+2001-10-29  Alex Schroeder  <kensanata@yahoo.com>
+
+	* progmodes/sql.el (sql-mysql): Doc change by RMS.
+
+	* progmodes/sql.el (sql-db2): Doc change.
+	(sql-help): Doc change by Christian Egli <christian.egli@stest.ch>.
+	(sql-mysql): Doc change by Christian Egli <christian.egli@stest.ch>.
+
+2001-10-29  Richard M. Stallman  <rms@gnu.org>
+
+	* mail/supercite.el (sc-emacs-features): Test for "Emacs 19"
+	by really checking that it is not version 18.
+
+	* emacs-lisp/lisp-mode.el (eval-defun): Doc fix.
+
+2001-10-28  Per Abrahamsen  <abraham@dina.kvl.dk>
+
+	* cus-start.el (recursive-load-depth-limit): Added.
+
+2001-10-28  Masayuki Ataka  <ataka@milk.freemail.ne.jp>
+
+	* textmodes/texinfmt.el (texinfo-format-ifnotinfo): New function.
+	(ifnothtml): New alias.
+
+2001-10-27  Stefan Monnier  <monnier@cs.yale.edu>
+
+	* mail/sendmail.el (mail-mode): Fix ordering in adaptive-fill-regexp.
+
+2001-10-27  Gerd Moellmann  <gerd.moellmann@t-online.de>
+
+	* net/ange-ftp.el (ange-ftp-send-cmd): Call fix-name-func for
+	`mdtm'.  From "Forrest Cahoon" <forrest.cahoon@merrillcorp.com>.
+
+2001-10-26  Tomas Abrahamsson  <tab@lysator.liu.se>
+
+	* textmodes/artist.el (artist-version): 1.2.4.
+	(artist-butlast-fn): New variable.
+	(artist-butlast): New function.
+	(artist-ellipse-mirror-quadrant): Use it.
+	(artist-mouse-draw-poly): Use nil for `point-list'.
+	(artist-mouse-draw-poly): Check for point-list being nil.
+
+2001-10-26  Peter Kleiweg  <kleiweg@let.rug.nl>
+
+	* progmodes/ps-mode.el (ps-mode-print-function): Remove quote for
+	lambda expression.
+	(ps-mode-menu-main): Submenu with options on/off was replaced with
+	a toggle button.
+	(ps-mode, ps-run-mode): Define with `define-derived-mode'
+	(ps-mode): Autoload cookie added on same line as comment
+	(ps-mode-tabkey, ps-mode-backward-delete-char):
+	(ps-mode-r-balance): Replace `delete-horizontal-space' and
+	`indent-to' with `indent-line-to'
+	(ps-mode-print-buffer, ps-mode-print-region): Use `funcall'
+	instead of `eval'.
+	(ps-mode-print-region): Use `with-temp-buffer'.
+	(ps-run-start): Use of `mapconcat'.  Use `apply' instead of	`eval'.
+	(numerous places): Add back-tick and tick around names in
+	docstrings, fix punctuation in docstrings, remove trailing spaces.
+
+2001-10-25  Gerd Moellmann  <gerd@gnu.org>
+
+	* startup.el (normal-top-level): Check for frame-initial-frame
+	only if it's really used.
+
+	* mail/mh-utils.el (mh-recenter): Call recenter with arg `(4)'.
+
+	* progmodes/compile.el (compilation-parse-errors-filename-function):
+	New variable.
+	(compilation-parse-errors): Use it.
+
+2001-10-24  Martin Stjernholm  <bug-cc-mode@gnu.org>
+
+	* progmodes/cc-engine.el (c-beginning-of-member-init-list):
+	Better handling of C++ template args to avoid confusion with `<'
+	and `>' used as operators in member init expressions.
+
+2001-10-24  Gerd Moellmann  <gerd@gnu.org>
+
+	* replace.el (perform-replace): Move START and END parameters
+	to the end of the argument list and make them optional.
+
+	* progmodes/ebrowse.el, progmodes/etags.el: Adapt to change in
+	perform-replace.
+
+	* international/fontset.el (x-must-resolve-font-name): New function.
+	(x-complement-fontset-spec): Use it.
+
+2001-10-23  Gerd Moellmann  <gerd@gnu.org>
+
+	* info.el (Info-fontify-node): Bind down-mouse-{1,2} instead
+	of mouse-{1,2} since dragging is on the down event.
+
+	* play/doctor.el (make-doctor-variables): Remove a '($ please)'.
+
+	* mail/mh-utils.el (mh-recenter): Call `recenter' with arg t
+	if ARG is nil.
+
+	* desktop.el (desktop-last-buffer): New variable.
+	(desktop-create-buffer): Set it.
+	(desktop-read): Bind it and switch to that buffer.
+
+2001-10-22  Gerd Moellmann  <gerd@gnu.org>
+
+	* progmodes/compile.el (compilation-set-window-height):
+	Select old window only if it's still live.
+
+2001-10-22  Eli Zaretskii  <eliz@is.elta.co.il>
+
+	* textmodes/sgml-mode.el (sgml-mode-map): Bind 8-bit codes above
+	127 to sgml-maybe-name-self.
+	(sgml-name-8bit-mode): Doc fix.
+	(sgml-char-names-table): New variable.
+	(sgml-name-char): Support non-ASCII and mule-unicode-*
+	characters.  Doc fix.
+	(sgml-maybe-name-self): Convert unibyte characters to multibyte.
+
+	* tooltip.el (tooltip-x-offset, tooltip-y-offset): Mention in the
+	doc string the effect of `left' and `top' parameters in
+	tooltip-frame-parameters, the default values, and the units.
+	(tooltip-frame-parameters): Mention `top' and `left' in the doc string.
+	(tooltip-show): Mention in the doc string the `top' and `left'
+	parameters in tooltip-frame-parameters, and x-max-tooltip-size.
+	(tooltip-set-param): Doc fix.
+
+2001-10-22  Gerd Moellmann  <gerd@gnu.org>
+
+	* saveplace.el (save-place): Require `saveplace'.
+
+	* progmodes/cwarn.el (cwarn-font-lock-feature-keywords-alist):
+	Use `sexp' for :value-type instead of `face'.
+
 2001-10-20  Gerd Moellmann  <gerd@gnu.org>
 
 	* Version 21.1 released.
@@ -5,8 +692,7 @@
 2001-10-19  Eli Zaretskii  <eliz@is.elta.co.il>
 
 	* files.el (auto-mode-alist): Associate .indent.pro with
-	Fundamental mode.  Suggested by Samuel Padgett
-	<spadgett1@nc.rr.com>.
+	Fundamental mode.  Suggested by Samuel Padgett <spadgett1@nc.rr.com>.
 
 2001-10-18  Eli Zaretskii  <eliz@is.elta.co.il>
 
@@ -100,7 +786,7 @@
 
 	* pcvs-util.el (cvs-prefix-define): Typo cons->concat.
 
-2001-10-03  Pavel Jan,Bm(Bk  <Pavel@Janik.cz>
+2001-10-03  Pavel Jan,Am(Bk  <Pavel@Janik.cz>
 
 	* emulation/tpu-edt.el: Make messages match original TPU/edt
 	editor.  From riepel@Stanford.EDU (Rob Riepel).
@@ -486,7 +1172,7 @@
 	* comint.el (comint-send-input): Handle comint-process-echoes
 	differently.
 
-2001-09-07  Pavel Jan,Bm(Bk  <Pavel@Janik.cz>
+2001-09-07  Pavel Jan,Am(Bk  <Pavel@Janik.cz>
 
 	* locate.el (locate-insert-header): Remove unnecessary whitespace.
 
@@ -597,7 +1283,7 @@
 
 	* menu-bar.el (menu-bar-edit-menu) <yank-menu, yank>:
 	Mention "yank" in the help-echo text.
-	Suggested by Pavel Jan,Bm(Bk <Pavel@Janik.cz>.
+	Suggested by Pavel Jan,Am(Bk <Pavel@Janik.cz>.
 
 2001-09-01  Stefan Monnier  <monnier@cs.yale.edu>
 
@@ -657,7 +1343,7 @@
 	* startup.el (fancy-splash-screens): Temporarily set
 	minor-mode-map-alist to nil while displaying splash screens.
 
-2001-08-29  Pavel Jan,Bm(Bk  <Pavel@Janik.cz>
+2001-08-29  Pavel Jan,Am(Bk  <Pavel@Janik.cz>
 
 	* buff-menu.el: Add Keywords header.
 	Doc fix (C-x C-b is bound to list-buffers).
@@ -741,19 +1427,19 @@
 2001-08-26  Eli Zaretskii  <eliz@is.elta.co.il>
 
 	* textmodes/texnfo-upd.el: Remove dots and exclams at end of error
-	messages.  From Pavel Jan,Bm(Bk <Pavel@Janik.cz>.
+	messages.  From Pavel Jan,Am(Bk <Pavel@Janik.cz>.
 
 	* emacs-lisp/levents.el: Specify FSF as Maintainer.  From Pavel
-	Jan,Bm(Bk <Pavel@Janik.cz>.
+	Jan,Am(Bk <Pavel@Janik.cz>.
 
 	* emacs-lisp/lselect.el: Ditto.
 
 	* hexl.el (hexl-insert-multibyte-char, hexl-insert-char):
 	Remove periods from the end of error message strings.
-	From Pavel Jan,Bm(Bk <Pavel@Janik.cz>.
+	From Pavel Jan,Am(Bk <Pavel@Janik.cz>.
 
 	* progmodes/antlr-mode.el: Add Keywords header.  From Pavel
-	Jan,Bm(Bk <Pavel@Janik.cz>.
+	Jan,Am(Bk <Pavel@Janik.cz>.
 
 	* net/telnet.el: Ditto.
 
@@ -873,7 +1559,7 @@
 2001-08-20  Gerd Moellmann  <gerd@gnu.org>
 
 	* textmodes/texnfo-upd.el (texinfo-every-node-update): Remove
-	some spaces from a message.  From Pavel Jan,Bm(Bk  <Pavel@Janik.cz>.
+	some spaces from a message.  From Pavel Jan,Am(Bk  <Pavel@Janik.cz>.
 
 	* whitespace.el (whitespace-global-mode): Add autoload cookie.
 
@@ -1047,7 +1733,7 @@
 	text files.
 	(image-jpeg-p): Correct calculation of next field offset.
 
-2001-08-08  Pavel Jan,Bm(Bk  <Pavel@Janik.cz>
+2001-08-08  Pavel Jan,Am(Bk  <Pavel@Janik.cz>
 
 	* battery.el: Fix typo.
 
@@ -1084,7 +1770,7 @@
 	* image.el (image-type-regexps): Use `\`' instead of `^' in
 	most regular expressions.
 
-2001-08-06  Pavel Jan,Bm(Bk  <Pavel@Janik.cz>
+2001-08-06  Pavel Jan,Am(Bk  <Pavel@Janik.cz>
 
 	* play/animate.el: Re-insert a reference to re-inserted function.
 
@@ -1098,7 +1784,7 @@
 	* toolbar/tool-bar.el (tool-bar-add-item-from-menu):
 	Handle old-style menu definitions.
 
-2001-08-06  Pavel Jan,Bm(Bk  <Pavel@Janik.cz>
+2001-08-06  Pavel Jan,Am(Bk  <Pavel@Janik.cz>
 
 	* textmodes/makeinfo.el, textmodes/page-ext.el, textmodes/page.el,
 	* textmodes/text-mode.el, textmodes/two-column.el: Keywords added.
@@ -1107,7 +1793,7 @@
 	* emulation/pc-mode.el, diff.el, textmodes/fill.el, abbrev.el,
 	* add-log.el, faces.el, mail/sc.el: Specify FSF as Maintainer.
 
-2001-08-05  Pavel Jan,Bm(Bk  <Pavel@Janik.cz>
+2001-08-05  Pavel Jan,Am(Bk  <Pavel@Janik.cz>
 
 	* textmodes/tildify.el: Milan Zamazal has new address.
 
@@ -1445,7 +2131,7 @@
 	* mail/mh-utils.el (mh-find-progs): Also search in `lib'.
 	From Mats Bengtsson <mats.bengtsson@s3.kth.se>,
 
-2001-07-17  Pavel Jan,Bm(Bk  <Pavel@Janik.cz>
+2001-07-17  Pavel Jan,Am(Bk  <Pavel@Janik.cz>
 
 	* international/iso-transl.el: Fix typo in the header of the file.
 
@@ -1477,7 +2163,7 @@
 	* server.el (server-process-filter, server-visit-files):
 	Add support for +LINE:COLUMN style emacsclient calls.
 
-2001-07-16  Pavel Jan,Bm(Bk  <Pavel@Janik.cz>
+2001-07-16  Pavel Jan,Am(Bk  <Pavel@Janik.cz>
 
 	* emacs-lisp/easy-mmode.el: Add Keywords header.
 
@@ -1530,7 +2216,7 @@
 
 	* progmodes/ada-xref.el (ada-xref-initialize): Fix call to add-hook.
 
-2001-07-16  Pavel Jan,Bm(Bk  <Pavel@Janik.cz>
+2001-07-16  Pavel Jan,Am(Bk  <Pavel@Janik.cz>
 
 	* ps-print.el: Fix Author: header.
 
@@ -1543,7 +2229,7 @@
 	send-invisible, which is already defined in Comint.
 	(eshell-watch-for-password-prompt): Use it.
 
-2001-07-16  Pavel Jan,Bm(Bk  <Pavel@Janik.cz>
+2001-07-16  Pavel Jan,Am(Bk  <Pavel@Janik.cz>
 
 	* which-func.el (which-func-mode): Doc fix.
 
@@ -1602,7 +2288,7 @@
 	* simple.el (set-variable): Require 'cus-edit' instead of
 	`wid-edit', so that the Custom widgets get defined.
 
-2001-07-16  Pavel Jan,Bm(Bk  <Pavel@Janik.cz>
+2001-07-16  Pavel Jan,Am(Bk  <Pavel@Janik.cz>
 
 	* allout.el: A fix to follow coding conventions.
 
@@ -1628,7 +2314,7 @@
 	* dired.el (dired-insert-set-properties): Fix invalid mouse-face
 	property.
 
-2001-07-16  Pavel Jan,Bm(Bk  <Pavel@Janik.cz>
+2001-07-16  Pavel Jan,Am(Bk  <Pavel@Janik.cz>
 
 	* play/5x5.el, play/decipher.el, play/dunnet.el, play/fortune.el,
 	* play/gamegrid.el, play/handwrite.el, play/landmark.el,
@@ -1650,7 +2336,7 @@
 	* mail/reporter.el (reporter-submit-bug-report):
 	Don't abuse make-variable-buffer-local.  Fix call to add-hook.
 
-2001-07-15  Pavel Jan,Bm(Bk  <Pavel@Janik.cz>
+2001-07-15  Pavel Jan,Am(Bk  <Pavel@Janik.cz>
 
 	* calendar/cal-china.el, calendar/cal-coptic.el,
 	* calendar/cal-dst.el, calendar/cal-french.el,
@@ -1777,7 +2463,7 @@
 	* vt100-led.el, window.el: Some fixes to follow coding conventions in
 	files maintained by FSF.
 
-2001-07-13  Pavel Jan,Bm(Bk  <Pavel@Janik.cz>
+2001-07-13  Pavel Jan,Am(Bk  <Pavel@Janik.cz>
 
 	* arc-mode.el: A fix to follow coding conventions.
 
@@ -1808,7 +2494,7 @@
 
 	* play/fortune.el: Add types to defcustoms.
 
-2001-07-12  Pavel Jan,Bm(Bk  <Pavel@Janik.cz>
+2001-07-12  Pavel Jan,Am(Bk  <Pavel@Janik.cz>
 
 	* language/czech.el: A fix to follow coding conventions.
 
@@ -1837,7 +2523,7 @@
 2001-07-11  Eli Zaretskii  <eliz@is.elta.co.il>
 
 	* progmodes/ada-prj.el: Say that the file _is_ part of Emacs.
-	From Pavel Jan,Bm(Bk <Pavel@Janik.cz>
+	From Pavel Jan,Am(Bk <Pavel@Janik.cz>
 
 	* progmodes/ada-mode.el: Ditto.
 
@@ -1945,10 +2631,10 @@
 	* calendar/todo-mode.el (todo-top-priorities): Use delete-region
 	instead of kill-line.
 
-	* play/pong.el: Fix first line.  From Pavel Jan,Bm(Bk
+	* play/pong.el: Fix first line.  From Pavel Jan,Am(Bk
 	<Pavel@Janik.cz>.
 
-	* battery.el (battery-update): Add help-echo.  From Pavel Jan,Bm(Bk
+	* battery.el (battery-update): Add help-echo.  From Pavel Jan,Am(Bk
 	<Pavel@Janik.cz>.
 
 2001-07-04  Gerd Moellmann  <gerd@gnu.org>
@@ -1986,10 +2672,10 @@
 2001-07-02  Eli Zaretskii  <eliz@is.elta.co.il>
 
 	* allout.el: Fix the header line, so that finder.el recognizes it.
-	From Pavel Jan,Bm(Bk <Pavel@Janik.cz>.
+	From Pavel Jan,Am(Bk <Pavel@Janik.cz>.
 
 	* emacs-lisp/lisp-mnt.el (lm-header-prefix): Doc fix.
-	From Pavel Jan,Bm(Bk <Pavel@Janik.cz>.
+	From Pavel Jan,Am(Bk <Pavel@Janik.cz>.
 
 2001-06-29  Eli Zaretskii  <eliz@is.elta.co.il>
 
@@ -2299,7 +2985,7 @@
 2001-06-10  Eli Zaretskii  <eliz@is.elta.co.il>
 
 	* server.el (server-process, server-buffer-clients): Doc fix.
-	From Pavel Jan,Bm(Bk <Pavel@Janik.cz>.
+	From Pavel Jan,Am(Bk <Pavel@Janik.cz>.
 
 2001-06-09  John Wiegley  <johnw@gnu.org>
 
@@ -2557,16 +3243,16 @@
 2001-05-20  Eli Zaretskii  <eliz@is.elta.co.il>
 
 	* international/ccl.el (define-ccl-program): Fix a typo.
-	From Pavel Jan,Bm(Bk <Pavel@Janik.cz>.
+	From Pavel Jan,Am(Bk <Pavel@Janik.cz>.
 
 	* international/mule.el (decode-char): Fix a typo.  From Pavel
-	Jan,Bm(Bk <Pavel@Janik.cz>.
+	Jan,Am(Bk <Pavel@Janik.cz>.
 
 	* textmodes/artist.el (artist-mode): Fix a typo.  From Pavel
-	Jan,Bm(Bk <Pavel@Janik.cz>.
+	Jan,Am(Bk <Pavel@Janik.cz>.
 
 	* frame.el (automatic-hscrolling): Fix a typo.  From Pavel
-	Jan,Bm(Bk <Pavel@Janik.cz>.
+	Jan,Am(Bk <Pavel@Janik.cz>.
 
 2001-05-18  Sam Steingold  <sds@gnu.org>
 
@@ -2798,7 +3484,7 @@
 	coding-system-for-read, if it is non-nil.
 
 	* calendar/holidays.el (holidays): Add an autoload cookie.
-	From Pavel Jan,Bm(Bk <Pavel@Janik.cz>.
+	From Pavel Jan,Am(Bk <Pavel@Janik.cz>.
 
 2001-05-08  John Wiegley  <johnw@gnu.org>
 
@@ -3496,10 +4182,10 @@
 	Add an antry for ``converts''.
 
 	* language/slovak.el ("Slovak"): Add documentation string.
-	From Pavel@Janik.cz (Pavel Jan,Bm(Bk ml.).
+	From Pavel@Janik.cz (Pavel Jan,Am(Bk ml.).
 
 	* language/czech.el ("Czech"): Add documentation string.
-	From Pavel@Janik.cz (Pavel Jan,Bm(Bk ml.).
+	From Pavel@Janik.cz (Pavel Jan,Am(Bk ml.).
 
 	* ps-mule.el (ps-mule-font-info-database-bdf): Change `isci24-etl.bdf'
 	to `isci24-mule.bdf'.  From: Kenichi Handa <handa@etl.go.jp>.
@@ -4210,7 +4896,7 @@
 2001-03-15  Gerd Moellmann  <gerd@gnu.org>
 
 	* textmodes/ispell.el (ispell-dictionary-alist-6): Add support
-	for Slovak.  From Pavel.Janik@suse.cz (Pavel Jan,Bm(Bk ml.).
+	for Slovak.  From Pavel.Janik@suse.cz (Pavel Jan,Am(Bk ml.).
 
 2001-03-14  Gerd Moellmann  <gerd@gnu.org>
 

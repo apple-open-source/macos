@@ -32,7 +32,7 @@
 #include <IOKit/ndrvsupport/IONDRVFramebuffer.h>
 #endif /* KERNEL */
 
-#include "IOI2CInterface.h"
+#include <IOKit/i2c/IOI2CInterface.h>
 
 /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
 

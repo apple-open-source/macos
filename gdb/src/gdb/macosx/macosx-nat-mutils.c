@@ -48,6 +48,8 @@
 
 #include <unistd.h>
 
+#define MAX_INSTRUCTION_CACHE_WARNINGS 0
+
 /* MINUS_INT_MIN is the absolute value of the minimum value that can
    be stored in a int.  We can't just use -INT_MIN, as that would
    implicitly be a int, not an unsigned int, and would overflow on 2's
@@ -358,11 +360,11 @@ mach_xfer_memory (CORE_ADDR memaddr, char *myaddr,
       if (kret != KERN_SUCCESS) {
 	static int nwarn = 0;
 	nwarn++;
-	if (nwarn <= 4) {
+	if (nwarn <= MAX_INSTRUCTION_CACHE_WARNINGS) {
 	  warning ("Unable to flush data/instruction cache for region at 0x%lx: %s",
 		   (unsigned long) r_start, MACH_ERROR_STRING (ret));
 	}
-	if (nwarn == 4) {
+	if (nwarn == MAX_INSTRUCTION_CACHE_WARNINGS) {
 	  warning ("Support for flushing the data/instruction cache on this machine appears broken");
 	  warning ("No further warning messages will be given.");
 	}
@@ -416,7 +418,6 @@ int macosx_thread_valid (task_t task, thread_t thread)
   CHECK_FATAL (task != TASK_NULL);
 
   kret = task_threads (task, &thread_list, &thread_count);
-  /* Rhapsody can incorrectly return *_INVALID_PORT */
   if ((kret == KERN_INVALID_ARGUMENT) 
       || (kret == MACH_SEND_INVALID_RIGHT) 
       || (kret == MACH_RCV_INVALID_NAME)) { 

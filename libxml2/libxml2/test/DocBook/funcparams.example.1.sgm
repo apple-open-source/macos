@@ -1,0 +1,11 @@
+<!DOCTYPE funcsynopsis PUBLIC "-//OASIS//DTD DocBook V3.1//EN">
+<funcsynopsis>
+<funcprototype>
+  <funcdef>void <function>qsort</function></funcdef>
+    <paramdef>void *<parameter>dataptr</parameter>[]</paramdef>
+    <paramdef>int <parameter>left</parameter></paramdef>
+    <paramdef>int <parameter>right</parameter></paramdef>
+    <paramdef>int <parameter>(* comp)</parameter>
+      <funcparams>void *, void *</funcparams></paramdef>
+</funcprototype>
+</funcsynopsis>

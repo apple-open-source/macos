@@ -1,0 +1,11 @@
+A sua autorização é necessária para aprovar o pedido de anulação de
+inscrição na lista de discussão:
+
+    Por:   %(username)s
+    De: %(listname)s@%(hostname)s
+
+Para sua conveniência, visite:
+
+    %(admindb_url)s
+
+para processar o pedido.

@@ -39,7 +39,7 @@ Software Foundation raise funds for GNU development.''
 @page
 @tex
 \def\$#1${{#1}}  % Kluge: collect RCS revision info without $...$
-\xdef\manvers{\1.5}  % For use in headers, footers too
+\xdef\manvers{\1.8}  % For use in headers, footers too
 {\parskip=0pt
 \hfill Cygnus Support\par
 \hfill \manvers\par
@@ -287,6 +287,12 @@ Indicate that this type is a string instead of an array of characters,
 or a bitstring instead of a set.  It doesn't change the layout of the
 data being represented, but does enable the debugger to know which type
 it is.
+
+@item V
+Indicate that this type is a vector instead of an array.  The only 
+major difference between vectors and arrays is that vectors are
+passed by value instead of by reference (vector coprocessor extension).
+
 @end table
 
 All of this can make the string field quite long.  All versions of GDB,
@@ -398,6 +404,7 @@ blocks of code.
 * Procedures::
 * Nested Procedures::
 * Block Structure::
+* Coalesced Symbol Blocks::	Coalesced Symbol Blocks.
 * Alternate Entry Points::      Entering procedures except at the beginning.
 @end menu
 
@@ -733,6 +740,50 @@ zero.
 For XCOFF, block scope is indicated with @code{C_BLOCK} symbols.  If the
 name of the symbol is @samp{.bb}, then it is the beginning of the block;
 if the name of the symbol is @samp{.be}; it is the end of the block.
+
+@node Coalesced Symbol Blocks
+@section Coalesced Symbol Blocks
+
+@findex N_BNSYM
+@findex N_ENSYM
+@cindex coalesced symbol
+On Mac OS X, a @dfn{coalesced symbol} is a true definition of a symbol
+that may appear one or more times in the compilation units generated
+by the compiler.  The semantics of coalesced symbols are similar to
+those of sections with @code{SEC_LINK_DUPLICATES_DISCARD}
+(@code{COMDAT}) set, with the difference that coalesced symbols are
+processed on a per-symbol basis, rather than on a per-section basis.
+Currently, coalesced symbols are implemented only on Mac OS X.
+
+The static link editor allows multiple definitions of a coalesced
+symbol without any warnings or errors.  The static link editor outputs
+only one instance of each coalesced symbol, using the first instance it
+encounters in the object files being linked.  The static link editor
+always outputs an instance of a coalesced symbol if it appears in the
+object files being linked, even if it also appears in the dynamic
+libraries being referenced.  The dynamic link editor then relocates
+such that only one instance of each coalesced symbol is used
+throughout the program.
+
+Coalesced symbols are placed by the compiler tools into sections
+flagged with the type bit @code{S_COALESCED}.  The static and dynamic linker
+look at the section type to determine that a given symbol is a
+coalesced symbol and therefore to allow multiple definitions.
+
+The static link editor divides up a coalesced section on the
+boundaries of the symbols in that section, associating the bytes of
+the section after each symbol with the preceding symbol.  An object
+file is considered malformed if a coalesced section does not have a
+symbol at the first address of the section.
+
+To allow the linker to properly manage the debug information for
+coalesced symbols, the stabs entries for a given coalesced symbol must
+be preceded by @code{N_BNSYM} and terminated with @code{N_ENSYM}.  The
+value of the @code{N_BNYSM} stab should be the start address of the coalesced
+portion (the same value as the symbol that begins the portion), and
+the value of the @code{N_ENSYM} stab should be the end address of the
+coalesced portion (the same value as the next coalesced symbol, or the
+end of the whole coalesced section).
 
 @node Alternate Entry Points
 @section Alternate Entry Points
@@ -3232,6 +3283,9 @@ Name of main routine; see @ref{Main Program}.
 @item 0x2c N_ROSYM
 Variable in @code{.rodata} section; see @ref{Statics}.
 
+@item 0x2e N_BNSYM
+Start of a relocatble symbolblock; see @ref{Relocatable Symbol Blocks}.
+
 @item 0x30     N_PC
 Global symbol (for Pascal); see @ref{N_PC}.
 
@@ -3273,6 +3327,9 @@ GNU Modula2 definition module dependency; see @ref{N_DEFD}.
 
 @item 0x4c N_FLINE
 Function start/body/end line numbers (Solaris2).
+
+@item 0x4e N_ENSYM
+End of a relocatble symbol block; see @ref{Relocatable Symbol Blocks}.
 
 @item 0x50     N_EHDECL
 GNU C++ exception variable; see @ref{N_EHDECL}.

@@ -103,6 +103,9 @@
 %token	sySecToken
 %token	syUserSecToken
 %token	syServerSecToken
+%token	syAuditToken
+%token	syUserAuditToken
+%token	syServerAuditToken
 
 %token	syColon
 %token	sySemi
@@ -643,7 +646,7 @@ Argument		:	Direction syIdentifier ArgumentType IPCFlags
     $$->argName = $2;
     $$->argType = $3;
     $$->argFlags = $4;
-    if ($3->itNative)
+    if ($3 && $3->itNative)
     {
         if ($1 != akIn && $1 != akOut && $1 != akInOut)
 	    error("Illegal direction specified");
@@ -681,6 +684,9 @@ Direction		:	/* empty */	{ $$ = akNone; }
 			|	sySecToken		{ $$ = akSecToken; }	
 			|	syServerSecToken	{ $$ = akServerSecToken; }	
 			|	syUserSecToken		{ $$ = akUserSecToken; }
+			|	syAuditToken		{ $$ = akAuditToken; }	
+			|	syServerAuditToken	{ $$ = akServerAuditToken; }	
+			|	syUserAuditToken	{ $$ = akUserAuditToken; }
 			|	syMsgSeqno	{ $$ = akMsgSeqno; }
 			;
 

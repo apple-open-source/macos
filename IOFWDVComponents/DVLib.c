@@ -36,18 +36,28 @@
 #include <IOKit/firewire/IOFireWireLibIsoch.h>
 #include <IOKit/avc/IOFireWireAVCConsts.h>
 
+#include <IOKit/pwr_mgt/IOPMLib.h>
+
 #include "IsochronousDataHandler.h"
 
 #define kDVRequestID 0
 
 #define ALT_TIMING 1
 
+//#define USE_P2P_CONNECTIONS_FOR_DV_READ 1
+
 #define PAGE_SIZE 4096;
 #define kNoPlug 0xdeadbeef
 
 // Use Channel 62 to send DV, and 63 to receive (because camcorders love to send on 63).
 #define kWriteChannel 62
-#define kReadChannel 63
+#define kReadChannel 61
+
+enum {
+    kNoP2PConnection = 0,
+    kWriteP2PConnection = 1,
+    kReadP2PConnection = 2
+};
 
 // AY_TODO: Move the following to IOFireWireAVCConsts.h
 #define kAVCSignalModeDVCPro50_525_60	0x74
@@ -162,6 +172,7 @@ typedef struct _DVStreamStruct {
     DCLCommandPtr	pDCLList;               // DCLs used for playing.
     UInt8 *         fDCLBuffers;       // Buffers to use to transfer packet data.
     UInt32 			fDCLBufferSize;	// Total allocation for output buffers
+    UInt64			fChannelMask;	// Legal channels to use
     UInt8			fSignalMode;			// signal type
     UInt8			fIsocChannel;	// Channel to use
     UInt8			fMaxSpeed;		// Max bus speed for isoc channel
@@ -178,9 +189,9 @@ struct DVLocalOutStruct
     DVGlobalOutPtr	pGlobalData;
     // Pointer to jump command to end of buffer group.
     DCLJumpPtr		pEndOfBufferGroupDCLJump;
-    // Pointer to label command at end of buffer group.
-    DCLLabelPtr		pEndOfBufferGroupDCLLabel;
-    // Pointer to jump command to use to skip an empty packet.
+	// Pointer to label command at start of buffer group.
+    DCLLabelPtr		pStartOfBufferGroupDCLLabel;
+	// Pointer to jump command to use to skip an empty packet.
     DCLJumpPtr		pBufferGroupSkipEmptyPacketDCLJump;
     // Label to jump to to skip an empty packet.
     DCLLabelPtr		pBufferGroupSkipEmptyPacketDCLLabel;
@@ -239,6 +250,9 @@ struct DVGlobalOutStruct {
     UInt32            nextDataPacketNum;      // Data packet number for first data packet of next buffer group.
     UInt32 *          pImageBuffer;           // Buffer to hold image in.
     bool			fUpdateBuffers;			  // Our job to copy image data?
+    bool pendingDVWriteUnderrunHandler;
+    bool deferredDVWriteFree;
+    bool dvWriteStopInProgress;
 };
 
 typedef struct DVLocalInStruct
@@ -264,6 +278,9 @@ struct DVGlobalInStruct
     UInt8 fState;			// Current DCL block
     UInt8 fSynced;
     UInt8 fRestarted;
+    bool pendingDVReadUnderrunHandler;
+    bool deferredDVReadFree;
+    bool dvReadStopInProgress;
 };
 
 static IOReturn buildWriteProgram(DVGlobalOutPtr pGlobalData);
@@ -271,6 +288,8 @@ static IOReturn allocateBuffers(DVGlobalOutPtr pGlobalData);
 static void DVWritePoll(DVGlobalOutPtr globs);
 static void DVReadPoll(DVGlobalInPtr globs);
 static void closeStream(DVStream *stream);
+static void doDVReadHandleInputUnderrun( DVGlobalInPtr pGlobalData );
+static void doDVHandleOutputUnderrun(  DVGlobalOutPtr	pGlobalData );
 
 UInt32  AddFWCycleTimeToFWCycleTime( UInt32 cycleTime1, UInt32 cycleTime2 )
 {
@@ -420,90 +439,14 @@ static IOReturn writeDeviceOutputMCR(IOFireWireLibDeviceRef interface, UInt32 ma
     return err;
 }
 
-static IOReturn writeDeviceOutputPlug(IOFireWireLibDeviceRef interface, UInt32 plugNo, UInt32 mask, UInt32 val)
-{
-    UInt32 oldVal, newVal;
-    IOReturn err;
-    FWAddress addr;
-    io_object_t obj;
-	int i;
-	
-	for( i = 0; i < 4; i++ )
-	{
-		addr.nodeID = 0;
-		addr.addressHi = 0xffff;
-		addr.addressLo = 0xf0000904+plugNo*4;
-		obj = (*interface)->GetDevice(interface);
-		err = (*interface)->ReadQuadlet(interface, obj, &addr, &oldVal, false, 0);
-		
-		if(err == kIOReturnSuccess) {
-			if( (oldVal & mask) != val) {
-				newVal = (oldVal & ~mask) | val;
-				err = (*interface)->CompareSwap(interface, obj, &addr, oldVal, newVal, false, 0);
-			}
-		}
-		
-		if( err == kIOReturnSuccess )
-		{
-			break;
-		}
-	}
-	
-    return err;
-}
-
-static IOReturn writeDeviceInputPlug(IOFireWireLibDeviceRef interface, UInt32 plugNo, UInt32 mask, UInt32 val, int p2pInc)
-{
-    UInt32 oldVal, newVal;
-    IOReturn err;
-    FWAddress addr;
-    io_object_t obj;
-    int i;
-	UInt32 p2p;
-	for( i = 0; i < 4; i++ )
-	{
-		addr.nodeID = 0;
-		addr.addressHi = 0xffff;
-		addr.addressLo = 0xf0000984+plugNo*4;
-		obj = (*interface)->GetDevice(interface);
-		err = (*interface)->ReadQuadlet(interface, obj, &addr, &oldVal, false, 0);
-		
-		if(err == kIOReturnSuccess) {
-            newVal = (oldVal & ~mask) | val;
-            p2p = newVal & kIOFWPCRP2PCount;
-            if(p2pInc > 0)
-                p2p += 1 << kIOFWPCRP2PCountPhase;
-            else if (p2pInc < 0)
-                p2p -= 1 << kIOFWPCRP2PCountPhase;
-            newVal = (newVal & ~kIOFWPCRP2PCount) | (p2p &kIOFWPCRP2PCount);
-            if(newVal != oldVal)
-                err = (*interface)->CompareSwap(interface, obj, &addr, oldVal, newVal, false, 0);
-		}
-		
-		if( err == kIOReturnSuccess )
-		{
-			break;
-		}
-	}
-	
-    return err;
-}
-
 static IOReturn MakeP2PConnectionForWrite(DVDevice *pDVDevice,UInt32 plug, UInt32 chan)
 {
     IOReturn err;
 
-    //syslog(LOG_INFO,"DV_DEBUG: MakeP2PConnectionForWrite\n");
-	
-    err = writeDeviceInputPlug(	pDVDevice->fDevInterface,
-                                plug, 
-                                (kIOFWPCRChannel | kIOFWPCRBroadcast),
-                                chan<<kIOFWPCRChannelPhase, 1);
-//                                (pStream->fIsocChannel<<kIOFWPCRChannelPhase | 1 << kIOFWPCRP2PCountPhase ));
-
+	err = (*pDVDevice->fAVCInterface)->makeP2PInputConnection(pDVDevice->fAVCInterface, plug, chan);
     if (err == kIOReturnSuccess)
     {
-        pDVDevice->p2pConnected = true;
+        pDVDevice->p2pConnected = kWriteP2PConnection;
         pDVDevice->p2pPlug = plug;
         pDVDevice->p2pChan = chan;
     }
@@ -514,41 +457,47 @@ static IOReturn BreakP2PConnectionForWrite(DVDevice *pDVDevice,UInt32 plug, UInt
 {
     IOReturn err;
 
-	//syslog(LOG_INFO,"DV_DEBUG: BreakP2PConnectionForWrite\n");
+	err = (*pDVDevice->fAVCInterface)->breakP2PInputConnection(pDVDevice->fAVCInterface, plug);
 
-    err = writeDeviceInputPlug(	pDVDevice->fDevInterface,
-                                plug, 
-                                (kIOFWPCRChannel | kIOFWPCRBroadcast),
-                                chan<<kIOFWPCRChannelPhase, -1);
-//                                pStream->fIsocChannel<<kIOFWPCRChannelPhase);
-
-// Always clear the connected flag, even if there was an error.
-    pDVDevice->p2pConnected = false;
+	// Always clear the connected flag, even if there was an error.
+    pDVDevice->p2pConnected = kNoP2PConnection;
 
     return err;
 }
 
-static IOReturn remakeP2PConnectionForWrite(DVDevice *pDVDevice)
+static IOReturn MakeP2PConnectionForRead(DVDevice *pDVDevice,UInt32 plug, UInt32 chan)
 {
-	//syslog(LOG_INFO, "DV_DEBUG: remakeP2PConnectionForWrite\n");
+    IOReturn err;
 
-    if (pDVDevice->p2pConnected) {
-        MakeP2PConnectionForWrite(pDVDevice,pDVDevice->p2pPlug,pDVDevice->p2pChan);        
+	err = (*pDVDevice->fAVCInterface)->makeP2POutputConnection(pDVDevice->fAVCInterface, plug,chan,kFWSpeedInvalid);
+    if (err == kIOReturnSuccess)
+    {
+        pDVDevice->p2pConnected = kReadP2PConnection;
+        pDVDevice->p2pPlug = plug;
+        pDVDevice->p2pChan = chan;
     }
-    return kIOReturnSuccess;
+    return err;
+}
+
+static IOReturn BreakP2PConnectionForRead(DVDevice *pDVDevice,UInt32 plug, UInt32 chan)
+{
+    IOReturn err;
+
+	err = (*pDVDevice->fAVCInterface)->breakP2POutputConnection(pDVDevice->fAVCInterface, plug);
+
+	// Always clear the connected flag, even if there was an error.
+    pDVDevice->p2pConnected = kNoP2PConnection;
+
+    return err;
 }
 
 void AVCUnitMessageCallback(void * refCon, UInt32 type, void * arg )
 {
     DVDevice *pDVDevice = (DVDevice*) refCon;
     
-    // If this is a bus-reset notification, see if we have a p2p connection for write
+    // If this is a bus-reset notification, see if we have a p2p connection.
     // If so, restore the P2P connection, do on real time thread for safety.
-    if (type == kIOMessageServiceIsResumed)
-    {
-        DVRequest(pDVDevice->fThread, remakeP2PConnectionForWrite, pDVDevice, 0);
-    }
-    
+    // Done by kernel now.
     // Callback the client's message notification handler
     if (pDVDevice->fThread->fDeviceMessage != NULL)
         pDVDevice->fThread->fDeviceMessage((void*)pDVDevice->deviceIndex,type,arg);
@@ -663,8 +612,8 @@ static void deviceArrived(void *refcon, io_iterator_t iterator )
     io_object_t obj;
     DVThread * dvThread = (DVThread *)refcon;
 	UInt8 dvcProMode;
-
-    //syslog(LOG_INFO,"DV_DEBUG: deviceArrived(0x%x, 0x%x)\n", refcon, iterator);
+    
+    //syslog(LOG_INFO,"deviceArrived(0x%x, 0x%x)\n", refcon, iterator);
     while(obj = IOIteratorNext(iterator)) {
         CFMutableDictionaryRef properties;
         CFNumberRef dataDesc;
@@ -674,8 +623,8 @@ static void deviceArrived(void *refcon, io_iterator_t iterator )
         int refound = 0;
         int device;
         DVDevice *dev = NULL;
-
-        //syslog(LOG_INFO, "DV_DEBUG: object 0x%x arrived!\n", obj);
+        
+        //syslog(LOG_INFO, "object 0x%x arrived!\n", obj);
         err = IORegistryEntryCreateCFProperties(obj, &properties, kCFAllocatorDefault, kNilOptions);
 
         dataDesc = (CFNumberRef)CFDictionaryGetValue(properties, CFSTR("GUID"));
@@ -790,18 +739,18 @@ static void deviceArrived(void *refcon, io_iterator_t iterator )
 
 static OSStatus DVthreadExit(DVThread *dvThread, UInt32 params)
 {
-	//syslog(LOG_INFO, "DV_DEBUG: DVthreadExit\n");
-
-	if(dvThread->fNotifySource)
+    if(dvThread->fNotifySource)
         CFRunLoopSourceInvalidate(dvThread->fNotifySource);
+
+    if(dvThread->fPowerNotifySource)
+        CFRunLoopSourceInvalidate(dvThread->fPowerNotifySource);
+
 	// we have to do this because CF sometimes adds it's own source to our run loop (?!)
 	// which we don't (can't?) invalidate
 	// this makes sure our thread will really exit..
 	CFRunLoopStop(dvThread->fWorkLoop) ;
     dvThread->fTimerFunc = NULL;
-
-	//syslog(LOG_INFO, "DV_DEBUG: DVthreadExit end\n");
-
+    
     return noErr;
 }
 
@@ -813,9 +762,7 @@ static void *DVRTThreadStart(DVThread *dvThread)
     int delay;
     int run = true;
     int i;
-
-	//syslog(LOG_INFO, "DV_DEBUG: DVRTThreadStart\n");
-	
+    
     deviceArrived(dvThread, dvThread->fMatchEnumer);
     // signal that we're about to start the mach loop
     DVSignalSync(&dvThread->fRequestSyncer, &dvThread->fSyncRequest, 1);
@@ -861,17 +808,13 @@ static void *DVRTThreadStart(DVThread *dvThread)
         }
         
     }
-
-	//syslog(LOG_INFO, "DV_DEBUG: DVRTThreadStart end\n");
+    
     return NULL;
 }
 
 static void *DVRLThreadStart(DVThread *thread)
 {
     CFRunLoopRef loop;
-
-	//syslog(LOG_INFO, "DV_DEBUG: DVRLThreadStart\n");
-
     //syslog(LOG_INFO, "Starting thread: %p\n", thread);
      loop = CFRunLoopGetCurrent();
     //printf("Starting thread: %p, loop %p, notify retain %d, notify %p ioport %p, info %x\n",
@@ -879,6 +822,10 @@ static void *DVRLThreadStart(DVThread *thread)
     if(thread->fNotifySource)
         CFRunLoopAddSource(loop, thread->fNotifySource, kCFRunLoopDefaultMode);
 
+    if(thread->fPowerNotifySource)
+        CFRunLoopAddSource(loop, thread->fPowerNotifySource, kCFRunLoopDefaultMode);
+
+	
     CFRetain(loop);
     thread->fWorkLoop = loop;
     
@@ -888,9 +835,55 @@ static void *DVRLThreadStart(DVThread *thread)
     CFRunLoopRun();
 
     //printf("Exiting thread: %p, loop %p\n", thread, loop);
-	//syslog(LOG_INFO, "DV_DEBUG: DVRLThreadStart end\n");
 
     return NULL;
+}
+
+void
+PowerManagementNotificationCallback(void * refcon,
+									io_service_t service,
+									natural_t messageType,
+									void * messageArgument )
+{
+	DVThread *dvThread = (DVThread*) refcon;
+	UInt32 i;
+
+	// If we are waking from sleep, restart any running streams
+	if (messageType == kIOMessageSystemHasPoweredOn)
+	{
+		// Find all active streams, and restart them
+        for(i=0; i<kDVMaxStreamsActive; i++)
+		{
+            if(dvThread->fInStreams[i])
+			{
+				syslog(LOG_INFO, "DV PowerManagementNotificationCallback, Restarting input stream %d\n",i);
+				if (dvThread->fInStreams[i]->dvReadStopInProgress == false)
+				{
+					dvThread->fInStreams[i]->pendingDVReadUnderrunHandler = true;
+					DVRequest(dvThread->fInStreams[i]->fStreamVars.fThread, 
+						doDVReadHandleInputUnderrun, 
+						dvThread->fInStreams[i],
+						0);
+				}
+			}
+
+            if(dvThread->fOutStreams[i])
+			{
+				syslog(LOG_INFO, "DV PowerManagementNotificationCallback, Restarting output stream %d\n",i);
+				if (dvThread->fOutStreams[i]->dvWriteStopInProgress == false)
+				{
+					dvThread->fOutStreams[i]->pendingDVWriteUnderrunHandler = true;
+					DVRequest(dvThread->fOutStreams[i]->fStreamVars.fThread, 
+						doDVHandleOutputUnderrun, 
+						dvThread->fOutStreams[i],
+						0);
+				}
+			}
+        }
+	}
+
+	// Acknowledge the message
+	IOAllowPowerChange (dvThread->fPowerNotifyConnect, (long) messageArgument);
 }
 
 DVThread * DVCreateThread(DVDeviceArrivedFunc deviceAdded, void * addedRefCon,
@@ -905,8 +898,6 @@ DVThread * DVCreateThread(DVDeviceArrivedFunc deviceAdded, void * addedRefCon,
     CFMutableDictionaryRef	dict = 0;
     CFNumberRef	tape;
 
-	//syslog(LOG_INFO, "DV_DEBUG: DVCreateThread\n");
-	
     dict = CFDictionaryCreateMutable( kCFAllocatorDefault, 0,
         &kCFTypeDictionaryKeyCallBacks,
         &kCFTypeDictionaryValueCallBacks);
@@ -955,7 +946,12 @@ DVThread * DVCreateThread(DVDeviceArrivedFunc deviceAdded, void * addedRefCon,
             kIOMatchedNotification, dict,
             deviceArrived, dvThread, &dvThread->fMatchEnumer );
 
-	//syslog(LOG_INFO, "DV_DEBUG: DVCreateThread end\n");
+	// Register for system power notifications
+	dvThread->fPowerNotifyConnect = IORegisterForSystemPower ( dvThread,
+							&dvThread->fPowerNotifyPort,
+							PowerManagementNotificationCallback,
+							&dvThread->fPowerManagementNotifier);
+    dvThread->fPowerNotifySource = IONotificationPortGetRunLoopSource(dvThread->fPowerNotifyPort);
 	
      return dvThread;
 }
@@ -1006,9 +1002,7 @@ void DVRunThread(DVThread * dvThread)
 {
     pthread_attr_t threadAttr;			// Attributes of work thread
     pthread_t thread;
-
-	//syslog(LOG_INFO, "DV_DEBUG: DVRunThread\n");
-
+    
     // Start each thread, wait for first to start before setting up second.
     dvThread->fSyncRequest = 0;
     pthread_attr_init(&threadAttr);
@@ -1022,15 +1016,11 @@ void DVRunThread(DVThread * dvThread)
     dvThread->fRTThread = thread;
     setThreadPriority(thread);
     DVWaitSync(&dvThread->fRequestSyncer, &dvThread->fSyncRequest);
-
-	//syslog(LOG_INFO, "DV_DEBUG: DVRunThread end\n");
 }
 
 void DVFreeThread(DVThread * dvThread)
 {
-	//syslog(LOG_INFO, "DV_DEBUG: DVFreeThread\n");
-
-	DVRequest(dvThread, DVthreadExit, dvThread, 0);
+    DVRequest(dvThread, DVthreadExit, dvThread, 0);
     pthread_join(dvThread->fRTThread, NULL);
     pthread_join(dvThread->fRLThread, NULL);
     
@@ -1061,8 +1051,12 @@ void DVFreeThread(DVThread * dvThread)
         IONotificationPortDestroy(dvThread->fNotifyPort);
         //printf("hack port retain %d\n", CFGetRetainCount(hack));
         CFRelease(hack);
-    }
-    
+
+
+	}
+
+	IONotificationPortDestroy(dvThread->fPowerNotifyPort);
+	
     mach_port_destroy(mach_task_self(), dvThread->fRequestMachPort);
     
     //printf("after IONotificationPortDestroy, notify retain is %d\n", CFGetRetainCount(dvThread->fNotifySource));
@@ -1071,10 +1065,10 @@ void DVFreeThread(DVThread * dvThread)
     pthread_cond_destroy(&dvThread->fRequestSyncer.fSyncCond);
     pthread_mutex_destroy(&dvThread->fRequestMutex);
 
+	IODeregisterForSystemPower(&dvThread->fPowerManagementNotifier);
+	
     memset(dvThread, 0xde, sizeof(DVThread));
     free(dvThread);
-
-	//syslog(LOG_INFO, "DV_DEBUG: DVFreeThread end\n");
 }
 
 void DVSignalSync(ThreadSyncer *sync, UInt32 *var, UInt32 val)
@@ -1117,7 +1111,19 @@ static IOReturn isochPortGetSupported(
 
     if(*outMaxSpeed > stream->fMaxSpeed)
         *outMaxSpeed = stream->fMaxSpeed;
-    *outChanSupported = ((UInt64)1) << (63-stream->fIsocChannel);
+    *outChanSupported = stream->fChannelMask;
+    return kIOReturnSuccess;
+}
+
+static IOReturn isochPortAllocate(
+    IOFireWireLibIsochPortRef		interface,
+	IOFWSpeed						maxSpeed,
+	UInt32							channel)
+{
+    DVStream *stream;
+    stream = (DVStream *)((*interface)->GetRefCon(interface));
+    //printf("using channel %d\n", channel);
+    stream->fIsocChannel = channel;
     return kIOReturnSuccess;
 }
 
@@ -1215,8 +1221,6 @@ IOReturn openAVCProto(IOFireWireAVCLibUnitInterface **avcInterface, IOFireWireAV
 
 void DVDeviceTerminate(DVDevice *dev)
 {
-	//syslog(LOG_INFO, "DV_DEBUG: DVDeviceTerminate\n");
-
     DVDeviceClose(dev);
     if(dev->fAVCInterface) {
         (*dev->fAVCInterface)->Release(dev->fAVCInterface);
@@ -1226,16 +1230,12 @@ void DVDeviceTerminate(DVDevice *dev)
         IOObjectRelease(dev->fObject);
         dev->fObject = NULL;
     }
-	//syslog(LOG_INFO, "DV_DEBUG: DVDeviceTerminate end\n");
 }
 
 IOReturn DVDeviceOpen(DVThread *dvThread, DVDevice *device)
 {
     IOReturn err = noErr;
-
-	//syslog(LOG_INFO, "DV_DEBUG: DVDeviceOpen\n");
-
-	if(!device->fAVCInterface)
+    if(!device->fAVCInterface)
         return kIOReturnNoMemory;
 
     do {
@@ -1257,17 +1257,12 @@ IOReturn DVDeviceOpen(DVThread *dvThread, DVDevice *device)
     } while (0);
     if(err != kIOReturnSuccess)
         DVDeviceClose(device);
-
-	//syslog(LOG_INFO, "DV_DEBUG: DVDeviceOpen end\n");
-
+        
     return err;
 }
 
 static IOReturn doDVDeviceClose(DVDevice *dev)
 {
-
-	//syslog(LOG_INFO, "DV_DEBUG: doDVDeviceClose\n");
-
     if(dev->fDevInterface) {
         UInt32 ref;
         (*dev->fDevInterface)->Close(dev->fDevInterface);
@@ -1289,19 +1284,12 @@ static IOReturn doDVDeviceClose(DVDevice *dev)
     if(dev->fAVCInterface) {
         (*dev->fAVCInterface)->close(dev->fAVCInterface);
     }
-
-	//syslog(LOG_INFO, "DV_DEBUG: doDVDeviceClose end\n");
-
     return kIOReturnSuccess;
 }
 
 void DVDeviceClose(DVDevice *dev)
 {
-	//syslog(LOG_INFO, "DV_DEBUG: DVDeviceClose\n");
-
     DVRequest(dev->fThread, doDVDeviceClose, dev, 0);
-
-	//syslog(LOG_INFO, "DV_DEBUG: DVDeviceClose end\n");
 }
 
 IOReturn DVRequest(DVThread *thread, IOReturn (*func)(void *arg, UInt32 param), void *arg, UInt32 param)
@@ -1344,8 +1332,6 @@ IOReturn DVRequest(DVThread *thread, IOReturn (*func)(void *arg, UInt32 param), 
 
 static void initStream(DVStream *stream, DVDevice *device, UInt32 plug, UInt32 channel, DVThread *thread)
 {
-	//syslog(LOG_INFO, "DV_DEBUG: initStream\n");
-
     stream->pFWDevice = device->fDevInterface;
     stream->pDVDevice = device;
     stream->fAVCProtoInterface = device->fAVCProtoInterface;
@@ -1353,8 +1339,6 @@ static void initStream(DVStream *stream, DVDevice *device, UInt32 plug, UInt32 c
     stream->fIsocChannel = channel;
     stream->fMaxSpeed = device->fMaxSpeed;
     stream->fThread = thread;
-
-	//syslog(LOG_INFO, "DV_DEBUG: initStream end\n");
 }
 
 static IOReturn openStream(DVStream *stream, bool forWrite, UInt32 packetSize)
@@ -1362,12 +1346,45 @@ static IOReturn openStream(DVStream *stream, bool forWrite, UInt32 packetSize)
     IOReturn err;
     IOFireWireLibIsochPortRef talker, listener;
     IOVirtualRange bufRange;
-
-	//syslog(LOG_INFO, "DV_DEBUG: openStream\n");
-
+    bool allocBandwidth;
+    
     do {
         
-        stream->fIsochChannelRef = (*stream->pFWDevice)->CreateIsochChannel(stream->pFWDevice, forWrite, packetSize,
+        if(forWrite) {
+            // always allocate bandwidth
+            allocBandwidth = true;
+        }
+        else {
+            // Figure out if the device is already tranmitting, in which case use that channel and don't
+            // allocate bandwidth
+            UInt32 plugVal;
+            io_object_t obj;
+            FWAddress addr;
+            UInt32 size;
+            // Use any channel not already in use, or the channel that the camcorder is already using
+            addr.nodeID = 0;
+            addr.addressHi = 0xffff;
+            addr.addressLo = 0xf0000904;
+            size = 4;
+            obj = (*stream->pFWDevice)->GetDevice(stream->pFWDevice);
+            err = (*stream->pFWDevice)->ReadQuadlet(stream->pFWDevice, obj, &addr, &plugVal, false, 0);
+            if(plugVal & (kIOFWPCRBroadcast | kIOFWPCRP2PCount)) {
+                UInt32 chan = (plugVal & kIOFWPCRChannel)>>kIOFWPCRChannelPhase;
+                //printf("Already transmitting on channel %x\n", chan);
+                stream->fChannelMask = 1ULL << (63-chan);
+                allocBandwidth = false;
+            }
+            else {
+#ifdef USE_P2P_CONNECTIONS_FOR_DV_READ            
+                stream->fChannelMask = ~1ULL;
+                allocBandwidth = true;
+#else
+                stream->fChannelMask = 1ULL;	// Assume the camera will use channel 63
+                allocBandwidth = false;
+#endif                
+            }
+        }
+        stream->fIsochChannelRef = (*stream->pFWDevice)->CreateIsochChannel(stream->pFWDevice, allocBandwidth, packetSize,
             stream->fMaxSpeed, CFUUIDGetUUIDBytes(kIOFireWireIsochChannelInterfaceID));
         if (NULL == stream->fIsochChannelRef) {
             err = memFullErr;
@@ -1382,11 +1399,15 @@ static IOReturn openStream(DVStream *stream, bool forWrite, UInt32 packetSize)
             stream->pFWLocalIsochPort = (*stream->pFWDevice)->CreateLocalIsochPort(stream->pFWDevice, 1 /*inTalking*/, 
                             stream->pDCLList, kFWDCLCycleEvent, 0, 0x0000f000, nil, 0, &bufRange, 1,
                                             CFUUIDGetUUIDBytes(kIOFireWireLocalIsochPortInterfaceID));
+                                            
+            // Use any available channel
+            stream->fChannelMask = ~1ULL;
         }
-        else
+        else {
             stream->pFWLocalIsochPort = (*stream->pFWDevice)->CreateLocalIsochPort(stream->pFWDevice, 0 /*inTalking*/, 
                             stream->pDCLList, 0, 0, 0, nil, 0, &bufRange, 1,
                                             CFUUIDGetUUIDBytes(kIOFireWireLocalIsochPortInterfaceID));
+        }
 		if (!stream->pFWLocalIsochPort) {
 			err = memFullErr;
             break;
@@ -1396,6 +1417,7 @@ static IOReturn openStream(DVStream *stream, bool forWrite, UInt32 packetSize)
 		
         (*stream->pFWRemoteIsochPort)->SetRefCon( stream->pFWRemoteIsochPort, stream);
         (*stream->pFWRemoteIsochPort)->SetGetSupportedHandler( stream->pFWRemoteIsochPort, &isochPortGetSupported);
+        (*stream->pFWRemoteIsochPort)->SetAllocatePortHandler( stream->pFWRemoteIsochPort, &isochPortAllocate);
         
         if(forWrite) {
             talker = (IOFireWireLibIsochPortRef) stream->pFWLocalIsochPort;
@@ -1419,6 +1441,24 @@ static IOReturn openStream(DVStream *stream, bool forWrite, UInt32 packetSize)
 		err = (*stream->fIsochChannelRef)->AllocateChannel(stream->fIsochChannelRef);
         if(err)
             break;
+        if(forWrite) {
+            // set our output plug broadcast bit, channel number and bandwidth usage.
+            err = writePlug(stream->fAVCProtoInterface, stream->fPlug,
+                kIOFWPCROnline | kIOFWPCRBroadcast | (1 << kIOFWPCRP2PCountPhase) |
+                (stream->fIsocChannel<<kIOFWPCRChannelPhase) | 
+                (15 << kIOFWPCROutputOverheadPhase) | (122 << kIOFWPCROutputPayloadPhase));
+                
+            if(err)
+                break;
+            err = MakeP2PConnectionForWrite(stream->pDVDevice,0,stream->fIsocChannel);
+        }
+        else
+        {
+#ifdef USE_P2P_CONNECTIONS_FOR_DV_READ            
+            err = MakeP2PConnectionForRead(stream->pDVDevice,0,stream->fIsocChannel);
+#endif            
+        }   
+        
         err = (*stream->fIsochChannelRef)->Start(stream->fIsochChannelRef);
         if(err)
             break;
@@ -1430,8 +1470,6 @@ static IOReturn openStream(DVStream *stream, bool forWrite, UInt32 packetSize)
 	// If we got any errors, call closeStream now to cleanup
 	if(err)
 		closeStream(stream);
-
-	//syslog(LOG_INFO, "DV_DEBUG: openStream end\n");
 	
     return err;
 }
@@ -1439,9 +1477,7 @@ static IOReturn openStream(DVStream *stream, bool forWrite, UInt32 packetSize)
 static void closeStream(DVStream *stream)
 {
     IOReturn err;
-
-	//syslog(LOG_INFO, "DV_DEBUG: closeStream\n");
-
+    
     stream->fFrames.fStatus = kDVStopped;
     if(stream->fIsochChannelRef) {
         (*stream->fIsochChannelRef)->TurnOffNotification(stream->fIsochChannelRef);
@@ -1463,9 +1499,7 @@ static void closeStream(DVStream *stream)
         (*stream->pFWRemoteIsochPort)->Release(stream->pFWRemoteIsochPort);
         stream->pFWRemoteIsochPort = NULL;
     }
-
-	//syslog(LOG_INFO, "DV_DEBUG: closeStream end\n");
-	
+    
     // Run the runloop for .1 secs to pick up stray DCL callbacks
     // But we don't want to run the other runloop sources... 
     //CFRunLoopRunInMode(kCFRunLoopDefaultMode, 0.1, false);
@@ -1475,8 +1509,6 @@ static IOReturn DVAllocFrames(DVFrameVars *pFrameData, UInt32 numFrames, UInt32 
         DVFrameVars **frameVars, UInt8 **frames)
 {
     int i;
-
-	//syslog(LOG_INFO, "DV_DEBUG: DVAllocFrames\n");
     
     pFrameData->fNumFrames = numFrames;
     pFrameData->fFrames = malloc(numFrames*frameSize);
@@ -1488,23 +1520,17 @@ static IOReturn DVAllocFrames(DVFrameVars *pFrameData, UInt32 numFrames, UInt32 
         frames[i] = pFrameData->fFrames + i*frameSize;
     }
     *frameVars = pFrameData;
-
-	//syslog(LOG_INFO, "DV_DEBUG: DVAllocFrames end\n");
-
+    
     return kIOReturnSuccess;
 }
 
 static void DVFreeFrames(DVFrameVars *pFrameData)
 {
-	//syslog(LOG_INFO, "DV_DEBUG: DVFreeFrames\n");
-
     if(!pFrameData->fFrames)
         return;
 
     free(pFrameData->fFrames);
     pFrameData->fFrames = NULL;
-
-	//syslog(LOG_INFO, "DV_DEBUG: DVFreeFrames end\n");
 }
 
 static void DVGetNextFullOutputFrame(DVFrameVars *pFrameData, UInt8** ppFrame, UInt32 frameSize )
@@ -1596,29 +1622,21 @@ static UInt32 getEmptyPacketsPerGroup(DVGlobalOutPtr pGlobalData, UInt32 numData
 
 static void FreeDCLCommandPool(DVGlobalOutPtr pGlobalData)
 {
-	//syslog(LOG_INFO, "DV_DEBUG: FreeDCLCommandPool\n");
-
     if( pGlobalData->fDCLCommandPool != NULL ) {
         free(pGlobalData->fDCLCommandPool);
         pGlobalData->fDCLCommandPool = NULL;
     }
-
-	//syslog(LOG_INFO, "DV_DEBUG: FreeDCLCommandPool end\n");
-
 }
 
 static IOReturn AllocateDCLCommandPool(DVGlobalOutPtr pGlobalData, UInt32 total )
 {       
     UInt8 * pDCLCommandPool;
 
-	//syslog(LOG_INFO, "DV_DEBUG: AllocateDCLCommandPool\n");
-
     // Allocate DCL command pool record.
     pDCLCommandPool = malloc(total);
     if (pDCLCommandPool == NULL)
     {
         // syslog(LOG_INFO, "AllocateDCLCommandPool: IOMalloc: pDCLCommandPool failed\n");
-		//syslog(LOG_INFO, "DV_DEBUG: AllocateDCLCommandPool end\n");
         return kIOReturnNoMemory;
     }
     else
@@ -1628,9 +1646,7 @@ static IOReturn AllocateDCLCommandPool(DVGlobalOutPtr pGlobalData, UInt32 total 
         pGlobalData->fDCLCommandPool = pDCLCommandPool;
     }
 
-	//syslog(LOG_INFO, "DV_DEBUG: AllocateDCLCommandPool end\n");
-
-	return kIOReturnSuccess;
+    return kIOReturnSuccess;
 }
 
 static DCLCommandPtr AllocateDCLCommand(DVGlobalOutPtr pGlobalData, UInt32 dclSize )
@@ -1775,9 +1791,7 @@ void DVSilenceFrame(UInt8 mode, UInt8* frame)
     UInt32    i,j,k,n;
     UInt8    *tPtr;
 	UInt8    sType = ((mode & 0x7C) >> 2);
-
-	//syslog(LOG_INFO, "DV_DEBUG: DVSilenceFrame\n");
-
+    
     //syslog(LOG_INFO, "silencing frame %p\n", frame);
     
     // Get DSF flag in byte 3 of header (Blue Book p. 113)
@@ -2050,7 +2064,7 @@ static void DVHandleOutput(DVLocalOutPtr pLocalData)
     ModifyDCLJump (pGlobalData->fStreamVars.pFWLocalIsochPort,
         pLocalData->pEndOfBufferGroupDCLJump, pGlobalData->pUnderrunDCLLabel);
     ModifyDCLJump (pGlobalData->fStreamVars.pFWLocalIsochPort,
-        pPrevLocalData->pEndOfBufferGroupDCLJump, pPrevLocalData->pEndOfBufferGroupDCLLabel);
+        pPrevLocalData->pEndOfBufferGroupDCLJump, pLocalData->pStartOfBufferGroupDCLLabel);
     pGlobalData->fSharedDCLVars.fDMAPos = pLocalData->fBlockNum;
 #if TIMING
     cend = CFAbsoluteTimeGetCurrent();
@@ -2077,7 +2091,7 @@ static void DVWritePoll(DVGlobalOutPtr globs)
 
 
 static void doDVHandleOutputUnderrun(  DVGlobalOutPtr	pGlobalData )
-{
+{   
     IOReturn		err;
     // FIXME
 
@@ -2085,33 +2099,44 @@ static void doDVHandleOutputUnderrun(  DVGlobalOutPtr	pGlobalData )
 
     DVStream *stream;
 
+    if ((pGlobalData->pendingDVWriteUnderrunHandler == true) && (pGlobalData->deferredDVWriteFree == true))
+    {
+	// Free the globalout data struct
+	free(pGlobalData);
+	return;
+    }
+    pGlobalData->pendingDVWriteUnderrunHandler = false;
+
+
     stream = &pGlobalData->fStreamVars;
 
 	// See if stream still open. If not, we're done!
 	if (stream->fIsochChannelRef == NULL)
 		return;
-
+	
 	closeStream(&pGlobalData->fStreamVars);
 
 	FreeDCLCommandPool(pGlobalData);
-
+    
+	BreakP2PConnectionForWrite(pGlobalData->fStreamVars.pDVDevice,0,pGlobalData->fStreamVars.fIsocChannel);
+	
     err = buildWriteProgram(pGlobalData);
     if(err != kIOReturnSuccess)
         syslog(LOG_INFO, "DVHandleOutputUnderrun: buildWriteProgram returned %x\n", err);
-
+    
 	err = DVWriteStart(pGlobalData);
 }
 
 static void DVHandleOutputUnderrun( DCLCommandPtr pDCLCommandPtr )
 {
     DVGlobalOutPtr pGlobalData;
-
-	//syslog(LOG_INFO, "DV_DEBUG: DVHandleOutputUnderrun\n");
-
+    
     pGlobalData = (DVGlobalOutPtr)((DCLCallProcPtr)pDCLCommandPtr)->procData;
-    DVRequest(pGlobalData->fStreamVars.fThread, doDVHandleOutputUnderrun, pGlobalData, 0);
-
-	//syslog(LOG_INFO, "DV_DEBUG: DVHandleOutputUnderrun end\n");
+    if (pGlobalData->dvWriteStopInProgress == false)
+    {
+        pGlobalData->pendingDVWriteUnderrunHandler = true;
+        DVRequest(pGlobalData->fStreamVars.fThread, doDVHandleOutputUnderrun, pGlobalData, 0);
+    }
 }
 
 
@@ -2318,7 +2343,6 @@ static IOReturn buildWriteProgram(DVGlobalOutPtr pGlobalData)
     DCLCommandPtr                pDCLCommand;
     DCLCommandPtr                pFirstBufferGroupDCLCommand;
     DCLLabelPtr                    pUnderrunDCLLabel,
-                                pLoopDCLLabel,
                                 pBufferGroupDCLLabel,
                                 pDCLLabel;
     DCLTransferPacketPtr        pDCLTransferPacket;
@@ -2379,27 +2403,21 @@ static IOReturn buildWriteProgram(DVGlobalOutPtr pGlobalData)
     pGlobalData->totalPackets = 0;
     pGlobalData->activePackets = 0;
 
-    // Create label for start of loop.
-    pLoopDCLLabel = (DCLLabelPtr) AllocateDCLCommand (pGlobalData, sizeof (DCLLabel));
-    pDCLCommand = (DCLCommandPtr) pLoopDCLLabel;
-    
-    pGlobalData->fStreamVars.pDCLList = pDCLCommand;
-    // syslog(LOG_INFO, "DVWrite: pGlobalData->pDCLList %x\n",pGlobalData->pDCLList);
-    pLoopDCLLabel->opcode = kDCLLabelOp;
-
     // Set isoch packet tag bits to the way DV likes 'em
     pDCLSetTagSyncBits = (DCLSetTagSyncBitsPtr) AllocateDCLCommand (pGlobalData, sizeof (DCLSetTagSyncBits));
-    pDCLCommand->pNextDCLCommand = (DCLCommandPtr) pDCLSetTagSyncBits;
     pDCLCommand = (DCLCommandPtr) pDCLSetTagSyncBits;
     pDCLSetTagSyncBits->opcode = kDCLSetTagSyncBitsOp;
     pDCLSetTagSyncBits->tagBits = 1;
     pDCLSetTagSyncBits->syncBits = 0;
 
+	// Set the pointer to the start of this DCL program
+	pGlobalData->fStreamVars.pDCLList = pDCLCommand;
+
     for (bufferGroupNum = 0; bufferGroupNum < kNumPlayBufferGroups; bufferGroupNum++)
     {
         // Allocate a buffer group data record.
         pPlayBufferGroupData = DVAllocatePlayBufferGroup( pGlobalData, bufferGroupNum);
-        
+		
         // Initialize for loop.
         dataPacketNum = 0;
         numPackets = 0;
@@ -2414,7 +2432,15 @@ static IOReturn buildWriteProgram(DVGlobalOutPtr pGlobalData)
         pBufferGroupSkipEmptyPacketDCLLabel = NULL;
         pGlobalData->fSharedDCLVars.fDataOffset[bufferGroupNum] =
                                 (UInt8*)pTransmitBuffer - pGlobalData->fStreamVars.fDCLBuffers;
-        while (dataPacketNum < pGlobalData->numDataPacketsPerGroup)
+
+        // Create label for start of buffer group.
+        pBufferGroupDCLLabel = (DCLLabelPtr) AllocateDCLCommand (pGlobalData, sizeof (DCLLabel));
+        pPlayBufferGroupData->pStartOfBufferGroupDCLLabel = pBufferGroupDCLLabel;
+        pDCLCommand->pNextDCLCommand = (DCLCommandPtr) pBufferGroupDCLLabel;
+        pDCLCommand = (DCLCommandPtr) pBufferGroupDCLLabel;
+        pBufferGroupDCLLabel->opcode = kDCLLabelOp;
+
+		while (dataPacketNum < pGlobalData->numDataPacketsPerGroup)
         {
             // Send a packet: CIP header + payload.
             pDCLTransferPacket = (DCLTransferPacketPtr) AllocateDCLCommand (pGlobalData, sizeof (DCLTransferPacket));
@@ -2539,23 +2565,7 @@ static IOReturn buildWriteProgram(DVGlobalOutPtr pGlobalData)
         }
         else
             pPlayBufferGroupData->skippingEmptyPacket = false;
-  #endif      
-        // Create end of buffer group jump.
-        pBufferGroupDCLJump = (DCLJumpPtr) AllocateDCLCommand (pGlobalData, sizeof (DCLJump));
-        pPlayBufferGroupData->pEndOfBufferGroupDCLJump = pBufferGroupDCLJump;
-        pDCLCommand->pNextDCLCommand = (DCLCommandPtr) pBufferGroupDCLJump;
-        pDCLCommand = (DCLCommandPtr) pBufferGroupDCLJump;
-        pBufferGroupDCLJump->opcode = kDCLJumpOp | kFWDCLOpDynamicFlag;
-
-        // Create label for end of buffer group.
-        pBufferGroupDCLLabel = (DCLLabelPtr) AllocateDCLCommand (pGlobalData, sizeof (DCLLabel));
-        pPlayBufferGroupData->pEndOfBufferGroupDCLLabel = pBufferGroupDCLLabel;
-        pDCLCommand->pNextDCLCommand = (DCLCommandPtr) pBufferGroupDCLLabel;
-        pDCLCommand = (DCLCommandPtr) pBufferGroupDCLLabel;
-        pBufferGroupDCLLabel->opcode = kDCLLabelOp;
-
-        // Set end of buffer group jump to jump to end of buffer group.
-        pBufferGroupDCLJump->pJumpDCLLabel = pBufferGroupDCLLabel;
+  #endif
 
         // Get time stamp at end of buffer group.
         pDCLTimeStamp = (DCLPtrTimeStampPtr) AllocateDCLCommand (pGlobalData, sizeof (DCLPtrTimeStamp));
@@ -2564,7 +2574,7 @@ static IOReturn buildWriteProgram(DVGlobalOutPtr pGlobalData)
         pDCLTimeStamp->opcode = kDCLPtrTimeStampOp;
         *pTimeStampPtr = 0xffffffff;	// Init to impossible time stamp
         pDCLTimeStamp->timeStampPtr = pTimeStampPtr++;
-        
+
         pPlayBufferGroupData->pBufferGroupTimeStampPtr = pDCLTimeStamp->timeStampPtr;
         pPlayBufferGroupData->timeStampUpdateDCLList = (DCLCommandPtr) pDCLTimeStamp;
 
@@ -2576,6 +2586,8 @@ static IOReturn buildWriteProgram(DVGlobalOutPtr pGlobalData)
         pDCLUpdateDCLList->dclCommandList = &(pPlayBufferGroupData->timeStampUpdateDCLList);
         pDCLUpdateDCLList->numDCLCommands = 1;
 
+#if 0
+		// TODO: Merge this update DCL list with the timestamp update list, above!!!!!
         // Create update DCL list to update buffers.
         pDCLUpdateDCLList = (DCLUpdateDCLListPtr) AllocateDCLCommand (pGlobalData, sizeof (DCLUpdateDCLList));
         pDCLCommand->pNextDCLCommand = (DCLCommandPtr) pDCLUpdateDCLList;
@@ -2583,14 +2595,16 @@ static IOReturn buildWriteProgram(DVGlobalOutPtr pGlobalData)
         pDCLUpdateDCLList->opcode = kDCLUpdateDCLListOp;
         pDCLUpdateDCLList->dclCommandList = pPlayBufferGroupData->bufferGroupUpdateDCLList;
         pDCLUpdateDCLList->numDCLCommands = pPlayBufferGroupData->updateListSize;
+#endif		
+		
+        // Create end of buffer group jump.
+        pBufferGroupDCLJump = (DCLJumpPtr) AllocateDCLCommand (pGlobalData, sizeof (DCLJump));
+        pPlayBufferGroupData->pEndOfBufferGroupDCLJump = pBufferGroupDCLJump;
+        pDCLCommand->pNextDCLCommand = (DCLCommandPtr) pBufferGroupDCLJump;
+        pDCLCommand = (DCLCommandPtr) pBufferGroupDCLJump;
+        pBufferGroupDCLJump->opcode = kDCLJumpOp | kFWDCLOpDynamicFlag;
+        pBufferGroupDCLJump->pJumpDCLLabel = nil; // For now, this will be updated later!
     }
-
-    // Loop to first buffer group.
-    pDCLJump = (DCLJumpPtr) AllocateDCLCommand (pGlobalData, sizeof (DCLJump));
-    pDCLCommand->pNextDCLCommand = (DCLCommandPtr) pDCLJump;
-    pDCLCommand = (DCLCommandPtr) pDCLJump;
-    pDCLJump->opcode = kDCLJumpOp | kFWDCLOpDynamicFlag;
-    pDCLJump->pJumpDCLLabel = pLoopDCLLabel;
 
     // Create label for underrun.
     pUnderrunDCLLabel = (DCLLabelPtr) AllocateDCLCommand (pGlobalData, sizeof (DCLLabel));
@@ -2599,9 +2613,14 @@ static IOReturn buildWriteProgram(DVGlobalOutPtr pGlobalData)
     pDCLCommand = (DCLCommandPtr) pUnderrunDCLLabel;
     pUnderrunDCLLabel->opcode = kDCLLabelOp;
 
-    // Set last buffer group's jump DCL to jump to underrun.
-    pBufferGroupDCLJump->pJumpDCLLabel = pUnderrunDCLLabel;
-
+	// Send a garbage packet (just CIP only!). Required for a valid DCL program!
+	pDCLTransferPacket = (DCLTransferPacketPtr) AllocateDCLCommand (pGlobalData, sizeof (DCLTransferPacket));
+	pDCLCommand->pNextDCLCommand = (DCLCommandPtr) pDCLTransferPacket;
+	pDCLCommand = (DCLCommandPtr) pDCLTransferPacket;
+	pDCLTransferPacket->opcode = kDCLSendPacketStartOp;
+	pDCLTransferPacket->buffer = pGlobalData->pEmptyTransmitBuffers;
+	pDCLTransferPacket->size = kDVPacketCIPSize;
+	
     // Call underrun proc.
     // This is the last command.
     pDCLCallProc = (DCLCallProcPtr) AllocateDCLCommand (pGlobalData, sizeof (DCLCallProc));
@@ -2610,6 +2629,19 @@ static IOReturn buildWriteProgram(DVGlobalOutPtr pGlobalData)
     pDCLCallProc->opcode = kDCLCallProcOp;
     pDCLCallProc->proc = DVHandleOutputUnderrun;
     pDCLCallProc->procData = (UInt32) pGlobalData;
+
+	// Fix up jump targets
+    for (bufferGroupNum = 0; bufferGroupNum < kNumPlayBufferGroups; bufferGroupNum++)
+    {
+		pPlayBufferGroupData = &pGlobalData->fLocalDataArray[bufferGroupNum];
+
+		if (bufferGroupNum == (kNumPlayBufferGroups-1))
+			 pPlayBufferGroupData->pEndOfBufferGroupDCLJump->pJumpDCLLabel =
+				 pGlobalData->pUnderrunDCLLabel;
+		else
+			 pPlayBufferGroupData->pEndOfBufferGroupDCLJump->pJumpDCLLabel =
+				pGlobalData->fLocalDataArray[bufferGroupNum+1].pStartOfBufferGroupDCLLabel;
+	}
 
     return kIOReturnSuccess;
     
@@ -2620,18 +2652,13 @@ bail:
 DVGlobalOutPtr DVAllocWrite(DVDevice *device, DVThread *thread)
 {
     DVGlobalOutPtr globs;
-
-	//syslog(LOG_INFO, "DV_DEBUG: DVAllocWrite\n");
-
-	globs = malloc(sizeof(DVGlobalOut));
+    globs = malloc(sizeof(DVGlobalOut));
     if(!globs)
         return NULL;
     bzero(globs, sizeof(DVGlobalOut));
     initStream(&globs->fStreamVars, device, device->fOutPlug, device->fWriteChan, thread);
     globs->fUpdateBuffers = 1;
-
-	//syslog(LOG_INFO, "DV_DEBUG: DVAllocWrite end\n");
-
+    
     return globs;
 }
 
@@ -2729,26 +2756,9 @@ static IOReturn doDVWriteStart(DVGlobalOutPtr pGlobalData)
     UInt32			bufferGroupNum;
     int i;
     DVThread *		dvThread = pGlobalData->fStreamVars.fThread;
-
-	//syslog(LOG_INFO, "DV_DEBUG: doDVWriteStart\n");
-	
+    
     do {        
-        // set our output plug broadcast bit, channel number and bandwidth usage.
-        err = writePlug(pGlobalData->fStreamVars.fAVCProtoInterface, pGlobalData->fStreamVars.fPlug,
-            kIOFWPCROnline | kIOFWPCRBroadcast | (1 << kIOFWPCRP2PCountPhase) |
-            (pGlobalData->fStreamVars.fIsocChannel<<kIOFWPCRChannelPhase) | 
-            (15 << kIOFWPCROutputOverheadPhase) | (122 << kIOFWPCROutputPayloadPhase));
-            
-        if(err)
-            break;
-#if 1
-        // Set input to channel 62 and establish P2P
-        err = MakeP2PConnectionForWrite(pGlobalData->fStreamVars.pDVDevice,0,pGlobalData->fStreamVars.fIsocChannel);
-#else
-        // Set input to channel 62
-        err = writeDeviceInputPlug(pGlobalData->fStreamVars.pFWDevice, 0, 
-                            kIOFWPCRChannel, pGlobalData->fStreamVars.fIsocChannel<<kIOFWPCRChannelPhase);
-#endif
+ 
         // Set up all of the buffer groups.
         //syslog(LOG_INFO, "DVWrite: Setup all of the buffer groups\n");
     
@@ -2757,6 +2767,10 @@ static IOReturn doDVWriteStart(DVGlobalOutPtr pGlobalData)
         pGlobalData->nextDataPacketNum = 0;
         pGlobalData->pImageBuffer = NULL;
         pGlobalData->fSharedDCLVars.fDMAPos = 0;
+        
+        pGlobalData->pendingDVWriteUnderrunHandler = false;
+        pGlobalData->deferredDVWriteFree = false;
+        pGlobalData->dvWriteStopInProgress = false;
 
         pPlayBufferGroupData = &pGlobalData->fLocalDataArray[0];
         for (bufferGroupNum = 0; bufferGroupNum < kNumPlayBufferGroups; bufferGroupNum++)
@@ -2777,30 +2791,22 @@ static IOReturn doDVWriteStart(DVGlobalOutPtr pGlobalData)
         }
         
     } while (0);
-    //syslog(LOG_INFO, "DV_DEBUG: doDVWriteStart end, err %x\n", err);
-
-	return err;
+    //syslog(LOG_INFO, "doDVWriteStart exit, err %x\n", err);
+    return err;
 }
 
 IOReturn DVWriteStart(DVGlobalOutPtr pGlobalData)
 {
-	IOReturn result;
-	
-	//syslog(LOG_INFO, "DV_DEBUG: DVWriteStart\n");
-
-	result = DVRequest(pGlobalData->fStreamVars.fThread, doDVWriteStart, pGlobalData, 0);
-
-	//syslog(LOG_INFO, "DV_DEBUG: DVWriteStart end\n");
-
-	return result;
+    return DVRequest(pGlobalData->fStreamVars.fThread, doDVWriteStart, pGlobalData, 0);
 }
 
 static void doDVWriteStop(DVGlobalOutPtr pGlobalData)
 {
     int i;
-    DVThread *		dvThread = pGlobalData->fStreamVars.fThread;
+    
+    pGlobalData->dvWriteStopInProgress = true;
 
-	//syslog(LOG_INFO, "DV_DEBUG: doDVWriteStop\n");
+    DVThread *		dvThread = pGlobalData->fStreamVars.fThread;
     
     for(i=0; i<kDVMaxStreamsActive; i++) {
         if(dvThread->fOutStreams[i] == pGlobalData) {
@@ -2810,56 +2816,35 @@ static void doDVWriteStop(DVGlobalOutPtr pGlobalData)
     }
     closeStream(&pGlobalData->fStreamVars);
 
-#if 1
-
     BreakP2PConnectionForWrite(pGlobalData->fStreamVars.pDVDevice,0,pGlobalData->fStreamVars.fIsocChannel);
-
-#else    
-
-    writePlug(pGlobalData->fStreamVars.fAVCProtoInterface, pGlobalData->fStreamVars.fPlug,
-                                                            122 << kIOFWPCROutputPayloadPhase);
-#endif
 
     DVDisposeDCLOutput(pGlobalData);
 
-	//syslog(LOG_INFO, "DV_DEBUG: doDVWriteStop end\n");
+    pGlobalData->dvWriteStopInProgress = false;
 }
 
 void DVWriteStop(DVGlobalOutPtr pGlobalData)
 {
-	//syslog(LOG_INFO, "DV_DEBUG: DVWriteStop\n");
-
     DVRequest(pGlobalData->fStreamVars.fThread, doDVWriteStop, pGlobalData, 0);
-
-	//syslog(LOG_INFO, "DV_DEBUG: DVWriteStop end\n");
 }
 
 void DVWriteFreeFrames(DVGlobalOutPtr globs)
 {
-	//syslog(LOG_INFO, "DV_DEBUG: DVWriteFreeFrames\n");
-
     DVFreeFrames(&globs->fStreamVars.fFrames);
-
-	//syslog(LOG_INFO, "DV_DEBUG: DVWriteFreeFrames end\n");
 }
 
 void DVWriteFree(DVGlobalOutPtr globs)
 {
-	//syslog(LOG_INFO, "DV_DEBUG: DVWriteFree\n");
-
-    free(globs);
-
-	//syslog(LOG_INFO, "DV_DEBUG: DVWriteFree end\n");
-
+    if (globs->pendingDVWriteUnderrunHandler == true)
+	globs->deferredDVWriteFree = true;
+    else
+	free(globs);
 }
 
 DVGlobalInPtr DVAllocRead(DVDevice *device, DVThread *thread)
 {
     DVGlobalInPtr globs;
-
-	//syslog(LOG_INFO, "DV_DEBUG: DVAllocRead\n");
-
-	globs = malloc(sizeof(DVGlobalIn));
+    globs = malloc(sizeof(DVGlobalIn));
     if(!globs)
         return NULL;
     bzero(globs, sizeof(DVGlobalIn));
@@ -2871,10 +2856,8 @@ DVGlobalInPtr DVAllocRead(DVDevice *device, DVThread *thread)
 		DVReadSetSignalMode(globs,0x00);	// NTSC-DV
 	else
 		DVReadSetSignalMode(globs,0x80);	// PAL-DV
-
-	//syslog(LOG_INFO, "DV_DEBUG: DVAllocRead end\n");
-
-	return globs;
+	
+    return globs;
 }
 
 IOReturn DVReadSetSignalMode(DVGlobalInPtr globs, UInt8 mode)
@@ -2938,37 +2921,32 @@ IOReturn DVReadSetSignalMode(DVGlobalInPtr globs, UInt8 mode)
 IOReturn DVReadAllocFrames(DVGlobalInPtr globs, UInt32 numFrames, 
     DVFrameVars **frameVars, UInt8 **frames)
 {
-	//syslog(LOG_INFO, "DV_DEBUG: DVReadAllocFrames\n");
-
-	IOReturn result;
-	
-    result = DVAllocFrames(&globs->fStreamVars.fFrames,
+    return DVAllocFrames(&globs->fStreamVars.fFrames,
 							numFrames,
 							globs->fStreamVars.fDVFrameSize,
 							frameVars,
 							frames);
-
-	//syslog(LOG_INFO, "DV_DEBUG: DVReadAllocFrames end\n");
-
-	return result;
 }
 
 static void doDVReadHandleInputUnderrun( DVGlobalInPtr pGlobalData )
 {
-    DVStream *stream;
     UInt32 timeNow, lastFrameTime;
+    DVStream *stream;
 
-	//syslog(LOG_INFO, "DV_DEBUG: doDVReadHandleInputUnderrun\n");
-	
+    if ((pGlobalData->pendingDVReadUnderrunHandler == true) && (pGlobalData->deferredDVReadFree == true))
+    {
+	// Free the globalin data struct
+	free(pGlobalData);
+	return;
+    }
+    pGlobalData->pendingDVReadUnderrunHandler = false;
+    
     stream = &pGlobalData->fStreamVars;
 
 	// See if stream still open. If not, we're done!
 	if (stream->fIsochChannelRef == NULL)
-	{
-		//syslog(LOG_INFO, "DV_DEBUG: doDVReadHandleInputUnderrun stream closed already\n");
 		return;
-	}
-    
+		
     (*stream->pFWDevice)->
         GetCycleTime(stream->pFWDevice, &timeNow);
     syslog(LOG_INFO, "At %8.3f Req time %8.3f, now %8.3f\n",
@@ -2984,20 +2962,18 @@ static void doDVReadHandleInputUnderrun( DVGlobalInPtr pGlobalData )
     pGlobalData->fRestarted = true;
     pGlobalData->fLastFrameTime = lastFrameTime;
     DVReadStart(pGlobalData);
-
-	//syslog(LOG_INFO, "DV_DEBUG: doDVReadHandleInputUnderrun end\n");
 }
 
 static void DVReadHandleInputUnderrun( DCLCommandPtr pDCLCommandPtr )
 {
     DVGlobalInPtr pGlobalData;
-
-	//syslog(LOG_INFO, "DV_DEBUG: DVReadHandleInputUnderrun\n");
-
+    
     pGlobalData = (DVGlobalInPtr)((DCLCallProcPtr)pDCLCommandPtr)->procData;
-    DVRequest(pGlobalData->fStreamVars.fThread, doDVReadHandleInputUnderrun, pGlobalData, 0);
-
-	//syslog(LOG_INFO, "DV_DEBUG: DVReadHandleInputUnderrun end\n");
+    if (pGlobalData->dvReadStopInProgress == false)
+    {
+        pGlobalData->pendingDVReadUnderrunHandler = true;
+        DVRequest(pGlobalData->fStreamVars.fThread, doDVReadHandleInputUnderrun, pGlobalData, 0);
+    }
 }
 
 static void DVStorePackets(DVLocalInPtr pLocalData)
@@ -3233,8 +3209,6 @@ IOReturn DVReadStart(DVGlobalInPtr globs)
     
     //syslog(LOG_INFO, "DVReadStart() %p\n", globs);
 
-	//syslog(LOG_INFO, "DV_DEBUG: DVReadStart\n");
-
     // init variables
     pingPongBuffer = NULL;
 
@@ -3245,6 +3219,10 @@ IOReturn DVReadStart(DVGlobalInPtr globs)
 //    globs->fStreamVars.fSignalMode = kAVCSignalModeMask_50;	// initialize to bigger packets per frame (PAL)
     globs->packetCount = 0;
     globs->fState = 0;
+
+    globs->pendingDVReadUnderrunHandler = false;
+    globs->deferredDVReadFree = false;
+    globs->dvReadStopInProgress = false;
 
 	switch (globs->fStreamVars.fSignalMode)
 	{
@@ -3447,15 +3425,12 @@ IOReturn DVReadStart(DVGlobalInPtr globs)
     }
 
      //syslog(LOG_INFO, "DVRead::Started()\n");
-	//syslog(LOG_INFO, "DV_DEBUG: DVReadStart end\n");
-
+    
     return kIOReturnSuccess;
 
 bail:
     syslog(LOG_INFO, "DVRead::Start() failed: 0x%x\n", res);
     //Stop();
-	//syslog(LOG_INFO, "DV_DEBUG: DVReadStart bail\n");
-
     return res;
 }
 
@@ -3463,8 +3438,8 @@ static IOReturn doDVReadStop(DVGlobalInPtr pGlobalData)
 {
     int i;
 
-	//syslog(LOG_INFO, "DV_DEBUG: doDVReadStop\n");
-
+    pGlobalData->dvReadStopInProgress = true;
+    
     //syslog(LOG_INFO, "doDVReadStop()0x%x\n", pGlobalData);
     for(i=0; i<kDVMaxStreamsActive; i++) {
         if(pGlobalData->fStreamVars.fThread->fInStreams[i] == pGlobalData) {
@@ -3472,6 +3447,11 @@ static IOReturn doDVReadStop(DVGlobalInPtr pGlobalData)
             break;
         }
     }
+
+#ifdef USE_P2P_CONNECTIONS_FOR_DV_READ            
+    BreakP2PConnectionForRead(pGlobalData->fStreamVars.pDVDevice,0,pGlobalData->fStreamVars.fIsocChannel);
+#endif
+    
     closeStream(&pGlobalData->fStreamVars);
     if ( pGlobalData->ppUpdateDCLList) {
         free( pGlobalData->ppUpdateDCLList); //,kRecordNumDCLs * sizeof(DCLCommandPtr));
@@ -3486,38 +3466,32 @@ static IOReturn doDVReadStop(DVGlobalInPtr pGlobalData)
         vm_deallocate(mach_task_self(), (vm_address_t)pGlobalData->fStreamVars.fDCLBuffers,
                 pGlobalData->fStreamVars.fDCLBufferSize);
         pGlobalData->fStreamVars.fDCLBuffers = NULL;
-    }    
-
-	//syslog(LOG_INFO, "DV_DEBUG: doDVReadStop end\n");
+    }
+    
+    pGlobalData->dvReadStopInProgress = false;
 
     return kIOReturnSuccess;
 }
 
 void DVReadStop(DVGlobalInPtr pGlobalData)
 {
-	//syslog(LOG_INFO, "DV_DEBUG: DVReadStop\n");
-
     DVRequest(pGlobalData->fStreamVars.fThread, doDVReadStop, pGlobalData, 0);
-
-	//syslog(LOG_INFO, "DV_DEBUG: DVReadStop end\n");
 }
 
 void DVReadFreeFrames(DVGlobalInPtr globs)
 {
-	//syslog(LOG_INFO, "DV_DEBUG: DVReadFreeFrames\n");
-
     DVFreeFrames(&globs->fStreamVars.fFrames);
-
-	//syslog(LOG_INFO, "DV_DEBUG: DVReadFreeFrames end\n");
 }
 
 void DVReadFree(DVGlobalInPtr globs)
 {
-	//syslog(LOG_INFO, "DV_DEBUG: DVReadFree\n");
-
-    free(globs);
-
-	//syslog(LOG_INFO, "DV_DEBUG: DVReadFree end\n");
+    // Defer freeing of the globalin data struct
+    // if we have a pending input underrun to deal with.
+	
+    if (globs->pendingDVReadUnderrunHandler == true)
+	globs->deferredDVReadFree = true;
+    else
+	free(globs);
 }
 
 void DVLog(DVThread *thread, UInt32 tag, CFAbsoluteTime start, CFAbsoluteTime end)

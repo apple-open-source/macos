@@ -3,21 +3,22 @@
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
- * "Portions Copyright (c) 1999 Apple Computer, Inc.  All Rights
- * Reserved.  This file contains Original Code and/or Modifications of
- * Original Code as defined in and that are subject to the Apple Public
- * Source License Version 1.0 (the 'License').  You may not use this file
- * except in compliance with the License.  Please obtain a copy of the
- * License at http://www.apple.com/publicsource and read it before using
- * this file.
+ * Copyright (c) 1999-2003 Apple Computer, Inc.  All Rights Reserved.
+ * 
+ * This file contains Original Code and/or Modifications of Original Code
+ * as defined in and that are subject to the Apple Public Source License
+ * Version 2.0 (the 'License'). You may not use this file except in
+ * compliance with the License. Please obtain a copy of the License at
+ * http://www.opensource.apple.com/apsl/ and read it before using this
+ * file.
  * 
  * The Original Code and all software distributed under the License are
  * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
  * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
  * INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY,
- * FITNESS FOR A PARTICULAR PURPOSE OR NON-INFRINGEMENT.  Please see the
- * License for the specific language governing rights and limitations
- * under the License."
+ * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
+ * Please see the License for the specific language governing rights and
+ * limitations under the License.
  * 
  * @APPLE_LICENSE_HEADER_END@
  */
@@ -32,6 +33,7 @@
 #include <netinfo/ni.h>
 #include <string.h>
 #include <stdlib.h>
+#include <notify.h>
 #include <sys/param.h>
 #include <sys/dir.h>
 #include "ni_file.h"
@@ -647,6 +649,7 @@ file_init(char *rootdir, void **hdl)
 	if (size == 0) doconvert = 0;
 
 	flags = DSSTORE_FLAGS_ACCESS_READWRITE;
+	flags |= DSSTORE_FLAGS_NOTIFY_CHANGES;
 	if (!i_am_clone) flags |= DSSTORE_FLAGS_SERVER_MASTER;
 
 	status = dsstore_new(&s, rootdir, flags);
@@ -756,6 +759,7 @@ ni_status file_idunalloc(void *hdl, ni_id id)
 
 	if (hdl == NULL) return NI_SYSTEMERR;
 	status = dsstore_remove(STORE(hdl), id.nii_object);
+
 	return dstonistatus(status);
 }
 
@@ -836,7 +840,6 @@ file_write(void *hdl, ni_object *obj)
 	}
 
 	dsrecord_release(r);
-
 	return dstonistatus(status);
 }
 
@@ -890,7 +893,15 @@ file_store_version(void* hdl)
 	return dsstore_version(STORE(hdl));
 }
 
-ni_index file_version(void *hdl, ni_id id)
+ni_index
+file_version(void *hdl, ni_id id)
 {
 	return dsstore_record_version(STORE(hdl), id.nii_object);
 }
+
+void
+file_notify(void *hdl)
+{
+	dsstore_notify(STORE(hdl));
+}
+

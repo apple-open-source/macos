@@ -1,9 +1,9 @@
 #
-# "$Id: Makefile,v 1.1.1.2 2002/02/10 04:47:52 jlovell Exp $"
+# "$Id: Makefile,v 1.3 2003/08/15 06:46:01 jlovell Exp $"
 #
 #   Configuration file makefile for the Common UNIX Printing System (CUPS).
 #
-#   Copyright 1993-2002 by Easy Software Products.
+#   Copyright 1993-2003 by Easy Software Products.
 #
 #   These coded instructions, statements, and computer programs are the
 #   property of Easy Software Products and are protected by Federal
@@ -51,7 +51,7 @@ clean:
 #
 
 install:
-	$(INSTALL_DIR) $(SERVERROOT)
+	$(INSTALL_DIR) -m 755 $(SERVERROOT)
 	for file in $(KEEP); do \
 		if test -r $(SERVERROOT)/$$file ; then \
 			$(INSTALL_DATA) $$file $(SERVERROOT)/$$file.N ; \
@@ -65,8 +65,12 @@ install:
 		fi ; \
 		$(INSTALL_DATA) $$file $(SERVERROOT) ; \
 	done
+	-if test x$(PAMDIR) != x$(BUILDROOT); then \
+		$(INSTALL_DIR) $(PAMDIR); \
+		$(INSTALL_DATA) pam.conf $(PAMDIR)/cups; \
+	fi
 
 
 #
-# End of "$Id: Makefile,v 1.1.1.2 2002/02/10 04:47:52 jlovell Exp $".
+# End of "$Id: Makefile,v 1.3 2003/08/15 06:46:01 jlovell Exp $".
 #

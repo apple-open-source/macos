@@ -14,7 +14,7 @@ Ruby Distribute License or GNU General Public License.
 NOTE: You can find Japanese version of this document in
 the doc/net directory of the standard ruby interpreter package.
 
-$Id: http.rb,v 1.1.1.1 2002/05/27 17:59:49 jkh Exp $
+$Id: http.rb,v 1.1.1.2 2003/05/14 13:58:49 melville Exp $
 
 == What is this module?
 
@@ -690,7 +690,7 @@ module Net
       if not req.body_exist? or @seems_1_0_server then
         req['connection'] = 'close'
       end
-      req['host'] = addr_port()
+      req['host'] ||= addr_port()
     end
 
     def end_transport( req, res )

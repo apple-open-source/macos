@@ -3,19 +3,22 @@
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
- * The contents of this file constitute Original Code as defined in and
- * are subject to the Apple Public Source License Version 1.1 (the
- * "License").  You may not use this file except in compliance with the
- * License.  Please obtain a copy of the License at
- * http://www.apple.com/publicsource and read it before using this file.
+ * Copyright (c) 1999-2003 Apple Computer, Inc.  All Rights Reserved.
  * 
- * This Original Code and all software distributed under the License are
- * distributed on an "AS IS" basis, WITHOUT WARRANTY OF ANY KIND, EITHER
+ * This file contains Original Code and/or Modifications of Original Code
+ * as defined in and that are subject to the Apple Public Source License
+ * Version 2.0 (the 'License'). You may not use this file except in
+ * compliance with the License. Please obtain a copy of the License at
+ * http://www.opensource.apple.com/apsl/ and read it before using this
+ * file.
+ * 
+ * The Original Code and all software distributed under the License are
+ * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
  * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
  * INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY,
- * FITNESS FOR A PARTICULAR PURPOSE OR NON-INFRINGEMENT.  Please see the
- * License for the specific language governing rights and limitations
- * under the License.
+ * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
+ * Please see the License for the specific language governing rights and
+ * limitations under the License.
  * 
  * @APPLE_LICENSE_HEADER_END@
  */
@@ -37,6 +40,10 @@
 #include "DSCThread.h"
 #include "PrivateTypes.h"
 #include "DSUtils.h"
+#include "CPlugInList.h"
+#include "ServerControl.h"
+
+extern	CPlugInList		*gPlugins;
 
 // ---------------------------------------------------------------------------
 //	* CNodeList ()
@@ -46,7 +53,7 @@ CNodeList::CNodeList ( void )
 {
 	fTreePtr					= nil;
 	fCount						= 0;
-	fToken						= 1001;	//some arbitrary start value
+	fNodeChangeToken			= 1001;	//some arbitrary start value
 	fLocalNode					= nil;
 	fAuthenticationSearchNode	= nil;
 	fContactsSearchNode			= nil;
@@ -54,6 +61,7 @@ CNodeList::CNodeList ( void )
 	fConfigureNode				= nil;
 	fLocalHostedNodes			= nil;
 	fDefaultNetworkNodes		= nil;
+    bDHCPLDAPv3InitComplete		= false;
 } // CNodeList
 
 
@@ -176,7 +184,8 @@ sInt32 CNodeList::DeleteTree ( sTreeNode **inTree )
 sInt32 CNodeList::AddNode ( const char		*inNodeName,
 							tDataList		*inListPtr,
 							eDirNodeType	 inType,
-							CServerPlugin	*inPlugInPtr )
+							CServerPlugin	*inPlugInPtr,
+							uInt32			 inToken )
 {
 	sInt32		siResult	= 0;
 
@@ -187,15 +196,15 @@ sInt32 CNodeList::AddNode ( const char		*inNodeName,
 		switch(inType)
 		{
 			case kLocalHostedType:
-				siResult = AddNodeToTree( &fLocalHostedNodes, inNodeName, inListPtr, inType, inPlugInPtr );
+				siResult = AddNodeToTree( &fLocalHostedNodes, inNodeName, inListPtr, inType, inPlugInPtr, inToken );
 				break;
 			case kDefaultNetworkNodeType:
-				siResult = AddNodeToTree( &fDefaultNetworkNodes, inNodeName, inListPtr, inType, inPlugInPtr );
+				siResult = AddNodeToTree( &fDefaultNetworkNodes, inNodeName, inListPtr, inType, inPlugInPtr, inToken );
 				break;
 			case kSearchNodeType:
 				if (fAuthenticationSearchNode == nil)
 				{
-					siResult = AddAuthenticationSearchNode( inNodeName, inListPtr, inType, inPlugInPtr );
+					siResult = AddAuthenticationSearchNode( inNodeName, inListPtr, inType, inPlugInPtr, inToken );
 				}
 				else
 				{
@@ -205,7 +214,7 @@ sInt32 CNodeList::AddNode ( const char		*inNodeName,
 			case kContactsSearchNodeType:
 				if (fContactsSearchNode == nil)
 				{
-					siResult = AddContactsSearchNode( inNodeName, inListPtr, inType, inPlugInPtr );
+					siResult = AddContactsSearchNode( inNodeName, inListPtr, inType, inPlugInPtr, inToken );
 				}
 				else
 				{
@@ -215,7 +224,7 @@ sInt32 CNodeList::AddNode ( const char		*inNodeName,
 			case kNetworkSearchNodeType:
 				if (fNetworkSearchNode == nil)
 				{
-					siResult = AddNetworkSearchNode( inNodeName, inListPtr, inType, inPlugInPtr );
+					siResult = AddNetworkSearchNode( inNodeName, inListPtr, inType, inPlugInPtr, inToken );
 				}
 				else
 				{
@@ -225,7 +234,7 @@ sInt32 CNodeList::AddNode ( const char		*inNodeName,
 			case kConfigNodeType:
 				if (fConfigureNode == nil)
 				{
-					siResult = AddConfigureNode( inNodeName, inListPtr, inType, inPlugInPtr );
+					siResult = AddConfigureNode( inNodeName, inListPtr, inType, inPlugInPtr, inToken );
 				}
 				else
 				{
@@ -236,17 +245,28 @@ sInt32 CNodeList::AddNode ( const char		*inNodeName,
 			case kLocalNodeType:
 				if (fLocalNode == nil)
 				{
-					siResult = AddLocalNode( inNodeName, inListPtr, inType, inPlugInPtr );
+					siResult = AddLocalNode( inNodeName, inListPtr, inType, inPlugInPtr, inToken );
 				}
 				else
 				{
 					DBGLOG( kLogApplication, "Attempt to register second Local Node failed." );
 				}
 				break;
+			case kDHCPLDAPv3NodeType:
+				if ( !bDHCPLDAPv3InitComplete )
+				{
+					siResult = AddDHCPLDAPv3Node( inNodeName, inListPtr, inType, inPlugInPtr, inToken );
+				}
+				else
+				{
+					DBGLOG( kLogApplication, "Duplicate attempt to indicate DHCP LDAPv3 initialization has failed." );
+				}
+				break;
 			case kDirNodeType:
-				siResult = AddNodeToTree( &fTreePtr, inNodeName, inListPtr, inType, inPlugInPtr );
+				siResult = AddNodeToTree( &fTreePtr, inNodeName, inListPtr, inType, inPlugInPtr, inToken );
 				fCount++;
-				fToken++;
+				fNodeChangeToken++;
+				gSrvrCntl->NotifyDirNodeAdded(inNodeName);
 				break;
 			default:
 				break;
@@ -272,7 +292,8 @@ sInt32 CNodeList::AddNode ( const char		*inNodeName,
 sInt32 CNodeList::AddLocalNode (	const char		*inNodeName,
 									tDataList		*inListPtr,
 									eDirNodeType	 inType,
-									CServerPlugin	*inPlugInPtr )
+									CServerPlugin	*inPlugInPtr,
+									uInt32			 inToken )
 {
 	sInt32		siResult	= 1;
 	sTreeNode  *aLocalNode	= nil;
@@ -306,6 +327,7 @@ sInt32 CNodeList::AddLocalNode (	const char		*inNodeName,
 		::strcpy( aLocalNode->fNodeName, inNodeName );
 		aLocalNode->fDataListPtr	= inListPtr;
 		aLocalNode->fPlugInPtr		= inPlugInPtr;
+		aLocalNode->fPlugInToken	= inToken;
 		aLocalNode->fType			= inType;
 		aLocalNode->left			= nil;
 		aLocalNode->right			= nil;
@@ -349,7 +371,8 @@ sInt32 CNodeList::AddLocalNode (	const char		*inNodeName,
 sInt32 CNodeList:: AddAuthenticationSearchNode (	const char		*inNodeName,
 													tDataList		*inListPtr,
 													eDirNodeType	 inType,
-													CServerPlugin	*inPlugInPtr )
+													CServerPlugin	*inPlugInPtr,
+													uInt32			 inToken )
 {
 	sInt32		siResult					= 1;
 	sTreeNode  *anAuthenticationSearchNode	= nil;
@@ -379,6 +402,7 @@ sInt32 CNodeList:: AddAuthenticationSearchNode (	const char		*inNodeName,
 		::strcpy( anAuthenticationSearchNode->fNodeName, inNodeName );
 		anAuthenticationSearchNode->fDataListPtr	= inListPtr;
 		anAuthenticationSearchNode->fPlugInPtr		= inPlugInPtr;
+		anAuthenticationSearchNode->fPlugInToken	= inToken;
 		anAuthenticationSearchNode->fType			= inType;
 		anAuthenticationSearchNode->left			= nil;
 		anAuthenticationSearchNode->right			= nil;
@@ -422,7 +446,8 @@ sInt32 CNodeList:: AddAuthenticationSearchNode (	const char		*inNodeName,
 sInt32 CNodeList:: AddContactsSearchNode (	const char		*inNodeName,
 											tDataList		*inListPtr,
 											eDirNodeType	 inType,
-											CServerPlugin	*inPlugInPtr )
+											CServerPlugin	*inPlugInPtr,
+											uInt32			 inToken )
 {
 	sInt32		siResult					= 1;
 	sTreeNode  *aContactsSearchNode			= nil;
@@ -452,6 +477,7 @@ sInt32 CNodeList:: AddContactsSearchNode (	const char		*inNodeName,
 		::strcpy( aContactsSearchNode->fNodeName, inNodeName );
 		aContactsSearchNode->fDataListPtr	= inListPtr;
 		aContactsSearchNode->fPlugInPtr		= inPlugInPtr;
+		aContactsSearchNode->fPlugInToken	= inToken;
 		aContactsSearchNode->fType			= inType;
 		aContactsSearchNode->left			= nil;
 		aContactsSearchNode->right			= nil;
@@ -495,7 +521,8 @@ sInt32 CNodeList:: AddContactsSearchNode (	const char		*inNodeName,
 sInt32 CNodeList:: AddNetworkSearchNode (	const char		*inNodeName,
 											tDataList		*inListPtr,
 											eDirNodeType	 inType,
-											CServerPlugin	*inPlugInPtr )
+											CServerPlugin	*inPlugInPtr,
+											uInt32			 inToken )
 {
 	sInt32		siResult					= 1;
 	sTreeNode  *aNetworkSearchNode			= nil;
@@ -525,6 +552,7 @@ sInt32 CNodeList:: AddNetworkSearchNode (	const char		*inNodeName,
 		::strcpy( aNetworkSearchNode->fNodeName, inNodeName );
 		aNetworkSearchNode->fDataListPtr	= inListPtr;
 		aNetworkSearchNode->fPlugInPtr		= inPlugInPtr;
+		aNetworkSearchNode->fPlugInToken	= inToken;
 		aNetworkSearchNode->fType			= inType;
 		aNetworkSearchNode->left			= nil;
 		aNetworkSearchNode->right			= nil;
@@ -568,7 +596,8 @@ sInt32 CNodeList:: AddNetworkSearchNode (	const char		*inNodeName,
 sInt32 CNodeList:: AddConfigureNode (	const char		*inNodeName,
 									tDataList		*inListPtr,
 									eDirNodeType	 inType,
-									CServerPlugin	*inPlugInPtr )
+									CServerPlugin	*inPlugInPtr,
+									uInt32			 inToken )
 {
 	sInt32		siResult				= 1;
 	sTreeNode  *aConfigureNode			= nil;
@@ -598,6 +627,7 @@ sInt32 CNodeList:: AddConfigureNode (	const char		*inNodeName,
 		::strcpy( aConfigureNode->fNodeName, inNodeName );
 		aConfigureNode->fDataListPtr	= inListPtr;
 		aConfigureNode->fPlugInPtr		= inPlugInPtr;
+		aConfigureNode->fPlugInToken	= inToken;
 		aConfigureNode->fType			= inType;
 		aConfigureNode->left			= nil;
 		aConfigureNode->right			= nil;
@@ -635,6 +665,24 @@ sInt32 CNodeList:: AddConfigureNode (	const char		*inNodeName,
 
 
 // ---------------------------------------------------------------------------
+//	* AddDHCPLDAPv3Node () RETURNS ZERO IF NODE ALREADY EXISTS
+// simply used as an indicator to note that DHCP LDAPv3 initialization has completed
+// ---------------------------------------------------------------------------
+
+sInt32 CNodeList::AddDHCPLDAPv3Node (	const char		*inNodeName,
+                                        tDataList		*inListPtr,
+                                        eDirNodeType	 inType,
+                                        CServerPlugin	*inPlugInPtr,
+										uInt32			 inToken )
+{
+    bDHCPLDAPv3InitComplete = true;
+
+	return( eDSNoErr );
+
+} // AddDHCPLDAPv3Node
+
+
+// ---------------------------------------------------------------------------
 //	* AddNodeToTree ()
 // ---------------------------------------------------------------------------
 
@@ -642,7 +690,8 @@ sInt32 CNodeList:: AddNodeToTree (	sTreeNode	  **inTree,
 									const char	   *inNodeName,
 									tDataList	   *inListPtr,
 									eDirNodeType	inType,
-									CServerPlugin  *inPlugInPtr )
+									CServerPlugin  *inPlugInPtr,
+									uInt32			 inToken )
 {
 	sInt32			siResult	= 1;
 	sTreeNode	   *current		= nil;
@@ -693,6 +742,7 @@ sInt32 CNodeList:: AddNodeToTree (	sTreeNode	  **inTree,
 			::strcpy( pNewNode->fNodeName, inNodeName );
 			pNewNode->fDataListPtr	= inListPtr;
 			pNewNode->fPlugInPtr	= inPlugInPtr;
+			pNewNode->fPlugInToken	= inToken;
 			pNewNode->fType			= inType;
 			pNewNode->left			= nil;
 			pNewNode->right			= nil;
@@ -761,7 +811,7 @@ bool CNodeList::GetLocalNode ( CServerPlugin **outPlugInPtr )
 
 	if ( fLocalNode != nil )
 	{
-		*outPlugInPtr = fLocalNode->fPlugInPtr;
+		*outPlugInPtr = GetPluginPtr(fLocalNode);
 		found = true;
 	}
 
@@ -807,7 +857,7 @@ bool CNodeList::GetAuthenticationSearchNode ( CServerPlugin **outPlugInPtr )
 
 	if ( fAuthenticationSearchNode != nil )
 	{
-		*outPlugInPtr = fAuthenticationSearchNode->fPlugInPtr;
+		*outPlugInPtr = GetPluginPtr(fAuthenticationSearchNode);
 		found = true;
 	}
 
@@ -853,7 +903,7 @@ bool CNodeList::GetContactsSearchNode ( CServerPlugin **outPlugInPtr )
 
 	if ( fContactsSearchNode != nil )
 	{
-		*outPlugInPtr = fContactsSearchNode->fPlugInPtr;
+		*outPlugInPtr = GetPluginPtr(fContactsSearchNode);
 		found = true;
 	}
 
@@ -899,7 +949,7 @@ bool CNodeList::GetNetworkSearchNode ( CServerPlugin **outPlugInPtr )
 
 	if ( fNetworkSearchNode != nil )
 	{
-		*outPlugInPtr = fNetworkSearchNode->fPlugInPtr;
+		*outPlugInPtr = GetPluginPtr(fNetworkSearchNode);
 		found = true;
 	}
 
@@ -964,8 +1014,6 @@ void CNodeList::Register ( sTreeNode *inTree )
 	if ( inTree != nil )
 	{
 		Register( inTree->left );
-//		DSRegisterNode( (char *)"NetInfo", inTree->fDataListPtr );
-//		DisplayString( inTree->fNodeName );
 		Register( inTree->right );
 	}
 } // Register
@@ -987,7 +1035,7 @@ uInt32 CNodeList::GetNodeCount ( void )
 
 uInt32 CNodeList:: GetNodeChangeToken ( void )
 {
-	return( fToken );
+	return( fNodeChangeToken );
 } // GetNodeChangeToken
 
 
@@ -1051,11 +1099,13 @@ sInt32 CNodeList::GetNodes ( char			   *inStr,
 	if ( (inMatch == eDSAuthenticationSearchNodeName) && (fAuthenticationSearchNode == nil) )
 	{
 		WaitForLocalNode();
+        WaitForDHCPLDAPv3Init();
 		WaitForAuthenticationSearchNode();
 	}
 	else if ( (inMatch == eDSContactsSearchNodeName) && (fContactsSearchNode == nil) )
 	{
 		WaitForLocalNode();
+        WaitForDHCPLDAPv3Init();
 		WaitForContactsSearchNode();
 	}
 	else if ( (inMatch == eDSNetworkSearchNodeName) && (fNetworkSearchNode == nil) )
@@ -1396,7 +1446,8 @@ bool CNodeList::DeleteNode ( char *inStr )
 	{
 		found = true;
 		fCount--;
-		fToken++;
+		fNodeChangeToken++;
+		gSrvrCntl->NotifyDirNodeDeleted(inStr);
 	}
 	
 	fMutex.Signal();
@@ -1628,7 +1679,7 @@ bool CNodeList::GetPluginHandle ( const char *inStr, CServerPlugin **outPlugInPt
 			{
 				if ( outPlugInPtr != nil )
 				{
-					*outPlugInPtr = fLocalNode->fPlugInPtr;
+					*outPlugInPtr = GetPluginPtr(fLocalNode);
 				}
 				fMutex.Signal();
 				return( true );
@@ -1648,7 +1699,7 @@ bool CNodeList::GetPluginHandle ( const char *inStr, CServerPlugin **outPlugInPt
 					{
 						if ( outPlugInPtr != nil )
 						{
-							*outPlugInPtr = fAuthenticationSearchNode->fPlugInPtr;
+							*outPlugInPtr = GetPluginPtr(fAuthenticationSearchNode);
 						}
 						fMutex.Signal();
 						return( true );
@@ -1663,7 +1714,7 @@ bool CNodeList::GetPluginHandle ( const char *inStr, CServerPlugin **outPlugInPt
 					{
 						if ( outPlugInPtr != nil )
 						{
-							*outPlugInPtr = fNetworkSearchNode->fPlugInPtr;
+							*outPlugInPtr = GetPluginPtr(fNetworkSearchNode);
 						}
 						fMutex.Signal();
 						return( true );
@@ -1679,7 +1730,7 @@ bool CNodeList::GetPluginHandle ( const char *inStr, CServerPlugin **outPlugInPt
 					{
 						if ( outPlugInPtr != nil )
 						{
-							*outPlugInPtr = fContactsSearchNode->fPlugInPtr;
+							*outPlugInPtr = GetPluginPtr(fContactsSearchNode);
 						}
 						fMutex.Signal();
 						return( true );
@@ -1700,7 +1751,7 @@ bool CNodeList::GetPluginHandle ( const char *inStr, CServerPlugin **outPlugInPt
 			found = true;
 			if ( outPlugInPtr != nil )
 			{
-				*outPlugInPtr = current->fPlugInPtr;
+				*outPlugInPtr = GetPluginPtr(current);
 			}
 		}
 		else
@@ -1725,7 +1776,7 @@ bool CNodeList::GetPluginHandle ( const char *inStr, CServerPlugin **outPlugInPt
 				found = true;
 				if ( outPlugInPtr != nil )
 				{
-					*outPlugInPtr = fConfigureNode->fPlugInPtr;
+					*outPlugInPtr = GetPluginPtr(fConfigureNode);
 				}
 			}
 		}
@@ -1737,6 +1788,15 @@ bool CNodeList::GetPluginHandle ( const char *inStr, CServerPlugin **outPlugInPt
 
 } // GetPluginHandle 
 
+CServerPlugin* CNodeList::GetPluginPtr( sTreeNode* nodePtr )
+{
+	if ( nodePtr->fPlugInPtr == nil )
+	{
+		nodePtr->fPlugInPtr = gPlugins->GetPlugInPtr( nodePtr->fPlugInToken, true );
+	}
+	
+	return nodePtr->fPlugInPtr;
+} // GetPluginPtr
 
 // ---------------------------------------------------------------------------
 //	* CompareString ()
@@ -2077,4 +2137,33 @@ void CNodeList::WaitForConfigureNode( void )
 
 } // WaitForConfigureNode
 
+// ---------------------------------------------------------------------------
+//	* WaitForDHCPLDAPv3Init ()
+// ---------------------------------------------------------------------------
+
+void CNodeList::WaitForDHCPLDAPv3Init( void )
+{
+	DSSemaphore		timedWait;
+	time_t			waitTime	= ::time( nil ) + 120;
+
+	// Grab the wait semaphore
+	fWaitForDHCPLDAPv3InitFlag.Wait();
+
+	while ( !bDHCPLDAPv3InitComplete )
+	{
+		// Check every .5 seconds
+		timedWait.Wait( (uInt32)(.5 * kMilliSecsPerSec) );
+
+		// Wait for 2 minutes
+		if ( ::time( nil ) > waitTime )
+		{
+			// We have waited as long as we are going to at this time
+			break;
+		} 
+	}
+
+	// Now let it go
+	fWaitForDHCPLDAPv3InitFlag.Signal();
+
+} // WaitForDHCPLDAPv3Init
 

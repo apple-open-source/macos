@@ -1,37 +1,34 @@
-; Copyright (c) 1999 Apple Computer, Inc. All rights reserved.
+; Copyright (c) 1999-2002 Apple Computer, Inc. All rights reserved.
 ;
 ; @APPLE_LICENSE_HEADER_START@
 ; 
-; Portions Copyright (c) 1999 Apple Computer, Inc.  All Rights
-; Reserved.  This file contains Original Code and/or Modifications of
-; Original Code as defined in and that are subject to the Apple Public
-; Source License Version 1.1 (the "License").  You may not use this file
-; except in compliance with the License.  Please obtain a copy of the
-; License at http://www.apple.com/publicsource and read it before using
-; this file.
+; Copyright (c) 1999-2003 Apple Computer, Inc.  All Rights Reserved.
+; 
+; This file contains Original Code and/or Modifications of Original Code
+; as defined in and that are subject to the Apple Public Source License
+; Version 2.0 (the 'License'). You may not use this file except in
+; compliance with the License. Please obtain a copy of the License at
+; http://www.opensource.apple.com/apsl/ and read it before using this
+; file.
 ; 
 ; The Original Code and all software distributed under the License are
-; distributed on an "AS IS" basis, WITHOUT WARRANTY OF ANY KIND, EITHER
+; distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
 ; EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
 ; INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY,
-; FITNESS FOR A PARTICULAR PURPOSE OR NON- INFRINGEMENT.  Please see the
-; License for the specific language governing rights and limitations
-; under the License.
+; FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
+; Please see the License for the specific language governing rights and
+; limitations under the License.
 ; 
 ; @APPLE_LICENSE_HEADER_END@
 ;
 ; Boot Loader: boot0
 ;
 ; A small boot sector program written in x86 assembly whose only
-; responsibility is to locate the booter partition, load the
-; booter into memory, and jump to the booter's entry point.
-; The booter partition can be a primary or a logical partition.
+; responsibility is to locate the active partition, load the
+; partition booter into memory, and jump to the booter's entry point.
+; It leaves the boot drive in DL and a pointer to the partition entry in SI.
 ; 
-; This boot loader can be placed at any of the following places:
-; 1. Master Boot Record (MBR)
-; 2. Boot sector of an extended partition
-; 3. Boot sector of a primary partition
-; 4. Boot sector of a logical partition
+; This boot loader must be placed in the Master Boot Record.
 ;
 ; In order to coexist with a fdisk partition table (64 bytes), and
 ; leave room for a two byte signature (0xAA55) in the end, boot0 is
@@ -50,7 +47,7 @@
 DEBUG                EQU  0
 
 ;
-; Set to 1 to support loading the booter (boot2) from a
+; Set to 1 to support loading the partition booter (boot1) from a
 ; logical partition.
 ;
 EXT_PART_SUPPORT     EQU  1
@@ -70,10 +67,6 @@ kPartTableOffset     EQU  0x1be
 kMBRPartTable        EQU  kMBRBuffer + kPartTableOffset
 kExtPartTable        EQU  kExtBuffer + kPartTableOffset
 
-kBoot2Sectors        EQU  112           ; sectors to load for boot2
-kBoot2Address        EQU  0x0000        ; boot2 load address
-kBoot2Segment        EQU  0x2000        ; boot2 load segment
-
 kSectorBytes         EQU  512           ; sector size in bytes
 kBootSignature       EQU  0xAA55        ; boot sector signature
 
@@ -83,17 +76,13 @@ kPartTypeExtDOS      EQU  0x05          ; DOS extended partition type
 kPartTypeExtWin      EQU  0x0f          ; Windows extended partition type
 kPartTypeExtLinux    EQU  0x85          ; Linux extended partition type
 
+kPartActive	     EQU  0x80
+
 %ifdef FLOPPY
 kDriveNumber         EQU  0x00
 %else
 kDriveNumber         EQU  0x80
 %endif
-
-;
-; In memory variables.
-;
-ebios_lba       dd   0   ; starting LBA of the intial extended partition.
-read_func       dw   0   ; pointer to the LBA or CHS read function
 
 ;
 ; Format of fdisk partition entry.
@@ -186,23 +175,8 @@ start_reloc:
     ; Clear various flags in memory.
     ;
     xor     eax, eax
-    mov     [ebios_lba], eax            ; clear EBIOS LBA offset
-    mov     WORD [read_func], read_chs  ; assume CHS support
-
-    ;
-    ; Since this code may not always reside in the MBR, always start by
-    ; loading the MBR to kMBRBuffer.
-    ;
-    mov     al, 1                   ; load one sector
-    xor     bx, bx
-    mov     es, bx                  ; MBR load segment = 0
-    mov     bx, kMBRBuffer          ; MBR load address
-    mov     si, bx                  ; pointer to fake partition entry
-    mov     WORD [si], 0x0000       ; CHS DX: head = 0
-    mov     WORD [si + 2], 0x0001   ; CHS CX: cylinder = 0, sector = 1
-
-    call    load
-    jc      .next_drive             ; MBR load error
+    mov     [ebios_lba], eax        ; clear EBIOS LBA offset
+    mov     [ebios_present], al     ; clear EBIOS support flag
 
     ;
     ; Check if EBIOS is supported for this hard drive.
@@ -225,9 +199,24 @@ start_reloc:
     cmp     bx, 0xAA55              ; check BX = 0xAA55
     jnz     .ebios_check_done
     test    cl, 0x01                ; check enhanced drive read support
-    mov     WORD [read_func], read_lba  ; use read_lba for reads
+    setnz   [ebios_present]         ; EBIOS supported, set flag
     DebugChar('E')                  ; EBIOS supported
 .ebios_check_done:
+
+    ;
+    ; Since this code may not always reside in the MBR, always start by
+    ; loading the MBR to kMBRBuffer.
+    ;
+    mov     al, 1                   ; load one sector
+    xor     bx, bx
+    mov     es, bx                  ; MBR load segment = 0
+    mov     bx, kMBRBuffer          ; MBR load address
+    mov     si, bx                  ; pointer to fake partition entry
+    mov     WORD [si], 0x0000       ; CHS DX: head = 0
+    mov     WORD [si + 2], 0x0001   ; CHS CX: cylinder = 0, sector = 1
+
+    call    load
+    jc      .next_drive             ; MBR load error
 
     ;
     ; Look for the booter partition in the MBR partition table,
@@ -249,7 +238,7 @@ hang:
     jmp     SHORT hang
 
 ;--------------------------------------------------------------------------
-; Find the boot partition and load the booter from the partition.
+; Find the active (boot) partition and load the booter from the partition.
 ;
 ; Arguments:
 ;   AH = recursion nesting level
@@ -275,7 +264,7 @@ find_boot:
 
 .loop:
     ;
-    ; First scan through the partition table looking for the boot
+    ; First scan through the partition table looking for the active
     ; partition. Postpone walking the extended partition chain for
     ; the second pass. Do not merge the two without changing the
     ; buffering scheme used to store extended partition tables.
@@ -287,26 +276,33 @@ find_boot:
     call    print_hex
 %endif
 
-    cmp     BYTE [si + part.type], kPartTypeBoot
+    cmp     BYTE [si + part.bootid], kPartActive
     jne     .continue
 
+    DebugChar('*')
+
     ;
-    ; Found boot partition, read boot2 image to memory.
+    ; Found boot partition, read boot sector to memory.
     ;
-    mov     al, kBoot2Sectors
-    mov     bx, kBoot2Segment
+    mov     al, 1
+    mov     bx, kBoot0Segment
     mov     es, bx
-    mov     bx, kBoot2Address
+    mov     bx, kBoot0LoadAddr
     call    load                    ; will not return on success
     jc      .continue               ; load error, keep looking?
 
+    ; 
+    ; Fix up absolute block location in partition record.
     ;
-    ; Jump to boot2. The drive number is already in register DL.
+    mov     eax, [si + part.lba]
+    add     eax, [ebios_lba]
+    mov     [si + part.lba], eax
+	
     ;
-    ; The first sector loaded from the disk is reserved for the boot
-    ; block (boot0), adjust the jump location by adding a sector offset.
+    ; Jump to partition booter. The drive number is already in register DL.
+    ; SI is pointing to the modified partition entry.
     ;
-    jmp     kBoot2Segment:kBoot2Address + kSectorBytes
+    jmp     kBoot0Segment:kBoot0LoadAddr
 
 .continue:
     add     si, part_size           ; advance SI to next partition entry
@@ -409,14 +405,24 @@ find_boot:
 ;
 load:
     push    cx
-    mov     cx, 5                   ; number of times to retry
+    test    BYTE [ebios_present], 1
+    jz      .chs
 
-.loop:
-    call    [read_func]             ; call either read_chs or read_lba
-    jnc     .exit                   ; load success
-    loop    .loop                   ; retry on error
+.ebios:
+    mov     cx, 5                   ; load retry count
+.ebios_loop:
+    call    read_lba                ; use INT13/F42
+    jnc     .exit
+    loop    .ebios_loop
 
-.exit:
+.chs:
+    mov     cx, 5                   ; load retry count
+.chs_loop:
+    call    read_chs                ; use INT13/F2
+    jnc     .exit
+    loop    .chs_loop
+
+.exit
     pop     cx
     ret
 
@@ -466,7 +472,7 @@ read_chs:
     int     0x13                    ; INT 13
     jnc     .exit
 
-    DebugChar('e')                  ; indicate INT13/F2 error
+    DebugChar('r')                  ; indicate INT13/F2 error
 
     ;
     ; Issue a disk reset on error.
@@ -543,7 +549,7 @@ read_lba:
 
     jnc     .exit
 
-    DebugChar('E')                  ; indicate INT13/F42 error
+    DebugChar('R')                  ; indicate INT13/F42 error
 
     ;
     ; Issue a disk reset on error.
@@ -581,8 +587,9 @@ print_string
 .exit
     ret
 
-%if DEBUG
 
+%if DEBUG
+	
 ;--------------------------------------------------------------------------
 ; Write a ASCII character to the console.
 ;
@@ -645,12 +652,19 @@ print_nibble:
     call    print_char
     ret
 
+getc:
+    pusha
+    mov    ah, 0
+    int    0x16
+    popa
+    ret
+	
 %endif ; DEBUG
 
 ;--------------------------------------------------------------------------
 ; NULL terminated strings.
 ;
-boot_error_str   db  10, 13, 'Boot Error', 0
+boot_error_str   db  10, 13, 'Error', 0
 
 ;--------------------------------------------------------------------------
 ; Pad the rest of the 512 byte sized booter with zeroes. The last
@@ -658,6 +672,12 @@ boot_error_str   db  10, 13, 'Boot Error', 0
 ;
 ; If the booter code becomes too large, then nasm will complain
 ; that the 'times' argument is negative.
+
+;
+; In memory variables.
+;
+ebios_lba       dd   0   ; starting LBA of the intial extended partition.
+ebios_present   db   0   ; 1 if EBIOS is supported, 0 otherwise.
 
 pad_boot
     times 446-($-$$) db 0

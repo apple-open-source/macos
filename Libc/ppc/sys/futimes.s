@@ -25,5 +25,4 @@
 #include "SYS.h"
 
 SYSCALL(futimes, 2)
-	blr
 

@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<!-- ===================================================================== -->
+<!--                                                                       -->
+<!--  JBoss Server Configuration                                           -->
+<!--                                                                       -->
+<!-- ===================================================================== -->
+
+<!-- $Id: hsqldb-singleconnection-ds.xml,v 1.1.2.1 2003/03/31 06:05:50 d_jencks Exp $ -->
+
+
+<datasources>
+
+  <local-tx-datasource>
+    <depends>jboss:service=Hypersonic</depends>
+    <jndi-name>SingleConnectionDS</jndi-name>
+    <connection-url>jdbc:hsqldb:hsql://localhost:1701</connection-url>
+    <driver-class>org.hsqldb.jdbcDriver</driver-class>
+    <user-name>sa</user-name>
+    <password></password>
+    <max-pool-size>1</max-pool-size>
+  </local-tx-datasource>
+
+</datasources>

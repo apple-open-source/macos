@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="ISO-8859-1"?>
+
+<application>
+	<display-name>naming ear test</display-name>
+
+	<module>
+		<ejb>subdir/naminga.jar</ejb>
+	</module>
+
+	<module>
+		<ejb>namingb.jar</ejb>
+	</module>
+
+</application>
+

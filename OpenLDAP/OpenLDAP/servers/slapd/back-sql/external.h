@@ -1,4 +1,4 @@
-/* $OpenLDAP: pkg/ldap/servers/slapd/back-sql/external.h,v 1.6 2001/12/26 07:47:05 hyc Exp $ */
+/* $OpenLDAP: pkg/ldap/servers/slapd/back-sql/external.h,v 1.6.2.1 2002/08/29 01:51:02 kurt Exp $ */
 #ifndef _SQL_EXTERNAL_H
 #define _SQL_EXTERNAL_H
 
@@ -33,6 +33,8 @@ extern BI_op_modrdn	backsql_modrdn;
 extern BI_op_add	backsql_add;
 extern BI_op_delete	backsql_delete;
 extern BI_op_abandon	backsql_abandon;
+
+extern BI_operational	backsql_operational;
 
 extern BI_connection_destroy	backsql_connection_destroy;
 

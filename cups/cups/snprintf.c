@@ -1,9 +1,9 @@
 /*
- * "$Id: snprintf.c,v 1.1.1.4 2002/06/06 22:12:38 jlovell Exp $"
+ * "$Id: snprintf.c,v 1.1.1.8 2002/12/24 00:05:14 jlovell Exp $"
  *
  *   snprintf functions for the Common UNIX Printing System (CUPS).
  *
- *   Copyright 1997-2002 by Easy Software Products.
+ *   Copyright 1997-2003 by Easy Software Products.
  *
  *   These coded instructions, statements, and computer programs are the
  *   property of Easy Software Products and are protected by Federal
@@ -59,7 +59,6 @@ cups_vsnprintf(char       *buffer,	/* O - Output buffer */
 		prec;			/* Number of characters of precision */
   char		tformat[100],		/* Temporary format string for sprintf() */
 		temp[1024];		/* Buffer for formatted numbers */
-  int		*chars;			/* Pointer to integer for %p */
   char		*s;			/* Pointer to string */
   int		slen;			/* Length of string */
 
@@ -176,8 +175,26 @@ cups_vsnprintf(char       *buffer,	/* O - Output buffer */
 	    break;
 	    
 	case 'p' : /* Pointer value */
-	    if ((chars = va_arg(ap, int *)) != NULL)
-	      *chars = bufptr - buffer;
+	    if ((format - bufformat + 1) > sizeof(tformat) ||
+	        (width + 2) > sizeof(temp))
+	      break;
+
+	    strncpy(tformat, bufformat, format - bufformat);
+	    tformat[format - bufformat] = '\0';
+
+	    sprintf(temp, tformat, va_arg(ap, void *));
+
+	    if ((bufptr + strlen(temp)) > bufend)
+	    {
+	      strncpy(bufptr, temp, bufend - bufptr);
+	      bufptr = bufend;
+	      break;
+	    }
+	    else
+	    {
+	      strcpy(bufptr, temp);
+	      bufptr += strlen(temp);
+	    }
 	    break;
 
         case 'c' : /* Character or character array */
@@ -284,6 +301,6 @@ cups_snprintf(char       *buffer,	/* O - Output buffer */
 
 
 /*
- * End of "$Id: snprintf.c,v 1.1.1.4 2002/06/06 22:12:38 jlovell Exp $".
+ * End of "$Id: snprintf.c,v 1.1.1.8 2002/12/24 00:05:14 jlovell Exp $".
  */
 

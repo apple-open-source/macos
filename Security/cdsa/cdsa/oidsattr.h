@@ -117,4 +117,32 @@ extern const CSSM_OID
 	CSSMOID_QT_CPS,
 	CSSMOID_QT_UNOTICE;
 
+/* PKCS7 */
+extern const CSSM_OID
+	CSSMOID_PKCS7_Data,
+	CSSMOID_PKCS7_SignedData,
+	CSSMOID_PKCS7_EnvelopedData,
+	CSSMOID_PKCS7_SignedAndEnvelopedData,
+	CSSMOID_PKCS7_DigestedData,
+	CSSMOID_PKCS7_EncryptedData,
+	CSSMOID_PKCS7_DataWithAttributes,
+	CSSMOID_PKCS7_EncryptedPrivateKeyInfo,
+
+/* PKCS8 */
+	CSSMOID_PKCS9_FriendlyName,
+	CSSMOID_PKCS9_LocalKeyId,
+	CSSMOID_PKCS9_CertTypes,
+	CSSMOID_PKCS9_CrlTypes,
+	CSSMOID_PKCS9_X509Certificate,
+	CSSMOID_PKCS9_SdsiCertificate,
+	CSSMOID_PKCS9_X509Crl,
+	
+/* PKCS12 */
+	CSSMOID_PKCS12_keyBag,
+	CSSMOID_PKCS12_shroudedKeyBag,
+	CSSMOID_PKCS12_certBag,
+	CSSMOID_PKCS12_crlBag,
+	CSSMOID_PKCS12_secretBag,
+	CSSMOID_PKCS12_safeContentsBag;
+
 #endif	/* _CDSA_OIDSATTR_H_*/

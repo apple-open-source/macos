@@ -37,9 +37,9 @@
 #include <IOKit/IOSyncer.h>
 
 // SCSI Architecture Model Family includes
-#include <IOKit/scsi-commands/IOSCSIPrimaryCommandsDevice.h>
-#include <IOKit/scsi-commands/SCSICmds_INQUIRY_Definitions.h>
-#include <IOKit/scsi-commands/IOSCSIPeripheralDeviceNub.h>
+#include <IOKit/scsi/IOSCSIPrimaryCommandsDevice.h>
+#include <IOKit/scsi/SCSICmds_INQUIRY_Definitions.h>
+#include <IOKit/scsi/IOSCSIPeripheralDeviceNub.h>
 
 
 #if defined(KERNEL) && defined(__cplusplus)

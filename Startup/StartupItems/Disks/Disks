@@ -13,7 +13,11 @@ StartService ()
     ConsoleMessage "Checking disks"
     /sbin/autodiskmount -va
 
-    if [ "${Uninitialized_VSDB:=-NO-}" = "-YES-" ]; then vsdbutil -i; fi
+    if [ "${Uninitialized_VSDB:=-NO-}" = "-YES-" ]; then
+        if [ -x /usr/sbin/vsdbutil ]; then
+            /usr/sbin/vsdbutil -i
+        fi
+    fi
 }
 
 StopService ()

@@ -69,7 +69,7 @@ const struct name_value access_code_names[] =
 /* This is called by the flags processor */
 static void cps_service_restart(void)
 {
-   int i;
+   unsigned int i;
    time_t nowtime;
    const char *func = "cps_service_restart";
 
@@ -240,8 +240,8 @@ access_e access_control( struct service *sp,
       fromhost(&req);
       if (!hosts_access(&req)) {
          msg(deny_severity, func, 
-            "libwrap refused connection to %s from %s", 
-            SC_ID(scp), conn_addrstr(cp));
+            "libwrap refused connection to %s (libwrap=%s) from %s",
+            SC_ID(scp), server, conn_addrstr(cp));
          return(AC_LIBWRAP);
       }
 #endif
@@ -255,7 +255,7 @@ access_e access_control( struct service *sp,
 access_e parent_access_control( struct service *sp, const connection_s *cp )
 {
    struct service_config *scp = SVC_CONF( sp ) ;
-   int u, n;
+   int n;
    time_t nowtime;
 
    /* make sure it's not one of the special pseudo services */
@@ -308,6 +308,7 @@ access_e parent_access_control( struct service *sp, const connection_s *cp )
 
    if( scp->sc_per_source != UNLIMITED ) {
       if ( CONN_XADDRESS(cp) != NULL ) {
+         unsigned int u ; 
          n = 0 ;
          for ( u = 0 ; u < pset_count( SERVERS( ps ) ) ; u++ ) {
             struct server *serp = NULL;

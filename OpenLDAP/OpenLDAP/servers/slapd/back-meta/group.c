@@ -1,5 +1,5 @@
 /*
- * Copyright 1998-2002 The OpenLDAP Foundation, All Rights Reserved.
+ * Copyright 1998-2003 The OpenLDAP Foundation, All Rights Reserved.
  * COPYING RESTRICTIONS APPLY, see COPYRIGHT file
  *
  * Copyright 2001, Pierangelo Masarati, All rights reserved. <ando@sys-net.it>
@@ -74,7 +74,7 @@
 #include "slap.h"
 #include "../back-ldap/back-ldap.h"
 #include "back-meta.h"
-
+#include "lutil.h"
 
 /* return 0 IFF op_dn is a value in group_at (member) attribute
  * of entry with gr_dn AND that entry has an objectClass
@@ -144,8 +144,9 @@ meta_back_group(
 			 */
 			attr = attr_find( target->e_attrs, group_at );
 			if ( attr != NULL ) {
-				rc = value_find( group_at, attr->a_vals, 
-						op_ndn );
+				rc = value_find_ex( group_at,
+					SLAP_MR_VALUE_SYNTAX_CONVERTED_MATCH,
+					attr->a_vals, op_ndn );
 				if ( rc != LDAP_SUCCESS ) {
 					return 1;
 				}
@@ -171,10 +172,9 @@ meta_back_group(
 			mop_ndn = *op_ndn;
 		}
 #ifdef NEW_LOGGING
-		LDAP_LOG(( "backend", LDAP_LEVEL_DETAIL1,
-				"[rw] bindDn (op ndn in group):"
-				 \"%s\" -> \"%s\"\n",
-				 op_ndn->bv_val, mop_ndn.bv_val));
+		LDAP_LOG( BACK_META, DETAIL1,
+			"[rw] bindDn (op ndn in group): \"%s\" -> \"%s\"\n",
+			op_ndn->bv_val, mop_ndn.bv_val, 0 );
 #else /* !NEW_LOGGING */
 		Debug( LDAP_DEBUG_ARGS,
 				"rw> bindDn (op ndn in group):"
@@ -203,10 +203,9 @@ meta_back_group(
 			mgr_ndn = *gr_ndn;
 		}
 #ifdef NEW_LOGGING
-		LDAP_LOG(( "backend", LDAP_LEVEL_DETAIL1,
-				"[rw] searchBase (gr ndn in group):"
-				" \"%s\" -> \"%s\"\n",
-				gr_ndn->bv_val, mgr_ndn.bv_val ));
+		LDAP_LOG( BACK_META, DETAIL1,
+			"[rw] searchBase (gr ndn in group): \"%s\" -> \"%s\"\n",
+			gr_ndn->bv_val, mgr_ndn.bv_val, 0 );
 #else /* !NEW_LOGGING */
 		Debug( LDAP_DEBUG_ARGS,
 				"rw> searchBase (gr ndn in group):"
@@ -223,13 +222,13 @@ meta_back_group(
 	}
 	
 	ldap_back_map( &li->targets[ candidate ]->oc_map,
-			&group_oc_name, &group_oc_name, 0 );
-	if ( group_oc_name.bv_val == NULL ) {
+			&group_oc_name, &group_oc_name, BACKLDAP_MAP );
+	if ( group_oc_name.bv_val == NULL || group_oc_name.bv_val[0] == '\0' ) {
 		goto cleanup;
 	}
 	ldap_back_map( &li->targets[ candidate ]->at_map,
-			&group_at_name, &group_at_name, 0 );
-	if ( group_at_name.bv_val == NULL ) {
+			&group_at_name, &group_at_name, BACKLDAP_MAP );
+	if ( group_at_name.bv_val == NULL || group_at_name.bv_val[0] == '\0' ) {
 		goto cleanup;
 	}
 
@@ -253,12 +252,12 @@ meta_back_group(
 		goto cleanup;
 	}
 
-	ptr = slap_strcopy( filter, "(&(objectclass=" );
-	ptr = slap_strcopy( ptr , group_oc_name.bv_val );
-	ptr = slap_strcopy( ptr , ")(" );
-	ptr = slap_strcopy( ptr , group_at_name.bv_val );
-	ptr = slap_strcopy( ptr , "=" );
-	ptr = slap_strcopy( ptr , mop_ndn.bv_val );
+	ptr = lutil_strcopy( filter, "(&(objectclass=" );
+	ptr = lutil_strcopy( ptr , group_oc_name.bv_val );
+	ptr = lutil_strcopy( ptr , ")(" );
+	ptr = lutil_strcopy( ptr , group_at_name.bv_val );
+	ptr = lutil_strcopy( ptr , "=" );
+	ptr = lutil_strcopy( ptr , mop_ndn.bv_val );
 	strcpy( ptr , "))" );
 
 	gattr[ 0 ] = "objectclass";

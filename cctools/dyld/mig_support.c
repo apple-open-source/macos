@@ -3,8 +3,6 @@
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
- * Copyright (c) 1999-2003 Apple Computer, Inc.  All Rights Reserved.
- * 
  * This file contains Original Code and/or Modifications of Original Code
  * as defined in and that are subject to the Apple Public Source License
  * Version 2.0 (the 'License'). You may not use this file except in
@@ -59,9 +57,9 @@
 
 private struct mutex reply_port_lock = MUTEX_INITIALIZER;
 #if	NeXT
-#else	NeXT
+#else	/* NeXT */
 private int multithreaded = 0;
-#endif	NeXT
+#endif	/* NeXT */
 
 #if NeXT
 /*
@@ -98,9 +96,9 @@ mig_init(
 int init_done)
 {
 #if	NeXT
-#else	NeXT
+#else	/* NeXT */
 	multithreaded = init_done;
-#endif	NeXT
+#endif	/* NeXT */
 }
 
 /*
@@ -121,25 +119,25 @@ mig_get_reply_port()
 	mach_port_t port;
 #ifdef	CTHREADS_DEBUG
 	int d = cthread_debug;
-#endif	CTHREADS_DEBUG
+#endif	/* CTHREADS_DEBUG */
 
 #if	NeXT
-#else	NeXT
+#else	/* NeXT */
 	if (! multithreaded)
 		return thread_reply();
-#endif	NeXT
+#endif	/* NeXT */
 #ifdef	CTHREADS_DEBUG
 	cthread_debug = FALSE;
-#endif	CTHREADS_DEBUG
+#endif	/* CTHREADS_DEBUG */
 	self = cproc_self();
 #if	NeXT
 	if (self == NO_CPROC) {
 #ifdef	CTHREADS_DEBUG
 		cthread_debug = d;
-#endif	CTHREADS_DEBUG
+#endif	/* CTHREADS_DEBUG */
 		return(thread_reply());
 	}
-#endif	NeXT
+#endif	/* NeXT */
 	if (self->reply_port == MACH_PORT_NULL) {
 #ifndef DYLD
 		mutex_lock(&reply_port_lock);
@@ -155,7 +153,7 @@ mig_get_reply_port()
 	}
 #ifdef	CTHREADS_DEBUG
 	cthread_debug = d;
-#endif	CTHREADS_DEBUG
+#endif	/* CTHREADS_DEBUG */
 	return self->reply_port;
 }
 
@@ -174,25 +172,25 @@ mig_dealloc_reply_port()
 	register mach_port_t port;
 #ifdef	CTHREADS_DEBUG
 	int d = cthread_debug;
-#endif	CTHREADS_DEBUG
+#endif	/* CTHREADS_DEBUG */
 
 #if	NeXT
-#else	NeXT
+#else	/* NeXT */
 	if (! multithreaded)
 		return;
-#endif	NeXT
+#endif	/* NeXT */
 #ifdef	CTHREADS_DEBUG
 	cthread_debug = FALSE;
-#endif	CTHREADS_DEBUG
+#endif	/* CTHREADS_DEBUG */
 	self = cproc_self();
 #if	NeXT
 	if (self == NO_CPROC) {
 #ifdef	CTHREADS_DEBUG
 		cthread_debug = d;
-#endif	CTHREADS_DEBUG
+#endif	/* CTHREADS_DEBUG */
 		return;
 	}
-#endif	NeXT
+#endif	/* NeXT */
 	ASSERT(self != NO_CPROC);
 	port = self->reply_port;
 	if (port != MACH_PORT_NULL && port != thread_reply()) {
@@ -211,6 +209,6 @@ mig_dealloc_reply_port()
 	}
 #ifdef	CTHREADS_DEBUG
 	cthread_debug = d;
-#endif	CTHREADS_DEBUG
+#endif	/* CTHREADS_DEBUG */
 }
 #endif /* __MACH30__ */

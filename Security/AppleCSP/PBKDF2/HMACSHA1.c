@@ -23,80 +23,14 @@
  	Written by:	Michael Brouwer <mb@apple.com>
 */
 #include "HMACSHA1.h"
+#include "pbkdDigest.h"
 #include <MiscCSPAlgs/SHA1.h>
 #include <MiscCSPAlgs/MD5.h>
 #include <string.h>
 #include <stdlib.h>		// for malloc - maybe we should use CssmAllocator?
 #include <Security/cssmerr.h>
 
-#pragma mark --- Common digest class ---
 
-typedef	struct {
-	union {
-		sha1Obj 			sha1Context;	// must be allocd via sha1Alloc
-		struct MD5Context	md5Context;
-	} dig;
-	CSSM_BOOL isSha1;
-} DigestCtx;
-
-/* Ops on a DigestCtx */
-static CSSM_RETURN DigestCtxInit(
-	DigestCtx 	*ctx,
-	CSSM_BOOL	isSha1)
-{
-	if(isSha1) {
-		if(ctx->dig.sha1Context == NULL) {
-			ctx->dig.sha1Context = sha1Alloc();
-			if(ctx->dig.sha1Context == NULL) {
-				return CSSMERR_CSP_MEMORY_ERROR;
-			}
-		}
-		else {
-			sha1Reinit(ctx->dig.sha1Context);
-		}
-	}
-	else {
-		MD5Init(&ctx->dig.md5Context);
-	}
-	ctx->isSha1 = isSha1;
-	return CSSM_OK;
-}
-
-static void DigestCtxFree(
-	DigestCtx 	*ctx)
-{
-	if(ctx->isSha1) {
-		sha1Free(ctx->dig.sha1Context);
-	}
-	memset(ctx, 0, sizeof(DigestCtx));
-}
-
-static void DigestCtxUpdate(
-	DigestCtx 	*ctx,
-	const void *textPtr,
-	UInt32 textLen)
-{
-	if(ctx->isSha1) {
-		sha1AddData(ctx->dig.sha1Context, (unsigned char *)textPtr, textLen);
-	}
-	else {
-		MD5Update(&ctx->dig.md5Context, (unsigned char *)textPtr, textLen);
-	}
-}
-
-static void DigestCtxFinal(
-	DigestCtx 	*ctx,
-	void 		*digest)
-{
-	if(ctx->isSha1) {
-		sha1GetDigest(ctx->dig.sha1Context, (unsigned char *)digest);
-	}
-	else {
-		MD5Final(&ctx->dig.md5Context, (unsigned char *)digest);
-	}
-}
-
-#pragma mark --- HMAC class ---
 
 struct hmacContext {
 	DigestCtx	digest;

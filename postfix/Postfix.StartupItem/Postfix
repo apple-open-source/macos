@@ -1,0 +1,32 @@
+#!/bin/sh
+
+. /etc/rc.common
+
+StartService ()
+{
+    if [ "${MAILSERVER:=-NO-}" = "-YES-" ]; then
+            ConsoleMessage "Starting mail services"
+	    /usr/sbin/postfix start
+    elif [ "${MAILSERVER:=-NO-}" = "-AUTOMATIC-" ]; then
+	    /usr/sbin/postfix-watch
+    fi
+}
+
+StopService ()
+{
+	ConsoleMessage "Stopping Postfix mail services"
+	/usr/sbin/postfix stop
+	killall -1 postfix-watch 2> /dev/null
+}
+
+RestartService ()
+{
+    if [ "${MAILSERVER:=-NO-}" = "-YES-" ]; then
+	ConsoleMessage "Reloading Postfix configuration"
+	/usr/sbin/postfix reload
+    else
+	StopService
+    fi
+}
+
+RunService "$1"

@@ -1,27 +1,11 @@
 /*
- * Copyright (c) 1984,1985,1989,1994,1995,1996,1999  Mark Nudelman
- * All rights reserved.
+ * Copyright (C) 1984-2002  Mark Nudelman
  *
- * Redistribution and use in source and binary forms, with or without
- * modification, are permitted provided that the following conditions
- * are met:
- * 1. Redistributions of source code must retain the above copyright
- *    notice, this list of conditions and the following disclaimer.
- * 2. Redistributions in binary form must reproduce the above copyright
- *    notice in the documentation and/or other materials provided with 
- *    the distribution.
+ * You may distribute under the terms of either the GNU General Public
+ * License or the Less License, as specified in the README file.
  *
- * THIS SOFTWARE IS PROVIDED BY THE AUTHOR ``AS IS'' AND ANY
- * EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
- * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR 
- * PURPOSE ARE DISCLAIMED.  IN NO EVENT SHALL THE AUTHOR BE LIABLE
- * FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR 
- * CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT 
- * OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR 
- * BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, 
- * WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE 
- * OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN 
- * IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+ * For more information about less, or for information on how to 
+ * contact the author, see the README file.
  */
 
 
@@ -30,6 +14,9 @@
  */
 
 #include "less.h"
+#if MSDOS_COMPILER==WIN32C
+#include <windows.h>
+#endif
 
 public char *	every_first_cmd = NULL;
 public int	new_file;
@@ -45,6 +32,7 @@ public char *	progname;
 public int	quitting;
 public int	secure;
 public int	dohelp;
+public int	more_mode = 0;
 
 #if LOGFILE
 public int	logfile = -1;
@@ -58,8 +46,13 @@ public char *	editproto;
 #endif
 
 #if TAGS
+extern char *	tags;
 extern char *	tagoption;
 extern int	jump_sline;
+#endif
+
+#ifdef WIN32
+static char consoleTitle[256];
 #endif
 
 extern int	missing_cap;
@@ -76,6 +69,7 @@ main(argc, argv)
 {
 	IFILE ifile;
 	char *s;
+	int len;
 
 #ifdef __EMX__
 	_response(&argc, &argv);
@@ -109,7 +103,12 @@ main(argc, argv)
 			putenv(env);
 		}
 	}
+	GetConsoleTitle(consoleTitle, sizeof(consoleTitle)/sizeof(char));
 #endif /* WIN32 */
+
+	len = strlen(progname);
+	if (len >= 4 && strcmp(&progname[len - 4], "more") == 0)
+		more_mode = 1;
 
 	/*
 	 * Process command line arguments and LESS environment arguments.
@@ -120,8 +119,20 @@ main(argc, argv)
 	init_cmds();
 	init_prompt();
 	init_charset();
+	init_line();
 	init_option();
-	scan_option(lgetenv("LESS"));
+	s = lgetenv("LESS");
+	if (more_mode) {
+		scan_option("-E");
+		scan_option("-m");
+		scan_option("-G");
+		scan_option("-f");
+		s = lgetenv("MORE");
+	} else {
+		s = lgetenv("LESS");
+	}
+	if (s != NULL)
+		scan_option(save(s));
 
 #define	isoptstring(s)	(((s)[0] == '-' || (s)[0] == '+') && (s)[1] != '\0')
 	while (argc > 0 && (isoptstring(*argv) || isoptpending()))
@@ -166,7 +177,8 @@ main(argc, argv)
 		ifile = get_ifile(FAKE_HELPFILE, ifile);
 	while (argc-- > 0)
 	{
-#if (MSDOS_COMPILER && MSDOS_COMPILER != DJGPPC) || OS2
+		char *filename;
+#if (MSDOS_COMPILER && MSDOS_COMPILER != DJGPPC)
 		/*
 		 * Because the "shell" doesn't expand filename patterns,
 		 * treat each argument as a filename pattern rather than
@@ -175,16 +187,23 @@ main(argc, argv)
 		 */
 		struct textlist tlist;
 		char *gfilename;
-		char *filename;
 		
 		gfilename = lglob(*argv++);
 		init_textlist(&tlist, gfilename);
 		filename = NULL;
 		while ((filename = forw_textlist(&tlist, filename)) != NULL)
-			ifile = get_ifile(filename, ifile);
+		{
+			(void) get_ifile(filename, ifile);
+			ifile = prev_ifile(NULL_IFILE);
+		}
 		free(gfilename);
 #else
-		ifile = get_ifile(*argv++, ifile);
+		filename = shell_quote(*argv);
+		if (filename == NULL)
+			filename = *argv;
+		argv++;
+		(void) get_ifile(filename, ifile);
+		ifile = prev_ifile(NULL_IFILE);
 #endif
 	}
 	/*
@@ -210,19 +229,18 @@ main(argc, argv)
 		quit(QUIT_OK);
 	}
 
-	if (missing_cap && !know_dumb)
+	if (missing_cap && !know_dumb && !more_mode)
 		error("WARNING: terminal is not fully functional", NULL_PARG);
 	init_mark();
-	raw_mode(1);
 	open_getchr();
+	raw_mode(1);
 	init_signals(1);
-
 
 	/*
 	 * Select the first file to examine.
 	 */
 #if TAGS
-	if (tagoption != NULL)
+	if (tagoption != NULL || strcmp(tags, "-") == 0)
 	{
 		/*
 		 * A -t option was given.
@@ -262,6 +280,7 @@ main(argc, argv)
 	commands();
 	quit(QUIT_OK);
 	/*NOTREACHED*/
+	return (0);
 }
 
 /*
@@ -296,6 +315,7 @@ ecalloc(count, size)
 	error("Cannot allocate memory", NULL_PARG);
 	quit(QUIT_ERROR);
 	/*NOTREACHED*/
+	return (NULL);
 }
 
 /*
@@ -377,6 +397,9 @@ quit(status)
 	 * The same bug shows up if we use ^C^C to abort.
 	 */
 	close(2);
+#endif
+#if WIN32
+	SetConsoleTitle(consoleTitle);
 #endif
 	close_getchr();
 	exit(status);

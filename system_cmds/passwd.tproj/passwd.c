@@ -25,6 +25,7 @@
 #define INFO_NETINFO 0
 #define INFO_FILE 1
 #define INFO_NIS 2
+#define INFO_DIRECTORYSERVICES 3
 
 #ifndef __SLICK__
 #define _PASSWD_FILE "/etc/master.passwd"
@@ -50,6 +51,7 @@ static char *saltchars = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ01
 extern int file_passwd(char *, char *);
 extern int netinfo_passwd(char *, char *);
 extern int nis_passwd(char *, char *);
+extern int ds_passwd(char *, char *);
 
 void
 getpasswd(char *name, int isroot, int minlen, int mixcase, int nonalpha,
@@ -78,8 +80,9 @@ getpasswd(char *name, int isroot, int minlen, int mixcase, int nonalpha,
 			exit(1);
 		}
 	}
-	strcpy(obuf, p);
-
+	//strcpy(obuf, p);
+	snprintf( obuf, sizeof(obuf), "%s", p );
+	
 	tries = 0;
 	nbuf[0] = '\0';
 	for (;;)
@@ -132,7 +135,9 @@ getpasswd(char *name, int isroot, int minlen, int mixcase, int nonalpha,
 			continue;
 		}
 
-		strcpy(nbuf, p);
+		//strcpy(nbuf, p);
+		snprintf( nbuf, sizeof(nbuf), "%s", p );
+		
 		if (!strcmp(nbuf, getpass("Retype new password:"))) break;
 
 		printf("Mismatch; try again, EOF to quit.\n");
@@ -160,10 +165,12 @@ usage()
 	fprintf(stderr, "    netinfo\n");
 	fprintf(stderr, "    file\n");
 	fprintf(stderr, "    nis\n");
+	fprintf(stderr, "    opendirectory\n");
 	fprintf(stderr, "for netinfo, location may be a domain name or server/tag\n");
 	fprintf(stderr, "for file, location may be a file name (%s is the default)\n",
 		_PASSWD_FILE);
 	fprintf(stderr, "for nis, location may be a NIS domainname\n");
+	fprintf(stderr, "for opendirectory, location may be a directory node name\n");
 	exit(1);
 }
 
@@ -172,11 +179,13 @@ main(int argc, char *argv[])
 {
 	char *user, *locn;
 	int i, infosystem;
-
-	infosystem = INFO_NETINFO;
+	
+	/* since DS works for most infosystems, make it the default */
+	//infosystem = INFO_NETINFO;
+	infosystem = INFO_DIRECTORYSERVICES;
 	user = NULL;
 	locn = NULL;
-
+	
 	for (i = 1; i < argc; i++)
 	{
 		if (!strcmp(argv[i], "-i"))
@@ -195,6 +204,7 @@ main(int argc, char *argv[])
 			else if (!strcmp(argv[i], "nis")) infosystem = INFO_NIS;
 			else if (!strcmp(argv[i], "YP")) infosystem = INFO_NIS;
 			else if (!strcmp(argv[i], "yp")) infosystem = INFO_NIS;
+			else if (!strcasecmp(argv[i], "opendirectory")) infosystem = INFO_DIRECTORYSERVICES;
 			else
 			{
 				fprintf(stderr, "unknown info system \"%s\"\n", argv[i]);
@@ -238,6 +248,9 @@ main(int argc, char *argv[])
 			break;
 		case INFO_NIS:
 			nis_passwd(user, locn);
+			break;
+		case INFO_DIRECTORYSERVICES:
+			ds_passwd(user, locn);
 			break;
 	}
 

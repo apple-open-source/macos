@@ -23,7 +23,7 @@
  * the Free Software Foundation, Inc., 59 Temple Place - Suite 330,
  * Boston, MA 02111-1307, USA.
  *
- * $Id: render_table.h,v 1.22 2003/05/02 00:12:33 hyatt Exp $
+ * $Id: render_table.h,v 1.24 2003/08/08 22:26:08 hyatt Exp $
  */
 #ifndef RENDER_TABLE_H
 #define RENDER_TABLE_H
@@ -102,9 +102,6 @@ public:
     virtual void layout();
     virtual void calcMinMaxWidth();
     virtual void close();
-
-    virtual short lineHeight(bool b) const;
-    virtual short baselinePosition(bool b) const;
 
     virtual void setCellWidths( );
 
@@ -398,6 +395,8 @@ public:
 
     virtual void updateFromElement();
 
+    virtual bool canHaveChildren() const;
+    
 #ifndef NDEBUG
     virtual void dump(QTextStream *stream, QString ind = "") const;
 #endif

@@ -10,6 +10,15 @@ MDASM=
 MIASM=
 NOASM=
 
+# SUPPRESSSRCS is used to prevent machine-independent files from being
+# built, when a machine-dependent file defines multiple symbols.
+# Use MDSRCS to block one file, and SUPPRESSSRCS to block the others.
+SUPPRESSSRCS=
+
+# Variable needed by the FreeBSD auto-patching mechanism
+FBSDHDRS=
+FBSDPATCHMAN=
+
 #
 # If there is a machine dependent makefile, use it:
 #
@@ -19,6 +28,7 @@ NOASM=
 
 .include "${.CURDIR}/db/Makefile.inc"
 .include "${.CURDIR}/compat-43/Makefile.inc"
+.include "${.CURDIR}/gdtoa/Makefile.inc"
 .include "${.CURDIR}/gen/Makefile.inc"
 .include "${.CURDIR}/gmon/Makefile.inc"
 .include "${.CURDIR}/include/Makefile.inc"
@@ -26,7 +36,7 @@ NOASM=
 .include "${.CURDIR}/locale/Makefile.inc"
 .include "${.CURDIR}/mach/Makefile.inc"
 .include "${.CURDIR}/net/Makefile.inc"
-#.include "${.CURDIR}/nls/Makefile.inc"
+.include "${.CURDIR}/nls/Makefile.inc"
 #.include "${.CURDIR}/posix1e/Makefile.inc"
 .include "${.CURDIR}/pthreads/Makefile.inc"
 .if !defined(NO_QUAD)
@@ -56,10 +66,11 @@ CFLAGS+= -DHESIOD
 SRCS+=	${MISRCS}
 .else
 # Append machine-dependent sources, then append machine-independent sources
-# for which there is no machine-dependent variant.
+# for which there is no machine-dependent variant, and not being suppressed.
 SRCS+=	${MDSRCS}
+_SUPPRESS= ${MDSRCS} ${SUPPRESSSRCS}
 .for _src in ${MISRCS}
-.if ${MDSRCS:R:M${_src:R}} == ""
+.if ${_SUPPRESS:R:M${_src:R}} == ""
 SRCS+=	${_src}
 .endif
 .endfor

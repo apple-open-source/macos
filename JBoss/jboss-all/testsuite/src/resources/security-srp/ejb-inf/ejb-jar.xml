@@ -1,0 +1,43 @@
+<?xml version="1.0"?>
+<!DOCTYPE ejb-jar PUBLIC
+      "-//Sun Microsystems, Inc.//DTD Enterprise JavaBeans 2.0//EN"
+      "http://java.sun.com/dtd/ejb-jar_2_0.dtd">
+
+<ejb-jar>
+    <display-name>SRP Tests</display-name>
+    <enterprise-beans>
+        <session>
+            <description>A secured trival echo session bean</description>
+            <ejb-name>StatelessSession</ejb-name>
+            <home>org.jboss.test.security.interfaces.StatelessSessionHome</home>
+            <remote>org.jboss.test.security.interfaces.StatelessSession</remote>
+            <ejb-class>org.jboss.test.security.ejb.StatelessSessionBean</ejb-class>
+            <session-type>Stateless</session-type>
+            <transaction-type>Container</transaction-type>
+            <!-- Use the 'EchoCaller' role name in the bean code to test role
+            linking with use of isCallerInRole().
+            -->
+            <security-role-ref>
+                <role-name>EchoCaller</role-name>
+                <role-link>Echo</role-link>
+            </security-role-ref>
+        </session>
+   </enterprise-beans>
+
+    <assembly-descriptor>
+        <security-role>
+            <description>The role required to invoke the echo method</description>
+            <role-name>Echo</role-name>
+        </security-role>
+
+        <!-- The methods the Echo role can access -->
+        <method-permission>
+            <role-name>Echo</role-name>
+            <method>
+                <ejb-name>StatelessSession</ejb-name>
+                <method-name>*</method-name>
+            </method>
+        </method-permission>
+    </assembly-descriptor>
+
+</ejb-jar>

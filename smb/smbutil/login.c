@@ -29,7 +29,7 @@
  * OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
  * SUCH DAMAGE.
  *
- * $Id: login.c,v 1.6 2002/03/15 03:40:19 lindak Exp $
+ * $Id: login.c,v 1.7 2003/05/14 15:06:01 lindak Exp $
  */
 #include <sys/param.h>
 #include <sys/errno.h>
@@ -49,6 +49,7 @@
 #include "common.h"
 
 
+#ifndef APPLE
 int
 cmd_login(int argc, char *argv[])
 {
@@ -216,6 +217,7 @@ reauth:
 	printf("Connection unmarked as permanent and will be closed when possible\n");
 	exit(0);
 }
+#endif /* APPLE */
 
 void
 login_usage(void)

@@ -1,0 +1,12 @@
+PKG=DejaGnu
+NAME=DejaGnu 1.4.3
+VERSION=1.4.3
+ARCH=sparc
+CLASSES=none
+CATEGORY=utility
+VENDOR=GNU
+PSTAMP=3thSep02
+EMAIL=rob@welcomehome.org
+ISTATES=S s 1 2 3
+RSTATES=S s 1 2 3
+BASEDIR=/

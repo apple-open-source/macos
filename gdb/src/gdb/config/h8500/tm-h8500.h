@@ -1,6 +1,7 @@
 /* Parameters for execution on a H8/500 series machine.
-   Copyright 1993, 1994, 1995, 1998, 1999, 2000, 2001
-   Free Software Foundation, Inc.
+
+   Copyright 1993, 1994, 1995, 1998, 1999, 2000, 2001, 2002, 2003 Free
+   Software Foundation, Inc.
 
    This file is part of GDB.
 
@@ -20,6 +21,11 @@
    Boston, MA 02111-1307, USA.  */
 
 #include "regcache.h"
+
+/* NOTE: cagney/2002-11-24: This is a guess.  */
+#define DEPRECATED_USE_GENERIC_DUMMY_FRAMES 0
+#define CALL_DUMMY_LOCATION ON_STACK
+#define DEPRECATED_PC_IN_CALL_DUMMY(pc, sp, frame_address) deprecated_pc_in_call_dummy_on_stack (pc, sp, frame_address)
 
 /* Contributed by Steve Chamberlain sac@cygnus.com */
 
@@ -162,20 +168,20 @@ extern struct type *h8500_register_virtual_type (int regno);
    a function return value of type TYPE, and copy that, in virtual format,
    into VALBUF.  */
 
-#define EXTRACT_RETURN_VALUE(TYPE,REGBUF,VALBUF) \
+#define DEPRECATED_EXTRACT_RETURN_VALUE(TYPE,REGBUF,VALBUF) \
   memcpy (VALBUF, (char *)(REGBUF), TYPE_LENGTH(TYPE))
 
 /* Write into appropriate registers a function return value
    of type TYPE, given in virtual format.  */
 
-#define STORE_RETURN_VALUE(TYPE,VALBUF) \
-  write_register_bytes (0, VALBUF, TYPE_LENGTH (TYPE))
+#define DEPRECATED_STORE_RETURN_VALUE(TYPE,VALBUF) \
+  deprecated_write_register_bytes (0, VALBUF, TYPE_LENGTH (TYPE))
 
 /* Extract from an array REGBUF containing the (raw) register state
    the address in which a function should return its structure value,
    as a CORE_ADDR (or an expression that can be used as one).  */
 
-#define EXTRACT_STRUCT_VALUE_ADDRESS(REGBUF) (*(CORE_ADDR *)(REGBUF))
+#define DEPRECATED_EXTRACT_STRUCT_VALUE_ADDRESS(REGBUF) (*(CORE_ADDR *)(REGBUF))
 
 
 /* Define other aspects of the stack frame.  */
@@ -209,9 +215,9 @@ extern CORE_ADDR h8500_frame_chain (struct frame_info *);
 #define FRAME_SAVED_PC(FRAME) frame_saved_pc(FRAME)
 extern CORE_ADDR frame_saved_pc (struct frame_info *frame);
 
-#define FRAME_ARGS_ADDRESS(fi) ((fi)->frame)
+#define FRAME_ARGS_ADDRESS(fi) (get_frame_base (fi))
 
-#define FRAME_LOCALS_ADDRESS(fi) ((fi)->frame)
+#define FRAME_LOCALS_ADDRESS(fi) (get_frame_base (fi))
 
 /* Set VAL to the number of args passed to frame described by FI.
    Can set VAL to -1, meaning no way to tell.  */
@@ -253,8 +259,9 @@ extern CORE_ADDR h8500_addr_bits_remove (CORE_ADDR);
 
 #define read_memory_short(x)  (read_memory_integer(x,2) & 0xffff)
 
-#define	PRINT_REGISTER_HOOK(regno) print_register_hook(regno)
-extern void print_register_hook (int);
+extern void h8500_do_registers_info (int regnum, int all);
+#define DEPRECATED_DO_REGISTERS_INFO(REGNUM,ALL) \
+	h8500_do_registers_info (REGNUM, ALL)
 
 extern int minimum_mode;
 

@@ -1,23 +1,26 @@
-# $OpenLDAP: pkg/ldap/servers/slurpd/Makefile.in,v 1.27 2002/02/10 21:42:55 kurt Exp $
-## Copyright 1998-2002 The OpenLDAP Foundation, All Rights Reserved.
+# $OpenLDAP: pkg/ldap/servers/slurpd/Makefile.in,v 1.27.2.3 2003/03/29 15:45:44 kurt Exp $
+## Copyright 1998-2003 The OpenLDAP Foundation, All Rights Reserved.
 ## COPYING RESTRICTIONS APPLY, see COPYRIGHT file
 ##
 ## Makefile.in for slurpd
 ##
 
-UNIX_PRGS = slurpd
-
-PROGRAMS = $(@PLAT@_PRGS)
+PROGRAMS = slurpd
 XPROGRAMS = sslurpd
 
 XSRCS	= version.c
 
+NT_SRCS	= nt_svc.c
+NT_OBJS = nt_svc.o ../../libraries/liblutil/slapdmsg.res
+
 SRCS	=	admin.c args.c ch_malloc.c config.c \
 		fm.c globals.c ldap_op.c lock.c main.c re.c \
-		reject.c replica.c replog.c ri.c rq.c sanity.c st.c
+		reject.c replica.c replog.c ri.c rq.c sanity.c st.c \
+		$(@PLAT@_SRCS)
 OBJS	=	admin.o args.o ch_malloc.o config.o \
 		fm.o globals.o ldap_op.o lock.o main.o re.o \
-		reject.o replica.o replog.o ri.o rq.o sanity.o st.o
+		reject.o replica.o replog.o ri.o rq.o sanity.o st.o \
+		$(@PLAT@_OBJS)
 
 LDAP_INCDIR= ../../include       
 LDAP_LIBDIR= ../../libraries
@@ -39,9 +42,11 @@ slurpd:	version.o
 sslurpd:	version.o
 	$(LTLINK) -static -o $@ $(OBJS) version.o $(LIBS)
 
-version.c: $(OBJS) $(SLURPD_L)
+version.c: Makefile
 	@-$(RM) $@
 	$(MKVERSION) slurpd > $@
+
+version.o: version.c $(OBJS) $(SLURPD_L)
 
 install-local-srv: FORCE
 	-$(MKDIR) $(DESTDIR)$(libexecdir)

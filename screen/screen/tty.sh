@@ -24,7 +24,7 @@ sed -e '1,26d' \
 chmod -w $1
 exit 0
 
-/* Copyright (c) 1993-2000
+/* Copyright (c) 1993-2002
  *      Juergen Weigert (jnweiger@immd4.informatik.uni-erlangen.de)
  *      Michael Schroeder (mlschroe@immd4.informatik.uni-erlangen.de)
  * Copyright (c) 1987 Oliver Laumann
@@ -53,7 +53,7 @@ exit 0
  */
 
 #include "rcs.h"
-RCS_ID("$Id: tty.sh,v 1.1.1.1 2001/12/14 22:08:29 bbraun Exp $ FAU")
+RCS_ID("$Id: tty.sh,v 1.1.1.2 2003/03/19 21:16:19 landonf Exp $ FAU")
 
 #include <sys/types.h>
 #include <signal.h>
@@ -92,10 +92,12 @@ RCS_ID("$Id: tty.sh,v 1.1.1.1 2001/12/14 22:08:29 bbraun Exp $ FAU")
 
 extern struct display *display, *displays;
 extern int iflag;
-#if !defined(TIOCCONS) && defined(SRIOCSREDIR)
+#if (!defined(TIOCCONS) && defined(SRIOCSREDIR)) || defined(linux)
 extern struct win *console_window;
 static void consredir_readev_fn __P((struct event *, char *));
 #endif
+
+int separate_sids = 1;
 
 static void DoSendBreak __P((int, int, int));
 static sigret_t SigAlrmDummy __P(SIGPROTOARG);
@@ -222,14 +224,6 @@ char *line, *opt;
 /*
  *  Tty mode handling
  */
-
-#if defined(TERMIO) || defined(POSIX)
-int intrc, origintrc = VDISABLE;        /* display? */
-#else
-int intrc, origintrc = -1;		/* display? */
-#endif
-static int startc, stopc;		/* display? */
-
 
 void
 InitTTY(m, ttyflag)
@@ -418,7 +412,7 @@ IF{LCRTBS}	| LCRTBS
 # endif /* TERMIO */
 #endif /* POSIX */
 
-#if defined(KANJI) && defined(TIOCKSET)
+#if defined(ENCODINGS) && defined(TIOCKSET)
   m->m_jtchars.t_ascii = 'J';
   m->m_jtchars.t_kanji = 'B';
   m->m_knjmode = KM_ASCII | KM_SYSSJIS;
@@ -456,7 +450,7 @@ struct mode *mp;
   ioctl(fd, TIOCSLTC, (char *)&mp->m_ltchars); /* moved here for apollo. jw */
 # endif
 #endif
-#if defined(KANJI) && defined(TIOCKSET)
+#if defined(ENCODINGS) && defined(TIOCKSET)
   ioctl(fd, TIOCKSETC, &mp->m_jtchars);
   ioctl(fd, TIOCKSET, &mp->m_knjmode);
 #endif
@@ -500,7 +494,7 @@ struct mode *mp;
   ioctl(fd, TIOCGETD, (char *)&mp->m_ldisc);
 # endif
 #endif
-#if defined(KANJI) && defined(TIOCKSET)
+#if defined(ENCODINGS) && defined(TIOCKSET)
   ioctl(fd, TIOCKGETC, &mp->m_jtchars);
   ioctl(fd, TIOCKGET, &mp->m_knjmode);
 #endif
@@ -518,6 +512,7 @@ int flow, interrupt;
 {
   *np = *op;
 
+  ASSERT(display);
 #if defined(TERMIO) || defined(POSIX)
 # ifdef CYTERMIO
   np->m_mapkey = NOMAPKEY;
@@ -557,19 +552,11 @@ IF{IEXTEN}  np->tio.c_lflag &= ~IEXTEN;
    */
   np->tio.c_cc[VMIN] = 1;
   np->tio.c_cc[VTIME] = 0;
-XIF{VSTART}	startc = op->tio.c_cc[VSTART];
-XIF{VSTOP}	stopc = op->tio.c_cc[VSTOP];
-  if (interrupt)
-    origintrc = intrc = op->tio.c_cc[VINTR];
-  else
-    {
-      origintrc = op->tio.c_cc[VINTR];
-      intrc = np->tio.c_cc[VINTR] = VDISABLE;
-    }
+  if (!interrupt || !flow)
+    np->tio.c_cc[VINTR] = VDISABLE;
   np->tio.c_cc[VQUIT] = VDISABLE;
   if (flow == 0)
     {
-      np->tio.c_cc[VINTR] = VDISABLE;
 XIF{VSTART}	np->tio.c_cc[VSTART] = VDISABLE;
 XIF{VSTOP}	np->tio.c_cc[VSTOP] = VDISABLE;
       np->tio.c_iflag &= ~IXON;
@@ -593,15 +580,8 @@ XIF{VREPRINT}	np->tio.c_cc[VREPRINT] = VDISABLE;
 XIF{VWERASE}	np->tio.c_cc[VWERASE] = VDISABLE;
 # endif /* HPUX_LTCHARS_HACK */
 #else /* TERMIO || POSIX */
-  startc = op->m_tchars.t_startc;
-  stopc = op->m_tchars.t_stopc;
-  if (interrupt)
-    origintrc = intrc = op->m_tchars.t_intrc;
-  else
-    {
-      origintrc = op->m_tchars.t_intrc;
-      intrc = np->m_tchars.t_intrc = -1;
-    }
+  if (!interrupt || !flow)
+    np->m_tchars.t_intrc = -1;
   np->m_ttyb.sg_flags &= ~(CRMOD | ECHO);
   np->m_ttyb.sg_flags |= CBREAK;
 # if defined(CYRILL) && defined(CSTYLE) && defined(CS_8BITS)
@@ -611,7 +591,6 @@ XIF{VWERASE}	np->tio.c_cc[VWERASE] = VDISABLE;
   np->m_tchars.t_quitc = -1;
   if (flow == 0)
     {
-      np->m_tchars.t_intrc = -1;
       np->m_tchars.t_startc = -1;
       np->m_tchars.t_stopc = -1;
     }
@@ -633,10 +612,10 @@ int on;
 #if defined(TERMIO) || defined(POSIX)
   if (on)
     {
-      D_NewMode.tio.c_cc[VINTR] = intrc;
-XIF{VSTART}	D_NewMode.tio.c_cc[VSTART] = startc;
-XIF{VSTOP}	D_NewMode.tio.c_cc[VSTOP] = stopc;
-      D_NewMode.tio.c_iflag |= IXON;
+      D_NewMode.tio.c_cc[VINTR] = iflag ? D_OldMode.tio.c_cc[VINTR] : VDISABLE;
+XIF{VSTART}	D_NewMode.tio.c_cc[VSTART] = D_OldMode.tio.c_cc[VSTART];
+XIF{VSTOP}	D_NewMode.tio.c_cc[VSTOP] = D_OldMode.tio.c_cc[VSTOP];
+      D_NewMode.tio.c_iflag |= D_OldMode.tio.c_iflag & IXON;
     }
   else
     {
@@ -654,9 +633,9 @@ XIF{VSTOP}	D_NewMode.tio.c_cc[VSTOP] = VDISABLE;
 #else /* POSIX || TERMIO */
   if (on)
     {
-      D_NewMode.m_tchars.t_intrc = intrc;
-      D_NewMode.m_tchars.t_startc = startc;
-      D_NewMode.m_tchars.t_stopc = stopc;
+      D_NewMode.m_tchars.t_intrc = iflag ? D_OldMode.m_tchars.t_intrc : -1;
+      D_NewMode.m_tchars.t_startc = D_OldMode.m_tchars.t_startc;
+      D_NewMode.m_tchars.t_stopc = D_OldMode.m_tchars.t_stopc;
     }
   else
     {
@@ -787,13 +766,16 @@ brktty(fd)
 int fd;
 {
 #if defined(POSIX) && !defined(ultrix)
-  setsid();		/* will break terminal affiliation */
-# if defined(BSD) && defined(TIOCSCTTY)
+  if (separate_sids)
+    setsid();		/* will break terminal affiliation */
+  /* GNU added for Hurd systems 2001-10-10 */
+# if defined(BSD) && defined(TIOCSCTTY) && !defined(__GNU__)
   ioctl(fd, TIOCSCTTY, (char *)0);
 # endif /* BSD && TIOCSCTTY */
 #else /* POSIX */
 # ifdef SYSV
-  setpgrp();		/* will break terminal affiliation */
+  if (separate_sids)
+    setpgrp();		/* will break terminal affiliation */
 # else /* SYSV */
 #  ifdef BSDJOBS
   int devtty;
@@ -825,24 +807,27 @@ int fd;
    *	fgtty: Not a typewriter (25)
    */
 # if defined(__osf__) || (BSD >= 199103) || defined(ISC)
-  setsid();	/* should be already done */
+  if (separate_sids)
+    setsid();	/* should be already done */
 #  ifdef TIOCSCTTY
   ioctl(fd, TIOCSCTTY, (char *)0);
 #  endif
 # endif
 
 # ifdef POSIX
-  if (tcsetpgrp(fd, mypid))
-    {
-      debug1("fgtty: tcsetpgrp: %d\n", errno);
-      return -1;
-    }
+  if (separate_sids)
+    if (tcsetpgrp(fd, mypid))
+      {
+        debug1("fgtty: tcsetpgrp: %d\n", errno);
+        return -1;
+      }
 # else /* POSIX */
   if (ioctl(fd, TIOCSPGRP, (char *)&mypid) != 0)
     debug1("fgtty: TIOSETPGRP: %d\n", errno);
 #  ifndef SYSV	/* Already done in brktty():setpgrp() */
-  if (setpgrp(fd, mypid))
-    debug1("fgtty: setpgrp: %d\n", errno);
+  if (separate_sids)
+    if (setpgrp(fd, mypid))
+      debug1("fgtty: setpgrp: %d\n", errno);
 #  endif
 # endif /* POSIX */
 #endif /* BSDJOBS */
@@ -908,6 +893,8 @@ int fd, n, type;
 	{
 	  int i;
 
+	  if (!n)
+	    n++;
 	  for (i = 0; i < n; i++)
 	    if (tcsendbreak(fd, 0) < 0)
 	      {
@@ -1033,7 +1020,7 @@ int n, closeopen;
  *  Console grabbing
  */
 
-#if !defined(TIOCCONS) && defined(SRIOCSREDIR)
+#if (!defined(TIOCCONS) && defined(SRIOCSREDIR)) || defined(linux)
 
 static struct event consredir_ev;
 static int consredirfd[2] = {-1, -1};
@@ -1074,7 +1061,7 @@ TtyGrabConsole(fd, on, rc_name)
 int fd, on;
 char *rc_name;
 {
-#ifdef TIOCCONS
+#if defined(TIOCCONS) && !defined(linux)
   struct display *d;
   int ret = 0;
   int sfd = -1;
@@ -1106,7 +1093,7 @@ char *rc_name;
 	  Msg(errno, "%s: could not open detach pty master", rc_name);
 	  return -1;
 	}
-      if ((sfd = open(slave, O_RDWR)) < 0)
+      if ((sfd = open(slave, O_RDWR | O_NOCTTY)) < 0)
 	{
 	  Msg(errno, "%s: could not open detach pty slave", rc_name);
 	  close(fd);
@@ -1126,9 +1113,14 @@ char *rc_name;
   return ret;
 
 #else
-# ifdef SRIOCSREDIR
+# if defined(SRIOCSREDIR) || defined(linux)
   struct display *d;
+#  ifdef SRIOCSREDIR
   int cfd;
+#  else
+  struct mode new1, new2;
+  char *slave;
+#  endif
 
   if (on > 0)
     {
@@ -1155,6 +1147,7 @@ char *rc_name;
     }
   if (on <= 0)
     return 0;
+#  ifdef SRIOCSREDIR
   if ((cfd = secopen("/dev/console", O_RDWR|O_NOCTTY, 0)) == -1)
     {
       Msg(errno, "/dev/console");
@@ -1176,12 +1169,37 @@ char *rc_name;
       consredirfd[0] = consredirfd[1] = -1;
       return -1;
     }
-  
+  close(cfd);
+#  else
+  /* special linux workaround for a too restrictive kernel */
+  if ((consredirfd[0] = OpenPTY(&slave)) < 0)
+    {
+      Msg(errno, "%s: could not open detach pty master", rc_name);
+      return -1;
+    }
+  if ((consredirfd[1] = open(slave, O_RDWR | O_NOCTTY)) < 0)
+    {
+      Msg(errno, "%s: could not open detach pty slave", rc_name);
+      close(consredirfd[0]);
+      return -1;
+    }
+  InitTTY(&new1, 0);
+  SetMode(&new1, &new2, 0, 0);
+  SetTTY(consredirfd[1], &new2);
+  if (UserContext() == 1)
+    UserReturn(ioctl(consredirfd[1], TIOCCONS, (char *)&on));
+  if (UserStatus())
+    {
+      Msg(errno, "%s: ioctl TIOCCONS failed", rc_name);
+      close(consredirfd[0]);
+      close(consredirfd[1]);
+      return -1;
+    }
+#  endif
   consredir_ev.fd = consredirfd[0];
   consredir_ev.type = EV_READ;
   consredir_ev.handler = consredir_readev_fn;
   evenq(&consredir_ev);
-  close(cfd);
   return 0;
 # else
   if (on > 0)

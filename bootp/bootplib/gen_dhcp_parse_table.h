@@ -1,21 +1,24 @@
 /*
- * Copyright (c) 1999 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 1999-2003 Apple Computer, Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
- * The contents of this file constitute Original Code as defined in and
- * are subject to the Apple Public Source License Version 1.1 (the
- * "License").  You may not use this file except in compliance with the
- * License.  Please obtain a copy of the License at
- * http://www.apple.com/publicsource and read it before using this file.
+ * Copyright (c) 1999-2003 Apple Computer, Inc.  All Rights Reserved.
  * 
- * This Original Code and all software distributed under the License are
- * distributed on an "AS IS" basis, WITHOUT WARRANTY OF ANY KIND, EITHER
+ * This file contains Original Code and/or Modifications of Original Code
+ * as defined in and that are subject to the Apple Public Source License
+ * Version 2.0 (the 'License'). You may not use this file except in
+ * compliance with the License. Please obtain a copy of the License at
+ * http://www.opensource.apple.com/apsl/ and read it before using this
+ * file.
+ * 
+ * The Original Code and all software distributed under the License are
+ * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
  * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
  * INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY,
- * FITNESS FOR A PARTICULAR PURPOSE OR NON-INFRINGEMENT.  Please see the
- * License for the specific language governing rights and limitations
- * under the License.
+ * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
+ * Please see the License for the specific language governing rights and
+ * limitations under the License.
  * 
  * @APPLE_LICENSE_HEADER_END@
  */
@@ -133,13 +136,13 @@ static dhcptag_info_t dhcptag_info_table[] = {
   /* 105 */ { dhcptype_opaque_e   , "option_105" },
   /* 106 */ { dhcptype_opaque_e   , "option_106" },
   /* 107 */ { dhcptype_opaque_e   , "option_107" },
-  /* 108 */ { dhcptype_opaque_e   , "option_108" },
+  /* 108 */ { dhcptype_string_e   , "swap_path" },
   /* 109 */ { dhcptype_opaque_e   , "option_109" },
   /* 110 */ { dhcptype_opaque_e   , "option_110" },
   /* 111 */ { dhcptype_opaque_e   , "option_111" },
   /* 112 */ { dhcptype_ip_mult_e  , "netinfo_server_address" },
   /* 113 */ { dhcptype_string_e   , "netinfo_server_tag" },
-  /* 114 */ { dhcptype_opaque_e   , "option_114" },
+  /* 114 */ { dhcptype_string_e   , "url" },
   /* 115 */ { dhcptype_opaque_e   , "option_115" },
   /* 116 */ { dhcptype_uint8_e    , "auto_configure" },
   /* 117 */ { dhcptype_opaque_e   , "option_117" },

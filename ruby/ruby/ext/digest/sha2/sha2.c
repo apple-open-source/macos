@@ -34,12 +34,18 @@
  */
 
 /* $RoughId: sha2.c,v 1.3 2002/02/26 22:03:36 knu Exp $ */
-/* $Id: sha2.c,v 1.1.1.1 2002/05/27 17:59:45 jkh Exp $ */
+/* $Id: sha2.c,v 1.2 2003/04/03 05:35:20 melville Exp $ */
 
 #include <stdio.h>
 #include <string.h>	/* memcpy()/memset() or bcopy()/bzero() */
 #include <assert.h>	/* assert() */
 #include "sha2.h"
+
+#ifdef __BIG_ENDIAN__
+#define WORDS_BIGENDIAN
+#else
+#undef WORDS_BIGENDIAN
+#endif
 
 /*
  * ASSERT NOTE:

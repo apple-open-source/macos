@@ -57,6 +57,19 @@ $*
 GRONK
 }
 
+CAN_USLEEP() {
+   if [ "$SNMP_CAN_USLEEP" = 0 -o "$SNMP_CAN_USLEEP" = 0 ] ; then
+     return $SNMP_CAN_USLEEP
+   fi
+   sleep .1 > /dev/null 2>&1
+   if [ $? = 0 ] ; then
+     SNMP_CAN_USLEEP=1
+   else
+     SNMP_CAN_USLEEP=0
+   fi
+   export SNMP_CAN_USLEEP
+}
+
 
 #------------------------------------ -o-
 #
@@ -88,7 +101,7 @@ GRONIK
 #------------------------------------ -o-
 #
 SKIPIFNOT() {
-	grep "define $1" $SNMP_UPDIR/config.h $SNMP_UPDIR/mib_module_config.h > /dev/null
+	grep "define $1" $SNMP_UPDIR/include/net-snmp/net-snmp-config.h $SNMP_UPDIR/include/net-snmp/agent/mib_module_config.h > /dev/null
 	if [ $? != 0 ]; then
 	    REMOVETESTDATA
 	    echo "SKIPPED"
@@ -166,9 +179,13 @@ KNORG
 #------------------------------------ -o-
 # Delay to let processes settle
 DELAY() {
-    if [ $SNMP_SLEEP -ne 0 ] ; then
+    if [ "$SNMP_SLEEP" != "0" ] ; then
 	sleep $SNMP_SLEEP
     fi
+}
+
+SAVE_RESULTS() {
+   real_return_value=$return_value
 }
 
 #
@@ -176,7 +193,7 @@ DELAY() {
 #   Sets return_value to 0 or 1.
 #
 EXPECTRESULT() {
-    if [ $snmp_last_test_result = $1 ]; then
+    if [ "$snmp_last_test_result" = "$1" ]; then
 	return_value=0
     else
 	return_value=1
@@ -202,12 +219,84 @@ CHECK() {	# <pattern_to_match>
     return $rval
 }
 
+CHECKFILE() {
+    file=$1
+    if [ "x$file" = "x" ] ; then
+        file=$junkoutputfile
+    fi
+    shift
+    myoldjunkoutputfile="$junkoutputfile"
+    junkoutputfile="$file"
+    CHECK $*
+    junkoutputfile="$myoldjunkoutputfile"
+}
 
 CHECKTRAPD() {
-    oldjunkoutpufile=$junkoutputfile
-    junkoutputfile=$SNMP_SNMPTRAPD_LOG_FILE
-    CHECK $*
-    junkoutputfile=$oldjunkoutputfile
+    CHECKFILE $SNMP_SNMPTRAPD_LOG_FILE $@
+}
+
+CHECKAGENT() {
+    CHECKGAENT $SNMP_SNMPD_LOG_FILE $@
+}
+
+WAITFORAGENT() {
+    WAITFOR "$@" $SNMP_SNMPD_LOG_FILE
+}
+
+WAITFORTRAPD() {
+    WAITFOR "$@" $SNMP_SNMPTRAPD_LOG_FILE
+}
+
+WAITFOR() {
+    sleeptime=$SNMP_SLEEP
+    oldsleeptime=$SNMP_SLEEP
+    if [ "$1" != "" ] ; then
+	CAN_USLEEP
+	if [ $SNMP_CAN_USLEEP = 1 ] ; then
+	  sleeptime=`expr $SNMP_SLEEP '*' 10`
+          SNMP_SLEEP=.1
+	else 
+	  SNMP_SLEEP=1
+	fi
+        while [ $sleeptime -gt 0 ] ; do
+	  if [ "$2" = "" ] ; then
+            CHECK "$@"
+          else
+	    CHECKFILE "$2" "$1"
+	  fi
+          if [ "$snmp_last_test_result" != "" ] ; then
+              if [ "$snmp_last_test_result" -gt 0 ] ; then
+	         SNMP_SLEEP=$oldsleeptime
+	         return 0;
+              fi
+	  fi
+          DELAY
+          sleeptime=`expr $sleeptime - 1`
+        done
+        SNMP_SLEEP=$oldsleeptime
+    else
+        if [ $SNMP_SLEEP -ne 0 ] ; then
+	    sleep $SNMP_SLEEP
+        fi
+    fi
+}    
+
+# WAITFORORDIE "grep string" ["file"]
+WAITFORORDIE() {
+    WAITFOR "$1" "$2"
+    if [ "$snmp_last_test_result" != 0 ] ; then
+        FINISHED
+    fi
+    ECHO "."
+}
+
+# CHECKFILE "grep string" ["file"]
+CHECKORDIE() {
+    CHECKFILE "$2" "$1"
+    if [ "$snmp_last_test_result" = 0 ] ; then
+        FINISHED
+    fi
+    ECHO "."
 }
 
 #------------------------------------ -o-
@@ -256,28 +345,44 @@ STARTPROG() {
     if [ $SNMP_VERBOSE -gt 0 ]; then
 	echo "running: $COMMAND"
     fi
+    if [ "x$PORT_SPEC" != "x" ]; then
+        COMMAND="$COMMAND $PORT_SPEC"
+    fi
     echo $COMMAND >> $SNMP_TMPDIR/invoked
     $COMMAND > $LOG_FILE.stdout 2>&1
 
     DELAY
 }
 
+STARTPROGNOSLEEP() {
+    sleepxxx=$SNMP_SLEEP
+    SNMP_SLEEP=0
+    STARTPROG
+    SNMP_SLEEP=$sleepxxx
+}
+
 #------------------------------------ -o-
 STARTAGENT() {
-    COMMAND="snmpd $SNMP_FLAGS -r -P $SNMP_SNMPD_PID_FILE -l $SNMP_SNMPD_LOG_FILE $AGENT_FLAGS"
+    SNMPDSTARTED=1
+    COMMAND="snmpd $SNMP_FLAGS -r -U -P $SNMP_SNMPD_PID_FILE -l $SNMP_SNMPD_LOG_FILE $AGENT_FLAGS"
     CFG_FILE=$SNMP_CONFIG_FILE
     LOG_FILE=$SNMP_SNMPD_LOG_FILE
+    PORT_SPEC="$SNMP_SNMPD_PORT"
 
-    STARTPROG
+    STARTPROGNOSLEEP
+    WAITFORAGENT "NET-SNMP version"
 }
 
 #------------------------------------ -o-
 STARTTRAPD() {
-    COMMAND="snmptrapd -d $SNMP_SNMPTRAPD_PORT -u $SNMP_SNMPTRAPD_PID_FILE -o $SNMP_SNMPTRAPD_LOG_FILE"
+    TRAPDSTARTED=1
+    COMMAND="snmptrapd -d -u $SNMP_SNMPTRAPD_PID_FILE -o $SNMP_SNMPTRAPD_LOG_FILE"
     CFG_FILE=$SNMPTRAPD_CONFIG_FILE
     LOG_FILE=$SNMP_SNMPTRAPD_LOG_FILE
+    PORT_SPEC="$SNMP_SNMPTRAPD_PORT"
 
-    STARTPROG
+    STARTPROGNOSLEEP
+    WAITFORTRAPD "NET-SNMP version"
 }
 
 
@@ -295,10 +400,19 @@ STOPPROG() {
     fi
 }
 
+STOPPROGNOSLEEP() {
+    sleepxxx=$SNMP_SLEEP
+    SNMP_SLEEP=0
+    STOPPROG "$1"
+    SNMP_SLEEP=$sleepxxx
+}
+
 #------------------------------------ -o-
 #
 STOPAGENT() {
-    STOPPROG $SNMP_SNMPD_PID_FILE
+    SAVE_RESULTS
+    STOPPROGNOSLEEP $SNMP_SNMPD_PID_FILE
+    WAITFORAGENT "shutting down"
     if [ $SNMP_VERBOSE -gt 1 ]; then
 	echo "Agent Output:"
 	echo "$seperator [stdout]"
@@ -312,7 +426,9 @@ STOPAGENT() {
 #------------------------------------ -o-
 #
 STOPTRAPD() {
-    STOPPROG $SNMP_SNMPTRAPD_PID_FILE
+    SAVE_RESULTS
+    STOPPROGNOSLEEP $SNMP_SNMPTRAPD_PID_FILE
+    WAITFORTRAPD "Stopped"
     if [ $SNMP_VERBOSE -gt 1 ]; then
 	echo "snmptrapd Output:"
 	echo "$seperator [stdout]"
@@ -326,6 +442,12 @@ STOPTRAPD() {
 #------------------------------------ -o-
 #
 FINISHED() {
+    if [ "$SNMPDSTARTED" = "1" ] ; then
+      STOPAGENT
+    fi
+    if [ "$TRAPDSTARTED" = "1" ] ; then
+      STOPTRAPD
+    fi
     for pfile in $SNMP_TMPDIR/*pid* ; do
 	pid=`cat $pfile`
 	ps -e | egrep "^[ ]*$pid" > /dev/null 2>&1
@@ -337,7 +459,7 @@ FINISHED() {
 	    return_value=1
 	fi
     done
-    if [ "x$return_value" != "x0" ]; then
+    if [ "x$real_return_value" != "x0" ]; then
 	if [ -s core ] ; then
 	    # XX hope that only one prog cores !
 	    cp core $SNMP_TMPDIR/core.$$
@@ -345,7 +467,7 @@ FINISHED() {
 	fi
 	echo "FAIL"
 	echo "$headerStr...FAIL" >> $SNMP_TMPDIR/invoked
-	exit $return_value
+	exit $real_return_value
     fi
 
     echo "ok"
@@ -354,7 +476,7 @@ FINISHED() {
     if [ "x$SNMP_SAVE_TMPDIR" != "xyes" ]; then
 	REMOVETESTDATA
     fi
-    exit $return_value
+    exit $real_return_value
 }
 
 #------------------------------------ -o-

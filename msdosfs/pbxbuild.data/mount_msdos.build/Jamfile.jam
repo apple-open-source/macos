@@ -1,15 +1,25 @@
-# Jamfile for target mount_msdos of project msdosfs
+# Jamfile for target "mount_msdos" of project "msdosfs"
 
-
-PROJECT = msdosfs ;
 
 JAVAC_SOURCE_FILE_ENCODING default = MacRoman ;
 
-# mount_msdos target
-export deferred TARGET_NAME = mount_msdos ;
-export deferred PRODUCT_NAME = mount_msdos ;
+# Implicitly computed project-wide settings for project
+export deferred DEVELOPMENT_LANGUAGE = English ;
+export deferred PROJECT = $(PROJECT_NAME) ;
+export deferred PROJECT_NAME = msdosfs ;
+export deferred SRCROOT = /Volumes/Speedy/sources/msdosfs ;
 
+# User-defined project-wide settings for project
+
+# Target "mount_msdos"
+
+# Implicitly computed build settings for target "mount_msdos"
 export deferred CLONE_HEADERS = NO ;
+export deferred PFE_FILE_C_DIALECTS = c ;
+export deferred TARGETNAME = $(TARGET_NAME) ;
+export deferred TARGET_NAME = mount_msdos ;
+
+# User-defined build settings for target "mount_msdos"
 export deferred FRAMEWORK_SEARCH_PATHS =  ;
 export deferred HEADER_SEARCH_PATHS =  ;
 export deferred INSTALL_PATH = /sbin ;
@@ -24,12 +34,15 @@ export deferred WARNING_CFLAGS = -Wmost -Wno-four-char-constants -Wno-unknown-pr
 
 if "$(BUILD_STYLE)" = Development {
 	export deferred COPY_PHASE_STRIP = NO ;
+	export deferred OPTIMIZATION_CFLAGS = -O0 ;
 }
 
 if "$(BUILD_STYLE)" = Deployment {
 	export deferred COPY_PHASE_STRIP = YES ;
 }
 
+
+ConditionalDefinitions _ ;
 commitdeferred ;
 
 
@@ -56,12 +69,18 @@ ProcessRezFiles "<mount_msdos>mount_msdos$(TOOL_SUFFIX)" : "$(REZ_FILES)" : BPTa
 # Copy Files
 COPY_FILES = mount_msdos.tproj/mount_msdos.8 ;
 COPYFILES_DESTINATION_PATH = "$(INSTALL_ROOT)/usr/share/man/man8" ;
-if $(ACTION) in install installhdrs {
+if $(DEPLOYMENT_POSTPROCESSING) = YES {
 	ProcessCopyFiles "<mount_msdos>mount_msdos$(TOOL_SUFFIX)" : "$(COPY_FILES)" : BPTag003 : BPTag004 ;
 }
 else {
 	NoOp "<mount_msdos>mount_msdos$(TOOL_SUFFIX)" : "$(COPY_FILES)" : BPTag003 : BPTag004 ;
 }
+
+rule DefineHeaderDependencies
+{
+}
+
+DefineHeaderDependencies "<mount_msdos>mount_msdos$(TOOL_SUFFIX)" ;
 
 EndTool "<mount_msdos>mount_msdos$(TOOL_SUFFIX)" ;
 

@@ -1,18 +1,23 @@
 --TEST--
 dbx_close
 --SKIPIF--
-<?php if (!extension_loaded("dbx")) print("skip"); ?>
---POST--
---GET--
+<?php 
+include_once("skipif.inc");
+?>
 --FILE--
 <?php 
-include_once("ext/dbx/tests/dbx_test.p");
+include_once("dbx_test.p");
 $dlo = dbx_connect($module, $host, $database, $username, $password);
-if ($dlo!=0) {
-	if (dbx_close($dlo)) {
-        print('close works ok'."\n");
+if ($module===DBX_OCI8) { // close for oci8 always return NULL since it doesn't do anything
+    print('close works ok'."\n");
+    }
+else {
+    if ($dlo!=0) {
+        if (dbx_close($dlo)) {
+            print('close works ok'."\n");
+            }
         }
-	}
+    }
 if (!@dbx_close($dlo)) {
     print('close failure works ok'."\n");
     }

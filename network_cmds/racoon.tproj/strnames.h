@@ -1,4 +1,4 @@
-/*	$KAME: strnames.h,v 1.11 2001/07/14 14:06:40 sakane Exp $	*/
+/*	$KAME: strnames.h,v 1.12 2001/08/09 07:32:19 sakane Exp $	*/
 
 /*
  * Copyright (C) 1995, 1996, 1997, and 1998 WIDE Project.

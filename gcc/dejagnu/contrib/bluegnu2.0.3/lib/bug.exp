@@ -1,0 +1,125 @@
+# Copyright (C) 92, 93, 94, 95, 1996 Free Software Foundation, Inc.
+
+# This program is free software; you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation; either version 2 of the License, or
+# (at your option) any later version.
+# 
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+# 
+# You should have received a copy of the GNU General Public License
+# along with this program; if not, write to the Free Software
+# Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
+
+# Please email any bugs, comments, and/or additions to this file to:
+# bug-dejagnu@prep.ai.mit.edu
+
+# This file was written by Rob Savoye. (rob@welcomehome.org)
+
+#load_lib remote.exp
+
+#
+# set target variables only if needed.
+#
+global targetname
+global connectmode
+global env
+
+if ![info exists targetname] {
+    if [info exists env(TARGETNAME)] {
+	set targetname $env(TARGETNAME)
+    } else {
+	puts stderr "ERROR: Need a target name for the board."
+	puts stderr "       Use the --name option\n"
+	exit 1
+    }
+}
+
+# the default connect program to use
+if ![info exists connectmode] {
+    set connectmode	"tip"
+    warning "Using default of $connectmode for target communication."
+}		
+
+#
+# Load a file into the bug monitor
+#
+proc bug_load { shell_id file } {
+    global OBJCOPY
+    global shell_prompt
+
+    if { $shell_id < 0 } {
+	warning "$file not executed because there is no target."
+	return -1
+    }
+
+    # NOTE: this requires OBJCOPY to be tested first
+    catch "exec $OBJCOPY -O srec $file $file.srec" result
+    if ![string match "" $result] {
+	perror "Couldn't convert to srecord for downloading"
+	return -1
+    }
+
+    send -i $shell_id "lo 0\r"
+    expect {
+	-i $shell_id "lo 0*" {
+	    verbose "Got load command echo" 0
+	}
+	-i $shell_id timeout {
+	    perror "Load command didn't echo back"
+	    return -1
+	}
+    }
+
+    if { [download $file.srec $shell_id] < 0 } {
+	return -1
+    }
+
+    send -i $shell_id "\r\r"
+    expect {
+	-i $shell_id -re "$shell_prompt.*$" {
+	}
+	-i $shell_id timeout {
+	    perror "Load command didn't echo back"
+	    return -1
+	}
+    }
+    
+    catch "exec rm -f $file.srec"
+    return 0
+}
+
+#
+# Execute a program
+#
+proc bug_execute { shell_id addr } {
+    global shell_prompt
+    global exec_output
+
+    set exec_output ""
+
+    if { $shell_id < 0 } {
+	warning "$arg not executed because there is no target."
+	return -1
+    }
+    send -i $shell_id "go $addr\r"
+    verbose "Sent execute command"
+    expect {
+	-i $shell_id "*Effective address: $addr" {
+	    exp_continue
+	}
+	-i $shell_id -re "$shell_prompt.*$" {
+	    set exec_output $expect_out(buffer)
+	    return 0
+	}
+	-i $shell_id timeout { 
+	    perror "Couldn't execute program (timed out)."
+	    return 1
+	}
+    }
+
+}
+

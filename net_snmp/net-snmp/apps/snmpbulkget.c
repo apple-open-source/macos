@@ -23,7 +23,7 @@ WHETHER IN AN ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION,
 ARISING OUT OF OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS
 SOFTWARE.
 **********************************************************************/
-#include <config.h>
+#include <net-snmp/net-snmp-config.h>
 
 #if HAVE_STDLIB_H
 #include <stdlib.h>
@@ -36,7 +36,7 @@ SOFTWARE.
 #else
 #include <strings.h>
 #endif
-#include <getopt.h>
+#include <net-snmp/utilities.h>
 #include <sys/types.h>
 #if HAVE_NETINET_IN_H
 #include <netinet/in.h>
@@ -59,6 +59,7 @@ SOFTWARE.
 #include <sys/select.h>
 #endif
 #include <stdio.h>
+#include <ctype.h>
 #if HAVE_WINSOCK_H
 #include <winsock.h>
 #endif
@@ -69,142 +70,188 @@ SOFTWARE.
 #include <arpa/inet.h>
 #endif
 
-#include "asn1.h"
-#include "snmp_api.h"
-#include "snmp_client.h"
-#include "mib.h"
-#include "snmp.h"
-#include "snmp_impl.h"
-#include "system.h"
-#include "snmp_parse_args.h"
+#include <net-snmp/net-snmp-includes.h>
 
-oid objid_mib[] = {1, 3, 6, 1, 2, 1};
-int max_repetitions = 100;
-int non_repeaters = 0;
+oid             objid_mib[] = { 1, 3, 6, 1, 2, 1 };
+int             max_repetitions = 10;
+int             non_repeaters = 0;
 struct nameStruct {
-  oid name[MAX_OID_LEN];
-  size_t name_len;
-} *name, *namep;
-int names;
-
-void optProc(int argc, char *const *argv, int opt)
-{
-  switch (opt) {
-  case 'B':
-    non_repeaters = atoi(optarg);
-    max_repetitions = atoi(argv[optind++]);
-    break;
-  }
-}
+    oid             name[MAX_OID_LEN];
+    size_t          name_len;
+}              *name, *namep;
+int             names;
 
 void
-usage (void)
+usage(void)
 {
-  fprintf(stderr,"Usage: snmpbulkget ");
-  snmp_parse_args_usage(stderr);
-  fprintf(stderr," [<objectID>]\n\n");
-  snmp_parse_args_descriptions(stderr);
-  fprintf(stderr,"  -B <nonrep> <rep>\tfirst <nonrep> objects are non-repeaters\n");
-  fprintf(stderr,"\t\t\tmaximum <rep> repetitions over the remainder\n");
+    fprintf(stderr, "USAGE: snmpbulkget ");
+    snmp_parse_args_usage(stderr);
+    fprintf(stderr, " OID [OID]...\n\n");
+    snmp_parse_args_descriptions(stderr);
+    fprintf(stderr,
+            "  -C APPOPTS\t\tSet various application specific behaviours:\n");
+    fprintf(stderr, "\t\t\t  n<NUM>:  set non-repeaters to <NUM>\n");
+    fprintf(stderr, "\t\t\t  r<NUM>:  set max-repeaters to <NUM>\n");
 }
 
-int main(int argc, char  *argv[])
+static
+    void
+optProc(int argc, char *const *argv, int opt)
 {
-    struct snmp_session  session, *ss;
-    struct snmp_pdu *pdu;
-    struct snmp_pdu *response;
-    struct variable_list *vars;
-    int  arg;
-    int  count;
-    int  running;
-    int  status;
-    int  exitval = 0;
+    char           *endptr = NULL;
 
-    /* get the common command line arguments */
-    switch (arg = snmp_parse_args(argc, argv, &session, "B:", optProc)) {
+    switch (opt) {
+    case 'C':
+        while (*optarg) {
+            switch (*optarg++) {
+            case 'n':
+            case 'r':
+                if (*(optarg - 1) == 'r') {
+                    max_repetitions = strtol(optarg, &endptr, 0);
+                } else {
+                    non_repeaters = strtol(optarg, &endptr, 0);
+                }
+
+                if (endptr == optarg) {
+                    /*
+                     * No number given -- error.  
+                     */
+                    usage();
+                    exit(1);
+                } else {
+                    optarg = endptr;
+                    if (isspace(*optarg)) {
+                        return;
+                    }
+                }
+                break;
+
+            default:
+                fprintf(stderr, "Unknown flag passed to -C: %c\n",
+                        optarg[-1]);
+                exit(1);
+            }
+        }
+    }
+}
+
+int
+main(int argc, char *argv[])
+{
+    netsnmp_session session, *ss;
+    netsnmp_pdu    *pdu;
+    netsnmp_pdu    *response;
+    netsnmp_variable_list *vars;
+    int             arg;
+    int             count;
+    int             running;
+    int             status;
+    int             exitval = 0;
+
+    /*
+     * get the common command line arguments 
+     */
+    switch (arg = snmp_parse_args(argc, argv, &session, "C:", optProc)) {
     case -2:
-	exit(0);
+        exit(0);
     case -1:
         usage();
         exit(1);
     default:
         break;
     }
-    
+
     names = argc - arg;
     if (names < non_repeaters) {
-      fprintf(stderr, "snmpbulkget: need more objects than <nonrep>\n");
-      exit(1);
+        fprintf(stderr, "snmpbulkget: need more objects than <nonrep>\n");
+        exit(1);
     }
 
-    namep = name = (struct nameStruct *)calloc(names, sizeof(*name));
+    namep = name = (struct nameStruct *) calloc(names, sizeof(*name));
     while (arg < argc) {
-      namep->name_len = MAX_OID_LEN;
-      if (snmp_parse_oid(argv[arg], namep->name, &namep->name_len) == NULL) {
-        snmp_perror(argv[arg]);
-        exit(1);
-      }
-      arg++; namep++;
+        namep->name_len = MAX_OID_LEN;
+        if (snmp_parse_oid(argv[arg], namep->name, &namep->name_len) ==
+            NULL) {
+            snmp_perror(argv[arg]);
+            exit(1);
+        }
+        arg++;
+        namep++;
     }
 
     SOCK_STARTUP;
 
-    /* open an SNMP session */
+    /*
+     * open an SNMP session 
+     */
     ss = snmp_open(&session);
-    if (ss == NULL){
-      /* diagnose snmp_open errors with the input struct snmp_session pointer */
-      snmp_sess_perror("snmpbulkget", &session);
-      SOCK_CLEANUP;
-      exit(1);
+    if (ss == NULL) {
+        /*
+         * diagnose snmp_open errors with the input netsnmp_session pointer 
+         */
+        snmp_sess_perror("snmpbulkget", &session);
+        SOCK_CLEANUP;
+        exit(1);
     }
 
-    /* create PDU for GETBULK request and add object name to request */
+    /*
+     * create PDU for GETBULK request and add object name to request 
+     */
     pdu = snmp_pdu_create(SNMP_MSG_GETBULK);
     pdu->non_repeaters = non_repeaters;
-    pdu->max_repetitions = max_repetitions;  /* fill the packet */
-    for (arg = 0; arg < names; arg++) 
-      snmp_add_null_var(pdu, name[arg].name, name[arg].name_len);
+    pdu->max_repetitions = max_repetitions;     /* fill the packet */
+    for (arg = 0; arg < names; arg++)
+        snmp_add_null_var(pdu, name[arg].name, name[arg].name_len);
 
-    /* do the request */
+    /*
+     * do the request 
+     */
     status = snmp_synch_response(ss, pdu, &response);
-    if (status == STAT_SUCCESS){
-      if (response->errstat == SNMP_ERR_NOERROR){
-	/* check resulting variables */
-	for(vars = response->variables; vars; vars = vars->next_variable)
-	  print_variable(vars->name, vars->name_length, vars);
-      } else {
-	/* error in response, print it */
-	running = 0;
-	if (response->errstat == SNMP_ERR_NOSUCHNAME){
-	  printf("End of MIB.\n");
-	} else {
-	  fprintf(stderr, "Error in packet.\nReason: %s\n",
-		 snmp_errstring(response->errstat));
-	  if (response->errindex != 0){
-	    fprintf(stderr, "Failed object: ");
-	    for(count = 1, vars = response->variables;
-		  vars && (count != response->errindex);
-		  vars = vars->next_variable, count++)
-	      /*EMPTY*/;
-	    if (vars)
-	      fprint_objid(stderr, vars->name, vars->name_length);
-	    fprintf(stderr, "\n");
-	  }
-	  exitval = 2;
-	}
-      }
-    } else if (status == STAT_TIMEOUT){
-      fprintf(stderr, "Timeout: No Response from %s\n", session.peername);
-      running = 0;
-      exitval = 1;
-    } else {    /* status == STAT_ERROR */
-      snmp_sess_perror("snmpbulkget", ss);
-      running = 0;
-      exitval = 1;
+    if (status == STAT_SUCCESS) {
+        if (response->errstat == SNMP_ERR_NOERROR) {
+            /*
+             * check resulting variables 
+             */
+            for (vars = response->variables; vars;
+                 vars = vars->next_variable)
+                print_variable(vars->name, vars->name_length, vars);
+        } else {
+            /*
+             * error in response, print it 
+             */
+            running = 0;
+            if (response->errstat == SNMP_ERR_NOSUCHNAME) {
+                printf("End of MIB.\n");
+            } else {
+                fprintf(stderr, "Error in packet.\nReason: %s\n",
+                        snmp_errstring(response->errstat));
+                if (response->errindex != 0) {
+                    fprintf(stderr, "Failed object: ");
+                    for (count = 1, vars = response->variables;
+                         vars && (count != response->errindex);
+                         vars = vars->next_variable, count++)
+                        /*EMPTY*/;
+                    if (vars)
+                        fprint_objid(stderr, vars->name,
+                                     vars->name_length);
+                    fprintf(stderr, "\n");
+                }
+                exitval = 2;
+            }
+        }
+    } else if (status == STAT_TIMEOUT) {
+        fprintf(stderr, "Timeout: No Response from %s\n",
+                session.peername);
+        running = 0;
+        exitval = 1;
+    } else {                    /* status == STAT_ERROR */
+        snmp_sess_perror("snmpbulkget", ss);
+        running = 0;
+        exitval = 1;
     }
 
     if (response)
-      snmp_free_pdu(response);
+        snmp_free_pdu(response);
 
     snmp_close(ss);
     SOCK_CLEANUP;

@@ -1,0 +1,52 @@
+<html>
+<!--
+  Copyright (c) 1999 The Apache Software Foundation.  All rights 
+  reserved.
+-->
+
+<body bgcolor="white">
+<font size=5 color="red">
+<%! String[] fruits; %>
+<jsp:useBean id="foo" scope="page" class="checkbox.CheckTest" />
+
+<jsp:setProperty name="foo" property="fruit" param="fruit" />
+<hr>
+The checked fruits (got using request) are: <br>
+<% 
+	fruits = request.getParameterValues("fruit");
+%>
+<ul>
+<%
+    if (fruits != null) {
+	  for (int i = 0; i < fruits.length; i++) {
+%>
+<li>
+<%
+	      out.println (util.HTMLFilter.filter(fruits[i]));
+	  }
+	} else out.println ("none selected");
+%>
+</ul>
+<br>
+<hr>
+
+The checked fruits (got using beans) are <br>
+
+<% 
+		fruits = foo.getFruit();
+%>
+<ul>
+<%
+    if (!fruits[0].equals("1")) {
+	  for (int i = 0; i < fruits.length; i++) {
+%>
+<li>
+<%
+		  out.println (util.HTMLFilter.filter(fruits[i]));
+	  }
+	} else out.println ("none selected");
+%>
+</ul>
+</font>
+</body>
+</html>

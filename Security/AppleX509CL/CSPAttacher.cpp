@@ -138,7 +138,7 @@ CSSM_CSP_HANDLE CSPAttacher::getCspHand(bool bareCsp)
 		NULL,			// eventHandler
 		NULL);			// AppNotifyCallbackCtx
 	if(crtn) {
-		errorLog2("AppleX509CLSession::cspAttach: error (%d) loading %s\n",
+		clErrorLog("AppleX509CLSession::cspAttach: error (%d) loading %s",
 			(int)crtn, modName);
 		CssmError::throwMe(crtn);
 	}
@@ -154,7 +154,7 @@ CSSM_CSP_HANDLE CSPAttacher::getCspHand(bool bareCsp)
 		NULL,					// reserved
 		&cspHand);
 	if(crtn) {
-		errorLog2("AppleX509CLSession::cspAttach: error (%d) attaching to %s\n",
+		clErrorLog("AppleX509CLSession::cspAttach: error (%d) attaching to %s",
 			(int)crtn, modName);
 		CssmError::throwMe(crtn);
 	}

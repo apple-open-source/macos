@@ -4,7 +4,7 @@ Destination = $(DSTROOT)/usr/share
 include $(MAKEFILEPATH)/CoreOS/ReleaseControl/Common.make
 
 # Subdirectories with their own makefiles
-SubDirs = misc dict skel
+SubDirs = misc dict skel man
 
 install::
 	$(_v) for subdir in $(SubDirs); do						\

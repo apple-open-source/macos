@@ -60,13 +60,15 @@
 #include <sys/sysctl.h>
 #include <errno.h>
 #include <kvm.h>
+#include <string.h>
 
-int getvfsbyname __P((const char *, struct vfsconf *));
+int getvfsbyname(const char *, struct vfsconf *);
 
 /*
  * Given a filesystem name, determine if it is resident in the kernel,
  * and if it is resident, return its vfsconf structure.
  */
+int
 getvfsbyname(fsname, vfcp)
 	const char *fsname;
 	struct vfsconf *vfcp;

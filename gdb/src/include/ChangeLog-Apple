@@ -1,0 +1,42 @@
+2002-12-15  Klee Dienes  <kdienes@apple.com>
+
+	* libiberty.h (xmalloc_set_malloc_hooks): Add prototype.
+	(xfree): Add prototype.
+
+2002-11-11  Klee Dienes  <kdienes@apple.com>
+
+	* opcode/i860.h: Revert to FSF sources (see below).
+
+2002-11-11  Klee Dienes  <kdienes@apple.com>
+
+	These were all submitted to the FSF, but in substantially modified
+	form.  They're not currently needed by our builds; I'm removing
+	them and will expect to merge them in once they are accepted by
+	the FSF.
+	
+	* opcode/arc.h: Revert to FSF sources.
+	* opcode/h8300.h: Revert to FSF sources.
+	* opcode/opcode/m88k.h: Revert to FSF sources.
+
+2002-11-01  Klee Dienes  <kdienes@apple.com>
+
+	* arc.h: Remove declaration of arc_ext_operands and
+	arc_ext_opcodes (moved to arc-opc.c).
+
+2002-10-28  Klee Dienes  <kdienes@apple.com>
+
+	* xregex2.h: The Apple GCC doesn't support __restrict_arr,
+	even though it's based on 3.1; add test for __APPLE__.
+
+2002-10-26  Klee Dienes  <kdienes@apple.com>
+
+	* dis-asm.h: Remove PIC support.
+
+2002-10-12  Klee Dienes  <kdienes@apple.com>
+
+	* libiberty.h: Add __APPLE__ to the basename declaration #ifdef hack.
+
+2002-07-09  Jim Ingham    <jingham@apple.com>
+
+	* include.h: Add the "internal" constructor & destructor 
+	flavors.

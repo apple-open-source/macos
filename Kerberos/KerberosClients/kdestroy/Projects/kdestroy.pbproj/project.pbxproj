@@ -1,0 +1,215 @@
+// !$*UTF8*$!
+{
+	archiveVersion = 1;
+	classes = {
+	};
+	objectVersion = 38;
+	objects = {
+		A1B21EC10417C72A00120114 = {
+			isa = PBXFrameworkReference;
+			path = Kerberos.framework;
+			refType = 3;
+		};
+		A1B21EC20417C72A00120114 = {
+			fileRef = A1B21EC10417C72A00120114;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+//A10
+//A11
+//A12
+//A13
+//A14
+//F50
+//F51
+//F52
+//F53
+//F54
+		F5033FB9025DF98701F62B58 = {
+			children = (
+				F5033FBA025DF98701F62B58,
+			);
+			isa = PBXGroup;
+			name = Documentation;
+			path = ../Documentation;
+			refType = 4;
+		};
+		F5033FBA025DF98701F62B58 = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			path = kdestroy.M;
+			refType = 4;
+		};
+		F5B897CB024157E401650119 = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			path = kdestroy.M.jam;
+			refType = 4;
+		};
+		F5B897CE0241583D01650119 = {
+			buildArgumentsString = "-d3 \"-sJAMFILE=$(SRCROOT)/../Scripts/kdestroy.M.jam\" $(ACTION)";
+			buildPhases = (
+			);
+			buildSettings = {
+				PRODUCT_NAME = "Man Pages";
+				WARNING_CFLAGS = "-Wmost -Wno-four-char-constants -Wno-unknown-pragmas";
+			};
+			buildToolPath = /Developer/Private/jam;
+			dependencies = (
+			);
+			isa = PBXLegacyTarget;
+			name = "Man Pages";
+			passBuildSettingsInEnvironment = 1;
+			productName = "Man Pages";
+			settingsToExpand = 6;
+			settingsToPassInEnvironment = 287;
+			settingsToPassOnCommandLine = 280;
+		};
+		F5B897D00241586B01650119 = {
+			isa = PBXTargetDependency;
+			target = F5B897CE0241583D01650119;
+		};
+		F5BEC59B025A625201F7866E = {
+			fileRef = F5E27E1A023708C801650119;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		F5E27E0B0237084301650119 = {
+			buildStyles = (
+				F5E27E0D0237084301650119,
+				F5E27E0E0237084301650119,
+			);
+			hasScannedForEncodings = 1;
+			isa = PBXProject;
+			mainGroup = F5E27E0C0237084301650119;
+			productRefGroup = F5E27E1B02370B3801650119;
+			projectDirPath = "";
+			targets = (
+				F5B897CE0241583D01650119,
+				F5E27E1D02370B3801650119,
+			);
+		};
+		F5E27E0C0237084301650119 = {
+			children = (
+				F5E27E19023708C801650119,
+				F5033FB9025DF98701F62B58,
+				F5E27E17023708C801650119,
+				A1B21EC10417C72A00120114,
+				F5E27E1B02370B3801650119,
+			);
+			isa = PBXGroup;
+			refType = 4;
+		};
+		F5E27E0D0237084301650119 = {
+			buildRules = (
+			);
+			buildSettings = {
+				COPY_PHASE_STRIP = NO;
+			};
+			isa = PBXBuildStyle;
+			name = Development;
+		};
+		F5E27E0E0237084301650119 = {
+			buildRules = (
+			);
+			buildSettings = {
+				COPY_PHASE_STRIP = YES;
+			};
+			isa = PBXBuildStyle;
+			name = Deployment;
+		};
+		F5E27E17023708C801650119 = {
+			children = (
+				F5B897CB024157E401650119,
+			);
+			isa = PBXGroup;
+			name = Scripts;
+			path = ../Scripts;
+			refType = 2;
+		};
+		F5E27E19023708C801650119 = {
+			children = (
+				F5E27E1A023708C801650119,
+			);
+			isa = PBXGroup;
+			name = Sources;
+			path = ../Sources;
+			refType = 2;
+		};
+		F5E27E1A023708C801650119 = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			path = kdestroy.c;
+			refType = 4;
+		};
+		F5E27E1B02370B3801650119 = {
+			children = (
+				F5E27E1C02370B3801650119,
+			);
+			isa = PBXGroup;
+			name = Products;
+			refType = 4;
+		};
+		F5E27E1C02370B3801650119 = {
+			isa = PBXExecutableFileReference;
+			path = kdestroy;
+			refType = 3;
+		};
+		F5E27E1D02370B3801650119 = {
+			buildPhases = (
+				F5E27E1E02370B3801650119,
+				F5E27E1F02370B3801650119,
+				F5E27E2102370B3801650119,
+				F5E27E2202370B3801650119,
+			);
+			buildSettings = {
+				FRAMEWORK_SEARCH_PATHS = "\"$(DSTROOT)/System/Library/Frameworks\"";
+				INSTALL_PATH = /usr/bin;
+				PRODUCT_NAME = kdestroy;
+				REZ_EXECUTABLE = YES;
+				WARNING_CFLAGS = "-Wmost -Wno-four-char-constants -Wno-unknown-pragmas";
+			};
+			dependencies = (
+				F5B897D00241586B01650119,
+			);
+			isa = PBXToolTarget;
+			name = kdestroy;
+			productInstallPath = /usr/bin;
+			productName = kdestroy;
+			productReference = F5E27E1C02370B3801650119;
+		};
+		F5E27E1E02370B3801650119 = {
+			buildActionMask = 2147483647;
+			files = (
+			);
+			isa = PBXHeadersBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		F5E27E1F02370B3801650119 = {
+			buildActionMask = 2147483647;
+			files = (
+				F5BEC59B025A625201F7866E,
+			);
+			isa = PBXSourcesBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		F5E27E2102370B3801650119 = {
+			buildActionMask = 2147483647;
+			files = (
+				A1B21EC20417C72A00120114,
+			);
+			isa = PBXFrameworksBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		F5E27E2202370B3801650119 = {
+			buildActionMask = 2147483647;
+			files = (
+			);
+			isa = PBXRezBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+	};
+	rootObject = F5E27E0B0237084301650119;
+}

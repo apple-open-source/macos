@@ -1,9 +1,9 @@
 /*
- * "$Id: lprm.c,v 1.1.1.3 2002/06/06 22:12:32 jlovell Exp $"
+ * "$Id: lprm.c,v 1.1.1.9 2003/02/10 21:57:09 jlovell Exp $"
  *
  *   "lprm" command for the Common UNIX Printing System (CUPS).
  *
- *   Copyright 1997-2002 by Easy Software Products.
+ *   Copyright 1997-2003 by Easy Software Products.
  *
  *   These coded instructions, statements, and computer programs are the
  *   property of Easy Software Products and are protected by Federal
@@ -98,14 +98,14 @@ main(int  argc,			/* I - Number of command-line arguments */
       switch (argv[i][1])
       {
         case 'E' : /* Encrypt */
-#ifdef HAVE_LIBSSL
+#ifdef HAVE_SSL
 	    encryption = HTTP_ENCRYPT_REQUIRED;
 
 	    httpEncryption(http, encryption);
 #else
             fprintf(stderr, "%s: Sorry, no encryption support compiled in!\n",
 	            argv[0]);
-#endif /* HAVE_LIBSSL */
+#endif /* HAVE_SSL */
 	    break;
 
         case 'P' : /* Cancel jobs on a printer */
@@ -119,6 +119,14 @@ main(int  argc,			/* I - Number of command-line arguments */
 
 	    if ((instance = strchr(dest, '/')) != NULL)
 	      *instance = '\0';
+
+	    if (cupsGetDest(dest, NULL, num_dests, dests) == NULL)
+	    {
+	      fprintf(stderr, "lprm: Unknown destination \"%s\"!\n", dest);
+              cupsFreeDests(num_dests, dests);
+	      httpClose(http);
+	      return(1);
+	    }
 	    break;
 
 	default :
@@ -133,7 +141,7 @@ main(int  argc,			/* I - Number of command-line arguments */
       * Cancel a job or printer...
       */
 
-      if (isdigit(argv[i][0]))
+      if (isdigit(argv[i][0]) && cupsGetDest(argv[i], NULL, num_dests, dests) == NULL)
       {
         dest   = NULL;
 	op     = IPP_CANCEL_JOB;
@@ -263,5 +271,5 @@ main(int  argc,			/* I - Number of command-line arguments */
 
 
 /*
- * End of "$Id: lprm.c,v 1.1.1.3 2002/06/06 22:12:32 jlovell Exp $".
+ * End of "$Id: lprm.c,v 1.1.1.9 2003/02/10 21:57:09 jlovell Exp $".
  */

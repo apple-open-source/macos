@@ -1,0 +1,718 @@
+--- vfprintf.c.orig	Thu Jul 24 12:42:14 2003
++++ vfprintf.c	Sun Aug 24 16:21:44 2003
+@@ -66,9 +66,20 @@
+ #include "local.h"
+ #include "fvwrite.h"
+ 
++#ifdef ALTIVEC
++#include <machine/cpu_capabilities.h>
++
++#define VECTORTYPE	vector unsigned char
++#endif /* ALTIVEC */
++
+ /* Define FLOATING_POINT to get floating point. */
+ #define	FLOATING_POINT
+ 
++/* if no floating point, turn off HEXFLOAT as well */
++#if defined(HEXFLOAT) && !defined(FLOATING_POINT)
++#undef HEXFLOAT
++#endif /* defined(HEXFLOAT) && !defined(FLOATING_POINT) */
++
+ union arg {
+ 	int	intarg;
+ 	u_int	uintarg;
+@@ -88,7 +99,7 @@
+ 	long	*plongarg;
+ 	long long *plonglongarg;
+ 	ptrdiff_t *pptrdiffarg;
+-	size_t	*psizearg;
++	ssize_t	*psizearg;
+ 	intmax_t *pintmaxarg;
+ #ifdef FLOATING_POINT
+ 	double	doublearg;
+@@ -96,6 +107,16 @@
+ #endif
+ 	wint_t	wintarg;
+ 	wchar_t	*pwchararg;
++#ifdef ALTIVEC
++	VECTORTYPE		vectorarg;
++	unsigned char		vuchararg[16];
++	signed char		vchararg[16];
++	unsigned short		vushortarg[8];
++	signed short		vshortarg[8];
++	unsigned int		vuintarg[4];
++	signed int		vintarg[4];
++	float			vfloatarg[4];
++#endif /* ALTIVEC */
+ };
+ 
+ /*
+@@ -106,7 +127,11 @@
+ 	T_LONG, T_U_LONG, TP_LONG, T_LLONG, T_U_LLONG, TP_LLONG,
+ 	T_PTRDIFFT, TP_PTRDIFFT, T_SIZET, TP_SIZET,
+ 	T_INTMAXT, T_UINTMAXT, TP_INTMAXT, TP_VOID, TP_CHAR, TP_SCHAR,
++#ifdef ALTIVEC
++	T_DOUBLE, T_LONG_DOUBLE, T_WINT, TP_WCHAR, T_VECTOR
++#else /* ! ALTIVEC */
+ 	T_DOUBLE, T_LONG_DOUBLE, T_WINT, TP_WCHAR
++#endif /* ALTIVEC */
+ };
+ 
+ static int	__sprint(FILE *, struct __suio *);
+@@ -119,6 +144,37 @@
+ static void	__find_arguments(const char *, va_list, union arg **);
+ static void	__grow_type_table(int, enum typeid **, int *);
+ 
++	/*
++	 * Get the argument indexed by nextarg.   If the argument table is
++	 * built, use it to get the argument.  If its not, get the next
++	 * argument (and arguments must be gotten sequentially).
++	 */
++#define GETARG(type) \
++	((argtable != NULL) ? *((type*)(&argtable[nextarg++])) : \
++	    (nextarg++, va_arg(ap, type)))
++
++#ifdef ALTIVEC
++#define hasAltivec	(_cpu_capabilities & kHasAltivec)
++/*-----------------------------------------------------------------------
++ * getvec() must be a real subroutine.  If it is a #define, then __vfprintf()
++ * would have its calling sequence changed by Altivec so that a non-Altivec
++ * processor would crash on illegal instruction.  By isolating the calling
++ * sequence in getvec(), __vprintf() is callable by a non-Altivec processor.
++ *-----------------------------------------------------------------------*/
++static va_list
++getvec(union arg *dst, const union arg *argtable, int nextarg, va_list ap)
++{
++	dst->vectorarg = GETARG(VECTORTYPE);
++	return ap;
++}
++
++#define SETVEC(dst)	\
++{ \
++	ap = getvec(&dst, argtable, nextarg, ap); \
++	nextarg++; \
++}
++#endif /* ALTIVEC */
++
+ /*
+  * Flush out all the vectors defined by the given uio,
+  * then reset it so that it can be reused.
+@@ -424,6 +480,15 @@
+ 
+ #endif /* FLOATING_POINT */
+ 
++#ifdef HEXFLOAT
++extern int __hdtoa(double d, const char *xdigs, int prec, char *cp,
++    int *expt, int *signflag, char **dtoaend);
++#if !__TYPE_LONGDOUBLE_IS_DOUBLE
++extern int __hldtoa(long double d, const char *xdigs, int prec, char *cp,
++    int *expt, int *signflag, char **dtoaend);
++#endif /* !__TYPE_LONGDOUBLE_IS_DOUBLE */
++#endif /* HEXFLOAT */
++
+ /*
+  * The size of the buffer we use as scratch space for integer
+  * conversions, among other things.  Technically, we would need the
+@@ -452,6 +517,9 @@
+ #define	PTRDIFFT	0x800		/* ptrdiff_t */
+ #define	INTMAXT		0x1000		/* intmax_t */
+ #define	CHARINT		0x2000		/* print char using int format */
++#ifdef ALTIVEC
++#define	VECTOR		0x4000		/* Altivec vector */
++#endif /* ALTIVEC */
+ 
+ /*
+  * Non-MT-safe version
+@@ -503,6 +571,11 @@
+ 	int nseps;		/* number of group separators with ' */
+ 	int nrepeats;		/* number of repeats of the last group */
+ #endif
++#ifdef ALTIVEC
++	union arg vval;		/* Vector argument. */
++	char *pct;		/* Pointer to '%' at beginning of specifier. */
++	char vsep;		/* Vector separator character. */
++#endif
+ 	u_long	ulval;		/* integer arguments %[diouxX] */
+ 	uintmax_t ujval;	/* %j, %ll, %q, %t, %z integers */
+ 	int base;		/* base for [diouxX] conversion */
+@@ -535,6 +608,12 @@
+ 
+ 	static const char xdigs_lower[16] = "0123456789abcdef";
+ 	static const char xdigs_upper[16] = "0123456789ABCDEF";
++#ifdef HEXFLOAT
++#define HEXFLOATDELTA	32
++#define HEXFLOATSTART	32
++	static char *hexfloat = NULL;
++	static int hexfloatlen = 0;
++#endif /* HEXFLOAT */
+ 
+ 	/*
+ 	 * BEWARE, these `goto error' on error, and PAD uses `n'.
+@@ -575,15 +654,6 @@
+ }
+ 
+ 	/*
+-	 * Get the argument indexed by nextarg.   If the argument table is
+-	 * built, use it to get the argument.  If its not, get the next
+-	 * argument (and arguments must be gotten sequentially).
+-	 */
+-#define GETARG(type) \
+-	((argtable != NULL) ? *((type*)(&argtable[nextarg++])) : \
+-	    (nextarg++, va_arg(ap, type)))
+-
+-	/*
+ 	 * To extend shorts properly, we need both signed and unsigned
+ 	 * argument extraction methods.
+ 	 */
+@@ -634,7 +704,6 @@
+ 		val = GETARG (int); \
+ 	}
+ 
+-
+ 	thousands_sep = '\0';
+ 	grouping = NULL;
+ 	convbuf = NULL;
+@@ -676,6 +745,9 @@
+ 		}
+ 		if (ch == '\0')
+ 			goto done;
++#ifdef ALTIVEC
++		pct = fmt;
++#endif /* ALTIVEC */
+ 		fmt++;		/* skip over '%' */
+ 
+ 		flags = 0;
+@@ -684,6 +756,9 @@
+ 		prec = -1;
+ 		sign = '\0';
+ 		ox[1] = '\0';
++#ifdef ALTIVEC
++		vsep = 'X'; /* Illegal value, changed to defaults later. */
++#endif /* ALTIVEC */
+ 
+ rflag:		ch = *fmt++;
+ reswitch:	switch (ch) {
+@@ -699,6 +774,11 @@
+ 		case '#':
+ 			flags |= ALT;
+ 			goto rflag;
++#ifdef ALTIVEC
++		case ',': case ';': case ':': case '_':
++			vsep = ch;
++			goto rflag;
++#endif /* ALTIVEC */
+ 		case '*':
+ 			/*-
+ 			 * ``A negative field width argument is taken as a
+@@ -807,6 +887,12 @@
+ 				}
+ 				size = (int)mbseqlen;
+ 			} else {
++#ifdef ALTIVEC
++				if (flags & VECTOR) {
++					SETVEC(vval);
++					break;
++				}
++#endif /* ALTIVEC */
+ 				*(cp = buf) = GETARG(int);
+ 				size = 1;
+ 			}
+@@ -817,6 +903,12 @@
+ 			/*FALLTHROUGH*/
+ 		case 'd':
+ 		case 'i':
++#ifdef ALTIVEC
++			if (flags & VECTOR) {
++				SETVEC(vval);
++				break;
++			} else
++#endif /* ALTIVEC */
+ 			if (flags & INTMAX_SIZE) {
+ 				ujval = SJARG();
+ 				if ((intmax_t)ujval < 0) {
+@@ -836,6 +928,13 @@
+ #ifdef HEXFLOAT
+ 		case 'a':
+ 		case 'A':
++#ifdef ALTIVEC
++			if (flags & VECTOR) {
++				flags |= FPT;
++				SETVEC(vval);
++				break;
++			}
++#endif /* ALTIVEC */
+ 			if (ch == 'a') {
+ 				ox[1] = 'x';
+ 				xdigs = xdigs_lower;
+@@ -845,25 +944,51 @@
+ 				xdigs = xdigs_upper;
+ 				expchar = 'P';
+ 			}
+-			/*
+-			 * XXX We don't actually have a conversion
+-			 * XXX routine for this yet.
+-			 */
++			if (!hexfloat) {
++				hexfloat = malloc(hexfloatlen = HEXFLOATSTART);
++				if (!hexfloat)
++					goto error;
++			}
++			if (prec > hexfloatlen - 1) {
++				int hlen = prec + HEXFLOATDELTA;
++				char *hf = realloc(hexfloat, hlen);
++				if (hf == NULL)
++					goto error;
++				hexfloat = hf;
++				hexfloatlen = hlen;
++			}
++			cp = hexfloat;
+ 			if (flags & LONGDBL) {
+-				fparg.ldbl = (double)GETARG(long double);
+-				dtoaresult = cp =
+-				    __hldtoa(fparg.ldbl, xdigs, prec,
++#if __TYPE_LONGDOUBLE_IS_DOUBLE
++				fparg.dbl = (double)GETARG(long double);
++				prec = __hdtoa(fparg.dbl, xdigs, prec, cp,
+ 				    &expt, &signflag, &dtoaend);
++#else /* ! __TYPE_LONGDOUBLE_IS_DOUBLE */
++				fparg.ldbl = GETARG(long double);
++				prec = __hldtoa(fparg.ldbl, xdigs, prec, cp,
++				    &expt, &signflag, &dtoaend);
++#endif /* __TYPE_LONGDOUBLE_IS_DOUBLE */
+ 			} else {
+ 				fparg.dbl = GETARG(double);
+-				dtoaresult = cp =
+-				    __hdtoa(fparg.dbl, xdigs, prec,
++				prec = __hdtoa(fparg.dbl, xdigs, prec, cp,
+ 				    &expt, &signflag, &dtoaend);
+ 			}
+-			goto fp_begin;
++			prec++;
++			if (expt == INT_MAX)
++				ox[1] = 0;
++			else
++				expt++;
++			goto hex_begin;
+ #endif
+ 		case 'e':
+ 		case 'E':
++#ifdef ALTIVEC
++			if (flags & VECTOR) {
++				flags |= FPT;
++				SETVEC(vval);
++				break;
++			}
++#endif /* ALTIVEC */
+ 			expchar = ch;
+ 			if (prec < 0)	/* account for digit before decpt */
+ 				prec = DEFPREC + 1;
+@@ -872,10 +997,24 @@
+ 			goto fp_begin;
+ 		case 'f':
+ 		case 'F':
++#ifdef ALTIVEC
++			if (flags & VECTOR) {
++				flags |= FPT;
++				SETVEC(vval);
++				break;
++			}
++#endif /* ALTIVEC */
+ 			expchar = '\0';
+ 			goto fp_begin;
+ 		case 'g':
+ 		case 'G':
++#ifdef ALTIVEC
++			if (flags & VECTOR) {
++				flags |= FPT;
++				SETVEC(vval);
++				break;
++			}
++#endif /* ALTIVEC */
+ 			expchar = ch - ('g' - 'e');
+ 			if (prec == 0)
+ 				prec = 1;
+@@ -884,6 +1023,17 @@
+ 				prec = DEFPREC;
+ 			if (dtoaresult != NULL)
+ 				freedtoa(dtoaresult);
++#if __TYPE_LONGDOUBLE_IS_DOUBLE
++			if (flags & LONGDBL)
++				fparg.dbl = (double)GETARG(long double);
++			else
++				fparg.dbl = GETARG(double);
++			dtoaresult = cp =
++			    dtoa(fparg.dbl, expchar ? 2 : 3, prec,
++			    &expt, &signflag, &dtoaend);
++			if (expt == 9999)
++				expt = INT_MAX;
++#else /* ! __TYPE_LONGDOUBLE_IS_DOUBLE */
+ 			if (flags & LONGDBL) {
+ 				fparg.ldbl = GETARG(long double);
+ 				dtoaresult = cp =
+@@ -897,6 +1047,10 @@
+ 				if (expt == 9999)
+ 					expt = INT_MAX;
+ 			}
++#endif /* __TYPE_LONGDOUBLE_IS_DOUBLE */
++#ifdef HEXFLOAT
++hex_begin:
++#endif /* HEXFLOAT */
+ 			if (signflag)
+ 				sign = '-';
+ 			if (expt == INT_MAX) {	/* inf or nan */
+@@ -990,6 +1144,12 @@
+ 			flags |= LONGINT;
+ 			/*FALLTHROUGH*/
+ 		case 'o':
++#ifdef ALTIVEC
++			if (flags & VECTOR) {
++				SETVEC(vval);
++				break;
++			} else
++#endif /* ALTIVEC */
+ 			if (flags & INTMAX_SIZE)
+ 				ujval = UJARG();
+ 			else
+@@ -1004,6 +1164,12 @@
+ 			 * defined manner.''
+ 			 *	-- ANSI X3J11
+ 			 */
++#ifdef ALTIVEC
++			if (flags & VECTOR) {
++				SETVEC(vval);
++				break;
++			}
++#endif /* ALTIVEC */
+ 			ujval = (uintmax_t)(uintptr_t)GETARG(void *);
+ 			base = 16;
+ 			xdigs = xdigs_lower;
+@@ -1053,6 +1219,12 @@
+ 			flags |= LONGINT;
+ 			/*FALLTHROUGH*/
+ 		case 'u':
++#ifdef ALTIVEC
++			if (flags & VECTOR) {
++				SETVEC(vval);
++				break;
++			} else
++#endif /* ALTIVEC */
+ 			if (flags & INTMAX_SIZE)
+ 				ujval = UJARG();
+ 			else
+@@ -1065,6 +1237,12 @@
+ 		case 'x':
+ 			xdigs = xdigs_lower;
+ hex:
++#ifdef ALTIVEC
++			if (flags & VECTOR) {
++				SETVEC(vval);
++				break;
++			} else
++#endif /* ALTIVEC */
+ 			if (flags & INTMAX_SIZE)
+ 				ujval = UJARG();
+ 			else
+@@ -1109,6 +1287,14 @@
+ 			if (size > BUF)	/* should never happen */
+ 				abort();
+ 			break;
++#ifdef ALTIVEC
++		case 'v':
++			if (hasAltivec) {
++				flags |= VECTOR;
++				goto rflag;
++			}
++			/* drap through */
++#endif /* ALTIVEC */
+ 		default:	/* "%?" prints ?, unless ? is NUL */
+ 			if (ch == '\0')
+ 				goto done;
+@@ -1120,6 +1306,186 @@
+ 			break;
+ 		}
+ 
++#ifdef ALTIVEC
++		if (flags & VECTOR) {
++			/*
++			 * Do the minimum amount of work necessary to construct
++			 * a format specifier that can be used to recursively
++			 * call vfprintf() for each element in the vector.
++			 */
++			int i, j;	/* Counter. */
++			int vcnt;	/* Number of elements in vector. */
++			char *vfmt;	/* Pointer to format specifier. */
++			char vfmt_buf[32]; /* Static buffer for format spec. */
++			int vwidth = 0;	/* Width specified via '*'. */
++			int vprec = 0;	/* Precision specified via '*'. */
++			union {		/* Element. */
++				int i;
++				float f;
++			} velm;
++			char *vstr;	/* Used for asprintf(). */
++			int vlen;	/* Length returned by asprintf(). */
++
++			/*
++			 * Set vfmt.  If vfmt_buf may not be big enough,
++			 * malloc() space, taking care to free it later.
++			 */
++			if (&fmt[-1] - pct < sizeof(vfmt_buf))
++				vfmt = vfmt_buf;
++			else
++				vfmt = (char *)malloc(&fmt[-1] - pct + 1);
++
++			/* Set the separator character, if not specified. */
++			if (vsep == 'X') {
++				if (ch == 'c')
++					vsep = '\0';
++				else
++					vsep = ' ';
++			}
++
++			/* Create the format specifier. */
++			for (i = j = 0; i < &fmt[-1] - pct; i++) {
++				switch (pct[i]) {
++				case ',': case ';': case ':': case '_':
++				case 'v': case 'h': case 'l':
++					/* Ignore. */
++					break;
++				case '*':
++					if (pct[i - 1] != '.')
++						vwidth = 1;
++					else
++						vprec = 1;
++					/* FALLTHROUGH */
++				default:
++					vfmt[j++] = pct[i];
++				}
++			}
++		
++			/*
++			 * Determine the number of elements in the vector and
++			 * finish up the format specifier.
++			 */
++			if (flags & SHORTINT) {
++				vfmt[j++] = 'h';
++				vcnt = 8;
++			} else if (flags & LONGINT) {
++				vfmt[j++] = 'l';
++				vcnt = 4;
++			} else {
++				switch (ch) {
++				case 'a':
++				case 'A':
++				case 'e':
++				case 'E':
++				case 'f':
++				case 'g':
++				case 'G':
++					vcnt = 4;
++					break;
++				default:
++					/*
++					 * The default case should never
++					 * happen.
++					 */
++				case 'c':
++				case 'd':
++				case 'i':
++				case 'u':
++				case 'o':
++				case 'p':
++				case 'x':
++				case 'X':
++					vcnt = 16;
++				}
++			}
++			vfmt[j++] = ch;
++			vfmt[j++] = '\0';
++
++/* Get a vector element. */
++#define VPRINT(cnt, ind, args...) do {					\
++	if (flags & FPT) {						\
++		velm.f = vval.vfloatarg[ind];				\
++		vlen = asprintf(&vstr, vfmt , ## args, velm.f);		\
++	} else {							\
++		switch (cnt) {						\
++		default:						\
++		/* The default case should never happen. */		\
++		case 4:							\
++			velm.i = (unsigned)vval.vintarg[ind];		\
++			break;						\
++		case 8:							\
++			velm.i = (unsigned short)vval.vshortarg[ind];	\
++			break;						\
++		case 16:						\
++			velm.i = (unsigned char)vval.vchararg[ind];	\
++			break;						\
++		}							\
++		vlen = asprintf(&vstr, vfmt , ## args, velm.i);		\
++	}								\
++	ret += vlen;							\
++	PRINT(vstr, vlen);						\
++	FLUSH();							\
++	free(vstr);							\
++} while (0)
++
++			/* Actually print. */
++			if (vwidth == 0) {
++				if (vprec == 0) {
++					/* First element. */
++					VPRINT(vcnt, 0);
++					for (i = 1; i < vcnt; i++) {
++						/* Separator. */
++						if (vsep)
++							PRINT(&vsep, 1);
++
++						/* Element. */
++						VPRINT(vcnt, i);
++					}
++				} else {
++					/* First element. */
++					VPRINT(vcnt, 0, prec);
++					for (i = 1; i < vcnt; i++) {
++						/* Separator. */
++						if (vsep)
++							PRINT(&vsep, 1);
++
++						/* Element. */
++						VPRINT(vcnt, i, prec);
++					}
++				}
++			} else {
++				if (vprec == 0) {
++					/* First element. */
++					VPRINT(vcnt, 0, width);
++					for (i = 1; i < vcnt; i++) {
++						/* Separator. */
++						if (vsep)
++							PRINT(&vsep, 1);
++
++						/* Element. */
++						VPRINT(vcnt, i, width);
++					}
++				} else {
++					/* First element. */
++					VPRINT(vcnt, 0, width, prec);
++					for (i = 1; i < vcnt; i++) {
++						/* Separator. */
++						if (vsep)
++							PRINT(&vsep, 1);
++
++						/* Element. */
++						VPRINT(vcnt, i, width, prec);
++					}
++				}
++			}
++#undef VPRINT
++
++			if (vfmt != vfmt_buf)
++				free(vfmt);
++
++			continue;
++		}
++#endif /* ALTIVEC */
+ 		/*
+ 		 * All reasonable formats wind up here.  At this point, `cp'
+ 		 * points to a string which (if not flags&LADJUST) should be
+@@ -1137,7 +1503,7 @@
+ 		realsz = dprec > size ? dprec : size;
+ 		if (sign)
+ 			realsz++;
+-		else if (ox[1])
++		if (ox[1])
+ 			realsz += 2;
+ 
+ 		prsize = width > realsz ? width : realsz;
+@@ -1151,9 +1517,9 @@
+ 			PAD(width - realsz, blanks);
+ 
+ 		/* prefix */
+-		if (sign) {
++		if (sign)
+ 			PRINT(&sign, 1);
+-		} else if (ox[1]) {	/* ox[1] is either x, X, or \0 */
++		if (ox[1]) {	/* ox[1] is either x, X, or \0 */
+ 			ox[0] = '0';
+ 			PRINT(ox, 2);
+ 		}
+@@ -1400,6 +1766,11 @@
+ 			if (flags & LONGINT)
+ 				ADDTYPE(T_WINT);
+ 			else
++#ifdef ALTIVEC
++			if (flags & VECTOR)
++				ADDTYPE(T_VECTOR);
++			else
++#endif /* ALTIVEC */
+ 				ADDTYPE(T_INT);
+ 			break;
+ 		case 'D':
+@@ -1407,6 +1778,11 @@
+ 			/*FALLTHROUGH*/
+ 		case 'd':
+ 		case 'i':
++#ifdef ALTIVEC
++			if (flags & VECTOR)
++				ADDTYPE(T_VECTOR);
++			else
++#endif
+ 			ADDSARG();
+ 			break;
+ #ifdef FLOATING_POINT
+@@ -1419,6 +1795,11 @@
+ 		case 'f':
+ 		case 'g':
+ 		case 'G':
++#ifdef ALTIVEC
++			if (flags & VECTOR)
++				ADDTYPE(T_VECTOR);
++			else
++#endif /* ALTIVEC */
+ 			if (flags & LONGDBL)
+ 				ADDTYPE(T_LONG_DOUBLE);
+ 			else
+@@ -1447,9 +1828,19 @@
+ 			flags |= LONGINT;
+ 			/*FALLTHROUGH*/
+ 		case 'o':
++#ifdef ALTIVEC
++			if (flags & VECTOR)
++				ADDTYPE(T_VECTOR);
++			else
++#endif /* ALTIVEC */
+ 			ADDUARG();
+ 			break;
+ 		case 'p':
++#ifdef ALTIVEC
++			if (flags & VECTOR)
++				ADDTYPE(T_VECTOR);
++			else
++#endif /* ALTIVEC */
+ 			ADDTYPE(TP_VOID);
+ 			break;
+ 		case 'S':
+@@ -1467,6 +1858,11 @@
+ 		case 'u':
+ 		case 'X':
+ 		case 'x':
++#ifdef ALTIVEC
++			if (flags & VECTOR)
++				ADDTYPE(T_VECTOR);
++			else
++#endif /* ALTIVEC */
+ 			ADDUARG();
+ 			break;
+ 		default:	/* "%?" prints ?, unless ? is NUL */
+@@ -1552,6 +1948,12 @@
+ 			(*argtable) [n].longdoublearg = va_arg (ap, long double);
+ 			break;
+ #endif
++#ifdef ALTIVEC
++		    case T_VECTOR:
++			if (hasAltivec)
++				ap = getvec( &((*argtable) [n]), NULL, 0, ap );
++			break;
++#endif /* ALTIVEC */
+ 		    case TP_CHAR:
+ 			(*argtable) [n].pchararg = va_arg (ap, char *);
+ 			break;

@@ -2,7 +2,7 @@
 
   re.c -
 
-  $Author: jkh $
+  $Author: melville $
   created at: Mon Aug  9 18:24:49 JST 1993
 
   Copyright (C) 1993-2000 Yukihiro Matsumoto
@@ -220,7 +220,7 @@ rb_reg_expr_str(str, s, len)
 	    need_escape = 1;
 	    break;
 	}
-	p++;
+	p += mbclen(*p);
     }
     if (!need_escape) {
 	rb_str_cat(str, s, len);
@@ -228,7 +228,14 @@ rb_reg_expr_str(str, s, len)
     else {
 	p = s; 
 	while (p<pend) {
-	    if (*p == '/') {
+	    if (*p == '\\') {
+		rb_str_cat(str, p, 1);
+		p++;
+	    	rb_str_cat(str, p, mbclen(*p));
+		p += mbclen(*p);
+		continue;
+	    }
+	    else if (*p == '/') {
 		char c = '\\';
 		rb_str_cat(str, &c, 1);
 		rb_str_cat(str, p, 1);
@@ -241,35 +248,14 @@ rb_reg_expr_str(str, s, len)
 	    else if (ISPRINT(*p)) {
 		rb_str_cat(str, p, 1);
 	    }
-	    else {
+	    else if (!ISSPACE(*p)) {
 		char b[8];
-		switch (*p) {
-		case '\r':
-		    rb_str_cat(str, "\\r", 2);
-		    break;
-		case '\n':
-		    rb_str_cat(str, "\\n", 2);
-		    break;
-		case '\t':
-		    rb_str_cat(str, "\\t", 2);
-		    break;
-		case '\f':
-		    rb_str_cat(str, "\\f", 2);
-		    break;
-		case 007:
-		    rb_str_cat(str, "\\a", 2);
-		    break;
-		case 013:
-		    rb_str_cat(str, "\\v", 2);
-		    break;
-		case 033:
-		    rb_str_cat(str, "\\e", 2);
-		    break;
-		default:
-		    sprintf(b, "\\%03o", *p & 0377);
-		    rb_str_cat(str, b, 4);
-		    break;
-		}
+
+		sprintf(b, "\\%03o", *p & 0377);
+		rb_str_cat(str, b, 4);
+	    }
+	    else {
+		rb_str_cat(str, p, 1);
 	    }
 	    p++;
 	}
@@ -595,7 +581,10 @@ rb_reg_search(re, str, pos, reverse)
     static struct re_registers regs;
     int range;
 
-    if (pos > RSTRING(str)->len) return -1;
+    if (pos > RSTRING(str)->len) {
+	rb_backref_set(Qnil);
+	return -1;
+    }
 
     rb_reg_check(re);
     if (may_need_recompile) rb_reg_prepare_re(re);
@@ -705,19 +694,27 @@ VALUE
 rb_reg_match_pre(match)
     VALUE match;
 {
+    VALUE str;
+
     if (NIL_P(match)) return Qnil;
     if (RMATCH(match)->BEG(0) == -1) return Qnil;
-    return rb_str_new(RSTRING(RMATCH(match)->str)->ptr, RMATCH(match)->BEG(0));
+    str = rb_str_new(RSTRING(RMATCH(match)->str)->ptr, RMATCH(match)->BEG(0));
+    if (OBJ_TAINTED(match)) OBJ_TAINT(str);
+    return str;
 }
 
 VALUE
 rb_reg_match_post(match)
     VALUE match;
 {
+    VALUE str;
+
     if (NIL_P(match)) return Qnil;
     if (RMATCH(match)->BEG(0) == -1) return Qnil;
-    return rb_str_new(RSTRING(RMATCH(match)->str)->ptr+RMATCH(match)->END(0),
-		      RSTRING(RMATCH(match)->str)->len-RMATCH(match)->END(0));
+    str = rb_str_new(RSTRING(RMATCH(match)->str)->ptr+RMATCH(match)->END(0),
+		     RSTRING(RMATCH(match)->str)->len-RMATCH(match)->END(0));
+    if (OBJ_TAINTED(match)) OBJ_TAINT(str);
+    return str;
 }
 
 VALUE
@@ -788,7 +785,6 @@ match_aref(argc, argv, match)
     VALUE match;
 {
     VALUE idx, rest;
-    struct re_registers *regs;
     char *ptr;
     int i;
 
@@ -943,7 +939,10 @@ rb_reg_match(re, str)
 {
     int start;
 
-    if (NIL_P(str)) return Qnil;
+    if (NIL_P(str)) {
+	rb_backref_set(Qnil);
+	return Qnil;
+    }
     str = rb_str_to_str(str);
     start = rb_reg_search(re, str, 0, 0);
     if (start < 0) {
@@ -959,8 +958,10 @@ rb_reg_match2(re)
     int start;
     VALUE line = rb_lastline_get();
 
-    if (TYPE(line) != T_STRING)
+    if (TYPE(line) != T_STRING) {
+	rb_backref_set(Qnil);
 	return Qnil;
+    }
 
     start = rb_reg_search(re, line, 0, 0);
     if (start < 0) {
@@ -1018,6 +1019,9 @@ rb_reg_initialize_m(argc, argv, self)
 	}
     }
 
+    if (OBJ_FROZEN(self)) {
+	rb_error_frozen("Regexp");
+    }
     src = argv[0];
     if (TYPE(src) == T_REGEXP) {
 	rb_reg_check(src);
@@ -1055,7 +1059,7 @@ rb_reg_s_quote(argc, argv)
     int kcode_saved = reg_kcode;
     char *s, *send, *t;
     VALUE tmp;
-    int len;
+    int len, c;
 
     rb_scan_args(argc, argv, "11", &str, &kcode);
     if (!NIL_P(kcode)) {
@@ -1069,24 +1073,41 @@ rb_reg_s_quote(argc, argv)
     t = RSTRING(tmp)->ptr;
 
     for (; s < send; s++) {
-	if (ismbchar(*s)) {
-	    int n = mbclen(*s);
+	c = *s;
+	if (ismbchar(c)) {
+	    int n = mbclen(c);
 
 	    while (n-- && s < send)
 		*t++ = *s++;
 	    s--;
 	    continue;
 	}
-	if (*s == '[' || *s == ']'
-	    || *s == '{' || *s == '}'
-	    || *s == '(' || *s == ')'
-	    || *s == '|' || *s == '-'
-	    || *s == '*' || *s == '.' || *s == '\\'
-	    || *s == '?' || *s == '+'
-	    || *s == '^' || *s == '$') {
+	switch (c) {
+	  case '\t':
+	    c = 't';
 	    *t++ = '\\';
+	    break;
+	  case '\f':
+	    c = 'f';
+	    *t++ = '\\';
+	    break;
+	  case '\r':
+	    c = 'r';
+	    *t++ = '\\';
+	    break;
+	  case '\n':
+	    c = 'n';
+	    *t++ = '\\';
+	    break;
+	  case '[': case ']': case '{': case '}':
+	  case '(': case ')': case '|': case '-':
+	  case '*': case '.': case '\\':
+	  case '?': case '+': case '^': case '$':
+	  case ' ': case '#':
+	    *t++ = '\\';
+	    break;
 	}
-	*t++ = *s;
+	*t++ = c;
     }
     kcode_reset_option();
     rb_str_resize(tmp, t - RSTRING(tmp)->ptr);
@@ -1330,7 +1351,9 @@ static void
 match_setter(val)
     VALUE val;
 {
-    Check_Type(val, T_MATCH);
+    if (!NIL_P(val)) {
+	Check_Type(val, T_MATCH);
+    }
     rb_backref_set(val);
 }
 

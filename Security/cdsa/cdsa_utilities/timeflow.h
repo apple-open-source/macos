@@ -83,6 +83,7 @@ public:
     Absolute() { }						// uninitialized
     Absolute(time_t t) { mValue = t; }	// from time_t
     Absolute(const struct timeval &tv);	// from timeval
+	Absolute(const struct timespec &ts); // from timespec
     
     // *crement operators
     Absolute &operator += (Interval rel)	{ mValue += rel.mValue; return *this; }
@@ -98,6 +99,7 @@ public:
     
     // express as conventional (absolute!) time measures
     operator struct timeval() const;
+	operator struct timespec() const;
     operator time_t () const				{ return time_t(mValue); }
 
     // internal form for debugging ONLY

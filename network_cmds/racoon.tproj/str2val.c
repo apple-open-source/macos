@@ -1,4 +1,4 @@
-/*	$KAME: str2val.c,v 1.10 2001/04/03 15:51:57 thorpej Exp $	*/
+/*	$KAME: str2val.c,v 1.11 2001/08/16 14:37:29 itojun Exp $	*/
 
 /*
  * Copyright (C) 1995, 1996, 1997, and 1998 WIDE Project.

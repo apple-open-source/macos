@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<!-- 
+   | EXAMPLE META-INF/jboss-service.xml file for the connector stuff in deploy/lib
+   | No classpath is specified here as it points to the same jsr file
+   | You can nevertheless specify a URL classpath that points outside the jar
+ -->
+
+<server>
+
+  <mbean code="com.sun.jdmk.comm.HtmlAdaptorServer" 
+         name="jboss.jmx:type=Adaptor,name=HTML">
+    <attribute name="MaxActiveClientCount">10</attribute>
+    <attribute name="Parser" />
+    <attribute name="Port">8082</attribute>
+  </mbean>
+
+</server>

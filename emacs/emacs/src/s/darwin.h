@@ -102,3 +102,10 @@ Boston, MA 02111-1307, USA.  */
  * already the controlling terminal of the subprocess, because we did ioctl
  * TIOCSCTTY.  */
 #define DONT_REOPEN_PTY
+
+/* Make emacs 8-bit through. We have POSIX terminal I/O, but not System V. */
+#define HAVE_TERMIOS
+#define NO_TERMIO
+
+/* XXX emacs should not expect TAB3 to be defined. */
+#define TAB3 OXTABS

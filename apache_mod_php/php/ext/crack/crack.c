@@ -1,8 +1,8 @@
 /*
    +----------------------------------------------------------------------+
-   | PHP version 4.0                                                      |
+   | PHP Version 4                                                        |
    +----------------------------------------------------------------------+
-   | Copyright (c) 1997-2001 The PHP Group                                |
+   | Copyright (c) 1997-2003 The PHP Group                                |
    +----------------------------------------------------------------------+
    | This source file is subject to version 2.02 of the PHP license,      |
    | that is bundled with this package in the file LICENSE, and is        |
@@ -12,10 +12,10 @@
    | obtain it through the world-wide-web, please send a note to          |
    | license@php.net so we can mail you a copy immediately.               |
    +----------------------------------------------------------------------+
-   | Authors:                                                             |
+   | Authors: Alexander Feldman                                           |
    +----------------------------------------------------------------------+
  */
-/* $Id: crack.c,v 1.1.1.2 2001/12/14 22:12:04 zarzycki Exp $ */
+/* $Id: crack.c,v 1.1.1.4 2003/07/18 18:07:30 zarzycki Exp $ */
 #ifdef HAVE_CONFIG_H
 #include "config.h"
 #endif
@@ -95,6 +95,13 @@ void _close_crack_dict(PWDICT *pwdict)
 
 ZEND_MODULE_STARTUP_D(crack)
 {
+#ifdef ZTS
+	zend_crack_globals *crack_globals;
+
+	ts_allocate_id(&crack_globals_id, sizeof(zend_crack_globals), NULL, NULL);
+	crack_globals = ts_resource(crack_globals_id);
+#endif
+	
 	REGISTER_INI_ENTRIES();
 
 	le_crack = register_list_destructors(_close_crack_dict, NULL);
@@ -155,7 +162,7 @@ ZEND_FUNCTION(crack_opendict)
 /* }}} */
 
 /* {{{ proto string crack_closedict([int link_identifier])
-   Closes an open cracklib dictionary. */
+   Closes an open cracklib dictionary */
 ZEND_FUNCTION(crack_closedict)
 {
 	PWDICT *pwdict;
@@ -170,7 +177,7 @@ ZEND_FUNCTION(crack_closedict)
 			if (zend_get_parameters_ex(1, &dictionary) == FAILURE) {
 				WRONG_PARAM_COUNT;
 			}
-			id = (*dictionary)->value.lval;
+			id = Z_LVAL_PP(dictionary);
 			break;
 		default:
 			WRONG_PARAM_COUNT;
@@ -187,7 +194,7 @@ ZEND_FUNCTION(crack_closedict)
 }
 /* }}} */
 
-/* {{{ proto string crack_check([int dictionary, ] string password)
+/* {{{ proto string crack_check([int dictionary,] string password)
    Performs an obscure check with the given password */
 ZEND_FUNCTION(crack_check)
 {
@@ -240,8 +247,8 @@ ZEND_FUNCTION(crack_check)
 }
 /* }}} */
 
-/* {{{ proto string crack_getlastmessage()
-   Returns the message from the last obscure check. */
+/* {{{ proto string crack_getlastmessage(void)
+   Returns the message from the last obscure check */
 ZEND_FUNCTION(crack_getlastmessage)
 {
 	if (ZEND_NUM_ARGS() != 0) {
@@ -265,6 +272,6 @@ ZEND_FUNCTION(crack_getlastmessage)
  * tab-width: 4
  * c-basic-offset: 4
  * End:
- * vim600: sw=4 ts=4 tw=78 fdm=marker
- * vim<600: sw=4 ts=4 tw=78
+ * vim600: sw=4 ts=4 fdm=marker
+ * vim<600: sw=4 ts=4
  */

@@ -2,23 +2,24 @@
  * Copyright (c) 2000 Apple Computer, Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
- *
- * "Portions Copyright (c) 1999 Apple Computer, Inc.  All Rights
- * Reserved.  This file contains Original Code and/or Modifications of
- * Original Code as defined in and that are subject to the Apple Public
- * Source License Version 1.0 (the 'License').	You may not use this file
- * except in compliance with the License.  Please obtain a copy of the
- * License at http://www.apple.com/publicsource and read it before using
- * this file.
- *
+ * 
+ * Copyright (c) 1999-2003 Apple Computer, Inc.  All Rights Reserved.
+ * 
+ * This file contains Original Code and/or Modifications of Original Code
+ * as defined in and that are subject to the Apple Public Source License
+ * Version 2.0 (the 'License'). You may not use this file except in
+ * compliance with the License. Please obtain a copy of the License at
+ * http://www.opensource.apple.com/apsl/ and read it before using this
+ * file.
+ * 
  * The Original Code and all software distributed under the License are
  * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
  * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
  * INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY,
- * FITNESS FOR A PARTICULAR PURPOSE OR NON-INFRINGEMENT.  Please see the
- * License for the specific language governing rights and limitations
- * under the License."
- *
+ * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
+ * Please see the License for the specific language governing rights and
+ * limitations under the License.
+ * 
  * @APPLE_LICENSE_HEADER_END@
  */
 /*		@(#)webdav_authcache.c		*
@@ -38,6 +39,11 @@
 #include <sys/types.h>
 #include <sys/syslog.h>
 #include <pthread.h>
+#include <Security/SecKey.h>
+#include <Security/SecKeychain.h>
+#include <Security/SecKeychainItem.h>
+#include <Security/SecKeychainSearch.h>
+#include "webdav_authentication.h"
 
 /*
  * DEBUG (which defines the state of DEBUG_ASSERT_PRODUCTION_CODE),
@@ -64,11 +70,12 @@
 
 #include "fetch.h"
 #include "digcalc.h"
+#include "webdavd.h"
 #include "webdav_authcache.h"
 
 /*****************************************************************************/
 
-#if DEBUG
+#ifdef DEBUG
 
 /* WebDAVDebugAssert prototype*/
 static void
@@ -87,19 +94,19 @@ WebDAVDebugAssert(const char * componentNameString,
 	int errorCode)
 {
 	if ( (assertionString != NULL) && (*assertionString != '\0') )
-		syslog(LOG_INFO, "Assertion failed: %s: %s\n", componentNameString, assertionString);
+		syslog(LOG_INFO, "Assertion failed: %s: %s", componentNameString, assertionString);
 	else
-		syslog(LOG_INFO, "Check failed: %s:\n", componentNameString);
+		syslog(LOG_INFO, "Check failed: %s:", componentNameString);
 	if ( exceptionLabelString != NULL )
-		syslog(LOG_INFO, "    %s\n", exceptionLabelString);
+		syslog(LOG_INFO, "    %s", exceptionLabelString);
 	if ( errorString != NULL )
-		syslog(LOG_INFO, "    %s\n", errorString);
+		syslog(LOG_INFO, "    %s", errorString);
 	if ( fileName != NULL )
-		syslog(LOG_INFO, "    file: %s\n", fileName);
+		syslog(LOG_INFO, "    file: %s", fileName);
 	if ( lineNumber != 0 )
-		syslog(LOG_INFO, "    line: %ld\n", lineNumber);
+		syslog(LOG_INFO, "    line: %ld", lineNumber);
 	if ( errorCode != 0 )
-		syslog(LOG_INFO, "    error: %d\n", errorCode);
+		syslog(LOG_INFO, "    error: %d", errorCode);
 }
 
 #endif /* DEBUG */
@@ -189,6 +196,7 @@ struct WebdavAuthcacheElement
 							/* function */
 	void *authData;			/* scheme-specific cached */
 							/* authentication data */
+	AuthFlagsType authflags; /* The keychain options for this authorization */
 };
 
 /*
@@ -208,6 +216,7 @@ struct WebdavAuthcacheHeader
 							/* proxy element has been */
 							/* inserted into the authcache */
 	char *cnonce;			/* client nonce string for this server connection */
+	unsigned long generation;	/* generation count of cache (never zero)*/
 };
 typedef struct WebdavAuthcacheHeader WebdavAuthcacheHeader;
 
@@ -220,6 +229,7 @@ static WebdavAuthcacheElement * DequeueWebdavAuthcacheElement(uid_t uid,
 	int isProxy, char *realmStr);
 static void FreeWebdavAuthcacheElement(WebdavAuthcacheElement *elem);
 static int InsertPlaceholder(WebdavAuthcacheInsertRec *insertRec);
+static OSStatus KeychainItemCopyAccountPassword(SecKeychainItemRef itemRef, char *user, char *pass);
 
 /*****************************************************************************/
 
@@ -227,8 +237,6 @@ static int InsertPlaceholder(WebdavAuthcacheInsertRec *insertRec);
 
 static int gAuthcacheInitialized = 0;
 static WebdavAuthcacheHeader gAuthcacheHeader;
-
-extern char *dest_server;
 
 /*****************************************************************************/
 /* parsing routines */
@@ -282,12 +290,12 @@ static char * ParseChallenge(char *params, char **directive, char **value,
 			malformedDirectiveName, *error = EINVAL);
 		
 		/* allocate space for the directive string */
-		*directive = malloc(params - token + 1);
+		*directive = malloc((size_t)(params - token + 1));
 		require_action(*directive != NULL, malloc_directive,
 			*error = ENOMEM);
 		
 		/* copy the token to directive string and terminate it */
-		strncpy(*directive, token, params - token);
+		strncpy(*directive, token, (size_t)(params - token));
 		(*directive)[params - token] = '\x00';
 		
 		/* is the token an auth-scheme or a auth-param? */
@@ -317,12 +325,12 @@ static char * ParseChallenge(char *params, char **directive, char **value,
 					*error = EINVAL);
 				
 				/* allocate space for value string */
-				*value = malloc(params - token + 1);
+				*value = malloc((size_t)(params - token + 1));
 				require_action(*value != NULL, malloc_value,
 					*error = ENOMEM);
 				
 				/* copy the token to value string */
-				strncpy(*value, token, params - token);
+				strncpy(*value, token, (size_t)(params - token));
 				(*value)[params - token] = '\x00';
 				
 				/* skip over '\"' */
@@ -339,12 +347,12 @@ static char * ParseChallenge(char *params, char **directive, char **value,
 				params = SkipToken(params);
 				
 				/* allocate space for value string */
-				*value = malloc(params - token + 1);
+				*value = malloc((size_t)(params - token + 1));
 				require_action(*value != NULL, malloc_value,
 					*error = ENOMEM);
 				
 				/* copy the token to value string */
-				strncpy(*value, token, params - token);
+				strncpy(*value, token, (size_t)(params - token));
 				(*value)[params - token] = '\x00';
 			}
 			
@@ -398,6 +406,7 @@ malformedDirectiveName:
 		++params;
 	}
 	
+	syslog(LOG_ERR, "ParseChallenge: %s", strerror(*error));
 	return ( params );
 }
 
@@ -438,12 +447,12 @@ static char * ParseQOPs(char *params, char **qopValue, int *error)
 			*error = EINVAL);
 		
 		/* allocate space for qopValue string */
-		*qopValue = malloc(params - token + 1);
+		*qopValue = malloc((size_t)(params - token + 1));
 		require_action(*qopValue != NULL, malloc_qopValue,
 			*error = ENOMEM);
 		
 		/* copy the token to qopValue string */
-		strncpy(*qopValue, token, params - token);
+		strncpy(*qopValue, token, (size_t)(params - token));
 		(*qopValue)[params - token] = '\x00';
 		
 		/* skip over LWS (if any) */
@@ -483,6 +492,7 @@ malformedValueToken:
 		++params;
 	}
 	
+	syslog(LOG_ERR, "ParseQOPs: %s", strerror(*error));
 	return ( params );
 }
 
@@ -570,7 +580,10 @@ static AuthDataDigest * AllocateAuthDataDigest(void)
 	AuthDataDigest *authData;
 	
 	authData = calloc(sizeof(AuthDataDigest), 1);
-	check(authData != NULL);
+	if (authData == NULL)
+	{
+		syslog(LOG_ERR, "AllocateAuthDataDigest: %s", strerror(errno));
+	}
 	return ( authData );
 }
 
@@ -641,39 +654,39 @@ static int ParseAuthParmsDigest(char *authParam, char **realmStr,
 		
 		directiveLength = strlen(directive);
 		if ( (Constant_strlen("realm") == directiveLength) &&
-			(strncasecmp(directive, "realm", directiveLength) == 0) )
+			(strncasecmp(directive, "realm", (size_t)directiveLength) == 0) )
 		{
 			/* return the realmStr */
 			*realmStr = value;
 		}
 		else if ( (Constant_strlen("domain") == directiveLength) &&
-			(strncasecmp(directive, "domain", directiveLength) == 0) )
+			(strncasecmp(directive, "domain", (size_t)directiveLength) == 0) )
 		{
 			/* return the uri list string */
 			authData->uriList = value;
 		}
 		else if ( (Constant_strlen("nonce") == directiveLength) &&
-			(strncasecmp(directive, "nonce", directiveLength) == 0) )
+			(strncasecmp(directive, "nonce", (size_t)directiveLength) == 0) )
 		{
 			/* return the nonce string */
 			authData->nonce = value;
 			authData->nonceCount = 0;
 		}
 		else if ( (Constant_strlen("opaque") == directiveLength) &&
-			(strncasecmp(directive, "opaque", directiveLength) == 0) )
+			(strncasecmp(directive, "opaque", (size_t)directiveLength) == 0) )
 		{
 			/* return the opaque string */
 			authData->opaque = value;
 		}
 		else if ( (Constant_strlen("stale") == directiveLength) &&
-			(strncasecmp(directive, "stale", directiveLength) == 0) )
+			(strncasecmp(directive, "stale", (size_t)directiveLength) == 0) )
 		{
 			/* is stale directive "true" or something else? */
 			authData->stale = strncasecmp(value, "true", Constant_strlen("true")) == 0;
 			free (value);
 		}
 		else if ( (Constant_strlen("algorithm") == directiveLength) &&
-			(strncasecmp(directive, "algorithm", directiveLength) == 0) )
+			(strncasecmp(directive, "algorithm", (size_t)directiveLength) == 0) )
 		{
 			/*
 			 * We only support MD5 -- reject challenge quietly if it's anything
@@ -687,7 +700,7 @@ static int ParseAuthParmsDigest(char *authParam, char **realmStr,
 			authData->algorithm = value;
 		}
 		else if ( (Constant_strlen("qop") == directiveLength) &&
-			(strncasecmp(directive, "qop", directiveLength) == 0) )
+			(strncasecmp(directive, "qop", (size_t)directiveLength) == 0) )
 		{
 			char *qopValueList;
 			char *qopValue;
@@ -737,9 +750,12 @@ static int ParseAuthParmsDigest(char *authParam, char **realmStr,
 		missingDirectives, error = EINVAL);
 	
 	error = 0;	/* no errors */
+	
+	return ( error );
 
 missingDirectives:
 unsupportedAlgorithm:
+	syslog(LOG_ERR, "ParseAuthParmsDigest: %s", strerror(error));
 ParseChallenge:
 	return ( error );
 }
@@ -763,6 +779,7 @@ static void MakeAuthHeaderDigest(WebdavAuthcacheRetrieveRec *retrieveRec,
 	char *uriString;
 	char nonceCountStr[9];
 	
+	error = 0;
 	authData = (AuthDataDigest*)elem->authData;
 	
 	/*
@@ -870,9 +887,13 @@ static void MakeAuthHeaderDigest(WebdavAuthcacheRetrieveRec *retrieveRec,
 	{
 		strcat(credentialsStr, ", qop=\"");
 		strcat(credentialsStr, authData->qop);
-		strcat(credentialsStr, "\", nc=\"");
+		/*
+		 * The nonce-count is not quoted because some proxies don't
+		 * handle a quoted-string for the nonce-count value.
+		 */
+		strcat(credentialsStr, "\", nc=");
 		strcat(credentialsStr, nonceCountStr);
-		strcat(credentialsStr, "\", cnonce=\"");
+		strcat(credentialsStr, ", cnonce=\"");
 		strcat(credentialsStr, gAuthcacheHeader.cnonce);
 		strcat(credentialsStr, "\"");
 	}
@@ -908,6 +929,10 @@ malloc_requestDigestStr:
 malloc_credentialsStr:
 	free(uriString);
 malloc_uriString:
+	if ( error )
+	{
+		syslog(LOG_ERR, "MakeAuthHeaderDigest: %s", strerror(error));
+	}
 	return;
 }
 
@@ -947,11 +972,11 @@ char *GetURI(char *params, char **uri, int *error)
 		}
 		
 		/* allocate space for the uri string */
-		*uri = malloc(params - stringStart + 1);
+		*uri = malloc((size_t)(params - stringStart + 1));
 		require_action(*uri != NULL, malloc_uri, *error = ENOMEM);
 
 		/* copy the string at stringStart to uri string and terminate it */
-		strncpy(*uri, stringStart, params - stringStart);
+		strncpy(*uri, stringStart, (size_t)(params - stringStart));
 		(*uri)[params - stringStart] = '\0';
 	
 		/* skip over SP (if any) between URI (if any more) */
@@ -975,6 +1000,10 @@ char *GetURI(char *params, char **uri, int *error)
 	}
 		 
 malloc_uri:
+	if ( *error )
+	{
+		syslog(LOG_ERR, "GetURI: %s", strerror(*error));
+	}
 	return ( params );
 }
 
@@ -1012,12 +1041,12 @@ static int AddURIToURIRec(char *uri, URIRec *theURIRec)
 	theURIRec->server = theURIRec->absPath = NULL;
 	
 	/*
-	 * Is this an abs_path or an absoluteURI?
+	 * Is this an abs_path (or an empty string), or is it an absoluteURI?
 	 * abs_path starts with '/'; absoluteURI does not
 	 */
-	if ( *uri == '/' )
+	if ( *uri == '/' || *uri == '\0' )
 	{
-		/* uri is an abs_path */
+		/* uri is an abs_path (or an empty string) */
 		
 		/* server is dest_server */
 		theURIRec->server = malloc(strlen(dest_server) + 1);
@@ -1026,12 +1055,24 @@ static int AddURIToURIRec(char *uri, URIRec *theURIRec)
 		
 		strcpy(theURIRec->server, dest_server);
 		
-		/* absPath is the uri */
-		theURIRec->absPath = malloc(strlen(uri) + 1);
+		/* is uri an empty string? */
+		if ( *uri != '\0' )
+		{
+			/* absPath is the uri -- save it with the % encoding removed */
+			theURIRec->absPath = percent_decode(uri);
+		}
+		else
+		{
+			/* an empty abs_path is equivalent to an abs_path of "/" */
+			theURIRec->absPath = malloc(2);
+			if ( theURIRec->absPath )
+			{
+				theURIRec->absPath[0] = '/';
+				theURIRec->absPath[1] = '\0';
+			}
+		}
 		require_action(theURIRec->absPath != NULL, malloc_theURIRec_absPath,
 			error = ENOMEM);
-		
-		strcpy(theURIRec->absPath, uri);
 	}
 	else
 	{
@@ -1071,12 +1112,12 @@ static int AddURIToURIRec(char *uri, URIRec *theURIRec)
 			++bytes;
 		}
 		/* copy the server string */
-		theURIRec->server = malloc(bytes - server + 1);
+		theURIRec->server = malloc((size_t)(bytes - server + 1));
 		require_action(theURIRec->server != NULL, malloc_theURIRec_server,
 			error = ENOMEM);
 		
 		/* copy and terminate it */
-		strncpy(theURIRec->server, server, bytes - server);
+		strncpy(theURIRec->server, server, (size_t)(bytes - server));
 		theURIRec->server[bytes - server] = '\0';
 		
 		/* was there a port? */
@@ -1094,12 +1135,24 @@ static int AddURIToURIRec(char *uri, URIRec *theURIRec)
 			}
 		}
 		
-		/* copy the abs_path string */
-		theURIRec->absPath = malloc(strlen(bytes) + 1);
+		/* is bytes an empty string? */
+		if ( *bytes != '\0' )
+		{
+			/* absPath is bytes -- save it with the % encoding removed */
+			theURIRec->absPath = percent_decode(bytes);
+		}
+		else
+		{
+			/* an empty abs_path is equivalent to an abs_path of "/" */
+			theURIRec->absPath = malloc(2);
+			if ( theURIRec->absPath )
+			{
+				theURIRec->absPath[0] = '/';
+				theURIRec->absPath[1] = '\0';
+			}
+		}
 		require_action(theURIRec->absPath != NULL, malloc_theURIRec_absPath,
 			error = ENOMEM);
-		
-		strcpy(theURIRec->absPath, bytes);
 	}
 	
 	theURIRec->serverLen = strlen(theURIRec->server);
@@ -1114,6 +1167,7 @@ static int AddURIToURIRec(char *uri, URIRec *theURIRec)
 malloc_theURIRec_server:
 malloc_theURIRec_absPath:
 invalidAbsoluteURI:
+	syslog(LOG_ERR, "AddURIToURIRec: %s", strerror(error));
 	return ( error );
 }
 
@@ -1184,7 +1238,10 @@ AddURIToURIRec:
 	free(uri);
 GetURI:
 	FreeURIRec(theURIRec);
+	return ( error );
+	
 malloc_theURIRec:
+	syslog(LOG_ERR, "UpdateElementDigest: %s", strerror(error));
 	return ( error );
 }
 
@@ -1280,6 +1337,7 @@ static int EvaluateDigest(WebdavAuthcacheEvaluateRec *evaluateRec,
 	/* Error cleanup */
 	
 elementToUpdateNotFound:
+	syslog(LOG_ERR, "EvaluateDigest: %s", strerror(error));
 ParseAuthParmsDigest:
 	FreeAuthDataDigest(authData);
 AllocateAuthDataDigest:
@@ -1377,6 +1435,8 @@ static int InsertDigest(WebdavAuthcacheInsertRec *insertRec, char *authParam)
 	elem->makeProcPtr = MakeAuthHeaderDigest;
 	elem->freeProcPtr = FreeAuthDataDigest;
 	elem->authData = authData;
+	elem->authflags = ((insertRec->uid != 0) && (insertRec->uid != 1)) ?
+		insertRec->authflags : kAuthNone;
 	
 	/* initialize the element with the authData */
 	error = UpdateElementDigest(elem);
@@ -1404,6 +1464,7 @@ malloc_elem_username:
 		free(elem);
 	}
 calloc_elem:
+	syslog(LOG_ERR, "InsertDigest: %s", strerror(error));
 DuplicateDigestAuthcacheElement:
 	free(realmStr);
 ParseAuthParmsDigest:
@@ -1423,7 +1484,10 @@ static AuthDataBasic * AllocateAuthDataBasic(void)
 	AuthDataBasic *authData;
 	
 	authData = calloc(sizeof(AuthDataBasic), 1);
-	check(authData != NULL);
+	if (authData == NULL)
+	{
+		syslog(LOG_ERR, "AllocateAuthDataBasic: %s", strerror(errno));
+	}
 	return ( authData );
 }
 
@@ -1473,7 +1537,7 @@ static int ParseAuthParmsBasic(char *authParam, char **realmStr)
 				
 		/* Basic allows only the realm directive */
 		require_action((Constant_strlen("realm") == directiveLength) &&
-			(strncasecmp(directive, "realm", directiveLength) == 0),
+			(strncasecmp(directive, "realm", (size_t)directiveLength) == 0),
 			unsupportedDirective,
 			free(directive); free(value); error = EINVAL);
 		
@@ -1489,6 +1553,10 @@ static int ParseAuthParmsBasic(char *authParam, char **realmStr)
 	check_noerr_string(error, "missing Realm directive");
 
 unsupportedDirective:
+	if ( error )
+	{
+		syslog(LOG_ERR, "ParseAuthParmsBasic: %s", strerror(error));
+	}
 ParseChallenge:
 	return ( error );
 }
@@ -1534,7 +1602,10 @@ static void MakeAuthHeaderBasic(WebdavAuthcacheRetrieveRec *retrieveRec,
 		free (existingAuthorization);
 	}
 	
+	return;
+	
 malloc_authorization:
+	syslog(LOG_ERR, "MakeAuthHeaderBasic: %s", strerror(errno));
 	return;
 }
 
@@ -1698,6 +1769,8 @@ static int InsertBasic(WebdavAuthcacheInsertRec *insertRec, char *authParam)
 	elem->makeProcPtr = MakeAuthHeaderBasic;
 	elem->freeProcPtr = FreeAuthDataBasic;
 	elem->authData = authData;
+	elem->authflags = ((insertRec->uid != 0) && (insertRec->uid != 1)) ?
+		insertRec->authflags : kAuthNone;
 	
 	/* add elem to the cache if it isn't already there */
 	if ( !elemInCache )
@@ -1737,6 +1810,7 @@ malloc_elem_username:
 		free(elem);
 	}
 calloc_elem:
+	syslog(LOG_ERR, "InsertBasic: %s", strerror(error));
 DuplicateBasicAuthcacheElement:
 	free(realmStr);
 ParseAuthParmsBasic:
@@ -1781,13 +1855,13 @@ static char * GetNextChallenge(char *params,
 	/* determine the scheme */
 	schemeLength = strlen(directive);
 	if ( (Constant_strlen("Basic") == schemeLength) &&
-	(strncasecmp(directive, "Basic", schemeLength) == 0) )
+	(strncasecmp(directive, "Basic", (size_t)schemeLength) == 0) )
 	{
 		/* use the "Basic" authentication scheme */
 		*level = kChallengeSecurityLevelBasic;
 	}
 	else if ( (Constant_strlen("Digest") == schemeLength) &&
-	(strncasecmp(directive, "Digest", schemeLength) == 0) )
+	(strncasecmp(directive, "Digest", (size_t)schemeLength) == 0) )
 	{
 		/* use the "Digest" authentication scheme */
 		*level = kChallengeSecurityLevelDigest;
@@ -1831,16 +1905,19 @@ static char * GetNextChallenge(char *params,
 	if ( *level != 0 )
 	{
 		/* allocate space for the auth-param string */
-		*authParam = malloc(params - authParamStart + 1);
+		*authParam = malloc((size_t)(params - authParamStart + 1));
 		require_action(*authParam != NULL, malloc_authParam, *error = ENOMEM);
 	
 		/* copy the token to auth-param string and terminate it */
-		strncpy(*authParam, authParamStart, params - authParamStart);
+		strncpy(*authParam, authParamStart, (size_t)(params - authParamStart));
 		(*authParam)[params - authParamStart] = '\x00';
 	}
 	
+	return ( params );
+	
 malloc_authParam:
 noSchemeName:
+	syslog(LOG_ERR, "GetNextChallenge: %s", strerror(*error));
 ParseChallenge:
 	return ( params );
 }
@@ -2045,6 +2122,7 @@ static int InsertPlaceholder(WebdavAuthcacheInsertRec *insertRec)
 	elem->makeProcPtr = NULL;
 	elem->freeProcPtr = NULL;
 	elem->authData = NULL;
+	elem->authflags = kAuthFromPlaceholder;
 	EnqueueWebdavAuthcacheElement(elem);
 	
 	return ( 0 );
@@ -2059,6 +2137,7 @@ malloc_elem_username:
 	free(elem);
 calloc_elem:
 DuplicateBasicAuthcacheElement:
+	syslog(LOG_ERR, "InsertPlaceholder: %s", strerror(error));
 	return ( error );
 }
 
@@ -2074,7 +2153,7 @@ static int HasMatchingURI(char *uri, WebdavAuthcacheElement *elem)
 	int error;
 	URIRec inputURIRec;
 	URIRec *domain;
-	
+		
 	/* put URI in easy to compare format */
 	error = AddURIToURIRec(uri, &inputURIRec);
 	require_noerr_quiet(error, AddURIToURIRec);
@@ -2093,7 +2172,7 @@ static int HasMatchingURI(char *uri, WebdavAuthcacheElement *elem)
 		{
 			if ( (strncasecmp(inputURIRec.server, domain->server,
 				inputURIRec.serverLen) == 0) &&
-				(strncasecmp(inputURIRec.absPath, domain->absPath,
+				(strncmp(inputURIRec.absPath, domain->absPath,
 				domain->absPathLen) == 0) )
 			{
 				result = TRUE;
@@ -2111,6 +2190,45 @@ static int HasMatchingURI(char *uri, WebdavAuthcacheElement *elem)
 AddURIToURIRec:
 	return ( FALSE );
 }
+
+/*****************************************************************************/
+
+static OSStatus KeychainItemCopyAccountPassword(SecKeychainItemRef itemRef, char *user, char *pass)
+ {
+	OSStatus					result;
+	SecKeychainAttribute		attr;
+	SecKeychainAttributeList	attrList;
+	UInt32						length; 
+	void						*outData;
+	
+	/* the attribute we want is the account name */
+	attr.tag = kSecAccountItemAttr;
+	attr.length = 0;
+	attr.data = NULL;
+	
+	attrList.count = 1;
+	attrList.attr = &attr;
+	
+	result = SecKeychainItemCopyContent(itemRef, NULL, &attrList, &length, &outData);
+	if ( result == noErr )
+	{
+		/* attr.data is the account (username) and outdata is the password */
+		
+		/* make sure they'll fit in our buffers */
+		if ( (attr.length < WEBDAV_MAX_USERNAME_LEN) && (length < WEBDAV_MAX_PASSWORD_LEN) )
+		{
+			/* copy the username and password */
+			memcpy(user, attr.data, attr.length);
+			memcpy(pass, outData, length);
+		}
+		else
+		{
+			result = errSecDataTooLarge; /* as good as anything */
+		}
+		(void) SecKeychainItemFreeContent(&attrList, outData);
+	}
+	return ( result );
+ }
 
 /*****************************************************************************/
 /* External functions */
@@ -2140,6 +2258,7 @@ int webdav_authcache_init(void)
 	gAuthcacheHeader.head = NULL;
 	gAuthcacheHeader.proxyElementCount = 0;
 	gAuthcacheHeader.cnonce = NULL;
+	gAuthcacheHeader.generation = 1;
 	
 	/* set up the lock on the list */
 	error = pthread_mutexattr_init(&mutexattr);
@@ -2165,6 +2284,12 @@ int webdav_authcache_init(void)
 pthread_mutex_init:
 pthread_mutexattr_init:
 AlreadyInitialized:
+
+	if ( error != 0 )
+	{
+		syslog(LOG_ERR, "webdav_authcache_init: %s", strerror(error));
+	}
+	
 	return (error);
 }
 
@@ -2196,6 +2321,11 @@ int webdav_authcache_evaluate(WebdavAuthcacheEvaluateRec *evaluateRec)
 	
 	/* lock the Authcache */
 	error = pthread_mutex_lock(&(gAuthcacheHeader.lock));
+	if ( error )
+	{
+		syslog(LOG_ERR, "webdav_authcache_evaluate: pthread_mutex_lock(): %s", strerror(error));
+		webdav_kill(-1);	/* tell the main select loop to force unmount */
+	}
 	require_noerr(error, pthread_mutex_lock);
 	
 	/* default return values */
@@ -2256,10 +2386,16 @@ int webdav_authcache_evaluate(WebdavAuthcacheEvaluateRec *evaluateRec)
 	error2 = pthread_mutex_unlock(&(gAuthcacheHeader.lock));
 	if ( error2 != 0 )
 	{
+		syslog(LOG_ERR, "webdav_authcache_evaluate: pthread_mutex_unlock(): %s", strerror(error2));
+		webdav_kill(-1);	/* tell the main select loop to force unmount */
 		error = error2;
 	}
 
-pthread_mutex_lock: 
+pthread_mutex_lock:
+	if ( error != 0 )
+	{
+		syslog(LOG_ERR, "webdav_authcache_evaluate: %s", strerror(error));
+	}
 	return ( error );
 }
 
@@ -2276,16 +2412,24 @@ pthread_mutex_lock:
  *	nonzero The authentication could not be added to the authentication
  *			cache.
  */
-int webdav_authcache_insert(WebdavAuthcacheInsertRec *insertRec)
+int webdav_authcache_insert(WebdavAuthcacheInsertRec *insertRec, int getLock)
 {
 	int error, error2;
 	char *authParam;
 	char *params;
 	ChallengeSecurityLevelType level;
 	
-	/* lock the cache */
-	error = pthread_mutex_lock(&(gAuthcacheHeader.lock));
-	require_noerr(error, pthread_mutex_lock);
+	/* lock the cache if needed */
+	if ( getLock )
+	{
+		error = pthread_mutex_lock(&(gAuthcacheHeader.lock));
+		if ( error )
+		{
+			syslog(LOG_ERR, "webdav_authcache_insert: pthread_mutex_lock(): %s", strerror(error));
+			webdav_kill(-1);	/* tell the main select loop to force unmount */
+		}
+		require_noerr(error, pthread_mutex_lock);
+	}
 	
 	if ( insertRec->challenge != NULL )
 	{
@@ -2333,18 +2477,37 @@ GetNextChallenge:
 	}
 		
 	/* increment proxyElementCount if a proxy element was just inserted */
-	if ( (error == 0) && insertRec->isProxy )
+	if ( error == 0 )
 	{
-		verify((++gAuthcacheHeader.proxyElementCount) > 0);
+		++gAuthcacheHeader.generation;
+		if ( gAuthcacheHeader.generation == 0 )
+		{
+			gAuthcacheHeader.generation = 1;
+		}
+		if ( insertRec->isProxy )
+		{
+			verify((++gAuthcacheHeader.proxyElementCount) > 0);
+		}
+	}
+
+	if ( getLock )
+	{
+		error2 = pthread_mutex_unlock(&(gAuthcacheHeader.lock));
+		if ( error2 != 0 )
+		{
+			syslog(LOG_ERR, "webdav_authcache_insert: pthread_mutex_unlock(): %s", strerror(error2));
+			webdav_kill(-1);	/* tell the main select loop to force unmount */
+			error = error2;
+		}
 	}
 	
-	error2 = pthread_mutex_unlock(&(gAuthcacheHeader.lock));
-	if ( error2 != 0 )
+pthread_mutex_lock:
+	
+	if ( error != 0 )
 	{
-		error = error2;
+		syslog(LOG_ERR, "webdav_authcache_insert failed: %s", strerror(error));
 	}
 	
-pthread_mutex_lock: 
 	return ( error );
 }
 
@@ -2364,18 +2527,24 @@ int webdav_authcache_retrieve(WebdavAuthcacheRetrieveRec *retrieveRec)
 {
 	int error, error2;
 	WebdavAuthcacheElement *elem;
-	WebdavAuthcacheElement *lastMatch;
 	int foundServer, foundProxy;
 
 	/* lock the cache */
 	error = pthread_mutex_lock(&(gAuthcacheHeader.lock));
+	if ( error )
+	{
+		syslog(LOG_ERR, "webdav_authcache_retrieve: pthread_mutex_lock(): %s", strerror(error));
+		webdav_kill(-1);	/* tell the main select loop to force unmount */
+	}
 	require_noerr(error, pthread_mutex_lock);
 	
+	/* return the cache generation count */
+	retrieveRec->generation = gAuthcacheHeader.generation;
+	
 	/* find the cache element */
-	lastMatch = NULL;	/* start with head */
 	foundServer = FALSE; /* haven't found server */
 	/* look for proxy only if a proxy element has been inserted */
-		foundProxy = (gAuthcacheHeader.proxyElementCount == 0);
+	foundProxy = (gAuthcacheHeader.proxyElementCount == 0);
 	retrieveRec->authorization = NULL; /* no string yet */
 	elem = NULL;
 	/* done if we've found both a server and proxy element (if any) */
@@ -2422,6 +2591,7 @@ int webdav_authcache_retrieve(WebdavAuthcacheRetrieveRec *retrieveRec)
 					retrieveRec, elem);
 				require_action(retrieveRec->authorization != NULL,
 					CallMakeAuthHeaderProc, error = EACCES);
+				retrieveRec->authflags = elem->authflags;
 			}
 		}
 	}
@@ -2430,10 +2600,16 @@ CallMakeAuthHeaderProc:
 	error2 = pthread_mutex_unlock(&(gAuthcacheHeader.lock));
 	if ( error2 != 0 )
 	{
+		syslog(LOG_ERR, "webdav_authcache_retrieve: pthread_mutex_unlock(): %s", strerror(error2));
+		webdav_kill(-1);	/* tell the main select loop to force unmount */
 		error = error2;
 	}
 	
 pthread_mutex_lock: 
+	if ( error != 0 )
+	{
+		syslog(LOG_ERR, "webdav_authcache_retrieve: %s", strerror(error));
+	}
 	return ( error );
 }
 
@@ -2448,14 +2624,24 @@ pthread_mutex_lock:
  *	nonzero The authentication could not be removed from the authentication
  *			cache.
  */
-int webdav_authcache_remove(WebdavAuthcacheRemoveRec *removeRec)
+int webdav_authcache_remove(WebdavAuthcacheRemoveRec *removeRec, int getLock)
 {
 	int error, error2;
 	WebdavAuthcacheElement *elem;
 
-	/* lock the cache */
-	error = pthread_mutex_lock(&(gAuthcacheHeader.lock));
-	require_noerr(error, pthread_mutex_lock);
+	error = 0;
+	
+	/* lock the cache if needed */
+	if ( getLock )
+	{
+		error = pthread_mutex_lock(&(gAuthcacheHeader.lock));
+		if ( error )
+		{
+			syslog(LOG_ERR, "webdav_authcache_remove: pthread_mutex_lock(): %s", strerror(error));
+			webdav_kill(-1);	/* tell the main select loop to force unmount */
+		}
+		require_noerr(error, pthread_mutex_lock);
+	}
 	
 	/* find and delink the element from the cache */
 	elem = DequeueWebdavAuthcacheElement(removeRec->uid, removeRec->isProxy,
@@ -2474,13 +2660,446 @@ int webdav_authcache_remove(WebdavAuthcacheRemoveRec *removeRec)
 	}
 
 DequeueWebdavAuthcacheElement:
-	error2 = pthread_mutex_unlock(&(gAuthcacheHeader.lock));
-	if ( error2 != 0 )
+
+	if ( error == 0 )
 	{
-		error = error2;
+		++gAuthcacheHeader.generation;
+		if ( gAuthcacheHeader.generation == 0 )
+		{
+			gAuthcacheHeader.generation = 1;
+		}
+	}
+	
+	if ( getLock )
+	{
+		error2 = pthread_mutex_unlock(&(gAuthcacheHeader.lock));
+		if ( error2 != 0 )
+		{
+			syslog(LOG_ERR, "webdav_authcache_remove: pthread_mutex_unlock(): %s", strerror(error2));
+			webdav_kill(-1);	/* tell the main select loop to force unmount */
+			error = error2;
+		}
 	}
 	
 pthread_mutex_lock: 
+	return ( error );
+}
+
+/*****************************************************************************/
+
+int webdav_authcache_update(WebdavAuthcacheUpdateRec *updateRec)
+{
+	int error, error2;
+	char user[WEBDAV_MAX_USERNAME_LEN];
+	char pass[WEBDAV_MAX_PASSWORD_LEN];
+	int addtokeychain;
+	AuthFlagsType newAuthflags;
+		
+	error = pthread_mutex_lock(&(gAuthcacheHeader.lock));
+	if ( error )
+	{
+		syslog(LOG_ERR, "webdav_authcache_update: pthread_mutex_lock(): %s", strerror(error));
+		webdav_kill(-1);	/* tell the main select loop to force unmount */
+	}
+	require_noerr(error, pthread_mutex_lock);
+	
+	/* If the cache has already changed, don't prompt -- just try the new credentials */
+	require_quiet((updateRec->generation == gAuthcacheHeader.generation) ||
+				(updateRec->generation == 0), updateComplete);
+	
+	/* make sure we are updating with at least kChallengeSecurityLevelBasic */
+	require_action(updateRec->level != 0, auth_level_zero, error = EACCES);
+	
+	newAuthflags = kAuthNone;
+	
+	bzero(user, WEBDAV_MAX_USERNAME_LEN);
+	bzero(pass, WEBDAV_MAX_PASSWORD_LEN);
+	if (!updateRec->uiNotNeeded)
+	{
+		char *allocatedURL = NULL;
+		char *displayURL;
+		int promptUser;
+		WebdavAuthcacheElement *elem;
+		
+		/*
+		 * If updateRec->authflags shows last auth wasn't from keychain,
+		 * try and get it from there. Then, if we got it from the keychain, set
+		 * newAuthflags to kAuthFromKeychain.
+		 * 
+		 * Otherwise, prompt user and if user wants it added to the keychain,
+		 * set newAuthflags to kAuthAddToKeychain.
+		*/
+		promptUser = TRUE;
+		if ( (updateRec->authflags & kAuthFromKeychain) == 0 )
+		{
+			OSStatus result;
+			char *serverName;
+			char *path;
+			SecKeychainItemRef itemRef;
+			
+			serverName = (updateRec->isProxy ? proxy_server : dest_server);
+			path = (updateRec->isProxy ? NULL : dest_path);
+			
+			/* is there an existing keychain item? */
+			if ( updateRec->isProxy )
+			{
+				result = SecKeychainFindInternetPassword(NULL,
+					strlen(serverName), serverName,				/* serverName */
+					0, NULL,									/* securityDomain */
+					0, NULL,									/* no accountName */
+					0, NULL,									/* path */
+					proxy_port,									/* port */
+					kSecProtocolTypeHTTPProxy,					/* protocol */
+					0,											/* authType */
+					0, NULL,									/* no password */
+					&itemRef);
+			}
+			else
+			{
+				result = SecKeychainFindInternetPassword(NULL,
+					strlen(serverName), serverName,				/* serverName */
+					strlen(updateRec->realmStr), updateRec->realmStr, /* securityDomain */
+					0, NULL,									/* no accountName */
+					(path == NULL) ? 0 : strlen(path), path,	/* path */
+					dest_port,									/* port */
+					kSecProtocolTypeHTTP,						/* protocol */
+					(updateRec->level == kChallengeSecurityLevelDigest) ?
+						kSecAuthenticationTypeHTTPDigest :
+						kSecAuthenticationTypeDefault,			/* authType */
+					0, NULL,									/* no password */
+					&itemRef);
+			}
+			
+			if ( result == noErr )
+			{
+				if ( KeychainItemCopyAccountPassword(itemRef, user, pass) == noErr )
+				{
+					promptUser = FALSE;
+					/* indicate where the authentication came from. It isn't provisional because it was good at one time. */
+					newAuthflags = kAuthFromKeychain;
+				}
+				CFRelease(itemRef);
+			}
+		}
+		
+		if ( promptUser )
+		{
+			if ( !updateRec->isProxy )
+			{
+				/* 401 Unauthorized error */
+				if ( reconstruct_url(http_hostname, updateRec->uri, &allocatedURL) == 0 )
+				{
+					/* use allocatedURL for displayURL */
+					displayURL = allocatedURL;
+				}
+				else
+				{
+					/* this shouldn't happen, but if it does, use http_remote_request */
+					allocatedURL = NULL;
+					displayURL = updateRec->uri;
+				}
+			}
+			else
+			{
+				/* must be 407 Proxy Authentication Required error */
+				/* use proxy_server for displayURL */
+				displayURL = proxy_server;
+			}
+			
+			/* If there is a cache element for this uid/server/realm, get the username from
+			 * it and pass it to webdav_get_authentication(). If not, then pass current username
+			 * from system.
+			 */
+
+			/* find the element */
+			elem = gAuthcacheHeader.head;
+			while ( elem != NULL )
+			{
+				/* is this a match? */
+				if ( (updateRec->uid == elem->uid) &&
+					(updateRec->isProxy == elem->isProxy) )
+				{
+					if ( elem->realmStr != NULL )
+					{
+						if ( strcmp(updateRec->realmStr, elem->realmStr) == 0 )
+						{
+							/* found it */
+							break;
+						}
+					}
+				}
+				elem = elem->next;
+			}
+			
+			if ( elem != NULL )
+			{
+				strcpy(user, elem->username);
+			}
+			else
+			{
+				char *loginname;
+				
+				loginname = getlogin();
+				if (loginname != NULL )
+				{
+					strcpy(user, loginname);
+				}
+			}
+
+			if ( gSuppressAllUI )
+			{
+				/* we're suppressing UI so just return EACCES */
+				error = EACCES;
+			}
+			else
+			{
+				/* put up prompt for updateRec->level */
+				error = webdav_get_authentication(user, sizeof(user), pass, sizeof(pass),
+					(const char *)displayURL, (const char *)updateRec->realmStr, updateRec->level,
+					&addtokeychain, ((elem != NULL) ? ((elem->authflags & kAuthProvisional) != 0) : FALSE) );
+				
+				if ( error == 0 )
+				{
+					/* indicate where the authentication came from and that it is provisional */
+					newAuthflags = kAuthFromUI | kAuthProvisional;
+				}
+				else
+				{
+					/* for any error response, set error to EACCES */
+					error = EACCES;
+				}
+			}
+			
+			if ( addtokeychain )
+			{
+				newAuthflags |= kAuthAddToKeychain;
+			}
+			
+			/* free allocatedURL if allocated */
+			if ( allocatedURL != NULL )
+			{
+				free(allocatedURL);
+			}
+		}
+	}
+	
+	require_noerr(error, webdav_get_authentication);
+	
+	/* insert authcache entry */
+	WebdavAuthcacheRemoveRec auth_rem =
+	{
+		updateRec->uid, updateRec->isProxy, updateRec->realmStr
+	};
+	WebdavAuthcacheInsertRec auth_insert =
+	{
+		updateRec->uid, updateRec->challenge, updateRec->level, updateRec->isProxy,
+			user, pass, newAuthflags
+	};
+
+	/*
+	 * Whatever authorization we had before is no longer valid
+	 * so remove it from the cache. If getting rid of it
+	 * doesn't work, ignore it.
+	 */
+	(void)webdav_authcache_remove(&auth_rem, FALSE);
+	if (updateRec->uid != 0)
+	{
+		auth_rem.uid = 0;
+		(void)webdav_authcache_remove(&auth_rem, FALSE);
+	}
+	if (updateRec->uid != 1)
+	{
+		auth_rem.uid = 1;
+		(void)webdav_authcache_remove(&auth_rem, FALSE);
+	}
+
+	error = webdav_authcache_insert(&auth_insert, FALSE);
+	if (!error)
+	{
+		/* if not "root", make an entry for root */
+		if (updateRec->uid != 0)
+		{
+			auth_insert.uid = 0;
+			(void)webdav_authcache_insert(&auth_insert, FALSE);
+		}
+		/* if not "daemon", make an entry for daemon */
+		if (updateRec->uid != 1)
+		{
+			auth_insert.uid = 1;
+			(void)webdav_authcache_insert(&auth_insert, FALSE);
+		}
+	}
+	bzero(user, WEBDAV_MAX_USERNAME_LEN);
+	bzero(pass, WEBDAV_MAX_PASSWORD_LEN);
+	
+webdav_get_authentication:
+auth_level_zero:
+updateComplete:
+	
+	error2 = pthread_mutex_unlock(&(gAuthcacheHeader.lock));
+	if ( error2 != 0 )
+	{
+		syslog(LOG_ERR, "webdav_authcache_update: pthread_mutex_unlock(): %s", strerror(error2));
+		webdav_kill(-1);	/* tell the main select loop to force unmount */
+		error = error2;
+	}
+	
+pthread_mutex_lock:
+
+	return ( error );
+}
+
+/*****************************************************************************/
+
+int webdav_authcache_keychain(WebdavAuthcacheKeychainRec *keychainRec)
+{
+	int error, error2;
+	WebdavAuthcacheElement *elem;
+	int foundServer, foundProxy;
+	
+	error = pthread_mutex_lock(&(gAuthcacheHeader.lock));
+	if ( error )
+	{
+		syslog(LOG_ERR, "webdav_authcache_keychain: pthread_mutex_lock(): %s", strerror(error));
+		webdav_kill(-1);	/* tell the main select loop to force unmount */
+	}
+	require_noerr(error, pthread_mutex_lock);
+	
+	/* If the generation has changed, do nothing.
+	 * If addtokeychain is still set, the next request that works will call
+	 * webdav_authcache_keychain() again with a different generation.
+	 */
+	require_quiet(keychainRec->generation == gAuthcacheHeader.generation, generationChanged);
+	
+	/* find the cache element(s) which might need to be added to the keychain */
+	foundServer = FALSE; /* haven't found server */
+	/* look for proxy only if a proxy element has been inserted */
+	foundProxy = (gAuthcacheHeader.proxyElementCount == 0);
+	elem = NULL;
+	/* done if we've found both a server and proxy element (if any) */
+	while ( (foundServer == FALSE) || (foundProxy == FALSE) )
+	{
+		GetNextNextWebdavAuthcacheElement(&elem);
+		if ( elem == NULL )
+		{
+			/* done - no more auth cache elements */
+			break;
+		}
+		
+		/* match on uid but skip placeholders */
+		if ( (keychainRec->uid == elem->uid) && (elem->realmStr != NULL) )
+		{
+			/*
+			 * If the element has no uri, then the protection space is
+			 * the entire realm. Otherwise, we have to see if
+			 * retrieveRec->uri is covered by elem's domain.  
+			 */
+			if ( (elem->domainHead == NULL) ||
+				HasMatchingURI(keychainRec->uri, elem) )
+			{
+				char *serverName;
+				char *path;
+				SecKeychainItemRef itemRef;
+				OSStatus result;
+				
+				if ( elem->isProxy )
+				{
+					/* should be FALSE */
+					check(foundProxy == FALSE);
+					foundProxy = TRUE;
+				}
+				else
+				{
+					/* should be FALSE */
+					check(foundServer == FALSE); 
+					foundServer = TRUE;
+				}
+				
+				/* mark it as a known good authentication */
+				elem->authflags &= ~kAuthProvisional;
+				
+				if (elem->authflags & kAuthAddToKeychain)
+				{
+					serverName = (elem->isProxy ? proxy_server : dest_server);
+					path = (elem->isProxy ? NULL : dest_path);
+					
+					/* is there an existing keychain item? */
+					if ( elem->isProxy )
+					{
+						result = SecKeychainFindInternetPassword(NULL,
+						strlen(serverName), serverName,				/* serverName */
+						0, NULL,									/* securityDomain */
+						0, NULL,									/* accountName */
+						0, NULL,									/* path */
+						proxy_port,									/* port */
+						kSecProtocolTypeHTTPProxy,					/* protocol */
+						0,											/* authType */
+						NULL, NULL,									/* don't want password */
+						&itemRef);
+					}
+					else
+					{
+						result = SecKeychainFindInternetPassword(NULL,
+						strlen(serverName), serverName,				/* serverName */
+						strlen(elem->realmStr), elem->realmStr,		/* securityDomain */
+						strlen(elem->username), elem->username,		/* accountName */
+						(path == NULL) ? 0 : strlen(path), path,	/* path */
+						dest_port,									/* port */
+						kSecProtocolTypeHTTP,						/* protocol */
+						(elem->scheme == kChallengeSecurityLevelDigest) ?
+							kSecAuthenticationTypeHTTPDigest :
+							kSecAuthenticationTypeDefault,			/* authType */
+						NULL, NULL,									/* don't want password */
+						&itemRef);
+					}
+					
+					if ( result == noErr )
+					{
+						/* update the password in it */
+						result = SecKeychainItemModifyContent(itemRef, NULL, strlen(elem->password), (void *)elem->password);
+						CFRelease(itemRef);
+					}
+					else
+					{
+						/* otherwise, add new InternetPassword */
+						result = SecKeychainAddInternetPassword(NULL,
+							strlen(serverName), serverName,			/* serverName */
+							strlen(elem->realmStr), elem->realmStr, /* securityDomain */
+							strlen(elem->username), elem->username,	/* accountName */
+							(path == NULL) ? 0 : strlen(path), path, /* path */
+							elem->isProxy ? proxy_port : dest_port,	/* port */
+							elem->isProxy ? kSecProtocolTypeHTTPProxy : kSecProtocolTypeHTTP, /* protocol */
+							(elem->scheme == kChallengeSecurityLevelDigest) ?
+								kSecAuthenticationTypeHTTPDigest :
+								kSecAuthenticationTypeDefault,		/* authType */
+							strlen(elem->password), elem->password,	/* password */
+							&itemRef);
+						CFRelease(itemRef);
+					}
+					
+					/* if it's now in the keychain, then future retrieves need to indicate that */
+					if ( result == noErr )
+					{
+						/* indicate where the authentication came from */
+						elem->authflags = kAuthFromKeychain;
+					}
+				}
+			}
+		}
+	}
+	
+generationChanged:
+
+	error2 = pthread_mutex_unlock(&(gAuthcacheHeader.lock));
+	if ( error2 != 0 )
+	{
+		syslog(LOG_ERR, "webdav_authcache_keychain: pthread_mutex_unlock(): %s", strerror(error2));
+		webdav_kill(-1);	/* tell the main select loop to force unmount */
+		error = error2;
+	}
+	
+pthread_mutex_lock:
+
 	return ( error );
 }
 

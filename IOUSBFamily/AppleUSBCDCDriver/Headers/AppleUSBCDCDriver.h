@@ -1,5 +1,4 @@
 /*
- * Copyright (c) 1998-2002 Apple Computer, Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -22,49 +21,73 @@
  * 
  * @APPLE_LICENSE_HEADER_END@
  */
-	/*****	For fans of kprintf, IOLog and debugging infrastructure of the	*****/
-	/*****	string ilk, please modify the ELG and PAUSE macros or their	*****/
-	/*****	associated EvLog and Pause functions to suit your taste. These	*****/
-	/*****	macros currently are set up to log events to a wraparound	*****/
-	/*****	buffer with minimal performance impact. They take 2 UInt32	*****/
-	/*****	parameters so that when the buffer is dumped 16 bytes per line,	*****/
-	/*****	time stamps (~1 microsecond) run down the left side while	*****/
-	/*****	unique 4-byte ASCII codes can be read down the right side.	*****/
-	/*****	Preserving this convention facilitates different maintainers	*****/
-	/*****	using different debugging styles with minimal code clutter.	*****/
+
 
 #define LDEBUG		0			// for debugging
-#define USE_ELG		0			// to event log - LDEBUG must also be set
-#define kEvLogSize  (4096*16)			// 16 pages = 64K = 4096 events
-#define	LOG_DATA	0			// logs data to the IOLog - LDEBUG must also be set
+#define USE_ELG		0			// to Event LoG (via XTrace) - LDEBUG must also be set
+#define USE_IOL		0			// to IOLog - LDEBUG must also be set
+#define	LOG_DATA	0			// logs data to the appropriate log - LDEBUG must also be set
+#define DUMPALL		0			// Dumps all the data to the log - LOG_DATA must also be set
 
 #define Sleep_Time	20
 
 #if LDEBUG
     #if USE_ELG
-        #define ELG(A,B,ASCI,STRING)    EvLog( (UInt32)(A), (UInt32)(B), (UInt32)(ASCI), STRING )		
+        #include "XTrace.h"
+        #define XTRACE(id, x, y, msg)                    								\
+        do														\
+        {														\
+            if (gXTrace)												\
+            {														\
+                static char *__xtrace = 0;              								\
+                if (__xtrace)												\
+                    gXTrace->LogAdd((UInt32)id, (UInt32)(x), (UInt32)(y), __xtrace);    				\
+                else													\
+                    __xtrace = gXTrace->LogAdd((UInt32)id, (UInt32)(x), (UInt32)(y), "AppleUSBCDCDriver: " msg, false);	\
+            }														\
+        } while(0)
+        #define XTRACE2(id, x, y, msg) XTRACE_HELPER(gXTrace, (UInt32)id, x, y, "AppleUSBCDCDriver: "  msg)
     #else /* not USE_ELG */
-        #define ELG(A,B,ASCI,STRING)	{IOLog( "AppleUSBCDCDriver: %8x %8x " STRING "\n", (unsigned int)(A), (unsigned int)(B) );IOSleep(Sleep_Time);}
+        #if USE_IOL
+            #define XTRACE(ID,A,B,STRING) {IOLog("%8x %8x %8x %8x AppleUSBCDCDriver: " STRING "\n",(unsigned int)(ID),(unsigned int)(A),(unsigned int)(B), (unsigned int)IOThreadSelf()); IOSleep(Sleep_Time);}
+        #else
+            #define XTRACE(id, x, y, msg)
+        #endif /* USE_IOL */
     #endif /* USE_ELG */
     #if LOG_DATA
-        #define LogData(D, C, b)	USBLogData((UInt8)D, (UInt32)C, (char *)b)
+        #define LogData(D, C, b, ID)	USBLogData((UInt8)D, (UInt32)C, (char *)b, ID)
     #else /* not LOG_DATA */
-        #define LogData(D, C, b)
+        #define LogData(D, C, b, ID)
     #endif /* LOG_DATA */
 #else /* not LDEBUG */
-    #define ELG(A,B,ASCI,S)
-    #define LogData(D, C, b)
+    #define XTRACE(id, x, y, msg)
+    #define LogData(D, C, b, ID)
     #undef USE_ELG
+    #undef USE_IOL
     #undef LOG_DATA
 #endif /* LDEBUG */
 
-#define IOLogIt(A,B,ASCI,STRING)	IOLog( "AppleUSBCDCDriver: %8x %8x " STRING "\n", (unsigned int)(A), (unsigned int)(B) )
+#define ALERT(A,B,STRING)	IOLog("%8x %8x AppleUSBCDCDriver: " STRING "\n", (unsigned int)(A), (unsigned int)(B))
 
 #define baseName		"usbmodem"
 #define defaultName		"USB Modem"
 #define numberofPorts		4						// Number of ports we'll support
 #define productNameLength	32						// Arbitrary length
 #define propertyTag		"Product Name"
+
+#define kDefaultBaudRate	9600
+#define kMaxBaudRate		230400
+#define kMaxCirBufferSize	4096
+
+#define kPipeStalled		1
+#define kDeviceSelfPowered	1
+
+enum
+{
+    kDataIn 			= 0,
+    kDataOut,
+    kDataOther
+};
 
         // USB CDC Defintions
 		
@@ -171,18 +194,6 @@ typedef struct
     UInt8 	bMasterInterface;
     UInt8	bSlaveInterface[];
 } UnionFunctionalDescriptor;
-
-    // Globals
-
-typedef struct globals      // Globals for this module (not per instance)
-{
-    UInt32      evLogFlag; // debugging only
-    UInt8       *evLogBuf;
-    UInt8       *evLogBufe;
-    UInt8       *evLogBufp;
-    UInt8       intLevel;
-    class AppleUSBCDCDriver	*AppleUSBCDCDriverInstance;
-} globals;
 		
 enum ParityType
 {
@@ -190,10 +201,6 @@ enum ParityType
     OddParity,
     EvenParity
 };
-	
-#define kDefaultBaudRate	9600
-#define kMaxBaudRate		230400
-#define kMaxCirBufferSize	4096
 
     // SccQueuePrimatives.h
 
@@ -215,22 +222,29 @@ typedef enum QueueStatus
     queueMaxStatus
 } QueueStatus;
 
-    // PPCSerialPort.h
+    // Miscellaneous
+    
+enum
+{
+    kCDCPowerOffState	= 0,
+    kCDCPowerOnState	= 1,
+    kNumCDCStates	= 2
+};
 
 #define BIGGEST_EVENT		3
 
 #define SPECIAL_SHIFT		(5)
 #define SPECIAL_MASK		((1<<SPECIAL_SHIFT) - 1)
-#define STATE_ALL		( PD_RS232_S_MASK | PD_S_MASK )
-#define FLOW_RX_AUTO   	 	( PD_RS232_A_RFR | PD_RS232_A_DTR | PD_RS232_A_RXO )
-#define FLOW_TX_AUTO    	( PD_RS232_A_CTS | PD_RS232_A_DSR | PD_RS232_A_TXO | PD_RS232_A_DCD )
-#define CAN_BE_AUTO		( FLOW_RX_AUTO | FLOW_TX_AUTO )
-#define CAN_NOTIFY		( PD_RS232_N_MASK )
-#define EXTERNAL_MASK   	( PD_S_MASK | (PD_RS232_S_MASK & ~PD_RS232_S_LOOP) )
-#define INTERNAL_DELAY  	( PD_RS232_S_LOOP )
-#define DEFAULT_AUTO		( PD_RS232_A_RFR | PD_RS232_A_CTS | PD_RS232_A_DSR )
+#define STATE_ALL		(PD_RS232_S_MASK | PD_S_MASK)
+#define FLOW_RX_AUTO   	 	(PD_RS232_A_RFR | PD_RS232_A_DTR | PD_RS232_A_RXO)
+#define FLOW_TX_AUTO    	(PD_RS232_A_CTS | PD_RS232_A_DSR | PD_RS232_A_TXO | PD_RS232_A_DCD)
+#define CAN_BE_AUTO		(FLOW_RX_AUTO | FLOW_TX_AUTO)
+#define CAN_NOTIFY		(PD_RS232_N_MASK)
+#define EXTERNAL_MASK   	(PD_S_MASK | (PD_RS232_S_MASK & ~PD_RS232_S_LOOP))
+#define INTERNAL_DELAY  	(PD_RS232_S_LOOP)
+#define DEFAULT_AUTO		(PD_RS232_A_RFR | PD_RS232_A_CTS | PD_RS232_A_DSR)
 #define DEFAULT_NOTIFY		0x00
-#define DEFAULT_STATE		( PD_S_TX_ENABLE | PD_S_RX_ENABLE | PD_RS232_A_TXO | PD_RS232_A_RXO )
+#define DEFAULT_STATE		(PD_S_TX_ENABLE | PD_S_RX_ENABLE | PD_RS232_A_TXO | PD_RS232_A_RXO)
 
 #define IDLE_XO	   		 0
 #define NEEDS_XOFF 		 1
@@ -240,6 +254,7 @@ typedef enum QueueStatus
 
 #define MAX_BLOCK_SIZE	PAGE_SIZE
 #define COMM_BUFF_SIZE	16
+#define DATA_BUFF_SIZE	64
 
 typedef struct
 {
@@ -261,16 +276,18 @@ typedef struct BufferMarks
 
 typedef struct
 {
+
+        // State and serialization variables
+
     UInt32		State;
     UInt32		WatchStateMask;
-    IOLock		*serialRequestLock;
+    
+    IOCommandGate	*commandGate;		// Workloop is per driver but the command gate is per port
 
         // queue control structures:
 			
     CirQueue		RX;
     CirQueue		TX;
-    IOLock		*RXqueueRequestLock;
-    IOLock		*TXqueueRequestLock;
 
     BufferMarks		RXStats;
     BufferMarks		TXStats;
@@ -320,10 +337,16 @@ typedef struct
     UInt8		*PipeInBuffer;
     UInt8		*PipeOutBuffer;
     
+    IOUSBCompletion	fCommCompletionInfo;
+    IOUSBCompletion	fReadCompletionInfo;
+    IOUSBCompletion	fWriteCompletionInfo;
+    IOUSBCompletion	fMERCompletionInfo;
+    
     UInt8		CommInterfaceNumber;
     UInt8		DataInterfaceNumber;
-    UInt32		Count;
+    SInt32		Count;
     UInt32		OutPacketSize;
+    UInt32		InPacketSize;
     
     UInt8		CMCapabilities;			// Call Management Capabilities
     UInt8		ACMCapabilities;		// Abstract Control Management
@@ -332,17 +355,26 @@ typedef struct
     UInt32		LastStopBits;
     UInt32		LastTX_Parity;
     UInt32		LastBaudRate;
-		
+
 } PortInfo_t;
+
+typedef struct
+{
+    void	*arg1;
+    void	*arg2;
+    void	*arg3;
+    void	*arg4;
+    PortInfo_t	*port;
+} parmList;
 	
     // Inline time conversions
 	
-static inline unsigned long tval2long( mach_timespec val )
+static inline unsigned long tval2long(mach_timespec val)
 {
    return (val.tv_sec * NSEC_PER_SEC) + val.tv_nsec;   
 }
 
-static inline mach_timespec long2tval( unsigned long val )
+static inline mach_timespec long2tval(unsigned long val)
 {
     mach_timespec	tval;
 
@@ -356,92 +388,109 @@ static inline mach_timespec long2tval( unsigned long val )
 
 class AppleUSBCDCDriver : public IOSerialDriverSync
 {
-    OSDeclareDefaultStructors( AppleUSBCDCDriver );	// Constructor & Destructor stuff
+    OSDeclareDefaultStructors(AppleUSBCDCDriver);			// Constructor & Destructor stuff
 
 private:
-    UInt8			fSessions;				// Active sessions
+    UInt8			fSessions;				// Active sessions (across all ports)
     bool			fTerminate;				// Are we being terminated (ie the device was unplugged)
+    bool			fStopping;				// Are we being "stopped"
     bool			fSuspendOK;                             // Ok to suspend the device
+    UInt8			fPowerState;				// Ordinal for power management
     UInt8			fbmAttributes;				// Device attributes
     UInt8			fProductName[productNameLength];	// Product String from the Device
     PortInfo_t 			*fPorts[numberofPorts];			// Port array
 
-    IOUSBCompletion		fCommCompletionInfo;
-    IOUSBCompletion		fReadCompletionInfo;
-    IOUSBCompletion		fWriteCompletionInfo;
-    IOUSBCompletion		fMERCompletionInfo;
-
-    static void			commReadComplete(  void *obj, void *param, IOReturn ior, UInt32 remaining );
-    static void			dataReadComplete(  void *obj, void *param, IOReturn ior, UInt32 remaining );
-    static void			dataWriteComplete( void *obj, void *param, IOReturn ior, UInt32 remaining );
-    static void			merWriteComplete( void *obj, void *param, IOReturn ior, UInt32 remaining );
+    static void			commReadComplete( void *obj, void *param, IOReturn ior, UInt32 remaining);
+    static void			dataReadComplete( void *obj, void *param, IOReturn ior, UInt32 remaining);
+    static void			dataWriteComplete(void *obj, void *param, IOReturn ior, UInt32 remaining);
+    static void			merWriteComplete(void *obj, void *param, IOReturn ior, UInt32 remaining);
 
 public:
 
     IOUSBDevice			*fpDevice;
+    IOWorkLoop			*fWorkLoop;
 
-        // IOKit methods:
+        // IOKit methods
 		
-    virtual void		free( void );
-    virtual bool		start( IOService *provider );
-    virtual void		stop( IOService *provider );
-    virtual IOReturn 		message( UInt32 type, IOService *provider,  void *argument = 0 );
+    virtual bool		start(IOService *provider);
+    virtual void		stop(IOService *provider);
+    virtual IOReturn 		message(UInt32 type, IOService *provider,  void *argument = 0);
 
         // IOSerialDriverSync Abstract Method Implementation
 
-    virtual IOReturn		acquirePort( bool sleep, void *refCon );
-    virtual IOReturn		releasePort( void *refCon );
-    virtual IOReturn		setState( UInt32 state, UInt32 mask, void *refCon );
-    virtual UInt32		getState( void *refCon );
-    virtual IOReturn		watchState( UInt32 *state, UInt32 mask, void *refCon );
-    virtual UInt32		nextEvent( void *refCon );
-    virtual IOReturn		executeEvent( UInt32 event, UInt32 data, void *refCon );
-    virtual IOReturn		requestEvent( UInt32 event, UInt32 *data, void *refCon );
-    virtual IOReturn		enqueueEvent( UInt32 event, UInt32 data, bool sleep, void *refCon );
-    virtual IOReturn		dequeueEvent( UInt32 *event, UInt32 *data, bool sleep, void *refCon );
-    virtual IOReturn		enqueueData( UInt8 *buffer, UInt32 size, UInt32 * count, bool sleep, void *refCon );
-    virtual IOReturn		dequeueData( UInt8 *buffer, UInt32 size, UInt32 *count, UInt32 min, void *refCon );
+    virtual IOReturn		acquirePort(bool sleep, void *refCon);
+    virtual IOReturn		releasePort(void *refCon);
+    virtual UInt32		getState(void *refCon);
+    virtual IOReturn		setState(UInt32 state, UInt32 mask, void *refCon);
+    virtual IOReturn		watchState(UInt32 *state, UInt32 mask, void *refCon);
+    virtual UInt32		nextEvent(void *refCon);
+    virtual IOReturn		executeEvent(UInt32 event, UInt32 data, void *refCon);
+    virtual IOReturn		requestEvent(UInt32 event, UInt32 *data, void *refCon);
+    virtual IOReturn		enqueueEvent(UInt32 event, UInt32 data, bool sleep, void *refCon);
+    virtual IOReturn		dequeueEvent(UInt32 *event, UInt32 *data, bool sleep, void *refCon);
+    virtual IOReturn		enqueueData(UInt8 *buffer, UInt32 size, UInt32 * count, bool sleep, void *refCon);
+    virtual IOReturn		dequeueData(UInt8 *buffer, UInt32 size, UInt32 *count, UInt32 min, void *refCon);
+    
+        // Static stubs for IOCommandGate::runAction
+        
+    static	IOReturn	stopAction(OSObject *owner, void *arg0, void *, void *, void *);
+    static	IOReturn	acquirePortAction(OSObject *owner, void *arg0, void *, void *, void *);
+    static	IOReturn	releasePortAction(OSObject *owner, void *arg0, void *, void *, void *);
+    static	IOReturn	getStateAction(OSObject *owner, void *arg0, void *, void *, void *);
+    static	IOReturn	setStateAction(OSObject *owner, void *arg0, void *, void *, void *);
+    static	IOReturn	watchStateAction(OSObject *owner, void *arg0, void *, void *, void *);
+    static	IOReturn	executeEventAction(OSObject *owner, void *arg0, void *, void *, void *);
+    static	IOReturn	enqueueDataAction(OSObject *owner, void *arg0, void *, void *, void *);
+    static	IOReturn	dequeueDataAction(OSObject *owner, void *arg0, void *, void *, void *);
+    
+        // Gated methods called by the Static stubs
+
+    virtual	void		stopGated(PortInfo_t *port);
+    virtual	IOReturn	acquirePortGated(bool sleep, PortInfo_t *port);
+    virtual	IOReturn	releasePortGated(PortInfo_t *port);
+    virtual	UInt32		getStateGated(PortInfo_t *port);
+    virtual	IOReturn	setStateGated(UInt32 state, UInt32 mask, PortInfo_t *port);
+    virtual	IOReturn	watchStateGated(UInt32 *state, UInt32 mask, PortInfo_t *port);
+    virtual	IOReturn	executeEventGated(UInt32 event, UInt32 data, PortInfo_t *port);
+    virtual	IOReturn	enqueueDataGated(UInt8 *buffer, UInt32 size, UInt32 *count, bool sleep, PortInfo_t *port);
+    virtual	IOReturn	dequeueDataGated(UInt8 *buffer, UInt32 size, UInt32 *count, UInt32 min, PortInfo_t *port);
 												
         // CDC Driver Methods
 	
-    bool 			allocateResources( PortInfo_t *port );
-    void			releaseResources( PortInfo_t *port );
-    bool 			configureDevice( UInt8 numConfigs );
-    bool			initDevice( UInt8 numConfigs );
-    bool			getFunctionalDescriptors( PortInfo_t *port );
-    bool 			createSuffix( unsigned char *sufKey );
-    bool			createSerialStream( PortInfo_t *port );
-    bool 			SetUpTransmit( PortInfo_t *port );
-    void 			StartTransmission( PortInfo_t *port );
-    void 			USBSetLineCoding( PortInfo_t *port );
-    void 			USBSetControlLineState( PortInfo_t *port, bool RTS, bool DTR);
-    void 			USBSendBreak( PortInfo_t *port, bool sBreak);
-    void 			SetStructureDefaults( PortInfo_t *port, bool Init );
-    void 			freeRingBuffer( CirQueue *Queue );
-    bool 			allocateRingBuffer( CirQueue *Queue, size_t BufferSize );
-    bool			WakeonRing();
+    void			cleanUp(void);
+    bool 			configureDevice(UInt8 numConfigs);
+    bool			initDevice(UInt8 numConfigs);
+    bool			getFunctionalDescriptors(PortInfo_t *port);
+    bool 			createSuffix(PortInfo_t *port, unsigned char *sufKey);
+    bool			createSerialStream(PortInfo_t *port);
+    bool 			setUpTransmit(PortInfo_t *port);
+    void 			startTransmission(PortInfo_t *port);
+    void 			USBSetLineCoding(PortInfo_t *port);
+    void 			USBSetControlLineState(PortInfo_t *port, bool RTS, bool DTR);
+    void 			USBSendBreak(PortInfo_t *port, bool sBreak);
+    IOReturn			clearPipeStall(PortInfo_t *port, IOUSBPipe *thePipe);
+    bool			initPort(PortInfo_t *port);
+    void			initStructure(PortInfo_t *port);
+    void 			setStructureDefaults(PortInfo_t *port);
+    bool 			allocateResources(PortInfo_t *port);
+    void			releaseResources(PortInfo_t *port);
+    void 			freeRingBuffer(PortInfo_t *port, CirQueue *Queue);
+    bool 			allocateRingBuffer(PortInfo_t *port, CirQueue *Queue, size_t BufferSize);
+    bool			WakeonRing(void);
 
 private:
 
 	// QueuePrimatives
         
-    QueueStatus			AddBytetoQueue( CirQueue *Queue, char Value, IOLock *queueRequestLock );
-    QueueStatus			GetBytetoQueue( CirQueue *Queue, UInt8 *Value, IOLock *queueRequestLock );
-    QueueStatus			InitQueue( CirQueue *Queue, UInt8 *Buffer, size_t Size );
-    QueueStatus			CloseQueue( CirQueue *Queue );
-    size_t 			AddtoQueue( CirQueue *Queue, UInt8 *Buffer, size_t Size, IOLock *queueRequestLock );
-    size_t 			RemovefromQueue( CirQueue *Queue, UInt8 *Buffer, size_t MaxSize, IOLock *queueRequestLock );
-    size_t 			FreeSpaceinQueue( CirQueue *Queue, IOLock *queueRequestLock );
-    size_t 			UsedSpaceinQueue( CirQueue *Queue );
-    size_t 			GetQueueSize( CirQueue *Queue );
-    QueueStatus 		GetQueueStatus( CirQueue *Queue );
-    void 			CheckQueues( PortInfo_t *port );
+    QueueStatus			AddBytetoQueue(CirQueue *Queue, char Value);
+    QueueStatus			GetBytetoQueue(CirQueue *Queue, UInt8 *Value);
+    QueueStatus			InitQueue(CirQueue *Queue, UInt8 *Buffer, size_t Size);
+    QueueStatus			CloseQueue(CirQueue *Queue);
+    size_t 			AddtoQueue(CirQueue *Queue, UInt8 *Buffer, size_t Size);
+    size_t 			RemovefromQueue(CirQueue *Queue, UInt8 *Buffer, size_t MaxSize);
+    size_t 			FreeSpaceinQueue(CirQueue *Queue);
+    size_t 			UsedSpaceinQueue(CirQueue *Queue);
+    size_t 			GetQueueSize(CirQueue *Queue);
+    QueueStatus 		GetQueueStatus(CirQueue *Queue);
+    void 			CheckQueues(PortInfo_t *port);
     
-        // Miscellaneous
-
-    static IOReturn		privateWatchState( PortInfo_t *port, UInt32 *state, UInt32 mask );
-    static UInt32		readPortState( PortInfo_t *port );
-    static void			changeState( PortInfo_t *port, UInt32 state, UInt32 mask );
-    
-}; /* end class AppleUSBCDCDriver */
-

@@ -9,6 +9,10 @@
 # include "lists.h"
 # include "variable.h"
 # include <errno.h>
+#ifdef APPLE_EXTENSIONS
+# include "timingdata.h"
+# include <sys/resource.h>
+#endif
 
 # if defined( unix ) || defined( NT ) || defined( __OS2__ )
 
@@ -87,6 +91,12 @@ static struct
 # if defined( NT ) || defined( __OS2__ )
 	char	*tempfile;
 # endif
+#ifdef APPLE_EXTENSIONS
+	int	output_fd;	  /* file descriptor on which we're receiving stderr output from the command */
+	char *  output_buffer;    /* buffer of characters we haven't emitted yet */
+	int     output_capacity;  /* capacity of 'output_buffer' */
+	int     output_length;    /* number of characters we haven't emitted yet */
+#endif
 } cmdtab[ MAXJOBS ] = {{0}};
 
 /*
@@ -99,10 +109,19 @@ int disp;
 {
 	intr++;
 #ifdef APPLE_EXTENSIONS
-	pbx_printf( "JAM ", "...interrupted\n" );
+	pbx_printf( "GMSG", "...interrupted\n" );
 #else
 	printf( "...interrupted\n" );
 #endif
+}
+
+int next_available_cmd_slot ()
+{
+    int slot;
+    for( slot = 0; slot < MAXJOBS; slot++ )
+	if( !cmdtab[ slot ].pid )
+	    return slot;
+    return -1;
 }
 
 /*
@@ -124,6 +143,10 @@ int exportvars;
 	// :mferris:20001213 We use a pipe to send commands to sh through stdin instead of passing them as an argument with "-c" since there are problems with the command line arguments somehow getting mangled when they contain weird UTF-8 encoded file names...
 	int pipeForStdInToShell[2];
 	static char usePipeForShellCommands = -1;
+#endif
+#ifdef APPLE_EXTENSIONS
+	// We also use a pipe to capture data from subprocesses, so that we can demux that output during parallel builds.  At least for now, we combine stdout and stderr output into the same pipe.
+	int output_pipe[2];
 #endif
 
 # if defined( NT ) || defined( __OS2__ )
@@ -270,20 +293,6 @@ int exportvars;
 	if( !cmdsrunning++ )
 	    istat = signal( SIGINT, onintr );
 
-#ifdef APPLE_EXTENSIONS
-	/* Set up pipes, etc so that we can correctly multiplex output from multiple simultaneous commands */
-    #if 0 // not yet implemented -- we assume one command at a time for now
-	{
-	    int   stdout_pipe[2], stderr_pipe[2];
-
-	    pipe(stdout_pipe);
-	    pipe(stderr_pipe);
-	    printf("stdout_pipe[0]=%i, stdout_pipe[1]=%i\n", stdout_pipe[0], stdout_pipe[1]);
-	    printf("stderr_pipe[0]=%i, stderr_pipe[1]=%i\n", stderr_pipe[0], stderr_pipe[1]);
-	}
-    #endif
-#endif
-
 	/* Start the command */
 
 # if defined( NT ) || defined( __OS2__ )
@@ -300,6 +309,13 @@ int exportvars;
 	}
 #endif
 
+#ifdef APPLE_EXTENSIONS
+	/* Create a pipe so that we can correctly multiplex output from multiple simultaneous commands */
+	if (PARSABLE_OUTPUT) {
+	    pipe(output_pipe);
+	}
+#endif
+
 	if ((pid = vfork()) == 0) 
    	{
 #ifdef APPLE_EXTENSIONS
@@ -307,6 +323,15 @@ int exportvars;
 		// CHILD: Close write end of pipe in child and make stdin be the read end.
 		close(pipeForStdInToShell[1]);
 		dup2(pipeForStdInToShell[0], 0);
+	    }
+#endif
+
+#ifdef APPLE_EXTENSIONS
+	    if (PARSABLE_OUTPUT) {
+		// CHILD: Close the read end of output_pipe in the child, and dup the write end to both stdout and stderr.
+		close(output_pipe[0]);
+		dup2(output_pipe[1], 1);
+		dup2(output_pipe[1], 2);
 	    }
 #endif
 	    if (exportvars)
@@ -348,6 +373,25 @@ int exportvars;
 	}
 #endif
 
+#ifdef APPLE_EXTENSIONS
+	if (PARSABLE_OUTPUT) {
+	    // PARENT: Close the write ends of output_pipe.  Keep track of the file descriptor for the read end, so that we can select() on it.
+	    cmdtab[slot].output_fd = output_pipe[0];
+	    close(output_pipe[1]);
+	    cmdtab[slot].output_capacity = 16 * 1024;
+	    cmdtab[slot].output_buffer = malloc(cmdtab[slot].output_capacity);
+	    cmdtab[slot].output_length = 0;
+	    if (DEBUG_PARSABLE_OUTPUT) {
+		printf("cmdtab[%i] = {output_fd=%i, output_capacity=%i, output_buffer=%p, output_length=%u}\n", slot, cmdtab[slot].output_fd, cmdtab[slot].output_capacity, cmdtab[slot].output_buffer, cmdtab[slot].output_length);
+	    }
+	}
+	else {
+	    cmdtab[slot].output_fd = -1;
+	    cmdtab[slot].output_capacity = 0;
+	    cmdtab[slot].output_buffer = NULL;
+	    cmdtab[slot].output_length = 0;
+	}
+#endif
 	/* Wait until we're under the limit of concurrent commands. */
 	/* Don't trust globs.jobs alone. */
 
@@ -355,6 +399,128 @@ int exportvars;
 	    if( !execwait() )
 		break;
 }
+
+
+#ifdef APPLE_EXTENSIONS
+
+int find_cmd_slot_for_fd (int fd)
+{
+    int i;
+    for (i = 0; i < MAXJOBS; i++) {
+	if (cmdtab[i].pid != 0  &&  cmdtab[i].output_fd == fd) {
+	    return i;
+	}
+    }
+    return -1;
+}
+
+void emit_annotated_output_line (const char * line_prefix_string, const unsigned char * string, unsigned length, int add_newline_if_needed)
+{
+    if (DEBUG_PARSABLE_OUTPUT) {
+	//printf("emit_annotated_output_line('%s', '%*.*s', %i)\n", line_prefix_string, length, length, string, add_newline_if_needed);
+    }
+    pbx_printf(line_prefix_string, "");
+    fwrite(string, length, 1, stdout);
+    if (add_newline_if_needed  &&  (length == 0 || string[length-1] != '\n')) {
+	printf("\n");
+    }
+}
+
+void emit_annotated_output_lines_for_cmd_slot (int slot, int empty_the_buffer)
+{
+    // Construct the line prefix string, of the form "ROxx" (where xx is the slot number).
+    unsigned char line_prefix_string[5] = "RO00";
+    line_prefix_string[2] = '0' + slot / 10;
+    line_prefix_string[3] = '0' + slot % 10;
+
+    // Emit all the complete lines.
+    const char * buf_ptr = cmdtab[slot].output_buffer;
+    const char * first_unemitted_char = buf_ptr;
+    const char * buf_limit = buf_ptr + cmdtab[slot].output_length;
+    while (buf_ptr < buf_limit) {
+
+	// Spool to the first character after the next newline.
+	while (buf_ptr < buf_limit  &&  *buf_ptr++ != '\n');
+
+	// Unless we're at the end, we emit this line.
+	if (buf_ptr < buf_limit  ||  (buf_ptr == buf_limit  &&  buf_ptr > first_unemitted_char  &&  buf_ptr[-1] == '\n')) {
+	    emit_annotated_output_line(line_prefix_string, first_unemitted_char, buf_ptr - first_unemitted_char, 0 /*add_newline_if_needed*/);
+	    first_unemitted_char = buf_ptr;
+	}
+    }
+
+    // If we're supposed to completely empty the buffer, we do so now (and append a trailing '\n', if needed).   Otherwise, we keep the last chars.
+    if (empty_the_buffer) {
+	if (buf_limit - first_unemitted_char > 0) {
+	    emit_annotated_output_line(line_prefix_string, first_unemitted_char, buf_limit - first_unemitted_char, 1 /*add_newline_if_needed*/);
+	}
+	cmdtab[slot].output_length = 0;
+    }
+    else {
+	unsigned num_remaining_chars = buf_limit - first_unemitted_char;
+	memcpy(cmdtab[slot].output_buffer, first_unemitted_char, num_remaining_chars);
+	cmdtab[slot].output_length = num_remaining_chars;
+    }
+}
+
+void append_to_cmd_slot_buffer (int slot, const char * bytes, unsigned length)
+{
+    if (DEBUG_PARSABLE_OUTPUT) {
+	printf("append_to_cmd_slot_buffer(%i, %p, %u)\n", slot, bytes, length);
+    }
+    // Grow the buffer, if needed.
+    int capacity = cmdtab[slot].output_capacity;
+    while (cmdtab[slot].output_length + length > (unsigned)capacity) {
+	capacity += (capacity < 65536) ? capacity : 16384;
+    }
+    if (capacity != cmdtab[slot].output_capacity) {
+	cmdtab[slot].output_buffer = realloc(cmdtab[slot].output_buffer, capacity);
+	cmdtab[slot].output_capacity = capacity;
+    }
+    // Append the bytes.
+    memcpy(cmdtab[slot].output_buffer + cmdtab[slot].output_length, bytes, length);
+    cmdtab[slot].output_length += length;
+}
+
+int fetch_data_from_cmd_in_slot (int slot)
+{
+    if (DEBUG_PARSABLE_OUTPUT) {
+	printf("fetch_data_from_cmd_in_slot(%i)\n", slot);
+    }
+    unsigned char buffer[4096];
+    int result = read(cmdtab[slot].output_fd, buffer, sizeof(buffer));
+    if (result == 0) {
+	// Writer has closed its end; close our read end and emit any buffered incomplete lines.
+	if (DEBUG_PARSABLE_OUTPUT) {
+	    printf("closing %i\n", cmdtab[slot].output_fd);
+	}
+	close(cmdtab[slot].output_fd);
+	cmdtab[slot].output_fd = -1;
+	emit_annotated_output_lines_for_cmd_slot(slot, 1 /*empty_the_buffer*/);
+	return 0;
+    }
+    else if (result >= 0) {
+	// Buffer the data.
+	append_to_cmd_slot_buffer(slot, buffer, result);
+	// Emit any complete lines.
+	emit_annotated_output_lines_for_cmd_slot(slot, 0 /*empty_the_buffer*/);
+    }
+    return result;
+}
+
+void print_fd_set (const fd_set * fd_set_ptr, unsigned highest_fd)
+{
+    unsigned   i, is_first = 1;
+
+    for (i = 0; i <= highest_fd; i++) {
+	if (FD_ISSET(i, fd_set_ptr)) {
+	    printf("%s%i", is_first ? "" : ",", i);
+	    is_first = 0;
+	}
+    }
+}
+
+#endif
 
 /*
  * execwait() - wait and drive at most one execution completion
@@ -366,16 +532,106 @@ execwait()
 	int i;
 	int status, w;
 	int rstat;
+#ifdef APPLE_EXTENSIONS
+	struct rusage ru;
+#endif
 
 	/* Handle naive make1() which doesn't know if cmds are running. */
 
 	if( !cmdsrunning )
 	    return 0;
 
+	/* First gather input for all active children */
+#ifdef APPLE_EXTENSIONS
+	int slot_to_wait_for = -1;
+	if (PARSABLE_OUTPUT) {
+	    do {
+		fd_set    readable_fd_set;
+		fd_set    exception_fd_set;
+		int       i, lowest_descriptor = 1024, highest_descriptor = -1;
+
+		FD_ZERO(&readable_fd_set);
+		FD_ZERO(&exception_fd_set);
+		for (i = 0; i < MAXJOBS; i++) {
+		    if (cmdtab[i].pid != 0) {
+			if (cmdtab[i].output_fd >= 0) {
+			    FD_SET(cmdtab[i].output_fd, &readable_fd_set);
+			    FD_SET(cmdtab[i].output_fd, &exception_fd_set);
+			    if (cmdtab[i].output_fd > highest_descriptor) {
+				highest_descriptor = cmdtab[i].output_fd;
+			    }
+			    if (cmdtab[i].output_fd < lowest_descriptor) {
+				lowest_descriptor = cmdtab[i].output_fd;
+			    }
+			}
+		    }
+		}
+		if (DEBUG_PARSABLE_OUTPUT) {
+		    //printf("highest_descriptor=%i\n", highest_descriptor);
+		}
+		if (highest_descriptor < 0) {
+		    break;
+		}
+
+		if (DEBUG_PARSABLE_OUTPUT) {
+		    printf("select(num_bits=%i, readable_fd_set={", highest_descriptor+1);
+		    print_fd_set(&readable_fd_set, highest_descriptor);
+		    printf("}, writable_fd_set=NULL, exception_fd_set={");
+		    print_fd_set(&exception_fd_set, highest_descriptor);
+		    printf("}, timeout=NULL) -> ");
+		}
+		fflush(stdout);
+		int num_ready = select(highest_descriptor+1, &readable_fd_set, NULL, &exception_fd_set, NULL);
+		if (DEBUG_PARSABLE_OUTPUT) {
+		    printf("num_ready=%i, readable_fd_set={", num_ready);
+		    print_fd_set(&readable_fd_set, highest_descriptor);
+		    printf("}, exception_fd_set={");
+		    print_fd_set(&exception_fd_set, highest_descriptor);
+		    printf("}");
+		    if (num_ready < 0) {
+			printf(", errno=%i(%s)\n", errno, strerror(errno));
+		    }
+		    printf("\n");
+		}
+		if (num_ready < 0) {
+		    break;
+		}
+		for (i = lowest_descriptor; i <= highest_descriptor; i++) {
+		    if (FD_ISSET(i, &readable_fd_set)) {
+			int slot = find_cmd_slot_for_fd(i);
+			if (DEBUG_PARSABLE_OUTPUT) {
+			    printf("find_cmd_slot_for_fd(%i) -> %i\n", i, slot);
+			}
+			if (slot >= 0) {
+			    fetch_data_from_cmd_in_slot(slot);
+			    if (cmdtab[slot].output_fd == -1) {
+				slot_to_wait_for = slot;
+			    }
+			    break;
+			}
+		    }
+		}
+		for (i = lowest_descriptor; i <= highest_descriptor; i++) {
+		    if (FD_ISSET(i, &exception_fd_set)) {
+			break;
+		    }
+		}
+	    }
+	    while (slot_to_wait_for == -1);
+	}
+#endif
+
 	/* Pick up process pid and status */
-    
-	while( ( w = wait( &status ) ) == -1 && errno == EINTR )
+	if (DEBUG_PARSABLE_OUTPUT) {
+	    printf("waitpid(cmdtab[%i].pid)\n", slot_to_wait_for);
+	}
+#ifdef APPLE_EXTENSIONS
+	while( ( w = wait4( slot_to_wait_for >= 0 ? cmdtab[slot_to_wait_for].pid : -1, &status, 0, &ru ) ) == -1 && errno == EINTR )
 		;
+#else
+	while( ( w = waitpid( slot_to_wait_for >= 0 ? cmdtab[slot_to_wait_for].pid : -1, &status, 0 ) ) == -1 && errno == EINTR )
+	    ;
+#endif
 
 	if( w == -1 )
 	{
@@ -409,7 +665,23 @@ execwait()
 	    rstat = EXEC_CMD_OK;
 
 	cmdtab[ i ].pid = 0;
-	
+
+#ifdef APPLE_EXTENSIONS
+	if( globs.enable_timings ) {
+	    record_last_resource_usage( &ru );
+	}
+
+	if (cmdtab[i].output_fd != -1) {
+	    close(cmdtab[i].output_fd);
+	    cmdtab[i].output_fd = -1;
+	}
+	if (DEBUG_PARSABLE_OUTPUT) {
+	    printf("getting rid of buffer for slot %i\n", i);
+	}
+	free(cmdtab[i].output_buffer), cmdtab[i].output_buffer = NULL;
+	cmdtab[i].output_capacity = 0;
+	cmdtab[i].output_length = 0;
+#endif
 	(*cmdtab[ i ].func)( cmdtab[ i ].closure, rstat );
 
 	return 1;

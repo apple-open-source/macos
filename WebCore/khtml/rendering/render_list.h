@@ -59,8 +59,8 @@ public:
 
     virtual void calcWidth();
 
-    virtual short lineHeight(bool b) const;
-    virtual short baselinePosition(bool b) const;
+    virtual short lineHeight(bool b, bool isRootLineBox=false) const;
+    virtual short baselinePosition(bool b, bool isRootLineBox=false) const;
     
     virtual bool isListMarker() const { return true; }
     
@@ -108,6 +108,10 @@ public:
     
     void setNotInList(bool notInList) { _notInList = notInList; }
     bool notInList() const { return _notInList; }
+
+#if APPLE_CHANGES
+    QString markerStringValue() { if (m_marker) return m_marker->m_item; return ""; }
+#endif
 
 protected:
     long int predefVal;

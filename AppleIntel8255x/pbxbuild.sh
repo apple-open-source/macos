@@ -82,7 +82,7 @@ for Action in ${Actions}; do
 		echo
 		echo "*** ${Action} ${Target} ***"
 		echo jam -d2 ${Action} JAMFILE=\"${TargetPath}/Jamfile.jam\" JAMBASE=pbxbuild.data/ProjectBuilderJambase TARGETNAME=\"${Target}\" BUILD_STYLE="${BuildStyle}" ACTION=${Action} OS=darwin NATIVE_ARCH=`arch` SRCROOT=\"`pwd`\" OBJROOT=\"`pwd`/obj\" SYMROOT=\"`pwd`/sym\" DSTROOT=\"`pwd`/dst\" ${Assignments}
-		jam -d2 ${Action} JAMFILE="${TargetPath}/Jamfile.jam" JAMBASE=pbxbuild.data/ProjectBuilderJambase TARGETNAME="${Target}" BUILD_STYLE="${BuildStyle}" ACTION=${Action} OS=darwin NATIVE_ARCH=`arch` SRCROOT="`pwd`" OBJROOT="`pwd`/obj" SYMROOT="`pwd`/sym" DSTROOT="`pwd`/dst" ${Assignments}
+		/Developer/Private/jam -d2 ${Action} JAMFILE="${TargetPath}/Jamfile.jam" JAMBASE=pbxbuild.data/ProjectBuilderJambase TARGETNAME="${Target}" BUILD_STYLE="${BuildStyle}" ACTION=${Action} OS=darwin NATIVE_ARCH=`arch` SRCROOT="`pwd`" OBJROOT="`pwd`/obj" SYMROOT="`pwd`/sym" DSTROOT="`pwd`/dst" ${Assignments}
 		if [ $? != 0 ]; then
 			echo "*** ${Action} ${Target} FAILED ***"
 			exit 1

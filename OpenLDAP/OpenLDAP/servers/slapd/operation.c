@@ -1,7 +1,7 @@
 /* operation.c - routines to deal with pending ldap operations */
-/* $OpenLDAP: pkg/ldap/servers/slapd/operation.c,v 1.25 2002/01/26 12:57:41 hyc Exp $ */
+/* $OpenLDAP: pkg/ldap/servers/slapd/operation.c,v 1.25.2.7 2003/03/29 15:45:43 kurt Exp $ */
 /*
- * Copyright 1998-2002 The OpenLDAP Foundation, All Rights Reserved.
+ * Copyright 1998-2003 The OpenLDAP Foundation, All Rights Reserved.
  * COPYING RESTRICTIONS APPLY, see COPYRIGHT file
  */
 
@@ -14,6 +14,30 @@
 
 #include "slap.h"
 
+#ifdef LDAP_SLAPI
+#include "slapi.h"
+#endif
+
+static ldap_pvt_thread_mutex_t	slap_op_mutex;
+static LDAP_STAILQ_HEAD(s_o, slap_op)	slap_free_ops;
+
+void slap_op_init(void)
+{
+	ldap_pvt_thread_mutex_init( &slap_op_mutex );
+	LDAP_STAILQ_INIT(&slap_free_ops);
+}
+
+void slap_op_destroy(void)
+{
+	Operation *o;
+
+	while ( (o = LDAP_STAILQ_FIRST( &slap_free_ops )) != NULL) {
+		LDAP_STAILQ_REMOVE_HEAD( &slap_free_ops, o_next );
+		LDAP_STAILQ_NEXT(o, o_next) = NULL;
+		ch_free( o );
+	}
+	ldap_pvt_thread_mutex_destroy( &slap_op_mutex );
+}
 
 void
 slap_op_free( Operation *op )
@@ -36,9 +60,32 @@ slap_op_free( Operation *op )
 		ldap_controls_free( op->o_ctrls );
 	}
 
-	ldap_pvt_thread_mutex_destroy( &op->o_abandonmutex );
+#ifdef LDAP_CONNECTIONLESS
+	if ( op->o_res_ber != NULL ) {
+		ber_free( op->o_res_ber, 1 );
+	}
+#endif
+#ifdef LDAP_CLIENT_UPDATE
+	if ( op->o_clientupdate_state.bv_val != NULL ) {
+		free( op->o_clientupdate_state.bv_val );
+	}
+#endif
+#ifdef LDAP_SYNC
+	if ( op->o_sync_state.bv_val != NULL ) {
+		free( op->o_sync_state.bv_val );
+	}
+#endif
 
-	free( (char *) op );
+#if defined( LDAP_SLAPI )
+	if ( op->o_pb != NULL ) {
+		slapi_pblock_destroy( (Slapi_PBlock *)op->o_pb );
+	}
+#endif /* defined( LDAP_SLAPI ) */
+
+	memset( op, 0, sizeof(Operation) );
+	ldap_pvt_thread_mutex_lock( &slap_op_mutex );
+	LDAP_STAILQ_INSERT_HEAD( &slap_free_ops, op, o_next );
+	ldap_pvt_thread_mutex_unlock( &slap_op_mutex );
 }
 
 Operation *
@@ -51,9 +98,14 @@ slap_op_alloc(
 {
 	Operation	*op;
 
-	op = (Operation *) ch_calloc( 1, sizeof(Operation) );
+	ldap_pvt_thread_mutex_lock( &slap_op_mutex );
+	if (op = LDAP_STAILQ_FIRST( &slap_free_ops )) {
+		LDAP_STAILQ_REMOVE_HEAD( &slap_free_ops, o_next );
+	}
+	ldap_pvt_thread_mutex_unlock( &slap_op_mutex );
 
-	ldap_pvt_thread_mutex_init( &op->o_abandonmutex );
+	if (!op)
+		op = (Operation *) ch_calloc( 1, sizeof(Operation) );
 
 	op->o_ber = ber;
 	op->o_msgid = msgid;
@@ -61,62 +113,13 @@ slap_op_alloc(
 
 	op->o_time = slap_get_time();
 	op->o_opid = id;
+#ifdef LDAP_CONNECTIONLESS
+	op->o_res_ber = NULL;
+#endif
+
+#if defined( LDAP_SLAPI )
+	op->o_pb = slapi_pblock_new();
+#endif /* defined( LDAP_SLAPI ) */
 
 	return( op );
 }
-
-#if 0
-int slap_op_add(
-    Operation		**olist,
-	Operation		*op
-)
-{
-	Operation	**tmp;
-
-	for ( tmp = olist; *tmp != NULL; tmp = &(*tmp)->o_next )
-		;	/* NULL */
-
-	*tmp = op;
-
-	return 0;
-}
-
-int
-slap_op_remove( Operation **olist, Operation *op )
-{
-	Operation	**tmp;
-
-	for ( tmp = olist; *tmp != NULL && *tmp != op; tmp = &(*tmp)->o_next )
-		;	/* NULL */
-
-	if ( *tmp == NULL ) {
-#ifdef NEW_LOGGING
-		LDAP_LOG(( "operation", LDAP_LEVEL_ERR,
-			   "slap_op_remove: can't find op %ld.\n",
-			   (long)op->o_msgid ));
-#else
-		Debug( LDAP_DEBUG_ANY, "op_delete: can't find op %ld\n",
-		       (long) op->o_msgid, 0, 0 );
-#endif
-
-		return -1; 
-	}
-
-	*tmp = (*tmp)->o_next;
-	op->o_next = NULL;
-
-	return 0;
-}
-
-Operation * slap_op_pop( Operation **olist )
-{
-	Operation *tmp = *olist;
-
-	if(tmp != NULL) {
-		*olist = tmp->o_next;
-		tmp->o_next = NULL;
-	}
-
-	return tmp;
-}
-#endif

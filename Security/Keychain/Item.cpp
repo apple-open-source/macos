@@ -30,10 +30,11 @@
 #include "KCEventNotifier.h"
 #include "cssmdatetime.h"
 #include <Security/keychainacl.h>
-#include <Security/aclsupport.h>
 #include <Security/osxsigning.h>
 #include <Security/trackingallocator.h>
 #include <Security/SecKeychainAPIPriv.h>
+
+#define SENDACCESSNOTIFICATIONS 1
 
 using namespace KeychainCore;
 using namespace CSSMDateTimeUtils;
@@ -124,7 +125,7 @@ ItemImpl::ItemImpl(ItemImpl &item) :
 			item.modifiedData()->Length));
 }
 
-ItemImpl::~ItemImpl()
+ItemImpl::~ItemImpl() throw()
 {
 	if (mKeychain && *mPrimaryKey)
 		mKeychain->removeItem(*mPrimaryKey, this);
@@ -262,7 +263,7 @@ ItemImpl::add(Keychain &keychain)
 		AclFactory aclFactory;
 		const AccessCredentials *nullCred = aclFactory.nullCred();
 
-		RefPointer<Access> access = mAccess;
+		SecPointer<Access> access = mAccess;
 		if (!access) {
 			// create default access controls for the new item
 			CssmDbAttributeData *data = mDbAttributes->find(Schema::attributeInfo(kSecLabelItemAttr));
@@ -275,7 +276,7 @@ ItemImpl::add(Keychain &keychain)
 				CssmDbAttributeData *data = mDbAttributes->find(Schema::attributeInfo(kSecServiceItemAttr));
 				if (data && data->Value[0].Length == 6 && !memcmp("iTools", data->Value[0].Data, 6))
 				{
-					typedef vector<RefPointer<ACL> > AclSet;
+					typedef vector<SecPointer<ACL> > AclSet;
 					AclSet acls;
 					access->findAclsForRight(CSSM_ACL_AUTHORIZATION_DECRYPT, acls);
 					for (AclSet::const_iterator it = acls.begin(); it != acls.end(); it++)
@@ -323,11 +324,22 @@ ItemImpl::add(Keychain &keychain)
 }
 
 Item
-ItemImpl::copyTo(const Keychain &keychain, Access *newAccess /* = NULL */)
+ItemImpl::copyTo(const Keychain &keychain, Access *newAccess)
 {
 	Item item(*this);
 	if (newAccess)
 		item->setAccess(newAccess);
+	else
+	{
+		/* Attempt to copy the access from the current item to the newly created one. */
+		SSGroup myGroup = group();
+		if (myGroup)
+		{
+			SecPointer<Access> access = new Access(*myGroup);
+			item->setAccess(access);
+		}
+	}
+
 	keychain->add(item);
 	return item;
 }
@@ -447,11 +459,16 @@ ItemImpl::setAccess(Access *newAccess)
 CssmClient::DbUniqueRecord
 ItemImpl::dbUniqueRecord()
 {
+    if (!isPersistant()) // is there no database attached?
+    {
+        MacOSError::throwMe(errSecNotAvailable);
+    }
+
 	if (!mUniqueId)
 	{
-            DbCursor cursor(mPrimaryKey->createCursor(mKeychain));
-            if (!cursor->next(NULL, NULL, mUniqueId))
-                    MacOSError::throwMe(errSecInvalidItemRef);
+		DbCursor cursor(mPrimaryKey->createCursor(mKeychain));
+		if (!cursor->next(NULL, NULL, mUniqueId))
+			MacOSError::throwMe(errSecInvalidItemRef);
 	}
 
 	return mUniqueId;
@@ -625,21 +642,24 @@ ItemImpl::getContent(SecItemClass *itemClass, SecKeychainAttributeList *attrList
 				*outData=itemData.data();
 				itemData.Data=NULL;
 				
-				*length=itemData.length();
+				if (length) *length=itemData.length();
 				itemData.Length=0;
 		}
     }
     else if (attrList != NULL)
     {
 		getLocalContent (*attrList);
-		*outData = NULL;
-		*length = 0;
+		if (outData) *outData = NULL;
+		if (length) *length = 0;
 	}
     
     // inform anyone interested that we are doing this
 #if SENDACCESSNOTIFICATIONS
     if (outData)
     {
+		secdebug("kcnotify", "ItemImpl::getContent(0x%x, 0x%x, 0x%x, 0x%x) retrieved content",
+			(unsigned int)itemClass, (unsigned int)attrList, (unsigned int)length, (unsigned int)outData);
+
         KCEventNotifier::PostKeychainEvent(kSecDataAccessEvent, mKeychain, this);
     }
 #endif
@@ -758,10 +778,13 @@ ItemImpl::getAttributesAndData(SecKeychainAttributeInfo *info, SecItemClass *ite
 		*outData=itemData.data();
 		itemData.Data=NULL;
 		
-		*length=itemData.length();
+		if (length) *length=itemData.length();
 		itemData.Length=0;
 				
 #if SENDACCESSNOTIFICATIONS
+		secdebug("kcnotify", "ItemImpl::getAttributesAndData(0x%x, 0x%x, 0x%x, 0x%x, 0x%x) retrieved data",
+			(unsigned int)info, (unsigned int)itemClass, (unsigned int)attrList, (unsigned int)length, (unsigned int)outData);
+
 		KCEventNotifier::PostKeychainEvent(kSecDataAccessEvent, mKeychain, this);
 #endif
 	}
@@ -818,7 +841,7 @@ ItemImpl::getAttributeFrom(CssmDbAttributeData *data, SecKeychainAttribute &attr
 {
     static const uint32 zero = 0;
     uint32 length;
-    const void *buf;
+    const void *buf = NULL;
 
     // Temporary storage for buf.
     SInt64 macLDT;
@@ -924,6 +947,8 @@ ItemImpl::getData(CssmDataContainer& outData)
     getContent(NULL, &outData);
 
 #if SENDACCESSNOTIFICATIONS
+    secdebug("kcnotify", "ItemImpl::getData retrieved data");
+
 	//%%%<might> be done elsewhere, but here is good for now
 	KCEventNotifier::PostKeychainEvent(kSecDataAccessEvent, mKeychain, this);
 #endif
@@ -1023,7 +1048,7 @@ Item::Item()
 {
 }
 
-Item::Item(ItemImpl *impl) : RefPointer<ItemImpl>(impl)
+Item::Item(ItemImpl *impl) : SecPointer<ItemImpl>(impl)
 {
 }
 
@@ -1050,7 +1075,7 @@ Item::Item(SecItemClass itemClass, SecKeychainAttributeList *attrList, UInt32 le
 }
 
 Item::Item(const Keychain &keychain, const PrimaryKey &primaryKey, const CssmClient::DbUniqueRecord &uniqueId)
-	: RefPointer<ItemImpl>(
+	: SecPointer<ItemImpl>(
 		primaryKey->recordType() == CSSM_DL_DB_RECORD_X509_CERTIFICATE
 		? new Certificate(keychain, primaryKey, uniqueId)
 		: (primaryKey->recordType() == CSSM_DL_DB_RECORD_PUBLIC_KEY
@@ -1062,7 +1087,7 @@ Item::Item(const Keychain &keychain, const PrimaryKey &primaryKey, const CssmCli
 }
 
 Item::Item(const Keychain &keychain, const PrimaryKey &primaryKey)
-	: RefPointer<ItemImpl>(
+	: SecPointer<ItemImpl>(
 		primaryKey->recordType() == CSSM_DL_DB_RECORD_X509_CERTIFICATE
 		? new Certificate(keychain, primaryKey)
 		: (primaryKey->recordType() == CSSM_DL_DB_RECORD_PUBLIC_KEY
@@ -1074,7 +1099,7 @@ Item::Item(const Keychain &keychain, const PrimaryKey &primaryKey)
 }
 
 Item::Item(ItemImpl &item)
-	: RefPointer<ItemImpl>(
+	: SecPointer<ItemImpl>(
 		item.recordType() == CSSM_DL_DB_RECORD_X509_CERTIFICATE
 		? new Certificate(safer_cast<Certificate &>(item))
 		: (item.recordType() == CSSM_DL_DB_RECORD_PUBLIC_KEY

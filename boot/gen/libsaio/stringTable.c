@@ -3,21 +3,22 @@
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
- * Portions Copyright (c) 1999 Apple Computer, Inc.  All Rights
- * Reserved.  This file contains Original Code and/or Modifications of
- * Original Code as defined in and that are subject to the Apple Public
- * Source License Version 1.1 (the "License").  You may not use this file
- * except in compliance with the License.  Please obtain a copy of the
- * License at http://www.apple.com/publicsource and read it before using
- * this file.
+ * Copyright (c) 1999-2003 Apple Computer, Inc.  All Rights Reserved.
+ * 
+ * This file contains Original Code and/or Modifications of Original Code
+ * as defined in and that are subject to the Apple Public Source License
+ * Version 2.0 (the 'License'). You may not use this file except in
+ * compliance with the License. Please obtain a copy of the License at
+ * http://www.opensource.apple.com/apsl/ and read it before using this
+ * file.
  * 
  * The Original Code and all software distributed under the License are
- * distributed on an "AS IS" basis, WITHOUT WARRANTY OF ANY KIND, EITHER
+ * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
  * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
  * INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY,
- * FITNESS FOR A PARTICULAR PURPOSE OR NON- INFRINGEMENT.  Please see the
- * License for the specific language governing rights and limitations
- * under the License.
+ * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
+ * Please see the License for the specific language governing rights and
+ * limitations under the License.
  * 
  * @APPLE_LICENSE_HEADER_END@
  */
@@ -27,10 +28,9 @@
  */
 
 #import "libsaio.h"
-#import "kernBootStruct.h"
+#import "bootstruct.h"
 #import <driverkit/configTablePrivate.h>
 
-extern KERNBOOTSTRUCT *kernBootStruct;
 extern char *Language;
 extern char *LoadableFamilies;
 
@@ -315,9 +315,9 @@ BOOL getValueForKey(
     int *size
 )
 {
-    if (getValueForBootKey(kernBootStruct->bootString, key, val, size))
+    if (getValueForBootKey(bootArgs->bootString, key, val, size))
 	return YES;
-    else if (getValueForStringTableKey(kernBootStruct->config, key, val, size))
+    else if (getValueForStringTableKey(bootArgs->config, key, val, size))
 	return YES;
 
     return NO;
@@ -382,7 +382,7 @@ int sysConfigValid;
 int
 loadConfigFile( char *configFile, char **table, int allocTable)
 {
-    char *configPtr = kernBootStruct->configEnd;
+    char *configPtr = bootArgs->configEnd;
     int fd, count;
     
     /* Read config file into memory */
@@ -391,7 +391,7 @@ loadConfigFile( char *configFile, char **table, int allocTable)
 	if (allocTable) {
 	    configPtr = malloc(file_size(fd)+2);
 	} else {
-	    if ((configPtr - kernBootStruct->config) > CONFIG_SIZE) {
+	    if ((configPtr - bootArgs->config) > CONFIG_SIZE) {
 		error("No room in memory for config file %s\n",configFile);
 		close(fd);
 		return -1;
@@ -406,7 +406,7 @@ loadConfigFile( char *configFile, char **table, int allocTable)
 	*configPtr++ = 0;
 	*configPtr = 0;
 	if (!allocTable)
-	    kernBootStruct->configEnd = configPtr;
+	    bootArgs->configEnd = configPtr;
 
 	return 0;
     } else {
@@ -552,8 +552,8 @@ loadOtherConfigs(
 	error("Warning: No active drivers specified in system config\n");
     }
 
-    kernBootStruct->first_addr0 =
-	    (int)kernBootStruct->configEnd + 1024;
+    bootArgs->first_addr0 =
+	    (int)bootArgs->configEnd + 1024;
     return 0;
 }
 

@@ -3,19 +3,22 @@
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
- * The contents of this file constitute Original Code as defined in and
- * are subject to the Apple Public Source License Version 1.1 (the
- * "License").  You may not use this file except in compliance with the
- * License.  Please obtain a copy of the License at
- * http://www.apple.com/publicsource and read it before using this file.
+ * Copyright (c) 1999-2003 Apple Computer, Inc.  All Rights Reserved.
  * 
- * This Original Code and all software distributed under the License are
- * distributed on an "AS IS" basis, WITHOUT WARRANTY OF ANY KIND, EITHER
+ * This file contains Original Code and/or Modifications of Original Code
+ * as defined in and that are subject to the Apple Public Source License
+ * Version 2.0 (the 'License'). You may not use this file except in
+ * compliance with the License. Please obtain a copy of the License at
+ * http://www.opensource.apple.com/apsl/ and read it before using this
+ * file.
+ * 
+ * The Original Code and all software distributed under the License are
+ * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
  * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
  * INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY,
- * FITNESS FOR A PARTICULAR PURPOSE OR NON-INFRINGEMENT.  Please see the
- * License for the specific language governing rights and limitations
- * under the License.
+ * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
+ * Please see the License for the specific language governing rights and
+ * limitations under the License.
  * 
  * @APPLE_LICENSE_HEADER_END@
  */
@@ -150,7 +153,8 @@ add_menu_item(CFMutableArrayRef menu, CFDictionaryRef server_dict,
     identifier = CFDictionaryGetValue(image_dict, 
 				      kBSDPImageDescriptionIdentifier);
     if (BSDPImageDescriptionIdentifierIsServerLocal(identifier) == FALSE) {
-	for (i = 0; i < CFArrayGetCount(menu); i++) {
+	int count = CFArrayGetCount(menu);
+	for (i = 0; i < count; i++) {
 	    menu_item = (CFMutableDictionaryRef)CFArrayGetValueAtIndex(menu, i);
 	    if (CFEqual(identifier, 
 			CFDictionaryGetValue(menu_item,
@@ -176,21 +180,25 @@ add_menu_item(CFMutableArrayRef menu, CFDictionaryRef server_dict,
 static void
 create_menu(bsdpc_t * bsdpc)
 {
-    int	s;
+    int count;
     int i;
+    int	s;
 
     my_CFRelease(&bsdpc->menu);
     bsdpc->menu = CFArrayCreateMutable(NULL, 0, &kCFTypeArrayCallBacks);
-    for (s = 0; s < CFArrayGetCount(bsdpc->images); s++) {
+    count = CFArrayGetCount(bsdpc->images);
+    for (s = 0; s < count; s++) {
+	CFArrayRef		images;
+	int			images_count;
 	CFMutableDictionaryRef	server_copy;
 	CFDictionaryRef		server_dict;
-	CFArrayRef		images;
 
 	server_dict = CFArrayGetValueAtIndex(bsdpc->images, s);
 	server_copy = CFDictionaryCreateMutableCopy(NULL, 0, server_dict);
 	CFDictionaryRemoveValue(server_copy, kImageList);
 	images = CFDictionaryGetValue(server_dict, kImageList);
-	for (i = 0; i < CFArrayGetCount(images); i++) {
+	images_count = CFArrayGetCount(images);
+	for (i = 0; i < images_count; i++) {
 	    CFDictionaryRef		image_dict;
 	    
 	    image_dict = CFArrayGetValueAtIndex(images, i);
@@ -302,9 +310,11 @@ gatherDone(bsdpc_t * bsdpc)
 static void
 removeExistingServer(bsdpc_t * bsdpc, CFStringRef ServerAddress)
 {
+    int count;
     int i;
 
-    for (i = 0; i < CFArrayGetCount(bsdpc->images); i++) {
+    count = CFArrayGetCount(bsdpc->images);
+    for (i = 0; i < count; i++) {
 	CFDictionaryRef	this_dict = CFArrayGetValueAtIndex(bsdpc->images, i);
 
 	if (CFEqual(ServerAddress, 
@@ -396,12 +406,14 @@ select_image(bsdpc_t * bsdpc, int val)
     int 		i;	
     CFDictionaryRef	menu_item;
     CFArrayRef		served_by;
+    int			served_by_count;
     BSDPClientStatus	status;
 
     menu_item = CFArrayGetValueAtIndex(bsdpc->menu, val - 1);
     served_by = CFDictionaryGetValue(menu_item, kServedBy);
+    served_by_count = CFArrayGetCount(served_by);
     /* find the "best" server for this image */
-    for (i = 0; i < CFArrayGetCount(served_by); i++) {
+    for (i = 0; i < served_by_count; i++) {
 	CFDictionaryRef	server_dict = CFArrayGetValueAtIndex(served_by, i);
 	CFNumberRef	priority;
 

@@ -21,7 +21,15 @@
    Foundation, Inc., 59 Temple Place - Suite 330,
    Boston, MA 02111-1307, USA.  */
 
+#if defined (TARGET_POWERPC)
+#include "ppc-macosx-thread-status.h"
 #include "ppc-macosx-regs.h"
+#elif defined (TARGET_I386)
+#include "i386-macosx-thread-status.h"
+#include "i386-macosx-tdep.h"
+#else
+#error "unsupported architecture"
+#endif
 
 #include "defs.h"
 #include "gdb_string.h"
@@ -61,6 +69,7 @@ static void
 check_thread (bfd *abfd, asection *asect, unsigned int num)
 {
   const char *sname = bfd_section_name (abfd, asect);
+  unsigned int i;
 
 #if defined (TARGET_POWERPC)
   const char *expected = "LC_THREAD.PPC_THREAD_STATE.";
@@ -74,8 +83,12 @@ check_thread (bfd *abfd, asection *asect, unsigned int num)
     return;
   }
 
-  add_thread (pid_to_ptid (num));
-  inferior_ptid = pid_to_ptid (num);
+  i = strtol (sname + strlen (expected), NULL, 0);
+
+  add_thread (ptid_build (1, i, num));
+  if (ptid_equal (inferior_ptid, null_ptid)) {
+    inferior_ptid = ptid_build (1, i, num);
+  }
 }
 
 static void
@@ -201,7 +214,7 @@ core_open (char *filename, int from_tty)
   
   CHECK_FATAL (i == core_bfd->section_count);
 
-  if (PIDGET (inferior_ptid) == 0) {
+  if (ptid_equal (inferior_ptid, null_ptid)) {
     error ("Core file contained no thread-specific data\n");
   }
   
@@ -212,8 +225,9 @@ core_open (char *filename, int from_tty)
 
       /* Now, set up the frame cache, and print the top of stack.  */
       flush_cached_frames ();
-      select_frame (get_current_frame (), 0);
-      print_stack_frame (selected_frame, selected_frame_level, 1);
+      select_frame (get_current_frame ());
+      print_stack_frame (deprecated_selected_frame,
+			 frame_relative_level (deprecated_selected_frame), 1);
     }
   else
     {
@@ -238,7 +252,6 @@ core_fetch_section_registers (asection *sec, int regno)
 {
   unsigned size;
   unsigned char *regs;
-  unsigned int i;
 
   size = bfd_section_size (core_bfd, sec);
   regs = (unsigned char *) alloca (size);
@@ -250,23 +263,9 @@ core_fetch_section_registers (asection *sec, int regno)
   }    
   
 #if defined (TARGET_POWERPC)
-  ppc_macosx_fetch_gp_registers (registers, (gdb_ppc_thread_state_t *) regs);
-  ppc_macosx_fetch_sp_registers (registers, (gdb_ppc_thread_state_t *) regs);
-  for (i = FIRST_GP_REGNUM; i <= LAST_GP_REGNUM; i++) {
-    register_valid[i] = 1;
-  }
-  for (i = FIRST_GSP_REGNUM; i <= LAST_GSP_REGNUM; i++) {
-    register_valid[i] = 1;
-  }
+  ppc_macosx_fetch_gp_registers ((gdb_ppc_thread_state_t *) regs);
 #elif defined (TARGET_I386)
-  i386_macosx_fetch_gp_registers (registers, &regs);
-  i386_macosx_fetch_sp_registers (registers, &regs);
-  for (i = FIRST_GP_REGNUM; i <= LAST_GP_REGNUM; i++) {
-    register_valid[i] = 1;
-  }
-  for (i = FIRST_GSP_REGNUM; i <= LAST_GSP_REGNUM; i++) {
-    register_valid[i] = 1;
-  }
+  i386_macosx_fetch_gp_registers ((gdb_i386_thread_state_t *) regs);
 #else
 #error "unsupported architecture"
 #endif
@@ -275,7 +274,7 @@ core_fetch_section_registers (asection *sec, int regno)
 static void
 core_fetch_registers (int regno)
 {
-  asection *sec = lookup_section (core_bfd, PIDGET (inferior_ptid));
+  asection *sec = lookup_section (core_bfd, ptid_get_tid (inferior_ptid));
   CHECK (sec != NULL);
   core_fetch_section_registers (sec, regno);
 }
@@ -289,8 +288,7 @@ core_files_info (struct target_ops *t)
 static char *macosx_core_ptid_to_str (ptid_t pid)
 {
   static char buf[128];
-  sprintf (buf, "core thread ???");
-  /* sprintf (buf, "core thread %lu", (unsigned long) pid_to_thread_id (pid)); */
+  sprintf (buf, "core thread %lu", ptid_get_lwp (pid));
   return buf;
 }
 

@@ -1,0 +1,98 @@
+VPATH = @srcdir@
+srcdir = @srcdir@
+prefix = @prefix@
+exec_prefix = @exec_prefix@
+
+bindir = $(exec_prefix)/bin
+libdir = $(exec_prefix)/lib
+tooldir = $(libdir)/$(target_alias)
+datadir = $(exec_prefix)/lib/dejagnu
+mandir = $(prefix)/man
+
+infodir = $(prefix)/info
+includedir = $(prefix)/include
+docdir = $(datadir)/doc
+targetdir = $(datadir)/$(target_canonical)
+
+SHELL = /bin/sh
+
+# Examples don't get installed
+INSTALL =
+INSTALL_PROGRAM = $(INSTALL)
+INSTALL_DATA = $(INSTALL)
+
+CC = @CC@
+CFLAGS = -g
+SUBDIRS = @subdirs@
+RUNTEST = runtest
+RUNTESTFLAGS = 
+
+FLAGS_TO_PASS = \
+	"CC=$(CC)" \
+	"CFLAGS=$(CFLAGS)" \
+	"INSTALL=$(INSTALL)" \
+	"INSTALL_DATA=$(INSTALL_DATA)" \
+	"INSTALL_PROGRAM=$(INSTALL_PROGRAM)" \
+	"LDFLAGS=$(LDFLAGS)" \
+	"MAKEINFO=$(MAKEINFO)" \
+	"RUNTEST=$(RUNTEST)" \
+	"RUNTESTFLAGS=$(RUNTESTFLAGS)" \
+	"exec_prefix=$(exec_prefix)" \
+	"prefix=$(prefix)" \
+	"tooldir=$(tooldir)"
+
+#### host, target, and site specific Makefile frags come in here.
+
+all:	 force
+	@$(MAKE) subdir_do DO=$@ $(FLAGS_TO_PASS)
+
+.PHONY: info install install-info check installcheck dvi
+info:
+install:
+dvi:
+install-info:
+check:
+installcheck:
+
+.NOEXPORT:
+MAKEOVERRIDES=
+
+check:	force	
+	rootme=`pwd`; export rootme; $(MAKE) DO=check DODIRS=calc subdir_do
+
+subdir_do: force
+	@for i in $(SUBDIRS); do \
+	   echo "Making $(DO) in $${i}..." ; \
+	   if [ -d ./$$i ] ; then \
+	     if (rootme=`pwd`/ ; export rootme ; \
+	       rootsrc=`cd $(srcdir); pwd`/ ; export rootsrc ; \
+	       cd ./$$i; \
+	       $(MAKE) $(FLAGS_TO_PASS) $(DO)) ; then true ; \
+	     else exit 1 ; fi ; \
+	   else true ; fi ; \
+	done
+force:
+
+clean mostlyclean:
+	-rm -f \#* *~ core *.o a.out xgdb *.x
+	@$(MAKE) subdir_do DO=$@ $(FLAGS_TO_PASS)
+
+distclean maintainer-clean realclean: clean
+	@$(MAKE) subdir_do DO=$@ $(FLAGS_TO_PASS)
+	-rm -f *~ core
+	-rm -f Makefile *-init.exp site.*
+	-rm -f config.status config.log config.cache
+	-rm -fr *.log summary detail
+
+Makefile: $(srcdir)/Makefile.in $(host_makefile_frag) config.status
+	@echo "Rebuilding the Makefile..."
+	$(SHELL) ./config.status
+
+configure: $(srcdir)/configure.in $(srcdir)/Makefile.in $(srcdir)/../aclocal.m4
+	@echo "Rebuilding configure..."
+	@cd ${srcdir} ;\
+	autoconf --localdir=${srcdir}/..
+     
+config.status:
+	@echo "Rebuilding config.status..."
+	$(SHELL) ./config.status --recheck

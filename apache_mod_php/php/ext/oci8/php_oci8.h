@@ -1,8 +1,8 @@
 /*
    +----------------------------------------------------------------------+
-   | PHP version 4.0                                                      |
+   | PHP Version 4                                                        |
    +----------------------------------------------------------------------+
-   | Copyright (c) 1997-2001 The PHP Group                                |
+   | Copyright (c) 1997-2003 The PHP Group                                |
    +----------------------------------------------------------------------+
    | This source file is subject to version 2.02 of the PHP license,      |
    | that is bundled with this package in the file LICENSE, and is        |
@@ -17,7 +17,7 @@
    +----------------------------------------------------------------------+
 */
 
-/* $Id: php_oci8.h,v 1.1.1.5 2001/12/14 22:12:52 zarzycki Exp $ */
+/* $Id: php_oci8.h,v 1.1.1.8 2003/07/18 18:07:38 zarzycki Exp $ */
 
 #if HAVE_OCI8
 # ifndef PHP_OCI8_H
@@ -70,6 +70,8 @@ typedef struct {
 	char *hashed_details;
 	oci_server *server;
 	OCISession *pSession;
+	OCIEnv *pEnv;				/* sessions own environment */
+	ub2 charsetId;				/* sessions used character set (mostly this will be 0, so NLS_LANG will be used. */
 } oci_session;
 
 typedef struct {
@@ -79,6 +81,7 @@ typedef struct {
     OCISvcCtx *pServiceContext;
 	sword error;
     OCIError *pError;
+	int needs_commit;
 } oci_connection;
 
 typedef struct {
@@ -118,6 +121,8 @@ typedef struct {
 	HashTable *defines;
 	int ncolumns;
 	int executed;
+	int has_data;
+	ub2 stmttype;
 } oci_statement;
 
 typedef struct {

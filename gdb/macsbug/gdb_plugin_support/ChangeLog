@@ -1,0 +1,25 @@
+2003-01-14  Klee Dienes  <kdienes@apple.com>
+
+	* gdb_complete.c (get_y_or_n): Use rl_ding () instead of ding ().
+	
+2002-12-12  Klee Dienes  <kdienes@apple.com>
+
+	* gdb.c: Replace selected_frame with get_selected_frame ().
+	* gdb_complete.c (__cmd_completion_display_hook): Use
+	rl_get_screen_size to get the current terminal width.
+	
+2002-11-17  Klee Dienes  <kdienes@apple.com>
+
+	* gdb.c (gdb_set_register): Replace write_register_bytes with
+	deprecate_write_register_bytes.
+	
+2002-10-01  Klee Dienes  <kdienes@apple.com>
+
+	* gdb.c (gdb_set_register): Replace target_map_name_to_register
+	with frame_map_name_to_regnum.
+	(gdb_set_register): Ditto.
+	* gdb_testing.i (gdb_testz): Ditto.
+
+2002-09-24  Klee Dienes  <kdienes@apple.com>
+
+	* Makefile: Use (cd dir && command), not (cd dir; command).

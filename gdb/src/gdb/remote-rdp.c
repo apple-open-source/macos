@@ -41,7 +41,7 @@
 #include "defs.h"
 #include "inferior.h"
 #include "value.h"
-#include "callback.h"
+#include "gdb/callback.h"
 #include "command.h"
 #include <ctype.h>
 #include <fcntl.h>
@@ -612,7 +612,7 @@ remote_rdp_fetch_register (int regno)
     }
   else
     {
-      char buf[MAX_REGISTER_RAW_SIZE];
+      char buf[ARM_MAX_REGISTER_RAW_SIZE];
       if (regno < 15)
 	rdp_fetch_one_register (1 << regno, buf);
       else if (regno == ARM_PC_REGNUM)
@@ -642,8 +642,8 @@ remote_rdp_store_register (int regno)
     }
   else
     {
-      char tmp[MAX_REGISTER_RAW_SIZE];
-      read_register_gen (regno, tmp);
+      char tmp[ARM_MAX_REGISTER_RAW_SIZE];
+      deprecated_read_register_gen (regno, tmp);
       if (regno < 15)
 	rdp_store_one_register (1 << regno, tmp);
       else if (regno == ARM_PC_REGNUM)
@@ -1163,9 +1163,7 @@ remote_rdp_open (char *args, int from_tty)
   flush_cached_frames ();
   registers_changed ();
   stop_pc = read_pc ();
-  set_current_frame (create_new_frame (read_fp (), stop_pc));
-  select_frame (get_current_frame (), 0);
-  print_stack_frame (selected_frame, -1, 1);
+  print_stack_frame (get_selected_frame (), -1, 1);
 }
 
 
@@ -1363,13 +1361,6 @@ remote_rdp_create_inferior (char *exec_file, char *allargs, char **env)
   proceed (entry_point, TARGET_SIGNAL_DEFAULT, 0);
 }
 
-/* Accept any stray run/attach commands */
-static int
-remote_rdp_can_run (void)
-{
-  return 1;
-}
-
 /* Attach doesn't need to do anything */
 static void
 remote_rdp_attach (char *args, int from_tty)
@@ -1390,13 +1381,8 @@ init_remote_rdp_ops (void)
   remote_rdp_ops.to_open = remote_rdp_open;
   remote_rdp_ops.to_close = remote_rdp_close;
   remote_rdp_ops.to_attach = remote_rdp_attach;
-  remote_rdp_ops.to_post_attach = NULL;
-  remote_rdp_ops.to_require_attach = NULL;
-  remote_rdp_ops.to_detach = NULL;
-  remote_rdp_ops.to_require_detach = NULL;
   remote_rdp_ops.to_resume = remote_rdp_resume;
   remote_rdp_ops.to_wait = remote_rdp_wait;
-  remote_rdp_ops.to_post_wait = NULL;
   remote_rdp_ops.to_fetch_registers = remote_rdp_fetch_register;
   remote_rdp_ops.to_store_registers = remote_rdp_store_register;
   remote_rdp_ops.to_prepare_to_store = remote_rdp_prepare_to_store;
@@ -1404,47 +1390,16 @@ init_remote_rdp_ops (void)
   remote_rdp_ops.to_files_info = remote_rdp_files_info;
   remote_rdp_ops.to_insert_breakpoint = remote_rdp_insert_breakpoint;
   remote_rdp_ops.to_remove_breakpoint = remote_rdp_remove_breakpoint;
-  remote_rdp_ops.to_terminal_init = NULL;
-  remote_rdp_ops.to_terminal_inferior = NULL;
-  remote_rdp_ops.to_terminal_ours_for_output = NULL;
-  remote_rdp_ops.to_terminal_ours = NULL;
-  remote_rdp_ops.to_terminal_info = NULL;
   remote_rdp_ops.to_kill = remote_rdp_kill;
   remote_rdp_ops.to_load = generic_load;
-  remote_rdp_ops.to_lookup_symbol = NULL;
   remote_rdp_ops.to_create_inferior = remote_rdp_create_inferior;
-  remote_rdp_ops.to_post_startup_inferior = NULL;
-  remote_rdp_ops.to_acknowledge_created_inferior = NULL;
-  remote_rdp_ops.to_clone_and_follow_inferior = NULL;
-  remote_rdp_ops.to_post_follow_inferior_by_clone = NULL;
-  remote_rdp_ops.to_insert_fork_catchpoint = NULL;
-  remote_rdp_ops.to_remove_fork_catchpoint = NULL;
-  remote_rdp_ops.to_insert_vfork_catchpoint = NULL;
-  remote_rdp_ops.to_remove_vfork_catchpoint = NULL;
-  remote_rdp_ops.to_has_forked = NULL;
-  remote_rdp_ops.to_has_vforked = NULL;
-  remote_rdp_ops.to_can_follow_vfork_prior_to_exec = NULL;
-  remote_rdp_ops.to_post_follow_vfork = NULL;
-  remote_rdp_ops.to_insert_exec_catchpoint = NULL;
-  remote_rdp_ops.to_remove_exec_catchpoint = NULL;
-  remote_rdp_ops.to_has_execd = NULL;
-  remote_rdp_ops.to_reported_exec_events_per_exec_call = NULL;
-  remote_rdp_ops.to_has_exited = NULL;
   remote_rdp_ops.to_mourn_inferior = generic_mourn_inferior;
-  remote_rdp_ops.to_can_run = remote_rdp_can_run;
-  remote_rdp_ops.to_notice_signals = 0;
-  remote_rdp_ops.to_thread_alive = 0;
-  remote_rdp_ops.to_stop = 0;
-  remote_rdp_ops.to_pid_to_exec_file = NULL;
   remote_rdp_ops.to_stratum = process_stratum;
-  remote_rdp_ops.DONT_USE = NULL;
   remote_rdp_ops.to_has_all_memory = 1;
   remote_rdp_ops.to_has_memory = 1;
   remote_rdp_ops.to_has_stack = 1;
   remote_rdp_ops.to_has_registers = 1;
   remote_rdp_ops.to_has_execution = 1;
-  remote_rdp_ops.to_sections = NULL;
-  remote_rdp_ops.to_sections_end = NULL;
   remote_rdp_ops.to_magic = OPS_MAGIC;
 }
 

@@ -23,6 +23,7 @@
 #include <Security/debugging.h>
 #include <algorithm>
 #include <cstdarg>
+#include <endian.h>
 
 using namespace DataWalkers;
 
@@ -135,8 +136,11 @@ public:
 };
 
 void ObjectAcl::validate(AclAuthorization auth, const AccessCredentials *cred,
-    AclValidationEnvironment *env) const
+    AclValidationEnvironment *env)
 {
+	// make sure we are ready to go
+	instantiateAcl();
+
     //@@@ should pre-screen based on requested auth, maybe?
     BaseValidationContext ctx(cred, auth, env);
 
@@ -144,7 +148,7 @@ void ObjectAcl::validate(AclAuthorization auth, const AccessCredentials *cred,
     // try owner (owner can do anything)
     if (owner.validate(ctx))
         return;
-#endif ACL_OMNIPOTENT_OWNER
+#endif //ACL_OMNIPOTENT_OWNER
 
     // try applicable ACLs
     pair<ConstIterator, ConstIterator> range;
@@ -160,8 +164,9 @@ void ObjectAcl::validate(AclAuthorization auth, const AccessCredentials *cred,
 }
 
 void ObjectAcl::validateOwner(AclAuthorization authorizationHint,
-	const AccessCredentials *cred, AclValidationEnvironment *env) const
+	const AccessCredentials *cred, AclValidationEnvironment *env)
 {
+	instantiateAcl();
     BaseValidationContext ctx(cred, authorizationHint, env);
     if (owner.validate(ctx))
         return;
@@ -176,7 +181,7 @@ void ObjectAcl::validateOwner(AclAuthorization authorizationHint,
 void ObjectAcl::exportBlob(CssmData &publicBlob, CssmData &privateBlob)
 {
     Writer::Counter pubSize, privSize;
-	uint32 entryCount = entries.size();
+	Endian<uint32> entryCount = entries.size();
     owner.exportBlob(pubSize, privSize);
 	pubSize(entryCount);
     for (Iterator it = begin(); it != end(); it++)
@@ -202,7 +207,9 @@ void ObjectAcl::importBlob(const void *publicBlob, const void *privateBlob)
 {
     Reader pubReader(publicBlob), privReader(privateBlob);
     owner.importBlob(pubReader, privReader);
-	uint32 entryCount; pubReader(entryCount);
+	Endian<uint32> entryCountIn; pubReader(entryCountIn);
+	uint32 entryCount = entryCountIn;
+
 	entries.erase(begin(), end());
 	for (uint32 n = 0; n < entryCount; n++) {
 		AclEntry newEntry;
@@ -220,8 +227,22 @@ void ObjectAcl::importBlob(const void *publicBlob, const void *privateBlob)
 //
 AclSubject *ObjectAcl::importSubject(Reader &pub, Reader &priv)
 {
-    uint32 typeAndVersion; pub(typeAndVersion);
+    Endian<uint32> typeAndVersion; pub(typeAndVersion);
 	return make(typeAndVersion, pub, priv);
+}
+
+
+//
+// Setup/update hooks
+//
+void ObjectAcl::instantiateAcl()
+{
+	// nothing by default
+}
+
+void ObjectAcl::changedAcl()
+{
+	// nothing by default
 }
 
 
@@ -257,6 +278,7 @@ ObjectAcl::Iterator ObjectAcl::findEntryHandle(CSSM_ACL_HANDLE handle)
 //
 void ObjectAcl::cssmGetAcl(const char *tag, uint32 &count, AclEntryInfo * &acls)
 {
+	instantiateAcl();
     pair<ConstIterator, ConstIterator> range;
     count = getRange(tag, range);
     acls = allocator.alloc<AclEntryInfo>(count);
@@ -272,6 +294,9 @@ void ObjectAcl::cssmChangeAcl(const AclEdit &edit,
 	const AccessCredentials *cred, AclValidationEnvironment *env)
 {
 	IFDUMPING("acl", debugDump("acl-change-from"));
+
+	// make sure we're ready to go
+	instantiateAcl();
 
     // validate access credentials
     validateOwner(CSSM_ACL_AUTHORIZATION_CHANGE_ACL, cred, env);
@@ -299,12 +324,16 @@ void ObjectAcl::cssmChangeAcl(const AclEdit &edit,
     default:
         CssmError::throwMe(CSSM_ERRCODE_INVALID_ACL_EDIT_MODE);
     }
+	
+	// notify change
+	changedAcl();
 
 	IFDUMPING("acl", debugDump("acl-change-to"));
 }
 
 void ObjectAcl::cssmGetOwner(AclOwnerPrototype &outOwner)
 {
+	instantiateAcl();
     outOwner.TypedSubject = owner.subject->toList(allocator);
     outOwner.Delegate = owner.delegate;
 }
@@ -314,11 +343,15 @@ void ObjectAcl::cssmChangeOwner(const AclOwnerPrototype &newOwner,
 {
 	IFDUMPING("acl", debugDump("owner-change-from"));
 
+	instantiateAcl();
+
     // only the owner entry can match
     validateOwner(CSSM_ACL_AUTHORIZATION_CHANGE_OWNER, cred, env);
         
     // okay, replace it
     owner = newOwner;
+	
+	changedAcl();
 
 	IFDUMPING("acl", debugDump("owner-change-to"));
 }
@@ -335,7 +368,10 @@ void ObjectAcl::Entry::init(const AclSubjectPointer &subject, bool delegate)
 
 void ObjectAcl::Entry::importBlob(Reader &pub, Reader &priv)
 {
-    uint32 del; pub(del); delegate = del;	// 4 bytes delegate flag
+    Endian<uint32> del;
+	pub(del);  // read del from the public blob
+	
+	delegate = del;	// 4 bytes delegate flag
 	subject = importSubject(pub, priv);
 }
 
@@ -405,15 +441,17 @@ void ObjectAcl::AclEntry::importBlob(Reader &pub, Reader &priv)
     const char *s; pub(s); tag = s;
     
 	// authorizesAnything is on disk as a 4-byte flag
-    uint32 tmpAuthorizesAnything;
+    Endian<uint32> tmpAuthorizesAnything;
     pub(tmpAuthorizesAnything);
     authorizesAnything = tmpAuthorizesAnything;
 	
     authorizations.erase(authorizations.begin(), authorizations.end());
     if (!authorizesAnything) {
-        uint32 count; pub(count);
+        Endian<uint32> countIn; pub(countIn);
+		uint32 count = countIn;
+		
         for (uint32 n = 0; n < count; n++) {
-            AclAuthorization auth; pub(auth);
+            Endian<AclAuthorization> auth; pub(auth);
             authorizations.insert(auth);
         }
     }
@@ -438,7 +476,7 @@ AclSubject *ObjectAcl::make(const TypedList &list)
 
 AclSubject *ObjectAcl::make(uint32 typeAndVersion, Reader &pub, Reader &priv)
 {
-	// this type is encode as (version << 24) | type
+	// this type is encoded as (version << 24) | type
     return makerFor(typeAndVersion & ~AclSubject::versionMask).make(typeAndVersion >> AclSubject::versionShift, pub, priv);
 }
 
@@ -474,7 +512,7 @@ void AclSubject::Maker::crack(const CssmList &list, uint32 count, ListElement **
 }
 
 CSSM_WORDID_TYPE AclSubject::Maker::getWord(const ListElement &elem,
-    int min = 0, int max = INT_MAX)
+    int min /*= 0*/, int max /*= INT_MAX*/)
 {
     if (elem.type() != CSSM_LIST_ELEMENT_WORDID)
         CssmError::throwMe(CSSM_ERRCODE_INVALID_ACL_SUBJECT_VALUE);

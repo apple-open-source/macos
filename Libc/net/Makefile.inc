@@ -4,24 +4,14 @@
 # machine-independent net sources
 .PATH: ${.CURDIR}/${MACHINE_ARCH}/net ${.CURDIR}/net
 
-SRCS+=  inet_addr.c      inet_netof.c     \
-	inet_lnaof.c     inet_network.c   linkaddr.c       nsap_addr.c \
-	inet_makeaddr.c  inet_ntoa.c      recv.c
-
+.include "Makefile.fbsd_begin"
+FBSDSRCS= addr2ascii.c ascii2addr.c inet_addr.c inet_lnaof.c \
+	inet_makeaddr.c inet_net_ntop.c inet_net_pton.c inet_neta.c \
+	inet_netof.c inet_network.c inet_ntoa.c linkaddr.c nsap_addr.c \
+	recv.c send.c
+.include "Makefile.fbsd_end"
 
 CFLAGS+=-DINET6 -I${.OBJDIR}
-
-YFLAGS+=-p_nsyy
-LFLAGS+=-P_nsyy
-
-CLEANFILES+=nsparser.c nslexer.c nsparser.h
-
-nsparser.h: nsparser.c
-	mv y.tab.h ${.TARGET}
-
-nslexer.c: nslexer.l nsparser.h
-	${LEX} ${LFLAGS} -o/dev/stdout ${.IMPSRC} | \
-		sed -e '/YY_BUF_SIZE/s/16384/1024/' >${.TARGET}
 
 # machine-dependent net sources
 .if exists(${.CURDIR}/${MACHINE_ARCH}/net/Makefile.inc)
@@ -29,10 +19,11 @@ nslexer.c: nslexer.l nsparser.h
 .endif
 
 .if ${LIB} == "c"
-MAN3+=	addr2ascii.3 byteorder.3 ethers.3 hesiod.3 \
-	inet.3 inet_net.3 \
-	nsdispatch.3 rcmdsh.3 resolver.3
-# not installed: iso_addr.3 ns.3
+MAN3+=	byteorder.3 ethers.3 hesiod.3 \
+	rcmdsh.3 resolver.3
+.include "Makefile.fbsd_begin"
+FBSDMAN3= addr2ascii.3 inet.3 inet_net.3 linkaddr.3
+.include "Makefile.fbsd_end"
 
 MLINKS+=addr2ascii.3 ascii2addr.3
 MLINKS+=byteorder.3 htonl.3 byteorder.3 htons.3 byteorder.3 ntohl.3 \
@@ -45,7 +36,7 @@ MLINKS+=inet.3 addr.3 inet.3 inet_addr.3 inet.3 inet_aton.3 \
 	inet.3 inet_ntop.3 inet.3 inet_pton.3 \
 	inet.3 network.3 inet.3 ntoa.3 
 MLINKS+=inet_net.3 inet_net_ntop.3 inet_net.3 inet_net_pton.3
-#MLINKS+=ns.3 ns_addr.3 ns.3 ns_ntoa.3
+MLINKS+=linkaddr.3 link_addr.3 linkaddr.3 link_ntoa.3
 MLINKS+=resolver.3 dn_comp.3 resolver.3 dn_expand.3 resolver.3 res_init.3 \
 	resolver.3 res_mkquery.3 resolver.3 res_query.3 \
 	resolver.3 res_search.3 resolver.3 res_send.3 resolver.3 dn_skipname.3 \

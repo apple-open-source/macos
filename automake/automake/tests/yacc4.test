@@ -72,4 +72,15 @@ $MAKE
 grep '^#.*/sub/\.\./' bar.c && exit 1
 grep '^#.*/sub/\.\./' parse.c && exit 1
 
+# Make distclean must not erase bar.c nor parse.c (by GNU standards) ...
+$MAKE distclean
+test -f bar.c
+test -f parse.c
+# ... but maintainer-clean should.
+../configure
+$MAKE maintainer-clean
+test ! -f bar.c
+test ! -f parse.c
+:
+
 exit 0

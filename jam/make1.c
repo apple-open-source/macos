@@ -54,6 +54,9 @@
 # include "command.h"
 # include "execcmd.h"
 # include <unistd.h>
+#ifdef APPLE_EXTENSIONS
+# include <sys/time.h>
+#endif
 
 static void make1a();
 static void make1b();
@@ -99,10 +102,13 @@ TARGET *t;
 	/* Talk about it */
 
 #ifdef APPLE_EXTENSIONS
-	if( PARSABLE_OUTPUT )
+	if( PARSABLE_OUTPUT ) {
+	    pbx_printf( "STAT", "100.000\n");
 	    pbx_printf( "JEND", "%i %i %i\n", counts->made, counts->failed, counts->skipped );
+	}
+	fflush(stdout);
 #endif
-
+#ifndef APPLE_EXTENSIONS
 	if( DEBUG_MAKE && counts->failed )
 	    printf( "...failed updating %d target(s)...\n", counts->failed );
 
@@ -111,7 +117,7 @@ TARGET *t;
 
 	if( DEBUG_MAKE && counts->made )
 	    printf( "...updated %d target(s)...\n", counts->made );
-
+#endif
 	return counts->total != counts->made;
 }
 
@@ -242,8 +248,8 @@ TARGET	*t;
 		counts->total++;
 
 #ifdef APPLE_EXTENSIONS
-		if( PARSABLE_OUTPUT )
-		    pbx_printf( "JUPD", "%i\n", counts->total );
+		//if( PARSABLE_OUTPUT )
+		    //pbx_printf( "STAT", "%.3f\n", counts->total * 100.0 / globs.num_targets_to_update );
 #else
 		if( DEBUG_MAKE && !( counts->total % 100 ) )
 		    printf( "...on %dth target...\n", counts->total );
@@ -288,34 +294,82 @@ TARGET	*t;
 
 	if( cmd && t->status == EXEC_CMD_OK )
 	{
-#ifdef APPLE_EXTENSIONS
-	    if( PARSABLE_OUTPUT /*&& !( cmd->rule->flags & RULE_QUIETLY )*/ )
-	    {
-		unsigned	i = 0;
-		LIST		*l;
-
-		pbx_printf( ( cmd->rule->flags & RULE_QUIETLY ) ? "rl00" : "RL00", "%s|", cmd->rule->name );
-		while ( ( l = lol_get( &cmd->args, i++ ) ) != NULL )
-		    printf( "%s|", l->string );
-		printf( "\n" );
-	    }
-#endif
 	    if( DEBUG_MAKE )
-		if( DEBUG_MAKEQ || ! ( cmd->rule->flags & RULE_QUIETLY ) )
+		if( DEBUG_MAKEQ || ! ( cmd->rule->flags & RULE_QUIETLY )  ||  PARSABLE_OUTPUT )
 		{
-		    printf( "%s ", cmd->rule->name );
+		//if (! PARSABLE_OUTPUT) {
+		    printf( "\n%s ", cmd->rule->name );
 		    list_print( lol_get( &cmd->args, 0 ) );
 		    printf( "\n" );
-		}
+		//}
+	    }
 
-	    if( DEBUG_EXEC )
-		printf( "%s\n", cmd->buf );
+	    if( DEBUG_EXEC && !PARSABLE_OUTPUT)
+		printf( "%s", cmd->buf );
 
 #ifdef APPLE_EXTENSIONS
-	    if( PARSABLE_OUTPUT )
-	    {
-            pbx_printf( "CB00", "%s\n", cmd->buf );
-            pbx_printf( "CO00", "\n" );
+	    if (PARSABLE_OUTPUT) {
+		unsigned i = 0;
+		LIST * l;
+		char prefix_string[] = "RLxx";
+		int next_cmd_slot;
+
+		if (cmd->rule->flags & RULE_QUIETLY) {
+		    prefix_string[0] = 'r';
+		    prefix_string[1] = 'l';
+		}
+		#define UNICHAR_INVISIBLE_SEPARATOR_STRING "\342\201\243"
+		#define UNICHAR_INVISIBLE_TIMES_STRING "\342\201\242"
+		next_cmd_slot = next_available_cmd_slot();
+		prefix_string[2] = '0' + next_cmd_slot / 10;
+		prefix_string[3] = '0' + next_cmd_slot % 10;
+		pbx_printf(prefix_string, "%s", cmd->rule->name);
+		while ((l = lol_get(&cmd->args, i++)) != NULL) {
+		    if (ASCII_OUTPUT_ANNOTATION) {
+			printf( "\036" "%s", l->string);   // The '\036' char is the record separator
+		    }
+		    else {
+			printf(UNICHAR_INVISIBLE_SEPARATOR_STRING "%s", l->string);
+		    }
+		}
+		unsigned cmd_buf_len = strlen(cmd->buf);
+		unsigned char * flattened_cmd_buf = malloc(cmd_buf_len * 3 + 1);
+		unsigned j = 0;
+		for (i = 0; i < cmd_buf_len; i++) {
+		    unsigned char ch = cmd->buf[i];
+		    if (ch == '\r' || ch == '\n') {
+			if (i < cmd_buf_len-1) {
+			    if (ASCII_OUTPUT_ANNOTATION) {
+				// substitute ASCII '\037' char (unit separator) as substitute for newlines
+				flattened_cmd_buf[j++] = '\037';
+			    }
+			    else {
+				// substitute UTF-8 representation of Unicode "Invisible Times String"
+				flattened_cmd_buf[j++] = '\342';
+				flattened_cmd_buf[j++] = '\201';
+				flattened_cmd_buf[j++] = '\242';
+			    }
+			}
+		    }
+		    else {
+			flattened_cmd_buf[j++] = ch;
+		    }
+		    if (ch == '\r'  &&  cmd->buf[i+1] == '\n') {
+			i++;
+		    }
+		}
+		flattened_cmd_buf[j++] = '\0';
+		if (ASCII_OUTPUT_ANNOTATION) {
+		    printf( "\036" "%s\n", flattened_cmd_buf);
+		}
+		else {
+		    printf(UNICHAR_INVISIBLE_SEPARATOR_STRING "%s\n", flattened_cmd_buf);
+		}
+		free(flattened_cmd_buf);
+	    }
+	    
+	    if( globs.enable_timings ) {
+		cmd->timing_entry = create_timing_entry();
 	    }
 #endif
 
@@ -326,6 +380,7 @@ TARGET	*t;
 	    else 
 	    {
 		fflush( stdout );
+		cmd->slot = next_available_cmd_slot();
 		execcmd( cmd->buf, make1d, t, cmd->shell, cmd->exportvars );
 	    }
 	}
@@ -378,8 +433,34 @@ int	status;
 	CMD	*cmd = (CMD *)t->cmds;
 
 #ifdef APPLE_EXTENSIONS
-	if( PARSABLE_OUTPUT )
-	    pbx_printf( "CE00", "\n" );
+    // The command finished -- record timing statistics.
+    if( globs.enable_timings ) {
+	LIST *source_file_list, *obj_file_list;
+	char *source_file, *obj_file;
+	
+	source_file_list = lol_get( &cmd->args, 1 );
+	source_file = source_file_list ? source_file_list->string : NULL;
+	obj_file_list = lol_get( &cmd->args, 0 );
+	obj_file = obj_file_list ? obj_file_list->string : NULL;
+	
+	append_timing_entry( cmd->timing_entry, cmd->slot,
+		      cmd->rule->name, source_file, obj_file );
+    }
+#endif
+    
+#ifdef APPLE_EXTENSIONS
+	if (PARSABLE_OUTPUT) {
+	    char prefix_string[] = "RExx";
+	    prefix_string[2] = '0' + cmd->slot / 10;
+	    prefix_string[3] = '0' + cmd->slot % 10;
+	    pbx_printf(prefix_string, "%u %u %.3f %.3f %.3f 0 0\n", /*did succeed*/ (status == 0), /*was cancelled*/ 0, /*user time*/ 0.0, /*system time*/ 0.0, /*real time*/ 0.0, /*pageins*/ 0, /*pageouts*/ 0);
+	}
+#endif
+
+#ifdef APPLE_EXTENSIONS
+	if (PARSABLE_OUTPUT) {
+	    pbx_printf("STAT", "%.3f\n", counts->total * 100.0 / globs.num_targets_to_update);
+	}
 #endif
 
 	/* Execcmd() has completed.  All we need to do is fiddle with the */
@@ -398,8 +479,8 @@ int	status;
 	{
 	    /* Print command text on failure */
 
-	    if( !DEBUG_EXEC )
-		printf( "%s\n", cmd->buf );
+	    if( !DEBUG_EXEC  &&  !PARSABLE_OUTPUT )
+		printf( "%s", cmd->buf );
 
 	    printf( "...failed %s ", cmd->rule->name );
 	    list_print( lol_get( &cmd->args, 0 ) );
@@ -419,8 +500,14 @@ int	status;
 	}
 
 
-    if( status != EXEC_CMD_OK && !globs.ignore )
-        exit(EXEC_CMD_FAIL);
+	if( status != EXEC_CMD_OK && !globs.ignore ) {
+#ifdef APPLE_EXTENSIONS
+	    if( PARSABLE_OUTPUT )
+		pbx_printf( "JEND", "%i %i %i\n", counts->made, counts->failed, counts->skipped );
+	    fflush(stdout);
+#endif
+	    exit(EXEC_CMD_FAIL);
+	}
     
 	/* Free this command and call make1c() to move onto next command. */
 	t->status = status;
@@ -510,6 +597,11 @@ ACTIONS	*a0;
 	    {
 		printf( "fatal error: %s command line too long (max %d)\n", 
 			rule->name, MAXLINE );
+#ifdef APPLE_EXTENSIONS
+		if( PARSABLE_OUTPUT )
+		    pbx_printf( "JEND", "%i %i %i\n", counts->made, counts->failed, counts->skipped );
+		fflush(stdout);
+#endif
 		exit( EXITBAD );
 	    }
 

@@ -54,7 +54,6 @@
  * EDIT_PGM is the name of the (default) editor to be invoked.
  */
 #define	EDITOR		(!SECURE)
-#define	EDIT_PGM	"vi"
 
 /*
  * TAGS is 1 if you wish to support tag files.
@@ -101,10 +100,12 @@
 /*
  * LESSKEYFILE is the filename of the default lesskey output file 
  * (in the HOME directory).
+ * LESSKEYFILE_SYS is the filename of the system-wide lesskey output file.
  * DEF_LESSKEYINFILE is the filename of the default lesskey input 
  * (in the HOME directory).
  */
 #define	LESSKEYFILE		".less"
+#define	LESSKEYFILE_SYS		SYSDIR "/sysless"
 #define	DEF_LESSKEYINFILE	".lesskey"
 
 
@@ -149,7 +150,7 @@
 /*
  * Default shell metacharacters and meta-escape character.
  */
-#define	DEF_METACHARS	"; \t\n'\"()<>|&^`\\"
+#define	DEF_METACHARS	"; *?\t\n'\"()<>|&^`#\\"
 #define	DEF_METAESCAPE	"\\"
 
 /* 
@@ -168,6 +169,7 @@
 #define	TERMBUF_SIZE	2048	/* Termcap buffer for tgetent */
 #define	TERMSBUF_SIZE	1024	/* Buffer to hold termcap strings */
 #define	TAGLINE_SIZE	512	/* Max size of line in tags file */
+#define	TABSTOP_MAX	32	/* Max number of custom tab stops */
 
 /* Settings automatically determined by configure.  */
 
@@ -187,12 +189,14 @@
  * Regular expression library.
  * Define exactly one of the following to be 1:
  * HAVE_POSIX_REGCOMP: POSIX regcomp() and regex.h
+ * HAVE_PCRE: PCRE (Perl-compatible regular expression) library
  * HAVE_RE_COMP: BSD re_comp()
  * HAVE_REGCMP: System V regcmp()
  * HAVE_V8_REGCOMP: Henry Spencer V8 regcomp() and regexp.h
  * NO_REGEX: pattern matching is supported, but without metacharacters.
  */
 #undef HAVE_POSIX_REGCOMP
+#undef HAVE_PCRE
 #undef HAVE_RE_COMP
 #undef HAVE_REGCMP
 #undef HAVE_V8_REGCOMP
@@ -238,14 +242,29 @@
 /* Define HAVE_UPPER_LOWER if you have isupper, islower, toupper, tolower */
 #undef HAVE_UPPER_LOWER
 
+/* Define HAVE_SIGSET_T you have the sigset_t type */
+#undef HAVE_SIGSET_T
+
+/* Define HAVE_SIGEMPTYSET if you have the sigemptyset macro */
+#undef HAVE_SIGEMPTYSET
+
+/* Define EDIT_PGM to your editor. */
+#define EDIT_PGM "vi"
+
 /* Define if you have the _setjmp function.  */
 #undef HAVE__SETJMP
+
+/* Define if you have the fsync function.  */
+#undef HAVE_FSYNC
 
 /* Define if you have the memcpy function.  */
 #undef HAVE_MEMCPY
 
 /* Define if you have the popen function.  */
 #undef HAVE_POPEN
+
+/* Define if you have the sigprocmask function.  */
+#undef HAVE_SIGPROCMASK
 
 /* Define if you have the sigsetmask function.  */
 #undef HAVE_SIGSETMASK
@@ -255,6 +274,9 @@
 
 /* Define if you have the strchr function.  */
 #undef HAVE_STRCHR
+
+/* Define if you have the strstr function.  */
+#undef HAVE_STRSTR
 
 /* Define if you have the system function.  */
 #undef HAVE_SYSTEM
@@ -273,6 +295,9 @@
 
 /* Define if you have the <stdio.h> header file.  */
 #undef HAVE_STDIO_H
+
+/* Define if you have the <stdlib.h> header file.  */
+#undef HAVE_STDLIB_H
 
 /* Define if you have the <string.h> header file.  */
 #undef HAVE_STRING_H

@@ -1,16 +1,13 @@
 --TEST--
 InterBase: transactions
 --SKIPIF--
-<?php if (!extension_loaded("interbase")) print "skip"; ?>
+<?php include("skipif.inc"); ?>
 --POST--
 --GET--
 --FILE--
-<?
-/* $Id: 005.phpt,v 1.1.1.1 2000/09/07 00:05:33 wsanchez Exp $ */
+<?php
 
-    require("interbase/interbase.inc");
-    
-    $test_base = "ibase_test.tmp";
+    require("interbase.inc");
     
     ibase_connect($test_base);
 
@@ -111,7 +108,7 @@ three transaction on default link
     
 	$tr_1 = ibase_trans();  /* this default transaction also */
 	$tr_2 = ibase_trans(IBASE_READ);
-	$tr_3 = ibase_trans(IBASE_READ+IBASE_COMMITED);
+	$tr_3 = ibase_trans(IBASE_READ+IBASE_COMMITTED);
     
 	$res = ibase_query("select * from test5");
     
@@ -157,15 +154,14 @@ three transaction on default link
     ibase_free_result($res);
 
     ibase_close();
-
 /*
 transactions on second link
 */
     $link_1 = ibase_pconnect($test_base);
     $link_2 = ibase_pconnect($test_base);
     
-	$tr_1 = ibase_trans($link_2, IBASE_DEFAULT);  /* this default transaction also */
-	$tr_2 = ibase_trans($link_2, IBASE_COMMITED);
+	$tr_1 = ibase_trans(IBASE_DEFAULT, $link_2);  /* this default transaction also */
+	$tr_2 = ibase_trans(IBASE_COMMITTED, $link_2);
     
 	$res = ibase_query($tr_1, "select * from test5");
     

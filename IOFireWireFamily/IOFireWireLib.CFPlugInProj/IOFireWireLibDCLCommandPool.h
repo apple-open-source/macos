@@ -31,42 +31,42 @@
 *
 */
 
-// public
-#import <IOKit/firewire/IOFireWireLibIsoch.h>
-#import <IOKit/firewire/IOFireWireFamilyCommon.h>
-
-// private
+#import "IOFireWireLibIUnknown.h"
 #import "IOFireWireLibPriv.h"
+#import "IOFireWireLibIsoch.h"
+
+#import <IOKit/IOKitLib.h>
+#import <sys/types.h>
 
 namespace IOFireWireLib {
 
-	class DCLCommandPool: public IOFireWireIUnknown
+	class Device ;
+	class TraditionalDCLCommandPool : public IOFireWireIUnknown
 	{
+		protected:
+		
+			Device&				mUserClient ;
+			CFMutableArrayRef	mFreeBlocks ;
+			CFMutableArrayRef	mFreeBlockSizes ;
+			CFMutableArrayRef	mAllocatedBlocks ;
+			CFMutableArrayRef	mAllocatedBlockSizes ;	
+			UInt8*				mStorage ;
+			IOByteCount			mStorageSize ;
+			IOByteCount			mBytesRemaining ;
+			pthread_mutex_t		mMutex ;
+		
 		public:
-										DCLCommandPool( IUnknownVTbl* interface, Device& inUserClient, IOByteCount inSize ) ;
-			virtual						~DCLCommandPool() ;
-			Boolean				Init() 
-												{ return true; }
+		
+			TraditionalDCLCommandPool( const IUnknownVTbl & interface, Device& inUserClient, IOByteCount inSize ) ;
+			virtual ~TraditionalDCLCommandPool() ;
 			
-			DCLCommand*	Allocate(
-												IOByteCount 			inSize ) ;
-			IOReturn			AllocateWithOpcode(
-												DCLCommand* 		inDCL, 
-												DCLCommand** 		outDCL, 
-												UInt32 					opcode, ... ) ;
-			DCLCommand*	AllocateTransferPacketDCL(
-												DCLCommand*		inDCL,
-												UInt32					inOpcode,
-												void*					inBuffer,
-												IOByteCount				inSize) ;
-			DCLCommand*	AllocateTransferBufferDCL(
-												DCLCommand* 		inDCL, 
-												UInt32 					inOpcode, 
-												void* 					inBuffer, 
-												IOByteCount 			inSize, 
-												IOByteCount 			inPacketSize, 
-												UInt32 					inBufferOffset) ;
-			DCLCommand*	AllocateSendPacketStartDCL(
+		public:
+		
+			DCLCommand*			Allocate( IOByteCount size ) ;
+			IOReturn			AllocateWithOpcode( DCLCommand* dcl, DCLCommand** outDCL, UInt32 opcode, ... ) ;
+			DCLCommand*			AllocateTransferPacketDCL( DCLCommand* dcl, UInt32 opcode, void* buffer, IOByteCount size ) ;
+			DCLCommand*			AllocateTransferBufferDCL( DCLCommand* dcl, UInt32 opcode, void* buffer, IOByteCount size, IOByteCount packetSize, UInt32 bufferOffset ) ;
+			DCLCommand*			AllocateSendPacketStartDCL(
 												DCLCommand* 		inDCL, 
 												void*					inBuffer,
 												IOByteCount				inSize) ;
@@ -110,31 +110,21 @@ namespace IOFireWireLib {
 			IOByteCount			GetBytesRemaining() ;
 
 		protected:
+		
 			void				Lock() ;
 			void				Unlock() ;
 			void				CoalesceFreeBlocks() ;
-
-		protected:
-			Device&				mUserClient ;
-			CFMutableArrayRef	mFreeBlocks ;
-			CFMutableArrayRef	mFreeBlockSizes ;
-			CFMutableArrayRef	mAllocatedBlocks ;
-			CFMutableArrayRef	mAllocatedBlockSizes ;	
-			UInt8*				mStorage ;
-			IOByteCount			mStorageSize ;
-			IOByteCount			mBytesRemaining ;
-			pthread_mutex_t		mMutex ;
-		
 	} ;
 	
-	class DCLCommandPoolCOM: public DCLCommandPool
+	
+	class TraditionalDCLCommandPoolCOM: public TraditionalDCLCommandPool
 	{
 		typedef IOFireWireLibDCLCommandPoolRef 		Ref ;
 		typedef IOFireWireDCLCommandPoolInterface	Interface ;
 
 		public:
-			DCLCommandPoolCOM( Device& inUserClient, IOByteCount inSize ) ;
-			virtual ~DCLCommandPoolCOM() ;
+			TraditionalDCLCommandPoolCOM( Device& inUserClient, IOByteCount inSize ) ;
+			virtual ~TraditionalDCLCommandPoolCOM() ;
 		
 			//
 			// --- COM ---------------

@@ -1,0 +1,422 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE project [
+   <!ENTITY buildmagic SYSTEM "../tools/etc/buildmagic/buildmagic.ent">
+]>
+
+<!-- ====================================================================== -->
+<!--                                                                        -->
+<!--  JBoss, the OpenSource J2EE webOS                                      -->
+<!--                                                                        -->
+<!--  Distributable under LGPL license.                                     -->
+<!--  See terms of license at http://www.gnu.org.                           -->
+<!--                                                                        -->
+<!-- ====================================================================== -->
+
+<!-- $Id: build.xml,v 1.16.2.4 2003/07/18 21:06:51 reverbel Exp $ -->
+
+<project default="main" name="JBoss/IIOP">
+
+  <!-- ================================================================== -->
+  <!-- Setup                                                              -->
+  <!-- ================================================================== -->
+
+  <!--
+     | Include the common Buildmagic elements.
+     |
+     | This defines several different targets, properties and paths.
+     | It also sets up the basic extention tasks amoung other things.
+   -->
+
+  &buildmagic;
+
+
+  <!-- ================================================================== -->
+  <!-- Initialization                                                     -->
+  <!-- ================================================================== -->
+
+  <!--
+     | Initialize the build system.  Must depend on '_buildmagic:init'.  
+     | Other targets should depend on 'init' or things will mysteriously fail.
+   -->
+
+  <target name="init" unless="init.disable" depends="_buildmagic:init">
+  </target>
+
+
+  <!-- ================================================================== -->
+  <!-- Configuration                                                      -->
+  <!-- ================================================================== -->
+
+  <!--
+     | Configure the build system.  
+     |
+     | This target is invoked by the Buildmagic initialization logic and 
+     | should contain module specific configuration elements.
+   -->
+
+  <target name="configure" unless="configure.disable">
+
+    <!-- =================== -->
+    <!-- Basic Configuration -->
+    <!-- =================== -->
+
+    <!-- Module name(s) & version -->
+    <property name="module.name" value="jboss-iiop"/>
+    <property name="module.Name" value="JBoss IIOP Plugin"/>
+    <property name="module.version" value="DEV"/>
+
+    <!-- ========= -->
+    <!-- Libraries -->
+    <!-- ========= -->
+
+    <!-- Apache Crimson (XML/DOM) -->
+    <property name="apache.crimson.root" value="${project.thirdparty}/apache/crimson"/>
+    <property name="apache.crimson.lib" value="${apache.crimson.root}/lib"/>
+    <path id="apache.crimson.classpath">
+      <pathelement path="${apache.crimson.lib}/crimson.jar"/>
+    </path>
+
+    <!-- Log4j -->
+    <property name="apache.log4j.root" value="${project.thirdparty}/apache/log4j"/>
+    <property name="apache.log4j.lib" value="${apache.log4j.root}/lib"/>
+    <path id="apache.log4j.classpath">
+      <pathelement path="${apache.log4j.lib}/log4j.jar"/>
+    </path>
+
+    <!-- JUnit -->
+    <property name="junit.junit.root" value="${project.thirdparty}/junit/junit"/>
+    <property name="junit.junit.lib" value="${junit.junit.root}/lib"/>
+    <path id="junit.junit.classpath">
+      <pathelement path="${junit.junit.lib}/junit.jar"/>
+    </path>
+
+
+    <!-- JacORB -->
+    <property name="jacorb.jacorb.root" value="${project.thirdparty}/jacorb/jacorb"/>
+    <property name="jacorb.jacorb.lib" value="${jacorb.jacorb.root}/lib"/>
+    <path id="jacorb.jacorb.classpath">
+      <pathelement path="${jacorb.jacorb.lib}/jacorb.jar"/>
+    </path>
+
+    <!-- The combined library classpath -->
+    <path id="library.classpath">
+      <path refid="apache.crimson.classpath"/>
+      <path refid="apache.log4j.classpath"/>
+      <path refid="junit.junit.classpath"/>
+      <path refid="jacorb.jacorb.classpath"/>
+    </path>
+
+    <!-- ======= -->
+    <!-- Modules -->
+    <!-- ======= -->
+
+    <!-- J2EE -->
+    <property name="jboss.j2ee.root" value="${project.root}/j2ee/output"/>
+    <property name="jboss.j2ee.lib" value="${jboss.j2ee.root}/lib"/>
+    <path id="jboss.j2ee.classpath">
+      <pathelement path="${jboss.j2ee.lib}/jboss-j2ee.jar"/>
+    </path>
+
+    <!-- Common -->
+    <property name="jboss.common.root" value="${project.root}/common/output"/>
+    <property name="jboss.common.lib" value="${jboss.common.root}/lib"/>
+    <path id="jboss.common.classpath">
+      <pathelement path="${jboss.common.lib}/jboss-common.jar"/>
+    </path>
+
+    <!-- System -->
+    <property name="jboss.system.root" value="${project.root}/system/output"/>
+    <property name="jboss.system.lib" value="${jboss.system.root}/lib"/>
+    <path id="jboss.system.classpath">
+      <pathelement path="${jboss.system.lib}/jboss-system.jar"/>
+    </path>
+
+    <!-- Server -->
+    <property name="jboss.server.root" value="${project.root}/server/output"/>
+    <property name="jboss.server.lib" value="${jboss.server.root}/lib"/>
+    <path id="jboss.server.classpath">
+      <pathelement path="${jboss.server.lib}/jboss-spine.jar"/>
+      <pathelement path="${jboss.server.lib}/jboss.jar"/>
+      <pathelement path="${jboss.server.lib}/jboss-util.jar"/>
+    </path>
+
+    <!-- JMX -->
+    <property name="jboss.jmx.root" value="${project.root}/jmx/output"/>
+    <property name="jboss.jmx.lib" value="${jboss.jmx.root}/lib"/>
+    <path id="jboss.jmx.classpath">
+      <pathelement path="${jboss.jmx.lib}/jboss-jmx.jar"/>
+    </path>
+
+    <!-- The combined dependent module classpath -->
+    <path id="dependentmodule.classpath">
+      <path refid="jboss.j2ee.classpath"/>
+      <path refid="jboss.common.classpath"/>
+      <path refid="jboss.system.classpath"/>
+      <path refid="jboss.server.classpath"/>
+      <path refid="jboss.jmx.classpath"/>
+    </path>
+
+    <!-- ===== -->
+    <!-- Tasks -->
+    <!-- ===== -->
+
+    <!-- Where source files live -->
+    <property name="source.bin" value="${module.source}/bin"/>
+    <property name="source.java" value="${module.source}/main"/>
+    <property name="source.etc" value="${module.source}/etc"/>
+    <property name="source.resources" value="${module.source}/resources"/>
+
+    <!-- Where build generated files will go -->
+    <property name="build.bin" value="${module.output}/bin"/>
+    <property name="build.classes" value="${module.output}/classes"/>
+    <property name="build.lib" value="${module.output}/lib"/>
+    <property name="build.api" value="${module.output}/api"/>
+    <property name="build.etc" value="${module.output}/etc"/>
+    <property name="build.reports" value="${module.output}/reports"/>
+    <property name="build.resources" value="${module.output}/resources"/>
+
+    <!-- Install/Release structure -->
+    <property name="install.id" value="${module.name}-${module.version}"/>
+    <property name="release.id" value="${install.id}"/>
+    <property name="install.root" value="${module.output}/${install.id}"/>
+
+    <!-- The combined thirdparty classpath -->
+    <path id="thirdparty.classpath">
+      <path refid="library.classpath"/>
+      <path refid="dependentmodule.classpath"/>
+    </path>
+
+    <!-- This module is based on Java 1.2 -->
+    <property name="javac.target" value="1.2"/>
+
+    <!-- RMIC should generate stubs compatible with Java 1.2+ -->
+    <property name="rmic.stubVersion" value="1.2"/>
+
+    <!-- RMIC should generate IIOP fluff -->
+    <property name="rmic.iiop" value="yes"/>
+    <property name="rmic.iiopops" value=""/>
+
+    <!-- classpath and local.classpath must have a value using with a path -->
+    <property name="classpath" value=""/>
+    <property name="local.classpath" value=""/>
+
+    <!-- The classpath required to build classes. -->
+    <path id="javac.classpath">
+      <pathelement path="${classpath}"/>
+      <pathelement path="${local.classpath}"/>
+      <path refid="thirdparty.classpath"/>
+    </path>
+
+    <!-- The classpath required to build javadocs. -->
+    <path id="javadoc.classpath">
+      <path refid="javac.classpath"/>
+    </path>
+
+    <!-- Packages to include when generating api documentation -->
+    <property name="javadoc.packages" value="org.jboss.*"/>
+
+    <!-- Override JUnit defaults -->
+    <property name="junit.timeout" value="240000"/> <!-- 4 minutes -->
+    <property name="junit.batchtest.todir" value="${build.reports}"/>
+    <property name="junit.jvm.options" value="-Ddummy"/>
+  </target>
+
+
+  <!-- ================================================================== -->
+  <!-- Compile                                                            -->
+  <!-- ================================================================== -->
+
+  <!-- 
+     |  Compile everything.
+     |
+     |  This target should depend on other compile-* targets for each 
+     |  different type of compile that needs to be performed, short of
+     |  documentation compiles.
+    -->
+  <target name="compile" 
+          depends="compile-classes, compile-rmi, compile-etc, compile-resources"
+          description="Compile all source files."/>
+
+  <!-- Compile all class files -->
+  <target name="compile-classes" depends="init">
+
+    <mkdir dir="${build.classes}/main"/>
+
+    <javac destdir="${build.classes}/main"
+           optimize="${javac.optimize}"
+           target="${javac.target}"
+           debug="${javac.debug}"
+           depend="${javac.depend}"
+           verbose="${javac.verbose}"
+           deprecation="${javac.deprecation}"
+           includeAntRuntime="${javac.include.ant.runtime}"
+           includeJavaRuntime="${javac.include.java.runtime}"
+           failonerror="${javac.fail.onerror}">
+       <src path="${source.java}"/>
+       <classpath refid="javac.classpath"/>
+       <include name="${javac.includes}"/>
+       <exclude name="${javac.excludes}"/>
+    </javac>
+
+  </target>
+
+  <!-- Generate IIOP stubs for EJBObject and EJBHome -->
+
+  <target name="compile-rmi" depends="init">
+
+    <!-- Below we use rmic to generate IIOP stubs for the interfaces
+         EJBObject and EJBHome. WARNING: do not specify a stubVersion,
+         such as 1.2, or else rmic will think we want JRMP stubs, which
+         cannot be generated for interfaces! -->
+
+    <rmic base="${build.classes}"
+          classname="javax.ejb.EJBObject"
+	  verify="${rmic.verify}"
+	  iiop="${rmic.iiop}"
+	  debug="${rmic.debug}">
+      <classpath refid="javac.classpath"/>
+    </rmic>
+
+    <rmic base="${build.classes}"
+          classname="javax.ejb.EJBHome"
+	  verify="${rmic.verify}"
+	  iiop="${rmic.iiop}"
+	  debug="${rmic.debug}">
+      <classpath refid="javac.classpath"/>
+    </rmic>
+
+  </target>
+
+  <!-- Compile manifests -->
+  <target name="compile-etc" depends="init">
+    <mkdir dir="${build.etc}"/>
+    <copy todir="${build.etc}" filtering="yes">
+      <fileset dir="${source.etc}">
+         <include name="**"/>
+      </fileset>
+    </copy>
+  </target>
+
+  <!-- Compile resource files -->
+  <target name="compile-resources" depends="init">
+    <mkdir dir="${build.resources}"/>
+    <copy todir="${build.resources}" filtering="yes">
+      <fileset dir="${source.resources}">
+         <include name="**/*"/>
+      </fileset>
+    </copy>
+  </target>
+
+  <!-- ================================================================== -->
+  <!-- Archives                                                           -->
+  <!-- ================================================================== -->
+
+  <!-- 
+     | Build all jar files.
+   -->
+
+  <target name="jars" depends="compile"  description="Build the Service Archive">
+    <mkdir dir="${build.lib}"/>
+
+    <jar jarfile="${build.lib}/${module.name}.jar"
+         manifest="${build.etc}/default.mf">
+      <fileset dir="${build.classes}/main">
+        <include name="**/jboss/iiop/**"/>
+        <include name="**/jboss/invocation/**"/>
+        <include name="**/jboss/proxy/**"/>
+        <include name="**/jboss/util/**"/>
+      </fileset>
+      <fileset dir="${build.classes}">
+        <include name="org/omg/stub/javax/ejb/_EJBHome_Stub.class"/>
+        <include name="org/omg/stub/javax/ejb/_EJBObject_Stub.class"/>
+      </fileset>
+    </jar>
+
+    <jar jarfile="${build.lib}/${module.name}-client.jar"
+         manifest="${build.etc}/default.mf">
+      <fileset dir="${build.classes}/main">
+        <include name="**/jboss/proxy/compiler/**"/>
+        <include name="**/jboss/iiop/rmi/*"/>
+        <include name="**/jboss/iiop/rmi/marshal/*"/>
+        <include name="**/jboss/iiop/rmi/marshal/strategy/StubStrategy.class"/>
+        <include name="**/jboss/iiop/rmi/marshal/strategy/StubStrategy$ExceptionReader.class"/>
+        <include name="**/jboss/iiop/StubClassLoader.class"/>
+        <include name="**/jboss/proxy/ejb/DynamicIIOPStub.class"/>
+        <include name="**/jboss/proxy/ejb/*ImplIIOP.class"/>
+        <include name="**/jboss/proxy/ejb/IIOPHomeFactory.class"/>
+        <include name="**/jboss/iiop/CorbaORB.class"/>
+      </fileset>
+      <fileset dir="${build.classes}">
+        <include name="org/omg/stub/javax/ejb/_EJBHome_Stub.class"/>
+        <include name="org/omg/stub/javax/ejb/_EJBObject_Stub.class"/>
+      </fileset>
+    </jar>
+ 
+    <mkdir dir="${build.bin}"/>
+  </target>
+
+  <!-- ================================================================== -->
+  <!-- Install & Release                                                  -->
+  <!-- ================================================================== -->
+
+  <target name="install" 
+          description="Install the structure for a release."
+          depends="all, _buildmagic:install:default"/>
+
+  <target name="release" depends="install"/>
+
+  <target name="release-zip" 
+          description="Builds a ZIP distribution."
+          depends="release, _buildmagic:release:zip"/>
+
+  <target name="release-tar" 
+          description="Builds a TAR distribution."
+          depends="release, _buildmagic:release:tar"/>
+
+  <target name="release-tgz" 
+          description="Builds a TAR-GZ distribution."
+          depends="release, _buildmagic:release:tgz"/>
+
+  <target name="release-all"
+          description="Builds a distribution for each archive type."
+          depends="release-zip, release-tgz"/>
+
+
+  <!-- ================================================================== -->
+  <!-- Cleaning                                                           -->
+  <!-- ================================================================== -->
+
+  <!-- Clean up all build output -->
+  <target name="clean" 
+          description="Cleans up most generated files."
+          depends="_buildmagic:clean">
+  </target>
+
+  <!-- Clean up all generated files -->
+  <target name="clobber" 
+          description="Cleans up all generated files."
+          depends="_buildmagic:clobber, clean">
+  </target>
+
+
+  <!-- ================================================================== -->
+  <!-- Misc.                                                              -->
+  <!-- ================================================================== -->
+
+  <target name="main"
+          description="Executes the default target (most)."
+          depends="most"/>
+    
+  <target name="all"
+          description="Builds everything."
+          depends="jars, docs"/>
+
+  <target name="most" 
+          description="Builds almost everything."
+          depends="jars"/>
+
+  <target name="help" 
+          description="Show this help message."
+          depends="_buildmagic:help:standard"/>
+
+</project>

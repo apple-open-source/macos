@@ -1,0 +1,20 @@
+   <container-configurations>
+      <container-configuration extends="Standard CMP 2.x EntityBean">
+         <container-name>custom container</container-name>
+         <container-interceptors>
+            <interceptor>org.jboss.ejb.plugins.ProxyFactoryFinderInterceptor</interceptor>
+            <interceptor>org.jboss.ejb.plugins.LogInterceptor</interceptor>
+            <interceptor>org.jboss.ejb.plugins.SecurityInterceptor</interceptor>
+            <interceptor>org.jboss.ejb.plugins.TxInterceptorCMT</interceptor>
+            <interceptor metricsEnabled="true">org.jboss.ejb.plugins.MetricsInterceptor</interceptor>
+            <interceptor>org.jboss.ejb.plugins.EntityCreationInterceptor</interceptor>
+            <interceptor>org.jboss.ejb.plugins.EntityLockInterceptor</interceptor>
+            <interceptor>org.jboss.ejb.plugins.EntityInstanceInterceptor</interceptor>
+            <interceptor>org.jboss.ejb.plugins.EntityReentranceInterceptor</interceptor>
+            <interceptor>org.jboss.resource.connectionmanager.CachedConnectionInterceptor</interceptor>
+            <interceptor>org.jboss.ejb.plugins.EntitySynchronizationInterceptor</interceptor>
+            <interceptor>org.jboss.ejb.plugins.cmp.jdbc.JDBCRelationInterceptor</interceptor>
+            <interceptor>org.jboss.test.cmp2.fkupdates.util.DirtyTrackerInterceptor</interceptor>
+         </container-interceptors>
+      </container-configuration>
+   </container-configurations>

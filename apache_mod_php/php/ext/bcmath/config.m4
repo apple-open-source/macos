@@ -1,16 +1,17 @@
-dnl $Id: config.m4,v 1.1.1.3 2001/07/19 00:18:53 zarzycki Exp $
+dnl
+dnl $Id: config.m4,v 1.1.1.5 2003/03/11 01:09:16 zarzycki Exp $
+dnl
 
-PHP_ARG_ENABLE(bcmath, for bc style precision math functions,
+PHP_ARG_ENABLE(bcmath, whether to enable bc style precision math functions,
 [  --enable-bcmath         Enable bc style precision math functions.])
 
 if test "$PHP_BCMATH" != "no"; then
   AC_DEFINE(WITH_BCMATH, 1, [Whether you have bcmath])
-  PHP_EXTENSION(bcmath, $ext_shared)
-  PHP_FAST_OUTPUT($ext_builddir/libbcmath/Makefile $ext_builddir/libbcmath/src/Makefile)
-  LIB_BUILD($ext_builddir/libbcmath,$ext_shared,yes)
-  LIB_BUILD($ext_builddir/libbcmath/src,$ext_shared,yes)
+  PHP_NEW_EXTENSION(bcmath, bcmath.c number.c \
+libbcmath/src/add.c libbcmath/src/div.c libbcmath/src/init.c libbcmath/src/neg.c libbcmath/src/outofmem.c libbcmath/src/raisemod.c libbcmath/src/rt.c libbcmath/src/sub.c \
+libbcmath/src/compare.c libbcmath/src/divmod.c libbcmath/src/int2num.c libbcmath/src/num2long.c libbcmath/src/output.c libbcmath/src/recmul.c \
+libbcmath/src/sqrt.c libbcmath/src/zero.c libbcmath/src/debug.c libbcmath/src/doaddsub.c libbcmath/src/nearzero.c libbcmath/src/num2str.c libbcmath/src/raise.c \
+libbcmath/src/rmzero.c libbcmath/src/str2num.c,
+          $ext_shared,,-I@ext_srcdir@/libbcmath/src)
+  PHP_ADD_BUILD_DIR($ext_builddir/libbcmath/src)
 fi
-
-dnl ## Local Variables:
-dnl ## tab-width: 4
-dnl ## End:

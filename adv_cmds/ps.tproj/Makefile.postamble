@@ -1,2 +1,6 @@
 include $(CoreOSMakefiles)/ProjectBuilder/Makefile.Postamble.Common
 INSTALL_PERMISSIONS = 4755
+
+after_install:
+	/usr/bin/install -m 755 -d "$(DSTROOT)/usr/share/man/man1"
+	install -c -m 644 ps.1 "$(DSTROOT)/usr/share/man/man1/ps.1"

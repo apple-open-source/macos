@@ -28,7 +28,7 @@
  */
 
 #include "includes.h"
-RCSID("$OpenBSD: auth-krb5.c,v 1.8 2002/03/19 10:49:35 markus Exp $");
+RCSID("$OpenBSD: auth-krb5.c,v 1.10 2002/11/21 23:03:51 deraadt Exp $");
 
 #include "ssh.h"
 #include "ssh1.h"
@@ -58,7 +58,9 @@ krb5_init(void *context)
 		problem = krb5_init_context(&authctxt->krb5_ctx);
 		if (problem)
 			return (problem);
+#ifndef __APPLE__ /* not required on OS X */
 		krb5_init_ets(authctxt->krb5_ctx);
+#endif
 	}
 	if (!cleanup_registered) {
 		fatal_add_cleanup(krb5_cleanup_proc, authctxt);
@@ -73,18 +75,17 @@ krb5_init(void *context)
  * from the ticket
  */
 int
-auth_krb5(Authctxt *authctxt, krb5_data *auth, char **client)
+auth_krb5(Authctxt *authctxt, krb5_data *auth, char **client, krb5_data *reply)
 {
 	krb5_error_code problem;
 	krb5_principal server;
-	krb5_data reply;
 	krb5_ticket *ticket;
 	int fd, ret;
 
 	ret = 0;
 	server = NULL;
 	ticket = NULL;
-	reply.length = 0;
+	reply->length = 0;
 
 	problem = krb5_init(authctxt);
 	if (problem)
@@ -108,7 +109,7 @@ auth_krb5(Authctxt *authctxt, krb5_data *auth, char **client)
 	if (problem)
 		goto err;
 
-	problem = krb5_sname_to_principal(authctxt->krb5_ctx,  NULL, NULL ,
+	problem = krb5_sname_to_principal(authctxt->krb5_ctx, NULL, NULL,
 	    KRB5_NT_SRV_HST, &server);
 	if (problem)
 		goto err;
@@ -131,7 +132,7 @@ auth_krb5(Authctxt *authctxt, krb5_data *auth, char **client)
 
 	/* if client wants mutual auth */
 	problem = krb5_mk_rep(authctxt->krb5_ctx, authctxt->krb5_auth_ctx,
-	    &reply);
+	    reply);
 	if (problem)
 		goto err;
 
@@ -144,19 +145,16 @@ auth_krb5(Authctxt *authctxt, krb5_data *auth, char **client)
 		krb5_unparse_name(authctxt->krb5_ctx, authctxt->krb5_user,
 		    client);
 
-	packet_start(SSH_SMSG_AUTH_KERBEROS_RESPONSE);
-	packet_put_string((char *) reply.data, reply.length);
-	packet_send();
-	packet_write_wait();
-
 	ret = 1;
  err:
 	if (server)
 		krb5_free_principal(authctxt->krb5_ctx, server);
 	if (ticket)
 		krb5_free_ticket(authctxt->krb5_ctx, ticket);
-	if (reply.length)
-		xfree(reply.data);
+	if (!ret && reply->length) {
+		xfree(reply->data);
+		memset(reply, 0, sizeof(*reply));
+	}
 
 	if (problem) {
 		if (authctxt->krb5_ctx != NULL)
@@ -190,6 +188,9 @@ auth_krb5_tgt(Authctxt *authctxt, krb5_data *tgt)
 	char ccname[40];
 	int tmpfd;
 	
+#ifdef USE_CCAPI
+	snprintf(ccname,sizeof(ccname),"API:krb5cc_%d",geteuid());
+#else	
 	snprintf(ccname,sizeof(ccname),"FILE:/tmp/krb5cc_%d_XXXXXX",geteuid());
 	
 	if ((tmpfd = mkstemp(ccname+strlen("FILE:")))==-1) {
@@ -204,6 +205,7 @@ auth_krb5_tgt(Authctxt *authctxt, krb5_data *tgt)
 		goto fail;
 	}
 	close(tmpfd);
+#endif
 	problem = krb5_cc_resolve(authctxt->krb5_ctx, ccname, &ccache);
 }
 #endif
@@ -327,6 +329,9 @@ auth_krb5_password(Authctxt *authctxt, const char *password)
 		goto out;
 	} 
 
+#ifdef USE_CCAPI
+	snprintf(ccname,sizeof(ccname),"API:krb5cc_%d",geteuid());
+#else	
 	snprintf(ccname,sizeof(ccname),"FILE:/tmp/krb5cc_%d_XXXXXX",geteuid());
 	
 	if ((tmpfd = mkstemp(ccname+strlen("FILE:")))==-1) {
@@ -342,6 +347,7 @@ auth_krb5_password(Authctxt *authctxt, const char *password)
 		goto out;
 	}
 	close(tmpfd);
+#endif
 
 	problem = krb5_cc_resolve(authctxt->krb5_ctx, ccname, &authctxt->krb5_fwd_ccache);
 	if (problem)

@@ -1,0 +1,187 @@
+<!DOCTYPE service-bindings [
+  <!ELEMENT service-bindings (server+)>
+
+  <!ELEMENT server (service-config+)>
+
+  <!ATTLIST server name CDATA  #REQUIRED>
+
+  <!ELEMENT service-config (delegate-config? , binding+)>
+
+  <!ATTLIST service-config  name CDATA  #REQUIRED
+                              delegateClass CDATA  #IMPLIED >
+
+  <!ELEMENT binding EMPTY>
+
+  <!ATTLIST binding  name CDATA  #IMPLIED
+                       host CDATA  #IMPLIED
+                       port CDATA  #IMPLIED >
+  <!ELEMENT delegate-config ANY>
+  <!ATTLIST delegate-config  hostName CDATA  #IMPLIED
+                       portName CDATA  #IMPLIED >
+]>
+
+<service-bindings>
+
+   <server name="jboss_2">
+
+   <!-- ********************************************************** -->
+
+      <service-config name="jboss:service=WebService"
+         delegateClass="org.jboss.services.binding.AttributeMappingDelegate"
+      >
+         <delegate-config portName="Port"/>
+         <binding port="28083" />
+      </service-config>
+
+   <!-- ********************************************************** -->
+
+      <service-config name="jboss:service=Naming"
+         delegateClass="org.jboss.services.binding.AttributeMappingDelegate"
+      >
+         <delegate-config portName="Port"/>
+         <binding port="21099" />
+      </service-config>
+
+   <!-- ********************************************************** -->
+
+      <service-config name="jboss:service=invoker,type=trunk"
+         delegateClass="org.jboss.services.binding.AttributeMappingDelegate"
+      >
+         <delegate-config portName="ServerBindPort"/>
+         <binding port="24445" />
+      </service-config>
+
+   <!-- ********************************************************** -->
+
+      <!-- Hypersonic related services -->
+      <service-config name="jboss.jca:service=LocalTxDS,name=DefaultDS"
+         delegateClass="org.jboss.services.binding.XSLTConfigDelegate"
+      >
+         <delegate-config>
+          <attribute name="">jdbc:hsqldb:hsql://${host}:${port}</attribute>
+         <xslt-config configName="ManagedConnectionFactoryProperties"><![CDATA[
+<xsl:stylesheet 
+      xmlns:xsl='http://www.w3.org/1999/XSL/Transform' version='1.0'>
+
+  <xsl:output method="xml" />
+  <xsl:param name="host"/>
+  <xsl:param name="port"/>
+  
+  <xsl:template match="/">
+    <xsl:apply-templates/>
+  </xsl:template>
+
+  <xsl:template match="config-property[@name='ConnectionURL']">
+    <config-property type="java.lang.String" name="ConnectionURL">jdbc:hsqldb:hsql://<xsl:value-of select='$host'/>:<xsl:value-of select='$port'/></config-property>
+  </xsl:template>
+  <xsl:template match="*|@*">
+    <xsl:copy>
+      <xsl:apply-templates select="@*|node()"/>
+    </xsl:copy>
+  </xsl:template>
+</xsl:stylesheet>
+]]>
+         </xslt-config>
+         </delegate-config>
+         <binding host="localhost" port="21476" />
+      </service-config>
+
+      <service-config name="jboss:service=Hypersonic"
+         delegateClass="org.jboss.services.binding.AttributeMappingDelegate"
+      >
+         <delegate-config portName="Port" />
+         <binding port="21476" />
+      </service-config>
+
+   <!-- ********************************************************** -->
+
+      <!-- JMS related services -->
+      <service-config name="jboss.mq:service=InvocationLayer,type=OIL"
+         delegateClass="org.jboss.services.binding.AttributeMappingDelegate"
+      >
+         <delegate-config portName="ServerBindPort" />
+         <binding port="28090" />
+      </service-config>
+
+      <service-config name="jboss.mq:service=InvocationLayer,type=OIL2"
+         delegateClass="org.jboss.services.binding.AttributeMappingDelegate"
+      >
+         <delegate-config portName="ServerBindPort" />
+         <binding port="28092" />
+      </service-config>
+
+      <service-config name="jboss.mq:service=InvocationLayer,type=UIL"
+         delegateClass="org.jboss.services.binding.AttributeMappingDelegate"
+      >
+         <delegate-config portName="ServerBindPort" />
+         <binding port="28091" />
+      </service-config>
+
+      <service-config name="jboss.mq:service=InvocationLayer,type=UIL2"
+         delegateClass="org.jboss.services.binding.AttributeMappingDelegate"
+      >
+         <delegate-config portName="ServerBindPort" />
+         <binding port="28093" />
+      </service-config>
+
+   <!-- ********************************************************** -->
+
+      <!-- Jetty -->
+      <service-config name="jboss.web:service=WebServer"
+         delegateClass="org.jboss.services.binding.XSLTConfigDelegate"
+      >
+         <!-- This transforms the ConfigurationElement attribute document         
+         -->
+         <delegate-config>
+         <xslt-config configName="ConfigurationElement"><![CDATA[
+<xsl:stylesheet 
+      xmlns:xsl='http://www.w3.org/1999/XSL/Transform' version='1.0'>
+
+  <xsl:output method="xml" />
+  <xsl:param name="host"/>
+  <xsl:param name="port"/>
+  
+  <xsl:template match="/">
+    <xsl:apply-templates/>
+  </xsl:template>
+
+  <xsl:template match="SystemProperty[@name='jetty.port']">
+    <SystemProperty default="{$port}" name="jetty.port" />
+  </xsl:template>
+  <xsl:template match="New[@class='org.mortbay.http.ajp.AJP13Listener']/Set[@name='Port']">
+             <Set name="Port"><xsl:value-of select="$port - 71"/></Set>
+  </xsl:template>
+  <xsl:template match="*|@*">
+    <xsl:copy>
+      <xsl:apply-templates select="@*|node()"/>
+    </xsl:copy>
+  </xsl:template>
+</xsl:stylesheet>
+]]>
+         </xslt-config>
+         </delegate-config>
+         <binding port="28080" />
+      </service-config>
+
+   <!-- ********************************************************** -->
+
+      <service-config name="jboss:service=HAJNDI"
+         delegateClass="org.jboss.services.binding.AttributeMappingDelegate"
+      >
+         <delegate-config portName="Port" />
+         <binding port="21100" />
+      </service-config>
+
+   <!-- ********************************************************** -->
+
+   <!-- Corba cannot be modified: it uses conf/jacorb.properties for its port number -->
+      <service-config name="jboss:service=CorbaORB"
+         delegateClass="org.jboss.services.binding.AttributeMappingDelegate"
+      >
+         <delegate-config portName="Port" />
+         <binding port="23528" />
+      </service-config>
+
+   </server>
+
+</service-bindings>

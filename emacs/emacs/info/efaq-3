@@ -1,4 +1,4 @@
-This is ../info/efaq, produced by makeinfo version 4.0 from faq.texi.
+This is ../info/efaq, produced by makeinfo version 4.0f from faq.texi.
 
 INFO-DIR-SECTION Emacs
 START-INFO-DIR-ENTRY
@@ -364,7 +364,7 @@ it from scratch.  You will need:
      ftp sites that make them available.  On `ftp.gnu.org', the main GNU
      distribution site, sources are available as
 
-     `ftp://ftp.gnu.org/pub/gnu/emacs/emacs-21.1.tar.gz'
+     `ftp://ftp.gnu.org/pub/gnu/emacs/emacs-21.2.tar.gz'
 
      The above will obviously change as new versions of Emacs come out.
      For instance, when Emacs 21.42 is released, it will most probably
@@ -382,10 +382,10 @@ it from scratch.  You will need:
      retrieved the Emacs sources, you will probably be able to
      uncompress them with the command
 
-          gunzip --verbose emacs-21.1.tar.gz
+          gunzip --verbose emacs-21.2.tar.gz
 
-     changing the Emacs version (21.1), as necessary.  Once `gunzip'
-     has finished doing its job, a file by the name of `emacs-21.1.tar'
+     changing the Emacs version (21.2), as necessary.  Once `gunzip'
+     has finished doing its job, a file by the name of `emacs-21.2.tar'
      should be in your build directory.
 
    * `tar', the "tape archiving" program, which moves multiple files
@@ -394,7 +394,7 @@ it from scratch.  You will need:
      extracted using `tar' before you can build Emacs.  Typically, the
      extraction command would look like
 
-          tar -xvvf emacs-21.1.tar
+          tar -xvvf emacs-21.2.tar
 
      The `x' indicates that we want to extract files from this tarfile,
      the two `v's force verbose output, and the `f' tells `tar' to use
@@ -403,7 +403,7 @@ it from scratch.  You will need:
      If you're using GNU `tar' (available at mirrors of `ftp.gnu.org'),
      you can combine this step and the previous one by using the command
 
-          tar -zxvvf emacs-21.1.tar.gz
+          tar -zxvvf emacs-21.2.tar.gz
 
      The additional `z' at the beginning of the options list tells GNU
      `tar' to uncompress the file with `gunzip' before extracting the
@@ -411,11 +411,11 @@ it from scratch.  You will need:
 
 
    At this point, the Emacs sources (all 70+ megabytes of them) should
-be sitting in a directory called `emacs-21.1'.  On most common Unix and
+be sitting in a directory called `emacs-21.2'.  On most common Unix and
 Unix-like systems, you should be able to compile Emacs (with X Window
 system support) with the following commands:
 
-     cd emacs-21.1       # change directory to emacs-21.1
+     cd emacs-21.2       # change directory to emacs-21.2
      ./configure         # configure Emacs for your particular system
      make                # use Makefile to build components, then Emacs
 
@@ -428,7 +428,7 @@ weren't successful.)
 `/usr/local/bin'
      binaries.
 
-`/usr/local/share/emacs/21.1'
+`/usr/local/share/emacs/21.2'
      Lisp code and support files.
 
 `/usr/local/info'
@@ -454,8 +454,8 @@ How do I update Emacs to the latest version?
    *Note Installing Emacs::, and follow the instructions there for
 installation.
 
-   Most files are placed in version-specific directories.  Emacs 21.1,
-for instance, places files in `/usr/local/share/emacs/21.1'.
+   Most files are placed in version-specific directories.  Emacs 21.2,
+for instance, places files in `/usr/local/share/emacs/21.2'.
 
    Upgrading should overwrite only, `/usr/local/bin/emacs' (the Emacs
 binary) and documentation in `/usr/local/info'.  Back up these files
@@ -709,10 +709,10 @@ significant differences at the Lisp programming level.
 Emacs, and more features can be expected in the future, but there are
 still many differences between the two.
 
-   The latest stable version of XEmacs as of this writing is 21.1; you
-can get it at
+   The latest stable version of XEmacs as of this writing is 21.1.14;
+you can get it at
 
-   `ftp://ftp.xemacs.org/pub/xemacs/current/xemacs-21.1.13.tar.gz'
+   `ftp://ftp.xemacs.org/pub/xemacs/xemacs-21.1/xemacs-21.1.14.tar.gz'
 
    More information about XEmacs, including a list of frequently asked
 questions (FAQ), is available at
@@ -731,12 +731,12 @@ Windows (3.X, 9X, ME, NT, and 2000) and supports long file names under
 Windows 9X, Windows ME, and Windows 2000.  More information is available
 from
 
-   `ftp://ftp.simtel.net/pub/simtelnet/gnu/djgpp/v2gnu/emacs.README'
+   `http://www.simtel.net/pub/gnu/djgpp/v2gnu/emacs.README'
 
    The binary itself is available in the files `em*.zip' in the
 directory
 
-   `ftp://ftp.simtel.net/pub/simtelnet/gnu/djgpp/v2gnu/'
+   `http://www.simtel.net/pub/gnu/djgpp/v2gnu/'
 
    If you prefer to compile Emacs for yourself, you can do so with the
 current distribution directly.  You will need a 386 (or better)
@@ -752,7 +752,7 @@ _Compiler_
      You can get the latest release of DJGPP by retrieving all of the
      files in
 
-     `ftp://ftp.simtel.net/pub/simtelnet/gnu/djgpp/v2*'
+     `http://www.simtel.net/pub/gnu/djgpp/v2*'
 
 _Unpacking program_
      The easiest way is to use `djtar' which comes with DJGPP v2.x,
@@ -771,11 +771,11 @@ _Unpacking program_
 _make, mv, sed, and rm_
      All of these utilities are available at
 
-     `ftp://ftp.simtel.net/pub/simtelnet/gnu/djgpp/v2gnu'
+     `http://www.simtel.net/pub/gnu/djgpp/v2gnu'
 
      16-bit utilities can be found in GNUish, at
 
-     `ftp://ftp.simtel.net/pub/simtelnet/gnu/gnuish'
+     `http://www.simtel.net/pub/gnu/gnuish'
 
      (`mv' and `rm' are in the Fileutils package, `sed' and `make' are
      each one in a separate package named after them.)

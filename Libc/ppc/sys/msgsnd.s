@@ -25,5 +25,4 @@
 #include "SYS.h"
 
 SYSCALL(msgsnd, 3)
-	blr
 

@@ -15,7 +15,7 @@
  * <dahinds@users.sourceforge.net>.  Portions created by David A. Hinds
  * are Copyright (C) 1999 David A. Hinds.  All Rights Reserved.
  *
- * Contributor:  Apple Computer, Inc.  Portions © 2000 Apple Computer, 
+ * Contributor:  Apple Computer, Inc.  Portions © 2003 Apple Computer, 
  * Inc. All rights reserved.
  *
  * Alternatively, the contents of this file may be used under the
@@ -51,6 +51,31 @@
 #ifndef PCI_DEVICE_ID_O2_6812
 #define PCI_DEVICE_ID_O2_6812		0x6872
 #endif
+#ifndef PCI_DEVICE_ID_O2_6972
+#define PCI_DEVICE_ID_O2_6972		0x6972
+#endif
+#ifndef PCI_DEVICE_ID_O2_6933
+#define PCI_DEVICE_ID_O2_6933		0x6933
+#endif
+#ifndef PCI_DEVICE_ID_O2_7112
+#define PCI_DEVICE_ID_O2_7112		0x7112
+#endif
+#ifndef PCI_DEVICE_ID_O2_7113
+#define PCI_DEVICE_ID_O2_7113		0x7113
+#endif
+#ifndef PCI_DEVICE_ID_O2_7114
+#define PCI_DEVICE_ID_O2_7114		0x7114
+#endif
+#ifndef PCI_DEVICE_ID_O2_71E2
+#define PCI_DEVICE_ID_O2_71E2		0x71E2
+#endif
+#ifndef PCI_DEVICE_ID_O2_7212
+#define PCI_DEVICE_ID_O2_7212		0x7212
+#endif
+#ifndef PCI_DEVICE_ID_O2_7223
+#define PCI_DEVICE_ID_O2_7223		0x7223
+#endif
+
 
 /* Additional PCI configuration registers */
 
@@ -138,13 +163,23 @@ typedef struct o2micro_state_t {
 } o2micro_state_t;
 
 #define O2MICRO_PCIC_ID \
-    IS_OZ6729, IS_OZ6730, IS_OZ6832, IS_OZ6836, IS_OZ6812
+    IS_OZ6729, IS_OZ6730, IS_OZ6832, IS_OZ6836, IS_OZ6812, IS_OZ6933, \
+    IS_OZ6972, IS_OZ7112, IS_OZ7113, IS_OZ7114, IS_OZ71E2, IS_OZ7212, \
+    IS_OS7223
 
 #define O2MICRO_PCIC_INFO \
     { "O2Micro OZ6729", IS_O2MICRO|IS_PCI|IS_VG_PWR, ID(O2, 6729) },	\
     { "O2Micro OZ6730", IS_O2MICRO|IS_PCI|IS_VG_PWR, ID(O2, 6730) },	\
     { "O2Micro OZ6832/33", IS_O2MICRO|IS_CARDBUS, ID(O2, 6832) },	\
     { "O2Micro OZ6836/60", IS_O2MICRO|IS_CARDBUS, ID(O2, 6836) },	\
-    { "O2Micro OZ6812", IS_O2MICRO|IS_CARDBUS, ID(O2, 6812) }
+    { "O2Micro OZ6812", IS_O2MICRO|IS_CARDBUS, ID(O2, 6812) },	\
+    { "O2Micro OZ6912/711E0", IS_O2MICRO|IS_CARDBUS, ID(O2, 6972) },	\
+    { "O2Micro OZ6933/711E1", IS_O2MICRO|IS_CARDBUS, ID(O2, 6933) },	\
+    { "O2Micro OZ711EC1/M1", IS_O2MICRO|IS_CARDBUS, ID(O2, 7112) },	\
+    { "O2Micro OZ711EC1", IS_O2MICRO|IS_CARDBUS, ID(O2, 7113) },	\
+    { "O2Micro OZ711M1", IS_O2MICRO|IS_CARDBUS, ID(O2, 7114) },	\
+    { "O2Micro OZ711E2", IS_O2MICRO|IS_CARDBUS, ID(O2, 71E2) },	\
+    { "O2Micro OZ711M2", IS_O2MICRO|IS_CARDBUS, ID(O2, 7212) },	\
+    { "O2Micro OZ711M3", IS_O2MICRO|IS_CARDBUS, ID(O2, 7223) }
 
 #endif /* _LINUX_O2MICRO_H */

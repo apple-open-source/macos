@@ -56,8 +56,8 @@ void slot_name(cpu_type, cpu_subtype, cpu_name, cpu_subname)
         register char	*subname = "";
         const NXArchInfo *ai = NXGetArchInfoFromCpuType(cpu_type, cpu_subtype);
         if (ai != NULL) {
-            name = ai->name;
-            subname = ai->description;
+            name = (char *)ai->name;
+            subname = (char *)ai->description;
         }
         *cpu_name = name;
         *cpu_subname = subname;

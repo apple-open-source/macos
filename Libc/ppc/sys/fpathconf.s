@@ -25,5 +25,4 @@
 #include "SYS.h"
 
 SYSCALL(fpathconf, 2)
-	blr
 

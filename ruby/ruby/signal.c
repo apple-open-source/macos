@@ -2,8 +2,8 @@
 
   signal.c -
 
-  $Author: jkh $
-  $Date: 2002/05/27 17:59:44 $
+  $Author: melville $
+  $Date: 2003/05/14 13:58:45 $
   created at: Tue Dec 20 10:13:44 JST 1994
 
   Copyright (C) 1993-2000 Yukihiro Matsumoto
@@ -521,7 +521,7 @@ trap(arg)
 	    s += 3;
 	sig = signm2signo(s);
 	if (sig == 0 && strcmp(s, "EXIT") != 0)
-	    rb_raise(rb_eArgError, "invalid signal SIG%s", s);
+	    rb_raise(rb_eArgError, "unsupported signal SIG%s", s);
     }
 
     if (sig < 0 || sig > NSIG) {

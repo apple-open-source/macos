@@ -1,0 +1,2 @@
+debian/install/usr/share/foomatic/db/source/driver/gimp-print-ijs.xml  usr/share/foomatic/db/source/driver
+debian/install/usr/share/foomatic/db/source/opt/gimp-print-ijs*        usr/share/foomatic/db/source/opt

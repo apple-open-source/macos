@@ -3,21 +3,22 @@
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
- * Portions Copyright (c) 1999 Apple Computer, Inc.  All Rights
- * Reserved.  This file contains Original Code and/or Modifications of
- * Original Code as defined in and that are subject to the Apple Public
- * Source License Version 1.1 (the "License").  You may not use this file
- * except in compliance with the License.  Please obtain a copy of the
- * License at http://www.apple.com/publicsource and read it before using
- * this file.
+ * Copyright (c) 1999-2003 Apple Computer, Inc.  All Rights Reserved.
+ * 
+ * This file contains Original Code and/or Modifications of Original Code
+ * as defined in and that are subject to the Apple Public Source License
+ * Version 2.0 (the 'License'). You may not use this file except in
+ * compliance with the License. Please obtain a copy of the License at
+ * http://www.opensource.apple.com/apsl/ and read it before using this
+ * file.
  * 
  * The Original Code and all software distributed under the License are
- * distributed on an "AS IS" basis, WITHOUT WARRANTY OF ANY KIND, EITHER
+ * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
  * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
  * INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY,
- * FITNESS FOR A PARTICULAR PURPOSE OR NON- INFRINGEMENT.  Please see the
- * License for the specific language governing rights and limitations
- * under the License.
+ * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
+ * Please see the License for the specific language governing rights and
+ * limitations under the License.
  * 
  * @APPLE_LICENSE_HEADER_END@
  */
@@ -40,6 +41,15 @@
 #include "lookup.h"
 #include "lu_utils.h"
 #include "lu_overrides.h"
+
+#define USER_CACHE_SIZE 10
+#define DEFAULT_USER_CACHE_TTL 10
+
+static pthread_mutex_t _user_cache_lock = PTHREAD_MUTEX_INITIALIZER;
+static void *_user_cache[USER_CACHE_SIZE] = { NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL };
+static unsigned int _user_cache_best_before[USER_CACHE_SIZE] = { 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 };
+static unsigned int _user_cache_index = 0;
+static unsigned int _user_cache_ttl = DEFAULT_USER_CACHE_TTL;
 
 static pthread_mutex_t _user_lock = PTHREAD_MUTEX_INITIALIZER;
 
@@ -155,13 +165,15 @@ extract_user(XDR *xdr)
 			p->pw_shell = vals[0];
 			j = 1;
 		}
-		else if ((p->pw_uid == -2) && (!strcmp("uid", key)))
+		else if ((p->pw_uid == (uid_t)-2) && (!strcmp("uid", key)))
 		{
 			p->pw_uid = atoi(vals[0]);
+			if ((p->pw_uid == 0) && (strcmp(vals[0], "0"))) p->pw_uid = -2;
 		}
-		else if ((p->pw_gid == -2) && (!strcmp("gid", key)))
+		else if ((p->pw_gid == (gid_t)-2) && (!strcmp("gid", key)))
 		{
 			p->pw_gid = atoi(vals[0]);
+			if ((p->pw_gid == 0) && (strcmp(vals[0], "0"))) p->pw_gid = -2;
 		}
 		else if (!strcmp("change", key))
 		{
@@ -338,6 +350,128 @@ recycle_user(struct lu_thread_info *tdata, struct passwd *in)
 	p->pw_expire = in->pw_expire;
 
 	free(in);
+}
+
+__private_extern__ unsigned int
+get_user_cache_ttl()
+{
+	return _user_cache_ttl;
+}
+
+__private_extern__ void
+set_user_cache_ttl(unsigned int ttl)
+{
+	int i;
+
+	pthread_mutex_lock(&_user_cache_lock);
+
+	_user_cache_ttl = ttl;
+
+	if (ttl == 0)
+	{
+		for (i = 0; i < USER_CACHE_SIZE; i++)
+		{
+			if (_user_cache[i] == NULL) continue;
+
+			free_user((struct passwd *)_user_cache[i]);
+			_user_cache[i] = NULL;
+			_user_cache_best_before[i] = 0;
+		}
+	}
+
+	pthread_mutex_unlock(&_user_cache_lock);
+}
+
+static void
+cache_user(struct passwd *pw)
+{
+	struct timeval now;
+	struct passwd *pwcache;
+
+	if (_user_cache_ttl == 0) return;
+	if (pw == NULL) return;
+
+	pthread_mutex_lock(&_user_cache_lock);
+
+	pwcache = copy_user(pw);
+
+	gettimeofday(&now, NULL);
+
+	if (_user_cache[_user_cache_index] != NULL)
+		free_user((struct passwd *)_user_cache[_user_cache_index]);
+
+	_user_cache[_user_cache_index] = pwcache;
+	_user_cache_best_before[_user_cache_index] = now.tv_sec + _user_cache_ttl;
+	_user_cache_index = (_user_cache_index + 1) % USER_CACHE_SIZE;
+
+	pthread_mutex_unlock(&_user_cache_lock);
+}
+
+static struct passwd *
+cache_getpwnam(const char *name)
+{
+	int i;
+	struct passwd *pw, *res;
+	struct timeval now;
+
+	if (_user_cache_ttl == 0) return NULL;
+	if (name == NULL) return NULL;
+
+	pthread_mutex_lock(&_user_cache_lock);
+
+	gettimeofday(&now, NULL);
+
+	for (i = 0; i < USER_CACHE_SIZE; i++)
+	{
+		if (_user_cache_best_before[i] == 0) continue;
+		if ((unsigned int)now.tv_sec > _user_cache_best_before[i]) continue;
+
+		pw = (struct passwd *)_user_cache[i];
+
+		if (pw->pw_name == NULL) continue;
+
+		if (!strcmp(name, pw->pw_name))
+		{
+			res = copy_user(pw);
+			pthread_mutex_unlock(&_user_cache_lock);
+			return res;
+		}
+	}
+
+	pthread_mutex_unlock(&_user_cache_lock);
+	return NULL;
+}
+
+static struct passwd *
+cache_getpwuid(int uid)
+{
+	int i;
+	struct passwd *pw, *res;
+	struct timeval now;
+
+	if (_user_cache_ttl == 0) return NULL;
+
+	pthread_mutex_lock(&_user_cache_lock);
+
+	gettimeofday(&now, NULL);
+
+	for (i = 0; i < USER_CACHE_SIZE; i++)
+	{
+		if (_user_cache_best_before[i] == 0) continue;
+		if ((unsigned int)now.tv_sec > _user_cache_best_before[i]) continue;
+
+		pw = (struct passwd *)_user_cache[i];
+
+		if ((uid_t)uid == pw->pw_uid)
+		{
+			res = copy_user(pw);
+			pthread_mutex_unlock(&_user_cache_lock);
+			return res;
+		}
+	}
+
+	pthread_mutex_unlock(&_user_cache_lock);
+	return NULL;
 }
 
 static struct passwd *
@@ -549,29 +683,33 @@ lu_getpwent()
 static struct passwd *
 getpw_internal(const char *name, uid_t uid, int source)
 {
-	struct passwd *res = NULL;
-	static char		*loginName = NULL;
-	static struct passwd	*loginEnt  = NULL;
+	static char *loginName = NULL;
+	static struct passwd *loginEnt  = NULL;
+	struct passwd *res;
+	char *l;
+	int from_cache;
 
 	if (loginName == NULL)
 	{
-		char	*l = getlogin();
-
-		pthread_mutex_lock(&_user_lock);
-		if ((loginEnt == NULL) && (l != NULL) && (*l != '\0'))
+		l = getlogin();
+		if ((l != NULL) && (strcmp("root", l) != 0))
 		{
-			if (_lu_running())
+			pthread_mutex_lock(&_user_lock);
+			if ((loginEnt == NULL) && (l != NULL) && (*l != '\0'))
 			{
-				loginEnt = lu_getpwnam(l);
-			}
-			else
-			{
-				loginEnt = copy_user(_old_getpwnam(l));
-			}
+				if (_lu_running())
+				{
+					loginEnt = lu_getpwnam(l);
+				}
+				else
+				{
+					loginEnt = copy_user(_old_getpwnam(l));
+				}
 	
-			loginName = l;
+				loginName = l;
+			}
+			pthread_mutex_unlock(&_user_lock);
 		}
-		pthread_mutex_unlock(&_user_lock);
 	}
 
 	if (loginEnt != NULL)
@@ -600,7 +738,25 @@ getpw_internal(const char *name, uid_t uid, int source)
 		}
 	}
 
-	if (_lu_running())
+	from_cache = 0;
+	res = NULL;
+
+	switch (source)
+	{
+		case PW_GET_NAME:
+			res = cache_getpwnam(name);
+			break;
+		case PW_GET_UID:
+			res = cache_getpwuid(uid);
+			break;
+		default: res = NULL;
+	}
+
+	if (res != NULL)
+	{
+		from_cache = 1;
+	}
+	else if (_lu_running())
 	{
 		switch (source)
 		{
@@ -634,6 +790,8 @@ getpw_internal(const char *name, uid_t uid, int source)
 		}
 		pthread_mutex_unlock(&_user_lock);
 	}
+
+	if (from_cache == 0) cache_user(res);
 
 	return res;
 }
@@ -715,7 +873,8 @@ endpwent(void)
 	if (_lu_running()) lu_endpwent();
 	else _old_endpwent();
 }
-int
+
+int
 getpwnam_r(const char *name, struct passwd *pwd, char *buffer, size_t bufsize, struct passwd **result)
 {
 	return getpw_r(name, -2, PW_GET_NAME, pwd, buffer, bufsize, result);

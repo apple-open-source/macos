@@ -1,0 +1,18 @@
+DONE
+get tomcat-test.ear to build from jetty/src/build, with no need for tomcat
+get intra-vm optimisation working
+Parameterise location of $JETTY_HOME/etc/webdefault.xml
+
+TODO:
+remove WebAppContext more cleanly
+tidy up starting of webapp - liaise with Greg.
+expose more interface via JMX ? (add/remove port/listener)
+allow grokking of more than one config file... - this involves multiple Servers...
+log4j-ify logging and allow each webapp to log to it's on logger
+lose com.mortbay.Jetty entry on JMX agent
+
+Bugs:
+getConfiguration NYI on Jetty MBean
+
+
+update jbosstest and run successfully....

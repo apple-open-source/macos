@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1998-2000 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 1998-2003 Apple Computer, Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -23,6 +23,7 @@
  * @APPLE_LICENSE_HEADER_END@
  */
 #include <IOKit/IOLib.h>
+#include <IOKit/IOUserClient.h>
 #include <IOKit/storage/IOBlockStorageDevice.h>
 
 #define	super	IOService
@@ -40,6 +41,77 @@ IOBlockStorageDevice::init(OSDictionary * properties)
     }
     
     return(result);
+}
+
+/* Route a user-client getter request.  We should make a full-
+ * fledged user-client for IOBlockStorageDevice at some point.
+ */
+OSObject *
+IOBlockStorageDevice::getProperty(const OSSymbol * key) const
+{
+    OSObject *obj = NULL;
+
+    if (key->isEqualTo(kIOBlockStorageDeviceWriteCacheStateKey)) {
+        bool enabled;
+        IOReturn result;
+
+        result = ((IOBlockStorageDevice *)this)->getWriteCacheState(&enabled);
+        if (result == kIOReturnSuccess) {
+            obj = (enabled) ? kOSBooleanTrue : kOSBooleanFalse;
+        }
+/*  } else if (key->isEqualTo(...)) {
+ *      obj = ...;
+ */
+    } else {
+        obj = super::getProperty(key);
+    }
+
+    return(obj);
+}
+
+/* Route a user-client setter request.  We should make a full-
+ * fledged user-client for IOBlockStorageDevice at some point.
+ */
+IOReturn
+IOBlockStorageDevice::setProperties(OSObject * properties)
+{
+    OSDictionary *dict;
+    OSObject *obj;
+    IOReturn result;
+
+    result = super::setProperties(properties);
+    if (result != kIOReturnUnsupported) {
+        return(result);
+    }
+
+    result = IOUserClient::clientHasPrivilege(current_task(),kIOClientPrivilegeAdministrator);
+    if (result != kIOReturnSuccess) {
+        return(result);
+    }
+
+    dict = OSDynamicCast(OSDictionary,properties);
+    if (!dict) {
+        return(kIOReturnBadArgument);
+    }
+
+    obj = dict->getObject(kIOBlockStorageDeviceWriteCacheStateKey);
+    if (obj) {
+        if (OSDynamicCast(OSBoolean,obj)) {
+            result = setWriteCacheState((obj == kOSBooleanTrue));
+        } else {
+            result = kIOReturnBadArgument;
+        }
+        return(result);
+    }
+
+/*  obj = dict->getObject(...);
+ *  if (obj) {
+ *      result = ...;
+ *      return(result);
+ *  }
+ */
+
+    return(kIOReturnUnsupported);
 }
 
 /* DEPRECATED */ IOReturn
@@ -63,8 +135,22 @@ IOBlockStorageDevice::doAsyncReadWrite(IOMemoryDescriptor *buffer,
 
 OSMetaClassDefineReservedUsed(IOBlockStorageDevice, 0);
 
-OSMetaClassDefineReservedUnused(IOBlockStorageDevice,  1);
-OSMetaClassDefineReservedUnused(IOBlockStorageDevice,  2);
+IOReturn
+IOBlockStorageDevice::getWriteCacheState(bool *enabled)
+{
+    return(kIOReturnUnsupported);
+}
+
+OSMetaClassDefineReservedUsed(IOBlockStorageDevice, 1);
+
+IOReturn
+IOBlockStorageDevice::setWriteCacheState(bool enabled)
+{
+    return(kIOReturnUnsupported);
+}
+
+OSMetaClassDefineReservedUsed(IOBlockStorageDevice, 2);
+
 OSMetaClassDefineReservedUnused(IOBlockStorageDevice,  3);
 OSMetaClassDefineReservedUnused(IOBlockStorageDevice,  4);
 OSMetaClassDefineReservedUnused(IOBlockStorageDevice,  5);

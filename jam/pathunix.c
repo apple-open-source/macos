@@ -385,7 +385,7 @@ int		binding;
 	    *file++ = (f->quoting_style == DOUBLE_QUOTING) ? '\"' : '\'';
 	}
 	if ( DEBUG_VARSET ) {
-	    fprintf(stderr, "[quoted (G:%.*s R:%.*s D:%.*s B:%.*s A:%.*s S:%.*s M:%.*s) as %.*s]\n", f->f_grist.len, f->f_grist.ptr, f->f_root.len, f->f_root.ptr, f->f_dir.len, f->f_dir.ptr, f->f_base.len, f->f_base.ptr, f->f_archive.len, f->f_archive.ptr, f->f_suffix.len, f->f_suffix.ptr, f->f_member.len, f->f_member.ptr, (file-file_base), file_base);
+	    fprintf(stderr, "[quoted (G:%.*s R:%.*s D:%.*s B:%.*s A:%.*s S:%.*s M:%.*s)%s as %.*s]\n", f->f_grist.len, f->f_grist.ptr, f->f_root.len, f->f_root.ptr, f->f_dir.len, f->f_dir.ptr, f->f_base.len, f->f_base.ptr, f->f_archive.len, f->f_archive.ptr, f->f_suffix.len, f->f_suffix.ptr, f->f_member.len, f->f_member.ptr, (f->quoting_style == DOUBLE_QUOTING ? ":Q" : (f->quoting_style == SINGLE_QUOTING ? ":q" : (f->quoting_style == BACKSLASH_QUOTING ? ":E" : ""))), (file-file_base), file_base);
 	}
 #endif
 	*file = 0;

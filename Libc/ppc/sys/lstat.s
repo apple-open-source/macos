@@ -25,5 +25,4 @@
 #include "SYS.h"
 
 SYSCALL(lstat, 2)
-	blr
 

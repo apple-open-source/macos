@@ -3,19 +3,22 @@
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
- * The contents of this file constitute Original Code as defined in and
- * are subject to the Apple Public Source License Version 1.1 (the
- * "License").  You may not use this file except in compliance with the
- * License.  Please obtain a copy of the License at
- * http://www.apple.com/publicsource and read it before using this file.
+ * Copyright (c) 1999-2003 Apple Computer, Inc.  All Rights Reserved.
  * 
- * This Original Code and all software distributed under the License are
- * distributed on an "AS IS" basis, WITHOUT WARRANTY OF ANY KIND, EITHER
+ * This file contains Original Code and/or Modifications of Original Code
+ * as defined in and that are subject to the Apple Public Source License
+ * Version 2.0 (the 'License'). You may not use this file except in
+ * compliance with the License. Please obtain a copy of the License at
+ * http://www.opensource.apple.com/apsl/ and read it before using this
+ * file.
+ * 
+ * The Original Code and all software distributed under the License are
+ * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
  * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
  * INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY,
- * FITNESS FOR A PARTICULAR PURPOSE OR NON-INFRINGEMENT.  Please see the
- * License for the specific language governing rights and limitations
- * under the License.
+ * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
+ * Please see the License for the specific language governing rights and
+ * limitations under the License.
  * 
  * @APPLE_LICENSE_HEADER_END@
  */
@@ -49,6 +52,7 @@
 /*	@(#)dosutil.c	3.0	13/09/00	(c) 2000 Apple Computer, Inc.	*/
 
 
+#include <sys/types.h>
 #include <sys/param.h>
 #include <sys/wait.h>
 #include <sys/errno.h>
@@ -57,7 +61,7 @@
 #include <sys/sysctl.h>
 #include <sys/loadable_fs.h>
 
-#include <dev/disk.h>
+#include <sys/disk.h>
 
 #include <machine/byte_order.h>
 
@@ -69,6 +73,7 @@
 #include <unistd.h>
 #include <string.h>
 #include <stdlib.h> 
+#include <pwd.h>
 
 #include <CoreFoundation/CFString.h>
 #include <CoreFoundation/CFStringEncodingExt.h>
@@ -148,7 +153,6 @@ static int oklabel(const char *src);
 static void mklabel(u_int8_t *dest, const char *src);
 
 int ret = 0;
-char	diskLabel[LABEL_LENGTH + 1];
 
 
 void usage()
@@ -286,7 +290,7 @@ static int fs_probe(char *devpath, int removable, int writable)
     int8_t		spc;
     int 		rootDirSectors;
     int 		i,j, finished;
-
+	char diskLabel[LABEL_LENGTH];
     char buf[MAX_DOS_BLOCKSIZE];
 
     fd = safe_open(devpath, O_RDONLY, 0);
@@ -501,7 +505,7 @@ static int fs_label(char *devpath, char *volName)
         if (cfstr == NULL)
                 errx(EX_DATAERR, "Bad UTF8 Name");
         if (! CFStringGetCString(cfstr, tmplabel, LABEL_LENGTH, kCFStringEncodingWindowsLatin1))
-               errx(EX_DATAERR, "Could not convert to DOS Latin");
+               errx(EX_DATAERR, "Could not convert to DOS Latin1");
         CFRelease(cfstr);
 
         if (! oklabel(tmplabel))
@@ -545,10 +549,10 @@ static int fs_label(char *devpath, char *volName)
         /* we know this disk, find the volume label */
         if (getushort(b50->bpbRootDirEnts) == 0) {
                 /* Its a FAT32 */
-                strncpy(((struct extboot *)bsp->bs710.bsExt)->exVolumeLabel, diskLabel, LABEL_LENGTH);
+                strncpy(((struct extboot *)bsp->bs710.bsExt)->exVolumeLabel, label, LABEL_LENGTH);
         }
         else if (((struct extboot *)bsp->bs50.bsExt)->exBootSignature == EXBOOTSIG) {
-                strncpy(((struct extboot *)bsp->bs50.bsExt)->exVolumeLabel, diskLabel, LABEL_LENGTH);
+                strncpy(((struct extboot *)bsp->bs50.bsExt)->exVolumeLabel, label, LABEL_LENGTH);
         }
 
 
@@ -568,88 +572,134 @@ void msd_str_to_lower(char *s1)
 	}
 }
 
+static CFStringEncoding GetDefaultDOSEncoding(void)
+{
+	CFStringEncoding encoding;
+    struct passwd *passwdp;
+	int fd;
+	size_t size;
+	char buffer[MAXPATHLEN + 1];
+
+	/*
+	 * Get a default (Mac) encoding.  We use the CFUserTextEncoding
+	 * file since CFStringGetSystemEncoding() always seems to
+	 * return 0 when msdos.util is executed via disk arbitration.
+	 */
+	encoding = kCFStringEncodingMacRoman;	/* Default to Roman/Latin */
+	if ((passwdp = getpwuid(getuid()))) {
+		strcpy(buffer, passwdp->pw_dir);
+		strcat(buffer, "/.CFUserTextEncoding");
+
+		if ((fd = open(buffer, O_RDONLY, 0)) > 0) {
+			size = read(fd, buffer, MAXPATHLEN);
+			buffer[(size < 0 ? 0 : size)] = '\0';
+			close(fd);
+			encoding = strtol(buffer, NULL, 0);
+		}
+	}
+
+	/* Convert the Mac encoding to a DOS/Windows encoding. */
+	switch (encoding) {
+		case kCFStringEncodingMacRoman:
+			encoding = kCFStringEncodingDOSLatin1;
+			break;
+		case kCFStringEncodingMacJapanese:
+			encoding = kCFStringEncodingDOSJapanese;
+			break;
+		case kCFStringEncodingMacChineseTrad:
+			encoding = kCFStringEncodingDOSChineseTrad;
+			break;
+		case kCFStringEncodingMacKorean:
+			encoding = kCFStringEncodingDOSKorean;
+			break;
+		case kCFStringEncodingMacArabic:
+			encoding = kCFStringEncodingDOSArabic;
+			break;
+		case kCFStringEncodingMacHebrew:
+			encoding = kCFStringEncodingDOSHebrew;
+			break;
+		case kCFStringEncodingMacGreek:
+			encoding = kCFStringEncodingDOSGreek;
+			break;
+		case kCFStringEncodingMacCyrillic:
+		case kCFStringEncodingMacUkrainian:
+			encoding = kCFStringEncodingDOSCyrillic;
+			break;
+		case kCFStringEncodingMacThai:
+			encoding = kCFStringEncodingDOSThai;
+			break;
+		case kCFStringEncodingMacChineseSimp:
+			encoding = kCFStringEncodingDOSChineseSimplif;
+			break;
+		case kCFStringEncodingMacCentralEurRoman:
+		case kCFStringEncodingMacCroatian:
+		case kCFStringEncodingMacRomanian:
+			encoding = kCFStringEncodingDOSLatin2;
+			break;
+		case kCFStringEncodingMacTurkish:
+			encoding = kCFStringEncodingDOSTurkish;
+			break;
+		case kCFStringEncodingMacIcelandic:
+			encoding = kCFStringEncodingDOSIcelandic;
+			break;
+		case kCFStringEncodingMacFarsi:
+			encoding = kCFStringEncodingDOSArabic;
+			break;
+		default:
+			encoding = kCFStringEncodingInvalidId;	/* Error: no corresponding Windows encoding */
+			break;
+	}
+	
+	return encoding;
+}
+
 /* Set the name of this file system */
 static void fs_set_label_file(char *labelPtr)
 {
-    int 			fd;
-    unsigned char	filename[MAXPATHLEN];
-    unsigned char	label[LABEL_LENGTH],
-        			labelUTF8[LABEL_LENGTH*3],
-        			*tempPtr;
-    off_t			offset;
+	int				i;
+    CFStringEncoding encoding;
+    unsigned char	label[LABEL_LENGTH+1];
+    unsigned char	labelUTF8[LABEL_LENGTH*3];
     CFStringRef 	cfstr;
 
-    sprintf(filename, "%s/%s%s/%s.label", FS_DIR_LOCATION,
-            FS_TYPE, FS_DIR_SUFFIX, FS_TYPE);
-    unlink(filename);
+	/* Make a local copy of the label */
+	strncpy(label, labelPtr, LABEL_LENGTH);
+	label[LABEL_LENGTH] = 0;
 
-    sprintf(filename, "%s/%s%s/%s.name", FS_DIR_LOCATION,
-            FS_TYPE, FS_DIR_SUFFIX, FS_TYPE);
-    unlink(filename);
+	/* Convert leading 0x05 to 0xE5 for multibyte languages like Japanese */
+	if (label[0] == 0x05)
+		label[0] = 0xE5;
 
-    if((labelPtr[0] != '\0') && oklabel(labelPtr)) {
-        /* Remove any trailing white space*/
-        labelPtr[LABEL_LENGTH] = '\0';
-        tempPtr = &labelPtr[LABEL_LENGTH - 1];
-        offset = LABEL_LENGTH;
-        while(((*tempPtr == '\0')||(*tempPtr == ' ')) && (offset--)) {
-            if(*tempPtr == ' ') {
-                *tempPtr = '\0';
-            }
-            tempPtr--;
-        }
+	/* Check for illegal characters */
+	if (!oklabel(label))
+		label[0] = 0;
 
-        /* remove any embedded spaces (mount doesn't like them) */
-        tempPtr = labelPtr;
-        while(*tempPtr != '\0') {
-            if(*tempPtr == ' ') {
-                *tempPtr = '_';
-            }
-            tempPtr++;
-        }
-
-        if(labelPtr[0] == '\0') {
-            strncpy(label, UNKNOWN_LABEL, LABEL_LENGTH);
-        } else
-            strncpy(label, labelPtr, LABEL_LENGTH);
-
-    } else {
-        strncpy(label, UNKNOWN_LABEL, LABEL_LENGTH);
-    }
+	/* Remove any trailing spaces */
+	for (i=LABEL_LENGTH-1; i>=0; --i) {
+		if (label[i] == ' ')
+			label[i] = 0;
+		else
+			break;
+	}
 
 #if	D2U_LOWER_CASE
     msd_str_to_lower(label);
 #endif	/* D2U_LOWER_CASE */
 
     /* Convert it to UTF-8 */
-    cfstr = CFStringCreateWithCString(kCFAllocatorDefault, label, kCFStringEncodingWindowsLatin1);
-    if (cfstr == NULL)
-        cfstr = CFStringCreateWithCString(kCFAllocatorDefault, label, kCFStringEncodingDOSJapanese);
-    if (cfstr == NULL)
-        cfstr = CFStringCreateWithCString(kCFAllocatorDefault, UNKNOWN_LABEL, kCFStringEncodingWindowsLatin1);
-    (void) CFStringGetCString(cfstr, labelUTF8, sizeof(labelUTF8), kCFStringEncodingUTF8);
-    CFRelease(cfstr);
+    encoding = GetDefaultDOSEncoding();
+    cfstr = CFStringCreateWithCString(NULL, label, encoding);
+    if (cfstr == NULL && encoding != kCFStringEncodingDOSLatin1)
+        cfstr = CFStringCreateWithCString(NULL, label, kCFStringEncodingDOSLatin1);
+	if (cfstr == NULL)
+		labelUTF8[0] = 0;
+	else {
+		(void) CFStringGetCString(cfstr, labelUTF8, sizeof(labelUTF8), kCFStringEncodingUTF8);
+		CFRelease(cfstr);
+	}
 
-    /* At this point, label should contain a correct formatted name */
+    /* At this point, labelUTF8 should contain a correctly formatted name (possibly empty) */
     write(1, labelUTF8, strlen(labelUTF8));
-
-    /* backwards compatibility */
-    /* write the .label file */
-    sprintf(filename, "%s/%s%s/%s.label", FS_DIR_LOCATION,
-            FS_TYPE, FS_DIR_SUFFIX, FS_TYPE);
-    fd = open(filename, O_WRONLY|O_CREAT|O_EXCL, 0755);
-    if (fd >= 0) {
-	write(fd, labelUTF8, strlen(labelUTF8) + 1);
-	close(fd);
-    }
-    /* write the .name file */
-    sprintf(filename, "%s/%s%s/%s.name", FS_DIR_LOCATION,
-            FS_TYPE, FS_DIR_SUFFIX, FS_TYPE);
-    fd = open(filename, O_WRONLY|O_CREAT|O_EXCL, 0755);
-    if (fd >= 0) {
-	write(fd, FS_NAME_FILE, 1 + strlen(FS_NAME_FILE));
-	close(fd);
-    }
 }
 
 /*

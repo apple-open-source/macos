@@ -32,17 +32,16 @@
 #include <Security/walkers.h>
 #include <Security/cssmwalkers.h> // char * walker
 
-namespace Security
-{
+namespace Security {
+namespace DataWalkers {
 
-namespace DataWalkers
-{
 
 template <class Action>
 void walk(Action &operate, AuthorizationItem &item)
 {
+	operate(item);
 	walk(operate, item.name);
-	operate(item.value, item.valueLength);
+	operate.blob(item.value, item.valueLength);
 	// Ignore reserved
 }
 
@@ -50,7 +49,7 @@ template <class Action>
 AuthorizationItemSet *walk(Action &operate, AuthorizationItemSet * &itemSet)
 {
 	operate(itemSet);
-	operate(itemSet->items, itemSet->count * sizeof(AuthorizationItem));
+	operate.blob(itemSet->items, itemSet->count * sizeof(itemSet->items[0]));
 	for (uint32 n = 0; n < itemSet->count; n++)
 		walk(operate, itemSet->items[n]);
 	return itemSet;
@@ -59,14 +58,14 @@ AuthorizationItemSet *walk(Action &operate, AuthorizationItemSet * &itemSet)
 template <class Action>
 void walk(Action &operate, AuthorizationValue &authvalue)
 {
-    operate(authvalue.data, authvalue.length);
+    operate.blob(authvalue.data, authvalue.length);
 }
 
 template <class Action>
 AuthorizationValueVector *walk(Action &operate, AuthorizationValueVector * &valueVector)
 {
     operate(valueVector);
-    operate(valueVector->values, valueVector->count * sizeof(AuthorizationValue));
+    operate.blob(valueVector->values, valueVector->count * sizeof(valueVector->values[0]));
     for (uint32 n = 0; n < valueVector->count; n++)
         walk(operate, valueVector->values[n]);
     return valueVector;
@@ -75,7 +74,6 @@ AuthorizationValueVector *walk(Action &operate, AuthorizationValueVector * &valu
 
 
 } // end namespace DataWalkers
-
 } // end namespace Security
 
 #endif /* ! __AuthorizationWalkers__ */

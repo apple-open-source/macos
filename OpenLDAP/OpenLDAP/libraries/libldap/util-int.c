@@ -1,6 +1,6 @@
-/* $OpenLDAP: pkg/ldap/libraries/libldap/util-int.c,v 1.33 2002/01/04 20:17:40 kurt Exp $ */
+/* $OpenLDAP: pkg/ldap/libraries/libldap/util-int.c,v 1.33.2.5 2003/03/24 03:08:11 kurt Exp $ */
 /*
- * Copyright 1998-2002 The OpenLDAP Foundation, All Rights Reserved.
+ * Copyright 1998-2003 The OpenLDAP Foundation, All Rights Reserved.
  * COPYING RESTRICTIONS APPLY, see COPYRIGHT file
  */
 /*
@@ -33,37 +33,39 @@
 
 #include "ldap-int.h"
 
-#if defined( LDAP_R_COMPILE )
-# include <ldap_pvt_thread.h>
-#else
-# undef HAVE_REENTRANT_FUNCTIONS
+#ifndef h_errno
+/* newer systems declare this in <netdb.h> for you, older ones don't.
+ * harmless to declare it again (unless defined by a macro).
+ */
+extern int h_errno;
 #endif
+
+#ifndef LDAP_R_COMPILE
+# undef HAVE_REENTRANT_FUNCTIONS
+# undef HAVE_CTIME_R
+# undef HAVE_GETHOSTBYNAME_R
+# undef HAVE_GETHOSTBYADDR_R
+
+#else
+# include <ldap_pvt_thread.h>
+  ldap_pvt_thread_mutex_t ldap_int_resolv_mutex;
 
 #if (defined( HAVE_CTIME_R ) || defined( HAVE_REENTRANT_FUNCTIONS)) \
 	&& defined( CTIME_R_NARGS )
-#	define USE_CTIME_R
-#endif
-
-#if defined(HAVE_GETHOSTBYNAME_R) && \
-    (GETHOSTBYNAME_R_NARGS > 6 || GETHOSTBYNAME_R_NARGS < 5)
-	/* Don't know how to handle this version, pretend it's not there */
-#	undef HAVE_GETHOSTBYNAME_R
-#endif
-#if defined(HAVE_GETHOSTBYADDR_R) && \
-    (GETHOSTBYADDR_R_NARGS > 8 || GETHOSTBYADDR_R_NARGS < 7)
-	/* Don't know how to handle this version, pretend it's not there */
-#	undef HAVE_GETHOSTBYADDR_R
-#endif
-
-#ifdef LDAP_R_COMPILE
-# ifndef USE_CTIME_R
+# define USE_CTIME_R
+# else
 	static ldap_pvt_thread_mutex_t ldap_int_ctime_mutex;
 # endif
-# if !defined( HAVE_GETHOSTBYNAME_R ) || !defined( HAVE_GETHOSTBYADDR_R )
-	static ldap_pvt_thread_mutex_t ldap_int_gethostby_mutex;
+
+# if defined(HAVE_GETHOSTBYNAME_R) && \
+	(GETHOSTBYNAME_R_NARGS < 5) || (6 < GETHOSTBYNAME_R_NARGS)
+	/* Don't know how to handle this version, pretend it's not there */
+#	undef HAVE_GETHOSTBYNAME_R
 # endif
-# ifdef HAVE_RES_QUERY
-	ldap_pvt_thread_mutex_t ldap_int_resolv_mutex;
+# if defined(HAVE_GETHOSTBYADDR_R) && \
+	(GETHOSTBYADDR_R_NARGS < 7) || (8 < GETHOSTBYADDR_R_NARGS)
+	/* Don't know how to handle this version, pretend it's not there */
+#	undef HAVE_GETHOSTBYADDR_R
 # endif
 #endif /* LDAP_R_COMPILE */
 
@@ -81,13 +83,17 @@ char *ldap_pvt_ctime( const time_t *tp, char *buf )
 # endif	  
 
 #else
+
 # ifdef LDAP_R_COMPILE
 	ldap_pvt_thread_mutex_lock( &ldap_int_ctime_mutex );
 # endif
+
 	AC_MEMCPY( buf, ctime(tp), 26 );
+
 # ifdef LDAP_R_COMPILE
 	ldap_pvt_thread_mutex_unlock( &ldap_int_ctime_mutex );
 # endif
+
 	return buf;
 #endif	
 }
@@ -98,7 +104,8 @@ char *ldap_pvt_ctime( const time_t *tp, char *buf )
 static char *safe_realloc( char **buf, int len );
 
 #if !defined(HAVE_GETHOSTBYNAME_R) && defined(LDAP_R_COMPILE)
-static int copy_hostent( struct hostent *res, char **buf, struct hostent * src );
+static int copy_hostent( struct hostent *res,
+	char **buf, struct hostent * src );
 #endif
 
 int ldap_pvt_gethostbyname_a(
@@ -119,9 +126,8 @@ int ldap_pvt_gethostbyname_a(
 			return r;
 
 #if (GETHOSTBYNAME_R_NARGS < 6)
-		r = ((*result=gethostbyname_r( name, resbuf, *buf,
-					       buflen, herrno_ptr ))== NULL) ?
-		    -1 : 0;
+		*result=gethostbyname_r( name, resbuf, *buf, buflen, herrno_ptr );
+		r = (*result == NULL) ?  -1 : 0;
 #else
 		r = gethostbyname_r( name, resbuf, *buf,
 			buflen, result, herrno_ptr );
@@ -148,7 +154,7 @@ int ldap_pvt_gethostbyname_a(
 	int	retval;
 	*buf = NULL;
 	
-	ldap_pvt_thread_mutex_lock( &ldap_int_gethostby_mutex );
+	ldap_pvt_thread_mutex_lock( &ldap_int_resolv_mutex );
 	
 	he = gethostbyname( name );
 	
@@ -163,7 +169,7 @@ int ldap_pvt_gethostbyname_a(
 		retval = 0;
 	}
 	
-	ldap_pvt_thread_mutex_unlock( &ldap_int_gethostby_mutex );
+	ldap_pvt_thread_mutex_unlock( &ldap_int_resolv_mutex );
 	
 	return retval;
 #else	
@@ -179,7 +185,125 @@ int ldap_pvt_gethostbyname_a(
 	return -1;
 #endif	
 }
-	 
+
+#ifndef GETNAMEINFO
+static const char *
+hp_strerror( int err )
+{
+	switch (err) {
+	case HOST_NOT_FOUND:	return "Host not found (authoritative)";
+	case TRY_AGAIN:		return "Host not found (server fail?)";
+	case NO_RECOVERY:	return "Non-recoverable failure";
+	case NO_DATA:		return "No data of requested type";
+#ifdef NETDB_INTERNAL
+	case NETDB_INTERNAL:	return STRERROR( errno );
+#endif
+	default:	break;	
+	}
+	return "Unknown resolver error";
+}
+#endif
+
+int ldap_pvt_get_hname(
+	const struct sockaddr *sa,
+	int len,
+	char *name,
+	int namelen,
+	char **err )
+{
+	int rc;
+#if defined( HAVE_GETNAMEINFO )
+
+#if defined( LDAP_R_COMPILE )
+	ldap_pvt_thread_mutex_lock( &ldap_int_resolv_mutex );
+#endif
+	rc = getnameinfo( sa, len, name, namelen, NULL, 0, 0 );
+#if defined( LDAP_R_COMPILE )
+	ldap_pvt_thread_mutex_unlock( &ldap_int_resolv_mutex );
+#endif
+	if ( rc ) *err = AC_GAI_STRERROR( rc );
+	return rc;
+
+#else /* !HAVE_GETNAMEINFO */
+	char *addr;
+	int alen;
+	struct hostent *hp = NULL;
+#ifdef HAVE_GETHOSTBYADDR_R
+	struct hostent hb;
+	int buflen=BUFSTART, h_errno;
+	char *buf=NULL;
+#endif
+
+#ifdef LDAP_PF_INET6
+	if (sa->sa_family == AF_INET6) {
+		struct sockaddr_in6 *sin = (struct sockaddr_in6 *)sa;
+		addr = (char *)&sin->sin6_addr;
+		alen = sizeof(sin->sin6_addr);
+	} else
+#endif
+	if (sa->sa_family == AF_INET) {
+		struct sockaddr_in *sin = (struct sockaddr_in *)sa;
+		addr = (char *)&sin->sin_addr;
+		alen = sizeof(sin->sin_addr);
+	} else {
+		rc = NO_RECOVERY;
+		*err = (char *)hp_strerror( rc );
+		return rc;
+	}
+#if defined( HAVE_GETHOSTBYADDR_R )
+	for(;buflen<BUFMAX;) {
+		if (safe_realloc( &buf, buflen )==NULL) {
+			*err = (char *)STRERROR( ENOMEM );
+			return ENOMEM;
+		}
+#if (GETHOSTBYADDR_R_NARGS < 8)
+		hp=gethostbyaddr_r( addr, alen, sa->sa_family,
+			&hb, buf, buflen, &h_errno );
+		rc = (hp == NULL) ? -1 : 0;
+#else
+		rc = gethostbyaddr_r( addr, alen, sa->sa_family,
+			&hb, buf, buflen, 
+			&hp, &h_errno );
+#endif
+#ifdef NETDB_INTERNAL
+		if ((rc<0) &&
+			(h_errno==NETDB_INTERNAL) &&
+			(errno==ERANGE))
+		{
+			buflen*=2;
+			continue;
+		}
+#endif
+		break;
+	}
+	if (hp) {
+		strncpy( name, hp->h_name, namelen );
+	} else {
+		*err = (char *)hp_strerror( h_errno );
+	}
+	LDAP_FREE(buf);
+#else /* HAVE_GETHOSTBYADDR_R */
+
+#if defined( LDAP_R_COMPILE )
+	ldap_pvt_thread_mutex_lock( &ldap_int_resolv_mutex );
+#endif
+	hp = gethostbyaddr( addr, alen, sa->sa_family );
+	if (hp) {
+		strncpy( name, hp->h_name, namelen );
+		rc = 0;
+	} else {
+		rc = h_errno;
+		*err = (char *)hp_strerror( h_errno );
+	}
+#if defined( LDAP_R_COMPILE )
+	ldap_pvt_thread_mutex_unlock( &ldap_int_resolv_mutex );
+#endif
+
+#endif	/* !HAVE_GETHOSTBYADDR_R */
+	return rc;
+#endif	/* !HAVE_GETNAMEINFO */
+}
+
 int ldap_pvt_gethostbyaddr_a(
 	const char *addr,
 	int len,
@@ -200,10 +324,9 @@ int ldap_pvt_gethostbyaddr_a(
 		if (safe_realloc( buf, buflen )==NULL)
 			return r;
 #if (GETHOSTBYADDR_R_NARGS < 8)
-		r = ((*result=gethostbyaddr_r( addr, len, type,
-					       resbuf, *buf, buflen, 
-					       herrno_ptr )) == NULL) ?
-		    -1 : 0;
+		*result=gethostbyaddr_r( addr, len, type,
+			resbuf, *buf, buflen, herrno_ptr );
+		r = (*result == NULL) ? -1 : 0;
 #else
 		r = gethostbyaddr_r( addr, len, type,
 			resbuf, *buf, buflen, 
@@ -229,7 +352,7 @@ int ldap_pvt_gethostbyaddr_a(
 	int	retval;
 	*buf = NULL;   
 	
-	ldap_pvt_thread_mutex_lock( &ldap_int_gethostby_mutex );
+	ldap_pvt_thread_mutex_lock( &ldap_int_resolv_mutex );
 	
 	he = gethostbyaddr( addr, len, type );
 	
@@ -244,9 +367,10 @@ int ldap_pvt_gethostbyaddr_a(
 		retval = 0;
 	}
 	
-	ldap_pvt_thread_mutex_unlock( &ldap_int_gethostby_mutex );
+	ldap_pvt_thread_mutex_unlock( &ldap_int_resolv_mutex );
 	
-	return retval;   
+	return retval;
+
 #else /* gethostbyaddr() */
 	*buf = NULL;   
 	*result = gethostbyaddr( addr, len, type );
@@ -269,28 +393,23 @@ void ldap_int_utils_init( void )
 	done=1;
 
 #ifdef LDAP_R_COMPILE
-
 #if !defined( USE_CTIME_R ) && !defined( HAVE_REENTRANT_FUNCTIONS )
 	ldap_pvt_thread_mutex_init( &ldap_int_ctime_mutex );
 #endif
-
-#if !defined( HAVE_GETHOSTBYNAME_R ) || !defined( HAVE_GETHOSTBYADDR_R )
-	ldap_pvt_thread_mutex_init( &ldap_int_gethostby_mutex );
-#endif
-
-#ifdef HAVE_RES_QUERY
 	ldap_pvt_thread_mutex_init( &ldap_int_resolv_mutex );
 #endif
 
 	/* call other module init functions here... */
-#endif
 }
 
 #if defined( NEED_COPY_HOSTENT )
 # undef NEED_SAFE_REALLOC
 #define NEED_SAFE_REALLOC
 
-static char *cpy_aliases( char ***tgtio, char *buf, char **src )
+static char *cpy_aliases(
+	char ***tgtio,
+	char *buf,
+	char **src )
 {
 	int len;
 	char **tgt=*tgtio;
@@ -304,7 +423,11 @@ static char *cpy_aliases( char ***tgtio, char *buf, char **src )
 	return buf;
 }
 
-static char *cpy_addresses( char ***tgtio, char *buf, char **src, int len )
+static char *cpy_addresses(
+	char ***tgtio,
+	char *buf,
+	char **src,
+	int len )
 {
    	char **tgt=*tgtio;
 	for( ; (*src) ; src++ ) {
@@ -316,7 +439,10 @@ static char *cpy_addresses( char ***tgtio, char *buf, char **src, int len )
 	return buf;
 }
 
-static int copy_hostent( struct hostent *res, char **buf, struct hostent * src )
+static int copy_hostent(
+	struct hostent *res,
+	char **buf,
+	struct hostent * src )
 {
 	char	**p;
 	char	**tp;
@@ -325,7 +451,7 @@ static int copy_hostent( struct hostent *res, char **buf, struct hostent * src )
 	int	n_alias=0;
 	int	total_alias_len=0;
 	int	n_addr=0;
-	int	total_addr_len;
+	int	total_addr_len=0;
 	int	total_len;
 	  
 	/* calculate the size needed for the buffer */

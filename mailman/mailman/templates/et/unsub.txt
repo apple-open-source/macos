@@ -1,0 +1,29 @@
+Listi %(listname)s tellimuse katkestamise kinnitus.
+
+Keegi - tõenäoliselt teie ise - soovib lõpetada teie
+(aadress on %(email)s) tellimust listile %(listaddr)s.
+
+%(remote)s
+
+Kui soovite selle listi tellimust lõpetada, siis vastake
+sellele kirjale jättes kirja sisu ja teema muutmata
+(Re: teema alguses on lubatud).
+
+Alternatiivina saab tellimust katkestada ka veebilehel
+
+	%(confirmurl)s
+
+Kolmas võimalus on saata kiri aadressile %(requestaddr)s,
+kirja sisuks järgnev rida:
+
+    confirm %(cookie)s
+
+Kui te ei soovi selle listi tellimust katkestada, pole teil
+vaja rohkem midagi teha, võite seda kirja ignoreerida.
+
+Kui teil on põhjust arvata, et keegi soovib teie tellimust
+katkestada vastu teie tahtmist siis teatatage sellest listi
+haldurile aadressil %(listadmin)s.
+
+Listi halduri poole võib pöörduda ka teiste küsimustega,
+mis on seotud selle listiga.

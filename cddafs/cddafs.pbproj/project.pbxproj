@@ -10,6 +10,7 @@
 				0E9C736CFFE56ADA11CE15BF,
 				0E9C736DFFE56ADA11CE15BF,
 			);
+			hasScannedForEncodings = 1;
 			isa = PBXProject;
 			mainGroup = 018938C1FFE55C3511CE15BF;
 			productRefGroup = 018938FAFFE55C3511CE15BF;
@@ -111,9 +112,10 @@
 		018938F7FFE55C3511CE15BF = {
 			children = (
 				F7700AF0021C892001CE15C0,
-				018938F8FFE55C3511CE15BF,
 				5C596BD800BF099A05CE15C0,
+				018938F8FFE55C3511CE15BF,
 				0405E03F000A841111CE15C0,
+				AC0458CD04D75866007FCDBB,
 			);
 			isa = PBXGroup;
 			name = "Frameworks and Libraries";
@@ -171,7 +173,6 @@
 			isa = PBXAggregateTarget;
 			name = "cddafs (Aggregate)";
 			productName = "AppleCDDAFileSystemProj (Aggregate)";
-			shouldUseHeadermap = 0;
 		};
 		018938FFFFE55C3511CE15BF = {
 			isa = PBXTargetDependency;
@@ -197,7 +198,7 @@
 				MODULE_NAME = com.apple.filesystems.cddafs;
 				MODULE_START = Apple_CDDA_FS_Module_Start;
 				MODULE_STOP = Apple_CDDA_FS_Module_Stop;
-				MODULE_VERSION = 2.0.2;
+				MODULE_VERSION = 2.1.1;
 				OTHER_CFLAGS = "-Wno-format -DMACH_KERNEL=1";
 				OTHER_CPLUSPLUSFLAGS = "-fapple-kext";
 				OTHER_LDFLAGS = "";
@@ -223,7 +224,7 @@
 	<key>CFBundleExecutable</key>
 	<string>cddafs</string>
 	<key>CFBundleGetInfoString</key>
-	<string>2.0.2, Copyright Apple Computer, Inc. 2000-2002</string>
+	<string>2.1.1, Copyright Apple Computer, Inc. 2000-2003</string>
 	<key>CFBundleIconFile</key>
 	<string></string>
 	<key>CFBundleIdentifier</key>
@@ -235,11 +236,11 @@
 	<key>CFBundlePackageType</key>
 	<string>KEXT</string>
 	<key>CFBundleShortVersionString</key>
-	<string>2.0.2</string>
+	<string>2.1.1</string>
 	<key>CFBundleSignature</key>
 	<string>????</string>
 	<key>CFBundleVersion</key>
-	<string>2.0.2</string>
+	<string>2.1.1</string>
 	<key>OSBundleLibraries</key>
 	<dict>
 		<key>com.apple.iokit.IOCDStorageFamily</key>
@@ -254,7 +255,6 @@
 </dict>
 </plist>
 ";
-			shouldUseHeadermap = 0;
 		};
 		01893901FFE55C3511CE15BF = {
 			buildActionMask = 2147483647;
@@ -446,7 +446,6 @@
 			productInstallPath = /sbin;
 			productName = "mount_cddafs (Tool)";
 			productReference = 018938FCFFE55C3511CE15BF;
-			shouldUseHeadermap = 0;
 		};
 		01893915FFE55C3511CE15BF = {
 			buildActionMask = 2147483647;
@@ -501,7 +500,6 @@
 			name = cddafs.util;
 			productName = "cddafs.util (Tool)";
 			productReference = 018938FDFFE55C3511CE15BF;
-			shouldUseHeadermap = 0;
 		};
 		0189391FFFE55C3511CE15BF = {
 			buildActionMask = 2147483647;
@@ -512,6 +510,8 @@
 				F7700AE8021C73D601CE15C0,
 				F7700AEC021C73FC01CE15C0,
 				F7700AEE021C88B301CE15C0,
+				AC80753B0467378400E41653,
+				AC80753C0467378400E41653,
 			);
 			isa = PBXHeadersBuildPhase;
 			runOnlyForDeploymentPostprocessing = 0;
@@ -524,6 +524,8 @@
 				F7700AE9021C73D601CE15C0,
 				F7700AED021C73FC01CE15C0,
 				F7700AEF021C88B301CE15C0,
+				AC80753D0467378400E41653,
+				AC80753E0467378400E41653,
 			);
 			isa = PBXSourcesBuildPhase;
 			runOnlyForDeploymentPostprocessing = 0;
@@ -534,6 +536,7 @@
 				01893923FFE55C3511CE15BF,
 				5C596BD900BF099A05CE15C0,
 				F7700AF1021C892001CE15C0,
+				AC0458CE04D75866007FCDBB,
 			);
 			isa = PBXFrameworksBuildPhase;
 			runOnlyForDeploymentPostprocessing = 0;
@@ -681,7 +684,7 @@
 	<key>CFBundleDevelopmentRegion</key>
 	<string>English</string>
 	<key>CFBundleGetInfoString</key>
-	<string>2.0.2, Copyright Apple Computer, Inc. 2000-2002</string>
+	<string>2.1.1, Copyright Apple Computer, Inc. 2000-2003</string>
 	<key>CFBundleIconFile</key>
 	<string></string>
 	<key>CFBundleIdentifier</key>
@@ -693,11 +696,11 @@
 	<key>CFBundlePackageType</key>
 	<string>fs  </string>
 	<key>CFBundleShortVersionString</key>
-	<string>2.0.2</string>
+	<string>2.1.1</string>
 	<key>CFBundleSignature</key>
 	<string>????</string>
 	<key>CFBundleVersion</key>
-	<string>2.0.2</string>
+	<string>2.1.1</string>
 	<key>FSMediaTypes</key>
 	<dict>
 		<key>CD</key>
@@ -730,7 +733,6 @@
 </dict>
 </plist>
 ";
-			shouldUseHeadermap = 0;
 		};
 		0E9C7370FFE585B911CE15BF = {
 			buildActionMask = 2147483647;
@@ -799,6 +801,10 @@
 				5CC237BD0190BACA05CE15BF,
 				F7700AE6021C73D601CE15C0,
 				F7700AE7021C73D601CE15C0,
+				AC8075370467378400E41653,
+				AC80753A0467378400E41653,
+				AC8075380467378400E41653,
+				AC8075390467378400E41653,
 				F7700AEA021C73FC01CE15C0,
 				F7700AEB021C73FC01CE15C0,
 				F776122C0209DB2B01FD8D06,
@@ -907,6 +913,80 @@
 //5C2
 //5C3
 //5C4
+//AC0
+//AC1
+//AC2
+//AC3
+//AC4
+		AC0458CD04D75866007FCDBB = {
+			isa = PBXFrameworkReference;
+			name = SystemConfiguration.framework;
+			path = /System/Library/Frameworks/SystemConfiguration.framework;
+			refType = 0;
+		};
+		AC0458CE04D75866007FCDBB = {
+			fileRef = AC0458CD04D75866007FCDBB;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		AC8075370467378400E41653 = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			name = TBundle.h;
+			path = Classes/TBundle.h;
+			refType = 4;
+		};
+		AC8075380467378400E41653 = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			name = TSystemUtils.h;
+			path = Classes/TSystemUtils.h;
+			refType = 4;
+		};
+		AC8075390467378400E41653 = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			name = TSystemUtils.cpp;
+			path = Classes/TSystemUtils.cpp;
+			refType = 4;
+		};
+		AC80753A0467378400E41653 = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			name = TBundle.cpp;
+			path = Classes/TBundle.cpp;
+			refType = 4;
+		};
+		AC80753B0467378400E41653 = {
+			fileRef = AC8075370467378400E41653;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		AC80753C0467378400E41653 = {
+			fileRef = AC8075380467378400E41653;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		AC80753D0467378400E41653 = {
+			fileRef = AC8075390467378400E41653;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		AC80753E0467378400E41653 = {
+			fileRef = AC80753A0467378400E41653;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+//AC0
+//AC1
+//AC2
+//AC3
+//AC4
 //F70
 //F71
 //F72

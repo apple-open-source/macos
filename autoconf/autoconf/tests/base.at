@@ -1,6 +1,23 @@
-#							-*- autoconf -*-
+#							-*- Autotest -*-
 
 AT_BANNER([Autoconf base layer.])
+
+# Copyright 2000, 2001 Free Software Foundation, Inc.
+#
+# This program is free software; you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation; either version 2, or (at your option)
+# any later version.
+#
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with this program; if not, write to the Free Software
+# Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA
+# 02111-1307, USA.
 
 
 ## ------------------------------- ##
@@ -11,10 +28,10 @@ AT_BANNER([Autoconf base layer.])
 
 AT_SETUP([AC_REQUIRE: topological sort])
 
-AT_DATA(configure.ac,
+AT_DATA([configure.ac],
 [[define([REQUIRE_AND_CHECK],
-[AC_REQUIRE([$1])dnl
-test -z "$m4_translit([$1], [A-Z], [a-z])" && AS_EXIT(1)])
+[AC_REQUIRE([$1])
+test -z "$m4@&t@_translit([$1], [A-Z], [a-z])" && AS_EXIT(1)])
 
 AC_DEFUN([TEST1],
 [REQUIRE_AND_CHECK([TEST2a])
@@ -32,8 +49,7 @@ AC_DEFUN([TEST3],
 [REQUIRE_AND_CHECK([TEST2a])
 test3=set])
 
-AC_PLAIN_SCRIPT()dnl
-#! /bin/sh
+AS@&t@_INIT
 
 TEST1
 test -z "$test1" &&
@@ -65,8 +81,7 @@ AC_DEFUN([MULTI_TEST],
 AC_DEFUN_ONCE([SINGLE_TEST],
 [single_test=".$single_test"])
 
-AC_PLAIN_SCRIPT()dnl
-#! /bin/sh
+AS@&t@_INIT
 
 TEST
 TEST
@@ -83,8 +98,8 @@ esac
 ]])
 
 AT_CHECK_AUTOCONF([], 0, [],
-[configure.ac:18: warning: SINGLE_TEST invoked multiple times
-configure.ac:19: warning: SINGLE_TEST invoked multiple times
+[configure.ac:17: warning: SINGLE_TEST invoked multiple times
+configure.ac:18: warning: SINGLE_TEST invoked multiple times
 ])
 
 AT_CHECK_CONFIGURE
@@ -110,8 +125,7 @@ AC_DEFUN([MULTI_TEST],
 AC_DEFUN_ONCE([SINGLE_TEST],
 [single_test=".$single_test"])
 
-AC_PLAIN_SCRIPT()dnl
-#! /bin/sh
+AS@&t@_INIT
 
 MULTI_TEST
 MULTI_TEST
@@ -129,7 +143,7 @@ esac
 ]])
 
 AT_CHECK_AUTOCONF([], 0, [],
-[configure.ac:17: warning: SINGLE_TEST invoked multiple times
+[configure.ac:16: warning: SINGLE_TEST invoked multiple times
 ])
 AT_CHECK_CONFIGURE
 
@@ -150,8 +164,7 @@ AT_DATA([configure.ac],
 AC_DEFUN([INNER_TEST],
 [inner_test=".$inner_test"])
 
-AC_PLAIN_SCRIPT()dnl
-#! /bin/sh
+AS@&t@_INIT
 
 AC_PROVIDE([INNER_TEST])
 TEST
@@ -160,42 +173,6 @@ case $inner_test in
   "" ) AS_EXIT(0);;
   *  ) AC_MSG_ERROR([received `$inner_test']);;
 esac
-]])
-
-AT_CHECK_AUTOCONF
-AT_CHECK_CONFIGURE
-
-AT_CLEANUP
-
-
-## ---------------------- ##
-## AC_REQUIRE & AC_LANG.  ##
-## ---------------------- ##
-
-AT_SETUP([AC_REQUIRE & AC_LANG])
-
-AT_DATA([configure.ac],
-[[AC_DEFUN([AC_F77_1],
-[AC_LANG_PUSH([Fortran 77])
-if test $ac_ext != f; then
-  AC_MSG_ERROR([F77_1: current shell language is $ac_ext, expected Fortran])
-fi
-AC_LANG_POP
-])
-
-
-AC_DEFUN([AC_F77_2],
-[AC_LANG_PUSH([Fortran 77])
-AC_REQUIRE([AC_F77_1])
-if test $ac_ext != f; then
-  AC_MSG_ERROR([F77_2: current shell language is $ac_ext, expected Fortran])
-fi
-AC_LANG_POP
-])
-
-AC_INIT
-AC_F77_2
-AS_EXIT(0)
 ]])
 
 AT_CHECK_AUTOCONF
@@ -225,11 +202,11 @@ AT_CHECK_CONFIGURE([-q])
 AT_CLEANUP
 
 
-## ---------- ##
-## AC_TRY_*.  ##
-## ---------- ##
+## ---------------- ##
+## AC_TRY_COMMAND.  ##
+## ---------------- ##
 
-AT_SETUP([AC_TRY_*])
+AT_SETUP([AC_TRY_COMMAND])
 
 AT_DATA([configure.ac],
 [[AC_INIT

@@ -1,0 +1,13 @@
+Sua requisição para a lista %(listname)s
+
+    %(request)s
+
+foi rejeitada pelo moderador da lista. O moderador deu a seguinte
+razão para rejeitar sua mensagem:
+
+"%(reason)s"
+
+Quaisquer questões ou comentáris devem ser direcionados para o 
+moderador da lista em:
+
+    %(adminaddr)s

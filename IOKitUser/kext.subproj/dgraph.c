@@ -1,3 +1,6 @@
+#ifdef KERNEL
+#include <libsa/vers_rsrc.h>
+#else
 #include <libc.h>
 #include <stdlib.h>
 #include <stdarg.h>
@@ -5,29 +8,44 @@
 #include <string.h>
 #include <unistd.h>
 
-#include "dgraph.h"
 #include "KXKext.h"
-#include "load.h"
 #include "vers_rsrc.h"
+#endif /* KERNEL */
 
+#include "dgraph.h"
+#include "load.h"
 
-// FIXME: Put these into a header file!
-extern void (*kload_log_func)(const char * format, ...);
-extern void (*kload_err_log_func)(const char * format, ...);
-extern int (*kload_approve_func)(int default_answer,
-    const char * format, ...);
 
 static void __dgraph_entry_free(dgraph_entry_t * entry);
+
+#ifdef KERNEL
+/*******************************************************************************
+*
+*******************************************************************************/
+char * strdup(const char * string)
+{
+    char * dup = 0;
+    unsigned int length;
+
+    length = strlen(string);
+    dup = (char *)malloc((1+length) * sizeof(char));
+    if (!dup) {
+        return NULL;
+    }
+    strcpy(dup, string);
+    return dup;
+}
+
+#endif /* KERNEL */
 
 /*******************************************************************************
 *
 *******************************************************************************/
 dgraph_error_t dgraph_init(dgraph_t * dgraph)
 {
+    bzero(dgraph, sizeof(dgraph_t));
+
     dgraph->capacity = (5);  // pulled from a hat
-    dgraph->length = 0;
-    dgraph->load_order = NULL;
-    dgraph->root = NULL;
 
    /* Make sure list is big enough & graph has a good start size.
     */
@@ -44,111 +62,27 @@ dgraph_error_t dgraph_init(dgraph_t * dgraph)
 /*******************************************************************************
 *
 *******************************************************************************/
-dgraph_error_t dgraph_init_with_arglist(
-    dgraph_t * dgraph,
-    int expect_addresses,
-    const char * dependency_delimiter,
-    const char * kernel_dependency_delimiter,
-    int argc,
-    char * argv[])
-{
-    dgraph_error_t result = dgraph_valid;
-    unsigned int i;
-    int found_zero_load_address = 0;
-    int found_nonzero_load_address = 0;
-    dgraph_entry_t * current_dependent = NULL;
-    char kernel_dependencies = 0;
-
-    result = dgraph_init(dgraph);
-    if (result != dgraph_valid) {
-        return result;
-    }
-
-    for (i = 0; i < argc; i++) {
-        vm_address_t load_address = 0;
-
-        if (0 == strcmp(argv[i], dependency_delimiter)) {
-            kernel_dependencies = 0;
-            current_dependent = NULL;
-            continue;
-        } else if (0 == strcmp(argv[i], kernel_dependency_delimiter)) {
-            kernel_dependencies = 1;
-            current_dependent = NULL;
-            continue;
-        }
-
-        if (expect_addresses) {
-            char * address = rindex(argv[i], '@');
-            if (address) {
-                *address++ = 0;  // snip the address from the filename
-                load_address = strtoul(address, NULL, 0);
-            }
-        }
-
-        if (!current_dependent) {
-           current_dependent = dgraph_add_dependent(dgraph, argv[i],
-               /* expected kmod name */ NULL, /* expected vers */ 0,
-               load_address, 0);
-           if (!current_dependent) {
-               return dgraph_error;
-           }
-        } else {
-            if (!dgraph_add_dependency(dgraph, current_dependent, argv[i],
-               /* expected kmod name */ NULL, /* expected vers */ 0,
-               load_address, kernel_dependencies)) {
-
-               return dgraph_error;
-            }
-        }
-    }
-
-    dgraph->root = dgraph_find_root(dgraph);
-    dgraph_establish_load_order(dgraph);
-
-    if (!dgraph->root) {
-        (*kload_err_log_func)("dependency graph has no root");
-        return dgraph_invalid;
-    }
-
-    if (dgraph->root->is_kernel_component) {
-        (*kload_err_log_func)("dependency graph root is a kernel component");
-        return dgraph_invalid;
-    }
-
-    for (i = 0; i < dgraph->length; i++) {
-        if (dgraph->graph[i]->loaded_address == 0) {
-            found_zero_load_address = 1;
-        } else {
-            found_nonzero_load_address = 1;
-        }
-        if ( (i > 0) &&
-             (found_zero_load_address && found_nonzero_load_address)) {
-
-            (*kload_err_log_func)(
-                "load addresses must be specified for all module files");
-            return dgraph_invalid;
-        }
-    }
-
-    return dgraph_valid;
-}
-
-/*******************************************************************************
-*
-*******************************************************************************/
 static void __dgraph_entry_free(dgraph_entry_t * entry)
 {
-    if (entry->filename) {
-        free(entry->filename);
-        entry->filename = NULL;
+    if (entry->name) {
+        free(entry->name);
+        entry->name = NULL;
     }
     if (entry->expected_kmod_name) {
         free(entry->expected_kmod_name);
         entry->expected_kmod_name = NULL;
     }
+    if (entry->expected_kmod_vers) {
+        free(entry->expected_kmod_vers);
+        entry->expected_kmod_vers = NULL;
+    }
     if (entry->dependencies) {
         free(entry->dependencies);
         entry->dependencies = NULL;
+    }
+    if (entry->symbols_malloc) {
+        free((void *) entry->symbols_malloc);
+        entry->symbols_malloc = NULL;
     }
     free(entry);
     return;
@@ -243,8 +177,8 @@ dgraph_entry_t * dgraph_find_root(dgraph_t * dgraph) {
         */
         if (candidate) {
             if (root) {
-                (*kload_err_log_func)("dependency graph has multiple roots "
-                    "(%s and %s)", root->filename, candidate->filename);
+                kload_log_error("dependency graph has multiple roots "
+                    "(%s and %s)" KNL, root->name, candidate->name);
                 return NULL;  // two valid roots, illegal
             } else {
                 root = candidate;
@@ -253,7 +187,7 @@ dgraph_entry_t * dgraph_find_root(dgraph_t * dgraph) {
     }
 
     if (!root) {
-        (*kload_err_log_func)("dependency graph has no root node");
+        kload_log_error("dependency graph has no root node" KNL);
     }
 
     return root;
@@ -265,35 +199,64 @@ dgraph_entry_t * dgraph_find_root(dgraph_t * dgraph) {
 dgraph_entry_t ** fill_backward_load_order(
     dgraph_entry_t ** backward_load_order,
     unsigned int * list_length,
-    int * list_index,
-    dgraph_entry_t * entry)
+    dgraph_entry_t * first_entry,
+    unsigned int * last_index /* out param */)
 {
     int i;
-    dgraph_entry_t * curdep;
+    unsigned int scan_index = 0;
+    unsigned int add_index = 0;
+    dgraph_entry_t * scan_entry;
 
-    for (i = 0; i < entry->num_dependencies; i++) {
-        if ( (*list_index) >= (*list_length) ) {
+    if (*list_length == 0) {
+        if (backward_load_order) {
+            free(backward_load_order);
+            backward_load_order = NULL;
+        }
+        goto finish;
+    }
+
+    backward_load_order[add_index++] = first_entry;
+
+    while (scan_index < add_index) {
+
+        if (add_index > 255) {
+            kload_log_error(
+                "dependency list for %s ridiculously long; probably a loop" KNL,
+                first_entry->name);
+            if (backward_load_order) {
+                free(backward_load_order);
+                backward_load_order = NULL;
+            }
+            goto finish;
+        }
+
+        scan_entry = backward_load_order[scan_index++];
+
+       /* Increase the load order list if needed.
+        */
+        if (add_index + scan_entry->num_dependencies > (*list_length)) {
             (*list_length) *= 2;
-            backward_load_order = (dgraph_entry_t **)realloc(backward_load_order,
+            backward_load_order = (dgraph_entry_t **)realloc(
+                backward_load_order,
                 (*list_length) * sizeof(dgraph_entry_t *));
             if (!backward_load_order) {
                 goto finish;
             }
         }
-        curdep = entry->dependencies[i];
-        backward_load_order[(*list_index)++] = curdep;
-    }
 
-    for (i = 0; i < entry->num_dependencies; i++) {
-        curdep = entry->dependencies[i];
-        backward_load_order = fill_backward_load_order(backward_load_order,
-             list_length, list_index, curdep);
-        if (!backward_load_order) {
-            goto finish;
+       /* Put the dependencies of the scanning entry into the list.
+        */
+        for (i = 0; i < scan_entry->num_dependencies; i++) {
+            backward_load_order[add_index++] =
+                scan_entry->dependencies[i];
         }
     }
 
 finish:
+
+    if (last_index) {
+        *last_index = add_index;
+    }
     return backward_load_order;
 }
 
@@ -339,24 +302,22 @@ int dgraph_establish_load_order(dgraph_t * dgraph) {
 
     backward_load_order = (dgraph_entry_t **)malloc(backward_load_order_size);
     if (!backward_load_order) {
-        (*kload_err_log_func)("malloc failure");
+        kload_log_error("malloc failure" KNL);
         return 0;
     }
     bzero(backward_load_order, backward_load_order_size);
 
-    list_index = 0;
-    backward_load_order[list_index++] = dgraph->root;
     backward_load_order = fill_backward_load_order(backward_load_order,
-        &total_dependencies, &list_index, dgraph->root);
+        &total_dependencies, dgraph->root, &list_index);
     if (!backward_load_order) {
-        (*kload_err_log_func)("error establishing load order");
+        kload_log_error("error establishing load order" KNL);
         return 0;
     }
 
     load_order_size = dgraph->length * sizeof(dgraph_entry_t *);
     dgraph->load_order = (dgraph_entry_t **)malloc(load_order_size);
     if (!dgraph->load_order) {
-        (*kload_err_log_func)("malloc failure");
+        kload_log_error("malloc failure" KNL);
         return 0;
     }
     bzero(dgraph->load_order, load_order_size);
@@ -407,80 +368,40 @@ int dgraph_establish_load_order(dgraph_t * dgraph) {
 /*******************************************************************************
 *
 *******************************************************************************/
-void dgraph_verify(char * tag, dgraph_t * depgraph)
-{
-    unsigned int i;
-
-     for (i = 0; i < depgraph->length; i++) {
-        dgraph_entry_t * current = depgraph->graph[i];
-        char vbuffer[124];
-
-        if (!VERS_string(vbuffer, sizeof(vbuffer), current->expected_kmod_vers)) {
-            goto fail;
-        }
-    }
-
-    goto pass;
-fail:
-    kload_err_log_func("Dgraph is corrupt");
-pass:
-    return;
-}
-
-/*******************************************************************************
-*
-*******************************************************************************/
-void dgraph_print(dgraph_t * depgraph)
-{
-    void (*save_log_func)(const char * format, ...);
-
-    save_log_func = kload_log_func;
-    set_log_function((void(*)(const char *,...))&printf);
-    dgraph_log(depgraph);
-    set_log_function(save_log_func);
-    return;
-}
-
-/*******************************************************************************
-*
-*******************************************************************************/
 void dgraph_log(dgraph_t * depgraph)
 {
     unsigned int i, j;
 
-    kload_log_func("flattened dependency list: ");
+    kload_log_message("flattened dependency list: " KNL);
     for (i = 0; i < depgraph->length; i++) {
         dgraph_entry_t * current = depgraph->graph[i];
-        char vbuffer[24];
 
-        kload_log_func("    %s", current->filename);
-#if 1
-        kload_log_func("      is kernel component: %s",
+        kload_log_message("    %s" KNL, current->name);
+        kload_log_message("      is kernel component: %s" KNL,
             current->is_kernel_component ? "yes" : "no");
-        kload_log_func("      expected kmod name: [%s]",
+        kload_log_message("      expected kmod name: [%s]" KNL,
             current->expected_kmod_name);
-        VERS_string(vbuffer, sizeof(vbuffer), current->expected_kmod_vers);
-        kload_log_func("      expected kmod vers: [%s]", vbuffer);
-#endif 0
+        kload_log_message("      expected kmod vers: [%s]" KNL,
+            current->expected_kmod_vers);
     }
-    kload_log_func("");
+    kload_log_message("" KNL);
 
-    kload_log_func("load order dependency list: ");
+    kload_log_message("load order dependency list: " KNL);
     for (i = 0; i < depgraph->length; i++) {
         dgraph_entry_t * current = depgraph->load_order[i];
-        kload_log_func("    %s", current->filename);
+        kload_log_message("    %s" KNL, current->name);
     }
-    kload_log_func("");
+    kload_log_message("" KNL);
 
-    kload_log_func("dependency graph: ");
+    kload_log_message("dependency graph: " KNL);
     for (i = 0; i < depgraph->length; i++) {
         dgraph_entry_t * current = depgraph->graph[i];
         for (j = 0; j < current->num_dependencies; j++) {
             dgraph_entry_t * cdep = current->dependencies[j];
-            kload_log_func("  %s -> %s", current->filename, cdep->filename);
+            kload_log_message("  %s -> %s" KNL, current->name, cdep->name);
         }
     }
-    kload_log_func("");
+    kload_log_message("" KNL);
 
     return;
 }
@@ -488,13 +409,13 @@ void dgraph_log(dgraph_t * depgraph)
 /*******************************************************************************
 *
 *******************************************************************************/
-dgraph_entry_t * dgraph_find_dependent(dgraph_t * dgraph, const char * filename)
+dgraph_entry_t * dgraph_find_dependent(dgraph_t * dgraph, const char * name)
 {
     unsigned int i;
 
     for (i = 0; i < dgraph->length; i++) {
         dgraph_entry_t * current_entry = dgraph->graph[i];
-        if (0 == strcmp(filename, current_entry->filename)) {
+        if (0 == strcmp(name, current_entry->name)) {
             return current_entry;
         }
     }
@@ -507,9 +428,14 @@ dgraph_entry_t * dgraph_find_dependent(dgraph_t * dgraph, const char * filename)
 *******************************************************************************/
 dgraph_entry_t * dgraph_add_dependent(
     dgraph_t * dgraph,
-    const char * filename,
+    const char * name,
+#ifdef KERNEL
+    void * object,
+    size_t object_length,
+    bool   object_is_kmem,
+#endif /* KERNEL */
     const char * expected_kmod_name,
-    UInt32 expected_kmod_vers,
+    const char * expected_kmod_vers,
     vm_address_t load_address,
     char is_kernel_component)
 {
@@ -520,12 +446,12 @@ dgraph_entry_t * dgraph_add_dependent(
 
    /* Already got it? Great!
     */
-    found_entry = dgraph_find_dependent(dgraph, filename);
+    found_entry = dgraph_find_dependent(dgraph, name);
     if (found_entry) {
         if (found_entry->is_kernel_component != is_kernel_component) {
-            (*kload_err_log_func)(
-                "%s is already defined as a %skernel component",
-                filename, found_entry->is_kernel_component ? "" : "non-");
+            kload_log_error(
+                "%s is already defined as a %skernel component" KNL,
+                name, found_entry->is_kernel_component ? "" : "non-");
             error = 1;
             goto finish;
         }
@@ -535,9 +461,9 @@ dgraph_entry_t * dgraph_add_dependent(
                 found_entry->do_load = 0;
                 found_entry->loaded_address = load_address;
             } else if (found_entry->loaded_address != load_address) {
-                (*kload_err_log_func)(
-                   "%s has been assigned two different addresses (0x%x, 0x%x)",
-                    found_entry->filename,
+                kload_log_error(
+                   "%s has been assigned two different addresses (0x%x, 0x%x) KNL",
+                    found_entry->name,
                     found_entry->loaded_address,
                     load_address);
                 error = 1;
@@ -556,17 +482,17 @@ dgraph_entry_t * dgraph_add_dependent(
 
         dgraph->capacity *= 2;
         newgraph = (dgraph_entry_t **)malloc(dgraph->capacity *
-            sizeof(dgraph_entry_t));
+            sizeof(dgraph_entry_t *));
         if (!newgraph) {
             return NULL;
         }
-        memcpy(newgraph, dgraph->graph, old_capacity * sizeof(dgraph_entry_t));
+        memcpy(newgraph, dgraph->graph, old_capacity * sizeof(dgraph_entry_t *));
         free(dgraph->graph);
         dgraph->graph = newgraph;
     }
 
     if (strlen(expected_kmod_name) > KMOD_MAX_NAME - 1) {
-        (*kload_err_log_func)("expected kmod name \"%s\" is too long",
+        kload_log_error("expected kmod name \"%s\" is too long" KNL,
             expected_kmod_name);
         error = 1;
         goto finish;
@@ -585,11 +511,33 @@ dgraph_entry_t * dgraph_add_dependent(
         error = 1;
         goto finish;
     }
-    new_entry->expected_kmod_vers = expected_kmod_vers;
+    new_entry->expected_kmod_vers = strdup(expected_kmod_vers);
+    if (!new_entry->expected_kmod_vers) {
+        error = 1;
+        goto finish;
+    }
     new_entry->is_kernel_component = is_kernel_component;
+
+    // /hacks
+    new_entry->is_symbol_set = (2 & is_kernel_component);
+    new_entry->opaques = !strncmp(new_entry->expected_kmod_name, 
+				    "com.apple.kpi", strlen("com.apple.kpi"));
+    // hacks/
+
+    dgraph->has_symbol_sets |= new_entry->is_symbol_set;
+
     new_entry->do_load = !is_kernel_component;
-    new_entry->filename = strdup(filename);
-    if (!new_entry->filename) {
+
+#ifndef KERNEL
+    new_entry->object = NULL;   // provided elswehere in userland
+    new_entry->object_length = 0;
+#else
+    new_entry->object = object;
+    new_entry->object_length = object_length;
+    new_entry->object_is_kmem = object_is_kmem;
+#endif /* KERNEL */
+    new_entry->name = strdup(name);
+    if (!new_entry->name) {
         error = 1;
         goto finish;
     }
@@ -627,12 +575,17 @@ finish:
 /*******************************************************************************
 *
 *******************************************************************************/
-int dgraph_add_dependency(
+dgraph_entry_t * dgraph_add_dependency(
     dgraph_t * dgraph,
     dgraph_entry_t * current_dependent,
-    const char * filename,
+    const char * name,
+#ifdef KERNEL
+    void * object,
+    size_t object_length,
+    bool   object_is_kmem,
+#endif /* KERNEL */
     const char * expected_kmod_name,
-    UInt32 expected_kmod_vers,
+    const char * expected_kmod_vers,
     vm_address_t load_address,
     char is_kernel_component)
 {
@@ -653,7 +606,7 @@ int dgraph_add_dependency(
              sizeof(dgraph_entry_t *)) );
 
         if (!newlist) {
-            return 0;
+            return NULL;
         }
         memcpy(newlist, current_dependent->dependencies,
             old_capacity * sizeof(dgraph_entry_t *));
@@ -664,23 +617,26 @@ int dgraph_add_dependency(
 
    /* Find or add the entry for the new dependency.
     */
-    dependency = dgraph_add_dependent(dgraph, filename,
+    dependency = dgraph_add_dependent(dgraph, name,
+#ifdef KERNEL
+         object, object_length, object_is_kmem,
+#endif /* KERNEL */
          expected_kmod_name, expected_kmod_vers, load_address,
          is_kernel_component);
     if (!dependency) {
-       return 0;
+       return NULL;
     }
 
     if (dependency == current_dependent) {
-        (*kload_err_log_func)("attempt to set dependency on itself: "
-            "%s", current_dependent->filename);
-        return 0;
+        kload_log_error("attempt to set dependency on itself: %s" KNL,
+            current_dependent->name);
+        return NULL;
     }
 
     for (i = 0; i < current_dependent->num_dependencies; i++) {
         dgraph_entry_t * this_dependency = current_dependent->dependencies[i];
         if (this_dependency == dependency) {
-            return 1;
+            return dependency;
         }
     }
 
@@ -690,5 +646,8 @@ int dgraph_add_dependency(
         dependency;
     current_dependent->num_dependencies++;
 
-    return 1;
+    current_dependent->opaque_link |= dependency->opaques;
+    dgraph->has_opaque_links       |= current_dependent->opaque_link;
+
+    return dependency;
 }

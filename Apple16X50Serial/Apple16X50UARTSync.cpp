@@ -1,5 +1,5 @@
 /*
-Copyright (c) 1997-2002 Apple Computer, Inc. All rights reserved.
+Copyright (c) 1997-2003 Apple Computer, Inc. All rights reserved.
 Copyright (c) 1994-1996 NeXT Software, Inc.  All rights reserved.
  
 IMPORTANT:  This Apple software is supplied to you by Apple Computer, Inc. (ÒAppleÓ) in consideration of your agreement to the following terms, and your use, installation, modification or redistribution of this Apple software constitutes acceptance of these terms.  If you do not agree with these terms, please do not use, install, modify or redistribute this Apple software.
@@ -37,6 +37,8 @@ IN NO EVENT SHALL APPLE BE LIABLE FOR ANY SPECIAL, INDIRECT, INCIDENTAL OR CONSE
 
 #define kXOnChar  '\x11'
 #define kXOffChar '\x13'
+
+#define k1xMasterClock (1843200)
 
 #define kRxAutoFlow	((UInt32)( PD_RS232_A_RFR | PD_RS232_A_DTR | PD_RS232_A_RXO ))
 #define kTxAutoFlow	((UInt32)( PD_RS232_A_CTS | PD_RS232_A_DSR | PD_RS232_A_TXO | PD_RS232_A_DCD ))
@@ -282,7 +284,7 @@ IOReturn Apple16X50UARTSync::watchStateGated(UInt32 *state, UInt32 mask)
         retain();	// refuse to be freed until all threads are awake
         CommandGate->retain();
         rtn = CommandGate->commandSleep((void*)&State);
-        CommandGate->retain();
+        CommandGate->release();
         if (OffLine || (Stage<kStarted)||(Stage>=kTerminated)) {
             DEBUG_IOLog("%s::watchStateGated() awakend to find port going away!\n", Name);
             release();
@@ -875,7 +877,8 @@ bool Apple16X50UARTSync::attach(IOService *provider)
     Provider = OSDynamicCast(Apple16X50BusInterface, provider);
     if (!Provider) return false;
 
-    if ((!Provider->metaCast("com_apple_driver_16X50PCCard")) /*&& (!Provider->metaCast("com_apple_driver_16X50PCI"))*/)
+    if ((!Provider->metaCast("com_apple_driver_16X50PCCard")) && (!Provider->metaCast("com_apple_driver_16X50PCI")) &&
+        (!Provider->metaCast("com_apple_driver_16X50ACPI")))
         return false;	// Only allow us to attach to classes in this project - this is not a publicly usable class
     
     if (!IOService::attach(provider)) return false;
@@ -1465,7 +1468,8 @@ probeUART(Apple16X50BusInterface *provider, void *refCon, tUART_Type type)
     DEBUG_IOLog("Apple16X50UARTSync::probeUART(%p,%p,%s)\n",
                 provider, refCon, IOFindNameForValue(type, gUARTnames));
 
-    if ((!provider->metaCast("com_apple_driver_16X50PCCard")) && (!provider->metaCast("com_apple_driver_16X50PCI")))
+    if ((!provider->metaCast("com_apple_driver_16X50PCCard")) && (!provider->metaCast("com_apple_driver_16X50PCI")) &&
+        (!provider->metaCast("com_apple_driver_16X50ACPI")))
         return NULL;	// Only allow us to be instantiated by classes in this project - this is not a publicly usable class
 
     if (type == kUART_Unknown)
@@ -1531,7 +1535,7 @@ probeUART(Apple16X50BusInterface *provider, void *refCon, tUART_Type type)
     uart->StopBits=0;
     uart->Parity=0;
     uart->BaudRate=0;
-    uart->MasterClock=1843200;	// default, the original AT Serial clock
+    uart->MasterClock=k1xMasterClock;	// default, the original AT Serial clock
     
     uart->Divisor=0x0000;
     uart->MinLatency=false;
@@ -1711,14 +1715,14 @@ UInt32 Apple16X50UARTSync::determineMasterClock()
     }
     samples=sample[samples>>1];
 
-    if (samples < 10000) MasterClock = 18432000;
-    else if (samples < 15000) MasterClock = 14745500;
-    else if (samples < 30000) MasterClock = 7372750;
-    else if (samples < 70000) MasterClock = 3072000;
-    else
+    if (samples < 10000) MasterClock = 10 * k1xMasterClock;
+    else if (samples < 15000) MasterClock = 8 * k1xMasterClock;
+    else if (samples < 30000) MasterClock = 4 * k1xMasterClock;
+    else if (samples < 70000) MasterClock = (5 * k1xMasterClock) / 3;
+    else					
         
 fail:
-    MasterClock = 1843200;
+    MasterClock = k1xMasterClock;
     DEBUG_IOLog("%s::determineMasterClock(): median=%d ns, MasterClock=%d : ", Name, (int)samples, (int)MasterClock);
     return MasterClock;
 }
@@ -1849,6 +1853,11 @@ void Apple16X50UARTSync::programUART()
     // The formula for the clock divisor is: divisor = MasterClock/(16*bps)
     // DataWidth & StopBits are in half-bits, and BaudRate is half-bits per second.
     dlr = (MasterClock) / (BaudRate << 3);
+    // Make sure we didn't loose any significant fractional value.
+    int err_lo = ((MasterClock) / (dlr << 3)) - BaudRate;
+    int err_hi = BaudRate - ((MasterClock) / ((dlr+1) << 3));
+    if (err_lo > err_hi) dlr++;
+
     if (dlr != Divisor) {
         setDivisor(Divisor = dlr);
         frameSize = ( (DataWidth + StopBits) +
@@ -1899,7 +1908,7 @@ void Apple16X50UARTSync::programUART()
     LCR_Image = lcr;
 }
 
-void Apple16X50UARTSync::programMCR(UInt32 state, bool irqen=true, bool loop=false)
+void Apple16X50UARTSync::programMCR(UInt32 state, bool irqen, bool loop)
 {
     UInt8 mcr=0;
 

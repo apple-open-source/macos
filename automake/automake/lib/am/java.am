@@ -27,8 +27,11 @@ CLASSPATH_ENV = CLASSPATH=$(JAVAROOT):$(srcdir)/$(JAVAROOT):$$CLASSPATH
 JAVAROOT = $(top_builddir)
 
 class%DIR%.stamp: $(%DIR%_JAVA)
-	$(CLASSPATH_ENV) $(JAVAC) -d $(JAVAROOT) \
-	  $(AM_JAVACFLAGS) $(JAVACFLAGS) $?
+	@if test -n "$?"; then \
+	  echo '$(CLASSPATH_ENV) $(JAVAC) -d $(JAVAROOT) $(AM_JAVACFLAGS) $(JAVACFLAGS) $?' ; \
+	  $(CLASSPATH_ENV) $(JAVAC) -d $(JAVAROOT) \
+	    $(AM_JAVACFLAGS) $(JAVACFLAGS) $?; \
+	else :; fi
 	echo timestamp > class%DIR%.stamp
 
 

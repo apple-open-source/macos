@@ -26,7 +26,7 @@
 CFTypeID SecAccessGetTypeID(void)
 {
 	BEGIN_SECAPI
-	return gTypes().access.typeId;
+	return gTypes().Access.typeID;
 	END_SECAPI1(_kCFRuntimeNotATypeID)
 }
 
@@ -42,18 +42,18 @@ OSStatus SecAccessCreate(CFStringRef descriptor, CFArrayRef trustedList, SecAcce
 {
 	BEGIN_SECAPI
 	Required(descriptor);
-	RefPointer<Access> access;
+	SecPointer<Access> access;
 	if (trustedList) {
 		CFIndex length = CFArrayGetCount(trustedList);
 		ACL::ApplicationList trusted;
 		for (CFIndex n = 0; n < length; n++)
-			trusted.push_back(gTypes().trustedApplication.required(
+			trusted.push_back(TrustedApplication::required(
 				SecTrustedApplicationRef(CFArrayGetValueAtIndex(trustedList, n))));
 		access = new Access(cfString(descriptor), trusted);
 	} else {
 		access = new Access(cfString(descriptor));
 	}
-	Required(accessRef) = gTypes().access.handle(*access);
+	Required(accessRef) = access->handle();
 	END_SECAPI
 }
 
@@ -66,8 +66,8 @@ OSStatus SecAccessCreateFromOwnerAndACL(const CSSM_ACL_OWNER_PROTOTYPE *owner,
 {
 	BEGIN_SECAPI
 	Required(accessRef);	// preflight
-	RefPointer<Access> access = new Access(Required(owner), aclCount, &Required(acls));
-	*accessRef = gTypes().access.handle(*access);
+	SecPointer<Access> access = new Access(Required(owner), aclCount, &Required(acls));
+	*accessRef = access->handle();
 	END_SECAPI
 }
 
@@ -79,10 +79,8 @@ OSStatus SecAccessGetOwnerAndACL(SecAccessRef accessRef,
 	uint32 *aclCount, CSSM_ACL_ENTRY_INFO_PTR *acls)
 {
 	BEGIN_SECAPI
-#if 0
-	gTypes().access.required(accessRef)->copyOwnerAndAcl(
+	Access::required(accessRef)->copyOwnerAndAcl(
 		Required(owner), Required(aclCount), Required(acls));
-#endif
 	END_SECAPI
 }
 
@@ -93,7 +91,7 @@ OSStatus SecAccessCopyACLList(SecAccessRef accessRef,
 	CFArrayRef *aclList)
 {
 	BEGIN_SECAPI
-	Required(aclList) = gTypes().access.required(accessRef)->copySecACLs();
+	Required(aclList) = Access::required(accessRef)->copySecACLs();
 	END_SECAPI
 }
 
@@ -105,6 +103,6 @@ OSStatus SecAccessCopySelectedACLList(SecAccessRef accessRef,
 	CFArrayRef *aclList)
 {
 	BEGIN_SECAPI
-	Required(aclList) = gTypes().access.required(accessRef)->copySecACLs(action);
+	Required(aclList) = Access::required(accessRef)->copySecACLs(action);
 	END_SECAPI
 }

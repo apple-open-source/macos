@@ -229,10 +229,6 @@ UInt32 IOFireWireSBP2LibORB::release( void )
 	{
 		delete this;
     }
-    else if( fRefCount < 0 )
-	{
-        fRefCount = 0;
-	}
 	
 	return retVal;
 }

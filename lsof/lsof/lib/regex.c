@@ -1,5 +1,5 @@
 /*
- * regex.c -- POSIX-conformat regular expression function set for the lsof
+ * regex.c -- POSIX-conformant regular expression function set for the lsof
  *	      library
  *
  * This file is used when the UNIX dialect does not have a POSIX-conformant

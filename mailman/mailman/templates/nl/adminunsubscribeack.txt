@@ -1,0 +1,2 @@
+%(member)s is verwijderd van %(listname)s.
+

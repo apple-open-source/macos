@@ -17,7 +17,7 @@
 
 
 //
-// ssblob - objects to represent key and database blobs to SecurityServer
+// ssblob - objects to represent persistent blobs used by SecurityServer
 //
 #ifndef _H_SSBLOB
 #define _H_SSBLOB
@@ -28,20 +28,25 @@
 #include <Security/cssmalloc.h>
 #include <Security/cssmacl.h>
 #include <Security/memutils.h>
+#include <Security/endian.h>
 
 
-namespace Security
-{
+namespace Security {
+namespace SecurityServer {
 
 using LowLevelMemoryUtilities::increment;
 
-namespace SecurityServer
-{
 
 //
-// A generic blob
+// A generic blob.
+// Note that Blob and its subclasses are meant to be Byte Order Corrected.
+// Make sure all non-byte fields are Endian<> qualified.
 //
 class Blob {
+public:
+	typedef Endian<uint32> uint32e;
+	typedef Endian<sint32> sint32e;
+
 protected:
     template <class T>
     T *at(off_t offset)		{ return LowLevelMemoryUtilities::increment<T>(this, offset); }
@@ -55,8 +60,9 @@ protected:
 class CommonBlob : public Blob {
 public:
     // initial fixed fields for versioning
-    uint32 magic;		// magic number
-    uint32 version;		// version code
+    uint32e magic;		// magic number
+    uint32e blobVersion; // version code
+	uint32 version() const { return blobVersion; }
     
     static const uint32 magicNumber = 0xfade0711;
 
@@ -66,6 +72,7 @@ public:
     
 public:
     void initialize(uint32 version = currentVersion);
+	bool isValid() const;
     void validate(CSSM_RETURN failureCode) const;
 	
 	void *data()		{ return at(0); }
@@ -99,11 +106,11 @@ public:
 
 public:    
     // position separators between variable-length fields (see below)
-    uint32 startCryptoBlob;		// end of public ACL; start of crypto blob
-    uint32 totalLength;			// end of crypto blob; end of entire blob
+    uint32e startCryptoBlob;	// end of public ACL; start of crypto blob
+    uint32e totalLength;		// end of crypto blob; end of entire blob
 
     Signature randomSignature;	// randomizing database signature
-    uint32 sequence;			// database sequence number
+    uint32e sequence;			// database sequence number
     DBParameters params;		// database settable parameters
 
     uint8 salt[20];				// derivation salt
@@ -135,17 +142,17 @@ public:
 //
 class KeyBlob : public CommonBlob {
 public:
-    uint32 startCryptoBlob;		// end of public ACL; start of crypto blob
-    uint32 totalLength;			// end of crypto blob; end of entire blob
+    uint32e startCryptoBlob;	// end of public ACL; start of crypto blob
+    uint32e totalLength;		// end of crypto blob; end of entire blob
 
     uint8 iv[8];				// encryption iv
 
     CssmKey::Header header;		// key header as-is
     struct WrappedFields {
-        CSSM_KEYBLOB_TYPE blobType;
-        CSSM_KEYBLOB_FORMAT blobFormat;
-        CSSM_ALGORITHMS wrapAlgorithm;
-        CSSM_ENCRYPT_MODE wrapMode;
+        Endian<CSSM_KEYBLOB_TYPE> blobType;
+        Endian<CSSM_KEYBLOB_FORMAT> blobFormat;
+        Endian<CSSM_ALGORITHMS> wrapAlgorithm;
+        Endian<CSSM_ENCRYPT_MODE> wrapMode;
     } wrappedHeader;
 
     uint8 blobSignature[20];	// HMAC/SHA1 of entire blob except itself
@@ -164,7 +171,10 @@ public:
     static const uint32 managedAttributes =
         CSSM_KEYATTR_ALWAYS_SENSITIVE |
         CSSM_KEYATTR_NEVER_EXTRACTABLE |
-        CSSM_KEYATTR_PERMANENT;
+        CSSM_KEYATTR_PERMANENT |
+		CSSM_KEYATTR_EXTRACTABLE;
+	static const uint32 forcedAttributes =
+		CSSM_KEYATTR_EXTRACTABLE;
 
 public:
     KeyBlob *copy(CssmAllocator &alloc) const
@@ -176,8 +186,18 @@ public:
 };
 
 
-} // end namespace SecurityServer
+//
+// An auto-unlock record (database identity plus raw unlock key)
+//
+class UnlockBlob : public CommonBlob {
+public:
+	typedef uint8 MasterKey[24];
+	MasterKey masterKey;		// raw bits (triple-DES) - make your own CssmKey
+	DbBlob::Signature signature; // signature is index
+};
 
+
+} // end namespace SecurityServer
 } // end namespace Security
 
 

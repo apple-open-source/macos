@@ -1,8 +1,8 @@
 /* 
    +----------------------------------------------------------------------+
-   | PHP version 4.0                                                      |
+   | PHP Version 4                                                        |
    +----------------------------------------------------------------------+
-   | Copyright (c) 1997-2001 The PHP Group                                |
+   | Copyright (c) 1997-2003 The PHP Group                                |
    +----------------------------------------------------------------------+
    | This source file is subject to version 2.02 of the PHP license,      |
    | that is bundled with this package in the file LICENSE, and is        |
@@ -12,12 +12,12 @@
    | obtain it through the world-wide-web, please send a note to          |
    | license@php.net so we can mail you a copy immediately.               |
    +----------------------------------------------------------------------+
-   | Authors: Rasmus Lerdorf <rasmus@lerdorf.on.ca>                       |
-   |          Stig Sæther Bakken <ssb@guardian.no>                        |
+   | Authors: Rasmus Lerdorf <rasmus@php.net>                             |
+   |          Stig Sæther Bakken <ssb@fast.no>                            |
    +----------------------------------------------------------------------+
 */
 
-/* $Id: php_string.h,v 1.1.1.5 2001/12/14 22:13:27 zarzycki Exp $ */
+/* $Id: php_string.h,v 1.1.1.8 2003/07/18 18:07:44 zarzycki Exp $ */
 
 /* Synced with php 3.0 revision 1.43 1999-06-16 [ssb] */
 
@@ -27,7 +27,7 @@
 PHP_FUNCTION(strspn);
 PHP_FUNCTION(strcspn);
 PHP_FUNCTION(str_replace);
-PHP_FUNCTION(chop);
+PHP_FUNCTION(rtrim);
 PHP_FUNCTION(trim);
 PHP_FUNCTION(ltrim);
 PHP_FUNCTION(soundex);
@@ -82,10 +82,17 @@ PHP_FUNCTION(strnatcasecmp);
 PHP_FUNCTION(substr_count);
 PHP_FUNCTION(str_pad);
 PHP_FUNCTION(sscanf);
+PHP_FUNCTION(str_shuffle);
+PHP_FUNCTION(str_word_count);
 #ifdef HAVE_STRCOLL
 PHP_FUNCTION(strcoll);
 #endif
+#if HAVE_STRFMON
+PHP_FUNCTION(money_format);
+#endif
 
+PHP_MINIT_FUNCTION(string_filters);
+PHP_MSHUTDOWN_FUNCTION(string_filters);
 
 #if defined(HAVE_LOCALECONV) && defined(ZTS)
 PHP_MINIT_FUNCTION(localeconv);
@@ -101,6 +108,10 @@ PHP_MINIT_FUNCTION(nl_langinfo);
 	strnatcmp_ex(a, strlen(a), b, strlen(b), 1)
 PHPAPI int strnatcmp_ex(char const *a, size_t a_len, char const *b, size_t b_len, int fold_case);
 
+#ifdef HAVE_LOCALECONV
+struct lconv *localeconv_r(struct lconv *out);
+#endif
+
 PHPAPI char *php_strtoupper(char *s, size_t len);
 PHPAPI char *php_strtolower(char *s, size_t len);
 PHPAPI char *php_strtr(char *str, int len, char *str_from, char *str_to, int trlen);
@@ -113,32 +124,34 @@ PHPAPI void php_dirname(char *str, int len);
 PHPAPI char *php_stristr(unsigned char *s, unsigned char *t, size_t s_len, size_t t_len);
 PHPAPI char *php_str_to_str(char *haystack, int length, char *needle,
 		int needle_len, char *str, int str_len, int *_new_length);
-PHPAPI void php_trim(pval *str, pval *return_value, int mode TSRMLS_DC);
-PHPAPI void php_trim2(zval *str, zval *what, zval *return_value, int mode TSRMLS_DC);
-PHPAPI void php_strip_tags(char *rbuf, int len, int state, char *allow, int allow_len);
-
-PHPAPI void php_char_to_str(char *str, uint len, char from, char *to, int to_len, pval *result);
-
-PHPAPI void php_implode(pval *delim, pval *arr, pval *return_value);
-PHPAPI void php_explode(pval *delim, pval *str, pval *return_value, int limit);
+PHPAPI char *php_trim(char *c, int len, char *what, int what_len, zval *return_value, int mode TSRMLS_DC);
+PHPAPI size_t php_strip_tags(char *rbuf, int len, int *state, char *allow, int allow_len);
+PHPAPI int php_char_to_str(char *str, uint len, char from, char *to, int to_len, pval *result);
+PHPAPI void php_implode(zval *delim, zval *arr, zval *return_value);
+PHPAPI void php_explode(zval *delim, zval *str, zval *return_value, int limit);
 
 static inline char *
 php_memnstr(char *haystack, char *needle, int needle_len, char *end)
 {
 	char *p = haystack;
-	char first = *needle;
+	char ne = needle[needle_len-1];
 
-	/* let end point to the last character where needle may start */
 	end -= needle_len;
-	
+
 	while (p <= end) {
-		while (*p != first)
-			if (++p > end)
-				return NULL;
-		if (memcmp(p, needle, needle_len) == 0)
-			return p;
+		if ((p = memchr(p, *needle, (end-p+1))) && ne == p[needle_len-1]) {
+			if (!memcmp(needle, p, needle_len-1)) {
+				return p;
+			}
+		}
+		
+		if (p == NULL) {
+			return NULL;
+		}
+		
 		p++;
 	}
+	
 	return NULL;
 }
 
@@ -151,6 +164,5 @@ PHPAPI char *php_strerror(int errnum);
 #endif
 
 void register_string_constants(INIT_FUNC_ARGS);
-int php_charmask(unsigned char *input, int len, char *mask TSRMLS_DC);
 
 #endif /* PHP_STRING_H */

@@ -3,8 +3,6 @@
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
- * Copyright (c) 1999-2003 Apple Computer, Inc.  All Rights Reserved.
- * 
  * This file contains Original Code and/or Modifications of Original Code
  * as defined in and that are subject to the Apple Public Source License
  * Version 2.0 (the 'License'). You may not use this file except in
@@ -81,6 +79,8 @@ extern enum bool profile_server;
 extern enum bool prebinding;
 extern enum bool launched;
 extern enum bool executable_prebound;
+extern enum bool all_twolevel_modules_prebound;
+extern enum bool trying_to_use_prebinding_post_launch;
 
 extern char *executables_path;
 extern unsigned long executables_pathlen;

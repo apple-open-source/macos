@@ -1,5 +1,6 @@
-/* BSD compatible make directory function for System V
-   Copyright (C) 1988, 1990, 1998 Free Software Foundation, Inc.
+/* On some systems, mkdir ("foo/", 0700) fails because of the trailing
+   slash.  On those systems, this wrapper removes the trailing slash.
+   Copyright (C) 2001 Free Software Foundation, Inc.
 
    This program is free software; you can redistribute it and/or modify
    it under the terms of the GNU General Public License as published by
@@ -15,94 +16,61 @@
    along with this program; if not, write to the Free Software Foundation,
    Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.  */
 
-#if HAVE_CONFIG_H
-# include <config.h>
-#endif
+/* written by Jim Meyering */
+
+#include <config.h>
+
+/* Disable the definition of mkdir to rpl_mkdir (from config.h) in this
+   file.  Otherwise, we'd get conflicting prototypes for rpl_mkdir on
+   most systems.  */
+#undef mkdir
 
 #include <sys/types.h>
 #include <sys/stat.h>
-#include <errno.h>
-#ifndef errno
-extern int errno;
+#include <stdio.h>
+#if HAVE_STDLIB_H
+# include <stdlib.h>
 #endif
 
-#if STAT_MACROS_BROKEN
-# undef S_ISDIR
+#if HAVE_STRING_H
+# include <string.h>
+#else
+# include <strings.h>
 #endif
 
-#if !defined(S_ISDIR) && defined(S_IFDIR)
-# define S_ISDIR(m) (((m) & S_IFMT) == S_IFDIR)
+#include "dirname.h"
+#include "xalloc.h"
+
+#ifndef HAVE_DECL_FREE
+"this configure-time declaration test was not run"
+#endif
+#if !HAVE_DECL_FREE
+void free ();
 #endif
 
-#ifndef S_IRWXU
-# define S_IRWXU 0700
-#endif
-#ifndef S_IRWXG
-# define S_IRWXG 0070
-#endif
-#ifndef S_IRWXO
-# define S_IRWXO 0007
-#endif
-
-/* mkdir adapted from GNU tar.  */
-
-/* Make directory DPATH, with permission mode DMODE.
-
-   Written by Robert Rother, Mariah Corporation, August 1985
-   (sdcsvax!rmr or rmr@uscd).  If you want it, it's yours.
-
-   Severely hacked over by John Gilmore to make a 4.2BSD compatible
-   subroutine.	11Mar86; hoptoad!gnu
-
-   Modified by rmtodd@uokmax 6-28-87 -- when making an already existing dir,
-   subroutine didn't return EEXIST.  It does now.  */
+/* This function is required at least for NetBSD 1.5.2.  */
 
 int
-mkdir (const char *dpath, mode_t dmode)
+rpl_mkdir (char const *dir, mode_t mode)
 {
-  pid_t cpid;
-  mode_t mode;
-  int status;
-  struct stat statbuf;
+  int ret_val;
+  char *tmp_dir;
+  size_t len = strlen (dir);
 
-  if (stat (dpath, &statbuf) == 0)
+  if (len && dir[len - 1] == '/')
     {
-      errno = EEXIST;		/* stat worked, so it already exists.  */
-      return -1;
+      tmp_dir = xstrdup (dir);
+      strip_trailing_slashes (tmp_dir);
+    }
+  else
+    {
+      tmp_dir = (char *) dir;
     }
 
-  /* If stat fails for a reason other than non-existence, return error.  */
-  if (errno != ENOENT)
-    return -1;
+  ret_val = mkdir (tmp_dir, mode);
 
-  cpid = fork ();
-  switch (cpid)
-    {
-    case -1:			/* Cannot fork.  */
-      return -1;		/* errno is already set.  */
+  if (tmp_dir != dir)
+    free (tmp_dir);
 
-    case 0:			/* Child process.  */
-      /* Cheap hack to set mode of new directory.  Since this child
-	 process is going away anyway, we zap its umask.
-	 This won't suffice to set SUID, SGID, etc. on this
-	 directory, so the parent process calls chmod afterward.  */
-      mode = umask (0);	/* Get current umask.  */
-      /* Set for mkdir.  */
-      umask (mode | ((S_IRWXU | S_IRWXG | S_IRWXO) & ~dmode));
-      execl ("/bin/mkdir", "mkdir", dpath, (char *) 0);
-      _exit (1);
-
-    default:			/* Parent process.  */
-      /* Wait for kid to finish.  */
-      while (wait (&status) != cpid)
-	/* Do nothing.  */ ;
-
-      if (status)
-	{
-	  /* /bin/mkdir failed.  */
-	  errno = EIO;
-	  return -1;
-	}
-      return chmod (dpath, dmode);
-    }
+  return ret_val;
 }

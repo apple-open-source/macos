@@ -16,7 +16,7 @@
 # Implements stack window for gdb
 # ----------------------------------------------------------------------
 
-class StackWin {
+itcl::class StackWin {
   inherit EmbeddedWin GDBWin
 
   private {

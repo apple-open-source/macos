@@ -15,7 +15,8 @@ topdir = @top_srcdir@
 LIBS = -lsio -lstr -lmisc -lxlog -lportable -lpset @LIBS@
 
 CFLAGS += @CFLAGS@ 
-DCFLAGS = -Wall -Wshadow -Wredundant-decls -Wcast-align -Wpointer-arith -g
+DCFLAGS = -Wall -Wredundant-decls -W -Wfloat-equal -Wundef -Wcast-qual -Wwrite-strings -Wconversion -Wmissing-noreturn -Wmissing-format-attribute -Wshadow -Wpointer-arith -g
+
 
 DEFS = @DEFS@
 

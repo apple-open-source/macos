@@ -25,5 +25,4 @@
 #include "SYS.h"
 
 SYSCALL(recvmsg, 3)
-	blr
 

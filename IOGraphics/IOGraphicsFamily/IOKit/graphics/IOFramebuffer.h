@@ -275,7 +275,19 @@ protected:
 private:
     struct IOFramebufferPrivate *	__private;
 
-    OSMetaClassDeclareReservedUnused(IOFramebuffer, 0);
+public:
+/*! @function doI2CRequest
+    @abstract Carry out an I2C request.
+    @discussion IOFramebuffer subclasses may optionally implement this method to perform I2C bus requests on one of the buses they support. Alternatively they may implement the setDDCClock(), setDDCData(), readDDCClock(), readDDCData() methods and respond from getAttributeForConnection() to the kConnectionSupportsLLDDCSense attribute with success, in which case IOFramebuffer::doI2CRequest() will carry out a software implementation of I2C using the low level routines and conforming to the timing constraints passed in the timing parameter. Subclasses may pass timing parameters tuned for the specific bus, otherwise VESA DDC defaults will apply.
+    @timing event Subclasses may pass timing parameters tuned for the specific bus, otherwise if NULL, VESA DDC defaults will apply.
+    @param request An IOI2CRequest structure. The request should be carried out synchronously if the completion routine is NULL, otherwise it may optionally be carried out asynchronously. The completion routine should be called if supplied.
+    @result an IOReturn code. If kIOReturnSuccces, the result of the transaction is returned in the requests result field.
+*/
+    virtual IOReturn doI2CRequest( UInt32 bus, struct IOI2CBusTiming * timing, struct IOI2CRequest * request );
+
+private:
+    OSMetaClassDeclareReservedUsed(IOFramebuffer, 0);
+
     OSMetaClassDeclareReservedUnused(IOFramebuffer, 1);
     OSMetaClassDeclareReservedUnused(IOFramebuffer, 2);
     OSMetaClassDeclareReservedUnused(IOFramebuffer, 3);
@@ -327,6 +339,10 @@ public:
                                     void * 		security_id,
                                     UInt32  		type,
                                     IOUserClient **	handler );
+    virtual IOReturn callPlatformFunction( const OSSymbol * functionName,
+				    bool waitForFunction,
+				    void *p1, void *p2,
+				    void *p3, void *p4 );
 
     virtual void hideCursor( void );
     virtual void showCursor( Point * cursorLoc, int frame );
@@ -629,13 +645,14 @@ public:
     @abstract Generic method to retrieve some attribute of the framebuffer device, specific to one display connection.
     @discussion IOFramebuffer subclasses may implement this method to allow arbitrary attribute/value pairs to be returned, specific to one display connection. 
     @param attribute Defines the attribute to be returned. Some defined attributes are:<br> 
-    kConnectionSupportsHLDDCSense If the framebuffer supports the DDC methods hasDDCConnect() and getDDCBlock() it should return success (and no value) for this attribute.
+    kConnectionSupportsHLDDCSense If the framebuffer supports the DDC methods hasDDCConnect() and getDDCBlock() it should return success (and no value) for this attribute.<br>
+    kConnectionSupportsLLDDCSense If the framebuffer wishes to make use of IOFramebuffer::doI2CRequest software implementation of I2C it should implement the I2C methods setDDCClock(), setDDCData(), readDDCClock(), readDDCData(), and it should return success (and no value) for this attribute.<br>
     @param value Returns the value for the attribute.
     @result an IOReturn code.
 */
 
     virtual IOReturn getAttributeForConnection( IOIndex connectIndex,
-                    IOSelect attribute, UInt32  * value );
+                    IOSelect attribute, UInt32 * value );
 
 /*! @function convertCursorImage
     @abstract Utility method of IOFramebuffer to convert cursor image to a hardware cursor format.
@@ -709,12 +726,41 @@ public:
     virtual IOReturn connectFlags( IOIndex connectIndex,
                     IODisplayModeID displayMode, IOOptionBits * flags );
 
-    //// IOLowLevelDDCSense - obsolete, do not implement
+    //// IOLowLevelDDCSense
 
-    virtual void setDDCClock( IOIndex connectIndex, UInt32 value );
-    virtual void setDDCData( IOIndex connectIndex, UInt32 value );
-    virtual bool readDDCClock( IOIndex connectIndex );
-    virtual bool readDDCData( IOIndex connectIndex );
+/*! @function setDDCClock
+    @abstract Sets the state of the I2C clock line on a bus.
+    @discussion Framebuffers making use of the IOFramebuffer::doI2CRequest() software implementation of I2C should implement this method to set the state of the I2C clock line on the given bus. Otherwise may be unimplemented.
+    @param bus Index of the bus.
+    @param value One of kIODDCLow, kIODDCHigh, kIODDCTristate.
+*/
+
+    virtual void setDDCClock( IOIndex bus, UInt32 value );
+
+/*! @function setDDCData
+    @abstract Sets the state of the I2C data line on a bus.
+    @discussion Framebuffers making use of the IOFramebuffer::doI2CRequest() software implementation of I2C should implement this method to set the state of the I2C data line on the given bus. Otherwise may be unimplemented.
+    @param bus Index of the bus.
+    @param value One of kIODDCLow, kIODDCHigh, kIODDCTristate.
+*/
+    virtual void setDDCData( IOIndex bus, UInt32 value );
+
+/*! @function readDDCClock
+    @abstract Reads the input state of the I2C clock line on a bus.
+    @discussion Framebuffers making use of the IOFramebuffer::doI2CRequest() software implementation of I2C should implement this method to return the input state of the I2C clock line on the given bus. Otherwise may be unimplemented.
+    @param bus Index of the bus.
+    @result A boolean reflecting the current state of the clock line on the given bus.
+*/
+    virtual bool readDDCClock( IOIndex bus );
+
+/*! @function readDDCData
+    @abstract Reads the input state of the I2C data line on a bus.
+    @discussion Framebuffers making use of the IOFramebuffer::doI2CRequest() software implementation of I2C should implement this method to return the input state of the I2C data line on the given bus. Otherwise may be unimplemented.
+    @param bus Index of the bus.
+    @result A boolean reflecting the current state of the data line on the given bus.
+*/
+    virtual bool readDDCData( IOIndex bus );
+
     virtual IOReturn enableDDCRaster( bool enable );
 
 /*! @function hasDDCConnect

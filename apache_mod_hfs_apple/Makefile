@@ -29,7 +29,7 @@ include $(MAKEFILEDIR)/commands-$(OS).make
 all build $(MODULE): $(MODULE_SRC) $(OTHER_SRC)
 	ln -sf $(SRCROOT)$(SRCPATH)/Makefile $(OBJROOT)/Makefile
 	ln -sf $(SRCROOT)$(SRCPATH)/mod_hfs_apple.c $(OBJROOT)/mod_hfs_apple.c
-	cd $(OBJROOT) ; /usr/sbin/apxs -c -o $(OBJROOT)/$(MODULE) $(OBJROOT)/$(MODULE_SRC) $(OTHER_SRC)
+	cd $(OBJROOT) ; /usr/sbin/apxs -c -Wc,"$(RC_CFLAGS)" -Wl,"$(RC_CFLAGS)" -o $(OBJROOT)/$(MODULE) $(OBJROOT)/$(MODULE_SRC) $(OTHER_SRC)
 	#$(CC) -DDARWIN -DUSE_HSREGEX -DUSE_EXPAT -I../lib/expat-lite -g -O3 -pipe -DHARD_SERVER_LIMIT=1024 -DEAPI -DSHARED_MODULE -I /usr/include/httpd -traditional-cpp -Wno-four-char-constants -F$(NEXT_ROOT)$(SYSTEM_LIBRARY_DIR)/PrivateFrameworks -c $(MODULE_SRC)
 	#$(CC) -bundle -undefined error -o $(MODULE) $(MODULE_NAME).o -bundle_loader /usr/sbin/httpd
  

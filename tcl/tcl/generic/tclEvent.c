@@ -11,7 +11,7 @@
  * See the file "license.terms" for information on usage and redistribution
  * of this file, and for a DISCLAIMER OF ALL WARRANTIES.
  *
- * RCS: @(#) $Id: tclEvent.c,v 1.1.1.5 2002/04/05 16:13:18 jevans Exp $
+ * RCS: @(#) $Id: tclEvent.c,v 1.1.1.7 2003/07/09 01:33:44 landonf Exp $
  */
 
 #include "tclInt.h"
@@ -111,8 +111,8 @@ static void		BgErrorDeleteProc _ANSI_ARGS_((ClientData clientData,
 			    Tcl_Interp *interp));
 static void		HandleBgErrors _ANSI_ARGS_((ClientData clientData));
 static char *		VwaitVarProc _ANSI_ARGS_((ClientData clientData,
-			    Tcl_Interp *interp, char *name1, char *name2,
-			    int flags));
+			    Tcl_Interp *interp, CONST char *name1, 
+			    CONST char *name2, int flags));
 
 /*
  *----------------------------------------------------------------------
@@ -140,7 +140,7 @@ Tcl_BackgroundError(interp)
 				 * occurred. */
 {
     BgError *errPtr;
-    char *errResult, *varValue;
+    CONST char *errResult, *varValue;
     ErrAssocData *assocPtr;
     int length;
 
@@ -222,7 +222,7 @@ HandleBgErrors(clientData)
     ClientData clientData;	/* Pointer to ErrAssocData structure. */
 {
     Tcl_Interp *interp;
-    char *argv[2];
+    CONST char *argv[2];
     int code;
     BgError *errPtr;
     ErrAssocData *assocPtr = (ErrAssocData *) clientData;
@@ -290,7 +290,7 @@ HandleBgErrors(clientData)
 		int len;
 
 		string = Tcl_GetStringFromObj(Tcl_GetObjResult(interp), &len);
-                if (strcmp(string, "\"bgerror\" is an invalid command name or ambiguous abbreviation") == 0) {
+		if (Tcl_FindCommand(interp, "bgerror", NULL, TCL_GLOBAL_ONLY) == NULL) {
                     Tcl_WriteChars(errChannel, assocPtr->firstBgPtr->errorInfo, -1);
                     Tcl_WriteChars(errChannel, "\n", -1);
                 } else {
@@ -763,13 +763,17 @@ void
 Tcl_Finalize()
 {
     ExitHandler *exitPtr;
-    ThreadSpecificData *tsdPtr;
 
     TclpInitLock();
     if (subsystemsInitialized != 0) {
 	subsystemsInitialized = 0;
 
-	tsdPtr = TCL_TSD_INIT(&dataKey);
+	/*
+	 * Ensure the thread-specific data is initialised as it is
+	 * used in Tcl_FinalizeThread()
+	 */
+
+	(void) TCL_TSD_INIT(&dataKey);
 
 	/*
 	 * Invoke exit handlers first.
@@ -812,6 +816,18 @@ Tcl_Finalize()
 	TclFinalizeCompExecEnv();
 	TclFinalizeEnvironment();
 
+	/* 
+	 * Finalizing the filesystem must come after anything which
+	 * might conceivably interact with the 'Tcl_FS' API. 
+	 */
+	TclFinalizeFilesystem();
+
+	/* 
+	 * We must be sure the encoding finalization doesn't need
+	 * to examine the filesystem in any way.  Since it only
+	 * needs to clean up internal data structures, this is
+	 * fine.
+	 */
 	TclFinalizeEncodingSubsystem();
 
 	if (tclExecutableName != NULL) {
@@ -840,10 +856,20 @@ Tcl_Finalize()
 	 * We defer unloading of packages until very late 
 	 * to avoid memory access issues.  Both exit callbacks and
 	 * synchronization variables may be stored in packages.
+	 * 
+	 * Note that TclFinalizeLoad unloads packages in the reverse
+	 * of the order they were loaded in (i.e. last to be loaded
+	 * is the first to be unloaded).  This can be important for
+	 * correct unloading when dependencies exist.
+	 * 
+	 * Once load has been finalized, we will have deleted any
+	 * temporary copies of shared libraries and can therefore
+	 * reset the filesystem to its original state.
 	 */
 
 	TclFinalizeLoad();
-
+	TclResetFilesystem();
+	
 	/*
 	 * There shouldn't be any malloc'ed memory after this.
 	 */
@@ -879,10 +905,6 @@ Tcl_FinalizeThread()
 	    (ThreadSpecificData *)TclThreadDataKeyGet(&dataKey);
 
     if (tsdPtr != NULL) {
-	/*
-	 * Invoke thread exit handlers first.
-	 */
-
 	tsdPtr->inExit = 1;
 
 	/*
@@ -910,13 +932,19 @@ Tcl_FinalizeThread()
 	TclFinalizeIOSubsystem();
 	TclFinalizeNotifier();
 	TclFinalizeAsync();
+    }
 
 	/*
 	 * Blow away all thread local storage blocks.
+     *
+     * Note that Tcl API allows creation of threads which do not use any
+     * Tcl interp or other Tcl subsytems. Those threads might, however,
+     * use thread local storage, so we must unconditionally finalize it.
+     *
+     * Fix [Bug #571002]
 	 */
 
 	TclFinalizeThreadData();
-    }
 }
 
 /*
@@ -938,9 +966,32 @@ Tcl_FinalizeThread()
 int
 TclInExit()
 {
-    ThreadSpecificData *tsdPtr = TclThreadDataKeyGet(&dataKey);
+    return inFinalize;
+}
+
+/*
+ *----------------------------------------------------------------------
+ *
+ * TclInThreadExit --
+ *
+ *	Determines if we are in the middle of thread exit-time cleanup.
+ *
+ * Results:
+ *	If we are in the middle of exiting this thread, 1, otherwise 0.
+ *
+ * Side effects:
+ *	None.
+ *
+ *----------------------------------------------------------------------
+ */
+
+int
+TclInThreadExit()
+{
+    ThreadSpecificData *tsdPtr = (ThreadSpecificData *)
+	    TclThreadDataKeyGet(&dataKey);
     if (tsdPtr == NULL) {
-	return inFinalize;
+	return 0;
     } else {
 	return tsdPtr->inExit;
     }
@@ -1012,8 +1063,8 @@ static char *
 VwaitVarProc(clientData, interp, name1, name2, flags)
     ClientData clientData;	/* Pointer to integer to set to 1. */
     Tcl_Interp *interp;		/* Interpreter containing variable. */
-    char *name1;		/* Name of variable. */
-    char *name2;		/* Second part of variable name. */
+    CONST char *name1;		/* Name of variable. */
+    CONST char *name2;		/* Second part of variable name. */
     int flags;			/* Information about what happened. */
 {
     int *donePtr = (int *) clientData;
@@ -1049,7 +1100,7 @@ Tcl_UpdateObjCmd(clientData, interp, objc, objv)
 {
     int optionIndex;
     int flags = 0;		/* Initialized to avoid compiler warning. */
-    static char *updateOptions[] = {"idletasks", (char *) NULL};
+    static CONST char *updateOptions[] = {"idletasks", (char *) NULL};
     enum updateOptions {REGEXP_IDLETASKS};
 
     if (objc == 1) {

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1999 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 2003 Apple Computer, Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -22,7 +22,7 @@
  * 
  * @APPLE_LICENSE_HEADER_END@
  */
-/*
+/*-
  * Copyright (c) 1990, 1993
  *	The Regents of the University of California.  All rights reserved.
  *
@@ -58,6 +58,10 @@
  * SUCH DAMAGE.
  */
 
+#if defined(LIBC_SCCS) && !defined(lint)
+static char sccsid[] = "@(#)ndbm.c	8.4 (Berkeley) 7/21/94";
+#endif /* LIBC_SCCS and not lint */
+#include <sys/cdefs.h>
 
 /*
  * This package provides a dbm compatible interface to the new hashing
@@ -66,10 +70,11 @@
 
 #include <sys/param.h>
 
-#include <ndbm.h>
 #include <stdio.h>
 #include <string.h>
+#include <errno.h>
 
+#include <ndbm.h>
 #include "hash.h"
 
 /*
@@ -88,9 +93,14 @@ dbm_open(file, flags, mode)
 	info.bsize = 4096;
 	info.ffactor = 40;
 	info.nelem = 1;
-	info.cachesize = NULL;
+	info.cachesize = 0;
 	info.hash = NULL;
 	info.lorder = 0;
+
+	if( strlen(file) >= sizeof(path) - strlen(DBM_SUFFIX)) {
+		errno = ENAMETOOLONG;
+		return(NULL);
+	}
 	(void)strcpy(path, file);
 	(void)strcat(path, DBM_SUFFIX);
 	return ((DBM *)__hash_open(path, flags, mode, &info, 0));
@@ -113,15 +123,20 @@ dbm_fetch(db, key)
 	DBM *db;
 	datum key;
 {
-	datum retval;
+	datum retdata;
 	int status;
+	DBT dbtkey, dbtretdata;
 
-	status = (db->get)(db, (DBT *)&key, (DBT *)&retval, 0);
+	dbtkey.data = key.dptr;
+	dbtkey.size = key.dsize;
+	status = (db->get)(db, &dbtkey, &dbtretdata, 0);
 	if (status) {
-		retval.dptr = NULL;
-		retval.dsize = 0;
+		dbtretdata.data = NULL;
+		dbtretdata.size = 0;
 	}
-	return (retval);
+	retdata.dptr = dbtretdata.data;
+	retdata.dsize = dbtretdata.size;
+	return (retdata);
 }
 
 /*
@@ -134,11 +149,14 @@ dbm_firstkey(db)
 	DBM *db;
 {
 	int status;
-	datum retdata, retkey;
+	datum retkey;
+	DBT dbtretkey, dbtretdata;
 
-	status = (db->seq)(db, (DBT *)&retkey, (DBT *)&retdata, R_FIRST);
+	status = (db->seq)(db, &dbtretkey, &dbtretdata, R_FIRST);
 	if (status)
-		retkey.dptr = NULL;
+		dbtretkey.data = NULL;
+	retkey.dptr = dbtretkey.data;
+	retkey.dsize = dbtretkey.size;
 	return (retkey);
 }
 
@@ -152,13 +170,17 @@ dbm_nextkey(db)
 	DBM *db;
 {
 	int status;
-	datum retdata, retkey;
+	datum retkey;
+	DBT dbtretkey, dbtretdata;
 
-	status = (db->seq)(db, (DBT *)&retkey, (DBT *)&retdata, R_NEXT);
+	status = (db->seq)(db, &dbtretkey, &dbtretdata, R_NEXT);
 	if (status)
-		retkey.dptr = NULL;
+		dbtretkey.data = NULL;
+	retkey.dptr = dbtretkey.data;
+	retkey.dsize = dbtretkey.size;
 	return (retkey);
 }
+
 /*
  * Returns:
  *	 0 on success
@@ -170,8 +192,11 @@ dbm_delete(db, key)
 	datum key;
 {
 	int status;
+	DBT dbtkey;
 
-	status = (db->del)(db, (DBT *)&key, 0);
+	dbtkey.data = key.dptr;
+	dbtkey.size = key.dsize;
+	status = (db->del)(db, &dbtkey, 0);
 	if (status)
 		return (-1);
 	else
@@ -185,12 +210,18 @@ dbm_delete(db, key)
  *	 1 if DBM_INSERT and entry exists
  */
 extern int
-dbm_store(db, key, content, flags)
+dbm_store(db, key, data, flags)
 	DBM *db;
-	datum key, content;
+	datum key, data;
 	int flags;
 {
-	return ((db->put)(db, (DBT *)&key, (DBT *)&content,
+	DBT dbtkey, dbtdata;
+
+	dbtkey.data = key.dptr;
+	dbtkey.size = key.dsize;
+	dbtdata.data = data.dptr;
+	dbtdata.size = data.dsize;
+	return ((db->put)(db, &dbtkey, &dbtdata,
 	    (flags == DBM_INSERT) ? R_NOOVERWRITE : 0));
 }
 

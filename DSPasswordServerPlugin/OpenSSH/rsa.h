@@ -12,6 +12,9 @@
  * RSA key generation, encryption and decryption.
  *
 */
+/*
+ * Portions Copyright (c) 2002 Apple Computer, Inc.
+ */
 
 /* RCSID("$OpenBSD: rsa.h,v 1.7 2000/06/20 01:39:44 markus Exp $"); */
 

@@ -2,21 +2,24 @@
  * Copyright(c) 2000-2002 Apple Computer, Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
- *
- * The contents of this file constitute Original Code as defined in and
- * are subject to the Apple Public Source License Version 1.1(the
- * "License").  You may not use this file except in compliance with the
- * License.  Please obtain a copy of the License at
- * http://www.apple.com/publicsource and read it before using this file.
- *
- * This Original Code and all software distributed under the License are
- * distributed on an "AS IS" basis, WITHOUT WARRANTY OF ANY KIND, EITHER
+ * 
+ * Copyright (c) 1999-2003 Apple Computer, Inc.  All Rights Reserved.
+ * 
+ * This file contains Original Code and/or Modifications of Original Code
+ * as defined in and that are subject to the Apple Public Source License
+ * Version 2.0 (the 'License'). You may not use this file except in
+ * compliance with the License. Please obtain a copy of the License at
+ * http://www.opensource.apple.com/apsl/ and read it before using this
+ * file.
+ * 
+ * The Original Code and all software distributed under the License are
+ * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
  * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
  * INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY,
- * FITNESS FOR A PARTICULAR PURPOSE OR NON-INFRINGEMENT.  Please see the
- * License for the specific language governing rights and limitations
- * under the License.
- *
+ * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
+ * Please see the License for the specific language governing rights and
+ * limitations under the License.
+ * 
  * @APPLE_LICENSE_HEADER_END@
  */
 
@@ -41,6 +44,7 @@
 Boolean
 SCPreferencesLock(SCPreferencesRef session, Boolean wait)
 {
+	CFAllocatorRef		allocator		= CFGetAllocator(session);
 	CFArrayRef		changes;
 	CFDataRef		currentSignature	= NULL;
 	Boolean			haveLock		= FALSE;
@@ -68,7 +72,7 @@ SCPreferencesLock(SCPreferencesRef session, Boolean wait)
 
 	if (sessionPrivate->session == NULL) {
 		/* open a session */
-		sessionPrivate->session = SCDynamicStoreCreate(NULL,
+		sessionPrivate->session = SCDynamicStoreCreate(allocator,
 							       CFSTR("SCPreferencesLock"),
 							       NULL,
 							       NULL);
@@ -80,7 +84,7 @@ SCPreferencesLock(SCPreferencesRef session, Boolean wait)
 
 	if (sessionPrivate->sessionKeyLock == NULL) {
 		/* create the session "lock" key */
-		sessionPrivate->sessionKeyLock = _SCPNotificationKey(NULL,
+		sessionPrivate->sessionKeyLock = _SCPNotificationKey(allocator,
 								     sessionPrivate->prefsID,
 								     sessionPrivate->perUser,
 								     sessionPrivate->user,
@@ -94,7 +98,7 @@ SCPreferencesLock(SCPreferencesRef session, Boolean wait)
 		goto error;
 	}
 
-	value  = CFDateCreate(NULL, CFAbsoluteTimeGetCurrent());
+	value  = CFDateCreate(allocator, CFAbsoluteTimeGetCurrent());
 
 	while (TRUE) {
 		CFArrayRef	changedKeys;
@@ -183,7 +187,7 @@ SCPreferencesLock(SCPreferencesRef session, Boolean wait)
 			SCPreferencesRef	newPrefs;
 			SCPreferencesPrivateRef	newPrivate;
 
-			newPrefs = __SCPreferencesCreate(NULL,
+			newPrefs = __SCPreferencesCreate(allocator,
 							 sessionPrivate->name,
 							 sessionPrivate->prefsID,
 							 sessionPrivate->perUser,

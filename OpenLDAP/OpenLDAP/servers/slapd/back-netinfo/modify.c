@@ -45,7 +45,6 @@ static dsstatus enqueue_modification(
 	dsrecord *rec,
 	Modification *mod)
 {
-	struct dsinfo *di = (struct dsinfo *)be->be_private;
 	struct atmap map;
 	dsattribute *a, *existing;
 	dsstatus status;
@@ -53,10 +52,8 @@ static dsstatus enqueue_modification(
 	int i;
 	u_int32_t super;
 
-	assert(di != NULL);
-
 #ifdef NEW_LOGGING
-	LDAP_LOG(("backend", LDAP_LEVEL_ARGS, "enqueue_modification: attribute %s\n", mod->sm_desc->ad_cname.bv_val));
+	LDAP_LOG((BACK_NETINFO, ARGS, "enqueue_modification: attribute %s\n", mod->sm_desc->ad_cname.bv_val));
 #else
 	Debug(LDAP_DEBUG_TRACE, "==> enqueue_modification %s\n", mod->sm_desc->ad_cname.bv_val, 0, 0);
 #endif
@@ -91,21 +88,24 @@ static dsstatus enqueue_modification(
 		return DSStatusFailed;
 	}
 
-	for (bvp = mod->sm_bvalues; bvp != NULL && bvp->bv_val != NULL; bvp++)
+	if (mod->sm_bvalues != NULL)
 	{
-		dsdata *d;
-
-		status = (map.x500ToNiTransform)(be, &d, bvp, map.type, map.x500ToNiArg);
-
-		if (status != DSStatusOK)
+		for (bvp = mod->sm_bvalues; bvp->bv_val != NULL; bvp++)
 		{
-			schemamap_atmap_release(&map);
-			dsattribute_release(a);
-			return status;
+			dsdata *d;
+	
+			status = (map.x500ToNiTransform)(be, &d, bvp, map.type, map.x500ToNiArg);
+	
+			if (status != DSStatusOK)
+			{
+				schemamap_atmap_release(&map);
+				dsattribute_release(a);
+				return status;
+			}
+	
+			dsattribute_append(a, d);
+			dsdata_release(d);
 		}
-
-		dsattribute_append(a, d);
-		dsdata_release(d);
 	}
 
 	/* Now, we've got to do something with the attribute. */
@@ -176,7 +176,7 @@ static dsstatus enqueue_modification(
 	schemamap_atmap_release(&map);
 
 #ifdef NEW_LOGGING
-	LDAP_LOG(("backend", LDAP_LEVEL_INFO, "enqueue_modification: done\n"));
+	LDAP_LOG((BACK_NETINFO, INFO, "enqueue_modification: done\n"));
 #else
 	Debug(LDAP_DEBUG_TRACE, "<== enqueue_modification\n", 0, 0, 0);
 #endif
@@ -203,7 +203,7 @@ int netinfo_back_modify(
 	char textbuf[SLAP_TEXT_BUFLEN];
 
 #ifdef NEW_LOGGING
-	LDAP_LOG(("backend", LDAP_LEVEL_ARGS, "netinfo_back_modify: DN %s\n", dn->bv_val));
+	LDAP_LOG((BACK_NETINFO, ARGS, "netinfo_back_modify: DN %s\n", dn->bv_val));
 #else
 	Debug(LDAP_DEBUG_TRACE, "==> netinfo_back_modify dn=%s\n", dn->bv_val, 0, 0);
 #endif
@@ -277,15 +277,12 @@ int netinfo_back_modify(
 	netinfo_back_entry_free(ent);
 
 	/* check for abandon */
-	ldap_pvt_thread_mutex_lock(&op->o_abandonmutex);
 	if (op->o_abandon)
 	{
 		dsrecord_release(rec);
 		ENGINE_UNLOCK(di);
-		ldap_pvt_thread_mutex_unlock(&op->o_abandonmutex);
 		return SLAPD_ABANDON;
 	}
-	ldap_pvt_thread_mutex_unlock(&op->o_abandonmutex);
 
 	status = dsengine_save(di->engine, rec);
 
@@ -294,7 +291,7 @@ int netinfo_back_modify(
 	ENGINE_UNLOCK(di);
 
 #ifdef NEW_LOGGING
-	LDAP_LOG(("backend", LDAP_LEVEL_INFO, "netinfo_back_modify: done\n"));
+	LDAP_LOG((BACK_NETINFO, INFO, "netinfo_back_modify: done\n"));
 #else
 	Debug(LDAP_DEBUG_TRACE, "<== netinfo_back_modify\n", 0, 0, 0);
 #endif

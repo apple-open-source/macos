@@ -1,7 +1,7 @@
-$ $Id: set15,v 1.1.1.1 2001/06/28 23:11:25 bbraun Exp $
+$ $Id: set15,v 1.1.1.2 2003/01/17 03:42:11 nicolai Exp $
 $ sh.func.c
 $set 15 
-1 %s: %s: Can't %s%s limit\n
-2 remove
-3 set
-4 \040hard
+1 %s: %s: Не можу %s%s л╕м╕т\n
+2 зняти
+3 виставити
+4 \040жорсткий

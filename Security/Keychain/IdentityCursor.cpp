@@ -70,12 +70,12 @@ IdentityCursor::IdentityCursor(const StorageManager::KeychainList &searchList, C
 		mKeyCursor->add(CSSM_DB_EQUAL, KeySchema::Unwrap, true);
 }
 
-IdentityCursor::~IdentityCursor()
+IdentityCursor::~IdentityCursor() throw()
 {
 }
 
 bool
-IdentityCursor::next(RefPointer<Identity> &identity)
+IdentityCursor::next(SecPointer<Identity> &identity)
 {
 	for (;;)
 	{
@@ -100,7 +100,7 @@ IdentityCursor::next(RefPointer<Identity> &identity)
 		Item cert;
 		if (mCertificateCursor->next(cert))
 		{
-			RefPointer<Certificate> certificate(static_cast<Certificate *>(cert.get()));
+			SecPointer<Certificate> certificate(static_cast<Certificate *>(cert.get()));
 			identity = new Identity(mCurrentKey, certificate);
 			return true;
 		}

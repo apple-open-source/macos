@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1998-2000 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 1998-2003 Apple Computer, Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -43,6 +43,7 @@
 #include <IOKit/storage/IOBlockStorageDriver.h>
 #include <IOKit/storage/IOMedia.h>
 #include <IOKit/storage/IOMediaBSDClient.h>
+#include <IOKit/storage/IOStorageDeviceCharacteristics.h>
 
 #define super IOService
 OSDefineMetaClassAndStructors(IOMediaBSDClient, IOService)
@@ -116,8 +117,7 @@ typedef enum { DKRTYPE_BUF, DKRTYPE_DIO } dkrtype_t;
 static int  dkreadwrite(dkr_t dkr, dkrtype_t dkrtype);
 static void dkreadwritecompletion(void *, void *, IOReturn, UInt64);
 
-#define get_kernel_task() kernel_task
-#define get_user_task()   current_task()
+extern "C" task_t get_aiotask(void);
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
@@ -167,8 +167,8 @@ const UInt32 kInvalidMinorID = (UInt32) (-1);
 struct MinorSlot
 {
     UInt32             isAssigned:1;  // (slot is occupied)
-    UInt32             isEjecting:1;  // (slot is in eject flux, needs close)
-    UInt32             isObsolete:1;  // (slot is in eject flux, needs removal)
+    UInt32             isObsolete:1;  // (slot is to be removed, close pending)
+    UInt32             isOrphaned:1;  // (slot is in  open flux, close pending)
 
     UInt32             anchorID;      // (minor's associated anchor ID)
     IOMediaBSDClient * client;        // (minor's media bsd client object)
@@ -210,6 +210,11 @@ public:
                         IOMediaBSDClient * client,
                         char *             slicePath );
 
+    UInt32      update( IOMedia *          media,
+                        UInt32             anchorID,
+                        IOMediaBSDClient * client,
+                        char *             slicePath );
+
     UInt32      locate(IOMedia * media);
     void        obsolete(UInt32 minorID);
     void        remove(UInt32 minorID);
@@ -219,8 +224,7 @@ public:
     MinorSlot * getMinor(UInt32 minorID);
 
     UInt32      getOpenCountForAnchorID(UInt32 anchorID);
-    IOMedia *   getWholeMediaAtAnchorID(UInt32 anchorID);
-    bool        hasReferencesToAnchorID(UInt32 anchorID);
+    bool        hasReferencesToAnchorID(UInt32 anchorID, bool excludeOrphans);
 };
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
@@ -228,13 +232,14 @@ public:
 class IOMediaBSDClientGlobals
 {
 protected:
-    AnchorTable *     _anchors;             // (table of anchors)
-    MinorTable *      _minors;              // (table of minors)
+    AnchorTable * _anchors;           // (table of anchors)
+    MinorTable *  _minors;            // (table of minors)
 
-    UInt32            _bdevswInstalled:1;   // (are bdevsw functions installed?)
-    UInt32            _cdevswInstalled:1;   // (are cdevsw functions installed?)
+    UInt32        _bdevswInstalled:1; // (are bdevsw functions installed?)
+    UInt32        _cdevswInstalled:1; // (are cdevsw functions installed?)
 
-    IORecursiveLock * _lock;                // (table lock)
+    IOLock *      _openLock;          // (lock for opens, closes)
+    IOLock *      _stateLock;         // (lock for state, tables)
 
 public:
     IOMediaBSDClientGlobals();
@@ -246,15 +251,18 @@ public:
 
     bool          isValid();
 
-    void          lock();
-    void          unlock();
+    void          lockOpen();
+    void          unlockOpen();
+
+    void          lockState();
+    void          unlockState();
 };
 
 static IOMediaBSDClientGlobals gIOMediaBSDClientGlobals;
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
-bool IOMediaBSDClient::init(OSDictionary * properties = 0)
+bool IOMediaBSDClient::init(OSDictionary * properties)
 {
     //
     // Initialize this object's minimal state.
@@ -301,17 +309,17 @@ bool IOMediaBSDClient::start(IOService * provider)
 
     if ( super::start(provider) == false )  return false;
 
-    // Disable access to tables, as well as terminations via stop().
+    // Disable access to tables.
 
-    gIOMediaBSDClientGlobals.lock();
+    gIOMediaBSDClientGlobals.lockState();
 
     // Create bdevsw and cdevsw nodes for the new media object.
 
     createNodes(media);
 
-    // Enable access to tables, as well as terminations via stop().
+    // Enable access to tables.
 
-    gIOMediaBSDClientGlobals.unlock();
+    gIOMediaBSDClientGlobals.unlockState();
 
     // Register this object so it can be found via notification requests. It is
     // not being registered to have I/O Kit attempt to have drivers match on it,
@@ -325,62 +333,58 @@ bool IOMediaBSDClient::start(IOService * provider)
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
-void IOMediaBSDClient::stop(IOService * provider)
+bool IOMediaBSDClient::terminate(IOOptionBits options)
 {
     //
-    // This method is called before we are detached from the provider object.
+    // This method is called when we are to terminate from the provider object.
     //
 
-    IOMedia *    media   = (IOMedia *) provider;
-    MinorTable * minors  = gIOMediaBSDClientGlobals.getMinors();
-    UInt32       minorID = 0;
+    UInt32 minorID;
+
+    // Ask our superclass' opinion.
+
+    if ( super::terminate(options) == false )  return false;
 
     // Disable access to tables.
 
-    gIOMediaBSDClientGlobals.lock();
+    gIOMediaBSDClientGlobals.lockState();
 
     // Find the minor assigned to this media.
 
-    minorID = minors->locate(media);
-    assert(minorID != kInvalidMinorID);
+    minorID = gIOMediaBSDClientGlobals.getMinors()->locate(getProvider());
 
-    // State our assumptions.
-
-    assert(media->isOpen() == false);
-
-    // Remove the minor from the minor table, unless it's still in flux (which
-    // means an open on the bdevsw/cdevsw switch is still outstanding: the one
-    // that sent the eject ioctl), in which case we mark the minor as obsolete
-    // for later removal.
-
-    if ( minors->getMinor(minorID)->isEjecting )          // (is minor in flux?)
+    if ( minorID != kInvalidMinorID )
     {
-        assert(minors->isObsolete(minorID) == false);
+        MinorSlot * minor;
 
-        minors->obsolete(minorID);
-    }
-    else
-    {
-        assert(minors->getMinor(minorID)->bdevOpen == 0);
-        assert(minors->getMinor(minorID)->cdevOpen == 0);
+        minor = gIOMediaBSDClientGlobals.getMinors()->getMinor(minorID);
 
-        minors->remove(minorID);
+        // Remove the minor from the minor table.  If an open is still
+        // outstanding, we mark the minor as obsolete for removal when
+        // the close comes in later.
+
+        if ( minor->bdevOpen || minor->cdevOpen )
+        {
+            gIOMediaBSDClientGlobals.getMinors()->obsolete(minorID);
+        }
+        else
+        {
+            gIOMediaBSDClientGlobals.getMinors()->remove(minorID);
+        }
     }
 
     // Enable access to tables.
 
-    gIOMediaBSDClientGlobals.unlock();
+    gIOMediaBSDClientGlobals.unlockState();
 
-    // Call upon the superclass to finish its work.
-
-    super::stop(media);
+    return true;
 }
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
 IOMedia * IOMediaBSDClient::getWholeMedia( IOMedia * media,
-                                           UInt32 *  slicePathSize = 0,
-                                           char *    slicePath     = 0 )
+                                           UInt32 *  slicePathSize,
+                                           char *    slicePath )
 {
     //
     // Find the whole media that roots this media tree.  A null return value
@@ -548,8 +552,13 @@ bool IOMediaBSDClient::createNodes(IOMedia * media)
     // Insert the new media into our minor table (we're almost done :-).
     //
 
-    minorID = minors->insert(media, anchorID, this, slicePath);
-    if ( minorID == kInvalidMinorID )  goto createNodesErr;
+    minorID = minors->update(media, anchorID, this, slicePath);
+
+    if ( minorID == kInvalidMinorID )
+    {
+        minorID = minors->insert(media, anchorID, this, slicePath);
+        if ( minorID == kInvalidMinorID )  goto createNodesErr;
+    }
 
     //
     // Create the required properties on the media.
@@ -727,7 +736,24 @@ OSMetaClassDefineReservedUnused(IOMediaBSDClient, 15);
 // =============================================================================
 // BSD Functions
 
-int dkopen(dev_t dev, int flags, int devtype, struct proc *)
+static bool DKIOC_IS_RESERVED(caddr_t data, u_int16_t reserved)
+{
+    UInt32 index;
+
+    for ( index = 0; index < sizeof(reserved) * 8; index++, reserved >>= 1 )
+    {
+        if ( (reserved & 1) )
+        {
+            if ( data[index] )  return true;
+        }
+    }
+
+    return false;
+}
+
+// - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+
+int dkopen(dev_t dev, int flags, int devtype, struct proc * p)
 {
     //
     // dkopen opens the device (called on each open).
@@ -735,15 +761,18 @@ int dkopen(dev_t dev, int flags, int devtype, struct proc *)
 
     int             error;
     IOStorageAccess level;
+    IOMedia *       media;
     MinorSlot *     minor;
 
     assert(S_ISBLK(devtype) || S_ISCHR(devtype));
 
-    gIOMediaBSDClientGlobals.lock();               // (disable access to tables)
+    gIOMediaBSDClientGlobals.lockOpen();    // (disable access to opens, closes)
+    gIOMediaBSDClientGlobals.lockState();   // (disable access to state, tables)
 
     error = 0;
     level = (flags & FWRITE) ? kIOStorageAccessReaderWriter
                              : kIOStorageAccessReader;
+    media = 0;
     minor = gIOMediaBSDClientGlobals.getMinor(minor(dev));
 
     //
@@ -754,7 +783,7 @@ int dkopen(dev_t dev, int flags, int devtype, struct proc *)
     {
         error = ENXIO;
     }
-    else if ( minor->isEjecting )                         // (is minor in flux?)
+    else if ( minor->isOrphaned )                         // (is minor in flux?)
     {
         error = EBUSY;
     }
@@ -772,29 +801,75 @@ int dkopen(dev_t dev, int flags, int devtype, struct proc *)
             level = kIOStorageAccessNone;
     }
 
-    if ( error == 0 && level != kIOStorageAccessNone )  // (issue open/upgrade?)
+    if ( error == 0 )                                                   // (go?)
     {
-        if ( minor->media->open(minor->client, 0, level) == false )      // (go)
-        {
-            error = EBUSY;
-        }
-    }
+        bool wasWriter;
 
-    if ( error == 0 )                                          // (update state)
-    {
-        if ( S_ISBLK(devtype) )
+        if ( S_ISBLK(devtype) )                                // (update state)
         {
             minor->bdevOpen++;
+            wasWriter = minor->bdevWriter;
             if ( (flags & FWRITE) )  minor->bdevWriter = true;
         }
         else
         {
             minor->cdevOpen++;
+            wasWriter = minor->cdevWriter;
             if ( (flags & FWRITE) )  minor->cdevWriter = true;
         }
+
+        gIOMediaBSDClientGlobals.unlockState();     // (enable access to tables)
+
+        if ( level != kIOStorageAccessNone )            // (issue open/upgrade?)
+        {
+            media = minor->media;
+            minor->media->retain();
+
+            if ( minor->media->open(minor->client, 0, level) == false )  // (go)
+            {
+                gIOMediaBSDClientGlobals.lockState();        // (disable access)
+
+                if ( S_ISBLK(devtype) )                          // (undo state)
+                {
+                    minor->bdevOpen--;
+                    minor->bdevWriter = wasWriter;
+                }
+                else
+                {
+                    minor->cdevOpen--;
+                    minor->cdevWriter = wasWriter;
+                }
+
+                assert(minor->isOrphaned == false);
+
+                if ( !minor->bdevOpen && !minor->cdevOpen && minor->isObsolete )
+                    gIOMediaBSDClientGlobals.getMinors()->remove(minor(dev));
+
+                gIOMediaBSDClientGlobals.unlockState();       // (enable access)
+
+                error = EBUSY;
+            }
+        }
+    }
+    else
+    {
+        gIOMediaBSDClientGlobals.unlockState();     // (enable access to tables)
     }
 
-    gIOMediaBSDClientGlobals.unlock();              // (enable access to tables)
+    gIOMediaBSDClientGlobals.unlockOpen();   // (enable access to opens, closes)
+
+    //
+    // Wait until I/O Kit has finished to attempt to match storage drivers
+    // or terminate storage drivers, should the media object have been re-
+    // registered or its storage driver been terminated as a result of the
+    // open.
+    //
+
+    if ( media )
+    {
+        media->waitQuiet();
+        media->release();
+    }
 
     return error;
 }
@@ -813,7 +888,8 @@ int dkclose(dev_t dev, int /* flags */, int devtype, struct proc *)
 
     assert(S_ISBLK(devtype) || S_ISCHR(devtype));
 
-    gIOMediaBSDClientGlobals.lock();               // (disable access to tables)
+    gIOMediaBSDClientGlobals.lockOpen();    // (disable access to opens, closes)
+    gIOMediaBSDClientGlobals.lockState();   // (disable access to state, tables)
 
     media     = 0;
     minor     = gIOMediaBSDClientGlobals.getMinor(minor(dev));
@@ -831,26 +907,28 @@ int dkclose(dev_t dev, int /* flags */, int devtype, struct proc *)
         minor->cdevWriter    = false;
     }
 
-    if ( minor->isEjecting )                              // (is minor in flux?)
+    if ( minor->isOrphaned )                              // (is minor in flux?)
     {
         //
-        // We've determined that the specified minor is in ejection flux.  This
+        // We have determined that the specified minor is in "open flux".  This
         // means we are in a state where the media object has been closed, only
         // the device node is still open.  This happens to the minor subsequent
         // to a DKIOCEJECT ioctl -- this close resets the flux state to normal.
         //
 
-        minor->isEjecting = false;
+        minor->isOrphaned = false;
 
         // If this minor is marked as obsolete, then we've already received the
-        // media's termination notification (stop method), but the minor is yet
-        // to be removed from the table -- remove it now.
+        // media's termination notification, but the minor is yet to be removed
+        // from the table -- remove it now.
 
         assert(minor->bdevOpen == 0);
         assert(minor->cdevOpen == 0);
 
         if ( minor->isObsolete )
             gIOMediaBSDClientGlobals.getMinors()->remove(minor(dev));
+
+        gIOMediaBSDClientGlobals.unlockState();     // (enable access to tables)
     }
     else if ( !minor->bdevOpen && !minor->cdevOpen )
     {
@@ -859,10 +937,26 @@ int dkclose(dev_t dev, int /* flags */, int devtype, struct proc *)
         // gone, on both the block and character device nodes.
         //
 
+        IOMediaBSDClient * client;
+
+        client = minor->client;
+        minor->client->retain();
+
         media = minor->media;
         minor->media->retain();
 
-        minor->media->close(minor->client);                              // (go)
+        // If this minor is marked as obsolete, then we've already received the
+        // media's termination notification, but the minor is yet to be removed
+        // from the table -- remove it now.
+
+        if ( minor->isObsolete )
+            gIOMediaBSDClientGlobals.getMinors()->remove(minor(dev));
+
+        gIOMediaBSDClientGlobals.unlockState();     // (enable access to tables)
+
+        media->close(client);                                            // (go)
+
+        client->release();
     }
     else if ( !minor->bdevWriter && !minor->cdevWriter && wasWriter )
     {
@@ -871,16 +965,19 @@ int dkclose(dev_t dev, int /* flags */, int devtype, struct proc *)
         // are gone and while readers still exist. 
         //
 
-        bool success;
-
         media = minor->media;
         minor->media->retain();
 
-        success = minor->media->open(minor->client, 0, kIOStorageAccessReader);
-        assert(success);         // (should never fail, unless deadlock avoided)
+        gIOMediaBSDClientGlobals.unlockState();     // (enable access to tables)
+
+        minor->media->open(minor->client, 0, kIOStorageAccessReader);
+    }
+    else
+    {
+        gIOMediaBSDClientGlobals.unlockState();     // (enable access to tables)
     }
 
-    gIOMediaBSDClientGlobals.unlock();              // (enable access to tables)
+    gIOMediaBSDClientGlobals.unlockOpen();   // (enable access to opens, closes)
 
     //
     // Wait until I/O Kit has finished to attempt to match storage drivers,
@@ -947,7 +1044,7 @@ int dkioctl(dev_t dev, u_long cmd, caddr_t data, int f, struct proc * p)
     int         error = 0;
     MinorSlot * minor = gIOMediaBSDClientGlobals.getMinor(minor(dev));
 
-    if ( minor->isEjecting )  return EBADF;               // (is minor in flux?)
+    if ( minor->isOrphaned )  return EBADF;               // (is minor in flux?)
 
     //
     // Process the ioctl.
@@ -955,7 +1052,7 @@ int dkioctl(dev_t dev, u_long cmd, caddr_t data, int f, struct proc * p)
 
     switch ( cmd )
     {
-        case DKIOCGETBLOCKSIZE:                // getBlockSize(u_int32_t * out);
+        case DKIOCGETBLOCKSIZE:                                 // (u_int32_t *)
         {
             //
             // This ioctl returns the preferred block size of the media object.
@@ -965,7 +1062,7 @@ int dkioctl(dev_t dev, u_long cmd, caddr_t data, int f, struct proc * p)
 
         } break;
 
-        case DKIOCGETBLOCKCOUNT32:            // getBlockCount(u_int32_t * out);
+        case DKIOCGETBLOCKCOUNT32:                              // (u_int32_t *)
         {
             //
             // This ioctl returns the size of the media object in blocks.  The
@@ -980,7 +1077,7 @@ int dkioctl(dev_t dev, u_long cmd, caddr_t data, int f, struct proc * p)
 
         } break;
 
-        case DKIOCGETBLOCKCOUNT:              // getBlockCount(u_int64_t * out);
+        case DKIOCGETBLOCKCOUNT:                                // (u_int64_t *)
         {
             //
             // This ioctl returns the size of the media object in blocks.  The
@@ -995,7 +1092,7 @@ int dkioctl(dev_t dev, u_long cmd, caddr_t data, int f, struct proc * p)
 
         } break;
 
-        case DKIOCGETMAXBLOCKCOUNTREAD:                    // (u_int64_t * out);
+        case DKIOCGETMAXBLOCKCOUNTREAD:                         // (u_int64_t *)
         {
             //
             // This ioctl returns the maximum block count for reads.
@@ -1013,7 +1110,7 @@ int dkioctl(dev_t dev, u_long cmd, caddr_t data, int f, struct proc * p)
 
         } break;
 
-        case DKIOCGETMAXBLOCKCOUNTWRITE:                   // (u_int64_t * out);
+        case DKIOCGETMAXBLOCKCOUNTWRITE:                        // (u_int64_t *)
         {
             //
             // This ioctl returns the maximum block count for writes.
@@ -1031,7 +1128,7 @@ int dkioctl(dev_t dev, u_long cmd, caddr_t data, int f, struct proc * p)
 
         } break;
 
-        case DKIOCGETMAXBYTECOUNTREAD:                     // (u_int64_t * out);
+        case DKIOCGETMAXBYTECOUNTREAD:                          // (u_int64_t *)
         {
             //
             // This ioctl returns the maximum byte count for reads.
@@ -1049,7 +1146,7 @@ int dkioctl(dev_t dev, u_long cmd, caddr_t data, int f, struct proc * p)
 
         } break;
 
-        case DKIOCGETMAXBYTECOUNTWRITE:                    // (u_int64_t * out);
+        case DKIOCGETMAXBYTECOUNTWRITE:                         // (u_int64_t *)
         {
             //
             // This ioctl returns the maximum byte count for writes.
@@ -1067,7 +1164,7 @@ int dkioctl(dev_t dev, u_long cmd, caddr_t data, int f, struct proc * p)
 
         } break;
 
-        case DKIOCGETMAXSEGMENTCOUNTREAD:                  // (u_int64_t * out);
+        case DKIOCGETMAXSEGMENTCOUNTREAD:                       // (u_int64_t *)
         {
             //
             // This ioctl returns the maximum segment count for reads.
@@ -1085,7 +1182,7 @@ int dkioctl(dev_t dev, u_long cmd, caddr_t data, int f, struct proc * p)
 
         } break;
 
-        case DKIOCGETMAXSEGMENTCOUNTWRITE:                 // (u_int64_t * out);
+        case DKIOCGETMAXSEGMENTCOUNTWRITE:                      // (u_int64_t *)
         {
             //
             // This ioctl returns the maximum segment count for writes.
@@ -1103,7 +1200,7 @@ int dkioctl(dev_t dev, u_long cmd, caddr_t data, int f, struct proc * p)
 
         } break;
 
-        case DKIOCGETMAXSEGMENTBYTECOUNTREAD:              // (u_int64_t * out);
+        case DKIOCGETMAXSEGMENTBYTECOUNTREAD:                   // (u_int64_t *)
         {
             //
             // This ioctl returns the maximum segment byte count for reads.
@@ -1121,7 +1218,7 @@ int dkioctl(dev_t dev, u_long cmd, caddr_t data, int f, struct proc * p)
 
         } break;
 
-        case DKIOCGETMAXSEGMENTBYTECOUNTWRITE:             // (u_int64_t * out);
+        case DKIOCGETMAXSEGMENTBYTECOUNTWRITE:                  // (u_int64_t *)
         {
             //
             // This ioctl returns the maximum segment byte count for writes.
@@ -1139,7 +1236,37 @@ int dkioctl(dev_t dev, u_long cmd, caddr_t data, int f, struct proc * p)
 
         } break;
 
-        case DKIOCISFORMATTED:                  // isFormatted(u_int32_t * out);
+        case DKIOCGETISVIRTUAL:                                 // (u_int32_t *)
+        {
+            //
+            // This ioctl returns the whether the storage is virtual (disk images).
+            //
+
+	    *(u_int32_t *)data = false;
+
+            OSDictionary * dict = OSDynamicCast(
+                         /* class  */ OSDictionary,
+                         /* object */ minor->media->getProperty(
+                                 /* key   */ kIOPropertyProtocolCharacteristicsKey,
+                                 /* plane */ gIOServicePlane ) );
+
+
+	    if ( dict )
+	    {
+		OSString * connect  = OSDynamicCast(OSString,
+				       dict->getObject(kIOPropertyPhysicalInterconnectTypeKey));
+		OSString * location = OSDynamicCast(OSString,
+				       dict->getObject(kIOPropertyPhysicalInterconnectLocationKey));
+
+		if (connect && location
+		  && connect->isEqualTo("Virtual Interface")
+		  && location->isEqualTo("File"))
+		    *(u_int32_t *)data = true;
+	    }
+
+        } break;
+
+        case DKIOCISFORMATTED:                                  // (u_int32_t *)
         {
             //
             // This ioctl returns truth if the media object is formatted.
@@ -1149,7 +1276,7 @@ int dkioctl(dev_t dev, u_long cmd, caddr_t data, int f, struct proc * p)
 
         } break;
 
-        case DKIOCISWRITABLE:                    // isWritable(u_int32_t * out);
+        case DKIOCISWRITABLE:                                   // (u_int32_t *)
         {
             //
             // This ioctl returns truth if the media object is writable.
@@ -1159,7 +1286,7 @@ int dkioctl(dev_t dev, u_long cmd, caddr_t data, int f, struct proc * p)
 
         } break;
 
-        case DKIOCGETFIRMWAREPATH: // getFirmwarePath(dk_firmware_path_t * out);
+        case DKIOCGETFIRMWAREPATH:                     // (dk_firmware_path_t *)
         {
             //
             // This ioctl returns the open firmware path for this media object.
@@ -1175,7 +1302,7 @@ int dkioctl(dev_t dev, u_long cmd, caddr_t data, int f, struct proc * p)
 
         } break;
 
-        case DKIOCEJECT:                                         // eject(void);
+        case DKIOCEJECT:                                               // (void)
         {
             //
             // This ioctl asks that the media object be ejected from the device.
@@ -1195,37 +1322,31 @@ int dkioctl(dev_t dev, u_long cmd, caddr_t data, int f, struct proc * p)
 
             if ( driver == 0 )  { error = ENOTTY;  break; }
 
-            // Disable access to tables.
+            // Disable access to opens, closes, tables.
 
-            gIOMediaBSDClientGlobals.lock();
+            gIOMediaBSDClientGlobals.lockOpen();
+            gIOMediaBSDClientGlobals.lockState();
 
             // Determine whether there are other opens on the device nodes that
             // are associated with this anchor -- the one valid open is the one
             // that issued this eject.  If all is well, we then attempt to open
             // the block storage driver to make the ejection request.
 
-            if ( minors->getOpenCountForAnchorID(minor->anchorID) >  1     ||
-                 driver->open(client, 0, kIOStorageAccessReader)  == false )
+            if ( minors->getOpenCountForAnchorID(minor->anchorID) == 1 &&
+                 driver->open(client, 0, kIOStorageAccessReaderWriter) )
             {
-                error = EBUSY;
-
-                // Enable access to tables.
-
-                gIOMediaBSDClientGlobals.unlock();
-            }
-            else
-            {
-                // Mark this minor as being in ejection flux (that is, we are in
+                // Mark the minor as being in "open flux".  This means we are in
                 // a state where the media object has been closed but the device
                 // node is still open; we must reject all future accesses to the
-                // device node until it is closed;  note that we do this both on
-                // success and failure of the ejection call).
+                // device node until it is closed.  Note that we do this both on
+                // success and failure of the ejection call.
 
-                minor->isEjecting = true;
+                minor->isOrphaned = true;
 
-                // Enable access to tables.
+                // Enable access to opens, closes, tables.
 
-                gIOMediaBSDClientGlobals.unlock();
+                gIOMediaBSDClientGlobals.unlockState();
+                gIOMediaBSDClientGlobals.unlockOpen();
 
                 // Close the media object before the ejection request is made.
 
@@ -1249,10 +1370,181 @@ int dkioctl(dev_t dev, u_long cmd, caddr_t data, int f, struct proc * p)
 
                 client->release();
             }
+            else
+            {
+                error = EBUSY;
+
+                // Enable access to opens, closes, tables.
+
+                gIOMediaBSDClientGlobals.unlockState();
+                gIOMediaBSDClientGlobals.unlockOpen();
+            }
 
         } break;
 
-        case DKIOCSYNCHRONIZECACHE:                   // synchronizeCache(void);
+        case DKIOCFORMAT:                            // (dk_format_capacity_t *)
+        {
+            //
+            // This ioctl asks that the media object be formatted.
+            //
+
+            IOMediaBSDClient *     client;
+            IOBlockStorageDriver * driver;
+            MinorTable *           minors;
+            dk_format_capacity_t * request;
+            IOReturn               status;
+
+            client  = minor->client;
+            driver  = (IOBlockStorageDriver *) minor->media->getProvider();
+            driver  = OSDynamicCast(IOBlockStorageDriver, driver);
+            minors  = gIOMediaBSDClientGlobals.getMinors();
+            request = (dk_format_capacity_t *) data;
+
+            if ( DKIOC_IS_RESERVED(data, 0xF000) )  { error = EINVAL;  break; }
+
+            // Determine whether this media has an IOBlockStorageDriver parent.
+
+            if ( driver == 0 )  { error = ENOTTY;  break; }
+
+            // Disable access to opens, closes, tables.
+
+            gIOMediaBSDClientGlobals.lockOpen();
+            gIOMediaBSDClientGlobals.lockState();
+
+            // Determine whether there are other opens on the device nodes that
+            // are associated with this anchor -- the one valid open is the one
+            // that issued the format.  If all is well, we then attempt to open
+            // the block storage driver to make the formatting request.
+
+            if ( minors->getOpenCountForAnchorID(minor->anchorID) == 1 &&
+                 driver->open(client, 0, kIOStorageAccessReaderWriter) )
+            {
+                UInt64 capacity = request->blockCount * request->blockSize;
+
+                // Mark the minor as being in "open flux".  This means we are in
+                // a state where the media object has been closed but the device
+                // node is still open; we must reject all future accesses to the
+                // device node until it is closed.  Note that we do this both on
+                // success and failure of the formatting call.
+
+                minor->isOrphaned = true;
+
+                // Enable access to opens, closes, tables.
+
+                gIOMediaBSDClientGlobals.unlockState();
+                gIOMediaBSDClientGlobals.unlockOpen();
+
+                // Close the media object before the formatting request is made.
+
+                minor->media->close(client);
+
+                // Retain the media's BSD client object, as it is about
+                // to be terminated, and we still need it for the close.
+
+                client->retain();
+
+                // Format the media in the drive.
+
+                status = driver->formatMedia(capacity);
+                error  = driver->errnoFromReturn(status);
+
+                // Wait until I/O Kit has finished to attempt to match storage
+                // drivers, since the media object will have been re-published.
+                // This shall ensure the new IOMediaBSDClient reconnects prior
+                // to our return from DKIOCFORMAT.  Note that we still recover
+                // correctly in case the media object doesn't get re-published,
+                // as though an ejection had taken place.
+
+                driver->waitQuiet();
+
+                // Close the block storage driver.
+
+                driver->close(client);
+
+                // Release the media's BSD client object.
+
+                client->release();
+            }
+            else
+            {
+                error = EBUSY;
+
+                // Enable access to opens, closes, tables.
+
+                gIOMediaBSDClientGlobals.unlockState();
+                gIOMediaBSDClientGlobals.unlockOpen();
+            }
+
+        } break;
+
+        case DKIOCGETFORMATCAPACITIES:             // (dk_format_capacities_t *)
+        {
+            //
+            // This ioctl returns the feasible format capacities for this media
+            // object.
+            //
+
+            UInt64                   blockSize;
+            UInt64 *                 capacities;
+            UInt32                   capacitiesCount;
+            UInt32                   capacitiesMaxCount;
+            IOBlockStorageDriver *   driver;
+            dk_format_capacities_t * request;
+
+            driver  = (IOBlockStorageDriver *) minor->media->getProvider();
+            driver  = OSDynamicCast(IOBlockStorageDriver, driver);
+            request = (dk_format_capacities_t *) data;
+
+            if ( DKIOC_IS_RESERVED(data, 0xFF00) )  { error = EINVAL;  break; }
+
+            // Determine whether this media has an IOBlockStorageDriver parent.
+
+            if ( driver == 0 )  { error = ENOTTY;  break; }
+
+            // Obtain the format capacities list from the block storage driver.
+
+            capacitiesCount    = request->capacitiesCount;
+            capacitiesMaxCount = driver->getFormatCapacities(NULL, 0);
+
+            if ( capacitiesCount )
+            {
+                if ( request->capacities == NULL )  { error = EINVAL;  break; }
+
+                capacitiesCount = min(capacitiesCount, capacitiesMaxCount);
+                capacities      = IONew(UInt64, capacitiesCount);
+
+                if ( capacities == 0 )  { error = ENOMEM;  break; }
+
+                driver->getFormatCapacities(capacities, capacitiesCount);
+
+                blockSize = minor->media->getPreferredBlockSize();
+                if ( blockSize == 0 )  blockSize = DEV_BSIZE;
+
+                // Construct the format capacities list for client consumption.
+
+                for ( UInt32 index = 0; index < capacitiesCount; index++ )
+                {
+                    dk_format_capacity_t capacity = { 0 };
+
+                    capacity.blockCount = capacities[index] / blockSize;
+                    capacity.blockSize  = blockSize;
+
+                    error = copyout( /* kaddr */ &capacity,
+                                     /* uaddr */ request->capacities + index,
+                                     /* len   */ sizeof(dk_format_capacity_t) );
+                    if ( error )  break; 
+                }
+
+                IODelete(capacities, UInt64, capacitiesCount);
+
+                if ( capacitiesCount < capacitiesMaxCount )  { error = E2BIG; }
+            }
+
+            request->capacitiesCount = capacitiesMaxCount;
+
+        } break;
+
+        case DKIOCSYNCHRONIZECACHE:                                    // (void)
         {
             //
             // This ioctl asks that the media object be flushed onto the device.
@@ -1264,6 +1556,23 @@ int dkioctl(dev_t dev, u_long cmd, caddr_t data, int f, struct proc * p)
 
             status = minor->media->synchronizeCache(minor->client);
             error  = minor->media->errnoFromReturn(status);
+
+        } break;
+
+        case DKIOCGETBSDUNIT:                                   // (u_int32_t *)
+        {
+            //
+            // This ioctl returns the BSD unit of the media object.
+            //
+
+            OSNumber * number = OSDynamicCast(
+                         /* class  */ OSNumber,
+                         /* object */ minor->media->getProperty(
+                                 /* key   */ kIOBSDUnitKey ) );
+            if ( number )
+                *(u_int32_t *)data = number->unsigned32BitValue();
+            else
+                *(u_int32_t *)data = 0;
 
         } break;
 
@@ -1293,7 +1602,7 @@ int dkioctl_bdev(dev_t dev, u_long cmd, caddr_t data, int f, struct proc * p)
     int         error = 0;
     MinorSlot * minor = gIOMediaBSDClientGlobals.getMinor(minor(dev));
 
-    if ( minor->isEjecting )  return EBADF;               // (is minor in flux?)
+    if ( minor->isOrphaned )  return EBADF;               // (is minor in flux?)
 
     //
     // Process the ioctl.
@@ -1301,7 +1610,7 @@ int dkioctl_bdev(dev_t dev, u_long cmd, caddr_t data, int f, struct proc * p)
 
     switch ( cmd )
     {
-        case DKIOCGETBLOCKSIZE:                // getBlockSize(u_int32_t * out);
+        case DKIOCGETBLOCKSIZE:                                 // (u_int32_t *)
         {
             //
             // This ioctl returns the preferred (or overrided) block size of the
@@ -1312,7 +1621,7 @@ int dkioctl_bdev(dev_t dev, u_long cmd, caddr_t data, int f, struct proc * p)
 
         } break;
 
-        case DKIOCSETBLOCKSIZE:                 // setBlockSize(u_int32_t * in);
+        case DKIOCSETBLOCKSIZE:                                 // (u_int32_t *)
         {
             //
             // This ioctl overrides the block size for the media object, for the
@@ -1326,7 +1635,7 @@ int dkioctl_bdev(dev_t dev, u_long cmd, caddr_t data, int f, struct proc * p)
 
         } break;
 
-        case DKIOCGETBLOCKCOUNT32:            // getBlockCount(u_int32_t * out);
+        case DKIOCGETBLOCKCOUNT32:                              // (u_int32_t *)
         {
             //
             // This ioctl returns the size of the media object in blocks.  The
@@ -1341,7 +1650,7 @@ int dkioctl_bdev(dev_t dev, u_long cmd, caddr_t data, int f, struct proc * p)
 
         } break;
 
-        case DKIOCGETBLOCKCOUNT:              // getBlockCount(u_int64_t * out);
+        case DKIOCGETBLOCKCOUNT:                                // (u_int64_t *)
         {
             //
             // This ioctl returns the size of the media object in blocks.  The
@@ -1384,13 +1693,24 @@ int dksize(dev_t dev)
 
     MinorSlot * minor = gIOMediaBSDClientGlobals.getMinor(minor(dev));
 
-    if ( minor->isEjecting )  return 0;                   // (is minor in flux?)
+    if ( minor->isOrphaned )  return 0;                   // (is minor in flux?)
 
     return (int) minor->bdevBlockSize;                    // (return block size)
 }
 
 // =============================================================================
 // Support For BSD Functions
+
+inline task_t get_user_task(void)
+{
+    task_t	utask;
+
+    utask = get_aiotask();
+    if (utask == TASK_NULL) 
+	return current_task();
+    else
+    	return utask;
+}
 
 inline dev_t DKR_GET_DEV(dkr_t dkr, dkrtype_t dkrtype)
 {
@@ -1419,7 +1739,7 @@ inline UInt64 DKR_GET_BYTE_START(dkr_t dkr, dkrtype_t dkrtype)
 
         minor = gIOMediaBSDClientGlobals.getMinor(minor(bp->b_dev));
 
-        return bp->b_blkno * minor->bdevBlockSize;
+        return (UInt64)((unsigned)bp->b_blkno) * minor->bdevBlockSize;
     }
     return ((struct dio *)dkr)->uio->uio_offset;
 }
@@ -1489,36 +1809,33 @@ inline IOMemoryDescriptor * DKR_GET_BUFFER(dkr_t dkr, dkrtype_t dkrtype)
 
         if ( (bp->b_flags & B_VECTORLIST) )
         {
-            assert(sizeof(IOPhysicalRange         ) == sizeof(iovec          ));
-            assert(sizeof(IOPhysicalRange::address) == sizeof(iovec::iov_base));
-            assert(sizeof(IOPhysicalRange::length ) == sizeof(iovec::iov_len ));
+            IOOptionBits mdopts = kIOMemoryTypeUPL | kIOMemoryAsReference;
 
-            return IOMemoryDescriptor::withPhysicalRanges(   // (multiple-range)
-              (IOPhysicalRange *) bp->b_vectorlist,
-              (UInt32)            bp->b_vectorcount,
-              (bp->b_flags & B_READ) ? kIODirectionIn : kIODirectionOut,
-              true );
+            mdopts |= (bp->b_flags & B_READ) ? kIODirectionIn : kIODirectionOut;
+
+            return IOMemoryDescriptor::withOptions(          // (multiple-range)
+                bp->b_pagelist,
+                bp->b_bcount,
+                bp->b_uploffset,
+                0,
+                mdopts );
         }
 
         return IOMemoryDescriptor::withAddress(                // (single-range)
           (vm_address_t) bp->b_data,
           (vm_size_t)    bp->b_bcount,
           (bp->b_flags & B_READ) ? kIODirectionIn : kIODirectionOut,
-          (bp->b_flags & B_PHYS) ? get_user_task() : get_kernel_task() );
+          (bp->b_flags & B_PHYS) ? get_user_task() : kernel_task);
     }
     else
     {
         struct uio * uio = ((struct dio *)dkr)->uio;
 
-        assert(sizeof(IOVirtualRange         ) == sizeof(iovec          )); 
-        assert(sizeof(IOVirtualRange::address) == sizeof(iovec::iov_base));
-        assert(sizeof(IOVirtualRange::length ) == sizeof(iovec::iov_len ));
-
         return IOMemoryDescriptor::withRanges(               // (multiple-range)
         (IOVirtualRange *) uio->uio_iov,
         (UInt32)           uio->uio_iovcnt,
         (uio->uio_rw     == UIO_READ    ) ? kIODirectionIn  : kIODirectionOut,
-        (uio->uio_segflg != UIO_SYSSPACE) ? get_user_task() : get_kernel_task(),
+        (uio->uio_segflg != UIO_SYSSPACE) ? get_user_task() : kernel_task,
         true );
     }
 }
@@ -1556,12 +1873,16 @@ int dkreadwrite(dkr_t dkr, dkrtype_t dkrtype)
     UInt64               mediaSize;
     MinorSlot *          minor;
     IOReturn             status;
+    boolean_t funnel_state = FALSE;
+
+    if (dkrtype == DKRTYPE_BUF)
+        funnel_state = thread_funnel_set(kernel_flock, FALSE);
 
     DKR_SET_DRIVER_DATA(dkr, dkrtype, 0);
 
     minor = gIOMediaBSDClientGlobals.getMinor(minor(DKR_GET_DEV(dkr, dkrtype)));
 
-    if ( minor->isEjecting )                              // (is minor in flux?)
+    if ( minor->isOrphaned )                              // (is minor in flux?)
     {
         status = kIOReturnNoMedia;
         goto dkreadwriteErr;
@@ -1711,9 +2032,15 @@ int dkreadwrite(dkr_t dkr, dkrtype_t dkrtype)
         dkreadwritecompletion(dkr, (void *)dkrtype, status, byteCount);
     }
 
+    if (funnel_state == TRUE)
+        funnel_state = thread_funnel_set(kernel_flock, TRUE);
+
     return minor->media->errnoFromReturn(status);       // (return error status)
 
 dkreadwriteErr:
+
+    if (funnel_state == TRUE)
+        funnel_state = thread_funnel_set(kernel_flock, TRUE);
 
     dkreadwritecompletion(dkr, (void *)dkrtype, status, 0);
 
@@ -1967,8 +2294,9 @@ UInt32 AnchorTable::update(IOService * anchor, void * key)
     //
     // This method searches for the specified anchor in the anchor table and
     // updates its key value if no references to it exist in the minor table
-    // (reuses slot).  It returns the updated anchor ID (or kInvalidAnchorID
-    // on a failure).  It ignores slots marked as obsolete.
+    // or if the references in the minor table are all obsolete.  It returns
+    // the updated anchor ID (or kInvalidAnchorID on a failure).  It ignores
+    // slots marked as obsolete.
     //
 
     MinorTable * minors = gIOMediaBSDClientGlobals.getMinors();
@@ -1979,7 +2307,7 @@ UInt32 AnchorTable::update(IOService * anchor, void * key)
              _table[anchorID].isObsolete == false  &&
              _table[anchorID].anchor     == anchor )
         {
-            if ( minors->hasReferencesToAnchorID(anchorID) == false )
+            if ( minors->hasReferencesToAnchorID(anchorID, true) == false )
             {
                 _table[anchorID].key = key;
                 return anchorID;
@@ -2028,7 +2356,7 @@ IOReturn AnchorTable::anchorWasNotified( void *      /* target */,
 
     // Disable access to tables.
 
-    gIOMediaBSDClientGlobals.lock();
+    gIOMediaBSDClientGlobals.lockState();
 
     // Determine whether this anchor is in the anchor table (obsolete occurences
     // are skipped in the search, as appropriate, since those anchor IDs will be
@@ -2041,7 +2369,7 @@ IOReturn AnchorTable::anchorWasNotified( void *      /* target */,
         // will be removed later, once references to it go to zero (which is
         // handled by MinorTable::remove).
 
-        if ( minors->hasReferencesToAnchorID(anchorID) )
+        if ( minors->hasReferencesToAnchorID(anchorID, false) )
             anchors->obsolete(anchorID);
         else
             anchors->remove(anchorID);
@@ -2049,7 +2377,7 @@ IOReturn AnchorTable::anchorWasNotified( void *      /* target */,
 
     // Enable access to tables.
 
-    gIOMediaBSDClientGlobals.unlock();    
+    gIOMediaBSDClientGlobals.unlockState();   
 
     return kIOReturnSuccess;
 }
@@ -2185,8 +2513,8 @@ UInt32 MinorTable::insert( IOMedia *          media,
     bzero(&_table[minorID], sizeof(MinorSlot));    // (zero slot)
 
     _table[minorID].isAssigned    = true;          // (fill in slot)
-    _table[minorID].isEjecting    = false;
     _table[minorID].isObsolete    = false;
+    _table[minorID].isOrphaned    = false;
     _table[minorID].anchorID      = anchorID;
     _table[minorID].client        = client;
     _table[minorID].media         = media;
@@ -2216,7 +2544,7 @@ void MinorTable::remove(UInt32 minorID)
     assert(minorID < _tableCount);
     assert(_table[minorID].isAssigned);
 
-    assert(_table[minorID].isEjecting == false);
+    assert(_table[minorID].isOrphaned == false);
     assert(_table[minorID].bdevOpen == 0);
     assert(_table[minorID].cdevOpen == 0);
 
@@ -2238,9 +2566,82 @@ void MinorTable::remove(UInt32 minorID)
 
     if ( gIOMediaBSDClientGlobals.getAnchors()->isObsolete(anchorID) )
     {
-        if ( hasReferencesToAnchorID(anchorID) == false )
+        if ( hasReferencesToAnchorID(anchorID, false) == false )
             gIOMediaBSDClientGlobals.getAnchors()->remove(anchorID);
     }
+}
+
+// - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+
+UInt32 MinorTable::update( IOMedia *          media,
+                           UInt32             anchorID,
+                           IOMediaBSDClient * client,
+                           char *             slicePath )
+{
+    //
+    // This method searches for the specified anchor ID and slice path pair in
+    // the minor table and updates it.  An update would be an unusual occasion
+    // as new anchors are assigned when two media trees are found to share the
+    // same anchor.  It would occur in one specific circumstance: on the minor
+    // slot through which a DKIOCFORMAT was issued.  The minor slot would have
+    // been marked in "open flux", the format would have been issued, then the
+    // media objects terminated, the minor slot marked obsolete, and the media
+    // objects republished.  The anchor ID would have one reference, the minor
+    // slot with the DKIOCFORMAT still outstanding.  AnchorTable::update would
+    // notice the one reference is orphaned and accept the reuse of the anchor
+    // ID.  MinorTable::update would notice the orphaned minor slot and update
+    // it with the new media object and media bsd client object, and clear its
+    // obsolete state and "open flux" state, once the new media object arrives.
+    //
+
+    UInt32 minorID;
+    char * minorName;
+    UInt32 minorNameSize;
+
+    // Create a buffer large enough to hold the full name of the minor.
+
+    minorNameSize = strlen("disk#");
+    for (unsigned temp = anchorID; temp >= 10; temp /= 10)  minorNameSize++;
+    minorNameSize += strlen(slicePath);
+    minorNameSize += 1;
+    minorName = IONew(char, minorNameSize);
+
+    if ( minorName == 0 )  return kInvalidMinorID;
+
+    // Construct a name for the node.
+
+    sprintf(minorName, "disk%ld%s", anchorID, slicePath);
+    assert(strlen(minorName) + 1 == minorNameSize);
+
+    // Search for an orphaned slot in the minor table with our minor name.
+
+    for ( minorID = 0; minorID < _tableCount; minorID++ )
+    {
+        if ( _table[minorID].isAssigned              != false    &&
+             _table[minorID].isObsolete              != false    &&
+             _table[minorID].isOrphaned              != false    &&
+             _table[minorID].anchorID                == anchorID &&
+             strcmp(_table[minorID].name, minorName) == 0        )  break;
+    }
+
+    IODelete(minorName, char, minorNameSize);
+
+    if ( minorID == _tableCount )  return kInvalidMinorID;
+
+    // Update the slot and retain the appropriate objects.
+
+    _table[minorID].client->release();             // (release client)
+    _table[minorID].media->release();              // (release media)
+
+    _table[minorID].isObsolete = false;            // (update slot)
+    _table[minorID].isOrphaned = false;
+    _table[minorID].client     = client;
+    _table[minorID].media      = media;
+
+    _table[minorID].client->retain();              // (retain client)
+    _table[minorID].media->retain();               // (retain media)
+
+    return minorID;
 }
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
@@ -2290,36 +2691,23 @@ UInt32 MinorTable::getOpenCountForAnchorID(UInt32 anchorID)
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
-IOMedia * MinorTable::getWholeMediaAtAnchorID(UInt32 anchorID)
-{
-    //
-    // This method obtains the whole media associated with the specified anchor
-    // ID.
-    //
-
-    for ( UInt32 minorID = 0; minorID < _tableCount; minorID++ )
-    {
-        if ( _table[minorID].isAssigned != false    &&
-             _table[minorID].anchorID   == anchorID &&
-             _table[minorID].media->isWhole() )  return _table[minorID].media;
-    }
-
-    return 0;
-}
-
-// - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-
-bool MinorTable::hasReferencesToAnchorID(UInt32 anchorID)
+bool MinorTable::hasReferencesToAnchorID(UInt32 anchorID, bool excludeOrphans)
 {
     //
     // This method determines whether there are assigned minors in the minor
-    // table that refer to the specified anchor ID.
+    // table that refer to the specified anchor ID.  It ignores slots marked
+    // as obsolete and orphaned, unless excludeOrphans is false.
     //
 
     for ( UInt32 minorID = 0; minorID < _tableCount; minorID++ )
     {
         if ( _table[minorID].isAssigned != false    &&
-             _table[minorID].anchorID   == anchorID )  return true;
+             _table[minorID].anchorID   == anchorID )
+        {
+            if ( excludeOrphans             == false )  return true;
+            if ( _table[minorID].isObsolete == false )  return true;
+            if ( _table[minorID].isOrphaned == false )  return true;
+        }
     }
 
     return false;
@@ -2388,7 +2776,8 @@ IOMediaBSDClientGlobals::IOMediaBSDClientGlobals()
     _bdevswInstalled = (bdevsw_add(kMajor, &bdevswFunctions) == kMajor);
     _cdevswInstalled = (cdevsw_add(kMajor, &cdevswFunctions) == kMajor);
 
-    _lock            = IORecursiveLockAlloc();
+    _openLock        = IOLockAlloc();
+    _stateLock       = IOLockAlloc();
 }
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
@@ -2399,7 +2788,8 @@ IOMediaBSDClientGlobals::~IOMediaBSDClientGlobals()
     // Free all of the outstanding global resources.
     //
 
-    if ( _lock )             IORecursiveLockFree(_lock);
+    if ( _openLock )         IOLockFree(_openLock);
+    if ( _stateLock )        IOLockFree(_stateLock);
 
     if ( _cdevswInstalled )  cdevsw_remove(kMajor, &cdevswFunctions); 
     if ( _bdevswInstalled )  bdevsw_remove(kMajor, &bdevswFunctions);
@@ -2449,26 +2839,54 @@ bool IOMediaBSDClientGlobals::isValid()
     // Determine whether the minimal global state has been initialized.
     //
 
-    return _anchors && _minors && _bdevswInstalled && _cdevswInstalled && _lock; }
+    return ( _anchors         ) &&
+           ( _minors          ) &&
+           ( _bdevswInstalled ) &&
+           ( _cdevswInstalled ) &&
+           ( _openLock        ) &&
+           ( _stateLock       );
+}
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
-void IOMediaBSDClientGlobals::lock()
+void IOMediaBSDClientGlobals::lockOpen()
+{
+    //
+    // Disable access to the opens and closes.
+    //
+
+    IOLockLock(_openLock);
+}
+
+// - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+
+void IOMediaBSDClientGlobals::unlockOpen()
+{
+    //
+    // Enable access to the opens and closes.
+    //
+
+    IOLockUnlock(_openLock);
+}
+
+// - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+
+void IOMediaBSDClientGlobals::lockState()
 {
     //
     // Disable access to the global state.
     //
 
-    IORecursiveLockLock(_lock);
+    IOLockLock(_stateLock);
 }
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
-void IOMediaBSDClientGlobals::unlock()
+void IOMediaBSDClientGlobals::unlockState()
 {
     //
     // Enable access to the global state.
     //
 
-    IORecursiveLockUnlock(_lock);
+    IOLockUnlock(_stateLock);
 }

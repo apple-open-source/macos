@@ -1,0 +1,16 @@
+To build the JBoss/Tomcat-4.x bundle do the following:
+
+1. Build the source tree from the jboss-all/build directory as ususal
+
+2. Change the location of the tomcat.server.root by creating
+a local.properties file in jboss-all/catalina with the property
+tomcat.server.root=/path/to/tomcat setting.  For example:
+
+   /usr/local/jboss-all/catalina> cat local.properties
+   tomcat.server.root=/usr/local/Java/servlets/jakarta-tomcat-4.0.3-LE-jdk14
+
+3. Run 'build bundle' from the catalina directory using the build.sh or
+build.bat as approriate.
+
+4. The resulting output/jboss-* is the JBoss/Tomcat bundle as available
+from the SourceForge site.

@@ -1,0 +1,24 @@
+#!/usr/bin/perl
+#
+# Use to gather certificates into specified keychain. 
+#
+$numFiles = $#ARGV;
+if($numFiles < 1) {
+	print "usage: makecerts keychainfile cert...\n";
+	die;
+}
+$dbname = $ARGV[0];
+
+my $count = 0;
+my $created;
+foreach $argnum (1 .. $numFiles) {
+	 $thisCert = $ARGV[$argnum];
+	 my @cmd = ("certtool", "i", $thisCert, "k=$dbname", "d");
+	 do { push @cmd, "c"; $created = 1; } unless $created;
+	 print "$thisCert ";
+	 die if system @cmd;
+	 $count++;
+}
+
+print "$count certificates placed into $dbname\n";
+exit 0;

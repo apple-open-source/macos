@@ -35,5 +35,7 @@ install :
 	$(MAKE); \
 	$(MAKE) sbindir=$(DSTROOT)/usr/libexec mandir=$(DSTROOT)/usr/share/man install; \
 	strip -x $(DSTROOT)/usr/libexec/ftpd'
+	mkdir -p $(DSTROOT)/private/etc/pam.d/
+	cp ftpd $(DSTROOT)/private/etc/pam.d/
 
 clean:

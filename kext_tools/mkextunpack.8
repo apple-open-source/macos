@@ -36,9 +36,11 @@ of the kexts, so
 has to guess at what they are.
 It does this by using the value of the CFBundleExecutable
 property of the kext's info dictionary.
+(Project Builder sets this to the base name of the kext
+bundle by default, but the developer can change it.)
+If that property doesn't exist, the last component of the
+CFBundleIdentifier is used.
 Duplicates have an incrementing index appended to the name.
-Project Builder sets this to the base name of the kext
-bundle by default, but the developer can change it.
-Kexts that have no executable are named
+Kexts that have no executable or CFBundleIdentifier are named
 .Dq NameUnknown-n.kext ,
 where n is a number.

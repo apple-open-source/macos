@@ -1,4 +1,4 @@
-/*	$KAME: plog.c,v 1.19 2001/09/23 12:40:32 itojun Exp $	*/
+/*	$KAME: plog.c,v 1.23 2002/05/07 08:56:19 sakane Exp $	*/
 
 /*
  * Copyright (C) 1995, 1996, 1997, and 1998 WIDE Project.
@@ -76,7 +76,7 @@ static struct plogtags {
 	{ "(not defined)",	0, },
 	{ "INFO",		LOG_INFO, },
 	{ "NOTIFY",		LOG_INFO, },
-	{ "WARNING",		LOG_INFO, },
+	{ "WARNING",	LOG_INFO, },
 	{ "ERROR",		LOG_INFO, },
 	{ "DEBUG",		LOG_DEBUG, },
 	{ "DEBUG2",		LOG_DEBUG, },
@@ -142,6 +142,12 @@ plogv(int pri, const char *func, struct sockaddr *sa,
 
 	if (f_foreground)
 		vprintf(newfmt, ap);
+	
+	/*
+	 * If we're not running in the foreground and the loglevel is
+	 * set to the default, don't dump LLV_INFO message to the log.
+	 */
+	if (!f_foreground && pri == LLV_INFO && loglevel == LLV_BASE) return;
 
 	if (logfile)
 		log_vaprint(logp, newfmt, ap);

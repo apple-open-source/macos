@@ -1,5 +1,5 @@
-# $OpenLDAP: pkg/ldap/libraries/libldap_r/Makefile.in,v 1.55 2002/02/10 21:42:54 kurt Exp $
-## Copyright 1998-2002 The OpenLDAP Foundation, All Rights Reserved.
+# $OpenLDAP: pkg/ldap/libraries/libldap_r/Makefile.in,v 1.55.2.7 2003/03/30 14:47:09 kurt Exp $
+## Copyright 1998-2003 The OpenLDAP Foundation, All Rights Reserved.
 ## COPYING RESTRICTIONS APPLY, see COPYRIGHT file
 ##
 ## Makefile.in for LDAP -lldap
@@ -9,11 +9,12 @@ LIBRARY = libldap_r.la
 PROGRAMS = apitest ltest
 
 XXDIR = $(srcdir)/../libldap
-XXSRCS	= apitest.c test.c extended.c \
-	bind.c controls.c open.c result.c error.c compare.c search.c \
-	modify.c add.c modrdn.c delete.c abandon.c cache.c cyrus.c \
-	getfilter.c sasl.c sbind.c kbind.c unbind.c \
-	filter.c free.c dsparse.c sort.c \
+XXSRCS    = apitest.c test.c \
+	bind.c open.c result.c error.c compare.c search.c \
+	controls.c messages.c references.c extended.c cyrus.c \
+	modify.c add.c modrdn.c delete.c abandon.c \
+	sasl.c sbind.c kbind.c unbind.c cancel.c cache.c \
+	filter.c free.c sort.c passwd.c whoami.c \
 	getdn.c getentry.c getattr.c getvalues.c addentry.c \
 	request.c os-ip.c url.c sortctrl.c vlvctrl.c \
 	init.c options.c print.c string.c util-int.c schema.c \
@@ -25,11 +26,11 @@ SRCS	= threads.c rdwr.c tpool.c \
 OBJS	= threads.lo rdwr.lo tpool.lo  \
 	thr_posix.lo thr_cthreads.lo thr_thr.lo thr_lwp.lo thr_nt.lo \
 	thr_pth.lo thr_stub.lo \
-	extended.lo \
-	bind.lo controls.lo open.lo result.lo error.lo compare.lo search.lo \
-	modify.lo add.lo modrdn.lo delete.lo abandon.lo cache.lo cyrus.lo \
-	getfilter.lo sasl.lo sbind.lo kbind.lo unbind.lo \
-	filter.lo free.lo dsparse.lo sort.lo \
+	bind.lo open.lo result.lo error.lo compare.lo search.lo \
+	controls.lo messages.lo references.lo extended.lo cyrus.lo \
+	modify.lo add.lo modrdn.lo delete.lo abandon.lo \
+	sasl.lo sbind.lo kbind.lo unbind.lo cancel.lo cache.lo \
+	filter.lo free.lo sort.lo passwd.lo whoami.lo \
 	getdn.lo getentry.lo getattr.lo getvalues.lo addentry.lo \
 	request.lo os-ip.lo url.lo sortctrl.lo vlvctrl.lo \
 	init.lo options.lo print.lo string.lo util-int.lo schema.lo \
@@ -46,6 +47,7 @@ XLIBS = $(LIBRARY) $(LDAP_LIBLBER_LA) $(LDAP_LIBLUTIL_A)
 XXLIBS = $(SECURITY_LIBS) $(LUTIL_LIBS)
 XXXLIBS = $(LTHREAD_LIBS)
 NT_LINK_LIBS = $(LDAP_LIBLBER_LA) $(AC_LIBS) $(SECURITY_LIBS)
+UNIX_LINK_LIBS = $(LDAP_LIBLBER_LA) $(AC_LIBS) $(SECURITY_LIBS)
 
 .links : Makefile
 	@for i in $(XXSRCS); do \

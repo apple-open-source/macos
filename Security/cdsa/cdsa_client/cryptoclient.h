@@ -43,7 +43,7 @@ public:
 	const AccessCredentials *cred() const	{ return mCred; }
 	void cred(const AccessCredentials *c);
 	Key key() const							{ return mKey; }
-	void key(const Key &k)				   	{ mKey = k; set(CSSM_ATTRIBUTE_KEY, k); }
+	void key(const Key &k);
 	const CssmData &initVector() const		{ return *mInitVector; }
 	void initVector(const CssmData &v)		{ mInitVector = &v; set(CSSM_ATTRIBUTE_INIT_VECTOR, v); }
 	CSSM_PADDING padding() const			{ return mPadding; }

@@ -2,12 +2,12 @@
    +----------------------------------------------------------------------+
    | Zend Engine                                                          |
    +----------------------------------------------------------------------+
-   | Copyright (c) 1998-2001 Zend Technologies Ltd. (http://www.zend.com) |
+   | Copyright (c) 1998-2003 Zend Technologies Ltd. (http://www.zend.com) |
    +----------------------------------------------------------------------+
-   | This source file is subject to version 0.92 of the Zend license,     |
+   | This source file is subject to version 2.00 of the Zend license,     |
    | that is bundled with this package in the file LICENSE, and is        | 
    | available at through the world-wide-web at                           |
-   | http://www.zend.com/license/0_92.txt.                                |
+   | http://www.zend.com/license/2_00.txt.                                |
    | If you did not receive a copy of the Zend license and are unable to  |
    | obtain it through the world-wide-web, please send a note to          |
    | license@zend.com so we can mail you a copy immediately.              |
@@ -25,10 +25,6 @@
 
 #define CONST_CS				(1<<0)				/* Case Sensitive */
 #define CONST_PERSISTENT		(1<<1)				/* Persistent */
-#define CONST_EFREE_PERSISTENT	(1<<2)				/* In conjunction with CONST_PERSISTENT,
-													 * means that the constant should be freed
-													 * using zval_dtor() on shutdown.
-													 */
 
 typedef struct _zend_constant {
 	zval value;

@@ -1,24 +1,29 @@
 /* -*- c-file-style: "linux"; -*-
-   
-   Copyright (C) 1998-2001 by Andrew Tridgell <tridge@samba.org>
-   Copyright (C) 2001 by Martin Pool <mbp@samba.org>
-   
-   This program is free software; you can redistribute it and/or modify
-   it under the terms of the GNU General Public License as published by
-   the Free Software Foundation; either version 2 of the License, or
-   (at your option) any later version.
-   
-   This program is distributed in the hope that it will be useful,
-   but WITHOUT ANY WARRANTY; without even the implied warranty of
-   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-   GNU General Public License for more details.
-   
-   You should have received a copy of the GNU General Public License
-   along with this program; if not, write to the Free Software
-   Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
-*/
+ * 
+ * Copyright (C) 1998-2001 by Andrew Tridgell <tridge@samba.org>
+ * Copyright (C) 2001-2002 by Martin Pool <mbp@samba.org>
+ * 
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation; either version 2 of the License, or
+ * (at your option) any later version.
+ * 
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ * 
+ * You should have received a copy of the GNU General Public License
+ * along with this program; if not, write to the Free Software
+ * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
+ */
 
-/* the socket based protocol for setting up a connection with rsyncd */
+/**
+ * @file
+ *
+ * The socket based protocol for setting up a connection with
+ * rsyncd.
+ **/
 
 #include "rsync.h"
 
@@ -27,43 +32,32 @@ extern int read_only;
 extern int verbose;
 extern int rsync_port;
 char *auth_user;
-int sanitize_paths = 0;
+extern int sanitize_paths;
 
-/*
+/**
  * Run a client connected to an rsyncd.  The alternative to this
- * function for remote-shell connections is do_cmd.
- */
+ * function for remote-shell connections is do_cmd().
+ *
+ * After negotiating which module to use and reading the server's
+ * motd, this hands over to client_run().  Telling the server the
+ * module will cause it to chroot/setuid/etc.
+ *
+ * Instead of doing a transfer, the client may at this stage instead
+ * get a listing of remote modules and exit.
+ *
+ * @return -1 for error in startup, or the result of client_run().
+ * Either way, it eventually gets passed to exit_cleanup().
+ **/
 int start_socket_client(char *host, char *path, int argc, char *argv[])
 {
-	int fd, i;
-	char *sargs[MAX_ARGS];
-	int sargc=0;
-	char line[MAXPATHLEN];
+	int fd, ret;
 	char *p, *user=NULL;
-	extern int remote_version;
-	extern int am_sender;
-	extern char *shell_cmd;
-	extern int kludge_around_eof;
 	extern char *bind_address;
 	extern int default_af_hint;
        
-	if (argc == 0 && !am_sender) {
-		extern int list_only;
-		list_only = 1;
-	}
-
-        /* This is just a friendliness enhancement: if the connection
-         * is to an rsyncd then there is no point specifying the -e option.
-         * Note that this is only set if the -e was explicitly specified,
-         * not if the environment variable just happens to be set.
-         * See http://lists.samba.org/pipermail/rsync/2000-September/002744.html
-         */
-        if (shell_cmd) {
-                rprintf(FERROR, "WARNING: --rsh or -e option ignored when "
-                        "connecting to rsync daemon\n");
-                /* continue */
-        }
-        
+	/* this is redundant with code in start_inband_exchange(), but
+	   this short-circuits a problem before we open a socket, and 
+	   the extra check won't hurt */
 	if (*path == '/') {
 		rprintf(FERROR,"ERROR: The remote path must start with a module name not a /\n");
 		return -1;
@@ -76,16 +70,53 @@ int start_socket_client(char *host, char *path, int argc, char *argv[])
 		*p = 0;
 	}
 
-	if (!user) user = getenv("USER");
-	if (!user) user = getenv("LOGNAME");
-
+	if (verbose >= 2) {
+		/* FIXME: If we're going to use a socket program for
+		 * testing, then this message is wrong.  We need to
+		 * say something like "(except really using %s)" */
+		rprintf(FINFO, "opening tcp connection to %s port %d\n",
+			host, rsync_port);
+	}
 	fd = open_socket_out_wrapped (host, rsync_port, bind_address,
 				      default_af_hint);
 	if (fd == -1) {
 		exit_cleanup(RERR_SOCKETIO);
 	}
-	
-	server_options(sargs,&sargc);
+
+	ret = start_inband_exchange(user, path, fd, fd, argc);
+
+	return ret < 0? ret : client_run(fd, fd, -1, argc, argv);
+}
+
+int start_inband_exchange(char *user, char *path, int f_in, int f_out, int argc)
+{
+	int i;
+	char *sargs[MAX_ARGS];
+	int sargc = 0;
+	char line[MAXPATHLEN];
+	char *p;
+	extern int remote_version;
+	extern int kludge_around_eof;
+	extern int am_sender;
+	extern int daemon_over_rsh;
+	extern int list_only;
+
+	if (argc == 0 && !am_sender)
+		list_only = 1;
+
+	if (*path == '/') {
+		rprintf(FERROR, "ERROR: The remote path must start with a module name\n");
+		return -1;
+	}
+
+	if (!user) user = getenv("USER");
+	if (!user) user = getenv("LOGNAME");
+
+	/* set daemon_over_rsh to false since we need to build the 
+	   true set of args passed through the rsh/ssh connection; 
+	   this is a no-op for direct-socket-connection mode */
+	daemon_over_rsh = 0;
+	server_options(sargs, &sargc);
 
 	sargs[sargc++] = ".";
 
@@ -94,59 +125,77 @@ int start_socket_client(char *host, char *path, int argc, char *argv[])
 
 	sargs[sargc] = NULL;
 
-	io_printf(fd,"@RSYNCD: %d\n", PROTOCOL_VERSION);
+	io_printf(f_out, "@RSYNCD: %d\n", PROTOCOL_VERSION);
 
-	if (!read_line(fd, line, sizeof(line)-1)) {
+	if (!read_line(f_in, line, sizeof(line)-1)) {
+		rprintf(FERROR, "rsync: did not see server greeting\n");
 		return -1;
 	}
 
 	if (sscanf(line,"@RSYNCD: %d", &remote_version) != 1) {
+		/* note that read_line strips of \n or \r */
+		rprintf(FERROR, "rsync: server sent \"%s\" rather than greeting\n",
+			line);
 		return -1;
 	}
 
 	p = strchr(path,'/');
 	if (p) *p = 0;
-	io_printf(fd,"%s\n",path);
+	io_printf(f_out, "%s\n", path);
 	if (p) *p = '/';
 
 	/* Old servers may just drop the connection here,
 	 rather than sending a proper EXIT command.  Yuck. */
-	kludge_around_eof = remote_version < 25;
+	kludge_around_eof = list_only && (remote_version < 25);
 
 	while (1) {
-		if (!read_line(fd, line, sizeof(line)-1)) {
+		if (!read_line(f_in, line, sizeof(line)-1)) {
+			rprintf(FERROR, "rsync: didn't get server startup line\n");
 			return -1;
 		}
 
 		if (strncmp(line,"@RSYNCD: AUTHREQD ",18) == 0) {
-			auth_client(fd, user, line+18);
+			auth_client(f_out, user, line+18);
 			continue;
 		}
 
 		if (strcmp(line,"@RSYNCD: OK") == 0) break;
 
-		if (strcmp(line,"@RSYNCD: EXIT") == 0) exit(0);
+		if (strcmp(line,"@RSYNCD: EXIT") == 0) {
+			/* This is sent by recent versions of the
+			 * server to terminate the listing of modules.
+			 * We don't want to go on and transfer
+			 * anything; just exit. */
+			exit(0);
+		}
 
-		rprintf(FINFO,"%s\n", line);
+		if (strncmp(line, "@ERROR", 6) == 0) {
+			rprintf(FERROR,"%s\n", line);
+			/* This is always fatal; the server will now
+			 * close the socket. */
+			return RERR_STARTCLIENT;
+		} else {
+			rprintf(FINFO,"%s\n", line);
+		}
 	}
 	kludge_around_eof = False;
 
-	for (i=0;i<sargc;i++) {
-		io_printf(fd,"%s\n", sargs[i]);
+	for (i = 0; i < sargc; i++) {
+		io_printf(f_out, "%s\n", sargs[i]);
 	}
-	io_printf(fd,"\n");
+	io_printf(f_out, "\n");
 
 	if (remote_version < 23) {
 		if (remote_version == 22 || (remote_version > 17 && !am_sender))
-			io_start_multiplex_in(fd);
+			io_start_multiplex_in(f_in);
 	}
 
-	return client_run(fd, fd, -1, argc, argv);
+	return 0;
 }
 
 
 
-static int rsync_module(int fd, int i)
+static int rsync_module(int f_in, int f_out, int i)
 {
 	int argc=0;
 	char *argv[MAX_ARGS];
@@ -155,46 +204,53 @@ static int rsync_module(int fd, int i)
 	uid_t uid = (uid_t)-2;  /* canonically "nobody" */
 	gid_t gid = (gid_t)-2;
 	char *p;
-	char *addr = client_addr(fd);
-	char *host = client_name(fd);
+	char *addr = client_addr(f_in);
+	char *host = client_name(f_in);
 	char *name = lp_name(i);
 	int use_chroot = lp_use_chroot(i);
 	int start_glob=0;
 	int ret;
 	char *request=NULL;
 	extern int am_sender;
+	extern int am_server;
+	extern int am_daemon;
 	extern int remote_version;
 	extern int am_root;
 
 	if (!allow_access(addr, host, lp_hosts_allow(i), lp_hosts_deny(i))) {
 		rprintf(FERROR,"rsync denied on module %s from %s (%s)\n",
 			name, host, addr);
-		io_printf(fd,"@ERROR: access denied to %s from %s (%s)\n",
+		io_printf(f_out, "@ERROR: access denied to %s from %s (%s)\n",
 			  name, host, addr);
 		return -1;
+	}
+
+	if (am_daemon && am_server) {
+		rprintf(FINFO, "rsync allowed access on module %s from %s (%s)\n",
+			name, host, addr);
 	}
 
 	if (!claim_connection(lp_lock_file(i), lp_max_connections(i))) {
 		if (errno) {
 			rprintf(FERROR,"failed to open lock file %s : %s\n",
 				lp_lock_file(i), strerror(errno));
-			io_printf(fd,"@ERROR: failed to open lock file %s : %s\n",
+			io_printf(f_out, "@ERROR: failed to open lock file %s : %s\n",
 				  lp_lock_file(i), strerror(errno));
 		} else {
 			rprintf(FERROR,"max connections (%d) reached\n",
 				lp_max_connections(i));
-			io_printf(fd,"@ERROR: max connections (%d) reached - try again later\n", lp_max_connections(i));
+			io_printf(f_out, "@ERROR: max connections (%d) reached - try again later\n", lp_max_connections(i));
 		}
 		return -1;
 	}
 
 	
-	auth_user = auth_server(fd, i, addr, "@RSYNCD: AUTHREQD ");
+	auth_user = auth_server(f_in, f_out, i, addr, "@RSYNCD: AUTHREQD ");
 
 	if (!auth_user) {
 		rprintf(FERROR,"auth failed on module %s from %s (%s)\n",
-			name, client_name(fd), client_addr(fd));
-		io_printf(fd,"@ERROR: auth failed on module %s\n",name);
+			name, host, addr);
+		io_printf(f_out, "@ERROR: auth failed on module %s\n", name);
 		return -1;		
 	}
 
@@ -205,9 +261,9 @@ static int rsync_module(int fd, int i)
 	if (am_root) {
 		p = lp_uid(i);
 		if (!name_to_uid(p, &uid)) {
-			if (!isdigit(*p)) {
+			if (!isdigit(* (unsigned char *) p)) {
 				rprintf(FERROR,"Invalid uid %s\n", p);
-				io_printf(fd,"@ERROR: invalid uid %s\n", p);
+				io_printf(f_out, "@ERROR: invalid uid %s\n", p);
 				return -1;
 			} 
 			uid = atoi(p);
@@ -215,9 +271,9 @@ static int rsync_module(int fd, int i)
 
 		p = lp_gid(i);
 		if (!name_to_gid(p, &gid)) {
-			if (!isdigit(*p)) {
+			if (!isdigit(* (unsigned char *) p)) {
 				rprintf(FERROR,"Invalid gid %s\n", p);
-				io_printf(fd,"@ERROR: invalid gid %s\n", p);
+				io_printf(f_out, "@ERROR: invalid gid %s\n", p);
 				return -1;
 			} 
 			gid = atoi(p);
@@ -260,47 +316,67 @@ static int rsync_module(int fd, int i)
 		 */
 		if (chroot(lp_path(i))) {
 			rsyserr(FERROR, errno, "chroot %s failed", lp_path(i));
-			io_printf(fd,"@ERROR: chroot failed\n");
+			io_printf(f_out, "@ERROR: chroot failed\n");
 			return -1;
 		}
 
 		if (!push_dir("/", 0)) {
                         rsyserr(FERROR, errno, "chdir %s failed\n", lp_path(i));
-			io_printf(fd,"@ERROR: chdir failed\n");
+			io_printf(f_out, "@ERROR: chdir failed\n");
 			return -1;
 		}
 
 	} else {
 		if (!push_dir(lp_path(i), 0)) {
 			rsyserr(FERROR, errno, "chdir %s failed\n", lp_path(i));
-			io_printf(fd,"@ERROR: chdir failed\n");
+			io_printf(f_out, "@ERROR: chdir failed\n");
 			return -1;
 		}
 		sanitize_paths = 1;
 	}
 
 	if (am_root) {
+#ifdef HAVE_SETGROUPS
+		/* Get rid of any supplementary groups this process
+		 * might have inheristed. */
+		if (setgroups(0, NULL)) {
+			rsyserr(FERROR, errno, "setgroups failed");
+			io_printf(f_out, "@ERROR: setgroups failed\n");
+			return -1;
+		}
+#endif
+
+		/* XXXX: You could argue that if the daemon is started
+		 * by a non-root user and they explicitly specify a
+		 * gid, then we should try to change to that gid --
+		 * this could be possible if it's already in their
+		 * supplementary groups. */
+
+		/* TODO: Perhaps we need to document that if rsyncd is
+		 * started by somebody other than root it will inherit
+		 * all their supplementary groups. */
+
 		if (setgid(gid)) {
 			rsyserr(FERROR, errno, "setgid %d failed", (int) gid);
-			io_printf(fd,"@ERROR: setgid failed\n");
+			io_printf(f_out, "@ERROR: setgid failed\n");
 			return -1;
 		}
 
 		if (setuid(uid)) {
 			rsyserr(FERROR, errno, "setuid %d failed", (int) uid);
-			io_printf(fd,"@ERROR: setuid failed\n");
+			io_printf(f_out, "@ERROR: setuid failed\n");
 			return -1;
 		}
 
 		am_root = (getuid() == 0);
 	}
 
-	io_printf(fd,"@RSYNCD: OK\n");
+	io_printf(f_out, "@RSYNCD: OK\n");
 
 	argv[argc++] = "rsyncd";
 
 	while (1) {
-		if (!read_line(fd, line, sizeof(line)-1)) {
+		if (!read_line(f_in, line, sizeof(line)-1)) {
 			return -1;
 		}
 
@@ -368,7 +444,7 @@ static int rsync_module(int fd, int i)
 
 	if (remote_version < 23) {
 		if (remote_version == 22 || (remote_version > 17 && am_sender))
-			io_start_multiplex_out(fd);
+			io_start_multiplex_out(f_out);
 	}
         
         /* For later protocol versions, we don't start multiplexing
@@ -389,7 +465,7 @@ static int rsync_module(int fd, int i)
 		io_timeout = lp_timeout(i);
 	}
 
-	start_server(fd, fd, argc, argp);
+	start_server(f_in, f_out, argc, argp);
 
 	return 0;
 }
@@ -410,26 +486,31 @@ static void send_listing(int fd)
 		io_printf(fd,"@RSYNCD: EXIT\n");
 }
 
-/* this is called when a socket connection is established to a client
+/* this is called when a connection is established to a client
    and we want to start talking. The setup of the system is done from
    here */
-static int start_daemon(int fd)
+int start_daemon(int f_in, int f_out)
 {
 	char line[200];
 	char *motd;
 	int i = -1;
 	extern char *config_file;
 	extern int remote_version;
+	extern int am_server;
 
 	if (!lp_load(config_file, 0)) {
 		exit_cleanup(RERR_SYNTAX);
 	}
 
-	set_socket_options(fd,"SO_KEEPALIVE");
-	set_socket_options(fd,lp_socket_options());
-	set_nonblocking(fd);
+	log_init();
 
-	io_printf(fd,"@RSYNCD: %d\n", PROTOCOL_VERSION);
+	if (!am_server) {
+		set_socket_options(f_in, "SO_KEEPALIVE");
+		set_socket_options(f_in, lp_socket_options());
+		set_nonblocking(f_in);
+	}
+
+	io_printf(f_out, "@RSYNCD: %d\n", PROTOCOL_VERSION);
 
 	motd = lp_motd_file();
 	if (motd && *motd) {
@@ -438,47 +519,47 @@ static int start_daemon(int fd)
 			int len = fread(line, 1, sizeof(line)-1, f);
 			if (len > 0) {
 				line[len] = 0;
-				io_printf(fd,"%s", line);
+				io_printf(f_out, "%s", line);
 			}
 		}
 		if (f) fclose(f);
-		io_printf(fd,"\n");
+		io_printf(f_out, "\n");
 	}
 
-	if (!read_line(fd, line, sizeof(line)-1)) {
+	if (!read_line(f_in, line, sizeof(line)-1)) {
 		return -1;
 	}
 
 	if (sscanf(line,"@RSYNCD: %d", &remote_version) != 1) {
-		io_printf(fd,"@ERROR: protocol startup error\n");
+		io_printf(f_out, "@ERROR: protocol startup error\n");
 		return -1;
 	}	
 
 	while (i == -1) {
 		line[0] = 0;
-		if (!read_line(fd, line, sizeof(line)-1)) {
+		if (!read_line(f_in, line, sizeof(line)-1)) {
 			return -1;
 		}
 
 		if (!*line || strcmp(line,"#list")==0) {
-			send_listing(fd);
+			send_listing(f_out);
 			return -1;
 		} 
 
 		if (*line == '#') {
 			/* it's some sort of command that I don't understand */
-			io_printf(fd,"@ERROR: Unknown command '%s'\n", line);
+			io_printf(f_out, "@ERROR: Unknown command '%s'\n", line);
 			return -1;
 		}
 
 		i = lp_number(line);
 		if (i == -1) {
-			io_printf(fd,"@ERROR: Unknown module '%s'\n", line);
+			io_printf(f_out, "@ERROR: Unknown module '%s'\n", line);
 			return -1;
 		}
 	}
 
-	return rsync_module(fd, i);
+	return rsync_module(f_in, f_out, i);
 }
 
 
@@ -500,7 +581,7 @@ int daemon_main(void)
 			open("/dev/null", O_RDWR);
 		}
 
-		return start_daemon(STDIN_FILENO);
+		return start_daemon(STDIN_FILENO, STDIN_FILENO);
 	}
 
 	if (!no_detach)

@@ -2,21 +2,24 @@
  * Copyright (c) 2000 Apple Computer, Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
- *
- * The contents of this file constitute Original Code as defined in and
- * are subject to the Apple Public Source License Version 1.1 (the
- * "License").  You may not use this file except in compliance with the
- * License.  Please obtain a copy of the License at
- * http://www.apple.com/publicsource and read it before using this file.
- *
- * This Original Code and all software distributed under the License are
- * distributed on an "AS IS" basis, WITHOUT WARRANTY OF ANY KIND, EITHER
+ * 
+ * Copyright (c) 1999-2003 Apple Computer, Inc.  All Rights Reserved.
+ * 
+ * This file contains Original Code and/or Modifications of Original Code
+ * as defined in and that are subject to the Apple Public Source License
+ * Version 2.0 (the 'License'). You may not use this file except in
+ * compliance with the License. Please obtain a copy of the License at
+ * http://www.opensource.apple.com/apsl/ and read it before using this
+ * file.
+ * 
+ * The Original Code and all software distributed under the License are
+ * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
  * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
  * INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY,
- * FITNESS FOR A PARTICULAR PURPOSE OR NON-INFRINGEMENT.  Please see the
- * License for the specific language governing rights and limitations
- * under the License.
- *
+ * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
+ * Please see the License for the specific language governing rights and
+ * limitations under the License.
+ * 
  * @APPLE_LICENSE_HEADER_END@
  */
 
@@ -75,18 +78,24 @@ Definitions
         log text; 		\
     }
 
-
+/* 
+    As the private structure contains only one field, 
+    there is no need for an extra malloc .
+    Can be changed later, if we need to keep
+    more information in the private structure.
+*/
+#ifdef USE_PRIVATE_STRUCT
 /* Link private data structure */
 struct ppp_priv {
     void 		*host;		/* our client structure */
 };
-
+#endif
 
 /* -----------------------------------------------------------------------------
 Forward declarations
 ----------------------------------------------------------------------------- */
 
-void ppp_link_logmbuf(struct ppp_link *link, char *msg, struct mbuf *m);
+
 
 /* -----------------------------------------------------------------------------
 Globals
@@ -139,20 +148,26 @@ Attach a link
 ----------------------------------------------------------------------------- */
 int ppp_link_attach(struct ppp_link *link)
 {
+#ifdef USE_PRIVATE_STRUCT
     struct ppp_priv *priv;
+#endif
 
     if (!link->lk_ioctl || !link->lk_output) {
         return EINVAL;
     }
 
-    MALLOC(priv, struct ppp_priv *, sizeof(struct ppp_priv), M_DEVBUF, M_WAITOK);
+#ifdef USE_PRIVATE_STRUCT
+    MALLOC(priv, struct ppp_priv *, sizeof(struct ppp_priv), M_TEMP, M_WAITOK);
     if (!priv)
         return ENOMEM;
 
     bzero(priv, sizeof(struct ppp_priv));
+    link->lk_ppp_private = priv;
+#else
+    link->lk_ppp_private = 0;
+#endif
     link->lk_ifnet = 0;
     link->lk_index = ppp_link_findfreeindex();
-    link->lk_ppp_private = priv;
     TAILQ_INSERT_TAIL(&ppp_link_head, link, lk_next);
     
     return 0;
@@ -163,13 +178,19 @@ Detach a link
 ----------------------------------------------------------------------------- */
 int ppp_link_detach(struct ppp_link *link)
 {
+#ifdef USE_PRIVATE_STRUCT
     struct ppp_priv 	*priv = (struct ppp_priv *)link->lk_ppp_private;
+#endif
 
     LOGLKDBG(link, (LOGVAL, "ppp_link_detach : (link = %s%d)\n", LKNAME(link), LKUNIT(link)));
     ppp_if_detachlink(link);
+#ifdef USE_PRIVATE_STRUCT
     ppp_proto_free(priv->host);
+    FREE(priv, M_TEMP);
+#else
+    ppp_proto_free(link->lk_ppp_private);
+#endif
     TAILQ_REMOVE(&ppp_link_head, link, lk_next);
-    FREE(priv, M_DEVBUF);
     link->lk_ppp_private = 0;
     return 0;
 }
@@ -196,7 +217,9 @@ int ppp_link_event(struct ppp_link *link, u_int32_t event, void *data)
 ----------------------------------------------------------------------------- */
 int ppp_link_input(struct ppp_link *link, struct mbuf *m)
 {
+#ifdef USE_PRIVATE_STRUCT
     struct ppp_priv 	*priv = (struct ppp_priv *)link->lk_ppp_private;
+#endif
     u_char 		*p;
     u_int16_t		proto, len;
     
@@ -219,7 +242,11 @@ int ppp_link_input(struct ppp_link *link, struct mbuf *m)
         ppp_if_input(link->lk_ifnet, m, proto, len);	// Network protocol
     }
     else {
-        ppp_proto_input(priv->host, m);		// LCP/Auth/unexpected network protocol
+#ifdef USE_PRIVATE_STRUCT
+	ppp_proto_input(priv->host, m);		// LCP/Auth/unexpected network protocol
+#else
+        ppp_proto_input(link->lk_ppp_private, m);// LCP/Auth/unexpected network protocol
+#endif
     }
     return 0;
 }
@@ -288,7 +315,7 @@ int ppp_link_control(struct ppp_link *link, u_int32_t cmd, void *data)
         case PPPIOCGASYNCMAP:
         case PPPIOCGRASYNCMAP:
         case PPPIOCGXASYNCMAP:
-            if (link->lk_support & PPP_LINK_ASYNC)
+            if ((link->lk_support & PPP_LINK_ASYNC) == 0)
                 error = EINVAL; 	// async link must support these ioctls
             break;
 
@@ -304,13 +331,19 @@ int ppp_link_control(struct ppp_link *link, u_int32_t cmd, void *data)
 int ppp_link_attachclient(u_short index, void *host, struct ppp_link **data)
 {
     struct ppp_link  	*link;
+#ifdef USE_PRIVATE_STRUCT
     struct ppp_priv	*priv;
+#endif
 
     TAILQ_FOREACH(link, &ppp_link_head, lk_next) {
         if (link->lk_index == index) {
             *data = (void *)link;
+#ifdef USE_PRIVATE_STRUCT
             priv = (struct ppp_priv *)link->lk_ppp_private;
             priv->host = host;
+#else
+            link->lk_ppp_private = host;
+#endif
             return 0;
         }
     }
@@ -321,10 +354,15 @@ int ppp_link_attachclient(u_short index, void *host, struct ppp_link **data)
 ----------------------------------------------------------------------------- */
 void ppp_link_detachclient(struct ppp_link *link, void *host)
 {
+#ifdef USE_PRIVATE_STRUCT
     struct ppp_priv	*priv = (struct ppp_priv *)link->lk_ppp_private;
 
     if (priv && (priv->host == host))
         priv->host = 0;
+#else
+    if (link->lk_ppp_private == host)
+        link->lk_ppp_private = 0;
+#endif
 }
 
 /* -----------------------------------------------------------------------------

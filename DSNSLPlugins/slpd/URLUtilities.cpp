@@ -1,23 +1,36 @@
 /*
-	File:		URLUtilities.cp
-
-	Contains:	some simple URL utilities
-
-	Written by:	Dave Fisher and Kevin Arnold
-
-	Copyright:	© 1997 - 2000 by Apple Computer, Inc., all rights reserved.
-
-	Change History (most recent first):
-
-
-
-	To Do:
+ * Copyright (c) 2002 Apple Computer, Inc. All rights reserved.
+ *
+ * @APPLE_LICENSE_HEADER_START@
+ * 
+ * Copyright (c) 1999-2003 Apple Computer, Inc.  All Rights Reserved.
+ * 
+ * This file contains Original Code and/or Modifications of Original Code
+ * as defined in and that are subject to the Apple Public Source License
+ * Version 2.0 (the 'License'). You may not use this file except in
+ * compliance with the License. Please obtain a copy of the License at
+ * http://www.opensource.apple.com/apsl/ and read it before using this
+ * file.
+ * 
+ * The Original Code and all software distributed under the License are
+ * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
+ * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
+ * INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY,
+ * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
+ * Please see the License for the specific language governing rights and
+ * limitations under the License.
+ * 
+ * @APPLE_LICENSE_HEADER_END@
+ */
+ 
+/*!
+ *  @header URLUtilities
+ *  Some simple URL utilities
 */
+
 #include <ctype.h>
 #include <stdio.h>
 #include <string.h>
-//#include "NSLCore.h"
-#include <Carbon/Carbon.h>
 
 #include "URLUtilities.h"
 
@@ -44,7 +57,7 @@
  - Update, changed this to look for ":/" instead since the url "afp:/at/... is valid"
 */
 
-Boolean	IsURL( const char* theString, UInt32 theURLLength, char** svcTypeOffset )
+Boolean	IsURL( const char* theString, unsigned long theURLLength, char** svcTypeOffset )
 {
 
 	Boolean		foundURL=false;
@@ -69,14 +82,14 @@ Boolean	IsURL( const char* theString, UInt32 theURLLength, char** svcTypeOffset 
  for space, ", < and >.  
 */
 
-Boolean	AllLegalURLChars( const char* theString, UInt32 theURLLength )
+Boolean	AllLegalURLChars( const char* theString, unsigned long theURLLength )
 {
 
 	Boolean	isLegal = true;
 	
 	if ( theString )				// make sure we have a string to examine
 	{		
-		for (SInt32 i = theURLLength - 1; i>=0 && isLegal; i--)
+		for (long i = theURLLength - 1; i>=0 && isLegal; i--)
 			isLegal = IsLegalURLChar( theString[i] );
 	}
 	else
@@ -109,12 +122,12 @@ Boolean IsLegalURLChar( const char theChar )
 */
 
 void GetServiceTypeFromURL(	const char* readPtr,
-							UInt32 theURLLength,
+							unsigned long theURLLength,
 							char*	URLType )
 {
 
 	char*	curOffset;
-	UInt16	typeLen;
+	unsigned short	typeLen;
 	
 	if ( IsURL( readPtr, theURLLength, &curOffset))
 	{
@@ -128,250 +141,3 @@ void GetServiceTypeFromURL(	const char* readPtr,
 	}
 
 }
-
-
-Boolean IsCharURLReservedOrIllegal( const char c )
-{
-	Boolean 	isIllegal = false;
-	
-	if ( c <= 0x1F || c == 0x7F || (unsigned char)c >= 0x80 )
-		isIllegal = true;
-	else
-	{
-		switch (c)
-		{
-			case '<':
-			case '>':
-			case 0x22:	// double quote
-			case 0x5c:	// back slash
-			case '#':
-			case '{':
-			case '}':
-			case '|':
-			case '^':
-			case '~':
-			case '[':
-			case ']':
-			case '`':
-			case ';':
-			case '/':
-			case '?':
-			case ':':
-			case '@':
-			case '=':
-			case '&':
-			case ' ':
-			case ',':
-			case '%':
-				isIllegal = true;
-			break;
-		}
-	}
-	
-	return isIllegal;
-}
-
-void EncodeCharToHex( const char c, char* newHexChar )
-{
-	// Convert ascii to %xx equivalent
-	div_t			result;
-	short			hexValue = c;
-	char 			c1, c2;
-	
-	if ( hexValue < 0 )
-		hexValue -= 0xFF00;	// clear out the high byte
-	
-	result = div( hexValue, 16 );
-	
-	if ( result.quot < 0xA )
-		c1 = (char)result.quot + '0';
-	else
-		c1 = (char)result.quot + 'a' - 10;
-	
-	if ( result.rem < 0xA )
-		c2 = (char)result.rem + '0';
-	else
-		c2 = (char)result.rem + 'a' - 10;
-	
-	newHexChar[0] = '%';
-	newHexChar[1] = c1;
-	newHexChar[2] = c2;
-}
-
-char DecodeHexToChar( const char* oldHexTriplet, Boolean* wasHexTriplet  )
-{
-	char c, c1, c2;
-	
-	*wasHexTriplet = false;
-	
-	c = *oldHexTriplet;
-
-	if ( c == '%' )
-	{
-		// Convert %xx to ascii equivalent
-		c1 = tolower(oldHexTriplet[1]);
-		c2 = tolower(oldHexTriplet[2]);
-		if (charisxdigit(c1) && charisxdigit(c2)) 
-		{
-			c1 = charisdigit(c1) ? c1 - '0' : c1 - 'a' + 10;
-			c2 = charisdigit(c2) ? c2 - '0' : c2 - 'a' + 10;
-			c = (c1 << 4) | c2;
-			
-			*wasHexTriplet = true;
-		}
-	}
-	
-	return c;
-}
-
-Boolean EncodeHTTPString( string& text )
-{
-	// Decode characters in theString.
-	// Along the way, change:
-	//   ascii to '%xx' equivalent
-	string		temp, theString = text.c_str();
-	
-	short 			i=0;
-	short 			len = theString.size();
-	char 			c, c1, c2;
-	Boolean			encodedTheString = false;
-
-	if ( *(text.c_str()) == '.' && text.size() == 1 )
-	{
-		// this means the item name is just a period which can cause all sorts of wierdnesses if it is
-		// a folder name.  Encode this special case	// KA - 1/7/97
-		text = "%2E";
-		encodedTheString = true;
-	}
-	else
-	{
-		temp.reserve(len);	// so we don't keep bumping up the size
-		
-		while (i < len)
-		{
-			// Convert space to +
-			c = theString[i];
-			
-			if ( c == '>' )
-			{
-				temp += "%3E";
-				encodedTheString = true;
-			}
-			else if ( c == '<' )
-			{
-				temp += "%3C";
-				encodedTheString = true;
-			}
-			else if ( c == '?' )
-			{
-				temp += "%3F";
-				encodedTheString = true;
-			}
-			else if ( c == '/' )
-			{
-				temp += "%2F";	// KA - 7/24/96
-				encodedTheString = true;
-			}
-			else if ((c < 0x2C) || (c > 'z'))	// not between - and z, convert
-			{
-				// Convert ascii to %xx equivalent
-				div_t	result;
-				short	hexValue = c;
-				
-				if ( hexValue < 0 )
-					hexValue -= 0xFF00;	// clear out the high byte
-				
-				result = div( hexValue, 16 );
-				
-				if ( result.quot < 0xA )
-					c1 = (char)result.quot + '0';
-				else
-					c1 = (char)result.quot + 'a' - 10;
-				
-				if ( result.rem < 0xA )
-					c2 = (char)result.rem + '0';
-				else
-					c2 = (char)result.rem + 'a' - 10;
-				
-				temp += '%';
-				temp += c1;
-				temp += c2;
-
-				encodedTheString = true;
-			}
-			else
-			{
-			// Copy regular characters
-				temp += c;
-			}
-
-			i = i + 1;
-		}
-		
-		text = temp.c_str();
-	}
-	
-	return encodedTheString;
-}
-
-void DecodeHTTPString( string& theString )
-{
-	// Decode characters in theString.
-	// changing '%xx' to the ascii equivalent
-	
-	short i=0;
-	short len = theString.size();
-	char c, c1, c2;
-	
-	string temp;
-	temp.reserve(len);	// so we don't keep bumping up the size
-	
-	while (i < len)
-	{
-		c = theString[i];
-
-		if ((c == '%') & (i+2 < len))
-		{
-			// Convert %xx to ascii equivalent
-			c1 = tolower(theString[i+1]);
-			c2 = tolower(theString[i+2]);
-			if (charisxdigit(c1) && charisxdigit(c2)) 
-			{
-				c1 = charisdigit(c1) ? c1 - '0' : c1 - 'a' + 10;
-				c2 = charisdigit(c2) ? c2 - '0' : c2 - 'a' + 10;
-				c = (c1 << 4) | c2;
-				
-				temp += c;
-			}
-			i = i + 3;
-		}
-
-		// Copy regular characters
-		else/* if (isgraph(c) || c == '\r')*/
-		{
-			temp += c;
-			i = i + 1;
-		}
-	}
-	
-	theString = temp;
-}
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-

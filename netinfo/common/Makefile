@@ -12,16 +12,16 @@ NAME = NetInfo
 PROJECTVERSION = 2.8
 PROJECT_TYPE = Framework
 
-HFILES = DynaAPI.h clib.h config.h dns.h dsassertion.h dsattribute.h dscache.h\
+HFILES = DynaAPI.h clib.h config.h dsassertion.h dsattribute.h dscache.h\
          dsdata.h dsengine.h dsfilter.h dsindex.h dsrecord.h dsreference.h\
          dsstatus.h dsstore.h dsutil.h dsx500.h dsx500dit.h ffparser.h mm.h\
          network.h ni_shared.h nilib2.h nistore.h os.h rpc_extra.h\
-		 sdns.h socket_lock.h syslock.h system.h system_log.h systhread.h utf-8.h
+		 socket_lock.h syslock.h system.h system_log.h systhread.h utf-8.h
 
-CFILES = dns.c dsassertion.c dsattribute.c dscache.c dsdata.c\
+CFILES = dsassertion.c dsattribute.c dscache.c dsdata.c\
          dsengine.c dsfilter.c dsindex.c dsrecord.c dsreference.c dsstatus.c\
          dsstore.c dsutil.c dsx500.c dsx500dit.c ffparser.c network.c\
-		 ni_shared.c nilib2.c nistore.c rparent.c rpc_extra.c sdns.c socket_lock.c\
+		 ni_shared.c nilib2.c nistore.c rparent.c rpc_extra.c socket_lock.c\
 		 syslock.c system.c system_log.c systhread.c utf-8.c
 
 OTHERSRCS = CustomInfo.plist Makefile.preamble Makefile\
@@ -41,18 +41,18 @@ DEBUG_LIBS = $(LIBS)
 PROF_LIBS = $(LIBS)
 
 
-PUBLIC_HEADERS = DynaAPI.h clib.h config.h dns.h dsassertion.h dsattribute.h\
+PUBLIC_HEADERS = DynaAPI.h clib.h config.h dsassertion.h dsattribute.h\
                  dscache.h dsdata.h dsengine.h dsfilter.h dsindex.h\
                  dsrecord.h dsreference.h dsstatus.h dsstore.h dsutil.h\
 				 dsx500.h dsx500dit.h ffparser.h mm.h network.h ni_shared.h\
-				 nilib2.h nistore.h os.h rpc_extra.h sdns.h socket_lock.h syslock.h\
+				 nilib2.h nistore.h os.h rpc_extra.h socket_lock.h syslock.h\
 				 system.h system_log.h systhread.h utf-8.h
 
-PROJECT_HEADERS = DynaAPI.h clib.h config.h dns.h dsassertion.h dsattribute.h\
+PROJECT_HEADERS = DynaAPI.h clib.h config.h dsassertion.h dsattribute.h\
                   dscache.h dsdata.h dsengine.h dsfilter.h dsindex.h\
                   dsrecord.h dsreference.h dsstatus.h dsstore.h dsutil.h\
 				  dsx500.h dsx500dit.h ffparser.h mm.h network.h ni_shared.h\
-				  nilib2.h nistore.h os.h rpc_extra.h sdns.h socket_lock.h syslock.h\
+				  nilib2.h nistore.h os.h rpc_extra.h socket_lock.h syslock.h\
 				  system.h systhread.h system_log.h utf-8.h
 
 

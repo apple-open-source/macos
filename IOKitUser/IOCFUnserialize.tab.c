@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1999-2000 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 1999-2002 Apple Computer, Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -36,6 +36,7 @@
 //	head -50 IOCFUnserialize.yacc > IOCFUnserialize.tab.c
 //	cat IOCFUnserialize.temp >> IOCFUnserialize.tab.c
 //
+//	when changing code check in both IOCFUnserialize.yacc and IOCFUnserialize.tab.c
 //
 //
 //
@@ -50,7 +51,6 @@
 //
 //
 //
-
 
 /*  A Bison parser, made from IOCFUnserialize.yacc
     by GNU Bison version 1.28  */
@@ -75,7 +75,7 @@
 #define	STRING	265
 #define	SYNTAX_ERROR	266
 
-#line 54 "IOCFUnserialize.yacc"
+#line 55 "IOCFUnserialize.yacc"
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -95,7 +95,7 @@
 #define YYLEX_PARAM	state
 
 // this is the internal struct used to hold objects on parser stack
-// it represents CF objects both before and after they have been created
+// it represents objects both before and after they have been created
 typedef	struct object {
 	struct object	*next;
 	struct object	*free;
@@ -112,15 +112,15 @@ typedef	struct object {
 // this code is reentrant, this structure contains all
 // state information for the parsing of a single buffer
 typedef struct parser_state {
-    const char		*parseBuffer;		// start of text to be parsed
-    int			parseBufferIndex;	// current index into text
-    int			lineNumber;		// current line number
-    CFAllocatorRef 	allocator;		// which allocator to use
-    object_t		*objects;		// internal objects in use
-    object_t		*freeObjects;		// internal objects that are free
-    CFMutableDictionaryRef tags;		// used to remember "ID" tags
-    CFStringRef 	*errorString;		// parse error with line
-    CFTypeRef		parsedObject;		// resultant object of parsed text
+	const char	*parseBuffer;		// start of text to be parsed
+	int		parseBufferIndex;	// current index into text
+	int		lineNumber;		// current line number
+	CFAllocatorRef 	allocator;		// which allocator to use
+	object_t	*objects;		// internal objects in use
+	object_t	*freeObjects;		// internal objects that are free
+	CFMutableDictionaryRef tags;		// used to remember "ID" tags
+	CFStringRef 	*errorString;		// parse error with line
+	CFTypeRef	parsedObject;		// resultant object of parsed text
 } parser_state_t;
 
 #define STATE		((parser_state_t *)state)
@@ -138,13 +138,13 @@ static void		rememberObject(parser_state_t *state, int tag, CFTypeRef o);
 static object_t		*retrieveObject(parser_state_t *state, int tag);
 static void		cleanupObjects(parser_state_t *state);
 
-static object_t		*buildCFDictionary(parser_state_t *state, object_t *);
-static object_t		*buildCFArray(parser_state_t *state, object_t *);
-static object_t		*buildCFSet(parser_state_t *state, object_t *);
-static object_t		*buildCFString(parser_state_t *state, object_t *);
-static object_t		*buildCFData(parser_state_t *state, object_t *);
-static object_t		*buildCFNumber(parser_state_t *state, object_t *);
-static object_t		*buildCFBoolean(parser_state_t *state, object_t *o);
+static object_t		*buildDictionary(parser_state_t *state, object_t *o);
+static object_t		*buildArray(parser_state_t *state, object_t *o);
+static object_t		*buildSet(parser_state_t *state, object_t *o);
+static object_t		*buildString(parser_state_t *state, object_t *o);
+static object_t		*buildData(parser_state_t *state, object_t *o);
+static object_t		*buildNumber(parser_state_t *state, object_t *o);
+static object_t		*buildBoolean(parser_state_t *state, object_t *o);
 
 #ifndef YYSTYPE
 #define YYSTYPE int
@@ -218,10 +218,10 @@ static const short yyrhs[] = {    -1,
 
 #if YYDEBUG != 0
 static const short yyrline[] = { 0,
-   137,   140,   145,   150,   151,   152,   153,   154,   155,   156,
-   157,   170,   173,   176,   179,   180,   185,   194,   199,   202,
-   205,   208,   211,   214,   217,   220,   227,   230,   233,   236,
-   239
+   138,   141,   146,   151,   152,   153,   154,   155,   156,   157,
+   158,   171,   174,   177,   180,   181,   186,   195,   200,   203,
+   206,   209,   212,   215,   218,   221,   228,   231,   234,   237,
+   240
 };
 #endif
 
@@ -850,13 +850,13 @@ yyreduce:
   switch (yyn) {
 
 case 1:
-#line 137 "IOCFUnserialize.yacc"
+#line 138 "IOCFUnserialize.yacc"
 { yyerror("unexpected end of buffer");
 				  YYERROR;
 				;
     break;}
 case 2:
-#line 140 "IOCFUnserialize.yacc"
+#line 141 "IOCFUnserialize.yacc"
 { STATE->parsedObject = yyvsp[0]->object;
 				  yyvsp[0]->object = 0;
 				  freeObject(STATE, yyvsp[0]);
@@ -864,41 +864,41 @@ case 2:
 				;
     break;}
 case 3:
-#line 145 "IOCFUnserialize.yacc"
+#line 146 "IOCFUnserialize.yacc"
 { yyerror("syntax error");
 				  YYERROR;
 				;
     break;}
 case 4:
-#line 150 "IOCFUnserialize.yacc"
-{ yyval = buildCFDictionary(STATE, yyvsp[0]); ;
+#line 151 "IOCFUnserialize.yacc"
+{ yyval = buildDictionary(STATE, yyvsp[0]); ;
     break;}
 case 5:
-#line 151 "IOCFUnserialize.yacc"
-{ yyval = buildCFArray(STATE, yyvsp[0]); ;
+#line 152 "IOCFUnserialize.yacc"
+{ yyval = buildArray(STATE, yyvsp[0]); ;
     break;}
 case 6:
-#line 152 "IOCFUnserialize.yacc"
-{ yyval = buildCFSet(STATE, yyvsp[0]); ;
+#line 153 "IOCFUnserialize.yacc"
+{ yyval = buildSet(STATE, yyvsp[0]); ;
     break;}
 case 7:
-#line 153 "IOCFUnserialize.yacc"
-{ yyval = buildCFString(STATE, yyvsp[0]); ;
+#line 154 "IOCFUnserialize.yacc"
+{ yyval = buildString(STATE, yyvsp[0]); ;
     break;}
 case 8:
-#line 154 "IOCFUnserialize.yacc"
-{ yyval = buildCFData(STATE, yyvsp[0]); ;
+#line 155 "IOCFUnserialize.yacc"
+{ yyval = buildData(STATE, yyvsp[0]); ;
     break;}
 case 9:
-#line 155 "IOCFUnserialize.yacc"
-{ yyval = buildCFNumber(STATE, yyvsp[0]); ;
+#line 156 "IOCFUnserialize.yacc"
+{ yyval = buildNumber(STATE, yyvsp[0]); ;
     break;}
 case 10:
-#line 156 "IOCFUnserialize.yacc"
-{ yyval = buildCFBoolean(STATE, yyvsp[0]); ;
+#line 157 "IOCFUnserialize.yacc"
+{ yyval = buildBoolean(STATE, yyvsp[0]); ;
     break;}
 case 11:
-#line 157 "IOCFUnserialize.yacc"
+#line 158 "IOCFUnserialize.yacc"
 { yyval = retrieveObject(STATE, yyvsp[0]->idref);
 				  if (yyval) {
 				    CFRetain(yyval->object);
@@ -910,25 +910,25 @@ case 11:
 				;
     break;}
 case 12:
-#line 170 "IOCFUnserialize.yacc"
+#line 171 "IOCFUnserialize.yacc"
 { yyval = yyvsp[-1];
 				  yyval->elements = NULL;
 				;
     break;}
 case 13:
-#line 173 "IOCFUnserialize.yacc"
+#line 174 "IOCFUnserialize.yacc"
 { yyval = yyvsp[-2];
 				  yyval->elements = yyvsp[-1];
 				;
     break;}
 case 16:
-#line 180 "IOCFUnserialize.yacc"
+#line 181 "IOCFUnserialize.yacc"
 { yyval = yyvsp[0];
 				  yyval->next = yyvsp[-1];
 				;
     break;}
 case 17:
-#line 185 "IOCFUnserialize.yacc"
+#line 186 "IOCFUnserialize.yacc"
 { yyval = yyvsp[-1];
 				  yyval->key = yyval->object;
 				  yyval->object = yyvsp[0]->object;
@@ -938,41 +938,41 @@ case 17:
 				;
     break;}
 case 18:
-#line 194 "IOCFUnserialize.yacc"
-{ yyval = buildCFString(STATE, yyvsp[0]); ;
+#line 195 "IOCFUnserialize.yacc"
+{ yyval = buildString(STATE, yyvsp[0]); ;
     break;}
 case 19:
-#line 199 "IOCFUnserialize.yacc"
+#line 200 "IOCFUnserialize.yacc"
 { yyval = yyvsp[-1];
 				  yyval->elements = NULL;
 				;
     break;}
 case 20:
-#line 202 "IOCFUnserialize.yacc"
+#line 203 "IOCFUnserialize.yacc"
 { yyval = yyvsp[-2];
 				  yyval->elements = yyvsp[-1];
 				;
     break;}
 case 22:
-#line 208 "IOCFUnserialize.yacc"
+#line 209 "IOCFUnserialize.yacc"
 { yyval = yyvsp[-1];
 				  yyval->elements = NULL;
 				;
     break;}
 case 23:
-#line 211 "IOCFUnserialize.yacc"
+#line 212 "IOCFUnserialize.yacc"
 { yyval = yyvsp[-2];
 				  yyval->elements = yyvsp[-1];
 				;
     break;}
 case 25:
-#line 217 "IOCFUnserialize.yacc"
+#line 218 "IOCFUnserialize.yacc"
 { yyval = yyvsp[0]; 
 				  yyval->next = NULL; 
 				;
     break;}
 case 26:
-#line 220 "IOCFUnserialize.yacc"
+#line 221 "IOCFUnserialize.yacc"
 { yyval = yyvsp[0];
 				  yyval->next = yyvsp[-1];
 				;
@@ -1199,7 +1199,7 @@ yyerrhandle:
     }
   return 1;
 }
-#line 242 "IOCFUnserialize.yacc"
+#line 243 "IOCFUnserialize.yacc"
 
 
 int
@@ -1454,14 +1454,14 @@ static const signed char __CFPLDataDecodeTable[128] = {
     /* 'x' */ 49, 50, 51, -1, -1, -1, -1, -1
 };
 
-#define CFDATA_ALLOC_SIZE 4096
+#define DATA_ALLOC_SIZE 4096
 
 static void *
-getData(parser_state_t *state, unsigned int *size)
+getCFEncodedData(parser_state_t *state, unsigned int *size)
 {
     int numeq = 0, acc = 0, cntr = 0;
     int tmpbufpos = 0, tmpbuflen = 0;
-    unsigned char *tmpbuf = (unsigned char *)malloc(CFDATA_ALLOC_SIZE);
+    unsigned char *tmpbuf = (unsigned char *)malloc(DATA_ALLOC_SIZE);
 
     int c = currentChar();
     *size = 0;
@@ -1483,7 +1483,7 @@ getData(parser_state_t *state, unsigned int *size)
         acc += __CFPLDataDecodeTable[c];
         if (0 == (cntr & 0x3)) {
             if (tmpbuflen <= tmpbufpos + 2) {
-                tmpbuflen += CFDATA_ALLOC_SIZE;
+                tmpbuflen += DATA_ALLOC_SIZE;
 		tmpbuf = (unsigned char *)realloc(tmpbuf, tmpbuflen);
             }
             tmpbuf[tmpbufpos++] = (acc >> 16) & 0xff;
@@ -1581,7 +1581,7 @@ yylex(YYSTYPE *lvalp, parser_state_t *state)
 				object->size = 0;
 				return DATA;
 			}
-			object->data = getData(STATE, &size);
+			object->data = getCFEncodedData(STATE, &size);
 			object->size = size;
 			if ((getTag(STATE, tag, &attributeCount, attributes, values) != TAG_END) || strcmp(tag, "data")) {
 				return SYNTAX_ERROR;
@@ -1778,11 +1778,11 @@ retrieveObject(parser_state_t *state, int tag)
 // !@$&)(^Q$&*^!$(*!@$_(^%_(*Q#$(_*&!$_(*&!$_(*&!#$(*!@&^!@#%!_!#
 
 object_t *
-buildCFDictionary(parser_state_t *state, object_t * header)
+buildDictionary(parser_state_t *state, object_t * header)
 {
 	object_t *o, *t;
 	int count = 0;
-        CFMutableDictionaryRef dict;
+	CFMutableDictionaryRef dict;
 
 	// get count and reverse order
 	o = header->elements;
@@ -1803,10 +1803,10 @@ buildCFDictionary(parser_state_t *state, object_t * header)
 
 	o = header->elements;
 	while (o) {
-                CFDictionarySetValue(dict, o->key, o->object);
+		CFDictionarySetValue(dict, o->key, o->object);
 
-                CFRelease(o->key); 
-                CFRelease(o->object); 
+		CFRelease(o->key); 
+		CFRelease(o->object); 
 		o->key = 0;
 		o->object = 0;
 
@@ -1820,7 +1820,7 @@ buildCFDictionary(parser_state_t *state, object_t * header)
 };
 
 object_t *
-buildCFArray(parser_state_t *state, object_t * header)
+buildArray(parser_state_t *state, object_t * header)
 {
 	object_t *o, *t;
 	int count = 0;
@@ -1858,7 +1858,7 @@ buildCFArray(parser_state_t *state, object_t * header)
 };
 
 object_t *
-buildCFSet(parser_state_t *state, object_t *header)
+buildSet(parser_state_t *state, object_t *header)
 {
 	object_t *o, *t;
 	int count = 0;
@@ -1896,7 +1896,7 @@ buildCFSet(parser_state_t *state, object_t *header)
 };
 
 object_t *
-buildCFString(parser_state_t *state, object_t *o)
+buildString(parser_state_t *state, object_t *o)
 {
 	CFStringRef string;
 
@@ -1912,7 +1912,7 @@ buildCFString(parser_state_t *state, object_t *o)
 };
 
 object_t *
-buildCFData(parser_state_t *state, object_t *o)
+buildData(parser_state_t *state, object_t *o)
 {
 	CFDataRef data;
 
@@ -1926,14 +1926,14 @@ buildCFData(parser_state_t *state, object_t *o)
 };
 
 object_t *
-buildCFNumber(parser_state_t *state, object_t *o)
+buildNumber(parser_state_t *state, object_t *o)
 {
 	CFNumberRef 	number;
 	CFNumberType 	numType;
 	const UInt8 *	bytes;
 
 	bytes = (const UInt8 *) &o->number;
-	if( o->size <= 32) {
+	if (o->size <= 32) {
 		numType = kCFNumberSInt32Type;
 #if __BIG_ENDIAN__
 		bytes += 4;
@@ -1942,7 +1942,7 @@ buildCFNumber(parser_state_t *state, object_t *o)
 		numType = kCFNumberSInt64Type;
 	}
 
-        number = CFNumberCreate(state->allocator, numType,
+	number = CFNumberCreate(state->allocator, numType,
 				(const void *) bytes);
 
 	if (o->idref >= 0) rememberObject(state, o->idref, number);
@@ -1952,12 +1952,11 @@ buildCFNumber(parser_state_t *state, object_t *o)
 };
 
 object_t *
-buildCFBoolean(parser_state_t *state, object_t *o)
+buildBoolean(parser_state_t *state, object_t *o)
 {
 	o->object = CFRetain((o->number == 0) ? kCFBooleanFalse : kCFBooleanTrue);
 	return o;
 };
-
 
 CFTypeRef
 IOCFUnserialize(const char	*buffer,
@@ -1965,13 +1964,17 @@ IOCFUnserialize(const char	*buffer,
                 CFOptionFlags	options,
                 CFStringRef	*errorString)
 {
-	CFTypeRef object = 0;
-	parser_state_t *state = (parser_state_t *)malloc(sizeof(parser_state_t));
-
-	if ((!state) || (!buffer) || options) return 0;
+	CFTypeRef object;
+	parser_state_t *state;
 
 	// just in case
 	if (errorString) *errorString = NULL;
+
+	if ((!buffer) || options) return 0;
+
+	state = (parser_state_t *) malloc(sizeof(parser_state_t));
+
+	if (!state) return 0;
 
 	state->parseBuffer = buffer;
 	state->parseBufferIndex = 0;

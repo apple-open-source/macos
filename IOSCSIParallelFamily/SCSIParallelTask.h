@@ -35,11 +35,10 @@
 #ifndef __SCSI_PARALLEL_TASK_H__
 #define __SCSI_PARALLEL_TASK_H__
 
-#include <IOKit/scsi-parallel/IOSCSIParallelInterfaceController.h>
-#include <IOKit/scsi-commands/SCSITask.h>
+#include <IOKit/scsi/spi/IOSCSIParallelInterfaceController.h>
+#include <IOKit/scsi/SCSITask.h>
 
-// Temporary -- INCLUDES SCSITASKDEFINITION.h
-#include "SCSITaskDefinition.h"
+#include <IOKit/scsi/SCSITaskDefinition.h>
 
  /*!
   @header SCSIParallelTask
@@ -169,7 +168,7 @@ public:
 		@function GetDataTransferDirection
         @abstract Method to retrieve the data transfer direction for this request.
 		@discussion Method to retrieve the data transfer direction for this request.
-        @result The data transfer direction as defined in <IOKit/scsi-commands/SCSITask.h>.
+        @result The data transfer direction as defined in <IOKit/scsi/SCSITask.h>.
 	*/
     
 	UInt8	GetDataTransferDirection ( void );

@@ -1,5 +1,3 @@
-/*	$NetBSD: extern.h,v 1.5 1997/01/09 20:21:29 tls Exp $	*/
-
 /*-
  * Copyright (c) 1992 Diomidis Spinellis.
  * Copyright (c) 1992, 1993
@@ -36,8 +34,8 @@
  * OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
  * SUCH DAMAGE.
  *
- *	from: @(#)extern.h	8.1 (Berkeley) 6/6/93
- *	$NetBSD: extern.h,v 1.5 1997/01/09 20:21:29 tls Exp $
+ *	@(#)extern.h	8.1 (Berkeley) 6/6/93
+ * $FreeBSD: src/usr.bin/sed/extern.h,v 1.11 2002/07/08 06:00:55 tjr Exp $
  */
 
 extern struct s_command *prog;
@@ -46,17 +44,15 @@ extern regmatch_t *match;
 extern size_t maxnsub;
 extern u_long linenum;
 extern int appendnum;
-extern int lastline;
 extern int aflag, eflag, nflag;
-extern char *fname;
+extern const char *fname;
+extern int rflags;	/* regex flags to use */
 
-void	 cfclose __P((struct s_command *, struct s_command *));
-void	 compile __P((void));
-void	 cspace __P((SPACE *, char *, size_t, enum e_spflag));
-char	*cu_fgets __P((char *, int));
-void	 err __P((int, const char *, ...));
-int	 mf_fgets __P((SPACE *, enum e_spflag));
-void	 process __P((void));
-char	*strregerror __P((int, regex_t *));
-void	*xmalloc __P((u_int));
-void	*xrealloc __P((void *, u_int));
+void	 cfclose(struct s_command *, struct s_command *);
+void	 compile(void);
+void	 cspace(SPACE *, const char *, size_t, enum e_spflag);
+char	*cu_fgets(char *, int, int *);
+int	 mf_fgets(SPACE *, enum e_spflag);
+int	 lastline(void);
+void	 process(void);
+char	*strregerror(int, regex_t *);

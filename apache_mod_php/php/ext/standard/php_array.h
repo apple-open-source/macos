@@ -1,8 +1,8 @@
 /* 
    +----------------------------------------------------------------------+
-   | PHP version 4.0                                                      |
+   | PHP Version 4                                                        |
    +----------------------------------------------------------------------+
-   | Copyright (c) 1997-2001 The PHP Group                                |
+   | Copyright (c) 1997-2003 The PHP Group                                |
    +----------------------------------------------------------------------+
    | This source file is subject to version 2.02 of the PHP license,      |
    | that is bundled with this package in the file LICENSE, and is        |
@@ -15,11 +15,11 @@
    | Authors: Andi Gutmans <andi@zend.com>                                |
    |          Zeev Suraski <zeev@zend.com>                                |
    |          Rasmus Lerdorf <rasmus@php.net>                             |
-   |          Andrei Zmievski <andrei@ispi.net>                           |
+   |          Andrei Zmievski <andrei@php.net>                            |
    +----------------------------------------------------------------------+
 */
 
-/* $Id: php_array.h,v 1.1.1.5 2001/12/14 22:13:25 zarzycki Exp $ */
+/* $Id: php_array.h,v 1.1.1.8 2003/07/18 18:07:43 zarzycki Exp $ */
 
 #ifndef PHP_ARRAY_H
 #define PHP_ARRAY_H
@@ -52,6 +52,7 @@ PHP_FUNCTION(in_array);
 PHP_FUNCTION(array_search);
 PHP_FUNCTION(extract);
 PHP_FUNCTION(compact);
+PHP_FUNCTION(array_fill);
 PHP_FUNCTION(range);
 PHP_FUNCTION(shuffle);
 PHP_FUNCTION(array_multisort);
@@ -70,18 +71,22 @@ PHP_FUNCTION(array_reverse);
 PHP_FUNCTION(array_reduce);
 PHP_FUNCTION(array_pad);
 PHP_FUNCTION(array_flip);
+PHP_FUNCTION(array_change_key_case);
 PHP_FUNCTION(array_rand);
 PHP_FUNCTION(array_unique);
 PHP_FUNCTION(array_intersect);
+PHP_FUNCTION(array_intersect_assoc);
 PHP_FUNCTION(array_diff);
+PHP_FUNCTION(array_diff_assoc);
 PHP_FUNCTION(array_sum);
 PHP_FUNCTION(array_filter);
 PHP_FUNCTION(array_map);
 PHP_FUNCTION(array_key_exists);
+PHP_FUNCTION(array_chunk);
 
 HashTable* php_splice(HashTable *, int, int, zval ***, int, HashTable **);
-PHPAPI void php_array_merge(HashTable *dest, HashTable *src, int recursive);
-int multisort_compare(const void *a, const void *b);
+PHPAPI int php_array_merge(HashTable *dest, HashTable *src, int recursive TSRMLS_DC);
+int multisort_compare(const void *a, const void *b TSRMLS_DC);
 
 typedef struct {
 	int *multisort_flags[2];

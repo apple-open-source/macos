@@ -1035,6 +1035,19 @@ rip6_stats(u_long off __unused, char *name, int af __unused)
  * Pretty print an Internet address (net address + port).
  * If the nflag was specified, use numbers instead of names.
  */
+#ifdef SRVCACHE
+extern struct servent * _serv_cache_getservbyport(int port, char *proto);
+
+#define GETSERVBYPORT6(port, proto, ret)\
+{\
+	if (strcmp((proto), "tcp6") == 0)\
+		(ret) = _serv_cache_getservbyport((int)(port), "tcp");\
+	else if (strcmp((proto), "udp6") == 0)\
+		(ret) = _serv_cache_getservbyport((int)(port), "udp");\
+	else\
+		(ret) = _serv_cache_getservbyport((int)(port), (proto));\
+};
+#else
 #define GETSERVBYPORT6(port, proto, ret)\
 {\
 	if (strcmp((proto), "tcp6") == 0)\
@@ -1044,7 +1057,7 @@ rip6_stats(u_long off __unused, char *name, int af __unused)
 	else\
 		(ret) = getservbyport((int)(port), (proto));\
 };
-
+#endif
 void
 inet6print(struct in6_addr *in6, int port, char *proto, int numeric)
 {

@@ -28,9 +28,18 @@ extern int dry_run;
 extern int am_server;
 
 
-/*
-  receive the checksums for a buffer
-  */
+/**
+ * @file
+ *
+ * The sender gets checksums from the generator, calculates deltas,
+ * and transmits them to the receiver.  The sender process runs on the
+ * machine holding the source files.
+ **/
+
+
+/**
+ * Receive the checksums for a buffer
+ **/
 static struct sum_struct *receive_sums(int f)
 {
 	struct sum_struct *s;
@@ -46,8 +55,8 @@ static struct sum_struct *receive_sums(int f)
 	s->sums = NULL;
 
 	if (verbose > 3)
-		rprintf(FINFO,"count=%d n=%d rem=%d\n",
-			s->count,s->n,s->remainder);
+		rprintf(FINFO,"count=%ld n=%ld rem=%ld\n",
+			(long) s->count, (long) s->n, (long) s->remainder);
 
 	if (s->count == 0) 
 		return(s);

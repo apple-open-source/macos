@@ -1,5 +1,5 @@
-# $OpenLDAP: pkg/ldap/build/man.mk,v 1.23 2002/01/04 20:17:29 kurt Exp $
-## Copyright 1998-2002 The OpenLDAP Foundation
+# $OpenLDAP: pkg/ldap/build/man.mk,v 1.23.2.2 2003/03/03 17:10:01 kurt Exp $
+## Copyright 1998-2003 The OpenLDAP Foundation
 ## COPYING RESTRICTIONS APPLY.  See COPYRIGHT File in top level directory
 ## of this package for details.
 ##---------------------------------------------------------------------------
@@ -14,14 +14,15 @@ all-common:
 	PAGES=`cd $(srcdir); echo *.$(MANSECT)`; \
 	for page in $$PAGES; do \
 		$(SED) -e "s%LDVERSION%$(VERSION)%" \
-			-e 's%ETCDIR%/etc/openldap%' \
-			-e 's%LOCALSTATEDIR%/var/db/openldap%' \
-			-e 's%SYSCONFDIR%/etc/openldap%' \
-			-e 's%DATADIR%/usr/share%' \
-			-e 's%SBINDIR%/usr/sbin%' \
-			-e 's%BINDIR%/usr/bin%' \
-			-e 's%LIBDIR%/usr/lib%' \
-			-e 's%LIBEXECDIR%/usr/libexec%' \
+			-e 's%ETCDIR%$(sysconfdir)%' \
+			-e 's%LOCALSTATEDIR%$(localstatedir)%' \
+			-e 's%SYSCONFDIR%$(sysconfdir)%' \
+			-e 's%DATADIR%$(datadir)%' \
+			-e 's%SBINDIR%$(sbindir)%' \
+			-e 's%BINDIR%$(bindir)%' \
+			-e 's%LIBDIR%$(libdir)%' \
+			-e 's%LIBEXECDIR%$(libexecdir)%' \
+			-e 's%RELEASEDATE%$(RELEASEDATE)%' \
 			$(srcdir)/$$page > $$page.$(TMP_SUFFIX); \
 	done
 

@@ -24,6 +24,7 @@
 #include "command.h"
 #include "ui-out.h"
 #include "gdbcmd.h"
+#include "gdb_string.h"
 
 static struct cp_abi_ops *find_cp_abi (const char *short_name);
 
@@ -128,12 +129,12 @@ set_cp_abi_as_auto_default (const char *short_name)
 
   auto_cp_abi.shortname = "auto";
   auto_cp_abi.longname = (char *) xmalloc (strlen ("currently ")
-					   + strlen (abi->shortname));
+					   + strlen (abi->shortname) + 1);
   sprintf (auto_cp_abi.longname, "currently %s", 
 	   abi->shortname);
   
   auto_cp_abi.doc = (char *) xmalloc (strlen ("currently ")
-				      + strlen (abi->shortname));
+				      + strlen (abi->shortname) + 1);
   sprintf (auto_cp_abi.doc, "currently %s", 
 	   abi->shortname);
   

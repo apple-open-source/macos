@@ -115,7 +115,7 @@ enum {
     kIOMediumEthernet1000BaseLX   =  ( IFM_1000_LX | IFM_ETHER ),
     kIOMediumEthernet1000BaseCX   =  ( IFM_1000_CX | IFM_ETHER ),
     kIOMediumEthernet1000BaseTX   =  ( IFM_1000_TX | IFM_ETHER ),
-    kIOMediumEthernetHomePNA1     =  ( IFM_HPNA_1  | IFM_ETHER ),
+    kIOMediumEthernetHomePNA1     =  ( IFM_HPNA_1  | IFM_ETHER )
 };
 
 // IEEE 802.11 Wireless.
@@ -131,7 +131,7 @@ enum {
     kIOMediumIEEE80211DS5         =  ( IFM_IEEE80211_DS5  | IFM_IEEE80211 ),
     kIOMediumIEEE80211DS11        =  ( IFM_IEEE80211_DS11 | IFM_IEEE80211 ),
     kIOMediumIEEE80211DS1         =  ( IFM_IEEE80211_DS1  | IFM_IEEE80211 ),
-    kIOMediumIEEE80211OptionAdhoc =  IFM_IEEE80211_ADHOC,
+    kIOMediumIEEE80211OptionAdhoc =  IFM_IEEE80211_ADHOC
 };
 
 // Common options.
@@ -143,7 +143,7 @@ enum {
     kIOMediumOptionFlag0          = IFM_FLAG0,
     kIOMediumOptionFlag1          = IFM_FLAG1,
     kIOMediumOptionFlag2          = IFM_FLAG2,
-    kIOMediumOptionLoopback       = IFM_LOOP,
+    kIOMediumOptionLoopback       = IFM_LOOP
 };
 
 // Medium type masks.
@@ -171,7 +171,7 @@ enum {
 //
 enum {
     kIONetworkLinkValid        = IFM_AVALID,    // link status is valid
-    kIONetworkLinkActive       = IFM_ACTIVE,    // link is up/active.
+    kIONetworkLinkActive       = IFM_ACTIVE     // link is up/active.
 };
 
 #ifdef __cplusplus

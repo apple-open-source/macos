@@ -8,8 +8,8 @@
 
 /* -*-C-*-
  *
- * 1.1.1.1
- *     1999/04/16 01:34:28
+ * 1.2
+ *     2002/06/08 20:34:41
  *
  *
  * serpardv.c - Serial/Parallel Driver for Angel.
@@ -278,7 +278,7 @@ static int SerparOpen(const char *name, const char *arg)
 
     serpar_reset();
 
-#if defined(__unix) || defined(__CYGWIN32__)
+#if defined(__unix) || defined(__CYGWIN__)
     Unix_ioctlNonBlocking();
 #endif
 

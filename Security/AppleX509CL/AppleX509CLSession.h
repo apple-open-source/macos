@@ -114,7 +114,7 @@ public:
 		CSSM_FIELD_PTR &FieldArray);
 	void FreeFieldValue(
 		const CssmData &CertOrCrlOid,
-		CssmData *Value);
+		CssmData &Value);
 
 // Key
 	
@@ -261,7 +261,7 @@ public:
 	void CrlVerify(
 		CSSM_CC_HANDLE CCHandle,
 		const CssmData &CrlToBeVerified,
-		const CssmData &SignerCert,
+		const CssmData *SignerCert,
 		const CSSM_FIELD *VerifyScope,
 		uint32 ScopeSize);
 						

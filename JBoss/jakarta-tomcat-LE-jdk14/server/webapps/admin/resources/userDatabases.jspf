@@ -1,0 +1,54 @@
+<%-- Env Entries List --%>
+
+<table class="back-table" border="0" cellspacing="0" cellpadding="1"
+       width="100%"><tr><td> 
+
+  <table class="front-table" border="1"
+   cellspacing="0" cellpadding="0" width="100%">
+    <tr class="header-row">
+      <logic:present name="checkboxes">
+        <td width="5%"><div align="left" class="table-header-text">
+          &nbsp;
+        </td>
+      </logic:present>
+      <td width="20%"><div align="left" class="table-header-text">
+        <bean:message key="service.name"/>
+      </div></td>
+      <%--
+      <td><div align="left" class="table-header-text">
+        <bean:message key="resources.userdb.location"/>
+      </div></td>
+      --%>
+      <td><div align="left" class="table-header-text">
+        <bean:message key="users.list.description"/>
+      </div></td>
+    </tr>
+    <logic:iterate name="userDatabasesForm" property="userDatabases"
+                     id="userDatabase" type="java.lang.String">
+      <tr class="line-row">
+        <logic:present name="checkboxes">
+          <td><div align="center" class="table-normal-text">
+            <label for="userDatabases"></label>
+            <input type="checkbox" name="userDatabases"
+                  value="<%= userDatabase %>" styleId="userDatabases">
+          </td>
+        </logic:present>
+        <td><div align="left" class="table-normal-text">
+          <html:link page='<%= "/resources/setUpUserDatabase.do?objectName=" + 
+                               URLEncoder.encode(userDatabase) %>'>
+            <controls:attribute name="userDatabase" attribute="name"/>
+          </html:link>
+        </div></td>
+        <%-- FIX ME -- commentred out for now as the page was looking too crowded.
+        <td><div align="left" class="table-normal-text">
+          <controls:attribute name="userDatabase" attribute="pathname"/>
+        </div></td>
+        --%>
+        <td><div align="left" class="table-normal-text">
+          <controls:attribute name="userDatabase" attribute="description"/>
+        </div></td>
+      </tr>
+    </logic:iterate>
+  </table>
+
+</td></tr></table>

@@ -3,8 +3,6 @@
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
- * Copyright (c) 1999-2003 Apple Computer, Inc.  All Rights Reserved.
- * 
  * This file contains Original Code and/or Modifications of Original Code
  * as defined in and that are subject to the Apple Public Source License
  * Version 2.0 (the 'License'). You may not use this file except in
@@ -65,7 +63,7 @@ struct merged_segment {
 				/*  which is MH_SPLIT_SEGS */
 #ifdef RLD
     long set_num;		/* Object set this segment first appears in. */
-#endif RLD
+#endif /* RLD */
     struct merged_segment *next;/* The next segment in the list. */
 };
 
@@ -118,7 +116,7 @@ struct merged_section {
 	norder_load_maps;	/* size of the above map */
 #ifdef RLD
     long set_num;		/* Object set this section first appears in. */
-#endif RLD
+#endif /* RLD */
     /* These four are used for output_for_dyld only if this is a non-regular
        section that will have relocation entries */
     unsigned long iextrel;	/* index into output external reloc entries */
@@ -147,7 +145,7 @@ struct order_load_map {
 __private_extern__ struct merged_segment *merged_segments;
 #ifdef RLD
 __private_extern__ struct merged_segment *original_merged_segments;
-#endif RLD
+#endif /* RLD */
 
 /* the total number relocation entries */
 __private_extern__ unsigned long nreloc;
@@ -196,7 +194,7 @@ __private_extern__ void zero_merged_sections_sizes(
     void);
 __private_extern__ void remove_merged_sections(
     void);
-#endif RLD
+#endif /* RLD */
 
 #ifdef DEBUG
 __private_extern__ void print_merged_sections(
@@ -211,4 +209,4 @@ __private_extern__ void print_load_order(
     struct merged_section *ms,
     struct object_file *object_file,
     char *string);
-#endif DEBUG
+#endif /* DEBUG */

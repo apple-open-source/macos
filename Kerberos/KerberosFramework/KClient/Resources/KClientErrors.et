@@ -1,0 +1,100 @@
+error_table_base 20000
+error_table_manager "KClient"
+error_table KCli
+
+error_code kcErr_KSUCCESS,          "Kerberos successful"
+error_code kcErr_KDC_NAME_EXP,      "Kerberos principal expired"
+error_code kcErr_KDC_SERVICE_EXP,   "Kerberos service expired"
+error_code kcErr_KDC_AUTH_EXP,      "Kerberos auth expired"
+error_code kcErr_KDC_PKT_VER,       "Unknown kerberos protocol version"
+error_code kcErr_KDC_P_MKEY_VER,    "Incorrect kerberos master key version for principal"
+error_code kcErr_KDC_S_MKEY_VER,    "Incorrect kerberos master key version for service"
+error_code kcErr_KDC_BYTE_ORDER,    "Bad byte order (kerberos)"
+error_code kcErr_KDC_PR_UNKNOWN,    "Kerberos principal unknown"
+error_code kcErr_KDC_PR_N_UNIQUE,   "Kerberos principal not unique"
+error_code kcErr_KDC_NULL_KEY,      "Kerberos principal has null key"
+
+index 20
+error_code kcErr_KDC_GEN_ERR,       "Generic error from Kerberos KDC"
+error_code kcErr_GC_TKFIL,          "Can't read Kerberos ticket file"
+error_code kcErr_GC_NOTKT,          "Can't find Kerberos ticket or TGT"
+
+index 26
+error_code kcErr_MK_AP_TGTEXP,      "Kerberos TGT Expired"
+
+index 31
+error_code kcErr_RD_AP_UNDEC,       "Can't decode authenticator (krb_rd_req)"
+error_code kcErr_RD_AP_EXP,         "Kerberos ticket expired (krb_rd_req)"
+error_code kcErr_RD_AP_NYV,         "Kerberos ticket not yet valid (krb_rd_req)"
+error_code kcErr_RD_AP_REPEAT,      "Repeated request (krb_rd_req)"
+error_code kcErr_RD_AP_NOT_US,      "Kerberos ticket is for wrong server (krb_rd_req)"
+error_code kcErr_RD_AP_INCON,       "Kerberos request inconsistent"
+error_code kcErr_RD_AP_TIME,        "Time is out of bounds (krb_rd_req)"
+error_code kcErr_RD_AP_BADD,        "Incorrect net address (krb_rd_req)"
+error_code kcErr_RD_AP_VERSION,     "Kerberos protocol version mismatch (krb_rd_req)"
+error_code kcErr_RD_AP_MSG_TYPE,    "Invalid msg type (krb_rd_req)"
+error_code kcErr_RD_AP_MODIFIED,    "Message integrity error (krb_rd_req)"
+error_code kcErr_RD_AP_ORDER,       "Message out of order (krb_rd_req)"
+error_code kcErr_RD_AP_UNAUTHOR,    "Unauthorized request (krb_rd_req)"
+
+index 51
+error_code kcErr_GT_PW_NULL,        "Current password is null (get_pw_tkt)"
+error_code kcErr_GT_PW_BADPW,       "Incorrect current password (get_pw_tkt)"
+error_code kcErr_GT_PW_PROT,        "Protocol error (get_pw_tkt)"
+error_code kcErr_GT_PW_KDCERR,      "Error returned by KDC (get_pw_tkt)"
+error_code kcErr_GT_PW_NULLTKT,     "Null Kerberos ticket returned by KDC (get_pw_tkt)"
+error_code kcErr_SKDC_RETRY,        "Retry count exceeded (send_to_kdc)"
+error_code kcErr_SKDC_CANT,         "Can't send request (send_to_kdc)"
+
+index 61
+error_code kcErr_INTK_W_NOTALL,     "Kerberos error: not all tickets returned"
+error_code kcErr_INTK_BADPW,        "Incorrect password (get_in_tkt)"
+error_code kcErr_INTK_PROT,         "Protocol error (get_in_tkt)"
+
+index 70
+error_code kcErr_INTK_ERR,          "Other error (get_in_tkt)"
+error_code kcErr_AD_NOTGT,          "Don't have Kerberos ticket-granting ticket (get_ad_tkt)"
+
+index 76
+error_code kcErr_NO_TKT_FIL,        "You have no tickets cached"
+error_code kcErr_TKT_FIL_ACC,       "Couldn't access ticket file (tf_util)"
+error_code kcErr_TKT_FIL_LCK,       "Couldn't lock ticket file (tf_util)"
+error_code kcErr_TKT_FIL_FMT,       "Bad ticket file format (tf_util)"
+error_code kcErr_TKT_FIL_INI,       "tf_init not called before reading from ticket file (tf_util)"
+error_code kcErr_KNAME_FMT,         "Bad Kerberos name format (kname_parse)"
+
+index 255
+error_code kcErr_KFAILURE,          "Generic kerberos error (kfailure)"
+
+index 3000
+error_code kcErrNoMemory,           "Out of memory"
+error_code kcErrBadParam,           "Invalid parameter"
+
+index 3010
+error_code kcErrInvalidSession,     "Invalid KClient session"
+error_code kcErrInvalidPrincipal,   "Invalid KClient principal"
+error_code kcErrInvalidAddress,     "Invalid KClient address"
+error_code kcErrInvalidFile,        "Invalid key file"
+
+index 3020
+error_code kcErrNoClientPrincipal,  "Session has no client principal"
+error_code kcErrNoServerPrincipal,  "Session has no server principal"
+error_code kcErrNoLocalAddress,     "Session has no local address"
+error_code kcErrNoRemoteAddress,    "Session has no remote address"
+error_code kcErrNoSessionKey,       "Session has no session key"
+error_code kcErrNoServiceKey,       "Session has no service key"
+error_code kcErrNoChecksum,         "Session has no checksum"
+
+index 3030
+error_code kcErrNotLoggedIn,        "User is not logged in"
+error_code kcErrUserCancelled,      "User cancelled"
+error_code kcErrIncorrectPassword,  "Incorrect password"
+
+index 3040
+error_code kcErrBufferTooSmall,     "Buffer is too small"
+error_code kcErrKeyFileAccess,      "Key file is missing or corrupt"
+error_code kcErrFileNotFound,       "File not found"
+error_code kcErrInvalidPreferences, "Preferences file is missing ot corrupt"
+error_code kcErrChecksumMismatch,   "Checksum mismatch"
+
+end

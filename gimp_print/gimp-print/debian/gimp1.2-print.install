@@ -1,0 +1,3 @@
+doc/*.html     usr/share/doc/gimp1.2-print/html
+doc/*.png      usr/share/doc/gimp1.2-print/html
+samples/*.png  usr/share/doc/gimp1.2-print/samples

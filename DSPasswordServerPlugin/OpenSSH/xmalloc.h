@@ -14,6 +14,10 @@
  *
  */
 
+/*
+ * Portions Copyright (c) 2002 Apple Computer, Inc.
+ */
+
 /* RCSID("$OpenBSD: xmalloc.h,v 1.4 2000/06/20 01:39:45 markus Exp $"); */
 
 #ifndef XMALLOC_H

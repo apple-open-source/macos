@@ -1,21 +1,24 @@
 /*
- * Copyright (c) 2001 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 2001-2003 Apple Computer, Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
- * The contents of this file constitute Original Code as defined in and
- * are subject to the Apple Public Source License Version 1.1 (the
- * "License").  You may not use this file except in compliance with the
- * License.  Please obtain a copy of the License at
- * http://www.apple.com/publicsource and read it before using this file.
+ * Copyright (c) 1999-2003 Apple Computer, Inc.  All Rights Reserved.
  * 
- * This Original Code and all software distributed under the License are
- * distributed on an "AS IS" basis, WITHOUT WARRANTY OF ANY KIND, EITHER
+ * This file contains Original Code and/or Modifications of Original Code
+ * as defined in and that are subject to the Apple Public Source License
+ * Version 2.0 (the 'License'). You may not use this file except in
+ * compliance with the License. Please obtain a copy of the License at
+ * http://www.opensource.apple.com/apsl/ and read it before using this
+ * file.
+ * 
+ * The Original Code and all software distributed under the License are
+ * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
  * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
  * INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY,
- * FITNESS FOR A PARTICULAR PURPOSE OR NON-INFRINGEMENT.  Please see the
- * License for the specific language governing rights and limitations
- * under the License.
+ * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
+ * Please see the License for the specific language governing rights and
+ * limitations under the License.
  * 
  * @APPLE_LICENSE_HEADER_END@
  */
@@ -24,11 +27,42 @@
  *  bless
  *
  *  Created by Shantonu Sen <ssen@apple.com> on Thu Apr 19 2001.
- *  Copyright (c) 2001 Apple Computer, Inc. All rights reserved.
+ *  Copyright (c) 2001-2003 Apple Computer, Inc. All rights reserved.
  *
- *  $Id: BLGetOpenFirmwareBootDevice.c,v 1.5 2002/04/27 17:55:00 ssen Exp $
+ *  $Id: BLGetOpenFirmwareBootDevice.c,v 1.14 2003/07/25 01:16:25 ssen Exp $
  *
  *  $Log: BLGetOpenFirmwareBootDevice.c,v $
+ *  Revision 1.14  2003/07/25 01:16:25  ssen
+ *  When mapping OF -> device, if we found an Apple_Boot, try to
+ *  find the corresponding partition that is the real root filesystem
+ *
+ *  Revision 1.13  2003/07/22 15:58:36  ssen
+ *  APSL 2.0
+ *
+ *  Revision 1.12  2003/05/19 02:17:00  ssen
+ *  don't look for booters if an Apple_Boot is specified
+ *
+ *  Revision 1.11  2003/04/23 00:08:03  ssen
+ *  Use blostype2string for OSTypes
+ *
+ *  Revision 1.10  2003/04/19 00:11:14  ssen
+ *  Update to APSL 1.2
+ *
+ *  Revision 1.9  2003/04/16 23:57:35  ssen
+ *  Update Copyrights
+ *
+ *  Revision 1.8  2002/09/24 21:05:46  ssen
+ *  Eliminate use of deprecated constants
+ *
+ *  Revision 1.7  2002/08/22 00:38:42  ssen
+ *  Gah. Search for ",\\:tbxi" from the end of the OF path
+ *  instead of the beginning. For SCSI cards that use commas
+ *  in the OF path, the search was causing a mis-parse.
+ *
+ *  Revision 1.6  2002/06/11 00:50:51  ssen
+ *  All function prototypes need to use BLContextPtr. This is really
+ *  a minor change in all of the files.
+ *
  *  Revision 1.5  2002/04/27 17:55:00  ssen
  *  Rewrite output logic to format the string before sending of to logger
  *
@@ -71,13 +105,14 @@
 #import <CoreFoundation/CoreFoundation.h>
 
 #include "bless.h"
+#include "bless_private.h"
 
-static int getPNameAndPType(BLContext context,
+int getPNameAndPType(BLContextPtr context,
                             unsigned char target[],
 			    unsigned char pname[],
 			    unsigned char ptype[]);
 
-static int getExternalBooter(BLContext context,
+static int getExternalBooter(BLContextPtr context,
                              unsigned long pNum,
 			     unsigned char parentDev[],
 			     unsigned long * extpNum);
@@ -91,7 +126,7 @@ static int getExternalBooter(BLContext context,
  * For new world, add a tbxi
  */
 
-int BLGetOpenFirmwareBootDevice(BLContext context, unsigned char mntfrm[], char ofstring[]) {
+int BLGetOpenFirmwareBootDevice(BLContextPtr context, unsigned char mntfrm[], char ofstring[]) {
 
     int err;
 
@@ -110,7 +145,7 @@ int BLGetOpenFirmwareBootDevice(BLContext context, unsigned char mntfrm[], char 
     int isNewWorld = BLIsNewWorld(context);
     int isWholeDevice = 0;
 
-	sprintf(rawDev, "/dev/r%s", mntfrm + 5);
+    sprintf(rawDev, "/dev/r%s", mntfrm + 5);
 
     devfd = open(rawDev, O_RDONLY, 0);
     if(devfd < 0) return 1;
@@ -189,7 +224,7 @@ int BLGetOpenFirmwareBootDevice(BLContext context, unsigned char mntfrm[], char 
 					      kCFAllocatorDefault, 0);
 
       if(CFGetTypeID(value) != CFStringGetTypeID()) {
-	contextprintf(context, kBLLogLevelError,  "Wrong type of IOKit entry for kIOMediaContent\n" );
+	contextprintf(context, kBLLogLevelError,  "Wrong type of IOKit entry for kIOMediaContentKey\n" );
 	if(value) CFRelease(value);
 	IOObjectRelease(obj);
 	obj = NULL;
@@ -207,9 +242,17 @@ int BLGetOpenFirmwareBootDevice(BLContext context, unsigned char mntfrm[], char 
 	break;
       }
 
+      if(CFStringCompare((CFStringRef)value, CFSTR("Apple_Boot"), 0) == kCFCompareEqualTo
+	 || CFStringCompare((CFStringRef)value, CFSTR("Apple_Loader"), 0) == kCFCompareEqualTo) {
+	  contextprintf(context, kBLLogLevelVerbose,  "Apple_Boot or Apple_Loader partition is an external loader\n" );
+	  // it's an loader itself
+	  CFRelease(value);
+	  break;
+      }
+      
       CFRelease(value);
 
-		contextprintf(context, kBLLogLevelVerbose,  "NOT Apple_HFS partition. Looking for external loader\n" );
+      contextprintf(context, kBLLogLevelVerbose,  "NOT Apple_HFS partition. Looking for external loader\n" );
 
       if(BLGetParentDevice(context, mntfrm, parentDev, &pNum)) {
 	return 6;
@@ -220,8 +263,6 @@ int BLGetOpenFirmwareBootDevice(BLContext context, unsigned char mntfrm[], char 
       IOObjectRelease(services);
       services = NULL;
       
-      // XXX need to deal with UFS -> HFS where stalle booter is left
-
 	err = getExternalBooter(context, pNum, parentDev, &extPnum);
       if(err) {
 	return 10;
@@ -239,7 +280,10 @@ int BLGetOpenFirmwareBootDevice(BLContext context, unsigned char mntfrm[], char 
     }
 	
     if (isNewWorld) {
-      strcat(ofstring, ",\\\\:tbxi");
+	char tbxi[5];
+
+	strcat(ofstring, ",\\\\:");
+	strcat(ofstring, blostype2string(kBL_OSTYPE_PPC_TYPE_BOOTX, tbxi));
     }
 
     return 0;
@@ -247,8 +291,7 @@ int BLGetOpenFirmwareBootDevice(BLContext context, unsigned char mntfrm[], char 
 
 
 
-static
-int getPNameAndPType(BLContext context,
+int getPNameAndPType(BLContextPtr context,
                      unsigned char target[],
 		     unsigned char pname[],
 		     unsigned char ptype[]) {
@@ -322,7 +365,7 @@ int getPNameAndPType(BLContext context,
 }
 
 static
-int getExternalBooter(BLContext context,
+int getExternalBooter(BLContextPtr context,
                       unsigned long pNum,
 		      unsigned char parentDev[],
 		      unsigned long * extpNum) {
@@ -366,5 +409,5 @@ int getExternalBooter(BLContext context,
   }
   
   *extpNum = 0;
-  return 0;
+  return 1;
 }

@@ -111,7 +111,8 @@ enum {
 typedef void * PCodeInstance;
 
 OSStatus
-PCodeOpen( LogicalAddress container, ByteCount containerSize, PCodeInstance * instance );
+PCodeOpen( LogicalAddress container, ByteCount containerSize, 
+	    PCodeInstance * instance, UInt32 * createDate );
 OSStatus
 PCodeClose( PCodeInstance instance );
 OSStatus

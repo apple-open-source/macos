@@ -13,15 +13,14 @@ PROJECTVERSION = 2.8
 PROJECT_TYPE = Component
 
 HFILES = aliasdb.h bootparams.h lookup_types.h lu_overrides.h\
-         lu_host.h lu_utils.h netdb_async.h netgr.h printerdb.h
+         lu_host.h lu_utils.h netdb.h netdb_async.h netgr.h printerdb.h
 
-CFILES = lu_alias.c lu_bootp.c lu_bootparam.c lu_fstab.c lu_group.c\
-         lu_host.c lu_host_async.c lu_netgroup.c lu_network.c lu_printer.c\
-         lu_protocol.c lu_rpc.c lu_service.c lu_user.c lu_utils.c
+CFILES = getaddrinfo.c lu_alias.c lu_bootp.c lu_bootparam.c lu_fstab.c\
+         lu_group.c lu_host.c lu_host_async.c lu_netgroup.c lu_network.c\
+		 lu_printer.c lu_protocol.c lu_rpc.c lu_service.c lu_user.c lu_utils.c
 
-OTHERSRCS = Makefile.preamble Makefile Makefile.postamble lookup.defs\
-            _lu_types.x
-
+OTHERSRCS = Makefile.preamble Makefile Makefile.postamble getaddrinfo.3\
+            getnameinfo.3 lookup.defs _lu_types.x
 
 MAKEFILEDIR = $(MAKEFILEPATH)/pb_makefiles
 CODE_GEN_STYLE = DYNAMIC
@@ -32,7 +31,7 @@ DEBUG_LIBS = $(LIBS)
 PROF_LIBS = $(LIBS)
 
 
-PUBLIC_HEADERS = aliasdb.h bootparams.h printerdb.h
+PUBLIC_HEADERS = aliasdb.h bootparams.h netdb.h printerdb.h
 
 
 

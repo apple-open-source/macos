@@ -1,4 +1,4 @@
-/* $Header: /cvs/Darwin/src/live/tcsh/tcsh/sh.decls.h,v 1.1.1.2 2001/06/28 23:10:50 bbraun Exp $ */
+/* $Header: /cvs/root/tcsh/tcsh/sh.decls.h,v 1.1.1.3 2003/01/17 03:41:12 nicolai Exp $ */
 /*
  * sh.decls.h	 External declarations from sh*.c
  */
@@ -14,11 +14,7 @@
  * 2. Redistributions in binary form must reproduce the above copyright
  *    notice, this list of conditions and the following disclaimer in the
  *    documentation and/or other materials provided with the distribution.
- * 3. All advertising materials mentioning features or use of this software
- *    must display the following acknowledgement:
- *	This product includes software developed by the University of
- *	California, Berkeley and its contributors.
- * 4. Neither the name of the University nor the names of its contributors
+ * 3. Neither the name of the University nor the names of its contributors
  *    may be used to endorse or promote products derived from this software
  *    without specific prior written permission.
  *
@@ -91,7 +87,7 @@ extern	void		  stderror	__P((unsigned int, ...));
 /*
  * sh.exec.c
  */
-extern	void		  doexec	__P((struct command *));
+extern	void		  doexec	__P((struct command *, bool));
 extern	void		  dohash	__P((Char **, struct command *));
 extern	void		  dounhash	__P((Char **, struct command *));
 extern	void		  execash	__P((Char **, struct command *));
@@ -112,7 +108,7 @@ extern	int		  exp0		__P((Char ***, bool));
 /*
  * sh.file.c
  */
-#ifdef FILEC
+#if defined(FILEC) && defined(TIOCSTI)
 extern	int		  tenex		__P((Char *, int));
 #endif
 
@@ -179,7 +175,7 @@ extern	Char		**globall	__P((Char **));
 extern	void		  rscan		__P((Char **, void (*)(int)));
 extern	void		  tglob		__P((Char **));
 extern	void		  trim		__P((Char **));
-#ifdef FILEC
+#if defined(FILEC) && defined(TIOCSTI)
 extern	int		  sortscmp	__P((Char **, Char **));
 #endif
 extern	void		  nlsinit	__P((void));
@@ -314,7 +310,7 @@ extern  struct process   *pfind		__P((Char *));
  * sh.sem.c
  */
 extern	void		  execute	__P((struct command *, int, int *, 
-					     int *));
+					     int *, bool));
 extern	void		  mypipe	__P((int *));
 
 /*
@@ -337,6 +333,7 @@ extern	void		  unsetv	__P((Char *));
 extern	void		  setNS		__P((Char *));
 extern	void		  shift		__P((Char **, struct command *));
 extern	void		  plist		__P((struct varent *, int));
+extern	Char		 *unparse	__P((struct command *));
 #if defined(DSPMBYTE)
 extern	void 		  update_dspmbyte_vars	__P((void));
 extern	void		  autoset_dspmbyte	__P((Char *));

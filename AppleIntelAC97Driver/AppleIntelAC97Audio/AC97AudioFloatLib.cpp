@@ -3,19 +3,22 @@
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
- * The contents of this file constitute Original Code as defined in and
- * are subject to the Apple Public Source License Version 1.1 (the
- * "License").  You may not use this file except in compliance with the
- * License.  Please obtain a copy of the License at
- * http://www.apple.com/publicsource and read it before using this file.
+ * Copyright (c) 1999-2003 Apple Computer, Inc.  All Rights Reserved.
  * 
- * This Original Code and all software distributed under the License are
- * distributed on an "AS IS" basis, WITHOUT WARRANTY OF ANY KIND, EITHER
+ * This file contains Original Code and/or Modifications of Original Code
+ * as defined in and that are subject to the Apple Public Source License
+ * Version 2.0 (the 'License'). You may not use this file except in
+ * compliance with the License. Please obtain a copy of the License at
+ * http://www.opensource.apple.com/apsl/ and read it before using this
+ * file.
+ * 
+ * The Original Code and all software distributed under the License are
+ * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
  * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
  * INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY,
- * FITNESS FOR A PARTICULAR PURPOSE OR NON-INFRINGEMENT.  Please see the
- * License for the specific language governing rights and limitations
- * under the License.
+ * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
+ * Please see the License for the specific language governing rights and
+ * limitations under the License.
  * 
  * @APPLE_LICENSE_HEADER_END@
  */
@@ -38,7 +41,7 @@ do {                                     \
 } while(0)
 
 #define ConvertFloatToSInt16(x)          \
-	((SInt16)((x) * kMaxSInt16ValueInFloat))
+    ((SInt16)((x) * kMaxSInt16ValueInFloat))
 
 //---------------------------------------------------------------------------
 // clipOutputSamples - Copied from AppleDBDMAAudioClip.c
@@ -54,7 +57,7 @@ AppleIntelAC97AudioEngine::clipOutputSamples(
 {
     float *  inFloatBufferPtr;
     SInt16 * outSInt16BufferPtr;
-    UInt32	 numSamples;
+    UInt32   numSamples;
 
 #if 0
     IOLog("mix:%p sample:%p 1st:%d num:%d ch:%d\n",
@@ -74,21 +77,21 @@ AppleIntelAC97AudioEngine::clipOutputSamples(
     numSamples = numSampleFrames * streamFormat->fNumChannels;
 
     for ( UInt32 i = 0; i < ( numSamples / 4 ); i++ ) 
-	{
-		float tempFloat1 = *(++inFloatBufferPtr);
-		float tempFloat2 = *(++inFloatBufferPtr);
-		float tempFloat3 = *(++inFloatBufferPtr);
-		float tempFloat4 = *(++inFloatBufferPtr);
+    {
+        float tempFloat1 = *(++inFloatBufferPtr);
+        float tempFloat2 = *(++inFloatBufferPtr);
+        float tempFloat3 = *(++inFloatBufferPtr);
+        float tempFloat4 = *(++inFloatBufferPtr);
 
         ClipFloatValue( tempFloat1 );
         ClipFloatValue( tempFloat2 );
         ClipFloatValue( tempFloat3 );
         ClipFloatValue( tempFloat4 );
 
-		*(++outSInt16BufferPtr) = ConvertFloatToSInt16( tempFloat1 );
-		*(++outSInt16BufferPtr) = ConvertFloatToSInt16( tempFloat2 );
-		*(++outSInt16BufferPtr) = ConvertFloatToSInt16( tempFloat3 );
-		*(++outSInt16BufferPtr) = ConvertFloatToSInt16( tempFloat4 );
+        *(++outSInt16BufferPtr) = ConvertFloatToSInt16( tempFloat1 );
+        *(++outSInt16BufferPtr) = ConvertFloatToSInt16( tempFloat2 );
+        *(++outSInt16BufferPtr) = ConvertFloatToSInt16( tempFloat3 );
+        *(++outSInt16BufferPtr) = ConvertFloatToSInt16( tempFloat4 );
     }
 
     switch ( numSamples % 4 )
@@ -102,19 +105,19 @@ AppleIntelAC97AudioEngine::clipOutputSamples(
             *(++outSInt16BufferPtr) = ConvertFloatToSInt16( tempFloat );
         }
         case 2:
-        {	
+        {
             float tempFloat = *(++inFloatBufferPtr);
             
             ClipFloatValue( tempFloat );
-		
+
             *(++outSInt16BufferPtr) = ConvertFloatToSInt16( tempFloat );
         }
         case 1:
         {
             float tempFloat = *(++inFloatBufferPtr);
-		
-			ClipFloatValue( tempFloat );
-		
+
+            ClipFloatValue( tempFloat );
+
             *(++outSInt16BufferPtr) = ConvertFloatToSInt16( tempFloat );
         }
     }
@@ -133,5 +136,23 @@ AppleIntelAC97AudioEngine::convertInputSamples(
                            const IOAudioStreamFormat * streamFormat,
                            IOAudioStream *             audioStream )
 {
+    UInt32   numSamplesLeft;
+    float *  floatDestBuf;
+    SInt16 * inputBuf;
+
+    floatDestBuf = (float *) destBuf;
+    inputBuf = &(((SInt16 *) sampleBuf)[firstSampleFrame * streamFormat->fNumChannels]);
+
+    numSamplesLeft = numSampleFrames * streamFormat->fNumChannels;
+
+    while ( numSamplesLeft > 0 )
+    {
+        *floatDestBuf = (*inputBuf) / 32767.0;
+
+        ++inputBuf;
+        ++floatDestBuf;
+        --numSamplesLeft;
+    }
+
     return kIOReturnSuccess;
 }

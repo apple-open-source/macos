@@ -17,7 +17,7 @@
 #include <sys/types.h>
 #include <sys/wait.h>
 #ifndef linux
-#include <dev/disk.h>
+#include <sys/disk.h>
 #endif
 #include <fcntl.h>
 #include <sys/errno.h>
@@ -184,8 +184,8 @@ ufslabel_read_blocks(int fd, off_t * offset_p, ssize_t * size_p,
     *label_p = NULL;
 
 #ifndef linux
-    if (ioctl(fd, DKIOCBLKSIZE, &blocksize) < 0) {
-	fprintf(stderr, "DKIOCBLKSIZE failed, %s\n", strerror(errno));
+    if (ioctl(fd, DKIOCGETBLOCKSIZE, &blocksize) < 0) {
+	fprintf(stderr, "DKIOCGETBLOCKSIZE failed, %s\n", strerror(errno));
 	return (NULL);
     }
 #else

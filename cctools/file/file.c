@@ -3,8 +3,6 @@
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
- * Copyright (c) 1999-2003 Apple Computer, Inc.  All Rights Reserved.
- * 
  * This file contains Original Code and/or Modifications of Original Code
  * as defined in and that are subject to the Apple Public Source License
  * Version 2.0 (the 'License'). You may not use this file except in
@@ -403,7 +401,7 @@ int wid;
 #ifdef BUILTIN_FAT
 		memcpy(&magic, buf, sizeof(unsigned long));
 #ifdef __BIG_ENDIAN__
-		if(nbytes >= sizeof(unsigned long) && magic == FAT_MAGIC)
+		if(nbytes >= (int)sizeof(unsigned long) && magic == FAT_MAGIC)
 #endif /* __BIG_ENDIAN__ */
 #ifdef __LITTLE_ENDIAN__
 		if(nbytes >= sizeof(unsigned long) && magic == FAT_CIGAM)

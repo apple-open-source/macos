@@ -1,3 +1,25 @@
+/*
+ * Copyright (c) 2003 Apple Computer, Inc. All rights reserved.
+ *
+ * @APPLE_LICENSE_HEADER_START@
+ * 
+ * This file contains Original Code and/or Modifications of Original Code
+ * as defined in and that are subject to the Apple Public Source License
+ * Version 2.0 (the 'License'). You may not use this file except in
+ * compliance with the License. Please obtain a copy of the License at
+ * http://www.opensource.apple.com/apsl/ and read it before using this
+ * file.
+ * 
+ * The Original Code and all software distributed under the License are
+ * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
+ * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
+ * INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY,
+ * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
+ * Please see the License for the specific language governing rights and
+ * limitations under the License.
+ * 
+ * @APPLE_LICENSE_HEADER_END@
+ */
 #include <stdlib.h>
 #include <stdio.h>
 #include <strings.h>
@@ -21,7 +43,7 @@ struct check_block {
     enum bool check_result;
 };
 
-static void check_for_install_name(
+static void check_for_dylib(
     struct ofile *ofile,
     char *arch_name,
     void *cookie);
@@ -77,7 +99,7 @@ enum bool no_error_if_missing)
 		}
 	    }
 	    ofile_process(image_file_name, NULL, 0, TRUE,
-			  TRUE, TRUE, FALSE, check_for_install_name, &block);
+			  TRUE, TRUE, FALSE, check_for_dylib, &block);
 	    if(block.check_result == TRUE)
 		return(image_file_name);
 	    free(image_file_name);
@@ -148,14 +170,14 @@ const char *root)
 #endif
 		/*
 		 * Now that we found a file with the same base_name in the root
-		 * check to see that it is a dynamic library with the correct
-		 * install name.  Assume it is an if it is not then the
-		 * routine check_for_install_name() will reset the check_result
-		 * in the block passed to it back to FALSE.
+		 * check to see that it is a dynamic library. Assume it is an
+		 * if it is not then the routine check_for_dylib() will 
+		 * reset the check_result in the block passed to 
+		 * it back to FALSE.
 		 */
 		block.check_result = TRUE;
 		ofile_process(ftsent->fts_path, NULL, 0, TRUE,
-			      TRUE, TRUE, FALSE, check_for_install_name,&block);
+			      TRUE, TRUE, FALSE, check_for_dylib,&block);
 		if(block.check_result == TRUE){
 		    image_file_name = allocate(ftsent->fts_pathlen + 1);
 		    strcpy(image_file_name, ftsent->fts_path);
@@ -189,7 +211,7 @@ const char *root)
 
 static
 void
-check_for_install_name(
+check_for_dylib(
 struct ofile *ofile,
 char *arch_name,
 void *cookie)
@@ -197,11 +219,9 @@ void *cookie)
     unsigned long i;
     struct check_block *block;
     struct load_command *lc;
-    struct dylib_command *dl;
-    char *name;
 
 #ifdef BIG_DEBUG
-	printf("In check_for_install_name() ofile->file_name = %s",
+	printf("In check_for_dylib() ofile->file_name = %s",
 	       ofile->file_name);
 	if(arch_name != NULL)
 	    printf(" arch_name = %s\n", arch_name);
@@ -218,13 +238,6 @@ void *cookie)
 	lc = ofile->load_commands;
 	for(i = 0; i < ofile->mh->ncmds; i++){
 	    if(lc->cmd == LC_ID_DYLIB){
-		dl = (struct dylib_command *)lc;
-		name = (char *)lc + dl->dylib.name.offset;
-		if(strncmp(name, "@executable_path/",
-			   sizeof("@executable_path") - 1) == 0)
-		    return;
-		if(strcmp(name, block->install_name) != 0)
-		    block->check_result = FALSE;
 		return;
 	    }
 	    lc = (struct load_command *)((char *)lc + lc->cmdsize);

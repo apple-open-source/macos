@@ -28,7 +28,6 @@
                                  {                          \
                                     *x = NUL ;              \
                                     free( (char *) x ) ;    \
-                                    x = NULL ;              \
                                  }
 
 
@@ -37,7 +36,7 @@
  * with 'name'; the rest of the fields are set to 0 which gives them
  * their default values.
  */
-struct service_config *sc_alloc( char *name )
+struct service_config *sc_alloc( const char *name )
 {
    struct service_config *scp ;
    const char *func = "sc_alloc" ;
@@ -66,11 +65,19 @@ static void release_string_pset( pset_h pset )
  */
 void sc_free( struct service_config *scp )
 {
+#ifdef HAVE_DNSREGISTRATION
+   COND_FREE( scp->sc_mdns_name );
+#endif
    COND_FREE( scp->sc_name ) ;
    COND_FREE( scp->sc_id ) ;
    COND_FREE( scp->sc_protocol.name ) ;
    COND_FREE( scp->sc_server ) ;
+   COND_FREE( (char *)scp->sc_redir_addr ) ;
    COND_FREE( (char *)scp->sc_bind_addr ) ;
+   COND_FREE( (char *)scp->sc_orig_bind_addr ) ;
+   COND_FREE( (char *)scp->sc_banner ) ;
+   COND_FREE( (char *)scp->sc_banner_success ) ;
+   COND_FREE( (char *)scp->sc_banner_fail ) ;
    if ( scp->sc_server_argv )
    {
       char **pp ;
@@ -111,6 +118,10 @@ void sc_free( struct service_config *scp )
    if ( SC_ENV( scp )->env_type == CUSTOM_ENV && 
                                     SC_ENV( scp )->env_handle != ENV_NULL )
       env_destroy( SC_ENV( scp )->env_handle ) ;
+   if (scp->sc_disabled ) 
+      release_string_pset( scp->sc_disabled ) ;
+   if (scp->sc_enabled ) 
+      release_string_pset( scp->sc_enabled ) ;
    
    CLEAR( *scp ) ;
    FREE_SCONF( scp ) ;
@@ -124,27 +135,15 @@ struct service_config *sc_make_special( const char *service_name,
                                         const builtin_s *bp, 
                                         int instances )
 {
-   char *name ;
    struct service_config *scp ;
    const char *func = "sc_make" ;
 
-   name = new_string( service_name ) ;
-   if ( name == NULL )
-   {
-      out_of_memory( func ) ;
+   if ( ( scp = sc_alloc( service_name ) ) == NULL )
       return( NULL ) ;
-   }
-
-   if ( ( scp = sc_alloc( name ) ) == NULL )
-   {
-      free( name ) ;
-      return( NULL ) ;
-   }
 
    scp->sc_id = new_string( scp->sc_name ) ;
    if ( scp->sc_id == NULL )
    {
-      free( name ) ;
       out_of_memory( func ) ;
       return( NULL ) ;
    }
@@ -276,12 +275,19 @@ void sc_dump( struct service_config *scp,
          tabprint( fd, tab_level+1, "Instances = %d\n", scp->sc_instances ) ;
    }
 
-   if ( SC_SPECIFIED( scp, A_UMASK ) )
-      tabprint( fd, tab_level+1, "umask = %o\n", scp->sc_umask ) ;
+   if ( SC_SPECIFIED( scp, A_WAIT ) ) {
+      if ( scp->sc_wait )
+         tabprint( fd, tab_level+1, "wait = yes\n" ) ;
+      else
+         tabprint( fd, tab_level+1, "wait = no\n" ) ;
+   }
       
-   if ( SC_SPECIFIED( scp, A_NICE ) )
-      tabprint( fd, tab_level+1, "Nice = %d\n", scp->sc_nice ) ;
-
+   if ( SC_SPECIFIED( scp, A_USER ) )
+      tabprint( fd, tab_level+1, "user = %d\n", scp->sc_uid ) ;
+      
+   if ( SC_SPECIFIED( scp, A_GROUP ) )
+      tabprint( fd, tab_level+1, "group = %d\n", scp->sc_gid ) ;
+      
    if ( SC_SPECIFIED( scp, A_GROUPS ) )
    {
       if (scp->sc_groups == 1)
@@ -289,6 +295,12 @@ void sc_dump( struct service_config *scp,
       else
          tabprint( fd, tab_level+1, "Groups = no\n" );
    }
+
+   if ( SC_SPECIFIED( scp, A_UMASK ) )
+      tabprint( fd, tab_level+1, "umask = %o\n", scp->sc_umask ) ;
+      
+   if ( SC_SPECIFIED( scp, A_NICE ) )
+      tabprint( fd, tab_level+1, "Nice = %d\n", scp->sc_nice ) ;
 
    if ( SC_SPECIFIED( scp, A_CPS ) )
       tabprint( fd, tab_level+1, "CPS = max conn:%lu wait:%lu\n", 
@@ -298,18 +310,28 @@ void sc_dump( struct service_config *scp,
       tabprint( fd, tab_level+1, "PER_SOURCE = %d\n", 
          scp->sc_per_source );
 
-   if ( SC_SPECIFIED( scp, A_BIND ) && scp->sc_bind_addr ) {
-      char bindname[NI_MAXHOST];
-      int len = 0;
-      if( scp->sc_bind_addr->sa.sa_family == AF_INET ) 
-         len = sizeof(struct sockaddr_in);
-      else  
-         len = sizeof(struct sockaddr_in6);
-      memset(bindname, 0, sizeof(bindname));
-      if( getnameinfo(&scp->sc_bind_addr->sa, len, bindname, NI_MAXHOST, 
-            NULL, 0, 0) != 0 ) 
-         strcpy(bindname, "unknown");
-      tabprint( fd, tab_level+1, "Bind = %s\n", bindname );
+   if ( SC_SPECIFIED( scp, A_BIND ) ) {
+	   if (  scp->sc_bind_addr ) {
+		  char bindname[NI_MAXHOST];
+		  unsigned int len = 0;
+		  if( scp->sc_bind_addr->sa.sa_family == AF_INET ) 
+			 len = sizeof(struct sockaddr_in);
+		  else  
+			 len = sizeof(struct sockaddr_in6);
+		  memset(bindname, 0, sizeof(bindname));
+		  if( getnameinfo(&scp->sc_bind_addr->sa, len, bindname, 
+                                  NI_MAXHOST, NULL, 0, 0) != 0 ) 
+			 strcpy(bindname, "unknown");
+		  tabprint( fd, tab_level+1, "Bind = %s\n", bindname );
+	   }
+	   else if ( scp->sc_orig_bind_addr ) {
+		  tabprint( fd, tab_level+1, "Bind = %s\n", 
+                            scp->sc_orig_bind_addr );
+	   }
+	   else { /* This should NEVER happen */
+		msg(LOG_ERR, "sc_dump", "bad configuration for %s:", 
+                    scp->sc_name);
+	   }
    }
    else
       tabprint( fd, tab_level+1, "Bind = All addresses.\n" );
@@ -333,7 +355,7 @@ void sc_dump( struct service_config *scp,
       if ( scp->sc_redir_addr != NULL ) 
       {
          char redirname[NI_MAXHOST];
-         int len = 0;
+         unsigned int len = 0;
          if( scp->sc_redir_addr->sa.sa_family == AF_INET ) 
             len = sizeof(struct sockaddr_in);
          if( scp->sc_redir_addr->sa.sa_family == AF_INET6 ) 

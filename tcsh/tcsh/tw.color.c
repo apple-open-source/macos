@@ -1,4 +1,4 @@
-/* $Header: /cvs/Darwin/src/live/tcsh/tcsh/tw.color.c,v 1.1.1.2 2001/06/28 23:10:56 bbraun Exp $ */
+/* $Header: /cvs/root/tcsh/tcsh/tw.color.c,v 1.1.1.3 2003/01/17 03:41:24 nicolai Exp $ */
 /*
  * tw.color.c: builtin color ls-F
  */
@@ -14,11 +14,7 @@
  * 2. Redistributions in binary form must reproduce the above copyright
  *    notice, this list of conditions and the following disclaimer in the
  *    documentation and/or other materials provided with the distribution.
- * 3. All advertising materials mentioning features or use of this software
- *    must display the following acknowledgement:
- *	This product includes software developed by the University of
- *	California, Berkeley and its contributors.
- * 4. Neither the name of the University nor the names of its contributors
+ * 3. Neither the name of the University nor the names of its contributors
  *    may be used to endorse or promote products derived from this software
  *    without specific prior written permission.
  *
@@ -36,7 +32,7 @@
  */
 #include "sh.h"
 
-RCSID("$Id: tw.color.c,v 1.1.1.2 2001/06/28 23:10:56 bbraun Exp $")
+RCSID("$Id: tw.color.c,v 1.1.1.3 2003/01/17 03:41:24 nicolai Exp $")
 
 #include "tw.h"
 #include "ed.h"
@@ -70,6 +66,7 @@ static Variable variables[] = {
     VAR('&', "or", ""),		/* Orphanned symbolic link (defaults to ln) */
     VAR('|', "pi", "33"),	/* Named pipe (FIFO) */
     VAR('=', "so", "01;35"),	/* Socket */
+    VAR('>', "do", "01;35"),	/* Door (solaris fast ipc mechanism)  */
     VAR('#', "bd", "01;33"),	/* Block device */
     VAR('%', "cd", "01;33"),	/* Character device */
     VAR('*', "ex", "01;32"),	/* Executable file */
@@ -86,7 +83,7 @@ static Variable variables[] = {
 };
 
 enum FileType {
-    VDir, VSym, VOrph, VPipe, VSock, VBlock, VChr, VExe,
+    VDir, VSym, VOrph, VPipe, VSock, VDoor, VBlock, VChr, VExe,
     VFile, VNormal, VMiss, VLeft, VRight, VEnd
 };
 
@@ -115,15 +112,13 @@ set_color_context()
 {
     struct varent *vp = adrof(STRcolor);
 
-    if (!vp) {
+    if (vp == NULL || vp->vec == NULL) {
 	color_context_ls = FALSE;
 	color_context_lsmF = FALSE;
-    }
-    else if (!vp->vec[0] || vp->vec[0][0] == '\0') {
+    } else if (!vp->vec[0] || vp->vec[0][0] == '\0') {
 	color_context_ls = TRUE;
 	color_context_lsmF = TRUE;
-    }
-    else {
+    } else {
 	size_t i;
 
 	color_context_ls = FALSE;
@@ -182,6 +177,8 @@ parseLS_COLORS(value)
     char   *c;			/* pointer in colors */
     Extension *e;		/* pointer in extensions */
     jmp_buf_t osetexit;
+
+    (void) &e;
 
     /* init */
     if (extensions)

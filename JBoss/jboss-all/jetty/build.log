@@ -1,0 +1,50 @@
+
+configure:
+
+init:
+
+compile-bean-sources:
+[jmxdoclet] (XDocletMain.start                   45  ) Running <mbeaninterface/>
+[jmxdoclet] INFO:    Some classes refer to other classes that were not found among the sources or on the classpath.
+[jmxdoclet]          (Perhaps the referred class doesn't exist? Hasn't been generated yet?)
+[jmxdoclet]          The referring classes do not import any fully qualified classes matching these classes.
+[jmxdoclet]          However, since no packages are imported, xjavadoc has assumed that the referred classes
+[jmxdoclet]          belong to the same package as the referring class. The classes are:
+[jmxdoclet] /home/starksm/JBoss/Releases/3.2.2RC2/jboss-3.2/jetty/src/main/org/jboss/jetty/JettyService.java --> JettyServiceMBean qualified to org.jboss.jetty.JettyServiceMBean
+[ejbdoclet] (XDocletMain.start                   45  ) Running <localinterface/>
+[ejbdoclet] (XDocletMain.start                   45  ) Running <localhomeinterface/>
+[ejbdoclet] (XDocletMain.start                   45  ) Running <remoteinterface/>
+[ejbdoclet] (XDocletMain.start                   45  ) Running <homeinterface/>
+[ejbdoclet] (XDocletMain.start                   45  ) Running <entitypk/>
+[ejbdoclet] (XDocletMain.start                   45  ) Running <entitycmp/>
+[ejbdoclet] (XDocletMain.start                   45  ) Running <deploymentdescriptor/>
+[ejbdoclet] (XDocletMain.start                   45  ) Running <jboss/>
+[ejbdoclet] (XDocletMain.start                   45  ) Running <localinterface/>
+[ejbdoclet] (XDocletMain.start                   45  ) Running <localhomeinterface/>
+[ejbdoclet] (XDocletMain.start                   45  ) Running <remoteinterface/>
+[ejbdoclet] (XDocletMain.start                   45  ) Running <homeinterface/>
+[ejbdoclet] (XDocletMain.start                   45  ) Running <entitypk/>
+[ejbdoclet] (XDocletMain.start                   45  ) Running <entitycmp/>
+
+compile-classes:
+
+compile-etc:
+
+compile-resources:
+
+compile:
+
+jars:
+
+bundle:
+     [copy] Copying 1365 files to /home/starksm/JBoss/Releases/3.2.2RC2/jboss-3.2/jetty/output/jboss-3.2.2RC2_jetty-4.2.11
+     [copy] Copied 1 empty directory to /home/starksm/JBoss/Releases/3.2.2RC2/jboss-3.2/jetty/output/jboss-3.2.2RC2_jetty-4.2.11
+    [unzip] Expanding: /home/starksm/JBoss/Releases/3.2.2RC2/jboss-3.2/jetty/output/lib/jetty-plugin.sar into /home/starksm/JBoss/Releases/3.2.2RC2/jboss-3.2/jetty/output/jboss-3.2.2RC2_jetty-4.2.11/server/all/deploy/jbossweb-jetty.sar
+     [copy] Copying 1 file to /home/starksm/JBoss/Releases/3.2.2RC2/jboss-3.2/jetty/output/jboss-3.2.2RC2_jetty-4.2.11/server/all/deploy
+    [unzip] Expanding: /home/starksm/JBoss/Releases/3.2.2RC2/jboss-3.2/jetty/output/lib/jetty-plugin.sar into /home/starksm/JBoss/Releases/3.2.2RC2/jboss-3.2/jetty/output/jboss-3.2.2RC2_jetty-4.2.11/server/default/deploy/jbossweb-jetty.sar
+     [copy] Copying 1 file to /home/starksm/JBoss/Releases/3.2.2RC2/jboss-3.2/jetty/output/jboss-3.2.2RC2_jetty-4.2.11/server/default/deploy
+    [mkdir] Created dir: /home/starksm/JBoss/Releases/3.2.2RC2/jboss-3.2/jetty/output/jboss-3.2.2RC2_jetty-4.2.11/docs/examples/jbossweb
+     [copy] Copying 1 file to /home/starksm/JBoss/Releases/3.2.2RC2/jboss-3.2/jetty/output/jboss-3.2.2RC2_jetty-4.2.11/docs/examples/jbossweb
+     [copy] Copying 1 file to /home/starksm/JBoss/Releases/3.2.2RC2/jboss-3.2/jetty/output/jboss-3.2.2RC2_jetty-4.2.11/docs/examples/jbossweb
+
+BUILD SUCCESSFUL

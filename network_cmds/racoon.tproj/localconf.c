@@ -1,4 +1,5 @@
-/*	$KAME: localconf.c,v 1.32 2001/06/01 08:26:05 sakane Exp $	*/
+
+/*	$KAME: localconf.c,v 1.33 2001/08/09 07:32:19 sakane Exp $	*/
 
 /*
  * Copyright (C) 1995, 1996, 1997, and 1998 WIDE Project.
@@ -57,10 +58,12 @@
 #include "admin.h"
 #include "gcmalloc.h"
 
+#include <CoreFoundation/CoreFoundation.h>
+#include <Security/Security.h>
+
 struct localconf *lcconf;
 
 static void setdefault __P((void));
-static vchar_t *getpsk __P((const char *, const int));
 
 void
 initlcconf()
@@ -144,6 +147,77 @@ end:
 }
 
 /*
+ * get PSK from keyChain.
+ */
+vchar_t *
+getpskfromkeychain(const char *name)
+{
+	SecKeychainRef keychain = NULL;
+	vchar_t *key = NULL;
+	void *cur_password = NULL;
+	UInt32 cur_password_len	= 0;
+	OSStatus status;
+        char serviceName[] = "com.apple.net.racoon";
+
+	status = SecKeychainSetPreferenceDomain(kSecPreferencesDomainSystem);
+	if (status != noErr) {
+		plog(LLV_ERROR, LOCATION, NULL,
+			"failed to set system keychain domain.\n");
+		goto end;
+	}
+
+	status = SecKeychainCopyDomainDefault(kSecPreferencesDomainSystem,
+					      &keychain);
+	if (status != noErr) {
+		plog(LLV_ERROR, LOCATION, NULL,
+			"failed to get system keychain domain.\n");
+		goto end;
+	}
+
+	status = SecKeychainFindGenericPassword(keychain,
+					        strlen(serviceName),
+					        serviceName,
+					        strlen(name),
+					        name,
+					        &cur_password_len,
+					        &cur_password,
+					        NULL);
+
+	switch (status) {
+
+	    case noErr :
+		break;
+
+	    case errSecItemNotFound :
+		break;
+
+	    default :
+		plog(LLV_ERROR, LOCATION, NULL,
+			"failed to get preshared key from system keychain (error %d).\n", status);
+	}
+
+end:
+
+        if (cur_password) {
+                key = vmalloc(cur_password_len + 1);
+                if (key == NULL) {
+                        plog(LLV_ERROR, LOCATION, NULL,
+                                "failed to allocate key buffer.\n");
+                }
+                else {
+			memcpy(key->v, cur_password, key->l);
+                        key->v[cur_password_len] = 0;
+                }
+		free(cur_password);
+        }
+        
+        if (keychain)
+            CFRelease(keychain);
+
+	return key;
+}
+
+/*
  * get PSK by address.
  */
 vchar_t *
@@ -160,7 +234,7 @@ getpskbyaddr(remote)
 	return key;
 }
 
-static vchar_t *
+vchar_t *
 getpsk(str, len)
 	const char *str;
 	const int len;
@@ -200,6 +274,7 @@ getpsk(str, len)
 		if (*p == '\0')
 			continue;	/* no 2nd parameter */
 		p--;
+
 		if (strncmp(buf, str, len) == 0 && buf[len] == '\0') {
 			p++;
 			keylen = 0;

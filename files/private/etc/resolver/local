@@ -1,3 +1,4 @@
 nameserver 224.0.0.251
+nameserver ff02::fb
 port 5353
 timeout 1

@@ -1,4 +1,374 @@
-* Major changes in Autoconf 2.52                       -*- outline -*-
+* Major changes in Autoconf 2.57                       -*- outline -*-
+
+  Released 2002-12-03.
+
+Bug fixes for problems with AIX linker, with freestanding C compilers,
+with GNU m4 limitations, and with obsolete copies of GNU documents.
+
+The Free Documentation License has been upgraded from 1.1 to 1.2.
+
+* Major changes in Autoconf 2.56
+
+  Released November 15th, 2002.
+
+One packaging problem fixed (config/install-sh was not executable).
+
+* Major changes in Autoconf 2.55
+
+  Released November 14th, 2002.
+
+Release tips:
+
+           Have your configure.ac checked by autoscan ("autoscan").
+             Try the warning options ("autoreconf -fv -Wall").
+
+** Documentation
+
+- AC_CHECK_HEADER, AC_CHECK_HEADERS
+  More information on proper use.
+
+- Writing Test Programs
+
+  This sections explains how to write good test sources to use with
+  AC_COMPILE_IFELSE etc.  It documents AC_LANG_PROGRAMS and so forth.
+
+- AC_FOO_IFELSE vs. AC_TRY_FOO
+
+  Explains why Autoconf moves from AC_TRY_COMPILE etc. to
+  AC_COMPILE_IFELSE and AC_LANG_PROGRAM etc.
+
+** autoreconf
+
+- Is more robust to different Gettext installations.
+
+- Produces messages (when --verbose) to be understood by Emacs'
+  compile mode.
+
+- Supports -W/--warnings.
+
+- -m/--make
+  Once the GNU Build System reinstalled, run `./config.status
+  --recheck && ./config.status && make' if possible.
+
+** autom4te
+
+- Supports --cache, and --no-cache.
+
+- ~/.autom4te.cfg makes it possible to disable the caching mechanism
+  (autom4te.cache).  See `Customizing autom4te' in the documentation.
+
+** config.status
+  Supports --quiet.
+
+** Obsolete options
+
+  Support for the obsoleted options -m, --macrodir, -l, --localdir is
+  dropped in favor of the safer --include/--prepend-include scheme.
+
+** Macros
+
+- New macros
+  AC_COMPILER_IFELSE, AC_FUNC_MBRTOWC, AC_HEADER_STDBOOL,
+  AC_LANG_CONFTEST, AC_LANG_SOURCE, AC_LANG_PROGRAM, AC_LANG_CALL,
+  AC_LANG_FUNC_TRY_LINK, AC_MSG_FAILURE, AC_PREPROC_IFELSE.
+
+- Obsoleted
+  Obsoleted macros are kept for Autoconf backward compatibility, but
+  should be avoided in configure.ac.  Running autoupdate is advised.
+  AC_DECL_SYS_SIGLIST.
+
+- AC_DEFINE/AC_DEFINE_UNQUOTED
+
+  We have to stop using the old compatibility scheme --that tried to
+  avoid useless backslashes-- because Libtool 1.4.3 contains a
+
+  AC_DEFINE([error_t], [int],
+            [Define to a type to use for \`error_t' if it is not
+             otherwise available.])
+
+  We have to quote the single quotes and backslashes with \.  The old
+  compatibility scheme saw that ` was backslashed, and therefore did
+  not quote the single quote...  Failure.  Hence, Autoconf 2.54 is not
+  compatible with Libtool.  Autoconf 2.55 is, but in some cases might
+  produce more \ than wanted.
+
+  Please, note that in the future the same problem will happen with
+  AC_MSG_*: use `autoreconf -f -Wall'.
+
+** Bug Fixes
+
+- Portability of the Autoconf package to Solaris.
+
+- Spurious warnings caused by config.status.
+  This bug is benign, but painful: on some systems (typically
+  FreeBSD), warnings such as:
+
+     config.status: creating Makefile
+     mv: Makefile: set owner/group (was: 1357/0): Operation not permitted
+
+  could be issued.  This is fixed.
+
+- Parallel Builds
+  Simultaneous executions of config.status are possible again.
+
+- Precious variables accumulation
+
+  config.status could stack several copies of the precious variables
+  assignments.
+
+
+** Plans for later versions
+
+- ./configure <host>
+
+  The compatibility hooks with the old scheme will be completely
+  removed.  Please, advice/use `--build', `--host', and `--target'
+  only.
+
+- AC_CHECK_HEADER, AC_CHECK_HEADERS
+
+  The tests will be stricter, please make sure your invocations are
+  valid.
+
+- shell functions
+
+  Shell functions will gradually be introduced, probably starting with
+  Autotest.  If you know machines which are in use that you suspect
+  *not* to support shell functions, please run the test suite of
+  Autoconf 2.55 on it, and report the results to
+  bug-autoconf@gnu.org.
+
+- AC_MSG_*
+
+  Special characters in AC_MSG_* need not be quoted.  Currently,
+  Autoconf has heuristics to decide when a string is escaped, or has
+  to be escaped.  This scheme is fragile, and will be removed; the
+  only risk is uglified messages.  Please, run `autoreconf -f -Wall'
+  to find occurrences that will be affected.
+
+* Major changes in Autoconf 2.54
+
+  Released September 13th, 2002.
+
+** Executables
+
+- autoreconf no longer changes the version of the gettext/po/intl
+  support files. It now adds the files the correspond to the
+  AM_GNU_GETTEXT_VERSION declared in configure.ac.
+
+  Warning: It now relies on the 'autopoint' program, which is part
+  of GNU gettext 0.11.4 and newer.
+
+  Please note that you need to have a GNU gettext version that
+  corresponds at least to the AM_GNU_GETTEXT_VERSION declared
+  in configure.ac. You can upgrade to newer GNU gettext versions,
+  though, without needing to change configure.ac.
+
+- The -I DIR or --include=DIR option now appends DIR to the include path
+  instead of prepending; this is for consistency with other GNU tools.
+  The new -B DIR or --prepend-include=DIR option has the old behavior.
+
+** Macros
+
+- AC_OUTPUT
+  Now handles all the gory details about LIBOBJS and LTLIBOBJS.
+  Please, remove lines such as
+
+	# This is necessary so that .o files in LIBOBJS are also
+	# built via the ANSI2KNR-filtering rules.
+	LIBOBJS=`echo $LIBOBJS|sed 's/\.o /\$U.o /g;s/\.o$/\$U.o/'`
+
+  and read the `AC_LIBOBJ vs LIBOBJS' section.  Do not define U in
+  your Makefiles either.
+
+- AC_CONFIG_LINKS now makes copies if it can't make links.
+
+- AC_FUNC_FNMATCH now tests only for POSIX compatibility, reverting to
+  Autoconf 2.13 behavior.  The new macro AC_FUNC_FNMATCH_GNU also
+  tests for GNU extensions to fnmatch, and replaces fnmatch if needed.
+
+- AC_FUNC_SETVBUF_REVERSED no longer fails when cross-compiling.
+
+- AC_PROG_CC_STDC is integrated into AC_PROG_CC.
+
+- AC_PROG_F77 default search no longer includes cf77 and cfg77.
+
+- New macros
+
+  AC_C_BACKSLASH_A, AC_CONFIG_LIBOBJ_DIR, AC_GNU_SOURCE,
+  AC_PROG_EGREP, AC_PROG_FGREP, AC_REPLACE_FNMATCH,
+  AC_FUNC_FNMATCH_GNU, AC_FUNC_REALLOC, AC_TYPE_MBSTATE_T.
+
+- AC_FUNC_GETLOADAVG
+  looks for getloadavg.c in the CONFIG_LIBOBJ_DIR.
+
+- AC_FUNC_MALLOC
+  Now defines HAVE_MALLOC to 0 if `malloc' does not work, and asks
+  for an AC_LIBOBJ replacement.
+
+** Bug fixes
+
+- Spurious complaints from `m4_bmatch' about invalid regular
+  expressions are suppressed.
+
+- Empty top_builddirs are properly handled.
+
+- AC_CHECK_MEMBER works correctly when the member is an aggregate.
+
+- AC_PATH_PROG
+  Now colon in the optional path arguments are properly handled.
+
+** Improved portability
+
+- Both Autoconf the package, and the scripts it produces, should run
+  more reliably with Zsh.  Bear in mind it is the default Bourne shell
+  on Darwin.
+
+- Autoconf and the scripts it produces no longer assume the existence of
+  the obsolescent commands egrep and fgrep.
+
+** Documentation
+
+- Limitations of Make
+  More of them.
+
+- GNATS
+  The GNATS base has moved to
+  http://bugs.gnu.org/cgi-bin/gnatsweb.pl?database=autoconf
+
+** Misc.
+
+- config.log
+  Now contains the list of ouput variables and files (AC_SUBST,
+  AC_SUBST_FILES).
+
+* Major changes in Autoconf 2.53
+
+  Released March 8th, 2002.
+
+** Requirements
+
+  Perl 5.005_03 or later is required: autom4te is written in Perl and is
+  needed by autoconf.  autoheader, autoreconf, ifnames, and autoscan are
+  rewritten in Perl.
+
+** Documentation
+
+- AC_INIT
+  Argument requirements, output variables, defined macros.
+- M4sugar, M4sh, Autotest
+  First sketch.
+- Double quoting macros
+  AC_TRY_CPP, AC_TRY_COMPILE, AC_TRY_LINK and AC_TRY_RUN.
+- Licensing
+  The Autoconf manual is now distributed under the terms of the GNU FDL.
+- Section `Hosts and Cross-Compilation'
+  Explains the rationale for the 2.5x changes in the cross-compilation
+  chain, and in the relationships between build, host, and target
+  types.
+  Emphasizes that `cross-compilation' == `--host is given'.
+  If you are working on compilers etc., be sure to read this section.
+- Section `AC_LIBOBJ vs. LIBOBJS'
+  Explains why assigning LIBOBJS directly is now an error.
+  Details how to update the code.
+
+** configure
+
+- $LINENO
+  Now used instead of hard coded line numbers.
+  This eases the comparison of `configure's, and diminishes the
+  pressure over control version archives.
+  Automatic replacement for shells that don't support this feature.
+- New output variables
+  @builddir@, @top_builddir@, @abs_srcdir@, @abs_top_srcdir@, @abs_builddir@,
+  @abs_top_builddir@.
+
+** Emacs
+
+  Autoconf and Autotest modes are provided.
+
+** Executables
+
+- autom4te
+  New, used by the Autoconf suite to cache and speed up most processing.
+- --force, -f
+  Supported by autom4te, autoconf and autoheader.
+- --include, -I
+  Replaces --autoconf-dir and --localdir in autoconf, autoheader,
+  autoupdate, and autoreconf.
+- autoreconf
+  No longer passes --cygnus, --foreign, --gnits, --gnu, --include-deps:
+  automake options are to be given via AUTOMAKE_OPTIONS.
+- autoreconf
+  Runs gettextize and libtoolize when appropriate.
+- autoreconf
+  --m4dir is no longer supported.
+- autoreconf
+  Now runs only in the specified directories, defaulting to `.',
+  but understands AC_CONFIG_SUBDIRS for dependent directories.
+  Before, it used to run on all the `configure.ac' found in the
+  current tree.
+  Independent packages are properly updated.
+
+** Bug fixes
+
+- The top level $prefix is propagated to the AC_CONFIG_SUBDIRS configures.
+- AC_TRY_RUN
+  Under the user pressure, $? is finally available.  Probably a mistake.
+- AC_F77_LIBRARY_LDFLAGS now supports the HP/UX f90 compiler.
+- Precious variables accumulation
+  config.status could stack several copies of the precious variables
+  assignments.
+- AC_PATH_PROG and family.
+  Works properly when given a literal path.
+- AC_FUNC_SETPGRP
+  Somewhere since 2.13, the result had been reversed.
+
+** C Macros
+
+- AC_C_BIGENDIAN supports the cross-compiling case.
+- AC_C_BIGENDIAN accepts ACTION-IF-TRUE, ACTION-IF-FALSE, and
+  ACTION-IF-UNKNOWN arguments.  All are facultative, and the default
+  for ACTION-IF-TRUE is to define WORDS_BIGENDIAN like AC_C_BIGENDIAN
+  always did.
+- AC_C_LONG_DOUBLE now succeeds only if `long double' has more range or
+  precision than `double'.
+
+** Generic macros
+
+- AC_INIT
+  It now defines the preprocessor symbols PACKAGE_NAME,
+  PACKAGE_TARNAME, PACKAGE_VERSION, PACKAGE_STRING, and
+  PACKAGE_BUGREPORT.
+
+- AC_INIT
+  Admits a fourth optional parameter: the tar name.
+
+- AC_CONFIG_COMMANDS, HEADERS, FILES, LINKS.
+  Provide the user with srcdir, ac_srcdir, ac_top_srcdir, ac_builddir,
+  ac_top_builddir, ac_abs_srcdir, ac_abs_top_srcdir, ac_abs_builddir,
+  ac_abs_top_builddir.
+
+- AC_CONFIG_COMMANDS, HEADERS, FILES, LINKS and AC_OUTPUT.
+  Are much less expensive when using long lists of files.
+
+- AC_PREFIX_PROGRAM
+  Works with shell variables, and non alphanumeric names.
+
+** Library macros
+
+- AC_FUNC_STRERROR_R now sets STRERROR_R_CHAR_P, not HAVE_WORKING_STRERROR_R,
+  because POSIX 1003.1-200x draft 7 says strerror_r returns int, not char *.
+
+- AC_FUNC_STRTOD substitutes POW_LIB.
+
+- AC_FUNC_STRNLEN
+  New.
+
+* Major changes in Autoconf 2.52
+
+  Released July 18th, 2001.
+
 ** Documentation
 - AC_ARG_VAR
 - Quadrigraphs
@@ -57,6 +427,8 @@
 - AC_FUNC_GETPGRG behaves better when cross-compiling.
 
 * Major changes in Autoconf 2.50
+
+  Released May 21st, 2001.
 
 ** Lots of bug fixes
 There have been far too many to enumerate them here.  Check out
@@ -292,6 +664,8 @@ Major changes in Autoconf 2.14:
 
 Major changes in Autoconf 2.13:
 
+  Released May 1st, 1999, by Ben Elliston
+
 * Support for building on Win32 systems where the only available C or
   C++ compiler is the Microsoft Visual C++ command line compiler
   (`cl').  Additional support for building on Win32 systems which are
@@ -312,7 +686,7 @@ Major changes in Autoconf 2.13:
 * Fixed an important bug in AC_CHECK_TYPE that would cause a configure
   script to report that `sometype_t' was present when only `type_t'
   was defined.
-* Merge of the FSF version of config.guess and config.sub to modernise
+* Merge of the FSF version of config.guess and config.sub to modernize
   these scripts. Add support for a few new hosts in config.guess.
   Incorporate latest versions of install-sh, mkinstalldirs and
   texinfo.tex from the FSF.
@@ -322,6 +696,8 @@ Major changes in Autoconf 2.13:
 * Bug fixes and workarounds for quirky bugs in vendor utilities.
 
 Major changes in Autoconf 2.12:
+
+  Released November 26th, 1996, by David J. MacKenzie
 
 * AC_OUTPUT and AC_CONFIG_HEADER can create output files by
   concatenating multiple input files separated by colons, like so:
@@ -333,6 +709,8 @@ Major changes in Autoconf 2.12:
 * Bug fixes.
 
 Major changes in Autoconf 2.11:
+
+  Released November 18th, 1996, by David J. MacKenzie
 
 * AC_PROG_CC and AC_PROG_CXX check whether the compiler works.
   They also default CFLAGS/CXXFLAGS to "-g -O2" for gcc, instead of "-g -O".
@@ -347,15 +725,39 @@ Major changes in Autoconf 2.11:
 
 Major changes in Autoconf 2.10:
 
+  Released May 7th, 1996, by Roland McGrath
+
 * Bug fixes.
 * The cache variable names used by `AC_CHECK_LIB(LIB, FUNC, ...)' has
   changed: now $ac_cv_lib_LIB_FUNC, previously $ac_cv_lib_LIB.
 
-Major changes in Autoconfs 2.6 through 2.9:
+Major changes in Autoconf 2.9:
+
+  Released March 16th, 1996, by Roland McGrath
+
+* Bug fixes.
+
+Major changes in Autoconf 2.8:
+
+  Released March 8th, 1996, by Roland McGrath
+
+* Bug fixes.
+
+Major changes in Autoconf 2.7:
+
+  Released November 22nd, 1995, by David J. MacKenzie
+
+* Bug fixes.
+
+Major changes in Autoconf 2.6:
+
+  Released November 20th, 1995, by David J. MacKenzie
 
 * Bug fixes.
 
 Major changes in Autoconf 2.5:
+
+  Released November 17th, 1995, by Roland McGrath
 
 * New configure options --bindir, --libdir, --datadir, etc., with
   corresponding output variables.
@@ -369,15 +771,21 @@ Major changes in Autoconf 2.5:
 
 Major changes in Autoconf 2.4:
 
+  Released June 14th, 1995, by David J. MacKenzie
+
 * Fix a few bugs found by Emacs testers.
 
 Major changes in Autoconf 2.3:
+
+  Released March 27th, 1995, by David J. MacKenzie
 
 * Fix the cleanup trap in several ways.
 * Handle C compilers that are picky about option placement.
 * ifnames gets the version number from the right directory.
 
 Major changes in Autoconf 2.2:
+
+  Released March 8th, 1995, by David J. MacKenzie
 
 * The ifnames utility is much faster but requires a "new awk" interpreter.
 * AC_CHECK_LIB and AC_HAVE_LIBRARY check and add the new
@@ -387,6 +795,8 @@ Major changes in Autoconf 2.2:
 * Many additions to the TODO file :-)
 
 Major changes in Autoconf 2.1:
+
+  Released November 4th, 1994, by David J. MacKenzie
 
 * Fix C++ problems.
 * More explanations in the manual.
@@ -413,6 +823,8 @@ Autoconf now makes heavy use of m4 diversions, which were implemented
 inefficiently in GNU m4 releases before 1.3.
 
 Major changes in Autoconf 2.0:
+
+  Released October 26th, 1994, by David J. MacKenzie
 
 ** New copyright terms:
 * There are no restrictions on distribution or use of configure scripts.
@@ -658,3 +1070,25 @@ Added AC_STRCOLL macro.
 Made AC_GETLOADAVG check for more things.
 AC_OUTPUT argument is now optional.
 Various bug fixes.
+
+-----
+
+Copyright (C) 1993, 1994, 1995, 1996, 1998, 1999, 2000, 2001, 2002
+Free Software Foundation, Inc.
+
+This file is part of GNU Autoconf.
+
+GNU Autoconf is free software; you can redistribute it and/or modify
+it under the terms of the GNU General Public License as published by
+the Free Software Foundation; either version 2, or (at your option)
+any later version.
+
+GNU Autoconf is distributed in the hope that it will be useful,
+but WITHOUT ANY WARRANTY; without even the implied warranty of
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+GNU General Public License for more details.
+
+You should have received a copy of the GNU General Public License
+along with autoconf; see the file COPYING.  If not, write to
+the Free Software Foundation, Inc., 59 Temple Place - Suite 330,
+Boston, MA 02111-1307, USA.

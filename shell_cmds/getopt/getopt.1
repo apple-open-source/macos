@@ -1,69 +1,79 @@
-.\"	$NetBSD: getopt.1,v 1.8 1997/10/19 02:16:57 lukem Exp $
-.Dd June 21, 1993
+.\" $FreeBSD: src/usr.bin/getopt/getopt.1,v 1.15 2002/04/19 23:43:02 charnier Exp $
+.\"
+.Dd April 3, 1999
 .Dt GETOPT 1
 .Os
 .Sh NAME
 .Nm getopt
 .Nd parse command options
 .Sh SYNOPSIS
-.Li args=\`getopt optstring $*\`
-.Pp
-.Li set \-\- \`getopt optstring $*\`
+.Nm args=\`getopt Ar optstring $*\`
+; errcode=$?; set \-\- $args
 .Sh DESCRIPTION
+The
 .Nm
-is used to break up options in command lines for easy parsing by
+utility is used to break up options in command lines for easy parsing by
 shell procedures, and to check for legal options.
-.Op Optstring
+.Ar Optstring
 is a string of recognized option letters (see
-.Xr getopt 3
-);
+.Xr getopt 3 ) ;
 if a letter is followed by a colon, the option
 is expected to have an argument which may or may not be
 separated from it by white space.
 The special option
-.Dq \-\-
+.Ql \-\-
 is used to delimit the end of the options.
+The
 .Nm
-will place
-.Dq \-\-
+utility will place
+.Ql \-\-
 in the arguments at the end of the options,
 or recognize it if used explicitly.
 The shell arguments
 (\fB$1 $2\fR ...) are reset so that each option is
 preceded by a
-.Dq \-
+.Ql \-
 and in its own shell argument;
 each option argument is also in its own shell argument.
-.Sh EXAMPLE
+.Sh EXAMPLES
 The following code fragment shows how one might process the arguments
 for a command that can take the options
-.Op a
+.Fl a
 and
-.Op b ,
+.Fl b ,
 and the option
-.Op o ,
+.Fl o ,
 which requires an argument.
 .Pp
 .Bd -literal -offset indent
 args=\`getopt abo: $*\`
-if test $? != 0
+# you should not use \`getopt abo: "$@"\` since that would parse
+# the arguments differently from what the set command below does.
+if [ $? != 0 ]
 then
 	echo 'Usage: ...'
 	exit 2
 fi
 set \-\- $args
+# You cannot use the set command with a backquoted getopt directly,
+# since the exit code from getopt would be shadowed by those of set,
+# which is zero by definition.
 for i
 do
 	case "$i"
 	in
 		\-a|\-b)
-			flag=$i; shift;;
+			echo flag $i set; sflags="${i#-}$sflags";
+			shift;;
 		\-o)
-			oarg=$2; shift; shift;;
+			echo oarg is "'"$2"'"; oarg="$2"; shift;
+			shift;;
 		\-\-)
 			shift; break;;
 	esac
 done
+echo single-char flags: "'"$sflags"'"
+echo oarg is "'"$oarg"'"
 .Ed
 .Pp
 This code will accept any of the following as equivalent:
@@ -73,49 +83,52 @@ cmd \-aoarg file file
 cmd \-a \-o arg file file
 cmd \-oarg -a file file
 cmd \-a \-oarg \-\- file file
-.Ed
 .Pp
-.St -p1003.2
-mandates that the 
-.Xr sh 1
-set command return the value of 0 for the exit status.  Therefore,
-the exit status of the
-.Nm
-command is lost when
-.Nm
-and the
-.Xr sh 1
-set command are used on the same line.  The example given
-is one way to detect errors found by 
-.Nm "" .
+.Ed
 .Sh SEE ALSO
 .Xr sh 1 ,
 .Xr getopt 3
 .Sh DIAGNOSTICS
+The
 .Nm
-prints an error message on the standard error output when it
-encounters an option letter not included in
-.Op optstring .
+utility prints an error message on the standard error output and exits with
+status > 0 when it encounters an option letter not included in
+.Ar optstring .
 .Sh HISTORY
-Written by Henry Spencer, working from a Bell Labs manual page.
+Written by
+.An Henry Spencer ,
+working from a Bell Labs manual page.
 Behavior believed identical to the Bell version.
+Example changed in
+.Fx
+version 3.2 and 4.0.
 .Sh BUGS
 Whatever
 .Xr getopt 3
 has.
 .Pp
 Arguments containing white space or embedded shell metacharacters
-generally will not survive intact;  this looks easy to fix but isn't.
+generally will not survive intact;  this looks easy to fix but
+isn't. People trying to fix
+.Nm
+or the example in this manpage should check the history of this file
+in
+.Fx .
 .Pp
 The error message for an invalid option is identified as coming
 from
 .Nm
 rather than from the shell procedure containing the invocation
 of
-.Nm "" ;
+.Nm ;
 this again is hard to fix.
 .Pp
 The precise best way to use the
-.Ic set
+.Nm set
 command to set the arguments without disrupting the value(s) of
 shell options varies from one shell version to another.
+.Pp
+Each shellscript has to carry complex code to parse arguments halfway
+correcty (like the example presented here). A better getopt-like tool
+would move much of the complexity into the tool and keep the client
+shell scripts simpler.

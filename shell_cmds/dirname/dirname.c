@@ -1,5 +1,3 @@
-/*	$NetBSD: dirname.c,v 1.7 1997/10/18 13:21:41 lukem Exp $	*/
-
 /*-
  * Copyright (c) 1991, 1993, 1994
  *	The Regents of the University of California.  All rights reserved.
@@ -33,36 +31,31 @@
  * SUCH DAMAGE.
  */
 
+#ifndef lint
+static const char copyright[] =
+"@(#) Copyright (c) 1991, 1993, 1994\n\
+	The Regents of the University of California.  All rights reserved.\n";
+#endif /* not lint */
+
+#ifndef lint
+static const char sccsid[] = "@(#)dirname.c	8.4 (Berkeley) 5/4/95";
+#endif /* not lint */
 #include <sys/cdefs.h>
-#ifndef lint
-__COPYRIGHT("@(#) Copyright (c) 1991, 1993, 1994\n\
-	The Regents of the University of California.  All rights reserved.\n");
-#endif /* not lint */
+__RCSID("$FreeBSD: src/usr.bin/dirname/dirname.c,v 1.11 2002/07/28 15:43:56 dwmalone Exp $");
 
-#ifndef lint
-#if 0
-static char sccsid[] = "@(#)dirname.c	8.4 (Berkeley) 5/4/95";
-#endif
-__RCSID("$NetBSD: dirname.c,v 1.7 1997/10/18 13:21:41 lukem Exp $");
-#endif /* not lint */
-
+#include <err.h>
+#include <libgen.h>
 #include <stdio.h>
 #include <stdlib.h>
-#include <locale.h>
 #include <unistd.h>
 
-int	main __P((int, char **));
-static void usage __P((void));
+void usage(void);
 
 int
-main(argc, argv)
-	int argc;
-	char **argv;
+main(int argc, char **argv)
 {
-	register char *p;
+	char *p;
 	int ch;
-
-	setlocale(LC_ALL, "");
 
 	while ((ch = getopt(argc, argv, "")) != -1)
 		switch(ch) {
@@ -76,80 +69,16 @@ main(argc, argv)
 	if (argc != 1)
 		usage();
 
-	/*
-	 * (1) If string is //, skip steps (2) through (5).
-	 * (2) If string consists entirely of slash characters, string
-	 *     shall be set to a single slash character.  In this case,
-	 *     skip steps (3) through (8).
-	 */
-	for (p = *argv;; ++p) {
-		if (!*p) {
-			if (p > *argv)
-				(void)printf("/\n");
-			else
-				(void)printf(".\n");
-			exit(0);
-		}
-		if (*p != '/')
-			break;
-	}
-
-	/*
-	 * (3) If there are any trailing slash characters in string, they
-	 *     shall be removed.
-	 */
-	for (; *p; ++p);
-	while (*--p == '/')
-		continue;
-	*++p = '\0';
-
-	/*
-	 * (4) If there are no slash characters remaining in string,
-	 *     string shall be set to a single period character.  In this
-	 *     case skip steps (5) through (8).
-	 *
-	 * (5) If there are any trailing nonslash characters in string,
-	 *     they shall be removed.
-	 */
-	while (--p >= *argv)
-		if (*p == '/')
-			break;
-	++p;
-	if (p == *argv) {
-		(void)printf(".\n");
-		exit(0);
-	}
-
-	/*
-	 * (6) If the remaining string is //, it is implementation defined
-	 *     whether steps (7) and (8) are skipped or processed.
-	 *
-	 * This case has already been handled, as part of steps (1) and (2).
-	 */
-	
-	/*
-	 * (7) If there are any trailing slash characters in string, they
-	 *     shall be removed.
-	 */
-	while (--p >= *argv)
-		if (*p != '/')
-			break;
-	++p;
-
-	/*
-	 * (8) If the remaining string is empty, string shall be set to
-	 *     a single slash character.
-	 */
-	*p = '\0';
-	(void)printf("%s\n", p == *argv ? "/" : *argv);
+	if ((p = dirname(*argv)) == NULL)
+		err(1, "%s", *argv);
+	(void)printf("%s\n", p);
 	exit(0);
 }
 
-static void
-usage()
+void
+usage(void)
 {
 
 	(void)fprintf(stderr, "usage: dirname path\n");
 	exit(1);
 }
-

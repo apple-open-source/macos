@@ -1,3 +1,27 @@
+/*
+ * Copyright (c) 2003 Apple Computer, Inc. All rights reserved.
+ *
+ * @APPLE_LICENSE_HEADER_START@
+ * 
+ * Copyright (c) 1999-2003 Apple Computer, Inc.  All Rights Reserved.
+ * 
+ * This file contains Original Code and/or Modifications of Original Code
+ * as defined in and that are subject to the Apple Public Source License
+ * Version 2.0 (the 'License'). You may not use this file except in
+ * compliance with the License. Please obtain a copy of the License at
+ * http://www.opensource.apple.com/apsl/ and read it before using this
+ * file.
+ * 
+ * The Original Code and all software distributed under the License are
+ * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
+ * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
+ * INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY,
+ * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
+ * Please see the License for the specific language governing rights and
+ * limitations under the License.
+ * 
+ * @APPLE_LICENSE_HEADER_END@
+ */
 
 /*
  * mslpd.c : Minimal SLP v2 Service Agent
@@ -98,6 +122,9 @@
  * (c) Sun Microsystems, 1998, All Rights Reserved.
  * Author: Erik Guttman
  */
+ /*
+	Portions Copyright (c) 2002 Apple Computer, Inc. All rights reserved.
+ */
 #include <mach/mach.h>
 #include <mach/mach_error.h>
 
@@ -115,6 +142,7 @@
 #include <sys/time.h>
 #include <sys/resource.h>
 
+#include "SLPSystemConfiguration.h"
 #include "mslp_sd.h"
 #include "slp.h"
 #include "mslp.h"
@@ -124,7 +152,9 @@
 #include "mslpd.h"
 
 #include "slpipc.h"
-//#include <syslog.h>				// need to have this after the mslp includes!
+
+#include "SLPRegistrar.h"
+
 /*
  * Locally defined functions
  */
@@ -132,7 +162,7 @@ static int		InitializeListeners( SAState* psa );
 
 static int      assign_defaults(SAState *psa, struct sockaddr_in *psin,
 				int argc, char *argv[]);
-//static void     propogate_all_advertisements(SAState *psa);
+
 static void     exit_handler(int signo);
 
 #ifdef EXTRA_MSGS
@@ -154,87 +184,6 @@ bool IsProcessTerminated( void )
     return _Terminated;
 }
 
-// ---------------------------------------------------------------------------
-//	* _HandleSigChild ()
-//
-// ---------------------------------------------------------------------------
-/*
-static void _HandleSigChild ( ... )
-{
-//	SLP_LOG(SLP_LOG_SIGNAL,"Received CHILD signal.");
-}
-*/
-
-// ---------------------------------------------------------------------------
-//	* _HandleSigTerm ()
-//
-// ---------------------------------------------------------------------------
-/*
-static void _HandleSigTerm ( ... )
-{
-	_Terminated = true;
-    _Signal = SIGTERM;
-    CancelSLPTCPListener();
-    CancelSLPUDPListener();
-//    SLP_LOG(SLP_LOG_SIGNAL,"Received TERM signal.");
-
-} // _HandleSigTerm
-*/
-
-// ---------------------------------------------------------------------------
-//	* _HandleSigHup ()
-//
-// ---------------------------------------------------------------------------
-/*
-static void _HandleSigHup ( ... )
-{
-	_Terminated = true;
-    _Signal = SIGHUP;
-    CancelSLPTCPListener();
-    CancelSLPUDPListener();
-//	SLP_LOG(SLP_LOG_SIGNAL,"Received HUP signal.");
-//    exit_handler(SIGHUP);
-	
-} // _HandleSigHup
-
-*/
-// ---------------------------------------------------------------------------
-//	* _HandleSIGUSR1 ()
-//
-// ---------------------------------------------------------------------------
-/*
-static void _HandleSIGUSR1 ( ... )
-{
-	int		nStatus = 0;
-	pid_t	pidChild = ::waitpid( -1, &nStatus, WNOHANG );
-
-	if ( (pidChild == 0) || (pidChild != _ChildPid) )
-	{
-		return;
-	}
-
-	if ( CLog::GetDebugLog() == nil )
-	{
-		CLog::StartDebugLog();
-	}
-	else
-	{
-		CLog::StopDebugLog();
-	}
-} // _HandleSIGUSR1
-*/
-
-// ---------------------------------------------------------------------------
-//	* _HandleSIGUSR2 ()
-//
-// ---------------------------------------------------------------------------
-/*
-static void _HandleSIGUSR2 ( ... )
-{
-
-//	SLP_LOG(SLP_LOG_SIGNAL,"Received USR2 signal.");
-} // _HandleSIGUSR2
-*/
 SLPBoolean AreWeADirectoryAgent( void )
 {
     SLPBoolean	isDA = SLP_FALSE;
@@ -248,8 +197,6 @@ SLPBoolean AreWeADirectoryAgent( void )
 SLPInternalError reset_slpd( int argc, char *pcArgv[], struct sockaddr_in *psin, SAState* psa )
 {
     const char * pcFile;
-
-//    memset( psa, 0, sizeof(SAState) );
 
     SLP_LOG( SLP_LOG_STATE, "*** slpd reset ***" );
 #ifdef EXTRA_MSGS
@@ -275,7 +222,6 @@ SLPInternalError reset_slpd( int argc, char *pcArgv[], struct sockaddr_in *psin,
 
     if ( assign_defaults( psa, psin, argc, pcArgv ) != SLP_OK )
     {
-        //fprintf( stderr, "Could not assign defaults - abort\n" );
         LOG_SLP_ERROR_AND_RETURN(SLP_LOG_ERR,"Could not assign defaults - abort",SLP_INTERNAL_SYSTEM_ERROR);
         return SLP_INTERNAL_SYSTEM_ERROR;
     }
@@ -448,9 +394,7 @@ int main(int argc, char *pcArgv[])
     
     SLP_LOG( SLP_LOG_STATE, "*** slpd started ***" );
 	
-// per bug #2501505, we need to close all the open file descriptors of who ever launched us!
-// this may need to be moved to slpdLoad when we start binding to our ports within slpdLoad and
-// passing those bound ports to slpd.
+// we need to close all the open file descriptors of who ever launched us!
 
 	if ( getrlimit(RLIMIT_NOFILE, &rlim) < 0 )
 	{
@@ -462,7 +406,6 @@ int main(int argc, char *pcArgv[])
 		close(i);
 
 	// Ignore SIGPIPE's mysteriously generated by AFP/ServerControl.
-	// Temporary fix for Radar xxx.
 	struct sigaction	sSigAction, sSigOldAction ;
 
 	sigemptyset (&sSigAction.sa_mask) ;
@@ -482,6 +425,12 @@ int main(int argc, char *pcArgv[])
 	
 	signal(SIGINT,SignalHandler);
     
+	if ( IsNetworkSetToTriggerDialup() )
+	{
+		LOG(SLP_LOG_ERR, "slpd: Network is set to auto dial ppp, - abort");
+		return 0;
+	}
+	
     OPEN_NETWORKING();		// have to call this to intialize our lock mutex
     InitSLPRegistrar();
 
@@ -500,22 +449,15 @@ int main(int argc, char *pcArgv[])
 	/*
      *	time to daemonize
      */
-//    SLP_LOG( SLP_LOG_MSG, "slpd: deamonizing");
-//    if ( SLPGetProperty("com.apple.debugDontDaemonize") == NULL )		// allow runtime debugging
-//		daemon( 0, 0 );
 
-//    SLP_LOG( SLP_LOG_MSG, "slpd: deamon initializing network services");
     /*
     *  initialize network stuff
     */
     if (mslpd_init_network(&sa) != SLP_OK)
     {
     	LOG(SLP_LOG_FAIL, "slpd: could not init networking - abort");
-//        fprintf(stderr,"Could not init networking - abort\n");
         return -3;
     }
-
-//    StartSLPDALocator( (void *)mslpd_daadvert_callback, &sa );
 
 	/*
     * save socket handles so we can free them on exit.
@@ -526,23 +468,19 @@ int main(int argc, char *pcArgv[])
     if ((pcScopes = SLPGetProperty("net.slp.useScopes"))==NULL)
     {
         pcScopes = SLP_DEFAULT_SCOPE;
-    //      pcScopes = "default";
     }
     
     InitializeListeners( &sa );
     
-    if ( AreWeADirectoryAgent() )
-    {
-        StartSLPUDPListener( &sa );
-        StartSLPTCPListener( &sa );
-        StartSLPDAAdvertiser( &sa );
-    }
-//    else if ( sa.store.size > 0 )	// we picked up registered services from file
-    {
-        StartSLPUDPListener( &sa );
-        StartSLPTCPListener( &sa );
-    }
+	StartSLPUDPListener( &sa );
+	StartSLPTCPListener( &sa );
     
+    if ( AreWeADirectoryAgent() )
+	{
+        StartSLPDAAdvertiser( &sa );
+		SLPRegistrar::TheSLPR()->EnableRAdminNotification();
+	}
+	
     /*
     *  discover DAs actively
     *  each time one is found, local registration is immediately forward
@@ -555,15 +493,9 @@ int main(int argc, char *pcArgv[])
     */
 	InitializeSLPDARegisterer( &sa );
 
-    StartSLPDALocator( (void *)mslpd_daadvert_callback, &sa );
+    StartSLPDALocator( (void *)mslpd_daadvert_callback, CFRunLoopGetCurrent(), &sa );
 
     sa.pdat = GetGlobalDATable();
-// Don't know that we need to call the below right away, we should be propigating our  registrations when we discover new
-// DA's anyway right?
-//    RegisterAllServicesWithKnownDAs(&sa);
-    
-// the below now gets handled in the actual initialization of the pdat (True Dat)
-//   sa.pdat->initialized = SLP_TRUE;
 
     /*
     * The main loop is such that it simply launches handlers.  These could
@@ -610,11 +542,9 @@ static int assign_defaults(SAState *psa, struct sockaddr_in *psin,
 	#ifdef MAC_OS_X
 	SLPSetProperty("com.apple.slp.isDA", "false");
 	#endif
-	// SLPSetProperty("net.slp.useScopes","default");
 	SLPSetProperty("net.slp.useScopes",SLP_DEFAULT_SCOPE);							// this is our current list of scopes
     SLPSetProperty("com.apple.slp.defaultRegistrationScope",SLP_DEFAULT_SCOPE);		// use this for registrations
     SLPSetProperty("com.apple.slp.daScopeList", SLP_DEFAULT_SCOPE);					// this only get's used if we are a da
-//	SLPSetProperty("net.slp.multicastMaximumWait","45000");
 	SLPSetProperty("net.slp.multicastTTL",MCAST_TTL);
 	SLPSetProperty("net.slp.MTU",SENDMTU);
     if (!SLPGetProperty("com.apple.slp.port"))
@@ -657,7 +587,7 @@ static int assign_defaults(SAState *psa, struct sockaddr_in *psin,
             if ( !tempPtr )
             {
                 free( daScopeListTemp );
-                SLP_LOG( SLP_LOG_FAIL, "we can't fit a single scope in our advertisement!" );			// ug we are screwed
+                SLP_LOG( SLP_LOG_FAIL, "we can't fit a single scope in our advertisement!" );			// bad error
                 break;
             }
             
@@ -677,13 +607,6 @@ static int assign_defaults(SAState *psa, struct sockaddr_in *psin,
     if ( daScopeListTemp )
         free( daScopeListTemp );
     
-    // this way we will already preset the net.slp.useScopes with the default scope to register in
-//    if ( SLPGetProperty("com.apple.slp.defaultRegistrationScope") )
-//        SLPSetProperty("net.slp.useScopes",SLPGetProperty("com.apple.slp.defaultRegistrationScope"));
-//    if ( GetEncodedScopeToRegisterIn() )
-//        SLPSetProperty("net.slp.useScopes", GetEncodedScopeToRegisterIn());
-        
-//    SLPLogConfigState();
 #ifndef NDEBUG
 
 	if ( AreWeADirectoryAgent() )
@@ -707,7 +630,6 @@ static int assign_defaults(SAState *psa, struct sockaddr_in *psin,
 		psin->sin_addr.s_addr = SLP_MCAST;
 	}
   
-//	psa->pdat = dat_init();    
     psa->pdat = GetGlobalDATable();
 
 #ifdef EXTRA_MSGS
@@ -776,7 +698,6 @@ void propogate_registration( SAState *psa, const char* lang, const char* srvtype
     int 			i, needToCheckDAList=0;
     SLPInternalError		err = SLP_OK;
     DATable*		pdat = GetGlobalDATable();
-//    const char *	pcSL = SLPGetProperty("com.apple.slp.defaultRegistrationScope");
     const char*		pcSL = GetEncodedScopeToRegisterIn();
     
     if ( !psa || !pdat )
@@ -834,7 +755,6 @@ void propogate_deregistration( SAState *psa, const char* lang, const char* srvty
     int 			i, needToCheckDAList=0;
     SLPInternalError		err = SLP_OK;
     DATable*		pdat = GetGlobalDATable();
-//    const char *	pcSL = SLPGetProperty("com.apple.slp.defaultRegistrationScope");
     const char*		pcSL = GetEncodedScopeToRegisterIn();
     
     if ( !psa || !pdat )
@@ -936,10 +856,6 @@ static void exit_handler(int signo)
 {
   /* free resources ! */
     SLP_LOG( SLP_LOG_STATE, "*** slpd exit has been called: (%d) ***", signo );
-
-#ifdef EXTRA_MSGS
-//  SDFreeMutex(global_resources.pvMutex,MSLP_SERVER);
-#endif /* EXTRA_MSGS */
 
     close(global_resources.sdUDP);
     remove(SLPGetProperty("com.sun.slp.tempfile"));

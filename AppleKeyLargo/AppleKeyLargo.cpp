@@ -604,12 +604,14 @@ void AppleKeyLargo::setReferenceCounts (void)
 		if (keyLargoDeviceId != kIntrepidDeviceId3e)
 			clk49RefCount++;
 		clk45RefCount++;
+        fI2SState[0] = true;
 	}
 
 	if (chooseI2S1 && (fcr1 & kKeyLargoFCR1I2S1Enable)) {
 		if (keyLargoDeviceId != kIntrepidDeviceId3e)
 			clk49RefCount++;
 		clk45RefCount++;
+        fI2SState[1] = true;
 	}
 
 	if (chooseAudio && (fcr1 & kKeyLargoFCR1AudioCellEnable)) {
@@ -1530,7 +1532,9 @@ void AppleKeyLargo::PowerI2S (bool powerOn, UInt32 cellNum)
 	} else
 		return; 		// bad cellNum ignored
 
-
+    if(fI2SState[cellNum] == powerOn)
+        return;     // Already in right state.
+            
 	if (powerOn) {
 		if (!(clk45RefCount++)) {
 			fcr3Bits |= kKeyLargoFCR3Clk45Enable;	// turn on clock
@@ -1560,7 +1564,9 @@ void AppleKeyLargo::PowerI2S (bool powerOn, UInt32 cellNum)
 		// turn off all I2S bits
 		safeWriteRegUInt32 (kKeyLargoFCR1, fcr1Bits, 0);
 		safeWriteRegUInt32 (kKeyLargoFCR3, fcr3Bits, 0);
+
 	}
+    fI2SState[cellNum] = powerOn;
 	return;
 }
 

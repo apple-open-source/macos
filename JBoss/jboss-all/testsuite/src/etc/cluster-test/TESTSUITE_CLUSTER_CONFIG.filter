@@ -1,0 +1,10 @@
+-->
+  <mbean code="org.jboss.services.binding.ServiceBindingManager"
+    name="jboss.system:service=ServiceBindingManager">
+    <attribute name="ServerName">jboss_2</attribute>
+    <attribute name="StoreURL">file:../server/jboss-bindings.xml</attribute>
+    <attribute name="StoreFactoryClassName">
+      org.jboss.services.binding.XMLServicesStoreFactory
+    </attribute>
+  </mbean>
+<!--

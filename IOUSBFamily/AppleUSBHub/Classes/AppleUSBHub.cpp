@@ -1,5 +1,4 @@
 /*
- * Copyright (c) 1998-2002 Apple Computer, Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -22,7 +21,6 @@
  * 
  * @APPLE_LICENSE_HEADER_END@
  */
-
 
 #include <libkern/OSByteOrder.h>
 
@@ -436,6 +434,9 @@ AppleUSBHub::ConfigureHub()
     
     // after opening the interface, but before we get the pipe, we need to see if this is a 2.0
     // capabale hub, and if so, we need to set the multiTT status if possible
+    _multiTTs = false;
+    _hsHub = false;
+    
     if (_device->GetbcdUSB() >= 0x200)
     {
 	v2Bus = OSDynamicCast(IOUSBControllerV2, _device->GetBus());
@@ -450,10 +451,13 @@ AppleUSBHub::ConfigureHub()
 		case 1:
                     USBLog(5, "%s[%p]::ConfigureHub - found single TT hub", getName(), this);
 		    v2Bus->AddHSHub(_address, 0);
+                    _hsHub = true;
 		    break;
 		    
 		case 2:
                     USBLog(5, "%s[%p]::ConfigureHub - found multi TT hub", getName(), this);
+                    _hsHub = true;
+
 		    if ((err = _hubInterface->SetAlternateInterface(this, 1))) 		// pick the multi-TT setting
 		    {
 			USBError(1, "%s[%p]::ConfigureHub - err (%x) setting alt interface", getName(), this, err);
@@ -461,6 +465,7 @@ AppleUSBHub::ConfigureHub()
 		    }
 		    else
 			v2Bus->AddHSHub(_address, kUSBHSHubFlagsMultiTT);
+			_multiTTs = true;
 		    break;
 		    
 		default:
@@ -812,7 +817,7 @@ AppleUSBHub::HubStatusChanged(void)
         if ((err = GetHubStatus(&_hubStatus)))
         {
             FatalError(err, "get status (first in hub status change)");
-            break;            
+            break;
         }
         _hubStatus.statusFlags = USBToHostWord(_hubStatus.statusFlags);
         _hubStatus.changeFlags = USBToHostWord(_hubStatus.changeFlags);
@@ -821,7 +826,7 @@ AppleUSBHub::HubStatusChanged(void)
 
         if (_hubStatus.changeFlags & kHubLocalPowerStatusChange)
         {
-            USBLog(3, "%s [%p]: Local Power Status Change detected", getName(), this);
+            USBLog(3, "%s [%p]: Hub Local Power Status Change detected", getName(), this);
             if ((err = ClearHubFeature(kUSBHubLocalPowerChangeFeature)))
             {
                 FatalError(err, "clear hub power status feature");
@@ -838,7 +843,7 @@ AppleUSBHub::HubStatusChanged(void)
 
         if (_hubStatus.changeFlags & kHubOverCurrentIndicatorChange)
         {
-            USBLog(3, "%s [%p]: OverCurrent Indicator Change detected", getName(), this);
+            USBLog(3, "%s [%p]: Hub OverCurrent Indicator Change detected", getName(), this);
             if ((err =
                  ClearHubFeature(kUSBHubOverCurrentChangeFeature)))
             {
@@ -853,14 +858,26 @@ AppleUSBHub::HubStatusChanged(void)
             _hubStatus.statusFlags = USBToHostWord(_hubStatus.statusFlags);
             _hubStatus.changeFlags = USBToHostWord(_hubStatus.changeFlags);
         }
-    
-    // See if we have the kResetOnPowerStatusChange errata. This means that upon getting a hub status change, we should do
-    // a device reset
-    //
-    OSBoolean * boolObj = OSDynamicCast( OSBoolean, getProperty("kResetOnPowerStatusChange") );
-    if ( boolObj && boolObj->isTrue() )
-    { 
-        // Reset our hub, as the overcurrent and power status chagnes might disable the ports downstream
+
+        // See if we have the kResetOnPowerStatusChange errata. This means that upon getting a hub status change, we should do
+        // a device reset
+        //
+        OSBoolean * boolObj = OSDynamicCast( OSBoolean, getProperty("kResetOnPowerStatusChange") );
+        if ( boolObj && boolObj->isTrue() )
+        {
+            // Set an error so that we cause our port to be reset. The overcurrent and power status changes might disable the ports downstream
+            // so we need a reset to recover.
+            //
+            err = kIOReturnBusy;
+        }
+
+    } while(false);
+
+    if ( err == kIOReturnSuccess )
+        return true;
+    else
+    {
+        // If we get an error, then we better reset our hub
         //
         _hubIsDead = TRUE;
 
@@ -868,15 +885,12 @@ AppleUSBHub::HubStatusChanged(void)
         ResetMyPort();
         release();
         
-        // Set an error so we return false, which will cause us to NOT rearm the interrupt thread.  The reset
+        // Return false, which will cause us to NOT rearm the interrupt thread.  The reset
         // will take care of reconfiguring the hub and rearming the interrupt.
         //
-        err = kIOReturnBusy;
+        return false;
     }
 
-    } while(false);
-
-    return(err == kIOReturnSuccess);
 }
 
 UInt32 
@@ -1121,7 +1135,7 @@ AppleUSBHub::DoPortAction(UInt32 type, UInt32 portNumber, UInt32 options )
     AppleUSBHubPort 		*port;
     IOReturn			err = kIOReturnSuccess;
 
-    USBLog(5,"+%s[%p]::DoPortAction for port (%d), options (0x%x)", getName(), this, portNumber, options);
+    USBLog(5,"+%s[%p]::DoPortAction(0x%x) for port (%d), options (0x%x)", getName(), this, type, portNumber, options);
 
     if ( _ports == NULL )
         return kIOReturnNoDevice;
@@ -1143,8 +1157,18 @@ AppleUSBHub::DoPortAction(UInt32 type, UInt32 portNumber, UInt32 options )
             case kIOUSBMessageHubResetPort:
                 err = port->ResetPort();
                 break;
+            case kIOUSBMessageHubPortClearTT:
+                // ClearTT is only supported on HS Hubs
+                //
+                if ( _hsHub )
+                    err = port->ClearTT(_multiTTs, options);
+                else
+                    err = kIOReturnUnsupported;
+                break;
         }
     }
+
+    USBLog(5,"-%s[%p]::DoPortAction(0x%x) for port (%d) returning 0x%x",getName(), this, type, portNumber, err);
     
     return err;
 }
@@ -1228,9 +1252,8 @@ AppleUSBHub::InterruptReadHandler(IOReturn status, UInt32 bufferSizeRemaining)
             {
                 USBLog(3, "%s[%p]::InterruptReadHandler Checking to see if hub is still connected", getName(), this);
                 
-                IncrementOutstandingIO();
-                thread_call_enter(_hubDeadCheckThread);
-                
+		CallCheckForDeadHub();
+
                 // Note that since we don't do retries on the Hub, if we get a kIOReturnNotResponding error
                 // we will either determine that the hub is disconnected or we will reset the hub.  In either
                 // case, we will not need to requeue the interrupt, so we don't need to clear the stall.
@@ -1389,7 +1412,7 @@ AppleUSBHub::ProcessStatusChanged()
     bool		hubStatusSuccess = true;
 
     if (isInactive() || !_buffer)
-	return;
+        return;
 
     portMask = 2;
     portByte = 0;
@@ -1441,6 +1464,7 @@ AppleUSBHub::ProcessStatusChanged()
         }
     }
 }
+
 
 IOReturn
 AppleUSBHub::RearmInterruptRead()
@@ -1504,7 +1528,8 @@ AppleUSBHub::message( UInt32 type, IOService * provider,  void * argument )
     IOReturn				err = kIOReturnSuccess;
     IOUSBHubPortStatus			status;
     IOUSBHubPortReEnumerateParam *	params ;
-      
+    IOUSBHubPortClearTTParam *      	ttParams;
+    
     switch ( type )
     {
         case kIOUSBMessageHubIsDeviceConnected:
@@ -1543,6 +1568,11 @@ AppleUSBHub::message( UInt32 type, IOService * provider,  void * argument )
         case kIOUSBMessageHubResumePort:
         case kIOUSBMessageHubResetPort:
             err = DoPortAction( type, * (UInt32 *) argument, 0 );
+            break;
+
+        case kIOUSBMessageHubPortClearTT:
+            ttParams = (IOUSBHubPortClearTTParam *) argument;
+            err = DoPortAction( type, ttParams->portNumber, ttParams->options );
             break;
         
         case kIOUSBMessageHubReEnumeratePort:
@@ -1718,6 +1748,25 @@ AppleUSBHub::TimeoutOccurred(OSObject *owner, IOTimerEventSource *sender)
 
 }/* end timeoutOccurred */
 
+
+//=============================================================================================
+//
+//  CallCheckForDeadHub
+//  This is called by the hub driver if the interrupt pipe comes back with a NotResponding error
+//  or by the hub port driver if somethine has gone wrong trying to talk to the hub (e.g. a port reset
+//  fails) It increments the IO count and spins off a new thread to actually do the checking
+//
+//=============================================================================================
+//
+void
+AppleUSBHub::CallCheckForDeadHub(void)
+{
+    IncrementOutstandingIO();
+    thread_call_enter(_hubDeadCheckThread);
+}
+
+
+
 //=============================================================================================
 //
 //  CheckForDeadHub is called when we get a kIODeviceNotResponding error in our interrupt pipe.
@@ -1758,7 +1807,7 @@ AppleUSBHub::CheckForDeadHub()
         if ( kIOReturnSuccess == err)
         {
             _hubIsDead = TRUE;
-            USBLog(3, "%s[%p]: Detected an kIONotResponding error but still connected.  Resetting port", getName(), this);
+            USBLog(3, "%s[%p]::CheckForDeadHub - Still connected. Resetting port", getName(), this);
             
             retain();
             ResetMyPort();
@@ -1771,12 +1820,12 @@ AppleUSBHub::CheckForDeadHub()
             // will take care of shutting everything down.  
             //
             _hubHasBeenDisconnected = TRUE;
-            USBLog(3, "%s[%p]: CheckForDeadHub: device has been unplugged", getName(), this);
+            USBLog(3, "%s[%p]::CheckForDeadHub - device has been unplugged", getName(), this);
         }
     }
     else
     {
-        USBLog(3,"%s[%p]: CheckForDeadHub -- already resetting hub",getName(), this);
+        USBLog(3,"%s[%p]::CheckForDeadHub -- already resetting hub",getName(), this);
     }
 
 }

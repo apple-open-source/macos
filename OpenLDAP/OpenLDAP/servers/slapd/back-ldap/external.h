@@ -1,6 +1,6 @@
-/* $OpenLDAP: pkg/ldap/servers/slapd/back-ldap/external.h,v 1.17 2002/01/04 20:17:51 kurt Exp $ */
+/* $OpenLDAP: pkg/ldap/servers/slapd/back-ldap/external.h,v 1.17.2.1 2003/03/03 17:10:09 kurt Exp $ */
 /*
- * Copyright 1998-2002 The OpenLDAP Foundation, All Rights Reserved.
+ * Copyright 1998-2003 The OpenLDAP Foundation, All Rights Reserved.
  * COPYING RESTRICTIONS APPLY, see COPYRIGHT file
  */
 

@@ -200,6 +200,7 @@
 				06AA1265FFB2107B11CA28AA,
 				06AA1266FFB2107B11CA28AA,
 			);
+			hasScannedForEncodings = 1;
 			isa = PBXProject;
 			mainGroup = 089C166AFE841209C02AAC07;
 			projectDirPath = "";
@@ -236,7 +237,7 @@
 				LIBRARY_SEARCH_PATHS = "";
 				MODULE_IOKIT = YES;
 				MODULE_NAME = com.apple.iokit.IONetworkingFamily;
-				MODULE_VERSION = 1.2;
+				MODULE_VERSION = 1.3.1;
 				OTHER_CFLAGS = "-fpermissive";
 				OTHER_LDFLAGS = "";
 				OTHER_REZFLAGS = "";
@@ -262,7 +263,7 @@
 	<key>CFBundleExecutable</key>
 	<string>IONetworkingFamily</string>
 	<key>CFBundleGetInfoString</key>
-	<string>Version 1.2, Copyright 2000-2001 Apple Computer, Inc.</string>
+	<string>Version 1.3.1, Copyright 2000-2003 Apple Computer, Inc.</string>
 	<key>CFBundleIconFile</key>
 	<string></string>
 	<key>CFBundleIdentifier</key>
@@ -274,11 +275,11 @@
 	<key>CFBundlePackageType</key>
 	<string>KEXT</string>
 	<key>CFBundleShortVersionString</key>
-	<string>1.2</string>
+	<string>1.3.1</string>
 	<key>CFBundleSignature</key>
 	<string>????</string>
 	<key>CFBundleVersion</key>
-	<string>1.2</string>
+	<string>1.3.1</string>
 	<key>IOKitPersonalities</key>
 	<dict>
 		<key>IONetworkStack</key>
@@ -329,7 +330,6 @@
 </dict>
 </plist>
 ";
-			shouldUseHeadermap = 1;
 		};
 		089C1674FE841209C02AAC07 = {
 			buildActionMask = 2147483647;
@@ -577,66 +577,79 @@
 			target = B9B7C75100CFEC3008CA29FD;
 		};
 		B91BF3E000CFE9D308CA29FD = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			path = IOEthernetController.cpp;
 			refType = 4;
 		};
 		B91BF3E100CFE9D308CA29FD = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			path = IOEthernetInterface.cpp;
 			refType = 4;
 		};
 		B91BF3E200CFE9D308CA29FD = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			path = IOKernelDebugger.cpp;
 			refType = 4;
 		};
 		B91BF3E300CFE9D308CA29FD = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			path = IOMbufMemoryCursor.cpp;
 			refType = 4;
 		};
 		B91BF3E400CFE9D308CA29FD = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			path = IOMbufQueue.h;
 			refType = 4;
 		};
 		B91BF3E500CFE9D308CA29FD = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			path = IONetworkController.cpp;
 			refType = 4;
 		};
 		B91BF3E600CFE9D308CA29FD = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			path = IONetworkData.cpp;
 			refType = 4;
 		};
 		B91BF3E700CFE9D308CA29FD = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			path = IONetworkInterface.cpp;
 			refType = 4;
 		};
 		B91BF3E800CFE9D308CA29FD = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			path = IONetworkMedium.cpp;
 			refType = 4;
 		};
 		B91BF3E900CFE9D308CA29FD = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			path = IONetworkStack.cpp;
 			refType = 4;
 		};
 		B91BF3EA00CFE9D308CA29FD = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			path = IONetworkUserClient.cpp;
 			refType = 4;
 		};
 		B91BF3EB00CFE9D308CA29FD = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			path = IOOutputQueue.cpp;
 			refType = 4;
 		};
 		B91BF3EC00CFE9D308CA29FD = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			path = IOPacketQueue.cpp;
 			refType = 4;
@@ -720,81 +733,97 @@
 			};
 		};
 		B91BF3FA00CFEA6808CA29FD = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			path = IOEthernetController.h;
 			refType = 4;
 		};
 		B91BF3FB00CFEA6808CA29FD = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			path = IOEthernetInterface.h;
 			refType = 4;
 		};
 		B91BF3FC00CFEA6808CA29FD = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			path = IOKernelDebugger.h;
 			refType = 4;
 		};
 		B91BF3FD00CFEA6808CA29FD = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			path = IOMbufMemoryCursor.h;
 			refType = 4;
 		};
 		B91BF3FE00CFEA6808CA29FD = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			path = IONetworkController.h;
 			refType = 4;
 		};
 		B91BF3FF00CFEA6808CA29FD = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			path = IONetworkData.h;
 			refType = 4;
 		};
 		B91BF40000CFEA6808CA29FD = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			path = IONetworkInterface.h;
 			refType = 4;
 		};
 		B91BF40100CFEA6808CA29FD = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			path = IONetworkMedium.h;
 			refType = 4;
 		};
 		B91BF40200CFEA6808CA29FD = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			path = IONetworkStack.h;
 			refType = 4;
 		};
 		B91BF40300CFEA6808CA29FD = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			path = IONetworkUserClient.h;
 			refType = 4;
 		};
 		B91BF40400CFEA6808CA29FD = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			path = IOOutputQueue.h;
 			refType = 4;
 		};
 		B91BF40500CFEA6808CA29FD = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			path = IOPacketQueue.h;
 			refType = 4;
 		};
 		B91BF40600CFEA6808CA29FD = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			path = IOBasicOutputQueue.h;
 			refType = 4;
 		};
 		B91BF40700CFEA6808CA29FD = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			path = IOEthernetStats.h;
 			refType = 4;
 		};
 		B91BF40800CFEA6808CA29FD = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			path = IOGatedOutputQueue.h;
 			refType = 4;
 		};
 		B91BF40A00CFEA6808CA29FD = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			path = IONetworkStats.h;
 			refType = 4;
@@ -896,6 +925,7 @@
 			};
 		};
 		B93FC6B0023527E308CA29FD = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			path = IONetworkControllerPrivate.h;
 			refType = 4;
@@ -938,7 +968,6 @@
 			productInstallPath = "$(SYSTEM_LIBRARY_DIR)/Frameworks";
 			productName = Untitled;
 			productReference = B9B7C75000CFEC3008CA29FD;
-			shouldUseHeadermap = 0;
 		};
 		B9B7C75200CFEC3008CA29FD = {
 			buildActionMask = 2147483647;

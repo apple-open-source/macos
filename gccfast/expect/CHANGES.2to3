@@ -1,0 +1,58 @@
+If you used to use Expect version 2 (any version written before
+September '91) you will find that the current version of Expect (3)
+introduced minor but significant incompatibilities.
+
+The HISTORY file describes these briefly.  They are described at
+length in the man page.
+
+I'm sorry if you feel annoyed at the incompatibilities, but Expect has
+been out for a year and a half, Tcl even longer.  Both Tcl and Expect
+are using this as a last chance to make significant changes, so that
+we will not disturb even more users in the future.
+
+There is no automated conversion procedure (although see note below)
+for Expect or even raw Tcl.  For now, I suggest that you not bother
+fixing things that already work - just keep the old Expect around.
+The binary isn't very big after all.  If you do write a translation
+script, let me know.  Thanks.
+
+Of course, I felt obligated to convert the examples distributed with
+expect.  I did this by hand while writing the new version itself,
+partly as an aid but mostly to test lots of variations.  In 90% of the
+scripts, all I had to do was change:
+
+(changes due to Tcl)
+	'index' to 'lindex'
+	'range' to 'lrange'
+	'length' to 'llength'
+	'print' to 'send_user' or 'puts' depending on how you use it
+	'function .... c' with '[join [function [split string ""]] ""]'
+(changes due to Expect)
+	'expect_match' to 'expect_out(buffer)'
+	'set match_max' to 'match_max' (perhaps with -d flag)
+	'*' to '-re .+'
+
+If anyone wants to write a script to do this, note the pitfalls:
+
+1) functions and variables do not share the same namespace, so it is a
+inappropriate to just globally rename things.
+
+A number of optimizations can be made:
+
+1) If you are doing multiple split/joins, you should probably cache the
+split string.
+
+2) Virtually all uses of scan are unnecessary now, due to exec's automatic
+stripping of terminating newlines, and expect's support of regexps.
+
+3) String manipulation can be reduced or avoided entirely if you use
+expect -re.
+
+4) exec is no longer necessary to retrieve environment variables, since
+they can now be retrieved from $env.
+
+5) If you have been really anal about testing for timeout and eof, you
+can dramatically reduce the size of your scripts by using expect_before
+and expect_after.  This is more efficient, as well, since those actions
+are only parsed once.
+

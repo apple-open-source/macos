@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<!-- The service configuration for the perf tester
+-->
+<server>
+
+  <mbean code="org.jboss.test.perf.test.PerfTest"
+    name="jboss.test:service=PerfTest">
+    <!-- We need the DefaultDS DataSource connection for entity beans -->
+    <depends>jboss:service=ConnectionFactoryLoader,name=DefaultDS</depends>
+  </mbean>
+
+</server>
+

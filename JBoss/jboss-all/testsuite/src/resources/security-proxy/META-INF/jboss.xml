@@ -1,0 +1,22 @@
+<?xml version="1.0"?>
+<!DOCTYPE jboss PUBLIC
+   "-//JBoss//DTD JBOSS 3.2//EN"
+   "http://www.jboss.org/j2ee/dtd/jboss_3_2.dtd">
+
+<!-- The jboss.xml descriptor for the security-proxy.jar ejb unit tests -->
+<jboss>
+   <security-domain>java:/jaas/proxy-test</security-domain>
+
+   <enterprise-beans>
+      <session>
+         <ejb-name>ProxiedStatelessBean</ejb-name>
+         <jndi-name>security-proxy/ProxiedStatelessBean</jndi-name>
+         <security-proxy>org.jboss.test.security.proxy.SessionSecurityProxy</security-proxy>
+      </session>
+      <session>
+         <ejb-name>ProxiedStatefulBean</ejb-name>
+         <jndi-name>security-proxy/ProxiedStatefulBean</jndi-name>
+         <security-proxy>org.jboss.test.security.proxy.SessionSecurityProxy</security-proxy>
+      </session>
+   </enterprise-beans>
+</jboss>

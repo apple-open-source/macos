@@ -1,9 +1,10 @@
 /* inputting files to be patched */
 
-/* $Id: inp.c,v 1.1.1.2 2000/05/06 22:44:52 wsanchez Exp $ */
+/* $Id: inp.c,v 1.1.1.3 2003/05/08 18:38:02 rbraun Exp $ */
 
-/* Copyright 1986, 1988 Larry Wall
-   Copyright 1991, 1992-1993, 1997-1998, 1999 Free Software Foundation, Inc.
+/* Copyright (C) 1986, 1988 Larry Wall
+   Copyright (C) 1991, 1992, 1993, 1997, 1998, 1999, 2002 Free Software
+   Foundation, Inc.
 
    This program is free software; you can redistribute it and/or modify
    it under the terms of the GNU General Public License as published by
@@ -47,10 +48,10 @@ static LINENUM lines_per_buf;		/* how many lines per buffer */
 static size_t tireclen;			/* length of records in tmp file */
 static size_t last_line_size;		/* size of last input line */
 
-static bool plan_a PARAMS ((char const *));/* yield FALSE if memory runs out */
-static void plan_b PARAMS ((char const *));
-static void report_revision PARAMS ((int));
-static void too_many_lines PARAMS ((char const *)) __attribute__((noreturn));
+static bool plan_a (char const *);	/* yield FALSE if memory runs out */
+static void plan_b (char const *);
+static void report_revision (int);
+static void too_many_lines (char const *) __attribute__((noreturn));
 
 /* New patch--prepare to edit another file. */
 
@@ -104,26 +105,26 @@ scan_input (char *filename)
 static void
 report_revision (int found_revision)
 {
-  revision = quotearg (revision);
+  char const *rev = quotearg (revision);
 
   if (found_revision)
     {
       if (verbosity == VERBOSE)
-	say ("Good.  This file appears to be the %s version.\n", revision);
+	say ("Good.  This file appears to be the %s version.\n", rev);
     }
   else if (force)
     {
       if (verbosity != SILENT)
 	say ("Warning: this file doesn't appear to be the %s version -- patching anyway.\n",
-	     revision);
+	     rev);
     }
   else if (batch)
     fatal ("This file doesn't appear to be the %s version -- aborting.",
-	   revision);
+	   rev);
   else
     {
       ask ("This file doesn't appear to be the %s version -- patch anyway? [n] ",
-	   revision);
+	   rev);
       if (*buf != 'y')
 	fatal ("aborted");
     }

@@ -1,0 +1,27 @@
+#! /bin/sh
+
+# Test to make sure config headers in subdirectories are cleaned.
+
+. $srcdir/defs || exit 1
+
+set -e
+
+cat >> configure.in << 'END'
+AM_CONFIG_HEADER([sub/config.h:sub/config.hin])
+AC_OUTPUT
+END
+
+touch Makefile.am
+mkdir sub
+
+$ACLOCAL
+$AUTOCONF
+touch sub/config.hin
+$AUTOMAKE
+./configure
+test -f sub/stamp-h1
+$MAKE clean
+test -f sub/stamp-h1
+$MAKE distclean
+test -f sub/stamp-h1 && exit 1
+:

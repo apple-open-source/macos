@@ -59,7 +59,7 @@ probe(IOService *provider, SInt32 *score)
     setProperty(kIOTTYBaseNameKey, "pci-serial");  // this will be the TTY base name for all UARTS
     InterfaceBaseName="PCI Serial Adapter"; // this will (eventually) be displayed in NetworkPrefs
     
-    InterfaceInstance=Provider->dev;
+    InterfaceInstance=dev;
 
     sprintf(buf, "Apple16X50PCI%d", (int)InterfaceInstance);
     setName(buf);
@@ -129,7 +129,7 @@ scanBARforUARTs (UInt32 bar, UInt32 maxUARTs)
             else break; // look no further
         }
 	if (!count) { // no UARTs were found
-            RELEASE(Map[bar])
+            RELEASE(Map[bar]);
             Len[bar]=0;
 	}
     }

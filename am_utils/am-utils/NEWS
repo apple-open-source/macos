@@ -1,5 +1,36 @@
 # -*- text -*-
 
+*** Notes specific to am-utils version 6.1b1
+
+- Major Autofs work
+	Partial support for Sun Autofs v1
+	Documented known problems with Sun Autofs v1 (possible deadlocks)
+	Fixes for Sun Autofs v2/v3
+	Preliminary support for Sun Autofs v4 (Solaris 9)
+	Kernel-based expirations for Linux Autofs
+
+- Minor new ports:
+	powerpc-ibm-aix5.1.0.0
+	i386-unknown-netbsd1.6A
+
+- Work around IBM's NFSv3 ABI change in aix4.3
+
+- trivial regression test suite started: run "make check" on a built
+  am-utils to execute tests.  Currently only one test which checks to see if
+  "amd -v" executes correctly.
+
+- new command line option "amd -A arch" to overwrite the value of $arch.
+
+- bugs fixed:
+
+	* Linux loop mounts of ISO images
+	* assorted LDAP fixes
+	* strerror not found on some systems
+	* small fixes for hpux9 and aix43
+	* exclude ldap/hesiod support unless both libraries+headers exist
+	* fully support "xlatecookie" mount option
+	* security: if -D noamq option, don't listen on socket.
+
 *** Notes specific to am-utils version 6.1a5:
 
 - browsable_dirs support for Solaris autofs, *without* mount storms!
@@ -8,13 +39,9 @@
   Determines how often Amd checks to see if maps have changed at the source
   (and then reloading only those that have changed).
 
-- trivial regression test suite started: run "make check" on a built
-  am-utils to execute tests.  Currently only one test which checks to see if
-  "amd -v" executes correctly.
-
 - "amd -v" now lists bug-reporting address.
 
-- assorted code cleanups and porting to use latests versions of GNU
+- assorted code cleanups and porting to use latest versions of GNU
   Autotools.
 
 - opts:=loop works for type:=cdfs, for mounting ISO-9660 files on Linux.
@@ -46,6 +73,8 @@
 - fixed sublinks in Linux autofs
 
 - support for network/netmask pairs in the in_network() selector
+
+- support disabling LDAP and Hesiod support using configure
 
 - forward-ported all the fixes from the stable branch (MacOS X support,
   minor Linux fixes)

@@ -43,11 +43,11 @@ extern "C" {
 
 /* allow version to be specified via compile line define */
 #ifndef XMLRPC_LIB_VERSION
- #define XMLRPC_LIB_VERSION "0.41"
+ #define XMLRPC_LIB_VERSION "0.51"
 #endif
 
 /* this number, representing the date, must be increased each time the API changes */
-#define XMLRPC_API_NO 20010721
+#define XMLRPC_API_NO 20020623
 
 /* this string should be changed with each packaged release */
 #define XMLRPC_VERSION_STR "xmlrpc-epi v. " XMLRPC_LIB_VERSION
@@ -61,6 +61,7 @@ extern "C" {
  *   XMLRPC_VALUE_TYPE
  * NOTES
  *   Defines data types for XMLRPC_VALUE
+ *   Deprecated for public use.  See XMLRPC_VALUE_TYPE_EASY
  * SEE ALSO
  *   XMLRPC_VECTOR_TYPE
  *   XMLRPC_REQUEST_TYPE
@@ -83,7 +84,8 @@ typedef enum _XMLRPC_VALUE_TYPE {
  * NAME
  *   XMLRPC_VECTOR_TYPE
  * NOTES
- *   Defines data types for XMLRPC_VECTOR
+ *   Defines data types for XMLRPC_VECTOR.
+ *   Deprecated for public use.  See XMLRPC_VALUE_TYPE_EASY
  * SEE ALSO
  *   XMLRPC_VALUE_TYPE
  *   XMLRPC_REQUEST_TYPE
@@ -96,6 +98,33 @@ typedef enum _XMLRPC_VECTOR_TYPE {
    xmlrpc_vector_struct           /* all values must have key names */
 } XMLRPC_VECTOR_TYPE;
 /*******/
+
+/****d* VALUE/XMLRPC_VALUE_TYPE_EASY
+ * NAME
+ *   XMLRPC_VALUE_TYPE_EASY
+ * NOTES
+ *   Defines data types for XMLRPC_VALUE, including vector types.
+ * SEE ALSO
+ *   XMLRPC_VECTOR_TYPE
+ *   XMLRPC_REQUEST_TYPE
+ * SOURCE
+ */
+typedef enum _XMLRPC_VALUE_TYPE_EASY {
+   xmlrpc_type_none,               /* not a value                    */
+   xmlrpc_type_empty,              /* empty value, eg NULL           */
+   xmlrpc_type_base64,             /* base64 value, eg binary data   */
+   xmlrpc_type_boolean,            /* boolean  [0 | 1]               */
+   xmlrpc_type_datetime,           /* datetime [ISO8601 | time_t]    */
+   xmlrpc_type_double,             /* double / floating point        */
+   xmlrpc_type_int,                /* integer                        */
+   xmlrpc_type_string,             /* string                         */
+/* -- IMPORTANT: identical to XMLRPC_VALUE_TYPE to this point. --   */
+	xmlrpc_type_array,              /* vector array                   */
+	xmlrpc_type_mixed,              /* vector mixed                   */
+	xmlrpc_type_struct              /* vector struct                  */
+} XMLRPC_VALUE_TYPE_EASY;
+/*******/
+
 
 /****d* VALUE/XMLRPC_REQUEST_TYPE
  * NAME
@@ -162,10 +191,11 @@ typedef enum _xmlrpc_error_code {
  * SOURCE
  */
 typedef enum _xmlrpc_version {
-   xmlrpc_version_none,          /* not a recognized vocabulary    */ 
-   xmlrpc_version_1_0,           /* xmlrpc 1.0 standard vocab      */ 
+   xmlrpc_version_none = 0,      /* not a recognized vocabulary    */ 
+   xmlrpc_version_1_0 = 1,       /* xmlrpc 1.0 standard vocab      */ 
    xmlrpc_version_simple = 2,    /* alt more readable vocab        */ 
-   xmlrpc_version_danda = 2      /* same as simple. legacy         */
+   xmlrpc_version_danda = 2,     /* same as simple. legacy         */
+	xmlrpc_version_soap_1_1 = 3	/* SOAP. version 1.1              */
 } XMLRPC_VERSION;
 /******/
 
@@ -274,9 +304,9 @@ typedef XMLRPC_VALUE (*XMLRPC_Callback)(XMLRPC_SERVER server, XMLRPC_REQUEST inp
 /******/
 
 /* ID Case Defaults */
-XMLRPC_CASE XMLRPC_GetDefaultIdCase();
+XMLRPC_CASE XMLRPC_GetDefaultIdCase(void);
 XMLRPC_CASE XMLRPC_SetDefaultIdCase(XMLRPC_CASE id_case);
-XMLRPC_CASE_COMPARISON XMLRPC_GetDefaultIdCaseComparison();
+XMLRPC_CASE_COMPARISON XMLRPC_GetDefaultIdCaseComparison(void);
 XMLRPC_CASE_COMPARISON XMLRPC_SetDefaultIdCaseComparison(XMLRPC_CASE_COMPARISON id_case);
 
 /* Vector manipulation */
@@ -298,12 +328,19 @@ XMLRPC_VALUE XMLRPC_CreateValueDateTime_ISO8601(const char* id, const char *s);
 XMLRPC_VALUE XMLRPC_CreateValueDouble(const char* id, double f);
 XMLRPC_VALUE XMLRPC_CreateValueInt(const char* id, int i);
 XMLRPC_VALUE XMLRPC_CreateValueString(const char* id, const char* s, int len);
-XMLRPC_VALUE XMLRPC_CreateValueEmpty();
+XMLRPC_VALUE XMLRPC_CreateValueEmpty(void);
 XMLRPC_VALUE XMLRPC_CreateVector(const char* id, XMLRPC_VECTOR_TYPE type);
 
 /* Cleanup values */
 void XMLRPC_CleanupValue(XMLRPC_VALUE value);
+
+/* Request error */
+XMLRPC_VALUE XMLRPC_RequestSetError (XMLRPC_REQUEST request, XMLRPC_VALUE error);
+XMLRPC_VALUE XMLRPC_RequestGetError (XMLRPC_REQUEST request);
+
+/* Copy values */
 XMLRPC_VALUE XMLRPC_CopyValue(XMLRPC_VALUE value);
+XMLRPC_VALUE XMLRPC_DupValueNew(XMLRPC_VALUE xSource);
 
 /* Set Values */
 void XMLRPC_SetValueDateTime(XMLRPC_VALUE value, time_t time);
@@ -329,6 +366,7 @@ const char* XMLRPC_GetValueID(XMLRPC_VALUE value);
 
 /* Type introspection */
 XMLRPC_VALUE_TYPE XMLRPC_GetValueType(XMLRPC_VALUE v);
+XMLRPC_VALUE_TYPE_EASY XMLRPC_GetValueTypeEasy(XMLRPC_VALUE v);
 XMLRPC_VECTOR_TYPE XMLRPC_GetVectorType(XMLRPC_VALUE v);
 
 /* Parsing and Creating XML */
@@ -340,7 +378,7 @@ char* XMLRPC_VALUE_ToXML(XMLRPC_VALUE val, int* buf_len);
 /* Request manipulation funcs */
 const char* XMLRPC_RequestSetMethodName(XMLRPC_REQUEST request, const char* methodName);
 const char* XMLRPC_RequestGetMethodName(XMLRPC_REQUEST request);
-XMLRPC_REQUEST XMLRPC_RequestNew();
+XMLRPC_REQUEST XMLRPC_RequestNew(void);
 void XMLRPC_RequestFree(XMLRPC_REQUEST request, int bFreeIO);
 XMLRPC_REQUEST_OUTPUT_OPTIONS XMLRPC_RequestSetOutputOptions(XMLRPC_REQUEST request, XMLRPC_REQUEST_OUTPUT_OPTIONS output);
 XMLRPC_REQUEST_OUTPUT_OPTIONS XMLRPC_RequestGetOutputOptions(XMLRPC_REQUEST request);
@@ -350,8 +388,8 @@ XMLRPC_REQUEST_TYPE XMLRPC_RequestSetRequestType(XMLRPC_REQUEST request, XMLRPC_
 XMLRPC_REQUEST_TYPE XMLRPC_RequestGetRequestType(XMLRPC_REQUEST request);
 
 /* Server Creation/Destruction; Method Registration and Invocation */
-XMLRPC_SERVER XMLRPC_ServerCreate();
-XMLRPC_SERVER XMLRPC_GetGlobalServer();   /* better to use XMLRPC_ServerCreate if you can */
+XMLRPC_SERVER XMLRPC_ServerCreate(void);
+XMLRPC_SERVER XMLRPC_GetGlobalServer(void);   /* better to use XMLRPC_ServerCreate if you can */
 void XMLRPC_ServerDestroy(XMLRPC_SERVER server);
 int XMLRPC_ServerRegisterMethod(XMLRPC_SERVER server, const char *name, XMLRPC_Callback cb);
 XMLRPC_Callback XMLRPC_ServerFindMethod(XMLRPC_SERVER server, const char* callName);
@@ -359,10 +397,19 @@ XMLRPC_VALUE XMLRPC_ServerCallMethod(XMLRPC_SERVER server, XMLRPC_REQUEST reques
 
 #include "xmlrpc_introspection.h"
 
+/* Fault interrogation funcs */
+int XMLRPC_ValueIsFault (XMLRPC_VALUE value);
+int XMLRPC_ResponseIsFault(XMLRPC_REQUEST response);
+int XMLRPC_GetValueFaultCode (XMLRPC_VALUE value);
+int XMLRPC_GetResponseFaultCode(XMLRPC_REQUEST response);
+const char* XMLRPC_GetValueFaultString (XMLRPC_VALUE value);
+const char* XMLRPC_GetResponseFaultString (XMLRPC_REQUEST response);
+
+
 /* Public Utility funcs */
 XMLRPC_VALUE XMLRPC_UtilityCreateFault(int fault_code, const char* fault_string);
 void XMLRPC_Free(void* mem);
-const char*  XMLRPC_GetVersionString();
+const char*  XMLRPC_GetVersionString(void);
 
 /****d* VALUE/XMLRPC_MACROS
  * NAME

@@ -1,0 +1,19 @@
+@node Overview, Using libgimpprint, Copying, Top
+@chapter Overview
+@cindex overview
+
+The GIMP-Print package is a collection of programs and a library for
+high quality printing on modern inkjets, including `photographic
+quality' models which offer very high resolutions and several inks.
+
+
+META: Short history of the project
+
+GIMP-Print is the print facility of the @dfn{GNU Image Manipulation Program}
+(GIMP). It is in addition
+a suite of drivers that may be used with common UNIX spooling systems
+using GhostScript or CUPS.  These drivers provide printing quality for
+UNIX/Linux on a par with proprietary vendor-supplied drivers in many
+cases, and can be used for many of the most demanding printing tasks.
+The core of GIMP-Print is a shared library (libgimpprint) which may be
+used by any program that wishes to produce high-qulaity printed output.

@@ -1,9 +1,9 @@
 <?php
 //
 // +----------------------------------------------------------------------+
-// | PHP version 4.0                                                      |
+// | PHP Version 4                                                        |
 // +----------------------------------------------------------------------+
-// | Copyright (c) 1997-2001 The PHP Group                                |
+// | Copyright (c) 1997-2003 The PHP Group                                |
 // +----------------------------------------------------------------------+
 // | This source file is subject to version 2.0 of the PHP license,       |
 // | that is bundled with this package in the file LICENSE, and is        |
@@ -13,56 +13,74 @@
 // | obtain it through the world-wide-web, please send a note to          |
 // | license@php.net so we can mail you a copy immediately.               |
 // +----------------------------------------------------------------------+
-// | Authors:   Tomas V.V.Cox <cox@idecnet.com>                           |
-// |                                                                      |
+// | Authors: Tomas V.V.Cox <cox@idecnet.com>                             |
 // +----------------------------------------------------------------------+
 //
-// $Id: System.php,v 1.1.1.1 2001/12/14 22:14:02 zarzycki Exp $
+// $Id: System.php,v 1.1.1.4 2003/07/18 18:07:49 zarzycki Exp $
 //
-
-// TODO:
-// - Test under Windows (help is really appreciated in this point)
-// - Build strong tests
-// - Error reporting (now shows standar php errors)
-// - Write doc
 
 require_once 'PEAR.php';
 require_once 'Console/Getopt.php';
+
+$GLOBALS['_System_temp_files'] = array();
 
 /**
 * System offers cross plattform compatible system functions
 *
 * Static functions for different operations. Should work under
-* Unix and Windows. The names and usage has been taken from its repectively
-* GNU commands.
+* Unix and Windows. The names and usage has been taken from its respectively
+* GNU commands. The functions will return (bool) false on error and will
+* trigger the error with the PHP trigger_error() function (you can silence
+* the error by prefixing a '@' sign after the function call).
 *
-* Usage: System::rm('-r file1 dir1');
+* Documentation on this class you can find in:
+* http://pear.php.net/manual/
 *
-* ------------------- EXPERIMENTAL STATUS -------------------
+* Example usage:
+* if (!@System::rm('-r file1 dir1')) {
+*    print "could not delete file1 or dir1";
+* }
 *
 * @package  System
 * @author   Tomas V.V.Cox <cox@idecnet.com>
-* @version  $Version$
+* @version  $Revision: 1.1.1.4 $
 * @access   public
+* @see      http://pear.php.net/manual/
 */
-class System extends PEAR
+class System
 {
     /**
     * returns the commandline arguments of a function
     *
     * @param    string  $argv           the commandline
-    * @param    string  $short_options  the allowed option short-tags 
+    * @param    string  $short_options  the allowed option short-tags
     * @param    string  $long_options   the allowed option long-tags
     * @return   array   the given options and there values
     * @access private
     */
     function _parseArgs($argv, $short_options, $long_options = null)
     {
-        if (!is_array($argv)) {
-            $argv = preg_split('/\s+/', $argv);
+        if (!is_array($argv) && $argv !== null) {
+            $argv = preg_split('/\s+/', ': '.$argv);
         }
-        $options = Console_Getopt::getopt($argv, $short_options);
-        return $options;
+        return Console_Getopt::getopt($argv, $short_options);
+    }
+
+    /**
+    * Output errors with PHP trigger_error(). You can silence the errors
+    * with prefixing a "@" sign to the function call: @System::mkdir(..);
+    *
+    * @param mixed $error a PEAR error or a string with the error message
+    * @return bool false
+    * @access private
+    */
+    function raiseError($error)
+    {
+        if (PEAR::isError($error)) {
+            $error = $error->getMessage();
+        }
+        trigger_error($error, E_USER_WARNING);
+        return false;
     }
 
     /**
@@ -93,6 +111,7 @@ class System extends PEAR
     {
         $struct = array('dirs' => array(), 'files' => array());
         if (($dir = @opendir($sPath)) === false) {
+            System::raiseError("Could not open dir $sPath");
             return $struct; // XXX could not open error
         }
         $struct['dirs'][] = $sPath; // XXX don't add if '.' or '..' ?
@@ -128,7 +147,8 @@ class System extends PEAR
     function _multipleToStruct($files)
     {
         $struct = array('dirs' => array(), 'files' => array());
-        foreach($files as $file) {
+        settype($files, 'array');
+        foreach ($files as $file) {
             if (is_dir($file)) {
                 $tmp = System::_dirToStruct($file, 0);
                 $struct = array_merge_recursive($tmp, $struct);
@@ -140,56 +160,61 @@ class System extends PEAR
     }
 
     /**
-    * The rm command for removing files. 
+    * The rm command for removing files.
     * Supports multiple files and dirs and also recursive deletes
     *
     * @param    string  $args   the arguments for rm
     * @return   mixed   PEAR_Error or true for success
-    * @access   public    
+    * @access   public
     */
     function rm($args)
     {
         $opts = System::_parseArgs($args, 'rf'); // "f" do nothing but like it :-)
         if (PEAR::isError($opts)) {
-            return $opts;
+            return System::raiseError($opts);
         }
         foreach($opts[0] as $opt) {
             if ($opt[0] == 'r') {
                 $do_recursive = true;
             }
         }
+        $ret = true;
         if (isset($do_recursive)) {
             $struct = System::_multipleToStruct($opts[1]);
-            if (PEAR::isError($struct)) {
-                return $struct;
-            }
             foreach($struct['files'] as $file) {
-                unlink($file); // XXXX Works under Windows?
+                if (!@unlink($file)) {
+                    $ret = false;
+                }
             }
             foreach($struct['dirs'] as $dir) {
-                rmdir($dir);
+                if (!@rmdir($dir)) {
+                    $ret = false;
+                }
             }
         } else {
             foreach ($opts[1] as $file) {
-                $delete = (is_dir($file)) ? 'rmdir' : 'unlink'; // XXXX Windows?
-                $delete($file);
+                $delete = (is_dir($file)) ? 'rmdir' : 'unlink';
+                if (!@$delete($file)) {
+                    $ret = false;
+                }
             }
         }
-        return true;
+        return $ret;
     }
 
     /**
-    * Make directories
+    * Make directories. Note that we use call_user_func('mkdir') to avoid
+    * a problem with ZE2 calling System::mkDir instead of the native PHP func.
     *
     * @param    string  $args    the name of the director(y|ies) to create
-    * @return   mixed   PEAR_Error or true for success
-    * @access   public    
+    * @return   bool    True for success
+    * @access   public
     */
     function mkDir($args)
     {
         $opts = System::_parseArgs($args, 'pm:');
         if (PEAR::isError($opts)) {
-            return $opts;
+            return System::raiseError($opts);
         }
         $mode = 0777; // default mode
         foreach($opts[0] as $opt) {
@@ -199,6 +224,7 @@ class System extends PEAR
                 $mode = $opt[1];
             }
         }
+        $ret = true;
         if (isset($create_parents)) {
             foreach($opts[1] as $dir) {
                 $dirstack = array();
@@ -207,19 +233,19 @@ class System extends PEAR
                     $dir = dirname($dir);
                 }
                 while ($newdir = array_shift($dirstack)) {
-                    if (!mkdir($newdir, $mode)) {
-                        break; // XXX error
+                    if (!call_user_func('mkdir', $newdir, $mode)) {
+                        $ret = false;
                     }
                 }
             }
         } else {
             foreach($opts[1] as $dir) {
-                if (!mkdir($dir, $mode)) {
-                    continue; // XXX error
+                if (!@is_dir($dir) && !call_user_func('mkdir', $dir, $mode)) {
+                    $ret = false;
                 }
             }
         }
-        return true;
+        return $ret;
     }
 
     /**
@@ -258,16 +284,16 @@ class System extends PEAR
         }
         if (isset($mode)) {
             if (!$outputfd = fopen($outputfile, $mode)) {
-                return $this->raiseError("Could not open $outputfile");
+                return System::raiseError("Could not open $outputfile");
             }
             $ret = true;
         }
-        foreach($files as $file) {
+        foreach ($files as $file) {
             if (!$fd = fopen($file, 'r')) {
-                return $this->raiseError("Could not open $file");
+                System::raiseError("Could not open $file");
+                continue;
             }
-            while(!feof($fd)) {
-                $cont = fread($fd, 2048);
+            while ($cont = fread($fd, 2048)) {
                 if (isset($outputfd)) {
                     fwrite($outputfd, $cont);
                 } else {
@@ -282,5 +308,142 @@ class System extends PEAR
         return $ret;
     }
 
+    /**
+    * Creates temporary files or directories. This function will remove
+    * the created files when the scripts finish its execution.
+    *
+    * Usage:
+    *   1) $tempfile = System::mktemp("prefix");
+    *   2) $tempdir  = System::mktemp("-d prefix");
+    *   3) $tempfile = System::mktemp();
+    *   4) $tempfile = System::mktemp("-t /var/tmp prefix");
+    *
+    * prefix -> The string that will be prepended to the temp name
+    *           (defaults to "tmp").
+    * -d     -> A temporary dir will be created instead of a file.
+    * -t     -> The target dir where the temporary (file|dir) will be created. If
+    *           this param is missing by default the env vars TMP on Windows or
+    *           TMPDIR in Unix will be used. If these vars are also missing
+    *           c:\windows\temp or /tmp will be used.
+    *
+    * @param   string  $args  The arguments
+    * @return  mixed   the full path of the created (file|dir) or false
+    * @see System::tmpdir()
+    * @access  public
+    */
+    function mktemp($args = null)
+    {
+        static $first_time = true;
+        $opts = System::_parseArgs($args, 't:d');
+        if (PEAR::isError($opts)) {
+            return System::raiseError($opts);
+        }
+        foreach($opts[0] as $opt) {
+            if($opt[0] == 'd') {
+                $tmp_is_dir = true;
+            } elseif($opt[0] == 't') {
+                $tmpdir = $opt[1];
+            }
+        }
+        $prefix = (isset($opts[1][0])) ? $opts[1][0] : 'tmp';
+        if (!isset($tmpdir)) {
+            $tmpdir = System::tmpdir();
+        }
+        if (!System::mkDir("-p $tmpdir")) {
+            return false;
+        }
+        $tmp = tempnam($tmpdir, $prefix);
+        if (isset($tmp_is_dir)) {
+            unlink($tmp); // be careful possible race condition here
+            if (!call_user_func('mkdir', $tmp, 0700)) {
+                return System::raiseError("Unable to create temporary directory $tmpdir");
+            }
+        }
+        $GLOBALS['_System_temp_files'][] = $tmp;
+        if ($first_time) {
+            PEAR::registerShutdownFunc(array('System', '_removeTmpFiles'));
+            $first_time = false;
+        }
+        return $tmp;
+    }
+
+    /**
+    * Remove temporary files created my mkTemp. This function is executed
+    * at script shutdown time
+    *
+    * @access private
+    */
+    function _removeTmpFiles()
+    {
+        if (count($GLOBALS['_System_temp_files'])) {
+            $delete = $GLOBALS['_System_temp_files'];
+            array_unshift($delete, '-r');
+            System::rm($delete);
+        }
+    }
+
+    /**
+    * Get the path of the temporal directory set in the system
+    * by looking in its environments variables.
+    * Note: php.ini-recommended removes the "E" from the variables_order setting,
+    * making unavaible the $_ENV array, that s why we do tests with _ENV
+    *
+    * @return string The temporal directory on the system
+    */
+    function tmpdir()
+    {
+        if (OS_WINDOWS) {
+            if ($var = isset($_ENV['TEMP']) ? $_ENV['TEMP'] : getenv('TEMP')) {
+                return $var;
+            }
+            if ($var = isset($_ENV['TMP']) ? $_ENV['TMP'] : getenv('TMP')) {
+                return $var;
+            }
+            if ($var = isset($_ENV['windir']) ? $_ENV['windir'] : getenv('windir')) {
+                return $var;
+            }
+            return getenv('SystemRoot') . '\temp';
+        }
+        if ($var = isset($_ENV['TMPDIR']) ? $_ENV['TMPDIR'] : getenv('TMPDIR')) {
+            return $var;
+        }
+        return '/tmp';
+    }
+
+    /**
+    * The "which" command (show the full path of a command)
+    *
+    * @param string $program The command to search for
+    * @return mixed A string with the full path or false if not found
+    * @author Stig Bakken <ssb@php.net>
+    */
+    function which($program, $fallback = false)
+    {
+    	// is_executable() is not available on windows
+    	if (OS_WINDOWS) {
+            $pear_is_executable = 'is_file';
+        } else {
+            $pear_is_executable = 'is_executable';
+        }
+
+        // full path given
+        if (basename($program) != $program) {
+            return (@$pear_is_executable($program)) ? $program : $fallback;
+        }
+
+        // XXX FIXME honor safe mode
+        $path_delim = OS_WINDOWS ? ';' : ':';
+        $exe_suffixes = OS_WINDOWS ? array('.exe','.bat','.cmd','.com') : array('');
+        $path_elements = explode($path_delim, getenv('PATH'));
+        foreach ($exe_suffixes as $suff) {
+            foreach ($path_elements as $dir) {
+                $file = $dir . DIRECTORY_SEPARATOR . $program . $suff;
+                if (@is_file($file) && @$pear_is_executable($file)) {
+                    return $file;
+                }
+            }
+        }
+        return $fallback;
+    }
 }
 ?>

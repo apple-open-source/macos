@@ -1,0 +1,57 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<!DOCTYPE jbosscmp-jdbc PUBLIC
+   "-//JBoss//DTD JBOSSCMP-JDBC 3.0//EN"
+   "http://www.jboss.org/j2ee/dtd/jbosscmp-jdbc_3_0.dtd">
+
+<jbosscmp-jdbc>
+   <defaults>
+   <!--
+      <datasource>java:/MySqlDS</datasource>
+      <datasource-mapping>mySQL</datasource-mapping>
+      <datasource>java:/OracleDS</datasource>
+      <datasource-mapping>Oracle9i</datasource-mapping>
+      <datasource>java:/PostgresDS</datasource>
+      <datasource-mapping>PostgreSQL 7.2</datasource-mapping>
+     
+   -->
+      <create-table>true</create-table>
+      <remove-table>true</remove-table>
+      <pk-constraint>true</pk-constraint>
+      <read-ahead>
+         <strategy>on-load</strategy>
+         <page-size>4</page-size>
+         <eager-load-group>*</eager-load-group>
+      </read-ahead>
+   </defaults>
+
+   <enterprise-beans>
+      <entity>
+         <ejb-name>SimpleEJB</ejb-name>
+         <table-name>Simple</table-name>
+         <query>
+            <query-method>
+               <method-name>ejbSelectDynamic</method-name>
+               <method-params>
+                  <method-param>java.lang.String</method-param>
+                  <method-param>java.lang.Object[]</method-param>
+               </method-params>
+            </query-method>
+            <dynamic-ql/>
+         </query>
+         <query>
+            <query-method>
+               <method-name>findWithByteArray</method-name>
+               <method-params>
+                  <method-param>byte[]</method-param>
+               </method-params>
+            </query-method>
+            <jboss-ql>
+               SELECT OBJECT(s) 
+               FROM simple AS s 
+               WHERE s.byteArrayValue = ?1
+            </jboss-ql>
+         </query>
+      </entity>
+   </enterprise-beans>
+</jbosscmp-jdbc>

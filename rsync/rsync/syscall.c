@@ -1,5 +1,6 @@
 /* 
    Copyright (C) Andrew Tridgell 1998
+   Copyright (C) 2002 by Martin Pool
    
    This program is free software; you can redistribute it and/or modify
    it under the terms of the GNU General Public License as published by
@@ -16,15 +17,19 @@
    Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
 */
 
-/*
-  syscall wrappers to ensure that nothing gets done in dry_run mode
-  */
+/**
+ * @file syscall.c
+ *
+ * Syscall wrappers to ensure that nothing gets done in dry_run mode
+ * and to handle system peculiarities.
+ **/
 
 #include "rsync.h"
 
 extern int dry_run;
 extern int read_only;
 extern int list_only;
+extern int preserve_perms;
 
 #define CHECK_RO if (read_only || list_only) {errno = EROFS; return -1;}
 
@@ -93,9 +98,13 @@ int do_open(char *pathname, int flags, mode_t mode)
 #if HAVE_CHMOD
 int do_chmod(const char *path, mode_t mode)
 {
+	int code;
 	if (dry_run) return 0;
 	CHECK_RO
-	return chmod(path, mode);
+	code = chmod(path, mode);
+	if ((code != 0) && preserve_perms)
+	    return code;
+	return 0;
 }
 #endif
 
@@ -106,12 +115,35 @@ int do_rename(char *fname1, char *fname2)
 	return rename(fname1, fname2);
 }
 
+
+void trim_trailing_slashes(char *name)
+{
+	int l;
+	/* Some BSD systems cannot make a directory if the name
+	 * contains a trailing slash.
+	 * <http://www.opensource.apple.com/bugs/X/BSD%20Kernel/2734739.html> */
+	
+	/* Don't change empty string; and also we can't improve on
+	 * "/" */
+	
+	l = strlen(name);
+	while (l > 1) {
+		if (name[--l] != '/')
+			break;
+		name[l] = '\0';
+	}
+}
+
+
 int do_mkdir(char *fname, mode_t mode)
 {
-	if (dry_run) return 0;
-	CHECK_RO
+	if (dry_run)
+		return 0;
+	CHECK_RO;
+	trim_trailing_slashes(fname);	
 	return mkdir(fname, mode);
 }
+
 
 /* like mkstemp but forces permissions */
 int do_mkstemp(char *template, mode_t perms)
@@ -123,7 +155,7 @@ int do_mkstemp(char *template, mode_t perms)
 	{
 		int fd = mkstemp(template);
 		if (fd == -1) return -1;
-		if (fchmod(fd, perms) != 0) {
+		if ((fchmod(fd, perms) != 0) && preserve_perms) {
 			close(fd);
 			unlink(template);
 			return -1;

@@ -36,7 +36,6 @@
 #include "inferior.h"	// stop_bpstat
 #include "symtab.h"	// struct symtab_and_line, find_pc_line
 #include "frame.h"   	// selected_frame
-#include "parser-defs.h"// target_map_name_to_register
 #include "gdbarch.h"	// gdbarch_register_raw_size
 #include "gdbcore.h"	// memory_error
 
@@ -1503,14 +1502,14 @@ char *gdb_set_register(char *theRegister, void *value, int size)
     if (!target_has_registers)
     	return ("no registers available at this time");
     
-    if (selected_frame == NULL)
-    	return ("no frame selected");
+    if (get_selected_frame () == NULL)
+      return ("no frame selected");
     
     if (*start == '$')
 	++start;
     end = start + strlen(start);
     
-    regnum = target_map_name_to_register(start, end - start);
+    regnum = frame_map_name_to_regnum(start, end - start);
     if (regnum < 0)
     	return ("bad register");
     
@@ -1524,7 +1523,7 @@ char *gdb_set_register(char *theRegister, void *value, int size)
     if (VALUE_LVAL(vp) != lval_register)
     	return ("left operand of assignment is not an lvalue");
     
-    write_register_bytes(VALUE_ADDRESS(vp) + VALUE_OFFSET(vp), (char *)value, size);
+    deprecated_write_register_bytes(VALUE_ADDRESS(vp) + VALUE_OFFSET(vp), (char *)value, size);
     
     return (NULL);
 }
@@ -1565,8 +1564,8 @@ void *gdb_get_register(char *theRegister, void *value, int *size)
 	return (NULL);
     }
     
-    if (selected_frame == NULL) {
-	strcpy((char *)value, "no frame selected");
+    if (get_selected_frame () == NULL) {
+	strcpy((char *) value, "no frame selected");
 	return (NULL);
     }
     
@@ -1574,13 +1573,13 @@ void *gdb_get_register(char *theRegister, void *value, int *size)
 	++theRegister;
     end = theRegister + strlen(theRegister);
     
-    regnum = target_map_name_to_register(theRegister, end - theRegister);
+    regnum = frame_map_name_to_regnum(theRegister, end - theRegister);
     if (regnum < 0) {
 	strcpy((char *)value, "bad register");
 	return (NULL);
     }
-            
-    if (read_relative_register_raw_bytes(regnum, (char *)value)) {
+
+    if (frame_register_read (get_selected_frame (), regnum, (char *)value)) {
     	strcpy((char *)value, "value not available");
 	return (NULL);
     }

@@ -1,4 +1,4 @@
-#!/usr/local/bin/perl4
+#!/usr/local/bin/perl
 #
 # watch_a_file.perl -- use lsof -F output to watch a specific file
 #		       (or file system)
@@ -21,11 +21,17 @@ if (! -r $fnm) { die "$Pn: can't read $fnm\n"; }
 
 # Do setup.
 
-$LSOF = "../lsof";			# path to lsof
 $RPT = 15;				# lsof repeat time
 $| = 1;					# unbuffer output
 $SIG{'INT'} = 'interrupt';		# catch interrupt
-if ( ! -x $LSOF) { print "can't execute $LSOF\n"; exit 1 }
+
+# Set path to lsof.
+
+if (($LSOF = &isexec("../lsof")) eq "") {	# Try .. first
+    if (($LSOF = &isexec("lsof")) eq "") {	# Then try . and $PATH
+	print "can't execute $LSOF\n"; exit 1
+    }
+}
 
 # Read lsof -nPF output from a pipe and gather the PIDs of the processes
 # and file descriptors to watch.
@@ -59,3 +65,30 @@ while (<P>) { print $_; }
 close(P);
 print "$Pn: unexpected EOF from \"$pipe\"\n";
 exit 1;
+
+
+## isexec($path) -- is $path executable
+#
+# $path   = absolute or relative path to file to test for executabiity.
+#	    Paths that begin with neither '/' nor '.' that arent't found as
+#	    simple references are also tested with the path prefixes of the
+#	    PATH environment variable.  
+
+sub
+isexec {
+    my ($path) = @_;
+    my ($i, @P, $PATH);
+
+    $path =~ s/^\s+|\s+$//g;
+    if ($path eq "") { return(""); }
+    if (($path =~ m#^[\/\.]#)) {
+	if (-x $path) { return($path); }
+	return("");
+    }
+    $PATH = $ENV{PATH};
+    @P = split(":", $PATH);
+    for ($i = 0; $i <= $#P; $i++) {
+	if (-x "$P[$i]/$path") { return("$P[$i]/$path"); }
+    }
+    return("");
+}

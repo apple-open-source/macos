@@ -27,7 +27,9 @@
 #ifndef _SECURITY_SECKEYCHAINAPI_H_
 #define _SECURITY_SECKEYCHAINAPI_H_
 
+#if !defined(SECURITY_USE_LEGACY_HEADER)
 #warning including obsolete header file SecKeychainAPI.h  Use #include <Security/Security.h> instead
+#endif
 
 #include <Security/SecKeychain.h>
 #include <Security/SecKeychainItem.h>

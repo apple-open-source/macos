@@ -101,7 +101,7 @@ static int get_y_or_n(void)
 	    return (0);
 	if (c == ABORT_CHAR)
 	    _rl_abort_internal();
-	ding();
+	rl_ding();
       }
 }
 
@@ -281,7 +281,8 @@ void __cmd_completion_display_hook(char **matches, int num_matches, int max_leng
     int  count, limit, printed_len;
     int  len, max, i, j, k, l;
     char *temp, prompt[1024];
-    
+    int screenheight, screenwidth;
+
     if (__word__completion_hook)
     	__word__completion_hook(1);
     else
@@ -329,6 +330,8 @@ void __cmd_completion_display_hook(char **matches, int num_matches, int max_leng
        of strings, in argv format, LEN is the number of strings in MATCHES,
        and MAX is the length of the longest string in MATCHES. */
     
+    rl_get_screen_size (&screenheight, &screenwidth);
+
     /* How many items of MAX length can we fit in the screen window? */
     max += 2;
     limit = screenwidth / max;

@@ -1,0 +1,421 @@
+
+ <chapter><title>Gimp-Print Utilities</title>
+   <sect1><title>escputil</title>
+     <para>
+       <emphasis>escputil</emphasis> is a command line utility which
+allows the user to perform a variety of maintenance tasks on Epson
+Stylus inkjet printers.  These tasks include head alignment, head
+cleaning, nozzle check, printer identification, and retrieval of the ink
+level from the printer.  In order for many of the
+<emphasis>escputil</emphasis> functions to work, the user must have
+read/write access to the raw printer device (typically /dev/lp0,
+/dev/usb/lp0, and the like).  In general, these operations should be
+performed by the root user.  As always, the user must insure that the
+directory containing the <emphasis>escputil</emphasis> utility is
+listed in the &dollar;PATH environment variable, or that the full path is
+specified on the command line.  The examples in this section will
+assume the former.
+     </para>
+
+     <caution>
+     <title>Caution</title>
+     <para>
+       The <emphasis>escputil</emphasis> utility was designed for use
+ONLY with Epson Stylus inkjet printers supported by the Gimp-Print
+software.  It is possible that damage MIGHT occur to your printer if
+this utility is misused or if it is used with a printer other than an
+Epson Stylus inkjet printer.  It is the sole responsibility of the
+user to insure that this utility is suitable for the task at hand.
+     </para>
+     </caution>
+
+
+     <para>
+       In this section, specific examples of common usage will be
+presented.  A summary of the command line switches can be
+found in the <emphasis>escputil</emphasis>(1) man page.
+     </para>
+
+   <sect2><title>Determining Ink Level</title>
+     <para>
+       Perhaps the most basic function performed by
+<emphasis>escputil</emphasis> is that of determining the amount of ink
+remaining in the printer. To do this, the user must know the name of
+the raw printer device.  This is usually /dev/lp0 for a printer
+connected to the parallel port, or /dev/usb/lp0 for a printer
+connected to the USB.  
+     </para>
+     <para>
+If there are multiple printers connected, one of them may be referenced as
+/dev/lp1 or perhaps /dev/usb/lp1.  In the event of uncertainty, and if
+CUPS is in use, view the following <ulink url="http://localhost:631/printers">URL</ulink> 
+with a web browser. At that URL, look for a line which reads "Device
+URI".  The author's USB printer is listed as "Device URI:  usb:/dev/usb/lp0".
+     </para>
+     <para>
+For this example, assume that the raw printer device is a USB printer
+specified as /dev/usb/lp0.  To get the ink level for this printer,
+issue this command and notice the output.
+     </para>
+
+  <programlisting>
+  <![ CDATA [
+# escputil -r /dev/usb/lp0 -i
+
+Escputil version 4.3.0, Copyright (C) 2000-2001 Robert Krawitz
+Escputil comes with ABSOLUTELY NO WARRANTY; for details type 
+'escputil -l'
+This is free software, and you are welcome to redistribute it 
+under certain conditions; type 'escputil -l' for details. 
+
+           Ink color    Percent remaining
+               Black     18
+                Cyan     71
+             Magenta     70
+              Yellow     67
+          Light Cyan     71
+       Light Magenta     70
+    ]]>
+  </programlisting>
+
+     <para>
+The user would substitute their own raw printer device for the one
+shown in the example after the "-r" switch.  Notice that the printout
+shows the percent of ink remaining for each color of the author's
+Epson Stylus Photo 870.  When the ink levels get too low, print
+quality will suffer.  In the author's personal experience, ink levels
+approaching 10% begin to cause print quality degredation, but this
+will vary depending on the precise printer model.
+     </para>
+   </sect2>
+
+   <sect2><title>Error During Ink Level Determination</title>
+     <para>
+       What?  The example above did not work?  An error message was
+printed?  What does it mean?  There are several possibilities,
+depending on the specific error message.  If the error message is
+"Invalid argument" (see following example), the problem is that the
+kernel is not configured with the CONFIG_PRINTER_READBACK option enabled.
+
+  <programlisting>
+  <![ CDATA [
+# escputil -r /dev/lp0 -i
+
+Escputil version 4.3.0, Copyright (C) 2000-2001 Robert Krawitz
+Escputil comes with ABSOLUTELY NO WARRANTY; for details type 
+'escputil -l'
+This is free software, and you are welcome to redistribute it 
+under certain conditions; type 'escputil -l' for details.
+
+Cannot read from /dev/lp0: Invalid argument
+    ]]>
+  </programlisting>
+
+     Another possibile cause for error is that the raw printer device
+does not have both read and write permission for the user attempting
+to access the device.  In this case, the error message will read
+"Permission denied".  A final possibility is that the raw printer
+device specified is incorrect, in which case the error message will
+read "No such device".
+   </para>
+
+   </sect2>
+
+   <sect2><title>Nozzle Check</title>
+     <para>
+       On an inkjet printer, there are several small holes on the
+bottom of each ink cartridge through which the ink must flow smoothly
+in order to create high quality images on paper.  If these holes
+become clogged, the printed image will show small gaps where there
+should have been ink.  One can easily test for the existence of this
+condition by running a nozzle check.  One need not be the root user to
+issue this command.  Note that as shown, the command will print a
+nozzle test pattern on the default printer.  If there are multiple
+printers present, the desired printer must be specified with an
+additional "-P printer_name" switch, where "printer_name" is the name
+of the desired printer.
+     </para>
+     <para>
+       The printer will print a series of black (and colored) slanted
+lines on the paper.  Observe these lines carefully.  If there are gaps
+or spaces in these lines, then the corresponding nozzle is clogged and
+the print head must be cleaned.  However, if there are no gaps, the 
+nozzles are clean.
+     </para>
+  <programlisting>
+  <![ CDATA [
+# escputil -n       
+Escputil version 4.3.0, Copyright (C) 2000-2001 Robert Krawitz
+Escputil comes with ABSOLUTELY NO WARRANTY; for details type 
+'escputil -l'
+This is free software, and you are welcome to redistribute it 
+under certain conditions; type 'escputil -l' for details. 
+
+Running nozzle check, please ensure paper is in the printer.
+    ]]>
+  </programlisting>
+   </sect2>
+
+   <sect2><title>Clean the Print Head</title>
+     <para>
+       If the printed output is showing gaps where there should have
+been ink, it is likely that one or more nozzles are clogged and the
+print head is in need of cleaning.  One can verify this by first
+running a nozzle check and looking for gaps in the printout.  To clean
+the print head, issue the following command.  One need not be the root user to
+issue this command.  Note that as shown, the command will clean the
+print head on the default printer.  If there are multiple
+printers present, the desired printer must be specified with an
+additional "-P printer_name" switch, where "printer_name" is the name
+of the desired printer.
+     </para>
+  <programlisting>
+  <![ CDATA [
+# escputil -c
+Escputil version 4.3.0, Copyright (C) 2000-2001 Robert Krawitz
+Escputil comes with ABSOLUTELY NO WARRANTY; for details type 
+'escputil -l'
+This is free software, and you are welcome to redistribute it 
+under certain conditions; type 'escputil -l' for details. 
+
+Cleaning heads...
+    ]]>
+  </programlisting>
+     <para>
+       Nothing will be printed on the paper.  The printer will make
+some noise as it cleans the print head.  Wait until the printer is
+finished cleaning the print head.  Afterwards, execute another nozzle
+check and insure that the print head is indeed completely clean.  Note
+that the process of cleaning the print head causes ink consumption, so
+do not clean the print head any more than necessary.
+     </para>
+     <para>
+For severely clogged nozzles, one may have to execute two or three cycles
+of nozzle check followed by a cleaning of the print head.  If the
+printer had gone unused for a long time, the nozzles may be so clogged
+with dried ink as to be unrecoverable, in which case, the best course
+of action is to replace the ink cartridge.
+     </para>
+   </sect2>
+
+   <sect2><title>Align the Print Head</title>
+     <para>
+       To insure the highest quality printouts, the print head must
+be in proper physical alignment.  One can check and realign the print
+head by running this interactive alignment test.  
+     </para>
+     <para>
+The <emphasis>escputil</emphasis> utility must know the exact printer model in
+use.  One may specify the model on the command line using the "-m"
+switch, or the utility can detect the printer model if the user passes
+the "-r" switch and the name of the raw printer device.  
+     </para>
+     <para>
+Note that an unprivileged user may use this command with the "-m" switch, but that
+(in general) the root user may only use the "-r" switch (which
+requires read/write access to the raw printer device).  In the case of
+multiple printers in use, the "-P" switch is required to align the
+print head on the non-default printer.
+     </para>
+
+     <caution>
+     <title>Caution</title>
+     <para>
+This utility lets you align the print head of your Epson Stylus inkjet
+printer.  Misuse of this utility may cause your print quality to degrade
+and possibly damage your printer.  This utility has not been reviewed by
+Seiko Epson for correctness, and is offered with no warranty at all.  The
+entire risk of using this utility lies with you.
+     </para>
+     </caution>
+
+     <para>
+       Aligning the print head is an interactive process.  The utility
+will print out a set of instructions and ask you for responses.  Please
+read the instructions carefully and follow them precisely.  A single
+sheet of paper will be needed (one can print on both sides to save paper).
+     </para>
+     <para>
+The following example illustrates the alignment process when issued by an
+unprivileged user who specified the printer model on the command
+line.  (To obtain a list of printer models, issue the "escputil -M"
+command).  Of course, your responses will vary and should be
+substituted for the responses shown in the following example.
+     </para>
+  <programlisting>
+  <![ CDATA [
+
+*** NOTE - 870 is an illustrative example! ***
+*** You MUST use the proper printer model! ***
+*** Run:  escputil -M for a listing of     ***
+*** supported printer models!              ***
+
+linuxpc> escputil -a -m 870
+Escputil version 4.3.0, Copyright (C) 2000-2001 Robert Krawitz
+Escputil comes with ABSOLUTELY NO WARRANTY; for details type 
+'escputil -l'
+This is free software, and you are welcome to redistribute it
+under certain conditions; type 'escputil -l' for details.
+
+Please read these instructions very carefully before proceeding.
+
+This utility lets you align the print head of your Epson Stylus 
+inkjet printer.  Misuse of this utility may cause your print 
+quality to degrade and possibly damage your printer.  This utility
+has not been reviewed by Seiko Epson for correctness, and is 
+offered with no warranty at all.  The entire risk of using this 
+utility lies with you.
+
+This utility prints 3 test patterns.  Each pattern looks very
+similar.  The patterns consist of a series of pairs of vertical
+lines that overlap.  Below each pair of lines is a number between 
+1 and 15.
+
+When you inspect the pairs of lines, you should find the pair
+of lines that is best in alignment, that is, that best forms 
+a single vertical line.  Inspect the pairs very carefully to 
+find the best match.  Using a loupe or magnifying glass is 
+recommended for the most critical inspection.  It is also 
+suggested that you use a good quality paper for the test, so 
+that the lines are well-formed and do not spread through the 
+paper.  After picking the number matching the best pair, place 
+the paper back in the paper input tray before typing it in.
+
+Each pattern is similar, but later patterns use finer dots for
+more critical alignment.  You must run all of the passes to 
+correctly align your printer.  After running all the alignment
+passes, the alignment patterns will be printed once more.  You 
+should find that the middle-most pair (#8 out of the 15) is the
+best for all patterns. 
+
+After the passes are printed once more, you will be offered the
+choices of (s)aving the result in the printer, (r)epeating the
+process, or (q)uitting without saving.  Quitting will not restore
+the previous settings, but powering the printer off and back 
+on will.  If you quit, you must repeat the entire process if 
+you wish to later save the results.  It is essential that you 
+not turn your printer off during this procedure.
+
+This procedure assumes that your printer is an Epson Stylus Photo
+870.  If this is not your printer model, please type control-C now
+and choose your actual printer model.
+
+Please place a sheet of paper in your printer to begin the head
+alignment procedure. 
+Press enter to continue > 
+Please inspect the print, and choose the best pair of lines in 
+each pattern.  Type a pair number, '?' for help, or 'r' to repeat
+the procedure.
+Pass #1> 8
+Pass #2> 8
+Pass #3> 8
+Attempting to set alignment...succeeded.
+Please verify that the alignment is correct.  After the alignment
+pattern is printed again, please ensure that the best pattern 
+for each line is pattern 8.  If it is not, you should repeat the 
+process to get the best quality printing. 
+Please insert a fresh sheet of paper.
+Press enter to continue > 
+Please inspect the final output very carefully to ensure that your
+printer is in proper alignment. You may now: 
+  (s)ave the results in the printer,
+  (q)uit without saving the results, or
+  (r)epeat the entire process from the beginning.
+You will then be asked to confirm your choice.
+What do you want to do (s, q, r)?
+> s
+This will permanently alter the configuration of your printer.
+WARNING: this procedure has not been approved by Seiko Epson, 
+and it may damage your printer. Proceed? 
+Please confirm by typing 's' again that you wish to save the 
+settings to your printer: 
+> s
+About to save settings...succeeded!
+Your alignment settings have been saved to the printer.
+    ]]>
+  </programlisting>
+    <para>
+      The following example shows what will happen if an unprivileged
+user attempts to align the print head by specifying the raw printer
+device on the command line.
+    </para>
+
+  <programlisting>
+  <![ CDATA [
+linuxpc> escputil -a -r /dev/usb/lp0
+Escputil version 4.2.0, Copyright (C) 2000-2001 Robert Krawitz
+Escputil comes with ABSOLUTELY NO WARRANTY; for details type 
+'escputil -l'
+This is free software, and you are welcome to redistribute it
+under certain conditions; type 'escputil -l' for details.
+
+Attempting to detect printer model...
+Cannot open /dev/usb/lp0 read/write: Permission denied
+    ]]>
+  </programlisting>
+
+    <para>
+      This next example illustrates the results obtained when the root
+user issues an alignment command while specifying the raw printer
+device.  Note that the output is truncated and only shows the printer
+detection output.
+    </para>
+
+  <programlisting>
+  <![ CDATA [
+# escputil -a -r /dev/usb/lp0
+Escputil version 4.3.0, Copyright (C) 2000-2001 Robert Krawitz
+Escputil comes with ABSOLUTELY NO WARRANTY; for details type 
+'escputil -l'
+This is free software, and you are welcome to redistribute it
+under certain conditions; type 'escputil -l' for details.
+
+Attempting to detect printer model...Stylus Photo 870
+
+Please read these instructions very carefully before proceeding.
+    ]]>
+  </programlisting>
+
+   </sect2>
+
+   <sect2><title>Printer Identification</title>
+     <para>
+       The printer identification command will query the printer for
+make and model information.  This command requires read/write access
+to the raw printer device (generally limited to the root user).
+Substitute your own raw printer device in place of the /dev/usb/lp0
+shown in the example.  The output will vary depending on the precise
+printer model.
+     </para>
+
+  <programlisting>
+  <![ CDATA [
+# escputil -d -r /dev/usb/lp0
+Escputil version 4.3.0, Copyright (C) 2000-2001 Robert Krawitz
+Escputil comes with ABSOLUTELY NO WARRANTY; for details type 
+'escputil -l'
+This is free software, and you are welcome to redistribute it
+under certain conditions; type 'escputil -l' for details.
+
+@EJL ID
+MFG:EPSON;CMD:ESCPL2,BDC;MDL:Stylus Photo 870;CLS:PRINTER;DES:
+EPSON Stylus Photo 870;
+    ]]>
+  </programlisting>
+
+   </sect2>
+
+   <sect2><title>More Information</title>
+     <para>
+       For more detailed information about the command line switches
+accepted by the <emphasis>escputil</emphasis> utility, please consult
+the man page which is supplied with the Gimp-Print software.  The user
+may also issue the "escputil --help" command to get a listing of supported
+command line switches.  The command requires no special privileges to execute.
+     </para>
+
+   </sect2>
+
+  </sect1>
+
+ </chapter>

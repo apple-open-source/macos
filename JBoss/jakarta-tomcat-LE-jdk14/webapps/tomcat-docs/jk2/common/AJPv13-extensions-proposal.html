@@ -1,0 +1,1138 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01//EN" "http://www.w3.org/TR/html4/strict.dtd">
+<html xmlns="http://www.w3.org/TR/xhtml1/strict">
+<head>
+<title>AJPv13 extensions Proposal</title>
+<meta content="1999-2002 The Apache Software Foundation" name="copyright"/>
+<meta content="$Date: 2002/09/20 21:35:31 $" name="last-changed"/>
+<meta content="Henri Gomez" name="author"/>
+<meta content="hgomez@apache.org" name="email"/>
+<link href="..//style.css" type="text/css" rel="stylesheet"/>
+<link href="../images/tomcat.ico" rel="shortcut icon"/>
+</head>
+<body link="#525D76" vlink="#525D76" alink="#525D76" text="#000000" bgcolor="#ffffff">
+<a name="TOP"/>
+<table width="100%" cellpadding="0" cellspacing="0" border="0">
+<tr height="1">
+<td class="nil" height="1" bgcolor="#ffffff" width="150">
+<img hspace="0" vspace="0" height="1" width="150" border="0" src="../images/pixel.gif"/>
+</td>
+<td class="nil" height="1" bgcolor="#ffffff" width="*">
+<img hspace="0" vspace="0" height="1" width="370" border="0" src="../images/pixel.gif"/>
+</td>
+</tr>
+<tr>
+<td width="*" colspan="2" class="logo" bgcolor="#ffffff">
+<table width="100%" cellpadding="0" cellspacing="0" border="0">
+<tr>
+<td align="left">
+<img align="left" height="48" width="505" border="0" src="../images/jakarta.gif"/>
+</td>
+<td align="right">
+<img align="right" border="0" src="../images/mod_jk.jpg"/>
+</td>
+</tr>
+</table>
+</td>
+</tr>
+<tr>
+<td colspan="2" width="*" align="right" class="head" bgcolor="#999999">
+<nobr>
+<a href="http://www.apache.org/" class="head">Apache Software Foundation</a> |
+                <a href="http://jakarta.apache.org/" class="head">Jakarta Project</a> |
+                <a href="http://jakarta.apache.org/tomcat/" class="head">Apache Tomcat</a>
+</nobr>
+</td>
+</tr>
+<tr>
+<td valign="top" width="150" bgcolor="#ffffff">
+<table class="menu" cellpadding="0" cellspacing="0" width="150" border="0">
+<tr height="1">
+<td class="nil" height="1" bgcolor="#cccccc" width="10">
+<img hspace="0" vspace="0" height="1" width="10" border="0" src="../images/pixel.gif"/>
+</td>
+<td class="nil" height="1" bgcolor="#cccccc" width="140">
+<img hspace="0" vspace="0" height="1" width="140" border="0" src="../images/pixel.gif"/>
+</td>
+</tr>
+<tr height="6">
+<td colspan="2" width="150" bgcolor="#d0d0d0">Presentation</td>
+</tr>
+<tr>
+<td colspan="2" width="150" bgcolor="#cccccc">
+<nobr>
+<a class="menu" href="../index.html">Overview</a>
+</nobr>
+</td>
+</tr>
+<tr height="2"/>
+<tr height="6"/>
+<tr height="6">
+<td colspan="2" width="150" bgcolor="#d0d0d0">Commons</td>
+</tr>
+<tr>
+<td colspan="2" width="150" bgcolor="#cccccc">
+<nobr>
+<a class="menu" href="../common/AJPv13.html">AJPv13</a>
+</nobr>
+</td>
+</tr>
+<tr height="2"/>
+<tr>
+<td colspan="2" width="150" bgcolor="#cccccc">
+<nobr>
+<a class="menu" href="../common/AJPv13-extensions-proposal.html">AJPv13 extensions Proposal</a>
+</nobr>
+</td>
+</tr>
+<tr height="2"/>
+<tr>
+<td width="10" bgcolor="#cccccc"/>
+<td width="140" bgcolor="#cccccc">
+<a href="#Introduction" class="menu">Introduction</a>
+</td>
+</tr>
+<tr height="1"/>
+<tr>
+<td width="10" bgcolor="#cccccc"/>
+<td width="140" bgcolor="#cccccc">
+<a href="#Conclusion" class="menu">Conclusion</a>
+</td>
+</tr>
+<tr height="1"/>
+<tr>
+<td width="10" bgcolor="#cccccc"/>
+<td width="140" bgcolor="#cccccc">
+<a href="#Commands and IDs in extended AJP13 Index" class="menu">Commands and IDs in extended AJP13 Index</a>
+</td>
+</tr>
+<tr height="1"/>
+<tr>
+<td colspan="2" width="150" bgcolor="#cccccc">
+<nobr>
+<a class="menu" href="../faq.html">FAQ</a>
+</nobr>
+</td>
+</tr>
+<tr height="2"/>
+<tr height="6"/>
+<tr height="6">
+<td colspan="2" width="150" bgcolor="#d0d0d0">JK</td>
+</tr>
+<tr>
+<td colspan="2" width="150" bgcolor="#cccccc">
+<nobr>
+<a class="menu" href="../jk/quickhowto.html">Quick Start HowTo</a>
+</nobr>
+</td>
+</tr>
+<tr height="2"/>
+<tr>
+<td colspan="2" width="150" bgcolor="#cccccc">
+<nobr>
+<a class="menu" href="../jk/aphowto.html">Apache HowTo</a>
+</nobr>
+</td>
+</tr>
+<tr height="2"/>
+<tr>
+<td colspan="2" width="150" bgcolor="#cccccc">
+<nobr>
+<a class="menu" href="../jk/domhowto.html">Domino HowTo</a>
+</nobr>
+</td>
+</tr>
+<tr height="2"/>
+<tr>
+<td colspan="2" width="150" bgcolor="#cccccc">
+<nobr>
+<a class="menu" href="../jk/iishowto.html">IIS HowTo</a>
+</nobr>
+</td>
+</tr>
+<tr height="2"/>
+<tr>
+<td colspan="2" width="150" bgcolor="#cccccc">
+<nobr>
+<a class="menu" href="../jk/neshowto.html">Netscape/iPlanet HowTo</a>
+</nobr>
+</td>
+</tr>
+<tr height="2"/>
+<tr>
+<td colspan="2" width="150" bgcolor="#cccccc">
+<nobr>
+<a class="menu" href="../jk/workershowto.html">Workers HowTo</a>
+</nobr>
+</td>
+</tr>
+<tr height="2"/>
+<tr height="6"/>
+<tr height="6">
+<td colspan="2" width="150" bgcolor="#d0d0d0">JK2</td>
+</tr>
+<tr height="6"/>
+<tr height="6">
+<td colspan="2" width="150" bgcolor="#d0d0d0">Configuration in the Tomcat</td>
+</tr>
+<tr>
+<td colspan="2" width="150" bgcolor="#cccccc">
+<nobr>
+<a class="menu" href="../jk2/configtc.html">Configuration options</a>
+</nobr>
+</td>
+</tr>
+<tr height="2"/>
+<tr>
+<td colspan="2" width="150" bgcolor="#cccccc">
+<nobr>
+<a class="menu" href="../jk2/configtcex.html">Examples</a>
+</nobr>
+</td>
+</tr>
+<tr height="2"/>
+<tr height="6"/>
+<tr height="6">
+<td colspan="2" width="150" bgcolor="#d0d0d0">Configuration in the Web Server</td>
+</tr>
+<tr>
+<td colspan="2" width="150" bgcolor="#cccccc">
+<nobr>
+<a class="menu" href="../jk2/configweb.html">Configuration file</a>
+</nobr>
+</td>
+</tr>
+<tr height="2"/>
+<tr>
+<td colspan="2" width="150" bgcolor="#cccccc">
+<nobr>
+<a class="menu" href="../jk2/configwebcom.html">Components</a>
+</nobr>
+</td>
+</tr>
+<tr height="2"/>
+<tr>
+<td colspan="2" width="150" bgcolor="#cccccc">
+<nobr>
+<a class="menu" href="../jk2/configwebex.html">Examples</a>
+</nobr>
+</td>
+</tr>
+<tr height="2"/>
+<tr height="6"/>
+<tr height="6">
+<td colspan="2" width="150" bgcolor="#d0d0d0">Installation</td>
+</tr>
+<tr>
+<td colspan="2" width="150" bgcolor="#cccccc">
+<nobr>
+<a class="menu" href="../jk2/installhowto.html">Installation of jk2 in the Web Server</a>
+</nobr>
+</td>
+</tr>
+<tr height="2"/>
+<tr height="6"/>
+<tr height="6">
+<td colspan="2" width="150" bgcolor="#d0d0d0">Howto</td>
+</tr>
+<tr>
+<td colspan="2" width="150" bgcolor="#cccccc">
+<nobr>
+<a class="menu" href="../jk2/confighowto.html">Quick Start JK2 Configuration Guide</a>
+</nobr>
+</td>
+</tr>
+<tr height="2"/>
+<tr height="6"/>
+</table>
+</td>
+<td class="body" valign="top" width="*" bgcolor="#ffffff">
+<a name="Introduction">
+<table width="100%" cellpadding="0" cellspacing="0" border="0">
+<tr>
+<td align="left" valign="top" class="section" bgcolor="#525D76">
+<img border="0" vspace="0" hspace="0" align="left" valign="top" src="../images/corner.gif"/>Introduction</td>
+</tr>
+</table>
+</a>
+<p class="section">
+This document is a proposal of evolution of the current
+Apache JServ Protocol version 1.3, also known as ajp13.  
+I'll not cover here the full protocol but only the add-on from ajp13.
+
+This nth pass include comments from the tomcat-dev list and
+misses discovered during developpment.
+</p>
+<a name="sub_Missing features in AJP13">
+<table width="100%" cellpadding="0" cellspacing="0" border="0">
+<tr>
+<td align="left" valign="top" class="subsection" bgcolor="#828DA6">
+<img border="0" vspace="0" hspace="0" align="left" valign="top" src="../images/corner.gif"/>Missing features in AJP13</td>
+</tr>
+</table>
+</a>
+<p class="section">
+ajp13 is a good protocol to link a servlet engine like tomcat to a web server like Apache: 
+
+<ul>
+<li>
+use persistants connections to avoid reconnect time at each request
+</li>
+<li>
+encode many http commands to reduce stream size
+</li>
+<li>
+send to servlet engine many info from web server (like SSL certs)
+</li>
+</ul>
+
+<ul>
+<li>
+  security between web server and servlet engine.
+  Anybody can connect to an ajp13 port (no login mecanism used)
+  You could connect, for example with telnet, and keep the remote thread
+  up by not sending any data (no timeout in connection)
+</li>
+<li>
+  context information passed from servlet engine to web server.
+  Part of the configuration of JK, the web server connector, is to
+  indicate to the web server which URI to handle. 
+  The mod_jk JkMount directive, told to web server which URI must be 
+  forwarded to servlet engine.
+  A servlet engine allready knows which URI it handle and TC 3.3 is
+  allready capable to generate a config file for JK from the list
+  of available contexts.
+</li>
+<li>
+  state update of contexts from servlet engine to web server.
+  Big site with farm of Tomcat, like ISP and virtuals hosters,
+  may need to stop a context for admin purposes. In that case the front
+  web server must know that the context is currently down, to eventually
+  relay the request to another Tomcat
+</li>
+<li>
+  verify state of connection before sending request.
+  Actually JK send the request to the servlet engine and next wait 
+  for the answer. But one of the beauty of the socket API, is you that 
+  you could write() to a closed connection without any error reporting, 
+  but a read() to a closed connection return you the error code. 
+</li>
+</ul>
+
+</p>
+<br/>
+<a name="sub_Proposed add-ons to AJP13">
+<table width="100%" cellpadding="0" cellspacing="0" border="0">
+<tr>
+<td align="left" valign="top" class="subsection" bgcolor="#828DA6">
+<img border="0" vspace="0" hspace="0" align="left" valign="top" src="../images/corner.gif"/>Proposed add-ons to AJP13</td>
+</tr>
+</table>
+</a>
+<p class="section">
+Let's descrive here the features and add-on that could be added to AJP13.
+Since this document is a proposal, a reasonable level of chaos must be expected at first.
+Be sure that discussion on tomcat list will help clarify points, add 
+features but the current list seems to be a 'minimun vital'
+
+<ul>
+<li>
+Advanced login features at connect time
+</li>
+<li>
+Basic authorisation system, where a shared secret key is
+present in web server and servlet engine.
+</li>
+<li>
+Basic protocol negociation, just to be sure that if functionnalities are added
+to AJP13 in the future, current implementations will still works.
+</li>
+<li>
+Clean handling of 'Unknown packets'
+</li>
+<li>
+Extended env vars passed from web-server to servlet engine.
+</li>
+<li>
+Add extra SSL informations needed by Servlet 2.3 API (like SSL_KEY_SIZE)
+</li>
+</ul>
+
+</p>
+<br/>
+<a name="sub_Advanced login">
+<table width="100%" cellpadding="0" cellspacing="0" border="0">
+<tr>
+<td align="left" valign="top" class="subsection" bgcolor="#828DA6">
+<img border="0" vspace="0" hspace="0" align="left" valign="top" src="../images/corner.gif"/>Advanced login</td>
+</tr>
+</table>
+</a>
+<p class="section">
+
+<ol>
+<li>
+WEB-SERVER send LOGIN INIT CMD + NEGOCIATION DATA + WEB SERVER INFO
+</li>
+<li>
+  TOMCAT respond with LOGIN SEED CMD + RANDOM DATA
+</li>
+<li>
+  WEB-SERVER calculted the MD5 of RANDOM DATA+SECRET DATA
+</li>
+<li>
+  WEB-SERVER send LOGIN COMP CMD + MD5 (SECRET DATA + RANDOM DATA)
+</li>
+<li>
+  TOMCAT respond with LOGIN STATUS CMD + NEGOCIED DATA + SERVLET ENGINE INFO
+</li>
+</ol>
+
+To prevent DOS attack, the servlet engine will wait
+the LOGIN CMD only 15/30 seconds and reports the
+timeout exception for admins investigation.
+
+The login command will contains basic protocol
+negociation information like compressing ability, 
+crypto, context info (at start up), context update at 
+run-time (up/down), level of SSL env vars, AJP protocol
+level supported (level1/level2/level3...)
+
+The Web server info will contain web server info and
+connector name (ie Apache 1.3.26 + mod_ssl 2.8.8 + mod_jk 1.2.1 + mod_perl 1.25).
+
+The servlet engine will mask the negociation mask with it's own
+mask (what it can do) and return it when loggin is accepted.
+
+This will help having a basic AJP13 implementation (level 1)
+on a web-server working with a more advanced protocol handler on
+the servlet engine side or vice-versa.
+
+AJP13 was designed to be small and fast and so many
+SSL informations present in the web-server are not
+forwarded to the servlet engine. 
+
+We add here four negociations flags to provide more
+informations on client SSL data (certs), server SSL datas, 
+crypto used, and misc datas (timeout...). 
+</p>
+<br/>
+<a name="sub_Messages Stream">
+<table width="100%" cellpadding="0" cellspacing="0" border="0">
+<tr>
+<td align="left" valign="top" class="subsection" bgcolor="#828DA6">
+<img border="0" vspace="0" hspace="0" align="left" valign="top" src="../images/corner.gif"/>Messages Stream</td>
+</tr>
+</table>
+</a>
+<p class="section">
+<pre class="section">
++----------------+------------------+-----------------+
+| LOGIN INIT CMD | NEGOCIATION DATA | WEB SERVER INFO |
++----------------+------------------+-----------------+
+
++----------------+----------------+
+| LOGIN SEED CMD | MD5 of entropy |
++----------------+----------------+
+
++----------------+----------------------------+
+| LOGIN COMP CMD | MD5 of RANDOM + SECRET KEY |
++----------------+----------------------------+
+
++-----------+---------------+---------------------+
+| LOGOK CMD | NEGOCIED DATA | SERVLET ENGINE INFO |
++-----------+---------------+---------------------+
+
++------------+--------------+
+| LOGNOK CMD | FAILURE CODE |
++------------+--------------+
+</pre>
+
+<ul>
+<li>
+LOGIN INIT CMD, LOGIN SEED CMD, LOGIN COMP CMD, LOGOK CMD, LOGNOK CMD are 1 byte long.
+</li>
+<li>
+MD5, MD5 of RANDOM + SECRET KEY are 32 chars long.
+</li>
+<li>
+NEGOCIATION DATA, NEGOCIED DATA, FAILURE CODE are 32 bits long.
+</li>
+<li>
+WEB SERVER INFO, SERVLET ENGINE INFO are CString.
+</li>
+</ul>
+
+The secret key will be set by a new propertie in
+workers.properties : secretkey
+<pre class="section">
+worker.ajp13.port=8009
+worker.ajp13.host=localhost
+worker.ajp13.type=ajp13
+worker.ajp13.secretkey=myverysecretkey
+</pre>
+</p>
+<br/>
+<a name="sub_Shutdown feature">
+<table width="100%" cellpadding="0" cellspacing="0" border="0">
+<tr>
+<td align="left" valign="top" class="subsection" bgcolor="#828DA6">
+<img border="0" vspace="0" hspace="0" align="left" valign="top" src="../images/corner.gif"/>Shutdown feature</td>
+</tr>
+</table>
+</a>
+<p class="section">
+AJP13 miss a functionnality of AJP12, which is shutdown command.
+A logout will tell servlet engine to shutdown itself.
+<pre class="section">
++--------------+----------------------------+
+| SHUTDOWN CMD | MD5 of RANDOM + SECRET KEY |
++--------------+----------------------------+
+
++------------+
+| SHUTOK CMD |
++------------+
+
++-------------+--------------+
+| SHUTNOK CMD | FAILURE CODE |
++-------------+--------------+
+</pre>
+
+<ul>
+<li>
+SHUTDOWN CMD, SHUTOK CMD, SHUTNOK CMD are 1 byte long.
+</li>
+<li>
+MD5 of RANDOM + SECRET KEY are 32 chars long.
+</li>
+<li>
+FAILURE CODE is 32 bits long.
+</li>
+</ul>
+
+</p>
+<br/>
+<a name="sub_Extended Env Vars feature">
+<table width="100%" cellpadding="0" cellspacing="0" border="0">
+<tr>
+<td align="left" valign="top" class="subsection" bgcolor="#828DA6">
+<img border="0" vspace="0" hspace="0" align="left" valign="top" src="../images/corner.gif"/>Extended Env Vars feature</td>
+</tr>
+</table>
+</a>
+<p class="section">
+NOTA:
+
+While working on AJP13 in JK, I really discovered "JkEnvVar". 
+The following "Extended Env Vars feature" description may not
+be implemented in extended AJP13 since allready available in original
+implementation.
+
+DESC:
+
+Many users will want to see some of their web-server env vars 
+passed to their servlet engine.
+
+To reduce the network traffic, the web-servlet will send a 
+table to describing the external vars in a shorter fashion.
+
+We'll use there a functionnality allready present in AJP13,
+attributes list :
+
+In the AJP13, we've got :
+
+<pre class="section">
+AJP13_FORWARD_REQUEST :=
+    prefix_code      2
+    method           (byte)
+    protocol         (string)
+    req_uri          (string)
+    remote_addr      (string)
+    remote_host      (string)
+    server_name      (string)
+    server_port      (integer)
+    is_ssl           (boolean)
+    num_headers      (integer)
+    request_headers *(req_header_name req_header_value)
+
+    ?context       (byte string)
+    ?servlet_path  (byte string)
+    ?remote_user   (byte string)
+    ?auth_type     (byte string)
+    ?query_string  (byte string)
+    ?jvm_route     (byte string)
+    ?ssl_cert      (byte string)
+    ?ssl_cipher    (byte string)
+    ?ssl_session   (byte string)
+
+    ?attributes   *(attribute_name attribute_value)
+    request_terminator (byte)
+</pre>
+
+Using short 'web server attribute name' will reduce the 
+network traffic.
+ 
+<pre class="section">
++-------------------+---------------------------+-------------------------------+----+
+| EXTENDED VARS CMD | WEB SERVER ATTRIBUTE NAME | SERVLET ENGINE ATTRIBUTE NAME | ES |
++-------------------+---------------------------+-------------------------------+----+
+</pre>
+
+ie :
+
+<pre class="section">
+JkExtVars S1 SSL_CLIENT_V_START javax.servlet.request.ssl_start_cert_date
+JkExtVars S2 SSL_CLIENT_V_END   javax.servlet.request.ssl_end_cert_date
+JkExtVars S3 SSL_SESSION_ID     javax.servlet.request.ssl_session_id
+
+
++-------------------+----+-------------------------------------------+
+| EXTENDED VARS CMD | S1 | javax.servlet.request.ssl_start_cert_date |
++-------------------+----+-------------------------------------------+
++----+-----------------------------------------+
+| S2 | javax.servlet.request.ssl_end_cert_date |
++----+-----------------------------------------+
++----+-----------------------------------------+
+| S3 | javax.servlet.request.ssl_end_cert_date |
++----+-----------------------------------------+
+</pre>
+
+During transmission in extended AJP13 we'll see attributes name
+containing S1, S2, S3 and attributes values of 
+2001/01/03, 2002/01/03, 0123AFE56.
+ 
+This example showed the use of extended SSL vars but 
+any 'personnal' web-server vars like custom authentification
+vars could be reused in the servlet engine.
+The cost will be only some more bytes in the AJP traffic.
+
+<ul>
+<li>
+EXTENDED VARS CMD is 1 byte long.
+</li>
+<li>
+WEB SERVER ATTRIBUTE NAME, SERVLET ENGINE ATTRIBUTE NAME are CString.
+</li>
+<li>
+ES is an empty CString.
+</li>
+</ul>
+
+</p>
+<br/>
+<a name="sub_Context informations forwarding for Servlet engine to Web Server">
+<table width="100%" cellpadding="0" cellspacing="0" border="0">
+<tr>
+<td align="left" valign="top" class="subsection" bgcolor="#828DA6">
+<img border="0" vspace="0" hspace="0" align="left" valign="top" src="../images/corner.gif"/>Context informations forwarding for Servlet engine to Web Server</td>
+</tr>
+</table>
+</a>
+<p class="section">
+Just after the LOGON PHASE, the web server will ask for the list of contexts
+and URLs/URIs handled by the servlet engine.
+It will ease installation in many sites, reduce questions about configuration 
+on tomcat-user list, and be ready for servlet API 2.3.
+
+This mode will be activated by a new directive JkAutoMount 
+
+ie: JkAutoMount examples myworker1 /examples/
+
+If we want to get ALL the contexts handled by the servlet engine, willcard
+could be used :
+
+ie: JkAutoMount * myworker1 *
+
+A servlet engine could have many contexts, /examples, /admin, /test.
+We may want to use only some contexts for a given worker. It was
+done previously, in apache HTTP server for example, by setting by 
+hand the JkMount accordingly in each [virtual] area of Apache.
+
+If you web-server support virtual hosting, we'll forward also that
+information to servlet engine which will only return contexts for
+that virtual host. 
+In that case the servlet engine will only return the URL/URI matching
+these particular virtual server (defined in server.xml). 
+This feature will help ISP and big sites which mutualize large farm
+of Tomcat in load-balancing configuration.
+
+<pre class="section">
++-----------------+-------------------+----------+----------+----+
+| CONTEXT QRY CMD | VIRTUAL HOST NAME | CONTEXTA | CONTEXTB | ES |
++-----------------+-------------------+----------+----------+----+
+
++------------------+-------------------+----------+-------------------+----------+---------------+----+
+| CONTEXT INFO CMD | VIRTUAL HOST NAME | CONTEXTA | URL1 URL2 URL3 ES | CONTEXTB | URL1 URL2 ... | ES |
++------------------+-------------------+----------+-------------------+----------+---------------+----+
+</pre>
+
+We'll discover via context-query, the list of URL/MIMES handled by the remove servlet engine
+for a list of contextes.
+In wildcard mode, CONTEXTA will contains just '*'.
+
+<ul>
+<li>
+CONTEXT QRY CMD and CONTEXT INFO CMD are 1 byte long.
+</li>
+<li>
+VIRTUAL HOST NAME is a CString, ie an array of chars terminated by a null byte (/0).
+</li>
+<li>
+An empty string is just a null byte (/0).
+</li>
+<li>
+ES is an empty CString. Indicate end of URI/URLs or end of CONTEXTs.
+</li>
+</ul>
+
+NB:<br/>
+When VirtualMode is not to be used, the VIRTUAL HOST NAME is '*'.
+In that case the servlet engine will send all contexts handled.
+</p>
+<br/>
+<a name="sub_Context informations updates from Servlet engine to Web Server">
+<table width="100%" cellpadding="0" cellspacing="0" border="0">
+<tr>
+<td align="left" valign="top" class="subsection" bgcolor="#828DA6">
+<img border="0" vspace="0" hspace="0" align="left" valign="top" src="../images/corner.gif"/>Context informations updates from Servlet engine to Web Server</td>
+</tr>
+</table>
+</a>
+<p class="section">
+Context update are messages caming from the servlet engine each time a context 
+is desactivated/reactivated. The update will be in use when the directive JkUpdateMount.
+This directive will set the AJP13_CONTEXT_UPDATE_NEG flag.
+
+ie: JkUpdateMount myworker1
+
+<pre class="section">
++--------------------+-------------------+----------+--------+----------+--------+----+
+| CONTEXT UPDATE CMD | VIRTUAL HOST NAME | CONTEXTA | STATUS | CONTEXTB | STATUS | ES |
++--------------------+-------------------+----------+--------+----------+--------+----+
+</pre>
+
+<ul>
+<li>
+CONTEXT UPDATE CMD, STATUS are 1 byte long.
+</li>
+<li>
+VIRTUAL HOST NAME, CONTEXTS are CString.
+</li>
+<li>
+ES is an empty CString. Indicate end of CONTEXTs.
+</li>
+</ul>
+
+NB:<br/>
+When VirtualMode is not in use, the VIRTUAL HOST NAME is '*'.
+STATUS is one byte indicating if context is UP/DOWN/INVALID
+</p>
+<br/>
+<a name="sub_Context status query to Servlet engine">
+<table width="100%" cellpadding="0" cellspacing="0" border="0">
+<tr>
+<td align="left" valign="top" class="subsection" bgcolor="#828DA6">
+<img border="0" vspace="0" hspace="0" align="left" valign="top" src="../images/corner.gif"/>Context status query to Servlet engine</td>
+</tr>
+</table>
+</a>
+<p class="section">
+This query will be used by the web-server to determine if a given
+contexts are UP, DOWN or INVALID (and should be removed).
+
+<pre class="section">
++-------------------+--------------------+----------+----------+----+
+| CONTEXT STATE CMD |  VIRTUAL HOST NAME | CONTEXTA | CONTEXTB | ES |
++-------------------+--------------------+----------+----------+----+
+
++-------------------------+-------------------+----------+--------+----------+--------+----+
+| CONTEXT STATE REPLY CMD | VIRTUAL HOST NAME | CONTEXTA | STATUS | CONTEXTB | STATUS | ES |
++-------------------------+-------------------+----------+-------------------+--------+----+
+</pre>
+
+<ul>
+<li>
+CONTEXT STATE CMD, CONTEXT STATE REPLY CMD, STATUS are 1 byte long.
+</li>
+<li>
+VIRTUAL HOST NAME, CONTEXTs are CString
+</li>
+<li>
+ES is an empty CString
+</li>
+</ul>
+
+NB:<br/>
+When VirtualMode is not in use, the VIRTUAL HOST NAME is an empty string. 
+</p>
+<br/>
+<a name="sub_Handling of unknown packets">
+<table width="100%" cellpadding="0" cellspacing="0" border="0">
+<tr>
+<td align="left" valign="top" class="subsection" bgcolor="#828DA6">
+<img border="0" vspace="0" hspace="0" align="left" valign="top" src="../images/corner.gif"/>Handling of unknown packets</td>
+</tr>
+</table>
+</a>
+<p class="section">
+Sometimes even with a well negocied protocol, we may be in a situation 
+where one end (web server or servlet engine), will receive a message it
+couldn't understand. In that case the receiver will send an 
+'UNKNOW PACKET CMD' with attached the unhandled message.
+
+<pre class="section">
++--------------------+------------------------+-------------------+
+| UNKNOWN PACKET CMD | UNHANDLED MESSAGE SIZE | UNHANDLED MESSAGE |
++--------------------+------------------------+-------------------+
+</pre>
+
+Depending on the message, the sender will report an error and if 
+possible will try to forward the message to another endpoint.
+
+<ul>
+<li>
+UNKNOWN PACKET CMD is 1 byte long.
+</li>
+<li>
+UNHANDLED MESSAGE SIZE is 16bits long.
+</li>
+<li>
+UNHANDLED MESSAGE is an array of byte (length is contained in UNHANDLED MESSAGE SIZE)
+</li>
+</ul>
+
+NB:<br/>
+added UNHANDLED MESSAGE SIZE (development)
+</p>
+<br/>
+<a name="sub_Verification of connection before sending request">
+<table width="100%" cellpadding="0" cellspacing="0" border="0">
+<tr>
+<td align="left" valign="top" class="subsection" bgcolor="#828DA6">
+<img border="0" vspace="0" hspace="0" align="left" valign="top" src="../images/corner.gif"/>Verification of connection before sending request</td>
+</tr>
+</table>
+</a>
+<p class="section">
+NOTA: This fonctionality may never be used, since it may slow up the normal process
+since requiring on the web-server side an extra IO (read) before forwarding
+the request.....
+
+One of the beauty of socket APIs, is that you could write on a half closed socket.
+When servlet engine close the socket, the web server will discover it only at the
+next read() to the socket. 
+Basically, in the AJP13 protocol, the web server send the HTTP HEADER and HTTP BODY 
+(POST by chunk of 8K) to the servlet engine and then try to receive the reply. 
+If the connection was broken the web server will learn it only at receive time.
+
+We could use a buffering scheme but what happen when you use the servlet engine
+for upload operations with more than 8ko of datas ?
+
+The hack in the AJP13 protocol is to add some bytes to read after the end of the
+service :
+
+<pre class="section">
+EXAMPLE OF DISCUSSION BETWEEN WEB SERVER AND SERVLET ENGINE
+
+AJP HTTP-HEADER (+ HTTP-POST)   (WEB-&gt;SERVLET)
+
+AJP HTTP-REPLY					(SERVLET-&gt;WEB)
+
+AJP END OF DISCUSSION			(SERVLET-&gt;WEB)
+						
+---&gt; AJP STATUS 				(SERVLET-&gt;WEB AJP13)
+</pre>
+
+The AJP STATUS will not be read by the servlet engine at the end of 
+the request/response #N but at the begining of the next session.
+
+More at that time the web server could also use OS dependants functions
+(or better APR functions) to determine if there is also more data 
+to read. And that datas could be CONTEXT Updates. 
+
+This will avoid the web server sending a request to a 
+desactivated context. In that case, if the load-balancing is used,
+it will search for another servlet engine to handle the request.
+
+And that feature will help ISP and big sites with farm of tomcat, 
+to updates their servlet engine without any service interruption.
+
+<pre class="section">
++------------+-------------+
+| STATUS CMD | STATUS DATA |
++------------+-------------+
+</pre>
+
+<ul>
+<li>
+STATUS CMD and STATUS DATA are one byte long.
+</li>
+</ul>
+</p>
+<br/>
+<br/>
+<a name="Conclusion">
+<table width="100%" cellpadding="0" cellspacing="0" border="0">
+<tr>
+<td align="left" valign="top" class="section" bgcolor="#525D76">
+<img border="0" vspace="0" hspace="0" align="left" valign="top" src="../images/corner.gif"/>Conclusion</td>
+</tr>
+</table>
+</a>
+<p class="section">
+The goal of the extended AJP13 protocol is to overcome some of the original AJP13 limitation.
+An easier configuration, a better support for large site and farm of Tomcat, 
+a simple authentification system and provision for protocol updates.
+
+Using the stable ajp13 implementation in JK (native) and in servlet 
+engine (java), it's a reasonable evolution of the well known ajp13.
+</p>
+<br/>
+<a name="Commands and IDs in extended AJP13 Index">
+<table width="100%" cellpadding="0" cellspacing="0" border="0">
+<tr>
+<td align="left" valign="top" class="section" bgcolor="#525D76">
+<img border="0" vspace="0" hspace="0" align="left" valign="top" src="../images/corner.gif"/>Commands and IDs in extended AJP13 Index</td>
+</tr>
+</table>
+</a>
+<p class="section">
+Index of Commands and ID to be added in AJP13 Protocol
+</p>
+<a name="sub_Commands IDs">
+<table width="100%" cellpadding="0" cellspacing="0" border="0">
+<tr>
+<td align="left" valign="top" class="subsection" bgcolor="#828DA6">
+<img border="0" vspace="0" hspace="0" align="left" valign="top" src="../images/corner.gif"/>Commands IDs</td>
+</tr>
+</table>
+</a>
+<p class="section">
+<table border="0">
+<tr>
+<td align="middle" valign="top" bgcolor="#039acc">Command Name</td>
+<td align="middle" valign="top" bgcolor="#039acc">Command Number</td>
+</tr>
+<tr>
+<td align="left" valign="top" bgcolor="#a0ddf0">AJP13_LOGINIT_CMD</td>
+<td align="left" valign="top" bgcolor="#a0ddf0">0x10</td>
+</tr>
+<tr>
+<td align="left" valign="top" bgcolor="#a0ddf0">AJP13_LOGSEED_CMD</td>
+<td align="left" valign="top" bgcolor="#a0ddf0">0x11</td>
+</tr>
+<tr>
+<td align="left" valign="top" bgcolor="#a0ddf0">AJP13_LOGCOMP_CMD</td>
+<td align="left" valign="top" bgcolor="#a0ddf0">0x12</td>
+</tr>
+<tr>
+<td align="left" valign="top" bgcolor="#a0ddf0">AJP13_LOGOK_CMD</td>
+<td align="left" valign="top" bgcolor="#a0ddf0">0x13</td>
+</tr>
+<tr>
+<td align="left" valign="top" bgcolor="#a0ddf0">AJP13_LOGNOK_CMD</td>
+<td align="left" valign="top" bgcolor="#a0ddf0">0x14</td>
+</tr>
+<tr>
+<td align="left" valign="top" bgcolor="#a0ddf0">AJP13_CONTEXT_QRY_CMD</td>
+<td align="left" valign="top" bgcolor="#a0ddf0">0x15</td>
+</tr>
+<tr>
+<td align="left" valign="top" bgcolor="#a0ddf0">AJP13_CONTEXT_INFO_CMD</td>
+<td align="left" valign="top" bgcolor="#a0ddf0">0x16</td>
+</tr>
+<tr>
+<td align="left" valign="top" bgcolor="#a0ddf0">AJP13_CONTEXT_UPDATE_CMD</td>
+<td align="left" valign="top" bgcolor="#a0ddf0">0x17</td>
+</tr>
+<tr>
+<td align="left" valign="top" bgcolor="#a0ddf0">AJP13_STATUS_CMD</td>
+<td align="left" valign="top" bgcolor="#a0ddf0">0x18</td>
+</tr>
+<tr>
+<td align="left" valign="top" bgcolor="#a0ddf0">AJP13_SHUTDOWN_CMD</td>
+<td align="left" valign="top" bgcolor="#a0ddf0">0x19</td>
+</tr>
+<tr>
+<td align="left" valign="top" bgcolor="#a0ddf0">AJP13_SHUTOK_CMD</td>
+<td align="left" valign="top" bgcolor="#a0ddf0">0x1A</td>
+</tr>
+<tr>
+<td align="left" valign="top" bgcolor="#a0ddf0">AJP13_SHUTNOK_CMD</td>
+<td align="left" valign="top" bgcolor="#a0ddf0">0x1B</td>
+</tr>
+<tr>
+<td align="left" valign="top" bgcolor="#a0ddf0">AJP13_CONTEXT_STATE_CMD</td>
+<td align="left" valign="top" bgcolor="#a0ddf0">0x1C</td>
+</tr>
+<tr>
+<td align="left" valign="top" bgcolor="#a0ddf0">AJP13_CONTEXT_STATE_REP_CMD</td>
+<td align="left" valign="top" bgcolor="#a0ddf0">0x1D</td>
+</tr>
+<tr>
+<td align="left" valign="top" bgcolor="#a0ddf0">AJP13_UNKNOW_PACKET_CMD</td>
+<td align="left" valign="top" bgcolor="#a0ddf0">0x1E</td>
+</tr>
+</table>
+
+</p>
+<br/>
+<a name="sub_Negociations Flags">
+<table width="100%" cellpadding="0" cellspacing="0" border="0">
+<tr>
+<td align="left" valign="top" class="subsection" bgcolor="#828DA6">
+<img border="0" vspace="0" hspace="0" align="left" valign="top" src="../images/corner.gif"/>Negociations Flags</td>
+</tr>
+</table>
+</a>
+<p class="section">
+<table border="0">
+<tr>
+<td align="middle" valign="top" bgcolor="#039acc">Command Name</td>
+<td align="middle" valign="top" bgcolor="#039acc">Number</td>
+<td align="middle" valign="top" bgcolor="#039acc">Description</td>
+</tr>
+<tr>
+<td align="left" valign="top" bgcolor="#a0ddf0">AJP13_CONTEXT_INFO_NEG</td>
+<td align="left" valign="top" bgcolor="#a0ddf0">0x80000000</td>
+<td align="left" valign="top" bgcolor="#a0ddf0">web-server want context info after login</td>
+</tr>
+<tr>
+<td align="left" valign="top" bgcolor="#a0ddf0">AJP13_CONTEXT_UPDATE_NEG</td>
+<td align="left" valign="top" bgcolor="#a0ddf0">0x40000000</td>
+<td align="left" valign="top" bgcolor="#a0ddf0">web-server want context updates</td>
+</tr>
+<tr>
+<td align="left" valign="top" bgcolor="#a0ddf0">AJP13_GZIP_STREAM_NEG</td>
+<td align="left" valign="top" bgcolor="#a0ddf0">0x20000000</td>
+<td align="left" valign="top" bgcolor="#a0ddf0">web-server want compressed stream</td>
+</tr>
+<tr>
+<td align="left" valign="top" bgcolor="#a0ddf0">AJP13_DES56_STREAM_NEG</td>
+<td align="left" valign="top" bgcolor="#a0ddf0">0x10000000</td>
+<td align="left" valign="top" bgcolor="#a0ddf0">web-server want crypted DES56 stream with secret key</td>
+</tr>
+<tr>
+<td align="left" valign="top" bgcolor="#a0ddf0">AJP13_SSL_VSERVER_NEG</td>
+<td align="left" valign="top" bgcolor="#a0ddf0">0x08000000</td>
+<td align="left" valign="top" bgcolor="#a0ddf0">Extended info on server SSL vars</td>
+</tr>
+<tr>
+<td align="left" valign="top" bgcolor="#a0ddf0">AJP13_SSL_VCLIENT_NEG</td>
+<td align="left" valign="top" bgcolor="#a0ddf0">0x04000000</td>
+<td align="left" valign="top" bgcolor="#a0ddf0">Extended info on client SSL vars</td>
+</tr>
+<tr>
+<td align="left" valign="top" bgcolor="#a0ddf0">AJP13_SSL_VCRYPTO_NEG</td>
+<td align="left" valign="top" bgcolor="#a0ddf0">0x02000000</td>
+<td align="left" valign="top" bgcolor="#a0ddf0">Extended info on crypto SSL vars</td>
+</tr>
+<tr>
+<td align="left" valign="top" bgcolor="#a0ddf0">AJP13_SSL_VMISC_NEG</td>
+<td align="left" valign="top" bgcolor="#a0ddf0">0x01000000</td>
+<td align="left" valign="top" bgcolor="#a0ddf0">Extended info on misc SSL vars</td>
+</tr>
+</table>
+
+<br/>
+
+<table border="0">
+<tr>
+<td align="middle" valign="top" bgcolor="#039acc">Negociation ID</td>
+<td align="middle" valign="top" bgcolor="#039acc">Number</td>
+<td align="middle" valign="top" bgcolor="#039acc">Description</td>
+</tr>
+<tr>
+<td align="left" valign="top" bgcolor="#a0ddf0">AJP13_PROTO_SUPPORT_AJPXX_NEG</td>
+<td align="left" valign="top" bgcolor="#a0ddf0">0x00FF0000</td>
+<td align="left" valign="top" bgcolor="#a0ddf0">mask of protocol supported</td>
+</tr>
+<tr>
+<td align="left" valign="top" bgcolor="#a0ddf0">AJP13_PROTO_SUPPORT_AJP13L1_NEG</td>
+<td align="left" valign="top" bgcolor="#a0ddf0">0x00010000</td>
+<td align="left" valign="top" bgcolor="#a0ddf0">communication could use AJP13 Level 1</td>
+</tr>
+<tr>
+<td align="left" valign="top" bgcolor="#a0ddf0">AJP13_PROTO_SUPPORT_AJP13L2_NEG</td>
+<td align="left" valign="top" bgcolor="#a0ddf0">0x00020000</td>
+<td align="left" valign="top" bgcolor="#a0ddf0">communication could use AJP13 Level 2</td>
+</tr>
+<tr>
+<td align="left" valign="top" bgcolor="#a0ddf0">AJP13_PROTO_SUPPORT_AJP13L3_NEG</td>
+<td align="left" valign="top" bgcolor="#a0ddf0">0x00040000</td>
+<td align="left" valign="top" bgcolor="#a0ddf0">communication could use AJP13 Level 3</td>
+</tr>
+</table>
+
+<br/>
+All others flags must be set to 0 since they are reserved for future use.
+
+</p>
+<br/>
+<a name="sub_Failure IDs">
+<table width="100%" cellpadding="0" cellspacing="0" border="0">
+<tr>
+<td align="left" valign="top" class="subsection" bgcolor="#828DA6">
+<img border="0" vspace="0" hspace="0" align="left" valign="top" src="../images/corner.gif"/>Failure IDs</td>
+</tr>
+</table>
+</a>
+<p class="section">
+<table border="0">
+<tr>
+<td align="middle" valign="top" bgcolor="#039acc">Failure Id</td>
+<td align="middle" valign="top" bgcolor="#039acc">Number</td>
+</tr>
+<tr>
+<td align="left" valign="top" bgcolor="#a0ddf0">AJP13_BAD_KEY_ERR</td>
+<td align="left" valign="top" bgcolor="#a0ddf0">0xFFFFFFFF</td>
+</tr>
+<tr>
+<td align="left" valign="top" bgcolor="#a0ddf0">AJP13_ENGINE_DOWN_ERR</td>
+<td align="left" valign="top" bgcolor="#a0ddf0">0xFFFFFFFE</td>
+</tr>
+<tr>
+<td align="left" valign="top" bgcolor="#a0ddf0">AJP13_RETRY_LATER_ERR</td>
+<td align="left" valign="top" bgcolor="#a0ddf0">0xFFFFFFFD</td>
+</tr>
+<tr>
+<td align="left" valign="top" bgcolor="#a0ddf0">AJP13_SHUT_AUTHOR_FAILED_ERR</td>
+<td align="left" valign="top" bgcolor="#a0ddf0">0xFFFFFFFC</td>
+</tr>
+</table>
+</p>
+<br/>
+<a name="sub_Status">
+<table width="100%" cellpadding="0" cellspacing="0" border="0">
+<tr>
+<td align="left" valign="top" class="subsection" bgcolor="#828DA6">
+<img border="0" vspace="0" hspace="0" align="left" valign="top" src="../images/corner.gif"/>Status</td>
+</tr>
+</table>
+</a>
+<p class="section">
+<table border="0">
+<tr>
+<td align="middle" valign="top" bgcolor="#039acc">Failure Id</td>
+<td align="middle" valign="top" bgcolor="#039acc">Number</td>
+</tr>
+<tr>
+<td align="left" valign="top" bgcolor="#a0ddf0">AJP13_CONTEXT_DOWN</td>
+<td align="left" valign="top" bgcolor="#a0ddf0">0x01</td>
+</tr>
+<tr>
+<td align="left" valign="top" bgcolor="#a0ddf0">AJP13_CONTEXT_UP</td>
+<td align="left" valign="top" bgcolor="#a0ddf0">0x02</td>
+</tr>
+<tr>
+<td align="left" valign="top" bgcolor="#a0ddf0">AJP13_CONTEXT_OK</td>
+<td align="left" valign="top" bgcolor="#a0ddf0">0x03</td>
+</tr>
+</table>
+</p>
+<br/>
+<br/>
+</td>
+</tr>
+</table>
+</body>
+</html>

@@ -11,7 +11,7 @@
  *
  *****************************************************************************/
 
-/* $Id: time.c,v 1.1.1.2 2001/07/19 00:21:20 zarzycki Exp $ */
+/* $Id: time.c,v 1.1.1.3 2003/03/11 01:09:40 zarzycki Exp $ */
 
  /**
   *
@@ -44,7 +44,7 @@ __int64 ff;
 
  
 
-int gettimeofday(struct timeval *time_Info, struct timezone *timezone_Info)
+PHPAPI int gettimeofday(struct timeval *time_Info, struct timezone *timezone_Info)
 {
 
 	static struct timeval starttime = {0, 0};
@@ -186,7 +186,7 @@ LPTIMECALLBACK setitimer_timeout(UINT uTimerID, UINT info, DWORD dwUser, DWORD d
 	return 0;
 }
 
-int setitimer(int which, const struct itimerval *value, struct itimerval *ovalue)
+PHPAPI int setitimer(int which, const struct itimerval *value, struct itimerval *ovalue)
 {
 	int timeout = value->it_value.tv_sec * 1000 + value->it_value.tv_usec;
 	int repeat = TIME_ONESHOT;

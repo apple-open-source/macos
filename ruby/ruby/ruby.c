@@ -2,8 +2,8 @@
 
   ruby.c -
 
-  $Author: jkh $
-  $Date: 2002/05/27 17:59:44 $
+  $Author: melville $
+  $Date: 2003/05/14 13:58:44 $
   created at: Tue Aug 10 12:47:31 JST 1993
 
   Copyright (C) 1993-2001 Yukihiro Matsumoto
@@ -314,7 +314,6 @@ require_libraries()
     struct req_list *tmp;
 
     Init_ext();		/* should be called here for some reason :-( */
-    ruby_sourcefile = 0;
     save[0] = ruby_eval_tree;
     save[1] = ruby_eval_tree_begin;
     ruby_eval_tree = ruby_eval_tree_begin = 0;
@@ -438,7 +437,7 @@ proc_options(argc, argv)
 	    goto reswitch;
 
 	  case 'v':
-	    if (verbose) {
+	    if (argv0 == 0 || verbose) {
 		s++;
 		goto reswitch;
 	    }
@@ -555,10 +554,11 @@ proc_options(argc, argv)
 		if (*++s) {
 		    v = scan_oct(s, 2, &numlen);
 		    if (numlen == 0) v = 1;
+		    s += numlen;
 		}
 		rb_set_safe_level(v);
 	    }
-	    break;
+	    goto reswitch;
 
 	  case 'I':
 	    forbid_setid("-I");
@@ -618,11 +618,6 @@ proc_options(argc, argv)
 			origargv[0], s);
 		exit(2);
 	    }
-	    break;
-
-	  case '*':
-	  case ' ':
-	    if (s[1] == '-') s+=2;
 	    break;
 
 	  default:
@@ -714,7 +709,7 @@ proc_options(argc, argv)
     process_sflag();
 
     ruby_init_loadpath();
-    ruby_sourcefile = argv0;
+    ruby_sourcefile = rb_source_filename(argv0);
     if (e_script) {
 	require_libraries();
 	rb_compile_string(script, e_script, 1);
@@ -822,7 +817,7 @@ load_file(fname, script)
 		    argv[0] = path;
 		    execv(path, argv);
 
-		    ruby_sourcefile = fname;
+		    ruby_sourcefile = rb_source_filename(fname);
 		    ruby_sourceline = 1;
 		    rb_fatal("Can't exec %s", path);
 		}
@@ -853,7 +848,10 @@ load_file(fname, script)
     else if (f != rb_stdin) {
 	rb_io_close(f);
     }
-    rb_gc();
+
+    if (ruby_parser_stack_on_heap()) {
+        rb_gc();
+    }
 }
 
 void
@@ -939,7 +937,7 @@ ruby_script(name)
 {
     if (name) {
 	rb_progname = rb_tainted_str_new2(name);
-	ruby_sourcefile = name;
+	ruby_sourcefile = rb_source_filename(name);
     }
 }
 
@@ -978,7 +976,7 @@ ruby_prog_init()
 {
     init_ids();
 
-    ruby_sourcefile = "ruby";
+    ruby_sourcefile = rb_source_filename("ruby");
     rb_define_variable("$VERBOSE", &ruby_verbose);
     rb_define_variable("$-v", &ruby_verbose);
     rb_define_variable("$-w", &ruby_verbose);

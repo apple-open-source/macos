@@ -1,21 +1,23 @@
 /*
- * Copyright (c) 2000 Apple Computer, Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
- * The contents of this file constitute Original Code as defined in and
- * are subject to the Apple Public Source License Version 1.1 (the
- * "License").  You may not use this file except in compliance with the
- * License.  Please obtain a copy of the License at
- * http://www.apple.com/publicsource and read it before using this file.
+ * Copyright (c) 1999-2003 Apple Computer, Inc.  All Rights Reserved.
  * 
- * This Original Code and all software distributed under the License are
- * distributed on an "AS IS" basis, WITHOUT WARRANTY OF ANY KIND, EITHER
+ * This file contains Original Code and/or Modifications of Original Code
+ * as defined in and that are subject to the Apple Public Source License
+ * Version 2.0 (the 'License'). You may not use this file except in
+ * compliance with the License. Please obtain a copy of the License at
+ * http://www.opensource.apple.com/apsl/ and read it before using this
+ * file.
+ * 
+ * The Original Code and all software distributed under the License are
+ * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
  * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
  * INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY,
- * FITNESS FOR A PARTICULAR PURPOSE OR NON-INFRINGEMENT.  Please see the
- * License for the specific language governing rights and limitations
- * under the License.
+ * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
+ * Please see the License for the specific language governing rights and
+ * limitations under the License.
  * 
  * @APPLE_LICENSE_HEADER_END@
  */
@@ -25,6 +27,7 @@
 
 #include <libkern/c++/OSArray.h>
 #include <IOKit/hidsystem/IOHIDDescriptorParser.h>
+#include "IOHIDParserPriv.h"
 #include "IOHIDLibUserClient.h"
 
 class IOHIDDevice;
@@ -53,13 +56,13 @@ protected:
     OSArray *            _childArray;
     OSArray *            _queueArray;
     UInt32               _flags;
+    UInt32               _collectionType;
 
     UInt32               _reportSize;
     UInt32		 _reportCount;
     UInt32               _reportStartBit;
     UInt32               _reportBits;
     UInt8                _reportID;
-    UInt8                _reportType;
 
     UInt32               _usagePage;
     UInt32               _usageMin;
@@ -73,16 +76,19 @@ protected:
     
     UInt32               _unitExponent;
     UInt32               _units;
-
+    
     UInt32               _transactionState;
+
+    IOHIDElement *	 _duplicateReportHandler;
     
     IOHIDElement *	 _arrayReportHandler;
     OSDictionary *       _colArrayReportHandlers;
     OSArray *       	 _arrayItems;
+    OSArray *		 _duplicateElements;
     UInt32 *		 _oldArraySelectors;
     
+    bool                 _isInterruptReportHandler;
     
-
     virtual bool init( IOHIDDevice * owner, IOHIDElementType type );
 
     virtual void free();
@@ -91,7 +97,7 @@ protected:
 
     virtual bool createSubElements();
     
-    static IOHIDElement * arrayHandlerElement(                                
+    virtual IOHIDElement * arrayHandlerElement(                                
                                 IOHIDDevice *    owner,
                                 IOHIDElementType type,
                                 IOHIDElement * child,
@@ -113,27 +119,42 @@ public:
     static IOHIDElement * collectionElement(
                                 IOHIDDevice *        owner,
                                 IOHIDElementType     type,
-                                HIDCollectionNodePtr collection,
+                                HIDCollectionExtendedNodePtr collection,
                                 IOHIDElement *       parent = 0 );
+                                
+    static IOHIDElement * reportHandlerElement(
+                                IOHIDDevice *        owner,
+                                IOHIDElementType     type,
+                                UInt32               reportID,
+                                UInt32               reportBits );
 
     virtual bool serialize( OSSerialize * s ) const;
 
-    virtual bool addChildElement( IOHIDElement * child );
+    virtual bool addChildElement( IOHIDElement * child, bool arrayHeader = false );
 
     virtual bool processReport( UInt8                reportID,
                                 void *               reportData,
-                                UInt32               reportLength,
+                                UInt32               reportBits,
                                 const AbsoluteTime * timestamp,
-                                IOHIDElement **      next );
+                                IOHIDElement **      next = 0 );
 
     virtual bool createReport( UInt8           reportID,
                                void *		reportData, // report should be allocated outside this method
                                UInt32 *        reportLength,
                                IOHIDElement ** next );
                                
-    virtual void processArrayReport(void * reportData);
-    
-    virtual void createArrayReport(void * reportData);
+    virtual bool processArrayReport(UInt8		 reportID,
+                                    void *               reportData,
+                                    UInt32               reportBits,
+                                    const AbsoluteTime * timestamp);
+
+    virtual bool createDuplicateReport(UInt8           reportID,
+                               void *		reportData, // report should be allocated outside this method
+                               UInt32 *        reportLength);
+                                    
+    virtual bool createArrayReport(UInt8           reportID,
+                               void *		reportData, // report should be allocated outside this method
+                               UInt32 *        reportLength);
     
     virtual void setArrayElementValue(UInt32 index, UInt32 value);
 
@@ -145,6 +166,7 @@ public:
     virtual UInt32 getElementValueSize() const;
 
     virtual UInt32 getRangeCount() const;
+    virtual UInt32 getStartingRangeIndex() const;
 
     virtual bool getReportType( IOHIDReportType * reportType ) const;
 
@@ -171,6 +193,9 @@ public:
 
     inline IOHIDElementType getElementType() const
     { return _type; }
+    
+    inline IOHIDElementCollectionType getElementCollectionType() const
+    { return _collectionType; }
 
     inline UInt32 getRangeIndex() const
     { return _rangeIndex; }

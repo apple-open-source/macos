@@ -1,0 +1,35 @@
+A(z) `%(listname)s' levelezési lista mûkõdik. A következõkben a 
+levelezési lista alapvetõ információiról lehet olvasni.
+
+A levelezési lista jelszava a következõ:
+
+    %(password)s
+
+A megadott jelszóval lehet a lista beállításait megváltoztatni. Ezen-
+felül ezzel a jelszóval lehet néhány adminisztrátori tevékenységet is
+elvégezni, mint például moderált listán a levelek szûrését végrehajtani.
+
+A levelezési listát a következõ honlapon lehet beállítani:
+
+    %(admin_url)s
+
+A levelezési lista tagjai a következõ honlapot használhatják:
+
+    %(listinfo_url)s
+
+A honlap formáját is meg lehet változtatni, azonban ehhez ismerni kell a 
+HTML-szerkesztés alapjait.
+
+E-mailen keresztül a tagok (de nem az adminisztrátor) is elvégezhetik 
+beállításaik megváltoztatását; errõl bõvebb információt kaphatsz, ha egy
+'help' tartalmú levelet küldesz a következõ címre: 
+
+    %(requestaddr)s
+
+Listatag eltávolításához a levelezési lista 'információs' lapján a 
+listatag nevére kell kattintanod. Törlését pedig a listatagok eltávolítási
+oldalán lehet végrehajtani az adminisztrátori jelszóval. A listatag 
+beállításait (például digest vagy nem-digest formájú levelek fogadása, 
+vagy szüneteltetése, stb.) az adminisztrátori jelszóval is módosíthatod.
+
+További kérdéseiddel fordulj ide: %(siteowner)s

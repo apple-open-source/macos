@@ -50,6 +50,10 @@
 #ifndef __NS_SYSTEM_DIRECTORIES_H__
 #define __NS_SYSTEM_DIRECTORIES_H__
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 // Directories
 
 typedef enum {
@@ -84,8 +88,13 @@ typedef unsigned int NSSearchPathEnumerationState;
  The return value of NSGetNextSearchPathEnumeration() should be used as the state next time around.
  When NSGetNextSearchPathEnumeration() returns 0, you're done.
 */
+
 extern NSSearchPathEnumerationState NSStartSearchPathEnumeration(NSSearchPathDirectory dir, NSSearchPathDomainMask domainMask);
 
 extern NSSearchPathEnumerationState NSGetNextSearchPathEnumeration(NSSearchPathEnumerationState state, char *path);
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif /* __NS_SYSTEM_DIRECTORIES_H__ */

@@ -40,7 +40,7 @@ CssmManager::CssmManager() : MdsComponent(gGuidCssm)
 CssmManager::~CssmManager()
 {
 	if (initCount > 0)
-		debug("cssm", "CSSM forcibly shutting down");
+		secdebug("cssm", "CSSM forcibly shutting down");
 }
 
 
@@ -66,7 +66,7 @@ void CssmManager::initialize (const CSSM_VERSION &version,
             CssmError::throwMe(CSSMERR_CSSM_PVC_ALREADY_CONFIGURED);
         }
         initCount++;
-        debug("cssm", "re-initializing CSSM (%d levels)", initCount);
+        secdebug("cssm", "re-initializing CSSM (%d levels)", initCount);
         return;
     }
     
@@ -82,7 +82,7 @@ void CssmManager::initialize (const CSSM_VERSION &version,
 
     // we are ready now
     initCount = 1;
-    debug("cssm", "CSSM initialized");
+    secdebug("cssm", "CSSM initialized");
 }
 
 
@@ -97,14 +97,14 @@ bool CssmManager::terminate()
     case 0:
         CssmError::throwMe(CSSMERR_CSSM_NOT_INITIALIZED);
     case 1:
-        debug("cssm", "Terminating CSSM");
+        secdebug("cssm", "Terminating CSSM");
         if (!moduleMap.empty())
             CssmError::throwMe(CSSM_ERRCODE_FUNCTION_FAILED);	// @#can't terminate with modules loaded
         initCount = 0;	// mark uninitialized
         return true;
     default:
         initCount--;	// nested INIT, just count down
-        debug("cssm", "CSSM nested termination (%d remaining)", initCount);
+        secdebug("cssm", "CSSM nested termination (%d remaining)", initCount);
         return false;
     }
 }

@@ -1,0 +1,67 @@
+/*
+* JBoss, the OpenSource EJB server
+*
+* Distributable under LGPL license.
+* See terms of license at gnu.org.
+*/
+package org.jboss.iiop.rmi.ir;
+
+import org.omg.CORBA.TCKind;
+import org.omg.CORBA.TypeCode;
+import org.omg.CORBA.StructMember;
+import org.omg.CORBA.ValueMember;
+
+/**
+ *  TypeCode Implementation.
+ *
+ *  @author <a href="mailto:osh@sparre.dk">Ole Husgaard</a>
+ *  @version $Revision: 1.1.1.1 $
+ */
+class TypeCodeImpl
+   extends org.jacorb.orb.TypeCode
+{
+   // TODO: implement instead of depending on JacORB
+
+   public TypeCodeImpl(int _kind)
+   {
+      super(_kind);
+   }
+
+   public TypeCodeImpl(TCKind kind)
+   {
+      super(kind.value());
+   }
+
+   /**
+    *  Construct a TypeCode for an alias, or value_box.
+    */
+   public TypeCodeImpl(int kind, String id, String name, TypeCode originalType)
+   {
+      super(kind, id, name, originalType);
+   }
+
+   /**
+    *  Construct a TypeCode for a sequence.
+    */
+   public TypeCodeImpl(int bound, TypeCode elementType)
+   {
+      super(TCKind._tk_sequence, bound, elementType);
+   }
+
+   /**
+    *  Construct a TypeCode for a value.
+    */
+   public TypeCodeImpl(String id, String name, short typeModifier,
+                       TypeCode concreteBase, ValueMember[] members)
+   {
+      super(id, name, typeModifier, concreteBase, members);
+   }
+
+   /**
+    *  Construct a TypeCode for an exception
+    */
+   public TypeCodeImpl(String id, String name, StructMember[] members)
+   {
+      super(TCKind._tk_except, id, name, members);
+   }
+}

@@ -47,6 +47,9 @@
 #include <Security/cssm.h>
 #include <Security/cssmapple.h>
 #include <Security/cssmerrno.h>
+#include <Security/Security.h>
+#include <Security/SecTrustPriv.h>
+#include <Security/SecPolicyPriv.h>
 
 /* X.509 includes, from cssmapi */
 #include <Security/x509defs.h>         /* x.509 function and type defs */
@@ -223,6 +226,26 @@ OSStatus detachFromAll(SSLContext *ctx)
 	return noErr;
 }
 
+/*
+ * Add a CSSM_ATTRIBUTE_RSA_BLINDING attribute to
+ * specified crypto context.
+ */
+static CSSM_RETURN sslAddBlindingAttr(
+	CSSM_CC_HANDLE ccHand)
+{
+	CSSM_CONTEXT_ATTRIBUTE	newAttr;	
+	CSSM_RETURN				crtn;
+	
+	newAttr.AttributeType     = CSSM_ATTRIBUTE_RSA_BLINDING;
+	newAttr.AttributeLength   = sizeof(uint32);
+	newAttr.Attribute.Uint32  = 1;
+	crtn = CSSM_UpdateContextAttributes(ccHand, 1, &newAttr);
+	if(crtn) {
+		stPrintCdsaError("CSSM_UpdateContextAttributes", crtn);
+	}
+	return crtn;
+}
+
 #pragma mark -
 #pragma mark *** CSSM_DATA routines ***
 
@@ -284,105 +307,33 @@ OSStatus stSetUpCssmData(
 	return noErr;
 }
 
+static OSStatus sslKeyToSigAlg(
+	const CSSM_KEY *cssmKey,
+	CSSM_ALGORITHMS &sigAlg)	/* RETURNED */
+	
+{
+	OSStatus ortn = noErr;
+	switch(cssmKey->KeyHeader.AlgorithmId) {
+		case CSSM_ALGID_RSA:
+			sigAlg = CSSM_ALGID_RSA;
+			break;
+		case CSSM_ALGID_DSA:
+			sigAlg = CSSM_ALGID_DSA;
+			break;
+		default:
+			ortn = errSSLBadConfiguration;
+			break;
+	}
+	return ortn;
+}
+
 #pragma mark -
 #pragma mark *** Public CSP Functions ***
 
 /*
- * Raw RSA sign/verify.
- *
- * Initial X port: CSP doesns't support this, so we'll do sign/verify via
- * raw RSA encrypt/decrypt here. 
+ * Raw RSA/DSA sign/verify.
  */
-#define SIGN_VFY_VIA_ENCR_DECR	0
-
-#if		SIGN_VFY_VIA_ENCR_DECR
-
-OSStatus sslRsaRawSign(
-	SSLContext			*ctx,
-	const CSSM_KEY		*privKey,
-	CSSM_CSP_HANDLE		cspHand,
-	const UInt8			*plainText,
-	UInt32				plainTextLen,
-	UInt8				*sig,			// mallocd by caller; RETURNED
-	UInt32				sigLen,			// available
-	UInt32				*actualBytes)	// RETURNED
-{
-	/* Raw RSA sign with no digest is the same as raw RSA encrypt. */
-	/* Force CSSM_KEYUSE_ANY in case CL provided keyuse bits more specific 
-	 * than we really want */
-	OSStatus serr;
-	CSSM_KEYUSE savedKeyUse = privKey->KeyHeader.KeyUsage;
-	privKey->KeyHeader.KeyUsage = CSSM_KEYUSE_ANY;
-	serr = sslRsaEncrypt(ctx,
-		privKey,
-		cspHand,
-		plainText,
-		plainTextLen,
-		sig,	
-		sigLen,
-		actualBytes);
-	privKey->KeyHeader.KeyUsage = savedKeyUse;
-	return serr;
-}
-
-OSStatus sslRsaRawVerify(
-	SSLContext			*ctx,
-	const CSSM_KEY		*pubKey,
-	CSSM_CSP_HANDLE		cspHand,
-	const UInt8			*plainText,
-	UInt32				plainTextLen,
-	const UInt8			*sig,
-	UInt32				sigLen)	
-{	
-	/* 
-	 * Raw RSA verify with no digest is just a comparison of the incoming
-	 * plaintext with (signature, decrypted via raw RSA decrypt). 
-	 */
-	 
-	UInt32 actualBytes;
-	OSStatus serr;
-	UInt8  *digest;
-	
-	/* Force CSSM_KEYUSE_ANY in case CL provided keyuse bits more specific 
-	 * than we really want */
-	CSSM_KEYUSE savedKeyUse = pubKey->KeyHeader.KeyUsage;
-	pubKey->KeyHeader.KeyUsage = CSSM_KEYUSE_ANY;
-	
-	/* malloc space for decrypting the signature */
-	digest = sslMalloc(plainTextLen);
-	if(digest == NULL) {
-		return memFullErr;
-	}
-	
-	/* decrypt signature */
-	serr = sslRsaDecrypt(ctx,
-		pubKey,
-		cspHand,
-		sig,
-		sigLen,		
-		digest,			
-		plainTextLen,	
-		&actualBytes);
-	pubKey->KeyHeader.KeyUsage = savedKeyUse;
-	if(serr) {
-		goto errOut;
-	}
-	if((actualBytes != plainTextLen) ||
-	   (memcmp(plainText, digest, plainTextLen))) {
-		sslErrorLog("sslRsaRawVerify: sig miscompare\n");
-		serr = errSSLCrypto;
-	}
-	else {
-		serr = noErr;
-	}
-errOut:
-	sslFree(digest);
-	return serr;
-}
-
-#else	/* OS9 and future post-cheetah version */
-
-OSStatus sslRsaRawSign(
+OSStatus sslRawSign(
 	SSLContext			*ctx,
 	const CSSM_KEY		*privKey,
 	CSSM_CSP_HANDLE		cspHand,
@@ -394,7 +345,7 @@ OSStatus sslRsaRawSign(
 {
 	CSSM_CC_HANDLE			sigHand = 0;
 	CSSM_RETURN				crtn;
-	OSStatus					serr;
+	OSStatus				serr;
 	CSSM_DATA				sigData;
 	CSSM_DATA				ptextData;
 	
@@ -409,14 +360,30 @@ OSStatus sslRsaRawSign(
 	}
 	*actualBytes = 0;
 	
+	CSSM_ALGORITHMS sigAlg;
+	serr = sslKeyToSigAlg(privKey, sigAlg);
+	if(serr) {
+		return serr;
+	}
 	crtn = CSSM_CSP_CreateSignatureContext(cspHand,
-		CSSM_ALGID_RSA,
+		sigAlg,
 		NULL,				// passPhrase
 		privKey,
 		&sigHand);
 	if(crtn) {
 		stPrintCdsaError("CSSM_CSP_CreateSignatureContext (1)", crtn);
 		return errSSLCrypto;
+	}
+
+	if((ctx->rsaBlindingEnable) &&
+	   (privKey->KeyHeader.AlgorithmId == CSSM_ALGID_RSA)) {
+		/* 
+		 * Turn on RSA blinding to defeat timing attacks 
+		 */
+		crtn = sslAddBlindingAttr(sigHand);
+		if(crtn) {
+			return crtn;
+		}
 	}
 	
 	ptextData.Data = (uint8 *)plainText;
@@ -429,7 +396,7 @@ OSStatus sslRsaRawSign(
 	crtn = CSSM_SignData(sigHand,
 		&ptextData,
 		1,
-		CSSM_ALGID_NONE,	// digestAlg 
+		CSSM_ALGID_NONE,	// digestAlg for raw sign
 		&sigData);
 	if(crtn) {
 		stPrintCdsaError("CSSM_SignData", crtn);
@@ -445,7 +412,7 @@ OSStatus sslRsaRawSign(
 	return serr;
 }
 
-OSStatus sslRsaRawVerify(
+OSStatus sslRawVerify(
 	SSLContext			*ctx,
 	const CSSM_KEY		*pubKey,
 	CSSM_CSP_HANDLE		cspHand,
@@ -456,7 +423,7 @@ OSStatus sslRsaRawVerify(
 {
 	CSSM_CC_HANDLE			sigHand = 0;
 	CSSM_RETURN				crtn;
-	OSStatus					serr;
+	OSStatus				serr;
 	CSSM_DATA				sigData;
 	CSSM_DATA				ptextData;
 	
@@ -465,12 +432,17 @@ OSStatus sslRsaRawVerify(
 	   (cspHand == 0) 		|| 
 	   (plainText == NULL)	|| 
 	   (sig == NULL)) {
-		sslErrorLog("sslRsaRawVerify: bad arguments\n");
+		sslErrorLog("sslRawVerify: bad arguments\n");
 		return errSSLInternal;
 	}
 	
+	CSSM_ALGORITHMS sigAlg;
+	serr = sslKeyToSigAlg(pubKey, sigAlg);
+	if(serr) {
+		return serr;
+	}
 	crtn = CSSM_CSP_CreateSignatureContext(cspHand,
-		CSSM_ALGID_RSA,
+		sigAlg,
 		NULL,				// passPhrase
 		pubKey,
 		&sigHand);
@@ -501,7 +473,6 @@ OSStatus sslRsaRawVerify(
 	}
 	return serr;
 }
-#endif	/* SIGN_VFY_VIA_ENCR_DECR */
 
 /*
  * Encrypt/Decrypt
@@ -520,7 +491,7 @@ OSStatus sslRsaEncrypt(
 	CSSM_DATA 		ptextData;
 	CSSM_DATA		remData = {0, NULL};
 	CSSM_CC_HANDLE 	cryptHand = 0;
-	OSStatus			serr = errSSLInternal;
+	OSStatus		serr = errSSLInternal;
 	CSSM_RETURN		crtn;
 	uint32			bytesMoved = 0;
 	CSSM_ACCESS_CREDENTIALS	creds;
@@ -533,6 +504,7 @@ OSStatus sslRsaEncrypt(
 		sslErrorLog("sslRsaEncrypt: bad pubKey/cspHand\n");
 		return errSSLInternal;
 	}
+	assert(pubKey->KeyHeader.KeyClass == CSSM_KEYCLASS_PUBLIC_KEY);
 	
 	#if		RSA_PUB_KEY_USAGE_HACK
 	((CSSM_KEY_PTR)pubKey)->KeyHeader.KeyUsage |= CSSM_KEYUSE_ENCRYPT;
@@ -551,24 +523,6 @@ OSStatus sslRsaEncrypt(
 	}
 	ptextData.Data = (uint8 *)plainText;
 	ptextData.Length = plainTextLen;
-	
-	if(pubKey->KeyHeader.KeyClass == CSSM_KEYCLASS_PRIVATE_KEY) {
-		/* 
-		 * Special case, encrypting with private key (i.e., raw sign). Add
-		 * the required context attr.
-		 */
-		CSSM_CONTEXT_ATTRIBUTE	modeAttr;
-		
-		modeAttr.AttributeType     = CSSM_ATTRIBUTE_MODE;
-		modeAttr.AttributeLength   = sizeof(uint32);
-		modeAttr.Attribute.Uint32  = CSSM_ALGMODE_PRIVATE_KEY;
-		crtn = CSSM_UpdateContextAttributes(cryptHand, 1, &modeAttr);
-		if(crtn) {
-			stPrintCdsaError("CSSM_UpdateContextAttributes", crtn);
-			CSSM_DeleteContext(cryptHand);
-			return errSSLCrypto;
-		}
-	}
 	
 	/* 
 	 * Have CSP malloc ciphertext 
@@ -647,7 +601,7 @@ OSStatus sslRsaDecrypt(
 	CSSM_DATA 		ctextData;
 	CSSM_DATA		remData = {0, NULL};
 	CSSM_CC_HANDLE 	cryptHand = 0;
-	OSStatus			serr = errSSLInternal;
+	OSStatus		serr = errSSLInternal;
 	CSSM_RETURN		crtn;
 	uint32			bytesMoved = 0;
 	CSSM_ACCESS_CREDENTIALS	creds;
@@ -660,6 +614,7 @@ OSStatus sslRsaDecrypt(
 		sslErrorLog("sslRsaDecrypt: bad privKey/cspHand\n");
 		return errSSLInternal;
 	}
+	assert(privKey->KeyHeader.KeyClass == CSSM_KEYCLASS_PRIVATE_KEY);
 	memset(&creds, 0, sizeof(CSSM_ACCESS_CREDENTIALS));
 	crtn = CSSM_CSP_CreateAsymmetricContext(cspHand,
 		CSSM_ALGID_RSA,
@@ -674,21 +629,14 @@ OSStatus sslRsaDecrypt(
 	ctextData.Data = (uint8 *)cipherText;
 	ctextData.Length = cipherTextLen;
 	
-	if(privKey->KeyHeader.KeyClass == CSSM_KEYCLASS_PUBLIC_KEY) {
+	if((ctx->rsaBlindingEnable) &&
+	   (privKey->KeyHeader.AlgorithmId == CSSM_ALGID_RSA)) {
 		/* 
-		 * Special case, decrypting with public key (i.e., raw verify). Add
-		 * the required context attr.
+		 * Turn on RSA blinding to defeat timing attacks 
 		 */
-		CSSM_CONTEXT_ATTRIBUTE	modeAttr;
-		
-		modeAttr.AttributeType     = CSSM_ATTRIBUTE_MODE;
-		modeAttr.AttributeLength   = sizeof(uint32);
-		modeAttr.Attribute.Uint32  = CSSM_ALGMODE_PUBLIC_KEY;
-		crtn = CSSM_UpdateContextAttributes(cryptHand, 1, &modeAttr);
+		crtn = sslAddBlindingAttr(cryptHand);
 		if(crtn) {
-			stPrintCdsaError("CSSM_UpdateContextAttributes", crtn);
-			CSSM_DeleteContext(cryptHand);
-			return errSSLCrypto;
+			return crtn;
 		}
 	}
 
@@ -764,6 +712,37 @@ UInt32 sslKeyLengthInBytes(const CSSM_KEY *key)
 	return (((key->KeyHeader.LogicalKeySizeInBits) + 7) / 8);
 }
 
+/*
+ * Obtain maximum size of signature in bytes. A bit of a kludge; we could
+ * ask the CSP to do this but that would be kind of expensive.
+ */
+OSStatus sslGetMaxSigSize(
+	const CSSM_KEY	*privKey,
+	UInt32			&maxSigSize)
+{	
+	OSStatus ortn = noErr;
+	assert(privKey != NULL);
+	assert(privKey->KeyHeader.KeyClass == CSSM_KEYCLASS_PRIVATE_KEY);
+	switch(privKey->KeyHeader.AlgorithmId) {
+		case CSSM_ALGID_RSA:
+			maxSigSize = sslKeyLengthInBytes(privKey);
+			break;
+		case CSSM_ALGID_DSA:
+		{
+			/* DSA sig is DER sequence of two 160-bit integers */
+			UInt32 sizeOfOneInt;
+			sizeOfOneInt = (160 / 8) +	// the raw contents
+							1 +			// possible leading zero
+							2;			// tag + length (assume DER, not BER)
+			maxSigSize = (2 * sizeOfOneInt) + 5;
+			break;
+		}
+		default:
+			ortn = errSSLBadConfiguration;
+			break;
+	}
+	return ortn;
+}
 /*
  * Get raw key bits from an RSA public key.
  */
@@ -1001,171 +980,114 @@ OSStatus sslPubKeyFromCert(
 	}
 }
 
-#if		ST_MANAGES_TRUSTED_ROOTS
-
 /*
- * Given a CSSM_CERTGROUP which fails due to CSSM_TP_INVALID_ANCHOR
- * (chain verifies to an unknown root):
- *
- * -- find the root cert
- * -- add it to newRootCertKc if present (else error)
- * -- add it to trustedCerts
- * -- re-verify certgroup, demand full success
+ * Release each element in a CFArray.
  */
-static OSStatus sslHandleNewRoot(
-	SSLContext				*ctx,
-	CSSM_CERTGROUP_PTR		certGroup)
+static void sslReleaseArray(
+	CFArrayRef a)
 {
-	int 			i;
-	CSSM_DATA_PTR	rootCert;
-	CSSM_BOOL		expired;
-	OSStatus			serr;
-	CSSM_BOOL		brtn;
-	
-	assert(ctx != NULL);
-	assert(certGroup != NULL);
-	
-	if(ctx->newRootCertKc == NULL) {
-		/* no place to add this; done */
-		return errSSLUnknownRootCert;
+	CFIndex num = CFArrayGetCount(a);
+	for(CFIndex dex=0; dex<num; dex++) {
+		CFTypeRef elmt = (CFTypeRef)CFArrayGetValueAtIndex(a, dex);
+		secdebug("sslcert", "Freeing cert %p", elmt);
+		CFRelease(elmt);
 	}
-	
-	/*
-	 * The root cert "should" be at the end of the chain, but 
-	 * let's not assume that. (We are assuming that there is 
-	 * only one root in the cert group...)
-	 */
-	for(i=0; i<certGroup->NumCerts; i++) {
-		rootCert = &certGroup->CertList[i];
-		if(sslVerifyCert(ctx, rootCert, rootCert, ctx->cspHand, &expired)) {
-			break;
-		}
-	}
-	if(i == certGroup->NumCerts) {
-		/* Huh! no root cert!? We should not have been called! */
-		sslErrorLog("sslHandleNewRoot: no root cert!\n");
-		return errSSLInternal;
-	}
-	
-	/*
-	 * Add to newRootCertKc. This may well fail due to user interaction.	
-	 */
-	serr = sslAddNewRoot(ctx, rootCert);
-	if(serr) {
-		return serr;
-	}
-	
-	/*
-	 * Just to be sure...reverify the whole cert chain. 
-	 */
-	brtn = CSSM_TP_CertGroupVerify(
-		ctx->tpHand,
-		ctx->clHand,
-		ctx->cspHand,
-		NULL,					// DBList
-		NULL, 					// PolicyIdentifiers
-		0,						// NumberofPolicyIdentifiers
-		CSSM_TP_STOP_ON_POLICY, 
-		certGroup,
-		ctx->trustedCerts,		// AnchorCerts
-		ctx->numTrustedCerts, 
-		NULL,					// VerifyScope
-		0,						// ScopeSize
-		0,						// Action
-		0,						// Data
-		NULL,					// evidence
-		NULL);					// evidenceSize
-	if(brtn == CSSM_FALSE) {
-		sslErrorLog("sslHandleNewRoot: adding new root did not help!\n");
-		return errSSLUnknownRootCert;
-	}
-	return noErr;
 }
-
-#endif	/* ST_MANAGES_TRUSTED_ROOTS */
 
 /*
  * Verify a chain of DER-encoded certs.
  * First cert in a chain is root; this must also be present
  * in ctx->trustedCerts. 
+ *
+ * If arePeerCerts is true, host name verification is enabled and we
+ * save the resulting SecTrustRef in ctx->peerSecTrust. Otherwise
+ * we're just validating our own certs; no host name checking and 
+ * peerSecTrust is transient.
  */
-OSStatus sslVerifyCertChain(
+ OSStatus sslVerifyCertChain(
 	SSLContext				*ctx,
 	const SSLCertificate	&certChain,
-	bool					verifyHostName /* = true */) 
+	bool					arePeerCerts /* = true */) 
 {
 	UInt32 						numCerts;
-	CSSM_CERTGROUP				certGroup;
 	int 						i;
-	OSStatus						serr;
+	OSStatus					serr;
 	SSLCertificate				*c = (SSLCertificate *)&certChain;
 	CSSM_RETURN					crtn;
-	CSSM_TP_VERIFY_CONTEXT		vfyCtx;
-	CSSM_TP_CALLERAUTH_CONTEXT	authCtx;
-	CSSM_FIELD					policyId;
-	CSSM_DL_DB_LIST				dbList;
 	CSSM_APPLE_TP_SSL_OPTIONS	sslOpts;
-	CSSM_APPLE_TP_ACTION_DATA	actionData;
+	CSSM_APPLE_TP_ACTION_DATA	tpActionData;
+	SecPolicyRef				policy = NULL;
+	SecPolicySearchRef			policySearch = NULL;
+	CFDataRef					actionData = NULL;
+	CSSM_DATA					sslOptsData;
+	CFMutableArrayRef			anchors = NULL;
+	SecCertificateRef 			cert;			// only lives in CFArrayRefs
+	SecTrustResultType			secTrustResult;
+	CFMutableArrayRef			kcList = NULL;
+	SecTrustRef					theTrust = NULL;
 	
-	if(!ctx->enableCertVerify) {
-		/* trivial case, this is caller's responsibility */
-		return noErr;
+	if(ctx->peerSecTrust && arePeerCerts) {
+		/* renegotiate - start with a new SecTrustRef */
+		CFRelease(ctx->peerSecTrust);
+		ctx->peerSecTrust = NULL;
 	}
+	
 	numCerts = SSLGetCertificateChainLength(&certChain);
 	if(numCerts == 0) {
 		/* nope */
 		return errSSLBadCert;
 	}
-	#if 0
-	serr = attachToAll(ctx);
-	if(serr) {
-		return serr;
-	}
-	#endif
 	
 	/* 
-	 * SSLCertificate chain --> CSSM TP cert group.
+	 * SSLCertificate chain --> CFArrayRef of SecCertificateRefs.
 	 * TP Cert group has root at the end, opposite of 
 	 * SSLCertificate chain. 
 	 */
-	certGroup.GroupList.CertList = 
-		(CSSM_DATA_PTR)sslMalloc(numCerts * sizeof(CSSM_DATA));
-	if(certGroup.GroupList.CertList == NULL) {
+	CFMutableArrayRef certGroup = CFArrayCreateMutable(NULL, numCerts, 
+		&kCFTypeArrayCallBacks);
+	if(certGroup == NULL) {
 		return memFullErr;
 	}
-	certGroup.CertGroupType = CSSM_CERTGROUP_DATA;
-	certGroup.CertType = CSSM_CERT_X_509v3;
-	certGroup.CertEncoding = CSSM_CERT_ENCODING_DER; 
-	certGroup.NumCerts = numCerts;
-	
-	memset(certGroup.GroupList.CertList, 0, numCerts * sizeof(CSSM_DATA));
+	/* subsequent errors to errOut: */
 	
 	for(i=numCerts-1; i>=0; i--) {
-		SSLBUF_TO_CSSM(&c->derCert, &certGroup.GroupList.CertList[i]);
+		CSSM_DATA cdata;
+		SSLBUF_TO_CSSM(&c->derCert, &cdata);
+		serr = SecCertificateCreateFromData(&cdata,	CSSM_CERT_X_509v3,
+			CSSM_CERT_ENCODING_DER, &cert);
+		if(serr) {
+			goto errOut;
+		}
+		/*
+		 * Can't set a value at index i when there is an empty element
+		 * at i=1!
+		 */
+		secdebug("sslcert", "Adding cert %p", cert);
+		CFArrayInsertValueAtIndex(certGroup, 0, cert);
 		c = c->next;
 	}
 	
-	memset(&vfyCtx, 0, sizeof(CSSM_TP_VERIFY_CONTEXT));
-	vfyCtx.Action = CSSM_TP_ACTION_DEFAULT;
-	vfyCtx.Cred = &authCtx;
-	
-	/* CSSM_TP_CALLERAUTH_CONTEXT components */
 	/* 
-		typedef struct cssm_tp_callerauth_context {
-			CSSM_TP_POLICYINFO Policy;
-			CSSM_TIMESTRING VerifyTime;
-			CSSM_TP_STOP_ON VerificationAbortOn;
-			CSSM_TP_VERIFICATION_RESULTS_CALLBACK CallbackWithVerifiedCert;
-			uint32 NumberOfAnchorCerts;
-			CSSM_DATA_PTR AnchorCerts;
-			CSSM_DL_DB_LIST_PTR DBList;
-			CSSM_ACCESS_CREDENTIALS_PTR CallerCredentials;
-		} CSSM_TP_CALLERAUTH_CONTEXT, *CSSM_TP_CALLERAUTH_CONTEXT_PTR;
-	*/
-	
-	/* SSL-specific FieldValue */
+	 * Cook up an SSL-specific SecPolicyRef. This will persists as part
+	 * of the SecTrustRef object we'll be creating.
+	 */
+	serr = SecPolicySearchCreate(CSSM_CERT_X_509v3,
+		&CSSMOID_APPLE_TP_SSL,
+		NULL,
+		&policySearch);
+	if(serr) {
+		sslErrorLog("***sslVerifyCertChain: SecPolicySearchCreate rtn %d\n",
+			(int)serr);
+		goto errOut;
+	}
+	serr = SecPolicySearchCopyNext(policySearch, &policy);
+	if(serr) {
+		sslErrorLog("***sslVerifyCertChain: SecPolicySearchCopyNext rtn %d\n",
+			(int)serr);
+		goto errOut;
+	}
 	sslOpts.Version = CSSM_APPLE_TP_SSL_OPTS_VERSION;
-	if(verifyHostName) {
+	if(arePeerCerts) {
 		sslOpts.ServerNameLen = ctx->peerDomainNameLen;
 		sslOpts.ServerName = ctx->peerDomainName;
 	}
@@ -1173,88 +1095,160 @@ OSStatus sslVerifyCertChain(
 		sslOpts.ServerNameLen = 0;
 		sslOpts.ServerName = NULL;
 	}
+	sslOptsData.Data = (uint8 *)&sslOpts;
+	sslOptsData.Length = sizeof(sslOpts);
+	serr = SecPolicySetValue(policy, &sslOptsData);
+	if(serr) {
+		sslErrorLog("***sslVerifyCertChain: SecPolicySetValue rtn %d\n",
+			(int)serr);
+		goto errOut;
+	}
 	
-	/* TP-wide ActionData */
-	actionData.Version = CSSM_APPLE_TP_ACTION_VERSION;
+	/* now a SecTrustRef */
+	serr = SecTrustCreateWithCertificates(certGroup, policy, &theTrust);
+	if(serr) {
+		sslErrorLog("***sslVerifyCertChain: SecTrustCreateWithCertificates "
+			"rtn %d\n",	(int)serr);
+		goto errOut;
+	}
+	
+	/* anchors - default, or ours? */
 	if(ctx->numTrustedCerts != 0) {
-		/* use our anchors */
-		actionData.ActionFlags = 0;
+		anchors = CFArrayCreateMutable(NULL, ctx->numTrustedCerts, 
+			&kCFTypeArrayCallBacks);
+		if(anchors == NULL) {
+			serr = memFullErr;
+			goto errOut;
+		}
+		for(i=0; i<(int)ctx->numTrustedCerts; i++) {
+			serr = SecCertificateCreateFromData(&ctx->trustedCerts[i],
+				CSSM_CERT_X_509v3, CSSM_CERT_ENCODING_DER, &cert);
+			if(serr) {
+				goto errOut;
+			}
+			secdebug("sslcert", "Adding cert %p", cert);
+			CFArraySetValueAtIndex(anchors, i, cert);
+		}
+		serr = SecTrustSetAnchorCertificates(theTrust, anchors);
+		if(serr) {
+			sslErrorLog("***sslVerifyCertChain: SecTrustSetAnchorCertificates "
+				"rtn %d\n",	(int)serr);
+			goto errOut;
+		}
 	}
-	else {
-		/* secret root-cert-enable */
-		actionData.ActionFlags = 0x80000000;
-	}
+	tpActionData.Version = CSSM_APPLE_TP_ACTION_VERSION;
+	tpActionData.ActionFlags = 0;
 	if(ctx->allowExpiredCerts) {
-		actionData.ActionFlags |= CSSM_TP_ACTION_ALLOW_EXPIRED;
+		tpActionData.ActionFlags |= CSSM_TP_ACTION_ALLOW_EXPIRED;
 	}
 	if(ctx->allowExpiredRoots) {
-		actionData.ActionFlags |= CSSM_TP_ACTION_ALLOW_EXPIRED_ROOT;
+		tpActionData.ActionFlags |= CSSM_TP_ACTION_ALLOW_EXPIRED_ROOT;
 	}
-	vfyCtx.ActionData.Data = (uint8 *)&actionData;
-	vfyCtx.ActionData.Length = sizeof(actionData);
+	actionData = CFDataCreate(NULL, (UInt8 *)&tpActionData, sizeof(tpActionData));
 	
-	/* zero or one policy here */
-	policyId.FieldOid = CSSMOID_APPLE_TP_SSL;
-	policyId.FieldValue.Data = (uint8 *)&sslOpts;
-	policyId.FieldValue.Length = sizeof(sslOpts);
-	authCtx.Policy.NumberOfPolicyIds = 1;
-	authCtx.Policy.PolicyIds = &policyId;
-	
-	authCtx.VerifyTime = NULL;
-	authCtx.VerificationAbortOn = CSSM_TP_STOP_ON_POLICY;
-	authCtx.CallbackWithVerifiedCert = NULL;
-	authCtx.NumberOfAnchorCerts = ctx->numTrustedCerts;
-	authCtx.AnchorCerts = ctx->trustedCerts;	
-	memset(&dbList, 0, sizeof(CSSM_DL_DB_LIST));
-	authCtx.DBList = &dbList;
-	authCtx.CallerCredentials = NULL;
+	serr = SecTrustSetParameters(theTrust, CSSM_TP_ACTION_DEFAULT,
+		actionData);
+	if(serr) {
+		sslErrorLog("***sslVerifyCertChain: SecTrustSetParameters rtn %d\n",
+			(int)serr);
+		goto errOut;
+	}
 
+	#if 0
+	/* Disabled for Radar 3421314 */
 	/*
-	 * Here we go; hand it over to TP. Note trustedCerts are our
-	 * known good Anchor certs; they're already formatted properly. 
-	 * Unlike most other Apple code, we demand full success here, 
-	 * implying that the last cert in the chain is indeed an Anchor
-	 * cert. We already know that all of our anchor certs are
-	 * roots, so on successful return, we'll know the incoming 
-	 * chain has a root, it verifies to that root, and that that
-	 * root is in trustedCerts.  
+	 * Avoid searching user keychains for intermediate certs by specifying
+	 * an empty array of keychains
 	 */
-	crtn = CSSM_TP_CertGroupVerify(ctx->tpHand,
-		ctx->clHand,
-		ctx->cspHand,
-		&certGroup,
-		&vfyCtx,
-		NULL);			// no evidence needed
+	kcList = CFArrayCreateMutable(NULL, 0, NULL);
+	if(kcList == NULL) {
+		sslErrorLog("***sslVerifyCertChain: error creating null kcList\n");
+		serr = memFullErr;
+		goto errOut;
+	}
+	serr = SecTrustSetKeychains(theTrust, kcList);
+	if(serr) {
+		sslErrorLog("***sslVerifyCertChain: SecTrustSetKeychains rtn %d\n",
+			(int)serr);
+		goto errOut;
+	}
+	#endif
+	
+	/* 
+	 * Save this no matter what if we're evaluating peer certs.
+	 * We do a retain here so we can unconditionally release theTrust
+	 * at the end of this routine in case of previous error or 
+	 * !arePeerCerts.
+	 */ 
+	if(arePeerCerts) {
+		ctx->peerSecTrust = theTrust;
+		CFRetain(theTrust);
+	}
 
-	serr = noErr;
+	if(!ctx->enableCertVerify) {
+		/* trivial case, this is caller's responsibility */
+		serr = noErr;
+		goto errOut;
+	}
+	
+	/*
+	 * Here we go; hand it over to SecTrust/TP. 
+	 */
+	serr = SecTrustEvaluate(theTrust, &secTrustResult);
+	if(serr) {
+		sslErrorLog("***sslVerifyCertChain: SecTrustEvaluate rtn %d\n",
+			(int)serr);
+		goto errOut;
+	}
+	switch(secTrustResult) {
+		case kSecTrustResultUnspecified:
+			/* cert chain valid, no special UserTrust assignments */
+		case kSecTrustResultProceed:
+			/* cert chain valid AND user explicitly trusts this */
+			crtn = CSSM_OK;
+			break;
+		case kSecTrustResultDeny:
+		case kSecTrustResultConfirm:
+			/*
+			 * Cert chain may well have verified OK, but user has flagged
+			 * one of these certs as untrustable.
+			 */
+			crtn = CSSMERR_TP_NOT_TRUSTED;
+			break;
+		default:
+		{
+			OSStatus osCrtn;
+			serr = SecTrustGetCssmResultCode(theTrust, &osCrtn);
+			if(serr) {
+				sslErrorLog("***sslVerifyCertChain: SecTrustGetCssmResultCode"
+					" rtn %d\n", (int)serr);
+				goto errOut;
+			}
+			crtn = osCrtn;
+		}
+	}
 	if(crtn) {	
 		/* get some detailed error info */
 		switch(crtn) {
 			case CSSMERR_TP_INVALID_ANCHOR_CERT: 
 				/* root found but we don't trust it */
 				if(ctx->allowAnyRoot) {
+					serr = noErr;
 					sslErrorLog("***Warning: accepting unknown root cert\n");
-					break;
-				}
-				#if		ST_MANAGES_TRUSTED_ROOTS
-				if(ctx->newRootCertKc != NULL) {
-					/* see if user wants to handle new root */
-					serr = sslHandleNewRoot(ctx, &certGroup);
 				}
 				else {
 					serr = errSSLUnknownRootCert;
 				}
-				#else
-				serr = errSSLUnknownRootCert;
-				#endif	/* ST_MANAGES_TRUSTED_ROOTS */
 				break;
 			case CSSMERR_TP_NOT_TRUSTED:
 				/* no root, not even in implicit SSL roots */
 				if(ctx->allowAnyRoot) {
 					sslErrorLog("***Warning: accepting unverified cert chain\n");
-					break;
+					serr = noErr;
 				}
-				serr = errSSLNoRootCert;
+				else {
+					serr = errSSLNoRootCert;
+				}
 				break;
 			case CSSMERR_TP_CERT_EXPIRED:
 				assert(!ctx->allowExpiredCerts);
@@ -1264,75 +1258,45 @@ OSStatus sslVerifyCertChain(
 				serr = errSSLCertNotYetValid;
 				break;
 			default:
-				stPrintCdsaError(
-					"sslVerifyCertChain: CSSM_TP_CertGroupVerify returned", 					crtn);
+				stPrintCdsaError("sslVerifyCertChain: SecTrustEvaluate returned", 
+						crtn);
 				serr = errSSLXCertChainInvalid;
 				break;
 		}
-	} 	/* brtn FALSE */
+	} 	/* SecTrustEvaluate error */
 
+errOut:
 	/* 
-	 * don't free individual certs - caller still owns them
-	 * don't free struct - on stack 
+	 * Free up resources - certGroup, policy, etc. Note that most of these
+	 * will actually persist as long as the current SSLContext does since
+	 * peerSecTrust holds references to these.
 	 */
-	sslFree(certGroup.GroupList.CertList);
+	if(policy) {
+		CFRelease(policy);
+	}
+	if(policySearch) {
+		CFRelease(policySearch);
+	}
+	if(actionData) {
+		CFRelease(actionData);
+	}
+	if(anchors) {	
+		sslReleaseArray(anchors);
+		CFRelease(anchors);
+	}
+	if(certGroup) {	
+		sslReleaseArray(certGroup);
+		CFRelease(certGroup);
+	}
+	if(kcList) {
+		/* empty, no contents to release */
+		CFRelease(kcList);
+	}	
+	if(theTrust) {
+		CFRelease(theTrust);
+	}
 	return serr;
 }
-
-#if		ST_MANAGES_TRUSTED_ROOTS
-
-/*
- * Given a DER-encoded cert, obtain its DER-encoded subject name.
- */
-CSSM_DATA_PTR sslGetCertSubjectName( 
-	SSLContext			*ctx,
-    const CSSM_DATA_PTR cert)
-{
-	uint32 			NumberOfFields = 0;
-	CSSM_HANDLE 	ResultsHandle = 0;
-	CSSM_DATA_PTR 	pEncodedName = NULL;
-	CSSM_RETURN		crtn;
-	
-	/* ensure connection to CL */
-	if(attachToCl(ctx)) {
-		return NULL;
-	}
-	crtn = CSSM_CL_CertGetFirstFieldValue(
-		ctx->clHand,
-		cert,
-	    &CSSMOID_X509V1SubjectName,
-	    &ResultsHandle,
-	    &NumberOfFields, 
-		&pEncodedName);
-	if(crtn) {
-		stPrintCdsaError("CertGetFirstFieldValue", crtn);
-	}
-  	CSSM_CL_CertAbortQuery(ctx->clHand, ResultsHandle);
-	return pEncodedName;
-}
-#endif	/* ST_MANAGES_TRUSTED_ROOTS */
-
-#if		(SSL_DEBUG && ST_MANAGES_TRUSTED_ROOTS)
-void verifyTrustedRoots(SSLContext *ctx,
-	CSSM_DATA_PTR	certs,
-	unsigned		numCerts)
-{	
-	int i;
-	CSSM_DATA_PTR cert;
-	CSSM_BOOL	expired;
-	
-	for(i=0; i<numCerts; i++) {
-		cert = &certs[i];
-		if(!sslVerifyCert(ctx,
-				cert,
-				cert,
-				ctx->cspHand,
-				&expired)) {
-			sslErrorLog("Bad trusted cert!\n");
-		}
-	}
-}
-#endif
 
 #ifndef	NDEBUG
 void stPrintCdsaError(const char *op, CSSM_RETURN crtn)
@@ -1347,4 +1311,227 @@ char *stCssmErrToStr(CSSM_RETURN err)
 }
 #endif
 
+#pragma mark -
+#pragma mark *** Diffie-Hellman support ***
+
+/*
+ * Generate a Diffie-Hellman key pair. Algorithm parameters always
+ * come from the server, so on client side we have the parameters
+ * as two SSLBuffers. On server side we have the pre-encoded block
+ * which comes from ServerDhParams.
+ */
+OSStatus sslDhGenKeyPairClient(
+	SSLContext		*ctx,
+	const SSLBuffer	&prime,
+	const SSLBuffer	&generator,
+	CSSM_KEY_PTR	publicKey,		// RETURNED
+	CSSM_KEY_PTR	privateKey)		// RETURNED
+{
+	assert((prime.data != NULL) && (generator.data != NULL));
+	if(prime.data && !generator.data) {
+		return errSSLProtocol;
+	}
+	if(!prime.data && generator.data) {
+		return errSSLProtocol;
+	}
+	
+	SSLBuffer sParam;
+	OSStatus ortn = sslEncodeDhParams(&prime, &generator, &sParam);
+	if(ortn) {
+		sslErrorLog("***sslDhGenerateKeyPairClient: DH param error\n");
+		return ortn;
+	}
+	ortn = sslDhGenerateKeyPair(ctx, sParam, prime.length * 8, publicKey, privateKey);
+	SSLFreeBuffer(sParam, ctx);
+	return ortn;
+}
+
+OSStatus sslDhGenerateKeyPair(
+	SSLContext		*ctx,
+	const SSLBuffer	&paramBlob,
+	UInt32			keySizeInBits,
+	CSSM_KEY_PTR	publicKey,		// RETURNED
+	CSSM_KEY_PTR	privateKey)		// RETURNED
+{
+	CSSM_RETURN		crtn;
+	CSSM_CC_HANDLE 	ccHandle;
+	CSSM_DATA		labelData = {8, (uint8 *)"tempKey"};
+	OSStatus		ortn = noErr;
+	CSSM_DATA		cParamBlob;
+
+	assert(ctx != NULL);
+	assert(ctx->cspHand != 0);
+	
+	memset(publicKey, 0, sizeof(CSSM_KEY));
+	memset(privateKey, 0, sizeof(CSSM_KEY));
+	SSLBUF_TO_CSSM(&paramBlob, &cParamBlob);
+	
+	crtn = CSSM_CSP_CreateKeyGenContext(ctx->cspHand,
+		CSSM_ALGID_DH,
+		keySizeInBits,
+		NULL,					// Seed
+		NULL,					// Salt
+		NULL,					// StartDate
+		NULL,					// EndDate
+		&cParamBlob,
+		&ccHandle);
+	if(crtn) {
+		stPrintCdsaError("DH CSSM_CSP_CreateKeyGenContext", crtn);
+		return errSSLCrypto;
+	}
+	
+	crtn = CSSM_GenerateKeyPair(ccHandle,
+		CSSM_KEYUSE_DERIVE,		// only legal use of a Diffie-Hellman key 
+		CSSM_KEYATTR_RETURN_DATA | CSSM_KEYATTR_EXTRACTABLE,
+		&labelData,
+		publicKey,
+		/* private key specification */
+		CSSM_KEYUSE_DERIVE,
+		CSSM_KEYATTR_RETURN_REF,
+		&labelData,				// same labels
+		NULL,					// CredAndAclEntry
+		privateKey);
+	if(crtn) {
+		stPrintCdsaError("DH CSSM_GenerateKeyPair", crtn);
+		ortn = errSSLCrypto;
+	}
+	CSSM_DeleteContext(ccHandle);
+	return ortn;
+}
+
+/*
+ * Perform Diffie-Hellman key exchange. 
+ * Valid on entry:
+ *    	ctx->dhPrivate
+ *		ctx->dhPeerPublic
+ *
+ * This generates deriveSizeInBits of key-exchanged data. 
+ */
+ 
+/* the alg isn't important; we just want to be able to cook up lots of bits */
+#define DERIVE_KEY_ALG			CSSM_ALGID_RC5
+#define DERIVE_KEY_MAX_BYTES	255
+
+OSStatus sslDhKeyExchange(
+	SSLContext		*ctx,
+	uint32			deriveSizeInBits,
+	SSLBuffer		*exchanged)
+{
+	CSSM_RETURN 			crtn;
+	CSSM_ACCESS_CREDENTIALS	creds;
+	CSSM_CC_HANDLE			ccHandle;
+	CSSM_DATA				labelData = {8, (uint8 *)"tempKey"};
+	CSSM_KEY				derivedKey;
+	OSStatus				ortn = noErr;
+	
+	assert(ctx != NULL);
+	assert(ctx->cspHand != 0);
+	assert(ctx->dhPrivate != NULL);
+	if(ctx->dhPeerPublic.length == 0) {
+		/* comes from peer, don't panic */
+		sslErrorLog("cdsaDhKeyExchange: null peer public key\n");
+		return errSSLProtocol;
+	}
+	if(deriveSizeInBits > (DERIVE_KEY_MAX_BYTES * 8)) {
+		sslErrorLog("cdsaDhKeyExchange: deriveSizeInBits %u bits\n",
+			(unsigned)deriveSizeInBits);
+		return errSSLProtocol;
+	}
+	
+	memset(&creds, 0, sizeof(CSSM_ACCESS_CREDENTIALS));
+	memset(&derivedKey, 0, sizeof(CSSM_KEY));
+	
+	crtn = CSSM_CSP_CreateDeriveKeyContext(ctx->cspHand,
+		CSSM_ALGID_DH,
+		DERIVE_KEY_ALG,
+		deriveSizeInBits,
+		&creds,
+		ctx->dhPrivate,	// BaseKey
+		0,				// IterationCount
+		0,				// Salt
+		0,				// Seed
+		&ccHandle);
+	if(crtn) {
+		stPrintCdsaError("DH CSSM_CSP_CreateDeriveKeyContext", crtn);
+		return errSSLCrypto;
+	}
+	
+	/* public key passed in as CSSM_DATA *Param */
+	CSSM_DATA theirPubKeyData;
+	SSLBUF_TO_CSSM(&ctx->dhPeerPublic, &theirPubKeyData);
+	
+	crtn = CSSM_DeriveKey(ccHandle,
+		&theirPubKeyData,
+		CSSM_KEYUSE_ANY, 
+		CSSM_KEYATTR_RETURN_DATA | CSSM_KEYATTR_EXTRACTABLE,
+		&labelData,
+		NULL,				// cread/acl
+		&derivedKey);
+	if(crtn) {
+		stPrintCdsaError("DH CSSM_DeriveKey", crtn);
+		ortn = errSSLCrypto;
+	}
+	else {
+		CSSM_TO_SSLBUF(&derivedKey.KeyData, exchanged);
+	}
+	CSSM_DeleteContext(ccHandle);
+	return ortn;
+}
+
+/*
+ * After ciphersuite negotiation is complete, verify that we have
+ * the capability of actually performing the negotiated cipher.
+ * Currently we just verify that we have a cert and private signing 
+ * key, if needed, and that the signing key's algorithm matches the
+ * expected key exchange method.
+ * This is currnetly only called from FindCipherSpec(), after
+ * it sets ctx->selectedCipherSpec to a (supposedly) valid value.
+ */
+OSStatus sslVerifyNegotiatedCipher(
+	SSLContext *ctx)
+{
+	if(ctx->protocolSide == SSL_ClientSide) {
+		return noErr;
+	}
+	CSSM_ALGORITHMS requireAlg = CSSM_ALGID_NONE;
+	
+    switch (ctx->selectedCipherSpec->keyExchangeMethod) {
+		case SSL_RSA:
+        case SSL_RSA_EXPORT:
+		case SSL_DH_RSA:
+		case SSL_DH_RSA_EXPORT:
+		case SSL_DHE_RSA:
+		case SSL_DHE_RSA_EXPORT:
+			requireAlg = CSSM_ALGID_RSA;
+			break;
+ 		case SSL_DHE_DSS:
+		case SSL_DHE_DSS_EXPORT:
+ 		case SSL_DH_DSS:
+		case SSL_DH_DSS_EXPORT:
+			requireAlg = CSSM_ALGID_DSA;
+			break;
+		case SSL_DH_anon:
+		case SSL_DH_anon_EXPORT:
+			/* CSSM_ALGID_NONE, no signing key */
+			break;
+		default:
+			/* needs update per cipherSpecs.cpp */
+			assert(0);
+			return errSSLInternal;
+    }
+	if(requireAlg == CSSM_ALGID_NONE) {
+		return noErr;
+	}
+	
+	/* private signing key required */
+	if(ctx->signingPrivKey == NULL) {
+		sslErrorLog("sslVerifyNegotiatedCipher: no signing key\n");
+		return errSSLBadConfiguration;
+	}
+	if(ctx->signingPrivKey->KeyHeader.AlgorithmId != requireAlg) {
+		sslErrorLog("sslVerifyNegotiatedCipher: signing key alg mismatch\n");
+		return errSSLBadConfiguration;
+	}
+	return noErr;
+}
 

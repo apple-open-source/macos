@@ -1,0 +1,93 @@
+<!--                                                               -->
+<!-- DTD for externalizing the definition of the                   -->
+<!-- JMX management interfaces.                                    -->
+<!--                                                               -->
+<!-- Author: Juha Lindfors                                         -->
+<!--                                                               -->
+
+<!-- 
+  The <mbean> element is the root element of the document containing the
+  required elements for describing the management interface of one
+  MBean (constructors, attributes, operations and notifications). It
+  also includes an optional description element that can be used to
+  describe the purpose of the MBean and attributes for persistence
+  policy and attribute caching.
+-->  
+<!ELEMENT mbean (description?, constructor*, attribute*, operation*,
+         notification*)>
+<!ATTLIST mbean persistPolicy     
+               (Never | OnUpdate | NoMoreOftenThan | OnTimer) "Never"
+                persistPeriod     NMTOKEN #IMPLIED
+                persistLocation   CDATA   #IMPLIED
+                persistName       CDATA   #IMPLIED
+                currencyTimeLimit NMTOKEN #IMPLIED>
+                
+<!--
+  The constructor element describes the constructors of an MBean
+  that are exposed to the management application. The optional
+  description element can be used to to describe the use of the
+  constructor.  
+-->
+<!ELEMENT constructor (description?, name, parameter*)>
+
+<!-- 
+  The <attribute> element describes the management attributes of an
+  MBean. The <name> element contains the attribute's name and the <type>
+  element contains a fully qualified class name of the attribute's
+  type.
+  
+  The optional <access> element defines the access type (read-only,
+  write-only, read-write) of this attribute. Valid values are:
+        <access>read-only</access>
+        <access>write-only</access>
+        <access>read-write</access>
+  
+  If <access> element is not specified, read-write access is assumed. 
+-->
+<!ELEMENT attribute (description?, name, type, access?)>
+<!ATTLIST attribute persistPolicy     CDATA #IMPLIED
+                    getMethod         CDATA #IMPLIED
+                    setMethod         CDATA #IMPLIED     
+                    persistPeriod     NMTOKEN #IMPLIED
+                    currencyTimeLimit NMTOKEN #IMPLIED >
+                    
+<!-- 
+  The <operation> element describes a management operation of an MBean.
+  The <name> element contains the operation's name and the <parameter>
+  elements describe the operation's signature. The <return-type> element
+  must contain a fully qualified class name of the return type from
+  this operation.
+  
+  If <return-type> is not specified, void is assumed.
+  
+  The impact element describes the operation's impact on the MBean's
+  state when invoked. The valid values are:
+      <impact>ACTION</impact>
+      <impact>INFO</impact>
+      <impact>ACTION_INFO</impact>
+  
+  If <impact> is not specified, ACTION_INFO is assumed.
+-->
+<!ELEMENT operation (description?, name, parameter*, return-type?,
+         impact?)>
+
+<!--
+  The <notification> element describes a management notification. The <name>
+  element contains the fully qualified name of the notification class and
+  the <notification-type> element contains the dot-separated notification
+  type string.
+-->
+<!ELEMENT notification (description?, name, notification-type+)>
+
+<!ELEMENT parameter (description?, name, type)>
+
+<!ELEMENT name               (#PCDATA)>
+<!ELEMENT description        (#PCDATA)>
+<!ELEMENT type               (#PCDATA)>
+<!ELEMENT access             (#PCDATA)>
+<!ELEMENT impact             (#PCDATA)>
+<!ELEMENT return-type        (#PCDATA)>
+<!ELEMENT notification-type  (#PCDATA)>
+
+
+

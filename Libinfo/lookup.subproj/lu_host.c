@@ -3,21 +3,22 @@
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
- * Portions Copyright (c) 1999 Apple Computer, Inc.  All Rights
- * Reserved.  This file contains Original Code and/or Modifications of
- * Original Code as defined in and that are subject to the Apple Public
- * Source License Version 1.1 (the "License").  You may not use this file
- * except in compliance with the License.  Please obtain a copy of the
- * License at http://www.apple.com/publicsource and read it before using
- * this file.
+ * Copyright (c) 1999-2003 Apple Computer, Inc.  All Rights Reserved.
+ * 
+ * This file contains Original Code and/or Modifications of Original Code
+ * as defined in and that are subject to the Apple Public Source License
+ * Version 2.0 (the 'License'). You may not use this file except in
+ * compliance with the License. Please obtain a copy of the License at
+ * http://www.opensource.apple.com/apsl/ and read it before using this
+ * file.
  * 
  * The Original Code and all software distributed under the License are
- * distributed on an "AS IS" basis, WITHOUT WARRANTY OF ANY KIND, EITHER
+ * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
  * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
  * INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY,
- * FITNESS FOR A PARTICULAR PURPOSE OR NON- INFRINGEMENT.  Please see the
- * License for the specific language governing rights and limitations
- * under the License.
+ * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
+ * Please see the License for the specific language governing rights and
+ * limitations under the License.
  * 
  * @APPLE_LICENSE_HEADER_END@
  */
@@ -40,6 +41,25 @@
 #include "lookup.h"
 #include "lu_host.h"
 #include "lu_utils.h"
+
+#define HOST_CACHE_SIZE 10
+#define DEFAULT_HOST_CACHE_TTL 10
+
+#define CACHE_BYNAME 0
+#define CACHE_BYADDR 1
+
+static pthread_mutex_t _host_cache_lock = PTHREAD_MUTEX_INITIALIZER;
+static unsigned int _host_cache_ttl = DEFAULT_HOST_CACHE_TTL;
+
+static void *_host_byname_cache[HOST_CACHE_SIZE] = { NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL };
+static int _host_byname_cache_flavor[HOST_CACHE_SIZE] = { WANT_NOTHING, WANT_NOTHING, WANT_NOTHING, WANT_NOTHING, WANT_NOTHING, WANT_NOTHING, WANT_NOTHING, WANT_NOTHING, WANT_NOTHING, WANT_NOTHING };
+static unsigned int _host_byname_cache_best_before[HOST_CACHE_SIZE] = { 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 };
+static unsigned int _host_byname_cache_index = 0;
+
+static void *_host_byaddr_cache[HOST_CACHE_SIZE] = { NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL };
+static int _host_byaddr_cache_flavor[HOST_CACHE_SIZE] = { WANT_NOTHING, WANT_NOTHING, WANT_NOTHING, WANT_NOTHING, WANT_NOTHING, WANT_NOTHING, WANT_NOTHING, WANT_NOTHING, WANT_NOTHING, WANT_NOTHING };
+static unsigned int _host_byaddr_cache_best_before[HOST_CACHE_SIZE] = { 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 };
+static unsigned int _host_byaddr_cache_index = 0;
 
 static pthread_mutex_t _host_lock = PTHREAD_MUTEX_INITIALIZER;
 
@@ -264,9 +284,15 @@ extract_host(XDR *xdr, int want, int *err)
 		free(mapvals);
 	}
 
+	if (h->h_addr_list == NULL) 
+	{
+		freehostent(h);
+		*err = NO_DATA;
+		return NULL;
+	}
+
 	if (h->h_name == NULL) h->h_name = strdup("");
 	if (h->h_aliases == NULL) h->h_aliases = (char **)calloc(1, sizeof(char *));
-	if (h->h_addr_list == NULL) h->h_addr_list = (char **)calloc(1, sizeof(char *));
 
 	return h;
 }
@@ -398,6 +424,185 @@ fake_hostent6(const char *name, struct in6_addr addr)
 	return h;
 }
 
+__private_extern__ unsigned int
+get_host_cache_ttl()
+{
+	return _host_cache_ttl;
+}
+
+__private_extern__ void
+set_host_cache_ttl(unsigned int ttl)
+{
+	int i;
+
+	pthread_mutex_lock(&_host_cache_lock);
+
+	_host_cache_ttl = ttl;
+
+	if (ttl == 0)
+	{
+		for (i = 0; i < HOST_CACHE_SIZE; i++)
+		{
+			if (_host_byname_cache[i] == NULL) continue;
+
+			freehostent((struct hostent *)_host_byname_cache[i]);
+			_host_byname_cache[i] = NULL;
+			_host_byname_cache_flavor[i] = WANT_NOTHING;
+			_host_byname_cache_best_before[i] = 0;
+		}
+
+		for (i = 0; i < HOST_CACHE_SIZE; i++)
+		{
+			if (_host_byaddr_cache[i] == NULL) continue;
+
+			freehostent((struct hostent *)_host_byaddr_cache[i]);
+			_host_byaddr_cache[i] = NULL;
+			_host_byaddr_cache_flavor[i] = WANT_NOTHING;
+			_host_byaddr_cache_best_before[i] = 0;
+		}
+	}
+
+	pthread_mutex_unlock(&_host_cache_lock);
+}
+
+static void
+cache_host(struct hostent *h, int want, int how)
+{
+	struct timeval now;
+	struct hostent *hcache;
+
+	if (_host_cache_ttl == 0) return;
+	if (h == NULL) return;
+
+	pthread_mutex_lock(&_host_cache_lock);
+
+	hcache = copy_host(h);
+
+	gettimeofday(&now, NULL);
+
+	if (how == CACHE_BYNAME)
+	{
+		if (_host_byname_cache[_host_byname_cache_index] != NULL)
+			freehostent((struct hostent *)_host_byname_cache[_host_byname_cache_index]);
+
+		_host_byname_cache[_host_byname_cache_index] = hcache;
+		_host_byname_cache_flavor[_host_byname_cache_index] = want;
+		_host_byname_cache_best_before[_host_byname_cache_index] = now.tv_sec + _host_cache_ttl;
+		_host_byname_cache_index = (_host_byname_cache_index + 1) % HOST_CACHE_SIZE;
+	}
+	else
+	{
+		if (_host_byaddr_cache[_host_byaddr_cache_index] != NULL)
+			freehostent((struct hostent *)_host_byaddr_cache[_host_byaddr_cache_index]);
+
+		_host_byaddr_cache[_host_byaddr_cache_index] = hcache;
+		_host_byaddr_cache_flavor[_host_byaddr_cache_index] = want;
+		_host_byaddr_cache_best_before[_host_byaddr_cache_index] = now.tv_sec + _host_cache_ttl;
+		_host_byaddr_cache_index = (_host_byaddr_cache_index + 1) % HOST_CACHE_SIZE;
+	}
+
+	pthread_mutex_unlock(&_host_cache_lock);
+}
+
+static struct hostent *
+cache_gethostbyname(const char *name, int want)
+{
+	int i;
+	struct hostent *h, *res;
+	char **aliases;
+	struct timeval now;
+
+	if (_host_cache_ttl == 0) return NULL;
+	if (name == NULL) return NULL;
+
+	pthread_mutex_lock(&_host_cache_lock);
+
+	gettimeofday(&now, NULL);
+
+	for (i = 0; i < HOST_CACHE_SIZE; i++)
+	{
+		if (_host_byname_cache_best_before[i] == 0) continue;
+		if ((unsigned int)now.tv_sec > _host_byname_cache_best_before[i]) continue;
+
+		if (_host_byname_cache_flavor[i] != want) continue;
+
+		h = (struct hostent *)_host_byname_cache[i];
+
+		if (h->h_name != NULL) 
+		{
+			if (!strcmp(name, h->h_name))
+			{
+				res = copy_host(h);
+				pthread_mutex_unlock(&_host_cache_lock);
+				return res;
+			}
+		}
+
+		aliases = h->h_aliases;
+		if (aliases == NULL)
+		{
+			pthread_mutex_unlock(&_host_cache_lock);
+			return NULL;
+		}
+
+		for (; *aliases != NULL; *aliases++)
+		{
+			if (!strcmp(name, *aliases))
+			{
+				res = copy_host(h);
+				pthread_mutex_unlock(&_host_cache_lock);
+				return res;
+			}
+		}
+	}
+
+	pthread_mutex_unlock(&_host_cache_lock);
+	return NULL;
+}
+
+static struct hostent *
+cache_gethostbyaddr(const char *addr, int want)
+{
+	int i, j, len;
+	struct hostent *h, *res;
+	struct timeval now;
+
+	if (addr == NULL) return NULL;
+	if (_host_cache_ttl == 0) return NULL;
+
+	pthread_mutex_lock(&_host_cache_lock);
+
+	gettimeofday(&now, NULL);
+
+	len = IPV4_ADDR_LEN;
+	if (want > WANT_A4_ONLY) len = IPV6_ADDR_LEN;
+
+	for (i = 0; i < HOST_CACHE_SIZE; i++)
+	{
+		if (_host_byaddr_cache_best_before[i] == 0) continue;
+		if ((unsigned int)now.tv_sec > _host_byaddr_cache_best_before[i]) continue;
+
+		if (_host_byaddr_cache_flavor[i] != want) continue;
+
+		h = (struct hostent *)_host_byaddr_cache[i];
+
+		if (h->h_addr_list == NULL) continue;
+
+		for (j = 0; h->h_addr_list[j] != NULL; j++)
+		{
+			if (memcmp(addr, h->h_addr_list[j], len) == 0)
+			{
+				res = copy_host(h);
+				pthread_mutex_unlock(&_host_cache_lock);
+				return res;
+			}
+		}
+	}
+
+	pthread_mutex_unlock(&_host_cache_lock);
+	return NULL;
+}
+
 static struct hostent *
 lu_gethostbyaddr(const char *addr, int want, int *err)
 {
@@ -413,7 +618,7 @@ lu_gethostbyaddr(const char *addr, int want, int *err)
 
 	family = AF_INET;
 	len = IPV4_ADDR_LEN;
-	if (want > WANT_A4_ONLY)
+	if ((want == WANT_A6_ONLY) || (want == WANT_A6_PLUS_MAPPED_A4))
 	{
 		family = AF_INET6;
 		len = IPV6_ADDR_LEN;
@@ -675,14 +880,29 @@ static struct hostent *
 gethostbyaddrerrno(const char *addr, int len, int type, int *err)
 {
 	struct hostent *res = NULL;
-	int want;
+	int want, from_cache;
 
 	*err = 0;
 
 	want = WANT_A4_ONLY;
 	if (type == AF_INET6) want = WANT_A6_ONLY;
 
-	if (_lu_running())
+	if ((type == AF_INET6) && (len == 16) && (is_a4_mapped((const char *)addr) || is_a4_compat((const char *)addr)))
+	{
+		addr += 12;
+		len = 4;
+		type = AF_INET;
+		want = WANT_MAPPED_A4_ONLY;
+	}
+
+	from_cache = 0;
+	res = cache_gethostbyaddr(addr, want);
+
+	if (res != NULL)
+	{
+		from_cache = 1;
+	}
+	else if (_lu_running())
 	{
 		res = lu_gethostbyaddr(addr, want, err);
 	}
@@ -694,6 +914,8 @@ gethostbyaddrerrno(const char *addr, int len, int type, int *err)
 		*err = h_errno;
 		pthread_mutex_unlock(&_host_lock);
 	}
+
+	if (from_cache == 0) cache_host(res, want, CACHE_BYADDR);
 
 	return res;
 }
@@ -726,7 +948,7 @@ gethostbynameerrno(const char *name, int *err)
 {
 	struct hostent *res = NULL;
 	struct in_addr addr;
-	int i, is_addr;
+	int i, is_addr, from_cache;
 
 	*err = 0;
 
@@ -760,6 +982,9 @@ gethostbynameerrno(const char *name, int *err)
 
 	if ((is_addr == 1) && (name[i-1] == '.')) is_addr = 0;
 
+	res = NULL;
+	from_cache = 0;
+
 	if (is_addr == 1)
 	{
 		if (inet_aton(name, &addr) == 0)
@@ -768,6 +993,16 @@ gethostbynameerrno(const char *name, int *err)
 			return NULL;
 		}
 		res = fake_hostent(name, addr);
+	}
+
+	if (res == NULL) 
+	{
+		res = cache_gethostbyname(name, WANT_A4_ONLY);
+	}
+
+	if (res != NULL)
+	{
+		from_cache = 1;
 	}
 	else if (_lu_running())
 	{
@@ -791,10 +1026,13 @@ gethostbynameerrno(const char *name, int *err)
 		}
 
 		res = gethostbyaddrerrno((char *)&addr, sizeof(addr), AF_INET, err);
-		if (res == NULL) {
+		if (res == NULL)
+		{
 			res = fake_hostent(name, addr);
 		}
 	}
+
+	if (from_cache == 0) cache_host(res, WANT_A4_ONLY, CACHE_BYNAME);
 
 	return res;
 }
@@ -808,6 +1046,31 @@ gethostbyname(const char *name)
 	res = gethostbynameerrno(name, &h_errno);
 	if (res == NULL)
 	{
+		return NULL;
+	}
+
+	tdata = _lu_data_create_key(_lu_data_key_host, free_lu_thread_info_host);
+	if (tdata == NULL)
+	{
+		tdata = (struct lu_thread_info *)calloc(1, sizeof(struct lu_thread_info));
+		_lu_data_set_key(_lu_data_key_host, tdata);
+	}
+
+	recycle_host(tdata, res);
+	return (struct hostent *)tdata->lu_entry;
+}
+
+struct hostent *
+gethostbyname2(const char *name, int af)
+{
+	struct hostent *res;
+	struct lu_thread_info *tdata;
+
+	res = getipnodebyname(name, af, 0, &h_errno);
+	if (res == NULL)
+	{
+		errno = EAFNOSUPPORT;
+		h_errno = NETDB_INTERNAL;
 		return NULL;
 	}
 
@@ -924,19 +1187,14 @@ getipnodebyaddr(const void *src, size_t len, int af, int *err)
 
 	*err = 0;
 
-	if ((af == AF_INET6) && (len == 16) && (is_a4_mapped((const char *)src) || is_a4_compat((const char *)src)))
-	{
-		src += 12;
-		len = 4;
-		af = AF_INET;
-	}
-
 	res = gethostbyaddrerrno((const char *)src, len, af, err);
-	if (res == NULL) {
+	if (res == NULL)
+	{
 		return NULL;
 	}
 
-	if (res->h_name == NULL) {
+	if (res->h_name == NULL)
+	{
 		freehostent(res);
 		return NULL;
 	}
@@ -947,7 +1205,7 @@ getipnodebyaddr(const void *src, size_t len, int af, int *err)
 struct hostent *
 getipnodebyname(const char *name, int af, int flags, int *err)
 {
-	int status, want, really_want, if4, if6;
+	int status, want, really_want, if4, if6, from_cache;
 	struct hostent *res;
 	struct ifaddrs *ifa, *ifap;
 	struct in_addr addr4;
@@ -1079,9 +1337,14 @@ getipnodebyname(const char *name, int af, int flags, int *err)
 		}
 	}
 
-	res = NULL;
+	from_cache = 0;
+	res = cache_gethostbyname(name, want);
 
-	if (_lu_running())
+	if (res != NULL)
+	{
+		from_cache = 1;
+	}
+	else if (_lu_running())
 	{
 		res = lu_gethostbyname(name, want, err);
 		if ((res == NULL) && 
@@ -1105,6 +1368,8 @@ getipnodebyname(const char *name, int af, int flags, int *err)
 		*err = HOST_NOT_FOUND;
 		return NULL;
 	}
+
+	if (from_cache == 0) cache_host(res, want, CACHE_BYNAME);
 
 	return res;
 }

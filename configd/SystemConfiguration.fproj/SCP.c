@@ -1,22 +1,25 @@
 /*
- * Copyright(c) 2000 Apple Computer, Inc. All rights reserved.
+ * Copyright(c) 2000-2003 Apple Computer, Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
- *
- * The contents of this file constitute Original Code as defined in and
- * are subject to the Apple Public Source License Version 1.1(the
- * "License").  You may not use this file except in compliance with the
- * License.  Please obtain a copy of the License at
- * http://www.apple.com/publicsource and read it before using this file.
- *
- * This Original Code and all software distributed under the License are
- * distributed on an "AS IS" basis, WITHOUT WARRANTY OF ANY KIND, EITHER
+ * 
+ * Copyright (c) 1999-2003 Apple Computer, Inc.  All Rights Reserved.
+ * 
+ * This file contains Original Code and/or Modifications of Original Code
+ * as defined in and that are subject to the Apple Public Source License
+ * Version 2.0 (the 'License'). You may not use this file except in
+ * compliance with the License. Please obtain a copy of the License at
+ * http://www.opensource.apple.com/apsl/ and read it before using this
+ * file.
+ * 
+ * The Original Code and all software distributed under the License are
+ * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
  * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
  * INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY,
- * FITNESS FOR A PARTICULAR PURPOSE OR NON-INFRINGEMENT.  Please see the
- * License for the specific language governing rights and limitations
- * under the License.
- *
+ * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
+ * Please see the License for the specific language governing rights and
+ * limitations under the License.
+ * 
  * @APPLE_LICENSE_HEADER_END@
  */
 
@@ -61,10 +64,10 @@ __private_extern__ char *
 __SCPreferencesPath(CFAllocatorRef	allocator,
 		    CFStringRef		prefsID,
 		    Boolean		perUser,
-		    CFStringRef		user)
+		    CFStringRef		user,
+		    Boolean		useNewPrefs)
 {
 	CFStringRef	path		= NULL;
-	int		pathLen;
 	char		*pathStr;
 
 	if (perUser) {
@@ -73,7 +76,7 @@ __SCPreferencesPath(CFAllocatorRef	allocator,
 			return NULL;
 		} else if (CFStringHasPrefix(prefsID, CFSTR("/"))) {
 			/* if absolute path */
-			path = CFRetain(prefsID);
+			path = CFStringCreateCopy(allocator, prefsID);
 		} else {
 			/*
 			 * relative (to the user's preferences) path
@@ -91,25 +94,12 @@ __SCPreferencesPath(CFAllocatorRef	allocator,
 					/* if could not get console user */
 					return NULL;
 				}
-				(void) CFStringGetBytes(u,
-							CFRangeMake(0, CFStringGetLength(u)),
-							kCFStringEncodingMacRoman,
-							0,
-							FALSE,
-							login,
-							MAXLOGNAME,
-							NULL);
+
+				(void)_SC_cfstring_to_cstring(u, login, sizeof(login), kCFStringEncodingASCII);
 				CFRelease(u);
 			} else {
 				/* use specified user */
-				(void) CFStringGetBytes(user,
-							CFRangeMake(0, CFStringGetLength(user)),
-							kCFStringEncodingMacRoman,
-							0,
-							FALSE,
-							login,
-							MAXLOGNAME,
-							NULL);
+				(void)_SC_cfstring_to_cstring(user, login, sizeof(login), kCFStringEncodingASCII);
 			}
 
 			/* get password entry for user */
@@ -133,33 +123,37 @@ __SCPreferencesPath(CFAllocatorRef	allocator,
 			path = CFStringCreateWithFormat(allocator,
 							NULL,
 							CFSTR("%@/%@"),
-							PREFS_DEFAULT_DIR,
-							PREFS_DEFAULT_CONFIG);
+							useNewPrefs ? PREFS_DEFAULT_DIR    : PREFS_DEFAULT_DIR_OLD,
+							useNewPrefs ? PREFS_DEFAULT_CONFIG : PREFS_DEFAULT_CONFIG_OLD);
 		} else if (CFStringHasPrefix(prefsID, CFSTR("/"))) {
 			/* if absolute path */
-			path = CFRetain(prefsID);
+			path = CFStringCreateCopy(allocator, prefsID);
 		} else {
 			/* relative path */
 			path = CFStringCreateWithFormat(allocator,
 							NULL,
 							CFSTR("%@/%@"),
-							PREFS_DEFAULT_DIR,
+							useNewPrefs ? PREFS_DEFAULT_DIR : PREFS_DEFAULT_DIR_OLD,
 							prefsID);
+			if (useNewPrefs && CFStringHasSuffix(path, CFSTR(".xml"))) {
+				CFMutableStringRef	newPath;
+
+				newPath = CFStringCreateMutableCopy(allocator, 0, path);
+				CFStringReplace(newPath,
+						CFRangeMake(CFStringGetLength(newPath)-4, 4),
+						CFSTR(".plist"));
+				CFRelease(path);
+				path = newPath;
+			}
 		}
 	}
 
 	/*
 	 * convert CFStringRef path to C-string path
 	 */
-	pathLen = CFStringGetLength(path) + 1;
-	pathStr = CFAllocatorAllocate(allocator, pathLen, 0);
-	if (!CFStringGetCString(path,
-				pathStr,
-				pathLen,
-				kCFStringEncodingMacRoman)) {
+	pathStr = _SC_cfstring_to_cstring(path, NULL, 0, kCFStringEncodingASCII);
+	if (pathStr == NULL) {
 		SCLog(_sc_verbose, LOG_DEBUG, CFSTR("could not convert path to C string"));
-		CFAllocatorDeallocate(allocator, pathStr);
-		pathStr = NULL;
 	}
 
 	CFRelease(path);
@@ -190,7 +184,7 @@ _SCPNotificationKey(CFAllocatorRef	allocator,
 	char		*pathStr;
 	char		*typeStr;
 
-	pathStr = __SCPreferencesPath(allocator, prefsID, perUser, user);
+	pathStr = __SCPreferencesPath(allocator, prefsID, perUser, user, TRUE);
 	if (pathStr == NULL) {
 		return NULL;
 	}
@@ -217,7 +211,7 @@ _SCPNotificationKey(CFAllocatorRef	allocator,
 				       typeStr,
 				       pathStr);
 
-	CFAllocatorDeallocate(allocator, pathStr);
+	CFAllocatorDeallocate(NULL, pathStr);
 	return key;
 }
 
@@ -225,17 +219,17 @@ _SCPNotificationKey(CFAllocatorRef	allocator,
 CFStringRef
 SCDynamicStoreKeyCreatePreferences(CFAllocatorRef	allocator,
 				   CFStringRef		prefsID,
-				   int			keyType)
+				   SCPreferencesKeyType	keyType)
 {
 	return _SCPNotificationKey(allocator, prefsID, FALSE, NULL, keyType);
 }
 
 
 CFStringRef
-SCDynamicStoreKeyCreateUserPreferences(CFAllocatorRef	allocator,
-				       CFStringRef	prefsID,
-				       CFStringRef	user,
-				       int		keyType)
+SCDynamicStoreKeyCreateUserPreferences(CFAllocatorRef		allocator,
+				       CFStringRef		prefsID,
+				       CFStringRef		user,
+				       SCPreferencesKeyType	keyType)
 {
 	return _SCPNotificationKey(allocator, prefsID, TRUE, user, keyType);
 }

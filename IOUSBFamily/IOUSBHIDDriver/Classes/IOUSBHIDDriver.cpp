@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1998-2002 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 1998-2003 Apple Computer, Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -22,8 +22,9 @@
  * 
  * @APPLE_LICENSE_HEADER_END@
  */
- 
- /*
+
+
+/*
  * This is a basic HID driver to provide support for USB class 3
  * (HID) devices.
  */
@@ -81,7 +82,7 @@ IOUSBHIDDriver::handleStart(IOService * provider)
 
     if( !provider->open(this))
     {
-        USBError(1, "%s[%p]::start - unable to open provider. returning false", getName(), this);
+        USBError(1, "%s[%p]::handleStart - unable to open provider. returning false", getName(), this);
         return (false);
     }
 
@@ -147,8 +148,6 @@ IOUSBHIDDriver::handleStop(IOService * provider)
 void 
 IOUSBHIDDriver::free()
 {
-    USBLog(7, "%s[%p]::free", getName(), this);
-
     super::free();    
 }
 
@@ -181,6 +180,23 @@ IOUSBHIDDriver::getReport(	IOMemoryDescriptor * report,
     IOReturn		ret;
     UInt8		usbReportType;
     IOUSBDevRequestDesc requestPB;
+
+    // The following should really be an errata bit.  We will need to add that later.  For now
+    // hardcode the check.  Some Logitech devices do not respond well to a GET_REPORT, so we need
+    // to return unimplemented for them.
+    //
+    if ( _device->GetVendorID() == 0x046d )
+    {
+        UInt16	prodID = _device->GetProductID();
+
+        if ( (prodID == 0xc202) || (prodID == 0xc207) || (prodID == 0xc208) || 
+        	 (prodID == 0xc209) || (prodID == 0xc20a) || (prodID == 0xc212) || 
+             (prodID == 0xc285) || (prodID == 0xc293) || (prodID == 0xc294) ||
+             (prodID == 0xc295) || (prodID == 0xc283) )
+        {
+            return kIOReturnUnsupported;
+        }
+    }
     
     IncrementOutstandingIO();
 
@@ -809,7 +825,12 @@ IOUSBHIDDriver::start(IOService *provider)
                 SetIdleMillisecs(24);
             }
         }
+
+        // Set the device into Report Protocol
+        //
+        err = SetProtocol( kHIDReportProtocolValue );
         
+        //
         request.type = kUSBInterrupt;
         request.direction = kUSBOut;
         _interruptOutPipe = _interface->FindNextPipe(NULL, &request);
@@ -1298,7 +1319,30 @@ IOUSBHIDDriver::SetIdleMillisecs(UInt16 msecs)
     err = _device->DeviceRequest(&request, 5000, 0);
     if (err != kIOReturnSuccess)
     {
-        USBLog(3, "%s[%p]: IOUSBHIDDriver::SetIdleMillisecs returned error 0x%x",getName(), this, err);
+        USBLog(3, "%s[%p]::SetIdleMillisecs returned error 0x%x",getName(), this, err);
+    }
+
+    return err;
+
+}
+
+IOReturn
+IOUSBHIDDriver::SetProtocol(UInt32 protocol)
+{
+    IOReturn    		err = kIOReturnSuccess;
+    IOUSBDevRequest		request;
+
+    request.bmRequestType = USBmakebmRequestType(kUSBOut, kUSBClass, kUSBInterface);
+    request.bRequest = kHIDRqSetProtocol;  //See USBSpec.h
+    request.wValue = protocol;
+    request.wIndex = _interface->GetInterfaceNumber();
+    request.wLength = 0;
+    request.pData = NULL;
+
+    err = _device->DeviceRequest(&request, 5000, 0);
+    if (err != kIOReturnSuccess)
+    {
+        USBLog(3, "%s[%p]:::SetProtocol returned error 0x%x",getName(), this, err);
     }
 
     return err;

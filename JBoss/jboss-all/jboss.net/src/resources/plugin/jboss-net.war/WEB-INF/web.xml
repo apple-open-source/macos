@@ -1,0 +1,105 @@
+<?xml version="1.0" encoding="ISO-8859-1"?>
+
+<!DOCTYPE web-app PUBLIC "-//Sun Microsystems, Inc.//DTD Web Application 2.2//EN"
+    "http://java.sun.com/j2ee/dtds/web-app_2.2.dtd">
+
+<!-- A web application that installs the basic Axis servlets and their security environment -->
+
+<web-app>
+	<display-name>JBossAxis</display-name>
+
+
+	<!-- This is the servlet used for "normal" calls -->
+
+  <servlet>
+    <servlet-name>JBossAxisServlet</servlet-name>
+    <display-name>JbossAxis Servlet</display-name>
+    <servlet-class>
+        org.jboss.net.axis.server.AxisServiceServlet
+    </servlet-class>
+    <init-param>
+    	<param-name>org.jboss.net.axis.CONFIGURATION_CONTEXT</param-name>
+    	<param-value>jboss.net:service=Axis</param-value>
+	</init-param>    	
+  </servlet>
+
+	<!-- This is the servlet used for dedicated flash 5 calls. Uncomment
+         this and comment the previous configuration.
+	<servlet>
+		<servlet-name>JBossAxisServlet</servlet-name>
+		<display-name>Flash 5 JbossAxis Servlet</display-name>
+		<servlet-class>
+        org.jboss.net.axis.server.FlashAxisServiceServlet
+    </servlet-class>
+    <init-param>
+    	<param-name>org.jboss.net.axis.CONFIGURATION_CONTEXT</param-name>
+    	<param-value>jboss.net:service=Axis</param-value>
+	</init-param>    	
+	</servlet>
+    -->
+
+	<!-- This is the admin servlet  -->
+
+  <servlet>
+    <servlet-name>JBossAxisAdminServlet</servlet-name>
+    <display-name>JbossAxis Administration Servlet</display-name>
+    <servlet-class>
+        org.jboss.net.axis.server.AxisAdminServlet
+    </servlet-class>
+    <init-param>
+    	<param-name>org.jboss.net.axis.CONFIGURATION_CONTEXT</param-name>
+    	<param-value>jboss.net:service=Axis</param-value>
+	</init-param>    	
+  </servlet>
+
+
+	<servlet-mapping>
+		<servlet-name>JBossAxisServlet</servlet-name>
+		<url-pattern>/servlet/AxisServlet</url-pattern>
+	</servlet-mapping>
+	<servlet-mapping>
+		<servlet-name>JBossAxisServlet</servlet-name>
+		<url-pattern>*.jws</url-pattern>
+	</servlet-mapping>
+	<servlet-mapping>
+		<servlet-name>JBossAxisServlet</servlet-name>
+		<url-pattern>/services/*</url-pattern>
+	</servlet-mapping>
+	<servlet-mapping>
+		<servlet-name>JBossAxisAdminServlet</servlet-name>
+		<url-pattern>/servlet/AxisAdminServlet</url-pattern>
+	</servlet-mapping>
+
+
+	<!-- we add a security constraint -->
+	<security-constraint>
+		<!-- for every exposed service -->
+		<web-resource-collection>
+			<web-resource-name>Secured</web-resource-name>
+			<description>Authenticate every call</description>
+			<url-pattern>/services/*</url-pattern>
+			<http-method>HEAD</http-method>
+			<http-method>GET</http-method>
+			<http-method>POST</http-method>
+			<http-method>PUT</http-method>
+			<http-method>DELETE</http-method>
+		</web-resource-collection>
+
+		<!-- we let through every user, authenticated or not. this is to
+        refine by specific service descriptors. Warning: this is currently
+        Jetty-specific, does not authenticate users correctly, and should be changed 
+        to the * role with the advent of Jetty4 or a bugfix in Jetty3 -->
+		<!-- <auth-constraint>
+          <role-name>*</role-name>    
+        </auth-constraint> -->
+		
+		<!-- no user data constraint here, this should be done for the individual services -->
+	</security-constraint>
+	
+	<!-- we do BASIC authentication for now -->
+	<login-config>
+		<auth-method>BASIC</auth-method>
+		<realm-name>Axis basic authentication</realm-name>
+	</login-config>
+	
+</web-app>

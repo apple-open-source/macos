@@ -23,19 +23,16 @@
 #include "DH_keys.h"
 #include "DH_utils.h"
 #include <opensslUtils/opensslUtils.h>
-#include <opensslUtils/openRsaSnacc.h>
+#include <opensslUtils/opensslAsn1.h>
 #include <Security/cssmdata.h>
 #include <AppleCSP/AppleCSPSession.h>
 #include <AppleCSP/AppleCSPUtils.h>
 #include <assert.h>
 #include <Security/debugging.h>
+#include <Security/oidsalg.h>
 #include <AppleCSP/YarrowConnection.h>
-#include <Security/appleoids.h>
-#include <Security/cdsaUtils.h>
-#include <Security/asn-octs.h>
-#include <Security/sm_vdatypes.h>
 
-#define dhKeyDebug(args...)	debug("dhKey", ## args)
+#define dhKeyDebug(args...)	secdebug("dhKey", ## args)
 
 /*
  * FIXME - the CDSA Algorithm Guide claims that the incoming params argument
@@ -51,57 +48,100 @@
  *** Diffie-Hellman-style BinaryKey
  ***/
  
-/* constructor with optional existing RSA key */
+/* constructor with optional existing DSA key */
 DHBinaryKey::DHBinaryKey(DH *dhKey)
 	: mDhKey(dhKey)
 {
-	mPubKey.Data = NULL;
-	mPubKey.Length = 0;
-}
-
-DHBinaryKey::DHBinaryKey(const CSSM_DATA *pubBlob)
-	: mDhKey(NULL)
-{
-	setPubBlob(pubBlob);
 }
 
 DHBinaryKey::~DHBinaryKey()
 {
 	if(mDhKey) {
-		assert(mPubKey.Data == NULL);
 		DH_free(mDhKey);
 		mDhKey = NULL;
-	}
-	if(mPubKey.Data) {
-		assert(mDhKey == NULL);
-		DH_Factory::privAllocator->free(mPubKey.Data);
-		mPubKey.Data = NULL;
-		mPubKey.Length = 0;
 	}
 }
 
 void DHBinaryKey::generateKeyBlob(
 	CssmAllocator 		&allocator,
 	CssmData			&blob,
-	CSSM_KEYBLOB_FORMAT	&format)
+	CSSM_KEYBLOB_FORMAT	&format,
+	AppleCSPSession		&session,
+	const CssmKey		*paramKey,	/* optional, unused here */
+	CSSM_KEYATTR_FLAGS 	&attrFlags)	/* IN/OUT */
 {
+
 	switch(mKeyHeader.KeyClass) {
 		case CSSM_KEYCLASS_PUBLIC_KEY:
 		{
-			/* trivial case, just copy the public blob */
-			assert(mDhKey == NULL);
-			assert(mPubKey.Data != NULL);
-			format = DH_PUB_KEY_FORMAT;
-			copyCssmData(CssmData::overlay(mPubKey), blob, allocator);
+			switch(format) {
+				case CSSM_KEYBLOB_RAW_FORMAT_NONE:
+					// take default
+					format = DH_PUB_KEY_FORMAT;	
+					break;
+				case DH_PUB_KEY_FORMAT:
+				case CSSM_KEYBLOB_RAW_FORMAT_X509:
+					// proceed
+					break;
+				case CSSM_KEYBLOB_RAW_FORMAT_DIGEST:
+					/* use PKCS3 - caller won't care if we change this...right? */
+					format = DH_PUB_KEY_FORMAT;
+					break;
+				default:
+					CssmError::throwMe(CSSMERR_CSP_UNSUPPORTED_KEY_FORMAT);
+			}
+			
+			assert(mDhKey != NULL);
+			CssmAutoData encodedKey(allocator);
+			CSSM_RETURN crtn = DHPublicKeyEncode(mDhKey, format, 
+				encodedKey);
+			if(crtn) {
+				CssmError::throwMe(crtn);
+			}
+			blob = encodedKey.release();
 			break;
 		}
 		case CSSM_KEYCLASS_PRIVATE_KEY:
 		{
+			switch(format) {
+				case CSSM_KEYBLOB_RAW_FORMAT_NONE:
+					// i.e., use default
+					format = DH_PRIV_KEY_FORMAT;
+					break;
+				case DH_PRIV_KEY_FORMAT:
+				case CSSM_KEYBLOB_RAW_FORMAT_PKCS8:
+					// proceed 
+					break;
+
+				case CSSM_KEYBLOB_RAW_FORMAT_DIGEST:
+				{
+					/*
+					 * Use public blob; calculate it if we
+					 * don't already have it. 
+					 */
+					assert(mDhKey != NULL);
+					if(mDhKey->pub_key == NULL) {
+						int irtn = DH_generate_key(mDhKey);
+						if(!irtn) {
+							throwRsaDsa("DH_generate_key");
+						}
+					}
+					assert(mDhKey->pub_key != NULL);
+					setUpData(blob, 
+						BN_num_bytes(mDhKey->pub_key), 
+						*DH_Factory::privAllocator);
+					BN_bn2bin(mDhKey->pub_key, blob);
+					format = DH_PUB_KEY_FORMAT;
+					return;
+				}
+
+				default:
+					CssmError::throwMe(CSSMERR_CSP_UNSUPPORTED_KEY_FORMAT);
+			}
 			assert(mDhKey != NULL);
-			assert(mPubKey.Data == NULL);
-			format = DH_PRIV_KEY_FORMAT;
 			CssmAutoData encodedKey(allocator);
-			CSSM_RETURN crtn = DHPrivateKeyEncode(mDhKey, encodedKey);
+			CSSM_RETURN crtn = DHPrivateKeyEncode(mDhKey, format, 
+				encodedKey);
 			if(crtn) {
 				CssmError::throwMe(crtn);
 			}
@@ -111,25 +151,6 @@ void DHBinaryKey::generateKeyBlob(
 		default:
 			CssmError::throwMe(CSSMERR_CSP_INVALID_KEY_CLASS);
 	}
-}
-
-/* for importing.... */	
-void DHBinaryKey::setPubBlob(const CSSM_DATA *pubBlob)
-{
-	assert(mDhKey == NULL);
-	assert(mPubKey.Data == NULL);
-	setUpData(mPubKey, pubBlob->Length, *DH_Factory::privAllocator);
-	memmove(mPubKey.Data, pubBlob->Data, pubBlob->Length);
-}
-
-/* for creating from a full DH private key... */
-void DHBinaryKey::setPubBlob(DH *privKey)
-{
-	assert(mDhKey == NULL);
-	assert(mPubKey.Data == NULL);
-	setUpData(mPubKey, BN_num_bytes(privKey->pub_key), 
-		*DH_Factory::privAllocator);
-	BN_bn2bin(privKey->pub_key, mPubKey.Data);
 }
 
 /***
@@ -164,31 +185,6 @@ void DHKeyPairGenContext::generate(
 	}
 }
 
-/* 	
- * obtain a 32-bit integer from a BigIntegerStr.
- */
-static uint32 bigIntStrToInt(
-	const BigIntegerStr &bint,
-	CSSM_RETURN toThrow)				// throws this if out of range
-{
-	size_t bytes = bint.Len();
-	if(bytes > 4) {
-		dhKeyDebug("DH integer overflow");
-		if(toThrow) {
-			CssmError::throwMe(toThrow);
-		}
-		else {
-			return 0;
-		}
-	}
-	uint32 rtn = 0;
-	const unsigned char *uo = (const unsigned char *)bint.Octs();
-	for(size_t i=0; i<bytes; i++) {
-		rtn <<= 8;
-		rtn |= uo[i];
-	}
-	return rtn;
-}
 /*
  * This one is specified in, and called from, AppleKeyPairGenContext
  */
@@ -219,50 +215,23 @@ void DHKeyPairGenContext::generate(
 				CSSMERR_CSP_MISSING_ATTR_KEY_LENGTH);
 	CssmData *paramData = context.get<CssmData>(CSSM_ATTRIBUTE_ALG_PARAMS);
 
-	DHParameterBlock algParamBlock;
-	DHParameter *algParams = NULL;
+	NSS_DHParameterBlock algParamBlock;
+	NSS_DHParameter &algParams = algParamBlock.params;
 	uint32 privValueLen = 0;		// only nonzero from externally generated
 									//   params
+	SecNssCoder coder;				// for temp allocs of decoded parameters
 	
 	if(paramData != NULL) {
 		/* this contains the DER encoding of a DHParameterBlock */
-		try {
-			SC_decodeAsnObj(*paramData, algParamBlock);
-		}
-		catch(...) {
-			/*
-			 * CDSA Extension: the CDSA Algorithm Guide says that the D-H
-			 * parameter block is supposed to be wrapped with its accompanying
-			 * OID. However Openssl does not do this; it just exports 
-			 * an encoded DHParameter rather than a DHParameterBlock.
-			 * For compatibility we'll try decoding the parameters as one
-			 * of these. 
-			 */
-			if(algParamBlock.params) {
-				delete algParamBlock.params;
-				algParamBlock.params = NULL;
-			}
-			algParamBlock.params = new DHParameter;
-			try {
-				SC_decodeAsnObj(*paramData, *algParamBlock.params);
-				dhKeyDebug("Trying openssl-style DH param decoding");
-			}
-			catch(...) {
-				dhKeyDebug("openssl-style DH param decoding FAILED");
-				CssmError::throwMe(CSSMERR_CSP_INVALID_ATTR_ALG_PARAMS);
-			}
-		}
-		
-		algParams = algParamBlock.params;
-		if(algParams == NULL) {
-			dhKeyDebug("Bad DH param decoding");
-			CssmError::throwMe(CSSMERR_CSP_INVALID_ATTR_ALG_PARAMS);
+		CSSM_RETURN crtn;
+		crtn = DHParamBlockDecode(*paramData, algParamBlock, coder);
+		if(crtn) {
+			CssmError::throwMe(crtn);
 		}
 
 		/* snag the optional private key length field */
-		if(algParams->privateValueLength) {
-			privValueLen = bigIntStrToInt(*algParams->privateValueLength,
-				CSSMERR_CSP_INVALID_ATTR_ALG_PARAMS);
+		if(algParams.privateValueLength.Data) {
+			privValueLen = cssmDataToInt(algParams.privateValueLength);
 		}
 		
 		/* ensure caller's key size matches the incoming params */
@@ -271,10 +240,10 @@ void DHKeyPairGenContext::generate(
 			paramKeyBytes = (privValueLen + 7) / 8;
 		}
 		else {
-			paramKeyBytes = algParams->prime.Len();
+			paramKeyBytes = algParams.prime.Length;
 			/* trim off possible m.s. byte of zero */
 			const unsigned char *uo = 
-				(const unsigned char *)algParams->prime.Octs();
+				(const unsigned char *)algParams.prime.Data;
 			if(*uo == 0) {
 				paramKeyBytes--;
 			}
@@ -289,9 +258,8 @@ void DHKeyPairGenContext::generate(
 	else {
 		/* no alg params specified; generate them now */
 		dhKeyDebug("DH implicit alg param calculation");
-		algParamBlock.params = new DHParameter;
-		algParams = algParamBlock.params;
-		dhGenParams(keyBits, DH_GENERATOR_DEFAULT, 0, *algParams);
+		memset(&algParamBlock, 0, sizeof(algParamBlock));
+		dhGenParams(keyBits, DH_GENERATOR_DEFAULT, 0, algParams, coder);
 	}
 					
 	/* create key, stuff params into it */
@@ -300,9 +268,10 @@ void DHKeyPairGenContext::generate(
 		CssmError::throwMe(CSSMERR_CSP_MEMORY_ERROR);		
 	}
 	DH *dhKey = rPrivBinKey.mDhKey;
-	dhKey->p = bigIntStrToBn(algParams->prime);
-	dhKey->g = bigIntStrToBn(algParams->base);
+	dhKey->p = cssmDataToBn(algParams.prime);
+	dhKey->g = cssmDataToBn(algParams.base);
 	dhKey->length = privValueLen;
+	cspDhDebug("private DH binary key dhKey %p", dhKey);
 	
 	/* generate the key (both public and private capabilities) */
 	int irtn = DH_generate_key(dhKey);
@@ -310,8 +279,17 @@ void DHKeyPairGenContext::generate(
 		throwRsaDsa("DH_generate_key");
 	}
 	
-	/* public key just a blob */
-	rPubBinKey.setPubBlob(dhKey);
+	/* public key is a subset */
+	rPubBinKey.mDhKey = DH_new();
+	if(rPubBinKey.mDhKey == NULL) {
+		CssmError::throwMe(CSSMERR_CSP_MEMORY_ERROR);		
+	}
+	DH *pubDhKey = rPubBinKey.mDhKey;
+	pubDhKey->pub_key = BN_dup(dhKey->pub_key);
+	/* these params used for X509 style key blobs */
+	pubDhKey->p = BN_dup(dhKey->p);
+	pubDhKey->g = BN_dup(dhKey->g);
+	cspDhDebug("public DH binary key pubDhKey %p", pubDhKey);
 }
 
 
@@ -320,8 +298,15 @@ void DHKeyPairGenContext::generate(
  *** Diffie-Hellman CSPKeyInfoProvider.
  ***/
 DHKeyInfoProvider::DHKeyInfoProvider(
-	const CssmKey &cssmKey) :
-		CSPKeyInfoProvider(cssmKey)
+	const CssmKey 	&cssmKey,
+	AppleCSPSession	&session) :
+		CSPKeyInfoProvider(cssmKey, session)
+{
+}
+
+CSPKeyInfoProvider *DHKeyInfoProvider::provider(
+	const CssmKey 	&cssmKey,
+	AppleCSPSession	&session)
 {
 	switch(cssmKey.algorithm()) {
 		case CSSM_ALGID_DH:
@@ -337,35 +322,31 @@ DHKeyInfoProvider::DHKeyInfoProvider(
 			CssmError::throwMe(CSSMERR_CSP_INVALID_KEY_CLASS);
 	}
 	/* OK, we'll handle this one */
-	return;
+	return new DHKeyInfoProvider(cssmKey, session);
 }
 
 /* Given a raw key, cook up a Binary key */
 void DHKeyInfoProvider::CssmKeyToBinary(
-	BinaryKey **binKey)
+	CssmKey				*paramKey,		// optional, ignored here
+	CSSM_KEYATTR_FLAGS	&attrFlags,		// IN/OUT
+	BinaryKey 			**binKey)
 {
 	*binKey = NULL;
 
 	assert(mKey.blobType() == CSSM_KEYBLOB_RAW);
 	switch(mKey.keyClass()) {
 		case CSSM_KEYCLASS_PUBLIC_KEY:
-		{
-			/* trivial case - no DH * */
-			DHBinaryKey *dhKey = new DHBinaryKey(&mKey.KeyData);
-			*binKey = dhKey;
-			break;
-		}
 		case CSSM_KEYCLASS_PRIVATE_KEY:
-		{
-			/* first cook up an DH key, then drop that into a BinaryKey */
-			DH *dhKey = rawCssmKeyToDh(mKey);
-			DHBinaryKey *dhBinKey = new DHBinaryKey(dhKey);
-			*binKey = dhBinKey;
 			break;
-		}
 		default:
 			CssmError::throwMe(CSSMERR_CSP_INVALID_KEY_CLASS);
 	}
+
+	/* first cook up an DH key, then drop that into a BinaryKey */
+	DH *dhKey = rawCssmKeyToDh(mKey);
+	DHBinaryKey *dhBinKey = new DHBinaryKey(dhKey);
+	*binKey = dhBinKey;
+	cspDhDebug("CssmKeyToBinary dhKey %p", dhKey);
 }
 		
 /* 
@@ -380,25 +361,57 @@ void DHKeyInfoProvider::QueryKeySizeInBits(
 	if(mKey.blobType() != CSSM_KEYBLOB_RAW) {
 		CssmError::throwMe(CSSMERR_CSP_INVALID_KEY_FORMAT);
 	}
-	switch(mKey.keyClass()) {
-		case CSSM_KEYCLASS_PUBLIC_KEY:
-			/* trivial case */
-			numBits = mKey.KeyData.Length * 8;
-			break;
-		case CSSM_KEYCLASS_PRIVATE_KEY:
-		{
-			DH *dhKey = rawCssmKeyToDh(mKey);
-			numBits = DH_size(dhKey) * 8;
-			DH_free(dhKey);
-			break;
-		}
-		default:
-			CssmError::throwMe(CSSMERR_CSP_INVALID_KEY_CLASS);
+	DH *dhKey = rawCssmKeyToDh(mKey);
+	
+	/* DH_size requires the p parameter, which some public keys don't have */
+	if(dhKey->p != NULL) {
+		numBits = DH_size(dhKey) * 8;
 	}
+	else {
+		assert(dhKey->pub_key != NULL);
+		numBits = BN_num_bytes(dhKey->pub_key) * 8;
+	}
+	DH_free(dhKey);
 	keySize.LogicalKeySizeInBits = numBits;
 	keySize.EffectiveKeySizeInBits = numBits;
 }
 
+/* 
+ * Obtain blob suitable for hashing in CSSM_APPLECSP_KEYDIGEST 
+ * passthrough.
+ */
+bool DHKeyInfoProvider::getHashableBlob(
+	CssmAllocator 	&allocator,
+	CssmData		&blob)			// blob to hash goes here
+{
+	/*
+	 * The optimized case, a raw key in the "proper" format already.
+	 */
+	assert(mKey.blobType() == CSSM_KEYBLOB_RAW);
+	bool useAsIs = false;
+	
+	switch(mKey.keyClass()) {
+		case CSSM_KEYCLASS_PUBLIC_KEY:
+			if(mKey.blobFormat() == CSSM_KEYBLOB_RAW_FORMAT_PKCS3) {
+				useAsIs = true;
+			}
+			break;
+		case CSSM_KEYCLASS_PRIVATE_KEY:
+			break;
+		default:
+			/* shouldn't be here */
+			assert(0);
+			CssmError::throwMe(CSSMERR_CSP_INTERNAL_ERROR);
+	}
+	if(useAsIs) {
+		const CssmData &keyBlob = CssmData::overlay(mKey.KeyData);
+		copyCssmData(keyBlob, blob, allocator);
+		return true;
+	}
+	
+	/* caller converts to binary and proceeds */
+	return false;
+}
 
 /*
  * Generate keygen parameters, stash them in a context attr array for later use
@@ -413,13 +426,13 @@ void DHKeyPairGenContext::generate(
 	Context::Attr * &attrs)	// and here
 {
 	/* generate the params */
-	DHParameterBlock algParamBlock;
-	algParamBlock.params = new DHParameter;
-	DHParameter *algParams = algParamBlock.params;
-	dhGenParams(bitSize, DH_GENERATOR_DEFAULT, 0, *algParams);
+	NSS_DHParameterBlock algParamBlock;
+	SecNssCoder coder;
+	NSS_DHParameter &algParams = algParamBlock.params;
+	dhGenParams(bitSize, DH_GENERATOR_DEFAULT, 0, algParams, coder);
 	
 	/* drop in the required OID */
-	algParamBlock.oid.Set(pkcs_3_arc);
+	algParamBlock.oid = CSSMOID_PKCS3;
 	
 	/*
 	 * Here comes the fun part. 
@@ -433,14 +446,14 @@ void DHKeyPairGenContext::generate(
 	 *
 	 * First, DER encode.
 	 */
-	size_t maxSize = sizeofBigInt(algParams->prime) + 
-					 sizeofBigInt(algParams->base) 
-					 + 30;		// includes oid, tag, length
-	if(algParams->privateValueLength) {
-		maxSize += sizeofBigInt(*algParams->privateValueLength);
-	}
 	CssmAutoData aDerData(session());
-	SC_encodeAsnObj(algParamBlock, aDerData, maxSize);
+	PRErrorCode perr;
+	perr = SecNssEncodeItemOdata(&algParamBlock, NSS_DHParameterBlockTemplate, 
+		aDerData);
+	if(perr) {
+		/* only known error... */
+		CssmError::throwMe(CSSMERR_CSP_MEMORY_ERROR);
+	}
 
 	/* copy/release that into a mallocd CSSM_DATA. */
 	CSSM_DATA_PTR derData = (CSSM_DATA_PTR)session().malloc(sizeof(CSSM_DATA));
@@ -488,7 +501,9 @@ void DHKeyPairGenContext::dhGenParams(
 	uint32			keySizeInBits,
 	unsigned		g,					// probably should be BIGNUM
 	int				privValueLength, 	// optional
-	DHParameter 	&algParams)
+	NSS_DHParameter	&algParams,
+	SecNssCoder		&coder)				// temp contents of algParams
+										//    mallocd here
 {
 	/* validate key size */
 	if((keySizeInBits < DH_MIN_KEY_SIZE) || 
@@ -502,12 +517,16 @@ void DHKeyPairGenContext::dhGenParams(
 		throwRsaDsa("DSA_generate_parameters");
 	}
 	
-	/* stuff dhKey->{p,g,length}] into a caller's DSAAlgParams */
-	bnToBigIntStr(dhKey->p, algParams.prime);
-	bnToBigIntStr(dhKey->g, algParams.base);
+	/* stuff dhKey->{p,g,length}] into a caller's NSS_DHParameter */
+	bnToCssmData(dhKey->p, algParams.prime, coder);
+	bnToCssmData(dhKey->g, algParams.base, coder);
+	CSSM_DATA &privValData = algParams.privateValueLength;
 	if(privValueLength) {
-		algParams.privateValueLength = new BigIntegerStr();
-		snaccIntToBigIntegerStr(g, *algParams.privateValueLength);
+		intToCssmData(privValueLength, privValData, coder);
+	}
+	else {
+		privValData.Data = NULL;
+		privValData.Length = 0;
 	}
 	DH_free(dhKey);
 }

@@ -3,21 +3,22 @@
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
- * "Portions Copyright (c) 1999 Apple Computer, Inc.  All Rights
- * Reserved.  This file contains Original Code and/or Modifications of
- * Original Code as defined in and that are subject to the Apple Public
- * Source License Version 1.0 (the 'License').  You may not use this file
- * except in compliance with the License.  Please obtain a copy of the
- * License at http://www.apple.com/publicsource and read it before using
- * this file.
+ * Copyright (c) 1999-2003 Apple Computer, Inc.  All Rights Reserved.
+ * 
+ * This file contains Original Code and/or Modifications of Original Code
+ * as defined in and that are subject to the Apple Public Source License
+ * Version 2.0 (the 'License'). You may not use this file except in
+ * compliance with the License. Please obtain a copy of the License at
+ * http://www.opensource.apple.com/apsl/ and read it before using this
+ * file.
  * 
  * The Original Code and all software distributed under the License are
  * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
  * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
  * INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY,
- * FITNESS FOR A PARTICULAR PURPOSE OR NON-INFRINGEMENT.  Please see the
- * License for the specific language governing rights and limitations
- * under the License."
+ * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
+ * Please see the License for the specific language governing rights and
+ * limitations under the License.
  * 
  * @APPLE_LICENSE_HEADER_END@
  */
@@ -78,6 +79,28 @@ WriteIdentificationString(file)
     if (!UseMsgRPC)
 	fprintf(file, " *\t-R (no RPC calls)\n");
     fprintf(file, " */\n");
+}
+
+void
+WriteMigExternal(file)
+    FILE *file;
+{
+    fprintf(file, "#ifdef\tmig_external\n");
+    fprintf(file, "mig_external\n");
+    fprintf(file, "#else\n");
+    fprintf(file, "extern\n");
+    fprintf(file, "#endif\t/* mig_external */\n");
+}
+
+void
+WriteMigInternal(file)
+    FILE *file;
+{
+    fprintf(file, "#ifdef\tmig_internal\n");
+    fprintf(file, "mig_internal\n");
+    fprintf(file, "#else\n");
+    fprintf(file, "static\n");
+    fprintf(file, "#endif\t/* mig_internal */\n");
 }
 
 void
@@ -178,12 +201,13 @@ WriteApplMacro(file, dir, when, rt)
 	    when, dir, what, SubsystemBase + rt->rtNumber, rt->rtName);
 }
 
+
 void
 WriteBogusDefines(file)
     FILE *file;
 {
     fprintf(file, "#ifndef\tmig_internal\n");
-    fprintf(file, "#define\tmig_internal\tstatic\n");
+    fprintf(file, "#define\tmig_internal\tstatic __inline__\n");
     fprintf(file, "#endif\t/* mig_internal */\n");
     fprintf(file, "\n");
 
@@ -207,6 +231,17 @@ WriteBogusDefines(file)
     fprintf(file, "#endif\t/* min */\n");
     fprintf(file, "\n");
 
+	fprintf(file, "#if !defined(_WALIGN_)\n");
+	fprintf(file, "#define _WALIGN_(x) (((x) + %d) & ~%d)\n",
+			(int)(itWordAlign - 1), (int)(itWordAlign - 1));
+	fprintf(file, "#endif /* !defined(_WALIGN_) */\n");
+	fprintf(file, "\n");
+
+	fprintf(file, "#if !defined(_WALIGNSZ_)\n");
+    fprintf(file, "#define _WALIGNSZ_(x) _WALIGN_(sizeof(x))\n");
+	fprintf(file, "#endif /* !defined(_WALIGNSZ_) */\n");
+	fprintf(file, "\n");
+
     fprintf(file, "#ifndef\tUseStaticTemplates\n");
     if (BeAnsiC) {
         fprintf(file, "#define\tUseStaticTemplates\t0\n");
@@ -218,9 +253,6 @@ WriteBogusDefines(file)
     fprintf(file, "#endif\t/* UseStaticTemplates */\n");
     fprintf(file, "\n");
 
-    fprintf(file, "#define _WALIGN_(x) (((x) + %d) & ~%d)\n",
-	    (int)(itWordAlign - 1), (int)(itWordAlign - 1));
-    fprintf(file, "#define _WALIGNSZ_(x) _WALIGN_(sizeof(x))\n");
 }
 
 void
@@ -247,6 +279,7 @@ WriteList(file, args, func, mask, between, after)
     if (sawone)
 	fprintf(file, "%s", after);
 }
+
 
 static boolean_t
 WriteReverseListPrim(file, arg, func, mask, between)
@@ -363,7 +396,7 @@ WriteTrailerDecl(file, trailer)
     boolean_t trailer;
 {
     if (trailer)
-	fprintf(file, "\t\tmach_msg_format_0_trailer_t trailer;\n");
+	fprintf(file, "\t\tmach_msg_max_trailer_t trailer;\n");
     else
 	fprintf(file, "\t\tmach_msg_trailer_t trailer;\n");
 }
@@ -622,6 +655,72 @@ WriteRequestTypes(file, stats)
     }
     fprintf(file, "#endif /* !__Request__%s_subsystem__defined */\n", SubsystemName);
     fprintf(file, "\n");
+}
+
+void
+WriteNDRConvertArgDecl(file, arg, convert, dir)
+     FILE *file;
+     argument_t *arg;
+     char *convert, *dir;
+{
+    argument_t *count = arg->argCount;
+    argument_t *parent = arg->argParent;
+    char *carg = (count) ? ", c" : "";
+    routine_t *rt = arg->argRoutine;
+    ipc_type_t *ptype = arg->argType;
+    ipc_type_t *btype;
+    int multi, array;
+    char domain[MAX_STR_LEN];
+
+    fprintf(file, "#ifndef __NDR_convert__%s__%s__%s_t__%s__defined\n#",
+	    convert, dir, rt->rtName, arg->argMsgField);
+
+    for (btype = ptype, multi = (!parent) ? arg->argMultiplier : 1, array = 0;
+		 btype;
+		 ptype = btype, array += ptype->itVarArray, btype = btype->itElement) {
+		char *bttype; 
+
+		if (btype->itNumber < ptype->itNumber && !ptype->itVarArray && !parent) {
+			multi *= ptype->itNumber / btype->itNumber;
+			if (!btype->itString)
+				continue;
+		} else if (array && ptype->itVarArray)
+			continue;
+		if (btype != ptype)
+			fprintf(file, "#el");
+
+		bttype = (multi > 1 && btype->itString) ? "string" : FetchServerType(btype);
+		sprintf(domain, "__%s", SubsystemName);
+		do {
+			fprintf(file, "if\tdefined(__NDR_convert__%s%s__%s__defined)\n",
+					convert, domain, bttype);
+			fprintf(file, "#define\t__NDR_convert__%s__%s__%s_t__%s__defined\n",
+					convert, dir, rt->rtName, arg->argMsgField);
+			fprintf(file, "#define\t__NDR_convert__%s__%s__%s_t__%s(a, f%s) \\\n\t",
+					convert, dir, rt->rtName, arg->argMsgField, carg);
+			if (multi > 1) {
+				if (array)
+					if (btype->itString)
+						fprintf(file, "__NDR_convert__2DARRAY((%s *)(a), f, %d, c, ", bttype, multi);
+					else
+						fprintf(file, "__NDR_convert__ARRAY((%s *)(a), f, %d * (c), ", bttype, multi);
+				else
+					if (!btype->itString)
+						fprintf(file, "__NDR_convert__ARRAY((%s *)(a), f, %d, ", bttype, multi);
+			} else if (array)
+				fprintf(file, "__NDR_convert__ARRAY((%s *)(a), f, c, ", bttype);
+			fprintf(file, "__NDR_convert__%s%s__%s", convert, domain, bttype);
+			if (multi > 1) {
+				if (!array && btype->itString)
+					fprintf(file, "(a, f, %d", multi);
+			} else if (!array)
+				fprintf(file, "((%s *)(a), f%s", bttype, carg);
+			fprintf(file, ")\n");
+		} while (strcmp(domain, "") && (domain[0] = '\0', fprintf(file, "#el")));
+    }
+    fprintf(file, "#endif /* defined(__NDR_convert__*__defined) */\n");
+    fprintf(file, "#endif /* __NDR_convert__%s__%s__%s_t__%s__defined */\n\n",
+	    convert, dir, rt->rtName, arg->argMsgField);
 }
 
 /*
@@ -960,11 +1059,13 @@ WriteCheckTrailerHead(file, rt, isuser)
 {
     string_t who = (isuser) ? "Out0P" : "In0P";
 
-    fprintf(file, "\tTrailerP = (mach_msg_format_0_trailer_t *)((vm_offset_t)%s +\n", who);
+    fprintf(file, "\tTrailerP = (mach_msg_max_trailer_t *)((vm_offset_t)%s +\n", who);
     fprintf(file, "\t\tround_msg(%s->Head.msgh_size));\n", who);
     fprintf(file, "\tif (TrailerP->msgh_trailer_type != MACH_MSG_TRAILER_FORMAT_0)\n");
-
-    WriteReturnMsgError(file, rt, isuser, argNULL, "MIG_TRAILER_ERROR");
+    if (isuser)
+		fprintf(file, "\t\t{ return MIG_TRAILER_ERROR ; }\n");
+    else
+      fprintf(file, "\t\t{ MIG_RETURN_ERROR(%s, MIG_TRAILER_ERROR); }\n", who);
     
     fprintf(file, "#if\tTypeCheck\n");
     fprintf(file, "\ttrailer_size = TrailerP->msgh_trailer_size -\n");
@@ -982,12 +1083,25 @@ WriteCheckTrailerSize(file, isuser, arg)
     fprintf(file, "#if\tTypeCheck\n");
     if (akIdent(arg->argKind) == akeMsgSeqno) {
 	fprintf(file, "\tif (trailer_size < sizeof(mach_port_seqno_t))\n");
-	WriteReturnMsgError(file, arg->argRoutine, isuser, arg, "MIG_TRAILER_ERROR");
+	if (isuser)
+		fprintf(file, "\t\t{ return MIG_TRAILER_ERROR ; }\n");
+	else
+		fprintf(file, "\t\t{ MIG_RETURN_ERROR(OutP, MIG_TRAILER_ERROR); }\n");
 	fprintf(file, "\ttrailer_size -= sizeof(mach_port_seqno_t);\n");
     } else if (akIdent(arg->argKind) == akeSecToken) {
-	fprintf(file, "\tif (trailer_size < sizeof(security_token_t))\n");
-	WriteReturnMsgError(file, arg->argRoutine, isuser, arg, "MIG_TRAILER_ERROR");
-	fprintf(file, "\ttrailer_size -= sizeof(security_token_t);\n");
+		fprintf(file, "\tif (trailer_size < sizeof(security_token_t))\n");
+		if (isuser)
+			fprintf(file, "\t\t{ return MIG_TRAILER_ERROR ; }\n");
+		else
+			fprintf(file, "\t\t{ MIG_RETURN_ERROR(OutP, MIG_TRAILER_ERROR); }\n");
+		fprintf(file, "\ttrailer_size -= sizeof(security_token_t);\n");
+    } else if (akIdent(arg->argKind) == akeAuditToken) {
+		fprintf(file, "\tif (trailer_size < sizeof(audit_token_t))\n");
+		if (isuser)
+			fprintf(file, "\t\t{ return MIG_TRAILER_ERROR ; }\n");
+		else
+			fprintf(file, "\t\t{ MIG_RETURN_ERROR(OutP, MIG_TRAILER_ERROR); }\n");
+		fprintf(file, "\ttrailer_size -= sizeof(audit_token_t);\n");
     }
     fprintf(file, "#endif\t/* TypeCheck */\n");
 }

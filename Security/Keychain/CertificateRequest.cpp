@@ -26,6 +26,6 @@ CertificateRequest::CertificateRequest(int a)
 {
 }
 
-CertificateRequest::~CertificateRequest()
+CertificateRequest::~CertificateRequest() throw()
 {
 }

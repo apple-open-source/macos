@@ -15,9 +15,9 @@
 	<key>CFBundleSignature</key>
 	<string>????</string>
 	<key>CFBundleVersion</key>
-	<string>6.1</string>
+	<string>7.0</string>
 	<key>CFBundleShortVersionString</key>
-	<string>6.1</string>
+	<string>7.0</string>
 	<key>FSMediaTypes</key>
 	<dict>
 		<key>Apple_UFS</key>
@@ -65,6 +65,8 @@
 			<string>../../../../../../sbin/newfs</string>
 			<key>FSFormatMinimumSize</key>
 			<integer>0</integer>
+			<key>FSFormatMaximumSize</key>
+			<integer>1099511627264</integer>
 			<key>FSMountArguments</key>
 			<string></string>
 			<key>FSMountExecutable</key>

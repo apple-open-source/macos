@@ -1,0 +1,16 @@
+========================================================================
+klist Bug List
+========================================================================
+Current version: 1.1fc2
+Date:            September 12, 2003
+Author:          lxs@mit.edu
+========================================================================
+
+========================================================================
+Bug #		Bug description										Fixed in
+========================================================================
+
+[RT 1841] kinit doesn't display IPv6 addresses                  1.1fc2
+[RT 1689]   klist can't display file based caches               1.1fc1
+[BZ 727]	Use CCAPI to list credentials						1.0a1
+[BZ 728]	Add -A option to list all caches					1.0a1

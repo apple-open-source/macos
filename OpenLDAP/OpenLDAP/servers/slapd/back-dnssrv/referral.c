@@ -1,7 +1,7 @@
 /* referral.c - DNS SRV backend referral handler */
-/* $OpenLDAP: pkg/ldap/servers/slapd/back-dnssrv/referral.c,v 1.6 2002/01/14 00:43:21 hyc Exp $ */
+/* $OpenLDAP: pkg/ldap/servers/slapd/back-dnssrv/referral.c,v 1.6.2.4 2003/03/03 17:10:09 kurt Exp $ */
 /*
- * Copyright 2000-2002 The OpenLDAP Foundation, All Rights Reserved.
+ * Copyright 2000-2003 The OpenLDAP Foundation, All Rights Reserved.
  * COPYING RESTRICTIONS APPLY, see COPYRIGHT file
  */
 
@@ -45,18 +45,16 @@ dnssrv_back_referrals(
 		return LDAP_OTHER;
 	} 
 
-	if( ldap_dn2domain( dn->bv_val, &domain ) ) {
+	if( ldap_dn2domain( dn->bv_val, &domain ) || domain == NULL ) {
 		send_ldap_result( conn, op, LDAP_REFERRAL,
 			NULL, NULL, default_referral, NULL );
 		return LDAP_REFERRAL;
 	}
 
 	Debug( LDAP_DEBUG_TRACE, "DNSSRV: dn=\"%s\" -> domain=\"%s\"\n",
-		dn->bv_val,
-		domain == NULL ? "" : domain,
-		0 );
+		dn->bv_val, domain, 0 );
 
-	if( rc = ldap_domain2hostlist( domain, &hostlist ) ) {
+	if( ( rc = ldap_domain2hostlist( domain, &hostlist ) ) ) {
 		Debug( LDAP_DEBUG_TRACE,
 			"DNSSRV: domain2hostlist(%s) returned %d\n",
 			domain, rc, 0 );
@@ -65,7 +63,7 @@ dnssrv_back_referrals(
 		goto done;
 	}
 
-	hosts = str2charray( hostlist, " " );
+	hosts = ldap_str2charray( hostlist, " " );
 
 	if( hosts == NULL ) {
 		Debug( LDAP_DEBUG_TRACE, "DNSSRV: str2charrary error\n", 0, 0, 0 );
@@ -90,7 +88,7 @@ dnssrv_back_referrals(
 	}
 
 	Statslog( LDAP_DEBUG_STATS,
-	    "conn=%ld op=%d DNSSRV p=%d dn=\"%s\" url=\"%s\"\n",
+	    "conn=%lu op=%lu DNSSRV p=%d dn=\"%s\" url=\"%s\"\n",
 	    op->o_connid, op->o_opid, op->o_protocol,
 		dn->bv_val, urls[0].bv_val );
 
@@ -103,7 +101,7 @@ dnssrv_back_referrals(
 done:
 	if( domain != NULL ) ch_free( domain );
 	if( hostlist != NULL ) ch_free( hostlist );
-	if( hosts != NULL ) charray_free( hosts );
+	if( hosts != NULL ) ldap_charray_free( hosts );
 	ber_bvarray_free( urls );
 	return rc;
 }

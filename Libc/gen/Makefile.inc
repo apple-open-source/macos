@@ -4,40 +4,29 @@
 # machine-independent gen sources
 .PATH: ${.CURDIR}/${MACHINE_ARCH}/gen ${.CURDIR}/gen 
 
-CFLAGS+= -I${.CURDIR}/pthreads
+CFLAGS += -I${.CURDIR}/pthreads
 
-SRCS += NSSystemDirectories.c  getpagesize.c          siginterrupt.c \
-	alarm.c                getpass.c              siglist.c \
-	assert.c               getttyent.c            signal.c \
-	                       getusershell.c         sigsetops.c \
-	clock.c                getvfsbyname.c         sleep.c \
-	closedir.c                                    stack_logging.c \
-	confstr.c                                     strchr.c \
-	crypt.c                                       sysconf.c \
-	ctermid.c              isatty.c               sysctl.c \
-	                       isnan.c                sysctlbyname.c \
-	daemon.c               malloc.c               syslog.c \
-	devname.c              nanosleep.c            telldir.c \
-	difftime.c             nice.c                 termios.c \
-	disklabel.c            nlist.c                time.c \
-	err.c                  opendir.c              times.c \
-	errlst.c               pause.c                timezone.c \
-	exec.c                 popen.c                ttyname.c \
-	fnmatch.c              psignal.c              ttyslot.c \
-	                                              ualarm.c \
-	ftok.c                 raise.c                uname.c \
-	fts.c                                         unvis.c \
-	getbsize.c             readdir.c              usleep.c \
-	getcap.c               rewinddir.c            utime.c \
-	getcwd.c               scalable_malloc.c      vis.c \
-	                       scandir.c              wait.c \
-	gethostname.c          seekdir.c              wait3.c \
-	getloadavg.c           sethostname.c          waitpid.c \
-	getlogin.c             setlogin.c             zone.c \
-	getmntinfo.c           setmode.c \
-	_rand48.c erand48.c lcong48.c mrand48.c seed48.c drand48.c jrand48.c \
-	nrand48.c srand48.c lrand48.c basename.c dirname.c arc4random.c \
-	strtofflags.c lockf.c readdir_r.c ulimit.c
+SRCS += NSSystemDirectories.c OSSystemInfo.c arc4random.c assert.c cache.c \
+	confstr.c crypt.c devname.c disklabel.c errlst.c fts.c \
+	getloadavg.c getttyent.c getusershell.c getvfsbyname.c isnan.c \
+	malloc.c nanosleep.c nlist.c scalable_malloc.c setlogin.c sigsetops.c \
+	stack_logging.c strtofflags.c sysconf.c syslog.c uname.c zone.c
+
+.include "Makefile.fbsd_begin"
+FBSDSRCS = _rand48.c alarm.c basename.c clock.c closedir.c ctermid.c \
+	daemon.c dirname.c drand48.c erand48.c err.c errno_.c exec.c \
+	fmtcheck.c fnmatch.c ftok.c getbsize.c getcap.c getcwd.c gethostname.c \
+	getlogin.c getmntinfo.c getpagesize.c getprogname.c isatty.c \
+	jrand48.c lcong48.c lockf.c lrand48.c mrand48.c nice.c nrand48.c \
+	opendir.c pause.c popen.c pselect.c psignal.c raise.c readdir.c \
+	readpassphrase.c rewinddir.c scandir.c seed48.c seekdir.c \
+	sethostname.c setmode.c setprogname.c siginterrupt.c siglist.c \
+	signal.c sleep.c srand48.c stringlist.c sysctl.c sysctlbyname.c \
+	sysctlnametomib.c telldir.c termios.c time.c times.c timezone.c \
+	ttyname.c ttyslot.c ualarm.c ulimit.c unvis.c usleep.c utime.c vis.c \
+	wait.c wait3.c waitpid.c
+FBSDORIGHDRS = rand48.h telldir.h
+.include "Makefile.fbsd_end"
 
 
 # machine-dependent gen sources
@@ -46,37 +35,34 @@ SRCS += NSSystemDirectories.c  getpagesize.c          siginterrupt.c \
 .endif
 
 .if ${LIB} == "c"
-MAN3+=	alarm.3 arc4random.3 clock.3 \
-	basename.3 \
-	confstr.3 ctermid.3 daemon.3 \
-	devname.3 directory.3 dirname.3 \
-	err.3 exec.3 fmtcheck.3 fnmatch.3 frexp.3 ftok.3 fts.3 \
-	getbootfile.3 getbsize.3 getcap.3 getcwd.3 \
-	getdomainname.3 getfsent.3 \
-	getgrent.3 getgrouplist.3 gethostname.3 getloadavg.3 \
-	getmntinfo.3 getnetgrent.3 getobjformat.3 \
-	getpagesize.3 getpass.3 getpeereid.3 getpwent.3 \
-	getttyent.3 getusershell.3 getvfsbyname.3 getvfsent.3 \
-	glob.3 initgroups.3 isinf.3 \
-	ldexp.3 lockf.3 modf.3 msgctl.3 msgget.3 msgrcv.3 msgsnd.3 \
-	nice.3 nlist.3 pause.3 popen.3 psignal.3 pwcache.3 \
-	raise.3 rand48.3 rfork_thread.3 \
-	scandir.3 setjmp.3 setmode.3 \
-	siginterrupt.3 signal.3 sigsetops.3 sleep.3 stringlist.3 \
-	strtofflags.3 sysconf.3 sysctl.3 syslog.3 tcgetpgrp.3 \
-	tcsendbreak.3 tcsetattr.3 tcsetpgrp.3 time.3 times.3 timezone.3 \
-	ttyname.3 tzset.3 ualarm.3 uname.3 unvis.3 usleep.3 utime.3 \
-	valloc.3 vis.3
+
+MAN3 += arc4random.3 confstr.3 devname.3 directory.3 fts.3 \
+	getdomainname.3 getfsent.3 getgrent.3 getgrouplist.3 getloadavg.3 \
+	getnetgrent.3 getobjformat.3 getpeereid.3 getpwent.3 getttyent.3 \
+	getusershell.3 getvfsbyname.3 glob.3 initgroups.3 isinf.3 \
+	malloc.3 nlist.3 pwcache.3 setjmp.3 sigsetops.3 \
+	strtofflags.3 sysconf.3 syslog.3 tcgetpgrp.3 tcsendbreak.3 \
+	tcsetattr.3 tcsetpgrp.3 tzset.3 uname.3 valloc.3 intro.3
+
+.include "Makefile.fbsd_begin"
+FBSDMAN3= alarm.3 basename.3 clock.3 ctermid.3 daemon.3 dirname.3 err.3 exec.3 \
+	fmtcheck.3 fnmatch.3 ftok.3 getbsize.3 getcap.3 getcwd.3 \
+	gethostname.3 getmntinfo.3 getpagesize.3 getpass.3 getprogname.3 \
+	lockf.3 nice.3 pause.3 popen.3 pselect.3 psignal.3 raise.3 rand48.3 \
+	readpassphrase.3 scandir.3 setmode.3 siginterrupt.3 signal.3 sleep.3 \
+	stringlist.3 sysctl.3 time.3 times.3 timezone.3 ttyname.3 ualarm.3 \
+	ulimit.3 unvis.3 usleep.3 utime.3 vis.3
+.include "Makefile.fbsd_end"
 
 MLINKS+=arc4random.3 arc4random_addrandom.3 arc4random.3 arc4random_stir.3
 MLINKS+=ctermid.3 ctermid_r.3
 MLINKS+=directory.3 closedir.3 directory.3 dirfd.3 directory.3 opendir.3 \
-	directory.3 readdir.3 directory.3 rewinddir.3 directory.3 seekdir.3 \
-	directory.3 telldir.3
+	directory.3 readdir.3 directory.3 readdir_r.3 directory.3 rewinddir.3 \
+	directory.3 seekdir.3 directory.3 telldir.3
 MLINKS+=err.3 err_set_exit.3 err.3 err_set_file.3 err.3 errc.3 err.3 errx.3 \
 	err.3 verr.3 err.3 verrc.3 err.3 verrx.3 err.3 vwarn.3 err.3 vwarnc.3 \
 	err.3 vwarnx.3 err.3 warnc.3 err.3 warn.3 err.3 warnx.3
-MLINKS+=exec.3 execl.3 exec.3 execle.3 exec.3 execlp.3 exec.3 exect.3 \
+MLINKS+=exec.3 execl.3 exec.3 execle.3 exec.3 execlp.3 \
 	exec.3 execv.3 exec.3 execvp.3
 MLINKS+=fts.3 fts_children.3 fts.3 fts_close.3 fts.3 fts_open.3 \
 	fts.3 fts_read.3 fts.3 fts_set.3
@@ -93,17 +79,17 @@ MLINKS+=getgrent.3 endgrent.3 getgrent.3 getgrgid.3 getgrent.3 getgrnam.3 \
 MLINKS+=gethostname.3 sethostname.3
 MLINKS+=getnetgrent.3 endnetgrent.3 getnetgrent.3 innetgr.3 \
 	getnetgrent.3 setnetgrent.3
+MLINKS+=getprogname.3 setprogname.3
 MLINKS+=getpwent.3 endpwent.3 getpwent.3 getpwnam.3 getpwent.3 getpwuid.3 \
 	getpwent.3 setpassent.3 getpwent.3 setpwent.3 getpwent.3 setpwfile.3
 MLINKS+=getttyent.3 endttyent.3 getttyent.3 getttynam.3 \
 	getttyent.3 isdialuptty.3 getttyent.3 isnettty.3 \
 	getttyent.3 setttyent.3
 MLINKS+=getusershell.3 endusershell.3 getusershell.3 setusershell.3
-MLINKS+=getvfsent.3 endvfsent.3 getvfsent.3 getvfsbytype.3 \
-	getvfsent.3 setvfsent.3 getvfsent.3 vfsisloadable.3 \
-	getvfsent.3 vfsload.3
 MLINKS+=glob.3 globfree.3
 MLINKS+=isinf.3 isnan.3 isinf.3 isnanf.3
+MLINKS+=malloc.3 calloc.3 malloc.3 valloc.3 malloc.3 realloc.3 malloc.3 free.3 \
+	malloc.3 malloc_size.3 malloc.3 malloc_good_size.3
 MLINKS+=popen.3 pclose.3
 MLINKS+=psignal.3 sys_siglist.3 psignal.3 sys_signame.3
 MLINKS+=psignal.3 strsignal.3 psignal.3 sys_siglist.3 psignal.3 sys_signame.3
@@ -135,5 +121,4 @@ MLINKS+=ttyname.3 isatty.3 ttyname.3 ttyslot.3
 MLINKS+=tzset.3 tzsetwall.3
 MLINKS+=unvis.3 strunvis.3 unvis.3 strunvisx.3
 MLINKS+=vis.3 strvis.3 vis.3 strvisx.3
-MLINKS+=readdir.3 readdir_r.3
 .endif

@@ -3,19 +3,22 @@
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
- * The contents of this file constitute Original Code as defined in and
- * are subject to the Apple Public Source License Version 1.1 (the
- * "License").  You may not use this file except in compliance with the
- * License.  Please obtain a copy of the License at
- * http://www.apple.com/publicsource and read it before using this file.
+ * Copyright (c) 1999-2003 Apple Computer, Inc.  All Rights Reserved.
  * 
- * This Original Code and all software distributed under the License are
- * distributed on an "AS IS" basis, WITHOUT WARRANTY OF ANY KIND, EITHER
+ * This file contains Original Code and/or Modifications of Original Code
+ * as defined in and that are subject to the Apple Public Source License
+ * Version 2.0 (the 'License'). You may not use this file except in
+ * compliance with the License. Please obtain a copy of the License at
+ * http://www.opensource.apple.com/apsl/ and read it before using this
+ * file.
+ * 
+ * The Original Code and all software distributed under the License are
+ * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
  * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
  * INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY,
- * FITNESS FOR A PARTICULAR PURPOSE OR NON-INFRINGEMENT.  Please see the
- * License for the specific language governing rights and limitations
- * under the License.
+ * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
+ * Please see the License for the specific language governing rights and
+ * limitations under the License.
  * 
  * @APPLE_LICENSE_HEADER_END@
  */
@@ -49,7 +52,6 @@
 
 #define USE_SYSTEMCONFIGURATION_PUBLIC_APIS
 #include <SystemConfiguration/SystemConfiguration.h>	//required for the configd kicker operation
-#include <SystemConfiguration/SCDynamicStorePrivate.h>
 #include <IOKit/IOMessage.h>
 #include <IOKit/pwr_mgt/IOPMLib.h>		//required for power management handling
 #include <CoreFoundation/CoreFoundation.h>
@@ -60,13 +62,15 @@
 #include "ServerControl.h"
 #include "CLog.h"
 #include "PrivateTypes.h"
-#include "COSUtils.h"
+#include "DirServicesPriv.h"
+#include "DirServicesConst.h"
 #include "CPlugInList.h"
 
 #include "DirServicesTypes.h"
 
 using namespace std;
 
+dsBool	gServerOS		= false;	//indicates whether this is running on Server or not
 dsBool	gLogAPICalls	= false;
 dsBool	gDebugLogging	= false;
 time_t	gSunsetTime		= time( nil);
@@ -77,11 +81,10 @@ CFRunLoopRef		gServerRunLoop = NULL;
 
 
 // Static ---------------------------------------------------------------------
-//	Used to notify the main thread when to terminate.
 
-static bool					_Terminate			= false;
-static pid_t				_ChildPid			= 0;
-static int					_ChildStatus		= 0;
+#warning VERIFY the version string before each distinct build submission
+static const char* strDaemonAppleVersion = "1.6";
+static const char* strDaemonBuildVersion = "255";
 
 enum
 {
@@ -116,65 +119,6 @@ void SignalHandler(int signum)
 	mach_msg(&msg.header,(MACH_SEND_MSG | MACH_SEND_TIMEOUT),
 			 msg.header.msgh_size,0,MACH_PORT_NULL,0,MACH_PORT_NULL);
 }
-
-// ---------------------------------------------------------------------------
-//	* _HandleSigChildInParent ()
-//
-// ---------------------------------------------------------------------------
-
-static void _HandleSigChildInParent ( ... )
-{
-	int		nStatus = 0;
-	pid_t		pidChild;
-
-	pidChild = ::waitpid( -1, &nStatus, WNOHANG );
-	if ( pidChild == 0 )
-	{
-		return;
-	}
-
-	if ( pidChild != _ChildPid )
-	{
-		return;
-	}
-
-	// Only daemonizing parent should get here when child fails to daemonize!
-
-	// Can't use CLog functions here because the parent doesn't open it.
-	if ( WIFEXITED( nStatus ) )
-	{
-		::fprintf( stderr, "Daemonization failed with exit status %d.\n", WEXITSTATUS( nStatus ) );
-	}
-	else if ( WIFSIGNALED( nStatus ) )
-	{
-		::fprintf( stderr, "Daemonization failed due to signal %d.\n", WTERMSIG( nStatus ) );
-	}
-	else
-	{
-		::fprintf(stderr, "Daemonization failed with status %d.\n", nStatus );
-	}
-
-	// Parent should quit with an error.
-	_ChildStatus = nStatus;
-	_Terminate = true;
-} // _HandleSigChildInParent
-
-
-// ---------------------------------------------------------------------------
-//	* _HandleSigTermInParent ()
-//
-// ---------------------------------------------------------------------------
-
-static void _HandleSigTermInParent ( ... )
-{
-	_Terminate = true;
-
-#if DEBUG
-	fprintf( stderr, "Caught a terminating signal (SIGTERM or SIGABRT)\n" );
-	fflush( stderr );
-#endif
-
-} // _HandleSigTermInParent
 
 // ---------------------------------------------------------------------------
 //	* _HandleSIGTERM ()
@@ -258,6 +202,10 @@ void SignalMessageHandler(CFMachPortRef port,SignalMessage *msg,CFIndex size,voi
 	{
 		_HandleSIGTERM();
 	}
+	else if (msg->signum == SIGPIPE)
+	{
+		//don't do anything for a SIGPIPE
+	}
 }
 
 // ---------------------------------------------------------------------------
@@ -285,7 +233,7 @@ static void _Version ( FILE *fp )
 {
 	static const char * const	_szpUsage =
 		"Apple Computer, Inc.  Version DirectoryService %s\n";
-	::fprintf( fp, _szpUsage, COSUtils::GetStringFromList( kSysStringListID, kStrVersion ) );
+	::fprintf( fp, _szpUsage, strDaemonAppleVersion );
 
 } // _Version
 
@@ -299,7 +247,7 @@ static void _AppleVersion ( FILE *fp )
 {
 	static const char * const	_szpUsage =
 		"Apple Computer, Inc.  Version DirectoryService-%s\n";
-	::fprintf( fp, _szpUsage, COSUtils::GetStringFromList( kSysStringListID, kStrBuildNumber ) );
+	::fprintf( fp, _szpUsage, strDaemonBuildVersion );
 
 } // _AppleVersion
 
@@ -314,8 +262,6 @@ static void _AppleOptions ( FILE *fp, const char *argv0 )
 	static const char * const	_szpUsage =
 		"Usage:\t%s [-applexxxxx OR -v]\n"
 		"	-appledebug     	Run the daemon in debug mode as standalone.\n"
-		"	-appleframework		Start the daemon like the Framework does using configd(normal operation).\n"
-		"	-applenodaemon  	Run the daemon in the foreground.\n"
 		"	-appleoptions   	List these options.\n"
 		"	-appleperformance   Log everything and run in the foreground.\n"
 		"	-appleversion   	Display the Apple build version.\n"
@@ -328,13 +274,12 @@ static void _AppleOptions ( FILE *fp, const char *argv0 )
 //
 // ---------------------------------------------------------------------------
 
-boolean_t NetworkChangeCallBack(SCDynamicStoreRef aSCDStore, void *callback_argument)
+void NetworkChangeCallBack(SCDynamicStoreRef aSCDStore, CFArrayRef changedKeys, void *callback_argument)
 {                       
 	if ( gSrvrCntl != nil )
 	{
 		gSrvrCntl->HandleNetworkTransition(); //ignore return status
 	}
-	return true;
 }// NetworkChangeCallBack
 
 // ---------------------------------------------------------------------------
@@ -383,6 +328,18 @@ void dsPMNotificationHandler ( void *refContext, io_service_t service, natural_t
 	}
 } // dsPMNotificationHandler
 
+int
+sys_server_status(char *name)
+{
+	kern_return_t status;
+	int active;
+
+	status = bootstrap_status(bootstrap_port, name, &active);
+	if (status == BOOTSTRAP_UNKNOWN_SERVICE) return 0;
+	if (status != KERN_SUCCESS) return -1;
+
+	return active;
+}	
 
 // ---------------------------------------------------------------------------
 //	* main ()
@@ -392,58 +349,45 @@ void dsPMNotificationHandler ( void *refContext, io_service_t service, natural_t
 int main ( int argc, char * const *argv )
 {
 #if DEBUG
-	bool				bDebug			= true;
 	OptionBits			debugOpts		= kLogEverything;
 	bool				bProfiling		= true;
 	OptionBits			profileOpts		= kLogEverything;
 #else
-	bool				bDebug			= false;
 	OptionBits			debugOpts		= kLogMeta;
 	bool				bProfiling		= false;
 	OptionBits			profileOpts		= kLogMeta;
 #endif
-	bool				bDaemonize		= true;
-	kern_return_t		machErr			= eDSNoErr;
-	mach_port_t			aPort			= 0;
-	mach_port_t			bPort			= 0;
 	char			   *p				= nil;
 	bool				bFound			= false;
-	SCDynamicStoreRef	scdStore		= 0;
-	Boolean				scdStatus		= FALSE;
-	pid_t				pidval1			= -1;
-	pid_t				pidval2			= -1;
-	struct sigaction	sSigAction;
-	struct sigaction	sSigOldAction;
-	sigset_t			sSigMask		= 0;
+	struct stat			statResult;
+	pid_t				ourUID			= ::getuid();
+	kern_return_t		machErr			= eDSNoErr;
+	mach_port_t			serverPort		= MACH_PORT_NULL;
+	bool				bDebugMode		= false;
 
+
+//	struct rlimit rlp;
+
+//	rlp.rlim_cur = RLIM_INFINITY;       /* current (soft) limit */
+//	rlp.rlim_max = RLIM_INFINITY;       /* hard limit */
+//	(void)setrlimit(RLIMIT_CORE, &rlp);
 
 	if ( argc > 1 )
 	{
 		p = strstr( argv[1], "-" );
-		
-		if ( strstr( argv[1], "daemon:DirectoryService") )
+
+		if ( p != NULL )
 		{
-			//configd Kicker no longer uses any argument for starting DirectoryService
-			bDaemonize = true;
-		}
-		else if ( p != nil )
-		{
-			if ( strstr( p, "appledebug" ) )
+			if ( strstr( p, "appledebug" ) && ourUID == 0 )
 			{
 				// Turn debugging on
 				bFound		= true;
-				bDaemonize	= false;
-				bDebug		= true;
 				debugOpts	= kLogEverything;
+				gDebugLogging = true;
+				bDebugMode = true;
 			}
 
-			if ( strstr( p, "applenodaemon" ) )
-			{
-				bFound		= true;
-				bDaemonize	= false;
-			}
-
-			if ( strstr( p, "appleperformance" ) )
+			if ( strstr( p, "appleperformance" ) && ourUID == 0 )
 			{
 				// future capability currently not implemented
 				bFound		= true;
@@ -462,26 +406,6 @@ int main ( int argc, char * const *argv )
 				_AppleOptions( stdout, argv[0] );
 				::exit( 1 );
 			}
-
-			if ( strstr( p, "appleframework" ) )
-			{
-				// this will ensure that we are launched in the global Mach port space via configd kicker
-				scdStore = SCDynamicStoreCreate(NULL, CFSTR("DirectoryService"), NULL, NULL); //KW use constant string instead
-				if (scdStore != 0)
-				{
-					scdStatus = SCDynamicStoreNotifyValue(scdStore, CFSTR("daemon:DirectoryService"));
-					CFRelease(scdStore);
-					if (scdStatus)
-					{
-						exit(0);
-					}
-				}
-				//if there is an error then we simply fall through as before
-				bFound = true;
-				printf("DirectoryService: Continuing after failing to relaunch itself via configd kicker.\n");
-				printf("DirectoryService: No guarantee that process in in the global mach port space.\n");
-			}
-
 
 			if ( strstr( p, "v" ) )
 			{
@@ -507,132 +431,143 @@ int main ( int argc, char * const *argv )
 			::exit( 1 );
 		}
 	}
-
-	// Is the server already running?
-	machErr = task_get_bootstrap_port( mach_task_self(), &aPort );
-	if ( machErr != eDSNoErr )
-	{
-		printf("Unable to launch DirectoryService server.\n");
-		printf("  Error: task_get_bootstrap_port() failed: %s \n", mach_error_string( machErr ));
-		exit( 0 );
-	}
-
-	machErr = ::bootstrap_look_up( aPort, (char *)"DirectoryService", &bPort );
-	if ( machErr == eDSNoErr )
-	{
-		printf("DirectoryService server is already running.\n");
-		printf("Unable to bind to mach port.\n");
-		printf("Terminating this process.\n");
-		exit( 0 );
-	}
-
-	//don't init the logging since there is some parent-child conflicts early on for the locking of the logs
-	
-	// OK, the following hoops need some explanation:
-	// When a thread calls fork(), all other pthreads are lost. (It is not
-	// clear whether the thread structures are left laying around but never
-	// scheduled or if they are immediately terminated in the child.) This has
-	// serious implications for server processes that have a thread listening
-	// on a port when daemonizing: the port is bound but the binding thread
-	// has disappeared!
-	// To avoid this problem, the parent forks the child and blocks waiting
-	// for a signal from the child. After the child performs its
-	// initialization (which will likely spin threads), the child will either
-	// exit with an error or send a SIGTERM to the parent; the former
-	// indicates a startup error, the latter success.
-
-	if ( bDaemonize == true )
-	{
-		::memset( &sSigAction, 0, sizeof( struct sigaction ) );
-		::memset( &sSigOldAction, 0, sizeof( struct sigaction ) );
-	
-		sSigAction.sa_mask	= 0;
-		sSigAction.sa_flags = 0;
-		sigemptyset( &sSigAction.sa_mask );
-		sSigAction.sa_handler = (void (*) (int))_HandleSigTermInParent;
-		::sigaction( SIGTERM, &sSigAction, &sSigOldAction );
-	
-		sSigAction.sa_handler = (void (*) (int))_HandleSigTermInParent;
-		sSigAction.sa_flags = 0;
-		::sigaction( SIGABRT, &sSigAction, &sSigOldAction );
-	
-		sSigAction.sa_handler = (void (*) (int))_HandleSigChildInParent;
-		sSigAction.sa_flags |= SA_NOCLDSTOP;
-		::sigaction( SIGCHLD, &sSigAction, &sSigOldAction );
-	
-		sSigAction.sa_handler = (void (*) (int))SIG_IGN;
-		sSigAction.sa_flags = 0;
-		::sigaction( SIGPIPE, &sSigAction, &sSigOldAction );
-	
-		sigemptyset( &sSigMask );
-
-		// Parent process waits for child to exit or for child to
-		// terminate parent, signaling all is well.
-
-		_ChildPid = ::fork();
 		
-		if ( 0 < _ChildPid )
-		{
-			if ( bDebug == true )
-			{
-				printf("Child forked, new pid is %d \n", (int)_ChildPid);
-			}
+	openlog("DirectoryService", LOG_NDELAY | LOG_PID, LOG_DAEMON);
 
-			while ( !_Terminate )
-			{
-				::sigsuspend( &sSigMask );
-			}
+        if ( ourUID != 0 )
+        {
+                syslog(LOG_ALERT, "DirectoryService needs to be launched as root.\n");
+                ::exit( 1 );
+        }
 
-			if ( bDebug == true )
-			{
-				::printf( "Exiting; child status %x.\n", _ChildStatus );
-			}
+	syslog(LOG_INFO,"Launched version %s (v%s)", strDaemonAppleVersion, strDaemonBuildVersion );
 
-			::exit( _ChildStatus );
-			return( _ChildStatus );
-		}
-		else if ( _ChildPid == -1 )
-		{
-			::printf( "fork() failed: errno= %d \n", (int)errno );
-			::exit (errno);
-			return errno;
-		}
-		else if ( _ChildPid == 0 )
-		{
-			// All is well so terminate parent
-			pidval1 = ::getpid();
-			::setpgid( 0, pidval1 );
-			pidval2 = ::getppid();
-			if (pidval2 != -1)
-			{
-				::kill( pidval2, SIGTERM );
-			}
-		}
-
-		execl( "/usr/sbin/", "DirectoryService", "-applenodaemon", NULL );
-		
-		if ( bDebug == true )
-		{
-			::sleep( 20 );
-		}
-	}
-	else
+	if (!bDebugMode)
 	{
-		::fprintf( stderr, "Daemonization off.\n" );
+		mach_port_t			mach_init_port		= MACH_PORT_NULL;
+		mach_port_t			send_port			= MACH_PORT_NULL;
+		mach_port_t			priv_bootstrap_port	= MACH_PORT_NULL;
+		sIPCMsg				msg;
+
+		// Is the server already running? - check the server port that is used by the clients
+		machErr = ::bootstrap_look_up( bootstrap_port, kDSServiceName, &serverPort );
+		if ( machErr == eDSNoErr )
+		{
+			syslog(LOG_ALERT, "DirectoryService server is already running since its mach server port is already registered.\n");
+			syslog(LOG_ALERT, "Terminating this instantiated DirectoryService process.\n");
+			exit( 0 );
+		}
+
+		//check if mach_init has already launched DirectoryService
+		int status = sys_server_status(kDSStdMachPortName);
+		if (status == BOOTSTRAP_STATUS_ACTIVE)
+		{
+			syslog(LOG_ALERT, "DirectoryService is already running!\n");
+			exit(0);
+		}
+
+        /*
+         * See if our service name is already registered and if we have privilege to check in.
+         */
+		status = bootstrap_check_in(bootstrap_port, kDSStdMachPortName, &mach_init_port);
+		if (status == BOOTSTRAP_SUCCESS)
+		{
+			/*
+			* If so, we must be a followup instance of an already defined server (i.e. mach_init).  In that case,
+			* the bootstrap port we inherited from our parent is the server's privilege port, so set
+			* that in case we have to unregister later (which requires the privilege port).
+			*/
+			priv_bootstrap_port = bootstrap_port;
+		}
+		else if (status == BOOTSTRAP_NOT_PRIVILEGED)
+		{
+			syslog(LOG_ALERT, "DirectoryService instance is already starting up - exiting this instance" );
+			exit(0);
+		}
+		else if (status == BOOTSTRAP_SERVICE_ACTIVE)
+		{
+			syslog(LOG_ALERT, "DirectoryService instance is already running - exiting this instance" );
+			exit(0);
+		}
+		else if (status == BOOTSTRAP_UNKNOWN_SERVICE)
+		{
+			syslog(LOG_ALERT, "bootstrap_check_in() for mach_init port returned BOOTSTRAP_UNKNOWN_SERVICE so we'll create our own portset" );
+			//immediate and not on demand launch
+			status = bootstrap_create_server(bootstrap_port, "/usr/sbin/DirectoryService", 0, false, &priv_bootstrap_port);
+			if (status == KERN_SUCCESS)
+			{
+				status = bootstrap_create_service(priv_bootstrap_port, kDSStdMachPortName, &send_port);
+				if (status == KERN_SUCCESS)
+				{
+					status = bootstrap_check_in(priv_bootstrap_port, kDSStdMachPortName, &mach_init_port);
+					if (status != KERN_SUCCESS)
+					{
+						syslog(LOG_ALERT, "unable to create our own portset - exiting" );
+						exit(0);
+					}
+				}
+			}
+		}
+
+		//we don't want to pass our priviledged bootstrap port along to any spawned helpers so...
+        status = bootstrap_unprivileged(priv_bootstrap_port, &bootstrap_port);
+        if (status != BOOTSTRAP_SUCCESS)
+		{
+			syslog(LOG_ALERT, "bootstrap_unprivileged() for bootstrap port did not return BOOTSTRAP_SUCCESS so forked processes may block restarts of DirectoryService" );
+        }
+        status = task_set_bootstrap_port(mach_task_self(), bootstrap_port);        
+		if (status != BOOTSTRAP_SUCCESS)
+		{
+			syslog(LOG_ALERT, "task_set_bootstrap_port() for bootstrap port did not return BOOTSTRAP_SUCCESS so forked processes may block restarts of DirectoryService" );
+        }
+
+		// receive the kickoff message and promptly ignore it so that mach_init will not immediately restart
+		// the daemon unless a DS client actually requests it
+		status = mach_msg( (mach_msg_header_t *)&msg, MACH_RCV_MSG, 0, sizeof( sIPCMsg ), mach_init_port, MACH_MSG_TIMEOUT_NONE, MACH_PORT_NULL );
+		if ( status == MACH_MSG_SUCCESS )
+		{
+			//success in receiving kicker message
+		}
+		else
+		{
+			//failure in receiving kicker message but should never get here anyways
+		}
+					
+        // We have no intention of responding to requests on the mach init port.
+		// We are just using this mechanism for relaunch facilities.
+        // So, we can dispose of all the rights we have for the mach init port.
+		if (mach_init_port != MACH_PORT_NULL)
+		{
+			mach_port_destroy(mach_task_self(), mach_init_port);
+			mach_init_port = MACH_PORT_NULL;
+		}
 	}
+
 
 	try
 	{
-		//set the environment variable for the SMB plugin in this single thread
-		//so that nmblookup will pass back encoded strings
-		setenv( "__APPLE_NMBLOOKUP_HACK_2987131", "", 0 );
+		// need to make sure this file is not present yet
+		unlink( "/Library/Preferences/DirectoryService/.DSRunningSP4" );
+
+		//global set to determine different behavior dependant on server build versus desktop
+		if (stat( "/System/Library/CoreServices/ServerVersion.plist", &statResult ) == eDSNoErr)
+		{
+			gServerOS = true;
+		}
+
+		if (!gDebugLogging && stat( "/Library/Preferences/DirectoryService/.DSLogDebugAtStart", &statResult ) == eDSNoErr)
+		{
+			gDebugLogging = true;
+			
+		}
 		
 		// Open the log files
-		CLog::Initialize( kLogEverything, kLogEverything, debugOpts, profileOpts, bDebug, bProfiling );
+		CLog::Initialize( kLogEverything, kLogEverything, debugOpts, profileOpts, gDebugLogging, bProfiling );
+
 		SRVRLOG( kLogApplication, "\n\n" );
-		SRVRLOG2( kLogApplication, "DirectoryService %s (v%s) starting up...",
-					COSUtils::GetStringFromList( kSysStringListID, kStrVersion ),
-					COSUtils::GetStringFromList( kSysStringListID, kStrBuildNumber ) );
+		SRVRLOG2( kLogApplication,	"DirectoryService %s (v%s) starting up...",
+                                    strDaemonAppleVersion,
+                                    strDaemonBuildVersion );
 		
 		mach_port_limits_t	limits = { 1 };
 		CFMachPortRef		port;
@@ -679,7 +614,7 @@ int main ( int argc, char * const *argv )
 
 	}
 
-	catch ( eAppError err )
+	catch ( sInt32 err )
 	{
 		DBGLOG2( kLogApplication, "File: %s. Line: %d", __FILE__, __LINE__ );
 		DBGLOG1( kLogApplication, "  ***main() error = %d.", err );

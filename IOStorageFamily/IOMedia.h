@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1998-2000 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 1998-2003 Apple Computer, Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -37,9 +37,7 @@
 /*!
  * @defined kIOMediaClass
  * @abstract
- * kIOMediaClass is the name of the IOMedia class.
- * @discussion
- * kIOMediaClass is the name of the IOMedia class.
+ * The name of the IOMedia class.
  */
 
 #define kIOMediaClass "IOMedia"
@@ -47,27 +45,26 @@
 /*!
  * @defined kIOMediaContentKey
  * @abstract
- * kIOMediaContentKey is a property of IOMedia objects.  It has an OSString
- * value.
+ * A property of IOMedia objects.
  * @discussion
- * The kIOMediaContentKey property contains a description of the media's
+ * The kIOMediaContentKey property has an OSString
+ * value and contains a description of the media's
  * contents.  The description is the same as the hint at the time of the
- * object's creation, but it is possible that the description be overrided
+ * object's creation, but it is possible that the description has been overridden
  * by a client (which has probed the media and identified the content correctly)
  * of the media object.  It is more accurate than the hint for this reason.  The
  * string is formed in the likeness of Apple's "Apple_HFS" strings.
  */
 
 #define kIOMediaContentKey "Content"
-#define kIOMediaContent "Content" ///d:deprecated
 
 /*!
  * @defined kIOMediaContentHintKey
  * @abstract
- * kIOMediaContentHintKey is a property of IOMedia objects.  It has an OSString
- * value.
+ * A property of IOMedia objects.
  * @discussion
- * The kIOMediaContentHintKey property contains a hint of the media's contents.
+ * The kIOMediaContentHintKey property has an OSString
+ * value and contains a hint of the media's contents.
  * The hint is set at the time of the object's creation, should the creator have
  * a clue as to what it may contain.  The hint string does not change for the
  * lifetime of the object and is formed in the likeness of Apple's "Apple_HFS"
@@ -79,36 +76,34 @@
 /*!
  * @defined kIOMediaEjectableKey
  * @abstract
- * kIOMediaEjectableKey is a property of IOMedia objects.  It has an OSBoolean
- * value.
+ * A property of IOMedia objects.
  * @discussion
- * The kIOMediaEjectableKey property describes whether the media is ejectable
+ * The kIOMediaEjectableKey property has an OSBoolean
+ * value and describes whether the media is ejectable
  * from the drive mechanism under software control.  Implies IOMediaRemovable
  * is also true.
  */
 
 #define kIOMediaEjectableKey "Ejectable"
-#define kIOMediaEjectable "Ejectable" ///d:deprecated
 
 /*!
  * @defined kIOMediaLeafKey
  * @abstract
- * kIOMediaLeafKey is a property of IOMedia objects.  It has an OSBoolean value.
+ * A property of IOMedia objects.
  * @discussion
- * The kIOMediaLeafKey property describes whether the media is a leaf, that is,
- * it is the deepest media object in this branch of the I/O Kit registry.
+ * The kIOMediaLeafKey property has an OSBoolean value and describes whether the media is a leaf, that is,
+ * it is the deepest media object in this branch of the I/O Registry.
  */
 
 #define kIOMediaLeafKey "Leaf"
-#define kIOMediaLeaf "Leaf" ///d:deprecated
 
 /*!
  * @defined kIOMediaPreferredBlockSizeKey
  * @abstract
- * kIOMediaPreferredBlockSizeKey is a property of IOMedia objects.  It has an
- * OSNumber value.
+ * A property of IOMedia objects.
  * @discussion
- * The kIOMediaPreferredBlockSizeKey property describes the media's natural
+ * The kIOMediaPreferredBlockSizeKey property has an
+ * OSNumber value and describes the media's natural
  * block size in bytes.  This information is useful to clients that want to
  * optimize access to the media.
  */
@@ -118,10 +113,10 @@
 /*!
  * @defined kIOMediaRemovableKey
  * @abstract
- * kIOMediaRemovableKey is a property of IOMedia objects.  It has an OSBoolean
- * value.
+ * A property of IOMedia objects.
  * @discussion
- * The kIOMediaRemovableKey property describes whether the media is removable
+ * The kIOMediaRemovableKey property has an OSBoolean
+ * value and describes whether the media is removable
  * from the drive mechanism.
  */
 
@@ -130,22 +125,21 @@
 /*!
  * @defined kIOMediaSizeKey
  * @abstract
- * kIOMediaSizeKey is a property of IOMedia objects.  It has an OSNumber value.
+ * A property of IOMedia objects.
  * @discussion
- * The kIOMediaSizeKey property describes the total length of the media in
+ * The kIOMediaSizeKey property has an OSNumber value and describes the total length of the media in
  * bytes.
  */
 
 #define kIOMediaSizeKey "Size"
-#define kIOMediaSize "Size" ///d:deprecated
 
 /*!
  * @defined kIOMediaWholeKey
  * @abstract
- * kIOMediaWholeKey is a property of IOMedia objects.  It has an OSBoolean
- * value.
+ * A property of IOMedia objects.
  * @discussion
- * The kIOMediaWholeKey property describes whether the media is whole, that is,
+ * The kIOMediaWholeKey property has an OSBoolean
+ * value and describes whether the media is whole, that is,
  * it represents the whole disk (the physical disk, or a virtual replica
  * thereof).
  */
@@ -155,22 +149,21 @@
 /*!
  * @defined kIOMediaWritableKey
  * @abstract
- * kIOMediaWritableKey is a property of IOMedia objects.  It has an OSBoolean
- * value.
+ * A property of IOMedia objects.
  * @discussion
- * The kIOMediaWritableKey property describes whether the media is writable.
+ * The kIOMediaWritableKey property has an OSBoolean
+ * value and describes whether the media is writable.
  */
 
 #define kIOMediaWritableKey "Writable"
-#define kIOMediaWritable "Writable" ///d:deprecated
 
 /*!
  * @defined kIOMediaContentMaskKey
  * @abstract
- * kIOMediaContentMaskKey is a property of IOMedia clients.  It has an OSString
- * value.
+ * A property of IOMedia clients.
  * @discussion
- * The kIOMediaContentMaskKey property must exist in all IOMedia clients that
+ * The kIOMediaContentMaskKey property has an OSString
+ * value and must exist in all IOMedia clients that
  * drive new content (that is, produce new media objects).  When the client
  * matches against the provider media, the value of the client's
  * kIOMediaContentMaskKey property is used to replace the provider's
@@ -182,8 +175,7 @@
 /*!
  * @defined kIOMediaIconKey
  * @abstract
- * kIOMediaIconKey is a property of any object in the media stack.  It has an
- * OSDictionary value, with properties identical to the kIOIconKey definition.
+ * A property of any object in the media stack.
  * @discussion
  * kIOMediaIconKey is a property of any object in the media stack that wishes
  * to override the default icon shown for the media objects in the stack.  It
@@ -224,7 +216,7 @@ typedef UInt32 IOMediaAttributeMask;
 /*!
  * @class IOMedia
  * @abstract
- * The IOMedia class is a random-access disk device abstraction.
+ * A random-access disk device abstraction.
  * @discussion
  * The IOMedia class is a random-access disk device abstraction.   It provides a
  * consistent interface for both real and virtual disk devices, for subdivisions
@@ -308,7 +300,7 @@ protected:
      * @function handleIsOpen
      * @discussion
      * The handleIsOpen method determines whether the specified client, or any
-     * client if none is specificed, presently has an open on this object.
+     * client if none is specified, presently has an open on this object.
      *
      * This implementation replaces the IOService definition of handleIsOpen().
      * @param client
@@ -532,12 +524,12 @@ public:
      * @discussion
      * Ask the media object for a description of its contents.  The description
      * is the same as the hint at the time of the object's creation,  but it is
-     * possible that the description be overrided by a client (which has probed
+     * possible that the description has been overridden by a client (which has probed
      * the media and identified the content correctly) of the media object.  It
      * is more accurate than the hint for this reason.  The string is formed in
      * the likeness of Apple's "Apple_HFS" strings.
      *
-     * The content description can be overrided by any client that matches onto
+     * The content description can be overridden by any client that matches onto
      * this media object with a match category of kIOStorageCategory.  The media
      * object checks for a kIOMediaContentMaskKey property in the client, and if
      * it finds one, it copies it into kIOMediaContentKey property.

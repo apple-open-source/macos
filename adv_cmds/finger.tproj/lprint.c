@@ -1,53 +1,80 @@
-/* 
- * Copyright (c) 1995 NeXT Computer, Inc. All Rights Reserved
- *
+/*
  * Copyright (c) 1989, 1993
  *	The Regents of the University of California.  All rights reserved.
  *
  * This code is derived from software contributed to Berkeley by
  * Tony Nardo of the Johns Hopkins University/Applied Physics Lab.
  *
- * The NEXTSTEP Software License Agreement specifies the terms
- * and conditions for redistribution.
+ * Redistribution and use in source and binary forms, with or without
+ * modification, are permitted provided that the following conditions
+ * are met:
+ * 1. Redistributions of source code must retain the above copyright
+ *    notice, this list of conditions and the following disclaimer.
+ * 2. Redistributions in binary form must reproduce the above copyright
+ *    notice, this list of conditions and the following disclaimer in the
+ *    documentation and/or other materials provided with the distribution.
+ * 3. All advertising materials mentioning features or use of this software
+ *    must display the following acknowledgement:
+ *	This product includes software developed by the University of
+ *	California, Berkeley and its contributors.
+ * 4. Neither the name of the University nor the names of its contributors
+ *    may be used to endorse or promote products derived from this software
+ *    without specific prior written permission.
  *
- *	@(#)lprint.c	8.3 (Berkeley) 4/28/95
+ * THIS SOFTWARE IS PROVIDED BY THE REGENTS AND CONTRIBUTORS ``AS IS'' AND
+ * ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+ * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
+ * ARE DISCLAIMED.  IN NO EVENT SHALL THE REGENTS OR CONTRIBUTORS BE LIABLE
+ * FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
+ * DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS
+ * OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION)
+ * HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT
+ * LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY
+ * OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
+ * SUCH DAMAGE.
  */
 
+#if 0
+#ifndef lint
+static char sccsid[] = "@(#)lprint.c	8.3 (Berkeley) 4/28/95";
+#endif
+#endif
+
+#include <sys/cdefs.h>
+
 #include <sys/types.h>
+#include <sys/socket.h>
 #include <sys/stat.h>
 #include <sys/time.h>
-#include <fcntl.h>
-#include <time.h>
-#include <tzfile.h>
+#include <ctype.h>
 #include <db.h>
 #include <err.h>
-#include <pwd.h>
-#include <utmp.h>
-#include <errno.h>
-#include <unistd.h>
-#include <stdio.h>
-#include <ctype.h>
-#include <string.h>
+#include <fcntl.h>
+#ifndef __APPLE__
+#include <langinfo.h>
+#endif
 #include <paths.h>
+#include <pwd.h>
+#include <stdio.h>
+#include <string.h>
+#include <unistd.h>
+#include <utmp.h>
 #include "finger.h"
+#include "pathnames.h"
+#include "extern.h"
 
 #define	LINE_LEN	80
 #define	TAB_LEN		8		/* 8 spaces between tabs */
-#define	_PATH_FORWARD	".forward"
-#define	_PATH_PLAN	".plan"
-#define	_PATH_PROJECT	".project"
 
-static int	demi_print __P((char *, int));
-static void	lprint __P((PERSON *));
-static int	show_text __P((char *, char *, char *));
-static void	vputc __P((int));
+static int	demi_print(char *, int);
+static void	lprint(PERSON *);
+static void     vputc(unsigned char);
 
 void
-lflag_print()
+lflag_print(void)
 {
-	extern int pplan;
-	register PERSON *pn;
-	register int sflag, r;
+	PERSON *pn;
+	int sflag, r;
 	PERSON *tmp;
 	DBT data, key;
 
@@ -68,22 +95,26 @@ lflag_print()
 			(void)show_text(pn->dir, _PATH_PROJECT, "Project");
 			if (!show_text(pn->dir, _PATH_PLAN, "Plan"))
 				(void)printf("No Plan.\n");
+			(void)show_text(pn->dir,
+			    _PATH_PUBKEY, "Public key");
 		}
 	}
 }
 
 static void
-lprint(pn)
-	register PERSON *pn;
+lprint(PERSON *pn)
 {
-	extern time_t now;
-	register struct tm *delta;
-	register WHERE *w;
-	register int cpr, len, maxlen;
+	struct tm *delta;
+	WHERE *w;
+	int cpr, len, maxlen;
 	struct tm *tp;
 	int oddfield;
-	char *t, *tzn;
+	char t[80];
 
+#ifndef __APPLE__
+	if (d_first < 0)
+		d_first = (*nl_langinfo(D_MD_ORDER) == 'd');
+#endif
 	/*
 	 * long format --
 	 *	login name
@@ -91,11 +122,14 @@ lprint(pn)
 	 *	home directory
 	 *	shell
 	 *	office, office phone, home phone if available
+	 *	mail status
 	 */
 	(void)printf("Login: %-15s\t\t\tName: %s\nDirectory: %-25s",
 	    pn->name, pn->realname, pn->dir);
 	(void)printf("\tShell: %-s\n", *pn->shell ? pn->shell : _PATH_BSHELL);
 
+	if (gflag)
+		goto no_gecos;
 	/*
 	 * try and print office, office phone, and home phone on one line;
 	 * if that fails, do line filling so it looks nice.
@@ -129,8 +163,10 @@ lprint(pn)
 	if (oddfield)
 		putchar('\n');
 
+no_gecos:
 	/*
-	 * long format con't: * if logged in
+	 * long format con't:
+	 * if logged in
 	 *	terminal
 	 *	idle time
 	 *	if messages allowed
@@ -144,13 +180,12 @@ lprint(pn)
 			maxlen = len;
 	/* find rest of entries for user */
 	for (w = pn->whead; w != NULL; w = w->next) {
-		switch (w->info) {
-		case LOGGEDIN:
+		if (w->info == LOGGEDIN) {
 			tp = localtime(&w->loginat);
-			t = asctime(tp);
-			tzn = tp->tm_zone;
-			cpr = printf("On since %.16s (%s) on %s",
-			    t, tzn, w->tty);
+			strftime(t, sizeof(t),
+			    d_first ? "%a %e %b %R (%Z)" : "%a %b %e %R (%Z)",
+			    tp);
+			cpr = printf("On since %s on %s", t, w->tty);
 			/*
 			 * idle time is tough; if have one, print a comma,
 			 * then spaces to pad out the device name, then the
@@ -159,7 +194,7 @@ lprint(pn)
 			delta = gmtime(&w->idletime);
 			if (delta->tm_yday || delta->tm_hour || delta->tm_min) {
 				cpr += printf("%-*s idle ",
-				    maxlen - strlen(w->tty) + 1, ",");
+				    maxlen - (int)strlen(w->tty) + 1, ",");
 				if (delta->tm_yday > 0) {
 					cpr += printf("%d day%s ",
 					   delta->tm_yday,
@@ -174,23 +209,22 @@ lprint(pn)
 			}
 			if (!w->writable)
 				cpr += printf(" (messages off)");
-			break;
-		case LASTLOG:
-			if (w->loginat == 0) {
-				(void)printf("Never logged in.");
-				break;
-			}
+		} else if (w->loginat == 0) {
+			cpr = printf("Never logged in.");
+		} else {
 			tp = localtime(&w->loginat);
-			t = asctime(tp);
-			tzn = tp->tm_zone;
-			if (now - w->loginat > SECSPERDAY * DAYSPERNYEAR / 2)
-				cpr =
-				    printf("Last login %.16s %.4s (%s) on %s",
-				    t, t + 20, tzn, w->tty);
-			else
-				cpr = printf("Last login %.16s (%s) on %s",
-				    t, tzn, w->tty);
-			break;
+			if (now - w->loginat > 86400 * 365 / 2) {
+				strftime(t, sizeof(t),
+					 d_first ? "%a %e %b %R %Y (%Z)" :
+						   "%a %b %e %R %Y (%Z)",
+					 tp);
+			} else {
+				strftime(t, sizeof(t),
+					 d_first ? "%a %e %b %R (%Z)" :
+						   "%a %b %e %R (%Z)",
+					 tp);
+			}
+			cpr = printf("Last login %s on %s", t, w->tty);
 		}
 		if (*w->host) {
 			if (LINE_LEN < (cpr + 6 + strlen(w->host)))
@@ -199,12 +233,33 @@ lprint(pn)
 		}
 		putchar('\n');
 	}
+	if (pn->mailrecv == -1)
+		printf("No Mail.\n");
+	else if (pn->mailrecv > pn->mailread) {
+		tp = localtime(&pn->mailrecv);
+		strftime(t, sizeof(t),
+			 d_first ? "%a %e %b %R %Y (%Z)" :
+				   "%a %b %e %R %Y (%Z)",
+			 tp);
+		printf("New mail received %s\n", t);
+		tp = localtime(&pn->mailread);
+		strftime(t, sizeof(t),
+			 d_first ? "%a %e %b %R %Y (%Z)" :
+				   "%a %b %e %R %Y (%Z)",
+			 tp);
+		printf("     Unread since %s\n", t);
+	} else {
+		tp = localtime(&pn->mailread);
+		strftime(t, sizeof(t),
+			 d_first ? "%a %e %b %R %Y (%Z)" :
+				   "%a %b %e %R %Y (%Z)",
+			 tp);
+		printf("Mail last read %s\n", t);
+	}
 }
 
 static int
-demi_print(str, oddfield)
-	char *str;
-	int oddfield;
+demi_print(char *str, int oddfield)
 {
 	static int lenlast;
 	int lenthis, maxlen;
@@ -241,15 +296,16 @@ demi_print(str, oddfield)
 	return(oddfield);
 }
 
-static int
-show_text(directory, file_name, header)
-	char *directory, *file_name, *header;
+int
+show_text(const char *directory, const char *file_name, const char *header)
 {
 	struct stat sb;
-	register FILE *fp;
-	register int ch, cnt, lastc;
-	register char *p;
+	FILE *fp;
+	int ch, cnt;
+	char *p, lastc;
 	int fd, nr;
+
+	lastc = '\0';
 
 	(void)snprintf(tbuf, sizeof(tbuf), "%s/%s", directory, file_name);
 	if ((fd = open(tbuf, O_RDONLY)) < 0 || fstat(fd, &sb) ||
@@ -267,9 +323,11 @@ show_text(directory, file_name, header)
 			if (*p == '\n')
 				break;
 		if (cnt <= 1) {
-			(void)printf("%s: ", header);
+			if (*header != '\0')
+				(void)printf("%s: ", header);
 			for (p = tbuf, cnt = nr; cnt--; ++p)
-				vputc(lastc = *p);
+				if (*p != '\r')
+					vputc(lastc = *p);
 			if (lastc != '\n')
 				(void)putchar('\n');
 			(void)close(fd);
@@ -280,9 +338,11 @@ show_text(directory, file_name, header)
 	}
 	if ((fp = fdopen(fd, "r")) == NULL)
 		return(0);
-	(void)printf("%s:\n", header);
+	if (*header != '\0')
+		(void)printf("%s:\n", header);
 	while ((ch = getc(fp)) != EOF)
-		vputc(lastc = ch);
+		if (ch != '\r')
+			vputc(lastc = ch);
 	if (lastc != '\n')
 		(void)putchar('\n');
 	(void)fclose(fp);
@@ -290,19 +350,18 @@ show_text(directory, file_name, header)
 }
 
 static void
-vputc(ch)
-	register int ch;
+vputc(unsigned char ch)
 {
 	int meta;
 
-	if (!isascii(ch)) {
+	if (!isprint(ch) && !isascii(ch)) {
 		(void)putchar('M');
 		(void)putchar('-');
 		ch = toascii(ch);
 		meta = 1;
 	} else
 		meta = 0;
-	if (isprint(ch) || !meta && (ch == ' ' || ch == '\t' || ch == '\n'))
+	if (isprint(ch) || (!meta && (ch == ' ' || ch == '\t' || ch == '\n')))
 		(void)putchar(ch);
 	else {
 		(void)putchar('^');

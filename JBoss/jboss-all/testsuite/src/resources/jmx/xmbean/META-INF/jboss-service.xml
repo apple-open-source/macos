@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE server
+    PUBLIC "-//JBoss//DTD MBean Service 3.2//EN"
+    "http://www.jboss.org/j2ee/dtd/jboss-service_3_2.dtd">
+
+<server>
+
+   <!-- The xmbean with the xdoclet generated descriptor -->
+   <mbean code="org.jboss.test.jmx.xmbean.User"
+      name="jboss.test:service=xmbean-user"
+      xmbean-dd="org/jboss/test/jmx/xmbean/User.xml"/>
+
+   <!-- The xmbean with the hand generated descriptor -->
+   <mbean code="org.jboss.test.jmx.xmbean.User2"
+      name="jboss.test:service=xmbean-user2"
+      xmbean-dd="META-INF/user2-xmbean.xml">
+      <attribute name="Attr1">attr1-string</attribute>
+      <attribute name="Attr2">15</attribute>
+   </mbean>
+
+</server>

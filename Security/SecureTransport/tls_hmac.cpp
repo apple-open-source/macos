@@ -95,6 +95,7 @@ static OSStatus HMAC_Alloc(
 		&cssmKey,
 		&href->ccHand);
 	if(crtn) {
+		stPrintCdsaError("CSSM_CSP_CreateMacContext", crtn);
 		return errSSLCrypto;
 	}
 	
@@ -132,6 +133,7 @@ static OSStatus HMAC_Init(
 	
 	crtn = CSSM_GenerateMacInit(hmacCtx->ccHand);
 	if(crtn) {
+		stPrintCdsaError("CSSM_GenerateMacInit", crtn);
 		return errSSLCrypto;
 	}
 	return noErr;
@@ -156,6 +158,7 @@ static OSStatus HMAC_Update(
 	cdata.Length = dataLen;
 	crtn = CSSM_GenerateMacUpdate(hmacCtx->ccHand, &cdata, 1);
 	if(crtn) {
+		stPrintCdsaError("CSSM_GenerateMacUpdate", crtn);
 		return errSSLCrypto;
 	}
 	return noErr;
@@ -182,6 +185,7 @@ static OSStatus HMAC_Final(
 	cdata.Length = *hmacLen;
 	crtn = CSSM_GenerateMacFinal(hmacCtx->ccHand, &cdata);
 	if(crtn) {
+		stPrintCdsaError("CSSM_GenerateMacFinal", crtn);
 		return errSSLCrypto;
 	}
 	*hmacLen = cdata.Length;

@@ -87,7 +87,7 @@ bool KeychainPromptAclSubject::validate(const AclValidationContext &context,
 		// check for special ACL-update override
 		if (context.authorization() == CSSM_ACL_AUTHORIZATION_CHANGE_ACL
 				&& Server::connection().aclWasSetForUpdateTrigger(env->acl)) {
-			debug("kcacl", "honoring acl update trigger for %p(%s)", 
+			secdebug("kcacl", "honoring acl update trigger for %p(%s)", 
                 &env->acl, description.c_str());
 			return true;
 		}
@@ -95,28 +95,24 @@ bool KeychainPromptAclSubject::validate(const AclValidationContext &context,
 		// does the user need to type in the passphrase?
 		const Database *db = env->database();
 		bool needPassphrase = db && (selector.flags & CSSM_ACL_KEYCHAIN_PROMPT_REQUIRE_PASSPHRASE);
-		debug("adhoc", "prompt acl db=%p needPassphrase=%d", db, needPassphrase);
 
         // ask the user
-		Process &cltProc = Server::active().connection().process;
-                debug("kcacl", "Keychain query from process %d (UID %d)", cltProc.pid(), cltProc.uid());
 #if FECKLESS_KEYCHAIN_ACCESS_EXCEPTION
-		if (cltProc.clientCode())
+		Process &process = Server::active().connection().process;
+		secdebug("kcacl", "Keychain query from process %d (UID %d)", process.pid(), process.uid());
+		if (process.clientCode())
 			needPassphrase |=
-				cltProc.clientCode()->canonicalPath() == "/Applications/Utilities/Keychain Access.app";
+				process.clientCode()->canonicalPath() == "/Applications/Utilities/Keychain Access.app";
 #endif
-		QueryKeychainUse query(cltProc.uid(), cltProc.session, needPassphrase);
-		query((db ? db->dbName() : NULL), description.c_str(), context.authorization());
+		QueryKeychainUse query(needPassphrase);
+        const char* dbName = db ? db->dbName() : NULL;
+		query.queryUser(db, dbName, description.c_str(), context.authorization());
 
-		// verify keychain passphrase if required
-		if (needPassphrase && !env->database()->validatePassphrase(StringData(query.passphrase)))
-			return false;	// needed passphrase, passphrase is wrong
-		
 		// process "always allow..." response
 		if (query.continueGrantingToCaller) {
 			// mark for special ACL-update override (really soon) later
 			Server::connection().setAclUpdateTrigger(env->acl);
-			debug("kcacl", "setting acl update trigger for %p(%s)", 
+			secdebug("kcacl", "setting acl update trigger for %p(%s)", 
                 &env->acl, description.c_str());
 			// fail with prejudice (caller will retry)
 			CssmError::throwMe(CSSMERR_CSP_APPLE_ADD_APPLICATION_ACL_SUBJECT);
@@ -160,7 +156,7 @@ KeychainPromptAclSubject *KeychainPromptAclSubject::Maker::make(const TypedList 
 			ListElement *params[2];
 			crack(list, 2, params, CSSM_LIST_ELEMENT_DATUM, CSSM_LIST_ELEMENT_DATUM);
 			return new KeychainPromptAclSubject(*params[1],
-				*CssmData(*params[0]).interpretedAs<CSSM_ACL_KEYCHAIN_PROMPT_SELECTOR>());
+				*params[0]->data().interpretedAs<CSSM_ACL_KEYCHAIN_PROMPT_SELECTOR>(CSSM_ERRCODE_INVALID_ACL_SUBJECT_VALUE));
 		}
 	default:
 		CssmError::throwMe(CSSM_ERRCODE_INVALID_ACL_SUBJECT_VALUE);
@@ -179,6 +175,8 @@ KeychainPromptAclSubject *KeychainPromptAclSubject::Maker::make(Version version,
 		break;
 	case jaguarVersion:
 		pub(selector);
+		selector.version = n2h (selector.version);
+		selector.flags = n2h (selector.flags);
 		pub(description);
 		break;
 	}
@@ -207,15 +205,22 @@ KeychainPromptAclSubject::KeychainPromptAclSubject(string descr,
 //
 void KeychainPromptAclSubject::exportBlob(Writer::Counter &pub, Writer::Counter &priv)
 {
-	if (version() != 0)
+	if (version() != 0) {
+		selector.version = h2n (selector.version);
+		selector.flags = h2n (selector.flags);
 		pub(selector);
+	}
+	
     pub.insert(description.size() + 1);
 }
 
 void KeychainPromptAclSubject::exportBlob(Writer &pub, Writer &priv)
 {
-	if (version() != 0)
+	if (version() != 0) {
+		selector.version = h2n (selector.version);
+		selector.flags = h2n (selector.flags);
 		pub(selector);
+	}
     pub(description.c_str());
 }
 

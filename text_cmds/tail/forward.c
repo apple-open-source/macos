@@ -1,5 +1,3 @@
-/*	$NetBSD: forward.c,v 1.13 1998/09/18 01:42:54 cjs Exp $	*/
-
 /*-
  * Copyright (c) 1991, 1993
  *	The Regents of the University of California.  All rights reserved.
@@ -37,28 +35,35 @@
  */
 
 #include <sys/cdefs.h>
+
+
 #ifndef lint
-#if 0
-static char sccsid[] = "@(#)forward.c	8.1 (Berkeley) 6/6/93";
+static const char sccsid[] = "@(#)forward.c	8.1 (Berkeley) 6/6/93";
 #endif
-__RCSID("$NetBSD: forward.c,v 1.13 1998/09/18 01:42:54 cjs Exp $");
-#endif /* not lint */
 
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <sys/time.h>
 #include <sys/mman.h>
+#include <sys/event.h>
 
-#include <limits.h>
-#include <fcntl.h>
+#include <err.h>
 #include <errno.h>
-#include <unistd.h>
+#include <fcntl.h>
+#include <limits.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <unistd.h>
+
 #include "extern.h"
 
-static void rlines __P((FILE *, long, struct stat *));
+static void rlines(FILE *, off_t, struct stat *);
+
+/* defines for inner loop actions */
+#define USE_SLEEP	0
+#define USE_KQUEUE	1
+#define ADD_EVENTS	2
 
 /*
  * forward -- display the file, from an offset, forward.
@@ -86,20 +91,14 @@ void
 forward(fp, style, off, sbp)
 	FILE *fp;
 	enum STYLE style;
-	long off;
+	off_t off;
 	struct stat *sbp;
 {
-	int ch;
-	struct timeval second;
-	int dostat = 0;
-	struct stat statbuf;
-	off_t lastsize = 0;
-	dev_t lastdev;
-	ino_t lastino;
-
-	/* Keep track of file's previous incarnation. */
-	lastdev = sbp->st_dev;
-	lastino = sbp->st_ino;
+	int ch, n, kq = -1;
+	int action = USE_SLEEP;
+	struct kevent ev[2];
+	struct stat sb2;
+	struct timespec ts;
 
 	switch(style) {
 	case FBYTES:
@@ -108,7 +107,7 @@ forward(fp, style, off, sbp)
 		if (S_ISREG(sbp->st_mode)) {
 			if (sbp->st_size < off)
 				off = sbp->st_size;
-			if (fseek(fp, off, SEEK_SET) == -1) {
+			if (fseeko(fp, off, SEEK_SET) == -1) {
 				ierr();
 				return;
 			}
@@ -139,7 +138,7 @@ forward(fp, style, off, sbp)
 	case RBYTES:
 		if (S_ISREG(sbp->st_mode)) {
 			if (sbp->st_size >= off &&
-			    fseek(fp, -off, SEEK_END) == -1) {
+			    fseeko(fp, -off, SEEK_END) == -1) {
 				ierr();
 				return;
 			}
@@ -150,12 +149,13 @@ forward(fp, style, off, sbp)
 				return;
 			}
 		} else
-			bytes(fp, off);
+			if (bytes(fp, off))
+				return;
 		break;
 	case RLINES:
 		if (S_ISREG(sbp->st_mode))
 			if (!off) {
-				if (fseek(fp, 0L, SEEK_END) == -1) {
+				if (fseeko(fp, (off_t)0, SEEK_END) == -1) {
 					ierr();
 					return;
 				}
@@ -168,64 +168,99 @@ forward(fp, style, off, sbp)
 				return;
 			}
 		} else
-			lines(fp, off);
+			if (lines(fp, off))
+				return;
 		break;
 	default:
 		break;
 	}
 
+	if (fflag) {
+		kq = kqueue();
+		if (kq < 0)
+			err(1, "kqueue");
+		action = ADD_EVENTS;
+	}
+
 	for (;;) {
-		while ((ch = getc(fp)) != EOF)  {
+		while ((ch = getc(fp)) != EOF)
 			if (putchar(ch) == EOF)
 				oerr();
-		}
 		if (ferror(fp)) {
 			ierr();
 			return;
 		}
 		(void)fflush(stdout);
-		if (!fflag)
+		if (! fflag)
 			break;
-		/*
-		 * We pause for one second after displaying any data that has
-		 * accumulated since we read the file.  Since sleep(3) takes
-		 * eight system calls, use select() instead.
-		 */
-		second.tv_sec = 1;
-		second.tv_usec = 0;
-		if (select(0, NULL, NULL, NULL, &second) == -1)
-			err(1, "select: %s", strerror(errno));
 		clearerr(fp);
 
-		if (fflag == 1)
-			continue;
-		/*
-		 * We restat the original filename every five seconds. If
-		 * the size is ever smaller than the last time we read it,
-		 * the file has probably been truncated; if the inode or
-		 * or device number are different, it has been rotated.
-		 * This causes us to close it, reopen it, and continue
-		 * the tail -f. If stat returns an error (say, because
-		 * the file has been removed), just continue with what
-		 * we've got open now.
-		 */
-		if (dostat > 0)  {
-			dostat -= 1;
-		} else {
-			dostat = 5;
-			if (stat(fname, &statbuf) == 0)  {
-				if (statbuf.st_dev != lastdev ||
-				    statbuf.st_ino != lastino ||
-				    statbuf.st_size < lastsize)  {
-					lastdev = statbuf.st_dev;
-					lastino = statbuf.st_ino;
-					lastsize = 0;
-					fclose(fp);
-					if ((fp = fopen(fname, "r")) == NULL)
-						err(1, "can't reopen %s: %s",
-						    fname, strerror(errno));
+		switch (action) {
+		case ADD_EVENTS:
+			n = 0;
+			ts.tv_sec = 0;
+			ts.tv_nsec = 0;
+
+			if (Fflag && fileno(fp) != STDIN_FILENO) {
+				EV_SET(&ev[n], fileno(fp), EVFILT_VNODE,
+				    EV_ADD | EV_ENABLE | EV_CLEAR,
+				    NOTE_DELETE | NOTE_RENAME, 0, 0);
+				n++;
+			}
+			EV_SET(&ev[n], fileno(fp), EVFILT_READ,
+			    EV_ADD | EV_ENABLE | EV_CLEAR, 0, 0, 0);
+			n++;
+
+			if (kevent(kq, ev, n, NULL, 0, &ts) < 0) {
+				action = USE_SLEEP;
+			} else {
+				action = USE_KQUEUE;
+			}
+			break;
+
+		case USE_KQUEUE:
+			ts.tv_sec = 1;
+			ts.tv_nsec = 0;
+			/*
+			 * In the -F case we set a timeout to ensure that
+			 * we re-stat the file at least once every second.
+			 */
+			n = kevent(kq, NULL, 0, ev, 1, Fflag ? &ts : NULL);
+			if (n < 0)
+				err(1, "kevent");
+			if (n == 0) {
+				/* timeout */
+				break;
+			} else if (ev->filter == EVFILT_READ && ev->data < 0) {
+				 /* file shrank, reposition to end */
+				if (fseeko(fp, (off_t)0, SEEK_END) == -1) {
+					ierr();
+					return;
+				}
+			}
+			break;
+
+		case USE_SLEEP:
+                	(void) usleep(250000);
+	                clearerr(fp);
+			break;
+		}
+
+		if (Fflag && fileno(fp) != STDIN_FILENO) {
+			while (stat(fname, &sb2) != 0)
+				/* file was rotated, wait until it reappears */
+				(void)sleep(1);
+			if (sb2.st_ino != sbp->st_ino ||
+			    sb2.st_dev != sbp->st_dev ||
+			    sb2.st_rdev != sbp->st_rdev ||
+			    sb2.st_nlink == 0) {
+				fp = freopen(fname, "r", fp);
+				if (fp == NULL) {
+					ierr();
+					return;
 				} else {
-					lastsize = statbuf.st_size;
+					*sbp = sb2;
+					action = ADD_EVENTS;
 				}
 			}
 		}
@@ -238,43 +273,50 @@ forward(fp, style, off, sbp)
 static void
 rlines(fp, off, sbp)
 	FILE *fp;
-	long off;
+	off_t off;
 	struct stat *sbp;
 {
-	off_t size;
-	char *p;
-	char *start;
+	struct mapinfo map;
+	off_t curoff, size;
+	int i;
 
 	if (!(size = sbp->st_size))
 		return;
+	map.start = NULL;
+	map.fd = fileno(fp);
+	map.mapoff = map.maxoff = size;
 
-	if (size > SIZE_T_MAX) {
-		err(0, "%s: %s", fname, strerror(EFBIG));
-		return;
-	}
-
-	if ((start = mmap(NULL, (size_t)size, PROT_READ,
-	    MAP_FILE|MAP_SHARED, fileno(fp), (off_t)0)) == (caddr_t)-1) {
-		err(0, "%s: %s", fname, strerror(EFBIG));
-		return;
-	}
-
-	/* Last char is special, ignore whether newline or not. */
-	for (p = start + size - 1; --size;)
-		if (*--p == '\n' && !--off) {
-			++p;
-			break;
+	/*
+	 * Last char is special, ignore whether newline or not. Note that
+	 * size == 0 is dealt with above, and size == 1 sets curoff to -1.
+	 */
+	curoff = size - 2;
+	while (curoff >= 0) {
+		if (curoff < map.mapoff && maparound(&map, curoff) != 0) {
+			ierr();
+			return;
 		}
+		for (i = curoff - map.mapoff; i >= 0; i--)
+			if (map.start[i] == '\n' && --off == 0)
+				break;
+		/* `i' is either the map offset of a '\n', or -1. */
+		curoff = map.mapoff + i;
+		if (i >= 0)
+			break;
+	}
+	curoff++;
+	if (mapprint(&map, curoff, size - curoff) != 0) {
+		ierr();
+		exit(1);
+	}
 
 	/* Set the file pointer to reflect the length displayed. */
-	size = sbp->st_size - size;
-	WR(p, size);
-	if (fseek(fp, (long)sbp->st_size, SEEK_SET) == -1) {
+	if (fseeko(fp, sbp->st_size, SEEK_SET) == -1) {
 		ierr();
 		return;
 	}
-	if (munmap(start, (size_t)sbp->st_size)) {
-		err(0, "%s: %s", fname, strerror(errno));
+	if (map.start != NULL && munmap(map.start, map.maplen)) {
+		ierr();
 		return;
 	}
 }

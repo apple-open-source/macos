@@ -12,9 +12,9 @@ NAME = showmount
 PROJECTVERSION = 2.8
 PROJECT_TYPE = Tool
 
-CFILES = showmount.c
+CFILES = showmount.c mshow.c
 
-OTHERSRCS = Makefile.preamble Makefile.postamble Makefile showmount.8
+OTHERSRCS = Makefile.preamble Makefile.postamble Makefile showmount.8 showmount.h
 
 
 MAKEFILEDIR = $(MAKEFILEPATH)/pb_makefiles
@@ -23,7 +23,7 @@ MAKEFILE = tool.make
 NEXTSTEP_INSTALLDIR = /usr/bin
 WINDOWS_INSTALLDIR = /usr/bin
 PDO_UNIX_INSTALLDIR = /usr/bin
-LIBS = 
+LIBS = -framework CoreFoundation
 DEBUG_LIBS = $(LIBS)
 PROF_LIBS = $(LIBS)
 

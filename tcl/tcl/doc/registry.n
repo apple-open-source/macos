@@ -1,20 +1,21 @@
 '\"
 '\" Copyright (c) 1997 Sun Microsystems, Inc.
+'\" Copyright (c) 2002 ActiveState Corporation.
 '\"
 '\" See the file "license.terms" for information on usage and redistribution
 '\" of this file, and for a DISCLAIMER OF ALL WARRANTIES.
 '\"
-'\" RCS: @(#) $Id: registry.n,v 1.1.1.3 2000/04/12 02:02:03 wsanchez Exp $
+'\" RCS: @(#) $Id: registry.n,v 1.1.1.4 2003/03/06 00:09:37 landonf Exp $
 '\" 
 .so man.macros
-.TH registry n 8.0 Tcl "Tcl Built-In Commands"
+.TH registry n 1.1 registry "Tcl Bundled Packages"
 .BS
 '\" Note:  do not modify the .SH NAME line immediately below!
 .SH NAME
 registry \- Manipulate the Windows registry
 .SH SYNOPSIS
 .sp
-\fBpackage require registry 1.0\fR
+\fBpackage require registry 1.1\fR
 .sp
 \fBregistry \fIoption\fR \fIkeyName\fR ?\fIarg arg ...\fR?
 .BE
@@ -50,12 +51,30 @@ registry key names separated by backslash (\fB\e\fR) characters.
 unique abbreviation for \fIoption\fR is acceptable.  The valid options
 are:
 .TP
+.VS 8.4
+\fBregistry broadcast \fIkeyName\fR ?\fI-timeout milliseconds\fR?
+.
+Sends a broadcast message to the system and running programs to notify them
+of certain updates.  This is necessary to propagate changes to key registry
+keys like Environment.  The timeout specifies the amount of time, in
+milliseconds, to wait for applications to respond to the broadcast message.
+It defaults to 3000.  The following example demonstrates how to add a path
+to the global Environment and notify applications of the change without
+reguiring a logoff/logon step (assumes admin privileges):
+.CS
+set regPath {HKEY_LOCAL_MACHINE\\SYSTEM\\CurrentControlSet\\Control\\Session Manager\\Environment}
+set curPath [registry get $regPath "Path"]
+registry set $regPath "Path" "$curPath;$addPath"
+registry broadcast "Environment"
+.CE
+.VE 8.4
+.TP
 \fBregistry delete \fIkeyName\fR ?\fIvalueName\fR?
 .
 If the optional \fIvalueName\fR argument is present, the specified
 value under \fIkeyName\fR will be deleted from the registry.  If the
 optional \fIvalueName\fR is omitted, the specified key and any subkeys
-or values beneath it in the registry heirarchy will be deleted.  If
+or values beneath it in the registry hierarchy will be deleted.  If
 the key could not be deleted then an error is generated.  If the key
 did not exist, the command has no effect.
 .TP

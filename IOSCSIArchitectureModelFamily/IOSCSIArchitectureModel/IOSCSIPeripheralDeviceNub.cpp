@@ -37,9 +37,9 @@
 #include <IOKit/IOMemoryDescriptor.h>
 
 // SCSI Architecture Model Family includes
-#include <IOKit/scsi-commands/SCSITask.h>
-#include <IOKit/scsi-commands/SCSICmds_INQUIRY_Definitions.h>
-#include <IOKit/scsi-commands/IOSCSIPeripheralDeviceNub.h>
+#include <IOKit/scsi/SCSITask.h>
+#include <IOKit/scsi/SCSICmds_INQUIRY_Definitions.h>
+#include "IOSCSIPeripheralDeviceNub.h"
 #include "SCSITaskLib.h"
 #include "SCSITaskLibPriv.h"
 #include "SCSIPrimaryCommands.h"
@@ -222,6 +222,18 @@ IOSCSIPeripheralDeviceNub::start ( IOService * provider )
 	if ( obj != NULL )
 	{
 		characterDict->setObject ( kIOPropertyPhysicalInterconnectLocationKey, obj );
+	}
+	
+	obj = fProvider->getProperty ( kIOPropertyReadTimeOutDurationKey );	
+	if ( obj != NULL );
+	{
+		characterDict->setObject ( kIOPropertyReadTimeOutDurationKey, obj );
+	}
+	
+	obj = fProvider->getProperty ( kIOPropertyWriteTimeOutDurationKey );	
+	if ( obj != NULL );
+	{
+		characterDict->setObject ( kIOPropertyWriteTimeOutDurationKey, obj );
 	}
 	
 	setProperty ( kIOPropertyProtocolCharacteristicsKey, characterDict );
@@ -841,33 +853,45 @@ IOSCSIPeripheralDeviceNub::InterrogateDevice ( void )
 														   kSenseDefaultSize,
 														   0 );
 				serviceResponse = SendTask ( request );
-				if(( serviceResponse == kSCSIServiceResponse_TASK_COMPLETE ) &&
-					( request->GetTaskStatus ( ) == kSCSITaskStatus_GOOD ))
+				if ( ( serviceResponse == kSCSIServiceResponse_TASK_COMPLETE ) &&
+					 ( request->GetTaskStatus ( ) == kSCSITaskStatus_GOOD ) )
 				{
 					// Check that the REQUEST SENSE command completed successfully.
 					validSense = true;
-				}				
+				}
+				
 			}
 			
 			// If valid sense data was obtained, parse it now to see if it was considered
 			// an ILLEGAL REQUEST and if so it was most likely due to accessing an invalid
 			// Logical unit on the device.
-			if( validSense == true )
+			if ( validSense == true )
 			{
+				
+				#if VERIFY_SENSE_DATA_VALID
+				
 				// Check that the SENSE DATA is valid
-				if ((senseBuffer.VALID_RESPONSE_CODE & kSENSE_DATA_VALID_Mask) == kSENSE_DATA_VALID)
+				if ( ( senseBuffer.VALID_RESPONSE_CODE & kSENSE_DATA_VALID_Mask ) == kSENSE_DATA_VALID )
+				
+				// We obtained traces showing that some devices don't actually set the valid sense data
+				// bit when sense data is definitely valid! Because of this, we don't actually check the
+				// valid bit and just look at the data which is returned. Too bad...
+				
+				#endif /* VERIFY_SENSE_DATA_VALID */
+				
 				{
+					
 					// Check the sense data to see if the TUR was sent to an invalid LUN and if so,
 					// abort trying to access this Logical Unit.
-					if( ((senseBuffer.SENSE_KEY & kSENSE_KEY_Mask) == kSENSE_KEY_ILLEGAL_REQUEST) &&
-						( senseBuffer.ADDITIONAL_SENSE_CODE == 0x25 ) &&
-				 		( senseBuffer.ADDITIONAL_SENSE_CODE_QUALIFIER == 0x00 ))					
-				 {
+					if ( ( ( senseBuffer.SENSE_KEY & kSENSE_KEY_Mask ) == kSENSE_KEY_ILLEGAL_REQUEST ) &&
+						   ( senseBuffer.ADDITIONAL_SENSE_CODE == 0x25 ) &&
+						   ( senseBuffer.ADDITIONAL_SENSE_CODE_QUALIFIER == 0x00 ) )
+				 	{
 						goto ReleaseTask;
 					}
-						
-					//require( (senseBuffer.SENSE_KEY & kSENSE_KEY_Mask != kSENSE_KEY_ILLEGAL_REQUEST), ReleaseTask );
+					
 				}
+				
 			}
 			
 		}
@@ -882,6 +906,7 @@ IOSCSIPeripheralDeviceNub::InterrogateDevice ( void )
    	for ( index = 0; ( index < kMaxInquiryAttempts ) && ( isInactive ( ) == false ); index++ )
 	{
 		
+		request->ResetForNewTask ( );
 		fSCSIPrimaryCommandObject->INQUIRY (
 									request,
 									bufferDesc,
@@ -950,7 +975,7 @@ IOSCSIPeripheralDeviceNub::InterrogateDevice ( void )
    	// Set the Product Indentification property for the device.
    	for ( index = 0; index < kINQUIRY_PRODUCT_IDENTIFICATION_Length; index++ )
    	{
-   		tempString[index] = inqData->PRODUCT_INDENTIFICATION[index];
+   		tempString[index] = inqData->PRODUCT_IDENTIFICATION[index];
    	}
    	tempString[index] = 0;
 	
@@ -1232,11 +1257,11 @@ IOSCSILogicalUnitNub::SetLogicalUnitNumber ( UInt8 newLUN )
 	// Set the location and the IOUnit values in the IORegistry
 	fLogicalUnitNumber = newLUN;	
 	
-	// Set the location to allow booting 
-    sprintf ( unit, "%x", ( int ) fLogicalUnitNumber );
-    setLocation ( unit );
+	// Set the location to allow booting.
+	sprintf ( unit, "%x", ( int ) fLogicalUnitNumber );
+	setLocation ( unit );
 	
-	// Create an OSNumber object with the SCSI Target Identifier
+	// Create an OSNumber object with the SCSI Logical Unit Identifier
 	logicalUnitNumber = OSNumber::withNumber ( fLogicalUnitNumber, 64 );
 	if ( logicalUnitNumber != NULL )
 	{
@@ -1244,7 +1269,7 @@ IOSCSILogicalUnitNub::SetLogicalUnitNumber ( UInt8 newLUN )
 		setProperty ( kIOPropertySCSILogicalUnitNumberKey, logicalUnitNumber );
 		
 		// Set the Unit number used to build the device tree path
-		setProperty ( "IOUnit", logicalUnitNumber );
+		setProperty ( "IOUnitLUN", logicalUnitNumber );
 		
 		logicalUnitNumber->release ( );
 		logicalUnitNumber = NULL;

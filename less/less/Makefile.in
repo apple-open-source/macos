@@ -24,6 +24,8 @@ exec_prefix = @exec_prefix@
 bindir = @bindir@
 binprefix = 
 
+sysconfdir = @sysconfdir@
+
 mandir = @mandir@
 manext = 1
 manprefix = 
@@ -35,7 +37,7 @@ SHELL = /bin/sh
 # This rule allows us to supply the necessary -D options
 # in addition to whatever the user asks for.
 .c.o:
-	${CC} -I. ${CFLAGS_COMPILE_ONLY} ${CPPFLAGS} ${CFLAGS} $<
+	${CC} -I. ${CFLAGS_COMPILE_ONLY} -DBINDIR=\"${bindir}\" -DSYSDIR=\"${sysconfdir}\" ${CPPFLAGS} ${CFLAGS} $<
 
 OBJ =	main.${O} screen.${O} brac.${O} ch.${O} charset.${O} cmdbuf.${O} \
 	command.${O} decode.${O} edit.${O} filename.${O} forwback.${O} \
@@ -65,7 +67,7 @@ install: all ${srcdir}/less.nro ${srcdir}/lesskey.nro installdirs
 	${INSTALL_DATA} ${srcdir}/lesskey.nro ${mandir}/man${manext}/${manprefix}lesskey.${manext}
 
 install-strip:
-	$(MAKE) INSTALL_PROGRAM='$(INSTALL_PROGRAM) -s' install
+	${MAKE} INSTALL_PROGRAM='${INSTALL_PROGRAM} -s' install
 
 installdirs: mkinstalldirs
 	${srcdir}/mkinstalldirs ${bindir} ${mandir}/man${manext}
@@ -94,8 +96,8 @@ Makefile: ${srcdir}/Makefile.in config.status
 config.status: ${srcdir}/configure
 	./config.status --recheck
 
-#${srcdir}/configure: ${srcdir}/configure.in
-#	cd ${srcdir}; autoheader; autoconf
+${srcdir}/configure: ${srcdir}/configure.in
+	cd ${srcdir}; autoheader; autoconf
 
 clean:
 	rm -f *.${O} core less lesskey lessecho

@@ -1,5 +1,6 @@
 /* Default error handlers for CPP Library.
-   Copyright (C) 1986, 87, 89, 92-95, 98, 1999 Free Software Foundation, Inc.
+   Copyright (C) 1986, 1987, 1989, 1992, 1993, 1994, 1995, 1998, 1999, 2000,
+   2001, 2002  Free Software Foundation, Inc.
    Written by Per Bothner, 1994.
    Based on CCCP program by Paul Rubin, June 1986
    Adapted to ANSI C, Richard Stallman, Jan 1987
@@ -22,187 +23,195 @@ Foundation, 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
  You are forbidden to forbid anyone else to use, share and improve
  what you give them.   Help stamp out software-hoarding!  */
 
-#ifndef EMACS
 #include "config.h"
 #include "system.h"
-#else
-#include <stdio.h>
-#endif /* not EMACS */
-
 #include "cpplib.h"
+#include "cpphash.h"
 #include "intl.h"
 
-/* Print the file names and line numbers of the #include
-   commands which led to the current file.  */
+/* APPLE LOCAL error-colon */
+static int gcc_error_colon = 0;
 
-void
-cpp_print_containing_files (pfile)
+static void print_location PARAMS ((cpp_reader *, unsigned int, unsigned int));
+
+/* Print the logical file location (LINE, COL) in preparation for a
+   diagnostic.  Outputs the #include chain if it has changed.  A line
+   of zero suppresses the include stack, and outputs the program name
+   instead.  */
+static void
+print_location (pfile, line, col)
      cpp_reader *pfile;
+     unsigned int line, col;
 {
-  cpp_buffer *ip;
-  int first = 1;
+  /* APPLE LOCAL begin error-colon */
+  const char *estr;
+  {
+    static int done = 0;
+    if ( ! done)
+      {
+	done = 1;	/* Do this only once.  */
+	/* Pretend we saw "-w" on commandline.  */
+	if (getenv ("GCC_DASH_W"))
+	  CPP_OPTION (pfile, inhibit_warnings) = 1; /* referenced by diagnostic.h:diagnostic_report_warnings() */
+	if (getenv ("GCC_ERROR_COLON"))
+	  gcc_error_colon = 1;
+      }
+  }
+  {
+    extern int gcc_error_colon;
+    estr = (gcc_error_colon) ? "error:" : "" ;
+  }
+  /* APPLE LOCAL end error-colon */
 
-  /* If stack of files hasn't changed since we last printed
-     this info, don't repeat it.  */
-  if (pfile->input_stack_listing_current)
-    return;
-
-  ip = cpp_file_buffer (pfile);
-
-  /* Give up if we don't find a source file.  */
-  if (ip == NULL)
-    return;
-
-  /* Find the other, outer source files.  */
-  while ((ip = CPP_PREV_BUFFER (ip)), ip != CPP_NULL_BUFFER (pfile))
+  if (!pfile->buffer || line == 0)
+    fprintf (stderr, "%s: ", progname);
+  else
     {
-      long line, col;
-      cpp_buf_line_and_col (ip, &line, &col);
-      if (ip->fname != NULL)
+      const struct line_map *map;
+
+      map = lookup_line (&pfile->line_maps, line);
+      print_containing_files (&pfile->line_maps, map);
+
+      line = SOURCE_LINE (map, line);
+      if (col == 0)
+	col = 1;
+
+      /* APPLE LOCAL begin error-colon */
+      if (line == 0)
+	fprintf (stderr, "%s:%s", map->to_file, estr);
+      else if (CPP_OPTION (pfile, show_column) == 0)
+	fprintf (stderr, "%s:%u:%s", map->to_file, line, estr);
+      else
+	fprintf (stderr, "%s:%u:%u:%s", map->to_file, line, col, estr);
+      /* APPLE LOCAL end error-colon */
+
+      fputc (' ', stderr);
+    }
+}
+
+/* Set up for a diagnostic: print the file and line, bump the error
+   counter, etc.  LINE is the logical line number; zero means to print
+   at the location of the previously lexed token, which tends to be
+   the correct place by default.  Returns 0 if the error has been
+   suppressed.  */
+int
+_cpp_begin_message (pfile, code, line, column)
+     cpp_reader *pfile;
+     int code;
+     unsigned int line, column;
+{
+  int level = DL_EXTRACT (code);
+
+  switch (level)
+    {
+    case DL_WARNING:
+    case DL_PEDWARN:
+      if (CPP_IN_SYSTEM_HEADER (pfile)
+	  && ! CPP_OPTION (pfile, warn_system_headers))
+	return 0;
+      /* Fall through.  */
+
+    case DL_WARNING_SYSHDR:
+      if (CPP_OPTION (pfile, warnings_are_errors)
+	  || (level == DL_PEDWARN && CPP_OPTION (pfile, pedantic_errors)))
 	{
-	  if (first)
-	    {
-	      first = 0;
-	      cpp_notice ("In file included from %s:%ld",
-			  ip->nominal_fname, line);
-	    }
+	  if (CPP_OPTION (pfile, inhibit_errors))
+	    return 0;
+	  level = DL_ERROR;
+	  pfile->errors++;
+	}
+      else if (CPP_OPTION (pfile, inhibit_warnings))
+	return 0;
+      break;
+
+    case DL_ERROR:
+      if (CPP_OPTION (pfile, inhibit_errors))
+	return 0;
+      /* ICEs cannot be inhibited.  */
+    case DL_ICE:
+      pfile->errors++;
+      break;
+    }
+
+  print_location (pfile, line, column);
+  if (DL_WARNING_P (level))
+    fputs (_("warning: "), stderr);
+  else if (level == DL_ICE)
+    fputs (_("internal error: "), stderr);
+
+  return 1;
+}
+
+/* Don't remove the blank before do, as otherwise the exgettext
+   script will mistake this as a function definition */
+#define v_message(msgid, ap) \
+ do { vfprintf (stderr, _(msgid), ap); putc ('\n', stderr); } while (0)
+
+/* Exported interface.  */
+
+/* Print an error at a specific location.  */
+void
+cpp_error VPARAMS ((cpp_reader * pfile, int level, const char *msgid, ...))
+{
+  unsigned int line, column;
+
+  VA_OPEN (ap, msgid);
+  VA_FIXEDARG (ap, cpp_reader *, pfile);
+  VA_FIXEDARG (ap, int, level);
+  VA_FIXEDARG (ap, const char *, msgid);
+
+  if (pfile->buffer)
+    {
+      if (CPP_OPTION (pfile, traditional))
+	{
+	  if (pfile->state.in_directive)
+	    line = pfile->directive_line;
 	  else
-	    cpp_message (pfile, -1, ",\n                 from %s:%ld",
-			 ip->nominal_fname, line);
+	    line = pfile->line;
+	  column = 0;
+	}
+      else
+	{
+	  line = pfile->cur_token[-1].line;
+	  column = pfile->cur_token[-1].col;
 	}
     }
-  if (! first)
-    fputs (":\n", stderr);
-
-  /* Record we have printed the status as of this time.  */
-  pfile->input_stack_listing_current = 1;
-}
-
-void
-cpp_file_line_for_message (pfile, filename, line, column)
-     cpp_reader *pfile ATTRIBUTE_UNUSED;
-     char *filename;
-     int line, column;
-{
-  if (column > 0)
-    fprintf (stderr, "%s:%d:%d: ", filename, line, column);
   else
-    fprintf (stderr, "%s:%d: ", filename, line);
+    line = column = 0;
+
+  if (_cpp_begin_message (pfile, level, line, column))
+    v_message (msgid, ap);
+
+  VA_CLOSE (ap);
 }
 
-/* IS_ERROR is 2 for "fatal" error, 1 for error, 0 for warning, -1 for notice */
-
+/* Print an error at a specific location.  */
 void
-v_cpp_message (pfile, is_error, msgid, ap)
-  cpp_reader * pfile;
-  int is_error;
-  const char *msgid;
-  va_list ap;
+cpp_error_with_line VPARAMS ((cpp_reader *pfile, int level,
+			      unsigned int line, unsigned int column,
+			      const char *msgid, ...))
 {
-  switch (is_error)
-    {
-    case -1:
-      break;
-    case 0:
-      fprintf (stderr, _("warning: "));
-      break;
-    case 1:
-      if (pfile->errors < CPP_FATAL_LIMIT)
-	pfile->errors++;
-      break;
-    case 2:
-      pfile->errors = CPP_FATAL_LIMIT;
-      break;
-    default:
-      cpp_fatal (pfile, "internal error: bad is_error(%d) in v_cpp_message", is_error);
-    }
+  VA_OPEN (ap, msgid);
+  VA_FIXEDARG (ap, cpp_reader *, pfile);
+  VA_FIXEDARG (ap, int, level);
+  VA_FIXEDARG (ap, unsigned int, line);
+  VA_FIXEDARG (ap, unsigned int, column);
+  VA_FIXEDARG (ap, const char *, msgid);
 
-  vfprintf (stderr, _(msgid), ap);
+  if (_cpp_begin_message (pfile, level, line, column))
+    v_message (msgid, ap);
 
-  if (0 <= is_error)
-    fprintf (stderr, "\n");
+  VA_CLOSE (ap);
 }
 
 void
-cpp_message VPROTO ((cpp_reader *pfile, int is_error, const char *msgid, ...))
-{
-#ifndef ANSI_PROTOTYPES
-  cpp_reader *pfile;
-  int is_error;
-  const char *msgid;
-#endif
-  va_list ap;
-  
-  VA_START (ap, msgid);
-  
-#ifndef ANSI_PROTOTYPES
-  pfile = va_arg (ap, cpp_reader *);
-  is_error = va_arg (ap, int);
-  msgid = va_arg (ap, const char *);
-#endif
-
-  v_cpp_message(pfile, is_error, msgid, ap);
-  va_end(ap);
-}
-
-/* Same as cpp_error, except we consider the error to be "fatal",
-   such as inconsistent options.  I.e. there is little point in continuing.
-   (We do not exit, to support use of cpplib as a library.
-   Instead, it is the caller's responsibility to check
-   CPP_FATAL_ERRORS.  */
-
-void
-cpp_fatal VPROTO ((cpp_reader *pfile, const char *msgid, ...))
-{  
-#ifndef ANSI_PROTOTYPES
-  cpp_reader *pfile;
-  const char *msgid;
-#endif
-  va_list ap;
-  
-  VA_START (ap, msgid);
-  
-#ifndef ANSI_PROTOTYPES
-  pfile = va_arg (ap, cpp_reader *);
-  msgid = va_arg (ap, const char *);
-#endif
-
-  fprintf (stderr, "%s: ", progname);
-  v_cpp_message (pfile, 2, msgid, ap);
-  va_end(ap);
-}
-
-void
-cpp_pfatal_with_name (pfile, name)
+cpp_errno (pfile, level, msgid)
      cpp_reader *pfile;
-     const char *name;
+     int level;
+     const char *msgid;
 {
-  cpp_perror_with_name (pfile, name);
-#ifdef VMS
-  exit (vaxc$errno);
-#else
-  exit (FATAL_EXIT_CODE);
-#endif
+  if (msgid[0] == '\0')
+    msgid = _("stdout");
+
+  cpp_error (pfile, level, "%s: %s", msgid, xstrerror (errno));
 }
-
-/* Print an error message.  */
-
-void
-cpp_notice VPROTO ((const char *msgid, ...))
-{  
-#ifndef ANSI_PROTOTYPES
-  const char *msgid;
-#endif
-  va_list ap;
-  
-  VA_START (ap, msgid);
-  
-#ifndef ANSI_PROTOTYPES
-  msgid = va_arg (ap, const char *);
-#endif
-
-  fprintf (stderr, "%s: ", progname);
-  v_cpp_message ((cpp_reader *) 0, -1, msgid, ap);
-  va_end(ap);
-}
-

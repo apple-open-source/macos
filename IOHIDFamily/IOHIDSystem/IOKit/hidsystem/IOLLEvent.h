@@ -1,21 +1,22 @@
 /*
- * Copyright (c) 1998-2000 Apple Computer, Inc. All rights reserved.
- *
  * @APPLE_LICENSE_HEADER_START@
  * 
- * The contents of this file constitute Original Code as defined in and
- * are subject to the Apple Public Source License Version 1.1 (the
- * "License").  You may not use this file except in compliance with the
- * License.  Please obtain a copy of the License at
- * http://www.apple.com/publicsource and read it before using this file.
+ * Copyright (c) 1999-2003 Apple Computer, Inc.  All Rights Reserved.
  * 
- * This Original Code and all software distributed under the License are
- * distributed on an "AS IS" basis, WITHOUT WARRANTY OF ANY KIND, EITHER
+ * This file contains Original Code and/or Modifications of Original Code
+ * as defined in and that are subject to the Apple Public Source License
+ * Version 2.0 (the 'License'). You may not use this file except in
+ * compliance with the License. Please obtain a copy of the License at
+ * http://www.opensource.apple.com/apsl/ and read it before using this
+ * file.
+ * 
+ * The Original Code and all software distributed under the License are
+ * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
  * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
  * INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY,
- * FITNESS FOR A PARTICULAR PURPOSE OR NON-INFRINGEMENT.  Please see the
- * License for the specific language governing rights and limitations
- * under the License.
+ * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
+ * Please see the License for the specific language governing rights and
+ * limitations under the License.
  * 
  * @APPLE_LICENSE_HEADER_END@
  */
@@ -90,6 +91,15 @@ typedef struct _NXSize {	/* size */
 #define NX_MOUSEENTERED		8	/* mouse-entered event */
 #define NX_MOUSEEXITED		9	/* mouse-exited event */
 
+/* other mouse events
+ *
+ * event.data.mouse.buttonNumber should contain the 
+ * button number (2-31) changing state.
+ */
+#define NX_OMOUSEDOWN		25	/* other mouse-down event */
+#define NX_OMOUSEUP		26	/* other mouse-up event */
+#define NX_OMOUSEDRAGGED	27	/* other mouse-dragged event */
+
 /* keyboard events */
 
 #define NX_KEYDOWN		10	/* key-down event */
@@ -115,18 +125,21 @@ typedef struct _NXSize {	/* size */
 /* event range */
 
 #define NX_FIRSTEVENT		0
-#define NX_LASTEVENT		24
+#define NX_LASTEVENT		27
 #define NX_NUMPROCS		(NX_LASTEVENT-NX_FIRSTEVENT+1)
 
 /* Event masks */
-
+#define NX_NULLEVENTMASK	(1 << NX_NULLEVENT)	/* NULL event */
 #define NX_LMOUSEDOWNMASK	(1 << NX_LMOUSEDOWN)	/* left mouse-down */
 #define NX_LMOUSEUPMASK		(1 << NX_LMOUSEUP)	/* left mouse-up */
 #define NX_RMOUSEDOWNMASK	(1 << NX_RMOUSEDOWN)	/* right mouse-down */
 #define NX_RMOUSEUPMASK		(1 << NX_RMOUSEUP)	/* right mouse-up */
+#define NX_OMOUSEDOWNMASK	(1 << NX_OMOUSEDOWN)	/* other mouse-down */
+#define NX_OMOUSEUPMASK		(1 << NX_OMOUSEUP)	/* other mouse-up  */
 #define NX_MOUSEMOVEDMASK	(1 << NX_MOUSEMOVED)	/* mouse-moved */
 #define NX_LMOUSEDRAGGEDMASK	(1 << NX_LMOUSEDRAGGED)	/* left-dragged */
 #define NX_RMOUSEDRAGGEDMASK	(1 << NX_RMOUSEDRAGGED)	/* right-dragged */
+#define NX_OMOUSEDRAGGEDMASK	(1 << NX_OMOUSEDRAGGED)	/* other-dragged */
 #define NX_MOUSEENTEREDMASK	(1 << NX_MOUSEENTERED)	/* mouse-entered */
 #define NX_MOUSEEXITEDMASK	(1 << NX_MOUSEEXITED)	/* mouse-exited */
 #define NX_KEYDOWNMASK		(1 << NX_KEYDOWN)	/* key-down */
@@ -152,6 +165,18 @@ typedef struct _NXSize {	/* size */
 
 #define NX_SUBTYPE_POWER_KEY				1
 #define NX_SUBTYPE_AUX_MOUSE_BUTTONS		7
+
+/* 
+ * NX_SUBTYPE_AUX_CONTROL_BUTTONS usage
+ *
+ * The incoming NXEvent for other mouse button down/up has event.type 
+ * NX_SYSDEFINED and event.data.compound.subtype NX_SUBTYPE_AUX_MOUSE_BUTTONS.
+ * Within the event.data.compound.misc.L[0] contains bits for all the buttons 
+ * that have changed state, and event.data.compound.misc.L[1] contains the 
+ * current button state as a bitmask, with 1 representing down, and 0
+ * representing up.  Bit 0 is the left button, bit one is the right button, 
+ * bit 2 is the center button and so forth.
+ */
 #define NX_SUBTYPE_AUX_CONTROL_BUTTONS		8
 
 #define NX_SUBTYPE_EJECT_KEY				10
@@ -196,6 +221,9 @@ typedef struct _NXSize {	/* size */
 #define NX_SUBTYPE_SLOWKEYS_ABORT			201
 #define NX_SUBTYPE_SLOWKEYS_END				202
 
+// HID Parameter Property Modified
+#define NX_SUBTYPE_HIDPARAMETER_MODIFIED		210
+
 /* Masks for the bits in event.flags */
 
 /* device-independent */
@@ -211,13 +239,14 @@ typedef struct _NXSize {	/* size */
 
 /* device-dependent (really?) */
 
-//#define	NX_NEXTCTLKEYMASK	0x00000001
-//#define	NX_NEXTLSHIFTKEYMASK	0x00000002
-//#define	NX_NEXTRSHIFTKEYMASK	0x00000004
-//#define	NX_NEXTLCMDKEYMASK	0x00000008
-//#define	NX_NEXTRCMDKEYMASK	0x00000010
-//#define	NX_NEXTLALTKEYMASK	0x00000020
-//#define	NX_NEXTRALTKEYMASK	0x00000040
+#define	NX_DEVICELCTLKEYMASK	0x00000001
+#define	NX_DEVICELSHIFTKEYMASK	0x00000002
+#define	NX_DEVICERSHIFTKEYMASK	0x00000004
+#define	NX_DEVICELCMDKEYMASK	0x00000008
+#define	NX_DEVICERCMDKEYMASK	0x00000010
+#define	NX_DEVICELALTKEYMASK	0x00000020
+#define	NX_DEVICERALTKEYMASK	0x00000040
+#define NX_DEVICERCTLKEYMASK	0x00002000
 
 /* 
  * Additional reserved bits in event.flags
@@ -295,7 +324,7 @@ typedef	union {
         SInt16  eventNum;   /* unique identifier for this button */
         SInt32  click;      /* click state of this event */
         UInt8   pressure;   /* pressure value: 0=none, 255=full */
-        UInt8   reserved1;
+        UInt8   buttonNumber;/* button generating other button event (0-31) */
         UInt8   subType;
         UInt8   reserved2;
         SInt32  reserved3;
@@ -443,8 +472,8 @@ typedef struct _NXEvent {
 				 NX_MOUSEMOVEDMASK | NX_FLAGSCHANGEDMASK | \
 				 NX_MOUSEENTEREDMASK | NX_MOUSEEXITEDMASK | \
 				 NX_LMOUSEDRAGGEDMASK | NX_RMOUSEDRAGGEDMASK | \
-                 NX_SCROLLWHEELMOVEDMASK | NX_TABLETPOINTERMASK | \
-                       NX_TABLETPROXIMITYMASK)
+                                 NX_SCROLLWHEELMOVEDMASK | NX_TABLETPOINTERMASK | \
+                                 NX_TABLETPROXIMITYMASK | NX_NULLEVENTMASK)
 
 #endif /* !_DEV_EVENT_H */
 

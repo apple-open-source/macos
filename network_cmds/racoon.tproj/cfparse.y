@@ -1,4 +1,4 @@
-/*	$KAME: cfparse.y,v 1.111 2001/12/31 20:13:40 thorpej Exp $	*/
+/*	$KAME: cfparse.y,v 1.114 2003/02/03 08:27:50 itojun Exp $	*/
 
 %{
 #include <sys/types.h>
@@ -141,6 +141,7 @@ static int fix_lifebyte __P((u_long));
 %token EXCHANGE_MODE EXCHANGETYPE DOI DOITYPE SITUATION SITUATIONTYPE
 %token CERTIFICATE_TYPE CERTTYPE PEERS_CERTFILE VERIFY_CERT SEND_CERT SEND_CR
 %token IDENTIFIERTYPE MY_IDENTIFIER PEERS_IDENTIFIER VERIFY_IDENTIFIER
+%token SHARED_SECRET SECRETTYPE
 %token DNSSEC CERT_X509
 %token NONCE_SIZE DH_GROUP KEEPALIVE PASSIVE INITIAL_CONTACT
 %token PROPOSAL_CHECK PROPOSAL_CHECK_LEVEL
@@ -161,6 +162,7 @@ static int fix_lifebyte __P((u_long));
 
 %type <num> NUMBER BOOLEAN SWITCH keylength
 %type <num> PATHTYPE IDENTIFIERTYPE LOGLEV 
+%type <num> SECRETTYPE
 %type <num> ALGORITHM_CLASS dh_group_num
 %type <num> ALGORITHMTYPE STRENGTHTYPE
 %type <num> PREFIX prefix PORT port ike_port
@@ -219,7 +221,7 @@ special_statement
 
 	/* include */
 include_statement
-	:	INCLUDE QUOTEDSTRING
+	:	INCLUDE QUOTEDSTRING EOS
 		{
 			char path[MAXPATHLEN];
 
@@ -229,7 +231,6 @@ include_statement
 			if (yycf_switch_buffer(path) != 0)
 				return -1;
 		}
-		EOS
 	;
 
 	/* self infomation */
@@ -577,7 +578,7 @@ algorithm
 
 			$$ = newsainfoalg();
 			if ($$ == NULL) {
-				yyerror("failed to get algorithm alocation");
+				yyerror("failed to get algorithm allocation");
 				return -1;
 			}
 
@@ -782,6 +783,7 @@ remote_spec
 				yyerror("failed to set identifer.\n");
 				return -1;
 			}
+			vfree($3);
 			cur_rmconf->idvtype = $2;
 		}
 		EOS
@@ -791,10 +793,12 @@ remote_spec
 				yyerror("failed to set identifer.\n");
 				return -1;
 			}
+			vfree($3);
 			cur_rmconf->idvtype_p = $2;
 		}
 		EOS
 	|	VERIFY_IDENTIFIER SWITCH { cur_rmconf->verify_identifier = $2; } EOS
+	|	SHARED_SECRET SECRETTYPE QUOTEDSTRING { cur_rmconf->secrettype = $2; cur_rmconf->shared_secret = $3; } EOS
 	|	NONCE_SIZE NUMBER { cur_rmconf->nonce_size = $2; } EOS
 	|	DH_GROUP
 		{
@@ -1059,6 +1063,11 @@ cleanprhead()
 		return;
 
 	for (p = prhead; p != NULL; p = next) {
+		struct secprotospec *psp, *nextsp;
+		for (psp = p->spspec; psp; psp = nextsp) {
+			nextsp = psp->next;
+			racoon_free(p->spspec);
+		}
 		next = p->next;
 		racoon_free(p);
 	}
@@ -1317,6 +1326,8 @@ fix_lifebyte(t)
 }
 #endif
 
+extern int yyparse(void);
+
 int
 cfparse()
 {
@@ -1324,7 +1335,7 @@ cfparse()
 
 	yycf_init_buffer();
 
-	if (yycf_set_buffer(lcconf->racoon_conf) != 0)
+	if (yycf_switch_buffer(lcconf->racoon_conf) != 0)
 		return -1;
 
 	prhead = NULL;
@@ -1362,12 +1373,9 @@ cfreparse()
 	flushph2();
 	flushph1();
 	flushrmconf();
+	flushsainfo();
 	cleanprhead();
 	clean_tmpalgtype();
-	yycf_init_buffer();
-
-	if (yycf_set_buffer(lcconf->racoon_conf) != 0)
-		return -1;
 
 	return(cfparse());
 }

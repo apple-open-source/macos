@@ -29,7 +29,7 @@
  * OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
  * SUCH DAMAGE.
  *
- * $Id: smb_conn.h,v 1.10 2002/05/03 17:45:27 lindak Exp $
+ * $Id: smb_conn.h,v 1.18 2003/09/23 21:01:29 lindak Exp $
  */
 #ifndef _NETINET_IN_H_
 #ifdef APPLE
@@ -80,17 +80,18 @@
  * VC flags
  */
 #define SMBV_PERMANENT		0x0002
-#define SMBV_LONGNAMES		0x0004	/* connection is configured to use long names */
-#define	SMBV_ENCRYPT		0x0008	/* server asked for encrypted password */
+#define SMBV_LONGNAMES		0x0004	/* conn configured to use long names */
+#define	SMBV_ENCRYPT		0x0008	/* server demands encrypted password */
 #define	SMBV_WIN95		0x0010	/* used to apply bugfixes for this OS */
-#define	SMBV_PRIVATE		0x0020	/* connection can be used only by creator */
-#define	SMBV_RECONNECTING	0x0040	/* conn is in the process of reconnection */
-#define SMBV_SINGLESHARE	0x0080	/* only one share connectin should be allowed */
-#define SMBV_CREATE		0x0100	/* lookup for create opeartion */
+#define	SMBV_PRIVATE		0x0020	/* conn can be used only by creator */
+#define	SMBV_RECONNECTING	0x0040	/* conn in process of reconnection */
+#define SMBV_SINGLESHARE	0x0080	/* only one share conn is allowed */
+#define SMBV_CREATE		0x0100	/* lookup will create conn */
 /*#define SMBV_FAILED		0x0200*/	/* last reconnect attempt has failed */
 #ifdef APPLE
-#define SMBV_UNICODE		0x0400	/* connection is configured to use Unicode */
+#define SMBV_UNICODE		0x0400	/* conn configured to use Unicode */
 #endif
+#define SMBV_EXT_SEC		0x0800	/* conn to use extended security */
 
 /*
  * smb_share flags
@@ -133,6 +134,8 @@ enum smbiod_state {
 	SMBIOD_ST_NOTCONN,	/* no connect request was made */
 	SMBIOD_ST_RECONNECT,	/* a [re]connect attempt is in progress */
 	SMBIOD_ST_TRANACTIVE,	/* transport level is up */
+	SMBIOD_ST_NEGOACTIVE,	/* completed negotiation */
+	SMBIOD_ST_SSNSETUP,	/* started (a) session setup */
 	SMBIOD_ST_VCACTIVE,	/* session established */
 	SMBIOD_ST_DEAD		/* connection broken, transport is down */
 };
@@ -189,7 +192,11 @@ struct uio;
 
 TAILQ_HEAD(smb_rqhead, smb_rq);
 
-#define SMB_DEFRQTIMO	5
+#define SMB_NBTIMO	15
+#define SMB_DEFRQTIMO	30	/* 30 for oplock revoke/writeback */
+#define SMBWRTTIMO	60
+#define SMBSSNSETUPTIMO	60
+#define SMBNOREPLYWAIT (0)
 
 #define SMB_DIALECT(vcp)	((vcp)->vc_sopt.sv_proto)
 
@@ -281,6 +288,12 @@ struct smb_vc {
 	int		vc_wxmax;	/* max writex data size */
 	struct smbiod *	vc_iod;
 	struct smb_slock vc_stlock;
+	size_t		vc_intoklen;
+	caddr_t		vc_intok;
+	size_t		vc_outtoklen;
+	caddr_t		vc_outtok;
+	size_t		vc_negtoklen;
+	caddr_t		vc_negtok;
 };
 
 #define vc_maxmux	vc_sopt.sv_maxmux
@@ -304,6 +317,7 @@ struct smb_vc {
 struct smb_share {
 	struct smb_connobj obj;
 	char *		ss_name;
+	struct smbmount* ss_mount;	/* used for smb up/down */
 	u_short		ss_tid;		/* TID */
 	int		ss_type;	/* share type */
 	uid_t		ss_uid;		/* user id of connection */
@@ -339,6 +353,8 @@ struct smb_vcspec {
 	char *		servercs;
 	struct smb_sharespec *shspec;
 	struct smb_share *ssp;		/* returned */
+	size_t		toklen;
+	caddr_t		tok;
 	/*
 	 * The rest is an internal data
 	 */
@@ -364,9 +380,20 @@ struct smb_sharespec {
  */
 int  smb_sm_init(void);
 int  smb_sm_done(void);
+#ifndef APPLE
 int  smb_sm_lookup(struct smb_vcspec *vcspec,
 	struct smb_sharespec *shspec, struct smb_cred *scred,
 	struct smb_vc **vcpp);
+#endif
+int  smb_sm_negotiate(struct smb_vcspec *vcspec,
+	struct smb_sharespec *shspec, struct smb_cred *scred,
+	struct smb_vc **vcpp);
+int  smb_sm_ssnsetup(struct smb_vcspec *vcspec,
+	struct smb_sharespec *shspec, struct smb_cred *scred,
+	struct smb_vc *vcp);
+int  smb_sm_tcon(struct smb_vcspec *vcspec,
+	struct smb_sharespec *shspec, struct smb_cred *scred,
+	struct smb_vc *vcp);
 
 /*
  * Connection object
@@ -381,9 +408,14 @@ void smb_co_unlock(struct smb_connobj *cp, int flags, struct proc *p);
 /*
  * session level functions
  */
+int smb_vc_setup(struct smb_vcspec *vcspec, struct smb_vc *vcp);
 int  smb_vc_create(struct smb_vcspec *vcspec,
 	struct smb_cred *scred, struct smb_vc **vcpp);
+#ifndef APPLE
 int  smb_vc_connect(struct smb_vc *vcp, struct smb_cred *scred);
+#endif
+int  smb_vc_negotiate(struct smb_vc *vcp, struct smb_cred *scred);
+int  smb_vc_ssnsetup(struct smb_vc *vcp, struct smb_cred *scred);
 int  smb_vc_access(struct smb_vc *vcp, struct smb_cred *scred, mode_t mode);
 int  smb_vc_get(struct smb_vc *vcp, int flags, struct smb_cred *scred);
 void smb_vc_put(struct smb_vc *vcp, struct smb_cred *scred);
@@ -411,6 +443,7 @@ void smb_share_unlock(struct smb_share *ssp, int flags, struct proc *p);
 void smb_share_invalidate(struct smb_share *ssp);
 int  smb_share_valid(struct smb_share *ssp);
 const char * smb_share_getpass(struct smb_share *ssp);
+int  smb_share_count(void);
 
 /*
  * SMB protocol level functions
@@ -423,8 +456,10 @@ int  smb_smb_treedisconnect(struct smb_share *ssp, struct smb_cred *scred);
 int  smb_read(struct smb_share *ssp, u_int16_t fid, struct uio *uio,
 	struct smb_cred *scred);
 int  smb_write(struct smb_share *ssp, u_int16_t fid, struct uio *uio,
-	struct smb_cred *scred);
-int  smb_smb_echo(struct smb_vc *vcp, struct smb_cred *scred);
+	struct smb_cred *scred, int timo);
+int  smb_smb_echo(struct smb_vc *vcp, struct smb_cred *scred, int timo);
+int  smb_smb_checkdir(struct smb_share *ssp, struct smbnode *dnp, char *name, int nmlen, struct smb_cred *scred);
+
 
 /*
  * smbiod thread
@@ -435,6 +470,8 @@ int  smb_smb_echo(struct smb_vc *vcp, struct smb_cred *scred);
 #define	SMBIOD_EV_CONNECT	0x0003
 #define	SMBIOD_EV_DISCONNECT	0x0004
 #define	SMBIOD_EV_TREECONNECT	0x0005
+#define	SMBIOD_EV_NEGOTIATE	0x0006
+#define	SMBIOD_EV_SSNSETUP	0x0007
 #define	SMBIOD_EV_MASK		0x00ff
 #define	SMBIOD_EV_SYNC		0x0100
 #define	SMBIOD_EV_PROCESSING	0x0200
@@ -463,6 +500,7 @@ struct smbiod {
 	struct smb_slock	iod_evlock;	/* iod_evlist */
 	STAILQ_HEAD(,smbiod_event) iod_evlist;
 	struct timespec 	iod_lastrqsent;
+	struct timespec 	iod_lastrecv;
 	struct timespec 	iod_pingtimo;
 	int			iod_workflag;	/* should be protected with lock */
 #ifdef APPLE_USE_CALLOUT_THREAD
@@ -478,5 +516,6 @@ int  smb_iod_request(struct smbiod *iod, int event, void *ident);
 int  smb_iod_addrq(struct smb_rq *rqp);
 int  smb_iod_waitrq(struct smb_rq *rqp);
 int  smb_iod_removerq(struct smb_rq *rqp);
+void smb_iod_shutdown_share(struct smb_share *ssp);
 
 #endif /* _KERNEL */

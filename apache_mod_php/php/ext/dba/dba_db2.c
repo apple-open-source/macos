@@ -1,8 +1,8 @@
 /*
    +----------------------------------------------------------------------+
-   | PHP version 4.0                                                      |
+   | PHP Version 4                                                        |
    +----------------------------------------------------------------------+
-   | Copyright (c) 1997-2001 The PHP Group                                |
+   | Copyright (c) 1997-2003 The PHP Group                                |
    +----------------------------------------------------------------------+
    | This source file is subject to version 2.02 of the PHP license,      |
    | that is bundled with this package in the file LICENSE, and is        |
@@ -12,11 +12,15 @@
    | obtain it through the world-wide-web, please send a note to          |
    | license@php.net so we can mail you a copy immediately.               |
    +----------------------------------------------------------------------+
-   | Authors: Sascha Schumann <sascha@schumann.cx>                        |
+   | Author: Sascha Schumann <sascha@schumann.cx>                         |
    +----------------------------------------------------------------------+
  */
 
-/* $Id: dba_db2.c,v 1.1.1.4 2001/12/14 22:12:10 zarzycki Exp $ */
+/* $Id: dba_db2.c,v 1.1.1.7 2003/07/18 18:07:30 zarzycki Exp $ */
+
+#ifdef HAVE_CONFIG_H
+#include "config.h"
+#endif
 
 #include "php.h"
 
@@ -31,9 +35,9 @@
 
 #define DB2_DATA dba_db2_data *dba = info->dbf
 #define DB2_GKEY \
-	DBT gkey; \
-	memset(&gkey, 0, sizeof(gkey)); \
-	gkey.data = (char *) key; gkey.size = keylen
+	DBT gkey = {0}; \
+	gkey.data = (char *) key; \
+	gkey.size = keylen
 
 typedef struct {
 	DB *dbp;
@@ -47,85 +51,87 @@ DBA_OPEN_FUNC(db2)
 	int gmode = 0;
 	int filemode = 0644;
 	struct stat check_stat;
-	
-	type =  info->mode == DBA_READER ? DB_UNKNOWN :
+	int s = VCWD_STAT(info->path, &check_stat);
+
+	type = info->mode == DBA_READER ? DB_UNKNOWN :
 		info->mode == DBA_TRUNC ? DB_BTREE :
-		VCWD_STAT(info->path, &check_stat) ? DB_BTREE : DB_UNKNOWN;
+		s ? DB_BTREE : DB_UNKNOWN;
 	  
 	gmode = info->mode == DBA_READER ? DB_RDONLY :
-		info->mode == DBA_CREAT  ? DB_CREATE : 
+		(info->mode == DBA_CREAT && s) ? DB_CREATE : 
+		(info->mode == DBA_CREAT && !s) ? 0 :
 		info->mode == DBA_WRITER ? 0         : 
 		info->mode == DBA_TRUNC ? DB_CREATE | DB_TRUNCATE : -1;
 
-	if(gmode == -1)
-		return FAILURE;
+	if (gmode == -1) {
+		return FAILURE;/* not possible */
+	}
 
-	if(info->argc > 0) {
+	if (info->argc > 0) {
 		convert_to_long_ex(info->argv[0]);
-		filemode = (*info->argv[0])->value.lval;
+		filemode = Z_LVAL_PP(info->argv[0]);
 	}
 
-	if(!db_open(info->path, type, gmode, filemode, NULL, NULL, &dbp)) {
-		info->dbf = malloc(sizeof(dba_db2_data));
-		memset(info->dbf, 0, sizeof(dba_db2_data));
-		((dba_db2_data *) info->dbf)->dbp = dbp;
-		return SUCCESS;
+	if (db_open(info->path, type, gmode, filemode, NULL, NULL, &dbp)) {
+		return FAILURE;
 	}
-	return FAILURE;
+
+	info->dbf = pemalloc(sizeof(dba_db2_data), info->flags&DBA_PERSISTENT);
+	memset(info->dbf, 0, sizeof(dba_db2_data));
+	((dba_db2_data *) info->dbf)->dbp = dbp;
+	return SUCCESS;
 }
 
 DBA_CLOSE_FUNC(db2)
 {
 	DB2_DATA;
 	
-	if(dba->cursor) dba->cursor->c_close(dba->cursor);
+	if (dba->cursor) 
+		dba->cursor->c_close(dba->cursor);
 	dba->dbp->close(dba->dbp, 0);
-	free(dba);
+	pefree(dba, info->flags&DBA_PERSISTENT);
 }
 
 DBA_FETCH_FUNC(db2)
 {
-	DBT gval;
-	char *new = NULL;
+	DBT gval = {0};
 	DB2_DATA;
 	DB2_GKEY;
 	
-	memset(&gval, 0, sizeof(gval));
-	if(!dba->dbp->get(dba->dbp, NULL, &gkey, &gval, 0)) {
-		if(newlen) *newlen = gval.size;
-		new = estrndup(gval.data, gval.size);
+	if (dba->dbp->get(dba->dbp, NULL, &gkey, &gval, 0)) {
+		return NULL;
 	}
-	return new;
+
+	if (newlen) *newlen = gval.size;
+	return estrndup(gval.data, gval.size);
 }
 
 DBA_UPDATE_FUNC(db2)
 {
-	DBT gval;
+	DBT gval = {0};
 	DB2_DATA;
 	DB2_GKEY;
 	
-	memset(&gval, 0, sizeof(gval));
 	gval.data = (char *) val;
 	gval.size = vallen;
 
-	if(!dba->dbp->put(dba->dbp, NULL, &gkey, &gval, 
+	if (dba->dbp->put(dba->dbp, NULL, &gkey, &gval, 
 				mode == 1 ? DB_NOOVERWRITE : 0)) {
-		return SUCCESS;
+		return FAILURE;
 	}
-	return FAILURE;
+	return SUCCESS;
 }
 
 DBA_EXISTS_FUNC(db2)
 {
-	DBT gval;
+	DBT gval = {0};
 	DB2_DATA;
 	DB2_GKEY;
 	
-	memset(&gval, 0, sizeof(gval));
-	if(!dba->dbp->get(dba->dbp, NULL, &gkey, &gval, 0)) {
-		return SUCCESS;
+	if (dba->dbp->get(dba->dbp, NULL, &gkey, &gval, 0)) {
+		return FAILURE;
 	}
-	return FAILURE;
+	return SUCCESS;
 }
 
 DBA_DELETE_FUNC(db2)
@@ -140,39 +146,34 @@ DBA_FIRSTKEY_FUNC(db2)
 {
 	DB2_DATA;
 
-	if(dba->cursor) {
+	if (dba->cursor) {
 		dba->cursor->c_close(dba->cursor);
+		dba->cursor = NULL;
 	}
 
-	dba->cursor = NULL;
 #if (DB_VERSION_MAJOR > 2) || (DB_VERSION_MAJOR == 2 && DB_VERSION_MINOR > 6) || (DB_VERSION_MAJOR == 2 && DB_VERSION_MINOR == 6 && DB_VERSION_PATCH >= 4)
-	if(dba->dbp->cursor(dba->dbp, NULL, &dba->cursor, 0)) {
+	if (dba->dbp->cursor(dba->dbp, NULL, &dba->cursor, 0)) {
 #else
-	if(dba->dbp->cursor(dba->dbp, NULL, &dba->cursor)) {
+	if (dba->dbp->cursor(dba->dbp, NULL, &dba->cursor)) {
 #endif
 		return NULL;
 	}
 
 	/* we should introduce something like PARAM_PASSTHRU... */
-	return dba_nextkey_db2(info, newlen);
+	return dba_nextkey_db2(info, newlen TSRMLS_CC);
 }
 
 DBA_NEXTKEY_FUNC(db2)
 {
 	DB2_DATA;
-	DBT gkey, gval;
-	char *nkey = NULL;
-	
-	memset(&gkey, 0, sizeof(gkey));
-	memset(&gval, 0, sizeof(gval));
+	DBT gkey = {0}, gval = {0};
 
-	if(!dba->cursor->c_get(dba->cursor, &gkey, &gval, DB_NEXT)) {
-		if(gkey.data) {
-			nkey = estrndup(gkey.data, gkey.size);
-			if(newlen) *newlen = gkey.size;
-		}
-	}
-	return nkey;
+	if (dba->cursor->c_get(dba->cursor, &gkey, &gval, DB_NEXT)
+			|| !gkey.data)
+		return NULL;
+
+	if (newlen) *newlen = gkey.size;
+	return estrndup(gkey.data, gkey.size);
 }
 
 DBA_OPTIMIZE_FUNC(db2)
@@ -187,6 +188,11 @@ DBA_SYNC_FUNC(db2)
 	return dba->dbp->sync(dba->dbp, 0) ? FAILURE : SUCCESS;
 }
 
+DBA_INFO_FUNC(db2)
+{
+	return estrdup(DB_VERSION_STRING);
+}
+
 #endif
 
 /*
@@ -194,6 +200,6 @@ DBA_SYNC_FUNC(db2)
  * tab-width: 4
  * c-basic-offset: 4
  * End:
- * vim600: sw=4 ts=4 tw=78 fdm=marker
- * vim<600: sw=4 ts=4 tw=78
+ * vim600: sw=4 ts=4 fdm=marker
+ * vim<600: sw=4 ts=4
  */

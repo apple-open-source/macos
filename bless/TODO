@@ -1,0 +1,14 @@
+* Add alternate rendering support for OF labels when CG is not present
+  (the original updateOFPickerLabels, written in perl, used
+   banner(1) output.)
+* Seperate help into "simple" and "advanced" options
+* Use consistent error numbers and a function to map err->string
+* More/better/simpler examples in man page?
+* Write bootblocks into embedded HFS+ volume's boot blocks
+    (Jon had to manually unwrap an HFS+ volume once, and this
+     might have helped. Dubious utility, though, in general...)
+* support bless -info -device. Paths would be of the form
+    finderinfo[0] => disk0s9:/System/Library/CoreServices
+  use MK
+* Add real error ranges
+* Be defensive about validating arguments

@@ -47,7 +47,7 @@ TEXI2HTML = texi2html -expand info -split chapter
 # man pages to install
 MAN = zsh.1 zshbuiltins.1 zshcompctl.1 zshcompwid.1 zshcompsys.1 \
 zshcontrib.1 zshexpn.1 zshmisc.1 zshmodules.1 \
-zshoptions.1 zshparam.1 zshzftpsys.1 zshzle.1 zshall.1
+zshoptions.1 zshparam.1 zshtcpsys.1 zshzftpsys.1 zshzle.1 zshall.1
 
 # yodl documentation
 
@@ -58,10 +58,12 @@ Zsh/mod_cap.yo Zsh/mod_clone.yo \
 Zsh/mod_compctl.yo Zsh/mod_complete.yo Zsh/mod_complist.yo \
 Zsh/mod_computil.yo \
 Zsh/mod_deltochar.yo Zsh/mod_example.yo Zsh/mod_files.yo \
-Zsh/mod_mapfile.yo Zsh/mod_mathfunc.yo Zsh/mod_parameter.yo Zsh/mod_sched.yo \
+Zsh/mod_mapfile.yo Zsh/mod_mathfunc.yo Zsh/mod_parameter.yo Zsh/mod_pcre.yo \
+Zsh/mod_sched.yo Zsh/mod_socket.yo \
 Zsh/mod_stat.yo Zsh/mod_termcap.yo Zsh/mod_terminfo.yo \
 Zsh/mod_zftp.yo Zsh/mod_zle.yo Zsh/mod_zleparameter.yo \
-Zsh/mod_zprof.yo Zsh/mod_zpty.yo Zsh/mod_zutil.yo
+Zsh/mod_zprof.yo Zsh/mod_zpty.yo Zsh/mod_zselect.yo \
+Zsh/mod_zutil.yo Zsh/mod_tcp.yo
 
 YODLSRC = zmacros.yo zman.yo ztexi.yo Zsh/arith.yo Zsh/builtins.yo \
 Zsh/compat.yo Zsh/compctl.yo Zsh/compsys.yo Zsh/compwid.yo Zsh/cond.yo \
@@ -70,7 +72,7 @@ Zsh/filelist.yo Zsh/files.yo Zsh/func.yo Zsh/grammar.yo Zsh/manual.yo \
 Zsh/index.yo Zsh/intro.yo Zsh/invoke.yo Zsh/jobs.yo Zsh/metafaq.yo \
 Zsh/modules.yo Zsh/modlist.yo Zsh/modmenu.yo Zsh/manmodmenu.yo $(MODDOCSRC) \
 Zsh/options.yo Zsh/params.yo Zsh/prompt.yo Zsh/redirect.yo Zsh/restricted.yo \
-Zsh/seealso.yo Zsh/zftpsys.yo Zsh/zle.yo
+Zsh/seealso.yo Zsh/tcpsys.yo Zsh/zftpsys.yo Zsh/zle.yo
 
 # ========== DEPENDENCIES FOR BUILDING ==========
 
@@ -179,6 +181,8 @@ zshmodules.1: Zsh/modules.yo Zsh/modlist.yo Zsh/modmenu.yo $(MODDOCSRC)
 zshoptions.1: Zsh/options.yo
 
 zshparam.1: Zsh/params.yo
+
+zshtcpsys.1: Zsh/tcpsys.yo
 
 zshzftpsys.1: Zsh/zftpsys.yo
 

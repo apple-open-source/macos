@@ -235,7 +235,7 @@ struct breakpoint
     struct command_line *commands;
     /* Stack depth (address of frame).  If nonzero, break only if fp
        equals this.  */
-    CORE_ADDR frame;
+    struct frame_id frame_id;
     /* Conditional.  Break only if this expression's value is nonzero.  */
     struct expression *cond;
 
@@ -268,10 +268,10 @@ struct breakpoint
        it the watchpoint_scope breakpoint or something like that. FIXME).  */
     struct breakpoint *related_breakpoint;
 
-    /* Holds the frame address which identifies the frame this watchpoint
-       should be evaluated in, or NULL if the watchpoint should be evaluated
-       on the outermost frame.  */
-    CORE_ADDR watchpoint_frame;
+    /* Holds the frame address which identifies the frame this
+       watchpoint should be evaluated in, or `null' if the watchpoint
+       should be evaluated on the outermost frame.  */
+    struct frame_id watchpoint_frame;
 
     /* Thread number for thread-specific breakpoint, or -1 if don't care */
     int thread;
@@ -305,7 +305,10 @@ struct breakpoint
     asection *section;
     
     /* Used for save-breakpoints.  */ 
-    int original_flags; 
+    int original_flags;
+
+    /* Has this breakpoint been successfully set yet? */
+    int bp_set_p;
   };
 
 /* The following stuff is an abstract data type "bpstat" ("breakpoint
@@ -323,7 +326,7 @@ extern void bpstat_clear (bpstat *);
    is part of the bpstat is copied as well.  */
 extern bpstat bpstat_copy (bpstat);
 
-extern bpstat bpstat_stop_status (CORE_ADDR *, int);
+extern bpstat bpstat_stop_status (CORE_ADDR *pc, int not_a_sw_breakpoint);
 
 /* This bpstat_what stuff tells wait_for_inferior what to do with a
    breakpoint (a challenging task).  */
@@ -522,9 +525,6 @@ enum breakpoint_here
 
 /* Prototypes for breakpoint-related functions.  */
 
-/* Forward declarations for prototypes */
-struct frame_info;
-
 extern void set_breakpoint_count (int);
 
 extern int get_breakpoint_count (void);
@@ -533,22 +533,27 @@ extern enum breakpoint_here breakpoint_here_p (CORE_ADDR);
 
 extern int breakpoint_inserted_here_p (CORE_ADDR);
 
-extern int frame_in_dummy (struct frame_info *);
+/* FIXME: cagney/2002-11-10: The current [generic] dummy-frame code
+   implements a functional superset of this function.  The only reason
+   it hasn't been removed is because some architectures still don't
+   use the new framework.  Once they have been fixed, this can go.  */
+struct frame_info;
+extern int deprecated_frame_in_dummy (struct frame_info *);
 
 extern int breakpoint_thread_match (CORE_ADDR, ptid_t);
 
-extern void until_break_command (char *, int);
+extern void until_break_command (char *, int, int);
 
 extern void breakpoint_update (void);
 
-extern void breakpoint_re_set (void);
+extern void breakpoint_re_set (struct objfile *);
 
 extern void breakpoint_re_set_thread (struct breakpoint *);
 
 extern int ep_is_exception_catchpoint (struct breakpoint *);
 
 extern struct breakpoint *set_momentary_breakpoint
-  (struct symtab_and_line, struct frame_info *, enum bptype);
+  (struct symtab_and_line, struct frame_id, enum bptype);
 
 extern void set_ignore_count (int, int, int);
 
@@ -622,7 +627,7 @@ extern void disable_longjmp_breakpoint (void);
 extern void enable_overlay_breakpoints (void);
 extern void disable_overlay_breakpoints (void);
 
-extern void set_longjmp_resume_breakpoint (CORE_ADDR, struct frame_info *);
+extern void set_longjmp_resume_breakpoint (CORE_ADDR, struct frame_id);
 /* These functions respectively disable or reenable all currently
    enabled watchpoints.  When disabled, the watchpoints are marked
    call_disabled.  When reenabled, they are marked enabled.
@@ -714,5 +719,13 @@ extern void delete_command (char *arg, int from_tty);
 extern int remove_hw_watchpoints (void);
 
 extern struct breakpoint *find_finish_breakpoint (void);
+
+extern int exception_catchpoints_enabled (enum exception_event_kind ex_event);
+extern void disable_exception_catch (enum exception_event_kind ex_event);
+int  update_exception_catchpoints (enum exception_event_kind ex_event,
+				   int tempflag, char *cond_string,
+				   int delete, struct objfile *objfile);
+
+void tell_breakpoints_objfile_changed (struct objfile *objfile);
 #endif /* !defined (BREAKPOINT_H) */
 

@@ -3,21 +3,22 @@
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
- * Portions Copyright (c) 1999 Apple Computer, Inc.  All Rights
- * Reserved.  This file contains Original Code and/or Modifications of
- * Original Code as defined in and that are subject to the Apple Public
- * Source License Version 1.1 (the "License").  You may not use this file
- * except in compliance with the License.  Please obtain a copy of the
- * License at http://www.apple.com/publicsource and read it before using
- * this file.
+ * Copyright (c) 1999-2003 Apple Computer, Inc.  All Rights Reserved.
+ * 
+ * This file contains Original Code and/or Modifications of Original Code
+ * as defined in and that are subject to the Apple Public Source License
+ * Version 2.0 (the 'License'). You may not use this file except in
+ * compliance with the License. Please obtain a copy of the License at
+ * http://www.opensource.apple.com/apsl/ and read it before using this
+ * file.
  * 
  * The Original Code and all software distributed under the License are
- * distributed on an "AS IS" basis, WITHOUT WARRANTY OF ANY KIND, EITHER
+ * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
  * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
  * INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY,
- * FITNESS FOR A PARTICULAR PURPOSE OR NON- INFRINGEMENT.  Please see the
- * License for the specific language governing rights and limitations
- * under the License.
+ * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
+ * Please see the License for the specific language governing rights and
+ * limitations under the License.
  * 
  * @APPLE_LICENSE_HEADER_END@
  */
@@ -130,123 +131,3 @@ do_int:
     leave
 
     ret
-
-/*============================================================================
- * Determines the total system memory size using various BIOS Int 15 calls.
- *
- */
-LABEL(_get_memsize)
-    enter   $0, $0              # create frame pointer (32 bit operand/stack)
-    pushal                      # save all registers
-
-    movl    8(%ebp), %ebx       # push input structure pointer to stack
-    pushl   %ebx
-
-    call    __prot_to_real      # switch to real mode
-
-    ##################################################################
-    # In real mode.
-    # Do not forget the opcode overrides, since the assembler
-    # does not know we have made a transition to 16-bit operation.
-    ##################################################################
-
-    data32
-    movl    $0xE801, %eax       # Get memory size
-    clc
-    int     $0x15
-    data32
-    jnc     getmsz_e801
-
-    data32
-    movl    $0xDA88, %eax       # Get memory size
-    clc
-    int     $0x15
-    data32
-    jnc     getmsz_da88
-
-    movb    $0x8A, %ah          # Get memory size
-    clc
-    int     $0x15
-    data32
-    jnc     getmsz_8a
-
-    movb    $0x88, %ah          # Get memory size
-    clc
-    int     $0x15
-    data32
-    jnc     getmsz_88
-
-    xorl    %edx, %edx          # Error, cannot get memory size
-    xorl    %eax, %eax
-
-getmsz_done:
-    data32
-    addr32
-    pushl   %eax                # Push EAX to 32-bit stack
-
-    data32
-    call    __real_to_prot      # Back to protected mode. EAX is modified.
-
-    ##################################################################
-    # Back to protected mode.
-    ##################################################################
-
-    popl    %eax                # Pop EAX from stack
-    popl    %ebx                # Pop pointer to register structure
-
-    # Copy the result to the input structure pointed to by a pointer
-    # which is on top of the stack. Write register EAX and EDX to the
-    # structure.
-
-    movl    %eax, O_EAX(%ebx)
-    movl    %edx, O_EDX(%ebx)
-
-    popal                       # restore all registers
-    leave                       # undo enter operator
-    ret
-
-getmsz_88:
-    orl     %eax, %eax
-    data32
-    jz      getmsz_64m
-    xorl    %edx, %edx
-
-getmsz_8a:
-    data32
-    movl    $1024, %ebx         # Add in 1M
-    addl    %ebx, %eax
-    adcl    $0, %edx
-    data32
-    jmp     getmsz_done
-
-getmsz_64m:
-    data32
-    movl    $1, %edx
-    xorl    %eax, %eax
-    data32
-    jmp     getmsz_done
-
-getmsz_da88:
-    xor     %dh, %dh
-    movb    %cl, %dl
-    movl    %ebx, %eax
-    data32
-    jmp     getmsz_8a
-
-getmsz_e801:
-    xorl    %edx, %edx
-    orl     %ebx, %ebx
-    data32
-    jz      getmsz_88
-
-    data32
-    movl    $64, %eax
-    mul     %ebx
-
-    data32
-    movl    $16384, %ebx
-    addl    %ebx, %eax
-    adcl    $0, %edx
-
-    data32
-    jmp     getmsz_done

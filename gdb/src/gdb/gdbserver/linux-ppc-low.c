@@ -25,10 +25,10 @@
 
 #include <asm/ptrace.h>
 
-int num_regs = 71;
+#define ppc_num_regs 71
 
 /* Currently, don't check/send MQ.  */
-int regmap[] =
+static int ppc_regmap[] =
  {PT_R0 * 4,     PT_R1 * 4,     PT_R2 * 4,     PT_R3 * 4,
   PT_R4 * 4,     PT_R5 * 4,     PT_R6 * 4,     PT_R7 * 4,
   PT_R8 * 4,     PT_R9 * 4,     PT_R10 * 4,    PT_R11 * 4,
@@ -46,17 +46,71 @@ int regmap[] =
   PT_FPR0*4+192,  PT_FPR0*4+200,  PT_FPR0*4+208,  PT_FPR0*4+216,
   PT_FPR0*4+224,  PT_FPR0*4+232,  PT_FPR0*4+240,  PT_FPR0*4+248,
   PT_NIP * 4,    PT_MSR * 4,    PT_CCR * 4,    PT_LNK * 4,
-  PT_CTR * 4,    PT_XER * 4,    -1, };
+  PT_CTR * 4,    PT_XER * 4,    PT_FPSCR * 4, };
 
-int
-cannot_store_register (int regno)
+static int
+ppc_cannot_store_register (int regno)
+{
+  /* Some kernels do not allow us to store fpscr.  */
+  if (regno == find_regno ("fpscr"))
+    return 2;
+
+  return 0;
+}
+
+static int
+ppc_cannot_fetch_register (int regno)
 {
   return 0;
 }
 
-int
-cannot_fetch_register (int regno)
+static CORE_ADDR
+ppc_get_pc (void)
 {
+  unsigned long pc;
+
+  collect_register_by_name ("pc", &pc);
+  return (CORE_ADDR) pc;
+}
+
+static void
+ppc_set_pc (CORE_ADDR pc)
+{
+  unsigned long newpc = pc;
+
+  supply_register_by_name ("pc", &newpc);
+}
+
+/* Correct in either endianness.  Note that this file is
+   for PowerPC only, not PowerPC64.
+   This instruction is "twge r2, r2", which GDB uses as a software
+   breakpoint.  */
+static const unsigned long ppc_breakpoint = 0x7d821008;
+#define ppc_breakpoint_len 4
+
+static int
+ppc_breakpoint_at (CORE_ADDR where)
+{
+  unsigned long insn;
+
+  (*the_target->read_memory) (where, (char *) &insn, 4);
+  if (insn == ppc_breakpoint)
+    return 1;
+  /* If necessary, recognize more trap instructions here.  GDB only uses the
+     one.  */
   return 0;
 }
 
+struct linux_target_ops the_low_target = {
+  ppc_num_regs,
+  ppc_regmap,
+  ppc_cannot_fetch_register,
+  ppc_cannot_store_register,
+  ppc_get_pc,
+  ppc_set_pc,
+  (const char *) &ppc_breakpoint,
+  ppc_breakpoint_len,
+  NULL,
+  0,
+  ppc_breakpoint_at,
+};

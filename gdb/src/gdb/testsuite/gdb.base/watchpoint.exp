@@ -56,6 +56,7 @@ if  { [gdb_compile "${srcdir}/${subdir}/${srcfile}" "${binfile}" executable {deb
 #	1		Breakpoint	marker1()
 #	2		Breakpoint	marker2()
 #	3		Watchpoint	ival3
+#	4		Watchpoint	buf
 
 proc initialize {} {
     global gdb_prompt
@@ -105,9 +106,25 @@ proc initialize {} {
         }
     }
 
+    send_gdb "watch buf\n"
+    gdb_expect {
+        -re ".*\[Ww\]atchpoint 4: buf.*$gdb_prompt $" {
+            pass "set watchpoint on buf"
+        }
+        -re "warning: can't do that without a running program; try \"break main\", \"run\" first.*$gdb_prompt $" {
+            pass "set watchpoint on buf"
+	    set wp_set 0
+            return 1
+        }
+        timeout {
+            fail "(timeout) set watchpoint on buf"
+            return 0
+        }
+    }
+
     # "info watch" is the same as "info break"
 
-    if [gdb_test "info watch" "1\[ \]*breakpoint.*marker1.*\r\n2\[ \]*breakpoint.*marker2.*\r\n3\[ \]*.*watchpoint.*ival3" "watchpoint found in watchpoint/breakpoint table" ] { 
+    if [gdb_test "info watch" "1\[ \]*breakpoint.*marker1.*\r\n2\[ \]*breakpoint.*marker2.*\r\n3\[ \]*.*watchpoint.*ival3.*\r\n4\[ \]*.*watchpoint.*buf" "watchpoint found in watchpoint/breakpoint table" ] { 
       return 0; 
     }
 
@@ -117,6 +134,9 @@ proc initialize {} {
     # we get to the first marker function.
 
     if [gdb_test "disable 3" "disable 3\[\r\n\]+" "disable watchpoint" ] { 
+      return 0; 
+    }
+    if [gdb_test "disable 4" "disable 4\[\r\n\]+" "disable watchpoint" ] { 
       return 0; 
     }
 
@@ -138,6 +158,9 @@ proc test_simple_watchpoint {} {
 
     if { $wp_set } {
         if [gdb_test "disable 3" "^disable 3\[\r\n\]+" "disable watchpoint in test_simple_watchpoint" ] { 
+	    return 0; 
+	}
+        if [gdb_test "disable 4" "^disable 4\[\r\n\]+" "disable watchpoint in test_simple_watchpoint" ] { 
 	    return 0; 
 	}
     }
@@ -176,14 +199,21 @@ proc test_simple_watchpoint {} {
 	    -re ".*$gdb_prompt $" { fail "set watchpoint on ival3"  }
 	    timeout { fail "set watchpoint on ival3 (timeout)"  }
 	}
-
+	send_gdb "watch buf\n"
+	gdb_expect {
+	    -re ".*\[Ww\]atchpoint 4: buf\r\n$gdb_prompt $" { 
+	        pass "set watchpoint on buf"
+	    }
+	    -re ".*$gdb_prompt $" { fail "set watchpoint on buf"  }
+	    timeout { fail "set watchpoint on buf (timeout)"  }
+	}
         set wp_set 1
 
 	# "info watch" is the same as "info break"
 
 	send_gdb "info watch\n"
 	gdb_expect {
-	    -re "1\[ \]*breakpoint.*marker1.*\r\n2\[ \]*breakpoint.*marker2.*\r\n3\[ \]*.*watchpoint.*ival3\r\n$gdb_prompt $" {
+	    -re "1\[ \]*breakpoint.*marker1.*\r\n2\[ \]*breakpoint.*marker2.*\r\n3\[ \]*.*watchpoint.*ival3\r\n4\[ \]*.*watchpoint.*buf\r\n$gdb_prompt $" {
 	        pass "watchpoint found in watchpoint/breakpoint table"
 	    }
 	    -re ".*$gdb_prompt $" {
@@ -204,12 +234,21 @@ proc test_simple_watchpoint {} {
 	    -re ".*$gdb_prompt $" { fail "disable watchpoint"  }
 	    timeout { fail "disable watchpoint (timeout)"  }
 	}
+	send_gdb "disable 4\n"
+	gdb_expect {
+	    -re "disable 4\[\r\n\]+$gdb_prompt $" { pass "disable watchpoint" }
+	    -re ".*$gdb_prompt $" { fail "disable watchpoint"  }
+	    timeout { fail "disable watchpoint (timeout)"  }
+	}
     }
 
     # After reaching the marker function, enable the watchpoint.
 
     if [gdb_test "enable 3" "^enable 3\[\r\n\]+" "enable watchpoint" ] { 
-      return ; 
+      return; 
+    }
+    if [gdb_test "enable 4" "^enable 4\[\r\n\]+" "enable watchpoint" ] { 
+      return;
     }
 
 
@@ -270,6 +309,10 @@ Continuing.*\[Ww\]atchpoint.*ival3.*Old value = -1.*New value = 0.*ival3 = count
     # Check that the hit count is reported correctly
     gdb_test "info break" ".*watchpoint\[ \t\]+keep\[ \t\]+y\[ \t\]+ival3\r\n\[ \t]+breakpoint already hit 5 times.*" "Watchpoint hit count is 5"
 
+    # Check watch of an array variable
+    # Don't match the entire array, because of the bizarre omit-final-null behavior.
+    gdb_test "cont" "Continuing.*\[Ww\]atchpoint.*buf.*Old value = \"\\\\000\\\\000\\\\000\\\\000\\\\000\\\\000\\\\000\\\\000\\\\000.*New value = \"\\\\000\\\\000\\\\000\\\\000\\\\000\\\\000\\\\000\\\\004.*" "watchpoint hit, buf"
+
     # Continue until we hit the finishing marker function.
     # Make sure we hit no more watchpoints.
 
@@ -279,7 +322,10 @@ Continuing.*\[Ww\]atchpoint.*ival3.*Old value = -1.*New value = 0.*ival3 = count
     # Disable the watchpoint so we run at full speed until we exit.
 
     if [gdb_test "disable 3" "^disable 3\[\r\n\]+" "watchpoint disabled" ] { 
-      return ; 
+      return;
+    }
+    if [gdb_test "disable 4" "^disable 4\[\r\n\]+" "watchpoint disabled" ] { 
+      return;
     }
 
 
@@ -383,6 +429,7 @@ proc test_stepping {} {
 	# because we are out of the dummy by the first time the inferior
 	# stops.
 	clear_xfail "arm*-*-*"
+	clear_xfail "xscale*-*-*"
 	clear_xfail "d10v*-*-*"
 	clear_xfail "m68*-*-*"
 	clear_xfail "i*86*-*-*"

@@ -1,0 +1,132 @@
+thisconfigdir=.
+myfulldir=lib/kdb
+mydir=.
+BUILDTOP=$(REL)..$(S)..
+KRB5_RUN_ENV = @KRB5_RUN_ENV@
+KRB5_CONFIG_SETUP = KRB5_CONFIG=$(SRCTOP)/config-files/krb5.conf ; export KRB5_CONFIG ;
+PROG_LIBPATH=-L$(TOPLIBD)
+PROG_RPATH=$(KRB5_LIBDIR)
+
+LIB=kdb5
+LIBMAJOR=4
+LIBMINOR=0
+RELDIR=kdb
+# Depends on libk5crypto and libkrb5
+
+SHLIB_EXPDEPS = \
+	$(TOPLIBD)/libk5crypto$(SHLIBEXT) \
+	$(TOPLIBD)/libkrb5$(SHLIBEXT)
+SHLIB_EXPLIBS=-lkrb5 -lcom_err -lk5crypto $(KDB5_DB_LIB) $(LIBS)
+SHLIB_DIRS=-L$(TOPLIBD)
+SHLIB_RDIRS=$(KRB5_LIBDIR)
+
+DBDIR = $(BUILDTOP)/util/db2
+DBOBJLISTS = $(DBOBJLISTS-@DB_VERSION@)
+DBOBJLISTS-sys =
+DBOBJLISTS-k5 = $(DBDIR)/hash/OBJS.ST $(DBDIR)/btree/OBJS.ST \
+	$(DBDIR)/db/OBJS.ST $(DBDIR)/mpool/OBJS.ST $(DBDIR)/recno/OBJS.ST \
+	$(DBDIR)/clib/OBJS.ST
+
+all:: 
+
+SRCS= \
+	$(srcdir)/keytab.c \
+	$(srcdir)/encrypt_key.c \
+	$(srcdir)/decrypt_key.c \
+	$(srcdir)/kdb_cpw.c \
+	$(srcdir)/kdb_db2.c \
+	$(srcdir)/kdb_xdr.c \
+	$(srcdir)/verify_mky.c \
+	$(srcdir)/fetch_mkey.c \
+	$(srcdir)/setup_mkey.c \
+	$(srcdir)/store_mkey.c
+
+STOBJLISTS=OBJS.ST $(DBOBJLISTS)
+STLIBOBJS= \
+	keytab.o \
+	encrypt_key.o \
+	decrypt_key.o \
+	kdb_cpw.o \
+	kdb_db2.o \
+	kdb_xdr.o \
+	verify_mky.o \
+	fetch_mkey.o \
+	setup_mkey.o \
+	store_mkey.o
+
+all-unix:: all-liblinks
+install-unix:: install-libs
+clean-unix:: clean-liblinks clean-libs clean-libobjs
+
+t_kdb:	t_kdb.o $(OBJS) $(KDB5_DEPLIBS) $(KRB5_BASE_DEPLIBS)
+	$(CC_LINK) -o t_kdb t_kdb.o $(OBJS) $(KDB5_LIBS) $(KRB5_BASE_LIBS)
+
+check::	t_kdb
+	$(RM) test_db
+	$(KRB5_CONFIG_SETUP) $(KRB5_RUN_ENV) ./t_kdb -tcv
+	$(KRB5_CONFIG_SETUP) $(KRB5_RUN_ENV) ./t_kdb -tcvr
+
+clean::
+	$(RM) t_kdb t_kdb.o
+
+
+# @lib_frag@
+# @libobj_frag@
+
+# +++ Dependency line eater +++
+# 
+# Makefile dependencies follow.  This must be the last section in
+# the Makefile.in file
+#
+keytab.so keytab.po $(OUTPRE)keytab.$(OBJEXT): keytab.c $(SRCTOP)/include/k5-int.h \
+  $(BUILDTOP)/include/krb5/osconf.h $(BUILDTOP)/include/krb5/autoconf.h \
+  $(BUILDTOP)/include/krb5.h $(COM_ERR_DEPS) $(BUILDTOP)/include/profile.h \
+  $(SRCTOP)/include/port-sockets.h $(SRCTOP)/include/socket-utils.h \
+  $(SRCTOP)/include/krb5/kdb.h $(SRCTOP)/include/krb5/kdb_kt.h
+encrypt_key.so encrypt_key.po $(OUTPRE)encrypt_key.$(OBJEXT): encrypt_key.c $(SRCTOP)/include/k5-int.h \
+  $(BUILDTOP)/include/krb5/osconf.h $(BUILDTOP)/include/krb5/autoconf.h \
+  $(BUILDTOP)/include/krb5.h $(COM_ERR_DEPS) $(BUILDTOP)/include/profile.h \
+  $(SRCTOP)/include/port-sockets.h $(SRCTOP)/include/socket-utils.h \
+  $(SRCTOP)/include/krb5/kdb.h
+decrypt_key.so decrypt_key.po $(OUTPRE)decrypt_key.$(OBJEXT): decrypt_key.c $(SRCTOP)/include/k5-int.h \
+  $(BUILDTOP)/include/krb5/osconf.h $(BUILDTOP)/include/krb5/autoconf.h \
+  $(BUILDTOP)/include/krb5.h $(COM_ERR_DEPS) $(BUILDTOP)/include/profile.h \
+  $(SRCTOP)/include/port-sockets.h $(SRCTOP)/include/socket-utils.h \
+  $(SRCTOP)/include/krb5/kdb.h
+kdb_cpw.so kdb_cpw.po $(OUTPRE)kdb_cpw.$(OBJEXT): kdb_cpw.c $(SRCTOP)/include/k5-int.h \
+  $(BUILDTOP)/include/krb5/osconf.h $(BUILDTOP)/include/krb5/autoconf.h \
+  $(BUILDTOP)/include/krb5.h $(COM_ERR_DEPS) $(BUILDTOP)/include/profile.h \
+  $(SRCTOP)/include/port-sockets.h $(SRCTOP)/include/socket-utils.h \
+  $(SRCTOP)/include/krb5/kdb.h $(SRCTOP)/include/krb5/adm.h
+kdb_db2.so kdb_db2.po $(OUTPRE)kdb_db2.$(OBJEXT): kdb_db2.c $(SRCTOP)/include/k5-int.h \
+  $(BUILDTOP)/include/krb5/osconf.h $(BUILDTOP)/include/krb5/autoconf.h \
+  $(BUILDTOP)/include/krb5.h $(COM_ERR_DEPS) $(BUILDTOP)/include/profile.h \
+  $(SRCTOP)/include/port-sockets.h $(SRCTOP)/include/socket-utils.h \
+  $(SRCTOP)/include/krb5/kdb.h $(DB_DEPS) kdb_compat.h \
+  kdb_db2.h
+kdb_xdr.so kdb_xdr.po $(OUTPRE)kdb_xdr.$(OBJEXT): kdb_xdr.c $(SRCTOP)/include/k5-int.h \
+  $(BUILDTOP)/include/krb5/osconf.h $(BUILDTOP)/include/krb5/autoconf.h \
+  $(BUILDTOP)/include/krb5.h $(COM_ERR_DEPS) $(BUILDTOP)/include/profile.h \
+  $(SRCTOP)/include/port-sockets.h $(SRCTOP)/include/socket-utils.h \
+  $(SRCTOP)/include/krb5/kdb.h
+verify_mky.so verify_mky.po $(OUTPRE)verify_mky.$(OBJEXT): verify_mky.c $(SRCTOP)/include/k5-int.h \
+  $(BUILDTOP)/include/krb5/osconf.h $(BUILDTOP)/include/krb5/autoconf.h \
+  $(BUILDTOP)/include/krb5.h $(COM_ERR_DEPS) $(BUILDTOP)/include/profile.h \
+  $(SRCTOP)/include/port-sockets.h $(SRCTOP)/include/socket-utils.h \
+  $(SRCTOP)/include/krb5/kdb.h
+fetch_mkey.so fetch_mkey.po $(OUTPRE)fetch_mkey.$(OBJEXT): fetch_mkey.c $(SRCTOP)/include/k5-int.h \
+  $(BUILDTOP)/include/krb5/osconf.h $(BUILDTOP)/include/krb5/autoconf.h \
+  $(BUILDTOP)/include/krb5.h $(COM_ERR_DEPS) $(BUILDTOP)/include/profile.h \
+  $(SRCTOP)/include/port-sockets.h $(SRCTOP)/include/socket-utils.h \
+  $(SRCTOP)/include/krb5/kdb.h
+setup_mkey.so setup_mkey.po $(OUTPRE)setup_mkey.$(OBJEXT): setup_mkey.c $(SRCTOP)/include/k5-int.h \
+  $(BUILDTOP)/include/krb5/osconf.h $(BUILDTOP)/include/krb5/autoconf.h \
+  $(BUILDTOP)/include/krb5.h $(COM_ERR_DEPS) $(BUILDTOP)/include/profile.h \
+  $(SRCTOP)/include/port-sockets.h $(SRCTOP)/include/socket-utils.h \
+  $(SRCTOP)/include/krb5/kdb.h
+store_mkey.so store_mkey.po $(OUTPRE)store_mkey.$(OBJEXT): store_mkey.c $(SRCTOP)/include/k5-int.h \
+  $(BUILDTOP)/include/krb5/osconf.h $(BUILDTOP)/include/krb5/autoconf.h \
+  $(BUILDTOP)/include/krb5.h $(COM_ERR_DEPS) $(BUILDTOP)/include/profile.h \
+  $(SRCTOP)/include/port-sockets.h $(SRCTOP)/include/socket-utils.h \
+  $(SRCTOP)/include/krb5/kdb.h
+

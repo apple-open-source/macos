@@ -2,11 +2,13 @@
  * tclCompile.h --
  *
  * Copyright (c) 1996-1998 Sun Microsystems, Inc.
+ * Copyright (c) 1998-2000 by Scriptics Corporation.
+ * Copyright (c) 2001 by Kevin B. Kenny.  All rights reserved.
  *
  * See the file "license.terms" for information on usage and redistribution
  * of this file, and for a DISCLAIMER OF ALL WARRANTIES.
  *
- * RCS: @(#) $Id: tclCompile.h,v 1.1.1.4 2002/04/05 16:13:17 jevans Exp $
+ * RCS: @(#) $Id: tclCompile.h,v 1.1.1.5 2003/03/06 00:10:12 landonf Exp $
  */
 
 #ifndef _TCLCOMPILATION
@@ -28,14 +30,7 @@
  *------------------------------------------------------------------------
  */
 
-/*
- * Variable that denotes the command name Tcl object type. Objects of this
- * type cache the Command pointer that results from looking up command names
- * in the command hashtable.
- */
-
-extern Tcl_ObjType	tclCmdNameType;
-
+#ifdef TCL_COMPILE_DEBUG
 /*
  * Variable that controls whether compilation tracing is enabled and, if so,
  * what level of tracing is desired:
@@ -46,7 +41,9 @@ extern Tcl_ObjType	tclCmdNameType;
  */
 
 extern int 		tclTraceCompile;
+#endif
 
+#ifdef TCL_COMPILE_DEBUG
 /*
  * Variable that controls whether execution tracing is enabled and, if so,
  * what level of tracing is desired:
@@ -58,6 +55,7 @@ extern int 		tclTraceCompile;
  */
 
 extern int 		tclTraceExec;
+#endif
 
 /*
  *------------------------------------------------------------------------
@@ -211,23 +209,12 @@ typedef struct CompileEnv {
     int maxStackDepth;		/* Maximum number of stack elements needed
 				 * to execute the code. Set by compilation
 				 * procedures before returning. */
+    int currStackDepth;         /* Current stack depth. */
     LiteralTable localLitTable;	/* Contains LiteralEntry's describing
 				 * all Tcl objects referenced by this
 				 * compiled code. Indexed by the string
 				 * representations of the literals. Used to
 				 * avoid creating duplicate objects. */
-    int exprIsJustVarRef;	/* Set 1 if the expression last compiled by
-				 * TclCompileExpr consisted of just a
-				 * variable reference as in the expression
-				 * of "if $b then...". Otherwise 0. Used
-				 * to implement expr's 2 level substitution
-				 * semantics properly. */
-    int exprIsComparison;	/* Set 1 if the top-level operator in the
-				 * expression last compiled is a comparison.
-				 * Otherwise 0. If 1, since the operands
-				 * might be strings, the expr is compiled
-				 * out-of-line to implement expr's 2 level
-				 * substitution semantics properly. */
     unsigned char *codeStart;	/* Points to the first byte of the code. */
     unsigned char *codeNext;	/* Points to next code array byte to use. */
     unsigned char *codeEnd;	/* Points just after the last allocated
@@ -397,11 +384,11 @@ typedef struct ByteCode {
 } ByteCode;
 
 /*
- * Opcodes for the Tcl bytecode instructions. These must correspond to the
- * entries in the table of instruction descriptions, instructionTable, in
- * tclCompile.c. Also, the order and number of the expression opcodes
- * (e.g., INST_LOR) must match the entries in the array operatorStrings in
- * tclExecute.c.
+ * Opcodes for the Tcl bytecode instructions. These must correspond to
+ * the entries in the table of instruction descriptions,
+ * tclInstructionTable, in tclCompile.c. Also, the order and number of
+ * the expression opcodes (e.g., INST_LOR) must match the entries in
+ * the array operatorStrings in tclExecute.c.
  */
 
 /* Opcodes 0 to 9 */
@@ -493,8 +480,50 @@ typedef struct ByteCode {
 #define INST_PUSH_RESULT		71
 #define INST_PUSH_RETURN_CODE		72
 
+/* Opcodes 73 to 78 */
+#define INST_STR_EQ			73
+#define INST_STR_NEQ			74
+#define INST_STR_CMP			75
+#define INST_STR_LEN			76
+#define INST_STR_INDEX			77
+#define INST_STR_MATCH			78
+
+/* Opcodes 78 to 81 */
+#define INST_LIST			79
+#define INST_LIST_INDEX			80
+#define INST_LIST_LENGTH		81
+
+/* Opcodes 82 to 87 */
+#define INST_APPEND_SCALAR1		82
+#define INST_APPEND_SCALAR4		83
+#define INST_APPEND_ARRAY1		84
+#define INST_APPEND_ARRAY4		85
+#define INST_APPEND_ARRAY_STK		86
+#define INST_APPEND_STK			87
+
+/* Opcodes 88 to 93 */
+#define INST_LAPPEND_SCALAR1		88
+#define INST_LAPPEND_SCALAR4		89
+#define INST_LAPPEND_ARRAY1		90
+#define INST_LAPPEND_ARRAY4		91
+#define INST_LAPPEND_ARRAY_STK		92
+#define INST_LAPPEND_STK		93
+
+/* TIP #22 - LINDEX operator with flat arg list */
+
+#define INST_LIST_INDEX_MULTI		94
+
+/*
+ * TIP #33 - 'lset' command.  Code gen also required a Forth-like
+ *           OVER operation.
+ */
+
+#define INST_OVER                       95
+#define INST_LSET_LIST			96
+#define INST_LSET_FLAT                  97
+
 /* The last opcode */
-#define LAST_INST_OPCODE        	72
+#define LAST_INST_OPCODE        	97
 
 /*
  * Table describing the Tcl bytecode instructions: their name (for
@@ -518,17 +547,23 @@ typedef enum InstOperandType {
 typedef struct InstructionDesc {
     char *name;			/* Name of instruction. */
     int numBytes;		/* Total number of bytes for instruction. */
+    int stackEffect;            /* The worst-case balance stack effect of the 
+				 * instruction, used for stack requirements 
+				 * computations. The value INT_MIN signals
+				 * that the instruction's worst case effect
+				 * is (1-opnd1).
+				 */
     int numOperands;		/* Number of operands. */
     InstOperandType opTypes[MAX_INSTRUCTION_OPERANDS];
 				/* The type of each operand. */
 } InstructionDesc;
 
-extern InstructionDesc instructionTable[];
+extern InstructionDesc tclInstructionTable[];
 
 /*
  * Definitions of the values of the INST_CALL_BUILTIN_FUNC instruction's
  * operand byte. Each value denotes a builtin Tcl math function. These
- * values must correspond to the entries in the builtinFuncTable array
+ * values must correspond to the entries in the tclBuiltinFuncTable array
  * below and to the values stored in the tclInt.h MathFunc structure's
  * builtinFuncIndex field.
  */
@@ -558,8 +593,9 @@ extern InstructionDesc instructionTable[];
 #define BUILTIN_FUNC_RAND		22
 #define BUILTIN_FUNC_ROUND		23
 #define BUILTIN_FUNC_SRAND		24
+#define BUILTIN_FUNC_WIDE		25
 
-#define LAST_BUILTIN_FUNC        	24
+#define LAST_BUILTIN_FUNC        	25
 
 /*
  * Table describing the built-in math functions. Entries in this table are
@@ -580,7 +616,7 @@ typedef struct {
 				 * function when invoking it. */
 } BuiltinFunc;
 
-extern BuiltinFunc builtinFuncTable[];
+extern BuiltinFunc tclBuiltinFuncTable[];
 
 /*
  * Compilation of some Tcl constructs such as if commands and the logical or
@@ -672,40 +708,27 @@ typedef struct ForeachInfo {
 
 extern AuxDataType		tclForeachInfoType;
 
+
 /*
- * Structure containing a cached pointer to a command that is the result
- * of resolving the command's name in some namespace. It is the internal
- * representation for a cmdName object. It contains the pointer along
- * with some information that is used to check the pointer's validity.
+ *----------------------------------------------------------------
+ * Procedures exported by tclBasic.c to be used within the engine.
+ *----------------------------------------------------------------
  */
 
-typedef struct ResolvedCmdName {
-    Command *cmdPtr;		/* A cached Command pointer. */
-    Namespace *refNsPtr;	/* Points to the namespace containing the
-				 * reference (not the namespace that
-				 * contains the referenced command). */
-    long refNsId;		/* refNsPtr's unique namespace id. Used to
-				 * verify that refNsPtr is still valid
-				 * (e.g., it's possible that the cmd's
-				 * containing namespace was deleted and a
-				 * new one created at the same address). */
-    int refNsCmdEpoch;		/* Value of the referencing namespace's
-				 * cmdRefEpoch when the pointer was cached.
-				 * Before using the cached pointer, we check
-				 * if the namespace's epoch was incremented;
-				 * if so, this cached pointer is invalid. */
-    int cmdEpoch;		/* Value of the command's cmdEpoch when this
-				 * pointer was cached. Before using the
-				 * cached pointer, we check if the cmd's
-				 * epoch was incremented; if so, the cmd was
-				 * renamed, deleted, hidden, or exposed, and
-				 * so the pointer is invalid. */
-    int refCount;		/* Reference count: 1 for each cmdName
-				 * object that has a pointer to this
-				 * ResolvedCmdName structure as its internal
-				 * rep. This structure can be freed when
-				 * refCount becomes zero. */
-} ResolvedCmdName;
+EXTERN int		TclEvalObjvInternal _ANSI_ARGS_((Tcl_Interp *interp, int objc,
+			    Tcl_Obj *CONST objv[], CONST char *command, int length,
+			    int flags));
+EXTERN int              TclInterpReady _ANSI_ARGS_((Tcl_Interp *interp));
+
+
+/*
+ *----------------------------------------------------------------
+ * Procedures exported by the engine to be used by tclBasic.c
+ *----------------------------------------------------------------
+ */
+
+EXTERN int		TclCompEvalObj _ANSI_ARGS_((Tcl_Interp *interp,
+			    Tcl_Obj *objPtr));
 
 /*
  *----------------------------------------------------------------
@@ -719,13 +742,13 @@ EXTERN int		TclCompileCmdWord _ANSI_ARGS_((Tcl_Interp *interp,
 			    Tcl_Token *tokenPtr, int count,
 			    CompileEnv *envPtr));
 EXTERN int		TclCompileExpr _ANSI_ARGS_((Tcl_Interp *interp,
-			    char *script, int numBytes,
+			    CONST char *script, int numBytes,
 			    CompileEnv *envPtr));
 EXTERN int		TclCompileExprWords _ANSI_ARGS_((Tcl_Interp *interp,
 			    Tcl_Token *tokenPtr, int numWords,
 			    CompileEnv *envPtr));
 EXTERN int		TclCompileScript _ANSI_ARGS_((Tcl_Interp *interp,
-			    char *script, int numBytes, int nested,
+			    CONST char *script, int numBytes, int nested,
 			    CompileEnv *envPtr));
 EXTERN int		TclCompileTokens _ANSI_ARGS_((Tcl_Interp *interp,
 			    Tcl_Token *tokenPtr, int count,
@@ -743,12 +766,10 @@ EXTERN void		TclEmitForwardJump _ANSI_ARGS_((CompileEnv *envPtr,
 EXTERN ExceptionRange *	TclGetExceptionRangeForPc _ANSI_ARGS_((
 			    unsigned char *pc, int catchOnly,
 			    ByteCode* codePtr));
-EXTERN int		TclExecuteByteCode _ANSI_ARGS_((Tcl_Interp *interp,
-			    ByteCode *codePtr));
 EXTERN void		TclExpandJumpFixupArray _ANSI_ARGS_((
                             JumpFixupArray *fixupArrayPtr));
 EXTERN void		TclFinalizeAuxDataTypeTable _ANSI_ARGS_((void));
-EXTERN int		TclFindCompiledLocal _ANSI_ARGS_((char *name, 
+EXTERN int		TclFindCompiledLocal _ANSI_ARGS_((CONST char *name, 
         		    int nameChars, int create, int flags,
 			    Proc *procPtr));
 EXTERN LiteralEntry *	TclLookupLiteralEntry _ANSI_ARGS_((
@@ -784,7 +805,7 @@ EXTERN int		TclPrintInstruction _ANSI_ARGS_((ByteCode* codePtr,
 EXTERN void		TclPrintObject _ANSI_ARGS_((FILE *outFile,
 			    Tcl_Obj *objPtr, int maxChars));
 EXTERN void		TclPrintSource _ANSI_ARGS_((FILE *outFile,
-			    char *string, int maxChars));
+			    CONST char *string, int maxChars));
 EXTERN void		TclRegisterAuxDataType _ANSI_ARGS_((AuxDataType *typePtr));
 EXTERN int		TclRegisterLiteral _ANSI_ARGS_((CompileEnv *envPtr,
 			    char *bytes, int length, int onHeap));
@@ -798,6 +819,8 @@ EXTERN void		TclVerifyGlobalLiteralTable _ANSI_ARGS_((
 EXTERN void		TclVerifyLocalLiteralTable _ANSI_ARGS_((
 			    CompileEnv *envPtr));
 #endif
+EXTERN int		TclCompileVariableCmd _ANSI_ARGS_((
+			    Tcl_Interp *interp, Tcl_Parse *parsePtr, CompileEnv *envPtr));
 
 /*
  *----------------------------------------------------------------
@@ -805,6 +828,40 @@ EXTERN void		TclVerifyLocalLiteralTable _ANSI_ARGS_((
  * inside the Tcl core but not used outside.
  *----------------------------------------------------------------
  */
+
+/*
+ * Form of TclRegisterLiteral with onHeap == 0.
+ * In that case, it is safe to cast away CONSTness, and it
+ * is cleanest to do that here, all in one place.
+ */
+
+#define TclRegisterNewLiteral(envPtr, bytes, length) \
+	TclRegisterLiteral(envPtr, (char *)(bytes), length, /*onHeap*/ 0)
+
+/*
+ * Macro used to update the stack requirements.
+ * It is called by the macros TclEmitOpCode, TclEmitInst1 and
+ * TclEmitInst4.
+ * Remark that the very last instruction of a bytecode always
+ * reduces the stack level: INST_DONE or INST_POP, so that the 
+ * maxStackdepth is always updated.
+ */
+
+#define TclUpdateStackReqs(op, i, envPtr) \
+    {\
+	int delta = tclInstructionTable[(op)].stackEffect;\
+	if (delta) {\
+	    if (delta < 0) {\
+		if((envPtr)->maxStackDepth < (envPtr)->currStackDepth) {\
+		    (envPtr)->maxStackDepth = (envPtr)->currStackDepth;\
+		}\
+		if (delta == INT_MIN) {\
+		    delta = 1 - (i);\
+		}\
+	    }\
+	    (envPtr)->currStackDepth += delta;\
+	}\
+    }
 
 /*
  * Macro to emit an opcode byte into a CompileEnv's code array.
@@ -817,7 +874,8 @@ EXTERN void		TclVerifyLocalLiteralTable _ANSI_ARGS_((
 #define TclEmitOpcode(op, envPtr) \
     if ((envPtr)->codeNext == (envPtr)->codeEnd) \
         TclExpandCodeArray(envPtr); \
-    *(envPtr)->codeNext++ = (unsigned char) (op)
+    *(envPtr)->codeNext++ = (unsigned char) (op);\
+    TclUpdateStackReqs(op, 0, envPtr)
 
 /*
  * Macro to emit an integer operand.
@@ -843,12 +901,14 @@ EXTERN void		TclVerifyLocalLiteralTable _ANSI_ARGS_((
  *		    CompileEnv *envPtr));
  */
 
+
 #define TclEmitInstInt1(op, i, envPtr) \
     if (((envPtr)->codeNext + 2) > (envPtr)->codeEnd) { \
         TclExpandCodeArray(envPtr); \
     } \
     *(envPtr)->codeNext++ = (unsigned char) (op); \
-    *(envPtr)->codeNext++ = (unsigned char) ((unsigned int) (i))
+    *(envPtr)->codeNext++ = (unsigned char) ((unsigned int) (i));\
+    TclUpdateStackReqs(op, i, envPtr)
 
 #define TclEmitInstInt4(op, i, envPtr) \
     if (((envPtr)->codeNext + 5) > (envPtr)->codeEnd) { \
@@ -862,7 +922,8 @@ EXTERN void		TclVerifyLocalLiteralTable _ANSI_ARGS_((
     *(envPtr)->codeNext++ = \
         (unsigned char) ((unsigned int) (i) >>  8); \
     *(envPtr)->codeNext++ = \
-        (unsigned char) ((unsigned int) (i)      )
+        (unsigned char) ((unsigned int) (i)      );\
+    TclUpdateStackReqs(op, i, envPtr)
     
 /*
  * Macro to push a Tcl object onto the Tcl evaluation stack. It emits the
@@ -874,10 +935,13 @@ EXTERN void		TclVerifyLocalLiteralTable _ANSI_ARGS_((
  */
 
 #define TclEmitPush(objIndex, envPtr) \
-    if ((objIndex) <= 255) { \
-	TclEmitInstInt1(INST_PUSH1, (objIndex), (envPtr)); \
-    } else { \
-	TclEmitInstInt4(INST_PUSH4, (objIndex), (envPtr)); \
+    {\
+        register int objIndexCopy = (objIndex);\
+        if (objIndexCopy <= 255) { \
+	    TclEmitInstInt1(INST_PUSH1, objIndexCopy, (envPtr)); \
+        } else { \
+	    TclEmitInstInt4(INST_PUSH4, objIndexCopy, (envPtr)); \
+	}\
     }
 
 /*
@@ -975,3 +1039,8 @@ EXTERN void		TclVerifyLocalLiteralTable _ANSI_ARGS_((
 # define TCL_STORAGE_CLASS DLLIMPORT
 
 #endif /* _TCLCOMPILATION */
+
+
+
+
+

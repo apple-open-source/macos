@@ -138,6 +138,9 @@ extern void yyerror();
 <Normal>[Ss][Ee][Cc][Tt][Oo][Kk][Ee][Nn]	RETURN(sySecToken);
 <Normal>[Ss][Ee][Rr][Vv][Ee][Rr][Ss][Ee][Cc][Tt][Oo][Kk][Ee][Nn] RETURN(syServerSecToken);
 <Normal>[Uu][Ss][Ee][Rr][Ss][Ee][Cc][Tt][Oo][Kk][Ee][Nn]	RETURN(syUserSecToken);
+<Normal>[Aa][Uu][Dd][Ii][Tt][Tt][Oo][Kk][Ee][Nn]	RETURN(syAuditToken);
+<Normal>[Ss][Ee][Rr][Vv][Ee][Rr][Aa][Uu][Dd][Ii][Tt][Tt][Oo][Kk][Ee][Nn] RETURN(syServerAuditToken);
+<Normal>[Uu][Ss][Ee][Rr][Aa][Uu][Dd][Ii][Tt][Tt][Oo][Kk][Ee][Nn]	RETURN(syUserAuditToken);
 <Normal>[Ii][Nn][Oo][Uu][Tt]			RETURN(syInOut);
 <Normal>[Rr][Ee][Qq][Uu][Ee][Ss][Tt][Pp][Oo][Rr][Tt]	RETURN(syRequestPort);
 <Normal>[Rr][Ee][Pp][Ll][Yy][Pp][Oo][Rr][Tt]		RETURN(syReplyPort);
@@ -243,6 +246,7 @@ extern void yyerror();
 					  BEGIN SkipToEOL; }
 ^\#\ *{Number}				{ doSharp(yytext+1);
 					  BEGIN SkipToEOL; }
+^\#pragma				{ BEGIN SkipToEOL; }
 ^\#					{ yyerror("illegal # directive");
 					  BEGIN SkipToEOL; }
 

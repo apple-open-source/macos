@@ -1,0 +1,62 @@
+# Copyright 2002 Free Software Foundation, Inc.
+
+# This program is free software; you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation; either version 2 of the License, or
+# (at your option) any later version.
+# 
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+# 
+# You should have received a copy of the GNU General Public License
+# along with this program; if not, write to the Free Software
+# Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.  
+
+# Please email any bugs, comments, and/or additions to this file to:
+# bug-gdb@prep.ai.mit.edu
+
+# This file tests MI hook commands.
+# Specifically, we are testing the MI command set and the console (in MI)
+# command set ("interpreter-exec") and that the commands that are executed
+# via these command pathways are properly executed. Console commands
+# executed via MI should use MI output wrappers, MI event handlers, etc.
+
+# This only works with native configurations
+if {![isnative]} {
+  return
+}
+
+load_lib mi-support.exp
+set MIFLAGS "-i=mi1"
+
+gdb_exit
+if {[mi_gdb_start]} {
+    continue
+}
+
+#
+# Start here
+#
+set testfile "pthreads"
+set srcfile "$testfile.c"
+set binfile "$objdir/$subdir/$testfile"
+
+set options [list debug incdir=$subdir]
+if  {[gdb_compile_pthreads "$srcdir/$subdir/$srcfile" $binfile executable $options]
+     != "" } {
+  gdb_suppress_entire_file \
+    "Testcase compile failed, so all tests in this file will automatically fail."
+}
+
+mi_gdb_reinitialize_dir $srcdir/$subdir
+mi_gdb_load $binfile
+
+mi_runto done_making_threads
+
+mi_gdb_test "-interpreter-exec console \"thread 2\"" \
+    "\\^done.*,MI_HOOK_RESULT=\\\[HOOK_TYPE=\"thread_changed\",thread=\"2\"\\\].*" \
+    "thread_changed hook"
+
+mi_gdb_exit

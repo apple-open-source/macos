@@ -1,5 +1,7 @@
-dnl $Source: /cvs/Darwin/apache_mod_php/php/ext/mnogosearch/config.m4,v $
-dnl $Id: config.m4,v 1.1.1.2 2001/12/14 22:12:37 zarzycki Exp $
+dnl
+dnl $Source: /cvs/root/apache_mod_php/php/ext/mnogosearch/config.m4,v $
+dnl $Id: config.m4,v 1.1.1.4 2003/03/11 01:09:25 zarzycki Exp $
+dnl
 
 PHP_ARG_WITH(mnogosearch,for mnoGoSearch support,
 [  --with-mnogosearch[=DIR]
@@ -47,6 +49,6 @@ PHP_ARG_WITH(mnogosearch,for mnoGoSearch support,
     AC_DEFINE(HAVE_MNOGOSEARCH,1,[ ])
     
     PHP_SUBST(MNOGOSEARCH_SHARED_LIBADD)
-    PHP_EXTENSION(mnogosearch,$ext_shared)
+    PHP_NEW_EXTENSION(mnogosearch, php_mnogo.c, $ext_shared)
     
   fi

@@ -72,4 +72,4 @@ private:
 }	// end namespace Security
 
 
-#endif _H_CHOOSER
+#endif /* _H_CHOOSER */

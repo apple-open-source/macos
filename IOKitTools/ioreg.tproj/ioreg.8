@@ -17,6 +17,7 @@
 .Oc
 .Op Fl p Ar plane
 .Op Fl s
+.Op Fl S
 .Op Fl w Ar width
 .Op Fl x
 .Sh DESCRIPTION
@@ -55,7 +56,9 @@ Traverse the registry over the specified
 The default plane value is ``IOService''.  The other planes, such as ``IODeviceTree'', can be found under the ``IORegistryPlanes'' property of the root object (ioreg -n Root).
 .Pp
 .It Fl s
-Show the object state (busy state, retain count).
+Show the object state (busy state, retain count). This is the default.
+.It Fl S
+Don't show the object state (busy state, retain count).
 .It Fl w
 Clip the output to the specified line
 .Ar width .
@@ -63,3 +66,4 @@ The default width value is the current screen size.  A value of 0 specifies an u
 .Pp
 .It Fl x
 Print numeric property values in hexadecimal.
+.El

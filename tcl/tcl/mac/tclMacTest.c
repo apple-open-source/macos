@@ -9,11 +9,11 @@
  * See the file "license.terms" for information on usage and redistribution
  * of this file, and for a DISCLAIMER OF ALL WARRANTIES.
  *
- * RCS: @(#) $Id: tclMacTest.c,v 1.1.1.3 2000/04/12 02:02:39 wsanchez Exp $
+ * RCS: @(#) $Id: tclMacTest.c,v 1.1.1.4 2003/03/06 00:12:26 landonf Exp $
  */
 
 #define TCL_TEST
-
+#define USE_COMPAT_CONST
 #include "tclInt.h"
 #include "tclMacInt.h"
 #include "tclMacPort.h"
@@ -30,9 +30,9 @@
 
 int			TclplatformtestInit _ANSI_ARGS_((Tcl_Interp *interp));
 static int		DebuggerCmd _ANSI_ARGS_((ClientData dummy,
-			    Tcl_Interp *interp, int argc, char **argv));
+			    Tcl_Interp *interp, int argc, CONST char **argv));
 static int		WriteTextResource _ANSI_ARGS_((ClientData dummy,
-			    Tcl_Interp *interp, int argc, char **argv));
+			    Tcl_Interp *interp, int argc, CONST char **argv));
 			    
 
 /*
@@ -89,7 +89,7 @@ DebuggerCmd(
     ClientData clientData,		/* Not used. */
     Tcl_Interp *interp,			/* Not used. */
     int argc,				/* Not used. */
-    char **argv)			/* Not used. */
+    CONST char **argv)			/* Not used. */
 {
     Debugger();
     return TCL_OK;
@@ -118,13 +118,13 @@ WriteTextResource(
     ClientData clientData,		/* Not used. */
     Tcl_Interp *interp,			/* Current interpreter. */
     int argc,				/* Number of arguments. */
-    char **argv)			/* Argument strings. */
+    CONST char **argv)			/* Argument strings. */
 {
     char *errNum = "wrong # args: ";
     char *errBad = "bad argument: ";
     char *errStr;
-    char *fileName = NULL, *rsrcName = NULL;
-    char *data = NULL;
+    CONST char *fileName = NULL, *rsrcName = NULL;
+    CONST char *data = NULL;
     int rsrcID = -1, i, protectIt = 0;
     short fileRef = -1;
     OSErr err;

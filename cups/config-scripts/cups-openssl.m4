@@ -1,9 +1,9 @@
 dnl
-dnl "$Id: cups-openssl.m4,v 1.1.1.3 2002/06/06 22:12:35 jlovell Exp $"
+dnl "$Id: cups-openssl.m4,v 1.1.1.8 2003/02/10 21:57:14 jlovell Exp $"
 dnl
-dnl   OpenSSL stuff for the Common UNIX Printing System (CUPS).
+dnl   OpenSSL/GNUTLS stuff for the Common UNIX Printing System (CUPS).
 dnl
-dnl   Copyright 1997-2002 by Easy Software Products, all rights reserved.
+dnl   Copyright 1997-2003 by Easy Software Products, all rights reserved.
 dnl
 dnl   These coded instructions, statements, and computer programs are the
 dnl   property of Easy Software Products and are protected by Federal
@@ -23,6 +23,9 @@ dnl         WWW: http://www.cups.org
 dnl
 
 AC_ARG_ENABLE(ssl, [  --enable-ssl            turn on SSL/TLS support, default=yes])
+AC_ARG_ENABLE(openssl, [  --enable-openssl        use OpenSSL for SSL/TLS support, default=yes])
+AC_ARG_ENABLE(gnutls, [  --enable-gnutls         use GNU TLS for SSL/TLS support, default=yes])
+AC_ARG_ENABLE(cdsassl, [  --enable-cdsassl        use CDSA for SSL/TLS support, default=yes])
 AC_ARG_WITH(openssl-libs, [  --with-openssl-libs     set directory for OpenSSL library],
     LDFLAGS="-L$withval $LDFLAGS"
     DSOFLAGS="-L$withval $DSOFLAGS",)
@@ -34,37 +37,73 @@ AC_ARG_WITH(openssl-includes, [  --with-openssl-includes set directory for OpenS
 SSLLIBS=""
 
 if test x$enable_ssl != xno; then
-    AC_CHECK_HEADER(openssl/ssl.h,
-	dnl Save the current libraries so the crypto stuff isn't always
-	dnl included...
-	SAVELIBS="$LIBS"
+    dnl Check for the OpenSSL library first, which has precedence over
+    dnl CDSA and GNUTLS...
+    if test "x${SSLLIBS}" = "x" -a "x${enable_openssl}" != "xno"; then
+	AC_CHECK_HEADER(openssl/ssl.h,
+	    dnl Save the current libraries so the crypto stuff isn't always
+	    dnl included...
+	    SAVELIBS="$LIBS"
 
-	dnl Some ELF systems can't resolve all the symbols in libcrypto
-	dnl if libcrypto was linked against RSAREF, and fail to link the
-	dnl test program correctly, even though a correct installation
-	dnl of OpenSSL exists.  So we test the linking three times in
-	dnl case the RSAREF libraries are needed.
+	    dnl Some ELF systems can't resolve all the symbols in libcrypto
+	    dnl if libcrypto was linked against RSAREF, and fail to link the
+	    dnl test program correctly, even though a correct installation
+	    dnl of OpenSSL exists.  So we test the linking three times in
+	    dnl case the RSAREF libraries are needed.
 
-	for libcrypto in \
-	    "-lcrypto" \
-	    "-lcrypto -lrsaref" \
-	    "-lcrypto -lRSAglue -lrsaref"
-	do
-	    AC_CHECK_LIB(ssl,SSL_new,
-		[SSLLIBS="-lssl $libcrypto"
-		 AC_DEFINE(HAVE_LIBSSL)],,
-		$libcrypto)
+	    for libcrypto in \
+	        "-lcrypto" \
+	        "-lcrypto -lrsaref" \
+	        "-lcrypto -lRSAglue -lrsaref"
+	    do
+		AC_CHECK_LIB(ssl,SSL_new,
+		    [SSLLIBS="-lssl $libcrypto"
+		     AC_DEFINE(HAVE_SSL)
+		     AC_DEFINE(HAVE_LIBSSL)],,
+		    $libcrypto)
 
-	    if test "x${SSLLIBS}" != "x"; then
-		break
-	    fi
-	done
+		if test "x${SSLLIBS}" != "x"; then
+		    break
+		fi
+	    done
 
-	LIBS="$SAVELIBS")
+	    LIBS="$SAVELIBS")
+    fi
+
+    dnl If OpenSSL wasn't found, look for CDSA...
+    if test "x${SSLLIBS}" = "x" -a "x${enable_cdsassl}" != "xno"; then
+	if test $uname = Darwin; then
+	    AC_CHECK_HEADER(Security/SecureTransport.h,
+		[SSLLIBS="-framework CoreFoundation -framework Security"
+		 AC_DEFINE(HAVE_SSL)
+		 AC_DEFINE(HAVE_CDSASSL)])
+	fi
+    fi
+
+    dnl Then look for GNU TLS...
+    if test "x${SSLLIBS}" = "x" -a "x${enable_gnutls}" != "xno"; then
+	AC_CHECK_HEADER(gnutls/gnutls.h,
+	    dnl Save the current libraries so the crypto stuff isn't always
+	    dnl included...
+	    SAVELIBS="$LIBS"
+
+	    TEST_GNUTLS_LIBS=`libgnutls-config --libs`
+	    AC_CHECK_LIB(gnutls, gnutls_init,
+		[SSLLIBS=$TEST_GNUTLS_LIBS
+		 AC_DEFINE(HAVE_SSL)
+		 AC_DEFINE(HAVE_GNUTLS)],,
+		$TEST_GNUTLS_LIBS)
+
+	    LIBS="$SAVELIBS")
+    fi
 fi
 
 AC_SUBST(SSLLIBS)
 
+EXPORT_SSLLIBS="$SSLLIBS"
+AC_SUBST(EXPORT_SSLLIBS)
+
+
 dnl
-dnl End of "$Id: cups-openssl.m4,v 1.1.1.3 2002/06/06 22:12:35 jlovell Exp $".
+dnl End of "$Id: cups-openssl.m4,v 1.1.1.8 2003/02/10 21:57:14 jlovell Exp $".
 dnl

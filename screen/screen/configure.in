@@ -1,11 +1,11 @@
 dnl Process this file with autoconf to produce a configure script.
 dnl
-dnl $Id: configure.in,v 1.1.1.1 2001/12/14 22:08:28 bbraun Exp $ FAU
+dnl $Id: configure.in,v 1.1.1.2 2003/03/19 21:16:18 landonf Exp $ FAU
 dnl
 dnl Many thanks to David MacKenzie for writing autoconf and
 dnl providing a sample configure.in file for screen.
 dnl
-AC_REVISION($Revision: 1.1.1.1 $)dnl
+AC_REVISION($Revision: 1.1.1.2 $)dnl
 AC_INIT(screen.c)
 AC_CONFIG_HEADER(config.h)
 
@@ -19,7 +19,7 @@ AC_DEFUN(AC_PROGRAM_SOURCE,
 _CUT_HERE_
 [$2]
 EOF
-eval "$ac_cpp conftest.c 2>&5 | sed -e '1,/_CUT_HERE_/d' > conftest.out"
+eval "$ac_cpp conftest.c 2>&5 | sed -e '1,/_CUT_HERE_/d' -e 's/ //g' > conftest.out"
 . ./conftest.out
 rm -f conftest*
 ])dnl
@@ -200,8 +200,8 @@ LIBS="$LIBS -lelf"
 AC_CHECKING(SVR4)
 AC_TRY_LINK([#include <utmpx.h>
 ],,
-AC_CHECK_HEADER(dwarf.h, AC_DEFINE(SVR4) AC_DEFINE(BUGGYGETLOGIN),
-AC_CHECK_HEADER(elf.h, AC_DEFINE(SVR4) AC_DEFINE(BUGGYGETLOGIN)))
+[AC_CHECK_HEADER(dwarf.h, AC_DEFINE(SVR4) AC_DEFINE(BUGGYGETLOGIN),
+[AC_CHECK_HEADER(elf.h, AC_DEFINE(SVR4) AC_DEFINE(BUGGYGETLOGIN))])]
 ,LIBS="$oldlibs")
 
 AC_CHECKING(for Solaris 2.x)
@@ -310,7 +310,11 @@ char *fin = "/tmp/conftest$$";
 main()
 {
   struct stat stb;
+#ifdef FD_SET
+  fd_set f;
+#else
   int f;
+#endif
 
   (void)alarm(5);
 #ifdef POSIX
@@ -344,7 +348,11 @@ main()
 	exit(1);
       exit(0);
     }
+#ifdef FD_SET
+  FD_SET(0, &f);
+#else
   f = 1;
+#endif
   if (select(1, &f, 0, 0, 0) == -1)
     exit(1);
   exit(0);
@@ -373,7 +381,11 @@ char *fin = "/tmp/conftest$$";
 main()
 {
   struct timeval tv;
-  int r, x;
+#ifdef FD_SET
+  fd_set f;
+#else
+  int f;
+#endif
 
 #ifdef POSIX
   if (mkfifo(fin, 0600))
@@ -384,10 +396,14 @@ main()
   close(0);
   if (open(fin, O_RDONLY|O_NONBLOCK))
     exit(1);
-  r = 1;
+#ifdef FD_SET
+  FD_SET(0, &f);
+#else
+  f = 1;
+#endif
   tv.tv_sec = 1;
   tv.tv_usec = 0;
-  if (select(1, &r, 0, 0, &tv))
+  if (select(1, &f, 0, 0, &tv))
     exit(1);
   exit(0);
 }
@@ -413,8 +429,13 @@ char *son = "/tmp/conftest$$";
 
 main()
 {
-  int s1, s2, s3, l;
+  int s1, s2, l;
   struct sockaddr_un a;
+#ifdef FD_SET
+  fd_set f;
+#else
+  int f;
+#endif
 
   (void)alarm(5);
   if ((s1 = socket(AF_UNIX, SOCK_STREAM, 0)) == -1)
@@ -439,8 +460,12 @@ main()
   close(0);
   if (accept(s1, &a, &l))
     exit(1);
-  l = 1;
-  if (select(1, &l, 0, 0, 0) == -1)
+#ifdef FD_SET
+  FD_SET(0, &f);
+#else
+  f = 1;
+#endif
+  if (select(1, &f, 0, 0, 0) == -1)
     exit(1);
   exit(0);
 }
@@ -530,7 +555,11 @@ char *nam = "/tmp/conftest$$";
 
 main()
 {
-  int l;
+#ifdef FD_SET
+  fd_set f;
+#else
+  int f;
+#endif
 
 #ifdef __FreeBSD__
 /* From Andrew A. Chernov (ache@astral.msk.su):
@@ -560,8 +589,13 @@ main()
 
 main()
 {
-  int s1, s2, s3, l;
+  int s1, s2, l;
   struct sockaddr_un a;
+#ifdef FD_SET
+  fd_set f;
+#else
+  int f;
+#endif
 
   (void)alarm(5);
   if ((s1 = socket(AF_UNIX, SOCK_STREAM, 0)) == -1)
@@ -589,15 +623,19 @@ main()
 #endif
 
 
-  l = 1;
-  if (select(1, &l, 0, 0, 0) == -1)
+#ifdef FD_SET
+  FD_SET(0, &f);
+#else
+  f = 1;
+#endif
+  if (select(1, &f, 0, 0, 0) == -1)
     exit(1);
-  if (select(1, &l, &l, 0, 0) != 2)
+  if (select(1, &f, &f, 0, 0) != 2)
     exit(1);
   exit(0);
 }
 ],AC_NOTE(- select is ok),
-AC_NOTE(- it is not usable) AC_DEFINE(SELECT_BROKEN))
+AC_NOTE(- select can't count) AC_DEFINE(SELECT_BROKEN))
 
 dnl
 dnl    ****  termcap or terminfo  ****
@@ -643,8 +681,18 @@ AC_DEFINE(HAVE_DEV_PTC)
 fi
 
 AC_CHECKING(for SVR4 ptys)
+sysvr4ptys=
 if test -c /dev/ptmx ; then
-AC_TRY_LINK([],[ptsname(0);grantpt(0);unlockpt(0);],AC_DEFINE(HAVE_SVR4_PTYS))
+AC_TRY_LINK([],[ptsname(0);grantpt(0);unlockpt(0);],[AC_DEFINE(HAVE_SVR4_PTYS)
+sysvr4ptys=1])
+fi
+
+AC_CHECK_FUNCS(getpt)
+
+dnl check for openpty()
+if test -z "$sysvr4ptys"; then
+AC_CHECK_FUNCS(openpty,,
+[AC_CHECK_LIB(util,openpty, [AC_DEFINE(HAVE_OPENPTY)] [LIBS="$LIBS -lutil"])])
 fi
 
 AC_CHECKING(for ptyranges)
@@ -674,6 +722,14 @@ fi
 dnl    ****  pty mode/group handling ****
 dnl
 dnl support provided by Luke Mewburn <lm@rmit.edu.au>, 931222
+AC_ARG_WITH(pty-mode, [  --with-pty-mode=mode    default mode for ptys], [ ptymode="${withval}" ])
+AC_ARG_WITH(pty-group, [  --with-pty-group=group  default group for ptys], [ ptygrp="${withval}" ])
+test -n "$ptymode" || ptymode=0620
+if test -n "$ptygrp" ; then
+AC_DEFINE_UNQUOTED(PTYMODE, $ptymode)
+AC_DEFINE_UNQUOTED(PTYGROUP,$ptygrp)
+else
+
 AC_CHECKING(default tty permissions/group)
 rm -f conftest_grp
 AC_TRY_RUN([
@@ -707,8 +763,8 @@ main()
 ],[
     if test -f conftest_grp; then
 	ptygrp=`cat conftest_grp`
-	AC_NOTE([- pty mode: 0620, group: $ptygrp])
-	AC_DEFINE(PTYMODE, 0620)
+	AC_NOTE([- pty mode: $ptymode, group: $ptygrp])
+	AC_DEFINE_UNQUOTED(PTYMODE, $ptymode)
 	AC_DEFINE_UNQUOTED(PTYGROUP,$ptygrp)
     else
 	AC_NOTE(- ptys are world accessable)
@@ -738,8 +794,8 @@ main()
       found=`find $WRITEPATH $XTERMPATH $findfollow -perm -2000 -print` 
       if test -n "$found"; then
 	ptygrp=`ls -ln$lsfollow $found | sed -n -e 1p | $AWK '{print $4}'`
-	AC_NOTE([- pty mode: 0620, group: $ptygrp])
-	AC_DEFINE(PTYMODE, 0620)
+	AC_NOTE([- pty mode: $ptymode, group: $ptygrp])
+	AC_DEFINE_UNQUOTED(PTYMODE, $ptymode)
 	AC_DEFINE_UNQUOTED(PTYGROUP,$ptygrp)
       else
 	AC_NOTE(- ptys are world accessable)
@@ -750,6 +806,7 @@ main()
   ]
 )
 rm -f conftest_grp
+fi
 
 dnl
 dnl    ****  utmp handling  ****
@@ -922,7 +979,7 @@ AC_PROGRAM_SOURCE([
 #include <sys/types.h>
 #include <sys/param.h>
 ],[
-#if !defined(LOADAV_GETLOADAVG) && ((defined(hp300) && !defined(__hpux)) || defined(sun) || (defined(ultrix) && defined(mips)) || defined(_SEQUENT_) || defined(sgi) || defined(SVR4) || defined(sony_news) || (!defined(__osf__) && defined(__alpha)) || defined(_IBMR2) || defined(_AUX_SOURCE) || defined(AUX) || defined(m88k))
+#if !defined(LOADAV_GETLOADAVG) && ((defined(hp300) && !defined(__hpux)) || defined(sun) || (defined(ultrix) && defined(mips)) || defined(_SEQUENT_) || defined(sgi) || (defined(SVR4) && !defined(__hpux)) || defined(sony_news) || (!defined(__osf__) && defined(__alpha)) || defined(_IBMR2) || defined(_AUX_SOURCE) || defined(AUX) || defined(m88k))
 loadtype=long
 # if defined(apollo) || defined(_IBMR2) || defined(_AUX_SOURCE) || defined(AUX)
 loadscale=65536
@@ -1161,7 +1218,39 @@ AC_TRY_LINK([
 #include <langinfo.h>
 ],[nl_langinfo(CODESET);], AC_MSG_RESULT(yes);AC_DEFINE(HAVE_NL_LANGINFO), AC_MSG_RESULT(no))
 
-AC_CHECK_FUNCS(rename fchmod fchown strerror lstat _exit utimes vsnprintf getcwd)
+AC_SEARCH_LIBS(gethostname, nsl)
+
+AC_CHECK_FUNCS(rename fchmod fchown strerror lstat _exit utimes vsnprintf getcwd setlocale strftime)
+
+AC_ARG_ENABLE(pam, [  --enable-pam            enable PAM support])
+if test "$enable_pam" = "yes"; then
+    AC_MSG_CHECKING(for PAM support)
+    oldlibs="$LIBS"
+    LIBS="$LIBS -lpam"
+    AC_TRY_LINK([#include <security/pam_appl.h>], [
+	pam_start(0, 0, 0, 0);
+	pam_authenticate(0, 0);
+	pam_end(0,0);
+    ], AC_MSG_RESULT(yes);AC_DEFINE(USE_PAM),
+       AC_MSG_RESULT(no);LIBS="$oldlibs")
+fi
+
+AC_ARG_ENABLE(use_locale, [  --enable-locale         use localized month/day names])
+if test "$enable_use_locale" = "yes"; then
+  AC_DEFINE(USE_LOCALE)
+fi
+AC_ARG_ENABLE(telnet, [  --enable-telnet         enable builtin telnet])
+if test "$enable_telnet" = "yes"; then
+  AC_DEFINE(BUILTIN_TELNET)
+fi
+AC_ARG_ENABLE(colors256, [  --enable-colors256      enable support for 256 colors])
+if test "$enable_colors256" = "yes"; then
+  AC_DEFINE(COLORS256)
+fi
+AC_ARG_ENABLE(rxvt_osc, [  --enable-rxvt_osc       enable support for rxvt OSC codes])
+if test "$enable_rxvt_osc" = "yes"; then
+  AC_DEFINE(RXVT_OSC)
+fi
 
 dnl
 dnl    ****  the end  ****
@@ -1185,6 +1274,15 @@ AC_ARG_WITH(sys-screenrc, [  --with-sys-screenrc=path  where to put the global s
 AC_DEFINE_UNQUOTED(ETCSCREENRC,$ETCSCREENRC)
 AC_MSG_RESULT($ETCSCREENRC)
 
+SCREENENCODINGS="\"/usr/local/lib/screen/utf8encodings\""
+if test -n "$datadir"; then
+eval SCREENENCODINGS="$datadir/screen/utf8encodings"
+SCREENENCODINGS="\"$SCREENENCODINGS\""
+fi
+AC_MSG_CHECKING(for the utf8-encodings location)
+AC_DEFINE_UNQUOTED(SCREENENCODINGS,$SCREENENCODINGS)
+AC_MSG_RESULT($SCREENENCODINGS)
+
 AC_OUTPUT(Makefile doc/Makefile, [[
 # a hook for preserving undef directive in config.h
 mv config.h conftest
@@ -1199,7 +1297,7 @@ echo "!!! and 'term.h.dist' to 'comm.h' and 'term.h'."
 echo "!!! Do _not_ change the user configuration section in config.h!"
 echo "Please check the pathnames in the Makefile."
 else
-echo "Now please check the pathnames in the Makefile and the user"
+echo "Now please check the pathnames in the Makefile and in the user"
 echo "configuration section in config.h."
 fi
 echo "Then type 'make' to make screen. Good luck."

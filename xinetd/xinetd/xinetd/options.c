@@ -18,7 +18,7 @@
 #include "internals.h" /* for enable_periodic_check() */
 
 /*
- * $Id: options.c,v 1.1.1.3 2002/10/02 21:07:27 bbraun Exp $
+ * $Id: options.c,v 1.1.1.5 2003/06/15 17:31:44 rbraun Exp $
  */
 
 
@@ -31,7 +31,11 @@ unsigned logprocs_option_arg ;
 int stayalive_option=0;
 char *program_name ;
 int inetd_compat = 0 ;
+int dont_fork = 0;
 
+#ifdef __GNUC__
+__attribute__ ((noreturn))
+#endif
 static void usage(void);
 
 int opt_recognize( int argc, char *argv[] )
@@ -76,16 +80,18 @@ int opt_recognize( int argc, char *argv[] )
                usage() ;
             ps.ros.process_limit = arg_1 ;
          }
-         else if ( strcmp( &argv[ arg ][ 1 ], "pidfile" ) == 0 ){
-                            if( ++arg ==argc )
-                                usage () ;
-                            ps.ros.pid_file = (char *)new_string( argv[arg] );
-                        }
-         else if ( strcmp( &argv[ arg ][ 1 ], "stayalive" )==0) {
+         else if ( strcmp( &argv[ arg ][ 1 ], "pidfile" ) == 0 ) {
+            if( ++arg ==argc )
+               usage () ;
+            ps.ros.pid_file = (char *)new_string( argv[arg] );
+         }
+         else if ( strcmp( &argv[ arg ][ 1 ], "stayalive" )==0)
             stayalive_option = 1;
-                        }
-         else if ( strcmp( &argv[ arg ][ 1 ], "logprocs" ) == 0 ) 
-         {
+         else if ( strcmp( &argv[ arg ][ 1 ], "dontfork" )==0) {
+            dont_fork = 1;
+            stayalive_option = 1;
+         }
+         else if ( strcmp( &argv[ arg ][ 1 ], "logprocs" ) == 0 ) {
             if ( ++arg == argc )
                usage() ;
             if ( parse_int( argv[ arg ], 10, NUL, &arg_1 ) || arg_1 < 0 )
@@ -99,8 +105,7 @@ int opt_recognize( int argc, char *argv[] )
                usage() ;
             Sprint(2, "The shutdownprocs option has been deprecated.\n");
          }
-         else if ( strcmp( &argv[ arg ][ 1 ], "cc" ) == 0 ) 
-         {
+         else if ( strcmp( &argv[ arg ][ 1 ], "cc" ) == 0 ) {
             if ( ++arg == argc )
                usage() ;
             if ( parse_int( argv[ arg ], 10, NUL, &arg_1 ) || arg_1 < 0 )
@@ -108,8 +113,7 @@ int opt_recognize( int argc, char *argv[] )
             ps.ros.cc_interval = arg_1;
             enable_periodic_check( arg_1 ) ;
          }
-         else if ( strcmp( &argv[ arg ][ 1 ], "version" ) == 0 )
-         {
+         else if ( strcmp( &argv[ arg ][ 1 ], "version" ) == 0 ) {
             fprintf(stderr, "%s", program_version);
 #ifdef LIBWRAP       
             fprintf(stderr, " libwrap");
@@ -121,16 +125,13 @@ int opt_recognize( int argc, char *argv[] )
             exit(0);
          }
          else if ( strcmp ( &argv[ arg ][ 1 ], "inetd_compat" ) == 0 )
-         {
             inetd_compat = 1;
-         }
       }
       else
          break ;
 
    if ( filelog_option + syslog_option > 1 )
       usage() ;
-
 
    if ( argc - arg != 0 )
       usage() ;
@@ -139,7 +140,7 @@ int opt_recognize( int argc, char *argv[] )
 
 static void usage(void)
 {
-   Sprint( 2, "Usage: %s [-d] [-f config_file] [-filelog filename] [-syslog facility] [-reuse] [-limit proc_limit] [-pidfile filaneme] [-logprocs limit] [-shutdownprocs limit] [-cc interval]\n", program_name ) ;
+   Sprint( 2, "Usage: %s [-d] [-f config_file] [-filelog filename] [-syslog facility] [-reuse] [-limit proc_limit] [-pidfile filename] [-logprocs limit] [-shutdownprocs limit] [-cc interval]\n", program_name ) ;
    exit( 1 ) ;
 }
 

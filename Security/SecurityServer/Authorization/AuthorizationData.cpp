@@ -27,185 +27,396 @@
 
 #include "AuthorizationData.h"
 
+#include <grp.h>
+#include <pwd.h>
+#include <Security/checkpw.h>
+
+#include "server.h"
+
+
+// checkpw() that uses provided struct passwd
+extern "C"
+{
+int checkpw_internal( const struct passwd *pw, const char* password );
+}
+
 
 namespace Authorization {
 
 
+AuthValueRef::AuthValueRef(const AuthValue &value) : 
+	RefPointer<AuthValue>(new AuthValue(value)) {}
+
+AuthValueRef::AuthValueRef(const AuthorizationValue &value) : 
+	RefPointer<AuthValue>(new AuthValue(value)) {}
+
+AuthValue::AuthValue(const AuthorizationValue &value) :
+    mOwnsValue(false)
+{
+    mValue.length = value.length;
+    mValue.data = value.data;
+}
+
+AuthValueRef::AuthValueRef(UInt32 length, void *data) : 
+	RefPointer<AuthValue>(new AuthValue(length, data)) {}
+
+AuthValue::AuthValue(UInt32 length, void *data) :
+    mOwnsValue(true)
+{
+    mValue.length = length;
+    mValue.data = new uint8_t[length];
+    if (length)
+        memcpy(mValue.data, data, length);
+}
+
+AuthValue::~AuthValue()
+{
+    if (mOwnsValue)
+        delete[] reinterpret_cast<uint8_t*>(mValue.data);
+}
+
+AuthValue &
+AuthValue::operator = (const AuthValue &other)
+{
+    if (mOwnsValue)
+        delete[] reinterpret_cast<uint8_t*>(mValue.data);
+
+    mValue = other.mValue;
+    mOwnsValue = other.mOwnsValue;
+    other.mOwnsValue = false;
+    return *this;
+}
+
+void
+AuthValue::fillInAuthorizationValue(AuthorizationValue &value)
+{
+    value.length = mValue.length;
+    value.data = mValue.data;
+}
+
+AuthValueVector &
+AuthValueVector::operator = (const AuthorizationValueVector& valueVector)
+{
+    clear();
+    for (unsigned int i=0; i < valueVector.count; i++)
+        push_back(AuthValueRef(valueVector.values[i]));
+    return *this;
+}
+
+void
+AuthValueVector::copy(AuthorizationValueVector **data, size_t *length) const
+{
+    AuthorizationValueVector valueVector;
+    valueVector.count = size();
+    valueVector.values = new AuthorizationValue[valueVector.count];
+    int i = 0;
+	for (const_iterator it = begin(); it != end(); ++it, ++i)
+    {
+		(*it)->fillInAuthorizationValue(valueVector.values[i]);
+	}
+
+	Copier<AuthorizationValueVector> flatValueVector(&valueVector);
+	*length = flatValueVector.length();
+	*data = flatValueVector.keep();
+
+	delete[] valueVector.values;
+}
+
+AuthItem::AuthItem(const AuthorizationItem &item) :
+    mFlags(item.flags),
+    mOwnsName(true),
+    mOwnsValue(true)
+{
+	if (!item.name)
+		MacOSError::throwMe(errAuthorizationInternal);
+	size_t nameLen = strlen(item.name) + 1;
+	mName = new char[nameLen];
+	memcpy(const_cast<char *>(mName), item.name, nameLen);
+
+	mValue.length = item.valueLength;
+	mValue.data = new uint8_t[item.valueLength];
+	if (mValue.length)
+		memcpy(mValue.data, item.value, item.valueLength);
+}
+
+
+AuthItem::AuthItem(AuthorizationString name) :
+    mName(name),
+    mFlags(0),
+    mOwnsName(false),
+    mOwnsValue(false)
+{
+    mValue.length = 0;
+    mValue.data = NULL;
+}
+
+AuthItem::AuthItem(AuthorizationString name, AuthorizationValue value, AuthorizationFlags flags) :
+    mFlags(flags),
+    mOwnsName(true),
+    mOwnsValue(true)
+{
+	if (!name)
+		MacOSError::throwMe(errAuthorizationInternal);
+	size_t nameLen = strlen(name) + 1;
+	mName = new char[nameLen];
+	memcpy(const_cast<char *>(mName), name, nameLen);
+
+	mValue.length = value.length;
+	mValue.data = new uint8_t[value.length];
+	if (mValue.length)
+		memcpy(mValue.data, value.data, value.length);
+}
+
+AuthItem::~AuthItem()
+{
+    if (mOwnsName)
+        delete[] mName;
+    if (mOwnsValue)
+        delete[] reinterpret_cast<uint8_t*>(mValue.data);
+}
+
+bool
+AuthItem::operator < (const AuthItem &other) const
+{
+    return strcmp(mName, other.mName) < 0;
+}
+
+AuthItem &
+AuthItem::operator = (const AuthItem &other)
+{
+    if (mOwnsName)
+        delete[] mName;
+    if (mOwnsValue)
+        delete[] reinterpret_cast<uint8_t*>(mValue.data);
+
+    mName = other.mName;
+    mValue = other.mValue;
+    mFlags = other.mFlags;
+    mOwnsName = other.mOwnsName;
+    other.mOwnsName = false;
+    mOwnsValue = other.mOwnsValue;
+    other.mOwnsValue = false;
+    return *this;
+}
+
+void
+AuthItem::fillInAuthorizationItem(AuthorizationItem &item)
+{
+    item.name = mName;
+    item.valueLength = mValue.length;
+    item.value = mValue.data;
+    item.flags = mFlags;
+}
+
+
+AuthItemRef::AuthItemRef(const AuthorizationItem &item) : RefPointer<AuthItem>(new AuthItem(item)) {}
+
+AuthItemRef::AuthItemRef(AuthorizationString name) : RefPointer<AuthItem>(new AuthItem(name)) {}
+
+AuthItemRef::AuthItemRef(AuthorizationString name, AuthorizationValue value, AuthorizationFlags flags) : RefPointer<AuthItem>(new AuthItem(name, value, flags)) {}
+
+
 //
-// Right class
+// AuthItemSet
 //
-Right &
-Right::overlay(AuthorizationItem &item)
+AuthItemSet::AuthItemSet()
 {
-	return static_cast<Right &>(item);
 }
 
-Right *
-Right::overlay(AuthorizationItem *item)
+AuthItemSet::~AuthItemSet()
 {
-	return static_cast<Right *>(item);
 }
 
-Right::Right()
+AuthItemSet &
+AuthItemSet::operator = (const AuthorizationItemSet& itemSet)
 {
-	name = "";
-	valueLength = 0;
-	value = NULL;
-	flags = 0;
+    clear();
+
+    for (unsigned int i=0; i < itemSet.count; i++)
+        insert(AuthItemRef(itemSet.items[i]));
+
+    return *this;
 }
 
-Right::Right(AuthorizationString inName, size_t inValueLength, const void *inValue)
+AuthItemSet::AuthItemSet(const AuthorizationItemSet *itemSet)
 {
-	name = inName;
-	valueLength = inValueLength;
-	value = const_cast<void *>(inValue);
+	if (itemSet)
+	{
+		for (unsigned int i=0; i < itemSet->count; i++)
+			insert(AuthItemRef(itemSet->items[i]));
+	}
 }
 
-Right::~Right()
+void
+AuthItemSet::copy(AuthorizationItemSet *&data, size_t &length, CssmAllocator &alloc) const
+{
+    AuthorizationItemSet itemSet;
+    itemSet.count = size();
+    itemSet.items = new AuthorizationItem[itemSet.count];
+    int i = 0;
+    for (const_iterator it = begin(); it != end(); ++it, ++i)
+    {
+        (*it)->fillInAuthorizationItem(itemSet.items[i]);
+    }
+
+	Copier<AuthorizationItemSet> flatItemSet(&itemSet, alloc);
+	length = flatItemSet.length();
+		
+	data = flatItemSet.keep();
+	// else flatItemSet disappears again
+
+    delete[] itemSet.items;
+}
+
+//
+// CredentialImpl class
+//
+
+// only for testing whether this credential is usable
+CredentialImpl::CredentialImpl(const string &username, const uid_t uid, const gid_t gid, bool shared) :
+mUsername(username), mShared(shared), mUid(uid), mGid(gid), mCreationTime(CFAbsoluteTimeGetCurrent()), mValid(true)
+{
+}
+
+// credential with validity based on username/password combination.
+CredentialImpl::CredentialImpl(const string &username, const string &password, bool shared) :
+mUsername(username), mShared(shared), mCreationTime(CFAbsoluteTimeGetCurrent()), mValid(false)
+{
+	// Calling into DirectoryServices can be a long term operation
+	Server::active().longTermActivity();
+
+	// try short name first
+	const char *user = username.c_str();
+	struct passwd *pw = getpwnam(user);
+
+    do {
+
+        if (!pw)
+        {
+            secdebug("autheval", "user %s not found, creating invalid credential", user);
+            break;
+        }
+
+		mUsername = string ( pw->pw_name );
+		mUid = pw->pw_uid;
+		mGid = pw->pw_gid;
+
+        const char *passwd = password.c_str();
+        int checkpw_status = checkpw_internal(pw, passwd);
+
+        if (checkpw_status != CHECKPW_SUCCESS)
+        {
+				secdebug("autheval", "checkpw() for user %s failed with error %d, creating invalid credential", user, checkpw_status);
+				break;
+        }
+
+		secdebug("autheval", "checkpw() for user %s succeeded, creating%s credential",
+			user, mShared ? " shared" : "");
+
+		mValid = true;
+
+        endpwent();
+    }
+	while (0);
+}
+
+
+CredentialImpl::~CredentialImpl()
 {
 }
 
 bool
-Right::operator < (const Right &other) const
+CredentialImpl::operator < (const CredentialImpl &other) const
 {
-	return strcmp(name, other.name) < 0;
+	if (!mShared && other.mShared)
+		return true;
+	if (!other.mShared && mShared)
+		return false;
+
+	return mUsername < other.mUsername;
 }
 
-
-//
-// RightSet class
-//
-const AuthorizationRights RightSet::gEmptyRights = { 0, NULL };
-
-RightSet::RightSet(const AuthorizationRights *rights) :
-mRights(const_cast<AuthorizationRights *>(rights ? rights : &gEmptyRights))
+// Returns true if this CredentialImpl should be shared.
+bool
+CredentialImpl::isShared() const
 {
+	return mShared;
 }
 
-RightSet::RightSet(const RightSet &other)
+// Merge with other
+void
+CredentialImpl::merge(const CredentialImpl &other)
 {
-	mRights = other.mRights;
-}
+	assert(mUsername == other.mUsername);
 
-RightSet::~RightSet()
-{
-}
-
-RightSet::const_reference
-RightSet::back() const
-{
-	// @@@ Should this if empty::throwMe()?
-	return static_cast<const_reference>(mRights->items[size() - 1]);
-}
-
-
-//
-// MutableRightSet class
-//
-MutableRightSet::MutableRightSet(size_t count, const Right &element) :
-mCapacity(count)
-{
-	mRights = new AuthorizationRights();
-	mRights->items = reinterpret_cast<pointer>(malloc(sizeof(Right) * mCapacity));
-	if (!mRights->items)
+	if (other.mValid && (!mValid || mCreationTime < other.mCreationTime))
 	{
-		delete mRights;
-		throw std::bad_alloc();
+		mCreationTime = other.mCreationTime;
+		mUid = other.mUid;
+		mGid = other.mGid;
+		mValid = true;
 	}
-
-	mRights->count = count;
-	for (size_type ix = 0; ix < count; ++ix)
-		mRights->items[ix] = element;
 }
 
-MutableRightSet::MutableRightSet(const RightSet &other)
+// The time at which this credential was obtained.
+CFAbsoluteTime
+CredentialImpl::creationTime() const
 {
-	size_type count = other.size();
-	mCapacity = count;
-	mRights = new AuthorizationRights();
-
-	mRights->items = reinterpret_cast<pointer>(malloc(sizeof(Right) * mCapacity));
-	if (!mRights->items)
-	{
-		delete mRights;
-		throw std::bad_alloc();
-	}
-
-	mRights->count = count;
-	for (size_type ix = 0; ix < count; ++ix)
-		mRights->items[ix] = other.mRights->items[ix];
+	return mCreationTime;
 }
 
-MutableRightSet::~MutableRightSet()
+// Return true iff this credential is valid.
+bool
+CredentialImpl::isValid() const
 {
-	free(mRights->items);
-	delete mRights;
-}
-
-MutableRightSet &
-MutableRightSet::operator = (const RightSet &other)
-{
-	size_type count = other.size();
-	if (capacity() < count)
-		grow(count);
-
-	mRights->count = count;
-	for (size_type ix = 0; ix < count; ++ix)
-		mRights->items[ix] = other.mRights->items[ix];
-
-	return *this;
+	return mValid;
 }
 
 void
-MutableRightSet::swap(MutableRightSet &other)
+CredentialImpl::invalidate()
 {
-	AuthorizationRights *rights = mRights;
-	size_t capacity = mCapacity;
-	mRights = other.mRights;
-	mCapacity = other.mCapacity;
-	other.mRights = rights;
-	other.mCapacity = capacity;
+	mValid = false;
 }
 
-MutableRightSet::reference
-MutableRightSet::back()
+//
+// Credential class
+//
+Credential::Credential() :
+RefPointer<CredentialImpl>(NULL)
 {
-	// @@@ Should this if empty::throwMe()?
-	return static_cast<reference>(mRights->items[size() - 1]);
 }
 
-void
-MutableRightSet::push_back(const_reference right)
+Credential::Credential(CredentialImpl *impl) :
+RefPointer<CredentialImpl>(impl)
 {
-	if (size() >= capacity())
-		grow(capacity() + 1);
-
-	mRights->items[mRights->count] = right;
-	mRights->count++;
 }
 
-void
-MutableRightSet::pop_back()
+Credential::Credential(const string &username, const uid_t uid, const gid_t gid, bool shared) :
+RefPointer<CredentialImpl>(new CredentialImpl(username, uid, gid, shared))
 {
-	// @@@ Should this if empty::throwMe()?
-	if (!empty())
-		mRights->count--;
 }
 
-void
-MutableRightSet::grow(size_type min_capacity)
+Credential::Credential(const string &username, const string &password, bool shared) :
+RefPointer<CredentialImpl>(new CredentialImpl(username, password, shared))
 {
-	size_type newCapacity = mCapacity * mCapacity;
-	if (newCapacity < min_capacity)
-		newCapacity = min_capacity;
-
-	void *newItems = realloc(mRights->items, sizeof(*mRights->items) * newCapacity);
-	if (!newItems)
-		throw std::bad_alloc();
-
-	mRights->items = reinterpret_cast<pointer>(newItems);
-	mCapacity = newCapacity;
 }
+
+Credential::~Credential()
+{
+}
+
+bool
+Credential::operator < (const Credential &other) const
+{
+	if (!*this)
+		return other;
+
+	if (!other)
+		return false;
+
+	return (**this) < (*other);
+}
+
 
 
 }	// end namespace Authorization

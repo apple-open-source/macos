@@ -1,0 +1,47 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mbean PUBLIC
+   "-//JBoss//DTD JBOSS XMBEAN 1.0//EN"
+   "http://www.jboss.org/j2ee/dtd/jboss_xmbean_1_0.dtd">
+
+<mbean>
+   <description>Tests that descriptor values do not overwrite persistent
+   settings
+   </description>
+   <descriptors>
+      <persistence persistPolicy="OnUpdate"
+         persistPeriod="10"
+         persistLocation="${jboss.server.data.dir}"
+         persistName="User2XMBean.ser"/>
+      <persistence-manager value="org.jboss.mx.persistence.ObjectStreamPersistenceManager"/>
+   </descriptors>
+
+   <class>org.jboss.test.jmx.xmbean.User2</class>
+
+   <constructor>
+      <description>The default constructor</description>
+      <name>User2</name>
+   </constructor>
+
+   <!-- Attributes -->
+   <attribute access="read-write" getMethod="getAttr1" setMethod="setAttr1">
+      <description>Test of setting attribute value from default</description>
+      <name>Attr1</name>
+      <type>java.lang.String</type>
+      <descriptors>
+         <currencyTimeLimit value="-1"/>
+         <default value="Attr1DefaultValue"/>
+         <value value="Att1InitialValue"/>
+      </descriptors>
+   </attribute>
+
+   <!-- Operations -->
+   <operation>
+      <description>The start lifecycle operation</description>
+      <name>start</name>
+   </operation>
+   <operation>
+      <description>The stop lifecycle operation</description>
+      <name>stop</name>
+   </operation>
+
+</mbean>

@@ -811,6 +811,10 @@ decode_composition_emacs_mule (coding, src, src_end,
 	return 0;
       for (ncomponent = 0; src < src_base + data_len; ncomponent++)
 	{
+	  /* If it is longer than this, it can't be valid.  */
+	  if (ncomponent >= COMPOSITION_DATA_MAX_BUNCH_LENGTH)
+	    return 0;
+
 	  if (ncomponent % 2 && with_rule)
 	    {
 	      ONE_MORE_BYTE (gref);
@@ -1665,7 +1669,7 @@ coding_allocate_composition_data (coding, char_offset)
 
 #define DECODE_COMPOSITION_END(c1)					\
   do {									\
-    if (coding->composing == COMPOSITION_DISABLED)			\
+    if (! COMPOSING_P (coding))						\
       {									\
 	*dst++ = ISO_CODE_ESC;						\
 	*dst++ = c1;							\
@@ -5518,7 +5522,11 @@ code_convert_region (from, from_byte, to, to_byte, coding, encodep, replace)
       if (encodep)
 	result = encode_coding (coding, src, dst, len_byte, 0);
       else
-	result = decode_coding (coding, src, dst, len_byte, 0);
+	{
+	  if (coding->composing != COMPOSITION_DISABLED)
+	    coding->cmp_data->char_offset = from + inserted;
+	  result = decode_coding (coding, src, dst, len_byte, 0);
+	}
 
       /* The buffer memory is now:
 	 +--------+-------converted-text----+--+------original-text----+---+
@@ -7106,7 +7114,7 @@ syms_of_coding ()
      But don't staticpro it here--that is done in alloc.c.  */
   Qchar_table_extra_slots = intern ("char-table-extra-slots");
   Fput (Qsafe_chars, Qchar_table_extra_slots, make_number (0));
-  Fput (Qchar_coding_system, Qchar_table_extra_slots, make_number (1));
+  Fput (Qchar_coding_system, Qchar_table_extra_slots, make_number (2));
 
   Qvalid_codes = intern ("valid-codes");
   staticpro (&Qvalid_codes);
@@ -7263,7 +7271,8 @@ See also the function `find-operation-coding-system'.");
   Vnetwork_coding_system_alist = Qnil;
 
   DEFVAR_LISP ("locale-coding-system", &Vlocale_coding_system,
-    "Coding system to use with system messages.");
+    "Coding system to use with system messages.  Also used for decoding\n\
+keyboard input on X Window system.");
   Vlocale_coding_system = Qnil;
 
   /* The eol mnemonics are reset in startup.el system-dependently.  */

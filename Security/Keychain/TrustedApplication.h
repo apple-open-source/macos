@@ -22,6 +22,7 @@
 #define _SECURITY_TRUSTEDAPPLICATION_H_
 
 #include <Security/SecRuntime.h>
+#include <Security/SecTrustedApplication.h>
 #include <Security/cssmdata.h>
 #include <Security/cssmaclpod.h>
 
@@ -40,29 +41,52 @@ namespace KeychainCore {
 class TrustedApplication : public SecCFObject {
 	NOCOPY(TrustedApplication)
 public:
+	SECCFFUNCTIONS(TrustedApplication, SecTrustedApplicationRef, errSecInvalidItemRef)
+
 	TrustedApplication(const TypedList &subject);
 	TrustedApplication(const CssmData &signature, const CssmData &comment);
 	TrustedApplication(const char *path);
 	TrustedApplication();	// for current application
-    virtual ~TrustedApplication();
+    virtual ~TrustedApplication() throw();
 
 	const CssmData &signature() const;
 
 	// data (aka "comment") access
 	const CssmData &data() const	{ return mData; }
+	const char *path() const;
 	template <class Data>
 	void data(const Data &data)		{ mData = data; }
 	
 	TypedList makeSubject(CssmAllocator &allocator);
 
-protected:
 	bool sameSignature(const char *path); // return true if object at path has same signature
+	
+protected:
 	void calcSignature(const char *path, CssmOwnedData &signature); // generate a signature
 
 private:
 	CssmAutoData mSignature;
 	CssmAutoData mData;
 };
+
+
+//
+// A simple implementation of a caching path database in the system.
+//
+class PathDatabase {
+public:
+    PathDatabase(const char *path = "/var/db/CodeEquivalenceCandidates");
+
+    bool operator [] (const std::string &path)
+        { return mQualifyAll || lookup(path); }
+
+private:
+    bool mQualifyAll;
+    set<std::string> mPaths;
+	
+	bool lookup(const std::string &path);
+};
+
 
 } // end namespace KeychainCore
 } // end namespace Security

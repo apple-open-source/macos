@@ -3,8 +3,9 @@
 prompt_oliver_help() {
   cat <<'ENDHELP'
 With this prompt theme, the prompt contains the current directory,
-history number and the previous command's exit code (if non-zero)
-and a final character which depends on priviledges.
+history number, number of jobs (if non-zero) and the previous
+command's exit code (if non-zero) and a final character which
+depends on priviledges.
 
 The colour of the prompt depends on two associative arrays -
 $pcolour and $tcolour. Each array is indexed by the name of the
@@ -30,11 +31,13 @@ prompt_oliver_setup() {
   local tcolr=$reset_color$fg[${tcol#bold}]
   [[ $tcol = bold* ]] && tcolr=$tcolr$bold_color
   
-  local a host="%M:" user="%n "
+  local a host="%m:" user="%n "
   [[ $HOST == (${(j(|))~normal_hosts}) ]] && host=""
   [[ ${USER:-`whoami`} == (root|${(j(|))~normal_users}) ]] && user=""
 
-  PS1="%{$pcolr%}$user$host%~%"'$((COLUMNS-12))'"(l.$prompt_newline. )[%h%0(?..:%?)]%# %{$tcolr%}"
+  PS1="%{$pcolr%}$user$host%~%"'$((COLUMNS-12))'"(l.$prompt_newline. )[%h%1(j.%%%j.)%0(?..:%?)]%# %{$tcolr%}"
+  RPS2='<%^'
+  PS2=''
 }
 
 prompt_oliver_setup "$@"

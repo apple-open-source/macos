@@ -73,7 +73,11 @@ get_dynamics_objfile (void)
 {
   if (dynamics_objfile == NULL)
     {
+#ifndef FSF_OBJFILES
       dynamics_objfile = allocate_objfile (NULL, 0, 0, 0);
+#else
+      dynamics_objfile = allocate_objfile (NULL, 0);
+#endif
     }
   return dynamics_objfile;
 }
@@ -106,6 +110,7 @@ get_java_class_symtab (void)
       bl = (struct block *)
 	obstack_alloc (&objfile->symbol_obstack, sizeof (struct block));
       BLOCK_NSYMS (bl) = 0;
+      BLOCK_HASHTABLE (bl) = 0;
       BLOCK_START (bl) = 0;
       BLOCK_END (bl) = 0;
       BLOCK_FUNCTION (bl) = NULL;

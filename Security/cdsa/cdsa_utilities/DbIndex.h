@@ -32,7 +32,7 @@ class Table;
 class DbConstIndex;
 class DbIndex;
 
-typedef constVector<uint32> DbOffsetVector;
+typedef constVector<Atom> DbOffsetVector;
 
 typedef DbOffsetVector::const_iterator DbIndexIterator;
 

@@ -3,8 +3,6 @@
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
- * Copyright (c) 1999-2003 Apple Computer, Inc.  All Rights Reserved.
- * 
  * This file contains Original Code and/or Modifications of Original Code
  * as defined in and that are subject to the Apple Public Source License
  * Version 2.0 (the 'License'). You may not use this file except in
@@ -83,7 +81,7 @@ typedef struct cproc {
 	unsigned int stack_size;
 #if	NeXT
 	int	error;
-#endif	NeXT
+#endif	/* NeXT */
 
 } *cproc_t;
 
@@ -103,14 +101,14 @@ typedef struct cproc {
 #define CPROC_INITIAL_STACK	0x1
 #if	NeXT
 #define	CPROC_NOCACHE_THREAD	/* Don't try to cache this cthread on exit */
-#endif	NeXT
+#endif	/* NeXT */
 
 /*
  * C Threads imports:
  */
 #ifdef __STRICT_BSD__
 extern char *malloc();
-#endif __STRICT_BSD__
+#endif /* __STRICT_BSD__ */
 
 /*
  * Mach imports:
@@ -124,7 +122,7 @@ extern void mach_error();
 extern exit();
 #else
 #include <stdlib.h>
-#endif __STRICT_BSD__
+#endif /* __STRICT_BSD__ */
 
 /*
  * Macro for MACH kernel calls.
@@ -151,9 +149,9 @@ extern int cthread_debug;
  */
 extern printf(), fprintf(), abort();
 
-#else	DEBUG
+#else	/* DEBUG */
 
 #define	private static
 #define	TRACE(x)
 
-#endif	DEBUG
+#endif	/* DEBUG */

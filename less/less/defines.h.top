@@ -53,7 +53,6 @@
  * EDIT_PGM is the name of the (default) editor to be invoked.
  */
 #define	EDITOR		(!SECURE)
-#define	EDIT_PGM	"vi"
 
 /*
  * TAGS is 1 if you wish to support tag files.
@@ -100,10 +99,12 @@
 /*
  * LESSKEYFILE is the filename of the default lesskey output file 
  * (in the HOME directory).
+ * LESSKEYFILE_SYS is the filename of the system-wide lesskey output file.
  * DEF_LESSKEYINFILE is the filename of the default lesskey input 
  * (in the HOME directory).
  */
 #define	LESSKEYFILE		".less"
+#define	LESSKEYFILE_SYS		SYSDIR "/sysless"
 #define	DEF_LESSKEYINFILE	".lesskey"
 
 
@@ -148,7 +149,7 @@
 /*
  * Default shell metacharacters and meta-escape character.
  */
-#define	DEF_METACHARS	"; \t\n'\"()<>|&^`\\"
+#define	DEF_METACHARS	"; *?\t\n'\"()<>|&^`#\\"
 #define	DEF_METAESCAPE	"\\"
 
 /* 
@@ -167,5 +168,6 @@
 #define	TERMBUF_SIZE	2048	/* Termcap buffer for tgetent */
 #define	TERMSBUF_SIZE	1024	/* Buffer to hold termcap strings */
 #define	TAGLINE_SIZE	512	/* Max size of line in tags file */
+#define	TABSTOP_MAX	32	/* Max number of custom tab stops */
 
 /* Settings automatically determined by configure.  */

@@ -1,0 +1,32 @@
+<td align="right" nowrap>
+<div class="page-title-text">
+<controls:actions label="User Actions">
+
+  <controls:action selected="true">
+    ----<bean:message key="actions.available.actions"/>----
+  </controls:action>
+
+  <controls:action>
+    ---------------------------------
+  </controls:action>
+
+  <controls:action url='<%= "/users/setUpUser.do?databaseName=" +
+       URLEncoder.encode(request.getParameter("databaseName")) %>'>
+    <bean:message key="users.actions.user.create"/>
+  </controls:action>
+
+  <controls:action url='<%= "/users/listUsers.do?databaseName=" +
+       URLEncoder.encode(request.getParameter("databaseName")) +
+       "&forward=" + URLEncoder.encode("Users Delete List") %>'>
+    <bean:message key="users.actions.user.delete"/>
+  </controls:action>
+
+  <controls:action url='<%= "/users/listUsers.do?databaseName=" +
+       URLEncoder.encode(request.getParameter("databaseName")) +
+       "&forward=" + URLEncoder.encode("Users List") %>'>
+    <bean:message key="users.actions.user.list"/>
+  </controls:action>
+
+</controls:actions>
+</div>
+</td>

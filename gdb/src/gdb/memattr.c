@@ -1,5 +1,6 @@
 /* Memory attributes support, for GDB.
-   Copyright 2001 Free Software Foundation, Inc.
+
+   Copyright 2001, 2002 Free Software Foundation, Inc.
 
    This file is part of GDB.
 
@@ -49,7 +50,7 @@ create_mem_region (CORE_ADDR lo, CORE_ADDR hi,
   struct mem_region *n, *new;
 
   /* lo == hi is a useless empty region */
-  if (lo >= hi)
+  if (lo >= hi && hi != 0)
     {
       printf_unfiltered ("invalid memory region: low >= high\n");
       return NULL;
@@ -59,8 +60,9 @@ create_mem_region (CORE_ADDR lo, CORE_ADDR hi,
   while (n)
     {
       /* overlapping node */
-      if ((lo >= n->lo && lo < n->hi) ||
-	  (hi > n->lo && hi <= n->hi))
+      if ((lo >= n->lo && (lo < n->hi || n->hi == 0)) 
+	  || (hi > n->lo && (hi <= n->hi || n->hi == 0))
+	  || (lo <= n->lo && (hi >= n->hi || hi == 0)))
 	{
 	  printf_unfiltered ("overlapping memory region\n");
 	  return NULL;
@@ -113,7 +115,7 @@ lookup_mem_region (CORE_ADDR addr)
     {
       if (m->enabled_p == 1)
 	{
-	  if (addr >= m->lo && addr < m->hi)
+	  if (addr >= m->lo && (addr < m->hi || m->hi == 0))
 	    return m;
 
 	  if (addr >= m->hi && lo < m->hi)
@@ -241,17 +243,27 @@ mem_info_command (char *args, int from_tty)
 		       m->number,
 		       m->enabled_p ? 'y' : 'n');
       if (TARGET_ADDR_BIT <= 32)
-	tmp = longest_local_hex_string_custom ((unsigned long) m->lo, "08l");
+	tmp = local_hex_string_custom ((unsigned long) m->lo, "08l");
       else
-	tmp = longest_local_hex_string_custom ((unsigned long) m->lo, "016l");
+	tmp = local_hex_string_custom ((unsigned long) m->lo, "016l");
       
       printf_filtered ("%s ", tmp);
-      
+
       if (TARGET_ADDR_BIT <= 32)
-	tmp = longest_local_hex_string_custom ((unsigned long) m->hi, "08l");
+	{
+	if (m->hi == 0)
+	  tmp = "0x100000000";
+	else
+	  tmp = local_hex_string_custom ((unsigned long) m->hi, "08l");
+	}
       else
-	tmp = longest_local_hex_string_custom ((unsigned long) m->hi, "016l");
-      
+	{
+	if (m->hi == 0)
+	  tmp = "0x10000000000000000";
+	else
+	  tmp = local_hex_string_custom ((unsigned long) m->hi, "016l");
+	}
+
       printf_filtered ("%s ", tmp);
 
       /* Print a token for each attribute.
@@ -506,7 +518,7 @@ mem_delete_command (char *args, int from_tty)
 }
 
 void
-_initialize_mem ()
+_initialize_mem (void)
 {
   add_com ("mem", class_vars, mem_command,
 	   "Define attributes for memory region.\n\

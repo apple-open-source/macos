@@ -39,6 +39,12 @@ extern "C"
 
 #include "IONDRV.h"
 
+enum
+{ 
+    kDate2001March1	= 0xb6c49300,
+    kIOPEFMinROMDate	= kDate2001March1 
+};
+
 /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
 
 OSDefineMetaClassAndAbstractStructors(IONDRV, OSObject)
@@ -70,6 +76,7 @@ void IOPEFNDRV::initialize( void )
 IONDRV * IOPEFNDRV::instantiate( IORegistryEntry * regEntry,
                                  IOLogicalAddress container,
                                  IOByteCount containerSize,
+				 bool checkDate,
                                  IONDRVUndefinedSymbolHandler undefHandler,
                                  void * self )
 {
@@ -77,18 +84,20 @@ IONDRV * IOPEFNDRV::instantiate( IORegistryEntry * regEntry,
     IOPEFNDRV *	inst;
     char * 	name;
     IOByteCount	plen;
+    UInt32	createDate;
     char	kmodName[KMOD_MAX_NAME * 2];
     char	kmodVers[KMOD_MAX_NAME];
 
     inst = new IOPEFNDRV;
 
     if (inst)
+    {
         do
         {
             if (false == inst->init())
                 continue;
 
-            err = PCodeOpen( (void *)container, containerSize, &inst->fPEFInst );
+            err = PCodeOpen( (void *)container, containerSize, &inst->fPEFInst, &createDate );
             if (err)
                 continue;
 
@@ -96,22 +105,37 @@ IONDRV * IOPEFNDRV::instantiate( IORegistryEntry * regEntry,
             if (err)
                 continue;
 
-            inst->getSymbol( "DoDriverIO", (IOLogicalAddress *) &inst->fDoDriverIO );
-            if (kIOReturnSuccess == inst->getSymbol("TheDriverDescription",
-                                                    (IOLogicalAddress *) &inst->fDriverDesc))
-            {
-                name = (char *) inst->fDriverDesc->driverOSRuntimeInfo.driverName;
-                plen = name[ 0 ];
-                if (plen >= sizeof(inst->fDriverDesc->driverOSRuntimeInfo.driverName))
-                    plen = sizeof(inst->fDriverDesc->driverOSRuntimeInfo.driverName) - 1;
-                strncpy( inst->fName, name + 1, plen);
-                sprintf( inst->fName + plen, "-%08lx", *((UInt32 *) &inst->fDriverDesc->driverType.version));
-            }
+	    if (checkDate && createDate && (createDate < kIOPEFMinROMDate))
+	    {
+		int	debugFlags;
+	
+		IOLog("ROM ndrv for %s is too old (0x%08lx)\n", regEntry->getName(), createDate);
+		if (!PE_parse_boot_arg("romndrv", &debugFlags) || !debugFlags)
+		{
+		    err = kIOReturnIsoTooOld;
+		    continue;
+		}
+	    }
+
+            err = inst->getSymbol("DoDriverIO", (IOLogicalAddress *) &inst->fDoDriverIO);
+            if (err)
+                continue;
+            err = inst->getSymbol("TheDriverDescription",
+				    (IOLogicalAddress *) &inst->fDriverDesc);
+            if (err)
+                continue;
+
+	    name = (char *) inst->fDriverDesc->driverOSRuntimeInfo.driverName;
+	    plen = name[ 0 ];
+	    if (plen >= sizeof(inst->fDriverDesc->driverOSRuntimeInfo.driverName))
+		plen = sizeof(inst->fDriverDesc->driverOSRuntimeInfo.driverName) - 1;
+	    strncpy( inst->fName, name + 1, plen);
+	    sprintf( inst->fName + plen, "-%08lx", *((UInt32 *) &inst->fDriverDesc->driverType.version));
 
             name = (char *) inst->fDriverDesc->driverType.nameInfoStr;
             plen = name[ 0 ];
             if (plen >= sizeof(inst->fDriverDesc->driverType.nameInfoStr))
-                plen = sizeof(inst->fDriverDesc->driverType.nameInfoStr) - 1;
+		plen = sizeof(inst->fDriverDesc->driverType.nameInfoStr) - 1;
 
             strcpy( kmodName, "com.apple.driver.ndrv.");
             strncat( kmodName, name + 1, plen);
@@ -175,7 +199,7 @@ IONDRV * IOPEFNDRV::instantiate( IORegistryEntry * regEntry,
             }
         }
         while (false);
-
+    }
     if (inst && err)
     {
         inst->release();
@@ -302,6 +326,7 @@ IONDRV * IOPEFNDRV::fromRegistryEntry( IORegistryEntry * regEntry,
     OSData *		prop;
     IONDRV *		inst;
     unsigned int 	i;
+    bool		checkDate;
 
     if (newData)
     {
@@ -319,6 +344,7 @@ IONDRV * IOPEFNDRV::fromRegistryEntry( IORegistryEntry * regEntry,
 	    prop->release();
 	}
 	prop = newData;
+	checkDate = false;
     }
     else
     {
@@ -326,6 +352,7 @@ IONDRV * IOPEFNDRV::fromRegistryEntry( IORegistryEntry * regEntry,
 	if (inst)
 	    return (inst);
 	prop = (OSData *) regEntry->getProperty("driver,AAPL,MacOS,PowerPC");
+	checkDate = true;
     }
 
     if (prop)
@@ -350,10 +377,19 @@ IONDRV * IOPEFNDRV::fromRegistryEntry( IORegistryEntry * regEntry,
 
     if (pef)
     {
-        kprintf("pef = %08x, %08x\n", pef, propSize);
-        inst = IOPEFNDRV::instantiate(regEntry, pef, propSize, handler, self);
+        inst = IOPEFNDRV::instantiate(regEntry, pef, propSize, checkDate, handler, self);
         if (inst)
             regEntry->setProperty("AAPL,ndrvInst", inst);
+	else if (checkDate)
+	{
+	
+	    IOLockLock(gIOPEFLock);
+	    i = gIOPEFContainers->getNextIndexOfObject(prop, 0);
+	    if (i != (unsigned int) -1)
+		gIOPEFContainers->removeObject(i);
+	    IOLockUnlock(gIOPEFLock);
+	    regEntry->removeProperty("driver,AAPL,MacOS,PowerPC");
+	}
     }
     else
         inst = 0;

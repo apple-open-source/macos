@@ -28,4 +28,3 @@
 #import "SYS.h"
 
 SYSCALL(mount, 4)
-	blr

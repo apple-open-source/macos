@@ -1,6 +1,6 @@
-/* $OpenLDAP: pkg/ldap/libraries/libldap/free.c,v 1.16 2002/01/04 20:17:38 kurt Exp $ */
+/* $OpenLDAP: pkg/ldap/libraries/libldap/free.c,v 1.16.2.2 2003/03/03 17:10:04 kurt Exp $ */
 /*
- * Copyright 1998-2002 The OpenLDAP Foundation, All Rights Reserved.
+ * Copyright 1998-2003 The OpenLDAP Foundation, All Rights Reserved.
  * COPYING RESTRICTIONS APPLY, see COPYRIGHT file
  */
 /*  Portions
@@ -58,42 +58,6 @@ char *
 ldap_strdup( LDAP_CONST char *p )
 {
 	return LDAP_STRDUP( p );
-}
-
-void
-ldap_getfilter_free( LDAPFiltDesc *lfdp )
-{
-    LDAPFiltList	*flp, *nextflp;
-    LDAPFiltInfo	*fip, *nextfip;
-
-    for ( flp = lfdp->lfd_filtlist; flp != NULL; flp = nextflp ) {
-	for ( fip = flp->lfl_ilist; fip != NULL; fip = nextfip ) {
-	    nextfip = fip->lfi_next;
-	    LDAP_FREE( fip->lfi_filter );
-	    LDAP_FREE( fip->lfi_desc );
-	    LDAP_FREE( fip );
-	}
-	nextflp = flp->lfl_next;
-	LDAP_FREE( flp->lfl_pattern );
-	LDAP_FREE( flp->lfl_delims );
-	LDAP_FREE( flp->lfl_tag );
-	LDAP_FREE( flp );
-    }
-
-    if ( lfdp->lfd_curvalcopy != NULL ) {
-	LDAP_FREE( lfdp->lfd_curvalcopy );
-    }
-    if ( lfdp->lfd_curvalwords != NULL ) {
-	LDAP_FREE( lfdp->lfd_curvalwords );
-    }
-    if ( lfdp->lfd_filtprefix != NULL ) {
-	LDAP_FREE( lfdp->lfd_filtprefix );
-    }
-    if ( lfdp->lfd_filtsuffix != NULL ) {
-	LDAP_FREE( lfdp->lfd_filtsuffix );
-    }
-
-    LDAP_FREE( lfdp );
 }
 
 /*

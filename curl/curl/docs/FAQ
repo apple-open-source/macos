@@ -1,4 +1,4 @@
-Updated: April 22, 2001 (http://curl.haxx.se/docs/faq.shtml)
+Updated: November 12, 2002 (http://curl.haxx.se/docs/faq.html)
                                   _   _ ____  _     
                               ___| | | |  _ \| |    
                              / __| | | | |_) | |    
@@ -14,6 +14,8 @@ FAQ
   1.4 When will you make curl do XXXX ?
   1.5 Who makes cURL?
   1.6 What do you get for making cURL?
+  1.7 What about CURL from curl.com?
+  1.8 I have a problem who do I mail?
 
  2. Install Related Problems
   2.1 configure doesn't find OpenSSL even when it is installed
@@ -29,11 +31,15 @@ FAQ
   3.3 Why doesn't my posting using -F work?
   3.4 How do I tell curl to run custom FTP commands?
   3.5 How can I disable the Pragma: nocache header?
-  3.6 Does curl support javascript, ASP, XML, XHTML or HTML version Y?
+  3.6 Does curl support ASP, XML, XHTML or HTML version Y?
   3.7 Can I use curl to delete/rename a file through FTP?
   3.8 How do I tell curl to follow HTTP redirects?
-  3.9 How do I use curl in PHP, Perl, Tcl, Ruby or Java?
+  3.9 How do I use curl in my favorite programming language?
   3.10 What about SOAP, WebDAV, XML-RPC or similar protocols over HTTP?
+  3.11 How do I POST with a different Content-Type?
+  3.12 Why do FTP specific features over HTTP proxy fail?
+  3.13 Why does my single/double quotes fail?
+  3.14 Does curl support javascript or pac (automated proxy config)?
 
  4. Running Problems
   4.1 Problems connecting to SSL servers.
@@ -46,10 +52,13 @@ FAQ
    4.5.3 "403 Forbidden"
    4.5.4 "404 Not Found"
    4.5.5 "405 Method Not Allowed"
+   4.5.6 "301 Moved Permanently"
   4.6 Can you tell me what error code 142 means?
   4.7 How do I keep user names and passwords secret in Curl command lines?
   4.8 I found a bug!
   4.9 Curl can't authenticate to the server that requires NTLM?
+  4.10 My HTTP request using HEAD, PUT or DELETE doesn't work!
+  4.11 Why does my HTTP range requests return the full document?
 
  5. libcurl Issues
   5.1 Is libcurl thread-safe?
@@ -58,6 +67,7 @@ FAQ
   5.4 Does libcurl do Winsock initing on win32 systems?
   5.5 Does CURLOPT_FILE and CURLOPT_INFILE work on win32 ?
   5.6 What about Keep-Alive or persistent connections?
+  5.7 Link errors when building libcurl on Windows!
 
  6. License Issues
   6.1 I have a GPL program, can I use the libcurl library?
@@ -76,10 +86,12 @@ FAQ
   cURL (or simply just 'curl') is a command line tool for getting or sending
   files using URL syntax. The name is a play on 'Client for URLs', originally
   with URL spelled in uppercase to make it obvious it deals with URLs. The
-  fact it can also be pronounced 'see URL' also helped.
+  fact it can also be pronounced 'see URL' also helped, it works as an
+  abbrivation for "Client URL Request Library" or why not the recursive
+  version: "Curl is a URL Request Library".
 
   Curl supports a range of common Internet protocols, currently including
-  HTTP, HTTPS, FTP, GOPHER, LDAP, DICT, TELNET and FILE.
+  HTTP, HTTPS, FTP, FTPS, GOPHER, LDAP, DICT, TELNET and FILE.
 
   We spell it cURL or just curl. We pronounce it with an initial k sound:
   [kurl].
@@ -94,10 +106,9 @@ FAQ
 
   1.3 What is cURL not?
   
-  Curl is *not*, I repeat, *not* a wget clone even though that is a very
-  common misconception. Never, during curl's development, have I intended curl
-  to replace wget or compete on its market. Curl is targeted at single-shot
-  file transfers.
+  Curl is *not* a wget clone even though that is a very common misconception.
+  Never, during curl's development, have we intended curl to replace wget or
+  compete on its market. Curl is targeted at single-shot file transfers.
 
   Curl is not a web site mirroring program. If you wanna use curl to mirror
   something: fine, go ahead and write a script that wraps around curl to make
@@ -132,7 +143,7 @@ FAQ
 
   * We focus on protocol related issues and improvements. If you wanna do more
     magic with the supported protocols than curl currently does, chances are
-    big I will agree. If you wanna add more protocols, I may very well
+    big we will agree. If you wanna add more protocols, we may very well
     agree.
 
   * If you want someone else to make all the work while you wait for us to
@@ -147,27 +158,62 @@ FAQ
   1.5 Who makes cURL?
 
   cURL and libcurl are not made by any single individual. Sure, Daniel
-  Stenberg writes the major parts, but various people's submissions are
-  important and crucial. Anyone can post their changes and improvements and
-  have them inserted in the main sources (of course on the condition that
-  developers agree on that the fixes are good).
+  Stenberg writes the major parts, but other persons' submissions are
+  important and crucial. Anyone can contribute and post their changes and
+  improvements and have them inserted in the main sources (of course on the
+  condition that developers agree on that the fixes are good).
 
-  The list of contributors in the bottom of the man page is only a small part
-  of all the people that every day provide us with bug reports, suggestions,
-  ideas and source code.
+  The list of contributors in the docs/THANKS file is only a small part of all
+  the people that every day provide us with bug reports, suggestions, ideas
+  and source code.
 
   curl is developed by a community, with Daniel at the wheel.
 
   1.6 What do you get for making cURL?
 
-  Project cURL is entirely free and open, without any commercial interests or
-  money involved. No person gets paid in any way for developing curl. We all
-  do this voluntarily on our spare time.
+  Project cURL is entirely free and open. No person gets paid for developing
+  curl. We do this voluntarily on our spare time.
 
   We get some help from companies. Contactor Data hosts the curl web site and
   the main mailing list, Haxx owns the curl web site's domain and
   sourceforge.net hosts several project tools we take advantage from like the
   bug tracker, mailing lists and more.
+
+  If you want to support our project with a donation or similar, one way of
+  doing that would be to buy "gift certificates" at useful online shopping
+  sites, such as amazon.com or thinkgeek.com. Another way would be to sponsor
+  us through a banner-program or even better: by helping us coding,
+  documenting, testing etc.
+
+  1.7 What about CURL from curl.com?
+
+  During the summer 2001, curl.com has been busy advertising their client-side
+  programming language for the web, named CURL.
+
+  We are in no way associated with curl.com or their CURL programming
+  language. 
+
+  Our project name curl has been in effective use since 1998. We were not the
+  first computer related project to use the name "curl" and do not claim any
+  first-hand rights to the name.
+
+  We recognize that we will be living in parallel with curl.com and wish them
+  every success.
+
+  1.8 I have a problem who do I mail?
+
+  Please do not attempt to mail any single individual unless you really need
+  to. Keep curl-related questions on a suitable mailing list. All available
+  mailing lists are listed in the MANUAL document and online at
+  http://curl.haxx.se/mail/
+
+  Keeping curl-related questions and discussions on mailing lists allows others
+  to join in and help, to share their ideas, contribute their suggestions and
+  spread their wisdom. Keeping discussions on public mailing lists also allows
+  for others to learn from this (both current and future users thanks to the
+  web based archives of the mailing lists), thus saving us from having to
+  repeat ourselves even more. Thanks for respecting this.
+
 
 2. Install Related Problems
 
@@ -284,16 +330,14 @@ FAQ
   the -H/--header option. By adding a header with empty contents you safely
   disable that one. Use -H "Pragma:" to disable that specific header.
 
-  3.6. Does curl support javascript, ASP, XML, XHTML or HTML version Y?
+  3.6. Does curl support ASP, XML, XHTML or HTML version Y?
 
   To curl, all contents are alike. It doesn't matter how the page was
   generated. It may be ASP, PHP, Perl, shell-script, SSI or plain
   HTML-files. There's no difference to curl and it doesn't even know what kind
   of language that generated the page.
 
-  Javascript is slightly different since that is code embedded in the HTML
-  that is sent for the client to interpret and curl has no javascript
-  interpreter.
+  See also item 3.14 regarding javascript.
 
   3.7. Can I use curl to delete/rename a file through FTP?
 
@@ -311,31 +355,21 @@ FAQ
 
      curl -L http://redirector.com
 
-  3.9 How do I use curl in PHP, Perl, Tcl, Ruby or Java?
+  3.9 How do I use curl in my favorite programming language?
 
-  There exist many language-interfaces for curl that integrates it better with
-  various languages. If you are fluid in a script language, you may very well
-  opt to use such an interface instead of using the command line tool.
-
-  At the time of writing, there are bindings for the five language mentioned
-  above, but chances are there are even more by the time you read this. Or you
-  may be able you write your own wrapper for a not-yet support language!
+  There exist many language interfaces/bindings for curl that integrates it
+  better with various languages. If you are fluid in a script language, you
+  may very well opt to use such an interface instead of using the command line
+  tool.
 
   Find out more about which languages that support curl directly, and how to
   install and use them, in the libcurl section of the curl web site:
 
         http://curl.haxx.se/libcurl/
-  
-  PHP4 has the ability to use libcurl as an internal module if built with that
-  option enabled. You then get a set of extra functions that can be used
-  within your PHP programs. You find all details about those functions in the
-  curl section in the PHP manual, see the online version at:
 
-        http://www.php.net/manual/ref.curl.php
-
-  PHP also offers the option to run a command line, and then you can of course
-  invoke the curl tool using a command line. This is the way to use curl if
-  you're using PHP3 or PHP4 built without curl module support.
+  In December 2001, there are interfaces available for the following
+  languages: C/C++, Cocoa, Dylan, Java, Perl, PHP, Python, Rexx, Ruby, Scheme
+  and Tcl. By the time you read this, additional ones may have appeared!
 
   3.10 What about SOAP, WebDAV, XML-RPC or similar protocols over HTTP?
 
@@ -346,6 +380,73 @@ FAQ
 
   Using libcurl or PHP's curl modules is just as fine and you'd just use the
   proper library options to do the same.
+
+  3.11 How do I POST with a different Content-Type?
+
+  You can always replace the internally generated headers with -H/--header.
+  To make a simple HTTP POST with text/xml as content-type, do something like:
+
+        curl -d "datatopost" -H "Content-Type: text/xml" [URL]
+
+  3.12 Why do FTP specific features over HTTP proxy fail?
+
+  Because when you use a HTTP proxy, the protocol spoken on the network will
+  be HTTP, even if you specify a FTP URL. This effectively means that you
+  normally can't use FTP specific features such as FTP upload and FTP quote
+  etc.
+
+  There is one exception to this rule, and that is if you can "tunnel through"
+  the given HTTP proxy. Proxy tunneling is enabled with a special option (-p)
+  and is generally not available as proxy admins usually disable tunneling to
+  other ports than 443 (which is used for HTTPS access through proxies).
+
+  3.13 Why does my single/double quotes fail?
+
+  To specify a command line option that includes spaces, you might need to
+  put the entire option within quotes. Like in:
+
+   curl -d " with spaces " url.com
+  
+  or perhaps
+
+   curl -d ' with spaces ' url.com
+
+  Exactly what kind of quotes and how to do this is entirely up to the shell
+  or command line interpreter that you are using. For most unix shells, you
+  can more or less pick either single (') or double (") quotes. For
+  Windows/DOS prompts I believe you're forced to use double (") quotes.
+
+  Please study the documentation for your particular environment. Examples in
+  the curl docs will use a mix of both these ones as shown above. You must
+  adjust them to work in your environment.
+
+  Remember that curl works and runs on more operating systems than most single
+  individuals have ever tried.
+
+  3.14 Does curl support javascript or pac (automated proxy config)?
+
+  Many web pages do magic stuff using embedded javascript. Curl and libcurl
+  have no built-in support for that, so it will be treated just like any other
+  contents.
+
+  .pac files are a netscape invention and are sometimes used by organizations
+  to allow them to differentiate which proxies to use. The .pac contents is
+  just a javascript program that gets invoked by the browser and that returns
+  the name of the proxy to connect to. Since curl doesn't support javascript,
+  it can't support .pac proxy configuration either.
+
+  Some work-arounds usually suggested to overcome this javascript dependency:
+
+    - Depending on the javascript complexity, write up a script that
+      translates it to another language and execute that.
+
+    - Read the javascript code and rewrite the same logic in another language.
+
+    - Implement a javascript interpreted, people have successfully used the
+      Mozilla javascript engine in the past.
+
+    - Ask your admins to stop this, for a static proxy setup or similar.
+
 
 4. Running Problems
 
@@ -375,11 +476,12 @@ FAQ
 
      curl 'http://www.altavista.com/cgi-bin/query?text=yes&q=curl'
 
-  In win32, the standard DOS shell treats the %-letter specially and you may
-  need to quote the string properly when % is used in it.
+  In Windows, the standard DOS shell treats the %-letter specially and you
+  need to use TWO %-letters for each single one you want to use in the URL.
 
   Also note that if you want the literal %-letter to be part of the data you
-  pass in a POST using -d/--data you must encode it as '%25'.
+  pass in a POST using -d/--data you must encode it as '%25' (which then also
+  needs the %-letter doubled on Windows machines).
 
   4.3. How can I use {, }, [ or ] to specify multiple URLs?
 
@@ -436,12 +538,23 @@ FAQ
     identified by the Request-URI. The response MUST include an Allow header
     containing a list of valid methods for the requested resource.
 
+    4.5.6 "301 Moved Permanently"
+ 
+    If you get this return code and an HTML output similar to this:
+
+       <H1>Moved Permanently</H1> The document has moved <A
+       HREF="http://same_url_now_with_a_trailing_slash/">here</A>.
+
+    it might be because you request a directory URL but without the trailing
+    slash. Try the same operation again _with_ the trailing URL, or use the
+    -L/--location option to follow the redirection.
+
   4.6. Can you tell me what error code 142 means?
 
   All error codes that are larger than the highest documented error code means
-  that curl has existed due to a timeout. There was no nice way for curl to
-  abort from such a condition and that's why it got this undocumented
-  error. This should not occur in releases after 7.4.1.
+  that curl has exited due to a crash. This is a serious error, and we
+  appreciate a detailed bug report from you that describes how we could go
+  ahead and repeat this!
 
   4.7. How do I keep user names and passwords secret in Curl command lines?
 
@@ -469,18 +582,30 @@ FAQ
   particular platform, try contacting the person who built the package/archive
   you have.
 
-  If there is a bug, post a bug report in the Curl Bug Track System over at
-  http://sourceforge.net/bugs/?group_id=976
-
-  Always include as many details you can think of, including curl version,
-  operating system name and version and complete instructions how to repeat
-  the bug.
+  If there is a bug, read the BUGS document first. Then report it as described
+  in there.
 
   4.9. Curl can't authenticate to the server that requires NTLM?
 
   NTLM is a Microsoft proprietary protocol. Unfortunately, curl does not
   currently support that. Proprietary formats are evil. You should not use
   such ones.
+
+  4.10 My HTTP request using HEAD, PUT or DELETE doesn't work!
+
+  Many web servers allow or demand that the administrator configures the
+  server properly for these requests to work on the web server.
+
+  Some servers seem to support HEAD only on certain kinds of URLs.
+
+  To fully grasp this, try the documentation for the particular server
+  software you're trying to interact with. This is not anything curl can do
+  anything about.
+
+  4.11 Why does my HTTP range requests return the full document?
+
+  Because the range may not be supported by the server, or the server may
+  choose to ignore it and return the full document anyway.
 
 5. libcurl Issues
 
@@ -496,6 +621,8 @@ FAQ
   used libcurl in a threaded environment.
 
   5.2 How can I receive all data into a large memory chunk?
+
+  [ See also the examples/getinmemory.c source ]
 
   You are in full control of the callback function that gets called every time
   there is data received from the remote server. You can make that callback do
@@ -543,13 +670,7 @@ FAQ
 
   5.4 Does libcurl do Winsock initialization on win32 systems?
 
-  No.
-
-  On win32 systems, you need to init the winsock stuff manually, libcurl will
-  not do that for you. WSAStartup() and WSACleanup() should be used
-  accordingly. The reason for this is of course that a single application may
-  use several different libraries and parts, and there's no reason for every
-  single library to do this.
+  Yes (since 7.8.1) if told to in the curl_global_init() call.
 
   5.5 Does CURLOPT_FILE and CURLOPT_INFILE work on win32 ?
 
@@ -571,14 +692,25 @@ FAQ
 
   Previous versions had no persistent connection support.
 
+  5.7 Link errors when building libcurl on Windows!
+
+  You need to make sure that your project, and all the libraries (both static
+  and dynamic) that it links against, are compiled/linked against the same run
+  time library.
+
+  This is determined by the /MD, /ML, /MT (and their corresponding /M?d)
+  options to the command line compiler. /MD (linking against MSVCRT dll) seems
+  to be the most commonly used option.
+
+  (Provided by Andrew Francis)
+
+
 6. License Issues
 
-  Curl and libcurl are released under a MIT/X derivate license *or* the MPL,
-  the Mozilla Public License. To get a really good answer to your license
-  conflict questions, you should study the MPL and MIT/X licenses and the
-  license you are about to use and check for clashes yourself. This section is
-  just a brief summary for the cases we get the most questions. (Parts of this
-  section was much enhanced by Bjorn Reese.)
+  Curl and libcurl are released under a MIT/X derivate license. The license is
+  very liberal and should not impose a problem for your project. This section
+  is just a brief summary for the cases we get the most questions. (Parts of
+  this section was much enhanced by Bjorn Reese.)
 
   6.1. I have a GPL program, can I use the libcurl library?
 

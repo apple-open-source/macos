@@ -1,0 +1,103 @@
+<?xml version="1.0"?>
+<!DOCTYPE ejb-jar PUBLIC
+   "-//Sun Microsystems, Inc.//DTD Enterprise JavaBeans 2.0//EN"
+   "http://java.sun.com/dtd/ejb-jar_2_0.dtd">
+
+<ejb-jar>
+   <enterprise-beans>
+      <session>
+         <description>JUnit Session Bean Test Runner</description>
+         <ejb-name>EJBTestRunnerEJB</ejb-name>
+         <home>net.sourceforge.junitejb.EJBTestRunnerHome</home>
+         <remote>net.sourceforge.junitejb.EJBTestRunner</remote>
+         <ejb-class>net.sourceforge.junitejb.EJBTestRunnerBean</ejb-class>
+         <session-type>Stateless</session-type>
+         <transaction-type>Bean</transaction-type>
+      </session>
+      <entity>
+         <description>Test Generation using UUIDKeyGenerator</description>
+         <ejb-name>TestUUIDKeyGenEJB</ejb-name>
+         <local-home>org.jboss.test.cmp2.keygen.ejb.UnknownPKLocalHome</local-home>
+         <local>org.jboss.test.cmp2.keygen.ejb.UnknownPKLocal</local>
+         <ejb-class>org.jboss.test.cmp2.keygen.ejb.UnknownPKBean</ejb-class>
+         <persistence-type>Container</persistence-type>
+         <prim-key-class>java.lang.Object</prim-key-class>
+         <reentrant>False</reentrant>
+         <cmp-version>2.x</cmp-version>
+         <abstract-schema-name>uuidKeyGen</abstract-schema-name>
+         <cmp-field><field-name>value</field-name></cmp-field>
+      </entity>
+      <entity>
+         <description>Test Generation using PkSqlGenerator</description>
+         <ejb-name>TestPkSqlEJB</ejb-name>
+         <local-home>org.jboss.test.cmp2.keygen.ejb.UnknownPKLocalHome</local-home>
+         <local>org.jboss.test.cmp2.keygen.ejb.UnknownPKLocal</local>
+         <ejb-class>org.jboss.test.cmp2.keygen.ejb.UnknownPKBean</ejb-class>
+         <persistence-type>Container</persistence-type>
+         <prim-key-class>java.lang.Object</prim-key-class>
+         <reentrant>False</reentrant>
+         <cmp-version>2.x</cmp-version>
+         <abstract-schema-name>pkSql</abstract-schema-name>
+         <cmp-field><field-name>value</field-name></cmp-field>
+      </entity>
+      <entity>
+         <description>Test Generation using HsqldbGenerator</description>
+         <ejb-name>TestHsqldbEJB</ejb-name>
+         <local-home>org.jboss.test.cmp2.keygen.ejb.UnknownPKLocalHome</local-home>
+         <local>org.jboss.test.cmp2.keygen.ejb.UnknownPKLocal</local>
+         <ejb-class>org.jboss.test.cmp2.keygen.ejb.UnknownPKBean</ejb-class>
+         <persistence-type>Container</persistence-type>
+         <prim-key-class>java.lang.Object</prim-key-class>
+         <reentrant>False</reentrant>
+         <cmp-version>2.x</cmp-version>
+         <abstract-schema-name>hsqldb</abstract-schema-name>
+         <cmp-field><field-name>value</field-name></cmp-field>
+      </entity>
+      <entity>
+         <description>Test Generation using other entity-command</description>
+         <ejb-name>TestOtherEJB</ejb-name>
+         <local-home>org.jboss.test.cmp2.keygen.ejb.UnknownPKLocalHome</local-home>
+         <local>org.jboss.test.cmp2.keygen.ejb.UnknownPKLocal</local>
+         <ejb-class>org.jboss.test.cmp2.keygen.ejb.UnknownPKBean</ejb-class>
+         <persistence-type>Container</persistence-type>
+         <prim-key-class>java.lang.Object</prim-key-class>
+         <reentrant>False</reentrant>
+         <cmp-version>2.x</cmp-version>
+         <abstract-schema-name>other</abstract-schema-name>
+         <cmp-field><field-name>value</field-name></cmp-field>
+      </entity>
+      <entity>
+         <description>Test Integer key gen using HsqldbGenerator</description>
+         <ejb-name>TestHsqldbIntegerEJB</ejb-name>
+         <local-home>org.jboss.test.cmp2.keygen.ejb.IntegerPKLocalHome</local-home>
+         <local>org.jboss.test.cmp2.keygen.ejb.UnknownPKLocal</local>
+         <ejb-class>org.jboss.test.cmp2.keygen.ejb.IntegerPKBean</ejb-class>
+         <persistence-type>Container</persistence-type>
+         <prim-key-class>java.lang.Integer</prim-key-class>
+         <reentrant>False</reentrant>
+         <cmp-version>2.x</cmp-version>
+         <abstract-schema-name>hsqldbint</abstract-schema-name>
+         <cmp-field><field-name>key</field-name></cmp-field>
+         <cmp-field><field-name>value</field-name></cmp-field>
+
+         <primkey-field>key</primkey-field>
+      </entity>
+
+      <entity>
+         <description>Test Integer key gen using HsqldbGenerator</description>
+         <ejb-name>InvalidHsqldbIntegerEJB</ejb-name>
+         <local-home>org.jboss.test.cmp2.keygen.ejb.IntegerPKLocalHome</local-home>
+         <local>org.jboss.test.cmp2.keygen.ejb.UnknownPKLocal</local>
+         <ejb-class>org.jboss.test.cmp2.keygen.ejb.IntegerPKBean</ejb-class>
+         <persistence-type>Container</persistence-type>
+         <prim-key-class>java.lang.Integer</prim-key-class>
+         <reentrant>False</reentrant>
+         <cmp-version>2.x</cmp-version>
+         <abstract-schema-name>invalidhsqldbint</abstract-schema-name>
+         <cmp-field><field-name>key</field-name></cmp-field>
+         <cmp-field><field-name>value</field-name></cmp-field>
+
+         <primkey-field>key</primkey-field>
+      </entity>
+   </enterprise-beans>
+</ejb-jar>

@@ -1,22 +1,23 @@
 /* -*- c-file-style: "linux" -*-
-     
-   Copyright (C) 1996-2001 by Andrew Tridgell <tridge@samba.org>
-   Copyright (C) 1996 by Paul Mackerras
-   
-   This program is free software; you can redistribute it and/or modify
-   it under the terms of the GNU General Public License as published by
-   the Free Software Foundation; either version 2 of the License, or
-   (at your option) any later version.
-   
-   This program is distributed in the hope that it will be useful,
-   but WITHOUT ANY WARRANTY; without even the implied warranty of
-   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-   GNU General Public License for more details.
-   
-   You should have received a copy of the GNU General Public License
-   along with this program; if not, write to the Free Software
-   Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
-*/
+ * 
+ * Copyright (C) 1996-2001 by Andrew Tridgell <tridge@samba.org>
+ * Copyright (C) 1996 by Paul Mackerras
+ * Copyright (C) 2002 by Martin Pool
+ * 
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation; either version 2 of the License, or
+ * (at your option) any later version.
+ * 
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ * 
+ * You should have received a copy of the GNU General Public License
+ * along with this program; if not, write to the Free Software
+ * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
+ */
 
 /* a lot of this stuff was originally derived from GNU tar, although
    it has now changed so much that it is hard to tell :) */
@@ -30,7 +31,7 @@ extern int delete_mode;
 
 static struct exclude_struct **exclude_list;
 
-/* build an exclude structure given a exclude pattern */
+/** Build an exclude structure given a exclude pattern */
 static struct exclude_struct *make_exclude(const char *pattern, int include)
 {
 	struct exclude_struct *ret;
@@ -201,9 +202,11 @@ void add_exclude_list(const char *pattern, struct exclude_struct ***list, int in
 	if (!*list || !((*list)[len] = make_exclude(pattern, include)))
 		out_of_memory("add_exclude");
 	
-	if (verbose > 2)
-		rprintf(FINFO,"add_exclude(%s)\n",pattern);
-	
+	if (verbose > 2) {
+		rprintf(FINFO,"add_exclude(%s,%s)\n",pattern,
+			      include ? "include" : "exclude");
+	}
+
 	(*list)[len+1] = NULL;
 }
 
@@ -217,8 +220,14 @@ struct exclude_struct **make_exclude_list(const char *fname,
 					  int fatal, int include)
 {
 	struct exclude_struct **list=list1;
-	FILE *f = fopen(fname,"r");
+	FILE *f;
 	char line[MAXPATHLEN];
+
+	if (strcmp(fname, "-")) {
+		f = fopen(fname,"r");
+	} else {
+		f = fdopen(0, "r");
+	}
 	if (!f) {
 		if (fatal) {
 			rsyserr(FERROR, errno,
@@ -232,7 +241,7 @@ struct exclude_struct **make_exclude_list(const char *fname,
 
 	while (fgets(line,MAXPATHLEN,f)) {
 		int l = strlen(line);
-		if (l && line[l-1] == '\n') l--;
+		while (l && (line[l-1] == '\n' || line[l-1] == '\r')) l--;
 		line[l] = 0;
 		if (line[0] && (line[0] != ';') && (line[0] != '#')) {
 			/* Skip lines starting with semicolon or pound.
@@ -260,7 +269,10 @@ void send_exclude_list(int f)
 	extern int remote_version;
 	extern int list_only, recurse;
 
-	/* this is a complete hack - blame Rusty */
+	/* This is a complete hack - blame Rusty.
+	 *
+	 * FIXME: This pattern shows up in the output of
+	 * report_exclude_result(), which is not ideal. */
 	if (list_only && !recurse) {
 		add_exclude("/*/*", 0);
 	}
@@ -329,7 +341,7 @@ char *get_exclude_tok(char *p)
 		return(NULL);
 
 	/* Skip over any initial spaces */
-	while(isspace(*s))
+	while (isspace(* (unsigned char *) s))
 		s++;
 
 	/* Are we at the end of the string? */
@@ -342,7 +354,7 @@ char *get_exclude_tok(char *p)
 			s+=2;
 	
 		/* Skip to the next space or the end of the string */
-		while(!isspace(*s) && *s!='\0')
+		while (!isspace(* (unsigned char *) s) && *s != '\0')
 			s++;
 	} else {
 		t=NULL;
@@ -381,12 +393,11 @@ void add_include_line(char *p)
 
 
 static char *cvs_ignore_list[] = {
-  "RCS","SCCS","CVS","CVS.adm","RCSLOG","cvslog.*",
-  "tags","TAGS",".make.state",".nse_depinfo",
-  "*~", "#*", ".#*", ",*", "*.old", "*.bak", "*.BAK", "*.orig",
+  "RCS/", "SCCS/", "CVS/", ".svn/", "CVS.adm", "RCSLOG", "cvslog.*",
+  "tags", "TAGS", ".make.state", ".nse_depinfo",
+  "*~", "#*", ".#*", ", *", "*.old", "*.bak", "*.BAK", "*.orig",
   "*.rej", ".del-*", "*.a", "*.o", "*.obj", "*.so", "*.Z", "*.elc", "*.ln",
-  "core",NULL};
-
+  "core", NULL};
 
 
 void add_cvs_excludes(void)

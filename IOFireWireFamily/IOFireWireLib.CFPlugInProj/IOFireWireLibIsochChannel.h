@@ -31,15 +31,13 @@
  *
  */
 
-// public
-#import <IOKit/firewire/IOFireWireLibIsoch.h>
-
-// private
+#import "IOFireWireLibIUnknown.h"
 #import "IOFireWireLibPriv.h"
-#import "IOFireWireLibIsochPort.h"
+#import "IOFireWireLibIsoch.h"
 
 namespace IOFireWireLib {
 
+	class Device ;
 	class IsochChannel: public IOFireWireIUnknown
 	{
 		protected:
@@ -47,7 +45,7 @@ namespace IOFireWireLib {
 			typedef ::IOFireWireIsochChannelForceStopHandler	ForceStopHandler ;
 
 		public:
-			IsochChannel( IUnknownVTbl* interface, Device& userclient, bool inDoIRM, IOByteCount inPacketSize, IOFWSpeed inPrefSpeed) ;
+			IsochChannel( const IUnknownVTbl & interface, Device& userclient, bool inDoIRM, IOByteCount inPacketSize, IOFWSpeed inPrefSpeed) ;
 			virtual ~IsochChannel() ;
 
 		public:
@@ -75,7 +73,7 @@ namespace IOFireWireLib {
 		
 		protected:
 			Device&						mUserClient ;
-			KernIsochChannelRef		mKernChannelRef ;
+			UserObjectHandle		mKernChannelRef ;
 			Boolean						mNotifyIsOn ;
 			ForceStopHandler			mForceStopHandler ;
 			void*						mUserRefCon ;

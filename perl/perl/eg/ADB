@@ -1,8 +1,0 @@
-#!/usr/bin/perl
-
-# $RCSfile: ADB,v $$Revision: 1.3 $$Date: 2002/03/14 08:55:13 $
-
-# This script is only useful when used in your crash directory.
-
-$num = shift;
-exec 'adb', '-k', "vmunix.$num", "vmcore.$num";

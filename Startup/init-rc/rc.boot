@@ -33,7 +33,7 @@ BootType=${1-multiuser}
 
 SafeBoot=""
 
-args=$(getopt x $*)
+args=$(/usr/bin/getopt x $*)
 set -- ${args};
 for option; do
     case "${option}" in
@@ -146,27 +146,6 @@ if [ ${iscdrom} -ne 1 ]; then
 	    ;;
 	esac
     fi
-fi
-
-##
-# Syncronize memory with filesystem
-##
-sync
-
-##
-# If booted into single-user mode from a CD-ROM, print out some hints 
-# about how to fake up /tmp and get to other disks.
-##
-if [ "${BootType}" = "singleuser" ] && [ ${iscdrom} -eq 1 ]; then
-    echo ""
-    echo "You are now in single-user mode while booted from a CD-ROM."
-    echo "Since the root disk is read-only, some commands may not work as"
-    echo "they normally do.  In particular, commands that try to create"
-    echo "files in /tmp will probably fail.  One way to avoid this problem"
-    echo "is to mount a separate hard disk or floppy on /tmp using the"
-    echo "mount command. For example,'/sbin/mount /dev/fd0a /tmp' puts"
-    echo "/tmp on the internal floppy disk."
-    echo ""
 fi
 
 ##

@@ -3,8 +3,6 @@
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
- * Copyright (c) 1999-2003 Apple Computer, Inc.  All Rights Reserved.
- * 
  * This file contains Original Code and/or Modifications of Original Code
  * as defined in and that are subject to the Apple Public Source License
  * Version 2.0 (the 'License'). You may not use this file except in
@@ -25,6 +23,7 @@
 #ifndef NO_DYLD_TRACING
 #include <stdio.h>
 #include <strings.h>
+#include "stuff/bool.h"
 #include "trace.h"
 
 /*
@@ -44,7 +43,7 @@ trace_with_string(
 int trace_type,
 char *name)
 {
-    int i, j, n;
+    unsigned int i, j, n;
     int namelen;
     int save_namelen;
     long parms[NUMPARMS];
@@ -71,7 +70,7 @@ char *name)
         namelen = strlen(name);
 	/* fprintf(stderr, "name length: %d name %s: \n", namelen, name); */
         
-        if(namelen > sizeof(parms))
+        if(namelen > (int)(sizeof(parms)))
             namelen = sizeof(parms);
 
         /* Remember the length of name. */
@@ -96,7 +95,7 @@ char *name)
              * more 4 byte chunks.
 	     */
             else{
-                for(n = 0; n < namelen; n++)
+                for(n = 0; n < (unsigned int)namelen; n++)
                     buf[n] = *name++;
 		/*
                  * All characters have been collected.  Now fill the rest of

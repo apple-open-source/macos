@@ -1,6 +1,7 @@
-/* $OpenLDAP: pkg/ldap/servers/slapd/back-perl/compare.c,v 1.10 2002/02/02 09:37:26 hyc Exp $ */
+/* $OpenLDAP: pkg/ldap/servers/slapd/back-perl/compare.c,v 1.10.2.2 2002/07/28 19:14:19 kurt Exp $ */
 /*
  *	 Copyright 1999, John C. Quillan, All rights reserved.
+ *	 Portions Copyright 2002, myinternet Limited. All rights reserved.
  *
  *	 Redistribution and use in source and binary forms are permitted only
  *	 as authorized by the OpenLDAP Public License.	A copy of this
@@ -11,14 +12,15 @@
 #include "portable.h"
 
 #include <stdio.h>
-/*	#include <ac/types.h>
-	#include <ac/socket.h>
-*/
+
+#include "slap.h"
+#ifdef HAVE_WIN32_ASPERL
+#include "asperl_undefs.h"
+#endif
 
 #include <EXTERN.h>
 #include <perl.h>
 
-#include "slap.h"
 #include "perl_back.h"
 
 /**********************************************************
@@ -27,6 +29,7 @@
  *
  **********************************************************/
 
+int
 perl_back_compare(
 	Backend	*be,
 	Connection	*conn,
@@ -45,7 +48,7 @@ perl_back_compare(
 	avastr = ch_malloc( ava->aa_desc->ad_cname.bv_len + 1 +
 		ava->aa_value.bv_len + 1 );
 	
-	slap_strcopy( slap_strcopy( slap_strcopy( avastr,
+	lutil_strcopy( lutil_strcopy( lutil_strcopy( avastr,
 		ava->aa_desc->ad_cname.bv_val ), "=" ),
 		ava->aa_value.bv_val );
 
@@ -60,7 +63,11 @@ perl_back_compare(
 		XPUSHs(sv_2mortal(newSVpv( avastr , 0)));
 		PUTBACK;
 
+#ifdef PERL_IS_5_6
+		count = call_method("compare", G_SCALAR);
+#else
 		count = perl_call_method("compare", G_SCALAR);
+#endif
 
 		SPAGAIN;
 
@@ -77,8 +84,8 @@ perl_back_compare(
 
 	ch_free( avastr );
 
-	send_ldap_result( conn, op, return_code ? LDAP_COMPARE_TRUE :
-		LDAP_COMPARE_FALSE, NULL, NULL, NULL, NULL );
+	send_ldap_result( conn, op, return_code,
+		NULL, NULL, NULL, NULL );
 
 	Debug( LDAP_DEBUG_ANY, "Perl COMPARE\n", 0, 0, 0 );
 

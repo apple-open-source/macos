@@ -1,0 +1,3 @@
+g/$LD$reload_flag /s//$CC -nostdlib -Xlinker$reload_flag $archargs /g
+w
+q

@@ -22,6 +22,7 @@
  * 
  * @APPLE_LICENSE_HEADER_END@
  */
+
 #include <IOKit/usb/IOUSBLog.h>
 
 #include "AppleUSBEHCI.h"
@@ -196,4 +197,3 @@ AppleUSBEHCI::UIMSetTestMode(UInt32 mode, UInt32 port)
     }
 
     return ret;
-}

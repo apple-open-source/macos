@@ -25,4 +25,3 @@
 #include "SYS.h"
 
 SYSCALL(setgid, 1)
-	blr

@@ -51,7 +51,7 @@ if compvalues -i "$@"; then
     else
       compvalues -d descr
       if [[ ${#noargs}+${#args}+${#opts} -ne 1 ]] && compvalues -s sep; then
-        sep=( "-qQS" "$sep" )
+        sep=( "-qS" "$sep" )
       else
         sep=()
       fi
@@ -103,7 +103,7 @@ if compvalues -i "$@"; then
 
       # An empty action means that we should just display a message.
 
-      _message "$descr"
+      _message -e arguments "$descr"
       return 1
 
     elif [[ "$action" = \(\(*\)\) ]]; then

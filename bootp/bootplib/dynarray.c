@@ -1,9 +1,8 @@
 
 /*
  * dynarray.c
- * - simple array "object" that handles elements of the same size
- * - at init time, you give it the element size; when you add a new element,
- *   the list is allocated/grown dynamically
+ * - simple array "object" that grows when needed, and has caller-supplied
+ *   functions to free/duplicate elements
  */
 
 /* 
@@ -13,13 +12,13 @@
  * - initial revision
  */
 
-#import <unistd.h>
-#import <stdlib.h>
-#import <stdio.h>
-#import <sys/types.h>
-#import <strings.h>
+#include <unistd.h>
+#include <stdlib.h>
+#include <stdio.h>
+#include <sys/types.h>
+#include <strings.h>
 
-#import "dynarray.h"
+#include "dynarray.h"
 
 void
 dynarray_init(dynarray_t * list, dynarray_free_func_t * free_func,
@@ -49,6 +48,12 @@ boolean_t
 dynarray_add(dynarray_t * list, void * element)
 {
     return (ptrlist_add(&list->list, element));
+}
+
+boolean_t
+dynarray_insert(dynarray_t * list, void * element, int i)
+{
+    return (ptrlist_insert(&list->list, element, i));
 }
 
 boolean_t

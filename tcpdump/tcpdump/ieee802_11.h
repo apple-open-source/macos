@@ -1,4 +1,4 @@
-/* @(#) $Header: /cvs/Darwin/src/live/tcpdump/tcpdump/ieee802_11.h,v 1.1.1.1 2002/05/29 00:05:31 landonf Exp $ (LBL) */
+/* @(#) $Header: /cvs/root/tcpdump/tcpdump/ieee802_11.h,v 1.1.1.2 2003/03/17 18:42:16 rbraun Exp $ (LBL) */
 /*
  * Copyright (c) 2001
  *	Fortress Technologies
@@ -28,15 +28,15 @@
 #define T_DATA 0x2 /* data */
 #define T_RESV 0x3  /* reserved */
 
-#define ST_ASSOC_REQUEST   	0x0 
-#define ST_ASSOC_RESPONSE 	0x1 
-#define ST_REASSOC_REQUEST   	0x2 
-#define ST_REASSOC_RESPONSE  	0x3 
-#define ST_PROBE_REQUEST   	0x4 
-#define ST_PROBE_RESPONSE   	0x5 
+#define ST_ASSOC_REQUEST   	0x0
+#define ST_ASSOC_RESPONSE 	0x1
+#define ST_REASSOC_REQUEST   	0x2
+#define ST_REASSOC_RESPONSE  	0x3
+#define ST_PROBE_REQUEST   	0x4
+#define ST_PROBE_RESPONSE   	0x5
 /* RESERVED 			0x6  */
 /* RESERVED 			0x7  */
-#define ST_BEACON   		0x8 
+#define ST_BEACON   		0x8
 #define ST_ATIM			0x9
 #define ST_DISASSOC		0xA
 #define ST_AUTH			0xB
@@ -46,12 +46,21 @@
 /* RESERVED 			0xF  */
 
 
-#define CTRL_PS_POLL	0xA 
+#define CTRL_PS_POLL	0xA
 #define CTRL_RTS	0xB
 #define CTRL_CTS	0xC
 #define CTRL_ACK	0xD
 #define CTRL_CF_END	0xE
 #define CTRL_END_ACK	0xF
+
+#define DATA_DATA		0x0
+#define DATA_DATA_CF_ACK	0x1
+#define DATA_DATA_CF_POLL	0x2
+#define DATA_DATA_CF_ACK_POLL	0x3
+#define DATA_NODATA		0x4
+#define DATA_NODATA_CF_ACK	0x5
+#define DATA_NODATA_CF_POLL	0x6
+#define DATA_NODATA_CF_ACK_POLL	0x7
 
 /*
  * Bits in the frame control field.
@@ -89,7 +98,7 @@ struct ssid_t {
 	u_int8_t	element_id;
 	u_int8_t	length;
 	u_char		ssid[33];  /* 32 + 1 for null */
-} ;
+};
 
 struct rates_t {
 	u_int8_t	element_id;
@@ -153,7 +162,7 @@ struct tim_t {
 /* reserved 		15 */
 /* reserved 		16 */
 
-#define E_CHALLENGE 	16	
+#define E_CHALLENGE 	16
 /* reserved 		17 */
 /* reserved 		18 */
 /* reserved 		19 */

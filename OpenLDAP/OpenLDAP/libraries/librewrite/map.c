@@ -24,6 +24,8 @@
 
 #include <portable.h>
 
+#include <stdio.h>
+
 #ifdef HAVE_PWD_H
 #include <pwd.h>
 #endif
@@ -245,19 +247,20 @@ rewrite_map_parse(
 	for ( p = string, cnt = 1; p[ 0 ] != '\0' && cnt > 0; p++ ) {
 		if ( p[ 0 ] == REWRITE_SUBMATCH_ESCAPE ) {
 			/*
-			 * '\' marks the beginning of a new map
+			 * '%' marks the beginning of a new map
 			 */
 			if ( p[ 1 ] == '{' ) {
 				cnt++;
 			/*
-			 * '\' followed by a digit may mark the beginning
+			 * '%' followed by a digit may mark the beginning
 			 * of an old map
 			 */
-			} else if ( isdigit( p[ 1 ] ) && p[ 2 ] == '{' ) {
+			} else if ( isdigit( (unsigned char) p[ 1 ] ) && p[ 2 ] == '{' ) {
 				cnt++;
 				p++;
 			}
-			p++;
+			if ( p[ 1 ] != '\0' )
+				p++;
 		} else if ( p[ 0 ] == '}' ) {
 			cnt--;
 		}
@@ -329,12 +332,12 @@ rewrite_map_parse(
 	/*
 	 * Check the syntax of the variable name
 	 */
-	if ( !isalpha( p[ 0 ] ) ) {
+	if ( !isalpha( (unsigned char) p[ 0 ] ) ) {
 		free( s );
 		return NULL;
 	}
 	for ( p++; p[ 0 ] != '\0'; p++ ) {
-		if ( !isalnum( p[ 0 ] ) ) {
+		if ( !isalnum( (unsigned char) p[ 0 ] ) ) {
 			free( s );
 			return NULL;
 		}
@@ -540,6 +543,7 @@ rewrite_xmap_apply(
 			break;
 		}
 
+#ifdef HAVE_PW_GECOS
 		if ( pwd->pw_gecos != NULL && pwd->pw_gecos[0] != '\0' ) {
 			int l = strlen( pwd->pw_gecos );
 			
@@ -554,7 +558,9 @@ rewrite_xmap_apply(
 				break;
 			}
 			val->bv_len = l;
-		} else {
+		} else
+#endif /* HAVE_PW_GECOS */
+		{
 			val->bv_val = strdup( key->bv_val );
 			val->bv_len = key->bv_len;
 		}
@@ -626,7 +632,7 @@ rewrite_xmap_apply(
 
 	case REWRITE_MAP_XLDAPMAP: {
 		LDAP *ld;
-		char filter[ LDAP_FILT_MAXSIZ ];
+		char filter[1024];
 		LDAPMessage *res = NULL, *entry;
 		LDAPURLDesc *lud = ( LDAPURLDesc * )map->lm_args;
 		int attrsonly = 0;

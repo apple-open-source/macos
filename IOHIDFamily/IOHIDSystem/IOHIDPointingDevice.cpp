@@ -1,21 +1,23 @@
 /*
- * Copyright (c) 2000 Apple Computer, Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
- * The contents of this file constitute Original Code as defined in and
- * are subject to the Apple Public Source License Version 1.1 (the
- * "License").  You may not use this file except in compliance with the
- * License.  Please obtain a copy of the License at
- * http://www.apple.com/publicsource and read it before using this file.
+ * Copyright (c) 1999-2003 Apple Computer, Inc.  All Rights Reserved.
  * 
- * This Original Code and all software distributed under the License are
- * distributed on an "AS IS" basis, WITHOUT WARRANTY OF ANY KIND, EITHER
+ * This file contains Original Code and/or Modifications of Original Code
+ * as defined in and that are subject to the Apple Public Source License
+ * Version 2.0 (the 'License'). You may not use this file except in
+ * compliance with the License. Please obtain a copy of the License at
+ * http://www.opensource.apple.com/apsl/ and read it before using this
+ * file.
+ * 
+ * The Original Code and all software distributed under the License are
+ * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
  * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
  * INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY,
- * FITNESS FOR A PARTICULAR PURPOSE OR NON-INFRINGEMENT.  Please see the
- * License for the specific language governing rights and limitations
- * under the License.
+ * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
+ * Please see the License for the specific language governing rights and
+ * limitations under the License.
  * 
  * @APPLE_LICENSE_HEADER_END@
  */
@@ -166,14 +168,22 @@ static inline void convert16to8( const UInt16 src,
 }
 
 
-#define super IOHIDDevice
+#define super IOHIDDeviceShim
 
-OSDefineMetaClassAndStructors( IOHIDPointingDevice, IOHIDDevice )
+OSDefineMetaClassAndStructors( IOHIDPointingDevice, super )
 
 
 IOHIDPointingDevice * 
-IOHIDPointingDevice::newPointingDevice(UInt8 numButtons, UInt32 resolution, bool scroll)
+IOHIDPointingDevice::newPointingDevice(IOService *owner, UInt8 numButtons, UInt32 resolution, bool scroll)
 {
+    IOService * provider = owner;
+    
+    while (provider = provider->getProvider())
+    {
+	if(OSDynamicCast(IOHIDDevice, provider) || OSDynamicCast(IOHIDevice, provider))
+            return  0;
+    }
+
     IOHIDPointingDevice * device = new IOHIDPointingDevice;
     
     if (device)
@@ -191,7 +201,7 @@ IOHIDPointingDevice::newPointingDevice(UInt8 numButtons, UInt32 resolution, bool
 }
 
 
-bool IOHIDPointingDevice::init( OSDictionary * dictionary = 0 )
+bool IOHIDPointingDevice::init( OSDictionary * dictionary )
 {
     if (!super::init(dictionary))
         return false;
@@ -219,125 +229,11 @@ bool IOHIDPointingDevice::handleStart( IOService * provider )
         return false;
             
     _report = IOBufferMemoryDescriptor::withCapacity(
-        sizeof(GenericMouseReport), kIODirectionOutIn, true);
+        sizeof(GenericMouseReport), kIODirectionNone, true);
                                         
     bzero(_report->getBytesNoCopy(), sizeof(GenericMouseReport));
     
     return (_report) ? true : false;
-}
-
-OSNumber * IOHIDPointingDevice::newPrimaryUsageNumber() const
-{
-    return OSNumber::withNumber(kHIDUsage_GD_Mouse, 32);
-}
-
-OSNumber * IOHIDPointingDevice::newPrimaryUsagePageNumber() const
-{
-    return OSNumber::withNumber(kHIDPage_GenericDesktop, 32);
-}
-
-OSString * IOHIDPointingDevice::newProductString() const
-{
-    if (!_provider->getProvider() ||
-        !_provider->getProvider()->getProvider() ||
-        !_provider->getProvider()->getProvider()->getProperty("USB Product Name"))
-        return OSString::withCString("Generic Mouse");
-
-    return OSString::withString( 
-        _provider->getProvider()->getProvider()->getProperty("USB Product Name"));
-}
-
-OSString * IOHIDPointingDevice::newManufacturerString() const
-{
-    if (!_provider->getProvider() ||
-        !_provider->getProvider()->getProvider() ||
-        !_provider->getProvider()->getProvider()->getProperty("USB Vendor Name"))
-        return 0;
-
-    return OSString::withString(
-        _provider->getProvider()->getProvider()->getProperty("USB Vendor Name"));
-}
-
-OSString * IOHIDPointingDevice::newTransportString() const
-{
-    OSString * provStr = _provider->getProperty("IOProviderClass");
-    
-    if ( !provStr )
-        return 0;
-        
-    if ( provStr->isEqualTo("IOADBDevice"))
-        return OSString::withCString("ADB");
-        
-    else if ( provStr->isEqualTo("IOUSBInterface"))
-        return OSString::withCString("USB");
-        
-    return 0;
-}
-
-OSNumber * IOHIDPointingDevice::newVendorIDNumber() const
-{    
-    if (!_provider->getProvider() ||
-        !_provider->getProvider()->getProvider())
-        return 0;
-    
-    OSNumber *num = 
-        _provider->getProvider()->getProvider()->getProperty("idVendor");
-    
-    if (num)
-        return OSNumber::withNumber(num->unsigned32BitValue(), 32);
-        
-    return 0;
-}
-
-OSNumber * IOHIDPointingDevice::newProductIDNumber() const
-{
-    if (!_provider->getProvider() ||
-        !_provider->getProvider()->getProvider())
-        return 0;
-
-    OSNumber *num = 
-        _provider->getProvider()->getProvider()->getProperty("idProduct");
-    
-    if (num)
-        return OSNumber::withNumber(num->unsigned32BitValue(), 32);
-        
-    return 0;
-}
-
-OSNumber * IOHIDPointingDevice::newLocationIDNumber() const
-{
-    if (!_provider->getProvider() ||
-        !_provider->getProvider()->getProvider())
-        return 0;
-
-    OSNumber *num = 
-        _provider->getProvider()->getProvider()->getProperty("locationID");
-    
-    if (num)
-        return OSNumber::withNumber(num->unsigned32BitValue(), 32);
-        
-    return 0;
-}
-
-OSString * IOHIDPointingDevice::newSerialNumberString() const
-{
-    if (!_provider->getProvider() ||
-        !_provider->getProvider()->getProvider())
-        return 0;
-
-    OSNumber *num = 
-        _provider->getProvider()->getProvider()->getProperty("iSerialNumber");
-    
-    char str[33];
-    
-    if (num)
-    {
-        sprintf(str, "%d", num->unsigned32BitValue());
-        str[32] = 0;
-        return OSString::withCString(str);
-    }
-        
-    return 0;
 }
 
 IOReturn IOHIDPointingDevice::newReportDescriptor(
@@ -350,7 +246,7 @@ IOReturn IOHIDPointingDevice::newReportDescriptor(
 
     *descriptor = IOBufferMemoryDescriptor::withCapacity( 
         sizeof(GenericMouseDescriptor),
-        kIODirectionOutIn,
+        kIODirectionNone,
         true);
                                         
     if (! *descriptor)
@@ -410,7 +306,7 @@ IOReturn IOHIDPointingDevice::newReportDescriptor(
 
     bcopy(genMouseDesc, desc, sizeof(GenericMouseDescriptor));
     
-    GenericMouseDescriptor *mouse = desc;
+    GenericMouseDescriptor *mouse = (GenericMouseDescriptor *)desc;
    
     if ((_numButtons <= 8) &&
         (_numButtons != mouse->buttonRptCountNum))
@@ -458,7 +354,7 @@ IOReturn IOHIDPointingDevice::newReportDescriptor(
 
 void IOHIDPointingDevice::postMouseEvent(UInt8 buttons, UInt16 x, UInt16 y, UInt8 wheel)
 {
-    GenericMouseReport *report = _report->getBytesNoCopy();
+    GenericMouseReport *report = (GenericMouseReport*)_report->getBytesNoCopy();
     
     if (!report)
         return;

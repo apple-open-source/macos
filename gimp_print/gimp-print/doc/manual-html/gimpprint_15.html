@@ -1,0 +1,141 @@
+<HTML>
+<HEAD>
+<!-- This HTML file has been created by texi2html 1.51
+     from .././gimpprint.texi on 22 January 2003 -->
+
+<TITLE>GIMP-Print - Paper functions</TITLE>
+</HEAD>
+<BODY>
+Go to the <A HREF="gimpprint_1.html">first</A>, <A HREF="gimpprint_14.html">previous</A>, <A HREF="gimpprint_16.html">next</A>, <A HREF="gimpprint_47.html">last</A> section, <A HREF="gimpprint_toc.html">table of contents</A>.
+<P><HR><P>
+
+
+<H2><A NAME="SEC20" HREF="gimpprint_toc.html#TOC20">4.5  Paper functions</A></H2>
+<P>
+<A NAME="IDX124"></A>
+
+</P>
+<P>
+<DL>
+<DT><U>Data type:</U> void * <B>stp_papersize_t</B>
+<DD><A NAME="IDX125"></A>
+This is an opaque data type, whose structure is not visible to the
+user.
+</DL>
+
+</P>
+<P>
+<DL>
+<DT><U>Data type:</U>  <B>stp_papersize_unit_t</B>
+<DD><A NAME="IDX126"></A>
+
+<PRE>
+typedef enum papersize_unit
+{
+  PAPERSIZE_ENGLISH,
+  PAPERSIZE_METRIC
+} stp_papersize_unit_t;
+</PRE>
+
+</DL>
+
+<P>
+<DL>
+<DT><U>Function:</U> int <B>stp_known_papersizes</B> <I>(void)</I>
+<DD><A NAME="IDX127"></A>
+
+</P>
+</DL>
+
+<P>
+<DL>
+<DT><U>Function:</U> const stp_papersize_t <B>stp_get_papersize_by_name</B> <I>(const char *<VAR>name</VAR>)</I>
+<DD><A NAME="IDX128"></A>
+
+</P>
+</DL>
+
+<P>
+<DL>
+<DT><U>Function:</U> const stp_papersize_t <B>stp_get_papersize_by_size</B> <I>(int <VAR>l</VAR>, int <VAR>w</VAR>)</I>
+<DD><A NAME="IDX129"></A>
+
+</P>
+</DL>
+
+<P>
+<DL>
+<DT><U>Function:</U> const stp_papersize_t <B>stp_get_papersize_by_index</B> <I>(int <VAR>index</VAR>)</I>
+<DD><A NAME="IDX130"></A>
+
+</P>
+</DL>
+
+<P>
+<DL>
+<DT><U>Function:</U> const char * <B>stp_papersize_get_name</B> <I>(const stp_papersize_t <VAR>pt</VAR>)</I>
+<DD><A NAME="IDX131"></A>
+
+</P>
+</DL>
+
+<P>
+<DL>
+<DT><U>Function:</U> unsigned <B>stp_papersize_get_width</B> <I>(const stp_papersize_t <VAR>pt</VAR>)</I>
+<DD><A NAME="IDX132"></A>
+
+</P>
+</DL>
+
+<P>
+<DL>
+<DT><U>Function:</U> unsigned <B>stp_papersize_get_height</B> <I>(const stp_papersize_t <VAR>pt</VAR>)</I>
+<DD><A NAME="IDX133"></A>
+
+</P>
+</DL>
+
+<P>
+<DL>
+<DT><U>Function:</U> unsigned <B>stp_papersize_get_top</B> <I>(const stp_papersize_t <VAR>pt</VAR>)</I>
+<DD><A NAME="IDX134"></A>
+
+</P>
+</DL>
+
+<P>
+<DL>
+<DT><U>Function:</U> unsigned <B>stp_papersize_get_left</B> <I>(const stp_papersize_t <VAR>pt</VAR>)</I>
+<DD><A NAME="IDX135"></A>
+
+</P>
+</DL>
+
+<P>
+<DL>
+<DT><U>Function:</U> unsigned <B>stp_papersize_get_bottom</B> <I>(const stp_papersize_t <VAR>pt</VAR>)</I>
+<DD><A NAME="IDX136"></A>
+
+</P>
+</DL>
+
+<P>
+<DL>
+<DT><U>Function:</U> unsigned <B>stp_papersize_get_right</B> <I>(const stp_papersize_t <VAR>pt</VAR>)</I>
+<DD><A NAME="IDX137"></A>
+
+</P>
+</DL>
+
+<P>
+<DL>
+<DT><U>Function:</U> stp_papersize_unit_t <B>stp_papersize_get_unit</B> <I>(const stp_papersize_t <VAR>pt</VAR>)</I>
+<DD><A NAME="IDX138"></A>
+
+</P>
+</DL>
+
+<P><HR><P>
+Go to the <A HREF="gimpprint_1.html">first</A>, <A HREF="gimpprint_14.html">previous</A>, <A HREF="gimpprint_16.html">next</A>, <A HREF="gimpprint_47.html">last</A> section, <A HREF="gimpprint_toc.html">table of contents</A>.
+</BODY>
+</HTML>

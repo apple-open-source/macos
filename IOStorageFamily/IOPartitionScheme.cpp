@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1998-2000 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 1998-2003 Apple Computer, Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -43,7 +43,7 @@ IOMedia * IOPartitionScheme::getProvider() const
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
-bool IOPartitionScheme::init(OSDictionary * properties = 0)
+bool IOPartitionScheme::init(OSDictionary * properties)
 {
     //
     // Initialize this object's minimal state.

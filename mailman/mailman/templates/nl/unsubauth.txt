@@ -1,0 +1,10 @@
+Uw toestemming wordt gevraagd voor een verzoek tot uitschrijving:
+
+    Door:   %(username)s
+    Van: %(listname)s@%(hostname)s
+
+Bezoek:
+
+    %(admindb_url)s
+
+om dit verzoek te behandelen.

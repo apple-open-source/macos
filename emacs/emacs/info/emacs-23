@@ -1,7 +1,8 @@
-This is ../info/emacs, produced by makeinfo version 4.0 from emacs.texi.
+This is ../info/emacs, produced by makeinfo version 4.0f from
+emacs.texi.
 
    This is the Fourteenth edition of the `GNU Emacs Manual', updated
-for Emacs version 21.1.
+for Emacs version 21.2.
 
 INFO-DIR-SECTION Emacs
 START-INFO-DIR-ENTRY
@@ -11,9 +12,9 @@ END-INFO-DIR-ENTRY
    Published by the Free Software Foundation 59 Temple Place, Suite 330
 Boston, MA  02111-1307 USA
 
-   Copyright (C) 1985,
-1986,1987,1993,1994,1995,1996,1997,1998,1999,2000,2001    Free Software
-Foundation, Inc.
+   Copyright (C)
+1985,1986,1987,1993,1994,1995,1996,1997,1998,1999,2000,2001,2002
+Free Software Foundation, Inc.
 
    Permission is granted to copy, distribute and/or modify this document
 under the terms of the GNU Free Documentation License, Version 1.1 or
@@ -27,34 +28,6 @@ License."
    (a) The FSF's Back-Cover Text is: "You have freedom to copy and
 modify this GNU Manual, like GNU software.  Copies published by the Free
 Software Foundation raise funds for GNU development."
-
-
-File: emacs,  Node: Gnus Startup,  Next: Summary of Gnus,  Prev: Buffers of Gnus,  Up: Gnus
-
-When Gnus Starts Up
--------------------
-
-   At startup, Gnus reads your `.newsrc' news initialization file and
-attempts to communicate with the local news server, which is a
-repository of news articles.  The news server need not be the same
-computer you are logged in on.
-
-   If you start Gnus and connect to the server, but do not see any
-newsgroups listed in the group buffer, type `L' or `A k' to get a
-listing of all the groups.  Then type `u' to toggle subscription to
-groups.
-
-   The first time you start Gnus, Gnus subscribes you to a few selected
-groups.  All other groups start out as "killed groups" for you; you can
-list them with `A k'.  All new groups that subsequently come to exist
-at the news server become "zombie groups" for you; type `A z' to list
-them.  You can subscribe to a group shown in these lists using the `u'
-command.
-
-   When you quit Gnus with `q', it automatically records in your
-`.newsrc' and `.newsrc.eld' initialization files the subscribed or
-unsubscribed status of all groups.  You should normally not edit these
-files manually, but you may if you know how.
 
 
 File: emacs,  Node: Summary of Gnus,  Prev: Gnus Startup,  Up: Gnus

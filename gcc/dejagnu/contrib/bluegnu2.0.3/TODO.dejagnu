@@ -1,0 +1,7 @@
+		Thu Mar 16 17:34:33 MST 1995
+
+. Add more support for target boards and realtime OS's.
+. Use the new expect terminal support for an "escape codes" API.
+. Use expectk and write a GUI testing API, complete with
+  record/playback.
+. Add a "testing methodologies" section to the manual.

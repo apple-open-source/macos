@@ -1,4 +1,4 @@
-This is ../info/efaq, produced by makeinfo version 4.0 from faq.texi.
+This is ../info/efaq, produced by makeinfo version 4.0f from faq.texi.
 
 INFO-DIR-SECTION Emacs
 START-INFO-DIR-ENTRY
@@ -29,15 +29,15 @@ unless that work itself allows free copying and redistribution.
 
 
 Indirect:
-efaq-1: 1256
-efaq-2: 51014
-efaq-3: 100656
-efaq-4: 149596
-efaq-5: 190346
+efaq-1: 1257
+efaq-2: 51021
+efaq-3: 100663
+efaq-4: 149565
+efaq-5: 190315
 
 Tag Table:
 (Indirect)
-Node: Top1256
+Node: Top1257
 Node: FAQ notation2032
 Node: Basic keys2490
 Ref: Basic keys-Footnote-14449
@@ -72,151 +72,151 @@ Node: New in Emacs 2137411
 Node: Common requests38216
 Node: Setting up a customization file39934
 Node: Colors on a TTY41105
-Node: Debugging a customization file42120
-Node: Displaying the current line or column43022
-Node: Displaying the current file name in the titlebar44589
-Node: Turning on abbrevs by default45748
-Node: Turning on auto-fill by default46259
-Node: Associating modes with files46960
-Node: Working with unprintable characters48005
-Node: Highlighting a region49757
-Node: Controlling case sensitivity50189
-Node: Wrapping words automatically51014
-Node: Spell-checkers51465
-Node: Checking TeX and *roff documents51742
-Node: Changing load-path52039
-Node: Using an already running Emacs process52524
-Node: Compiler error messages56054
-Node: Indenting switch statements57165
-Node: Customizing C and C++ indentation58077
-Node: Horizontal scrolling60665
-Node: Overwrite mode61799
-Node: Turning off beeping62280
-Node: Turning the volume down62839
-Node: Automatic indentation63527
-Node: Matching parentheses65410
-Node: Hiding #ifdef lines67438
-Node: Repeating commands67949
-Node: Valid X resources69024
-Node: Evaluating Emacs Lisp code69505
-Node: Changing the length of a Tab70975
-Node: Inserting > at the beginning of each line71670
-Node: Underlining paragraphs72695
-Node: Repeating a command as many times as possible73107
-Node: Forcing the cursor to remain in the same column73684
-Node: Forcing Emacs to iconify itself74161
-Node: Using regular expressions74513
-Node: Replacing text across multiple files75482
-Node: Documentation for etags76136
-Node: Disabling backups76523
-Node: Disabling auto-save-mode77985
-Node: Going to a line by number78908
-Node: Modifying pull-down menus80422
-Node: Deleting menus and menu options83543
-Node: Turning on syntax highlighting84249
-Node: Scrolling only one line88577
-Node: Replacing highlighted text89021
-Node: Editing MS-DOS files89797
-Node: Filling paragraphs with a single space90931
-Node: Escape sequences in shell output91454
-Node: Bugs and problems92275
-Node: Problems with very large files93474
-Node: ^M in the shell buffer95368
-Node: Shell process exits abnormally97057
-Node: Problems with Shell Mode on MS-Windows98401
-Node: Termcap/Terminfo entries for Emacs99424
-Node: Spontaneous entry into isearch-mode100656
-Node: Problems talking to certain hosts101306
-Node: Errors with init files102912
-Node: Emacs ignores X resources103721
-Node: Emacs ignores frame parameters105522
-Node: Emacs takes a long time to visit files106366
-Node: Editing files with $ in the name107110
-Node: Shell mode loses the current directory107552
-Node: Security risks with Emacs108509
-Node: Dired claims that no file is on this line112470
-Node: Compiling and installing Emacs113537
-Node: Installing Emacs113839
-Node: Updating Emacs117689
-Node: Problems building Emacs118327
-Node: Linking with -lX11 fails119214
-Node: Finding Emacs and related packages120480
-Node: Finding Emacs on the Internet121207
-Node: Finding a package with particular functionality121942
-Node: Packages that do not come with Emacs124658
-Node: Submitting to the Emacs Lisp Archive126174
-Node: Current GNU distributions126933
-Node: Difference between Emacs and XEmacs127467
-Node: Emacs for MS-DOS129695
-Node: Emacs for Windows132663
-Node: Emacs for OS/2133445
-Node: Emacs for Atari ST134070
-Node: Emacs for the Amiga134439
-Node: Emacs for NeXTSTEP134944
-Node: Emacs for Apple computers135371
-Node: Emacs for VMS and DECwindows136204
-Node: Modes for various languages136590
-Ref: Modes for various languages-Footnote-1137603
-Node: Translating names to IP addresses137817
-Node: Major packages and programs138709
-Node: VM139024
-Node: Supercite140034
-Node: Calc140566
-Node: VIPER141241
-Node: AUC-TeX141990
-Node: BBDB142611
-Node: Ispell143158
-Node: w3-mode143784
-Node: EDB144318
-Node: Mailcrypt144682
-Node: JDE145216
-Node: Patch145579
-Node: Key bindings145907
-Node: Binding keys to commands146641
-Node: Invalid prefix characters148759
-Node: Terminal setup code works after Emacs has begun149596
-Node: Using function keys under X150962
-Node: Working with function and arrow keys151324
-Node: X key translations for Emacs151842
-Node: Handling C-s and C-q with flow control152647
-Node: Binding C-s and C-q157715
-Node: Backspace invokes help158645
-Node: stty and Backspace key162449
-Node: Swapping keys162738
-Node: Producing C-XXX with the keyboard163858
-Node: No Meta key164469
-Node: No Escape key164997
-Node: Compose Character165550
-Node: Binding combinations of modifiers and function keys166034
-Node: Meta key does not work in xterm167259
-Node: ExtendChar key does not work as Meta169440
-Node: Alternate character sets170298
-Node: Emacs does not display 8-bit characters170599
-Node: Inputting eight-bit characters171423
-Node: Kanji and Chinese characters171896
-Node: Right-to-left alphabets172435
-Node: Mail and news173354
-Node: Changing the included text prefix174270
-Node: Saving a copy of outgoing mail174925
-Node: Expanding aliases when sending mail175950
-Node: Rmail thinks all messages are one big one177347
-Node: Sorting the messages in an Rmail folder178023
-Node: Rmail writes to /usr/spool/mail178384
-Node: Recovering mail files when Rmail munges them179176
-Node: Replying to the sender of a message180226
-Node: MIME with Emacs mail packages181305
-Node: Automatically starting a mail or news reader181959
-Node: Reading news with Emacs182680
-Node: Gnus does not work with NNTP182987
-Node: Viewing articles with embedded underlining183887
-Node: Saving a multi-part Gnus posting185905
-Node: Starting Gnus faster186286
-Node: Catching up in all newsgroups187050
-Node: Killing based on nonstandard headers187463
-Node: Removing flashing messages188229
-Node: Catch-up is slow in Gnus188549
-Node: Gnus hangs for a long time188863
-Node: Learning more about Gnus190075
-Node: Concept index190346
+Node: Debugging a customization file42127
+Node: Displaying the current line or column43029
+Node: Displaying the current file name in the titlebar44596
+Node: Turning on abbrevs by default45755
+Node: Turning on auto-fill by default46266
+Node: Associating modes with files46967
+Node: Working with unprintable characters48012
+Node: Highlighting a region49764
+Node: Controlling case sensitivity50196
+Node: Wrapping words automatically51021
+Node: Spell-checkers51472
+Node: Checking TeX and *roff documents51749
+Node: Changing load-path52046
+Node: Using an already running Emacs process52531
+Node: Compiler error messages56061
+Node: Indenting switch statements57172
+Node: Customizing C and C++ indentation58084
+Node: Horizontal scrolling60672
+Node: Overwrite mode61806
+Node: Turning off beeping62287
+Node: Turning the volume down62846
+Node: Automatic indentation63534
+Node: Matching parentheses65417
+Node: Hiding #ifdef lines67445
+Node: Repeating commands67956
+Node: Valid X resources69031
+Node: Evaluating Emacs Lisp code69512
+Node: Changing the length of a Tab70982
+Node: Inserting > at the beginning of each line71677
+Node: Underlining paragraphs72702
+Node: Repeating a command as many times as possible73114
+Node: Forcing the cursor to remain in the same column73691
+Node: Forcing Emacs to iconify itself74168
+Node: Using regular expressions74520
+Node: Replacing text across multiple files75489
+Node: Documentation for etags76143
+Node: Disabling backups76530
+Node: Disabling auto-save-mode77992
+Node: Going to a line by number78915
+Node: Modifying pull-down menus80429
+Node: Deleting menus and menu options83550
+Node: Turning on syntax highlighting84256
+Node: Scrolling only one line88584
+Node: Replacing highlighted text89028
+Node: Editing MS-DOS files89804
+Node: Filling paragraphs with a single space90938
+Node: Escape sequences in shell output91461
+Node: Bugs and problems92282
+Node: Problems with very large files93481
+Node: ^M in the shell buffer95375
+Node: Shell process exits abnormally97064
+Node: Problems with Shell Mode on MS-Windows98408
+Node: Termcap/Terminfo entries for Emacs99431
+Node: Spontaneous entry into isearch-mode100663
+Node: Problems talking to certain hosts101313
+Node: Errors with init files102919
+Node: Emacs ignores X resources103728
+Node: Emacs ignores frame parameters105529
+Node: Emacs takes a long time to visit files106373
+Node: Editing files with $ in the name107117
+Node: Shell mode loses the current directory107559
+Node: Security risks with Emacs108516
+Node: Dired claims that no file is on this line112477
+Node: Compiling and installing Emacs113544
+Node: Installing Emacs113846
+Node: Updating Emacs117696
+Node: Problems building Emacs118334
+Node: Linking with -lX11 fails119221
+Node: Finding Emacs and related packages120487
+Node: Finding Emacs on the Internet121214
+Node: Finding a package with particular functionality121949
+Node: Packages that do not come with Emacs124665
+Node: Submitting to the Emacs Lisp Archive126181
+Node: Current GNU distributions126940
+Node: Difference between Emacs and XEmacs127474
+Node: Emacs for MS-DOS129709
+Node: Emacs for Windows132632
+Node: Emacs for OS/2133414
+Node: Emacs for Atari ST134039
+Node: Emacs for the Amiga134408
+Node: Emacs for NeXTSTEP134913
+Node: Emacs for Apple computers135340
+Node: Emacs for VMS and DECwindows136173
+Node: Modes for various languages136559
+Ref: Modes for various languages-Footnote-1137572
+Node: Translating names to IP addresses137786
+Node: Major packages and programs138678
+Node: VM138993
+Node: Supercite140003
+Node: Calc140535
+Node: VIPER141210
+Node: AUC-TeX141959
+Node: BBDB142580
+Node: Ispell143127
+Node: w3-mode143753
+Node: EDB144287
+Node: Mailcrypt144651
+Node: JDE145185
+Node: Patch145548
+Node: Key bindings145876
+Node: Binding keys to commands146610
+Node: Invalid prefix characters148728
+Node: Terminal setup code works after Emacs has begun149565
+Node: Using function keys under X150931
+Node: Working with function and arrow keys151293
+Node: X key translations for Emacs151811
+Node: Handling C-s and C-q with flow control152616
+Node: Binding C-s and C-q157684
+Node: Backspace invokes help158614
+Node: stty and Backspace key162418
+Node: Swapping keys162707
+Node: Producing C-XXX with the keyboard163827
+Node: No Meta key164438
+Node: No Escape key164966
+Node: Compose Character165519
+Node: Binding combinations of modifiers and function keys166003
+Node: Meta key does not work in xterm167228
+Node: ExtendChar key does not work as Meta169409
+Node: Alternate character sets170267
+Node: Emacs does not display 8-bit characters170568
+Node: Inputting eight-bit characters171392
+Node: Kanji and Chinese characters171865
+Node: Right-to-left alphabets172404
+Node: Mail and news173323
+Node: Changing the included text prefix174239
+Node: Saving a copy of outgoing mail174894
+Node: Expanding aliases when sending mail175919
+Node: Rmail thinks all messages are one big one177316
+Node: Sorting the messages in an Rmail folder177992
+Node: Rmail writes to /usr/spool/mail178353
+Node: Recovering mail files when Rmail munges them179145
+Node: Replying to the sender of a message180195
+Node: MIME with Emacs mail packages181274
+Node: Automatically starting a mail or news reader181928
+Node: Reading news with Emacs182649
+Node: Gnus does not work with NNTP182956
+Node: Viewing articles with embedded underlining183856
+Node: Saving a multi-part Gnus posting185874
+Node: Starting Gnus faster186255
+Node: Catching up in all newsgroups187019
+Node: Killing based on nonstandard headers187432
+Node: Removing flashing messages188198
+Node: Catch-up is slow in Gnus188518
+Node: Gnus hangs for a long time188832
+Node: Learning more about Gnus190044
+Node: Concept index190315
 
 End Tag Table

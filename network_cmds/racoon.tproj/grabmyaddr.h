@@ -1,4 +1,4 @@
-/*	$KAME: grabmyaddr.h,v 1.5 2000/10/04 17:40:59 itojun Exp $	*/
+/*	$KAME: grabmyaddr.h,v 1.6 2001/12/12 15:29:12 sakane Exp $	*/
 
 /*
  * Copyright (C) 1995, 1996, 1997, and 1998 WIDE Project.
@@ -33,6 +33,9 @@ struct myaddrs {
 	struct myaddrs *next;
 	struct sockaddr *addr;
 	int sock;
+#ifdef IKE_NAT_T
+	int	nattsock;	/* nat-traversal socket (port PORT_ISAKMP_NATT), for IPv4 sockets only */
+#endif
 };
 
 extern void clear_myaddr __P((struct myaddrs **));

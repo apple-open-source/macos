@@ -1,5 +1,6 @@
 /* Handle HP ELF shared libraries for GDB, the GNU Debugger.
-   Copyright 1999, 2000, 2001 Free Software Foundation, Inc.
+
+   Copyright 1999, 2000, 2001, 2002 Free Software Foundation, Inc.
 
    This file is part of GDB.
 
@@ -47,7 +48,6 @@
 #include "gdb-stabs.h"
 #include "gdb_stat.h"
 #include "gdbcmd.h"
-#include "assert.h"
 #include "language.h"
 #include "regcache.h"
 
@@ -80,7 +80,7 @@ struct so_list
     struct load_module_desc pa64_solib_desc;
     struct section_table *sections;
     struct section_table *sections_end;
-    boolean loaded;
+    int loaded;
   };
 
 static struct so_list *so_list_head;
@@ -109,10 +109,10 @@ static int pa64_solib_st_size_threshold_exceeded;
 typedef struct
   {
     CORE_ADDR dld_flags_addr;
-    long long dld_flags;
+    LONGEST dld_flags;
     sec_ptr dyninfo_sect;
-    boolean have_read_dld_descriptor;
-    boolean is_valid;
+    int have_read_dld_descriptor;
+    int is_valid;
     CORE_ADDR load_map;
     CORE_ADDR load_map_addr;
     struct load_module_desc dld_desc;
@@ -127,11 +127,11 @@ static void pa64_solib_sharedlibrary_command (char *, int);
 
 static void *pa64_target_read_memory (void *, CORE_ADDR, size_t, int);
 
-static boolean read_dld_descriptor (struct target_ops *, int readsyms);
+static int read_dld_descriptor (struct target_ops *, int readsyms);
 
-static boolean read_dynamic_info (asection *, dld_cache_t *);
+static int read_dynamic_info (asection *, dld_cache_t *);
 
-static void add_to_solist (boolean, char *, int, struct load_module_desc *,
+static void add_to_solist (int, char *, int, struct load_module_desc *,
 			   CORE_ADDR, struct target_ops *);
 
 /* When examining the shared library for debugging information we have to
@@ -251,7 +251,7 @@ pa64_solib_add_solib_objfile (struct so_list *so, char *name, int from_tty,
 
   /* Now find the true lowest section in the shared library.  */
   sec = NULL;
-  bfd_map_over_sections (tmp_bfd, find_lowest_section, (PTR) &sec);
+  bfd_map_over_sections (tmp_bfd, find_lowest_section, &sec);
 
   if (sec)
     {
@@ -283,7 +283,7 @@ pa64_solib_add_solib_objfile (struct so_list *so, char *name, int from_tty,
 		       sizeof (obj_private_data_t));
       obj_private->unwind_info = NULL;
       obj_private->so_info = NULL;
-      so->objfile->obj_private = (PTR) obj_private;
+      so->objfile->obj_private = obj_private;
     }
 
   obj_private = (obj_private_data_t *) so->objfile->obj_private;
@@ -935,7 +935,7 @@ so_lib_thread_start_addr (struct so_list *so)
    descriptor.  If the library is archive bound, then return zero, else
    return nonzero.  */
 
-static boolean
+static int
 read_dld_descriptor (struct target_ops *target, int readsyms)
 {
   char *dll_path;
@@ -1004,7 +1004,7 @@ read_dld_descriptor (struct target_ops *target, int readsyms)
    which is stored in dld_cache.  The routine elf_locate_base in solib.c 
    was used as a model for this.  */
 
-static boolean
+static int
 read_dynamic_info (asection *dyninfo_sect, dld_cache_t *dld_cache_p)
 {
   char *buf;
@@ -1102,7 +1102,7 @@ pa64_target_read_memory (void *buffer, CORE_ADDR ptr, size_t bufsiz, int ident)
    be read from the inferior process at the address load_module_desc_addr.  */
 
 static void
-add_to_solist (boolean from_tty, char *dll_path, int readsyms,
+add_to_solist (int from_tty, char *dll_path, int readsyms,
 	       struct load_module_desc *load_module_desc_p,
 	       CORE_ADDR load_module_desc_addr, struct target_ops *target)
 {
@@ -1224,13 +1224,13 @@ bfd_lookup_symbol (bfd *abfd, char *symname)
   if (storage_needed > 0)
     {
       symbol_table = (asymbol **) xmalloc (storage_needed);
-      back_to = make_cleanup (xfree, (PTR) symbol_table);
+      back_to = make_cleanup (xfree, symbol_table);
       number_of_symbols = bfd_canonicalize_symtab (abfd, symbol_table);
 
       for (i = 0; i < number_of_symbols; i++)
 	{
 	  sym = *symbol_table++;
-	  if (STREQ (sym->name, symname))
+	  if (strcmp (sym->name, symname) == 0)
 	    {
 	      /* Bfd symbols are section relative. */
 	      symaddr = sym->value + sym->section->vma;

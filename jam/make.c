@@ -110,12 +110,27 @@ int	anyhow;
 
 	    make0( t, T_BIND_UNBOUND, (time_t)0, 0, counts, anyhow );
 	}
+#ifdef APPLE_EXTENSIONS
+	if( globs.enable_timings )
+	{
+	    printf( "    headers scanned: %d   time spent scanning:  %.2f\n",
+	            globs.headers_scanned, globs.header_scanning_time );
 
+	    append_timing_entry( globs.timing_entry, 0, "jam internals: dependency analysis -- make0()", NULL, NULL);
+
+	    // Create a fake timing entry as a placeholder to mark the end of the setup work.
+	    globs.timing_entry = create_timing_entry();
+	    append_timing_entry( globs.timing_entry, 0, "BuildPhase", NULL, "<jam setup>" );
+	}
+#endif
+	
 #ifdef APPLE_EXTENSIONS
 	if( PARSABLE_OUTPUT )
 	    pbx_printf( "JBGN", "%i %i %i\n", counts->updating, counts->cantfind, counts->cantmake );
+	globs.num_targets_to_update = counts->updating;
 #endif
 
+#ifndef APPLE_EXTENSIONS
 	if( DEBUG_MAKE )
 	{
 	    if( counts->targets )
@@ -129,6 +144,12 @@ int	anyhow;
 	    if( counts->cantmake )
 		printf( "...can't make %d target(s)...\n", counts->cantmake );
 	}
+#endif
+#ifdef APPLE_EXTENSIONS
+	if (counts->cantfind != 0  &&  !globs.ignore) {
+	    exit(EXITBAD);
+	}
+#endif
 
 	status = counts->cantfind || counts->cantmake;
 
@@ -165,7 +186,6 @@ int	anyhow;		/* forcibly touch all (real) targets */
 	/* 
 	 * Step 1: don't remake if already trying or tried 
 	 */
-
 	switch( t->fate )
 	{
 	case T_FATE_MAKING:
@@ -362,8 +382,16 @@ int	anyhow;		/* forcibly touch all (real) targets */
 	    }
 	    else
 	    {
+	    #ifdef APPLE_EXTENSIONS
+		if (PARSABLE_OUTPUT) {
+		    pbx_printf( "JERR", "Missing file or directory: %s\n", t->name );
+		}
+		else {
+		    printf( "Missing file or directory: %s\n", t->name );
+		}
+	    #else
 		printf( "don't know how to make %s\n", t->name );
-
+	    #endif
 		fate = T_FATE_CANTFIND;
 	    }
 	}

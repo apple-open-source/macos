@@ -1,0 +1,11 @@
+Uw toestemming wordt gevraagd voor een mailinglijst
+inschrijvingsverzoek:
+
+    Voor :  %(username)s
+    Lijst: %(listname)s@%(hostname)s
+
+Bezoek:
+
+    %(admindb_url)s
+
+om het verzoek te behandelen.

@@ -1,8 +1,8 @@
 /* 
    +----------------------------------------------------------------------+
-   | PHP version 4.0                                                      |
+   | PHP Version 4                                                        |
    +----------------------------------------------------------------------+
-   | Copyright (c) 1997-2001 The PHP Group                                |
+   | Copyright (c) 1997-2003 The PHP Group                                |
    +----------------------------------------------------------------------+
    | This source file is subject to version 2.02 of the PHP license,      |
    | that is bundled with this package in the file LICENSE, and is        |
@@ -15,11 +15,12 @@
    | Authors: Danny Heijl <Danny.Heijl@cevi.be>, initial cut (ODS 7)      |
    |          Christian Cartus <chc@idgruppe.de>, blobs, and IUS 9        |
    |          Jouni Ahto <jouni.ahto@exdec.fi>, configuration stuff       |
+   |          Corne' Cornelius <cornec@reach.co.za>, input descriptors    |
    | based on mysql code by: Zeev Suraski <zeev@php.net>                  |
    +----------------------------------------------------------------------+
 */
 
-/* $Id: php_informix.h,v 1.1.1.4 2001/12/14 22:12:27 zarzycki Exp $ */
+/* $Id: php_informix.h,v 1.1.1.7 2003/07/18 18:07:34 zarzycki Exp $ */
 
 #ifndef PHP_INFORMIX_H
 #define PHP_INFORMIX_H
@@ -42,12 +43,6 @@
 
 extern zend_module_entry ifx_module_entry;
 #define ifx_module_ptr &ifx_module_entry
-
-#undef TYPEMAX
-#undef CHAR
-
-#include "locator.h"
-#include "sqltypes.h"
 
 /* user functions */
 PHP_MINIT_FUNCTION(ifx);
@@ -121,56 +116,6 @@ ZEND_END_MODULE_GLOBALS(ifx)
 # define IFXG(v) TSRMG(ifx_globals_id, zend_ifx_globals *, v)
 #else
 # define IFXG(v) (ifx_globals.v)
-#endif
-
-#define MAX_RESID          64
-#define BLOBINFILE 0      /* 0=in memory, 1=in file */
-
-/* query result set data */
-typedef struct ifx_res {
-	char connecid[16];
-	char cursorid[16];
-	char descrpid[16];
-	char statemid[16];
-	int  isscroll;
-	int  ishold;
-	int  iscursory;
-	int  paramquery;
-	int  numcols;
-	int  rowid;
-	int  affected_rows;
-	long sqlerrd[6];
-	int res_id[MAX_RESID];
-} IFX_RES;
-
-typedef struct _IFX_IDRES {
-	int type;
-	union {
-		struct {
-			int mode;
-			loc_t blob_data;
-		} BLOBRES;
-
-		struct {
-			char *char_data;
-			int len;
-		} CHARRES;
-
-#if HAVE_IFX_IUS
-		struct {
-			ifx_lo_t slob_data;
-			ifx_lo_create_spec_t *createspec;
-			int lofd;
-		} SLOBRES;
-#endif
-	} DATARES;
-} IFX_IDRES;
-
-#define BLOB DATARES.BLOBRES
-#define CHAR DATARES.CHARRES
-
-#if HAVE_IFX_IUS
-#define SLOB DATARES.SLOBRES
 #endif
 
 #else /* not HAVE_IFX  */

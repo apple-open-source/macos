@@ -1,0 +1,19 @@
+<?xml version="1.0"?>
+
+<jboss>
+   <enterprise-beans>
+      <session>
+         <ejb-name>EJBTestRunnerEJB</ejb-name>
+         <jndi-name>ejb/EJBTestRunner</jndi-name>
+      </session>
+
+      <entity>
+         <ejb-name>ABean</ejb-name>
+         <local-jndi-name>cmp2/ejbselect/A</local-jndi-name>
+      </entity>
+      <entity>
+         <ejb-name>BBean</ejb-name>
+         <local-jndi-name>cmp2/ejbselect/B</local-jndi-name>
+      </entity>
+   </enterprise-beans>
+</jboss>

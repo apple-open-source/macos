@@ -1,0 +1,10 @@
+Votre autorisation est requise pour une demande d'abonnement:
+
+    Pour:       %(username)s
+    Liste:      %(listname)s@%(hostname)s 
+
+Quand vous pourrez, consultez:
+
+	%(admindb_url)s
+
+pour traiter la requête.

@@ -54,7 +54,7 @@ proc pref_read {} {
     set file_opened 0
     if {[file exists $prefs_init_filename]} {
       if {[catch {open $prefs_init_filename r} fd]} {
-	debug "$fd"
+	dbug E "$fd"
 	return
       }
       set file_opened 1
@@ -62,7 +62,7 @@ proc pref_read {} {
       set name [file join $home $prefs_init_filename]
       if {[file exists $name]} {
 	if {[catch {open $name r} fd]} {
-	  debug "$fd"
+	  dbug E "$fd"
 	  return
 	}
 	set prefs_init_filename $name
@@ -98,28 +98,35 @@ proc pref_read {} {
 	  }
 
 	  default {
+	    set a ""
+	    set name ""
+	    set val ""
 	    regexp "\[ \t\n\]*\(.+\)=\(.+\)" $line a name val
-	    # Must unescape equal signs in val
-	    set val [unescape_value $val $version]
-	    if {$section == "gdb"} {
-	      pref setd gdb/$name $val
-	    } elseif {$section == "global" && [regexp "^font/" $name]} {
-	      set name [split $name /]
-	      set f global/
-	      append f [join [lrange $name 1 end] /]
-	      if {[lsearch [font names] $f] == -1} {
-		# new font
-		eval define_font $f $val
-	      } else {
-		# existing font
-		pref set global/font/[join [lrange $name 1 end] /] $val
-	      }
-	    } elseif {$section == "global"} {
-	      pref setd $section/$name $val
+	    if {$a == "" || $name == ""} {
+	      dbug W "Cannot parse line: $line"
 	    } else {
-	      # backwards compatibility. recognize old src-font name
-	      if {$val == "src-font"} {set val "global/fixed"}
-	      pref setd gdb/$section/$name $val
+	      # Must unescape equal signs in val
+	      set val [unescape_value $val $version]
+	      if {$section == "gdb"} {
+		pref setd gdb/$name $val
+	      } elseif {$section == "global" && [regexp "^font/" $name]} {
+		set name [split $name /]
+		set f global/
+		append f [join [lrange $name 1 end] /]
+		if {[lsearch [font names] $f] == -1} {
+		  # new font
+		  eval define_font $f $val
+		} else {
+		  # existing font
+		  pref set global/font/[join [lrange $name 1 end] /] $val
+		}
+	      } elseif {$section == "global"} {
+		pref setd $section/$name $val
+	      } else {
+		# backwards compatibility. recognize old src-font name
+		if {$val == "src-font"} {set val "global/fixed"}
+		pref setd gdb/$section/$name $val
+	      }
 	    }
 	  }
 	}
@@ -128,10 +135,14 @@ proc pref_read {} {
     } elseif {$home != ""} {
       set prefs_init_filename [file join $home $prefs_init_filename]
     }
-  
+    
     # now set global options
     set gdb_ImageDir [file join $GDBTK_LIBRARY [pref get gdb/ImageDir]]
+
   }
+
+  # finally set colors, from system if possible
+  pref_set_colors $home
 }
 
 # ------------------------------------------------------------------
@@ -147,7 +158,7 @@ proc pref_save {{win {}}} {
       debug "ERROR: $fd"
       return
     }
-  
+    
     puts $fd "\# GDBtk Init file"
     puts $fd {# GDBtkInitVersion: 1}
 
@@ -177,8 +188,8 @@ proc pref_save {{win {}}} {
       if {[lindex $t 0] == "gdb"
 	  && [string compare [join [lreplace $t 0 1] /] ""] == 0} {
 	set x [lindex $t 1]
-	if {$x != ""} {
-	  set v [escape_value [pref get $var]]
+	set v [escape_value [pref get $var]]
+	if {$x != "" && $v != ""} {
 	  puts $fd "\t$x=$v"
 	}
       }
@@ -265,6 +276,7 @@ proc unescape_value {val version} {
 # ------------------------------------------------------------------
 proc pref_set_defaults {} {
   global GDBTK_LIBRARY tcl_platform gdb_ImageDir
+  debug
 
   # Gdb global defaults
   pref define gdb/ImageDir                images2
@@ -273,30 +285,19 @@ proc pref_set_defaults {} {
   pref define gdb/mode                    0;     # 0 no tracing, 1 tracing enabled
   pref define gdb/control_target          1;     # 0 can't control target (EMC), 1 can
   pref define gdb/B1_behavior             1;     # 0 means set/clear breakpoints,
-                                                 # 1 means set/clear tracepoints.
+  # 1 means set/clear tracepoints.
   pref define gdb/use_icons		  1;	 # For Unix, use gdbtk_icon.gif as an icon
-						 # some window managers can't deal with it.
+  # some window managers can't deal with it.
 
-  #
-  # Font attributes
-  #
-
-  # "Normal" font attributes
-  pref define gdb/font/normal_fg    black
-  pref define gdb/font/normal_bg    gray92
-
-  # Selection foreground/background
-  pref define gdb/font/select_fg    black
-  pref define gdb/font/select_bg    lightgray
-
-  # Highlight used when something changes (variable value changes, etc)
-  pref define gdb/font/highlight_fg blue
-  pref define gdb/font/highlight_bg gray92
-
-  # "Header" foreground and background. Used by table headers and such.
-  pref define gdb/font/header_fg    gray92
-  pref define gdb/font/header_bg    darkgray
-
+  # OS compatibility. Valid values are "Windows", "GNOME", "KDE", and "default"
+  if {$tcl_platform(platform) == "windows"}  {
+    pref define gdb/compat	"Windows"
+  } elseif {$tcl_platform(platform) == "unix"}  {
+    pref define gdb/compat	"GNOME"
+  } else {
+    pref define gdb/compat	"default"
+  }
+  
   # set download and execution options
   pref define gdb/load/verbose 0
   pref define gdb/load/main 1
@@ -361,7 +362,7 @@ proc pref_set_defaults {} {
 
   # Stack Window
   pref define gdb/stack/font              global/fixed
-
+  
   # Register Window
   pref define gdb/reg/rows                16
 
@@ -384,7 +385,7 @@ proc pref_set_defaults {} {
   pref define gdb/bp/show_threads         0
 
   # Help
-  pref define gdb/help/browser		  0
+  pref define gdb/help/browsername	""
 
   # Kernel Objects (kod)
   pref define gdb/kod/show_icon           0
@@ -404,8 +405,298 @@ proc pref_set_defaults {} {
   pref define gdb/mem/ascii_char .
   pref define gdb/mem/bytes_per_row 16
   pref define gdb/mem/color green
-
+  
   # External editor.
   pref define gdb/editor ""
 }
 
+proc pref_set_colors {home} {
+  # set color palette
+  
+  # In the past, tk widgets got their color information from Windows or
+  # the X resource database.  Unfortunately Insight is a mixture of widgets 
+  # from all over and was coded first in tcl and later in itcl.  So lots of 
+  # color inheritance is broken or wrong. And Insight has some special color
+  # requirements. We also have to deal with new Unix desktops that don't use the Xrdb.
+  # To enable us to fix that without hardcoding colors, we create a color
+  # array here and use it as needed to force widgets to the correct colors.
+  
+  global Colors tcl_platform
+  debug
+
+  # UNIX colors
+  
+  # For KDE3 (and probably earlier versions) when the user sets
+  # a color scheme from the KDE control center, the appropriate color 
+  # information is set in the X resource database.  Well, most of it 
+  # is there but it is missing some settings, so we will carefully 
+  # adjust things.
+  #
+  # For GNOME, we read .gtkrc or .gtkrc-1.2-gnome2 and parse it
+  # for the color information.  We cannot really get this right,
+  # but with luck we can read enough to get the colors to mostly match.
+
+  # If there is no information, we provide reasonable defaults.
+  
+  # If some theme sets the text foreground and background to something unusual
+  # then Insight won't be able to display sources and highlight things properly.
+  # Therefore we will not change the textfg and textbg.
+
+  switch [pref get gdb/compat] {
+
+    "Windows" {
+      debug "loading OS colors for Windows"
+      set Colors(fg) SystemButtonText
+      set Colors(bg) SystemButtonFace
+      #set Colors(textfg) SystemWindowText
+      #set Colors(textbg) SystemWindow
+      set Colors(textfg) black
+      set Colors(textbg) white
+      set Colors(sfg) SystemHighlightText
+      set Colors(sbg) SystemHighlight
+      pref_set_option_db 0
+    }
+
+    "KDE" {
+      debug "loading OS colors for KDE"
+
+      pref_load_default
+      # try loading "~/.gtkrc-kde"
+      if {[pref_load_gnome $home [list .gtkrc-kde]]} {
+	debug "loaded gnome file"
+	pref_set_option_db 0
+	debug "loaded option file"
+      } else {
+	# no .gtkrc-kde so assume X defaults have been set
+
+	# create an empty entry widget so we can query its colors
+	entry .e
+	
+	# text background
+	# set Colors(textbg) [option get .e background {}]
+	set Colors(textbg) white
+	
+	# text foreground
+	#set Colors(textfg) [option get .e foreground {}]
+	set Colors(textfg) black
+	
+	# background
+	set Colors(bg) [option get . background {}]
+	if {$Colors(bg) == ""} {set Colors(bg) lightgray}
+	
+	# foreground
+	set Colors(fg) [option get . foreground {}]
+	if {$Colors(fg) == ""} {set Colors(fg) black}
+	
+	# selectBackground
+	set Colors(sbg) [option get .e selectBackground {}]
+	if {$Colors(sbg) == ""} {set Colors(sbg) blue}
+	
+	# selectForeground
+	set Colors(sfg) [option get .e selectForeground {}]
+	if {$Colors(sfg) == ""} {set Colors(sfg) white}
+	
+	destroy .e
+	pref_set_option_db 1
+      }
+    }
+    
+    "GNOME" {
+      pref_load_default
+      pref_load_gnome $home
+      pref_set_option_db 0
+    }
+
+    "default" {
+      pref_load_default
+      pref_set_option_db 1
+    }
+  }
+}
+
+proc pref_load_default {} {
+  global Colors
+  debug "loading default colors"
+  
+  set Colors(textbg) white
+  set Colors(textfg) black
+  set Colors(bg) lightgray
+  set Colors(fg) black
+  
+  # selectBackground
+  set Colors(sbg) blue
+  
+  # selectForeground
+  set Colors(sfg) white
+}
+
+
+# load GNOME colors and fonts, if possible.
+proc pref_load_gnome {home {possible_names {}}} {
+  debug "loading OS colors for GNOME"
+
+  if {$possible_names == ""} {
+    set possible_names {.gtkrc .gtkrc-1.2-gnome2}
+  }
+
+  set found 0
+  foreach name $possible_names {
+    debug "home=$home name=$name"
+    set fname [file join $home $name]
+    debug "fname=$fname"
+    if {[file exists $fname]} {
+      if {[catch {open $fname r} fd]} {
+	dbug W "cannot open $fname: $fd"
+	return 0
+      }
+      set found 1
+      break
+    }
+  }
+  if {$found} {
+    set found [load_gnome_file $fd]
+    close $fd
+  }
+  return $found
+}
+
+proc load_gnome_file {fd} {
+  global Colors
+  set found 0
+  
+  while {[gets $fd line] >= 0} {
+    if {[regexp {include \"([^\"]*)} $line foo incname]} {
+      debug "include $incname $found"
+      if {$found == 0 && [file exists $incname]} {
+	if {[catch {open $incname r} fd2]} {
+	  dbug W "cannot open $incname: $fd2"
+	} else {
+	  set found [load_gnome_file $fd2]
+	  close $fd2
+	  if {$found} {
+	    return $found
+	  }
+	}
+      }
+      continue
+    } elseif {[regexp "\[ \t\n\]*\(.+\) = \(.+\)" $line a name val] == 0} {
+      continue 
+    }
+    set res [scan $val "\{ %f, %f, %f \}" r g b]
+    if {$res != 3} {continue}
+    set r [expr int($r*255)]
+    set g [expr int($g*255)]
+    set b [expr int($b*255)]
+    set val [format "\#%02x%02x%02x" $r $g $b]
+    debug "name=\"$name\"  val=\"$val\""
+
+    # This is a bit of a hack and probably only
+    # works for trivial cases.  Scan for colors and
+    # use the first one found.
+    switch [string trimright $name] {
+      {bg[NORMAL]} {
+	set found 1
+	if {![info exists new(bg)]} {
+	  debug "setting bg to $val"
+	  set new(bg) $val
+	}
+      }
+      {base[NORMAL]} {
+	#if {![info exists new(textbg)]} {
+	#  set new(textbg) $val
+	#}
+      }
+      {text[NORMAL]} {
+	#if {![info exists new(textfg)]} {
+	#  set new(textfg) $val
+	#}
+      }
+      {fg[NORMAL]} {
+	if {![info exists new(fg)]} {
+	  set new(fg) $val
+	}
+      }
+      {fg[ACTIVE]} {
+	if {![info exists new(afg)]} {
+	  set new(afg) $val
+	}
+      }
+      {bg[SELECTED]} {
+	if {![info exists new(sbg)]} {
+	  set new(sbg) $val
+	}
+      }
+      {base[SELECTED]} {
+	if {![info exists new(sbg)]} {
+	  set new(sbg) $val
+	}
+      }
+      {fg[SELECTED]} {
+	if {![info exists new(sfg)]} {
+	  set new(sfg) $val
+	}
+      }
+      {fg[INSENSITIVE]} {
+	if {![info exists new(dfg)]} {
+	  set new(dfg) $val
+	}
+      }
+      {bg[PRELIGHT]} {
+	set Colors(prelight) $val
+      }
+      {base[PRELIGHT]} {
+	set Colors(prelight) $val
+      }
+    }
+  } 
+
+  foreach c {fg bg sfg sbg dfg} {
+    if {[info exists new($c)]} {
+      set Colors($c) $new($c)
+    }
+  }
+  return 1
+}
+
+
+# load the colors into the tcl option database
+proc pref_set_option_db {makebg} {
+  global Colors
+
+  # The color of text that indicates changed items
+  # We standardize on one color here so that changed
+  # items don't blend into any OS color scheme
+  set Colors(change) "green"
+
+  option add *background $Colors(bg)
+  option add *Text*background $Colors(textbg)
+  option add *Entry*background $Colors(textbg)
+  option add *foreground $Colors(fg)
+  option add *Text*foreground $Colors(textfg)
+  option add *Entry*foreground $Colors(textfg)
+
+  option add *highlightBackground $Colors(bg)
+  option add *selectBackground $Colors(sbg)
+  option add *activeBackground $Colors(sbg)
+  option add *selectForeground $Colors(sfg)
+  if {[info exists Colors(prelight)]} {
+    option add *Button*activeBackground $Colors(prelight)
+  }
+  if {[info exists Colors(dfg)]} {
+    option add *disabledForeground $Colors(dfg)
+  }
+  
+  if {$makebg} {
+    # compute a slightly darker background color
+    # and use for activeBackground and troughColor
+    set bg2 [winfo rgb . $Colors(bg)]
+    set dbg [format #%02x%02x%02x [expr {(9*[lindex $bg2 0])/2560}] \
+	       [expr {(9*[lindex $bg2 1])/2560}] [expr {(9*[lindex $bg2 2])/2560}]]
+    option add *activeBackground $dbg
+    option add *troughColor $dbg
+  }
+
+  # Change the default select color for checkbuttons, etc to match 
+  # selectBackground.
+  option add *selectColor $Colors(sbg)
+}

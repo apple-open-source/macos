@@ -318,11 +318,11 @@ void HTTPProtocol::HTTPConnection::transit(Event event, char *input, size_t leng
             if (length == 0 || endOfMatch == input) // no valid number
                 fail(Transfer::remoteFailure);
             if (chunkLength) {
-                debug("http", "reading chunk of %ld bytes", chunkLength);
+                secdebug("http", "reading chunk of %ld bytes", chunkLength);
                 mode(sink(), chunkLength);
                 state = chunkDownload;
             } else {
-                debug("http", "final chunk marker");
+                secdebug("http", "final chunk marker");
                 state = chunkTrailer;
                 observe(Observer::protocolReceive, "** END OF DATA **");
             }
@@ -361,7 +361,7 @@ void HTTPProtocol::HTTPConnection::transit(Event event, char *input, size_t leng
     case idle:
         {
             // the only asynchronous event in idle mode is a connection drop
-            debug("http",
+            secdebug("http",
                 "%p event %d while idle; destroying connection", this, event);
             abort();
             state = dead;

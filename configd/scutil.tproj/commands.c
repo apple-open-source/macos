@@ -1,22 +1,25 @@
 /*
- * Copyright (c) 2000 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 2000-2003 Apple Computer, Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
- *
- * The contents of this file constitute Original Code as defined in and
- * are subject to the Apple Public Source License Version 1.1 (the
- * "License").  You may not use this file except in compliance with the
- * License.  Please obtain a copy of the License at
- * http://www.apple.com/publicsource and read it before using this file.
- *
- * This Original Code and all software distributed under the License are
- * distributed on an "AS IS" basis, WITHOUT WARRANTY OF ANY KIND, EITHER
+ * 
+ * Copyright (c) 1999-2003 Apple Computer, Inc.  All Rights Reserved.
+ * 
+ * This file contains Original Code and/or Modifications of Original Code
+ * as defined in and that are subject to the Apple Public Source License
+ * Version 2.0 (the 'License'). You may not use this file except in
+ * compliance with the License. Please obtain a copy of the License at
+ * http://www.opensource.apple.com/apsl/ and read it before using this
+ * file.
+ * 
+ * The Original Code and all software distributed under the License are
+ * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
  * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
  * INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY,
- * FITNESS FOR A PARTICULAR PURPOSE OR NON-INFRINGEMENT.  Please see the
- * License for the specific language governing rights and limitations
- * under the License.
- *
+ * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
+ * Please see the License for the specific language governing rights and
+ * limitations under the License.
+ * 
  * @APPLE_LICENSE_HEADER_END@
  */
 
@@ -42,7 +45,7 @@
 #include "notify.h"
 #include "tests.h"
 
-#include <SystemConfiguration/SCPrivate.h>
+#include "SCDynamicStoreInternal.h"
 
 
 const cmdInfo commands[] = {
@@ -96,8 +99,8 @@ const cmdInfo commands[] = {
 	{ "set",	1,	1,	do_set,			4,	0,
 		" set key                       : set key in data store w/current dict"		},
 
-	{ "show",	1,	1,	do_show,		4,	1,
-		" show key                      : show dict in data store w/key"		},
+	{ "show",	1,	2,	do_show,		4,	0,
+		" show key [\"pattern\"]          : show values in data store w/key"		},
 
 	{ "remove",	1,	1,	do_remove,		4,	0,
 		" remove key                    : remove key from data store"			},
@@ -153,7 +156,7 @@ do_command(int argc, char **argv)
 	int	i;
 	char	*cmd = argv[0];
 
-	for (i=0; i<nCommands; i++) {
+	for (i = 0; i < nCommands; i++) {
 		if ((commands[i].ctype > 1) && !enablePrivateAPI)  {
 			continue;	/* if "private" API and access has not been enabled */
 		}
@@ -185,7 +188,7 @@ do_help(int argc, char **argv)
 	int	i;
 
 	SCPrint(TRUE, stdout, CFSTR("\nAvailable commands:\n"));
-	for (i=0; i<nCommands; i++) {
+	for (i = 0; i < nCommands; i++) {
 		if ((commands[i].ctype > 0) && !enablePrivateAPI)  {
 			continue;	/* if "private" API and access has not been enabled */
 		}
@@ -208,13 +211,16 @@ do_help(int argc, char **argv)
 void
 do_readFile(int argc, char **argv)
 {
-	CFSocketContext		context;
-	FILE			*fp = fopen(argv[0], "r");
-	CFSocketRef		in;
-	CFRunLoopSourceRef	rls;
+	InputRef		src;
 
-	if (fp == NULL) {
+	/* allocate command input stream */
+	src = (InputRef)CFAllocatorAllocate(NULL, sizeof(Input), 0);
+	src->el = NULL;
+	src->fp = fopen(argv[0], "r");
+
+	if (src->fp == NULL) {
 		SCPrint(TRUE, stdout, CFSTR("f.read: could not open file (%s).\n"), strerror(errno));
+		CFAllocatorDeallocate(NULL, src);
 		return;
 	}
 
@@ -222,38 +228,13 @@ do_readFile(int argc, char **argv)
 	SCPrint(TRUE, stdout, CFSTR("f.read: reading file (%s).\n"), argv[0]);
 	nesting++;
 
-	/* create a "socket" reference with the file descriptor associated with stdin */
-	context.version		= 0;
-	context.info		= fp;
-	context.retain		= NULL;
-	context.release		= NULL;
-	context.copyDescription	= NULL;
-	in  = CFSocketCreateWithNative(NULL,
-				       fileno(fp),
-				       kCFSocketReadCallBack,
-				       runLoopProcessInput,
-				       &context);
+	while (process_line(src) == TRUE) {
+	       /* debug information, diagnostics */
+		__showMachPortStatus();
+	}
 
-	/* Create and add a run loop source for the file descriptor */
-	rls = CFSocketCreateRunLoopSource(NULL, in, nesting);
-
-	/*
-	 * Remove the current input file from the run loop sources. We
-	 * will reactivate the current input file source when we are
-	 * finished reading data from the new file.
-	 */
-	CFRunLoopRemoveSource(CFRunLoopGetCurrent(),
-			      (CFRunLoopSourceRef) CFArrayGetValueAtIndex(sources, 0),
-			      kCFRunLoopDefaultMode);
-
-	/* keep track of this new source */
-	CFArrayInsertValueAtIndex(sources, 0, rls);
-
-	/* add this source to the run loop */
-	CFRunLoopAddSource(CFRunLoopGetCurrent(), rls, kCFRunLoopDefaultMode);
-
-	CFRelease(rls);
-	CFRelease(in);
+	(void)fclose(src->fp);
+	CFAllocatorDeallocate(NULL, src);
 
 	return;
 }

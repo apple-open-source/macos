@@ -27,9 +27,9 @@
 #include <Security/debugging.h>
 #include <Security/cssmdata.h>
 #include <opensslUtils/opensslUtils.h>
-#include <opensslUtils/openRsaSnacc.h>
+#include <opensslUtils/opensslAsn1.h>
 
-#define rsaSigDebug(args...) 	debug("rsaSig", ## args)
+#define rsaSigDebug(args...) 	secdebug("rsaSig", ## args)
 
 RSASigner::~RSASigner()
 {
@@ -65,6 +65,19 @@ void RSASigner::signerInit(
 				CssmError::throwMe(CSSMERR_CSP_INVALID_ATTR_PADDING);
 		}
 	}
+	
+	/* optional blinding attribute */
+	uint32 blinding = context.getInt(CSSM_ATTRIBUTE_RSA_BLINDING);
+	if(blinding) {
+		if(RSA_blinding_on(mRsaKey, NULL) <= 0) {
+			/* actually no legit failures */
+			CssmError::throwMe(CSSMERR_CSP_INTERNAL_ERROR);
+		}
+	}
+	else {
+		RSA_blinding_off(mRsaKey);
+	}
+
 	setInitFlag(true);
 }
 
@@ -297,7 +310,7 @@ void DSASigner::verify(
 	}
 
 	irtn = DSA_do_verify((unsigned char *)data, dataLen, dsaSig, mDsaKey);
-	if(!irtn) {
+	if(irtn != 1) {
 		throwSigVerify = true;
 	}
 

@@ -12,5 +12,3 @@
 
 #define NETBOOT_GROUP			"netboot"
 #define NETBOOT_USER_PREFIX		"netboot"
-
-

@@ -1,5 +1,4 @@
 /*
- * Copyright (c) 1998-2001 Apple Computer, Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -22,7 +21,6 @@
  * 
  * @APPLE_LICENSE_HEADER_END@
  */
-
 
 #include <libkern/OSByteOrder.h>
 #include <IOKit/IOMemoryCursor.h>

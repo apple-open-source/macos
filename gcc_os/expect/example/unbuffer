@@ -1,0 +1,7 @@
+#!../expect --
+# Description: unbuffer stdout of a program
+# Author: Don Libes, NIST
+
+eval spawn -noecho $argv
+set timeout -1
+expect

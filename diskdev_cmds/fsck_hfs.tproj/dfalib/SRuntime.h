@@ -37,10 +37,6 @@
 
 #include <hfs/hfs_format.h>
 
-enum {
-	kHFSRepairCatalogFileID = (kHFSBogusExtentFileID - 1) /* used to repair catalog file */
-};
-
 #else
 
 #include <MacTypes.h>

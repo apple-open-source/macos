@@ -1,0 +1,117 @@
+<HTML>
+<HEAD>
+<TITLE>
+JNP Documentation
+</TITLE>
+<LINK REL ="stylesheet" TYPE="text/css" HREF="styles.css" TITLE="Style">
+</HEAD>
+<BODY BGCOLOR="white">
+<H1>JNP - Java Naming Provider</H1>
+<H2 >Description</H2>
+<P>This is a pure Java implementation of a JNDI provider. It's primarily intended as a replacement for the RMI Registry in RMI applications.<P/>
+<H3>Features</H3>
+<P>
+<UL>
+<LI>Hierarchical namespace (i.e. supports subcontexts)</LI>
+<LI>Supports References</LI>
+<LI>Supports remote access</LI>
+<LI>Licensed as OpenSource</LI>
+</UL>
+
+<BASE TARGET="_top">
+
+<H2 >Documentation</H2>
+<H3 >Download</H3>
+<P>
+The latest version of JNP can be downloaded <A HREF="http://www.dreambean.com/download/">here</A>.
+<P/>
+<H3 >Installation</H3>
+<P>Follow these steps to install and run JNP:
+<OL>
+<LI>Unzip jnp.zip</LI>
+<LI>Make sure that .jar-files are set as executable in your environment. Note: this is done automatically when you install the JDK or JRE</LI>
+<LI>Execute /bin/jnpserver.jar to start the server. On a Windows-system this is done by double-clicking on the jar file.</LI>
+</OL>
+<P/>
+
+<H3 >Configuration</H3>
+<P>The JNP server is configured through system properties. For convenience the JNP server automatically loads the resource "jnp.properties" into the system properties, so by editing that file you can easily configure the server. This file may either be located in the same directory as the jnpserver.jar file, or in the directory "../lib/resources". If you run the server as provided in this package, there is a sample provided in /lib/resources which you may edit.
+<P/>
+
+<P>
+If you instantiate and run the server from within your own application you may use the JavaBeans get/set methods to configure it at runtime. See javadoc for more details.
+<P/>
+
+<H3 >Client usage</H3>
+<P>
+To connect with a running JNP server by using the JNDI API, please look at the provided example client. Basically, you need to do the following:
+</P>
+<UL>
+<LI>Set the inital context factory to "masteringrmi.naming.interfaces.NamingContextFactory"</LI>
+<LI>Set the URL of the provider host (the machine where the server is running)
+<LI>Set the URL context factory package to "masteringrmi.naming.interfaces"</LI>
+<LI>Add naming.jar to your clients classpath.</LI>
+<LI>Add jndi.jar (the standard classes) to your classpath, or at least place it next to the naming.jar file (naming.jar will reference it through its manifest file)</LI>
+</UL>
+<P>
+These settings can be provided as described in the JNDI specification. The example client uses a jndi.properties file, which is a recommended technique as it does not clutter the source code with hardcoded settings.
+</P>
+<P>
+JNP understands URL's prefixed with "jnp:". For example, "jnp://myhost/somedir/somename" is a valid URL. 
+</P>
+<P>
+JNP also understands URL's prefixed with "java:". This is a local thread-sensitive variant which adheres to the definition of environment contexts as specified in J2EE.
+The context can be switched by calling masteringrmi.naming.interfaces.java.javaURLContextFactory.setRoot(Naming), where Naming is an instance of NamingServer which implements the JNDI namespace. 
+</P>
+<P>
+Here is some sample code of how you would bind an object in JNP. Note that this is generic JNDI code so if you're using the RMI Registry through JNDI there is no code change if you decide to use JNP instead.
+<PRE>Server server = new ServerImpl();
+new InitialContext().bind("server",theServer);
+</PRE>
+</P>
+
+<P>
+Here is some sample code of how you would lookup a bound object. Again, this is generic JNDI code. The only situation in which your RMI application would be code-dependent on JNP is if you decide to run it in embedded mode.
+<PRE>Server server = (Server)new InitialContext().lookup("server");
+</PRE>
+</P>
+
+<H3 >Testing</H3>
+<P>
+Run the file /bin/run.bat to show a test run of JNP. The source to the test can be found in /src/masteringrmi/client/Main.java.
+</P>
+
+<H3 >Comparison with RMI Registry</H3>
+<P>
+The JNP is intended to be used as a replacement for the RMI Registry. Here is a brief comparison of key features.
+<UL>
+<LI>Class availability:
+<UL><LI>The RMI Registry requires you to either use dynamic classloading, or to have the classes (including stub) installed on the registrys classpath</LI>
+    <LI>JNP have no requirements on class availability. Since it stores any bound object in a marshalled state the classes only have to be available to the client. If any state in a bound object is made of dynamically loaded classes, the codebase of those classes will be stored, and restored upon lookup.</LI>
+</UL>
+<LI>Usage modes:
+<UL><LI>The RMI Registry can be run externally as a standalone application, or it can be embedded in applications. It does not support graceful shutdowns.</LI>
+    <LI>JNP can be run externally through an executable JAR, or it can be embedded as a JavaBean in any application. If used in embedded mode, the application can control the naming server through start/stop commands.</LI>
+</UL>
+<LI>Namespace:
+<UL><LI>The RMI Registry uses a flat namespace.</LI>
+    <LI>JNP uses a hierarchical namespace, where you can create subcontexts, and do listings of subcontexts etc.</LI>
+</UL>
+<LI>Access:
+<UL><LI>The RMI Registry allows only local hosts to bind objects.</LI>
+    <LI>JNP does not have any restrictions on who may bind what. A single JNP server may serve an entire network.</LI>
+</UL>
+
+</UL>
+</P>
+
+
+<H3 >Support</H3>
+<P>Contact me if you have any questions about this application at <A HREF="mailto:rickard@dreambean.com">rickard@dreambean.com</A>. Bug reports and enhancement requests are also welcome.
+<P/>
+<H3 >License</H3>
+<P>
+JNP is licensed through GPL (see www.gnu.org for details).
+<P/>
+</BODY>
+</HTML>

@@ -1,21 +1,24 @@
 /*
- * Copyright (c) 1998-2000 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 1998-2003 Apple Computer, Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
- * The contents of this file constitute Original Code as defined in and
- * are subject to the Apple Public Source License Version 1.1 (the
- * "License").  You may not use this file except in compliance with the
- * License.  Please obtain a copy of the License at
- * http://www.apple.com/publicsource and read it before using this file.
+ * Copyright (c) 1999-2003 Apple Computer, Inc.  All Rights Reserved.
  * 
- * This Original Code and all software distributed under the License are
- * distributed on an "AS IS" basis, WITHOUT WARRANTY OF ANY KIND, EITHER
+ * This file contains Original Code and/or Modifications of Original Code
+ * as defined in and that are subject to the Apple Public Source License
+ * Version 2.0 (the 'License'). You may not use this file except in
+ * compliance with the License. Please obtain a copy of the License at
+ * http://www.opensource.apple.com/apsl/ and read it before using this
+ * file.
+ * 
+ * The Original Code and all software distributed under the License are
+ * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
  * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
  * INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY,
- * FITNESS FOR A PARTICULAR PURPOSE OR NON-INFRINGEMENT.  Please see the
- * License for the specific language governing rights and limitations
- * under the License.
+ * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
+ * Please see the License for the specific language governing rights and
+ * limitations under the License.
  * 
  * @APPLE_LICENSE_HEADER_END@
  */
@@ -296,23 +299,7 @@ IOCDBlockStorageDriver::decommissionMedia(bool forcible)
 {
     IOReturn result;
 
-    if (_mediaObject) {
-        /* If this is a forcible decommission (i.e. media is gone), we don't
-         * care whether the teardown worked; we forget about the media.
-         */
-        if (_mediaObject->terminate(forcible ? kIOServiceRequired : 0) || forcible) {
-            _mediaObject->release();
-            _mediaObject = 0;
-
-            initMediaState();        /* clear all knowledge of the media */
-            result = kIOReturnSuccess;
-
-        } else {
-            result = kIOReturnBusy;
-        }
-    } else {
-        result = kIOReturnNoMedia;
-    }
+    result = super::decommissionMedia(forcible);
 
     /* We only attempt to decommission the audio portion of the
      * CD if all the data tracks decommissioned successfully.
@@ -320,7 +307,7 @@ IOCDBlockStorageDriver::decommissionMedia(bool forcible)
 
     if (result == kIOReturnSuccess) {
         if (_acNub) {
-            _acNub->terminate(kIOServiceRequired);
+            _acNub->terminate();
             _acNub->release();
             _acNub = 0;
         }
@@ -676,9 +663,17 @@ IOCDBlockStorageDriver::prepareRequest(UInt64 byteStart,
 {
     Context * context;
 
-    // Determine whether an undefined sector area or sector type was specified.
+    // Determine whether an undefined sector area was specified.
 
-    if (sectorType >= kCDSectorTypeCount || (sectorArea & 0x05) == 0x05)
+    if ((sectorArea & 0xFF) == 0x00 || (sectorArea & 0x05) == 0x05)
+    {
+        complete(completion, kIOReturnBadArgument);
+        return;
+    }
+
+    // Determine whether an undefined sector type was specified.
+
+    if (sectorType >= kCDSectorTypeCount)
     {
         complete(completion, kIOReturnBadArgument);
         return;

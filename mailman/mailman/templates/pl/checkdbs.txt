@@ -1,0 +1,7 @@
+Na li¶cie %(real_name)s@%(host_name)s czeka %(count)d praca(e) na 
+Twoj± decyzje:
+
+	%(adminDB)s
+	
+Odwied¼ t± stronê, ¿eby zadecydowaæ co zrobiæ z tymi pro¶bami. 
+To przypomnienie bêdzie wysy³ane codziennie.

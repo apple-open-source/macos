@@ -1,5 +1,5 @@
-# $OpenLDAP: pkg/ldap/libraries/libavl/Makefile.in,v 1.12 2002/02/10 21:42:53 kurt Exp $
-## Copyright 1998-2002 The OpenLDAP Foundation, All Rights Reserved.
+# $OpenLDAP: pkg/ldap/libraries/libavl/Makefile.in,v 1.12.2.2 2003/02/08 23:53:24 kurt Exp $
+## Copyright 1998-2003 The OpenLDAP Foundation, All Rights Reserved.
 ## COPYING RESTRICTIONS APPLY, see COPYRIGHT file
 ##
 ## LIBAVL
@@ -14,7 +14,7 @@ LDAP_LIBDIR= ../../libraries
 
 LIBRARY = libavl.a
 PROGRAMS	= testavl
-XLIBS = $(LIBRARY) $(LDAP_LIBLBER_LA)
+XLIBS = $(LIBRARY) $(LDAP_LIBLBER_LA) $(LDAP_LIBLUTIL_A)
 
 testavl:	$(XLIBS) testavl.o
 	$(LTLINK) -o $@ testavl.o $(LIBS)

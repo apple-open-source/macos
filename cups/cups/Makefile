@@ -1,9 +1,9 @@
 #
-# "$Id: Makefile,v 1.19.2.1 2003/02/27 23:17:36 jlovell Exp $"
+# "$Id: Makefile,v 1.25 2003/04/12 03:04:28 jlovell Exp $"
 #
 #   Support library Makefile for the Common UNIX Printing System (CUPS).
 #
-#   Copyright 1997-2002 by Easy Software Products, all rights reserved.
+#   Copyright 1997-2003 by Easy Software Products, all rights reserved.
 #
 #   These coded instructions, statements, and computer programs are the
 #   property of Easy Software Products and are protected by Federal
@@ -30,10 +30,11 @@ include ../Makedefs
 # Object files...
 #
 
-LIBOBJS	=	dest.o emit.o encode.o http.o ipp.o language.o mark.o md5.o \
-		md5passwd.o options.o page.o ppd.o snprintf.o string.o \
-		tempfile.o usersys.o util.o
-OBJS	=	$(LIBOBJS) testhttp.o testlang.o testppd.o ppd-debug.o
+LIBOBJS	=	attr.o dest.o emit.o encode.o http.o http-addr.o \
+		http-support.o ipp.o ipp-support.o language.o mark.o \
+		md5.o md5passwd.o options.o page.o ppd.o snprintf.o \
+		string.o tempfile.o usersys.o util.o
+OBJS	=	$(LIBOBJS) testhttp.o testipp.o testlang.o
 
 
 #
@@ -47,7 +48,8 @@ HEADERS	=	cups.h http.h ipp.h language.h md5.h ppd.h
 # Targets in this directory...
 #
 
-TARGETS	=	$(LIBCUPS) libcups.a
+TARGETS	=	$(LIBCUPS) libcups.a \
+		testhttp testipp testlang
 
 
 #
@@ -81,7 +83,6 @@ install:	all	installhdrs
 	$(INSTALL_DIR) $(LIBDIR)
 	$(INSTALL_LIB) $(LIBCUPS) $(LIBDIR)
 	if test $(LIBCUPS) = "libcups.so.2" -o $(LIBCUPS) = "libcups.sl.2"; then \
-		$(INSTALL_LIB) libcups.a $(LIBDIR); \
 		$(RM) $(LIBDIR)/`basename $(LIBCUPS) .2`; \
 		$(LN) $(LIBCUPS) $(LIBDIR)/`basename $(LIBCUPS) .2`; \
 	fi
@@ -89,9 +90,6 @@ install:	all	installhdrs
 		$(STRIP) -x $(LIBDIR)/$(LIBCUPS); \
 		$(RM) $(LIBDIR)/libcups.dylib; \
 		$(LN) $(LIBCUPS) $(LIBDIR)/libcups.dylib; \
-	fi
-	if test $(LIBCUPS) = "libcups_s.a"; then \
-		$(INSTALL_LIB) libcups.a $(LIBDIR); \
 	fi
 	if test "x$(SYMROOT)" != "x"; then \
 		$(INSTALL_DIR) $(SYMROOT); \
@@ -113,7 +111,7 @@ installhdrs:
 
 libcups.so.2 libcups.sl.2:	$(LIBOBJS) ../Makedefs
 	echo Linking $@...
-	$(DSO) $(DSOFLAGS) -o $@ $(LIBOBJS) $(SSLLIBS)
+	$(DSO) $(DSOFLAGS) -o $@ $(LIBOBJS) $(SSLLIBS) $(COMMONLIBS)
 	$(RM) `basename $@ .2`
 	$(LN) $@ `basename $@ .2`
 
@@ -126,10 +124,9 @@ libcups.2.dylib:	$(LIBOBJS) ../Makedefs
 	echo Linking $@...
 	$(DSO) $(DSOFLAGS) -o $@ \
 		-install_name $(libdir)/$@ \
-		-current_version 2.0.4 \
+		-current_version 2.5.0 \
 		-compatibility_version 2.0.0 \
-		-framework CoreFoundation \
-		$(LIBOBJS) $(SSLLIBS)
+		$(LIBOBJS) $(SSLLIBS) $(COMMONLIBS)
 	$(RM) libcups.dylib
 	$(LN) $@ libcups.dylib
 
@@ -142,7 +139,7 @@ libcups_s.a:	$(LIBOBJS) ../Makedefs
 	echo Creating $@...
 	$(RM) libcups_s.exp
 	(echo _ipp_add_attr; echo _ipp_free_attr) >libcups_s.exp
-	$(DSO) $(DSOFLAGS) -Wl,-bexport:libcups_s.exp -o libcups_s.o $(LIBOBJS) $(SSLLIBS) -lm
+	$(DSO) $(DSOFLAGS) -Wl,-bexport:libcups_s.exp -o libcups_s.o $(LIBOBJS) $(SSLLIBS) $(COMMONLIBS) -lm
 	$(RM) $@
 	$(AR) $(ARFLAGS) $@ libcups_s.o
 
@@ -154,7 +151,7 @@ libcups_s.a:	$(LIBOBJS) ../Makedefs
 libcups.la:    $(LIBOBJS) ../Makedefs
 	echo Linking $@...
 	$(DSO) $(DSOFLAGS) -o $@ $(LIBOBJS:.o=.lo) -rpath $(LIBDIR) \
-		-version-info 2:4 $(SSLLIBS)
+		-version-info 2:5 $(SSLLIBS) $(COMMONLIBS)
 
 
 #
@@ -184,7 +181,16 @@ cups_C.h:	../locale/C/cups_C
 
 testhttp:	testhttp.o libcups.a
 	echo Linking $@...
-	$(CC) $(LDFLAGS) -o $@ testhttp.o libcups.a $(NETLIBS) $(SSLLIBS) -framework CoreFoundation
+	$(CC) $(LDFLAGS) -o $@ testhttp.o libcups.a $(NETLIBS) $(SSLLIBS) $(COMMONLIBS)
+
+
+#
+# testipp (dependency on static CUPS library is intentional)
+#
+
+testipp:	testipp.o libcups.a
+	echo Linking $@...
+	$(CC) $(LDFLAGS) -o $@ testipp.o libcups.a $(NETLIBS) $(SSLLIBS) $(COMMONLIBS)
 
 
 #
@@ -193,21 +199,7 @@ testhttp:	testhttp.o libcups.a
 
 testlang:	testlang.o libcups.a
 	echo Linking $@...
-	$(CC) $(LDFLAGS) -o $@ testlang.o libcups.a $(NETLIBS) $(SSLLIBS) -framework CoreFoundation
-
-
-#
-# testppd
-#
-
-testppd:	testppd.o ppd-debug.o language.o mark.o page.o string.o
-	echo Linking $@...
-	$(CC) $(LDFLAGS) -o $@ testppd.o ppd-debug.o language.o mark.o page.o \
-		string.o
-
-ppd-debug.o:	ppd.c ppd.h string.h ../config.h language.h debug.h
-	echo Compiling $< with debugging...
-	$(CC) $(OPTIM) $(CFLAGS) -DDEBUG -c -o $@ $<
+	$(CC) $(LDFLAGS) -o $@ testlang.o libcups.a $(NETLIBS) $(SSLLIBS) $(COMMONLIBS)
 
 
 #
@@ -218,5 +210,5 @@ include Dependencies
 
 
 #
-# End of "$Id: Makefile,v 1.19.2.1 2003/02/27 23:17:36 jlovell Exp $".
+# End of "$Id: Makefile,v 1.25 2003/04/12 03:04:28 jlovell Exp $".
 #

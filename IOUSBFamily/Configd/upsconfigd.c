@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1998-2002 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 1998-2003 Apple Computer, Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -871,6 +871,9 @@ static void UPSPollingTimer(CFRunLoopTimerRef timer, void *info)
 
                                 if (gUPSDataRef[i]->elementInfo[kRunTimeToEmptyIndex].currentValue != minutes)
                                 {
+#if UPS_TOOL_DEBUG
+                                    printf("  Updating kRunTimeToEmpty after capacity changed (%ld)\n", minutes);
+#endif
                                     gUPSDataRef[i]->elementInfo[kRunTimeToEmptyIndex].currentValue = minutes;
 
                                     numRef = CFNumberCreate(kCFAllocatorDefault, kCFNumberIntType, &minutes);

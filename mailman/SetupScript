@@ -1,0 +1,28 @@
+#/bin/sh
+
+_mm_dir=/usr/share/mailman
+
+#
+# Configure mailman to use this host name.
+#
+echo "Configuring mailman for this host..."
+_conf_file=${_mm_dir}/Mailman/mm_cfg.py
+if [ ! -e ${_conf_file} ]; then
+	cp -p ${_conf_file}.dist ${_conf_file}
+fi
+if grep -qs DEFAULT_EMAIL_HOST ${_conf_file} ; then
+	mv ${_conf_file} ${_conf_file}.bak
+	sed -e '/DEFAULT_EMAIL_HOST/d' -e '/DEFAULT_URL_HOST/d' \
+		${_conf_file}.bak > ${_conf_file}
+fi
+echo "DEFAULT_EMAIL_HOST = '`hostname`'" >> ${_conf_file}
+echo "DEFAULT_URL_HOST = '`hostname`'"  >> ${_conf_file}
+echo "done."
+
+#
+# Once mailman is properly configured, compile all the scripts to
+# improve performance.
+#
+echo "Compiling mailman..."
+python -c 'from compileall import *; compile_dir("/usr/share/mailman/Mailman")'
+echo "done."

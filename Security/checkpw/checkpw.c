@@ -99,6 +99,8 @@ enum eDSServerCalls {
 };
 // end copied from SharedConsts.h
 
+int checkpw_internal( const struct passwd* pw, const char* password );
+
 int checkpw( const char* userName, const char* password )
 {
 	struct passwd* pw = NULL;
@@ -112,12 +114,12 @@ int checkpw( const char* userName, const char* password )
 	if (pw == NULL)
 		return CHECKPW_UNKNOWNUSER;
 
-    status = checkpw_internal(userName, password, pw);
+    status = checkpw_internal(pw, password);
     endpwent();
     return status;
 }
 
-int checkpw_internal( const char* userName, const char* password, const struct passwd* pw )
+int checkpw_internal( const struct passwd* pw, const char* password )
 {
 	int siResult = CHECKPW_FAILURE;
 	kern_return_t	result = err_none;
@@ -188,7 +190,7 @@ int checkpw_internal( const char* userName, const char* password, const struct p
 		msg->obj[0].offset = offsetof(struct sComData, data);
 
 		// User Name
-		len = strlen( userName );
+		len = strlen( pw->pw_name );
 		if (curr + len + sizeof(unsigned long) > kIPCMsgLen)
 		{
 			siResult = CHECKPW_FAILURE;
@@ -196,7 +198,7 @@ int checkpw_internal( const char* userName, const char* password, const struct p
 		}
 		memcpy( &(msg->fData[ curr ]), &len, sizeof( unsigned long ) );
 		curr += sizeof( unsigned long );
-		memcpy( &(msg->fData[ curr ]), userName, len );
+		memcpy( &(msg->fData[ curr ]), pw->pw_name, len );
 		curr += len;
 
 		// Password
@@ -266,8 +268,11 @@ int checkpw_internal( const char* userName, const char* password, const struct p
 		msg = NULL;
 	}
 	
+	// deallocate the serverPort
+	mach_port_deallocate( mach_task_self(), serverPort);
+	
 	if ( replyPort != 0 )
-		mach_port_deallocate( mach_task_self(), replyPort );
+		mach_port_destroy( mach_task_self(), replyPort );
 	
 
 	return siResult;

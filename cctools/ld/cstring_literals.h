@@ -3,8 +3,6 @@
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
- * Copyright (c) 1999-2003 Apple Computer, Inc.  All Rights Reserved.
- * 
  * This file contains Original Code and/or Modifications of Original Code
  * as defined in and that are subject to the Apple Public Source License
  * Version 2.0 (the 'License'). You may not use this file except in
@@ -50,7 +48,7 @@ struct cstring_data {
     unsigned long ninput_strings;/* number of strings in the input file */
     unsigned long noutput_strings;/* number of strings in the output file */
     unsigned long nprobes;	/* number of hash probes */
-#endif DEBUG
+#endif /* DEBUG */
 };
 
 /* the number of entries in the hash table */
@@ -109,4 +107,4 @@ __private_extern__ void print_cstring_data(
 __private_extern__ void cstring_data_stats(
     struct cstring_data *data,
     struct merged_section *ms);
-#endif DEBUG
+#endif /* DEBUG */

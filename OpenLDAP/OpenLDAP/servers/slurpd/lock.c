@@ -1,6 +1,6 @@
-/* $OpenLDAP: pkg/ldap/servers/slurpd/lock.c,v 1.15 2002/01/04 20:17:57 kurt Exp $ */
+/* $OpenLDAP: pkg/ldap/servers/slurpd/lock.c,v 1.15.2.4 2003/03/03 17:10:11 kurt Exp $ */
 /*
- * Copyright 1998-2002 The OpenLDAP Foundation, All Rights Reserved.
+ * Copyright 1998-2003 The OpenLDAP Foundation, All Rights Reserved.
  * COPYING RESTRICTIONS APPLY, see COPYRIGHT file
  */
 /*
@@ -47,11 +47,16 @@ lock_fopen(
 	char	buf[MAXPATHLEN];
 
 	/* open the lock file */
-	strcpy( buf, fname );
-	strcat( buf, ".lock" );
+	snprintf( buf, sizeof buf, "%s.lock", fname );
+
 	if ( (*lfp = fopen( buf, "w" )) == NULL ) {
+#ifdef NEW_LOGGING
+		LDAP_LOG ( SLURPD, ERR, "lock_fopen: "
+			"Error: could not open \"%s\"\n", buf, 0, 0 );
+#else
 		Debug( LDAP_DEBUG_ANY,
 			"Error: could not open \"%s\"\n", buf, 0, 0 );
+#endif
 		return( NULL );
 	}
 
@@ -60,8 +65,13 @@ lock_fopen(
 
 	/* open the log file */
 	if ( (fp = fopen( fname, type )) == NULL ) {
+#ifdef NEW_LOGGING
+		LDAP_LOG ( SLURPD, ERR, "lock_fopen: "
+			"Error: could not open \"%s\"\n", fname, 0, 0 );
+#else
 		Debug( LDAP_DEBUG_ANY,
 			"Error: could not open \"%s\"\n", fname, 0, 0 );
+#endif
 		ldap_unlockf( fileno(*lfp) );
 		fclose( *lfp );
 		*lfp = NULL;
@@ -99,9 +109,15 @@ acquire_lock(
 )
 {
     if (( *rfp = lock_fopen( file, "r+", lfp )) == NULL ) {
+#ifdef NEW_LOGGING
+	LDAP_LOG ( SLURPD, ERR, "acquire_lock: "
+		"Error: acquire_lock(%ld): Could not acquire lock on \"%s\"\n",
+		(long) getpid(), file, 0 );
+#else
 	Debug( LDAP_DEBUG_ANY,
 		"Error: acquire_lock(%ld): Could not acquire lock on \"%s\"\n",
 		(long) getpid(), file, 0);
+#endif
 	return( -1 );
     }
     return( 0 );
@@ -121,9 +137,15 @@ relinquish_lock(
 )
 {
     if ( lock_fclose( rfp, lfp ) == EOF ) {
+#ifdef NEW_LOGGING
+	LDAP_LOG ( SLURPD, ERR, "relinguish_lock: "
+		"Error: relinquish_lock (%ld): Error closing \"%s\"\n",
+		(long) getpid(), file, 0 );
+#else
 	Debug( LDAP_DEBUG_ANY,
 		"Error: relinquish_lock (%ld): Error closing \"%s\"\n",
 		(long) getpid(), file, 0 );
+#endif
 	return( -1 );
     }
     return( 0 );

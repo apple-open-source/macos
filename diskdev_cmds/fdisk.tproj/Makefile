@@ -12,7 +12,10 @@ NAME = fdisk
 PROJECTVERSION = 2.8
 PROJECT_TYPE = Tool
 
-CFILES = fdisk.c
+CFILES = cmd.c disk.c fdisk.c getrawpartition.c mbr.c misc.c opendev.c part.c user.c auto.c
+HFILES = cmd.h disk.h mbr.h misc.h part.h user.h util.h auto.h
+OTHER_GENERATED_SOURCEFILES += manual.c
+OTHER_GENERATED_OFILES += manual.o
 
 OTHERSRCS = fdisk.8 Makefile Makefile.postamble PB.project
 
@@ -24,10 +27,6 @@ NEXTSTEP_INSTALLDIR = /usr/sbin
 LIBS = 
 DEBUG_LIBS = $(LIBS)
 PROF_LIBS = $(LIBS)
-
-
-HEADER_PATHS =\
-               -I$(NEXT_ROOT)$(SYSTEM_LIBRARY_DIR)/Frameworks/System.framework/PrivateHeaders
 
 
 NEXTSTEP_BUILD_OUTPUT_DIR = /tmp/BUILD
@@ -44,6 +43,7 @@ include $(MAKEFILEDIR)/platform.make
 -include Makefile.preamble
 
 include $(MAKEFILEDIR)/$(MAKEFILE)
+
 
 -include Makefile.postamble
 

@@ -2,21 +2,24 @@
  * Copyright (c) 2000 Apple Computer, Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
- *
- * The contents of this file constitute Original Code as defined in and
- * are subject to the Apple Public Source License Version 1.1 (the
- * "License").  You may not use this file except in compliance with the
- * License.  Please obtain a copy of the License at
- * http://www.apple.com/publicsource and read it before using this file.
- *
- * This Original Code and all software distributed under the License are
- * distributed on an "AS IS" basis, WITHOUT WARRANTY OF ANY KIND, EITHER
+ * 
+ * Copyright (c) 1999-2003 Apple Computer, Inc.  All Rights Reserved.
+ * 
+ * This file contains Original Code and/or Modifications of Original Code
+ * as defined in and that are subject to the Apple Public Source License
+ * Version 2.0 (the 'License'). You may not use this file except in
+ * compliance with the License. Please obtain a copy of the License at
+ * http://www.opensource.apple.com/apsl/ and read it before using this
+ * file.
+ * 
+ * The Original Code and all software distributed under the License are
+ * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
  * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
  * INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY,
- * FITNESS FOR A PARTICULAR PURPOSE OR NON-INFRINGEMENT.  Please see the
- * License for the specific language governing rights and limitations
- * under the License.
- *
+ * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
+ * Please see the License for the specific language governing rights and
+ * limitations under the License.
+ * 
  * @APPLE_LICENSE_HEADER_END@
  */
 
@@ -94,15 +97,16 @@
 /* -----------------------------------------------------------------------------
  Forward declarations
 ----------------------------------------------------------------------------- */
-void pppoe_device_check();
+void pppoe_process_extra_options();
 void pppoe_check_options();
 int pppoe_connect(int *errorcode);
 void pppoe_disconnect();
-void pppoe_close_fds();
+void pppoe_close();
 void pppoe_cleanup();
 int pppoe_establish_ppp(int);
 void pppoe_wait_input();
 void pppoe_disestablish_ppp(int);
+void pppoe_link_down(void *arg, int p);
 
 static int pppoe_dial();
 static int pppoe_listen();
@@ -125,6 +129,7 @@ static char	*service = NULL; 		/* service selection to use */
 static char	*access_concentrator = NULL; 	/* access concentrator to connect to */
 static int	retrytimer = 0; 		/* retry timer (default is 3 seconds) */
 static int	connecttimer = 65; 		/* bump the connection timer from 20 to 65 seconds */
+static bool	linkdown = 0; 			/* flag set when we receive link down event */
 
 extern int kill_link;
 
@@ -156,27 +161,38 @@ int start(CFBundleRef ref)
  
     bundle = ref;
     CFRetain(bundle);
-    
-    // add the socket specific options
-    add_options(pppoe_options);
-    
+        
     // hookup our socket handlers
-    dev_device_check_hook = pppoe_device_check;
-    dev_wait_input_hook = pppoe_wait_input;
-    dev_check_options_hook = pppoe_check_options;
-    dev_connect_hook = pppoe_connect;
-    dev_disconnect_hook = pppoe_disconnect;
-    dev_cleanup_hook = pppoe_cleanup;
-    dev_close_fds_hook = pppoe_close_fds;
-    dev_establish_ppp_hook = pppoe_establish_ppp;
-    dev_disestablish_ppp_hook = pppoe_disestablish_ppp;
+    bzero(the_channel, sizeof(struct channel));
+    the_channel->options = pppoe_options;
+    the_channel->process_extra_options = pppoe_process_extra_options;
+    the_channel->wait_input = pppoe_wait_input;
+    the_channel->check_options = pppoe_check_options;
+    the_channel->connect = pppoe_connect;
+    the_channel->disconnect = pppoe_disconnect;
+    the_channel->cleanup = pppoe_cleanup;
+    the_channel->close = pppoe_close;
+    the_channel->establish_ppp = pppoe_establish_ppp;
+    the_channel->disestablish_ppp = pppoe_disestablish_ppp;
+    // use the default config functions
+    the_channel->send_config = generic_send_config;
+    the_channel->recv_config = generic_recv_config;
+    
+    add_notifier(&link_down_notifier, pppoe_link_down, 0);
     return 0;
+}
+
+/* -----------------------------------------------------------------------------
+----------------------------------------------------------------------------- */
+void pppoe_link_down(void *arg, int p)
+{
+    linkdown = 1;
 }
 
 /* ----------------------------------------------------------------------------- 
 work out which device we are using and read its options file
 ----------------------------------------------------------------------------- */
-void pppoe_device_check()
+void pppoe_process_extra_options()
 {
     int 		error = EXIT_OPTION_ERROR;
     int 		len, s;
@@ -204,6 +220,11 @@ void pppoe_device_check()
         close(s);
     }
         
+    if (!strcmp(mode, MODE_ANSWER)) {
+        // make sure we get a file descriptor > 2 so that pppd can detach and close 0,1,2
+        sockfd = dup(0);
+    }
+
     if (error)
         exit(error);
 }
@@ -225,8 +246,9 @@ void pppoe_wait_input()
 {
    
     if (sockfd != -1 && is_ready_fd(sockfd)) {
-        // it's OK to get a hangup during terminate phase
-        if (phase != PHASE_TERMINATE) {
+        // looks like we have been disconnected...
+        // the status is updated only if link is not already down
+        if (linkdown == 0) {
             notice("PPPoE hangup");
             status = EXIT_HANGUP;
         }
@@ -252,32 +274,35 @@ int pppoe_connect(int *errorcode)
 
     hungup = 0;
     kill_link = 0;
+    linkdown = 0;
 
-    /* open the socket */
-    sockfd = socket(PF_PPP, SOCK_DGRAM, PPPPROTO_PPPOE);
-    if (sockfd < 0) {
-        if (!noload) {
-            if (url = CFBundleCopyBundleURL(bundle)) {
-                name[0] = 0;
-                CFURLGetFileSystemRepresentation(url, 0, name, MAXPATHLEN - 1);
-                CFRelease(url);
-                strcat(name, "/");
-                if (url = CFBundleCopyBuiltInPlugInsURL(bundle)) {
-                    CFURLGetFileSystemRepresentation(url, 0, name + strlen(name), 
-                        MAXPATHLEN - strlen(name) - strlen(PPPOE_NKE) - 1);
+    if (strcmp(mode, MODE_ANSWER)) {
+        /* open the socket */
+        sockfd = socket(PF_PPP, SOCK_DGRAM, PPPPROTO_PPPOE);
+        if (sockfd < 0) {
+            if (!noload) {
+                if (url = CFBundleCopyBundleURL(bundle)) {
+                    name[0] = 0;
+                    CFURLGetFileSystemRepresentation(url, 0, name, MAXPATHLEN - 1);
                     CFRelease(url);
                     strcat(name, "/");
-                    strcat(name, PPPOE_NKE);
-                    if (!load_kext(name))
-                        sockfd = socket(PF_PPP, SOCK_DGRAM, PPPPROTO_PPPOE);
-                }	
+                    if (url = CFBundleCopyBuiltInPlugInsURL(bundle)) {
+                        CFURLGetFileSystemRepresentation(url, 0, name + strlen(name), 
+                            MAXPATHLEN - strlen(name) - strlen(PPPOE_NKE) - 1);
+                        CFRelease(url);
+                        strcat(name, "/");
+                        strcat(name, PPPOE_NKE);
+                        if (!load_kext(name))
+                            sockfd = socket(PF_PPP, SOCK_DGRAM, PPPPROTO_PPPOE);
+                    }	
+                }
+            }
+            if (sockfd < 0) {
+                error("Failed to open PPPoE socket: %m");
+                status = EXIT_OPEN_FAILED;
+                return -1;
             }
         }
-        if (sockfd < 0) {
-            error("Failed to open PPPoE socket: %m");
-            status = EXIT_OPEN_FAILED;
-            return -1;
-       }
     }
 
     if (loopback || debug) {
@@ -355,7 +380,7 @@ void pppoe_disconnect()
 /* ----------------------------------------------------------------------------- 
 close the socket descriptors
 ----------------------------------------------------------------------------- */
-void pppoe_close_fds()
+void pppoe_close()
 {
 	if (sockfd >= 0) {
 		close(sockfd);
@@ -368,7 +393,7 @@ clean up before quitting
 ----------------------------------------------------------------------------- */
 void pppoe_cleanup()
 {
-    pppoe_close_fds();
+    pppoe_close();
 }
 
 /* ----------------------------------------------------------------------------- 
@@ -376,19 +401,25 @@ establish the socket as a ppp link
 ----------------------------------------------------------------------------- */
 int pppoe_establish_ppp(int fd)
 {
-    int 	x;
-
+    int x, new_fd;
+    
     if (ioctl(fd, PPPIOCATTACH, &x) < 0) {
         error("Couldn't attach socket to the link layer: %m");
         return -1;
     }
 
+    new_fd = generic_establish_ppp(fd);
+    if (new_fd == -1)
+        return -1;
+
+    /* add our pppoe socket to the select */
     add_fd(fd);
-    return 0;
+    
+    return new_fd;
 }
 
 /* ----------------------------------------------------------------------------- 
-establish the socket as a ppp link
+disestablish the socket as a ppp link
 ----------------------------------------------------------------------------- */
 void pppoe_disestablish_ppp(int fd)
 {
@@ -398,6 +429,8 @@ void pppoe_disestablish_ppp(int fd)
 
     if (ioctl(fd, PPPIOCDETACH, &x) < 0)
         error("Couldn't detach socket from link layer: %m");
+
+    generic_disestablish_ppp(fd);
 }
 
 /* -----------------------------------------------------------------------------

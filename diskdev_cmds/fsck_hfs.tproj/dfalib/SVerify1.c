@@ -78,7 +78,7 @@ CheckIfJournaled(SGlobPtr GPtr)
 
 	mdbp = (HFSMasterDirectoryBlock	*) block.buffer;
 
-	if (mdbp->drSigWord == kHFSPlusSigWord) {
+	if (mdbp->drSigWord == kHFSPlusSigWord || mdbp->drSigWord == kHFSXSigWord) {
 		vhp = (HFSPlusVolumeHeader *) block.buffer;
 
 	} else if (mdbp->drSigWord == kHFSSigWord) {
@@ -984,7 +984,22 @@ OSErr	CreateCatalogBTreeControlBlock( SGlobPtr GPtr )
 		if (err) goto exit;
 
 		btcb->maxKeyLength		= kHFSPlusCatalogKeyMaximumLength;					//	max key length
-		btcb->keyCompareProc	= (void *)CompareExtendedCatalogKeys;
+
+		/*
+		 * Figure out the type of key string compare
+		 * (case-insensitive or case-sensitive)
+		 *
+		 * To do: should enforce an "HX" volume is require for kHFSBinaryCompare.
+		 */
+		if (header.keyCompareType == kHFSBinaryCompare)
+		{
+			btcb->keyCompareProc = (void *)CaseSensitiveCatalogKeyCompare;
+			PrintStatus(GPtr, M_CaseSensitive, 0);
+		}
+		else
+		{
+			btcb->keyCompareProc = (void *)CompareExtendedCatalogKeys;
+		}
 		btcb->leafRecords		= header.leafRecords;
 		btcb->nodeSize			= header.nodeSize;
 		btcb->totalNodes		= ( GPtr->calculatedCatalogFCB->fcbPhysicalSize / btcb->nodeSize );

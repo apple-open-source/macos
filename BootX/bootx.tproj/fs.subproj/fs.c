@@ -53,6 +53,7 @@ typedef struct PartInfo PartInfo, *PartInfoPtr;
 
 #define kNumPartInfos  (16)
 static PartInfo gParts[kNumPartInfos];
+static char gMakeDirSpec[1024];
 
 // Private function prototypes
 long LookupPartition(char *devSpec);
@@ -86,6 +87,18 @@ long GetFileInfo(char *dirSpec, char *name, long *flags, long *time)
 {
   long ret, index = 0;
   char *curName;
+
+  if (!dirSpec) {
+    long       idx, len;
+
+    len = strlen(name);
+
+    for (idx = len; idx && (name[idx] != '\\'); idx--) {}
+    idx++;
+    strncpy(gMakeDirSpec, name, idx);
+    name += idx;
+    dirSpec = gMakeDirSpec;
+  }
   
   while (1) {
     ret = GetDirEntry(dirSpec, &index, &curName, flags, time);

@@ -38,28 +38,41 @@ public:
 	virtual ~DatabaseCryptoCore();
     
     bool isValid() const	{ return mIsValid; }
-    
-    void generateNewSecrets();
+	bool hasMaster() const	{ return mHaveMaster; }
+    void invalidate();
 
-    DbBlob *encodeCore(const DbBlob &blobTemplate, const CssmData &passphrase,
+    void generateNewSecrets();
+	CssmClient::Key masterKey();
+
+	void setup(const DbBlob *blob, const CssmData &passphrase);
+	void setup(const DbBlob *blob, CssmClient::Key master);
+
+    void decodeCore(DbBlob *blob, void **privateAclBlob = NULL);
+    DbBlob *encodeCore(const DbBlob &blobTemplate,
         const CssmData &publicAcl, const CssmData &privateAcl) const;
-    void decodeCore(DbBlob *blob, const CssmData &passphrase,
-        void **privateAclBlob = NULL);
         
     KeyBlob *encodeKeyCore(const CssmKey &key,
         const CssmData &publicAcl, const CssmData &privateAcl) const;
     void decodeKeyCore(KeyBlob *blob,
         CssmKey &key, void * &pubAcl, void * &privAcl) const;
-    
+
     static const uint32 managedAttributes = KeyBlob::managedAttributes;
+	static const uint32 forcedAttributes = KeyBlob::forcedAttributes;
+
+public:
+	bool validatePassphrase(const CssmData &passphrase);
 	
 private:
-    bool mIsValid;					// master secrets are valid
+	bool mHaveMaster;				// master key has been entered (setup)
+    bool mIsValid;					// master secrets are valid (decode or generateNew)
     
-    CssmClient::Key encryptionKey;	// master encryption key
-    CssmClient::Key signingKey;		// master signing key
+	CssmClient::Key mMasterKey;		// database master key
+	uint8 mSalt[20];				// salt for master key derivation from passphrase (only)
+	
+    CssmClient::Key mEncryptionKey;	// master encryption key
+    CssmClient::Key mSigningKey;	// master signing key
 
-    CssmClient::Key deriveDbCryptoKey(const CssmData &passphrase, const CssmData &salt) const;
+    CssmClient::Key deriveDbMasterKey(const CssmData &passphrase) const;
     CssmClient::Key makeRawKey(void *data, size_t length,
         CSSM_ALGORITHMS algid, CSSM_KEYUSE usage);
 };

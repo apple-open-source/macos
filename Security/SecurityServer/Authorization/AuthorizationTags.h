@@ -59,4 +59,17 @@
 */
 #define kAuthorizationRightExecute "system.privilege.admin"
 
+/*!
+	@define kAuthorizationEnvironmentPrompt
+	The name of the AuthorizationItem that should be passed into the environment when specifying a invocation specific additional text.  The value should be a localized UTF8 string.
+*/
+#define kAuthorizationEnvironmentPrompt  "prompt"
+
+/*!
+	@define kAuthorizationEnvironmentIcon
+	The name of the AuthorizationItem that should be passed into the environment when specifying an alternate icon to be used.  The value should be a full path to and image NSImage can deal with.
+*/
+#define kAuthorizationEnvironmentIcon  "icon"
+
+
 #endif /* !_SECURITY_AUTHORIZATIONTAGS_H_ */

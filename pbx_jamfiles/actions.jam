@@ -1,4 +1,4 @@
-# Copyright (c) 1999-2002 Apple Computer, Inc.
+# Copyright (c) 1999-2003 Apple Computer, Inc.
 # All rights reserved.
 
 # High level rules for build actions on targets
@@ -56,26 +56,19 @@ rule Clean
     ARCHIVE_TARGET = $(2:G=)$(ARCHIVE_SUFFIX) ;
     LOCATE on $(ARCHIVE_TARGET) = $(TARGET_BUILD_DIR) ;
     Clean.RemoveArchive clean : $(ARCHIVE_TARGET) ;
-    # remove project header clones for this target
-    if $(PROJECT_HEADER_DIR) {
-        Clean.Remove clean : $(PROJECT_HEADER_DIR) ;
-    }
-    if $(WRAPPER_CLONE_DIR) {
-        Clean.Remove clean : $(WRAPPER_CLONE_DIR) ;
-    }
     # whole project content to remove on full clean
     Clean.Remove clean : $(PRECOMP_TRUSTFILE) ;
 }
 
 actions quietly piecemeal together existing Clean.Remove 
 {
-    $(RM) -rf "$(2)"
+    $(RM) -rf $(2:Q)
 }
 
-actions Clean.RemoveArchive
+actions quietly piecemeal together existing Clean.RemoveArchive
 {
-    if [ -f "$(2)" ]; then
-        $(RM) -rf "$(2)"
+    if [ -f $(2:Q) ]; then
+        $(RM) -rf $(2:Q)
     fi
 }
 

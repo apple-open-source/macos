@@ -3,19 +3,22 @@
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
- * The contents of this file constitute Original Code as defined in and
- * are subject to the Apple Public Source License Version 1.1 (the
- * "License").  You may not use this file except in compliance with the
- * License.  Please obtain a copy of the License at
- * http://www.apple.com/publicsource and read it before using this file.
+ * Copyright (c) 1999-2003 Apple Computer, Inc.  All Rights Reserved.
  * 
- * This Original Code and all software distributed under the License are
- * distributed on an "AS IS" basis, WITHOUT WARRANTY OF ANY KIND, EITHER
+ * This file contains Original Code and/or Modifications of Original Code
+ * as defined in and that are subject to the Apple Public Source License
+ * Version 2.0 (the 'License'). You may not use this file except in
+ * compliance with the License. Please obtain a copy of the License at
+ * http://www.opensource.apple.com/apsl/ and read it before using this
+ * file.
+ * 
+ * The Original Code and all software distributed under the License are
+ * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
  * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
  * INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY,
- * FITNESS FOR A PARTICULAR PURPOSE OR NON-INFRINGEMENT.  Please see the
- * License for the specific language governing rights and limitations
- * under the License.
+ * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
+ * Please see the License for the specific language governing rights and
+ * limitations under the License.
  * 
  * @APPLE_LICENSE_HEADER_END@
  */
@@ -32,6 +35,7 @@
 #include <miscfs/specfs/specdev.h>
 #include <sys/malloc.h>
 #include <sys/attr.h>
+#include <sys/utfconv.h>
 
 #include "bpb.h"
 #include "direntry.h"
@@ -47,7 +51,11 @@ enum {
     MSDOSFS_ATTR_VOL_NATIVE		= ATTR_VOL_FSTYPE | ATTR_VOL_SIZE | ATTR_VOL_SPACEFREE | ATTR_VOL_SPACEAVAIL |
                                 ATTR_VOL_MINALLOCATION | ATTR_VOL_ALLOCATIONCLUMP | ATTR_VOL_IOBLOCKSIZE |
                                 ATTR_VOL_MAXOBJCOUNT | ATTR_VOL_MOUNTPOINT | ATTR_VOL_MOUNTFLAGS |
-                                ATTR_VOL_MOUNTEDDEVICE | ATTR_VOL_CAPABILITIES,
+                                ATTR_VOL_MOUNTEDDEVICE | ATTR_VOL_CAPABILITIES | ATTR_VOL_NAME |
+#ifdef ATTR_VOL_VCBFSID
+                                ATTR_VOL_VCBFSID |
+#endif
+                                ATTR_VOL_SIGNATURE,
     MSDOSFS_ATTR_VOL_SUPPORTED	= MSDOSFS_ATTR_VOL_NATIVE,
     MSDOSFS_ATTR_DIR_NATIVE		= ATTR_DIR_MOUNTSTATUS,
     MSDOSFS_ATTR_DIR_SUPPORTED	= MSDOSFS_ATTR_DIR_NATIVE | ATTR_DIR_LINKCOUNT,
@@ -55,7 +63,13 @@ enum {
                                 ATTR_FILE_DATALENGTH | ATTR_FILE_DATAALLOCSIZE,
     MSDOSFS_ATTR_FILE_SUPPORTED	= MSDOSFS_ATTR_FILE_NATIVE | ATTR_FILE_LINKCOUNT,
     MSDOSFS_ATTR_FORK_NATIVE	= 0,
-    MSDOSFS_ATTR_FORK_SUPPORTED	= MSDOSFS_ATTR_FORK_NATIVE
+    MSDOSFS_ATTR_FORK_SUPPORTED	= MSDOSFS_ATTR_FORK_NATIVE,
+    
+    MSDOSFS_ATTR_CMN_SETTABLE	= 0,
+    MSDOSFS_ATTR_VOL_SETTABLE	= ATTR_VOL_INFO | ATTR_VOL_NAME,
+    MSDOSFS_ATTR_DIR_SETTABLE	= 0,
+    MSDOSFS_ATTR_FILE_SETTABLE	= 0,
+    MSDOSFS_ATTR_FORK_SETTABLE	= 0
 };
 
 /*
@@ -76,7 +90,7 @@ static void *packstr(char *s, void *attrptr, void *varptr)
     (void) strncpy((unsigned char *)varptr, s, length);
     
     /* Advance pointer past string, and round up to multiple of 4 bytes */
-    varptr += length + ((4 - (length & 3)) & 3);
+    varptr += (length + 3) & ~3;
         
     return varptr;
 }
@@ -106,10 +120,10 @@ static void msdosfs_packvolattr(
     a = alist->commonattr;
     if (a)
     {
-#if 0
+#if 1
         /* We don't currently support volume names, but we could later */
         if (a & ATTR_CMN_NAME) {
-            varptr = packstr("VOL_LABEL", attrptr, varptr);
+            varptr = packstr(pmp->pm_label, attrptr, varptr);
             ++((struct attrreference *)attrptr);
         }
 #endif
@@ -118,22 +132,7 @@ static void msdosfs_packvolattr(
         if (a & ATTR_CMN_OBJTYPE) *((fsobj_type_t *)attrptr)++ = DETOV(dep)->v_type;
         if (a & ATTR_CMN_OBJTAG) *((fsobj_tag_t *)attrptr)++ = VT_MSDOSFS;
         if (a & ATTR_CMN_OBJID) {
-            u_long fileid = 0;
-            u_long dirsperblk = pmp->pm_BytesPerSec / sizeof(struct direntry);
-
-            /* This calculation should match the one in msdosfs_getattr */
-            if (dep->de_Attributes & ATTR_DIRECTORY) {
-                fileid = cntobn(pmp, dep->de_StartCluster) * dirsperblk;
-                if (dep->de_StartCluster == MSDOSFSROOT)
-                    fileid = 1;
-            } else {
-                fileid = cntobn(pmp, dep->de_dirclust) * dirsperblk;
-                if (dep->de_dirclust == MSDOSFSROOT)
-                    fileid = roottobn(pmp, 0) * dirsperblk;
-                fileid += dep->de_diroffset / sizeof(struct direntry);
-            }
-
-			((fsobj_id_t *)attrptr)->fid_objno = fileid;
+			((fsobj_id_t *)attrptr)->fid_objno = defileid(dep);
 			((fsobj_id_t *)attrptr)->fid_generation = 0;
 			++((fsobj_id_t *)attrptr);
         }
@@ -152,7 +151,7 @@ static void msdosfs_packvolattr(
             ++((struct timespec *)attrptr);
         }
         /* ATTR_CMN_BKUPTIME and ATTR_CMN_FNDRINFO not supported */
-        if (a & ATTR_CMN_OWNERID) *((uid_t *)attrptr)++ = pmp->pm_uid;
+        if (a & ATTR_CMN_OWNERID) *((uid_t *)attrptr)++ = get_pmuid(pmp, cred->cr_uid);
         if (a & ATTR_CMN_GRPID) *((gid_t *)attrptr)++ = pmp->pm_gid;
         if (a & ATTR_CMN_ACCESSMASK) *((u_long *)attrptr)++ = ALLPERMS & pmp->pm_mask;
         if (a & ATTR_CMN_FLAGS)
@@ -180,7 +179,7 @@ static void msdosfs_packvolattr(
     if (a)
     {
         if (a & ATTR_VOL_FSTYPE) *((u_long *)attrptr)++ = (u_long) mp->mnt_vfc->vfc_typenum;
-        /* ATTR_VOL_SIGNATURE not supported */
+        if (a & ATTR_VOL_SIGNATURE) *((u_long *)attrptr)++ = 0x4244;
         if (a & ATTR_VOL_SIZE) *((off_t *)attrptr)++ = (off_t) (pmp->pm_maxcluster-2) * (off_t) pmp->pm_bpcluster;
         if (a & ATTR_VOL_SPACEFREE) *((off_t *)attrptr)++ = (off_t) pmp->pm_freeclustercount * (off_t) pmp->pm_bpcluster;
         if (a & ATTR_VOL_SPACEAVAIL) *((off_t *)attrptr)++ = (off_t) pmp->pm_freeclustercount * (off_t) pmp->pm_bpcluster;
@@ -197,13 +196,10 @@ static void msdosfs_packvolattr(
             varptr = packstr(mp->mnt_stat.f_mntonname, attrptr, varptr);
             ++((struct attrreference *)attrptr);
         }
-#if 0
-        /* We don't currently support volume names, but we could later */
         if (a & ATTR_VOL_NAME) {
-            varptr = packstr("VOL_LABEL", attrptr, varptr);	/*¥¥ Should use volume label */
+            varptr = packstr(pmp->pm_label, attrptr, varptr);
             ++((struct attrreference *)attrptr);
         }
-#endif
         if (a & ATTR_VOL_MOUNTFLAGS) *((u_long *)attrptr)++ = mp->mnt_flag;
         if (a & ATTR_VOL_MOUNTEDDEVICE) {
             varptr = packstr(mp->mnt_stat.f_mntfromname, attrptr, varptr);
@@ -216,25 +212,49 @@ static void msdosfs_packvolattr(
             
             vcapattrptr = (vol_capabilities_attr_t *) attrptr;
             
-            vcapattrptr->capabilities[VOL_CAPABILITIES_FORMAT] = 0;
-            vcapattrptr->capabilities[VOL_CAPABILITIES_INTERFACES] = VOL_CAP_INT_NFSEXPORT;
+            vcapattrptr->capabilities[VOL_CAPABILITIES_FORMAT] = 
+            	VOL_CAP_FMT_NO_ROOT_TIMES |
+            	VOL_CAP_FMT_CASE_PRESERVING |
+            	VOL_CAP_FMT_FAST_STATFS ;
+            vcapattrptr->capabilities[VOL_CAPABILITIES_INTERFACES] = 
+            	VOL_CAP_INT_NFSEXPORT |
+            	VOL_CAP_INT_VOL_RENAME |
+            	VOL_CAP_INT_ADVLOCK |
+            	VOL_CAP_INT_FLOCK ;
             vcapattrptr->capabilities[VOL_CAPABILITIES_RESERVED1] = 0;
             vcapattrptr->capabilities[VOL_CAPABILITIES_RESERVED2] = 0;
     
             vcapattrptr->valid[VOL_CAPABILITIES_FORMAT] =
                 VOL_CAP_FMT_PERSISTENTOBJECTIDS |
                 VOL_CAP_FMT_SYMBOLICLINKS |
-                VOL_CAP_FMT_HARDLINKS;
+                VOL_CAP_FMT_HARDLINKS |
+                VOL_CAP_FMT_JOURNAL |
+                VOL_CAP_FMT_JOURNAL_ACTIVE |
+                VOL_CAP_FMT_NO_ROOT_TIMES |
+                VOL_CAP_FMT_SPARSE_FILES |
+                VOL_CAP_FMT_ZERO_RUNS |
+                VOL_CAP_FMT_CASE_SENSITIVE |
+                VOL_CAP_FMT_CASE_PRESERVING |
+                VOL_CAP_FMT_FAST_STATFS ;
             vcapattrptr->valid[VOL_CAPABILITIES_INTERFACES] =
                 VOL_CAP_INT_SEARCHFS |
                 VOL_CAP_INT_ATTRLIST |
                 VOL_CAP_INT_NFSEXPORT |
-                VOL_CAP_INT_READDIRATTR;
+                VOL_CAP_INT_READDIRATTR |
+                VOL_CAP_INT_EXCHANGEDATA |
+                VOL_CAP_INT_COPYFILE |
+                VOL_CAP_INT_ALLOCATE |
+                VOL_CAP_INT_VOL_RENAME |
+            	VOL_CAP_INT_ADVLOCK |
+            	VOL_CAP_INT_FLOCK ;
             vcapattrptr->valid[VOL_CAPABILITIES_RESERVED1] = 0;
             vcapattrptr->valid[VOL_CAPABILITIES_RESERVED2] = 0;
     
             ++((vol_capabilities_attr_t *)attrptr);
         }
+#ifdef ATTR_VOL_VCBFSID
+        if (a & ATTR_VOL_VCBFSID) *((u_long *)attrptr)++ = 0x4953;
+#endif
         if (a & ATTR_VOL_ATTRIBUTES) {
         	((vol_attributes_attr_t *)attrptr)->validattr.commonattr = MSDOSFS_ATTR_CMN_SUPPORTED;
         	((vol_attributes_attr_t *)attrptr)->validattr.volattr = MSDOSFS_ATTR_VOL_SUPPORTED;
@@ -268,14 +288,13 @@ static void msdosfs_packcommonattr(
     void *attrptr = *attrptrptr;
     void *varptr = *varptrptr;
     struct msdosfsmount *pmp = dep->de_pmp;
-    u_long dirspersector = pmp->pm_BytesPerSec / sizeof(struct direntry);
     
     a = alist->commonattr;
 
-#if 0
+#if 1
     /* We don't currently support file and directory names, but we could later */
     if (a & ATTR_CMN_NAME) {
-        varptr = packstr(dep->de_Name, attrptr, varptr);	/* Should really be long name */
+        varptr = packstr(dep->de_Name, attrptr, varptr);	/*¥¥ Should really be long name */
         ++((struct attrreference *)attrptr);
     }
 #endif
@@ -284,20 +303,7 @@ static void msdosfs_packcommonattr(
     if (a & ATTR_CMN_OBJTYPE) *((fsobj_type_t *)attrptr)++ = DETOV(dep)->v_type;
     if (a & ATTR_CMN_OBJTAG) *((fsobj_tag_t *)attrptr)++ = VT_MSDOSFS;
     if (a & ATTR_CMN_OBJID) {
-        u_long fileid;
-    
-        if (dep->de_Attributes & ATTR_DIRECTORY) {
-            fileid = cntobn(pmp, dep->de_StartCluster) * dirspersector;
-            if (dep->de_StartCluster == MSDOSFSROOT)
-                fileid = 1;
-        } else {
-            fileid = cntobn(pmp, dep->de_dirclust) * dirspersector;
-            if (dep->de_dirclust == MSDOSFSROOT)
-                fileid = roottobn(pmp, 0) * dirspersector;
-            fileid += dep->de_diroffset / sizeof(struct direntry);
-        }
-
-        ((fsobj_id_t *)attrptr)->fid_objno = fileid;
+        ((fsobj_id_t *)attrptr)->fid_objno = defileid(dep);
         ((fsobj_id_t *)attrptr)->fid_generation = 0;
         ++((fsobj_id_t *)attrptr);
     }
@@ -316,7 +322,7 @@ static void msdosfs_packcommonattr(
         ++((struct timespec *)attrptr);
     }
     /* ATTR_CMN_BKUPTIME and ATTR_CMN_FNDRINFO not supported */
-    if (a & ATTR_CMN_OWNERID) *((uid_t *)attrptr)++ = pmp->pm_uid;
+    if (a & ATTR_CMN_OWNERID) *((uid_t *)attrptr)++ = get_pmuid(pmp, cred->cr_uid);
     if (a & ATTR_CMN_GRPID) *((gid_t *)attrptr)++ = pmp->pm_gid;
     if (a & ATTR_CMN_ACCESSMASK) *((u_long *)attrptr)++ = ALLPERMS & pmp->pm_mask;
     if (a & ATTR_CMN_FLAGS)
@@ -421,51 +427,6 @@ static size_t msdosfs_attrsize(struct attrlist *attrlist)
 	size_t size;
 	attrgroup_t a=0;
 	
-#if ((ATTR_CMN_NAME | ATTR_CMN_DEVID | ATTR_CMN_FSID | ATTR_CMN_OBJTYPE	|  \
-      ATTR_CMN_OBJTAG | ATTR_CMN_OBJID | ATTR_CMN_OBJPERMANENTID |         \
-      ATTR_CMN_PAROBJID | ATTR_CMN_SCRIPT | ATTR_CMN_CRTIME |              \
-      ATTR_CMN_MODTIME | ATTR_CMN_CHGTIME | ATTR_CMN_ACCTIME |             \
-      ATTR_CMN_BKUPTIME | ATTR_CMN_FNDRINFO | ATTR_CMN_OWNERID |           \
-      ATTR_CMN_GRPID | ATTR_CMN_ACCESSMASK | ATTR_CMN_NAMEDATTRCOUNT |     \
-      ATTR_CMN_NAMEDATTRLIST | ATTR_CMN_FLAGS | ATTR_CMN_USERACCESS)       \
-      != ATTR_CMN_VALIDMASK)
-#error	msdosfs_attrsize: Missing bits in common mask computation!
-#endif
-//	DBG_ASSERT((attrlist->commonattr & ~ATTR_CMN_VALIDMASK) == 0);
-
-#if ((ATTR_VOL_FSTYPE | ATTR_VOL_SIGNATURE | ATTR_VOL_SIZE |                \
-      ATTR_VOL_SPACEFREE | ATTR_VOL_SPACEAVAIL | ATTR_VOL_MINALLOCATION |   \
-      ATTR_VOL_ALLOCATIONCLUMP | ATTR_VOL_IOBLOCKSIZE |                     \
-      ATTR_VOL_OBJCOUNT | ATTR_VOL_FILECOUNT | ATTR_VOL_DIRCOUNT |          \
-      ATTR_VOL_MAXOBJCOUNT | ATTR_VOL_MOUNTPOINT | ATTR_VOL_NAME |          \
-      ATTR_VOL_MOUNTFLAGS | ATTR_VOL_INFO | ATTR_VOL_MOUNTEDDEVICE |        \
-      ATTR_VOL_ENCODINGSUSED | ATTR_VOL_CAPABILITIES | ATTR_VOL_ATTRIBUTES) \
-      != ATTR_VOL_VALIDMASK)
-#error	msdosfs_attrsize: Missing bits in volume mask computation!
-#endif
-//	DBG_ASSERT((attrlist->volattr & ~ATTR_VOL_VALIDMASK) == 0);
-
-#if ((ATTR_DIR_LINKCOUNT | ATTR_DIR_ENTRYCOUNT | ATTR_DIR_MOUNTSTATUS)  \
-      != ATTR_DIR_VALIDMASK)
-#error	msdosfs_attrsize: Missing bits in directory mask computation!
-#endif
-//	DBG_ASSERT((attrlist->dirattr & ~ATTR_DIR_VALIDMASK) == 0);
-
-#if ((ATTR_FILE_LINKCOUNT | ATTR_FILE_TOTALSIZE | ATTR_FILE_ALLOCSIZE |        \
-      ATTR_FILE_IOBLOCKSIZE | ATTR_FILE_CLUMPSIZE | ATTR_FILE_DEVTYPE |        \
-      ATTR_FILE_FILETYPE | ATTR_FILE_FORKCOUNT | ATTR_FILE_FORKLIST |          \
-      ATTR_FILE_DATALENGTH | ATTR_FILE_DATAALLOCSIZE | ATTR_FILE_DATAEXTENTS | \
-      ATTR_FILE_RSRCLENGTH | ATTR_FILE_RSRCALLOCSIZE | ATTR_FILE_RSRCEXTENTS)  \
-      != ATTR_FILE_VALIDMASK)
-#error	msdosfs_attrsize: Missing bits in file mask computation!
-#endif
-//	DBG_ASSERT((attrlist->fileattr & ~ATTR_FILE_VALIDMASK) == 0);
-
-#if ((ATTR_FORK_TOTALSIZE | ATTR_FORK_ALLOCSIZE) != ATTR_FORK_VALIDMASK)
-#error	msdosfs_attrsize: Missing bits in fork mask computation!
-#endif
-//	DBG_ASSERT((attrlist->forkattr & ~ATTR_FORK_VALIDMASK) == 0);
-
 	size = 0;
 	
 	if ((a = attrlist->commonattr) != 0) {
@@ -511,6 +472,9 @@ static size_t msdosfs_attrsize(struct attrlist *attrlist)
 		if (a & ATTR_VOL_MOUNTEDDEVICE) size += sizeof(struct attrreference);
 		if (a & ATTR_VOL_ENCODINGSUSED) size += sizeof(unsigned long long);
 		if (a & ATTR_VOL_CAPABILITIES) size += sizeof(vol_capabilities_attr_t);
+#ifdef ATTR_VOL_VCBFSID
+		if (a & ATTR_VOL_VCBFSID) size += sizeof(u_long);
+#endif
 		if (a & ATTR_VOL_ATTRIBUTES) size += sizeof(vol_attributes_attr_t);
 	};
 	if ((a = attrlist->dirattr) != 0) {
@@ -570,17 +534,19 @@ int msdosfs_getattrlist(struct vop_getattrlist_args *ap)
     void *varptr;
     int error;
     
-    /* Check the attrlist for valid inputs (i.e. be sure we understand what caller is asking) */
-	if ((alist->bitmapcount != ATTR_BIT_MAP_COUNT) ||
-	    ((alist->commonattr & ~ATTR_CMN_VALIDMASK) != 0) ||
-	    ((alist->volattr & ~ATTR_VOL_VALIDMASK) != 0) ||
-	    ((alist->dirattr & ~ATTR_DIR_VALIDMASK) != 0) ||
-	    ((alist->fileattr & ~ATTR_FILE_VALIDMASK) != 0) ||
-        ((alist->forkattr & ~ATTR_FORK_VALIDMASK) != 0))
+    /*
+     * Make sure caller isn't asking for an attibute we don't support.
+     */
+    if ((alist->bitmapcount != 5) ||
+    	(alist->commonattr & ~MSDOSFS_ATTR_CMN_SUPPORTED) != 0 ||
+        (alist->volattr & ~(MSDOSFS_ATTR_VOL_SUPPORTED | ATTR_VOL_INFO)) != 0 ||
+        (alist->dirattr & ~MSDOSFS_ATTR_DIR_SUPPORTED) != 0 ||
+        (alist->fileattr & ~MSDOSFS_ATTR_FILE_SUPPORTED) != 0 ||
+        (alist->forkattr & ~MSDOSFS_ATTR_FORK_SUPPORTED) != 0)
     {
-		return EINVAL;
-	}
-
+        return EOPNOTSUPP;
+    }
+    
 	/*
 	 * Requesting volume information requires setting the
 	 * ATTR_VOL_INFO bit. Also, volume info requests are
@@ -593,17 +559,6 @@ int msdosfs_getattrlist(struct vop_getattrlist_args *ap)
 		return EINVAL;
 	}
 
-    /*
-     * Make sure caller isn't asking for an attibute we don't support.
-     */
-    if ((alist->commonattr & ~MSDOSFS_ATTR_CMN_SUPPORTED) != 0 ||
-        (alist->dirattr & ~MSDOSFS_ATTR_DIR_SUPPORTED) != 0 ||
-        (alist->fileattr & ~MSDOSFS_ATTR_FILE_SUPPORTED) != 0 ||
-        (alist->forkattr & ~MSDOSFS_ATTR_FORK_SUPPORTED) != 0)
-    {
-        return EOPNOTSUPP;
-    }
-    
     /*
      * Requesting volume information requires a vnode for the volume root.
      */
@@ -639,6 +594,228 @@ int msdosfs_getattrlist(struct vop_getattrlist_args *ap)
     
     error = uiomove((caddr_t) attrbufptr, attrbufsize, ap->a_uio);
     
+    FREE(attrbufptr, M_TEMP);
+    return error;
+}
+
+
+static int msdosfs_unpackvolattr(
+    attrgroup_t attrs,
+    struct denode *dep,
+    void *attrbufptr)
+{
+    int i;
+    int error = 0;
+    attrreference_t *attrref;
+	struct msdosfsmount *pmp = dep->de_pmp;
+    u_int16_t volName[11];
+    size_t unichars;
+    u_char label[11];
+    struct buf *bp = NULL;
+
+    if (attrs & ATTR_VOL_NAME)
+    {
+        u_int16_t c;
+        extern u_char l2u[256];
+        u_char unicode2dos(u_int16_t uc);
+        
+        attrref = attrbufptr;
+
+        if (attrref->attr_length > 63)
+        	return EINVAL;
+        error = utf8_decodestr((char*)attrref + attrref->attr_dataoffset, attrref->attr_length,
+            volName, &unichars, sizeof(volName), 0, UTF_PRECOMPOSED);
+        if (error)
+            return error;
+        unichars /= 2;	/* Bytes to characters */
+		if (unichars > 11)
+			return EINVAL;
+
+        /*
+         * Convert from Unicode to local encoding (like a short name).
+         * We can't call unicode2dosfn here because it assumes a dot
+         * between the first 8 and last 3 characters.
+         *
+         * The specification doesn't say what syntax limitations exist
+         * for volume labels.  By experimentation, they appear to be
+         * upper case only.  I am assuming they are like short names,
+         * but no period is assumed/required after the 8th character.
+         */
+        
+        /* Name is trailing space padded, so init to all spaces. */
+        for (i=0; i<11; ++i)
+            label[i] = ' ';
+
+        for (i=0; i<unichars; ++i) {
+            c = volName[i];
+            if (c < 0x100)
+                c = l2u[c];			/* Convert to upper case */
+            if (c != ' ')			/* Allow space to pass unchanged */
+                c = unicode2dos(c);	/* Convert to local encoding */
+            if (c < 3)
+                return EINVAL;		/* Illegal char in name */
+            label[i] = c;
+        }
+
+        /* Copy the UTF-8 to pmp->pm_label */
+        bcopy((char*)attrref + attrref->attr_dataoffset, pmp->pm_label, attrref->attr_length);
+        pmp->pm_label[attrref->attr_length] = '\0';
+
+        /* Update label in boot sector */
+        error = meta_bread(pmp->pm_devvp, 0, pmp->pm_BlockSize, NOCRED, &bp);
+        if (!error) {
+            if (FAT32(pmp))
+                bcopy(label, (char*)bp->b_data+71, 11);
+            else
+                bcopy(label, (char*)bp->b_data+43, 11);
+            bdwrite(bp);
+            bp = NULL;
+        }
+        if (bp)
+            brelse(bp);
+        bp = NULL;
+
+        /*
+         * Update label in root directory, if any.  For now, don't
+         * create one if it doesn't exist (in case devices like
+         * cameras don't understand them).
+         */
+        if (pmp->pm_label_cluster != CLUST_EOFE) {
+        	error = readep(pmp, pmp->pm_label_cluster, pmp->pm_label_offset, &bp, NULL);
+            if (!error) {
+                bcopy(label, bp->b_data + pmp->pm_label_offset, 11);
+                bdwrite(bp);
+                bp = NULL;
+            }
+            if (bp)
+                brelse(bp);
+            bp=NULL;
+        }
+        
+        /* Advance buffer pointer past attribute reference */
+        attrbufptr = ++attrref;
+    }
+    
+    return error;
+}
+
+
+
+static int msdosfs_unpackcommonattr(
+    attrgroup_t attrs,
+    struct denode *dep,
+    void *attrbufptr)
+{
+    return EOPNOTSUPP;
+}
+
+
+
+static int msdosfs_unpackattr(
+    struct attrlist *alist,
+    struct denode *dep,
+    void *attrbufptr)
+{
+    int error;
+    
+    if (alist->volattr != 0)
+        error = msdosfs_unpackvolattr(alist->volattr, dep, attrbufptr);
+    else
+        error = msdosfs_unpackcommonattr(alist->commonattr, dep, attrbufptr);
+    
+    return error;
+}
+
+
+
+/*
+#
+#% setattrlist	vp	L L L
+#
+vop_setattrlist {
+	IN struct vnode *vp;
+	IN struct attrlist *alist;
+	INOUT struct uio *uio;
+	IN struct ucred *cred;
+	IN struct proc *p;
+};
+*/
+__private_extern__
+int msdosfs_setattrlist(struct vop_setattrlist_args *ap)
+{
+    struct vnode *vp = ap->a_vp;
+    struct denode *dep = VTODE(vp);
+	struct attrlist *alist = ap->a_alist;
+	size_t attrblocksize;
+	void *attrbufptr;
+    int error;
+    
+	if (vp->v_mount->mnt_flag & MNT_RDONLY)
+		return (EROFS);
+
+    /* Check the attrlist for valid inputs (i.e. be sure we understand what caller is asking) */
+	if ((alist->bitmapcount != ATTR_BIT_MAP_COUNT) ||
+	    ((alist->commonattr & ~ATTR_CMN_SETMASK) != 0) ||
+	    ((alist->volattr & ~ATTR_VOL_SETMASK) != 0) ||
+	    ((alist->dirattr & ~ATTR_DIR_SETMASK) != 0) ||
+	    ((alist->fileattr & ~ATTR_FILE_SETMASK) != 0) ||
+        ((alist->forkattr & ~ATTR_FORK_SETMASK) != 0))
+    {
+		return EINVAL;
+	}
+
+	/*
+	 * Setting volume information requires setting the
+	 * ATTR_VOL_INFO bit. Also, volume info requests are
+	 * mutually exclusive with all other info requests.
+	 */
+	if ((alist->volattr != 0) &&
+	    (((alist->volattr & ATTR_VOL_INFO) == 0) ||
+	     (alist->dirattr != 0) || (alist->fileattr != 0) || alist->forkattr != 0))
+    {
+		return EINVAL;
+	}
+
+    /*
+     * Make sure caller isn't asking for an attibute we don't support.
+     *¥¥ Right now, all we support is setting the volume name.
+     */
+    if ((alist->commonattr & ~MSDOSFS_ATTR_CMN_SETTABLE) != 0 ||
+        (alist->volattr & ~MSDOSFS_ATTR_VOL_SETTABLE) != 0 ||
+        (alist->dirattr & ~MSDOSFS_ATTR_DIR_SETTABLE) != 0 ||
+        (alist->fileattr & ~MSDOSFS_ATTR_FILE_SETTABLE) != 0 ||
+        (alist->forkattr & ~MSDOSFS_ATTR_FORK_SETTABLE) != 0)
+    {
+        return EOPNOTSUPP;
+    }
+    
+    /*
+     * Setting volume information requires a vnode for the volume root.
+     */
+    if (alist->volattr && (vp->v_flag & VROOT) == 0)
+    {
+        return EINVAL;
+    }
+
+    /*
+     *¥¥ We should check that the user has access to change the
+     *¥¥ passed attributes.
+     */
+
+    attrblocksize = ap->a_uio->uio_resid;
+    if (attrblocksize < msdosfs_attrsize(alist))
+        return EINVAL;
+    /*¥¥ We should check that attrreferences don't point outside the buffer */
+    
+	MALLOC(attrbufptr, void *, attrblocksize, M_TEMP, M_WAITOK);
+
+	error = uiomove((caddr_t)attrbufptr, attrblocksize, ap->a_uio);
+	if (error)
+        goto ErrorExit;
+
+    error = msdosfs_unpackattr(alist, dep, attrbufptr);
+
+ErrorExit:
     FREE(attrbufptr, M_TEMP);
     return error;
 }

@@ -1,0 +1,56 @@
+<html><head><META http-equiv="Content-Type" content="text/html; charset=iso-8859-1"><title>The Tomcat 4 Servlet/JSP Container - SSI How To</title><meta value="Glenn L. Nielsen" name="author"><meta value="glenn@apache.org" name="email"></head><body vlink="#525D76" alink="#525D76" link="#525D76" text="#000000" bgcolor="#ffffff"><table cellspacing="4" width="100%" border="0"><!--PAGE HEADER--><tr><td colspan="2"><!--JAKARTA LOGO--><a href="http://jakarta.apache.org/"><img border="0" alt="The Jakarta Project" align="left" src="./../images/jakarta-logo.gif"></a><!--PROJECT LOGO--><a href="http://jakarta.apache.org/tomcat/"><img border="0" alt="
+      The Tomcat Servlet/JSP Container
+    " align="right" src="./../images/tomcat.gif"></a></td></tr><!--HEADER SEPARATOR--><tr><td colspan="2"><hr size="1" noshade=""></td></tr><tr><!--RIGHT SIDE MAIN BODY--><td align="left" valign="top" width="80%"><table cellspacing="4" width="100%" border="0"><tr><td nowrap="true" valign="top" align="left"><h1>The Tomcat 4 Servlet/JSP Container</h1><h2>SSI How To</h2></td><td nowrap="true" valign="top" align="right"><img border="0" hspace="0" vspace="0" height="1" width="1" src="./../images/void.gif"></td></tr></table><table cellpadding="2" cellspacing="0" border="0"><tr><td bgcolor="#525D76"><font face="arial,helvetica.sanserif" color="#ffffff"><a name="Introduction"><strong>Introduction</strong></a></font></td></tr><tr><td><blockquote>
+
+<p>SSI (Server Side Includes) are directives that are placed in HTML pages,
+and evaluated on the server while the pages are being served. They let you
+add dynamically generated content to an existing HTML page, without having
+to serve the entire page via a CGI program, or other dynamic technology.
+</p>
+
+<p>Within Tomcat SSI support can be added when using Tomcat as your
+HTTP server and you require SSI support.  Typically this is done
+during development when you don't want to run a web server like Apache.</p>
+
+<p>Tomcat SSI support implements the same SSI directives as Apache.  See the
+<a href="http://httpd.apache.org/docs/howto/ssi.html#basicssidirectives">
+Apache Introduction to SSI</a> for information on using SSI directives.</p>
+
+<p>SSI support is implemented using the servlet class
+<code>org.apache.catalina.ssi.SSIServlet</code>.  Traditionally, this servlet
+is mapped to the URL pattern "*.shtml".</p>
+
+<p>By default SSI support is disabled in Tomcat.</p>
+</blockquote></td></tr></table><table cellpadding="2" cellspacing="0" border="0"><tr><td bgcolor="#525D76"><font face="arial,helvetica.sanserif" color="#ffffff"><a name="Installation"><strong>Installation</strong></a></font></td></tr><tr><td><blockquote>
+
+<p><strong>CAUTION</strong> - SSI directives can be used to execute programs
+external to the Tomcat JVM. If you are using the Java SecurityManager this
+will bypass your security policy configuration in <code>catalina.policy.</code>
+</p>
+
+<p>Rename <code>$CATALINA_BASE/server/lib/servlets-ssi.renametojar</code>
+to <code>$CATALINA_BASE/server/lib/servlets-ssi.jar</code>.</p>
+
+<p>Remove the XML comments from around the SSI servlet and servlet-mapping
+configuration in <code>$CATALINA_BASE/conf/web.xml</code>.</p>
+</blockquote></td></tr></table><table cellpadding="2" cellspacing="0" border="0"><tr><td bgcolor="#525D76"><font face="arial,helvetica.sanserif" color="#ffffff"><a name="Configuration"><strong>Configuration</strong></a></font></td></tr><tr><td><blockquote>
+
+<p>There are several servlet init parameters which can be used to
+configure the behaviour of the SSI servlet.
+<ul>
+<li><strong>buffered</strong> - Should output from this servlet be buffered?
+(0=false, 1=true) Default 0 (false).</li>
+<li><strong>debug</strong> - Debugging detail level for messages logged
+by this servlet. Default 0.</li>
+<li><strong>expires</strong> - The number of seconds before a page with SSI
+directives will expire. Default behaviour is for all SSI directives to be
+evaluated for every request.</li>
+<li><strong>isVirtualWebappRelative</strong> - Should "virtual" SSI directive
+paths be interpreted as relative to the context root, instead of the server
+root? (0=false, 1=true) Default 0 (false).</li>
+</ul>
+</p>
+
+</blockquote></td></tr></table></td></tr><!--FOOTER SEPARATOR--><tr><td colspan="2"><hr size="1" noshade=""></td></tr><!--PAGE FOOTER--><tr><td colspan="2"><div align="center"><font size="-1" color="#525D76"><em>
+        Copyright &copy; 1999-2002, Apache Software Foundation
+        </em></font></div></td></tr></table></body></html>

@@ -1,6 +1,6 @@
-/* $OpenLDAP: pkg/ldap/include/ldap_pvt_thread.h,v 1.32 2002/01/04 19:40:30 kurt Exp $ */
+/* $OpenLDAP: pkg/ldap/include/ldap_pvt_thread.h,v 1.32.2.6 2003/02/09 17:02:17 kurt Exp $ */
 /*
- * Copyright 1998-2002 The OpenLDAP Foundation, Redwood City, California, USA
+ * Copyright 1998-2003 The OpenLDAP Foundation, Redwood City, California, USA
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -43,7 +43,7 @@ ldap_pvt_thread_set_concurrency LDAP_P(( int ));
 
 #ifndef LDAP_PVT_THREAD_STACK_SIZE
 	/* LARGE stack */
-#define LDAP_PVT_THREAD_STACK_SIZE	(16*1024*1024)
+#define LDAP_PVT_THREAD_STACK_SIZE	(4*1024*1024)
 #endif
 
 LDAP_F( int )
@@ -97,6 +97,9 @@ ldap_pvt_thread_mutex_trylock LDAP_P(( ldap_pvt_thread_mutex_t *mutex ));
 LDAP_F( int )
 ldap_pvt_thread_mutex_unlock LDAP_P(( ldap_pvt_thread_mutex_t *mutex ));
 
+LDAP_F( ldap_pvt_thread_t )
+ldap_pvt_thread_self LDAP_P(( void ));
+
 #ifndef LDAP_THREAD_HAVE_RDWR
 typedef struct ldap_int_thread_rdwr_s * ldap_pvt_thread_rdwr_t;
 #endif
@@ -141,6 +144,9 @@ ldap_pvt_thread_rdwr_active LDAP_P((ldap_pvt_thread_rdwr_t *rdwrp));
 
 typedef ldap_int_thread_pool_t ldap_pvt_thread_pool_t;
 
+typedef void * (ldap_pvt_thread_start_t) LDAP_P((void *ctx, void *arg));
+typedef void (ldap_pvt_thread_pool_keyfree_t) LDAP_P((void *key, void *data));
+
 LDAP_F( int )
 ldap_pvt_thread_pool_init LDAP_P((
 	ldap_pvt_thread_pool_t *pool_out,
@@ -150,7 +156,7 @@ ldap_pvt_thread_pool_init LDAP_P((
 LDAP_F( int )
 ldap_pvt_thread_pool_submit LDAP_P((
 	ldap_pvt_thread_pool_t *pool,
-	void *(*start_routine)( void * ),
+	ldap_pvt_thread_start_t *start,
 	void *arg ));
 
 LDAP_F( int )
@@ -167,6 +173,23 @@ ldap_pvt_thread_pool_destroy LDAP_P((
 	ldap_pvt_thread_pool_t *pool,
 	int run_pending ));
 
+LDAP_F( int )
+ldap_pvt_thread_pool_getkey LDAP_P((
+	void *ctx,
+	void *key,
+	void **data,
+	ldap_pvt_thread_pool_keyfree_t **kfree ));
+
+LDAP_F( int )
+ldap_pvt_thread_pool_setkey LDAP_P((
+	void *ctx,
+	void *key,
+	void *data,
+	ldap_pvt_thread_pool_keyfree_t *kfree ));
+
+LDAP_F( void *)
+ldap_pvt_thread_pool_context LDAP_P((
+	ldap_pvt_thread_pool_t *pool ));
 
 LDAP_END_DECL
 

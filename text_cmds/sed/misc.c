@@ -1,5 +1,3 @@
-/*	$NetBSD: misc.c,v 1.6 1997/10/19 23:05:15 lukem Exp $	*/
-
 /*-
  * Copyright (c) 1992 Diomidis Spinellis.
  * Copyright (c) 1992, 1993
@@ -38,17 +36,15 @@
  */
 
 #include <sys/cdefs.h>
+__FBSDID("$FreeBSD: src/usr.bin/sed/misc.c,v 1.6 2002/07/08 05:36:24 tjr Exp $");
+
 #ifndef lint
-#if 0
-static char sccsid[] = "@(#)misc.c	8.1 (Berkeley) 6/6/93";
-#else
-__RCSID("$NetBSD: misc.c,v 1.6 1997/10/19 23:05:15 lukem Exp $");
+static const char sccsid[] = "@(#)misc.c	8.1 (Berkeley) 6/6/93";
 #endif
-#endif /* not lint */
 
 #include <sys/types.h>
 
-#include <errno.h>
+#include <err.h>
 #include <regex.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -56,36 +52,6 @@ __RCSID("$NetBSD: misc.c,v 1.6 1997/10/19 23:05:15 lukem Exp $");
 
 #include "defs.h"
 #include "extern.h"
-
-/*
- * malloc with result test
- */
-void *
-xmalloc(size)
-	u_int size;
-{
-	void *p;
-
-	if ((p = malloc(size)) == NULL)
-		err(FATAL, "%s", strerror(errno));
-	return (p);
-}
-
-/*
- * realloc with result test
- */
-void *
-xrealloc(p, size)
-	void *p;
-	u_int size;
-{
-	if (p == NULL)			/* Compatibility hack. */
-		return (xmalloc(size));
-
-	if ((p = realloc(p, size)) == NULL)
-		err(FATAL, "%s", strerror(errno));
-	return (p);
-}
 
 /*
  * Return a string for a regular expression error passed.  This is a overkill,
@@ -102,47 +68,9 @@ strregerror(errcode, preg)
 
 	if (oe != NULL)
 		free(oe);
-	s = regerror(errcode, preg, "", 0);
-	oe = xmalloc(s);
+	s = regerror(errcode, preg, NULL, 0);
+	if ((oe = malloc(s)) == NULL)
+		err(1, "malloc");
 	(void)regerror(errcode, preg, oe, s);
 	return (oe);
-}
-
-#if __STDC__
-#include <stdarg.h>
-#else
-#include <varargs.h>
-#endif
-/*
- * Error reporting function
- */
-void
-#if __STDC__
-err(int severity, const char *fmt, ...)
-#else
-err(severity, fmt, va_alist)
-	int severity;
-	char *fmt;
-        va_dcl
-#endif
-{
-	va_list ap;
-#if __STDC__
-	va_start(ap, fmt);
-#else
-	va_start(ap);
-#endif
-	(void)fprintf(stderr, "sed: ");
-	switch (severity) {
-	case WARNING:
-	case COMPILE:
-		(void)fprintf(stderr, "%lu: %s: ", linenum, fname);
-	}
-	(void)vfprintf(stderr, fmt, ap);
-	va_end(ap);
-	(void)fprintf(stderr, "\n");
-	if (severity == WARNING)
-		return;
-	exit(1);
-	/* NOTREACHED */
 }

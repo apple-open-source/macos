@@ -14,7 +14,7 @@ PROJECT_TYPE = Tool
 
 HFILES = pathnames.h
 
-CFILES = xargs.c
+CFILES = xargs.c strnsubst.c
 
 OTHERSRCS = Makefile Makefile.preamble Makefile.postamble xargs.1
 

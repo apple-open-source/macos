@@ -1,35 +1,28 @@
 /*
- * Copyright (c) 1998-2001 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 1998-2003 Apple Computer, Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
- * The contents of this file constitute Original Code as defined in and
- * are subject to the Apple Public Source License Version 1.1 (the
- * "License").  You may not use this file except in compliance with the
- * License.  Please obtain a copy of the License at
- * http://www.apple.com/publicsource and read it before using this file.
+ * Copyright (c) 1999-2003 Apple Computer, Inc.  All Rights Reserved.
  * 
- * This Original Code and all software distributed under the License are
- * distributed on an "AS IS" basis, WITHOUT WARRANTY OF ANY KIND, EITHER
+ * This file contains Original Code and/or Modifications of Original Code
+ * as defined in and that are subject to the Apple Public Source License
+ * Version 2.0 (the 'License'). You may not use this file except in
+ * compliance with the License. Please obtain a copy of the License at
+ * http://www.opensource.apple.com/apsl/ and read it before using this
+ * file.
+ * 
+ * The Original Code and all software distributed under the License are
+ * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
  * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
  * INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY,
- * FITNESS FOR A PARTICULAR PURPOSE OR NON-INFRINGEMENT.  Please see the
- * License for the specific language governing rights and limitations
- * under the License.
+ * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
+ * Please see the License for the specific language governing rights and
+ * limitations under the License.
  * 
  * @APPLE_LICENSE_HEADER_END@
  */
 
-/*
- * Copyright (c) 1999-2001 Apple Computer, Inc.  All rights reserved. 
- *
- * IOATABlockStorageDriver.cpp - Generic ATA disk driver.
- *
- * HISTORY
- * 		
- *		09.28.2000		CJS  	Started IOATABlockStorageDriver.cpp
- *								(ported from IOATAHDDrive.cpp)
- */
 
 #include <IOKit/assert.h>
 #include "IOATABlockStorageDriver.h"
@@ -37,6 +30,7 @@
 #include <IOKit/IOWorkLoop.h>
 #include <IOKit/IOCommandGate.h>
 #include <IOKit/IOKitKeys.h>
+#include <IOKit/ata/IOATATypes.h>
 
 #define ATA_BLOCK_STORAGE_DRIVER_DEBUGGING_LEVEL 0
 
@@ -68,6 +62,14 @@
 #define	super IOService
 OSDefineMetaClassAndStructors ( IOATABlockStorageDriver, IOService );
 
+enum
+{
+	kATAIdleDevice		= 1,
+	kATAStandbyDevice	= 2,
+	kATASleepDevice		= 3
+};
+
+
 #pragma mark Public Methods
 
 
@@ -84,9 +86,9 @@ IOATABlockStorageDriver::init ( OSDictionary * properties )
 	{
 		
 		return false;
-	
-	}
 		
+	}
+	
 	return true;
 	
 }
@@ -154,6 +156,8 @@ IOATABlockStorageDriver::start ( IOService * provider )
 	
 	assert ( fDeviceIdentifyBuffer != NULL );
 	
+	fDeviceIdentifyBuffer->prepare ( );
+	
 	numCommandObjects 	= OSDynamicCast ( OSNumber, getProperty ( "IOCommandPoolSize" ) );
 	fNumCommandObjects 	= numCommandObjects->unsigned32BitValue ( );
 	
@@ -199,13 +203,11 @@ IOATABlockStorageDriver::start ( IOService * provider )
 	// A policy-maker must make these calls to join the PM tree,
 	// and to initialize its state
 	PMinit ( );								// initialize power management variables
-	provider->joinPMtree ( this );  		// join power management tree
 	setIdleTimerPeriod ( k5Minutes );		// 5 minute inactivity timer
+	provider->joinPMtree ( this );  		// join power management tree
 	makeUsable ( );
 	fPowerManagementInitialized = true;
-	
-	if ( fSupportedFeatures & kIOATAFeaturePowerManagement )
-		initForPM ( );
+	initForPM ( );
 	
 	return ( createNub ( provider ) );
 	
@@ -314,6 +316,17 @@ IOATABlockStorageDriver::free ( void )
 	if ( reserved != NULL )
 	{
 		
+		// Release all memory/objects associated with the reserved fields.
+		if ( fPowerDownNotifier != NULL )
+		{
+			
+			// remove() will also call release() on this object (IONotifier).
+			// See IONotifier.h for more info.
+			fPowerDownNotifier->remove ( );
+			fPowerDownNotifier = NULL;
+			
+		}
+		
 		IOFree ( reserved, sizeof ( ExpansionData ) );
 		reserved = NULL;
 		
@@ -322,6 +335,7 @@ IOATABlockStorageDriver::free ( void )
 	if ( fDeviceIdentifyBuffer != NULL )
 	{
 		
+		fDeviceIdentifyBuffer->complete ( );
 		fDeviceIdentifyBuffer->release ( );
 		fDeviceIdentifyBuffer = NULL;
 		
@@ -554,8 +568,42 @@ IOReturn
 IOATABlockStorageDriver::doEjectMedia ( void )
 {
 	
+	IOReturn	status = kIOReturnSuccess;
+	
 	STATUS_LOG ( ( "IOATABlockStorageDriver::doEjectMedia called.\n" ) );
-	return kIOReturnUnsupported;	// No support for removable ATA devices.
+	
+	if ( fATASocketType == kPCCardSocket )
+		return status;
+	
+	if ( getProperty ( "Power Off" ) != NULL )
+	{
+		
+		// Spin down the media now. We use to queue up a power change but we found
+		// that since the PM stuff happens at a deferred point, the machine might shutdown
+		// before we finish the PM change. So, we do the spindown now, then sync with PM
+		// so it knows the state.
+		if ( fCurrentPowerState > kIOATAPowerStateSleep )
+		{
+			
+			// Spin down the drive
+			issuePowerTransition ( kATAStandbyDevice );
+			
+			// NB: Intentionally set to sleep since some devices don't like
+			// being put to sleep after standby.
+			fCurrentPowerState = kIOATAPowerStateSleep;
+			
+			// Give the heads a chance to park
+			IOSleep ( 500 );
+			
+		}
+		
+	}
+	
+	// Synchronize our state with power management's concept of what
+	// our state really is.
+	changePowerStateToPriv ( kIOATAPowerStateSleep );
+	
+	return status;
 	
 }
 
@@ -774,7 +822,7 @@ IOATABlockStorageDriver::getVendorString ( void )
 
 //---------------------------------------------------------------------------
 // ¥ reportBlockSize - 	Report the device block size in bytes. This is
-//						ALWAYS 512-bytes (//¥¥¥Check if true for compact flash)
+//						ALWAYS 512-bytes
 //---------------------------------------------------------------------------
 
 IOReturn
@@ -791,7 +839,8 @@ IOATABlockStorageDriver::reportBlockSize ( UInt64 * blockSize )
 
 
 //---------------------------------------------------------------------------
-// ¥ reportEjectability - Report the media in the ATA device as non-ejectable.
+// ¥ reportEjectability - 	Report the media in the ATA device as 
+//							non-ejectable unless it is in the PC Card socket.
 //---------------------------------------------------------------------------
 
 IOReturn
@@ -800,7 +849,7 @@ IOATABlockStorageDriver::reportEjectability ( bool * isEjectable )
 	
 	STATUS_LOG ( ( "IOATABlockStorageDriver::reportEjectability called.\n" ) );
 	
-	*isEjectable = false;
+	*isEjectable = (fATASocketType == kPCCardSocket);
 	return kIOReturnSuccess;
 	
 }
@@ -954,8 +1003,8 @@ IOATABlockStorageDriver::reportRemovability ( bool * isRemovable )
 {
 
 	STATUS_LOG ( ( "IOATABlockStorageDriver::reportRemovability called.\n" ) );
-
-	*isRemovable = false;
+	
+	*isRemovable = (fATASocketType == kPCCardSocket);
 	return kIOReturnSuccess;
 	
 }
@@ -973,6 +1022,83 @@ IOATABlockStorageDriver::reportWriteProtection ( bool * isWriteProtected )
 
 	*isWriteProtected = false;
 	return kIOReturnSuccess;
+	
+}
+
+
+//---------------------------------------------------------------------------
+// ¥ getWriteCacheState - Gets the write cache state.
+//---------------------------------------------------------------------------
+
+IOReturn
+IOATABlockStorageDriver::getWriteCacheState ( bool * enabled )
+{
+	
+	IOReturn	status = kIOReturnSuccess;
+	
+	STATUS_LOG ( ( "IOATABlockStorageDriver::getWriteCacheState called.\n" ) );
+
+	if ( activityTickle ( kIOPMSuperclassPolicy1, ( UInt32 ) kIOATAPowerStateActive ) )
+	{
+		
+		status = identifyATADevice ( );
+		
+		if ( status == kIOReturnSuccess )
+		{
+			
+			// Get write cache enabled bit. It's in word 85, bit 5
+			*enabled = fDeviceIdentifyData[kATAIdentifyCommandExtension2] & kATAWriteCacheEnabledMask;
+			
+		}
+	
+	}
+	
+	else
+	{
+		
+		status = kIOReturnNotResponding;
+		
+	}
+	
+	return status;
+	
+}
+
+
+//---------------------------------------------------------------------------
+// ¥ setWriteCacheState - Report if the media is write-protected.
+//---------------------------------------------------------------------------
+
+IOReturn
+IOATABlockStorageDriver::setWriteCacheState ( bool enabled )
+{
+	
+	IOReturn	status = kIOReturnSuccess;
+	
+	STATUS_LOG ( ( "IOATABlockStorageDriver::setWriteCacheState called.\n" ) );
+	
+	if ( activityTickle ( kIOPMSuperclassPolicy1, ( UInt32 ) kIOATAPowerStateActive ) )
+	{
+		
+		status = ataCommandSetFeatures (
+								enabled ? kATAEnableWriteCache : kATADisableWriteCache,
+								0,
+								0,
+								0,
+								0,
+								mATAFlagImmediate,
+								true );
+		
+	}
+	
+	else
+	{
+		
+		status = kIOReturnNotResponding;
+		
+	}
+	
+	return status;
 	
 }
 
@@ -1030,9 +1156,14 @@ IOATABlockStorageDriver::message ( UInt32 type, IOService * provider, void * arg
 		
 		case kATAResetEvent:					// Someone gave a hard reset to the drive
 			SERIAL_STATUS_LOG ( ( "IOATABlockStorageDriver::message reset happened\n" ) );
-			// reconfig device here
+			// Reconfig device here
 			fWakeUpResetOccurred = true;
 			status = reconfigureATADevice ( );
+			
+			// Need to set power state to standby mode, since that is what
+			// we are in after a reset.
+			if ( fPowerManagementInitialized == true )
+				activityTickle ( kIOPMSuperclassPolicy1, ( UInt32 ) kIOATAPowerStateActive );
 			break;
 		
 		case kATANullEvent:						// Just kidding -- nothing happened

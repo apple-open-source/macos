@@ -1,0 +1,21 @@
+<?xml version='1.0'?>
+<!DOCTYPE policy PUBLIC
+      "-//JBoss//DTD JBOSS Security Config 3.0//EN"
+      "http://www.jboss.org/j2ee/dtd/security_config.dtd">
+
+<!-- The JAAS login configuration file for the java:/jaas/spec-test
+security domain used by the security-spec test case
+-->
+<policy>
+
+    <application-policy name = "secure-jndi">
+       <authentication>
+          <login-module code = "org.jboss.security.auth.spi.UsersRolesLoginModule"
+             flag = "required">
+             <module-option name = "usersProperties">jmx/interceptors/naming-users.properties</module-option>
+             <module-option name = "rolesProperties">jmx/interceptors/naming-roles.properties</module-option>
+          </login-module>
+       </authentication>
+    </application-policy>
+
+</policy>

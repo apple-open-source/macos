@@ -26,5 +26,4 @@
 
 #include "SYS.h"
 
-SYSCALL(msync, 2)
-	blr
+SYSCALL(msync, 3)

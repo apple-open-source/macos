@@ -1,6 +1,6 @@
 #!/usr/local/bin/perl
 #
-# $Id: shared.perl5,v 1.3 2000/07/14 17:03:37 abe Exp $
+# $Id: shared.perl5,v 1.4 2001/11/18 12:20:46 abe Exp $
 #
 # shared.perl5 -- sample Perl 5 script to list processes that share
 #		  file descriptors or files, using `lsof +ffn -F..."
@@ -20,8 +20,6 @@
 #
 # 1.  Set the interpreter line of this script to the local path of the
 #     Perl5 executable.
-#
-# 2.  Set the $LSOF variable to the path of the local lsof executable.
 
 
 # Copyright 1998 Purdue Research Foundation, West Lafayette, Indiana
@@ -55,10 +53,17 @@ $Access = $Devch = $Devn = $Fd = $Fsa = $Inode = $Lock =	# file
 $Cmd = $Login = $Pgrp = $Pid = $Ppid = $Uid = "";		# process var.
 $Fdst = 0;							# fd state
 $Hdr = 0;							# header state
-$LSOF = "../lsof";						# path to lsof
 $Offset = $Proto = $Size = $State = $Stream = $Type = "";	# | variables
 $Pidst = 0;							# process state
 $Pn = "shared";
+
+# Set path to lsof.
+
+if (($LSOF = &isexec("../lsof")) eq "") {	# Try .. first
+    if (($LSOF = &isexec("lsof")) eq "") {	# Then try . and $PATH
+	print "can't execute $LSOF\n"; exit 1
+    }
+}
 
 # Define print field constants.
 
@@ -374,4 +379,31 @@ sub Sort_by_PID_and_FD {
     if ($fda < $fdb) { return(-1); }
     return(0);
     if ($fda > $fdb) { return(1); }
+}
+
+
+## isexec($path) -- is $path executable
+#
+# $path   = absolute or relative path to file to test for executabiity.
+#	    Paths that begin with neither '/' nor '.' that arent't found as
+#	    simple references are also tested with the path prefixes of the
+#	    PATH environment variable.  
+
+sub
+isexec {
+    my ($path) = @_;
+    my ($i, @P, $PATH);
+
+    $path =~ s/^\s+|\s+$//g;
+    if ($path eq "") { return(""); }
+    if (($path =~ m#^[\/\.]#)) {
+	if (-x $path) { return($path); }
+	return("");
+    }
+    $PATH = $ENV{PATH};
+    @P = split(":", $PATH);
+    for ($i = 0; $i <= $#P; $i++) {
+	if (-x "$P[$i]/$path") { return("$P[$i]/$path"); }
+    }
+    return("");
 }

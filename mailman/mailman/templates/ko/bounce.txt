@@ -1,0 +1,12 @@
+이것은 Mailman 메일링 리스트 바운스 ACTION 에 대한 부분입니다.
+
+    리스트:     %(listname)s
+    멤버  :     %(addr)s
+    행동  :     가입 %(negative)s%(did)s.
+    이유  :     범위 초과 혹은 치명적인 에러
+    %(but)s
+
+%(reenable)s
+바운스 에 대한 부분은 아래에 첨부하였습니다.
+
+질문이 있습니까? %(owneraddr)s 의 Mailman 사이트 관리자에게 연락하십시오.

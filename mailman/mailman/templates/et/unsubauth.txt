@@ -1,0 +1,7 @@
+%(username)s soovib lõpetada listi %(listname)s@%(hostname)s
+tellimust. Selleks on vaja teie, kui listi halduri, nõusolekut.
+
+Tellimuse katkestamise kinnitamiseks külastage esimesel sobival
+hetkel veebilehte
+
+    %(admindb_url)s

@@ -1,4 +1,28 @@
 /*
+ * Copyright (c) 2003 Apple Computer, Inc. All rights reserved.
+ *
+ * @APPLE_LICENSE_HEADER_START@
+ * 
+ * Copyright (c) 1999-2003 Apple Computer, Inc.  All Rights Reserved.
+ * 
+ * This file contains Original Code and/or Modifications of Original Code
+ * as defined in and that are subject to the Apple Public Source License
+ * Version 2.0 (the 'License'). You may not use this file except in
+ * compliance with the License. Please obtain a copy of the License at
+ * http://www.opensource.apple.com/apsl/ and read it before using this
+ * file.
+ * 
+ * The Original Code and all software distributed under the License are
+ * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
+ * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
+ * INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY,
+ * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
+ * Please see the License for the specific language governing rights and
+ * limitations under the License.
+ * 
+ * @APPLE_LICENSE_HEADER_END@
+ */
+/*
  * main.c - Point-to-Point Protocol main module
  *
  * Copyright (c) 1989 Carnegie Mellon University.
@@ -17,7 +41,7 @@
  * WARRANTIES OF MERCHANTIBILITY AND FITNESS FOR A PARTICULAR PURPOSE.
  */
 
-#define RCSID	"$Id: main.c,v 1.6 2002/07/04 01:53:49 callie Exp $"
+#define RCSID	"$Id: main.c,v 1.19 2003/08/14 00:00:30 callie Exp $"
 
 #include <stdio.h>
 #include <ctype.h>
@@ -50,12 +74,18 @@
 #ifdef INET6
 #include "ipv6cp.h"
 #endif
+#ifdef ACSCP
+#include "acscp.h"
+#endif
 #include "upap.h"
 #include "chap.h"
 #include "ccp.h"
+#include "ecp.h"
 #include "pathnames.h"
-#include "patchlevel.h"
+
+#ifdef USE_TDB
 #include "tdb.h"
+#endif
 
 #ifdef CBCP_SUPPORT
 #include "cbcp.h"
@@ -77,11 +107,14 @@ static const char rcsid[] = RCSID;
 char ifname[32];		/* Interface name */
 int ifunit;			/* Interface unit number */
 
+struct channel *the_channel;
+
 char *progname;			/* Name of this program */
 char hostname[MAXNAMELEN];	/* Our hostname */
 static char pidfilename[MAXPATHLEN];	/* name of pid file */
 static char linkpidfile[MAXPATHLEN];	/* name of linkname pid file */
 char ppp_devnam[MAXPATHLEN];	/* name of PPP tty (maybe ttypx) */
+char remote_number[MAXNAMELEN]; /* Remote telephone number, if available */
 uid_t uid;			/* Our real user-id */
 struct notifier *pidchange = NULL;
 struct notifier *phasechange = NULL;
@@ -99,11 +132,18 @@ volatile int devstatus;		/* exit device status for pppd */
 int unsuccess;			/* # unsuccessful connection attempts */
 int do_callback;		/* != 0 if we should do callback next */
 int doing_callback;		/* != 0 if we are doing callback */
+int ppp_session_number;		/* Session number, for channels with such a
+				   concept (eg PPPoE) */
+#ifdef USE_TDB
 TDB_CONTEXT *pppdb;		/* database for storing status etc. */
+#endif
+
 char db_key[32];
 
 int (*holdoff_hook) __P((void)) = NULL;
 int (*new_phase_hook) __P((int)) = NULL;
+void (*snoop_recv_hook) __P((unsigned char *p, int len)) = NULL;
+void (*snoop_send_hook) __P((unsigned char *p, int len)) = NULL;
 
 static int conn_running;	/* we have a [dis]connector running */
 static int devfd;		/* fd of underlying device */
@@ -112,10 +152,17 @@ static int fd_loop;		/* fd for getting demand-dial packets */
 
 int phase;			/* where the link is at */
 int kill_link;
-int stop_link;
-int cont_link;
 int open_ccp_flag;
 int listen_time;
+int got_sigusr2;
+int got_sigterm;
+int got_sighup;
+#ifdef __APPLE__
+int stop_link;
+int cont_link;
+int got_sigtstp;
+int got_sigcont;
+#endif
 
 static int waiting;
 static sigjmp_buf sigjmp;
@@ -167,8 +214,10 @@ static void calltimeout __P((void));
 static struct timeval *timeleft __P((struct timeval *));
 static void kill_my_pg __P((int));
 static void hup __P((int));
+#ifdef __APPLE__
 static void stop __P((int));
 static void cont __P((int));
+#endif
 static void term __P((int));
 static void chld __P((int));
 static void toggle_debug __P((int));
@@ -176,28 +225,27 @@ static void open_ccp __P((int));
 static void bad_signal __P((int));
 static void holdoff_end __P((void *));
 static int reap_kids __P((int waitfor));
+
+#ifdef USE_TDB
 static void update_db_entry __P((void));
 static void add_db_key __P((const char *));
 static void delete_db_key __P((const char *));
 static void cleanup_db __P((void));
+#endif
+
+static void handle_events __P((void));
+static void print_link_stats __P((void));
 
 extern	char	*ttyname __P((int));
 extern	char	*getlogin __P((void));
 int main __P((int, char *[]));
 
 #ifdef __APPLE__
+void (*wait_input_hook) __P((void)) = NULL;
 int (*start_link_hook) __P((void))		= NULL;
-void (*dev_device_check_hook) __P((void))	= tty_device_check;
-void (*dev_check_options_hook) __P((void)) 	= tty_check_options;
-int (*dev_connect_hook) __P((int *)) 		= connect_tty;
-void (*dev_disconnect_hook) __P((void)) 	= disconnect_tty;
-void (*dev_cleanup_hook) __P((void)) 		= cleanup_tty;
-void (*dev_close_fds_hook) __P((void)) 		= tty_close_fds;
-int (*dev_establish_ppp_hook) __P((int)) 	= establish_ppp_tty;
-void (*dev_disestablish_ppp_hook) __P((int)) 	= disestablish_ppp_tty;
-int (*dev_sighup_hook) __P((void)) 		= sighup_tty;
-void (*dev_wait_input_hook) __P((void))		= NULL;
-int (*dev_terminal_window_hook) __P((char *, int, int)) 	= NULL;
+int (*link_up_hook) __P((void))			= NULL;
+bool link_up_done = 0;
+int (*terminal_window_hook) __P((char *, int, int)) 	= NULL;
 int  redialingcount = 0;  
 bool  redialingalternate = 0;  
 struct notifier *connect_started_notify = NULL;
@@ -234,7 +282,11 @@ struct protent *protocols[] = {
 #ifdef INET6
     &ipv6cp_protent,
 #endif
+#ifdef ACSCP
+    &acscp_protent,
+#endif
     &ccp_protent,
+    &ecp_protent,
 #ifdef IPX_CHANGE
     &ipxcp_protent,
 #endif
@@ -262,11 +314,10 @@ main(argc, argv)
     int i, t;
     char *p;
     struct passwd *pw;
-    struct timeval timo;
-    sigset_t mask;
     struct protent *protp;
     char numbuf[16];
 
+    link_stats_valid = 0;
     new_phase(PHASE_INITIALIZE);
 
     /*
@@ -313,6 +364,10 @@ main(argc, argv)
      */
     for (i = 0; (protp = protocols[i]) != NULL; ++i)
         (*protp->init)(0);
+
+    /*
+     * Initialize the default channel.
+     */
     tty_init();
 
     progname = *argv;
@@ -329,6 +384,7 @@ main(argc, argv)
 	|| !options_from_user()
 	|| !parse_args(argc-1, argv+1)
 #ifdef __APPLE__
+	|| ((optionsfd != -1) && !options_from_fd(optionsfd))
         // options file to add additionnal parameters, after the plugins are loaded
         // should not be used, exept for debugging purpose, or specific behavior override
         // anything set there will override what is specified as argument by the PPPController
@@ -337,17 +393,19 @@ main(argc, argv)
 #endif
         )
 	exit(EXIT_OPTION_ERROR);
+    devnam_fixed = 1;		/* can no longer change device name */
+
 
     /*
      * Work out the device name, if it hasn't already been specified,
      * and parse the tty's options file.
      */
-#ifdef __APPLE__
-    if (dev_device_check_hook)
-        (*dev_device_check_hook)();
-#else
-    tty_device_check();
-#endif
+    if (the_channel->process_extra_options)
+	(*the_channel->process_extra_options)();
+
+    if (debug)
+	setlogmask(LOG_UPTO(LOG_DEBUG));
+
     /*
      * Check that we are running as root.
      */
@@ -358,13 +416,14 @@ main(argc, argv)
     }
 
     if (!ppp_available()) {
-	option_error(no_ppp_msg);
+	option_error("%s", no_ppp_msg);
 	exit(EXIT_NO_KERNEL_SUPPORT);
     }
 
     /*
      * Check that the options given are valid and consistent.
      */
+    check_options();
     if (!sys_check_options())
 	exit(EXIT_OPTION_ERROR);
     auth_check_options();
@@ -374,31 +433,36 @@ main(argc, argv)
     for (i = 0; (protp = protocols[i]) != NULL; ++i)
 	if (protp->check_options != NULL)
 	    (*protp->check_options)();
-#ifdef __APPLE__
-    if (dev_check_options_hook)
-        (*dev_check_options_hook)();
-#else
-    tty_check_options();
-#endif
+    if (the_channel->check_options)
+	(*the_channel->check_options)();
+
+
+    if (dump_options || dryrun) {
+	init_pr_log(NULL, LOG_INFO);
+	print_options(pr_log, NULL);
+	end_pr_log();
+	if (dryrun)
+	    die(0);
+    }
 
     /*
      * Initialize system-dependent stuff.
      */
     sys_init();
-    if (debug)
-	setlogmask(LOG_UPTO(LOG_DEBUG));
 
-    if (multilink) {
-        pppdb = tdb_open(_PATH_PPPDB, 0, 0, O_RDWR|O_CREAT, 0644);
-        if (pppdb != NULL) {
-            slprintf(db_key, sizeof(db_key), "pppd%d", getpid());
-            update_db_entry();
-        } else {
-            warning("Warning: couldn't open ppp database %s", _PATH_PPPDB);
-            warning("Warning: disabling multilink");
-            multilink = 0;
-        }
+#ifdef USE_TDB
+    pppdb = tdb_open(_PATH_PPPDB, 0, 0, O_RDWR|O_CREAT, 0644);
+    if (pppdb != NULL) {
+	slprintf(db_key, sizeof(db_key), "pppd%d", getpid());
+	update_db_entry();
+    } else {
+	warning("Warning: couldn't open ppp database %s", _PATH_PPPDB);
+	if (multilink) {
+	    warning("Warning: disabling multilink");
+	    multilink = 0;
+	}
     }
+#endif
 
     /*
      * Detach ourselves from the terminal, if required,
@@ -414,8 +478,7 @@ main(argc, argv)
 	else
 	    p = "(unknown)";
     }
-    syslog(LOG_NOTICE, "pppd %s.%d%s started by %s, uid %d",
-	   VERSION, PATCHLEVEL, IMPLEMENTATION, p, uid);
+    syslog(LOG_NOTICE, "pppd %s started by %s, uid %d", VERSION, p, uid);
     script_setenv("PPPLOGNAME", p, 0);
 
     if (devnam[0])
@@ -436,11 +499,14 @@ main(argc, argv)
 	/*
 	 * Open the loopback channel and set it up to be the ppp interface.
 	 */
+#ifdef USE_TDB
 	tdb_writelock(pppdb);
+#endif
 	fd_loop = open_ppp_loopback();
 	set_ifunit(1);
+#ifdef USE_TDB
 	tdb_writeunlock(pppdb);
-
+#endif
 	/*
 	 * Configure the interface and mark it up, etc.
 	 */
@@ -448,7 +514,6 @@ main(argc, argv)
     }
 
     do_callback = 0;
-
     for (;;) {
 
 	listen_time = 0;
@@ -466,32 +531,15 @@ main(argc, argv)
 	    /*
 	     * Don't do anything until we see some activity.
 	     */
-	    kill_link = 0;
 	    new_phase(PHASE_DORMANT);
 	    demand_unblock();
 	    add_fd(fd_loop);
 	    for (;;) {
-		if (sigsetjmp(sigjmp, 1) == 0) {
-		    sigprocmask(SIG_BLOCK, &mask, NULL);
-		    if (kill_link || got_sigchld) {
-			sigprocmask(SIG_UNBLOCK, &mask, NULL);
-		    } else {
-			waiting = 1;
-			sigprocmask(SIG_UNBLOCK, &mask, NULL);
-			wait_input(timeleft(&timo));
-		    }
-		}
-		waiting = 0;
-		calltimeout();
-		if (kill_link) {
-		    if (!persist)
-			break;
-		    kill_link = 0;
-		}
+		handle_events();
+		if (kill_link && !persist)
+		    break;
 		if (get_loop_output())
 		    break;
-		if (got_sigchld)
-		    reap_kids(0);
 	    }
 	    remove_fd(fd_loop);
 	    if (kill_link && !persist)
@@ -515,25 +563,31 @@ main(argc, argv)
         }
 #endif
 
+#ifdef __APPLE__
+	sys_publish_remoteaddress(remoteaddress);
+#endif
 	new_phase(PHASE_SERIALCONN);
 
 #ifdef __APPLE__
     notify(connect_started_notify, 0);
+    link_up_done = 0;
     redialingcount = 0;
     redialingalternate = 0;
     do {
         if (redialingcount || redialingalternate) {
-           if (dev_cleanup_hook)
-             (*dev_cleanup_hook)();
+            if (the_channel->cleanup)
+                (*the_channel->cleanup)();
+            if (redialalternate)
+                sys_publish_remoteaddress(redialingalternate ? altremoteaddress : remoteaddress);
         }
+
         if (redialtimer && redialingcount && !redialingalternate) {
             new_phase(PHASE_WAITONBUSY);
             sleep(redialtimer);
             new_phase(PHASE_SERIALCONN);
         }
         
-       if (dev_connect_hook)
-            devfd = (*dev_connect_hook)(&t);
+	devfd = the_channel->connect(&t);
 
         if (redialalternate) 
             redialingalternate = !redialingalternate;
@@ -542,7 +596,7 @@ main(argc, argv)
     }
     while ((busycode != -1) && (t == busycode) && (redialingcount <= redialcount) && !kill_link);
 #else
-	devfd = connect_tty();
+	devfd = the_channel->connect();
 #endif
 	if (devfd < 0)
 #ifdef __APPLE__
@@ -561,69 +615,76 @@ main(argc, argv)
 #endif
 
 #ifdef __APPLE__
+        /*
+            link_up_done is there to give a chance to a device to implement 
+            a double step connection.
+            For example, the serial connection will call directly link_up_hook 
+            between the connection script and terminal script.
+            The link_up_hook hook can be used to ask for a password, that
+            could be used by a terminal script 
+        */
+        if (!link_up_done) {
+            if (link_up_hook) {
+                t = (*link_up_hook)();
+                if (t == 0) {	
+                    // cancelled
+                    status = EXIT_USER_REQUEST;
+                    goto disconnect;
+                }
+            }
+            link_up_done = 1;
+        }
         notify(connect_success_notify, 0);
 #endif
 
+#ifdef __APPLE__
+        /* republish the remote address in case the connector has changed it */
+	sys_publish_remoteaddress(remoteaddress);
+#endif
+
 	/* set up the serial device as a ppp interface */
+#ifdef USE_TDB
 	tdb_writelock(pppdb);
-	fd_ppp = establish_ppp(devfd);
+#endif
+	fd_ppp = the_channel->establish_ppp(devfd);
 	if (fd_ppp < 0) {
+#ifdef USE_TDB
 	    tdb_writeunlock(pppdb);
+#endif
 	    status = EXIT_FATAL_ERROR;
 	    goto disconnect;
 	}
 
 	if (!demand && ifunit >= 0)
 	    set_ifunit(1);
+#ifdef USE_TDB
 	tdb_writeunlock(pppdb);
+#endif
 
 	/*
 	 * Start opening the connection and wait for
 	 * incoming events (reply, timeout, etc.).
 	 */
-	notice("Connect: %s <--> %s", ifname, ppp_devnam);
+	if (ifunit >= 0)
+		notice("Connect: %s <--> %s", ifname, ppp_devnam);
+	else
+		notice("Starting negotiation on %s", ppp_devnam);
 	gettimeofday(&start_time, NULL);
-	link_stats_valid = 0;
 	script_unsetenv("CONNECT_TIME");
 	script_unsetenv("BYTES_SENT");
 	script_unsetenv("BYTES_RCVD");
 	lcp_lowerup(0);
 
-	/*
-	 * If we are initiating this connection, wait for a short
-	 * time for something from the peer.  This can avoid bouncing
-	 * our packets off his tty before he has it set up.
-	 */
 	add_fd(fd_ppp);
-	if (listen_time != 0) {
-	    struct timeval t;
-	    t.tv_sec = listen_time / 1000;
-	    t.tv_usec = listen_time % 1000;
-	    wait_input(&t);
-	}
-
 	lcp_open(0);		/* Start protocol */
-	open_ccp_flag = 0;
 	status = EXIT_NEGOTIATION_FAILED;
 	new_phase(PHASE_ESTABLISH);
 	while (phase != PHASE_DEAD) {
-	    if (sigsetjmp(sigjmp, 1) == 0) {
-		sigprocmask(SIG_BLOCK, &mask, NULL);
-		if (cont_link || stop_link || kill_link || open_ccp_flag || got_sigchld) {
-		    sigprocmask(SIG_UNBLOCK, &mask, NULL);
-		} else {
-		    waiting = 1;
-		    sigprocmask(SIG_UNBLOCK, &mask, NULL);
-		    wait_input(timeleft(&timo));
-#ifdef __APPLE__    
-                    if (dev_wait_input_hook)
-                        (*dev_wait_input_hook)();
-#endif
-		}
-	    }
-	    waiting = 0;
-	    if (stop_link) {
-		if (phase == PHASE_RUNNING) {
+	    handle_events();
+	    get_input();
+#ifdef __APPLE__
+            if (stop_link) {
+                if (phase == PHASE_RUNNING) {
                     new_phase(PHASE_ONHOLD);
                     ppp_hold(0);
                     auth_hold(0);
@@ -632,10 +693,9 @@ main(argc, argv)
                             (*protp->hold)(0);
                     notify(stop_notify, 0);
                 }
-                stop_link = 0;
             }
             if (cont_link) {
-		if (phase == PHASE_ONHOLD) {
+                if (phase == PHASE_ONHOLD) {
                     new_phase(PHASE_RUNNING);
                     ppp_cont(0);
                     auth_cont(0);
@@ -644,34 +704,27 @@ main(argc, argv)
                             (*protp->cont)(0);
                     notify(cont_notify, 0);
                 }
-                cont_link = 0;
             }
-	    calltimeout();
-	    get_input();
+#endif
 	    if (kill_link) {
+#ifdef __APPLE__
+                if (stop_link || phase == PHASE_ONHOLD) {
+                    hungup = 1;
+                    lcp_lowerdown(0);
+                    link_terminated(0);
+                }
+#endif
 		lcp_close(0, "User request");
-		kill_link = 0;
-	    }
+            }
 	    if (open_ccp_flag) {
 		if (phase == PHASE_NETWORK || phase == PHASE_RUNNING) {
 		    ccp_fsm[0].flags = OPT_RESTART; /* clears OPT_SILENT */
 		    (*ccp_protent.open)(0);
 		}
-		open_ccp_flag = 0;
 	    }
-	    if (got_sigchld)
-		reap_kids(0);	/* Don't leave dead kids lying around */
 	}
 
-	/*
-	 * Print connect time and statistics.
-	 */
-	if (link_stats_valid) {
-	    int t = (link_connect_time + 5) / 6;    /* 1/10ths of minutes */
-	    info("Connect time %d.%d minutes.", t/10, t%10);
-	    info("Sent %d bytes, received %d bytes.",
-		 link_stats.bytes_out, link_stats.bytes_in);
-	}
+	print_link_stats();
 
 	/*
 	 * Delete pid file before disestablishing ppp.  Otherwise it
@@ -680,7 +733,7 @@ main(argc, argv)
 	 */
 	if (!demand) {
 	    if (pidfilename[0] != 0
-		&& unlink(pidfilename) < 0 && errno != ENOENT) 
+		&& unlink(pidfilename) < 0 && errno != ENOENT)
 		warning("unable to delete pid file %s: %m", pidfilename);
 	    pidfilename[0] = 0;
 	}
@@ -692,9 +745,7 @@ main(argc, argv)
 	 */
 	remove_fd(fd_ppp);
 	clean_check();
-	if (demand)
-	    restore_loop();
-	disestablish_ppp(devfd);
+	the_channel->disestablish_ppp(devfd);
 	fd_ppp = -1;
 	if (!hungup)
 	    lcp_lowerdown(0);
@@ -708,29 +759,26 @@ main(argc, argv)
     disconnect:
 	new_phase(PHASE_DISCONNECT);
 #ifdef __APPLE__
-    notify(disconnect_started_notify, status);
-    if (dev_disconnect_hook)
-        (*dev_disconnect_hook)();
-    notify(disconnect_done_notify, status);
-#else
-    disconnect_tty();
+        notify(disconnect_started_notify, status);
+#endif
+	the_channel->disconnect();
+#ifdef __APPLE__
+        notify(disconnect_done_notify, status);
 #endif
     fail:
 #ifdef __APPLE__
     if (phase != PHASE_DISCONNECT)
         new_phase(PHASE_DISCONNECT);
-    if (dev_cleanup_hook)
-        (*dev_cleanup_hook)();
-#else
-    cleanup_tty();
 #endif
+	if (the_channel->cleanup)
+	    (*the_channel->cleanup)();
 #ifdef __APPLE__
     end:
 #endif
 
 	if (!demand) {
 	    if (pidfilename[0] != 0
-		&& unlink(pidfilename) < 0 && errno != ENOENT) 
+		&& unlink(pidfilename) < 0 && errno != ENOENT)
 		warning("unable to delete pid file %s: %m", pidfilename);
 	    pidfilename[0] = 0;
 	}
@@ -741,7 +789,6 @@ main(argc, argv)
 #ifdef __APPLE__
 	sys_publish_status(status, devstatus);
 #endif
-	kill_link = 0;
 	if (demand)
 	    demand_discard();
 	t = need_holdoff? holdoff: 0;
@@ -751,24 +798,9 @@ main(argc, argv)
 	    new_phase(PHASE_HOLDOFF);
 	    TIMEOUT(holdoff_end, NULL, t);
 	    do {
-		if (sigsetjmp(sigjmp, 1) == 0) {
-		    sigprocmask(SIG_BLOCK, &mask, NULL);
-		    if (kill_link || got_sigchld) {
-			sigprocmask(SIG_UNBLOCK, &mask, NULL);
-		    } else {
-			waiting = 1;
-			sigprocmask(SIG_UNBLOCK, &mask, NULL);
-			wait_input(timeleft(&timo));
-		    }
-		}
-		waiting = 0;
-		calltimeout();
-		if (kill_link) {
-		    kill_link = 0;
+		handle_events();
+		if (kill_link)
 		    new_phase(PHASE_DORMANT); /* allow signal to end holdoff */
-		}
-		if (got_sigchld)
-		    reap_kids(0);
 	    } while (phase == PHASE_HOLDOFF);
 	    if (!persist)
 		break;
@@ -793,6 +825,73 @@ main(argc, argv)
 }
 
 /*
+ * handle_events - wait for something to happen and respond to it.
+ */
+static void
+handle_events()
+{
+    struct timeval timo;
+    sigset_t mask;
+
+    kill_link = open_ccp_flag = 0;
+#ifdef __APPLE__
+    stop_link = cont_link = 0;
+#endif
+    if (sigsetjmp(sigjmp, 1) == 0) {
+	sigprocmask(SIG_BLOCK, &mask, NULL);
+	if (got_sighup || got_sigterm || got_sigusr2 || got_sigchld
+#ifdef __APPLE__
+            || got_sigtstp || got_sigcont
+#endif
+            ) {
+	    sigprocmask(SIG_UNBLOCK, &mask, NULL);
+	} else {
+	    waiting = 1;
+	    sigprocmask(SIG_UNBLOCK, &mask, NULL);
+	    wait_input(timeleft(&timo));
+#ifdef __APPLE__    
+            if (wait_input_hook)
+                (*wait_input_hook)();
+            if (the_channel->wait_input)
+                the_channel->wait_input();
+#endif
+	}
+    }
+    waiting = 0;
+    calltimeout();
+#ifdef __APPLE__
+    if (got_sigtstp) {
+        stop_link = 1;
+        got_sigtstp = 0;
+    }
+    if (got_sigcont) {
+        cont_link = 1;
+        got_sigcont = 0;
+    }
+#endif
+    if (got_sighup) {
+	kill_link = 1;
+	got_sighup = 0;
+	if (status != EXIT_HANGUP)
+	    status = EXIT_USER_REQUEST;
+    }
+    if (got_sigterm) {
+	kill_link = 1;
+	persist = 0;
+	status = EXIT_USER_REQUEST;
+	got_sigterm = 0;
+    }
+    if (got_sigchld) {
+	reap_kids(0);	/* Don't leave dead kids lying around */
+	got_sigchld = 0;
+    }
+    if (got_sigusr2) {
+	open_ccp_flag = 1;
+	got_sigusr2 = 0;
+    }
+}
+
+/*
  * setup_signals - initialize signal handling.
  */
 static void
@@ -812,8 +911,10 @@ setup_signals()
     sigaddset(&mask, SIGTERM);
     sigaddset(&mask, SIGCHLD);
     sigaddset(&mask, SIGUSR2);
+#ifdef __APPLE__
     sigaddset(&mask, SIGTSTP);
     sigaddset(&mask, SIGCONT);
+#endif
 
 #define SIGNAL(s, handler)	do { \
 	sa.sa_handler = handler; \
@@ -827,8 +928,10 @@ setup_signals()
     SIGNAL(SIGINT, term);		/* Interrupt */
     SIGNAL(SIGTERM, term);		/* Terminate */
     SIGNAL(SIGCHLD, chld);
+#ifdef __APPLE__
     SIGNAL(SIGTSTP, stop);		/* stop all activity */
     SIGNAL(SIGCONT, cont);		/* resume activity */
+#endif
 
     SIGNAL(SIGUSR1, toggle_debug);	/* Toggle debug flag */
     SIGNAL(SIGUSR2, open_ccp);		/* Reopen CCP */
@@ -923,7 +1026,7 @@ detach()
     close(1);
     close(2);
     detached = 1;
-    if (!log_to_file && !log_to_specific_fd)
+    if (log_default)
 	log_to_fd = -1;
     /* update pid files if they have been written already */
     if (pidfilename[0])
@@ -1037,6 +1140,7 @@ struct protocol_list {
     { 0x0205,	"DEC LANBridge100 Spanning Tree" },
     { 0x0231,	"Luxcom" },
     { 0x0233,	"Sigma Network Systems" },
+    { 0x0235,	"Apple Client Server Protocol" },
     { 0x8021,	"Internet Protocol Control Protocol" },
     { 0x8023,	"OSI Network Layer Control Protocol" },
     { 0x8025,	"Xerox NS IDP Control Protocol" },
@@ -1059,6 +1163,7 @@ struct protocol_list {
     { 0x006f,	"Stampede Bridging Control Protocol" },
     { 0x80fb,	"Single Link Compression Control Protocol" },
     { 0x80fd,	"Compression Control Protocol" },
+    { 0x8235,	"Apple Client Server Control Protocol" },
     { 0xc021,	"Link Control Protocol" },
     { 0xc023,	"Password Authentication Protocol" },
     { 0xc025,	"Link Quality Report" },
@@ -1115,27 +1220,13 @@ get_input()
     }
     //printf("get_input, len = %d\n", len);
 
-    if (debug /*&& (debugflags & DBG_INPACKET)*/)
-#ifdef __APPLE__
-    {
-        // don't log lcp-echo/reply and time-remaining packets in the RUNNING phase
-        if ((*(u_short*)(p + 2) == PPP_LCP) 
-              && ((*(p + 4) == ECHOREQ) || (*(p + 4) == ECHOREP) || (*(p + 4) == TIMEREMAINING))
-              && (phase == PHASE_RUNNING)) {
-
-        }
-        else {
-#endif
-            dbglog("rcvd %P", p, len);
-#ifdef __APPLE__
-        }
-    }
-#endif
-
     if (len < PPP_HDRLEN) {
-	MAINDEBUG(("io(): Received short packet."));
+	dbglog("received short packet:%.*B", len, p);
 	return;
     }
+
+    dump_packet("rcvd", p, len);
+    if (snoop_recv_hook) snoop_recv_hook(p, len);
 
     p += 2;				/* Skip address and control */
     GETSHORT(protocol, p);
@@ -1172,10 +1263,21 @@ get_input()
 	    (*protp->input)(0, p, len);
 	    return;
 	}
-        if (protocol == (protp->protocol & ~0x8000) && protp->enabled_flag
-	    && protp->datainput != NULL) {
-	    (*protp->datainput)(0, p, len);
-	    return;
+        if (protocol == (protp->protocol & ~0x8000) && protp->enabled_flag) {
+	    if (protp->datainput != NULL) {
+                (*protp->datainput)(0, p, len);
+                return;
+            }
+	    if (protp->state != NULL && (protp->state(0) == OPENED)) {
+                // pppd receives data for a protocol in opened state.
+                // this can happen if the peer sends packets too fast after its control protocol
+                // reaches the opened state, pppd hasn't had time yet to process the control protocol
+                // packet, and the kernel is still configured to reject the data packet.
+                // in this case, just ignore the packet.
+                // if this happens for an other reason, then there is probably a bug somewhere
+                MAINDEBUG(("Data packet of protocol 0x%x received, with control prococol in opened state", protocol));
+                return;
+	    }
 	}
     }
 
@@ -1196,6 +1298,7 @@ void
 new_phase(p)
     int p;
 {
+
     phase = p;
     if (new_phase_hook)
 	(*new_phase_hook)(p);
@@ -1229,13 +1332,9 @@ cleanup()
     sys_cleanup();
 
     if (fd_ppp >= 0)
-	disestablish_ppp(devfd);
-#ifdef __APPLE__
-    if (dev_cleanup_hook)
-        (*dev_cleanup_hook)();
-#else
-    cleanup_tty();
-#endif
+	the_channel->disestablish_ppp(devfd);
+    if (the_channel->cleanup)
+	(*the_channel->cleanup)();
 
     if (pidfilename[0] != 0 && unlink(pidfilename) < 0 && errno != ENOENT) 
 	warning("unable to delete pid file %s: %m", pidfilename);
@@ -1244,8 +1343,25 @@ cleanup()
 	warning("unable to delete pid file %s: %m", linkpidfile);
     linkpidfile[0] = 0;
 
+#ifdef USE_TDB
     if (pppdb != NULL)
 	cleanup_db();
+#endif
+
+}
+
+void
+print_link_stats()
+{
+    /*
+     * Print connect time and statistics.
+     */
+    if (link_stats_valid) {
+       int t = (link_connect_time + 5) / 6;    /* 1/10ths of minutes */
+       info("Connect time %d.%d minutes.", t/10, t%10);
+       info("Sent %u bytes, received %u bytes.",
+	    link_stats.bytes_out, link_stats.bytes_in);
+    }
 }
 
 /*
@@ -1285,20 +1401,18 @@ static struct timeval timenow;		/* Current time */
 
 /*
  * timeout - Schedule a timeout.
- *
- * Note that this timeout takes the number of seconds, NOT hz (as in
- * the kernel).
  */
 void
-timeout(func, arg, time)
+timeout(func, arg, secs, usecs)
     void (*func) __P((void *));
     void *arg;
-    int time;
+    int secs, usecs;
 {
     struct callout *newp, *p, **pp;
-  
-    MAINDEBUG(("Timeout %p:%p in %d seconds.", func, arg, time));
-  
+
+    MAINDEBUG(("Timeout %p:%p in %d.%03d seconds.", func, arg,
+	       secs, usecs/1000));
+
     /*
      * Allocate timeout.
      */
@@ -1313,9 +1427,13 @@ timeout(func, arg, time)
 #else
     gettimeofday(&timenow, NULL);
 #endif
-    newp->c_time.tv_sec = timenow.tv_sec + time;
-    newp->c_time.tv_usec = timenow.tv_usec;
-  
+    newp->c_time.tv_sec = timenow.tv_sec + secs;
+    newp->c_time.tv_usec = timenow.tv_usec + usecs;
+    if (newp->c_time.tv_usec >= 1000000) {
+        newp->c_time.tv_sec += newp->c_time.tv_usec / 1000000;
+        newp->c_time.tv_usec %= 1000000;
+    }
+
     /*
      * Find correct place and link it in.
      */
@@ -1338,9 +1456,9 @@ untimeout(func, arg)
     void *arg;
 {
     struct callout **copp, *freep;
-  
+
     MAINDEBUG(("Untimeout %p:%p.", func, arg));
-  
+
     /*
      * Find first matching timeout and remove it from the list.
      */
@@ -1444,25 +1562,23 @@ static void
 hup(sig)
     int sig;
 {
-    int ret = 0;
-    
     info("Hangup (SIGHUP)");
-    kill_link = 1;
-    
-    if (dev_sighup_hook)
-        ret = (*dev_sighup_hook)();
+    got_sighup = 1;
 
-    if (!hungup)
-	status = EXIT_USER_REQUEST;
-    if (phase == PHASE_ONHOLD) {
-        hungup = 1;
-        lcp_lowerdown(0);
-        link_terminated(0);
-    }
+#ifdef __APPLE__
+    // connectors test that flag
+    // handle event is not called when we are in the connect stage
+    kill_link = 1;
+#endif
+
     if (conn_running)
 	/* Send the signal to the [dis]connector process(es) also */
 	kill_my_pg(sig);
     notify(sigreceived, sig);
+#ifdef __APPLE__
+    if (!hungup)
+	status = EXIT_USER_REQUEST;
+#endif
     if (waiting)
 	siglongjmp(sigjmp, 1);
 }
@@ -1479,15 +1595,16 @@ term(sig)
     int sig;
 {
     info("Terminating on signal %d.", sig);
-    persist = 0;		/* don't try to restart */
-    need_holdoff = 0;		/* don't holdoff */
+    got_sigterm = 1;
+
+#ifdef __APPLE__
+    // connectors test that flag
+    // handle event is not called when we are in the connect stage
     kill_link = 1;
+    persist = 0;
     status = EXIT_USER_REQUEST;
-    if (phase == PHASE_ONHOLD) {
-        hungup = 1;
-        lcp_lowerdown(0);
-        link_terminated(0);
-    }
+#endif
+
     if (conn_running)
 	/* Send the signal to the [dis]connector process(es) also */
 	kill_my_pg(sig);
@@ -1523,17 +1640,14 @@ stop(sig)
 {
     info("Stopping on signal %d.", sig);
 
+    got_sigtstp = 1;
     switch (phase) {
-        case PHASE_ONHOLD:
+        case PHASE_ONHOLD:	// already on hold
             break;
-        case PHASE_RUNNING:
-            stop_link = 1;
+        case PHASE_RUNNING:	// needs to stop connection
             break;
-        default:
-            hungup = 1;
-            status = EXIT_USER_REQUEST;
-            lcp_lowerdown(0);
-            link_terminated(0);
+        default:		// other states, simulate a sighup
+            got_sighup = 1;
             if (conn_running)
                 /* Send the signal to the [dis]connector process(es) also */
                 kill_my_pg(sig);
@@ -1555,7 +1669,7 @@ cont(sig)
 {
     info("Resuming on signal %d.", sig);
     
-    cont_link = 1;
+    got_sigcont = 1;
     notify(sigreceived, sig);
     if (waiting)
 	siglongjmp(sigjmp, 1);
@@ -1590,7 +1704,7 @@ static void
 open_ccp(sig)
     int sig;
 {
-    open_ccp_flag = 1;
+    got_sigusr2 = 1;
     if (waiting)
 	siglongjmp(sigjmp, 1);
 }
@@ -1629,7 +1743,7 @@ device_script(program, in, out, dont_wait)
 {
     int pid, fd;
     int status = -1;
-    int errfd, errr;
+    int errfd;
 
     ++conn_running;
     pid = fork();
@@ -1684,12 +1798,8 @@ device_script(program, in, out, dont_wait)
     close(1);
     close(2);
     sys_close();
-#ifdef __APPLE__
-    if (dev_close_fds_hook)
-        (*dev_close_fds_hook)();
-#else
-    tty_close_fds();
-#endif
+    if (the_channel->close)
+	(*the_channel->close)();
     closelog();
 
     /* dup the in, out, err fds to 0, 1, 2 */
@@ -1707,7 +1817,6 @@ device_script(program, in, out, dont_wait)
 	error("setuid failed");
 	exit(1);
     }
-
     setgid(getgid());
     execl("/bin/sh", "sh", "-c", program, (char *)0);
     error("could not exec /bin/sh: %m");
@@ -1747,7 +1856,7 @@ run_program(prog, args, must_exist, done, arg)
     if (stat(prog, &sbuf) < 0 || !S_ISREG(sbuf.st_mode)
 	|| (sbuf.st_mode & (S_IXUSR|S_IXGRP|S_IXOTH)) == 0) {
 	if (must_exist || errno != ENOENT)
-	    warning("Can't execute %d %s: %m", sbuf.st_mode, prog);
+	    warning("Can't execute %s: %m", prog);
             
 	return 0;
     }
@@ -1773,12 +1882,8 @@ run_program(prog, args, must_exist, done, arg)
 	close (0);
 	close (1);
 	close (2);
-#ifdef __APPLE__
-    if (dev_close_fds_hook)
-        (*dev_close_fds_hook)();
-#else
-    tty_close_fds();
-#endif
+	if (the_channel->close)
+	    (*the_channel->close)();
 
         /* Don't pass handles to the PPP device, even by accident. */
 	new_fd = open (_PATH_DEVNULL, O_RDWR);
@@ -1859,7 +1964,6 @@ reap_kids(waitfor)
     int pid, status;
     struct subprocess *chp, **prevp;
 
-    got_sigchld = 0;
     if (n_children == 0)
 	return 0;
     while ((pid = waitpid(-1, &status, (waitfor? 0: WNOHANG))) != -1
@@ -1876,7 +1980,8 @@ reap_kids(waitfor)
 		 (chp? chp->prog: "??"), pid, WTERMSIG(status));
 	} else if (debug)
 	    dbglog("Script %s finished (pid %d), status = 0x%x",
-		   (chp? chp->prog: "??"), pid, status);
+		   (chp? chp->prog: "??"), pid,
+		   WIFEXITED(status) ? WEXITSTATUS(status) : status);
 	if (chp && chp->done)
 	    (*chp->done)(chp->arg);
 	if (chp)
@@ -1933,7 +2038,7 @@ remove_notifier(notif, func, arg)
 }
 
 /*
- * notify - call a set of functions registered with add_notify.
+ * notify - call a set of functions registered with add_notifier.
  */
 void
 notify(notif, val)
@@ -1982,13 +2087,17 @@ script_setenv(var, value, iskey)
     if (script_env != 0) {
 	for (i = 0; (p = script_env[i]) != 0; ++i) {
 	    if (strncmp(p, var, varl) == 0 && p[varl] == '=') {
+#ifdef USE_TDB
 		if (p[-1] && pppdb != NULL)
 		    delete_db_key(p);
+#endif
 		free(p-1);
 		script_env[i] = newstring;
+#ifdef USE_TDB
 		if (iskey && pppdb != NULL)
 		    add_db_key(newstring);
 		update_db_entry();
+#endif
 		return;
 	    }
 	}
@@ -2015,11 +2124,13 @@ script_setenv(var, value, iskey)
     script_env[i] = newstring;
     script_env[i+1] = 0;
 
+#ifdef USE_TDB
     if (pppdb != NULL) {
 	if (iskey)
 	    add_db_key(newstring);
 	update_db_entry();
     }
+#endif
 }
 
 /*
@@ -2038,18 +2149,23 @@ script_unsetenv(var)
 	return;
     for (i = 0; (p = script_env[i]) != 0; ++i) {
 	if (strncmp(p, var, vl) == 0 && p[vl] == '=') {
+#ifdef USE_TDB
 	    if (p[-1] && pppdb != NULL)
 		delete_db_key(p);
+#endif
 	    free(p-1);
 	    while ((script_env[i] = script_env[i+1]) != 0)
 		++i;
 	    break;
 	}
     }
+#ifdef USE_TDB
     if (pppdb != NULL)
 	update_db_entry();
+#endif
 }
 
+#ifdef USE_TDB
 /*
  * update_db_entry - update our entry in the database.
  */
@@ -2076,11 +2192,12 @@ update_db_entry()
     key.dsize = strlen(db_key);
     dbuf.dptr = vbuf;
     dbuf.dsize = vlen;
-    if (pppdb && tdb_store(pppdb, key, dbuf, TDB_REPLACE))
+    if (tdb_store(pppdb, key, dbuf, TDB_REPLACE))
 	error("tdb_store failed: %s", tdb_error(pppdb));
-#ifdef __APPLE__
-    free(vbuf);
-#endif
+
+    if (vbuf)
+        free(vbuf);
+
 }
 
 /*
@@ -2096,7 +2213,7 @@ add_db_key(str)
     key.dsize = strlen(str);
     dbuf.dptr = db_key;
     dbuf.dsize = strlen(db_key);
-    if (pppdb && tdb_store(pppdb, key, dbuf, TDB_REPLACE))
+    if (tdb_store(pppdb, key, dbuf, TDB_REPLACE))
 	error("tdb_store key failed: %s", tdb_error(pppdb));
 }
 
@@ -2131,3 +2248,4 @@ cleanup_db()
 	if (p[-1])
 	    delete_db_key(p);
 }
+#endif /* USE_TDB */

@@ -38,7 +38,7 @@
 # if	!defined(lint)
 static char copyright[] =
 "@(#) Copyright 1997 Purdue Research Foundation.\nAll rights reserved.\n";
-static char *rcsid = "$Id: rnmh.c,v 1.5 2000/08/02 12:54:26 abe Exp $";
+static char *rcsid = "$Id: rnmh.c,v 1.8 2002/10/08 20:15:37 abe Exp $";
 # endif	/* !defined(lint) */
 
 #include "../lsof.h"
@@ -74,10 +74,13 @@ static char *rcsid = "$Id: rnmh.c,v 1.5 2000/08/02 12:54:26 abe Exp $";
  *	Define the names of these elements of struct NCACHE:
  *
  *		#define NCACHE_NM	<name>
- *		#define NCACHE_NMLEN	<name length
  *		#define NCACHE_NXT	<link to next entry>
  *		#define NCACHE_NODEADDR	<node address>
  *		#define NCACHE_PARADDR	<parent node address>
+ *
+ *	Optionally define:
+ *
+ *		#define NCACHE_NMLEN	<name length>
  *
  *	Optionally define *both*:
  *
@@ -90,9 +93,23 @@ static char *rcsid = "$Id: rnmh.c,v 1.5 2000/08/02 12:54:26 abe Exp $";
  *
  *		_PROTOTYPE(static void ncache_load,(void));
  *
+ *	Define NCACHE_VROOT to be the value of the flag that signifies that
+ *	the vnode is the root of its file system.
+ *
+ *		E.g., for BSDI >= 5:
+ *
+ *			#define NCACHE_VROOT	VV_ROOT
+ *
+ *	If not defined, NCACHE_VROOT is defined as "VROOT".
+ *
+ *	Define VNODE_VFLAG if the vnode's flag member's name isn't v_flag.
+ *
  * Note: if NCHNAMLEN is defined, the name is assumed to be in
  * NCACHE_NM[NCHNAMLEN]; if it isn't defined, the name is assumed to be in an
  * extension that begins at NCACHE_NM[0].
+ *
+ * Note: if NCACHE_NMLEN is not defined than NCACHE_NM must be a pointer to
+ * a kernel allocated, null-terminated, string buffer.
  */
 
 
@@ -104,6 +121,22 @@ static char *rcsid = "$Id: rnmh.c,v 1.5 2000/08/02 12:54:26 abe Exp $";
 #define	NCACHE_SZ_CAST  unsigned long
 # endif	/* !defined(NCACHE_NC_CAST) */
 
+
+/*
+ * Flags
+ */
+
+# if	!defined(NCACHE_VROOT)
+#define	NCACHE_VROOT	VROOT		/* vnode is root of its file system */
+# endif	/* !defined(NCACHE_VROOT) */
+
+#if	!defined(VNODE_VFLAG)
+#define	VNODE_VFLAG	v_flag
+#endif	/* !defined(VNODE_VFLAG) */
+
+#if	!defined(NCACHE_NMLEN)
+#undef	NCHNAMLEN
+#endif	/* !defined(NCACHE_NMLEN) */
 
 /*
  * Local static values
@@ -216,8 +249,8 @@ ncache_isroot(na, cp)
 		return(1);
 	}
 /*
- * Read the vnode and see if it's a VDIR node with the VROOT flag set.  If
- * it is, then the path is complete.
+ * Read the vnode and see if it's a VDIR node with the NCACHE_VROOT flag set.
+ * If it is, then the path is complete.
  *
  * If it isn't, and if the file has an inode number, search the mount table
  * and see if the file system's inode number is known.  If it is, form the
@@ -225,7 +258,7 @@ ncache_isroot(na, cp)
  * the one we have for this file.  If it does, then the path is complete.
  */
 	if (kread((KA_T)na, (char *)&v, sizeof(v))
-	||  v.v_type != VDIR || !(v.v_flag & VROOT)) {
+	||  v.v_type != VDIR || !(v.VNODE_VFLAG & NCACHE_VROOT)) {
 
 	/*
 	 * The vnode tests failed.  Try the inode tests.
@@ -294,6 +327,15 @@ ncache_load()
 	int len, lim, n, nch, nchl, nlcl;
 	char tbuf[32];
 	KA_T v;
+
+#if	!defined(NCHNAMLEN)
+	int cin = sizeof(c.NCACHE_NM);
+	KA_T nmo = (KA_T)offsetof(struct NCACHE, NCACHE_NM);
+#endif	/* !defined(NCHNAMLEN) */
+
+#if	!defined(NCACHE_NMLEN)
+	char nbuf[MAXPATHLEN];
+#endif	/* !defined(NCACHE_NMLEN) */
 
 	if (!Fncache)
 	    return;
@@ -389,8 +431,16 @@ ncache_load()
 		if (kread(ka, (char *)&c, sizeof(c)))
 		    break;
 		knx = (KA_T)c.NCACHE_NXT;
+# if	defined(NCACHE_NMLEN)
 		if (!c.NCACHE_NODEADDR || !(len = c.NCACHE_NMLEN))
 		    continue;
+# else	/* !defined(NCACHE_NMLEN) */
+		if (!c.NCACHE_NODEADDR)
+		    continue;
+		if (kread((KA_T)c.NCACHE_NM, nbuf, sizeof(nbuf)))
+		    break;
+		len = strlen(nbuf);
+# endif	/* defined(NCACHE_NMLEN) */
 
 	    /*
 	     * Allocate a cache entry long enough to contain the name and
@@ -400,7 +450,7 @@ ncache_load()
 # if	defined(NCHNAMLEN)
 		if (len > NCHNAMLEN)
 		    continue;
-		if (len < 3 && c.NCACHE_NM[0] == '.') {
+		if (len > 0 && len < 3 && c.NCACHE_NM[0] == '.') {
 		    if (len == 1 || (len == 2 && c.NCACHE_NM[1] == '.'))
 			continue;
 		}
@@ -426,13 +476,47 @@ ncache_load()
 # if	defined(NCHNAMLEN)
 		(void) strncpy(lc->nm, c.NCACHE_NM, len);
 # else	/* !defined(NCHNAMLEN) */
-		if (kread(ka + (KA_T)(offsetof(struct NCACHE, NCACHE_NM)),
-		          lc->nm, len))
-		    continue;
-		if (len < 3 && lc->nm[0] == '.') {
+# if	defined(NCACHE_NMLEN)
+		if ((len < 3) && (cin > 1)) {
+
+		/*
+		 * If this is a one or two character name, and if NCACHE_NM[]
+		 * in c has room for at least two characters, check for "."
+		 * and ".." first, ignoring this entry if the name is either.
+		 */
+		    if (len < 3 && c.NCACHE_NM[0] == '.') {
+			if (len == 1 || (len == 2 && c.NCACHE_NM[1] == '.'))
+			    continue;
+		    }
+		}
+		if (len > cin) {
+
+		/*
+		 * If not all (possibly not any, depending on the value in
+		 * cin) of the name has yet been read to lc->nm[], read it
+		 * or the rest of it.  If it wasn't possible before to check
+		 * for "." or "..", do that. too.
+		 */
+		    if (cin > 0)
+			(void) strncpy(lc->nm, c.NCACHE_NM, cin);
+		    if (kread(ka + (KA_T)(nmo + cin), &lc->nm[cin], len - cin))
+			continue;
+		    if ((cin < 2) && (len < 3) && (lc->nm[0] == '.')) {
+			if (len == 1 || (len == 2 && lc->nm[1] == '.'))
+			    continue;
+		    }
+		} else
+		    (void) strncpy(lc->nm, c.NCACHE_NM, len);
+# else	/* defined(NCACHE_NMLEN) */
+		/*
+		 * Copy name, check for "." or ".."
+		 */
+		(void) strncpy(lc->nm, nbuf, len);
+		if ((len < 3) && (lc->nm[0] == '.')) {
 		    if (len == 1 || (len == 2 && lc->nm[1] == '.'))
 			continue;
 		}
+# endif	/* defined(NCACHE_NMLEN) */
 # endif	/* defined(NCHNAMLEN) */
 
 		lc->nm[len] = '\0';

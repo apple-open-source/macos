@@ -1,0 +1,178 @@
+$Id: RUNNING.txt,v 1.5 2002/04/24 08:06:14 remm Exp $
+
+
+               Running The Tomcat 4.0 Servlet/JSP Container
+               ============================================
+
+This subproject contains Tomcat 4.0, a server that implements the Servlet 2.3
+and JSP 1.2 Specifications from Java Software.  In order to install and run
+this container, you must do the following:
+
+
+(0) Download and Install a Java Development Kit
+
+* Download a Java Development Kit (JDK) release (version 1.2 or later) from:
+
+    http://java.sun.com/j2se/
+
+* Install the JDK according to the instructions included with the release.
+
+* Set an environment variable JAVA_HOME to the pathname of the directory
+  into which you installed the JDK release.
+
+
+(1) Download and Install the Tomcat 4.0 Binary Distribution
+
+NOTE:  As an alternative to downloading a binary distribution, you can create
+your own from the Tomcat source repository, as described in "BUILDING.txt".
+If you do this, the value to use for "${catalina.home}" will be the "dist"
+subdirectory of your source distribution.
+
+* Download a binary distribution of Tomcat from:
+
+    http://jakarta.apache.org/builds/jakarta-tomcat-4.0/nightly/
+
+  On a Windows platform, you will need:
+    jakarta-tomcat-4.0-YYYYMMDD.zip
+
+  On a Unix platform, you will need:
+    jakarta-tomcat-4.0-YYYYMMDD.zip
+
+* Unpack the binary distribution into a convenient location so that the
+  distribution resides in its own directory (conventionally named
+  "jakarta-tomcat-4.0").  For the purposes of the remainder of this document,
+  the symbolic name "${catalina.home}" is used to refer to the full
+  pathname of the release directory.
+
+
+(2) Start Up Tomcat 4.0
+
+There are two techniques by which Tomcat 4.0 can be started:
+
+* Via an environment variable:
+  - Set an environment variable CATALINA_HOME to the path of the directory
+    into which you have installed Tomcat 4.0.
+  - Execute the shell command:
+
+      %CATALINA_HOME%\bin\startup             (Windows)
+
+      $CATALINA_HOME/bin/startup.sh           (Unix)
+
+* By modifying your current working directory:
+  - Execute the following shell commands:
+
+      cd %CATALINA_HOME%\bin                  (Windows)
+      startup                                 (Windows)
+
+      cd $CATALINA_HOME/bin                   (Unix)
+      ./startup.sh                            (Unix)
+
+After startup, the default web applications included with Tomcat 4.0 will be
+available by browsing:
+
+    http://localhost:8080/
+
+Further information about configuring and running Tomcat 4.0 can be found in
+the documentation included here, as well as on the Tomcat web site:
+
+    http://jakarta.apache.org/tomcat/
+
+
+(3) Shut Down Tomcat 4.0
+
+There are two techniques by which Tomcat 4.0 can be stopped:
+
+* Via an environment variable:
+  - Set an environment variable CATALINA_HOME to the path of the directory
+    into which you have installed Tomcat 4.0.
+  - Execute the shell command:
+
+      %CATALINA_HOME%\bin\shutdown            (Windows)
+
+      $CATALINA_HOME/bin/shutdown.sh          (Unix)
+
+* By modifying your current working directory:
+  - Execute the following shell commands:
+
+      cd %CATALINA_HOME%\bin                  (Windows)
+      shutdown                                (Windows)
+
+      cd $CATALINA_HOME/bin                   (Unix)
+      ./shutdown.sh                           (Unix)
+
+
+(4) Advanced Configuration - Multiple Tomcat 4 Instances
+
+In many circumstances, it is desirable to have a single copy of a Tomcat 4
+binary distribution shared among multiple users on the same server.  To make
+this possible, you must configure a CATALINA_BASE environment variable (in
+addition to CATALINA_HOME as described above) that points to a directory
+that is unique to your instance.
+
+When you do this, Tomcat 4 will calculate all relative references for files in
+the following directories based on the value for CATALINA_BASE instead of
+CATALINA_HOME:
+
+* conf - Server configuration files (including server.xml)
+
+* logs - Log and output files
+
+* webapps - Automatically loaded web applications
+
+* work - Temporary working directories for web applications
+
+* temp - Directory used by the JVM for temporary files (java.io.tmpdir)
+
+If you do not set CATALINA_BASE to an explicit value, it will be initialized
+to the same value as is set for CATALINA_HOME (which means that the same
+directory is used for all relative path resolutions).
+
+The administration and manager web applications, which are defined in the
+$CATALINA_BASE/webapps/admin.xml and $CATALINA_BASE/webapps/manager.xml will
+not run in that configuration, unless either:
+- The path specified in the docBase attribute of the Context element is made 
+  absolute, and replaced respectively by $CATALINA_HOME/server/webapps/admin 
+  and $CATALINA_HOME/server/webapps/manager
+- Copying and linking both web applications in $CATALINA_BASE, and modify 
+  accordingly the path specified in the docBase attribute of the Context 
+  element
+- Disabling both web applications by removing $CATALINA_BASE/webapps/admin.xml
+  and $CATALINA_BASE/webapps/manager.xml
+
+
+(5) Troubleshooting:
+
+There are only really 3 things that can go wrong during the stand-alone
+Tomcat 4.0 install:
+
+1) The most common hiccup is when another web server (or any process for that
+   matter) has laid claim to port 8080.  This is the default HTTP port that
+   Tomcat attempts to bind to at startup.  To change this, open the file:
+
+       $CATALINA_HOME/conf/server.xml
+    
+   ...and search for '8080'.  Change it to a port that isn't in use, and is
+   greater than 1024, as ports less than or equal to 1024 require superuser
+   access to bind to.
+   
+   Restart Tomcat and you're in business.  Be sure that you replace the "8080"
+   in the URL you're using to access Tomcat.  For example, if you change the
+   port to 1977, you would request the URL http://localhost:1977/.
+
+2) An "out of environment space" error when running the batch files in
+   Win9X/ME-based operating systems.
+
+   Right-click on the STARTUP.BAT and SHUTDOWN.BAT files.  Click on
+   "Properties" then on the "Memory" tab.  For the "Initial environment" field,
+   enter in something like 4096.
+   
+   After you click apply, Windows will create shortcuts in the directory with
+   which you can use to start and stop the container.
+
+3) The 'localhost' machine isn't found.  This could happen if you're behind a
+   proxy.  If that's the case, make sure the proxy configuration for your
+   browser knows that you shouldn't be going through the proxy to access the
+   "localhost" machine.
+   
+   In Netscape, this is under Edit/preferences -> Advanced/proxies, and in
+   Internet Explorer, Tools -> Internet Options -> Connections -> LAN Settings.

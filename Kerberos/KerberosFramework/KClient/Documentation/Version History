@@ -1,0 +1,588 @@
+========================================================================
+KClient Version History
+========================================================================
+Version:    3.3fc1
+Date:       July 16, 2003
+Author:     meeroh@mit.edu, lxs@mit.edu
+========================================================================
+
+	KClient 3.3fc1
+	July 16, 2003
+
+	Moved to final candidate
+	
+	========================================================================
+	KClient 3.3a2
+	June 6, 2003
+
+	[RT 1468] KClient should have error strings for remapped v4 errors
+	
+	========================================================================
+
+	KClient 3.3a1
+	January 14, 2003
+
+	Removed initializer.
+	
+	========================================================================
+
+KClient 3.2
+Feb 19, 2002
+
+========================================================================
+
+	KClient 3.2fc2
+	Feb 14, 2002
+
+	Exported constants for encryption and protection overhead
+	
+	========================================================================
+
+	KClient 3.2fc1
+	Feb 7, 2002
+
+	Moved to final candidate
+	
+	========================================================================
+
+	KClient 3.2b6
+	Jan 14, 2002
+
+	Improved comments
+	
+	========================================================================
+
+	KClient 3.2b5
+	Dec 18, 2001
+
+	Removed more version numbers from the Mac OS X project
+	
+	========================================================================
+
+	KClient 3.2b4
+	Dec 13, 2001
+
+	Removed version numbers from the Mac OS X project
+	
+	========================================================================
+
+	KClient 3.2b3
+	Dec 3, 2001
+
+	Fixed prebinding on X
+	
+	========================================================================
+
+	KClient 3.2b2
+	Nov 15, 2001
+
+	Link with new login lib on X
+	
+	========================================================================
+
+	KClient 3.2b1
+	Nov 7, 2001
+
+	Moved to beta
+	
+	========================================================================
+
+	KClient 3.2a2
+	Sep 27, 2001
+
+	Added error tables
+	
+	========================================================================
+
+	KClient 3.2a1
+	Aug 7, 2001
+
+	Build fixes on X
+	
+	========================================================================
+
+KClient 3.1
+June 25, 2001
+
+Carbon, CWP 6
+
+========================================================================
+
+	KClient 3.1fc1
+	June 13, 2001
+
+	Final candidate for 3.5
+	Build fixes for B&I
+	
+	========================================================================
+
+	KClient 3.1b2
+	April 30, 2001
+
+	Updated ShlibResourcesLib header paths
+	
+	========================================================================
+
+	KClient 3.1b1
+	April 2, 2001
+
+	Moved to beta
+	
+	========================================================================
+
+	KClient 3.1a4
+	March 21, 2001
+
+	Update includes for new header layout
+	
+	========================================================================
+
+	KClient 3.1a3
+	March 16, 2001
+
+	Documentation update
+	Update includes for new header layout
+	Removed macros from compat and deprecated functions
+	
+	========================================================================
+
+	KClient 3.1a2
+	February 1, 2001
+
+	Fixed errno paths
+	
+	Bugs fixed in this release:
+	 - [BZ 547]	K5Client still crashes with no tickets
+	
+	========================================================================
+
+	KClient 3.1a1
+	December 9, 2000
+
+	Alpha
+	
+	========================================================================
+
+	KClient 3.1d6
+	October 30, 2000
+
+	Bugs fixed in this release:
+	 - [BZ 463] Addresses lost in NewSessionCompat
+	 - [BZ 464] Addresses mangled on Mac OS X
+	
+	========================================================================
+
+	KClient 3.1d5
+	October 27, 2000
+
+	First Mach-O release
+	
+	========================================================================
+
+	KClient 3.1d4
+	October 16, 2000
+
+	Compiles under Mac OS X	
+	
+	========================================================================
+
+	KClient 3.1d3
+	October 4, 2000
+	
+	Bugs fixed in this release:
+	 - [BZ 426]	Unhandled error when launching MZ
+	 - [BZ 427] Crash in ~UCCache when running MZ
+	
+	========================================================================
+
+	KClient 3.1d2
+	September 28, 2000
+	
+	Rebuilt with fixed CWP 6 fcntl.h
+	
+	========================================================================
+
+	KClient 3.1d1
+	September 26, 2000
+	
+	Carbonized and moved to CWP 6
+	
+	========================================================================
+
+KClient 3.0
+June 30, 2000
+
+Complete rewrite from 2.1. Now uses the new API, and a compatibility
+API to deal with old clients.
+
+Bugs fixed in this release:
+	[BZ   1]	Documentation incomplete
+========================================================================
+
+	KClient 3.0fc3
+	June 28, 2000
+	
+	Bugs fixed in this release:
+		[BZ 365]	Moved strings into code section
+		[BZ 377]	Assertions under low-mem conditions
+		[BZ 378]	Mutual auth broken for KClient 1.5 clients
+		[BZ 379]	Error codes for v4 errors wrong
+	========================================================================
+
+	KClient 3.0fc2
+	June 20, 2000
+	
+	Bugs fixed in this release:
+		[BZ 364]	GetLocalRealm does not convert v5 realm to v4
+	========================================================================
+
+	KClient 3.0fc1
+	June 16, 2000
+	
+	Bugs fixed in this release:
+		[BZ 352]	Assertion when Decrypt/Encrypt called and tickets destroyed
+		[BZ 351]	Assertion when ASIP UAM called with login dialog up
+		[BZ 170]	Session not reset after compat calls
+	========================================================================
+
+	KClient 3.0b2
+	June 10, 2000
+	
+	Bugs fixed in this release:
+		[BZ 335]	Crash in AcquireTicketsWithPassword
+		[BZ 336]	SetPassword uses wrong password
+		[BZ 337]	SetUsername uses wrong username
+		[BZ 338]	PasswordLogin fails with CCache error
+		[BZ 339]	Preferences errors come as unknown errors
+	========================================================================
+
+	KClient 3.0b1
+	June 10, 2000
+	
+	Bugs fixed in this release:
+		[BZ 322]	Don't try to find ccache when setting principal
+		[BZ 321]	Use PreferencesLib for K5Client support
+		[BZ 320]	Need workaround for Eudora poassing "justjunk" in 
+					protocol name
+		[BZ 187]	K5ClientGetTicketForService leaks memory
+	========================================================================
+
+	KClient 3.0a2
+	May 22, 2000
+	
+	Bugs fixed in this release:
+		[BZ 269]	KClientSeUserName not implemented
+		[BZ 289]	Default ticket lifetime for key login not from login lib
+		[BZ 291]	KServeRVerifyReplyTicket unimplemented
+		[BZ 292]	KClientSetKeyFile not honored by KClientVerifyAuthenticator
+	========================================================================
+
+	KClient 3.0a1
+	May 22, 2000
+	
+	Bugs fixed in this release:
+		[BZ 185]	GetExpirationTime unimplemented for server sessions 
+		[BZ 226]	Uncaught exceptions when Prefs file is removed while
+					MacZephyr is running
+		[BZ 239]	KClientNewServerSession generates bogus sessions 
+		[BZ 240]	Support KClientCacheInitialTicket for TGTs 
+		[BZ 241]	KClientKerberosInterface::VerifyAuthenticator crashes 
+		[BZ 242]	KClientKerberosInterface::GetServiceKey crashes 
+		[BZ 243]	Bad opaque pointer handling in KClientNewSessionCompat 
+		[BZ 244]	Bad opaque pointer handling in KServerNewSessionCompat 
+		[BZ 245]	Bad default key file handling in
+					KServerVerifyTicketCompat 
+		[BZ 246]	Bad default key file handling in KServerAddKeyCompat 
+		[BZ 247]	Bad default key file handling in KServerGetKeyCompat 
+		[BZ 248]	Get default realm from config file for GetUserNameCompat 
+		[BZ 249]	KClientNewServerSession creates client sessions 
+		[BZ 250]	KClientNewServerSession destroys input principal 
+		[BZ 251]	KClientVerifyAuthenticator doesn't remember
+					the client principal
+		[BZ 238]	Add KClientKeyFileLogin to get service tickets
+					from srvtab 
+	========================================================================
+
+	KClient 3.0d7
+	May 6, 2000
+	
+	Documentation update
+	
+	Bugs fixed in this release:
+		[BZ 186]	KClientGetServiceKey does not return key version
+		[BZ 188]	cKrbCacheInitialTicket unimplemented
+		[BZ 189]	cKrbServerVerifyTicket unimplemented
+		[BZ 190]	cKrbGetServiceKey unimplemented
+		[BZ 191]	cKrbAddServiceKey unimplemented
+		[BZ 192]	cKrbSetPassword unimplemented
+			(KClientPasswordLogin doesn't work)
+		[BZ 193]	cKrbSetKey unimplemented
+			(KClientKeyLogin doesn't work)
+	========================================================================
+
+	KClient 3.0d6
+	April 29, 2000
+	
+	Bugs fixed in this release:
+		[BZ   3]	Errors from Login Lib cause unhandled exceptions
+	========================================================================
+
+	KClient 3.0d5
+	April 9, 2000
+	
+	New features in this release:
+		[BZ  97]	K5Client support -- enabled with 'k5cl', 128
+					resource in MITKL
+
+	Bugs fixed in this release:
+		[BZ  85]	KClientGetTicketForService leaks a KClientPrincipal
+		[BZ  86]	KClientGetTicketForServiceWithChecksumCompat leaks a
+					KClientPrincipal
+		[BZ  87]	KServerNewSessionCompat leaks a KClientPrincipal
+		[BZ  88]	KServerAddKeyCompat leaks a KClientPrincipal
+		[BZ  89]	KClientGetKeyCompat leaks a KClientPrincipal
+		[BZ  90]	KClientMakeSendAuthCompat leaks a KClientPrincipal
+	========================================================================
+
+	KClient 3.0d4
+	March 24, 2000
+
+	Bugs fixed in this release:
+		[BZ  61]	Fixed handling of the ccache being deleted under us
+		[BZ  62]	Added workaround for Eudora 4.1.x passing in checksum to 
+					GetTicketsForService selector
+		[BZ  48]	Fixed LoginCompat to ignore v5 creds
+		[BZ  52]	
+		[BZ  53]	
+		[BZ  54]	Enabled traceback tables
+		[BZ  60]	Fixed KLPrincipal leak in LoginIntf::AcquireTickets
+	 
+	========================================================================
+
+	KClient 3.0d3
+	March 11, 2000
+
+	Removed UKerberos4Principal	
+	Bugs fixed in this release:
+	 - [BZ  12] Fixed crash on MZ startup under low memory conditions
+	 
+	========================================================================
+
+	KClient 3.0d2
+	February 27, 2000
+	
+	Bugs fixed in this release:
+	 - [     1] No longer crashes when renewing (was ccache)
+	 - [     4] No longer quits current app when seeing v5-only ccache
+	 - [     5] No longer crashes when quitting (was ccache)
+	 
+	========================================================================
+
+	KClient 3.0d1
+	February 7, 2000
+	========================================================================
+
+KClient 2.1
+never released. Development dropped in favor of 3.0.
+
+Almost complete rewrite from 1.x. Now uses shared libraries.
+========================================================================
+
+	KClient 2.1d1
+	March 1, 1999
+	========================================================================
+
+KClient 1.9
+September 14, 1999
+
+New features since 1.8:
+ - support for multiuser logins under MacOS 9
+
+Bugs fixed since 1.7.7:
+ - fixed UMich accidentally assigned to DND
+ 
+========================================================================
+
+	KClient 1.9b1
+	September 4, 1999
+	
+	Added MacOS 9 Multiuser support
+	Removed UMich from DND list
+	
+	========================================================================
+
+KClient 1.8
+April 30, 1999
+
+
+New features since 1.7.7:
+ - added support for message integrity checking
+
+Bugs fixed since 1.7.7:
+ - fixed missing kerberos error strings
+ - centered version number underneath the icon in the login dialog
+ 
+Other changes since 1.7.7:
+ - internal code restructuring
+ - now maintained by MIT
+ - updated 3rd party components
+========================================================================
+
+	KClient 1.8b1
+	October 22, 1998
+
+	New features in this revision:
+	 - debugging information, accessible via a new driver selector code
+	   and a Gestalt selector
+	 - debugging tool, for access to debugging information
+	 - MacsBug debugging information templates
+
+	Bugs fixed in this revision:
+	 - fixed version number disappearing from login dialog after it's been
+	   obscured by an alert
+	========================================================================
+
+	KClient 1.8a3
+	August 14, 1998
+
+	New features in this revision: none.
+
+	Bugs fixed in this revision:
+	 - Fixed missing kerberos error strings (been missing since at least
+	1.7.6b3!) which caused KClientError to always return empty strings for
+	Kerberos errors.
+	========================================================================
+
+	KClient 1.8a2
+	July 28, 1998
+
+	New features in this revision: none.
+
+	Bugs fixed in this revision:
+	 - Version number beneath the icon in the login dialog is now centered.
+
+	Other changes in this revision:
+	 - Internal code reorganization and update to most recent versions of
+	various third-party software (appe Windows, Jim's CDEFs, etc)
+	========================================================================
+
+	KClient 1.8a1
+	June 1, 1998
+
+	New features in this revision:
+	 - added support for message integrity checking
+
+	Bugs fixed in this revision:
+	 - Version number beneath the icon in the login dialog is now centered.
+
+	Other changes in this revision:
+	 - Internal code reorganization and update to most recent versions of
+	various third-party software (appe Windows, Jim's CDEFs, etc)
+	========================================================================
+
+KClient 1.7.7
+July 10, 1998
+Distribution: public as a part of MacZephyr 1.3 installer
+
+New features since 1.7.6: none
+
+Bugs fixed since 1.7.6:
+ - Fixed help menu being cleared after using KClient menu
+ - Fixed dancing garbage in the control panel realms popup menu when login
+ dialog is up
+ 
+Other changes since 1.7.6:
+ - now building default MIT preferences directly into the control panel
+========================================================================
+
+	KClient 1.7.7b4
+	May 7, 1998
+
+	New features in this revision: none
+
+	Bugs fixed in this revision:
+	 - Fixed default MIT preferences
+
+	Other changes in this revision: none
+	========================================================================
+
+	KClient 1.7.7b3
+	May 7, 1998
+
+	New features in this revision: none
+
+	Bugs fixed in this revision: none
+
+	Other changes in this revision: 
+	 - Now building with default MIT preferences
+	========================================================================
+	
+	KClient 1.7.7b2
+	May 6, 1998
+
+	New features in this revision: none
+
+	Bugs fixed in this revision:
+	 - no more dancing garbage in control panel realms popup menu when login
+	 dialog is open
+
+	Other changes in this revision: none
+	========================================================================
+			
+	KClient 1.7.7b1
+	Feb 27, 1998
+
+	New features in this revision: none
+
+	Bugs fixed in this revision:
+	 - No longer purge help menu when using KClient menu 
+	 
+	Other changes in this revision: none
+	========================================================================
+
+KClient 1.7.6
+Oct 28, 1997
+
+The story of KClient 1.7.6:
+
+In October 1997, KClient development is done mostly at Dartmouth. They are
+responsible for all additions from 1.6.2 to 1.7.6: KClient menu,
+login floater, keystroke scrambling, ticket life preference, better error
+reporting. At that time, 1.6.2 is the public version of KClient, and MIT
+receives 1.7.6b3 sources from Dartmouth.
+
+On October 28 1997, those sources are imported in MIT CVS repository. The
+binary included with those sources is hacked to change the version number
+to 1.7.6 and to contain MIT default preferences, and released internally
+in MIT I/S as 1.7.6.
+
+In December 1997, Apple releases Apple Data Detectors which conflict with
+KClient 1.6.2 (the only available version)
+
+In January 1998, Scott McGuire noticed that using KClient menu in 1.7.6b3
+purges custom items from help menu in MacZephyr
+
+On February 15 1998, a CWCVS bug related to KClient prompts rebuilding 
+KClient from 1.7.6b3 sources for the first time. This is when we notice
+that the sources actually build KClient 1.7.6b1.
+
+On February 17 1998, the CWCVS bug and the help menu bug are fixed. After
+brief negotiations with Gavin at UMich, who is doing most of KClient
+development at the time, we decide to bump version number to 1.7.7b1.
+
+Because of all of that stuff, we don't really have detailed version history
+for this time; however, the following approximate reality reasonably well:
+
+New features in this revision:
+ - KClient menu
+ - Login floaters
+ - Keystroke scrambling in login dialog
+ - Ticket lifetime preference
+ - Better error reporting
+ - Dartmouth Name Directory support
+
+Bugs fixed in this revision:
+ - Conflict between KClient and Apple Data Detectors resolved
+ 
+Other changes in this revision: unknown.
+========================================================================

@@ -1,0 +1,68 @@
+--- setenv.c.orig	Mon Apr 28 16:37:26 2003
++++ setenv.c	Tue May  6 16:55:50 2003
+@@ -40,6 +40,7 @@
+ #include <stddef.h>
+ #include <stdlib.h>
+ #include <string.h>
++#include <crt_externs.h>
+ 
+ char *__findenv(const char *, int *);
+ 
+@@ -54,7 +55,7 @@
+ 	const char *value;
+ 	int rewrite;
+ {
+-	extern char **environ;
++	char ***environp = _NSGetEnviron();
+ 	static char **alloced;			/* if allocated space before */
+ 	char *c;
+ 	int l_value, offset;
+@@ -73,30 +74,30 @@
+ 		int cnt;
+ 		char **p;
+ 
+-		for (p = environ, cnt = 0; *p; ++p, ++cnt);
+-		if (alloced == environ) {			/* just increase size */
+-			p = (char **)realloc((char *)environ,
++		for (p = *environp, cnt = 0; *p; ++p, ++cnt);
++		if (alloced == *environp) {			/* just increase size */
++			p = (char **)realloc((char *)*environp,
+ 			    (size_t)(sizeof(char *) * (cnt + 2)));
+ 			if (!p)
+ 				return (-1);
+-			alloced = environ = p;
++			alloced = *environp = p;
+ 		}
+ 		else {				/* get new space */
+ 						/* copy old entries into it */
+ 			p = malloc((size_t)(sizeof(char *) * (cnt + 2)));
+ 			if (!p)
+ 				return (-1);
+-			bcopy(environ, p, cnt * sizeof(char *));
+-			alloced = environ = p;
++			bcopy(*environp, p, cnt * sizeof(char *));
++			alloced = *environp = p;
+ 		}
+-		environ[cnt + 1] = NULL;
++		(*environp)[cnt + 1] = NULL;
+ 		offset = cnt;
+ 	}
+ 	for (c = (char *)name; *c && *c != '='; ++c);	/* no `=' in name */
+-	if (!(environ[offset] =			/* name + `=' + value */
++	if (!((*environp)[offset] =			/* name + `=' + value */
+ 	    malloc((size_t)((int)(c - name) + l_value + 2))))
+ 		return (-1);
+-	for (c = environ[offset]; (*c = *name++) && *c != '='; ++c);
++	for (c = (*environp)[offset]; (*c = *name++) && *c != '='; ++c);
+ 	for (*c++ = '='; (*c++ = *value++); );
+ 	return (0);
+ }
+@@ -109,7 +110,7 @@
+ unsetenv(name)
+ 	const char *name;
+ {
+-	extern char **environ;
++	char **environ = *_NSGetEnviron();
+ 	char **p;
+ 	int offset;
+ 

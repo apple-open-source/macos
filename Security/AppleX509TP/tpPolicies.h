@@ -34,19 +34,22 @@
 extern	"C" {
 #endif /* __cplusplus */
 
-CSSM_BOOL tp_verifyWithSslRoots(
-	CSSM_CL_HANDLE	clHand, 
-	CSSM_CSP_HANDLE	cspHand, 
-	TPCertInfo 		*certToVfy);		// last in chain, not root
+/* 
+ * Private CSSM_APPLE_TP_ACTION_FLAGS value to enable implicit 
+ * root certs.
+ */
+#define	CSSM_TP_USE_INTERNAL_ROOT_CERTS		0x80000000
 
 /*
- * Enumerated policies enforced by this module.
+ * Enumerated certificate policies enforced by this module.
  */
 typedef enum {
 	kTPDefault,			/* no extension parsing, just sig and expiration */
 	kTPx509Basic,		/* basic X.509/RFC2459 */
 	kTPiSign,			/* Apple code signing */
-	kTP_SSL				/* SecureTransport/SSL */
+	kTP_SSL,			/* SecureTransport/SSL */
+	kCrlPolicy,			/* cert chain verification via CRL */
+	kTP_SMIME				/* S/MIME */			
 } TPPolicy;
 
 /*
@@ -60,9 +63,9 @@ CSSM_RETURN tp_policyVerify(
 	CSSM_CSP_HANDLE					cspHand,
 	TPCertGroup 					*certGroup,
 	CSSM_BOOL						verifiedToRoot,		// last cert is good root
-	const CSSM_APPLE_TP_ACTION_DATA	*actionData,
-	const CSSM_APPLE_TP_SSL_OPTIONS	*sslOpts,
-	void							*policyOpts);	// future options
+	CSSM_APPLE_TP_ACTION_FLAGS		actionFlags,
+	const CSSM_DATA					*policyFieldData,	// optional
+    void 							*policyControl);	// future use
 
 #ifdef __cplusplus
 }

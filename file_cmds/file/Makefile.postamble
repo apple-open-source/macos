@@ -1,9 +1,0 @@
-include $(CoreOSMakefiles)/ProjectBuilder/Makefile.Postamble.Common
-
-MAGFILES = $(SRCROOT)/file/magdir/Header \
-           $(SRCROOT)/file/magdir/Localstuff \
-           $(SRCROOT)/file/magdir/OpenBSD \
-           $(SRCROOT)/file/magdir/[a-z]*
-after_install:
-	mkdir -p $(DSTROOT)/private/etc/
-	cat $(MAGFILES) > $(DSTROOT)/private/etc/magic

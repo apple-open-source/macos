@@ -7,7 +7,7 @@
 	<key>CFBundleExecutable</key>
 	<string>IOFireWireFamily</string>
 	<key>CFBundleGetInfoString</key>
-	<string>IOFireWireFamily version 1.3.9, Copyright 2003 Apple Computer, Inc.</string>
+	<string>IOFireWireFamily version 1.6.9, Copyright 2003 Apple Computer, Inc.</string>
 	<key>CFBundleIdentifier</key>
 	<string>com.apple.iokit.IOFireWireFamily</string>
 	<key>CFBundleInfoDictionaryVersion</key>
@@ -17,11 +17,11 @@
 	<key>CFBundlePackageType</key>
 	<string>KEXT</string>
 	<key>CFBundleShortVersionString</key>
-	<string>1.3.9</string>
+	<string>1.6.9</string>
 	<key>CFBundleSignature</key>
 	<string>????</string>
 	<key>CFBundleVersion</key>
-	<string>1.3.9</string>
+	<string>1.6.9</string>
 	<key>IOKitPersonalities</key>
 	<dict>
 		<key>IOFireWireUserClient</key>
@@ -51,9 +51,9 @@
 	<key>OSBundleLibraries</key>
 	<dict>
 		<key>com.apple.kernel.iokit</key>
-		<string>1.0.0b1</string>
+		<string>6.0</string>
 		<key>com.apple.kernel.libkern</key>
-		<string>1.0.0b1</string>
+		<string>6.0</string>
 	</dict>
 	<key>OSBundleRequired</key>
 	<string>Local-Root</string>

@@ -11,15 +11,11 @@
  * See the file "license.terms" for information on usage and redistribution
  * of this file, and for a DISCLAIMER OF ALL WARRANTIES.
  *
- * RCS: @(#) $Id: tclWinReg.c,v 1.1.1.5 2002/04/05 16:14:16 jevans Exp $
+ * RCS: @(#) $Id: tclWinReg.c,v 1.1.1.6 2003/03/06 00:15:50 landonf Exp $
  */
 
 #include <tclPort.h>
 #include <stdlib.h>
-
-#define WIN32_LEAN_AND_MEAN
-#include <windows.h>
-#undef WIN32_LEAN_AND_MEAN
 
 /*
  * TCL_STORAGE_CLASS is set unconditionally to DLLEXPORT because the
@@ -49,7 +45,7 @@
  * to the system predefined keys.
  */
 
-static char *rootKeyNames[] = {
+static CONST char *rootKeyNames[] = {
     "HKEY_LOCAL_MACHINE", "HKEY_USERS", "HKEY_CLASSES_ROOT",
     "HKEY_CURRENT_USER", "HKEY_CURRENT_CONFIG",
     "HKEY_PERFORMANCE_DATA", "HKEY_DYN_DATA", NULL
@@ -67,7 +63,7 @@ static HKEY rootKeys[] = {
  * mapping.
  */
 
-static char *typeNames[] = {
+static CONST char *typeNames[] = {
     "none", "sz", "expand_sz", "binary", "dword",
     "dword_big_endian", "link", "multi_sz", "resource_list", NULL
 };
@@ -84,7 +80,7 @@ static DWORD lastType = REG_RESOURCE_LIST;
 typedef struct RegWinProcs {
     int useWide;
 
-    LONG (WINAPI *regConnectRegistryProc)(TCHAR *, HKEY, PHKEY);
+    LONG (WINAPI *regConnectRegistryProc)(CONST TCHAR *, HKEY, PHKEY);
     LONG (WINAPI *regCreateKeyExProc)(HKEY, CONST TCHAR *, DWORD, TCHAR *,
 	    DWORD, REGSAM, SECURITY_ATTRIBUTES *, HKEY *, DWORD *); 
     LONG (WINAPI *regDeleteKeyProc)(HKEY, CONST TCHAR *);
@@ -110,7 +106,7 @@ static RegWinProcs *regWinProcs;
 static RegWinProcs asciiProcs = {
     0,
 
-    (LONG (WINAPI *)(TCHAR *, HKEY, PHKEY)) RegConnectRegistryA,
+    (LONG (WINAPI *)(CONST TCHAR *, HKEY, PHKEY)) RegConnectRegistryA,
     (LONG (WINAPI *)(HKEY, CONST TCHAR *, DWORD, TCHAR *,
 	    DWORD, REGSAM, SECURITY_ATTRIBUTES *, HKEY *,
 	    DWORD *)) RegCreateKeyExA, 
@@ -135,7 +131,7 @@ static RegWinProcs asciiProcs = {
 static RegWinProcs unicodeProcs = {
     1,
 
-    (LONG (WINAPI *)(TCHAR *, HKEY, PHKEY)) RegConnectRegistryW,
+    (LONG (WINAPI *)(CONST TCHAR *, HKEY, PHKEY)) RegConnectRegistryW,
     (LONG (WINAPI *)(HKEY, CONST TCHAR *, DWORD, TCHAR *,
 	    DWORD, REGSAM, SECURITY_ATTRIBUTES *, HKEY *,
 	    DWORD *)) RegCreateKeyExW, 
@@ -163,6 +159,8 @@ static RegWinProcs unicodeProcs = {
  */
 
 static void		AppendSystemError(Tcl_Interp *interp, DWORD error);
+static int		BroadcastValue(Tcl_Interp *interp, int objc,
+			    Tcl_Obj * CONST objv[]);
 static DWORD		ConvertDWORD(DWORD type, DWORD value);
 static int		DeleteKey(Tcl_Interp *interp, Tcl_Obj *keyNameObj);
 static int		DeleteValue(Tcl_Interp *interp, Tcl_Obj *keyNameObj,
@@ -183,7 +181,8 @@ static DWORD		OpenSubKey(char *hostName, HKEY rootKey,
 static int		ParseKeyName(Tcl_Interp *interp, char *name,
 			    char **hostNamePtr, HKEY *rootKeyPtr,
 			    char **keyNamePtr);
-static DWORD		RecursiveDeleteKey(HKEY hStartKey, TCHAR * pKeyName);
+static DWORD		RecursiveDeleteKey(HKEY hStartKey,
+			    CONST TCHAR * pKeyName);
 static int		RegistryObjCmd(ClientData clientData,
 			    Tcl_Interp *interp, int objc,
 			    Tcl_Obj * CONST objv[]);
@@ -229,7 +228,7 @@ Registry_Init(
     }
 
     Tcl_CreateObjCommand(interp, "registry", RegistryObjCmd, NULL, NULL);
-    return Tcl_PkgProvide(interp, "registry", "1.0");
+    return Tcl_PkgProvide(interp, "registry", "1.1.1");
 }
 
 /*
@@ -258,9 +257,13 @@ RegistryObjCmd(
     int index;
     char *errString;
 
-    static char *subcommands[] = { "delete", "get", "keys", "set", "type",
-				   "values", (char *) NULL };
-    enum SubCmdIdx { DeleteIdx, GetIdx, KeysIdx, SetIdx, TypeIdx, ValuesIdx };
+    static CONST char *subcommands[] = {
+	"broadcast", "delete", "get", "keys", "set", "type", "values",
+	(char *) NULL
+    };
+    enum SubCmdIdx {
+	BroadcastIdx, DeleteIdx, GetIdx, KeysIdx, SetIdx, TypeIdx, ValuesIdx
+    };
 
     if (objc < 2) {
 	Tcl_WrongNumArgs(interp, objc, objv, "option ?arg arg ...?");
@@ -273,6 +276,9 @@ RegistryObjCmd(
     }
 
     switch (index) {
+	case BroadcastIdx:		/* broadcast */
+	    return BroadcastValue(interp, objc, objv);
+	    break;
 	case DeleteIdx:			/* delete */
 	    if (objc == 3) {
 		return DeleteKey(interp, objv[2]);
@@ -356,6 +362,7 @@ DeleteKey(
     Tcl_Obj *keyNameObj)	/* Name of key to delete. */
 {
     char *tail, *buffer, *hostName, *keyName;
+    CONST char *nativeTail;
     HKEY rootKey, subkey;
     DWORD result;
     int length;
@@ -408,8 +415,8 @@ DeleteKey(
      * Now we recursively delete the key and everything below it.
      */
 
-    tail = Tcl_WinUtfToTChar(tail, -1, &buf);
-    result = RecursiveDeleteKey(subkey, tail);
+    nativeTail = Tcl_WinUtfToTChar(tail, -1, &buf);
+    result = RecursiveDeleteKey(subkey, nativeTail);
     Tcl_DStringFree(&buf);
 
     if (result != ERROR_SUCCESS && result != ERROR_FILE_NOT_FOUND) {
@@ -583,6 +590,7 @@ GetType(
     DWORD type;
     Tcl_DString ds;
     char *valueName;
+    CONST char *nativeValue;
     int length;
 
     /*
@@ -601,8 +609,8 @@ GetType(
     resultPtr = Tcl_GetObjResult(interp);
 
     valueName = Tcl_GetStringFromObj(valueNameObj, &length);
-    valueName = Tcl_WinUtfToTChar(valueName, length, &ds);
-    result = (*regWinProcs->regQueryValueExProc)(key, valueName, NULL, &type,
+    nativeValue = Tcl_WinUtfToTChar(valueName, length, &ds);
+    result = (*regWinProcs->regQueryValueExProc)(key, nativeValue, NULL, &type,
 	    NULL, NULL);
     Tcl_DStringFree(&ds);
     RegCloseKey(key);
@@ -654,6 +662,7 @@ GetValue(
 {
     HKEY key;
     char *valueName;
+    CONST char *nativeValue;
     DWORD result, length, type;
     Tcl_Obj *resultPtr;
     Tcl_DString data, buf;
@@ -685,9 +694,9 @@ GetValue(
     resultPtr = Tcl_GetObjResult(interp);
 
     valueName = Tcl_GetStringFromObj(valueNameObj, &nameLen);
-    valueName = Tcl_WinUtfToTChar(valueName, nameLen, &buf);
+    nativeValue = Tcl_WinUtfToTChar(valueName, nameLen, &buf);
 
-    result = (*regWinProcs->regQueryValueExProc)(key, valueName, NULL, &type,
+    result = (*regWinProcs->regQueryValueExProc)(key, nativeValue, NULL, &type,
 	    (BYTE *) Tcl_DStringValue(&data), &length);
     while (result == ERROR_MORE_DATA) {
 	/*
@@ -697,8 +706,8 @@ GetValue(
 	 */
 	length *= 2;
         Tcl_DStringSetLength(&data, (int) length);
-        result = (*regWinProcs->regQueryValueExProc)(key, valueName, NULL,
-		&type, (BYTE *) Tcl_DStringValue(&data), &length);
+        result = (*regWinProcs->regQueryValueExProc)(key, (char *) nativeValue,
+		NULL, &type, (BYTE *) Tcl_DStringValue(&data), &length);
     }
     Tcl_DStringFree(&buf);
     RegCloseKey(key);
@@ -956,7 +965,7 @@ OpenSubKey(
      */
 
     if (hostName) {
-	hostName = Tcl_WinUtfToTChar(hostName, -1, &buf);
+	hostName = (char *) Tcl_WinUtfToTChar(hostName, -1, &buf);
 	result = (*regWinProcs->regConnectRegistryProc)(hostName, rootKey,
 		&rootKey);
 	Tcl_DStringFree(&buf);
@@ -970,7 +979,7 @@ OpenSubKey(
      * that this key must be closed by the caller.
      */
 
-    keyName = Tcl_WinUtfToTChar(keyName, -1, &buf);
+    keyName = (char *) Tcl_WinUtfToTChar(keyName, -1, &buf);
     if (flags & REG_CREATE) {
 	DWORD create;
 	result = (*regWinProcs->regCreateKeyExProc)(rootKey, keyName, 0, "",
@@ -1106,7 +1115,7 @@ ParseKeyName(
 static DWORD
 RecursiveDeleteKey(
     HKEY startKey,		/* Parent of key to be deleted. */
-    char *keyName)		/* Name of key to be deleted in external
+    CONST char *keyName)	/* Name of key to be deleted in external
 				 * encoding, not UTF. */
 {
     DWORD result, size, maxSize;
@@ -1204,7 +1213,7 @@ SetValue(
     }
 
     valueName = Tcl_GetStringFromObj(valueNameObj, &length);
-    valueName = Tcl_WinUtfToTChar(valueName, length, &nameBuf);
+    valueName = (char *) Tcl_WinUtfToTChar(valueName, length, &nameBuf);
     resultPtr = Tcl_GetObjResult(interp);
 
     if (type == REG_DWORD || type == REG_DWORD_BIG_ENDIAN) {
@@ -1260,7 +1269,7 @@ SetValue(
 	Tcl_DString buf;
 	char *data = Tcl_GetStringFromObj(dataObj, &length);
 
-	data = Tcl_WinUtfToTChar(data, length, &buf);
+	data = (char *) Tcl_WinUtfToTChar(data, length, &buf);
 
 	/*
 	 * Include the null in the length, padding if needed for Unicode.
@@ -1292,6 +1301,71 @@ SetValue(
 	AppendSystemError(interp, result);
 	return TCL_ERROR;
     }
+    return TCL_OK;
+}
+
+/*
+ *----------------------------------------------------------------------
+ *
+ * BroadcastValue --
+ *
+ *	This function broadcasts a WM_SETTINGCHANGE message to indicate
+ *	to other programs that we have changed the contents of a registry
+ *	value.
+ *
+ * Results:
+ *	Returns a normal Tcl result.
+ *
+ * Side effects:
+ *	Will cause other programs to reload their system settings.
+ *
+ *----------------------------------------------------------------------
+ */
+
+static int
+BroadcastValue(
+    Tcl_Interp *interp,		/* Current interpreter. */
+    int objc,			/* Number of arguments. */
+    Tcl_Obj * CONST objv[])	/* Argument values. */
+{
+    DWORD result, sendResult;
+    UINT timeout = 3000;
+    int len;
+    char *str;
+    Tcl_Obj *objPtr;
+
+    if ((objc != 3) && (objc != 5)) {
+	Tcl_WrongNumArgs(interp, 2, objv, "keyName ?-timeout millisecs?");
+	return TCL_ERROR;
+    }
+
+    if (objc > 3) {
+	str = Tcl_GetStringFromObj(objv[3], &len);
+	if ((len < 2) || (*str != '-') || strncmp(str, "-timeout", (size_t) len)) {
+	    Tcl_WrongNumArgs(interp, 2, objv, "keyName ?-timeout millisecs?");
+	    return TCL_ERROR;
+	}
+	if (Tcl_GetIntFromObj(interp, objv[4], (int *) &timeout) != TCL_OK) {
+	    return TCL_ERROR;
+	}
+    }
+
+    str = Tcl_GetStringFromObj(objv[2], &len);
+    if (len == 0) {
+	str = NULL;
+    }
+
+    /*
+     * Use the ignore the result.
+     */
+    result = SendMessageTimeout(HWND_BROADCAST, WM_SETTINGCHANGE,
+	    (WPARAM) 0, (LPARAM) str, SMTO_ABORTIFHUNG, timeout, &sendResult);
+
+    objPtr = Tcl_NewObj();
+    Tcl_ListObjAppendElement(NULL, objPtr, Tcl_NewIntObj((int) result));
+    Tcl_ListObjAppendElement(NULL, objPtr, Tcl_NewIntObj((int) sendResult));
+    Tcl_SetObjResult(interp, objPtr);
+
     return TCL_OK;
 }
 

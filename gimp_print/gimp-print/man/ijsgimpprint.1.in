@@ -1,0 +1,317 @@
+.\" t
+.\" $Id: ijsgimpprint.1.in,v 1.1.1.1 2003/01/27 19:05:32 jlovell Exp $
+.\" Copyright (C) 2000-2002 Robert Krawitz <rlk@alum.mit.edu>
+.\"                         Roger Leigh <roger@whinlatter.uklinux.net>
+.\"
+.\" This program is free software; you can redistribute it and/or modify
+.\" it under the terms of the GNU General Public License as published by
+.\" the Free Software Foundation; either version 2, or (at your option)
+.\" any later version.
+.\"
+.\" This program is distributed in the hope that it will be useful,
+.\" but WITHOUT ANY WARRANTY; without even the implied warranty of
+.\" MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+.\" GNU General Public License for more details.
+.\"
+.\" You should have received a copy of the GNU General Public License
+.\" along with this program; if not, write to the Free Software
+.\" Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
+.TH IJSGIMPPRINT 1 "@RELEASE_DATE@" "Version @GIMPPRINT_VERSION@" "Gimp-Print Manual Pages"
+.SH NAME
+ijsgimpprint - Ghostscript driver for Gimp-Print
+.SH SYNOPSIS
+.B gs
+\-sDEVICE=ijs
+\-sIjsServer=@prefix@/bin/ijsgimpprint
+\-sDeviceManufacturer=\fIvendor\fP
+\-sDeviceModel=\fIname\fP
+[ \fI\-dIjsUseOutputFD\fP ]
+\-sIjsParams=[ \fIkey1\fP=\fIvalue1\fP,\fIkeyn\fP=\fIvaluen\fP... ]
+[ \fIoptions\fP ]
+[ \fIfiles\fP ]
+.SH DESCRIPTION
+.PP
+.B ijsgimpprint
+provides Ghostscript with a Gimp-Print driver, supporting all printers
+supported by libgimpprint.
+.PP
+IJS is an initiative to improve the quality and ease of use of printing with
+Ghostscript.  It permits adding or upgrading drivers without recompiling
+Ghostscript.  An IJS driver runs in a separate process that communicates with
+Ghostscript via an IPC channel.  The Gimp-Print IJS driver may be used with
+AFPL Ghostscript, as it runs in a separate process.
+.PP
+The options for this driver are very complex.  We strongly recommend
+use of a printer management system such as Foomatic rather than
+configuring a spooler manually with this driver.  The driver name used
+by Foomatic is \fIgimp-print-ijs\fP.
+.SH OPTIONS
+\fIijsgimpprint\fP accepts the following options:
+.SS Ghostscript IJS options
+.TP
+.B \-dIjsUseOutputFD
+This option should be specified whenever output from Ghostscript will go to
+stdout or into a pipe.  It may be specified in all other cases, with only a
+slight performance degradation.
+.TP
+\fB\-sIjsParams\fP=\fIOption1\fP=\fIValue1\fP,\fIOption2\fP=\fIValue2\fP
+This parameter contains a single string containing a comma-separated list of
+sub-options.
+.TP
+\fB\-sDeviceManufacturer\fP=\fIvendor\fP \fB\-sDeviceModel\fP=\fIname\fP
+This option must be supplied.  There is no default.  The IJS driver requires
+the \fIvendor\fP (it's part of the protocol), but the ijsgimpprint driver
+ignores it.  It should be CANON, EPSON, LEXMARK, or HEWLETT-PACKARD.  The value
+of the \-sDeviceModel parameter is the same as the value of the -sModel
+parameter in the old stp driver.
+.IP
+A complete list of supported printers may be found in
+.BR gimpprint-models (7).
+.IP
+Most or all of the Epson Stylus printers are fully functional.  The others
+vary.  In particular, all of the listed Epson Stylus Photo printers print in
+full 6-color photo mode; most of the others do not.  The color output has also
+been better tuned for Epson Stylus printers than for others.
+.SS Gimp-Print IJS options
+These options are all used in the \-sIjsParams options, except where mentioned
+otherwise.  Due to their complicated nature, the options are explained in
+detail in their own sections.
+.SH PRINT RESOLUTION
+.TP
+\fBQuality\fP=\fIquality\fP
+The meaning of this is model-specific.  Two names are listed for each
+resolution; the first (short) name is the \fIquality\fP that must be passed to
+Quality, and the second (long) name is descriptive.  Each printer has its own
+default value; for most printers, this is a reasonable 300 or 360 DPI
+resolution.  A full list of available resolutions for each printer may be found
+in
+.BR gimpprint-resolutions (7).
+.SH INK TYPES
+.TP
+\fBInkType\fP=\fIinktype\fP
+.PP
+This is printer type specific.  The option names are case sensitive.  A full
+list of available media types may be found in
+.BR gimmprint-inktypes (7).
+.SH MEDIA TYPES
+.TP
+\fBMediaType\fP=\fImediatype\fP
+.PP
+This is printer type specific.  The option names are case sensitive.  A full
+list of available media types may be found in
+.BR gimpprint-mediatypes (7).
+.SH MEDIA SOURCES
+.TP
+\fBMediaSource\fP=\fImediasource\fP
+.PP
+This is printer type specific.  The option names are case sensitive.  A full
+list of available media sources may be found in
+.BR gimpprint-mediasources (7).
+.PP
+.SH MEDIA SIZES
+.TP
+\fB\-sPAPERSIZE\fP=\fIpapersize\fP
+for known Ghostscript paper sizes.
+.TP
+\fB\-dDEVICEWIDTHPOINTS\fP=\fIx\fP \fB\-dDEVICEHEIGHTPOINTS\fP=\fIy\fP
+where \fIx\fP and \fIy\fP are the width and height of the paper respectively,
+in points (1/72").  Note this is a normal gs option, \fInot\fP an IJS option.
+.PP
+This is printer-specific; we cannot list the correct values for each printer
+here.  The option names are case-sensitive.  Two names are listed for each
+resolution; the first (short) name is the value that must be passed to
+-sPAPERSIZE, and the second (long) name is descriptive.  This option does not
+set GhostScript up to use a paper size other than the default; it only tells
+the driver to set up the printer for a different paper size.  The default paper
+size is "Letter".
+.PP
+A complete list of available paper sizes may be found in
+.BR gimpprint-mediasizes (7).
+.SH COLOR BALANCING
+.TP
+\fBCyan\fP=\fIval\fP
+.TP
+\fBMagenta\fP=\fIval\fP
+.TP
+\fBYellow\fP=\fIval\fP
+.TP
+\fBBrightness\fP=\fIval\fP
+.TP
+\fBContrast\fP=\fIval\fP
+.TP
+\fBGamma\fP=\fIval\fP
+.TP
+\fBDensity\fP=\fIval\fP
+.TP
+\fBSaturation\fP=\fIval\fP
+.PP
+A full description of the color balancing options, including the allowed ranges
+of values, may be found in
+.BR gimpprint-color (7).
+.SH DITHERING ALGORITHMS
+.TP
+\fBDitherAlgorithm\fP=\fIalgorithm\fP
+Possible values for \fIalgorithm\fP may be found in
+.BR gimpprint-dithers (7).
+.SH OUTPUT TYPE
+.TP
+\fB\-sProcessColorModel\fP=\fIDeviceGray\fP \fB\-dBitsPerSample\fP=1
+Black and white
+.TP
+\fB\-sProcessColorModel\fP=\fIDeviceGray\fP
+Greyscale
+.TP
+\fB\-sProcessColorModel\fP=\fIDeviceRGB\fP
+Color (RGB)
+.TP
+\fB\-sProcessColorModel\fP=\fIDeviceCMYK\fP
+Color (CMYK)
+.PP
+Note these are gs options, \fInot\fP IJS options.  Choose color vs. grayscale
+output.  Color output is the default.  Choosing \fIDeviceGrey\fP and
+-dBitsPerSample=1 results in only black ink (no color ink) being used, which is
+faster and usually results in the most accurate grayscale, but at the expense
+of smoothness.  This prints only black and white (thresholding).  This option
+always uses Fast dithering unless you specify Very Fast.  If you want composite
+color (using a mixture of color and black inks to produce gray), use
+\fIDeviceGrey\fP.
+.PP
+In addition, using \fIDeviceGrey\fP uses luminance (perceived brightness) of
+red, green, and blue to choose output levels.  Blue of a given intensity is
+perceived to be much darker than red, which in turn appears darker than green.
+\fIDeviceRGB\fP, \fIDeviceCYMK\fP and Saturation=0.0 (see "Saturation" above)
+do not use luminance.
+.PP
+CMYK output may be used with the IJS driver only.  It is useful if
+you're printing a CMYK graphic and want explicit control over the
+inks.  Generally it yields inferior quality, as Gimp-Print has good
+algorithms for converting RGB (screen) into CMYK (inks) that take
+into account paper type, ink type, and other variables.  In CMYK
+mode, the brightness, contrast, and saturation controls do not
+function.
+.SH IMAGE TYPE
+This option can be used to optimize the dither.
+.TP
+\fBImageType\fP=\fIval\fP
+Possible values are:
+.IP
+.TS
+li li
+lb lw(4i).
+Value	Description
+_
+1	T{
+.na
+Line art (color or gray scale)
+T}
+2	T{
+Primarily solid colors or smooth gradients (color or gray scale)
+T}
+3	T{
+Continuous-tone photographs (color or gray scale)
+T}
+.TE
+.IP
+Option \fI0\fP is the fastest.  It generates strong, but not particularly
+accurate, colors.  There may be some fairly sharp color transitions in this
+mode.
+.IP
+Option \fI1\fP generates more accurate colors, but is slower.
+.IP
+Option \fI2\fP generates the most accurate colors, but is considerably slower.
+.PP
+Note that any of the modes may be used with either color or black & white
+output.  If black and white output is requested, but a color mode used,
+composite color will be printed.  This generally offers smoother tone, but less
+purity of gray or black, than pure black ink.  Furthermore, it is possible to
+tune the color of the gray (to achieve warmer or cooler effects) using the
+color controls in this fashion.
+.PP
+Specifying a lower GhostScript resolution (with \-r) results in faster color
+conversion.  For example, if you print at 1440x720 DPI, but specify a
+Ghostscript resolution of 360 DPI (with \-r360), output will be significantly
+faster and there will be much less difference in performance between the three
+image type options.
+.SH EXAMPLES
+Note that a lot of these options are used for demonstration; generally
+adjusting the density is a bad idea!
+.SS Example 1
+Print charts to file, using A4 paper, color, 360 dpi:
+.IP
+.B gs -sDEVICE=ijs -sIjsServer=@prefix@/bin/ijsgimpprint
+.br
+.B    -sDeviceManufacturer=EPSON -sDeviceModel=escp2-ex -sPAPERSIZE=a4
+.br
+.B    -sOutputFile=itsyourchoice.prn
+.br
+.B    -sIjsParams=Density=1.6,Gamma=1.5,Saturation=0.9,Brightness=0.4,ImageType=1
+.br
+.B    foo.ps
+.SS Example 2
+Print color photograph to /dev/lp0 at maximum quality:
+.IP
+.B gs -sDEVICE=ijs -sIjsServer=@prefix@/bin/ijsgimpprint
+.br
+.B    -sDeviceManufacturer=EPSON -sDeviceModel=escp2-870
+.br
+.B    -sOutputFile=/dev/lp0
+.br
+.B    -sIjsParams='Quality=1440x720hq,MediaType=GlossyPhoto,Density=0.8,ImageType=2'
+.br
+.B    foo.ps
+.SS Example 3
+Print pure black text to stdout:
+.IP
+.B gs -sDEVICE=ijs -sIjsServer=@prefix@/bin/ijsgimpprint
+.br
+.B    -sDeviceManufacturer=EPSON -sDeviceModel=escp2-660 -dIjsUseOutputFD
+.br
+.B    -sProcessColorModel=DeviceGray -dBitsPerSample=1 -sOutputFile=-
+.br
+.B   -sIjsParams='Quality=720sw,Density=0.8' foo.ps
+.SH HISTORY
+The Ghostscript stp driver was originally written by Henryk Richter
+(buggs@comlab.uni-rostock.de), and was integrated into Gimp-Print during the
+3.1 development series.  Gimp-Print itself was originally written by Michael
+Sweet <mike@easysw.com>, who released up to version 2.0; Robert Krawitz
+released version 3.0.  The gimp-print development team
+(http://gimp-print.sourceforge.net) now maintains the entire package.
+.PP
+The IJS driver was originally written by Russell Lang, and incorporated into
+Gimp-Print in early 2002.  This driver corresponds with the IJS protocol 0.32.
+.SH COPYRIGHT
+Copyright \(co  2001\-2002 Robert Krawitz (rlk@alum.mit.edu)
+.PP
+This program is free software; you can redistribute it and/or modify it under
+the terms of the GNU General Public License as published by the Free Software
+Foundation; either version 2 of the License, or (at your option) any later
+version.
+.PP
+This program is distributed in the hope that it will be useful, but WITHOUT ANY
+WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR A
+PARTICULAR PURPOSE.  See the GNU General Public License for more details.
+.PP
+You should have received a copy of the GNU General Public License along with
+this program; if not, write to the Free Software Foundation, Inc., 59 Temple
+Place - Suite 330, Boston, MA 02111-1307, USA.
+.SH AUTHORS
+Robert Krawitz.  Originally written by Russell Lang.
+.PP
+This manual page was written by Robert Krawitz (rlk@alum.mit.edu) and Roger
+Leigh (roger@whinlatter.uklinux.net).
+.SH SEE ALSO
+.BR gs (1),
+.BR gimpprint-color (7),
+.BR gimpprint-dithers (7),
+.BR gimpprint-inktypes (7),
+.BR gimpprint-mediasizes (7),
+.BR gimpprint-mediasources (7),
+.BR gimpprint-mediatypes (7),
+.BR gimpprint-models (7),
+.BR gimpprint-resolutions (7).
+.\"#
+.\"# The following sets edit modes for GNU EMACS
+.\"# Local Variables:
+.\"# mode:nroff
+.\"# fill-column:79
+.\"# End:

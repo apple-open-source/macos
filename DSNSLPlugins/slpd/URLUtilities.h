@@ -1,27 +1,32 @@
 /*
-	File:		URLUtilities.h
-
-	Contains:	dec'ls for using URL utilities
-
-	Written by:	Kevin Arnold & Dave Fisher
-
-	Copyright:	© 1997 - 1999 by Apple Computer, Inc., all rights reserved.
-
-	Change History (most recent first):
-	
-	<11>	04/28/99	KA		adding IsCharURLReservedOrIllegal, EncodeCharToHex, DecodeHexToChar
-	<10>	04/05/99	sns		carbon tweaks
-	<09>	03-30-99	KA		incorporated changes for Steve
-	<08>	03/26/99	sns		use std namespace
-	<07>	03/24/99	KA		changing NSLAPI.h to NSL.h
-	<06>	02/24/99	KA		Changed GetServiceTypeFromURL params
-	<05>	11/06/98	KA		added EncodeHTTPString and DecodeHTTPString
-	<04>	02/11/98	DMF		Switched error returns to NSLError
-
-	To Do:
-*/
-
-
+ * Copyright (c) 2002 Apple Computer, Inc. All rights reserved.
+ *
+ * @APPLE_LICENSE_HEADER_START@
+ * 
+ * Copyright (c) 1999-2003 Apple Computer, Inc.  All Rights Reserved.
+ * 
+ * This file contains Original Code and/or Modifications of Original Code
+ * as defined in and that are subject to the Apple Public Source License
+ * Version 2.0 (the 'License'). You may not use this file except in
+ * compliance with the License. Please obtain a copy of the License at
+ * http://www.opensource.apple.com/apsl/ and read it before using this
+ * file.
+ * 
+ * The Original Code and all software distributed under the License are
+ * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
+ * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
+ * INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY,
+ * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
+ * Please see the License for the specific language governing rights and
+ * limitations under the License.
+ * 
+ * @APPLE_LICENSE_HEADER_END@
+ */
+ 
+/*!
+ *  @header URLUtilities
+ *  dec'ls for using URL utilities
+ */
 
 #ifndef __URLUTILITIES__
 #define __URLUTILITIES__
@@ -31,34 +36,18 @@
 	#define string	std::string
 #endif
 
-//#include "NSLCore.h"
-//#include <MacTypes.h>
+#ifndef Boolean
+typedef unsigned char                   Boolean;
+#endif
 
 #define	kFileURLDelimiter	'\r'				// delimits URL's within cache files
 
-
-#if __cplusplus
-//extern "C" {
-#endif
-
-Boolean IsCharURLReservedOrIllegal( const char c );
-void EncodeCharToHex( const char c, char* newHexChar );
-char DecodeHexToChar( const char* oldHexTriplet, Boolean* wasHexTriplet  );
-
-
-Boolean	IsURL( const char* theString, UInt32 theURLLength, char** svcTypeOffset );
-Boolean	AllLegalURLChars( const char* theString, UInt32 theURLLength );
+Boolean	IsURL( const char* theString, unsigned long theURLLength, char** svcTypeOffset );
+Boolean	AllLegalURLChars( const char* theString, unsigned long theURLLength );
 Boolean IsLegalURLChar( char theChar );
 
 void GetServiceTypeFromURL(	const char* readPtr,
-							UInt32 theURLLength,
+							unsigned long theURLLength,
 							char*	URLType );		// URLType should be pointing at valid memory
-
-Boolean EncodeHTTPString( string& text );
-void DecodeHTTPString( string& theString );
-
-#if __cplusplus
-//}
-#endif
 
 #endif

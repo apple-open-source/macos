@@ -1,0 +1,4 @@
+APPLE LOCAL file man pages
+
+This directory is a holder for preformatted man pages for Darwin gcc3.
+Eventually these should be generated during the build process.

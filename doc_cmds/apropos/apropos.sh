@@ -49,7 +49,7 @@ esac
 
 # reset $PAGER if $PAGER is empty
 case X"$PAGER" in X) 
-	PAGER="less -se"
+	PAGER="less -Rse"
 	;; 
 esac
 

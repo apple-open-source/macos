@@ -40,6 +40,7 @@
         ); 
         OTHER_SOURCES = (
             Makefile.preamble, 
+	    Makefile.postamble, 
             Makefile, 
             yp_all.3, 
             yp_bind.3, 
@@ -52,8 +53,7 @@
             yp_unbind.3, 
             ypclnt.3, 
             yperr_string.3, 
-            ypprot_err.3, 
-            ypserv.acl.5
+            ypprot_err.3
         ); 
         PUBLIC_HEADERS = (ypclnt.h, yp_prot.h); 
     }; 

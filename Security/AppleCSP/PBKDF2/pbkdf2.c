@@ -43,17 +43,12 @@ F (PRF prf, UInt32 hLen,
 	inBlock = outBlock + hLen;
 	/* Set up inBlock to contain Salt || INT (blockNumber). */
 	memcpy (inBlock, saltPtr, saltLen);
-#if TARGET_RT_LITTLE_ENDIAN
-	inBlock[saltLen + 0] = (UInt8)(blockNumber);
-	inBlock[saltLen + 1] = (UInt8)(blockNumber >> 8);
-	inBlock[saltLen + 2] = (UInt8)(blockNumber >> 16);
-	inBlock[saltLen + 3] = (UInt8)(blockNumber >> 24);
-#else /* if TARGET_RT_BIG_ENDIAN */
+
 	inBlock[saltLen + 0] = (UInt8)(blockNumber >> 24);
 	inBlock[saltLen + 1] = (UInt8)(blockNumber >> 16);
 	inBlock[saltLen + 2] = (UInt8)(blockNumber >> 8);
 	inBlock[saltLen + 3] = (UInt8)(blockNumber);
-#endif
+
 	/* Caculate U1 (result goes to outBlock) and copy it to resultBlockPtr. */
 	resultBlockPtr = (UInt8*)dataPtr;
 	prf (passwordPtr, passwordLen, inBlock, saltLen + 4, outBlock);

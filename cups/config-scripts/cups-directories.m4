@@ -1,9 +1,9 @@
 dnl
-dnl "$Id: cups-directories.m4,v 1.7 2002/03/02 22:03:46 jlovell Exp $"
+dnl "$Id: cups-directories.m4,v 1.1.1.8 2002/12/24 00:04:58 jlovell Exp $"
 dnl
 dnl   Directory stuff for the Common UNIX Printing System (CUPS).
 dnl
-dnl   Copyright 1997-2002 by Easy Software Products, all rights reserved.
+dnl   Copyright 1997-2003 by Easy Software Products, all rights reserved.
 dnl
 dnl   These coded instructions, statements, and computer programs are the
 dnl   property of Easy Software Products and are protected by Federal
@@ -81,6 +81,10 @@ if test "$sysconfdir" = "\${prefix}/etc"; then
 fi
 
 dnl Fix "libdir" variable for IRIX 6.x...
+if test "$libdir" = "\${exec_prefix}/lib"; then
+	libdir="$exec_prefix/lib"
+fi
+
 if test "$uname" = "IRIX" -a $uversion -ge 62; then
 	libdir="$exec_prefix/lib32"
 fi
@@ -180,8 +184,8 @@ case "$uname" in
 	*)
 		# All others
 		INSTALL_SYSV="install-sysv"
-		CUPS_SERVERBIN="$exec_prefix/lib/cups"
-		AC_DEFINE_UNQUOTED(CUPS_SERVERBIN, "$exec_prefix/lib/cups")
+		CUPS_SERVERBIN="$libdir/cups"
+		AC_DEFINE_UNQUOTED(CUPS_SERVERBIN, "$libdir/cups")
 		;;
 esac
 
@@ -234,5 +238,5 @@ AC_SUBST(CUPS_FONTPATH)
 AC_DEFINE_UNQUOTED(CUPS_FONTPATH, "$fontpath")
 
 dnl
-dnl End of "$Id: cups-directories.m4,v 1.7 2002/03/02 22:03:46 jlovell Exp $".
+dnl End of "$Id: cups-directories.m4,v 1.1.1.8 2002/12/24 00:04:58 jlovell Exp $".
 dnl

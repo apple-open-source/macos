@@ -46,9 +46,14 @@ install-man%SECTION%: $(man%SECTION%_MANS) $(man_MANS)
 ## Find the file.
 	  if test -f $(srcdir)/$$i; then file=$(srcdir)/$$i; \
 	  else file=$$i; fi; \
+## Change the extension if needed.
+	  ext=`echo $$i | sed -e 's/^.*\\.//'`; \
+	  case "$$ext" in \
+	    %SECTION%*) ;; \
+	    *) ext='%SECTION%' ;; \
+	  esac; \
 ## Extract basename of man page and run it through the program rename
 ## transform.
-	  ext=`echo $$i | sed -e 's/^.*\\.//'`; \
 	  inst=`echo $$i | sed -e 's/\\.[0-9a-z]*$$//'`; \
 	  inst=`echo $$inst | sed -e 's/^.*\///'`; \
 	  inst=`echo $$inst | sed '$(transform)'`.$$ext; \

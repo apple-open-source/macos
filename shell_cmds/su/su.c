@@ -362,8 +362,8 @@ main(int argc, char *argv[])
 			if (asme)
 				*np.a-- = "-m";
 		}
-		/* csh strips the first character... */
-		*np.a = asthem ? "-su" : iscsh == YES ? "_su" : "su";
+		/* csh *no longer* strips the first character... */
+		*np.a = asthem ? "-su" : "su";
 
 		if (ruid != 0)
 			syslog(LOG_NOTICE, "%s to %s%s", username, user,

@@ -1,0 +1,13 @@
+A(z) '%(listname)s' listára történõ alábbi kérelmedet
+
+    %(request)s
+
+a lista szerkesztõje nem fogadta el. A visszautasítás indoka a
+következõ:
+
+"%(reason)s"
+
+Kérdéseiddel vagy észrevételeiddel közvetlenül a lista adminisztrá-
+torához fordulhatsz a következõ címen:
+
+    %(adminaddr)s

@@ -1,0 +1,1658 @@
+// !$*UTF8*$!
+{
+	archiveVersion = 1;
+	classes = {
+	};
+	objectVersion = 38;
+	objects = {
+		A111209E0430BFCE00AF5DD5 = {
+			fileEncoding = 4;
+			isa = PBXFileReference;
+			path = KLGraphicalUI.h;
+			refType = 4;
+		};
+		A111209F0430BFCE00AF5DD5 = {
+			fileRef = A111209E0430BFCE00AF5DD5;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		A11120A00430C0F900AF5DD5 = {
+			fileEncoding = 4;
+			isa = PBXFileReference;
+			path = KLGraphicalUI.c;
+			refType = 4;
+		};
+		A11120A10430C0F900AF5DD5 = {
+			fileRef = A11120A00430C0F900AF5DD5;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		A11301FB0445C44D0006ADFC = {
+			isa = PBXFileReference;
+			path = libCredentialsCache.a;
+			refType = 3;
+		};
+		A11301FD0445C4910006ADFC = {
+			children = (
+				A11301FB0445C44D0006ADFC,
+				A12B6C0F0445CB040027418F,
+				A11302010445CA060006ADFC,
+				A12B6C0C0445CAC20027418F,
+				A12B6C0A0445CAAB0027418F,
+				A11302000445CA060006ADFC,
+			);
+			isa = PBXGroup;
+			name = "KLL Debugging";
+			refType = 4;
+		};
+		A11302000445CA060006ADFC = {
+			isa = PBXFileReference;
+			path = libKerberos5.a;
+			refType = 3;
+		};
+		A11302010445CA060006ADFC = {
+			isa = PBXFileReference;
+			path = libKerberosProfile.a;
+			refType = 3;
+		};
+		A11F055404AB979E0065D340 = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			path = KLSIconImageView.m;
+			refType = 4;
+		};
+		A11F055504AB979E0065D340 = {
+			fileRef = A11F055404AB979E0065D340;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		A11F055604AB97B20065D340 = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			path = KLSIconImageView.h;
+			refType = 4;
+		};
+		A11F055704AB97B20065D340 = {
+			fileRef = A11F055604AB97B20065D340;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		A125369E040BBFD4003D8244 = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			path = KerberosLoginErrors.c;
+			refType = 4;
+		};
+		A12B6C0A0445CAAB0027418F = {
+			isa = PBXFileReference;
+			path = libKerberos4.a;
+			refType = 3;
+		};
+		A12B6C0C0445CAC20027418F = {
+			isa = PBXFileReference;
+			path = libKerberosDES.a;
+			refType = 3;
+		};
+		A12B6C0F0445CB040027418F = {
+			isa = PBXFileReference;
+			path = libKerberosErrors.a;
+			refType = 3;
+		};
+		A16DB0470486912500120112 = {
+			fileRef = F54BD236023004CA01120112;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		A16DB0CE0487FC4A00120112 = {
+			fileRef = F54BD28E02304F4501120112;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		A172FBDB0428F12B00120114 = {
+			fileRef = F54BD28C02304E3D01120112;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		A172FBDC0429022E00120114 = {
+			fileRef = F5CFD253022D633601120112;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		A172FFD50429149200120114 = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			path = KerberosLoginServer.h;
+			refType = 4;
+		};
+		A172FFD60429149200120114 = {
+			fileRef = A172FFD50429149200120114;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		A178B2C804B366A200120112 = {
+			fileRef = F5385A410232C10C01120112;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		A178B32404B4A9A900120112 = {
+			isa = PBXFileReference;
+			path = KerberosLogin.tiff;
+			refType = 4;
+		};
+		A178B32504B4A9A900120112 = {
+			isa = PBXFileReference;
+			name = English;
+			path = English.lproj/KerberosLoginServer.nib;
+			refType = 4;
+		};
+		A178B32604B4A9A900120112 = {
+			fileEncoding = 10;
+			isa = PBXFileReference;
+			name = English;
+			path = English.lproj/Localizable.strings;
+			refType = 4;
+		};
+		A178B32704B4A9A900120112 = {
+			fileRef = A178B32404B4A9A900120112;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		A178B32A04B4A9B800120112 = {
+			children = (
+				A178B32604B4A9A900120112,
+			);
+			isa = PBXVariantGroup;
+			name = Localizable.strings;
+			refType = 4;
+		};
+		A178B32B04B4A9B800120112 = {
+			fileRef = A178B32A04B4A9B800120112;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		A178B32C04B4A9C400120112 = {
+			children = (
+				A178B32504B4A9A900120112,
+			);
+			isa = PBXVariantGroup;
+			name = KerberosLoginServer.nib;
+			refType = 4;
+		};
+		A178B32D04B4A9C400120112 = {
+			fileRef = A178B32C04B4A9C400120112;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		A1B79B34044B20CA00120112 = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			path = KLPrefix.h;
+			refType = 4;
+		};
+		A1B79B35044B20CA00120112 = {
+			fileRef = A1B79B34044B20CA00120112;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		A1BBFF0104219F6600120114 = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			name = AEClassicWorkaround.h;
+			path = ../../KerberosIPC/Headers/Kerberos/AEClassicWorkaround.h;
+			refType = 2;
+		};
+		A1BBFF0204219F6600120114 = {
+			fileRef = A1BBFF0104219F6600120114;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		A1CC718B04423007004994D4 = {
+			fileEncoding = 4;
+			isa = PBXFileReference;
+			path = KLChangePassword.c;
+			refType = 4;
+		};
+		A1CC718C04423007004994D4 = {
+			fileRef = A1CC718B04423007004994D4;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		A1DB1E6004C877A300120112 = {
+			isa = PBXFileReference;
+			name = "libstdc++.a";
+			path = "/usr/lib/libstdc++.a";
+			refType = 0;
+		};
+		A1DB1E6104C877A300120112 = {
+			fileRef = A1DB1E6004C877A300120112;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		A1E1336A043376C700120114 = {
+			fileEncoding = 4;
+			isa = PBXFileReference;
+			path = KLString.h;
+			refType = 4;
+		};
+		A1E1336B043376C700120114 = {
+			fileRef = A1E1336A043376C700120114;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		A1E1336C043376D400120114 = {
+			fileEncoding = 4;
+			isa = PBXFileReference;
+			path = KLString.c;
+			refType = 4;
+		};
+		A1E1336D043376D400120114 = {
+			fileRef = A1E1336C043376D400120114;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		A1E133780433A87D00120114 = {
+			fileEncoding = 4;
+			isa = PBXFileReference;
+			path = KLEnvironment.c;
+			refType = 4;
+		};
+		A1E133790433A87D00120114 = {
+			fileRef = A1E133780433A87D00120114;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		A1E1337A0433A88B00120114 = {
+			fileEncoding = 4;
+			isa = PBXFileReference;
+			path = KLEnvironment.h;
+			refType = 4;
+		};
+		A1E1337B0433A88B00120114 = {
+			fileRef = A1E1337A0433A88B00120114;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		A1E133CB043B748900120114 = {
+			fileEncoding = 4;
+			isa = PBXFileReference;
+			path = KLTicketManagement.c;
+			refType = 4;
+		};
+		A1E133CC043B748900120114 = {
+			fileRef = A1E133CB043B748900120114;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		A1E133CF043B779900120114 = {
+			fileEncoding = 4;
+			isa = PBXFileReference;
+			path = KLLockFile.c;
+			refType = 4;
+		};
+		A1E133D0043B779900120114 = {
+			fileRef = A1E133CF043B779900120114;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		A1E133D1043B889100120114 = {
+			fileEncoding = 4;
+			isa = PBXFileReference;
+			path = KLLockFile.h;
+			refType = 4;
+		};
+		A1E133D2043B889100120114 = {
+			fileRef = A1E133D1043B889100120114;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		A1F7BCC004434CA5000BAF3C = {
+			fileEncoding = 4;
+			isa = PBXFileReference;
+			path = KLChangePassword.h;
+			refType = 4;
+		};
+		A1F7BCC104434CA5000BAF3C = {
+			fileRef = A1F7BCC004434CA5000BAF3C;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		A1F7BCC604434D8D000BAF3C = {
+			fileEncoding = 4;
+			isa = PBXFileReference;
+			path = KLConfiguration.h;
+			refType = 4;
+		};
+		A1F7BCC704434D8D000BAF3C = {
+			fileRef = A1F7BCC604434D8D000BAF3C;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		A1F7BCCA04434FBB000BAF3C = {
+			fileEncoding = 4;
+			isa = PBXFileReference;
+			path = KLLoginOptions.h;
+			refType = 4;
+		};
+		A1F7BCCB04434FBB000BAF3C = {
+			fileRef = A1F7BCCA04434FBB000BAF3C;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		A1F7BCD0044350C5000BAF3C = {
+			fileEncoding = 4;
+			isa = PBXFileReference;
+			path = KLTicketManagement.h;
+			refType = 4;
+		};
+		A1F7BCD1044350C5000BAF3C = {
+			fileRef = A1F7BCD0044350C5000BAF3C;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		A1F7BCD204435121000BAF3C = {
+			fileEncoding = 4;
+			isa = PBXFileReference;
+			path = KLPrincipal.h;
+			refType = 4;
+		};
+		A1F7BCD304435121000BAF3C = {
+			fileRef = A1F7BCD204435121000BAF3C;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		A1F7BCDB0443521F000BAF3C = {
+			fileEncoding = 4;
+			isa = PBXFileReference;
+			path = KLUserInterface.h;
+			refType = 4;
+		};
+		A1F7BCDC0443521F000BAF3C = {
+			fileRef = A1F7BCDB0443521F000BAF3C;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+//A10
+//A11
+//A12
+//A13
+//A14
+//F50
+//F51
+//F52
+//F53
+//F54
+		F5005C4B03C9EF6F0165011C = {
+			children = (
+				A172FFD50429149200120114,
+				F5005C4F03C9EF6F0165011C,
+				F5005C5103C9EF6F0165011C,
+				A11F055604AB97B20065D340,
+				F5005C5203C9EF6F0165011C,
+			);
+			isa = PBXGroup;
+			path = Headers;
+			refType = 4;
+		};
+		F5005C4F03C9EF6F0165011C = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			path = KLSController.h;
+			refType = 4;
+		};
+		F5005C5103C9EF6F0165011C = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			path = KLSFloatingWindow.h;
+			refType = 4;
+		};
+		F5005C5203C9EF6F0165011C = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			path = KLSLifetimeFormatter.h;
+			refType = 4;
+		};
+		F5005C5603C9EF6F0165011C = {
+			fileRef = F5005C4F03C9EF6F0165011C;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		F5005C5803C9EF6F0165011C = {
+			fileRef = F5005C5103C9EF6F0165011C;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		F5005C5903C9EF6F0165011C = {
+			fileRef = F5005C5203C9EF6F0165011C;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		F506DD780331363001B824D2 = {
+			children = (
+				F5005C4B03C9EF6F0165011C,
+				F506DD800331363001B824D2,
+				F506DD7B0331363001B824D2,
+				A11F055404AB979E0065D340,
+				F56F7142038C555601F4C9AB,
+				F506DDD60331483E01B824D2,
+				F5DAD7FF0384253301120114,
+			);
+			isa = PBXGroup;
+			path = KerberosLoginServer;
+			refType = 4;
+		};
+		F506DD7B0331363001B824D2 = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			path = KLSController.m;
+			refType = 4;
+		};
+		F506DD800331363001B824D2 = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			path = KerberosLoginServer.m;
+			refType = 4;
+		};
+		F506DD9F0331364F01B824D2 = {
+			isa = PBXFrameworkReference;
+			name = Cocoa.framework;
+			path = /System/Library/Frameworks/Cocoa.framework;
+			refType = 0;
+		};
+		F506DDA50331364F01B824D2 = {
+			fileRef = F506DD9F0331364F01B824D2;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		F506DDD60331483E01B824D2 = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			path = KLSLifetimeFormatter.m;
+			refType = 4;
+		};
+		F506DDD80331483E01B824D2 = {
+			fileRef = F506DDD60331483E01B824D2;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		F5385A370232BF9501120112 = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			path = KerberosLogin.pbexp;
+			refType = 2;
+		};
+		F5385A380232BF9501120112 = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			path = KerberosLoginPrivate.pbexp;
+			refType = 2;
+		};
+		F5385A410232C10C01120112 = {
+			isa = PBXFrameworkReference;
+			path = Kerberos.framework;
+			refType = 3;
+		};
+		F5385A430232C10C01120112 = {
+			fileRef = F5385A410232C10C01120112;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		F549F261023D43CB01650119 = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			path = KLPreferences.h;
+			refType = 4;
+		};
+		F549F262023D43CB01650119 = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			path = KLPreferences.c;
+			refType = 4;
+		};
+		F549F263023D43CB01650119 = {
+			fileRef = F549F261023D43CB01650119;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		F549F264023D43CB01650119 = {
+			fileRef = F549F262023D43CB01650119;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		F54BD2150230007301120112 = {
+			isa = PBXApplicationReference;
+			path = KerberosLoginHelper.app;
+			refType = 3;
+		};
+		F54BD2160230007301120112 = {
+			buildPhases = (
+				F54BD2170230007301120112,
+				F54BD2180230007301120112,
+				F54BD2190230007301120112,
+				F54BD21A0230007301120112,
+				F54BD21B0230007301120112,
+			);
+			buildSettings = {
+				HEADER_SEARCH_PATHS = "\"$(SRCROOT)/../Headers\" \"$(SRCROOT)/../../KerberosDebug/Headers\" \"$(SRCROOT)/../../KerberosIPC/Headers\" \"$(BUILT_PRODUCTS_DIR)/Kerberos5.intermediates\"";
+				INSTALL_PATH = /System/Library/Frameworks/Kerberos.framework/Versions/Current/Servers;
+				LIBRARY_SEARCH_PATHS = "";
+				PRECOMPILE_PREFIX_HEADER = YES;
+				PREFIX_HEADER = /System/Library/Frameworks/Carbon.framework/Headers/Carbon.h;
+				PRODUCT_NAME = KerberosLoginHelper;
+				WARNING_CFLAGS = "-Wmost -Wno-four-char-constants -Wno-unknown-pragmas";
+				WRAPPER_EXTENSION = app;
+			};
+			dependencies = (
+			);
+			isa = PBXApplicationTarget;
+			name = KerberosLoginHelper;
+			productInstallPath = /System/Library/Frameworks/Kerberos.framework/Versions/Current/Servers;
+			productName = KerberosLoginHelper;
+			productReference = F54BD2150230007301120112;
+			productSettingsXML = "<?xml version=\"1.0\" encoding=\"UTF-8\"?>
+<!DOCTYPE plist PUBLIC \"-//Apple Computer//DTD PLIST 1.0//EN\" \"http://www.apple.com/DTDs/PropertyList-1.0.dtd\">
+<plist version=\"1.0\">
+<dict>
+	<key>CFBundleDevelopmentRegion</key>
+	<string>English</string>
+	<key>CFBundleExecutable</key>
+	<string>KerberosLoginHelper</string>
+	<key>CFBundleGetInfoString</key>
+	<string>4.1</string>
+	<key>CFBundleIconFile</key>
+	<string></string>
+	<key>CFBundleIdentifier</key>
+	<string>edu.mit.Kerberos.KerberosLoginHelperApp</string>
+	<key>CFBundleInfoDictionaryVersion</key>
+	<string>6.0</string>
+	<key>CFBundleName</key>
+	<string>Kerberos Login Helper</string>
+	<key>CFBundlePackageType</key>
+	<string>APPL</string>
+	<key>CFBundleShortVersionString</key>
+	<string>0.0.1</string>
+	<key>CFBundleSignature</key>
+	<string>KLHa</string>
+	<key>CFBundleVersion</key>
+	<string>0.0.1d1</string>
+	<key>LSBackgroundOnly</key>
+	<string>1</string>
+	<key>LSVisibleInClassic</key>
+	<string>1</string>
+</dict>
+</plist>
+";
+		};
+		F54BD2170230007301120112 = {
+			buildActionMask = 2147483647;
+			files = (
+				F54BD21F023000ED01120112,
+				F54BD221023000ED01120112,
+				A1BBFF0204219F6600120114,
+			);
+			isa = PBXHeadersBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		F54BD2180230007301120112 = {
+			buildActionMask = 2147483647;
+			files = (
+			);
+			isa = PBXResourcesBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		F54BD2190230007301120112 = {
+			buildActionMask = 2147483647;
+			files = (
+				F54BD224023000ED01120112,
+				F54BD2270230019001120112,
+			);
+			isa = PBXSourcesBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		F54BD21A0230007301120112 = {
+			buildActionMask = 2147483647;
+			files = (
+				F54BD2290230023C01120112,
+				F54BD238023004CA01120112,
+				F5385A430232C10C01120112,
+				A1DB1E6104C877A300120112,
+			);
+			isa = PBXFrameworksBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		F54BD21B0230007301120112 = {
+			buildActionMask = 2147483647;
+			files = (
+			);
+			isa = PBXRezBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		F54BD21F023000ED01120112 = {
+			fileRef = F5CFD120022D34C901120112;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		F54BD221023000ED01120112 = {
+			fileRef = F5CFD0FC022D34C901120112;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		F54BD224023000ED01120112 = {
+			fileRef = F5CFD0FE022D34C901120112;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		F54BD2260230019001120112 = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			name = AEClassicWorkaround.cp;
+			path = ../../KerberosIPC/Sources/AEClassicWorkaround.cp;
+			refType = 2;
+		};
+		F54BD2270230019001120112 = {
+			fileRef = F54BD2260230019001120112;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		F54BD2280230023C01120112 = {
+			isa = PBXFrameworkReference;
+			name = Carbon.framework;
+			path = /System/Library/Frameworks/Carbon.framework;
+			refType = 0;
+		};
+		F54BD2290230023C01120112 = {
+			fileRef = F54BD2280230023C01120112;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		F54BD236023004CA01120112 = {
+			isa = PBXFileReference;
+			path = libKerberosDebug.a;
+			refType = 3;
+		};
+		F54BD238023004CA01120112 = {
+			fileRef = F54BD236023004CA01120112;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		F54BD2390230058401120112 = {
+			children = (
+				A11301FD0445C4910006ADFC,
+				F54BD236023004CA01120112,
+				F54BD28C02304E3D01120112,
+				A1DB1E6004C877A300120112,
+				F54BD2280230023C01120112,
+				F54BD28E02304F4501120112,
+				F54BD2920230530701120112,
+				F5385A410232C10C01120112,
+				F506DD9F0331364F01B824D2,
+			);
+			isa = PBXGroup;
+			name = "Server Frameworks";
+			refType = 4;
+		};
+		F54BD23A0230058401120112 = {
+			isa = PBXApplicationReference;
+			path = KerberosLoginServer.app;
+			refType = 3;
+		};
+		F54BD23B0230058401120112 = {
+			buildPhases = (
+				F54BD23C0230058401120112,
+				F54BD24E0230058401120112,
+				F54BD24F0230058401120112,
+				F54BD25E0230058401120112,
+				F54BD2620230058401120112,
+			);
+			buildSettings = {
+				HEADER_SEARCH_PATHS = "\"$(SRCROOT)/../Headers\" \"$(SRCROOT)/../../KerberosDebug/Headers\" \"$(SRCROOT)/../../KerberosIPC/Headers\" \"$(SRCROOT)/../../KerberosDES/Headers\" \"$(BUILT_PRODUCTS_DIR)/Kerberos5.intermediates\" \"$(BUILT_PRODUCTS_DIR)/Kerberos4.intermediates\"";
+				INSTALL_PATH = /System/Library/Frameworks/Kerberos.framework/Versions/Current/Servers;
+				LIBRARY_SEARCH_PATHS = "";
+				PREFIX_HEADER = "$(SRCROOT)/../Sources/KerberosLoginServer/Headers/KerberosLoginServer.h";
+				PRODUCT_NAME = KerberosLoginServer;
+				WARNING_CFLAGS = "-Wmost -Wno-four-char-constants -Wno-unknown-pragmas";
+				WRAPPER_EXTENSION = app;
+			};
+			dependencies = (
+				F5696714024A4EC601650119,
+			);
+			isa = PBXApplicationTarget;
+			name = KerberosLoginServer;
+			productInstallPath = /System/Library/Frameworks/Kerberos.framework/Versions/Current/Servers;
+			productName = KerberosLoginServer;
+			productReference = F54BD23A0230058401120112;
+			productSettingsXML = "<?xml version=\"1.0\" encoding=\"UTF-8\"?>
+<!DOCTYPE plist PUBLIC \"-//Apple Computer//DTD PLIST 1.0//EN\" \"http://www.apple.com/DTDs/PropertyList-1.0.dtd\">
+<plist version=\"1.0\">
+<dict>
+	<key>CFBundleDevelopmentRegion</key>
+	<string>English</string>
+	<key>CFBundleDisplayName</key>
+	<string>Kerberos Login Server</string>
+	<key>CFBundleExecutable</key>
+	<string>KerberosLoginServer</string>
+	<key>CFBundleGetInfoString</key>
+	<string>KfM 5.0 © 2003 MIT</string>
+	<key>CFBundleIconFile</key>
+	<string>KerberosLogin.icns</string>
+	<key>CFBundleIdentifier</key>
+	<string>edu.mit.Kerberos.KerberosLoginServerApp</string>
+	<key>CFBundleInfoDictionaryVersion</key>
+	<string>6.0</string>
+	<key>CFBundleName</key>
+	<string>Kerberos Login Server</string>
+	<key>CFBundlePackageType</key>
+	<string>APPL</string>
+	<key>CFBundleShortVersionString</key>
+	<string>5.0.1</string>
+	<key>CFBundleSignature</key>
+	<string>KLSa</string>
+	<key>CFBundleVersion</key>
+	<string>5.0.1</string>
+	<key>KLSDisplayVersion</key>
+	<string>KfM 5.0 © 2003 MIT</string>
+	<key>NSMainNibFile</key>
+	<string>KerberosLoginServer</string>
+	<key>NSPrincipalClass</key>
+	<string>NSApplication</string>
+</dict>
+</plist>
+";
+		};
+		F54BD23C0230058401120112 = {
+			buildActionMask = 2147483647;
+			files = (
+				F54BD24A0230058401120112,
+				F54BD24B0230058401120112,
+				F5DAD7F703841B0001120114,
+				F5005C5603C9EF6F0165011C,
+				F5005C5803C9EF6F0165011C,
+				F5005C5903C9EF6F0165011C,
+				A172FBDC0429022E00120114,
+				A172FFD60429149200120114,
+				A11F055704AB97B20065D340,
+			);
+			isa = PBXHeadersBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		F54BD24A0230058401120112 = {
+			fileRef = F5CFD120022D34C901120112;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		F54BD24B0230058401120112 = {
+			fileRef = F5CFD121022D34C901120112;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		F54BD24E0230058401120112 = {
+			buildActionMask = 2147483647;
+			files = (
+				F56F6C8C0389A6CE01F4C9AB,
+				A178B32704B4A9A900120112,
+				A178B32D04B4A9C400120112,
+				A178B32B04B4A9B800120112,
+			);
+			isa = PBXResourcesBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		F54BD24F0230058401120112 = {
+			buildActionMask = 2147483647;
+			files = (
+				F506DDD80331483E01B824D2,
+				F5DAD7F603841B0001120114,
+				F5DAD8000384253301120114,
+				F5DAD81303843B7501120114,
+				F5DAD81403843B7801120114,
+				F56F7144038C555601F4C9AB,
+				A11F055504AB979E0065D340,
+			);
+			isa = PBXSourcesBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		F54BD25E0230058401120112 = {
+			buildActionMask = 2147483647;
+			files = (
+				F506DDA50331364F01B824D2,
+				A16DB0CE0487FC4A00120112,
+				A172FBDB0428F12B00120114,
+				A16DB0470486912500120112,
+				A178B2C804B366A200120112,
+			);
+			isa = PBXFrameworksBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		F54BD2620230058401120112 = {
+			buildActionMask = 2147483647;
+			files = (
+			);
+			isa = PBXRezBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		F54BD28C02304E3D01120112 = {
+			isa = PBXFileReference;
+			path = libKerberosIPC.a;
+			refType = 3;
+		};
+		F54BD28E02304F4501120112 = {
+			isa = PBXFrameworkReference;
+			name = Security.framework;
+			path = /System/Library/Frameworks/Security.framework;
+			refType = 0;
+		};
+		F54BD2920230530701120112 = {
+			isa = PBXFrameworkReference;
+			name = CoreFoundation.framework;
+			path = /System/Library/Frameworks/CoreFoundation.framework;
+			refType = 0;
+		};
+		F56966AD024A2EE601650119 = {
+			buildArgumentsString = "-d3 \"-sJAMFILE=$(SRCROOT)/../Scripts/KLSPlistStrings.jam\" $(ACTION)";
+			buildPhases = (
+			);
+			buildSettings = {
+				PRODUCT_NAME = InfoPlist.strings;
+				WARNING_CFLAGS = "-Wmost -Wno-four-char-constants -Wno-unknown-pragmas";
+			};
+			buildToolPath = /Developer/Private/jam;
+			dependencies = (
+			);
+			isa = PBXLegacyTarget;
+			name = InfoPlist.strings;
+			passBuildSettingsInEnvironment = 1;
+			productName = InfoPlist.strings;
+			settingsToExpand = 6;
+			settingsToPassInEnvironment = 287;
+			settingsToPassOnCommandLine = 280;
+		};
+		F56966AE024A32A801650119 = {
+			children = (
+				F56F6CD4038C267901F4C9AB,
+			);
+			isa = PBXGroup;
+			path = English.lproj;
+			refType = 4;
+		};
+		F5696714024A4EC601650119 = {
+			isa = PBXTargetDependency;
+			target = F5CFD131022D364F01120112;
+		};
+		F56F6C8C0389A6CE01F4C9AB = {
+			fileRef = F5CFD17D022D50CE01120112;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		F56F6CD4038C267901F4C9AB = {
+			children = (
+				F56F6CD5038C267901F4C9AB,
+			);
+			isa = PBXVariantGroup;
+			name = Localizable.strings;
+			path = "";
+			refType = 4;
+		};
+		F56F6CD5038C267901F4C9AB = {
+			fileEncoding = 10;
+			isa = PBXFileReference;
+			lineEnding = 0;
+			name = English;
+			path = Localizable.strings;
+			refType = 4;
+		};
+		F56F7142038C555601F4C9AB = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			path = KLSFloatingWindow.m;
+			refType = 4;
+		};
+		F56F7144038C555601F4C9AB = {
+			fileRef = F56F7142038C555601F4C9AB;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		F5A393E603D72DEC0165011C = {
+			fileRef = F5C44E600231836501120112;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		F5C44E5E0231836501120112 = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			path = KLLoginLogoutNotification.h;
+			refType = 4;
+		};
+		F5C44E5F0231836501120112 = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			path = KLLoginLogoutNotifier.h;
+			refType = 4;
+		};
+		F5C44E600231836501120112 = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			path = KLLoginLogoutNotifier.c;
+			refType = 4;
+		};
+		F5C44E610231836501120112 = {
+			fileRef = F5C44E5E0231836501120112;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		F5C44E620231836501120112 = {
+			fileRef = F5C44E5F0231836501120112;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		F5CFD0C6022D346301120112 = {
+			buildStyles = (
+				F5CFD0C8022D346301120112,
+				F5CFD0C9022D346301120112,
+			);
+			hasScannedForEncodings = 1;
+			isa = PBXProject;
+			mainGroup = F5CFD0C7022D346301120112;
+			productRefGroup = F5CFD137022D36F701120112;
+			projectDirPath = "";
+			targets = (
+				F5CFD131022D364F01120112,
+				F5CFD174022D4B4C01120112,
+				F56966AD024A2EE601650119,
+				F5CFD139022D36F701120112,
+				F54BD23B0230058401120112,
+				F54BD2160230007301120112,
+			);
+		};
+		F5CFD0C7022D346301120112 = {
+			children = (
+				F5385A370232BF9501120112,
+				F5385A380232BF9501120112,
+				F5CFD132022D36F701120112,
+				F5CFD11E022D34C901120112,
+				F5CFD0CA022D34C901120112,
+				F5CFD12B022D35BB01120112,
+				F5CFD17A022D50CE01120112,
+				F54BD2390230058401120112,
+				F5CFD137022D36F701120112,
+			);
+			isa = PBXGroup;
+			refType = 4;
+		};
+		F5CFD0C8022D346301120112 = {
+			buildRules = (
+			);
+			buildSettings = {
+				COPY_PHASE_STRIP = NO;
+				GCC_DYNAMIC_NO_PIC = NO;
+				GCC_ENABLE_FIX_AND_CONTINUE = YES;
+				GCC_GENERATE_DEBUGGING_SYMBOLS = YES;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				ZERO_LINK = YES;
+			};
+			isa = PBXBuildStyle;
+			name = Development;
+		};
+		F5CFD0C9022D346301120112 = {
+			buildRules = (
+			);
+			buildSettings = {
+				COPY_PHASE_STRIP = YES;
+				GCC_ENABLE_FIX_AND_CONTINUE = NO;
+				ZERO_LINK = NO;
+			};
+			isa = PBXBuildStyle;
+			name = Deployment;
+		};
+		F5CFD0CA022D34C901120112 = {
+			children = (
+				F5CFD0CF022D34C901120112,
+				F5CFD0FA022D34C901120112,
+				F506DD780331363001B824D2,
+				F5CFD117022D34C901120112,
+			);
+			isa = PBXGroup;
+			name = Sources;
+			path = ../Sources;
+			refType = 2;
+		};
+		F5CFD0CF022D34C901120112 = {
+			children = (
+				F5CFD0D0022D34C901120112,
+				F5CFD0F5022D34C901120112,
+				A1CC718B04423007004994D4,
+				F5CFD0EA022D34C901120112,
+				A1E133780433A87D00120114,
+				A11120A00430C0F900AF5DD5,
+				A1E133CF043B779900120114,
+				F5C44E600231836501120112,
+				F5CFD0EE022D34C901120112,
+				F549F262023D43CB01650119,
+				F5CFD0EF022D34C901120112,
+				F5CFD0F0022D34C901120112,
+				A1E1336C043376D400120114,
+				F5CFD0F2022D34C901120112,
+				A1E133CB043B748900120114,
+				F5CFD0F3022D34C901120112,
+			);
+			isa = PBXGroup;
+			path = KerberosLogin;
+			refType = 4;
+		};
+		F5CFD0D0022D34C901120112 = {
+			children = (
+				A1B79B34044B20CA00120112,
+				F5CFD0DF022D34C901120112,
+				A1F7BCC004434CA5000BAF3C,
+				A1F7BCC604434D8D000BAF3C,
+				A1E1337A0433A88B00120114,
+				A111209E0430BFCE00AF5DD5,
+				A1E133D1043B889100120114,
+				F5C44E5F0231836501120112,
+				A1F7BCCA04434FBB000BAF3C,
+				F549F261023D43CB01650119,
+				A1F7BCD204435121000BAF3C,
+				F5CFD256022D71DE01120112,
+				A1E1336A043376C700120114,
+				F5CFD0D9022D34C901120112,
+				A1F7BCD0044350C5000BAF3C,
+				A1F7BCDB0443521F000BAF3C,
+			);
+			isa = PBXGroup;
+			path = Headers;
+			refType = 4;
+		};
+		F5CFD0D9022D34C901120112 = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			path = KLTerminalUI.h;
+			refType = 4;
+		};
+		F5CFD0DF022D34C901120112 = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			path = KLCCacheManagement.h;
+			refType = 4;
+		};
+		F5CFD0EA022D34C901120112 = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			path = KLConfiguration.c;
+			refType = 4;
+		};
+		F5CFD0EE022D34C901120112 = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			path = KLLoginOptions.c;
+			refType = 4;
+		};
+		F5CFD0EF022D34C901120112 = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			path = KLPrincipal.c;
+			refType = 4;
+		};
+		F5CFD0F0022D34C901120112 = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			path = KLPrincipalTranslator.c;
+			refType = 4;
+		};
+		F5CFD0F2022D34C901120112 = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			path = KLTerminalUI.c;
+			refType = 4;
+		};
+		F5CFD0F3022D34C901120112 = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			path = KLUserInterface.c;
+			refType = 4;
+		};
+		F5CFD0F5022D34C901120112 = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			path = KLCCacheManagement.c;
+			refType = 4;
+		};
+		F5CFD0FA022D34C901120112 = {
+			children = (
+				F5CFD0FB022D34C901120112,
+				F5CFD0FE022D34C901120112,
+				F54BD2260230019001120112,
+			);
+			isa = PBXGroup;
+			path = KerberosLoginHelper;
+			refType = 4;
+		};
+		F5CFD0FB022D34C901120112 = {
+			children = (
+				F5CFD0FC022D34C901120112,
+				A1BBFF0104219F6600120114,
+			);
+			isa = PBXGroup;
+			path = Headers;
+			refType = 4;
+		};
+		F5CFD0FC022D34C901120112 = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			path = KerberosLoginHelper.h;
+			refType = 4;
+		};
+		F5CFD0FE022D34C901120112 = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			path = KLHServer.cp;
+			refType = 4;
+		};
+		F5CFD117022D34C901120112 = {
+			children = (
+				F5CFD118022D34C901120112,
+				F5CFD11B022D34C901120112,
+			);
+			isa = PBXGroup;
+			path = MachIPC;
+			refType = 4;
+		};
+		F5CFD118022D34C901120112 = {
+			children = (
+				F5CFD253022D633601120112,
+			);
+			isa = PBXGroup;
+			path = Headers;
+			refType = 4;
+		};
+		F5CFD11B022D34C901120112 = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			path = KerberosLoginIPC.defs;
+			refType = 4;
+		};
+		F5CFD11E022D34C901120112 = {
+			children = (
+				F5CFD11F022D34C901120112,
+			);
+			isa = PBXGroup;
+			name = Headers;
+			path = ../Headers;
+			refType = 2;
+		};
+		F5CFD11F022D34C901120112 = {
+			children = (
+				F5CFD120022D34C901120112,
+				F5CFD121022D34C901120112,
+				F5CFD123022D34C901120112,
+				F5C44E5E0231836501120112,
+			);
+			isa = PBXGroup;
+			path = Kerberos;
+			refType = 4;
+		};
+		F5CFD120022D34C901120112 = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			path = KerberosLogin.h;
+			refType = 4;
+		};
+		F5CFD121022D34C901120112 = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			path = KerberosLoginPrivate.h;
+			refType = 4;
+		};
+		F5CFD123022D34C901120112 = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			path = KLPrincipalTranslation.h;
+			refType = 4;
+		};
+		F5CFD12B022D35BB01120112 = {
+			children = (
+				F5CFD12C022D35BB01120112,
+				F5CFD175022D4B7D01120112,
+			);
+			isa = PBXGroup;
+			name = Scripts;
+			path = ../Scripts;
+			refType = 2;
+		};
+		F5CFD12C022D35BB01120112 = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			path = KerberosLoginIPC.jam;
+			refType = 4;
+		};
+		F5CFD131022D364F01120112 = {
+			buildArgumentsString = "-d3 \"-sJAMFILE=$(SRCROOT)/../Scripts/KerberosLoginIPC.jam\" $(ACTION)";
+			buildPhases = (
+			);
+			buildSettings = {
+				PRODUCT_NAME = "Mach IPC Generation";
+				WARNING_CFLAGS = "-Wmost -Wno-four-char-constants -Wno-unknown-pragmas";
+			};
+			buildToolPath = /Developer/Private/jam;
+			dependencies = (
+			);
+			isa = PBXLegacyTarget;
+			name = "Mach IPC Generation";
+			passBuildSettingsInEnvironment = 1;
+			productName = "Mach IPC Generation";
+			settingsToExpand = 6;
+			settingsToPassInEnvironment = 287;
+			settingsToPassOnCommandLine = 280;
+		};
+		F5CFD132022D36F701120112 = {
+			children = (
+				A125369E040BBFD4003D8244,
+				F5CFD181022D511801120112,
+				F5CFD182022D511801120112,
+				F5CFD24F022D62D201120112,
+				F5CFD250022D62D201120112,
+				F5CFD251022D62D201120112,
+				F5CFD252022D62D201120112,
+				F56966AE024A32A801650119,
+			);
+			isa = PBXGroup;
+			path = KerberosLogin.intermediates;
+			refType = 3;
+		};
+		F5CFD137022D36F701120112 = {
+			children = (
+				F5CFD138022D36F701120112,
+				F54BD2150230007301120112,
+				F54BD23A0230058401120112,
+			);
+			isa = PBXGroup;
+			name = Products;
+			refType = 4;
+		};
+		F5CFD138022D36F701120112 = {
+			isa = PBXLibraryReference;
+			path = libKerberosLogin.a;
+			refType = 3;
+		};
+		F5CFD139022D36F701120112 = {
+			buildPhases = (
+				F5CFD13B022D36F701120112,
+				F5CFD157022D36F701120112,
+				F5CFD16F022D36F701120112,
+				F5CFD170022D36F701120112,
+			);
+			buildSettings = {
+				DYLIB_COMPATIBILITY_VERSION = 1;
+				DYLIB_CURRENT_VERSION = 1;
+				HEADER_SEARCH_PATHS = "\"$(SRCROOT)/../Headers\" \"$(SRCROOT)/../../Common/Headers\" \"$(SRCROOT)/../../KerberosDebug/Headers\" \"$(SRCROOT)/../../KerberosErrors/Headers\" \"$(SRCROOT)/../../KerberosErrors/Headers/Kerberos\" \"$(SRCROOT)/../../KerberosIPC/Headers\" \"$(SRCROOT)/../../KerberosPreferences/Headers\" \"$(SRCROOT)/../../CredentialsCache/Headers\" \"$(SRCROOT)/../../KerberosWrappers/Headers\" \"$(SRCROOT)/../../Kerberos5/Sources/include\" \"$(SRCROOT)/../../Kerberos5/Sources/lib/krb4\" \"$(BUILT_PRODUCTS_DIR)/Kerberos5.intermediates\" \"$(BUILT_PRODUCTS_DIR)/Kerberos5.intermediates/Kerberos\" \"$(BUILT_PRODUCTS_DIR)/Kerberos5.intermediates/include\"";
+				LIBRARY_SEARCH_PATHS = "";
+				LIBRARY_STYLE = STATIC;
+				PRECOMPILE_PREFIX_HEADER = YES;
+				PREFIX_HEADER = "$(SRCROOT)/../Sources/KerberosLogin/Headers/KLPrefix.h";
+				PRODUCT_NAME = libKerberosLogin.a;
+				REZ_EXECUTABLE = YES;
+				WARNING_CFLAGS = "-Wmost -Wno-four-char-constants -Wno-unknown-pragmas";
+			};
+			dependencies = (
+				F5CFD13A022D36F701120112,
+				F5CFD173022D4B4C01120112,
+			);
+			isa = PBXLibraryTarget;
+			name = KerberosLogin;
+			productInstallPath = /usr/local/lib;
+			productName = KerberosLogin;
+			productReference = F5CFD138022D36F701120112;
+		};
+		F5CFD13A022D36F701120112 = {
+			isa = PBXTargetDependency;
+			target = F5CFD131022D364F01120112;
+		};
+		F5CFD13B022D36F701120112 = {
+			buildActionMask = 2147483647;
+			files = (
+				F5CFD13C022D36F701120112,
+				F5CFD13D022D36F701120112,
+				F5CFD13F022D36F701120112,
+				F5CFD14B022D36F701120112,
+				F5CFD151022D36F701120112,
+				F5CFD254022D633601120112,
+				F5CFD258022D71DE01120112,
+				F5CFD259022D71E401120112,
+				F5C44E610231836501120112,
+				F5C44E620231836501120112,
+				F549F263023D43CB01650119,
+				A111209F0430BFCE00AF5DD5,
+				A1E1336B043376C700120114,
+				A1E1337B0433A88B00120114,
+				A1E133D2043B889100120114,
+				A1F7BCC104434CA5000BAF3C,
+				A1F7BCC704434D8D000BAF3C,
+				A1F7BCCB04434FBB000BAF3C,
+				A1F7BCD1044350C5000BAF3C,
+				A1F7BCD304435121000BAF3C,
+				A1F7BCDC0443521F000BAF3C,
+				A1B79B35044B20CA00120112,
+			);
+			isa = PBXHeadersBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		F5CFD13C022D36F701120112 = {
+			fileRef = F5CFD120022D34C901120112;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		F5CFD13D022D36F701120112 = {
+			fileRef = F5CFD121022D34C901120112;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		F5CFD13F022D36F701120112 = {
+			fileRef = F5CFD123022D34C901120112;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		F5CFD14B022D36F701120112 = {
+			fileRef = F5CFD0D9022D34C901120112;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		F5CFD151022D36F701120112 = {
+			fileRef = F5CFD0DF022D34C901120112;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		F5CFD157022D36F701120112 = {
+			buildActionMask = 2147483647;
+			files = (
+				F5CFD160022D36F701120112,
+				F5CFD162022D36F701120112,
+				F5CFD163022D36F701120112,
+				F5CFD165022D36F701120112,
+				F5CFD166022D36F701120112,
+				F5CFD168022D36F701120112,
+				F5CFD16B022D36F701120112,
+				F5CFD25A022D71E401120112,
+				F549F264023D43CB01650119,
+				F5A393E603D72DEC0165011C,
+				A11120A10430C0F900AF5DD5,
+				A1E1336D043376D400120114,
+				A1E133790433A87D00120114,
+				A1E133CC043B748900120114,
+				A1E133D0043B779900120114,
+				A1CC718C04423007004994D4,
+			);
+			isa = PBXSourcesBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		F5CFD160022D36F701120112 = {
+			fileRef = F5CFD0F5022D34C901120112;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		F5CFD162022D36F701120112 = {
+			fileRef = F5CFD0F3022D34C901120112;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		F5CFD163022D36F701120112 = {
+			fileRef = F5CFD0F2022D34C901120112;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		F5CFD165022D36F701120112 = {
+			fileRef = F5CFD0EF022D34C901120112;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		F5CFD166022D36F701120112 = {
+			fileRef = F5CFD0F0022D34C901120112;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		F5CFD168022D36F701120112 = {
+			fileRef = F5CFD0EE022D34C901120112;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		F5CFD16B022D36F701120112 = {
+			fileRef = F5CFD0EA022D34C901120112;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		F5CFD16F022D36F701120112 = {
+			buildActionMask = 2147483647;
+			files = (
+			);
+			isa = PBXFrameworksBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		F5CFD170022D36F701120112 = {
+			buildActionMask = 2147483647;
+			files = (
+			);
+			isa = PBXRezBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		F5CFD173022D4B4C01120112 = {
+			isa = PBXTargetDependency;
+			target = F5CFD174022D4B4C01120112;
+		};
+		F5CFD174022D4B4C01120112 = {
+			buildArgumentsString = "-d3 \"-sJAMFILE=$(SRCROOT)/../Scripts/KerberosLoginErrors.jam\" $(ACTION)";
+			buildPhases = (
+			);
+			buildSettings = {
+				PRODUCT_NAME = "Error Table Generation";
+				WARNING_CFLAGS = "-Wmost -Wno-four-char-constants -Wno-unknown-pragmas";
+			};
+			buildToolPath = /Developer/Private/jam;
+			dependencies = (
+			);
+			isa = PBXLegacyTarget;
+			name = "Error Table Generation";
+			passBuildSettingsInEnvironment = 1;
+			productName = "Error Table Generation";
+			settingsToExpand = 6;
+			settingsToPassInEnvironment = 287;
+			settingsToPassOnCommandLine = 280;
+		};
+		F5CFD175022D4B7D01120112 = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			path = KerberosLoginErrors.jam;
+			refType = 4;
+		};
+		F5CFD17A022D50CE01120112 = {
+			children = (
+				F5CFD17D022D50CE01120112,
+				F5CFD17F022D50CE01120112,
+				A178B32404B4A9A900120112,
+				A178B32C04B4A9C400120112,
+				A178B32A04B4A9B800120112,
+			);
+			isa = PBXGroup;
+			name = Resources;
+			path = ../Resources;
+			refType = 2;
+		};
+		F5CFD17D022D50CE01120112 = {
+			isa = PBXFileReference;
+			path = KerberosLogin.icns;
+			refType = 4;
+		};
+		F5CFD17F022D50CE01120112 = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			path = KerberosLoginErrors.et;
+			refType = 4;
+		};
+		F5CFD181022D511801120112 = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			path = KerberosLoginErrors.h;
+			refType = 4;
+		};
+		F5CFD182022D511801120112 = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			path = KerberosLoginErrors.strings;
+			refType = 4;
+		};
+		F5CFD24F022D62D201120112 = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			path = KerberosLoginIPC.h;
+			refType = 4;
+		};
+		F5CFD250022D62D201120112 = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			path = KerberosLoginIPCServer.c;
+			refType = 4;
+		};
+		F5CFD251022D62D201120112 = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			path = KerberosLoginIPCServer.h;
+			refType = 4;
+		};
+		F5CFD252022D62D201120112 = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			path = KerberosLoginIPCUser.c;
+			refType = 4;
+		};
+		F5CFD253022D633601120112 = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			path = KLMachIPC.h;
+			refType = 4;
+		};
+		F5CFD254022D633601120112 = {
+			fileRef = F5CFD253022D633601120112;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		F5CFD256022D71DE01120112 = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			path = KLPrincipalTranslator.h;
+			refType = 4;
+		};
+		F5CFD258022D71DE01120112 = {
+			fileRef = F5CFD256022D71DE01120112;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		F5CFD259022D71E401120112 = {
+			fileRef = F5CFD24F022D62D201120112;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		F5CFD25A022D71E401120112 = {
+			fileRef = F5CFD252022D62D201120112;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		F5DAD7F603841B0001120114 = {
+			fileRef = F5CFD250022D62D201120112;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		F5DAD7F703841B0001120114 = {
+			fileRef = F5CFD251022D62D201120112;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		F5DAD7FF0384253301120114 = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			path = KLSMachIPCShim.m;
+			refType = 4;
+		};
+		F5DAD8000384253301120114 = {
+			fileRef = F5DAD7FF0384253301120114;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		F5DAD81303843B7501120114 = {
+			fileRef = F506DD7B0331363001B824D2;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		F5DAD81403843B7801120114 = {
+			fileRef = F506DD800331363001B824D2;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+	};
+	rootObject = F5CFD0C6022D346301120112;
+}

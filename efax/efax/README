@@ -1,0 +1,84 @@
+
+			  Introduction
+
+This is the README file for version 0.9 of efax, a small ANSI
+C/POSIX program that sends and receives faxes using any fax modem
+(Class 1, 2 or 2.0).
+
+efax is smaller and easier to install than HylaFAX or
+mgetty+sendfax.  As one user put it ``EFAX is a nice simple
+program for single user systems.''
+
+The ``fax'' command, a shell script, lets you send, receive, view
+and print faxes.  In larger systems, faxes can be sent by
+printing to a ``fax'' printer and received faxes can be e-mailed
+as MIME attachments to an administrator for distribution.  efax
+can also pass incoming data calls to a getty program.
+
+The efax package includes ``efix,'' a program to convert between
+various image file formats.  To fax Postscript files you will
+need Ghostscript.  To view faxes you can use any program that
+displays PGM files (e.g. xloadimage or xv).  efix can convert
+received files to Postscript or HP Laserjet formats for printing.
+
+This version of the program was written & tested under Linux 2.0.
+Previous versions have been compiled and used under most versions
+of Unix and should work with minor changes on any Unix with an
+ANSI C compiler and libraries that include select(2) and
+termios(4).
+
+efax is distributed as a gzip'ed tar file, efax-0.9.tar.gz.  It
+may be obtained by anonymous FTP from metalab.unc.edu in
+/pub/Linux/apps/serialcomm/fax.
+
+	    Changes from version 0.8a to version 0.9
+
+- fixed bad (0x0 pixel) file output on new glibc systems
+
+- fixed bad file output on 64-bit systems
+
+- automatic selection of baud rate and class
+
+- hardware flow control made optional
+
+- modernized directory and file names
+
+- many bugs removed, others added
+
+			    Manifest
+
+The efax distribution should contain the following files:
+
+README         - this file
+COPYING        - the GNU General Public License
+Makefile       - makefile to make all/install/clean
+efax.c         - program to send and receive faxes
+efix.c         - program to convert between file formats 
+efaxmsg.{h,c}  - functions to print errors, warnings, etc
+efaxlib.{h,c}  - functions common to efax and efix 
+efaxio.{h,c}   - low-level modem i/o functions
+efaxos.{h,c}   - OS-dependent functions
+fax.1          - man page for fax(1)
+efax.1         - man page for efax(1)
+efix.1         - man page for efix(1)
+fax            - a (Bourne) shell script to create, send, 
+                 receive, view and print faxes.
+
+			  Installation
+	
+Edit the makefile and change the compile command and destination
+directories if required.
+
+Type "make" to compile the efax and efix binaries.  
+
+Edit the configuration information at the beginning of the
+``fax'' script according to the comments.
+
+Type "make install" to install the fax script, the binaries and
+the man pages.
+
+Read the fax(1) man page first for information on using efax.
+
+The efax(1) man page has details on resolving problems, setting
+up a network fax server and using efax to handle both fax and
+data calls.

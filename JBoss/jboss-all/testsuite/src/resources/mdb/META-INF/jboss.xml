@@ -1,0 +1,84 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!DOCTYPE jboss PUBLIC
+      "-//JBoss//DTD JBOSS 3.2//EN"
+      "http://www.jboss.org/j2ee/dtd/jboss_3_2.dtd">
+<jboss>
+   <invoker-proxy-bindings>
+      <invoker-proxy-binding>
+         <name>my-message-driven-bean</name>
+         <invoker-mbean>default</invoker-mbean>
+         <proxy-factory>org.jboss.ejb.plugins.jms.JMSContainerInvoker</proxy-factory>
+         <proxy-factory-config>
+            <JMSProviderAdapterJNDI>DefaultJMSProvider</JMSProviderAdapterJNDI>
+            <ServerSessionPoolFactoryJNDI>StdJMSPool</ServerSessionPoolFactoryJNDI>
+            <MaximumSize>15</MaximumSize>
+            <MaxMessages>1</MaxMessages>
+            <MDBConfig>
+               <ReconnectIntervalSec>10</ReconnectIntervalSec>
+               <DLQConfig>
+                  <DestinationQueue>queue/DLQ</DestinationQueue>
+                  <MaxTimesRedelivered>10</MaxTimesRedelivered>
+                  <TimeToLive>0</TimeToLive>
+               </DLQConfig>
+            </MDBConfig>
+         </proxy-factory-config>
+      </invoker-proxy-binding>
+   </invoker-proxy-bindings>
+
+   <enterprise-beans>
+      <message-driven>
+         <ejb-name>ObjectMessageBean</ejb-name>
+         <configuration-name>Standard Message Driven Bean</configuration-name>
+         <destination-jndi-name>queue/testObjectMessage</destination-jndi-name>
+         <invoker-bindings>
+            <invoker>
+               <invoker-proxy-binding-name>my-message-driven-bean</invoker-proxy-binding-name>
+            </invoker>
+         </invoker-bindings>
+      </message-driven>
+      <message-driven>
+         <ejb-name>BMTTXTimeOutBean</ejb-name>
+         <configuration-name>Standard Message Driven Bean</configuration-name>
+         <destination-jndi-name>queue/A</destination-jndi-name>
+      </message-driven>
+      <message-driven>
+         <ejb-name>CMTTXTimeOutBean</ejb-name>
+         <configuration-name>Standard Message Driven Bean</configuration-name>
+         <destination-jndi-name>queue/B</destination-jndi-name>
+      </message-driven>
+      <message-driven>
+         <ejb-name>QueueBean</ejb-name>
+         <configuration-name>Standard Message Driven Bean</configuration-name>
+         <destination-jndi-name>queue/testQueue</destination-jndi-name>
+      </message-driven>
+      <message-driven>
+         <ejb-name>TopicBean</ejb-name>
+         <configuration-name>Standard Message Driven Bean</configuration-name>
+         <destination-jndi-name>topic/testTopic</destination-jndi-name>
+      </message-driven>
+      <message-driven>
+         <ejb-name>DurableTopicBean</ejb-name>
+         <configuration-name>Standard Message Driven Bean</configuration-name>
+         <destination-jndi-name>topic/testDurableTopic</destination-jndi-name>
+         <mdb-user>john</mdb-user>
+         <mdb-passwd>needle</mdb-passwd>
+         <mdb-subscription-id>DurableSubscriberExample</mdb-subscription-id>
+      </message-driven>
+      <message-driven>
+         <ejb-name>ExQueueBean</ejb-name>
+         <configuration-name>Standard Message Driven Bean</configuration-name>
+         <destination-jndi-name>queue/ex</destination-jndi-name>
+      </message-driven>
+
+      <message-driven>
+         <ejb-name>QueueInADifferentContext</ejb-name>
+         <configuration-name>Standard Message Driven Bean</configuration-name>
+         <destination-jndi-name>anotherContext/QueueInADifferentContext</destination-jndi-name>
+      </message-driven>
+      <message-driven>
+         <ejb-name>TopicInADifferentContext</ejb-name>
+         <configuration-name>Standard Message Driven Bean</configuration-name>
+         <destination-jndi-name>anotherContext/TopicInADifferentContext</destination-jndi-name>
+      </message-driven>
+   </enterprise-beans>
+</jboss>

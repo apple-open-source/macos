@@ -65,6 +65,10 @@
 
 #ifdef __APPLE__
 #include <architecture/alignment.h>
+#include <IOKit/IOKitLib.h>
+#include <IOKit/storage/IOMedia.h>
+#include <IOKit/IOBSD.h>
+#include <CoreFoundation/CoreFoundation.h>
 #endif
 
 //
@@ -88,7 +92,6 @@ NAMES plist[] = {
     {"Drvr", "Apple_Driver"},
     {"Free", "Apple_Free"},
     {" HFS", "Apple_HFS"},
-    {" MFS", "Apple_MFS"},
     {"PDOS", "Apple_PRODOS"},
     {"junk", "Apple_Scratch"},
     {"unix", "Apple_UNIX_SVR2"},
@@ -268,55 +271,6 @@ dump_partition_entry(partition_map *entry, int digits)
 	printf(" (%#5.1f%c)", bytes, j);
     }
 
-#if 0
-    // Old A/UX fields that no one pays attention to anymore.
-    bp = (BZB *) (p->dpme_bzb);
-    j = -1;
-    if (bp->bzb_magic == BZBMAGIC) {
-	switch (bp->bzb_type) {
-	case FSTEFS:
-	    s = "EFS";
-	    break;
-	case FSTSFS:
-	    s = "SFS";
-	    j = 1;
-	    break;
-	case FST:
-	default:
-	    if (bzb_root_get(bp) != 0) {
-		if (bzb_usr_get(bp) != 0) {
-		    s = "RUFS";
-		} else {
-		    s = "RFS";
-		}
-		j = 0;
-	    } else if (bzb_usr_get(bp) != 0) {
-		s = "UFS";
-		j = 2;
-	    } else {
-		s = "FS";
-	    }
-	    break;
-	}
-	if (bzb_slice_get(bp) != 0) {
-	    printf(" s%1d %4s", bzb_slice_get(bp)-1, s);
-	} else if (j >= 0) {
-	    printf(" S%1d %4s", j, s);
-	} else {
-	    printf("    %4s", s);
-	}
-	if (bzb_crit_get(bp) != 0) {
-	    printf(" K%1d", bp->bzb_cluster);
-	} else if (j < 0) {
-	    printf("   ");
-	} else {
-	    printf(" k%1d", bp->bzb_cluster);
-	}
-	if (bp->bzb_mount_point[0] != 0) {
-	    printf("  %.64s", bp->bzb_mount_point);
-	}
-    }
-#endif
     printf("\n");
 }
 
@@ -324,32 +278,58 @@ dump_partition_entry(partition_map *entry, int digits)
 void
 list_all_disks()
 {
-    char name[20];
-    int i;
+  char name[20] = "/dev/r";
     media *fd;
     DPME * data;
+    CFMutableDictionaryRef matching = NULL;
+    kern_return_t ret;
+    io_iterator_t iterator;
+    io_service_t media;
 
     data = (DPME *) malloc(PBLOCK_SIZE);
     if (data == NULL) {
 	error(errno, "can't allocate memory for try buffer");
 	return;
     }
-    for (i = 0; i < 7; i++) {
-	sprintf(name, "/dev/rdisk%d", i);
-	if ((fd = open_media(name, O_RDONLY)) == 0) {
-#ifdef __unix__
-	    if (errno == EACCES) {
-		error(errno, "can't open file '%s'", name);
-	    }
-#else
-	    error(errno, "can't open file '%s'", name);
-#endif
-	    continue;
-	}
-	close_media(fd);
 
-	dump(name);
+    matching = IOServiceMatching(kIOMediaClass);
+    CFDictionaryAddValue(matching, CFSTR(kIOMediaWholeKey), kCFBooleanTrue);
+
+    ret = IOServiceGetMatchingServices(kIOMasterPortDefault,
+				       matching,
+				       &iterator);
+
+    if(ret != KERN_SUCCESS) {
+      free(data);
+      return;
     }
+
+    while((media = IOIteratorNext(iterator))) {
+      CFStringRef blockdev;
+
+      blockdev = IORegistryEntryCreateCFProperty(media,
+						 CFSTR(kIOBSDNameKey),
+						 kCFAllocatorDefault,
+						 0);
+      if(blockdev) {
+	
+	if(CFStringGetCString(blockdev, name+sizeof("/dev/r")-1,
+			      sizeof(name)-sizeof("/dev/r")+1,
+			      kCFStringEncodingUTF8)) {
+
+	  if ((fd = open_media(name, O_RDONLY)) == 0) {
+	    error(errno, "can't open file '%s'", name);
+	  } else {
+	    close_media(fd);
+	  }
+	  dump(name);
+	}
+      }
+      IOObjectRelease(media);
+    }
+
+    IOObjectRelease(iterator);
+
     free(data);
 }
 

@@ -1,0 +1,1863 @@
+========================================================================
+Kerberos.framework Version History
+========================================================================
+Current version: 5.0fc13
+Date:            September 18, 2003
+Author:          meeroh@mit.edu, smcguire@mit.edu, lxs@mit.edu,
+                 mjv@mit.edu, fdabek@mit.edu, yak@mit.edu
+========================================================================
+
+Kerberos.framework 5.0fc13
+September 18, 2003
+
+[RT 1866] Improper use of std::allocator in the CCacheServer
+[RT 1867] KLVerifyInitialTicket*() should not fail if hostname doesn't resolve
+
+Components:
+	CredentialsCache        3.4fc3
+	KClient                 3.3fc1
+	Kerberos5               1.3.2beta
+	KerberosDebug           1.5fc2
+	KerberosErrors          1.5fc3
+	KerberosIPC             1.1fc2
+	KerberosLogin           1.7fc11
+	KerberosPreferences     1.3fc1
+	KerberosWrappers        1.4fc2
+
+========================================================================
+Kerberos.framework 5.0fc12
+September 12, 2003
+
+[RT 1838] KLL should not always prompt on v4 only realms
+[RT 1839] KLS has UI glitches when caller provides principal
+[RT 1840] KLL stores tickets with bogus string to key type
+[RT 1841] kinit doesn't display IPv6 addresses
+
+Components:
+	CredentialsCache        3.4fc2
+	KClient                 3.3fc1
+	Kerberos5               1.3.2beta
+	KerberosDebug           1.5fc2
+	KerberosErrors          1.5fc3
+	KerberosIPC             1.1fc2
+	KerberosLogin           1.7fc10
+	KerberosPreferences     1.3fc1
+	KerberosWrappers        1.4fc2
+
+========================================================================
+Kerberos.framework 5.0fc11
+September 11, 2003
+
+[RT 1834] KLL must handle MIG using MACH_SEND_TIMEOUT
+[RT 1835] GUI prompter should handle NULL banner or title
+[RT 1837] Password change question should use strcasecmp, not strcmp
+
+Components:
+	CredentialsCache        3.4fc2
+	KClient                 3.3fc1
+	Kerberos5               1.3.2beta
+	KerberosDebug           1.5fc2
+	KerberosErrors          1.5fc3
+	KerberosIPC             1.1fc2
+	KerberosLogin           1.7fc9
+	KerberosPreferences     1.3fc1
+	KerberosWrappers        1.4fc2
+
+========================================================================
+Kerberos.framework 5.0fc10
+September 2, 2003
+
+[RT 1628] Stanford "v4_realm" tag broken
+[RT 1799] Apple password server support
+
+Components:
+	CredentialsCache        3.4fc2
+	KClient                 3.3fc1
+	Kerberos5               1.3.2beta
+	KerberosDebug           1.5fc2
+	KerberosErrors          1.5fc3
+	KerberosIPC             1.1fc2
+	KerberosLogin           1.7fc8
+	KerberosPreferences     1.3fc1
+	KerberosWrappers        1.4fc2
+
+========================================================================
+Kerberos.framework 5.0fc9
+August 22, 2003
+
+[RT 1762] KLL needs a way to store credentials
+[RT 1763] KLL shouldn't mangle principals (host/host.domain.com@realm)
+[RT 1764] Framework should use CFStringGetMaximumSizeForEncoding()
+
+Components:
+	CredentialsCache        3.4fc2
+	KClient                 3.3fc1
+	Kerberos5               1.3.2beta
+	KerberosDebug           1.5fc2
+	KerberosErrors          1.5fc3
+	KerberosIPC             1.1fc2
+	KerberosLogin           1.7fc7
+	KerberosPreferences     1.3fc1
+	KerberosWrappers        1.4fc2
+
+========================================================================
+Kerberos.framework 5.0fc8
+August 20, 2003
+
+[RT 1760] Wrappers can't create v4 principals without default realm
+[RT 1761] KLL can't create v4 principals without default realm
+
+Components:
+	CredentialsCache        3.4fc2
+	KClient                 3.3fc1
+	Kerberos5               1.3.2beta
+	KerberosDebug           1.5fc1
+	KerberosErrors          1.5fc2
+	KerberosIPC             1.1fc1
+	KerberosLogin           1.7fc6
+	KerberosPreferences     1.3fc1
+	KerberosWrappers        1.4fc2
+
+========================================================================
+Kerberos.framework 5.0fc7
+August 19, 2003
+
+[RT 1741] KLH should set LSVisibleInClassic=1
+[RT 1742] CCacheClassic server should be LSVisibleInClassic=1
+[RT 1731] rd_cred double frees memory (DOS attack against GSSAPI servers)
+
+Components:
+	CredentialsCache        3.4fc2
+	KClient                 3.3fc1
+	Kerberos5               1.3.2beta
+	KerberosDebug           1.5fc1
+	KerberosErrors          1.5fc2
+	KerberosIPC             1.1fc1
+	KerberosLogin           1.7fc5
+	KerberosPreferences     1.3fc1
+	KerberosWrappers        1.4fc1
+
+========================================================================
+Kerberos.framework 5.0fc6
+August 18, 2003
+
+[RT 1730] src/lib/krb4/mk_auth.c clears return value
+
+Components:
+	CredentialsCache        3.4fc1
+	KClient                 3.3fc1
+	Kerberos5               1.3.2beta
+	KerberosDebug           1.5fc1
+	KerberosErrors          1.5fc2
+	KerberosIPC             1.1fc1
+	KerberosLogin           1.7fc4
+	KerberosPreferences     1.3fc1
+	KerberosWrappers        1.4fc1
+
+========================================================================
+Kerberos.framework 5.0fc5
+August 10, 2003
+
+[RT 1723] KLL does not honor dns_fallback = no
+
+Components:
+	CredentialsCache        3.4fc1
+	KClient                 3.3fc1
+	Kerberos5               1.3.2beta
+	KerberosDebug           1.5fc1
+	KerberosErrors          1.5fc2
+	KerberosIPC             1.1fc1
+	KerberosLogin           1.7fc4
+	KerberosPreferences     1.3fc1
+	KerberosWrappers        1.4fc1
+
+========================================================================
+Kerberos.framework 5.0fc4
+August 8, 2003
+
+[RT 1705] loginLogout plugins should not reenter prompting code
+[RT 1719] KLL should handle long v5 principals with no instances
+[RT 1721] get_init_creds_password: DNS SRV off causes bogus REALM_UNKNOWN
+
+Components:
+	CredentialsCache        3.4fc1
+	KClient                 3.3fc1
+	Kerberos5               1.3.1beta1
+	KerberosDebug           1.5fc1
+	KerberosErrors          1.5fc2
+	KerberosIPC             1.1fc1
+	KerberosLogin           1.7fc3
+	KerberosPreferences     1.3fc1
+	KerberosWrappers        1.4fc1
+
+========================================================================
+Kerberos.framework 5.0fc3
+August 4, 2003
+
+AD lockout issue fix.
+Don't do krb524 on realms using the "v4_realm" tag
+KLAcquireNewInitialTickets no longer violates API spec in terminal case
+Do not use NSMatrix with NSSecureTextFieldCell for the prompter
+loginLogout plugins no longer reenter prompting code
+KLL no longer requires krb524 for sites with v4 and v5 (renewing, etc)
+
+Components:
+	CredentialsCache        3.4fc1
+	KClient                 3.3fc1
+	Kerberos5               1.3.1beta1
+	KerberosDebug           1.5fc1
+	KerberosErrors          1.5fc2
+	KerberosIPC             1.1fc1
+	KerberosLogin           1.7fc2
+	KerberosPreferences     1.3fc1
+	KerberosWrappers        1.4fc1
+
+========================================================================
+Kerberos.framework 5.0fc2
+July 23, 2003
+
+Fixed bug where sometimes compile_et doesn't catch the first error string
+klist can now display file based caches 
+krb5_principal2salt now in krb5.h
+krb5_cc_resolve now works for file based caches
+switched from getaddrinfo to gethostbyname to address performance problems
+Fixed protocol problem (krb5 1.3.1) [RT 1681]
+Removed references to gcc 3.1
+
+Components:
+	CredentialsCache        3.4fc1
+	KClient                 3.3fc1
+	Kerberos5               1.3.1beta1
+	KerberosDebug           1.5fc1
+	KerberosErrors          1.5fc2
+	KerberosIPC             1.1fc1
+	KerberosLogin           1.7fc1
+	KerberosPreferences     1.3fc1
+	KerberosWrappers        1.4fc1
+
+========================================================================
+Kerberos.framework 5.0fc1
+July 16, 2003
+
+Export krb5_get_permitted_enctypes & krb5_set_real_time
+Fixed krb_get_lrealm so it doesn't always return ATHENA.MIT.EDU
+aklog.loginLogout plugin no longer crashes with stack smash
+Don't prompt if there is no configuration at all
+KLL should support an environment variable to supress prompting
+Icon badging now works when dialog starts out expanded
+Use AppKit and HIToolbox to determine if process is a GUI app
+
+Components:
+	CredentialsCache        3.4fc1
+	KClient                 3.3fc1
+	Kerberos5               1.3.1beta
+	KerberosDebug           1.5fc1
+	KerberosErrors          1.5fc1
+	KerberosIPC             1.1fc1
+	KerberosLogin           1.7fc1
+	KerberosPreferences     1.3fc1
+	KerberosWrappers        1.4fc1
+
+========================================================================
+Kerberos.framework 5.0b2
+July 3, 2003
+
+Stanford "v4_realm" tag fixed
+KfM uses CoreGraphics to determine if GUI is available 
+KLChangePassword no longer always indicates that password was rejected 
+Kerberos Authentication dialog badges icon with app icon 
+KfM builds supportsd Xcode's "pbbuild" 
+Changed "passphrase" to "password" 
+Removed leading spaces in #define/#include to support K&R C
+Fixed English.lprog in KLS
+Pass CFLAGS and LDFLAGS to krb5 build
+
+Components:
+	CredentialsCache        3.4a1
+	KClient                 3.3a2
+	Kerberos5               1.3b5
+	KerberosDebug           1.5a1
+	KerberosErrors          1.5a4
+	KerberosIPC             1.1a6
+	KerberosLogin           1.7a9
+	KerberosPreferences     1.3a1
+	KerberosWrappers        1.4a1
+
+========================================================================
+Kerberos.framework 5.0b1
+June 17, 2003
+
+KLVerifyInitialTickets tries the first key in the keytab if no host key
+No more KLL terminal prompt headers 
+Kerberos Authentication dialog has caps lock key warning 
+Kerberos Login Server no longer crashes when no configuration file 
+KLS application name correct for non-bundled apps 
+KLTicketExpirationTime no longer returns bogus time when no config file 
+Default renew lifetime now reported correctly when no config file
+KDC_OPT_RENEWABLE_OK handled correctly
+kadmin now has error code strings
+KfM has a kvno client
+Kerberos.app supports automatic renewing of Kerberos tickets
+
+Components:
+	CredentialsCache        3.4a1
+	KClient                 3.3a2
+	Kerberos5               1.3b4
+	KerberosDebug           1.5a1
+	KerberosErrors          1.5a4
+	KerberosIPC             1.1a5
+	KerberosLogin           1.7a8
+	KerberosPreferences     1.3a1
+	KerberosWrappers        1.4a1
+
+========================================================================
+Kerberos.framework 5.0a7
+June 6, 2003
+
+Specifying nonexistent loginLogout plugin no longer results in a crash
+KLL frees profiles from krb5_get_profile and krb_get_profile
+KLL no longer leaks krb5_context when prompting to the terminal
+KLL lock files no longer leak strings
+KLL looks up krb5 and krb4 realms in DNS
+Writable keytab support
+string_to_key autodetection fixed
+krb_mk_req_creds no longer frees session key
+
+Components:
+	CredentialsCache        3.4a1
+	KClient                 3.3a2
+	Kerberos5               1.3alpha
+	KerberosDebug           1.5a1
+	KerberosErrors          1.5a4
+	KerberosIPC             1.1a5
+	KerberosLogin           1.7a7
+	KerberosPreferences     1.3a1
+	KerberosWrappers        1.4a1
+
+========================================================================
+Kerberos.framework 5.0a6
+May 21, 2003
+
+KerberosIPC no longer assumes window server is /dev/console (no 10.2 support)
+Stopped checking TERM because it has too many valid values
+KLL supports DNS KDC lookups
+KLL documentation has correct KLRenewInitialTickets prototype
+Remap KRB5KDC_ERR_PREAUTH_FAILED to better error string
+Ticket lifetime defaults to 10 hours
+Login Dialog remembers the state of the options button
+Kerberos.log created with sane permissions
+Login-logout plugins now working
+
+Components:
+	CredentialsCache        3.4a1
+	KClient                 3.3a1
+	Kerberos5               1.3alpha
+	KerberosDebug           1.5a1
+	KerberosErrors          1.5a4
+	KerberosIPC             1.1a5
+	KerberosLogin           1.7a6
+	KerberosPreferences     1.3a1
+	KerberosWrappers        1.4a1
+
+========================================================================
+Kerberos.framework 5.0a5
+May 7, 2003
+
+KLL API to block home directory access
+KLL fixed lock file handling for login 
+Fixed double free in mach_client_lookup_server which broke AppleEvents
+
+Components:
+	CredentialsCache        3.4a1
+	KClient                 3.3a1
+	Kerberos5               1.3alpha
+	KerberosDebug           1.4
+	KerberosErrors          1.5a4
+	KerberosIPC             1.1a4
+	KerberosLogin           1.7a5
+	KerberosPreferences     1.3a1
+	KerberosWrappers        1.4a1
+
+========================================================================
+Kerberos.framework 5.0a4
+May 1, 2003
+
+Installs servers and server man pages
+Removed all library initializer code
+Install /usr/include/krb_err.h
+New C implementations for KerberosIPC, KerberosErrors, and KerberosLogin
+Redesign of the Kerberos Login Dialog
+Server names include Security Session
+Lifetime and renewable life sliders fixed
+Renewable checkbox fixed
+error_message() no longer corrupts unknown negative errors
+
+Components:
+	CredentialsCache        3.4a1
+	KClient                 3.3a1
+	Kerberos5               1.3alpha
+	KerberosDebug           1.4
+	KerberosErrors          1.5a4
+	KerberosIPC             1.1a3
+	KerberosLogin           1.7a4
+	KerberosPreferences     1.3a1
+	KerberosWrappers        1.4a1
+
+========================================================================
+Kerberos.framework 5.0a3
+March 20, 2003
+
+KLL uses libdefaults to determine initial values of prefs
+KLVerifyInitialTicketCredentials no longer fails with RC/IO error
+Removed old ErrorLib API -- now use error_message()
+Framework uses Carbon Text Encoding API if possible
+Build system changes for Apple
+
+Components:
+	CredentialsCache	3.4a1
+	KClient				3.3a1
+	Kerberos5			1.3alpha
+	KerberosDebug 		1.4
+	KerberosErrors 		1.5a3
+	KerberosIPC 		1.1a2
+	KerberosLogin 		1.7a3
+	KerberosPreferences 1.3a1
+	KerberosWrappers 	1.4a1
+
+========================================================================
+Kerberos.framework 5.0a2
+March 11, 2003
+
+Updated to December 2002 Developer Tools
+Added prefix files to speed up compiles
+Framework now krb5-1.3 based
+Framework uses DES and krb4 from krb5-1.3
+Getting tickets is no longer slow at sites with krb524 port blocked
+KLS dialogs are no longer minimizable and/or resizable
+Renewable ticket lifetime now has a preference file entry
+Addressless ticket option now has preference file entry
+KLS no longer leaves zombies
+KLChangePassword doesn't assume result_code_string and result_string are always non-NULL
+compile_et works on error strings containing the string " end "
+KLL krb524inits when applicable
+StLoginOptions checks return value of krb5_init_context
+KerberosPreferences uses same config paths as krb4/krb5
+
+Components:
+	CredentialsCache	3.4a1
+	KClient				3.3a1
+	Kerberos5			1.3pre
+	KerberosDebug 		1.4
+	KerberosErrors 		1.5a2
+	KerberosIPC 		1.1a2
+	KerberosLogin 		1.7a2
+	KerberosPreferences 1.3a1
+	KerberosWrappers 	1.4a1
+
+========================================================================
+Kerberos.framework 5.0a1
+January 14, 2003
+
+Updated build system to use OS jam.
+Removed most of the framework initializer.
+Added CCAPI support for kdc timesyncing.
+Cocoa KeberosLoginServer.
+KLL verifies tickets with a secure context.
+Removed KerberosResources because it was unused.
+Fixed Kerberos4 not copying the service realm.
+Added UKerberos5SecureContext to KerberosWrappers.
+LoginSession APIs check ttyname() != NULL.
+Removed controlling terminal from the Mach IPC service names.
+
+Components:
+	CredentialsCache	3.4a1
+	KClient				3.3a1
+	Kerberos4			1.4a1
+	Kerberos5			3.3
+	KerberosDebug 		1.4
+	KerberosDES 		1.2.1
+	KerberosErrors 		1.5a1
+	KerberosIPC 		1.1a1
+	KerberosLogin 		1.7a1
+	KerberosPreferences 1.2
+	KerberosWrappers 	1.4a1
+	MoreFiles 			1.1.1
+
+========================================================================
+Kerberos.framework 4.5
+June 19, 2002
+
+Moved to final release.
+
+Components:
+	CredentialsCache	3.3
+	KClient				3.2
+	Kerberos4			1.3
+	Kerberos5			3.3
+	KerberosDebug 		1.4
+	KerberosDES 		1.2.1
+	KerberosErrors 		1.4
+	KerberosIPC 		1.0
+	KerberosLogin 		1.6
+	KerberosPreferences 1.2
+	KerberosResources 	1.3
+	KerberosWrappers 	1.3
+	MoreFiles 			1.1.1
+
+========================================================================
+Kerberos.framework 4.5fc2
+June 18, 2002
+
+KerberosLogin warns about clock skew for krb524 tickets.
+Builds with inlining on in Jaguar.
+
+Components:
+	CredentialsCache	3.3fc1
+	KClient				3.2
+	Kerberos4			1.3fc1
+	Kerberos5			3.3fc2
+	KerberosDebug 		1.4fc1
+	KerberosDES 		1.2.1
+	KerberosErrors 		1.4fc1
+	KerberosIPC 		1.0fc1
+	KerberosLogin 		1.6fc2
+	KerberosPreferences 1.2
+	KerberosResources 	1.3
+	KerberosWrappers 	1.3fc1
+	MoreFiles 			1.1.1
+
+========================================================================
+Kerberos.framework 4.5fc1
+June 17, 2002
+
+KerberosLoginServer doesn't leak icon refs.
+CCacheServer no longer leaks memory on creds destruction.
+
+Components:
+	CredentialsCache	3.3fc1
+	KClient				3.2
+	Kerberos4			1.3fc1
+	Kerberos5			3.3fc1
+	KerberosDebug 		1.4fc1
+	KerberosDES 		1.2.1
+	KerberosErrors 		1.4fc1
+	KerberosIPC 		1.0fc1
+	KerberosLogin 		1.6fc1
+	KerberosPreferences 1.2
+	KerberosResources 	1.3
+	KerberosWrappers 	1.3fc1
+	MoreFiles 			1.1.1
+
+========================================================================
+Kerberos.framework 4.5a2
+June 14, 2002
+
+KerberosLoginServer fixes to renew and ticket options.
+CCacheServer no longer quits because of Classic Ticket Sharing bug.
+
+Components:
+	CredentialsCache	3.3a2
+	KClient				3.2
+	Kerberos4			1.3a1
+	Kerberos5			3.3a1
+	KerberosDebug 		1.4a1
+	KerberosDES 		1.2.1
+	KerberosErrors 		1.4a1
+	KerberosIPC 		1.0a1
+	KerberosLogin 		1.6a2
+	KerberosPreferences 1.2
+	KerberosResources 	1.3
+	KerberosWrappers 	1.3a1
+	MoreFiles 			1.1.1
+
+========================================================================
+Kerberos.framework 4.5a2
+June 10, 2002
+
+First Jaguar Release (new KfM repository)
+
+Components:
+	CredentialsCache	3.3a1
+	KClient				3.2
+	Kerberos4			1.3a1
+	Kerberos5			3.3a1
+	KerberosDebug 		1.4a1
+	KerberosDES 		1.2.1
+	KerberosErrors 		1.4a1
+	KerberosIPC 		1.0a1
+	KerberosLogin 		1.6a1
+	KerberosPreferences 1.2
+	KerberosResources 	1.3
+	KerberosWrappers 	1.3a1
+	MoreFiles 			1.1.1
+	
+Non-component bugs fixed in this release:
+	[BZ 711]	Doesn't work on volumes with hibit chars in name
+	[BZ 712]	Kerberos.framework is an umbrella framework
+	[BZ 713]	KerberosConditionalMacros.h is a public header file
+	[BZ 751]	Library initializer should not call add_error_table
+	[BZ 753]	Kerberos.framework crashes when edu.mit.Kerberos is missing
+	[BZ 754]	Kerberos.framework autogenerates an edu.mit.Kerberos
+	[BZ 762]	Kerberos.framework version number should be bumped
+	
+Kerberos5 bugs not tracked by Krb5 Team (will be fixed when bug systems merge):
+	[BZ 746]	krb5 should use POSIX paths and APIs for edu.mit.Kerberos
+	[BZ 759]	Kerberos 4 tickets obtained with krb524 have no IP addresses
+	[BZ 767]	Profile sharing is totally broken on X
+
+========================================================================
+MIT Kerberos Library 4.1.1
+Apr 26, 2001
+
+Fix bogus event kind dialog that comes up in login dialog when
+running Word/Excel
+
+Parts:
+	CCacheLib 3.2 from tag CCacheLib_3_2
+	DESLib 1.2.1 from tag DESLib_1_2_1
+	GSSLib, Kerberos5Lib, KerberosProfileLib, ComErrLib 3.2
+		from tag Mac_GSSKerberos5_3_2
+	Kerberos4Lib 1.2 from tag Kerberos4Lib_1_2
+	KerberosManagerLib 1.2 from tag KerberosManagerLib_1_2
+	LoginLib, LoginGlobalsLib 1.5.1 from tag LoginLib_1_5_1
+	PreferencesLib 1.2 from tag PreferencesLib_1_2
+	TicketKeeperLib 2.1 from tag TicketKeeperLib_2_1
+	WrappersLib 1.2 from tag WrappersLib_1_2
+	KClientLib, KClientCompatLib, KClientDeprecatedLib,
+		KClientDriverLib 3.2 from tag KClient_3_2
+		
+========================================================================
+MIT Kerberos Library 4.1
+Feb 19, 2001
+
+Bug fixes for 4.0, further Mac OS X work
+
+Parts:
+	CCacheLib 3.2 from tag CCacheLib_3_2
+	DESLib 1.2.1 from tag DESLib_1_2_1
+	GSSLib, Kerberos5Lib, KerberosProfileLib, ComErrLib 3.2
+		from tag Mac_GSSKerberos5_3_2
+	Kerberos4Lib 1.2 from tag Kerberos4Lib_1_2
+	KerberosManagerLib 1.2 from tag KerberosManagerLib_1_2
+	LoginLib, LoginGlobalsLib 1.5 from tag LoginLib_1_5
+	PreferencesLib 1.2 from tag PreferencesLib_1_2
+	TicketKeeperLib 2.1 from tag TicketKeeperLib_2_1
+	WrappersLib 1.2 from tag WrappersLib_1_2
+	KClientLib, KClientCompatLib, KClientDeprecatedLib,
+		KClientDriverLib 3.2 from tag KClient_3_2
+========================================================================
+
+MIT Kerberos Library 4.1fc3
+February 18, 2001
+
+Parts:
+	CCacheLib 3.2fc3 from tag CCacheLib_3_2fc3
+	DESLib 1.2.1fc1 from tag DESLib_1_2_1fc1
+	GSSLib, Kerberos5Lib, KerberosProfileLib, ComErrLib 3.2fc2
+		from tag Mac_GSSKerberos5_3_2fc2
+	Kerberos4Lib 1.2fc2 from tag Kerberos4Lib_1_2fc2
+	KerberosManagerLib 1.2fc1 from tag KerberosManagerLib_1_2fc1
+	LoginLib, LoginGlobalsLib 1.5fc3 from tag LoginLib_1_5fc3
+	PreferencesLib 1.2fc1 from tag PreferencesLib_1_2fc1
+	TicketKeeperLib 2.1fc1 from tag TicketKeeperLib_2_1fc1
+	WrappersLib 1.2fc1 from tag WrappersLib_1_2fc1
+	KClientLib, KClientCompatLib, KClientDeprecatedLib,
+		KClientDriverLib 3.2fc2 from tag KClient_3_2fc2
+========================================================================
+
+MIT Kerberos Library 4.1fc2
+February 14, 2001
+
+Parts:
+	CCacheLib 3.2fc2 from tag CCacheLib_3_2fc2
+	DESLib 1.2.1fc1 from tag DESLib_1_2_1fc1
+	GSSLib, Kerberos5Lib, KerberosProfileLib, ComErrLib 3.2fc2
+		from tag Mac_GSSKerberos5_3_2fc2
+	Kerberos4Lib 1.2fc2 from tag Kerberos4Lib_1_2fc2
+	KerberosManagerLib 1.2fc1 from tag KerberosManagerLib_1_2fc1
+	LoginLib, LoginGlobalsLib 1.5fc2 from tag LoginLib_1_5fc2
+	PreferencesLib 1.2fc1 from tag PreferencesLib_1_2fc1
+	TicketKeeperLib 2.1fc1 from tag TicketKeeperLib_2_1fc1
+	WrappersLib 1.2fc1 from tag WrappersLib_1_2fc1
+	KClientLib, KClientCompatLib, KClientDeprecatedLib,
+		KClientDriverLib 3.2fc2 from tag KClient_3_2fc2
+========================================================================
+
+MIT Kerberos Library 4.1fc1
+February 7, 2001
+
+Parts:
+	CCacheLib 3.2fc1 from tag CCacheLib_3_2fc1
+	DESLib 1.2.1fc1 from tag DESLib_1_2_1fc1
+	GSSLib, Kerberos5Lib, KerberosProfileLib, ComErrLib 3.2fc1
+		from tag Mac_GSSKerberos5_3_2fc1
+	Kerberos4Lib 1.2fc1 from tag Kerberos4Lib_1_2fc1
+	KerberosManagerLib 1.2fc1 from tag KerberosManagerLib_1_2fc1
+	LoginLib, LoginGlobalsLib 1.5fc1 from tag LoginLib_1_5fc1
+	PreferencesLib 1.2fc1 from tag PreferencesLib_1_2fc1
+	TicketKeeperLib 2.1fc1 from tag TicketKeeperLib_2_1fc1
+	WrappersLib 1.2fc1 from tag WrappersLib_1_2fc1
+	KClientLib, KClientCompatLib, KClientDeprecatedLib,
+		KClientDriverLib 3.2fc1 from tag KClient_3_2fc1
+========================================================================
+
+MIT Kerberos Library 4.1b8
+January 31, 2001
+
+Parts:
+	CCacheLib 3.2b5 from tag CCacheLib_3_2b5
+	DESLib 1.2.1b3 from tag DESLib_1_2_1b3
+	GSSLib, Kerberos5Lib, KerberosProfileLib, ComErrLib 3.2b8
+		from tag Mac_GSSKerberos5_3_2b8
+	Kerberos4Lib 1.2b5 from tag Kerberos4Lib_1_2b5
+	KerberosManagerLib 1.2b3 from tag KerberosManagerLib_1_2b3
+	LoginLib, LoginGlobalsLib 1.5b9 from tag LoginLib_1_5b9
+	PreferencesLib 1.2b3 from tag PreferencesLib_1_2b3
+	TicketKeeperLib 2.1b1 from tag TicketKeeperLib_2_1b1
+	WrappersLib 1.2b4 from tag WrappersLib_1_2b4
+	KClientLib, KClientCompatLib, KClientDeprecatedLib,
+		KClientDriverLib 3.2b6 from tag KClient_3_2b6
+========================================================================
+
+MIT Kerberos Library 4.1b7
+January 14, 2001
+
+Parts:
+	CCacheLib 3.2b4 from tag CCacheLib_3_2b4
+	DESLib 1.2.1b3 from tag DESLib_1_2_1b3
+	GSSLib, Kerberos5Lib, KerberosProfileLib, ComErrLib 3.2b7
+		from tag Mac_GSSKerberos5_3_2b7
+	Kerberos4Lib 1.2b4 from tag Kerberos4Lib_1_2b4
+	KerberosManagerLib 1.2b3 from tag KerberosManagerLib_1_2b3
+	LoginLib, LoginGlobalsLib 1.5b8 from tag LoginLib_1_5b8
+	PreferencesLib 1.2b3 from tag PreferencesLib_1_2b3
+	TicketKeeperLib 2.1b1 from tag TicketKeeperLib_2_1b1
+	WrappersLib 1.2b4 from tag WrappersLib_1_2b4
+	KClientLib, KClientCompatLib, KClientDeprecatedLib,
+		KClientDriverLib 3.2b6 from tag KClient_3_2b6
+========================================================================
+
+MIT Kerberos Library 4.1b6
+Dec 19, 2001
+
+Parts:
+	CCacheLib 3.2b3 from tag CCacheLib_3_2b3
+	DESLib 1.2.1b3 from tag DESLib_1_2_1b3
+	GSSLib, Kerberos5Lib, KerberosProfileLib, ComErrLib 3.2b6
+		from tag Mac_GSSKerberos5_3_2b6
+	Kerberos4Lib 1.2b4 from tag Kerberos4Lib_1_2b4
+	KerberosManagerLib 1.2b3 from tag KerberosManagerLib_1_2b3
+	LoginLib, LoginGlobalsLib 1.5b7 from tag LoginLib_1_5b7
+	PreferencesLib 1.2b3 from tag PreferencesLib_1_2b3
+	TicketKeeperLib 2.1b1 from tag TicketKeeperLib_2_1b1
+	WrappersLib 1.2b4 from tag WrappersLib_1_2b4
+	KClientLib, KClientCompatLib, KClientDeprecatedLib,
+		KClientDriverLib 3.2b5 from tag KClient_3_2b5
+========================================================================
+
+MIT Kerberos Library 4.1b5
+Dec 18, 2001
+
+Parts:
+	CCacheLib 3.2b3 from tag CCacheLib_3_2b3
+	DESLib 1.2.1b3 from tag DESLib_1_2_1b3
+	GSSLib, Kerberos5Lib, KerberosProfileLib, ComErrLib 3.2b5
+		from tag Mac_GSSKerberos5_3_2b5
+	Kerberos4Lib 1.2b4 from tag Kerberos4Lib_1_2b4
+	KerberosManagerLib 1.2b3 from tag KerberosManagerLib_1_2b3
+	LoginLib, LoginGlobalsLib 1.5b5 from tag LoginLib_1_5b5
+	PreferencesLib 1.2b3 from tag PreferencesLib_1_2b3
+	TicketKeeperLib 2.1b1 from tag TicketKeeperLib_2_1b1
+	WrappersLib 1.2b4 from tag WrappersLib_1_2b4
+	KClientLib, KClientCompatLib, KClientDeprecatedLib,
+		KClientDriverLib 3.2b5 from tag KClient_3_2b5
+========================================================================
+
+MIT Kerberos Library 4.1b4
+Dec 13, 2001
+
+Parts:
+	CCacheLib 3.2b3 from tag CCacheLib_3_2b3
+	DESLib 1.2.1b3 from tag DESLib_1_2_1b3
+	GSSLib, Kerberos5Lib, KerberosProfileLib, ComErrLib 3.2b5
+		from tag Mac_GSSKerberos5_3_2b5
+	Kerberos4Lib 1.2b4 from tag Kerberos4Lib_1_2b4
+	KerberosManagerLib 1.2b3 from tag KerberosManagerLib_1_2b3
+	LoginLib, LoginGlobalsLib 1.5b4 from tag LoginLib_1_5b4
+	PreferencesLib 1.2b3 from tag PreferencesLib_1_2b3
+	TicketKeeperLib 2.1b1 from tag TicketKeeperLib_2_1b1
+	WrappersLib 1.2b4 from tag WrappersLib_1_2b4
+	KClientLib, KClientCompatLib, KClientDeprecatedLib,
+		KClientDriverLib 3.2b4 from tag KClient_3_2b4
+========================================================================
+
+MIT Kerberos Library 4.1b3
+Dec 3, 2001
+
+Parts:
+	CCacheLib 3.2b2 from tag CCacheLib_3_2b2
+	DESLib 1.2.1b2 from tag DESLib_1_2_1b2
+	GSSLib, Kerberos5Lib, KerberosProfileLib, ComErrLib 3.2b4
+		from tag Mac_GSSKerberos5_3_2b4
+	Kerberos4Lib 1.2b3 from tag Kerberos4Lib_1_2b3
+	KerberosManagerLib 1.2b2 from tag KerberosManagerLib_1_2b2
+	LoginLib, LoginGlobalsLib 1.5b3 from tag LoginLib_1_5b3
+	PreferencesLib 1.2b2 from tag PreferencesLib_1_2b2
+	TicketKeeperLib 2.1b1 from tag TicketKeeperLib_2_1b1
+	WrappersLib 1.2b3 from tag WrappersLib_1_2b3
+	KClientLib, KClientCompatLib, KClientDeprecatedLib,
+		KClientDriverLib 3.2b3 from tag KClient_3_2b3
+========================================================================
+
+MIT Kerberos Library 4.1b2
+Nov 20, 2001
+
+Parts:
+	CCacheLib 3.2b1 from tag CCacheLib_3_2b1
+	DESLib 1.2.1b1 from tag DESLib_1_2_1b1
+	GSSLib, Kerberos5Lib, KerberosProfileLib, ComErrLib 3.2b3
+		from tag Mac_GSSKerberos5_3_2b3
+	Kerberos4Lib 1.2b2 from tag Kerberos4Lib_1_2b2
+	KerberosManagerLib 1.2b1 from tag KerberosManagerLib_1_2b1
+	LoginLib, LoginGlobalsLib 1.5b2 from tag LoginLib_1_5b2
+	PreferencesLib 1.2b1 from tag PreferencesLib_1_2b1
+	TicketKeeperLib 2.1b1 from tag TicketKeeperLib_2_1b1
+	WrappersLib 1.2b2 from tag WrappersLib_1_2b2
+	KClientLib, KClientCompatLib, KClientDeprecatedLib,
+		KClientDriverLib 3.2b2 from tag KClient_3_2b2
+========================================================================
+
+MIT Kerberos Library 4.1b1
+Nov 15, 2001
+
+Parts:
+	CCacheLib 3.2b2 from tag CCacheLib_3_2b2
+	DESLib 1.2.1b1 from tag DESLib_1_2_1b1
+	GSSLib, Kerberos5Lib, KerberosProfileLib, ComErrLib 3.2b2
+		from tag Mac_GSSKerberos5_3_2b2
+	Kerberos4Lib 1.2b2 from tag Kerberos4Lib_1_2b2
+	KerberosManagerLib 1.2b1 from tag KerberosManagerLib_1_2b1
+	LoginLib, LoginGlobalsLib 1.5b3 from tag LoginLib_1_5b3
+	PreferencesLib 1.2b1 from tag PreferencesLib_1_2b1
+	TicketKeeperLib 2.1b1 from tag TicketKeeperLib_2_1b1
+	WrappersLib 1.2b2 from tag WrappersLib_1_2b2
+	KClientLib, KClientCompatLib, KClientDeprecatedLib,
+		KClientDriverLib 3.2b2 from tag KClient_3_2b2
+========================================================================
+
+MIT Kerberos Library 4.1a3
+Nov 7, 2001
+
+Parts:
+	CCacheLib 3.2b1 from tag CCacheLib_3_2b1
+	DESLib 1.2.1b1 from tag DESLib_1_2_1b1
+	GSSLib, Kerberos5Lib, KerberosProfileLib, ComErrLib 3.2b1
+		from tag Mac_GSSKerberos5_3_2b1
+	Kerberos4Lib 1.2b1 from tag Kerberos4Lib_1_2b1
+	KerberosManagerLib 1.1 from tag KerberosManagerLib_1_1
+	LoginLib, LoginGlobalsLib 1.5b1 from tag LoginLib_1_5b1
+	PreferencesLib 1.2b1 from tag PreferencesLib_1_2b1
+	TicketKeeperLib 2.1b1 from tag TicketKeeperLib_2_1b1
+	WrappersLib 1.2b1 from tag WrappersLib_1_2b1
+	KClientLib, KClientCompatLib, KClientDeprecatedLib,
+		KClientDriverLib 3.2b1 from tag KClient_3_2b1
+========================================================================
+
+MIT Kerberos Library 4.1a2
+Sep 27, 2001
+
+Parts:
+	CCacheLib 3.2a2 from tag CCacheLib_3_2a2
+	DESLib 1.2.1a1 from tag DESLib_1_2_1a1
+	GSSLib, Kerberos5Lib, KerberosProfileLib, ComErrLib 3.2a2
+		from tag Mac_GSSKerberos5_3_2a2
+	Kerberos4Lib 1.2a2 from tag Kerberos4Lib_1_2a2
+	KerberosManagerLib 1.2b1 from tag KerberosManagerLib_1_2b1
+	LoginLib, LoginGlobalsLib 1.5a2 from tag LoginLib_1_5a2
+	PreferencesLib 1.2a2 from tag PreferencesLib_1_2a2
+	TicketKeeperLib 2.1a1 from tag TicketKeeperLib_2_1a1
+	WrappersLib 1.2a2 from tag WrappersLib_1_2a2
+	KClientLib, KClientCompatLib, KClientDeprecatedLib,
+		KClientDriverLib 3.2a1 from tag KClient_3_2a1
+========================================================================
+
+MIT Kerberos Library 4.1a1
+Aug 7, 2001
+
+Parts:
+	CCacheLib 3.2a1 from tag CCacheLib_3_2a1
+	DESLib 1.2 from tag DESLib_1_2
+	GSSLib, Kerberos5Lib, KerberosProfileLib, ComErrLib 3.2a1
+		from tag Mac_GSSKerberos5_3_2a1
+	Kerberos4Lib 1.2a1 from tag Kerberos4Lib_1_2a1
+	KerberosManagerLib 1.1 from tag KerberosManagerLib_1_1
+	LoginLib, LoginGlobalsLib 1.5a1 from tag LoginLib_1_5a1
+	PreferencesLib 1.2a1 from tag PreferencesLib_1_2a1
+	TicketKeeperLib 2.1a1 from tag TicketKeeperLib_2_1a1
+	WrappersLib 1.2a1 from tag WrappersLib_1_2a1
+	KClientLib, KClientCompatLib, KClientDeprecatedLib,
+		KClientDriverLib 3.2a1 from tag KClient_3_2a1
+========================================================================
+
+MIT Kerberos Library 4.0
+June 25, 2001
+
+Parts:
+	CCacheLib 3.1 from tag CCacheLib_3_1
+	DESLib 1.2 from tag DESLib_1_2
+	GSSLib, Kerberos5Lib, KerberosProfileLib, ComErrLib 3.1
+		from tag Mac_GSSKerberos5_3_1
+	Kerberos4Lib 1.1 from tag Kerberos4Lib_1_1
+	KerberosManagerLib 1.1 from tag KerberosManagerLib_1_1
+	LoginLib, LoginGlobalsLib 1.4 from tag LoginLib_1_4
+	PreferencesLib 1.1 from tag PreferencesLib_1_1
+	TicketKeeperLib 2.0 from tag TicketKeeperLib_2_0
+	WrappersLib 1.1 from tag WrappersLib_1_1
+	KClientLib, KClientCompatLib, KClientDeprecatedLib,
+		KClientDriverLib 3.1 from tag KClient_3_1
+========================================================================
+
+MIT Kerberos Library 4.0fc2
+June 18, 2001
+
+Parts:
+	CCacheLib 3.1fc1 from tag CCacheLib_3_1fc1
+	DESLib 1.2fc1 from tag DESLib_1_2fc1
+	GSSLib, Kerberos5Lib, KerberosProfileLib, ComErrLib 3.1fc1
+		from tag Mac_GSSKerberos5_3_1fc1
+	Kerberos4Lib 1.1fc1 from tag Kerberos4Lib_1_1fc1
+	KerberosManagerLib 1.1fc1 from tag KerberosManagerLib_1_1fc1
+	LoginLib, LoginGlobalsLib 1.4fc1 from tag LoginLib_1_4fc1
+	PreferencesLib 1.1fc1 from tag PreferencesLib_1_1fc1
+	TicketKeeperLib 2.0fc2 from tag TicketKeeperLib_2_0fc2
+	WrappersLib 1.1fc1 from tag WrappersLib_1_1fc1
+	KClientLib, KClientCompatLib, KClientDeprecatedLib,
+		KClientDriverLib 3.1fc1 from tag KClient_3_1fc1
+========================================================================
+
+MIT Kerberos Library 4.0fc1
+June 13, 2001
+
+Parts:
+	CCacheLib 3.1fc1 from tag CCacheLib_3_1fc1
+	DESLib 1.2fc1 from tag DESLib_1_2fc1
+	GSSLib, Kerberos5Lib, KerberosProfileLib, ComErrLib 3.1fc1
+		from tag Mac_GSSKerberos5_3_1fc1
+	Kerberos4Lib 1.1fc1 from tag Kerberos4Lib_1_1fc1
+	KerberosManagerLib 1.1fc1 from tag KerberosManagerLib_1_1fc1
+	LoginLib, LoginGlobalsLib 1.4fc1 from tag LoginLib_1_4fc1
+	PreferencesLib 1.1fc1 from tag PreferencesLib_1_1fc1
+	TicketKeeperLib 2.0fc1 from tag TicketKeeperLib_2_0fc1
+	WrappersLib 1.1fc1 from tag WrappersLib_1_1fc1
+	KClientLib, KClientCompatLib, KClientDeprecatedLib,
+		KClientDriverLib 3.1fc1 from tag KClient_3_1fc1
+========================================================================
+
+MIT Kerberos Library 4.0b2
+April 30, 2001
+
+Parts:
+	CCacheLib 3.1b2 from tag CCacheLib_3_1b2
+	DESLib 1.2b2 from tag DESLib_1_2b2
+	GSSLib, Kerberos5Lib, KerberosProfileLib, ComErrLib 3.1b2
+		from tag Mac_GSSKerberos5_3_1b2
+	Kerberos4Lib 1.1b2 from tag Kerberos4Lib_1_1b2
+	KerberosManagerLib 1.1b1 from tag KerberosManagerLib_1_1b1
+	LoginLib, LoginGlobalsLib 1.4b2 from tag LoginLib_1_4b2
+	PreferencesLib 1.1b2 from tag PreferencesLib_1_1b2
+	TicketKeeperLib 2.0b1 from tag TicketKeeperLib_2_0b1
+	WrappersLib 1.1b1 from tag WrappersLib_1_1b1
+	KClientLib, KClientCompatLib, KClientDeprecatedLib,
+		KClientDriverLib 3.1b2 from tag KClient_3_1b2
+========================================================================
+
+MIT Kerberos Library 4.0b1
+April 2, 2001
+
+Parts:
+	CCacheLib 3.1b1 from tag CCacheLib_3_1b1
+	DESLib 1.2b1 from tag DESLib_1_2b1
+	GSSLib, Kerberos5Lib, KerberosProfileLib, ComErrLib 3.1b1
+		from tag Mac_GSSKerberos5_3_1b1
+	Kerberos4Lib 1.1b1 from tag Kerberos4Lib_1_1b1
+	KerberosManagerLib 1.1b1 from tag KerberosManagerLib_1_1b1
+	LoginLib, LoginGlobalsLib 1.4b1 from tag LoginLib_1_4b1
+	PreferencesLib 1.1b1 from tag PreferencesLib_1_1b1
+	TicketKeeperLib 2.0b1 from tag TicketKeeperLib_2_0b1
+	WrappersLib 1.1b1 from tag WrappersLib_1_1b1
+	KClientLib, KClientCompatLib, KClientDeprecatedLib,
+		KClientDriverLib 3.1b1 from tag KClient_3_1b1
+========================================================================
+
+MIT Kerberos Library 4.0a10
+March 21, 2001
+
+Parts:
+	CCacheLib 3.1a7 from tag CCacheLib_3_1a7
+	DESLib 1.2a3 from tag DESLib_1_2a3
+	GSSLib, Kerberos5Lib, KerberosProfileLib, ComErrLib 3.1a4
+		from tag Mac_GSSKerberos5_3_1a4
+	Kerberos4Lib 1.1a4 from tag Kerberos4Lib_1_1a4
+	KerberosManagerLib 1.1a4 from tag KerberosManagerLib_1_1a4
+	LoginLib, LoginGlobalsLib 1.4a7 from tag LoginLib_1_4a7
+	PreferencesLib 1.1a3 from tag PreferencesLib_1_1a3
+	TicketKeeperLib 2.0a3 from tag TicketKeeperLib_2_0a3
+	WrappersLib 1.1a4 from tag WrappersLib_1_1a4
+	KClientLib, KClientCompatLib, KClientDeprecatedLib,
+		KClientDriverLib 3.1a4 from tag KClient_3_1a4
+========================================================================
+
+MIT Kerberos Library 4.0a9
+March 16, 2001
+
+Parts:
+	CCacheLib 3.1a6 from tag CCacheLib_3_1a6
+	DESLib 1.2a2 from tag DESLib_1_2a2
+	GSSLib, Kerberos5Lib, KerberosProfileLib, ComErrLib 3.1a3
+		from tag Mac_GSSKerberos5_3_1a3
+	Kerberos4Lib 1.1a3 from tag Kerberos4Lib_1_1a3
+	KerberosManagerLib 1.1a3 from tag KerberosManagerLib_1_1a3
+	LoginLib, LoginGlobalsLib 1.4a6 from tag LoginLib_1_4a6
+	PreferencesLib 1.1a2 from tag PreferencesLib_1_1a2
+	TicketKeeperLib 2.0a2 from tag TicketKeeperLib_2_0a2
+	WrappersLib 1.1a3 from tag WrappersLib_1_1a3
+	KClientLib, KClientCompatLib, KClientDeprecatedLib,
+		KClientDriverLib 3.1a3 from tag KClient_3_1a3
+========================================================================
+
+MIT Kerberos Library 4.0a8
+MIT Kerberos Library 4.0a7
+Skipped
+
+========================================================================
+
+MIT Kerberos Library 4.0a6
+February 7, 2001
+
+Parts:
+	CCacheLib 3.1a5 from tag CCacheLib_3_1a5
+	DESLib 1.2a1 from tag DESLib_1_2a1
+	GSSLib, Kerberos5Lib, KerberosProfileLib, ComErrLib 3.1a2
+		from tag Mac_GSSKerberos5_3_1a2
+	Kerberos4Lib 1.1a2 from tag Kerberos4Lib_1_1a2
+	KerberosManagerLib 1.1a2 from tag KerberosManagerLib_1_1a2
+	LoginLib, LoginGlobalsLib 1.4a5 from tag LoginLib_1_4a5
+	PreferencesLib 1.1a1 from tag PreferencesLib_1_1a1
+	TicketKeeperLib 2.0a1 from tag TicketKeeperLib_2_0a1
+	WrappersLib 1.1a2 from tag WrappersLib_1_1a2
+	KClientLib, KClientCompatLib, KClientDeprecatedLib,
+		KClientDriverLib 3.1a2 from tag KClient_3_1a2
+========================================================================
+
+MIT Kerberos Library 4.0a5
+February 1, 2001
+
+Parts:
+	CCacheLib 3.1a5 from tag CCacheLib_3_1a5
+	DESLib 1.2a1 from tag DESLib_1_2a1
+	GSSLib, Kerberos5Lib, KerberosProfileLib, ComErrLib 3.1a2
+		from tag Mac_GSSKerberos5_3_1a2
+	Kerberos4Lib 1.1a2 from tag Kerberos4Lib_1_1a2
+	KerberosManagerLib 1.1a2 from tag KerberosManagerLib_1_1a2
+	LoginLib, LoginGlobalsLib 1.4a5 from tag LoginLib_1_4a5
+	PreferencesLib 1.1a1 from tag PreferencesLib_1_1a1
+	TicketKeeperLib 2.0a1 from tag TicketKeeperLib_2_0a1
+	WrappersLib 1.1a2 from tag WrappersLib_1_1a2
+	KClientLib, KClientCompatLib, KClientDeprecatedLib,
+		KClientDriverLib 3.1a2 from tag KClient_3_1a2
+========================================================================
+
+MIT Kerberos Library 4.0a4
+December 14, 2000
+
+Parts:
+	CCacheLib 3.1a4 from tag CCacheLib_3_1a4
+	DESLib 1.2a1 from tag DESLib_1_2a1
+	GSSLib, Kerberos5Lib, KerberosProfileLib, ComErrLib 3.1a1
+		from tag Mac_GSSKerberos5_3_1a1
+	Kerberos4Lib 1.1a1 from tag Kerberos4Lib_1_1a1
+	KerberosManagerLib 1.1a1 from tag KerberosManagerLib_1_1a1
+	LoginLib, LoginGlobalsLib 1.4a4 from tag LoginLib_1_4a4
+	PreferencesLib 1.1a1 from tag PreferencesLib_1_1a1
+	TicketKeeperLib 2.0a1 from tag TicketKeeperLib_2_0a1
+	WrappersLib 1.1a1 from tag WrappersLib_1_1a1
+	KClientLib, KClientCompatLib, KClientDeprecatedLib,
+		KClientDriverLib 3.1a1 from tag KClient_3_1a1
+========================================================================
+
+MIT Kerberos Library 4.0a3
+December 14, 2000
+
+Parts:
+	CCacheLib 3.1a3 from tag CCacheLib_3_1a3
+	DESLib 1.2a1 from tag DESLib_1_2a1
+	GSSLib, Kerberos5Lib, KerberosProfileLib, ComErrLib 3.1a1
+		from tag Mac_GSSKerberos5_3_1a1
+	Kerberos4Lib 1.1a1 from tag Kerberos4Lib_1_1a1
+	KerberosManagerLib 1.1a1 from tag KerberosManagerLib_1_1a1
+	LoginLib, LoginGlobalsLib 1.4a3 from tag LoginLib_1_4a3
+	PreferencesLib 1.1a1 from tag PreferencesLib_1_1a1
+	TicketKeeperLib 2.0a1 from tag TicketKeeperLib_2_0a1
+	WrappersLib 1.1a1 from tag WrappersLib_1_1a1
+	KClientLib, KClientCompatLib, KClientDeprecatedLib,
+		KClientDriverLib 3.1a1 from tag KClient_3_1a1
+========================================================================
+
+MIT Kerberos Library 4.0a2
+December 14, 2000
+
+Parts:
+	CCacheLib 3.1a2 from tag CCacheLib_3_1a2
+	DESLib 1.2a1 from tag DESLib_1_2a1
+	GSSLib, Kerberos5Lib, KerberosProfileLib, ComErrLib 3.1a1
+		from tag Mac_GSSKerberos5_3_1a1
+	Kerberos4Lib 1.1a1 from tag Kerberos4Lib_1_1a1
+	KerberosManagerLib 1.1a1 from tag KerberosManagerLib_1_1a1
+	LoginLib, LoginGlobalsLib 1.4a2 from tag LoginLib_1_4a2
+	PreferencesLib 1.1a1 from tag PreferencesLib_1_1a1
+	TicketKeeperLib 2.0a1 from tag TicketKeeperLib_2_0a1
+	WrappersLib 1.1a1 from tag WrappersLib_1_1a1
+	KClientLib, KClientCompatLib, KClientDeprecatedLib,
+		KClientDriverLib 3.1a1 from tag KClient_3_1a1
+========================================================================
+
+MIT Kerberos Library 4.0a1
+December 9, 2000
+
+Parts:
+	CCacheLib 3.1a1 from tag CCacheLib_3_1a1
+	DESLib 1.2a1 from tag DESLib_1_2a1
+	GSSLib, Kerberos5Lib, KerberosProfileLib, ComErrLib 3.1a1
+		from tag Mac_GSSKerberos5_3_1a1
+	Kerberos4Lib 1.1a1 from tag Kerberos4Lib_1_1a1
+	KerberosManagerLib 1.1a1 from tag KerberosManagerLib_1_1a1
+	LoginLib, LoginGlobalsLib 1.4a1 from tag LoginLib_1_4a1
+	PreferencesLib 1.1a1 from tag PreferencesLib_1_1a1
+	TicketKeeperLib 2.0a1 from tag TicketKeeperLib_2_0a1
+	WrappersLib 1.1a1 from tag WrappersLib_1_1a1
+	KClientLib, KClientCompatLib, KClientDeprecatedLib,
+		KClientDriverLib 3.1a1 from tag KClient_3_1a1
+========================================================================
+
+MIT Kerberos Library 4.0d8
+November 30, 2000
+
+Long v4 lifetime support
+Mach-O Dylibs
+
+Parts:
+	CCacheLib 3.1d7 from tag CCacheLib_3_1d7
+	DESLib 1.2d4 from tag DESLib_1_2d4
+	GSSLib, Kerberos5Lib, KerberosProfileLib, ComErrLib 3.1d6
+		from tag Mac_GSSKerberos5_3_1d6
+	Kerberos4Lib 1.1d6 from tag Kerberos4Lib_1_1d6
+	KerberosManagerLib 1.1d4 from tag KerberosManagerLib_1_1d4
+	LoginLib, LoginGlobalsLib 1.4d6 from tag LoginLib_1_4d6
+	PreferencesLib 1.1d4 from tag PreferencesLib_1_1d4
+	TicketKeeperLib 2.0d4 from tag TicketKeeperLib_2_0_d4
+	WrappersLib 1.1d5 from tag WrappersLib_1_1d5
+	KClientLib, KClientCompatLib, KClientDeprecatedLib,
+		KClientDriverLib 3.1d6 from tag KClient_3_1d6
+========================================================================
+
+MIT Kerberos Library 4.0d7
+November 3, 2000
+
+First Mach-O release
+
+Parts:
+	CCacheLib 3.1d6 from tag CCacheLib_3_1d6
+	DESLib 1.2d3 from tag DESLib_1_2d3
+	GSSLib, Kerberos5Lib, KerberosProfileLib, ComErrLib 3.1d5
+		from tag Mac_GSSKerberos5_3_1d5
+	Kerberos4Lib 1.1d5 from tag Kerberos4Lib_1_1d5
+	KerberosManagerLib 1.1d4 from tag KerberosManagerLib_1_1d4
+	LoginLib, LoginGlobalsLib 1.4d5 from tag LoginLib_1_4d5
+	PreferencesLib 1.1d4 from tag PreferencesLib_1_1d4
+	TicketKeeperLib 2.0d3 from tag TicketKeeperLib_2_0_d3
+	WrappersLib 1.1d4 from tag WrappersLib_1_1d4
+	KClientLib, KClientCompatLib, KClientDeprecatedLib,
+		KClientDriverLib 3.1d6 from tag KClient_3_1d6
+========================================================================
+
+MIT Kerberos Library 4.0d6
+October 30, 2000
+
+First Mach-O release
+
+Parts:
+	CCacheLib 3.1d5 from tag CCacheLib_3_1d5
+	DESLib 1.2d3 from tag DESLib_1_2d3
+	GSSLib, Kerberos5Lib, KerberosProfileLib, ComErrLib 3.1d5
+		from tag Mac_GSSKerberos5_3_1d5
+	Kerberos4Lib 1.1d5 from tag Kerberos4Lib_1_1d5
+	KerberosManagerLib 1.1d4 from tag KerberosManagerLib_1_1d4
+	LoginLib, LoginGlobalsLib 1.4d4 from tag LoginLib_1_4d4
+	PreferencesLib 1.1d4 from tag PreferencesLib_1_1d4
+	TicketKeeperLib 2.0d3 from tag TicketKeeperLib_2_0_d3
+	WrappersLib 1.1d4 from tag WrappersLib_1_1d4
+	KClientLib, KClientCompatLib, KClientDeprecatedLib,
+		KClientDriverLib 3.1d6 from tag KClient_3_1d6
+========================================================================
+
+MIT Kerberos Library 4.0d5
+October 27, 2000
+
+First Mach-O release
+
+Parts:
+	CCacheLib 3.1d4 from tag CCacheLib_3_1d4
+	DESLib 1.2d3 from tag DESLib_1_2d3
+	GSSLib, Kerberos5Lib, KerberosProfileLib, ComErrLib 3.1d4
+		from tag Mac_GSSKerberos5_3_1d4
+	Kerberos4Lib 1.1d4 from tag Kerberos4Lib_1_1d4
+	KerberosManagerLib 1.1d4 from tag KerberosManagerLib_1_1d4
+	LoginLib, LoginGlobalsLib 1.4d4 from tag LoginLib_1_4d4
+	PreferencesLib 1.1d4 from tag PreferencesLib_1_1d4
+	TicketKeeperLib 2.0d3 from tag TicketKeeperLib_2_0_d3
+	WrappersLib 1.1d4 from tag WrappersLib_1_1d4
+	KClientLib, KClientCompatLib, KClientDeprecatedLib,
+		KClientDriverLib 3.1d5 from tag KClient_3_1d5
+========================================================================
+
+MIT Kerberos Library 4.0d4
+October 16, 2000
+
+Carbon and CWP 6
+
+Parts:
+	CCacheLib 3.1d3 from tag CCacheLib_3_1d3
+	DESLib 1.2d2 from tag DESLib_1_2d2
+	GSSLib, Kerberos5Lib, KerberosProfileLib, ComErrLib 3.1d3
+		from tag Mac_GSSKerberos5_3_1d3
+	Kerberos4Lib 1.1d3 from tag Kerberos4Lib_1_1d3
+	KerberosManagerLib 1.1d3 from tag KerberosManagerLib_1_1d3
+	LoginLib, LoginGlobalsLib 1.4d3 from tag LoginLib_1_4d3
+	PreferencesLib 1.1d3 from tag PreferencesLib_1_1d3
+	TicketKeeperLib 2.0d2 from tag TicketKeeperLib_2_0_d2
+	WrappersLib 1.1d3 from tag WrappersLib_1_1d3
+	KClientLib, KClientCompatLib, KClientDeprecatedLib,
+		KClientDriverLib 3.1d4 from tag KClient_3_1d4
+========================================================================
+
+MIT Kerberos Library 4.0d3
+October 4, 2000
+
+Carbon and CWP 6
+
+Parts:
+	CCacheLib 3.1d2 from tag CCacheLib_3_1d2
+	DESLib 1.2d2 from tag DESLib_1_2d2
+	GSSLib, Kerberos5Lib, KerberosProfileLib, ComErrLib 3.1d2
+		from tag Mac_GSSKerberos5_3_1d2
+	Kerberos4Lib 1.1d2 from tag Kerberos4Lib_1_1d2
+	KerberosManagerLib 1.1d2 from tag KerberosManagerLib_1_1d2
+	LoginLib, LoginGlobalsLib 1.3d2 from tag LoginLib_1_3d2
+	PreferencesLib 1.1d2 from tag PreferencesLib_1_1d2
+	TicketKeeperLib 1.1d2 from tag TicketKeeperLib_1_1d2
+	WrappersLib 1.1d3 from tag WrappersLib_1_1d3
+	KClientLib, KClientCompatLib, KClientDeprecatedLib,
+		KClientDriverLib 3.1d3 from tag KClient_3_1d3
+========================================================================
+
+MIT Kerberos Library 4.0d2
+September 28, 2000
+
+Carbon and CWP 6
+
+Parts:
+	CCacheLib 3.1d2 from tag CCacheLib_3_1d2
+	DESLib 1.2d2 from tag DESLib_1_2d2
+	GSSLib, Kerberos5Lib, KerberosProfileLib, ComErrLib 3.1d2
+		from tag Mac_GSSKerberos5_3_1d2
+	Kerberos4Lib 1.1d2 from tag Kerberos4Lib_1_1d2
+	KerberosManagerLib 1.1d2 from tag KerberosManagerLib_1_1d2
+	LoginLib, LoginGlobalsLib 1.3d2 from tag LoginLib_1_3d2
+	PreferencesLib 1.1d2 from tag PreferencesLib_1_1d2
+	TicketKeeperLib 1.1d2 from tag TicketKeeperLib_1_1d2
+	WrappersLib 1.1d2 from tag WrappersLib_1_1d2
+	KClientLib, KClientCompatLib, KClientDeprecatedLib,
+		KClientDriverLib 3.1d2 from tag KClient_3_1d2
+========================================================================
+
+MIT Kerberos Library 4.0d1
+September 26, 2000
+
+Carbon and CWP 6
+
+Parts:
+	CCacheLib 3.1d1 from tag CCacheLib_3_1d1
+	DESLib 1.2d1 from tag DESLib_1_2d1
+	GSSLib, Kerberos5Lib, KerberosProfileLib, ComErrLib 3.1d1
+		from tag Mac_GSSKerberos5_3_1d1
+	Kerberos4Lib 1.1d1 from tag Kerberos4Lib_1_1d1
+	KerberosManagerLib 1.1d1 from tag KerberosManagerLib_1_1d1
+	LoginLib, LoginGlobalsLib 1.3d1 from tag LoginLib_1_3d1
+	PreferencesLib 1.1d1 from tag PreferencesLib_1_1d1
+	TicketKeeperLib 1.1d1 from tag TicketKeeperLib_1_1d1
+	WrappersLib 1.1d1 from tag WrappersLib_1_1d1
+	KClientLib, KClientCompatLib, KClientDeprecatedLib,
+		KClientDriverLib 3.1d1 from tag KClient_3_1d1
+========================================================================
+
+MIT Kerberos Library 3.1
+
+Originally, 3.1 and 4.0 were to be done in parallel. 3.1 was supposed
+to be a bug fix and UI addition release for 3.0.
+
+It was decided on October 4 2000 that we do not have enough
+resources to maintain two major releases (3.1 and 4.0) simultaneously.
+Therefore, all changes from 3.1 will be folded into 4.0, and a minor
+fix release to 3.0 will be released without the UI additions; the UI
+additions will only be released in 4.0.
+
+========================================================================
+
+	MIT Kerberos Library 3.1d1
+	September 1, 2000
+	
+	Parts:
+		CCacheLib 3.0 from tag CCacheLib_3_0
+		DESLib 1.1 from tag DESLib_1_1
+		GSSLib, Kerberos5Lib, KerberosProfileLib, ComErrLib 3.0
+			from tag Mac_GSSKerberos5_3_0
+		Kerberos4Lib 1.0 from tag Kerberos4Lib_1_0
+		KerberosManagerLib 1.0.1 from tag KerberosManagerLib_1_0_1
+		LoginLib, LoginGlobalsLib 1.3d1 from tag LoginLib_1_3d1
+		PreferencesLib 1.0 from tag PreferencesLib_1_0
+		TicketKeeperLib 2.0d1 from tag TicketKeeperLib_2_0d1
+		WrappersLib 1.0 from tag WrappersLib_1_0
+		KClientLib, KClientCompatLib, KClientDeprecatedLib,
+			KClientDriverLib, KClientLocatorLib 3.0 from tag KClient_3_0
+	========================================================================
+
+MIT Kerberos Library 3.0
+June 30, 2000
+
+Unified Kerberos v4/v5
+
+Parts:
+	CCacheLib 3.0 from tag CCacheLib_3_0
+	DESLib 1.1 from tag DESLib_1_1
+	GSSLib, Kerberos5Lib, KerberosProfileLib, ComErrLib 3.0
+		from tag Mac_GSSKerberos5_3_0
+	Kerberos4Lib 1.0 from tag Kerberos4Lib_1_0
+	KerberosManagerLib 1.0.1 from tag KerberosManagerLib_1_0_1
+	LoginLib, LoginGlobalsLib 1.2 from tag LoginLib_1_2
+	PreferencesLib 1.0 from tag PreferencesLib_1_0
+	TicketKeeperLib 1.0.1 from tag TicketKeeperLib_1_0_1
+	WrappersLib 1.0 from tag WrappersLib_1_0
+	KClientLib, KClientCompatLib, KClientDeprecatedLib,
+		KClientDriverLib, KClientLocatorLib 3.0 from tag KClient_3_0
+========================================================================
+
+	MIT Kerberos Library 3.0fc4
+	June 28, 2000
+	
+	Parts:
+		CCacheLib 3.0fc2 from tag CCacheLib_3_0fc2
+		DESLib 1.1fc2 from tag DESLib_1_1fc2
+		GSSLib, Kerberos5Lib, KerberosProfileLib, ComErrLib 3.0fc2
+			from tag Mac_GSSKerberos5_3_0fc2
+		Kerberos4Lib 1.0fc2 from tag Kerberos4Lib_1_0fc2
+		KerberosManagerLib 1.0.1fc2 from tag KerberosManagerLib_1_0_1fc2
+		LoginLib, LoginGlobalsLib 1.2fc3 from tag LoginLib_1_2fc3
+		PreferencesLib 1.0fc2 from tag PreferencesLib_1_0fc2
+		TicketKeeperLib 1.0.1fc2 from tag TicketKeeperLib_1_0_1fc2
+		WrappersLib 1.0fc3 from tag WrappersLib_1_0fc3
+		KClientLib, KClientCompatLib, KClientDeprecatedLib,
+			KClientDriverLib, KClientLocatorLib 3.0fc3 from tag KClient_3_0fc3
+	========================================================================
+
+	MIT Kerberos Library 3.0fc3
+	June 20, 2000
+	
+	Parts:
+		CCacheLib 3.0fc1 from tag CCacheLib_3_0fc1
+		DESLib 1.1fc1 from tag DESLib_1_1fc1
+		GSSLib, Kerberos5Lib, KerberosProfileLib, ComErrLib 3.0fc1
+			from tag Mac_GSSKerberos5_3_0fc1
+		Kerberos4Lib 1.0fc1 from tag Kerberos4Lib_1_0fc1
+		KerberosManagerLib 1.0.1fc1 from tag KerberosManagerLib_1_0_1fc1
+		LoginLib, LoginGlobalsLib 1.2fc2 from tag LoginLib_1_2fc2
+		PreferencesLib 1.0fc1 from tag PreferencesLib_1_0fc1
+		TicketKeeperLib 1.0.1fc1 from tag TicketKeeperLib_1_0_1fc1
+		WrappersLib 1.0fc2 from tag WrappersLib_1_0fc2
+		KClientLib, KClientCompatLib, KClientDeprecatedLib,
+			KClientDriverLib, KClientLocatorLib 3.0fc2 from tag KClient_3_0fc2
+	========================================================================
+
+	MIT Kerberos Library 3.0fc2
+	June 19, 2000
+	
+	Parts:
+		CCacheLib 3.0fc1 from tag CCacheLib_3_0fc1
+		DESLib 1.1fc1 from tag DESLib_1_1fc1
+		GSSLib, Kerberos5Lib, KerberosProfileLib, ComErrLib 3.0fc1
+			from tag Mac_GSSKerberos5_3_0fc1
+		Kerberos4Lib 1.0fc1 from tag Kerberos4Lib_1_0fc1
+		KerberosManagerLib 1.0.1fc1 from tag KerberosManagerLib_1_0_1fc1
+		LoginLib, LoginGlobalsLib 1.2fc2 from tag LoginLib_1_2fc2
+		PreferencesLib 1.0fc1 from tag PreferencesLib_1_0fc1
+		TicketKeeperLib 1.0.1fc1 from tag TicketKeeperLib_1_0_1fc1
+		WrappersLib 1.0fc1 from tag WrappersLib_1_0fc1
+		KClientLib, KClientCompatLib, KClientDeprecatedLib,
+			KClientDriverLib, KClientLocatorLib 3.0b2 from tag KClient_3_0fc1
+	========================================================================
+
+	MIT Kerberos Library 3.0fc1
+	June 16, 2000
+	
+	Parts:
+		CCacheLib 3.0fc1 from tag CCacheLib_3_0fc1
+		DESLib 1.1fc1 from tag DESLib_1_1fc1
+		GSSLib, Kerberos5Lib, KerberosProfileLib, ComErrLib 3.0fc1
+			from tag Mac_GSSKerberos5_3_0fc1
+		Kerberos4Lib 1.0fc1 from tag Kerberos4Lib_1_0fc1
+		KerberosManagerLib 1.0.1fc1 from tag KerberosManagerLib_1_0_1fc1
+		LoginLib, LoginGlobalsLib 1.2fc1 from tag LoginLib_1_2fc1
+		PreferencesLib 1.0fc1 from tag PreferencesLib_1_0fc1
+		TicketKeeperLib 1.0.1fc1 from tag TicketKeeperLib_1_0_1fc1
+		WrappersLib 1.0fc1 from tag WrappersLib_1_0fc1
+		KClientLib, KClientCompatLib, KClientDeprecatedLib,
+			KClientDriverLib, KClientLocatorLib 3.0b2 from tag KClient_3_0fc1
+	========================================================================
+
+	MIT Kerberos Library 3.0b3
+	June 14, 2000
+	
+	Parts:
+		CCacheLib 3.0b3 from tag CCacheLib_3_0b3
+		DESLib 1.1b1 from tag DESLib_1_1b1
+		GSSLib, Kerberos5Lib, KerberosProfileLib, ComErrLib 3.0b2
+			from tag Mac_GSSKerberos5_3_0b2
+		Kerberos4Lib 1.0b3 from tag Kerberos4Lib_1_0b3
+		KerberosManagerLib 1.0.1b1 from tag KerberosManagerLib_1_0_1b1
+		LoginLib, LoginGlobalsLib 1.2b2 from tag LoginLib_1_2b2
+		PreferencesLib 1.0b3 from tag PreferencesLib_1_0b3
+		TicketKeeperLib 1.0.1b1 from tag TicketKeeperLib_1_0_1b1
+		WrappersLib 1.0b2 from tag WrappersLib_1_0b2
+		KClientLib, KClientCompatLib, KClientDeprecatedLib,
+			KClientDriverLib, KClientLocatorLib 3.0b2 from tag KClient_3_0b2
+	========================================================================
+
+	MIT Kerberos Library 3.0b2
+	June 13, 2000
+	
+	Parts:
+		CCacheLib 3.0b2 from tag CCacheLib_3_0b2
+		DESLib 1.1b1 from tag DESLib_1_1b1
+		GSSLib, Kerberos5Lib, KerberosProfileLib, ComErrLib 3.0b1
+			from tag Mac_GSSKerberos5_3_0b1
+		Kerberos4Lib 1.0b2 from tag Kerberos4Lib_1_0b2
+		KerberosManagerLib 1.0.1b1 from tag KerberosManagerLib_1_0_1b1
+		LoginLib, LoginGlobalsLib 1.2b2 from tag LoginLib_1_2b2
+		PreferencesLib 1.0b2 from tag PreferencesLib_1_0b2
+		TicketKeeperLib 1.0.1b1 from tag TicketKeeperLib_1_0_1b1
+		WrappersLib 1.0b1 from tag WrappersLib_1_0b1
+		KClientLib, KClientCompatLib, KClientDeprecatedLib,
+			KClientDriverLib, KClientLocatorLib 3.0b1 from tag KClient_3_0b1
+	========================================================================
+
+	MIT Kerberos Library 3.0b1
+	June 10, 2000
+	
+	Parts:
+		CCacheLib 3.0b1 from tag CCacheLib_3_0b1
+		DESLib 1.1b1 from tag DESLib_1_1b1
+		GSSLib, Kerberos5Lib, KerberosProfileLib, ComErrLib 3.0b1
+			from tag Mac_GSSKerberos5_3_0b1
+		Kerberos4Lib 1.0b1 from tag Kerberos4Lib_1_0b1
+		KerberosManagerLib 1.0.1b1 from tag KerberosManagerLib_1_0_1b1
+		LoginLib, LoginGlobalsLib 1.2b1 from tag LoginLib_1_2b1
+		PreferencesLib 1.0b1 from tag PreferencesLib_1_0b1
+		TicketKeeperLib 1.0.1b1 from tag TicketKeeperLib_1_0_1b1
+		WrappersLib 1.0b1 from tag WrappersLib_1_0b1
+		KClientLib, KClientCompatLib, KClientDeprecatedLib,
+			KClientDriverLib, KClientLocatorLib 3.0b1 from tag KClient_3_0b1
+	========================================================================
+
+	MIT Kerberos Library 3.0a3
+	June 3, 2000
+	
+	Parts:
+		CCacheLib 3.0b1 from tag CCacheLib_3_0b1
+		DESLib 1.1a2 from tag DESLib_1_1a2
+		GSSLib, Kerberos5Lib, KerberosProfileLib, ComErrLib 3.0a2
+			from tag Mac_GSSKerberos5_3_0a2
+		Kerberos4Lib 1.0b1 from tag Kerberos4Lib_1_0b1
+		KerberosManagerLib 1.0.1a2 from tag KerberosManagerLib_1_0_1a2
+		LoginLib, LoginGlobalsLib 1.2a2 from tag LoginLib_1_2a2
+		PreferencesLib 1.0a2 from tag PreferencesLib_1_0a2
+		TicketKeeperLib 1.0.1a2 from tag TicketKeeperLib_1_0_1a2
+		WrappersLib 1.0b1 from tag WrappersLib_1_0b1
+		KClientLib, KClientCompatLib, KClientDeprecatedLib,
+			KClientDriverLib, KClientLocatorLib 3.0a2 from tag KClient_3_0a2
+	========================================================================
+
+	MIT Kerberos Library 3.0a2
+	May 25, 2000
+	
+	Parts:
+		CCacheLib 3.0a2 from tag CCacheLib_3_0a2
+		DESLib 1.1a2 from tag DESLib_1_1a2
+		GSSLib, Kerberos5Lib, KerberosProfileLib, ComErrLib 3.0a1
+			from tag Mac_GSSKerberos5_3_0a1
+		Kerberos4Lib 1.0a2 from tag Kerberos4Lib_1_0a2
+		KerberosManagerLib 1.0.1a2 from tag KerberosManagerLib_1_0_1a2
+		LoginLib, LoginGlobalsLib 1.2a1 from tag LoginLib_1_2a1
+		PreferencesLib 1.0a1 from tag PreferencesLib_1_0a1
+		TicketKeeperLib 1.0.1a2 from tag TicketKeeperLib_1_0_1a2
+		WrappersLib 1.0a1 from tag WrappersLib_1_0a1
+		KClientLib, KClientCompatLib, KClientDeprecatedLib,
+			KClientDriverLib, KClientLocatorLib 3.0a1 from tag KClient_3_0a1
+	========================================================================
+
+	MIT Kerberos Library 3.0a1
+	May 22, 2000
+	
+	Parts:
+		CCacheLib 3.0a1 from tag CCacheLib_3_0a1
+		DESLib 1.1a2 from tag DESLib_1_1a2
+		GSSLib, Kerberos5Lib, KerberosProfileLib, ComErrLib 3.0a1
+			from tag Mac_GSSKerberos5_3_0a1
+		Kerberos4Lib 1.0a2 from tag Kerberos4Lib_1_0a2
+		KerberosManagerLib 1.0.1a2 from tag KerberosManagerLib_1_0_1a2
+		LoginLib, LoginGlobalsLib 1.2a1 from tag LoginLib_1_2a1
+		PreferencesLib 1.0a1 from tag PreferencesLib_1_0a1
+		TicketKeeperLib 1.0.1a2 from tag TicketKeeperLib_1_0_1a2
+		WrappersLib 1.0a1 from tag WrappersLib_1_0a1
+		KClientLib, KClientCompatLib, KClientDeprecatedLib,
+			KClientDriverLib, KClientLocatorLib 3.0a1 from tag KClient_3_0a1
+	========================================================================
+
+	MIT Kerberos Library 3.0d9
+	May 6, 2000
+	
+	Parts:
+		CCacheLib 3.0d7 from tag CCacheLib_3_0d7
+		DESLib 1.1a1 from tag DESLib_1_1a1
+		GSSLib, Kerberos5Lib, KerberosProfileLib, ComErrLib 3.0d8
+			from tag Mac_GSSKerberos5_3_0d8
+		Kerberos4Lib 1.0a1 from tag Kerberos4Lib_1_0a1
+		KerberosManagerLib 1.0.1a2 from tag KerberosManagerLib_1_0_1a2
+		LoginLib, LoginGlobalsLib 1.2d8 from tag LoginLib_1_2d8
+		TicketKeeperLib 1.0.1a2 from tag TicketKeeperLib_1_0_1a2
+		WrappersLib 1.0d8 from tag WrappersLib_1_0d8
+		KClientLib, KClientCompatLib, KClientDeprecatedLib,
+			KClientDriverLib, KClientLocatorLib 3.0d7 from tag KClient_3_0d7
+	========================================================================
+
+	MIT Kerberos Library 3.0d8
+	April 29, 2000
+	
+	Parts:
+		CCacheLib 3.0d6 from tag CCacheLib_3_0d6
+		DESLib 1.1d3 from tag DESLib_1_1d3
+		GSSLib, Kerberos5Lib, KerberosProfileLib, ComErrLib 3.0d7
+			from tag Mac_GSSKerberos5_3_0d7
+		Kerberos4Lib 1.0d7 from tag Kerberos4Lib_1_0d7
+		KerberosManagerLib 1.0.1a1 from tag KerberosManagerLib_1_0_1a1
+		LoginLib, LoginGlobalsLib 1.2d7 from tag LoginLib_1_2d7
+		TicketKeeperLib 1.0.1a1 from tag TicketKeeperLib_1_0_1a1
+		WrappersLib 1.0d7 from tag WrappersLib_1_0d7
+		KClientLib, KClientCompatLib, KClientDeprecatedLib,
+			KClientDriverLib, KClientLocatorLib 3.0d6 from tag KClient_3_0d6
+	========================================================================
+
+	MIT Kerberos Library 3.0d7
+	April 20, 2000
+	
+	Parts:
+		CCacheLib 3.0d5 from tag CCacheLib_3_0d5
+		DESLib 1.1d2 from tag DESLib_1_1d2
+		GSSLib, Kerberos5Lib, KerberosProfileLib, ComErrLib 3.0d6
+			from tag Mac_GSSKerberos5_3_0d6
+		Kerberos4Lib 1.0d6 from tag Kerberos4Lib_1_0d6
+		KerberosManagerLib 1.0.1a1 from tag KerberosManagerLib_1_0_1a1
+		LoginLib, LoginGlobalsLib 1.2d6 from tag LoginLib_1_2d6
+		TicketKeeperLib 1.0.1a1 from tag TicketKeeperLib_1_0_1a1
+		WrappersLib 1.0d6 from tag WrappersLib_1_0d6
+		KClientLib, KClientCompatLib, KClientDeprecatedLib,
+			KClientDriverLib, KClientLocatorLib 3.0d5 from tag KClient_3_0d5
+	========================================================================
+
+	MIT Kerberos Library 3.0d6
+	April 9, 2000
+	
+	Parts:
+		CCacheLib 3.0d4 from tag CCacheLib_3_0d4
+		DESLib 1.1d2 from tag DESLib_1_1d2
+		GSSLib, Kerberos5Lib, KerberosProfileLib, ComErrLib 3.0d5
+			from tag Mac_GSSKerberos5_3_0d5
+		Kerberos4Lib 1.0d5 from tag Kerberos4Lib_1_0d5
+		KerberosManagerLib 1.0.1a1 from tag KerberosManagerLib_1_0_1a1
+		LoginLib, LoginGlobalsLib 1.2d5 from tag LoginLib_1_2d5
+		TicketKeeperLib 1.0.1a1 from tag TicketKeeperLib_1_0_1a1
+		WrappersLib 1.0d6 from tag WrappersLib_1_0d6
+		KClientLib, KClientCompatLib, KClientDeprecatedLib,
+			KClientDriverLib, KClientLocatorLib 3.0d5 from tag KClient_3_0d5
+	========================================================================
+
+	MIT Kerberos Library 3.0d5
+	March 24, 2000
+	
+	Parts:
+		CCacheLib 3.0d3 from tag CCacheLib_3_0d3
+		DESLib 1.1d2 from tag DESLib_1_1d2
+		GSSLib, Kerberos5Lib, KerberosProfileLib, ComErrLib 3.0d4
+			from tag Mac_GSSKerberos5_3_0d4
+		Kerberos4Lib 1.0d5 from tag Kerberos4Lib_1_0d5
+		KerberosManagerLib 1.0.1a1 from tag KerberosManagerLib_1_0_1a1
+		LoginLib, LoginGlobalsLib 1.2d4 from tag LoginLib_1_2d4
+		TicketKeeperLib 1.0.1a1 from tag TicketKeeperLib_1_0_1a1
+		WrappersLib 1.0d5 from tag WrappersLib_1_0d5
+		KClientLib, KClientCompatLib, KClientDeprecatedLib,
+			KClientDriverLib, KClientLocatorLib 3.0d4 from tag KClient_3_0d4
+	========================================================================
+
+	MIT Kerberos Library 3.0d4
+	March 13, 2000
+	
+	Parts:
+		CCacheLib 3.0d3 from tag CCacheLib_3_0d3
+		DESLib 1.1d2 from tag DESLib_1_1d2
+		GSSLib, Kerberos5Lib, KerberosProfileLib, ComErrLib 3.0d3
+			from tag Mac_GSSKerberos5_3_0d3
+		Kerberos4Lib 1.0d4 from tag Kerberos4Lib_1_0d4
+		KerberosManagerLib 1.0.1a1 from tag KerberosManagerLib_1_0_1a1
+		LoginLib, LoginGlobalsLib 1.2d3 from tag LoginLib_1_2d3
+		TicketKeeperLib 1.0.1a1 from tag TicketKeeperLib_1_0_1a1
+		WrappersLib 1.0d4 from tag WrappersLib_1_0d4
+		KClientLib, KClientCompatLib, KClientDeprecatedLib,
+			KClientDriverLib, KClientLocatorLib 3.0d3 from tag KClient_3_0d3
+	========================================================================
+
+	MIT Kerberos Library 3.0d3
+	March 11, 2000
+	
+	Parts:
+		CCacheLib 3.0d3 from tag CCacheLib_3_0d3
+		DESLib 1.1d2 from tag DESLib_1_1d2
+		GSSLib, Kerberos5Lib, KerberosProfileLib, ComErrLib 3.0d3
+			from tag Mac_GSSKerberos5_3_0d3
+		Kerberos4Lib 1.0d4 from tag Kerberos4Lib_1_0d4
+		KerberosManagerLib 1.0.1a1 from tag KerberosManagerLib_1_0_1a1
+		LoginLib, LoginGlobalsLib 1.2d2 from tag LoginLib_1_2d2
+		TicketKeeperLib 1.0.1a1 from tag TicketKeeperLib_1_0_1a1
+		WrappersLib 1.0d3 from tag WrappersLib_1_0d3
+		KClientLib, KClientCompatLib, KClientDeprecatedLib,
+			KClientDriverLib, KClientLocatorLib 3.0d3 from tag KClient_3_0d3
+	========================================================================
+
+	MIT Kerberos Library 3.0d2
+	February 27, 2000
+	
+	Parts:
+		CCacheLib 3.0d2 from tag CCacheLib_3_0d2
+		DESLib 1.1d2 from tag DESLib_1_1d2
+		GSSLib, Kerberos5Lib, KerberosProfileLib, ComErrLib 3.0d2
+			from tag Mac_GSSKerberos5_3_0d2
+		Kerberos4Lib 1.0d4 from tag Kerberos4Lib_1_0d4
+		KerberosManagerLib 1.0.1a1 from tag KerberosManagerLib_1_0_1a1
+		LoginLib, LoginGlobalsLib 1.2d1 from tag LoginLib_1_2d1
+		TicketKeeperLib 1.0.1a1 from tag TicketKeeperLib_1_0_1a1
+		WrappersLib 1.0d2 from tag WrappersLib_1_0d2
+		KClientLib, KClientCompatLib, KClientDeprecatedLib,
+			KClientDriverLib, KClientLocatorLib 3.0d2 from tag KClient_3_0d2
+	========================================================================
+
+	MIT Kerberos Library 3.0d1
+	February 10, 2000
+	
+	Parts:
+		CCacheLib 3.0d1 from tag CCacheLib_3_0d1
+		DESLib 1.1d1 from tag DESLib_1_1d1
+		GSSLib, Kerberos5Lib, KerberosProfileLib, ComErrLib 3.0d1
+			from tag Mac_GSSKerberos5_3_0d1
+		Kerberos4Lib 1.0d3 from tag Kerberos4Lib_1_0d3
+		KerberosManagerLib 1.0 from tag KerberosManagerLib_1_0
+		LoginLib, LoginGlobalsLib 1.0d3 from tag LoginLib_1_0d3
+		TicketKeeperLib 1.0 from tag TicketKeeperLib_1_0
+		WrappersLib 1.0d1 from tag WrappersLib_1_0d1
+		KClientLib, KClientCompatLib, KClientDeprecatedLib,
+			KClientDriverLib, KClientLocatorLib 3.0d1 from tag KClient_3_0d1
+	========================================================================
+
+MIT Kerberos Library 2.5.1
+October 22, 1999
+
+Bug fix release for MIT Kerberos Library 2.5
+
+Bugs fixed since 2.5:
+ - Now works on pre-PCI PowerMacs (weak link against DriverServicesLib)
+ - krb5_change_password 2 minute timeout added
+
+Parts:
+	CCacheLib 2.0.2 from tag CCacheLib_2_0_2
+	DESLib 1.0.5 from tag DESLib_1_0_5
+	GSSLib, Kerberos5Lib, Kerberos5GlobalsLib, KerberosProfileLib,
+		ComErrLib 2.5.1 from tag Mac_GSSKerberos5_2_5_1
+	KerberosManagerLib 1.0 from KerberosManagerLib_1_0
+	TicketKeeperLib 1.0 from TicketKeeperLib_1_0
+
+========================================================================
+
+MIT Kerberos Library 2.5
+September 14, 1999
+
+Old APIs, unchanged:
+	DESLib (1.0.5)
+	Kerberos5GlobalsLib (2.5)
+	
+Old APIs, API changed:
+	Kerberos5Lib (2.5)
+
+Old APIs, implementation changed:	
+	CCacheLib (2.0.2)
+	GSSLib (2.5)
+	Kerberos5Lib (2.5)
+
+New APIs:
+	KerberosManagerLib (1.0)
+	TicketKeeperLib (1.0)
+	ComErrLib (2.5)
+	KerberosProfileLib (2.5)
+	
+Parts:
+	CCacheLib 2.0.2 from tag CCacheLib_2_0_2
+	DESLib 1.0.5 from tag DESLib_1_0_5
+	GSSLib, Kerberos5Lib, Kerberos5GlobalsLib, KerberosProfileLib,
+		ComErrLib 2.5 from tag Mac_GSSKerberos5_2_5
+	KerberosManagerLib 1.0 from KerberosManagerLib_1_0
+	TicketKeeperLib 1.0 from TicketKeeperLib_1_0
+
+========================================================================
+
+	MIT Kerberos Library 2.5b2
+	Release date: September 2, 1999
+	
+	Parts:
+		CCacheLib 2.0.2b2 from tag CCacheLib_2_0_2b2
+		DESLib 1.0.5fc3 from tag DESLib_1_0_5fc3
+		GSSLib, Kerberos5Lib, Kerberos5GlobalsLib, KerberosProfileLib,
+			ComErrLib 2.5b2 from tag Mac_GSSKerberos5_2_5b2
+		KerberosManagerLib 1.0b2 from KerberosManagerLib_1_0b2
+		TicketKeeperLib 1.0b1 from TicketKeeperLib_1_0b1
+	========================================================================
+
+	MIT Kerberos Library 2.5b1
+	Release date: August 21, 1999
+	
+	Parts:
+		CCacheLib 2.0.2b1 from tag CCacheLib_2_0_2b1
+		DESLib 1.0.5fc2 from tag DESLib_1_0_5fc2
+		GSSLib, Kerberos5Lib, Kerberos5GlobalsLib, KerberosProfileLib,
+			ComErrLib 2.5b1 from tag Mac_GSSKerberos5_2_5b1
+		KerberosManagerLib 1.0b1 from KerberosManagerLib_1_0b1
+	========================================================================
+
+	MIT Kerberos Library 2.5a2
+	Release date: August 6, 1999
+	
+	Parts:
+		CCacheLib 2.0.2a1 from tag CCacheLib_2_0_2a1
+		DESLib 1.0.5fc1 from tag DESLib_1_0_5fc1
+		GSSLib, Kerberos5Lib, Kerberos5GlobalsLib, KerberosProfileLib
+			2.5a2 from tag GSSKerberos5_2_5a2
+	========================================================================
+
+	MIT Kerberos Library 2.5a1
+	Release date: July 26, 1999
+	
+	Parts:
+		CCacheLib 2.0.1 from tag CCacheLib_2_0_1
+		DESLib 1.0.5a1 from tag DESLib_1_0_5a1
+		GSSLib, Kerberos5Lib, Kerberos5GlobalsLib, KerberosProfileLib
+			2.5a1 from tag GSSKerberos5_2_5a1
+	========================================================================
+
+	MIT Kerberos Library 2.1d4
+	Release date: May 28, 1999
+	
+	First development unified release of Kerberos v4 and v5
+	
+	Parts:
+		CCacheLib 2.0.1 from tag CCacheLib_2_0_1
+		DESLib 1.0.5d1 from tag DESLib_1_0_5d1
+		GSSLib, Kerberos5Lib, Kerberos5GlobalsLib, KerberosProfileLib
+			2.1d4 from tag GSSKerberos5_2_1d4
+		Kerberos4Lib, Kerberos4GlobalsLib 1.0d2 from tag Kerberos4Lib_1_0d2
+		LoginLib, LoginGlobalsLib 1.0d2 from tag LoginLib_1_0d2
+		RealmsLib 1.0d2 from tag RealmsLib_1_0d2
+	========================================================================
+
+	MIT Kerberos Library 2.1d3
+	???
+	
+	Parts:
+		??
+	========================================================================
+
+	MIT Kerberos Library 2.1d2
+	???
+
+	Parts:
+		??
+	========================================================================
+
+	MIT Kerberos Library 2.1d1
+	Release date: May 28, 1999
+	Distribution: MIT I/S internal
+	
+	Rebuilt everything from new tree
+	Removed vers 2 resource
+	
+	Parts:
+		CCacheLib 2.0.1d1 from tag CCacheLib_2_0_1d1
+		DESLib 1.0.5d1 from tag DESLib_1_0_5d1
+		GSSLib, Kerberos5Lib, Kerberos5GlobalsLib
+			2.1d1 from tag GSSKerberos5_2_1d1
+	========================================================================
+
+MIT Kerberos Library 2.0.2
+July 7, 1999
+
+Bugs fixed in this revision:
+ - CCache system-heap trashing fixed
+
+Parts:
+		CCacheLib 2.0.1 from tag CCacheLib_2_0_1
+		DESLib 1.0.4 from tag DESLib_1_0_4
+		GSSLib, Kerberos5Lib, Kerberos5GlobalsLib
+			2.0.1 from tag Mac_V2_0_1
+
+========================================================================
+
+MIT Kerberos Library 2.0.1
+June 29, 1999
+
+New features in this revision:
+ - Microseconds timing on PCI Macs
+ - NRL config file name added
+
+Bugs fixed in this revision:
+ - Microseconds support fixed for pre-PCI Macs
+ - Profile layer correctly fails when a config file is not found
+
+Parts:
+		CCacheLib 2.0 from tag CCacheLib_2_0
+		DESLib 1.0.4 from tag DESLib_1_0_4
+		GSSLib, Kerberos5Lib, Kerberos5GlobalsLib
+			2.0.1 from tag Mac_V2_0_1
+
+========================================================================
+
+MIT Kerberos Library 2.0
+April 29, 1999
+
+Parts:
+		CCacheLib 2.0 from tag CCacheLib_2_0
+		DESLib 1.0.4 from tag DESLib_1_0_4
+		GSSLib, Kerberos5Lib, Kerberos5GlobalsLib
+			2.0 from tag Mac_V2_0

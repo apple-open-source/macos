@@ -1,0 +1,32 @@
+
+The jacorb.jar file in this directory was generated from the 
+HEAD version in the JacORB CVS repository as of March 29, 2003,
+with a couple of changes in org/jacorb/util/Version.java just 
+to indicate that it is an unofficial version built from CVS:
+
+$ cvs -z3 diff Version.java
+Index: Version.java
+===================================================================
+RCS file: /cvsroot/jacorb/JacORB/src/org/jacorb/util/Version.java,v
+retrieving revision 1.13
+diff -r1.13 Version.java
+35c35
+<     public static final String version = "1.4.50";
+---
+>     public static final String version = "1.4.50 - CVS";
+37c37
+<     public static final String date = "(CVS)";
+---
+>     public static final String date = "March 29, 2003";
+
+
+Kudos to the JacORB team, for this great open-source ORB.
+
+Special thanks to:
+
+        Gerald Brose, for creating JacORB
+
+        Andre Spiegel, for his work on OBV in JacORB
+
+
+Francisco

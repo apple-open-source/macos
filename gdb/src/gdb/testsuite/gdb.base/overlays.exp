@@ -1,4 +1,4 @@
-#   Copyright 1997, 1998 Free Software Foundation, Inc.
+# Copyright 1997, 1998, 2001, 2002, 2003 Free Software Foundation, Inc.
 # 
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -41,29 +41,25 @@ if [istarget "d10v-*-*"] then {
 
 set testfile "overlays"
 set binfile ${objdir}/${subdir}/${testfile}
-set srcfile ${srcdir}/${subdir}/${testfile}.c
-set foo     ${srcdir}/${subdir}/foo.c
-set bar     ${srcdir}/${subdir}/bar.c
-set baz     ${srcdir}/${subdir}/baz.c
-set grbx    ${srcdir}/${subdir}/grbx.c
+set srcfile ${testfile}.c
 
-if {[gdb_compile "${srcfile}" "${testfile}.o" object {debug}] != ""} then {
+if {[gdb_compile "${srcdir}/${subdir}/${srcfile}" "${testfile}.o" object {debug}] != ""} then {
      gdb_suppress_entire_file "Testcase compile failed, so all tests in this file will automatically fail."
 }
 if {[gdb_compile "${srcdir}/${subdir}/ovlymgr.c" ovlymgr.o object {debug}] != ""} then {
      gdb_suppress_entire_file "Testcase compile failed, so all tests in this file will automatically fail."
 }
-if {[gdb_compile "${foo}" foo.o object {debug} ] != ""} then {
+if {[gdb_compile "${srcdir}/${subdir}/foo.c" foo.o object {debug} ] != ""} then {
      gdb_suppress_entire_file "Testcase compile failed, so all tests in this file will automatically fail."
 }
 
-if {[gdb_compile "${bar}" bar.o object {debug}] != ""} then {
+if {[gdb_compile "${srcdir}/${subdir}/bar.c" bar.o object {debug}] != ""} then {
      gdb_suppress_entire_file "Testcase compile failed, so all tests in this file will automatically fail."
 }
-if {[gdb_compile "${baz}" baz.o object {debug}] != ""} then {
+if {[gdb_compile "${srcdir}/${subdir}/baz.c" baz.o object {debug}] != ""} then {
      gdb_suppress_entire_file "Testcase compile failed, so all tests in this file will automatically fail."
 }
-if {[gdb_compile "${grbx}" grbx.o object {debug}] != ""} then {
+if {[gdb_compile "${srcdir}/${subdir}/grbx.c" grbx.o object {debug}] != ""} then {
      gdb_suppress_entire_file "Testcase compile failed, so all tests in this file will automatically fail."
 }
 if  {[gdb_compile "${testfile}.o ovlymgr.o foo.o bar.o baz.o grbx.o" ${binfile} executable "ldscript=-Wl,-T$linker_script"] != "" } {
@@ -86,22 +82,42 @@ if ![runto_main] then {
 }
 
 # couple of convenience variables
-set fptrcast [string_to_regexp "(int (*)(int))"]
+set fptrcast [string_to_regexp "{int (int)}"]
 set iptrcast [string_to_regexp "(int *)"]
+set hexx "0x\[0-9abcdefABCDEF\]+"
 
 gdb_test "overlay manual" "" 
 gdb_test "overlay list" "No sections are mapped." "List with none mapped"
 
 # capture the LMA addresses of [foo bar baz grbx foox barx bazx grbxx]
 
-gdb_test "print \$foo_lma = &foo" \
-	".* $fptrcast 0x.* <\\*foo\\*>"  "foo load addr"
-gdb_test "print \$bar_lma = &bar" \
-	".* $fptrcast 0x.* <\\*bar\\*>"  "bar load addr"
-gdb_test "print \$baz_lma = &baz" \
-	".* $fptrcast 0x.* <\\*baz\\*>"  "baz load addr"
-gdb_test "print \$grbx_lma = &grbx" \
-	".* $fptrcast 0x.* <\\*grbx\\*>" "grbx load addr"
+proc get_func_address { func func_sym msg } {
+    global gdb_prompt
+    global fptrcast
+    global hexx
+
+    set func_addr 0
+    send_gdb "print $func\n" 
+    gdb_expect {
+	-re "\\$\[0-9\]+ = $fptrcast (${hexx}) <$func_sym>.*$gdb_prompt $" {
+	    set func_addr $expect_out(1,string)
+	    pass "get $msg"
+	}
+	-re ".*$gdb_prompt $" {
+	    fail "get $msg"
+	}
+	default {
+	    fail "get $msg (timeout)"
+	}
+    }
+    return $func_addr
+}
+
+set foo_lma  [get_func_address "foo"  "\\*foo\\*"  "foo  load address"]
+set bar_lma  [get_func_address "bar"  "\\*bar\\*"  "bar  load address"]
+set baz_lma  [get_func_address "baz"  "\\*baz\\*"  "baz  load address"]
+set grbx_lma [get_func_address "grbx" "\\*grbx\\*" "grbx load address"]
+
 gdb_test "print \$foox_lma = &foox" \
 	".* $iptrcast 0x.*"  "foox load addr"
 gdb_test "print \$barx_lma = &barx" \
@@ -116,23 +132,19 @@ gdb_test "print \$grbxx_lma = &grbxx" \
 
 gdb_test "overlay map .ovly0" "" 
 gdb_test "overlay list" "Section .ovly0, loaded at.*, mapped at.*" "List ovly0"
-gdb_test "print \$foo_vma = &foo" \
-	".* $fptrcast 0x.* <foo>"  "foo runtime addr"
+set foo_vma [get_func_address "foo"  "foo"  "foo  runtime address"]
 
 gdb_test "overlay map .ovly1" "" 
 gdb_test "overlay list" "Section .ovly1, loaded at.*, mapped at.*" "List ovly1"
-gdb_test "print \$bar_vma = &bar" \
-	".* $fptrcast 0x.* <bar>"  "bar runtime addr"
+set bar_vma [get_func_address "bar"  "bar"  "bar  runtime address"]
 
 gdb_test "overlay map .ovly2" "" 
 gdb_test "overlay list" "Section .ovly2, loaded at.*, mapped at.*" "List ovly2"
-gdb_test "print \$baz_vma = &baz" \
-	".* $fptrcast 0x.* <baz>"  "baz runtime addr"
+set baz_vma [get_func_address "baz"  "baz"  "baz  runtime address"]
 
 gdb_test "overlay map .ovly3" "" 
 gdb_test "overlay list" "Section .ovly3, loaded at.*, mapped at.*" "List ovly3"
-gdb_test "print \$grbx_vma = &grbx" \
-	".* $fptrcast 0x.* <grbx>"  "grbx runtime addr"
+set grbx_vma [get_func_address "grbx" "grbx" "grbx runtime address"]
 
 gdb_test "overlay map .data00" "" 
 gdb_test "overlay list" "Section .data00, loaded .*, mapped .*" "List data00"
@@ -156,10 +168,10 @@ gdb_test "print \$grbxx_vma = &grbxx" \
 
 # Verify that LMA != VMA
 
-gdb_test "print \$foo_lma   != \$foo_vma" ".* = 1"   "foo's LMA   != VMA"
-gdb_test "print \$bar_lma   != \$bar_vma" ".* = 1"   "bar's LMA   != VMA"
-gdb_test "print \$baz_lma   != \$baz_vma" ".* = 1"   "baz's LMA   != VMA"
-gdb_test "print \$grbx_lma  != \$grbx_vma" ".* = 1"  "grbx's LMA  != VMA"
+gdb_test "print $foo_lma   != $foo_vma" ".* = 1"   "foo's LMA   != VMA"
+gdb_test "print $bar_lma   != $bar_vma" ".* = 1"   "bar's LMA   != VMA"
+gdb_test "print $baz_lma   != $baz_vma" ".* = 1"   "baz's LMA   != VMA"
+gdb_test "print $grbx_lma  != $grbx_vma" ".* = 1"  "grbx's LMA  != VMA"
 gdb_test "print \$foox_lma  != \$foox_vma" ".* = 1"  "foox's LMA  != VMA"
 gdb_test "print \$barx_lma  != \$barx_vma" ".* = 1"  "barx's LMA  != VMA"
 gdb_test "print \$bazx_lma  != \$bazx_vma" ".* = 1"  "bazx's LMA  != VMA"
@@ -177,6 +189,42 @@ gdb_expect {
     -re ".*$gdb_prompt $"	{ pass "Automatic unmapping"             }
     timeout			{ fail "(timeout) Automatic unmapping"   }
 }
+
+# Verify that both sec1 and sec2 can be loaded simultaneously.
+proc simultaneous_pair { sec1 sec2 } {
+    global gdb_prompt
+
+    set pairname "$sec1 and $sec2 mapped simultaneously"
+    gdb_test "overlay map $sec1" "" "$pairname: map $sec1"
+    gdb_test "overlay map $sec2" "" "$pairname: map $sec2"
+
+    set seen_sec1 0
+    set seen_sec2 0
+
+    send_gdb "overlay list\n"
+    gdb_expect {
+        -re ".*[string_to_regexp $sec1], " { set seen_sec1 1; exp_continue }
+        -re ".*[string_to_regexp $sec2], " { set seen_sec2 1; exp_continue }
+        -re ".*$gdb_prompt $" {
+            if {$seen_sec1 && $seen_sec2} {
+                pass "$pairname"
+            } else {
+                fail "$pairname"
+            }
+        }
+        timeout { fail "(timeout) $pairname" }
+    }
+}
+
+simultaneous_pair .ovly0 .ovly2
+simultaneous_pair .ovly0 .ovly3
+simultaneous_pair .ovly1 .ovly2
+simultaneous_pair .ovly1 .ovly3
+
+simultaneous_pair .data00 .data02
+simultaneous_pair .data00 .data03
+simultaneous_pair .data01 .data02
+simultaneous_pair .data01 .data03
 
 # test automatic mode
 

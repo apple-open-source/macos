@@ -1,0 +1,17 @@
+This package was debianized by Roger Leigh <roger@whinlatter.uklinux.net> on
+Fri, 26 Jan 2001 17:42:06 +0000.
+
+It was downloaded from cvs.gimp-print.sourceforge.net
+
+Upstream Authors: Michael Sweet (mike@easysw.com)
+                  Robert Krawitz (rlk@alum.mit.edu)
+
+Copyright:
+
+This software is copyright (c) 1997-2001 Michael Sweet and Robert Krawitz
+
+You are free to distribute this software under the terms of
+the GNU General Public License.
+On Debian systems, the complete text of the GNU General Public
+License can be found in /usr/share/common-licenses/GPL file.
+

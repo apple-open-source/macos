@@ -1,7 +1,7 @@
 /* terminal.h -- The external interface to terminal I/O.
-   $Id: terminal.h,v 1.1.1.1 2002/04/19 01:00:27 jkh Exp $
+   $Id: terminal.h,v 1.2 2003/07/25 18:37:07 jkh Exp $
 
-   Copyright (C) 1993, 96, 97, 2001 Free Software Foundation, Inc.
+   Copyright (C) 1993, 1996, 1997, 2001, 2002 Free Software Foundation, Inc.
 
    This program is free software; you can redistribute it and/or modify
    it under the terms of the GNU General Public License as published by

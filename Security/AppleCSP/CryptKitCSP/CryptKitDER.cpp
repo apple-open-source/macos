@@ -25,14 +25,13 @@
 
 #ifdef	CRYPTKIT_CSP_ENABLE
 
-#include <Security/asn-incl.h>
-#include <Security/sm_vdatypes.h>
 #include <CryptKit/CryptKitDER.h>
 #include <CryptKit/falloc.h>
 #include <CryptKit/feeDebug.h>
 #include <CryptKit/feeFunctions.h>
-#include <Security/cdsaUtils.h>
-#include <Security/appleoids.h>
+#include "CryptKitAsn1.h"
+#include <SecurityNssAsn1/SecNssCoder.h>
+
 
 #define PRINT_SIG_GIANTS		0
 #define PRINT_CURVE_PARAMS		0
@@ -46,7 +45,6 @@
 /*
  * Trivial exception class associated with a feeReturn.
  */
-// @@@ This should really be a subclass of exception
 class feeException
 {
 protected:
@@ -69,7 +67,7 @@ feeException::feeException(
 	}
 }
 
-void feeException::throwMe(feeReturn frtn, const char *op = NULL) { throw feeException(frtn, op); }
+void feeException::throwMe(feeReturn frtn, const char *op /*= NULL*/) { throw feeException(frtn, op); }
 
 /*
  * ASN1 encoding rules specify that an integer's sign is indicated by the MSB
@@ -96,11 +94,6 @@ static unsigned feeSizeOfSnaccGiant(
 	return rtn + 4;
 }
 
-static unsigned feeSizeofSnaccInt()
-{
-	return 7;
-}
-
 /* PUBLIC... */
 unsigned feeSizeOfDERSig(
 	giant g1,
@@ -110,32 +103,6 @@ unsigned feeSizeOfDERSig(
 	rtn += feeSizeOfSnaccGiant(g2);
 	szprint(("feeSizeOfDERSig: size %d\n", rtn + 4));
 	return rtn + 4;
-}
-
-static unsigned feeSizeofSnaccCurveParams(const curveParams *cp)
-{
-	unsigned rtn = 5 * feeSizeofSnaccInt();	// primeType, curveType, q, k, m
-	rtn += 10 * feeSizeOfSnaccGiant(cp->basePrime);
-	szprint(("feeSizeofSnaccCurveParams: size %d\n", rtn));
-	return rtn;
-}
-
-static unsigned feeSizeOfSnaccPubKey(const curveParams *cp)
-{
-	unsigned rtn = 11;						// version plus sequence overhead
-	rtn += feeSizeofSnaccCurveParams(cp);
-	rtn += (3 * feeSizeOfSnaccGiant(cp->basePrime));
-	szprint(("feeSizeOfSnaccPubKey: size %d\n", rtn));
-	return rtn;
-}
-
-static unsigned feeSizeOfSnaccPrivKey(const curveParams *cp)
-{
-	unsigned rtn = 11;						// version plus sequence overhead
-	rtn += feeSizeofSnaccCurveParams(cp);
-	rtn += feeSizeOfSnaccGiant(cp->basePrime);
-	szprint(("feeSizeOfSnaccPrivKey: size %d\n", rtn));
-	return rtn;
 }
 
 /* perform 2's complement of byte array, expressed MS byte first */
@@ -160,14 +127,67 @@ static void twosComplement(
 }
 
 /*
- * Convert a BigIntegerStr to a (mallocd) giant. 
+ * CSSM_DATA --> unsigned int
+ */
+static unsigned cssmDataToInt(
+	const CSSM_DATA &cdata)
+{
+	if((cdata.Length == 0) || (cdata.Data == NULL)) {
+		return 0;
+	}
+	unsigned len = (unsigned)cdata.Length;
+	if(len > sizeof(int)) {
+		feeException::throwMe(FR_BadKeyBlob, "cssmDataToInt");
+	}
+	
+	unsigned rtn = 0;
+	uint8 *cp = cdata.Data;
+	for(unsigned i=0; i<len; i++) {
+		rtn = (rtn << 8) | *cp++;
+	}
+	return rtn;
+}
+
+/*
+ * unsigned int --> CSSM_DATA, mallocing from an SecNssCoder 
+ */
+static void intToCssmData(
+	unsigned num,
+	CSSM_DATA &cdata,
+	SecNssCoder &coder)
+{
+	unsigned len = 0;
+	
+	if(num < 0x100) {
+		len = 1;
+	}
+	else if(num < 0x10000) {
+		len = 2;
+	}
+	else if(num < 0x1000000) {
+		len = 3;
+	}
+	else {
+		len = 4;
+	}
+	cdata.Data = (uint8 *)coder.malloc(len);
+	cdata.Length = len;
+	uint8 *cp = &cdata.Data[len - 1];
+	for(unsigned i=0; i<len; i++) {
+		*cp-- = num & 0xff;
+		num >>= 8;
+	}
+}
+
+/*
+ * Convert a decoded ASN integer, as a CSSM_DATA, to a (mallocd) giant. 
  * Only known exception is a feeException.
  */
-static giant bigIntStrToGiant(
-	BigIntegerStr 	&bigInt)
+static giant cssmDataToGiant(
+	const CSSM_DATA 	&cdata)
 {
-	char *rawOcts = bigInt;
-	unsigned numBytes = bigInt.Len();
+	char *rawOcts = (char *)cdata.Data;
+	unsigned numBytes = cdata.Length;
 	unsigned numGiantDigits;
 	int sign = 1;
 	giant grtn;
@@ -253,12 +273,13 @@ abort:
 }
 
 /*
- * Convert a giant to an existing BigIntegerString.
+ * Convert a giant to an CSSM_DATA, mallocing using specified coder. 
  * Only known exception is a feeException.
  */
-static void giantToBigIntStr(
-	giant 			g,
-	BigIntegerStr 	&bigInt)
+ static void giantToCssmData(
+	giant 		g,
+	CSSM_DATA 	&cdata,
+	SecNssCoder	&coder)
 {
 	unsigned char doPrepend = 0;	
 	unsigned numGiantDigits = abs(g->sign);
@@ -266,7 +287,7 @@ static void giantToBigIntStr(
 	giantDigit msGiantBit = 0;
 	if(isZero(g)) {
 		/* special degenerate case */
-		bigInt.ReSet("", 1);
+		intToCssmData(0, cdata, coder);
 		return;
 	}
 	else {
@@ -327,129 +348,74 @@ static void giantToBigIntStr(
 		outp++;
 		numBytes--;
 	}
-
-	/* rawBytes are the ASN-compliant contents */
-	bigInt.ReSet(reinterpret_cast<const char *>(outp), numBytes);
+	cdata.Data = (uint8 *)coder.malloc(numBytes);
+	memmove(cdata.Data, outp, numBytes);
+	cdata.Length = numBytes;
 	ffree(rawBytes);
+	return;
 }
 
-/* curveParams : CryptKit <--> snacc */
+/* curveParams : CryptKit <--> FEECurveParametersASN1 */
 /* Only known exception is a feeException */
-static FEECurveParameters *feeCurveParamsToSnacc(
-	const curveParams *cp)
+static void feeCurveParamsToASN1(
+	const curveParams *cp,
+	FEECurveParametersASN1 &asnCp,
+	SecNssCoder &coder)
 {
 	#if 	PRINT_CURVE_PARAMS
 	printf("===encoding curveParams; cp:\n"); printCurveParams(cp);
 	#endif
-	FEECurveParameters *snaccCp = NULL;
+	memset(&asnCp, 0, sizeof(asnCp));
 	try {
-		snaccCp = new FEECurveParameters();
-		AsnIntType val;
-		switch(cp->primeType) {
-			case FPT_Mersenne:
-				val = FEEPrimeType::pt_mersenne;
-				break;
-			case FPT_FEE:
-				val = FEEPrimeType::pt_fee;
-				break;
-			case FPT_General:
-				val = FEEPrimeType::pt_general;
-				break;
-			default:
-				feeException::throwMe(FR_Internal, "bad cp->primeType");
-		}
-		snaccCp->primeType.Set(val);
-		switch(cp->curveType) {
-			case FCT_Montgomery:
-				val = FEECurveType::ct_montgomery;
-				break;
-			case FCT_Weierstrass:
-				val = FEECurveType::ct_weierstrass;
-				break;
-			case FCT_General:
-				val = FEECurveType::ct_general;
-				break;
-			default:
-				feeException::throwMe(FR_Internal, "bad cp->curveType");
-		}
-		snaccCp->curveType.Set(val);
-		snaccCp->q.Set(cp->q);
-		snaccCp->k.Set(cp->k);
-		snaccCp->m.Set(cp->m);
-		giantToBigIntStr(cp->a, snaccCp->a);
-		giantToBigIntStr(cp->b, snaccCp->bb);
-		giantToBigIntStr(cp->c, snaccCp->c);
-		giantToBigIntStr(cp->x1Plus, snaccCp->x1Plus);
-		giantToBigIntStr(cp->x1Minus, snaccCp->x1Minus);
-		giantToBigIntStr(cp->cOrderPlus, snaccCp->cOrderPlus);
-		giantToBigIntStr(cp->cOrderMinus, snaccCp->cOrderMinus);
-		giantToBigIntStr(cp->x1OrderPlus, snaccCp->x1OrderPlus);
-		giantToBigIntStr(cp->x1OrderMinus, snaccCp->x1OrderMinus);
+		intToCssmData(cp->primeType, asnCp.primeType, coder);
+		intToCssmData(cp->curveType, asnCp.curveType, coder);
+		intToCssmData(cp->q, asnCp.q, coder);
+		intToCssmData(cp->k, asnCp.k, coder);
+		intToCssmData(cp->m, asnCp.m, coder);
+		giantToCssmData(cp->a, asnCp.a, coder);
+		giantToCssmData(cp->b, asnCp.b_, coder);
+		giantToCssmData(cp->c, asnCp.c, coder);
+		giantToCssmData(cp->x1Plus, asnCp.x1Plus, coder);
+		giantToCssmData(cp->x1Minus, asnCp.x1Minus, coder);
+		giantToCssmData(cp->cOrderPlus, asnCp.cOrderPlus, coder);
+		giantToCssmData(cp->cOrderMinus, asnCp.cOrderMinus, coder);
+		giantToCssmData(cp->x1OrderPlus, asnCp.x1OrderPlus, coder);
+		giantToCssmData(cp->x1OrderMinus, asnCp.x1OrderMinus, coder);
 		if(cp->primeType == FPT_General) {
-			snaccCp->basePrime = new BigIntegerStr();
-			giantToBigIntStr(cp->basePrime, *snaccCp->basePrime);
+			giantToCssmData(cp->basePrime, asnCp.basePrime, coder);
 		}
 	}
 	catch(const feeException &ferr) {
-		delete snaccCp;
 		throw;
 	}
 	catch(...) {
-		delete snaccCp;
 		feeException::throwMe(FR_Memory, "feeCurveParamsToSnacc catchall");	// ???
 	}
-	return snaccCp;
 }
 
-static curveParams *feeCurveParamsFromSnacc(
-	FEECurveParameters	&snaccCp)
+static curveParams *feeCurveParamsFromAsn1(
+	const FEECurveParametersASN1 &asnCp)
 {
 	curveParams *cp = newCurveParams();
 	if(cp == NULL) {
 		feeException::throwMe(FR_Memory, "feeCurveParamsFromSnacc alloc cp");
 	}
-	AsnIntType val = snaccCp.primeType;
-	switch(val) {
-		case FEEPrimeType::pt_mersenne:
-			cp->primeType = FPT_Mersenne;
-			break;
-		case FEEPrimeType::pt_fee:
-			cp->primeType = FPT_FEE;
-			break;
-		case FEEPrimeType::pt_general:
-			cp->primeType = FPT_General;
-			break;
-		default:
-			feeException::throwMe(FR_BadPubKey, "feeCurveParamsFromSnacc bad primeType");
-	}
-	val = snaccCp.curveType;
-	switch(val) {
-		case FEECurveType::ct_montgomery:
-			cp->curveType = FCT_Montgomery;
-			break;
-		case FEECurveType::ct_weierstrass:
-			cp->curveType = FCT_Weierstrass;
-			break;
-		case FEECurveType::ct_general:
-			cp->curveType = FCT_General;
-			break;
-		default:
-			feeException::throwMe(FR_BadPubKey, "feeCurveParamsFromSnacc bad curveType");
-	}
-	cp->q 			   = snaccCp.q;
-	cp->k 			   = snaccCp.k;
-	cp->m 			   = snaccCp.m;
-	cp->a 			   = bigIntStrToGiant(snaccCp.a);
-	cp->b 			   = bigIntStrToGiant(snaccCp.bb);
-	cp->c              = bigIntStrToGiant(snaccCp.c);
-	cp->x1Plus         = bigIntStrToGiant(snaccCp.x1Plus);
-	cp->x1Minus        = bigIntStrToGiant(snaccCp.x1Minus);
-	cp->cOrderPlus     = bigIntStrToGiant(snaccCp.cOrderPlus);
-	cp->cOrderMinus    = bigIntStrToGiant(snaccCp.cOrderMinus);
-	cp->x1OrderPlus    = bigIntStrToGiant(snaccCp.x1OrderPlus);
-	cp->x1OrderMinus   = bigIntStrToGiant(snaccCp.x1OrderMinus);
-	if(snaccCp.basePrime != NULL) {
-		cp->basePrime  = bigIntStrToGiant(*snaccCp.basePrime);
+	cp->primeType = (feePrimeType)cssmDataToInt(asnCp.primeType);
+	cp->curveType = (feeCurveType)cssmDataToInt(asnCp.curveType);
+	cp->q 			   = cssmDataToInt(asnCp.q);
+	cp->k 			   = cssmDataToInt(asnCp.k);
+	cp->m 			   = cssmDataToInt(asnCp.m);
+	cp->a 			   = cssmDataToGiant(asnCp.a);
+	cp->b 			   = cssmDataToGiant(asnCp.b_);
+	cp->c              = cssmDataToGiant(asnCp.c);
+	cp->x1Plus         = cssmDataToGiant(asnCp.x1Plus);
+	cp->x1Minus        = cssmDataToGiant(asnCp.x1Minus);
+	cp->cOrderPlus     = cssmDataToGiant(asnCp.cOrderPlus);
+	cp->cOrderMinus    = cssmDataToGiant(asnCp.cOrderMinus);
+	cp->x1OrderPlus    = cssmDataToGiant(asnCp.x1OrderPlus);
+	cp->x1OrderMinus   = cssmDataToGiant(asnCp.x1OrderMinus);
+	if(asnCp.basePrime.Data != NULL) {
+		cp->basePrime  = cssmDataToGiant(asnCp.basePrime);
 	}
 	
 	/* remaining fields inferred */
@@ -475,33 +441,37 @@ feeReturn feeDEREncodeElGamalSignature(
 	unsigned char	**encodedSig,		// fmallocd and RETURNED
 	unsigned		*encodedSigLen)		// RETURNED
 {
-	FEEElGamalSignature snaccSig;
-	CssmAutoData oData(CssmAllocator::standard(CssmAllocator::sensitive));
+	/* convert to FEEElGamalSignatureASN1 */
+	FEEElGamalSignatureASN1 asnSig;
+	SecNssCoder coder;
 	
 	try {
-		giantToBigIntStr(u, snaccSig.u);
-		giantToBigIntStr(PmX, snaccSig.pmX);
+		giantToCssmData(u, asnSig.u, coder);
+		giantToCssmData(PmX, asnSig.pmX, coder);
 	} 
 	catch(const feeException &ferr) {
 		return ferr.frtn();
 	}
-	try {
-		SC_encodeAsnObj(snaccSig, oData, feeSizeOfDERSig(u, PmX));
+	
+	/* DER encode */
+	PRErrorCode perr;
+	CSSM_DATA encBlob;			// mallocd by coder
+	perr = coder.encodeItem(&asnSig, FEEElGamalSignatureASN1Template, encBlob);
+	if(perr) {
+		return FR_Memory;
 	}
-	catch(...) {
-		/* FIXME - bad sig? memory? */
-		return FR_BadSignatureFormat;
-	}
-	*encodedSig = (unsigned char *)fmalloc(oData.length());
-	*encodedSigLen = oData.length();
-	memmove(*encodedSig, oData.get().Data, oData.length()); 
+
+	/* copy out  to caller */
+	*encodedSig = (unsigned char *)fmalloc(encBlob.Length);
+	*encodedSigLen = encBlob.Length;
+	memmove(*encodedSig, encBlob.Data, encBlob.Length); 
+	
 	#if	PRINT_SIG_GIANTS
 	printf("feeEncodeElGamalSignature:\n");
 	printf("   u   : "); printGiantHex(u);
 	printf("   PmX : "); printGiantHex(PmX);
-	printf("   u   : "); snaccSig.u.Print(cout); printf("\n");
-	printf("   PmX : "); snaccSig.pmX.Print(cout); printf("\n");
 	#endif
+	
 	return FR_Success;
 }
 
@@ -511,34 +481,38 @@ feeReturn feeDEREncodeECDSASignature(
 	unsigned char	**encodedSig,		// fmallocd and RETURNED
 	unsigned		*encodedSigLen)		// RETURNED
 {
-	FEEECDSASignature snaccSig;
-	CssmAutoData oData(CssmAllocator::standard(CssmAllocator::sensitive));
+	/* convert to FEEECDSASignatureASN1 */
+	FEEECDSASignatureASN1 asnSig;
+	SecNssCoder coder;
 	
 	try {
-		giantToBigIntStr(c, snaccSig.c);
-		giantToBigIntStr(d, snaccSig.d);
-	}
+		giantToCssmData(c, asnSig.c, coder);
+		giantToCssmData(d, asnSig.d, coder);
+	} 
 	catch(const feeException &ferr) {
 		return ferr.frtn();
 	}
-	try {
-		SC_encodeAsnObj(snaccSig, oData, feeSizeOfDERSig(c, d));
+	
+	/* DER encode */
+	PRErrorCode perr;
+	CSSM_DATA encBlob;			// mallocd by coder
+	perr = coder.encodeItem(&asnSig, FEEECDSASignatureASN1Template, encBlob);
+	if(perr) {
+		return FR_Memory;
 	}
-	catch(...) {
-		/* FIXME - bad sig? memory? */
-		return FR_BadSignatureFormat;
-	}
-	*encodedSig = (unsigned char *)fmalloc(oData.length());
-	*encodedSigLen = oData.length();
-	memmove(*encodedSig, oData.get().Data, oData.length()); 
+
+	/* copy out  to caller */
+	*encodedSig = (unsigned char *)fmalloc(encBlob.Length);
+	*encodedSigLen = encBlob.Length;
+	memmove(*encodedSig, encBlob.Data, encBlob.Length); 
+	
 	#if	PRINT_SIG_GIANTS
 	printf("feeEncodeECDSASignature:\n");
 	printf("   c   : "); printGiantHex(*c);
 	printf("   d   : "); printGiantHex(*d);
-	printf("   c   : "); snaccSig.c.Print(cout); printf("\n");
-	printf("   d   : "); snaccSig.d.Print(cout); printf("\n");
 	#endif
 	return FR_Success;
+
 }
 
 feeReturn feeDERDecodeElGamalSignature(
@@ -547,17 +521,19 @@ feeReturn feeDERDecodeElGamalSignature(
 	giant				*u,				// newGiant'd and RETURNED
 	giant				*PmX)			// newGiant'd and RETURNED
 {
-	FEEElGamalSignature snaccSig;
-	CssmData cData((void *)encodedSig, encodedSigLen);
-	try {
-		SC_decodeAsnObj(cData, snaccSig);
-	}
-	catch(...) {
+	FEEElGamalSignatureASN1 asnSig;
+	SecNssCoder coder;
+	
+	memset(&asnSig, 0, sizeof(asnSig));
+	PRErrorCode perr = coder.decode(encodedSig, encodedSigLen, 
+		FEEElGamalSignatureASN1Template, &asnSig);
+	if(perr) {
 		return FR_BadSignatureFormat;
 	}
+
 	try {
-		*u   = bigIntStrToGiant(snaccSig.u);
-		*PmX = bigIntStrToGiant(snaccSig.pmX);
+		*u   = cssmDataToGiant(asnSig.u);
+		*PmX = cssmDataToGiant(asnSig.pmX);
 	}
 	catch(const feeException &ferr) {
 		return ferr.frtn();
@@ -570,8 +546,6 @@ feeReturn feeDERDecodeElGamalSignature(
 	printf("feeDecodeElGamalSignature:\n");
 	printf("   u   : "); printGiantHex(*u);
 	printf("   PmX : "); printGiantHex(*PmX);
-	printf("   u   : "); snaccSig.u.Print(cout); printf("\n");
-	printf("   PmX : "); snaccSig.pmX.Print(cout); printf("\n");
 	#endif
 	return FR_Success;
 }
@@ -582,17 +556,19 @@ feeReturn feeDERDecodeECDSASignature(
 	giant				*c,				// newGiant'd and RETURNED
 	giant				*d)				// newGiant'd and RETURNED
 {
-	FEEECDSASignature snaccSig;
-	CssmData cData((void *)encodedSig, encodedSigLen);
-	try {
-		SC_decodeAsnObj(cData, snaccSig);
-	}
-	catch(...) {
+	FEEECDSASignatureASN1 asnSig;
+	SecNssCoder coder;
+	
+	memset(&asnSig, 0, sizeof(asnSig));
+	PRErrorCode perr = coder.decode(encodedSig, encodedSigLen, 
+		FEEECDSASignatureASN1Template, &asnSig);
+	if(perr) {
 		return FR_BadSignatureFormat;
 	}
+
 	try {
-		*c = bigIntStrToGiant(snaccSig.c);
-		*d = bigIntStrToGiant(snaccSig.d);
+		*c = cssmDataToGiant(asnSig.c);
+		*d = cssmDataToGiant(asnSig.d);
 	}
 	catch(const feeException &ferr) {
 		return ferr.frtn();
@@ -602,11 +578,9 @@ feeReturn feeDERDecodeECDSASignature(
 		return FR_Memory;
 	}
 	#if	PRINT_SIG_GIANTS
-	printf("feeDecodeECDSASignature:\n");
-	printf("   c   : "); printGiantHex(*c);
-	printf("   d   : "); printGiantHex(*d);
-	printf("   c   : "); snaccSig.c.Print(cout); printf("\n");
-	printf("   d   : "); snaccSig.d.Print(cout); printf("\n");
+	printf("feeDERDecodeECDSASignature:\n");
+	printf("   u   : "); printGiantHex(*u);
+	printf("   PmX : "); printGiantHex(*PmX);
 	#endif
 	return FR_Success;
 }
@@ -624,36 +598,36 @@ feeReturn feeDEREncodePublicKey(
 	unsigned char		**keyBlob,			// fmallocd and RETURNED
 	unsigned			*keyBlobLen)		// RETURNED
 {
-	FEEPublicKey snaccKey;
+	FEEPublicKeyASN1 asnKey;
+	SecNssCoder coder;
 	
-	/* set up the SNACC object */
-	snaccKey.version.Set(version);
+	memset(&asnKey, 0, sizeof(asnKey));
+	intToCssmData(version, asnKey.version, coder);
+	
 	try {
-		snaccKey.curveParams = feeCurveParamsToSnacc(cp);
-		giantToBigIntStr(plusX, snaccKey.plusX);
-		giantToBigIntStr(minusX, snaccKey.minusX);
+		feeCurveParamsToASN1(cp, asnKey.curveParams, coder);
+		giantToCssmData(plusX, asnKey.plusX, coder);
+		giantToCssmData(minusX, asnKey.minusX, coder);
 		if(plusY != NULL) {
-			snaccKey.plusY = new BigIntegerStr();
-			giantToBigIntStr(plusY, *snaccKey.plusY);
+			giantToCssmData(plusY, asnKey.plusY, coder);
 		}
 	}
 	catch(const feeException &ferr) {
 		return ferr.frtn();
 	}
 	
-	/* encode the SNACC object */
-	CssmAutoData oData(CssmAllocator::standard(CssmAllocator::sensitive));
-	
-	try {
-		SC_encodeAsnObj(snaccKey, oData, feeSizeOfSnaccPubKey(cp));
-	}
-	catch(...) {
-		/* FIXME - ???? */
+	/* DER encode */
+	PRErrorCode perr;
+	CSSM_DATA encBlob;			// mallocd by coder
+	perr = coder.encodeItem(&asnKey, FEEPublicKeyASN1Template, encBlob);
+	if(perr) {
 		return FR_Memory;
 	}
-	*keyBlob = (unsigned char *)fmalloc(oData.length());
-	*keyBlobLen = oData.length();
-	memmove(*keyBlob, oData.get().Data, oData.length()); 
+
+	/* copy out */
+	*keyBlob = (unsigned char *)fmalloc(encBlob.Length);
+	*keyBlobLen = encBlob.Length;
+	memmove(*keyBlob, encBlob.Data, encBlob.Length); 
 	return FR_Success;
 }
 
@@ -664,31 +638,32 @@ feeReturn feeDEREncodePrivateKey(
 	unsigned char		**keyBlob,			// fmallocd and RETURNED
 	unsigned			*keyBlobLen)		// RETURNED
 {
-	FEEPrivateKey snaccKey;
+	FEEPrivateKeyASN1 asnKey;
+	SecNssCoder coder;
 	
-	/* set up the SNACC object */
-	snaccKey.version.Set(version);
+	memset(&asnKey, 0, sizeof(asnKey));
+	intToCssmData(version, asnKey.version, coder);
+	
 	try {
-		snaccKey.curveParams = feeCurveParamsToSnacc(cp);
-		giantToBigIntStr(privData, snaccKey.privData);
+		feeCurveParamsToASN1(cp, asnKey.curveParams, coder);
+		giantToCssmData(privData, asnKey.privData, coder);
 	}
 	catch(const feeException &ferr) {
 		return ferr.frtn();
 	}
 	
-	/* encode the SNACC object */
-	CssmAutoData oData(CssmAllocator::standard(CssmAllocator::sensitive));
-	
-	try {
-		SC_encodeAsnObj(snaccKey, oData, feeSizeOfSnaccPrivKey(cp));
-	}
-	catch(...) {
-		/* FIXME - ???? */
+	/* DER encode */
+	PRErrorCode perr;
+	CSSM_DATA encBlob;			// mallocd by coder
+	perr = coder.encodeItem(&asnKey, FEEPrivateKeyASN1Template, encBlob);
+	if(perr) {
 		return FR_Memory;
 	}
-	*keyBlob = (unsigned char *)fmalloc(oData.length());
-	*keyBlobLen = oData.length();
-	memmove(*keyBlob, oData.get().Data, oData.length()); 
+
+	/* copy out */
+	*keyBlob = (unsigned char *)fmalloc(encBlob.Length);
+	*keyBlobLen = encBlob.Length;
+	memmove(*keyBlob, encBlob.Data, encBlob.Length); 
 	return FR_Success;
 }
 
@@ -701,22 +676,24 @@ feeReturn feeDERDecodePublicKey(
 	giant				*minusX,
 	giant				*plusY)				// may be NULL
 {
-	FEEPublicKey snaccKey;
-	CssmData cData((unsigned char *)keyBlob, (size_t)keyBlobLen);
-	try {
-		SC_decodeAsnObj(cData, snaccKey);
+	FEEPublicKeyASN1 asnKey;
+	SecNssCoder coder;
+	
+	memset(&asnKey, 0, sizeof(asnKey));
+	PRErrorCode perr = coder.decode(keyBlob, keyBlobLen, 
+		FEEPublicKeyASN1Template, &asnKey);
+	if(perr) {
+		return FR_BadKeyBlob;
 	}
-	catch(...) {
-		return FR_BadPubKey;
-	}
+
 	try {
-		*version = snaccKey.version;
-		*cp     = feeCurveParamsFromSnacc(*snaccKey.curveParams);
-		*plusX  = bigIntStrToGiant(snaccKey.plusX);
-		*minusX = bigIntStrToGiant(snaccKey.minusX);
-		if(snaccKey.plusY != NULL) {
+		*version = cssmDataToInt(asnKey.version);
+		*cp     = feeCurveParamsFromAsn1(asnKey.curveParams);
+		*plusX  = cssmDataToGiant(asnKey.plusX);
+		*minusX = cssmDataToGiant(asnKey.minusX);
+		if(asnKey.plusY.Data != NULL) {
 			/* optional */
-			*plusY = bigIntStrToGiant(*snaccKey.plusY);
+			*plusY = cssmDataToGiant(asnKey.plusY);
 		}
 		else {
 			*plusY = newGiant(1);
@@ -740,18 +717,20 @@ feeReturn feeDERDecodePrivateKey(
 	curveParams			**cp,
 	giant				*privData)			// RETURNED
 {
-	FEEPrivateKey snaccKey;
-	CssmData cData((unsigned char *)keyBlob, (size_t)keyBlobLen);
-	try {
-		SC_decodeAsnObj(cData, snaccKey);
+	FEEPrivateKeyASN1 asnKey;
+	SecNssCoder coder;
+	
+	memset(&asnKey, 0, sizeof(asnKey));
+	PRErrorCode perr = coder.decode(keyBlob, keyBlobLen, 
+		FEEPrivateKeyASN1Template, &asnKey);
+	if(perr) {
+		return FR_BadKeyBlob;
 	}
-	catch(...) {
-		return FR_BadPubKey;
-	}
+
 	try {
-		*version  = snaccKey.version;
-		*cp       = feeCurveParamsFromSnacc(*snaccKey.curveParams);
-		*privData = bigIntStrToGiant(snaccKey.privData);
+		*version = cssmDataToInt(asnKey.version);
+		*cp     = feeCurveParamsFromAsn1(asnKey.curveParams);
+		*privData  = cssmDataToGiant(asnKey.privData);
 	}
 	catch(const feeException &ferr) {
 		return ferr.frtn();

@@ -1,4 +1,28 @@
 /*
+ * Copyright (c) 2000-2003 Apple Computer, Inc. All rights reserved.
+ *
+ * @APPLE_LICENSE_HEADER_START@
+ * 
+ * Copyright (c) 1999-2003 Apple Computer, Inc.  All Rights Reserved.
+ * 
+ * This file contains Original Code and/or Modifications of Original Code
+ * as defined in and that are subject to the Apple Public Source License
+ * Version 2.0 (the 'License'). You may not use this file except in
+ * compliance with the License. Please obtain a copy of the License at
+ * http://www.opensource.apple.com/apsl/ and read it before using this
+ * file.
+ * 
+ * The Original Code and all software distributed under the License are
+ * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
+ * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
+ * INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY,
+ * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
+ * Please see the License for the specific language governing rights and
+ * limitations under the License.
+ * 
+ * @APPLE_LICENSE_HEADER_END@
+ */
+/*
  * Copyright 1996 1995 by Open Software Foundation, Inc. 1997 1996 1995 1994 1993 1992 1991  
  *              All Rights Reserved 
  *  
@@ -26,6 +50,7 @@
 /*
  * POSIX Pthread Library
  *   Thread Specific Data support
+ *   NB: pthread_getspecific() is in a separate assembly file
  */
 
 #include "pthread_internals.h"
@@ -47,13 +72,14 @@ pthread_key_create(pthread_key_t *key,
 	int res, i;
 	LOCK(tds_lock);
 	res = ENOMEM;  /* No 'free' keys */
-	for (i = 0;  i < _POSIX_THREAD_KEYS_MAX;  i++)
+	/* The first slot is reserved for pthread_self() */
+	for (i = 1;  i < _POSIX_THREAD_KEYS_MAX;  i++)
 	{
 		if (_pthread_keys[i].created == FALSE)
 		{
 			_pthread_keys[i].created = TRUE;
 			_pthread_keys[i].destructor = destructor;
-			*key = i+1;
+			*key = i;
 			res = ESUCCESS;
 			break;
 		}
@@ -70,11 +96,20 @@ pthread_key_delete(pthread_key_t key)
 {
 	int res;
 	LOCK(tds_lock);
-	if ((key >= 1) && (key <= _POSIX_THREAD_KEYS_MAX))
+	/* The first slot is reserved for pthread_self() */
+	if ((key > 0) && (key < _POSIX_THREAD_KEYS_MAX))
 	{
-		if (_pthread_keys[key-1].created)
+		if (_pthread_keys[key].created)
 		{
-			_pthread_keys[key-1].created = FALSE;
+			struct _pthread * p;
+
+			_pthread_keys[key].created = FALSE;
+			LOCK(_pthread_list_lock);
+			LIST_FOREACH(p, &__pthread_head, plist) {
+				/* It is  an 32bit value no lock needed */
+				p->tsd[key] = 0;
+			}
+			UNLOCK(_pthread_list_lock);	
 			res = ESUCCESS;
 		} else
 		{
@@ -103,12 +138,13 @@ pthread_setspecific(pthread_key_t key,
 {
 	int res;
 	pthread_t self;
-	if ((key >= 1) && (key <= _POSIX_THREAD_KEYS_MAX))
+	/* The first slot is reserved for pthread_self() */
+	if ((key > 0) && (key < _POSIX_THREAD_KEYS_MAX))
 	{
-		if (_pthread_keys[key-1].created)
+		if (_pthread_keys[key].created)
 		{
 			self = pthread_self();
-			self->tsd[key-1] = (void *) value;
+			self->tsd[key] = (void *) value;
 			res = ESUCCESS;
 		} else
 		{
@@ -122,27 +158,6 @@ pthread_setspecific(pthread_key_t key,
 }
 
 /*
- * Fetch the thread private value for a given key.
- * This is potentially a very heavily-used operation so we do only
- * a minimum of checks.
- */
-void *
-pthread_getspecific(pthread_key_t key)
-{
-	pthread_t self;
-	void *res;
-        if ((key >= 1) && (key <= _POSIX_THREAD_KEYS_MAX))
-	{
-		self = pthread_self();
-		res = self->tsd[key-1];
-	} else
-	{ /* Invalid key - no error, just NULL */
-		res = (void *)NULL;
-	}
-	return (res);
-}
-
-/*
  * Clean up thread specific data as thread 'dies'
  */
 void
@@ -152,7 +167,8 @@ _pthread_tsd_cleanup(pthread_t self)
 	void *param;
 	for (j = 0;  j < PTHREAD_DESTRUCTOR_ITERATIONS;  j++)
 	{
-		for (i = 0;  i < _POSIX_THREAD_KEYS_MAX;  i++)
+		/* The first slot is reserved for pthread_self() */
+		for (i = 1;  i < _POSIX_THREAD_KEYS_MAX;  i++)
 		{
 			if (_pthread_keys[i].created && (param = self->tsd[i]))
 			{

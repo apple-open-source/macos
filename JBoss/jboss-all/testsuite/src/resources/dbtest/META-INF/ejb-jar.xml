@@ -1,0 +1,106 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE ejb-jar PUBLIC "-//Sun Microsystems, Inc.//DTD Enterprise JavaBeans 1.1//EN" "http://java.sun.com/j2ee/dtds/ejb-jar_1_1.dtd">
+
+<ejb-jar>
+    <enterprise-beans>
+        
+        <entity>
+            <ejb-name>AllTypes</ejb-name>
+            <home>org.jboss.test.dbtest.interfaces.AllTypesHome</home>
+            <remote>org.jboss.test.dbtest.interfaces.AllTypes</remote>
+            <ejb-class>org.jboss.test.dbtest.bean.AllTypesBean</ejb-class>
+            <persistence-type>Container</persistence-type>
+            <prim-key-class>java.lang.String</prim-key-class>
+			<primkey-field>aString</primkey-field>
+			
+			<reentrant>False</reentrant>
+            
+			<cmp-field>
+                <field-name>aBoolean</field-name>
+            </cmp-field>
+            
+			<cmp-field>
+                <field-name>aByte</field-name>
+            </cmp-field>
+            
+			<cmp-field>
+                <field-name>aShort</field-name>
+            </cmp-field>
+            
+			<cmp-field>
+                <field-name>anInt</field-name>
+            </cmp-field>
+            
+			<cmp-field>
+                <field-name>aLong</field-name>
+            </cmp-field>
+			
+			<cmp-field>
+                <field-name>aFloat</field-name>
+            </cmp-field>
+            
+			<cmp-field>
+                <field-name>aDouble</field-name>
+            </cmp-field>
+<!-- <fucked up>           
+			<cmp-field>
+                <field-name>aChar</field-name>
+            </cmp-field>
+-->            
+			<cmp-field>
+                <field-name>aString</field-name>
+            </cmp-field>
+            
+			<cmp-field>
+                <field-name>aDate</field-name>
+            </cmp-field>
+            
+			<cmp-field>
+                <field-name>aTime</field-name>
+            </cmp-field>
+            
+			<cmp-field>
+                <field-name>aTimestamp</field-name>
+            </cmp-field>
+
+			<cmp-field>
+                <field-name>anObject</field-name>
+            </cmp-field>
+
+			<cmp-field>
+                <field-name>aList</field-name>
+            </cmp-field>
+        </entity>
+        
+		<entity>
+            <ejb-name>Record</ejb-name>
+            <home>org.jboss.test.dbtest.interfaces.RecordHome</home>
+            <remote>org.jboss.test.dbtest.interfaces.Record</remote>
+            <ejb-class>org.jboss.test.dbtest.bean.RecordBean</ejb-class>
+            <persistence-type>Container</persistence-type>
+            <prim-key-class>java.lang.String</prim-key-class>
+			<primkey-field>name</primkey-field>
+			
+			<reentrant>False</reentrant>
+            
+			<cmp-field>
+                <field-name>name</field-name>
+            </cmp-field>
+            
+			<cmp-field>
+                <field-name>address</field-name>
+            </cmp-field>
+        </entity>
+        
+    </enterprise-beans>
+    <assembly-descriptor>
+        <container-transaction>
+            <method>
+                <ejb-name>AllTypes</ejb-name>
+                <method-name>*</method-name>
+            </method>
+            <trans-attribute>Required</trans-attribute>
+        </container-transaction>
+    </assembly-descriptor>
+</ejb-jar>
+

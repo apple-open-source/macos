@@ -1,0 +1,111 @@
+<HTML>
+<HEAD>
+<!-- This HTML file has been created by texi2html 1.51
+     from .././gimpprint.texi on 22 January 2003 -->
+
+<TITLE>GIMP-Print - Simple weaving algorithms</TITLE>
+</HEAD>
+<BODY>
+Go to the <A HREF="gimpprint_1.html">first</A>, <A HREF="gimpprint_28.html">previous</A>, <A HREF="gimpprint_30.html">next</A>, <A HREF="gimpprint_47.html">last</A> section, <A HREF="gimpprint_toc.html">table of contents</A>.
+<P><HR><P>
+
+
+<H3><A NAME="SEC44" HREF="gimpprint_toc.html#TOC44">B.2.1  Simple weaving algorithms</A></H3>
+
+<P>
+The initial problem is to calculate the starting position of each
+pass; the row number of the printer's top jet when printing that pass.
+Since we assume the paper cannot be reverse-fed, the print head must,
+for each pass, start either further down the page than the previous
+pass or at the same position.  Each pass's start point is therefore at
+a non-negative offset from the previous pass's start point.
+
+</P>
+<P>
+Once we have a formula for the starting row of each pass, we then turn
+that "inside out" to get a formula for the pass number containing each
+row.
+
+</P>
+<P>
+First, let's define how our printer works.  We measure vertical
+position on the paper in "rows"; the resolution with which the printer
+can position the paper vertically.  The print head contains @math{J} ink
+jets, which are spaced @math{S} rows apart.
+
+</P>
+<P>
+Consider a very simple case: we want to print a page as quickly as
+possible, and we mostly don't care how sparse the printing is, so long
+as it's fairly even.
+
+</P>
+<P>
+It's pretty obvious how to do this.  We make one pass with the print
+head, printing @math{J} lines of data, each line @math{S} rows after the
+previous one.  We then advance the paper by @math{S*J} rows and print
+the next row.  For example, if @math{J=7} and @math{S=4}, this method
+can be illustrated like this:
+
+</P>
+
+<PRE>
+pass number
+| row number-------&#62;
+| |         111111111122222222223333333333444444444455555555556666666666
+| 0123456789012345678901234567890123456789012345678901234567890123456789
+0 *---*---*---*---*---*---*
+1                             *---*---*---*---*---*---*
+2 \-----------------------/                               *---*---*---*---*---*-
+          7 jets              \---/
+                              4 rows offset from one jet to the next
+  \---------------------------/
+     7*4=28 rows offset from one pass to the next
+</PRE>
+
+<P>
+In these examples, the vertical axis can be thought of as the time axis,
+with the pass number shown at the left margin, while the row number runs
+horizontally.  A <SAMP>`*'</SAMP> shows each row printed by a pass, and a row of
+<SAMP>`-'</SAMP> is used to link together the rows printed by one pass of the
+print head.  The first pass is numbered <SAMP>`0'</SAMP> and starts at row 0.
+Each subsequent pass @math{p} starts at row @math{p*S*J}.  Each pass
+prints @math{J} lines, each line being @math{S} rows after the previous
+one.  (For ease of viewing this file on a standard terminal, I'm
+clipping the examples at column 80.)
+
+</P>
+<P>
+This method covers the whole page with lines printed evenly @math{S}
+rows apart.  However, we want to fill in all the other rows with
+printing to get a full-density page (we're ignoring oversampling at this
+stage).  Where we have previously printed a single pass, we'll now print
+a "pass block": we print extra passes to fill in the empty rows.  A
+naive implementation might look like this:
+
+</P>
+
+<PRE>
+0 *---*---*---*---*---*---*
+1  *---*---*---*---*---*---*
+2   *---*---*---*---*---*---*
+3    *---*---*---*---*---*---*
+4                             *---*---*---*---*---*---*
+5                              *---*---*---*---*---*---*
+6                               *---*---*---*---*---*---*
+7                                *---*---*---*---*---*---*
+8                                                         *---*---*---*---*---*-
+9                                                          *---*---*---*---*---*
+10                                                          *---*---*---*---*---
+11                                                           *---*---*---*---*--
+</PRE>
+
+<P>
+(Now you can see why this process is called "weaving"!)
+
+</P>
+
+<P><HR><P>
+Go to the <A HREF="gimpprint_1.html">first</A>, <A HREF="gimpprint_28.html">previous</A>, <A HREF="gimpprint_30.html">next</A>, <A HREF="gimpprint_47.html">last</A> section, <A HREF="gimpprint_toc.html">table of contents</A>.
+</BODY>
+</HTML>

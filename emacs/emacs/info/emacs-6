@@ -1,7 +1,8 @@
-This is ../info/emacs, produced by makeinfo version 4.0 from emacs.texi.
+This is ../info/emacs, produced by makeinfo version 4.0f from
+emacs.texi.
 
    This is the Fourteenth edition of the `GNU Emacs Manual', updated
-for Emacs version 21.1.
+for Emacs version 21.2.
 
 INFO-DIR-SECTION Emacs
 START-INFO-DIR-ENTRY
@@ -11,9 +12,9 @@ END-INFO-DIR-ENTRY
    Published by the Free Software Foundation 59 Temple Place, Suite 330
 Boston, MA  02111-1307 USA
 
-   Copyright (C) 1985,
-1986,1987,1993,1994,1995,1996,1997,1998,1999,2000,2001    Free Software
-Foundation, Inc.
+   Copyright (C)
+1985,1986,1987,1993,1994,1995,1996,1997,1998,1999,2000,2001,2002
+Free Software Foundation, Inc.
 
    Permission is granted to copy, distribute and/or modify this document
 under the terms of the GNU Free Documentation License, Version 1.1 or
@@ -106,10 +107,23 @@ is to store the text in a register and later retrieve it.
 `C-x r i R'
      Insert text from register R (`insert-register').
 
+`M-x append-to-register <RET> R'
+     Append region to text in register R.
+
+`M-x prepend-to-register <RET> R'
+     Prepend region to text in register R.
+
    `C-x r s R' stores a copy of the text of the region into the
 register named R.  `C-u C-x r s R', the same command with a numeric
 argument, deletes the text from the buffer as well; you can think of
 this as "moving" the region text into the register.
+
+   `M-x append-to-register <RET> R' appends the copy of the text in the
+region to the text already stored in the register named R.  If invoked
+with a numeric argument, it deletes the region after appending it to
+the register.  A similar command `prepend-to-register' works the same,
+except that it _prepends_ the region text to the text in the register,
+rather than _appending_ it.
 
    `C-x r i R' inserts in the buffer the text from register R.
 Normally it leaves point before the text and places the mark after, but
@@ -330,6 +344,11 @@ styles of displaying characters.  Each style is called a "face".  Each
 face can specify various attributes, such as the height, weight and
 slant of the characters, the foreground and background color, and
 underlining.  But it does not have to specify all of them.
+
+   Emacs on a character terminal supports only part of face attributes.
+Which attributes are supported depends on your display type, but many
+displays support inverse video, bold, and underline attributes, and
+some support colors.
 
    Features which rely on text in multiple faces (such as Font Lock
 mode) will also work on non-windowed terminals that can display more

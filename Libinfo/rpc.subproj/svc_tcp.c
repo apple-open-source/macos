@@ -3,21 +3,22 @@
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
- * Portions Copyright (c) 1999 Apple Computer, Inc.  All Rights
- * Reserved.  This file contains Original Code and/or Modifications of
- * Original Code as defined in and that are subject to the Apple Public
- * Source License Version 1.1 (the "License").  You may not use this file
- * except in compliance with the License.  Please obtain a copy of the
- * License at http://www.apple.com/publicsource and read it before using
- * this file.
+ * Copyright (c) 1999-2003 Apple Computer, Inc.  All Rights Reserved.
+ * 
+ * This file contains Original Code and/or Modifications of Original Code
+ * as defined in and that are subject to the Apple Public Source License
+ * Version 2.0 (the 'License'). You may not use this file except in
+ * compliance with the License. Please obtain a copy of the License at
+ * http://www.opensource.apple.com/apsl/ and read it before using this
+ * file.
  * 
  * The Original Code and all software distributed under the License are
- * distributed on an "AS IS" basis, WITHOUT WARRANTY OF ANY KIND, EITHER
+ * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
  * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
  * INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY,
- * FITNESS FOR A PARTICULAR PURPOSE OR NON- INFRINGEMENT.  Please see the
- * License for the specific language governing rights and limitations
- * under the License.
+ * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
+ * Please see the License for the specific language governing rights and
+ * limitations under the License.
  * 
  * @APPLE_LICENSE_HEADER_END@
  */
@@ -53,7 +54,7 @@
 #if defined(LIBC_SCCS) && !defined(lint)
 /*static char *sccsid = "from: @(#)svc_tcp.c 1.21 87/08/11 Copyr 1984 Sun Micro";*/
 /*static char *sccsid = "from: @(#)svc_tcp.c	2.2 88/08/01 4.0 RPCSRC";*/
-static char *rcsid = "$Id: svc_tcp.c,v 1.3.84.1 2002/10/18 21:16:15 bbraun Exp $";
+static char *rcsid = "$Id: svc_tcp.c,v 1.5 2003/06/23 17:24:59 majka Exp $";
 #endif
 
 /*
@@ -334,41 +335,23 @@ readtcp(xprt, buf, len)
 	register int sock = xprt->xp_sock;
 	fd_set readfds;
 	bool_t ready = FALSE;
-	struct timeval delta, start, tv, tmp1, tmp2;
 
-	delta = wait_per_try;
-	gettimeofday(&start, NULL);
 	do
 	{
 		FD_COPY(&svc_fdset, &readfds);
 		FD_SET(sock, &readfds);
-		tv = delta;
-		switch( select(max(svc_maxfd, sock) + 1, &readfds, (fd_set*)NULL, (fd_set*)NULL, &tv) ) {
-		case -1:
-			if( errno != EINTR )
-				goto fatal_err;
-			gettimeofday(&tmp1, NULL);
-			timersub(&tmp1, &start, &tmp2);
-			timersub(&wait_per_try, &tmp2, &tmp1);
-			if( tmp1.tv_sec < 0 || !timerisset(&tmp1) )
-				goto fatal_err;
-			delta = tmp1;
-			continue;
-		case 0:
+		if (select(max(svc_maxfd, sock) + 1, &readfds, NULL, NULL, &wait_per_try) <= 0)
+		{
+			if (errno == EINTR) continue;
 			goto fatal_err;
-		default:
-			if(!FD_ISSET(sock, &readfds)) {
-				svc_getreqset(&readfds);
-				gettimeofday(&tmp1, NULL);
-				timersub(&tmp1, &start, &tmp2);
-				timersub(&wait_per_try, &tmp2, &tmp1);
-				if( tmp1.tv_sec < 0 || !timerisset(&tmp1) )
-					goto fatal_err;
-				delta = tmp1;
-				continue;
-			} else {
-				ready = TRUE;
-			}
+		}
+		else if (FD_ISSET(sock, &readfds))
+		{
+			ready = TRUE;
+		}
+		else
+		{
+			svc_getreqset(&readfds);
 		}
 
 	} while (!ready);

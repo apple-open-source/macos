@@ -115,11 +115,14 @@ setstypat(Style s, char *pat, Patprog prog, char **vals, int eval)
     if (eval) {
 	int ef = errflag;
 
-	eprog = parse_string(zjoin(vals, ' ', 1), 0);
+	eprog = parse_string(zjoin(vals, ' ', 1));
 	errflag = ef;
 
 	if (!eprog)
+	{
+	    freepatprog(prog);
 	    return 1;
+	}
 
 	eprog = dupeprog(eprog, 0);
     }
@@ -134,6 +137,7 @@ setstypat(Style s, char *pat, Patprog prog, char **vals, int eval)
 		freeeprog(p->eval);
 	    p->vals = zarrdup(vals);
 	    p->eval = eprog;
+	    freepatprog(prog);
 
 	    return 0;
 	}
@@ -250,7 +254,7 @@ lookupstyle(char *ctxt, char *style)
 }
 
 static int
-bin_zstyle(char *nam, char **args, char *ops, int func)
+bin_zstyle(char *nam, char **args, Options ops, int func)
 {
     int min, max, n, add = 0, list = 0, eval = 0;
 
@@ -546,7 +550,7 @@ bin_zstyle(char *nam, char **args, char *ops, int func)
 /* Format stuff. */
 
 static int
-bin_zformat(char *nam, char **args, char *ops, int func)
+bin_zformat(char *nam, char **args, Options ops, int func)
 {
     char opt;
 
@@ -1157,7 +1161,7 @@ rmatch(RParseResult *sm, char *subj, char *var1, char *var2, int comp)
 */
 
 static int
-bin_zregexparse(char *nam, char **args, char *ops, int func)
+bin_zregexparse(char *nam, char **args, Options ops, int func)
 {
     int oldextendedglob = opts[EXTENDEDGLOB];
     char *var1 = args[0];
@@ -1183,7 +1187,7 @@ bin_zregexparse(char *nam, char **args, char *ops, int func)
 	ret = 0;
 
     if (!ret)
-	ret = rmatch(&result, subj, var1, var2, ops['c']);
+	ret = rmatch(&result, subj, var1, var2, OPT_ISSET(ops,'c'));
     popheap();
 
     opts[EXTENDEDGLOB] = oldextendedglob;
@@ -1311,7 +1315,7 @@ add_opt_val(Zoptdesc d, char *arg)
 }
 
 static int
-bin_zparseopts(char *nam, char **args, char *ops, int func)
+bin_zparseopts(char *nam, char **args, Options ops, int func)
 {
     char *o, *p, *n, **pp, **aval, **ap, *assoc = NULL, **cp, **np;
     int del = 0, f, extract = 0, keep = 0;

@@ -139,16 +139,7 @@ which is intended to allow lookups in address families other than
 .Dv AF_INET ,
 for example
 .Dv AF_INET6 .
-Currently the
-.Fa af
-argument must be specified as
-.Dv AF_INET
-else the function will return
-.Dv NULL
-after having set
-.Va h_errno
-to
-.Dv NETDB_INTERNAL
+Both of these address families are supported in the Mac OS X implemention.
 .Pp
 The
 .Fn sethostent
@@ -260,9 +251,7 @@ is defined, and
 and
 .Fn endhostent
 are redefined,
-when
-.Xr libc 3
-is built to use only the routines to lookup in
+when libc is built to use only the routines to lookup in
 .Pa /etc/hosts
 and not the name server.
 .Pp

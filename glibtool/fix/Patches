@@ -1,0 +1,4812 @@
+--- acinclude.m4.orig	Mon Apr 14 15:29:13 2003
++++ acinclude.m4	Fri Aug  8 16:00:08 2003
+@@ -1058,7 +1058,7 @@
+ else
+ # FIXME - insert some real tests, host_os isn't really good enough
+   case $host_os in
+-   darwin*)
++   NOT-darwin*)
+        if test -n "$STRIP" ; then
+          striplib="$STRIP -x"
+          AC_MSG_RESULT([yes])
+@@ -1259,7 +1259,7 @@
+   # FIXME: Relying on posixy $() will cause problems for
+   #        cross-compilation, but unfortunately the echo tests do not
+   #        yet detect zsh echo's removal of \ escapes.
+-  library_names_spec='${libname}${release}${versuffix}$shared_ext ${libname}${release}${major}$shared_ext ${libname}$shared_ext'
++  library_names_spec='${libname}${release}${major}$shared_ext ${libname}$shared_ext ${libname}${release}${versuffix}$shared_ext'
+   soname_spec='${libname}${release}${major}$shared_ext'
+   shlibpath_overrides_runpath=yes
+   shlibpath_var=DYLD_LIBRARY_PATH
+@@ -2545,9 +2545,23 @@
+     rhapsody* | darwin1.[[012]])
+       _LT_AC_TAGVAR(allow_undefined_flag, $1)='-undefined suppress'
+       ;;
+-    *) # Darwin 1.3 on
++    darwin1.* | darwin[[2-6]].*) # Darwin 1.3 on, but less than 7.0
+       test -z ${LD_TWOLEVEL_NAMESPACE} && _LT_AC_TAGVAR(allow_undefined_flag, $1)='-flat_namespace -undefined suppress'
+       ;;
++    *) # Darwin 7.0 on
++      case "${MACOSX_DEPLOYMENT_TARGET-10.1}" in
++      10.[[012]])
++	test -z ${LD_TWOLEVEL_NAMESPACE} && _LT_AC_TAGVAR(allow_undefined_flag, $1)='-flat_namespace -undefined suppress'
++	;;
++      *) # 10.3 on
++	if test -z ${LD_TWOLEVEL_NAMESPACE}; then
++	  _LT_AC_TAGVAR(allow_undefined_flag, $1)='-flat_namespace -undefined suppress'
++	else
++	  _LT_AC_TAGVAR(allow_undefined_flag, $1)='-undefined dynamic_lookup'
++	fi
++	;;
++      esac
++      ;;
+     esac
+     # FIXME: Relying on posixy $() will cause problems for
+     #        cross-compilation, but unfortunately the echo tests do not
+@@ -2873,9 +2887,23 @@
+     rhapsody* | darwin1.[[012]])
+       _LT_AC_TAGVAR(allow_undefined_flag, $1)='-undefined suppress'
+       ;;
+-    *) # Darwin 1.3 on
++    darwin1.* | darwin[[2-6]].*) # Darwin 1.3 on, but less than 7.0
+       test -z ${LD_TWOLEVEL_NAMESPACE} && _LT_AC_TAGVAR(allow_undefined_flag, $1)='-flat_namespace -undefined suppress'
+       ;;
++    *) # Darwin 7.0 on
++      case "${MACOSX_DEPLOYMENT_TARGET-10.1}" in
++      10.[[012]])
++	test -z ${LD_TWOLEVEL_NAMESPACE} && _LT_AC_TAGVAR(allow_undefined_flag, $1)='-flat_namespace -undefined suppress'
++	;;
++      *) # 10.3 on
++	if test -z ${LD_TWOLEVEL_NAMESPACE}; then
++	  _LT_AC_TAGVAR(allow_undefined_flag, $1)='-flat_namespace -undefined suppress'
++	else
++	  _LT_AC_TAGVAR(allow_undefined_flag, $1)='-undefined dynamic_lookup'
++	fi
++	;;
++      esac
++      ;;
+     esac
+     	lt_int_apple_cc_single_mod=no
+     	output_verbose_link_cmd='echo'
+@@ -5321,8 +5349,22 @@
+       rhapsody* | darwin1.[[012]])
+ 	_LT_AC_TAGVAR(allow_undefined_flag, $1)='-undefined suppress'
+ 	;;
+-      *) # Darwin 1.3 on
++      darwin1.* | darwin[[2-6]].*) # Darwin 1.3 on, but less than 7.0
+ 	test -z ${LD_TWOLEVEL_NAMESPACE} && _LT_AC_TAGVAR(allow_undefined_flag, $1)='-flat_namespace -undefined suppress'
++	;;
++      *) # Darwin 7.0 on
++	case "${MACOSX_DEPLOYMENT_TARGET-10.1}" in
++	10.[[012]])
++	  test -z ${LD_TWOLEVEL_NAMESPACE} && _LT_AC_TAGVAR(allow_undefined_flag, $1)='-flat_namespace -undefined suppress'
++	  ;;
++	*) # 10.3 on
++	  if test -z ${LD_TWOLEVEL_NAMESPACE}; then
++	    _LT_AC_TAGVAR(allow_undefined_flag, $1)='-flat_namespace -undefined suppress'
++	  else
++	    _LT_AC_TAGVAR(allow_undefined_flag, $1)='-undefined dynamic_lookup'
++	  fi
++	  ;;
++	esac
+ 	;;
+       esac
+       # FIXME: Relying on posixy $() will cause problems for
+--- aclocal.m4.orig	Mon Apr 14 15:29:14 2003
++++ aclocal.m4	Fri Aug  8 16:00:21 2003
+@@ -1049,7 +1049,7 @@
+ else
+ # FIXME - insert some real tests, host_os isn't really good enough
+   case $host_os in
+-   darwin*)
++   NOT-darwin*)
+        if test -n "$STRIP" ; then
+          striplib="$STRIP -x"
+          AC_MSG_RESULT([yes])
+@@ -1250,7 +1250,7 @@
+   # FIXME: Relying on posixy $() will cause problems for
+   #        cross-compilation, but unfortunately the echo tests do not
+   #        yet detect zsh echo's removal of \ escapes.
+-  library_names_spec='${libname}${release}${versuffix}$shared_ext ${libname}${release}${major}$shared_ext ${libname}$shared_ext'
++  library_names_spec='${libname}${release}${major}$shared_ext ${libname}$shared_ext ${libname}${release}${versuffix}$shared_ext'
+   soname_spec='${libname}${release}${major}$shared_ext'
+   shlibpath_overrides_runpath=yes
+   shlibpath_var=DYLD_LIBRARY_PATH
+@@ -2532,9 +2532,23 @@
+     rhapsody* | darwin1.[[012]])
+       _LT_AC_TAGVAR(allow_undefined_flag, $1)='-undefined suppress'
+       ;;
+-    *) # Darwin 1.3 on
++    darwin1.* | darwin[[2-6]].*) # Darwin 1.3 on, but less than 7.0
+       test -z ${LD_TWOLEVEL_NAMESPACE} && _LT_AC_TAGVAR(allow_undefined_flag, $1)='-flat_namespace -undefined suppress'
+       ;;
++    *) # Darwin 7.0 on
++      case "${MACOSX_DEPLOYMENT_TARGET-10.1}" in
++      10.[[012]])
++	test -z ${LD_TWOLEVEL_NAMESPACE} && _LT_AC_TAGVAR(allow_undefined_flag, $1)='-flat_namespace -undefined suppress'
++	;;
++      *) # 10.3 on
++	if test -z ${LD_TWOLEVEL_NAMESPACE}; then
++	  _LT_AC_TAGVAR(allow_undefined_flag, $1)='-flat_namespace -undefined suppress'
++	else
++	  _LT_AC_TAGVAR(allow_undefined_flag, $1)='-undefined dynamic_lookup'
++	fi
++	;;
++      esac
++      ;;
+     esac
+     # FIXME: Relying on posixy $() will cause problems for
+     #        cross-compilation, but unfortunately the echo tests do not
+@@ -2860,9 +2874,23 @@
+     rhapsody* | darwin1.[[012]])
+       _LT_AC_TAGVAR(allow_undefined_flag, $1)='-undefined suppress'
+       ;;
+-    *) # Darwin 1.3 on
++    darwin1.* | darwin[[2-6]].*) # Darwin 1.3 on, but less than 7.0
+       test -z ${LD_TWOLEVEL_NAMESPACE} && _LT_AC_TAGVAR(allow_undefined_flag, $1)='-flat_namespace -undefined suppress'
+       ;;
++    *) # Darwin 7.0 on
++      case "${MACOSX_DEPLOYMENT_TARGET-10.1}" in
++      10.[[012]])
++	test -z ${LD_TWOLEVEL_NAMESPACE} && _LT_AC_TAGVAR(allow_undefined_flag, $1)='-flat_namespace -undefined suppress'
++	;;
++      *) # 10.3 on
++	if test -z ${LD_TWOLEVEL_NAMESPACE}; then
++	  _LT_AC_TAGVAR(allow_undefined_flag, $1)='-flat_namespace -undefined suppress'
++	else
++	  _LT_AC_TAGVAR(allow_undefined_flag, $1)='-undefined dynamic_lookup'
++	fi
++	;;
++      esac
++      ;;
+     esac
+     	lt_int_apple_cc_single_mod=no
+     	output_verbose_link_cmd='echo'
+@@ -5300,8 +5328,22 @@
+       rhapsody* | darwin1.[[012]])
+ 	_LT_AC_TAGVAR(allow_undefined_flag, $1)='-undefined suppress'
+ 	;;
+-      *) # Darwin 1.3 on
++      darwin1.* | darwin[[2-6]].*) # Darwin 1.3 on, but less than 7.0
+ 	test -z ${LD_TWOLEVEL_NAMESPACE} && _LT_AC_TAGVAR(allow_undefined_flag, $1)='-flat_namespace -undefined suppress'
++	;;
++      *) # Darwin 7.0 on
++	case "${MACOSX_DEPLOYMENT_TARGET-10.1}" in
++	10.[[012]])
++	  test -z ${LD_TWOLEVEL_NAMESPACE} && _LT_AC_TAGVAR(allow_undefined_flag, $1)='-flat_namespace -undefined suppress'
++	  ;;
++	*) # 10.3 on
++	  if test -z ${LD_TWOLEVEL_NAMESPACE}; then
++	    _LT_AC_TAGVAR(allow_undefined_flag, $1)='-flat_namespace -undefined suppress'
++	  else
++	    _LT_AC_TAGVAR(allow_undefined_flag, $1)='-undefined dynamic_lookup'
++	  fi
++	  ;;
++	esac
+ 	;;
+       esac
+       # FIXME: Relying on posixy $() will cause problems for
+--- cdemo/acinclude.m4.orig	Mon Apr 14 15:29:37 2003
++++ cdemo/acinclude.m4	Fri Aug  8 16:00:35 2003
+@@ -1058,7 +1058,7 @@
+ else
+ # FIXME - insert some real tests, host_os isn't really good enough
+   case $host_os in
+-   darwin*)
++   NOT-darwin*)
+        if test -n "$STRIP" ; then
+          striplib="$STRIP -x"
+          AC_MSG_RESULT([yes])
+@@ -1259,7 +1259,7 @@
+   # FIXME: Relying on posixy $() will cause problems for
+   #        cross-compilation, but unfortunately the echo tests do not
+   #        yet detect zsh echo's removal of \ escapes.
+-  library_names_spec='${libname}${release}${versuffix}$shared_ext ${libname}${release}${major}$shared_ext ${libname}$shared_ext'
++  library_names_spec='${libname}${release}${major}$shared_ext ${libname}$shared_ext ${libname}${release}${versuffix}$shared_ext'
+   soname_spec='${libname}${release}${major}$shared_ext'
+   shlibpath_overrides_runpath=yes
+   shlibpath_var=DYLD_LIBRARY_PATH
+@@ -2545,9 +2545,23 @@
+     rhapsody* | darwin1.[[012]])
+       _LT_AC_TAGVAR(allow_undefined_flag, $1)='-undefined suppress'
+       ;;
+-    *) # Darwin 1.3 on
++    darwin1.* | darwin[[2-6]].*) # Darwin 1.3 on, but less than 7.0
+       test -z ${LD_TWOLEVEL_NAMESPACE} && _LT_AC_TAGVAR(allow_undefined_flag, $1)='-flat_namespace -undefined suppress'
+       ;;
++    *) # Darwin 7.0 on
++      case "${MACOSX_DEPLOYMENT_TARGET-10.1}" in
++      10.[[012]])
++	test -z ${LD_TWOLEVEL_NAMESPACE} && _LT_AC_TAGVAR(allow_undefined_flag, $1)='-flat_namespace -undefined suppress'
++	;;
++      *) # 10.3 on
++	if test -z ${LD_TWOLEVEL_NAMESPACE}; then
++	  _LT_AC_TAGVAR(allow_undefined_flag, $1)='-flat_namespace -undefined suppress'
++	else
++	  _LT_AC_TAGVAR(allow_undefined_flag, $1)='-undefined dynamic_lookup'
++	fi
++	;;
++      esac
++      ;;
+     esac
+     # FIXME: Relying on posixy $() will cause problems for
+     #        cross-compilation, but unfortunately the echo tests do not
+@@ -2873,9 +2887,23 @@
+     rhapsody* | darwin1.[[012]])
+       _LT_AC_TAGVAR(allow_undefined_flag, $1)='-undefined suppress'
+       ;;
+-    *) # Darwin 1.3 on
++    darwin1.* | darwin[[2-6]].*) # Darwin 1.3 on, but less than 7.0
+       test -z ${LD_TWOLEVEL_NAMESPACE} && _LT_AC_TAGVAR(allow_undefined_flag, $1)='-flat_namespace -undefined suppress'
+       ;;
++    *) # Darwin 7.0 on
++      case "${MACOSX_DEPLOYMENT_TARGET-10.1}" in
++      10.[[012]])
++	test -z ${LD_TWOLEVEL_NAMESPACE} && _LT_AC_TAGVAR(allow_undefined_flag, $1)='-flat_namespace -undefined suppress'
++	;;
++      *) # 10.3 on
++	if test -z ${LD_TWOLEVEL_NAMESPACE}; then
++	  _LT_AC_TAGVAR(allow_undefined_flag, $1)='-flat_namespace -undefined suppress'
++	else
++	  _LT_AC_TAGVAR(allow_undefined_flag, $1)='-undefined dynamic_lookup'
++	fi
++	;;
++      esac
++      ;;
+     esac
+     	lt_int_apple_cc_single_mod=no
+     	output_verbose_link_cmd='echo'
+@@ -5317,15 +5345,29 @@
+     darwin* | rhapsody*)
+     if $CC -v 2>&1 | grep 'Apple' >/dev/null ; then 
+       _LT_AC_TAGVAR(archive_cmds_need_lc, $1)=no
++      # FIXME: Relying on posixy $() will cause problems for
+       case "$host_os" in
+       rhapsody* | darwin1.[[012]])
+ 	_LT_AC_TAGVAR(allow_undefined_flag, $1)='-undefined suppress'
+ 	;;
+-      *) # Darwin 1.3 on
++      darwin1.* | darwin[[2-6]].*) # Darwin 1.3 on, but less than 7.0
+ 	test -z ${LD_TWOLEVEL_NAMESPACE} && _LT_AC_TAGVAR(allow_undefined_flag, $1)='-flat_namespace -undefined suppress'
+ 	;;
++      *) # Darwin 7.0 on
++	case "${MACOSX_DEPLOYMENT_TARGET-10.1}" in
++	10.[[012]])
++	  test -z ${LD_TWOLEVEL_NAMESPACE} && _LT_AC_TAGVAR(allow_undefined_flag, $1)='-flat_namespace -undefined suppress'
++	  ;;
++	*) # 10.3 on
++	  if test -z ${LD_TWOLEVEL_NAMESPACE}; then
++	    _LT_AC_TAGVAR(allow_undefined_flag, $1)='-flat_namespace -undefined suppress'
++	  else
++	    _LT_AC_TAGVAR(allow_undefined_flag, $1)='-undefined dynamic_lookup'
++	  fi
++	  ;;
++	esac
++	;;
+       esac
+-      # FIXME: Relying on posixy $() will cause problems for
+       #        cross-compilation, but unfortunately the echo tests do not
+       #        yet detect zsh echo's removal of \ escapes.  Also zsh mangles
+       #	       `"' quotes if we put them in here... so don't!
+--- cdemo/aclocal.m4.orig	Mon Apr 14 15:29:38 2003
++++ cdemo/aclocal.m4	Fri Aug  8 16:00:50 2003
+@@ -1049,7 +1049,7 @@
+ else
+ # FIXME - insert some real tests, host_os isn't really good enough
+   case $host_os in
+-   darwin*)
++   NOT-darwin*)
+        if test -n "$STRIP" ; then
+          striplib="$STRIP -x"
+          AC_MSG_RESULT([yes])
+@@ -1250,7 +1250,7 @@
+   # FIXME: Relying on posixy $() will cause problems for
+   #        cross-compilation, but unfortunately the echo tests do not
+   #        yet detect zsh echo's removal of \ escapes.
+-  library_names_spec='${libname}${release}${versuffix}$shared_ext ${libname}${release}${major}$shared_ext ${libname}$shared_ext'
++  library_names_spec='${libname}${release}${major}$shared_ext ${libname}$shared_ext ${libname}${release}${versuffix}$shared_ext'
+   soname_spec='${libname}${release}${major}$shared_ext'
+   shlibpath_overrides_runpath=yes
+   shlibpath_var=DYLD_LIBRARY_PATH
+@@ -2532,9 +2532,23 @@
+     rhapsody* | darwin1.[[012]])
+       _LT_AC_TAGVAR(allow_undefined_flag, $1)='-undefined suppress'
+       ;;
+-    *) # Darwin 1.3 on
++    darwin1.* | darwin[[2-6]].*) # Darwin 1.3 on, but less than 7.0
+       test -z ${LD_TWOLEVEL_NAMESPACE} && _LT_AC_TAGVAR(allow_undefined_flag, $1)='-flat_namespace -undefined suppress'
+       ;;
++    *) # Darwin 7.0 on
++      case "${MACOSX_DEPLOYMENT_TARGET-10.1}" in
++      10.[[012]])
++	test -z ${LD_TWOLEVEL_NAMESPACE} && _LT_AC_TAGVAR(allow_undefined_flag, $1)='-flat_namespace -undefined suppress'
++	;;
++      *) # 10.3 on
++	if test -z ${LD_TWOLEVEL_NAMESPACE}; then
++	  _LT_AC_TAGVAR(allow_undefined_flag, $1)='-flat_namespace -undefined suppress'
++	else
++	  _LT_AC_TAGVAR(allow_undefined_flag, $1)='-undefined dynamic_lookup'
++	fi
++	;;
++      esac
++      ;;
+     esac
+     # FIXME: Relying on posixy $() will cause problems for
+     #        cross-compilation, but unfortunately the echo tests do not
+@@ -2860,9 +2874,23 @@
+     rhapsody* | darwin1.[[012]])
+       _LT_AC_TAGVAR(allow_undefined_flag, $1)='-undefined suppress'
+       ;;
+-    *) # Darwin 1.3 on
++    darwin1.* | darwin[[2-6]].*) # Darwin 1.3 on, but less than 7.0
+       test -z ${LD_TWOLEVEL_NAMESPACE} && _LT_AC_TAGVAR(allow_undefined_flag, $1)='-flat_namespace -undefined suppress'
+       ;;
++    *) # Darwin 7.0 on
++      case "${MACOSX_DEPLOYMENT_TARGET-10.1}" in
++      10.[[012]])
++	test -z ${LD_TWOLEVEL_NAMESPACE} && _LT_AC_TAGVAR(allow_undefined_flag, $1)='-flat_namespace -undefined suppress'
++	;;
++      *) # 10.3 on
++	if test -z ${LD_TWOLEVEL_NAMESPACE}; then
++	  _LT_AC_TAGVAR(allow_undefined_flag, $1)='-flat_namespace -undefined suppress'
++	else
++	  _LT_AC_TAGVAR(allow_undefined_flag, $1)='-undefined dynamic_lookup'
++	fi
++	;;
++      esac
++      ;;
+     esac
+     	lt_int_apple_cc_single_mod=no
+     	output_verbose_link_cmd='echo'
+@@ -5300,8 +5328,22 @@
+       rhapsody* | darwin1.[[012]])
+ 	_LT_AC_TAGVAR(allow_undefined_flag, $1)='-undefined suppress'
+ 	;;
+-      *) # Darwin 1.3 on
++      darwin1.* | darwin[[2-6]].*) # Darwin 1.3 on, but less than 7.0
+ 	test -z ${LD_TWOLEVEL_NAMESPACE} && _LT_AC_TAGVAR(allow_undefined_flag, $1)='-flat_namespace -undefined suppress'
++	;;
++      *) # Darwin 7.0 on
++	case "${MACOSX_DEPLOYMENT_TARGET-10.1}" in
++	10.[[012]])
++	  test -z ${LD_TWOLEVEL_NAMESPACE} && _LT_AC_TAGVAR(allow_undefined_flag, $1)='-flat_namespace -undefined suppress'
++	  ;;
++	*) # 10.3 on
++	  if test -z ${LD_TWOLEVEL_NAMESPACE}; then
++	    _LT_AC_TAGVAR(allow_undefined_flag, $1)='-flat_namespace -undefined suppress'
++	  else
++	    _LT_AC_TAGVAR(allow_undefined_flag, $1)='-undefined dynamic_lookup'
++	  fi
++	  ;;
++	esac
+ 	;;
+       esac
+       # FIXME: Relying on posixy $() will cause problems for
+--- cdemo/configure.orig	Mon Apr 14 15:29:47 2003
++++ cdemo/configure	Fri Aug  8 16:02:01 2003
+@@ -6809,9 +6809,23 @@
+       rhapsody* | darwin1.[012])
+ 	allow_undefined_flag='-undefined suppress'
+ 	;;
+-      *) # Darwin 1.3 on
++      darwin1.* | darwin[2-6].*) # Darwin 1.3 on, but less than 7.0
+ 	test -z ${LD_TWOLEVEL_NAMESPACE} && allow_undefined_flag='-flat_namespace -undefined suppress'
+ 	;;
++      *) # Darwin 7.0 on
++	case "${MACOSX_DEPLOYMENT_TARGET-10.1}" in
++	10.[012])
++	  test -z ${LD_TWOLEVEL_NAMESPACE} && allow_undefined_flag='-flat_namespace -undefined suppress'
++	  ;;
++	*) # 10.3 on
++	  if test -z ${LD_TWOLEVEL_NAMESPACE}; then
++	    allow_undefined_flag='-flat_namespace -undefined suppress'
++	  else
++	    allow_undefined_flag='-undefined dynamic_lookup'
++	  fi
++	  ;;
++	esac
++	;;
+       esac
+       # FIXME: Relying on posixy $() will cause problems for
+       #        cross-compilation, but unfortunately the echo tests do not
+@@ -7282,7 +7296,7 @@
+ else
+ # FIXME - insert some real tests, host_os isn't really good enough
+   case $host_os in
+-   darwin*)
++   NOT-darwin*)
+        if test -n "$STRIP" ; then
+          striplib="$STRIP -x"
+          echo "$as_me:$LINENO: result: yes" >&5
+@@ -7481,7 +7495,7 @@
+   # FIXME: Relying on posixy $() will cause problems for
+   #        cross-compilation, but unfortunately the echo tests do not
+   #        yet detect zsh echo's removal of \ escapes.
+-  library_names_spec='${libname}${release}${versuffix}$shared_ext ${libname}${release}${major}$shared_ext ${libname}$shared_ext'
++  library_names_spec='${libname}${release}${major}$shared_ext ${libname}$shared_ext ${libname}${release}${versuffix}$shared_ext'
+   soname_spec='${libname}${release}${major}$shared_ext'
+   shlibpath_overrides_runpath=yes
+   shlibpath_var=DYLD_LIBRARY_PATH
+@@ -8568,9 +8582,23 @@
+     rhapsody* | darwin1.[012])
+       allow_undefined_flag='-undefined suppress'
+       ;;
+-    *) # Darwin 1.3 on
++    darwin1.* | darwin[2-6].*) # Darwin 1.3 on, but less than 7.0
+       test -z ${LD_TWOLEVEL_NAMESPACE} && allow_undefined_flag='-flat_namespace -undefined suppress'
+       ;;
++    *) # Darwin 7.0 on
++      case "${MACOSX_DEPLOYMENT_TARGET-10.1}" in
++      10.[012])
++	test -z ${LD_TWOLEVEL_NAMESPACE} && allow_undefined_flag='-flat_namespace -undefined suppress'
++	;;
++      *) # 10.3 on
++	if test -z ${LD_TWOLEVEL_NAMESPACE}; then
++	  allow_undefined_flag='-flat_namespace -undefined suppress'
++	else
++	  allow_undefined_flag='-undefined dynamic_lookup'
++	fi
++	;;
++      esac
++      ;;
+     esac
+     # FIXME: Relying on posixy $() will cause problems for
+     #        cross-compilation, but unfortunately the echo tests do not
+@@ -9615,9 +9643,23 @@
+     rhapsody* | darwin1.[012])
+       allow_undefined_flag_CXX='-undefined suppress'
+       ;;
+-    *) # Darwin 1.3 on
++    darwin1.* | darwin[2-6].*) # Darwin 1.3 on, but less than 7.0
+       test -z ${LD_TWOLEVEL_NAMESPACE} && allow_undefined_flag_CXX='-flat_namespace -undefined suppress'
+       ;;
++    *) # Darwin 7.0 on
++      case "${MACOSX_DEPLOYMENT_TARGET-10.1}" in
++      10.[012])
++	test -z ${LD_TWOLEVEL_NAMESPACE} && allow_undefined_flag_CXX='-flat_namespace -undefined suppress'
++	;;
++      *) # 10.3 on
++	if test -z ${LD_TWOLEVEL_NAMESPACE}; then
++	  allow_undefined_flag_CXX='-flat_namespace -undefined suppress'
++	else
++	  allow_undefined_flag_CXX='-undefined dynamic_lookup'
++	fi
++	;;
++      esac
++      ;;
+     esac
+     	lt_int_apple_cc_single_mod=no
+     	output_verbose_link_cmd='echo'
+@@ -10822,7 +10864,7 @@
+ else
+ # FIXME - insert some real tests, host_os isn't really good enough
+   case $host_os in
+-   darwin*)
++   NOT-darwin*)
+        if test -n "$STRIP" ; then
+          striplib="$STRIP -x"
+          echo "$as_me:$LINENO: result: yes" >&5
+@@ -11021,7 +11063,7 @@
+   # FIXME: Relying on posixy $() will cause problems for
+   #        cross-compilation, but unfortunately the echo tests do not
+   #        yet detect zsh echo's removal of \ escapes.
+-  library_names_spec='${libname}${release}${versuffix}$shared_ext ${libname}${release}${major}$shared_ext ${libname}$shared_ext'
++  library_names_spec='${libname}${release}${major}$shared_ext ${libname}$shared_ext ${libname}${release}${versuffix}$shared_ext'
+   soname_spec='${libname}${release}${major}$shared_ext'
+   shlibpath_overrides_runpath=yes
+   shlibpath_var=DYLD_LIBRARY_PATH
+@@ -13326,9 +13368,23 @@
+       rhapsody* | darwin1.[012])
+ 	allow_undefined_flag_F77='-undefined suppress'
+ 	;;
+-      *) # Darwin 1.3 on
++      darwin1.* | darwin[2-6].*) # Darwin 1.3 on, but less than 7.0
+ 	test -z ${LD_TWOLEVEL_NAMESPACE} && allow_undefined_flag_F77='-flat_namespace -undefined suppress'
+ 	;;
++      *) # Darwin 7.0 on
++	case "${MACOSX_DEPLOYMENT_TARGET-10.1}" in
++	10.[012])
++	  test -z ${LD_TWOLEVEL_NAMESPACE} && allow_undefined_flag_F77='-flat_namespace -undefined suppress'
++	  ;;
++	*) # 10.3 on
++	  if test -z ${LD_TWOLEVEL_NAMESPACE}; then
++	    allow_undefined_flag_F77='-flat_namespace -undefined suppress'
++	  else
++	    allow_undefined_flag_F77='-undefined dynamic_lookup'
++	  fi
++	  ;;
++	esac
++	;;
+       esac
+       # FIXME: Relying on posixy $() will cause problems for
+       #        cross-compilation, but unfortunately the echo tests do not
+@@ -13799,7 +13855,7 @@
+ else
+ # FIXME - insert some real tests, host_os isn't really good enough
+   case $host_os in
+-   darwin*)
++   NOT-darwin*)
+        if test -n "$STRIP" ; then
+          striplib="$STRIP -x"
+          echo "$as_me:$LINENO: result: yes" >&5
+@@ -13998,7 +14054,7 @@
+   # FIXME: Relying on posixy $() will cause problems for
+   #        cross-compilation, but unfortunately the echo tests do not
+   #        yet detect zsh echo's removal of \ escapes.
+-  library_names_spec='${libname}${release}${versuffix}$shared_ext ${libname}${release}${major}$shared_ext ${libname}$shared_ext'
++  library_names_spec='${libname}${release}${major}$shared_ext ${libname}$shared_ext ${libname}${release}${versuffix}$shared_ext'
+   soname_spec='${libname}${release}${major}$shared_ext'
+   shlibpath_overrides_runpath=yes
+   shlibpath_var=DYLD_LIBRARY_PATH
+@@ -15587,9 +15643,23 @@
+       rhapsody* | darwin1.[012])
+ 	allow_undefined_flag_GCJ='-undefined suppress'
+ 	;;
+-      *) # Darwin 1.3 on
++      darwin1.* | darwin[2-6].*) # Darwin 1.3 on, but less than 7.0
+ 	test -z ${LD_TWOLEVEL_NAMESPACE} && allow_undefined_flag_GCJ='-flat_namespace -undefined suppress'
+ 	;;
++      *) # Darwin 7.0 on
++	case "${MACOSX_DEPLOYMENT_TARGET-10.1}" in
++	10.[012])
++	  test -z ${LD_TWOLEVEL_NAMESPACE} && allow_undefined_flag_GCJ='-flat_namespace -undefined suppress'
++	  ;;
++	*) # 10.3 on
++	  if test -z ${LD_TWOLEVEL_NAMESPACE}; then
++	    allow_undefined_flag_GCJ='-flat_namespace -undefined suppress'
++	  else
++	    allow_undefined_flag_GCJ='-undefined dynamic_lookup'
++	  fi
++	  ;;
++	esac
++	;;
+       esac
+       # FIXME: Relying on posixy $() will cause problems for
+       #        cross-compilation, but unfortunately the echo tests do not
+@@ -16060,7 +16130,7 @@
+ else
+ # FIXME - insert some real tests, host_os isn't really good enough
+   case $host_os in
+-   darwin*)
++   NOT-darwin*)
+        if test -n "$STRIP" ; then
+          striplib="$STRIP -x"
+          echo "$as_me:$LINENO: result: yes" >&5
+@@ -16259,7 +16329,7 @@
+   # FIXME: Relying on posixy $() will cause problems for
+   #        cross-compilation, but unfortunately the echo tests do not
+   #        yet detect zsh echo's removal of \ escapes.
+-  library_names_spec='${libname}${release}${versuffix}$shared_ext ${libname}${release}${major}$shared_ext ${libname}$shared_ext'
++  library_names_spec='${libname}${release}${major}$shared_ext ${libname}$shared_ext ${libname}${release}${versuffix}$shared_ext'
+   soname_spec='${libname}${release}${major}$shared_ext'
+   shlibpath_overrides_runpath=yes
+   shlibpath_var=DYLD_LIBRARY_PATH
+--- configure.orig	Mon Apr 14 15:29:24 2003
++++ configure	Fri Aug  8 16:02:44 2003
+@@ -7340,9 +7340,23 @@
+       rhapsody* | darwin1.[012])
+ 	allow_undefined_flag='-undefined suppress'
+ 	;;
+-      *) # Darwin 1.3 on
++      darwin1.* | darwin[2-6].*) # Darwin 1.3 on, but less than 7.0
+ 	test -z ${LD_TWOLEVEL_NAMESPACE} && allow_undefined_flag='-flat_namespace -undefined suppress'
+ 	;;
++      *) # Darwin 7.0 on
++	case "${MACOSX_DEPLOYMENT_TARGET-10.1}" in
++	10.[012])
++	  test -z ${LD_TWOLEVEL_NAMESPACE} && allow_undefined_flag='-flat_namespace -undefined suppress'
++	  ;;
++	*) # 10.3 on
++	  if test -z ${LD_TWOLEVEL_NAMESPACE}; then
++	    allow_undefined_flag='-flat_namespace -undefined suppress'
++	  else
++	    allow_undefined_flag='-undefined dynamic_lookup'
++	  fi
++	  ;;
++	esac
++	;;
+       esac
+       # FIXME: Relying on posixy $() will cause problems for
+       #        cross-compilation, but unfortunately the echo tests do not
+@@ -7813,7 +7827,7 @@
+ else
+ # FIXME - insert some real tests, host_os isn't really good enough
+   case $host_os in
+-   darwin*)
++   NOT-darwin*)
+        if test -n "$STRIP" ; then
+          striplib="$STRIP -x"
+          echo "$as_me:$LINENO: result: yes" >&5
+@@ -8012,7 +8026,7 @@
+   # FIXME: Relying on posixy $() will cause problems for
+   #        cross-compilation, but unfortunately the echo tests do not
+   #        yet detect zsh echo's removal of \ escapes.
+-  library_names_spec='${libname}${release}${versuffix}$shared_ext ${libname}${release}${major}$shared_ext ${libname}$shared_ext'
++  library_names_spec='${libname}${release}${major}$shared_ext ${libname}$shared_ext ${libname}${release}${versuffix}$shared_ext'
+   soname_spec='${libname}${release}${major}$shared_ext'
+   shlibpath_overrides_runpath=yes
+   shlibpath_var=DYLD_LIBRARY_PATH
+@@ -9099,9 +9113,23 @@
+     rhapsody* | darwin1.[012])
+       allow_undefined_flag='-undefined suppress'
+       ;;
+-    *) # Darwin 1.3 on
++    darwin1.* | darwin[2-6].*) # Darwin 1.3 on, but less than 7.0
+       test -z ${LD_TWOLEVEL_NAMESPACE} && allow_undefined_flag='-flat_namespace -undefined suppress'
+       ;;
++    *) # Darwin 7.0 on
++      case "${MACOSX_DEPLOYMENT_TARGET-10.1}" in
++      10.[012])
++	test -z ${LD_TWOLEVEL_NAMESPACE} && allow_undefined_flag='-flat_namespace -undefined suppress'
++	;;
++      *) # 10.3 on
++	if test -z ${LD_TWOLEVEL_NAMESPACE}; then
++	  allow_undefined_flag='-flat_namespace -undefined suppress'
++	else
++	  allow_undefined_flag='-undefined dynamic_lookup'
++	fi
++	;;
++      esac
++      ;;
+     esac
+     # FIXME: Relying on posixy $() will cause problems for
+     #        cross-compilation, but unfortunately the echo tests do not
+@@ -10146,9 +10174,23 @@
+     rhapsody* | darwin1.[012])
+       allow_undefined_flag_CXX='-undefined suppress'
+       ;;
+-    *) # Darwin 1.3 on
++    darwin1.* | darwin[2-6].*) # Darwin 1.3 on, but less than 7.0
+       test -z ${LD_TWOLEVEL_NAMESPACE} && allow_undefined_flag_CXX='-flat_namespace -undefined suppress'
+       ;;
++    *) # Darwin 7.0 on
++      case "${MACOSX_DEPLOYMENT_TARGET-10.1}" in
++      10.[012])
++	test -z ${LD_TWOLEVEL_NAMESPACE} && allow_undefined_flag_CXX='-flat_namespace -undefined suppress'
++	;;
++      *) # 10.3 on
++	if test -z ${LD_TWOLEVEL_NAMESPACE}; then
++	  allow_undefined_flag_CXX='-flat_namespace -undefined suppress'
++	else
++	  allow_undefined_flag_CXX='-undefined dynamic_lookup'
++	fi
++	;;
++      esac
++      ;;
+     esac
+     	lt_int_apple_cc_single_mod=no
+     	output_verbose_link_cmd='echo'
+@@ -11353,7 +11395,7 @@
+ else
+ # FIXME - insert some real tests, host_os isn't really good enough
+   case $host_os in
+-   darwin*)
++   NOT-darwin*)
+        if test -n "$STRIP" ; then
+          striplib="$STRIP -x"
+          echo "$as_me:$LINENO: result: yes" >&5
+@@ -11552,7 +11594,7 @@
+   # FIXME: Relying on posixy $() will cause problems for
+   #        cross-compilation, but unfortunately the echo tests do not
+   #        yet detect zsh echo's removal of \ escapes.
+-  library_names_spec='${libname}${release}${versuffix}$shared_ext ${libname}${release}${major}$shared_ext ${libname}$shared_ext'
++  library_names_spec='${libname}${release}${major}$shared_ext ${libname}$shared_ext ${libname}${release}${versuffix}$shared_ext'
+   soname_spec='${libname}${release}${major}$shared_ext'
+   shlibpath_overrides_runpath=yes
+   shlibpath_var=DYLD_LIBRARY_PATH
+@@ -13857,9 +13899,23 @@
+       rhapsody* | darwin1.[012])
+ 	allow_undefined_flag_F77='-undefined suppress'
+ 	;;
+-      *) # Darwin 1.3 on
++      darwin1.* | darwin[2-6].*) # Darwin 1.3 on, but less than 7.0
+ 	test -z ${LD_TWOLEVEL_NAMESPACE} && allow_undefined_flag_F77='-flat_namespace -undefined suppress'
+ 	;;
++      *) # Darwin 7.0 on
++	case "${MACOSX_DEPLOYMENT_TARGET-10.1}" in
++	10.[012])
++	  test -z ${LD_TWOLEVEL_NAMESPACE} && allow_undefined_flag_F77='-flat_namespace -undefined suppress'
++	  ;;
++	*) # 10.3 on
++	  if test -z ${LD_TWOLEVEL_NAMESPACE}; then
++	    allow_undefined_flag_F77='-flat_namespace -undefined suppress'
++	  else
++	    allow_undefined_flag_F77='-undefined dynamic_lookup'
++	  fi
++	  ;;
++	esac
++	;;
+       esac
+       # FIXME: Relying on posixy $() will cause problems for
+       #        cross-compilation, but unfortunately the echo tests do not
+@@ -14330,7 +14386,7 @@
+ else
+ # FIXME - insert some real tests, host_os isn't really good enough
+   case $host_os in
+-   darwin*)
++   NOT-darwin*)
+        if test -n "$STRIP" ; then
+          striplib="$STRIP -x"
+          echo "$as_me:$LINENO: result: yes" >&5
+@@ -14529,7 +14585,7 @@
+   # FIXME: Relying on posixy $() will cause problems for
+   #        cross-compilation, but unfortunately the echo tests do not
+   #        yet detect zsh echo's removal of \ escapes.
+-  library_names_spec='${libname}${release}${versuffix}$shared_ext ${libname}${release}${major}$shared_ext ${libname}$shared_ext'
++  library_names_spec='${libname}${release}${major}$shared_ext ${libname}$shared_ext ${libname}${release}${versuffix}$shared_ext'
+   soname_spec='${libname}${release}${major}$shared_ext'
+   shlibpath_overrides_runpath=yes
+   shlibpath_var=DYLD_LIBRARY_PATH
+@@ -16118,9 +16174,23 @@
+       rhapsody* | darwin1.[012])
+ 	allow_undefined_flag_GCJ='-undefined suppress'
+ 	;;
+-      *) # Darwin 1.3 on
++      darwin1.* | darwin[2-6].*) # Darwin 1.3 on, but less than 7.0
+ 	test -z ${LD_TWOLEVEL_NAMESPACE} && allow_undefined_flag_GCJ='-flat_namespace -undefined suppress'
+ 	;;
++      *) # Darwin 7.0 on
++	case "${MACOSX_DEPLOYMENT_TARGET-10.1}" in
++	10.[012])
++	  test -z ${LD_TWOLEVEL_NAMESPACE} && allow_undefined_flag_GCJ='-flat_namespace -undefined suppress'
++	  ;;
++	*) # 10.3 on
++	  if test -z ${LD_TWOLEVEL_NAMESPACE}; then
++	    allow_undefined_flag_GCJ='-flat_namespace -undefined suppress'
++	  else
++	    allow_undefined_flag_GCJ='-undefined dynamic_lookup'
++	  fi
++	  ;;
++	esac
++	;;
+       esac
+       # FIXME: Relying on posixy $() will cause problems for
+       #        cross-compilation, but unfortunately the echo tests do not
+@@ -16591,7 +16661,7 @@
+ else
+ # FIXME - insert some real tests, host_os isn't really good enough
+   case $host_os in
+-   darwin*)
++   NOT-darwin*)
+        if test -n "$STRIP" ; then
+          striplib="$STRIP -x"
+          echo "$as_me:$LINENO: result: yes" >&5
+@@ -16790,7 +16860,7 @@
+   # FIXME: Relying on posixy $() will cause problems for
+   #        cross-compilation, but unfortunately the echo tests do not
+   #        yet detect zsh echo's removal of \ escapes.
+-  library_names_spec='${libname}${release}${versuffix}$shared_ext ${libname}${release}${major}$shared_ext ${libname}$shared_ext'
++  library_names_spec='${libname}${release}${major}$shared_ext ${libname}$shared_ext ${libname}${release}${versuffix}$shared_ext'
+   soname_spec='${libname}${release}${major}$shared_ext'
+   shlibpath_overrides_runpath=yes
+   shlibpath_var=DYLD_LIBRARY_PATH
+--- demo/acinclude.m4.orig	Mon Apr 14 15:29:47 2003
++++ demo/acinclude.m4	Fri Aug  8 16:03:01 2003
+@@ -1058,7 +1058,7 @@
+ else
+ # FIXME - insert some real tests, host_os isn't really good enough
+   case $host_os in
+-   darwin*)
++   NOT-darwin*)
+        if test -n "$STRIP" ; then
+          striplib="$STRIP -x"
+          AC_MSG_RESULT([yes])
+@@ -1259,7 +1259,7 @@
+   # FIXME: Relying on posixy $() will cause problems for
+   #        cross-compilation, but unfortunately the echo tests do not
+   #        yet detect zsh echo's removal of \ escapes.
+-  library_names_spec='${libname}${release}${versuffix}$shared_ext ${libname}${release}${major}$shared_ext ${libname}$shared_ext'
++  library_names_spec='${libname}${release}${major}$shared_ext ${libname}$shared_ext ${libname}${release}${versuffix}$shared_ext'
+   soname_spec='${libname}${release}${major}$shared_ext'
+   shlibpath_overrides_runpath=yes
+   shlibpath_var=DYLD_LIBRARY_PATH
+@@ -2545,9 +2545,23 @@
+     rhapsody* | darwin1.[[012]])
+       _LT_AC_TAGVAR(allow_undefined_flag, $1)='-undefined suppress'
+       ;;
+-    *) # Darwin 1.3 on
++    darwin1.* | darwin[[2-6]].*) # Darwin 1.3 on, but less than 7.0
+       test -z ${LD_TWOLEVEL_NAMESPACE} && _LT_AC_TAGVAR(allow_undefined_flag, $1)='-flat_namespace -undefined suppress'
+       ;;
++    *) # Darwin 7.0 on
++      case "${MACOSX_DEPLOYMENT_TARGET-10.1}" in
++      10.[[012]])
++	test -z ${LD_TWOLEVEL_NAMESPACE} && _LT_AC_TAGVAR(allow_undefined_flag, $1)='-flat_namespace -undefined suppress'
++	;;
++      *) # 10.3 on
++	if test -z ${LD_TWOLEVEL_NAMESPACE}; then
++	  _LT_AC_TAGVAR(allow_undefined_flag, $1)='-flat_namespace -undefined suppress'
++	else
++	  _LT_AC_TAGVAR(allow_undefined_flag, $1)='-undefined dynamic_lookup'
++	fi
++	;;
++      esac
++      ;;
+     esac
+     # FIXME: Relying on posixy $() will cause problems for
+     #        cross-compilation, but unfortunately the echo tests do not
+@@ -2873,9 +2887,23 @@
+     rhapsody* | darwin1.[[012]])
+       _LT_AC_TAGVAR(allow_undefined_flag, $1)='-undefined suppress'
+       ;;
+-    *) # Darwin 1.3 on
++    darwin1.* | darwin[[2-6]].*) # Darwin 1.3 on, but less than 7.0
+       test -z ${LD_TWOLEVEL_NAMESPACE} && _LT_AC_TAGVAR(allow_undefined_flag, $1)='-flat_namespace -undefined suppress'
+       ;;
++    *) # Darwin 7.0 on
++      case "${MACOSX_DEPLOYMENT_TARGET-10.1}" in
++      10.[[012]])
++	test -z ${LD_TWOLEVEL_NAMESPACE} && _LT_AC_TAGVAR(allow_undefined_flag, $1)='-flat_namespace -undefined suppress'
++	;;
++      *) # 10.3 on
++	if test -z ${LD_TWOLEVEL_NAMESPACE}; then
++	  _LT_AC_TAGVAR(allow_undefined_flag, $1)='-flat_namespace -undefined suppress'
++	else
++	  _LT_AC_TAGVAR(allow_undefined_flag, $1)='-undefined dynamic_lookup'
++	fi
++	;;
++      esac
++      ;;
+     esac
+     	lt_int_apple_cc_single_mod=no
+     	output_verbose_link_cmd='echo'
+@@ -5321,8 +5349,22 @@
+       rhapsody* | darwin1.[[012]])
+ 	_LT_AC_TAGVAR(allow_undefined_flag, $1)='-undefined suppress'
+ 	;;
+-      *) # Darwin 1.3 on
++      darwin1.* | darwin[[2-6]].*) # Darwin 1.3 on, but less than 7.0
+ 	test -z ${LD_TWOLEVEL_NAMESPACE} && _LT_AC_TAGVAR(allow_undefined_flag, $1)='-flat_namespace -undefined suppress'
++	;;
++      *) # Darwin 7.0 on
++	case "${MACOSX_DEPLOYMENT_TARGET-10.1}" in
++	10.[[012]])
++	  test -z ${LD_TWOLEVEL_NAMESPACE} && _LT_AC_TAGVAR(allow_undefined_flag, $1)='-flat_namespace -undefined suppress'
++	  ;;
++	*) # 10.3 on
++	  if test -z ${LD_TWOLEVEL_NAMESPACE}; then
++	    _LT_AC_TAGVAR(allow_undefined_flag, $1)='-flat_namespace -undefined suppress'
++	  else
++	    _LT_AC_TAGVAR(allow_undefined_flag, $1)='-undefined dynamic_lookup'
++	  fi
++	  ;;
++	esac
+ 	;;
+       esac
+       # FIXME: Relying on posixy $() will cause problems for
+--- demo/aclocal.m4.orig	Mon Apr 14 15:29:48 2003
++++ demo/aclocal.m4	Fri Aug  8 16:03:16 2003
+@@ -1049,7 +1049,7 @@
+ else
+ # FIXME - insert some real tests, host_os isn't really good enough
+   case $host_os in
+-   darwin*)
++   NOT-darwin*)
+        if test -n "$STRIP" ; then
+          striplib="$STRIP -x"
+          AC_MSG_RESULT([yes])
+@@ -1250,7 +1250,7 @@
+   # FIXME: Relying on posixy $() will cause problems for
+   #        cross-compilation, but unfortunately the echo tests do not
+   #        yet detect zsh echo's removal of \ escapes.
+-  library_names_spec='${libname}${release}${versuffix}$shared_ext ${libname}${release}${major}$shared_ext ${libname}$shared_ext'
++  library_names_spec='${libname}${release}${major}$shared_ext ${libname}$shared_ext ${libname}${release}${versuffix}$shared_ext'
+   soname_spec='${libname}${release}${major}$shared_ext'
+   shlibpath_overrides_runpath=yes
+   shlibpath_var=DYLD_LIBRARY_PATH
+@@ -2532,9 +2532,23 @@
+     rhapsody* | darwin1.[[012]])
+       _LT_AC_TAGVAR(allow_undefined_flag, $1)='-undefined suppress'
+       ;;
+-    *) # Darwin 1.3 on
++    darwin1.* | darwin[[2-6]].*) # Darwin 1.3 on, but less than 7.0
+       test -z ${LD_TWOLEVEL_NAMESPACE} && _LT_AC_TAGVAR(allow_undefined_flag, $1)='-flat_namespace -undefined suppress'
+       ;;
++    *) # Darwin 7.0 on
++      case "${MACOSX_DEPLOYMENT_TARGET-10.1}" in
++      10.[[012]])
++	test -z ${LD_TWOLEVEL_NAMESPACE} && _LT_AC_TAGVAR(allow_undefined_flag, $1)='-flat_namespace -undefined suppress'
++	;;
++      *) # 10.3 on
++	if test -z ${LD_TWOLEVEL_NAMESPACE}; then
++	  _LT_AC_TAGVAR(allow_undefined_flag, $1)='-flat_namespace -undefined suppress'
++	else
++	  _LT_AC_TAGVAR(allow_undefined_flag, $1)='-undefined dynamic_lookup'
++	fi
++	;;
++      esac
++      ;;
+     esac
+     # FIXME: Relying on posixy $() will cause problems for
+     #        cross-compilation, but unfortunately the echo tests do not
+@@ -2860,9 +2874,23 @@
+     rhapsody* | darwin1.[[012]])
+       _LT_AC_TAGVAR(allow_undefined_flag, $1)='-undefined suppress'
+       ;;
+-    *) # Darwin 1.3 on
++    darwin1.* | darwin[[2-6]].*) # Darwin 1.3 on, but less than 7.0
+       test -z ${LD_TWOLEVEL_NAMESPACE} && _LT_AC_TAGVAR(allow_undefined_flag, $1)='-flat_namespace -undefined suppress'
+       ;;
++    *) # Darwin 7.0 on
++      case "${MACOSX_DEPLOYMENT_TARGET-10.1}" in
++      10.[[012]])
++	test -z ${LD_TWOLEVEL_NAMESPACE} && _LT_AC_TAGVAR(allow_undefined_flag, $1)='-flat_namespace -undefined suppress'
++	;;
++      *) # 10.3 on
++	if test -z ${LD_TWOLEVEL_NAMESPACE}; then
++	  _LT_AC_TAGVAR(allow_undefined_flag, $1)='-flat_namespace -undefined suppress'
++	else
++	  _LT_AC_TAGVAR(allow_undefined_flag, $1)='-undefined dynamic_lookup'
++	fi
++	;;
++      esac
++      ;;
+     esac
+     	lt_int_apple_cc_single_mod=no
+     	output_verbose_link_cmd='echo'
+@@ -5300,8 +5328,22 @@
+       rhapsody* | darwin1.[[012]])
+ 	_LT_AC_TAGVAR(allow_undefined_flag, $1)='-undefined suppress'
+ 	;;
+-      *) # Darwin 1.3 on
++      darwin1.* | darwin[[2-6]].*) # Darwin 1.3 on, but less than 7.0
+ 	test -z ${LD_TWOLEVEL_NAMESPACE} && _LT_AC_TAGVAR(allow_undefined_flag, $1)='-flat_namespace -undefined suppress'
++	;;
++      *) # Darwin 7.0 on
++	case "${MACOSX_DEPLOYMENT_TARGET-10.1}" in
++	10.[[012]])
++	  test -z ${LD_TWOLEVEL_NAMESPACE} && _LT_AC_TAGVAR(allow_undefined_flag, $1)='-flat_namespace -undefined suppress'
++	  ;;
++	*) # 10.3 on
++	  if test -z ${LD_TWOLEVEL_NAMESPACE}; then
++	    _LT_AC_TAGVAR(allow_undefined_flag, $1)='-flat_namespace -undefined suppress'
++	  else
++	    _LT_AC_TAGVAR(allow_undefined_flag, $1)='-undefined dynamic_lookup'
++	  fi
++	  ;;
++	esac
+ 	;;
+       esac
+       # FIXME: Relying on posixy $() will cause problems for
+--- demo/configure.orig	Mon Apr 14 15:29:58 2003
++++ demo/configure	Fri Aug  8 16:04:22 2003
+@@ -7153,9 +7153,23 @@
+       rhapsody* | darwin1.[012])
+ 	allow_undefined_flag='-undefined suppress'
+ 	;;
+-      *) # Darwin 1.3 on
++      darwin1.* | darwin[2-6].*) # Darwin 1.3 on, but less than 7.0
+ 	test -z ${LD_TWOLEVEL_NAMESPACE} && allow_undefined_flag='-flat_namespace -undefined suppress'
+ 	;;
++      *) # Darwin 7.0 on
++	case "${MACOSX_DEPLOYMENT_TARGET-10.1}" in
++	10.[012])
++	  test -z ${LD_TWOLEVEL_NAMESPACE} && allow_undefined_flag='-flat_namespace -undefined suppress'
++	  ;;
++	*) # 10.3 on
++	  if test -z ${LD_TWOLEVEL_NAMESPACE}; then
++	    allow_undefined_flag='-flat_namespace -undefined suppress'
++	  else
++	    allow_undefined_flag='-undefined dynamic_lookup'
++	  fi
++	  ;;
++	esac
++	;;
+       esac
+       # FIXME: Relying on posixy $() will cause problems for
+       #        cross-compilation, but unfortunately the echo tests do not
+@@ -7626,7 +7640,7 @@
+ else
+ # FIXME - insert some real tests, host_os isn't really good enough
+   case $host_os in
+-   darwin*)
++   NOT-darwin*)
+        if test -n "$STRIP" ; then
+          striplib="$STRIP -x"
+          echo "$as_me:$LINENO: result: yes" >&5
+@@ -7825,7 +7839,7 @@
+   # FIXME: Relying on posixy $() will cause problems for
+   #        cross-compilation, but unfortunately the echo tests do not
+   #        yet detect zsh echo's removal of \ escapes.
+-  library_names_spec='${libname}${release}${versuffix}$shared_ext ${libname}${release}${major}$shared_ext ${libname}$shared_ext'
++  library_names_spec='${libname}${release}${major}$shared_ext ${libname}$shared_ext ${libname}${release}${versuffix}$shared_ext'
+   soname_spec='${libname}${release}${major}$shared_ext'
+   shlibpath_overrides_runpath=yes
+   shlibpath_var=DYLD_LIBRARY_PATH
+@@ -8912,9 +8926,23 @@
+     rhapsody* | darwin1.[012])
+       allow_undefined_flag='-undefined suppress'
+       ;;
+-    *) # Darwin 1.3 on
++    darwin1.* | darwin[2-6].*) # Darwin 1.3 on, but less than 7.0
+       test -z ${LD_TWOLEVEL_NAMESPACE} && allow_undefined_flag='-flat_namespace -undefined suppress'
+       ;;
++    *) # Darwin 7.0 on
++      case "${MACOSX_DEPLOYMENT_TARGET-10.1}" in
++      10.[012])
++	test -z ${LD_TWOLEVEL_NAMESPACE} && allow_undefined_flag='-flat_namespace -undefined suppress'
++	;;
++      *) # 10.3 on
++	if test -z ${LD_TWOLEVEL_NAMESPACE}; then
++	  allow_undefined_flag='-flat_namespace -undefined suppress'
++	else
++	  allow_undefined_flag='-undefined dynamic_lookup'
++	fi
++	;;
++      esac
++      ;;
+     esac
+     # FIXME: Relying on posixy $() will cause problems for
+     #        cross-compilation, but unfortunately the echo tests do not
+@@ -9959,9 +9987,23 @@
+     rhapsody* | darwin1.[012])
+       allow_undefined_flag_CXX='-undefined suppress'
+       ;;
+-    *) # Darwin 1.3 on
++    darwin1.* | darwin[2-6].*) # Darwin 1.3 on, but less than 7.0
+       test -z ${LD_TWOLEVEL_NAMESPACE} && allow_undefined_flag_CXX='-flat_namespace -undefined suppress'
+       ;;
++    *) # Darwin 7.0 on
++      case "${MACOSX_DEPLOYMENT_TARGET-10.1}" in
++      10.[012])
++	test -z ${LD_TWOLEVEL_NAMESPACE} && allow_undefined_flag_CXX='-flat_namespace -undefined suppress'
++	;;
++      *) # 10.3 on
++	if test -z ${LD_TWOLEVEL_NAMESPACE}; then
++	  allow_undefined_flag_CXX='-flat_namespace -undefined suppress'
++	else
++	  allow_undefined_flag_CXX='-undefined dynamic_lookup'
++	fi
++	;;
++      esac
++      ;;
+     esac
+     	lt_int_apple_cc_single_mod=no
+     	output_verbose_link_cmd='echo'
+@@ -11166,7 +11208,7 @@
+ else
+ # FIXME - insert some real tests, host_os isn't really good enough
+   case $host_os in
+-   darwin*)
++   NOT-darwin*)
+        if test -n "$STRIP" ; then
+          striplib="$STRIP -x"
+          echo "$as_me:$LINENO: result: yes" >&5
+@@ -11365,7 +11407,7 @@
+   # FIXME: Relying on posixy $() will cause problems for
+   #        cross-compilation, but unfortunately the echo tests do not
+   #        yet detect zsh echo's removal of \ escapes.
+-  library_names_spec='${libname}${release}${versuffix}$shared_ext ${libname}${release}${major}$shared_ext ${libname}$shared_ext'
++  library_names_spec='${libname}${release}${major}$shared_ext ${libname}$shared_ext ${libname}${release}${versuffix}$shared_ext'
+   soname_spec='${libname}${release}${major}$shared_ext'
+   shlibpath_overrides_runpath=yes
+   shlibpath_var=DYLD_LIBRARY_PATH
+@@ -13670,9 +13712,23 @@
+       rhapsody* | darwin1.[012])
+ 	allow_undefined_flag_F77='-undefined suppress'
+ 	;;
+-      *) # Darwin 1.3 on
++      darwin1.* | darwin[2-6].*) # Darwin 1.3 on, but less than 7.0
+ 	test -z ${LD_TWOLEVEL_NAMESPACE} && allow_undefined_flag_F77='-flat_namespace -undefined suppress'
+ 	;;
++      *) # Darwin 7.0 on
++	case "${MACOSX_DEPLOYMENT_TARGET-10.1}" in
++	10.[012])
++	  test -z ${LD_TWOLEVEL_NAMESPACE} && allow_undefined_flag_F77='-flat_namespace -undefined suppress'
++	  ;;
++	*) # 10.3 on
++	  if test -z ${LD_TWOLEVEL_NAMESPACE}; then
++	    allow_undefined_flag_F77='-flat_namespace -undefined suppress'
++	  else
++	    allow_undefined_flag_F77='-undefined dynamic_lookup'
++	  fi
++	  ;;
++	esac
++	;;
+       esac
+       # FIXME: Relying on posixy $() will cause problems for
+       #        cross-compilation, but unfortunately the echo tests do not
+@@ -14143,7 +14199,7 @@
+ else
+ # FIXME - insert some real tests, host_os isn't really good enough
+   case $host_os in
+-   darwin*)
++   NOT-darwin*)
+        if test -n "$STRIP" ; then
+          striplib="$STRIP -x"
+          echo "$as_me:$LINENO: result: yes" >&5
+@@ -14342,7 +14398,7 @@
+   # FIXME: Relying on posixy $() will cause problems for
+   #        cross-compilation, but unfortunately the echo tests do not
+   #        yet detect zsh echo's removal of \ escapes.
+-  library_names_spec='${libname}${release}${versuffix}$shared_ext ${libname}${release}${major}$shared_ext ${libname}$shared_ext'
++  library_names_spec='${libname}${release}${major}$shared_ext ${libname}$shared_ext ${libname}${release}${versuffix}$shared_ext'
+   soname_spec='${libname}${release}${major}$shared_ext'
+   shlibpath_overrides_runpath=yes
+   shlibpath_var=DYLD_LIBRARY_PATH
+@@ -15931,9 +15987,23 @@
+       rhapsody* | darwin1.[012])
+ 	allow_undefined_flag_GCJ='-undefined suppress'
+ 	;;
+-      *) # Darwin 1.3 on
++      darwin1.* | darwin[2-6].*) # Darwin 1.3 on, but less than 7.0
+ 	test -z ${LD_TWOLEVEL_NAMESPACE} && allow_undefined_flag_GCJ='-flat_namespace -undefined suppress'
+ 	;;
++      *) # Darwin 7.0 on
++	case "${MACOSX_DEPLOYMENT_TARGET-10.1}" in
++	10.[012])
++	  test -z ${LD_TWOLEVEL_NAMESPACE} && allow_undefined_flag_GCJ='-flat_namespace -undefined suppress'
++	  ;;
++	*) # 10.3 on
++	  if test -z ${LD_TWOLEVEL_NAMESPACE}; then
++	    allow_undefined_flag_GCJ='-flat_namespace -undefined suppress'
++	  else
++	    allow_undefined_flag_GCJ='-undefined dynamic_lookup'
++	  fi
++	  ;;
++	esac
++	;;
+       esac
+       # FIXME: Relying on posixy $() will cause problems for
+       #        cross-compilation, but unfortunately the echo tests do not
+@@ -16404,7 +16474,7 @@
+ else
+ # FIXME - insert some real tests, host_os isn't really good enough
+   case $host_os in
+-   darwin*)
++   NOT-darwin*)
+        if test -n "$STRIP" ; then
+          striplib="$STRIP -x"
+          echo "$as_me:$LINENO: result: yes" >&5
+@@ -16603,7 +16673,7 @@
+   # FIXME: Relying on posixy $() will cause problems for
+   #        cross-compilation, but unfortunately the echo tests do not
+   #        yet detect zsh echo's removal of \ escapes.
+-  library_names_spec='${libname}${release}${versuffix}$shared_ext ${libname}${release}${major}$shared_ext ${libname}$shared_ext'
++  library_names_spec='${libname}${release}${major}$shared_ext ${libname}$shared_ext ${libname}${release}${versuffix}$shared_ext'
+   soname_spec='${libname}${release}${major}$shared_ext'
+   shlibpath_overrides_runpath=yes
+   shlibpath_var=DYLD_LIBRARY_PATH
+--- depdemo/acinclude.m4.orig	Mon Apr 14 15:29:58 2003
++++ depdemo/acinclude.m4	Fri Aug  8 16:04:35 2003
+@@ -1058,7 +1058,7 @@
+ else
+ # FIXME - insert some real tests, host_os isn't really good enough
+   case $host_os in
+-   darwin*)
++   NOT-darwin*)
+        if test -n "$STRIP" ; then
+          striplib="$STRIP -x"
+          AC_MSG_RESULT([yes])
+@@ -1259,7 +1259,7 @@
+   # FIXME: Relying on posixy $() will cause problems for
+   #        cross-compilation, but unfortunately the echo tests do not
+   #        yet detect zsh echo's removal of \ escapes.
+-  library_names_spec='${libname}${release}${versuffix}$shared_ext ${libname}${release}${major}$shared_ext ${libname}$shared_ext'
++  library_names_spec='${libname}${release}${major}$shared_ext ${libname}$shared_ext ${libname}${release}${versuffix}$shared_ext'
+   soname_spec='${libname}${release}${major}$shared_ext'
+   shlibpath_overrides_runpath=yes
+   shlibpath_var=DYLD_LIBRARY_PATH
+@@ -2545,9 +2545,23 @@
+     rhapsody* | darwin1.[[012]])
+       _LT_AC_TAGVAR(allow_undefined_flag, $1)='-undefined suppress'
+       ;;
+-    *) # Darwin 1.3 on
++    darwin1.* | darwin[[2-6]].*) # Darwin 1.3 on, but less than 7.0
+       test -z ${LD_TWOLEVEL_NAMESPACE} && _LT_AC_TAGVAR(allow_undefined_flag, $1)='-flat_namespace -undefined suppress'
+       ;;
++    *) # Darwin 7.0 on
++      case "${MACOSX_DEPLOYMENT_TARGET-10.1}" in
++      10.[[012]])
++	test -z ${LD_TWOLEVEL_NAMESPACE} && _LT_AC_TAGVAR(allow_undefined_flag, $1)='-flat_namespace -undefined suppress'
++	;;
++      *) # 10.3 on
++	if test -z ${LD_TWOLEVEL_NAMESPACE}; then
++	  _LT_AC_TAGVAR(allow_undefined_flag, $1)='-flat_namespace -undefined suppress'
++	else
++	  _LT_AC_TAGVAR(allow_undefined_flag, $1)='-undefined dynamic_lookup'
++	fi
++	;;
++      esac
++      ;;
+     esac
+     # FIXME: Relying on posixy $() will cause problems for
+     #        cross-compilation, but unfortunately the echo tests do not
+@@ -2873,9 +2887,23 @@
+     rhapsody* | darwin1.[[012]])
+       _LT_AC_TAGVAR(allow_undefined_flag, $1)='-undefined suppress'
+       ;;
+-    *) # Darwin 1.3 on
++    darwin1.* | darwin[[2-6]].*) # Darwin 1.3 on, but less than 7.0
+       test -z ${LD_TWOLEVEL_NAMESPACE} && _LT_AC_TAGVAR(allow_undefined_flag, $1)='-flat_namespace -undefined suppress'
+       ;;
++    *) # Darwin 7.0 on
++      case "${MACOSX_DEPLOYMENT_TARGET-10.1}" in
++      10.[[012]])
++	test -z ${LD_TWOLEVEL_NAMESPACE} && _LT_AC_TAGVAR(allow_undefined_flag, $1)='-flat_namespace -undefined suppress'
++	;;
++      *) # 10.3 on
++	if test -z ${LD_TWOLEVEL_NAMESPACE}; then
++	  _LT_AC_TAGVAR(allow_undefined_flag, $1)='-flat_namespace -undefined suppress'
++	else
++	  _LT_AC_TAGVAR(allow_undefined_flag, $1)='-undefined dynamic_lookup'
++	fi
++	;;
++      esac
++      ;;
+     esac
+     	lt_int_apple_cc_single_mod=no
+     	output_verbose_link_cmd='echo'
+@@ -5321,8 +5349,22 @@
+       rhapsody* | darwin1.[[012]])
+ 	_LT_AC_TAGVAR(allow_undefined_flag, $1)='-undefined suppress'
+ 	;;
+-      *) # Darwin 1.3 on
++      darwin1.* | darwin[[2-6]].*) # Darwin 1.3 on, but less than 7.0
+ 	test -z ${LD_TWOLEVEL_NAMESPACE} && _LT_AC_TAGVAR(allow_undefined_flag, $1)='-flat_namespace -undefined suppress'
++	;;
++      *) # Darwin 7.0 on
++	case "${MACOSX_DEPLOYMENT_TARGET-10.1}" in
++	10.[[012]])
++	  test -z ${LD_TWOLEVEL_NAMESPACE} && _LT_AC_TAGVAR(allow_undefined_flag, $1)='-flat_namespace -undefined suppress'
++	  ;;
++	*) # 10.3 on
++	  if test -z ${LD_TWOLEVEL_NAMESPACE}; then
++	    _LT_AC_TAGVAR(allow_undefined_flag, $1)='-flat_namespace -undefined suppress'
++	  else
++	    _LT_AC_TAGVAR(allow_undefined_flag, $1)='-undefined dynamic_lookup'
++	  fi
++	  ;;
++	esac
+ 	;;
+       esac
+       # FIXME: Relying on posixy $() will cause problems for
+--- depdemo/aclocal.m4.orig	Mon Apr 14 15:29:59 2003
++++ depdemo/aclocal.m4	Fri Aug  8 16:04:51 2003
+@@ -1049,7 +1049,7 @@
+ else
+ # FIXME - insert some real tests, host_os isn't really good enough
+   case $host_os in
+-   darwin*)
++   NOT-darwin*)
+        if test -n "$STRIP" ; then
+          striplib="$STRIP -x"
+          AC_MSG_RESULT([yes])
+@@ -1250,7 +1250,7 @@
+   # FIXME: Relying on posixy $() will cause problems for
+   #        cross-compilation, but unfortunately the echo tests do not
+   #        yet detect zsh echo's removal of \ escapes.
+-  library_names_spec='${libname}${release}${versuffix}$shared_ext ${libname}${release}${major}$shared_ext ${libname}$shared_ext'
++  library_names_spec='${libname}${release}${major}$shared_ext ${libname}$shared_ext ${libname}${release}${versuffix}$shared_ext'
+   soname_spec='${libname}${release}${major}$shared_ext'
+   shlibpath_overrides_runpath=yes
+   shlibpath_var=DYLD_LIBRARY_PATH
+@@ -2532,9 +2532,23 @@
+     rhapsody* | darwin1.[[012]])
+       _LT_AC_TAGVAR(allow_undefined_flag, $1)='-undefined suppress'
+       ;;
+-    *) # Darwin 1.3 on
++    darwin1.* | darwin[[2-6]].*) # Darwin 1.3 on, but less than 7.0
+       test -z ${LD_TWOLEVEL_NAMESPACE} && _LT_AC_TAGVAR(allow_undefined_flag, $1)='-flat_namespace -undefined suppress'
+       ;;
++    *) # Darwin 7.0 on
++      case "${MACOSX_DEPLOYMENT_TARGET-10.1}" in
++      10.[[012]])
++	test -z ${LD_TWOLEVEL_NAMESPACE} && _LT_AC_TAGVAR(allow_undefined_flag, $1)='-flat_namespace -undefined suppress'
++	;;
++      *) # 10.3 on
++	if test -z ${LD_TWOLEVEL_NAMESPACE}; then
++	  _LT_AC_TAGVAR(allow_undefined_flag, $1)='-flat_namespace -undefined suppress'
++	else
++	  _LT_AC_TAGVAR(allow_undefined_flag, $1)='-undefined dynamic_lookup'
++	fi
++	;;
++      esac
++      ;;
+     esac
+     # FIXME: Relying on posixy $() will cause problems for
+     #        cross-compilation, but unfortunately the echo tests do not
+@@ -2860,9 +2874,23 @@
+     rhapsody* | darwin1.[[012]])
+       _LT_AC_TAGVAR(allow_undefined_flag, $1)='-undefined suppress'
+       ;;
+-    *) # Darwin 1.3 on
++    darwin1.* | darwin[[2-6]].*) # Darwin 1.3 on, but less than 7.0
+       test -z ${LD_TWOLEVEL_NAMESPACE} && _LT_AC_TAGVAR(allow_undefined_flag, $1)='-flat_namespace -undefined suppress'
+       ;;
++    *) # Darwin 7.0 on
++      case "${MACOSX_DEPLOYMENT_TARGET-10.1}" in
++      10.[[012]])
++	test -z ${LD_TWOLEVEL_NAMESPACE} && _LT_AC_TAGVAR(allow_undefined_flag, $1)='-flat_namespace -undefined suppress'
++	;;
++      *) # 10.3 on
++	if test -z ${LD_TWOLEVEL_NAMESPACE}; then
++	  _LT_AC_TAGVAR(allow_undefined_flag, $1)='-flat_namespace -undefined suppress'
++	else
++	  _LT_AC_TAGVAR(allow_undefined_flag, $1)='-undefined dynamic_lookup'
++	fi
++	;;
++      esac
++      ;;
+     esac
+     	lt_int_apple_cc_single_mod=no
+     	output_verbose_link_cmd='echo'
+@@ -5300,8 +5328,22 @@
+       rhapsody* | darwin1.[[012]])
+ 	_LT_AC_TAGVAR(allow_undefined_flag, $1)='-undefined suppress'
+ 	;;
+-      *) # Darwin 1.3 on
++      darwin1.* | darwin[[2-6]].*) # Darwin 1.3 on, but less than 7.0
+ 	test -z ${LD_TWOLEVEL_NAMESPACE} && _LT_AC_TAGVAR(allow_undefined_flag, $1)='-flat_namespace -undefined suppress'
++	;;
++      *) # Darwin 7.0 on
++	case "${MACOSX_DEPLOYMENT_TARGET-10.1}" in
++	10.[[012]])
++	  test -z ${LD_TWOLEVEL_NAMESPACE} && _LT_AC_TAGVAR(allow_undefined_flag, $1)='-flat_namespace -undefined suppress'
++	  ;;
++	*) # 10.3 on
++	  if test -z ${LD_TWOLEVEL_NAMESPACE}; then
++	    _LT_AC_TAGVAR(allow_undefined_flag, $1)='-flat_namespace -undefined suppress'
++	  else
++	    _LT_AC_TAGVAR(allow_undefined_flag, $1)='-undefined dynamic_lookup'
++	  fi
++	  ;;
++	esac
+ 	;;
+       esac
+       # FIXME: Relying on posixy $() will cause problems for
+--- depdemo/configure.orig	Mon Apr 14 15:30:09 2003
++++ depdemo/configure	Fri Aug  8 16:05:32 2003
+@@ -7052,9 +7052,23 @@
+       rhapsody* | darwin1.[012])
+ 	allow_undefined_flag='-undefined suppress'
+ 	;;
+-      *) # Darwin 1.3 on
++      darwin1.* | darwin[2-6].*) # Darwin 1.3 on, but less than 7.0
+ 	test -z ${LD_TWOLEVEL_NAMESPACE} && allow_undefined_flag='-flat_namespace -undefined suppress'
+ 	;;
++      *) # Darwin 7.0 on
++	case "${MACOSX_DEPLOYMENT_TARGET-10.1}" in
++	10.[012])
++	  test -z ${LD_TWOLEVEL_NAMESPACE} && allow_undefined_flag='-flat_namespace -undefined suppress'
++	  ;;
++	*) # 10.3 on
++	  if test -z ${LD_TWOLEVEL_NAMESPACE}; then
++	    allow_undefined_flag='-flat_namespace -undefined suppress'
++	  else
++	    allow_undefined_flag='-undefined dynamic_lookup'
++	  fi
++	  ;;
++	esac
++	;;
+       esac
+       # FIXME: Relying on posixy $() will cause problems for
+       #        cross-compilation, but unfortunately the echo tests do not
+@@ -7525,7 +7539,7 @@
+ else
+ # FIXME - insert some real tests, host_os isn't really good enough
+   case $host_os in
+-   darwin*)
++   NOT-darwin*)
+        if test -n "$STRIP" ; then
+          striplib="$STRIP -x"
+          echo "$as_me:$LINENO: result: yes" >&5
+@@ -7724,7 +7738,7 @@
+   # FIXME: Relying on posixy $() will cause problems for
+   #        cross-compilation, but unfortunately the echo tests do not
+   #        yet detect zsh echo's removal of \ escapes.
+-  library_names_spec='${libname}${release}${versuffix}$shared_ext ${libname}${release}${major}$shared_ext ${libname}$shared_ext'
++  library_names_spec='${libname}${release}${major}$shared_ext ${libname}$shared_ext ${libname}${release}${versuffix}$shared_ext'
+   soname_spec='${libname}${release}${major}$shared_ext'
+   shlibpath_overrides_runpath=yes
+   shlibpath_var=DYLD_LIBRARY_PATH
+@@ -8811,9 +8825,23 @@
+     rhapsody* | darwin1.[012])
+       allow_undefined_flag='-undefined suppress'
+       ;;
+-    *) # Darwin 1.3 on
++    darwin1.* | darwin[2-6].*) # Darwin 1.3 on, but less than 7.0
+       test -z ${LD_TWOLEVEL_NAMESPACE} && allow_undefined_flag='-flat_namespace -undefined suppress'
+       ;;
++    *) # Darwin 7.0 on
++      case "${MACOSX_DEPLOYMENT_TARGET-10.1}" in
++      10.[012])
++	test -z ${LD_TWOLEVEL_NAMESPACE} && allow_undefined_flag='-flat_namespace -undefined suppress'
++	;;
++      *) # 10.3 on
++	if test -z ${LD_TWOLEVEL_NAMESPACE}; then
++	  allow_undefined_flag='-flat_namespace -undefined suppress'
++	else
++	  allow_undefined_flag='-undefined dynamic_lookup'
++	fi
++	;;
++      esac
++      ;;
+     esac
+     # FIXME: Relying on posixy $() will cause problems for
+     #        cross-compilation, but unfortunately the echo tests do not
+@@ -9858,9 +9886,23 @@
+     rhapsody* | darwin1.[012])
+       allow_undefined_flag_CXX='-undefined suppress'
+       ;;
+-    *) # Darwin 1.3 on
++    darwin1.* | darwin[2-6].*) # Darwin 1.3 on, but less than 7.0
+       test -z ${LD_TWOLEVEL_NAMESPACE} && allow_undefined_flag_CXX='-flat_namespace -undefined suppress'
+       ;;
++    *) # Darwin 7.0 on
++      case "${MACOSX_DEPLOYMENT_TARGET-10.1}" in
++      10.[012])
++	test -z ${LD_TWOLEVEL_NAMESPACE} && allow_undefined_flag_CXX='-flat_namespace -undefined suppress'
++	;;
++      *) # 10.3 on
++	if test -z ${LD_TWOLEVEL_NAMESPACE}; then
++	  allow_undefined_flag_CXX='-flat_namespace -undefined suppress'
++	else
++	  allow_undefined_flag_CXX='-undefined dynamic_lookup'
++	fi
++	;;
++      esac
++      ;;
+     esac
+     	lt_int_apple_cc_single_mod=no
+     	output_verbose_link_cmd='echo'
+@@ -11065,7 +11107,7 @@
+ else
+ # FIXME - insert some real tests, host_os isn't really good enough
+   case $host_os in
+-   darwin*)
++   NOT-darwin*)
+        if test -n "$STRIP" ; then
+          striplib="$STRIP -x"
+          echo "$as_me:$LINENO: result: yes" >&5
+@@ -11264,7 +11306,7 @@
+   # FIXME: Relying on posixy $() will cause problems for
+   #        cross-compilation, but unfortunately the echo tests do not
+   #        yet detect zsh echo's removal of \ escapes.
+-  library_names_spec='${libname}${release}${versuffix}$shared_ext ${libname}${release}${major}$shared_ext ${libname}$shared_ext'
++  library_names_spec='${libname}${release}${major}$shared_ext ${libname}$shared_ext ${libname}${release}${versuffix}$shared_ext'
+   soname_spec='${libname}${release}${major}$shared_ext'
+   shlibpath_overrides_runpath=yes
+   shlibpath_var=DYLD_LIBRARY_PATH
+@@ -13569,9 +13611,23 @@
+       rhapsody* | darwin1.[012])
+ 	allow_undefined_flag_F77='-undefined suppress'
+ 	;;
+-      *) # Darwin 1.3 on
++      darwin1.* | darwin[2-6].*) # Darwin 1.3 on, but less than 7.0
+ 	test -z ${LD_TWOLEVEL_NAMESPACE} && allow_undefined_flag_F77='-flat_namespace -undefined suppress'
+ 	;;
++      *) # Darwin 7.0 on
++	case "${MACOSX_DEPLOYMENT_TARGET-10.1}" in
++	10.[012])
++	  test -z ${LD_TWOLEVEL_NAMESPACE} && allow_undefined_flag_F77='-flat_namespace -undefined suppress'
++	  ;;
++	*) # 10.3 on
++	  if test -z ${LD_TWOLEVEL_NAMESPACE}; then
++	    allow_undefined_flag_F77='-flat_namespace -undefined suppress'
++	  else
++	    allow_undefined_flag_F77='-undefined dynamic_lookup'
++	  fi
++	  ;;
++	esac
++	;;
+       esac
+       # FIXME: Relying on posixy $() will cause problems for
+       #        cross-compilation, but unfortunately the echo tests do not
+@@ -14042,7 +14098,7 @@
+ else
+ # FIXME - insert some real tests, host_os isn't really good enough
+   case $host_os in
+-   darwin*)
++   NOT-darwin*)
+        if test -n "$STRIP" ; then
+          striplib="$STRIP -x"
+          echo "$as_me:$LINENO: result: yes" >&5
+@@ -14241,7 +14297,7 @@
+   # FIXME: Relying on posixy $() will cause problems for
+   #        cross-compilation, but unfortunately the echo tests do not
+   #        yet detect zsh echo's removal of \ escapes.
+-  library_names_spec='${libname}${release}${versuffix}$shared_ext ${libname}${release}${major}$shared_ext ${libname}$shared_ext'
++  library_names_spec='${libname}${release}${major}$shared_ext ${libname}$shared_ext ${libname}${release}${versuffix}$shared_ext'
+   soname_spec='${libname}${release}${major}$shared_ext'
+   shlibpath_overrides_runpath=yes
+   shlibpath_var=DYLD_LIBRARY_PATH
+@@ -15830,9 +15886,23 @@
+       rhapsody* | darwin1.[012])
+ 	allow_undefined_flag_GCJ='-undefined suppress'
+ 	;;
+-      *) # Darwin 1.3 on
++      darwin1.* | darwin[2-6].*) # Darwin 1.3 on, but less than 7.0
+ 	test -z ${LD_TWOLEVEL_NAMESPACE} && allow_undefined_flag_GCJ='-flat_namespace -undefined suppress'
+ 	;;
++      *) # Darwin 7.0 on
++	case "${MACOSX_DEPLOYMENT_TARGET-10.1}" in
++	10.[012])
++	  test -z ${LD_TWOLEVEL_NAMESPACE} && allow_undefined_flag_GCJ='-flat_namespace -undefined suppress'
++	  ;;
++	*) # 10.3 on
++	  if test -z ${LD_TWOLEVEL_NAMESPACE}; then
++	    allow_undefined_flag_GCJ='-flat_namespace -undefined suppress'
++	  else
++	    allow_undefined_flag_GCJ='-undefined dynamic_lookup'
++	  fi
++	  ;;
++	esac
++	;;
+       esac
+       # FIXME: Relying on posixy $() will cause problems for
+       #        cross-compilation, but unfortunately the echo tests do not
+@@ -16303,7 +16373,7 @@
+ else
+ # FIXME - insert some real tests, host_os isn't really good enough
+   case $host_os in
+-   darwin*)
++   NOT-darwin*)
+        if test -n "$STRIP" ; then
+          striplib="$STRIP -x"
+          echo "$as_me:$LINENO: result: yes" >&5
+@@ -16502,7 +16572,7 @@
+   # FIXME: Relying on posixy $() will cause problems for
+   #        cross-compilation, but unfortunately the echo tests do not
+   #        yet detect zsh echo's removal of \ escapes.
+-  library_names_spec='${libname}${release}${versuffix}$shared_ext ${libname}${release}${major}$shared_ext ${libname}$shared_ext'
++  library_names_spec='${libname}${release}${major}$shared_ext ${libname}$shared_ext ${libname}${release}${versuffix}$shared_ext'
+   soname_spec='${libname}${release}${major}$shared_ext'
+   shlibpath_overrides_runpath=yes
+   shlibpath_var=DYLD_LIBRARY_PATH
+--- doc/Makefile.in.orig	Mon Apr 14 15:29:22 2003
++++ doc/Makefile.in	Fri Aug  8 15:56:17 2003
+@@ -141,6 +141,7 @@
+ host_cpu = @host_cpu@
+ host_os = @host_os@
+ host_vendor = @host_vendor@
++htmldir = $(datadir)/html/libtool
+ includedir = @includedir@
+ infodir = @infodir@
+ install_sh = @install_sh@
+@@ -234,6 +235,8 @@
+ .dvi.ps:
+ 	$(DVIPS) -o $@ $<
+ 
++TEXI2HTML = texi2html
++
+ uninstall-info-am:
+ 	$(PRE_UNINSTALL)
+ 	@if (install-info --version && \
+@@ -321,7 +324,7 @@
+ 	  dist-info
+ check-am: all-am
+ check: check-am
+-all-am: Makefile $(INFO_DEPS)
++all-am: Makefile #$(INFO_DEPS)
+ 
+ installdirs:
+ 	$(mkinstalldirs) $(DESTDIR)$(infodir)
+@@ -366,11 +369,18 @@
+ 
+ info-am: $(INFO_DEPS)
+ 
+-install-data-am: install-info-am
++install-data-am: install-html #install-info-am
+ 
+ install-exec-am:
+ 
+ install-info: install-info-am
++
++install-html:
++	TEXINPUTS=$(srcdir):$$TEXINPUTS \
++	  MAKEINFO='$(MAKEINFO) -I $(srcdir)' $(TEXI2HTML) -split_chapter $(srcdir)/libtool.texi
++	@$(NORMAL_INSTALL)
++	$(mkinstalldirs) $(DESTDIR)$(htmldir)
++	$(INSTALL_DATA) *.html $(DESTDIR)$(htmldir)
+ 
+ install-info-am: $(INFO_DEPS)
+ 	@$(NORMAL_INSTALL)
+--- f77demo/acinclude.m4.orig	Mon Apr 14 15:30:40 2003
++++ f77demo/acinclude.m4	Fri Aug  8 16:05:45 2003
+@@ -1058,7 +1058,7 @@
+ else
+ # FIXME - insert some real tests, host_os isn't really good enough
+   case $host_os in
+-   darwin*)
++   NOT-darwin*)
+        if test -n "$STRIP" ; then
+          striplib="$STRIP -x"
+          AC_MSG_RESULT([yes])
+@@ -1259,7 +1259,7 @@
+   # FIXME: Relying on posixy $() will cause problems for
+   #        cross-compilation, but unfortunately the echo tests do not
+   #        yet detect zsh echo's removal of \ escapes.
+-  library_names_spec='${libname}${release}${versuffix}$shared_ext ${libname}${release}${major}$shared_ext ${libname}$shared_ext'
++  library_names_spec='${libname}${release}${major}$shared_ext ${libname}$shared_ext ${libname}${release}${versuffix}$shared_ext'
+   soname_spec='${libname}${release}${major}$shared_ext'
+   shlibpath_overrides_runpath=yes
+   shlibpath_var=DYLD_LIBRARY_PATH
+@@ -2545,9 +2545,23 @@
+     rhapsody* | darwin1.[[012]])
+       _LT_AC_TAGVAR(allow_undefined_flag, $1)='-undefined suppress'
+       ;;
+-    *) # Darwin 1.3 on
++    darwin1.* | darwin[[2-6]].*) # Darwin 1.3 on, but less than 7.0
+       test -z ${LD_TWOLEVEL_NAMESPACE} && _LT_AC_TAGVAR(allow_undefined_flag, $1)='-flat_namespace -undefined suppress'
+       ;;
++    *) # Darwin 7.0 on
++      case "${MACOSX_DEPLOYMENT_TARGET-10.1}" in
++      10.[[012]])
++	test -z ${LD_TWOLEVEL_NAMESPACE} && _LT_AC_TAGVAR(allow_undefined_flag, $1)='-flat_namespace -undefined suppress'
++	;;
++      *) # 10.3 on
++	if test -z ${LD_TWOLEVEL_NAMESPACE}; then
++	  _LT_AC_TAGVAR(allow_undefined_flag, $1)='-flat_namespace -undefined suppress'
++	else
++	  _LT_AC_TAGVAR(allow_undefined_flag, $1)='-undefined dynamic_lookup'
++	fi
++	;;
++      esac
++      ;;
+     esac
+     # FIXME: Relying on posixy $() will cause problems for
+     #        cross-compilation, but unfortunately the echo tests do not
+@@ -2873,9 +2887,23 @@
+     rhapsody* | darwin1.[[012]])
+       _LT_AC_TAGVAR(allow_undefined_flag, $1)='-undefined suppress'
+       ;;
+-    *) # Darwin 1.3 on
++    darwin1.* | darwin[[2-6]].*) # Darwin 1.3 on, but less than 7.0
+       test -z ${LD_TWOLEVEL_NAMESPACE} && _LT_AC_TAGVAR(allow_undefined_flag, $1)='-flat_namespace -undefined suppress'
+       ;;
++    *) # Darwin 7.0 on
++      case "${MACOSX_DEPLOYMENT_TARGET-10.1}" in
++      10.[[012]])
++	test -z ${LD_TWOLEVEL_NAMESPACE} && _LT_AC_TAGVAR(allow_undefined_flag, $1)='-flat_namespace -undefined suppress'
++	;;
++      *) # 10.3 on
++	if test -z ${LD_TWOLEVEL_NAMESPACE}; then
++	  _LT_AC_TAGVAR(allow_undefined_flag, $1)='-flat_namespace -undefined suppress'
++	else
++	  _LT_AC_TAGVAR(allow_undefined_flag, $1)='-undefined dynamic_lookup'
++	fi
++	;;
++      esac
++      ;;
+     esac
+     	lt_int_apple_cc_single_mod=no
+     	output_verbose_link_cmd='echo'
+@@ -5321,8 +5349,22 @@
+       rhapsody* | darwin1.[[012]])
+ 	_LT_AC_TAGVAR(allow_undefined_flag, $1)='-undefined suppress'
+ 	;;
+-      *) # Darwin 1.3 on
++      darwin1.* | darwin[[2-6]].*) # Darwin 1.3 on, but less than 7.0
+ 	test -z ${LD_TWOLEVEL_NAMESPACE} && _LT_AC_TAGVAR(allow_undefined_flag, $1)='-flat_namespace -undefined suppress'
++	;;
++      *) # Darwin 7.0 on
++	case "${MACOSX_DEPLOYMENT_TARGET-10.1}" in
++	10.[[012]])
++	  test -z ${LD_TWOLEVEL_NAMESPACE} && _LT_AC_TAGVAR(allow_undefined_flag, $1)='-flat_namespace -undefined suppress'
++	  ;;
++	*) # 10.3 on
++	  if test -z ${LD_TWOLEVEL_NAMESPACE}; then
++	    _LT_AC_TAGVAR(allow_undefined_flag, $1)='-flat_namespace -undefined suppress'
++	  else
++	    _LT_AC_TAGVAR(allow_undefined_flag, $1)='-undefined dynamic_lookup'
++	  fi
++	  ;;
++	esac
+ 	;;
+       esac
+       # FIXME: Relying on posixy $() will cause problems for
+--- f77demo/aclocal.m4.orig	Mon Apr 14 15:30:41 2003
++++ f77demo/aclocal.m4	Fri Aug  8 16:06:01 2003
+@@ -1049,7 +1049,7 @@
+ else
+ # FIXME - insert some real tests, host_os isn't really good enough
+   case $host_os in
+-   darwin*)
++   NOT-darwin*)
+        if test -n "$STRIP" ; then
+          striplib="$STRIP -x"
+          AC_MSG_RESULT([yes])
+@@ -1250,7 +1250,7 @@
+   # FIXME: Relying on posixy $() will cause problems for
+   #        cross-compilation, but unfortunately the echo tests do not
+   #        yet detect zsh echo's removal of \ escapes.
+-  library_names_spec='${libname}${release}${versuffix}$shared_ext ${libname}${release}${major}$shared_ext ${libname}$shared_ext'
++  library_names_spec='${libname}${release}${major}$shared_ext ${libname}$shared_ext ${libname}${release}${versuffix}$shared_ext'
+   soname_spec='${libname}${release}${major}$shared_ext'
+   shlibpath_overrides_runpath=yes
+   shlibpath_var=DYLD_LIBRARY_PATH
+@@ -2532,9 +2532,23 @@
+     rhapsody* | darwin1.[[012]])
+       _LT_AC_TAGVAR(allow_undefined_flag, $1)='-undefined suppress'
+       ;;
+-    *) # Darwin 1.3 on
++    darwin1.* | darwin[[2-6]].*) # Darwin 1.3 on, but less than 7.0
+       test -z ${LD_TWOLEVEL_NAMESPACE} && _LT_AC_TAGVAR(allow_undefined_flag, $1)='-flat_namespace -undefined suppress'
+       ;;
++    *) # Darwin 7.0 on
++      case "${MACOSX_DEPLOYMENT_TARGET-10.1}" in
++      10.[[012]])
++	test -z ${LD_TWOLEVEL_NAMESPACE} && _LT_AC_TAGVAR(allow_undefined_flag, $1)='-flat_namespace -undefined suppress'
++	;;
++      *) # 10.3 on
++	if test -z ${LD_TWOLEVEL_NAMESPACE}; then
++	  _LT_AC_TAGVAR(allow_undefined_flag, $1)='-flat_namespace -undefined suppress'
++	else
++	  _LT_AC_TAGVAR(allow_undefined_flag, $1)='-undefined dynamic_lookup'
++	fi
++	;;
++      esac
++      ;;
+     esac
+     # FIXME: Relying on posixy $() will cause problems for
+     #        cross-compilation, but unfortunately the echo tests do not
+@@ -2860,9 +2874,23 @@
+     rhapsody* | darwin1.[[012]])
+       _LT_AC_TAGVAR(allow_undefined_flag, $1)='-undefined suppress'
+       ;;
+-    *) # Darwin 1.3 on
++    darwin1.* | darwin[[2-6]].*) # Darwin 1.3 on, but less than 7.0
+       test -z ${LD_TWOLEVEL_NAMESPACE} && _LT_AC_TAGVAR(allow_undefined_flag, $1)='-flat_namespace -undefined suppress'
+       ;;
++    *) # Darwin 7.0 on
++      case "${MACOSX_DEPLOYMENT_TARGET-10.1}" in
++      10.[[012]])
++	test -z ${LD_TWOLEVEL_NAMESPACE} && _LT_AC_TAGVAR(allow_undefined_flag, $1)='-flat_namespace -undefined suppress'
++	;;
++      *) # 10.3 on
++	if test -z ${LD_TWOLEVEL_NAMESPACE}; then
++	  _LT_AC_TAGVAR(allow_undefined_flag, $1)='-flat_namespace -undefined suppress'
++	else
++	  _LT_AC_TAGVAR(allow_undefined_flag, $1)='-undefined dynamic_lookup'
++	fi
++	;;
++      esac
++      ;;
+     esac
+     	lt_int_apple_cc_single_mod=no
+     	output_verbose_link_cmd='echo'
+@@ -5300,8 +5328,22 @@
+       rhapsody* | darwin1.[[012]])
+ 	_LT_AC_TAGVAR(allow_undefined_flag, $1)='-undefined suppress'
+ 	;;
+-      *) # Darwin 1.3 on
++      darwin1.* | darwin[[2-6]].*) # Darwin 1.3 on, but less than 7.0
+ 	test -z ${LD_TWOLEVEL_NAMESPACE} && _LT_AC_TAGVAR(allow_undefined_flag, $1)='-flat_namespace -undefined suppress'
++	;;
++      *) # Darwin 7.0 on
++	case "${MACOSX_DEPLOYMENT_TARGET-10.1}" in
++	10.[[012]])
++	  test -z ${LD_TWOLEVEL_NAMESPACE} && _LT_AC_TAGVAR(allow_undefined_flag, $1)='-flat_namespace -undefined suppress'
++	  ;;
++	*) # 10.3 on
++	  if test -z ${LD_TWOLEVEL_NAMESPACE}; then
++	    _LT_AC_TAGVAR(allow_undefined_flag, $1)='-flat_namespace -undefined suppress'
++	  else
++	    _LT_AC_TAGVAR(allow_undefined_flag, $1)='-undefined dynamic_lookup'
++	  fi
++	  ;;
++	esac
+ 	;;
+       esac
+       # FIXME: Relying on posixy $() will cause problems for
+--- f77demo/configure.orig	Mon Apr 14 15:30:50 2003
++++ f77demo/configure	Fri Aug  8 16:06:52 2003
+@@ -7594,9 +7594,23 @@
+       rhapsody* | darwin1.[012])
+ 	allow_undefined_flag='-undefined suppress'
+ 	;;
+-      *) # Darwin 1.3 on
++      darwin1.* | darwin[2-6].*) # Darwin 1.3 on, but less than 7.0
+ 	test -z ${LD_TWOLEVEL_NAMESPACE} && allow_undefined_flag='-flat_namespace -undefined suppress'
+ 	;;
++      *) # Darwin 7.0 on
++	case "${MACOSX_DEPLOYMENT_TARGET-10.1}" in
++	10.[012])
++	  test -z ${LD_TWOLEVEL_NAMESPACE} && allow_undefined_flag='-flat_namespace -undefined suppress'
++	  ;;
++	*) # 10.3 on
++	  if test -z ${LD_TWOLEVEL_NAMESPACE}; then
++	    allow_undefined_flag='-flat_namespace -undefined suppress'
++	  else
++	    allow_undefined_flag='-undefined dynamic_lookup'
++	  fi
++	  ;;
++	esac
++	;;
+       esac
+       # FIXME: Relying on posixy $() will cause problems for
+       #        cross-compilation, but unfortunately the echo tests do not
+@@ -8067,7 +8081,7 @@
+ else
+ # FIXME - insert some real tests, host_os isn't really good enough
+   case $host_os in
+-   darwin*)
++   NOT-darwin*)
+        if test -n "$STRIP" ; then
+          striplib="$STRIP -x"
+          echo "$as_me:$LINENO: result: yes" >&5
+@@ -8266,7 +8280,7 @@
+   # FIXME: Relying on posixy $() will cause problems for
+   #        cross-compilation, but unfortunately the echo tests do not
+   #        yet detect zsh echo's removal of \ escapes.
+-  library_names_spec='${libname}${release}${versuffix}$shared_ext ${libname}${release}${major}$shared_ext ${libname}$shared_ext'
++  library_names_spec='${libname}${release}${major}$shared_ext ${libname}$shared_ext ${libname}${release}${versuffix}$shared_ext'
+   soname_spec='${libname}${release}${major}$shared_ext'
+   shlibpath_overrides_runpath=yes
+   shlibpath_var=DYLD_LIBRARY_PATH
+@@ -9395,9 +9409,23 @@
+     rhapsody* | darwin1.[012])
+       allow_undefined_flag='-undefined suppress'
+       ;;
+-    *) # Darwin 1.3 on
++    darwin1.* | darwin[2-6].*) # Darwin 1.3 on, but less than 7.0
+       test -z ${LD_TWOLEVEL_NAMESPACE} && allow_undefined_flag='-flat_namespace -undefined suppress'
+       ;;
++    *) # Darwin 7.0 on
++      case "${MACOSX_DEPLOYMENT_TARGET-10.1}" in
++      10.[012])
++	test -z ${LD_TWOLEVEL_NAMESPACE} && allow_undefined_flag='-flat_namespace -undefined suppress'
++	;;
++      *) # 10.3 on
++	if test -z ${LD_TWOLEVEL_NAMESPACE}; then
++	  allow_undefined_flag='-flat_namespace -undefined suppress'
++	else
++	  allow_undefined_flag='-undefined dynamic_lookup'
++	fi
++	;;
++      esac
++      ;;
+     esac
+     # FIXME: Relying on posixy $() will cause problems for
+     #        cross-compilation, but unfortunately the echo tests do not
+@@ -10454,9 +10482,23 @@
+     rhapsody* | darwin1.[012])
+       allow_undefined_flag_CXX='-undefined suppress'
+       ;;
+-    *) # Darwin 1.3 on
++    darwin1.* | darwin[2-6].*) # Darwin 1.3 on, but less than 7.0
+       test -z ${LD_TWOLEVEL_NAMESPACE} && allow_undefined_flag_CXX='-flat_namespace -undefined suppress'
+       ;;
++    *) # Darwin 7.0 on
++      case "${MACOSX_DEPLOYMENT_TARGET-10.1}" in
++      10.[012])
++	test -z ${LD_TWOLEVEL_NAMESPACE} && allow_undefined_flag_CXX='-flat_namespace -undefined suppress'
++	;;
++      *) # 10.3 on
++	if test -z ${LD_TWOLEVEL_NAMESPACE}; then
++	  allow_undefined_flag_CXX='-flat_namespace -undefined suppress'
++	else
++	  allow_undefined_flag_CXX='-undefined dynamic_lookup'
++	fi
++	;;
++      esac
++      ;;
+     esac
+     	lt_int_apple_cc_single_mod=no
+     	output_verbose_link_cmd='echo'
+@@ -11661,7 +11703,7 @@
+ else
+ # FIXME - insert some real tests, host_os isn't really good enough
+   case $host_os in
+-   darwin*)
++   NOT-darwin*)
+        if test -n "$STRIP" ; then
+          striplib="$STRIP -x"
+          echo "$as_me:$LINENO: result: yes" >&5
+@@ -11860,7 +11902,7 @@
+   # FIXME: Relying on posixy $() will cause problems for
+   #        cross-compilation, but unfortunately the echo tests do not
+   #        yet detect zsh echo's removal of \ escapes.
+-  library_names_spec='${libname}${release}${versuffix}$shared_ext ${libname}${release}${major}$shared_ext ${libname}$shared_ext'
++  library_names_spec='${libname}${release}${major}$shared_ext ${libname}$shared_ext ${libname}${release}${versuffix}$shared_ext'
+   soname_spec='${libname}${release}${major}$shared_ext'
+   shlibpath_overrides_runpath=yes
+   shlibpath_var=DYLD_LIBRARY_PATH
+@@ -14207,9 +14249,23 @@
+       rhapsody* | darwin1.[012])
+ 	allow_undefined_flag_F77='-undefined suppress'
+ 	;;
+-      *) # Darwin 1.3 on
++      darwin1.* | darwin[2-6].*) # Darwin 1.3 on, but less than 7.0
+ 	test -z ${LD_TWOLEVEL_NAMESPACE} && allow_undefined_flag_F77='-flat_namespace -undefined suppress'
+ 	;;
++      *) # Darwin 7.0 on
++	case "${MACOSX_DEPLOYMENT_TARGET-10.1}" in
++	10.[012])
++	  test -z ${LD_TWOLEVEL_NAMESPACE} && allow_undefined_flag_F77='-flat_namespace -undefined suppress'
++	  ;;
++	*) # 10.3 on
++	  if test -z ${LD_TWOLEVEL_NAMESPACE}; then
++	    allow_undefined_flag_F77='-flat_namespace -undefined suppress'
++	  else
++	    allow_undefined_flag_F77='-undefined dynamic_lookup'
++	  fi
++	  ;;
++	esac
++	;;
+       esac
+       # FIXME: Relying on posixy $() will cause problems for
+       #        cross-compilation, but unfortunately the echo tests do not
+@@ -14680,7 +14736,7 @@
+ else
+ # FIXME - insert some real tests, host_os isn't really good enough
+   case $host_os in
+-   darwin*)
++   NOT-darwin*)
+        if test -n "$STRIP" ; then
+          striplib="$STRIP -x"
+          echo "$as_me:$LINENO: result: yes" >&5
+@@ -14879,7 +14935,7 @@
+   # FIXME: Relying on posixy $() will cause problems for
+   #        cross-compilation, but unfortunately the echo tests do not
+   #        yet detect zsh echo's removal of \ escapes.
+-  library_names_spec='${libname}${release}${versuffix}$shared_ext ${libname}${release}${major}$shared_ext ${libname}$shared_ext'
++  library_names_spec='${libname}${release}${major}$shared_ext ${libname}$shared_ext ${libname}${release}${versuffix}$shared_ext'
+   soname_spec='${libname}${release}${major}$shared_ext'
+   shlibpath_overrides_runpath=yes
+   shlibpath_var=DYLD_LIBRARY_PATH
+@@ -16480,9 +16536,23 @@
+       rhapsody* | darwin1.[012])
+ 	allow_undefined_flag_GCJ='-undefined suppress'
+ 	;;
+-      *) # Darwin 1.3 on
++      darwin1.* | darwin[2-6].*) # Darwin 1.3 on, but less than 7.0
+ 	test -z ${LD_TWOLEVEL_NAMESPACE} && allow_undefined_flag_GCJ='-flat_namespace -undefined suppress'
+ 	;;
++      *) # Darwin 7.0 on
++	case "${MACOSX_DEPLOYMENT_TARGET-10.1}" in
++	10.[012])
++	  test -z ${LD_TWOLEVEL_NAMESPACE} && allow_undefined_flag_GCJ='-flat_namespace -undefined suppress'
++	  ;;
++	*) # 10.3 on
++	  if test -z ${LD_TWOLEVEL_NAMESPACE}; then
++	    allow_undefined_flag_GCJ='-flat_namespace -undefined suppress'
++	  else
++	    allow_undefined_flag_GCJ='-undefined dynamic_lookup'
++	  fi
++	  ;;
++	esac
++	;;
+       esac
+       # FIXME: Relying on posixy $() will cause problems for
+       #        cross-compilation, but unfortunately the echo tests do not
+@@ -16953,7 +17023,7 @@
+ else
+ # FIXME - insert some real tests, host_os isn't really good enough
+   case $host_os in
+-   darwin*)
++   NOT-darwin*)
+        if test -n "$STRIP" ; then
+          striplib="$STRIP -x"
+          echo "$as_me:$LINENO: result: yes" >&5
+@@ -17152,7 +17222,7 @@
+   # FIXME: Relying on posixy $() will cause problems for
+   #        cross-compilation, but unfortunately the echo tests do not
+   #        yet detect zsh echo's removal of \ escapes.
+-  library_names_spec='${libname}${release}${versuffix}$shared_ext ${libname}${release}${major}$shared_ext ${libname}$shared_ext'
++  library_names_spec='${libname}${release}${major}$shared_ext ${libname}$shared_ext ${libname}${release}${versuffix}$shared_ext'
+   soname_spec='${libname}${release}${major}$shared_ext'
+   shlibpath_overrides_runpath=yes
+   shlibpath_var=DYLD_LIBRARY_PATH
+--- libltdl/acinclude.m4.orig	Mon Apr 14 15:29:24 2003
++++ libltdl/acinclude.m4	Fri Aug  8 16:07:07 2003
+@@ -1058,7 +1058,7 @@
+ else
+ # FIXME - insert some real tests, host_os isn't really good enough
+   case $host_os in
+-   darwin*)
++   NOT-darwin*)
+        if test -n "$STRIP" ; then
+          striplib="$STRIP -x"
+          AC_MSG_RESULT([yes])
+@@ -1259,7 +1259,7 @@
+   # FIXME: Relying on posixy $() will cause problems for
+   #        cross-compilation, but unfortunately the echo tests do not
+   #        yet detect zsh echo's removal of \ escapes.
+-  library_names_spec='${libname}${release}${versuffix}$shared_ext ${libname}${release}${major}$shared_ext ${libname}$shared_ext'
++  library_names_spec='${libname}${release}${major}$shared_ext ${libname}$shared_ext ${libname}${release}${versuffix}$shared_ext'
+   soname_spec='${libname}${release}${major}$shared_ext'
+   shlibpath_overrides_runpath=yes
+   shlibpath_var=DYLD_LIBRARY_PATH
+@@ -2545,9 +2545,23 @@
+     rhapsody* | darwin1.[[012]])
+       _LT_AC_TAGVAR(allow_undefined_flag, $1)='-undefined suppress'
+       ;;
+-    *) # Darwin 1.3 on
++    darwin1.* | darwin[[2-6]].*) # Darwin 1.3 on, but less than 7.0
+       test -z ${LD_TWOLEVEL_NAMESPACE} && _LT_AC_TAGVAR(allow_undefined_flag, $1)='-flat_namespace -undefined suppress'
+       ;;
++    *) # Darwin 7.0 on
++      case "${MACOSX_DEPLOYMENT_TARGET-10.1}" in
++      10.[[012]])
++	test -z ${LD_TWOLEVEL_NAMESPACE} && _LT_AC_TAGVAR(allow_undefined_flag, $1)='-flat_namespace -undefined suppress'
++	;;
++      *) # 10.3 on
++	if test -z ${LD_TWOLEVEL_NAMESPACE}; then
++	  _LT_AC_TAGVAR(allow_undefined_flag, $1)='-flat_namespace -undefined suppress'
++	else
++	  _LT_AC_TAGVAR(allow_undefined_flag, $1)='-undefined dynamic_lookup'
++	fi
++	;;
++      esac
++      ;;
+     esac
+     # FIXME: Relying on posixy $() will cause problems for
+     #        cross-compilation, but unfortunately the echo tests do not
+@@ -2873,9 +2887,23 @@
+     rhapsody* | darwin1.[[012]])
+       _LT_AC_TAGVAR(allow_undefined_flag, $1)='-undefined suppress'
+       ;;
+-    *) # Darwin 1.3 on
++    darwin1.* | darwin[[2-6]].*) # Darwin 1.3 on, but less than 7.0
+       test -z ${LD_TWOLEVEL_NAMESPACE} && _LT_AC_TAGVAR(allow_undefined_flag, $1)='-flat_namespace -undefined suppress'
+       ;;
++    *) # Darwin 7.0 on
++      case "${MACOSX_DEPLOYMENT_TARGET-10.1}" in
++      10.[[012]])
++	test -z ${LD_TWOLEVEL_NAMESPACE} && _LT_AC_TAGVAR(allow_undefined_flag, $1)='-flat_namespace -undefined suppress'
++	;;
++      *) # 10.3 on
++	if test -z ${LD_TWOLEVEL_NAMESPACE}; then
++	  _LT_AC_TAGVAR(allow_undefined_flag, $1)='-flat_namespace -undefined suppress'
++	else
++	  _LT_AC_TAGVAR(allow_undefined_flag, $1)='-undefined dynamic_lookup'
++	fi
++	;;
++      esac
++      ;;
+     esac
+     	lt_int_apple_cc_single_mod=no
+     	output_verbose_link_cmd='echo'
+@@ -5321,8 +5349,22 @@
+       rhapsody* | darwin1.[[012]])
+ 	_LT_AC_TAGVAR(allow_undefined_flag, $1)='-undefined suppress'
+ 	;;
+-      *) # Darwin 1.3 on
++      darwin1.* | darwin[[2-6]].*) # Darwin 1.3 on, but less than 7.0
+ 	test -z ${LD_TWOLEVEL_NAMESPACE} && _LT_AC_TAGVAR(allow_undefined_flag, $1)='-flat_namespace -undefined suppress'
++	;;
++      *) # Darwin 7.0 on
++	case "${MACOSX_DEPLOYMENT_TARGET-10.1}" in
++	10.[[012]])
++	  test -z ${LD_TWOLEVEL_NAMESPACE} && _LT_AC_TAGVAR(allow_undefined_flag, $1)='-flat_namespace -undefined suppress'
++	  ;;
++	*) # 10.3 on
++	  if test -z ${LD_TWOLEVEL_NAMESPACE}; then
++	    _LT_AC_TAGVAR(allow_undefined_flag, $1)='-flat_namespace -undefined suppress'
++	  else
++	    _LT_AC_TAGVAR(allow_undefined_flag, $1)='-undefined dynamic_lookup'
++	  fi
++	  ;;
++	esac
+ 	;;
+       esac
+       # FIXME: Relying on posixy $() will cause problems for
+--- libltdl/aclocal.m4.orig	Mon Apr 14 15:29:25 2003
++++ libltdl/aclocal.m4	Fri Aug  8 16:07:20 2003
+@@ -1049,7 +1049,7 @@
+ else
+ # FIXME - insert some real tests, host_os isn't really good enough
+   case $host_os in
+-   darwin*)
++   NOT-darwin*)
+        if test -n "$STRIP" ; then
+          striplib="$STRIP -x"
+          AC_MSG_RESULT([yes])
+@@ -1250,7 +1250,7 @@
+   # FIXME: Relying on posixy $() will cause problems for
+   #        cross-compilation, but unfortunately the echo tests do not
+   #        yet detect zsh echo's removal of \ escapes.
+-  library_names_spec='${libname}${release}${versuffix}$shared_ext ${libname}${release}${major}$shared_ext ${libname}$shared_ext'
++  library_names_spec='${libname}${release}${major}$shared_ext ${libname}$shared_ext ${libname}${release}${versuffix}$shared_ext'
+   soname_spec='${libname}${release}${major}$shared_ext'
+   shlibpath_overrides_runpath=yes
+   shlibpath_var=DYLD_LIBRARY_PATH
+@@ -2532,9 +2532,23 @@
+     rhapsody* | darwin1.[[012]])
+       _LT_AC_TAGVAR(allow_undefined_flag, $1)='-undefined suppress'
+       ;;
+-    *) # Darwin 1.3 on
++    darwin1.* | darwin[[2-6]].*) # Darwin 1.3 on, but less than 7.0
+       test -z ${LD_TWOLEVEL_NAMESPACE} && _LT_AC_TAGVAR(allow_undefined_flag, $1)='-flat_namespace -undefined suppress'
+       ;;
++    *) # Darwin 7.0 on
++      case "${MACOSX_DEPLOYMENT_TARGET-10.1}" in
++      10.[[012]])
++	test -z ${LD_TWOLEVEL_NAMESPACE} && _LT_AC_TAGVAR(allow_undefined_flag, $1)='-flat_namespace -undefined suppress'
++	;;
++      *) # 10.3 on
++	if test -z ${LD_TWOLEVEL_NAMESPACE}; then
++	  _LT_AC_TAGVAR(allow_undefined_flag, $1)='-flat_namespace -undefined suppress'
++	else
++	  _LT_AC_TAGVAR(allow_undefined_flag, $1)='-undefined dynamic_lookup'
++	fi
++	;;
++      esac
++      ;;
+     esac
+     # FIXME: Relying on posixy $() will cause problems for
+     #        cross-compilation, but unfortunately the echo tests do not
+@@ -2860,9 +2874,23 @@
+     rhapsody* | darwin1.[[012]])
+       _LT_AC_TAGVAR(allow_undefined_flag, $1)='-undefined suppress'
+       ;;
+-    *) # Darwin 1.3 on
++    darwin1.* | darwin[[2-6]].*) # Darwin 1.3 on, but less than 7.0
+       test -z ${LD_TWOLEVEL_NAMESPACE} && _LT_AC_TAGVAR(allow_undefined_flag, $1)='-flat_namespace -undefined suppress'
+       ;;
++    *) # Darwin 7.0 on
++      case "${MACOSX_DEPLOYMENT_TARGET-10.1}" in
++      10.[[012]])
++	test -z ${LD_TWOLEVEL_NAMESPACE} && _LT_AC_TAGVAR(allow_undefined_flag, $1)='-flat_namespace -undefined suppress'
++	;;
++      *) # 10.3 on
++	if test -z ${LD_TWOLEVEL_NAMESPACE}; then
++	  _LT_AC_TAGVAR(allow_undefined_flag, $1)='-flat_namespace -undefined suppress'
++	else
++	  _LT_AC_TAGVAR(allow_undefined_flag, $1)='-undefined dynamic_lookup'
++	fi
++	;;
++      esac
++      ;;
+     esac
+     	lt_int_apple_cc_single_mod=no
+     	output_verbose_link_cmd='echo'
+@@ -5300,8 +5328,22 @@
+       rhapsody* | darwin1.[[012]])
+ 	_LT_AC_TAGVAR(allow_undefined_flag, $1)='-undefined suppress'
+ 	;;
+-      *) # Darwin 1.3 on
++      darwin1.* | darwin[[2-6]].*) # Darwin 1.3 on, but less than 7.0
+ 	test -z ${LD_TWOLEVEL_NAMESPACE} && _LT_AC_TAGVAR(allow_undefined_flag, $1)='-flat_namespace -undefined suppress'
++	;;
++      *) # Darwin 7.0 on
++	case "${MACOSX_DEPLOYMENT_TARGET-10.1}" in
++	10.[[012]])
++	  test -z ${LD_TWOLEVEL_NAMESPACE} && _LT_AC_TAGVAR(allow_undefined_flag, $1)='-flat_namespace -undefined suppress'
++	  ;;
++	*) # 10.3 on
++	  if test -z ${LD_TWOLEVEL_NAMESPACE}; then
++	    _LT_AC_TAGVAR(allow_undefined_flag, $1)='-flat_namespace -undefined suppress'
++	  else
++	    _LT_AC_TAGVAR(allow_undefined_flag, $1)='-undefined dynamic_lookup'
++	  fi
++	  ;;
++	esac
+ 	;;
+       esac
+       # FIXME: Relying on posixy $() will cause problems for
+--- libltdl/configure.orig	Mon Apr 14 15:29:37 2003
++++ libltdl/configure	Fri Aug  8 16:08:03 2003
+@@ -7225,9 +7225,23 @@
+       rhapsody* | darwin1.[012])
+ 	allow_undefined_flag='-undefined suppress'
+ 	;;
+-      *) # Darwin 1.3 on
++      darwin1.* | darwin[2-6].*) # Darwin 1.3 on, but less than 7.0
+ 	test -z ${LD_TWOLEVEL_NAMESPACE} && allow_undefined_flag='-flat_namespace -undefined suppress'
+ 	;;
++      *) # Darwin 7.0 on
++	case "${MACOSX_DEPLOYMENT_TARGET-10.1}" in
++	10.[012])
++	  test -z ${LD_TWOLEVEL_NAMESPACE} && allow_undefined_flag='-flat_namespace -undefined suppress'
++	  ;;
++	*) # 10.3 on
++	  if test -z ${LD_TWOLEVEL_NAMESPACE}; then
++	    allow_undefined_flag='-flat_namespace -undefined suppress'
++	  else
++	    allow_undefined_flag='-undefined dynamic_lookup'
++	  fi
++	  ;;
++	esac
++	;;
+       esac
+       # FIXME: Relying on posixy $() will cause problems for
+       #        cross-compilation, but unfortunately the echo tests do not
+@@ -7698,7 +7712,7 @@
+ else
+ # FIXME - insert some real tests, host_os isn't really good enough
+   case $host_os in
+-   darwin*)
++   NOT-darwin*)
+        if test -n "$STRIP" ; then
+          striplib="$STRIP -x"
+          echo "$as_me:$LINENO: result: yes" >&5
+@@ -7897,7 +7911,7 @@
+   # FIXME: Relying on posixy $() will cause problems for
+   #        cross-compilation, but unfortunately the echo tests do not
+   #        yet detect zsh echo's removal of \ escapes.
+-  library_names_spec='${libname}${release}${versuffix}$shared_ext ${libname}${release}${major}$shared_ext ${libname}$shared_ext'
++  library_names_spec='${libname}${release}${major}$shared_ext ${libname}$shared_ext ${libname}${release}${versuffix}$shared_ext'
+   soname_spec='${libname}${release}${major}$shared_ext'
+   shlibpath_overrides_runpath=yes
+   shlibpath_var=DYLD_LIBRARY_PATH
+@@ -8984,9 +8998,23 @@
+     rhapsody* | darwin1.[012])
+       allow_undefined_flag='-undefined suppress'
+       ;;
+-    *) # Darwin 1.3 on
++    darwin1.* | darwin[2-6].*) # Darwin 1.3 on, but less than 7.0
+       test -z ${LD_TWOLEVEL_NAMESPACE} && allow_undefined_flag='-flat_namespace -undefined suppress'
+       ;;
++    *) # Darwin 7.0 on
++      case "${MACOSX_DEPLOYMENT_TARGET-10.1}" in
++      10.[012])
++	test -z ${LD_TWOLEVEL_NAMESPACE} && allow_undefined_flag='-flat_namespace -undefined suppress'
++	;;
++      *) # 10.3 on
++	if test -z ${LD_TWOLEVEL_NAMESPACE}; then
++	  allow_undefined_flag='-flat_namespace -undefined suppress'
++	else
++	  allow_undefined_flag='-undefined dynamic_lookup'
++	fi
++	;;
++      esac
++      ;;
+     esac
+     # FIXME: Relying on posixy $() will cause problems for
+     #        cross-compilation, but unfortunately the echo tests do not
+@@ -10031,9 +10059,23 @@
+     rhapsody* | darwin1.[012])
+       allow_undefined_flag_CXX='-undefined suppress'
+       ;;
+-    *) # Darwin 1.3 on
++    darwin1.* | darwin[2-6].*) # Darwin 1.3 on, but less than 7.0
+       test -z ${LD_TWOLEVEL_NAMESPACE} && allow_undefined_flag_CXX='-flat_namespace -undefined suppress'
+       ;;
++    *) # Darwin 7.0 on
++      case "${MACOSX_DEPLOYMENT_TARGET-10.1}" in
++      10.[012])
++	test -z ${LD_TWOLEVEL_NAMESPACE} && allow_undefined_flag_CXX='-flat_namespace -undefined suppress'
++	;;
++      *) # 10.3 on
++	if test -z ${LD_TWOLEVEL_NAMESPACE}; then
++	  allow_undefined_flag_CXX='-flat_namespace -undefined suppress'
++	else
++	  allow_undefined_flag_CXX='-undefined dynamic_lookup'
++	fi
++	;;
++      esac
++      ;;
+     esac
+     	lt_int_apple_cc_single_mod=no
+     	output_verbose_link_cmd='echo'
+@@ -11238,7 +11280,7 @@
+ else
+ # FIXME - insert some real tests, host_os isn't really good enough
+   case $host_os in
+-   darwin*)
++   NOT-darwin*)
+        if test -n "$STRIP" ; then
+          striplib="$STRIP -x"
+          echo "$as_me:$LINENO: result: yes" >&5
+@@ -11437,7 +11479,7 @@
+   # FIXME: Relying on posixy $() will cause problems for
+   #        cross-compilation, but unfortunately the echo tests do not
+   #        yet detect zsh echo's removal of \ escapes.
+-  library_names_spec='${libname}${release}${versuffix}$shared_ext ${libname}${release}${major}$shared_ext ${libname}$shared_ext'
++  library_names_spec='${libname}${release}${major}$shared_ext ${libname}$shared_ext ${libname}${release}${versuffix}$shared_ext'
+   soname_spec='${libname}${release}${major}$shared_ext'
+   shlibpath_overrides_runpath=yes
+   shlibpath_var=DYLD_LIBRARY_PATH
+@@ -13742,9 +13784,23 @@
+       rhapsody* | darwin1.[012])
+ 	allow_undefined_flag_F77='-undefined suppress'
+ 	;;
+-      *) # Darwin 1.3 on
++      darwin1.* | darwin[2-6].*) # Darwin 1.3 on, but less than 7.0
+ 	test -z ${LD_TWOLEVEL_NAMESPACE} && allow_undefined_flag_F77='-flat_namespace -undefined suppress'
+ 	;;
++      *) # Darwin 7.0 on
++	case "${MACOSX_DEPLOYMENT_TARGET-10.1}" in
++	10.[012])
++	  test -z ${LD_TWOLEVEL_NAMESPACE} && allow_undefined_flag_F77='-flat_namespace -undefined suppress'
++	  ;;
++	*) # 10.3 on
++	  if test -z ${LD_TWOLEVEL_NAMESPACE}; then
++	    allow_undefined_flag_F77='-flat_namespace -undefined suppress'
++	  else
++	    allow_undefined_flag_F77='-undefined dynamic_lookup'
++	  fi
++	  ;;
++	esac
++	;;
+       esac
+       # FIXME: Relying on posixy $() will cause problems for
+       #        cross-compilation, but unfortunately the echo tests do not
+@@ -14215,7 +14271,7 @@
+ else
+ # FIXME - insert some real tests, host_os isn't really good enough
+   case $host_os in
+-   darwin*)
++   NOT-darwin*)
+        if test -n "$STRIP" ; then
+          striplib="$STRIP -x"
+          echo "$as_me:$LINENO: result: yes" >&5
+@@ -14414,7 +14470,7 @@
+   # FIXME: Relying on posixy $() will cause problems for
+   #        cross-compilation, but unfortunately the echo tests do not
+   #        yet detect zsh echo's removal of \ escapes.
+-  library_names_spec='${libname}${release}${versuffix}$shared_ext ${libname}${release}${major}$shared_ext ${libname}$shared_ext'
++  library_names_spec='${libname}${release}${major}$shared_ext ${libname}$shared_ext ${libname}${release}${versuffix}$shared_ext'
+   soname_spec='${libname}${release}${major}$shared_ext'
+   shlibpath_overrides_runpath=yes
+   shlibpath_var=DYLD_LIBRARY_PATH
+@@ -16003,9 +16059,23 @@
+       rhapsody* | darwin1.[012])
+ 	allow_undefined_flag_GCJ='-undefined suppress'
+ 	;;
+-      *) # Darwin 1.3 on
++      darwin1.* | darwin[2-6].*) # Darwin 1.3 on, but less than 7.0
+ 	test -z ${LD_TWOLEVEL_NAMESPACE} && allow_undefined_flag_GCJ='-flat_namespace -undefined suppress'
+ 	;;
++      *) # Darwin 7.0 on
++	case "${MACOSX_DEPLOYMENT_TARGET-10.1}" in
++	10.[012])
++	  test -z ${LD_TWOLEVEL_NAMESPACE} && allow_undefined_flag_GCJ='-flat_namespace -undefined suppress'
++	  ;;
++	*) # 10.3 on
++	  if test -z ${LD_TWOLEVEL_NAMESPACE}; then
++	    allow_undefined_flag_GCJ='-flat_namespace -undefined suppress'
++	  else
++	    allow_undefined_flag_GCJ='-undefined dynamic_lookup'
++	  fi
++	  ;;
++	esac
++	;;
+       esac
+       # FIXME: Relying on posixy $() will cause problems for
+       #        cross-compilation, but unfortunately the echo tests do not
+@@ -16476,7 +16546,7 @@
+ else
+ # FIXME - insert some real tests, host_os isn't really good enough
+   case $host_os in
+-   darwin*)
++   NOT-darwin*)
+        if test -n "$STRIP" ; then
+          striplib="$STRIP -x"
+          echo "$as_me:$LINENO: result: yes" >&5
+@@ -16675,7 +16745,7 @@
+   # FIXME: Relying on posixy $() will cause problems for
+   #        cross-compilation, but unfortunately the echo tests do not
+   #        yet detect zsh echo's removal of \ escapes.
+-  library_names_spec='${libname}${release}${versuffix}$shared_ext ${libname}${release}${major}$shared_ext ${libname}$shared_ext'
++  library_names_spec='${libname}${release}${major}$shared_ext ${libname}$shared_ext ${libname}${release}${versuffix}$shared_ext'
+   soname_spec='${libname}${release}${major}$shared_ext'
+   shlibpath_overrides_runpath=yes
+   shlibpath_var=DYLD_LIBRARY_PATH
+--- libltdl/ltmain.sh.orig	Mon Apr 14 15:34:17 2003
++++ libltdl/ltmain.sh	Fri Aug  8 15:56:17 2003
+@@ -307,6 +307,23 @@
+ exec_cmd=
+ 
+ if test -z "$show_help"; then
++  archargs=
++  case $host in
++  *-*-darwin*)
++    # For darwin, separate arch arguments and apply them to all compile/link
++    # commands
++    doarch=
++    for arg; do
++      if test -n "$doarch"; then
++        archargs="$archargs -arch $arg"
++        doarch=
++        continue
++      fi
++      case $arg in
++      -arch) doarch=y;;
++      esac
++    done
++  esac
+ 
+   # Infer the operation mode.
+   if test -z "$mode"; then
+@@ -3158,7 +3175,7 @@
+ 	  int main() { return 0; }
+ EOF
+ 	  $rm conftest
+-	  $LTCC -o conftest conftest.c $deplibs
++	  $LTCC $archargs -o conftest conftest.c $deplibs
+ 	  if test "$?" -eq 0 ; then
+ 	    ldd_output=`ldd conftest`
+ 	    for i in $deplibs; do
+@@ -3203,7 +3220,7 @@
+ 	      # If $name is empty we are operating on a -L argument.
+               if test "$name" != "" && test "$name" != "0"; then
+ 		$rm conftest
+-		$LTCC -o conftest conftest.c $i
++		$LTCC $archargs -o conftest conftest.c $i
+ 		# Did it work?
+ 		if test "$?" -eq 0 ; then
+ 		  ldd_output=`ldd conftest`
+@@ -3620,34 +3637,80 @@
+ 	      if test "$status" -ne 0 && test ! -d "$xdir"; then
+ 		exit $status
+ 	      fi
+-	      # We will extract separately just the conflicting names and we will no
+-	      # longer touch any unique names. It is faster to leave these extract
+-	      # automatically by $AR in one run.
+-	      $show "(cd $xdir && $AR x $xabs)"
+-	      $run eval "(cd \$xdir && $AR x \$xabs)" || exit $?
+-	      if ($AR t "$xabs" | sort | sort -uc >/dev/null 2>&1); then
+-		:
+-	      else
+-		$echo "$modename: warning: object name conflicts; renaming object files" 1>&2
+-		$echo "$modename: warning: to ensure that they will not overwrite" 1>&2
+-		$AR t "$xabs" | sort | uniq -cd | while read -r count name
+-		do
+-		  i=1
+-		  while test "$i" -le "$count"
++	      case $host in
++	      *-*-darwin*)
++		# ranlib-ed archives of fat binaries are converted to a fat xabs that
++		# ar can't use.  So we to split the fat xabs into non-fat ones to unpack.
++		# We can't deal with duplicate names, since 'ar xN' and 'uniq -cd' don't work.
++		d_archs=`lipo -info $xabs 2> /dev/null | grep '^Architectures' | sed 's/^.*: //'`
++		if test -n "$d_archs"; then
++		  $echo "$modename: manually unpacking fat archive $xabs" 1>&2
++		  d_name=`basename $xabs`
++		  d_dir="/tmp/fat_ar.$$"
++		  d_files=''
++
++		  for d_arch in $d_archs; do
++		    d_archdir="$d_dir/$d_arch"
++		    $show "$mkdir -p $d_archdir"
++		    $run $mkdir -p "$d_archdir"
++
++		    $show "lipo -thin $d_arch $xabs -o $d_dir/$d_name"
++		    $run lipo -thin $d_arch "$xabs" -o "$d_dir/$d_name"
++
++		    $show "(cd $d_archdir && $AR x $d_dir/$d_name)"
++		    $run eval "(cd \$d_archdir && \$AR x \$d_dir/\$d_name)" || exit $?
++
++		    $show "${rm} $d_dir/$d_name"
++		    $run ${rm} "$d_dir/$d_name"
++		  done
++
++		  # Can't deal with blanks in file names
++		  $run eval "d_files=\`find \$d_dir -type f | sed -e 's,.*/,,' -e '/ /d' | sort -u\`" || exit $?
++
++		  for d_file in $d_files; do
++		    $run eval "d_f=\`find \$d_dir -name \$d_file -print\`" || exit $?
++		    $show "lipo -create $d_f -o $xdir/$d_file"
++		    $run eval "lipo -create \$d_f -o \"\$xdir/\$d_file\"" || exit $?
++		  done
++
++		  $show "${rm}r $d_dir"
++		  $run ${rm}r "$d_dir"
++		else
++		  $show "(cd $xdir && $AR x $xabs)"
++		  $run eval "(cd \$xdir && $AR x \$xabs)" || exit $?
++		fi
++		;;
++	      *)
++		# We will extract separately just the conflicting names and we will no
++		# longer touch any unique names. It is faster to leave these extract
++		# automatically by $AR in one run.
++		$show "(cd $xdir && $AR x $xabs)"
++		$run eval "(cd \$xdir && $AR x \$xabs)" || exit $?
++		if ($AR t "$xabs" | sort | sort -uc >/dev/null 2>&1); then
++		  :
++		else
++		  $echo "$modename: warning: object name conflicts; renaming object files" 1>&2
++		  $echo "$modename: warning: to ensure that they will not overwrite" 1>&2
++		  $AR t "$xabs" | sort | uniq -cd | while read -r count name
+ 		  do
+-		   # Put our $i before any first dot (extension)
+-		   # Never overwrite any file
+-		   name_to="$name"
+-		   while test "X$name_to" = "X$name" || test -f "$xdir/$name_to"
+-		   do
+-		     name_to=`$echo "X$name_to" | $Xsed -e "s/\([^.]*\)/\1-$i/"`
+-		   done
+-		   $show "(cd $xdir && $AR xN $i $xabs '$name' && $mv '$name' '$name_to')"
+-		   $run eval "(cd \$xdir && $AR xN $i \$xabs '$name' && $mv '$name' '$name_to')" || exit $?
+-		   i=`expr $i + 1`
++		    i=1
++		    while test "$i" -le "$count"
++		    do
++		     # Put our $i before any first dot (extension)
++		     # Never overwrite any file
++		     name_to="$name"
++		     while test "X$name_to" = "X$name" || test -f "$xdir/$name_to"
++		     do
++		       name_to=`$echo "X$name_to" | $Xsed -e "s/\([^.]*\)/\1-$i/"`
++		     done
++		     $show "(cd $xdir && $AR xN $i $xabs '$name' && $mv '$name' '$name_to')"
++		     $run eval "(cd \$xdir && $AR xN $i \$xabs '$name' && $mv '$name' '$name_to')" || exit $?
++		     i=`expr $i + 1`
++		    done
+ 		  done
+-		done
+-	      fi
++		fi
++		;;
++	      esac
+ 
+ 	      libobjs="$libobjs "`find $xdir -name \*.$objext -print -o -name \*.lo -print | $NL2SP`
+ 	    done
+@@ -3905,34 +3968,80 @@
+ 	    if test "$status" -ne 0 && test ! -d "$xdir"; then
+ 	      exit $status
+ 	    fi
+-	    # We will extract separately just the conflicting names and we will no
+-	    # longer touch any unique names. It is faster to leave these extract
+-	    # automatically by $AR in one run.
+-	    $show "(cd $xdir && $AR x $xabs)"
+-	    $run eval "(cd \$xdir && $AR x \$xabs)" || exit $?
+-	    if ($AR t "$xabs" | sort | sort -uc >/dev/null 2>&1); then
+-	      :
+-	    else
+-	      $echo "$modename: warning: object name conflicts; renaming object files" 1>&2
+-	      $echo "$modename: warning: to ensure that they will not overwrite" 1>&2
+-	      $AR t "$xabs" | sort | uniq -cd | while read -r count name
+-	      do
+-		i=1
+-		while test "$i" -le "$count"
++	    case $host in
++	    *-*-darwin*)
++	      # ranlib-ed archives of fat binaries are converted to a fat xabs that
++	      # ar can't use.  So we to split the fat xabs into non-fat ones to unpack.
++	      # We can't deal with duplicate names, since 'ar xN' and 'uniq -cd' don't work.
++	      d_archs=`lipo -info $xabs 2> /dev/null | grep '^Architectures' | sed 's/^.*: //'`
++	      if test -n "$d_archs"; then
++		$echo "$modename: manually unpacking fat archive $xabs" 1>&2
++		d_name=`basename $xabs`
++		d_dir="/tmp/fat_ar.$$"
++		d_files=''
++
++		for d_arch in $d_archs; do
++		  d_archdir="$d_dir/$d_arch"
++		  $show "$mkdir -p $d_archdir"
++		  $run $mkdir -p "$d_archdir"
++
++		  $show "lipo -thin $d_arch $xabs -o $d_dir/$d_name"
++		  $run lipo -thin $d_arch "$xabs" -o "$d_dir/$d_name"
++
++		  $show "(cd $d_archdir && $AR x $d_dir/$d_name)"
++		  $run eval "(cd \$d_archdir && \$AR x \$d_dir/\$d_name)" || exit $?
++
++		  $show "${rm} $d_dir/$d_name"
++		  $run ${rm} "$d_dir/$d_name"
++		done
++
++		# Can't deal with blanks in file names
++		$run eval "d_files=\`find \$d_dir -type f | sed -e 's,.*/,,' -e '/ /d' | sort -u\`" || exit $?
++
++		for d_file in $d_files; do
++		  $run eval "d_f=\`find \$d_dir -name \$d_file -print\`" || exit $?
++		  $show "lipo -create $d_f -o $xdir/$d_file"
++		  $run eval "lipo -create \$d_f -o \"\$xdir/\$d_file\"" || exit $?
++		done
++
++		$show "${rm}r $d_dir"
++		$run ${rm}r "$d_dir"
++	      else
++		$show "(cd $xdir && $AR x $xabs)"
++		$run eval "(cd \$xdir && $AR x \$xabs)" || exit $?
++	      fi
++	      ;;
++	    *)
++	      # We will extract separately just the conflicting names and we will no
++	      # longer touch any unique names. It is faster to leave these extract
++	      # automatically by $AR in one run.
++	      $show "(cd $xdir && $AR x $xabs)"
++	      $run eval "(cd \$xdir && $AR x \$xabs)" || exit $?
++	      if ($AR t "$xabs" | sort | sort -uc >/dev/null 2>&1); then
++		:
++	      else
++		$echo "$modename: warning: object name conflicts; renaming object files" 1>&2
++		$echo "$modename: warning: to ensure that they will not overwrite" 1>&2
++		$AR t "$xabs" | sort | uniq -cd | while read -r count name
+ 		do
+-		 # Put our $i before any first dot (extension)
+-		 # Never overwrite any file
+-		 name_to="$name"
+-		 while test "X$name_to" = "X$name" || test -f "$xdir/$name_to"
+-		 do
+-		   name_to=`$echo "X$name_to" | $Xsed -e "s/\([^.]*\)/\1-$i/"`
+-		 done
+-		 $show "(cd $xdir && $AR xN $i $xabs '$name' && $mv '$name' '$name_to')"
+-		 $run eval "(cd \$xdir && $AR xN $i \$xabs '$name' && $mv '$name' '$name_to')" || exit $?
+-		 i=`expr $i + 1`
++		  i=1
++		  while test "$i" -le "$count"
++		  do
++		   # Put our $i before any first dot (extension)
++		   # Never overwrite any file
++		   name_to="$name"
++		   while test "X$name_to" = "X$name" || test -f "$xdir/$name_to"
++		   do
++		     name_to=`$echo "X$name_to" | $Xsed -e "s/\([^.]*\)/\1-$i/"`
++		   done
++		   $show "(cd $xdir && $AR xN $i $xabs '$name' && $mv '$name' '$name_to')"
++		   $run eval "(cd \$xdir && $AR xN $i \$xabs '$name' && $mv '$name' '$name_to')" || exit $?
++		   i=`expr $i + 1`
++		  done
+ 		done
+-	      done
+-	    fi
++	      fi
++	      ;;
++	    esac
+ 
+ 	    reload_conv_objs="$reload_objs "`find $xdir -name \*.$objext -print -o -name \*.lo -print | $NL2SP`
+ 	  done
+@@ -4299,8 +4408,8 @@
+ 	  esac
+ 
+ 	  # Now compile the dynamic symbol file.
+-	  $show "(cd $output_objdir && $LTCC -c$no_builtin_flag$pic_flag_for_symtable \"$dlsyms\")"
+-	  $run eval '(cd $output_objdir && $LTCC -c$no_builtin_flag$pic_flag_for_symtable "$dlsyms")' || exit $?
++	  $show "(cd $output_objdir && $LTCC $archargs -c$no_builtin_flag$pic_flag_for_symtable \"$dlsyms\")"
++	  $run eval '(cd $output_objdir && $LTCC $archargs -c$no_builtin_flag$pic_flag_for_symtable "$dlsyms")' || exit $?
+ 
+ 	  # Clean up the generated files.
+ 	  $show "$rm $output_objdir/$dlsyms $nlist ${nlist}S ${nlist}T"
+@@ -4689,7 +4798,7 @@
+ 	  # are only useful if you want to execute the "real" binary.
+ 	  # Since the "real" binary is built for $host, then this
+ 	  # wrapper might as well be built for $host, too.
+-	  $run $LTCC -s -o $cwrapper $cwrappersource
++	  $run $LTCC $archargs -s -o $cwrapper $cwrappersource
+ 	  ;;
+ 	esac
+ 	$rm $output
+@@ -4919,34 +5028,80 @@
+ 	  if test "$status" -ne 0 && test ! -d "$xdir"; then
+ 	    exit $status
+ 	  fi
+-	  # We will extract separately just the conflicting names and we will no
+-	  # longer touch any unique names. It is faster to leave these extract
+-	  # automatically by $AR in one run.
+-	  $show "(cd $xdir && $AR x $xabs)"
+-	  $run eval "(cd \$xdir && $AR x \$xabs)" || exit $?
+-	  if ($AR t "$xabs" | sort | sort -uc >/dev/null 2>&1); then
+-	    :
+-	  else
+-	    $echo "$modename: warning: object name conflicts; renaming object files" 1>&2
+-	    $echo "$modename: warning: to ensure that they will not overwrite" 1>&2
+-	    $AR t "$xabs" | sort | uniq -cd | while read -r count name
+-	    do
+-	      i=1
+-	      while test "$i" -le "$count"
++	  case $host in
++	  *-*-darwin*)
++	    # ranlib-ed archives of fat binaries are converted to a fat xabs that
++	    # ar can't use.  So we to split the fat xabs into non-fat ones to unpack.
++	    # We can't deal with duplicate names, since 'ar xN' and 'uniq -cd' don't work.
++	    d_archs=`lipo -info $xabs 2> /dev/null | grep '^Architectures' | sed 's/^.*: //'`
++	    if test -n "$d_archs"; then
++	      $echo "$modename: manually unpacking fat archive $xabs" 1>&2
++	      d_name=`basename $xabs`
++	      d_dir="/tmp/fat_ar.$$"
++	      d_files=''
++
++	      for d_arch in $d_archs; do
++		d_archdir="$d_dir/$d_arch"
++		$show "$mkdir -p $d_archdir"
++		$run $mkdir -p "$d_archdir"
++
++		$show "lipo -thin $d_arch $xabs -o $d_dir/$d_name"
++		$run lipo -thin $d_arch "$xabs" -o "$d_dir/$d_name"
++
++		$show "(cd $d_archdir && $AR x $d_dir/$d_name)"
++		$run eval "(cd \$d_archdir && \$AR x \$d_dir/\$d_name)" || exit $?
++
++		$show "${rm} $d_dir/$d_name"
++		$run ${rm} "$d_dir/$d_name"
++	      done
++
++	      # Can't deal with blanks in file names
++	      $run eval "d_files=\`find \$d_dir -type f | sed -e 's,.*/,,' -e '/ /d' | sort -u\`" || exit $?
++
++	      for d_file in $d_files; do
++		$run eval "d_f=\`find \$d_dir -name \$d_file -print\`" || exit $?
++		$show "lipo -create $d_f -o $xdir/$d_file"
++		$run eval "lipo -create \$d_f -o \"\$xdir/\$d_file\"" || exit $?
++	      done
++
++	      $show "${rm}r $d_dir"
++	      $run ${rm}r "$d_dir"
++	    else
++	      $show "(cd $xdir && $AR x $xabs)"
++	      $run eval "(cd \$xdir && $AR x \$xabs)" || exit $?
++	    fi
++	    ;;
++	  *)
++	    # We will extract separately just the conflicting names and we will no
++	    # longer touch any unique names. It is faster to leave these extract
++	    # automatically by $AR in one run.
++	    $show "(cd $xdir && $AR x $xabs)"
++	    $run eval "(cd \$xdir && $AR x \$xabs)" || exit $?
++	    if ($AR t "$xabs" | sort | sort -uc >/dev/null 2>&1); then
++	      :
++	    else
++	      $echo "$modename: warning: object name conflicts; renaming object files" 1>&2
++	      $echo "$modename: warning: to ensure that they will not overwrite" 1>&2
++	      $AR t "$xabs" | sort | uniq -cd | while read -r count name
+ 	      do
+-	       # Put our $i before any first dot (extension)
+-	       # Never overwrite any file
+-	       name_to="$name"
+-	       while test "X$name_to" = "X$name" || test -f "$xdir/$name_to"
+-	       do
+-		 name_to=`$echo "X$name_to" | $Xsed -e "s/\([^.]*\)/\1-$i/"`
+-	       done
+-	       $show "(cd $xdir && $AR xN $i $xabs '$name' && $mv '$name' '$name_to')"
+-	       $run eval "(cd \$xdir && $AR xN $i \$xabs '$name' && $mv '$name' '$name_to')" || exit $?
+-	       i=`expr $i + 1`
++		i=1
++		while test "$i" -le "$count"
++		do
++		 # Put our $i before any first dot (extension)
++		 # Never overwrite any file
++		 name_to="$name"
++		 while test "X$name_to" = "X$name" || test -f "$xdir/$name_to"
++		 do
++		   name_to=`$echo "X$name_to" | $Xsed -e "s/\([^.]*\)/\1-$i/"`
++		 done
++		 $show "(cd $xdir && $AR xN $i $xabs '$name' && $mv '$name' '$name_to')"
++		 $run eval "(cd \$xdir && $AR xN $i \$xabs '$name' && $mv '$name' '$name_to')" || exit $?
++		 i=`expr $i + 1`
++		done
+ 	      done
+-	    done
+-	  fi
++	    fi
++	    ;;
++	  esac
+ 
+ 	  oldobjs="$oldobjs "`find $xdir -name \*.${objext} -print -o -name \*.lo -print | $NL2SP`
+ 	done
+--- libtool.m4.orig	Mon Apr 14 14:58:23 2003
++++ libtool.m4	Fri Aug  8 16:08:14 2003
+@@ -1058,7 +1058,7 @@
+ else
+ # FIXME - insert some real tests, host_os isn't really good enough
+   case $host_os in
+-   darwin*)
++   NOT-darwin*)
+        if test -n "$STRIP" ; then
+          striplib="$STRIP -x"
+          AC_MSG_RESULT([yes])
+@@ -1259,7 +1259,7 @@
+   # FIXME: Relying on posixy $() will cause problems for
+   #        cross-compilation, but unfortunately the echo tests do not
+   #        yet detect zsh echo's removal of \ escapes.
+-  library_names_spec='${libname}${release}${versuffix}$shared_ext ${libname}${release}${major}$shared_ext ${libname}$shared_ext'
++  library_names_spec='${libname}${release}${major}$shared_ext ${libname}$shared_ext ${libname}${release}${versuffix}$shared_ext'
+   soname_spec='${libname}${release}${major}$shared_ext'
+   shlibpath_overrides_runpath=yes
+   shlibpath_var=DYLD_LIBRARY_PATH
+@@ -2545,9 +2545,23 @@
+     rhapsody* | darwin1.[[012]])
+       _LT_AC_TAGVAR(allow_undefined_flag, $1)='-undefined suppress'
+       ;;
+-    *) # Darwin 1.3 on
++    darwin1.* | darwin[[2-6]].*) # Darwin 1.3 on, but less than 7.0
+       test -z ${LD_TWOLEVEL_NAMESPACE} && _LT_AC_TAGVAR(allow_undefined_flag, $1)='-flat_namespace -undefined suppress'
+       ;;
++    *) # Darwin 7.0 on
++      case "${MACOSX_DEPLOYMENT_TARGET-10.1}" in
++      10.[[012]])
++	test -z ${LD_TWOLEVEL_NAMESPACE} && _LT_AC_TAGVAR(allow_undefined_flag, $1)='-flat_namespace -undefined suppress'
++	;;
++      *) # 10.3 on
++	if test -z ${LD_TWOLEVEL_NAMESPACE}; then
++	  _LT_AC_TAGVAR(allow_undefined_flag, $1)='-flat_namespace -undefined suppress'
++	else
++	  _LT_AC_TAGVAR(allow_undefined_flag, $1)='-undefined dynamic_lookup'
++	fi
++	;;
++      esac
++      ;;
+     esac
+     # FIXME: Relying on posixy $() will cause problems for
+     #        cross-compilation, but unfortunately the echo tests do not
+@@ -2873,9 +2887,23 @@
+     rhapsody* | darwin1.[[012]])
+       _LT_AC_TAGVAR(allow_undefined_flag, $1)='-undefined suppress'
+       ;;
+-    *) # Darwin 1.3 on
++    darwin1.* | darwin[[2-6]].*) # Darwin 1.3 on, but less than 7.0
+       test -z ${LD_TWOLEVEL_NAMESPACE} && _LT_AC_TAGVAR(allow_undefined_flag, $1)='-flat_namespace -undefined suppress'
+       ;;
++    *) # Darwin 7.0 on
++      case "${MACOSX_DEPLOYMENT_TARGET-10.1}" in
++      10.[[012]])
++	test -z ${LD_TWOLEVEL_NAMESPACE} && _LT_AC_TAGVAR(allow_undefined_flag, $1)='-flat_namespace -undefined suppress'
++	;;
++      *) # 10.3 on
++	if test -z ${LD_TWOLEVEL_NAMESPACE}; then
++	  _LT_AC_TAGVAR(allow_undefined_flag, $1)='-flat_namespace -undefined suppress'
++	else
++	  _LT_AC_TAGVAR(allow_undefined_flag, $1)='-undefined dynamic_lookup'
++	fi
++	;;
++      esac
++      ;;
+     esac
+     	lt_int_apple_cc_single_mod=no
+     	output_verbose_link_cmd='echo'
+@@ -5321,8 +5349,22 @@
+       rhapsody* | darwin1.[[012]])
+ 	_LT_AC_TAGVAR(allow_undefined_flag, $1)='-undefined suppress'
+ 	;;
+-      *) # Darwin 1.3 on
++      darwin1.* | darwin[[2-6]].*) # Darwin 1.3 on, but less than 7.0
+ 	test -z ${LD_TWOLEVEL_NAMESPACE} && _LT_AC_TAGVAR(allow_undefined_flag, $1)='-flat_namespace -undefined suppress'
++	;;
++      *) # Darwin 7.0 on
++	case "${MACOSX_DEPLOYMENT_TARGET-10.1}" in
++	10.[[012]])
++	  test -z ${LD_TWOLEVEL_NAMESPACE} && _LT_AC_TAGVAR(allow_undefined_flag, $1)='-flat_namespace -undefined suppress'
++	  ;;
++	*) # 10.3 on
++	  if test -z ${LD_TWOLEVEL_NAMESPACE}; then
++	    _LT_AC_TAGVAR(allow_undefined_flag, $1)='-flat_namespace -undefined suppress'
++	  else
++	    _LT_AC_TAGVAR(allow_undefined_flag, $1)='-undefined dynamic_lookup'
++	  fi
++	  ;;
++	esac
+ 	;;
+       esac
+       # FIXME: Relying on posixy $() will cause problems for
+--- ltmain.in.orig	Mon Apr 14 14:58:24 2003
++++ ltmain.in	Fri Aug  8 15:56:17 2003
+@@ -307,6 +307,23 @@
+ exec_cmd=
+ 
+ if test -z "$show_help"; then
++  archargs=
++  case $host in
++  *-*-darwin*)
++    # For darwin, separate arch arguments and apply them to all compile/link
++    # commands
++    doarch=
++    for arg; do
++      if test -n "$doarch"; then
++        archargs="$archargs -arch $arg"
++        doarch=
++        continue
++      fi
++      case $arg in
++      -arch) doarch=y;;
++      esac
++    done
++  esac
+ 
+   # Infer the operation mode.
+   if test -z "$mode"; then
+@@ -3158,7 +3175,7 @@
+ 	  int main() { return 0; }
+ EOF
+ 	  $rm conftest
+-	  $LTCC -o conftest conftest.c $deplibs
++	  $LTCC $archargs -o conftest conftest.c $deplibs
+ 	  if test "$?" -eq 0 ; then
+ 	    ldd_output=`ldd conftest`
+ 	    for i in $deplibs; do
+@@ -3203,7 +3220,7 @@
+ 	      # If $name is empty we are operating on a -L argument.
+               if test "$name" != "" && test "$name" != "0"; then
+ 		$rm conftest
+-		$LTCC -o conftest conftest.c $i
++		$LTCC $archargs -o conftest conftest.c $i
+ 		# Did it work?
+ 		if test "$?" -eq 0 ; then
+ 		  ldd_output=`ldd conftest`
+@@ -3620,34 +3637,80 @@
+ 	      if test "$status" -ne 0 && test ! -d "$xdir"; then
+ 		exit $status
+ 	      fi
+-	      # We will extract separately just the conflicting names and we will no
+-	      # longer touch any unique names. It is faster to leave these extract
+-	      # automatically by $AR in one run.
+-	      $show "(cd $xdir && $AR x $xabs)"
+-	      $run eval "(cd \$xdir && $AR x \$xabs)" || exit $?
+-	      if ($AR t "$xabs" | sort | sort -uc >/dev/null 2>&1); then
+-		:
+-	      else
+-		$echo "$modename: warning: object name conflicts; renaming object files" 1>&2
+-		$echo "$modename: warning: to ensure that they will not overwrite" 1>&2
+-		$AR t "$xabs" | sort | uniq -cd | while read -r count name
+-		do
+-		  i=1
+-		  while test "$i" -le "$count"
++	      case $host in
++	      *-*-darwin*)
++		# ranlib-ed archives of fat binaries are converted to a fat xabs that
++		# ar can't use.  So we to split the fat xabs into non-fat ones to unpack.
++		# We can't deal with duplicate names, since 'ar xN' and 'uniq -cd' don't work.
++		d_archs=`lipo -info $xabs 2> /dev/null | grep '^Architectures' | sed 's/^.*: //'`
++		if test -n "$d_archs"; then
++		  $echo "$modename: manually unpacking fat archive $xabs" 1>&2
++		  d_name=`basename $xabs`
++		  d_dir="/tmp/fat_ar.$$"
++		  d_files=''
++
++		  for d_arch in $d_archs; do
++		    d_archdir="$d_dir/$d_arch"
++		    $show "$mkdir -p $d_archdir"
++		    $run $mkdir -p "$d_archdir"
++
++		    $show "lipo -thin $d_arch $xabs -o $d_dir/$d_name"
++		    $run lipo -thin $d_arch "$xabs" -o "$d_dir/$d_name"
++
++		    $show "(cd $d_archdir && $AR x $d_dir/$d_name)"
++		    $run eval "(cd \$d_archdir && \$AR x \$d_dir/\$d_name)" || exit $?
++
++		    $show "${rm} $d_dir/$d_name"
++		    $run ${rm} "$d_dir/$d_name"
++		  done
++
++		  # Can't deal with blanks in file names
++		  $run eval "d_files=\`find \$d_dir -type f | sed -e 's,.*/,,' -e '/ /d' | sort -u\`" || exit $?
++
++		  for d_file in $d_files; do
++		    $run eval "d_f=\`find \$d_dir -name \$d_file -print\`" || exit $?
++		    $show "lipo -create $d_f -o $xdir/$d_file"
++		    $run eval "lipo -create \$d_f -o \"\$xdir/\$d_file\"" || exit $?
++		  done
++
++		  $show "${rm}r $d_dir"
++		  $run ${rm}r "$d_dir"
++		else
++		  $show "(cd $xdir && $AR x $xabs)"
++		  $run eval "(cd \$xdir && $AR x \$xabs)" || exit $?
++		fi
++		;;
++	      *)
++		# We will extract separately just the conflicting names and we will no
++		# longer touch any unique names. It is faster to leave these extract
++		# automatically by $AR in one run.
++		$show "(cd $xdir && $AR x $xabs)"
++		$run eval "(cd \$xdir && $AR x \$xabs)" || exit $?
++		if ($AR t "$xabs" | sort | sort -uc >/dev/null 2>&1); then
++		  :
++		else
++		  $echo "$modename: warning: object name conflicts; renaming object files" 1>&2
++		  $echo "$modename: warning: to ensure that they will not overwrite" 1>&2
++		  $AR t "$xabs" | sort | uniq -cd | while read -r count name
+ 		  do
+-		   # Put our $i before any first dot (extension)
+-		   # Never overwrite any file
+-		   name_to="$name"
+-		   while test "X$name_to" = "X$name" || test -f "$xdir/$name_to"
+-		   do
+-		     name_to=`$echo "X$name_to" | $Xsed -e "s/\([^.]*\)/\1-$i/"`
+-		   done
+-		   $show "(cd $xdir && $AR xN $i $xabs '$name' && $mv '$name' '$name_to')"
+-		   $run eval "(cd \$xdir && $AR xN $i \$xabs '$name' && $mv '$name' '$name_to')" || exit $?
+-		   i=`expr $i + 1`
++		    i=1
++		    while test "$i" -le "$count"
++		    do
++		     # Put our $i before any first dot (extension)
++		     # Never overwrite any file
++		     name_to="$name"
++		     while test "X$name_to" = "X$name" || test -f "$xdir/$name_to"
++		     do
++		       name_to=`$echo "X$name_to" | $Xsed -e "s/\([^.]*\)/\1-$i/"`
++		     done
++		     $show "(cd $xdir && $AR xN $i $xabs '$name' && $mv '$name' '$name_to')"
++		     $run eval "(cd \$xdir && $AR xN $i \$xabs '$name' && $mv '$name' '$name_to')" || exit $?
++		     i=`expr $i + 1`
++		    done
+ 		  done
+-		done
+-	      fi
++		fi
++		;;
++	      esac
+ 
+ 	      libobjs="$libobjs "`find $xdir -name \*.$objext -print -o -name \*.lo -print | $NL2SP`
+ 	    done
+@@ -3905,34 +3968,80 @@
+ 	    if test "$status" -ne 0 && test ! -d "$xdir"; then
+ 	      exit $status
+ 	    fi
+-	    # We will extract separately just the conflicting names and we will no
+-	    # longer touch any unique names. It is faster to leave these extract
+-	    # automatically by $AR in one run.
+-	    $show "(cd $xdir && $AR x $xabs)"
+-	    $run eval "(cd \$xdir && $AR x \$xabs)" || exit $?
+-	    if ($AR t "$xabs" | sort | sort -uc >/dev/null 2>&1); then
+-	      :
+-	    else
+-	      $echo "$modename: warning: object name conflicts; renaming object files" 1>&2
+-	      $echo "$modename: warning: to ensure that they will not overwrite" 1>&2
+-	      $AR t "$xabs" | sort | uniq -cd | while read -r count name
+-	      do
+-		i=1
+-		while test "$i" -le "$count"
++	    case $host in
++	    *-*-darwin*)
++	      # ranlib-ed archives of fat binaries are converted to a fat xabs that
++	      # ar can't use.  So we to split the fat xabs into non-fat ones to unpack.
++	      # We can't deal with duplicate names, since 'ar xN' and 'uniq -cd' don't work.
++	      d_archs=`lipo -info $xabs 2> /dev/null | grep '^Architectures' | sed 's/^.*: //'`
++	      if test -n "$d_archs"; then
++		$echo "$modename: manually unpacking fat archive $xabs" 1>&2
++		d_name=`basename $xabs`
++		d_dir="/tmp/fat_ar.$$"
++		d_files=''
++
++		for d_arch in $d_archs; do
++		  d_archdir="$d_dir/$d_arch"
++		  $show "$mkdir -p $d_archdir"
++		  $run $mkdir -p "$d_archdir"
++
++		  $show "lipo -thin $d_arch $xabs -o $d_dir/$d_name"
++		  $run lipo -thin $d_arch "$xabs" -o "$d_dir/$d_name"
++
++		  $show "(cd $d_archdir && $AR x $d_dir/$d_name)"
++		  $run eval "(cd \$d_archdir && \$AR x \$d_dir/\$d_name)" || exit $?
++
++		  $show "${rm} $d_dir/$d_name"
++		  $run ${rm} "$d_dir/$d_name"
++		done
++
++		# Can't deal with blanks in file names
++		$run eval "d_files=\`find \$d_dir -type f | sed -e 's,.*/,,' -e '/ /d' | sort -u\`" || exit $?
++
++		for d_file in $d_files; do
++		  $run eval "d_f=\`find \$d_dir -name \$d_file -print\`" || exit $?
++		  $show "lipo -create $d_f -o $xdir/$d_file"
++		  $run eval "lipo -create \$d_f -o \"\$xdir/\$d_file\"" || exit $?
++		done
++
++		$show "${rm}r $d_dir"
++		$run ${rm}r "$d_dir"
++	      else
++		$show "(cd $xdir && $AR x $xabs)"
++		$run eval "(cd \$xdir && $AR x \$xabs)" || exit $?
++	      fi
++	      ;;
++	    *)
++	      # We will extract separately just the conflicting names and we will no
++	      # longer touch any unique names. It is faster to leave these extract
++	      # automatically by $AR in one run.
++	      $show "(cd $xdir && $AR x $xabs)"
++	      $run eval "(cd \$xdir && $AR x \$xabs)" || exit $?
++	      if ($AR t "$xabs" | sort | sort -uc >/dev/null 2>&1); then
++		:
++	      else
++		$echo "$modename: warning: object name conflicts; renaming object files" 1>&2
++		$echo "$modename: warning: to ensure that they will not overwrite" 1>&2
++		$AR t "$xabs" | sort | uniq -cd | while read -r count name
+ 		do
+-		 # Put our $i before any first dot (extension)
+-		 # Never overwrite any file
+-		 name_to="$name"
+-		 while test "X$name_to" = "X$name" || test -f "$xdir/$name_to"
+-		 do
+-		   name_to=`$echo "X$name_to" | $Xsed -e "s/\([^.]*\)/\1-$i/"`
+-		 done
+-		 $show "(cd $xdir && $AR xN $i $xabs '$name' && $mv '$name' '$name_to')"
+-		 $run eval "(cd \$xdir && $AR xN $i \$xabs '$name' && $mv '$name' '$name_to')" || exit $?
+-		 i=`expr $i + 1`
++		  i=1
++		  while test "$i" -le "$count"
++		  do
++		   # Put our $i before any first dot (extension)
++		   # Never overwrite any file
++		   name_to="$name"
++		   while test "X$name_to" = "X$name" || test -f "$xdir/$name_to"
++		   do
++		     name_to=`$echo "X$name_to" | $Xsed -e "s/\([^.]*\)/\1-$i/"`
++		   done
++		   $show "(cd $xdir && $AR xN $i $xabs '$name' && $mv '$name' '$name_to')"
++		   $run eval "(cd \$xdir && $AR xN $i \$xabs '$name' && $mv '$name' '$name_to')" || exit $?
++		   i=`expr $i + 1`
++		  done
+ 		done
+-	      done
+-	    fi
++	      fi
++	      ;;
++	    esac
+ 
+ 	    reload_conv_objs="$reload_objs "`find $xdir -name \*.$objext -print -o -name \*.lo -print | $NL2SP`
+ 	  done
+@@ -4299,8 +4408,8 @@
+ 	  esac
+ 
+ 	  # Now compile the dynamic symbol file.
+-	  $show "(cd $output_objdir && $LTCC -c$no_builtin_flag$pic_flag_for_symtable \"$dlsyms\")"
+-	  $run eval '(cd $output_objdir && $LTCC -c$no_builtin_flag$pic_flag_for_symtable "$dlsyms")' || exit $?
++	  $show "(cd $output_objdir && $LTCC $archargs -c$no_builtin_flag$pic_flag_for_symtable \"$dlsyms\")"
++	  $run eval '(cd $output_objdir && $LTCC $archargs -c$no_builtin_flag$pic_flag_for_symtable "$dlsyms")' || exit $?
+ 
+ 	  # Clean up the generated files.
+ 	  $show "$rm $output_objdir/$dlsyms $nlist ${nlist}S ${nlist}T"
+@@ -4689,7 +4798,7 @@
+ 	  # are only useful if you want to execute the "real" binary.
+ 	  # Since the "real" binary is built for $host, then this
+ 	  # wrapper might as well be built for $host, too.
+-	  $run $LTCC -s -o $cwrapper $cwrappersource
++	  $run $LTCC $archargs -s -o $cwrapper $cwrappersource
+ 	  ;;
+ 	esac
+ 	$rm $output
+@@ -4919,34 +5028,80 @@
+ 	  if test "$status" -ne 0 && test ! -d "$xdir"; then
+ 	    exit $status
+ 	  fi
+-	  # We will extract separately just the conflicting names and we will no
+-	  # longer touch any unique names. It is faster to leave these extract
+-	  # automatically by $AR in one run.
+-	  $show "(cd $xdir && $AR x $xabs)"
+-	  $run eval "(cd \$xdir && $AR x \$xabs)" || exit $?
+-	  if ($AR t "$xabs" | sort | sort -uc >/dev/null 2>&1); then
+-	    :
+-	  else
+-	    $echo "$modename: warning: object name conflicts; renaming object files" 1>&2
+-	    $echo "$modename: warning: to ensure that they will not overwrite" 1>&2
+-	    $AR t "$xabs" | sort | uniq -cd | while read -r count name
+-	    do
+-	      i=1
+-	      while test "$i" -le "$count"
++	  case $host in
++	  *-*-darwin*)
++	    # ranlib-ed archives of fat binaries are converted to a fat xabs that
++	    # ar can't use.  So we to split the fat xabs into non-fat ones to unpack.
++	    # We can't deal with duplicate names, since 'ar xN' and 'uniq -cd' don't work.
++	    d_archs=`lipo -info $xabs 2> /dev/null | grep '^Architectures' | sed 's/^.*: //'`
++	    if test -n "$d_archs"; then
++	      $echo "$modename: manually unpacking fat archive $xabs" 1>&2
++	      d_name=`basename $xabs`
++	      d_dir="/tmp/fat_ar.$$"
++	      d_files=''
++
++	      for d_arch in $d_archs; do
++		d_archdir="$d_dir/$d_arch"
++		$show "$mkdir -p $d_archdir"
++		$run $mkdir -p "$d_archdir"
++
++		$show "lipo -thin $d_arch $xabs -o $d_dir/$d_name"
++		$run lipo -thin $d_arch "$xabs" -o "$d_dir/$d_name"
++
++		$show "(cd $d_archdir && $AR x $d_dir/$d_name)"
++		$run eval "(cd \$d_archdir && \$AR x \$d_dir/\$d_name)" || exit $?
++
++		$show "${rm} $d_dir/$d_name"
++		$run ${rm} "$d_dir/$d_name"
++	      done
++
++	      # Can't deal with blanks in file names
++	      $run eval "d_files=\`find \$d_dir -type f | sed -e 's,.*/,,' -e '/ /d' | sort -u\`" || exit $?
++
++	      for d_file in $d_files; do
++		$run eval "d_f=\`find \$d_dir -name \$d_file -print\`" || exit $?
++		$show "lipo -create $d_f -o $xdir/$d_file"
++		$run eval "lipo -create \$d_f -o \"\$xdir/\$d_file\"" || exit $?
++	      done
++
++	      $show "${rm}r $d_dir"
++	      $run ${rm}r "$d_dir"
++	    else
++	      $show "(cd $xdir && $AR x $xabs)"
++	      $run eval "(cd \$xdir && $AR x \$xabs)" || exit $?
++	    fi
++	    ;;
++	  *)
++	    # We will extract separately just the conflicting names and we will no
++	    # longer touch any unique names. It is faster to leave these extract
++	    # automatically by $AR in one run.
++	    $show "(cd $xdir && $AR x $xabs)"
++	    $run eval "(cd \$xdir && $AR x \$xabs)" || exit $?
++	    if ($AR t "$xabs" | sort | sort -uc >/dev/null 2>&1); then
++	      :
++	    else
++	      $echo "$modename: warning: object name conflicts; renaming object files" 1>&2
++	      $echo "$modename: warning: to ensure that they will not overwrite" 1>&2
++	      $AR t "$xabs" | sort | uniq -cd | while read -r count name
+ 	      do
+-	       # Put our $i before any first dot (extension)
+-	       # Never overwrite any file
+-	       name_to="$name"
+-	       while test "X$name_to" = "X$name" || test -f "$xdir/$name_to"
+-	       do
+-		 name_to=`$echo "X$name_to" | $Xsed -e "s/\([^.]*\)/\1-$i/"`
+-	       done
+-	       $show "(cd $xdir && $AR xN $i $xabs '$name' && $mv '$name' '$name_to')"
+-	       $run eval "(cd \$xdir && $AR xN $i \$xabs '$name' && $mv '$name' '$name_to')" || exit $?
+-	       i=`expr $i + 1`
++		i=1
++		while test "$i" -le "$count"
++		do
++		 # Put our $i before any first dot (extension)
++		 # Never overwrite any file
++		 name_to="$name"
++		 while test "X$name_to" = "X$name" || test -f "$xdir/$name_to"
++		 do
++		   name_to=`$echo "X$name_to" | $Xsed -e "s/\([^.]*\)/\1-$i/"`
++		 done
++		 $show "(cd $xdir && $AR xN $i $xabs '$name' && $mv '$name' '$name_to')"
++		 $run eval "(cd \$xdir && $AR xN $i \$xabs '$name' && $mv '$name' '$name_to')" || exit $?
++		 i=`expr $i + 1`
++		done
+ 	      done
+-	    done
+-	  fi
++	    fi
++	    ;;
++	  esac
+ 
+ 	  oldobjs="$oldobjs "`find $xdir -name \*.${objext} -print -o -name \*.lo -print | $NL2SP`
+ 	done
+--- ltmain.sh.orig	Mon Apr 14 15:34:17 2003
++++ ltmain.sh	Fri Aug  8 15:56:17 2003
+@@ -307,6 +307,23 @@
+ exec_cmd=
+ 
+ if test -z "$show_help"; then
++  archargs=
++  case $host in
++  *-*-darwin*)
++    # For darwin, separate arch arguments and apply them to all compile/link
++    # commands
++    doarch=
++    for arg; do
++      if test -n "$doarch"; then
++        archargs="$archargs -arch $arg"
++        doarch=
++        continue
++      fi
++      case $arg in
++      -arch) doarch=y;;
++      esac
++    done
++  esac
+ 
+   # Infer the operation mode.
+   if test -z "$mode"; then
+@@ -3158,7 +3175,7 @@
+ 	  int main() { return 0; }
+ EOF
+ 	  $rm conftest
+-	  $LTCC -o conftest conftest.c $deplibs
++	  $LTCC $archargs -o conftest conftest.c $deplibs
+ 	  if test "$?" -eq 0 ; then
+ 	    ldd_output=`ldd conftest`
+ 	    for i in $deplibs; do
+@@ -3203,7 +3220,7 @@
+ 	      # If $name is empty we are operating on a -L argument.
+               if test "$name" != "" && test "$name" != "0"; then
+ 		$rm conftest
+-		$LTCC -o conftest conftest.c $i
++		$LTCC $archargs -o conftest conftest.c $i
+ 		# Did it work?
+ 		if test "$?" -eq 0 ; then
+ 		  ldd_output=`ldd conftest`
+@@ -3620,34 +3637,80 @@
+ 	      if test "$status" -ne 0 && test ! -d "$xdir"; then
+ 		exit $status
+ 	      fi
+-	      # We will extract separately just the conflicting names and we will no
+-	      # longer touch any unique names. It is faster to leave these extract
+-	      # automatically by $AR in one run.
+-	      $show "(cd $xdir && $AR x $xabs)"
+-	      $run eval "(cd \$xdir && $AR x \$xabs)" || exit $?
+-	      if ($AR t "$xabs" | sort | sort -uc >/dev/null 2>&1); then
+-		:
+-	      else
+-		$echo "$modename: warning: object name conflicts; renaming object files" 1>&2
+-		$echo "$modename: warning: to ensure that they will not overwrite" 1>&2
+-		$AR t "$xabs" | sort | uniq -cd | while read -r count name
+-		do
+-		  i=1
+-		  while test "$i" -le "$count"
++	      case $host in
++	      *-*-darwin*)
++		# ranlib-ed archives of fat binaries are converted to a fat xabs that
++		# ar can't use.  So we to split the fat xabs into non-fat ones to unpack.
++		# We can't deal with duplicate names, since 'ar xN' and 'uniq -cd' don't work.
++		d_archs=`lipo -info $xabs 2> /dev/null | grep '^Architectures' | sed 's/^.*: //'`
++		if test -n "$d_archs"; then
++		  $echo "$modename: manually unpacking fat archive $xabs" 1>&2
++		  d_name=`basename $xabs`
++		  d_dir="/tmp/fat_ar.$$"
++		  d_files=''
++
++		  for d_arch in $d_archs; do
++		    d_archdir="$d_dir/$d_arch"
++		    $show "$mkdir -p $d_archdir"
++		    $run $mkdir -p "$d_archdir"
++
++		    $show "lipo -thin $d_arch $xabs -o $d_dir/$d_name"
++		    $run lipo -thin $d_arch "$xabs" -o "$d_dir/$d_name"
++
++		    $show "(cd $d_archdir && $AR x $d_dir/$d_name)"
++		    $run eval "(cd \$d_archdir && \$AR x \$d_dir/\$d_name)" || exit $?
++
++		    $show "${rm} $d_dir/$d_name"
++		    $run ${rm} "$d_dir/$d_name"
++		  done
++
++		  # Can't deal with blanks in file names
++		  $run eval "d_files=\`find \$d_dir -type f | sed -e 's,.*/,,' -e '/ /d' | sort -u\`" || exit $?
++
++		  for d_file in $d_files; do
++		    $run eval "d_f=\`find \$d_dir -name \$d_file -print\`" || exit $?
++		    $show "lipo -create $d_f -o $xdir/$d_file"
++		    $run eval "lipo -create \$d_f -o \"\$xdir/\$d_file\"" || exit $?
++		  done
++
++		  $show "${rm}r $d_dir"
++		  $run ${rm}r "$d_dir"
++		else
++		  $show "(cd $xdir && $AR x $xabs)"
++		  $run eval "(cd \$xdir && $AR x \$xabs)" || exit $?
++		fi
++		;;
++	      *)
++		# We will extract separately just the conflicting names and we will no
++		# longer touch any unique names. It is faster to leave these extract
++		# automatically by $AR in one run.
++		$show "(cd $xdir && $AR x $xabs)"
++		$run eval "(cd \$xdir && $AR x \$xabs)" || exit $?
++		if ($AR t "$xabs" | sort | sort -uc >/dev/null 2>&1); then
++		  :
++		else
++		  $echo "$modename: warning: object name conflicts; renaming object files" 1>&2
++		  $echo "$modename: warning: to ensure that they will not overwrite" 1>&2
++		  $AR t "$xabs" | sort | uniq -cd | while read -r count name
+ 		  do
+-		   # Put our $i before any first dot (extension)
+-		   # Never overwrite any file
+-		   name_to="$name"
+-		   while test "X$name_to" = "X$name" || test -f "$xdir/$name_to"
+-		   do
+-		     name_to=`$echo "X$name_to" | $Xsed -e "s/\([^.]*\)/\1-$i/"`
+-		   done
+-		   $show "(cd $xdir && $AR xN $i $xabs '$name' && $mv '$name' '$name_to')"
+-		   $run eval "(cd \$xdir && $AR xN $i \$xabs '$name' && $mv '$name' '$name_to')" || exit $?
+-		   i=`expr $i + 1`
++		    i=1
++		    while test "$i" -le "$count"
++		    do
++		     # Put our $i before any first dot (extension)
++		     # Never overwrite any file
++		     name_to="$name"
++		     while test "X$name_to" = "X$name" || test -f "$xdir/$name_to"
++		     do
++		       name_to=`$echo "X$name_to" | $Xsed -e "s/\([^.]*\)/\1-$i/"`
++		     done
++		     $show "(cd $xdir && $AR xN $i $xabs '$name' && $mv '$name' '$name_to')"
++		     $run eval "(cd \$xdir && $AR xN $i \$xabs '$name' && $mv '$name' '$name_to')" || exit $?
++		     i=`expr $i + 1`
++		    done
+ 		  done
+-		done
+-	      fi
++		fi
++		;;
++	      esac
+ 
+ 	      libobjs="$libobjs "`find $xdir -name \*.$objext -print -o -name \*.lo -print | $NL2SP`
+ 	    done
+@@ -3905,34 +3968,80 @@
+ 	    if test "$status" -ne 0 && test ! -d "$xdir"; then
+ 	      exit $status
+ 	    fi
+-	    # We will extract separately just the conflicting names and we will no
+-	    # longer touch any unique names. It is faster to leave these extract
+-	    # automatically by $AR in one run.
+-	    $show "(cd $xdir && $AR x $xabs)"
+-	    $run eval "(cd \$xdir && $AR x \$xabs)" || exit $?
+-	    if ($AR t "$xabs" | sort | sort -uc >/dev/null 2>&1); then
+-	      :
+-	    else
+-	      $echo "$modename: warning: object name conflicts; renaming object files" 1>&2
+-	      $echo "$modename: warning: to ensure that they will not overwrite" 1>&2
+-	      $AR t "$xabs" | sort | uniq -cd | while read -r count name
+-	      do
+-		i=1
+-		while test "$i" -le "$count"
++	    case $host in
++	    *-*-darwin*)
++	      # ranlib-ed archives of fat binaries are converted to a fat xabs that
++	      # ar can't use.  So we to split the fat xabs into non-fat ones to unpack.
++	      # We can't deal with duplicate names, since 'ar xN' and 'uniq -cd' don't work.
++	      d_archs=`lipo -info $xabs 2> /dev/null | grep '^Architectures' | sed 's/^.*: //'`
++	      if test -n "$d_archs"; then
++		$echo "$modename: manually unpacking fat archive $xabs" 1>&2
++		d_name=`basename $xabs`
++		d_dir="/tmp/fat_ar.$$"
++		d_files=''
++
++		for d_arch in $d_archs; do
++		  d_archdir="$d_dir/$d_arch"
++		  $show "$mkdir -p $d_archdir"
++		  $run $mkdir -p "$d_archdir"
++
++		  $show "lipo -thin $d_arch $xabs -o $d_dir/$d_name"
++		  $run lipo -thin $d_arch "$xabs" -o "$d_dir/$d_name"
++
++		  $show "(cd $d_archdir && $AR x $d_dir/$d_name)"
++		  $run eval "(cd \$d_archdir && \$AR x \$d_dir/\$d_name)" || exit $?
++
++		  $show "${rm} $d_dir/$d_name"
++		  $run ${rm} "$d_dir/$d_name"
++		done
++
++		# Can't deal with blanks in file names
++		$run eval "d_files=\`find \$d_dir -type f | sed -e 's,.*/,,' -e '/ /d' | sort -u\`" || exit $?
++
++		for d_file in $d_files; do
++		  $run eval "d_f=\`find \$d_dir -name \$d_file -print\`" || exit $?
++		  $show "lipo -create $d_f -o $xdir/$d_file"
++		  $run eval "lipo -create \$d_f -o \"\$xdir/\$d_file\"" || exit $?
++		done
++
++		$show "${rm}r $d_dir"
++		$run ${rm}r "$d_dir"
++	      else
++		$show "(cd $xdir && $AR x $xabs)"
++		$run eval "(cd \$xdir && $AR x \$xabs)" || exit $?
++	      fi
++	      ;;
++	    *)
++	      # We will extract separately just the conflicting names and we will no
++	      # longer touch any unique names. It is faster to leave these extract
++	      # automatically by $AR in one run.
++	      $show "(cd $xdir && $AR x $xabs)"
++	      $run eval "(cd \$xdir && $AR x \$xabs)" || exit $?
++	      if ($AR t "$xabs" | sort | sort -uc >/dev/null 2>&1); then
++		:
++	      else
++		$echo "$modename: warning: object name conflicts; renaming object files" 1>&2
++		$echo "$modename: warning: to ensure that they will not overwrite" 1>&2
++		$AR t "$xabs" | sort | uniq -cd | while read -r count name
+ 		do
+-		 # Put our $i before any first dot (extension)
+-		 # Never overwrite any file
+-		 name_to="$name"
+-		 while test "X$name_to" = "X$name" || test -f "$xdir/$name_to"
+-		 do
+-		   name_to=`$echo "X$name_to" | $Xsed -e "s/\([^.]*\)/\1-$i/"`
+-		 done
+-		 $show "(cd $xdir && $AR xN $i $xabs '$name' && $mv '$name' '$name_to')"
+-		 $run eval "(cd \$xdir && $AR xN $i \$xabs '$name' && $mv '$name' '$name_to')" || exit $?
+-		 i=`expr $i + 1`
++		  i=1
++		  while test "$i" -le "$count"
++		  do
++		   # Put our $i before any first dot (extension)
++		   # Never overwrite any file
++		   name_to="$name"
++		   while test "X$name_to" = "X$name" || test -f "$xdir/$name_to"
++		   do
++		     name_to=`$echo "X$name_to" | $Xsed -e "s/\([^.]*\)/\1-$i/"`
++		   done
++		   $show "(cd $xdir && $AR xN $i $xabs '$name' && $mv '$name' '$name_to')"
++		   $run eval "(cd \$xdir && $AR xN $i \$xabs '$name' && $mv '$name' '$name_to')" || exit $?
++		   i=`expr $i + 1`
++		  done
+ 		done
+-	      done
+-	    fi
++	      fi
++	      ;;
++	    esac
+ 
+ 	    reload_conv_objs="$reload_objs "`find $xdir -name \*.$objext -print -o -name \*.lo -print | $NL2SP`
+ 	  done
+@@ -4299,8 +4408,8 @@
+ 	  esac
+ 
+ 	  # Now compile the dynamic symbol file.
+-	  $show "(cd $output_objdir && $LTCC -c$no_builtin_flag$pic_flag_for_symtable \"$dlsyms\")"
+-	  $run eval '(cd $output_objdir && $LTCC -c$no_builtin_flag$pic_flag_for_symtable "$dlsyms")' || exit $?
++	  $show "(cd $output_objdir && $LTCC $archargs -c$no_builtin_flag$pic_flag_for_symtable \"$dlsyms\")"
++	  $run eval '(cd $output_objdir && $LTCC $archargs -c$no_builtin_flag$pic_flag_for_symtable "$dlsyms")' || exit $?
+ 
+ 	  # Clean up the generated files.
+ 	  $show "$rm $output_objdir/$dlsyms $nlist ${nlist}S ${nlist}T"
+@@ -4689,7 +4798,7 @@
+ 	  # are only useful if you want to execute the "real" binary.
+ 	  # Since the "real" binary is built for $host, then this
+ 	  # wrapper might as well be built for $host, too.
+-	  $run $LTCC -s -o $cwrapper $cwrappersource
++	  $run $LTCC $archargs -s -o $cwrapper $cwrappersource
+ 	  ;;
+ 	esac
+ 	$rm $output
+@@ -4919,34 +5028,80 @@
+ 	  if test "$status" -ne 0 && test ! -d "$xdir"; then
+ 	    exit $status
+ 	  fi
+-	  # We will extract separately just the conflicting names and we will no
+-	  # longer touch any unique names. It is faster to leave these extract
+-	  # automatically by $AR in one run.
+-	  $show "(cd $xdir && $AR x $xabs)"
+-	  $run eval "(cd \$xdir && $AR x \$xabs)" || exit $?
+-	  if ($AR t "$xabs" | sort | sort -uc >/dev/null 2>&1); then
+-	    :
+-	  else
+-	    $echo "$modename: warning: object name conflicts; renaming object files" 1>&2
+-	    $echo "$modename: warning: to ensure that they will not overwrite" 1>&2
+-	    $AR t "$xabs" | sort | uniq -cd | while read -r count name
+-	    do
+-	      i=1
+-	      while test "$i" -le "$count"
++	  case $host in
++	  *-*-darwin*)
++	    # ranlib-ed archives of fat binaries are converted to a fat xabs that
++	    # ar can't use.  So we to split the fat xabs into non-fat ones to unpack.
++	    # We can't deal with duplicate names, since 'ar xN' and 'uniq -cd' don't work.
++	    d_archs=`lipo -info $xabs 2> /dev/null | grep '^Architectures' | sed 's/^.*: //'`
++	    if test -n "$d_archs"; then
++	      $echo "$modename: manually unpacking fat archive $xabs" 1>&2
++	      d_name=`basename $xabs`
++	      d_dir="/tmp/fat_ar.$$"
++	      d_files=''
++
++	      for d_arch in $d_archs; do
++		d_archdir="$d_dir/$d_arch"
++		$show "$mkdir -p $d_archdir"
++		$run $mkdir -p "$d_archdir"
++
++		$show "lipo -thin $d_arch $xabs -o $d_dir/$d_name"
++		$run lipo -thin $d_arch "$xabs" -o "$d_dir/$d_name"
++
++		$show "(cd $d_archdir && $AR x $d_dir/$d_name)"
++		$run eval "(cd \$d_archdir && \$AR x \$d_dir/\$d_name)" || exit $?
++
++		$show "${rm} $d_dir/$d_name"
++		$run ${rm} "$d_dir/$d_name"
++	      done
++
++	      # Can't deal with blanks in file names
++	      $run eval "d_files=\`find \$d_dir -type f | sed -e 's,.*/,,' -e '/ /d' | sort -u\`" || exit $?
++
++	      for d_file in $d_files; do
++		$run eval "d_f=\`find \$d_dir -name \$d_file -print\`" || exit $?
++		$show "lipo -create $d_f -o $xdir/$d_file"
++		$run eval "lipo -create \$d_f -o \"\$xdir/\$d_file\"" || exit $?
++	      done
++
++	      $show "${rm}r $d_dir"
++	      $run ${rm}r "$d_dir"
++	    else
++	      $show "(cd $xdir && $AR x $xabs)"
++	      $run eval "(cd \$xdir && $AR x \$xabs)" || exit $?
++	    fi
++	    ;;
++	  *)
++	    # We will extract separately just the conflicting names and we will no
++	    # longer touch any unique names. It is faster to leave these extract
++	    # automatically by $AR in one run.
++	    $show "(cd $xdir && $AR x $xabs)"
++	    $run eval "(cd \$xdir && $AR x \$xabs)" || exit $?
++	    if ($AR t "$xabs" | sort | sort -uc >/dev/null 2>&1); then
++	      :
++	    else
++	      $echo "$modename: warning: object name conflicts; renaming object files" 1>&2
++	      $echo "$modename: warning: to ensure that they will not overwrite" 1>&2
++	      $AR t "$xabs" | sort | uniq -cd | while read -r count name
+ 	      do
+-	       # Put our $i before any first dot (extension)
+-	       # Never overwrite any file
+-	       name_to="$name"
+-	       while test "X$name_to" = "X$name" || test -f "$xdir/$name_to"
+-	       do
+-		 name_to=`$echo "X$name_to" | $Xsed -e "s/\([^.]*\)/\1-$i/"`
+-	       done
+-	       $show "(cd $xdir && $AR xN $i $xabs '$name' && $mv '$name' '$name_to')"
+-	       $run eval "(cd \$xdir && $AR xN $i \$xabs '$name' && $mv '$name' '$name_to')" || exit $?
+-	       i=`expr $i + 1`
++		i=1
++		while test "$i" -le "$count"
++		do
++		 # Put our $i before any first dot (extension)
++		 # Never overwrite any file
++		 name_to="$name"
++		 while test "X$name_to" = "X$name" || test -f "$xdir/$name_to"
++		 do
++		   name_to=`$echo "X$name_to" | $Xsed -e "s/\([^.]*\)/\1-$i/"`
++		 done
++		 $show "(cd $xdir && $AR xN $i $xabs '$name' && $mv '$name' '$name_to')"
++		 $run eval "(cd \$xdir && $AR xN $i \$xabs '$name' && $mv '$name' '$name_to')" || exit $?
++		 i=`expr $i + 1`
++		done
+ 	      done
+-	    done
+-	  fi
++	    fi
++	    ;;
++	  esac
+ 
+ 	  oldobjs="$oldobjs "`find $xdir -name \*.${objext} -print -o -name \*.lo -print | $NL2SP`
+ 	done
+--- mdemo/acinclude.m4.orig	Mon Apr 14 15:30:09 2003
++++ mdemo/acinclude.m4	Fri Aug  8 16:08:24 2003
+@@ -1058,7 +1058,7 @@
+ else
+ # FIXME - insert some real tests, host_os isn't really good enough
+   case $host_os in
+-   darwin*)
++   NOT-darwin*)
+        if test -n "$STRIP" ; then
+          striplib="$STRIP -x"
+          AC_MSG_RESULT([yes])
+@@ -1259,7 +1259,7 @@
+   # FIXME: Relying on posixy $() will cause problems for
+   #        cross-compilation, but unfortunately the echo tests do not
+   #        yet detect zsh echo's removal of \ escapes.
+-  library_names_spec='${libname}${release}${versuffix}$shared_ext ${libname}${release}${major}$shared_ext ${libname}$shared_ext'
++  library_names_spec='${libname}${release}${major}$shared_ext ${libname}$shared_ext ${libname}${release}${versuffix}$shared_ext'
+   soname_spec='${libname}${release}${major}$shared_ext'
+   shlibpath_overrides_runpath=yes
+   shlibpath_var=DYLD_LIBRARY_PATH
+@@ -2545,9 +2545,23 @@
+     rhapsody* | darwin1.[[012]])
+       _LT_AC_TAGVAR(allow_undefined_flag, $1)='-undefined suppress'
+       ;;
+-    *) # Darwin 1.3 on
++    darwin1.* | darwin[[2-6]].*) # Darwin 1.3 on, but less than 7.0
+       test -z ${LD_TWOLEVEL_NAMESPACE} && _LT_AC_TAGVAR(allow_undefined_flag, $1)='-flat_namespace -undefined suppress'
+       ;;
++    *) # Darwin 7.0 on
++      case "${MACOSX_DEPLOYMENT_TARGET-10.1}" in
++      10.[[012]])
++	test -z ${LD_TWOLEVEL_NAMESPACE} && _LT_AC_TAGVAR(allow_undefined_flag, $1)='-flat_namespace -undefined suppress'
++	;;
++      *) # 10.3 on
++	if test -z ${LD_TWOLEVEL_NAMESPACE}; then
++	  _LT_AC_TAGVAR(allow_undefined_flag, $1)='-flat_namespace -undefined suppress'
++	else
++	  _LT_AC_TAGVAR(allow_undefined_flag, $1)='-undefined dynamic_lookup'
++	fi
++	;;
++      esac
++      ;;
+     esac
+     # FIXME: Relying on posixy $() will cause problems for
+     #        cross-compilation, but unfortunately the echo tests do not
+@@ -2873,9 +2887,23 @@
+     rhapsody* | darwin1.[[012]])
+       _LT_AC_TAGVAR(allow_undefined_flag, $1)='-undefined suppress'
+       ;;
+-    *) # Darwin 1.3 on
++    darwin1.* | darwin[[2-6]].*) # Darwin 1.3 on, but less than 7.0
+       test -z ${LD_TWOLEVEL_NAMESPACE} && _LT_AC_TAGVAR(allow_undefined_flag, $1)='-flat_namespace -undefined suppress'
+       ;;
++    *) # Darwin 7.0 on
++      case "${MACOSX_DEPLOYMENT_TARGET-10.1}" in
++      10.[[012]])
++	test -z ${LD_TWOLEVEL_NAMESPACE} && _LT_AC_TAGVAR(allow_undefined_flag, $1)='-flat_namespace -undefined suppress'
++	;;
++      *) # 10.3 on
++	if test -z ${LD_TWOLEVEL_NAMESPACE}; then
++	  _LT_AC_TAGVAR(allow_undefined_flag, $1)='-flat_namespace -undefined suppress'
++	else
++	  _LT_AC_TAGVAR(allow_undefined_flag, $1)='-undefined dynamic_lookup'
++	fi
++	;;
++      esac
++      ;;
+     esac
+     	lt_int_apple_cc_single_mod=no
+     	output_verbose_link_cmd='echo'
+@@ -5321,8 +5349,22 @@
+       rhapsody* | darwin1.[[012]])
+ 	_LT_AC_TAGVAR(allow_undefined_flag, $1)='-undefined suppress'
+ 	;;
+-      *) # Darwin 1.3 on
++      darwin1.* | darwin[[2-6]].*) # Darwin 1.3 on, but less than 7.0
+ 	test -z ${LD_TWOLEVEL_NAMESPACE} && _LT_AC_TAGVAR(allow_undefined_flag, $1)='-flat_namespace -undefined suppress'
++	;;
++      *) # Darwin 7.0 on
++	case "${MACOSX_DEPLOYMENT_TARGET-10.1}" in
++	10.[[012]])
++	  test -z ${LD_TWOLEVEL_NAMESPACE} && _LT_AC_TAGVAR(allow_undefined_flag, $1)='-flat_namespace -undefined suppress'
++	  ;;
++	*) # 10.3 on
++	  if test -z ${LD_TWOLEVEL_NAMESPACE}; then
++	    _LT_AC_TAGVAR(allow_undefined_flag, $1)='-flat_namespace -undefined suppress'
++	  else
++	    _LT_AC_TAGVAR(allow_undefined_flag, $1)='-undefined dynamic_lookup'
++	  fi
++	  ;;
++	esac
+ 	;;
+       esac
+       # FIXME: Relying on posixy $() will cause problems for
+--- mdemo/aclocal.m4.orig	Mon Apr 14 15:30:10 2003
++++ mdemo/aclocal.m4	Fri Aug  8 16:08:35 2003
+@@ -1049,7 +1049,7 @@
+ else
+ # FIXME - insert some real tests, host_os isn't really good enough
+   case $host_os in
+-   darwin*)
++   NOT-darwin*)
+        if test -n "$STRIP" ; then
+          striplib="$STRIP -x"
+          AC_MSG_RESULT([yes])
+@@ -1250,7 +1250,7 @@
+   # FIXME: Relying on posixy $() will cause problems for
+   #        cross-compilation, but unfortunately the echo tests do not
+   #        yet detect zsh echo's removal of \ escapes.
+-  library_names_spec='${libname}${release}${versuffix}$shared_ext ${libname}${release}${major}$shared_ext ${libname}$shared_ext'
++  library_names_spec='${libname}${release}${major}$shared_ext ${libname}$shared_ext ${libname}${release}${versuffix}$shared_ext'
+   soname_spec='${libname}${release}${major}$shared_ext'
+   shlibpath_overrides_runpath=yes
+   shlibpath_var=DYLD_LIBRARY_PATH
+@@ -2532,9 +2532,23 @@
+     rhapsody* | darwin1.[[012]])
+       _LT_AC_TAGVAR(allow_undefined_flag, $1)='-undefined suppress'
+       ;;
+-    *) # Darwin 1.3 on
++    darwin1.* | darwin[[2-6]].*) # Darwin 1.3 on, but less than 7.0
+       test -z ${LD_TWOLEVEL_NAMESPACE} && _LT_AC_TAGVAR(allow_undefined_flag, $1)='-flat_namespace -undefined suppress'
+       ;;
++    *) # Darwin 7.0 on
++      case "${MACOSX_DEPLOYMENT_TARGET-10.1}" in
++      10.[[012]])
++	test -z ${LD_TWOLEVEL_NAMESPACE} && _LT_AC_TAGVAR(allow_undefined_flag, $1)='-flat_namespace -undefined suppress'
++	;;
++      *) # 10.3 on
++	if test -z ${LD_TWOLEVEL_NAMESPACE}; then
++	  _LT_AC_TAGVAR(allow_undefined_flag, $1)='-flat_namespace -undefined suppress'
++	else
++	  _LT_AC_TAGVAR(allow_undefined_flag, $1)='-undefined dynamic_lookup'
++	fi
++	;;
++      esac
++      ;;
+     esac
+     # FIXME: Relying on posixy $() will cause problems for
+     #        cross-compilation, but unfortunately the echo tests do not
+@@ -2860,9 +2874,23 @@
+     rhapsody* | darwin1.[[012]])
+       _LT_AC_TAGVAR(allow_undefined_flag, $1)='-undefined suppress'
+       ;;
+-    *) # Darwin 1.3 on
++    darwin1.* | darwin[[2-6]].*) # Darwin 1.3 on, but less than 7.0
+       test -z ${LD_TWOLEVEL_NAMESPACE} && _LT_AC_TAGVAR(allow_undefined_flag, $1)='-flat_namespace -undefined suppress'
+       ;;
++    *) # Darwin 7.0 on
++      case "${MACOSX_DEPLOYMENT_TARGET-10.1}" in
++      10.[[012]])
++	test -z ${LD_TWOLEVEL_NAMESPACE} && _LT_AC_TAGVAR(allow_undefined_flag, $1)='-flat_namespace -undefined suppress'
++	;;
++      *) # 10.3 on
++	if test -z ${LD_TWOLEVEL_NAMESPACE}; then
++	  _LT_AC_TAGVAR(allow_undefined_flag, $1)='-flat_namespace -undefined suppress'
++	else
++	  _LT_AC_TAGVAR(allow_undefined_flag, $1)='-undefined dynamic_lookup'
++	fi
++	;;
++      esac
++      ;;
+     esac
+     	lt_int_apple_cc_single_mod=no
+     	output_verbose_link_cmd='echo'
+@@ -5300,8 +5328,22 @@
+       rhapsody* | darwin1.[[012]])
+ 	_LT_AC_TAGVAR(allow_undefined_flag, $1)='-undefined suppress'
+ 	;;
+-      *) # Darwin 1.3 on
++      darwin1.* | darwin[[2-6]].*) # Darwin 1.3 on, but less than 7.0
+ 	test -z ${LD_TWOLEVEL_NAMESPACE} && _LT_AC_TAGVAR(allow_undefined_flag, $1)='-flat_namespace -undefined suppress'
++	;;
++      *) # Darwin 7.0 on
++	case "${MACOSX_DEPLOYMENT_TARGET-10.1}" in
++	10.[[012]])
++	  test -z ${LD_TWOLEVEL_NAMESPACE} && _LT_AC_TAGVAR(allow_undefined_flag, $1)='-flat_namespace -undefined suppress'
++	  ;;
++	*) # 10.3 on
++	  if test -z ${LD_TWOLEVEL_NAMESPACE}; then
++	    _LT_AC_TAGVAR(allow_undefined_flag, $1)='-flat_namespace -undefined suppress'
++	  else
++	    _LT_AC_TAGVAR(allow_undefined_flag, $1)='-undefined dynamic_lookup'
++	  fi
++	  ;;
++	esac
+ 	;;
+       esac
+       # FIXME: Relying on posixy $() will cause problems for
+--- mdemo/configure.orig	Mon Apr 14 15:30:19 2003
++++ mdemo/configure	Fri Aug  8 16:09:19 2003
+@@ -7168,9 +7168,23 @@
+       rhapsody* | darwin1.[012])
+ 	allow_undefined_flag='-undefined suppress'
+ 	;;
+-      *) # Darwin 1.3 on
++      darwin1.* | darwin[2-6].*) # Darwin 1.3 on, but less than 7.0
+ 	test -z ${LD_TWOLEVEL_NAMESPACE} && allow_undefined_flag='-flat_namespace -undefined suppress'
+ 	;;
++      *) # Darwin 7.0 on
++	case "${MACOSX_DEPLOYMENT_TARGET-10.1}" in
++	10.[012])
++	  test -z ${LD_TWOLEVEL_NAMESPACE} && allow_undefined_flag='-flat_namespace -undefined suppress'
++	  ;;
++	*) # 10.3 on
++	  if test -z ${LD_TWOLEVEL_NAMESPACE}; then
++	    allow_undefined_flag='-flat_namespace -undefined suppress'
++	  else
++	    allow_undefined_flag='-undefined dynamic_lookup'
++	  fi
++	  ;;
++	esac
++	;;
+       esac
+       # FIXME: Relying on posixy $() will cause problems for
+       #        cross-compilation, but unfortunately the echo tests do not
+@@ -7641,7 +7655,7 @@
+ else
+ # FIXME - insert some real tests, host_os isn't really good enough
+   case $host_os in
+-   darwin*)
++   NOT-darwin*)
+        if test -n "$STRIP" ; then
+          striplib="$STRIP -x"
+          echo "$as_me:$LINENO: result: yes" >&5
+@@ -7840,7 +7854,7 @@
+   # FIXME: Relying on posixy $() will cause problems for
+   #        cross-compilation, but unfortunately the echo tests do not
+   #        yet detect zsh echo's removal of \ escapes.
+-  library_names_spec='${libname}${release}${versuffix}$shared_ext ${libname}${release}${major}$shared_ext ${libname}$shared_ext'
++  library_names_spec='${libname}${release}${major}$shared_ext ${libname}$shared_ext ${libname}${release}${versuffix}$shared_ext'
+   soname_spec='${libname}${release}${major}$shared_ext'
+   shlibpath_overrides_runpath=yes
+   shlibpath_var=DYLD_LIBRARY_PATH
+@@ -8927,9 +8941,23 @@
+     rhapsody* | darwin1.[012])
+       allow_undefined_flag='-undefined suppress'
+       ;;
+-    *) # Darwin 1.3 on
++    darwin1.* | darwin[2-6].*) # Darwin 1.3 on, but less than 7.0
+       test -z ${LD_TWOLEVEL_NAMESPACE} && allow_undefined_flag='-flat_namespace -undefined suppress'
+       ;;
++    *) # Darwin 7.0 on
++      case "${MACOSX_DEPLOYMENT_TARGET-10.1}" in
++      10.[012])
++	test -z ${LD_TWOLEVEL_NAMESPACE} && allow_undefined_flag='-flat_namespace -undefined suppress'
++	;;
++      *) # 10.3 on
++	if test -z ${LD_TWOLEVEL_NAMESPACE}; then
++	  allow_undefined_flag='-flat_namespace -undefined suppress'
++	else
++	  allow_undefined_flag='-undefined dynamic_lookup'
++	fi
++	;;
++      esac
++      ;;
+     esac
+     # FIXME: Relying on posixy $() will cause problems for
+     #        cross-compilation, but unfortunately the echo tests do not
+@@ -9974,9 +10002,23 @@
+     rhapsody* | darwin1.[012])
+       allow_undefined_flag_CXX='-undefined suppress'
+       ;;
+-    *) # Darwin 1.3 on
++    darwin1.* | darwin[2-6].*) # Darwin 1.3 on, but less than 7.0
+       test -z ${LD_TWOLEVEL_NAMESPACE} && allow_undefined_flag_CXX='-flat_namespace -undefined suppress'
+       ;;
++    *) # Darwin 7.0 on
++      case "${MACOSX_DEPLOYMENT_TARGET-10.1}" in
++      10.[012])
++	test -z ${LD_TWOLEVEL_NAMESPACE} && allow_undefined_flag_CXX='-flat_namespace -undefined suppress'
++	;;
++      *) # 10.3 on
++	if test -z ${LD_TWOLEVEL_NAMESPACE}; then
++	  allow_undefined_flag_CXX='-flat_namespace -undefined suppress'
++	else
++	  allow_undefined_flag_CXX='-undefined dynamic_lookup'
++	fi
++	;;
++      esac
++      ;;
+     esac
+     	lt_int_apple_cc_single_mod=no
+     	output_verbose_link_cmd='echo'
+@@ -11181,7 +11223,7 @@
+ else
+ # FIXME - insert some real tests, host_os isn't really good enough
+   case $host_os in
+-   darwin*)
++   NOT-darwin*)
+        if test -n "$STRIP" ; then
+          striplib="$STRIP -x"
+          echo "$as_me:$LINENO: result: yes" >&5
+@@ -11380,7 +11422,7 @@
+   # FIXME: Relying on posixy $() will cause problems for
+   #        cross-compilation, but unfortunately the echo tests do not
+   #        yet detect zsh echo's removal of \ escapes.
+-  library_names_spec='${libname}${release}${versuffix}$shared_ext ${libname}${release}${major}$shared_ext ${libname}$shared_ext'
++  library_names_spec='${libname}${release}${major}$shared_ext ${libname}$shared_ext ${libname}${release}${versuffix}$shared_ext'
+   soname_spec='${libname}${release}${major}$shared_ext'
+   shlibpath_overrides_runpath=yes
+   shlibpath_var=DYLD_LIBRARY_PATH
+@@ -13685,9 +13727,23 @@
+       rhapsody* | darwin1.[012])
+ 	allow_undefined_flag_F77='-undefined suppress'
+ 	;;
+-      *) # Darwin 1.3 on
++      darwin1.* | darwin[2-6].*) # Darwin 1.3 on, but less than 7.0
+ 	test -z ${LD_TWOLEVEL_NAMESPACE} && allow_undefined_flag_F77='-flat_namespace -undefined suppress'
+ 	;;
++      *) # Darwin 7.0 on
++	case "${MACOSX_DEPLOYMENT_TARGET-10.1}" in
++	10.[012])
++	  test -z ${LD_TWOLEVEL_NAMESPACE} && allow_undefined_flag_F77='-flat_namespace -undefined suppress'
++	  ;;
++	*) # 10.3 on
++	  if test -z ${LD_TWOLEVEL_NAMESPACE}; then
++	    allow_undefined_flag_F77='-flat_namespace -undefined suppress'
++	  else
++	    allow_undefined_flag_F77='-undefined dynamic_lookup'
++	  fi
++	  ;;
++	esac
++	;;
+       esac
+       # FIXME: Relying on posixy $() will cause problems for
+       #        cross-compilation, but unfortunately the echo tests do not
+@@ -14158,7 +14214,7 @@
+ else
+ # FIXME - insert some real tests, host_os isn't really good enough
+   case $host_os in
+-   darwin*)
++   NOT-darwin*)
+        if test -n "$STRIP" ; then
+          striplib="$STRIP -x"
+          echo "$as_me:$LINENO: result: yes" >&5
+@@ -14357,7 +14413,7 @@
+   # FIXME: Relying on posixy $() will cause problems for
+   #        cross-compilation, but unfortunately the echo tests do not
+   #        yet detect zsh echo's removal of \ escapes.
+-  library_names_spec='${libname}${release}${versuffix}$shared_ext ${libname}${release}${major}$shared_ext ${libname}$shared_ext'
++  library_names_spec='${libname}${release}${major}$shared_ext ${libname}$shared_ext ${libname}${release}${versuffix}$shared_ext'
+   soname_spec='${libname}${release}${major}$shared_ext'
+   shlibpath_overrides_runpath=yes
+   shlibpath_var=DYLD_LIBRARY_PATH
+@@ -15946,9 +16002,23 @@
+       rhapsody* | darwin1.[012])
+ 	allow_undefined_flag_GCJ='-undefined suppress'
+ 	;;
+-      *) # Darwin 1.3 on
++      darwin1.* | darwin[2-6].*) # Darwin 1.3 on, but less than 7.0
+ 	test -z ${LD_TWOLEVEL_NAMESPACE} && allow_undefined_flag_GCJ='-flat_namespace -undefined suppress'
+ 	;;
++      *) # Darwin 7.0 on
++	case "${MACOSX_DEPLOYMENT_TARGET-10.1}" in
++	10.[012])
++	  test -z ${LD_TWOLEVEL_NAMESPACE} && allow_undefined_flag_GCJ='-flat_namespace -undefined suppress'
++	  ;;
++	*) # 10.3 on
++	  if test -z ${LD_TWOLEVEL_NAMESPACE}; then
++	    allow_undefined_flag_GCJ='-flat_namespace -undefined suppress'
++	  else
++	    allow_undefined_flag_GCJ='-undefined dynamic_lookup'
++	  fi
++	  ;;
++	esac
++	;;
+       esac
+       # FIXME: Relying on posixy $() will cause problems for
+       #        cross-compilation, but unfortunately the echo tests do not
+@@ -16419,7 +16489,7 @@
+ else
+ # FIXME - insert some real tests, host_os isn't really good enough
+   case $host_os in
+-   darwin*)
++   NOT-darwin*)
+        if test -n "$STRIP" ; then
+          striplib="$STRIP -x"
+          echo "$as_me:$LINENO: result: yes" >&5
+@@ -16618,7 +16688,7 @@
+   # FIXME: Relying on posixy $() will cause problems for
+   #        cross-compilation, but unfortunately the echo tests do not
+   #        yet detect zsh echo's removal of \ escapes.
+-  library_names_spec='${libname}${release}${versuffix}$shared_ext ${libname}${release}${major}$shared_ext ${libname}$shared_ext'
++  library_names_spec='${libname}${release}${major}$shared_ext ${libname}$shared_ext ${libname}${release}${versuffix}$shared_ext'
+   soname_spec='${libname}${release}${major}$shared_ext'
+   shlibpath_overrides_runpath=yes
+   shlibpath_var=DYLD_LIBRARY_PATH
+--- pdemo/acinclude.m4.orig	Mon Apr 14 15:30:19 2003
++++ pdemo/acinclude.m4	Fri Aug  8 16:09:30 2003
+@@ -1058,7 +1058,7 @@
+ else
+ # FIXME - insert some real tests, host_os isn't really good enough
+   case $host_os in
+-   darwin*)
++   NOT-darwin*)
+        if test -n "$STRIP" ; then
+          striplib="$STRIP -x"
+          AC_MSG_RESULT([yes])
+@@ -1259,7 +1259,7 @@
+   # FIXME: Relying on posixy $() will cause problems for
+   #        cross-compilation, but unfortunately the echo tests do not
+   #        yet detect zsh echo's removal of \ escapes.
+-  library_names_spec='${libname}${release}${versuffix}$shared_ext ${libname}${release}${major}$shared_ext ${libname}$shared_ext'
++  library_names_spec='${libname}${release}${major}$shared_ext ${libname}$shared_ext ${libname}${release}${versuffix}$shared_ext'
+   soname_spec='${libname}${release}${major}$shared_ext'
+   shlibpath_overrides_runpath=yes
+   shlibpath_var=DYLD_LIBRARY_PATH
+@@ -2545,9 +2545,23 @@
+     rhapsody* | darwin1.[[012]])
+       _LT_AC_TAGVAR(allow_undefined_flag, $1)='-undefined suppress'
+       ;;
+-    *) # Darwin 1.3 on
++    darwin1.* | darwin[[2-6]].*) # Darwin 1.3 on, but less than 7.0
+       test -z ${LD_TWOLEVEL_NAMESPACE} && _LT_AC_TAGVAR(allow_undefined_flag, $1)='-flat_namespace -undefined suppress'
+       ;;
++    *) # Darwin 7.0 on
++      case "${MACOSX_DEPLOYMENT_TARGET-10.1}" in
++      10.[[012]])
++	test -z ${LD_TWOLEVEL_NAMESPACE} && _LT_AC_TAGVAR(allow_undefined_flag, $1)='-flat_namespace -undefined suppress'
++	;;
++      *) # 10.3 on
++	if test -z ${LD_TWOLEVEL_NAMESPACE}; then
++	  _LT_AC_TAGVAR(allow_undefined_flag, $1)='-flat_namespace -undefined suppress'
++	else
++	  _LT_AC_TAGVAR(allow_undefined_flag, $1)='-undefined dynamic_lookup'
++	fi
++	;;
++      esac
++      ;;
+     esac
+     # FIXME: Relying on posixy $() will cause problems for
+     #        cross-compilation, but unfortunately the echo tests do not
+@@ -2873,9 +2887,23 @@
+     rhapsody* | darwin1.[[012]])
+       _LT_AC_TAGVAR(allow_undefined_flag, $1)='-undefined suppress'
+       ;;
+-    *) # Darwin 1.3 on
++    darwin1.* | darwin[[2-6]].*) # Darwin 1.3 on, but less than 7.0
+       test -z ${LD_TWOLEVEL_NAMESPACE} && _LT_AC_TAGVAR(allow_undefined_flag, $1)='-flat_namespace -undefined suppress'
+       ;;
++    *) # Darwin 7.0 on
++      case "${MACOSX_DEPLOYMENT_TARGET-10.1}" in
++      10.[[012]])
++	test -z ${LD_TWOLEVEL_NAMESPACE} && _LT_AC_TAGVAR(allow_undefined_flag, $1)='-flat_namespace -undefined suppress'
++	;;
++      *) # 10.3 on
++	if test -z ${LD_TWOLEVEL_NAMESPACE}; then
++	  _LT_AC_TAGVAR(allow_undefined_flag, $1)='-flat_namespace -undefined suppress'
++	else
++	  _LT_AC_TAGVAR(allow_undefined_flag, $1)='-undefined dynamic_lookup'
++	fi
++	;;
++      esac
++      ;;
+     esac
+     	lt_int_apple_cc_single_mod=no
+     	output_verbose_link_cmd='echo'
+@@ -5321,8 +5349,22 @@
+       rhapsody* | darwin1.[[012]])
+ 	_LT_AC_TAGVAR(allow_undefined_flag, $1)='-undefined suppress'
+ 	;;
+-      *) # Darwin 1.3 on
++      darwin1.* | darwin[[2-6]].*) # Darwin 1.3 on, but less than 7.0
+ 	test -z ${LD_TWOLEVEL_NAMESPACE} && _LT_AC_TAGVAR(allow_undefined_flag, $1)='-flat_namespace -undefined suppress'
++	;;
++      *) # Darwin 7.0 on
++	case "${MACOSX_DEPLOYMENT_TARGET-10.1}" in
++	10.[[012]])
++	  test -z ${LD_TWOLEVEL_NAMESPACE} && _LT_AC_TAGVAR(allow_undefined_flag, $1)='-flat_namespace -undefined suppress'
++	  ;;
++	*) # 10.3 on
++	  if test -z ${LD_TWOLEVEL_NAMESPACE}; then
++	    _LT_AC_TAGVAR(allow_undefined_flag, $1)='-flat_namespace -undefined suppress'
++	  else
++	    _LT_AC_TAGVAR(allow_undefined_flag, $1)='-undefined dynamic_lookup'
++	  fi
++	  ;;
++	esac
+ 	;;
+       esac
+       # FIXME: Relying on posixy $() will cause problems for
+--- pdemo/aclocal.m4.orig	Mon Apr 14 15:30:20 2003
++++ pdemo/aclocal.m4	Fri Aug  8 16:09:47 2003
+@@ -1049,7 +1049,7 @@
+ else
+ # FIXME - insert some real tests, host_os isn't really good enough
+   case $host_os in
+-   darwin*)
++   NOT-darwin*)
+        if test -n "$STRIP" ; then
+          striplib="$STRIP -x"
+          AC_MSG_RESULT([yes])
+@@ -1250,7 +1250,7 @@
+   # FIXME: Relying on posixy $() will cause problems for
+   #        cross-compilation, but unfortunately the echo tests do not
+   #        yet detect zsh echo's removal of \ escapes.
+-  library_names_spec='${libname}${release}${versuffix}$shared_ext ${libname}${release}${major}$shared_ext ${libname}$shared_ext'
++  library_names_spec='${libname}${release}${major}$shared_ext ${libname}$shared_ext ${libname}${release}${versuffix}$shared_ext'
+   soname_spec='${libname}${release}${major}$shared_ext'
+   shlibpath_overrides_runpath=yes
+   shlibpath_var=DYLD_LIBRARY_PATH
+@@ -2532,9 +2532,23 @@
+     rhapsody* | darwin1.[[012]])
+       _LT_AC_TAGVAR(allow_undefined_flag, $1)='-undefined suppress'
+       ;;
+-    *) # Darwin 1.3 on
++    darwin1.* | darwin[[2-6]].*) # Darwin 1.3 on, but less than 7.0
+       test -z ${LD_TWOLEVEL_NAMESPACE} && _LT_AC_TAGVAR(allow_undefined_flag, $1)='-flat_namespace -undefined suppress'
+       ;;
++    *) # Darwin 7.0 on
++      case "${MACOSX_DEPLOYMENT_TARGET-10.1}" in
++      10.[[012]])
++	test -z ${LD_TWOLEVEL_NAMESPACE} && _LT_AC_TAGVAR(allow_undefined_flag, $1)='-flat_namespace -undefined suppress'
++	;;
++      *) # 10.3 on
++	if test -z ${LD_TWOLEVEL_NAMESPACE}; then
++	  _LT_AC_TAGVAR(allow_undefined_flag, $1)='-flat_namespace -undefined suppress'
++	else
++	  _LT_AC_TAGVAR(allow_undefined_flag, $1)='-undefined dynamic_lookup'
++	fi
++	;;
++      esac
++      ;;
+     esac
+     # FIXME: Relying on posixy $() will cause problems for
+     #        cross-compilation, but unfortunately the echo tests do not
+@@ -2860,9 +2874,23 @@
+     rhapsody* | darwin1.[[012]])
+       _LT_AC_TAGVAR(allow_undefined_flag, $1)='-undefined suppress'
+       ;;
+-    *) # Darwin 1.3 on
++    darwin1.* | darwin[[2-6]].*) # Darwin 1.3 on, but less than 7.0
+       test -z ${LD_TWOLEVEL_NAMESPACE} && _LT_AC_TAGVAR(allow_undefined_flag, $1)='-flat_namespace -undefined suppress'
+       ;;
++    *) # Darwin 7.0 on
++      case "${MACOSX_DEPLOYMENT_TARGET-10.1}" in
++      10.[[012]])
++	test -z ${LD_TWOLEVEL_NAMESPACE} && _LT_AC_TAGVAR(allow_undefined_flag, $1)='-flat_namespace -undefined suppress'
++	;;
++      *) # 10.3 on
++	if test -z ${LD_TWOLEVEL_NAMESPACE}; then
++	  _LT_AC_TAGVAR(allow_undefined_flag, $1)='-flat_namespace -undefined suppress'
++	else
++	  _LT_AC_TAGVAR(allow_undefined_flag, $1)='-undefined dynamic_lookup'
++	fi
++	;;
++      esac
++      ;;
+     esac
+     	lt_int_apple_cc_single_mod=no
+     	output_verbose_link_cmd='echo'
+@@ -5300,8 +5328,22 @@
+       rhapsody* | darwin1.[[012]])
+ 	_LT_AC_TAGVAR(allow_undefined_flag, $1)='-undefined suppress'
+ 	;;
+-      *) # Darwin 1.3 on
++      darwin1.* | darwin[[2-6]].*) # Darwin 1.3 on, but less than 7.0
+ 	test -z ${LD_TWOLEVEL_NAMESPACE} && _LT_AC_TAGVAR(allow_undefined_flag, $1)='-flat_namespace -undefined suppress'
++	;;
++      *) # Darwin 7.0 on
++	case "${MACOSX_DEPLOYMENT_TARGET-10.1}" in
++	10.[[012]])
++	  test -z ${LD_TWOLEVEL_NAMESPACE} && _LT_AC_TAGVAR(allow_undefined_flag, $1)='-flat_namespace -undefined suppress'
++	  ;;
++	*) # 10.3 on
++	  if test -z ${LD_TWOLEVEL_NAMESPACE}; then
++	    _LT_AC_TAGVAR(allow_undefined_flag, $1)='-flat_namespace -undefined suppress'
++	  else
++	    _LT_AC_TAGVAR(allow_undefined_flag, $1)='-undefined dynamic_lookup'
++	  fi
++	  ;;
++	esac
+ 	;;
+       esac
+       # FIXME: Relying on posixy $() will cause problems for
+--- pdemo/configure.orig	Mon Apr 14 15:30:29 2003
++++ pdemo/configure	Fri Aug  8 16:10:30 2003
+@@ -6909,9 +6909,23 @@
+       rhapsody* | darwin1.[012])
+ 	allow_undefined_flag='-undefined suppress'
+ 	;;
+-      *) # Darwin 1.3 on
++      darwin1.* | darwin[2-6].*) # Darwin 1.3 on, but less than 7.0
+ 	test -z ${LD_TWOLEVEL_NAMESPACE} && allow_undefined_flag='-flat_namespace -undefined suppress'
+ 	;;
++      *) # Darwin 7.0 on
++	case "${MACOSX_DEPLOYMENT_TARGET-10.1}" in
++	10.[012])
++	  test -z ${LD_TWOLEVEL_NAMESPACE} && allow_undefined_flag='-flat_namespace -undefined suppress'
++	  ;;
++	*) # 10.3 on
++	  if test -z ${LD_TWOLEVEL_NAMESPACE}; then
++	    allow_undefined_flag='-flat_namespace -undefined suppress'
++	  else
++	    allow_undefined_flag='-undefined dynamic_lookup'
++	  fi
++	  ;;
++	esac
++	;;
+       esac
+       # FIXME: Relying on posixy $() will cause problems for
+       #        cross-compilation, but unfortunately the echo tests do not
+@@ -7382,7 +7396,7 @@
+ else
+ # FIXME - insert some real tests, host_os isn't really good enough
+   case $host_os in
+-   darwin*)
++   NOT-darwin*)
+        if test -n "$STRIP" ; then
+          striplib="$STRIP -x"
+          echo "$as_me:$LINENO: result: yes" >&5
+@@ -7581,7 +7595,7 @@
+   # FIXME: Relying on posixy $() will cause problems for
+   #        cross-compilation, but unfortunately the echo tests do not
+   #        yet detect zsh echo's removal of \ escapes.
+-  library_names_spec='${libname}${release}${versuffix}$shared_ext ${libname}${release}${major}$shared_ext ${libname}$shared_ext'
++  library_names_spec='${libname}${release}${major}$shared_ext ${libname}$shared_ext ${libname}${release}${versuffix}$shared_ext'
+   soname_spec='${libname}${release}${major}$shared_ext'
+   shlibpath_overrides_runpath=yes
+   shlibpath_var=DYLD_LIBRARY_PATH
+@@ -8668,9 +8682,23 @@
+     rhapsody* | darwin1.[012])
+       allow_undefined_flag='-undefined suppress'
+       ;;
+-    *) # Darwin 1.3 on
++    darwin1.* | darwin[2-6].*) # Darwin 1.3 on, but less than 7.0
+       test -z ${LD_TWOLEVEL_NAMESPACE} && allow_undefined_flag='-flat_namespace -undefined suppress'
+       ;;
++    *) # Darwin 7.0 on
++      case "${MACOSX_DEPLOYMENT_TARGET-10.1}" in
++      10.[012])
++	test -z ${LD_TWOLEVEL_NAMESPACE} && allow_undefined_flag='-flat_namespace -undefined suppress'
++	;;
++      *) # 10.3 on
++	if test -z ${LD_TWOLEVEL_NAMESPACE}; then
++	  allow_undefined_flag='-flat_namespace -undefined suppress'
++	else
++	  allow_undefined_flag='-undefined dynamic_lookup'
++	fi
++	;;
++      esac
++      ;;
+     esac
+     # FIXME: Relying on posixy $() will cause problems for
+     #        cross-compilation, but unfortunately the echo tests do not
+@@ -9715,9 +9743,23 @@
+     rhapsody* | darwin1.[012])
+       allow_undefined_flag_CXX='-undefined suppress'
+       ;;
+-    *) # Darwin 1.3 on
++    darwin1.* | darwin[2-6].*) # Darwin 1.3 on, but less than 7.0
+       test -z ${LD_TWOLEVEL_NAMESPACE} && allow_undefined_flag_CXX='-flat_namespace -undefined suppress'
+       ;;
++    *) # Darwin 7.0 on
++      case "${MACOSX_DEPLOYMENT_TARGET-10.1}" in
++      10.[012])
++	test -z ${LD_TWOLEVEL_NAMESPACE} && allow_undefined_flag_CXX='-flat_namespace -undefined suppress'
++	;;
++      *) # 10.3 on
++	if test -z ${LD_TWOLEVEL_NAMESPACE}; then
++	  allow_undefined_flag_CXX='-flat_namespace -undefined suppress'
++	else
++	  allow_undefined_flag_CXX='-undefined dynamic_lookup'
++	fi
++	;;
++      esac
++      ;;
+     esac
+     	lt_int_apple_cc_single_mod=no
+     	output_verbose_link_cmd='echo'
+@@ -10922,7 +10964,7 @@
+ else
+ # FIXME - insert some real tests, host_os isn't really good enough
+   case $host_os in
+-   darwin*)
++   NOT-darwin*)
+        if test -n "$STRIP" ; then
+          striplib="$STRIP -x"
+          echo "$as_me:$LINENO: result: yes" >&5
+@@ -11121,7 +11163,7 @@
+   # FIXME: Relying on posixy $() will cause problems for
+   #        cross-compilation, but unfortunately the echo tests do not
+   #        yet detect zsh echo's removal of \ escapes.
+-  library_names_spec='${libname}${release}${versuffix}$shared_ext ${libname}${release}${major}$shared_ext ${libname}$shared_ext'
++  library_names_spec='${libname}${release}${major}$shared_ext ${libname}$shared_ext ${libname}${release}${versuffix}$shared_ext'
+   soname_spec='${libname}${release}${major}$shared_ext'
+   shlibpath_overrides_runpath=yes
+   shlibpath_var=DYLD_LIBRARY_PATH
+@@ -13426,9 +13468,23 @@
+       rhapsody* | darwin1.[012])
+ 	allow_undefined_flag_F77='-undefined suppress'
+ 	;;
+-      *) # Darwin 1.3 on
++      darwin1.* | darwin[2-6].*) # Darwin 1.3 on, but less than 7.0
+ 	test -z ${LD_TWOLEVEL_NAMESPACE} && allow_undefined_flag_F77='-flat_namespace -undefined suppress'
+ 	;;
++      *) # Darwin 7.0 on
++	case "${MACOSX_DEPLOYMENT_TARGET-10.1}" in
++	10.[012])
++	  test -z ${LD_TWOLEVEL_NAMESPACE} && allow_undefined_flag_F77='-flat_namespace -undefined suppress'
++	  ;;
++	*) # 10.3 on
++	  if test -z ${LD_TWOLEVEL_NAMESPACE}; then
++	    allow_undefined_flag_F77='-flat_namespace -undefined suppress'
++	  else
++	    allow_undefined_flag_F77='-undefined dynamic_lookup'
++	  fi
++	  ;;
++	esac
++	;;
+       esac
+       # FIXME: Relying on posixy $() will cause problems for
+       #        cross-compilation, but unfortunately the echo tests do not
+@@ -13899,7 +13955,7 @@
+ else
+ # FIXME - insert some real tests, host_os isn't really good enough
+   case $host_os in
+-   darwin*)
++   NOT-darwin*)
+        if test -n "$STRIP" ; then
+          striplib="$STRIP -x"
+          echo "$as_me:$LINENO: result: yes" >&5
+@@ -14098,7 +14154,7 @@
+   # FIXME: Relying on posixy $() will cause problems for
+   #        cross-compilation, but unfortunately the echo tests do not
+   #        yet detect zsh echo's removal of \ escapes.
+-  library_names_spec='${libname}${release}${versuffix}$shared_ext ${libname}${release}${major}$shared_ext ${libname}$shared_ext'
++  library_names_spec='${libname}${release}${major}$shared_ext ${libname}$shared_ext ${libname}${release}${versuffix}$shared_ext'
+   soname_spec='${libname}${release}${major}$shared_ext'
+   shlibpath_overrides_runpath=yes
+   shlibpath_var=DYLD_LIBRARY_PATH
+@@ -15687,9 +15743,23 @@
+       rhapsody* | darwin1.[012])
+ 	allow_undefined_flag_GCJ='-undefined suppress'
+ 	;;
+-      *) # Darwin 1.3 on
++      darwin1.* | darwin[2-6].*) # Darwin 1.3 on, but less than 7.0
+ 	test -z ${LD_TWOLEVEL_NAMESPACE} && allow_undefined_flag_GCJ='-flat_namespace -undefined suppress'
+ 	;;
++      *) # Darwin 7.0 on
++	case "${MACOSX_DEPLOYMENT_TARGET-10.1}" in
++	10.[012])
++	  test -z ${LD_TWOLEVEL_NAMESPACE} && allow_undefined_flag_GCJ='-flat_namespace -undefined suppress'
++	  ;;
++	*) # 10.3 on
++	  if test -z ${LD_TWOLEVEL_NAMESPACE}; then
++	    allow_undefined_flag_GCJ='-flat_namespace -undefined suppress'
++	  else
++	    allow_undefined_flag_GCJ='-undefined dynamic_lookup'
++	  fi
++	  ;;
++	esac
++	;;
+       esac
+       # FIXME: Relying on posixy $() will cause problems for
+       #        cross-compilation, but unfortunately the echo tests do not
+@@ -16160,7 +16230,7 @@
+ else
+ # FIXME - insert some real tests, host_os isn't really good enough
+   case $host_os in
+-   darwin*)
++   NOT-darwin*)
+        if test -n "$STRIP" ; then
+          striplib="$STRIP -x"
+          echo "$as_me:$LINENO: result: yes" >&5
+@@ -16359,7 +16429,7 @@
+   # FIXME: Relying on posixy $() will cause problems for
+   #        cross-compilation, but unfortunately the echo tests do not
+   #        yet detect zsh echo's removal of \ escapes.
+-  library_names_spec='${libname}${release}${versuffix}$shared_ext ${libname}${release}${major}$shared_ext ${libname}$shared_ext'
++  library_names_spec='${libname}${release}${major}$shared_ext ${libname}$shared_ext ${libname}${release}${versuffix}$shared_ext'
+   soname_spec='${libname}${release}${major}$shared_ext'
+   shlibpath_overrides_runpath=yes
+   shlibpath_var=DYLD_LIBRARY_PATH
+--- tagdemo/acinclude.m4.orig	Mon Apr 14 15:30:29 2003
++++ tagdemo/acinclude.m4	Fri Aug  8 16:10:44 2003
+@@ -1058,7 +1058,7 @@
+ else
+ # FIXME - insert some real tests, host_os isn't really good enough
+   case $host_os in
+-   darwin*)
++   NOT-darwin*)
+        if test -n "$STRIP" ; then
+          striplib="$STRIP -x"
+          AC_MSG_RESULT([yes])
+@@ -1259,7 +1259,7 @@
+   # FIXME: Relying on posixy $() will cause problems for
+   #        cross-compilation, but unfortunately the echo tests do not
+   #        yet detect zsh echo's removal of \ escapes.
+-  library_names_spec='${libname}${release}${versuffix}$shared_ext ${libname}${release}${major}$shared_ext ${libname}$shared_ext'
++  library_names_spec='${libname}${release}${major}$shared_ext ${libname}$shared_ext ${libname}${release}${versuffix}$shared_ext'
+   soname_spec='${libname}${release}${major}$shared_ext'
+   shlibpath_overrides_runpath=yes
+   shlibpath_var=DYLD_LIBRARY_PATH
+@@ -2545,9 +2545,23 @@
+     rhapsody* | darwin1.[[012]])
+       _LT_AC_TAGVAR(allow_undefined_flag, $1)='-undefined suppress'
+       ;;
+-    *) # Darwin 1.3 on
++    darwin1.* | darwin[[2-6]].*) # Darwin 1.3 on, but less than 7.0
+       test -z ${LD_TWOLEVEL_NAMESPACE} && _LT_AC_TAGVAR(allow_undefined_flag, $1)='-flat_namespace -undefined suppress'
+       ;;
++    *) # Darwin 7.0 on
++      case "${MACOSX_DEPLOYMENT_TARGET-10.1}" in
++      10.[[012]])
++	test -z ${LD_TWOLEVEL_NAMESPACE} && _LT_AC_TAGVAR(allow_undefined_flag, $1)='-flat_namespace -undefined suppress'
++	;;
++      *) # 10.3 on
++	if test -z ${LD_TWOLEVEL_NAMESPACE}; then
++	  _LT_AC_TAGVAR(allow_undefined_flag, $1)='-flat_namespace -undefined suppress'
++	else
++	  _LT_AC_TAGVAR(allow_undefined_flag, $1)='-undefined dynamic_lookup'
++	fi
++	;;
++      esac
++      ;;
+     esac
+     # FIXME: Relying on posixy $() will cause problems for
+     #        cross-compilation, but unfortunately the echo tests do not
+@@ -2873,9 +2887,23 @@
+     rhapsody* | darwin1.[[012]])
+       _LT_AC_TAGVAR(allow_undefined_flag, $1)='-undefined suppress'
+       ;;
+-    *) # Darwin 1.3 on
++    darwin1.* | darwin[[2-6]].*) # Darwin 1.3 on, but less than 7.0
+       test -z ${LD_TWOLEVEL_NAMESPACE} && _LT_AC_TAGVAR(allow_undefined_flag, $1)='-flat_namespace -undefined suppress'
+       ;;
++    *) # Darwin 7.0 on
++      case "${MACOSX_DEPLOYMENT_TARGET-10.1}" in
++      10.[[012]])
++	test -z ${LD_TWOLEVEL_NAMESPACE} && _LT_AC_TAGVAR(allow_undefined_flag, $1)='-flat_namespace -undefined suppress'
++	;;
++      *) # 10.3 on
++	if test -z ${LD_TWOLEVEL_NAMESPACE}; then
++	  _LT_AC_TAGVAR(allow_undefined_flag, $1)='-flat_namespace -undefined suppress'
++	else
++	  _LT_AC_TAGVAR(allow_undefined_flag, $1)='-undefined dynamic_lookup'
++	fi
++	;;
++      esac
++      ;;
+     esac
+     	lt_int_apple_cc_single_mod=no
+     	output_verbose_link_cmd='echo'
+@@ -5321,8 +5349,22 @@
+       rhapsody* | darwin1.[[012]])
+ 	_LT_AC_TAGVAR(allow_undefined_flag, $1)='-undefined suppress'
+ 	;;
+-      *) # Darwin 1.3 on
++      darwin1.* | darwin[[2-6]].*) # Darwin 1.3 on, but less than 7.0
+ 	test -z ${LD_TWOLEVEL_NAMESPACE} && _LT_AC_TAGVAR(allow_undefined_flag, $1)='-flat_namespace -undefined suppress'
++	;;
++      *) # Darwin 7.0 on
++	case "${MACOSX_DEPLOYMENT_TARGET-10.1}" in
++	10.[[012]])
++	  test -z ${LD_TWOLEVEL_NAMESPACE} && _LT_AC_TAGVAR(allow_undefined_flag, $1)='-flat_namespace -undefined suppress'
++	  ;;
++	*) # 10.3 on
++	  if test -z ${LD_TWOLEVEL_NAMESPACE}; then
++	    _LT_AC_TAGVAR(allow_undefined_flag, $1)='-flat_namespace -undefined suppress'
++	  else
++	    _LT_AC_TAGVAR(allow_undefined_flag, $1)='-undefined dynamic_lookup'
++	  fi
++	  ;;
++	esac
+ 	;;
+       esac
+       # FIXME: Relying on posixy $() will cause problems for
+--- tagdemo/aclocal.m4.orig	Mon Apr 14 15:30:30 2003
++++ tagdemo/aclocal.m4	Fri Aug  8 16:10:58 2003
+@@ -1049,7 +1049,7 @@
+ else
+ # FIXME - insert some real tests, host_os isn't really good enough
+   case $host_os in
+-   darwin*)
++   NOT-darwin*)
+        if test -n "$STRIP" ; then
+          striplib="$STRIP -x"
+          AC_MSG_RESULT([yes])
+@@ -1250,7 +1250,7 @@
+   # FIXME: Relying on posixy $() will cause problems for
+   #        cross-compilation, but unfortunately the echo tests do not
+   #        yet detect zsh echo's removal of \ escapes.
+-  library_names_spec='${libname}${release}${versuffix}$shared_ext ${libname}${release}${major}$shared_ext ${libname}$shared_ext'
++  library_names_spec='${libname}${release}${major}$shared_ext ${libname}$shared_ext ${libname}${release}${versuffix}$shared_ext'
+   soname_spec='${libname}${release}${major}$shared_ext'
+   shlibpath_overrides_runpath=yes
+   shlibpath_var=DYLD_LIBRARY_PATH
+@@ -2532,9 +2532,23 @@
+     rhapsody* | darwin1.[[012]])
+       _LT_AC_TAGVAR(allow_undefined_flag, $1)='-undefined suppress'
+       ;;
+-    *) # Darwin 1.3 on
++    darwin1.* | darwin[[2-6]].*) # Darwin 1.3 on, but less than 7.0
+       test -z ${LD_TWOLEVEL_NAMESPACE} && _LT_AC_TAGVAR(allow_undefined_flag, $1)='-flat_namespace -undefined suppress'
+       ;;
++    *) # Darwin 7.0 on
++      case "${MACOSX_DEPLOYMENT_TARGET-10.1}" in
++      10.[[012]])
++	test -z ${LD_TWOLEVEL_NAMESPACE} && _LT_AC_TAGVAR(allow_undefined_flag, $1)='-flat_namespace -undefined suppress'
++	;;
++      *) # 10.3 on
++	if test -z ${LD_TWOLEVEL_NAMESPACE}; then
++	  _LT_AC_TAGVAR(allow_undefined_flag, $1)='-flat_namespace -undefined suppress'
++	else
++	  _LT_AC_TAGVAR(allow_undefined_flag, $1)='-undefined dynamic_lookup'
++	fi
++	;;
++      esac
++      ;;
+     esac
+     # FIXME: Relying on posixy $() will cause problems for
+     #        cross-compilation, but unfortunately the echo tests do not
+@@ -2860,9 +2874,23 @@
+     rhapsody* | darwin1.[[012]])
+       _LT_AC_TAGVAR(allow_undefined_flag, $1)='-undefined suppress'
+       ;;
+-    *) # Darwin 1.3 on
++    darwin1.* | darwin[[2-6]].*) # Darwin 1.3 on, but less than 7.0
+       test -z ${LD_TWOLEVEL_NAMESPACE} && _LT_AC_TAGVAR(allow_undefined_flag, $1)='-flat_namespace -undefined suppress'
+       ;;
++    *) # Darwin 7.0 on
++      case "${MACOSX_DEPLOYMENT_TARGET-10.1}" in
++      10.[[012]])
++	test -z ${LD_TWOLEVEL_NAMESPACE} && _LT_AC_TAGVAR(allow_undefined_flag, $1)='-flat_namespace -undefined suppress'
++	;;
++      *) # 10.3 on
++	if test -z ${LD_TWOLEVEL_NAMESPACE}; then
++	  _LT_AC_TAGVAR(allow_undefined_flag, $1)='-flat_namespace -undefined suppress'
++	else
++	  _LT_AC_TAGVAR(allow_undefined_flag, $1)='-undefined dynamic_lookup'
++	fi
++	;;
++      esac
++      ;;
+     esac
+     	lt_int_apple_cc_single_mod=no
+     	output_verbose_link_cmd='echo'
+@@ -5300,8 +5328,22 @@
+       rhapsody* | darwin1.[[012]])
+ 	_LT_AC_TAGVAR(allow_undefined_flag, $1)='-undefined suppress'
+ 	;;
+-      *) # Darwin 1.3 on
++      darwin1.* | darwin[[2-6]].*) # Darwin 1.3 on, but less than 7.0
+ 	test -z ${LD_TWOLEVEL_NAMESPACE} && _LT_AC_TAGVAR(allow_undefined_flag, $1)='-flat_namespace -undefined suppress'
++	;;
++      *) # Darwin 7.0 on
++	case "${MACOSX_DEPLOYMENT_TARGET-10.1}" in
++	10.[[012]])
++	  test -z ${LD_TWOLEVEL_NAMESPACE} && _LT_AC_TAGVAR(allow_undefined_flag, $1)='-flat_namespace -undefined suppress'
++	  ;;
++	*) # 10.3 on
++	  if test -z ${LD_TWOLEVEL_NAMESPACE}; then
++	    _LT_AC_TAGVAR(allow_undefined_flag, $1)='-flat_namespace -undefined suppress'
++	  else
++	    _LT_AC_TAGVAR(allow_undefined_flag, $1)='-undefined dynamic_lookup'
++	  fi
++	  ;;
++	esac
+ 	;;
+       esac
+       # FIXME: Relying on posixy $() will cause problems for
+--- tagdemo/configure.orig	Mon Apr 14 15:30:40 2003
++++ tagdemo/configure	Fri Aug  8 16:11:41 2003
+@@ -6959,9 +6959,23 @@
+       rhapsody* | darwin1.[012])
+ 	allow_undefined_flag='-undefined suppress'
+ 	;;
+-      *) # Darwin 1.3 on
++      darwin1.* | darwin[2-6].*) # Darwin 1.3 on, but less than 7.0
+ 	test -z ${LD_TWOLEVEL_NAMESPACE} && allow_undefined_flag='-flat_namespace -undefined suppress'
+ 	;;
++      *) # Darwin 7.0 on
++	case "${MACOSX_DEPLOYMENT_TARGET-10.1}" in
++	10.[012])
++	  test -z ${LD_TWOLEVEL_NAMESPACE} && allow_undefined_flag='-flat_namespace -undefined suppress'
++	  ;;
++	*) # 10.3 on
++	  if test -z ${LD_TWOLEVEL_NAMESPACE}; then
++	    allow_undefined_flag='-flat_namespace -undefined suppress'
++	  else
++	    allow_undefined_flag='-undefined dynamic_lookup'
++	  fi
++	  ;;
++	esac
++	;;
+       esac
+       # FIXME: Relying on posixy $() will cause problems for
+       #        cross-compilation, but unfortunately the echo tests do not
+@@ -7432,7 +7446,7 @@
+ else
+ # FIXME - insert some real tests, host_os isn't really good enough
+   case $host_os in
+-   darwin*)
++   NOT-darwin*)
+        if test -n "$STRIP" ; then
+          striplib="$STRIP -x"
+          echo "$as_me:$LINENO: result: yes" >&5
+@@ -7631,7 +7645,7 @@
+   # FIXME: Relying on posixy $() will cause problems for
+   #        cross-compilation, but unfortunately the echo tests do not
+   #        yet detect zsh echo's removal of \ escapes.
+-  library_names_spec='${libname}${release}${versuffix}$shared_ext ${libname}${release}${major}$shared_ext ${libname}$shared_ext'
++  library_names_spec='${libname}${release}${major}$shared_ext ${libname}$shared_ext ${libname}${release}${versuffix}$shared_ext'
+   soname_spec='${libname}${release}${major}$shared_ext'
+   shlibpath_overrides_runpath=yes
+   shlibpath_var=DYLD_LIBRARY_PATH
+@@ -8718,9 +8732,23 @@
+     rhapsody* | darwin1.[012])
+       allow_undefined_flag='-undefined suppress'
+       ;;
+-    *) # Darwin 1.3 on
++    darwin1.* | darwin[2-6].*) # Darwin 1.3 on, but less than 7.0
+       test -z ${LD_TWOLEVEL_NAMESPACE} && allow_undefined_flag='-flat_namespace -undefined suppress'
+       ;;
++    *) # Darwin 7.0 on
++      case "${MACOSX_DEPLOYMENT_TARGET-10.1}" in
++      10.[012])
++	test -z ${LD_TWOLEVEL_NAMESPACE} && allow_undefined_flag='-flat_namespace -undefined suppress'
++	;;
++      *) # 10.3 on
++	if test -z ${LD_TWOLEVEL_NAMESPACE}; then
++	  allow_undefined_flag='-flat_namespace -undefined suppress'
++	else
++	  allow_undefined_flag='-undefined dynamic_lookup'
++	fi
++	;;
++      esac
++      ;;
+     esac
+     # FIXME: Relying on posixy $() will cause problems for
+     #        cross-compilation, but unfortunately the echo tests do not
+@@ -9765,9 +9793,23 @@
+     rhapsody* | darwin1.[012])
+       allow_undefined_flag_CXX='-undefined suppress'
+       ;;
+-    *) # Darwin 1.3 on
++    darwin1.* | darwin[2-6].*) # Darwin 1.3 on, but less than 7.0
+       test -z ${LD_TWOLEVEL_NAMESPACE} && allow_undefined_flag_CXX='-flat_namespace -undefined suppress'
+       ;;
++    *) # Darwin 7.0 on
++      case "${MACOSX_DEPLOYMENT_TARGET-10.1}" in
++      10.[012])
++	test -z ${LD_TWOLEVEL_NAMESPACE} && allow_undefined_flag_CXX='-flat_namespace -undefined suppress'
++	;;
++      *) # 10.3 on
++	if test -z ${LD_TWOLEVEL_NAMESPACE}; then
++	  allow_undefined_flag_CXX='-flat_namespace -undefined suppress'
++	else
++	  allow_undefined_flag_CXX='-undefined dynamic_lookup'
++	fi
++	;;
++      esac
++      ;;
+     esac
+     	lt_int_apple_cc_single_mod=no
+     	output_verbose_link_cmd='echo'
+@@ -10972,7 +11014,7 @@
+ else
+ # FIXME - insert some real tests, host_os isn't really good enough
+   case $host_os in
+-   darwin*)
++   NOT-darwin*)
+        if test -n "$STRIP" ; then
+          striplib="$STRIP -x"
+          echo "$as_me:$LINENO: result: yes" >&5
+@@ -11171,7 +11213,7 @@
+   # FIXME: Relying on posixy $() will cause problems for
+   #        cross-compilation, but unfortunately the echo tests do not
+   #        yet detect zsh echo's removal of \ escapes.
+-  library_names_spec='${libname}${release}${versuffix}$shared_ext ${libname}${release}${major}$shared_ext ${libname}$shared_ext'
++  library_names_spec='${libname}${release}${major}$shared_ext ${libname}$shared_ext ${libname}${release}${versuffix}$shared_ext'
+   soname_spec='${libname}${release}${major}$shared_ext'
+   shlibpath_overrides_runpath=yes
+   shlibpath_var=DYLD_LIBRARY_PATH
+@@ -13476,9 +13518,23 @@
+       rhapsody* | darwin1.[012])
+ 	allow_undefined_flag_F77='-undefined suppress'
+ 	;;
+-      *) # Darwin 1.3 on
++      darwin1.* | darwin[2-6].*) # Darwin 1.3 on, but less than 7.0
+ 	test -z ${LD_TWOLEVEL_NAMESPACE} && allow_undefined_flag_F77='-flat_namespace -undefined suppress'
+ 	;;
++      *) # Darwin 7.0 on
++	case "${MACOSX_DEPLOYMENT_TARGET-10.1}" in
++	10.[012])
++	  test -z ${LD_TWOLEVEL_NAMESPACE} && allow_undefined_flag_F77='-flat_namespace -undefined suppress'
++	  ;;
++	*) # 10.3 on
++	  if test -z ${LD_TWOLEVEL_NAMESPACE}; then
++	    allow_undefined_flag_F77='-flat_namespace -undefined suppress'
++	  else
++	    allow_undefined_flag_F77='-undefined dynamic_lookup'
++	  fi
++	  ;;
++	esac
++	;;
+       esac
+       # FIXME: Relying on posixy $() will cause problems for
+       #        cross-compilation, but unfortunately the echo tests do not
+@@ -13949,7 +14005,7 @@
+ else
+ # FIXME - insert some real tests, host_os isn't really good enough
+   case $host_os in
+-   darwin*)
++   NOT-darwin*)
+        if test -n "$STRIP" ; then
+          striplib="$STRIP -x"
+          echo "$as_me:$LINENO: result: yes" >&5
+@@ -14148,7 +14204,7 @@
+   # FIXME: Relying on posixy $() will cause problems for
+   #        cross-compilation, but unfortunately the echo tests do not
+   #        yet detect zsh echo's removal of \ escapes.
+-  library_names_spec='${libname}${release}${versuffix}$shared_ext ${libname}${release}${major}$shared_ext ${libname}$shared_ext'
++  library_names_spec='${libname}${release}${major}$shared_ext ${libname}$shared_ext ${libname}${release}${versuffix}$shared_ext'
+   soname_spec='${libname}${release}${major}$shared_ext'
+   shlibpath_overrides_runpath=yes
+   shlibpath_var=DYLD_LIBRARY_PATH
+@@ -15737,9 +15793,23 @@
+       rhapsody* | darwin1.[012])
+ 	allow_undefined_flag_GCJ='-undefined suppress'
+ 	;;
+-      *) # Darwin 1.3 on
++      darwin1.* | darwin[2-6].*) # Darwin 1.3 on, but less than 7.0
+ 	test -z ${LD_TWOLEVEL_NAMESPACE} && allow_undefined_flag_GCJ='-flat_namespace -undefined suppress'
+ 	;;
++      *) # Darwin 7.0 on
++	case "${MACOSX_DEPLOYMENT_TARGET-10.1}" in
++	10.[012])
++	  test -z ${LD_TWOLEVEL_NAMESPACE} && allow_undefined_flag_GCJ='-flat_namespace -undefined suppress'
++	  ;;
++	*) # 10.3 on
++	  if test -z ${LD_TWOLEVEL_NAMESPACE}; then
++	    allow_undefined_flag_GCJ='-flat_namespace -undefined suppress'
++	  else
++	    allow_undefined_flag_GCJ='-undefined dynamic_lookup'
++	  fi
++	  ;;
++	esac
++	;;
+       esac
+       # FIXME: Relying on posixy $() will cause problems for
+       #        cross-compilation, but unfortunately the echo tests do not
+@@ -16210,7 +16280,7 @@
+ else
+ # FIXME - insert some real tests, host_os isn't really good enough
+   case $host_os in
+-   darwin*)
++   NOT-darwin*)
+        if test -n "$STRIP" ; then
+          striplib="$STRIP -x"
+          echo "$as_me:$LINENO: result: yes" >&5
+@@ -16409,7 +16479,7 @@
+   # FIXME: Relying on posixy $() will cause problems for
+   #        cross-compilation, but unfortunately the echo tests do not
+   #        yet detect zsh echo's removal of \ escapes.
+-  library_names_spec='${libname}${release}${versuffix}$shared_ext ${libname}${release}${major}$shared_ext ${libname}$shared_ext'
++  library_names_spec='${libname}${release}${major}$shared_ext ${libname}$shared_ext ${libname}${release}${versuffix}$shared_ext'
+   soname_spec='${libname}${release}${major}$shared_ext'
+   shlibpath_overrides_runpath=yes
+   shlibpath_var=DYLD_LIBRARY_PATH
+--- tests/Makefile.am.orig	Mon Nov 18 10:59:44 2002
++++ tests/Makefile.am	Fri Aug  8 15:56:18 2003
+@@ -75,7 +75,8 @@
+ TESTS_ENVIRONMENT = MAKE="$(MAKE)" CC="$(CC)" CFLAGS="$(CFLAGS)" \
+ 	CPPFLAGS="$(CPPFLAGS)" LD="$(LD)" LDFLAGS="$(LDFLAGS)" \
+ 	LIBS="$(LIBS)" LN_S="$(LN_S)" NM="$(NM)" RANLIB="$(RANLIB)" \
+-	OBJEXT="$(OBJEXT)" EXEEXT="$(EXEEXT)" FFLAGS="$(FFLAGS)" 
++	OBJEXT="$(OBJEXT)" EXEEXT="$(EXEEXT)" FFLAGS="$(FFLAGS)" \
++	CXXFLAGS="$(CXXFLAGS)"
+ 
+ EXTRA_DIST = defs $(COMMON_TESTS) $(CXX_TESTS) $(F77_TESTS)
+ 
+--- tests/Makefile.in.orig	Mon Apr 14 15:29:22 2003
++++ tests/Makefile.in	Fri Aug  8 15:56:18 2003
+@@ -216,7 +216,8 @@
+ TESTS_ENVIRONMENT = MAKE="$(MAKE)" CC="$(CC)" CFLAGS="$(CFLAGS)" \
+ 	CPPFLAGS="$(CPPFLAGS)" LD="$(LD)" LDFLAGS="$(LDFLAGS)" \
+ 	LIBS="$(LIBS)" LN_S="$(LN_S)" NM="$(NM)" RANLIB="$(RANLIB)" \
+-	OBJEXT="$(OBJEXT)" EXEEXT="$(EXEEXT)" FFLAGS="$(FFLAGS)" 
++	OBJEXT="$(OBJEXT)" EXEEXT="$(EXEEXT)" FFLAGS="$(FFLAGS)" \
++	CXXFLAGS="$(CXXFLAGS)"
+ 
+ 
+ EXTRA_DIST = defs $(COMMON_TESTS) $(CXX_TESTS) $(F77_TESTS)

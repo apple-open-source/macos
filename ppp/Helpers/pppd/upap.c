@@ -1,4 +1,28 @@
 /*
+ * Copyright (c) 2003 Apple Computer, Inc. All rights reserved.
+ *
+ * @APPLE_LICENSE_HEADER_START@
+ * 
+ * Copyright (c) 1999-2003 Apple Computer, Inc.  All Rights Reserved.
+ * 
+ * This file contains Original Code and/or Modifications of Original Code
+ * as defined in and that are subject to the Apple Public Source License
+ * Version 2.0 (the 'License'). You may not use this file except in
+ * compliance with the License. Please obtain a copy of the License at
+ * http://www.opensource.apple.com/apsl/ and read it before using this
+ * file.
+ * 
+ * The Original Code and all software distributed under the License are
+ * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
+ * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
+ * INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY,
+ * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
+ * Please see the License for the specific language governing rights and
+ * limitations under the License.
+ * 
+ * @APPLE_LICENSE_HEADER_END@
+ */
+/*
  * upap.c - User/Password Authentication Protocol.
  *
  * Copyright (c) 1989 Carnegie Mellon University.
@@ -17,7 +41,7 @@
  * WARRANTIES OF MERCHANTIBILITY AND FITNESS FOR A PARTICULAR PURPOSE.
  */
 
-#define RCSID	"$Id: upap.c,v 1.2 2002/03/13 22:45:08 callie Exp $"
+#define RCSID	"$Id: upap.c,v 1.5 2003/08/14 00:00:30 callie Exp $"
 
 /*
  * TODO:
@@ -38,15 +62,17 @@ static bool hide_password = 1;
  */
 static option_t pap_option_list[] = {
     { "hide-password", o_bool, &hide_password,
-      "Don't output passwords to log", 1 },
+      "Don't output passwords to log", OPT_PRIO | 1 },
     { "show-password", o_bool, &hide_password,
-      "Show password string in debug log messages", 0 },
+      "Show password string in debug log messages", OPT_PRIOSUB | 0 },
+
     { "pap-restart", o_int, &upap[0].us_timeouttime,
-      "Set retransmit timeout for PAP" },
+      "Set retransmit timeout for PAP", OPT_PRIO },
     { "pap-max-authreq", o_int, &upap[0].us_maxtransmits,
-      "Set max number of transmissions for auth-reqs" },
+      "Set max number of transmissions for auth-reqs", OPT_PRIO },
     { "pap-timeout", o_int, &upap[0].us_reqtimeout,
-      "Set time limit for peer PAP authentication" },
+      "Set time limit for peer PAP authentication", OPT_PRIO },
+
     { NULL }
 };
 
@@ -79,8 +105,11 @@ struct protent pap_protent = {
     NULL,
     NULL,
     NULL,
+#ifdef __APPLE__
+    NULL,
     NULL,
     NULL
+#endif
 };
 
 upap_state upap[NUM_PPP];		/* UPAP state; one for each unit */
@@ -409,7 +438,7 @@ upap_rauthreq(u, inp, id, len)
 
     if (retcode == UPAP_AUTHACK) {
 	u->us_serverstate = UPAPSS_OPEN;
-	auth_peer_success(u->us_unit, PPP_PAP, ruser, ruserlen);
+	auth_peer_success(u->us_unit, PPP_PAP, 0, ruser, ruserlen);
     } else {
 	u->us_serverstate = UPAPSS_BADAUTH;
 	auth_peer_fail(u->us_unit, PPP_PAP);
@@ -456,7 +485,7 @@ upap_rauthack(u, inp, id, len)
 
     u->us_clientstate = UPAPCS_OPEN;
 
-    auth_withpeer_success(u->us_unit, PPP_PAP);
+    auth_withpeer_success(u->us_unit, PPP_PAP, 0);
 }
 
 

@@ -1,0 +1,26 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+
+<datasources>
+
+  <!-- ==================================================================== -->
+  <!-- test driver deployment, sql statement tests connection. -->
+  <!-- ==================================================================== -->
+
+  <no-tx-datasource>
+    <jndi-name>StatementTestsConnectionDS</jndi-name>
+    <connection-url>jdbc:jboss-test-adapter:/localhost</connection-url>
+    <driver-class>org.jboss.test.jca.jdbc.TestDriver</driver-class>
+    <user-name>x</user-name>
+    <password>y</password>
+    <check-valid-connection-sql>do something</check-valid-connection-sql>
+
+    <!--pooling parameters-->
+    <min-pool-size>0</min-pool-size>
+    <max-pool-size>1</max-pool-size>
+    <blocking-timeout-millis>5000</blocking-timeout-millis>
+    <idle-timeout-minutes>15</idle-timeout-minutes>
+
+  </no-tx-datasource>
+</datasources>
+

@@ -1,0 +1,42 @@
+#!/bin/zsh
+
+test -x ${CMSUTIL:=~/build/cmsutil} || unset CMSUTIL
+CMSUTIL=${CMSUTIL?must specify the full path to the cmsutil command}
+TMPDIR=/tmp/smime-$$
+
+mkdir $TMPDIR
+cd $TMPDIR
+
+$CMSUTIL -O -r test -o content
+$CMSUTIL -D -i content -o /dev/null
+$CMSUTIL -D -h 0 -n -i content
+
+$CMSUTIL -S -N test -Y NONE -i content -o signed
+$CMSUTIL -D -i signed -o signed.out
+$CMSUTIL -D -h 0 -n -i signed
+cmp content signed.out
+
+$CMSUTIL -S -N test -Y NONE -G -i content -o signed+date
+$CMSUTIL -D -i signed+date -o signed+date.out
+$CMSUTIL -D -h 0 -n -i signed+date
+cmp content signed+date.out
+
+$CMSUTIL -S -N test -G -P -i content -o signed+smime
+$CMSUTIL -D -i signed+smime -o signed+smime.out
+$CMSUTIL -D -h 0 -n -i signed+smime
+cmp content signed+smime.out
+
+$CMSUTIL -S -N test -T -Y NONE -i content -o signed+detached
+$CMSUTIL -D -c content -i signed+detached -o signed+detached.out
+$CMSUTIL -D -h 0 -n -c content -i signed+detached
+cmp content signed+detached.out
+
+$CMSUTIL -S -N test -T -G -P -i content -o signed+detached+smime
+$CMSUTIL -D -c content -i signed+detached+smime -o signed+detached+smime.out
+$CMSUTIL -D -h 0 -n -c content -i signed+detached+smime
+cmp content signed+detached+smime.out
+
+$CMSUTIL -E -r test -i content -o encrypted
+$CMSUTIL -D -i encrypted -o encrypted.out
+$CMSUTIL -D -h 0 -n -i encrypted
+cmp content encrypted.out

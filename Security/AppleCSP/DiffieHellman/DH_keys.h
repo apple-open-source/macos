@@ -25,11 +25,13 @@
 
 #include <AppleCSP/AppleCSPContext.h>
 #include <AppleCSP/AppleCSPSession.h>
+#include "AppleCSPKeys.h"
 #include <DiffieHellman/DH_csp.h>
 #include <openssl/dh.h>
 #include <Security/context.h>
-#include <opensslUtils/openRsaSnacc.h>
-#include <Security/appleoids.h>
+#include <Security/debugging.h>
+#include <SecurityNssAsn1/SecNssCoder.h>
+#include <opensslUtils/osKeyTemplates.h>
 
 #define DH_PUB_KEY_FORMAT		CSSM_KEYBLOB_RAW_FORMAT_PKCS3
 #define DH_PRIV_KEY_FORMAT		CSSM_KEYBLOB_RAW_FORMAT_PKCS3
@@ -37,28 +39,28 @@
 #define	DH_MIN_KEY_SIZE			512			/* FIXME */
 #define DH_MAX_KEY_SIZE			2048
 
+#define cspDhDebug(args...)		secdebug("dhDebug", ## args)
+
 /*
  * Diffie-Hellman version of a BinaryKey.
  */
 class DHBinaryKey : public BinaryKey {
 public:
-	DHBinaryKey(DH *dhKey = NULL);				// for private key
-	DHBinaryKey(const CSSM_DATA *pubBlob);		// for public key
+	DHBinaryKey(DH *dhKey = NULL);
 	~DHBinaryKey();
 	void generateKeyBlob(
 		CssmAllocator 		&allocator,
 		CssmData			&blob,
-		CSSM_KEYBLOB_FORMAT	&format);
-
-	void setPubBlob(const CSSM_DATA *pubBlob);
-	void setPubBlob(DH *privKey);
-	
-	/* 
-	 * At most one of these is valid - a DH for a private key, 
-	 * CSSM_DATA for public.
+		CSSM_KEYBLOB_FORMAT	&format,
+		AppleCSPSession		&session,
+		const CssmKey		*paramKey,		/* optional, unused here */
+		CSSM_KEYATTR_FLAGS 	&attrFlags);	/* IN/OUT */
+		
+	/*
+	 * This may contain a fully-capable private key, or a public
+	 * key with as little as the pub_key field set. 
 	 */
 	DH						*mDhKey;
-	CSSM_DATA				mPubKey;
 };
 
 class DHKeyPairGenContext : 
@@ -109,7 +111,8 @@ public:
 		uint32			keySizeInBits,
 		unsigned		g,					// probably should be BIGNUM
 		int				privValueLength, 	// optional
-		DHParameter 	&algParams);
+		NSS_DHParameter	&algParams,
+		SecNssCoder		&coder);			// for temp contents of algParams
 	
 private:
 	/* gross hack to store attributes "returned" from GenParams */
@@ -122,14 +125,25 @@ private:
  */
 class DHKeyInfoProvider : public CSPKeyInfoProvider 
 {
-public:
+private:
 	DHKeyInfoProvider(
-		const CssmKey		&cssmKey);
+		const CssmKey		&cssmKey,
+		AppleCSPSession		&session);
+public:
+	static CSPKeyInfoProvider *provider(
+		const CssmKey 		&cssmKey,
+		AppleCSPSession		&session);
+
 	~DHKeyInfoProvider() { }
 	void CssmKeyToBinary(
+		CssmKey				*paramKey,	// optional, ignored here
+		CSSM_KEYATTR_FLAGS	&attrFlags,	// IN/OUT
 		BinaryKey			**binKey);	// RETURNED
 	void QueryKeySizeInBits(
 		CSSM_KEY_SIZE		&keySize);	// RETURNED
+	bool getHashableBlob(
+		CssmAllocator 		&allocator,
+		CssmData			&hashBlob);
 };
 
 #endif	/* _DH_KEYS_H_ */

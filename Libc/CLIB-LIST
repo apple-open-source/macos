@@ -64,6 +64,9 @@ bypot
 bzero
 cabs
 calloc
+catclose
+catgets
+catopen
 cbreak
 cbrt
 ceil

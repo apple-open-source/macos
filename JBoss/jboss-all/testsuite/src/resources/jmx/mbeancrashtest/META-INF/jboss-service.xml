@@ -1,0 +1,12 @@
+<server>
+<!-- test service.xml file for crashtest.  Both mbeans should be created but not started,
+ and both should be removed on undeploy-->
+   
+   <mbean code="org.jboss.test.jmx.mbeancrashtest.Test" name="CrashTest:name=DontCrash">
+      <depends>CrashTest:name=Crash</depends>
+   </mbean>
+
+   <mbean code="org.jboss.test.jmx.mbeancrashtest.Test" name="CrashTest:name=Crash" />
+
+</server>
+

@@ -552,6 +552,11 @@ int current_mode_line_height, current_header_line_height;
 
 #if GLYPH_DEBUG
 
+/* Variables to turn off display optimizations from Lisp.  */
+
+int inhibit_try_window_id, inhibit_try_window_reusing;
+int inhibit_try_cursor_movement;
+
 /* Non-zero means print traces of redisplay if compiled with
    GLYPH_DEBUG != 0.  */
 
@@ -5314,8 +5319,8 @@ move_it_vertically_backward (it, dy)
      struct it *it;
      int dy;
 {
-  int nlines, h, line_height;
-  struct it it2;
+  int nlines, h;
+  struct it it2, it3;
   int start_pos = IT_CHARPOS (*it);
   
   xassert (dy >= 0);
@@ -5345,7 +5350,7 @@ move_it_vertically_backward (it, dy)
   move_it_to (&it2, start_pos, -1, -1, it2.vpos + 1,
 	      MOVE_TO_POS | MOVE_TO_VPOS);
   xassert (IT_CHARPOS (*it) >= BEGV);
-  line_height = it2.max_ascent + it2.max_descent;
+  it3 = it2;
   
   move_it_to (&it2, start_pos, -1, -1, -1, MOVE_TO_POS);
   xassert (IT_CHARPOS (*it) >= BEGV);
@@ -5369,19 +5374,47 @@ move_it_vertically_backward (it, dy)
       /* The y-position we try to reach.  Note that h has been
          subtracted in front of the if-statement.  */
       int target_y = it->current_y + h - dy;
+      int y0 = it3.current_y;
+      int y1 = line_bottom_y (&it3);
+      int line_height = y1 - y0;
 
       /* If we did not reach target_y, try to move further backward if
 	 we can.  If we moved too far backward, try to move forward.  */
       if (target_y < it->current_y
+	  /* This is heuristic.  In a window that's 3 lines high, with
+	     a line height of 13 pixels each, recentering with point
+	     on the bottom line will try to move -39/2 = 19 pixels
+	     backward.  Try to avoid moving into the first line.  */
+	  && it->current_y - target_y > line_height / 3 * 2
 	  && IT_CHARPOS (*it) > BEGV)
 	{
+	  TRACE_MOVE ((stderr, "  not far enough -> move_vert %d\n",
+		       target_y - it->current_y));
 	  move_it_vertically (it, target_y - it->current_y);
 	  xassert (IT_CHARPOS (*it) >= BEGV);
 	}
       else if (target_y >= it->current_y + line_height
 	       && IT_CHARPOS (*it) < ZV)
 	{
-	  move_it_vertically (it, target_y - (it->current_y + line_height));
+	  /* Should move forward by at least one line, maybe more.
+	     
+	     Note: Calling move_it_by_lines can be expensive on
+	     terminal frames, where compute_motion is used (via
+	     vmotion) to do the job, when there are very long lines
+	     and truncate-lines is nil.  That's the reason for
+	     treating terminal frames specially here.  */
+	  
+	  if (!FRAME_WINDOW_P (it->f))
+	    move_it_vertically (it, target_y - (it->current_y + line_height));
+	  else
+	    {
+	      do
+		{
+		  move_it_by_lines (it, 1, 1);
+		}
+	      while (target_y >= line_bottom_y (it) && IT_CHARPOS (*it) < ZV);
+	    }
+
 	  xassert (IT_CHARPOS (*it) >= BEGV);
 	}
     }
@@ -6969,8 +7002,10 @@ clear_garbaged_frames ()
 	  
 	  if (FRAME_VISIBLE_P (f) && FRAME_GARBAGED_P (f))
 	    {
+	      if (f->resized_p)
+		Fredraw_frame (frame);
 	      clear_current_matrices (f);
-	      f->garbaged = 0;
+	      f->garbaged = f->resized_p = 0;
 	    }
 	}
 
@@ -7930,11 +7965,18 @@ tool_bar_item_info (f, glyph, prop_idx)
 {
   Lisp_Object prop;
   int success_p;
+  int charpos;
+
+  /* This function can be called asynchronously, which means we must
+     exclude any possibility that Fget_text_property signals an
+     error.  */
+  charpos = min (XSTRING (f->current_tool_bar_string)->size, glyph->charpos);
+  charpos = max (0, charpos);
   
   /* Get the text property `menu-item' at pos. The value of that
      property is the start index of this item's properties in
      F->tool_bar_items.  */
-  prop = Fget_text_property (make_number (glyph->charpos),
+  prop = Fget_text_property (make_number (charpos),
 			     Qmenu_item, f->current_tool_bar_string);
   if (INTEGERP (prop))
     {
@@ -9455,13 +9497,11 @@ try_scrolling (window, just_this_one_p, scroll_conservatively,
       y0 = it.current_y;
       move_it_to (&it, PT, 0, it.last_visible_y, -1,
 		  MOVE_TO_POS | MOVE_TO_X | MOVE_TO_Y);
-      
-      /* With a scroll_margin of 0, scroll_margin_pos is at the window
-	 end, which is one line below the window.  The iterator's
-	 current_y will be same as y0 in that case, but we have to
-	 scroll a line to make PT visible.  That's the reason why 1 is
-	 added below.  */
-      dy = 1 + it.current_y - y0;
+
+      /* To make point visible, we have to move the window start
+	 down so that the line the cursor is in is visible, which
+	 means we have to add in the height of the cursor line.  */
+      dy = line_bottom_y (&it) - y0;
       
       if (dy > scroll_max)
 	return SCROLLING_FAILED;
@@ -9479,7 +9519,7 @@ try_scrolling (window, just_this_one_p, scroll_conservatively,
 	amount_to_scroll = scroll_max;
       else
 	{
-	  aggressive = current_buffer->scroll_down_aggressively;
+	  aggressive = current_buffer->scroll_up_aggressively;
 	  height = (WINDOW_DISPLAY_HEIGHT_NO_MODE_LINE (w)
 		    - WINDOW_DISPLAY_HEADER_LINE_HEIGHT (w));
 	  if (NUMBERP (aggressive))
@@ -9533,7 +9573,7 @@ try_scrolling (window, just_this_one_p, scroll_conservatively,
 	    amount_to_scroll = scroll_max;
 	  else
 	    {
-	      aggressive = current_buffer->scroll_up_aggressively;
+	      aggressive = current_buffer->scroll_down_aggressively;
 	      height = (WINDOW_DISPLAY_HEIGHT_NO_MODE_LINE (w)
 			- WINDOW_DISPLAY_HEADER_LINE_HEIGHT (w));
 	      if (NUMBERP (aggressive))
@@ -9686,6 +9726,11 @@ try_cursor_movement (window, startp, scroll_step)
   struct frame *f = XFRAME (w->frame);
   int rc = CURSOR_MOVEMENT_CANNOT_BE_USED;
   
+#if GLYPH_DEBUG
+  if (inhibit_try_cursor_movement)
+    return rc;
+#endif
+
   /* Handle case where text has not changed, only point, and it has
      not moved off the frame.  */
   if (/* Point may be in this window.  */
@@ -10622,6 +10667,11 @@ try_window_reusing_current_matrix (w)
   struct glyph_row *start_row;
   int start_vpos, min_y, max_y;
 
+#if GLYPH_DEBUG
+  if (inhibit_try_window_reusing)
+    return 0;
+#endif
+
   if (/* This function doesn't handle terminal frames.  */
       !FRAME_WINDOW_P (f)
       /* Don't try to reuse the display if windows have been split
@@ -10698,26 +10748,11 @@ try_window_reusing_current_matrix (w)
 	      int dy = it.current_y - first_row_y;
 	      
 	      row = MATRIX_FIRST_TEXT_ROW (w->current_matrix);
-	      while (MATRIX_ROW_DISPLAYS_TEXT_P (row))
-		{
-		  if (PT >= MATRIX_ROW_START_CHARPOS (row)
-		      && PT < MATRIX_ROW_END_CHARPOS (row))
-		    {
-		      set_cursor_from_row (w, row, w->current_matrix, 0, 0,
-					   dy, nrows_scrolled);
-		      break;
-		    }
-		  
-		  if (MATRIX_ROW_BOTTOM_Y (row) + dy >= it.last_visible_y)
-		    break;
-		  
-		  ++row;
-		}
-	      
-	      /* Give up if point was not found.  This shouldn't
-		 happen often; not more often than with try_window
-		 itself.  */
-	      if (w->cursor.vpos < 0)
+	      row = row_containing_pos (w, PT, row, NULL, dy);
+	      if (row)
+		set_cursor_from_row (w, row, w->current_matrix, 0, 0,
+				     dy, nrows_scrolled);
+	      else
 		{
 		  clear_glyph_matrix (w->desired_matrix);
 		  return 0;
@@ -11193,10 +11228,11 @@ sync_frame_with_window_matrix_rows (w)
    containing CHARPOS or null.  */
 
 struct glyph_row *
-row_containing_pos (w, charpos, start, end)
+row_containing_pos (w, charpos, start, end, dy)
      struct window *w;
      int charpos;
      struct glyph_row *start, *end;
+     int dy;
 {
   struct glyph_row *row = start;
   int last_y;
@@ -11208,18 +11244,18 @@ row_containing_pos (w, charpos, start, end)
   if ((end && row >= end) || !row->enabled_p)
     return NULL;
   
-  last_y = window_text_bottom_y (w);
+  last_y = window_text_bottom_y (w) - dy;
       
   while ((end == NULL || row < end)
+	 && MATRIX_ROW_BOTTOM_Y (row) < last_y
 	 && (MATRIX_ROW_END_CHARPOS (row) < charpos
-	     /* The end position of a row equals the start
-		position of the next row.  If CHARPOS is there, we
-		would rather display it in the next line, except
-		when this line ends in ZV.  */
 	     || (MATRIX_ROW_END_CHARPOS (row) == charpos
-		 && (MATRIX_ROW_ENDS_IN_MIDDLE_OF_CHAR_P (row)
-		     || !row->ends_at_zv_p)))
-	 && MATRIX_ROW_BOTTOM_Y (row) < last_y)
+		 /* The end position of a row equals the start
+		    position of the next row.  If CHARPOS is there, we
+		    would rather display it in the next line, except
+		    when this line ends in ZV.  */
+		 && !row->ends_at_zv_p
+		 && !MATRIX_ROW_ENDS_IN_MIDDLE_OF_CHAR_P (row))))
     ++row;
       
   /* Give up if CHARPOS not found.  */
@@ -11287,6 +11323,11 @@ try_window_id (w)
   struct glyph_row *last_text_row, *last_text_row_at_end;
   struct text_pos start;
   int first_changed_charpos, last_changed_charpos;
+
+#if GLYPH_DEBUG
+  if (inhibit_try_window_id)
+    return 0;
+#endif
 
   /* This is handy for debugging.  */
 #if 0
@@ -11423,7 +11464,7 @@ try_window_id (w)
 	    }
       
 	  /* Set the cursor.  */
-	  row = row_containing_pos (w, PT, r0, NULL);
+	  row = row_containing_pos (w, PT, r0, NULL, 0);
 	  set_cursor_from_row (w, row, current_matrix, 0, 0, 0, 0);
 	  return 1;
 	}
@@ -11461,7 +11502,7 @@ try_window_id (w)
 	    = Z_BYTE - MATRIX_ROW_END_BYTEPOS (row);
 
 	  /* Set the cursor.  */
-	  row = row_containing_pos (w, PT, r0, NULL);
+	  row = row_containing_pos (w, PT, r0, NULL, 0);
 	  set_cursor_from_row (w, row, current_matrix, 0, 0, 0, 0);
 	  return 2;
 	}
@@ -11675,7 +11716,7 @@ try_window_id (w)
 	{
 	  row = row_containing_pos (w, PT,
 				    MATRIX_FIRST_TEXT_ROW (w->current_matrix),
-				    last_unchanged_at_beg_row + 1);
+				    last_unchanged_at_beg_row + 1, 0);
 	  if (row)
 	    set_cursor_from_row (w, row, w->current_matrix, 0, 0, 0, 0);
 	}
@@ -11684,7 +11725,7 @@ try_window_id (w)
       else if (first_unchanged_at_end_row)
 	{
 	  row = row_containing_pos (w, PT - delta,
-				    first_unchanged_at_end_row, NULL);
+				    first_unchanged_at_end_row, NULL, 0);
 	  if (row)
 	    set_cursor_from_row (w, row, w->current_matrix, delta,
 				 delta_bytes, dy, dvpos);
@@ -12949,22 +12990,33 @@ display_line (it)
 		      it->max_phys_ascent = phys_ascent;
 		      it->max_phys_descent = phys_descent;
 		    }
+		  else if (it->c == '\t' && FRAME_WINDOW_P (it->f))
+		    {
+		      /* A TAB that extends past the right edge of the
+			 window.  This produces a single glyph on
+			 window system frames.  We leave the glyph in
+			 this row and let it fill the row, but don't
+			 consume the TAB.  */
+		      it->continuation_lines_width += it->last_visible_x;
+		      row->ends_in_middle_of_char_p = 1;
+		      row->continued_p = 1;
+		      glyph->pixel_width = it->last_visible_x - x;
+		      it->starts_in_middle_of_char_p = 1;
+		    }
 		  else
 		    {
-		      /* Display element draws past the right edge of
-			 the window.  Restore positions to values
-			 before the element.  The next line starts
-			 with current_x before the glyph that could
-			 not be displayed, so that TAB works right.  */
+		      /* Something other than a TAB that draws past
+			 the right edge of the window.  Restore
+			 positions to values before the element.  */
 		      row->used[TEXT_AREA] = n_glyphs_before + i;
 		  
 		      /* Display continuation glyphs.  */
 		      if (!FRAME_WINDOW_P (it->f))
 			produce_special_glyphs (it, IT_CONTINUATION);
 		      row->continued_p = 1;
-		      
-		      it->current_x = x;
+
 		      it->continuation_lines_width += x;
+		      
 		      if (nglyphs > 1 && i > 0)
 			{
 			  row->ends_in_middle_of_char_p = 1;
@@ -13533,7 +13585,7 @@ display_mode_element (it, depth, field_width, precision, elt)
 			
 			nglyphs_before = it->glyph_row->used[TEXT_AREA];
 			bytepos = percent_position - XSTRING (elt)->data;
-			charpos = (multibyte
+			charpos = (STRING_MULTIBYTE (elt)
 				   ? string_byte_to_char (elt, bytepos)
 				   : bytepos);
 			nwritten = display_string (spec, Qnil, elt,
@@ -13561,6 +13613,8 @@ display_mode_element (it, depth, field_width, precision, elt)
 			  }
 		      }
 		  }
+		else /* c == 0 */
+		  break;
 	      }
 	  }
       }
@@ -14935,6 +14989,20 @@ Can be used to update submenus whose contents should vary.");
   DEFVAR_BOOL ("inhibit-eval-during-redisplay", &inhibit_eval_during_redisplay,
     "Non-nil means don't eval Lisp during redisplay.");
   inhibit_eval_during_redisplay = 0;
+
+#if GLYPH_DEBUG
+  DEFVAR_BOOL ("inhibit-try-window-id", &inhibit_try_window_id,
+	       "Inhibit try_window_id display optimization.");
+  inhibit_try_window_id = 0;
+
+  DEFVAR_BOOL ("inhibit-try-window-reusing", &inhibit_try_window_reusing,
+	       "Inhibit try_window_reusing display optimization.");
+  inhibit_try_window_reusing = 0;
+
+  DEFVAR_BOOL ("inhibit-try-cursor-movement", &inhibit_try_cursor_movement,
+	       "Inhibit try_cursor_movement display optimization.");
+  inhibit_try_cursor_movement = 0;
+#endif /* GLYPH_DEBUG */
 }
 
 

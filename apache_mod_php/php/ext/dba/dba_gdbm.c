@@ -1,8 +1,8 @@
 /*
    +----------------------------------------------------------------------+
-   | PHP version 4.0                                                      |
+   | PHP Version 4                                                        |
    +----------------------------------------------------------------------+
-   | Copyright (c) 1997-2001 The PHP Group                                |
+   | Copyright (c) 1997-2003 The PHP Group                                |
    +----------------------------------------------------------------------+
    | This source file is subject to version 2.02 of the PHP license,      |
    | that is bundled with this package in the file LICENSE, and is        |
@@ -12,18 +12,24 @@
    | obtain it through the world-wide-web, please send a note to          |
    | license@php.net so we can mail you a copy immediately.               |
    +----------------------------------------------------------------------+
-   | Authors: Sascha Schumann <sascha@schumann.cx>                        |
+   | Author: Sascha Schumann <sascha@schumann.cx>                         |
    +----------------------------------------------------------------------+
  */
 
-/* $Id: dba_gdbm.c,v 1.1.1.3 2001/12/14 22:12:10 zarzycki Exp $ */
+/* $Id: dba_gdbm.c,v 1.1.1.6 2003/07/18 18:07:30 zarzycki Exp $ */
+
+#ifdef HAVE_CONFIG_H
+#include "config.h"
+#endif
 
 #include "php.h"
 
 #if DBA_GDBM
 #include "php_gdbm.h"
 
-#include <gdbm.h>
+#ifdef GDBM_INCLUDE_FILE
+#include GDBM_INCLUDE_FILE
+#endif
 
 #define GDBM_DATA dba_gdbm_data *dba = info->dbf
 #define GDBM_GKEY datum gkey; gkey.dptr = (char *) key; gkey.dsize = keylen
@@ -45,21 +51,22 @@ DBA_OPEN_FUNC(gdbm)
 		info->mode == DBA_TRUNC ? GDBM_NEWDB : -1;
 		
 	if(gmode == -1) 
-		return FAILURE;
+		return FAILURE; /* not possible */
 
 	if(info->argc > 0) {
 		convert_to_long_ex(info->argv[0]);
-		filemode = (*info->argv[0])->value.lval;
+		filemode = Z_LVAL_PP(info->argv[0]);
 	}
 
 	dbf = gdbm_open(info->path, 0, gmode, filemode, NULL);
 	
 	if(dbf) {
-		info->dbf = malloc(sizeof(dba_gdbm_data));
+		info->dbf = pemalloc(sizeof(dba_gdbm_data), info->flags&DBA_PERSISTENT);
 		memset(info->dbf, 0, sizeof(dba_gdbm_data));
 		((dba_gdbm_data *) info->dbf)->dbf = dbf;
 		return SUCCESS;
 	}
+	*error = gdbm_strerror(gdbm_errno);
 	return FAILURE;
 }
 
@@ -69,7 +76,7 @@ DBA_CLOSE_FUNC(gdbm)
 	
 	if(dba->nextkey.dptr) free(dba->nextkey.dptr);
 	gdbm_close(dba->dbf);
-	free(dba);
+	pefree(dba, info->flags&DBA_PERSISTENT);
 }
 
 DBA_FETCH_FUNC(gdbm)
@@ -100,7 +107,7 @@ DBA_UPDATE_FUNC(gdbm)
 	if(gdbm_store(dba->dbf, gkey, gval, 
 				mode == 1 ? GDBM_INSERT : GDBM_REPLACE) == 0)
 		return SUCCESS;
-	printf("XXX %s\n", gdbm_strerror(gdbm_errno));
+	php_error_docref2(NULL TSRMLS_CC, key, val, E_WARNING, "%s", gdbm_strerror(gdbm_errno));
 	return FAILURE;
 }
 
@@ -175,6 +182,12 @@ DBA_SYNC_FUNC(gdbm)
 	gdbm_sync(dba->dbf);
 	return SUCCESS;
 }
+
+DBA_INFO_FUNC(gdbm)
+{
+	return estrdup(gdbm_version);
+}
+
 #endif
 
 /*
@@ -182,6 +195,6 @@ DBA_SYNC_FUNC(gdbm)
  * tab-width: 4
  * c-basic-offset: 4
  * End:
- * vim600: sw=4 ts=4 tw=78 fdm=marker
- * vim<600: sw=4 ts=4 tw=78
+ * vim600: sw=4 ts=4 fdm=marker
+ * vim<600: sw=4 ts=4
  */

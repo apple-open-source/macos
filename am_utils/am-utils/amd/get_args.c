@@ -37,7 +37,7 @@
  * SUCH DAMAGE.
  *
  *
- * $Id: get_args.c,v 1.1.1.1 2002/05/15 01:21:54 jkh Exp $
+ * $Id: get_args.c,v 1.1.1.2 2002/07/15 19:42:37 zarzycki Exp $
  *
  */
 
@@ -122,7 +122,7 @@ get_args(int argc, char *argv[])
 {
   int opt_ch;
   FILE *fp = stdin;
-  char getopt_arguments[] = "+nprvSa:c:d:k:l:o:t:w:x:y:C:D:F:T:O:H";
+  char getopt_arguments[] = "+nprvSa:c:d:k:l:o:t:w:x:y:C:D:F:T:O:HA:";
   char *getopt_args;
 
 #ifdef HAVE_GNU_GETOPT
@@ -218,6 +218,10 @@ get_args(int argc, char *argv[])
 #else /* not HAVE_MAP_NIS */
       plog(XLOG_USER, "-y: option ignored.  No NIS support available.");
 #endif /* not HAVE_MAP_NIS */
+      break;
+
+    case 'A':
+      gopt.arch = optarg;
       break;
 
     case 'C':
@@ -326,17 +330,15 @@ get_args(int argc, char *argv[])
     strcat(hostd, hostdomain);
 
 #ifdef MOUNT_TABLE_ON_FILE
-# ifdef DEBUG
-    if (debug_flags & D_MTAB)
+#ifdef DEBUG
+    amuDebug(D_MTAB)
       mnttab_file_name = DEBUG_MNTTAB;
     else
-# endif /* DEBUG */
+#endif /* DEBUG */
       mnttab_file_name = MNTTAB_FILE_NAME;
 #else /* not MOUNT_TABLE_ON_FILE */
-# ifdef DEBUG
-    if (debug_flags & D_MTAB)
+    amuDebug(D_MTAB)
       dlog("-D mtab option ignored");
-# endif /* DEBUG */
 # ifdef MNTTAB_FILE_NAME
     mnttab_file_name = MNTTAB_FILE_NAME;
 # endif /* MNTTAB_FILE_NAME */
@@ -368,7 +370,7 @@ show_usage:
   fprintf(stderr,
 	  "Usage: %s [-nprvHS] [-a mount_point] [-c cache_time] [-d domain]\n\
 \t[-k kernel_arch] [-l logfile%s\n\
-\t[-t timeout.retrans] [-w wait_timeout] [-C cluster_name]\n\
+\t[-t timeout.retrans] [-w wait_timeout] [-A arch] [-C cluster_name]\n\
 \t[-o op_sys_ver] [-O op_sys_name]\n\
 \t[-F conf_file] [-T conf_tag]", am_get_progname(),
 #ifdef HAVE_SYSLOG

@@ -1,8 +1,8 @@
 /*
    +----------------------------------------------------------------------+
-   | PHP version 4.0                                                      |
+   | PHP Version 4                                                        |
    +----------------------------------------------------------------------+
-   | Copyright (c) 1997-2001 The PHP Group                                |
+   | Copyright (c) 1997-2003 The PHP Group                                |
    +----------------------------------------------------------------------+
    | This source file is subject to version 2.02 of the PHP license,      |
    | that is bundled with this package in the file LICENSE, and is        |
@@ -12,11 +12,11 @@
    | obtain it through the world-wide-web, please send a note to          |
    | license@php.net so we can mail you a copy immediately.               |
    +----------------------------------------------------------------------+
-   | Author: Thies C. Arntzen (thies@thieso.net)                          |
+   | Author: Thies C. Arntzen <thies@thieso.net>                          |
    +----------------------------------------------------------------------+
  */
 
-/* $Id: assert.c,v 1.1.1.5 2001/12/14 22:13:16 zarzycki Exp $ */
+/* $Id: assert.c,v 1.1.1.8 2003/07/18 18:07:42 zarzycki Exp $ */
 
 /* {{{ includes/startup/misc */
 
@@ -143,7 +143,7 @@ PHP_FUNCTION(assert)
 		WRONG_PARAM_COUNT;
 	}
 
-	if ((*assertion)->type == IS_STRING) {
+	if (Z_TYPE_PP(assertion) == IS_STRING) {
 		zval retval;
 		int old_error_reporting = 0; /* shut up gcc! */
 
@@ -157,7 +157,7 @@ PHP_FUNCTION(assert)
 		compiled_string_description = zend_make_compiled_string_description("assert code" TSRMLS_CC);
 		if (zend_eval_string(myeval, &retval, compiled_string_description TSRMLS_CC) == FAILURE) {
 			efree(compiled_string_description);
-			zend_error(E_ERROR, "Failure evaluating code:\n%s\n", myeval);
+			zend_error(E_ERROR, "Failure evaluating code:\n%s", myeval);
 			/* zend_error() does not return in this case. */
 		}
 		efree(compiled_string_description);
@@ -178,7 +178,7 @@ PHP_FUNCTION(assert)
 	}
 
 	if (ASSERTG(callback)) {
-		zval *args[4];
+		zval *args[3];
 		zval *retval;
 		int i;
 		uint lineno = zend_get_executed_lineno(TSRMLS_C);
@@ -206,9 +206,9 @@ PHP_FUNCTION(assert)
 
 	if (ASSERTG(warning)) {
 		if (myeval) {
-			php_error(E_WARNING, "Assertion \"%s\" failed", myeval);
+			php_error_docref(NULL TSRMLS_CC, E_WARNING, "Assertion \"%s\" failed", myeval);
 		} else {
-			php_error(E_WARNING, "Assertion failed");
+			php_error_docref(NULL TSRMLS_CC, E_WARNING, "Assertion failed");
 		}
 	}
 
@@ -233,7 +233,7 @@ PHP_FUNCTION(assert_options)
 
 	convert_to_long_ex(what);
 
-	switch ((*what)->value.lval) {
+	switch (Z_LVAL_PP(what)) {
 	case ASSERT_ACTIVE:
 		oldint = ASSERTG(active);
 		if (ac == 2) {
@@ -282,7 +282,7 @@ PHP_FUNCTION(assert_options)
 		break;
 
 	default:
-		php_error(E_WARNING, "Unknown value %d.", Z_LVAL_PP(what));
+		php_error_docref(NULL TSRMLS_CC, E_WARNING, "Unknown value %d", Z_LVAL_PP(what));
 		break;
 	}
 
@@ -296,6 +296,6 @@ PHP_FUNCTION(assert_options)
  * tab-width: 4
  * c-basic-offset: 4
  * End:
- * vim600: sw=4 ts=4 tw=78 fdm=marker
- * vim<600: sw=4 ts=4 tw=78
+ * vim600: sw=4 ts=4 fdm=marker
+ * vim<600: sw=4 ts=4
  */

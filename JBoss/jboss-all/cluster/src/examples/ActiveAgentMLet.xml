@@ -1,0 +1,58 @@
+<xmlets plugin="plugin">
+  <!-- XML Node Plugins -->
+  <plugin>
+    <param class="org.jbossmx.cluster.watchdog.mbean.xmlet.XMLetNodeProcessor">critical</param>
+  </plugin>
+
+  <plugin>
+    <param class="org.jbossmx.cluster.watchdog.mbean.xmlet.XMLetNodeProcessor">
+      <param class="java.lang.String">optional</param>
+      <param class="org.jbossmx.cluster.watchdog.mbean.xmlet.TolerantFailedMBeanPacker"/>
+    </param>
+  </plugin>
+
+  <!-- Critical MBeans -->
+  <critical code="com.sun.jdmk.comm.HtmlAdaptorServer"
+            archive="jmxtools.jar"
+            name="jboss:name=HtmlAdaptorServer">
+    <arg type="int" value="8082"/>
+  </critical>
+
+  <critical code="org.jboss.logging.Logger"
+            archive="hermes-jmx.jar"
+            name="jboss:service=Log">
+  </critical>
+
+  <critical code="org.jboss.logging.ConsoleLogging"
+            archive="hermes-jmx.jar"
+            name="jboss:service=Logging,type=Console">
+  </critical>
+
+  <critical code="org.jboss.jmx.connector.rmi.RMIConnectorService"
+            archive="hermes-jmx.jar"
+            name="jboss:name=ActiveAgent">
+    <arg type="java.lang.String" value="Active"/>
+  </critical>
+
+  <critical code="org.jbossmx.cluster.watchdog.mbean.Watchdog"
+            archive="hermes-jmx.jar"
+            name="ActiveDomain:name=Watchdog_Failover">
+    <arg type="java.lang.String" value="{/FailoverAgent}"/>
+    <arg type="java.lang.String" value="FailoverDomain:*"/>
+    <arg type="java.lang.String" value="{/ActiveAgent}"/>
+    <arg type="long" value="5000"/>
+  </critical>
+
+  <!-- Optional MBeans -->
+  <optional code="org.jbossmx.cluster.watchdog.mbean.WatchdogEventManager"
+        archive="hermes-jmx.jar"
+        name="ActiveDomain:name=WatchdogEventManager">
+    <arg type="java.lang.String" value="org.jbossmx.cluster.watchdog.mbean.EmailWatchdogListener"/>
+    <arg type="java.lang.String" value="someone@somecompany.com:warningFrom@somecompany.com:mail.somecompany.com"/>
+  </optional>
+
+  <optional code="org.jbossmx.cluster.watchdog.mbean.Test1"
+        archive="hermes-jmx.jar"
+        name="ActiveDomain:name=Test">
+  </optional>
+</xmlets>

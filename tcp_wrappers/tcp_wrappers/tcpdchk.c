@@ -219,7 +219,7 @@ struct request_info *request;
 		tcpd_warn("missing \":\" separator");
 		continue;
 	    }
-	    sh_cmd = split_at(cl_list, ':');
+	    sh_cmd = split_at(skip_ipv6_addrs(cl_list), ':');
 
 	    if (hosts_access_verbose)
 		printf("\n>>> Rule %s line %d:\n",
@@ -421,6 +421,30 @@ char   *pat;
 #else
 	tcpd_warn("netgroup support disabled");
 #endif
+#endif
+#ifdef HAVE_IPV6
+    } else if (pat[0] == '[') {
+	    struct in6_addr in6;
+	    char *cbr = strchr(pat, ']');
+	    char *slash = strchr(pat, '/');
+	    int err = 0;
+	    int mask = IPV6_ABITS;
+
+	    if (slash != NULL) {
+		*slash = '\0';
+		mask = atoi(slash + 1);
+		err = mask < 0 || mask > IPV6_ABITS;
+	    }
+	    if (cbr == NULL)
+		err = 1;
+	    else {
+		*cbr = '\0';
+		err += inet_pton(AF_INET6, pat+1, &in6) != 1;
+	    }
+	    if (slash) *slash = '/';
+	    if (cbr) *cbr = ']';
+	    if (err)
+		tcpd_warn("bad IP6 address specification: %s", pat);
 #endif
     } else if (mask = split_at(pat, '/')) {	/* network/netmask */
 	if (dot_quad_addr(pat) == INADDR_NONE

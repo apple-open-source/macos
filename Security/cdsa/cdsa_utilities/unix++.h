@@ -26,8 +26,10 @@
 #include <Security/timeflow.h>
 #include <sys/types.h>
 #include <sys/ioctl.h>
+#include <sys/uio.h>
 #include <sys/stat.h>
 #include <sys/mman.h>
+#include <signal.h>
 #include <fcntl.h>
 #include <cstdio>
 #include <cstdarg>
@@ -39,6 +41,34 @@ namespace UnixPlusPlus {
 
 
 //
+// Check system call return and throw on error
+//
+inline void checkError(int result)
+{
+	if (result == -1)
+		UnixError::throwMe();
+}
+
+
+//
+// A UNIX standard 'struct iovec' wrapped
+//
+class IOVec : public iovec {
+public:
+	IOVec() { }
+	IOVec(const void *data, size_t length)		{ set(data, length); }
+	IOVec(void *data, size_t length)			{ set(data, length); }
+	
+	void set(const void *data, size_t length)
+	{ iov_base = reinterpret_cast<char *>(const_cast<void *>(data)); iov_len = length; }
+	
+	// data-oid methods
+	void *data() const			{ return iov_base; }
+	size_t length() const		{ return iov_len; }
+};
+
+
+//
 // Generic file descriptors
 //
 class FileDesc {
@@ -46,7 +76,6 @@ protected:
     static const int invalidFd = -1;
 
     void setFd(int fd)					{ mFd = fd; mAtEnd = false; }
-    static void checkError(int result)	{ if (result == -1) UnixError::throwMe(); }
     void checkSetFd(int fd)				{ checkError(fd); mFd = fd; mAtEnd = false; }
     
 public:
@@ -56,6 +85,8 @@ public:
     // implicit file system open() construction
     FileDesc(const char *path, int flag = O_RDONLY, mode_t mode = 0666) : mFd(invalidFd)
     { open(path, flag, mode); }
+	FileDesc(const std::string &path, int flag = O_RDONLY, mode_t mode = 0666) : mFd(invalidFd)
+	{ open(path.c_str(), flag, mode); }
     
     // assignment
     FileDesc &operator = (int fd)		{ mFd = fd; mAtEnd = false; return *this; }
@@ -134,9 +165,37 @@ public:
     
     AutoFileDesc(const char *path, int flag = O_RDONLY, mode_t mode = 0666)
         : FileDesc(path, flag, mode) { }
+	AutoFileDesc(const std::string &path, int flag = O_RDONLY, mode_t mode = 0666)
+		: FileDesc(path, flag, mode) { }
 
     ~AutoFileDesc()		{ close(); }
 };
+
+
+//
+// Signal sets
+//
+class SigSet {
+public:
+	SigSet() { sigemptyset(&mValue); }
+	SigSet(const sigset_t &s) : mValue(s) { }
+
+	SigSet &operator += (int sig)
+		{ sigaddset(&mValue, sig); return *this; }
+	SigSet &operator -= (int sig)
+		{ sigdelset(&mValue, sig); return *this; }
+	
+	bool contains(int sig)
+		{ return sigismember(&mValue, sig); }
+	
+	sigset_t &value()			{ return mValue; }
+	operator sigset_t () const	{ return mValue; }
+	
+private:
+	sigset_t mValue;
+};
+
+SigSet sigMask(SigSet set, int how = SIG_SETMASK);
 
 
 //

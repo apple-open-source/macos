@@ -1,4 +1,4 @@
-.TH "ZSHOPTIONS" "1" "October 26, 2001" "zsh 4\&.0\&.4"
+.TH "ZSHOPTIONS" "1" "June 18, 2003" "zsh 4\&.1\&.1"
 .SH "NAME"
 zshoptions \- zsh options
 .\" Yodl file: Zsh/options.yo
@@ -73,6 +73,11 @@ history file, in the order they are killed\&.
 If a command is issued that can't be executed as a normal command,
 and the command is the name of a directory, perform the \fBcd\fP
 command to that directory\&.
+.TP
+\fBAUTO_CONTINUE\fP
+With this option set, stopped jobs that are removed from the job table
+with the \fBdisown\fP builtin command are automatically sent a \fBCONT\fP
+signal to make them running\&.
 .TP
 \fBAUTO_LIST\fP (\fB\-9\fP) <D>
 Automatically list choices on an ambiguous completion\&.
@@ -222,6 +227,9 @@ started\&. Otherwise it stays there and completion is done from both ends\&.
 .TP
 \fBCORRECT\fP (\fB\-0\fP)
 Try to correct the spelling of commands\&.
+Note that, when the \fBHASH_LIST_ALL\fP option is not set or when some
+directories in the path are not readable, this may falsely report spelling
+errors the first time some commands are used\&.
 .TP
 \fBCORRECT_ALL\fP (\fB\-O\fP)
 Try to correct the spelling of all arguments in a line\&.
@@ -261,6 +269,13 @@ Use the Dvorak keyboard instead of the standard qwerty keyboard as a basis
 for examining spelling mistakes for the \fBCORRECT\fP and \fBCORRECT_ALL\fP
 options and the \fBspell\-word\fP editor command\&.
 .TP
+\fBEMACS\fP
+If ZLE is loaded, turning on this option has the equivalent effect
+of `\fBbindkey \-e\fP'\&.  In addition, the VI option is unset\&.
+Turning it off has no effect\&.  The option setting is
+not guaranteed to reflect the current keymap\&.  This option is
+provided for compatibility; \fBbindkey\fP is the recommended interface\&.
+.TP
 \fBEQUALS\fP <Z>
 Perform \fB=\fP filename expansion\&.
 (See the section `Filename Expansion'\&.)
@@ -269,6 +284,14 @@ Perform \fB=\fP filename expansion\&.
 If a command has a non\-zero exit status, execute the \fBZERR\fP
 trap, if set, and exit\&.  This is disabled while running initialization
 scripts\&.
+cidnex(return from function, on error)
+.TP
+\fBERR_RETURN\fP
+If a command has a non\-zero exit status, return immediately from the
+enclosing function\&.  The logic is identical to that for \fBERR_EXIT\fP,
+except that an implicit \fBreturn\fP statement is executed instead of an
+\fBexit\fP\&.  This will trigger an exit at the outermost level of a
+non\-interactive script\&.
 .TP
 \fBEXEC\fP (\fB+n\fP, ksh: \fB+n\fP) <D>
 Do execute commands\&.  Without this option, commands are
@@ -866,12 +889,31 @@ of backquotes on the line, ignore the trailing backquote\&.
 This is useful on some keyboards where the return key is
 too small, and the backquote key lies annoyingly close to it\&.
 .TP
+\fBTRANSIENT_RPROMPT\fP
+Remove any right prompt from display when accepting a command
+line\&.  This may be useful with terminals with other cut/paste methods\&.
+.TP
+\fBTYPESET_SILENT\fP
+If this is unset, executing any of the `\fBtypeset\fP' family of
+commands with no options and a list of parameters that have no values
+to be assigned but already exist will display the value of the parameter\&.
+If the option is set, they will only be shown when parameters are selected
+with the `\fB\-m\fP' option\&.  The option `\fB\-p\fP' is available whether or not
+the option is set\&.
+.TP
 \fBUNSET\fP (\fB+u\fP, ksh: \fB+u\fP) <K> <S> <Z>
 Treat unset parameters as if they were empty when substituting\&.
 Otherwise they are treated as an error\&.
 .TP
 \fBVERBOSE\fP (\fB\-v\fP, ksh: \fB\-v\fP)
 Print shell input lines as they are read\&.
+.TP
+\fBVI\fP
+If ZLE is loaded, turning on this option has the equivalent effect
+of `\fBbindkey \-v\fP'\&.  In addition, the EMACS option is unset\&.
+Turning it off has no effect\&.  The option setting is
+not guaranteed to reflect the current keymap\&.  This option is
+provided for compatibility; \fBbindkey\fP is the recommended interface\&.
 .TP
 \fBXTRACE\fP (\fB\-x\fP, ksh: \fB\-x\fP)
 Print commands and their arguments as they are executed\&.

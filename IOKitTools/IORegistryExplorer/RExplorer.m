@@ -1,5 +1,6 @@
 #import <assert.h>
 #import "RExplorer.h"
+#include <IOKit/IOKitLibPrivate.h>
 
 mach_port_t gMasterPort;
 
@@ -124,7 +125,7 @@ static void addChildrenOfPlistToMapsRecursively(id plist, NSMapTable *_parentMap
     [updatePrefsMatrix selectCellAtRow:prefsSetting column:0];
 
     [objectDescription setStringValue:@""];
-
+    [objectState setStringValue:@""];
         
     return;
 }
@@ -143,6 +144,10 @@ static void addChildrenOfPlistToMapsRecursively(id plist, NSMapTable *_parentMap
     io_name_t		name;
     io_name_t		className;
     io_name_t           location;
+    int             	retain, busy;
+    uint64_t	    	state;
+    char *		s;
+    char		stateStr[256];
 
     io_registry_entry_t iterated;
     io_iterator_t       regIterator;
@@ -164,6 +169,22 @@ static void addChildrenOfPlistToMapsRecursively(id plist, NSMapTable *_parentMap
         strcat(name, location);
     }
 
+    s = stateStr + sprintf(stateStr, "(");
+    retain = IOObjectGetRetainCount(passedEntry);
+    status = IOServiceGetState(passedEntry, &state);
+    if (status == KERN_SUCCESS) {
+
+	status = IOServiceGetBusyState(passedEntry, &busy);
+	if (status == KERN_SUCCESS)
+	    busy = 0;
+	s += sprintf(s, "%sregistered, %smatched, %sactive, busy %d, ",
+		state & kIOServiceMatchedState    ? "" : "!",
+		state & kIOServiceRegisteredState ? "" : "!",
+		state & kIOServiceInactiveState   ? "in" : "",
+		busy );
+    }
+    s += sprintf(s, "retain count %d)", retain);
+
     while ( (iterated = IOIteratorNext(regIterator)) != NULL ) {
         id insideDict = [self dictForIterated:iterated];
         [localArray addObject:insideDict];
@@ -174,6 +195,8 @@ static void addChildrenOfPlistToMapsRecursively(id plist, NSMapTable *_parentMap
     [localDict setObject:localArray forKey:@"children"];
     [localDict setObject:[NSString stringWithFormat:@"%s", name] forKey:@"name"];
     [localDict setObject:[NSString stringWithFormat:@"%s", className] forKey:@"className"];
+    [localDict setObject:[NSString stringWithFormat:@"%s", stateStr] forKey:@"state"];
+
     [localDict setObject:[NSNumber numberWithInt:passedEntry] forKey:@"regEntry"];
 
     return [NSDictionary dictionaryWithDictionary:localDict];
@@ -251,7 +274,12 @@ static void addChildrenOfPlistToMapsRecursively(id plist, NSMapTable *_parentMap
         [inspectorText display];
     }
 
-    [objectDescription setStringValue:[NSString stringWithFormat:@"%@ : %@", [object objectForKey:@"name"], [object objectForKey:@"className"]]];
+    [objectDescription setStringValue:[NSString stringWithFormat:@"%@ : %@",
+	    [object objectForKey:@"name"],
+	    [object objectForKey:@"className"]]];
+
+    [objectState setStringValue:[NSString stringWithFormat:@"%@",
+	    [object objectForKey:@"state"]]];
 
     // go through and create a uniqued dictionary where all the values are uniqued and all the keys are uniqued
     if ([currentSelectedItemDict count]) {

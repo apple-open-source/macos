@@ -27,4 +27,3 @@
 #include "SYS.h"
 
 SYSCALL(mkcomplex, 0)
-	blr

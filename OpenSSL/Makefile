@@ -9,17 +9,18 @@ UserType        = Developer
 ToolType        = Libraries
 Configure       = $(Sources)/config
 Extra_CC_Flags  = -Wno-precomp
-GnuAfterInstall = shlibs strip 
+GnuAfterInstall = shlibs strip install-man-pages
 
 # config is kinda like configure
 include $(MAKEFILEPATH)/CoreOS/ReleaseControl/GNUSource.make
 
+
 # config is not really like configure
 Configure_Flags = --prefix="$(Install_Prefix)"								\
 		  --openssldir="$(NSLIBRARYDIR)/$(ProjectName)"						\
-		  --install_prefix="$(DSTROOT)"
+		  --install_prefix="$(DSTROOT)" no-idea
 
-Environment     = CFLAG="$(CFLAGS)"									\
+Environment     = CFLAG="$(CFLAGS) -DOPENSSL_NO_IDEA -DFAR="									\
 		  AR="$(SRCROOT)/ar.sh r"								\
 		  PERL='/usr/bin/perl'									\
 		  INCLUDEDIR="$(USRDIR)/include/openssl"						\
@@ -43,8 +44,8 @@ test:: build
 
 #Version      := $(shell $(GREP) 'VERSION=' $(Sources)/Makefile.ssl | $(SED) 's/VERSION=//')
 Version      := $(shell $(GREP) "SHLIB_VERSION_NUMBER" openssl/crypto/opensslv.h | $(GREP) define | $(SED) s/\#define\ SHLIB_VERSION_NUMBER\ // | $(SED) s/\"//g)
-FileVersion  := $(shell echo $(Version) | $(SED) 's/^\([^\.]*\.[^\.]*\)\..*$$/\1/')
-VersionFlags := -compatibility_version $(FileVersion) -current_version $(shell echo $(Version) | sed 's/[a-z]//g')
+FileVersion  := $(shell echo $(Version) | sed 's/[a-z]//g')
+VersionFlags := -compatibility_version $(FileVersion) -current_version $(FileVersion)
 CC_Shlib      = $(CC) $(CC_Archs) -dynamiclib $(VersionFlags) -all_load
 
 shlibs:
@@ -66,6 +67,20 @@ shlibs:
 strip:
 	$(_v) $(STRIP)    $(shell $(FIND) $(DSTROOT)$(USRBINDIR) -type f)
 	$(_v) $(STRIP) -S $(shell $(FIND) $(DSTROOT)$(USRLIBDIR) -type f)
-	mkdir -p $(DSTROOT)/usr/share/man/man3
-	mv $(DSTROOT)/usr/share/man/man3o/* $(DSTROOT)/usr/share/man/man3/
-	rmdir $(DSTROOT)/usr/share/man/man3o
+	for MPAGE in $(DSTROOT)/usr/share/man/man*/*; do						\
+		echo $${MPAGE};										\
+		if [ ! -L $${MPAGE} ];then								\
+			mv $${MPAGE} $${MPAGE}ssl;							\
+			continue;									\
+		fi;											\
+		THELINK=`ls -l $${MPAGE} | awk '{ print $$NF }'`;					\
+		ln -snf $${THELINK}ssl $${MPAGE}ssl;							\
+		rm -f $${MPAGE};									\
+	done
+
+
+configure::
+	make -C $(BuildDirectory) depend
+
+install-man-pages:
+	$(LN) -s verify.1ssl $(DSTROOT)/$(MANDIR)/man1/c_rehash.1ssl

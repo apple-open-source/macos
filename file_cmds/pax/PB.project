@@ -32,7 +32,7 @@
             tar.c, 
             tty_subs.c
         ); 
-        OTHER_SOURCES = (Makefile, Makefile.preamble, Makefile.postamble, pax.1, cpio.1, tar.1); 
+        OTHER_SOURCES = (Makefile, Makefile.preamble, Makefile.postamble, pax.1, cpio.1); 
     }; 
     LANGUAGE = English; 
     LOCALIZABLE_FILES = {}; 

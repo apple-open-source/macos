@@ -1,4 +1,4 @@
-%define ver 3.4p1
+%define ver 3.6.1p1
 %define rel 1
 
 # OpenSSH privilege separation requires a user & group ID
@@ -19,6 +19,9 @@
 
 # Do we want smartcard support (1=yes 0=no)
 %define scard 0
+
+# Use GTK2 instead of GNOME in gnome-ssh-askpass
+%define gtk2 1
 
 # Is this build for RHL 6.x?
 %define build6x 0
@@ -86,7 +89,7 @@ PreReq: initscripts >= 5.20
 %endif
 BuildPreReq: perl, openssl-devel, sharutils, tcp_wrappers
 BuildPreReq: /bin/login
-%if %{build6x}
+%if ! %{build6x}
 BuildPreReq: glibc-devel, pam
 %else
 BuildPreReq: db1-devel, /usr/include/security/pam_appl.h
@@ -95,7 +98,7 @@ BuildPreReq: db1-devel, /usr/include/security/pam_appl.h
 BuildPreReq: XFree86-devel
 %endif
 %if ! %{no_gnome_askpass}
-BuildPreReq: gnome-libs-devel
+BuildPreReq: pkgconfig
 %endif
 %if %{kerberos5}
 BuildPreReq: krb5-devel
@@ -220,11 +223,23 @@ make
 popd
 %endif
 
+# Define a variable to toggle gnome1/gtk2 building.  This is necessary
+# because RPM doesn't handle nested %if statements.
+%if %{gtk2}
+	gtk2=yes
+%else
+	gtk2=no
+%endif
+
 %if ! %{no_gnome_askpass}
 pushd contrib
-gcc $RPM_OPT_FLAGS `gnome-config --cflags gnome gnomeui` \
-        gnome-ssh-askpass.c -o gnome-ssh-askpass \
-        `gnome-config --libs gnome gnomeui`
+if [ $gtk2 = yes ] ; then
+	make gnome-ssh-askpass2
+	mv gnome-ssh-askpass2 gnome-ssh-askpass
+else
+	make gnome-ssh-askpass1
+	mv gnome-ssh-askpass1 gnome-ssh-askpass
+fi
 popd
 %endif
 
@@ -253,6 +268,10 @@ ln -s x11-ssh-askpass $RPM_BUILD_ROOT%{_libexecdir}/openssh/ssh-askpass
 
 %if ! %{no_gnome_askpass}
 install -s contrib/gnome-ssh-askpass $RPM_BUILD_ROOT%{_libexecdir}/openssh/gnome-ssh-askpass
+%endif
+
+%if ! %{scard}
+	 rm -f $RPM_BUILD_ROOT/usr/share/openssh/Ssh.bin
 %endif
 
 install -m 755 -d $RPM_BUILD_ROOT%{_sysconfdir}/profile.d/
@@ -338,7 +357,7 @@ fi
 %attr(-,root,root) %{_bindir}/slogin
 %attr(-,root,root) %{_mandir}/man1/slogin.1*
 %if ! %{rescue}
-%attr(0755,root,root) %{_bindir}/ssh-agent
+%attr(2755,root,nobody) %{_bindir}/ssh-agent
 %attr(0755,root,root) %{_bindir}/ssh-add
 %attr(0755,root,root) %{_bindir}/ssh-keyscan
 %attr(0755,root,root) %{_bindir}/sftp
@@ -381,6 +400,12 @@ fi
 %endif
 
 %changelog
+* Wed Oct 01 2002 Damien Miller <djm@mindrot.org>
+- Install ssh-agent setgid nobody to prevent ptrace() key theft attacks
+
+* Mon Sep 30 2002 Damien Miller <djm@mindrot.org>
+- Use contrib/ Makefile for building askpass programs
+
 * Fri Jun 21 2002 Damien Miller <djm@mindrot.org>
 - Merge in spec changes from seba@iq.pl (Sebastian Pachuta)
 - Add new {ssh,sshd}_config.5 manpages

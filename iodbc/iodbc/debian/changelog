@@ -1,0 +1,65 @@
+libiodbc2 (3.0.5b-2) unstable; urgency=medium
+
+  * Added dependency to libiodbc2. Closes: #144495 
+
+ -- Christian Hammers <ch@debian.org>  Thu, 25 Apr 2002 18:02:34 +0200
+
+libiodbc2 (3.0.5b-1) unstable; urgency=low
+
+  * New snapshot source from upstream author that fixes build problems. 
+  * Put the new GTK configuration binary to a seperate package called
+    'iodbc'. Closes: #140859
+
+ -- Christian Hammers <ch@debian.org>  Sun, 14 Apr 2002 18:07:28 +0200
+
+libiodbc2 (3.0.5-3) unstable; urgency=low
+
+  * Corrected typo in package description. 
+  * Added libgtk1.2-dev to build-depends. Closes: #140723
+
+ -- Christian Hammers <ch@debian.org>  Fri, 29 Mar 2002 17:12:55 +0100
+
+libiodbc2 (3.0.5-2) unstable; urgency=low
+
+  * Corrected typo in package description. 
+  * Added libgtk1.2-dev to build-depends. Closes: #140723
+
+ -- Christian Hammers <ch@debian.org>  Fri, 29 Mar 2002 17:12:55 +0100
+
+libiodbc2 (3.0.5-1) unstable; urgency=low
+
+  * New upstream version. Closes: #113987
+    - now supports ODBC3 
+    - added iodbc-config and iodbcadm-gtk binaries
+  * This library is supposed to be backwards compatible to the 2.x 
+    versions.
+  * iodbcadm-gtk doesn't build correctly
+
+ -- Christian Hammers <ch@debian.org>  Tue, 26 Mar 2002 03:39:12 +0100
+
+libiodbc2 (2.50.3-4) unstable; urgency=low
+
+  * Updated config.guess and config.sub to make compilation on
+    PARISC architecuture possible. Closes: #94763 
+
+ -- Christian Hammers <ch@debian.org>  Sun, 20 May 2001 17:05:05 +0200
+
+libiodbc2 (2.50.3-3) unstable; urgency=low
+
+  * Added s390 recognition in config.sub. Closes: #88556 
+    Thanks to kokids@debian.org for the patch.
+
+ -- Christian Hammers <ch@debian.org>  Sat, 10 Mar 2001 17:14:00 +0100
+
+libiodbc2 (2.50.3-2) unstable; urgency=low
+
+  * Added Build-Depends.
+  * No code change.
+
+ -- Christian Hammers <ch@debian.org>  Sun, 18 Feb 2001 05:14:04 +0100
+
+libiodbc2 (2.50.3-1) unstable; urgency=low
+
+  * Initial Release.
+
+ -- Christian Hammers <ch@debian.org>  Sat,  2 Oct 1999 15:44:05 +0200

@@ -61,10 +61,17 @@ typedef enum {
 typedef enum {
 
     // Unit commands
+    kAVCPlugInfoOpcode						= 0x02,
     kAVCOutputPlugSignalFormatOpcode		= 0x18,
+    kAVCInputPlugSignalFormatOpcode			= 0x19,
     kAVCUnitInfoOpcode						= 0x30,
     kAVCSubunitInfoOpcode					= 0x31,
-    
+    kAVCConnectionsOpcode					= 0x22,
+    kAVCConnectOpcode						= 0x24,
+    kAVCDisconnectOpcode					= 0x25,
+    kAVCPowerOpcode							= 0xB2,
+	kAVCSignalSourceOpcode					= 0x1A,
+	
     // Vendor dependent commands
     kAVCVendorDependentOpcode				= 0x00,
 
@@ -102,12 +109,20 @@ typedef enum {
     kAVCNumSubUnitTypes						= 0x20
 } IOAVCUnitTypes;
 
+#define kAVCAllOpcodes 0xFF
+#define kAVCAllSubunitsAndUnit 0xEE
+#define kAVCMaxNumPlugs 31
+#define kAVCAnyAvailableIsochPlug 0x7F
+#define kAVCAnyAvailableExternalPlug 0xFF
+#define kAVCAnyAvailableSubunitPlug 0xFF
+#define kAVCMultiplePlugs 0xFD
+#define kAVCInvalidPlug 0xFE
+
+
 #define IOAVCAddress(type, id) (((type) << 3) | (id))
 #define kAVCUnitAddress 0xff
 #define IOAVCType(address) ((address) >> 3)
 #define IOAVCId(address) ((address) & 0x7)
-
-
 
 // Macros for Plug Control Register field manipulation
 
@@ -202,5 +217,32 @@ enum
     kFWAVCProducerMode_SEND		= 5,
     kFWAVCProducerMode_TOSS		= 7
 };
+
+
+typedef enum
+{
+	IOFWAVCPlugSubunitSourceType,
+	IOFWAVCPlugSubunitDestType,
+	IOFWAVCPlugIsochInputType,
+	IOFWAVCPlugIsochOutputType,
+	IOFWAVCPlugAsynchInputType,
+	IOFWAVCPlugAsynchOutputType,
+	IOFWAVCPlugExternalInputType,
+	IOFWAVCPlugExternalOutputType
+} IOFWAVCPlugTypes;
+
+typedef enum
+{
+	kIOFWAVCSubunitPlugMsgConnected,
+	kIOFWAVCSubunitPlugMsgDisconnected,
+	kIOFWAVCSubunitPlugMsgConnectedPlugModified,
+	kIOFWAVCSubunitPlugMsgSignalFormatModified
+} IOFWAVCSubunitPlugMessages;
+
+// Some plug signal formats
+#define kAVCPlugSignalFormatNTSCDV 0x80000000
+#define kAVCPlugSignalFormatPalDV 0x80800000 
+#define kAVCPlugSignalFormatMPEGTS 0xA0000000
+
 
 #endif // _IOKIT_IOFIREWIREAVCCONSTS_H

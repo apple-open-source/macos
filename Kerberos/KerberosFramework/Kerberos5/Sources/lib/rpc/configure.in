@@ -1,0 +1,76 @@
+AC_INIT(auth_gssapi.c)
+CONFIG_RULES
+AC_CONFIG_SUBDIRS(unit-test)
+AC_CHECK_HEADERS(sys/uio.h)
+AC_TYPE_GETGROUPS
+dnl Arrange for types.hin to include stdlib.h
+AC_CHECK_HEADER(stdlib.h, [
+     STDLIB_INCLUDE="#include <stdlib.h>"],
+     [STDLIB_INCLUDE=""])
+AC_SUBST(STDLIB_INCLUDE) dnl
+### Check where struct rpcent is declared.
+#
+# This is necessary to determine:
+# 1. If /usr/include/netdb.h declares struct rpcent
+# 2. If /usr/include/rpc/netdb.h declares struct rpcent
+#
+# We have our own rpc/netdb.h, and if /usr/include/netdb.h includes
+# rpc/netdb.h, then nastiness could happen.
+#
+# Logic: If /usr/include/netdb.h declares struct rpcent, then check
+# rpc/netdb.h.  If /usr/include/rpc/netdb.h declares struct rpcent,
+# then define STRUCT_RPCENT_IN_RPC_NETDB_H, otherwise do not.  If
+# neither netdb.h nor rpc/netdb.h declares struct rpcent, then define
+# STRUCT_RPCENT_IN_RPC_NETDB_H anyway.
+#
+AC_MSG_CHECKING([where struct rpcent is declared])
+AC_TRY_COMPILE([#include <netdb.h>],
+[struct rpcent e;
+char c = e.r_name[0];
+int i = e.r_number;],
+[AC_TRY_COMPILE([#include <rpc/netdb.h>],
+[struct rpcent e;
+char c = e.r_name[0];
+int i = e.r_number;],
+[AC_MSG_RESULT([rpc/netdb.h])
+rpcent_define='#define STRUCT_RPCENT_IN_RPC_NETDB_H'],
+[AC_MSG_RESULT([netdb.h])])],
+[AC_MSG_RESULT([nowhere])
+rpcent_define='#define STRUCT_RPCENT_IN_RPC_NETDB_H'])
+AC_SUBST(rpcent_define)
+
+AC_CHECK_SIZEOF(int)
+SIZEOF_INT=$ac_cv_sizeof_int
+AC_SUBST(SIZEOF_INT)
+AC_CHECK_SIZEOF(long)
+SIZEOF_LONG=$ac_cv_sizeof_long
+AC_SUBST(SIZEOF_LONG)
+
+AC_CHECK_FUNCS(strerror)
+
+AC_MSG_CHECKING([return type of setrpcent])
+AC_CACHE_VAL(k5_cv_type_setrpcent,
+[AC_TRY_COMPILE([#include <netdb.h>
+#ifdef __cplusplus
+extern "C"
+#endif
+extern void setrpcent();],
+[int i;], k5_cv_type_setrpcent=void, k5_cv_type_setrpcent=int)])dnl
+AC_MSG_RESULT($k5_cv_type_setrpcent)
+AC_DEFINE_UNQUOTED(SETRPCENT_TYPE, $k5_cv_type_setrpcent)
+dnl
+AC_MSG_CHECKING([return type of endrpcent])
+AC_CACHE_VAL(k5_cv_type_endrpcent,
+[AC_TRY_COMPILE([#include <netdb.h>
+#ifdef __cplusplus
+extern "C"
+#endif
+extern void endrpcent();],
+[int i;], k5_cv_type_endrpcent=void, k5_cv_type_endrpcent=int)])dnl
+AC_MSG_RESULT($k5_cv_type_endrpcent)
+AC_DEFINE_UNQUOTED(ENDRPCENT_TYPE, $k5_cv_type_endrpcent)
+DECLARE_SYS_ERRLIST
+KRB5_BUILD_LIBOBJS
+KRB5_BUILD_LIBRARY_WITH_DEPS
+K5_GEN_FILE(types.h:types.hin)
+V5_AC_OUTPUT_MAKEFILE

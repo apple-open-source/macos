@@ -1,5 +1,7 @@
 /* Various processing of names.
-   Copyright (C) 1988, 92, 94, 96, 97, 98, 1999 Free Software Foundation, Inc.
+
+   Copyright 1988, 1992, 1994, 1996, 1997, 1998, 1999, 2000, 2001 Free
+   Software Foundation, Inc.
 
    This program is free software; you can redistribute it and/or modify it
    under the terms of the GNU General Public License as published by the
@@ -17,24 +19,23 @@
 
 #include "system.h"
 
-#include <pwd.h>
+#include <fnmatch.h>
 #include <grp.h>
-
-#ifndef FNM_LEADING_DIR
-# include <fnmatch.h>
-#endif
+#include <hash.h>
+#include <pwd.h>
+#include <quotearg.h>
 
 #include "common.h"
 
 /* User and group names.  */
 
-extern struct group *getgrnam ();
-extern struct passwd *getpwnam ();
-#if !HAVE_GETPWUID
-extern struct passwd *getpwuid ();
+struct group *getgrnam ();
+struct passwd *getpwnam ();
+#if ! HAVE_DECL_GETPWUID
+struct passwd *getpwuid ();
 #endif
-#if !HAVE_GETGRGID
-extern struct group *getgrgid ();
+#if ! HAVE_DECL_GETGRGID
+struct group *getgrgid ();
 #endif
 
 /* Make sure you link with the proper libraries if you are running the
@@ -42,25 +43,22 @@ extern struct group *getgrgid ();
    This code should also be modified for non-UNIX systems to do something
    reasonable.  */
 
-static char cached_uname[UNAME_FIELD_SIZE] = "";
-static char cached_gname[GNAME_FIELD_SIZE] = "";
+static char cached_uname[UNAME_FIELD_SIZE];
+static char cached_gname[GNAME_FIELD_SIZE];
 
 static uid_t cached_uid;	/* valid only if cached_uname is not empty */
 static gid_t cached_gid;	/* valid only if cached_gname is not empty */
 
 /* These variables are valid only if nonempty.  */
-static char cached_no_such_uname[UNAME_FIELD_SIZE] = "";
-static char cached_no_such_gname[GNAME_FIELD_SIZE] = "";
+static char cached_no_such_uname[UNAME_FIELD_SIZE];
+static char cached_no_such_gname[GNAME_FIELD_SIZE];
 
 /* These variables are valid only if nonzero.  It's not worth optimizing
    the case for weird systems where 0 is not a valid uid or gid.  */
-static uid_t cached_no_such_uid = 0;
-static gid_t cached_no_such_gid = 0;
+static uid_t cached_no_such_uid;
+static gid_t cached_no_such_gid;
 
-/*------------------------------------------.
-| Given UID, find the corresponding UNAME.  |
-`------------------------------------------*/
-
+/* Given UID, find the corresponding UNAME.  */
 void
 uid_to_uname (uid_t uid, char uname[UNAME_FIELD_SIZE])
 {
@@ -90,10 +88,7 @@ uid_to_uname (uid_t uid, char uname[UNAME_FIELD_SIZE])
   strncpy (uname, cached_uname, UNAME_FIELD_SIZE);
 }
 
-/*------------------------------------------.
-| Given GID, find the corresponding GNAME.  |
-`------------------------------------------*/
-
+/* Given GID, find the corresponding GNAME.  */
 void
 gid_to_gname (gid_t gid, char gname[GNAME_FIELD_SIZE])
 {
@@ -107,7 +102,6 @@ gid_to_gname (gid_t gid, char gname[GNAME_FIELD_SIZE])
 
   if (!cached_gname[0] || gid != cached_gid)
     {
-      setgrent ();		/* FIXME: why?! */
       group = getgrgid (gid);
       if (group)
 	{
@@ -124,10 +118,7 @@ gid_to_gname (gid_t gid, char gname[GNAME_FIELD_SIZE])
   strncpy (gname, cached_gname, GNAME_FIELD_SIZE);
 }
 
-/*-------------------------------------------------------------------------.
-| Given UNAME, set the corresponding UID and return 1, or else, return 0.  |
-`-------------------------------------------------------------------------*/
-
+/* Given UNAME, set the corresponding UID and return 1, or else, return 0.  */
 int
 uname_to_uid (char uname[UNAME_FIELD_SIZE], uid_t *uidp)
 {
@@ -157,10 +148,7 @@ uname_to_uid (char uname[UNAME_FIELD_SIZE], uid_t *uidp)
   return 1;
 }
 
-/*-------------------------------------------------------------------------.
-| Given GNAME, set the corresponding GID and return 1, or else, return 0.  |
-`-------------------------------------------------------------------------*/
-
+/* Given GNAME, set the corresponding GID and return 1, or else, return 0.  */
 int
 gname_to_gid (char gname[GNAME_FIELD_SIZE], gid_t *gidp)
 {
@@ -192,35 +180,30 @@ gname_to_gid (char gname[GNAME_FIELD_SIZE], gid_t *gidp)
 
 /* Names from the command call.  */
 
+static struct name *namelist;	/* first name in list, if any */
+static struct name **nametail = &namelist;	/* end of name list */
 static const char **name_array;	/* store an array of names */
 static int allocated_names;	/* how big is the array? */
 static int names;		/* how many entries does it have? */
-static int name_index = 0;	/* how many of the entries have we scanned? */
+static int name_index;		/* how many of the entries have we scanned? */
 
-/*------------------------.
-| Initialize structures.  |
-`------------------------*/
-
+/* Initialize structures.  */
 void
 init_names (void)
 {
   allocated_names = 10;
-  name_array = (const char **)
-    xmalloc (sizeof (const char *) * allocated_names);
+  name_array = xmalloc (sizeof (const char *) * allocated_names);
   names = 0;
 }
 
-/*--------------------------------------------------------------.
-| Add NAME at end of name_array, reallocating it as necessary.  |
-`--------------------------------------------------------------*/
-
+/* Add NAME at end of name_array, reallocating it as necessary.  */
 void
 name_add (const char *name)
 {
   if (names == allocated_names)
     {
       allocated_names *= 2;
-      name_array = (const char **)
+      name_array =
 	xrealloc (name_array, sizeof (const char *) * allocated_names);
     }
   name_array[names++] = name;
@@ -232,10 +215,6 @@ static FILE *name_file;		/* file to read names from */
 static char *name_buffer;	/* buffer to hold the current file name */
 static size_t name_buffer_length; /* allocated length of name_buffer */
 
-/*---.
-| ?  |
-`---*/
-
 /* FIXME: I should better check more closely.  It seems at first glance that
    is_pattern is only used when reading a file, and ignored for all
    command line arguments.  */
@@ -246,11 +225,8 @@ is_pattern (const char *string)
   return strchr (string, '*') || strchr (string, '[') || strchr (string, '?');
 }
 
-/*-----------------------------------------------------------------------.
-| Set up to gather file names for tar.  They can either come from a file |
-| or were saved from decoding arguments.				 |
-`-----------------------------------------------------------------------*/
-
+/* Set up to gather file names for tar.  They can either come from a
+   file or were saved from decoding arguments.  */
 void
 name_init (int argc, char *const *argv)
 {
@@ -265,13 +241,9 @@ name_init (int argc, char *const *argv)
 	  name_file = stdin;
 	}
       else if (name_file = fopen (files_from_option, "r"), !name_file)
-	FATAL_ERROR ((0, errno, _("Cannot open file %s"), files_from_option));
+	open_fatal (files_from_option);
     }
 }
-
-/*---.
-| ?  |
-`---*/
 
 void
 name_term (void)
@@ -280,12 +252,9 @@ name_term (void)
   free (name_array);
 }
 
-/*---------------------------------------------------------------------.
-| Read the next filename from name_file and null-terminate it.  Put it |
-| into name_buffer, reallocating and adjusting name_buffer_length if   |
-| necessary.  Return 0 at end of file, 1 otherwise.		       |
-`---------------------------------------------------------------------*/
-
+/* Read the next filename from name_file and null-terminate it.  Put
+   it into name_buffer, reallocating and adjusting name_buffer_length
+   if necessary.  Return 0 at end of file, 1 otherwise.  */
 static int
 read_name_from_file (void)
 {
@@ -301,7 +270,9 @@ read_name_from_file (void)
     {
       if (counter == name_buffer_length)
 	{
-	  name_buffer_length += NAME_FIELD_SIZE;
+	  if (name_buffer_length * 2 < name_buffer_length)
+	    xalloc_die ();
+	  name_buffer_length *= 2;
 	  name_buffer = xrealloc (name_buffer, name_buffer_length + 2);
 	}
       name_buffer[counter++] = character;
@@ -312,7 +283,9 @@ read_name_from_file (void)
 
   if (counter == name_buffer_length)
     {
-      name_buffer_length += NAME_FIELD_SIZE;
+      if (name_buffer_length * 2 < name_buffer_length)
+	xalloc_die ();
+      name_buffer_length *= 2;
       name_buffer = xrealloc (name_buffer, name_buffer_length + 2);
     }
   name_buffer[counter] = '\0';
@@ -320,15 +293,13 @@ read_name_from_file (void)
   return 1;
 }
 
-/*------------------------------------------------------------------------.
-| Get the next name from ARGV or the file of names.  Result is in static  |
-| storage and can't be relied upon across two calls.			  |
-| 									  |
-| If CHANGE_DIRS is true, treat a filename of the form "-C" as meaning	  |
-| that the next filename is the name of a directory to change to.  If	  |
-| `filename_terminator' is NUL, CHANGE_DIRS is effectively always false.  |
-`------------------------------------------------------------------------*/
+/* Get the next name from ARGV or the file of names.  Result is in
+   static storage and can't be relied upon across two calls.
 
+   If CHANGE_DIRS is true, treat a filename of the form "-C" as
+   meaning that the next filename is the name of a directory to change
+   to.  If filename_terminator is NUL, CHANGE_DIRS is effectively
+   always false.  */
 char *
 name_next (int change_dirs)
 {
@@ -343,21 +314,29 @@ name_next (int change_dirs)
     {
       /* Get a name, either from file or from saved arguments.  */
 
-      if (name_file)
+      if (name_index == names)
 	{
-	  if (!read_name_from_file ())
+	  if (! name_file)
+	    break;
+	  if (! read_name_from_file ())
 	    break;
 	}
       else
 	{
-	  if (name_index == names)
-	    break;
-
+	  size_t source_len;
 	  source = name_array[name_index++];
-	  if (strlen (source) > name_buffer_length)
+	  source_len = strlen (source);
+	  if (name_buffer_length < source_len)
 	    {
+	      do
+		{
+		  name_buffer_length *= 2;
+		  if (! name_buffer_length)
+		    xalloc_die ();
+		}
+	      while (name_buffer_length < source_len);
+
 	      free (name_buffer);
-	      name_buffer_length = strlen (source);
 	      name_buffer = xmalloc (name_buffer_length + 2);
 	    }
 	  strcpy (name_buffer, source);
@@ -366,14 +345,13 @@ name_next (int change_dirs)
       /* Zap trailing slashes.  */
 
       cursor = name_buffer + strlen (name_buffer) - 1;
-      while (cursor > name_buffer && *cursor == '/')
+      while (cursor > name_buffer && ISSLASH (*cursor))
 	*cursor-- = '\0';
 
       if (chdir_flag)
 	{
 	  if (chdir (name_buffer) < 0)
-	    FATAL_ERROR ((0, errno, _("Cannot change to directory %s"),
-			  name_buffer));
+	    chdir_fatal (name_buffer);
 	  chdir_flag = 0;
 	}
       else if (change_dirs && strcmp (name_buffer, "-C") == 0)
@@ -390,147 +368,138 @@ name_next (int change_dirs)
   if (name_file && chdir_flag)
     FATAL_ERROR ((0, 0, _("Missing file name after -C")));
 
-  return NULL;
+  return 0;
 }
 
-/*------------------------------.
-| Close the name file, if any.  |
-`------------------------------*/
-
+/* Close the name file, if any.  */
 void
 name_close (void)
 {
-  if (name_file != NULL && name_file != stdin)
-    if (fclose (name_file) == EOF)
-      ERROR ((0, errno, "%s", name_buffer));
+  if (name_file && name_file != stdin)
+    if (fclose (name_file) != 0)
+      close_error (name_buffer);
 }
 
-/*-------------------------------------------------------------------------.
-| Gather names in a list for scanning.  Could hash them later if we really |
-| care.									   |
-| 									   |
-| If the names are already sorted to match the archive, we just read them  |
-| one by one.  name_gather reads the first one, and it is called by	   |
-| name_match as appropriate to read the next ones.  At EOF, the last name  |
-| read is just left in the buffer.  This option lets users of small	   |
-| machines extract an arbitrary number of files by doing "tar t" and	   |
-| editing down the list of files.					   |
-`-------------------------------------------------------------------------*/
+/* Gather names in a list for scanning.  Could hash them later if we
+   really care.
+
+   If the names are already sorted to match the archive, we just read
+   them one by one.  name_gather reads the first one, and it is called
+   by name_match as appropriate to read the next ones.  At EOF, the
+   last name read is just left in the buffer.  This option lets users
+   of small machines extract an arbitrary number of files by doing
+   "tar t" and editing down the list of files.  */
 
 void
 name_gather (void)
 {
   /* Buffer able to hold a single name.  */
   static struct name *buffer;
-  static size_t allocated_length = 0;
+  static size_t allocated_size;
 
-  char *name;
+  char const *name;
 
   if (same_order_option)
     {
-      if (allocated_length == 0)
+      static int change_dir;
+
+      if (allocated_size == 0)
 	{
-	  allocated_length = sizeof (struct name) + NAME_FIELD_SIZE;
-	  buffer = (struct name *) xmalloc (allocated_length);
+	  allocated_size = offsetof (struct name, name) + NAME_FIELD_SIZE + 1;
+	  buffer = xmalloc (allocated_size);
 	  /* FIXME: This memset is overkill, and ugly...  */
-	  memset (buffer, 0, allocated_length);
+	  memset (buffer, 0, allocated_size);
 	}
-      name = name_next (0);
+
+      while ((name = name_next (0)) && strcmp (name, "-C") == 0)
+	{
+	  char const *dir = name_next (0);
+	  if (! dir)
+	    FATAL_ERROR ((0, 0, _("Missing file name after -C")));
+	  change_dir = chdir_arg (xstrdup (dir));
+	}
+
       if (name)
 	{
-	  if (strcmp (name, "-C") == 0)
-	    {
-	      char *copy = xstrdup (name_next (0));
-
-	      name = name_next (0);
-	      if (!name)
-		FATAL_ERROR ((0, 0, _("Missing file name after -C")));
-	      buffer->change_dir = copy;
-	    }
+	  size_t needed_size;
 	  buffer->length = strlen (name);
-	  if (sizeof (struct name) + buffer->length >= allocated_length)
+	  needed_size = offsetof (struct name, name) + buffer->length + 1;
+	  if (allocated_size < needed_size)
 	    {
-	      allocated_length = sizeof (struct name) + buffer->length;
-	      buffer = (struct name *) xrealloc (buffer, allocated_length);
+	      do
+		{
+		  allocated_size *= 2;
+		  if (! allocated_size)
+		    xalloc_die ();
+		}
+	      while (allocated_size < needed_size);
+
+	      buffer = xrealloc (buffer, allocated_size);
 	    }
-	  strncpy (buffer->name, name, (size_t) buffer->length);
-	  buffer->name[buffer->length] = 0;
-	  buffer->next = NULL;
+	  buffer->change_dir = change_dir;
+	  strcpy (buffer->name, name);
+	  buffer->next = 0;
 	  buffer->found = 0;
 
-	  /* FIXME: Poorly named globals, indeed...  */
 	  namelist = buffer;
-	  namelast = namelist;
+	  nametail = &namelist->next;
 	}
-      return;
     }
+  else
+    {
+      /* Non sorted names -- read them all in.  */
+      int change_dir = 0;
 
-  /* Non sorted names -- read them all in.  */
-
-  while (name = name_next (0), name)
-    addname (name);
+      for (;;)
+	{
+	  int change_dir0 = change_dir;
+	  while ((name = name_next (0)) && strcmp (name, "-C") == 0)
+	    {
+	      char const *dir = name_next (0);
+	      if (! dir)
+		FATAL_ERROR ((0, 0, _("Missing file name after -C")));
+	      change_dir = chdir_arg (xstrdup (dir));
+	    }
+	  if (name)
+	    addname (name, change_dir);
+	  else
+	    {
+	      if (change_dir != change_dir0)
+		addname (0, change_dir);
+	      break;
+	    }
+	}
+    }
 }
 
-/*-----------------------------.
-| Add a name to the namelist.  |
-`-----------------------------*/
-
-void
-addname (const char *string)
+/*  Add a name to the namelist.  */
+struct name *
+addname (char const *string, int change_dir)
 {
-  /* FIXME: This is ugly.  How is memory managed?  */
-  static char *chdir_name = NULL;
-
-  struct name *name;
-  size_t length;
-
-  if (strcmp (string, "-C") == 0)
-    {
-      chdir_name = xstrdup (name_next (0));
-      string = name_next (0);
-      if (!chdir_name)
-	FATAL_ERROR ((0, 0, _("Missing file name after -C")));
-
-      if (chdir_name[0] != '/')
-	{
-	  char *path = xmalloc (PATH_MAX);
-
-	  /* FIXME: Shouldn't we use xgetcwd?  */
-#if HAVE_GETCWD
-	  if (!getcwd (path, PATH_MAX))
-	    FATAL_ERROR ((0, 0, _("Could not get current directory")));
-#else
-	  char *getwd ();
-
-	  if (!getwd (path))
-	    FATAL_ERROR ((0, 0, _("Could not get current directory: %s"),
-			  path));
-#endif
-	  chdir_name = new_name (path, chdir_name);
-	  free (path);
-	}
-    }
-
-  length = string ? strlen (string) : 0;
-  name = (struct name *) xmalloc (sizeof (struct name) + length);
-  memset (name, 0, sizeof (struct name) + length);
-  name->next = NULL;
+  size_t length = string ? strlen (string) : 0;
+  struct name *name = xmalloc (offsetof (struct name, name) + length + 1);
 
   if (string)
     {
       name->fake = 0;
-      name->length = length;
-      /* FIXME: Possibly truncating a string, here?  Tss, tss, tss!  */
-      strncpy (name->name, string, length);
-      name->name[length] = '\0';
+      strcpy (name->name, string);
     }
   else
-    name->fake = 1;
+    {
+      name->fake = 1;
 
+      /* FIXME: This initialization (and the byte of memory that it
+	 initializes) is probably not needed, but we are currently in
+	 bug-fix mode so we'll leave it in for now.  */
+      name->name[0] = 0;
+    }
+
+  name->next = 0;
+  name->length = length;
   name->found = 0;
   name->regexp = 0;		/* assume not a regular expression */
   name->firstch = 1;		/* assume first char is literal */
-  name->change_dir = chdir_name;
+  name->change_dir = change_dir;
   name->dir_contents = 0;
 
   if (string && is_pattern (string))
@@ -540,18 +509,38 @@ addname (const char *string)
 	name->firstch = 0;
     }
 
-  if (namelast)
-    namelast->next = name;
-  namelast = name;
-  if (!namelist)
-    namelist = name;
+  *nametail = name;
+  nametail = &name->next;
+  return name;
 }
 
-/*------------------------------------------------------------------------.
-| Return true if and only if name PATH (from an archive) matches any name |
-| from the namelist.							  |
-`------------------------------------------------------------------------*/
+/* Find a match for PATH (whose string length is LENGTH) in the name
+   list.  */
+static struct name *
+namelist_match (char const *path, size_t length)
+{
+  struct name *p;
 
+  for (p = namelist; p; p = p->next)
+    {
+      /* If first chars don't match, quick skip.  */
+
+      if (p->firstch && p->name[0] != path[0])
+	continue;
+
+      if (p->regexp
+	  ? fnmatch (p->name, path, recursion_option) == 0
+	  : (p->length <= length
+	     && (path[p->length] == '\0' || ISSLASH (path[p->length]))
+	     && memcmp (path, p->name, p->length) == 0))
+	return p;
+    }
+
+  return 0;
+}
+
+/* Return true if and only if name PATH (from an archive) matches any
+   name from the namelist.  */
 int
 name_match (const char *path)
 {
@@ -562,69 +551,30 @@ name_match (const char *path)
       struct name *cursor = namelist;
 
       if (!cursor)
-	return 1;		/* empty namelist is easy */
+	return ! files_from_option;
 
       if (cursor->fake)
 	{
-	  if (cursor->change_dir && chdir (cursor->change_dir))
-	    FATAL_ERROR ((0, errno, _("Cannot change to directory %s"),
-			  cursor->change_dir));
+	  chdir_do (cursor->change_dir);
 	  namelist = 0;
-	  return 1;
+	  nametail = &namelist;
+	  return ! files_from_option;
 	}
 
-      for (; cursor; cursor = cursor->next)
+      cursor = namelist_match (path, length);
+      if (cursor)
 	{
-	  /* If first chars don't match, quick skip.  */
-
-	  if (cursor->firstch && cursor->name[0] != path[0])
-	    continue;
-
-	  /* Regular expressions (shell globbing, actually).  */
-
-	  if (cursor->regexp)
+	  cursor->found = 1; /* remember it matched */
+	  if (starting_file_option)
 	    {
-	      if (fnmatch (cursor->name, path, FNM_LEADING_DIR) == 0)
-		{
-		  cursor->found = 1; /* remember it matched */
-		  if (starting_file_option)
-		    {
-		      free (namelist);
-		      namelist = NULL;
-		    }
-		  if (cursor->change_dir && chdir (cursor->change_dir))
-		    FATAL_ERROR ((0, errno, _("Cannot change to directory %s"),
-				  cursor->change_dir));
-
-		  /* We got a match.  */
-		  return 1;
-		}
-	      continue;
+	      free (namelist);
+	      namelist = 0;
+	      nametail = &namelist;
 	    }
-
-	  /* Plain Old Strings.  */
-
-	  if (cursor->length <= length
-				/* archive length >= specified */
-	      && (path[cursor->length] == '\0'
-		  || path[cursor->length] == '/')
-				/* full match on file/dirname */
-	      && strncmp (path, cursor->name, cursor->length) == 0)
-				/* name compare */
-	    {
-	      cursor->found = 1;	/* remember it matched */
-	      if (starting_file_option)
-		{
-		  free ((void *) namelist);
-		  namelist = 0;
-		}
-	      if (cursor->change_dir && chdir (cursor->change_dir))
-		FATAL_ERROR ((0, errno, _("Cannot change to directory %s"),
-			      cursor->change_dir));
-
-	      /* We got a match.  */
-	      return 1;
-	    }
+	  chdir_do (cursor->change_dir);
+  
+	  /* We got a match.  */
+	  return 1;
 	}
 
       /* Filename from archive not found in namelist.  If we have the whole
@@ -643,59 +593,236 @@ name_match (const char *path)
     }
 }
 
-/*------------------------------------------------------------------.
-| Print the names of things in the namelist that were not matched.  |
-`------------------------------------------------------------------*/
-
+/* Print the names of things in the namelist that were not matched.  */
 void
 names_notfound (void)
 {
-  struct name *cursor;
-  struct name *next;
+  struct name const *cursor;
 
-  for (cursor = namelist; cursor; cursor = next)
-    {
-      next = cursor->next;
-      if (!cursor->found && !cursor->fake)
-	ERROR ((0, 0, _("%s: Not found in archive"), cursor->name));
+  for (cursor = namelist; cursor; cursor = cursor->next)
+    if (!cursor->found && !cursor->fake)
+      ERROR ((0, 0, _("%s: Not found in archive"),
+	      quotearg_colon (cursor->name)));
 
-      /* We could free the list, but the process is about to die anyway, so
-	 save some CPU time.  Amigas and other similarly broken software
-	 will need to waste the time, though.  */
-
-#ifdef amiga
-      if (!same_order_option)
-	free (cursor);
-#endif
-    }
-  namelist = (struct name *) NULL;
-  namelast = (struct name *) NULL;
+  /* Don't bother freeing the name list; we're about to exit.  */
+  namelist = 0;
+  nametail = &namelist;
 
   if (same_order_option)
     {
       char *name;
 
       while (name = name_next (1), name)
-	ERROR ((0, 0, _("%s: Not found in archive"), name));
+	ERROR ((0, 0, _("%s: Not found in archive"),
+		quotearg_colon (name)));
     }
 }
+
+/* Sorting name lists.  */
 
-/*---.
-| ?  |
-`---*/
+/* Sort linked LIST of names, of given LENGTH, using COMPARE to order
+   names.  Return the sorted list.  Apart from the type `struct name'
+   and the definition of SUCCESSOR, this is a generic list-sorting
+   function, but it's too painful to make it both generic and portable
+   in C.  */
 
-void
-name_expand (void)
+static struct name *
+merge_sort (struct name *list, int length,
+	    int (*compare) (struct name const*, struct name const*))
 {
+  struct name *first_list;
+  struct name *second_list;
+  int first_length;
+  int second_length;
+  struct name *result;
+  struct name **merge_point;
+  struct name *cursor;
+  int counter;
+
+# define SUCCESSOR(name) ((name)->next)
+
+  if (length == 1)
+    return list;
+
+  if (length == 2)
+    {
+      if ((*compare) (list, SUCCESSOR (list)) > 0)
+	{
+	  result = SUCCESSOR (list);
+	  SUCCESSOR (result) = list;
+	  SUCCESSOR (list) = 0;
+	  return result;
+	}
+      return list;
+    }
+
+  first_list = list;
+  first_length = (length + 1) / 2;
+  second_length = length / 2;
+  for (cursor = list, counter = first_length - 1;
+       counter;
+       cursor = SUCCESSOR (cursor), counter--)
+    continue;
+  second_list = SUCCESSOR (cursor);
+  SUCCESSOR (cursor) = 0;
+
+  first_list = merge_sort (first_list, first_length, compare);
+  second_list = merge_sort (second_list, second_length, compare);
+
+  merge_point = &result;
+  while (first_list && second_list)
+    if ((*compare) (first_list, second_list) < 0)
+      {
+	cursor = SUCCESSOR (first_list);
+	*merge_point = first_list;
+	merge_point = &SUCCESSOR (first_list);
+	first_list = cursor;
+      }
+    else
+      {
+	cursor = SUCCESSOR (second_list);
+	*merge_point = second_list;
+	merge_point = &SUCCESSOR (second_list);
+	second_list = cursor;
+      }
+  if (first_list)
+    *merge_point = first_list;
+  else
+    *merge_point = second_list;
+
+  return result;
+
+#undef SUCCESSOR
 }
 
-/*-------------------------------------------------------------------------.
-| This is like name_match, except that it returns a pointer to the name it |
-| matched, and doesn't set FOUND in structure.  The caller will have to do |
-| that if it wants to.  Oh, and if the namelist is empty, it returns NULL, |
-| unlike name_match, which returns TRUE.                                   |
-`-------------------------------------------------------------------------*/
+/* A comparison function for sorting names.  Put found names last;
+   break ties by string comparison.  */
 
+static int
+compare_names (struct name const *n1, struct name const *n2)
+{
+  int found_diff = n2->found - n1->found;
+  return found_diff ? found_diff : strcmp (n1->name, n2->name);
+}
+
+/* Add all the dirs under NAME, which names a directory, to the namelist.
+   If any of the files is a directory, recurse on the subdirectory.
+   DEVICE is the device not to leave, if the -l option is specified.  */
+
+static void
+add_hierarchy_to_namelist (struct name *name, dev_t device)
+{
+  char *path = name->name;
+  char *buffer = get_directory_contents (path, device);
+
+  if (! buffer)
+    name->dir_contents = "\0\0\0\0";
+  else
+    {
+      size_t name_length = name->length;
+      size_t allocated_length = (name_length >= NAME_FIELD_SIZE
+				 ? name_length + NAME_FIELD_SIZE
+				 : NAME_FIELD_SIZE);
+      char *name_buffer = xmalloc (allocated_length + 1);
+				/* FIXME: + 2 above?  */
+      char *string;
+      size_t string_length;
+      int change_dir = name->change_dir;
+
+      name->dir_contents = buffer;
+      strcpy (name_buffer, path);
+      if (! ISSLASH (name_buffer[name_length - 1]))
+	{
+	  name_buffer[name_length++] = '/';
+	  name_buffer[name_length] = '\0';
+	}
+
+      for (string = buffer; *string; string += string_length + 1)
+	{
+	  string_length = strlen (string);
+	  if (*string == 'D')
+	    {
+	      if (allocated_length <= name_length + string_length)
+		{
+		  do
+		    {
+		      allocated_length *= 2;
+		      if (! allocated_length)
+			xalloc_die ();
+		    }
+		  while (allocated_length <= name_length + string_length);
+
+		  name_buffer = xrealloc (name_buffer, allocated_length + 1);
+		}
+	      strcpy (name_buffer + name_length, string + 1);
+	      add_hierarchy_to_namelist (addname (name_buffer, change_dir),
+					 device);
+	    }
+	}
+
+      free (name_buffer);
+    }
+}
+
+/* Collect all the names from argv[] (or whatever), expand them into a
+   directory tree, and sort them.  This gets only subdirectories, not
+   all files.  */
+
+void
+collect_and_sort_names (void)
+{
+  struct name *name;
+  struct name *next_name;
+  int num_names;
+  struct stat statbuf;
+
+  name_gather ();
+
+  if (listed_incremental_option)
+    read_directory_file ();
+
+  if (!namelist)
+    addname (".", 0);
+
+  for (name = namelist; name; name = next_name)
+    {
+      next_name = name->next;
+      if (name->found || name->dir_contents)
+	continue;
+      if (name->regexp)		/* FIXME: just skip regexps for now */
+	continue;
+      chdir_do (name->change_dir);
+      if (name->fake)
+	continue;
+
+      if (deref_stat (dereference_option, name->name, &statbuf) != 0)
+	{
+	  if (ignore_failed_read_option)
+	    stat_warn (name->name);
+	  else
+	    stat_error (name->name);
+	  continue;
+	}
+      if (S_ISDIR (statbuf.st_mode))
+	{
+	  name->found = 1;
+	  add_hierarchy_to_namelist (name, statbuf.st_dev);
+	}
+    }
+
+  num_names = 0;
+  for (name = namelist; name; name = name->next)
+    num_names++;
+  namelist = merge_sort (namelist, num_names, compare_names);
+
+  for (name = namelist; name; name = name->next)
+    name->found = 0;
+}
+
+/* This is like name_match, except that it returns a pointer to the
+   name it matched, and doesn't set FOUND in structure.  The caller
+   will have to do that if it wants to.  Oh, and if the namelist is
+   empty, it returns null, unlike name_match, which returns TRUE.  */
 struct name *
 name_scan (const char *path)
 {
@@ -703,85 +830,46 @@ name_scan (const char *path)
 
   while (1)
     {
-      struct name *cursor = namelist;
-
-      if (!cursor)
-	return NULL;		/* empty namelist is easy */
-
-      for (; cursor; cursor = cursor->next)
-	{
-	  /* If first chars don't match, quick skip.  */
-
-	  if (cursor->firstch && cursor->name[0] != path[0])
-	    continue;
-
-	  /* Regular expressions.  */
-
-	  if (cursor->regexp)
-	    {
-	      if (fnmatch (cursor->name, path, FNM_LEADING_DIR) == 0)
-		return cursor;	/* we got a match */
-	      continue;
-	    }
-
-	  /* Plain Old Strings.  */
-
-	  if (cursor->length <= length
-				/* archive length >= specified */
-	      && (path[cursor->length] == '\0'
-		  || path[cursor->length] == '/')
-				/* full match on file/dirname */
-	      && strncmp (path, cursor->name, cursor->length) == 0)
-				/* name compare */
-	    return cursor;	/* we got a match */
-	}
+      struct name *cursor = namelist_match (path, length);
+      if (cursor)
+	return cursor;
 
       /* Filename from archive not found in namelist.  If we have the whole
 	 namelist here, just return 0.  Otherwise, read the next name in and
 	 compare it.  If this was the last name, namelist->found will remain
 	 on.  If not, we loop to compare the newly read name.  */
 
-      if (same_order_option && namelist->found)
+      if (same_order_option && namelist && namelist->found)
 	{
 	  name_gather ();	/* read one more */
 	  if (namelist->found)
-	    return NULL;
+	    return 0;
 	}
       else
-	return NULL;
+	return 0;
     }
 }
 
-/*-----------------------------------------------------------------------.
-| This returns a name from the namelist which doesn't have ->found set.	 |
-| It sets ->found before returning, so successive calls will find and	 |
-| return all the non-found names in the namelist			 |
-`-----------------------------------------------------------------------*/
-
-struct name *gnu_list_name = NULL;
+/* This returns a name from the namelist which doesn't have ->found
+   set.  It sets ->found before returning, so successive calls will
+   find and return all the non-found names in the namelist.  */
+struct name *gnu_list_name;
 
 char *
 name_from_list (void)
 {
   if (!gnu_list_name)
     gnu_list_name = namelist;
-  while (gnu_list_name && gnu_list_name->found)
+  while (gnu_list_name && (gnu_list_name->found | gnu_list_name->fake))
     gnu_list_name = gnu_list_name->next;
   if (gnu_list_name)
     {
       gnu_list_name->found = 1;
-      if (gnu_list_name->change_dir)
-	if (chdir (gnu_list_name->change_dir) < 0)
-	  FATAL_ERROR ((0, errno, _("Cannot change to directory %s"),
-			gnu_list_name->change_dir));
+      chdir_do (gnu_list_name->change_dir);
       return gnu_list_name->name;
     }
-  return NULL;
+  return 0;
 }
-
-/*---.
-| ?  |
-`---*/
 
 void
 blank_name_list (void)
@@ -793,15 +881,61 @@ blank_name_list (void)
     name->found = 0;
 }
 
-/*---.
-| ?  |
-`---*/
-
+/* Yield a newly allocated file name consisting of PATH concatenated to
+   NAME, with an intervening slash if PATH does not already end in one.  */
 char *
 new_name (const char *path, const char *name)
 {
-  char *buffer = (char *) xmalloc (strlen (path) + strlen (name) + 2);
-
-  sprintf (buffer, "%s/%s", path, name);
+  size_t pathlen = strlen (path);
+  size_t namesize = strlen (name) + 1;
+  int slash = pathlen && ! ISSLASH (path[pathlen - 1]);
+  char *buffer = xmalloc (pathlen + slash + namesize);
+  memcpy (buffer, path, pathlen);
+  buffer[pathlen] = '/';
+  memcpy (buffer + pathlen + slash, name, namesize);
   return buffer;
+}
+
+/* Return nonzero if file NAME is excluded.  Exclude a name if its
+   prefix matches a pattern that contains slashes, or if one of its
+   components matches a pattern that contains no slashes.  */
+bool
+excluded_name (char const *name)
+{
+  return excluded_filename (excluded, name + FILESYSTEM_PREFIX_LEN (name));
+}
+
+/* Names to avoid dumping.  */
+static Hash_table *avoided_name_table;
+
+/* Calculate the hash of an avoided name.  */
+static unsigned
+hash_avoided_name (void const *name, unsigned n_buckets)
+{
+  return hash_string (name, n_buckets);
+}
+
+/* Compare two avoided names for equality.  */
+static bool
+compare_avoided_names (void const *name1, void const *name2)
+{
+  return strcmp (name1, name2) == 0;
+}
+
+/* Remember to not archive NAME.  */
+void
+add_avoided_name (char const *name)
+{
+  if (! ((avoided_name_table
+	  || (avoided_name_table = hash_initialize (0, 0, hash_avoided_name,
+						    compare_avoided_names, 0)))
+	 && hash_insert (avoided_name_table, xstrdup (name))))
+    xalloc_die ();
+}
+
+/* Should NAME be avoided when archiving?  */
+int
+is_avoided_name (char const *name)
+{
+  return avoided_name_table && hash_lookup (avoided_name_table, name);
 }

@@ -39,10 +39,9 @@
 .Nd mount nfs file systems
 .Sh SYNOPSIS
 .Nm mount_nfs
-.Op Fl 23KPTUbcdilqs
+.Op Fl 23KLPTUbcdilqs
 .Op Fl D Ar deadthresh
 .Op Fl I Ar readdirsize
-.Op Fl L Ar leaseterm
 .Op Fl R Ar retrycnt
 .Op Fl a Ar maxreadahead
 .Op Fl g Ar maxgroups
@@ -99,9 +98,10 @@ This requires that the kernel be built with the NFSKERB option.
 .%T "Authentication Mechanisms for ONC RPC" ,
 for more information.)
 .It Fl L
-Used with NQNFS to set the lease term to the specified number of seconds.
-Only use this argument for mounts with a large round trip delay.
-Values are normally in the 10-30 second range.
+Do not support NFS file locking operations.
+Any attempt to perform file locking operations on this mount will return
+the error EOPNOTSUPP regardless of whether or not the NFS server supports
+NFS file locking.
 .It Fl P
 Use a reserved socket port number.
 This is useful for mounting servers that require clients to use a

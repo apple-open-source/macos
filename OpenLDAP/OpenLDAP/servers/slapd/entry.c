@@ -1,7 +1,7 @@
 /* entry.c - routines for dealing with entries */
-/* $OpenLDAP: pkg/ldap/servers/slapd/entry.c,v 1.90.2.1 2002/02/23 23:24:44 kurt Exp $ */
+/* $OpenLDAP: pkg/ldap/servers/slapd/entry.c,v 1.90.2.10 2003/05/07 22:29:10 hyc Exp $ */
 /*
- * Copyright 1998-2002 The OpenLDAP Foundation, All Rights Reserved.
+ * Copyright 1998-2003 The OpenLDAP Foundation, All Rights Reserved.
  * COPYING RESTRICTIONS APPLY, see COPYRIGHT file
  */
 
@@ -63,8 +63,7 @@ str2entry( char *s )
 	 */
 
 #ifdef NEW_LOGGING
-	LDAP_LOG(( "operation", LDAP_LEVEL_DETAIL1,
-		"str2entry: \"%s\"\n", s ? s : "NULL" ));
+	LDAP_LOG( OPERATION, DETAIL1, "str2entry: \"%s\"\n", s ? s : "NULL", 0, 0 );
 #else
 	Debug( LDAP_DEBUG_TRACE, "=> str2entry\n",
 		s ? s : "NULL", 0, 0 );
@@ -75,8 +74,7 @@ str2entry( char *s )
 
 	if( e == NULL ) {
 #ifdef NEW_LOGGING
-		LDAP_LOG(( "operation", LDAP_LEVEL_ERR,
-			"str2entry: entry allocation failed.\n" ));
+		LDAP_LOG( OPERATION, ERR, "str2entry: entry allocation failed.\n", 0, 0, 0 );
 #else
 		Debug( LDAP_DEBUG_ANY,
 		    "<= str2entry NULL (entry allocation failed)\n",
@@ -89,6 +87,7 @@ str2entry( char *s )
 	e->e_id = NOID;
 
 	/* dn + attributes */
+	vals[0].bv_len = 0;
 	vals[1].bv_val = NULL;
 
 	next = s;
@@ -99,8 +98,7 @@ str2entry( char *s )
 
 		if ( ldif_parse_line( s, &type, &vals[0].bv_val, &vals[0].bv_len ) != 0 ) {
 #ifdef NEW_LOGGING
-			LDAP_LOG(( "operation", LDAP_LEVEL_DETAIL1,
-				   "str2entry:  NULL (parse_line)\n" ));
+			LDAP_LOG( OPERATION, DETAIL1, "str2entry:  NULL (parse_line)\n",0, 0, 0 );
 #else
 			Debug( LDAP_DEBUG_TRACE,
 			    "<= str2entry NULL (parse_line)\n", 0, 0, 0 );
@@ -109,44 +107,39 @@ str2entry( char *s )
 		}
 
 		if ( strcasecmp( type, "dn" ) == 0 ) {
-			struct berval *pdn = NULL;
-
 			free( type );
 
 			if ( e->e_dn != NULL ) {
 #ifdef NEW_LOGGING
-				LDAP_LOG(( "operation", LDAP_LEVEL_DETAIL1, "str2entry: "
+				LDAP_LOG( OPERATION, DETAIL1, "str2entry: "
 					"entry %ld has multiple DNs \"%s\" and \"%s\"\n",
-					(long) e->e_id, e->e_dn,
-					vals[0].bv_val != NULL ? vals[0].bv_val : "" ));
+					(long) e->e_id, e->e_dn, vals[0].bv_val );
 #else
 				Debug( LDAP_DEBUG_ANY, "str2entry: "
 					"entry %ld has multiple DNs \"%s\" and \"%s\"\n",
-				    (long) e->e_id, e->e_dn,
-					vals[0].bv_val != NULL ? vals[0].bv_val : "" );
+				    (long) e->e_id, e->e_dn, vals[0].bv_val );
 #endif
-				if( vals[0].bv_val != NULL ) free( vals[0].bv_val );
+				free( vals[0].bv_val );
 				entry_free( e );
 				return NULL;
 			}
 
 			rc = dnPrettyNormal( NULL, &vals[0], &e->e_name, &e->e_nname );
-			free( vals[0].bv_val );
 			if( rc != LDAP_SUCCESS ) {
 #ifdef NEW_LOGGING
-				LDAP_LOG(( "operation", LDAP_LEVEL_DETAIL1, "str2entry: "
-					"entry %ld has invalid DN \"%s\"\n",
-					(long) e->e_id,
-					pdn->bv_val ? pdn->bv_val : "" ));
+				LDAP_LOG( OPERATION, DETAIL1, 
+					"str2entry: entry %ld has invalid DN \"%s\"\n",
+					(long) e->e_id, vals[0].bv_val, 0 );
 #else
 				Debug( LDAP_DEBUG_ANY, "str2entry: "
 					"entry %ld has invalid DN \"%s\"\n",
-					(long) e->e_id,
-					pdn->bv_val ? pdn->bv_val : "", 0 );
+					(long) e->e_id, vals[0].bv_val, 0 );
 #endif
 				entry_free( e );
+				free( vals[0].bv_val );
 				return NULL;
 			}
+			free( vals[0].bv_val );
 			continue;
 		}
 
@@ -155,8 +148,8 @@ str2entry( char *s )
 
 		if( rc != LDAP_SUCCESS ) {
 #ifdef NEW_LOGGING
-			LDAP_LOG(( "operation", LDAP_LEVEL_DETAIL1,
-				"str2entry:  str2ad(%s): %s\n", type, text ));
+			LDAP_LOG( OPERATION, DETAIL1, 
+				"str2entry:  str2ad(%s): %s\n", type, text, 0 );
 #else
 			Debug( slapMode & SLAP_TOOL_MODE
 				? LDAP_DEBUG_ANY : LDAP_DEBUG_TRACE,
@@ -172,8 +165,8 @@ str2entry( char *s )
 			rc = slap_str2undef_ad( type, &ad, &text );
 			if( rc != LDAP_SUCCESS ) {
 #ifdef NEW_LOGGING
-				LDAP_LOG(( "operation", LDAP_LEVEL_DETAIL1,
-					"str2entry:  str2undef_ad(%s): %s\n", type, text ));
+				LDAP_LOG( OPERATION, DETAIL1, 
+					"str2entry: str2undef_ad(%s): %s\n", type, text, 0 );
 #else
 				Debug( LDAP_DEBUG_ANY,
 					"<= str2entry: str2undef_ad(%s): %s\n",
@@ -205,9 +198,9 @@ str2entry( char *s )
 
 			} else {
 #ifdef NEW_LOGGING
-				LDAP_LOG(( "operation", LDAP_LEVEL_INFO,
+				LDAP_LOG( OPERATION, INFO, 
 					"str2entry: no validator for syntax %s\n", 
-					ad->ad_type->sat_syntax->ssyn_oid ));
+					ad->ad_type->sat_syntax->ssyn_oid, 0, 0 );
 #else
 				Debug( LDAP_DEBUG_ANY,
 					"str2entry: no validator for syntax %s\n",
@@ -221,9 +214,9 @@ str2entry( char *s )
 
 			if( rc != 0 ) {
 #ifdef NEW_LOGGING
-				LDAP_LOG(( "operation", LDAP_LEVEL_ERR,
+				LDAP_LOG( OPERATION, ERR, 
 					"str2entry:  invalid value for syntax %s\n",
-					ad->ad_type->sat_syntax->ssyn_oid ));
+					ad->ad_type->sat_syntax->ssyn_oid, 0, 0 );
 #else
 				Debug( LDAP_DEBUG_ANY,
 					"str2entry: invalid value for syntax %s\n",
@@ -244,8 +237,8 @@ str2entry( char *s )
 		rc = attr_merge( e, ad, vals );
 		if( rc != 0 ) {
 #ifdef NEW_LOGGING
-			LDAP_LOG(( "operation", LDAP_LEVEL_DETAIL1,
-				"str2entry:  NULL (attr_merge)\n" ));
+			LDAP_LOG( OPERATION, DETAIL1,
+				"str2entry:  NULL (attr_merge)\n" , 0, 0, 0 );
 #else
 			Debug( LDAP_DEBUG_ANY,
 			    "<= str2entry NULL (attr_merge)\n", 0, 0, 0 );
@@ -263,9 +256,8 @@ str2entry( char *s )
 	/* check to make sure there was a dn: line */
 	if ( e->e_dn == NULL ) {
 #ifdef NEW_LOGGING
-		LDAP_LOG(( "operation", LDAP_LEVEL_INFO,
-			"str2entry:  entry %ld has no dn.\n",
-			(long) e->e_id ));
+		LDAP_LOG( OPERATION, INFO, 
+			"str2entry:  entry %ld has no dn.\n", (long) e->e_id, 0, 0 );
 #else
 		Debug( LDAP_DEBUG_ANY, "str2entry: entry %ld has no dn\n",
 		    (long) e->e_id, 0, 0 );
@@ -275,8 +267,8 @@ str2entry( char *s )
 	}
 
 #ifdef NEW_LOGGING
-	LDAP_LOG(( "operation", LDAP_LEVEL_DETAIL2,
-		"str2entry(%s) -> 0x%lx\n", e->e_dn, (unsigned long)e ));
+	LDAP_LOG( OPERATION, DETAIL2,
+		"str2entry(%s) -> 0x%lx\n", e->e_dn, (unsigned long)e, 0 );
 #else
 	Debug(LDAP_DEBUG_TRACE, "<= str2entry(%s) -> 0x%lx\n",
 		e->e_dn, (unsigned long) e, 0 );
@@ -307,6 +299,8 @@ entry2str(
 	struct berval	*bv;
 	int		i;
 	ber_len_t tmplen;
+
+	assert( e != NULL );
 
 	/*
 	 * In string format, an entry looks like this:
@@ -391,21 +385,22 @@ entry_free( Entry *e )
 int
 entry_cmp( Entry *e1, Entry *e2 )
 {
-	return( e1 < e2 ? -1 : (e1 > e2 ? 1 : 0) );
+	return SLAP_PTRCMP( e1, e2 );
 }
 
 int
-entry_dn_cmp( Entry *e1, Entry *e2 )
+entry_dn_cmp( const void *v_e1, const void *v_e2 )
 {
 	/* compare their normalized UPPERCASED dn's */
-	int rc = e1->e_nname.bv_len - e2->e_nname.bv_len;
-	if (rc) return rc;
-	return( strcmp( e1->e_ndn, e2->e_ndn ) );
+	const Entry *e1 = v_e1, *e2 = v_e2;
+
+	return ber_bvcmp( &e1->e_nname, &e2->e_nname );
 }
 
 int
-entry_id_cmp( Entry *e1, Entry *e2 )
+entry_id_cmp( const void *v_e1, const void *v_e2 )
 {
+	const Entry *e1 = v_e1, *e2 = v_e2;
 	return( e1->e_id < e2->e_id ? -1 : (e1->e_id > e2->e_id ? 1 : 0) );
 }
 
@@ -478,9 +473,8 @@ int entry_encode(Entry *e, struct berval *bv)
 	unsigned char *ptr;
 
 #ifdef NEW_LOGGING
-	LDAP_LOG(( "operation", LDAP_LEVEL_DETAIL1,
-		"entry_encode: id: 0x%08lx  \"%s\"\n",
-		(long) e->e_id, e->e_dn ));
+	LDAP_LOG( OPERATION, DETAIL1, "entry_encode: id: 0x%08lx  \"%s\"\n",
+		(long) e->e_id, e->e_dn, 0 );
 #else
 	Debug( LDAP_DEBUG_TRACE, "=> entry_encode(0x%08lx): %s\n",
 		(long) e->e_id, e->e_dn, 0 );
@@ -529,7 +523,7 @@ int entry_encode(Entry *e, struct berval *bv)
 		    entry_putlen(&ptr, i);
 		    for (i=0; a->a_vals[i].bv_val; i++) {
 			entry_putlen(&ptr, a->a_vals[i].bv_len);
-			memcpy(ptr, a->a_vals[i].bv_val,
+			AC_MEMCPY(ptr, a->a_vals[i].bv_val,
 				a->a_vals[i].bv_len);
 			ptr += a->a_vals[i].bv_len;
 			*ptr++ = '\0';
@@ -542,7 +536,7 @@ int entry_encode(Entry *e, struct berval *bv)
 
 /* Retrieve an Entry that was stored using entry_encode above.
  * We malloc a single block with the size stored above for the Entry
- * and all if its Attributes. We also must lookup the stored
+ * and all of its Attributes. We also must lookup the stored
  * attribute names to get AttributeDescriptions. To detect if the
  * attributes of an Entry are later modified, we note that e->e_attr
  * is always a constant offset from (e).
@@ -573,8 +567,7 @@ int entry_decode(struct berval *bv, Entry **e)
 	x->e_nname.bv_len = i;
 	ptr += i+1;
 #ifdef NEW_LOGGING
-	LDAP_LOG(( "operation", LDAP_LEVEL_DETAIL2,
-		"entry_decode: \"%s\"\n", x->e_dn ));
+	LDAP_LOG( OPERATION, DETAIL2, "entry_decode: \"%s\"\n", x->e_dn, 0, 0 );
 #else
 	Debug( LDAP_DEBUG_TRACE,
 	    "entry_decode: \"%s\"\n",
@@ -589,7 +582,7 @@ int entry_decode(struct berval *bv, Entry **e)
 	bptr = (BerVarray)x->e_attrs;
 	a = NULL;
 
-	while (i = entry_getlen(&ptr)) {
+	while ((i = entry_getlen(&ptr))) {
 		struct berval bv;
 		bv.bv_len = i;
 		bv.bv_val = ptr;
@@ -602,8 +595,8 @@ int entry_decode(struct berval *bv, Entry **e)
 
 		if( rc != LDAP_SUCCESS ) {
 #ifdef NEW_LOGGING
-			LDAP_LOG(( "operation", LDAP_LEVEL_INFO,
-				"entry_decode: str2ad(%s): %s\n", ptr, text ));
+			LDAP_LOG( OPERATION, INFO, 
+				"entry_decode: str2ad(%s): %s\n", ptr, text, 0 );
 #else
 			Debug( LDAP_DEBUG_TRACE,
 				"<= entry_decode: str2ad(%s): %s\n", ptr, text, 0 );
@@ -612,8 +605,8 @@ int entry_decode(struct berval *bv, Entry **e)
 
 			if( rc != LDAP_SUCCESS ) {
 #ifdef NEW_LOGGING
-				LDAP_LOG(( "operation", LDAP_LEVEL_INFO,
-					"entry_decode:  str2undef_ad(%s): %s\n", ptr, text));
+				LDAP_LOG( OPERATION, INFO, 
+					"entry_decode:  str2undef_ad(%s): %s\n", ptr, text, 0 );
 #else
 				Debug( LDAP_DEBUG_ANY,
 					"<= entry_decode: str2undef_ad(%s): %s\n",
@@ -644,8 +637,7 @@ int entry_decode(struct berval *bv, Entry **e)
 	if (a)
 		a->a_next = NULL;
 #ifdef NEW_LOGGING
-	LDAP_LOG(( "operation", LDAP_LEVEL_DETAIL1,
-		"entry_decode:  %s\n", x->e_dn ));
+	LDAP_LOG( OPERATION, DETAIL1, "entry_decode:  %s\n", x->e_dn, 0, 0 );
 #else
 	Debug(LDAP_DEBUG_TRACE, "<= entry_decode(%s)\n",
 		x->e_dn, 0, 0 );

@@ -261,11 +261,6 @@ bool MacRISC2CPU::start(IOService *provider)
 	uniN = waitForService(serviceMatching("AppleUniN"));
     if ((pmu == 0) || (uniN == 0)) return false;
 	
-	// Some systems require special handling of Ultra-ATA at sleep.
-	// Call UniN to prepare for that, if necessary
-	uniN->callPlatformFunction ("setupUATAforSleep", false, (void *)0, (void *)0, (void *)0, (void *)0);
-
-
 
     if (macRISC2PE->hasPMon) {
             // Find the platform monitor, if present
@@ -653,6 +648,10 @@ void MacRISC2CPU::haltCPU(void)
   
     if (bootCPU)
     {
+		// Some systems require special handling of Ultra-ATA at sleep.
+		// Call UniN to prepare for that, if necessary
+		uniN->callPlatformFunction ("setupUATAforSleep", false, (void *)0, (void *)0, (void *)0, (void *)0);
+
 		// Notify our pci children to save their state
 		if (!topLevelPCIBridgeCount) {
 			// First build list of top level bridges - only need to do once as these don't change

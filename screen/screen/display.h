@@ -1,4 +1,4 @@
-/* Copyright (c) 1993-2000
+/* Copyright (c) 1993-2002
  *      Juergen Weigert (jnweiger@immd4.informatik.uni-erlangen.de)
  *      Michael Schroeder (mlschroe@immd4.informatik.uni-erlangen.de)
  * Copyright (c) 1987 Oliver Laumann
@@ -19,7 +19,7 @@
  * 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA
  *
  ****************************************************************
- * $Id: display.h,v 1.1.1.1 2001/12/14 22:08:28 bbraun Exp $ FAU
+ * $Id: display.h,v 1.1.1.2 2003/03/19 21:16:18 landonf Exp $ FAU
  */
 
 #ifdef MAPKEYS
@@ -95,13 +95,13 @@ struct display
   struct mchar d_rend;		/* current rendition */
   int   d_col16change;		/* the 16col bits changed in attr */
   char	d_atyp;			/* current attribute types */
-#ifdef KANJI
+#ifdef DW_CHARS
   int   d_mbcs;			/* saved char for multibytes charset */
-  int   d_kanji;		/* what kanji type the display is */
 #endif
-#ifdef UTF8
-  int	d_utf8;			/* display wants UTF-8 codes */
-  int	d_utf8char;		/* display wants UTF-8 codes */
+#ifdef ENCODINGS
+  int   d_encoding;		/* what encoding type the display is */
+  int   d_decodestate;		/* state of our decoder */
+  int   d_realfont;		/* real font of terminal */
 #endif
   int	d_insert;		/* insert mode flag */
   int	d_keypad;		/* application keypad flag */
@@ -129,7 +129,7 @@ struct display
   struct event d_statusev;	/* timeout event */
   struct event d_hstatusev;	/* hstatus changed event */
   int	d_kaablamm;		/* display kaablamm msg */
-  int	d_ESCseen;		/* Was the last char an ESC (^a) */
+  struct action *d_ESCseen;	/* Was the last char an ESC (^a) */
   int	d_userpid;		/* pid of attacher */
   char	d_usertty[MAXPATHLEN];	/* tty we are attached to */
   int	d_userfd;		/* fd of the tty */
@@ -138,6 +138,7 @@ struct display
   struct mode d_OldMode;	/* tty mode when screen was started */
   struct mode d_NewMode;	/* New tty mode */
   int	d_flow;			/* tty's flow control on/off flag*/
+  int   d_intrc;		/* current intr when flow is on */
   char *d_obuf;			/* output buffer */
   int   d_obuflen;		/* len of buffer */
   int	d_obufmax;		/* len where we are blocking the pty */
@@ -211,9 +212,9 @@ extern struct display TheDisplay;
 #define D_col16change	DISPLAY(d_col16change)
 #define D_atyp		DISPLAY(d_atyp)
 #define D_mbcs		DISPLAY(d_mbcs)
-#define D_kanji		DISPLAY(d_kanji)
-#define D_utf8		DISPLAY(d_utf8)
-#define D_utf8char	DISPLAY(d_utf8char)
+#define D_encoding	DISPLAY(d_encoding)
+#define D_decodestate	DISPLAY(d_decodestate)
+#define D_realfont	DISPLAY(d_realfont)
 #define D_insert	DISPLAY(d_insert)
 #define D_keypad	DISPLAY(d_keypad)
 #define D_cursorkeys	DISPLAY(d_cursorkeys)
@@ -245,6 +246,7 @@ extern struct display TheDisplay;
 #define D_OldMode	DISPLAY(d_OldMode)
 #define D_NewMode	DISPLAY(d_NewMode)
 #define D_flow		DISPLAY(d_flow)
+#define D_intr		DISPLAY(d_intr)
 #define D_obuf		DISPLAY(d_obuf)
 #define D_obuflen	DISPLAY(d_obuflen)
 #define D_obufmax	DISPLAY(d_obufmax)

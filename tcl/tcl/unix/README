@@ -1,6 +1,8 @@
 Tcl UNIX README
 ---------------
 
+RCS: @(#) $Id: README,v 1.1.1.6 2003/03/06 00:15:20 landonf Exp $
+
 This is the directory where you configure, compile, test, and install
 UNIX versions of Tcl.  This directory also contains source files for Tcl
 that are specific to UNIX.  Some of the files in this directory are
@@ -8,13 +10,11 @@ used on the PC or Mac platform too, but they all depend on UNIX
 (POSIX/ANSI C) interfaces and some of them only make sense under UNIX.
 
 Updated forms of the information found in this file is available at:
-
-	http://www.tcl-tk.net/doc/howto/compile.html#unix
+	http://www.tcl.tk/doc/howto/compile.html#unix
 
 For information on platforms where Tcl is known to compile, along
 with any porting notes for getting it to work on those platforms, see:
-
-	http://www.tcl-tk.net/software/tcltk/platforms.html
+	http://www.tcl.tk/software/tcltk/platforms.html
 
 The rest of this file contains instructions on how to do this.  The
 release should compile and run either "out of the box" or with trivial
@@ -24,41 +24,29 @@ SGI, as well as PCs running Linux, BSDI, and SCO UNIX.  To compile for
 a PC running Windows, see the README file in the directory ../win.  To
 compile for a Macintosh, see the README file in the directory ../mac.
 
-RCS: @(#) $Id: README,v 1.1.1.5 2002/04/05 16:14:06 jevans Exp $
-
 How To Compile And Install Tcl:
 -------------------------------
 
-(a) Check for patches as described in ../README.
-
-(b) If you have already compiled Tcl once in this directory and are now
+(a) If you have already compiled Tcl once in this directory and are now
     preparing to compile again in the same directory but for a different
     platform, or if you have applied patches, type "make distclean" to
     discard all the configuration information computed previously.
 
-(c) If there is no "configure" script in this directory it is because you
-    are working out of the source repository (i.e., CVS) instead of working
-    from a source distribution.  In this case you need to use "autoconf"
-    to generate the configure script.  It runs with no arguments.
-    Remember to run it here and down in the dltest directory.
+(b) If you need to reconfigure because you changed any of the .in or
+    .m4 files, you will need to run autoconf to create a new
+    ./configure script. Most users will NOT need to do this since
+    a configure script is already provided.
 
     (in the tcl/unix directory)
     autoconf
-    cd dltest ; autoconf ; cd ..
 
-(d) Type "./configure".  This runs a configuration script created by GNU
+(c) Type "./configure".  This runs a configuration script created by GNU
     autoconf, which configures Tcl for your system and creates a
     Makefile.  The configure script allows you to customize the Tcl
     configuration for your site; for details on how you can do this,
     type "./configure -help" or refer to the autoconf documentation (not
     included here).  Tcl's "configure" supports the following special
     switches in addition to the standard ones:
-	--enable-gcc		If this switch is set, Tcl will configure
-				itself to use gcc if it is available on your
-				system.  Note:  it is not safe to modify the
-				Makefile to use gcc after configure is run;
-				if you do this, then information related to
-				dynamic linking will be incorrect.
 	--enable-threads	If this switch is set, Tcl will compile
 				itself with multithreading support.
 	--disable-load		If this switch is specified then Tcl will
@@ -74,38 +62,59 @@ How To Compile And Install Tcl:
 				how to build shared libraries.
 	--disable-shared	If this switch is specified, Tcl will compile
 				itself as a static library.
-    Note: be sure to use only absolute path names (those starting with "/")
-    in the --prefix and --exec_prefix options.
+	--enable-symbols	build with debugging symbols.  By default
+				standard debugging symbols are used.  You
+				can specify the value "mem" to include
+				TCL_MEM_DEBUG memory debugging, "compile"
+				to include TCL_COMPILE_DEBUG debugging, or
+				"all" to enable all internal debugging.
+	--disable-symbols	build without debugging symbols
+	--enable-64bit		enable 64bit support (where applicable)
+	--disable-64bit		disable 64bit support (where applicable)
+	--enable-64bit-vis	enable 64bit Sparc VIS support
+	--disable-64bit-vis	disable 64bit Sparc VIS support
+	--enable-langinfo	Allows use of modern nl_langinfo check for
+				better localization support.  This is on by
+				default on platforms where nl_langinfo is
+				found.
+	--disable-langinfo	Specifically disables use of nl_langinfo.
+	--enable-man-symlinks	Use symlinks for linking the manpages that
+				should be reachable under several names.
+	--enable-man-compression=PROG
+				Compress the manpages using PROG.
 
-(e) Type "make".  This will create a library archive called
+    Note: by default gcc will be used if it can be located on the PATH.
+    if you want to use cc instead of gcc, set the CC environment variable
+    to "cc" before running configure. It is not safe to edit the
+    Makefile to use gcc after configure is run. Also note that
+    you should use the same compiler when building extensions.
+
+    Note: be sure to use only absolute path names (those starting with "/")
+    in the --prefix and --exec-prefix options.
+
+(d) Type "make".  This will create a library archive called
     "libtcl<version>.a" or "libtcl<version>.so" and an interpreter
     application called "tclsh" that allows you to type Tcl commands
     interactively or execute script files.
 
-(f) If the make fails then you'll have to personalize the Makefile
+(e) If the make fails then you'll have to personalize the Makefile
     for your site or possibly modify the distribution in other ways.
     First check the porting Web page above to see if there are hints
     for compiling on your system.  If you need to modify Makefile,
     are comments at the beginning of it that describe the things you
     might want to change and how to change them.
 
-(g) Type "make install" to install Tcl binaries and script files in
+(f) Type "make install" to install Tcl binaries and script files in
     standard places.  You'll need write permission on the installation
     directories to do this.  The installation directories are
     determined by the "configure" script and may be specified with
-    the --prefix and --exec_prefix options to "configure".  See the
+    the --prefix and --exec-prefix options to "configure".  See the
     Makefile for information on what directories were chosen; you
     can override these choices by modifying the "prefix" and
     "exec_prefix" variables in the Makefile.
 
-(h) At this point you can play with Tcl by invoking the "tclsh"
-    program and typing Tcl commands.  However, if you haven't installed
-    Tcl then you'll first need to set your TCL_LIBRARY variable to
-    hold the full path name of the "library" subdirectory.  Note that
-    the installed versions of tclsh, libtcl.a, and libtcl.so have a
-    version number in their names, such as "tclsh8.3" or "libtcl8.3.so";
-    to use the installed versions, either specify the version number
-    or create a symbolic link (e.g. from "tclsh" to "tclsh8.3").
+(g) At this point you can play with Tcl by running "make shell"
+    and typing Tcl commands at the prompt.
 
 If you have trouble compiling Tcl, see the URL noted above about working
 platforms.  It contains information that people have provided about changes
@@ -125,7 +134,6 @@ information on the test suite.  Note: don't run the tests as superuser:
 this will cause several of them to fail.  If a test is failing
 consistently, please send us a bug report with as much detail as you
 can manage.  Please use the online database at
-
 	http://tcl.sourceforge.net/
 
 The Tcl test suite is very sensitive to proper implementation of

@@ -1,23 +1,24 @@
 /*
- * Copyright (c) 1999-2002 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 1999-2003 Apple Computer, Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
- * "Portions Copyright (c) 1999 Apple Computer, Inc.  All Rights
- * Reserved.  This file contains Original Code and/or Modifications of
- * Original Code as defined in and that are subject to the Apple Public
- * Source License Version 1.0 (the 'License').  You may not use this file
- * except in compliance with the License.  Please obtain a copy of the
- * License at http://www.apple.com/publicsource and read it before using
- * this file.
+ * Copyright (c) 1999-2003 Apple Computer, Inc.  All Rights Reserved.
+ * 
+ * This file contains Original Code and/or Modifications of Original Code
+ * as defined in and that are subject to the Apple Public Source License
+ * Version 2.0 (the 'License'). You may not use this file except in
+ * compliance with the License. Please obtain a copy of the License at
+ * http://www.opensource.apple.com/apsl/ and read it before using this
+ * file.
  * 
  * The Original Code and all software distributed under the License are
  * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
  * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
  * INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY,
- * FITNESS FOR A PARTICULAR PURPOSE OR NON-INFRINGEMENT.  Please see the
- * License for the specific language governing rights and limitations
- * under the License."
+ * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
+ * Please see the License for the specific language governing rights and
+ * limitations under the License.
  * 
  * @APPLE_LICENSE_HEADER_END@
  */
@@ -217,6 +218,15 @@ WriteForwardDeclarations(file, stats)
 }
 
 static void
+WriteNDRDefines(file)
+     FILE *file;
+{
+    fprintf(file, "#define\t__MIG_check__Request__%s_subsystem__ 1\n", SubsystemName);
+    fprintf(file, "#define\t__NDR_convert__Request__%s_subsystem__ 1\n", SubsystemName);
+    fprintf(file, "\n");
+}
+
+static void
 WriteProlog(file, stats)
     FILE *file;
     statement_t *stats;
@@ -225,7 +235,8 @@ WriteProlog(file, stats)
     fprintf(file, "\n");
     fprintf(file, "/* Module %s */\n", SubsystemName);
     fprintf(file, "\n");
-    
+
+    WriteNDRDefines(file);
     WriteMyIncludes(file, stats);
     WriteBogusDefines(file);
     WriteApplDefaults(file, "Rcv");
@@ -233,6 +244,7 @@ WriteProlog(file, stats)
     if (ServerHeaderFileName == strNULL) {
 	WriteRequestTypes(file, stats);
 	WriteReplyTypes(file, stats);
+	WriteServerReplyUnion(file, stats);
     }
 }
 
@@ -440,6 +452,7 @@ WriteServerRequestUnion(file, stats)
 {
     register statement_t *stat;
 
+    fprintf(file, "\n");
     fprintf(file, "/* union of all requests */\n\n");
     fprintf(file, "#ifndef __RequestUnion__%s__defined\n", ServerSubsys);
     fprintf(file, "#define __RequestUnion__%s__defined\n", ServerSubsys);
@@ -464,6 +477,7 @@ WriteServerReplyUnion(file, stats)
 {
     register statement_t *stat;
 
+    fprintf(file, "\n");
     fprintf(file, "/* union of all replies */\n\n");
     fprintf(file, "#ifndef __ReplyUnion__%s__defined\n", ServerSubsys);
     fprintf(file, "#define __ReplyUnion__%s__defined\n", ServerSubsys);
@@ -486,18 +500,6 @@ WriteDispatcher(file, stats)
     FILE *file;
     statement_t *stats;
 {
-    /*
-     * First write the reply union as a substitute for maxsize
-     */
-    
-    if (ServerHeaderFileName == strNULL) {
-	fprintf(file, "\n");
-	WriteServerRequestUnion(file, stats);
-
-	fprintf(file, "\n");
-	WriteServerReplyUnion(file, stats);
-    }
-
     /*
      * Write the subsystem stuff.
      */
@@ -635,7 +637,7 @@ WriteLocalVarDecl(file, arg)
 
     if (IS_VARIABLE_SIZED_UNTYPED(it))
 	fprintf(file, "\t%s %s[%d]", btype->itTransType,
-		arg->argVarName, it->itNumber/btype->itNumber);
+		arg->argVarName, btype->itNumber ? it->itNumber/btype->itNumber : 0);
     else if (IS_MULTIPLE_KPD(it)) {
 	if (btype->itTransType != strNULL)
 	    fprintf(file, "\t%s %s[%d]", btype->itTransType,
@@ -671,39 +673,29 @@ WriteVarDecls(file, rt)
     routine_t *rt;
 {
     int i;
-    boolean_t NeedMsghSize = FALSE;
-    boolean_t NeedMsghSizeDelta = FALSE;
 
-    fprintf(file, "\tregister Request *In0P = (Request *) InHeadP;\n");
+    fprintf(file, "\tRequest *In0P = (Request *) InHeadP;\n");
     for (i = 1; i <= rt->rtMaxRequestPos; i++)
-	fprintf(file, "\tregister Request *In%dP;\n", i);
-    fprintf(file, "\tregister Reply *OutP = (Reply *) OutHeadP;\n");
+	fprintf(file, "\tRequest *In%dP;\n", i);
+    fprintf(file, "\tReply *OutP = (Reply *) OutHeadP;\n");
 
-    /* if either request or reply is variable, we may need
-       msgh_size_delta and msgh_size */
-
-    if (rt->rtNumRequestVar > 0 || rt->rtNumReplyVar > 1)
-	NeedMsghSize = TRUE;
-    if (rt->rtMaxRequestPos > 0 || rt->rtMaxReplyPos > 0)
-	NeedMsghSizeDelta = TRUE;
-
-    if (NeedMsghSize) {
-        if (rt->rtNumReplyVar <= 1)
-	    fprintf(file, "#if\tTypeCheck\n");
+    /* if reply is variable, we may need msgh_size_delta and msgh_size */
+    if (rt->rtNumReplyVar > 1)
 	fprintf(file, "\tunsigned int msgh_size;\n");
-        if (rt->rtNumReplyVar <= 1)
-            fprintf(file, "#endif\t/* TypeCheck */\n");
-    }
-    if (NeedMsghSizeDelta) 
+    if (rt->rtMaxReplyPos > 0)
 	fprintf(file, "\tunsigned int msgh_size_delta;\n");
+    if (rt->rtNumReplyVar > 1 || rt->rtMaxReplyPos > 0)
+	fprintf(file, "\n");
+
     if (rt->rtServerImpl) {
-	fprintf(file, "\tmach_msg_format_0_trailer_t *TrailerP;\n");
-	fprintf(file, "#if\tTypeCheck\n");
-	fprintf(file, "\tunsigned int trailer_size;\n");
+		fprintf(file, "\tmach_msg_max_trailer_t *TrailerP;\n");
+		fprintf(file, "#if\tTypeCheck\n");
+		fprintf(file, "\tunsigned int trailer_size;\n");
         fprintf(file, "#endif\t/* TypeCheck */\n");
     }
-    
-    if (NeedMsghSize || NeedMsghSizeDelta)
+    fprintf(file, "#ifdef\t__MIG_check__Request__%s_t__defined\n", rt->rtName);
+    fprintf(file, "\tkern_return_t check_result;\n");
+    fprintf(file, "#endif\t/* __MIG_check__Request__%s_t__defined */\n", rt->rtName);
 	fprintf(file, "\n");
 }
 
@@ -795,10 +787,159 @@ WriteCheckHead(file, rt)
       	    fprintf(file, "\t    ((mig_reply_error_t *)In0P)->RetCode == KERN_SUCCESS))\n");	
         }
     }
-    WriteReturnMsgError(file, rt, FALSE, argNULL, "MIG_BAD_ARGUMENTS");
+    fprintf(file, "\t\treturn MIG_BAD_ARGUMENTS;\n");
     fprintf(file, "#endif\t/* TypeCheck */\n");
     fprintf(file, "\n");
 }
+
+void
+WriteRequestNDRConvertIntRepArgCond(file, arg)
+     FILE *file;
+     argument_t *arg;
+{
+	routine_t *rt = arg->argRoutine;
+
+	fprintf(file, "defined(__NDR_convert__int_rep__Request__%s_t__%s__defined)", 
+				rt->rtName, arg->argMsgField);
+}
+
+void
+WriteRequestNDRConvertCharRepArgCond(file, arg)
+     FILE *file;
+     argument_t *arg;
+{
+	routine_t *rt = arg->argRoutine;
+
+	if (akIdent(arg->argKind) != akeCount && akIdent(arg->argKind) != akeCountInOut)
+		fprintf(file, "defined(__NDR_convert__char_rep__Request__%s_t__%s__defined)", 
+				rt->rtName, arg->argMsgField);
+	else
+		fprintf(file, "0");
+}
+
+void
+WriteRequestNDRConvertFloatRepArgCond(file, arg)
+     FILE *file;
+     argument_t *arg;
+{
+	routine_t *rt = arg->argRoutine;
+
+	if (akIdent(arg->argKind) != akeCount && akIdent(arg->argKind) != akeCountInOut)
+		fprintf(file, "defined(__NDR_convert__float_rep__Request__%s_t__%s__defined)", 
+				rt->rtName, arg->argMsgField);
+	else
+		fprintf(file, "0");
+}
+
+void
+WriteRequestNDRConvertIntRepArgDecl(file, arg)
+    FILE *file;
+    argument_t *arg;
+{
+    WriteNDRConvertArgDecl(file, arg, "int_rep", "Request");
+}
+
+void
+WriteRequestNDRConvertCharRepArgDecl(file, arg)
+    FILE *file;
+    argument_t *arg;
+{
+	if (akIdent(arg->argKind) != akeCount && akIdent(arg->argKind) != akeCountInOut)
+		WriteNDRConvertArgDecl(file, arg, "char_rep", "Request");
+}
+
+void
+WriteRequestNDRConvertFloatRepArgDecl(file, arg)
+    FILE *file;
+    argument_t *arg;
+{
+	if (akIdent(arg->argKind) != akeCount && akIdent(arg->argKind) != akeCountInOut)
+		WriteNDRConvertArgDecl(file, arg, "float_rep", "Request");
+}
+
+void
+WriteRequestNDRConvertArgUse(file, arg, convert)
+     FILE *file;
+     argument_t *arg;
+     char *convert;
+{
+    routine_t *rt = arg->argRoutine;
+    argument_t *count = arg->argCount;
+    char argname[MAX_STR_LEN];
+
+	if ((akIdent(arg->argKind) == akeCount || akIdent(arg->argKind) == akeCountInOut) &&
+	    (arg->argParent && akCheck(arg->argParent->argKind, akbSendNdr)))
+		return;
+
+    if (arg->argKPD_Type == MACH_MSG_OOL_DESCRIPTOR) {
+		if (count && !arg->argSameCount && !strcmp(convert, "int_rep")) {
+			fprintf(file, "#if defined(__NDR_convert__int_rep__Request__%s_t__%s__defined)\n", 
+					rt->rtName, count->argMsgField);
+			fprintf(file, "\t\t__NDR_convert__int_rep__Request__%s_t__%s(&In%dP->%s, In%dP->NDR.int_rep);\n",
+					rt->rtName, count->argMsgField, count->argRequestPos, count->argMsgField, count->argRequestPos);
+			fprintf(file, "#endif\t/* __NDR_convert__int_rep__Request__%s_t__%s__defined */\n",
+					rt->rtName, count->argMsgField);
+		}
+			
+		sprintf(argname, "(%s)(In%dP->%s.address)", FetchServerType(arg->argType), 
+				arg->argRequestPos, arg->argMsgField);
+    } else {
+		sprintf(argname, "&In%dP->%s", arg->argRequestPos, arg->argMsgField);
+	}
+	
+    fprintf(file, "#if defined(__NDR_convert__%s__Request__%s_t__%s__defined)\n", 
+	    convert, rt->rtName, arg->argMsgField);
+    fprintf(file, "\t\t__NDR_convert__%s__Request__%s_t__%s(%s, In0P->NDR.%s", 
+	    convert, rt->rtName, arg->argMsgField, argname, convert);
+    if (count)
+      	fprintf(file, ", In%dP->%s", count->argRequestPos, count->argMsgField);
+    fprintf(file, ");\n");
+    fprintf(file, "#endif\t/* __NDR_convert__%s__Request__%s_t__%s__defined */\n", 
+			convert, rt->rtName, arg->argMsgField);
+}
+
+void
+WriteRequestNDRConvertIntRepOneArgUse(file, arg)
+     FILE *file;
+     argument_t *arg;
+{
+	routine_t *rt = arg->argRoutine;
+
+	fprintf(file, "#if defined(__NDR_convert__int_rep__Request__%s_t__%s__defined)\n", 
+			rt->rtName, arg->argMsgField);
+	fprintf(file, "\tif (In0P->NDR.int_rep != NDR_record.int_rep)\n");
+	fprintf(file, "\t\t__NDR_convert__int_rep__Request__%s_t__%s(&In%dP->%s, In%dP->NDR.int_rep);\n",
+			rt->rtName, arg->argMsgField, arg->argRequestPos, arg->argMsgField, arg->argRequestPos);
+	fprintf(file, "#endif\t/* __NDR_convert__int_rep__Request__%s_t__%s__defined */\n",
+			rt->rtName, arg->argMsgField);
+}
+
+void
+WriteRequestNDRConvertIntRepArgUse(file, arg)
+    FILE *file;
+    argument_t *arg;
+{
+    WriteRequestNDRConvertArgUse(file, arg, "int_rep");
+}
+
+void
+WriteRequestNDRConvertCharRepArgUse(file, arg)
+    FILE *file;
+    argument_t *arg;
+{
+	if (akIdent(arg->argKind) != akeCount && akIdent(arg->argKind) != akeCountInOut)
+		WriteRequestNDRConvertArgUse(file, arg, "char_rep");
+}
+
+void
+WriteRequestNDRConvertFloatRepArgUse(file, arg)
+    FILE *file;
+    argument_t *arg;
+{
+	if (akIdent(arg->argKind) != akeCount && akIdent(arg->argKind) != akeCountInOut)
+		WriteRequestNDRConvertArgUse(file, arg, "float_rep");
+}
+
 
 static void
 WriteCheckArgSize(file, arg)
@@ -843,54 +984,53 @@ WriteCheckMsgSize(file, arg)
        we can use the msgh_size_delta value directly in
        the TypeCheck conditional. */
 
-    if (arg->argRequestPos == rt->rtMaxRequestPos)
-    {
-	fprintf(file, "#if\tTypeCheck\n");
-	fprintf(file, "\tif (msgh_size != ");
-	rtMinRequestSize(file, rt, "__Request");
-	fprintf(file, " + (");
-	WriteCheckArgSize(file, arg);
-	fprintf(file, "))\n");
+	if (arg->argCount && !arg->argSameCount)
+		WriteRequestNDRConvertIntRepOneArgUse(file, arg->argCount);
+    if (arg->argRequestPos == rt->rtMaxRequestPos)  {
+		fprintf(file, "#if\tTypeCheck\n");
+		fprintf(file, "\tif (msgh_size != ");
+		rtMinRequestSize(file, rt, "__Request");
+		fprintf(file, " + (");
+		WriteCheckArgSize(file, arg);
+		fprintf(file, "))\n");
 
-	WriteReturnMsgError(file, rt, FALSE, arg, "MIG_BAD_ARGUMENTS");
-	fprintf(file, "#endif\t/* TypeCheck */\n");
-    }
-    else
-    {
-	/* If there aren't any more variable-sized arguments after this,
-	   then we must check for exact msg-size and we don't need to
-	   update msgh_size. */
+		fprintf(file, "\t\treturn MIG_BAD_ARGUMENTS;\n");
+		fprintf(file, "#endif\t/* TypeCheck */\n");
+	} else {
+		/* If there aren't any more variable-sized arguments after this,
+		   then we must check for exact msg-size and we don't need to
+		   update msgh_size. */
 
-	boolean_t LastVarArg = arg->argRequestPos+1 == rt->rtNumRequestVar;
+		boolean_t LastVarArg = arg->argRequestPos+1 == rt->rtNumRequestVar;
 
-	/* calculate the actual size in bytes of the data field.  note
-	   that this quantity must be a multiple of four.  hence, if
-	   the base type size isn't a multiple of four, we have to
-	   round up.  note also that btype->itNumber must
-	   divide btype->itTypeSize (see itCalculateSizeInfo). */
+		/* calculate the actual size in bytes of the data field.  note
+		   that this quantity must be a multiple of four.  hence, if
+		   the base type size isn't a multiple of four, we have to
+		   round up.  note also that btype->itNumber must
+		   divide btype->itTypeSize (see itCalculateSizeInfo). */
 
-	fprintf(file, "\tmsgh_size_delta = ");
-	WriteCheckArgSize(file, arg);
-	fprintf(file, ";\n");
-	fprintf(file, "#if\tTypeCheck\n");
+		fprintf(file, "\tmsgh_size_delta = ");
+		WriteCheckArgSize(file, arg);
+		fprintf(file, ";\n");
+		fprintf(file, "#if\tTypeCheck\n");
 
-	/* Don't decrement msgh_size until we've checked that
-	   it won't underflow. */
+		/* Don't decrement msgh_size until we've checked that
+		   it won't underflow. */
 
-	if (LastVarArg) 
-	    fprintf(file, "\tif (msgh_size != ");
-	else
-	    fprintf(file, "\tif (msgh_size < ");
-	rtMinRequestSize(file, rt, "__Request");
-	fprintf(file, " + msgh_size_delta)\n");
-	WriteReturnMsgError(file, rt, FALSE, arg, "MIG_BAD_ARGUMENTS");
+		if (LastVarArg) 
+			fprintf(file, "\tif (msgh_size != ");
+		else
+			fprintf(file, "\tif (msgh_size < ");
+		rtMinRequestSize(file, rt, "__Request");
+		fprintf(file, " + msgh_size_delta)\n");
+		fprintf(file, "\t\treturn MIG_BAD_ARGUMENTS;\n");
 
-	if (!LastVarArg)
-	    fprintf(file, "\tmsgh_size -= msgh_size_delta;\n");
-
-	fprintf(file, "#endif\t/* TypeCheck */\n");
-    }
-    fprintf(file, "\n");
+		if (!LastVarArg)
+			fprintf(file, "\tmsgh_size -= msgh_size_delta;\n");
+		
+		fprintf(file, "#endif\t/* TypeCheck */\n");
+	}
+	fprintf(file, "\n");
 }
 
 static char *
@@ -1011,6 +1151,7 @@ WriteExtractKPD_oolport(file, arg)
     }
 }
 
+
 static void
 WriteInitializeCount(file, arg)
     FILE *file;
@@ -1034,7 +1175,7 @@ WriteInitializeCount(file, arg)
     if (IS_MULTIPLE_KPD(ptype))
 	fprintf(file, "%d;\n", ptype->itKPD_Number);
     else
-	fprintf(file, "%d;\n", ptype->itNumber/btype->itNumber);
+	fprintf(file, "%d;\n", btype->itNumber? ptype->itNumber/btype->itNumber : 0);
 
     /*
      *	If the user passed in a count, then we use the minimum.
@@ -1060,67 +1201,31 @@ WriteAdjustRequestMsgPtr(file, arg)
     register ipc_type_t *ptype = arg->argType;
 
     if (PackMsg == FALSE) {
-	fprintf(file,
-	    "\tIn%dP = (Request *) ((pointer_t) In%dP);\n\n",
-	    arg->argRequestPos+1, arg->argRequestPos);
-	return;
+		fprintf(file, "\t*In%dPP = In%dP = (__Request *) ((pointer_t) In%dP);\n\n",
+				arg->argRequestPos+1, arg->argRequestPos+1, arg->argRequestPos);
+		return;
     }
 
-    fprintf(file,
-	"\tIn%dP = (Request *) ((pointer_t) In%dP + msgh_size_delta - ",
-	arg->argRequestPos+1, arg->argRequestPos);
+    fprintf(file, "\t*In%dPP = In%dP = (__Request *) ((pointer_t) In%dP + msgh_size_delta - ",
+			arg->argRequestPos+1, arg->argRequestPos+1, arg->argRequestPos);
     if (IS_OPTIONAL_NATIVE(ptype)) 
-        fprintf(file,
-		"_WALIGNSZ_(%s)",
-		ptype->itUserType);
+        fprintf(file, "_WALIGNSZ_(%s)",	ptype->itUserType);
     else
-        fprintf(file,
-		"%d",
-		ptype->itTypeSize + ptype->itPadSize);
-    fprintf(file,
-	    ");\n\n");
+        fprintf(file, "%d",	ptype->itTypeSize + ptype->itPadSize);
+    fprintf(file, ");\n\n");
 }
 
 static void
-WriteRequestArgs(file, rt)
-    FILE *file;
-    register routine_t *rt;
+WriteCheckRequestTrailerArgs(file, rt)
+	 FILE *file;
+	 routine_t *rt;
 {
     register argument_t *arg;
-    register argument_t *lastVarArg;
 
-    lastVarArg = argNULL;
+    if (rt->rtServerImpl)
+        WriteCheckTrailerHead(file, rt, FALSE);
+
     for (arg = rt->rtArgs; arg != argNULL; arg = arg->argNext) {
-	/*
-	 * Advance message pointer if the last request argument was
-	 * variable-length and the request position will change.
-	 */
-	if (lastVarArg != argNULL &&
-	    lastVarArg->argRequestPos < arg->argRequestPos)
-	{
-	    WriteAdjustRequestMsgPtr(file, lastVarArg);
-	    lastVarArg = argNULL;
-	}
-	/*
-	 * check parameters and advance the pointers
-	 */
-	if (akCheckAll(arg->argKind, akbSendRcv|akbSendBody)) {
-	    if (akCheck(arg->argKind, akbVariable)) {
-	 	WriteCheckMsgSize(file, arg);
-		lastVarArg = arg;
-	    }
-	    continue;
-	}
-	if (akCheckAll(arg->argKind, akbSendRcv|akbSendKPD)) {
-	    /*
-	     * KPDs have argRequestPos 0, therefore they escape the above logic
-	     */
-	    if (arg->argCount != argNULL && lastVarArg) {
-		WriteAdjustRequestMsgPtr(file, lastVarArg);
-		lastVarArg = argNULL;
-	    }
-	    continue;
-	}
 	if (akCheck(arg->argKind, akbServerImplicit)) 
 	    WriteCheckTrailerSize(file, FALSE, arg);
     }
@@ -1282,7 +1387,7 @@ WriteDestroyArg(file, arg)
 	 */
 	argument_t *count = arg->argCount;
 	ipc_type_t *btype = it->itElement;
-	int	multiplier = btype->itSize / (8 * btype->itNumber);
+	int	multiplier = btype->itNumber ? btype->itSize / (8 * btype->itNumber) : 0;
 
         if (IsKernelServer) {
 	    fprintf(file, "#if _MIG_KERNEL_SPECIFIC_CODE_\n");
@@ -1840,7 +1945,7 @@ WriteTCheckKPD_port(file, arg)
       }
     }
     fprintf(file, ")\n");
-    WriteReturnMsgError(file, arg->argRoutine, FALSE, arg, "MIG_TYPE_ERROR");
+	fprintf(file, "\t\treturn MIG_TYPE_ERROR;\n");
     if (close)
 	fprintf(file, "\t    }\n\t}\n");
 }
@@ -1879,8 +1984,7 @@ WriteTCheckKPD_ool(file, arg)
 	fprintf(file, " ||\n\t%s    %ssize != %d", tab, string, 
 	    (howmany * howbig + 7)/8);
     fprintf(file, ")\n");
-    WriteReturnMsgError(file, arg->argRoutine, FALSE, arg, "MIG_TYPE_ERROR");
-
+	fprintf(file, "\t\treturn MIG_TYPE_ERROR;\n");
     if (IS_MULTIPLE_KPD(it))
 	fprintf(file, "\t    }\n\t}\n");
 }
@@ -1923,7 +2027,7 @@ WriteTCheckKPD_oolport(file, arg)
         fprintf(file, " ||\n\t%s    %sdisposition != %s", tab, string,
             howstr);
     fprintf(file, ")\n");
-    WriteReturnMsgError(file, arg->argRoutine, FALSE, arg, "MIG_TYPE_ERROR");
+	fprintf(file, "\t\treturn MIG_TYPE_ERROR;\n");
 
     if (IS_MULTIPLE_KPD(it)) 
 	fprintf(file, "\t    }\n\t}\n");
@@ -2275,6 +2379,131 @@ InitKPD_Disciplines(args)
 	    }   /* end of switch */
 }
 
+
+void
+WriteCheckRequest(file, rt)
+    FILE *file;
+    routine_t *rt;
+{
+	int i;
+
+	/* initialize the disciplines for the handling of KPDs */
+	InitKPD_Disciplines(rt->rtArgs);
+
+    fprintf(file, "\n");
+	fprintf(file, "#if ( TypeCheck || __NDR_convert__ )\n");
+	fprintf(file, "#if __MIG_check__Request__%s_subsystem__\n", SubsystemName);
+	fprintf(file, "#if !defined(__MIG_check__Request__%s_t__defined)\n", rt->rtName);
+	fprintf(file, "#define __MIG_check__Request__%s_t__defined\n", rt->rtName);
+	if (akCheck(rt->rtNdrCode->argKind, akbRequest)) {
+		WriteList(file, rt->rtArgs, WriteRequestNDRConvertIntRepArgDecl,
+				  akbSendNdr, "", "");
+		WriteList(file, rt->rtArgs, WriteRequestNDRConvertCharRepArgDecl,
+				  akbSendNdr, "", "");
+		WriteList(file, rt->rtArgs, WriteRequestNDRConvertFloatRepArgDecl,
+				  akbSendNdr, "", "");
+	}
+	fprintf(file, "\n");
+	fprintf(file, "mig_internal kern_return_t __MIG_check__Request__%s_t(__Request__%s_t *In0P",
+			rt->rtName, rt->rtName);
+	for (i = 1; i <= rt->rtMaxRequestPos; i++)
+		fprintf(file, ", __Request__%s_t **In%dPP", rt->rtName, i);
+	fprintf(file, ")\n{\n");
+
+	fprintf(file, "\n\ttypedef __Request__%s_t __Request;\n", rt->rtName);
+	for (i = 1; i <= rt->rtMaxRequestPos; i++)
+		fprintf(file, "\t__Request *In%dP;\n", i);
+	if (rt->rtNumRequestVar > 0) {
+		fprintf(file, "#if\tTypeCheck\n");
+		fprintf(file, "\tunsigned int msgh_size;\n");
+		fprintf(file, "#endif\t/* TypeCheck */\n");
+	}
+	if (rt->rtMaxRequestPos > 0)
+		fprintf(file, "\tunsigned int msgh_size_delta;\n");
+	if (rt->rtNumRequestVar > 0 || rt->rtMaxRequestPos > 0)
+		fprintf(file, "\n");
+
+    WriteCheckHead(file, rt);
+
+	WriteList(file, rt->rtArgs, WriteTypeCheck, akbSendKPD, "\n", "\n");
+
+	{
+		argument_t *arg, *lastVarArg;
+
+		lastVarArg = argNULL;
+		for (arg = rt->rtArgs; arg != argNULL; arg = arg->argNext) {
+			if (lastVarArg != argNULL &&
+				lastVarArg->argRequestPos < arg->argRequestPos) {
+				WriteAdjustRequestMsgPtr(file, lastVarArg);
+				lastVarArg = argNULL;
+			}
+			if (akCheckAll(arg->argKind, akbSendRcv|akbSendBody)) {
+				if (akCheck(arg->argKind, akbVariable)) {
+					WriteCheckMsgSize(file, arg);
+					lastVarArg = arg;
+				}
+			} 
+		}
+	}
+		    
+	if (akCheck(rt->rtNdrCode->argKind, akbRequest)) {
+		fprintf(file, "#if\t");
+		WriteList(file, rt->rtArgs, WriteRequestNDRConvertIntRepArgCond, akbSendNdr, " || \\\n\t", "\n");
+		fprintf(file, "\tif (In0P->NDR.int_rep != NDR_record.int_rep) {\n");
+		WriteList(file, rt->rtArgs, WriteRequestNDRConvertIntRepArgUse, akbSendNdr, "", "");
+		fprintf(file, "\t}\n#endif\t/* defined(__NDR_convert__int_rep...) */\n\n");
+
+		fprintf(file, "#if\t");
+		WriteList(file, rt->rtArgs, WriteRequestNDRConvertCharRepArgCond, akbSendNdr, " || \\\n\t", "\n");
+		fprintf(file, "\tif (In0P->NDR.char_rep != NDR_record.char_rep) {\n");
+		WriteList(file, rt->rtArgs, WriteRequestNDRConvertCharRepArgUse, akbSendNdr, "", "");
+		fprintf(file, "\t}\n#endif\t/* defined(__NDR_convert__char_rep...) */\n\n");
+
+		fprintf(file, "#if\t");
+		WriteList(file, rt->rtArgs, WriteRequestNDRConvertFloatRepArgCond, akbSendNdr, " || \\\n\t", "\n");
+		fprintf(file, "\tif (In0P->NDR.float_rep != NDR_record.float_rep) {\n");
+		WriteList(file, rt->rtArgs, WriteRequestNDRConvertFloatRepArgUse, akbSendNdr, "", "");
+		fprintf(file, "\t}\n#endif\t/* defined(__NDR_convert__float_rep...) */\n\n");
+    }
+	fprintf(file, "\treturn MACH_MSG_SUCCESS;\n");
+	fprintf(file, "}\n");
+	fprintf(file, "#endif /* !defined(__MIG_check__Request__%s_t__defined) */\n", rt->rtName);
+	fprintf(file, "#endif /* __MIG_check__Request__%s_subsystem__ */\n", SubsystemName);
+	fprintf(file, "#endif /* ( TypeCheck || __NDR_convert__ ) */\n");
+	fprintf(file, "\n");
+}
+
+void
+WriteCheckRequestCall(file, rt)
+     FILE *file;
+     routine_t *rt;
+{
+    int i;
+
+	fprintf(file, "\n");
+    fprintf(file, "#if\tdefined(__MIG_check__Request__%s_t__defined)\n", rt->rtName);
+    fprintf(file, "\tcheck_result = __MIG_check__Request__%s_t((__Request *)In0P", rt->rtName);
+    for (i = 1; i <= rt->rtMaxRequestPos; i++)
+		fprintf(file, ", (__Request **)&In%dP", i);
+    fprintf(file, ");\n");
+	fprintf(file, "\tif (check_result != MACH_MSG_SUCCESS)\n");
+    fprintf(file, "\t\t{ MIG_RETURN_ERROR(OutP, check_result); }\n");
+    fprintf(file, "#endif\t/* defined(__MIG_check__Request__%s_t__defined) */\n", rt->rtName);
+	fprintf(file, "\n");
+}
+
+void
+WriteCheckRequests(file, stats)
+     FILE *file;
+     statement_t *stats;
+{
+    statement_t *stat;
+
+    for (stat = stats; stat != stNULL; stat = stat->stNext)
+        if (stat->stKind == skRoutine)
+			WriteCheckRequest(file, stat->stRoutine);
+}
+
 static void
 WriteRoutine(file, rt)
     FILE *file;
@@ -2283,9 +2512,6 @@ WriteRoutine(file, rt)
     /*  Declare the server work function: */
     if (ServerHeaderFileName == strNULL)
 	WriteServerRoutine(file, rt);
-
-    /* initialize the disciplines for the handling of KPDs */
-    InitKPD_Disciplines(rt->rtArgs);
 
     fprintf(file, "\n");
 
@@ -2306,9 +2532,9 @@ WriteRoutine(file, rt)
     WriteStructDecl(file, rt->rtArgs, WriteFieldDecl, akbRequest, 
 		    "Request", rt->rtSimpleRequest, TRUE, 
 		    rt->rtServerImpl, FALSE);
-    fprintf(file, "\ttypedef __Request__%s_t __Request;\n\n",
+    fprintf(file, "\ttypedef __Request__%s_t __Request;\n",
 	    rt->rtName);
-    fprintf(file, "\ttypedef __Reply__%s_t Reply;\n",
+    fprintf(file, "\ttypedef __Reply__%s_t Reply;\n\n",
 	    rt->rtName);
 
     /*
@@ -2347,13 +2573,8 @@ WriteRoutine(file, rt)
 	WriteRetCArgFinishError(file, rt);
     }
 
-    WriteCheckHead(file, rt);
-    if (rt->rtServerImpl)
-        WriteCheckTrailerHead(file, rt, FALSE);
-
-    WriteList(file, rt->rtArgs, WriteTypeCheck, akbSendKPD, "\n", "\n");
-
-    WriteRequestArgs(file, rt);
+    WriteCheckRequestCall(file, rt);
+    WriteCheckRequestTrailerArgs(file, rt);
 
     /*
      * Initialize the KPD records in the Reply structure with the 
@@ -2430,6 +2651,7 @@ WriteServer(file, stats)
 	switch (stat->stKind)
 	{
 	  case skRoutine:
+	    WriteCheckRequest(file, stat->stRoutine);
 	    WriteRoutine(file, stat->stRoutine);
 	    break;
           case skIImport:

@@ -34,10 +34,10 @@
 #include "MDSSession.h"
 
 /* log parsing events */
-#define MPDebug(args...)	debug("MDS_Parse", ## args)
+#define MPDebug(args...)	secdebug("MDS_Parse", ## args)
 
 /* log scanning events */
-#define MSDebug(args...)	debug("MDS_Scan", ## args)
+#define MSDebug(args...)	secdebug("MDS_Scan", ## args)
 
 /*
  * I can't believe that CFRelease does not do this...

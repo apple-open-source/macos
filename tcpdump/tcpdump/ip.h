@@ -1,4 +1,4 @@
-/* @(#) $Header: /cvs/Darwin/src/live/tcpdump/tcpdump/ip.h,v 1.1.1.1 2001/07/07 00:50:53 bbraun Exp $ (LBL) */
+/* @(#) $Header: /cvs/root/tcpdump/tcpdump/ip.h,v 1.1.1.2 2003/03/17 18:42:16 rbraun Exp $ (LBL) */
 /*
  * Copyright (c) 1982, 1986, 1993
  *	The Regents of the University of California.  All rights reserved.
@@ -157,3 +157,6 @@ struct	ip_timestamp {
 #define	IPTTLDEC	1		/* subtracted when forwarding */
 
 #define	IP_MSS		576		/* default maximum segment size */
+
+/* in print-ip.c */
+extern u_int32_t ip_finddst(const struct ip *);

@@ -1,0 +1,117 @@
+<HTML>
+<HEAD>
+<!-- This HTML file has been created by texi2html 1.51
+     from .././gimpprint.texi on 22 January 2003 -->
+
+<TITLE>GIMP-Print - Canon inkjet printers</TITLE>
+</HEAD>
+<BODY>
+Go to the <A HREF="gimpprint_1.html">first</A>, <A HREF="gimpprint_43.html">previous</A>, <A HREF="gimpprint_45.html">next</A>, <A HREF="gimpprint_47.html">last</A> section, <A HREF="gimpprint_toc.html">table of contents</A>.
+<P><HR><P>
+
+
+<H2><A NAME="SEC59" HREF="gimpprint_toc.html#TOC59">D.5  Canon inkjet printers</A></H2>
+
+<P>
+Basically, a new Canon printer can be added to <TT>`print-canon.c'</TT> in a
+similar way as described above for the epson inkjet printers. The main
+differences are noted here:
+
+</P>
+<P>
+In general, Canon printers have more "built-in intelligence" than Epson
+printers which results in the fact that the driver only has to tell the
+printing conditions like resolutions, dot sizes, etc. to the printer and
+afterwards transfer the raster data line by line for each color used.
+
+</P>
+<P>
+<CODE>canon_cap_t</CODE> is a C struct defined as follows:
+
+</P>
+<P>
+<DL>
+<DT><U>Data type:</U>  <B>canon_cap_t</B>
+<DD><A NAME="IDX267"></A>
+
+<PRE>
+typedef struct canon_caps {
+  int model;          /* model number as used in printers.xml */
+  int max_width;      /* maximum printable paper size */
+  int max_height;
+  int base_res;       /* base resolution - shall be 150 or 180 */
+  int max_xdpi;       /* maximum horizontal resolution */
+  int max_ydpi;       /* maximum vertical resolution */
+  int max_quality;
+  int border_left;    /* left margin, points */
+  int border_right;   /* right margin, points */
+  int border_top;     /* absolute top margin, points */
+  int border_bottom;  /* absolute bottom margin, points */
+  int inks;           /* installable cartridges (CANON_INK_*) */
+  int slots;          /* available paperslots */
+  int features;       /* special bjl settings */
+  canon_dot_size_t dot_sizes;	/* Vector of dot sizes for resolutions */
+  canon_densities_t densities;	/* List of densities for each printer */
+  canon_variable_inklist_t *inxs; /* Choices of inks for this printer */
+} canon_cap_t;
+</PRE>
+
+</DL>
+
+<P>
+Since there are Canon printers which print in resolutions of
+@math{2^n*150} dpi (e.g. 300, 600, 1200) and others which support
+resolutions of @math{2^n*180} dpi (e.g. 360, 720, 1440), there's a base
+resolution (150 or 180, respectively) given in the
+<CODE>canon_cap_t</CODE>. The structs <CODE>canon_dot_size_t</CODE>,
+<CODE>canon_densities_t</CODE> and <CODE>canon_variable_inklist_t</CODE> refer to
+resolutions being multiples of the base resolution.
+
+</P>
+<P>
+For the Canon driver, the struct <CODE>canon_dot_size_t</CODE> holds values
+for a model's capabilities at a given resolution: <SAMP>`-1'</SAMP> if the
+resolution is not supported.  <SAMP>`0'</SAMP> if it can be used and <SAMP>`1'</SAMP> if
+the resolution can be used for variable dot size printing.
+
+</P>
+<P>
+In <CODE>canon_densities_t</CODE> the base densities for each resolution can
+be specified like for an epson printer, the same holds true for
+<CODE>canon_variable_inklist_t</CODE>.  See the descriptions above to learn
+about how to adjust your model's output to yield nice results.
+
+</P>
+<P>
+There's a slight difference though in the way the Canon driver and the escp2
+driver define their variable inklists: In the Canon driver, you need to define
+an inklist like this:
+
+</P>
+
+<PRE>
+static const canon_variable_inklist_t canon_ink_myinks[] =
+{
+  {
+    1,4, /* 1bit/pixel, 4 colors */
+    &#38;ci_CMYK_1, &#38;ci_CMYK_1, &#38;ci_CMYK_1,
+    &#38;ci_CMYK_1, &#38;ci_CMYK_1, &#38;ci_CMYK_1,
+  },
+  {
+    3,4, /* 3bit/pixel, 4 colors */
+    &#38;ci_CMYK_3, &#38;ci_CMYK_3, &#38;ci_CMYK_3,
+    &#38;ci_CMYK_3, &#38;ci_CMYK_3, &#38;ci_CMYK_3,
+  },
+};
+</PRE>
+
+<P>
+where the <SAMP>`&#38;ci_CMYK_1'</SAMP> and <SAMP>`&#38;ci_CMYK_3'</SAMP> entries are references
+to a previously defined const of type <CODE>canon_variable_inkset_t</CODE>.
+
+</P>
+
+<P><HR><P>
+Go to the <A HREF="gimpprint_1.html">first</A>, <A HREF="gimpprint_43.html">previous</A>, <A HREF="gimpprint_45.html">next</A>, <A HREF="gimpprint_47.html">last</A> section, <A HREF="gimpprint_toc.html">table of contents</A>.
+</BODY>
+</HTML>

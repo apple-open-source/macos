@@ -1,4 +1,4 @@
-/* $Header: /cvs/Darwin/src/live/tcsh/tcsh/sh.time.c,v 1.1.1.2 2001/06/28 23:10:52 bbraun Exp $ */
+/* $Header: /cvs/root/tcsh/tcsh/sh.time.c,v 1.1.1.3 2003/01/17 03:41:16 nicolai Exp $ */
 /*
  * sh.time.c: Shell time keeping and printing.
  */
@@ -14,11 +14,7 @@
  * 2. Redistributions in binary	form must reproduce the	above copyright
  *    notice, this list	of conditions and the following	disclaimer in the
  *    documentation and/or other materials provided with the distribution.
- * 3. All advertising materials	mentioning features or use of this software
- *    must display the following acknowledgement:
- *	This product includes software developed by the	University of
- *	California, Berkeley and its contributors.
- * 4. Neither the name of the University nor the names of its contributors
+ * 3. Neither the name of the University nor the names of its contributors
  *    may be used to endorse or	promote	products derived from this software
  *    without specific prior written permission.
  *
@@ -36,7 +32,7 @@
  */
 #include "sh.h"
 
-RCSID("$Id: sh.time.c,v 1.1.1.2 2001/06/28 23:10:52 bbraun Exp $")
+RCSID("$Id: sh.time.c,v 1.1.1.3 2003/01/17 03:41:16 nicolai Exp $")
 
 #ifdef SUNOS4
 # include <machine/param.h>
@@ -177,7 +173,8 @@ donice(v, c)
     else if (*v	== 0 &&	any("+-", cp[0]))
 	nval = getn(cp);
 #ifdef BSDNICE
-    (void) setpriority(PRIO_PROCESS, 0,	nval);
+    if (setpriority(PRIO_PROCESS, 0, nval) == -1 && errno)
+	stderror(ERR_SYSTEM, "setpriority", strerror(errno));
 #else /* BSDNICE */
     (void) nice(nval);
 #endif /* BSDNICE */
@@ -397,7 +394,7 @@ prusage(bs, es,	e, b)
     xprintf("t %lu\n", t);
 #endif /* TDEBUG */
 
-    if (vp && vp->vec[0] && vp->vec[1])
+    if (vp && vp->vec && vp->vec[0] && vp->vec[1])
 	cp = short2str(vp->vec[1]);
     for	(; *cp;	cp++)
 	if (*cp	!= '%')

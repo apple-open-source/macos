@@ -16,7 +16,7 @@
 ## (e.g. change -O to -O2), see Makefile.postamble.
 
 # Flags passed to compiler (in addition to -g, -O, etc)
-OTHER_CFLAGS = 
+OTHER_CFLAGS = -D_PW_NAME_LEN=MAXLOGNAME -D_PW_YPTOKEN=\"__YP!\"
 # Flags passed to ld (in addition to -ObjC, etc.)
 OTHER_LDFLAGS =	
 
@@ -110,4 +110,6 @@ OTHER_HELP_DIRS =
 # To include a version string, project source must exist in a directory named
 # $(NAME).%d[.%d][.%d] and the following line must be uncommented.
 OTHER_GENERATED_OFILES = $(VERS_OFILE)
+
+AFTER_INSTALL += install-man-page
 

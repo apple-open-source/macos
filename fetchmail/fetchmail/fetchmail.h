@@ -451,7 +451,7 @@ extern struct msgblk msgblk;
 
 /* lock.c: concurrency locking */
 void lock_setup(void), lock_assert(void);
-void lock_or_die(void), lock_release(void);
+void lock_or_die(void), lock_do_release(void);
 int lock_state(void);
 void lock_dispose(void);
 

@@ -29,8 +29,12 @@
  */
 
 #include <IOKit/IOSyncer.h>
-#include <IOKit/scsi/IOSCSIParallelInterface.h>
 #include <libkern/OSAtomic.h>
+
+#include "IOSCSIParallelCommand.h"
+#include "SCSIPublic.h"
+#include "IOSCSIParallelDevice.h"
+#include "IOSCSIParallelController.h"
 
 #undef super
 #define super IOSCSICommand

@@ -146,9 +146,11 @@ void HTMLAnchorElementImpl::defaultEventHandler(EventImpl *evt)
                 state |= Qt::ControlButton;
 	    }
 
-            getDocument()->view()->resetCursor();
-            getDocument()->view()->part()->
-                urlSelected( url, button, state, utarget );
+            if (getDocument() && getDocument()->view()) {
+                getDocument()->view()->resetCursor();
+                getDocument()->view()->part()->
+                    urlSelected( url, button, state, utarget );
+            }
         }
         evt->setDefaultHandled();
     }
@@ -306,7 +308,7 @@ void HTMLFontElementImpl::parseAttribute(AttributeImpl *attr)
             case 6: size = CSS_VAL_XX_LARGE; break;
             default:
                 if (num > 6)
-                    size = CSS_VAL__KONQ_XXX_LARGE;
+                    size = CSS_VAL__KHTML_XXX_LARGE;
                 else
                     size = CSS_VAL_X_SMALL;
             }

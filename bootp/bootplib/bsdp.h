@@ -128,6 +128,7 @@ bsdp_image_attributes_from_kind(bsdp_image_kind_t kind)
 }
 
 typedef enum {
+    /* protocol-specific */
     bsdptag_message_type_e 		= 1,
     bsdptag_version_e 			= 2,
     bsdptag_server_identifier_e		= 3,
@@ -139,10 +140,54 @@ typedef enum {
     bsdptag_boot_image_list_e		= 9,
     bsdptag_netboot_1_0_firmware_e	= 10,
 
-    /* bounds */
+    /* protocol-specific bounds */
     bsdptag_first_e			= 1,
     bsdptag_last_e			= 10,
+
+    /* image-specific */
+    bsdptag_shadow_mount_path_e		= 128,	/* string (URL) */
+    bsdptag_shadow_file_path_e		= 129,	/* string (URL) */
+    bsdptag_machine_name_e		= 130,  /* string */
 } bsdptag_t;
+
+static __inline__ dhcptype_t
+bsdptag_type(bsdptag_t tag)
+{
+    dhcptype_t type = dhcptype_none_e;
+
+    switch (tag) {
+    case bsdptag_message_type_e:
+	type = dhcptype_uint8_e;
+	break;
+    case bsdptag_server_identifier_e:
+	type = dhcptype_ip_e;
+	break;
+    case bsdptag_version_e:
+    case bsdptag_server_priority_e:
+    case bsdptag_reply_port_e:
+	type = dhcptype_uint16_e;
+	break;
+    case bsdptag_machine_name_e:
+    case bsdptag_boot_image_list_path_e:
+    case bsdptag_shadow_file_path_e:
+    case bsdptag_shadow_mount_path_e:
+	type = dhcptype_string_e;
+	break;
+    case bsdptag_default_boot_image_e:
+    case bsdptag_selected_boot_image_e:
+	type = dhcptype_uint32_e;
+	break;
+    case bsdptag_boot_image_list_e:
+	type = dhcptype_opaque_e;
+	break;
+    case bsdptag_netboot_1_0_firmware_e:
+	type = dhcptype_none_e;
+	break;
+    default:
+	break;
+    }
+    return (type);
+}
 
 static __inline__ const char *
 bsdptag_name(bsdptag_t tag)
@@ -160,8 +205,19 @@ bsdptag_name(bsdptag_t tag)
 	"boot image list",		/* 9 */
 	"netboot 1.0 firmware",		/* 10 */
     };
-    if (tag >= bsdptag_first_e && tag <= bsdptag_last_e)
+    if (tag >= bsdptag_first_e && tag <= bsdptag_last_e) {
 	return (names[tag]);
+    }
+    switch (tag) {
+    case bsdptag_shadow_mount_path_e:
+	return "shadow mount path";
+    case bsdptag_shadow_file_path_e:
+	return "shadow file path";
+    case bsdptag_machine_name_e:
+	return "machine name";
+    default:
+	break;
+    }
     return ("<unknown>");
 }
 

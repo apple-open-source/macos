@@ -22,6 +22,7 @@ dup2
 execve
 _exit
 fcntl
+fhopen
 flock
 fork
 fsync
@@ -72,6 +73,7 @@ unmount
 mprotect
 msync
 munmap
+nfsclnt
 nfssvc
 open
 pathconf

@@ -1,22 +1,25 @@
 /*
- * Copyright (c) 2000-2002 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 2000-2003 Apple Computer, Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
- *
- * The contents of this file constitute Original Code as defined in and
- * are subject to the Apple Public Source License Version 1.1 (the
- * "License").  You may not use this file except in compliance with the
- * License.  Please obtain a copy of the License at
- * http://www.apple.com/publicsource and read it before using this file.
- *
- * This Original Code and all software distributed under the License are
- * distributed on an "AS IS" basis, WITHOUT WARRANTY OF ANY KIND, EITHER
+ * 
+ * Copyright (c) 1999-2003 Apple Computer, Inc.  All Rights Reserved.
+ * 
+ * This file contains Original Code and/or Modifications of Original Code
+ * as defined in and that are subject to the Apple Public Source License
+ * Version 2.0 (the 'License'). You may not use this file except in
+ * compliance with the License. Please obtain a copy of the License at
+ * http://www.opensource.apple.com/apsl/ and read it before using this
+ * file.
+ * 
+ * The Original Code and all software distributed under the License are
+ * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
  * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
  * INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY,
- * FITNESS FOR A PARTICULAR PURPOSE OR NON-INFRINGEMENT.  Please see the
- * License for the specific language governing rights and limitations
- * under the License.
- *
+ * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
+ * Please see the License for the specific language governing rights and
+ * limitations under the License.
+ * 
  * @APPLE_LICENSE_HEADER_END@
  */
 
@@ -33,8 +36,9 @@
 #include "configd.h"
 #include "session.h"
 
+__private_extern__
 int
-__SCDynamicStoreRemoveValue(SCDynamicStoreRef store, CFStringRef key)
+__SCDynamicStoreRemoveValue(SCDynamicStoreRef store, CFStringRef key, Boolean internal)
 {
 	SCDynamicStorePrivateRef	storePrivate = (SCDynamicStorePrivateRef)store;
 	int				sc_status = kSCStatusOK;
@@ -42,11 +46,21 @@ __SCDynamicStoreRemoveValue(SCDynamicStoreRef store, CFStringRef key)
 	CFMutableDictionaryRef		newDict;
 	CFStringRef			sessionKey;
 
-	SCLog(_configd_verbose, LOG_DEBUG, CFSTR("__SCDynamicStoreRemoveValue:"));
-	SCLog(_configd_verbose, LOG_DEBUG, CFSTR("  key      = %@"), key);
+	if (_configd_verbose) {
+		SCLog(TRUE, LOG_DEBUG, CFSTR("__SCDynamicStoreRemoveValue:"));
+		SCLog(TRUE, LOG_DEBUG, CFSTR("  key      = %@"), key);
+	}
 
 	if (!store || (storePrivate->server == MACH_PORT_NULL)) {
 		return kSCStatusNoStoreSession;	/* you must have an open session to play */
+	}
+
+	if (_configd_trace) {
+		SCTrace(TRUE, _configd_trace,
+			CFSTR("%s : %5d : %@\n"),
+			internal ? "*remove" : "remove ",
+			storePrivate->server,
+			key);
 	}
 
 	/*
@@ -99,11 +113,9 @@ __SCDynamicStoreRemoveValue(SCDynamicStoreRef store, CFStringRef key)
 	}
 
 	/*
-	 * 6. Remove data, remove instance, and update/remove
-	 *    the dictionary store entry.
+	 * 6. Remove data and update/remove the dictionary store entry.
 	 */
 	CFDictionaryRemoveValue(newDict, kSCDData);
-	CFDictionaryRemoveValue(newDict, kSCDInstance);
 	if (CFDictionaryGetCount(newDict) > 0) {
 		/* this key is still being "watched" */
 		CFDictionarySetValue(storeData, key, newDict);
@@ -123,6 +135,7 @@ __SCDynamicStoreRemoveValue(SCDynamicStoreRef store, CFStringRef key)
 }
 
 
+__private_extern__
 kern_return_t
 _configremove(mach_port_t		server,
 	      xmlData_t			keyRef,		/* raw XML bytes */
@@ -133,22 +146,30 @@ _configremove(mach_port_t		server,
 	serverSessionRef	mySession = getSession(server);
 	CFStringRef		key;		/* key  (un-serialized) */
 
-	SCLog(_configd_verbose, LOG_DEBUG, CFSTR("Remove key from configuration database."));
-	SCLog(_configd_verbose, LOG_DEBUG, CFSTR("  server = %d"), server);
+	if (_configd_verbose) {
+		SCLog(TRUE, LOG_DEBUG, CFSTR("Remove key from configuration database."));
+		SCLog(TRUE, LOG_DEBUG, CFSTR("  server = %d"), server);
+	}
 
 	/* un-serialize the key */
-	if (!_SCUnserialize((CFPropertyListRef *)&key, (void *)keyRef, keyLen)) {
+	if (!_SCUnserializeString(&key, NULL, (void *)keyRef, keyLen)) {
 		*sc_status = kSCStatusFailed;
 		return KERN_SUCCESS;
 	}
 
 	if (!isA_CFString(key)) {
-		CFRelease(key);
 		*sc_status = kSCStatusInvalidArgument;
+		CFRelease(key);
 		return KERN_SUCCESS;
 	}
 
-	*sc_status = __SCDynamicStoreRemoveValue(mySession->store, key);
+	if (!mySession) {
+		*sc_status = kSCStatusNoStoreSession;	/* you must have an open session to play */
+		CFRelease(key);
+		return KERN_SUCCESS;
+	}
+
+	*sc_status = __SCDynamicStoreRemoveValue(mySession->store, key, FALSE);
 	CFRelease(key);
 
 	return KERN_SUCCESS;

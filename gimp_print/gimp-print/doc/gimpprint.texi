@@ -1,0 +1,130 @@
+\input texinfo @c -*-texinfo-*-
+@c %**start of header
+@c $Id: gimpprint.texi,v 1.1.1.1 2003/01/27 19:05:31 jlovell Exp $
+@setfilename gimpprint.info
+@settitle GIMP-Print
+@finalout
+@c @exampleindent 0
+@c For double-sided printing, uncomment:
+@c @setchapternewpage odd
+@c %**end of header
+
+@c Combine several related indices
+@syncodeindex pg cp
+@syncodeindex tp vr
+
+@c Include version numbers
+@include version.texi
+
+@c Macro definitions
+@set BUGADDR @email{gimp-print-devel@@lists.sourceforge.net}
+@set MAILLIST @email{gimp-print-devel@@lists.sourceforge.net}
+
+@dircategory Libraries
+@direntry
+* GIMP-Print: (gimpprint).      print plugin for the GIMP, and printing library
+@end direntry
+
+@ifinfo
+This file documents the gimpprint library and associated programs
+used for high quality printing.
+
+Copyright (C) 2001 Michael Sweet (@email{mike@@easysw.com}) and Robert
+Krawitz (@email{rlk@@alum.mit.edu})
+
+Permission is granted to make and distribute verbatim copies of
+this manual provided the copyright notice and this permission notice
+are preserved on all copies.
+
+@ignore
+Permission is granted to process this file through TeX and print the
+results, provided the printed document carries copying permission
+notice identical to this one except for the removal of this paragraph
+(this paragraph not being relevant to the printed manual).
+
+@end ignore
+Permission is granted to copy and distribute modified versions of this
+manual under the conditions for verbatim copying, provided that the entire
+resulting derived work is distributed under the terms of a permission
+notice identical to this one.
+
+Permission is granted to copy and distribute translations of this manual
+into another language, under the above conditions for modified versions,
+except that this permission notice may be stated in a translation approved
+by the Foundation.
+@end ifinfo
+
+@titlepage
+@title GIMP-Print
+@subtitle The print plugin for the GIMP
+@subtitle Version @value{VERSION}, @value{UPDATED}
+@author The GIMP-Print Project
+
+@page
+@vskip 0pt plus 1filll
+Copyright @copyright{} 2001  Michael Sweet
+(@email{mike@@easysw.com}) and Robert Krawitz (@email{rlk@@alum.mit.edu})
+
+Permission is granted to make and distribute verbatim copies of
+this manual provided the copyright notice and this permission notice
+are preserved on all copies.
+
+Permission is granted to copy and distribute modified versions of this
+manual under the conditions for verbatim copying, provided that the entire
+resulting derived work is distributed under the terms of a permission
+notice identical to this one.
+
+Permission is granted to copy and distribute translations of this manual
+into another language, under the above conditions for modified versions,
+except that this permission notice may be stated in a translation approved
+by the Free Software Foundation.
+@end titlepage
+
+
+@c Print tables of contents
+@shortcontents
+@contents
+
+@ifnottex
+@c All the nodes can be updated using the EMACS command
+@c texinfo-every-node-update, which is normally bound to C-c C-u C-e.
+@node Top,  , (dir), (dir)
+@comment  node-name,  next,  previous,  up
+@top The print plugin for the GIMP and printing library
+
+This file documents the libgimpprint library and associated programs used
+for high quality printing. This edition documents version @value{VERSION}.
+
+@xref{Problems}, for information on how to report problems with
+GIMP-Print.
+@end ifnottex
+
+@c All the menus can be updated with the EMACS command
+@c texinfo-all-menus-update, which is normally bound to C-c C-u C-a.
+@menu
+* Instructions::                How to read this manual.
+* Copying::                     Your rights.
+* Overview::                    Preliminary information.
+* Using libgimpprint::          Examples of how to use libgimpprint.
+* Integrating libgimpprint::    Using libgimpprint in your own packages.
+* Functions::                   libgimpprint function reference.
+* Programs::                    Using GIMP-Print programs.
+* Problems::                    Reporting bugs.
+* Appendices::                  Additional information.
+* Data Type and Variable Index::  Index of data types and variables.
+* Function and Macro Index::    Index of functions and macros.
+* Concept Index::               Index of concepts.
+@end menu
+
+@include introduction.texi
+@include copying.texi
+@include overview.texi
+@include using.texi
+@include integrating.texi
+@include functions.texi
+@include programs.texi
+@include problems.texi
+@include appendices.texi
+@include indices.texi
+
+@bye

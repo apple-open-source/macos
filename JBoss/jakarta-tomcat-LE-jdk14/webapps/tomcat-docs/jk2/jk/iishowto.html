@@ -1,0 +1,1257 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01//EN" "http://www.w3.org/TR/html4/strict.dtd">
+<html xmlns="http://www.w3.org/TR/xhtml1/strict">
+<head>
+<title>IIS HowTo</title>
+<meta content="1999-2002 The Apache Software Foundation" name="copyright"/>
+<meta content="$Date$" name="last-changed"/>
+<meta content="Henri Gomez" name="author"/>
+<meta content="hgomez@apache.org" name="email"/>
+<meta content="Gal Shachor" name="author"/>
+<meta content="shachor@il.ibm.com" name="email"/>
+<link href="..//style.css" type="text/css" rel="stylesheet"/>
+<link href="../images/tomcat.ico" rel="shortcut icon"/>
+</head>
+<body link="#525D76" vlink="#525D76" alink="#525D76" text="#000000" bgcolor="#ffffff">
+<a name="TOP"/>
+<table width="100%" cellpadding="0" cellspacing="0" border="0">
+<tr height="1">
+<td class="nil" height="1" bgcolor="#ffffff" width="150">
+<img hspace="0" vspace="0" height="1" width="150" border="0" src="../images/pixel.gif"/>
+</td>
+<td class="nil" height="1" bgcolor="#ffffff" width="*">
+<img hspace="0" vspace="0" height="1" width="370" border="0" src="../images/pixel.gif"/>
+</td>
+</tr>
+<tr>
+<td width="*" colspan="2" class="logo" bgcolor="#ffffff">
+<table width="100%" cellpadding="0" cellspacing="0" border="0">
+<tr>
+<td align="left">
+<img align="left" height="48" width="505" border="0" src="../images/jakarta.gif"/>
+</td>
+<td align="right">
+<img align="right" border="0" src="../images/mod_jk.jpg"/>
+</td>
+</tr>
+</table>
+</td>
+</tr>
+<tr>
+<td colspan="2" width="*" align="right" class="head" bgcolor="#999999">
+<nobr>
+<a href="http://www.apache.org/" class="head">Apache Software Foundation</a> |
+                <a href="http://jakarta.apache.org/" class="head">Jakarta Project</a> |
+                <a href="http://jakarta.apache.org/tomcat/" class="head">Apache Tomcat</a>
+</nobr>
+</td>
+</tr>
+<tr>
+<td valign="top" width="150" bgcolor="#ffffff">
+<table class="menu" cellpadding="0" cellspacing="0" width="150" border="0">
+<tr height="1">
+<td class="nil" height="1" bgcolor="#cccccc" width="10">
+<img hspace="0" vspace="0" height="1" width="10" border="0" src="../images/pixel.gif"/>
+</td>
+<td class="nil" height="1" bgcolor="#cccccc" width="140">
+<img hspace="0" vspace="0" height="1" width="140" border="0" src="../images/pixel.gif"/>
+</td>
+</tr>
+<tr height="6">
+<td colspan="2" width="150" bgcolor="#d0d0d0">Presentation</td>
+</tr>
+<tr>
+<td colspan="2" width="150" bgcolor="#cccccc">
+<nobr>
+<a class="menu" href="../index.html">Overview</a>
+</nobr>
+</td>
+</tr>
+<tr height="2"/>
+<tr height="6"/>
+<tr height="6">
+<td colspan="2" width="150" bgcolor="#d0d0d0">Commons</td>
+</tr>
+<tr>
+<td colspan="2" width="150" bgcolor="#cccccc">
+<nobr>
+<a class="menu" href="../common/AJPv13.html">AJPv13</a>
+</nobr>
+</td>
+</tr>
+<tr height="2"/>
+<tr>
+<td colspan="2" width="150" bgcolor="#cccccc">
+<nobr>
+<a class="menu" href="../common/AJPv13-extensions-proposal.html">AJPv13 extensions Proposal</a>
+</nobr>
+</td>
+</tr>
+<tr height="2"/>
+<tr>
+<td colspan="2" width="150" bgcolor="#cccccc">
+<nobr>
+<a class="menu" href="../faq.html">FAQ</a>
+</nobr>
+</td>
+</tr>
+<tr height="2"/>
+<tr height="6"/>
+<tr height="6">
+<td colspan="2" width="150" bgcolor="#d0d0d0">JK</td>
+</tr>
+<tr>
+<td colspan="2" width="150" bgcolor="#cccccc">
+<nobr>
+<a class="menu" href="../jk/quickhowto.html">Quick Start HowTo</a>
+</nobr>
+</td>
+</tr>
+<tr height="2"/>
+<tr>
+<td colspan="2" width="150" bgcolor="#cccccc">
+<nobr>
+<a class="menu" href="../jk/aphowto.html">Apache HowTo</a>
+</nobr>
+</td>
+</tr>
+<tr height="2"/>
+<tr>
+<td colspan="2" width="150" bgcolor="#cccccc">
+<nobr>
+<a class="menu" href="../jk/domhowto.html">Domino HowTo</a>
+</nobr>
+</td>
+</tr>
+<tr height="2"/>
+<tr>
+<td colspan="2" width="150" bgcolor="#cccccc">
+<nobr>
+<a class="menu" href="../jk/iishowto.html">IIS HowTo</a>
+</nobr>
+</td>
+</tr>
+<tr height="2"/>
+<tr>
+<td width="10" bgcolor="#cccccc"/>
+<td width="140" bgcolor="#cccccc">
+<a href="#Introduction" class="menu">Introduction</a>
+</td>
+</tr>
+<tr height="1"/>
+<tr>
+<td width="10" bgcolor="#cccccc"/>
+<td width="140" bgcolor="#cccccc">
+<a href="#Installation" class="menu">Installation</a>
+</td>
+</tr>
+<tr height="1"/>
+<tr>
+<td width="10" bgcolor="#cccccc"/>
+<td width="140" bgcolor="#cccccc">
+<a href="#Configuring the ISAPI Redirector" class="menu">Configuring the ISAPI Redirector</a>
+</td>
+</tr>
+<tr height="1"/>
+<tr>
+<td width="10" bgcolor="#cccccc"/>
+<td width="140" bgcolor="#cccccc">
+<a href="#Building ISAPI redirector" class="menu">Building ISAPI redirector</a>
+</td>
+</tr>
+<tr height="1"/>
+<tr>
+<td width="10" bgcolor="#cccccc"/>
+<td width="140" bgcolor="#cccccc">
+<a href="#Troubleshooting" class="menu">Troubleshooting</a>
+</td>
+</tr>
+<tr height="1"/>
+<tr>
+<td colspan="2" width="150" bgcolor="#cccccc">
+<nobr>
+<a class="menu" href="../jk/neshowto.html">Netscape/iPlanet HowTo</a>
+</nobr>
+</td>
+</tr>
+<tr height="2"/>
+<tr>
+<td colspan="2" width="150" bgcolor="#cccccc">
+<nobr>
+<a class="menu" href="../jk/workershowto.html">Workers HowTo</a>
+</nobr>
+</td>
+</tr>
+<tr height="2"/>
+<tr height="6"/>
+<tr height="6">
+<td colspan="2" width="150" bgcolor="#d0d0d0">JK2</td>
+</tr>
+<tr height="6"/>
+<tr height="6">
+<td colspan="2" width="150" bgcolor="#d0d0d0">Configuration in the Tomcat</td>
+</tr>
+<tr>
+<td colspan="2" width="150" bgcolor="#cccccc">
+<nobr>
+<a class="menu" href="../jk2/configtc.html">Configuration options</a>
+</nobr>
+</td>
+</tr>
+<tr height="2"/>
+<tr>
+<td colspan="2" width="150" bgcolor="#cccccc">
+<nobr>
+<a class="menu" href="../jk2/configtcex.html">Examples</a>
+</nobr>
+</td>
+</tr>
+<tr height="2"/>
+<tr height="6"/>
+<tr height="6">
+<td colspan="2" width="150" bgcolor="#d0d0d0">Configuration in the Web Server</td>
+</tr>
+<tr>
+<td colspan="2" width="150" bgcolor="#cccccc">
+<nobr>
+<a class="menu" href="../jk2/configweb.html">Configuration file</a>
+</nobr>
+</td>
+</tr>
+<tr height="2"/>
+<tr>
+<td colspan="2" width="150" bgcolor="#cccccc">
+<nobr>
+<a class="menu" href="../jk2/configwebcom.html">Components</a>
+</nobr>
+</td>
+</tr>
+<tr height="2"/>
+<tr>
+<td colspan="2" width="150" bgcolor="#cccccc">
+<nobr>
+<a class="menu" href="../jk2/configwebex.html">Examples</a>
+</nobr>
+</td>
+</tr>
+<tr height="2"/>
+<tr height="6"/>
+<tr height="6">
+<td colspan="2" width="150" bgcolor="#d0d0d0">Installation</td>
+</tr>
+<tr>
+<td colspan="2" width="150" bgcolor="#cccccc">
+<nobr>
+<a class="menu" href="../jk2/installhowto.html">Installation of jk2 in the Web Server</a>
+</nobr>
+</td>
+</tr>
+<tr height="2"/>
+<tr height="6"/>
+<tr height="6">
+<td colspan="2" width="150" bgcolor="#d0d0d0">Howto</td>
+</tr>
+<tr>
+<td colspan="2" width="150" bgcolor="#cccccc">
+<nobr>
+<a class="menu" href="../jk2/confighowto.html">Quick Start JK2 Configuration Guide</a>
+</nobr>
+</td>
+</tr>
+<tr height="2"/>
+<tr height="6"/>
+</table>
+</td>
+<td class="body" valign="top" width="*" bgcolor="#ffffff">
+<a name="Introduction">
+<table width="100%" cellpadding="0" cellspacing="0" border="0">
+<tr>
+<td align="left" valign="top" class="section" bgcolor="#525D76">
+<img border="0" vspace="0" hspace="0" align="left" valign="top" src="../images/corner.gif"/>Introduction</td>
+</tr>
+</table>
+</a>
+<p class="section">
+This document explains how to set up IIS to cooperate with Tomcat. 
+</p>
+<p class="section">
+Normally IIS can not execute Servlets and Java Server Pages (JSPs), 
+configuring IIS to use the JK ISAPI redirector plugin will let IIS send servlet and 
+JSP requests to Tomcat (and this way, serve them to clients).
+</p>
+<p class="section">
+It is recommanded that you also read the <b>
+<a href="../jk/workershowto.html">Workers HowTo</a>
+</b> document
+to learn how to setup the working entities between your WebServer and Tomcat Engines.
+</p>
+<a name="sub_Document Conventions and Assumptions">
+<table width="100%" cellpadding="0" cellspacing="0" border="0">
+<tr>
+<td align="left" valign="top" class="subsection" bgcolor="#828DA6">
+<img border="0" vspace="0" hspace="0" align="left" valign="top" src="../images/corner.gif"/>Document Conventions and Assumptions</td>
+</tr>
+</table>
+</a>
+<p class="section">
+${tomcat_home} is the root directory of tomcat. 
+Your Tomcat installation should have the following subdirectories:
+
+<ul>
+<li>
+${tomcat_home}\conf - Where you can place various configuration files
+</li>
+<li>
+${tomcat_home}\webapps - Containing example applications
+</li>
+<li>
+${tomcat_home}\bin - Where you place web server plugins
+</li>
+</ul>
+</p>
+<p class="section">
+In all the examples in this document ${tomcat_home} will be <b>
+<font color="#333333">c:\jakarta-tomcat</font>
+</b>.
+A worker is defined to be a tomcat process that accepts work from the IIS server.
+</p>
+<br/>
+<a name="sub_Supported Configuration">
+<table width="100%" cellpadding="0" cellspacing="0" border="0">
+<tr>
+<td align="left" valign="top" class="subsection" bgcolor="#828DA6">
+<img border="0" vspace="0" hspace="0" align="left" valign="top" src="../images/corner.gif"/>Supported Configuration</td>
+</tr>
+</table>
+</a>
+<p class="section">
+The IIS-Tomcat redirector was developed and tested on:
+<ul>
+<li>
+WinNT4.0-i386 SP4/SP5/SP6a (should be able to work with other service packs), Win2K and WinXP and Win98
+</li>
+<li>
+IIS4.0 and PWS4.0
+</li>
+<li>
+Tomcat 3.2.x, Tomcat 3.3.x, Tomcat 4.0.x, Tomcat 4.1.x and Tomcat 5
+</li>
+</ul>
+</p>
+<p class="section">
+The redirector uses <b>
+<font color="#333333">ajp12</font>
+</b> and <b>
+<font color="#333333">ajp13</font>
+</b> to send requests to the Tomcat containers. There is also an option to use Tomcat in process, 
+more about the in-process mode can be found in the in process howto.
+</p>
+<br/>
+<a name="sub_Who support ajp protocols ?">
+<table width="100%" cellpadding="0" cellspacing="0" border="0">
+<tr>
+<td align="left" valign="top" class="subsection" bgcolor="#828DA6">
+<img border="0" vspace="0" hspace="0" align="left" valign="top" src="../images/corner.gif"/>Who support ajp protocols ?</td>
+</tr>
+</table>
+</a>
+<p class="section">
+The ajp12 protocol is only available in Tomcat 3.2.x and 3.3.x.
+</p>
+<p class="section">
+The <b>
+<font color="#333333">ajp12</font>
+</b> has been <b>
+<font color="#333333">deprecated</font>
+</b> with Tomcat 3.3.x and you should use instead 
+<b>
+<font color="#333333">ajp13</font>
+</b> which is the only ajp protocol known by Tomcat 4.0.x, 4.1.x and 5.
+</p>
+<p class="section">
+Of course Tomcat 3.2.x and 3.3.x also support ajp13 protocol.
+</p>
+<p class="section">
+Others servlet engines such as <b>
+<font color="#333333">jetty</font>
+</b> have support for ajp13 protocol
+</p>
+<br/>
+<a name="sub_How does it work ?">
+<table width="100%" cellpadding="0" cellspacing="0" border="0">
+<tr>
+<td align="left" valign="top" class="subsection" bgcolor="#828DA6">
+<img border="0" vspace="0" hspace="0" align="left" valign="top" src="../images/corner.gif"/>How does it work ?</td>
+</tr>
+</table>
+</a>
+<p class="section">
+<ol>
+<li>
+The IIS-Tomcat redirector is an IIS plugin (filter + extension), IIS load the redirector plugin and calls its 
+filter function for each in-coming request.
+</li>
+<li>
+The filter then tests the request URL against a list of URI-paths held inside uriworkermap.properties, 
+If the current request matches one of the entries in the list of URI-paths, 
+the filter transfer the request to the extension.
+</li>
+<li>
+The extension collects the request parameters and forwards them to the appropriate worker using the defined
+protocol like <b>
+<font color="#333333">ajp13</font>
+</b>.
+</li>
+<li>
+The extension collects the response from the worker and returns it to the browser.
+</li>
+</ol>
+</p>
+<br/>
+<br/>
+<a name="Installation">
+<table width="100%" cellpadding="0" cellspacing="0" border="0">
+<tr>
+<td align="left" valign="top" class="section" bgcolor="#525D76">
+<img border="0" vspace="0" hspace="0" align="left" valign="top" src="../images/corner.gif"/>Installation</td>
+</tr>
+</table>
+</a>
+<p class="section">
+A pre-built version of the ISAPI redirector server plugin, isapi_redirect.dll, is available under 
+the win32/i386 directory of jakarta-tomcat-connectors distribution. 
+For those using Netscape as your browser, try downloading a zip version of the file, if available. 
+There can be problems using Netscape to download DLL files.
+
+You can also build a copy locally from the source present in jakarta-tomcat-connectors distribution.
+
+The Tomcat redirector requires three entities:
+
+<ul>
+<li>
+<b>
+<font color="#333333">isapi_redirect.dll</font>
+</b> - The IIS server plugin, either obtain a pre-built DLL or build it yourself (see the build section).
+</li>
+<li>
+<b>
+<font color="#333333">workers.properties</font>
+</b> - A file that describes the host(s) and port(s) used by the workers (Tomcat processes). 
+A sample workers.properties can be found under the conf directory.
+</li>
+<li>
+<b>
+<font color="#333333">uriworkermap.properties</font>
+</b> - A file that maps URL-Path patterns to workers. 
+A sample uriworkermap.properties can be found under the conf directory as well.
+</li>
+</ul>
+</p>
+<p class="section">
+The installation includes the following parts:
+
+<ul>
+<li>
+Configuring the ISAPI redirector with a default /examples context and checking that you can serve servlets with IIS.
+</li>
+<li>
+Adding more contexts to the configuration.
+</li>
+</ul>
+</p>
+<br/>
+<a name="Configuring the ISAPI Redirector">
+<table width="100%" cellpadding="0" cellspacing="0" border="0">
+<tr>
+<td align="left" valign="top" class="section" bgcolor="#525D76">
+<img border="0" vspace="0" hspace="0" align="left" valign="top" src="../images/corner.gif"/>Configuring the ISAPI Redirector</td>
+</tr>
+</table>
+</a>
+<p class="section">
+In this document I will assume that isapi_redirect.dll is placed in 
+<b>
+<font color="#333333">c:\jakarta-tomcat\bin\win32\i386\isapi_redirect.dll</font>
+</b> and 
+that you created the properties files are in <b>
+<font color="#333333">c:\jakarta-tomcat\conf</font>
+</b>.
+</p>
+<p class="section">
+<ol>
+<li>
+In the registry, create a new registry key named
+<b>
+<font color="#333333">"HKEY_LOCAL_MACHINE\SOFTWARE\Apache Software Foundation\Jakarta Isapi Redirector\1.0"</font>
+</b>
+</li>
+<li>
+Add a string value with the name <b>
+<font color="#333333">extension_uri</font>
+</b> and a value of <b>
+<font color="#333333">/jakarta/isapi_redirect.dll</font>
+</b>
+</li>
+<li>
+Add a string value with the name <b>
+<font color="#333333">log_file</font>
+</b> and a value pointing to where you want your 
+log file to be (for example <b>
+<font color="#333333">c:\jakarta-tomcat\logs\isapi.log</font>
+</b>).
+</li>
+<li>
+Add a string value with the name <b>
+<font color="#333333">log_level</font>
+</b> and a value for your log level 
+(can be debug, info, error or emerg).
+</li>
+<li>
+Add a string value with the name <b>
+<font color="#333333">worker_file</font>
+</b> and a value which is the full path 
+to your workers.properties file (for example <b>
+<font color="#333333">c:\jakarta-tomcat\conf\workers.properties</font>
+</b>)
+</li>
+<li>
+Add a string value with the name <b>
+<font color="#333333">worker_mount_file</font>
+</b> and a value which is the full path 
+to your uriworkermap.properties file (for example <b>
+<font color="#333333">c:\jakarta-tomcat\conf\uriworkermap.properties</font>
+</b>)
+</li>
+<li>
+Using the IIS management console, add a new virtual directory to your IIS/PWS web site.
+The name of the virtual directory must be jakarta. 
+Its physical path should be the directory where you placed isapi_redirect.dll 
+(in our example it is c:\jakarta-tomcat\bin\win32\i386). 
+While creating this new virtual directory assign it with execute access.
+</li>
+<li>
+Using the IIS management console, add isapi_redirect.dll as a filter in your IIS/PWS web site. 
+The name of the filter should reflect its task (I use the name jakarta), 
+its executable must be our c:\jakarta-tomcat\bin\win32\i386\isapi_redirect.dll. 
+For PWS, you'll need to use regedit and add/edit the <b>
+<font color="#333333">"Filter DLLs"</font>
+</b> key under 
+<b>
+<font color="#333333">HKEY_LOCAL_MACHINE\System\CurrentControlSet\Services\W3SVC\Parameters</font>
+</b>. 
+This key contains a "," separated list of dlls ( full paths ) - 
+you need to insert the full path to isapi_redirect.dll.
+</li>
+<li>
+Restart IIS (stop + start the IIS service), make sure that the jakarta filter is marked with a green up-pointing arrow.
+Under Win98 you may need to <b>
+<font color="#333333">cd WINDOWS\SYSTEM\inetsrv</font>
+</b> and type PWS /stop 
+( the DLL and log files are locked - even if you click the stop button, 
+PWS will still keep the DLLs in memory. ). Type pws to start it again.
+</li>
+</ol>
+</p>
+<p class="section">
+That's all, you should now start Tomcat and ask IIS to serve you the /examples context. 
+Try <b>
+<a href="http://localhost/examples/jsp/index.html">http://localhost/examples/jsp/index.html</a>
+</b> for example and 
+execute some of the JSP examples. 
+</p>
+<p class="section">
+If this does not work successfully, refer to the Troubleshooting section below for help on correcting the problem.
+</p>
+<a name="sub_Adding additional Contexts">
+<table width="100%" cellpadding="0" cellspacing="0" border="0">
+<tr>
+<td align="left" valign="top" class="subsection" bgcolor="#828DA6">
+<img border="0" vspace="0" hspace="0" align="left" valign="top" src="../images/corner.gif"/>Adding additional Contexts</td>
+</tr>
+</table>
+</a>
+<p class="section">
+The examples context is useful for verifying your installation, 
+but you will also need to add your own contexts. Adding a new context requires two operations:
+</p>
+<p class="section">
+<ol>
+<li>
+Adding the context to Tomcat (I am not going to talk about this).
+</li>
+<li>
+Adding the context to the ISAPI redirector.
+</li>
+</ol>
+</p>
+<p class="section">
+Adding a context to the ISAPI redirector is simple, all you need to do is to edit 
+your uriworkermap.properties and to add a line that looks like:
+</p>
+<p class="screen">
+<div align="center">
+<table bgcolor="#cccccc" cellpadding="2" cellspacing="0" border="1" width="80%">
+<tr>
+<td align="left" bgcolor="#cccccc">
+<code class="screen">
+<nobr>/context/*=worker_name</nobr>
+</code>
+<br/>
+</td>
+</tr>
+</table>
+</div>
+</p>
+<p class="section">
+Workers and their name are defined in workers.properties, by default workers.properties comes 
+with a single pre-configured worker named <b>
+<font color="#333333">"defworker"</font>
+</b> so you can use it. 
+As an example, if you want to add a context named "shop", the line that you should add to 
+uriworkermap.properties will be:
+</p>
+<p class="screen">
+<div align="center">
+<table bgcolor="#cccccc" cellpadding="2" cellspacing="0" border="1" width="80%">
+<tr>
+<td align="left" bgcolor="#cccccc">
+<code class="screen">
+<nobr>/shop/*=defworker</nobr>
+</code>
+<br/>
+</td>
+</tr>
+</table>
+</div>
+</p>
+<p class="section">
+A feature is present till Tomcat 3.2, where a uriworkermap.properties-auto is automatically 
+written each time Tomcat is started. This file includes settings for each of the contexts that 
+Tomcat will serve during its run. 
+</p>
+<p class="section">
+Each context has settings to have Tomcat handle servlet and JSP requests, 
+but by default static content is left to be served by IIS. 
+</p>
+<p class="section">
+Each context also has a commented out setting to have Tomcat handle all requests to the context. 
+You can rename this file (so it won't be overwritten the next time Tomcat is started) and 
+uncomment this setting or make other customizations. 
+</p>
+<p class="section">
+You may also use this file as is in your worker_mount_file setting.
+</p>
+<br/>
+<a name="sub_Advanced Context Configuration">
+<table width="100%" cellpadding="0" cellspacing="0" border="0">
+<tr>
+<td align="left" valign="top" class="subsection" bgcolor="#828DA6">
+<img border="0" vspace="0" hspace="0" align="left" valign="top" src="../images/corner.gif"/>Advanced Context Configuration</td>
+</tr>
+</table>
+</a>
+<p class="section">
+Sometimes it is better to have IIS serve the static pages (html, gif, jpeg etc.) 
+even if these files are part of a context served by Tomcat. 
+</p>
+<p class="section">
+For example, consider the html and gif files in the examples context, there is no need 
+to serve them from the Tomcat process, IIS will suffice.
+</p>
+<p class="section">
+Making IIS serve static files that are part of the Tomcat contexts requires the following:
+<ol>
+<li>
+Configuring IIS to know about the Tomcat contexts
+</li>
+<li>
+Configuring the redirector to leave the static files for IIS
+</li>
+</ol>
+</p>
+<p class="section">
+Adding a Tomcat context to IIS requires the addition of a new IIS virtual directory that covers the Tomcat context. 
+For example adding a /example IIS virtual directory that covers the c:\jakarta-tomcat\webapps\examples directory.
+</p>
+<p class="section">
+Configuring the redirector is somewhat harder, you will need to specify the exact 
+URL-Path pattern(s) that you want Tomcat to handle (usually only JSP files and servlets). 
+This requires a change to the uriworkermap.properties : 
+
+<p class="screen">
+<div align="center">
+<table bgcolor="#cccccc" cellpadding="2" cellspacing="0" border="1" width="80%">
+<tr>
+<td align="left" bgcolor="#cccccc">
+<div class="screen">For the examples context it requires to replace the following line</div>
+<code class="screen">
+<nobr>/examples/*=defworker</nobr>
+</code>
+<br/>
+<div class="screen">with the following two lines</div>
+<code class="screen">
+<nobr>/examples/*.jsp=defworker</nobr>
+</code>
+<br/>
+<code class="screen">
+<nobr>/examples/servlet/*=defworker</nobr>
+</code>
+<br/>
+</td>
+</tr>
+</table>
+</div>
+</p>
+</p>
+<p class="section">
+As you can see the second configuration is more explicit, it actually instruct the redirector 
+to redirect only requests to resources under /examples/servlet/ and resources under /examples/ 
+whose name ends with .jsp. 
+This is similar to what is automically written to the uriworkermap.properties-auto file for each context.
+</p>
+<p class="section">
+You can even be more explicit and provide lines such as:
+
+<p class="screen">
+<div align="center">
+<table bgcolor="#cccccc" cellpadding="2" cellspacing="0" border="1" width="80%">
+<tr>
+<td align="left" bgcolor="#cccccc">
+<code class="screen">
+<nobr>/example/servletname=defworker</nobr>
+</code>
+<br/>
+</td>
+</tr>
+</table>
+</div>
+</p>
+</p>
+<p class="section">
+that instructs the redirector to redirect request whose URL-Path equals /example/servletname 
+to the worker named defworker.
+</p>
+<br/>
+<a name="sub_Protecting the WEB-INF Directory">
+<table width="100%" cellpadding="0" cellspacing="0" border="0">
+<tr>
+<td align="left" valign="top" class="subsection" bgcolor="#828DA6">
+<img border="0" vspace="0" hspace="0" align="left" valign="top" src="../images/corner.gif"/>Protecting the WEB-INF Directory</td>
+</tr>
+</table>
+</a>
+<p class="section">
+Each servlet application (context) has a special directory named WEB-INF, 
+this directory contains sensitive configurations data and Java classes and must be kept hidden from web users. 
+Using the IIS management console it is possible to protect the WEB-INF directory from user access, 
+this however requires the administrator to remember that. 
+</p>
+<p class="section">
+To avoid this need the redirector plugin automatically protects your WEB-INF directories by rejecting 
+any request that contains WEB-INF in its URL-Path.
+</p>
+<br/>
+<a name="sub_Advanced Worker Configuration">
+<table width="100%" cellpadding="0" cellspacing="0" border="0">
+<tr>
+<td align="left" valign="top" class="subsection" bgcolor="#828DA6">
+<img border="0" vspace="0" hspace="0" align="left" valign="top" src="../images/corner.gif"/>Advanced Worker Configuration</td>
+</tr>
+</table>
+</a>
+<p class="section">
+Sometimes you want to serve different contexts with different Tomcat processes 
+(for example to spread the load among different machines). 
+To achieve such goal you will need to define several workers and assign each context with its own worker.
+</p>
+<p class="section">
+Defining workers is done in workers.properties, this file includes two types of entries:
+</p>
+<p class="section">
+<p class="screen">
+<div align="center">
+<table bgcolor="#cccccc" cellpadding="2" cellspacing="0" border="1" width="80%">
+<tr>
+<td align="left" bgcolor="#cccccc">
+<div class="screen">An entry that lists all the workers defined</div>
+<code class="screen">
+<nobr>worker.list=worker1, worker2</nobr>
+</code>
+<br/>
+<div class="screen">Entries that define the host and port associated with these workers</div>
+<code class="screen">
+<nobr>worker.worker1.host=localhost</nobr>
+</code>
+<br/>
+<code class="screen">
+<nobr>worker.worker1.port=8009</nobr>
+</code>
+<br/>
+<code class="screen">
+<nobr>worker.worker1.type=ajp13</nobr>
+</code>
+<br/>
+<code class="screen">
+<nobr>worker.worker2.host=otherhost</nobr>
+</code>
+<br/>
+<code class="screen">
+<nobr>worker.worker2.port=8009</nobr>
+</code>
+<br/>
+<code class="screen">
+<nobr>worker.worker2.type=ajp13</nobr>
+</code>
+<br/>
+</td>
+</tr>
+</table>
+</div>
+</p>
+</p>
+<p class="section">
+The above example defined two workers, now we can use these workers to serve two different contexts 
+each with its own worker : 
+<p class="screen">
+<div align="center">
+<table bgcolor="#cccccc" cellpadding="2" cellspacing="0" border="1" width="80%">
+<tr>
+<td align="left" bgcolor="#cccccc">
+<div class="screen">example uriworkermap.properties fragment</div>
+<code class="screen">
+<nobr>/examples/*=worker1</nobr>
+</code>
+<br/>
+<code class="screen">
+<nobr>/webpages/*=worker2</nobr>
+</code>
+<br/>
+</td>
+</tr>
+</table>
+</div>
+</p>
+</p>
+<p class="section">
+As you can see the <b>
+<font color="#333333">examples</font>
+</b> context is served by <b>
+<font color="#333333">worker1</font>
+</b> while the 
+<b>
+<font color="#333333">webpages</font>
+</b> context is served by <b>
+<font color="#333333">worker2</font>
+</b>.
+</p>
+<p class="section">
+More informations on using and configuring workers in the <b>
+<a href="../jk/workershowto.html">Workers HowTO</a>
+</b>
+</p>
+<br/>
+<br/>
+<a name="Building ISAPI redirector">
+<table width="100%" cellpadding="0" cellspacing="0" border="0">
+<tr>
+<td align="left" valign="top" class="section" bgcolor="#525D76">
+<img border="0" vspace="0" hspace="0" align="left" valign="top" src="../images/corner.gif"/>Building ISAPI redirector</td>
+</tr>
+</table>
+</a>
+<p class="section">
+The redirector was developed using Visual C++ Ver.6.0, so having this environment is a prereq if you want 
+to perform a custom build. You should also have IIS developer SDK
+
+The steps that you need to take are:
+<ul>
+<li>
+Change directory to the isapi plugins source directory.
+</li>
+<li>
+Make the source with MSDEV
+</li>
+</ul>
+<p class="screendos">
+<div align="center">
+<table bgcolor="#000000" cellpadding="2" cellspacing="0" border="1" width="80%">
+<tr>
+<td align="left" bgcolor="#000000">
+<div class="screendos">Change directory to the isapi plugins source directory</div>
+<code>
+<nobr>
+<em class="screendos">c:\&gt;</em>
+<b class="screendos">cd c:\home\apache\jk\isapi</b>
+</nobr>
+</code>
+<br/>
+<div class="screendos">Build the sources using MSDEV</div>
+<code>
+<nobr>
+<em class="screendos">c:\&gt;</em>
+<b class="screendos">MSDEV isapi.dsp /MAKE ALL</b>
+</nobr>
+</code>
+<br/>
+</td>
+</tr>
+</table>
+</div>
+</p>
+</p>
+<p class="section">
+If msdev is not in your path, enter the full path to msdev.exe. 
+This will build both release and debug versions of the redirector plugin.
+An alternative will be to open the isapi workspace file (isapi.dsw) in msdev and 
+build it using the build menu.
+</p>
+<br/>
+<a name="Troubleshooting">
+<table width="100%" cellpadding="0" cellspacing="0" border="0">
+<tr>
+<td align="left" valign="top" class="section" bgcolor="#525D76">
+<img border="0" vspace="0" hspace="0" align="left" valign="top" src="../images/corner.gif"/>Troubleshooting</td>
+</tr>
+</table>
+</a>
+<p class="section">
+It is easy to have the ISAPI redirector not work the first time you try to install it.
+</p>
+<p class="section">
+If this happens to you, here are some steps to follow to try to correct the problem.
+</p>
+<p class="section">
+These steps aren't guaranteed to cover all possible problems, 
+but they should help find the typical mistakes.
+</p>
+<p class="section">
+If you make any corrections during these steps, restart the IIS service as described above in the last step 
+of the installation, then retry the step.
+</p>
+<p class="section">To enable error tracking, make sure web site activity is being logged. 
+For PWS 4.0 make sure "Save Web Site Activity Log" is checked in the Advanced Options of the Personal Web Manager.
+</p>
+<p class="section">
+Note: These steps assume your <b>
+<font color="#333333">worker_mount_file</font>
+</b> setting points to an unmodified copy of the 
+<b>
+<font color="#333333">uriworkermap.properties</font>
+</b> file.<br/>
+Results may be misleading if <b>
+<font color="#333333">worker_mount_file</font>
+</b> points to a modified <b>
+<font color="#333333">uriworkermap.properties</font>
+</b>
+or the <b>
+<font color="#333333">uriworkermap.properties-auto</font>
+</b> file.<br/>
+It is also assumed that the <b>
+<font color="#333333">"/examples" context</font>
+</b> works correcly if you access Tomcat directly.
+</p>
+<a name="sub_Win98">
+<table width="100%" cellpadding="0" cellspacing="0" border="0">
+<tr>
+<td align="left" valign="top" class="subsection" bgcolor="#828DA6">
+<img border="0" vspace="0" hspace="0" align="left" valign="top" src="../images/corner.gif"/>Win98</td>
+</tr>
+</table>
+</a>
+<p class="section">
+Start the IIS service and Tomcat.
+</p>
+<p class="section">
+Check for the presence of the ISAPI redirector log file you specified in the log_file setting. 
+If not found, verify the following:
+</p>
+<ul>
+<li>
+Check the "Filter DLLs" setting in the "HKEY_LOCAL_MACHINE\System\CurrentControlSet\Services\W3SVC\Parameters" 
+key and make sure the path is correct.
+</li>
+<li>
+Check the spelling of the "HKEY_LOCAL_MACHINE\SOFTWARE\Apache Software Foundation\Jakarta Isapi Redirector\1.0" key. 
+Case isn't important, but an incorrect letter will prevent the isapi_redirect.dll from finding its registry settings.
+</li>
+<li>
+Check the log_file setting for typos, name and data. Also insure the directory in which the log file will appear already exists.
+</li>
+</ul>
+<p class="section">
+Invoke the URL <b>
+<a href="http://localhost/examples/jsp/index.html">http://localhost/examples/jsp/index.html</a>
+</b>
+in your browser. 
+Case is important in Tomcat. The characters following "localhost" in the URL must be lower case. 
+If the page fails to appear, stop the IIS service (required to view the IIS log file). 
+Then examine the last line in the IIS log file in found in SYSTEM/LogFiles/W3SVC1 :
+</p>
+<p class="section">
+If the last line contains: 
+</p>
+<p class="screen">
+<div align="center">
+<table bgcolor="#cccccc" cellpadding="2" cellspacing="0" border="1" width="80%">
+<tr>
+<td align="left" bgcolor="#cccccc">
+<code class="screen">
+<nobr>GET "/examples/jsp/index.html HTTP/1.1" 404</nobr>
+</code>
+<br/>
+</td>
+</tr>
+</table>
+</div>
+</p>
+<p class="section"> 
+then the ISAPI redirector is not recognizing that it should be handling requests for the "/examples" context. 
+Check the following:
+</p>
+<ul>
+<li>
+Check the extension_uri name for typos.
+</li>
+<li>
+Check the worker_file setting for typos, name and data.
+</li>
+<li>
+Check the worker_mount_file setting typos, name and data.
+</li>
+</ul>
+<p class="section">If the last line contains something like:
+</p>
+<p class="screen">
+<div align="center">
+<table bgcolor="#cccccc" cellpadding="2" cellspacing="0" border="1" width="80%">
+<tr>
+<td align="left" bgcolor="#cccccc">
+<code class="screen">
+<nobr>GET "/jakarta/isapi_redirect.dll HTTP1.1"</nobr>
+</code>
+<br/>
+</td>
+</tr>
+</table>
+</div>
+</p>
+<p class="section">
+then the ISAPI redirector is recognizing that it should handle the request, 
+but is not successful at getting Tomcat to service the request.
+</p>
+<p class="section">
+You should check the HTTP error code following GET "/..." :
+</p>
+<p class="screen">
+<div align="center">
+<table bgcolor="#cccccc" cellpadding="2" cellspacing="0" border="1" width="80%">
+<tr>
+<td align="left" bgcolor="#cccccc">
+<div class="screen">Error 404</div>
+<code class="screen">
+<nobr>GET "/..." 404</nobr>
+</code>
+<br/>
+</td>
+</tr>
+</table>
+</div>
+</p>
+<ul>
+<li>
+Make sure you entered the URL correctly.
+</li>
+<li>
+Make sure the virtual directory created was called "jakarta". 
+It should display in Personal Web Manager as "/jakarta" (without the quotes).
+</li>
+<li>
+Make sure the extension_uri data begins with "/jakarta/" (without the quotes).
+</li>
+</ul>
+<p class="screen">
+<div align="center">
+<table bgcolor="#cccccc" cellpadding="2" cellspacing="0" border="1" width="80%">
+<tr>
+<td align="left" bgcolor="#cccccc">
+<div class="screen">Error 500</div>
+<code class="screen">
+<nobr>GET "/..." 500</nobr>
+</code>
+<br/>
+</td>
+</tr>
+</table>
+</div>
+</p>
+<ul>
+<li>
+Make sure that "isapi_redirect.dll" follows "/jakarta/" in the extension_uri setting.
+</li>
+<li>
+Check the workers.properties file and make sure the port setting for worker.ajp12.port is the same as the port specified in the server.xml for the "Apache AJP12 support".
+</li>
+</ul>
+<p class="screen">
+<div align="center">
+<table bgcolor="#cccccc" cellpadding="2" cellspacing="0" border="1" width="80%">
+<tr>
+<td align="left" bgcolor="#cccccc">
+<div class="screen">Error 200 or 403</div>
+<code class="screen">
+<nobr>GET "/..." 200</nobr>
+</code>
+<br/>
+<code class="screen">
+<nobr>GET "/..." 403</nobr>
+</code>
+<br/>
+</td>
+</tr>
+</table>
+</div>
+</p>
+<ul>
+<li>
+Make sure you have checked Execute Access 
+for the jakarta virtual directory in the Advanced Options of the Personal Web Manager.
+</li>
+</ul>
+<p class="section">
+If the above settings are correct, the index.html page should appear in your browser. 
+You should also be able to click the Execute links to execute the JSP examples.
+</p>
+<br/>
+<a name="sub_WinNT/Win2K/WinXP">
+<table width="100%" cellpadding="0" cellspacing="0" border="0">
+<tr>
+<td align="left" valign="top" class="subsection" bgcolor="#828DA6">
+<img border="0" vspace="0" hspace="0" align="left" valign="top" src="../images/corner.gif"/>WinNT/Win2K/WinXP</td>
+</tr>
+</table>
+</a>
+<p class="section">
+Start the World Wide Web Publishing Service and Tomcat.
+</p>
+<p class="section">
+Check for the presence of the ISAPI redirector log file you specified in the log_file setting. 
+If not found, check the following:
+</p>
+<ul>
+<li>
+Check the "executable" you set for the filter in the IIS Management Console and make sure the path is correct.
+</li>
+<li>Check the spelling of the "HKEY_LOCAL_MACHINE\SOFTWARE\Apache Software Foundation\Jakarta Isapi Redirector\1.0" key.
+Case isn't important, but an incorrect letter will prevent the isapi_redirect.dll from finding its registry settings.
+</li>
+<li>
+Check the log_file setting for typos, name and data. Also insure the directory in which the log file will appear already exists.
+</li>
+</ul>
+<p class="section">
+Check the jakarta filter you added and make sure its status shows a green upward-pointing arrow. 
+If not, check the following:
+</p>
+<ul>
+<li>
+Check the worker_file setting for typos, name and data.
+</li>
+<li>
+Check the worker_mount_file setting typos, name and data.
+</li>
+</ul>
+<p class="section">
+Invoke the URL <b>
+<a href="http://localhost/examples/jsp/index.html">http://localhost/examples/jsp/index.html</a>
+</b> 
+in your browser. Case is important in Tomcat. The characters following "localhost" in the URL must be lower case. 
+If the page fails to appear, examine the last line in the IIS server log file in found in SYSTEM32/LogFiles/W3SVC1.
+</p>
+<p class="section">
+The last line should contain something like: GET "/jakarta/isapi_redirect.dll HTTP1.1", 
+which indicates the ISAPI redirector is recognizing that it should handle the request.
+</p>
+<p class="section">
+You should check the HTTP error code following GET "/..." :
+</p>
+<p class="screen">
+<div align="center">
+<table bgcolor="#cccccc" cellpadding="2" cellspacing="0" border="1" width="80%">
+<tr>
+<td align="left" bgcolor="#cccccc">
+<div class="screen">Error 404</div>
+<code class="screen">
+<nobr>GET "/..." 404</nobr>
+</code>
+<br/>
+</td>
+</tr>
+</table>
+</div>
+</p>
+<ul>
+<li>
+Make sure you entered the URL correctly.
+</li>
+</ul>
+<p class="screen">
+<div align="center">
+<table bgcolor="#cccccc" cellpadding="2" cellspacing="0" border="1" width="80%">
+<tr>
+<td align="left" bgcolor="#cccccc">
+<div class="screen">Error 500</div>
+<code class="screen">
+<nobr>GET "/..." 500</nobr>
+</code>
+<br/>
+</td>
+</tr>
+</table>
+</div>
+</p>
+<ul>
+<li>
+Make sure the virtual directory created was called "jakarta".
+</li>
+<li>
+Make sure that the extension_uri setting is correct.
+</li>
+<li>
+Check the workers.properties file and make sure the port setting for worker.ajp12.port is the same as the port specified in the server.xml for the "Apache AJP12 support".
+</li>
+</ul>
+<p class="screen">
+<div align="center">
+<table bgcolor="#cccccc" cellpadding="2" cellspacing="0" border="1" width="80%">
+<tr>
+<td align="left" bgcolor="#cccccc">
+<div class="screen">Error 200 or 403</div>
+<code class="screen">
+<nobr>GET "/..." 200</nobr>
+</code>
+<br/>
+<code class="screen">
+<nobr>GET "/..." 403</nobr>
+</code>
+<br/>
+</td>
+</tr>
+</table>
+</div>
+</p>
+<ul>
+<li>
+Make sure you have checked Execute Access for the jakarta virtual directory in the 
+Advanced Options of the Personal Web Manager.
+</li>
+</ul>
+<p class="section">
+If the above settings are correct, the index.html page should appear in your browser. 
+You should also be able to click the Execute links to execute the JSP examples.
+</p>
+<br/>
+<br/>
+</td>
+</tr>
+</table>
+</body>
+</html>

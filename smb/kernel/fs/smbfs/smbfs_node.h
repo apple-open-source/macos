@@ -29,7 +29,7 @@
  * OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
  * SUCH DAMAGE.
  *
- * $Id: smbfs_node.h,v 1.8.52.1 2003/03/14 00:05:54 lindak Exp $
+ * $Id: smbfs_node.h,v 1.16 2003/09/21 20:53:11 lindak Exp $
  */
 #ifndef _FS_SMBFS_NODE_H_
 #define _FS_SMBFS_NODE_H_
@@ -43,6 +43,7 @@
 /*efine	NNEW			0x0008*//* smb/vnode has been allocated */
 #define	NREFPARENT		0x0010	/* node holds parent from recycling */
 #define	NFLUSHWIRE		0x1000
+#define	NATTRCHANGED	0x2000	/* use smbfs_attr_cacheremove at close */
 
 struct smbfs_fctx;
 
@@ -73,7 +74,12 @@ struct smbnode {
 	struct lockf *		n_lockf;	/* Locking records of file */
 	LIST_ENTRY(smbnode)	n_hash;
 	struct timespec		n_sizetime;
+	struct smbfs_lockf *smb_lockf; /* Head of byte-level lock list. */
 };
+
+/* Attribute cache timeouts in seconds */
+#define	SMB_MINATTRTIMO 2
+#define	SMB_MAXATTRTIMO 30
 
 #define VTOSMB(vp)	((struct smbnode *)(vp)->v_data)
 #define SMBTOV(np)	((struct vnode *)(np)->n_vnode)
@@ -95,16 +101,19 @@ u_int32_t smbfs_hash(const u_char *name, int nmlen);
 int  smbfs_getpages(struct vop_getpages_args *);
 int  smbfs_putpages(struct vop_putpages_args *);
 int  smbfs_readvnode(struct vnode *vp, struct uio *uiop, struct ucred *cred);
-int  smbfs_writevnode(struct vnode *vp, struct uio *uiop, struct ucred *cred, int ioflag);
+int  smbfs_writevnode(struct vnode *vp, struct uio *uiop, struct ucred *cred, int ioflag, int timo);
 void smbfs_attr_cacheenter(struct vnode *vp, struct smbfattr *fap);
 int  smbfs_attr_cachelookup(struct vnode *vp ,struct vattr *va);
 #ifdef APPLE
-void smbfs_attr_touchdir(struct vnode *dvp);
+void smbfs_attr_touchdir(struct smbnode *dnp);
 #endif
 char	*smbfs_name_alloc(const u_char *name, int nmlen);
-void	smbfs_name_free(u_char *name);
+void	smbfs_name_free(const u_char *name);
 void	smbfs_setsize(struct vnode *, off_t);
 
-#define smbfs_attr_cacheremove(vp)	VTOSMB(vp)->n_attrage = 0
+#define smbfs_attr_cacheremove(np)	(np)->n_attrage = 0
+
+#define SMB_STALEVP(p, id) ((p)->v_type == VBAD || !VTOSMB(p) || \
+			    ((id) && (p)->v_id != (id)))
 
 #endif /* _FS_SMBFS_NODE_H_ */

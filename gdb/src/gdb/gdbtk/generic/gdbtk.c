@@ -1,5 +1,5 @@
 /* Startup code for Insight
-   Copyright 1994, 1995, 1996, 1997, 1998, 2001, 2002
+   Copyright 1994, 1995, 1996, 1997, 1998, 2001, 2002, 2003
    Free Software Foundation, Inc.
 
    Written by Stu Grossman <grossman@cygnus.com> of Cygnus Support.
@@ -42,7 +42,6 @@
    but gdb uses stdarg.h, so make sure HAS_STDARG is defined.  */
 #define HAS_STDARG 1
 
-#include <tix.h>
 #include <itcl.h>
 #include <itk.h>
 #include "guitcl.h"
@@ -97,6 +96,8 @@ static int target_should_use_timer (struct target_ops *t);
 int target_is_native (struct target_ops *t);
 
 int gdbtk_test (char *);
+
+static void view_command (char *, int);
 
 /* Handle for TCL interpreter */
 Tcl_Interp *gdbtk_interp = NULL;
@@ -409,7 +410,7 @@ gdbtk_init (char *argv0)
 \
 	  if {![info exists env(IWIDGETS_LIBRARY)]} {\n\
 	      set env(IWIDGETS_LIBRARY)\
-                     [file join $srcDir itcl iwidgets3.0.0 generic]\n\
+                     [file join $srcDir itcl iwidgets generic]\n\
 	  }\n\
 \
 	  if {![info exists env(TIX_LIBRARY)]} {\n\
@@ -429,7 +430,7 @@ gdbtk_init (char *argv0)
 \
           # We also need to append the iwidgets library path.\n\
           # Unfortunately, there is no IWIDGETS_LIBRARY.\n\
-          set IWIDGETS_LIBRARY [file join $srcDir itcl iwidgets3.0.0 generic]\n";
+          set IWIDGETS_LIBRARY [file join $srcDir itcl iwidgets generic]\n";
 
       Tcl_Obj *commandObj;
 
@@ -509,11 +510,6 @@ gdbtk_init (char *argv0)
   Tcl_StaticPackage (gdbtk_interp, "Itk", Itk_Init,
 		     (Tcl_PackageInitProc *) NULL);
 
-  if (Tix_Init (gdbtk_interp) != TCL_OK)
-    error ("Tix_Init failed: %s", gdbtk_interp->result);
-  Tcl_StaticPackage (gdbtk_interp, "Tix", Tix_Init,
-		     (Tcl_PackageInitProc *) NULL);
-
   if (Tktable_Init (gdbtk_interp) != TCL_OK)
     error ("Tktable_Init failed: %s", gdbtk_interp->result);
 
@@ -527,8 +523,10 @@ gdbtk_init (char *argv0)
   if (ide_create_messagebox_command (gdbtk_interp) != TCL_OK)
     error ("messagebox command initialization failed");
   /* On Windows, create a sizebox widget command */
+#if 0
   if (ide_create_sizebox_command (gdbtk_interp) != TCL_OK)
     error ("sizebox creation failed");
+#endif
   if (ide_create_winprint_command (gdbtk_interp) != TCL_OK)
     error ("windows print code initialization failed");
   if (ide_create_win_grab_command (gdbtk_interp) != TCL_OK)
@@ -567,6 +565,9 @@ gdbtk_init (char *argv0)
 
   add_com ("tk", class_obscure, tk_command,
 	   "Send a command directly into tk.");
+
+  add_com ("view", class_obscure, view_command,
+	   "View a location in the source window.");
 
   /*
    * Set the variable for external editor:
@@ -635,12 +636,16 @@ gdbtk_find_main";
 	msg = Tcl_GetVar (gdbtk_interp, "errorInfo", TCL_GLOBAL_ONLY);
 
 #ifdef _WIN32
+	/* On windows, display the error using a pop-up message box.
+           If GDB wasn't started from the DOS prompt, the user won't
+           get to see the failure reason.  */
 	MessageBox (NULL, msg, NULL, MB_OK | MB_ICONERROR | MB_TASKMODAL);
+	throw_exception (RETURN_ERROR);
 #else
-	fprintf (stderr,msg);
+	/* FIXME: cagney/2002-04-17: Wonder what the lifetime of
+           ``msg'' is - does it need a cleanup?  */
+	error (msg);
 #endif
-
-	error ("");
       }
   }
 
@@ -736,4 +741,28 @@ tk_command (char *cmd, int from_tty)
   printf_unfiltered ("%s\n", result);
 
   do_cleanups (old_chain);
+}
+
+static void
+view_command (char *args, int from_tty)
+{
+  char *script;
+  struct cleanup *old_chain;
+
+  if (args != NULL)
+    {
+      xasprintf (&script,
+		 "[lindex [ManagedWin::find SrcWin] 0] location BROWSE_TAG [gdb_loc %s]",
+		 args);
+      old_chain = make_cleanup (xfree, script);
+      if (Tcl_Eval (gdbtk_interp, script) != TCL_OK)
+	{
+	  Tcl_Obj *obj = Tcl_GetObjResult (gdbtk_interp);
+	  error (Tcl_GetStringFromObj (obj, NULL));
+	}
+
+      do_cleanups (old_chain);
+    }
+  else
+    error ("Argument required (location to view)");
 }

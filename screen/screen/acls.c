@@ -1,4 +1,4 @@
-/* Copyright (c) 1993-2000
+/* Copyright (c) 1993-2002
  *      Juergen Weigert (jnweiger@immd4.informatik.uni-erlangen.de)
  *      Michael Schroeder (mlschroe@immd4.informatik.uni-erlangen.de)
  * Copyright (c) 1987 Oliver Laumann
@@ -21,7 +21,7 @@
  ****************************************************************
  */
 #include "rcs.h"
-RCS_ID("$Id: acls.c,v 1.1.1.1 2001/12/14 22:08:28 bbraun Exp $ FAU")
+RCS_ID("$Id: acls.c,v 1.1.1.2 2003/03/19 21:16:18 landonf Exp $ FAU")
 
 #include <sys/types.h>
 
@@ -172,8 +172,11 @@ struct acluser **up;
   if (!*up)
     return -1;		/* he still does not exist */
 #ifdef COPY_PASTE
-  (*up)->u_copybuffer = NULL;
-  (*up)->u_copylen = 0;
+  (*up)->u_plop.buf = NULL;
+  (*up)->u_plop.len = 0;
+# ifdef ENCODINGS
+  (*up)->u_plop.enc = 0;
+# endif
 #endif
   (*up)->u_Esc = DefaultEsc;
   (*up)->u_MetaEsc = DefaultMetaEsc;
@@ -406,18 +409,18 @@ struct acluser *u;
   struct win *w;
   struct paster *pa;
 
-  if (!u->u_copybuffer)
+  if (!u->u_plop.buf)
     return 1;
   for (w = windows; w; w = w->w_next)
     {
       pa = &w->w_paster;
-      if (pa->pa_pasteptr >= u->u_copybuffer &&
-          pa->pa_pasteptr - u->u_copybuffer < u->u_copylen)
+      if (pa->pa_pasteptr >= u->u_plop.buf &&
+          pa->pa_pasteptr - u->u_plop.buf < u->u_plop.len)
         FreePaster(pa);
     }
-  free((char *)u->u_copybuffer);
-  u->u_copylen = 0;
-  u->u_copybuffer = NULL;
+  free((char *)u->u_plop.buf);
+  u->u_plop.len = 0;
+  u->u_plop.buf = 0;
   return 0;
 }
 #endif	/* COPY_PASTE */

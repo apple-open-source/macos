@@ -1,0 +1,62 @@
+<?xml version="1.0"?>
+
+<!-- The jboss.xml descriptor for the security-srp.jar ejb unit.
+-->
+<jboss>
+   <security-domain>java:/jaas/srp-test</security-domain>
+
+   <invoker-proxy-bindings>
+      <invoker-proxy-binding>
+         <name>stateless-jce-invoker</name>
+         <invoker-mbean>jboss:service=invoker,type=jrmp</invoker-mbean>
+         <proxy-factory>org.jboss.proxy.ejb.ProxyFactory</proxy-factory>
+         <proxy-factory-config>
+            <client-interceptors>
+               <home>
+                  <interceptor>org.jboss.proxy.ejb.HomeInterceptor</interceptor>
+                  <interceptor>org.jboss.proxy.SecurityInterceptor</interceptor>
+                  <interceptor>org.jboss.proxy.TransactionInterceptor</interceptor>
+                  <interceptor>org.jboss.invocation.InvokerInterceptor</interceptor>
+               </home>
+               <!-- Override the client bean interceptors -->
+               <bean>
+                  <interceptor>org.jboss.proxy.ejb.EntityInterceptor</interceptor>
+                  <interceptor>org.jboss.proxy.SecurityInterceptor</interceptor>
+                  <interceptor>org.jboss.test.security.interceptors.ClientEncryptionInterceptor</interceptor>
+                  <interceptor>org.jboss.proxy.TransactionInterceptor</interceptor>
+                  <interceptor>org.jboss.invocation.InvokerInterceptor</interceptor>
+               </bean>
+            </client-interceptors>
+         </proxy-factory-config>
+      </invoker-proxy-binding>
+   </invoker-proxy-bindings>
+
+   <container-configurations>
+      <container-configuration>
+         <container-name>Standard Stateless SessionBean</container-name>
+         <!-- Override the CMT server interceptors -->
+         <container-interceptors>
+            <interceptor>org.jboss.ejb.plugins.ProxyFactoryFinderInterceptor</interceptor>
+            <interceptor>org.jboss.ejb.plugins.LogInterceptor</interceptor>
+            <interceptor>org.jboss.ejb.plugins.SecurityInterceptor</interceptor>
+            <interceptor>org.jboss.test.security.interceptors.ServerEncryptionInterceptor</interceptor>
+            <interceptor>org.jboss.ejb.plugins.TxInterceptorCMT</interceptor>
+            <interceptor>org.jboss.ejb.plugins.StatelessSessionInstanceInterceptor</interceptor>
+         </container-interceptors>
+      </container-configuration>
+   </container-configurations>
+
+   <enterprise-beans>
+      <session>
+         <ejb-name>StatelessSession</ejb-name>
+         <configuration-name>Standard Stateless SessionBean</configuration-name>
+         <invoker-bindings>
+            <invoker>
+               <invoker-proxy-binding-name>stateless-jce-invoker</invoker-proxy-binding-name>
+               <jndi-name>srp.StatelessSession</jndi-name>
+            </invoker>
+         </invoker-bindings>
+      </session>
+   </enterprise-beans>
+
+</jboss>

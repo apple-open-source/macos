@@ -8,7 +8,7 @@ Copyright (C) 2000  Network Applied Communication Laboratory, Inc.
 
 Copyright (C) 2000  Information-technology Promotion Agency, Japan
 
-Wakou Aoyama <wakou@fsinet.or.jp>
+Wakou Aoyama <wakou@ruby-lang.org>
 
 
 
@@ -70,8 +70,7 @@ cgi.params is a hash.
   values[0].original_filename  # <== original filename of values[0]
   values[0].content_type       # <== content_type of values[0]
 
-and values[0] has Tempfile class methods.
-(Tempfile class object has File class methods)
+and values[0] has StringIO or Tempfile class methods.
 
 
 === GET COOKIE VALUES
@@ -183,7 +182,7 @@ class CGI
   CR  = "\015"
   LF  = "\012"
   EOL = CR + LF
-  REVISION = '$Id: cgi.rb,v 1.1.1.1 2002/05/27 17:59:48 jkh Exp $'
+  REVISION = '$Id: cgi.rb,v 1.1.1.2 2003/05/14 13:58:48 melville Exp $'
 
   NEEDS_BINMODE = true if /WIN/ni.match(RUBY_PLATFORM)
   PATH_SEPARATOR = {'UNIX'=>'/', 'WINDOWS'=>'\\', 'MACINTOSH'=>':'}
@@ -487,7 +486,7 @@ status:
     end
 
     options.each{|key, value|
-      buf += key + ": " + value + EOL
+      buf += key + ": " + value.to_s + EOL
     }
 
     if defined?(MOD_RUBY)
@@ -505,7 +504,9 @@ status:
         when /^content-encoding$/ni
           Apache::request.content_encoding = value
         when /^location$/ni
-          Apache::request.status = 302
+	  if Apache::request.status == 200
+	    Apache::request.status = 302
+	  end
           Apache::request.headers_out[name] = value
         else
           Apache::request.headers_out[name] = value
@@ -773,10 +774,6 @@ convert string charset, and set language to "ja".
       @params.update(hash)
     end
 
-    def param(name)
-      @params[name].join("\0")
-    end
-
     def read_multipart(boundary, content_length)
       params = Hash.new([])
       boundary = "--" + boundary
@@ -790,13 +787,24 @@ convert string charset, and set language to "ja".
       status = stdinput.read(boundary_size)
       if nil == status
         raise EOFError, "no content body"
+      elsif boundary + EOL != status
+        raise EOFError, "bad content body"
       end
-
-      require "tempfile"
 
       until -1 == content_length
         head = nil
-        body = Tempfile.new("CGI")
+        if 10240 < content_length
+          require "tempfile"
+          body = Tempfile.new("CGI")
+        else
+          begin
+            require "stringio" if not defined? StringIO
+            body = StringIO.new
+          rescue LoadError
+            require "tempfile"
+            body = Tempfile.new("CGI")
+          end
+        end
         body.binmode
 
         until head and /#{boundary}(?:#{EOL}|--)/n.match(buf)
@@ -1164,12 +1172,12 @@ convert string charset, and set language to "ja".
 
   checkbox_group("name", ["foo"], ["bar", true], "baz")
     # <INPUT TYPE="checkbox" NAME="name" VALUE="foo">foo
-    # <INPUT TYPE="checkbox" SELECTED NAME="name" VALUE="bar">bar
+    # <INPUT TYPE="checkbox" CHECKED NAME="name" VALUE="bar">bar
     # <INPUT TYPE="checkbox" NAME="name" VALUE="baz">baz
 
   checkbox_group("name", ["1", "Foo"], ["2", "Bar", true], "Baz")
     # <INPUT TYPE="checkbox" NAME="name" VALUE="1">Foo
-    # <INPUT TYPE="checkbox" SELECTED NAME="name" VALUE="2">Bar
+    # <INPUT TYPE="checkbox" CHECKED NAME="name" VALUE="2">Bar
     # <INPUT TYPE="checkbox" NAME="name" VALUE="Baz">Baz
 
   checkbox_group({ "NAME" => "name",
@@ -1211,7 +1219,7 @@ convert string charset, and set language to "ja".
     # <INPUT TYPE="file" NAME="name" SIZE="40">
 
   file_field("name", 40, 100)
-    # <INPUT TYPE="file" NAME="name" SIZE="40", MAXLENGTH="100">
+    # <INPUT TYPE="file" NAME="name" SIZE="40" MAXLENGTH="100">
 
   file_field({ "NAME" => "name", "SIZE" => 40 })
     # <INPUT TYPE="file" NAME="name" SIZE="40">
@@ -1245,7 +1253,7 @@ convert string charset, and set language to "ja".
 
 The hash keys are case sensitive. Ask the samples.
 =end
-    def form(method = "post", action = nil, enctype = "application/x-www-form-urlencoded")
+    def form(method = "post", action = script_name, enctype = "application/x-www-form-urlencoded")
       attributes = if method.kind_of?(String)
                      { "METHOD" => method, "ACTION" => action,
                        "ENCTYPE" => enctype } 
@@ -1267,7 +1275,11 @@ The hash keys are case sensitive. Ask the samples.
         hidden = @output_hidden.collect{|k,v|
           "<INPUT TYPE=HIDDEN NAME=\"#{k}\" VALUE=\"#{v}\">"
         }.to_s
-        body += hidden
+        if defined? fieldset
+          body += fieldset{ hidden }
+        else
+          body += hidden
+        end
       end
       super(attributes){body}
     end
@@ -1370,7 +1382,7 @@ The hash keys are case sensitive. Ask the samples.
     # <INPUT TYPE="image" SRC="url">
 
   image_button("url", "name", "string")
-    # <INPUT TYPE="image" SRC="url" NAME="name", ALT="string">
+    # <INPUT TYPE="image" SRC="url" NAME="name" ALT="string">
 
   image_button({ "SRC" => "url", "ATL" => "strng" })
     # <INPUT TYPE="image" SRC="url" ALT="string">
@@ -1391,10 +1403,10 @@ The hash keys are case sensitive. Ask the samples.
 =begin
 === IMG ELEMENT
   img("src", "alt", 100, 50)
-    # <IMG SRC="src" ALT="alt" WIDTH="100", HEIGHT="50">
+    # <IMG SRC="src" ALT="alt" WIDTH="100" HEIGHT="50">
 
   img({ "SRC" => "src", "ALT" => "alt", "WIDTH" => 100, "HEIGHT" => 50 })
-    # <IMG SRC="src" ALT="alt" WIDTH="100", HEIGHT="50">
+    # <IMG SRC="src" ALT="alt" WIDTH="100" HEIGHT="50">
 =end
     def img(src = "", alt = "", width = nil, height = nil)
       attributes = if src.kind_of?(String)
@@ -1448,7 +1460,7 @@ The hash keys are case sensitive. Ask the samples.
     # <INPUT TYPE="password" NAME="name" VALUE="value" SIZE="40">
 
   password_field("password", "value", 80, 200)
-    # <INPUT TYPE="password" NAME="name" VALUE="value", SIZE="80", MAXLENGTH="200">
+    # <INPUT TYPE="password" NAME="name" VALUE="value" SIZE="80" MAXLENGTH="200">
 
   password_field({ "NAME" => "name", "VALUE" => "value" })
     # <INPUT TYPE="password" NAME="name" VALUE="value">
@@ -1534,10 +1546,10 @@ The hash keys are case sensitive. Ask the samples.
 =begin
 === RADIO_BUTTON
   radio_button("name", "value")
-    # <INPUT TYPE="radio" NAME="name", VALUE="value">
+    # <INPUT TYPE="radio" NAME="name" VALUE="value">
 
   radio_button("name", "value", true)
-    # <INPUT TYPE="radio" NAME="name", VALUE="value", CHECKED>
+    # <INPUT TYPE="radio" NAME="name" VALUE="value" CHECKED>
 
   radio_button({ "NAME" => "name", "VALUE" => "value", "ID" => "foo" })
     # <INPUT TYPE="radio" NAME="name" VALUE="value" ID="foo">
@@ -1563,12 +1575,12 @@ The hash keys are case sensitive. Ask the samples.
 
   radio_group("name", ["foo"], ["bar", true], "baz")
     # <INPUT TYPE="radio" NAME="name" VALUE="foo">foo
-    # <INPUT TYPE="radio" SELECTED NAME="name" VALUE="bar">bar
+    # <INPUT TYPE="radio" CHECKED NAME="name" VALUE="bar">bar
     # <INPUT TYPE="radio" NAME="name" VALUE="baz">baz
 
   radio_group("name", ["1", "Foo"], ["2", "Bar", true], "Baz")
     # <INPUT TYPE="radio" NAME="name" VALUE="1">Foo
-    # <INPUT TYPE="radio" SELECTED NAME="name" VALUE="2">Bar
+    # <INPUT TYPE="radio" CHECKED NAME="name" VALUE="2">Bar
     # <INPUT TYPE="radio" NAME="name" VALUE="Baz">Baz
 
   radio_group({ "NAME" => "name",
@@ -1670,10 +1682,10 @@ The hash keys are case sensitive. Ask the samples.
     # <INPUT TYPE="text" NAME="name" VALUE="value" SIZE="40">
 
   text_field("name", "value", 80)
-    # <INPUT TYPE="text" NAME="name" VALUE="value", SIZE="80">
+    # <INPUT TYPE="text" NAME="name" VALUE="value" SIZE="80">
 
   text_field("name", "value", 80, 200)
-    # <INPUT TYPE="text" NAME="name" VALUE="value", SIZE="80", MAXLENGTH="200">
+    # <INPUT TYPE="text" NAME="name" VALUE="value" SIZE="80" MAXLENGTH="200">
 
   text_field({ "NAME" => "name", "VALUE" => "value" })
     # <INPUT TYPE="text" NAME="name" VALUE="value">
@@ -1889,14 +1901,32 @@ The hash keys are case sensitive. Ask the samples.
 
 
   def initialize(type = "query")
+    if defined?(MOD_RUBY) && !ENV.key?("GATEWAY_INTERFACE")
+      Apache.request.setup_cgi_env
+    end
+
     extend QueryExtension
-    if defined?(CGI_PARAMS)
-      @params  = CGI_PARAMS.nil?  ? nil : CGI_PARAMS.dup
-      @cookies = CGI_COOKIES.nil? ? nil : CGI_COOKIES.dup
-    else
+    if "POST" != env_table['REQUEST_METHOD']
       initialize_query()  # set @params, @cookies
-      eval "CGI_PARAMS  = @params.nil?  ? nil : @params.dup"
-      eval "CGI_COOKIES = @cookies.nil? ? nil : @cookies.dup"
+    else
+      if defined?(CGI_PARAMS)
+        @params  = CGI_PARAMS.nil?  ? nil : CGI_PARAMS.dup
+        @cookies = CGI_COOKIES.nil? ? nil : CGI_COOKIES.dup
+      else
+        initialize_query()  # set @params, @cookies
+        eval "CGI_PARAMS  = @params.nil?  ? nil : @params.dup"
+        eval "CGI_COOKIES = @cookies.nil? ? nil : @cookies.dup"
+        if defined?(MOD_RUBY) and (RUBY_VERSION < "1.4.3")
+          raise "Please, use ruby1.4.3 or later."
+        else
+          at_exit() do
+            if defined?(CGI_PARAMS)
+              self.class.class_eval("remove_const(:CGI_PARAMS)")
+              self.class.class_eval("remove_const(:CGI_COOKIES)")
+            end
+          end
+        end
+      end
     end
     @output_cookies = nil
     @output_hidden = nil
@@ -1923,17 +1953,6 @@ The hash keys are case sensitive. Ask the samples.
     end
 
   end
-
-  if defined?(MOD_RUBY) and (RUBY_VERSION < "1.4.3")
-    raise "Please, use ruby1.4.3 or later."
-  else
-    at_exit() do
-      if defined?(CGI_PARAMS)
-        remove_const(:CGI_PARAMS)
-        remove_const(:CGI_COOKIES)
-      end
-    end
-  end
 end
 
 
@@ -1945,3 +1964,5 @@ delete. see cvs log.
 
 
 =end
+
+# vi:set tw=0:

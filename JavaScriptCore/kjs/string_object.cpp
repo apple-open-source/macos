@@ -54,6 +54,18 @@ Value StringInstanceImp::get(ExecState *exec, const Identifier &propertyName) co
 {
   if (propertyName == lengthPropertyName)
     return Number(internalValue().toString(exec).size());
+
+  bool ok;
+  const unsigned index = propertyName.toArrayIndex(&ok);
+  if (ok) {
+    const UString s = internalValue().toString(exec);
+    const unsigned length = s.size();
+    if (index >= length)
+      return Undefined();
+    const UChar c = s[index];
+    return String(UString(&c, 1));
+  }
+
   return ObjectImp::get(exec, propertyName);
 }
 
@@ -68,6 +80,15 @@ bool StringInstanceImp::hasProperty(ExecState *exec, const Identifier &propertyN
 {
   if (propertyName == lengthPropertyName)
     return true;
+
+  bool ok;
+  const unsigned index = propertyName.toArrayIndex(&ok);
+  if (ok) {
+    const unsigned length = internalValue().toString(exec).size();
+    if (index < length)
+      return true;
+  }
+
   return ObjectImp::hasProperty(exec, propertyName);
 }
 
@@ -272,7 +293,14 @@ Value StringProtoFuncImp::call(ExecState *exec, Object &thisObj, const List &arg
 	}
 	if (imp)
 	  imp->put(exec, "lastIndex", Number(lastIndex), DontDelete|DontEnum);
-	result = exec->interpreter()->builtinArray().construct(exec, list);
+	if (list.isEmpty()) {
+	  // if there are no matches at all, it's important to return
+	  // Null instead of an empty array, because this matches
+	  // other browsers and because Null is a false value.
+	  result = Null(); 
+	} else {
+	  result = exec->interpreter()->builtinArray().construct(exec, list);
+	}
       }
     }
     delete tmpReg;

@@ -25,10 +25,8 @@
 // Since we are planning to generate "stub" out of line code for threading methods,
 // we must force THREAD_NDEBUG to off while compiling our header. Trust me.
 //
-#if !defined(THREAD_CLEAN_NDEBUG)
-# define THREAD_MAKE_STUBS
-#endif
 #include <Security/threading.h>
+#include <Security/memutils.h>
 
 
 //
@@ -46,10 +44,7 @@ ThreadStoreSlot::~ThreadStoreSlot()
 {
     //@@@ if we wanted to dispose of pending task objects, we'd have
     //@@@ to keep a set of them and delete them explicitly here
-#if BUG_2998157
-	// @@@ bug 2998157 does not clear slots on delete or allocate. Leak them for now
     pthread_key_delete(mKey);
-#endif //BUG_2998157
 }
 
 #endif
@@ -60,8 +55,6 @@ ThreadStoreSlot::~ThreadStoreSlot()
 //
 #if _USE_THREADS == _USE_PTHREADS
 
-#if !defined(THREAD_CLEAN_NDEBUG)
-
 bool Mutex::debugHasInitialized;
 bool Mutex::loggingMutexi;
 
@@ -71,7 +64,7 @@ Mutex::Mutex(bool log)
 	// this debug-setup code isn't interlocked, but it's idempotent
 	// (don't worry, be happy)
 	if (!debugHasInitialized) {
-		loggingMutexi = Debug::debugging("mutex");
+		loggingMutexi = Debug::debugging("mutex") || Debug::debugging("mutex-c");
 		debugHasInitialized = true;
 	}
 	debugLog = log && loggingMutexi;
@@ -85,8 +78,13 @@ Mutex::Mutex(bool log)
 Mutex::~Mutex()
 {
 #if !defined(THREAD_NDEBUG)
-	if (debugLog && (useCount > 100 || contentionCount > 0))
-		debug("mutex", "%p destroyed after %ld/%ld locks/contentions", this, useCount, contentionCount);
+	if (debugLog) {
+		if (contentionCount > 0)
+			secdebug("mutex-c", "%p destroyed after %ld/%ld locks/contentions",
+					 this, useCount, contentionCount);
+		else if (useCount > 100)
+			secdebug("mutex", "%p destroyed after %ld locks", this, useCount);
+	}
 #endif //THREAD_NDEBUG
 	check(pthread_mutex_destroy(&me));
 }
@@ -101,16 +99,16 @@ void Mutex::lock()
 			break;
 		case EBUSY:
 			if (debugLog)
-				debug("mutex", "%p contended (%ld of %ld)", this, ++contentionCount, useCount);
+				secdebug("mutex-c", "%p contended (%ld of %ld)", this, ++contentionCount, useCount);
 			check(pthread_mutex_lock(&me));
 			break;
 		default:
 			UnixError::throwMe(err);
 		}
 		if (useCount % 100 == 0)
-			debug("mutex", "%p locked %ld", this, useCount);
+			secdebug("mutex", "%p locked %ld", this, useCount);
 		else
-			debug("mutex", "%p locked", this);
+			secdebug("mutex", "%p locked", this);
         return;
     }
 #endif //THREAD_NDEBUG
@@ -125,7 +123,7 @@ bool Mutex::tryLock()
 			UnixError::throwMe(err);
 #if !defined(THREAD_NDEBUG)
 		if (debugLog)
-			debug("mutex", "%p trylock contended (%ld of %ld)",
+			secdebug("mutex-c", "%p trylock contended (%ld of %ld)",
 				this, ++contentionCount, useCount);
 #endif //THREAD_NDEBUG
 		return false;
@@ -133,9 +131,9 @@ bool Mutex::tryLock()
 #if !defined(THREAD_NDEBUG)
 	if (debugLog)
 		if (useCount % 100 == 0)
-			debug("mutex", "%p locked %ld", this, useCount);
+			secdebug("mutex", "%p locked %ld", this, useCount);
 		else
-			debug("mutex", "%p locked", this);
+			secdebug("mutex", "%p locked", this);
 #endif //THREAD_NDEBUG
 	return true;
 }
@@ -144,12 +142,11 @@ void Mutex::unlock()
 {
 #if !defined(MUTEX_NDEBUG)
 	if (debugLog)
-		debug("mutex", "%p unlocked", this);
+		secdebug("mutex", "%p unlocked", this);
 #endif //MUTEX_NDEBUG
 	check(pthread_mutex_unlock(&me));
 }
 
-#endif //!THREAD_CLEAN_NDEBUG
 #endif //PTHREADS
 
 
@@ -164,7 +161,7 @@ void CountingMutex::enter()
 {
     lock();
     mCount++;
-    debug("mutex", "%p up to %d", this, mCount);
+    secdebug("mutex", "%p up to %d", this, mCount);
     unlock();
 }
 
@@ -173,7 +170,7 @@ bool CountingMutex::tryEnter()
     if (!tryLock())
         return false;
     mCount++;
-    debug("mutex", "%p up to %d (was try)", this, mCount);
+    secdebug("mutex", "%p up to %d (was try)", this, mCount);
     unlock();
     return true;
 }
@@ -183,14 +180,14 @@ void CountingMutex::exit()
     lock();
     assert(mCount > 0);
     mCount--;
-    debug("mutex", "%p down to %d", this, mCount);
+    secdebug("mutex", "%p down to %d", this, mCount);
     unlock();
 }
 
 void CountingMutex::finishEnter()
 {
     mCount++;
-    debug("mutex", "%p finish up to %d", this, mCount);
+    secdebug("mutex", "%p finish up to %d", this, mCount);
     unlock();
 }
 
@@ -198,7 +195,7 @@ void CountingMutex::finishExit()
 {
     assert(mCount > 0);
     mCount--; 
-    debug("mutex", "%p finish down to %d", this, mCount);
+    secdebug("mutex", "%p finish down to %d", this, mCount);
     unlock();
 }
 
@@ -217,7 +214,7 @@ void Thread::run()
 {
     if (int err = pthread_create(&self.mIdent, NULL, runner, this))
         UnixError::throwMe(err);
-	debug("thread", "%p created", self.mIdent);
+	secdebug("thread", "%p created", self.mIdent);
 }
 
 void *Thread::runner(void *arg)
@@ -225,9 +222,9 @@ void *Thread::runner(void *arg)
     Thread *me = static_cast<Thread *>(arg);
     if (int err = pthread_detach(me->self.mIdent))
         UnixError::throwMe(err);
-	debug("thread", "%p starting", me->self.mIdent);
+	secdebug("thread", "%p starting", me->self.mIdent);
     me->action();
-	debug("thread", "%p terminating", me->self.mIdent);
+	secdebug("thread", "%p terminating", me->self.mIdent);
     delete me;
     return NULL;
 }
@@ -237,21 +234,21 @@ void Thread::yield()
 	sched_yield();
 }
 
-#if !defined(NDEBUG)
 
-#include <Security/memutils.h>
-
+//
+// Make a more-or-less unique string representation of a thread id.
+// This is meant FOR DEBUGGING ONLY. Don't use this in production code.
+//
 void Thread::Identity::getIdString(char id[idLength])
 {
 	pthread_t current = pthread_self();
 	// We're not supposed to know what a pthread_t is. Just print the first few bytes...
 	// (On MacOS X, it's a pointer to a pthread_t internal structure, so this works fine.)
-	void *p;
-	memcpy(&p, &current, sizeof(p));
-	snprintf(id, idLength, "%lx", long(p));
+	long ids;
+	memcpy(&ids, &current, sizeof(ids));
+	snprintf(id, idLength, "%lx", ids);
 }
 
-#endif // NDEBUG
 
 #endif // PTHREADS
 

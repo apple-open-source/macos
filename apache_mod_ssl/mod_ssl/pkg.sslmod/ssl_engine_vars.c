@@ -322,7 +322,9 @@ static char *ssl_var_lookup_ssl(pool *p, conn_rec *c, char *var)
     else if (ssl != NULL && strlen(var) > 7 && strcEQn(var, "SERVER_", 7)) {
         if ((xs = SSL_get_certificate(ssl)) != NULL) {
             result = ssl_var_lookup_ssl_cert(p, xs, var+7);
-            X509_free(xs);
+            /* SSL_get_certificate() as of OpenSSL 0.9.7a does not increment
+               the reference count the same way SSL_get_peer_certificate does,
+               so no need to X509_free(xs) the stuff here. */
         }
     }
     return result;

@@ -1,7 +1,7 @@
 /* bind.c - bdb backend bind routine */
-/* $OpenLDAP: pkg/ldap/servers/slapd/back-bdb/bind.c,v 1.16 2002/02/09 04:14:18 kurt Exp $ */
+/* $OpenLDAP: pkg/ldap/servers/slapd/back-bdb/bind.c,v 1.16.2.7 2003/02/09 16:31:37 kurt Exp $ */
 /*
- * Copyright 1998-2002 The OpenLDAP Foundation, All Rights Reserved.
+ * Copyright 1998-2003 The OpenLDAP Foundation, All Rights Reserved.
  * COPYING RESTRICTIONS APPLY, see COPYRIGHT file
  */
 
@@ -14,6 +14,7 @@
 
 #include "back-bdb.h"
 #include "external.h"
+#include "psauth.h"
 
 int
 bdb_bind(
@@ -39,19 +40,47 @@ bdb_bind(
 #endif
 
 	AttributeDescription *password = slap_schema.si_ad_userPassword;
+	AttributeDescription *authAuthority = slap_schema.si_ad_authAuthority;
 
+	u_int32_t	locker;
+	DB_LOCK		lock;
+
+#ifdef NEW_LOGGING
+	LDAP_LOG ( OPERATION, ARGS, "==> bdb_bind: dn: %s\n", dn->bv_val, 0, 0 );
+#else
 	Debug( LDAP_DEBUG_ARGS, "==> bdb_bind: dn: %s\n", dn->bv_val, 0, 0);
+#endif
 
-	/* get entry */
-	rc = bdb_dn2entry_r( be, NULL, ndn, &e, &matched, 0 );
-
+	rc = LOCK_ID(bdb->bi_dbenv, &locker);
 	switch(rc) {
-	case DB_NOTFOUND:
 	case 0:
 		break;
 	default:
 		send_ldap_result( conn, op, rc=LDAP_OTHER,
 			NULL, "internal error", NULL, NULL );
+		return rc;
+	}
+
+dn2entry_retry:
+	/* get entry */
+	rc = bdb_dn2entry_r( be, NULL, ndn, &e, &matched, 0, locker, &lock );
+
+	switch(rc) {
+	case DB_NOTFOUND:
+	case 0:
+		break;
+	case LDAP_BUSY:
+		send_ldap_result( conn, op, LDAP_BUSY,
+			NULL, "ldap server busy", NULL, NULL );
+		LOCK_ID_FREE(bdb->bi_dbenv, locker);
+		return LDAP_BUSY;
+	case DB_LOCK_DEADLOCK:
+	case DB_LOCK_NOTGRANTED:
+		goto dn2entry_retry;
+	default:
+		send_ldap_result( conn, op, rc=LDAP_OTHER,
+			NULL, "internal error", NULL, NULL );
+		LOCK_ID_FREE(bdb->bi_dbenv, locker);
 		return rc;
 	}
 
@@ -67,7 +96,7 @@ bdb_bind(
 				? get_entry_referrals( be, conn, op, matched )
 				: NULL;
 
-			bdb_cache_return_entry_r( &bdb->bi_cache, matched );
+			bdb_cache_return_entry_r( bdb->bi_dbenv, &bdb->bi_cache, matched, &lock );
 			matched = NULL;
 
 		} else {
@@ -100,6 +129,8 @@ bdb_bind(
 				NULL, NULL, NULL, NULL );
 		}
 
+		LOCK_ID_FREE(bdb->bi_dbenv, locker);
+
 		ber_bvarray_free( refs );
 		free( matched_dn );
 
@@ -112,8 +143,13 @@ bdb_bind(
 #ifdef BDB_SUBENTRIES
 	if ( is_entry_subentry( e ) ) {
 		/* entry is an subentry, don't allow bind */
-		Debug( LDAP_DEBUG_TRACE, "entry is alias\n", 0,
+#ifdef NEW_LOGGING
+		LDAP_LOG ( OPERATION, DETAIL1, 
+			"bdb_bind: entry is subentry\n", 0, 0, 0 );
+#else
+		Debug( LDAP_DEBUG_TRACE, "entry is subentry\n", 0,
 			0, 0 );
+#endif
 
 		send_ldap_result( conn, op, rc = LDAP_INVALID_CREDENTIALS,
 			NULL, NULL, NULL, NULL );
@@ -125,8 +161,12 @@ bdb_bind(
 #ifdef BDB_ALIASES
 	if ( is_entry_alias( e ) ) {
 		/* entry is an alias, don't allow bind */
+#ifdef NEW_LOGGING
+		LDAP_LOG ( OPERATION, DETAIL1, "bdb_bind: entry is alias\n", 0, 0, 0 );
+#else
 		Debug( LDAP_DEBUG_TRACE, "entry is alias\n", 0,
 			0, 0 );
+#endif
 
 		send_ldap_result( conn, op, rc = LDAP_ALIAS_PROBLEM,
 			NULL, "entry is alias", NULL, NULL );
@@ -140,8 +180,13 @@ bdb_bind(
 		BerVarray refs = get_entry_referrals( be,
 			conn, op, e );
 
+#ifdef NEW_LOGGING
+		LDAP_LOG ( OPERATION, DETAIL1, 
+			"bdb_bind: entry is referral\n", 0, 0, 0 );
+#else
 		Debug( LDAP_DEBUG_TRACE, "entry is referral\n", 0,
 			0, 0 );
+#endif
 
 		if( refs != NULL ) {
 			send_ldap_result( conn, op, rc = LDAP_REFERRAL,
@@ -168,12 +213,32 @@ bdb_bind(
 			goto done;
 		}
 
-		if ( ! access_allowed( be, conn, op, e,
-			password, NULL, ACL_AUTH, NULL ) )
-		{
+		rc = access_allowed( be, conn, op, e,
+			authAuthority, NULL, ACL_AUTH, NULL );
+		if ( ! rc ) {
 			send_ldap_result( conn, op, rc = LDAP_INSUFFICIENT_ACCESS,
-				NULL, NULL, NULL, NULL );
+					 NULL, NULL, NULL, NULL );
 			goto done;
+		}
+
+		rc = access_allowed( be, conn, op, e,
+			password, NULL, ACL_AUTH, NULL );
+		if ( ! rc ) {
+			send_ldap_result( conn, op, rc = LDAP_INSUFFICIENT_ACCESS,
+					 NULL, NULL, NULL, NULL );
+			goto done;
+		}
+
+		if ( (a = attr_find( e->e_attrs, authAuthority )) != NULL ) {
+			/* check authentication authority */
+			if ( a->a_vals[0].bv_val != NULL ) {
+				if ( CheckAuthType(a->a_vals[0].bv_val, PASSWORD_SERVER_AUTH_TYPE) ) {
+					rc = (DoPSAuth(NULL, cred->bv_val, a->a_vals[0].bv_val) == kAuthNoError) ? 0 : LDAP_INVALID_CREDENTIALS;
+
+					send_ldap_result( conn, op, rc,	NULL, NULL, NULL, NULL );
+					goto done;
+				}
+			}
 		}
 
 		if ( (a = attr_find( e->e_attrs, password )) == NULL ) {
@@ -199,9 +264,9 @@ bdb_bind(
 			goto done;
 		}
 
-		if ( ! access_allowed( be, conn, op, e,
-			krbattr, NULL, ACL_AUTH, NULL ) )
-		{
+		rc = access_allowed( be, conn, op, e,
+			krbattr, NULL, ACL_AUTH, NULL );
+		if ( ! rc ) {
 			send_ldap_result( conn, op, rc = LDAP_INSUFFICIENT_ACCESS,
 				NULL, NULL, NULL, NULL );
 			goto done;
@@ -254,9 +319,11 @@ bdb_bind(
 done:
 	/* free entry and reader lock */
 	if( e != NULL ) {
-		bdb_cache_return_entry_r( &bdb->bi_cache, e );
+		bdb_cache_return_entry_r( bdb->bi_dbenv, &bdb->bi_cache, e, &lock );
 	}
 
-	/* front end with send result on success (rc==0) */
+	LOCK_ID_FREE(bdb->bi_dbenv, locker);
+
+	/* front end will send result on success (rc==0) */
 	return rc;
 }

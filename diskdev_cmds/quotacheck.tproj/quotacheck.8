@@ -34,7 +34,7 @@
 .\"
 .\"     @(#)quotacheck.8	8.1 (Berkeley) 6/5/93
 .\"
-.Dd March 28, 2002
+.Dd October 17, 2002
 .Dt QUOTACHECK 8
 .Os BSD 4.2
 .Sh NAME
@@ -76,11 +76,11 @@ The mount option file specifies the types of quotas that
 are to be checked.
 .It Fl g
 Only group quotas are checked. The mount option file,
-.Pa .quota.opts.group ,
+.Pa .quota.ops.group ,
 must exist at the root of the filesystem.
 .It Fl u
 Only user quotas are checked.  The mount option file,
-.Pa .quota.opts.user ,
+.Pa .quota.ops.user ,
 must exist at the root of the filesystem.
 .It Fl v
 .Nm quotacheck

@@ -1,6 +1,6 @@
-/* $OpenLDAP: pkg/ldap/servers/slurpd/config.c,v 1.25 2002/02/08 05:44:34 hyc Exp $ */
+/* $OpenLDAP: pkg/ldap/servers/slurpd/config.c,v 1.25.2.4 2003/03/03 17:10:11 kurt Exp $ */
 /*
- * Copyright 1998-2002 The OpenLDAP Foundation, All Rights Reserved.
+ * Copyright 1998-2003 The OpenLDAP Foundation, All Rights Reserved.
  * COPYING RESTRICTIONS APPLY, see COPYRIGHT file
  */
 /*
@@ -34,19 +34,22 @@
 #include "slurp.h"
 #include "globals.h"
 
-#define MAXARGS	500
+#define ARGS_STEP	512
 
 /* Forward declarations */
 static void	add_replica LDAP_P(( char **, int ));
 static int	parse_replica_line LDAP_P(( char **, int, Ri *));
-static void	parse_line LDAP_P(( char *, int *, char ** ));
+static void	parse_line LDAP_P(( char * ));
 static char	*getline LDAP_P(( FILE * ));
 static char	*strtok_quote LDAP_P(( char *, char * ));
 
+int	cargc = 0, cargv_size = 0;
+char	**cargv;
 /* current config file line # */
 static int	lineno;
 
-
+char *slurpd_pid_file = NULL;
+char *slurpd_args_file = NULL;
 
 /*
  * Read the slapd config file, looking only for config options we're
@@ -60,11 +63,18 @@ slurpd_read_config(
 {
     FILE	*fp;
     char	*line;
-    int		cargc;
-    char	*cargv[MAXARGS];
 
+	cargv = ch_calloc( ARGS_STEP + 1, sizeof(*cargv) );
+	cargv_size = ARGS_STEP + 1;
+
+#ifdef NEW_LOGGING
+    LDAP_LOG ( CONFIG, ARGS, 
+		"slurpd_read_config: Config: opening config file \"%s\"\n", 
+		fname, 0, 0 );
+#else
     Debug( LDAP_DEBUG_CONFIG, "Config: opening config file \"%s\"\n",
 	    fname, 0, 0 );
+#endif
 
     if ( (fp = fopen( fname, "r" )) == NULL ) {
 	perror( fname );
@@ -78,9 +88,14 @@ slurpd_read_config(
 	    continue;
 	}
 
+#ifdef NEW_LOGGING
+    LDAP_LOG ( CONFIG, DETAIL1, 
+		"slurpd_read_config: Config: (%s)\n", line, 0, 0 );
+#else
 	Debug( LDAP_DEBUG_CONFIG, "Config: (%s)\n", line, 0, 0 );
+#endif
 
-	parse_line( line, &cargc, cargv );
+	parse_line( line );
 
 	if ( cargc < 1 ) {
 	    fprintf( stderr, "line %d: bad config line (ignored)\n", lineno );
@@ -119,9 +134,9 @@ slurpd_read_config(
 
             if ( cargc < 2 ) {
 #ifdef NEW_LOGGING
-                LDAP_LOG(( "config", LDAP_LEVEL_CRIT,
+                LDAP_LOG( CONFIG, CRIT,
                         "%s: line %d: missing filename in \"include "
-                        "<filename>\" line.\n", fname, lineno ));
+                        "<filename>\" line.\n", fname, lineno , 0 );
 #else
                 Debug( LDAP_DEBUG_ANY,
         "%s: line %d: missing filename in \"include <filename>\" line\n",
@@ -139,12 +154,87 @@ slurpd_read_config(
 		
 	    free( savefname );
 	    lineno = savelineno - 1;
-	}
+
+	} else if ( strcasecmp( cargv[0], "replica-pidfile" ) == 0 ) {
+		if ( cargc < 2 ) {
+#ifdef NEW_LOGGING
+			LDAP_LOG( CONFIG, CRIT,
+				"%s: line %d missing file name in \"replica-pidfile <file>\" "
+				"line.\n", fname, lineno, 0 );
+#else
+			Debug( LDAP_DEBUG_ANY,
+	    "%s: line %d: missing file name in \"replica-pidfile <file>\" line\n",
+				fname, lineno, 0 );
+#endif
+
+			return( 1 );
+		}
+
+		slurpd_pid_file = ch_strdup( cargv[1] );
+
+	} else if ( strcasecmp( cargv[0], "replica-argsfile" ) == 0 ) {
+		if ( cargc < 2 ) {
+#ifdef NEW_LOGGING
+			LDAP_LOG( CONFIG, CRIT,
+				   "%s: %d: missing file name in "
+				   "\"argsfile <file>\" line.\n",
+				   fname, lineno, 0 );
+#else
+			Debug( LDAP_DEBUG_ANY,
+	    "%s: line %d: missing file name in \"argsfile <file>\" line\n",
+			    fname, lineno, 0 );
+#endif
+
+			return( 1 );
+		}
+
+		slurpd_args_file = ch_strdup( cargv[1] );
+	} else if ( strcasecmp( cargv[0], "replicationinterval" ) == 0 ) {
+		int c;
+		if ( cargc < 2 ) {
+#ifdef NEW_LOGGING
+			LDAP_LOG( CONFIG, CRIT,
+				   "%s: %d: missing interval in "
+				   "\"replicationinterval <seconds>\" line.\n",
+				   fname, lineno, 0 );
+#else
+			Debug( LDAP_DEBUG_ANY,
+	    "%s: line %d: missing interval in \"replicationinterval <seconds>\" line\n",
+			    fname, lineno, 0 );
+#endif
+
+			return( 1 );
+		}
+		
+		c = atoi( cargv[1] );
+
+		if( c < 1 ) {
+#ifdef NEW_LOGGING
+			LDAP_LOG( CONFIG, CRIT, 
+					"%s: line %d: invalid interval (%d) in \"replicationinterval <seconds>\""
+					"line\n", fname, lineno, c );
+#else
+			Debug( LDAP_DEBUG_ANY,
+	"%s: line %d: invalid interval (%d) in \"replicationinterval <seconds>\" line\n",
+				fname, lineno, c );
+#endif
+
+			return( 1 );
+		}
+
+		sglob->no_work_interval = c;
     }
+	}
     fclose( fp );
+#ifdef NEW_LOGGING
+    LDAP_LOG ( CONFIG, RESULTS, 
+		"slurpd_read_config: Config: "
+		"** configuration file successfully read and parsed\n", 0, 0, 0 );
+#else
     Debug( LDAP_DEBUG_CONFIG,
 	    "Config: ** configuration file successfully read and parsed\n",
 	    0, 0, 0 );
+#endif
     return 0;
 }
 
@@ -156,19 +246,30 @@ slurpd_read_config(
  */
 static void
 parse_line(
-    char	*line,
-    int		*argcp,
-    char	**argv
+    char	*line
 )
 {
     char *	token;
 
-    *argcp = 0;
+    cargc = 0;
     for ( token = strtok_quote( line, " \t" ); token != NULL;
-	token = strtok_quote( NULL, " \t" ) ) {
-	argv[(*argcp)++] = token;
+	token = strtok_quote( NULL, " \t" ) )
+    {
+        if ( cargc == cargv_size - 1 ) {
+	    char **tmp;
+            tmp = ch_realloc( cargv, (cargv_size + ARGS_STEP) *
+                               sizeof(*cargv) );
+	    if (tmp == NULL) {
+		cargc = 0;
+		return;
+	    }
+	    cargv = tmp;
+            cargv_size += ARGS_STEP;
+        }
+
+	cargv[cargc++] = token;
     }
-    argv[*argcp] = NULL;
+    cargv[cargc] = NULL;
 }
 
 
@@ -313,11 +414,19 @@ add_replica(
 	sglob->replicas[ nr - 1] = NULL;
 	sglob->num_replicas--;
     } else {
+#ifdef NEW_LOGGING
+    LDAP_LOG ( CONFIG, RESULTS, 
+		"add_replica: Config: ** successfully added replica \"%s%d\"\n", 
+		sglob->replicas[ nr - 1 ]->ri_hostname == NULL ?
+		"(null)" : sglob->replicas[ nr - 1 ]->ri_hostname,
+		sglob->replicas[ nr - 1 ]->ri_port, 0 );
+#else
 	Debug( LDAP_DEBUG_CONFIG,
 		"Config: ** successfully added replica \"%s:%d\"\n",
 		sglob->replicas[ nr - 1 ]->ri_hostname == NULL ?
 		"(null)" : sglob->replicas[ nr - 1 ]->ri_hostname,
 		sglob->replicas[ nr - 1 ]->ri_port, 0 );
+#endif
 	sglob->replicas[ nr - 1]->ri_stel =
 		sglob->st->st_add( sglob->st,
 		sglob->replicas[ nr - 1 ] );

@@ -1,8 +1,8 @@
 /*
    +----------------------------------------------------------------------+
-   | PHP version 4.0                                                      |
+   | PHP Version 4                                                        |
    +----------------------------------------------------------------------+
-   | Copyright (c) 1997-2001 The PHP Group                                |
+   | Copyright (c) 1997-2003 The PHP Group                                |
    +----------------------------------------------------------------------+
    | This source file is subject to version 2.02 of the PHP license,      |
    | that is bundled with this package in the file LICENSE, and is        |
@@ -12,11 +12,11 @@
    | obtain it through the world-wide-web, please send a note to          |
    | license@php.net so we can mail you a copy immediately.               |
    +----------------------------------------------------------------------+
-   | Authors: Thies C. Arntzen (thies@thieso.net)                         |
+   | Author: Thies C. Arntzen <thies@thieso.net>                          |
    +----------------------------------------------------------------------+
 */
 
-/* $Id: readline.c,v 1.1.1.5 2001/12/14 22:13:05 zarzycki Exp $ */
+/* $Id: readline.c,v 1.1.1.8 2003/07/18 18:07:41 zarzycki Exp $ */
 
 /* {{{ includes & prototypes */
 
@@ -38,7 +38,9 @@ PHP_FUNCTION(readline);
 PHP_FUNCTION(readline_add_history);
 PHP_FUNCTION(readline_info);
 PHP_FUNCTION(readline_clear_history);
+#ifndef HAVE_LIBEDIT
 PHP_FUNCTION(readline_list_history);
+#endif
 PHP_FUNCTION(readline_read_history);
 PHP_FUNCTION(readline_write_history);
 PHP_FUNCTION(readline_completion_function);
@@ -57,10 +59,8 @@ static zend_function_entry php_readline_functions[] = {
 	PHP_FE(readline_info,  	            NULL)
 	PHP_FE(readline_add_history, 		NULL)
 	PHP_FE(readline_clear_history, 		NULL)
-#ifdef HAVE_LIBREADLINE
+#ifndef HAVE_LIBEDIT
 	PHP_FE(readline_list_history, 		NULL)
-#else
-	PHP_FALIAS(readline_list_history, warn_not_available,			NULL)
 #endif
 	PHP_FE(readline_read_history, 		NULL)
 	PHP_FE(readline_write_history, 		NULL)
@@ -77,7 +77,7 @@ zend_module_entry readline_module_entry = {
 	NULL,
 	PHP_RSHUTDOWN(readline),
 	NULL, 
-    NO_VERSION_YET,
+	NO_VERSION_YET,
 	STANDARD_MODULE_PROPERTIES
 };
 
@@ -87,8 +87,8 @@ ZEND_GET_MODULE(readline)
 
 PHP_MINIT_FUNCTION(readline)
 {
-    using_history();
-	return SUCCESS;
+    	using_history();
+    	return SUCCESS;
 }
 
 PHP_RSHUTDOWN_FUNCTION(readline)
@@ -116,7 +116,7 @@ PHP_FUNCTION(readline)
 		convert_to_string_ex(arg);
 	}
 
-	result = readline(ac?(*arg)->value.str.val:NULL);
+	result = readline(ac?Z_STRVAL_PP(arg):NULL);
 
 	if (! result) {
 		RETURN_FALSE;
@@ -164,57 +164,57 @@ PHP_FUNCTION(readline_info)
 	} else {
 		convert_to_string_ex(what);
 
-		if (! strcasecmp((*what)->value.str.val,"line_buffer")) {
+		if (! strcasecmp(Z_STRVAL_PP(what),"line_buffer")) {
 			oldstr = rl_line_buffer;
 			if (ac == 2) {
 				/* XXX if (rl_line_buffer) free(rl_line_buffer); */
 				convert_to_string_ex(value);
-				rl_line_buffer = strdup((*value)->value.str.val);
+				rl_line_buffer = strdup(Z_STRVAL_PP(value));
 			}
 			RETVAL_STRING(SAFE_STRING(oldstr),1);
-		} else if (! strcasecmp((*what)->value.str.val,"point")) {
+		} else if (! strcasecmp(Z_STRVAL_PP(what),"point")) {
 			RETVAL_LONG(rl_point);
-		} else if (! strcasecmp((*what)->value.str.val,"end")) {
+		} else if (! strcasecmp(Z_STRVAL_PP(what),"end")) {
 			RETVAL_LONG(rl_end);
 #ifdef HAVE_LIBREADLINE
-		} else if (! strcasecmp((*what)->value.str.val,"mark")) {
+		} else if (! strcasecmp(Z_STRVAL_PP(what),"mark")) {
 			RETVAL_LONG(rl_mark);
-		} else if (! strcasecmp((*what)->value.str.val,"done")) {
+		} else if (! strcasecmp(Z_STRVAL_PP(what),"done")) {
 			oldval = rl_done;
 			if (ac == 2) {
 				convert_to_long_ex(value);
-				rl_done = (*value)->value.lval;
+				rl_done = Z_LVAL_PP(value);
 			}
 			RETVAL_LONG(oldval);
-		} else if (! strcasecmp((*what)->value.str.val,"pending_input")) {
+		} else if (! strcasecmp(Z_STRVAL_PP(what),"pending_input")) {
 			oldval = rl_pending_input;
 			if (ac == 2) {
 				convert_to_string_ex(value);
-				rl_pending_input = (*value)->value.str.val[0];
+				rl_pending_input = Z_STRVAL_PP(value)[0];
 			}
 			RETVAL_LONG(oldval);
-		} else if (! strcasecmp((*what)->value.str.val,"prompt")) {
+		} else if (! strcasecmp(Z_STRVAL_PP(what),"prompt")) {
 			RETVAL_STRING(SAFE_STRING(rl_prompt),1);
-		} else if (! strcasecmp((*what)->value.str.val,"terminal_name")) {
+		} else if (! strcasecmp(Z_STRVAL_PP(what),"terminal_name")) {
 			RETVAL_STRING(SAFE_STRING(rl_terminal_name),1);
 #endif
 #if HAVE_ERASE_EMPTY_LINE
-		} else if (! strcasecmp((*what)->value.str.val,"erase_empty_line")) {
+		} else if (! strcasecmp(Z_STRVAL_PP(what),"erase_empty_line")) {
 			oldval = rl_erase_empty_line;
 			if (ac == 2) {
 				convert_to_long_ex(value);
-				rl_erase_empty_line = (*value)->value.lval;
+				rl_erase_empty_line = Z_LVAL_PP(value);
 			}
 			RETVAL_LONG(oldval);
 #endif
-		} else if (! strcasecmp((*what)->value.str.val,"library_version")) {
+		} else if (! strcasecmp(Z_STRVAL_PP(what),"library_version")) {
 			RETVAL_STRING(SAFE_STRING(rl_library_version),1);
-		} else if (! strcasecmp((*what)->value.str.val,"readline_name")) {
+		} else if (! strcasecmp(Z_STRVAL_PP(what),"readline_name")) {
 			oldstr = rl_readline_name;
 			if (ac == 2) {
 				/* XXX if (rl_readline_name) free(rl_readline_name); */
 				convert_to_string_ex(value);
-				rl_readline_name = strdup((*value)->value.str.val);;
+				rl_readline_name = strdup(Z_STRVAL_PP(value));;
 			}
 			RETVAL_STRING(SAFE_STRING(oldstr),1);
 		} 
@@ -229,12 +229,12 @@ PHP_FUNCTION(readline_add_history)
 	pval **arg;
 	int ac = ZEND_NUM_ARGS();
 
-	if (ac < 1 || ac > 1 || zend_get_parameters_ex(ac, &arg) == FAILURE) {
+	if (ac != 1 || zend_get_parameters_ex(ac, &arg) == FAILURE) {
 		WRONG_PARAM_COUNT;
 	}
 	convert_to_string_ex(arg);
 
-	add_history((*arg)->value.str.val);
+	add_history(Z_STRVAL_PP(arg));
 
 	RETURN_TRUE;
 }
@@ -246,7 +246,7 @@ PHP_FUNCTION(readline_clear_history)
 {
 	int ac = ZEND_NUM_ARGS();
 
-	if (ac < 0 || ac > 0) {
+	if (ac != 0) {
 		WRONG_PARAM_COUNT;
 	}
 
@@ -258,7 +258,7 @@ PHP_FUNCTION(readline_clear_history)
 /* }}} */
 /* {{{ proto array readline_list_history(void) 
    Lists the history */
-#ifdef HAVE_LIBREADLINE
+#ifndef HAVE_LIBEDIT
 PHP_FUNCTION(readline_list_history)
 {
 	HIST_ENTRY **history;
@@ -297,7 +297,7 @@ PHP_FUNCTION(readline_read_history)
 
 	if (ac == 1) {
 		convert_to_string_ex(arg);
-		filename = (*arg)->value.str.val;
+		filename = Z_STRVAL_PP(arg);
 	}
 
 	if (read_history(filename)) {
@@ -322,7 +322,7 @@ PHP_FUNCTION(readline_write_history)
 
 	if (ac == 1) {
 		convert_to_string_ex(arg);
-		filename = (*arg)->value.str.val;
+		filename = Z_STRVAL_PP(arg);
 	}
 
 	if (write_history(filename)) {
@@ -335,16 +335,11 @@ PHP_FUNCTION(readline_write_history)
 /* }}} */
 /* {{{ proto void readline_completion_function(string funcname) 
    Readline completion function? */
-char *test[] = { "bleibt", "da", "helfen", "keine", "pillen", "und" , "heissen", "umschlaege","hallo", "pallo", "egon", "thies", "ist", "doof", "tubu", "tata", 0 };
 
 static char *_readline_command_generator(char *text,int state)
 {
-	HashTable  *myht = _readline_array.value.ht;
+	HashTable  *myht = Z_ARRVAL(_readline_array);
 	zval **entry;
-	
-	/*
-	printf("\n_readline_command_generator(\"%s\",%d)\n",text,state);
-	*/
 	
 	if (! state)	{
 		zend_hash_internal_pointer_reset(myht);
@@ -354,8 +349,8 @@ static char *_readline_command_generator(char *text,int state)
 		zend_hash_move_forward(myht);
 
 		convert_to_string_ex(entry);
-		if (strncmp ((*entry)->value.str.val, text, strlen(text)) == 0) {
-			return (strdup((*entry)->value.str.val));
+		if (strncmp (Z_STRVAL_PP(entry), text, strlen(text)) == 0) {
+			return (strdup(Z_STRVAL_PP(entry)));
 		}
 	}
 
@@ -368,9 +363,9 @@ static zval *_readline_string_zval(const char *str)
 	int len = strlen(str);
 	MAKE_STD_ZVAL(ret);
 
-	ret->type = IS_STRING;
-	ret->value.str.len = len;
-	ret->value.str.val = estrndup(str, len);
+	Z_TYPE_P(ret) = IS_STRING;
+	Z_STRLEN_P(ret) = len;
+	Z_STRVAL_P(ret) = estrndup(str, len);
 	return ret;
 }
 
@@ -379,8 +374,8 @@ static zval *_readline_long_zval(long l)
 	zval *ret;
 	MAKE_STD_ZVAL(ret);
 
-	ret->type = IS_LONG;
-	ret->value.lval = l;
+	Z_TYPE_P(ret) = IS_LONG;
+	Z_LVAL_P(ret) = l;
 	return ret;
 }
 
@@ -397,7 +392,7 @@ static char **_readline_completion_cb(char *text, int start, int end)
 	params[3]=_readline_long_zval(end);
 
 	if (call_user_function(CG(function_table), NULL, params[0], &_readline_array, 3, params+1 TSRMLS_CC) == SUCCESS) {
-		if (_readline_array.type == IS_ARRAY) {
+		if (Z_TYPE(_readline_array) == IS_ARRAY) {
 			matches = completion_matches(text,_readline_command_generator);
 		}
 	}
@@ -425,7 +420,7 @@ PHP_FUNCTION(readline_completion_function)
 		if (_readline_completion)
 			efree(_readline_completion);
 
-		_readline_completion = estrdup((*arg)->value.str.val);
+		_readline_completion = estrdup(Z_STRVAL_PP(arg));
 		rl_attempted_completion_function = _readline_completion_cb;
 	}
 

@@ -53,12 +53,36 @@ CssmCommonError::~CssmCommonError() throw ()
 {
 #if !defined(NDEBUG)
 	if (mCarrier)
-		debug("exception", "%p handled", this);
+		secdebug("exception", "%p handled", this);
 #endif //NDEBUG
 }
 
 OSStatus CssmCommonError::osStatus() const
 { return cssmError(); }
+
+int CssmCommonError::unixError() const
+{
+	OSStatus err = osStatus();
+	
+	// embedded UNIX errno values are returned verbatim
+	if (err >= errSecErrnoBase && err <= errSecErrnoLimit)
+		return err - errSecErrnoBase;
+	
+	// re-map certain CSSM errors
+    switch (err) {
+	case CSSM_ERRCODE_MEMORY_ERROR:
+		return ENOMEM;
+	case CSSMERR_APPLEDL_DISK_FULL:
+		return ENOSPC;
+	case CSSMERR_APPLEDL_QUOTA_EXCEEDED:
+		return EDQUOT;
+	case CSSMERR_APPLEDL_FILE_TOO_BIG:
+		return EFBIG;
+	default:
+		// cannot map this to errno space
+		return -1;
+    }
+}
 
 CSSM_RETURN CssmCommonError::cssmError(CSSM_RETURN base) const
 { return CssmError::merge(cssmError(), base); }
@@ -67,7 +91,7 @@ CSSM_RETURN CssmCommonError::cssmError(CSSM_RETURN base) const
 void CssmCommonError::debugDiagnose(const void *id) const
 {
 #if !defined(NDEBUG)
-    debug("exception", "%p %s %s/0x%lx osstatus %ld",
+    secdebug("exception", "%p %s %s/0x%lx osstatus %ld",
 		id,	Debug::typeName(*this).c_str(),
 		cssmErrorString(cssmError()).c_str(), cssmError(),
 		osStatus());
@@ -102,15 +126,11 @@ const char *UnixError::what() const throw ()
 
 CSSM_RETURN UnixError::cssmError() const
 {
-    // @@@ this is a sample - go through and map errnos better
+	// map some UNIX errors to well defined CSSM codes; embed the rest
     switch (error) {
 #if defined(ENOMEM)
         case ENOMEM:
             return CSSM_ERRCODE_MEMORY_ERROR;
-#endif
-#if defined(ENOSYS)
-        case ENOSYS:
-            return CSSM_ERRCODE_FUNCTION_NOT_IMPLEMENTED;
 #endif
 #if defined(ENOSPC)
 		case ENOSPC:
@@ -125,11 +145,15 @@ CSSM_RETURN UnixError::cssmError() const
 			return CSSMERR_APPLEDL_FILE_TOO_BIG;
 #endif
         default:
-            return CSSM_ERRCODE_INTERNAL_ERROR;
+            return errSecErrnoBase + error;
     }
 }
 
-OSStatus UnixError::osStatus() const { return cssmError(); }
+OSStatus UnixError::osStatus() const
+{ return error + errSecErrnoBase; }
+
+int UnixError::unixError() const
+{ return error; }
 
 void UnixError::throwMe(int err) { throw UnixError(err); }
 
@@ -139,7 +163,7 @@ UnixError UnixError::make(int err) { return UnixError(err); }
 #if !defined(NDEBUG)
 void UnixError::debugDiagnose(const void *id) const
 {
-    debug("exception", "%p UnixError %s (%d) osStatus %ld",
+    secdebug("exception", "%p UnixError %s (%d) osStatus %ld",
 		id, strerror(error), error, osStatus());
 }
 #endif //NDEBUG
@@ -233,32 +257,71 @@ Guid::Guid(const char *string)
 
 
 //
+// CssmSubserviceUids.
+// Note that for comparison, we ignore the version field.
+// This is not necessarily the Right Choice, but suits certain
+// constraints in the Sec* layer. Perhaps we might reconsider
+// this after a thorough code review to determine the intended
+// (by the standard) semantics and proper use. Yeah, right.
+//
+CssmSubserviceUid::CssmSubserviceUid(const CSSM_GUID &guid,
+	const CSSM_VERSION *version, uint32 subserviceId, CSSM_SERVICE_TYPE subserviceType)
+{
+	Guid = guid;
+	SubserviceId = subserviceId;
+	SubserviceType = subserviceType;
+	if (version)
+		Version = *version;
+	else
+		Version.Major = Version.Minor = 0;
+}
+
+
+bool CssmSubserviceUid::operator == (const CSSM_SUBSERVICE_UID &otherUid) const
+{
+	const CssmSubserviceUid &other = CssmSubserviceUid::overlay(otherUid);
+	return subserviceId() == other.subserviceId()
+		&& subserviceType() == other.subserviceType()
+		&& guid() == other.guid();
+}
+
+bool CssmSubserviceUid::operator < (const CSSM_SUBSERVICE_UID &otherUid) const
+{
+	const CssmSubserviceUid &other = CssmSubserviceUid::overlay(otherUid);
+	if (subserviceId() < other.subserviceId())
+		return true;
+	if (subserviceId() > other.subserviceId())
+		return false;
+	if (subserviceType() < other.subserviceType())
+		return true;
+	if (subserviceType() > other.subserviceType())
+		return false;
+	return guid() < other.guid();
+}
+
+
+//
 // Methods for the CssmKey class
 //
-CssmKey::CssmKey(CSSM_KEY &key)
+CssmKey::CssmKey(const CSSM_KEY &key)
 {
 	KeyHeader = key.KeyHeader;
     KeyData = key.KeyData;
-	key.KeyData.Length = 0;
-	key.KeyData.Data = NULL;
 }
 
-CssmKey::CssmKey(CSSM_DATA &keyData)
+CssmKey::CssmKey(const CSSM_DATA &keyData)
 {
-    memset(this, 0, sizeof(*this));
+	clearPod();
     KeyData = keyData;
-	keyData.Length = 0;
-	keyData.Data = NULL;
     KeyHeader.HeaderVersion = CSSM_KEYHEADER_VERSION;
     KeyHeader.BlobType = CSSM_KEYBLOB_RAW;
     KeyHeader.Format = CSSM_KEYBLOB_RAW_FORMAT_NONE;
 }
 
-CssmKey::CssmKey(uint32 length, uint8 *data)
+CssmKey::CssmKey(uint32 length, void *data)
 {
-    memset(this, 0, sizeof(*this));
-	KeyData.Length = length;
-	KeyData.Data = data;
+	clearPod();
+	KeyData = CssmData(data, length);
     KeyHeader.HeaderVersion = CSSM_KEYHEADER_VERSION;
     KeyHeader.BlobType = CSSM_KEYBLOB_RAW;
     KeyHeader.Format = CSSM_KEYBLOB_RAW_FORMAT_NONE;
@@ -274,3 +337,4 @@ CryptoDataClass::~CryptoDataClass()
 #if !defined(NDEBUG)
 
 #endif //NDEBUG
+

@@ -1,22 +1,25 @@
 /*
- * Copyright (c) 2000 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 2000-2003 Apple Computer, Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
- *
- * The contents of this file constitute Original Code as defined in and
- * are subject to the Apple Public Source License Version 1.1 (the
- * "License").  You may not use this file except in compliance with the
- * License.  Please obtain a copy of the License at
- * http://www.apple.com/publicsource and read it before using this file.
- *
- * This Original Code and all software distributed under the License are
- * distributed on an "AS IS" basis, WITHOUT WARRANTY OF ANY KIND, EITHER
+ * 
+ * Copyright (c) 1999-2003 Apple Computer, Inc.  All Rights Reserved.
+ * 
+ * This file contains Original Code and/or Modifications of Original Code
+ * as defined in and that are subject to the Apple Public Source License
+ * Version 2.0 (the 'License'). You may not use this file except in
+ * compliance with the License. Please obtain a copy of the License at
+ * http://www.opensource.apple.com/apsl/ and read it before using this
+ * file.
+ * 
+ * The Original Code and all software distributed under the License are
+ * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
  * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
  * INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY,
- * FITNESS FOR A PARTICULAR PURPOSE OR NON-INFRINGEMENT.  Please see the
- * License for the specific language governing rights and limitations
- * under the License.
- *
+ * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
+ * Please see the License for the specific language governing rights and
+ * limitations under the License.
+ * 
  * @APPLE_LICENSE_HEADER_END@
  */
 
@@ -39,6 +42,7 @@ static serverSessionRef	*sessions = NULL;
 static int		nSessions = 0;
 
 
+__private_extern__
 serverSessionRef
 getSession(mach_port_t server)
 {
@@ -49,19 +53,17 @@ getSession(mach_port_t server)
 		return NULL;
 	}
 
-	if (nSessions > 0) {
-		for (i=0; i<nSessions; i++) {
-			serverSessionRef	thisSession = sessions[i];
+	for (i = 0; i < nSessions; i++) {
+		serverSessionRef	thisSession = sessions[i];
 
-			if (thisSession == NULL) {
-				/* found an empty slot, skip it */
-				continue;
-			} else if (thisSession->key == server) {
-				return thisSession;	/* we've seen this server before */
-			} else if (thisSession->store &&
-				   (((SCDynamicStorePrivateRef)thisSession->store)->notifySignalTask == server)) {
-				return thisSession;
-			}
+		if (thisSession == NULL) {
+			/* found an empty slot, skip it */
+			continue;
+		} else if (thisSession->key == server) {
+			return thisSession;	/* we've seen this server before */
+		} else if (thisSession->store &&
+				      (((SCDynamicStorePrivateRef)thisSession->store)->notifySignalTask == server)) {
+			return thisSession;
 		}
 	}
 
@@ -70,6 +72,7 @@ getSession(mach_port_t server)
 }
 
 
+__private_extern__
 serverSessionRef
 addSession(CFMachPortRef server)
 {
@@ -82,7 +85,7 @@ addSession(CFMachPortRef server)
 		n = 0;
 		nSessions = 1;
 	} else {
-		for (i=0; i<nSessions; i++) {
+		for (i = 0; i < nSessions; i++) {
 			if (sessions[i] == NULL) {
 				/* found an empty slot, use it */
 				n = i;
@@ -109,6 +112,7 @@ addSession(CFMachPortRef server)
 }
 
 
+__private_extern__
 void
 removeSession(mach_port_t server)
 {
@@ -116,7 +120,7 @@ removeSession(mach_port_t server)
 	serverSessionRef	thisSession;
 	CFStringRef		sessionKey;
 
-	for (i=0; i<nSessions; i++) {
+	for (i = 0; i < nSessions; i++) {
 		thisSession = sessions[i];
 
 		if (thisSession == NULL) {
@@ -145,18 +149,23 @@ removeSession(mach_port_t server)
 }
 
 
+__private_extern__
 void
 cleanupSession(mach_port_t server)
 {
 	int		i;
 
-	for (i=0; i<nSessions; i++) {
+	for (i = 0; i < nSessions; i++) {
 		serverSessionRef	thisSession = sessions[i];
 
 		if ((thisSession != NULL) && (thisSession->key == server)) {
 			/*
 			 * session entry still exists.
 			 */
+
+			if (_configd_trace) {
+				SCTrace(TRUE, _configd_trace, CFSTR("cleanup : %5d\n"), server);
+			}
 
 			/*
 			 * Ensure that any changes made while we held the "lock"
@@ -176,7 +185,7 @@ cleanupSession(mach_port_t server)
 			 * Close any open connections including cancelling any outstanding
 			 * notification requests and releasing any locks.
 			 */
-			(void) __SCDynamicStoreClose(&thisSession->store);
+			(void) __SCDynamicStoreClose(&thisSession->store, TRUE);
 
 			/*
 			 * Lastly, remove the session entry.
@@ -190,13 +199,14 @@ cleanupSession(mach_port_t server)
 }
 
 
+__private_extern__
 void
 listSessions()
 {
 	int	i;
 
 	fprintf(stderr, "Current sessions:");
-	for (i=0; i<nSessions; i++) {
+	for (i = 0; i < nSessions; i++) {
 		serverSessionRef	thisSession = sessions[i];
 
 		if (thisSession == NULL) {

@@ -1,0 +1,56 @@
+# Routines for loading and running programs on a SID simulator.
+# Written by Ben Elliston <bje@cygnus.com>.
+
+# See default.exp for explanation of arguments and results.
+
+load_generic_config "sim"
+
+# Treat sid as a remote board
+set_board_info use_gdb_stub 1
+
+# The simulator doesn't return exit statuses and we need to indicate this;
+# the standard GCC wrapper will work with this target.
+set_board_info needs_status_wrapper  1
+
+# Doesn't pass signals and can't return results.
+set_board_info gdb,nosignals 1
+set_board_info gdb,noresults 1
+
+# Don't expect interrupts to work in gdb testsuite
+proc set_host_info { entry value } {
+    global target_info board_info
+    verbose "set_host_info $entry $value" 3
+
+    set machine host
+    if [info exists target_info($machine,name)] {
+        set machine $target_info($machine,name);
+    }
+    set board_info($machine,$entry) $value
+}
+set_host_info gdb,nointerrupts 1
+
+# Cannot pass command line arguments
+set_board_info noargs 1
+
+# Configure TCP/IP connection to sid
+set_board_info connect telnet
+set_board_info netport localhost:[expr {3000 + [clock clicks] % 2000}]
+set_board_info gdb,big_rx_buffers 1
+set_board_info gdb_protocol "remote"
+# ... or "async" or "extended-remote" or "extended-async"
+
+# No multilib options needed by default.
+process_multilib_options ""
+
+# We only support newlib on this target. We assume that all multilib
+# options have been specified before we get here.
+set_board_info compiler  "[find_gcc]"
+set_board_info cflags    "[libgloss_include_flags] [newlib_include_flags]"
+set_board_info ldflags   "[libgloss_link_flags] [newlib_link_flags]"
+# No linker script needed.
+set_board_info ldscript ""
+
+# Additional sid options
+# eg:
+#
+# set_board_info sim,options "--mksid"

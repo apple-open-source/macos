@@ -1,10 +1,10 @@
 /*
- * "$Id: ipp.h,v 1.6 2002/04/09 00:14:35 jlovell Exp $"
+ * "$Id: ipp.h,v 1.1.1.10 2003/04/11 21:07:18 jlovell Exp $"
  *
  *   Internet Printing Protocol definitions for the Common UNIX Printing
  *   System (CUPS).
  *
- *   Copyright 1997-2002 by Easy Software Products.
+ *   Copyright 1997-2003 by Easy Software Products.
  *
  *   These coded instructions, statements, and computer programs are the
  *   property of Easy Software Products and are protected by Federal
@@ -51,9 +51,11 @@ extern "C" {
 #  define IPP_VERSION		"\001\001"
 
 /*
- * IPP registered port number...  This is the default value - applications
- * should use the ippPort() function so that you can customize things in
- * /etc/services if needed!
+ * IPP registered port number...
+ *
+ * Note: Applications should never use IPP_PORT, but instead use the
+ * ippPort() function to allow overrides via the IPP_PORT environment
+ * variable and services file if needed!
  */
 
 #  define IPP_PORT		631
@@ -305,6 +307,10 @@ typedef enum			/**** IPP status codes... ****/
 
 typedef unsigned char ipp_uchar_t;/**** Unsigned 8-bit integer/character ****/
 
+/**** New in CUPS 1.1.19 ****/
+typedef int	(*ipp_iocb_t)(void *, ipp_uchar_t *, int);
+				/**** IPP IO Callback Function ****/
+
 typedef union			/**** Request Header ****/
 {
   struct			/* Any Header */
@@ -327,8 +333,18 @@ typedef union			/**** Request Header ****/
     ipp_status_t status_code;	/* Status code */
     int		request_id;	/* Request ID */
   }		status;
+
+  /**** New in CUPS 1.1.19 ****/
+  struct			/* Event Header */
+  {
+    ipp_uchar_t	version[2];	/* Protocol version number */
+    int		status_code;	/* Status code */
+    int		request_id;	/* Request ID */
+  }		event;
 } ipp_request_t;
 
+/**** New in CUPS 1.1.19 ****/
+typedef struct ipp_str ipp_t;
 
 typedef union			/**** Attribute Value ****/
 {
@@ -362,6 +378,9 @@ typedef union			/**** Attribute Value ****/
     int		length;		/* Length of attribute */
     void	*data;		/* Data in attribute */
   }		unknown;	/* Unknown attribute type */
+
+/**** New in CUPS 1.1.19 ****/
+  ipp_t		*collection;	/* Collection value */
 } ipp_value_t;
 
 typedef struct ipp_attribute_s	/**** Attribute ****/
@@ -374,7 +393,7 @@ typedef struct ipp_attribute_s	/**** Attribute ****/
   ipp_value_t	values[1];	/* Values */
 } ipp_attribute_t;
 
-typedef struct			/**** Request State ****/
+struct ipp_str			/**** IPP Request/Response/Notification ****/
 {
   ipp_state_t	state;		/* State of request */
   ipp_request_t	request;	/* Request header */
@@ -382,7 +401,7 @@ typedef struct			/**** Request State ****/
 		*last,		/* Last attribute in list */
 		*current;	/* Current attribute (for read/write) */
   ipp_tag_t	curtag;		/* Current attribute group tag */
-} ipp_t;
+};
 
 
 /*
@@ -400,7 +419,7 @@ extern ipp_attribute_t	*ippAddResolution(ipp_t *ipp, ipp_tag_t group, const char
 extern ipp_attribute_t	*ippAddResolutions(ipp_t *ipp, ipp_tag_t group, const char *name, int num_values, ipp_res_t units, const int *xres, const int *yres);
 extern ipp_attribute_t	*ippAddSeparator(ipp_t *ipp);
 extern ipp_attribute_t	*ippAddString(ipp_t *ipp, ipp_tag_t group, ipp_tag_t type, const char *name, const char *charset, const char *value);
-extern ipp_attribute_t	*ippAddStrings(ipp_t *ipp, ipp_tag_t group, ipp_tag_t type, const char *name, int num_values, const char *charset, const char **values);
+extern ipp_attribute_t	*ippAddStrings(ipp_t *ipp, ipp_tag_t group, ipp_tag_t type, const char *name, int num_values, const char *charset, const char * const *values);
 extern time_t		ippDateToTime(const ipp_uchar_t *date);
 extern void		ippDelete(ipp_t *ipp);
 extern const char	*ippErrorString(ipp_status_t error);
@@ -416,6 +435,20 @@ extern ipp_state_t	ippWrite(http_t *http, ipp_t *ipp);
 extern int		ippPort(void);
 extern void		ippSetPort(int p);
 
+/**** New in CUPS 1.1.19 ****/
+extern ipp_attribute_t	*ippAddCollection(ipp_t *ipp, ipp_tag_t group, const char *name, ipp_t *value);
+extern ipp_attribute_t	*ippAddCollections(ipp_t *ipp, ipp_tag_t group, const char *name, int num_values, const ipp_t **values);
+extern void		ippDeleteAttribute(ipp_t *ipp, ipp_attribute_t *attr);
+extern ipp_state_t	ippReadFile(int fd, ipp_t *ipp);
+extern ipp_state_t	ippReadIO(void *src, ipp_iocb_t cb, int blocking, ipp_t *parent, ipp_t *ipp);
+extern ipp_state_t	ippWriteFile(int fd, ipp_t *ipp);
+extern ipp_state_t	ippWriteIO(void *dst, ipp_iocb_t cb, int blocking, ipp_t *parent, ipp_t *ipp);
+
+
+/*
+ * "Private" functions used internally by CUPS...
+ */
+
 extern ipp_attribute_t	*_ipp_add_attr(ipp_t *, int);
 extern void		_ipp_free_attr(ipp_attribute_t *);
 
@@ -430,5 +463,5 @@ extern void		_ipp_free_attr(ipp_attribute_t *);
 #endif /* !_CUPS_IPP_H_ */
 
 /*
- * End of "$Id: ipp.h,v 1.6 2002/04/09 00:14:35 jlovell Exp $".
+ * End of "$Id: ipp.h,v 1.1.1.10 2003/04/11 21:07:18 jlovell Exp $".
  */

@@ -1,0 +1,1080 @@
+This is gimpprint.info, produced by makeinfo version 4.0 from
+gimpprint.texi.
+
+INFO-DIR-SECTION Libraries
+START-INFO-DIR-ENTRY
+* GIMP-Print: (gimpprint).      print plugin for the GIMP, and printing library
+END-INFO-DIR-ENTRY
+
+   This file documents the gimpprint library and associated programs
+used for high quality printing.
+
+   Copyright (C) 2001 Michael Sweet (<mike@easysw.com>) and Robert
+Krawitz (<rlk@alum.mit.edu>)
+
+   Permission is granted to make and distribute verbatim copies of this
+manual provided the copyright notice and this permission notice are
+preserved on all copies.
+
+   Permission is granted to copy and distribute modified versions of
+this manual under the conditions for verbatim copying, provided that
+the entire resulting derived work is distributed under the terms of a
+permission notice identical to this one.
+
+   Permission is granted to copy and distribute translations of this
+manual into another language, under the above conditions for modified
+versions, except that this permission notice may be stated in a
+translation approved by the Foundation.
+
+
+File: gimpprint.info,  Node: Options functions,  Next: Paper functions,  Prev: Dither functions,  Up: Functions
+
+Options functions
+=================
+
+ - Data type: void * stp_option_t
+     This is an opaque data type, whose structure is not visible to the
+     user.
+
+ - Function: void stp_set_option(stp_vars_t V, const char *NAME, const
+          char *DATA, int BYTES)
+
+ - Function: void stp_clear_option (stp_vars_t V, const char *NAME)
+
+ - Function: void stp_clear_all_options (stp_vars_t V)
+
+ - Function: size_t stp_option_count (const stp_vars_t V)
+
+ - Function: const stp_option_t stp_get_option_by_index (const
+          stp_vars_t V, size_t IDX)
+
+ - Function: const stp_option_t stp_get_option_by_name (const
+          stp_vars_t V, const char *NAME)
+
+ - Function: const char * stp_option_data (const stp_option_t OPTION)
+     *Note*: not null delimited!
+
+ - Function: const char * stp_option_name (const stp_option_t OPTION)
+
+ - Function: size_t stp_option_length (const stp_option_t OPTION)
+
+
+File: gimpprint.info,  Node: Paper functions,  Next: Printer functions,  Prev: Options functions,  Up: Functions
+
+Paper functions
+===============
+
+ - Data type: void * stp_papersize_t
+     This is an opaque data type, whose structure is not visible to the
+     user.
+
+ - Data type:  stp_papersize_unit_t
+          typedef enum papersize_unit
+          {
+            PAPERSIZE_ENGLISH,
+            PAPERSIZE_METRIC
+          } stp_papersize_unit_t;
+
+ - Function: int stp_known_papersizes (void)
+
+ - Function: const stp_papersize_t stp_get_papersize_by_name (const
+          char *NAME)
+
+ - Function: const stp_papersize_t stp_get_papersize_by_size (int L,
+          int W)
+
+ - Function: const stp_papersize_t stp_get_papersize_by_index (int
+          INDEX)
+
+ - Function: const char * stp_papersize_get_name (const stp_papersize_t
+          PT)
+
+ - Function: unsigned stp_papersize_get_width (const stp_papersize_t PT)
+
+ - Function: unsigned stp_papersize_get_height (const stp_papersize_t
+          PT)
+
+ - Function: unsigned stp_papersize_get_top (const stp_papersize_t PT)
+
+ - Function: unsigned stp_papersize_get_left (const stp_papersize_t PT)
+
+ - Function: unsigned stp_papersize_get_bottom (const stp_papersize_t
+          PT)
+
+ - Function: unsigned stp_papersize_get_right (const stp_papersize_t PT)
+
+ - Function: stp_papersize_unit_t stp_papersize_get_unit (const
+          stp_papersize_t PT)
+
+
+File: gimpprint.info,  Node: Printer functions,  Next: Settings functions,  Prev: Paper functions,  Up: Functions
+
+Printer functions
+=================
+
+ - Data type: void * stp_printer_t
+     This is an opaque data type, whose structure is not visible to the
+     user.
+
+ - Function: int stp_known_printers (void)
+
+ - Function: const stp_printer_t stp_get_printer_by_index (int IDX)
+
+ - Function: const char * stp_printer_get_long_name (const
+          stp_printer_t P)
+
+ - Function: const stp_printer_t stp_get_printer_by_long_name (const
+          char *LONG_NAME)
+
+ - Function: const stp_printer_t stp_get_printer_by_driver (const char
+          *DRIVER)
+
+ - Function: int stp_get_printer_index_by_driver (const char *DRIVER)
+
+ - Function: const char * stp_printer_get_driver (const stp_printer_t P)
+
+ - Function: int stp_printer_get_model (const stp_printer_t P)
+
+ - Function: const stp_printfuncs_t * stp_printer_get_printfuncs (const
+          stp_printer_t P)
+
+ - Data type:  stp_printfuncs_t
+          typedef struct
+          {
+            char  **(*parameters)(const stp_printer_t printer,
+                                  const char *ppd_file,
+                                  const char *name, int *count);
+            void  (*media_size)(const stp_printer_t printer,
+                                const stp_vars_t v, int *width,
+                                int *height);
+            void  (*imageable_area)(const stp_printer_t printer,
+                                    const stp_vars_t v,
+                                    int *left, int *right,
+                                    int *bottom, int *top);
+            void  (*limit)(const stp_printer_t printer,
+                           const stp_vars_t v,
+                           int *width, int *height);
+            void  (*print)(const stp_printer_t printer,
+                           stp_image_t *image, const stp_vars_t v);
+            const char *(*default_parameters)(const stp_printer_t printer,
+                                              const char *ppd_file,
+                                              const char *name);
+            void  (*describe_resolution)(const stp_printer_t printer,
+                                         const char *resolution,
+                                         int *x, int *y);
+            int   (*verify)(const stp_printer_t p, const stp_vars_t v);
+          } stp_printfuncs_t;
+
+ - Data type:  stp_image_t
+          typedef struct stp_image
+          {
+            void (*init)(struct stp_image *image);
+            void (*reset)(struct stp_image *image);
+            void (*transpose)(struct stp_image *image);
+            void (*hflip)(struct stp_image *image);
+            void (*vflip)(struct stp_image *image);
+            void (*crop)(struct stp_image *image,
+                         int left, int top, int right,
+                         int bottom);
+            void (*rotate_ccw)(struct stp_image *image);
+            void (*rotate_cw)(struct stp_image *image);
+            void (*rotate_180)(struct stp_image *image);
+            int  (*bpp)(struct stp_image *image);
+            int  (*width)(struct stp_image *image);
+            int  (*height)(struct stp_image *image);
+            void (*get_row)(struct stp_image *image,
+                  unsigned char *data, int row);
+            const char *(*get_appname)(struct stp_image *image);
+            void (*progress_init)(struct stp_image *image);
+            void (*note_progress)(struct stp_image *image,
+                  double current, double total);
+            void (*progress_conclude)(struct stp_image *image);
+            void *rep;
+          } stp_image_t;
+     This is an abstract data type for interfacing with the program
+     which created the image.
+
+ - Function: const stp_vars_t stp_printer_get_printvars (const
+          stp_printer_t P)
+
+
+File: gimpprint.info,  Node: Settings functions,  Next: Version functions,  Prev: Printer functions,  Up: Functions
+
+Settings functions
+==================
+
+ - Function: stp_convert_t stp_choose_colorfunc (int OUTPUT_TYPE, int
+          IMAGE_BPP, const unsigned char *CMAP, int *OUT_BPP, const
+          stp_vars_t V)
+
+ - Function: void stp_compute_page_parameters (int PAGE_RIGHT, int
+          PAGE_LEFT, int PAGE_TOP, int PAGE_BOTTOM, double SCALING, int
+          IMAGE_WIDTH, int IMAGE_HEIGHT, stp_image_t *IMAGE, int
+          *ORIENTATION, int *page_width, int *PAGE_HEIGHT, int
+          *OUT_WIDTH, int *OUT_HEIGHT, int *LEFT, int *TOP)
+
+ - Function: const stp_vars_t stp_default_settings (void)
+
+ - Function: const stp_vars_t stp_maximum_settings (void)
+
+ - Function: const stp_vars_t stp_minimum_settings (void)
+
+
+File: gimpprint.info,  Node: Version functions,  Prev: Settings functions,  Up: Functions
+
+Version functions
+=================
+
+ - Function: const char * stp_check_version (unsigned int
+          REQUIRED_MAJOR,
+     unsigned int REQUIRED_MINOR, unsigned int REQUIRED_MICRO)
+
+     This function checks whether the version of libgimpprint that the
+     program is linked with is equal to the version number passed to
+     it. If the version is the same, the function returns `NULL'. If
+     any of the version numbers do not match (i.e. the library version
+     is too old or too new), a string containing a desription of the
+     difference is returned. The first error found is returned. The
+     function checks in the order major, minor, micro.
+
+Version macros
+--------------
+
+ - Macro: GIMPPRINT_CHECK_VERSION (major,minor,micro)
+     This macro returns zero if the version of the libgimpprint headers
+     are greater or equal to the version given as an argument. It
+     returns nonzero if the version of the libgimpprint headers are
+     less than the argument.
+
+ - Macro: GIMPPRINT_MAJOR_VERSION
+
+ - Macro: GIMPPRINT_MINOR_VERSION
+
+ - Macro: GIMPPRINT_MICRO_VERSION
+
+ - Macro: GIMPPRINT_CURRENT_INTERFACE
+
+ - Macro: GIMPPRINT_BINARY_AGE
+
+ - Macro: GIMPPRINT_INTERFACE_AGE
+
+   These macros are integers holding the version numbers. They should be
+used for compile-time checking only. To check version numbers at
+run-time, use the equivalent variables. Note that at present (4.1.x
+development branch) the library interface version numbers are not used.
+
+Version variables
+-----------------
+
+ - Variable: const unsigned int gimpprint_major_version
+
+ - Variable: const unsigned int gimpprint_minor_version
+
+ - Variable: const unsigned int gimpprint_micro_version
+
+ - Variable: const unsigned int gimpprint_current_interface
+
+ - Variable: const unsigned int gimpprint_binary_age
+
+ - Variable: const unsigned int gimpprint_interface_age
+
+   These variables hold the library version numbers. Because the
+version of the library may change on a system using shared libraries,
+these should be used instead of the equivalent macros when checking the
+library version at run-time. Note that library interface version
+numbers are not used in the development branch, but are in the stable
+branch.
+
+
+File: gimpprint.info,  Node: Programs,  Next: Problems,  Prev: Functions,  Up: Top
+
+Programs
+********
+
+   This chapter of the manual describes the use of some of the programs
+which use the GIMP-Print library (libgimpprint).  Note that there is now
+a user manual in DocBook/SGML format, currently provided in HTML,
+PostScript and PDF formats which is distributed with GIMP-Print.  This
+manual currently covers the use of the GIMP Print plugin and CUPS
+drivers.
+
+* Menu:
+
+* The GIMP plugin::             The print plugin for the GIMP
+* Ghostscript::                 Printer driver
+* CUPS::                        Printer driver
+
+
+File: gimpprint.info,  Node: The GIMP plugin,  Next: Ghostscript,  Prev: Programs,  Up: Programs
+
+The GIMP Print plugin
+=====================
+
+   The GIMP Print plugin is the printing facility for the GNU Image
+Manipulation Program(1).  This section examines the features offered by
+the Print plugin.
+
+   The main window is divided into five panes:
+
+Preview
+-------
+
+   The Preview pane contains a positioning widget that allows
+interactively positioning the output on the page.  It contains an outer
+border, representing the sheet of paper; an inner border, representing
+the printable area of the printer; an arrow, pointing to the top of the
+page (the end that's fed into the printer); and a black rectangle,
+representing the position of the image on the page.  The image can be
+moved around on the paper.  When the first (left) button is used, the
+image is moved in screen pixels; when any other button is used, the
+image is moved in points(2).  The arrow resizes depending upon the
+media size chosen; the shaft of the arrow is always equal to one inch
+on the output.
+
+[Figure not available in Info format]
+
+Printer Settings
+----------------
+
+   The Printer Settings pane contains a dropdown menu for selecting a
+printer to print to.  There is a special `printer' named `File' that
+allows you to choose a file to print to, rather than a printer queue.
+The Setup box to the right allows specification of a printer type, a
+PPD file(3), and the command to be used to print.  Each distinct
+printer in the Printer list can have different settings applied to it.
+Below that is a combo box allowing choice of media size.  The choices
+are constrained to those that the printer supports.  Below that are
+dropdown menus for choosing media type (what kind of paper), media
+source (what input tray), ink type, and resolution.  All of these
+settings are printer-specific.
+
+[Figure not available in Info format]
+
+Position
+--------
+
+   The Position pane contains various widgets to place the image on the
+paper.  These widgets work in conjunction with the Preview pane.  At the
+top of the pane is a button to center the image on the paper (not on the
+printable area), and on either side buttons to center vertically and
+horizontally.  Below these are four boxes that allow entry of the left,
+top, right, and bottom of the image.  These positions are relative to
+the top left of the paper(4).  There are two additional boxes that
+allow specification of the right margin and bottom margin if you
+prefer; these are relative to the bottom right corner of the paper.
+Any of these may have values entered into them; the preview image will
+be moved appropriately.
+
+   *Note*: These entries do not resize the image.
+
+   Finally, there is a pick box for orientation (landscape or portrait).
+There is an `Auto' mode that picks the orientation that yields the
+orientation that best matches that of the image to be printed.
+
+Scaling
+-------
+
+   The Scaling pane contains a slider that allows scaling of the image.
+The image can be scaled in either percent of the printable area (*not*
+the page in this case) or pixels per inch (PPI) via a radio button
+below the slider.  PPI allows matching image resolution to printer
+resolution.  The image may be scaled using either method to between 5
+and 100% of the imageable area.  It is not possible to crop with the
+Print plugin.  In Percent mode, the image is scaled so that neither
+axis will be longer than the percent of the printable area specified.
+For example, if you print an image at 20%, it will be possible to tile
+the image 5 times on one axis and at least 5 times on the other.  To
+the right of the radio button is a button called Set Image Scale.  This
+sets the scaling to PPI, and sets the resolution as closely as possible
+to the resolution stored in the image.  To the right of the Set Image
+Scale button are two boxes that allow entry of width and height of the
+image.  These set the scaling mode to PPI.  Specifying one
+automatically sets the other, and the image is repositioned as needed
+to prevent it from falling off the edge of the page.
+
+   To its right is a button group that allows choosing English (inch)
+units or metric (centimeter) units.
+
+Image Settings
+--------------
+
+   The Image Settings pane allows choice of Line Art, Solid Colors, or
+Photograph image type.  Line art or Solid Colors should be used for
+graphics containing mostly solid areas of color.  They're very similar
+to each other.  Photograph mode dithers more slowly, but produces more
+accurate colors.  To the right of these three radio buttons is a button
+called Adjust Color.  This pops up a new window that controls various
+output quality settings.  That will be described separately.  Finally,
+there is a choice of Black and White, Color and Monochrome output.
+Monochrome output can be used to print absolute black and white very
+quickly.
+
+Adjust Output
+.............
+
+   The Adjust Output button button pops up a non-modal dialog that
+allows adjustment of various parameters related to the print quality.
+These are independent of the controls within the GIMP itself and only
+affect the print.
+
+[Figure not available in Info format]
+
+   At the top of the window is a thumbnail of the image that changes to
+reflect the color settings of the image.  This enables you to get an
+idea of how the image will print out as you adjust settings.
+
+   Below that there are eight sliders:
+
+_Brightness_
+     (0-2.0, default 1.0) Adjust the brightness of the image.
+
+_Contrast_
+     (0-4.0, default 1.0) Adjust the output contrast.
+
+_Cyan, Magenta, Yellow_
+     (0-4.0, default 1.0) Adjust the cyan, magenta, and yellow in the
+     output.  These should not normally need to be adjusted very much;
+     even very small adjustments can go quite a long way to restoring
+     color balance.
+
+_Saturation_
+     (0-9.0, default 1.0) Adjust the color brilliance (saturation) of
+     the output.  Saturation of 0 means pure gray scale, with no color.
+     Saturation of 9.0 will make just about anything but pure grays
+     brilliantly colored.
+
+_Density_
+     (0.1-2.0, default 1.0) Adjust the density (amount of ink) in the
+     print.  The density is automatically corrected for the particular
+     printer, resolution, and in some cases paper choices.  If solid
+     black in the input is not solid in the print, the density needs to
+     be increased; if there is excessive ink bleed-through and muddy
+     dark colors, the density should be decreased.
+
+     *Note*: the density will not increase beyond a certain amount no
+     matter what the slider is set to.
+
+_Gamma_
+     (0.1-4.0, default 1.0) Adjust the output gamma.  The gamma value is
+     automatically corrected for the choice of printer; this is used if
+     you believe the automatic setting is incorrect.
+
+Dither Algorithm
+................
+
+   There is also a selection box for the dither algorithm to be used in
+the pop-up dialog.  There are currently seven choices:
+
+_Adaptive Hybrid_
+     Adaptive Hybrid usually yields the best output quality; it chooses
+     a modified Floyd-Steinberg error diffusion algorithm or ordered
+     dithering depending upon the image characteristics.
+
+_Ordered_
+     Ordered uses a pure ordered dither.  It generally yields excellent
+     quality for simple black and white or four color printers without
+     variable drop size or drop modulation; it is not recommended if
+     high quality is desired on six color printers.  It is considerably
+     faster than Adaptive Hybrid.
+
+_Fast_
+     Fast also uses a pure ordered dither, but uses a very simple black
+     model and makes no attempt to handle multi-level (6-color,
+     variable drop size, or drop modulation) at all cleanly.  It is
+     substantially faster than Ordered dither.  The quality tends to be
+     quite poor except on simple four color printers.  On three color
+     printers, quality is probably competitive with anything else.
+
+_Very Fast_
+     Very Fast is similar to Fast, except that it uses a very simple
+     dither matrix that can be looked up much more quickly than the
+     matrix used in the Fast dither.  For simple pure black and white
+     images dominated by horizontal and vertical lines, this may
+     actually yield the best results; for other types of image, the
+     quality will be poor.
+
+_Adaptive Random_
+     Adaptive Random is similar to Adaptive Hybrid, except that the
+     modifications to the Floyd-Steinberg algorithm are slightly
+     different.  This is slower than Adaptive Hybrid on most systems.
+     For some images the quality may be better than Adaptive Hybrid,
+     but generally Adaptive Hybrid should yield slightly superior
+     images.
+
+_Hybrid Floyd-Steinberg_
+     Hybrid Floyd-Steinberg uses the modified Floyd-Steinberg algorithm
+     of Adaptive Hybrid on the entire image.  Generally, the results
+     are poor in pale regions.
+
+_Random Floyd-Steinberg_
+     Random Floyd-Steinberg uses the modified Floyd-Steinberg algorithm
+     of Adaptive Random on the entire image.  Generally, the results
+     are poor in pale regions.
+
+Action Buttons
+--------------
+
+   The last pane contains four action buttons:
+
+_Print and Save Settings_
+     Immediately print the image (or, if the File printer is chosen,
+     display a file selection window to pick the output file), and save
+     all current settings for all printers.
+
+_Save Settings_
+     Immediately save the settings, and continue working in the Print
+     plugin.
+
+_Print_
+     Immediately print the image (or, if the `File' printer is chosen,
+     display a file selection window to pick the output file), but do
+     not save settings.
+
+_Cancel_
+     Immediately quit without saving settings or printing.
+
+   ---------- Footnotes ----------
+
+   (1) `http://www.gimp.org'
+
+   (2) The output resolution of the plugin.
+
+   (3) For Postscript printers.
+
+   (4) Again, that's relative to the paper corner, not the printable
+area, which is usually smaller.
+
+
+File: gimpprint.info,  Node: Ghostscript,  Next: CUPS,  Prev: The GIMP plugin,  Up: Programs
+
+Ghostscript driver
+==================
+
+
+File: gimpprint.info,  Node: CUPS,  Prev: Ghostscript,  Up: Programs
+
+CUPS driver
+===========
+
+
+File: gimpprint.info,  Node: Problems,  Next: Appendices,  Prev: Programs,  Up: Top
+
+Reporting Bugs
+**************
+
+   If you find a bug in GIMP-Print or have any suggestions for
+modification or improvement, please send electronic mail to the
+GIMP-Print bug reporting address (1).  Include the version number,
+which you can find by running `gimpprint-config --version'.  Also
+include in your message the output that the program produced and the
+output you expected, if applicable, otherwise the best description of
+the problem that you can provide.
+
+   If you have other questions, comments or suggestions about
+GIMP-Print, contact the developers via electronic mail to the
+GIMP-Print mailing list (2).  They will try to help you out, although
+they may not have time to fix your problems.
+
+   ---------- Footnotes ----------
+
+   (1) <gimp-print-devel@lists.sourceforge.net>
+
+   (2) <gimp-print-devel@lists.sourceforge.net>
+
+
+File: gimpprint.info,  Node: Appendices,  Next: Data Type and Variable Index,  Prev: Problems,  Up: Top
+
+Appendices
+**********
+
+* Menu:
+
+* Dithering::                   Dither algorithms.
+* Weaving::                     Weaving algorithms.
+* ESC/P2::                      Epson ESC/P2 printer control language.
+* New Printer::                 Adding a new printer to libgimpprint.
+
+
+File: gimpprint.info,  Node: Dithering,  Next: Weaving,  Prev: Appendices,  Up: Appendices
+
+Dithering
+*********
+
+   The dithering code in `print-dither.c' attempts to reproduce various
+shades of gray (or all colors) from only a few different inks (black,
+cyan, magenta, yellow, and sometimes light cyan and light magenta).
+The dots can't vary in darkness or size (except for certain special
+printers), and so we need to lay down a certain fraction of dots to
+represent each distinct level.
+
+   This sounds straightforward; in practice, it isn't.  Completely
+random distribution of dots (simple probabilistic dithering) would
+create grainy clumps and light spots.  The smoothest pattern results
+from an equidistant spacing of dots.  Approximating this requires
+sophisticated algorithms.  We have two dithering algorithms, an ordered
+dither algorithm that uses a grid (matrix) to decide whether to print,
+and a modified Floyd-Steinberg error diffusion algorithm that uses a
+grid in a slightly different way.
+
+   We currently have three dithering functions:
+
+  1. `dither_fastblack' produces pure black or white from a pre-dithered
+     input.  This is used for two purposes: for printing pure black and
+     white very quickly (e. g. text), and for printing pre-screened
+     monochrome output that was rasterized externally.
+
+  2. `dither_black' produces black from grayscale input.  The new
+     dither_black can produce either a single or multiple levels of
+     black, for printers supporting variable dot size.
+
+  3. `dither_cmyk' produces 3, 4, 5, 6, or 7 color output (CMY, CMYK,
+     CcMmYK, CcMmYy, CcMmYyK, or any variants).  The new routine can
+     handle single or multiple levels of each color.
+
+   There is a choice of dithering algorithms.  Four of them are based
+on a basic error diffusion, with a few tweaks of my own.  The other one
+is `ordered'.  However, they all share the basic operation in common.
+First, the algorithm picks what kind of dot (if there are multiple dot
+sizes and/or tones that may be picked) is the candidate to be printed.
+This decision is made based on the darkness at the point being dithered.
+Then, it decides whether the dot will be printed at all.  What this is
+based on depends upon which algorithm family we use.  This is all
+described in more detail below.
+
+   Ordered dithering works by comparing the value at a given point with
+the value of a tiled matrix.  If the value at the point is greater than
+the value in the matrix, the dot is printed.  The matrix should consist
+of a set of evenly spaced points between 0 and the upper limit.  The
+choice of matrix is very important for print quality.  A good dither
+matrix will emphasize high frequency components, which distributes dots
+evenly with a minimum of clumping.  The matrices used here are all
+simple matrices that are expanded recursively to create larger matrices
+with the same kind of even point distribution.  This is described below.
+
+   Note that it is important to use different matrices for the two
+sub-operations, because otherwise the choice about whether to print and
+the choice of dot size will be correlated.  The usual result is that the
+print is either too dark or too light, but there can be other problems.
+
+   Ordered dithering works quite well on single dot size, four color
+printers.  It has not been well tested on four color, variable dot size
+printers.  It should be avoided on six color printers.
+
+   Error diffusion works by taking the output error at a given pixel and
+"diffusing" it into surrounding pixels.  Output error is the difference
+between the amount of ink output and the input level at each pixel.
+For simple printers, with one or four ink colors and only one dot size,
+the amount of ink output is either 65536 (i. e. full output) or 0 (no
+output).  The difference between this and the input level is the error.
+Normal error diffusion adds part of this error to the adjoining pixels
+in the next column and the next row (the algorithm simply scans each
+row in turn, never backing up).  The error adds up until it reaches a
+threshold (half of the full output level, or 32768), at which point a
+dot is output, the output is subtracted from the current value, and the
+(now negative) error is diffused similarly.
+
+   Error diffusion works quite well in general, but it tends to generate
+artifacts which usually appear as worm-like lines or areas of anomalous
+density.  I have devised some ways, as described below, of ameliorating
+these artifacts.
+
+   There are two sub-classes of error diffusion that we use here,
+`random' and `hybrid'.  One of the techniques that we use to ameliorate
+the artifacts is to use a fuzzy threshold rather than the hard
+threshold of half of the output level.  Random error diffusion uses a
+pseudo-random number to perturb the threshold, while hybrid error
+diffusion uses a matrix.  Hybrid error diffusion worked very poorly in
+3.1.3, and I couldn't figure out why until I found a bug.  It now works
+very well.
+
+   There is one additional variant (on both sub-classes), called
+`adaptive hybrid' and `adaptive random'.  The adaptive variant takes
+advantage of the fact that the patterns that ordered dithering create
+are less visible at very low densities, while the artifacts created by
+error diffusion are more objectionable at low densities.  At low
+densities, therefore, it uses ordered dithering; at higher densities it
+uses error diffusion.
+
+   Handling multiple output levels makes life a bit more complicated.
+In principle, it shouldn't be much harder: simply figure out what the
+ratio between the available output levels is and have multiple
+thresholds.  In practice, getting these right involves a lot of trial
+and error.  The other thing that's important is to maximize the number
+of dots that have some ink.  This will reduce the amount of speckling.
+More on this later.
+
+   The next question: how do we handle black when printing in color?
+Black ink is much darker than colored inks.  It's possible to produce
+black by adding some mixture of cyan, magenta, and yellow--in
+principle.  In practice, the black really isn't very black, and
+different inks and different papers will produce different color casts.
+However, by using CMY to produce gray, we can output a lot more dots!
+This makes for a much smoother image.  What's more, one cyan, one
+magenta, and one yellow dot produce less darkness than one black dot,
+so we're outputting that many more dots.  Better yet, with 6 or 7 color
+printers, we have to output even more light ink dots.  So Epson Stylus
+Photo printers can produce really smooth grays--if we do everything
+right.  The right idea is to use CMY at lower black levels, and
+gradually mix in black as the overall amount of ink increases, so the
+black dots don't really become visible within the ink mass.
+
+   Variable dot sizes are handled by dividing the range between 0 and
+65536 into segments.  Each segment can either represent a range in
+which all of one kind of ink (color and/or dot size) is used, with
+varying amounts of ink, or a transition region between inks, in which
+equal numbers of dots are printed but the amount of each ink will be
+adjusted throughout the range.  Each range is represented by four
+numbers:
+
+  1. bottom of the range
+
+  2. top of the range
+
+  3. value of the lighter ink
+
+  4. value of the darker ink
+
+   In addition, the bit patterns and which type of ink are also
+represented, but they don't affect the actual algorithm.
+
+   As mentioned above, the basic algorithm is the same whether we use
+ordered dither or error diffusion.  We perform the following steps on
+each color of each pixel:
+
+  1. Compute the value of the particular color we're printing.  This
+     isn't usually the pure CMY value; it's adjusted to improve
+     saturation and to limit the use of black in light toned regions
+     (to avoid speckling).
+
+  2. Find the range containing this value.
+
+  3. Compute where this value lies within the range.  We scale the
+     endpoints between 0 and 65536 for this purpose.  So for example,
+     if the bottom of the range is 10,000 and the top of the range is
+     20,000, and the value is 12,500, we're 1/4 of the way between the
+     bottom and the top of the range, so our scale point is 16384.
+
+  4. Compute the "virtual value".  The virtual value is the distance
+     between the value of the lighter and the value of the darker ink.
+     So if the value of the light ink is 32768 and the dark ink is
+     65536, we compute a virtual value scaled appropriately between
+     these two values, which is 40960 in this case.
+
+  5. Using either error diffusion or ordered dither, the standard
+     threshold is 1/2 of the value (20480 in this case).  Using ordered
+     dither, we want to compute a value between 0 and 40960 that we
+     will compare the input value against to decide whether to print.
+     Using pure error diffusion, we would compare the accumulated error
+     against 20480 to decide whether to print.  In practice, we use the
+     same matrix method to decide whether to print.  The correct amount
+     of ink will be printed this way, but we minimize the squiggly
+     lines characteristic of error diffusion by dithering the threshold
+     in this fashion.  A future enhancement will allow us to control
+     the amount of dithering applied to the threshold.
+
+   The matrices were generated by Thomas Tonino <<ttonino@bio.vu.nl>>
+with an algorithm of his devising.  The algorithm is designed to
+maximize the spacing between dots at any given density by searching the
+matrix for holes and placing a dot in the largest available hole.  It
+requires careful selection of initial points to achieve good results,
+and is very time consuming.  For best results, a different matrix must
+be used for modes with 2:1 aspect ratio (e.g. 1440x720) than for 1:1
+(e. g. 720x720).  It is essential with any of these matrices that every
+point be used.  Skipping points generates low-frequency noise.
+
+   It's essential to use different matrices for deciding whether to
+print and for deciding what color (dark or light) to print.  This
+should be obvious; the decision about whether to print at all should be
+as independent as possible from the decision about what color to print,
+because any bias will result in excess light or dark ink being printed,
+shifting the tonal balance.  We actually use the same matrices, but we
+shift them vertically and horizontally.  Assuming that the matrices are
+not self-correlated, this will yield good results.
+
+   The ranges are computed from a list of ink values (between 0 and 1
+for each possible combination of dot size and ink tone, where the value
+represents the darkness of the ink) and the desired maximum density of
+the ink.  This is done in dither_set_ranges, and needs more
+documentation.
+
+   I stated earlier that I've tweaked the basic error diffusion
+algorithm.  Here's what I've done to improve it:
+
+  1. We use a variable threshold to decide when to print, as discussed
+     above.  This does two things for us: it reduces the slightly
+     squiggly diagonal lines that are the mark of error diffusion; and
+     it allows us to lay down some ink even in very light areas near
+     the edge of the image.  The squiggly lines that error diffusion
+     algorithms tend to generate are caused by the gradual accumulation
+     of error.  This error is partially added horizontally and
+     partially vertically.  The horizontal accumulation results in a
+     dot eventually being printed.  The vertical accumulation results
+     in a dot getting laid down in roughly the same horizontal position
+     in the next row.  The diagonal squigglies result from the error
+     being added to pixels one forward and one below the current pixel;
+     these lines slope from the top right to the bottom left of the
+     image.
+
+     Error diffusion also results in pale areas being completely white
+     near the top left of the image (the origin of the printing
+     coordinates).  This is because enough error has to accumulate for
+     anything at all to get printed.  In very pale areas it takes quite
+     a long time to build up anything printable at all; this results in
+     the bare spots.
+
+     Randomizing the threshold somewhat breaks up the diagonals to some
+     degree by randomizing the exact location that the accumulated
+     output crosses the threshold.  It reduces the false white areas by
+     allowing some dots to be printed even when the accumulated output
+     level is very low.  It doesn't result in excess ink because the
+     full output level is still subtracted and diffused.
+
+     Excessive randomization leads to blobs at high densities.
+     Therefore, as the density increases, the degree of randomization
+     decreases.
+
+  2. Alternating scan direction between rows (first row is scanned left
+     to right, second is scanned right to left, and so on).  This also
+     helps break up white areas, and it also seems to break up
+     squigglies a bit.  Furthermore, it eliminates directional biases
+     in the horizontal direction.  This isn't necessary for ordered
+     dither, but it doesn't hurt either.
+
+  3. Diffusing the error into more pixels.  Instead of diffusing the
+     entire error into (X+1, Y) and (X, Y+1), we diffuse it into (X+1,
+     Y), (X+K, Y+1), (X, Y+1), (X-K, Y+1) where K depends upon the
+     output level (it never exceeds about 10 dots, and is greater at
+     higher output levels).  This really reduces squigglies and
+     graininess.  The amount of this spread can be controlled; for line
+     art, it should be less than for photographs (of course, line art
+     doesn't usually contain much light color, but the *error* value
+     can be small in places!)  In addition to requiring more
+     computation, a wide ink spread results in patterning at high dot
+     densities (note that the dot density can be high even in fairly
+     pale regions if multiple dot sizes are in use).
+
+  4. Don't lay down any colored ink if we're laying down black ink.
+     There's no point; the colored ink won't show.  We still pretend
+     that we did for purposes of error diffusion (otherwise excessive
+     error will build up, and will take a long time to clear, resulting
+     in heavy bleeding of ink into surrounding areas, which is very
+     ugly indeed), but we don't bother wasting the ink.  How well this
+     will do with variable dot size remains to be seen.
+
+  5. Oversampling.  This is how to print 1440x720 with Epson Stylus
+     printers.  Printing full density at 1440x720 will result in excess
+     ink being laid down.  The trick is to print only every other dot.
+     We still compute the error as though we printed every dot.  It
+     turns out that randomizing which dots are printed results in very
+     speckled output.  This can be taken too far; oversampling at
+     1440x1440 or 1440x2880 virtual resolution results in other
+     problems.  However, at present 1440x1440 (which is more accurately
+     called "1440x720 enhanced", as the Epson printers cannot print
+     1440 rows per inch) does quite well, although it's slow.
+
+   What about multiple output levels?  For 6 and 7 color printers,
+simply using different threshold levels has a problem: the pale inks
+have trouble being seen when a lot of darker ink is being printed.  So
+rather than just using the output level of the particular color to
+decide which ink to print, we look at the total density (sum of all
+output levels).  If the density's high enough, we prefer to use the
+dark ink.  Speckling is less visible when there's a lot of ink, anyway.
+I haven't yet figured out what to do for multiple levels of one color.
+
+   You'll note that I haven't quoted a single source on color or
+printing theory.  I simply did all of this empirically.
+
+   There are various other tricks to reduce speckling.  One that I've
+seen is to reduce the amount of ink printed in regions where one color
+(particularly cyan, which is perceived as the darkest) is very pale.
+This does reduce speckling all right, but it also results in strange
+tonal curves and weird (to my eye) colors.
+
+   Before any dither routine is used, `init_dither()' must be called.
+This takes three arguments: the input width (number of pixels in the
+input), the output width (number of pixels in the output), and a
+`vars_t' structure containing the parameters for the print job.
+
+   `init_dither()' returns a pointer to an opaque object representing
+the dither.  This object is passed as the first argument to all of the
+dither-related routines.
+
+   After a page is fully dithered, `free_dither()' must be called to
+free the dither object and perform any cleanup.  In the future, this may
+do more (such as flush output).  This arrangement permits using these
+routines with programs that create multiple output pages, such as
+GhostScript.
+
+   The dithering routines themselves have a number of control knobs that
+control internal aspects of the dithering process.  These knobs are
+accessible via a number of functions that can be called after
+`init_dither()'.
+
+   * `dither_set_density()' takes a double between 0 and 1 representing
+     the desired ink density for printing solid colors.  This is used
+     in a number of places in the dithering routine to make decisions.
+
+   * `dither_set_black_density()' takes a double between 0 and 1
+     representing the desired ink density for printing black ink in
+     color printing.  This is used to balance black against color ink.
+     By default, this is equal to the density set by
+     `dither_set_density()'.  By setting it higher, more black ink will
+     be printed.  For example, if the base density is .4 and the black
+     density is .8, twice as much black ink will be printed as would
+     otherwise be called for.
+
+     This is not used when printing in monochrome.  When printing
+     monochrome, the base density (`dither_set_density') should be
+     adjusted appropriately.
+
+   * `dither_set_ink_budget()' takes an unsigned number representing the
+     most ink that may be deposited at a given point.  This number is
+     arbitrary; the limit is computed by summing the size of each ink
+     dot, which is supplied as a parameter in `dither_set_X_ranges'.
+     By default, there is no limit.
+
+   * `dither_set_black_lower()' takes a double that should be between 0
+     and 1 that represents the lowest density level at which black ink
+     will start to mix in with colored ink to generate grays.  The
+     lower this is, the less density is required to use black ink.
+     Setting this too low will result in speckling from black dots,
+     particularly on 6 and 7 color printers.  Setting this too high
+     will make it hard to get satisfactory black or may result in sharp
+     transition between blended colors and black.  Default: 0.0468.
+
+     It is important to note that since the density scale is never
+     linear (and since this value is adjusted via other things
+     happening during the dithering process) that this does not mean
+     that 95% gray will use any black ink.  At this setting, there will
+     be no black ink used until about 50% gray.
+
+     This only applies to color mode.
+
+     This value should be set lower for printers capable of variable dot
+     size, since more dots can be laid down close to each other.
+
+   * `dither_set_black_upper()' takes a double that should be between 0
+     and 1 that represents the highest density level at which colored
+     inks will be mixed to create gray.  Setting this too low will
+     result in speckly dark grays because there is not enough ink to
+     fill all the holes, or sharp transition between blended colors and
+     black if it is too close to the value of dither_set_black_upper().
+     Setting this too high will result in poor black and dark tone
+     quality.  Default: 0.5.  This results in 10% and darker grays
+     being printed with essentially all black.
+
+     This only applies to color mode.
+
+   * `dither_set_black_levels()' takes three doubles that represent the
+     amount of cyan, magenta, and yellow respectively that are blended
+     to create gray.  The defaults are 1.0 for each, which is probably
+     too low for most printers.  These values are adjusted to create a
+     good gray balance.  Setting these too low will result in pale
+     light and midtone grays, with a sharp transition to darker tones
+     as black mixes in.  Setting them too high will result in overly
+     dark grays and use of too much ink, possibly creating
+     bleed-through.
+
+     This only applies to color mode.
+
+   * `dither_set_randomizers()' takes four integer values representing
+     the degree of randomness used for cyan, magenta, yellow, and black.
+     This is used to allow some printing to take place in pale areas.
+     Zero is the most random; greater than 8 or so gives very little
+     randomness at all.  Defaults are 0 for cyan, magenta, and yellow,
+     and 4 for black.  Setting the value for black too low will result
+     in black speckling in pale areas.  Setting values too high will
+     result in pale areas getting no ink at all.
+
+     This currently only applies to single dot size in color and black.
+     It should be extended to operate in variable dot size mode,
+     although actually applying it correctly will be tricky.
+
+   * `dither_set_ink_darkness()' takes three doubles representing the
+     contribution to perceived darkness of cyan, magenta, and yellow.
+     This is used to help decide when to switch between light and dark
+     inks in 6 and 7 color printers (with light cyan, light magenta,
+     and possibly light yellow).  Setting these too low will result in
+     too much light ink being laid down, creating flat spots in the
+     darkness curves and bleed-through.  Setting them too high will
+     result in dark ink being used in pale areas, creating speckle.
+     The defaults are .4 for cyan, .3 for magenta, and .2 for yellow.
+     Dark cyan will show against yellow much more than dark magenta
+     will show against cyan, since the cyan appears much darker than
+     the yellow.
+
+   * `dither_set_light_inks()' takes three doubles between 0 and 1
+     representing the ratio in darkness between the light and dark
+     versions of the inks.  Setting these too low will result in too
+     much dark ink being used in pale areas, creating speckling, while
+     setting them too high will result in very smooth texture but too
+     much use of light ink, resulting in flat spots in the density
+     curves and ink bleed-through.  There are no defaults.  Any light
+     ink specified as zero indicates that there is no light ink for
+     that color.
+
+     This only applies to 6 and 7 color printers in single dot size
+     color mode, and only to those inks which have light versions
+     (usually cyan and magenta).
+
+   * `dither_set_ink_spread()' takes a small integer representing the
+     amount of ink spread in the dither.  Larger numbers mean less
+     spread.  Larger values are appropriate for line art and solid
+     tones; they will yield sharper transitions but more dither
+     artifacts.  Smaller values are more appropriate for photos.  They
+     will reduce resolution and sharpness but reduce dither artifacts
+     up to a point.  A value of 16 or higher implies minimum ink spread
+     at any resolution no matter what the overdensity.  A value of 14
+     is typical for photos on single dot size, 6 color printers.  For 4
+     color printers, subtract 1 (more spread; the dots are farther
+     apart).  For variable dot size printers, add 1 (more small dots
+     are printed; less spread is desirable).
+
+   * `dither_set_adaptive_divisor()' takes a float representing the
+     transition point between error diffusion and ordered dither if
+     adaptive dithering is used.  The float is a fraction of the
+     printing density.  For example, if you wish the transition to be
+     at 1/4 of the maximum density (which works well on simple 4-color
+     printers), you would pass .25 here.  With six colors and/or with
+     multiple dot sizes, the values should be set lower.
+
+   * `dither_set_transition()' takes a float representing the exponent
+     of the transition curve between light and dark inks/dot sizes.  A
+     value less than 1 (typical when using error diffusion) mixes in
+     less dark ink/small dots at lower ends of the range, to reduce
+     speckling.  When using ordered dithering, this must be set to 1.
+
+   * `dither_set_X_ranges_simple' (X=`c', `m', `y', or `k') describes
+     the ink choices available for each color.  This is useful in
+     typical cases where a four color printer with variable dot sizes
+     is in use.  It is passed an array of doubles between (0, 1]
+     representing the relative darkness of each dot size.  The dot
+     sizes are assigned bit patterns (and ink quantities, see
+     `dither_set_ink_budget()' above) from 1 to the number of levels.
+     This also requires a density, which is the desired density for this
+     color.  This density need not equal the density specified in
+     `dither_set_density()'.  Setting it lower will tend to print more
+     dark ink (because the curves are calculated for this color
+     assuming a lower density than is actually supplied).
+
+   * `dither_set_X_ranges' (X=`c', `m', `y', or `k') describes in a
+     more general way the ink choices available for each color.  For
+     each possible ink choice, a bit pattern, dot size, value (i. e.
+     relative darkness), and whether the ink is the dark or light
+     variant ink is specified.
+
+   --Robert Krawitz <<rlk@alum.mit.edu>> May 8, 2000
+
+
+File: gimpprint.info,  Node: Weaving,  Next: ESC/P2,  Prev: Dithering,  Up: Appendices
+
+Weaving for inkjet printers
+***************************
+
+by Charles Briscoe-Smith and Robert Krawitz.
+
+* Menu:
+
+* Weaving introduction::        Just what is weaving?
+* Weaving algorithms::          How to weave.
+

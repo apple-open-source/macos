@@ -36,7 +36,7 @@ static const struct builtin_service special_services[] =
       { LOG_SERVICE_NAME,        SOCK_STREAM,   { stream_logging,    FORK   } },
       { INTERCEPT_SERVICE_NAME,  SOCK_STREAM,   { intercept,         FORK   } },
       { INTERCEPT_SERVICE_NAME,  SOCK_DGRAM,    { intercept,         FORK   } },
-      { NULL }
+      { NULL,                    0,             { NULL,              0      } }
    } ;
 
 
@@ -68,7 +68,8 @@ status_e spec_service_handler( struct service *sp, connection_s *cp )
 }
 
 
-static struct service *spec_setup( char *name, int socket_type, int instances )
+static struct service *spec_setup( const char *name, int socket_type, 
+                                   int instances )
 {
    const builtin_s *bp ;
    struct service_config *scp ;

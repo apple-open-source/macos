@@ -99,7 +99,7 @@ INSTALLDIR = /usr/local/lib
 # owned by the top-level Makefile API and no context has been set up for where 
 # derived files should go.
 #
-MIGFLAGS = -traditional-cpp -R -untyped -DNO_DIRECT_RPC -I$(SRCROOT)
+MIGFLAGS = -no-cpp-precomp -R -untyped -DNO_DIRECT_RPC -I$(SRCROOT)
 MIG = $(NEXT_ROOT)/usr/bin/mig
 
 backing_store_alerts_server.c: \

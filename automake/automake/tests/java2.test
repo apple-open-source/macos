@@ -1,0 +1,35 @@
+#! /bin/sh
+
+# Make sure that Java rules doesn't attempt to run javac when there is
+# no classes to compile.
+# Report from Braden McDaniel.
+
+. $srcdir/defs || exit 1
+
+set -e
+
+cat >> configure.in << 'END'
+AM_CONDITIONAL(WITH_JDK, false)
+AC_OUTPUT
+END
+
+cat > Makefile.am << 'END'
+JAVAC = false
+JAVAROOT = $(top_builddir)/java
+
+JAVA_FILES = MyClass1.java
+
+if WITH_JDK
+noinst_JAVA = $(JAVA_FILES)
+endif
+
+EXTRA_DIST = $(JAVA_FILES)
+END
+
+: >MyClass1.java
+
+$ACLOCAL
+$AUTOCONF
+$AUTOMAKE
+./configure
+$MAKE

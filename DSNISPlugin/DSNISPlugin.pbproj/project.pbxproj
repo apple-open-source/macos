@@ -19,7 +19,7 @@
 		};
 		7743A29F01D1562505DD284B = {
 			isa = PBXBundleReference;
-			path = NIS.dsplug;
+			path = BSD.dsplug;
 			refType = 3;
 		};
 		7743A2A001D1562505DD284B = {
@@ -32,14 +32,14 @@
 			);
 			buildSettings = {
 				FRAMEWORK_SEARCH_PATHS = "$(SYSTEM_LIBRARY_DIR)/Frameworks/DirectoryService.framework/Versions/A/Resources \"$(SYSTEM_LIBRARY_DIR)/PrivateFrameworks\"";
-				HEADER_SEARCH_PATHS = "\"$(SYSTEM_LIBRARY_DIR)/Frameworks/DirectoryService.framework/Versions/A/Headers\"  $(SYSTEM_LIBRARY_DIR)/PrivateFrameworks/DirectoryServiceCore.framework/Versions/A/Headers";
+				HEADER_SEARCH_PATHS = "\"$(SYSTEM_LIBRARY_DIR)/Frameworks/DirectoryService.framework/Versions/A/Headers\" \"$(SYSTEM_LIBRARY_DIR)/PrivateFrameworks/DirectoryServiceCore.framework/Versions/A/Headers\" \"$(APPLE_INTERNAL_DEVELOPER_DIR)/Headers/sasl\"";
 				INSTALL_PATH = "$(SYSTEM_LIBRARY_DIR)/Frameworks/DirectoryService.framework/Versions/A/Resources/Plugins";
 				LIBRARY_SEARCH_PATHS = "/usr/local/lib \"$(APPLE_INTERNAL_DIR)/Developer/libs\"";
 				OPTIMIZATION_CFLAGS = "-O";
 				OTHER_CFLAGS = "-Wno-four-char-constants -D__cplusplus -DDEBUG -DMACOSX -DMAC_OS_X -DTARGET_API_MAC_OSX=1 -DTARGET_CARBON=1 -DPP_Target_Carbon=1 -DTARGET_API_MAC_CARBON=1 -fpascal-strings -Wno-unknown-pragmas -Wno-reorder";
-				OTHER_LDFLAGS = "-bundle -twolevel_namespace -undefined error -lstdc++";
+				OTHER_LDFLAGS = "-lcrypto -bundle -undefined error";
 				OTHER_REZFLAGS = "";
-				PRODUCT_NAME = NIS;
+				PRODUCT_NAME = BSD;
 				SECTORDER_FLAGS = "";
 				WARNING_CFLAGS = "-Wmost -Wno-four-char-constants -Wno-unknown-pragmas";
 				WRAPPER_EXTENSION = dsplug;
@@ -62,7 +62,7 @@
 	<key>CFBundleDevelopmentRegion</key>
 	<string>English</string>
 	<key>CFBundleExecutable</key>
-	<string>NIS</string>
+	<string>BSD</string>
 	<key>CFBundleGetInfoString</key>
 	<string></string>
 	<key>CFBundleIconFile</key>
@@ -78,11 +78,11 @@
 	<key>CFBundlePackageType</key>
 	<string>dspi</string>
 	<key>CFBundleShortVersionString</key>
-	<string>1.0</string>
+	<string>1.1</string>
 	<key>CFBundleSignature</key>
 	<string>????</string>
 	<key>CFBundleVersion</key>
-	<string>1.0</string>
+	<string>1.1</string>
 	<key>CFPlugInDynamicRegistration</key>
 	<string>NO</string>
 	<key>CFPlugInFactories</key>
@@ -98,7 +98,21 @@
 		</array>
 	</dict>
 	<key>CFPluginNameString</key>
-	<string>NIS</string>
+	<string>BSD</string>
+	<key>DSNodesToRegister</key>
+	<array>
+		<dict>
+			<key>DSNodeToRegisterPath</key>
+			<array>
+				<string>BSD</string>
+				<string>local</string>
+			</array>
+			<key>DSNodeToRegisterType</key>
+			<integer>1</integer>
+		</dict>
+	</array>
+	<key>DSOKToLoadLazily</key>
+	<string>YES</string>
 	<key>DSPluginPrefix</key>
 	<string>BSD</string>
 	<key>DSServerSignature</key>
@@ -148,10 +162,11 @@
 			files = (
 				A4A09E83021C680303DD2834,
 				A4C5893002217F5D03DD2834,
-				A4848673029D552403DD2834,
 				A4533E2F02A4583D03DD2834,
 				A421727902A9724403DD2834,
 				A4B68BEF038C29C503DD2834,
+				8432289F04ABCB34007D0E6B,
+				FE4AD2FE04F40D4300365AE8,
 			);
 			isa = PBXFrameworksBuildPhase;
 			runOnlyForDeploymentPostprocessing = 0;
@@ -217,20 +232,15 @@
 			name = Products;
 			refType = 4;
 		};
-		774A948701D12F4505DD284B = {
-			isa = PBXFrameworkReference;
-			name = CoreServices.framework;
-			path = /System/Library/Frameworks/CoreServices.framework;
-			refType = 0;
-		};
 		774A949401D131F105DD284B = {
 			children = (
 				773C789F01D146CD05DD284B,
-				774A948701D12F4505DD284B,
 				7743A29D01D155D805DD284B,
 				A4A09E7E021C680303DD2834,
 				A4C5892B02217F5D03DD2834,
 				A4533E2E02A4583D03DD2834,
+				8432289E04ABCB34007D0E6B,
+				FE4AD2FD04F40D4300365AE8,
 			);
 			isa = PBXGroup;
 			name = Frameworks;
@@ -241,6 +251,28 @@
 //772
 //773
 //774
+//840
+//841
+//842
+//843
+//844
+		8432289E04ABCB34007D0E6B = {
+			isa = PBXExecutableFileReference;
+			name = libsasl2.2.0.1.dylib;
+			path = /usr/lib/libsasl2.2.0.1.dylib;
+			refType = 0;
+		};
+		8432289F04ABCB34007D0E6B = {
+			fileRef = 8432289E04ABCB34007D0E6B;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+//840
+//841
+//842
+//843
+//844
 //A40
 //A41
 //A42
@@ -338,12 +370,6 @@
 			name = Configuration.strings;
 			path = NIS/Configuration.strings;
 			refType = 4;
-		};
-		A4848673029D552403DD2834 = {
-			fileRef = 774A948701D12F4505DD284B;
-			isa = PBXBuildFile;
-			settings = {
-			};
 		};
 		A4A09E7E021C680303DD2834 = {
 			isa = PBXFileReference;
@@ -459,6 +485,18 @@
 //FE2
 //FE3
 //FE4
+		FE4AD2FD04F40D4300365AE8 = {
+			isa = PBXFrameworkReference;
+			name = CoreFoundation.framework;
+			path = /System/Library/Frameworks/CoreFoundation.framework;
+			refType = 0;
+		};
+		FE4AD2FE04F40D4300365AE8 = {
+			fileRef = FE4AD2FD04F40D4300365AE8;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
 		FE6FE2BE041033B300DD2834 = {
 			fileEncoding = 30;
 			isa = PBXFileReference;

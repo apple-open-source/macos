@@ -1,7 +1,7 @@
 /* repl.c - log modifications for replication purposes */
-/* $OpenLDAP: pkg/ldap/servers/slapd/repl.c,v 1.40 2002/02/15 14:21:13 hyc Exp $ */
+/* $OpenLDAP: pkg/ldap/servers/slapd/repl.c,v 1.40.2.4 2003/03/03 17:10:07 kurt Exp $ */
 /*
- * Copyright 1998-2002 The OpenLDAP Foundation, All Rights Reserved.
+ * Copyright 1998-2003 The OpenLDAP Foundation, All Rights Reserved.
  * COPYING RESTRICTIONS APPLY, see COPYRIGHT file
  */
 
@@ -41,6 +41,8 @@ add_replica_info(
 	be->be_replica[ i ] 
 		= ch_calloc( sizeof( struct slap_replica_info ), 1 );
 	be->be_replica[ i ]->ri_host = ch_strdup( host );
+	be->be_replica[ i ]->ri_nsuffix = NULL;
+	be->be_replica[ i ]->ri_attrs = NULL;
 	be->be_replica[ i + 1 ] = NULL;
 
 	return( i );
@@ -53,23 +55,23 @@ add_replica_suffix(
     const char  *suffix
 )
 {
-	struct berval dn, *ndn = NULL;
+	struct berval dn, ndn;
 	int rc;
 
 	dn.bv_val = (char *) suffix;
 	dn.bv_len = strlen( dn.bv_val );
 
-	rc = dnNormalize( NULL, &dn, &ndn );
+	rc = dnNormalize2( NULL, &dn, &ndn );
 	if( rc != LDAP_SUCCESS ) {
 		return 2;
 	}
 
-	if ( select_backend( ndn, 0, 0 ) != be ) {
-		ber_bvfree( ndn );
+	if ( select_backend( &ndn, 0, 0 ) != be ) {
+		free( ndn.bv_val );
 		return 1;
 	}
 
-	ber_bvecadd( &be->be_replica[nr]->ri_nsuffix, ndn );
+	ber_bvarray_add( &be->be_replica[nr]->ri_nsuffix, &ndn );
 	return 0;
 }
 
@@ -77,9 +79,19 @@ int
 add_replica_attrs(
 	Backend	*be,
 	int	nr,
-	char	*attrs
+	char	*attrs,
+	int	exclude
 )
 {
+	if ( be->be_replica[nr]->ri_attrs != NULL ) {
+		if ( be->be_replica[nr]->ri_exclude != exclude ) {
+			fprintf( stderr, "attr selective replication directive '%s' conflicts with previous one (discarded)\n", attrs );
+			ch_free( be->be_replica[nr]->ri_attrs );
+			be->be_replica[nr]->ri_attrs = NULL;
+		}
+	}
+
+	be->be_replica[nr]->ri_exclude = exclude;
 	be->be_replica[nr]->ri_attrs = str2anlist( be->be_replica[nr]->ri_attrs,
 		attrs, "," );
 	return ( be->be_replica[nr]->ri_attrs == NULL );
@@ -127,13 +139,13 @@ replog(
 		if ( be->be_replica[i]->ri_nsuffix != NULL ) {
 			int j;
 
-			for ( j = 0; be->be_replica[i]->ri_nsuffix[j]; j++ ) {
-				if ( dnIsSuffix( ndn, be->be_replica[i]->ri_nsuffix[j] ) ) {
+			for ( j = 0; be->be_replica[i]->ri_nsuffix[j].bv_val; j++ ) {
+				if ( dnIsSuffix( ndn, &be->be_replica[i]->ri_nsuffix[j] ) ) {
 					break;
 				}
 			}
 
-			if ( !be->be_replica[i]->ri_nsuffix[j] ) {
+			if ( !be->be_replica[i]->ri_nsuffix[j].bv_val ) {
 				/* do not add "replica:" line */
 				continue;
 			}
@@ -183,13 +195,13 @@ replog(
 			if ( be->be_replica[i]->ri_nsuffix != NULL ) {
 				int j;
 
-				for ( j = 0; be->be_replica[i]->ri_nsuffix[j]; j++ ) {
-					if ( dnIsSuffix( ndn, be->be_replica[i]->ri_nsuffix[j] ) ) {
+				for ( j = 0; be->be_replica[i]->ri_nsuffix[j].bv_val; j++ ) {
+					if ( dnIsSuffix( ndn, &be->be_replica[i]->ri_nsuffix[j] ) ) {
 						break;
 					}
 				}
 
-				if ( !be->be_replica[i]->ri_nsuffix[j] ) {
+				if ( !be->be_replica[i]->ri_nsuffix[j].bv_val ) {
 					/* do not add "replica:" line */
 					continue;
 				}
@@ -203,7 +215,16 @@ replog(
 				/* fall thru */
 			case LDAP_REQ_MODIFY:
 				for ( ml = change; ml != NULL; ml = ml->sml_next ) {
-					if ( ad_inlist( ml->sml_desc, be->be_replica[i]->ri_attrs ) ) {
+					int is_in, exclude;
+
+   					is_in = ad_inlist( ml->sml_desc, be->be_replica[i]->ri_attrs );
+					exclude = be->be_replica[i]->ri_exclude;
+					
+					/*
+					 * there might be a more clever way to do this test,
+					 * but this way, at least, is comprehensible :)
+					 */
+					if ( ( is_in && !exclude ) || ( !is_in && exclude ) ) {
 						subsets = 1;
 						first = ml;
 						break;
@@ -216,7 +237,12 @@ replog(
 			case LDAP_REQ_ADD:
 				e = change;
 				for ( a = e->e_attrs; a != NULL; a = a->a_next ) {
-					if ( ad_inlist( a->a_desc, be->be_replica[i]->ri_attrs ) ) {
+					int is_in, exclude;
+
+   					is_in = ad_inlist( a->a_desc, be->be_replica[i]->ri_attrs );
+					exclude = be->be_replica[i]->ri_exclude;
+					
+					if ( ( is_in && !exclude ) || ( !is_in && exclude ) ) {
 						subsets = 1;
 						first = a;
 						break;
@@ -267,8 +293,12 @@ replog1(
 		ml = first ? first : change;
 		for ( ; ml != NULL; ml = ml->sml_next ) {
 			char *type;
-			if ( ri && ri->ri_attrs && !ad_inlist( ml->sml_desc, ri->ri_attrs ) ) {
-				continue;
+			if ( ri && ri->ri_attrs ) {
+				int is_in = ad_inlist( ml->sml_desc, ri->ri_attrs );
+
+				if ( ( !is_in && !ri->ri_exclude ) || ( is_in && ri->ri_exclude ) ) {
+					continue;
+				}
 			}
 			type = ml->sml_desc->ad_cname.bv_val;
 			switch ( ml->sml_op ) {
@@ -296,7 +326,8 @@ replog1(
 		a = first ? first : e->e_attrs;
 		for ( ; a != NULL; a=a->a_next ) {
 			if ( ri && ri->ri_attrs ) {
-				if ( !ad_inlist( a->a_desc, ri->ri_attrs ) ) {
+				int is_in = ad_inlist( a->a_desc, ri->ri_attrs );
+				if ( ( !is_in && !ri->ri_exclude ) || ( is_in && ri->ri_exclude ) ) {
 					continue;
 				}
 				/* If the list includes objectClass names,
@@ -340,7 +371,8 @@ replog1(
 		fprintf( fp, "changetype: modrdn\n" );
 		fprintf( fp, "newrdn: %s\n", moddn->newrdn->bv_val );
 		fprintf( fp, "deleteoldrdn: %d\n", moddn->deloldrdn ? 1 : 0 );
-		if( moddn->newsup != NULL ) {
+		/* moddn->newsup is never NULL, see modrdn.c */
+		if( moddn->newsup->bv_val != NULL ) {
 			fprintf( fp, "newsuperior: %s\n", moddn->newsup->bv_val );
 		}
 	}
@@ -353,7 +385,7 @@ print_vals(
 	struct berval *type,
 	struct berval *bv )
 {
-	int i, len;
+	ber_len_t i, len;
 	char	*buf, *bufp;
 
 	for ( i = 0, len = 0; bv && bv[i].bv_val; i++ ) {

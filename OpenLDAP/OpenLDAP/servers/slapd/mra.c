@@ -1,6 +1,6 @@
-/* $OpenLDAP: pkg/ldap/servers/slapd/mra.c,v 1.13 2002/01/06 05:21:11 hyc Exp $ */
+/* $OpenLDAP: pkg/ldap/servers/slapd/mra.c,v 1.13.2.6 2003/03/03 17:10:07 kurt Exp $ */
 /*
- * Copyright 1998-2002 The OpenLDAP Foundation, All Rights Reserved.
+ * Copyright 1998-2003 The OpenLDAP Foundation, All Rights Reserved.
  * COPYING RESTRICTIONS APPLY, see COPYRIGHT file
  */
 /* mra.c - routines for dealing with extensible matching rule assertions */
@@ -14,16 +14,12 @@
 
 #include "slap.h"
 
-
 void
 mra_free(
-    MatchingRuleAssertion *mra,
-    int	freeit
+	MatchingRuleAssertion *mra,
+	int	freeit
 )
 {
-#if 0	/* no longer a malloc'd string */
-	ch_free( mra->ma_rule_text.bv_val );
-#endif
 	ch_free( mra->ma_value.bv_val );
 	if ( freeit ) {
 		ch_free( (char *) mra );
@@ -32,30 +28,32 @@ mra_free(
 
 int
 get_mra(
-    BerElement	*ber,
-    MatchingRuleAssertion	**mra,
+	BerElement	*ber,
+	MatchingRuleAssertion	**mra,
 	const char **text
 )
 {
-	int rc, tag;
+	int rc;
+	ber_tag_t tag, rtag;
 	ber_len_t length;
-	struct berval type, value;
+	struct berval type = { 0, NULL }, value;
 	MatchingRuleAssertion *ma;
 
 	ma = ch_malloc( sizeof( MatchingRuleAssertion ) );
 	ma->ma_rule = NULL;
-	ma->ma_rule_text.bv_val = NULL;
 	ma->ma_rule_text.bv_len = 0;
+	ma->ma_rule_text.bv_val = NULL;
 	ma->ma_desc = NULL;
 	ma->ma_dnattrs = 0;
+	ma->ma_value.bv_len = 0;
 	ma->ma_value.bv_val = NULL;
 
-	rc = ber_scanf( ber, "{t", &tag );
+	rtag = ber_scanf( ber, "{t", &tag );
 
-	if( rc == LBER_ERROR ) {
+	if( rtag == LBER_ERROR ) {
 #ifdef NEW_LOGGING
-		LDAP_LOG(( "operation", LDAP_LEVEL_ERR,
-			   "get_mra: ber_scanf (\"{t\") failure\n" ));
+		LDAP_LOG( OPERATION, ERR, 
+			"get_mra: ber_scanf (\"{t\") failure\n", 0, 0, 0 );
 #else
 		Debug( LDAP_DEBUG_ANY, "  get_mra ber_scanf\n", 0, 0, 0 );
 #endif
@@ -66,11 +64,11 @@ get_mra(
 	}
 
 	if ( tag == LDAP_FILTER_EXT_OID ) {
-		rc = ber_scanf( ber, "m", &ma->ma_rule_text );
-		if ( rc == LBER_ERROR ) {
+		rtag = ber_scanf( ber, "m", &ma->ma_rule_text );
+		if ( rtag == LBER_ERROR ) {
 #ifdef NEW_LOGGING
-			LDAP_LOG(( "operation", LDAP_LEVEL_ERR,
-				   "get_mra: ber_scanf(\"o\") failure.\n" ));
+			LDAP_LOG( OPERATION, ERR,
+			   "get_mra: ber_scanf(\"o\") failure.\n", 0, 0, 0 );
 #else
 			Debug( LDAP_DEBUG_ANY, "  get_mra ber_scanf for mr\n", 0, 0, 0 );
 #endif
@@ -79,14 +77,12 @@ get_mra(
 			mra_free( ma, 1 );
 			return SLAPD_DISCONNECT;
 		}
-		ma->ma_rule = mr_bvfind( &ma->ma_rule_text );
 
-		rc = ber_scanf( ber, "t", &tag );
-
-		if( rc == LBER_ERROR ) {
+		rtag = ber_scanf( ber, "t", &tag );
+		if( rtag == LBER_ERROR ) {
 #ifdef NEW_LOGGING
-			LDAP_LOG(( "operation", LDAP_LEVEL_ERR,
-				   "get_mra: ber_scanf (\"t\") failure\n" ));
+			LDAP_LOG( OPERATION, ERR,
+			   "get_mra: ber_scanf (\"t\") failure\n", 0, 0, 0 );
 #else
 			Debug( LDAP_DEBUG_ANY, "  get_mra ber_scanf\n", 0, 0, 0 );
 #endif
@@ -98,11 +94,11 @@ get_mra(
 	}
 
 	if ( tag == LDAP_FILTER_EXT_TYPE ) {
-		rc = ber_scanf( ber, "m", &type );
-		if ( rc == LBER_ERROR ) {
+		rtag = ber_scanf( ber, "m", &type );
+		if ( rtag == LBER_ERROR ) {
 #ifdef NEW_LOGGING
-			LDAP_LOG(( "operation", LDAP_LEVEL_ERR,
-				   "get_mra: ber_scanf (\"o\") failure.\n" ));
+			LDAP_LOG( OPERATION, ERR,
+			   "get_mra: ber_scanf (\"o\") failure.\n", 0, 0, 0 );
 #else
 			Debug( LDAP_DEBUG_ANY, "  get_mra ber_scanf for ad\n", 0, 0, 0 );
 #endif
@@ -111,19 +107,11 @@ get_mra(
 			return SLAPD_DISCONNECT;
 		}
 
-		rc = slap_bv2ad( &type, &ma->ma_desc, text );
-
-		if( rc != LDAP_SUCCESS ) {
-			mra_free( ma, 1 );
-			return rc;
-		}
-
-		rc = ber_scanf( ber, "t", &tag );
-
-		if( rc == LBER_ERROR ) {
+		rtag = ber_scanf( ber, "t", &tag );
+		if( rtag == LBER_ERROR ) {
 #ifdef NEW_LOGGING
-			LDAP_LOG(( "operation", LDAP_LEVEL_ERR,
-				   "get_mra: ber_scanf (\"t\") failure.\n" ));
+			LDAP_LOG( OPERATION, ERR,
+			   "get_mra: ber_scanf (\"t\") failure.\n", 0, 0, 0 );
 #else
 			Debug( LDAP_DEBUG_ANY, "  get_mra ber_scanf\n", 0, 0, 0 );
 #endif
@@ -136,8 +124,8 @@ get_mra(
 
 	if ( tag != LDAP_FILTER_EXT_VALUE ) {
 #ifdef NEW_LOGGING
-		LDAP_LOG(( "operation", LDAP_LEVEL_ERR,
-			   "get_mra: ber_scanf missing value\n" ));
+		LDAP_LOG( OPERATION, ERR, 
+			"get_mra: ber_scanf missing value\n", 0, 0, 0 );
 #else
 		Debug( LDAP_DEBUG_ANY, "  get_mra ber_scanf missing value\n", 0, 0, 0 );
 #endif
@@ -147,12 +135,12 @@ get_mra(
 		return SLAPD_DISCONNECT;
 	}
 
-	rc = ber_scanf( ber, "m", &value );
+	rtag = ber_scanf( ber, "m", &value );
 
-	if( rc == LBER_ERROR ) {
+	if( rtag == LBER_ERROR ) {
 #ifdef NEW_LOGGING
-		LDAP_LOG(( "operation", LDAP_LEVEL_ERR,
-			   "get_mra: ber_scanf (\"o\") failure.\n" ));
+		LDAP_LOG( OPERATION, ERR, 
+			"get_mra: ber_scanf (\"o\") failure.\n", 0, 0, 0 );
 #else
 		Debug( LDAP_DEBUG_ANY, "  get_mra ber_scanf\n", 0, 0, 0 );
 #endif
@@ -162,30 +150,17 @@ get_mra(
 		return SLAPD_DISCONNECT;
 	}
 
-	/*
-	 * OK, if no matching rule, normalize for equality, otherwise
-	 * normalize for the matching rule.
-	 */
-	rc = value_normalize( ma->ma_desc, SLAP_MR_EQUALITY, &value, &ma->ma_value, text );
-
-	if( rc != LDAP_SUCCESS ) {
-		mra_free( ma, 1 );
-		return rc;
-	}
-
 	tag = ber_peek_tag( ber, &length );
 
 	if ( tag == LDAP_FILTER_EXT_DNATTRS ) {
-		rc = ber_scanf( ber, "b}", &ma->ma_dnattrs );
+		rtag = ber_scanf( ber, "b}", &ma->ma_dnattrs );
 	} else {
-		rc = ber_scanf( ber, "}" );
-		ma->ma_dnattrs = 0;
+		rtag = ber_scanf( ber, "}" );
 	}
 
-	if( rc == LBER_ERROR ) {
+	if( rtag == LBER_ERROR ) {
 #ifdef NEW_LOGGING
-		LDAP_LOG(( "operation", LDAP_LEVEL_ERR,
-			   "get_mra: ber_scanf failure\n"));
+		LDAP_LOG( OPERATION, ERR, "get_mra: ber_scanf failure\n", 0, 0, 0);
 #else
 		Debug( LDAP_DEBUG_ANY, "  get_mra ber_scanf\n", 0, 0, 0 );
 #endif
@@ -195,8 +170,77 @@ get_mra(
 		return SLAPD_DISCONNECT;
 	}
 
-	*mra = ma;
+	if( type.bv_val != NULL ) {
+		rc = slap_bv2ad( &type, &ma->ma_desc, text );
+		if( rc != LDAP_SUCCESS ) {
+			mra_free( ma, 1 );
+			return rc;
+		}
+	}
 
+	if( ma->ma_rule_text.bv_val != NULL ) {
+		ma->ma_rule = mr_bvfind( &ma->ma_rule_text );
+		if( ma->ma_rule == NULL ) {
+			mra_free( ma, 1 );
+			*text = "matching rule not recognized";
+			return LDAP_INAPPROPRIATE_MATCHING;
+		}
+	}
+
+	if ( ma->ma_rule == NULL ) {
+		/*
+		 * Need either type or rule ...
+		 */
+		if ( ma->ma_desc == NULL ) {
+			mra_free( ma, 1 );
+			*text = "no matching rule or type";
+			return LDAP_INAPPROPRIATE_MATCHING;
+		}
+
+		if ( ma->ma_desc->ad_type->sat_equality != NULL &&
+			ma->ma_desc->ad_type->sat_equality->smr_usage & SLAP_MR_EXT )
+		{
+			/* no matching rule was provided, use the attribute's
+			   equality rule if it supports extensible matching. */
+			ma->ma_rule = ma->ma_desc->ad_type->sat_equality;
+
+		} else {
+			*text = "no appropriate rule to use for type";
+			mra_free( ma, 1 );
+			return LDAP_INAPPROPRIATE_MATCHING;
+		}
+	}
+
+	if ( ma->ma_desc != NULL ) {
+		if( !mr_usable_with_at( ma->ma_rule, ma->ma_desc->ad_type ) ) {
+			mra_free( ma, 1 );
+			*text = "matching rule use with this attribute not appropriate";
+			return LDAP_INAPPROPRIATE_MATCHING;
+		}
+
+		/*
+		 * OK, if no matching rule, normalize for equality, otherwise
+		 * normalize for the matching rule.
+		 */
+		rc = value_validate_normalize( ma->ma_desc, SLAP_MR_EQUALITY,
+			&value, &ma->ma_value, text );
+	} else {
+		/*
+		 * Need to normalize, but how?
+		 */
+		rc = value_validate( ma->ma_rule, &value, text );
+		if ( rc == LDAP_SUCCESS ) {
+			ber_dupbv( &ma->ma_value, &value );
+		}
+
+	}
+
+	if( rc != LDAP_SUCCESS ) {
+		mra_free( ma, 1 );
+		return rc;
+	}
+
+	*mra = ma;
 	return LDAP_SUCCESS;
 }
 

@@ -1,9 +1,32 @@
-This is am-utils.info, produced by makeinfo version 4.0b from
+This is am-utils.info, produced by makeinfo version 4.1 from
 am-utils.texi.
 
+INFO-DIR-SECTION Administration
 START-INFO-DIR-ENTRY
 * Am-utils: (am-utils).          The Amd automounter suite of utilities
 END-INFO-DIR-ENTRY
+
+
+File: am-utils.info,  Node: print_version Parameter,  Next: restart_mounts Parameter,  Prev: print_pid Parameter,  Up: Global Parameters
+
+print_version Parameter
+-----------------------
+
+   (type=boolean, default=`no').  Same as the `-v' option to Amd, but
+the version prints and Amd continues to run.  If `yes', Amd will print
+its version information string, which includes some configuration and
+compilation values.
+
+
+File: am-utils.info,  Node: restart_mounts Parameter,  Next: selectors_in_defaults Parameter,  Prev: print_version Parameter,  Up: Global Parameters
+
+restart_mounts Parameter
+------------------------
+
+   (type=boolean, default=`no').  Same as the `-r' option to Amd.  If
+`yes' Amd will scan the mount table to determine which file systems are
+currently mounted.  Whenever one of these would have been auto-mounted,
+Amd inherits it.
 
 
 File: am-utils.info,  Node: selectors_in_defaults Parameter,  Next: show_statfs_entries Parameter,  Prev: restart_mounts Parameter,  Up: Global Parameters
@@ -577,7 +600,7 @@ increasing filesystem namespace under their control.
 filesystem data files from a single set of input data.  Starting with a
 single data source guarantees that all the generated files are
 self-consistent.  One of the possible output data formats is a set of
-Amd maps which can be used amongst the set of hosts described in the
+Amd maps which can be used among the set of hosts described in the
 input data.
 
    FSinfo implements a declarative language.  This language is

@@ -32,12 +32,21 @@
 
 class QTextCodec;
 
+#ifdef __OBJC__
+@class NSData;
+@class NSURL;
+#else
+class NSData;
+class NSURL;
+#endif
+
 class KURL {
 public:
     KURL();
     KURL(const char *);
     KURL(const KURL &, const QString &, const QTextCodec * = 0);
     KURL(const QString &);
+    KURL(NSURL *);
     
     bool isEmpty() const { return urlString.isEmpty(); } 
     bool isMalformed() const { return !m_isValid; }
@@ -46,26 +55,33 @@ public:
 
     QString canonicalURL() const;
     QString url() const { return urlString; }
+
     QString protocol() const;
     QString host() const;
     unsigned short int port() const;
-    QString pass() const;
     QString user() const;
+    QString pass() const;
+    QString path() const;
+    QString query() const;
     QString ref() const;
     bool hasRef() const;
-    QString query() const;
-    QString path() const;
+
     QString htmlRef() const;
     QString encodedHtmlRef() const;
 
     void setProtocol(const QString &);
     void setHost(const QString &);
     void setPort(unsigned short int);
-    void setRef(const QString &);
-    void setQuery(const QString &, int encoding_hint=0);
+    void setUser(const QString &);
+    void setPass(const QString &);
     void setPath(const QString &);
+    void setQuery(const QString &, int encoding_hint=0);
+    void setRef(const QString &);
 
     QString prettyURL() const;
+    
+    NSURL *getNSURL() const;
+    NSData *getNSData() const;
     
     static QString decode_string(const QString &);
     static QString encode_string(const QString &);

@@ -102,16 +102,21 @@ The following options are available:
 All
 .Tn I/O
 to the file system should be done asynchronously.
-This is a
-.Em dangerous
-flag to set,
-and should not be used unless you are prepared to recreate the file
-system should your system crash.
+This can be somewhat dangerous with respect to losing data when faced with
+system crashes and power outages.
+This is also the default.
+It can be avoided with the
+.Em noasync
+option.
 .It force
 The same as
 .Fl f ;
 forces the revocation of write access when trying to downgrade
 a filesystem mount status from read-write to read-only.
+.It noasync
+This filesystem should not force all
+.Tn I/O
+to be written asynchronously.
 .It noauto
 This filesystem should be skipped when mount is run with the
 .Fl a
@@ -157,14 +162,14 @@ distinguished by a leading
 Options that take a value are specified using the syntax -option=value.
 For example, the mount command:
 .Bd -literal -offset indent
-mount -t mfs -o nosuid,-N,-s=4000 /dev/dk0b /tmp
+mount -t hfs -o nosuid,-w,-m=755 /dev/disk2s9 /tmp
 .Ed
 .Pp
 causes
 .Nm mount
 to execute the equivalent of:
 .Bd -literal -offset indent
-/sbin/mount_mfs -o nosuid -N -s 4000 /dev/dk0b /tmp
+/sbin/mount_hfs -o nosuid -w -m 755 /dev/disk2s9 /tmp
 .Ed
 .It Fl r
 The file system is to be mounted read-only.
@@ -194,13 +199,13 @@ For example, the
 .Nm mount
 command:
 .Bd -literal -offset indent
-mount -a -t nonfs,mfs
+mount -a -t nonfs,hfs
 .Ed
 .Pp
 mounts all filesystems except those of type
 .Tn NFS
 and
-.Tn MFS .
+.Tn HFS .
 .Pp
 If the type is not one of the internally known types,
 mount will attempt to execute a program in
@@ -245,6 +250,7 @@ The file system object is to be read and write.
 The options specific to NFS filesystems are described in the
 .Xr mount_nfs 8
 manual page.
+.El
 .Sh FILES
 .Bl -tag -width /etc/fstab -compact
 .It Pa /etc/fstab

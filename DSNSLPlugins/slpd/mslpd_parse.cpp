@@ -1,4 +1,28 @@
 /*
+ * Copyright (c) 2003 Apple Computer, Inc. All rights reserved.
+ *
+ * @APPLE_LICENSE_HEADER_START@
+ * 
+ * Copyright (c) 1999-2003 Apple Computer, Inc.  All Rights Reserved.
+ * 
+ * This file contains Original Code and/or Modifications of Original Code
+ * as defined in and that are subject to the Apple Public Source License
+ * Version 2.0 (the 'License'). You may not use this file except in
+ * compliance with the License. Please obtain a copy of the License at
+ * http://www.opensource.apple.com/apsl/ and read it before using this
+ * file.
+ * 
+ * The Original Code and all software distributed under the License are
+ * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
+ * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
+ * INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY,
+ * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
+ * Please see the License for the specific language governing rights and
+ * limitations under the License.
+ * 
+ * @APPLE_LICENSE_HEADER_END@
+ */
+/*
  * mslpd_parse.c : Parses messages in and out of the mini slpv2 SA.
  *
  * Version: 1.7
@@ -24,10 +48,13 @@
  * (c) Sun Microsystems, 1998, All Rights Reserved.
  * Author: Erik Guttman
  */
+ /*
+	Portions Copyright (c) 2002 Apple Computer, Inc. All rights reserved.
+ */
 
 #include <stdio.h>
 #include <string.h>
-#include <assert.h>
+//#include <assert.h>
 
 #include "mslp_sd.h"
 #include "slp.h"
@@ -101,7 +128,7 @@ SLPInternalError srvrply_out(SAStore *ps, SLPInternalError err, Mask *pm,
 		     int *piGot) {
   
   char*	endPtr	= NULL;
-  int iMTU      = strtol(SLPGetProperty("net.slp.MTU"),&endPtr,10);
+  int iMTU      = (SLPGetProperty("net.slp.MTU"))?strtol(SLPGetProperty("net.slp.MTU"),&endPtr,10):1400;
   int iOverflow = 0;
   int iIsMcast  = (pslphdr->h_usFlags & MCASTFLAG)?1:0;
   int hdrsz     = HDRLEN + strlen(pslphdr->h_pcLangTag);
@@ -128,7 +155,7 @@ SLPInternalError srvrply_out(SAStore *ps, SLPInternalError err, Mask *pm,
 
   *piGot     = count;
   *ppcOutBuf = safe_malloc(*piOutSz, 0, 0);  
-  assert( *ppcOutBuf );
+  if( !*ppcOutBuf ) return SLP_PARSE_ERROR;
 
   /* parse header out */
   SETVER(*ppcOutBuf,2);
@@ -177,7 +204,7 @@ int saadvert_out(SAState *ps, Slphdr *pslph, char **ppc, int *piOutSz){
 
   pcSAAttrs = safe_malloc(strlen(pcSrvTypeList)+strlen("(service-types=")+2,
 			  "(service-types=",strlen("(service-types="));
-  assert( pcSAAttrs );
+  if( !pcSAAttrs ) return SLP_MEMORY_ALLOC_FAILED;
   
   strcat(pcSAAttrs,pcSrvTypeList);
   strcat(pcSAAttrs,")");
@@ -186,7 +213,7 @@ int saadvert_out(SAState *ps, Slphdr *pslph, char **ppc, int *piOutSz){
     strlen(pcLang) + strlen(pcSAAttrs) + 1;
 
   *ppc = safe_malloc(*piOutSz,0,0);
-  assert( *ppc );
+  if( !*ppc ) return SLP_MEMORY_ALLOC_FAILED;
   
   /* parse header out */
   SETVER(*ppc,2);
@@ -278,58 +305,63 @@ char* MakeDAAdvertisementMessage(	Slphdr*	pslph,
     }
     
  	newRequest = (char*)safe_malloc( sizeofNewMessage, 0, 0 );
-    assert( newRequest );
-	// first fill out the header
-    SETVER(newRequest,2);
-    SETFUN(newRequest, DAADVERT);
-    SETLEN(newRequest, sizeofNewMessage);
-    SETLANG(newRequest,pcLang);
-    SETXID(newRequest, (pslph)?pslph->h_usXID:0);			// only is zero if this is an unsolicited DAAdvert
 
-	curPtr = newRequest+GETHEADERLEN(newRequest);			// point to beyond the header
+    if( newRequest )
+	{
+		// first fill out the header
+		SETVER(newRequest,2);
+		SETFUN(newRequest, DAADVERT);
+		SETLEN(newRequest, sizeofNewMessage);
+		SETLANG(newRequest,pcLang);
+		SETXID(newRequest, (pslph)?pslph->h_usXID:0);			// only is zero if this is an unsolicited DAAdvert
 	
-	*((short*)curPtr) = SLP_OK;	// set the error code
-	curPtr += 2;
+		curPtr = newRequest+GETHEADERLEN(newRequest);			// point to beyond the header
+		
+		*((short*)curPtr) = SLP_OK;	// set the error code
+		curPtr += 2;
+		
+		*(long*)curPtr = timeStamp;	// if we are stateless then we need to remember last time all regs were lost
+		curPtr += 4;
+		
+		*(short*)curPtr = urlLength;
+		curPtr += sizeof(urlLength);			// advance past the length bytes
+		strcpy( curPtr, url );				// now add the url
+		curPtr += urlLength;
 	
-	*(long*)curPtr = timeStamp;	// if we are stateless then we need to remember last time all regs were lost
-	curPtr += 4;
+		*((short*)curPtr) = scopeListLength;	// set the scope list length
+		curPtr += sizeof(scopeListLength);
+		
+		if ( scopeListLength > 0 )
+			strcpy( curPtr, scopeList );
+		curPtr += scopeListLength;
 	
-	*(short*)curPtr = urlLength;
-	curPtr += sizeof(urlLength);			// advance past the length bytes
-	strcpy( curPtr, url );				// now add the url
-	curPtr += urlLength;
-
-	*((short*)curPtr) = scopeListLength;	// set the scope list length
-	curPtr += sizeof(scopeListLength);
+		*((short*)curPtr) = attributeListLength;	// set the attributeListLength
+		curPtr += sizeof(attributeListLength);
+		
+		if ( attributeListLength > 0 )
+			strcpy( curPtr, attributeList );
+		curPtr += attributeListLength;
 	
-	if ( scopeListLength > 0 )
-		strcpy( curPtr, scopeList );
-	curPtr += scopeListLength;
-
-	*((short*)curPtr) = attributeListLength;	// set the attributeListLength
-	curPtr += sizeof(attributeListLength);
+	//	 now we don't support SLP SPI yet
+		*((short*)curPtr) = 0;
+		curPtr += 2;
+		
+	//	 nor auth blocks so...
+		*((char*)curPtr) = 0;
+		curPtr += 2;
 	
-	if ( attributeListLength > 0 )
-		strcpy( curPtr, attributeList );
-	curPtr += attributeListLength;
-
-//	 now we don't support SLP SPI yet
-	*((short*)curPtr) = 0;
-	curPtr += 2;
+	//	 but perhaps we have it this configured to use SCOPE_SPONSER_EXTENSION_ID
+		if ( ServerScopeSponsoringEnabled() )
+		{
+			memcpy( curPtr, GetServerScopeSponsorData(), SizeOfServerScopeSponsorData() );	// including scope data
+			curPtr += SizeOfServerScopeSponsorData();
+		}
 	
-//	 nor auth blocks so...
-	*((char*)curPtr) = 0;
-	curPtr += 2;
-
-//	 but perhaps we have it this configured to use SCOPE_SPONSER_EXTENSION_ID
-    if ( ServerScopeSponsoringEnabled() )
-    {
-        memcpy( curPtr, GetServerScopeSponsorData(), SizeOfServerScopeSponsorData() );	// including scope data
-        curPtr += SizeOfServerScopeSponsorData();
-    }
-
-	*outSize = sizeofNewMessage;
-    
+		*outSize = sizeofNewMessage;
+	}
+    else
+		*outSize = 0;
+		
 	return newRequest;
 }
 

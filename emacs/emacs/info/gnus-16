@@ -46,10 +46,10 @@ Index
 * <:                                     Loose Threads.
 * >:                                     Loose Threads.
 * Access Control Lists:                  Editing IMAP ACLs.
-* activating groups <1>:                 Scanning New Messages.
-* activating groups:                     Terminology.
-* active file <1>:                       The Active File.
-* active file:                           Terminology.
+* activating groups <1>:                 Terminology.
+* activating groups:                     Scanning New Messages.
+* active file <1>:                       Terminology.
+* active file:                           The Active File.
 * adapt file group parameter:            Group Parameters.
 * adaptive scoring:                      Adaptive Scoring.
 * adopting articles:                     Loose Threads.
@@ -96,8 +96,8 @@ Index
 * bbb-summary-rate-article:              Rating Articles.
 * binary groups:                         Binary Groups.
 * body:                                  Terminology.
-* bogus groups <1>:                      Group Maintenance.
-* bogus groups:                          Terminology.
+* bogus groups <1>:                      Terminology.
+* bogus groups:                          Group Maintenance.
 * bookmarks:                             Other Marks.
 * bouncing mail:                         Summary Mail Commands.
 * broken-reply-to:                       Group Parameters.
@@ -155,8 +155,8 @@ Index
 * drafts:                                Drafts.
 * dribble file:                          Auto Save.
 * duplicate mails:                       Duplicates.
-* editing imap acls:                     Editing IMAP ACLs.
 * Editing IMAP ACLs:                     Editing IMAP ACLs.
+* editing imap acls:                     Editing IMAP ACLs.
 * Emacs:                                 Emacsen.
 * Emacs 21:                              Emacs Enhancements.
 * Emacsen <1>:                           Emacs/XEmacs Code.
@@ -188,8 +188,8 @@ Index
 * followup:                              Composing Messages.
 * fonts:                                 Faces and Fonts.
 * foreign:                               Terminology.
-* foreign groups <1>:                    Foreign Groups.
-* foreign groups:                        Select Methods.
+* foreign groups <1>:                    Select Methods.
+* foreign groups:                        Foreign Groups.
 * foreign servers:                       Browse Foreign Server.
 * format-time-string:                    Article Date.
 * formatting variables:                  Formatting Variables.
@@ -240,8 +240,8 @@ Index
 * gnus-agent-remove-group:               Group Agent Commands.
 * gnus-agent-remove-server:              Server Agent Commands.
 * gnus-agent-short-article:              Category Variables.
-* gnus-agent-synchronize-flags <1>:      Group Agent Commands.
-* gnus-agent-synchronize-flags:          Agent and IMAP.
+* gnus-agent-synchronize-flags <1>:      Agent and IMAP.
+* gnus-agent-synchronize-flags:          Group Agent Commands.
 * gnus-agent-toggle-mark:                Summary Agent Commands.
 * gnus-agent-unmark-article:             Summary Agent Commands.
 * gnus-agent-unplugged-hook:             Agent Variables.
@@ -471,6 +471,7 @@ Index
 * gnus-fetch-old-headers:                Filling In Threads.
 * gnus-file-save-name:                   Saving Articles.
 * gnus-find-method-for-group:            Gnus Utility Functions.
+* gnus-folder-save-name:                 Saving Articles.
 * gnus-Folder-save-name:                 Saving Articles.
 * gnus-folder-save-name:                 Saving Articles.
 * gnus-gather-threads-by-references:     Loose Threads.
@@ -495,8 +496,8 @@ Index
 * gnus-group-charset-alist:              Charsets.
 * gnus-group-check-bogus-groups:         Group Maintenance.
 * gnus-group-clear-data:                 Group Data.
-* gnus-group-clear-data-on-native-groups <1>: Changing Servers.
-* gnus-group-clear-data-on-native-groups: Group Data.
+* gnus-group-clear-data-on-native-groups <1>: Group Data.
+* gnus-group-clear-data-on-native-groups: Changing Servers.
 * gnus-group-customize:                  Foreign Groups.
 * gnus-group-default-list-level:         Group Levels.
 * gnus-group-delete-group:               Foreign Groups.
@@ -564,8 +565,8 @@ Index
 * gnus-group-name-charset-group-alist:   Misc Group Stuff.
 * gnus-group-name-charset-method-alist:  Misc Group Stuff.
 * gnus-group-native-p:                   Gnus Utility Functions.
-* gnus-group-next-group <1>:             Group Maneuvering.
-* gnus-group-next-group:                 Browse Foreign Server.
+* gnus-group-next-group <1>:             Browse Foreign Server.
+* gnus-group-next-group:                 Group Maneuvering.
 * gnus-group-next-unread-group:          Group Maneuvering.
 * gnus-group-next-unread-group-same-level: Group Maneuvering.
 * gnus-group-nnimap-edit-acl:            Editing IMAP ACLs.
@@ -647,8 +648,8 @@ Index
 * gnus-ignored-headers:                  Hiding Headers.
 * gnus-ignored-mime-types:               MIME Commands.
 * gnus-ignored-newsgroups:               The Active File.
-* gnus-info-find-node <1>:               Group Information.
-* gnus-info-find-node:                   Summary Group Information.
+* gnus-info-find-node <1>:               Summary Group Information.
+* gnus-info-find-node:                   Group Information.
 * gnus-info-group:                       Group Info.
 * gnus-info-level:                       Group Info.
 * gnus-info-marks:                       Group Info.
@@ -698,8 +699,8 @@ Index
 * gnus-low-score-mark:                   Read Articles.
 * gnus-mail-save-name:                   Saving Articles.
 * gnus-mailing-list-groups:              Mail and Post.
-* gnus-mark-article-hook <1>:            Choosing Variables.
-* gnus-mark-article-hook:                Expiring Mail.
+* gnus-mark-article-hook <1>:            Expiring Mail.
+* gnus-mark-article-hook:                Choosing Variables.
 * gnus-mark-unpicked-articles-as-read:   Pick and Read.
 * gnus-message-archive-group:            Archived Messages.
 * gnus-message-archive-method:           Archived Messages.
@@ -732,6 +733,7 @@ Index
 * gnus-not-empty-thread-mark:            Other Marks.
 * gnus-nov-is-evil:                      Crosspost Handling.
 * gnus-novice-user:                      Interactive.
+* gnus-numeric-save-name:                Saving Articles.
 * gnus-Numeric-save-name:                Saving Articles.
 * gnus-numeric-save-name:                Saving Articles.
 * gnus-options-not-subscribe:            Filtering New Groups.
@@ -742,8 +744,8 @@ Index
 * gnus-parse-headers-hook <1>:           Various Various.
 * gnus-parse-headers-hook:               Low-Level Threading.
 * gnus-part-display-hook:                Customizing Articles.
-* gnus-permanently-visible-groups <1>:   Listing Groups.
-* gnus-permanently-visible-groups:       Misc Group Stuff.
+* gnus-permanently-visible-groups <1>:   Misc Group Stuff.
+* gnus-permanently-visible-groups:       Listing Groups.
 * gnus-pick-article-or-thread:           Pick and Read.
 * gnus-pick-display-summary:             Pick and Read.
 * gnus-pick-mode:                        Pick and Read.
@@ -817,8 +819,8 @@ Index
 * gnus-score-find-score-files-function:  Score Variables.
 * gnus-score-find-single:                Score Variables.
 * gnus-score-find-trace:                 Summary Score Commands.
-* gnus-score-flush-cache <1>:            Summary Score Commands.
-* gnus-score-flush-cache:                Group Score Commands.
+* gnus-score-flush-cache <1>:            Group Score Commands.
+* gnus-score-flush-cache:                Summary Score Commands.
 * gnus-score-followup-article:           Followups To Yourself.
 * gnus-score-followup-thread:            Followups To Yourself.
 * gnus-score-interactive-default-score:  Score Variables.
@@ -867,8 +869,8 @@ Index
 * gnus-show-threads:                     More Threading.
 * gnus-signature-face:                   Article Highlighting.
 * gnus-signature-limit:                  Article Signature.
-* gnus-signature-separator <1>:          Article Highlighting.
-* gnus-signature-separator:              Article Signature.
+* gnus-signature-separator <1>:          Article Signature.
+* gnus-signature-separator:              Article Highlighting.
 * gnus-simplify-ignored-prefixes:        Loose Threads.
 * gnus-simplify-subject-functions:       Loose Threads.
 * gnus-simplify-subject-fuzzy:           Loose Threads.
@@ -1016,8 +1018,8 @@ Index
 * gnus-summary-move-article:             Mail Group Commands.
 * gnus-summary-next-article:             Choosing Commands.
 * gnus-summary-next-group:               Exiting the Summary Buffer.
-* gnus-summary-next-page <1>:            Choosing Commands.
-* gnus-summary-next-page:                Paging the Article.
+* gnus-summary-next-page <1>:            Paging the Article.
+* gnus-summary-next-page:                Choosing Commands.
 * gnus-summary-next-same-subject:        Choosing Commands.
 * gnus-summary-next-thread:              Thread Commands.
 * gnus-summary-next-unread-article:      Choosing Commands.
@@ -1186,8 +1188,8 @@ Index
 * gnus-undo:                             Undo.
 * gnus-undo-mode:                        Undo.
 * gnus-unload:                           Exiting Gnus.
-* gnus-unread-mark <1>:                  Choosing Variables.
-* gnus-unread-mark:                      Unread Articles.
+* gnus-unread-mark <1>:                  Unread Articles.
+* gnus-unread-mark:                      Choosing Variables.
 * gnus-update-format:                    Formatting Variables.
 * gnus-update-score-entry-dates:         Score Variables.
 * gnus-updated-mode-lines:               Mode Lines.
@@ -1309,10 +1311,10 @@ Index
 * help group <1>:                        Document Groups.
 * help group:                            Foreign Groups.
 * hiding headers:                        Hiding Headers.
-* highlighting <1>:                      Highlighting and Menus.
-* highlighting <2>:                      Compatibility.
-* highlighting <3>:                      Group Highlighting.
-* highlighting:                          Article Highlighting.
+* highlighting <1>:                      Compatibility.
+* highlighting <2>:                      Highlighting and Menus.
+* highlighting <3>:                      Article Highlighting.
+* highlighting:                          Group Highlighting.
 * highlights:                            Various Various.
 * hilit19:                               Compatibility.
 * history <1>:                           History.
@@ -1342,8 +1344,8 @@ Index
 * ispell:                                Mail and Post.
 * ispell-message:                        Mail and Post.
 * kibozing:                              Kibozed Groups.
-* kill files <1>:                        Kill Files.
-* kill files:                            Converting Kill Files.
+* kill files <1>:                        Converting Kill Files.
+* kill files:                            Kill Files.
 * killed groups:                         Terminology.
 * koi8-r:                                Charsets.
 * koi8-u:                                Charsets.
@@ -1359,8 +1361,8 @@ Index
 * M******** sm*rtq**t*s:                 Article Washing.
 * mail <1>:                              Terminology.
 * mail <2>:                              Getting Mail.
-* mail <3>:                              Summary Mail Commands.
-* mail:                                  Composing Messages.
+* mail <3>:                              Composing Messages.
+* mail:                                  Summary Mail Commands.
 * mail folders:                          Mail Folders.
 * mail group commands:                   Mail Group Commands.
 * mail message:                          Terminology.
@@ -1375,8 +1377,8 @@ Index
 * mail-extract-address-components:       Summary Buffer Format.
 * mail-source-crash-box:                 Mail Source Customization.
 * mail-source-default-file-modes:        Mail Source Customization.
-* mail-source-delete-incoming <1>:       Mail Source Customization.
-* mail-source-delete-incoming:           Gnus Development.
+* mail-source-delete-incoming <1>:       Gnus Development.
+* mail-source-delete-incoming:           Mail Source Customization.
 * mail-source-directory:                 Mail Source Customization.
 * mail-source-incoming-file-prefix:      Mail Source Customization.
 * mail-sources:                          Fetching Mail.
@@ -1404,12 +1406,12 @@ Index
 * metamail:                              Other Decode Variables.
 * MH folders:                            Saving Articles.
 * mh-e mail spool:                       MH Spool.
-* MIME <1>:                              Using MIME.
-* MIME:                                  Misc Article.
+* MIME <1>:                              Misc Article.
+* MIME:                                  Using MIME.
 * MIME decoding:                         MIME Commands.
 * MMDF mail box:                         Document Groups.
-* mode lines <1>:                        Mode Lines.
-* mode lines:                            Various Various.
+* mode lines <1>:                        Various Various.
+* mode lines:                            Mode Lines.
 * MODE READER:                           NNTP.
 * moderation:                            Moderation.
 * mouse:                                 Buttons.
@@ -1432,10 +1434,10 @@ Index
 * nnbabyl-get-new-mail:                  Not Reading Mail.
 * nnbabyl-mbox-file:                     Rmail Babyl.
 * nnchoke:                               Back End Interface.
-* nndir <1>:                             Foreign Groups.
-* nndir:                                 Directory Groups.
-* nndoc <1>:                             Foreign Groups.
-* nndoc:                                 Document Groups.
+* nndir <1>:                             Directory Groups.
+* nndir:                                 Foreign Groups.
+* nndoc <1>:                             Document Groups.
+* nndoc:                                 Foreign Groups.
 * nndoc-article-type:                    Document Groups.
 * nndoc-post-type:                       Document Groups.
 * nndraft:                               Drafts.
@@ -1451,8 +1453,8 @@ Index
 * nnfolder-delete-mail-hook:             Mail Folders.
 * nnfolder-directory:                    Mail Folders.
 * nnfolder-generate-active-file:         Mail Folders.
-* nnfolder-get-new-mail <1>:             Not Reading Mail.
-* nnfolder-get-new-mail:                 Mail Folders.
+* nnfolder-get-new-mail <1>:             Mail Folders.
+* nnfolder-get-new-mail:                 Not Reading Mail.
 * nnfolder-newsgroups-file:              Mail Folders.
 * nnfolder-save-buffer-hook:             Mail Folders.
 * nngateway-address:                     Mail-To-News Gateways.
@@ -1478,8 +1480,8 @@ Index
 * nnimap-split-predicate:                Splitting in IMAP.
 * nnimap-split-rule:                     Splitting in IMAP.
 * nnimap-stream:                         IMAP.
-* nnkiboze <1>:                          Foreign Groups.
-* nnkiboze:                              Kibozed Groups.
+* nnkiboze <1>:                          Kibozed Groups.
+* nnkiboze:                              Foreign Groups.
 * nnkiboze-directory:                    Kibozed Groups.
 * nnkiboze-generate-groups:              Kibozed Groups.
 * nnmail-cache-accepted-message-ids <1>: Fancy Mail Splitting.
@@ -1516,20 +1518,20 @@ Index
 * nnmail-use-long-file-names:            Mail Back End Variables.
 * nnmbox:                                Unix Mail Box.
 * nnmbox-active-file:                    Unix Mail Box.
-* nnmbox-get-new-mail <1>:               Not Reading Mail.
-* nnmbox-get-new-mail:                   Unix Mail Box.
+* nnmbox-get-new-mail <1>:               Unix Mail Box.
+* nnmbox-get-new-mail:                   Not Reading Mail.
 * nnmbox-mbox-file:                      Unix Mail Box.
 * nnmh:                                  MH Spool.
 * nnmh-be-safe:                          MH Spool.
 * nnmh-directory:                        MH Spool.
-* nnmh-get-new-mail <1>:                 Not Reading Mail.
-* nnmh-get-new-mail:                     MH Spool.
+* nnmh-get-new-mail <1>:                 MH Spool.
+* nnmh-get-new-mail:                     Not Reading Mail.
 * nnml:                                  Mail Spool.
 * nnml-active-file:                      Mail Spool.
 * nnml-directory:                        Mail Spool.
 * nnml-generate-nov-databases:           Mail Spool.
-* nnml-get-new-mail <1>:                 Not Reading Mail.
-* nnml-get-new-mail:                     Mail Spool.
+* nnml-get-new-mail <1>:                 Mail Spool.
+* nnml-get-new-mail:                     Not Reading Mail.
 * nnml-newsgroups-file:                  Mail Spool.
 * nnml-nov-file-name:                    Mail Spool.
 * nnml-nov-is-evil:                      Mail Spool.
@@ -1615,8 +1617,8 @@ Index
 * nnwarchive-directory:                  Web Archive.
 * nnwarchive-login:                      Web Archive.
 * nnwarchive-passwd:                     Web Archive.
-* nnweb <1>:                             Foreign Groups.
-* nnweb:                                 Web Searches.
+* nnweb <1>:                             Web Searches.
+* nnweb:                                 Foreign Groups.
 * nnweb-max-hits:                        Web Searches.
 * nnweb-search:                          Web Searches.
 * nnweb-type:                            Web Searches.
@@ -1625,8 +1627,8 @@ Index
 * nov <1>:                               Terminology.
 * nov:                                   NNTP.
 * NOV:                                   Crosspost Handling.
-* offline <1>:                           SOUP.
-* offline:                               Gnus Unplugged.
+* offline <1>:                           Gnus Unplugged.
+* offline:                               SOUP.
 * OneList:                               Article Hiding.
 * overview.fmt:                          Crosspost Handling.
 * parameters:                            Topic Commands.
@@ -1638,8 +1640,8 @@ Index
 * post <1>:                              Composing Messages.
 * post:                                  Summary Post Commands.
 * posting styles:                        Posting Styles.
-* PostScript <1>:                        PostScript Files.
-* PostScript:                            Article Commands.
+* PostScript <1>:                        Article Commands.
+* PostScript:                            PostScript Files.
 * pre-fetch:                             Asynchronous Fetching.
 * preferred charset:                     Charsets.
 * printing:                              Article Commands.
@@ -1660,16 +1662,16 @@ Index
 * renaming groups:                       Foreign Groups.
 * reply <1>:                             Terminology.
 * reply:                                 Composing Messages.
-* reporting bugs <1>:                    Compatibility.
-* reporting bugs:                        Troubleshooting.
+* reporting bugs <1>:                    Troubleshooting.
+* reporting bugs:                        Compatibility.
 * restarting:                            Scanning New Messages.
 * reverse scoring:                       Reverse Scoring.
 * RFC 1036:                              Conformity.
 * RFC 1522 decoding:                     Mail Back End Variables.
 * RFC 2047 decoding:                     Mail Back End Variables.
 * RFC 822:                               Conformity.
-* rmail mbox <1>:                        Rmail Babyl.
-* rmail mbox:                            Document Groups.
+* rmail mbox <1>:                        Document Groups.
+* rmail mbox:                            Rmail Babyl.
 * rnews batch files:                     Document Groups.
 * root:                                  Terminology.
 * rule variables:                        Rule Variables.
@@ -1754,16 +1756,16 @@ Index
 * terminology:                           Terminology.
 * thread commands:                       Thread Commands.
 * thread root:                           Terminology.
-* threading <1>:                         Threading.
-* threading:                             Terminology.
+* threading <1>:                         Terminology.
+* threading:                             Threading.
 * timestamps:                            Group Timestamp.
 * To:                                    To From Newsgroups.
 * to-address:                            Group Parameters.
 * to-group:                              Group Parameters.
 * to-list:                               Group Parameters.
 * topic commands:                        Topic Commands.
-* topic parameters <1>:                  Topic Commands.
-* topic parameters:                      Topic Parameters.
+* topic parameters <1>:                  Topic Parameters.
+* topic parameters:                      Topic Commands.
 * topic sorting:                         Topic Sorting.
 * topic topology:                        Topic Topology.
 * topic variables:                       Topic Variables.
@@ -1808,8 +1810,8 @@ Index
 * windows configuration:                 Windows Configuration.
 * www:                                   Browsing the Web.
 * x-face:                                Article Washing.
-* XEmacs <1>:                            Emacsen.
-* XEmacs <2>:                            Emacs/XEmacs Code.
+* XEmacs <1>:                            Emacs/XEmacs Code.
+* XEmacs <2>:                            Emacsen.
 * XEmacs:                                XEmacs Enhancements.
 * XOVER:                                 NNTP.
 * Xref:                                  Crosspost Handling.

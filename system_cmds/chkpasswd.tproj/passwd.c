@@ -25,6 +25,7 @@
 #define INFO_NETINFO 0
 #define INFO_FILE 1
 #define INFO_NIS 2
+#define INFO_DIRECTORYSERVICES 3
 
 #ifndef __SLICK__
 #define _PASSWD_FILE "/etc/master.passwd"
@@ -51,6 +52,7 @@ static int literal = 0;
 extern int file_check_passwd(char *, char *);
 extern int netinfo_check_passwd(char *, char *);
 extern int nis_check_passwd(char *, char *);
+extern int ds_check_passwd(char *, char *);
 
 void
 checkpasswd(char *name, char *old_pw)
@@ -86,10 +88,12 @@ usage()
 	fprintf(stderr, "    netinfo\n");
 	fprintf(stderr, "    file\n");
 	fprintf(stderr, "    nis\n");
+	fprintf(stderr, "    opendirectory\n");
 	fprintf(stderr, "for netinfo, location may be a domain name or server/tag\n");
 	fprintf(stderr, "for file, location may be a file name (%s is the default)\n",
 		_PASSWD_FILE);
 	fprintf(stderr, "for nis, location may be a NIS domainname\n");
+	fprintf(stderr, "for opendirectory, location may be a directory node name\n");
 	fprintf(stderr, "if -c is specified, the password you supply is compared\n");
 	fprintf(stderr, "verbatim without first being crypted\n");
 	exit(1);
@@ -102,7 +106,7 @@ main(int argc, char *argv[])
 	int i, infosystem;
 	struct passwd *pw;
 
-	infosystem = INFO_NETINFO;
+	infosystem = INFO_DIRECTORYSERVICES;
 	user = NULL;
 	locn = NULL;
 
@@ -124,6 +128,7 @@ main(int argc, char *argv[])
 			else if (!strcmp(argv[i], "nis")) infosystem = INFO_NIS;
 			else if (!strcmp(argv[i], "YP")) infosystem = INFO_NIS;
 			else if (!strcmp(argv[i], "yp")) infosystem = INFO_NIS;
+			else if (!strcasecmp(argv[i], "opendirectory")) infosystem = INFO_DIRECTORYSERVICES;
 			else
 			{
 				fprintf(stderr, "unknown info system \"%s\"\n", argv[i]);
@@ -165,6 +170,9 @@ main(int argc, char *argv[])
 			break;
 		case INFO_NIS:
 			nis_check_passwd(user, locn);
+			break;
+		case INFO_DIRECTORYSERVICES:
+			ds_check_passwd(user, locn);
 			break;
 	}
 

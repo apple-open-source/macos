@@ -28,11 +28,9 @@
 #include <Security/walkers.h>
 
 
-namespace Security
-{
+namespace Security {
+namespace DataWalkers {
 
-namespace DataWalkers
-{
 
 //
 // Free all recorded storage nodes for a ChunkFreeWalker
@@ -44,12 +42,6 @@ void ChunkFreeWalker::free()
 	freeSet.erase(freeSet.begin(), freeSet.end());
 }
 
-// Virtual destructor
-
-VirtualWalker::~VirtualWalker()
-{
-}
 
 } // end namespace DataWalkers
-
 } // end namespace Security

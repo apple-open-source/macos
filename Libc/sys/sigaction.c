@@ -29,6 +29,7 @@
  */
 
 #include <sys/syscall.h>
+#include <unistd.h>
 #include <signal.h>
 #include <sys/signal.h>
 #include <errno.h>
@@ -49,8 +50,6 @@ sigaction__ (sig, nsv, osv, bind)
 	register struct sigaction *nsv, *osv;
         int bind;
 {
-	struct sigaction vec;
-	void (*prevsig)();
 	extern void _sigtramp();
 	struct __sigaction sa;
 	struct __sigaction *sap;

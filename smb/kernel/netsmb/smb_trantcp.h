@@ -29,7 +29,7 @@
  * OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
  * SUCH DAMAGE.
  *
- * $Id: smb_trantcp.h,v 1.6 2002/06/13 01:59:59 lindak Exp $
+ * $Id: smb_trantcp.h,v 1.7 2003/08/19 01:34:17 lindak Exp $
  */
 #ifndef _NETSMB_SMB_TRANTCP_H_
 #define	_NETSMB_SMB_TRANTCP_H_
@@ -91,6 +91,8 @@ struct nbpcb {
 #define NB_SORECEIVE_CHUNK	(8 * 1024)
 
 extern struct smb_tran_desc smb_tran_nbtcp_desc;
+
+#define SMBSBTIMO 5 /* seconds for sockbuf timeouts */
 
 #endif /* _KERNEL */
 

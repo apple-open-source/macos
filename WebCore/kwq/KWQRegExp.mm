@@ -23,13 +23,15 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE. 
  */
 
-
 #import "KWQRegExp.h"
 #import "KWQLogging.h"
 
 #import <sys/types.h>
-#import <regex.h>
+#import <JavaScriptCore/pcre.h>
+#import <JavaScriptCore/ustring.h>
 
+using KJS::convertUTF16OffsetsToUTF8Offsets;
+using KJS::convertUTF8OffsetsToUTF16Offsets;
 
 class QRegExp::KWQRegExpPrivate
 {
@@ -41,8 +43,8 @@ public:
     void compile(bool caseSensitive, bool glob);
 
     QString pattern;
-    regex_t regex;
-
+    pcre *regex;
+    
     uint refCount;
 
     int lastMatchPos;
@@ -94,18 +96,28 @@ void QRegExp::KWQRegExpPrivate::compile(bool caseSensitive, bool glob)
     // Note we don't honor the Qt syntax for various character classes.  If we convert
     // to a different underlying engine, we may need to change client code that relies
     // on the regex syntax (see KWQKHTMLPart.mm for a couple examples).
-
-    const char *cpattern = p.latin1();
-
-    int err = regcomp(&regex, cpattern, REG_EXTENDED | (caseSensitive ? 0 : REG_ICASE));
-    if (err) {
-        ERROR("regcomp failed with error=%d", err);
+    
+    QCString asUTF8;
+    const char *cpattern;
+    
+    if (p.isAllASCII()) {
+        cpattern = p.ascii();
+    } else {
+        asUTF8 = p.utf8();
+        cpattern = asUTF8;
+    }
+        
+    const char *errorMessage;
+    int errorOffset;
+    regex = pcre_compile(cpattern, PCRE_UTF8 | (caseSensitive ? 0 : PCRE_CASELESS), &errorMessage, &errorOffset, NULL);
+    if (regex == NULL) {
+        ERROR("KWQRegExp: pcre_compile failed with '%s'", errorMessage);
     }
 }
 
 QRegExp::KWQRegExpPrivate::~KWQRegExpPrivate()
 {
-    regfree(&regex);
+    pcre_free(regex);
 }
 
 
@@ -146,31 +158,42 @@ QString QRegExp::pattern() const
     return d->pattern;
 }
 
-int QRegExp::match(const QString &str, int startFrom, int *matchLength, bool treatStartAsStartOfInput) const
-{
-    const char *cstring = str.latin1() + startFrom;
-
-    int flags = 0;
-
-    if (startFrom != 0 && !treatStartAsStartOfInput) {
-	flags |= REG_NOTBOL;
+int QRegExp::match(const QString &str, int startFrom, int *matchLength) const
+{    
+    QCString asUTF8;
+    const char *cstring;
+    
+    if (str.isAllASCII()) {
+        cstring = str.ascii();
+    } else {
+        asUTF8 = str.utf8();
+        cstring = asUTF8;
     }
-
-    regmatch_t match[1];
-    int result = regexec(&d->regex, cstring, 1, match, flags);
-
-    if (result != 0) {
+        
+    // first 2 offsets are start and end offsets; 3rd entry is used internally by pcre
+    int offsets[3];
+    convertUTF16OffsetsToUTF8Offsets(cstring, &startFrom, 1);
+    int result = pcre_exec(d->regex, NULL, cstring, strlen(cstring), startFrom, 
+                           startFrom == 0 ? 0 : PCRE_NOTBOL, offsets, 3);
+    
+    if (result < 0) {
+        if (result != PCRE_ERROR_NOMATCH) {
+            ERROR("KWQRegExp: pcre_exec() failed with result %d", result);
+        }
         d->lastMatchPos = -1;
         d->lastMatchLength = -1;
-	return -1;
-    } else {
-        d->lastMatchPos = startFrom + match[0].rm_so;
-        d->lastMatchLength = match[0].rm_eo - match[0].rm_so;
-	if (matchLength != NULL) {
-            *matchLength = d->lastMatchLength;
-	}
-        return d->lastMatchPos;
+        return -1;
     }
+    
+    ASSERT(result < 2);
+    // 1 means 1 match; 0 means more than one match, first one is recorded in offsets
+    convertUTF8OffsetsToUTF16Offsets(cstring, offsets, 2);
+    d->lastMatchPos = offsets[0];
+    d->lastMatchLength = offsets[1] - offsets[0];
+    if (matchLength != NULL) {
+        *matchLength = d->lastMatchLength;
+    }
+    return d->lastMatchPos;
 }
 
 int QRegExp::search(const QString &str, int startFrom) const
@@ -178,12 +201,11 @@ int QRegExp::search(const QString &str, int startFrom) const
     if (startFrom < 0) {
         startFrom = str.length() - startFrom;
     }
-    return match(str, startFrom, NULL, false);
+    return match(str, startFrom, NULL);
 }
 
-int QRegExp::searchRev(const QString &str, int startFrom) const
+int QRegExp::searchRev(const QString &str) const
 {
-    ASSERT(startFrom == -1);
     // FIXME: Total hack for now.  Search forward, return the last, greedy match
     int start = 0;
     int pos;
@@ -191,14 +213,14 @@ int QRegExp::searchRev(const QString &str, int startFrom) const
     int lastMatchLength = -1;
     do {
         int matchLength;
-        pos = match(str, startFrom, &matchLength, start == 0);
+        pos = match(str, start, &matchLength);
         if (pos >= 0) {
             if ((pos+matchLength) > (lastPos+lastMatchLength)) {
                 // replace last match if this one is later and not a subset of the last match
                 lastPos = pos;
                 lastMatchLength = matchLength;
             }
-            startFrom = pos + 1;
+            start = pos + 1;
         }
     } while (pos != -1);
     d->lastMatchPos = lastPos;

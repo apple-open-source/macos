@@ -1,9 +1,9 @@
 #
-# "$Id: Makefile,v 1.5 2002/07/21 22:06:31 jlovell Exp $"
+# "$Id: Makefile,v 1.7 2003/04/12 03:04:30 jlovell Exp $"
 #
 #   IPP test makefile for the Common UNIX Printing System (CUPS).
 #
-#   Copyright 1997-2002 by Easy Software Products, all rights reserved.
+#   Copyright 1997-2003 by Easy Software Products, all rights reserved.
 #
 #   These coded instructions, statements, and computer programs are the
 #   property of Easy Software Products and are protected by Federal
@@ -79,9 +79,14 @@ purify:	ipptest.o ../cups/$(LIBCUPS)
 	purify $(CC) $(LDFLAGS) -o ipptest.pure ipptest.o $(LIBS)
 
 
-convert: xjob.o ../scheduler/filter.o ../scheduler/mime.o ../scheduler/type.o
+convert: xjob.o ../scheduler/filter.o ../scheduler/mime.o ../scheduler/type.o ../scheduler/file.o
 	echo Linking $@...
-	$(CC) $(LDFLAGS) -o convert xjob.o ../scheduler/filter.o ../scheduler/mime.o ../scheduler/type.o $(LIBS)
+	$(CC) $(LDFLAGS) -o convert xjob.o \
+		../scheduler/filter.o \
+		../scheduler/mime.o \
+		../scheduler/type.o \
+		../scheduler/file.o \
+		$(LIBS) $(LIBZ)
 
 #
 # Dependencies...
@@ -91,5 +96,5 @@ include Dependencies
 
 
 #
-# End of "$Id: Makefile,v 1.5 2002/07/21 22:06:31 jlovell Exp $".
+# End of "$Id: Makefile,v 1.7 2003/04/12 03:04:30 jlovell Exp $".
 #

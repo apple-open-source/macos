@@ -41,7 +41,7 @@ RSC=rc.exe
 # PROP Intermediate_Dir "Release"
 # PROP Target_Dir ""
 # ADD BASE CPP /nologo /W3 /GX /O2 /D "WIN32" /D "NDEBUG" /D "_WINDOWS" /YX /FD /c
-# ADD CPP /nologo /MT /W3 /GX /O2 /I "." /I ".." /I "..\..\snmplib" /I "..\.." /D "WIN32" /D "NDEBUG" /D "_WINDOWS" /YX /FD /c
+# ADD CPP /nologo /MD /W3 /GX /O2 /I "." /I ".." /I "..\..\snmplib" /I "..\.." /I "..\..\include" /D "WIN32" /D "NDEBUG" /D "_WINDOWS" /YX /FD /c
 # ADD BASE RSC /l 0x406
 # ADD RSC /l 0x406
 BSC32=bscmake.exe
@@ -64,7 +64,7 @@ LIB32=link.exe -lib
 # PROP Intermediate_Dir "Debug"
 # PROP Target_Dir ""
 # ADD BASE CPP /nologo /W3 /GX /Z7 /Od /D "WIN32" /D "_DEBUG" /D "_WINDOWS" /YX /FD /c
-# ADD CPP /nologo /MTd /W3 /GX /ZI /Od /I "." /I ".." /I "..\..\snmplib" /I "..\.." /D "WIN32" /D "_DEBUG" /D "_CONSOLE" /D "_MBCS" /YX /FD /c
+# ADD CPP /nologo /MTd /W3 /GX /ZI /Od /I "." /I ".." /I "..\..\snmplib" /I "..\.." /I "..\..\include" /D "WIN32" /D "_DEBUG" /D "_CONSOLE" /D "_MBCS" /YX /FD /c
 # ADD BASE RSC /l 0x406
 # ADD RSC /l 0xffffffff
 BSC32=bscmake.exe
@@ -90,7 +90,31 @@ SOURCE=..\..\snmplib\callback.c
 # End Source File
 # Begin Source File
 
+SOURCE=..\..\snmplib\check_varbind.c
+# End Source File
+# Begin Source File
+
+SOURCE=..\..\snmplib\cmu_compat.c
+# End Source File
+# Begin Source File
+
+SOURCE=..\..\snmplib\container.c
+# End Source File
+# Begin Source File
+
+SOURCE=..\..\snmplib\container_binary_array.c
+# End Source File
+# Begin Source File
+
+SOURCE=..\..\snmplib\data_list.c
+# End Source File
+# Begin Source File
+
 SOURCE=..\..\snmplib\default_store.c
+# End Source File
+# Begin Source File
+
+SOURCE=..\..\snmplib\getopt.c
 # End Source File
 # Begin Source File
 
@@ -118,6 +142,10 @@ SOURCE=..\..\snmplib\mt_support.c
 # End Source File
 # Begin Source File
 
+SOURCE=..\..\snmplib\oid_stash.c
+# End Source File
+# Begin Source File
+
 SOURCE=..\..\snmplib\parse.c
 # End Source File
 # Begin Source File
@@ -127,6 +155,10 @@ SOURCE=..\..\snmplib\read_config.c
 # Begin Source File
 
 SOURCE=..\..\snmplib\scapi.c
+# End Source File
+# Begin Source File
+
+SOURCE="..\..\snmplib\snmp-tc.c"
 # End Source File
 # Begin Source File
 
@@ -154,7 +186,39 @@ SOURCE=..\..\snmplib\snmp_debug.c
 # End Source File
 # Begin Source File
 
+SOURCE=..\..\snmplib\snmp_enum.c
+# End Source File
+# Begin Source File
+
 SOURCE=..\..\snmplib\snmp_logging.c
+# End Source File
+# Begin Source File
+
+SOURCE=..\..\snmplib\snmp_parse_args.c
+# End Source File
+# Begin Source File
+
+SOURCE=..\..\snmplib\snmp_secmod.c
+# End Source File
+# Begin Source File
+
+SOURCE=..\..\snmplib\snmp_transport.c
+# End Source File
+# Begin Source File
+
+SOURCE=..\..\snmplib\snmp_version.c
+# End Source File
+# Begin Source File
+
+SOURCE=..\..\snmplib\snmpCallbackDomain.c
+# End Source File
+# Begin Source File
+
+SOURCE=..\..\snmplib\snmpTCPDomain.c
+# End Source File
+# Begin Source File
+
+SOURCE=..\..\snmplib\snmpUDPDomain.c
 # End Source File
 # Begin Source File
 
@@ -171,6 +235,10 @@ SOURCE=..\..\snmplib\system.c
 # Begin Source File
 
 SOURCE=..\..\snmplib\tools.c
+# End Source File
+# Begin Source File
+
+SOURCE=..\..\snmplib\ucd_compat.c
 # End Source File
 # Begin Source File
 

@@ -32,7 +32,7 @@
 #ifndef lint
 static char copyright[] =
 "@(#) Copyright 1994 Purdue Research Foundation.\nAll rights reserved.\n";
-static char *rcsid = "$Id: print.c,v 1.40 2001/08/14 12:24:28 abe Exp $";
+static char *rcsid = "$Id: print.c,v 1.43 2003/03/21 17:26:39 abe Exp $";
 #endif
 
 
@@ -599,9 +599,9 @@ lkup_svcnam(h, p, pr, ss)
 		}
 	    }
 /*
- * If fill_port() has been called, there is no service name.
+ * If fill_porttab() has been called, there is no service name.
  *
- * Do PORTTABTHRES getservbport() calls, remembering the faulures, so they
+ * Do PORTTABTHRES getservbport() calls, remembering the failures, so they
  * won't be repeated.
  *
  * After PORTABTHRESH getservbyport() calls, call fill_porttab() once,
@@ -610,7 +610,7 @@ lkup_svcnam(h, p, pr, ss)
 		break;
 	    if (gsbp < PORTTABTHRESH) {
 		for (i = 0; i < fln; i++) {
-		    if(fl[i] == p)
+		    if (fl[i] == p)
 			return((char *)NULL);
 		}
 		gsbp++;
@@ -691,8 +691,9 @@ print_file()
  */
 	cp = (Lp->cmd && *Lp->cmd != '\0') ? Lp->cmd : "(unknown)";
 	if (!PrPass) {
-	    if ((len = safestrlen(cp, 2)) > CMDL)
-		len = CMDL;
+	    len = safestrlen(cp, 2);
+	    if (CmdLim && (len > CmdLim))
+		len = CmdLim;
 	    if (len > CmdColW)
 		CmdColW = len;
 	} else
@@ -1867,29 +1868,17 @@ printname(nl)
 		ps++;
 	    goto print_nma;
 	}
-	if ((Lf->ntype == N_CHR) && Lf->dev_def && Lf->rdev_def
-	&&  printchdevname(&Lf->dev, &Lf->rdev, 0))
+	if (((Lf->ntype == N_BLK) || (Lf->ntype == N_CHR))
+	&&  Lf->dev_def && Lf->rdev_def
+	&&  printdevname(&Lf->dev, &Lf->rdev, 0, Lf->ntype))
 	{
 
 	/*
-	 * If this is a character device and it has a name, print it.
+	 * If this is a block or character device and it has a name, print it.
 	 */
 	    ps++;
 	    goto print_nma;
 	}
-
-#if	defined(HASBLKDEV)
-	if (Lf->ntype == N_BLK && Lf->dev_def && Lf->rdev_def
-	&&  printbdevname(&Lf->dev, &Lf->rdev, 0))
-	{
-
-	/*
-	 * If this is a block device and it has a name, print it.
-	 */
-	    ps++;
-	    goto print_nma;
-	}
-#endif	/* defined(HASBLKDEV) */
 
 	if (Lf->is_com) {
 

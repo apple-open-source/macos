@@ -1,0 +1,275 @@
+APPLE LOCAL file maintenance
+
+This files lists all of Apple's local changes, the people responsible
+for them, and their current status.
+
+List owners by email name.  Possible statuses:
+    local      not accepted/able for FSF GCC, permanently local
+    submit     should submit to FSF GCC at some point
+    submitted  submitted to FSF GCC, awaiting approval/disapproval
+    accepted   in FSF GCC, expected to appear in next import
+    mixed      for large patches, parts could go into FSF GCC
+    unknown    not known what to do with
+
+Owner     Status     Name of change
+-----     ------     --------------
+dpatel    submitted  #import inode hack
+shebs     local      #import not deprecated
+mrs       unknown    %b/save-temps can clobber input file (radar 2871891)
+dalej     unknown    'reg + index' reg case.
+dalej     unknown    +2 (could be conditionalized)
+dalej     unknown    , a temporary kludge
+dalej     unknown    , for now, don't count pseudos
+shebs     local      -ObjC
+dpatel    unknown    -Werror
+dpatel    unknown    -Wextra-tokens
+shebs     local      -Wfour-char-constants
+dpatel    unknown    -Wlong-double
+dpatel    unknown    -Wmost
+shebs     unknown    -Wnewline-eof
+dpatel    local      -Wno-#warnings
+zlaski    local      -Wno-altivec-long-deprecated
+shebs     unknown    -Wpragma-once
+dpatel    local      -dependency-file
+austern   local      -fapple-kext
+shebs     unknown    -ffppc
+austern   unknown    -findirect-virtual-calls
+stuart    local      -fobey-inline
+austern   unknown    -fterminated-vtables
+dpatel    local      -header-mapfile
+dpatel    local      -header-mapfile bandaid for buffer overflows
+dpatel    unknown    -inclusion-log-file
+shebs     local      -malign-mac68k
+stuart    unknown    -mlong-branch
+dalej     submit     -pg fix
+dpatel    local      -precomp-trustfile
+dpatel    local      -precomp-trustfile, -arch
+dpatel    unknown    . Use strtoq isntead of strtoll
+dpatel    unknown    . Use strtoq, strtouq instead of strtoll, strtoull
+austern   local      2.95-compatibility stuff
+austern   local      2.95-ptmf-compatibility
+dpatel    local      2920964
+stuart    unknown    8-byte-struct hack
+dalej     unknown    ?
+shebs     unknown    Agree with <stdio.h> prototype
+shebs     mixed      AltiVec
+shebs     unknown    Altivec related
+shebs     local      Apple banner
+shebs     local      Apple version
+shebs     submitted  C++ EH
+shebs     unknown    CALL_ON_LOAD/CALL_ON_UNLOAD pragmas
+mrs       unknown    CALL_ON_MODULE_BIND deprecated
+dalej     unknown    CCUNS, CCFP, CCEQ patterns
+mrs       unknown    Constructors return THIS
+mrs       unknown    EH VALID_FDE_P
+mrs       unknown    EH runtime
+mrs       unknown    Enable $ in identifiers in assembly.
+mrs       submit     FSF candidate
+dalej     unknown    MEM_OFFSET setting
+zlaski    local      MW compatibility
+mrs       unknown    Mach time
+shebs     local      Macintosh alignment
+shebs     submit     OS pragma hook
+zlaski    submit     Objective-C++
+shebs     local      PPC_INTRINSICS
+zlaski    local      Pascal strings
+dalej     unknown    RTX_COST for multiply
+dalej     unknown    Reduce code size / improve performance
+stuart    submit     Stripped encodings ('!T_' and '!t_') should match.
+dalej     unknown    accept hard R12 as target reg
+zlaski    submit     add + for GNU runtime only
+dalej     unknown    add mode change case
+mrs       unknown    alignment
+mrs       unknown    alloca
+mrs       unknown    alloca not in std
+austern   local      apple kext alignment
+austern   local      apple-kext   Radar #2849864
+shebs     submit     asm flags
+mrs       unknown    assembly "abort" directive
+dalej     unknown    avoid out-of-bounds refs
+austern   unknown    be permissive by default
+dalej     unknown    better induction variable selection
+zlaski    submit     bitfield alignment
+zlaski    submit     bool encoding
+dalej     unknown    branch cost
+shebs     local      build machinery
+zlaski    submit     call super
+stuart    unknown    callers_lr_already_saved
+austern   unknown    cc1plus spec
+zlaski    unknown    check ctype also
+austern   unknown    coalescing
+dalej     unknown    code size reduction / performance enhancement
+dalej     unknown    combine hoisted consts
+dalej     unknown    compare >= 0, not > 0.
+stuart    submit     const_data
+zlaski    local      constant cfstrings
+zlaski    submit     constant strings
+mrs       unknown    control opt level.
+austern   unknown    correct constructor inlining
+dpatel    submitted  cp_binding_level
+shebs     local      darwin host
+mrs       unknown    darwin mmap bug workaround
+shebs     unknown    darwin native
+shebs     unknown    darwin native (?)
+shebs     unknown    darwin native, AltiVec
+shebs     unknown    darwin-specific headers
+shebs     unknown    darwin_set_section_for_var_p
+dalej     unknown    dbj
+austern   local      ddtor double destructor
+shebs     local      debugging
+mrs       unknown    declare string functions
+stuart    submitted  decloning
+stuart    submitted  decloning structors
+stuart    unknown    default to ppro
+shebs     unknown    direct-binding-refs
+shebs     accepted   disable Dwarf 2 until assembler fixed
+shebs     local      disable generic AltiVec patterns
+dalej     unknown    disable strict aliasing; breaks too much existing code.
+dalej     unknown    disallow (not (SYM))
+dalej     unknown    div by const
+shebs     unknown    do not extern fp save/restore
+austern   unknown    do not forward reference anonymous enum
+dalej     unknown    do not use float fieldmode
+shebs     local      documentation
+shebs     unknown    don't define SAVE_FP_PREFIX and friends
+austern   local      double destructor
+stuart    submit     dynamic-no-pic
+mrs       unknown    eh in data segment
+dpatel    unknown    error-colon
+shebs     local      fat builds
+shebs     local      fat builds readability
+mrs       unknown    fde end extension
+zlaski    submit     finish file hook
+dalej     unknown    fix 2857104
+dalej     unknown    fix 2866661
+zlaski    submit     fix OBJC codegen
+shebs     unknown    fix prototypes
+shebs     unknown    fix redundant add?
+shebs     unknown    flag translation
+zlaski    unknown    flag_objc
+dalej     unknown    for TRUNC_DIV_EXPR
+dalej     unknown    for now
+dpatel    local      framework headers
+dalej     local      fused multiply-add
+mrs       unknown    gdb only used symbols
+dpatel    unknown    handle -Wno-system-headers (2910306)
+shebs     submit     handle ~ in pathnames
+dalej     unknown    improve performance
+shebs     submit     include guard for darwin.h
+dpatel    local      indexing
+dalej     unknown    indirect calls in R12
+stuart    local      indirect sibcalls
+mrs       submit     insert assembly ".abort" directive on fatal error
+mrs       unknown    interrupt signal handler (radar 2941633)
+zlaski    submit     ivar access
+zlaski    local      keep tables in sync comment
+mrs       unknown    keymgr
+austern   unknown    libcc_kext
+austern   unknown    libm
+zlaski    submit     libobjc
+shebs     unknown    linker flags
+dpatel    unknown    long double warning
+stuart    unknown    long-branch
+shebs     local      maintenance
+shebs     unknown    make easy_vector_constant globally visible (rs6000-protos.h)
+austern   unknown    make libstdc++ more fine-grained
+shebs     local      man pages
+shebs     local      manual
+zlaski    submit     method encoding
+shebs     unknown    more orphaned code
+dalej     unknown    move '<' case down?
+zlaski    submit     move is_class_name to stub-objc.c
+dalej     unknown    move loads out of loops
+zlaski    submit     move lookup_interface to stub-objc.c
+zlaski    submit     move lookup_objc_ivar to stub-objc.c
+zlaski    submit     msg send super
+dalej     unknown    multiply cost pulled into function
+dalej     unknown    multiply-add
+zlaski    submit     mystery binfo
+zlaski    submit     nested functions
+dpatel    unknown    new tree dump
+shebs     unknown    no soft-float multilibs
+stuart    local      obey inline
+zlaski    submit     objc bug fix
+zlaski    submit     objc finish file
+shebs     submit     objc stret methods
+dalej     unknown    optimization
+shebs     local      order files
+mrs       unknown    parsedir
+shebs     unknown    pass reload addr by address
+shebs     unknown    performance enhancement
+shebs     unknown    performance improvement
+shebs     local      preprocess .s files
+dalej     unknown    preserve CR2 for save_world prologues
+austern   unknown    private extern
+austern   unknown    private extern  Radar 2872481
+zlaski    submit     protocol qual
+shebs     unknown    prototypes
+shebs     local      prune man page
+dalej     unknown    put this insn after the loop in all cases
+mrs       submit     radar 2466994 - -no-c++filt
+mrs       submit     radar 2466994 - pass linker output through c++filt
+dpatel    local      radar 2866081: Env. variable -O override
+dpatel    local      radar 2866081: Env. variable override
+mrs       unknown    radar 2871891 - %b/%B & -save-temps can clobber input file
+dalej     unknown    recompute PIC register use
+dalej     unknown    record that float extend is a copy
+dalej     unknown    reduce code size
+austern   unknown    reduce emergency buffer size
+dalej     submit     reenable some lost combines
+shebs     unknown    remove a stub tweak
+dalej     unknown    remove invalid delete
+austern   unknown    remove machopic_output_possible_stub_label
+dalej     unknown    remove this so combine doesn't generate it
+shebs     unknown    remove vasprintf prototype
+shebs     submit     rename for HFS
+shebs     local      report bugs to Apple
+dalej     unknown    restoration of inmode/outmode
+dalej     unknown    rewrite weight computation
+dalej     unknown    save and restore LR
+dalej     unknown    separate cl into c,*l; switch and attr's expanded to match
+zlaski    unknown    separate outputdir
+mrs       submit     setrlimit
+shebs     unknown    setting of all callee-saved regs removed
+stuart    submit     sibcall
+stuart    submit     sibcall 3007352
+stuart    submit     sibcall patterns
+shebs     unknown    size of bool
+dalej     unknown    special ObjC method use of R12
+shebs     unknown    static const members
+shebs     unknown    static structors in __StaticInit section
+stuart    submitted  structor decloning
+stuart    submitted  structor thunks
+dalej     unknown    subtract 1
+shebs     local      supply missing ctype.h decls
+zlaski    submit     suppress method inlining
+shebs     unknown    temporary pragmas
+austern   local      terminated-vtables
+stuart    unknown    test for flag_pic deleted deliberately
+shebs     unknown    testsuite
+shebs     local      testsuite OS flush bug workaround
+shebs     unknown    testsuite multiply defined
+stuart    unknown    thunks
+shebs     unknown    time formatting
+dalej     unknown    try destroyed input
+shebs     unknown    try to improve ggc
+dalej     unknown    tweak default optimizations
+dpatel    unknown    unavailable
+dpatel    unknown    unavailable (Radar 2809697)
+shebs     unknown    unnecessary test?
+dalej     unknown    use R12 as register for indirect calls.  This improves
+dalej     unknown    use new pseudo for temp; reusing reg confuses PRE
+dalej     unknown    use r12 for indirect calls
+dpatel    unknown    use strtoq instead of strtoll
+dpatel    unknown    use strtouq instead of strtoull
+dalej     unknown    volatile pic base reg in leaves
+austern   unknown    weak definition
+austern   unknown    weak import
+austern   unknown    weak_import (Radar 2809704)
+shebs     unknown    what is this for?
+shebs     unknown    why is this needed?
+mrs       unknown    work around Radar 2844245.
+shebs     local      work around a makeinfo complaint
+shebs     unknown    world save/restore
+austern   unknown    write used class statics
+shebs     submit     zerofill

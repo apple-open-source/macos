@@ -1,10 +1,10 @@
 /*
- * "$Id: listen.c,v 1.5 2002/02/10 06:37:46 jlovell Exp $"
+ * "$Id: listen.c,v 1.7 2003/09/05 01:14:51 jlovell Exp $"
  *
  *   Server listening routines for the Common UNIX Printing System (CUPS)
  *   scheduler.
  *
- *   Copyright 1997-2002 by Easy Software Products, all rights reserved.
+ *   Copyright 1997-2003 by Easy Software Products, all rights reserved.
  *
  *   These coded instructions, statements, and computer programs are the
  *   property of Easy Software Products and are protected by Federal
@@ -36,6 +36,9 @@
 
 #include "cupsd.h"
 
+#ifdef HAVE_NOTIFY_H
+#include <notify.h>
+#endif
 
 /*
  * 'PauseListening()' - Clear input polling on all listening sockets...
@@ -48,11 +51,19 @@ PauseListening(void)
   listener_t	*lis;		/* Current listening socket */
 
 
-  if (!FD_ISSET(Listeners[0].fd, &InputSet))
+  if (NumListeners < 1 || !FD_ISSET(Listeners[0].fd, InputSet))
     return;
 
   if (NumClients == MaxClients)
     LogMessage(L_WARN, "Max clients reached, holding new connections...");
+
+#ifdef HAVE_NOTIFY_POST
+  /*
+   * Pause notifications while we're not listening
+   */
+  NotifyPaused = 1;
+  LogMessage(L_DEBUG2, "PauseListening: notify paused");
+#endif        /* HAVE_NOTIFY_POST */
 
   LogMessage(L_DEBUG, "PauseListening: clearing input bits...");
 
@@ -61,7 +72,7 @@ PauseListening(void)
     LogMessage(L_DEBUG2, "PauseListening: Removing fd %d from InputSet...",
                lis->fd);
 
-    FD_CLR(lis->fd, &InputSet);
+    FD_CLR(lis->fd, InputSet);
   }
 }
 
@@ -77,7 +88,7 @@ ResumeListening(void)
   listener_t	*lis;		/* Current listening socket */
 
 
-  if (FD_ISSET(Listeners[0].fd, &InputSet))
+  if (NumListeners < 1 || FD_ISSET(Listeners[0].fd, InputSet))
     return;
 
   if (NumClients >= (MaxClients - 1))
@@ -90,8 +101,23 @@ ResumeListening(void)
     LogMessage(L_DEBUG2, "ResumeListening: Adding fd %d to InputSet...",
                lis->fd);
 
-    FD_SET(lis->fd, &InputSet);
+    FD_SET(lis->fd, InputSet);
   }
+
+#ifdef HAVE_NOTIFY_POST
+  /*
+   * Resume notifications.
+   */
+  LogMessage(L_DEBUG2, "ResumeListening: notify resume");
+  if (NotifyPaused && NotifyPending)
+  {
+    LogMessage(L_DEBUG2, "ResumeListening: notify com.apple.printerListChange");
+    notify_post("com.apple.printerListChange");
+  }
+  NotifyPaused = 0;
+  NotifyPending = 0;
+#endif        /* HAVE_NOTIFY_POST */
+
 }
 
 
@@ -131,8 +157,8 @@ StartListening(void)
     * Didn't find it!  Use an address of 0...
     */
 
-    LogMessage(L_ERROR, "StartListening: Unable to find IP address for server name \"%s\"!\n",
-               ServerName);
+    LogMessage(L_ERROR, "StartListening: Unable to find IP address for server name \"%s\" - %s\n",
+               ServerName, hstrerror(h_errno));
 
     ServerAddr.sin_family = AF_INET;
   }
@@ -144,8 +170,21 @@ StartListening(void)
   for (i = NumListeners, lis = Listeners; i > 0; i --, lis ++)
   {
     LogMessage(L_DEBUG, "StartListening: address=%08x port=%d",
-               ntohl(lis->address.sin_addr.s_addr),
+               (unsigned)ntohl(lis->address.sin_addr.s_addr),
 	       ntohs(lis->address.sin_port));
+
+   /*
+    * Save the first port that is bound to the local loopback or
+    * "any" address...
+    */
+
+    if (ntohl(lis->address.sin_addr.s_addr) == 0x7f000001 ||
+        ntohl(lis->address.sin_addr.s_addr) == 0x00000000)
+      LocalPort = ntohs(lis->address.sin_port);
+
+   /*
+    * Create a socket for listening...
+    */
 
     if ((lis->fd = socket(AF_INET, SOCK_STREAM, 0)) == -1)
     {
@@ -218,5 +257,5 @@ StopListening(void)
 
 
 /*
- * End of "$Id: listen.c,v 1.5 2002/02/10 06:37:46 jlovell Exp $".
+ * End of "$Id: listen.c,v 1.7 2003/09/05 01:14:51 jlovell Exp $".
  */

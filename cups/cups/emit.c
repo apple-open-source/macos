@@ -1,9 +1,9 @@
 /*
- * "$Id: emit.c,v 1.2.2.1 2002/10/22 17:44:41 gelphman Exp $"
+ * "$Id: emit.c,v 1.8 2003/06/17 21:42:07 gelphman Exp $"
  *
  *   PPD code emission routines for the Common UNIX Printing System (CUPS).
  *
- *   Copyright 1997-2002 by Easy Software Products, all rights reserved.
+ *   Copyright 1997-2003 by Easy Software Products, all rights reserved.
  *
  *   These coded instructions, statements, and computer programs are the
  *   property of Easy Software Products and are protected by Federal
@@ -214,39 +214,110 @@ ppdEmitAfterOrder(ppd_file_t    *ppd,	/* I - PPD file record */
             * Send DSC comments with option...
             */
         
-            if (fprintf(fp, "%%%%BeginFeature: *%s %s\n",
-                        ((ppd_option_t *)choices[i]->option)->keyword,
-                        choices[i]->choice) < 0)
-            {
-                free(choices);
-                return (-1);
-            }
+      if ((strcasecmp(((ppd_option_t *)choices[i]->option)->keyword, "PageSize") == 0 ||
+           strcasecmp(((ppd_option_t *)choices[i]->option)->keyword, "PageRegion") == 0) &&
+          strcasecmp(choices[i]->choice, "Custom") == 0)
+      {
+       /*
+        * Variable size; write out standard size options, using the
+	* parameter positions defined in the PPD file...
+	*/
+
+        ppd_attr_t	*attr;		/* PPD attribute */
+	int		i, pos;		/* Position of custom value */
+	int		isfloat[5];  	/* array to keep track of which ones need float vs int */
+	float		values[5];	/* Values for custom command */
+        float		orientation;	/* Orientation to use */
+
+        fputs("%%BeginFeature: *CustomPageSize True\n", fp);
+
+        size = ppdPageSize(ppd, "Custom");
+
+        memset(values, 0, sizeof(values));
+        memset(isfloat, 0, sizeof(isfloat));
+
+	if ((attr = ppdFindAttr(ppd, "ParamCustomPageSize", "Width")) != NULL)
+	{
+	  pos = atoi(attr->value) - 1;
+
+          if (pos < 0 || pos > 4)
+	    pos = 0;
+	}
+	else
+	  pos = 0;
+
+	values[pos] = size->width;
+	isfloat[pos] = 1;
+
+	if ((attr = ppdFindAttr(ppd, "ParamCustomPageSize", "Height")) != NULL)
+	{
+	  pos = atoi(attr->value) - 1;
+
+          if (pos < 0 || pos > 4)
+	    pos = 1;
+	}
+	else
+	  pos = 1;
+
+	values[pos] = size->length;
+	isfloat[pos] = 1;
+
+        if (size->width < size->length)
+	  orientation = 1;
+	else
+	  orientation = 0;
+
+	if ((attr = ppdFindAttr(ppd, "ParamCustomPageSize",
+	                        "Orientation")) != NULL)
+	{
+	  int min_orient, max_orient;	/* Minimum and maximum orientations */
+
+          if (sscanf(attr->value, "%d%*s%d%d", &pos, &min_orient,
+	             &max_orient) != 3)
+	    pos = 4;
+	  else
+	  {
+            if (pos < 0 || pos > 4)
+	      pos = 4;
+
+            if (orientation > max_orient)
+	      orientation = max_orient;
+	    else if (orientation < min_orient)
+	      orientation = min_orient;
+	  }
+	}
+	else
+	  pos = 4;
+
+	values[pos] = orientation;
+
+	for(i = 0; i < 5 ; i++ ){
+            if(isfloat[i])
+                fprintf(fp, "%.2f ", values[i]);
+            else
+                fprintf(fp, "%d ", (int)values[i]);
+	}
+	fprintf(fp, "\n");
         
-            if ((strcasecmp(((ppd_option_t *)choices[i]->option)->keyword, "PageSize") == 0 ||
-                strcasecmp(((ppd_option_t *)choices[i]->option)->keyword, "PageRegion") == 0) &&
-                strcasecmp(choices[i]->choice, "Custom") == 0)
-            {
-            /*
-                * Variable size; write out standard size options (this should
-                * eventually be changed to use the parameter positions defined
-                * in the PPD file...)
-                */
-        
-                size = ppdPageSize(ppd, "Custom");
-                fprintf(fp, "%.0f %.0f 0 0 0\n", size->width, size->length);
-        
-                if (choices[i]->code == NULL)
-                {
-                /*
-                * This can happen with certain buggy PPD files that don't include
-                * a CustomPageSize command sequence...  We just use a generic
-                * Level 2 command sequence...
-                */
-        
-                fputs(ppd_custom_code, fp);
-                }
-            }
-        
+	if (choices[i]->code == NULL)
+	{
+	/*
+	* This can happen with certain buggy PPD files that don't include
+	* a CustomPageSize command sequence...  We just use a generic
+	* Level 2 command sequence...
+	*/
+
+	fputs(ppd_custom_code, fp);
+	}
+    }
+      else if (fprintf(fp, "%%%%BeginFeature: *%s %s\n",
+                       ((ppd_option_t *)choices[i]->option)->keyword,
+		       choices[i]->choice) < 0)
+      {
+        free(choices);
+        return (-1);
+      }
+
             if (choices[i]->code != NULL && choices[i]->code[0] != '\0')
             {
                 if (fputs(choices[i]->code, fp) < 0)
@@ -293,7 +364,8 @@ ppdEmitFd(ppd_file_t    *ppd,		/* I - PPD file record */
           ppd_section_t section)	/* I - Section to write */
 {
   int		i,			/* Looping var */
-		count;			/* Number of choices */
+		count,			/* Number of choices */
+		custom_size;		/* Non-zero if this option is a custom size */
   ppd_choice_t	**choices;		/* Choices */
   ppd_size_t	*size;			/* Custom page size */
   char		buf[1024];		/* Output buffer for feature */
@@ -330,9 +402,22 @@ ppdEmitFd(ppd_file_t    *ppd,		/* I - PPD file record */
       * Send DSC comments with option...
       */
 
+      if ((strcasecmp(((ppd_option_t *)choices[i]->option)->keyword, "PageSize") == 0 ||
+           strcasecmp(((ppd_option_t *)choices[i]->option)->keyword, "PageRegion") == 0) &&
+          strcasecmp(choices[i]->choice, "Custom") == 0)
+      {
+        custom_size = 1;
+
+	strcpy(buf, "%%BeginFeature: *CustomPageSize True\n");
+      }
+      else
+      {
+        custom_size = 0;
+
       snprintf(buf, sizeof(buf), "%%%%BeginFeature: *%s %s\n",
                ((ppd_option_t *)choices[i]->option)->keyword,
 	       choices[i]->choice);
+      }
 
       if (write(fd, buf, strlen(buf)) < 1)
       {
@@ -340,19 +425,79 @@ ppdEmitFd(ppd_file_t    *ppd,		/* I - PPD file record */
         return (-1);
       }
 
-      if ((strcasecmp(((ppd_option_t *)choices[i]->option)->keyword, "PageSize") == 0 ||
-           strcasecmp(((ppd_option_t *)choices[i]->option)->keyword, "PageRegion") == 0) &&
-          strcasecmp(choices[i]->choice, "Custom") == 0)
+      if (custom_size)
       {
        /*
-        * Variable size; write out standard size options (this should
-	* eventually be changed to use the parameter positions defined
-	* in the PPD file...)
+        * Variable size; write out standard size options, using the
+	* parameter positions defined in the PPD file...
 	*/
 
+        ppd_attr_t	*attr;		/* PPD attribute */
+	int		pos,		/* Position of custom value */
+			values[5],	/* Values for custom command */
+			orientation;	/* Orientation to use */
+
+
         size = ppdPageSize(ppd, "Custom");
-        snprintf(buf, sizeof(buf), "%.0f %.0f 0 0 0\n", size->width,
-	         size->length);
+
+        memset(values, 0, sizeof(values));
+
+	if ((attr = ppdFindAttr(ppd, "ParamCustomPageSize", "Width")) != NULL)
+	{
+	  pos = atoi(attr->value) - 1;
+
+          if (pos < 0 || pos > 4)
+	    pos = 0;
+	}
+	else
+	  pos = 0;
+
+	values[pos] = (int)size->width;
+
+	if ((attr = ppdFindAttr(ppd, "ParamCustomPageSize", "Height")) != NULL)
+	{
+	  pos = atoi(attr->value) - 1;
+
+          if (pos < 0 || pos > 4)
+	    pos = 1;
+	}
+	else
+	  pos = 1;
+
+	values[pos] = (int)size->length;
+
+        if (size->width < size->length)
+	  orientation = 1;
+	else
+	  orientation = 0;
+
+	if ((attr = ppdFindAttr(ppd, "ParamCustomPageSize",
+	                        "Orientation")) != NULL)
+	{
+	  int min_orient, max_orient;	/* Minimum and maximum orientations */
+
+
+          if (sscanf(attr->value, "%d%*s%d%d", &pos, &min_orient,
+	             &max_orient) != 3)
+	    pos = 4;
+	  else
+	  {
+            if (pos < 0 || pos > 4)
+	      pos = 4;
+
+            if (orientation > max_orient)
+	      orientation = max_orient;
+	    else if (orientation < min_orient)
+	      orientation = min_orient;
+	  }
+	}
+	else
+	  pos = 4;
+
+	values[pos] = orientation;
+
+        snprintf(buf, sizeof(buf), "%d %d %d %d %d\n", values[0], values[1],
+	         values[2], values[3], values[4]);
 
 	if (write(fd, buf, strlen(buf)) < 1)
 	{
@@ -419,7 +564,8 @@ ppdEmitJCL(ppd_file_t *ppd,		/* I - PPD file record */
 	   const char *user,		/* I - Username */
 	   const char *title)		/* I - Title */
 {
-  const char	*ptr;			/* Pointer into JCL string */
+  char		*ptr;			/* Pointer into JCL string */
+  char		temp[81];		/* Local title string */
 
 
  /*
@@ -438,9 +584,13 @@ ppdEmitJCL(ppd_file_t *ppd,		/* I - PPD file record */
    /*
     * This printer uses HP PJL commands for output; filter the output
     * so that we only have a single "@PJL JOB" command in the header...
+    *
+    * To avoid bugs in the PJL implementation of certain vendors' products
+    * (Xerox in particular), we add a dummy "@PJL" command at the beginning
+    * of the PJL commands to initialize PJL processing.
     */
 
-    fputs("\033%-12345X", fp);
+    fputs("\033%-12345X@PJL\n", fp);
     for (ptr = ppd->jcl_begin + 9; *ptr;)
       if (strncmp(ptr, "@PJL JOB", 8) == 0)
       {
@@ -480,17 +630,28 @@ ppdEmitJCL(ppd_file_t *ppd,		/* I - PPD file record */
       title = ptr + 1;
 
    /*
+    * Replace double quotes with single quotes so that the title
+    * does not cause a PJL syntax error.
+    */
+
+    strlcpy(temp, title, sizeof(temp));
+
+    for (ptr = temp; *ptr; ptr ++)
+      if (*ptr == '\"')
+        *ptr = '\'';
+
+   /*
     * Send PJL JOB command before we enter PostScript mode...
     */
 
-    fprintf(fp, "@PJL JOB NAME = \"%s\" DISPLAY = \"%d %s %s\"\n", title,
-            job_id, user, title);
+    fprintf(fp, "@PJL JOB NAME = \"%s\" DISPLAY = \"%d %s %s\"\n", temp,
+            job_id, user, temp);
   }
   else
-    fputs(ppd->jcl_begin, stdout);
+    fputs(ppd->jcl_begin, fp);
 
-  ppdEmit(ppd, stdout, PPD_ORDER_JCL);
-  fputs(ppd->jcl_ps, stdout);
+  ppdEmit(ppd, fp, PPD_ORDER_JCL);
+  fputs(ppd->jcl_ps, fp);
 
   return (0);
 }
@@ -504,8 +665,10 @@ static void
 ppd_handle_media(ppd_file_t *ppd)
 {
   ppd_choice_t	*manual_feed,		/* ManualFeed choice, if any */
-		*input_slot;		/* InputSlot choice, if any */
+		*input_slot,		/* InputSlot choice, if any */
+		*page;			/* PageSize/PageRegion */
   ppd_size_t	*size;			/* Current media size */
+  ppd_attr_t	*rpr;			/* RequiresPageRegion value */
 
 
  /*
@@ -520,6 +683,14 @@ ppd_handle_media(ppd_file_t *ppd)
 
   manual_feed = ppdFindMarkedChoice(ppd, "ManualFeed");
   input_slot  = ppdFindMarkedChoice(ppd, "InputSlot");
+
+  if (input_slot != NULL)
+    rpr = ppdFindAttr(ppd, "RequiresPageRegion", input_slot->choice);
+  else
+    rpr = NULL;
+
+  if (!rpr)
+    rpr = ppdFindAttr(ppd, "RequiresPageRegion", "All");
 
   if (strcasecmp(size->name, "Custom") == 0 ||
       (manual_feed == NULL && input_slot == NULL) ||
@@ -544,6 +715,22 @@ ppd_handle_media(ppd_file_t *ppd)
     */
 
     ppdMarkOption(ppd, "PageRegion", size->name);
+
+    if ((rpr && rpr->value && !strcmp(rpr->value, "False")) ||
+        (!rpr && !ppd->num_filters))
+    {
+     /*
+      * Either the PPD file specifies no PageRegion code or the PPD file
+      * not for a CUPS raster driver and thus defaults to no PageRegion
+      * code...  Unmark the PageRegion choice so that we don't output the
+      * code...
+      */
+
+      page = ppdFindMarkedChoice(ppd, "PageRegion");
+
+      if (page)
+        page->marked = 0;
+    }
   }
 }
 
@@ -566,5 +753,5 @@ ppd_sort(ppd_choice_t **c1,	/* I - First choice */
 
 
 /*
- * End of "$Id: emit.c,v 1.2.2.1 2002/10/22 17:44:41 gelphman Exp $".
+ * End of "$Id: emit.c,v 1.8 2003/06/17 21:42:07 gelphman Exp $".
  */

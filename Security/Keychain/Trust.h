@@ -47,14 +47,17 @@ class Trust : public SecCFObject
 {
 	NOCOPY(Trust)
 public:
-    Trust(CFTypeRef certificates, CFTypeRef policies);
-    virtual ~Trust();
+	SECCFFUNCTIONS(Trust, SecTrustRef, errSecInvalidItemRef)
 
-	// set more input parameters
+    Trust(CFTypeRef certificates, CFTypeRef policies);
+    virtual ~Trust() throw();
+
+	// set (or reset) more input parameters
+	void policies(CFTypeRef policies)			{ mPolicies.take(cfArrayize(policies)); }
     void action(CSSM_TP_ACTION action)			{ mAction = action; }
     void actionData(CFDataRef data)				{ mActionData = data; }
     void time(CFDateRef verifyTime)				{ mVerifyTime = verifyTime; }
-    void anchors(CFArrayRef anchorList)			{ mAnchors = cfArrayize(anchorList); }
+    void anchors(CFArrayRef anchorList)			{ mAnchors.take(cfArrayize(anchorList)); }
     StorageManager::KeychainList &searchLibs()	{ return mSearchLibs; }
     
 	// perform evaluation
@@ -65,6 +68,7 @@ public:
     CSSM_TP_VERIFY_CONTEXT_RESULT_PTR cssmResult();
     
     SecTrustResultType result() const			{ return mResult; }
+	OSStatus cssmResultCode() const				{ return mTpReturn; }
     TP getTPHandle() const						{ return mTP; }
     
 	// an independent release function for TP evidence results
@@ -74,8 +78,11 @@ public:
 private:
     SecTrustResultType diagnoseOutcome();
     void evaluateUserTrust(const CertGroup &certs,
-        const CSSM_TP_APPLE_EVIDENCE_INFO *info);
+        const CSSM_TP_APPLE_EVIDENCE_INFO *info,
+		CFCopyRef<CFArrayRef> anchors);
 	void clearResults();
+	
+	Keychain keychainByDLDb(const CSSM_DL_DB_HANDLE &handle) const;
 
 private:
     TP mTP;							// our TP
@@ -95,7 +102,7 @@ private:
     OSStatus mTpReturn;				// return code from TP Verify
     TPVerifyResult mTpResult;		// result of latest TP verify
 
-    vector< RefPointer<Certificate> > mCertChain; // distilled certificate chain
+    vector< SecPointer<Certificate> > mCertChain; // distilled certificate chain
 
     // information returned to caller but owned by us
     CFRef<CFArrayRef> mEvidenceReturned; // evidence chain returned

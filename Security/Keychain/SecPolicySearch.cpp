@@ -16,6 +16,8 @@
  */
 
 #include <Security/SecPolicySearch.h>
+#include <Security/PolicyCursor.h>
+#include <Security/Policies.h>
 #include "SecBridge.h"
 
 
@@ -26,7 +28,7 @@ SecPolicySearchGetTypeID(void)
 {
 	BEGIN_SECAPI
 
-	return gTypes().policyCursor.typeId;
+	return gTypes().PolicyCursor.typeID;
 
 	END_SECAPI1(_kCFRuntimeNotATypeID)
 }
@@ -41,8 +43,8 @@ SecPolicySearchCreate(
 {
     BEGIN_SECAPI
 	Required(searchRef);	// preflight
-	RefPointer<PolicyCursor> cursor(new PolicyCursor(oid, value));
-	*searchRef = gTypes().policyCursor.handle(*cursor);
+	SecPointer<PolicyCursor> cursor(new PolicyCursor(oid, value));
+	*searchRef = cursor->handle();
 	END_SECAPI
 }
 
@@ -55,9 +57,9 @@ SecPolicySearchCopyNext(
     BEGIN_SECAPI
     
 	RequiredParam(policyRef);
-	RefPointer<Policy> policy;
-	if (!gTypes().policyCursor.required(searchRef)->next(policy))
+	SecPointer<Policy> policy;
+	if (!PolicyCursor::required(searchRef)->next(policy))
 		return errSecPolicyNotFound;
-	*policyRef = gTypes().policy.handle(*policy);
+	*policyRef = policy->handle();
 	END_SECAPI
 }

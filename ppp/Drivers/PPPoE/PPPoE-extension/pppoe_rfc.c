@@ -2,21 +2,24 @@
  * Copyright (c) 2000 Apple Computer, Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
- *
- * The contents of this file constitute Original Code as defined in and
- * are subject to the Apple Public Source License Version 1.1 (the
- * "License").  You may not use this file except in compliance with the
- * License.  Please obtain a copy of the License at
- * http://www.apple.com/publicsource and read it before using this file.
- *
- * This Original Code and all software distributed under the License are
- * distributed on an "AS IS" basis, WITHOUT WARRANTY OF ANY KIND, EITHER
+ * 
+ * Copyright (c) 1999-2003 Apple Computer, Inc.  All Rights Reserved.
+ * 
+ * This file contains Original Code and/or Modifications of Original Code
+ * as defined in and that are subject to the Apple Public Source License
+ * Version 2.0 (the 'License'). You may not use this file except in
+ * compliance with the License. Please obtain a copy of the License at
+ * http://www.opensource.apple.com/apsl/ and read it before using this
+ * file.
+ * 
+ * The Original Code and all software distributed under the License are
+ * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
  * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
  * INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY,
- * FITNESS FOR A PARTICULAR PURPOSE OR NON-INFRINGEMENT.  Please see the
- * License for the specific language governing rights and limitations
- * under the License.
- *
+ * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
+ * Please see the License for the specific language governing rights and
+ * limitations under the License.
+ * 
  * @APPLE_LICENSE_HEADER_END@
  */
 
@@ -124,7 +127,7 @@ struct pppoe_tag {
 
 // utility macro that allows to easily compare two pppoe_tag structs.
 #define PPPOE_TAG_CMP(tag1, tag2)		\
-    ((tag1.len == tag2.len) ? memcmp(tag1.data, tag2.data, tag1.len) : 0)
+    ((tag1.len == tag2.len) ? memcmp(tag1.data, tag2.data, tag1.len) : 1)
             
 
 struct pppoe_rfc {
@@ -557,7 +560,7 @@ u_int16_t pppoe_rfc_output(void *data, struct mbuf *m)
         len += m0->m_len;
 
     if (rfc->state != PPPOE_STATE_CONNECTED)
-        return 1;
+        return ENXIO;
 
    // log(LOG_INFO, "PPPoE write, len = %d\n", len);
     //d = mtod(m, u_int8_t *);
@@ -579,8 +582,8 @@ u_int16_t pppoe_rfc_output(void *data, struct mbuf *m)
     p->ver = PPPOE_VER;
     p->typ = PPPOE_TYPE;
     p->code = 0;
-    p->sessid = rfc->session_id;
-    p->len = len - skip; // tag len
+    p->sessid = htons(rfc->session_id);
+    p->len = htons(len - skip); // tag len
     m->m_pkthdr.len = len + sizeof(struct pppoe) - skip;
 
     pppoe_rfc_lower_output(rfc, m, rfc->peer_address, PPPOE_ETHERTYPE_DATA);
@@ -737,7 +740,7 @@ send an event up to our cliente
 void send_event(struct pppoe_rfc *rfc, u_int32_t event, u_int32_t msg)
 {
     if (rfc->flags & PPPOE_FLAG_DEBUG) {
-        char  *text;
+        char  *text = "";
         switch (event) {
             case PPPOE_EVT_RINGING: text = "RINGING"; break;
             case PPPOE_EVT_CONNECTED: text = "CONNECTED"; break;
@@ -762,7 +765,7 @@ u_int16_t get_tag(struct mbuf *m, u_int16_t tag, struct pppoe_tag *val)
 
     data = mtod(m, u_int8_t *);
     p = (struct pppoe *)data;
-    totallen =  p->len;
+    totallen =  ntohs(p->len);
 
     // Prevent buffer overflow - the PPPoE RFC gurantees us a maximum packet size, however, an attacker
     // might very well produce huge packets.
@@ -791,12 +794,12 @@ u_int16_t get_tag(struct mbuf *m, u_int16_t tag, struct pppoe_tag *val)
 
     while (totallen > 0) {
     
-        len = *(u_int16_t *)(data + 2);
+        len = ntohs(*(u_int16_t *)(data + 2));
         if (len > totallen)
             break;	// bogus packet
             
         //log(LOG_INFO, "tag 0x%x 0x%x 0x%x 0x%x \n", data[0], data[1], data[2], data[3]);
-        if (*(u_int16_t *)data == tag) {
+        if (ntohs(*(u_int16_t *)data) == tag) {
             data += 2;
             if (len <= val->max_len) {
                 memcpy(val->data, data + 2, len);
@@ -860,7 +863,7 @@ void send_PAD(struct pppoe_rfc *rfc, u_int8_t *address, u_int16_t code, u_int16_
     p->ver = PPPOE_VER;
     p->typ = PPPOE_TYPE;
     p->code = code;
-    p->sessid = sessid;
+    p->sessid = htons(sessid);
     p->len = 0;
 
     data += sizeof(struct pppoe);
@@ -1152,6 +1155,8 @@ u_int16_t handle_data(struct pppoe_rfc *rfc, struct mbuf *m, u_int8_t *from)
     u_int16_t 		sessid = ntohs(p->sessid);
 
     //log(LOG_INFO, "handle_data, rfc = 0x%x, from %x:%x:%x:%x:%x:%x\n", rfc, from[0],from[1],from[2],from[3],from[4],from[5] );
+    //log(LOG_INFO, "handle_data, rfc = 0x%x, rfc->peer_address %x:%x:%x:%x:%x:%x\n", rfc, rfc->peer_address[0],rfc->peer_address[1],rfc->peer_address[2],rfc->peer_address[3],rfc->peer_address[4],rfc->peer_address[5] );
+    //log(LOG_INFO, "handle_data, rfc = 0x%x, rfc->state = %d, rfc->session_id = 0x%x, rfc->session_id = 0x%x\n", rfc, rfc->state, rfc->session_id, sessid);
 
     // check identify the session, we must check the session id AND the address of the peer
     // we could be connected to 2 different AC with the same session id
@@ -1171,8 +1176,8 @@ u_int16_t handle_data(struct pppoe_rfc *rfc, struct mbuf *m, u_int8_t *from)
         if (m->m_next)
             m->m_len -= sizeof(struct pppoe);
         else
-            m->m_len = p->len;
-        m->m_pkthdr.len = p->len;
+            m->m_len = ntohs(p->len);
+        m->m_pkthdr.len = ntohs(p->len);
 
         // packet is passed up to the host
         if (rfc->inputcb)
@@ -1225,7 +1230,7 @@ called from pppoe_dlil when pppoe data are present
 ----------------------------------------------------------------------------- */
 void pppoe_rfc_lower_input(u_long dl_tag, struct mbuf *m, u_int8_t *from, u_int16_t typ)
 {
-    struct pppoe_rfc  	*rfc, *lastrfc;
+    struct pppoe_rfc  	*rfc, *lastrfc = 0;
     
     //log(LOG_INFO, "PPPoE inputdata, tag = %d\n", dl_tag);
 
@@ -1243,14 +1248,15 @@ void pppoe_rfc_lower_input(u_long dl_tag, struct mbuf *m, u_int8_t *from, u_int1
     // the last matching rfc itself is irrelevant, just need unit number and tag information
     
     log(LOG_INFO, "PPPoE inputdata: unexpected %s packet on unit = %d\n", 
-        (typ == PPPOE_ETHERTYPE_CTRL ? "control" : "data"), lastrfc->unit);
+        (typ == PPPOE_ETHERTYPE_CTRL ? "control" : "data"), lastrfc ? lastrfc->unit : -1);
         
     if (typ == PPPOE_ETHERTYPE_DATA) {
         // in case of PPPOE_ETHERTYPE_DATA, send a PADT to the peer
         // trying to talk to us with an incorrect session id
         struct pppoe	*p = mtod(m, struct pppoe *);
         u_int16_t	sessid = ntohs(p->sessid);
-        send_PAD(lastrfc, from, PPPOE_PADT, sessid, 0, 0, 0, 0, 0);
+        if (lastrfc)
+            send_PAD(lastrfc, from, PPPOE_PADT, sessid, 0, 0, 0, 0, 0);
     }
     
     // nobody was intersted in the packet, just ignore it

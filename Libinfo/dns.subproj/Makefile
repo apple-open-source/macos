@@ -12,7 +12,7 @@ NAME = dns
 PROJECTVERSION = 2.8
 PROJECT_TYPE = Component
 
-HFILES = inet.h nameser.h options.h portability.h resolv.h
+HFILES = inet.h nameser8_compat.h options.h portability.h resolv8_compat.h
 
 CFILES = gethnamaddr.c getnetbyaddr.c getnetbyname.c getnetent.c\
          getnetnamadr.c herror.c res_comp.c res_data.c res_debug.c\
@@ -31,7 +31,7 @@ PROF_LIBS = $(LIBS)
 
 
 NEXTSTEP_PB_CFLAGS = -DUSE_OPTIONS_H
-PUBLIC_HEADERS = resolv.h nameser.h
+PUBLIC_HEADERS = resolv8_compat.h nameser8_compat.h
 
 
 

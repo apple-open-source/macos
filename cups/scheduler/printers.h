@@ -1,9 +1,9 @@
 /*
- * "$Id: printers.h,v 1.1.1.2 2002/02/10 04:51:41 jlovell Exp $"
+ * "$Id: printers.h,v 1.1.1.10 2003/04/29 00:15:17 jlovell Exp $"
  *
  *   Printer definitions for the Common UNIX Printing System (CUPS) scheduler.
  *
- *   Copyright 1997-2002 by Easy Software Products, all rights reserved.
+ *   Copyright 1997-2003 by Easy Software Products, all rights reserved.
  *
  *   These coded instructions, statements, and computer programs are the
  *   property of Easy Software Products and are protected by Federal
@@ -42,22 +42,23 @@ typedef struct
 typedef struct printer_str
 {
   struct printer_str *next;		/* Next printer in list */
-  char		uri[HTTP_MAX_URI],	/* Printer URI */
-		hostname[HTTP_MAX_HOST],/* Host printer resides on */
-		name[IPP_MAX_NAME],	/* Printer name */
-		location[IPP_MAX_NAME],	/* Location code */
-		make_model[IPP_MAX_NAME],/* Make and model */
-		info[IPP_MAX_NAME];	/* Description */
+  char		*uri,			/* Printer URI */
+		*hostname,		/* Host printer resides on */
+		*name,			/* Printer name */
+		*location,		/* Location code */
+		*make_model,		/* Make and model */
+		*info;			/* Description */
   int		accepting;		/* Accepting jobs? */
   ipp_pstate_t	state;			/* Printer state */
   char		state_message[1024];	/* Printer state message */
+  int		num_reasons;		/* Number of printer-state-reasons */
+  char		*reasons[16];		/* printer-state-reasons strings */
   time_t	state_time;		/* Time at this state */
-  char		job_sheets[2][IPP_MAX_NAME];
-					/* Banners/job sheets */
+  char		*job_sheets[2];		/* Banners/job sheets */
   cups_ptype_t	type;			/* Printer type (color, small, etc.) */
   time_t	browse_time;		/* Last time update was sent/received */
-  char		device_uri[HTTP_MAX_URI],/* Device URI */
-		backend[1024];		/* Backend to use */
+  char		*device_uri;		/* Device URI */
+  int		raw;			/* Raw queue? */
   mime_type_t	*filetype;		/* Pseudo-filetype for printer */
   void		*job;			/* Current job in queue */
   ipp_t		*attrs;			/* Attributes supported by this printer */
@@ -72,6 +73,9 @@ typedef struct printer_str
   int		deny_users,		/* 1 = deny, 0 = allow */
 		num_users;		/* Number of allowed/denied users */
   const char	**users;		/* Allowed/denied users */
+  int		num_history;		/* Number of history collections */
+  ipp_t		**history;		/* History data */
+  int		sequence_number;	/* Increasing sequence number */
 } printer_t;
 
 
@@ -79,6 +83,7 @@ typedef struct printer_str
  * Globals...
  */
 
+VAR ipp_t		*CommonData VALUE(NULL);/* Common printer object attrs */
 VAR printer_t		*Printers VALUE(NULL);	/* Printer list */
 VAR printer_t		*DefaultPrinter VALUE(NULL);
 						/* Default printer */
@@ -89,11 +94,13 @@ VAR printer_t		*DefaultPrinter VALUE(NULL);
 
 extern printer_t	*AddPrinter(const char *name);
 extern void		AddPrinterFilter(printer_t *p, const char *filter);
+extern void		AddPrinterHistory(printer_t *p);
 extern void		AddPrinterUser(printer_t *p, const char *username);
 extern quota_t		*AddQuota(printer_t *p, const char *username);
 extern void		DeleteAllPrinters(void);
-extern void		DeletePrinter(printer_t *p);
+extern void		DeletePrinter(printer_t *p, int update);
 extern void		DeletePrinterFilters(printer_t *p);
+extern printer_t	*FindDest(const char *name);
 extern printer_t	*FindPrinter(const char *name);
 extern quota_t		*FindQuota(printer_t *p, const char *username);
 extern void		FreePrinterUsers(printer_t *p);
@@ -101,17 +108,19 @@ extern void		FreeQuotas(printer_t *p);
 extern void		LoadAllPrinters(void);
 extern void		SaveAllPrinters(void);
 extern void		SetPrinterAttrs(printer_t *p);
-extern void		SetPrinterState(printer_t *p, ipp_pstate_t s);
+extern void		SetPrinterReasons(printer_t *p, const char *s);
+extern void		SetPrinterState(printer_t *p, ipp_pstate_t s, int update);
 extern void		SortPrinters(void);
-#define			StartPrinter(p) SetPrinterState((p), IPP_PRINTER_IDLE)
-extern void		StopPrinter(printer_t *p);
+#define			StartPrinter(p,u) SetPrinterState((p), IPP_PRINTER_IDLE, (u))
+extern void		StopPrinter(printer_t *p, int update);
 extern quota_t		*UpdateQuota(printer_t *p, const char *username,
 			             int pages, int k);
 extern const char	*ValidateDest(const char *hostname,
 			              const char *resource,
 			              cups_ptype_t *dtype);
+extern void		WritePrintcap(void);
 
 
 /*
- * End of "$Id: printers.h,v 1.1.1.2 2002/02/10 04:51:41 jlovell Exp $".
+ * End of "$Id: printers.h,v 1.1.1.10 2003/04/29 00:15:17 jlovell Exp $".
  */

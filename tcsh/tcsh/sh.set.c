@@ -1,4 +1,4 @@
-/* $Header: /cvs/Darwin/src/live/tcsh/tcsh/sh.set.c,v 1.1.1.2 2001/06/28 23:10:52 bbraun Exp $ */
+/* $Header: /cvs/root/tcsh/tcsh/sh.set.c,v 1.1.1.3 2003/01/17 03:41:16 nicolai Exp $ */
 /*
  * sh.set.c: Setting and Clearing of variables
  */
@@ -14,11 +14,7 @@
  * 2. Redistributions in binary form must reproduce the above copyright
  *    notice, this list of conditions and the following disclaimer in the
  *    documentation and/or other materials provided with the distribution.
- * 3. All advertising materials mentioning features or use of this software
- *    must display the following acknowledgement:
- *	This product includes software developed by the University of
- *	California, Berkeley and its contributors.
- * 4. Neither the name of the University nor the names of its contributors
+ * 3. Neither the name of the University nor the names of its contributors
  *    may be used to endorse or promote products derived from this software
  *    without specific prior written permission.
  *
@@ -36,7 +32,7 @@
  */
 #include "sh.h"
 
-RCSID("$Id: sh.set.c,v 1.1.1.2 2001/06/28 23:10:52 bbraun Exp $")
+RCSID("$Id: sh.set.c,v 1.1.1.3 2003/01/17 03:41:16 nicolai Exp $")
 
 #include "ed.h"
 #include "tw.h"
@@ -160,6 +156,9 @@ update_vars(vp)
     else if (eq(vp, STRrecognize_only_executables)) {
 	tw_cmd_free();
     }
+    else if (eq(vp, STRkillring)) {
+	SetKillRing(getn(varval(vp)));
+    }
 #ifndef HAVENOUTMP
     else if (eq(vp, STRwatch)) {
 	resetwatch();
@@ -183,6 +182,10 @@ update_vars(vp)
 	(void) catclose(catd);
 	nlsinit();
     }
+#if defined(FILEC) && defined(TIOCSTI)
+    else if (eq(vp, STRfilec))
+	filec = 1;
+#endif
 #endif /* NLS_CATALOGS */
 }
 
@@ -547,7 +550,8 @@ value1(var, head)
 	return (STRNULL);
 
     vp = adrof1(var, head);
-    return (vp == 0 || vp->vec[0] == 0 ? STRNULL : vp->vec[0]);
+    return ((vp == NULL || vp->vec == NULL || vp->vec[0] == NULL) ?
+	STRNULL : vp->vec[0]);
 }
 
 static struct varent *
@@ -718,6 +722,12 @@ unset(v, c)
     did_roe = adrof(STRrecognize_only_executables) != NULL;
     did_edit = adrof(STRedit) != NULL;
     unset1(v, &shvhed);
+
+#if defined(FILEC) && defined(TIOCSTI)
+    if (adrof(STRfilec) == 0)
+	filec = 0;
+#endif /* FILEC && TIOCSTI */
+
     if (adrof(STRhistchars) == 0) {
 	HIST = '!';
 	HISTSUB = '^';
@@ -740,6 +750,8 @@ unset(v, c)
 	symlinks = 0;
     if (adrof(STRimplicitcd) == 0)
 	implicit_cd = 0;
+    if (adrof(STRkillring) == 0)
+	SetKillRing(0);
     if (did_edit && noediting && adrof(STRedit) == 0)
 	noediting = 0;
     if (did_roe && adrof(STRrecognize_only_executables) == 0)
@@ -857,7 +869,7 @@ shift(v, c)
     else
 	(void) strip(name);
     argv = adrof(name);
-    if (argv == 0)
+    if (argv == NULL || argv->vec == NULL)
 	udvar(name);
     if (argv->vec[0] == 0)
 	stderror(ERR_NAME | ERR_NOMORE);
@@ -1103,6 +1115,10 @@ update_dspmbyte_vars()
 	    iskcode = 1;
 	else if (eq(dstr1, STRKEUC))
 	    iskcode = 2;
+	else if (eq(dstr1, STRKBIG5))
+	    iskcode = 3;
+	else if (eq(dstr1, STRKUTF8))
+	    iskcode = 4;
 	else if ((dstr1[0] - '0') >= 0 && (dstr1[0] - '0') <= 3) {
 	    iskcode = 0;
 	}
@@ -1126,6 +1142,16 @@ update_dspmbyte_vars()
 		/* 2 ... euc */
 		_cmap[lp] = _cmap_mbyte[lp];
 		_mbmap[lp] = _mbmap_euc[lp];
+		break;
+	    case 3:
+		/* 3 ... big5 */
+		_cmap[lp] = _cmap_mbyte[lp];
+		_mbmap[lp] = _mbmap_big5[lp];
+		break;
+	    case 4:
+		/* 4 ... utf8 */
+		_cmap[lp] = _cmap_mbyte[lp];
+		_mbmap[lp] = _mbmap_utf8[lp];
 		break;
 	    default:
 		xprintf(CGETS(18, 3,
@@ -1200,10 +1226,13 @@ autoset_dspmbyte(pcp)
     } dspmt[] = {
 	{ STRLANGEUCJP, STRKEUC },
 	{ STRLANGEUCKR, STRKEUC },
+	{ STRLANGEUCZH, STRKEUC },
 	{ STRLANGEUCJPB, STRKEUC },
 	{ STRLANGEUCKRB, STRKEUC },
+	{ STRLANGEUCZHB, STRKEUC },
 	{ STRLANGSJIS, STRKSJIS },
 	{ STRLANGSJISB, STRKSJIS },
+	{ STRLANGBIG5, STRKBIG5 },
 	{ NULL, NULL }
     };
 

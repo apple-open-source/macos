@@ -100,7 +100,7 @@
 				LIBRARY_SEARCH_PATHS = "";
 				MODULE_IOKIT = YES;
 				MODULE_NAME = com.apple.driver.AppleADBMouse;
-				MODULE_VERSION = 2.0.8d1;
+				MODULE_VERSION = 2.0.9d3;
 				OTHER_CFLAGS = "";
 				OTHER_LDFLAGS = "";
 				OTHER_REZFLAGS = "";
@@ -135,11 +135,11 @@
 	<key>CFBundlePackageType</key>
 	<string>KEXT</string>
 	<key>CFBundleShortVersionString</key>
-	<string>2.0.8</string>
+	<string>2.0.9</string>
 	<key>CFBundleSignature</key>
 	<string>????</string>
 	<key>CFBundleVersion</key>
-	<string>2.0.8d1</string>
+	<string>2.0.9d3</string>
 	<key>IOKitPersonalities</key>
 	<dict>
 		<key>AppleADBMouseType1</key>
@@ -249,7 +249,7 @@
 </dict>
 </plist>
 ";
-			shouldUseHeadermap = 1;
+			shouldUseHeadermap = 0;
 		};
 		089C1674FE841209C02AAC07 = {
 			buildActionMask = 2147483647;
@@ -362,11 +362,13 @@
 //1A3
 //1A4
 		1A224C3EFF42367911CA2CB7 = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			path = AppleADBMouse.h;
 			refType = 4;
 		};
 		1A224C3FFF42367911CA2CB7 = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			path = AppleADBMouse.cpp;
 			refType = 4;

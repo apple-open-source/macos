@@ -1,3 +1,27 @@
+/*
+ * Copyright (c) 2003 Apple Computer, Inc. All rights reserved.
+ *
+ * @APPLE_LICENSE_HEADER_START@
+ * 
+ * Copyright (c) 1999-2003 Apple Computer, Inc.  All Rights Reserved.
+ * 
+ * This file contains Original Code and/or Modifications of Original Code
+ * as defined in and that are subject to the Apple Public Source License
+ * Version 2.0 (the 'License'). You may not use this file except in
+ * compliance with the License. Please obtain a copy of the License at
+ * http://www.opensource.apple.com/apsl/ and read it before using this
+ * file.
+ * 
+ * The Original Code and all software distributed under the License are
+ * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
+ * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
+ * INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY,
+ * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
+ * Please see the License for the specific language governing rights and
+ * limitations under the License.
+ * 
+ * @APPLE_LICENSE_HEADER_END@
+ */
 
 /*
  * mslpd_query.h : Mini SLP v2 Header for minimal SA, external header for
@@ -23,36 +47,12 @@
  * FOR ANY DIRECT DAMAGES OR ANY INDIRECT, PUNITIVE, SPECIAL, INCIDENTAL
  * OR CONSEQUENTIAL DAMAGES OF ANY KIND.
  *
- * (c) Copyright Sun Microsystems, 1998, All Rights Reserved
+ * (c) Sun Microsystems, 1998, All Rights Reserved.
  * Author: Erik Guttman
  */
+ /*
+	Portions Copyright (c) 2002 Apple Computer, Inc. All rights reserved.
+ */
 
-#if 0		// I don't think any of this is used
-typedef struct mask {
-
-  // the following parts are public 
-
-  struct mask * (* invert) ();  // creates an inverted mask 
-  struct mask * (* clone)  ();  // creates a copy of the mask
-  void (* and) (struct mask *); // conjoins two lists - only those in both are set
-  void (* or) (struct mask *);  // disjoins two lists - those in either are set
-  int  (* next0) ();     // iterates to next unset field in mask, -1 = done
-  int  (* next1) ();     // iterates to next set field in mask, -1 = done
-  void (* reset) ();     // resets iteration
-  void (* release) ();   // release pcMask, for cleaning up
-
-} Mask;
-
-Mask * createMask(int size);
-
-/* comparison operations in scan */
-#define EQ_OP       8
-#define NE_OP       9
-#define LT_OP      10
-#define LE_OP      11
-#define GT_OP      12
-#define GE_OP      13
-
-#endif
 
 SLPInternalError HandlePluginInfoRequest( SAState* psa, const char* buffer, int length, char** reply, int *replySize );

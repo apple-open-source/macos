@@ -4,9 +4,9 @@
  * and conditions for redistribution.
  */
 
+#include "config.h"
 #include <string.h>
 #include <ctype.h>
-#include "config.h"
 
 #ifndef NULL
 #define NULL				0
@@ -79,11 +79,14 @@ char *str_casefind( register char *str, char *sstr )
  * Returns a pointer to the beginning of s2 in s1.
  * It ignores the case of the alphabetic characters
  */
-char *str_casefind( const char *s1, const char *s2 )
+char *str_casefind( char *s1, const char *s2 )
 {
-   int i ;
-   int l1 = strlen( s1 ) ;
-   int l2 = strlen( s2 ) ;
+   unsigned int i ;
+   unsigned long l1 = strlen( s1 ) ;
+   unsigned long l2 = strlen( s2 ) ;
+   
+   if ( l2 > l1 )
+      return( NULL ) ;
 
    for ( i = 0 ; i < l1 - l2 + 1 ; i++ )
       if ( strncasecmp( &s1[ i ], s2, l2 ) == 0 )
@@ -97,7 +100,8 @@ char *str_casefind( const char *s1, const char *s2 )
 /*
  * Fill string s with character c
  */
-void str_fill( register char *s, register char c )
+void str_fill( char *s, char c )
 {
 	while ( *s ) *s++ = c ;
 }
+

@@ -43,6 +43,7 @@
 
 #include <Security/SecBase.h>
 #include <Security/SecAccess.h>
+#include <Security/SecACL.h>
 #include <Security/SecCertificate.h>
 #include <Security/SecIdentity.h>
 #include <Security/SecIdentitySearch.h>
@@ -57,6 +58,7 @@
 
 #include <Security/Authorization.h>
 #include <Security/AuthorizationTags.h>
+#include <Security/AuthorizationDB.h>
 
 #include <Security/CipherSuite.h>
 #include <Security/SecureTransport.h>

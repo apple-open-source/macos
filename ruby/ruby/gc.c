@@ -2,8 +2,8 @@
 
   gc.c -
 
-  $Author: jkh $
-  $Date: 2002/05/27 17:59:43 $
+  $Author: melville $
+  $Date: 2003/05/14 13:58:43 $
   created at: Tue Oct  5 09:44:46 JST 1993
 
   Copyright (C) 1993-2000 Yukihiro Matsumoto
@@ -24,11 +24,8 @@
 void re_free_registers _((struct re_registers*));
 void rb_io_fptr_finalize _((struct OpenFile*));
 
-#ifndef setjmp
-#ifdef HAVE__SETJMP
+#if !defined(setjmp) && defined(HAVE__SETJMP)
 #define setjmp(env) _setjmp(env)
-#define longjmp(env,val) _longjmp(env,val)
-#endif
 #endif
 
 /* Make alloca work the best possible way.  */
@@ -39,16 +36,18 @@ void rb_io_fptr_finalize _((struct OpenFile*));
 #  endif
 # endif /* atarist */
 #else
-# if defined(HAVE_ALLOCA_H)
+# ifdef HAVE_ALLOCA_H
 #  include <alloca.h>
-# elif !defined(alloca)
-void *alloca();
-# endif
+# else
+#  ifdef _AIX
+ #pragma alloca
+#  else
+#   ifndef alloca /* predefined by HP cc +Olibcalls */
+void *alloca ();
+#   endif
+#  endif /* AIX */
+# endif /* HAVE_ALLOCA_H */
 #endif /* __GNUC__ */
-
-#ifdef _AIX
-#pragma alloca
-#endif
 
 static void run_final();
 
@@ -368,13 +367,55 @@ is_pointer_to_heap(ptr)
     return Qfalse;
 }
 
+static st_table *source_filenames;
+
+char *
+rb_source_filename(f)
+    const char *f;
+{
+    char *name;
+
+    if (!st_lookup(source_filenames, f, &name)) {
+	long len = strlen(f) + 1;
+	char *ptr = name = ALLOC_N(char, len + 1);
+	*ptr++ = 0;
+	MEMCPY(ptr, f, char, len);
+	st_add_direct(source_filenames, ptr, name);
+	return ptr;
+    }
+    return name + 1;
+}
+
+static void
+mark_source_filename(f)
+    char *f;
+{
+    if (f) {
+	f[-1] = 1;
+    }
+}
+
+static enum st_retval
+sweep_source_filename(key, value)
+    char *key, *value;
+{
+    if (*value) {
+	*value = 0;
+	return ST_CONTINUE;
+    }
+    else {
+	free(value);
+	return ST_DELETE;
+    }
+}
+
 static void
 mark_locations_array(x, n)
     register VALUE *x;
     register long n;
 {
     while (n--) {
-	if (is_pointer_to_heap(*x)) {
+	if (is_pointer_to_heap((void *)*x)) {
 	    rb_gc_mark(*x);
 	}
 	x++;
@@ -434,16 +475,16 @@ rb_mark_hash(tbl)
 
 void
 rb_gc_mark_maybe(obj)
-    void *obj;
+    VALUE obj;
 {
-    if (is_pointer_to_heap(obj)) {
+    if (is_pointer_to_heap((void *)obj)) {
 	rb_gc_mark(obj);
     }
 }
 
 void
 rb_gc_mark(ptr)
-    void *ptr;
+    VALUE ptr;
 {
     register RVALUE *obj = RANY(ptr);
 
@@ -465,6 +506,7 @@ rb_gc_mark(ptr)
 	break;
 
       case T_NODE:
+	mark_source_filename(obj->as.node.nd_file);
 	switch (nd_type(obj)) {
 	  case NODE_IF:		/* 1,2,3 */
 	  case NODE_FOR:
@@ -474,7 +516,7 @@ rb_gc_mark(ptr)
 	  case NODE_MASGN:
 	  case NODE_RESCUE:
 	  case NODE_RESBODY:
-	    rb_gc_mark(obj->as.node.u2.node);
+	    rb_gc_mark((VALUE)obj->as.node.u2.node);
 	    /* fall through */
 	  case NODE_BLOCK:	/* 1,3 */
 	  case NODE_ARRAY:
@@ -488,7 +530,7 @@ rb_gc_mark(ptr)
 	  case NODE_CALL:
 	  case NODE_DEFS:
 	  case NODE_OP_ASGN1:
-	    rb_gc_mark(obj->as.node.u1.node);
+	    rb_gc_mark((VALUE)obj->as.node.u1.node);
 	    /* fall through */
 	  case NODE_SUPER:	/* 3 */
 	  case NODE_FCALL:
@@ -511,7 +553,7 @@ rb_gc_mark(ptr)
 	  case NODE_MATCH3:
 	  case NODE_OP_ASGN_OR:
 	  case NODE_OP_ASGN_AND:
-	    rb_gc_mark(obj->as.node.u1.node);
+	    rb_gc_mark((VALUE)obj->as.node.u1.node);
 	    /* fall through */
 	  case NODE_METHOD:	/* 2 */
 	  case NODE_NOT:
@@ -547,7 +589,7 @@ rb_gc_mark(ptr)
 	  case NODE_SCOPE:	/* 2,3 */
 	  case NODE_CLASS:
 	  case NODE_BLOCK_PASS:
-	    rb_gc_mark(obj->as.node.u3.node);
+	    rb_gc_mark((VALUE)obj->as.node.u3.node);
 	    obj = RANY(obj->as.node.u2.node);
 	    goto Top;
 
@@ -585,10 +627,10 @@ rb_gc_mark(ptr)
 
 	  default:
 	    if (is_pointer_to_heap(obj->as.node.u1.node)) {
-		rb_gc_mark(obj->as.node.u1.node);
+		rb_gc_mark((VALUE)obj->as.node.u1.node);
 	    }
 	    if (is_pointer_to_heap(obj->as.node.u2.node)) {
-		rb_gc_mark(obj->as.node.u2.node);
+		rb_gc_mark((VALUE)obj->as.node.u2.node);
 	    }
 	    if (is_pointer_to_heap(obj->as.node.u3.node)) {
 		obj = RANY(obj->as.node.u3.node);
@@ -681,9 +723,9 @@ rb_gc_mark(ptr)
 	break;
 
       default:
-	rb_bug("rb_gc_mark(): unknown data type 0x%x(0x%x) %s",
-	       obj->as.basic.flags & T_MASK, obj,
-	       is_pointer_to_heap(obj)?"corrupted object":"non object");
+	rb_bug("rb_gc_mark(): unknown data type 0x%lx(0x%lx) %s",
+	       obj->as.basic.flags & T_MASK, (unsigned long)obj,
+	       is_pointer_to_heap(obj) ? "corrupted object" : "non object");
     }
 }
 
@@ -696,17 +738,21 @@ gc_sweep()
     int freed = 0;
     int i, used = heaps_used;
 
-    if (ruby_in_compile) {
-	/* should not reclaim nodes during compilation */
+    if (ruby_in_compile && ruby_parser_stack_on_heap()) {
+	/* should not reclaim nodes during compilation
+           if yacc's semantic stack is not allocated on machine stack */
 	for (i = 0; i < used; i++) {
 	    p = heaps[i]; pend = p + heaps_limits[i];
 	    while (p < pend) {
 		if (!(p->as.basic.flags&FL_MARK) && BUILTIN_TYPE(p) == T_NODE)
-		    rb_gc_mark(p);
+		    rb_gc_mark((VALUE)p);
 		p++;
 	    }
 	}
     }
+
+    mark_source_filename(ruby_sourcefile);
+    st_foreach(source_filenames, sweep_source_filename, 0);
 
     freelist = 0;
     final_list = deferred_final_list;
@@ -876,7 +922,7 @@ obj_free(obj)
 	    break;
 #ifdef C_ALLOCA
 	  case NODE_ALLOCA:
-	    RUBY_CRITICAL(free(RANY(obj)->as.node.u1.value));
+	    RUBY_CRITICAL(free(RANY(obj)->as.node.u1.node));
 	    break;
 #endif
 	}
@@ -995,8 +1041,8 @@ rb_gc()
 	}
     }
     rb_gc_mark(ruby_class);
-    rb_gc_mark(ruby_scope);
-    rb_gc_mark(ruby_dyna_vars);
+    rb_gc_mark((VALUE)ruby_scope);
+    rb_gc_mark((VALUE)ruby_dyna_vars);
     if (finalizer_table) {
 	rb_mark_tbl(finalizer_table);
     }
@@ -1025,6 +1071,8 @@ rb_gc()
     /* mark generic instance variables for special constants */
     rb_mark_generic_ivar_tbl();
 
+    rb_gc_mark_parser();
+
     gc_sweep();
 }
 
@@ -1043,9 +1091,7 @@ Init_stack(addr)
     extern void *_SEND;
     rb_gc_stack_start = _SEND;
 #else
-    VALUE start;
-
-    if (!addr) addr = &start;
+    if (!addr) addr = (VALUE *)&addr;
     rb_gc_stack_start = addr;
 #endif
 }
@@ -1316,11 +1362,11 @@ id2ref(obj, id)
     }
 
     ptr = id ^ FIXNUM_FLAG;	/* unset FIXNUM_FLAG */
-    if (!is_pointer_to_heap(ptr)) {
-	rb_raise(rb_eRangeError, "0x%x is not id value", p0);
+    if (!is_pointer_to_heap((void *)ptr)) {
+	rb_raise(rb_eRangeError, "0x%lx is not id value", p0);
     }
     if (BUILTIN_TYPE(ptr) == 0) {
-	rb_raise(rb_eRangeError, "0x%x is recycled object", p0);
+	rb_raise(rb_eRangeError, "0x%lx is recycled object", p0);
     }
     return (VALUE)ptr;
 }
@@ -1353,4 +1399,6 @@ Init_GC()
     rb_global_variable(&finalizers);
     rb_gc_unregister_address(&rb_mObSpace);
     finalizers = rb_ary_new();
+
+    source_filenames = st_init_strtable();
 }

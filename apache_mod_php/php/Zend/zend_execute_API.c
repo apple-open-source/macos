@@ -2,12 +2,12 @@
    +----------------------------------------------------------------------+
    | Zend Engine                                                          |
    +----------------------------------------------------------------------+
-   | Copyright (c) 1998-2001 Zend Technologies Ltd. (http://www.zend.com) |
+   | Copyright (c) 1998-2003 Zend Technologies Ltd. (http://www.zend.com) |
    +----------------------------------------------------------------------+
-   | This source file is subject to version 0.92 of the Zend license,     |
+   | This source file is subject to version 2.00 of the Zend license,     |
    | that is bundled with this package in the file LICENSE, and is        | 
    | available at through the world-wide-web at                           |
-   | http://www.zend.com/license/0_92.txt.                                |
+   | http://www.zend.com/license/2_00.txt.                                |
    | If you did not receive a copy of the Zend license and are unable to  |
    | obtain it through the world-wide-web, please send a note to          |
    | license@zend.com so we can mail you a copy immediately.              |
@@ -28,12 +28,21 @@
 #include "zend_ptr_stack.h"
 #include "zend_constants.h"
 #include "zend_extensions.h"
+#include "zend_execute_globals.h"
 #ifdef HAVE_SYS_TIME_H
 #include <sys/time.h>
 #endif
 
 
 ZEND_API void (*zend_execute)(zend_op_array *op_array TSRMLS_DC);
+ZEND_API void (*zend_execute_internal)(zend_execute_data *execute_data_ptr, int return_value_used TSRMLS_DC);
+
+ZEND_API void execute_internal(zend_execute_data *execute_data_ptr, int return_value_used TSRMLS_DC) 
+{
+	((zend_internal_function *) execute_data_ptr->function_state.function)->handler(execute_data_ptr->opline->extended_value, execute_data_ptr->Ts[execute_data_ptr->opline->result.u.var].var.ptr, execute_data_ptr->object.ptr, return_value_used TSRMLS_CC);
+}
+
+
 
 #ifdef ZEND_WIN32
 #include <process.h>
@@ -113,6 +122,8 @@ static int is_not_internal_class(zend_class_entry *ce TSRMLS_DC)
 void init_executor(TSRMLS_D)
 {
 	INIT_ZVAL(EG(uninitialized_zval));
+    /* trick to make uninitialized_zval never be modified, passed by ref, etc. */
+	EG(uninitialized_zval).refcount++;
 	INIT_ZVAL(EG(error_zval));
 	EG(uninitialized_zval_ptr)=&EG(uninitialized_zval);
 	EG(error_zval_ptr)=&EG(error_zval);
@@ -147,14 +158,16 @@ void init_executor(TSRMLS_D)
 
 	EG(user_error_handler) = NULL;
 
-	zend_ptr_stack_init(&EG(user_error_handlers));
+	EG(current_execute_data) = NULL;
 
-	EG(orig_error_reporting) = EG(error_reporting);
+	zend_ptr_stack_init(&EG(user_error_handlers));
 
 	EG(full_tables_cleanup) = 0;
 #ifdef ZEND_WIN32
 	EG(timed_out) = 0;
 #endif
+
+	EG(float_separator)[0] = '.';
 }
 
 
@@ -190,13 +203,16 @@ void shutdown_executor(TSRMLS_D)
 		}
 	} zend_end_try();
 
-	/* The regular list must be destroyed after the main symbol table and
-	 * op arrays are destroyed.
+	zend_try {
+		clean_non_persistent_constants(TSRMLS_C);
+	} zend_end_try();
+
+	/* The regular list must be destroyed after the main symbol table,
+	 * op arrays, and constants are destroyed.
 	 */
 	zend_destroy_rsrc_list(&EG(regular_list) TSRMLS_CC);
 
 	zend_try {
-		clean_non_persistent_constants(TSRMLS_C);
 #if ZEND_DEBUG
 	signal(SIGSEGV, original_sigsegv_handler);
 #endif
@@ -210,14 +226,15 @@ void shutdown_executor(TSRMLS_D)
 
 		zend_ptr_stack_clean(&EG(user_error_handlers), ZVAL_DESTRUCTOR, 1);
 		zend_ptr_stack_destroy(&EG(user_error_handlers));
-
-		EG(error_reporting) = EG(orig_error_reporting);
 	} zend_end_try();
 }
 
 
 ZEND_API char *get_active_function_name(TSRMLS_D)
 {
+	if (!zend_is_executing(TSRMLS_C)) {
+		return NULL;
+	}
 	switch(EG(function_state_ptr)->function->type) {
 		case ZEND_USER_FUNCTION: {
 				char *function_name = ((zend_op_array *) EG(function_state_ptr)->function)->function_name;
@@ -342,6 +359,16 @@ ZEND_API int zval_update_constant(zval **pp, void *arg TSRMLS_DC)
 				zend_hash_move_forward(p->value.ht);
 				continue;
 			}
+
+			if(const_value.type == IS_STRING &&
+			   const_value.value.str.len == str_index_len-1 &&
+			   !strncmp(const_value.value.str.val, str_index, str_index_len)) {
+				/* constant value is the same as its name */
+				zval_dtor(&const_value);
+				zend_hash_move_forward(p->value.ht);
+				continue;
+			}
+
 			switch (const_value.type) {
 				case IS_STRING:
 					zend_hash_update(p->value.ht, const_value.value.str.val, const_value.value.str.len+1, element, sizeof(zval *), NULL);
@@ -353,6 +380,7 @@ ZEND_API int zval_update_constant(zval **pp, void *arg TSRMLS_DC)
 					break;
 			}
 			zend_hash_del(p->value.ht, str_index, str_index_len);
+			zval_dtor(&const_value);
 		}
 		zend_hash_apply_with_argument(p->value.ht, (apply_func_arg_t) zval_update_constant, (void *) 1 TSRMLS_CC);
 	}
@@ -386,7 +414,6 @@ int call_user_function_ex(HashTable *function_table, zval **object_pp, zval *fun
 	int i;
 	zval **original_return_value;
 	HashTable *calling_symbol_table;
-	zend_function_state function_state;
 	zend_function_state *original_function_state_ptr;
 	zend_op_array *original_op_array;
 	zend_op **original_opline_ptr;
@@ -394,6 +421,16 @@ int call_user_function_ex(HashTable *function_table, zval **object_pp, zval *fun
 	int (*orig_unary_op)(zval *result, zval *op1);
 	int (*orig_binary_op)(zval *result, zval *op1, zval *op2 TSRMLS_DC);
 	zval function_name_copy;
+
+	zend_execute_data execute_data;
+
+	/* Initialize execute_data */
+	EX(fbc) = NULL;
+	EX(object).ptr = NULL;
+	EX(ce) = NULL;
+	EX(Ts) = NULL;
+	EX(op_array) = NULL;
+	EX(opline) = NULL;
 
 	*retval_ptr_ptr = NULL;
 
@@ -418,6 +455,7 @@ int call_user_function_ex(HashTable *function_table, zval **object_pp, zval *fun
 	if (object_pp) {
 		if (Z_TYPE_PP(object_pp) == IS_OBJECT) {
 			function_table = &(*object_pp)->value.obj.ce->function_table;
+			EX(object).ptr = *object_pp;
 		} else if (Z_TYPE_PP(object_pp) == IS_STRING) {
 			zend_class_entry *ce;
 			char *lc_class;
@@ -431,6 +469,7 @@ int call_user_function_ex(HashTable *function_table, zval **object_pp, zval *fun
 				return FAILURE;
 
 			function_table = &ce->function_table;
+			EX(ce) = ce;
 			object_pp = NULL;
 		} else
 			return FAILURE;
@@ -445,7 +484,7 @@ int call_user_function_ex(HashTable *function_table, zval **object_pp, zval *fun
 	zend_str_tolower(function_name_copy.value.str.val, function_name_copy.value.str.len);
 
 	original_function_state_ptr = EG(function_state_ptr);
-	if (zend_hash_find(function_table, function_name_copy.value.str.val, function_name_copy.value.str.len+1, (void **) &function_state.function)==FAILURE) {
+	if (zend_hash_find(function_table, function_name_copy.value.str.val, function_name_copy.value.str.len+1, (void **) &EX(function_state).function)==FAILURE) {
 		zval_dtor(&function_name_copy);
 		return FAILURE;
 	}
@@ -454,9 +493,9 @@ int call_user_function_ex(HashTable *function_table, zval **object_pp, zval *fun
 	for (i=0; i<param_count; i++) {
 		zval *param;
 
-		if (function_state.function->common.arg_types
-			&& i<function_state.function->common.arg_types[0]
-			&& function_state.function->common.arg_types[i+1]==BYREF_FORCE
+		if (EX(function_state).function->common.arg_types
+			&& i<EX(function_state).function->common.arg_types[0]
+			&& EX(function_state).function->common.arg_types[i+1]==BYREF_FORCE
 			&& !PZVAL_IS_REF(*params[i])) {
 			if ((*params[i])->refcount>1) {
 				zval *new_zval;
@@ -487,9 +526,12 @@ int call_user_function_ex(HashTable *function_table, zval **object_pp, zval *fun
 
 	zend_ptr_stack_n_push(&EG(argument_stack), 2, (void *) (long) param_count, NULL);
 
-	EG(function_state_ptr) = &function_state;
+	EG(function_state_ptr) = &EX(function_state);
 
-	if (function_state.function->type == ZEND_USER_FUNCTION) {
+	EX(prev_execute_data) = EG(current_execute_data);
+	EG(current_execute_data) = &execute_data;
+
+	if (EX(function_state).function->type == ZEND_USER_FUNCTION) {
 		calling_symbol_table = EG(active_symbol_table);
 		if (symbol_table) {
 			EG(active_symbol_table) = symbol_table;
@@ -508,7 +550,7 @@ int call_user_function_ex(HashTable *function_table, zval **object_pp, zval *fun
 		original_return_value = EG(return_value_ptr_ptr);
 		original_op_array = EG(active_op_array);
 		EG(return_value_ptr_ptr) = retval_ptr_ptr;
-		EG(active_op_array) = (zend_op_array *) function_state.function;
+		EG(active_op_array) = (zend_op_array *) EX(function_state).function;
 		original_opline_ptr = EG(opline_ptr);
 		orig_free_op1 = EG(free_op1);
 		orig_free_op2 = EG(free_op2);
@@ -528,12 +570,27 @@ int call_user_function_ex(HashTable *function_table, zval **object_pp, zval *fun
 		EG(unary_op) = orig_unary_op;
 		EG(binary_op) = orig_binary_op;
 	} else {
+		zend_op temp_op;
 		ALLOC_INIT_ZVAL(*retval_ptr_ptr);
-		((zend_internal_function *) function_state.function)->handler(param_count, *retval_ptr_ptr, (object_pp?*object_pp:NULL), 1 TSRMLS_CC);
+		temp_op.extended_value = param_count;
+		temp_op.result.u.var = 0;
+		temp_op.lineno = 0;
+
+		EX(opline) = &temp_op;
+		EX(Ts) = (temp_variable *) do_alloca(sizeof(temp_variable)*1);
+		EX(Ts)[EX(opline)->result.u.var].var.ptr = *retval_ptr_ptr;
+
+		if (!zend_execute_internal) {
+			((zend_internal_function *) EX(function_state).function)->handler(EX(opline)->extended_value, EX(Ts)[EX(opline)->result.u.var].var.ptr, EX(object).ptr, 1 TSRMLS_CC);
+		} else {
+			zend_execute_internal(&execute_data, 1 TSRMLS_CC);
+		}
 		INIT_PZVAL(*retval_ptr_ptr);
+		free_alloca(EX(Ts));
 	}
 	zend_ptr_stack_clear_multiple(TSRMLS_C);
 	EG(function_state_ptr) = original_function_state_ptr;
+	EG(current_execute_data) = EX(prev_execute_data);
 
 	return SUCCESS;
 }
@@ -660,9 +717,10 @@ ZEND_API void zend_timeout(int dummy)
 {
 	TSRMLS_FETCH();
 
-	/* is there any point in this?  we're terminating the request anyway...
-	PG(connection_status) |= PHP_CONNECTION_TIMEOUT;
-	*/
+	if (zend_on_timeout) {
+		zend_on_timeout(EG(timeout_seconds) TSRMLS_CC);
+	}
+
 	zend_error(E_ERROR, "Maximum execution time of %d second%s exceeded",
 			  EG(timeout_seconds), EG(timeout_seconds) == 1 ? "" : "s");
 }

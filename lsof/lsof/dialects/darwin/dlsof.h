@@ -31,7 +31,7 @@
 
 
 /*
- * $Id: dlsof.h,v 1.4 2001/02/13 13:50:58 abe Exp $
+ * $Id: dlsof.h,v 1.6 2002/10/08 20:16:56 abe Exp $
  */
 
 
@@ -46,7 +46,6 @@
 #include <string.h>
 #include <sys/conf.h>
 #include <sys/filedesc.h>
-#include <sys/mbuf.h>
 #include <sys/ucred.h>
 #define m_stat	mnt_stat
 #define	KERNEL
@@ -58,24 +57,27 @@
 #include <sys/socketvar.h>
 #include <sys/un.h>
 #include <sys/unpcb.h>
-#ifdef	AF_NDRV
+
+# if	defined(AF_NDRV)
 #include <net/if_var.h>
-#define KERNEL
+#define	KERNEL
 #include <sys/kern_event.h>
-#undef  KERNEL
+#undef	KERNEL
 #include <net/ndrv.h>
-#if	DARWINV>=530
-#define KERNEL	1
+#  if	DARWINV>=530
+#define	KERNEL        1
 #include <net/ndrv_var.h>
 #undef  KERNEL
-#endif	/* DARWINV>=530 */
-#endif
-#ifdef	AF_SYSTEM
+#  endif	/* DARWINV>=530 */
+# endif	/* defined(AF_NDRV) */
+
+# if	defined(AF_SYSTEM)
 #include <sys/queue.h>
 #define	KERNEL
 #include <sys/kern_event.h>
 #undef	KERNEL
-#endif
+# endif	/* defined(AF_SYSTEM) */
+
 #include <netinet/in.h>
 #include <netinet/in_systm.h>
 #include <netinet/ip.h>
@@ -104,16 +106,14 @@
 #include <nfs/nfsproto.h>
 #include <nfs/nfsnode.h>
 
-#if	DARWINV<600
+# if	DARWINV<600
 #include <hfs/hfs.h>
 #undef	offsetof
-#else
+# else	/* DARWINV>=600 */
 #define	KERNEL
 #include <hfs/hfs_cnode.h>
 #undef	KERNEL
-#endif	/* DARWINV<600 */
-
-#include <sys/namei.h>
+# endif        /* DARWINV<600 */
 
 #define	time	t1		/* hack to make dn_times() happy */
 #include <miscfs/devfs/devfsdefs.h>
@@ -160,9 +160,9 @@ struct vop_advlock_args { int dummy; };	/* to pacify lf_advlock() prototype */
  *  This work-around was supplied by John Polstra <jdp@polstra.com>.
  */
 
-#if	defined(MAP_ENTRY_IS_SUB_MAP) && !defined(MAP_ENTRY_IS_A_MAP)
+# if	defined(MAP_ENTRY_IS_SUB_MAP) && !defined(MAP_ENTRY_IS_A_MAP)
 #define MAP_ENTRY_IS_A_MAP	0
-#endif	/* defined(MAP_ENTRY_IS_SUB_MAP) && !defined(MAP_ENTRY_IS_A_MAP) */
+# endif	/* defined(MAP_ENTRY_IS_SUB_MAP) && !defined(MAP_ENTRY_IS_A_MAP) */
 
 #undef	B_NEEDCOMMIT
 #include <sys/buf.h>
@@ -186,6 +186,7 @@ typedef	u_long		KA_T;
 #define STRNCPY_L	size_t
 #define SWAP		"/dev/drum"
 
+#define LOGINML		MAXLOGNAME
 
 /*
  * Global storage definitions (including their structure definitions)
@@ -261,10 +262,16 @@ struct sfile {
 #include <sys/uio.h>
 #include <sys/namei.h>
 
+#ifndef offsetof
+#define offsetof(type, member)  ((size_t)(&((type *)0)->member))
+#endif /* offsetof */
+
 #define	NCACHE		namecache	/* kernel's structure name */
 
 #define	NCACHE_NM	nc_name		/* name in NCACHE */
+#  if	DARWINV<700
 #define	NCACHE_NMLEN	nc_nlen		/* name length in NCACHE */
+#  endif	/* DARWINV<700 */
 #define	NCACHE_NXT	nc_hash.le_next	/* link in NCACHE */
 #define	NCACHE_NODEADDR	nc_vp		/* node address in NCACHE */
 #define	NCACHE_PARADDR	nc_dvp		/* parent node address in NCACHE */

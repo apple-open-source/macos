@@ -20,6 +20,7 @@
 // devrandom - RNG operations based on /dev/random
 //
 #include <Security/devrandom.h>
+#include <Security/logging.h>
 
 using namespace UnixPlusPlus;
 
@@ -30,22 +31,15 @@ namespace Security {
 //
 // The common (shared) open file descriptor to /dev/random
 //
-ModuleNexus<FileDesc> DevRandomGenerator::mDevRandom;
+ModuleNexus<DevRandomGenerator::Readonly> DevRandomGenerator::mReader;
+ModuleNexus<DevRandomGenerator::Writable> DevRandomGenerator::mWriter;
 
 
 //
-// DevRandomGenerator objects immediately open their file descriptors
+// In the current implementation, opening the file descriptor is deferred.
 //
 DevRandomGenerator::DevRandomGenerator(bool writable)
 {
-    FileDesc &fd = mDevRandom();
-    if (!fd) {
-        fd.open("/dev/random", writable ? O_RDWR : O_RDONLY);
-    } else if (writable && !fd.isWritable()) {
-        FileDesc newFd("/dev/random", O_RDWR);
-        fd.close();
-        fd = newFd;
-    }
 }
 
 
@@ -54,7 +48,18 @@ DevRandomGenerator::DevRandomGenerator(bool writable)
 //
 void DevRandomGenerator::random(void *data, size_t length)
 {
-    mDevRandom().read(data, length);
+    try {
+		size_t bytesRead = mReader().read(data, length);
+		if (bytesRead != length) {	// short read (shouldn't happen)
+			Syslog::error("DevRandomGenerator: wanted %ld got %ld bytes",
+				length, bytesRead);
+			UnixError::throwMe(EIO);
+		}
+	} catch(const UnixError &uerr) {
+		Syslog::error("DevRandomGenerator: error %d reading /dev/random",
+			uerr.error);
+		throw;
+	}
 }
 
 
@@ -63,7 +68,8 @@ void DevRandomGenerator::random(void *data, size_t length)
 //
 void DevRandomGenerator::addEntropy(const void *data, size_t length)
 {
-    mDevRandom().write(data, length);
+    if (mWriter().write(data, length) != length)
+		UnixError::throwMe(EIO);	// short write (shouldn't happen)
 }
 
 

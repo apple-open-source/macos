@@ -34,8 +34,8 @@ static char sccsid[] = "@(#) try-from.c 1.2 94/12/28 17:42:55";
 
 #include "tcpd.h"
 
-int     allow_severity = ALLOW_SEVERITY;	/* run-time adjustable */
-int     deny_severity = DENY_SEVERITY;		/* ditto */
+int     allow_severity = SEVERITY;	/* run-time adjustable */
+int     deny_severity = LOG_WARNING;	/* ditto */
 
 main(argc, argv)
 int     argc;

@@ -22,23 +22,15 @@
  */
 #ifndef lint
 static const char rcsid[] =
-    "@(#) $Header: /cvs/Darwin/src/live/tcpdump/tcpdump/print-bootp.c,v 1.1.1.2 2002/05/29 00:05:34 landonf Exp $ (LBL)";
+    "@(#) $Header: /cvs/root/tcpdump/tcpdump/print-bootp.c,v 1.1.1.3 2003/03/17 18:42:16 rbraun Exp $ (LBL)";
 #endif
 
 #ifdef HAVE_CONFIG_H
 #include "config.h"
 #endif
 
-#include <sys/param.h>
-#include <sys/time.h>
-#include <sys/socket.h>
+#include <tcpdump-stdinc.h>
 
-struct mbuf;
-struct rtentry;
-
-#include <netinet/in.h>
-
-#include <ctype.h>
 #include <stdio.h>
 #include <string.h>
 
@@ -57,12 +49,16 @@ static char tstr[] = " [|bootp]";
  * Print bootp requests
  */
 void
-bootp_print(register const u_char *cp, u_int length,
-	    u_short sport, u_short dport)
+bootp_print(register const u_char *cp, u_short sport, u_short dport, u_int length)
 {
 	register const struct bootp *bp;
 	static const u_char vm_cmu[4] = VM_CMU;
 	static const u_char vm_rfc1048[4] = VM_RFC1048;
+
+        printf("BOOTP/DHCP, length: %u",length);
+
+        if (!vflag)
+            return;
 
 	bp = (const struct bootp *)cp;
 	TCHECK(bp->bp_op);
@@ -70,80 +66,70 @@ bootp_print(register const u_char *cp, u_int length,
 
 	case BOOTREQUEST:
 		/* Usually, a request goes from a client to a server */
-		if (sport != IPPORT_BOOTPC || dport != IPPORT_BOOTPS)
-			printf(" (request)");
+		if (sport == IPPORT_BOOTPC && dport == IPPORT_BOOTPS)
+			printf("\n\tRequest");
 		break;
 
 	case BOOTREPLY:
 		/* Usually, a reply goes from a server to a client */
-		if (sport != IPPORT_BOOTPS || dport != IPPORT_BOOTPC)
-			printf(" (reply)");
+		if (sport == IPPORT_BOOTPS && dport == IPPORT_BOOTPC)
+			printf("\n\tReply");
 		break;
 
 	default:
-		printf(" bootp-#%d", bp->bp_op);
+		printf("\n\tbootp-#%d", bp->bp_op);
+                break;
 	}
 
 	TCHECK(bp->bp_secs);
 
 	/* The usual hardware address type is 1 (10Mb Ethernet) */
 	if (bp->bp_htype != 1)
-		printf(" htype-#%d", bp->bp_htype);
+		printf(", htype-#%d", bp->bp_htype);
 
 	/* The usual length for 10Mb Ethernet address is 6 bytes */
 	if (bp->bp_htype != 1 || bp->bp_hlen != 6)
-		printf(" hlen:%d", bp->bp_hlen);
+		printf(", hlen:%d", bp->bp_hlen);
 
 	/* Only print interesting fields */
 	if (bp->bp_hops)
-		printf(" hops:%d", bp->bp_hops);
+		printf(", hops:%d", bp->bp_hops);
 	if (bp->bp_xid)
-		printf(" xid:0x%x", (u_int32_t)ntohl(bp->bp_xid));
+		printf(", xid:0x%x", EXTRACT_32BITS(&bp->bp_xid));
 	if (bp->bp_secs)
-		printf(" secs:%d", ntohs(bp->bp_secs));
+		printf(", secs:%d", EXTRACT_16BITS(&bp->bp_secs));
 	if (bp->bp_flags)
-		printf(" flags:0x%x", ntohs(bp->bp_flags));
+		printf(", flags:0x%x", EXTRACT_16BITS(&bp->bp_flags));
 
 	/* Client's ip address */
 	TCHECK(bp->bp_ciaddr);
 	if (bp->bp_ciaddr.s_addr)
-		printf(" C:%s", ipaddr_string(&bp->bp_ciaddr));
+		printf("\n\t  Client IP: %s", ipaddr_string(&bp->bp_ciaddr));
 
 	/* 'your' ip address (bootp client) */
 	TCHECK(bp->bp_yiaddr);
 	if (bp->bp_yiaddr.s_addr)
-		printf(" Y:%s", ipaddr_string(&bp->bp_yiaddr));
+		printf("\n\t  Your IP: %s", ipaddr_string(&bp->bp_yiaddr));
 
 	/* Server's ip address */
 	TCHECK(bp->bp_siaddr);
 	if (bp->bp_siaddr.s_addr)
-		printf(" S:%s", ipaddr_string(&bp->bp_siaddr));
+		printf("\n\t  Server IP: %s", ipaddr_string(&bp->bp_siaddr));
 
 	/* Gateway's ip address */
 	TCHECK(bp->bp_giaddr);
 	if (bp->bp_giaddr.s_addr)
-		printf(" G:%s", ipaddr_string(&bp->bp_giaddr));
+		printf("\n\t  Gateway IP: %s", ipaddr_string(&bp->bp_giaddr));
 
 	/* Client's Ethernet address */
 	if (bp->bp_htype == 1 && bp->bp_hlen == 6) {
-		register const struct ether_header *eh;
-		register const char *e;
-
 		TCHECK2(bp->bp_chaddr[0], 6);
-		eh = (const struct ether_header *)packetp;
-		if (bp->bp_op == BOOTREQUEST)
-			e = (const char *)ESRC(eh);
-		else if (bp->bp_op == BOOTREPLY)
-			e = (const char *)EDST(eh);
-		else
-			e = 0;
-		if (e == 0 || memcmp((const char *)bp->bp_chaddr, e, 6) != 0)
-			printf(" ether %s", etheraddr_string(bp->bp_chaddr));
+		printf("\n\t  Client Ethernet Address: %s", etheraddr_string(bp->bp_chaddr));
 	}
 
 	TCHECK2(bp->bp_sname[0], 1);		/* check first char only */
 	if (*bp->bp_sname) {
-		printf(" sname \"");
+		printf("\n\t  sname \"");
 		if (fn_print(bp->bp_sname, snapend)) {
 			putchar('"');
 			fputs(tstr + 1, stdout);
@@ -153,7 +139,7 @@ bootp_print(register const u_char *cp, u_int length,
 	}
 	TCHECK2(bp->bp_sname[0], 1);		/* check first char only */
 	if (*bp->bp_file) {
-		printf(" file \"");
+		printf("\n\t  file \"");
 		if (fn_print(bp->bp_file, snapend)) {
 			putchar('"');
 			fputs(tstr + 1, stdout);
@@ -175,7 +161,7 @@ bootp_print(register const u_char *cp, u_int length,
 
 		ul = EXTRACT_32BITS(&bp->bp_vend);
 		if (ul != 0)
-			printf("vend-#0x%x", ul);
+			printf("\n\t  Vendor-#0x%x", ul);
 	}
 
 	return;
@@ -287,7 +273,7 @@ static struct tok tag2str[] = {
 	{ TAG_NS_SEARCH,	"sNSSEARCH" },	/* XXX 's' */
 /* RFC 3011 */
 	{ TAG_IP4_SUBNET_SELECT, "iSUBNET" },
-/* ftp://ftp.isi.edu/.../assignments/bootp-dhcp-extensions */
+/* http://www.iana.org/assignments/bootp-dhcp-extensions/index.htm */
 	{ TAG_USER_CLASS,	"aCLASS" },
 	{ TAG_SLP_NAMING_AUTH,	"aSLP-NA" },
 	{ TAG_CLIENT_FQDN,	"$FQDN" },
@@ -349,15 +335,16 @@ static struct tok arp2str[] = {
 static void
 rfc1048_print(register const u_char *bp)
 {
-	register u_char tag;
+	register u_int16_t tag;
 	register u_int len, size;
 	register const char *cp;
 	register char c;
 	int first;
 	u_int32_t ul;
-	u_short us;
+	u_int16_t us;
+	u_int8_t uc;
 
-	printf(" vend-rfc1048");
+	printf("\n\t  Vendor-rfc1048:");
 
 	/* Step over magic cookie */
 	bp += sizeof(int32_t);
@@ -376,11 +363,11 @@ rfc1048_print(register const u_char *bp)
 			 * preclude overlap of 1-byte and 2-byte spaces.
 			 * If not, we need to offset tag after this step.
 			 */
-			cp = tok2str(xtag2str, "?xT%d", tag);
+			cp = tok2str(xtag2str, "?xT%u", tag);
 		} else
-			cp = tok2str(tag2str, "?T%d", tag);
+			cp = tok2str(tag2str, "?T%u", tag);
 		c = *cp++;
-		printf(" %s:", cp);
+		printf("\n\t    %s:", cp);
 
 		/* Get the length; check for truncation */
 		if (bp + 1 >= snapend) {
@@ -389,13 +376,13 @@ rfc1048_print(register const u_char *bp)
 		}
 		len = *bp++;
 		if (bp + len >= snapend) {
-			fputs(tstr, stdout);
+			printf("[|bootp %u]", len);
 			return;
 		}
 
 		if (tag == TAG_DHCP_MESSAGE && len == 1) {
-			c = *bp++;
-			switch (c) {
+			uc = *bp++;
+			switch (uc) {
 			case DHCPDISCOVER:	printf("DISCOVER");	break;
 			case DHCPOFFER:		printf("OFFER");	break;
 			case DHCPREQUEST:	printf("REQUEST");	break;
@@ -404,7 +391,7 @@ rfc1048_print(register const u_char *bp)
 			case DHCPNAK:		printf("NACK");		break;
 			case DHCPRELEASE:	printf("RELEASE");	break;
 			case DHCPINFORM:	printf("INFORM");	break;
-			default:		printf("%u", c);	break;
+			default:		printf("%u", uc);	break;
 			}
 			continue;
 		}
@@ -412,8 +399,8 @@ rfc1048_print(register const u_char *bp)
 		if (tag == TAG_PARM_REQUEST) {
 			first = 1;
 			while (len-- > 0) {
-				c = *bp++;
-				cp = tok2str(tag2str, "?T%d", c);
+				uc = *bp++;
+				cp = tok2str(tag2str, "?T%u", uc);
 				if (!first)
 					putchar('+');
 				printf("%s", cp + 1);
@@ -425,9 +412,9 @@ rfc1048_print(register const u_char *bp)
 			first = 1;
 			while (len > 1) {
 				len -= 2;
-				c = EXTRACT_16BITS(bp);
+				us = EXTRACT_16BITS(bp);
 				bp += 2;
-				cp = tok2str(xtag2str, "?xT%d", c);
+				cp = tok2str(xtag2str, "?xT%u", us);
 				if (!first)
 					putchar('+');
 				printf("%s", cp + 1);
@@ -502,7 +489,7 @@ rfc1048_print(register const u_char *bp)
 				if (!first)
 					putchar(',');
 				us = EXTRACT_16BITS(bp);
-				printf("%d", us);
+				printf("%u", us);
 				bp += sizeof(us);
 				size -= sizeof(us);
 				first = 0;
@@ -522,7 +509,7 @@ rfc1048_print(register const u_char *bp)
 					putchar('Y');
 					break;
 				default:
-					printf("%d?", *bp);
+					printf("%u?", *bp);
 					break;
 				}
 				++bp;
@@ -541,7 +528,7 @@ rfc1048_print(register const u_char *bp)
 				if (c == 'x')
 					printf("%02x", *bp);
 				else
-					printf("%d", *bp);
+					printf("%u", *bp);
 				++bp;
 				--size;
 				first = 0;
@@ -568,7 +555,7 @@ rfc1048_print(register const u_char *bp)
 				if (*bp++)
 					printf("[svrreg]");
 				if (*bp)
-					printf("%d/%d/", *bp, *(bp+1));
+					printf("%u/%u/", *bp, *(bp+1));
 				bp += 2;
 				putchar('"');
 				(void)fn_printn(bp, size - 3, NULL);
@@ -582,8 +569,10 @@ rfc1048_print(register const u_char *bp)
 				size--;
 				if (type == 0) {
 					putchar('"');
-					(void)fn_printn(bp, size, NULL);  
+					(void)fn_printn(bp, size, NULL);
 					putchar('"');
+					bp += size;
+					size = 0;
 					break;
 				} else {
 					printf("[%s]", tok2str(arp2str, "type-%d", type));
@@ -600,7 +589,7 @@ rfc1048_print(register const u_char *bp)
 			    }
 
 			default:
-				printf("[unknown special tag %d, size %d]",
+				printf("[unknown special tag %u, size %u]",
 				    tag, size);
 				bp += size;
 				size = 0;
@@ -609,8 +598,10 @@ rfc1048_print(register const u_char *bp)
 			break;
 		}
 		/* Data left over? */
-		if (size)
-			printf("[len %d]", len);
+		if (size) {
+			printf("[len %u]", len);
+			bp += size;
+		}
 	}
 	return;
 trunc:

@@ -1,0 +1,70 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mbean PUBLIC
+   "-//JBoss//DTD JBOSS XMBEAN 1.0//EN"
+   "http://www.jboss.org/j2ee/dtd/jboss_xmbean_1_0.dtd"
+[
+   <!ATTLIST interceptor proxyName CDATA #IMPLIED>
+]>
+
+<mbean>
+   <description>A deployment of the standard JBoss JNDI naming servr
+      that employs custom interceptors to add security and persistence
+   </description>
+
+   <descriptors>
+      <interceptors>
+         <interceptor code="org.jboss.test.naming.interceptors.ProxyFactoryInterceptor"
+            proxyName="naming/ReadOnlyNaming"/>
+         <interceptor code="org.jboss.mx.interceptor.PersistenceInterceptor2" />
+         <interceptor code="org.jboss.mx.interceptor.ModelMBeanInterceptor" />
+         <interceptor code="org.jboss.mx.interceptor.ObjectReferenceInterceptor" />
+      </interceptors>
+   </descriptors>
+
+   <class>org.jboss.naming.NamingService</class>
+
+   <constructor>
+      <description>The default constructor</description>
+      <name>NamingService</name>
+   </constructor>
+   
+
+   <attribute access="read-only" getMethod="getMethodMap">
+      <name>MethodMap</name>
+      <type>java.util.Map</type>
+   </attribute>
+   <attribute access="read-write" getMethod="getPort" setMethod="setPort">
+      <name>Port</name>
+      <type>int</type>
+   </attribute>
+   <attribute access="read-write" getMethod="getInstallGlobalService"
+      setMethod="setInstallGlobalService">
+      <name>InstallGlobalService</name>
+      <type>boolean</type>
+   </attribute>
+
+   <!-- Operations -->
+   <operation>
+      <description>The start lifecycle operation</description>
+      <name>start</name>
+   </operation>
+   <operation>
+      <description>The stop lifecycle operation</description>
+      <name>stop</name>
+   </operation>
+
+   <operation>
+      <description>The generic invocation operation used by detached invokers
+         to route requests to the service
+      </description>
+      <name>invoke</name>
+      <parameter>
+         <description>The Naming interface method invocation encapsulation
+         </description>
+         <name>invocation</name>
+         <type>org.jboss.invocation.Invocation</type>
+      </parameter>
+      <return-type>java.lang.Object</return-type>
+   </operation>
+
+</mbean>

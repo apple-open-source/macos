@@ -72,7 +72,7 @@
 /*
  * Wire the cache buffer.
  */
-#define WIRE_BUFFER
+/*#define WIRE_BUFFER*/
 
 /*
  * Ignore the prefetch attribute on playlist entries.
@@ -255,6 +255,7 @@ struct BC_cache_control {
 #define BC_FLAG_PREFETCH	(1<<4)		/* fast prefetch in progress */
 #define BC_FLAG_STARTED		(1<<5)		/* cache started by user */
 	int		c_strategycalls;	/* count of busy strategy calls */
+	int		c_bypasscalls;		/* count of busy strategy bypasses */
 	
 	/*
 	 * The cache buffer contains c_buffer_count blocks of disk data.
@@ -848,6 +849,14 @@ BC_strategy_bypass(struct buf *bp)
 	int isread;
 	assert(bp != NULL);
 
+	/*
+	 * Since the strategy routine may drop the funnel, we need
+	 * to protect ourselves from being unloaded so that the return
+	 * address is still valid.  This is protected by the kernel
+	 * funnel.
+	 */
+	BC_cache->c_bypasscalls++;
+
 	/* if here, and it's a read, we missed the cache */
 	if (ISSET(bp->b_flags, B_READ)) {
 		BC_add_history(CB_BLOCK_TO_BYTE(BC_cache, bp->b_blkno), bp->b_bcount, BC_HE_MISS);
@@ -900,6 +909,9 @@ BC_strategy_bypass(struct buf *bp)
 			}
 		}
 	}
+	
+	/* un-refcount ourselves */
+	BC_cache->c_bypasscalls--;
 }
 
 /*
@@ -936,7 +948,7 @@ BC_strategy(struct buf *bp)
 	}
 	
 	/*
-	 * In order to prevent the cleanup code from raacing with us
+	 * In order to prevent the cleanup code from racing with us
 	 * when we sleep, we track the number of strategy calls active.
 	 * This value is protected by the kernel funnel, and must be
 	 * incremented here before we have a chance to sleep and
@@ -1078,6 +1090,7 @@ BC_strategy(struct buf *bp)
 		if (bp->b_data == NULL) {
 			ubc_upl_unmap((upl_t)bp->b_pagelist);	/* ignore result */
 		}
+		BC_cache->c_stats.ss_strategy_stolen++;
 		goto bypass;
 	}
 	
@@ -1187,6 +1200,7 @@ BC_terminate_readahead(void)
 	 * on them, so we don't have to worry about them here.
 	 */
 	if (BC_cache->c_flags & BC_FLAG_IOBUSY) {
+		debug("terminating active readahead");
 
 		/*
 		 * Signal the readahead thread to terminate, and wait for
@@ -1255,6 +1269,7 @@ BC_terminate_cache(void)
 		return(ENXIO);
 	}
 	BC_cache->c_flags &= ~BC_FLAG_CACHEACTIVE;
+	debug("terminating cache...");
 
 	/*
 	 * It is possible that one or more callers are asleep in the
@@ -1314,10 +1329,34 @@ BC_terminate_cache(void)
 static int
 BC_terminate_history(void)
 {
+	int retry;
+
+	debug("terminating history collection...");
 	/* disconnect the strategy routine */
 	if ((BC_cache->c_devsw != NULL) &&
 	    (BC_cache->c_strategy != NULL))
 		BC_cache->c_devsw->d_strategy = BC_cache->c_strategy;
+
+	/*
+	 * It is possible that one or more callers are asleep in the
+	 * real strategy routine (as it may drop the funnel).  Check
+	 * the count of callers in the bypass code, and sleep until
+	 * there are none left (or we time out here).  Note that by
+	 * removing ourselves from the bdev switch above we prevent
+	 * any new callers from entering the bypass code, so the count
+	 * must eventually drain to zero.
+	 */
+	retry = 0;
+	while (BC_cache->c_bypasscalls > 0) {
+		tsleep(BC_cache, PRIBIO, "BC_terminate_history", hz / 10);
+		if (retry++ > 50) {
+			debug("could not terminate history, timed out with %d caller%s in BC_strategy_bypass",
+			    BC_cache->c_bypasscalls,
+			    BC_cache->c_bypasscalls == 1 ? "" : "s");
+
+			return(EBUSY);	/* again really EWEDGED */
+		}
+	}
 
 	/* record stop time */
 	microtime(&BC_cache->c_stats.ss_cache_stop);
@@ -1457,7 +1496,7 @@ BC_copyin_playlist(size_t length, void *uptr)
 	BC_cache->c_buffer_blocks = CB_BYTE_TO_BLOCK(BC_cache, size);
 	BC_cache->c_buffer_pages = CB_BLOCK_TO_PAGE(BC_cache, BC_cache->c_buffer_blocks);
 	if ((BC_cache->c_blockmap =
-		_MALLOC(BC_cache->c_buffer_blocks / CB_MAPFIELDBYTES,
+		_MALLOC(BC_cache->c_buffer_blocks / (CB_MAPFIELDBITS / CB_MAPFIELDBYTES),
 		    M_TEMP, M_WAITOK)) == NULL) {
 		message("can't allocate %d bytes for blockmap",
 		    BC_cache->c_buffer_blocks / CB_MAPFIELDBYTES);
@@ -1465,7 +1504,7 @@ BC_copyin_playlist(size_t length, void *uptr)
 		goto out;
 	}
 	if ((BC_cache->c_pagemap =
-		_MALLOC(BC_cache->c_buffer_pages / CB_MAPFIELDBYTES,
+		_MALLOC(BC_cache->c_buffer_pages / (CB_MAPFIELDBITS / CB_MAPFIELDBYTES),
 		    M_TEMP, M_WAITOK)) == NULL) {
 		message("can't allocate %d bytes for pagemap",
 		    BC_cache->c_buffer_pages / CB_MAPFIELDBYTES);
@@ -1869,11 +1908,11 @@ BC_sysctl SYSCTL_HANDLER_ARGS
 
 	/* get the commande structure and validate */
 	if ((error = SYSCTL_IN(req, &bc, sizeof(bc))) != 0) {
-		message("couldn't get command");
+		debug("couldn't get command");
 		return(error);
 	}
 	if (bc.bc_magic != BC_MAGIC) {
-		message("bad command magic");
+		debug("bad command magic");
 		return(EINVAL);
 	}
 
@@ -1969,7 +2008,6 @@ BC_sysctl SYSCTL_HANDLER_ARGS
 /*
  * Initialise the block of pages we use to back our data.
  *
- * XXX errors here need to clean up.
  */
 static int
 BC_alloc_pagebuffer(size_t size)
@@ -1979,7 +2017,7 @@ BC_alloc_pagebuffer(size_t size)
 	int i;
 
 	BC_cache->c_mapsize = size;
-	
+
 	/*
 	 * Create a VM region object (our private map).
 	 */
@@ -1991,7 +2029,7 @@ BC_alloc_pagebuffer(size_t size)
 		return(ENOMEM);
 	}
 	BC_cache->c_map = convert_port_entry_to_map(BC_cache->c_map_port);
-	
+
 	/*
 	 * Allocate and wire pages into our submap.
 	 */
@@ -2144,14 +2182,6 @@ BC_free_page(int page)
 	    BC_cache->c_mapbase + (page * PAGE_SIZE),	/* offset */
 	    PAGE_SIZE);					/* length */
 
-	pmap_remove(kernel_pmap, 
-	    BC_cache->c_mapbase 
-	    + (page * PAGE_SIZE) 
-	    + BC_cache->c_buffer, 
-	    BC_cache->c_mapbase
-	    + ((page+1) * PAGE_SIZE) 
-	    + BC_cache->c_buffer);
-
 	/*
 	 * Push the page completely out of the object.
 	 */
@@ -2161,7 +2191,6 @@ BC_free_page(int page)
 		UPL_POP_DUMP,				/* operation */
 		NULL,					/* phys_entry */
 		NULL);					/* flags */
-	
 }
 
 /*
@@ -2188,12 +2217,35 @@ BC_start(void)
 int
 BC_stop(void)
 {
-	/* prevent unload if the cache is active or owns any memory */
-	if ((BC_cache->c_flags & BC_FLAG_CACHEACTIVE) ||
-	    (BC_cache->c_history != NULL))
-		return(1);
-	
-	sysctl_unregister_oid(&sysctl__kern_BootCache);
+	boolean_t funnel_state;
+	int error;
 
-	return(0);
+	/* we run under the kernel funnel */
+	error = 1;
+	funnel_state = thread_funnel_set(kernel_flock, TRUE);
+
+	debug("preparing to unload...");
+	/*
+	 * Kill the timeout handler; we don't want it going off
+	 * now.
+	 */
+	untimeout(BC_timeout_cache, NULL);
+		
+	/*
+	 * If the cache is running, stop it.  If it's already stopped
+	 * (it may have stopped itself), that's OK.
+	 */
+	if (BC_terminate_readahead())
+		goto out;
+	BC_terminate_cache();
+	BC_terminate_history();
+	BC_discard_history();
+	BC_cache->c_flags = 0;
+
+	sysctl_unregister_oid(&sysctl__kern_BootCache);
+	error = 0;
+
+out:
+	(void) thread_funnel_set(kernel_flock, funnel_state);
+	return(error);
 }

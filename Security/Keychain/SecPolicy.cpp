@@ -16,13 +16,9 @@
  */
 
 #include <Security/SecPolicy.h>
+#include <Security/SecPolicyPriv.h>
+#include <Security/Policies.h>
 #include "SecBridge.h"
-
-
-static inline Policy *Required(SecPolicyRef policyRef)
-{
-    return gTypes().policy.required(policyRef);
-}
 
 
 //
@@ -32,7 +28,7 @@ CFTypeID
 SecPolicyGetTypeID(void)
 {
 	BEGIN_SECAPI
-	return gTypes().policy.typeId;
+	return gTypes().Policy.typeID;
 	END_SECAPI1(_kCFRuntimeNotATypeID)
 }
 
@@ -44,7 +40,7 @@ OSStatus
 SecPolicyGetOID(SecPolicyRef policyRef, CSSM_OID* oid)
 {
     BEGIN_SECAPI
-    Required(oid) = Required(policyRef)->oid();
+    Required(oid) = Policy::required(policyRef)->oid();
 	END_SECAPI
 }
 
@@ -53,7 +49,15 @@ OSStatus
 SecPolicyGetValue(SecPolicyRef policyRef, CSSM_DATA* value)
 {
     BEGIN_SECAPI
-    Required(value) = Required(policyRef)->value();
+    Required(value) = Policy::required(policyRef)->value();
+	END_SECAPI
+}
+
+OSStatus
+SecPolicySetValue(SecPolicyRef policyRef, const CSSM_DATA *value)
+{
+	BEGIN_SECAPI
+	Policy::required(policyRef)->value() = value ? (*value) : CssmData();
 	END_SECAPI
 }
 
@@ -62,6 +66,6 @@ OSStatus
 SecPolicyGetTPHandle(SecPolicyRef policyRef, CSSM_TP_HANDLE* tpHandle)
 {
     BEGIN_SECAPI
-    Required(tpHandle) = Required(policyRef)->tp()->handle();
+    Required(tpHandle) = Policy::required(policyRef)->tp()->handle();
 	END_SECAPI
 }

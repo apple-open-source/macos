@@ -22,15 +22,16 @@
 
 #include "AppleX509CLSession.h"
 #include "DecodedCert.h"
-#include "SnaccUtils.h"
+#include "clNameUtils.h"
+#include "clNssUtils.h"
 #include "cldebugging.h"
 #include "CSPAttacher.h"
-#include "CertBuilder.h"
+#include "clNssUtils.h"
+#include <Security/oidsattr.h>
 #include <Security/oidscert.h>
 #include <Security/cssmapple.h>
 #include <Security/cssmerrno.h>
-#include <Security/cdsaUtils.h>
-#include <Security/pkcs10.h>
+#include <SecurityNssAsn1/csrTemplates.h>
 
 /* 
  * Generate a DER-encoded CSR.
@@ -41,96 +42,110 @@ void AppleX509CLSession::generateCsr(
 	CSSM_DATA_PTR		&csrPtr)
 {
 	/*
-	 * We use the full CertificationRequest here; we encode the 
-	 * CertificationRequestInfo component separately to calculate
-	 * its signature, then we encode the whole CertificationRequest
+	 * We use the full NSSCertRequest here; we encode the 
+	 * NSSCertRequestInfo component separately to calculate
+	 * its signature, then we encode the whole NSSCertRequest
 	 * after dropping in the signature and SignatureAlgorithmIdentifier.
-	 *
-	 * CertificationRequestInfo, CertificationRequest from pkcs10 
 	 */ 
-	CertificationRequest certReq;
-	CertificationRequestInfo *reqInfo = new CertificationRequestInfo;
-	certReq.certificationRequestInfo = reqInfo;
+	NSSCertRequest certReq;
+	NSSCertRequestInfo &reqInfo = certReq.reqInfo;
+	PRErrorCode prtn;
+
+	memset(&certReq, 0, sizeof(certReq));
 	
 	/* 
 	 * Step 1: convert CSSM_APPLE_CL_CSR_REQUEST to CertificationRequestInfo.
+	 * All allocs via local arena pool.
 	 */
-	reqInfo->version.Set(0);
+	SecNssCoder coder;
+	ArenaAllocator alloc(coder);
+	clIntToData(0, reqInfo.version, alloc);
 	
-	/* subject Name */
-	NameBuilder *subject = new NameBuilder;
-	reqInfo->subject = subject;
-	subject->addX509Name(csrReq->subjectNameX509);
+	/* subject Name, required  */
+	if(csrReq->subjectNameX509 == NULL) {
+		CssmError::throwMe(CSSMERR_CL_INVALID_POINTER);
+	}
+	CL_cssmNameToNss(*csrReq->subjectNameX509, reqInfo.subject, coder);
 	
-	/* SubjectPublicKeyInfo, AlgorithmIdentifier from sm_x509af */
-	SubjectPublicKeyInfo *snaccKeyInfo = new SubjectPublicKeyInfo;
-	reqInfo->subjectPublicKeyInfo = snaccKeyInfo;
-	AlgorithmIdentifier *snaccAlgId = new AlgorithmIdentifier;
-	snaccKeyInfo->algorithm = snaccAlgId;
-	CL_cssmAlgToSnaccOid(csrReq->subjectPublicKey->KeyHeader.AlgorithmId,
-		snaccAlgId->algorithm);
-	/* FIXME - for now assume NULL alg params */
-	CL_nullAlgParams(*snaccAlgId);
-	
-	/* actual public key blob - AsnBits */
-	snaccKeyInfo->subjectPublicKey.Set(reinterpret_cast<char *>
-		(csrReq->subjectPublicKey->KeyData.Data), 
-		 csrReq->subjectPublicKey->KeyData.Length * 8);
+	/* key --> CSSM_X509_SUBJECT_PUBLIC_KEY_INFO */
+	CL_CSSMKeyToSubjPubKeyInfoNSS(*csrReq->subjectPublicKey, 
+		reqInfo.subjectPublicKeyInfo, coder);
 
 	/* attributes - see sm_x501if - we support one, CSSMOID_ChallengePassword,
  	 * as a printable string */
 	if(csrReq->challengeString) {
-		Attribute *attr = reqInfo->attributes.Append();
-		/* attr->type is an OID */
-		attr->type.Set(challengePassword_arc);
-		/* one value, spec'd as AsnAny, we have to encode first. */
-		PrintableString snaccStr(csrReq->challengeString);
-		CssmAutoData encChallenge(*this);
-		SC_encodeAsnObj(snaccStr, encChallenge, 
-				strlen(csrReq->challengeString) + 32);
-		/* AttributeValue is an AsnAny as far as SNACC is concerned */
-		AttributeValue *av = attr->values.Append();
-		CSM_Buffer *cbuf = new CSM_Buffer((char *)encChallenge.data(), 
-			encChallenge.length());
-		av->value = cbuf;
+		/* alloc a NULL_terminated array of NSS_Attribute pointers */
+		reqInfo.attributes = (NSS_Attribute **)coder.malloc(2 * sizeof(NSS_Attribute *));
+		reqInfo.attributes[1] = NULL;
+		
+		/* alloc one NSS_Attribute */
+		reqInfo.attributes[0] = (NSS_Attribute *)coder.malloc(sizeof(NSS_Attribute));
+		NSS_Attribute *attr = reqInfo.attributes[0];
+		memset(attr, 0, sizeof(NSS_Attribute));
+		
+		 /* NULL_terminated array of attrValues */
+		attr->attrValue = (CSSM_DATA **)coder.malloc(2 * sizeof(CSSM_DATA *));
+		attr->attrValue[1] = NULL;
+		
+		/* one value - we're almost there */
+		attr->attrValue[0] = (CSSM_DATA *)coder.malloc(sizeof(CSSM_DATA));
+		
+		/* attrType is an OID, temp, use static OID */
+		attr->attrType = CSSMOID_ChallengePassword;
+
+		/* one value, spec'd as AsnAny, we have to encode first. */		
+		CSSM_DATA strData;
+		strData.Data = (uint8 *)csrReq->challengeString;
+		strData.Length = strlen(csrReq->challengeString);
+		prtn = coder.encodeItem(&strData, SEC_PrintableStringTemplate,
+			*attr->attrValue[0]);
+		if(prtn) {
+			clErrorLog("generateCsr: error encoding challengeString\n");
+			CssmError::throwMe(CSSMERR_CL_MEMORY_ERROR);
+		}
 	}
 	
 	/*
-	 * Step 2: DER-encode the CertificationRequestInfo.
+	 * Step 2: DER-encode the NSSCertRequestInfo prior to signing.
 	 */
-	CssmAutoData encReqInfo(*this);
-	SC_encodeAsnObj(*reqInfo, encReqInfo, 8 * 1024);	// totally wild guess
+	CSSM_DATA encReqInfo;
+	prtn = coder.encodeItem(&reqInfo, NSS_CertRequestInfoTemplate, encReqInfo);
+	if(prtn) {
+		clErrorLog("generateCsr: error encoding CertRequestInfo\n");
+		CssmError::throwMe(CSSMERR_CL_MEMORY_ERROR);
+	}
 	
 	/*
-	 * Step 3: sign the encoded CertificationRequestInfo.
+	 * Step 3: sign the encoded NSSCertRequestInfo.
 	 */
 	CssmAutoData sig(*this);
-	signData(CCHandle, encReqInfo, sig);
+	CssmData &infoData = CssmData::overlay(encReqInfo);
+	signData(CCHandle, infoData, sig);
 	 
 	/*
-	 * Step 4: finish up CertificationRequest - signatureAlgorithm, signature
+	 * Step 4: finish up NSSCertRequest - signatureAlgorithm, signature
 	 */
-	certReq.signatureAlgorithm = new SignatureAlgorithmIdentifier;
-	certReq.signatureAlgorithm->algorithm.Set(reinterpret_cast<char *>(
-		csrReq->signatureOid.Data), csrReq->signatureOid.Length);
+	certReq.signatureAlgorithm.algorithm = csrReq->signatureOid;
 	/* FIXME - for now assume NULL alg params */
-	CL_nullAlgParams(*certReq.signatureAlgorithm);
-	certReq.signature.Set((char *)sig.data(), sig.length() * 8);
+	CL_nullAlgParams(certReq.signatureAlgorithm);
+	certReq.signature.Data = (uint8 *)sig.data();
+	certReq.signature.Length = sig.length() * 8;
 	
 	/* 
-	 * Step 5: DER-encode the finished CertificationRequestSigned.
+	 * Step 5: DER-encode the finished NSSCertRequest into app space.
 	 */
 	CssmAutoData encCsr(*this);
-	SC_encodeAsnObj(certReq, encCsr, 
-		encReqInfo.length() + 			// size of the thing we signed
-		sig.length() +					// size of signature
-		100);							// sigAlgId plus encoding overhead
-		
+	prtn = SecNssEncodeItemOdata(&certReq, NSS_CertRequestTemplate, encCsr);
+	if(prtn) {
+		clErrorLog("generateCsr: error encoding CertRequestInfo\n");
+		CssmError::throwMe(CSSMERR_CL_MEMORY_ERROR);
+	}
+	
 	/* TBD - enc64 the result, when we have this much working */
 	csrPtr = (CSSM_DATA_PTR)malloc(sizeof(CSSM_DATA));
-	csrPtr->Data = (uint8 *)malloc(encCsr.length());
+	csrPtr->Data = (uint8 *)encCsr.data();
 	csrPtr->Length = encCsr.length();
-	memmove(csrPtr->Data, encCsr.data(), encCsr.length());
+	encCsr.release();
 }
 
 /*
@@ -144,40 +159,43 @@ void AppleX509CLSession::verifyCsr(
 	 *    the whole thing and getting a CSSM_KEY from the 
 	 *    SubjectPublicKeyInfo.
 	 */
-	CertificationRequest certReq;
-	const CssmData &csrEnc = CssmData::overlay(*csrPtr);
-	SC_decodeAsnObj(csrEnc, certReq);
-	CertificationRequestInfo *certReqInfo = certReq.certificationRequestInfo;
-	if(certReqInfo == NULL) {
+	NSSCertRequest certReq;
+	SecNssCoder coder;
+	PRErrorCode prtn;
+	
+	memset(&certReq, 0, sizeof(certReq));
+	prtn = coder.decodeItem(*csrPtr, NSS_CertRequestTemplate, &certReq);
+	if(prtn) {
 		CssmError::throwMe(CSSMERR_CL_INVALID_DATA);
 	}
-	CSSM_KEY_PTR cssmKey = 	CL_extractCSSMKey(*certReqInfo->subjectPublicKeyInfo, 
+	
+	NSSCertRequestInfo &reqInfo = certReq.reqInfo;
+	CSSM_KEY_PTR cssmKey = CL_extractCSSMKeyNSS(reqInfo.subjectPublicKeyInfo, 
 		*this,		// alloc
 		NULL);		// no DecodedCert
 
 	/*
 	 * 2. Obtain signature algorithm and parameters. 
 	 */
-	SignatureAlgorithmIdentifier *snaccAlgId = certReq.signatureAlgorithm;
-	if(snaccAlgId == NULL) {
-		CssmError::throwMe(CSSMERR_CL_INVALID_DATA);
-	}
-	CSSM_ALGORITHMS vfyAlg = CL_snaccOidToCssmAlg(snaccAlgId->algorithm);
+	CSSM_X509_ALGORITHM_IDENTIFIER sigAlgId = certReq.signatureAlgorithm;
+	CSSM_ALGORITHMS vfyAlg = CL_oidToAlg(sigAlgId.algorithm);
 			
 	/*
 	 * 3. Extract the raw bits to be verified and the signature. We 
 	 *    decode the CSR as a CertificationRequestSigned for this, which 
 	 *    avoids the decode of the CertificationRequestInfo.
 	 */
-	CertificationRequestSigned certReqSigned;
-	SC_decodeAsnObj(csrEnc, certReqSigned);
+	NSS_SignedCertRequest certReqSigned;
+	memset(&certReqSigned, 0, sizeof(certReqSigned));
+	prtn = coder.decodeItem(*csrPtr, NSS_SignedCertRequestTemplate, &certReqSigned);
+	if(prtn) {
+		CssmError::throwMe(CSSMERR_CL_INVALID_DATA);
+	}
 
-	CSM_Buffer	*cbuf = certReqSigned.certificationRequestInfo.value;
-	char 		*cbufData = const_cast<char *>(cbuf->Access());
-	CssmData	toVerify(cbufData, cbuf->Length());
-	AsnBits		sigBits = certReqSigned.signature;
-	size_t		sigBytes = (sigBits.BitLen() + 7) / 8;
-	CssmData	sig(const_cast<char *>(sigBits.BitOcts()), sigBytes);
+	CSSM_DATA sigBytes = certReqSigned.signature;
+	sigBytes.Length = (sigBytes.Length + 7 ) / 8;
+	CssmData &sigCdata = CssmData::overlay(sigBytes);
+	CssmData &toVerify = CssmData::overlay(certReqSigned.certRequestBlob);
 	
 	/*
 	 * 4. Attach to CSP, cook up signature context, verify signature.
@@ -193,6 +211,7 @@ void AppleX509CLSession::verifyCsr(
 	if(crtn) {
 		CssmError::throwMe(crtn);
 	}
-	verifyData(ccHand, toVerify, sig);
+	verifyData(ccHand, toVerify, sigCdata);
 	CL_freeCSSMKey(cssmKey, *this);
 }
+

@@ -1,4 +1,4 @@
-/* $Header: /cvs/Darwin/src/live/tcpdump/tcpdump/ntp.h,v 1.1.1.1 2001/07/07 00:50:53 bbraun Exp $ */
+/* $Header: /cvs/root/tcpdump/tcpdump/ntp.h,v 1.1.1.2 2003/03/17 18:42:16 rbraun Exp $ */
 
 /*
  * Based on ntp.h from the U of MD implementation

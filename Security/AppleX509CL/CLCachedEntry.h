@@ -30,6 +30,7 @@
 #include <Security/utilities.h>
 #include <Security/cssmdata.h>
 #include "DecodedCert.h"
+#include "DecodedCrl.h"
 
 /* 
  * There is one of these per active cached object (cert or CRL). 
@@ -53,7 +54,7 @@ public:
 	~CLCachedCert();
 	DecodedCert	&cert()	{ return mCert; }
 private:
-	/* unpacked snacc format */
+	/* decoded NSS format */
 	DecodedCert &mCert;
 };
 
@@ -61,12 +62,12 @@ class CLCachedCRL : public CLCachedEntry
 {
 public:
 	CLCachedCRL(
-		CertificateList &c) : mCrl(c) { }
+		DecodedCrl &c) : mCrl(c) { }
 	~CLCachedCRL();
-	CertificateList	&crl()	{ return mCrl; }
+	DecodedCrl	&crl()	{ return mCrl; }
 private:
-	/* unpacked snacc format */
-	CertificateList &mCrl;
+	/* decoded NSS format */
+	DecodedCrl &mCrl;
 };
 
 /*
@@ -86,7 +87,7 @@ private:
  */
  
 typedef enum {
-	CLQ_Cert,
+	CLQ_Cert = 1,
 	CLQ_CRL
 } CLQueryType;
 

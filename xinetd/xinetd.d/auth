@@ -2,10 +2,9 @@ service auth
 {
 	disable		= yes
 	socket_type	= stream
-	wait		= yes
+	wait		= no
 	user		= root
-	server		= /usr/libexec/identd
-	server_args	= -w -t120
+	server		= /usr/bin/false
 	groups		= yes
-	flags		= REUSE
+	flags		= REUSE IPv6
 }

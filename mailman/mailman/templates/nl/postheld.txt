@@ -1,0 +1,15 @@
+Uw e-mail naar '%(listname)s' met als onderwerp/subject
+
+    %(subject)s
+
+Wordt tegengehouden totdat de lijst moderator deze kan bekijken.
+
+De reden waarom het is tegengehouden:
+
+    %(reason)s
+
+Of het bericht wordt naar de lijst gestuurd, of u ontvangt een bericht
+over de beslissing van de moderator. Als u dit bericht wilt annuleren,
+bezoek dan de volgende pagina:
+
+    %(confirmurl)s

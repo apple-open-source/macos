@@ -28,27 +28,51 @@
 #include <CoreFoundation/CFArray.h>
 #include <IOKit/pwr_mgt/IOPMLibDefs.h>
 
+#ifndef _IOPMLibPrivate_h_
+#define _IOPMLibPrivate_h_
+
 #ifdef __cplusplus
 extern "C" {
 #endif
 
+// AutoWake API
+// For internal use communicating between IOKitUser and PM configd
+// The preferences file
+#define kIOPMAutoWakePrefsPath      "com.apple.AutoWake.xml"
+
+/**************************************************
+*
+* Energy Saver Preferences
+*
+**************************************************/
 #define kIOPMDynamicStoreSettingsKey    "State:/IOKit/PowerManagement/CurrentSettings"
 
 #define kIOPMBatteryPowerKey                            "Battery Power"
 #define kIOPMACPowerKey                                 "AC Power"
 
+// units - CFNumber in minutes
 #define kIOPMDisplaySleepKey                            "Display Sleep Timer"
+// units - CFNumber in minutes
 #define kIOPMDiskSleepKey                               "Disk Sleep Timer"
+// units - CFNumber in minutes
 #define kIOPMSystemSleepKey                             "System Sleep Timer"	
 
+// units - CFNumber 0/1
 #define kIOPMReduceSpeedKey                             "Reduce Processor Speed"
+// units - CFNumber 0/1
 #define kIOPMDynamicPowerStepKey                        "Dynamic Power Step"
+// units - CFNumber 0/1
 #define kIOPMWakeOnLANKey                               "Wake On LAN"
+// units - CFNumber 0/1
 #define kIOPMWakeOnRingKey                              "Wake On Modem Ring"
+// units - CFNumber 0/1
 #define kIOPMRestartOnPowerLossKey                      "Automatic Restart On Power Loss"
-
-
-/*!
+// units - CFNumber 0/1
+#define kIOPMWakeOnACChangeKey                          "Wake On AC Change"
+// units - CFNumber 0/1
+#define kIOPMSleepOnPowerButtonKey                      "Sleep On Power Button"
+// units - CFNumber 0/1
+#define kIOPMWakeOnClamshellKey                         "Wake On Clamshell Open"
 
     /*!
 @function IOPMCopyPMPreferences.
@@ -78,6 +102,82 @@ IOReturn IOPMSetPMPreferences(CFDictionaryRef ESPrefs);
      */
 IOReturn IOPMActivatePMPreference(CFDictionaryRef SystemProfiles, CFStringRef profile);
 
+    /*!
+@function IOPMFetaureIsAvailable
+@abstract Identifies whether a PM feature is supported on this platform.
+@param feature The CFSTR() feature to check availability of
+@param power_source CFSTR(kIOPMACPowerKey) or CFSTR(kIOPMBatteryPowerKef). Doesn't 
+    matter for most features, but a few are power source dependent.
+@result Returns true if supported, false otherwise.
+     */
+bool IOPMFeatureIsAvailable(CFStringRef feature, CFStringRef power_source);
+
+/**************************************************
+*
+* Repeating Sleep/Wake/Shutdown/Restart API
+*
+**************************************************/
+
+// Keys to index into CFDictionary returned by IOPSCopyRepeatingPowerEvents()
+#define     kIOPMRepeatingPowerOnKey        "RepeatingPowerOn"
+#define     kIOPMRepeatingPowerOffKey       "RepeatingPowerOff"
+
+#define     kIOPMAutoSleep                  "sleep"
+#define     kIOPMAutoShutdown               "shutdown"
+
+// Keys to "days of week" bitfield for IOPMScheduleRepeatingPowerEvent()
+enum {
+    kIOPMMonday         = 1 << 0,
+    kIOPMTuesday        = 1 << 1,
+    kIOPMWednesday      = 1 << 2,
+    kIOPMThursday       = 1 << 3,
+    kIOPMFriday         = 1 << 4,
+    kIOPMSaturday       = 1 << 5,
+    kIOPMSunday         = 1 << 6
+};
+
+// Keys to index into sub-dictionaries of the dictionary returned by IOPSCopyRepeatingPowerEvents
+// Absolute time to schedule power on (stored as a CFNumberRef, type = kCFNumberIntType)
+//#define kIOPMPowerOnTimeKey                 "time"
+// Bitmask of days to schedule a wakeup for (CFNumberRef, type = kCFNumberIntType)
+#define kIOPMDaysOfWeekKey                  "weekdays"
+// Type of power on event (CFStringRef)
+//#define kIOPMTypeOfPowerOnKey               "typeofwake"
+
+/*  @function IOPMScheduleRepeatingPowerEvent
+ *  @abstract Schedules a repeating sleep, wake, shutdown, or restart
+ *  @discussion Private API to only be used by Energy Saver preferences panel. Note that repeating sleep & wakeup events are valid together, 
+ *              and shutdown & power on events are valid together, but you cannot mix sleep & power on, or shutdown & wakeup events.
+ *              Every time you call IOPMSchedueRepeatingPowerEvent, we will cancel all previously scheduled repeating events of that type, and any
+ *              scheduled repeating events of "incompatible" types, as I just described.
+ *  @param  events A CFDictionary containing two CFDictionaries at keys "RepeatingPowerOn" and "RepeatingPowerOff".
+                Each of those dictionaries contains keys for the type of sleep, the days_of_week, and the time_of_day. These arguments specify the
+                time, days, and type of power events.
+ *  @result kIOReturnSuccess on success, kIOReturnError or kIOReturnNotPrivileged otherwise.
+ */
+IOReturn IOPMScheduleRepeatingPowerEvent(CFDictionaryRef events);
+
+/*  @function IOPMCopyRepeatingPowerEvents
+ *  @abstract Gets the system
+ *  @discussion Private API to only be used by Energy Saver preferences panel. Copies the system's current repeating power on
+                and power off events.
+                The returned CFDictionary contains two CFDictionaries at keys "RepeatingPowerOn" and "RepeatingPowerOff".
+                Each of those dictionaries contains keys for the type of sleep, the days_of_week, and the time_of_day.
+ *  @result NULL on failure, CFDictionary (possibly empty) otherwise.
+ */
+ CFDictionaryRef IOPMCopyRepeatingPowerEvents(void);
+
+/*  @function IOPMScheduleRepeatingPowerEvent
+ *  @abstract Cancels all repeating power events
+ *  @result kIOReturnSuccess on success, kIOReturnError or kIOReturnNotPrivileged otherwise.
+ */ 
+IOReturn IOPMCancelAllRepeatingPowerEvents(void);
+
+
+
 #ifdef __cplusplus
 }
 #endif
+
+#endif // _IOPMLibPrivate_h_
+

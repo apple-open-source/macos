@@ -38,7 +38,7 @@ SSL2ProcessClientHello(SSLBuffer msg, SSLContext *ctx)
     unsigned            i, j, cipherKindCount, sessionIDLen, challengeLen;
     SSL2CipherKind      cipherKind;
     SSLCipherSuite      matchingCipher, selectedCipher;
-    SSLProtocolVersion  version;
+    SSLProtocolVersion  negVersion;
     
     if (msg.length < 27) {
 		sslErrorLog("SSL2ProcessClientHello: msg len error 1\n");
@@ -47,38 +47,30 @@ SSL2ProcessClientHello(SSLBuffer msg, SSLContext *ctx)
     
     charPtr = msg.data;
     
-    version = (SSLProtocolVersion)SSLDecodeInt(charPtr, 2);
-	if (version > ctx->maxProtocolVersion) {
-		version = ctx->maxProtocolVersion;
+    ctx->clientReqProtocol = (SSLProtocolVersion)SSLDecodeInt(charPtr, 2);
+	err = sslVerifyProtVersion(ctx, ctx->clientReqProtocol, &negVersion);
+	if(err) {
+		return err;
 	}
-    /* FIXME - I think this needs work for a SSL_Version_2_0 server, to ensure that
-	 * the client isn't establishing a v3 session. */
-    if (ctx->negProtocolVersion == SSL_Version_Undetermined)
-    {   
-		/* FIXME - this ifndef should not be necessary */
+	
+	/* 
+	 * Note we can be here, processing a v2 client hello, even if 
+	 * we don't support SSL2. That can happen if the client is 
+	 * sending a v2 hello with an attempt to upgrade.
+	 */
+    if (ctx->negProtocolVersion == SSL_Version_Undetermined) {   
 		#ifndef	NDEBUG
         sslLogNegotiateDebug("===SSL2 server: negVersion was undetermined; "
-			"is %s", protocolVersStr(version));
+			"is %s", protocolVersStr(negVersion));
 		#endif
-        ctx->negProtocolVersion = version;
-		if(version >= TLS_Version_1_0) {
+        ctx->negProtocolVersion = negVersion;
+		if(negVersion >= TLS_Version_1_0) {
 			ctx->sslTslCalls = &Tls1Callouts;
 		}
 		else {
 			/* default from context init */
 			assert(ctx->sslTslCalls == &Ssl3Callouts);
 		}
-    }
-    else if (ctx->negProtocolVersion == SSL_Version_3_0_With_2_0_Hello)
-    {   if (version < SSL_Version_3_0) {
-			sslErrorLog("SSL2ProcessClientHello: version error\n");
-            return errSSLProtocol;
-        }
-		/* FIXME - I don't think path is ever taken - we NEVER set any
-		 * protocol var to 	SSL_Version_3_0_With_2_0_Hello... */
-        sslLogNegotiateDebug("===SSL2 server: negVersion was "
-			"3_0_With_2_0_Hello; is 3_0");
-        ctx->negProtocolVersion = version;
     }
     
     charPtr += 2;
@@ -103,6 +95,7 @@ SSL2ProcessClientHello(SSLBuffer msg, SSLContext *ctx)
     cipherList = charPtr;
     selectedCipher = SSL_NO_SUCH_CIPHERSUITE;
 
+	assert(ctx->negProtocolVersion >= SSL_Version_2_0);	// i.e., not undetermined
     if (ctx->negProtocolVersion >= SSL_Version_3_0) {
 		/* If we're negotiating an SSL 3.0 session, use SSL 3.0 suites first */
         for (i = 0; i < cipherKindCount; i++) {
@@ -206,11 +199,10 @@ SSL2ProcessClientHello(SSLBuffer msg, SSLContext *ctx)
  * The SSL v2 spec says that the challenge string sent by the client can be
  * between 16 and 32 bytes. However all Netscape enterprise servers actually
  * require a 16 byte challenge. Q.v. cdnow.com, store.apple.com. 
- * Unfortunately this means that when we're trying to do a 
- * SSL_Version_3_0_With_2_0_Hello negotiation, we have to limit ourself to 
- * a 16-byte clientRandom, which we have to concatenate to 16 bytes of 
- * zeroes if we end up with a 3.0 or 3.1 connection. Thus we lose 16 bytes
- * of entropy.
+ * Unfortunately this means that when we're trying to do an
+ * SSL2 hello with possible upgrade, we have to limit ourself to a 
+ * 16-byte clientRandom, which we have to concatenate to 16 bytes of zeroes 
+ * if we end up with a 3.0 or 3.1 connection. Thus we lose 16 bytes of entropy.
  */
 #define SSL2_CHALLENGE_LEN	16
 
@@ -224,28 +216,20 @@ SSL2EncodeClientHello(SSLBuffer &msg, SSLContext *ctx)
     int			sessionIDLen;
     UInt16		version;
     SSLBuffer	sessionIdentifier, randomData;
-    
-    switch (ctx->negProtocolVersion)
-    {   case SSL_Version_Undetermined:
-        case SSL_Version_3_0_With_2_0_Hello:
-        	/* go for it, see if server can handle upgrading */
-           	useSSL3Ciphers = 1;
-			/* could be SSLv3 or TLSv1 */
-            version = ctx->maxProtocolVersion;
-            break;
-        case SSL_Version_2_0:
-            useSSL3Ciphers = 0;
-            version = SSL_Version_2_0;
-            break;
-        case SSL_Version_3_0_Only:
-        case SSL_Version_3_0:
-        case TLS_Version_1_0_Only:
-        case TLS_Version_1_0:
-        default:
-            assert("Bad protocol version for sending SSL 2 Client Hello");
-            return errSSLInternal;
-    }
-	/* FIXME - this ifndef should not be necessary */
+    SSLProtocolVersion	maxVersion;
+	
+	assert(ctx->versionSsl2Enable);
+	err = sslGetMaxProtVersion(ctx, &maxVersion);
+	if(err) {
+		/* we don't have a protocol enabled */
+		return err;
+	}
+	version = maxVersion;
+	if(version > SSL_Version_2_0) {
+		/* see if server can handle upgrading */
+		useSSL3Ciphers = 1;
+	}
+
 	#ifndef	NDEBUG
 	sslLogNegotiateDebug("===SSL client: proclaiming %s capable", 
 		protocolVersStr((SSLProtocolVersion)version));
@@ -263,6 +247,10 @@ SSL2EncodeClientHello(SSLBuffer &msg, SSLContext *ctx)
                 break;
             }
     
+	if(totalCipherCount == 0) {
+		sslErrorLog("SSL2EncodeClientHello: no valid ciphers for SSL2");
+		return errSSLBadConfiguration;
+	}
     sessionIDLen = 0;
     sessionIdentifier.data = 0;
     if (ctx->resumableSession.data != 0)
@@ -385,9 +373,9 @@ SSL2ProcessClientMasterKey(SSLBuffer msg, SSLContext *ctx)
 		decryptCspHand = ctx->signingKeyCsp;
 	}
 	else {
-		/* really should not happen... */
+		/* app configuration error */
 		sslErrorLog("SSL2ProcessClientMasterKey: No server key!\n");
-		return badReqErr;
+		return errSSLBadConfiguration;
 	}
 	localKeyModulusLen = sslKeyLengthInBytes(decryptKey);
 
@@ -575,7 +563,7 @@ SSL2ProcessServerHello(SSLBuffer msg, SSLContext *ctx)
     if (sessionIDMatch != 0)
     {   if (certLen != 0 || cipherSpecsLen != 0 /* || certType != 0 */ )
             return errSSLProtocol;
-        ctx->ssl2SessionMatch = 1;
+        ctx->sessionMatch = 1;
         
         ctx->ssl2ConnectionIDLength = connectionIDLen;
         memcpy(ctx->serverRandom, charPtr, connectionIDLen);
@@ -659,12 +647,12 @@ SSL2EncodeServerHello(SSLBuffer &msg, SSLContext *ctx)
     if ((err = sslRand(ctx, &randomData)) != 0)
         return err;
         
-    if (ctx->ssl2SessionMatch != 0)
+    if (ctx->sessionMatch != 0)
     {   if ((err = SSLAllocBuffer(msg, 11 + ctx->sessionID.length, ctx)) != 0)
             return err;
         charPtr = msg.data;
         *charPtr++ = SSL2_MsgServerHello;
-        *charPtr++ = ctx->ssl2SessionMatch;
+        *charPtr++ = ctx->sessionMatch;
         *charPtr++ = 0;    /* cert type */
         charPtr = SSLEncodeInt(charPtr, ctx->negProtocolVersion, 2);
         charPtr = SSLEncodeInt(charPtr, 0, 2);    /* cert len */
@@ -699,10 +687,9 @@ SSL2EncodeServerHello(SSLBuffer &msg, SSLContext *ctx)
             return err;
         charPtr = msg.data;
         *charPtr++ = SSL2_MsgServerHello;
-        *charPtr++ = ctx->ssl2SessionMatch;
+        *charPtr++ = ctx->sessionMatch;
         *charPtr++ = SSL2_CertTypeX509; /* cert type */
 
-		/* FIXME - this ifndef should not be necessary */
 		#ifndef	NDEBUG
 		sslLogNegotiateDebug("===SSL2 server: sending vers info %s", 
 			protocolVersStr((SSLProtocolVersion)ctx->negProtocolVersion));

@@ -1,0 +1,458 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01//EN" "http://www.w3.org/TR/html4/strict.dtd">
+<html xmlns="http://www.w3.org/TR/xhtml1/strict">
+<head>
+<title>Overview</title>
+<meta content="1999-2002 The Apache Software Foundation" name="copyright"/>
+<meta content="$Date: 2002/10/03 16:57:49 $" name="last-changed"/>
+<meta content="Jean-Frederic Clere" name="author"/>
+<meta content="jfrederic.clere@fujitsu-siemens.com" name="email"/>
+<meta content="Henri Gomez" name="author"/>
+<meta content="hgomez@apache.org" name="email"/>
+<link href="./style.css" type="text/css" rel="stylesheet"/>
+<link href="images/tomcat.ico" rel="shortcut icon"/>
+</head>
+<body link="#525D76" vlink="#525D76" alink="#525D76" text="#000000" bgcolor="#ffffff">
+<a name="TOP"/>
+<table width="100%" cellpadding="0" cellspacing="0" border="0">
+<tr height="1">
+<td class="nil" height="1" bgcolor="#ffffff" width="150">
+<img hspace="0" vspace="0" height="1" width="150" border="0" src="images/pixel.gif"/>
+</td>
+<td class="nil" height="1" bgcolor="#ffffff" width="*">
+<img hspace="0" vspace="0" height="1" width="370" border="0" src="images/pixel.gif"/>
+</td>
+</tr>
+<tr>
+<td width="*" colspan="2" class="logo" bgcolor="#ffffff">
+<table width="100%" cellpadding="0" cellspacing="0" border="0">
+<tr>
+<td align="left">
+<img align="left" height="48" width="505" border="0" src="images/jakarta.gif"/>
+</td>
+<td align="right">
+<img align="right" border="0" src="images/mod_jk.jpg"/>
+</td>
+</tr>
+</table>
+</td>
+</tr>
+<tr>
+<td colspan="2" width="*" align="right" class="head" bgcolor="#999999">
+<nobr>
+<a href="http://www.apache.org/" class="head">Apache Software Foundation</a> |
+                <a href="http://jakarta.apache.org/" class="head">Jakarta Project</a> |
+                <a href="http://jakarta.apache.org/tomcat/" class="head">Apache Tomcat</a>
+</nobr>
+</td>
+</tr>
+<tr>
+<td valign="top" width="150" bgcolor="#ffffff">
+<table class="menu" cellpadding="0" cellspacing="0" width="150" border="0">
+<tr height="1">
+<td class="nil" height="1" bgcolor="#cccccc" width="10">
+<img hspace="0" vspace="0" height="1" width="10" border="0" src="images/pixel.gif"/>
+</td>
+<td class="nil" height="1" bgcolor="#cccccc" width="140">
+<img hspace="0" vspace="0" height="1" width="140" border="0" src="images/pixel.gif"/>
+</td>
+</tr>
+<tr height="6">
+<td colspan="2" width="150" bgcolor="#d0d0d0">Presentation</td>
+</tr>
+<tr>
+<td colspan="2" width="150" bgcolor="#cccccc">
+<nobr>
+<a class="menu" href="index.html">Overview</a>
+</nobr>
+</td>
+</tr>
+<tr height="2"/>
+<tr>
+<td width="10" bgcolor="#cccccc"/>
+<td width="140" bgcolor="#cccccc">
+<a href="#What's JK ?" class="menu">What's JK ?</a>
+</td>
+</tr>
+<tr height="1"/>
+<tr>
+<td width="10" bgcolor="#cccccc"/>
+<td width="140" bgcolor="#cccccc">
+<a href="#Why should I use the JK ?" class="menu">Why should I use the JK ?</a>
+</td>
+</tr>
+<tr height="1"/>
+<tr>
+<td width="10" bgcolor="#cccccc"/>
+<td width="140" bgcolor="#cccccc">
+<a href="#What's the difference between JK and JK2 ?" class="menu">What's the difference between JK and JK2 ?</a>
+</td>
+</tr>
+<tr height="1"/>
+<tr>
+<td width="10" bgcolor="#cccccc"/>
+<td width="140" bgcolor="#cccccc">
+<a href="#Are there alternative ways to connect Apache and Tomcat?" class="menu">Are there alternative ways to connect Apache and Tomcat?</a>
+</td>
+</tr>
+<tr height="1"/>
+<tr height="6"/>
+<tr height="6">
+<td colspan="2" width="150" bgcolor="#d0d0d0">Commons</td>
+</tr>
+<tr>
+<td colspan="2" width="150" bgcolor="#cccccc">
+<nobr>
+<a class="menu" href="common/AJPv13.html">AJPv13</a>
+</nobr>
+</td>
+</tr>
+<tr height="2"/>
+<tr>
+<td colspan="2" width="150" bgcolor="#cccccc">
+<nobr>
+<a class="menu" href="common/AJPv13-extensions-proposal.html">AJPv13 extensions Proposal</a>
+</nobr>
+</td>
+</tr>
+<tr height="2"/>
+<tr>
+<td colspan="2" width="150" bgcolor="#cccccc">
+<nobr>
+<a class="menu" href="faq.html">FAQ</a>
+</nobr>
+</td>
+</tr>
+<tr height="2"/>
+<tr height="6"/>
+<tr height="6">
+<td colspan="2" width="150" bgcolor="#d0d0d0">JK</td>
+</tr>
+<tr>
+<td colspan="2" width="150" bgcolor="#cccccc">
+<nobr>
+<a class="menu" href="jk/quickhowto.html">Quick Start HowTo</a>
+</nobr>
+</td>
+</tr>
+<tr height="2"/>
+<tr>
+<td colspan="2" width="150" bgcolor="#cccccc">
+<nobr>
+<a class="menu" href="jk/aphowto.html">Apache HowTo</a>
+</nobr>
+</td>
+</tr>
+<tr height="2"/>
+<tr>
+<td colspan="2" width="150" bgcolor="#cccccc">
+<nobr>
+<a class="menu" href="jk/domhowto.html">Domino HowTo</a>
+</nobr>
+</td>
+</tr>
+<tr height="2"/>
+<tr>
+<td colspan="2" width="150" bgcolor="#cccccc">
+<nobr>
+<a class="menu" href="jk/iishowto.html">IIS HowTo</a>
+</nobr>
+</td>
+</tr>
+<tr height="2"/>
+<tr>
+<td colspan="2" width="150" bgcolor="#cccccc">
+<nobr>
+<a class="menu" href="jk/neshowto.html">Netscape/iPlanet HowTo</a>
+</nobr>
+</td>
+</tr>
+<tr height="2"/>
+<tr>
+<td colspan="2" width="150" bgcolor="#cccccc">
+<nobr>
+<a class="menu" href="jk/workershowto.html">Workers HowTo</a>
+</nobr>
+</td>
+</tr>
+<tr height="2"/>
+<tr height="6"/>
+<tr height="6">
+<td colspan="2" width="150" bgcolor="#d0d0d0">JK2</td>
+</tr>
+<tr height="6"/>
+<tr height="6">
+<td colspan="2" width="150" bgcolor="#d0d0d0">Configuration in the Tomcat</td>
+</tr>
+<tr>
+<td colspan="2" width="150" bgcolor="#cccccc">
+<nobr>
+<a class="menu" href="jk2/configtc.html">Configuration options</a>
+</nobr>
+</td>
+</tr>
+<tr height="2"/>
+<tr>
+<td colspan="2" width="150" bgcolor="#cccccc">
+<nobr>
+<a class="menu" href="jk2/configtcex.html">Examples</a>
+</nobr>
+</td>
+</tr>
+<tr height="2"/>
+<tr height="6"/>
+<tr height="6">
+<td colspan="2" width="150" bgcolor="#d0d0d0">Configuration in the Web Server</td>
+</tr>
+<tr>
+<td colspan="2" width="150" bgcolor="#cccccc">
+<nobr>
+<a class="menu" href="jk2/configweb.html">Configuration file</a>
+</nobr>
+</td>
+</tr>
+<tr height="2"/>
+<tr>
+<td colspan="2" width="150" bgcolor="#cccccc">
+<nobr>
+<a class="menu" href="jk2/configwebcom.html">Components</a>
+</nobr>
+</td>
+</tr>
+<tr height="2"/>
+<tr>
+<td colspan="2" width="150" bgcolor="#cccccc">
+<nobr>
+<a class="menu" href="jk2/configwebex.html">Examples</a>
+</nobr>
+</td>
+</tr>
+<tr height="2"/>
+<tr height="6"/>
+<tr height="6">
+<td colspan="2" width="150" bgcolor="#d0d0d0">Installation</td>
+</tr>
+<tr>
+<td colspan="2" width="150" bgcolor="#cccccc">
+<nobr>
+<a class="menu" href="jk2/installhowto.html">Installation of jk2 in the Web Server</a>
+</nobr>
+</td>
+</tr>
+<tr height="2"/>
+<tr height="6"/>
+<tr height="6">
+<td colspan="2" width="150" bgcolor="#d0d0d0">Howto</td>
+</tr>
+<tr>
+<td colspan="2" width="150" bgcolor="#cccccc">
+<nobr>
+<a class="menu" href="jk2/confighowto.html">Quick Start JK2 Configuration Guide</a>
+</nobr>
+</td>
+</tr>
+<tr height="2"/>
+<tr height="6"/>
+</table>
+</td>
+<td class="body" valign="top" width="*" bgcolor="#ffffff">
+<a name="What's JK ?">
+<table width="100%" cellpadding="0" cellspacing="0" border="0">
+<tr>
+<td align="left" valign="top" class="section" bgcolor="#525D76">
+<img border="0" vspace="0" hspace="0" align="left" valign="top" src="images/corner.gif"/>What's JK ?</td>
+</tr>
+</table>
+</a>
+<p class="section">
+<b>
+<font color="#333333">JK</font>
+</b> is a replacement to the elderly mod_jserv. 
+It was a completely new Tomcat-Apache plug-in that handles the communication between Tomcat and Apache.
+</p>
+<p class="section">
+The newest <b>
+<font color="#333333">JK2</font>
+</b> is a refactoring of <b>
+<font color="#333333">JK</font>
+</b>.
+The native part has been completly
+restructured and the configuration has been simplified a lot.
+</p>
+<p class="section">
+JK is more than just an apache module, since it could be used with majors WebServer :
+</p>
+<ul>
+<li>
+<b>
+<a href="jk/aphowto.html">mod_jk</a>
+</b> is an Apache module to be used with <b>
+<font color="#333333">Apache 1.3</font>
+</b> and <b>
+<font color="#333333">2.0</font>
+</b> Webservers.
+</li>
+<li>
+<b>
+<a href="jk/iishowto.html">isapi</a>
+</b> is a redirector to be used with <b>
+<font color="#333333">IIS</font>
+</b>.
+</li>
+<li>
+<b>
+<a href="jk/neshowto.html">nsapi</a>
+</b> is a redirector to be used with <b>
+<font color="#333333">Netscape/iPlanet</font>
+</b>.
+</li>
+<li>
+<b>
+<a href="jk/domhowto.html">dsapi</a>
+</b> is a redirector to to be used with <b>
+<font color="#333333">Domino</font>
+</b> but there is less active support on it.
+</li>
+</ul>
+<br/>
+<a name="Why should I use the JK ?">
+<table width="100%" cellpadding="0" cellspacing="0" border="0">
+<tr>
+<td align="left" valign="top" class="section" bgcolor="#525D76">
+<img border="0" vspace="0" hspace="0" align="left" valign="top" src="images/corner.gif"/>Why should I use the JK ?</td>
+</tr>
+</table>
+</a>
+<p class="section">
+JK was develop to overcome many limitations of its ancestor, <b>
+<font color="#333333">mod_jserv</font>
+</b>.
+</p>
+<p class="section">
+<b>
+<font color="#333333">mod_jserv</font>
+</b> was too complex and because it was ported from Apache/JServ, 
+it brought with it lots of JServ specific bits that aren't needed by Apache.
+</p>
+<p class="section">
+Where <b>
+<font color="#333333">mod_jserv</font>
+</b> supported only Apache webservers on Unix OS, 
+<b>
+<font color="#333333">JK</font>
+</b> supports much more web servers and operating systems through 
+via a compatibility layer named the <b>
+<font color="#333333">JK library</font>
+</b>. 
+The layered approach provided by the JK library makes it easier to 
+support many different webservers and OS.
+</p>
+<p class="section">
+JK offer better support for SSL, that's was a problem with mod_jserv which couldn't 
+reliably identify whether a request was made via HTTP or HTTPS. 
+</p>
+<p class="section">
+JK can, using the newer Ajpv13 protocol which relay many SSL informations required by servlet 2.2 and 2.3 specs.
+</p>
+<p class="section">
+JK offers a lot of different and flexible communications between a Web Server 
+and the Tomcat Servlet Engine and could be used today with all of the ASF Tomcat Engines, 
+<b>
+<font color="#333333">3.2.x</font>
+</b>, <b>
+<font color="#333333">3.3.x</font>
+</b>, <b>
+<font color="#333333">4.0.x</font>
+</b>, <b>
+<font color="#333333">4.1.x</font>
+</b> and <b>
+<font color="#333333">5.x</font>
+</b>
+</p>
+<br/>
+<a name="What's the difference between JK and JK2 ?">
+<table width="100%" cellpadding="0" cellspacing="0" border="0">
+<tr>
+<td align="left" valign="top" class="section" bgcolor="#525D76">
+<img border="0" vspace="0" hspace="0" align="left" valign="top" src="images/corner.gif"/>What's the difference between JK and JK2 ?</td>
+</tr>
+</table>
+</a>
+<p class="section">
+JK2 is a refactoring of JK and is much more powerfull.
+</p>
+<p class="section">
+Even if it works with Apache 1.3, JK2 has been developed with Apache 2.0 in mind,
+and is better suited for multi-threaded servers like IIS, NES/iPlanet. It can also
+be embeded in other applications and used from java.
+</p>
+<p class="section">
+JK2 improves the modularity and has a better separation between protocol and physical layer.
+As such JK2 support fast unix-socket, and could be extended to support others communications
+channels. It is better suited for JNI and may use (in a future version) JDK 1.4 NIO.
+</p>
+<p class="section">
+There is additional support for monitoring, similar with JMX in java. A module similar
+with mod_status is provided, and additional adapters can be used to interface and 
+provide status and runtime configuration. .
+</p>
+<p class="section">
+The configuration has been changed to follow the component models. Multiple configuration
+sources can be supported ( in additon to file ) providing better integration with
+the embeding application. The config layer uses the management layer APIs and it can
+support persistence for changes done via runtime configuration.
+</p>
+<p class="section">
+Another feature is the JNI mode. Jk2 can be used as a JNI library and provide access to
+native features to java. For example it provides access to shared memory ( used for 
+config and monitoring in a multiprocess environment ), unix domain sockets. It can
+also provide access to signals, chuid, win registry. All using the same communication
+mechansim, and supporting both in-process and out-of process modes.
+</p>
+<br/>
+<a name="Are there alternative ways to connect Apache and Tomcat?">
+<table width="100%" cellpadding="0" cellspacing="0" border="0">
+<tr>
+<td align="left" valign="top" class="section" bgcolor="#525D76">
+<img border="0" vspace="0" hspace="0" align="left" valign="top" src="images/corner.gif"/>Are there alternative ways to connect Apache and Tomcat?</td>
+</tr>
+</table>
+</a>
+<p class="section">
+The alternative ways are better described in <b>
+<font color="#333333">mod_webapp</font>
+</b>
+documentation.
+</p>
+<p class="section">
+Check <b>
+<font color="#333333">webapp</font>
+</b> site for it and then decide if you want to go on reading. 
+</p>
+<p class="section">
+The big advantage of <b>
+<font color="#333333">mod_webapp</font>
+</b> is that is very easy to configure,
+has a well defined protocol named <b>
+<font color="#333333">WARP</font>
+</b>, does not care about the old
+crappy protocols used in Tomcat-3.x and so.
+But it would be possible to implement the <b>
+<font color="#333333">WARP</font>
+</b> protocol in
+<b>
+<font color="#333333">JK2</font>
+</b> ;-))
+</p>
+<p class="section">
+The disadvantage is that it requires the <b>
+<font color="#333333">Apache Portable Runtime</font>
+</b>
+which is still only easily available via Apache 2.0 and that it didn't support
+webservers like IIS, NES/iPlanet or Domino.
+</p>
+<br/>
+</td>
+</tr>
+</table>
+</body>
+</html>

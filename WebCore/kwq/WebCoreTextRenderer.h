@@ -29,6 +29,44 @@
 #define ROUND_TO_INT(x) (unsigned int)((x)+.5)
 #endif
 
+struct WebCoreTextStyle
+{
+    NSColor *textColor;
+    NSColor *backgroundColor;
+    int letterSpacing;
+    int wordSpacing;
+    int padding;
+    NSString **families;
+    unsigned smallCaps:1;
+    unsigned rtl:1;
+    unsigned applyRounding:1;
+    unsigned attemptFontSubstitution:1;
+};
+
+struct WebCoreTextRun
+{
+    const UniChar *characters;
+    unsigned int length;
+    int from;
+    int to;
+};
+
+
+#ifdef __cplusplus
+extern "C" {
+#endif
+
+typedef struct WebCoreTextRun WebCoreTextRun;
+typedef struct WebCoreTextStyle WebCoreTextStyle;
+
+extern void WebCoreInitializeTextRun(WebCoreTextRun *run, const UniChar *characters, unsigned int length, int from, int to);
+extern void WebCoreInitializeEmptyTextStyle(WebCoreTextStyle *style);
+
+#ifdef __cplusplus
+}
+#endif
+
+
 @protocol WebCoreTextRenderer <NSObject>
 
 // vertical metrics
@@ -38,11 +76,13 @@
 - (float)xHeight;
 
 // horizontal metrics
-- (float)floatWidthForCharacters:(const unichar *)characters stringLength:(unsigned)length fromCharacterPosition:(int)pos numberOfCharacters:(int)len withPadding:(int)padding applyRounding:(BOOL)applyRounding attemptFontSubstitution:(BOOL)attemptFontSubstitution widths:(float *)buffer letterSpacing:(int)letterSpacing wordSpacing:(int)wordSpacing smallCaps:(BOOL)smallCaps
-fontFamilies:(NSString **)families;
+- (float)floatWidthForRun:(const WebCoreTextRun *)run style:(const WebCoreTextStyle *)style widths:(float *)buffer;
 
 // drawing
-- (void)drawCharacters:(const UniChar *)characters stringLength:(unsigned)length fromCharacterPosition:(int)from toCharacterPosition:(int)to atPoint:(NSPoint)point withPadding:(int)padding withTextColor:(NSColor *)textColor backgroundColor:(NSColor *)backgroundColor rightToLeft:(BOOL)rtl letterSpacing:(int)letterSpacing wordSpacing:(int)wordSpacing smallCaps:(BOOL)smallCaps fontFamilies:(NSString **)families;
+- (void)drawRun:(const WebCoreTextRun *)run style:(const WebCoreTextStyle *)style atPoint:(NSPoint)point;
+- (void)drawHighlightForRun:(const WebCoreTextRun *)run style:(const WebCoreTextStyle *)style atPoint:(NSPoint)point;
 - (void)drawLineForCharacters:(NSPoint)point yOffset:(float)yOffset withWidth:(int)width withColor:(NSColor *)color;
 
+// selection point check
+- (int)pointToOffset:(const WebCoreTextRun *)run style:(const WebCoreTextStyle *)style position:(int)x reversed:(BOOL)reversed;
 @end

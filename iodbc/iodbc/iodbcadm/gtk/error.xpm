@@ -1,0 +1,184 @@
+/*
+ *  error.xpm
+ *
+ *  $Id: error.xpm,v 1.1.1.1 2002/04/08 22:48:11 miner Exp $
+ *
+ *  ODBC logo in XPM format
+ *
+ *  The iODBC driver manager.
+ *  
+ *  Copyright (C) 1999-2002 by OpenLink Software <iodbc@openlinksw.com>
+ *  All Rights Reserved.
+ *
+ *  This software is released under the terms of either of the following
+ *  licenses:
+ *
+ *      - GNU Library General Public License (see LICENSE.LGPL) 
+ *      - The BSD License (see LICENSE.BSD).
+ *
+ *  While not mandated by the BSD license, any patches you make to the
+ *  iODBC source code may be contributed back into the iODBC project
+ *  at your discretion. Contributions will benefit the Open Source and
+ *  Data Access community as a whole. Submissions may be made at:
+ *
+ *      http://www.iodbc.org
+ *
+ *
+ *  GNU Library Generic Public License Version 2
+ *  ============================================
+ *  This library is free software; you can redistribute it and/or
+ *  modify it under the terms of the GNU Library General Public
+ *  License as published by the Free Software Foundation; either
+ *  version 2 of the License, or (at your option) any later version.
+ *
+ *  This library is distributed in the hope that it will be useful,
+ *  but WITHOUT ANY WARRANTY; without even the implied warranty of
+ *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+ *  Library General Public License for more details.
+ *
+ *  You should have received a copy of the GNU Library General Public
+ *  License along with this library; if not, write to the Free
+ *  Software Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
+ *
+ *
+ *  The BSD License
+ *  ===============
+ *  Redistribution and use in source and binary forms, with or without
+ *  modification, are permitted provided that the following conditions
+ *  are met:
+ *
+ *  1. Redistributions of source code must retain the above copyright
+ *     notice, this list of conditions and the following disclaimer.
+ *  2. Redistributions in binary form must reproduce the above copyright
+ *     notice, this list of conditions and the following disclaimer in
+ *     the documentation and/or other materials provided with the
+ *     distribution.
+ *  3. Neither the name of OpenLink Software Inc. nor the names of its
+ *     contributors may be used to endorse or promote products derived
+ *     from this software without specific prior written permission.
+ *
+ *  THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
+ *  "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
+ *  LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR
+ *  A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL OPENLINK OR
+ *  CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL,
+ *  EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO,
+ *  PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR
+ *  PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF
+ *  LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING
+ *  NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
+ *  SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+ */
+/* XPM */
+static char * error_xpm[] = {
+"48 48 62 1",
+" 	c None",
+".	c #B6DAB6DAB6DA",
+"X	c #D75CD75CD75C",
+"o	c #C71BC71BC71B",
+"O	c #BEFBBAEABEFB",
+"+	c #BEFBBEFBBEFB",
+"@	c #8E388E388E38",
+"#	c #CF3CCB2BCF3C",
+"$	c #AEBAAEBAAEBA",
+"%	c #DF7DDB6CDF7D",
+"&	c #E79DE79DE79D",
+"*	c #EFBEEBADEFBE",
+"=	c #F7DEF7DEF7DE",
+"-	c #DF7DDF7DDF7D",
+";	c #EFBEEFBEEFBE",
+":	c #FFFFFBEEFFFF",
+">	c #965896589658",
+",	c #CF3CCF3CCF3C",
+"<	c #410341034103",
+"1	c #104014511040",
+"2	c #71C675D671C6",
+"3	c #8E388A288E38",
+"4	c #71C671C671C6",
+"5	c #9E799E799E79",
+"6	c #618561856185",
+"7	c #AEBAA699AEBA",
+"8	c #A699A289A699",
+"9	c #69A66DB669A6",
+"0	c #861782078617",
+"q	c #9E799A699E79",
+"w	c #A699A699A699",
+"e	c #596559655965",
+"r	c #69A669A669A6",
+"t	c #514455555144",
+"y	c #861786178617",
+"u	c #492449244924",
+"i	c #69A6659569A6",
+"p	c #618565956185",
+"a	c #79E779E779E7",
+"s	c #28A228A228A2",
+"d	c #082008200820",
+"f	c #965892489658",
+"g	c #410345144103",
+"h	c #30C234D330C2",
+"j	c #104010401040",
+"k	c #71C679E771C6",
+"l	c #BEFBB6DABEFB",
+"z	c #30C230C230C2",
+"x	c #208120812081",
+"c	c #000000000000",
+"v	c #38E338E338E3",
+"b	c #208124922081",
+"n	c #514451445144",
+"m	c #186118611861",
+"M	c #596555555965",
+"N	c #A699AAAAA699",
+"B	c #BEFBBAEAB6DA",
+"V	c #E79DE38DE79D",
+"C	c #CF3CCB2BC71B",
+"Z	c #59655D755965",
+"A	c #B6DAB2CAB6DA",
+"S	c #000004100000",
+" .X..o .o O   +  @@     #   $+  +.OXo           ",
+".#%$+&*=%oX--;:.O&>- #;,+,;&&%-.oOo#%*&:&+.     ",
+"OO#%+-*&   ::*-&;::,*;&*=+$O  +$$  O$O$#+,-     ",
+" -%-&=%&-== :  -=;=#$.   #O+OXX-O%X X%O$++      ",
+" o=:X+X*;&,%;##-&,;: ;+&=:-, &# &=&-%X:*&;;;<12 ",
+"O :;: ,34- +.X*X=-* -- X*  ::;-;o#&:XoX ,X 5236 ",
+"*- ==:-78- -9O05**%+qO%;- %&&w0>  q $werty u0   ",
+"+ :=+%=:+#OX-O X: :*y4i>*;yqq@524t6p>@03ya s  22",
+"=::##4 o3+@y+ & = **w%%- +4   5>56w5eya3p> 62rdr",
+"#& o%*:O$X*$e@+ :  q a0=-0f5p>agg rhs 5j<0s1hd<<",
+"X=;  kl=%,.o $  $<z5yq.:.0  q@ur3uxrh02ztcd6vuth",
+".*;Xatt3X 2r3 ; qhq5@@ .  r >r6s0h56bjxv<<n<erz3",
+" &. @0>032pwqhu>+        65u1cxuhh21mueytssh3>s ",
+" $&--$ o3q#,a0a1cy1sxxcchr<drhxdub4ureapw<tt<h5 ",
+"O-O,- 250tea0w64g2h.3t6hsquh 2c<nch>  6>   35   ",
+"  +,;O*+%+y5y0wo$M>#*5>d6 4<6rd<x1u66s<>2       ",
+"  , $ %&#+O     .+O+22>Oz=0td<d>3sx             ",
+"      $o%#X-.++$O$ q>g Xs:&txxu xh5             ",
+"     .o &#   oX**+y  3rO64qxdsusr               ",
+"        $$   +...&6@r03$v1@ du><3               ",
+"             $ $+.a 0hq&5<1t1u5r<5              ",
+"               #X-q+o2re  h<6c0>0<t<>           ",
+"         .+,#X--%;;$y 5g05>w >u<sxx>s>          ",
+"        .$O+,*;++.2w2  s0qyw   q>@avd3          ",
+"        O:*;=&&XX#.,$-%*=+ $.2y4prajr@>         ",
+"     .X.+.;:=;,=-.rX> > .-fNw>+@>w6buqew        ",
+"      $.-,-X ,-ow%-*,o&%@=B,t+ ;a5htu6p>        ",
+"      $O+%+$&:& >+#%*:VXC  ; #epgdc<sapp4       ",
+"      .+##:&X:+@ ZA;X&%&0yt#q0 ugrv<cr6nr       ",
+"       $.OO+oo=&**3$v<@<n2csS<nhmzvjSv4t2       ",
+"        %. *.%:;&.8fre4o64m#wdSz1xcdsxvu3       ",
+"        %;%&..o:;O2 y4bna0xx02bch<c1hu15        ",
+"          $    $+X4@ mxc1nh61cdcd1cduhr5        ",
+"                  >Ora6mcddxccxmh6636<r         ",
+"                  X-2ar3mbd1d<nn6y5   5         ",
+"                  ;  @b3ccccchr>                ",
+"                  ;.# g3v11dx ,                 ",
+"                  *O:&u06tduu%.                 ",
+"                  $* :@rrpd1o:$                 ",
+"                   X  <t2hcx4%                  ",
+"                  $*=*gs@duhu0,.                ",
+"                 O* ;o$<5sd11w+w<               ",
+"                 *  5>-d s1uusxh1t              ",
+"               $+; -  ;< hsvuthust6             ",
+"      .+#o   ,,&,*=o%Xq. 2@at1tccr2   >5    30  ",
+"     +*-,&-*:*  ;;%Xw.=,55ux0-x6611ddhss2ssu1<  ",
+"      $    .     .oX3w0q4rap5az2ey >t<<r1<5rrh  ",
+"                     q5  34   5 w      5>       "};

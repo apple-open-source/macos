@@ -1,8 +1,8 @@
 /*
    +----------------------------------------------------------------------+
-   | PHP version 4.0                                                      |
+   | PHP Version 4                                                        |
    +----------------------------------------------------------------------+
-   | Copyright (c) 1997-2001 The PHP Group                                |
+   | Copyright (c) 1997-2003 The PHP Group                                |
    +----------------------------------------------------------------------+
    | This source file is subject to version 2.02 of the PHP license,      |
    | that is bundled with this package in the file LICENSE, and is        |
@@ -17,7 +17,7 @@
    +----------------------------------------------------------------------+
 */
 
-/* $Id: basic_functions.h,v 1.1.1.5 2001/12/14 22:13:17 zarzycki Exp $ */
+/* $Id: basic_functions.h,v 1.1.1.8 2003/07/18 18:07:42 zarzycki Exp $ */
 
 #ifndef BASIC_FUNCTIONS_H
 #define BASIC_FUNCTIONS_H
@@ -26,10 +26,8 @@
 
 #include "zend_highlight.h"
 
-#ifdef TRANS_SID
-#  include "url_scanner.h"
-#  include "url_scanner_ex.h"
-#endif
+#include "url_scanner.h"
+#include "url_scanner_ex.h"
 
 extern zend_module_entry basic_functions_module;
 #define basic_functions_module_ptr &basic_functions_module
@@ -41,21 +39,18 @@ PHP_RSHUTDOWN_FUNCTION(basic);
 PHP_MINFO_FUNCTION(basic);
 
 PHP_FUNCTION(constant);
-PHP_FUNCTION(intval);
-PHP_FUNCTION(doubleval);
-PHP_FUNCTION(strval);
 PHP_FUNCTION(toggle_short_open_tag);
 PHP_FUNCTION(sleep);
 PHP_FUNCTION(usleep);
 PHP_FUNCTION(flush);
-PHP_FUNCTION(gettype);
-PHP_FUNCTION(settype);
 PHP_FUNCTION(ip2long);
 PHP_FUNCTION(long2ip);
 
 /* system functions */
 PHP_FUNCTION(getenv);
 PHP_FUNCTION(putenv);
+
+PHP_FUNCTION(getopt);
 
 PHP_FUNCTION(get_current_user);
 PHP_FUNCTION(set_time_limit);
@@ -65,18 +60,6 @@ PHP_FUNCTION(set_magic_quotes_runtime);
 PHP_FUNCTION(get_magic_quotes_runtime);
 PHP_FUNCTION(get_magic_quotes_gpc);
 
-void php_is_type(INTERNAL_FUNCTION_PARAMETERS, int type);
-PHP_FUNCTION(is_null);
-PHP_FUNCTION(is_resource);
-PHP_FUNCTION(is_bool);
-PHP_FUNCTION(is_long);
-PHP_FUNCTION(is_double);
-PHP_FUNCTION(is_numeric);
-PHP_FUNCTION(is_string);
-PHP_FUNCTION(is_array);
-PHP_FUNCTION(is_object);
-PHP_FUNCTION(is_scalar);
-PHP_FUNCTION(is_callable);
 PHP_FUNCTION(import_request_variables);
 
 PHP_FUNCTION(error_log);
@@ -92,8 +75,12 @@ PHP_FUNCTION(highlight_string);
 ZEND_API void php_get_highlight_struct(zend_syntax_highlighter_ini *syntax_highlighter_ini);
 
 PHP_FUNCTION(ini_get);
+PHP_FUNCTION(ini_get_all);
 PHP_FUNCTION(ini_set);
 PHP_FUNCTION(ini_restore);
+PHP_FUNCTION(get_include_path);
+PHP_FUNCTION(set_include_path);
+PHP_FUNCTION(restore_include_path);
 
 PHP_FUNCTION(print_r);
 
@@ -116,6 +103,8 @@ PHP_FUNCTION(move_uploaded_file);
 
 /* From the INI parser */
 PHP_FUNCTION(parse_ini_file);
+
+PHP_FUNCTION(str_rot13);
 
 #ifdef PHP_WIN32
 typedef unsigned int php_stat_len;
@@ -157,7 +146,7 @@ typedef struct {
 
 	HashTable sm_protected_env_vars;
 	char *sm_allowed_env_vars;
- 
+	
 	/* pageinfo.c */
 	long page_uid;
 	long page_gid;
@@ -175,25 +164,29 @@ typedef struct {
 	php_uint32   *next;       /* next random value is computed from here */
 	int      left;        /* can *next++ this many times before reloading */
 
+	unsigned int rand_seed; /* Seed for rand(), in ts version */
+
+	zend_bool rand_is_seeded; /* Whether rand() has been seeded */
+	zend_bool mt_rand_is_seeded; /* Whether mt_rand() has been seeded */
+    
 	/* syslog.c */
 	int syslog_started;
 	char *syslog_device;
 
 	/* var.c */
 	zend_class_entry *incomplete_class;
-	zend_bool use_trans_sid;
 
-#ifdef TRANS_SID
 	/* url_scanner.c */
 	url_adapt_state_t url_adapt_state;
 	/* url_scanner_ex.re */
 	url_adapt_state_ex_t url_adapt_state_ex;
-#endif
 
 #ifdef HAVE_MMAP
 	void *mmap_file;
 	size_t mmap_len;
 #endif
+
+	HashTable *aggregation_table;
 } php_basic_globals;
 
 #ifdef ZTS

@@ -3,21 +3,22 @@
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
- * "Portions Copyright (c) 1999 Apple Computer, Inc.  All Rights
- * Reserved.  This file contains Original Code and/or Modifications of
- * Original Code as defined in and that are subject to the Apple Public
- * Source License Version 1.0 (the 'License').  You may not use this file
- * except in compliance with the License.  Please obtain a copy of the
- * License at http://www.apple.com/publicsource and read it before using
- * this file.
+ * Copyright (c) 1999-2003 Apple Computer, Inc.  All Rights Reserved.
+ * 
+ * This file contains Original Code and/or Modifications of Original Code
+ * as defined in and that are subject to the Apple Public Source License
+ * Version 2.0 (the 'License'). You may not use this file except in
+ * compliance with the License. Please obtain a copy of the License at
+ * http://www.opensource.apple.com/apsl/ and read it before using this
+ * file.
  * 
  * The Original Code and all software distributed under the License are
  * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
  * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
  * INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY,
- * FITNESS FOR A PARTICULAR PURPOSE OR NON-INFRINGEMENT.  Please see the
- * License for the specific language governing rights and limitations
- * under the License."
+ * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
+ * Please see the License for the specific language governing rights and
+ * limitations under the License.
  * 
  * @APPLE_LICENSE_HEADER_END@
  */
@@ -215,6 +216,9 @@ rtPrintArg(arg)
 	break;
       case akeSecToken:
 	printf("SecToken\t");
+	break;
+      case akeAuditToken:
+	printf("AuditToken\t");
 	break;
       case akeImplicit:
 	printf("Implicit\t");
@@ -928,6 +932,9 @@ rtSetArgDefaults(rt, arg)
 	  case akeSecToken:
 	    arg->argMsgField = "msgh_sender";
 	    break;
+	  case akeAuditToken:
+	    arg->argMsgField = "msgh_audit";
+	    break;
 	  case akeMsgSeqno:
 	    arg->argMsgField = "msgh_seqno";
 	    break;
@@ -1000,8 +1007,11 @@ rtAddCountArg(arg)
     arg->argNext = count;
 
     if (arg->argType->itString) {
-	    /* C String gets no Count argument on either side. */
-	    count->argVarName = (char *)0;
+	    /* C String gets no Count argument on either side, but are still in the msg */
+		count->argKind = akAddFeature(count->argKind, 
+									  akCheck(arg->argKind, akbSend) ?
+									  akbSendRcv : akbReturnRcv);
+		count->argVarName = (char *)0;
     } else {
 	/*
 	 * Count arguments have to be present on the message body (NDR encoded)
@@ -1189,8 +1199,9 @@ static void
 rtCheckTrailerType(arg)
     register argument_t *arg;
 {
-    if (akIdent(arg->argKind) == akeSecToken) 
-	itCheckSecTokenType(arg->argVarName, arg->argType);
+    if (akIdent(arg->argKind) == akeSecToken ||
+	akIdent(arg->argKind) == akeAuditToken)
+	itCheckTokenType(arg->argVarName, arg->argType);
 
     if (akIdent(arg->argKind) == akeMsgSeqno) 
 	itCheckIntType(arg->argVarName, arg->argType);
@@ -1353,6 +1364,8 @@ rtProcessNdrCode(rt)
     routine_t *rt;
 {
     register argument_t *ndr = rt->rtNdrCode;
+    argument_t *arg;
+    boolean_t found;
 
     /* akbSendSnd|akbSendBody initialize the NDR format label */
 #define ndr_send akbRequest|akbSend|akbSendSnd|akbSendBody
@@ -1361,13 +1374,33 @@ rtProcessNdrCode(rt)
 
     ndr->argKind = akAddFeature(ndr->argKind, ndr_send|ndr_rcv);
 
-    if (!rtCheckMask(ndr->argNext, akbRequest|akbSendBody)) 
-	ndr->argKind = akRemFeature(ndr->argKind, ndr_send);
+    for (found = FALSE, arg = ndr->argNext; arg != argNULL; arg = arg->argNext)
+		if (akCheck(arg->argKind, akbSendRcv|akbSendBody) &&
+		    !akCheck(arg->argKind, akbServerImplicit) && !arg->argType->itPortType &&
+		    (!arg->argParent || akIdent(arg->argKind) == akeCount ||
+		     akIdent(arg->argKind) == akeCountInOut))
+		{
+			arg->argKind = akAddFeature(arg->argKind, akbSendNdr);
+			found = TRUE;
+		}
+    if (!found)
+		ndr->argKind = akRemFeature(ndr->argKind, ndr_send);
 
-    if (!rt->rtOneWay &&
-        !akCheck(rt->rtRetCode->argKind, akbReply) &&
-	!rtCheckMask(ndr->argNext, akbReply|akbReturnBody)) 
-	    ndr->argKind = akRemFeature(ndr->argKind, ndr_rcv);
+	found = FALSE;
+    if (!rt->rtOneWay)
+		for (arg = ndr->argNext; arg != argNULL; arg = arg->argNext)
+			if ((arg == rt->rtRetCode && akCheck(arg->argKind, akbReply)) ||
+			    (arg != rt->rtRetCode && 
+			     akCheck(arg->argKind, akbReturnRcv|akbReturnBody) &&
+			     !akCheck(arg->argKind, akbUserImplicit) && !arg->argType->itPortType &&
+			     (!arg->argParent || akIdent(arg->argKind) == akeCount ||
+			      akIdent(arg->argKind) == akeCountInOut)))
+			{
+				arg->argKind = akAddFeature(arg->argKind, akbReturnNdr);
+				found = TRUE;
+			}
+	if (!found && !akCheck(rt->rtRetCode->argKind, akbReply))
+		ndr->argKind = akRemFeature(ndr->argKind, ndr_rcv);
 }
 
 /*
@@ -1444,14 +1477,24 @@ rtProcessMsgOption(rt)
 {
     register argument_t *msgop = rt->rtMsgOption;
     register argument_t *arg;
+    boolean_t sectoken = FALSE;
+    boolean_t audittoken = FALSE;
 
     for (arg = rt->rtArgs; arg != argNULL; arg = arg->argNext) 
         if (akCheckAll(arg->argKind, akbReturn|akbUserImplicit)) {
-	    if (akIdent(arg->argKind) == akeSecToken) 
+	    if (akIdent(arg->argKind) == akeSecToken)
+		sectoken = TRUE;
+	    else if (akIdent(arg->argKind) == akeAuditToken)
+		audittoken = TRUE;
+        }
+
+    if (audittoken == TRUE)
+		msgop->argVarName = strconcat(msgop->argVarName,
+		  "|MACH_RCV_TRAILER_ELEMENTS(MACH_RCV_TRAILER_AUDIT)");
+    else if (sectoken == TRUE)
 		msgop->argVarName = strconcat(msgop->argVarName,
 		  "|MACH_RCV_TRAILER_ELEMENTS(MACH_RCV_TRAILER_SENDER)");
-	    /* other implicit data received by the user will be handled here */
-        }
+    /* other implicit data received by the user will be handled here */
 }
 
 /*

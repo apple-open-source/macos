@@ -1,27 +1,11 @@
 /*
- * Copyright (c) 1984,1985,1989,1994,1995,1996,1999  Mark Nudelman
- * All rights reserved.
+ * Copyright (C) 1984-2002  Mark Nudelman
  *
- * Redistribution and use in source and binary forms, with or without
- * modification, are permitted provided that the following conditions
- * are met:
- * 1. Redistributions of source code must retain the above copyright
- *    notice, this list of conditions and the following disclaimer.
- * 2. Redistributions in binary form must reproduce the above copyright
- *    notice in the documentation and/or other materials provided with 
- *    the distribution.
+ * You may distribute under the terms of either the GNU General Public
+ * License or the Less License, as specified in the README file.
  *
- * THIS SOFTWARE IS PROVIDED BY THE AUTHOR ``AS IS'' AND ANY
- * EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
- * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR 
- * PURPOSE ARE DISCLAIMED.  IN NO EVENT SHALL THE AUTHOR BE LIABLE
- * FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR 
- * CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT 
- * OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR 
- * BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, 
- * WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE 
- * OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN 
- * IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+ * For more information about less, or for information on how to 
+ * contact the author, see the README file.
  */
 
 
@@ -36,6 +20,7 @@
 
 public int errmsgs;	/* Count of messages displayed by error() */
 public int need_clr;
+public int final_attr;
 
 extern int sigs;
 extern int sc_width;
@@ -43,6 +28,15 @@ extern int so_s_width, so_e_width;
 extern int screen_trashed;
 extern int any_display;
 extern int is_tty;
+
+#if MSDOS_COMPILER==BORLANDC || MSDOS_COMPILER==DJGPPC
+extern int ctldisp;
+extern int nm_fg_color, nm_bg_color;
+extern int bo_fg_color, bo_bg_color;
+extern int ul_fg_color, ul_bg_color;
+extern int so_fg_color, so_bg_color;
+extern int bl_fg_color, bl_bg_color;
+#endif
 
 /*
  * Display the line which is in the line buffer.
@@ -106,6 +100,7 @@ put_line()
 	case AT_BLINK:		bl_exit();	break;
 	case AT_STANDOUT:	so_exit();	break;
 	}
+	final_attr = curr_attr;
 }
 
 static char obuf[OUTBUF_SIZE];
@@ -139,68 +134,46 @@ flush()
 #if MSDOS_COMPILER==WIN32C
 	if (is_tty && any_display)
 	{
-		char *p;
 		char *op;
 		DWORD nwritten = 0;
 		CONSOLE_SCREEN_BUFFER_INFO scr;
-		DWORD nchars;
-		COORD cpos;
-		WORD nm_attr;
+		int row;
+		int col;
 		int olen;
 		extern HANDLE con_out;
-		extern int nm_fg_color;
-		extern int nm_bg_color;
-#define	MAKEATTR(fg,bg)		((WORD)((fg)|((bg)<<4)))
 
-		*ob = '\0';
 		olen = ob - obuf;
 		/*
-		 * To avoid color problems, if we're scrolling the screen,
-		 * we write only up to the char that causes the scroll,
-		 * (a newline or a char in the last column), then fill 
-		 * the bottom line with the "normal" attribute, then 
-		 * write the rest.
-		 * When Windows scrolls, it takes the attributes for the 
-		 * new line from the first char of the (previously) 
-		 * bottom line.
-		 *
-		 * {{ This still doesn't work correctly in all cases! }}
+		 * There is a bug in Win32 WriteConsole() if we're
+		 * writing in the last cell with a different color.
+		 * To avoid color problems in the bottom line,
+		 * we scroll the screen manually, before writing.
 		 */
-		nm_attr = MAKEATTR(nm_fg_color, nm_bg_color);
-		for (op = obuf;  *op != '\0';  )
+		GetConsoleScreenBufferInfo(con_out, &scr);
+		col = scr.dwCursorPosition.X;
+		row = scr.dwCursorPosition.Y;
+		for (op = obuf;  op < obuf + olen;  op++)
 		{
-			GetConsoleScreenBufferInfo(con_out, &scr);
-			/* Find the next newline. */
-			p = strchr(op, '\n');
-			if (p == NULL &&
-			    scr.dwCursorPosition.X + olen >= sc_width)
+			if (*op == '\n')
 			{
-				/*
-				 * No newline, but writing in the 
-				 * last column causes scrolling.
-				 */
-				p = op + sc_width - scr.dwCursorPosition.X - 1;
-			}
-			if (scr.dwCursorPosition.Y != scr.srWindow.Bottom ||
-			    p == NULL)
+				col = 0;
+				row++;
+			} else if (*op == '\r')
 			{
-				/* Write the entire buffer. */
-				WriteConsole(con_out, op, olen,
-						&nwritten, NULL);
-				op += olen;
+				col = 0;
 			} else
 			{
-				/* Write only up to the scrolling char. */
-				WriteConsole(con_out, op, p - op + 1, 
-						&nwritten, NULL);
-				cpos.X = 0;
-				cpos.Y = scr.dwCursorPosition.Y;
-				FillConsoleOutputAttribute(con_out, nm_attr,
-						sc_width, cpos, &nchars);
-				olen -= p - op + 1;
-				op = p + 1;
+				col++;
+				if (col >= sc_width)
+				{
+					col = 0;
+					row++;
+				}
 			}
 		}
+		if (row > scr.srWindow.Bottom)
+			win32_scroll_up(row - scr.srWindow.Bottom);
+		WriteConsole(con_out, obuf, olen, &nwritten, NULL);
 		ob = obuf;
 		return;
 	}
@@ -218,7 +191,156 @@ flush()
 	if (is_tty && any_display)
 	{
 		*ob = '\0';
-		cputs(obuf);
+		if (ctldisp != OPT_ONPLUS)
+			cputs(obuf);
+		else
+		{
+			/*
+			 * Look for SGR escape sequences, and convert them
+			 * to color commands.  Replace bold, underline,
+			 * and italic escapes into colors specified via
+			 * the -D command-line option.
+			 */
+			char *anchor, *p, *p_next;
+			int buflen = ob - obuf;
+			unsigned char fg, bg, norm_attr;
+			/*
+			 * Only dark colors mentioned here, so that
+			 * bold has visible effect.
+			 */
+			static enum COLORS screen_color[] = {
+				BLACK, RED, GREEN, BROWN,
+				BLUE, MAGENTA, CYAN, LIGHTGRAY
+			};
+
+			/* Normal text colors are used as baseline. */
+			bg = nm_bg_color & 0xf;
+			fg = nm_fg_color & 0xf;
+			norm_attr = (bg << 4) | fg;
+			for (anchor = p_next = obuf;
+			     (p_next = memchr (p_next, ESC,
+					       buflen - (p_next - obuf)))
+			       != NULL; )
+			{
+				p = p_next;
+
+				/*
+				 * Handle the null escape sequence
+				 * (ESC-[m), which is used to restore
+				 * the original color.
+				 */
+				if (p[1] == '[' && is_ansi_end(p[2]))
+				{
+					textattr(norm_attr);
+					p += 3;
+					anchor = p_next = p;
+					continue;
+				}
+
+				if (p[1] == '[')	/* "Esc-[" sequence */
+				{
+					/*
+					 * If some chars seen since
+					 * the last escape sequence,
+					 * write it out to the screen
+					 * using current text attributes.
+					 */
+					if (p > anchor)
+					{
+						*p = '\0';
+						cputs (anchor);
+						*p = ESC;
+						anchor = p;
+					}
+					p += 2;
+					p_next = p;
+					while (!is_ansi_end(*p))
+					{
+						char *q;
+						long code = strtol(p, &q, 10);
+
+						if (!*q)
+						{
+							/*
+							 * Incomplete sequence.
+							 * Leave it unprocessed
+							 * in the buffer.
+							 */
+							int slop = q - anchor;
+							strcpy(obuf, anchor);
+							ob = &obuf[slop];
+							return;
+						}
+
+						if (q == p
+						    || code > 49 || code < 0
+						    || (!is_ansi_end(*q)
+							&& *q != ';'))
+						{
+							p_next = q;
+							break;
+						}
+						if (*q == ';')
+							q++;
+
+						switch (code)
+						{
+						case 1:	/* bold on */
+							fg = bo_fg_color;
+							bg = bo_bg_color;
+							break;
+						case 3:	/* italic on */
+							fg = so_fg_color;
+							bg = so_bg_color;
+							break;
+						case 4:	/* underline on */
+							fg = ul_fg_color;
+							bg = ul_bg_color;
+							break;
+						case 8:	/* concealed on */
+							fg = (bg & 7) | 8;
+							break;
+						case 0:	/* all attrs off */
+						case 22:/* bold off */
+						case 23:/* italic off */
+						case 24:/* underline off */
+							fg = nm_fg_color;
+							bg = nm_bg_color;
+							break;
+						case 30: case 31: case 32:
+						case 33: case 34: case 35:
+						case 36: case 37:
+							fg = (fg & 8) | (screen_color[code - 30]);
+							break;
+						case 39: /* default fg */
+							fg = nm_fg_color;
+							break;
+						case 40: case 41: case 42:
+						case 43: case 44: case 45:
+						case 46: case 47:
+							bg = (bg & 8) | (screen_color[code - 40]);
+							break;
+						case 49: /* default fg */
+							bg = nm_bg_color;
+							break;
+						}
+						p = q;
+					}
+					if (is_ansi_end(*p) && p > p_next)
+					{
+						bg &= 15;
+						fg &= 15;
+						textattr ((bg << 4)| fg);
+						p_next = anchor = p + 1;
+					} else
+						break;
+				} else
+					p_next++;
+			}
+
+			/* Output what's left in the buffer.  */
+			cputs (anchor);
+		}
 		ob = obuf;
 		return;
 	}
@@ -288,7 +410,7 @@ iprintnum(num, radix)
 	register char *s;
 	int r;
 	int neg;
-	char buf[10];
+	char buf[INT_STRLEN_BOUND(num)];
 
 	neg = (num < 0);
 	if (neg)
@@ -314,7 +436,7 @@ iprintnum(num, radix)
  * using a more portable argument list mechanism than printf's.
  */
 	static int
-iprintf(fmt, parg)
+less_printf(fmt, parg)
 	register char *fmt;
 	PARG *parg;
 {
@@ -394,7 +516,7 @@ error(fmt, parg)
 		col += so_s_width;
 	}
 
-	col += iprintf(fmt, parg);
+	col += less_printf(fmt, parg);
 
 	if (!(any_display && is_tty))
 	{
@@ -435,7 +557,7 @@ ierror(fmt, parg)
 {
 	clear_bot();
 	so_enter();
-	(void) iprintf(fmt, parg);
+	(void) less_printf(fmt, parg);
 	putstr(intr_to_abort);
 	so_exit();
 	flush();
@@ -457,7 +579,7 @@ query(fmt, parg)
 	if (any_display && is_tty)
 		clear_bot();
 
-	(void) iprintf(fmt, parg);
+	(void) less_printf(fmt, parg);
 	c = getchr();
 
 	if (!(any_display && is_tty))

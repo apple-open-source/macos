@@ -47,7 +47,7 @@
 #include "usertest.h"
 #endif
 
-static MALLOC_DEFINE(M_KOBJ, "kobj", "Kernel object structures");
+MALLOC_DEFINE(M_KOBJ, "kobj", "Kernel object structures");
 
 #ifdef KOBJ_STATS
 
@@ -81,9 +81,10 @@ kobj_register_method(struct kobjop_desc *desc)
 static void
 kobj_unregister_method(struct kobjop_desc *desc)
 {
+	#pragma unused(desc)
 }
 
-void
+PRIVSYM void
 kobj_class_compile(kobj_class_t cls)
 {
 	kobj_ops_t ops;
@@ -129,7 +130,7 @@ kobj_class_compile(kobj_class_t cls)
 	cls->ops = ops;
 }
 
-void
+PRIVSYM void
 kobj_lookup_method(kobj_method_t *methods,
 		   kobj_method_t *ce,
 		   kobjop_desc_t desc)
@@ -148,7 +149,7 @@ kobj_lookup_method(kobj_method_t *methods,
 	return;
 }
 
-void
+PRIVSYM void
 kobj_class_free(kobj_class_t cls)
 {
 	int i;
@@ -167,7 +168,7 @@ kobj_class_free(kobj_class_t cls)
 	cls->ops = 0;
 }
 
-kobj_t
+PRIVSYM kobj_t
 kobj_create(kobj_class_t cls,
 #ifdef APPLE
 	    int mtype,
@@ -190,7 +191,7 @@ kobj_create(kobj_class_t cls,
 	return obj;
 }
 
-void
+PRIVSYM void
 kobj_init(kobj_t obj, kobj_class_t cls)
 {
 	/*
@@ -203,7 +204,7 @@ kobj_init(kobj_t obj, kobj_class_t cls)
 	cls->refs++;
 }
 
-void
+PRIVSYM void
 #ifdef APPLE
 kobj_delete(kobj_t obj, int mtype)
 #else

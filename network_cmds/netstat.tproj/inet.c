@@ -36,7 +36,7 @@
 static char sccsid[] = "@(#)inet.c	8.5 (Berkeley) 5/24/95";
 */
 static const char rcsid[] =
-	"$Id: inet.c,v 1.4 2002/06/06 00:18:13 laurent Exp $";
+	"$Id: inet.c,v 1.6 2003/07/08 22:49:49 lindak Exp $";
 #endif /* not lint */
 
 #include <sys/param.h>
@@ -75,6 +75,7 @@ static const char rcsid[] =
 #include <netdb.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <stdint.h>
 #include <string.h>
 #include <unistd.h>
 #include "netstat.h"
@@ -86,6 +87,77 @@ extern void	inet6print (struct in6_addr *, int, char *, int);
 static int udp_done, tcp_done;
 #endif /* INET6 */
 
+#ifdef SRVCACHE
+typedef struct __table_private table_t;
+
+extern table_t *_nc_table_new(uint32_t n);
+extern void _nc_table_free(table_t *tin);
+
+extern void _nc_table_insert(table_t *t, const char *key, void *datum);
+extern void *_nc_table_find(table_t *t, const char *key);
+extern void _nc_table_delete(table_t *t, const char *key);
+
+static table_t *_serv_cache = NULL;
+
+/*
+ * Read and cache all known services
+ */
+static void
+_serv_cache_open()
+{
+	struct servent *s;
+	char *key, *name;
+
+	if (_serv_cache != NULL) return;
+
+	_serv_cache = _nc_table_new(8192);
+	setservent(0);
+
+	while (NULL != (s = getservent()))
+	{
+		if (s->s_name == NULL) continue;
+		key = NULL;
+		asprintf(&key, "%hu/%s", (unsigned short)ntohs(s->s_port), s->s_proto);
+		name = strdup(s->s_name);
+		name = _nc_table_find(_serv_cache, key);
+		if (name == NULL) _nc_table_insert(_serv_cache, key, name);
+		free(key);
+	}
+
+	endservent();
+}
+
+void
+_serv_cache_close()
+{
+	_nc_table_free(_serv_cache);
+	_serv_cache = NULL;
+}
+
+struct servent *
+_serv_cache_getservbyport(int port, char *proto)
+{
+	static struct servent s;
+	char *key;
+	unsigned short p;
+
+	_serv_cache_open();
+
+	memset(&s, 0, sizeof(struct servent));
+	asprintf(&key, "%u/%s", port, (proto == NULL) ? "udp" : proto);
+
+	s.s_name = _nc_table_find(_serv_cache, key);
+	free(key);
+	if (s.s_name == NULL) return NULL;
+
+	p = port;
+	s.s_port = htons(p);
+	s.s_proto = proto;
+	return &s;
+}
+
+#endif SRVCACHE
+	
 /*
  * Print a summary of connections related to an Internet
  * protocol.  For TCP, also give state of connection.
@@ -192,7 +264,16 @@ protopr(u_long proto,		/* for sysctl version we pass proto # */
 			))
 		    )
 			continue;
-		if (!aflag &&
+#ifdef __APPLE__
+                /*
+                 * Local address is not an indication of listening socket or
+                 * server sockey but just rather the socket has been bound.
+                 * That why many UDP sockets were not displayed in the original code.
+                 */
+                if (!aflag && istcp && tp->t_state <= TCPS_LISTEN)
+                    continue;
+#else
+                if (!aflag && 
 		    (
 		     (af == AF_INET &&
 		      inet_lnaof(inp->inp_laddr) == INADDR_ANY)
@@ -209,9 +290,13 @@ protopr(u_long proto,		/* for sysctl version we pass proto # */
 #endif
 			  ))
 		     ))
-			continue;
+                    continue;
+#endif
 
-		if (first) {
+                if (Lflag && !so->so_qlimit)
+                    continue;
+
+                if (first) {
 			if (!Lflag) {
 				printf("Active Internet connections");
 				if (aflag)
@@ -234,21 +319,19 @@ protopr(u_long proto,		/* for sysctl version we pass proto # */
 					"(state)");
 			first = 0;
 		}
-		if (Aflag) {
-			if (istcp)
-				printf("%8lx ", (u_long)inp->inp_ppcb);
-			else
-				printf("%8lx ", (u_long)so->so_pcb);
-		}
-		if (Lflag)
-			if (so->so_qlimit) {
+                if (Aflag) {
+                        if (istcp)
+                                printf("%8lx ", (u_long)inp->inp_ppcb);
+                        else
+                                printf("%8lx ", (u_long)so->so_pcb);
+                }
+		if (Lflag) {
 				char buf[15];
 
 				snprintf(buf, 15, "%d/%d/%d", so->so_qlen,
 					 so->so_incqlen, so->so_qlimit);
 				printf("%-14.14s ", buf);
-			} else
-				continue;
+                }
 		else {
 			const char *vchar;
 
@@ -696,7 +779,11 @@ inetprint(struct in_addr *in, int port, char *proto, int numeric_port)
 	    sprintf(line, "%.*s.", (Aflag && !numeric_port) ? 12 : 16, inetname(in));
 	cp = index(line, '\0');
 	if (!numeric_port && port)
+#ifdef _SERVICE_CACHE_
+		sp = _serv_cache_getservbyport(port, proto);
+#else
 		sp = getservbyport((int)port, proto);
+#endif
 	if (sp || port == 0)
 		sprintf(cp, "%.15s ", sp ? sp->s_name : "*");
 	else

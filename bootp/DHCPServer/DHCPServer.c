@@ -3,19 +3,22 @@
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
- * The contents of this file constitute Original Code as defined in and
- * are subject to the Apple Public Source License Version 1.1 (the
- * "License").  You may not use this file except in compliance with the
- * License.  Please obtain a copy of the License at
- * http://www.apple.com/publicsource and read it before using this file.
+ * Copyright (c) 1999-2003 Apple Computer, Inc.  All Rights Reserved.
  * 
- * This Original Code and all software distributed under the License are
- * distributed on an "AS IS" basis, WITHOUT WARRANTY OF ANY KIND, EITHER
+ * This file contains Original Code and/or Modifications of Original Code
+ * as defined in and that are subject to the Apple Public Source License
+ * Version 2.0 (the 'License'). You may not use this file except in
+ * compliance with the License. Please obtain a copy of the License at
+ * http://www.opensource.apple.com/apsl/ and read it before using this
+ * file.
+ * 
+ * The Original Code and all software distributed under the License are
+ * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
  * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
  * INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY,
- * FITNESS FOR A PARTICULAR PURPOSE OR NON-INFRINGEMENT.  Please see the
- * License for the specific language governing rights and limitations
- * under the License.
+ * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
+ * Please see the License for the specific language governing rights and
+ * limitations under the License.
  * 
  * @APPLE_LICENSE_HEADER_END@
  */
@@ -48,6 +51,7 @@ CFStringRef	kDHCPSPropDHCPLease;
 CFStringRef	kDHCPSPropNetBootArch;
 CFStringRef	kDHCPSPropNetBootSysid;
 CFStringRef	kDHCPSPropNetBootImageID;
+CFStringRef	kDHCPSPropNetBootLastBootTime;
 
 static void
 init_vars()
@@ -68,6 +72,7 @@ init_vars()
     kDHCPSPropNetBootArch = CFSTR(NIPROP_NETBOOT_ARCH);
     kDHCPSPropNetBootSysid = CFSTR(NIPROP_NETBOOT_SYSID);
     kDHCPSPropNetBootImageID = CFSTR(NIPROP_NETBOOT_IMAGE_ID);
+    kDHCPSPropNetBootLastBootTime = CFSTR(NIPROP_NETBOOT_LAST_BOOT_TIME);
     return;
 }
 
@@ -78,7 +83,7 @@ read_host_list(u_char * filename)
     CFMutableDictionaryRef	dict = NULL;
     FILE *			file = NULL;
     int				line_number = 0;
-    char			line[512];
+    char			line[1024];
     enum { 
 	nowhere_e,
 	start_e, 
@@ -88,7 +93,7 @@ read_host_list(u_char * filename)
 
     file = fopen(filename, "r");
     if (file == NULL) {
-	perror(filename);
+	//perror(filename);
 	goto failed;
     }
 
@@ -128,7 +133,7 @@ read_host_list(u_char * filename)
 	}
 	else {
 	    char	propname[128];
-	    char	propval[128] = "";
+	    char	propval[768] = "";
 	    int 	len = strlen(line);
 	    char *	sep = strchr(line, '=');
 	    CFStringRef propstr = NULL;
@@ -156,9 +161,15 @@ read_host_list(u_char * filename)
 		
 		valstr = CFStringCreateWithCString(NULL, propval,
 						    kCFStringEncodingMacRoman);
-		CFDictionarySetValue(dict, propstr, valstr);
-		CFRelease(propstr);
-		CFRelease(valstr);
+		if (propstr != NULL && valstr != NULL) {
+		    CFDictionarySetValue(dict, propstr, valstr);
+		}
+		if (propstr != NULL) {
+		    CFRelease(propstr);
+		}
+		if (valstr != NULL) {
+		    CFRelease(valstr);
+		}
 	    }
 	    where = body_e;
 	}
@@ -226,6 +237,7 @@ show_date(CFAbsoluteTime t)
 static CFArrayRef
 cook_for_dhcp(CFArrayRef arr) 
 {
+    int			count;
     int 		i;
     CFAbsoluteTime 	now_cf;
     struct timeval 	now;
@@ -233,7 +245,8 @@ cook_for_dhcp(CFArrayRef arr)
     gettimeofday(&now, 0);
     now_cf = CFAbsoluteTimeGetCurrent();
     
-    for (i = 0; i < CFArrayGetCount(arr); i++) {
+    count = CFArrayGetCount(arr);
+    for (i = 0; i < count; i++) {
 	char			buf[128];
 	CFAbsoluteTime		abs_exp;
 	CFDateRef		expiration;
@@ -249,12 +262,54 @@ cook_for_dhcp(CFArrayRef arr)
 	    lease_delta = lease_val - now.tv_sec;
 	    abs_exp = lease_delta + now_cf;
 #ifdef TEST_DHCPHOSTLIST
-	show_date(abs_exp);
+	    show_date(abs_exp);
 #endif TEST_DHCPHOSTLIST
 	    expiration = CFDateCreate(NULL, lease_delta + now_cf);
 	    CFDictionarySetValue(dict, kDHCPSPropDHCPLease,
 				 expiration);
 	    CFRelease(expiration);
+	}
+    }
+    return (arr);
+}
+
+static CFArrayRef
+cook_for_netboot(CFArrayRef arr) 
+{
+    int			count;
+    int 		i;
+    CFAbsoluteTime 	now_cf;
+    struct timeval 	now;
+
+    gettimeofday(&now, 0);
+    now_cf = CFAbsoluteTimeGetCurrent();
+    
+    count = CFArrayGetCount(arr);
+    for (i = 0; i < count; i++) {
+	char			buf[128];
+	CFAbsoluteTime		abs_exp;
+	CFDateRef		last_boot_time;
+	long			last_boot_val = 0;
+	long			last_boot_delta = 0;
+	CFStringRef		last_boot_time_str;
+	CFMutableDictionaryRef 	dict;
+
+	dict = (CFMutableDictionaryRef)CFArrayGetValueAtIndex(arr, i);
+	last_boot_time_str 
+	    = CFDictionaryGetValue(dict, 
+				   kDHCPSPropNetBootLastBootTime);
+	if (last_boot_time_str) {
+	    cfstring_to_cstring(last_boot_time_str, buf, sizeof(buf));
+	    last_boot_val = strtol(buf, 0, 0);
+	    last_boot_delta = last_boot_val - now.tv_sec;
+	    abs_exp = last_boot_delta + now_cf;
+#ifdef TEST_DHCPHOSTLIST
+	    show_date(abs_exp);
+#endif TEST_DHCPHOSTLIST
+	    last_boot_time = CFDateCreate(NULL, last_boot_delta + now_cf);
+	    CFDictionarySetValue(dict, kDHCPSPropNetBootLastBootTime,
+				 last_boot_time);
+	    CFRelease(last_boot_time);
 	}
     }
     return (arr);
@@ -288,6 +343,10 @@ DHCPSNetBootClientListCreate()
 
     arr = read_host_list("/var/db/bsdpd_clients");
     if (arr == NULL) {
+	return (NULL);
+    }
+    if (cook_for_netboot(arr) == NULL) {
+	CFRelease(arr);
 	return (NULL);
     }
     return (arr);

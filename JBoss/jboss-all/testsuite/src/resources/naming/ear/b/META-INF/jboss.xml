@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<jboss>
+  <enterprise-beans>
+    <session>
+       <ejb-name>SessionB</ejb-name>
+       <jndi-name>naming/SessionB</jndi-name>
+
+       <ejb-ref>
+         <ejb-ref-name>ejb/NoLinkSessionA</ejb-ref-name>
+         <jndi-name>naming/SessionA </jndi-name>
+       </ejb-ref>
+
+       <ejb-local-ref>
+         <ejb-ref-name>ejb/NoLinkLocalSessionA</ejb-ref-name>
+         <local-jndi-name>naming/local/SessionA</local-jndi-name>
+       </ejb-local-ref>
+
+    </session>
+  </enterprise-beans>
+</jboss>

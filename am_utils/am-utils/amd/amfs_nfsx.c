@@ -37,7 +37,7 @@
  * SUCH DAMAGE.
  *
  *
- * $Id: amfs_nfsx.c,v 1.1.1.1 2002/05/15 01:21:53 jkh Exp $
+ * $Id: amfs_nfsx.c,v 1.1.1.2 2002/07/15 19:42:35 zarzycki Exp $
  *
  */
 
@@ -93,7 +93,9 @@ am_ops amfs_nfsx_ops =
   0,				/* amfs_nfsx_umounted */
   find_nfs_srvr,		/* XXX */
   /* FS_UBACKGROUND| */ FS_AMQINFO,	/* nfs_fs_flags */
-  /* FS_UBACKGROUND| */ FS_AMQINFO	/* autofs_fs_flags */
+#ifdef HAVE_FS_AUTOFS
+  AUTOFS_NFSX_FS_FLAGS,
+#endif /* HAVE_FS_AUTOFS */
 };
 
 
@@ -375,7 +377,7 @@ amfs_nfsx_remount(am_node *am, mntfs *mf, int fg)
     mntfs *m = n->n_mnt;
     if (n->n_error < 0) {
       if (!(m->mf_flags & MFF_MKMNT) && m->mf_fsflags & FS_MKMNT) {
-	int error = mkdirs(m->mf_mount, 0555);
+	int error = mkdirs(m->mf_real_mount, 0555);
 	if (!error)
 	  m->mf_flags |= MFF_MKMNT;
       }
@@ -489,7 +491,7 @@ amfs_nfsx_umount(am_node *am, mntfs *mf)
 
       if (n->n_error < 0) {
 	if (m->mf_fsflags & FS_MKMNT) {
-	  (void) rmdirs(m->mf_mount);
+	  (void) rmdirs(m->mf_real_mount);
 	  m->mf_flags &= ~MFF_MKMNT;
 	}
       }

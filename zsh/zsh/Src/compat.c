@@ -1,5 +1,5 @@
 /*
- * compat.c - compatibiltiy routines for the deprived
+ * compat.c - compatibility routines for the deprived
  *
  * This file is part of zsh, the Z shell.
  *
@@ -198,12 +198,32 @@ zpathmax(char *dir)
 mod_export long
 zopenmax(void)
 {
-    long openmax = sysconf(_SC_OPEN_MAX);
+    static long openmax = 0;
 
-    if (openmax < 1)
-	return OPEN_MAX;
-    else
-	return openmax;
+    if (openmax < 1) {
+	if ((openmax = sysconf(_SC_OPEN_MAX)) < 1) {
+	    openmax = OPEN_MAX;
+	} else if (openmax > OPEN_MAX) {
+	    /* On some systems, "limit descriptors unlimited" or the  *
+	     * equivalent will set openmax to a huge number.  Unless  *
+	     * there actually is a file descriptor > OPEN_MAX already *
+	     * open, nothing in zsh requires the true maximum, and in *
+	     * fact it causes inefficiency elsewhere if we report it. *
+	     * So, report the maximum of OPEN_MAX or the largest open *
+	     * descriptor (is there a better way to find that?).      */
+	    long i, j = OPEN_MAX;
+	    for (i = j; i < openmax; i += (errno != EINTR)) {
+		errno = 0;
+		if (fcntl(i, F_GETFL, 0) < 0 &&
+		    (errno == EBADF || errno == EINTR))
+		    continue;
+		j = i;
+	    }
+	    openmax = j;
+	}
+    }
+
+    return (max_zsh_fd > openmax) ? max_zsh_fd : openmax;
 }
 #endif
 
@@ -357,7 +377,7 @@ zgetcwd(void)
 }
 
 /* chdir with arbitrary long pathname.  Returns 0 on success, 0 on normal *
- * faliliure and -2 when chdir failed and the current directory is lost.  */
+ * failure and -2 when chdir failed and the current directory is lost.  */
 
 /**/
 mod_export int

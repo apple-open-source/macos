@@ -83,10 +83,10 @@ void _php_snmp(INTERNAL_FUNCTION_PARAMETERS, int st) {
 	convert_to_string(a2);
 	convert_to_string(a3);
 
-	agent=a1->value.str.val;
-	community=a2->value.str.val;
+	agent=Z_STRVAL_P(a1);
+	community=Z_STRVAL_P(a2);
 	operation=st;
-	SnmpMgrStrToOid(a3->value.str.val, &oid);
+	SnmpMgrStrToOid(Z_STRVAL_P(a3), &oid);
 
 /* 
    I've limited this to only one oid, but we can create a
@@ -247,6 +247,6 @@ DLEXPORT void php3_snmpwalk(INTERNAL_FUNCTION_PARAMETERS) {
  * tab-width: 4
  * c-basic-offset: 4
  * End:
- * vim600: sw=4 ts=4 tw=78 fdm=marker
- * vim<600: sw=4 ts=4 tw=78
+ * vim600: sw=4 ts=4 fdm=marker
+ * vim<600: sw=4 ts=4
  */

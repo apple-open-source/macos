@@ -1,20 +1,25 @@
 #
-# $Id: Makefile.am,v 1.1.1.2 2001/04/24 18:48:59 wsanchez Exp $
+# $Id: Makefile.am,v 1.1.1.3 2002/11/26 19:07:36 zarzycki Exp $
 #
 
-AUTOMAKE_OPTIONS = foreign no-dependencies
+AUTOMAKE_OPTIONS = foreign
 
-EXTRA_DIST = \
-	CHANGES LEGAL maketgz MITX.txt MPL-1.1.txt \
-	config-win32.h reconf packages/README Makefile.dist
+EXTRA_DIST = CHANGES COPYING maketgz SSLCERTS reconf Makefile.dist	\
+curl-config.in build_vms.com curl-mode.el
 
 bin_SCRIPTS = curl-config
 
-SUBDIRS = docs lib src include tests packages perl php
+SUBDIRS = docs lib src include tests packages
 
 # create a root makefile in the distribution:
 dist-hook:
 	cp $(srcdir)/Makefile.dist $(distdir)/Makefile
+
+html:
+	cd docs; make html
+
+pdf:
+	cd docs; make pdf
 
 check: test
 
@@ -47,3 +52,24 @@ rpm:
 	rpm -ba --clean --rmsource $$RPM_TOPDIR/SPECS/$(RPMDIST).spec ; \
 	mv $$RPM_TOPDIR/RPMS/i386/$(RPMDIST)-*.rpm . ; \
 	mv $$RPM_TOPDIR/SRPMS/$(RPMDIST)-*.src.rpm .
+
+#
+# Build a Solaris pkkgadd format file
+# run 'make pkgadd' once you've done './configure' and 'make' to make a Solaris pkgadd format
+# file (which ends up back in this directory).
+# The pkgadd file is in 'pkgtrans' format, so to install on Solaris, do
+# pkgadd -d ./HAXXcurl-*
+#
+
+# gak - libtool requires an absoulte directory, hence the pwd below...
+pkgadd:
+	umask 022 ; \
+	make install DESTDIR=`/bin/pwd`/packages/Solaris/root ; \
+	cat COPYING > $(srcdir)/packages/Solaris/copyright ; \
+	cd $(srcdir)/packages/Solaris && $(MAKE) package
+
+#
+# Build a cygwin binary tarball installation file
+# resulting .tar.bz2 file will end up at packages/Win32/cygwin
+cygwinbin:
+	$(MAKE) -C packages/Win32/cygwin cygwinbin

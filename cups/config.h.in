@@ -1,11 +1,11 @@
 /*
- * "$Id: config.h.in,v 1.8.2.1 2002/12/13 22:54:07 jlovell Exp $"
+ * "$Id: config.h.in,v 1.9 2003/09/05 01:14:49 jlovell Exp $"
  *
  *   Configuration file for the Common UNIX Printing System (CUPS).
  *
  *   @configure_input@
  *
- *   Copyright 1997-2002 by Easy Software Products.
+ *   Copyright 1997-2003 by Easy Software Products.
  *
  *   These coded instructions, statements, and computer programs are the
  *   property of Easy Software Products and are protected by Federal
@@ -28,7 +28,7 @@
  * Version of software...
  */
 
-#define CUPS_SVERSION	"CUPS v1.1.15-2"
+#define CUPS_SVERSION	"CUPS v1.1.19rc3"
 
 
 /*
@@ -37,6 +37,13 @@
 
 #define CUPS_DEFAULT_USER	"lp"
 #define CUPS_DEFAULT_GROUP	"sys"
+
+
+/*
+ * Maximum number of file descriptors to support.
+ */
+
+#define CUPS_MAX_FDS		4096
 
 
 /*
@@ -113,11 +120,12 @@
 
 
 /*
- * Use <string.h>, <strings.h>, or both?
+ * Use <string.h>, <strings.h>, and/or <bstring.h>?
  */
 
 #undef HAVE_STRING_H
 #undef HAVE_STRINGS_H
+#undef HAVE_BSTRING_H
 
 
 /*
@@ -171,10 +179,13 @@
 
 
 /*
- * Do we have the OpenSSL library?
+ * Which encryption libraries do we have?
  */
 
+#undef HAVE_CDSASSL
+#undef HAVE_GNUTLS
 #undef HAVE_LIBSSL
+#undef HAVE_SSL
 
 
 /*
@@ -182,6 +193,13 @@
  */
 
 #undef HAVE_LIBSLP
+
+
+/*
+ * Do we have libpaper?
+ */
+
+#undef HAVE_LIBPAPER
 
 
 /*
@@ -221,10 +239,27 @@
 
 
 /*
+ * Do we have hstrerror()?
+ */
+
+#undef HAVE_HSTRERROR
+
+
+/*
  * Do we have the <sys/sockio.h> header file?
  */
 
 #undef HAVE_SYS_SOCKIO_H
+
+
+/*
+ * Do we have MacOSX 10.3's notify_post() and 
+ *    CFLocaleCreateCanonicalLocaleIdentifierFromString()?
+ */
+
+#undef HAVE_NOTIFY_H
+#undef HAVE_NOTIFY_POST
+#undef HAVE_CF_LOCALE_ID
 
 
 /*
@@ -235,5 +270,19 @@
 
 
 /*
- * End of "$Id: config.h.in,v 1.8.2.1 2002/12/13 22:54:07 jlovell Exp $".
+ * Various scripting languages...
+ */
+
+#undef HAVE_JAVA
+#define CUPS_JAVA	"/usr/bin/java"
+#undef HAVE_PERL
+#define CUPS_PERL	"/usr/bin/perl"
+#undef HAVE_PHP
+#define CUPS_PHP	"/usr/bin/php"
+#undef HAVE_PYTHON
+#define CUPS_PYTHON	"/usr/bin/python"
+
+
+/*
+ * End of "$Id: config.h.in,v 1.9 2003/09/05 01:14:49 jlovell Exp $".
  */

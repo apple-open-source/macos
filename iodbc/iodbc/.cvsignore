@@ -1,0 +1,10 @@
+*.swp
+*.o
+*.lo
+*.la
+*.tar.gz
+*.shar.gz
+*.zip
+.libs
+.deps
+

@@ -1,8 +1,8 @@
 {
     DYNAMIC_CODE_GEN = YES; 
     FILESTABLE = {
-        OTHER_LINKED = (getgrouplist.c, glob.c, hton.c, putpwpasswd.c, pwcache.c, rcmd.c, rcmdsh.c); 
-        OTHER_SOURCES = (Makefile, Makefile.preamble, Makefile.postamble, rcmd.3); 
+        OTHER_LINKED = (glob.c, hton.c, putpwpasswd.c, pwcache.c, rcmd.c, rcmdsh.c); 
+        OTHER_SOURCES = (Makefile, Makefile.preamble, Makefile.postamble, rcmd.3, hosts.equiv.5); 
     }; 
     LANGUAGE = English; 
     MAKEFILEDIR = "$(MAKEFILEPATH)/pb_makefiles"; 

@@ -39,7 +39,6 @@
 /* trusted networks authorization policies, derived from netinfod */
 static int network_match LDAP_P((struct in_addr n, struct in_addr h));
 static dsstatus getnetwork LDAP_P((dsengine *s, u_int32_t *networks, dsdata *name, struct in_addr *addr));
-static dsstatus is_trusted_network LDAP_P((BackendDB *be, Connection *conn));
 static dsstatus is_admin LDAP_P((BackendDB *be, dsdata *user));
 
 /*
@@ -69,26 +68,13 @@ dsstatus netinfo_back_authorize(
 	int i;
 
 #ifdef NEW_LOGGING
-	LDAP_LOG(("backend", LDAP_LEVEL_ARGS, "netinfo_back_authorize: "
+	LDAP_LOG((BACK_NETINFO, ARGS, "netinfo_back_authorize: "
 		"dSID %u attribute %s\n", r->dsid, desc->ad_cname.bv_val));
 #else
 	Debug(LDAP_DEBUG_TRACE, "==> netinfo_back_authorize dsid=%u desc=%s\n", r->dsid, desc->ad_cname.bv_val, 0);
 #endif
 
 	/* apply NetInfo authorization model */ 
-
-	/* First, check whether we are coming in on a trusted network. */
-	status = is_trusted_network(be, conn);
-	if (status != DSStatusOK)
-	{
-#ifdef NEW_LOGGING
-		LDAP_LOG(("backend", LDAP_LEVEL_INFO, "netinfo_back_authorize: "
-			"untrusted network\n"));
-#else
-		Debug(LDAP_DEBUG_TRACE, "<== netinfo_back_authorize (not trusted_network)\n", 0, 0, 0);
-#endif
-		return status;
-	}
 
 	status = (access >= ACL_WRITE) ? DSStatusWriteRestricted : DSStatusReadRestricted;
 
@@ -98,7 +84,7 @@ dsstatus netinfo_back_authorize(
 		case ACL_NONE:
 		case ACL_AUTH:
 #ifdef NEW_LOGGING
-			LDAP_LOG(("backend", LDAP_LEVEL_INFO, "netinfo_back_authorize: "
+			LDAP_LOG((BACK_NETINFO, INFO, "netinfo_back_authorize: "
 				"access granted\n"));
 #else
 			Debug(LDAP_DEBUG_TRACE, "<== netinfo_back_authorize\n", 0, 0, 0);
@@ -112,7 +98,7 @@ dsstatus netinfo_back_authorize(
 			wr = netinfo_back_name_readers; /* struct copy */
 #else
 # ifdef NEW_LOGGING
-			LDAP_LOG(("backend", LDAP_LEVEL_INFO, "netinfo_back_authorize: "
+			LDAP_LOG((BACK_NETINFO, INFO, "netinfo_back_authorize: "
 				"read access granted\n"));
 # else
 			Debug(LDAP_DEBUG_TRACE, "<== netinfo_back_authorize\n", 0, 0, 0);
@@ -134,7 +120,7 @@ dsstatus netinfo_back_authorize(
 		    (is_admin(be, posix) == DSStatusOK))
 		{
 #ifdef NEW_LOGGING
-			LDAP_LOG(("backend", LDAP_LEVEL_INFO, "netinfo_back_authorize: "
+			LDAP_LOG((BACK_NETINFO, INFO, "netinfo_back_authorize: "
 				"NetInfo super-user authorized\n"));
 #else
 			Debug(LDAP_DEBUG_TRACE, "<== netinfo_back_authorize (NetInfo super-user)\n", 0, 0, 0);
@@ -189,7 +175,7 @@ dsstatus netinfo_back_authorize(
 		 * if we have a _readers ACL, though, it is exclusive
 		 */
 #ifdef NEW_LOGGING
-		LDAP_LOG(("backend", LDAP_LEVEL_INFO, "netinfo_back_authorize: "
+		LDAP_LOG((BACK_NETINFO, INFO, "netinfo_back_authorize: "
 			"no NetInfo authorization attribute\n"));
 #else
 		Debug(LDAP_DEBUG_TRACE, "<== netinfo_back_authorize (no auth attr)\n", 0, 0, 0);
@@ -210,7 +196,7 @@ dsstatus netinfo_back_authorize(
 			}
 		}
 #ifdef NEW_LOGGING
-		LDAP_LOG(("backend", LDAP_LEVEL_ENTRY, "netinfo_back_authorize: done\n"));
+		LDAP_LOG((BACK_NETINFO, ENTRY, "netinfo_back_authorize: done\n"));
 #else
 		Debug(LDAP_DEBUG_TRACE, "<== netinfo_back_authorize\n", 0, 0, 0);
 #endif
@@ -251,13 +237,23 @@ dsstatus netinfo_back_access_allowed(BackendDB *be,
 		return DSStatusOK;
 	}
 
+	assert(di != NULL);
+
+	if (di->flags & DSENGINE_FLAGS_NATIVE_AUTHORIZATION)
+	{
+		/* First, check whether we are coming in on a trusted network. */
+		status = is_trusted_network(be, conn);
+		if (status != DSStatusOK)
+		{
+			return status;
+		}
+	}
+
 	status = dsengine_fetch(di->engine, dsid, &r);
 	if (status != DSStatusOK)
 	{
 		return status;
 	}
-
-	assert(di != NULL);
 
 	status = (access >= ACL_WRITE) ? DSStatusWriteRestricted : DSStatusReadRestricted;
 
@@ -367,7 +363,7 @@ static dsstatus getnetwork(dsengine *s, u_int32_t *networks, dsdata *name, struc
 	return DSStatusOK;
 }
 
-static dsstatus is_trusted_network(BackendDB *be, Connection *conn)
+dsstatus is_trusted_network(BackendDB *be, Connection *conn)
 {
 	struct dsinfo *di = (struct dsinfo *)be->be_private;
 	dsstatus status;
@@ -476,7 +472,7 @@ is_admin(BackendDB *be, dsdata *user)
 	dsattribute *a;
 	dsstatus status;
 
-	if (di->promote_admins == 0)
+	if (di->promote_admins == FALSE)
 		return DSStatusAccessRestricted;
 
 	if (user == NULL)

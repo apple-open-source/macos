@@ -169,8 +169,9 @@ namespace KJS {
    */
   class CString {
   public:
-    CString() : data(0L) { }
+    CString() : data(0), length(0) { }
     CString(const char *c);
+    CString(const char *c, int len);
     CString(const CString &);
 
     ~CString();
@@ -180,10 +181,11 @@ namespace KJS {
     CString &operator=(const CString &);
     CString &operator+=(const CString &c) { return append(c); }
 
-    int size() const;
+    int size() const { return length; }
     const char *c_str() const { return data; }
   private:
     char *data;
+    int length;
   };
 
   /**
@@ -300,6 +302,10 @@ namespace KJS {
      * Append another string.
      */
     UString &append(const UString &);
+    UString &append(const char *);
+    UString &append(unsigned short);
+    UString &append(char c) { return append(static_cast<unsigned short>(static_cast<unsigned char>(c))); }
+    UString &append(UChar c) { return append(c.uc); }
 
     /**
      * @return The string converted to the 8-bit string type @ref CString().
@@ -313,6 +319,16 @@ namespace KJS {
      * instances.
      */
     char *ascii() const;
+
+    /**
+     * Convert the string to UTF-8, assuming it is UTF-16 encoded.
+     * Since this function is tolerant of badly formed UTF-16, it can create UTF-8
+     * strings that are invalid because they have characters in the range
+     * U+D800-U+DDFF, U+FFFE, or U+FFFF, but the UTF-8 string is guaranteed to
+     * be otherwise valid.
+     */
+    CString UTF8String() const;
+
     /**
      * @see UString(const QString&).
      */
@@ -335,6 +351,7 @@ namespace KJS {
      * Appends the specified string.
      */
     UString &operator+=(const UString &s) { return append(s); }
+    UString &operator+=(const char *s) { return append(s); }
 
     /**
      * @return A pointer to the internal Unicode data.
@@ -381,9 +398,18 @@ namespace KJS {
      * Attempts an conversion to an unsigned long integer. ok will be set
      * according to the success.
      */
-    unsigned long toULong(bool *ok = 0L) const;
+    unsigned long toULong(bool *ok = 0) const;
 
-    uint32_t toUInt32(bool *ok = 0L) const;
+    uint32_t toUInt32(bool *ok = 0) const;
+    uint32_t toStrictUInt32(bool *ok = 0) const;
+
+    /**
+     * Attempts an conversion to an array index. The "ok" boolean will be set
+     * to true if it is a valid array index according to the rule from
+     * ECMA 15.2 about what an array index is. It must exactly match the string
+     * form of an unsigned integer, and be less than 2^32 - 1.
+     */
+    unsigned toArrayIndex(bool *ok = 0) const;
 
     /**
      * @return Position of first occurrence of f starting at position pos.
@@ -444,6 +470,26 @@ namespace KJS {
   }
   
   int compare(const UString &, const UString &);
+
+  // Given a first byte, gives the length of the UTF-8 sequence it begins.
+  // Returns 0 for bytes that are not legal starts of UTF-8 sequences.
+  // Only allows sequences of up to 4 bytes, since that works for all Unicode characters (U-00000000 to U-0010FFFF).
+  int UTF8SequenceLength(char);
+
+  // Takes a null-terminated C-style string with a UTF-8 sequence in it and converts it to a character.
+  // Only allows Unicode characters (U-00000000 to U-0010FFFF).
+  // Returns -1 if the sequence is not valid (including presence of extra bytes).
+  int decodeUTF8Sequence(const char *);
+
+  // Given a UTF-8 string, converts offsets from the UTF-16 form of the string into offsets into the UTF-8 string.
+  // Note: This function can overrun the buffer if the string contains a partial UTF-8 sequence, so it should
+  // not be called with strings that might contain such sequences.
+  void convertUTF16OffsetsToUTF8Offsets(const char *UTF8String, int *offsets, int numOffsets);
+
+  // Given a UTF-8 string, converts offsets from the UTF-8 string into offsets into the UTF-16 form of the string.
+  // Note: This function can overrun the buffer if the string contains a partial UTF-8 sequence, so it should
+  // not be called with strings that might contain such sequences.
+  void convertUTF8OffsetsToUTF16Offsets(const char *UTF8String, int *offsets, int numOffsets);
 
 }; // namespace
 

@@ -38,6 +38,7 @@ namespace Security {
 class StringData : public CssmData {
 public:
     StringData(const char *s) : CssmData(const_cast<char *>(s), strlen(s)) { }
+	StringData(const std::string &s) : CssmData(const_cast<char *>(s.c_str()), s.size()) { }
 };
 
 
@@ -99,6 +100,25 @@ public:
 	virtual CssmData release() = 0;		// give up copy, ownership is transferred
 	virtual void reset() = 0;			// give up copy, data is discarded
 };
+
+
+inline bool operator == (const CssmManagedData &d1, const CssmData &d2)
+{ return d1.get() == d2; }
+
+inline bool operator == (const CssmData &d1, const CssmManagedData &d2)
+{ return d1 == d2.get(); }
+
+inline bool operator == (const CssmManagedData &d1, const CssmManagedData &d2)
+{ return d1.get() == d2.get(); }
+
+inline bool operator != (const CssmManagedData &d1, const CssmData &d2)
+{ return d1.get() != d2; }
+
+inline bool operator != (const CssmData &d1, const CssmManagedData &d2)
+{ return d1 != d2.get(); }
+
+inline bool operator != (const CssmManagedData &d1, const CssmManagedData &d2)
+{ return d1.get() != d2.get(); }
 
 
 //
@@ -395,6 +415,7 @@ public:
 	CssmData(inAllocator.malloc(length), length), mAllocator(inAllocator) 
 	{ if (length) ::memcpy(Data, data, length); }
 	void clear() { if (Data) { mAllocator.free(Data); Data = NULL; Length = 0; } }
+	void invalidate () {Data = NULL; Length = 0;}
 	~CssmDataContainer() { if (Data) mAllocator.free(Data); }
 	void append(const CssmPolyData &data)
 	{

@@ -32,7 +32,7 @@
 #ifndef lint
 static char copyright[] =
 "@(#) Copyright 1994 Purdue Research Foundation.\nAll rights reserved.\n";
-static char *rcsid = "$Id: misc.c,v 1.21 2001/11/01 20:21:18 abe Exp $";
+static char *rcsid = "$Id: misc.c,v 1.22 2002/04/29 17:11:04 abe Exp $";
 #endif
 
 
@@ -57,18 +57,6 @@ _PROTOTYPE(static int dolstat,(char *path, char *buf, int len));
 _PROTOTYPE(static int dostat,(char *path, char *buf, int len));
 _PROTOTYPE(static int doreadlink,(char *path, char *buf, int len));
 _PROTOTYPE(static int doinchild,(int (*fn)(), char *fp, char *rbuf, int rbln));
-
-# if	!defined(GET_MAX_FD)
-/*
- * This is not strictly a prototype, but GET_MAX_FD is the name of the
- * function that, in lieu of getdtablesize(), returns the maximum file
- * descriptor plus one (or file descriptor count).  GET_MAX_FD may be
- * defined in the dialect's machine.h.  If it is not, the following
- * selects getdtablesize().
- */
-
-#define	GET_MAX_FD	getdtablesize
-# endif	/* !defined(GET_MAX_FD) */
 
 #if	defined(HASINTSIGNAL)
 _PROTOTYPE(static int handleint,(int sig));

@@ -1,4 +1,4 @@
-# Copyright (c) 1999-2002 Apple Computer, Inc.
+# Copyright (c) 1999-2003 Apple Computer, Inc.
 # All rights reserved.
 
 # Built-in definitions of common build settings.  These can be
@@ -34,7 +34,7 @@ export deferred INSTALL_DIR = $(DSTROOT)/$(INSTALL_PATH) ;
 # installation parameters
 export deferred INSTALL_OWNER = $(USER) ;
 export deferred INSTALL_GROUP = $(GROUP) ;
-export deferred INSTALL_MODE_FLAG = "a-w,a+rX" ;
+export deferred INSTALL_MODE_FLAG = "ugo-w,o+rX" ;
 
 # language-independent code generation settings
        deferred OPTIMIZATION_LEVEL = 0 ;
@@ -62,6 +62,9 @@ export deferred FRAMEWORK_VERSION = A ;
        deferred COPY_PHASE_STRIP = NO ;
        deferred CLONE_HEADERS = NO ;
        deferred KEEP_PRIVATE_EXTERNS = YES ;   # this currently affects the master.o file only
+       deferred USE_GCC3_PFE_SUPPORT = YES ;
+# We avoid setting a default value for this for Project Builder 2.1, so that lower-level tools can pick their own default.
+#export deferred MACOSX_DEPLOYMENT_TARGET = 10.2 ;
 
 
 rule ConditionalDefinitions
@@ -101,8 +104,6 @@ rule ConditionalDefinitions
     # conditional locations enabling install-in-place
     if $(DEPLOYMENT_LOCATION) = YES {
         if $(SKIP_INSTALL) || ! $(INSTALL_PATH) {
-            # !!!:cmolick:20020301 uninstalled products might best go to
-            #  the built products dir, or a subfolder if there are asides
             export deferred TARGET_BUILD_DIR = $(TEMP_ROOT)/UninstalledProducts ;
         }
         else {

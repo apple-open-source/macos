@@ -1,0 +1,251 @@
+// !$*UTF8*$!
+{
+	archiveVersion = 1;
+	classes = {
+	};
+	objectVersion = 38;
+	objects = {
+		F5AAE7B0023E532801650119 = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			path = BuildPBX.jam;
+			refType = 4;
+		};
+		F5D5CCD002427B1901650119 = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			path = KerberosVersion.jam;
+			refType = 4;
+		};
+		F5D5CCD202427B7F01650119 = {
+			buildArgumentsString = "-d3 \"-sJAMFILE=$(SRCROOT)/../Scripts/KerberosVersion.jam\" $(ACTION)";
+			buildPhases = (
+			);
+			buildSettings = {
+				PRODUCT_NAME = KerberosVersion.jam;
+				WARNING_CFLAGS = "-Wmost -Wno-four-char-constants -Wno-unknown-pragmas";
+			};
+			buildToolPath = /Developer/Private/jam;
+			dependencies = (
+			);
+			isa = PBXLegacyTarget;
+			name = KerberosVersion;
+			passBuildSettingsInEnvironment = 1;
+			productName = KerberosVersion.jam;
+			settingsToExpand = 6;
+			settingsToPassInEnvironment = 287;
+			settingsToPassOnCommandLine = 280;
+		};
+		F5D5CCD302427B8401650119 = {
+			isa = PBXTargetDependency;
+			target = F5D5CCD202427B7F01650119;
+		};
+		F5DCC3F3022ABF73012695F5 = {
+			buildStyles = (
+				F5DCC3F5022ABF73012695F5,
+				F5DCC3F6022ABF73012695F5,
+			);
+			hasScannedForEncodings = 1;
+			isa = PBXProject;
+			mainGroup = F5DCC3F4022ABF73012695F5;
+			projectDirPath = "";
+			targets = (
+				F5DCC3F7022AC03F012695F5,
+				F5DCC3F9022AC03F012695F5,
+				F5DCC3FB022AC03F012695F5,
+				F5DCC406022AC1F9012695F5,
+				F5DCC408022AC1F9012695F5,
+				F5D5CCD202427B7F01650119,
+			);
+		};
+		F5DCC3F4022ABF73012695F5 = {
+			children = (
+				F5DCC3FD022AC07B012695F5,
+			);
+			isa = PBXGroup;
+			refType = 4;
+		};
+		F5DCC3F5022ABF73012695F5 = {
+			buildRules = (
+			);
+			buildSettings = {
+				COPY_PHASE_STRIP = NO;
+			};
+			isa = PBXBuildStyle;
+			name = Development;
+		};
+		F5DCC3F6022ABF73012695F5 = {
+			buildRules = (
+			);
+			buildSettings = {
+				COPY_PHASE_STRIP = YES;
+			};
+			isa = PBXBuildStyle;
+			name = Deployment;
+		};
+		F5DCC3F7022AC03F012695F5 = {
+			buildPhases = (
+			);
+			buildSettings = {
+				OTHER_CFLAGS = "";
+				OTHER_LDFLAGS = "";
+				OTHER_REZFLAGS = "";
+				PRODUCT_NAME = Kerberos;
+				SECTORDER_FLAGS = "";
+				WARNING_CFLAGS = "-Wmost -Wno-four-char-constants -Wno-unknown-pragmas";
+			};
+			dependencies = (
+				F5DCC3F8022AC03F012695F5,
+				F5DCC40B022AC26D012695F5,
+				F5DCC405022AC1F9012695F5,
+				F5DCC3FA022AC03F012695F5,
+				F5D5CCD302427B8401650119,
+			);
+			isa = PBXAggregateTarget;
+			name = Kerberos;
+			productName = Kerberos;
+		};
+		F5DCC3F8022AC03F012695F5 = {
+			isa = PBXTargetDependency;
+			target = F5DCC3F9022AC03F012695F5;
+		};
+		F5DCC3F9022AC03F012695F5 = {
+			buildArgumentsString = "-d3 \"-sJAMFILE=$(SRCROOT)/../Scripts/KerberosFramework.jam\" $(ACTION)";
+			buildPhases = (
+			);
+			buildSettings = {
+				PRODUCT_NAME = Framework;
+				WARNING_CFLAGS = "-Wmost -Wno-four-char-constants -Wno-unknown-pragmas";
+			};
+			buildToolPath = /Developer/Private/jam;
+			dependencies = (
+			);
+			isa = PBXLegacyTarget;
+			name = "Kerberos Framework";
+			passBuildSettingsInEnvironment = 1;
+			productName = Framework;
+			settingsToExpand = 6;
+			settingsToPassInEnvironment = 287;
+			settingsToPassOnCommandLine = 280;
+		};
+		F5DCC3FA022AC03F012695F5 = {
+			isa = PBXTargetDependency;
+			target = F5DCC3FB022AC03F012695F5;
+		};
+		F5DCC3FB022AC03F012695F5 = {
+			buildArgumentsString = "-d3 \"-sJAMFILE=$(SRCROOT)/../Scripts/KerberosClients.jam\" $(ACTION)";
+			buildPhases = (
+			);
+			buildSettings = {
+				PRODUCT_NAME = Clients;
+				WARNING_CFLAGS = "-Wmost -Wno-four-char-constants -Wno-unknown-pragmas";
+			};
+			buildToolPath = /Developer/Private/jam;
+			dependencies = (
+				F5DCC3FC022AC03F012695F5,
+			);
+			isa = PBXLegacyTarget;
+			name = "Kerberos Clients";
+			passBuildSettingsInEnvironment = 1;
+			productName = Clients;
+			settingsToExpand = 6;
+			settingsToPassInEnvironment = 287;
+			settingsToPassOnCommandLine = 280;
+		};
+		F5DCC3FC022AC03F012695F5 = {
+			isa = PBXTargetDependency;
+			target = F5DCC3F9022AC03F012695F5;
+		};
+		F5DCC3FD022AC07B012695F5 = {
+			children = (
+				F5DCC403022AC07B012695F5,
+				F5DCC404022AC0D7012695F5,
+				F5DCC409022AC24E012695F5,
+				F5DCC40A022AC24E012695F5,
+				F5AAE7B0023E532801650119,
+				F5D5CCD002427B1901650119,
+			);
+			isa = PBXGroup;
+			name = Scripts;
+			path = ../Scripts;
+			refType = 2;
+		};
+		F5DCC403022AC07B012695F5 = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			path = KerberosFramework.jam;
+			refType = 4;
+		};
+		F5DCC404022AC0D7012695F5 = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			path = KerberosClients.jam;
+			refType = 4;
+		};
+		F5DCC405022AC1F9012695F5 = {
+			isa = PBXTargetDependency;
+			target = F5DCC406022AC1F9012695F5;
+		};
+		F5DCC406022AC1F9012695F5 = {
+			buildArgumentsString = "-d3 \"-sJAMFILE=$(SRCROOT)/../Scripts/UsrInclude.jam\" $(ACTION)";
+			buildPhases = (
+			);
+			buildSettings = {
+				PRODUCT_NAME = /usr/include;
+				WARNING_CFLAGS = "-Wmost -Wno-four-char-constants -Wno-unknown-pragmas";
+			};
+			buildToolPath = /Developer/Private/jam;
+			buildWorkingDirectory = "";
+			dependencies = (
+				F5DCC407022AC1F9012695F5,
+			);
+			isa = PBXLegacyTarget;
+			name = /usr/include;
+			passBuildSettingsInEnvironment = 1;
+			productName = /usr/include;
+			settingsToExpand = 6;
+			settingsToPassInEnvironment = 287;
+			settingsToPassOnCommandLine = 280;
+		};
+		F5DCC407022AC1F9012695F5 = {
+			isa = PBXTargetDependency;
+			target = F5DCC3F9022AC03F012695F5;
+		};
+		F5DCC408022AC1F9012695F5 = {
+			buildArgumentsString = "-d3 \"-sJAMFILE=$(SRCROOT)/../Scripts/UsrLib.jam\" $(ACTION)";
+			buildPhases = (
+			);
+			buildSettings = {
+				PRODUCT_NAME = /usr/lib;
+				WARNING_CFLAGS = "-Wmost -Wno-four-char-constants -Wno-unknown-pragmas";
+			};
+			buildToolPath = /Developer/Private/jam;
+			dependencies = (
+			);
+			isa = PBXLegacyTarget;
+			name = /usr/lib;
+			passBuildSettingsInEnvironment = 1;
+			productName = /usr/lib;
+			settingsToExpand = 6;
+			settingsToPassInEnvironment = 287;
+			settingsToPassOnCommandLine = 280;
+		};
+		F5DCC409022AC24E012695F5 = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			path = UsrInclude.jam;
+			refType = 4;
+		};
+		F5DCC40A022AC24E012695F5 = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			path = UsrLib.jam;
+			refType = 4;
+		};
+		F5DCC40B022AC26D012695F5 = {
+			isa = PBXTargetDependency;
+			target = F5DCC408022AC1F9012695F5;
+		};
+	};
+	rootObject = F5DCC3F3022ABF73012695F5;
+}

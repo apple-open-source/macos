@@ -1,27 +1,11 @@
 /*
- * Copyright (c) 1984,1985,1989,1994,1995,1996,1999  Mark Nudelman
- * All rights reserved.
+ * Copyright (C) 1984-2002  Mark Nudelman
  *
- * Redistribution and use in source and binary forms, with or without
- * modification, are permitted provided that the following conditions
- * are met:
- * 1. Redistributions of source code must retain the above copyright
- *    notice, this list of conditions and the following disclaimer.
- * 2. Redistributions in binary form must reproduce the above copyright
- *    notice in the documentation and/or other materials provided with 
- *    the distribution.
+ * You may distribute under the terms of either the GNU General Public
+ * License or the Less License, as specified in the README file.
  *
- * THIS SOFTWARE IS PROVIDED BY THE AUTHOR ``AS IS'' AND ANY
- * EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
- * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR 
- * PURPOSE ARE DISCLAIMED.  IN NO EVENT SHALL THE AUTHOR BE LIABLE
- * FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR 
- * CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT 
- * OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR 
- * BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, 
- * WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE 
- * OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN 
- * IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+ * For more information about less, or for information on how to 
+ * contact the author, see the README file.
  */
 
 
@@ -48,9 +32,6 @@
 #endif
 #if HAVE_VALUES_H
 #include <values.h>
-#endif
-#if HAVE_LIMITS_H
-#include <limits.h>
 #endif
 
 #if HAVE_TIME_T
@@ -115,11 +96,19 @@ iread(fd, buf, len)
 		 * We jumped here from intread.
 		 */
 		reading = 0;
+#if HAVE_SIGPROCMASK
+		{
+		  sigset_t mask;
+		  sigemptyset(&mask);
+		  sigprocmask(SIG_SETMASK, &mask, NULL);
+		}
+#else
 #if HAVE_SIGSETMASK
 		sigsetmask(0);
 #else
 #ifdef _OSK
 		sigmask(~0);
+#endif
 #endif
 #endif
 		return (READ_INTR);
@@ -241,36 +230,6 @@ errno_message(filename)
 }
 
 /*
- * Return the largest possible number that can fit in a long.
- */
-	static long
-get_maxlong()
-{
-#ifdef LONG_MAX
-	return (LONG_MAX);
-#else
-#ifdef MAXLONG
-	return (MAXLONG);
-#else
-	long n, n2;
-
-	/*
-	 * Keep doubling n until we overflow.
-	 * {{ This actually only returns the largest power of two that
-	 *    can fit in a long, but percentage() doesn't really need
-	 *    it any more accurate than that. }}
-	 */
-	n2 = 128;  /* Hopefully no maxlong is less than 128! */
-	do {
-		n = n2;
-		n2 *= 2;
-	} while (n2 / 2 == n);
-	return (n);
-#endif
-#endif
-}
-
-/*
  * Return the ratio of two POSITIONS, as a percentage.
  * {{ Assumes a POSITION is a long int. }}
  */
@@ -278,26 +237,66 @@ get_maxlong()
 percentage(num, den)
 	POSITION num, den;
 {
-	if (num <= get_maxlong() / 100)
-		return ((100 * num) / den);
+	POSITION num100 = num * 100;
+
+	if (num100 / 100 == num)
+		return (num100 / den);
 	else
 		return (num / (den / 100));
 }
 
 /*
  * Return the specified percentage of a POSITION.
- * {{ Assumes a POSITION is a long int. }}
  */
 	public POSITION
 percent_pos(pos, percent)
 	POSITION pos;
 	int percent;
 {
-	if (pos <= get_maxlong() / 100)
-		return ((percent * pos) / 100);
+	POSITION result100;
+
+	if (percent == 0)
+		return (0);
+	else if ((result100 = pos * percent) / percent == pos)
+		return (result100 / 100);
 	else
 		return (percent * (pos / 100));
 }
+
+#if !HAVE_STRCHR
+/*
+ * strchr is used by regexp.c.
+ */
+	char *
+strchr(s, c)
+	char *s;
+	int c;
+{
+	for ( ;  *s != '\0';  s++)
+		if (*s == c)
+			return (s);
+	if (c == '\0')
+		return (s);
+	return (NULL);
+}
+#endif
+
+#if !HAVE_MEMCPY
+	VOID_POINTER
+memcpy(dst, src, len)
+	VOID_POINTER dst;
+	VOID_POINTER src;
+	int len;
+{
+	char *dstp = (char *) dst;
+	char *srcp = (char *) src;
+	int i;
+
+	for (i = 0;  i < len;  i++)
+		dstp[i] = srcp[i];
+	return (dst);
+}
+#endif
 
 #ifdef _OSK_MWC32
 
@@ -314,7 +313,7 @@ os9_signal(type, handler)
 
 #include <sgstat.h>
 
-	public int 
+	int 
 isatty(f)
 	int f;
 {

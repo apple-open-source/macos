@@ -1,0 +1,68 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.0 Transitional//EN">
+<html>
+<head>
+	<title>Readme</title>
+</head>
+
+<body>
+<h2>A JBoss Security Extension Layer</h2>
+<img src="jboss-sx.jpg" width="256" height="113" border="0" alt="">
+The JBossSX security extension provides support for a security proxy layer
+and an extensible JAAS subject based authentication and authorization layer.
+The security proxy layer allows custom security to be added to an EJB in
+a way that is independent of the EJB business object. This is done by adding
+a security proxy delegate to the existing SecurityInterceptor plugin.
+
+<p>
+The basic extension is indepdent of JAAS, but the bulk of the JBossSX module
+is a JAAS based implementation of the proxy layer. The following elements are
+included in the release:
+<ul>
+	<li>A new SRPLoginModule and JMX services that provide a crptographically secure
+	login mechanism. This is an implementation of the RFC2945, the 'Secure Remote Password'
+	cryptographic authentication system developed by Tom Wu (tjw@CS.Stanford.EDU).
+	From an abstract of a paper by Wu:<br>
+	<cite>
+	... a new password authentication and key-exchange protocol	suitable for
+	authenticating	users and exchanging keys over an untrusted network. The
+	new protocol resists dictionary	attacks mounted by either passive or active
+	network intruders, allowing, in principle, even weak passphrases to be used
+	safely. It also offers perfect forward secrecy, which protects past sessions
+	and passwords against future compromises. Finally, user passwords are stored
+	in a form that is not plaintext-equivalent to the password itself, so an
+	attacker who captures the password database cannot use it directly to
+	compromise security and gain immediate access to the host. This new protocol
+	combines techniques of zero-knowledge proofs with asymmetric key exchange
+	protocols and offers significantly improved performance over comparably
+	strong extended methods that resist stolen-verifier	attacks such as Augmented
+	EKE or B-SPEKE.
+	</cite><br>
+	See <a href="http://www-cs-students.stanford.edu/~tjw/srp/">
+	http://www-cs-students.stanford.edu/~tjw/srp/</a> for details on SRP.
+
+	<li>A custom implementation of the javax.security.auth.Policy and
+	javax.security.auth.login.Configuration classes that combines the notions
+	of user authentication and authorization into a multiple security domain
+	notion. Each security domain can define its own login module stack and user
+	based permissions. The authentication and authorization information is
+	accessed through a store abstraction(IAppPolicyStore) that allows for
+	integrating with arbitrary security stores.
+	<li>An XML based implementation of IAppPolicyStore that allows for
+	security domain information to be represented by an XML document.
+	<li>Updated JAAS based security manager that adds an authentication
+	credential cache policy that lazily refreshes/expires the credentials.
+	<li>A sample implementation of a JAAS based security proxy to demonstrate
+	the usage of the contrib security elements.
+	<li>A sample implementation of a security proxy that does not use JAAS
+	to demonstrate non-JAAS custom security.
+</ul>
+<p>The JBossSX module is integrated with the current JBoss core module as
+three jar files:
+	<ul>
+		<li>client/jbosssx-client.jar</li>
+		<li>lib/jboss-jaas.jar</li>
+		<li>lib/ext/jbosssx.jar</li>
+	</ul>
+
+</body>
+</html>

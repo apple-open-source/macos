@@ -8,19 +8,6 @@
 
 StartService ()
 {
-    local coreservicedRunFile="/var/run/StartupItems/coreserviced.run"
-
-    # Core Services
-    if [ -x /System/Library/CoreServices/coreservicesd ]; then
-        if ! [ -f "${coreservicedRunFile}" ]; then
-
-            ConsoleMessage "Starting Core Services"
-            /usr/bin/touch "${coreservicedRunFile}"
-
-            /System/Library/CoreServices/coreservicesd -preload AEServer
-        fi
-    fi
-
     # Launch Services
     if [ -x /System/Library/Frameworks/ApplicationServices.framework/Frameworks/LaunchServices.framework/Versions/Current/Support/lsregister ]; then
         /System/Library/Frameworks/ApplicationServices.framework/Frameworks/LaunchServices.framework/Versions/Current/Support/lsregister -load

@@ -13,7 +13,7 @@ Ruby Distribute License or GNU General Public License.
 NOTE: You can find Japanese version of this document in
 the doc/net directory of the standard ruby interpreter package.
 
-$Id: protocol.rb,v 1.1.1.1 2002/05/27 17:59:49 jkh Exp $
+$Id: protocol.rb,v 1.1.1.2 2003/05/14 13:58:50 melville Exp $
 
 =end
 
@@ -26,7 +26,7 @@ module Net
   class Protocol
 
     Version = '1.1.37'
-    Revision = %q$Revision: 1.1.1.1 $.split(/\s+/)[1]
+    Revision = %q$Revision: 1.1.1.2 $.split(/\s+/)[1]
 
 
     class << self
@@ -138,7 +138,7 @@ module Net
 
       do_start( *args )
       @active = true
-      nil
+      self
     end
 
     private

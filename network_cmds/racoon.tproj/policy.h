@@ -1,4 +1,4 @@
-/*	$KAME: policy.h,v 1.17 2001/06/27 15:55:58 sakane Exp $	*/
+/*	$KAME: policy.h,v 1.18 2001/10/02 04:10:17 sakane Exp $	*/
 
 /*
  * Copyright (C) 1995, 1996, 1997, and 1998 WIDE Project.

@@ -1,0 +1,39 @@
+
+The files contained in this directory are all of the source files necessary
+to build "The User's Guide to the Gimp-Print Top Quality Printer Drivers".
+
+Type:  make pdf   - to build the PDF documentation file
+       make ps    - to build the Postscript documentation file
+       make html  - to build the HTML documentation files
+       make docs  - to build all of the documentation files
+
+This is what will be generated:
+
+	users_guide.ps
+	users_guide.pdf
+	html/book1.html
+
+While building the documentation, you will see messages from LaTeX regarding
+undefined references.  These can also be safely ignored.
+
+The documentation contains many color screenshots.  My goal was to have the
+documentation print acceptably at 360 DPI.  However, I realize that not everybody
+has a color printer.  For those people, such as the owners of laser printers,
+I'd like to suggest printing the documentation in greyscale.  Printing the
+documentation in black and white will results in unacceptable quality for many
+of the screenshots.
+
+All of the figures are contained in the "figures" subdirectory.  Read the
+figures/README file if you are interested in how I created the
+screenshots used throughout the documentation.
+
+All of the HTML files are contained in the "html" subdirectory.
+
+Your constructive feedback is most welcome.
+
+Andy Stewart
+13-oct-2001
+
+
+
+

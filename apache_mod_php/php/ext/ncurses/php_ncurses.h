@@ -1,8 +1,8 @@
 /*
    +----------------------------------------------------------------------+
-   | PHP version 4.0                                                      |
+   | PHP Version 4                                                        |
    +----------------------------------------------------------------------+
-   | Copyright (c) 1997, 1998, 1999, 2000, 2001 The PHP Group             |
+   | Copyright (c) 1997-2003 The PHP Group                                |
    +----------------------------------------------------------------------+
    | This source file is subject to version 2.02 of the PHP license,      |
    | that is bundled with this package in the file LICENSE, and is        |
@@ -12,8 +12,7 @@
    | obtain it through the world-wide-web, please send a note to          |
    | license@php.net so we can mail you a copy immediately.               |
    +----------------------------------------------------------------------+
-   | Authors: Hartmut Holzgraefe <hartmut@six.de>                         |
-   |                                                                      |
+   | Author: Hartmut Holzgraefe <hartmut@six.de>                          |
    +----------------------------------------------------------------------+
  */
 
@@ -22,11 +21,13 @@
 
 #include <curses.h>
 
-#define _STRING(x) ((*x)->value.str.val)
-#define _INT(x)    ((*x)->value.lval)
-#define _HASH(x)   ((*x)->value.ht)
+extern int le_ncurses_windows;
 
-extern int le_ncurses;
+#if HAVE_NCURSES_PANEL
+# include <panel.h>
+extern int le_ncurses_panels;
+#endif
+
 
 extern zend_module_entry ncurses_module_entry;
 #define phpext_ncurses_ptr &ncurses_module_entry
@@ -46,15 +47,9 @@ PHP_RINIT_FUNCTION(ncurses);
 PHP_RSHUTDOWN_FUNCTION(ncurses);
 PHP_MINFO_FUNCTION(ncurses);
 
-/* 
-  	Declare any global variables you may need between the BEGIN
-	and END macros here:     
-
 ZEND_BEGIN_MODULE_GLOBALS(ncurses)
-	int   global_value;
-	char *global_string;
+	int	  registered_constants;
 ZEND_END_MODULE_GLOBALS(ncurses)
-*/
 
 /* In every function that needs to use variables in php_ncurses_globals,
    do call NCURSES_LS_FETCH(); after declaring other variables used by
@@ -64,14 +59,16 @@ ZEND_END_MODULE_GLOBALS(ncurses)
 */
 
 #ifdef ZTS
-#define NCURSES_G(v) (ncurses_globals->v)
+#define NCURSES_G(v) TSRMG(ncurses_globals_id, zend_ncurses_globals *, v)
 #define NCURSES_LS_FETCH() zend_ncurses_globals *ncurses_globals = ts_resource(ncurses_globals_id)
 #else
 #define NCURSES_G(v) (ncurses_globals.v)
 #define NCURSES_LS_FETCH()
 #endif
 
-#endif	/* PHP_NCURSES_H */
+ZEND_EXTERN_MODULE_GLOBALS(ncurses)
+	
+#endif  /* PHP_NCURSES_H */
 
 
 /*

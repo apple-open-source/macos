@@ -1,8 +1,8 @@
 /* 
    +----------------------------------------------------------------------+
-   | PHP version 4.0                                                      |
+   | PHP Version 4                                                        |
    +----------------------------------------------------------------------+
-   | Copyright (c) 1997-2001 The PHP Group                                |
+   | Copyright (c) 1997-2003 The PHP Group                                |
    +----------------------------------------------------------------------+
    | This source file is subject to version 2.02 of the PHP license,      |
    | that is bundled with this package in the file LICENSE, and is        |
@@ -12,11 +12,11 @@
    | obtain it through the world-wide-web, please send a note to          |
    | license@php.net so we can mail you a copy immediately.               |
    +----------------------------------------------------------------------+
-   | Authors: clayton collie <clcollie@mindspring.com>                    |
+   | Author: Clayton Collie <clcollie@mindspring.com>                     |
    +----------------------------------------------------------------------+
 */
 
-/* $Id: scanf.c,v 1.1.1.5 2001/12/14 22:13:27 zarzycki Exp $ */
+/* $Id: scanf.c,v 1.1.1.8 2003/07/18 18:07:44 zarzycki Exp $ */
 
 /*
    scanf.c --
@@ -175,9 +175,9 @@ static char * BuildCharSet(CharSet *cset, char *format)
         ch = end++;
     }
 
-    cset->chars = (char *) emalloc(sizeof(char) * (end - format - 1));
+    cset->chars = (char *) safe_emalloc(sizeof(char), (end - format - 1), 0);
     if (nranges > 0) {
-        cset->ranges = (struct Range *) emalloc(sizeof(struct Range)*nranges);
+        cset->ranges = (struct Range *) safe_emalloc(sizeof(struct Range), nranges, 0);
     } else {
         cset->ranges = NULL;
     }
@@ -337,7 +337,7 @@ PHPAPI int ValidateFormat(char *format, int numVars, int *totalSubs)
      */
 
     if (numVars > nspace) {
-        nassign = (int*)emalloc(sizeof(int) * numVars);
+        nassign = (int*)safe_emalloc(sizeof(int), numVars, 0);
         nspace = numVars;
     }
     for (i = 0; i < nspace; i++) {
@@ -408,8 +408,7 @@ PHPAPI int ValidateFormat(char *format, int numVars, int *totalSubs)
         gotSequential = 1;
         if (gotXpg) {
             mixedXPG:
-              php_error(E_WARNING,
-                "cannot mix \"%\" and \"%n$\" conversion specifiers in %s", get_active_function_name(TSRMLS_C) );
+              php_error_docref(NULL TSRMLS_CC, E_WARNING, "cannot mix \"%\" and \"%n$\" conversion specifiers");
             goto error;
         }
 
@@ -462,7 +461,7 @@ PHPAPI int ValidateFormat(char *format, int numVars, int *totalSubs)
 	    	/* problem - cc                                               */
                 /*
                 if (flags & SCAN_WIDTH) {
-                    php_error(E_WARNING, "field width may not be specified in %c conversion");
+                    php_error_docref(NULL TSRMLS_CC, E_WARNING, "Field width may not be specified in %c conversion");
                     goto error;
                 }
                 */
@@ -492,11 +491,11 @@ PHPAPI int ValidateFormat(char *format, int numVars, int *totalSubs)
             }
             break;
 	    badSet:
-            php_error(E_WARNING, "unmatched [ in format string");
+            php_error_docref(NULL TSRMLS_CC, E_WARNING, "Unmatched [ in format string");
             goto error;
 	    default:
             {
-             php_error(E_WARNING, "bad scan conversion character \"%c\"", ch);
+             php_error_docref(NULL TSRMLS_CC, E_WARNING, "Bad scan conversion character \"%c\"", ch);
              goto error;
            }
 	}
@@ -514,7 +513,7 @@ PHPAPI int ValidateFormat(char *format, int numVars, int *totalSubs)
                 nspace += STATIC_LIST_SIZE;
             }
             if (nassign == staticAssign) {
-                nassign = (void *)emalloc(nspace * sizeof(int));
+                nassign = (void *)safe_emalloc(nspace, sizeof(int), 0);
                 for (i = 0; i < STATIC_LIST_SIZE; ++i) {
                     nassign[i] = staticAssign[i];
                 }
@@ -546,14 +545,14 @@ PHPAPI int ValidateFormat(char *format, int numVars, int *totalSubs)
     }
     for (i = 0; i < numVars; i++) {
         if (nassign[i] > 1) {
-            php_error(E_WARNING, "variable is assigned by multiple \"%n$\" conversion specifiers");
+            php_error_docref(NULL TSRMLS_CC, E_WARNING, "Variable is assigned by multiple \"%n$\" conversion specifiers");
             goto error;
         } else if (!xpgSize && (nassign[i] == 0)) {
             /*
              * If the space is empty, and xpgSize is 0 (means XPG wasn't
              * used, and/or numVars != 0), then too many vars were given
              */
-            php_error(E_WARNING, "variable is not assigned by any conversion specifiers");
+            php_error_docref(NULL TSRMLS_CC, E_WARNING, "Variable is not assigned by any conversion specifiers");
             goto error;
         }
     }
@@ -565,9 +564,9 @@ PHPAPI int ValidateFormat(char *format, int numVars, int *totalSubs)
 
     badIndex:
         if (gotXpg) {
-            php_error(E_WARNING, "\"%n$\" argument index out of range");
+            php_error_docref(NULL TSRMLS_CC, E_WARNING, "\"%n$\" argument index out of range");
         } else {
-            php_error(E_WARNING, "different numbers of variable names and field specifiers");
+            php_error_docref(NULL TSRMLS_CC, E_WARNING, "Different numbers of variable names and field specifiers");
         }
 
     error:
@@ -642,8 +641,7 @@ PHPAPI int php_sscanf_internal(	char *string, char *format,
 	if (numVars) {
 		for (i = varStart;i < argCount;i++){
 			if ( ! PZVAL_IS_REF( *args[ i ] ) ) {	
-				php_error(E_WARNING, "Parameter %d to %s() must be passed by reference",
-								i, get_active_function_name(TSRMLS_C));
+				php_error_docref(NULL TSRMLS_CC, E_WARNING, "Parameter %d must be passed by reference", i);
 				scan_set_error_return(numVars, return_value);
 				return SCAN_ERROR_VAR_PASSED_BYVAL;
 			}
@@ -658,10 +656,8 @@ PHPAPI int php_sscanf_internal(	char *string, char *format,
 
     if (!numVars) {
         /* allocate an array for return */
-        if (array_init(*return_value) == FAILURE) {
-			scan_set_error_return(0, return_value);			
-            return FAILURE;
-        }
+        array_init(*return_value);
+
         for (i = 0; i < totalVars; i++) {
            	if (add_next_index_null(*return_value) == FAILURE) {
 				scan_set_error_return(0, return_value);
@@ -766,9 +762,9 @@ PHPAPI int php_sscanf_internal(	char *string, char *format,
             case 'n':
                 if (!(flags & SCAN_SUPPRESS)) {
                     if (numVars) {
-                        current = args[objIndex++];
-                        convert_to_long( *current );
-                        ZVAL_STRINGL( *current, string, end-string, 1);
+						current = args[objIndex++];
+                        zval_dtor( *current );
+                        ZVAL_LONG( *current, (long)(string - baseString) );
                     } else {
                         add_index_long(*return_value, objIndex++, string - baseString);
                     }
@@ -887,8 +883,8 @@ PHPAPI int php_sscanf_internal(	char *string, char *format,
             if (!(flags & SCAN_SUPPRESS)) {
                 if (numVars) {
                     current = args[objIndex++];
-                    convert_to_string( *current );
-                    ZVAL_STRINGL( *current, string, end-string, 1);
+					zval_dtor( *current );
+					ZVAL_STRINGL( *current, string, end-string, 1);
                 } else {
                     add_index_stringl( *return_value, objIndex++, string, end-string, 1);
                 }
@@ -1219,7 +1215,7 @@ PHPAPI int php_sscanf_internal(	char *string, char *format,
         result = SCAN_ERROR_EOF;
     } else if (numVars) {
         convert_to_long( *return_value );
-        (*return_value)->value.lval = nconversions;
+        Z_LVAL_PP(return_value) = nconversions;
 	} else if (nconversions < totalVars) {
 		/* to do : not all elements converted. we need to prune the list - cc
 		 */		
@@ -1233,8 +1229,8 @@ PHPAPI int php_sscanf_internal(	char *string, char *format,
 static inline void scan_set_error_return(int numVars, pval **return_value)
 {
 	if (numVars) {
-		(*return_value)->type = IS_LONG;
-		(*return_value)->value.lval = SCAN_ERROR_EOF;  /* EOF marker */
+		Z_TYPE_PP(return_value) = IS_LONG;
+		Z_LVAL_PP(return_value) = SCAN_ERROR_EOF;  /* EOF marker */
 	} else {	
 	  /* pval_destructor( *return_value ); */ 
 	  /* convert_to_null calls destructor */
@@ -1248,6 +1244,6 @@ static inline void scan_set_error_return(int numVars, pval **return_value)
  * tab-width: 4
  * c-basic-offset: 4
  * End:
- * vim600: sw=4 ts=4 tw=78 fdm=marker
- * vim<600: sw=4 ts=4 tw=78
+ * vim600: sw=4 ts=4 fdm=marker
+ * vim<600: sw=4 ts=4
  */

@@ -1,21 +1,24 @@
 /*
- * Copyright (c) 2001 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 2001-2003 Apple Computer, Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
- * The contents of this file constitute Original Code as defined in and
- * are subject to the Apple Public Source License Version 1.1 (the
- * "License").  You may not use this file except in compliance with the
- * License.  Please obtain a copy of the License at
- * http://www.apple.com/publicsource and read it before using this file.
+ * Copyright (c) 1999-2003 Apple Computer, Inc.  All Rights Reserved.
  * 
- * This Original Code and all software distributed under the License are
- * distributed on an "AS IS" basis, WITHOUT WARRANTY OF ANY KIND, EITHER
+ * This file contains Original Code and/or Modifications of Original Code
+ * as defined in and that are subject to the Apple Public Source License
+ * Version 2.0 (the 'License'). You may not use this file except in
+ * compliance with the License. Please obtain a copy of the License at
+ * http://www.opensource.apple.com/apsl/ and read it before using this
+ * file.
+ * 
+ * The Original Code and all software distributed under the License are
+ * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
  * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
  * INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY,
- * FITNESS FOR A PARTICULAR PURPOSE OR NON-INFRINGEMENT.  Please see the
- * License for the specific language governing rights and limitations
- * under the License.
+ * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
+ * Please see the License for the specific language governing rights and
+ * limitations under the License.
  * 
  * @APPLE_LICENSE_HEADER_END@
  */
@@ -24,11 +27,60 @@
  *  bless
  *
  *  Created by Shantonu Sen <ssen@apple.com> on Mon Jun 25 2001.
- *  Copyright (c) 2001 Apple Computer, Inc. All rights reserved.
+ *  Copyright (c) 2001-2003 Apple Computer, Inc. All rights reserved.
  *
- *  $Id: BLWriteStartupFile.c,v 1.7 2002/04/27 17:54:59 ssen Exp $
+ *  $Id: BLWriteStartupFile.c,v 1.22 2003/07/22 15:58:31 ssen Exp $
  *
  *  $Log: BLWriteStartupFile.c,v $
+ *  Revision 1.22  2003/07/22 15:58:31  ssen
+ *  APSL 2.0
+ *
+ *  Revision 1.21  2003/07/02 06:26:31  ssen
+ *  Add -eltorito. Purposefully underdocumented. Will re-evaluate later for a better home
+ *
+ *  Revision 1.20  2003/07/01 20:44:23  ssen
+ *  new and improved BLWriteStartupFile that takes a CFDataRef and does the right thing
+ *
+ *  Revision 1.19  2003/07/01 01:35:31  ssen
+ *  deprecated -xcoff in favor of -startupfile
+ *
+ *  Revision 1.18  2003/04/19 00:11:08  ssen
+ *  Update to APSL 1.2
+ *
+ *  Revision 1.17  2003/04/16 23:57:31  ssen
+ *  Update Copyrights
+ *
+ *  Revision 1.16  2003/04/12 03:52:19  ssen
+ *  Straggling function prototype that still had void **data instead
+ *  of CFDataRef *data
+ *
+ *  Revision 1.15  2003/03/26 00:33:29  ssen
+ *  Use _OPEN_SOURCE_ instead of DARWIN, by Rob's request
+ *
+ *  Revision 1.14  2003/03/20 05:06:20  ssen
+ *  remove some more non-c99 types
+ *
+ *  Revision 1.13  2003/03/19 22:57:02  ssen
+ *  C99 types
+ *
+ *  Revision 1.12  2003/03/18 23:51:52  ssen
+ *  Use MK directly
+ *
+ *  Revision 1.11  2003/03/08 18:25:07  ssen
+ *  use the 64-bit ioctl to get device size
+ *
+ *  Revision 1.10  2002/12/05 03:37:54  ssen
+ *  Wasnt updating the alt VH after adding a startup file. We were passing
+ *  0 as the block count to MediaKit because we were using the 64-bit
+ *  ioctl instead of 32-bit.
+ *
+ *  Revision 1.9  2002/12/04 05:02:25  ssen
+ *  Move to using unifdef to strip out non-Darwin code
+ *
+ *  Revision 1.8  2002/06/11 00:50:46  ssen
+ *  All function prototypes need to use BLContextPtr. This is really
+ *  a minor change in all of the files.
+ *
  *  Revision 1.7  2002/04/27 17:54:59  ssen
  *  Rewrite output logic to format the string before sending of to logger
  *
@@ -36,7 +88,7 @@
  *  Go back to using errorprint and verboseprint inside library
  *
  *  Revision 1.5  2002/03/08 07:15:42  ssen
- *  Add #if !(DARWIN), and add headerdoc
+ *  Add #if !(_OPEN_SOURCE_), and add headerdoc
  *
  *  Revision 1.4  2002/03/05 00:01:42  ssen
  *  code reorg of secondary loader
@@ -59,168 +111,3 @@
  *
  */
 
-#if !defined(DARWIN)
-
-#include <sys/ioctl.h>
-#include <sys/fcntl.h>
-#include <unistd.h>
-
-#include <CoreFoundation/CoreFoundation.h>
-#include <IOKit/storage/IOMediaBSDClient.h>
-
-#include "compatMediaKit.h"
-
-#include "bless.h"
-#include "bless_private.h"
-
-#define SECTORSIZE 512
-
-
-int BLWriteStartupFile(BLContext context, unsigned char xcoff[],
-                    unsigned char partitionDev[],
-                    unsigned char parentDev[],
-                    unsigned long partitionNum) {
-
-  MediaDescriptor         *mfd;
-  CFDataRef                cookedImage;
-  u_int32_t                   checksum = 0;
-  u_int32_t                   sfEntry;
-  u_int32_t                   sfBase;
-  u_int32_t                   sfSize;
-  u_int32_t                   startupSectors;
-  u_int32_t					blockCount;
-  char                     sector[SECTORSIZE];
-  u_int32_t                  *bootVals;
-
-  OSErr ret;
-
-	{ // get block count
-		int dfd;
-        
-		dfd  = open(partitionDev, O_RDONLY );
-        if (dfd == -1) {
-			contextprintf(context, kBLLogLevelError,  "Could not get device size: %s\n", strerror(errno) );
-			return 1;
-		}
-		
-        ret = ioctl(dfd,DKIOCGETBLOCKCOUNT,&blockCount); 
-        if (ret < 0) {
-			contextprintf(context, kBLLogLevelError,  "Could not get device size: %s\n", strerror(errno) );
-			return 1;
-		}
-
-		close(dfd);
-	}
-  
-  ret = _BLMKMediaDeviceOpen(partitionDev, ioreadcmd, &mfd);
-
-  if(ret) {
-    contextprintf(context, kBLLogLevelError,  "Cannot open device %s (%d)\n", partitionDev, ret );
-    return 1;
-  }
-
-    ret = BLLoadXCOFFLoader(context, xcoff, &sfEntry, &sfBase, &sfSize, &checksum,
-           (void **)&cookedImage );
-
-  if (ret) {
-    contextprintf(context, kBLLogLevelError,  "Could not load XCOFF: %d", ret );
-    ret = _BLMKMediaDeviceClose(mfd);
-    return 2;
-  }
-
-  contextprintf(context, kBLLogLevelVerbose,  "Creating StartupFile\n" );
-
-    /* this will check for HFS+ for us */
-  ret = _BLMKCreateStartupFile(_BLMKMediaDeviceIO, mfd, blockCount);
-
-  if (ret && ret != startupFileExistsErr) {
-    contextprintf(context, kBLLogLevelError,  "Error %d from MKCreateStartupFile()", ret );
-    ret = _BLMKMediaDeviceClose(mfd);
-    return 1;
-  }
-
-  contextprintf(context, kBLLogLevelVerbose,  "Checking size of StartupFile.\n" );
-  ret = _BLMKStartupFileSize(_BLMKMediaDeviceIO, mfd, &startupSectors);
-  if (!ret && (startupSectors < (sfSize / SECTORSIZE))) {
-    ret = startupTooSmallErr;
-  }
-
-  if (ret && ret != startupFileExistsErr) {
-    contextprintf(context, kBLLogLevelError,  "Error %d from MKStartupFileSize()", ret );
-    ret = _BLMKMediaDeviceClose(mfd);
-    return 1;
-  }
-
-  contextprintf(context, kBLLogLevelVerbose,  "StartupFile is %u bytes\n", startupSectors * SECTORSIZE );
-
-  contextprintf(context, kBLLogLevelVerbose, "Writing StartupFile (%u bytes, %u %d byte blocks)\n",
-            sfSize, sfSize / SECTORSIZE, SECTORSIZE );
-
-  ret = _BLMKReadWriteStartupFile(_BLMKMediaDeviceIO, mfd, iowritecmd, 0,
-			       sfSize / SECTORSIZE,
-			       (char *)CFDataGetBytePtr(cookedImage));
-
-  if(ret) {
-      contextprintf(context, kBLLogLevelError,  "Error %d from WriteStartupFile()\n", ret );
-      ret = _BLMKMediaDeviceClose(mfd);
-      return 1;
-  }
-
-  contextprintf(context, kBLLogLevelVerbose,  "Appending partition info (0x%08x)\n", checksum );
-  memset(sector, 0, SECTORSIZE);
-  bootVals = (u_int32_t *) &(sector[ SECTORSIZE -
-				  (sizeof(u_int32_t) * NUM_BOOTVALS) ]) ;
-  bootVals[CHECKSUM_OFF]      = checksum;
-  bootVals[ENTRY_OFF]         = sfEntry;
-  bootVals[BASE_OFF]          = sfBase;
-  bootVals[SIZE_OFF]          = sfSize;
-  ret = _BLMKReadWriteStartupFile(_BLMKMediaDeviceIO,
-                                    mfd,
-                                    iowritecmd,
-                                    startupSectors - 1,
-                                    1,
-                                    sector);
-  if (ret) {
-	  contextprintf(context, kBLLogLevelError,  "Error %d from second WriteStartupFile()\n", ret );
-	  ret = _BLMKMediaDeviceClose(mfd);
-	  return 1;
-  }
-
-  contextprintf(context, kBLLogLevelVerbose,  "Closing volume\n" );
-  ret = _BLMKMediaDeviceClose(mfd);
-  if (ret) {
-	  contextprintf(context, kBLLogLevelError,  "Error %d from MKMediaDeviceClose()", ret );
-	  return 1;
-  }
-
-  if(partitionNum == 0) {
-	  contextprintf(context, kBLLogLevelVerbose,  "Skipping append to partition map, because this is an unpartitioned device\n" );
-  } else {
-	  ret = _BLMKMediaDeviceOpen(parentDev, ioreadcmd, &mfd);
-	  if (ret) {
-		  contextprintf(context, kBLLogLevelError, "Unable to open %s to write StartupFile partition info. (%d)\n",
-				parentDev, ret);
-		  return 1;
-	  }
-
-	  contextprintf(context, kBLLogLevelVerbose,  "Writing extra partition info to %s\n", parentDev );
-	  ret = _BLMKWriteStartupPartInfo(_BLMKMediaDeviceIO, mfd,
-								   partitionNum-1);
-	  if (ret) {
-		  contextprintf(context, kBLLogLevelError,  "Error %d from MKWriteStartupPartInfo()\n", ret );
-		  ret = _BLMKMediaDeviceClose(mfd);
-		  return 2;
-	  }
-
-	  ret = _BLMKMediaDeviceClose(mfd);
-	  if (ret) {
-		  contextprintf(context, kBLLogLevelError,  "Error %d from MKMediaDeviceClose()\n", ret );
-	  }	  
-  }
-
-  contextprintf(context, kBLLogLevelVerbose,  "StartupFile installed\n" );
-
-  return 0;
-}
-
-#endif /* !DARWIN */

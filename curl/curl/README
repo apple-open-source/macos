@@ -12,37 +12,40 @@ README
   document.
 
   libcurl is a library that Curl is using to do its job. It is readily
-  available to be used by your software. Read the LIBCURL document to
+  available to be used by your software. Read the libcurl.3 man page to
   find out how!
 
   You find answers to the most frequent questions we get in the FAQ document.
 
   Study the LEGAL file for distribution terms and similar.
 
-  Always try the Curl web site for the latest news:
+  Visit the curl web site or mirrors for the latest news:
 
-        http://curl.haxx.se
+        http://curl.haxx.se/
+        http://curl.sf.net/
+        http://curl.planetmirror.com/
 
   The official download mirror sites are:
 
         Sweden    -- ftp://ftp.sunet.se/pub/www/utilities/curl/
+        Sweden    -- http://cool.haxx.se/curl/
         Germany   -- ftp://ftp.fu-berlin.de/pub/unix/network/curl/
+        Australia -- http://curl.planetmirror.com/pub/curl/
+        US        -- http://curl.sourceforge.net/download.html
 
   To download the very latest source off the CVS server do this:
 
-        cvs -d :pserver:anonymous@cvs.curl.sourceforge.net:/cvsroot/curl login
+    cvs -d :pserver:anonymous@cvs.curl.sourceforge.net:/cvsroot/curl login
 
-     (just press enter when asked for password)
+  (just press enter when asked for password)
 
-        cvs -d :pserver:anonymous@cvs.curl.sourceforge.net:/cvsroot/curl co .
+    cvs -d :pserver:anonymous@cvs.curl.sourceforge.net:/cvsroot/curl co curl 
 
-     (now, you'll get all the latest sources downloaded into your current
-     directory. Note that this does NOT create a directory named curl or
-     anything)
+  (you'll get a directory named curl created, filled with the source code)
 
-        cvs -d :pserver:anonymous@cvs.curl.sourceforge.net:/cvsroot/curl logout
+    cvs -d :pserver:anonymous@cvs.curl.sourceforge.net:/cvsroot/curl logout
         
-     (you're off the hook!)
+  (you're off the hook!)
 
   Curl contains pieces of source code that is Copyright (c) 1998, 1999
   Kungliga Tekniska Högskolan. This notice is included here to comply with the

@@ -3,19 +3,22 @@
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
- * The contents of this file constitute Original Code as defined in and
- * are subject to the Apple Public Source License Version 1.1 (the
- * "License").  You may not use this file except in compliance with the
- * License.  Please obtain a copy of the License at
- * http://www.apple.com/publicsource and read it before using this file.
+ * Copyright (c) 1999-2003 Apple Computer, Inc.  All Rights Reserved.
  * 
- * This Original Code and all software distributed under the License are
- * distributed on an "AS IS" basis, WITHOUT WARRANTY OF ANY KIND, EITHER
+ * This file contains Original Code and/or Modifications of Original Code
+ * as defined in and that are subject to the Apple Public Source License
+ * Version 2.0 (the 'License'). You may not use this file except in
+ * compliance with the License. Please obtain a copy of the License at
+ * http://www.opensource.apple.com/apsl/ and read it before using this
+ * file.
+ * 
+ * The Original Code and all software distributed under the License are
+ * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
  * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
  * INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY,
- * FITNESS FOR A PARTICULAR PURPOSE OR NON-INFRINGEMENT.  Please see the
- * License for the specific language governing rights and limitations
- * under the License.
+ * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
+ * Please see the License for the specific language governing rights and
+ * limitations under the License.
  * 
  * @APPLE_LICENSE_HEADER_END@
  */
@@ -340,6 +343,23 @@ deget(pmp, dirclust, diroffset, depp)
 		ldep->de_MTime = ldep->de_CTime;
 		ldep->de_MDate = ldep->de_CDate;
 		/* leave the other fields as garbage */
+                
+                /*
+                 * If there is a volume label entry, then grab the times from it instead.
+                 */
+                if (pmp->pm_label_cluster != CLUST_EOFE) {
+                    error = readep(pmp, pmp->pm_label_cluster, pmp->pm_label_offset,
+                            &bp, &direntptr);
+                    if (!error) {
+                        ldep->de_CHun = direntptr->deCHundredth;
+                        ldep->de_CTime = getushort(direntptr->deCTime);
+                        ldep->de_CDate = getushort(direntptr->deCDate);
+                        ldep->de_ADate = getushort(direntptr->deADate);
+                        ldep->de_MTime = getushort(direntptr->deMTime);
+                        ldep->de_MDate = getushort(direntptr->deMDate);
+                        brelse(bp);
+                    }
+                }
 	} else {
 		error = readep(pmp, dirclust, diroffset, &bp, &direntptr);
 		if (error) {
@@ -371,9 +391,17 @@ deget(pmp, dirclust, diroffset, depp)
 		 */
 		u_long size;
 
+                /*
+                 * On some disks, the cluster number in the "." entry is zero,
+                 * or otherwise damaged.  If it's inconsistent, we'll use the
+                 * correct value.
+                 */
+                if ((diroffset == 0) && (ldep->de_StartCluster != dirclust))
+                    ldep->de_StartCluster = dirclust;
+                
 		nvp->v_type = VDIR;
 		if (ldep->de_StartCluster != MSDOSFSROOT) {
-			error = pcbmap(ldep, 0xffff, 0, &size, 0);
+			error = pcbmap(ldep, 0xffff, 1, NULL, &size, NULL);
 			if (error == E2BIG) {
 				ldep->de_FileSize = de_cn2off(pmp, size);
 				error = 0;
@@ -410,14 +438,19 @@ deupdat(dep, waitfor)
 	if ((dep->de_flag & DE_MODIFIED) == 0)
 		return (0);
 	dep->de_flag &= ~DE_MODIFIED;
-	if (dep->de_Attributes & ATTR_DIRECTORY)
-		return (0);
+	if ((dep->de_Attributes & ATTR_DIRECTORY) &&
+            (DETOV(dep)->v_flag & VROOT) &&
+            (dep->de_pmp->pm_label_cluster == CLUST_EOFE))
+		return (0);	/* There is no volume label entry to update. */
 	if (dep->de_refcnt <= 0)
 		return (0);
 	error = readde(dep, &bp, &dirp);
 	if (error)
 		return (error);
-	DE_EXTERNALIZE(dirp, dep);
+        if (DETOV(dep)->v_flag & VROOT)
+            DE_EXTERNALIZE_ROOT(dirp, dep);
+        else
+            DE_EXTERNALIZE(dirp, dep);
 	if (waitfor)
 		return (bwrite(bp));
 	else {
@@ -484,8 +517,8 @@ detrunc(dep, length, flags, cred, p)
         dep->de_StartCluster = 0;
         eofentry = ~0;
     } else {
-        error = pcbmap(dep, de_clcount(pmp, length) - 1, 0,
-                       &eofentry, 0);
+        error = pcbmap(dep, de_clcount(pmp, length) - 1, 1, NULL,
+                       &eofentry, NULL);
         if (error) {
 #ifdef MSDOSFS_DEBUG
             printf("detrunc(): pcbmap fails %d\n", error);
@@ -761,4 +794,37 @@ out:
 	if (dep->de_Name[0] == SLOT_DELETED)
 		vrecycle(vp, (simple_lock_data_t *)0, p);
 	return (error);
+}
+
+
+/*
+ * defileid -- Return the file ID (inode number) for a given denode.  This routine
+ * is used by msdosfs_getattr, msdosfs_readdir, and msdosfs_getattrlist to ensure
+ * a consistent file ID space.
+ *
+ * In older versions, the file ID was based on the location of the directory entry
+ * on disk (essentially the byte offset of the entry divided by the size of an entry).
+ * The file ID of a directory was the ID of the "." entry (which is the first entry
+ * in the directory).  The file ID of the root of a FAT12 or FAT16 volume (whose root
+ * directory is not in an allocated cluster) is 1.
+ *
+ * We now use the starting cluster number of the file or directory, or 1 for the root
+ * of a FAT12 or FAT16 volume.  Note that empty files have no starting cluster number,
+ * and their file ID is a constant that is out of range for any FAT volume (since
+ * FAT32 really only uses 28 bits for cluster number).  Directories (other than the root)
+ * always contain at least one cluster for their "." and ".." entries.
+ */
+u_long defileid(struct denode *dep)
+{
+    u_long fileid;
+    
+    fileid = dep->de_StartCluster;
+    
+    if ((dep->de_Attributes & ATTR_DIRECTORY) && (dep->de_StartCluster == MSDOSFSROOT))
+        fileid = FILENO_ROOT;		/* root of FAT12 or FAT16 */
+    
+    if (fileid == 0)			/* empty? */
+        fileid = FILENO_EMPTY;		/* use an out-of-range cluster number */
+        
+    return fileid;
 }

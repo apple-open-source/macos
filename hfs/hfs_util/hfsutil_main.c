@@ -1,21 +1,24 @@
 /*
- * Copyright (c) 1999-2001 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 1999-2003 Apple Computer, Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
- * The contents of this file constitute Original Code as defined in and
- * are subject to the Apple Public Source License Version 1.1 (the
- * "License").  You may not use this file except in compliance with the
- * License.  Please obtain a copy of the License at
- * http://www.apple.com/publicsource and read it before using this file.
+ * Copyright (c) 1999-2003 Apple Computer, Inc.  All Rights Reserved.
  * 
- * This Original Code and all software distributed under the License are
- * distributed on an "AS IS" basis, WITHOUT WARRANTY OF ANY KIND, EITHER
+ * This file contains Original Code and/or Modifications of Original Code
+ * as defined in and that are subject to the Apple Public Source License
+ * Version 2.0 (the 'License'). You may not use this file except in
+ * compliance with the License. Please obtain a copy of the License at
+ * http://www.opensource.apple.com/apsl/ and read it before using this
+ * file.
+ * 
+ * The Original Code and all software distributed under the License are
+ * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
  * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
  * INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY,
- * FITNESS FOR A PARTICULAR PURPOSE OR NON-INFRINGEMENT.  Please see the
- * License for the specific language governing rights and limitations
- * under the License.
+ * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
+ * Please see the License for the specific language governing rights and
+ * limitations under the License.
  * 
  * @APPLE_LICENSE_HEADER_END@
  */
@@ -47,10 +50,13 @@
 #include <sys/vmmeter.h>
 #include <sys/mount.h>
 #include <sys/wait.h>
-
-#include <dev/disk.h>
+#include <sys/param.h>
+#include <sys/ucred.h>
+#include <sys/disk.h>
 #include <sys/loadable_fs.h>
+#include <sys/attr.h>
 #include <hfs/hfs_format.h>
+#include <hfs/hfs_mount.h>
 
 #include <ctype.h>
 #include <errno.h>
@@ -60,14 +66,15 @@
 #include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
+#include <syslog.h>
+
+#include <openssl/sha.h>
+
+#include <architecture/byte_order.h>
 
 #include <CoreFoundation/CFString.h>
 
 #define READ_DEFAULT_ENCODING 1
-
-#ifndef FSUR_MOUNT_HIDDEN
-#define FSUR_MOUNT_HIDDEN (-9)
-#endif
 
 #ifndef FSUC_ADOPT
 #define FSUC_ADOPT 'a'
@@ -93,6 +100,10 @@
 #define FSUC_UNJNL   'U'
 #endif
 
+#ifndef FSUC_JNLINFO
+#define FSUC_JNLINFO 'I'
+#endif
+ 
 
 /* **************************************** L O C A L S ******************************************* */
 
@@ -127,6 +138,12 @@ int gJournalSize = 0;
 #define AUTO_ENTER_FIXED 0
 
 
+struct FinderAttrBuf {
+	unsigned long info_length;
+	unsigned long finderinfo[8];
+};
+
+
 #define VOLUMEUUIDVALUESIZE 2
 typedef union VolumeUUID {
 	unsigned long value[VOLUMEUUIDVALUESIZE];
@@ -156,7 +173,6 @@ int CloseVolumeStatusDB(VolumeStatusDBHandle DBHandle);
 
 /* ************************************ P R O T O T Y P E S *************************************** */
 static void	DoDisplayUsage( const char * argv[] );
-static void	DoFileSystemFile( char * theFileNameSuffixPtr, char * theContentsPtr );
 static int	DoMount( char * theDeviceNamePtr, const char * theMountPointPtr, boolean_t isLocked, boolean_t isSetuid, boolean_t isDev );
 static int 	DoProbe( char * theDeviceNamePtr );
 static int 	DoUnmount( const char * theMountPointPtr );
@@ -167,10 +183,17 @@ static int	DoDisown( const char * theDeviceNamePtr );
 
 extern int  DoMakeJournaled( const char * volNamePtr, int journalSize );  // XXXdbg
 extern int  DoUnJournal( const char * volNamePtr );      // XXXdbg
+extern int  DoGetJournalInfo( const char * volNamePtr );
 
 static int	ParseArgs( int argc, const char * argv[], const char ** actionPtr, const char ** mountPointPtr, boolean_t * isEjectablePtr, boolean_t * isLockedPtr, boolean_t * isSetuidPtr, boolean_t * isDevPtr );
 
+static int	GetHFSMountPoint(const char *deviceNamePtr, char **pathPtr);
+static int	ReadHeaderBlock(int fd, void *bufptr, off_t *startOffset, VolumeUUID **finderInfoUUIDPtr);
+static int	GetVolumeUUIDRaw(const char *deviceNamePtr, VolumeUUID *volumeUUIDPtr);
+static int	GetVolumeUUIDAttr(const char *path, VolumeUUID *volumeUUIDPtr);
 static int	GetVolumeUUID(const char *deviceNamePtr, VolumeUUID *volumeUUIDPtr, boolean_t generate);
+static int	SetVolumeUUIDRaw(const char *deviceNamePtr, VolumeUUID *volumeUUIDPtr);
+static int	SetVolumeUUIDAttr(const char *path, VolumeUUID *volumeUUIDPtr);
 static int	SetVolumeUUID(const char *deviceNamePtr, VolumeUUID *volumeUUIDPtr);
 static int	GetEmbeddedHFSPlusVol(HFSMasterDirectoryBlock * hfsMasterDirectoryBlockPtr, off_t * startOffsetPtr);
 static int	GetNameFromHFSPlusVolumeStartingAt(int fd, off_t hfsPlusVolumeOffset, char * name_o);
@@ -187,6 +210,9 @@ static int	ReadFile(int fd, void *buffer, off_t offset, ssize_t length,
 					u_int32_t extentCount, const HFSPlusExtentDescriptor *extentList);
 static ssize_t	readAt( int fd, void * buf, off_t offset, ssize_t length );
 static ssize_t	writeAt( int fd, void * buf, off_t offset, ssize_t length );
+
+static int	GetEncodingBias(void);
+
 
 CF_EXPORT Boolean _CFStringGetFileSystemRepresentation(CFStringRef string, UInt8 *buffer, CFIndex maxBufLen);
 
@@ -221,6 +247,119 @@ static unsigned int __CFStringGetDefaultEncodingForHFSUtil() {
 }
 #endif
 
+
+#define MXENCDNAMELEN	16	/* Maximun length of encoding name string */
+
+struct hfs_mnt_encoding {
+	char				encoding_name[MXENCDNAMELEN];	/* encoding type name */
+	CFStringEncoding	encoding_id;					/* encoding type number */
+};
+
+static struct hfs_mnt_encoding hfs_mnt_encodinglist[] = {
+	{ "Arabic",	          4 },
+	{ "Armenian",        24 },
+	{ "Bengali",         13 },
+	{ "Burmese",         19 },
+	{ "Celtic",          39 },
+	{ "CentralEurRoman", 29 },
+	{ "ChineseSimp",     25 },
+	{ "ChineseTrad",      2 },
+	{ "Croatian",	     36 },
+	{ "Cyrillic",	      7 },
+	{ "Devanagari",       9 },
+	{ "Ethiopic",        28 },
+	{ "Farsi",          140 },
+	{ "Gaelic",          40 },
+	{ "Georgian",        23 },
+	{ "Greek",	          6 },
+	{ "Gujarati",        11 },
+	{ "Gurmukhi",        10 },
+	{ "Hebrew",	          5 },
+	{ "Icelandic",	     37 },
+	{ "Japanese",	      1 },
+	{ "Kannada",         16 },
+	{ "Khmer",           20 },
+	{ "Korean",	          3 },
+	{ "Laotian",         22 },
+	{ "Malayalam",       17 },
+	{ "Mongolian",       27 },
+	{ "Oriya",           12 },
+	{ "Roman",	          0 },	/* default */
+	{ "Romanian",	     38 },
+	{ "Sinhalese",       18 },
+	{ "Tamil",           14 },
+	{ "Telugu",          15 },
+	{ "Thai",	         21 },
+	{ "Tibetan",         26 },
+	{ "Turkish",	     35 },
+	{ "Ukrainian",      152 },
+	{ "Vietnamese",      30 },
+};
+
+#define KEXT_LOAD_COMMAND	"/sbin/kextload"
+#define ENCODING_MODULE_PATH	"/System/Library/Filesystems/hfs.fs/Encodings/"
+
+static int load_encoding(CFStringEncoding encoding)
+{
+	int i;
+	int numEncodings;
+	int pid;
+	char *encodingName;
+	struct stat sb;
+	union wait status;
+	char kmodfile[MAXPATHLEN];
+
+	/* Find the encoding that matches the one passed in */
+	numEncodings = sizeof(hfs_mnt_encodinglist) / sizeof(struct hfs_mnt_encoding);
+	encodingName = NULL;
+	for (i=0; i<numEncodings; ++i)
+	{
+		if (hfs_mnt_encodinglist[i].encoding_id == encoding)
+		{
+			encodingName = hfs_mnt_encodinglist[i].encoding_name;
+			break;
+		}
+	}
+	
+	if (encodingName == NULL)
+	{
+		/* Couldn't figure out which encoding KEXT to load */
+		syslog(LOG_ERR, "Couldn't find name for encoding #%d", encoding);
+		return FSUR_LOADERR;
+	}
+	
+	sprintf(kmodfile, "%sHFS_Mac%s.kext", ENCODING_MODULE_PATH, encodingName);
+	if (stat(kmodfile, &sb) == -1)
+	{
+		/* We recognized the encoding, but couldn't find the KEXT */
+		syslog(LOG_ERR, "Couldn't stat HFS_Mac%s.kext: %s", encodingName, strerror(errno));
+		return FSUR_LOADERR;
+	}
+	
+	pid = fork();
+	if (pid == 0)
+	{
+		(void) execl(KEXT_LOAD_COMMAND, KEXT_LOAD_COMMAND, "-q", kmodfile, NULL);
+
+		exit(1);	/* We can only get here if the exec failed */
+	}
+	else if (pid != -1)
+	{
+		if ((waitpid(pid, (int *)&status, 0) == pid) && WIFEXITED(status))
+		{
+			if (WEXITSTATUS(status) != 0)
+			{
+				/* kextload returned an error.  Too bad its output doesn't get logged. */
+				syslog(LOG_ERR, "Couldn't load HFS_Mac%s.kext", encodingName);
+				return FSUR_LOADERR;
+			}
+		}
+	}
+	
+	return FSUR_IO_SUCCESS;
+}
+
+
 /* ******************************************** main ************************************************
 Purpose -
 This our main entry point to this utility.  We get called by the WorkSpace.  See ParseArgs
@@ -242,6 +381,8 @@ int main (int argc, const char *argv[])
     boolean_t				isLocked = 0;	/* reasonable assumptions */
     boolean_t				isSetuid = 0;	/* reasonable assumptions */
     boolean_t				isDev = 0;	/* reasonable assumptions */
+
+	openlog("hfs.util", LOG_PID, LOG_DAEMON);
 
     /* Verify our arguments */
     if ( (result = ParseArgs( argc, argv, & actionPtr, & mountPointPtr, & gIsEjectable, & isLocked, &isSetuid, &isDev )) != 0 ) {
@@ -298,6 +439,10 @@ int main (int argc, const char *argv[])
 			result = DoUnJournal( argv[2] );
 			break;
 			
+		case FSUC_JNLINFO:
+			result = DoGetJournalInfo( argv[2] );
+			break;
+
         default:
             /* should never get here since ParseArgs should handle this situation */
             DoDisplayUsage( argv );
@@ -363,7 +508,7 @@ DoMount(char *deviceNamePtr, const char *mountPointPtr, boolean_t isLocked, bool
 			fprintf(stderr, "hfs.util: DoMount: Not adopting ejectable %s.\n", deviceNamePtr);
 #endif
 			targetVolumeStatus = 0;
-		};
+		}
 #endif
 	} else {
 		/* We've got a real volume UUID! */
@@ -396,15 +541,15 @@ DoMount(char *deviceNamePtr, const char *mountPointPtr, boolean_t isLocked, bool
 					fprintf(stderr, "hfs.util: DoMount: Not adopting ejectable %s.\n", deviceNamePtr);
 #endif
 					targetVolumeStatus = 0;
-				};
+				}
 #else
 				targetVolumeStatus = 0;
 #endif
-			};
+			}
 			(void)CloseVolumeStatusDB(vsdbhandle);
 			vsdbhandle = NULL;
-		};
-	};
+		}
+	}
 	
 	pid = fork();
 	if (pid == 0) {
@@ -498,7 +643,7 @@ Purpose -
 Input -
     theDeviceNamePtr - pointer to the device name (full path, like /dev/disk0s2).
 Output -
-    returns FSUR_MOUNT_HIDDEN (previously FSUR_RECOGNIZED) if we can handle the media else one of the FSUR_xyz error codes.
+    returns FSUR_RECOGNIZED if we can handle the media else one of the FSUR_xyz error codes.
 *************************************************************************************************** */
 static int
 DoProbe(char *deviceNamePtr)
@@ -533,8 +678,8 @@ DoProbe(char *deviceNamePtr)
 		goto Return;
 
 	/* get classic HFS volume name (from MDB) */
-	if (mdbPtr->drSigWord == kHFSSigWord &&
-	    mdbPtr->drEmbedSigWord != kHFSPlusSigWord) {
+	if (NXSwapBigShortToHost(mdbPtr->drSigWord) == kHFSSigWord &&
+	    NXSwapBigShortToHost(mdbPtr->drEmbedSigWord) != kHFSPlusSigWord) {
 	    	Boolean cfOK;
 		CFStringRef cfstr;
 		CFStringEncoding encoding;
@@ -545,7 +690,15 @@ DoProbe(char *deviceNamePtr)
 			mdbPtr->drVN[0] = strlen(gHFS_FS_NAME_NAME);
 		}
 
-		encoding = CFStringGetSystemEncoding();
+		/* Check for an encoding hint in the Finder Info (field 4). */
+		encoding = GET_HFS_TEXT_ENCODING(NXSwapBigLongToHost(mdbPtr->drFndrInfo[4]));
+		if (encoding == kCFStringEncodingInvalidId) {
+			/* Next try the encoding bias in the kernel. */
+			encoding = GetEncodingBias();
+			if (encoding == 0 || encoding == kCFStringEncodingInvalidId)
+				encoding = __CFStringGetDefaultEncodingForHFSUtil();
+		}
+
 		cfstr = CFStringCreateWithPascalString(kCFAllocatorDefault,
 			    mdbPtr->drVN, encoding);
 		cfOK = _CFStringGetFileSystemRepresentation(cfstr, volnameUTF8, NAME_MAX);
@@ -558,20 +711,27 @@ DoProbe(char *deviceNamePtr)
 				    mdbPtr->drVN, kCFStringEncodingMacRoman);
 			_CFStringGetFileSystemRepresentation(cfstr, volnameUTF8, NAME_MAX);
 			CFRelease(cfstr);
+			encoding = kCFStringEncodingMacRoman;
 		}
  
+ 		/* Preload the encoding converter so mount_hfs can run as an ordinary user. */
+ 		if (encoding != kCFStringEncodingMacRoman)
+ 			result = load_encoding(encoding);
+ 
  	/* get HFS Plus volume name (from Catalog) */
-	} else if ((volHdrPtr->signature == kHFSPlusSigWord)  ||
-		   (mdbPtr->drSigWord == kHFSSigWord &&
-		    mdbPtr->drEmbedSigWord == kHFSPlusSigWord)) {
+	} else if ((NXSwapBigShortToHost(volHdrPtr->signature) == kHFSPlusSigWord)  ||
+	           (NXSwapBigShortToHost(volHdrPtr->signature) == kHFSXSigWord)  ||
+		   (NXSwapBigShortToHost(mdbPtr->drSigWord) == kHFSSigWord &&
+		    NXSwapBigShortToHost(mdbPtr->drEmbedSigWord) == kHFSPlusSigWord)) {
 		off_t startOffset;
 
-		if (volHdrPtr->signature == kHFSPlusSigWord) {
-			startOffset = 0;
-		} else {/* embedded volume, first find offset */
+		if (NXSwapBigShortToHost(volHdrPtr->signature) == kHFSSigWord) {
+			/* embedded volume, first find offset */
 			result = GetEmbeddedHFSPlusVol(mdbPtr, &startOffset);
 			if ( result != FSUR_IO_SUCCESS )
 				goto Return;
+		} else {
+			startOffset = 0;
 		}
 
 		result = GetNameFromHFSPlusVolumeStartingAt(fd, startOffset,
@@ -581,45 +741,17 @@ DoProbe(char *deviceNamePtr)
 	}
 
 	if (FSUR_IO_SUCCESS == result) {
-		CFStringRef slash;
-		CFStringRef colon;
-		CFMutableStringRef volumeName;
-		CFIndex volumeNameLength;
-		CFRange foundSubString;
+		char *s;
 		
-		slash = CFStringCreateWithCString(kCFAllocatorDefault, "/", kCFStringEncodingUTF8);
-		if (slash == NULL) {
-			result = FSUR_IO_FAIL;
-			goto Return;
-		};
-		
-		colon = CFStringCreateWithCString(kCFAllocatorDefault, ":", kCFStringEncodingUTF8);
-		if (colon == NULL) {
-			result = FSUR_IO_FAIL;
-			goto Return;
-		};
-		
-		volumeName = CFStringCreateMutableCopy(
-							kCFAllocatorDefault,
-							0,							/* maxLength */
-							CFStringCreateWithCString(kCFAllocatorDefault, volnameUTF8, kCFStringEncodingUTF8));
-		if (volumeName == NULL) {
-			result = FSUR_IO_FAIL;
-			goto Return;
-		};
-		volumeNameLength = CFStringGetLength(volumeName);
+		/* Change slashes to colons in the volume name */
+		for (s=volnameUTF8; *s; ++s) {
+			if (*s == '/')
+				*s = ':';
+		}
 
-		while (CFStringFindWithOptions(volumeName, slash, CFRangeMake(0, volumeNameLength-1), 0, &foundSubString)) {
-			CFStringReplace(volumeName, foundSubString, colon);
-		};
-
-		CFStringGetCString(volumeName, volnameUTF8, NAME_MAX, kCFStringEncodingUTF8);
+		/* Print the volume name to standard output */
 		write(1, volnameUTF8, strlen(volnameUTF8));
-
-		/* backwards compatibility */
-		DoFileSystemFile( FS_NAME_SUFFIX, gHFS_FS_NAME );
-		DoFileSystemFile( FS_LABEL_SUFFIX, volnameUTF8 );
-		result = FSUR_MOUNT_HIDDEN;
+		result = FSUR_RECOGNIZED;
 	}
 
 Return:
@@ -705,7 +837,7 @@ DoAdopt( const char * theDeviceNamePtr ) {
 	if ((result = OpenVolumeStatusDB(&vsdbhandle)) != 0) goto Err_Exit;
 	if ((result = GetVolumeStatusDBEntry(vsdbhandle, &targetVolumeUUID, &targetVolumeStatus)) != 0) {
 		targetVolumeStatus = 0;
-	};
+	}
 	targetVolumeStatus = (targetVolumeStatus & VOLUME_VALIDSTATUSBITS) | VOLUME_USEPERMISSIONS;
 	if ((result = SetVolumeStatusDBEntry(vsdbhandle, &targetVolumeUUID, targetVolumeStatus)) != 0) goto Err_Exit;
 
@@ -716,7 +848,7 @@ Err_Exit:
 		closeresult = CloseVolumeStatusDB(vsdbhandle);
 		vsdbhandle = NULL;
 		if (result == FSUR_IO_SUCCESS) result = closeresult;
-	};
+	}
 	
 	if ((result != 0) && (result != FSUR_IO_SUCCESS)) result = FSUR_IO_FAIL;
 	
@@ -749,7 +881,7 @@ DoDisown( const char * theDeviceNamePtr ) {
 	if ((result = OpenVolumeStatusDB(&vsdbhandle)) != 0) goto Err_Exit;
 	if ((result = GetVolumeStatusDBEntry(vsdbhandle, &targetVolumeUUID, &targetVolumeStatus)) != 0) {
 		targetVolumeStatus = 0;
-	};
+	}
 	targetVolumeStatus = (targetVolumeStatus & VOLUME_VALIDSTATUSBITS) & ~VOLUME_USEPERMISSIONS;
 	if ((result = SetVolumeStatusDBEntry(vsdbhandle, &targetVolumeUUID, targetVolumeStatus)) != 0) goto Err_Exit;
 
@@ -760,14 +892,14 @@ Err_Exit:
 		closeresult = CloseVolumeStatusDB(vsdbhandle);
 		vsdbhandle = NULL;
 		if (result == FSUR_IO_SUCCESS) result = closeresult;
-	};
+	}
 	
 	if ((result != 0) && (result != FSUR_IO_SUCCESS)) {
 #if TRACE_HFS_UTIL
 		if (result != 0) fprintf(stderr, "DoDisown: result = %d; changing to %d...\n", result, FSUR_IO_FAIL);
 #endif
 		result = FSUR_IO_FAIL;
-	};
+	}
 	
 Err_Return:
 #if TRACE_HFS_UTIL
@@ -817,6 +949,7 @@ flagsArg:
         either "readonly" OR "writable"
         either "removable" OR "fixed"
         either "nosuid" or "suid"
+	either "nodev" or "dev"
 
 examples:
 	hfs.util -p disk0s2 removable writable
@@ -868,8 +1001,8 @@ ParseArgs(int argc, const char *argv[], const char ** actionPtr,
             
         case FSUC_MOUNT:
         case FSUC_MOUNT_FORCE:
-            /* action Mount and ForceMount require 7 arguments (need the mountpoint and the flags) */
-            if ( argc < 7 ) {
+            /* action Mount and ForceMount require 8 arguments (need the mountpoint and the flags) */
+            if ( argc < 8 ) {
                 DoDisplayUsage( argv );
                 goto Return;
             } else {
@@ -910,6 +1043,11 @@ ParseArgs(int argc, const char *argv[], const char ** actionPtr,
 			break;
 
 		case FSUC_UNJNL:
+			index = 0;
+			doLengthCheck = 0;
+			break;
+
+		case FSUC_JNLINFO:
 			index = 0;
 			doLengthCheck = 0;
 			break;
@@ -1000,186 +1138,149 @@ DoDisplayUsage(const char *argv[])
     printf("       -%c (Set UUID Key)\n", FSUC_SETUUID);
 #endif HFS_UUID_SUPPORT
     printf("       -%c (Adopt permissions)\n", FSUC_ADOPT);
-	printf("       -%c (Make a volume journaled)\n", FSUC_MKJNL);
-	printf("       -%c (Turn off journaling on a volume)\n", FSUC_UNJNL);
+	printf("       -%c (Make a file system journaled)\n", FSUC_MKJNL);
+	printf("       -%c (Turn off journaling on a file system)\n", FSUC_UNJNL);
+	printf("       -%c (Get size & location of journaling on a file system)\n", FSUC_JNLINFO);
     printf("device_arg:\n");
     printf("       device we are acting upon (for example, 'disk0s2')\n");
     printf("       if '-%c' or '-%c' is specified, this should be the\n", FSUC_MKJNL, FSUC_UNJNL);
-	printf("       name of the volume we to act on (for example, '/Volumes/foo' or '/')\n");
+	printf("       name of the file system we're to act on (for example, '/Volumes/foo' or '/')\n");
     printf("mount_point_arg:\n");
     printf("       required for Mount and Force Mount \n");
     printf("Flags:\n");
     printf("       required for Mount, Force Mount and Probe\n");
     printf("       indicates removable or fixed (for example 'fixed')\n");
     printf("       indicates readonly or writable (for example 'readonly')\n");
+    printf("       indicates suid or nosuid (for example 'suid')\n");
+    printf("       indicates dev or nodev (for example 'dev')\n");
     printf("Examples:\n");
     printf("       %s -p disk0s2 fixed writable\n", argv[0]);
-    printf("       %s -m disk0s2 /my/hfs removable readonly\n", argv[0]);
+    printf("       %s -m disk0s2 /my/hfs removable readonly nosuid nodev\n", argv[0]);
 
     return;
 
 } /* DoDisplayUsage */
 
 
-/* ************************************** DoFileSystemFile *******************************************
-Purpose -
-    This routine will create a file system info file that is used by WorkSpace.  After creating the
-    file it will write whatever theContentsPtr points to the new file.
-    We end up with a file something like:
-    /System/Library/Filesystems/hfs.fs/hfs.name
-    when our file system name is "hfs" and theFileNameSuffixPtr points to ".name"
-Input -
-    theFileNameSuffixPtr - pointer to a suffix we add to the file name we're creating.
-    theContentsPtr - pointer to C string to write into the file.
-Output -
-    NA.
-*************************************************************************************************** */
-static void
-DoFileSystemFile(char *fileNameSuffixPtr, char *contentsPtr)
+/*
+	GetHFSMountPoint
+	
+	Given a path to a device, determine if a volume is mounted on that
+	device.  If there is an HFS volume, return its path and FSUR_IO_SUCCESS.
+	If there is a non-HFS volume, return FSUR_UNRECOGNIZED.  If there is
+	no volume mounted on the device, set *pathPtr to NULL and return
+	FSUR_IO_SUCCESS.
+
+	Returns: FSUR_IO_SUCCESS, FSUR_IO_FAIL, FSUR_UNRECOGNIZED
+*/
+static int
+GetHFSMountPoint(const char *deviceNamePtr, char **pathPtr)
 {
-    int fd;
-    char fileName[MAXPATHLEN];
+	int result;
+	int i, numMounts;
+	struct statfs *buf;
+	
+	/* Assume no mounted volume found */	
+	*pathPtr = NULL;
+	result = FSUR_IO_SUCCESS;	
+	
+	numMounts = getmntinfo(&buf, MNT_NOWAIT);
+	if (numMounts == 0)
+		return FSUR_IO_FAIL;
+	
+	for (i=0; i<numMounts; ++i) {
+		if (!strcmp(deviceNamePtr, buf[i].f_mntfromname)) {
+			/* Found a mounted volume; check the type */
+			if (!strcmp(buf[i].f_fstypename, "hfs")) {
+				*pathPtr = buf[i].f_mntonname;
+				/* result = FSUR_IO_SUCCESS, above */
+			} else {
+				result = FSUR_UNRECOGNIZED;
+			}
+			break;
+		}
+	}
+	
+	return result;
+}
 
-    sprintf(fileName, "%s/%s%s/%s", FS_DIR_LOCATION, gHFS_FS_NAME,
-    	FS_DIR_SUFFIX, gHFS_FS_NAME );
-    strcat(fileName, fileNameSuffixPtr );
-    unlink(fileName);		/* delete existing string */
-
-    if ( strlen( fileNameSuffixPtr ) ) {
-        int oldMask = umask(0);
-
-        fd = open( & fileName[0], O_CREAT | O_TRUNC | O_WRONLY, 0644 );
-        umask( oldMask );
-        if ( fd > 0 ) {
-            write( fd, contentsPtr, strlen( contentsPtr ) );
-            close( fd );
-        }
-    }
-
-    return;
-
-} /* DoFileSystemFile */
 
 /*
- --	GetVolumeUUID
- --
- --	Returns: FSUR_IO_SUCCESS, FSUR_IO_FAIL
- */
+	ReadHeaderBlock
+	
+	Read the Master Directory Block or Volume Header Block from an HFS,
+	HFS Plus, or HFSX volume into a caller-supplied buffer.  Return the
+	offset of an embedded HFS Plus volume (or 0 if not embedded HFS Plus).
+	Return a pointer to the volume UUID in the Finder Info.
 
+	Returns: FSUR_IO_SUCCESS, FSUR_IO_FAIL, FSUR_UNRECOGNIZED
+*/
 static int
-GetVolumeUUID(const char *deviceNamePtr, VolumeUUID *volumeUUIDPtr, boolean_t generate) {
-	int fd = 0;
-	char * bufPtr;
+ReadHeaderBlock(int fd, void *bufPtr, off_t *startOffset, VolumeUUID **finderInfoUUIDPtr)
+{
+	int result;
 	HFSMasterDirectoryBlock * mdbPtr;
 	HFSPlusVolumeHeader * volHdrPtr;
-	VolumeUUID *finderInfoUUIDPtr;
-	int result;
 
-	bufPtr = (char *)malloc(HFS_BLOCK_SIZE);
-	if ( ! bufPtr ) {
-		result = FSUR_UNRECOGNIZED;
-		goto Err_Exit;
-	}
-
-	mdbPtr = (HFSMasterDirectoryBlock *) bufPtr;
-	volHdrPtr = (HFSPlusVolumeHeader *) bufPtr;
-
-	fd = open( deviceNamePtr, O_RDWR, 0 );
-	if( fd <= 0 ) {
-		fd = open( deviceNamePtr, O_RDONLY, 0);
-		if (fd <= 0) {
-#if TRACE_HFS_UTIL
-			fprintf(stderr, "hfs.util: GetVolumeUUID: device open failed (errno = %d).\n", errno);
-#endif
-			result = FSUR_IO_FAIL;
-			goto Err_Exit;
-		};
-	};
+	mdbPtr = bufPtr;
+	volHdrPtr = bufPtr;
 
 	/*
-	 * Read the HFS Master Directory Block from sector 2
+	 * Read the HFS Master Directory Block or Volume Header from sector 2
 	 */
-	result = readAt(fd, volHdrPtr, (off_t)(2 * HFS_BLOCK_SIZE), HFS_BLOCK_SIZE);
-	if (result != FSUR_IO_SUCCESS) {
+	*startOffset = 0;
+	result = readAt(fd, bufPtr, (off_t)(2 * HFS_BLOCK_SIZE), HFS_BLOCK_SIZE);
+	if (result != FSUR_IO_SUCCESS)
 		goto Err_Exit;
-	};
 
-	if (mdbPtr->drSigWord == kHFSSigWord &&
-	    mdbPtr->drEmbedSigWord != kHFSPlusSigWord) {
-	    finderInfoUUIDPtr = (VolumeUUID *)(&mdbPtr->drFndrInfo[6]);
-	    if (generate && ((finderInfoUUIDPtr->v.high == 0) || (finderInfoUUIDPtr->v.low == 0))) {
-	    	GenerateVolumeUUID(volumeUUIDPtr);
-	    	bcopy(volumeUUIDPtr, finderInfoUUIDPtr, sizeof(*finderInfoUUIDPtr));
-			result = writeAt(fd, volHdrPtr, (off_t)(2 * HFS_BLOCK_SIZE), HFS_BLOCK_SIZE);
-			if (result != FSUR_IO_SUCCESS) goto Err_Exit;
-		};
-		bcopy(finderInfoUUIDPtr, volumeUUIDPtr, sizeof(*volumeUUIDPtr));
-		result = FSUR_IO_SUCCESS;
-	} else if ((volHdrPtr->signature == kHFSPlusSigWord)  ||
-		   ((mdbPtr->drSigWord == kHFSSigWord) &&
-		    (mdbPtr->drEmbedSigWord == kHFSPlusSigWord))) {
-		off_t startOffset;
-
-		if (volHdrPtr->signature == kHFSPlusSigWord) {
-			startOffset = 0;
-		} else {/* embedded volume, first find offset */
-			result = GetEmbeddedHFSPlusVol(mdbPtr, &startOffset);
-			if ( result != FSUR_IO_SUCCESS ) {
-				goto Err_Exit;
-			};
-		}
+	/*
+	 * If this is a wrapped HFS Plus volume, read the Volume Header from
+	 * sector 2 of the embedded volume.
+	 */
+	if (NXSwapBigShortToHost(mdbPtr->drSigWord) == kHFSSigWord &&
+		NXSwapBigShortToHost(mdbPtr->drEmbedSigWord) == kHFSPlusSigWord) {
+		result = GetEmbeddedHFSPlusVol(mdbPtr, startOffset);
+		if (result != FSUR_IO_SUCCESS)
+			goto Err_Exit;
+		result = readAt(fd, bufPtr, *startOffset + (off_t)(2*HFS_BLOCK_SIZE), HFS_BLOCK_SIZE);
+		if (result != FSUR_IO_SUCCESS)
+			goto Err_Exit;
+	}
 	
-	    result = readAt( fd, volHdrPtr, startOffset + (off_t)(2*HFS_BLOCK_SIZE), HFS_BLOCK_SIZE );
-	    if (result != FSUR_IO_SUCCESS) {
-	        goto Err_Exit; // return FSUR_IO_FAIL
-	    }
-	
-	    /* Verify that it is an HFS+ volume. */
-	
-	    if (volHdrPtr->signature != kHFSPlusSigWord) {
-	        result = FSUR_IO_FAIL;
-	        goto Err_Exit;
-	    }
-	
-	    finderInfoUUIDPtr = (VolumeUUID *)&volHdrPtr->finderInfo[24];
-	    if (generate && ((finderInfoUUIDPtr->v.high == 0) || (finderInfoUUIDPtr->v.low == 0))) {
-	    	GenerateVolumeUUID(volumeUUIDPtr);
-	    	bcopy(volumeUUIDPtr, finderInfoUUIDPtr, sizeof(*finderInfoUUIDPtr));
-			result = writeAt( fd, volHdrPtr, startOffset + (off_t)(2*HFS_BLOCK_SIZE), HFS_BLOCK_SIZE );
-			if (result != FSUR_IO_SUCCESS) {
-				goto Err_Exit;
-			};
-		};
-		bcopy(finderInfoUUIDPtr, volumeUUIDPtr, sizeof(*volumeUUIDPtr));
-		result = FSUR_IO_SUCCESS;
+	/*
+	 * At this point, we have the MDB for plain HFS, or VHB for HFS Plus and HFSX
+	 * volumes (including wrapped HFS Plus).  Verify the signature and grab the
+	 * UUID from the Finder Info.
+	 */
+	if (NXSwapBigShortToHost(mdbPtr->drSigWord) == kHFSSigWord) {
+	    *finderInfoUUIDPtr = (VolumeUUID *)(&mdbPtr->drFndrInfo[6]);
+	} else if (NXSwapBigShortToHost(volHdrPtr->signature) == kHFSPlusSigWord ||
+				NXSwapBigShortToHost(volHdrPtr->signature) == kHFSXSigWord) {
+	    *finderInfoUUIDPtr = (VolumeUUID *)&volHdrPtr->finderInfo[24];
 	} else {
 		result = FSUR_UNRECOGNIZED;
-	};
+	}
 
 Err_Exit:
-	if (fd > 0) close(fd);
-	if (bufPtr) free(bufPtr);
-	
-#if TRACE_HFS_UTIL
-	if (result != FSUR_IO_SUCCESS) fprintf(stderr, "hfs.util: GetVolumeUUID: result = %d...\n", result);
-#endif
-	return (result == FSUR_IO_SUCCESS) ? FSUR_IO_SUCCESS : FSUR_IO_FAIL;
-};
-
+	return result;
+}
 
 
 /*
- --	SetVolumeUUID
- --
- --	Returns: FSUR_IO_SUCCESS, FSUR_IO_FAIL
- */
+	GetVolumeUUIDRaw
+	
+	Read the UUID from an unmounted volume, by doing direct access to the device.
+	Assumes the caller has already determined that a volume is not mounted
+	on the device.
 
+	Returns: FSUR_IO_SUCCESS, FSUR_IO_FAIL, FSUR_UNRECOGNIZED
+*/
 static int
-SetVolumeUUID(const char *deviceNamePtr, VolumeUUID *volumeUUIDPtr) {
+GetVolumeUUIDRaw(const char *deviceNamePtr, VolumeUUID *volumeUUIDPtr)
+{
 	int fd = 0;
 	char * bufPtr;
-	HFSMasterDirectoryBlock * mdbPtr;
-	HFSPlusVolumeHeader * volHdrPtr;
+	off_t startOffset;
 	VolumeUUID *finderInfoUUIDPtr;
 	int result;
 
@@ -1189,77 +1290,290 @@ SetVolumeUUID(const char *deviceNamePtr, VolumeUUID *volumeUUIDPtr) {
 		goto Err_Exit;
 	}
 
-	mdbPtr = (HFSMasterDirectoryBlock *) bufPtr;
-	volHdrPtr = (HFSPlusVolumeHeader *) bufPtr;
-
-	fd = open( deviceNamePtr, O_RDWR, 0 );
-	if( fd <= 0 ) {
+	fd = open( deviceNamePtr, O_RDONLY, 0);
+	if (fd <= 0) {
 #if TRACE_HFS_UTIL
-		fprintf(stderr, "hfs.util: SetVolumeUUID: device open failed (errno = %d).\n", errno);
+		fprintf(stderr, "hfs.util: GetVolumeUUIDRaw: device open failed (errno = %d).\n", errno);
 #endif
 		result = FSUR_IO_FAIL;
 		goto Err_Exit;
-	};
+	}
 
 	/*
-	 * Read the HFS Master Directory Block from sector 2
+	 * Get the pointer to the volume UUID in the Finder Info
 	 */
-	result = readAt(fd, volHdrPtr, (off_t)(2 * HFS_BLOCK_SIZE), HFS_BLOCK_SIZE);
-	if (result != FSUR_IO_SUCCESS) {
+	result = ReadHeaderBlock(fd, bufPtr, &startOffset, &finderInfoUUIDPtr);
+	if (result != FSUR_IO_SUCCESS)
 		goto Err_Exit;
-	};
 
-	if (mdbPtr->drSigWord == kHFSSigWord &&
-	    mdbPtr->drEmbedSigWord != kHFSPlusSigWord) {
-	    finderInfoUUIDPtr = (VolumeUUID *)(&mdbPtr->drFndrInfo[6]);
-	    bcopy(volumeUUIDPtr, finderInfoUUIDPtr, sizeof(*finderInfoUUIDPtr));
-		result = writeAt(fd, volHdrPtr, (off_t)(2 * HFS_BLOCK_SIZE), HFS_BLOCK_SIZE);
-	} else if ((volHdrPtr->signature == kHFSPlusSigWord)  ||
-		   ((mdbPtr->drSigWord == kHFSSigWord) &&
-		    (mdbPtr->drEmbedSigWord == kHFSPlusSigWord))) {
-		off_t startOffset;
-
-		if (volHdrPtr->signature == kHFSPlusSigWord) {
-			startOffset = 0;
-		} else {/* embedded volume, first find offset */
-			result = GetEmbeddedHFSPlusVol(mdbPtr, &startOffset);
-			if ( result != FSUR_IO_SUCCESS ) {
-				goto Err_Exit;
-			};
-		}
-	
-	    result = readAt( fd, volHdrPtr, startOffset + (off_t)(2*HFS_BLOCK_SIZE), HFS_BLOCK_SIZE );
-	    if (result != FSUR_IO_SUCCESS) {
-	        goto Err_Exit; // return FSUR_IO_FAIL
-	    }
-	
-	    /* Verify that it is an HFS+ volume. */
-	
-	    if (volHdrPtr->signature != kHFSPlusSigWord) {
-	        result = FSUR_IO_FAIL;
-	        goto Err_Exit;
-	    }
-	
-	    finderInfoUUIDPtr = (VolumeUUID *)&volHdrPtr->finderInfo[24];
-	    bcopy(volumeUUIDPtr, finderInfoUUIDPtr, sizeof(*finderInfoUUIDPtr));
-		result = writeAt( fd, volHdrPtr, startOffset + (off_t)(2*HFS_BLOCK_SIZE), HFS_BLOCK_SIZE );
-		if (result != FSUR_IO_SUCCESS) {
-			goto Err_Exit;
-		};
-		result = FSUR_IO_SUCCESS;
-	} else {
-		result = FSUR_UNRECOGNIZED;
-	};
+	/*
+	 * Copy the volume UUID out of the Finder Info
+	 */
+	volumeUUIDPtr->v.high = NXSwapBigLongToHost(finderInfoUUIDPtr->v.high);
+	volumeUUIDPtr->v.low = NXSwapBigLongToHost(finderInfoUUIDPtr->v.low);
 
 Err_Exit:
 	if (fd > 0) close(fd);
 	if (bufPtr) free(bufPtr);
 	
 #if TRACE_HFS_UTIL
-	if (result != FSUR_IO_SUCCESS) fprintf(stderr, "hfs.util: SetVolumeUUID: result = %d...\n", result);
+	if (result != FSUR_IO_SUCCESS) fprintf(stderr, "hfs.util: GetVolumeUUIDRaw: result = %d...\n", result);
 #endif
 	return (result == FSUR_IO_SUCCESS) ? FSUR_IO_SUCCESS : FSUR_IO_FAIL;
-};
+}
+
+
+/*
+	SetVolumeUUIDRaw
+	
+	Write a previously generated UUID to an unmounted volume, by doing direct
+	access to the device.  Assumes the caller has already determined that a
+	volume is not mounted on the device.
+
+	Returns: FSUR_IO_SUCCESS, FSUR_IO_FAIL, FSUR_UNRECOGNIZED
+*/
+static int
+SetVolumeUUIDRaw(const char *deviceNamePtr, VolumeUUID *volumeUUIDPtr)
+{
+	int fd = 0;
+	char * bufPtr;
+	off_t startOffset;
+	VolumeUUID *finderInfoUUIDPtr;
+	int result;
+
+	bufPtr = (char *)malloc(HFS_BLOCK_SIZE);
+	if ( ! bufPtr ) {
+		result = FSUR_UNRECOGNIZED;
+		goto Err_Exit;
+	}
+
+	fd = open( deviceNamePtr, O_RDWR, 0);
+	if (fd <= 0) {
+#if TRACE_HFS_UTIL
+		fprintf(stderr, "hfs.util: SetVolumeUUIDRaw: device open failed (errno = %d).\n", errno);
+#endif
+		result = FSUR_IO_FAIL;
+		goto Err_Exit;
+	}
+
+	/*
+	 * Get the pointer to the volume UUID in the Finder Info
+	 */
+	result = ReadHeaderBlock(fd, bufPtr, &startOffset, &finderInfoUUIDPtr);
+	if (result != FSUR_IO_SUCCESS)
+		goto Err_Exit;
+
+	/*
+	 * Update the UUID in the Finder Info
+	 */
+	finderInfoUUIDPtr->v.high = NXSwapHostLongToBig(volumeUUIDPtr->v.high);
+	finderInfoUUIDPtr->v.low = NXSwapHostLongToBig(volumeUUIDPtr->v.low);
+
+	/*
+	 * Write the modified MDB or VHB back to disk
+	 */
+	result = writeAt(fd, bufPtr, startOffset + (off_t)(2*HFS_BLOCK_SIZE), HFS_BLOCK_SIZE);
+
+Err_Exit:
+	if (fd > 0) close(fd);
+	if (bufPtr) free(bufPtr);
+	
+#if TRACE_HFS_UTIL
+	if (result != FSUR_IO_SUCCESS) fprintf(stderr, "hfs.util: SetVolumeUUIDRaw: result = %d...\n", result);
+#endif
+	return (result == FSUR_IO_SUCCESS) ? FSUR_IO_SUCCESS : FSUR_IO_FAIL;
+}
+
+
+/*
+	GetVolumeUUIDAttr
+	
+	Read the UUID from a mounted volume, by calling getattrlist().
+	Assumes the path is the mount point of an HFS volume.
+
+	Returns: FSUR_IO_SUCCESS, FSUR_IO_FAIL
+*/
+static int
+GetVolumeUUIDAttr(const char *path, VolumeUUID *volumeUUIDPtr)
+{
+	struct attrlist alist;
+	struct FinderAttrBuf volFinderInfo;
+	VolumeUUID *finderInfoUUIDPtr;
+	int result;
+
+	/* Set up the attrlist structure to get the volume's Finder Info */
+	alist.bitmapcount = 5;
+	alist.reserved = 0;
+	alist.commonattr = ATTR_CMN_FNDRINFO;
+	alist.volattr = ATTR_VOL_INFO;
+	alist.dirattr = 0;
+	alist.fileattr = 0;
+	alist.forkattr = 0;
+
+	/* Get the Finder Info */
+	result = getattrlist(path, &alist, &volFinderInfo, sizeof(volFinderInfo), 0);
+	if (result) {
+		result = FSUR_IO_FAIL;
+		goto Err_Exit;
+	}
+
+	/* Copy the UUID from the Finder Into to caller's buffer */
+	finderInfoUUIDPtr = (VolumeUUID *)(&volFinderInfo.finderinfo[6]);
+	volumeUUIDPtr->v.high = NXSwapBigLongToHost(finderInfoUUIDPtr->v.high);
+	volumeUUIDPtr->v.low = NXSwapBigLongToHost(finderInfoUUIDPtr->v.low);
+	result = FSUR_IO_SUCCESS;
+
+Err_Exit:
+	return result;
+}
+
+
+/*
+	SetVolumeUUIDAttr
+	
+	Write a UUID to a mounted volume, by calling setattrlist().
+	Assumes the path is the mount point of an HFS volume.
+
+	Returns: FSUR_IO_SUCCESS, FSUR_IO_FAIL
+*/
+static int
+SetVolumeUUIDAttr(const char *path, VolumeUUID *volumeUUIDPtr)
+{
+	struct attrlist alist;
+	struct FinderAttrBuf volFinderInfo;
+	VolumeUUID *finderInfoUUIDPtr;
+	int result;
+
+	/* Set up the attrlist structure to get the volume's Finder Info */
+	alist.bitmapcount = 5;
+	alist.reserved = 0;
+	alist.commonattr = ATTR_CMN_FNDRINFO;
+	alist.volattr = ATTR_VOL_INFO;
+	alist.dirattr = 0;
+	alist.fileattr = 0;
+	alist.forkattr = 0;
+
+	/* Get the Finder Info */
+	result = getattrlist(path, &alist, &volFinderInfo, sizeof(volFinderInfo), 0);
+	if (result) {
+		result = FSUR_IO_FAIL;
+		goto Err_Exit;
+	}
+
+	/* Update the UUID in the Finder Info */
+	finderInfoUUIDPtr = (VolumeUUID *)(&volFinderInfo.finderinfo[6]);
+	finderInfoUUIDPtr->v.high = NXSwapHostLongToBig(volumeUUIDPtr->v.high);
+	finderInfoUUIDPtr->v.low = NXSwapHostLongToBig(volumeUUIDPtr->v.low);
+
+	/* Write the Finder Info back to the volume */
+	result = setattrlist(path, &alist, &volFinderInfo.finderinfo, sizeof(volFinderInfo.finderinfo), 0);
+	if (result) {
+		result = FSUR_IO_FAIL;
+		goto Err_Exit;
+	}
+
+	result = FSUR_IO_SUCCESS;
+
+Err_Exit:
+	return result;
+}
+
+
+/*
+	GetVolumeUUID
+	
+	Return the UUID of an HFS, HFS Plus or HFSX volume.  If there is no UUID and
+	we were asked to generate one, then generate a new UUID and write it to the
+	volume.
+	
+	Determine whether an HFS volume is mounted on the given device.  If so, we
+	need to use GetVolumeUUIDAttr and SetVolumeUUIDAttr to access the UUID through
+	the filesystem.  If there is no mounted volume, then do direct device access
+	with GetVolumeUUIDRaw and SetVolumeUUIDRaw.
+	
+	Returns: FSUR_IO_SUCCESS, FSUR_IO_FAIL, FSUR_UNRECOGNIZED
+ */
+
+static int
+GetVolumeUUID(const char *deviceNamePtr, VolumeUUID *volumeUUIDPtr, boolean_t generate)
+{
+	int result;
+	char *path = NULL;
+	
+	/*
+	 * Determine whether a volume is mounted on this device.  If it is HFS, then
+	 * get the mount point's path.  If it is non-HFS, then we can exit immediately
+	 * with FSUR_UNRECOGNIZED.
+	 */
+	result = GetHFSMountPoint(deviceNamePtr, &path);
+	if (result != FSUR_IO_SUCCESS)
+		goto Err_Exit;
+
+	/*
+	 * Get any existing UUID.
+	 */
+	if (path)
+		result = GetVolumeUUIDAttr(path, volumeUUIDPtr);
+	else
+		result = GetVolumeUUIDRaw(deviceNamePtr, volumeUUIDPtr);
+	if (result != FSUR_IO_SUCCESS)
+		goto Err_Exit;
+
+	/*
+	 * If there was no valid UUID, and we were asked to generate one, then
+	 * generate it and write it back to disk.
+	 */
+	if (generate && (volumeUUIDPtr->v.high == 0 || volumeUUIDPtr->v.low == 0)) {
+		GenerateVolumeUUID(volumeUUIDPtr);
+		if (path)
+			result = SetVolumeUUIDAttr(path, volumeUUIDPtr);
+		else
+			result = SetVolumeUUIDRaw(deviceNamePtr, volumeUUIDPtr);
+		/* Fall through to Err_Exit */
+	}
+
+Err_Exit:
+	return result;
+}
+
+
+
+/*
+	SetVolumeUUID
+	
+	Write a UUID to an HFS, HFS Plus or HFSX volume.
+	
+	Determine whether an HFS volume is mounted on the given device.  If so, we
+	need to use SetVolumeUUIDAttr to access the UUID through the filesystem.
+	If there is no mounted volume, then do direct device access SetVolumeUUIDRaw.
+	
+	Returns: FSUR_IO_SUCCESS, FSUR_IO_FAIL, FSUR_UNRECOGNIZED
+ */
+static int
+SetVolumeUUID(const char *deviceNamePtr, VolumeUUID *volumeUUIDPtr) {
+	int result;
+	char *path = NULL;
+	
+	/*
+	 * Determine whether a volume is mounted on this device.  If it is HFS, then
+	 * get the mount point's path.  If it is non-HFS, then we can exit immediately
+	 * with FSUR_UNRECOGNIZED.
+	 */
+	result = GetHFSMountPoint(deviceNamePtr, &path);
+	if (result != FSUR_IO_SUCCESS)
+		goto Err_Exit;
+
+	/*
+	 * Update the UUID.
+	 */
+	if (path)
+		result = SetVolumeUUIDAttr(path, volumeUUIDPtr);
+	else
+		result = SetVolumeUUIDRaw(deviceNamePtr, volumeUUIDPtr);
+
+Err_Exit:
+	return result;
+}
 
 
 
@@ -1278,21 +1592,21 @@ GetEmbeddedHFSPlusVol (HFSMasterDirectoryBlock * hfsMasterDirectoryBlockPtr, off
     int		result = FSUR_IO_SUCCESS;
     u_int32_t	allocationBlockSize, firstAllocationBlock, startBlock, blockCount;
 
-    if (hfsMasterDirectoryBlockPtr->drSigWord != kHFSSigWord) {
+    if (NXSwapBigShortToHost(hfsMasterDirectoryBlockPtr->drSigWord) != kHFSSigWord) {
         result = FSUR_UNRECOGNIZED;
         goto Return;
     }
 
-    allocationBlockSize = hfsMasterDirectoryBlockPtr->drAlBlkSiz;
-    firstAllocationBlock = hfsMasterDirectoryBlockPtr->drAlBlSt;
+    allocationBlockSize = NXSwapBigLongToHost(hfsMasterDirectoryBlockPtr->drAlBlkSiz);
+    firstAllocationBlock = NXSwapBigShortToHost(hfsMasterDirectoryBlockPtr->drAlBlSt);
 
-    if (hfsMasterDirectoryBlockPtr->drEmbedSigWord != kHFSPlusSigWord) {
+    if (NXSwapBigShortToHost(hfsMasterDirectoryBlockPtr->drEmbedSigWord) != kHFSPlusSigWord) {
         result = FSUR_UNRECOGNIZED;
         goto Return;
     }
 
-    startBlock = hfsMasterDirectoryBlockPtr->drEmbedExtent.startBlock;
-    blockCount = hfsMasterDirectoryBlockPtr->drEmbedExtent.blockCount;
+    startBlock = NXSwapBigShortToHost(hfsMasterDirectoryBlockPtr->drEmbedExtent.startBlock);
+    blockCount = NXSwapBigShortToHost(hfsMasterDirectoryBlockPtr->drEmbedExtent.blockCount);
 
     if ( startOffsetPtr )
         *startOffsetPtr = ((u_int64_t)startBlock * (u_int64_t)allocationBlockSize) +
@@ -1346,7 +1660,8 @@ GetNameFromHFSPlusVolumeStartingAt(int fd, off_t hfsPlusVolumeOffset, char * nam
 
     /* Verify that it is an HFS+ volume. */
 
-    if (volHdrPtr->signature != kHFSPlusSigWord) {
+    if (NXSwapBigShortToHost(volHdrPtr->signature) != kHFSPlusSigWord &&
+        NXSwapBigShortToHost(volHdrPtr->signature) != kHFSXSigWord) {
         result = FSUR_IO_FAIL;
 #if TRACE_HFS_UTIL
         fprintf(stderr, "hfs.util: GetNameFromHFSPlusVolumeStartingAt: volHdrPtr->signature != kHFSPlusSigWord\n");
@@ -1354,7 +1669,7 @@ GetNameFromHFSPlusVolumeStartingAt(int fd, off_t hfsPlusVolumeOffset, char * nam
         goto Return;
     }
 
-    blockSize = volHdrPtr->blockSize;
+    blockSize = NXSwapBigLongToHost(volHdrPtr->blockSize);
     catalogExtents = (HFSPlusExtentDescriptor *) malloc(sizeof(HFSPlusExtentRecord));
     if ( ! catalogExtents ) {
         result = FSUR_IO_FAIL;
@@ -1364,7 +1679,7 @@ GetNameFromHFSPlusVolumeStartingAt(int fd, off_t hfsPlusVolumeOffset, char * nam
 	catalogExtCount = kHFSPlusExtentDensity;
 
 	/* if there are overflow catalog extents, then go get them */
-	if (catalogExtents[7].blockCount != 0) {
+	if (NXSwapBigLongToHost(catalogExtents[7].blockCount) != 0) {
 		result = GetCatalogOverflowExtents(fd, hfsPlusVolumeOffset, volHdrPtr, &catalogExtents, &catalogExtCount);
 		if (result != FSUR_IO_SUCCESS)
 			goto Return;
@@ -1419,12 +1734,12 @@ GetNameFromHFSPlusVolumeStartingAt(int fd, off_t hfsPlusVolumeOffset, char * nam
 
 	// Get a pointer to the first record.
 
-        p = bufPtr + *v; // pointer arithmetic in bytes
+        p = bufPtr + NXSwapBigShortToHost(*v); // pointer arithmetic in bytes
         k = (HFSPlusCatalogKey *)p;
 
 	// There should be only one record whose parent is the root parent.  It should be the first record.
 
-        if (k->parentID != kHFSRootParentID) {
+        if (NXSwapBigLongToHost(k->parentID) != kHFSRootParentID) {
             result = FSUR_IO_FAIL;
 #if TRACE_HFS_UTIL
             fprintf(stderr, "hfs.util: ERROR: k->parentID != kHFSRootParentID\n");
@@ -1434,9 +1749,26 @@ GetNameFromHFSPlusVolumeStartingAt(int fd, off_t hfsPlusVolumeOffset, char * nam
 
 	/* Extract the name of the root directory */
 
-	cfstr = CFStringCreateWithCharacters(kCFAllocatorDefault, k->nodeName.unicode, k->nodeName.length);
-	(void) CFStringGetCString(cfstr, name_o, NAME_MAX, kCFStringEncodingUTF8);
-	CFRelease(cfstr);
+	{
+	    HFSUniStr255 *swapped;
+	    int i;
+    
+	    swapped = (HFSUniStr255 *)malloc(sizeof(HFSUniStr255));
+	    if (swapped == NULL) {
+		result = FSUR_IO_FAIL;
+		goto Return;
+	    }
+	    swapped->length = NXSwapBigShortToHost(k->nodeName.length);
+	    
+	    for (i=0; i<swapped->length; i++) {
+		swapped->unicode[i] = NXSwapBigShortToHost(k->nodeName.unicode[i]);
+	    }
+	    swapped->unicode[i] = 0;
+	    cfstr = CFStringCreateWithCharacters(kCFAllocatorDefault, swapped->unicode, swapped->length);
+	    (void) CFStringGetCString(cfstr, name_o, NAME_MAX, kCFStringEncodingUTF8);
+	    CFRelease(cfstr);
+	    free(swapped);
+	}
     }
 
     result = FSUR_IO_SUCCESS;
@@ -1501,12 +1833,12 @@ GetBTreeNodeInfo(int fd, off_t hfsPlusVolumeOffset, u_int32_t blockSize,
 		goto free;
 	}
 
-	*nodeSize = bTreeHeaderPtr->header.nodeSize;
+	*nodeSize = NXSwapBigShortToHost(bTreeHeaderPtr->header.nodeSize);
 
-	if (bTreeHeaderPtr->header.leafRecords == 0)
+	if (NXSwapBigLongToHost(bTreeHeaderPtr->header.leafRecords) == 0)
 		*firstLeafNode = 0;
 	else
-		*firstLeafNode = bTreeHeaderPtr->header.firstLeafNode;
+		*firstLeafNode = NXSwapBigLongToHost(bTreeHeaderPtr->header.firstLeafNode);
 
 free:;
 	free((char*) bTreeHeaderPtr);
@@ -1595,10 +1927,10 @@ again:
 
 		/* Get a pointer to the record */
 
-		p = bufPtr + *v; /* pointer arithmetic in bytes */
+		p = bufPtr + NXSwapBigShortToHost(*v); /* pointer arithmetic in bytes */
 		k = (HFSPlusExtentKey *)p;
 
-		if (k->fileID != kHFSCatalogFileID)
+		if (NXSwapBigLongToHost(k->fileID) != kHFSCatalogFileID)
 			goto Return;
 
 		/* grow list and copy additional extents */
@@ -1660,7 +1992,7 @@ static int	LogicalToPhysical(off_t offset, ssize_t length, u_int32_t blockSize,
 	/* Find the extent containing logicalBlock */
 	for (extent = 0; extent < extentCount; ++extent)
 	{
-		blockCount = extentList[extent].blockCount;
+		blockCount = NXSwapBigLongToHost(extentList[extent].blockCount);
 		
 		if (blockCount == 0)
 			return FSUR_IO_FAIL;	/* Tried to map past physical end of file */
@@ -1680,7 +2012,7 @@ static int	LogicalToPhysical(off_t offset, ssize_t length, u_int32_t blockSize,
 	 */
 	
 	/* Compute the physical starting position */
-	temp = extentList[extent].startBlock + logicalBlock;	/* First physical block */
+	temp = NXSwapBigLongToHost(extentList[extent].startBlock) + logicalBlock;	/* First physical block */
 	temp *= blockSize;	/* Byte offset of first physical block */
 	*physicalOffset = temp + offset;
 
@@ -1761,7 +2093,7 @@ readAt( int fd, void * bufPtr, off_t offset, ssize_t length )
     ssize_t		dataOffset = 0;
     int			result = FSUR_IO_SUCCESS;
 
-    if (ioctl(fd, DKIOCBLKSIZE, &blocksize) < 0) {
+    if (ioctl(fd, DKIOCGETBLOCKSIZE, &blocksize) < 0) {
 #if TRACE_HFS_UTIL
     	fprintf(stderr, "hfs.util: readAt: couldn't determine block size of device.\n");
 #endif
@@ -1821,7 +2153,7 @@ writeAt( int fd, void * bufPtr, off_t offset, ssize_t length )
     ssize_t		dataOffset = 0;
     int			result = FSUR_IO_SUCCESS;
 
-    if (ioctl(fd, DKIOCBLKSIZE, &blocksize) < 0) {
+    if (ioctl(fd, DKIOCGETBLOCKSIZE, &blocksize) < 0) {
 #if TRACE_HFS_UTIL
     	fprintf(stderr, "hfs.util: couldn't determine block size of device.\n");
 #endif
@@ -1854,7 +2186,7 @@ writeAt( int fd, void * bufPtr, off_t offset, ssize_t length )
 	        result = FSUR_IO_FAIL;
 	        goto Return;
 	    }
-	};
+	}
 	
     bcopy(bufPtr, rawData + dataOffset, length);	/* Copy in the new data */
     
@@ -1880,6 +2212,31 @@ Return:
 
 } /* writeAt */
 
+
+/*
+ * Get kernel's encoding bias.
+ */
+static int
+GetEncodingBias()
+{
+        int mib[3];
+        size_t buflen = sizeof(int);
+        struct vfsconf vfc;
+        int hint = 0;
+
+        if (getvfsbyname("hfs", &vfc) < 0)
+		goto error;
+
+        mib[0] = CTL_VFS;
+        mib[1] = vfc.vfc_typenum;
+        mib[2] = HFS_ENCODINGBIAS;
+ 
+	if (sysctl(mib, 3, &hint, &buflen, NULL, 0) < 0)
+ 		goto error;
+	return (hint);
+error:
+	return (-1);
+}
 
 /******************************************************************************
  *
@@ -1929,12 +2286,6 @@ struct VSDBState {
 
 typedef struct VSDBState *VSDBStatePtr;
 
-typedef struct {
-    unsigned long state[5];
-    unsigned long count[2];
-    unsigned char buffer[64];
-} SHA1_CTX;
-
 
 
 /* Internal function prototypes: */
@@ -1954,11 +2305,6 @@ static void FormatDBRecord(unsigned long volumeStatusFlags, struct VSDBRecord *d
 static void FormatDBEntry(VolumeUUID *volumeID, unsigned long volumeStatusFlags, struct VSDBEntry *dbentry);
 static unsigned long ConvertHexStringToULong(const char *hs, long maxdigits);
 
-static void SHA1Transform(unsigned long state[5], unsigned char buffer[64]);
-static void SHA1Init(SHA1_CTX* context);
-static void SHA1Update(SHA1_CTX* context, void* data, size_t len);
-static void SHA1Final(unsigned char digest[20], SHA1_CTX* context);
-
 
 
 /******************************************************************************
@@ -1968,7 +2314,7 @@ static void SHA1Final(unsigned char digest[20], SHA1_CTX* context);
  *****************************************************************************/
 
 void GenerateVolumeUUID(VolumeUUID *newVolumeID) {
-	SHA1_CTX context;
+	SHA_CTX context;
 	char randomInputBuffer[26];
 	unsigned char digest[20];
 	time_t now;
@@ -1982,70 +2328,70 @@ void GenerateVolumeUUID(VolumeUUID *newVolumeID) {
 	
 	do {
 		/* Initialize the SHA-1 context for processing: */
-		SHA1Init(&context);
+		SHA1_Init(&context);
 		
 		/* Now process successive bits of "random" input to seed the process: */
 		
 		/* The current system's uptime: */
 		uptime = clock();
-		SHA1Update(&context, &uptime, sizeof(uptime));
+		SHA1_Update(&context, &uptime, sizeof(uptime));
 		
 		/* The kernel's boot time: */
 		mib[0] = CTL_KERN;
 		mib[1] = KERN_BOOTTIME;
 		datalen = sizeof(sysdata);
 		sysctl(mib, 2, &sysdata, &datalen, NULL, 0);
-		SHA1Update(&context, &sysdata, datalen);
+		SHA1_Update(&context, &sysdata, datalen);
 		
 		/* The system's host id: */
 		mib[0] = CTL_KERN;
 		mib[1] = KERN_HOSTID;
 		datalen = sizeof(sysdata);
 		sysctl(mib, 2, &sysdata, &datalen, NULL, 0);
-		SHA1Update(&context, &sysdata, datalen);
+		SHA1_Update(&context, &sysdata, datalen);
 
 		/* The system's host name: */
 		mib[0] = CTL_KERN;
 		mib[1] = KERN_HOSTNAME;
 		datalen = sizeof(sysctlstring);
 		sysctl(mib, 2, sysctlstring, &datalen, NULL, 0);
-		SHA1Update(&context, sysctlstring, datalen);
+		SHA1_Update(&context, sysctlstring, datalen);
 
 		/* The running kernel's OS release string: */
 		mib[0] = CTL_KERN;
 		mib[1] = KERN_OSRELEASE;
 		datalen = sizeof(sysctlstring);
 		sysctl(mib, 2, sysctlstring, &datalen, NULL, 0);
-		SHA1Update(&context, sysctlstring, datalen);
+		SHA1_Update(&context, sysctlstring, datalen);
 
 		/* The running kernel's version string: */
 		mib[0] = CTL_KERN;
 		mib[1] = KERN_VERSION;
 		datalen = sizeof(sysctlstring);
 		sysctl(mib, 2, sysctlstring, &datalen, NULL, 0);
-		SHA1Update(&context, sysctlstring, datalen);
+		SHA1_Update(&context, sysctlstring, datalen);
 
 		/* The system's load average: */
 		mib[0] = CTL_VM;
 		mib[1] = VM_LOADAVG;
 		datalen = sizeof(sysloadavg);
 		sysctl(mib, 2, &sysloadavg, &datalen, NULL, 0);
-		SHA1Update(&context, &sysloadavg, datalen);
+		SHA1_Update(&context, &sysloadavg, datalen);
 
 		/* The system's VM statistics: */
 		mib[0] = CTL_VM;
 		mib[1] = VM_METER;
 		datalen = sizeof(sysvmtotal);
 		sysctl(mib, 2, &sysvmtotal, &datalen, NULL, 0);
-		SHA1Update(&context, &sysvmtotal, datalen);
+		SHA1_Update(&context, &sysvmtotal, datalen);
 
 		/* The current GMT (26 ASCII characters): */
 		time(&now);
 		strncpy(randomInputBuffer, asctime(gmtime(&now)), 26);	/* "Mon Mar 27 13:46:26 2000" */
-		SHA1Update(&context, randomInputBuffer, 26);
+		SHA1_Update(&context, randomInputBuffer, 26);
 		
 		/* Pad the accumulated input and extract the final digest hash: */
-		SHA1Final(digest, &context);
+		SHA1_Final(digest, &context);
 	
 		memcpy(newVolumeID, digest, sizeof(*newVolumeID));
 	} while ((newVolumeID->v.high == 0) || (newVolumeID->v.low == 0));
@@ -2070,11 +2416,11 @@ void ConvertVolumeUUIDStringToUUID(const char *UUIDString, VolumeUUID *volumeID)
 			nextdigit = c - 'a' + 10;
 		} else {
 			nextdigit = 0;
-		};
+		}
 		carry = ((low & 0xF0000000) >> 28) & 0x0000000F;
 		high = (high << 4) | carry;
 		low = (low << 4) | nextdigit;
-	};
+	}
 	
 	volumeID->v.high = high;
 	volumeID->v.low = low;
@@ -2097,7 +2443,7 @@ int OpenVolumeStatusDB(VolumeStatusDBHandle *DBHandlePtr) {
 	dbstateptr = (VSDBStatePtr)malloc(sizeof(*dbstateptr));
 	if (dbstateptr == NULL) {
 		return ENOMEM;
-	};
+	}
 	
 	dbstateptr->dbmode = O_RDWR;
 	dbstateptr->dbfile = open(gVSDBPath, O_RDWR | O_CREAT, S_IRUSR | S_IWUSR | S_IRGRP | S_IROTH);
@@ -2110,8 +2456,8 @@ int OpenVolumeStatusDB(VolumeStatusDBHandle *DBHandlePtr) {
 		dbstateptr->dbfile = open(gVSDBPath, O_RDONLY | O_CREAT, S_IRUSR | S_IWUSR | S_IRGRP | S_IROTH);
 		if (dbstateptr->dbfile == -1) {
 			return errno;
-		};
-	};
+		}
+	}
 	
 	dbstateptr->signature = DBHANDLESIGNATURE;
 	*DBHandlePtr = (VolumeStatusDBHandle)dbstateptr;
@@ -2131,7 +2477,7 @@ int GetVolumeStatusDBEntry(VolumeStatusDBHandle DBHandle, VolumeUUID *volumeID, 
 	
 	if ((result = FindVolumeRecordByUUID(dbstateptr, volumeID, &dbentry, 0)) != 0) {
 		goto ErrExit;
-	};
+	}
 	*VolumeStatus = VOLUME_RECORDED | ConvertHexStringToULong(dbentry.record.statusFlags, sizeof(dbentry.record.statusFlags));
 	
 	result = 0;
@@ -2166,7 +2512,7 @@ int SetVolumeStatusDBEntry(VolumeStatusDBHandle DBHandle, VolumeUUID *volumeID, 
 		result = AddVolumeRecord(dbstateptr, &dbentry);
 	} else {
 		goto ErrExit;
-	};
+	}
 	
 	fsync(dbstateptr->dbfile);
 	
@@ -2208,7 +2554,7 @@ int DeleteVolumeStatusDBEntry(VolumeStatusDBHandle DBHandle, VolumeUUID *volumeI
 			iobuffersize = dbinfo.st_size - dbstateptr->recordPosition - sizeof(struct VSDBEntry);
 		} else {
 			iobuffersize = MAXIOMALLOC;
-		};
+		}
 #if DEBUG_TRACE
 		fprintf(stderr, "DeleteLocalVolumeUUID: DB size = 0x%08lx; recordPosition = 0x%08lx;\n", 
 							(unsigned long)dbinfo.st_size, (unsigned long)dbstateptr->recordPosition);
@@ -2219,7 +2565,7 @@ int DeleteVolumeStatusDBEntry(VolumeStatusDBHandle DBHandle, VolumeUUID *volumeI
 			if (iobuffer == NULL) {
 				result = ENOMEM;
 				goto ErrExit;
-			};
+			}
 			
 			dataoffset = dbstateptr->recordPosition + sizeof(struct VSDBEntry);
 			do {
@@ -2235,7 +2581,7 @@ int DeleteVolumeStatusDBEntry(VolumeStatusDBHandle DBHandle, VolumeUUID *volumeI
 					if (bytestransferred != iotransfersize) {
 						result = errno;
 						goto ErrExit;
-					};
+					}
 	
 	#if DEBUG_TRACE
 					fprintf(stderr, "DeleteLocalVolumeUUID: writing 0x%08lx bytes starting at 0x%08lx ...\n", iotransfersize, (unsigned long)(dataoffset - (off_t)sizeof(struct VSDBEntry)));
@@ -2245,23 +2591,23 @@ int DeleteVolumeStatusDBEntry(VolumeStatusDBHandle DBHandle, VolumeUUID *volumeI
 					if (bytestransferred != iotransfersize) {
 						result = errno;
 						goto ErrExit;
-					};
+					}
 					
 					dataoffset += (off_t)iotransfersize;
-				};
+				}
 			} while (iotransfersize > 0);
-		};
+		}
 #if DEBUG_TRACE
 		fprintf(stderr, "DeleteLocalVolumeUUID: truncating database file to 0x%08lx bytes.\n", (unsigned long)(dbinfo.st_size - (off_t)(sizeof(struct VSDBEntry))));
 #endif
 		if ((result = ftruncate(dbstateptr->dbfile, dbinfo.st_size - (off_t)(sizeof(struct VSDBEntry)))) != 0) {
 			goto ErrExit;
-		};
+		}
 		
 		fsync(dbstateptr->dbfile);
 		
 		result = 0;
-	};
+	}
 
 ErrExit:
 	if (iobuffer) free(iobuffer);
@@ -2330,9 +2676,9 @@ static int FindVolumeRecordByUUID(VSDBStatePtr dbstateptr, VolumeUUID *volumeID,
 				fprintf(stderr, "FindVolumeRecordByUUID: copying %d. bytes from %08xl to %08l...\n", sizeof(*targetEntry), &dbentry, targetEntry);
 #endif
 				memcpy(targetEntry, &dbentry, sizeof(*targetEntry));
-			};
+			}
 			return 0;
-		};
+		}
 	} while (result == 0);
 	
 	return -1;
@@ -2393,7 +2739,7 @@ static int GetVSDBEntry(VSDBStatePtr dbstateptr, struct VSDBEntry *dbentry) {
 		(entry.space != DBBLANKSPACE) ||
 		(entry.terminator != DBRECORDTERMINATOR)) {
 		return -1;
-	};
+	}
 	
 #if DEBUG_TRACE
 	strncpy(id, entry.key.uuid, sizeof(entry.key.uuid));
@@ -2402,7 +2748,7 @@ static int GetVSDBEntry(VSDBStatePtr dbstateptr, struct VSDBEntry *dbentry) {
 #endif
 	memcpy(dbentry, &entry, sizeof(*dbentry));
 	return 0;
-};
+}
 
 
 
@@ -2440,9 +2786,9 @@ static void FormatULong(unsigned long u, char *s) {
 			*digitptr++ = (char)(d + '0');
 		} else {
 			*digitptr++ = (char)(d - 10 + 'A');
-		};
+		}
 		u = u << 4;
-	};
+	}
 }
 
 
@@ -2451,7 +2797,7 @@ static void FormatUUID(VolumeUUID *volumeID, char *UUIDField) {
 	FormatULong(volumeID->v.high, UUIDField);
 	FormatULong(volumeID->v.low, UUIDField+8);
 
-};
+}
 
 
 
@@ -2497,191 +2843,9 @@ static unsigned long ConvertHexStringToULong(const char *hs, long maxdigits) {
 			nextdigit = c - 'a' + 10;
 		} else {
 			nextdigit = 0;
-		};
+		}
 		n = (n << 4) + nextdigit;
-	};
+	}
 	
 	return n;
-}
-
-
-
-/******************************************************************************
- *
- *  S H A - 1   I M P L E M E N T A T I O N   R O U T I N E S
- *
- *****************************************************************************/
-
-/*
-	Derived from SHA-1 in C
-	By Steve Reid <steve@edmweb.com>
-	100% Public Domain
-
-	Test Vectors (from FIPS PUB 180-1)
-		"abc"
-			A9993E36 4706816A BA3E2571 7850C26C 9CD0D89D
-		"abcdbcdecdefdefgefghfghighijhijkijkljklmklmnlmnomnopnopq"
-			84983E44 1C3BD26E BAAE4AA1 F95129E5 E54670F1
-		A million repetitions of "a"
-			34AA973C D4C4DAA4 F61EEB2B DBAD2731 6534016F
-*/
-
-/* #define LITTLE_ENDIAN * This should be #define'd if true. */
-/* #define SHA1HANDSOFF * Copies data before messing with it. */
-
-#define rol(value, bits) (((value) << (bits)) | ((value) >> (32 - (bits))))
-
-/* blk0() and blk() perform the initial expand. */
-/* I got the idea of expanding during the round function from SSLeay */
-#ifdef LITTLE_ENDIAN
-#define blk0(i) (block->l[i] = (rol(block->l[i],24)&0xFF00FF00) \
-    |(rol(block->l[i],8)&0x00FF00FF))
-#else
-#define blk0(i) block->l[i]
-#endif
-#define blk(i) (block->l[i&15] = rol(block->l[(i+13)&15]^block->l[(i+8)&15] \
-    ^block->l[(i+2)&15]^block->l[i&15],1))
-
-/* (R0+R1), R2, R3, R4 are the different operations used in SHA1 */
-#if TRACE_HASH
-#define R0(v,w,x,y,z,i) z+=((w&(x^y))^y)+blk0(i)+0x5A827999+rol(v,5);w=rol(w,30);printf("t = %2d: %08lX %08lX %08lX %08lX %08lX\n", i, a, b, c, d, e);
-#define R1(v,w,x,y,z,i) z+=((w&(x^y))^y)+blk(i)+0x5A827999+rol(v,5);w=rol(w,30);printf("t = %2d: %08lX %08lX %08lX %08lX %08lX\n", i, a, b, c, d, e);
-#define R2(v,w,x,y,z,i) z+=(w^x^y)+blk(i)+0x6ED9EBA1+rol(v,5);w=rol(w,30);printf("t = %2d: %08lX %08lX %08lX %08lX %08lX\n", i, a, b, c, d, e);
-#define R3(v,w,x,y,z,i) z+=(((w|x)&y)|(w&x))+blk(i)+0x8F1BBCDC+rol(v,5);w=rol(w,30);printf("t = %2d: %08lX %08lX %08lX %08lX %08lX\n", i, a, b, c, d, e);
-#define R4(v,w,x,y,z,i) z+=(w^x^y)+blk(i)+0xCA62C1D6+rol(v,5);w=rol(w,30);printf("t = %2d: %08lX %08lX %08lX %08lX %08lX\n", i, a, b, c, d, e);
-#else
-#define R0(v,w,x,y,z,i) z+=((w&(x^y))^y)+blk0(i)+0x5A827999+rol(v,5);w=rol(w,30);
-#define R1(v,w,x,y,z,i) z+=((w&(x^y))^y)+blk(i)+0x5A827999+rol(v,5);w=rol(w,30);
-#define R2(v,w,x,y,z,i) z+=(w^x^y)+blk(i)+0x6ED9EBA1+rol(v,5);w=rol(w,30);
-#define R3(v,w,x,y,z,i) z+=(((w|x)&y)|(w&x))+blk(i)+0x8F1BBCDC+rol(v,5);w=rol(w,30);
-#define R4(v,w,x,y,z,i) z+=(w^x^y)+blk(i)+0xCA62C1D6+rol(v,5);w=rol(w,30);
-#endif
-
-
-/* Hash a single 512-bit block. This is the core of the algorithm. */
-
-static void SHA1Transform(unsigned long state[5], unsigned char buffer[64])
-{
-unsigned long a, b, c, d, e;
-typedef union {
-    unsigned char c[64];
-    unsigned long l[16];
-} CHAR64LONG16;
-CHAR64LONG16* block;
-#ifdef SHA1HANDSOFF
-static unsigned char workspace[64];
-    block = (CHAR64LONG16*)workspace;
-    memcpy(block, buffer, 64);
-#else
-    block = (CHAR64LONG16*)buffer;
-#endif
-    /* Copy context->state[] to working vars */
-    a = state[0];
-    b = state[1];
-    c = state[2];
-    d = state[3];
-    e = state[4];
-#if TRACE_HASH
-    printf("            A        B        C        D        E\n");
-    printf("        -------- -------- -------- -------- --------\n");
-    printf("        %08lX %08lX %08lX %08lX %08lX\n", a, b, c, d, e);
-#endif
-    /* 4 rounds of 20 operations each. Loop unrolled. */
-    R0(a,b,c,d,e, 0); R0(e,a,b,c,d, 1); R0(d,e,a,b,c, 2); R0(c,d,e,a,b, 3);
-    R0(b,c,d,e,a, 4); R0(a,b,c,d,e, 5); R0(e,a,b,c,d, 6); R0(d,e,a,b,c, 7);
-    R0(c,d,e,a,b, 8); R0(b,c,d,e,a, 9); R0(a,b,c,d,e,10); R0(e,a,b,c,d,11);
-    R0(d,e,a,b,c,12); R0(c,d,e,a,b,13); R0(b,c,d,e,a,14); R0(a,b,c,d,e,15);
-    R1(e,a,b,c,d,16); R1(d,e,a,b,c,17); R1(c,d,e,a,b,18); R1(b,c,d,e,a,19);
-    R2(a,b,c,d,e,20); R2(e,a,b,c,d,21); R2(d,e,a,b,c,22); R2(c,d,e,a,b,23);
-    R2(b,c,d,e,a,24); R2(a,b,c,d,e,25); R2(e,a,b,c,d,26); R2(d,e,a,b,c,27);
-    R2(c,d,e,a,b,28); R2(b,c,d,e,a,29); R2(a,b,c,d,e,30); R2(e,a,b,c,d,31);
-    R2(d,e,a,b,c,32); R2(c,d,e,a,b,33); R2(b,c,d,e,a,34); R2(a,b,c,d,e,35);
-    R2(e,a,b,c,d,36); R2(d,e,a,b,c,37); R2(c,d,e,a,b,38); R2(b,c,d,e,a,39);
-    R3(a,b,c,d,e,40); R3(e,a,b,c,d,41); R3(d,e,a,b,c,42); R3(c,d,e,a,b,43);
-    R3(b,c,d,e,a,44); R3(a,b,c,d,e,45); R3(e,a,b,c,d,46); R3(d,e,a,b,c,47);
-    R3(c,d,e,a,b,48); R3(b,c,d,e,a,49); R3(a,b,c,d,e,50); R3(e,a,b,c,d,51);
-    R3(d,e,a,b,c,52); R3(c,d,e,a,b,53); R3(b,c,d,e,a,54); R3(a,b,c,d,e,55);
-    R3(e,a,b,c,d,56); R3(d,e,a,b,c,57); R3(c,d,e,a,b,58); R3(b,c,d,e,a,59);
-    R4(a,b,c,d,e,60); R4(e,a,b,c,d,61); R4(d,e,a,b,c,62); R4(c,d,e,a,b,63);
-    R4(b,c,d,e,a,64); R4(a,b,c,d,e,65); R4(e,a,b,c,d,66); R4(d,e,a,b,c,67);
-    R4(c,d,e,a,b,68); R4(b,c,d,e,a,69); R4(a,b,c,d,e,70); R4(e,a,b,c,d,71);
-    R4(d,e,a,b,c,72); R4(c,d,e,a,b,73); R4(b,c,d,e,a,74); R4(a,b,c,d,e,75);
-    R4(e,a,b,c,d,76); R4(d,e,a,b,c,77); R4(c,d,e,a,b,78); R4(b,c,d,e,a,79);
-    /* Add the working vars back into context.state[] */
-    state[0] += a;
-    state[1] += b;
-    state[2] += c;
-    state[3] += d;
-    state[4] += e;
-    /* Wipe variables */
-    a = b = c = d = e = 0;
-}
-
-
-/* SHA1Init - Initialize new context */
-
-static void SHA1Init(SHA1_CTX* context)
-{
-    /* SHA1 initialization constants */
-    context->state[0] = 0x67452301;
-    context->state[1] = 0xEFCDAB89;
-    context->state[2] = 0x98BADCFE;
-    context->state[3] = 0x10325476;
-    context->state[4] = 0xC3D2E1F0;
-    context->count[0] = context->count[1] = 0;
-}
-
-
-/* Run your data through this. */
-
-static void SHA1Update(SHA1_CTX* context, void* data, size_t len)
-{
-	unsigned char *dataptr = (char *)data;
-	unsigned int i, j;
-
-    j = (context->count[0] >> 3) & 63;
-    if ((context->count[0] += len << 3) < (len << 3)) context->count[1]++;
-    context->count[1] += (len >> 29);
-    if ((j + len) > 63) {
-        memcpy(&context->buffer[j], dataptr, (i = 64-j));
-        SHA1Transform(context->state, context->buffer);
-        for ( ; i + 63 < len; i += 64) {
-            SHA1Transform(context->state, &dataptr[i]);
-        }
-        j = 0;
-    }
-    else i = 0;
-    memcpy(&context->buffer[j], &dataptr[i], len - i);
-}
-
-
-/* Add padding and return the message digest. */
-
-static void SHA1Final(unsigned char digest[20], SHA1_CTX* context)
-{
-unsigned long i, j;
-unsigned char finalcount[8];
-
-    for (i = 0; i < 8; i++) {
-        finalcount[i] = (unsigned char)((context->count[(i >= 4 ? 0 : 1)]
-         >> ((3-(i & 3)) * 8) ) & 255);  /* Endian independent */
-    }
-    SHA1Update(context, (unsigned char *)"\200", 1);
-    while ((context->count[0] & 504) != 448) {
-        SHA1Update(context, (unsigned char *)"\0", 1);
-    }
-    SHA1Update(context, finalcount, 8);  /* Should cause a SHA1Transform() */
-    for (i = 0; i < 20; i++) {
-        digest[i] = (unsigned char)
-         ((context->state[i>>2] >> ((3-(i & 3)) * 8) ) & 255);
-    }
-    /* Wipe variables */
-    i = j = 0;
-    memset(context->buffer, 0, 64);
-    memset(context->state, 0, 20);
-    memset(context->count, 0, 8);
-    memset(&finalcount, 0, 8);
-#ifdef SHA1HANDSOFF  /* make SHA1Transform overwrite it's own static vars */
-    SHA1Transform(context->state, context->buffer);
-#endif
 }

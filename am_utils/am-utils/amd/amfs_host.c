@@ -37,7 +37,7 @@
  * SUCH DAMAGE.
  *
  *
- * $Id: amfs_host.c,v 1.1.1.1 2002/05/15 01:21:53 jkh Exp $
+ * $Id: amfs_host.c,v 1.1.1.2 2002/07/15 19:42:34 zarzycki Exp $
  *
  */
 
@@ -79,7 +79,9 @@ am_ops amfs_host_ops =
   amfs_host_umounted,
   find_nfs_srvr,
   FS_MKMNT | FS_BACKGROUND | FS_AMQINFO | FS_AUTOFS,
-  FS_MKMNT | FS_BACKGROUND | FS_AMQINFO | FS_AUTOFS
+#ifdef HAVE_FS_AUTOFS
+  AUTOFS_HOST_FS_FLAGS,
+#endif /* HAVE_FS_AUTOFS */
 };
 
 
@@ -94,21 +96,21 @@ am_ops amfs_host_ops =
  * allows the entire PC disk to be mounted.
  */
 static void
-make_mntpt(char *mntpt, const exports ex, const mntfs *mf)
+make_mntpt(char *mntpt, const exports ex, const char *mf_mount)
 {
   if (ex->ex_dir[0] == '/') {
     if (ex->ex_dir[1] == 0)
-      strcpy(mntpt, (mf)->mf_mount);
+      strcpy(mntpt, mf_mount);
     else
-      sprintf(mntpt, "%s%s", mf->mf_mount, ex->ex_dir);
+      sprintf(mntpt, "%s%s", mf_mount, ex->ex_dir);
   } else if (ex->ex_dir[0] >= 'a' &&
 	     ex->ex_dir[0] <= 'z' &&
 	     ex->ex_dir[1] == ':' &&
 	     ex->ex_dir[2] == '/' &&
 	     ex->ex_dir[3] == 0)
-    sprintf(mntpt, "%s/%c%%", mf->mf_mount, ex->ex_dir[0]);
+    sprintf(mntpt, "%s/%c%%", mf_mount, ex->ex_dir[0]);
   else
-    sprintf(mntpt, "%s/%s", mf->mf_mount, ex->ex_dir);
+    sprintf(mntpt, "%s/%s", mf_mount, ex->ex_dir);
 }
 
 
@@ -171,19 +173,19 @@ amfs_host_init(mntfs *mf)
 
 
 static int
-do_mount(am_nfs_handle_t *fhp, char *dir, char *fs_name, char *opts, int on_autofs, mntfs *mf)
+do_mount(am_nfs_handle_t *fhp, char *mntdir, char *real_mntdir, char *fs_name, char *opts, int on_autofs, mntfs *mf)
 {
   struct stat stb;
 
-  dlog("amfs_host: mounting fs %s on %s\n", fs_name, dir);
+  dlog("amfs_host: mounting fs %s on %s\n", fs_name, mntdir);
 
-  (void) mkdirs(dir, 0555);
-  if (stat(dir, &stb) < 0 || (stb.st_mode & S_IFMT) != S_IFDIR) {
-    plog(XLOG_ERROR, "No mount point for %s - skipping", dir);
+  (void) mkdirs(real_mntdir, 0555);
+  if (stat(real_mntdir, &stb) < 0 || (stb.st_mode & S_IFMT) != S_IFDIR) {
+    plog(XLOG_ERROR, "No mount point for %s - skipping", mntdir);
     return ENOENT;
   }
 
-  return mount_nfs_fh(fhp, dir, fs_name, opts, on_autofs, mf);
+  return mount_nfs_fh(fhp, mntdir, real_mntdir, fs_name, opts, on_autofs, mf);
 }
 
 
@@ -300,7 +302,7 @@ amfs_host_mount(am_node *am, mntfs *mf)
   int ok = FALSE;
   mntlist *mlist;
   char fs_name[MAXPATHLEN], *rfs_dir;
-  char mntpt[MAXPATHLEN];
+  char mntpt[MAXPATHLEN], real_mntpt[MAXPATHLEN];
   struct timeval tv;
   u_long mnt_version;
 
@@ -398,7 +400,7 @@ amfs_host_mount(am_node *am, mntfs *mf)
    */
   ep = (exports *) xmalloc(n_export * sizeof(exports));
   for (j = 0, ex = exlist; ex; ex = ex->ex_next) {
-    make_mntpt(mntpt, ex, mf);
+    make_mntpt(mntpt, ex, mf->mf_mount);
     if (already_mounted(mlist, mntpt))
       /* we have at least one mounted f/s, so don't fail the mount */
       ok = TRUE;
@@ -456,8 +458,9 @@ amfs_host_mount(am_node *am, mntfs *mf)
     ex = ep[j];
     if (ex) {
       strcpy(rfs_dir, ex->ex_dir);
-      make_mntpt(mntpt, ex, mf);
-      if (do_mount(&fp[j], mntpt, fs_name, mf->mf_mopts,
+      make_mntpt(mntpt, ex, mf->mf_mount);
+      make_mntpt(real_mntpt, ex, mf->mf_real_mount);
+      if (do_mount(&fp[j], mntpt, real_mntpt, fs_name, mf->mf_mopts,
 		   am->am_flags & AMF_AUTOFS, mf) == 0)
 	ok = TRUE;
     }
@@ -548,7 +551,7 @@ amfs_host_umount(am_node *am, mntfs *mf)
       /*
        * Unmount "dir"
        */
-      error = UMOUNT_FS(dir, mnttab_file_name);
+      error = UMOUNT_FS(dir, dir, mnttab_file_name);
       /*
        * Keep track of errors
        */

@@ -1,0 +1,165 @@
+Return-Path: <boost-admin@lists.boost.org>
+Received: from mx04.mrf.mail.rcn.net ([207.172.4.53] [207.172.4.53])
+          by mta01.mrf.mail.rcn.net with ESMTP
+          id <20020403190104.CHE29566.mta01.mrf.mail.rcn.net@mx04.mrf.mail.rcn.net>;
+          Wed, 3 Apr 2002 14:01:04 -0500
+Received: from milliways.osl.iu.edu ([129.79.245.239])
+	by mx04.mrf.mail.rcn.net with esmtp (Exim 3.35 #5)
+	id 16sq0F-0005l5-00
+	for david.abrahams@rcn.com; Wed, 03 Apr 2002 14:01:03 -0500
+Received: from milliways.osl.iu.edu (localhost [127.0.0.1])
+	by milliways.osl.iu.edu (8.11.6/8.11.6/IUCS_2.44) with ESMTP id g33J11A07189;
+	Wed, 3 Apr 2002 14:01:01 -0500
+Received: from mta446.mail.yahoo.com (mta446.mail.yahoo.com [216.136.129.101])
+	by milliways.osl.iu.edu (8.11.6/8.11.6/IUCS_2.44) with SMTP id g33J04A07150
+	for <boost-admin@lists.boost.org>; Wed, 3 Apr 2002 14:00:05 -0500
+Date: Wed, 3 Apr 2002 14:00:05 -0500
+Message-Id: <200204031900.g33J04A07150@milliways.osl.iu.edu>
+From: MAILER-DAEMON@yahoo.com
+To: boost-admin@lists.boost.org
+X-Loop: MAILER-DAEMON@yahoo.com
+Subject: Delivery failure
+Sender: boost-owner@lists.boost.org
+Errors-To: boost-owner@lists.boost.org
+X-BeenThere: boost@lists.boost.org
+X-Mailman-Version: 2.0.8
+Precedence: bulk
+List-Help: <mailto:boost-request@lists.boost.org?subject=help>
+List-Post: <mailto:boost@lists.boost.org>
+List-Subscribe: <http://lists.boost.org/mailman/listinfo.cgi/boost>,
+	<mailto:boost-request@lists.boost.org?subject=subscribe>
+List-Id: Boost mailing list <boost.lists.boost.org>
+List-Unsubscribe: <http://lists.boost.org/mailman/listinfo.cgi/boost>,
+	<mailto:boost-request@lists.boost.org?subject=unsubscribe>
+List-Archive: <http://lists.boost.org/MailArchives/boost/>
+
+Message from yahoo.com.
+Unable to deliver message to the following address(es).
+
+<hankel_o_fung@yahoo.com>:
+Sorry your message to hankel_o_fung@yahoo.com cannot be delivered. This account has been disabled or discontinued.
+
+<ultravirus2001@yahoo.com>:
+Sorry your message to ultravirus2001@yahoo.com cannot be delivered. This account has been disabled or discontinued.
+
+--- Original message follows.
+
+The original message is over 5K. Message truncated.
+
+X-Track: 1: 100
+Return-Path: <boost-admin@lists.boost.org>
+Received: from milliways.osl.iu.edu (129.79.245.239)
+  by mta446.mail.yahoo.com with SMTP; 03 Apr 2002 10:59:57 -0800 (PST)
+Received: from milliways.osl.iu.edu (localhost [127.0.0.1])
+	by milliways.osl.iu.edu (8.11.6/8.11.6/IUCS_2.44) with ESMTP id g33HexA27227;
+	Wed, 3 Apr 2002 12:40:59 -0500
+Received: from smtp016.mail.yahoo.com (smtp016.mail.yahoo.com [216.136.174.113])
+	by milliways.osl.iu.edu (8.11.6/8.11.6/IUCS_2.44) with SMTP id g33HcwA27186
+	for <boost@lists.boost.org>; Wed, 3 Apr 2002 12:38:58 -0500
+Received: from ppp-1-53.chel-5800-8.access.uk.tiscali.com (HELO albert) (RaoulGough@212.159.169.53 with login)
+  by smtp.mail.vip.sc5.yahoo.com with SMTP; 3 Apr 2002 17:38:54 -0000
+Message-ID: <001601c1db36$6da28950$0100a8c0@albert>
+From: "Raoul Gough" <RaoulGough@yahoo.co.uk>
+To: <boost@lists.boost.org>
+References: <200204011702.g31H2eA04494@milliways.osl.iu.edu>
+MIME-Version: 1.0
+Content-Type: text/plain;
+	charset="iso-8859-1"
+Content-Transfer-Encoding: 7bit
+X-Priority: 3
+X-MSMail-Priority: Normal
+X-Mailer: Microsoft Outlook Express 6.00.2600.0000
+X-MimeOLE: Produced By Microsoft MimeOLE V6.00.2600.0000
+Subject: [boost] Re: boost::weak_ptr suggestions
+Sender: boost-admin@lists.boost.org
+Errors-To: boost-admin@lists.boost.org
+X-BeenThere: boost@lists.boost.org
+X-Mailman-Version: 2.0.8
+Precedence: bulk
+Reply-To: boost@lists.boost.org
+List-Help: <mailto:boost-request@lists.boost.org?subject=help>
+List-Post: <mailto:boost@lists.boost.org>
+List-Subscribe: <http://lists.boost.org/mailman/listinfo.cgi/boost>,
+	<mailto:boost-request@lists.boost.org?subject=subscribe>
+List-Id: Boost mailing list <boost.lists.boost.org>
+List-Unsubscribe: <http://lists.boost.org/mailman/listinfo.cgi/boost>,
+	<mailto:boost-request@lists.boost.org?subject=unsubscribe>
+List-Archive: <http://lists.boost.org/MailArchives/boost/>
+Date: Wed, 3 Apr 2002 18:37:55 +0100
+
+> From: "Peter Dimov" <pdimov@mmltd.net>
+> To: <boost@lists.boost.org>
+> Subject: Re: [boost] boost::weak_ptr suggestions
+> Date: Mon, 1 Apr 2002 17:31:05 +0300
+> Organization: Multi Media Ltd.
+> Reply-To: boost@lists.boost.org
+>
+> From: "Raoul Gough" <RaoulGough@yahoo.co.uk>
+[snip]
+> > Secondly, I believe it would be better for the get() method to throw or
+> > assert when called on an invalidated pointer, instead of transparently
+> > returning 0. In my opinion, there is a fundamental difference between
+the
+> > two states (null and invalid) which is not observable with the current
+> > interface. The addition of a member function like "bool is_valid()
+const;"
+> > would also allow the user code to decide how to deal with an invalid
+> > pointer, instead of merging the two distinct states into the one (null)
+> > state.
+>
+> Right again. However, the primary methods of accessing a weak_ptr are (1)
+> constructing a shared_ptr (which does throw) and (2) make_shared. get()
+has
+> been retained for efficiency but is not recommended (in multithreaded
+> programs.)
+
+So why the difference in error semantics between the single and
+multi-threaded idioms? For example, if I converted single-threaded code that
+uses get() to thread-safe code using make_shared, I also get changed
+semantics for the invalid pointer case.
+
+Incidentally, it looks like the use_count member function can determine
+indirectly whether the target still exists or not. It seems a bit obscure
+though, seeing as the reference count is really an implementation detail and
+distinct from the concept of null/valid/invalid.
+
+>
+> > The big advantage of considering invalid.get() an error is that code
+which
+> > then works without error using weak_ptr would have *exactly* unchanged
+> > semantics using a plain pointer replacement. This allows (for example) a
+> > debug build/release build choice between weak_ptr<T> and T* for
+> performance
+> > reasons. If weak_ptr<T> silently returns null on invalid pointers, then
+> this
+> > guarantee cannot be made - what would be undefined use on a plain
+pointer
+> is
+> > not detected by the weak_ptr.
+>
+> Interesting point. You can write your own get() that does what you want:
+>
+> T * get(weak_ptr<T> const & p)
+> {
+>     return shared_ptr<T>(p).get();
+> }
+>
+> but it's not as efficient as a throwing get(). Most people seem to prefer
+> the current get() semantics, though, where 0 is returned.
+
+Well, I can understand that point of view as well - either the weak pointer
+has a valid target object or not (in which case null or deleted doesn't
+really matter). However, my use of a smart weak pointer is really as a
+debugging aid, so I would like the error to be detected as soon as possible
+(and distinguished from a null-pointer assertion or SEGV). Short of adding a
+policy class template parameter, it would be easy to add a new member
+function which does get() with severe checking - along the lines of
+vector.at versus vector.operator[]. Just an idea.
+
+BTW, am I right in thinking that sharede_ptr always maintains an extra weak
+reference counter? I mean, even if my code doesn't use weak_ptr, shared_ptr
+still has to maintain the extra counter, right? That, combined with the 
+*** MESSAGE TRUNCATED ***
+
+
+.

@@ -43,10 +43,8 @@
 
 #include <sys/param.h>
 #include <sys/types.h>
-#include <sys/disktab.h>
 #include <sys/vnode.h>
 #include <sys/buf.h>
-#include <dev/disk.h>
 #include <ufs/ufs/quota.h>
 #include <ufs/ufs/inode.h>
 #include <ufs/ffs/fs.h>
@@ -54,8 +52,5 @@
 void byte_swap_ints(int *array, int count);
 void byte_swap_shorts(short *array, int count);
 
-void byte_swap_disklabel_in(disk_label_t *dl);
-void byte_swap_disktab_in(struct disktab *dt);
-void byte_swap_partition(struct partition *part);
 void byte_swap_inode_in(struct dinode *dc, struct dinode *ic);
 void byte_swap_dir_block_in(char *addr, int count);

@@ -3,19 +3,22 @@
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
- * The contents of this file constitute Original Code as defined in and
- * are subject to the Apple Public Source License Version 1.1 (the
- * "License").  You may not use this file except in compliance with the
- * License.  Please obtain a copy of the License at
- * http://www.apple.com/publicsource and read it before using this file.
+ * Copyright (c) 1999-2003 Apple Computer, Inc.  All Rights Reserved.
  * 
- * This Original Code and all software distributed under the License are
- * distributed on an "AS IS" basis, WITHOUT WARRANTY OF ANY KIND, EITHER
+ * This file contains Original Code and/or Modifications of Original Code
+ * as defined in and that are subject to the Apple Public Source License
+ * Version 2.0 (the 'License'). You may not use this file except in
+ * compliance with the License. Please obtain a copy of the License at
+ * http://www.opensource.apple.com/apsl/ and read it before using this
+ * file.
+ * 
+ * The Original Code and all software distributed under the License are
+ * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
  * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
  * INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY,
- * FITNESS FOR A PARTICULAR PURPOSE OR NON-INFRINGEMENT.  Please see the
- * License for the specific language governing rights and limitations
- * under the License.
+ * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
+ * Please see the License for the specific language governing rights and
+ * limitations under the License.
  * 
  * @APPLE_LICENSE_HEADER_END@
  */
@@ -67,6 +70,7 @@
 #include "cfutil.h"
 #include "dhcplib.h"
 #include "interfaces.h"
+#include "bootp_transmit.h"
 
 #define BSDPCLIENT_LIST_MAX_TRIES		4
 #define BSDPCLIENT_SELECT_MAX_TRIES		2
@@ -112,6 +116,7 @@ struct BSDPClient_s {
     CFRunLoopSourceRef			rls;
     interface_t *			if_p;
     u_int32_t				xid;
+    char				send_buf[2048];
     BSDPClientState			state;
     CFRunLoopTimerRef			timer;
     BSDPClientTimerCallBack		timer_callback;
@@ -135,6 +140,15 @@ BSDPClientProcessList(BSDPClientRef client, struct in_addr server_ip,
 static void
 BSDPClientProcessSelect(BSDPClientRef client, bsdp_msgtype_t bsdp_msg);
 
+void
+my_log(int priority, const char *message, ...)
+{
+    va_list 		ap;
+
+    va_start(ap, message);
+    vfprintf(stderr, message, ap);
+    return;
+}
 
 static struct in_addr
 cfstring_to_ip(CFStringRef str)
@@ -287,27 +301,6 @@ make_bsdp_request(char * system_id, struct dhcp * request, int pkt_size,
 
   err:
     return (NULL);
-}
-
-static boolean_t
-send_packet(int sockfd, void * pkt, int pkt_len, struct in_addr iaddr)
-{
-    struct sockaddr_in 	dst;
-    int 		status;
-
-    bzero(&dst, sizeof(dst));
-    dst.sin_len = sizeof(struct sockaddr_in);
-    dst.sin_family = AF_INET;
-    dst.sin_port = htons(IPPORT_BOOTPS);
-    dst.sin_addr = iaddr;
-
-    status = sendto(sockfd, pkt, pkt_len, 0,
-		    (struct sockaddr *)&dst, sizeof(struct sockaddr_in));
-    if (status < 0) {
-	perror("sendto");
-	return (FALSE);
-    }
-    return (TRUE);
 }
 
 static int
@@ -941,6 +934,7 @@ BSDPClientSendListRequest(BSDPClientRef client)
     char		bsdp_buf[DHCP_OPTION_SIZE_MAX];
     dhcpoa_t		bsdp_options;
     char		buf[DHCP_PACKET_MIN];
+    struct in_addr	ip_broadcast;
     dhcpoa_t		options;
     unsigned char	msgtype;
     u_int16_t		port = htons(client->client_port);
@@ -948,6 +942,7 @@ BSDPClientSendListRequest(BSDPClientRef client)
     int 		request_size = 0;
     BSDPClientStatus	status = kBSDPClientStatusAllocationError;
 
+    ip_broadcast.s_addr = htonl(INADDR_BROADCAST);
     client->xid++;
     request = make_bsdp_request(client->system_id,
 				(struct dhcp *)buf, sizeof(buf),
@@ -1012,9 +1007,14 @@ BSDPClientSendListRequest(BSDPClientRef client)
 	/* pad out to BOOTP-sized packet */
 	request_size = sizeof(struct bootp);
     }
-    /* send the packet */
-    if (send_packet(client->fd, request, request_size, 
-		    if_inet_broadcast(client->if_p)) == FALSE) {
+    if (bootp_transmit(client->fd, client->send_buf,
+		       if_name(client->if_p), ARPHRD_ETHER, NULL, 0,
+		       ip_broadcast, if_inet_addr(client->if_p),
+		       IPPORT_BOOTPS, client->client_port,
+		       request, request_size) < 0) {
+	fprintf(stderr,
+		"BSDPClientSendListRequest: bootp_transmit failed %s\n",
+		strerror(errno));
 	status = kBSDPClientStatusTransmitFailed;
 	goto failed;
     }
@@ -1110,6 +1110,7 @@ BSDPClientSendSelectRequest(BSDPClientRef client)
     dhcpoa_t		bsdp_options;
     char		buf[DHCP_PACKET_MIN];
     bsdp_image_id_t	image_id = htonl(client->callback.image_identifier);
+    struct in_addr	ip_broadcast;
     dhcpoa_t		options;
     unsigned char	msgtype;
     u_int16_t		port = htons(client->client_port);
@@ -1117,6 +1118,7 @@ BSDPClientSendSelectRequest(BSDPClientRef client)
     int 		request_size = 0;
     BSDPClientStatus	status = kBSDPClientStatusAllocationError;
 
+    ip_broadcast.s_addr = htonl(INADDR_BROADCAST);
     request = make_bsdp_request(client->system_id,
 				(struct dhcp *)buf, sizeof(buf),
 				dhcp_msgtype_inform_e, 
@@ -1197,8 +1199,14 @@ BSDPClientSendSelectRequest(BSDPClientRef client)
 	request_size = sizeof(struct bootp);
     }
     /* send the packet */
-    if (send_packet(client->fd, request, request_size, 
-		    if_inet_broadcast(client->if_p)) == FALSE) {
+    if (bootp_transmit(client->fd, client->send_buf,
+		       if_name(client->if_p), ARPHRD_ETHER, NULL, 0,
+		       ip_broadcast, if_inet_addr(client->if_p),
+		       IPPORT_BOOTPS, client->client_port,
+		       request, request_size) < 0) {
+	fprintf(stderr,
+		"BSDPClientSendSelectRequest: bootp_transmit failed %s\n",
+		strerror(errno));
 	status = kBSDPClientStatusTransmitFailed;
 	goto failed;
     }

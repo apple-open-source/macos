@@ -48,7 +48,6 @@ using namespace khtml;
 
 void AttributeImpl::allocateImpl(ElementImpl* e) {
     _impl = new AttrImpl(e, e->docPtr(), this);
-    _impl->ref();
 }
 
 AttrImpl::AttrImpl(ElementImpl* element, DocumentPtr* docPtr, AttributeImpl* a)
@@ -315,8 +314,8 @@ RenderStyle *ElementImpl::styleForRenderer(RenderObject *parentRenderer)
 
 RenderObject *ElementImpl::createRenderer(RenderArena *arena, RenderStyle *style)
 {
-    if (getDocument()->documentElement() == this) {
-        // FIXME: We're a root object. For now, force a display of block.
+    if (getDocument()->documentElement() == this && style->display() == NONE) {
+        // Ignore display: none on root elements.  Force a display of block in that case.
         RenderBlock* result = new (arena) RenderBlock(this);
         if (result) result->setStyle(style);
         return result;
@@ -773,11 +772,11 @@ void NamedAttrMapImpl::removeAttribute(NodeImpl::Id id)
 
     // Notify the element that the attribute has been removed
     // dispatch appropriate mutation events
-    if (attr->_value) {
-        attr->_value->deref();
+    if (element && attr->_value) {
+        DOMStringImpl* value = attr->_value;
         attr->_value = 0;
-        if (element)
-            element->parseAttribute(attr);
+        element->parseAttribute(attr);
+        attr->_value = value;
     }
     if (element) {
         element->dispatchAttrRemovalEvent(attr);

@@ -59,6 +59,6 @@ void IOFireWireSerialBusProtocolTransportDebugAssert ( const char * componentNam
 
 #include </usr/include/AssertMacros.h>
 
-#define DEUBUG_UNUSED( X )		( void )( X )
+#define DEBUG_UNUSED( X )		( void )( X )
 
 #endif	/* _IO_FIRE_WIRE_SERIAL_BUS_PROTOCOL_TRANSPORT_DEBUGGING_ */

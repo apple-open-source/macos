@@ -1,7 +1,7 @@
 # Makefile for authoring less.
 
-EMAIL = marknu@flash.net
-HOMEPAGE = http://www.flash.net/~marknu/less
+EMAIL = markn@greenwoodsoftware.com
+HOMEPAGE = http://www.greenwoodsoftware.com/less
 SHELL = /bin/sh
 RCS = rcs
 NROFF = nroff -man
@@ -16,14 +16,14 @@ SRC = \
 	output.c position.c prompt.c search.c signal.c \
 	tags.c ttyin.c version.c  
 DISTFILES_W = \
-	defines.ds  Makefile.dsb Makefile.dsg Makefile.dsm \
+	defines.ds  Makefile.dsb Makefile.dsg Makefile.dsu \
 	defines.o2  Makefile.o2e \
 	defines.o9  Makefile.o9c Makefile.o9u \
 	defines.wn  Makefile.wnm Makefile.wnb
 DISTFILES = \
 	${SRC} regexp.c regexp.h \
-	INSTALL Makefile.in Makefile.aut README NEWS COPYING \
-	configure configure.in acconfig.h lesskey.c lessecho.c \
+	COPYING INSTALL LICENSE Makefile.in Makefile.aut NEWS README \
+	configure configure.in acconfig.h lesskey.c lessecho.c scrsize.c \
 	cmd.h funcs.h lglob.h less.h lesskey.h option.h pckeys.h position.h \
 	install.sh defines.h.in defines.h.top mkinstalldirs \
 	less.nro lesskey.nro less.man lesskey.man less.hlp \

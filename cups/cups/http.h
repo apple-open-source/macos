@@ -1,10 +1,10 @@
 /*
- * "$Id: http.h,v 1.6 2002/06/10 23:47:28 jlovell Exp $"
+ * "$Id: http.h,v 1.1.1.13 2003/05/14 05:23:46 jlovell Exp $"
  *
  *   Hyper-Text Transport Protocol definitions for the Common UNIX Printing
  *   System (CUPS).
  *
- *   Copyright 1997-2002 by Easy Software Products, all rights reserved.
+ *   Copyright 1997-2003 by Easy Software Products, all rights reserved.
  *
  *   These coded instructions, statements, and computer programs are the
  *   property of Easy Software Products and are protected by Federal
@@ -281,6 +281,10 @@ typedef struct
   int			nonce_count;	/* Nonce count */
   void			*tls;		/* TLS state information */
   http_encryption_t	encryption;	/* Encryption requirements */
+  /**** New in CUPS 1.1.19 ****/
+  fd_set		*input_set;	/* select() set for httpWait() */
+  http_status_t		expect;		/* Expect: header */
+  char			*cookie;	/* Cookie value(s) */
 } http_t;
 
 
@@ -338,6 +342,12 @@ extern char		*httpMD5Final(const char *, const char *, const char *,
 			              char [33]);
 extern char		*httpMD5String(const md5_byte_t *, char [33]);
 
+/**** New in CUPS 1.1.19 ****/
+extern void		httpClearCookie(http_t *http);
+#define httpGetCookie(http) ((http)->cookie)
+extern void		httpSetCookie(http_t *http, const char *cookie);
+extern int		httpWait(http_t *http, int msec);
+
 
 /*
  * C++ magic...
@@ -349,5 +359,5 @@ extern char		*httpMD5String(const md5_byte_t *, char [33]);
 #endif /* !_CUPS_HTTP_H_ */
 
 /*
- * End of "$Id: http.h,v 1.6 2002/06/10 23:47:28 jlovell Exp $".
+ * End of "$Id: http.h,v 1.1.1.13 2003/05/14 05:23:46 jlovell Exp $".
  */

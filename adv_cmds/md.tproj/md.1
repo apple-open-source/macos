@@ -1,0 +1,120 @@
+.\" Man page Copyright (c) 2002
+.\"	Apple Computer
+.\"
+.\" Redistribution and use in source and binary forms, with or without
+.\" modification, are permitted provided that the following conditions
+.\" are met:
+.\" 1. Redistributions of source code must retain the above copyright
+.\"    notice, this list of conditions and the following disclaimer.
+.\" 2. Redistributions in binary form must reproduce the above copyright
+.\"    notice, this list of conditions and the following disclaimer in the
+.\"    documentation and/or other materials provided with the distribution.
+.\"
+.\" THIS DOCUMENTATION IS PROVIDED BY THE APPLE ``AS IS'' AND
+.\" ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+.\" IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
+.\" ARE DISCLAIMED.  IN NO EVENT SHALL APPLE BE LIABLE
+.\" FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
+.\" DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS
+.\" OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION)
+.\" HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT
+.\" LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY
+.\" OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
+.\" SUCH DAMAGE.
+.\"
+.\"
+.Dd "December 25, 2002"
+.Dt md 1
+.Os
+.Sh NAME
+.Nm md
+.Nd process raw dependency files produced by cpp -MD
+.Sh SYNOPSIS
+.Nm md
+.Op Fl d
+.Op Fl f
+.Op Fl m Ar makefile
+.Op Fl u Ar makefile
+.Op Fl o Ar outputfile
+.Op Fl v
+.Op Fl x
+.Op Fl D Ar c|d|m|o|t|D
+.Sh DESCRIPTION
+The
+.Nm 
+command basically does two things:
+.Pp
+Process the raw dependency files produced by the cpp -MD option.
+There is one line in the file for every #include encountered, but
+there are repeats and patterns like .../dir1/../dir2 that appear which
+should reduce to .../dir2.
+.Nm
+canonicalizes and flushes repeats from the dependency list.
+It also sorts the file names and "fills" them to a 78 character line.
+.Pp
+.Nm
+also updates the makefile directly with the dependency information,
+so the .d file can be thrown away (see
+.Ar d
+option).  This is done to save space.
+.Nm
+assumes that dependency information in the makefile is sorted by .o
+file name and it procedes to merge in (add/or replace [as appropriate])
+the new dependency lines that it has generated.
+For time effeciency,
+.Nm
+assumes that any .d files it is given that were created
+before the creation date of the "makefile" were processed
+already.  It ignores them unless the force flag
+.Op f
+is given.
+.Pp
+.Sh FLAG SUMMARY
+.Fl d
+delete the .d file after it is processed
+.Pp
+.Fl f
+force an update of the dependencies in the makefile
+even though the makefile is more recent than the .n file
+(This implies that
+.Nm
+has been run already.)
+.Pp
+.Fl m Ar makefile
+specify the makefile to be upgraded.  The defaults are
+.Ar makefile
+and then
+.Ar Makefile
+.Pp
+.Fl u Ar makefile
+like -m above, but the file will be created if necessary
+.Pp
+.Fl o Ar outputfile
+specify an output file for the dependencies other than a makefile
+.Pp
+.Fl v
+set the verbose flag
+.Pp
+.Fl x
+expunge old dependency info from makefile
+.Pp
+.Fl D Ar c|d|m|o|t|D
+subswitch for debugging.  can be followed by any of
+"c", "d", "m", "o", "t", "D" meaning:
+.Pp
+         c       show file contents
+         d       show new dependency crunching
+         m       show generation of makefile
+         o       show files being opened
+         t       show time comparisons
+         D       show very low level debugging
+
+.Pp
+.Sh SEE ALSO
+.Xr make 1
+.Sh BUGS
+Old, possibly not used by anyone.
+.Sh HISTORY
+The
+.Nm
+utility was written by Robert V Baron at Carnegie-Mellon University.

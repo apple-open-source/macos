@@ -25,4 +25,3 @@
 #include "SYS.h"
 
 SYSCALL(ktrace, 4)
-	blr

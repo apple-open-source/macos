@@ -37,7 +37,7 @@ extern void stop_errlog(void);
 extern void close_errlog(void);
 extern void debug(const char *format, ...);
 extern void info(const char *format, ...);
-extern void log(const char *format, ...);
+extern void notice(const char *format, ...);
 extern void error(const char *format, ...);
 extern void kern_error(kern_return_t result, const char *format, ...);
 extern void parse_error(const char *token_string, const char *format, ...);

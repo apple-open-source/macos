@@ -1,0 +1,321 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2//EN">
+<HTML>
+<HEAD>
+    <!--#config timefmt="%d-%b-%y" -->
+    <title>JCE 1.2.1 -- Frequently Asked Questions</title>
+</HEAD>
+
+<BODY BGCOLOR="#FFFFFF" TEXT="#000000" LINK="#0000FF" ALINK="#FF0000" VLINK="#660066">
+
+<!-- server side include for top part of page -->
+
+<!--#include virtual="/share/include/normal.header.v4.0.html"-->
+
+<!-- end server side include for top of page -->
+
+
+<!-- begin table for main body navigation and content -->
+
+<TABLE BORDER="0" CELLSPACING="0" CELLPADDING="0" WIDTH="100%">
+<TR ALIGN="left" VALIGN="top">
+<TD WIDTH="100%" VALIGN="top">
+
+<!-- page headline -->
+
+<!--
+Changed typical page headline to accommodate graphic
+-->
+
+<table>
+<tr>
+<td align="left" width=80%>
+<FONT SIZE="+2">
+<strong>Java<SUP><FONT SIZE="-2">TM</FONT></SUP> Cryptography Extension (JCE) 1.2.1</strong>
+</FONT>
+</td>
+</tr>
+</table>
+
+
+<!-- end page headline -->
+
+<!-- main page content -->
+<P>
+<strong><font size=+1>Frequently Asked Questions</font></strong>
+<p> 
+<hr>
+
+
+<table BORDER=0>
+<TR>
+
+<P>
+<OL>
+<LI><A HREF="#WhatsNew">  What is new in JCE 1.2.1 compared to JCE 1.2?</A><BR>
+<LI><A HREF="#Archive">  Is there an archive of JCE mailing lists?</A><BR>
+<LI><A HREF="#License">  What are the licensing terms for JCE 1.2.1?</A><BR>
+<LI><A HREF="#GlobalAccess">  Can I access the JCE 1.2.1 software from 
+outside the U.S. or Canada?</A><BR>
+<LI><A HREF="#FewerRestrictions"> I heard that the US Government has relaxed 
+the export restrictions on encryption products. How does this affect JCE 1.2 
+and JCE 1.2.1?</A><BR>
+<LI><A HREF="#SCSL">  Will the source code to JCE 1.2.1 be made available through the  Sun Community Source License program?</A><BR>
+<LI><A HREF="#BundleExport">  Can I bundle JCE 1.2.1 with my product and 
+export it?</A><BR>
+<LI><A HREF="#WorkW11x">  Does JCE 1.2.1 work with JDK 1.1.x?</A><BR>
+<LI><A HREF="#Java"> Is JCE 1.2.1 written in the
+Java<sup><font size=-2>TM</font></sup> programming language? </A><BR>
+<LI><A HREF="#CipherNotFound">  My cipher implementation is not found.
+Why?</A><BR>
+<LI><A HREF="#DESNotFound">  Can I assume that JCE 1.2.1 and J2SDK have been 
+configured properly if <code>MessageDigest.getInstance("MD5")</code> 
+works?</A><BR>
+<LI><A HREF="#CipherIOProb">  When I use 
+<code>javax.crypto.CipherOutputStream</code> to encrypt data and 
+write it to the underlying output stream, and <code>javax.crypto.CipherInputStream</code> to read the encrypted data 
+from the underlying input stream and decrypt it, there seems to be 
+a problem if the encapsulated Cipher object implements a block cipher 
+w/ padding.</A><BR>
+
+</P>
+
+</OL>
+<P>
+<FONT SIZE="+1"><STRONG> Questions and Answers</STRONG></FONT><p>
+</P>
+<P>
+
+<OL>
+<LI><A NAME="WhatsNew"><strong>Q:</strong> What is new in JCE 1.2.1 compared to 
+JCE 1.2?
+<br>
+	<strong>A:</strong> The primary difference between JCE 1.2 and JCE 1.2.1 is that JCE 1.2.1 is exportable outside the U.S. and Canada, due to
+mechanisms it implements to ensure that only qualified 
+providers can be plugged into the framework.
+Qualified providers include those approved for export and
+those certified for domestic use only. Qualified providers are
+signed by a trusted entity. 
+
+<P> JCE 1.2.1 providers may also be exportable.
+Please refer to
+<A HREF="doc/guide/HowToImplAProvider.html">How to Implement a Provider for 
+Java<SUP><FONT SIZE=-2>TM</FONT></SUP> Cryptography Extension 1.2.1</A>
+for more information.
+
+<P> The JCE 1.2.1 software from Sun Microsystems now has a single
+distribution for both domestic and global users. The bundled 
+jurisdiction policy files contain no restrictions on 
+cryptographic strengths.
+
+<p>
+
+<LI><A NAME="Archive"><strong>Q:</strong> Is there an archive of 
+JCE mailing lists?
+<br>
+	<strong>A:</strong> There is no JCE-specific mailing list. 
+However, the <a
+href="mailto:java-security@sun.com">java-security@sun.com</a> alias
+provides a feedback mechanism for the security components of the
+Standard Edition Java Platform, including the JCE optional package.
+
+<p>All emails sent to that alias are archived at:
+
+<a href="http://archives.java.sun.com/archives/java-security.html">http://archives.java.sun.com/archives/java-security.html</a>.
+<p>
+
+<LI><A NAME="License"><strong>Q:</strong> What are the licensing terms for JCE 1.2.1?
+<br>
+	<strong>A:</strong> Sun's release of JCE 1.2.1 is a non-commercial 
+reference implementation.
+The release may be used royalty-free 
+as part of commercial applications. See the <A 
+href="jce121_license.txt">software 
+license</A> for more information.
+<p>
+
+<LI><A NAME="GlobalAccess"><strong>Q:</strong> Can I access the JCE 1.2.1 
+software from outside the U.S. or Canada?
+<br>
+	<strong>A:</strong> Yes. JCE 1.2.1 is exportable, meaning that it 
+can be downloaded from most countries.  The exportability is the major new 
+feature in JCE 1.2.1.
+However, the following countries may not receive <STRONG> ANY </STRONG> 
+US-developed encryption items, including JCE 1.2.1: Afghanistan, Cuba, 
+Iran, Iraq, Libya, North Korea, Serbia/Montenegro (Yugoslavia), 
+Sudan, Syria and parties listed on the Denied and Restricted Parties List.
+<p>
+
+
+<LI><A NAME="FewerRestrictions"><strong>Q:</strong> I heard that the US 
+Government has relaxed the export restrictions on encryption products. 
+How does this affect JCE 1.2 and JCE 1.2.1?
+<br>
+	<strong>A:</strong> There has been some relaxation in the
+export requirements for encryption products. 
+Go to <a href="http://www.epic.org/crypto/export_controls/regs_1_00.html"> http://www.epic.org/crypto/export_controls/regs_1_00.html</a> for a 
+complete 33-page report on current export requirements. 
+Note also that a vendor's product status is dependent on the type of application they have with the government and at what point
+the product was in in the government's application process when
+the new regulations passed. Contrary to some articles in the press, export of 
+encryption items is still a complicated, multi-dimensional issue.
+
+<P> JCE 1.2 is still not exportable, because 
+export control restrictions by the U.S. Department of Commerce prohibit
+frameworks for encryption services from being exported unless appropriate
+mechanisms have been implemented to ensure that only qualified providers can
+be plugged into the framework. JCE 1.2 does not implement such mechanisms,
+but JCE 1.2.1 does.
+This makes JCE 1.2.1 exportable worldwide (except to the embargoed
+countries listed in the previous answer and those on the 
+Denied and Restricted Parties List).
+
+<P> JCE 1.2.1 also includes an ability to enforce restrictions regarding the
+cryptographic algorithms and maximum cryptographic strengths available to
+applets/applications in different jurisdiction contexts (locations). 
+The cryptographic restrictions are specified in "jurisdiction policy files"
+that are downloaded with JCE 1.2.1. Since the US government has relaxed
+export restrictions on cryptographic strengths, the JCE 1.2.1 software
+from Sun Microsystems now has a single distribution for both domestic and 
+global users. The bundled jurisdiction policy files contain no restrictions 
+on cryptographic strengths. This is appropriate for most countries. 
+Other framework vendors could create download bundles that include 
+jurisdiction policy files that specify cryptographic restrictions 
+appropriate for countries whose governments mandate restrictions.
+Users in those countries could download an appropriate bundle, 
+and the JCE framework will enforce the specified restrictions.
+
+<p>
+
+<LI><A NAME="SCSL"><strong>Q:</strong>  Will the source code to JCE 1.2.1 be made available through the Sun Community Source License program?</A><BR>
+
+        <strong>A:</strong> Due to current government regulations, at this time,
+Sun will not be able to make the source code available.
+<p>
+
+<LI><A NAME="BundleExport"><strong>Q:</strong> Can I bundle JCE 1.2.1 with 
+my product and export it?
+<br>
+	<strong>A:</strong> Since JCE 1.2.1 has been granted "retail" status,
+a product which bundles JCE 1.2.1 may be globally distributable.
+Consult your export control counsel to verify how the export
+regulations apply to your product.
+<p>
+
+
+<LI><A NAME="WorkW11x"><strong>Q:</strong> Does JCE 1.2.1 work with JDK 1.1.x?
+<br>
+	<strong>A:</strong> No. JCE 1.2.1 is an optional package 
+(formerly known as an "extension") to the Java 2 Platform.
+JCE 1.2.1 supplements the cryptographic services defined in the
+Java 2 SDK (J2SDK), Standard Edition, v 1.2.1 (formerly known as JDK 1.2.1).
+It does not work with any previous releases.
+
+<p>Furthermore, Java Software does not provide <i>any</i> version of 
+JCE that works with any JDK 1.1.x release.
+<p>
+
+
+<LI><A NAME="Java"><strong>Q:</strong>
+	Is JCE 1.2.1 written in the
+Java<sup><font size=-2>TM</font></sup> programming language? 
+<br>
+        <strong>A:</strong> Yes, JCE 1.2.1 is written 
+in the Java<sup><font size=-2>TM</font></sup> programming language. 
+
+<p>
+
+
+<LI><A NAME="CipherNotFound"><strong>Q:</strong> My cipher implementation 
+is not found. I wrote my own
+provider that subclasses <code>javax.crypto.CipherSpi</code> and
+supplies its own cipher implementation. However, I cannot get an
+instance of my cipher using <code>Cipher.getInstance()</code>.
+<br>
+	<strong>A:</strong> In order to achieve exportability, only 
+providers signed by a trusted
+entity can be plugged into the JCE 1.2.1 framework. 
+Please refer to
+<A HREF="doc/guide/HowToImplAProvider.html">How to Implement a Provider for 
+Java<SUP><FONT SIZE=-2>TM</FONT></SUP> Cryptography Extension 1.2.1</A>
+for more information on how to ensure your provider will work with
+JCE 1.2.1.
+<p>
+
+<LI><A NAME="DESNotFound"><strong>Q:</strong> Can I assume that JCE 1.2.1 and 
+J2SDK have been configured properly if
+<code>MessageDigest.getInstance("MD5")</code> works?
+The following line of code executes just fine:
+<pre>
+  MessageDigest dig = 
+      MessageDigest.getInstance("MD5");
+</pre>
+However, this line:
+<pre>
+  KeyGenerator kgen = 
+      KeyGenerator.getInstance("DES");
+</pre>
+causes the following exception to be raised:
+<pre>
+  java.security.NoSuchAlgorithmException: 
+    Algorithm DES not available
+</pre>
+<br>
+	<strong>A:</strong> J2SDK comes standard with a cryptographic service provider named
+"SUN" (which supplies an implementation of the MD5 message digest
+algorithm), and JCE 1.2.1 comes standard with a different provider named
+"SunJCE" (which implements a session key generator
+for DES). While the "SUN" provider is registered automatically, the
+"SunJCE" provider needs to be registered explicitly.
+
+<p>Please refer to the <a href="jce121_install.html">installation guide</a>
+for directions on how to register the "SunJCE" provider. Once you have
+registered the "SunJCE" provider, the above exception will disappear.
+<p>
+
+<LI><A NAME="CipherIOProb"><strong>Q:</strong> When I use <code>javax.crypto.CipherOutputStream</code> to encrypt data and write it to the underlying output stream, and <code>javax.crypto.CipherInputStream</code> to read the encrypted data from the underlying input stream and decrypt it, there seems to be a problem if the encapsulated Cipher object implements a block cipher w/ padding. CipherInputStream fails to recover the original data written using CipherOutputStream.
+<br>
+	<strong>A:</strong> Make sure that you call the <code>CipherOutputStream</code>'s
+<code>close</code> method when you are done writing data to the
+underlying output stream. This will cause any bytes buffered by the
+encapsulated Cipher object to be padded and written out.
+
+<p>Only when you call <code>CipherOutputStream.close()</code> will the encryption
+operation be finalized, i.e., will <code>Cipher.doFinal()</code> be
+called (on the encapsulated cipher).
+
+<p>
+
+</OL>
+
+</table>
+<p>
+
+</P>
+<hr>
+
+<!-- end main page content -->
+
+
+</TD>
+
+<!-- gutter spacing for right side of the page -->
+
+<TD WIDTH="30">
+<IMG SRC="/images/pixel.gif" WIDTH="30" HEIGHT="1" ALT="">
+</TD>
+</TR>
+</TABLE>
+
+<!-- server side include for page footer -->
+
+<!--#include virtual="/share/include/normal.footer.v4.0.html"-->
+
+<!-- end server side include for footer -->
+
+</BODY>
+</HTML>
+
+
+
+
+

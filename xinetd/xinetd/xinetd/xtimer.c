@@ -100,7 +100,7 @@ int xtimer_add( void (*func)(void), time_t secs )
  */
 int xtimer_poll(void)
 {
-	int i;
+	unsigned int i;
 	
 	if( xtimer_list == NULL )
 		return(0);
@@ -133,7 +133,7 @@ int xtimer_poll(void)
  */
 int xtimer_remove(int xtid)
 {
-	int i;
+	unsigned int i;
 	int ret = -1;
 
 	for( i = 0; i < pset_count( xtimer_list ); i++ ) {

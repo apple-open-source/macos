@@ -14,6 +14,7 @@
 			isa = PBXShellScriptBuildPhase;
 			neededFileNames = (
 			);
+			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
 			shellScript = "script=\"${SYSTEM_DEVELOPER_DIR}/ProjectBuilder Extras/Kernel Extension Support/KEXTPostprocess\";\nif [ -x \"$script\" ]; then\n    . \"$script\"\nfi";
 		};
@@ -46,6 +47,7 @@
 			isa = PBXShellScriptBuildPhase;
 			neededFileNames = (
 			);
+			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
 			shellScript = "script=\"${SYSTEM_DEVELOPER_DIR}/ProjectBuilder Extras/Kernel Extension Support/KEXTPreprocess\";\nif [ -x \"$script\" ]; then\n    . \"$script\"\nfi";
 		};
@@ -64,6 +66,7 @@
 				06AA1263FFB20DD611CA28AA,
 				06AA1262FFB20DD611CA28AA,
 			);
+			hasScannedForEncodings = 1;
 			isa = PBXProject;
 			mainGroup = 089C166AFE841209C02AAC07;
 			projectDirPath = "";
@@ -101,7 +104,7 @@
 				MODULE_STOP = IPFirewall_stop;
 				MODULE_VERSION = 1.2.1;
 				OPTIMIZATION_CFLAGS = "-Os";
-				OTHER_CFLAGS = "-DKERNEL=1 -DIPDIVERT=1 -DIPFIREWALL_DEFAULT_TO_ACCEPT=1 -DIPV6FIREWALL_DEFAULT_TO_ACCEPT=1 -DIPFIREWALL_FORWARD -traditional-cpp";
+				OTHER_CFLAGS = "-DKERNEL=1 -DIPDIVERT=1 -DIPFIREWALL_DEFAULT_TO_ACCEPT=1 -DIPV6FIREWALL_DEFAULT_TO_ACCEPT=1 -DIPFIREWALL_FORWARD -no-cpp-precomp";
 				OTHER_LDFLAGS = "";
 				OTHER_REZFLAGS = "";
 				PREBINDING = YES;
@@ -136,11 +139,11 @@
 	<key>CFBundlePackageType</key>
 	<string>KEXT</string>
 	<key>CFBundleShortVersionString</key>
-	<string>1.2.1</string>
+	<string>1.3</string>
 	<key>CFBundleSignature</key>
 	<string>ipfw</string>
 	<key>CFBundleVersion</key>
-	<string>1.2.1</string>
+	<string>1.3</string>
 	<key>OSBundleLibraries</key>
 	<dict>
 		<key>com.apple.kernel.bsd</key>
@@ -151,7 +154,6 @@
 </dict>
 </plist>
 ";
-			shouldUseHeadermap = 1;
 		};
 		089C1674FE841209C02AAC07 = {
 			buildActionMask = 2147483647;
@@ -159,32 +161,38 @@
 				F583985F0241C95401CA2E50,
 			);
 			isa = PBXHeadersBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
 		};
 		089C1675FE841209C02AAC07 = {
 			buildActionMask = 2147483647;
 			files = (
 			);
 			isa = PBXResourcesBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
 		};
 		089C1676FE841209C02AAC07 = {
 			buildActionMask = 2147483647;
 			files = (
 				F583985A0241C93401CA2E50,
 				F583985D0241C94401CA2E50,
+				F5CC0067040367A801CA2E4F,
 			);
 			isa = PBXSourcesBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
 		};
 		089C1677FE841209C02AAC07 = {
 			buildActionMask = 2147483647;
 			files = (
 			);
 			isa = PBXFrameworksBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
 		};
 		089C1679FE841209C02AAC07 = {
 			buildActionMask = 2147483647;
 			files = (
 			);
 			isa = PBXRezBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
 		};
 //080
 //081
@@ -233,6 +241,7 @@
 			children = (
 				F58398590241C93401CA2E50,
 				F583985C0241C94401CA2E50,
+				F5CC0066040367A801CA2E4F,
 				F583985E0241C95401CA2E50,
 			);
 			isa = PBXGroup;
@@ -251,6 +260,7 @@
 //F53
 //F54
 		F58398590241C93401CA2E50 = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			name = IPFirewall.c;
 			path = IPFirewall.kmodproj/IPFirewall.c;
@@ -263,6 +273,7 @@
 			};
 		};
 		F583985C0241C94401CA2E50 = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			name = ip_fw.c;
 			path = IPFirewall.kmodproj/ip_fw.c;
@@ -275,6 +286,7 @@
 			};
 		};
 		F583985E0241C95401CA2E50 = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			name = OldInterface.h;
 			path = IPFirewall.kmodproj/OldInterface.h;
@@ -286,6 +298,19 @@
 			settings = {
 				ATTRIBUTES = (
 				);
+			};
+		};
+		F5CC0066040367A801CA2E4F = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			name = ip6_fw.c;
+			path = IPFirewall.kmodproj/ip6_fw.c;
+			refType = 4;
+		};
+		F5CC0067040367A801CA2E4F = {
+			fileRef = F5CC0066040367A801CA2E4F;
+			isa = PBXBuildFile;
+			settings = {
 			};
 		};
 	};

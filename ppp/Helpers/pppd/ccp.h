@@ -1,4 +1,28 @@
 /*
+ * Copyright (c) 2003 Apple Computer, Inc. All rights reserved.
+ *
+ * @APPLE_LICENSE_HEADER_START@
+ * 
+ * Copyright (c) 1999-2003 Apple Computer, Inc.  All Rights Reserved.
+ * 
+ * This file contains Original Code and/or Modifications of Original Code
+ * as defined in and that are subject to the Apple Public Source License
+ * Version 2.0 (the 'License'). You may not use this file except in
+ * compliance with the License. Please obtain a copy of the License at
+ * http://www.opensource.apple.com/apsl/ and read it before using this
+ * file.
+ * 
+ * The Original Code and all software distributed under the License are
+ * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
+ * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
+ * INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY,
+ * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
+ * Please see the License for the specific language governing rights and
+ * limitations under the License.
+ * 
+ * @APPLE_LICENSE_HEADER_END@
+ */
+/*
  * ccp.h - Definitions for PPP Compression Control Protocol.
  *
  * Copyright (c) 1994 The Australian National University.
@@ -24,7 +48,7 @@
  * OBLIGATION TO PROVIDE MAINTENANCE, SUPPORT, UPDATES, ENHANCEMENTS,
  * OR MODIFICATIONS.
  *
- * $Id: ccp.h,v 1.2 2002/03/13 22:44:28 callie Exp $
+ * $Id: ccp.h,v 1.4 2003/08/14 00:00:29 callie Exp $
  */
 
 typedef struct ccp_options {
@@ -34,10 +58,7 @@ typedef struct ccp_options {
     bool predictor_2;		/* do Predictor-2? */
     bool deflate_correct;	/* use correct code for deflate? */
     bool deflate_draft;		/* use draft RFC code for deflate? */
-    bool mppe;			/* do M$ encryption? */
-    bool mppe_40;		/* allow 40 bit encryption */
-    bool mppe_128;		/* allow 128 bit encryption */
-    bool mppe_stateless;	/* allow stateless encryption */
+    bool mppe;			/* do MPPE? */
     u_short bsd_bits;		/* # bits/code for BSD Compress */
     u_short deflate_size;	/* lg(window size) for Deflate */
     short method;		/* code for chosen compression method */
@@ -50,8 +71,3 @@ extern ccp_options ccp_allowoptions[];
 extern ccp_options ccp_hisoptions[];
 
 extern struct protent ccp_protent;
-
-#ifdef MPPE
-size_t mppe_generate_session_key(char *optbuf);
-#endif
-

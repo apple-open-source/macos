@@ -3,32 +3,26 @@
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
- * The contents of this file constitute Original Code as defined in and
- * are subject to the Apple Public Source License Version 1.1 (the
- * "License").  You may not use this file except in compliance with the
- * License.  Please obtain a copy of the License at
- * http://www.apple.com/publicsource and read it before using this file.
+ * Copyright (c) 1999-2003 Apple Computer, Inc.  All Rights Reserved.
  * 
- * This Original Code and all software distributed under the License are
- * distributed on an "AS IS" basis, WITHOUT WARRANTY OF ANY KIND, EITHER
+ * This file contains Original Code and/or Modifications of Original Code
+ * as defined in and that are subject to the Apple Public Source License
+ * Version 2.0 (the 'License'). You may not use this file except in
+ * compliance with the License. Please obtain a copy of the License at
+ * http://www.opensource.apple.com/apsl/ and read it before using this
+ * file.
+ * 
+ * The Original Code and all software distributed under the License are
+ * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
  * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
  * INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY,
- * FITNESS FOR A PARTICULAR PURPOSE OR NON-INFRINGEMENT.  Please see the
- * License for the specific language governing rights and limitations
- * under the License.
+ * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
+ * Please see the License for the specific language governing rights and
+ * limitations under the License.
  * 
  * @APPLE_LICENSE_HEADER_END@
  */
- 
-/*
- * Copyright (c) 1999-2003 Apple Computer, Inc.  All rights reserved. 
- *
- * IOATABlockStorageCommands.cpp - Performs ATA command processing.
- *
- * HISTORY
- * 09/28/2000	CJS  	Started IOATABlockStorageCommands.cpp (ported from
- *						IOATAHDDriveCommand.cpp)
- */
+
 
 #include <IOKit/assert.h>
 #include <IOKit/IOSyncer.h>
@@ -193,7 +187,7 @@ IOATABlockStorageDriver::setupReadWriteTaskFile (
 		if ( fUseExtendedLBA )
 		{
 			
-			command = ( isWrite ) ? 0x35 : 0x25;
+			command = ( isWrite ) ? kATAcmdWriteDMAExtended : kATAcmdReadDMAExtended;
 			flags |= mATAFlag48BitLBA;
 			
 		}
@@ -215,7 +209,7 @@ IOATABlockStorageDriver::setupReadWriteTaskFile (
 		if ( fUseExtendedLBA )
 		{
 			
-			command = ( isWrite ) ? 0x34 : 0x24;
+			command = ( isWrite ) ? kATAcmdWriteExtended : kATAcmdReadExtended;
 		
 		}
 		
@@ -389,9 +383,8 @@ IOATABlockStorageDriver::ataCommandSetFeatures (
 		fConfigurationCommand->setCallbackPtr ( &IOATABlockStorageDriver::sATAConfigStateMachine );
 	}
 	
-	
 	status = fATADevice->executeCommand ( fConfigurationCommand );
-
+	
 	STATUS_LOG ( ( "IOATABlockStorageDriver::ataCommandSetFeatures exiting.\n" ) );
 	
 	return status;
@@ -427,7 +420,7 @@ IOATABlockStorageDriver::ataCommandFlushCache ( void )
 		
 		IOExtendedLBA *		extLBA = cmd->getExtendedLBA ( );
 		
-		extLBA->setExtendedLBA ( 0, 0, fATAUnitID, 0, 0xEA );
+		extLBA->setExtendedLBA ( 0, 0, fATAUnitID, 0, kATAcmdFlushCacheExtended );
 		cmd->setFlags ( mATAFlag48BitLBA );
 		
 		clientData->useExtendedLBA 	= true;
@@ -442,11 +435,11 @@ IOATABlockStorageDriver::ataCommandFlushCache ( void )
 	}
 	
 	cmd->setOpcode ( kATAFnExecIO );
-	cmd->setCommand ( 0xE7 );
+	cmd->setCommand ( kATAcmdFlushCache );
 	cmd->setDevice_Head ( fATAUnitID << 4 );
 	cmd->setUnit ( fATAUnitID );	
 	
-	clientData->command	= 0xE7;
+	clientData->command	= kATAcmdFlushCache;
 	clientData->opCode	= kATAFnExecIO;
 	
 	STATUS_LOG ( ( "IOATABlockStorageDriver::ataCommandFlushCache exiting.\n" ) );
@@ -1006,13 +999,14 @@ IOATABlockStorageDriver::reconfigureATADevice ( void )
 								mATAFlagImmediate,
 								true );
 		
-		ataCommandSetFeatures ( kATAEnableWriteCache,
-								0,
-								0,
-								0,
-								0,
-								mATAFlagImmediate,
-								true );
+		ataCommandSetFeatures (
+							kATAEnableWriteCache,
+							0,
+							0,
+							0,
+							0,
+							mATAFlagImmediate,
+							true );
 		
 	}
 		
@@ -1143,7 +1137,7 @@ IOATABlockStorageDriver::setAdvancedPowerManagementLevel ( UInt8 level, bool for
 	if ( ( fSupportedFeatures & kIOATAFeatureAdvancedPowerManagement ) == 0 )
 		return status;
 	
-	status = ataCommandSetFeatures ( 0x05,
+	status = ataCommandSetFeatures ( kATAEnableAPM,
 									 fAPMLevel,
 									 0,
 									 0,

@@ -54,33 +54,47 @@ io_service_t	obj = NULL;
 IOReturn IOPMGetAggressiveness ( io_connect_t fb, unsigned long type, unsigned long * aggressiveness )
 {
     mach_msg_type_number_t	len = 1;
-    IOReturn	err;
+    kern_return_t	err;
     int		param = type;
 
     err = io_connect_method_scalarI_scalarO( (io_connect_t) fb, kPMGetAggressiveness, &param, 1, (int *)aggressiveness, &len);
-    return err;
+
+    if (err==KERN_SUCCESS)
+      return kIOReturnSuccess;
+    else
+      return kIOReturnError;
 }
 
 
 IOReturn IOPMSetAggressiveness ( io_connect_t fb, unsigned long type, unsigned long aggressiveness )
 {
-    mach_msg_type_number_t	len = 0;
-    IOReturn	err;
-   int		params[2];
+   mach_msg_type_number_t	len = 0;
+   kern_return_t	        err;
+   int		                params[2];
 
     params[0] = (int)type;
     params[1] = (int)aggressiveness;
 
     err = io_connect_method_scalarI_scalarO( (io_connect_t) fb, kPMSetAggressiveness, params, 2, NULL, &len);
-    return err;
+
+    if (err==KERN_SUCCESS)
+      return kIOReturnSuccess;
+    else
+      return kIOReturnError;
 }
 
 
 IOReturn IOPMSleepSystem ( io_connect_t fb )
 {
     mach_msg_type_number_t	len = 0;
+    kern_return_t  err;
 
-    return io_connect_method_scalarI_scalarO( (io_connect_t) fb, kPMSleepSystem, NULL, 0, NULL, &len);
+    err = io_connect_method_scalarI_scalarO( (io_connect_t) fb, kPMSleepSystem, NULL, 0, NULL, &len);
+
+    if (err==KERN_SUCCESS)
+      return kIOReturnSuccess;
+    else
+      return kIOReturnError;
 }
 
 
@@ -208,17 +222,29 @@ IOReturn IODeregisterForSystemPower ( io_object_t * root_notifier )
 
 IOReturn IOAllowPowerChange ( io_connect_t kernelPort, long notificationID )
 {
+    kern_return_t               err;
     mach_msg_type_number_t	len = 0;
 
-    return io_connect_method_scalarI_scalarO( kernelPort, kPMAllowPowerChange, (int *)&notificationID, 1, NULL, &len);
+    err =  io_connect_method_scalarI_scalarO( kernelPort, kPMAllowPowerChange, (int *)&notificationID, 1, NULL, &len);
+
+    if (err==KERN_SUCCESS)
+      return kIOReturnSuccess;
+    else
+      return kIOReturnError;
 }
 
 
 IOReturn IOCancelPowerChange ( io_connect_t kernelPort, long notificationID )
 {
+    kern_return_t               err;
     mach_msg_type_number_t	len = 0;
 
-    return io_connect_method_scalarI_scalarO( kernelPort, kPMCancelPowerChange, (int *)&notificationID, 1, NULL, &len);
+    err = io_connect_method_scalarI_scalarO( kernelPort, kPMCancelPowerChange, (int *)&notificationID, 1, NULL, &len);
+
+    if (err==KERN_SUCCESS)
+      return kIOReturnSuccess;
+    else
+      return kIOReturnError;
 }
 
 

@@ -14,7 +14,8 @@ PROJECT_TYPE = Tool
 
 OTHERLINKED = makewhatis.local makewhatis.pl
 
-OTHERSRCS = Makefile Makefile.preamble Makefile.postamble makewhatis.8
+OTHERSRCS = Makefile Makefile.preamble Makefile.postamble makewhatis.8 \
+            makewhatis.local.8
 
 OTHERLINKEDOFILES = makewhatis.o makewhatis.o
 

@@ -1,0 +1,203 @@
+This is gnuserv 3.12 for GNU Emacs, available via:
+
+  http://meltin.net/hacks/emacs/
+
+Introduction
+------------
+
+gnuserv allows you to attach to an already running Emacs.  This allows
+external programs to make use of Emacs' editing capabilities.  It is
+like GNU Emacs' emacsserver/server.el, but has many more features.
+
+This is a standalone release of gnuserv for GNU Emacs, requiring
+compatibility code (gnuserv-compat.el) to make it work.  It has been
+tested under GNU Emacs 19.34 - 20.7.  Note that this version of
+gnuserv requires the newer style of Emacs customisation stuff that
+comes with Emacs 20 or higher.  It might work with the unbundled
+version of custom for Emacs 19
+(http://www.dina.kvl.dk/~abraham/custom/).  Also, a hack has been
+added to do a simple emulation of the customisation stuff under 19.34
+if custom.el can't be loaded.
+
+Note that creating a frame on a tty (via "gnuclient -nw ...") does not
+work.  GNU Emacs doesn't support this functionality.
+
+Note that if you run XEmacs then you do not need this package, because
+gnuserv comes bundled with XEmacs.  Also, if you have XEmacs
+installed, but want to use gnuserv under GNU Emacs (for some strange
+reason) then all you need is gnuserv-compat.el (and probably
+devices.el).  You can just make a link from your GNU Emacs site-lisp
+directory to gnuserv.el in your XEmacs installation.
+
+Origins
+-------
+
+* gnuserv.el, supporting C programs and manual page, from XEmacs
+  21.2.43 (http://www.xemacs.org/).  
+
+* devices.el is from the w3 4.0pre.39 distribution.
+
+* Most of the other stuff (configure/make stuff, installation
+  utilities, README.orig) is from Noah Friedman's fgnuserv package.  I
+  removed a patch for Emacs 18 from the distribution because it'd be
+  quite difficult to make this version of gnuserv.el work with Emacs
+  18.
+
+What did I do?
+
+* Added gnuserv-compat.el to make gnuserv.el work with GNU Emacs.
+
+* Tweaked the configure/make stuff to make it work for the this
+  version of gnuserv.  Added some configure options.
+
+* Minor changes/bug fixes to gnuclient.c, gnuslib.c and gnuserv.h:
+
+  - A tweak of the #include for config.h in gnuserv.h.
+
+  - Checks added to gnuserv.h for Internet domain sockets, Unix domain
+    sockets and SYSV IPC, as handled by configure.  Removed choice of
+    default, since people shouldn't get things that they've configured
+    out.
+
+  - Slight modifications to gnuclient.c and gnuslib.c so that they
+    compile if only one of INTERNET_DOMAIN_SOCKETS,
+    UNIX_DOMAIN_SOCKETS and SYSV_IPC is defined.
+
+Installation
+------------
+
+Simple instructions:
+
+  ./configure
+  make
+  make install
+
+This configures the gnuserv compilation process for your system,
+compiles C programs, and installs binaries, scripts and manual pages
+(under /usr/local).  Please see INSTALL for details of how to
+customise things like installation paths.
+
+The current installation process doesn't install the elisp files,
+although it does byte-compile them.  You should copy them to your
+site-lisp directory.  Then add an autoload, as described in
+gnuserv-compat.el, to your ~/.emacs file or your
+site-lisp/site-start.el file.
+
+Known problems
+--------------
+
+* Linking problems:
+  
+  If you experience unresolved symbols at link time this may be
+  because you have installed GCC but are using the native linker that
+  was bundled with your operating system (instead of the one from GNU
+  binutils).  This means that GCC's C preprocessor is able to find
+  header files in /usr/local/include, but the native linker is not
+  able to find libraries in /usr/local/lib.
+  
+  A possible solution to this is to set LDFLAGS to "-L/usr/local/lib"
+  before running "./configure".  If you're using a Bourne-compatible
+  shell, you can do:
+  
+    LDFLAGS="-L/usr/local/lib" ./configure [options]
+  
+  Alternatively, something like:
+  
+    env LDFLAGS="-L/usr/local/lib" ./configure [options]
+  
+  works with many systems/shells.
+
+  The alternative would be to make major modifications to
+  configure.in.
+
+* If you use SSH to connect to a machine that is already running
+  Emacs/gnuserv, and then try to connect using gnuclient, Emacs may
+  exit or behave weirdly.  This is an Emacs/X problem, since Emacs
+  can't find SSH's temporary cookie file.  The whole situation can't
+  be easily fixed in Emacs or gnuserv, but Emacs should not crash.
+
+  A work-around that allows you to connect is to do this:
+
+    xauth extract - $DISPLAY | xauth -f .Xauthority merge -
+
+  in the SSH session.  This puts the cookie for the SSH session's
+  display into the standard .Xauthority file so Emacs/X can find it.
+
+  Thanks to Martin Thornquist <martint@ifi.uio.no> for providing this
+  work-around.  He got it from Frode Vatvedt Fjeld <frodef@acm.org>.
+
+* If you've done the above and used gnuserv via SSH, then you probably
+  can't close the SSH session.  This is because Emacs doesn't
+  disconnect from a display when it has no more frames open on it.
+  The following very, very gross hack seems to do the trick:
+
+  (defun x-close-connection-if-no-frames (display)
+    "Close an open connection to DISPLAY if DISPLAY has no frames."
+  
+    (if (and
+         (member display (x-display-list))
+         (not 
+          (eval (cons 'or
+                      (mapcar
+                       '(lambda (f) (equal (frame-parameter f 'display)
+                                           display))
+                       (frame-list))))))
+        (x-close-connection display)))
+  
+  (defadvice delete-frame (around
+                           x-close-connection-delete-frame
+                           first
+                           nil
+                           activate)
+      (let ((display (frame-parameter frame 'display)))
+        ad-do-it
+        (x-close-connection-if-no-frames display)))
+
+dtemacs
+-------
+
+Also available is a script called dtemacs.  This can be used to invoke
+an editing session within Emacs and has been used to integrate Emacs
+into desktop environments like CDE or KDE.  If Emacs can not be
+contacted using gnuserv, Emacs is executed and left iconified.  Either
+way, a new frame is opened to edit the specified files.
+
+Get it from:
+
+  http://meltin.net/hacks/emacs/src/dtemacs
+
+I've told Gnome to use dtemacs as the default editor.  Previously, I
+told KDE to use dtemacs for various types of text and program files.
+
+TODO
+----
+
+Not all of the configure options are defined or work properly:
+
+* I don't know how to define SOCKADDR_SUN_LEN and BROKEN_INET_ADDR.
+
+Maintenance
+-----------
+
+Please report problems about the following to me:
+
+* gnuserv-compat.el (elisp errors from gnuserv.el in GNU Emacs)
+
+* the configuration & installation procedure
+
+* total failures to get this version of gnuserv to do anything!
+
+If you're sure you have found a bug in the C code (not likely to be
+caused by my changes) or gnuserv.el then, of course, feel free to
+contact the maintainers of those components.  If you're not sure then
+please check with me.  I'd hate to bother other people with problems
+that I've created!
+
+My plan it to grab each new version of gnuserv as it appears, package
+it and release it.  Please feel free to make suggestions, but remember
+that I'm trying to change as little of the original gnuserv code as
+possible.  My goal is to just to make new versions of gnuserv work
+with GNU Emacs.
+
+Martin Schwenke <martin@meltin.net>
+http://meltin.net/people/martin/

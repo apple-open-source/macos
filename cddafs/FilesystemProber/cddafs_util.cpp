@@ -31,46 +31,57 @@
 //ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
 
 // System Includes
-#include <servers/netname.h>
-#include <sys/types.h>
-#include <sys/wait.h>
-#include <sys/sysctl.h>
-#include <dev/disk.h>
-#include <fcntl.h>
-#include <sys/errno.h>
-#include <mach/mach_init.h>
-#include <sys/loadable_fs.h>
 #include <stdio.h>
 #include <unistd.h>
 #include <string.h>
 #include <stdlib.h>
+#include <fcntl.h>
+#include <dirent.h>
+#include <architecture/byte_order.h>
+#include <mach/mach_init.h>
+#include <servers/netname.h>
+#include <sys/types.h>
+#include <sys/wait.h>
+#include <sys/sysctl.h>
+#include <sys/disk.h>
+#include <sys/errno.h>
+#include <sys/paths.h>
 #include <sys/stat.h>
 #include <sys/time.h>
 #include <sys/mount.h>
-#include <dirent.h>
-#include <architecture/byte_order.h>
+#include <sys/loadable_fs.h>
 
 // CoreFoundation Includes
 #include <CoreFoundation/CoreFoundation.h>
+#include <CoreFoundation/CFPriv.h>
 
 // IOKit Includes
 #include <IOKit/IOKitLib.h>
+#include <IOKit/storage/IOCDTypes.h>
+#include <IOKit/storage/IOCDMedia.h>
 
 // Project includes
 #include "cddafs_util.h"
 #include "mntopts.h"
 #include "AppleCDDAFileSystemDefines.h"
 
+	#include "CDDATrackName.h"
 
 
 //ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
 //	Macros
 //ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
 
-#define DISK_ARB_COMPATIBILITY_MODE		0
-#define	DEBUG							0
+#define DEBUG							0
+#define DEBUG_LEVEL						0
 
-#if DEBUG
+#ifndef DEBUG_ASSERT_COMPONENT_NAME_STRING
+	#define DEBUG_ASSERT_COMPONENT_NAME_STRING "cddafs.util"
+#endif
+
+#include <AssertMacros.h>
+
+#if (DEBUG_LEVEL > 3)
 #define DebugLog(x)		printf x
 #else
 #define DebugLog(x)
@@ -97,7 +108,11 @@ struct mntopt gMountOptions[] =
 };
 
 static char		gAppleCDDAName[MFSNAMELEN] = "cddafs";
+static char		gFileSuffix[] = ".aiff";
 
+#define			kMaxPrefixSize		3
+#define			kASCIINumberZero	0x30
+#define			kASCIISpace			0x20
 
 //ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
 //	main -	This our main entry point to this utility.  We get called by
@@ -121,7 +136,9 @@ main ( int argc, const char * argv[] )
 	
 	if ( strcmp ( argv[0], kUtilExecutableName ) == 0 )
 	{
+		
 		result = UtilityMain ( argc, argv );
+		
 	}
 	
 	else
@@ -161,29 +178,17 @@ UtilityMain ( int argc, const char * argv[] )
 	
 	// Verify our arguments
 	result = ParseUtilityArgs ( argc, argv, &actionPtr, &mountPointPtr, &isEjectable, &isLocked );
-	if ( result != 0 )
-	{
-		goto Exit;
-	}
+	require ( ( result == 0 ), Exit );
 	
 	// Build our device name (full path), should end up with something like:
 	// -- "/dev/disk1" or "/dev/disk2" or "/dev/disk3"
 	
 	sprintf ( rawDeviceName, "/dev/r%s", argv[2] );
 	sprintf ( blockDeviceName, "/dev/%s", argv[2] );
-
-
+	
 	// call the appropriate routine to handle the given action argument after becoming root
 	result = seteuid ( 0 );
-	
-	if ( result )
-	{
-		
-		DebugLog ( ( "cddafs.util: ERROR: seteuid(0): %s\n", strerror ( errno ) ) );
-		result = FSUR_INVAL;
-		goto Exit;
-		
-	}
+	require_action ( ( result == 0 ), Exit, result = FSUR_INVAL );
 	
 	result = setegid ( 0 );
 	
@@ -193,7 +198,7 @@ UtilityMain ( int argc, const char * argv[] )
 	}
 	
 	DebugLog ( ( "Entering the switch with action = %s\n", actionPtr ) );
-
+	
     switch ( *actionPtr )
 	{
 		
@@ -205,7 +210,7 @@ UtilityMain ( int argc, const char * argv[] )
 		case FSUC_MOUNT_FORCE:
 			result = Mount ( blockDeviceName, mountPointPtr, mountFlags );
 			break;
-
+		
 		case FSUC_UNMOUNT:
 			result = Unmount ( mountPointPtr );
 			break;
@@ -217,9 +222,10 @@ UtilityMain ( int argc, const char * argv[] )
 			break;
 		
 	}
-
-
+	
+	
 Exit:
+	
 	
 	DebugLog ( ( "cddafs.util: EXIT: %d = ", result ) );
 	switch ( result )
@@ -256,9 +262,10 @@ Exit:
 		default:
 			DebugLog ( ( "default\n" ) );
 			break;
-			
+		
 	}
 	
+	check ( result == FSUR_IO_SUCCESS );
 	exit ( result );
 	
 	return result;	// ...and make main fit the ANSI spec.
@@ -309,18 +316,12 @@ ParseUtilityArgs ( 	int				argc,
 	int			result 			= FSUR_INVAL;
 	int			deviceLength	= 0;
 	int			index			= 0;
-
+	
 	// Must have at least 3 arguments and the action argument must start with a '-'
-	if ( ( argc < 3 ) || ( argv[1][0] != '-' ) )
-	{
-		
-		DisplayUsage ( kUsageTypeUtility, argv );
-		goto Exit;
-		
-	}
+	require_action ( ( argc >= 3 ), Exit, DisplayUsage ( kUsageTypeUtility, argv ) );
+	require_action ( ( argv[1][0] == '-' ), Exit, DisplayUsage ( kUsageTypeUtility, argv ) );
 	
 	// we only support actions Probe, Mount, Force Mount, and Unmount
-	
 	*actionPtr = &argv[1][1];
 	
 	switch ( argv[1][1] )
@@ -328,18 +329,8 @@ ParseUtilityArgs ( 	int				argc,
 		
 		case FSUC_PROBE:
 			// action Probe and requires 5 arguments (need the flags)
-			if ( argc < 5 )
-			{
-				
-				DisplayUsage ( kUsageTypeUtility, argv );
-				goto Exit;
-				
-			}
-			
-			else
-			{
-				index = 3;
-			}
+			require_action ( ( argc >= 5 ), Exit, DisplayUsage ( kUsageTypeUtility, argv ) );
+			index = 3;
 			break;
 		
 		case FSUC_UNMOUNT:
@@ -351,19 +342,10 @@ ParseUtilityArgs ( 	int				argc,
 		case FSUC_MOUNT_FORCE:
 			// action Mount and ForceMount require 6 arguments
 			// ( need the mountpoint and the flags )
-			if ( argc < 6 )
-			{
-				
-				DisplayUsage ( kUsageTypeUtility, argv );
-				goto Exit;
-				
-			}
+			require_action ( ( argc >= 6 ), Exit, DisplayUsage ( kUsageTypeUtility, argv ) );
 			
-			else
-			{
-				*mountPointPtr = argv[3];
-				index = 4;
-			}
+			*mountPointPtr = argv[3];
+			index = 4;
 			break;
 			
 		default:
@@ -376,60 +358,52 @@ ParseUtilityArgs ( 	int				argc,
 	// Make sure device (argv[2]) is something reasonable
 	// (we expect something like "disk1")
 	deviceLength = strlen ( argv[2] );
-	if ( deviceLength < 5 )
+	require ( ( deviceLength >= 5 ), Exit );
+	
+	result = 0;
+	
+	// If index is zero, no more work to do...
+	require ( ( index != 0 ), Exit );
+	
+	// Flags: removable/fixed
+	if ( !strcmp ( argv[index], "removable" ) )
 	{
 		
-		DisplayUsage ( kUsageTypeUtility, argv );
-		goto Exit;
-		
-	}
-
-	if ( index )
-	{
-		
-		// Flags: removable/fixed
-		if ( !strcmp ( argv[index], "removable" ) )
-		{
-			
-			*isEjectablePtr = 1;
-			
-		}
-		
-		else if ( !strcmp ( argv[index], "fixed" ) )
-		{
-			
-			*isEjectablePtr = 0;
-			
-		}
-		
-		else
-		{
-			
-			DebugLog ( ( "cddafs.util: ERROR: unrecognized flag (removable/fixed) argv[%d]='%s'\n",
-						index, argv[index] ) );
-			
-        }
-		
-		// Flags: readonly/writable
-		if ( !strcmp ( argv[index + 1], "readonly" ) )
-		{
-			*isLockedPtr = 1;
-		}
-		
-		else if ( !strcmp ( argv[index + 1], "writable" ) )
-		{
-			*isLockedPtr = 0;
-		}
-		
-		else
-		{
-			DebugLog ( ( "cddafs.util: ERROR: unrecognized flag (readonly/writable) argv[%d]='%s'\n",
-						index, argv[index + 1] ) );
-		}
+		*isEjectablePtr = 1;
 		
 	}
 	
-	result = 0;
+	else if ( !strcmp ( argv[index], "fixed" ) )
+	{
+		
+		*isEjectablePtr = 0;
+		
+	}
+	
+	else
+	{
+		
+		DebugLog ( ( "cddafs.util: ERROR: unrecognized flag (removable/fixed) argv[%d]='%s'\n",
+					index, argv[index] ) );
+		
+	}
+	
+	// Flags: readonly/writable
+	if ( !strcmp ( argv[index + 1], "readonly" ) )
+	{
+		*isLockedPtr = 1;
+	}
+	
+	else if ( !strcmp ( argv[index + 1], "writable" ) )
+	{
+		*isLockedPtr = 0;
+	}
+	
+	else
+	{
+		DebugLog ( ( "cddafs.util: ERROR: unrecognized flag (readonly/writable) argv[%d]='%s'\n",
+					index, argv[index + 1] ) );
+	}
 	
 	
 Exit:
@@ -477,9 +451,7 @@ Probe ( char * deviceNamePtr )
 	{
 		
 		CFStringRef			albumName 			= 0;
-		UInt8				albumNameSize		= 0;
 		CDDATrackName *		database 			= NULL;
-		char				name[2048];
 		
 		database = new CDDATrackName;
 		
@@ -497,29 +469,24 @@ Probe ( char * deviceNamePtr )
 			
 		}
 		
-		#if DEBUG
-		CFShow ( albumName );
-		#endif
-		
 		if ( albumName != 0 )
 		{
 			
-			albumNameSize = CFStringGetLength ( albumName );
+			Boolean		success				= false;
+			char		buffer[MAXNAMLEN];
 			
-		}
-		
-		// Make sure we fit into a MAXNAMLEN sized string
-		if ( ( albumNameSize < MAXNAMLEN ) && ( albumNameSize != 0 ) )
-		{
+			#if DEBUG
+			CFShow ( albumName );
+			#endif
 			
-			// Just use the album name for now.
-			Boolean	result;
+			success = _CFStringGetFileSystemRepresentation ( albumName,
+														     ( UInt8 * ) buffer,
+															 MAXNAMLEN );
 			
-			result = CFStringGetCString ( albumName, name, sizeof ( name ), kCFStringEncodingUTF8 );
-			if ( result == true )
+			if ( success == true )
 			{
 				
-				WriteDiskLabel ( name );
+				WriteDiskLabel ( buffer );
 				
 			}
 			
@@ -531,6 +498,10 @@ Probe ( char * deviceNamePtr )
 				
 			}
 			
+			// release it
+			CFRelease ( albumName );
+			albumName = 0;
+			
 		}
 		
 		else
@@ -539,11 +510,6 @@ Probe ( char * deviceNamePtr )
 			// Good old "Audio CD" should work...
 			WriteDiskLabel ( kMountPointName );
 			
-		}
-		
-		if ( albumName != 0 )
-		{
-			CFRelease ( albumName );
 		}
 		
 		if ( database != NULL )
@@ -614,22 +580,14 @@ Unmount ( const char * theMountPointPtr )
 	int		mountflags = 0;
 	
 	result = unmount ( theMountPointPtr, mountflags );
+	require_action ( ( result == 0 ), Exit, result = FSUR_IO_FAIL );
 	
-	if ( result != 0 )
-	{
+	result = FSUR_IO_SUCCESS;
 	
-		result = FSUR_IO_FAIL;
-		DebugLog ( ( "cddafs.util: ERROR: Unmount('%s') returned %d\n", theMountPointPtr, result ) );
 	
-	}
+Exit:
 	
-	else
-	{
-	
-		result = FSUR_IO_SUCCESS;
-	
-	}
-	
+		
 	return result;
 	
 }
@@ -654,15 +612,14 @@ MountMain ( int argc, const char * argv[] )
 	int		mountFlags 	= 0;
 	
 	error = ParseMountArgs ( &argc, &argv, &mountFlags );
-	if ( error != 0 )
-	{
-		
-		DisplayUsage ( kUsageTypeMount, argv );
-		goto Exit;
-		
-	}
+	require_action ( ( error == 0 ), Exit, DisplayUsage ( kUsageTypeMount, argv ) );
 	
 	error = Mount ( argv[0], argv[1], mountFlags );
+	check ( error == FSUR_IO_SUCCESS );
+	
+	// mount_cddafs must return 0 for successful mounts
+	if ( error == FSUR_IO_SUCCESS )
+		error = 0;
 	
 	
 Exit:
@@ -672,6 +629,10 @@ Exit:
 	
 }
 
+
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ		
+//	ParseMountArgs - Parses mount arguments
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
 
 int
 ParseMountArgs ( int * argc, const char ** argv[], int * mountFlags )
@@ -686,14 +647,7 @@ ParseMountArgs ( int * argc, const char ** argv[], int * mountFlags )
 	*mountFlags |= MNT_RDONLY;
 	
 	// Must have at least 3 arguments and the action argument must start with a '-'
-	if ( *argc < 3 )
-	{
-		
-		error = -1;
-		goto Exit;
-		
-	}
-
+	require_action ( ( *argc > 2 ), Exit, error = 1 );
 	
 	// Check command line args
 	while ( ( ch = getopt ( *argc, ( char * const * ) *argv, "o:" ) ) != -1 )
@@ -741,59 +695,9 @@ Exit:
 void
 WriteDiskLabel ( char * contentsPtr )
 {
-
-#if DISK_ARB_COMPATIBILITY_MODE
 	
-	int			fileToWrite;
-
-#endif /* DISK_ARB_COMPATIBILITY_MODE */
-		
 	StripTrailingSpaces ( contentsPtr );
 	write ( 1, contentsPtr, strlen ( contentsPtr ) );
-	
-#if DISK_ARB_COMPATIBILITY_MODE
-	
-	for ( fileToWrite = 0; fileToWrite < 2; fileToWrite++ )
-	{
-		
-		char   		fileName[MAXPATHLEN];
-		int			fd;
-		
-		sprintf ( &fileName[0], "%s/%s%s/%s", FS_DIR_LOCATION, kCDDAFileSystemName,
-				FS_DIR_SUFFIX, kCDDAFileSystemName );
-		
-		if ( fileToWrite == 0 )
-			strcat ( &fileName[0], FS_NAME_SUFFIX );
-		else
-			strcat ( &fileName[0], FS_LABEL_SUFFIX );
-		
-		unlink ( &fileName[0] );	// erase existing file
-		
-		int oldMask = umask ( 0 );
-				
-		fd = open ( &fileName[0], O_CREAT | O_TRUNC | O_WRONLY, 0644 );
-		umask ( oldMask );
-		
-		if ( fd > 0 )
-		{
-		
-			write ( fd, contentsPtr, strlen ( contentsPtr ) );
-			close ( fd );
-		
-		}
-		
-		else
-		{
-		
-			perror ( fileName );
-			
-		}
-		
-	}
-
-#endif /* DISK_ARB_COMPATIBILITY_MODE */
-	
-	return;
 	
 }
 
@@ -806,13 +710,16 @@ void
 StripTrailingSpaces ( char * theContentsPtr )
 {
 	
-	if ( strlen ( theContentsPtr ) )
+	check ( theContentsPtr );
+	check ( strlen ( theContentsPtr ) > 0 );
+	
+	if ( strlen ( theContentsPtr ) > 0 )
 	{
 		
 		char    	*myPtr;
 		
-		myPtr = theContentsPtr + strlen( theContentsPtr ) - 1;
-		while ( *myPtr == ' ' && myPtr >= theContentsPtr )
+		myPtr = theContentsPtr + strlen ( theContentsPtr ) - 1;
+		while ( *myPtr == kASCIISpace && myPtr >= theContentsPtr )
 		{
 			
 			*myPtr = 0x00;
@@ -835,26 +742,20 @@ Mount ( const char * 	deviceNamePtr,
 		int				mountFlags )
 {
 	
-	AppleCDDAArguments 		args;
-	struct vfsconf			vfc;
-	int						result;
+	AppleCDDAArguments 		args		= { 0 };
+	struct vfsconf			vfc			= { 0 };
+	int						result		= FSUR_IO_FAIL;
 	int						error 		= 0;
-	QTOCDataFormat10Ptr		TOCDataPtr 	= NULL;
-	UInt8 *					xmlDataPtr 	= NULL;
 	CFDataRef				data		= 0;
 	CFDataRef				xmlDataRef	= 0;
+	UInt32					size		= 0;
+	QTOCDataFormat10Ptr		TOCDataPtr 	= NULL;
+	UInt8 *					xmlDataPtr 	= NULL;
 	
 	DebugLog ( ( "Mount('%s','%s')\n", deviceNamePtr, mountPointPtr ) );
 	
-	if ( mountPointPtr == NULL || *mountPointPtr == '\0' )
-	{
-		
-		result = FSUR_IO_FAIL;
-		return result;
-		
-	}
-		
-	( void ) memset ( &args, 0L, sizeof ( AppleCDDAArguments ) );
+	require ( ( mountPointPtr != NULL ), Exit );
+	require ( ( *mountPointPtr != '\0' ), Exit );
 	
 	args.device 		= ( char * ) deviceNamePtr;
 	args.fileType		= ( UInt32 ) 'AIFC';
@@ -862,134 +763,116 @@ Mount ( const char * 	deviceNamePtr,
 	
 	// Check if we're loaded into vfs or not.
 	error = GetVFSConfigurationByName ( gAppleCDDAName, &vfc );
-	
-	if ( error )
+	if ( error != 0 )
 	{
 		
 		// Kernel extension wasn't loaded, so try to load it...
 		error = LoadKernelExtension ( );
+		require ( ( error == 0 ), Exit );
 		
-		// Error while loading...barf
-		if ( error != 0 )
-		{
-			return error;
-		}
-		
-		else
-		{
-			
-			// Now try again since we loaded our extension
-			error = GetVFSConfigurationByName ( gAppleCDDAName, &vfc );
-
-			if ( error != 0 )
-			{
-				return error;
-			}
-		
-		}
+		// Now try again since we loaded our extension
+		error = GetVFSConfigurationByName ( gAppleCDDAName, &vfc );
+		require ( ( error == 0 ), Exit );
 		
 	}
 	
 	TOCDataPtr = ( QTOCDataFormat10Ptr ) GetTOCDataPtr ( args.device );
-	if ( TOCDataPtr != NULL )
+	require ( ( TOCDataPtr != NULL ), Exit );
+	
+	data = GetTrackData ( args.device, TOCDataPtr );
+	require ( ( data != NULL ), ReleaseTOCData );
+	
+	size = CFDataGetLength ( data );
+	
+	DebugLog ( ( "CFDataGetLength returned size = %ld\n", size ) );
+		
+	args.nameData 		= ( char * ) malloc ( size );
+	args.nameDataSize 	= size;
+	CFDataGetBytes ( data, CFRangeMake ( 0, size ), ( UInt8 * ) args.nameData );
+	CFRelease ( data );
+	data = 0;
+	
+	// Get the number of audio tracks
+	args.numTracks = FindNumberOfAudioTracks ( TOCDataPtr );
+	
+	// build the XML file ".TOC.plist"
+	xmlDataRef			= CreateXMLFileInPListFormat ( TOCDataPtr );
+	xmlDataPtr			= ( UInt8 * ) CFDataGetBytePtr ( xmlDataRef );
+	args.xmlFileSize	= CFDataGetLength ( xmlDataRef );
+	args.xmlData 		= ( UInt8 * ) malloc ( args.xmlFileSize );
+	
+	require ( ( args.xmlData != NULL ), ReleaseNameData );
+	
+	// Copy the raw data from the CFData object to our mount args
+	memcpy ( args.xmlData, xmlDataPtr, args.xmlFileSize );
+	
+	#if (DEBUG_LEVEL > 3)
 	{
+		UInt32	count = 0;
 		
-		data = GetTrackData ( args.device, TOCDataPtr );
-		if ( data != 0 )
+		for ( ; count < args.xmlFileSize; count = count + 8 )
 		{
 			
-			UInt32	size = CFDataGetLength ( data );
-			
-			DebugLog ( ( "CFDataGetLength returned size = %ld\n", size ) );
-			
-			args.nameData 		= ( char * ) malloc ( size );
-			args.nameDataSize 	= size;
-			CFDataGetBytes ( data, CFRangeMake ( 0, size ), ( UInt8 * ) args.nameData );
-			CFRelease ( data );
-			data = 0;
+			DebugLog ( ("%x:%x:%x:%x %x:%x:%x:%x\n",
+					xmlDataPtr[count],
+					xmlDataPtr[count+1],
+					xmlDataPtr[count+2],
+					xmlDataPtr[count+3],
+					xmlDataPtr[count+4],
+					xmlDataPtr[count+5],
+					xmlDataPtr[count+6],
+					xmlDataPtr[count+7] ) );
 			
 		}
 		
-		else
-		{
-			DebugLog ( ( "data is null\n" ) );
-		}
-		
-		// Get the number of audio tracks
-		args.numTracks = FindNumberOfAudioTracks ( TOCDataPtr );
-		
-		// build the XML file ".TOC.plist"
-		xmlDataRef			= CreateXMLFileInPListFormat ( TOCDataPtr );
-		xmlDataPtr			= ( UInt8 * ) CFDataGetBytePtr ( xmlDataRef );
-		args.xmlFileSize	= CFDataGetLength ( xmlDataRef );
-		args.xmlData 		= ( UInt8 * ) malloc ( args.xmlFileSize );
-		
-		if ( args.xmlData != NULL )
-		{
-			
-			// Copy the raw data from the CFData object to our mount args
-			memcpy ( args.xmlData, xmlDataPtr, args.xmlFileSize );
-			
-			#if 0
-			{
-				UInt32	count = 0;
-				
-				for ( ; count < args.xmlFileSize; count = count + 8 )
-				{
-					
-					DebugLog ( ("%x:%x:%x:%x %x:%x:%x:%x\n",
-							xmlDataPtr[count],
-							xmlDataPtr[count+1],
-							xmlDataPtr[count+2],
-							xmlDataPtr[count+3],
-							xmlDataPtr[count+4],
-							xmlDataPtr[count+5],
-							xmlDataPtr[count+6],
-							xmlDataPtr[count+7] ) );
-					
-				}
-				
-				DebugLog ( ( "\n" ) );
-				DebugLog ( ( "XML File Size = %ld\n", args.xmlFileSize ) );
-				
-			}
-			#endif
-			
-		}
-		
-		// free the memory
-		free ( ( char * ) TOCDataPtr );
+		DebugLog ( ( "\n" ) );
+		DebugLog ( ( "XML File Size = %ld\n", args.xmlFileSize ) );
 		
 	}
+	#endif
+	
 	
 	// Print out the device name for debug purposes
 	DebugLog ( ( "DeviceName = %s\n", args.device ) );
 	DebugLog ( ( "numTracks = %d\n", args.numTracks ) );
 	
-	if ( args.nameData == NULL || args.nameDataSize == 0 )
-		return FSUR_IO_FAIL;
+	require ( ( args.nameData != NULL ), Exit );
+	require ( ( args.nameDataSize != 0 ), Exit );
 	
 	// Issue the system mount command
 	result = mount ( vfc.vfc_name, mountPointPtr, mountFlags, &args );
+	require ( ( result == 0 ), ReleaseXMLData );
 	
-	if ( args.xmlData != NULL )
-	{
-		
-		// free the memory
-		free ( ( char * ) xmlDataPtr );
-		
-	}	
+	result = FSUR_IO_SUCCESS;
 	
-	if ( args.nameData != NULL )
-	{
-		
-		// free the memory
-		free ( ( char * ) args.nameData );
-		
-	}
 	
-	if ( result == 0 )
-		result = FSUR_IO_SUCCESS;
+ReleaseXMLData:
+
+	
+	require_quiet ( ( args.xmlData != NULL ), Exit );
+	free ( ( char * ) args.xmlData );
+	args.xmlData = NULL;
+	
+	
+ReleaseNameData:
+	
+	
+	require_quiet ( ( args.nameData != NULL ), Exit );
+	free ( ( char * ) args.nameData );
+	args.nameData = NULL;
+	
+	
+ReleaseTOCData:
+	
+	
+	// free the memory
+	require_quiet ( ( TOCDataPtr != NULL ), Exit );
+	free ( ( char * ) TOCDataPtr );
+	TOCDataPtr = NULL;
+	
+	
+Exit:
+	
 	
 	return result;
 	
@@ -1012,34 +895,32 @@ ParseTOC ( UInt8 * TOCInfoPtr )
 	QTOCDataFormat10Ptr		TOCDataPtr			= NULL;
 	UInt8					index				= 0;
 	UInt8					numberOfDescriptors = 0;
-		
-	if ( TOCInfoPtr != NULL )
+	
+	require ( ( TOCInfoPtr != NULL ), Exit );
+	
+	// Set our pointer to the TOCInfoPtr
+	TOCDataPtr = ( QTOCDataFormat10Ptr ) TOCInfoPtr;
+	
+	error = GetNumberOfTrackDescriptors ( TOCDataPtr, &numberOfDescriptors );
+	require_quiet ( ( error == 0 ), Exit );
+	
+	for ( index = 0; index < numberOfDescriptors; index++ )
 	{
 		
-		// Set our pointer to the TOCInfoPtr
-		TOCDataPtr = ( QTOCDataFormat10Ptr ) TOCInfoPtr;
-		
-		error = GetNumberOfTrackDescriptors ( TOCDataPtr, &numberOfDescriptors );
-		if ( error == 0 )
+		if ( IsAudioTrack ( index, TOCDataPtr ) )
 		{
-		
-			for ( index = 0; index < numberOfDescriptors; index++ )
-			{
 			
-				if ( IsAudioTrack ( index, TOCDataPtr ) )
-				{
-											
-					// Found an audio cd
-					return FSUR_RECOGNIZED;
-					
-				}
-				
-			}
-		
+			// Found an audio cd
+			return FSUR_RECOGNIZED;
+			
 		}
 		
 	}
-		
+	
+	
+Exit:
+	
+	
 	return result;
 	
 }
@@ -1055,7 +936,11 @@ int
 GetVFSConfigurationByName ( const char * fileSystemName, struct vfsconf * vfsConfPtr )
 {
 
-    int 		name[4], maxtypenum, cnt, error;
+    int 		name[4];
+    int			maxTypeNum;
+    int			index;
+    int			error;
+	int			result;
 	size_t 		buflen;
 	
 	name[0] = CTL_VFS;
@@ -1063,28 +948,21 @@ GetVFSConfigurationByName ( const char * fileSystemName, struct vfsconf * vfsCon
 	name[2] = VFS_MAXTYPENUM;
 	buflen 	= 4;
 	
-	error = sysctl ( name, 3, &maxtypenum, &buflen, ( void * ) 0, ( size_t ) 0 );
-	if ( error < 0 )
-		return ( -1 );
+	error = sysctl ( name, 3, &maxTypeNum, &buflen, ( void * ) 0, ( size_t ) 0 );
+	require_action ( ( error >= 0 ), Exit, result = -1 );
 	
 	name[2] = VFS_CONF;
 	buflen = sizeof ( *vfsConfPtr );
 	
-	for ( cnt = 0; cnt < maxtypenum; cnt++ )
+	for ( index = 0; index < maxTypeNum; index++ )
 	{
 		
-		name[3] = cnt;
+		name[3] = index;
 		error = sysctl ( name, 4, vfsConfPtr, &buflen, ( void * ) 0, ( size_t ) 0 );
 		if ( error < 0 )
 		{
 			
-			if ( errno != EOPNOTSUPP && errno != ENOENT )
-			{
-				
-				return ( -1 );
-				
-			}
-			
+			require_action ( ( errno == EOPNOTSUPP ) || ( errno == ENOENT ), Exit, result = -1 );			
 			continue;
 			
 		}
@@ -1092,14 +970,22 @@ GetVFSConfigurationByName ( const char * fileSystemName, struct vfsconf * vfsCon
 		// If the names are same, return no error
 		if ( !strcmp ( fileSystemName, vfsConfPtr->vfc_name ) )
 		{
-			return ( 0 );
+			
+			result = 0;
+			goto Exit;
+			
 		}
 		
 	}
 	
-	errno = ENOENT;
+	errno	= ENOENT;
+	result	= -1;
 	
-	return ( -1 );
+	
+Exit:
+	
+	
+	return result;
 	
 }
 
@@ -1123,6 +1009,7 @@ GetTrackData ( const char * 				bsdDevNode,
 	
 	data 		= CFDataCreateMutable ( kCFAllocatorDefault, 0 );
 	
+	database	= new CDDATrackName;
 	
 	database->Init ( bsdDevNode, TOCData );
 	
@@ -1147,43 +1034,65 @@ GetTrackData ( const char * 				bsdDevNode,
 		if ( trackString != 0 )
 		{
 			
-			CFIndex		numCharsConverted 	= 0;
-			CFIndex		numChars 			= 0;
-			UInt32		size 				= 0;
-			UInt8		tmp					= 0;
-			char		buffer[MAXNAMLEN];
+			UInt8		size 				= 0;
+			UInt8		suffixSize			= 0;
+			UInt8		prefixSize			= 2;
+			UInt8		bufferSize			= 0;
+			UInt8		offset				= 0;
+			Boolean		success				= false;
+			char *		buffer				= NULL;
+			char		prefix[kMaxPrefixSize];
 			
-			size = CFStringGetLength ( trackString );
+			if ( currentTrack > 9 )
+			{
+				prefixSize++;
+				prefix[offset++] = currentTrack / 10 + kASCIINumberZero;
+			}
+			
+			prefix[offset++] = currentTrack % 10 + kASCIINumberZero;
+			prefix[offset] = kASCIISpace;
+			
+			suffixSize = strlen ( gFileSuffix );
+			bufferSize = MAXNAMLEN - prefixSize - suffixSize - 1;
+			
+			buffer = ( char * ) calloc ( 1, bufferSize );
+			
+			success = _CFStringGetFileSystemRepresentation ( trackString,
+														     ( UInt8 * ) buffer,
+															 bufferSize );
+			
+			buffer[bufferSize - 1] = 0;
+			size = strlen ( buffer ) + prefixSize + suffixSize;
 			
 			DebugLog ( ( "size = %ld\n", size ) );
+			DebugLog ( ( "buffer = %s", buffer ) );
 			
-			numCharsConverted = CFStringGetBytes (
-									trackString,
-									CFRangeMake ( 0, CFStringGetLength ( trackString ) ),
-									kCFStringEncodingUTF8,
-									0,
-									false,
-									( UInt8 * ) buffer,
-									MAXNAMLEN,
-									&numChars );
-			
-			DebugLog ( ( "numChars = %ld, numCharsConverted = %ld\n", numChars, numCharsConverted ) );
-			
-			// add the track number to the data object
+			// Add the track number to the data object
 			CFDataAppendBytes ( data,
 								&currentTrack,
 								1 );
 			
-			tmp = numChars & 0xFF;
-			// add the size to the data object
+			// Add the size to the data object
 			CFDataAppendBytes ( data,
-								&tmp,
+								&size,
 								1 );
+			
+			// Add the prefix to the data object
+			CFDataAppendBytes ( data,
+								( UInt8 * ) prefix,
+								prefixSize );
 			
 			// add the string to the data object
 			CFDataAppendBytes ( data,
 								( UInt8 * ) buffer,
-								tmp );
+								strlen ( buffer ) );
+			
+			// add the suffix to the data object
+			CFDataAppendBytes ( data,
+								( UInt8 * ) gFileSuffix,
+								suffixSize );
+			
+			free ( buffer );
 			
 			// release it
 			CFRelease ( trackString );
@@ -1226,7 +1135,7 @@ LoadKernelExtension ( void )
 						 kCDDAFileSystemExtensionPath, NULL );
 		
 		// We can only get here if the exec failed
-		goto Return;
+		goto Exit;
 		
 	}
 	
@@ -1236,7 +1145,7 @@ LoadKernelExtension ( void )
 		// fork() didn't work, so we grab the error from errno
 		// to return as our error
 		result = errno;
-		goto Return;
+		goto Exit;
 		
 	}
 	
@@ -1259,7 +1168,11 @@ LoadKernelExtension ( void )
 	}
 	
 	
-Return:
+	check ( result == 0 );
+	
+	
+Exit:
+	
 	
 	return result;
 
@@ -1606,6 +1519,7 @@ GetTOCDataPtr ( const char * deviceNamePtr )
 	io_iterator_t			iterator		= 0;
 	io_registry_entry_t		registryEntry	= 0;
 	CFMutableDictionaryRef	properties 		= 0;
+	CFDataRef     			data			= 0;
 	char *					bsdName 		= NULL;
 		
 	if ( !strncmp ( deviceNamePtr, "/dev/r", 6 ) )
@@ -1633,78 +1547,49 @@ GetTOCDataPtr ( const char * deviceNamePtr )
 	}
 	
 	error = IOMasterPort ( bootstrap_port, &masterPort );
-	if ( error != KERN_SUCCESS )
-	{
-		
-		DebugLog ( ( "GetTOCDataPtr: ERROR: couldn't create master port...\n" ) );
-		goto Exit;
-		
-	}
+	require ( ( error == KERN_SUCCESS ), Exit );
 	
 	error = IOServiceGetMatchingServices ( 	masterPort,
 											IOBSDNameMatching ( masterPort, 0, bsdName ),
 											&iterator );
-	
-	if ( error != KERN_SUCCESS )
-	{
-		
-		DebugLog ( ( "GetTOCDataPtr: ERROR: no matching services...\n" ) );
-		goto Exit;
-		
-	}
+	require ( ( error == KERN_SUCCESS ), Exit );
 	
 	// Only expect one entry since there is a 1:1 correspondence between bsd names
 	// and IOKit storage objects	
 	registryEntry = IOIteratorNext ( iterator );
-	if ( registryEntry != NULL )
+	require ( ( registryEntry != NULL ), ReleaseIterator );
+	
+	require ( IOObjectConformsTo ( registryEntry, kIOCDMediaString ), ReleaseEntry );
+	
+	error = IORegistryEntryCreateCFProperties ( registryEntry,
+												&properties,
+												kCFAllocatorDefault,
+												kNilOptions );
+	require ( ( error == KERN_SUCCESS ), ReleaseEntry );
+	
+	// Get the TOCInfo
+	data = ( CFDataRef ) CFDictionaryGetValue ( properties, 
+												CFSTR ( kIOCDMediaTOCKey ) );
+	if ( data != NULL )
 	{
 		
-		if ( IOObjectConformsTo ( registryEntry, kIOCDMediaString ) )
-		{
-			
-			error = IORegistryEntryCreateCFProperties ( registryEntry, &properties,
-														kCFAllocatorDefault, kNilOptions );
-			if ( error == KERN_SUCCESS )
-			{
-				
-				CFDataRef     data = 0;
-				
-				// Get the TOCInfo
-				data = ( CFDataRef ) CFDictionaryGetValue ( properties, 
-															CFSTR ( kIOCDMediaTOC ) );
-				if ( data != NULL )
-				{
-					
-					ptr = CreateBufferFromCFData ( data );
-
-				}
-				
-				// Release the properties
-				CFRelease ( properties );
-				
-			}
-			
-		}
-		
-		else
-		{
-			
-			DebugLog ( ( "Dynamic Cast failed.\n" ) );
-			goto Exit;
-			
-		}
-		
-		// release the object
-		error = IOObjectRelease ( registryEntry );
+		ptr = CreateBufferFromCFData ( data );
 		
 	}
 	
-	else
-	{
-		
-		DebugLog ( ( "Registry entry is NULL.\n" ) );
-		
-	}
+	// Release the properties
+	CFRelease ( properties );
+	
+	
+ReleaseEntry:
+	
+	
+	// release the object
+	error = IOObjectRelease ( registryEntry );
+	
+	
+ReleaseIterator:
+	
 	
 	// relese the iterator
 	error = IOObjectRelease ( iterator );
@@ -1759,18 +1644,16 @@ GetNumberOfTrackDescriptors ( 	QTOCDataFormat10Ptr	TOCDataPtr,
 {
 	
 	UInt16	length	= 0;
+	SInt32	result	= 0;
 	
-	if ( ( TOCDataPtr == NULL )  || ( numberOfDescriptors == NULL ) )
-	{
-		return -1;
-	}
+	require_action ( ( TOCDataPtr != NULL ), Exit, result = -1 );
+	require_action ( ( numberOfDescriptors != NULL ), Exit, result = -1 );
 	
 	// Grab the length and advance
 	length = NXSwapBigShortToHost ( TOCDataPtr->TOCDataLength );
 	DebugLog ( ( "Length = %d\n", length ) );
 	
-	if ( length <= 4 )
-		return -1;
+	require_action ( ( length > sizeof ( CDTOC ) ), Exit, result = -1 );
 	
 	length -= ( sizeof ( TOCDataPtr->firstSessionNumber ) +
 				sizeof ( TOCDataPtr->lastSessionNumber ) );
@@ -1778,7 +1661,11 @@ GetNumberOfTrackDescriptors ( 	QTOCDataFormat10Ptr	TOCDataPtr,
 	*numberOfDescriptors = length / ( sizeof ( SubQTOCInfo ) );
 	DebugLog ( ( "Number of descriptors = %d\n", *numberOfDescriptors ) );
 	
-	return 0;
+	
+Exit:
+	
+	
+	return result;
 	
 }
 
@@ -1813,16 +1700,19 @@ CreateBufferFromCFData ( CFDataRef theData )
 {
 
 	CFRange				range;
-	CFIndex          	bufferLength 	= CFDataGetLength ( theData );
-	UInt8 *           	buffer			= ( UInt8 * ) malloc ( bufferLength );
+	CFIndex          	bufferLength 	= 0;
+	UInt8 *           	buffer			= NULL;
+	
+	bufferLength	= CFDataGetLength ( theData );
+	buffer			= ( UInt8 * ) malloc ( bufferLength );
 	
 	range = CFRangeMake ( 0, bufferLength );
 	
 	if ( buffer != NULL )
 		CFDataGetBytes ( theData, range, buffer );
-		
+	
 	return buffer;
-
+	
 }
 
 
@@ -1841,51 +1731,48 @@ FindNumberOfAudioTracks ( QTOCDataFormat10Ptr TOCDataPtr )
 	UInt16					numberOfDescriptors = 0;
 	
 	DebugLog ( ( "FindNumberOfAudioTracks called\n" ) );
-
-	if ( TOCDataPtr != NULL )
+	
+	require ( ( TOCDataPtr != NULL ), Exit );
+	
+	// Grab the length and advance
+	length = NXSwapBigShortToHost ( TOCDataPtr->TOCDataLength );
+	require ( ( length > sizeof ( CDTOC ) ), Exit );
+	
+	length -= ( sizeof ( TOCDataPtr->firstSessionNumber ) +
+				sizeof ( TOCDataPtr->lastSessionNumber ) );
+	
+	numberOfDescriptors = length / ( sizeof ( SubQTOCInfo ) );
+	require ( ( numberOfDescriptors != 0 ), Exit );
+	
+	DebugLog ( ( "numberOfDescriptors = %d\n", numberOfDescriptors ) );	
+	
+	trackDescriptorPtr = TOCDataPtr->trackDescriptors;
+	
+	while ( numberOfDescriptors > 0 )
 	{
-				
-		// Grab the length and advance
-		length = NXSwapBigShortToHost ( TOCDataPtr->TOCDataLength );
-		length -= ( sizeof ( TOCDataPtr->firstSessionNumber ) +
-					sizeof ( TOCDataPtr->lastSessionNumber ) );
 		
-		numberOfDescriptors = length / ( sizeof ( SubQTOCInfo ) );
-
-		DebugLog ( ( "numberOfDescriptors = %d\n", numberOfDescriptors ) );
-		
-		if ( numberOfDescriptors <= 0 )
+		if ( trackDescriptorPtr->point < 100 && trackDescriptorPtr->point > 0 )
 		{
-
-			return result;
-
-		}
 			
-		trackDescriptorPtr = TOCDataPtr->trackDescriptors;
-		
-		while ( numberOfDescriptors > 0 )
-		{
-						
-			if ( trackDescriptorPtr->point < 100 && trackDescriptorPtr->point > 0 )
+			if ( ( trackDescriptorPtr->control & kDigitalDataMask ) == 0 )
 			{
-								
-				if ( ( trackDescriptorPtr->control & kDigitalDataMask ) == 0 )
-				{
-					
-					// Found an audio track
-					result++;
-					
-				}
+				
+				// Found an audio track
+				result++;
 				
 			}
 			
-			trackDescriptorPtr++;
-			numberOfDescriptors--;
-			
 		}
 		
+		trackDescriptorPtr++;
+		numberOfDescriptors--;
+		
 	}
-
+	
+	
+Exit:
+	
+	
 	DebugLog ( ( "numberOfTracks = %ld\n", result ) );
 	
 	return result;

@@ -123,9 +123,6 @@ Package=<4>
     Project_Dep_Name testavl
     End Project Dependency
     Begin Project Dependency
-    Project_Dep_Name ud
-    End Project Dependency
-    Begin Project Dependency
     Project_Dep_Name slapcat
     End Project Dependency
     Begin Project Dependency
@@ -154,6 +151,12 @@ Package=<4>
     End Project Dependency
     Begin Project Dependency
     Project_Dep_Name ftest
+    End Project Dependency
+    Begin Project Dependency
+    Project_Dep_Name ldapwhoami
+    End Project Dependency
+    Begin Project Dependency
+    Project_Dep_Name ldapcompare
     End Project Dependency
 }}}
 
@@ -239,6 +242,18 @@ Package=<5>
 
 Package=<4>
 {{{
+    Begin Project Dependency
+    Project_Dep_Name liblber
+    End Project Dependency
+    Begin Project Dependency
+    Project_Dep_Name libldap
+    End Project Dependency
+    Begin Project Dependency
+    Project_Dep_Name liblutil
+    End Project Dependency
+    Begin Project Dependency
+    Project_Dep_Name libldif
+    End Project Dependency
 }}}
 
 ###############################################################################
@@ -349,6 +364,27 @@ Package=<4>
     End Project Dependency
     Begin Project Dependency
     Project_Dep_Name liblber
+    End Project Dependency
+}}}
+
+###############################################################################
+
+Project: "ldapwhoami"=..\clients\tools\ldapwhoami.dsp - Package Owner=<4>
+
+Package=<5>
+{{{
+}}}
+
+Package=<4>
+{{{
+    Begin Project Dependency
+    Project_Dep_Name liblber
+    End Project Dependency
+    Begin Project Dependency
+    Project_Dep_Name libldap
+    End Project Dependency
+    Begin Project Dependency
+    Project_Dep_Name liblutil
     End Project Dependency
 }}}
 
@@ -762,7 +798,7 @@ Package=<4>
 
 ###############################################################################
 
-Project: "ucgendat"=..\libraries\liblunicode\ucgetdat.dsp - Package Owner=<4>
+Project: "ucgendat"=..\libraries\liblunicode\ucgendat.dsp - Package Owner=<4>
 
 Package=<5>
 {{{
@@ -772,27 +808,6 @@ Package=<4>
 {{{
     Begin Project Dependency
     Project_Dep_Name setup
-    End Project Dependency
-}}}
-
-###############################################################################
-
-Project: "ud"=..\clients\ud\ud.dsp - Package Owner=<4>
-
-Package=<5>
-{{{
-}}}
-
-Package=<4>
-{{{
-    Begin Project Dependency
-    Project_Dep_Name libldap
-    End Project Dependency
-    Begin Project Dependency
-    Project_Dep_Name liblber
-    End Project Dependency
-    Begin Project Dependency
-    Project_Dep_Name liblutil
     End Project Dependency
 }}}
 

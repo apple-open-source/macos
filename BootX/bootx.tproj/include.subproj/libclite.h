@@ -41,7 +41,7 @@
 #include <stddef.h>
 
 // ci_io.c
-extern void  putchar(int ch);
+extern int putchar(int ch);
 
 // prf.c
 extern void prf(const char *fmt, unsigned int *adx, void (*putfn_p)(),
@@ -83,7 +83,7 @@ extern void *realloc(void *start, size_t newsize);
 // mem.c
 extern void *memcpy(void *dst, const void *src, size_t len);
 extern void *memset(void *dst, int ch, size_t len);
-extern void *bcopy(void *src, void *dst, int len);
+extern void bcopy(const void *src, void *dst, size_t len);
 extern void bzero(void *dst, int len);
 
 // bsearch.c

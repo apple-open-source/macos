@@ -1,5 +1,3 @@
-/*	$NetBSD: process.c,v 1.23 1998/08/25 20:59:40 ross Exp $	*/
-
 /*-
  * Copyright (c) 1992 Diomidis Spinellis.
  * Copyright (c) 1992, 1993, 1994
@@ -38,13 +36,11 @@
  */
 
 #include <sys/cdefs.h>
+__FBSDID("$FreeBSD: src/usr.bin/sed/process.c,v 1.29 2002/09/20 19:40:23 eric Exp $");
+
 #ifndef lint
-#if 0
-static char sccsid[] = "@(#)process.c	8.6 (Berkeley) 4/20/94";
-#else
-__RCSID("$NetBSD: process.c,v 1.23 1998/08/25 20:59:40 ross Exp $");
+static const char sccsid[] = "@(#)process.c	8.6 (Berkeley) 4/20/94";
 #endif
-#endif /* not lint */
 
 #include <sys/types.h>
 #include <sys/stat.h>
@@ -52,6 +48,7 @@ __RCSID("$NetBSD: process.c,v 1.23 1998/08/25 20:59:40 ross Exp $");
 #include <sys/uio.h>
 
 #include <ctype.h>
+#include <err.h>
 #include <errno.h>
 #include <fcntl.h>
 #include <limits.h>
@@ -71,12 +68,12 @@ static SPACE HS, PS, SS;
 #define	hs		HS.space
 #define	hsl		HS.len
 
-static inline int	 applies __P((struct s_command *));
-static void		 flush_appends __P((void));
-static void		 lputs __P((char *));
-static inline int	 regexec_e __P((regex_t *, const char *, int, int, size_t));
-static void		 regsub __P((SPACE *, char *, char *));
-static int		 substitute __P((struct s_command *));
+static __inline int	 applies(struct s_command *);
+static void		 flush_appends(void);
+static void		 lputs(char *);
+static __inline int	 regexec_e(regex_t *, const char *, int, int, size_t);
+static void		 regsub(SPACE *, char *, char *);
+static int		 substitute(struct s_command *);
 
 struct s_appends *appends;	/* Array of pointers to strings to append. */
 static int appendx;		/* Index into appends array. */
@@ -89,17 +86,18 @@ static regex_t *defpreg;
 size_t maxnsub;
 regmatch_t *match;
 
-#define OUT(s) { fwrite(s, sizeof(u_char), psl, stdout); }
+#define OUT(s) { fwrite(s, sizeof(u_char), psl, stdout); putchar('\n'); }
 
 void
 process()
 {
 	struct s_command *cp;
 	SPACE tspace;
-	size_t len, oldpsl;
+	size_t len, oldpsl = 0;
 	char *p;
 
-	oldpsl = 0;
+	p = NULL;
+
 	for (linenum = 0; mf_fgets(&PS, REPLACE);) {
 		pd = 0;
 top:
@@ -116,9 +114,10 @@ redirect:
 				goto redirect;
 			case 'a':
 				if (appendx >= appendnum)
-					appends = xrealloc(appends,
+					if ((appends = realloc(appends,
 					    sizeof(struct s_appends) *
-					    (appendnum *= 2));
+					    (appendnum *= 2))) == NULL)
+						err(1, "realloc");
 				appends[appendx].type = AP_STRING;
 				appends[appendx].s = cp->t;
 				appends[appendx].len = strlen(cp->t);
@@ -139,7 +138,8 @@ redirect:
 			case 'D':
 				if (pd)
 					goto new;
-				if ((p = memchr(ps, '\n', psl - 1)) == NULL) {
+				if (psl == 0 ||
+				    (p = memchr(ps, '\n', psl)) == NULL) {
 					pd = 1;
 					goto new;
 				} else {
@@ -151,12 +151,14 @@ redirect:
 				cspace(&PS, hs, hsl, REPLACE);
 				break;
 			case 'G':
+				cspace(&PS, "\n", 1, 0);
 				cspace(&PS, hs, hsl, 0);
 				break;
 			case 'h':
 				cspace(&HS, ps, psl, REPLACE);
 				break;
 			case 'H':
+				cspace(&HS, "\n", 1, 0);
 				cspace(&HS, ps, psl, 0);
 				break;
 			case 'i':
@@ -175,11 +177,9 @@ redirect:
 				break;
 			case 'N':
 				flush_appends();
-				if (!mf_fgets(&PS, 0)) {
-					if (!nflag && !pd)
-						OUT(ps)
+				cspace(&PS, "\n", 1, 0);
+				if (!mf_fgets(&PS, 0))
 					exit(0);
-				}
 				break;
 			case 'p':
 				if (pd)
@@ -189,9 +189,10 @@ redirect:
 			case 'P':
 				if (pd)
 					break;
-				if ((p = memchr(ps, '\n', psl - 1)) != NULL) {
+				if (psl != 0 &&
+				    (p = memchr(ps, '\n', psl)) != NULL) {
 					oldpsl = psl;
-					psl = (p + 1) - ps;
+					psl = p - ps;
 				}
 				OUT(ps)
 				if (p != NULL)
@@ -204,9 +205,10 @@ redirect:
 				exit(0);
 			case 'r':
 				if (appendx >= appendnum)
-					appends = xrealloc(appends,
+					if ((appends = realloc(appends,
 					    sizeof(struct s_appends) *
-					    (appendnum *= 2));
+					    (appendnum *= 2))) == NULL)
+						err(1, "realloc");
 				appends[appendx].type = AP_FILE;
 				appends[appendx].s = cp->t;
 				appends[appendx].len = strlen(cp->t);
@@ -228,24 +230,23 @@ redirect:
 				if (cp->u.fd == -1 && (cp->u.fd = open(cp->t,
 				    O_WRONLY|O_APPEND|O_CREAT|O_TRUNC,
 				    DEFFILEMODE)) == -1)
-					err(FATAL, "%s: %s\n",
-					    cp->t, strerror(errno));
-				if (write(cp->u.fd, ps, psl) != psl)
-					err(FATAL, "%s: %s\n",
-					    cp->t, strerror(errno));
+					err(1, "%s", cp->t);
+				if (write(cp->u.fd, ps, psl) != psl ||
+				    write(cp->u.fd, "\n", 1) != 1)
+					err(1, "%s", cp->t);
 				break;
 			case 'x':
 				if (hs == NULL)
-					cspace(&HS, "\n", 1, REPLACE);
+					cspace(&HS, "", 0, REPLACE);
 				tspace = PS;
 				PS = HS;
 				HS = tspace;
 				break;
 			case 'y':
-				if (pd)
+				if (pd || psl == 0)
 					break;
-				for (p = ps, len = psl; --len; ++p)
-					*p = cp->u.y[(int)*p];
+				for (p = ps, len = psl; len--; ++p)
+					*p = cp->u.y[(unsigned char)*p];
 				break;
 			case ':':
 			case '}':
@@ -268,13 +269,13 @@ new:		if (!nflag && !pd)
  */
 #define	MATCH(a)						\
 	(a)->type == AT_RE ? regexec_e((a)->u.r, ps, 0, 1, psl) :	\
-	    (a)->type == AT_LINE ? linenum == (a)->u.l : lastline
+	    (a)->type == AT_LINE ? linenum == (a)->u.l : lastline()
 
 /*
  * Return TRUE if the command applies to the current line.  Sets the inrange
  * flag to process ranges.  Interprets the non-select (``!'') flag.
  */
-static inline int
+static __inline int
 applies(cp)
 	struct s_command *cp;
 {
@@ -331,21 +332,21 @@ substitute(cp)
 	if (re == NULL) {
 		if (defpreg != NULL && cp->u.s->maxbref > defpreg->re_nsub) {
 			linenum = cp->u.s->linenum;
-			err(COMPILE, "\\%d not defined in the RE",
-			    cp->u.s->maxbref);
+			errx(1, "%lu: %s: \\%d not defined in the RE",
+					linenum, fname, cp->u.s->maxbref);
 		}
 	}
 	if (!regexec_e(re, s, 0, 0, psl))
 		return (0);
 
-	SS.len = 0;				/* Clean substitute space. */
-	slen = psl;
-	n = cp->u.s->n;
+  	SS.len = 0;				/* Clean substitute space. */
+  	slen = psl;
+  	n = cp->u.s->n;
 	lastempty = 1;
 
-	switch (n) {
-	case 0:					/* Global */
-		do {
+  	switch (n) {
+  	case 0:					/* Global */
+  		do {
 			if (lastempty || match[0].rm_so != match[0].rm_eo) {
 				/* Locate start of replaced string. */
 				re_off = match[0].rm_so;
@@ -360,13 +361,16 @@ substitute(cp)
 				s += match[0].rm_eo;
 				slen -= match[0].rm_eo;
 				lastempty = 0;
+			} else if (match[0].rm_so == slen) {
+				s += match[0].rm_so;
+				slen = 0;
 			} else {
 				if (match[0].rm_so == 0)
-					cspace(&SS,
-					    s, match[0].rm_so + 1, APPEND);
+					cspace(&SS, s, match[0].rm_so + 1,
+					    APPEND);
 				else
-					cspace(&SS,
-					    s + match[0].rm_so, 1, APPEND);
+					cspace(&SS, s + match[0].rm_so, 1,
+					    APPEND);
 				s += match[0].rm_so + 1;
 				slen -= match[0].rm_so + 1;
 				lastempty = 1;
@@ -375,7 +379,7 @@ substitute(cp)
 		/* Copy trailing retained string. */
 		if (slen > 0)
 			cspace(&SS, s, slen, APPEND);
-		break;
+  		break;
 	default:				/* Nth occurrence */
 		while (--n) {
 			s += match[0].rm_eo;
@@ -415,9 +419,10 @@ substitute(cp)
 	if (cp->u.s->wfile && !pd) {
 		if (cp->u.s->wfd == -1 && (cp->u.s->wfd = open(cp->u.s->wfile,
 		    O_WRONLY|O_APPEND|O_CREAT|O_TRUNC, DEFFILEMODE)) == -1)
-			err(FATAL, "%s: %s\n", cp->u.s->wfile, strerror(errno));
-		if (write(cp->u.s->wfd, ps, psl) != psl)
-			err(FATAL, "%s: %s\n", cp->u.s->wfile, strerror(errno));
+			err(1, "%s", cp->u.s->wfile);
+		if (write(cp->u.s->wfd, ps, psl) != psl ||
+		    write(cp->u.s->wfd, "\n", 1) != 1)
+			err(1, "%s", cp->u.s->wfile);
 	}
 	return (1);
 }
@@ -433,10 +438,10 @@ flush_appends()
 	int count, i;
 	char buf[8 * 1024];
 
-	for (i = 0; i < appendx; i++) 
+	for (i = 0; i < appendx; i++)
 		switch (appends[i].type) {
 		case AP_STRING:
-			fwrite(appends[i].s, sizeof(char), appends[i].len, 
+			fwrite(appends[i].s, sizeof(char), appends[i].len,
 			    stdout);
 			break;
 		case AP_FILE:
@@ -444,20 +449,19 @@ flush_appends()
 			 * Read files probably shouldn't be cached.  Since
 			 * it's not an error to read a non-existent file,
 			 * it's possible that another program is interacting
-			 * with the sed script through the file system.  It
+			 * with the sed script through the filesystem.  It
 			 * would be truly bizarre, but possible.  It's probably
 			 * not that big a performance win, anyhow.
 			 */
 			if ((f = fopen(appends[i].s, "r")) == NULL)
 				break;
-			while ((count =
-			    fread(buf, sizeof(char), sizeof(buf), f)) > 0)
+			while ((count = fread(buf, sizeof(char), sizeof(buf), f)))
 				(void)fwrite(buf, sizeof(char), count, stdout);
 			(void)fclose(f);
 			break;
 		}
 	if (ferror(stdout))
-		err(FATAL, "stdout: %s", strerror(errno ? errno : EIO));
+		errx(1, "stdout: %s", strerror(errno ? errno : EIO));
 	appendx = sdone = 0;
 }
 
@@ -466,12 +470,13 @@ lputs(s)
 	char *s;
 {
 	int count;
-	char *escapes, *p;
+	const char *escapes;
+	char *p;
 	struct winsize win;
 	static int termwidth = -1;
 
 	if (termwidth == -1) {
-		if ((p = getenv("COLUMNS")) != NULL)
+		if ((p = getenv("COLUMNS")) && *p != '\0')
 			termwidth = atoi(p);
 		else if (ioctl(STDOUT_FILENO, TIOCGWINSZ, &win) == 0 &&
 		    win.ws_col > 0)
@@ -479,19 +484,24 @@ lputs(s)
 		else
 			termwidth = 60;
 	}
-	for (count = 0; *s; ++s) { 
-		if (count >= termwidth) {
+
+	for (count = 0; *s; ++s) {
+		if (count + 5 >= termwidth) {
 			(void)printf("\\\n");
 			count = 0;
 		}
-		if (isascii(*s) && isprint(*s) && *s != '\\') {
+		if (isprint((unsigned char)*s) && *s != '\\') {
 			(void)putchar(*s);
 			count++;
+		} else if (*s == '\n') {
+			(void)putchar('$');
+			(void)putchar('\n');
+			count = 0;
 		} else {
-			escapes = "\\\a\b\f\n\r\t\v";
+			escapes = "\\\a\b\f\r\t\v";
 			(void)putchar('\\');
-			if ((p = strchr(escapes, *s)) != NULL) {
-				(void)putchar("\\abfnrtv"[p - escapes]);
+			if ((p = strchr(escapes, *s))) {
+				(void)putchar("\\abfrtv"[p - escapes]);
 				count += 2;
 			} else {
 				(void)printf("%03o", *(u_char *)s);
@@ -502,10 +512,10 @@ lputs(s)
 	(void)putchar('$');
 	(void)putchar('\n');
 	if (ferror(stdout))
-		err(FATAL, "stdout: %s", strerror(errno ? errno : EIO));
+		errx(1, "stdout: %s", strerror(errno ? errno : EIO));
 }
 
-static inline int
+static __inline int
 regexec_e(preg, string, eflags, nomatch, slen)
 	regex_t *preg;
 	const char *string;
@@ -513,19 +523,17 @@ regexec_e(preg, string, eflags, nomatch, slen)
 	size_t slen;
 {
 	int eval;
-	
+
 	if (preg == NULL) {
 		if (defpreg == NULL)
-			err(FATAL, "first RE may not be empty");
+			errx(1, "first RE may not be empty");
 	} else
 		defpreg = preg;
 
-	/* Set anchors, discounting trailing newline (if any). */
-	if (slen > 0 && string[slen - 1] == '\n')
-		slen--;
+	/* Set anchors */
 	match[0].rm_so = 0;
 	match[0].rm_eo = slen;
-	
+
 	eval = regexec(defpreg, string,
 	    nomatch ? 0 : maxnsub + 1, match, eflags | REG_STARTEND);
 	switch(eval) {
@@ -534,9 +542,8 @@ regexec_e(preg, string, eflags, nomatch, slen)
 	case REG_NOMATCH:
 		return (0);
 	}
-	err(FATAL, "RE error: %s", strregerror(eval, defpreg));
+	errx(1, "RE error: %s", strregerror(eval, defpreg));
 	/* NOTREACHED */
-	return (0);
 }
 
 /*
@@ -554,7 +561,9 @@ regsub(sp, string, src)
 #define	NEEDSP(reqlen)							\
 	if (sp->len >= sp->blen - (reqlen) - 1) {			\
 		sp->blen += (reqlen) + 1024;				\
-		sp->space = sp->back = xrealloc(sp->back, sp->blen);	\
+		if ((sp->space = sp->back = realloc(sp->back, sp->blen)) \
+		    == NULL)						\
+			err(1, "realloc");				\
 		dst = sp->space + sp->len;				\
 	}
 
@@ -562,7 +571,7 @@ regsub(sp, string, src)
 	while ((c = *src++) != '\0') {
 		if (c == '&')
 			no = 0;
-		else if (c == '\\' && isdigit(*src))
+		else if (c == '\\' && isdigit((unsigned char)*src))
 			no = *src++ - '0';
 		else
 			no = -1;
@@ -592,7 +601,7 @@ regsub(sp, string, src)
 void
 cspace(sp, p, len, spflag)
 	SPACE *sp;
-	char *p;
+	const char *p;
 	size_t len;
 	enum e_spflag spflag;
 {
@@ -602,7 +611,9 @@ cspace(sp, p, len, spflag)
 	tlen = sp->len + len + 1;
 	if (tlen > sp->blen) {
 		sp->blen = tlen + 1024;
-		sp->space = sp->back = xrealloc(sp->back, sp->blen);
+		if ((sp->space = sp->back = realloc(sp->back, sp->blen)) ==
+		    NULL)
+			err(1, "realloc");
 	}
 
 	if (spflag == REPLACE)
@@ -625,13 +636,12 @@ cfclose(cp, end)
 		switch(cp->code) {
 		case 's':
 			if (cp->u.s->wfd != -1 && close(cp->u.s->wfd))
-				err(FATAL,
-				    "%s: %s", cp->u.s->wfile, strerror(errno));
+				err(1, "%s", cp->u.s->wfile);
 			cp->u.s->wfd = -1;
 			break;
 		case 'w':
 			if (cp->u.fd != -1 && close(cp->u.fd))
-				err(FATAL, "%s: %s", cp->t, strerror(errno));
+				err(1, "%s", cp->t);
 			cp->u.fd = -1;
 			break;
 		case '{':

@@ -1,13 +1,14 @@
-This is screen.info, produced by makeinfo version 4.0 from
+This is screen.info, produced by makeinfo version 4.2 from
 ./screen.texinfo.
 
+INFO-DIR-SECTION General Commands
 START-INFO-DIR-ENTRY
 * Screen: (screen).             Full-screen window manager.
 END-INFO-DIR-ENTRY
 
    This file documents the `Screen' virtual terminal manager.
 
-   Copyright (c) 1993-1995 Free Software Foundation, Inc.
+   Copyright (c) 1993-2003 Free Software Foundation, Inc.
 
    Permission is granted to make and distribute verbatim copies of this
 manual provided the copyright notice and this permission notice are
@@ -30,7 +31,7 @@ Screen
 ******
 
    This file documents the `Screen' virtual terminal manager, version
-3.9.9.
+3.9.15.
 
 * Menu:
 
@@ -155,7 +156,7 @@ Another section (*note Customization::) deals with the contents of your
 
    If your terminal is a "true" auto-margin terminal (it doesn't allow
 the last position on the screen to be updated without scrolling the
-screen) consider to use a version of your terminal's termcap that has
+screen) consider using a version of your terminal's termcap that has
 automatic margins turned _off_.  This will ensure an accurate and
 optimal update of the screen in all circumstances.  Most terminals
 nowadays have "magic" margins (automatic margins plus usable last
@@ -234,7 +235,7 @@ Invoking `Screen'
      literal command character (when typed after the command character)
      to Y.  The defaults are `C-a' and `a', which can be specified as
      `-e^Aa'.  When creating a `screen' session, this option sets the
-     default command caracter. In a multiuser session all users added
+     default command character. In a multiuser session all users added
      will start off with this command character. But when attaching to
      an already running session, this option only changes the command
      character of the attaching user.  This option is equivalent to the
@@ -280,10 +281,7 @@ Invoking `Screen'
      `-wipe' option.
 
 `-L'
-     Tell `screen' that your auto-margin terminal allows programs to
-     write to the last column of the last row of the screen without
-     scrolling.  This can also be set in your `.screenrc' by specifying
-     `xn' in a `termcap' command (*note Termcap::).
+     Tell `screen' to turn on automatic output logging for the windows.
 
 `-m'
      Tell `screen' to ignore the `$STY' environment variable.  When
@@ -291,14 +289,21 @@ Invoking `Screen'
      regardless of whether `screen' is being called from within another
      `screen' session or not. This flag has a special meaning in
      connection with the `-d' option:
-    `-m -d'
+    `-d -m'
           Start `screen' in _detached_ mode. This creates a new session
           but doesn't attach to it. This is useful for system startup
           scripts.
 
-    `-m -D'
+    `-D -m'
           This also starts `screen' in _detached_ mode, but doesn't fork
           a new process. The command exits if the session terminates.
+
+`-p NAME_OR_NUMBER'
+     Preselect a window. This is usefull when you want to reattach to a
+     specific windor or you want to send a command via the `-X' option
+     to a specific window. As with screen's select commant, `-' selects
+     the blank window. As a special case for reattach, `=' brings up
+     the windowlist on the blank window.
 
 `-q'
      Suppress printing of error messages. In combination with `-ls' the
@@ -325,8 +330,9 @@ Invoking `Screen'
      successful, all other command-line options are ignored.  If no
      detached session exists, start a new session using the specified
      options, just as if `-R' had not been specified.  This option is
-     set by default if screen is run as a login-shell. For combinations
-     with the `-D'/`-d' option see there.
+     set by default if screen is run as a login-shell (actually screen
+     uses `-xRR' in that case).  For combinations with the `-D'/`-d'
+     option see there.
 
 `-s PROGRAM'
      Set the default shell to be PROGRAM.  By default, `screen' uses
@@ -384,10 +390,11 @@ be executed at startup, or on the fly using the `colon' command.
 * Menu:
 
 * Startup Files::               The `.screenrc' file.
+* Source::                      Read commands from a file.
 * Colon::                       Entering customization commands interactively.
 
 
-File: screen.info,  Node: Startup Files,  Next: Colon,  Up: Customization
+File: screen.info,  Node: Startup Files,  Next: Source,  Up: Customization
 
 The `.screenrc' file
 ====================
@@ -418,7 +425,26 @@ distribution: `etc/screenrc' and `etc/etcscreenrc'. They contain a
 number of useful examples for various commands.
 
 
-File: screen.info,  Node: Colon,  Prev: Startup Files,  Up: Customization
+File: screen.info,  Node: Source,  Next: Colon,  Prev: Startup Files,  Up: Customization
+
+Source
+======
+
+ - Command: source file
+     (none)
+     Read and execute commands from file FILE. Source  commands may be
+     nested to a maximum recursion level of ten. If FILE is not an
+     absolute path and  screen  is already processing  a source
+     command, the parent directory of the running source command file
+     is used to search for the new command file  before screen's
+     current directory.
+
+     Note  that termcap/terminfo/termcapinfo commands only work at
+     startup and reattach time, so they must be reached  via the
+     default screenrc files to have an effect.
+
+
+File: screen.info,  Node: Colon,  Prev: Source,  Up: Customization
 
 Colon
 =====
@@ -478,9 +504,12 @@ Thus, both `C-a c' and `C-a C-c' can be used to create a window.
    The following table shows the default key bindings:
 
 `C-a ''
-`C-a "'
      (select)
      Prompt for a window identifier and switch.  *Note Selecting::.
+
+`C-a "'
+     (windowlist -b)
+     Present a list of all windows for selection.  *Note Selecting::.
 
 `C-a 0...9, -'
      (select 0...select 9, select -)
@@ -706,16 +735,16 @@ Thus, both `C-a c' and `C-a C-c' can be used to create a window.
 `C-a >'
      (writebuf)
      Write the paste buffer out to the screen-exchange file.  *Note
-     Screen-Exchange::.
+     Screen Exchange::.
 
 `C-a <'
      (readbuf)
-     Read the screen-exchange file into the paste buffer.  *Note
-     Screen-Exchange::.
+     Read the screen-exchange file into the paste buffer.  *Note Screen
+     Exchange::.
 
 `C-a ='
      (removebuf)
-     Delete the screen-exchange file.  *Note Screen-Exchange::.
+     Delete the screen-exchange file.  *Note Screen Exchange::.
 
 `C-a _'
      (silence)
@@ -761,7 +790,11 @@ Command Summary
 `allpartial STATE'
      Set all windows to partial refresh.  *Note Redisplay::.
 
-`at [IDENT][`#'|`*'|`%'] COMMAND [ARGS]'
+`altscreen STATE'
+     Enables support for the "alternate screen" terminal capability.
+     *Note Redisplay::.
+
+`at [IDENT][#|*|%] COMMAND [ARGS]'
      Execute a command at other displays or windows.  *Note At::.
 
 `attrcolor ATTRIB [ATTRIBUTE/COLOR-MODIFIER]'
@@ -774,13 +807,16 @@ Command Summary
      Enable a clear screen to discard unwritten output.  *Note
      Autonuke::.
 
+`backtick ID LIFESPAN AUTOREFRESH COMMAND [ARGS]'
+     Define a command for the backtick string escape.  *Note Backtick::.
+
 `bce [STATE]'
      Change background color erase.  *Note Character Processing::.
 
 `bell_msg [MESSAGE]'
      Set the bell notification message.  *Note Bell::.
 
-`bind KEY [COMMAND [ARGS]]'
+`bind [-c CLASS] KEY [COMMAND [ARGS]]'
      Bind a command to a key.  *Note Bind::.
 
 `bindkey [OPTS] [STRING [CMD ARGS]]'
@@ -793,7 +829,7 @@ Command Summary
      Specify how to generate breaks.  *Note Break::.
 
 `bufferfile [EXCHANGE-FILE]'
-     Select a file for screen-exchange.  *Note Screen-Exchange::.
+     Select a file for screen-exchange.  *Note Screen Exchange::.
 
 `c1 [STATE]'
      Change c1 code processing.  *Note Character Processing::.
@@ -817,7 +853,7 @@ Command Summary
 `colon'
      Enter a `screen' command.  *Note Colon::.
 
-`command'
+`command [-c CLASS]'
      Simulate the screen escape key.  *Note Command Character::.
 
 `compacthist [STATE]'
@@ -855,6 +891,9 @@ Command Summary
      Change defaul character set slot designation.  *Note Character
      Processing::.
 
+`defencoding ENC'
+     Select default window encoding.  *Note Character Processing::.
+
 `defescape XY'
      Set the default command and `meta' characters.  *Note Command
      Character::.
@@ -869,9 +908,8 @@ Command Summary
 `defhstatus [STATUS]'
      Select default window hardstatus line.  *Note Hardstatus::.
 
-`defkanji WTYPE'
-     Select default GR processing behavior.  *Note Character
-     Processing::.
+`deflog STATE'
+     Select default window logging behavior.  *Note Log::.
 
 `deflogin STATE'
      Select default utmp logging behavior.  *Note Login::.
@@ -910,7 +948,7 @@ Command Summary
 `defzombie [KEYS]'
      Keep dead windows.  *Note Zombie::.
 
-`detach'
+`detach [-h]'
      Disconnect `screen' from the terminal.  *Note Detach::.
 
 `digraph'
@@ -928,8 +966,14 @@ Command Summary
 `echo [-n] MESSAGE'
      Display a message on startup.  *Note Startup::.
 
+`encoding ENC [DENC]'
+     Set the encoding of a window.  *Note Character Processing::.
+
 `escape XY'
      Set the command and `meta' characters.  *Note Command Character::.
+
+`eval COMMAND1 [COMMAND2 ...]'
+     Parse and execute each argument. *Note Eval::.
 
 `exec [[FDPAT] COMMAND [ARGS ...]]'
      Run a subprocess (filter).  *Note Exec::.
@@ -946,7 +990,7 @@ Command Summary
 `gr [STATE]'
      Change GR charset processing.  *Note Character Processing::.
 
-`hardcopy'
+`hardcopy [-h] [FILE]'
      Write out the contents of the current window.  *Note Hardcopy::.
 
 `hardcopy_append STATE'
@@ -961,7 +1005,7 @@ Command Summary
 `height [LINES [COLS]]'
      Set display height.  *Note Window Size::.
 
-`help'
+`help [-c CLASS]'
      Display current key bindings.  *Note Help::.
 
 `history'
@@ -970,14 +1014,14 @@ Command Summary
 `hstatus STATUS'
      Change the window's hardstatus line.  *Note Hardstatus::.
 
+`ignorecase [STATE]'
+     Ignore character case in searches.  *Note Searching::.
+
 `info'
      Display window settings.  *Note Info::.
 
 `ins_reg [KEY]'
      Removed, use `paste' instead.  *Note Registers::.
-
-`kanji WTYPE [DTYPE]'
-     Set the kanji type of a window.  *Note Character Processing::.
 
 `kill'
      Destroy the current window.  *Note Kill::.
@@ -1017,6 +1061,9 @@ Command Summary
 
 `markkeys STRING'
      Rebind keys in copy mode.  *Note Copy Mode Keys::.
+
+`maxwin N'
+     Set the maximum window number. *Note Maxwin::.
 
 `meta'
      Insert the command character.  *Note Command Character::.
@@ -1088,24 +1135,24 @@ Command Summary
 `quit'
      Kill all windows and exit.  *Note Quit::.
 
-`readbuf [FILENAME]'
-     Read the paste buffer from the screen-exchange file.  *Note
-     Screen-Exchange::.
+`readbuf [-e ENCODING] [FILENAME]'
+     Read the paste buffer from the screen-exchange file.  *Note Screen
+     Exchange::.
 
-`readreg [REG [FILE]]'
+`readreg [-e ENCODING] [REG [FILE]]'
      Load a register from paste buffer or file.  *Note Registers::.
 
 `redisplay'
      Redisplay the current window.  *Note Redisplay::.
 
-`register KEY STRING'
+`register [-e ENCODING] KEY STRING'
      Store a string to a register.  *Note Registers::.
 
 `remove'
      Kill current region.  *Note Regions::.
 
 `removebuf'
-     Delete the screen-exchange file.  *Note Screen-Exchange::.
+     Delete the screen-exchange file.  *Note Screen Exchange::.
 
 `reset'
      Reset the terminal settings for the window.  *Note Reset::.
@@ -1128,6 +1175,9 @@ Command Summary
 `setenv [VAR [STRING]]'
      Set an environment variable for new windows.  *Note Setenv::.
 
+`setsid STATE'
+     Controll process group creation for windows.  *Note Setsid::.
+
 `shell COMMAND'
      Set the default program for new windows.  *Note Shell::.
 
@@ -1145,6 +1195,9 @@ Command Summary
 
 `slowpaste MSEC'
      Slow down pasting in windows.  *Note Paste::.
+
+`source FILE'
+     Run commands from a file.  *Note Source::.
 
 `sorendition [ATTR [COLOR]]'
      Change text highlighting.  *Note Sorendition::.
@@ -1177,7 +1230,7 @@ Command Summary
 `termcapinfo TERM TERMINAL-TWEAKS [WINDOW-TWEAKS]'
      Ditto, for both systems.  *Note Termcap Syntax::.
 
-`time'
+`time [STRING]'
      Display time and load average.  *Note Time::.
 
 `title [WINDOWTITLE]'
@@ -1211,15 +1264,18 @@ Command Summary
 `width [COLS [LINES]]'
      Set the width of the window.  *Note Window Size::.
 
+`windowlist [-b] | string [STRING] | title [TITLE]'
+     Present a list of all windows for selection.  *Note Windowlist::.
+
 `windows'
      List active windows.  *Note Windows::.
 
 `wrap [STATE]'
      Control line-wrap behavior.  *Note Wrap::.
 
-`writebuf [FILENAME]'
-     Write paste buffer to screen-exchange file.  *Note
-     Screen-Exchange::.
+`writebuf [-e ENCODING] [FILENAME]'
+     Write paste buffer to screen-exchange file.  *Note Screen
+     Exchange::.
 
 `writelock ON|OFF|AUTO'
      Grant exclusive write permission.  *Note Multiuser Session::.
@@ -1474,67 +1530,4 @@ efficiently as a console with 100 or more windows.
      For telnet windows, the command `break' sends the telnet code `IAC
      BREAK' (decimal 243) to the remote host.
 
-
-
-File: screen.info,  Node: Selecting,  Next: Session Management,  Prev: New Window,  Up: Top
-
-Selecting a Window
-******************
-
-   This section describes the commands for switching between windows in
-an `screen' session.  The windows are numbered from 0 to 9, and are
-created in that order by default (*note New Window::).
-
-* Menu:
-
-* Next and Previous::           Forward or back one window.
-* Other Window::                Switch back and forth between two windows.
-* Select::                      Switch to a window (and to one after `kill').
-
-
-File: screen.info,  Node: Next and Previous,  Next: Other Window,  Up: Selecting
-
-Moving Back and Forth
-=====================
-
- - Command: next
-     (`C-a <SPC>', `C-a n', `C-a C-n')
-     Switch to the next window.  This command can be used repeatedly to
-     cycle through the list of windows.  (On some terminals, C-<SPC>
-     generates a NUL character, so you must release the control key
-     before pressing space.)
-
- - Command: prev
-     (`C-a p', `C-a C-p')
-     Switch to the previous window (the opposite of `C-a n').
-
-
-File: screen.info,  Node: Other Window,  Next: Select,  Prev: Next and Previous,  Up: Selecting
-
-Other Window
-============
-
- - Command: other
-     (`C-a C-a')
-     Switch to the last window displayed.  Note that this command
-     defaults to the command character typed twice, unless overridden.
-     For instance, if you use the option `-e]x', this command becomes
-     `]]' (*note Command Character::).
-
-
-File: screen.info,  Node: Select,  Prev: Other Window,  Up: Selecting
-
-Select
-======
-
- - Command: select [n]
-     (`C-a N', `C-a '', `C-a "')
-     Switch to the window with the number N.  If no window number is
-     specified, you get prompted for an identifier. This can be a
-     window name (title) or a number.  When a new window is
-     established, the lowest available number is assigned to this
-     window.  Thus, the first window can be activated by `select 0';
-     there can be no more than 10 windows present simultaneously
-     (unless screen is compiled with a higher MAXWIN setting).  The
-     special command `select -' switches to a blank window.
 

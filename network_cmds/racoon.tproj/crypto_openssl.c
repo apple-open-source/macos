@@ -1,4 +1,4 @@
-/*	$KAME: crypto_openssl.c,v 1.69 2001/09/11 13:25:00 sakane Exp $	*/
+/*	$KAME: crypto_openssl.c,v 1.73 2003/04/24 02:21:22 itojun Exp $	*/
 
 /*
  * Copyright (C) 1995, 1996, 1997, and 1998 WIDE Project.
@@ -463,7 +463,7 @@ eay_get_x509subjectaltname(cert, altname, type, pos)
 			sk_CONF_VALUE_pop_free(nval, X509V3_conf_free);
 			goto end;
 		}
-		strcpy(*altname, cval->value);
+		strlcpy(*altname, cval->value, len);
 
 		/* set type of the name */
 		eay_setgentype(cval->name, type);
@@ -1171,7 +1171,7 @@ eay_bf_keylen(len)
 		return 448;
 	if (len < 40 || len > 448)
 		return -1;
-	return len + 7 / 8;
+	return (len + 7) / 8;
 }
 
 #ifdef HAVE_OPENSSL_RC5_H
@@ -1236,7 +1236,7 @@ eay_rc5_keylen(len)
 		return 128;
 	if (len < 40 || len > 2040)
 		return -1;
-	return len + 7 / 8;
+	return (len + 7) / 8;
 }
 #endif
 
@@ -1378,7 +1378,7 @@ eay_cast_keylen(len)
 		return 128;
 	if (len < 40 || len > 128)
 		return -1;
-	return len + 7 / 8;
+	return (len + 7) / 8;
 }
 
 /*
@@ -1476,6 +1476,13 @@ eay_twofish_keylen(len)
 	return len;
 }
 
+int
+eay_null_keylen(len)
+	int len;
+{
+	return 0;
+}
+
 /*
  * HMAC functions
  */
@@ -1486,6 +1493,7 @@ eay_hmac_init(key, md)
 {
 	HMAC_CTX *c = racoon_malloc(sizeof(*c));
 
+	HMAC_CTX_init(c);
 	HMAC_Init(c, key->v, key->l, md);
 
 	return (caddr_t)c;
@@ -1535,6 +1543,7 @@ eay_hmacsha2_512_final(c)
 
 	HMAC_Final((HMAC_CTX *)c, res->v, &l);
 	res->l = l;
+	HMAC_CTX_cleanup(c);
 	(void)racoon_free(c);
 
 	if (SHA512_DIGEST_LENGTH != res->l) {
@@ -1595,6 +1604,7 @@ eay_hmacsha2_384_final(c)
 
 	HMAC_Final((HMAC_CTX *)c, res->v, &l);
 	res->l = l;
+	HMAC_CTX_cleanup(c);
 	(void)racoon_free(c);
 
 	if (SHA384_DIGEST_LENGTH != res->l) {
@@ -1655,6 +1665,7 @@ eay_hmacsha2_256_final(c)
 
 	HMAC_Final((HMAC_CTX *)c, res->v, &l);
 	res->l = l;
+	HMAC_CTX_cleanup(c);
 	(void)racoon_free(c);
 
 	if (SHA256_DIGEST_LENGTH != res->l) {
@@ -1715,6 +1726,7 @@ eay_hmacsha1_final(c)
 
 	HMAC_Final((HMAC_CTX *)c, res->v, &l);
 	res->l = l;
+	HMAC_CTX_cleanup(c);
 	(void)racoon_free(c);
 
 	if (SHA_DIGEST_LENGTH != res->l) {
@@ -1775,6 +1787,7 @@ eay_hmacmd5_final(c)
 
 	HMAC_Final((HMAC_CTX *)c, res->v, &l);
 	res->l = l;
+	HMAC_CTX_cleanup(c);
 	(void)racoon_free(c);
 
 	if (MD5_DIGEST_LENGTH != res->l) {

@@ -1,5 +1,5 @@
 #! /bin/sh
-# $OpenLDAP: pkg/ldap/tests/scripts/defines.sh,v 1.55 2002/01/30 20:35:52 kurt Exp $
+# $OpenLDAP: pkg/ldap/tests/scripts/defines.sh,v 1.55.2.9 2003/02/10 19:23:41 kurt Exp $
 
 DATADIR=$SRCDIR/data
 PROGDIR=./progs
@@ -10,6 +10,7 @@ CONF=$DATADIR/slapd.conf
 MCONF=$DATADIR/slapd-master.conf
 PWCONF=$DATADIR/slapd-pw.conf
 ACLCONF=$DATADIR/slapd-acl.conf
+RCONF=$DATADIR/slapd-referrals.conf
 MASTERCONF=$DATADIR/slapd-repl-master.conf
 SLAVECONF=$DATADIR/slapd-repl-slave.conf
 REFSLAVECONF=$DATADIR/slapd-ref-slave.conf
@@ -34,6 +35,7 @@ LDIFFILTER=$SRCDIR/scripts/acfilter.sh
 SUBFILTER=$SRCDIR/scripts/subfilter.sh
 UNDIFFFILTER=$SRCDIR/scripts/undiff.sh
 CONFFILTER=$SRCDIR/scripts/conf.sh
+STRIPATTR=$SRCDIR/scripts/stripattr.sh
 
 SLAPADD="../servers/slapd/tools/slapadd $LDAP_VERBOSE"
 SLAPCAT="../servers/slapd/tools/slapcat $LDAP_VERBOSE"
@@ -42,16 +44,19 @@ SLAPINDEX="../servers/slapd/tools/slapindex $LDAP_VERBOSE"
 unset DIFF_OPTIONS
 DIFF="diff -iu"
 CMP="diff -i"
+BCMP="diff -iB"
 CMPOUT=/dev/null
 SLAPD="../servers/slapd/slapd -s0"
 SLURPD=../servers/slurpd/slurpd
 LDAPPASSWD="$CLIENTDIR/ldappasswd $TOOLARGS"
 LDAPSEARCH="$CLIENTDIR/ldapsearch $TOOLPROTO $TOOLARGS -LLL"
+LDAPRSEARCH="$CLIENTDIR/ldapsearch $TOOLPROTO $TOOLARGS"
 LDAPMODIFY="$CLIENTDIR/ldapmodify $TOOLPROTO $TOOLARGS"
-LDAPADD="$CLIENTDIR/ldapadd $TOOLPROTO $TOOLARGS"
+LDAPADD="$CLIENTDIR/ldapmodify -a $TOOLPROTO $TOOLARGS"
 LDAPMODRDN="$CLIENTDIR/ldapmodrdn $TOOLPROTO $TOOLARGS"
+LDAPWHOAMI="$CLIENTDIR/ldapwhoami $TOOLARGS"
 SLAPDTESTER=$PROGDIR/slapd-tester
-LVL=${SLAPD_DEBUG-5}
+LVL=${SLAPD_DEBUG-261}
 LOCALHOST=localhost
 PORT=9009
 SLAVEPORT=9010
@@ -65,13 +70,15 @@ LDIFPASSWD=$DATADIR/passwd.ldif
 LDIFPASSWDOUT=$DATADIR/passwd-out.ldif
 LDIFLANG=$DATADIR/test-lang.ldif
 LDIFLANGOUT=$DATADIR/lang-out.ldif
+LDIFREF=$DATADIR/referrals.ldif
 MONITOR=""
+REFDN="c=US"
 BASEDN="o=University of Michigan,c=US"
 MANAGERDN="cn=Manager,o=University of Michigan,c=US"
 UPDATEDN="cn=Replica,o=University of Michigan,c=US"
 PASSWD=secret
-BABSDN="cn=Barbara Jensen,ou=Information Technology Division,ou=People,o=University of Michigan,c=US"
-BJORNSDN="cn=Bjorn Jensen,ou=Information Technology Division,ou=People,o=University of Michigan,c=US"
+BABSDN="cn=Barbara Jensen,ou=Information Technology DivisioN,OU=People,o=University of Michigan,c=us"
+BJORNSDN="cn=Bjorn Jensen,ou=Information Technology DivisioN,OU=People,o=University of Michigan,c=us"
 JAJDN="cn=James A Jones 1,ou=Alumni Association,ou=People,o=University of Michigan,c=US"
 MASTERLOG=$DBDIR/master.log
 SLAVELOG=$DBDIR/slave.log
@@ -86,7 +93,9 @@ SLAVEOUT=$DBDIR/slave.out
 SUBMASTEROUT=$DBDIR/submaster.out
 TESTOUT=$DBDIR/test.out
 INITOUT=$DBDIR/init.out
+REFERRALOUT=$DATADIR/referrals.out
 SEARCHOUTMASTER=$DATADIR/search.out.master
+SEARCHOUTX=$DATADIR/search.out.xsearch
 MODIFYOUTMASTER=$DATADIR/modify.out.master
 ADDDELOUTMASTER=$DATADIR/adddel.out.master
 MODRDNOUTMASTER0=$DATADIR/modrdn.out.master.0

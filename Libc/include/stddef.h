@@ -73,16 +73,30 @@ typedef	_BSD_PTRDIFF_T_	ptrdiff_t;
 typedef	_BSD_SIZE_T_	size_t;
 #endif
 
-#if !defined(_ANSI_SOURCE)
-#ifndef _BSD_RUNE_T_DEFINED_
-#define _BSD_RUNE_T_DEFINED_
-typedef _BSD_RUNE_T_    rune_t;
-#endif
+#ifndef	_BSD_CT_RUNE_T_DEFINED_
+#define _BSD_CT_RUNE_T_DEFINED_
+typedef	_BSD_CT_RUNE_T_	ct_rune_t;
 #endif
 
+#ifndef	_BSD_RUNE_T_DEFINED_
+#define _BSD_RUNE_T_DEFINED_
+typedef	_BSD_RUNE_T_	rune_t;
+#endif
+
+#ifndef	__cplusplus
 #ifndef	_BSD_WCHAR_T_DEFINED_
 #define	_BSD_WCHAR_T_DEFINED_
+#ifdef	__WCHAR_TYPE__
+typedef	__WCHAR_TYPE__	wchar_t;
+#else	/* ! __WCHAR_TYPE__ */
 typedef	_BSD_WCHAR_T_	wchar_t;
+#endif	/* __WCHAR_TYPE__ */
+#endif	/* _BSD_WCHAR_T_DEFINED_ */
+#endif	/* __cplusplus */
+
+#ifndef	_BSD_WINT_T_DEFINED_
+#define _BSD_WINT_T_DEFINED_
+typedef	_BSD_WINT_T_	wint_t;
 #endif
 
 #ifndef	NULL

@@ -1,15 +1,15 @@
-$ $Id: set26,v 1.1.1.1 2001/06/28 23:11:25 bbraun Exp $
+$ $Id: set26,v 1.1.1.2 2003/01/17 03:42:14 nicolai Exp $
 $ tc.who.c
 $set 26 
 1 cannot stat %s.  Please "unset watch".\n
 2 %s cannot be opened.  Please "unset watch".\n
-3 BUG! last element is not whotail!\n
+3 ПОМИЛКА! last element is not whotail!\n
 4 backward: 
-5 BUG! first element is not whohead!\n
+5 ПОМИЛКА! first element is not whohead!\n
 6 new: %s/%s\n
-7 %n has %a %l from %m.
-8 %n has %a %l.
-9 logged on
-10 logged off
-11 replaced %s on
-12 local
+7 Користувач %n %a %l (%m).
+8 Користувач %n %a %l.
+9 п╕д'╓днався до
+10 в╕д'╓днався в╕д
+11 зам╕нив %s на
+12 локально

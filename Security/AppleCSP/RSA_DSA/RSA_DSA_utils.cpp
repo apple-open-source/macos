@@ -22,16 +22,16 @@
 
 #include "RSA_DSA_utils.h"
 #include "RSA_DSA_keys.h"
-#include <opensslUtils/openRsaSnacc.h>
+#include <opensslUtils/opensslAsn1.h>
+#include <opensslUtils/opensslUtils.h>
 #include <Security/logging.h>
 #include <Security/debugging.h>
-#include <open_ssl/opensslUtils/opensslUtils.h>
 #include <openssl/bn.h>
 #include <openssl/rsa.h>
 #include <openssl/dsa.h>
 #include <openssl/err.h>
 
-#define rsaMiscDebug(args...)	debug("rsaMisc", ## args)
+#define rsaMiscDebug(args...)	secdebug("rsaMisc", ## args)
 
 /* 
  * Given a Context:
@@ -57,6 +57,7 @@ RSA *contextToRsaKey(
 		CssmError::throwMe(CSSMERR_CSP_INVALID_KEY_CLASS);
 	}
 	cspValidateIntendedKeyUsage(&hdr, usage);
+	cspVerifyKeyTimes(hdr);
 	return cssmKeyToRsa(cssmKey, session, mallocdKey);
 }
 /* 
@@ -117,16 +118,31 @@ RSA *rawCssmKeyToRsa(
 		// someone else's key (should never happen)
 		CssmError::throwMe(CSSMERR_CSP_INVALID_ALGORITHM);
 	}
+	/* validate and figure out what we're dealing with */
 	switch(hdr->KeyClass) {
 		case CSSM_KEYCLASS_PUBLIC_KEY:
-			if(hdr->Format != RSA_PUB_KEY_FORMAT) {
-				CssmError::throwMe(CSSMERR_CSP_INVALID_ATTR_PUBLIC_KEY_FORMAT);
+			switch(hdr->Format) {
+				case CSSM_KEYBLOB_RAW_FORMAT_PKCS1:	
+				case CSSM_KEYBLOB_RAW_FORMAT_X509:
+					break;
+				/* openssh real soon now */
+				case CSSM_KEYBLOB_RAW_FORMAT_OPENSSH:
+				default:
+					CssmError::throwMe(
+						CSSMERR_CSP_INVALID_ATTR_PUBLIC_KEY_FORMAT);
 			}
 			isPub = true;
 			break;
 		case CSSM_KEYCLASS_PRIVATE_KEY:
-			if(hdr->Format != RSA_PRIV_KEY_FORMAT) {
-				CssmError::throwMe(CSSMERR_CSP_INVALID_ATTR_PRIVATE_KEY_FORMAT);
+			switch(hdr->Format) {
+				case CSSM_KEYBLOB_RAW_FORMAT_PKCS8:	// default
+				case CSSM_KEYBLOB_RAW_FORMAT_PKCS1:	// openssl style
+					break;
+				/* openssh real soon now */
+				case CSSM_KEYBLOB_RAW_FORMAT_OPENSSH:
+				default:
+					CssmError::throwMe(
+						CSSMERR_CSP_INVALID_ATTR_PRIVATE_KEY_FORMAT);
 			}
 			isPub = false;
 			break;
@@ -140,19 +156,57 @@ RSA *rawCssmKeyToRsa(
 	}
 	CSSM_RETURN crtn;
 	if(isPub) {
-		crtn = RSAPublicKeyDecode(rsaKey,
-			cssmKey.KeyData.Data, 
-			cssmKey.KeyData.Length);
+		crtn = RSAPublicKeyDecode(rsaKey, hdr->Format,
+			cssmKey.KeyData.Data, cssmKey.KeyData.Length);
 	}
 	else {
-		crtn = RSAPrivateKeyDecode(rsaKey, 
-			cssmKey.KeyData.Data, 
-			cssmKey.KeyData.Length);
+		crtn = RSAPrivateKeyDecode(rsaKey, hdr->Format,
+			cssmKey.KeyData.Data, cssmKey.KeyData.Length);
 	}
 	if(crtn) {
 		CssmError::throwMe(crtn);
 	}
 	return rsaKey;
+}
+
+/*
+ * Given a partially formed DSA public key (with no p, q, or g) and a 
+ * CssmKey representing a supposedly fully-formed DSA key, populate
+ * the public key's p, g, and q with values from the fully formed key.
+ */
+CSSM_RETURN dsaGetParamsFromKey(
+	DSA 			*partialKey,
+	const CssmKey	&paramKey,
+	AppleCSPSession	&session)
+{
+	bool allocdKey;
+	DSA *dsaParamKey = cssmKeyToDsa(paramKey, session, allocdKey);
+	if(dsaParamKey == NULL) {
+		errorLog0("dsaGetParamsFromKey: bad paramKey\n");
+		return CSSMERR_CSP_APPLE_PUBLIC_KEY_INCOMPLETE;
+	}
+	CSSM_RETURN crtn = CSSM_OK;
+	
+	/* require fully formed other key of course... */
+	if((dsaParamKey->p == NULL) ||
+	   (dsaParamKey->q == NULL) ||
+	   (dsaParamKey->g == NULL)) {
+		errorLog0("dsaGetParamsFromKey: incomplete paramKey\n");
+		crtn = CSSMERR_CSP_APPLE_PUBLIC_KEY_INCOMPLETE;
+		goto abort;
+	}
+	rsaMiscDebug("dsaGetParamsFromKey: partialKey %p paramKey %p",
+		partialKey, dsaParamKey);
+		
+	partialKey->q = BN_dup(dsaParamKey->q);
+	partialKey->p = BN_dup(dsaParamKey->p);
+	partialKey->g = BN_dup(dsaParamKey->g);
+	
+abort:
+	if(allocdKey) {
+		DSA_free(dsaParamKey);
+	}
+	return crtn;
 }
 
 /* 
@@ -179,8 +233,62 @@ DSA *contextToDsaKey(
 		CssmError::throwMe(CSSMERR_CSP_INVALID_KEY_CLASS);
 	}
 	cspValidateIntendedKeyUsage(&hdr, usage);
-	return cssmKeyToDsa(cssmKey, session, mallocdKey);
+	cspVerifyKeyTimes(hdr);
+	DSA *rtnDsa = cssmKeyToDsa(cssmKey, session, mallocdKey);
+	if((keyClass == CSSM_KEYCLASS_PUBLIC_KEY) &&
+			(rtnDsa->p == NULL)) {
+		/*
+		 * Special case: this specific key is only partially formed;
+		 * it's missing the DSA parameters p, g, and q. To proceed with this
+		 * key, the caller must pass in another fully formned DSA public key
+		 * in raw form in the context. If it's there we use those parameters.
+		 */
+		rsaMiscDebug("contextToDsaKey; partial DSA key %p", rtnDsa);
+		CssmKey *paramKey = context.get<CssmKey>(CSSM_ATTRIBUTE_PARAM_KEY);
+		if(paramKey == NULL) {
+			rsaMiscDebug("contextToDsaKey: missing DSA params, no pub key in "
+				"context");
+			if(mallocdKey) {
+				DSA_free(rtnDsa);
+				mallocdKey = false;
+			}
+			CssmError::throwMe(CSSMERR_CSP_APPLE_PUBLIC_KEY_INCOMPLETE);
+		}
+		
+		/* 
+		 * If this is a ref key, we have to cook up a new DSA key to 
+		 * avoid modifying the existing key. If we started with a raw key,
+		 * we can modify it directly since the underlying DSA key has
+		 * a lifetime only as long as this context (and since the context
+		 * contains the parameter-bearing key, the params are valid 
+		 * as long as the DSA key).
+		 */
+		if(!mallocdKey) {
+			DSA *existKey = rtnDsa;
+			rtnDsa = DSA_new();
+			if(rtnDsa == NULL) {
+				CssmError::throwMe(CSSMERR_CSP_MEMORY_ERROR);	
+			}
+			rtnDsa->pub_key = BN_dup(existKey->pub_key);
+			rsaMiscDebug("contextToDsaKey; temp partial copy %p", rtnDsa);
+			mallocdKey = true;
+		}
+		
+		/*
+		 * Add params from paramKey into rtnDsa
+		 */
+		CSSM_RETURN crtn = dsaGetParamsFromKey(rtnDsa, *paramKey, session);
+		if(crtn) {
+			if(mallocdKey) {
+				DSA_free(rtnDsa);
+				mallocdKey = false;
+			}
+			CssmError::throwMe(crtn);
+		}
+	}
+	return rtnDsa;
 }
+
 /* 
  * Convert a CssmKey to an DSA * key. May result in the creation of a new
  * DSA (when cssmKey is a raw key); allocdKey is true in that case
@@ -201,7 +309,7 @@ DSA *cssmKeyToDsa(
 	}
 	switch(hdr->BlobType) {
 		case CSSM_KEYBLOB_RAW:
-			dsaKey = rawCssmKeyToDsa(cssmKey);
+			dsaKey = rawCssmKeyToDsa(cssmKey, session, NULL);
 			allocdKey = true;
 			break;
 		case CSSM_KEYBLOB_REFERENCE:
@@ -228,7 +336,9 @@ DSA *cssmKeyToDsa(
  * Convert a raw CssmKey to a newly alloc'd DSA key.
  */
 DSA *rawCssmKeyToDsa(
-	const CssmKey	&cssmKey)
+	const CssmKey	&cssmKey,
+	AppleCSPSession	&session,
+	const CssmKey	*paramKey)		// optional
 {
 	const CSSM_KEYHEADER *hdr = &cssmKey.KeyHeader;
 	bool isPub;
@@ -239,16 +349,32 @@ DSA *rawCssmKeyToDsa(
 		// someone else's key (should never happen)
 		CssmError::throwMe(CSSMERR_CSP_INVALID_ALGORITHM);
 	}
+	/* validate and figure out what we're dealing with */
 	switch(hdr->KeyClass) {
 		case CSSM_KEYCLASS_PUBLIC_KEY:
-			if(hdr->Format != DSA_PUB_KEY_FORMAT) {
-				CssmError::throwMe(CSSMERR_CSP_INVALID_ATTR_PUBLIC_KEY_FORMAT);
+			switch(hdr->Format) {
+				case CSSM_KEYBLOB_RAW_FORMAT_FIPS186:	
+				case CSSM_KEYBLOB_RAW_FORMAT_X509:
+					break;
+				/* openssh real soon now */
+				case CSSM_KEYBLOB_RAW_FORMAT_OPENSSH:
+				default:
+					CssmError::throwMe(
+						CSSMERR_CSP_INVALID_ATTR_PUBLIC_KEY_FORMAT);
 			}
 			isPub = true;
 			break;
 		case CSSM_KEYCLASS_PRIVATE_KEY:
-			if(hdr->Format != DSA_PRIV_KEY_FORMAT) {
-				CssmError::throwMe(CSSMERR_CSP_INVALID_ATTR_PRIVATE_KEY_FORMAT);
+			switch(hdr->Format) {
+				case CSSM_KEYBLOB_RAW_FORMAT_FIPS186:	// default
+				case CSSM_KEYBLOB_RAW_FORMAT_OPENSSL:	// openssl style
+				case CSSM_KEYBLOB_RAW_FORMAT_PKCS8:		// SMIME style
+					break;
+				/* openssh real soon now */
+				case CSSM_KEYBLOB_RAW_FORMAT_OPENSSH:
+				default:
+					CssmError::throwMe(
+						CSSMERR_CSP_INVALID_ATTR_PRIVATE_KEY_FORMAT);
 			}
 			isPub = false;
 			break;
@@ -262,17 +388,67 @@ DSA *rawCssmKeyToDsa(
 	}
 	CSSM_RETURN crtn;
 	if(isPub) {
-		crtn = DSAPublicKeyDecode(dsaKey,
+		crtn = DSAPublicKeyDecode(dsaKey, hdr->Format,
 			cssmKey.KeyData.Data, 
 			cssmKey.KeyData.Length);
 	}
 	else {
-		crtn = DSAPrivateKeyDecode(dsaKey,
+		crtn = DSAPrivateKeyDecode(dsaKey, hdr->Format,
 			cssmKey.KeyData.Data, 
 			cssmKey.KeyData.Length);
 	}
 	if(crtn) {
 		CssmError::throwMe(crtn);
 	}
+	
+	/* 
+	 * Add in optional external parameters if this is not fully formed.
+	 * This path is only taken from DSAKeyInfoProvider::CssmKeyToBinary,
+	 * e.g., when doing a NULL unwrap of a partially formed DSA public 
+	 * key with the "complete the key with these params" option.
+	 */
+	if(isPub && (dsaKey->p == NULL) && (paramKey != NULL)) {
+		rsaMiscDebug("rawCssmKeyToDsa; updating dsaKey %p", dsaKey);
+		crtn = dsaGetParamsFromKey(dsaKey, *paramKey, session);
+		if(crtn) {
+			DSA_free(dsaKey);
+			CssmError::throwMe(crtn);
+		}
+	}
 	return dsaKey;
+}
+
+/*
+ * Given a DSA private key, calculate its public component if it 
+ * doesn't already exist. Used for calculating the key digest of 
+ * an incoming raw private key.
+ */
+void dsaKeyPrivToPub(
+	DSA *dsaKey)
+{
+	assert(dsaKey != NULL);
+	assert(dsaKey->priv_key != NULL);
+	
+	if(dsaKey->pub_key != NULL) {
+		return;
+	}
+
+	/* logic copied from DSA_generate_key() */
+	dsaKey->pub_key = BN_new();
+	if(dsaKey->pub_key == NULL) {
+		CssmError::throwMe(CSSMERR_CSP_MEMORY_ERROR);
+	}
+	BN_CTX *ctx = BN_CTX_new();
+	if (ctx == NULL) {
+		CssmError::throwMe(CSSMERR_CSP_MEMORY_ERROR);
+	}
+	int rtn = BN_mod_exp(dsaKey->pub_key,
+		dsaKey->g,
+		dsaKey->priv_key,
+		dsaKey->p,
+		ctx);
+	BN_CTX_free(ctx);
+	if(rtn == 0) {
+		CssmError::throwMe(CSSMERR_CSP_INTERNAL_ERROR);
+	}
 }

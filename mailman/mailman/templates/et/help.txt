@@ -1,0 +1,33 @@
+%(listname)s abiinfo.
+
+Mõningaid listserveri Mailman %(version)s" võimalusi saab kasutada ka
+meili teel, saates listserverile vastavalt allpool toodud reeglitele
+formuleeritud korraldusi. Korraldus võib olla kirja teema real või
+kirja sisus.
+
+Kõiki neid tegevusi saab teha ka läbi veebibrauseri, aadressil:
+
+    %(listinfo_url)s
+
+näiteks saate ülaltoodud aadressilt lasta saata endale oma parooli,
+juhul kui olete selle unustanud.
+
+Listidega seotud korraldused (subscribe, who, jne) tuleb saata
+vastava listi *-request aadressile, näiteks 'mailman' nimelise
+listi jaoks mõeldud korraldused saatke aadressile
+'mailman-request@...'.
+
+Legend:
+Nurksulgudega "<>" ümbritsetud elemendid on kohustuslikud.
+Kandiliste sulgudega "[]" ümbritsetud elemendid ei ole kohustuslikud.
+Sulge endid tohi käskudes kasutada.
+
+Sul on kasutada järgnevad korraldused:
+
+	%(commands)s
+
+Korraldused tuleb saata aadressile %(requestaddr)s
+
+Küsimused adresseerige listi haldurile aadressil
+
+    %(adminaddr)s

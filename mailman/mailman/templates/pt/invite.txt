@@ -1,0 +1,19 @@
+O seu endereço "%(email)s" foi convidado a participar na lista de 
+discussão %(listname)s em %(hostname)s pelo dono da %(listname)s.
+Pode aceitar este convite respondendo a esta mensagem, desde que deixe
+o campo Assunto: intacto.
+
+Pode também visitar a página na Web:
+
+    %(confirmurl)s
+
+Ou pode incluir, única e somente, a seguinte linha, numa mensagem para
+%(requestaddr)s:
+
+    confirm %(cookie)s
+
+Note que, para a maior parte dos programas de correio, um simples
+"reply" bastará.
+
+Se quiser recusar o convite basta-lhe ignorar esta mensagem. Se tiver
+questões mande-as, por favor, para %(listowner)s.

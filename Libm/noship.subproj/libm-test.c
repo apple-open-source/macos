@@ -4019,7 +4019,7 @@ sinh_test (void)
   check_float ("sinh (NaN) == NaN",  FUNC(sinh) (nan_value), nan_value, 0, 0, 0);
 
   check_float ("sinh (0.7) == 0.75858370183953350346",  FUNC(sinh) (0.7L), 0.75858370183953350346L, DELTA1548, 0, 0);
-#if __i386__ /* XXX scp XXX */
+#if 0  /* XXX scp XXX */
   check_float ("sinh (0x8p-32) == 1.86264514923095703232705808926175479e-9",  FUNC(sinh) (0x8p-32L), 1.86264514923095703232705808926175479e-9L, 0, 0, 0);
 #endif
 
@@ -4517,9 +4517,7 @@ main (int argc, char **argv)
   logb_test ();
   modf_test ();
   ilogb_test ();
-#if 0 /* XXX scp XXX */
   scalb_test ();
-#endif
   scalbn_test ();
   scalbln_test ();
 

@@ -29,7 +29,7 @@
  * OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
  * SUCH DAMAGE.
  *
- * $Id: nls.c,v 1.7 2002/05/14 22:20:06 lindak Exp $
+ * $Id: nls.c,v 1.8 2003/05/06 21:54:48 lindak Exp $
  */
 
 #include <sys/types.h>
@@ -75,7 +75,7 @@ nls_setlocale(const char *name)
 	if (setlocale(LC_CTYPE, name) == NULL) {
 		warnx("can't set locale '%s'\n", name);
 #ifndef APPLE
-#warning XXX setlocale broken - Radar 2705694
+		/* XXX setlocale broken - Radar 2705694 */
 		return EINVAL;
 #endif
 	}
@@ -90,6 +90,7 @@ int
 nls_setrecode(const char *local, const char *external)
 {
 #ifdef APPLE
+	#pragma unused(local, external)
 	return ENOENT;
 #else
 	iconv_t icd;

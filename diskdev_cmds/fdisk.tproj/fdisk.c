@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1999 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 2002 Apple Computer, Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -22,1492 +22,258 @@
  * 
  * @APPLE_LICENSE_HEADER_END@
  */
-// fdisk.c
-// divide a disk into DOS partitions
-// created Mar 18, 1993 by sam streeper (sam)
-// updated Feb 18, 1999 by dan markarian (markaria)
-//   DKIOCINFO deprecated; using DKIOCBLKSIZE for device block size instead.
 
 
-#define DRIVER_PRIVATE
+/*
+ * Copyright (c) 1997 Tobias Weingartner
+ * All rights reserved.
+ *
+ * Redistribution and use in source and binary forms, with or without
+ * modification, are permitted provided that the following conditions
+ * are met:
+ * 1. Redistributions of source code must retain the above copyright
+ *    notice, this list of conditions and the following disclaimer.
+ * 2. Redistributions in binary form must reproduce the above copyright
+ *    notice, this list of conditions and the following disclaimer in the
+ *    documentation and/or other materials provided with the distribution.
+ * 3. All advertising materials mentioning features or use of this software
+ *    must display the following acknowledgement:
+ *    This product includes software developed by Tobias Weingartner.
+ * 4. The name of the author may not be used to endorse or promote products
+ *    derived from this software without specific prior written permission.
+ *
+ * THIS SOFTWARE IS PROVIDED BY THE AUTHOR ``AS IS'' AND ANY EXPRESS OR
+ * IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES
+ * OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED.
+ * IN NO EVENT SHALL THE AUTHOR BE LIABLE FOR ANY DIRECT, INDIRECT,
+ * INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT
+ * NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE,
+ * DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY
+ * THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
+ * (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF
+ * THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+ */
 
-#include <IOKit/storage/IOFDiskPartitionScheme.h>
-#include <dev/disk.h>
-#include <sys/fcntl.h>
-#include <sys/file.h>
+#include <err.h>
+#include <stdio.h>
 #include <stdlib.h>
-#include <strings.h>
-#include <stdio.h>
+#include <string.h>
 #include <unistd.h>
-#include <stdio.h>
-#include <machine/byte_order.h>
-#include <machdep/i386/kernBootStruct.h>
-#include <ctype.h>
-#include <sys/stat.h>
-#include <errno.h>
+#include <paths.h>
+#include <sys/types.h>
+#include <sys/fcntl.h>
+#include <sys/disklabel.h>
+#include "disk.h"
+#include "user.h"
+#include "auto.h"
 
-
-int devblklen;
-int fd;
-int devNumBlks;
-int diskSize;
-int done;
-int interactive = 1;
-int useAllSectors;
-int useBoot0;
-int bootsectorOnly;
-int megsForDos;
-char *deviceName = "none";
-char *boot0file = "/usr/standalone/i386/boot0";
-
-KERNBOOTSTRUCT kernbootstruct;
-struct disk_blk0 bootsector;
-int heads, spt, spc, cylinders;
-
-#define NODES 10
-
-#define TYPE_APPLE_BOOT 0xab
-#define TYPE_APPLE_UFS  0xa8
-
-#define HEAD(val) (((val) % spc) / spt)
-#define SECT(val) (((val % spt) + 1) | ((((val) / spc) >> 2) & 0xC0))
-#define CYL(val) (((val) / spc) & 0xFF)
-
-typedef struct {
-	int start;
-	int size;
-	unsigned char active;
-	unsigned char ident;
-	int newPart;
-	} block_info;
-
-block_info zalloced[NODES];
-block_info zavailable[NODES];
-short availableNodes, allocedNodes;
-
-
-void		activateUFS();
-void		activateBooter();
-int	 	blk2meg(int x);
-void		cls();
-void		create_partition();
-void		delete_partition();
-void		eatkeys();
-void		examineArgs(int argc, char *argv[]);
-void 		doActionOrInquiry();
-int 		diskPartitioned();
-unsigned char 	getSysId();
-int		idExists(int val);
-int		indexOfActive();
-void 		iprintf();
-void		main_prompt();
-int		maxFreeBlocks();
-void 		readPartitionTable();
-int		save_changes();
-void		select_active_partition();
-void		showDiskUsage(int enumerateEntries);
-void		showDiskInfo();
-int		zalloc(int size, unsigned char ident);
-void	 	zallocate(int start, int size, unsigned char ident, 
-			  unsigned char active, int newPart);
-int	 	zappropriateFromFree(int start, int size);
-void		zcoalesce();
-void		zdelete(block_info *zp, int ndx);
-void	 	zinit(int size);
-void		zinsert(block_info *zp, int ndx);
-int		zfree(int start);
+#define _PATH_MBR "/usr/standalone/i386/boot0"
 
 void
 usage()
 {
-	fprintf(stderr, "usage: fdisk <raw-device> [inquiry] [action] [flags]\n");
-	fprintf(stderr, "raw-device is /dev/rdisk0 for whole disk\n");
-	fprintf(stderr, "There can be no more than one inquiry or action; if none\n");
-	fprintf(stderr, "is requested, fdisk is run in interactive mode.\n");
-	fprintf(stderr, "--------  Inquiries  --------\n");
-	fprintf(stderr, 
-	"-isDiskPartitioned\n"
-//	"-isThereExtendedPartition\n"
-	"-isThereUFSPartition\n");
-	fprintf(stderr, 
-	"-freeSpace		(megabytes available)\n"
-	"-freeWithoutUFS	(megs available if UFS partition deleted)\n"
-	"-freeWithoutUFSorExt	(megs available if UFS and extended deleted)\n"
-	"-sizeofExtended\n");
-	fprintf(stderr, 
-	"-diskSize\n"
-	"-installSize\n");
-
-	fprintf(stderr, "--------  Actions  --------\n");
-	fprintf(stderr, 
-	"-removePartitioning		(zero out bootsector)\n"
-	"-bootPlusUFS                   (repartition entire disk for booter plus UFS)\n"
-	"-dosPlusUFS <megsForDos>	(repartition entire disk for DOS plus UFS)\n"
-	"-setAvailableToUFS		(reserve all free space for UFS)\n");
-
-	fprintf(stderr, 
-//	"-setExtAndAvailableToUFS	(delete current extended partition, then\n"
-//	"				 reserve all free space for UFS)\n"
-	"-setExtendedToUFS		(Change extended partition to UFS)\n"
-	"-setUFSActive			(Make the UFS partition active)\n"
-        "-script			(Read partition entries from stdin)\n");
-
-        fprintf(stderr, "--------  Flags  --------\n");
-	fprintf(stderr,
-        "-useAllSectors		(don't limit disk to bios accessible sectors)\n"
-	"-useBoot0		(use /usr/standalone/i386/boot0 as the boot program)\n");
-	fprintf(stderr, 
-	"-bootsectorOnly		(modify only the bootsector)\n");
-
-        fprintf(stderr, "--------  Arguments  --------\n");
-        fprintf(stderr,
-        "-heads <n>    		(force number of heads for disk geometry)\n"
-        "-cylinders <n>		(force number of cylinders for disk geometry)\n"
-        "-sectors <n>  		(force number of sectors per track for disk geometry)\n"
-        "-boot0 <file> 		(file to use for boot0)\n");
-	exit(-1);
+	extern char * __progname;
+	fprintf(stderr, "usage: %s "
+	    "[-ieu] [-f mbrboot] [-c cyl -h head -s sect] [-S size] [-r] [-a style] disk\n"
+	    "\t-i: initialize disk with new MBR\n"
+	    "\t-u: update MBR code, preserve partition table\n"
+	    "\t-e: edit MBRs on disk interactively\n"
+	    "\t-f: specify non-standard MBR template\n"
+	    "\t-chs: specify disk geometry\n"
+	    "\t-S: specify disk size\n"
+	    "\t-r: read partition specs from stdin (implies -i)\n"
+	    "\t-a: auto-partition with the given style\n"
+	    "\t-d: dump partition table\n"
+	    "\t-y: don't ask any questions\n"
+	    "\t-t: test if disk is partitioned\n"
+	    "`disk' is of the form /dev/rdisk0.\n",
+	    __progname);
+	fprintf(stderr, "auto-partition styles:\n");
+	AUTO_print_styles(stderr);
+	exit(1);
 }
 
-void
-bomb(s1, a1, a2)
-	char *s1;
-	char *a1;
-        char *a2;
-{
-	fprintf(stderr,s1,a1,a2);
-	exit(-1);
-}
-
-void
-swap_bootsector_in(struct disk_blk0 *bs)
-{
-    int i;
-    for (i=0; i<DISK_NPART; i++)
-    {
-        bs->parts[i].relsect = NXSwapLittleLongToHost(bs->parts[i].relsect);
-        bs->parts[i].numsect = NXSwapLittleLongToHost(bs->parts[i].numsect);
-    }
-    bs->signature = NXSwapLittleShortToHost(bs->signature);
-}
-
-void
-swap_bootsector_out(struct disk_blk0 *bs)
-{
-    int i;
-    for (i=0; i<DISK_NPART; i++)
-    {
-        bs->parts[i].relsect = NXSwapHostLongToLittle(bs->parts[i].relsect);
-        bs->parts[i].numsect = NXSwapHostLongToLittle(bs->parts[i].numsect);
-    }
-    bs->signature = NXSwapHostShortToLittle(bs->signature);
-}
-
-
-static char *devs[1] = {
-	"/dev/rdisk0"
-	};
-
+char *mbr_binary = NULL;
 int
-main(int argc, char *argv[])
+main(argc, argv)
+	int argc;
+	char **argv;
 {
-	int kmfd, tfd;
-	int diskInfo, ndx = 0;
-	int i;
-	char *cp = argv[1];
-        int is_raw_disk = 0;
-        struct stat sb;
-
-	if (argc < 2)
-	{
-		for (i=0; i<1; i++)
-		{
-			cp = devs[i];
-			if ((fd = open (cp, O_RDWR)) >= 0)
-			{
-				close(fd);
-				goto fbegin;
-			}
-		}
-		bomb("fdisk: unable to access IDE or SCSI drive\n"
-			"    (Must be run as root)\n");
-	}
-
-        if (stat(cp, &sb) != 0)
-        {
-            bomb("fdisk: unable to stat %s: %s\n", cp, strerror(errno));
-        }
-
-        if ((sb.st_mode & S_IFCHR) != 0)
-        {
-            is_raw_disk = 1;
-        }
-
-fbegin:
-	deviceName = cp;
-
-	examineArgs(argc, argv);
-
-	iprintf("fdisk v1.02\n");
-
-	if ((fd = open (cp, O_RDWR)) < 0)
-	{
-		bomb("fdisk: unable to open %s\n",cp);
-	}
-
-        if (is_raw_disk)
-        {
-
-            if (ioctl (fd, DKIOCBLKSIZE, &devblklen) < 0)
-            {
-                bomb("fdisk: unable to get disk block size\n");
-            }
-
-            if (devblklen != 512)
-            {
-                bomb("fdisk: DOS partitioning requires 512 byte block size\n");
-            }
-
-            if ((kmfd = open ("/dev/kmem", O_RDONLY)) < 0)
-            {
-                bomb("fdisk: can't get kernel boot structure\n");
-            }
-
-            lseek(kmfd, (off_t)KERNSTRUCT_ADDR, L_SET);
-            read(kmfd, &kernbootstruct, sizeof(KERNBOOTSTRUCT)-CONFIG_SIZE);
-            if (kernbootstruct.magicCookie != KERNBOOTMAGIC)
-            {
-                bomb("fdisk: kernbootstruct invalid\n");
-            }
-
-            ndx += cp[10] - '0';
-            if (ndx < 0 || ndx > 3)
-            {
-                bomb("fdisk: no bios info for this device\n");
-            }
-
-            diskInfo = kernbootstruct.diskInfo[ndx];
-            heads = ((diskInfo >> 8) & 0xff) + 1;
-            spt = diskInfo & 0xff;
-            spc = spt * heads;
-            cylinders = (diskInfo >> 16) + 1;
-
-            if (ioctl(fd, DKIOCNUMBLKS, &devNumBlks) < 0)
-            {
-                    bomb("fdisk: no bios info for this device\n");
-            }
-
-        }
-        else
-        {
-            devblklen = 512;
-            
-            if (heads <= 0 || spt <= 0 || cylinders <= 0)
-            {
-                bomb("Must specify heads, sectors, cylinders\n");
-            }
-            spc = spt * heads;
-
-            devNumBlks = sb.st_size / devblklen;
-        }
-
-	if (heads == 1 || spt == 0)
-	{
-		bomb("fdisk: Bogus disk information in BIOS.\n"
-		    "    You probably need to check your SCSI or IDE card setup to make\n"
-		    "    sure that the BIOS is enabled.  If the BIOS is disabled,\n"
-		    "    UFS will be unable to get proper disk information.\n");
-	}
-
-	// read the current bootsector
-	read(fd, &bootsector, sizeof(struct disk_blk0));
-        swap_bootsector_in(&bootsector);
-
-	// if no signature, we'll read in boot0 to use as the boot code
-	if (NXSwapLittleShortToHost(bootsector.signature) != DISK_SIGNATURE || useBoot0 || (!diskPartitioned()))
-	{
-		if ((tfd = open (boot0file, O_RDONLY)) < 0)
-		{
-			bomb("fdisk: can't read %s\n",boot0file);
-		}
-
-		if (bootsector.signature == DISK_SIGNATURE && diskPartitioned())
-		{
-			read(tfd, &bootsector, DISK_BOOTSZ);
-		}
-		else
-		{
-			read(tfd, &bootsector, DISK_BLK0SZ);
-		}
-
-		close(tfd);
-		bootsector.signature = DISK_SIGNATURE;
-	}
-
-	if ((cylinders * spc) > devNumBlks)
-	{
-		fprintf(stderr, "fdisk: bios reports more sectors (%d) than device (%d)\n",
-			(cylinders * spc), devNumBlks);
-		exit(-1);
-	}
-
-	if (useAllSectors) diskSize = devNumBlks;
-	else diskSize = (cylinders * spc);
-
-	// initialize allocator
-	zinit(diskSize);
-	readPartitionTable();
-
-	if (!interactive)
-	{
-		doActionOrInquiry();
-		exit(0);
-	}
-
-	do
-	{
-		main_prompt();
-	}
-	while (!done);
-
-	exit(0);
-}
-
-void
-main_prompt()
-{
-	int choice;
-
-	printf("\nDevice: %s\n", deviceName);
-
-	showDiskUsage(0);
-
-	printf("\nFdisk main menu\n");
-	printf(  "----------------\n");
-	printf("1) Create a new partition\n");
-	printf("2) Delete a partition\n");
-	printf("3) Set the active partition\n");
-	printf("4) Show disk information\n");
-	printf("5) Quit without saving changes\n");
-	printf("6) Save changes and quit\n\n");
-	printf("Enter 1-6: "); fflush(stdout);
-
-	choice = -1;
-	scanf("%d",&choice);
-	switch(choice)
-	{
-	case 1:
-		create_partition();
-		break;
-	case 2:
-		delete_partition();
-		break;
-	case 3:
-		select_active_partition();
-		break;
-	case 4:
-		showDiskInfo();
-		break;
-	case 5:
-		done = 1;
-		break;
-	case 6:
-		if (save_changes() == 0) done = 1;
-		break;
-	default:
-		printf("Invalid selection\n");
-		sleep(1);
-		break;
-	}
-
-	if (!done)
-	{
-		eatkeys();
-		cls();
-	}
-}
-
-void
-showDiskInfo()
-{
-	int i;
-	struct fdisk_part *fp;
-
-	cls();
-	printf("Partition Table\n");
-	printf("----------------\n");
-	printf("  Act  H  S Cyl   Id   H  S Cyl     Begin      Size\n");
-	printf("  ---  -  - ---   --   -  - ---     -----      ----\n");
-
-	for (i=0; i<4; i++)
-	{
-		fp = &bootsector.parts[i];
-		printf("  %2x  %2x %2x %3x   ", fp->bootid, fp->beghead, fp->begsect & 0x3f,
-			((unsigned)fp->begcyl | (((unsigned)fp->begsect & 0xc0) << 2)));
-		printf("%2x  %2x %2x %3x  ", fp->systid, fp->endhead, fp->endsect & 0x3f,
-			((unsigned)fp->endcyl | (((unsigned)fp->endsect & 0xc0) << 2)));
-		printf("%8lx  %8lx\n",fp->relsect, fp->numsect);
-	}
-	
-	printf("\n\nDisk Information\n");
-	printf(  "-----------------\n");
-	printf("Disk statistics according to device driver and bios:\n");
-	printf("    device: %d Megabytes, %d sectors\n", blk2meg(devNumBlks), devNumBlks);
-	printf("    bios:   %d Megabytes, %d sectors\n", 
-		blk2meg(cylinders * spc), (cylinders * spc));
-	printf("        cylinders = %d, heads = %d, sectors/track = %d\n", 
-		cylinders, heads, spt);
-
-	printf("\nPress Return to continue\n");
-	eatkeys();
-	getchar();
-}
-
-int
-maxFreeBlocks()
-{
-	int maxBlockSize = 0, i;
-	if (allocedNodes >= 4 || availableNodes == 0) return 0;
-
-	for (i=0; i<availableNodes; i++)
-	{
-		block_info * bp = &zavailable[i];
-		if (bp->size > maxBlockSize) maxBlockSize = bp->size;
-	}
-
-	return maxBlockSize;
-}
-
-void
-create_partition()
-{
-	int maxBlockSize, choice;
-	int requestedMeg, desiredSize, i;
-	unsigned char sysId;
-
-	if (allocedNodes >= 4)
-	{
-		printf("This disk already has 4 partitions.  No more are allowed.\n");
-		sleep(2);
-		return;
-	}
-
-	if (availableNodes == 0)
-	{
-		printf("This disk has no available space.\n");
-		sleep(2);
-		return;
-	}
-
-	cls();
-	printf("Create Partition\n");
-	printf("-----------------\n");
-	printf("1) Create an Apple UFS partition\n");
-	printf("2) Create an Apple Booter partition\n");
-	printf("3) Create a non-UFS partition\n");
-	printf("\nEnter 1, 2, or 3: "); fflush(stdout);
-
-	choice = -1;
-	scanf("%d",&choice);
-	switch(choice)
-	{
-	case 1:
-		sysId = TYPE_APPLE_UFS;
-		break;
-	case 2:
-		sysId = TYPE_APPLE_BOOT;
-		break;
-	case 3:
-		sysId = getSysId();
-		break;
-	default:
-		sysId = 0;
-		break;
-	}
-
-	if (sysId == TYPE_APPLE_UFS && idExists(TYPE_APPLE_UFS))
-	{
-		printf("There can be only one UFS partition.\n");
-		sleep(2);
-		return;
-	}
-
-	if (sysId == 0) return;
-
-	eatkeys();
-
-	maxBlockSize = maxFreeBlocks();
-
-	printf("\nThe maximum available size for a new partition\nis %d megabytes.\n",
-		blk2meg(maxBlockSize));
-	printf("Enter the desired size, or 0 to cancel: "); fflush(stdout);
-	requestedMeg = 0;
-	scanf("%d", &requestedMeg);
-	
-	eatkeys();
-
-	if (requestedMeg <= 0) return;
-	desiredSize = requestedMeg * 2048;
-
-	i = zalloc(desiredSize, sysId);
-
-	if (i < 0)
-	{
-		printf("Unable to allocate such a partition\n");
-		sleep(2);
-		return;
-	}
-
-	if ((sysId == TYPE_APPLE_BOOT) && (indexOfActive() == 0)) activateBooter();
-}
-
-void
-delete_partition()
-{
-	int choice;
-
-	if (allocedNodes == 0)
-	{
-		printf("No partitions to delete\n");
-		sleep(1);
-		return;
-	}
-
-	cls();
-	showDiskUsage(1);
-	printf("\nDelete Partition\n");
-	printf(  "-----------------\n");
-	printf("Enter partition to delete, or 0 to do nothing: "); fflush(stdout);
-	choice = 0;
-	scanf("%d",&choice);
-
-	if (choice >=1 && choice <= allocedNodes)
-	{
-		zfree(zalloced[choice-1].start);
-	}
-}
-
-int
-save_changes()
-{
-	struct fdisk_part *fp;
-	block_info *bip;
-	int i;
-	char c;
-
-	if (interactive)
-	{
-		eatkeys();
-		printf("Really write changes? "); fflush(stdout);
-		scanf("%c",&c);
-		if ((c | 0x20) != 'y') return -1;
-
-		printf("Saving changes\n");
-	}
-
-	for (i=0; i<allocedNodes; i++)
-	{
-		int last;
-		fp = &bootsector.parts[i];
-		bip = &zalloced[i];
-		last = bip->start + bip->size - 1;
-		fp->bootid = bip->active;
-		fp->beghead = HEAD(bip->start);
-		fp->begsect = SECT(bip->start);
-		fp->begcyl = CYL(bip->start);
-		fp->systid = bip->ident;
-		fp->endhead = HEAD(last);
-		fp->endsect = SECT(last);
-		fp->endcyl = CYL(last);
-		fp->relsect = bip->start;
-		fp->numsect = bip->size;
-	}
-
-	for (i=allocedNodes; i<4; i++)
-	{
-		int j;
-		char *cp = (char *)&bootsector.parts[i];
-		for (j=0; j<16; j++) *cp++ = 0;
-	}
-
-	// write bootsector
-	lseek(fd, 0, L_SET);
-        swap_bootsector_out(&bootsector);
-	write(fd, &bootsector, sizeof(struct disk_blk0));
-
-	if (!bootsectorOnly)
-	{
-		// trash the first sector of the newly created partitions
-		bzero((char *)&bootsector, sizeof(struct disk_blk0));
-		for (i=0; i<allocedNodes; i++)
-		{
-			bip = &zalloced[i];
-			if (bip->newPart)
-			{
-				lseek(fd, (off_t)(bip->start * 512), L_SET);
-				write(fd, &bootsector, sizeof(struct disk_blk0));
-			}
-		}
-	}
-
-	return 0;
-}
-
-void
-readPartitionTable()
-{
-	struct fdisk_part *fp;
-	int i;
-	for (i=0; i<4; i++)
-	{
-		fp = &bootsector.parts[i];
-
-		// if the partition table entry is in use and we can remove its blocks
-		// from the free list, add the partition to the allocated list
-
-		if (fp->systid && zappropriateFromFree(fp->relsect, fp->numsect))
-		{
-			zallocate(fp->relsect, fp->numsect, fp->systid, fp->bootid, 0);
-		}
-	}
-}
-
-//---------------- begin allocation code -----------------
-// sam's simple allocator
-
-
-int
-evenCyl(int sector)
-{
-	return (sector/spc)*spc;
-}
-
-// define the blocks that the allocator will use
-void
-zinit(int size)
-{
-	zavailable[0].start = spt;
-	zavailable[0].size = evenCyl(size) - spt;
-	availableNodes = 1;
-	allocedNodes = 0;
-}
-
-int
-zalloc(int size, unsigned char ident)
-{
-	int i;
-	int ret = -1;
-	int tsize;
-
-	if (allocedNodes >= NODES) return ret;
-
-	for (i=0; i<availableNodes; i++)
-	{
-		// make this size request end on a cylinder boundary
-		tsize = evenCyl(zavailable[i].start + size) - zavailable[i].start;
-
-		// if we didn't request any space or the request wouldn't be
-		// within 300K of desired size, rount up to nearest cyl
-		if ((tsize <= 0) || ((size-tsize) > 600)) tsize += spc;
-
-		// uses first possible node, doesn't try to find best fit
-		if (zavailable[i].size == tsize)
-		{
-			zallocate(ret = zavailable[i].start, tsize, ident, 0, 1);
-			zdelete(zavailable, i); availableNodes--;
+	int ch, fd;
+	int i_flag = 0, m_flag = 0, u_flag = 0, r_flag = 0, d_flag = 0, y_flag = 0, t_flag = 0;
+	int c_arg = 0, h_arg = 0, s_arg = 0;
+	int size_arg = 0;
+	disk_t disk;
+	DISK_metrics *usermetrics;
+	char *mbrfile = _PATH_MBR;
+	mbr_t *mp;
+	char *auto_style = NULL;
+
+	while ((ch = getopt(argc, argv, "ieuf:c:h:s:S:ra:dyt")) != -1) {
+		switch(ch) {
+		case 'i':
+			i_flag = 1;
 			break;
-		}
-		else if (zavailable[i].size > tsize)
-		{
-			zallocate(ret = zavailable[i].start, tsize, ident, 0, 1);
-			zavailable[i].start += tsize;
-			zavailable[i].size -= tsize;
+		case 'u':
+			u_flag = 1;
 			break;
-		}
-	}
-
-	return ret;
-}
-
-int zappropriateFromFree(int start, int size)
-{
-	int i;
-
-	for (i=0; i<availableNodes; i++)
-	{
-		int end;
-
-		if (zavailable[i].start == start)
-		{
-			if (zavailable[i].size == size)
-			{
-				zdelete(zavailable, i); availableNodes--;
-				return 1;
-			}
-			if (zavailable[i].size > size)
-			{
-				zavailable[i].start += size;
-				zavailable[i].size -= size;
-				return 1;
-			}
-			return 0;
-		}
-
-		end = zavailable[i].start + zavailable[i].size;
-		if ((start > zavailable[i].start) && ((start+size) <= end))
-		{
-			if ((start+size) == end)
-			{
-				zavailable[i].size -= size;
-				return 1;
-			}
-
-			// else we must split the available block
-			zinsert(zavailable, i); availableNodes++;
-			zavailable[i].size = start - zavailable[i].start;
-			i++;
-			zavailable[i].start = (start+size);
-			zavailable[i].size = end - zavailable[i].start;
-
-			return 1;
-		}
-	}
-
-	return 0;
-}
-
-int
-zfree(int start)
-{
-	int i, tsize = 0, found = 0;
-
-	if (!start) return -1;
-
-	for (i=0; i<allocedNodes; i++)
-	{
-		if (zalloced[i].start == start)
-		{
-			tsize = zalloced[i].size;
-			zdelete(zalloced, i); allocedNodes--;
-			found = 1;
+		case 'e':
+			m_flag = 1;
 			break;
+		case 'f':
+			mbrfile = optarg;
+			break;
+		case 'c':
+			c_arg = atoi(optarg);
+			if (c_arg < 1 || c_arg > 262144)
+				errx(1, "Cylinder argument out of range.");
+			break;
+		case 'h':
+			h_arg = atoi(optarg);
+			if (h_arg < 1 || h_arg > 256)
+				errx(1, "Head argument out of range.");
+			break;
+		case 's':
+			s_arg = atoi(optarg);
+			if (s_arg < 1 || s_arg > 63)
+				errx(1, "Sector argument out of range.");
+			break;
+		case 'S':
+		        size_arg = atoi(optarg);
+			break;
+		case 'r':
+			r_flag = 1;
+			break;
+		case 'a':
+		        auto_style = optarg;
+			break;
+		case 'd':
+		        d_flag = 1;
+			break;
+		case 'y':
+		        y_flag = 1;
+			break;
+		case 't':
+		        t_flag = 1;
+			break;
+		default:
+			usage();
 		}
 	}
-	if (!found) return -1;
+	argc -= optind;
+	argv += optind;
 
-	for (i=0; i<availableNodes; i++)
-	{
-		if ((start+tsize) == zavailable[i].start)  // merge it in
-		{
-			zavailable[i].start = start;
-			zavailable[i].size += tsize;
-			zcoalesce();
-			return 0;
-		}
-
-		if (i>0 && (zavailable[i-1].start + zavailable[i-1].size == start))
-		{
-			zavailable[i-1].size += tsize;
-			zcoalesce();
-			return 0;
-		}
-
-		if ((start+tsize) < zavailable[i].start)
-		{
-			zinsert(zavailable, i); availableNodes++;
-			zavailable[i].start = start;
-			zavailable[i].size = tsize;
-			return 0;
-		}
-	}
-
-	zavailable[i].start = start;
-	zavailable[i].size = tsize;
-	availableNodes++;
-	zcoalesce();
-	return 0;
-}
-
-void
-zallocate(int start, int size, unsigned char ident, unsigned char active, 
-	      int newPart)
-{
-	int i;
-	for (i=0; i<allocedNodes; i++)
-	{
-		if (start < zalloced[i].start) break;
-	}
-	zinsert(zalloced, i);
-
-	zalloced[i].start = start;
-	zalloced[i].size = size;
-	zalloced[i].ident = ident;
-	zalloced[i].active = active;
-	zalloced[i].newPart = newPart;
-	allocedNodes++;
-}
-
-void
-zinsert(block_info *zp, int ndx)
-{
-	int i;
-	block_info *z1, *z2;
-
-	i=NODES-2;
-	z1 = zp + i;
-	z2 = z1+1;
-
-	for (; i>= ndx; i--, z1--, z2--)
-	{
-		*z2 = *z1;
-	}
-}
-
-void
-zdelete(block_info *zp, int ndx)
-{
-	int i;
-	block_info *z1, *z2;
-
-	z1 = zp + ndx;
-	z2 = z1+1;
-
-	for (i=ndx; i<NODES-1; i++, z1++, z2++)
-	{
-		*z1 = *z2;
-	}
-}
-
-void
-zcoalesce()
-{
-	int i;
-	for (i=0; i<availableNodes-1; i++)
-	{
-		if (zavailable[i].start + zavailable[i].size == zavailable[i+1].start)
-		{
-			zavailable[i].size += zavailable[i+1].size;
-			zdelete(zavailable, i+1); availableNodes--;
-			return;
-		}
-	}	
-}
-
-//---------------- end allocation code -----------------
-
-void
-cls()
-{
-	int i;
-	for (i=0;i<20;i++) printf("\n");
-}
-
-int blk2meg(x)
-{
-	return (x + 1024) / 2048;
-}
-
-struct part_type
-{
-	unsigned char type;
-	char *name;
-}part_types[] =
-{
-	 {0x00, "unused"}   
-	,{0x01, "DOS, 12 bit FAT"}   
-	,{0x02, "XENIX"}  
-	,{0x03, "XENIX"}  
-	,{0x04, "DOS, 16 bit FAT"}   
-	,{0x05, "Extended DOS"}   
-	,{0x06, "DOS, 16 bit FAT"}   
-	,{0x07, "OS/2 HPFS, QNX"}  
-	,{0x08, "AIX filesystem"}   
-	,{0x09, "AIX, Coherent"}  
-	,{0x0A, "OS/2 Boot Mgr"}  
-	,{0x10, "OPUS"}   
-	,{0x52, "CP/M, SysV/AT"}  
-	,{0x64, "Novell 2.xx"}      
-	,{0x65, "Novell 3.xx"} 
-	,{0x75, "PCIX"}  
-	,{0x80, "Minix"} 
-	,{0x81, "Minix"}   
-	,{0x82, "Linux"}   
-	,{0xA5, "386BSD"} 
-	,{0xA7, "NeXT UFS"}
-	,{0xA8, "Apple UFS"}
-	,{0xAB, "Apple Booter"}
-	,{0xB7, "BSDI"} 
-	,{0xB8, "BSDI swap"} 
-	,{0xFF, "Bad Block Table"}  
-};
-
-char *get_type(type)
-int	type;
-{
-	int	numentries = (sizeof(part_types)/sizeof(struct part_type));
-	int	counter = 0;
-	struct	part_type *ptr = part_types;
-
-	
-	while(counter < numentries)
-	{
-		if(ptr->type == type)
-		{
-			return(ptr->name);
-		}
-		ptr++;
-		counter++;
-	}
-	return 0;
-}
-
-void
-showDiskUsage(int enumerateEntries)
-{
-	int i;
-	char *cp;
-
-	if (allocedNodes > 0)
-	{
-		printf("\n   Type              Start   Size    Status\n");
-		printf("--------------------------------------------\n");
-		for (i=0; i<allocedNodes; i++)
-		{
-			block_info * bp = &zalloced[i];
-			if (enumerateEntries) printf("%d) ",i+1);
-			else printf("   ");
-
-			if (cp = get_type(bp->ident))
-				printf("%-17s",cp);
-			else printf("Type %02X          ",bp->ident);
-
-			printf("%5d   %5d    ",
-				blk2meg(bp->start), blk2meg(bp->size));
-
-			printf("%s\n", (bp->active == 0x80)?"Active":"  -   ");
-		}
-	}
+	/* Argument checking */
+	if (argc != 1)
+		usage();
 	else
-	{
-		printf("No partitions in use\n");
+		disk.name = argv[0];
+
+	if (i_flag && u_flag) errx(1, "-i and -u cannot be specified simultaneously");
+
+	/* Put in supplied geometry if there */
+	if (c_arg | h_arg | s_arg | size_arg) {
+		usermetrics = malloc(sizeof(DISK_metrics));
+		if (usermetrics != NULL) {
+			if (c_arg && h_arg && s_arg) {
+				usermetrics->cylinders = c_arg;
+				usermetrics->heads = h_arg;
+				usermetrics->sectors = s_arg;
+				if (size_arg) {
+				  usermetrics->size = size_arg;
+				} else {
+				  usermetrics->size = c_arg * h_arg * s_arg;
+				}
+			} else {
+			  if (size_arg) {
+			    usermetrics->size = size_arg;
+			    DISK_fake_CHS(usermetrics);
+			  } else {
+			    errx(1, "Please specify a full geometry with [-chs].");
+			  }
+			}
+		}
+	} else {
+		usermetrics = NULL;
 	}
 
-	if (!enumerateEntries && (availableNodes > 0))
-	{
-		printf("\n   Unused Blocks     Start   Size\n");
-		printf("   -------------------------------\n");
-		for (i=0; i<availableNodes; i++)
-		{
-			block_info * bp = &zavailable[i];
-			printf("   Free Space       %5d   %5d\n",
-				blk2meg(bp->start), blk2meg(bp->size));
-		}
-	}
-}
+	/* Get the geometry */
+	disk.real = NULL;
+	if (DISK_getmetrics(&disk, usermetrics))
+		errx(1, "Can't get disk geometry, please use [-chs] to specify.");
 
-unsigned char getSysId()
-{
-	int val;
-	printf("\nYou must specify the system identification value.\n");
-	printf("Common system identification values include:\n");
-	printf("    01 - DOS small FAT filesystem\n");
-	printf("    05 - DOS extended partition\n");
-	printf("    06 - DOS large FAT filesystem\n");
-	printf("    07 - OS/2 HPFS or QNX\n");
-	printf("    82 - Linux\n");
-	printf("    A5 - 386BSD\n");
-	printf("    A8 - Apple UFS\n");
-	printf("However, any hexidecimal value may be used.\n\n");
-	printf("Enter the new partition's system identification ");
-	printf("value, or 0 to cancel: "); fflush(stdout);
+	/* If only testing, read MBR and silently exit */
+	if (t_flag) {
+	  mbr_t *mbr;
 
-	val = 0;
-	scanf("%x",&val);
-	return (val & 0xff);
-
-}
-
-int
-indexOfActive()
-{
-	int i;
-	for (i=0; i<allocedNodes; i++)
-	{
-		block_info * bp = &zalloced[i];
-		if (bp->active == 0x80) return i+1;
-	}
-	return 0;
-}
-
-void
-activateByIndex(ndx)
-{
-	int i;
-	for (i=0; i<allocedNodes; i++)
-	{
-		block_info * bp = &zalloced[i];
-		if (bp->active == 0x80) bp->active = 0;
-	}
-	zalloced[ndx].active = 0x80;
-}
-
-void
-activateUFS()
-{
-	int ret;
-	if (ret = idExists(TYPE_APPLE_UFS)) activateByIndex(ret-1);
-}
-
-void
-activateBooter()
-{
-	int ret;
-	if (ret = idExists(TYPE_APPLE_BOOT)) activateByIndex(ret-1);
-}
-
-void
-select_active_partition()
-{
-	int choice;
-
-	if (allocedNodes == 0)
-	{
-		printf("No partitions to activate\n");
-		sleep(1);
-		return;
+	  mp = mbr = MBR_read_all(&disk);
+	  while (mp) {
+	    if (mp->signature != MBR_SIGNATURE) {
+	      MBR_free(mbr);
+	      exit(1);
+	    }
+	    mp = mp->next;
+	  }
+	  MBR_free(mbr);
+	  exit(0);
 	}
 
-	cls();
-	showDiskUsage(1);
-	printf("\nActivate Partition\n");
-	printf(  "-------------------\n");
-	printf("Enter partition to activate, or 0 to do nothing: "); fflush(stdout);
-	choice = 0;
-	scanf("%d",&choice);
-
-	if (choice >=1 && choice <= allocedNodes)
-	{
-		activateByIndex(choice-1);
-	}
-}
-
-void
-iprintf(a1,a2,a3,a4)
-{
-	if (interactive) printf((char *)a1,a2,a3,a4);
-}
-
-int
-idExists(val)
-{
-	int i;
-	for (i=0; i<allocedNodes; i++)
-	{
-		block_info * bp = &zalloced[i];
-		if (bp->ident == (val & 0xff)) return i+1;
-	}
-	return 0;
-}
-
-void
-eatkeys()
-{
-	fseek(stdin, 0, SEEK_END);
-}
-
-int
-diskPartitioned()
-{
-	int i;
-	struct fdisk_part *fp;
-
-	if (bootsector.signature != DISK_SIGNATURE) return 0;
-
-	// if we find one good entry, assume it's partitioned
-
-	for (i=0; i<4; i++)
-	{
-		fp = &bootsector.parts[i];
-
-		if (CYL(fp->relsect) == fp->begcyl &&
-				HEAD(fp->relsect) == fp->beghead &&
-				SECT(fp->relsect) == fp->begsect &&
-				fp->endhead == (heads-1) &&
-				(fp->endsect & 0x3f) == spt)
-			return 1;
-	}
-	return 0;
-}
-
-void
-nukeID(val)
-{
-	int ret;
-	while (ret = idExists(val)) zfree(zalloced[ret-1].start);
-}
-
-void
-nukeAll()
-{
-	while (allocedNodes) zfree(zalloced[0].start);
-}
-
-enum {
-	LOOKFORNEXT,
-	LOOKFOREXTENDED,
-	LOOKFORPARTITIONING,
-	REPORTFREESPACE,
-	REPORTFREEWONEXT,
-	REPORTFREEWOEXT,
-	REPORTEXTENDEDSIZE,
-	REMOVEPARTITIONING,
-	DOSPLUSNEXT,
-	BOOTPLUSUFS,
-	SETAVAILABLETONEXT,
-	SETEXTANDAVAILTONEXT,
-	SETEXTTONEXT,
-	SETNEXTACTIVE,
-	DISKSIZE,
-	INSTALLSIZE,
-        SCRIPT
-	} whichAction;
-
-void
-strtolower(char * cp)
-{
-        char c;
-
-	while (c = *cp)
-	    *cp++ = tolower(c);
-	return;
-}
-
-void
-examineArgs(int argc, char *argv[])
-{
-	int i;
-	for(i=2; i<argc; i++)
-	{
-		strtolower(argv[i]);
-
-		if (!strcmp(argv[i],"-useallsectors")) useAllSectors = 1;
-		else if (!strcmp(argv[i],"-useboot0")) useBoot0 = 1;
-		else if (!strcmp(argv[i],"-bootsectoronly")) bootsectorOnly = 1;
-		else if (!strcmp(argv[i],"-isthereufspartition"))
-		{
-			interactive--;
-			whichAction = LOOKFORNEXT;
-		}
-		else if (!strcmp(argv[i],"-isthereextendedpartition"))
-		{
-			interactive--;
-			whichAction = LOOKFOREXTENDED;
-		}
-		else if (!strcmp(argv[i],"-isdiskpartitioned"))
-		{
-			interactive--;
-			whichAction = LOOKFORPARTITIONING;
-		}
-		else if (!strcmp(argv[i],"-freespace"))
-		{
-			interactive--;
-			whichAction = REPORTFREESPACE;
-		}
-		else if (!strcmp(argv[i],"-freewithoutufs"))
-		{
-			interactive--;
-			whichAction = REPORTFREEWONEXT;
-		}
-		else if (!strcmp(argv[i],"-freewithoutufsorext"))
-		{
-			interactive--;
-			whichAction = REPORTFREEWOEXT;
-		}
-		else if (!strcmp(argv[i],"-sizeofextended"))
-		{
-			interactive--;
-			whichAction = REPORTEXTENDEDSIZE;
-		}
-		else if (!strcmp(argv[i],"-disksize"))
-		{
-			interactive--;
-			whichAction = DISKSIZE;
-		}
-		else if (!strcmp(argv[i],"-installsize"))
-		{
-			interactive--;
-			whichAction = INSTALLSIZE;
-		}
-
-                // Arguments
-                
-                else if (!strcmp(argv[i],"-heads"))
-                {
-                    if (++i >= argc)
-                    {
-                        bomb("fdisk: not enough arguments for -heads\n");
-                    }
-                    heads = atoi(argv[i]);
-                }
-                else if (!strcmp(argv[i],"-sectors"))
-                {
-                    if (++i >= argc)
-                    {
-                        bomb("fdisk: not enough arguments for -sectors\n");
-                    }
-                    spt = atoi(argv[i]);
-                }
-                else if (!strcmp(argv[i],"-cylinders"))
-                {
-                    if (++i >= argc)
-                    {
-                        bomb("fdisk: not enough arguments for -cylinders\n");
-                    }
-                    cylinders = atoi(argv[i]);
-                }
-                else if (!strcmp(argv[i],"-boot0"))
-                {
-                    if (++i >= argc)
-                    {
-                        bomb("fdisk: not enough arguments for -boot0\n");
-                    }
-                    boot0file = argv[i];
-                }
-
-	// Actions
-		else if (!strcmp(argv[i],"-removepartitioning"))
-		{
-			interactive--;
-			whichAction = REMOVEPARTITIONING;
-		}
-		else if (!strcmp(argv[i],"-bootplusufs"))
-		{
-			interactive--;
-			whichAction = BOOTPLUSUFS;
-		}
-		else if (!strcmp(argv[i],"-dosplusufs"))
-		{
-			interactive--;
-			whichAction = DOSPLUSNEXT;
-			if (++i >= argc)
-				bomb("fdisk: must specify how many megabytes for DOS\n");
-			sscanf(argv[i],"%d",&megsForDos);
-		}
-		else if (!strcmp(argv[i],"-setavailabletoufs"))
-		{
-			interactive--;
-			whichAction = SETAVAILABLETONEXT;
-		}
-		else if (!strcmp(argv[i],"-setextandavailabletoufs"))
-		{
-			interactive--;
-			whichAction = SETEXTANDAVAILTONEXT;
-		}
-		else if (!strcmp(argv[i],"-setextendedtoufs"))
-		{
-			interactive--;
-			whichAction = SETEXTTONEXT;
-		}
-		else if (!strcmp(argv[i],"-setufsactive"))
-		{
-			interactive--;
-			whichAction = SETNEXTACTIVE;
-		}
-                else if (!strcmp(argv[i],"-script"))
-                {
-                    interactive--;
-                    whichAction = SCRIPT;
-                }
-
-		else {
-		    usage();
-		}
+	/* If not editing the disk, print out current MBRs on disk */
+	if ((i_flag + r_flag + u_flag + m_flag) == 0) {
+		exit(USER_print_disk(&disk, d_flag));
 	}
 
-	if (interactive < 0)
-	    bomb("fdisk: only one action or inquiry allowed\n");
-}
-
-void
-readScript()
-{
-    int lineno;
-    int boot_part = -1;
-    
-    /* Read commands from stdin and execute them. */
-    /* Commands are of the form: */
-    /* <size>,<label>,<bootable> */
-    /* size is in megabytes (decimal), */
-    /* label is in hex, */
-    /* bootable is optional; if "*" then bootable. */
-    nukeAll();
-    for (lineno = 0; lineno < 4 && !feof(stdin); lineno++)
-    {
-        char line[80];
-        char *str;
-        char *args[3];
-        int i;
-        int size=0, type=0;
-
-        str = fgets(line, 80, stdin);
-        if (str == NULL)
-        {
-            break;
-        }
-
-        args[0] = args[1] = args[2] = NULL;
-        for (i=0; i<3; i++)
-        {
-            char *arg;
-            while (isspace(*str))
-                str++;
-            arg = strsep(&str, ",\n");
-            if (arg == NULL || str == NULL)
-            {
-                break;
-            }
-            args[i] = arg;
-        }
-        if (args[0] != NULL)
-        {
-            size = (int)strtol(args[0], NULL, 10);
-        }
-        else
-        {
-            size = 0;
-        }
-        if (size == 0)
-        {
-            size = maxFreeBlocks();
-        }
-        if (args[1] != NULL)
-        {
-            type = (int)strtol(args[1], NULL, 0x10);
-        }
-        else
-        {
-            bomb("fdisk: missing hex partition type argument\n");
-        }
-        if (args[2] != NULL)
-        {
-            if (*args[2] == '*')
-            {
-                boot_part = lineno;
-            }
-        }
-        printf("allocating %d sectors for partition type 0x%02x\n", size, type);
-        zalloc(size, type);
-    }
-    if (boot_part != -1)
-    {
-        printf("marking partition %d bootable\n", boot_part);
-        activateByIndex(boot_part);
-    }
-}
-
-void
-doActionOrInquiry()
-{
-	int ret, writeBoot = 0;
-	char *cp;
-
-	switch(whichAction)
-	{
-	case LOOKFORNEXT:
-		if (idExists(TYPE_APPLE_UFS)) printf("Yes\n");
-		else printf("No\n");
-		break;
-	case LOOKFOREXTENDED:
-		if (idExists(0x05)) printf("Yes\n");
-		else printf("No\n");
-		break;
-	case LOOKFORPARTITIONING:
-		if (diskPartitioned()) printf("Yes\n");
-		else printf("No\n");
-		break;
-	case REPORTFREESPACE:
-		printf("%d\n", blk2meg(maxFreeBlocks()));
-		break;
-	case REPORTFREEWONEXT:
-		nukeID(TYPE_APPLE_UFS);
-		printf("%d\n", blk2meg(maxFreeBlocks()));
-		break;
-	case REPORTFREEWOEXT:
-		nukeID(0x05);
-		nukeID(TYPE_APPLE_UFS);
-		printf("%d\n", blk2meg(maxFreeBlocks()));
-		break;
-	case REPORTEXTENDEDSIZE:
-		if (ret = idExists(0x05))
-			printf("%d\n", blk2meg(zalloced[ret-1].size));
-		else printf("0\n");
-		break;
-	case DISKSIZE:
-		printf("%d\n", blk2meg(diskSize));
-		break;
-	case INSTALLSIZE:
-		if (!diskPartitioned())	printf("%d\n", blk2meg(diskSize));
-		else if (ret = idExists(TYPE_APPLE_UFS))
-			printf("%d\n", blk2meg(zalloced[ret-1].size));
-		else printf("0\n");
-		break;
-
-	// Actions
-
-	case REMOVEPARTITIONING:
-		nukeAll();
-		cp = (char *)(&bootsector);
-		for (ret = 0; ret < 512; ret++) *cp++ = 0;
-		writeBoot = 1;
-		break;
-	case DOSPLUSNEXT:
-		nukeAll();
-		zalloc(megsForDos * 2048, 0x06);
-		zalloc(maxFreeBlocks(), TYPE_APPLE_UFS);
-		activateUFS();
-		writeBoot = 1;
-		break;
-	case BOOTPLUSUFS:
-		nukeAll();
-		zalloc(8 * 2048, TYPE_APPLE_BOOT);
-		zalloc(maxFreeBlocks(), TYPE_APPLE_UFS);
-		activateBooter();
-		writeBoot = 1;
-		break;
-	case SETAVAILABLETONEXT:
-		nukeID(TYPE_APPLE_UFS);
-		zalloc(maxFreeBlocks(), TYPE_APPLE_UFS);
-		activateUFS();
-		writeBoot = 1;
-		break;
-	case SETEXTANDAVAILTONEXT:
-		nukeID(0x05);
-		nukeID(TYPE_APPLE_UFS);
-		zalloc(maxFreeBlocks(), TYPE_APPLE_UFS);
-		activateUFS();
-		writeBoot = 1;
-		break;
-	case SETEXTTONEXT:
-		if (ret = idExists(0x05)) zalloced[ret-1].ident = TYPE_APPLE_UFS;
-		activateUFS();
-		writeBoot = 1;
-		break;
-	case SETNEXTACTIVE:
-		activateUFS();
-		writeBoot = 1;
-		break;
-        case SCRIPT:
-                readScript();
-                writeBoot = 1;
-                break;
+	/* Parse mbr template or read partition specs, to pass on later */
+	if (auto_style && r_flag) {
+	  errx(1, "Can't specify both -r and -a");
 	}
 
-	if (writeBoot)
-	{
-		save_changes();
+	mbr_binary = (char *)malloc(MBR_CODE_SIZE);
+	if ((fd = open(mbrfile, O_RDONLY)) == -1) {
+	  warn("could not open MBR file %s", mbrfile);
+	  bzero(mbr_binary, MBR_CODE_SIZE);
+	} else {
+	  int cc;
+	  cc = read(fd, mbr_binary, MBR_CODE_SIZE);
+	  if (cc < MBR_CODE_SIZE) {
+	    err(1, "could not read MBR code");
+	  }
+	  close(fd);
 	}
+
+	if (u_flag) {
+	  /* Don't hose the partition table; just write the boot code */
+	  mp = MBR_read_all(&disk);
+	  bcopy(mbr_binary, mp->code, MBR_CODE_SIZE);
+	  MBR_make(mp);
+	} else if (i_flag) {
+	  /* If they didn't specify -a, they'll get the default auto style */
+	  mp = MBR_alloc(NULL);
+	  if (AUTO_init(&disk, auto_style, mp) != AUTO_OK) {
+	    errx(1, "error initializing disk");
+	  }
+	  bcopy(mbr_binary, mp->code, MBR_CODE_SIZE);
+	  MBR_make(mp);
+	} else if (r_flag) {
+	  mp = MBR_parse_spec(stdin, &disk);
+	  bcopy(mbr_binary, mp->code, MBR_CODE_SIZE);
+	  MBR_make(mp);
+	} else {
+	  /* Use what's on the disk. */
+	  mp = MBR_read_all(&disk);
+	}
+	  
+	/* Now do what we are supposed to */
+	if (i_flag || r_flag || u_flag) {
+	  USER_write(&disk, mp, u_flag, y_flag);
+	}
+
+	if (m_flag) {
+	  USER_modify(&disk, mp, 0, 0);
+	}
+
+	if (mbr_binary)
+	  free(mbr_binary);
+
+	return (0);
 }
-
-
-
-
-

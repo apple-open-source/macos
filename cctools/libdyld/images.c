@@ -3,8 +3,6 @@
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
- * Copyright (c) 1999-2003 Apple Computer, Inc.  All Rights Reserved.
- * 
  * This file contains Original Code and/or Modifications of Original Code
  * as defined in and that are subject to the Apple Public Source License
  * Version 2.0 (the 'License'). You may not use this file except in
@@ -106,6 +104,18 @@ unsigned long address)
 	return(p(address));
 }
 
+struct mach_header *
+_dyld_get_image_header_containing_address(
+unsigned long address)
+{
+    static struct mach_header * (*p)(unsigned long) = NULL;
+
+	if(p == NULL)
+	    _dyld_func_lookup("__dyld_get_image_header_containing_address",
+			      (unsigned long *)&p);
+	return(p(address));
+}
+
 void _dyld_moninit(
 void (*monaddition)(char *lowpc, char *highpc))
 {
@@ -123,5 +133,16 @@ void)
 
 	if(p == NULL)
 	    _dyld_func_lookup("__dyld_launched_prebound", (unsigned long *)&p);
+	return(p());
+}
+
+enum bool _dyld_all_twolevel_modules_prebound(
+void)
+{
+    static enum bool (*p)(void) = NULL;
+
+	if(p == NULL)
+	    _dyld_func_lookup("__dyld_all_twolevel_modules_prebound",
+			      (unsigned long *)&p);
 	return(p());
 }

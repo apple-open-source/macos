@@ -1,0 +1,75 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<jboss>
+    <enterprise-beans>
+        <session>
+            <ejb-name>Optimized</ejb-name>
+            <jndi-name>tomcat-test/Optimized</jndi-name>
+            <configuration-name>Optimized Stateless</configuration-name>
+        </session>
+        <session>
+            <ejb-name>NonOptimized</ejb-name>
+            <jndi-name>tomcat-test/NonOptimized</jndi-name>
+            <configuration-name>Non Optimized Stateless</configuration-name>
+        </session>
+    </enterprise-beans>
+
+    <container-configurations>
+        <container-configuration>
+            <container-name>Optimized Stateless</container-name>
+            <call-logging>false</call-logging>
+            <container-invoker>org.jboss.ejb.plugins.jrmp.server.JRMPContainerInvoker</container-invoker>
+            <container-interceptors>
+                <interceptor>org.jboss.ejb.plugins.LogInterceptor</interceptor>
+                <interceptor>org.jboss.ejb.plugins.SecurityInterceptor</interceptor>
+                <!-- CMT -->
+                <interceptor transaction="Container">org.jboss.ejb.plugins.TxInterceptorCMT</interceptor>
+                <interceptor transaction="Container" metricsEnabled="true">org.jboss.ejb.plugins.MetricsInterceptor</interceptor>
+                <interceptor transaction="Container">org.jboss.ejb.plugins.StatelessSessionInstanceInterceptor</interceptor>
+                <!-- BMT -->
+                <interceptor transaction="Bean">org.jboss.ejb.plugins.StatelessSessionInstanceInterceptor</interceptor>
+                <interceptor transaction="Bean">org.jboss.ejb.plugins.TxInterceptorBMT</interceptor>
+                <interceptor transaction="Bean" metricsEnabled="true">org.jboss.ejb.plugins.MetricsInterceptor</interceptor>
+            </container-interceptors>
+            <instance-pool>org.jboss.ejb.plugins.StatelessSessionInstancePool</instance-pool>
+            <instance-cache></instance-cache>
+            <persistence-manager></persistence-manager>
+            <container-invoker-conf>
+                <Optimized>True</Optimized>
+            </container-invoker-conf>
+            <container-pool-conf>
+                <MaximumSize>100</MaximumSize>
+                <MinimumSize>10</MinimumSize>
+            </container-pool-conf>
+        </container-configuration>
+
+        <container-configuration>
+            <container-name>Non Optimized Stateless</container-name>
+            <call-logging>false</call-logging>
+            <container-invoker>org.jboss.ejb.plugins.jrmp.server.JRMPContainerInvoker</container-invoker>
+            <container-interceptors>
+                <interceptor>org.jboss.ejb.plugins.LogInterceptor</interceptor>
+                <interceptor>org.jboss.ejb.plugins.SecurityInterceptor</interceptor>
+                <!-- CMT -->
+                <interceptor transaction="Container">org.jboss.ejb.plugins.TxInterceptorCMT</interceptor>
+                <interceptor transaction="Container" metricsEnabled="true">org.jboss.ejb.plugins.MetricsInterceptor</interceptor>
+                <interceptor transaction="Container">org.jboss.ejb.plugins.StatelessSessionInstanceInterceptor</interceptor>
+                <!-- BMT -->
+                <interceptor transaction="Bean">org.jboss.ejb.plugins.StatelessSessionInstanceInterceptor</interceptor>
+                <interceptor transaction="Bean">org.jboss.ejb.plugins.TxInterceptorBMT</interceptor>
+                <interceptor transaction="Bean" metricsEnabled="true">org.jboss.ejb.plugins.MetricsInterceptor</interceptor>
+            </container-interceptors>
+            <instance-pool>org.jboss.ejb.plugins.StatelessSessionInstancePool</instance-pool>
+            <instance-cache></instance-cache>
+            <persistence-manager></persistence-manager>
+            <container-invoker-conf>
+                <Optimized>False</Optimized>
+            </container-invoker-conf>
+            <container-pool-conf>
+                <MaximumSize>100</MaximumSize>
+                <MinimumSize>10</MinimumSize>
+            </container-pool-conf>
+        </container-configuration>
+    </container-configurations>
+
+</jboss>

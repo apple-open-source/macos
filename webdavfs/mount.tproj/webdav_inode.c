@@ -2,23 +2,24 @@
  * Copyright (c) 2001 Apple Computer, Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
- *
- * "Portions Copyright (c) 1999 Apple Computer, Inc.  All Rights
- * Reserved.  This file contains Original Code and/or Modifications of
- * Original Code as defined in and that are subject to the Apple Public
- * Source License Version 1.0 (the 'License').	You may not use this file
- * except in compliance with the License.  Please obtain a copy of the
- * License at http://www.apple.com/publicsource and read it before using
- * this file.
- *
+ * 
+ * Copyright (c) 1999-2003 Apple Computer, Inc.  All Rights Reserved.
+ * 
+ * This file contains Original Code and/or Modifications of Original Code
+ * as defined in and that are subject to the Apple Public Source License
+ * Version 2.0 (the 'License'). You may not use this file except in
+ * compliance with the License. Please obtain a copy of the License at
+ * http://www.opensource.apple.com/apsl/ and read it before using this
+ * file.
+ * 
  * The Original Code and all software distributed under the License are
  * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
  * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
  * INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY,
- * FITNESS FOR A PARTICULAR PURPOSE OR NON-INFRINGEMENT.  Please see the
- * License for the specific language governing rights and limitations
- * under the License."
- *
+ * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
+ * Please see the License for the specific language governing rights and
+ * limitations under the License.
+ * 
  * @APPLE_LICENSE_HEADER_END@
  */
 /*		@(#)webdav_inode.c		*
@@ -32,11 +33,14 @@
  */
 
 #include <sys/types.h>
+#include <sys/syslog.h>
 #include <stdlib.h>
+#include <stdio.h>
 #include <string.h>
 #include <pthread.h>
 #include <c.h>
 #include <errno.h>
+#include "webdavd.h"
 #include "webdav_inode.h"
 #include "../webdav_fs.kextproj/webdav_fs.kmodproj/webdav.h"
 
@@ -46,17 +50,17 @@
  * string
  */
 
-int hashuri(const char *string, int length)
+static int hashuri(const char *string, unsigned int length)
 {
 	/* We'll always take the last characters of the URI
 	 * since they are the most unique.	We have a constant
 	 * for this */
 
 	int i, hash_val = 0;
-	char *start;
+	const char *start;
 	int numchars = MIN(length, WEBDAV_UNIQUE_HASH_CHARS);
 
-	start = (char *)string + length - numchars;
+	start = string + length - numchars;
 
 	hash_val = 0;
 	for (i = 1; *start != 0 && i <= numchars; i++, start++)
@@ -78,7 +82,7 @@ int hashuri(const char *string, int length)
 
 /* Initialize the inode array */
 
-int webdav_inode_init(char *uri, int urilen)
+int webdav_inode_init(char *uri, unsigned int urilen)
 {
 	int error;
 	pthread_mutexattr_t mutexattr;
@@ -93,29 +97,32 @@ int webdav_inode_init(char *uri, int urilen)
 	error = pthread_mutexattr_init(&mutexattr);
 	if (error)
 	{
+		syslog(LOG_ERR, "webdav_inode_init: pthread_mutexattr_init() failed: %s", strerror(error));
 		return (error);
 	}
 	
 	error = pthread_mutex_init(&ginode_lock, &mutexattr);
 	if (error)
 	{
+		syslog(LOG_ERR, "webdav_inode_init: pthread_mutex_init() failed: %s", strerror(error));
 		return (error);
 	}
 
-	/* Now that everything has been built,	put the initial URI
+	/* Now that everything has been built, put the initial URI
 	 * in as the root file id.	We don't use the lock yet since
 	 * we are still in the init path */
-
 	filerec_ptr = malloc(sizeof(webdav_file_record_t));
 
 	if (!filerec_ptr)
 	{
+		syslog(LOG_ERR, "webdav_inode_init: filerec_ptr could not be allocated: %s", strerror(errno));
 		return (ENOMEM);
 	}
 
 	filerec_ptr->uri = malloc(urilen + 1);
 	if (!filerec_ptr->uri)
 	{
+		syslog(LOG_ERR, "webdav_inode_init: uri could not be allocated: %s", strerror(errno));
 		free(filerec_ptr);
 		return (ENOMEM);
 	}
@@ -139,7 +146,7 @@ int webdav_inode_init(char *uri, int urilen)
    and get the inode out for this uri.	If there is no
    entry, assign a new inode and make the entry */
 
-int webdav_get_inode(const char *uri, int length, int make_entry, int *inode)
+int webdav_get_inode(const char *uri, unsigned int length, int make_entry, int *inode)
 {
 	int hash_num, error = 0, error2 = 0, found = 0;
 	webdav_file_record_t * filerec_ptr,  *head_ptr;
@@ -147,6 +154,8 @@ int webdav_get_inode(const char *uri, int length, int make_entry, int *inode)
 	error = pthread_mutex_lock(&ginode_lock);
 	if (error)
 	{
+		syslog(LOG_ERR, "webdav_get_inode: pthread_mutex_lock(): %s", strerror(error));
+		webdav_kill(-1);	/* tell the main select loop to force unmount */
 		return (error);
 	}
 
@@ -176,6 +185,8 @@ int webdav_get_inode(const char *uri, int length, int make_entry, int *inode)
 
 		if (!filerec_ptr)
 		{
+			syslog(LOG_ERR, "webdav_get_inode: could not allocate filerec_ptr");
+			webdav_kill(-1);	/* tell the main select loop to force unmount */
 			error = ENOMEM;
 			goto unlock;
 		}
@@ -183,6 +194,8 @@ int webdav_get_inode(const char *uri, int length, int make_entry, int *inode)
 		filerec_ptr->uri = malloc(length + 1);
 		if (!filerec_ptr->uri)
 		{
+			syslog(LOG_ERR, "webdav_get_inode: could not allocate filerec_ptr->uri");
+			webdav_kill(-1);	/* tell the main select loop to force unmount */
 			free(filerec_ptr);
 			error = ENOMEM;
 			goto unlock;
@@ -213,12 +226,17 @@ int webdav_get_inode(const char *uri, int length, int make_entry, int *inode)
 unlock:
 
 	error2 = pthread_mutex_unlock(&ginode_lock);
-	if (!error)
+	if ( error2 )
 	{
-		error = error2;
+		syslog(LOG_ERR, "webdav_get_inode: pthread_mutex_unlock(): %s", strerror(error2));
+		webdav_kill(-1);	/* tell the main select loop to force unmount */
+		if (!error)
+		{
+			error = error2;
+		}
 	}
 
-	return (0);
+	return (error);
 }
 
 /*****************************************************************************/
@@ -227,7 +245,7 @@ unlock:
    and replace its inode number with the one specified.	 If there is no
    entry, make one with the given inode number */
 
-int webdav_set_inode(const char *uri, int length, int inode)
+int webdav_set_inode(const char *uri, unsigned int length, int inode)
 {
 
 	int hash_num, error = 0, error2 = 0;
@@ -236,6 +254,8 @@ int webdav_set_inode(const char *uri, int length, int inode)
 	error = pthread_mutex_lock(&ginode_lock);
 	if (error)
 	{
+		syslog(LOG_ERR, "webdav_set_inode: pthread_mutex_lock(): %s", strerror(error));
+		webdav_kill(-1);	/* tell the main select loop to force unmount */
 		return (error);
 	}
 
@@ -262,6 +282,8 @@ int webdav_set_inode(const char *uri, int length, int inode)
 
 	if (!filerec_ptr)
 	{
+		syslog(LOG_ERR, "webdav_set_inode: could not allocate filerec_ptr");
+		webdav_kill(-1);	/* tell the main select loop to force unmount */
 		error = ENOMEM;
 		goto unlock;
 	}
@@ -269,6 +291,8 @@ int webdav_set_inode(const char *uri, int length, int inode)
 	filerec_ptr->uri = malloc(length + 1);
 	if (!filerec_ptr->uri)
 	{
+		syslog(LOG_ERR, "webdav_set_inode: could not allocate filerec_ptr->uri");
+		webdav_kill(-1);	/* tell the main select loop to force unmount */
 		free(filerec_ptr);
 		error = ENOMEM;
 		goto unlock;
@@ -285,9 +309,14 @@ int webdav_set_inode(const char *uri, int length, int inode)
 unlock:
 
 	error2 = pthread_mutex_unlock(&ginode_lock);
-	if (!error)
+	if ( error2 )
 	{
-		error = error2;
+		syslog(LOG_ERR, "webdav_set_inode: pthread_mutex_unlock(): %s", strerror(error2));
+		webdav_kill(-1);	/* tell the main select loop to force unmount */
+		if (!error)
+		{
+			error = error2;
+		}
 	}
 
 	return (error);
@@ -299,15 +328,17 @@ unlock:
    and remove the entry for this uri.  If there is no
    entry, just return success */
 
-int webdav_remove_inode(const char *uri, int length)
+int webdav_remove_inode(const char *uri, unsigned int length)
 {
 
-	int hash_num, error = 0;
+	int hash_num, error = 0, error2 = 0;
 	webdav_file_record_t * filerec_ptr,  *prev_ptr;
 
 	error = pthread_mutex_lock(&ginode_lock);
 	if (error)
 	{
+		syslog(LOG_ERR, "webdav_remove_inode: pthread_mutex_lock(): %s", strerror(error));
+		webdav_kill(-1);	/* tell the main select loop to force unmount */
 		return (error);
 	}
 
@@ -354,7 +385,16 @@ int webdav_remove_inode(const char *uri, int length)
 
 unlock:
 
-	error = pthread_mutex_unlock(&ginode_lock);
+	error2 = pthread_mutex_unlock(&ginode_lock);
+	if ( error2 )
+	{
+		syslog(LOG_ERR, "webdav_remove_inode: pthread_mutex_unlock(): %s", strerror(error2));
+		webdav_kill(-1);	/* tell the main select loop to force unmount */
+		if (!error)
+		{
+			error = error2;
+		}
+	}
 
 	return (error);
 }
@@ -366,15 +406,17 @@ unlock:
    entry, return -1 in a_file_handle, (same as if an entry 
    is found but it has no file handle). */
 
-int webdav_get_file_handle(const char *uri, int length, webdav_filehandle_t *a_file_handle)
+int webdav_get_file_handle(const char *uri, unsigned int length, webdav_filehandle_t *a_file_handle)
 {
 
-	int hash_num, error = 0, found = 0;
+	int hash_num, error = 0, error2 = 0, found = 0;
 	webdav_file_record_t * filerec_ptr,  *head_ptr;
 
 	error = pthread_mutex_lock(&ginode_lock);
 	if (error)
 	{
+		syslog(LOG_ERR, "webdav_get_file_handle: pthread_mutex_lock(): %s", strerror(error));
+		webdav_kill(-1);	/* tell the main select loop to force unmount */
 		return (error);
 	}
 
@@ -398,7 +440,16 @@ int webdav_get_file_handle(const char *uri, int length, webdav_filehandle_t *a_f
 
 unlock:
 
-	error = pthread_mutex_unlock(&ginode_lock);
+	error2 = pthread_mutex_unlock(&ginode_lock);
+	if ( error2 )
+	{
+		syslog(LOG_ERR, "webdav_get_file_handle: pthread_mutex_unlock(): %s", strerror(error2));
+		webdav_kill(-1);	/* tell the main select loop to force unmount */
+		if (!error)
+		{
+			error = error2;
+		}
+	}
 
 	return (error);
 }
@@ -411,7 +462,7 @@ unlock:
    in the hash table.  If there isn't this is an error
    */
    
-int webdav_set_file_handle(const char *uri, int length, webdav_filehandle_t file_handle)
+int webdav_set_file_handle(const char *uri, unsigned int length, webdav_filehandle_t file_handle)
 {
 
 	int hash_num, error = 0, error2 = 0, found = 0;
@@ -420,6 +471,8 @@ int webdav_set_file_handle(const char *uri, int length, webdav_filehandle_t file
 	error = pthread_mutex_lock(&ginode_lock);
 	if (error)
 	{
+		syslog(LOG_ERR, "webdav_set_file_handle: pthread_mutex_lock(): %s", strerror(error));
+		webdav_kill(-1);	/* tell the main select loop to force unmount */
 		return (error);
 	}
 
@@ -451,9 +504,14 @@ int webdav_set_file_handle(const char *uri, int length, webdav_filehandle_t file
 unlock:
 
 	error2 = pthread_mutex_unlock(&ginode_lock);
-	if (!error)
+	if ( error2 )
 	{
-		error = error2;
+		syslog(LOG_ERR, "webdav_set_file_handle: pthread_mutex_unlock(): %s", strerror(error2));
+		webdav_kill(-1);	/* tell the main select loop to force unmount */
+		if (!error)
+		{
+			error = error2;
+		}
 	}
 
 	return (error);

@@ -1,0 +1,18 @@
+
+Il tuo messaggio alla lista '%(listname)s' con oggetto
+
+    %(subject)s
+
+è stato trattenuto in attesa che il moderatore della lista 
+possa esaminarlo per l'approvazione.
+
+La ragione per la quale è stato trattenuto:
+
+    %(reason)s
+
+A seconda della decisione del moderatore, il messaggio verrà 
+inviato alla lista oppure ti sarà inviata una notifica con la
+motivazione del rifiuto.  Se vuoi cancellare questo messaggio,
+visita questo indirizzo:
+
+    %(confirmurl)s

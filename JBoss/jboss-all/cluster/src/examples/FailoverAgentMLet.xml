@@ -1,0 +1,45 @@
+<xmlets plugin="plugin">
+  <!-- XML Node Plugins -->
+  <plugin>
+    <param class="org.jbossmx.cluster.watchdog.mbean.xmlet.XMLetNodeProcessor">critical</param>
+  </plugin>
+
+  <plugin>
+    <param class="org.jbossmx.cluster.watchdog.mbean.xmlet.XMLetNodeProcessor">
+      <param class="java.lang.String">critical</param>
+      <param class="org.jbossmx.cluster.watchdog.mbean.xmlet.TolerantFailedMBeanPacker"/>
+    </param>
+  </plugin>
+
+  <!-- Critical MBeans -->
+  <critical code="com.sun.jdmk.comm.HtmlAdaptorServer"
+            archive="jmxtools.jar"
+            name="jboss:name=HtmlAdaptorServer">
+    <arg type="int" value="8083"/>
+  </critical>
+
+  <critical code="org.jboss.logging.Logger"
+            archive="hermes-jmx.jar"
+            name="jboss:service=Log">
+  </critical>
+
+  <critical code="org.jboss.logging.ConsoleLogging"
+            archive="hermes-jmx.jar"
+            name="jboss:service=Logging,type=Console">
+  </critical>
+
+  <critical code="org.jboss.jmx.connector.rmi.RMIConnectorService"
+            archive="hermes-jmx.jar"
+            name="jboss:name=FailoverAgent">
+    <arg type="java.lang.String" value="Fail"/>
+  </critical>
+
+  <critical code="org.jbossmx.cluster.watchdog.mbean.Watchdog"
+            archive="hermes-jmx.jar"
+            name="FailoverDomain:name=Watchdog_Active">
+    <arg type="java.lang.String" value="{/ActiveAgent}"/>
+    <arg type="java.lang.String" value="ActiveDomain:*"/>
+    <arg type="java.lang.String" value="{/FailoverAgent}"/>
+    <arg type="long" value="5000"/>
+  </critical>
+</xmlets>

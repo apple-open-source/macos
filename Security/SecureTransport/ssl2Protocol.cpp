@@ -160,7 +160,6 @@ SSL2ProcessMessage(SSLRecord &rec, SSLContext *ctx)
     
     if (err == 0)
     {   	
-		/* FIXME - use requested or negotiated protocol version here? */
     	if ((msg == SSL2_MsgClientHello) && 
 		    (ctx->negProtocolVersion >= SSL_Version_3_0))
         {   /* Promote this message to SSL 3 protocol */
@@ -181,46 +180,32 @@ SSL2AdvanceHandshake(SSL2MessageType msg, SSLContext *ctx)
     
     switch (msg)
     {   case SSL2_MsgKickstart:
-            if (ctx->negProtocolVersion == SSL_Version_3_0_With_2_0_Hello ||
-                ctx->negProtocolVersion == SSL_Version_Undetermined)
+			assert(ctx->negProtocolVersion == SSL_Version_Undetermined);
+			assert(ctx->versionSsl2Enable);
+            if (ctx->versionSsl3Enable || ctx->versionTls1Enable) {
+				/* prepare for possible v3 upgrade */
                 if ((err = SSLInitMessageHashes(ctx)) != 0)
                     return err;
+			}
             if ((err = SSL2PrepareAndQueueMessage(SSL2EncodeClientHello, ctx)) != 0)
                 return err;
-            switch (ctx->negProtocolVersion)
-            {   case SSL_Version_Undetermined:
-                    SSLChangeHdskState(ctx, SSL_HdskStateServerHelloUnknownVersion);
-                    break;
-                case SSL_Version_3_0_With_2_0_Hello:
-					assert((ctx->reqProtocolVersion == SSL_Version_3_0) ||
-						   (ctx->reqProtocolVersion == TLS_Version_1_0));
-                    ctx->negProtocolVersion = ctx->reqProtocolVersion;
-				    sslLogNegotiateDebug("===SSL client kickstart: negVersion "
-						"is %d_%d",
-						ctx->negProtocolVersion >> 8, ctx->negProtocolVersion & 0xff);
-                  SSLChangeHdskState(ctx, SSL_HdskStateServerHello);
-                    break;
-                case SSL_Version_2_0:
-                    SSLChangeHdskState(ctx, SSL2_HdskStateServerHello);
-                    break;
-                case SSL_Version_3_0_Only:
-                case SSL_Version_3_0:
-                case TLS_Version_1_0_Only:
-                case TLS_Version_1_0:
-                default:
-                    assert("Bad protocol version for sending SSL 2 Client Hello");
-                    break;
-            }
+            if (ctx->versionSsl3Enable || ctx->versionTls1Enable) {
+				SSLChangeHdskState(ctx, SSL_HdskStateServerHelloUnknownVersion);
+			}
+			else {
+				/* v2 only */
+				SSLChangeHdskState(ctx, SSL2_HdskStateServerHello);
+			}
             break;
         case SSL2_MsgClientHello:
             if ((err = SSL2CompareSessionIDs(ctx)) != 0)
                 return err;
-            if (ctx->ssl2SessionMatch == 0)
+            if (ctx->sessionMatch == 0)
                 if ((err = SSL2GenerateSessionID(ctx)) != 0)
                     return err;
             if ((err = SSL2PrepareAndQueueMessage(SSL2EncodeServerHello, ctx)) != 0)
                 return err;
-            if (ctx->ssl2SessionMatch == 0)
+            if (ctx->sessionMatch == 0)
             {   SSLChangeHdskState(ctx, SSL2_HdskStateClientMasterKey);
                 break;
             }
@@ -238,7 +223,7 @@ SSL2AdvanceHandshake(SSL2MessageType msg, SSLContext *ctx)
             SSLChangeHdskState(ctx, SSL2_HdskStateClientFinished);
             break;
         case SSL2_MsgServerHello:
-            if (ctx->ssl2SessionMatch == 0)
+            if (ctx->sessionMatch == 0)
             {   if ((err = SSL2PrepareAndQueueMessage(SSL2EncodeClientMasterKey, ctx)) != 0)
                     return err;
             }
@@ -260,7 +245,7 @@ SSL2AdvanceHandshake(SSL2MessageType msg, SSLContext *ctx)
             ctx->readCipher.ready = 1;
             /* original code never got out of SSL2_MsgClientFinished state */
             assert(ctx->protocolSide == SSL_ServerSide);
-            SSLChangeHdskState(ctx, SSL2_HdskStateServerReady);
+            SSLChangeHdskState(ctx, SSL_HdskStateServerReady);
             if (ctx->peerID.data != 0)
                 SSLAddSessionData(ctx);
             break;
@@ -277,7 +262,7 @@ SSL2AdvanceHandshake(SSL2MessageType msg, SSLContext *ctx)
             ctx->readCipher.ready = 1;
             /* original code never got out of SSL2_MsgServerFinished state */
             assert(ctx->protocolSide == SSL_ClientSide);
-            SSLChangeHdskState(ctx, SSL2_HdskStateClientReady);
+            SSLChangeHdskState(ctx, SSL_HdskStateClientReady);
             if (ctx->peerID.data != 0)
                 SSLAddSessionData(ctx);
             break;
@@ -308,12 +293,15 @@ SSL2PrepareAndQueueMessage(EncodeSSL2MessageFunc encodeFunc, SSLContext *ctx)
         return err;
     }
     
-    if (ctx->negProtocolVersion == SSL_Version_3_0_With_2_0_Hello ||
-        ctx->negProtocolVersion == SSL_Version_Undetermined)
+	assert((ctx->negProtocolVersion == SSL_Version_Undetermined) ||
+	       (ctx->negProtocolVersion == SSL_Version_2_0));
+    if((ctx->negProtocolVersion == SSL_Version_Undetermined) &&
+	   (ctx->versionSsl3Enable || ctx->versionTls1Enable)) {
+		/* prepare for possible V3/TLS1 upgrade */
         if ((err = SSLHashSHA1.update(ctx->shaState, rec.contents)) != 0 ||
             (err = SSLHashMD5.update(ctx->md5State, rec.contents)) != 0)
             return err;
-    
+    }
     err = SSLFreeBuffer(rec.contents, ctx);
     return err;
 }
@@ -323,7 +311,7 @@ SSL2CompareSessionIDs(SSLContext *ctx)
 {   OSStatus        err;
     SSLBuffer       sessionIdentifier;
 
-    ctx->ssl2SessionMatch = 0;
+    ctx->sessionMatch = 0;
     
     if (ctx->resumableSession.data == 0)
         return noErr;
@@ -334,7 +322,7 @@ SSL2CompareSessionIDs(SSLContext *ctx)
     
     if (sessionIdentifier.length == ctx->sessionID.length &&
         memcmp(sessionIdentifier.data, ctx->sessionID.data, sessionIdentifier.length) == 0)
-        ctx->ssl2SessionMatch = 1;
+        ctx->sessionMatch = 1;
     
     if ((err = SSLFreeBuffer(sessionIdentifier, ctx)) != 0)
         return err;
@@ -346,7 +334,7 @@ OSStatus
 SSL2InstallSessionKey(SSLContext *ctx)
 {   OSStatus        err;
     
-    assert(ctx->ssl2SessionMatch != 0);
+    assert(ctx->sessionMatch != 0);
     assert(ctx->resumableSession.data != 0);
     if ((err = SSLInstallSessionFromData(ctx->resumableSession, ctx)) != 0)
         return err;

@@ -4,9 +4,9 @@
 #
 #ident	"@(#)original: dist-makefile,v 1.19 1993/05/31 22:43:45 ceder Exp "
 #
-#ident	"@(#)elisp/pcl-cvs:$Name: cvs-29 $:$Id: Makefile.in,v 1.3 2002/03/01 00:33:13 zarzycki Exp $"
+#ident	"@(#)elisp/pcl-cvs:$Name: cvs-30 $:$Id: Makefile.in,v 1.3 2002/03/01 00:33:13 zarzycki Exp $"
 #
-# Makefile for pcl-cvs release 1.05-CVS-$Name: cvs-29 $.
+# Makefile for pcl-cvs release 1.05-CVS-$Name: cvs-30 $.
 # Copyright (C) 1992, 1993  Per Cederqvist
 #
 # This program is free software; you can redistribute it and/or modify

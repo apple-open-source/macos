@@ -3,8 +3,6 @@
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
- * Copyright (c) 1999-2003 Apple Computer, Inc.  All Rights Reserved.
- * 
  * This file contains Original Code and/or Modifications of Original Code
  * as defined in and that are subject to the Apple Public Source License
  * Version 2.0 (the 'License'). You may not use this file except in
@@ -268,7 +266,7 @@ done1:		;
 		       nl[i].name);
 	    }
 	}
-#endif DEBUG
+#endif /* DEBUG */
 }
 
 #ifdef __OPENSTEP__
@@ -369,7 +367,7 @@ void)
 			(unsigned int)nl[i].value, nl[i].name);
 	    }
 	}
-#endif DEBUG
+#endif /* DEBUG */
 	/*
 	 * Resort the symbol table.
 	 */
@@ -469,7 +467,7 @@ void)
 			(unsigned int)nl[i].value, nl[i].name);
 	    }
 	}
-#endif DEBUG
+#endif /* DEBUG */
 	/*
 	 * Resort the symbol table.
 	 */
@@ -489,7 +487,8 @@ unsigned long strsize)
     unsigned long i;
 
 	for(i = 0; i < nsymbols; i++){
-	    if(symbols[i].n_un.n_strx != 0 && symbols[i].n_un.n_strx < strsize){
+	    if(symbols[i].n_un.n_strx != 0 &&
+	       (unsigned long)symbols[i].n_un.n_strx < strsize){
 		if(funcsymbol(symbols + i, strings + symbols[i].n_un.n_strx))
 		    nname++;
 	    }
@@ -508,7 +507,8 @@ unsigned long vmaddr_slide)
     unsigned long i;
 
 	for(i = 0; i < nsymbols; i++){
-	    if(symbols[i].n_un.n_strx != 0 && symbols[i].n_un.n_strx < strsize){
+	    if(symbols[i].n_un.n_strx != 0 &&
+	       (unsigned long)symbols[i].n_un.n_strx < strsize){
 		if(funcsymbol(symbols + i, strings + symbols[i].n_un.n_strx)){
 		    npe->value = symbols[i].n_value + vmaddr_slide;
 		    npe->name = strings + symbols[i].n_un.n_strx;
@@ -582,7 +582,7 @@ unsigned long strsize)
 	    if(symbols[i].n_type == N_SO){
 		/* skip the N_SO for the directory name that ends in a '/' */
 		if(symbols[i].n_un.n_strx != 0 &&
-		   symbols[i].n_un.n_strx < strsize){
+		   (unsigned long)symbols[i].n_un.n_strx < strsize){
 		    name = strings + symbols[i].n_un.n_strx;
 		    len = strlen(name);
 		    if(len != 0 && name[len-1] == '/')
@@ -611,7 +611,7 @@ unsigned long strsize)
 	    if(symbols[i].n_type == N_SO){
 		/* skip the N_SO for the directory name that ends in a '/' */
 		if(symbols[i].n_un.n_strx != 0 &&
-		   symbols[i].n_un.n_strx < strsize){
+		   (unsigned long)symbols[i].n_un.n_strx < strsize){
 		    name = strings + symbols[i].n_un.n_strx;
 		    len = strlen(name);
 		    if(len != 0 && name[len-1] == '/')

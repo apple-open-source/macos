@@ -3,19 +3,22 @@
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
- * The contents of this file constitute Original Code as defined in and
- * are subject to the Apple Public Source License Version 1.1 (the
- * "License").  You may not use this file except in compliance with the
- * License.  Please obtain a copy of the License at
- * http://www.apple.com/publicsource and read it before using this file.
+ * Copyright (c) 1999-2003 Apple Computer, Inc.  All Rights Reserved.
  * 
- * This Original Code and all software distributed under the License are
- * distributed on an "AS IS" basis, WITHOUT WARRANTY OF ANY KIND, EITHER
+ * This file contains Original Code and/or Modifications of Original Code
+ * as defined in and that are subject to the Apple Public Source License
+ * Version 2.0 (the 'License'). You may not use this file except in
+ * compliance with the License. Please obtain a copy of the License at
+ * http://www.opensource.apple.com/apsl/ and read it before using this
+ * file.
+ * 
+ * The Original Code and all software distributed under the License are
+ * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
  * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
  * INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY,
- * FITNESS FOR A PARTICULAR PURPOSE OR NON-INFRINGEMENT.  Please see the
- * License for the specific language governing rights and limitations
- * under the License.
+ * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
+ * Please see the License for the specific language governing rights and
+ * limitations under the License.
  * 
  * @APPLE_LICENSE_HEADER_END@
  */
@@ -39,6 +42,12 @@
 #include <sys/socket.h>
 #include <sys/ioctl.h>
 #include <rpc/types.h>
+#include <openssl/md5.h>
+#include <sys/stat.h>		// for file and dir stat calls
+
+extern "C" {
+#include <saslutil.h>
+};
 
 #include "ffparser.h"
 
@@ -73,12 +82,14 @@ typedef struct AttrDataContext {
 typedef struct AttrDataMatchContext {
     tDirPatternMatch	fInPattMatchType;
 	CFStringRef			fInPatt2MatchRef;
+	CFStringRef			fAttributeNameToMatchRef;
     Boolean				foundAMatch;
 } AttrDataMatchContext;
 
 typedef struct ResultMatchContext {
     tDirPatternMatch	fInPattMatchType;
 	CFStringRef			fInPatt2MatchRef;
+	CFStringRef			fAttributeNameToMatchRef;
     CFMutableArrayRef	fResultArray;
 } ResultMatchContext;
 
@@ -115,7 +126,7 @@ const char* kFFRecordTypeAlias			= "aliases";
 const char* kFFRecordTypeBootp			= "bootptab";
 const char* kFFRecordTypeEthernets		= "ethers";
 const char* kFFRecordTypeHosts			= "hosts";
-const char* kFFRecordTypeMounts			= "mounts";
+const char* kFFRecordTypeMounts			= "fstab";
 const char* kFFRecordTypeNetGroups		= "netgroups";
 const char* kFFRecordTypeNetworks		= "networks";
 const char* kFFRecordTypePrintService	= "printcap";
@@ -140,6 +151,7 @@ const char* kNISRecordTypeProtocols		= "protocols.byname";
 const char* kNISRecordTypeRPC			= "rpc.byname";
 const char* kNISRecordTypeServices		= "services.byname";
 
+#define kDefaultDomainFilePath	"/Library/Preferences/DirectoryService/nisdomain"
 #pragma mark -
 NodeData * AllocateNodeData()
 {
@@ -213,6 +225,7 @@ BSDPlugin::BSDPlugin( void )
 	mCachedMapsRef = NULL;
 #ifdef BUILDING_COMBO_PLUGIN
 	mCachedFFRef = NULL;
+	bzero( mModTimes, sizeof( mModTimes ) );
 #endif
 } // BSDPlugin
 
@@ -308,7 +321,7 @@ sInt32 BSDPlugin::Initialize( void )
 
 	if ( !mOpenRecordsRef )
 		mOpenRecordsRef = CFDictionaryCreateMutable( NULL, 0, &kCFCopyStringDictionaryKeyCallBacks, &kCFTypeDictionaryValueCallBacks );
-
+	
 #ifdef BUILDING_COMBO_PLUGIN
 	ResetFFCache();
 #endif
@@ -337,6 +350,30 @@ sInt32 BSDPlugin::Initialize( void )
     return siResult;
 } // Initialize
 
+// ---------------------------------------------------------------------------
+//	* WaitForInit
+//
+// ---------------------------------------------------------------------------
+
+void BSDPlugin::WaitForInit( void )
+{
+	volatile	uInt32		uiAttempts	= 0;
+
+	while ( !(mState & kInitialized) &&
+			!(mState & kFailedToInit) )
+	{
+		// Try for 2 minutes before giving up
+		if ( uiAttempts++ >= 240 )
+		{
+			return;
+		}
+		// Now wait until we are told that there is work to do or
+		//	we wake up on our own and we will look for ourselves
+
+		usleep( (uInt32)(50000) );
+	}
+} // WaitForInit
+
 sInt32 BSDPlugin::GetNISConfiguration( void )
 {
 	// Are we configured to use BSD?
@@ -351,7 +388,14 @@ sInt32 BSDPlugin::GetNISConfiguration( void )
 	{
 		if ( strcmp( resultPtr, "\n" ) == NULL )
 		{
-			DBGLOG( "BSDPlugin::GetNISConfiguration no domain name set, we are not configured to run\n" );
+			DBGLOG( "BSDPlugin::GetNISConfiguration no domain name set, we will check our own configuration\n" );
+			// we no longer set the nis domain in /etc/hostconfig since a bad configuration will hose the system
+			// at startup time.
+			CFStringRef		configDomain = CopyDomainFromFile();
+			SetDomain( configDomain );
+			
+			if ( configDomain )
+				CFRelease( configDomain );
 		}
 		else
 		{
@@ -451,6 +495,8 @@ sInt32 BSDPlugin::PeriodicTask( void )
 sInt32 BSDPlugin::ProcessRequest ( void *inData )
 {
 	sInt32		siResult	= 0;
+	
+	WaitForInit();
 
 	if ( inData == nil )
 	{
@@ -530,9 +576,11 @@ sInt32 BSDPlugin::SetPluginState ( const uInt32 inState )
 // don't allow any changes other than active / in-active
 	sInt32		siResult	= 0;
 
+	WaitForInit();
+	
 	DBGLOG( "BSDPlugin::SetPluginState(%s):", GetProtocolPrefixString() );
 
-	if (kActive & inState) //want to set to active
+	if ( (kActive & inState) && (mState & kInactive) ) // want to set to active only if currently inactive
     {
         DBGLOG( "kActive\n" );
         if ( mState & kInactive )
@@ -557,7 +605,7 @@ sInt32 BSDPlugin::SetPluginState ( const uInt32 inState )
 		}
     }
 
-	if (kInactive & inState) //want to set to in-active
+	if ( (kInactive & inState) && (mState & kActive) ) // want to set to inactive only if currently active
     {
         DBGLOG( "kInactive\n" );
         if ( !(mState & kInactive) )
@@ -575,15 +623,22 @@ sInt32 BSDPlugin::SetPluginState ( const uInt32 inState )
 #ifdef BUILDING_COMBO_PLUGIN
 		RemoveNode( CFSTR(kFFNodeName) );
 #endif		
-		if ( mLocalNodeString )
+		char*		oldDomainStr = mLocalNodeString;
+		mLocalNodeString = NULL;
+		
+		DBGLOG( "Setting pluginstate to inactive, null out domain and servers\n" );
+		SetDomain( NULL );
+		SetNISServers( NULL, oldDomainStr );
+
+		if ( oldDomainStr )
 		{
-			CFStringRef		localNodeStringRef = CFStringCreateWithCString( NULL, mLocalNodeString, kCFStringEncodingUTF8 );
+			CFStringRef		localNodeStringRef = CFStringCreateWithCString( NULL, oldDomainStr, kCFStringEncodingUTF8 );
 			
 			RemoveNode( localNodeStringRef );
 			CFRelease( localNodeStringRef );
 			
-			free(mLocalNodeString);
-			mLocalNodeString = NULL;
+			free(oldDomainStr);
+			oldDomainStr = NULL;
 		}
     }
 
@@ -591,7 +646,7 @@ sInt32 BSDPlugin::SetPluginState ( const uInt32 inState )
 
 } // SetPluginState
 
-#pragma mark
+#pragma mark -
 
 void BSDPlugin::AddNode( const char* nodeName, Boolean isLocalNode )
 {
@@ -1022,6 +1077,7 @@ sInt32 BSDPlugin::SaveNewState( sDoPlugInCustomCall *inData )
 	CFStringRef				errorString					= NULL;
 	Boolean					needToChangeDomain			= false;
 	CFStringRef				localNodeStringRef			= NULL;
+	char*					oldDomainStr				= NULL;
 	
 	DBGLOG( "BSDPlugin::SaveNewState called\n" );
 	
@@ -1084,10 +1140,18 @@ sInt32 BSDPlugin::SaveNewState( sDoPlugInCustomCall *inData )
 	}
 	
 	if ( siResult == eDSNoErr && needToChangeDomain )
+	{
+		if ( localNodeStringRef )
+			RemoveNode( localNodeStringRef );
+	
+		oldDomainStr = mLocalNodeString;
+		mLocalNodeString = NULL;
+		
 		siResult = SetDomain( domainNameRef );
+	}
 		
 	if ( siResult == eDSNoErr )
-		siResult = SetNISServers( nisServersRef );
+		siResult = SetNISServers( nisServersRef, (oldDomainStr)?oldDomainStr:mLocalNodeString );
 	
 	if ( siResult == eDSNoErr )
 		ConfigureLookupdIfNeeded();
@@ -1101,9 +1165,13 @@ sInt32 BSDPlugin::SaveNewState( sDoPlugInCustomCall *inData )
 	if ( newStateRef )
 		CFRelease( newStateRef );
 
+	if ( oldDomainStr )
+		free( oldDomainStr );
+	
 	return siResult;
 }
 
+#pragma mark -
 void BSDPlugin::ConfigureLookupdIfNeeded( void )
 {
 	// Until we have solved the circular dependancy problem between lookupd -> DS -> lookupd, 
@@ -1500,24 +1568,80 @@ void BSDPlugin::SaveDefaultLookupdConfiguration( void )
 	mLookupdIsAlreadyConfigured = true;
 }
 
+#pragma mark -
+CFStringRef BSDPlugin::CopyDomainFromFile( void )
+{
+	CFStringRef				domainToReturn = NULL;
+    FILE					*sourceFP = NULL;
+	char					*eolPtr = NULL;
+    char					buf[kMaxSizeOfParam] = {0,};
+	
+	LockPlugin();
+	// do we have a config file?  If so, read its contents
+	DBGLOG( "BSDPlugin::CopyDomainFromFile called\n" );
+	// now, we want to edit /etc/hostconfig and if the NISDOMAIN entry is different, updated it with nisDomainValue
+	sourceFP = fopen(kDefaultDomainFilePath,"r+");
+	
+	if ( sourceFP == NULL )
+	{
+		DBGLOG( "BSDPlugin::CopyDomainFromFile: no nisdomain file" );
+	}
+	else
+	{
+		if (fgets(buf,kMaxSizeOfParam,sourceFP) != NULL) 
+		{
+			eolPtr = strstr( buf, "\n" );
+			
+			if ( eolPtr )
+				*eolPtr = '\0';
+				
+			if ( buf[0] != '\0' )
+			{
+				domainToReturn = CFStringCreateWithCString( NULL, buf, kCFStringEncodingASCII );
+			}
+		}
+	}
+	
+	if ( sourceFP )
+		fclose( sourceFP );
+	
+	UnlockPlugin();
+
+	return domainToReturn;
+}
+
+void BSDPlugin::SaveDomainToFile( CFStringRef domainNameRef )
+{
+    FILE					*destFP = NULL;
+    char					buf[kMaxSizeOfParam] = {0,};
+	
+	LockPlugin();
+	DBGLOG( "BSDPlugin::SaveDomainToFile called\n" );
+	// now, we want to edit /etc/hostconfig and if the NISDOMAIN entry is different, updated it with nisDomainValue
+	destFP = fopen(kDefaultDomainFilePath,"w+");
+	
+	if ( destFP == NULL )
+	{
+		DBGLOG( "BSDPlugin::SaveDomainToFile: could not open nisdomain file to write! (%s)", strerror(errno) );
+	}
+	else
+	{
+		if ( domainNameRef )
+		{
+			CFStringGetCString( domainNameRef, buf, sizeof(buf), kCFStringEncodingASCII );
+		
+			fputs( buf, destFP );
+		}
+
+		fclose( destFP );
+	}
+
+	UnlockPlugin();
+}
 
 sInt32 BSDPlugin::SetDomain( CFStringRef domainNameRef )
 {
 	sInt32					siResult					= eDSNoErr;
-	CFStringRef				localNodeStringRef			= NULL;
-	
-	if ( mLocalNodeString )
-		localNodeStringRef = CFStringCreateWithCString( NULL, mLocalNodeString, kCFStringEncodingUTF8 );
-
-	if ( localNodeStringRef )
-		RemoveNode( localNodeStringRef );
-		
-	if ( mLocalNodeString )
-	{
-		free(mLocalNodeString);
-		mLocalNodeString = NULL;
-	}
-	
 	if ( domainNameRef )
 	{
 		CFIndex	len = CFStringGetMaximumSizeForEncoding(CFStringGetLength(domainNameRef), kCFStringEncodingUTF8) + 1;
@@ -1527,111 +1651,24 @@ sInt32 BSDPlugin::SetDomain( CFStringRef domainNameRef )
 		AddNode( mLocalNodeString );
 	}
 	
+	SaveDomainToFile( domainNameRef );
+	
 	char*		resultPtr = CopyResultOfNISLookup( kNISdomainname, (domainNameRef)?mLocalNodeString:kNoDomainName );		// set this now
 
 	if ( resultPtr )
 		free( resultPtr );
 	resultPtr = NULL;
-	
-	if ( localNodeStringRef )
-		CFRelease( localNodeStringRef );
-
-	if ( siResult == eDSNoErr )
-		siResult = UpdateHostConfig();
 		
 	return siResult;
 }
 
-sInt32 BSDPlugin::UpdateHostConfig( void )
-{
-	sInt32					siResult		= eDSNoErr;
-	const char*				nisDomainValue	= (mLocalNodeString)?mLocalNodeString:kNoDomainName;
-    FILE					*sourceFP = NULL, *destFP = NULL;
-    char					buf[kMaxSizeOfParam];
-	
-	DBGLOG( "BSDPlugin::UpdateHostConfig called\n" );
-	// now, we want to edit /etc/hostconfig and if the NISDOMAIN entry is different, updated it with nisDomainValue
-	sourceFP = fopen("/etc/hostconfig","r+");
-	
-	if ( sourceFP == NULL )
-	{
-		DBGLOG( "BSDPlugin::UpdateHostConfig: Could not open hostconfig: %s", strerror(errno) );
-		siResult = ePlugInError;
-	}
-
-	destFP = fopen( "/tmp/hostconfig.temp", "w+" );
-
-	if ( destFP == NULL )
-	{
-		DBGLOG( "BSDPlugin::UpdateHostConfig: Could not create temp hostconfig.temp: %s", strerror(errno) );
-		siResult = ePlugInError;
-	}
-	
-	if ( siResult == eDSNoErr )
-	{
-		while (fgets(buf,kMaxSizeOfParam,sourceFP) != NULL) 
-		{
-			char *pcKey = strstr( buf, "NISDOMAIN" );
-			
-			if ( pcKey == NULL )
-			{
-				fputs( buf, destFP );
-				continue;
-			}
-			else
-			{
-				char	domainLine[kMaxSizeOfParam];
-				// ok, we are at the line to update.  
-				sprintf( domainLine, "NISDOMAIN=%s\n", nisDomainValue );
-				fputs( domainLine, destFP );
-			}
-		}
-	}
-	
-	if ( sourceFP )
-		fclose( sourceFP );
-	
-	if ( destFP )
-		fclose( destFP );
-
-	if ( siResult == eDSNoErr )
-	{
-		const char*	argv[4] = {0};
-		char*		resultPtr = NULL;
-		Boolean		canceled = false;
-		int			callTimedOut = 0;
-		
-		argv[0] = "/bin/mv";
-		argv[1] = "/tmp/hostconfig.temp";
-		argv[2] = "/etc/hostconfig";
-
-		if ( myexecutecommandas( NULL, "/bin/mv", argv, false, 10, &resultPtr, &canceled, getuid(), getgid(), &callTimedOut ) < 0 )
-		{
-			DBGLOG( "BSDPlugin::UpdateHostConfig failed to update hostconfig\n" );
-			if ( callTimedOut )
-				siResult = ePlugInCallTimedOut;
-			else
-				siResult = ePlugInError;
-		}
-
-		if ( resultPtr )
-		{
-			DBGLOG( "BSDPlugin::UpdateHostConfig mv /tmp/hostconfig.temp /etc/hostconfig returned %s\n", resultPtr );
-			free( resultPtr );
-			resultPtr = NULL;
-		}
-	}
-	
-	return siResult;
-}
-
-sInt32 BSDPlugin::SetNISServers( CFStringRef nisServersRef )
+sInt32 BSDPlugin::SetNISServers( CFStringRef nisServersRef, char* oldDomainStr )
 {
 	sInt32					siResult	= eDSNoErr;
 
 	DBGLOG( "BSDPlugin::SetNISServers called\n" );
 	
-	if ( mLocalNodeString )
+	if ( oldDomainStr )
 	{
 		const char*	argv[4] = {0};
 		char		serverFilePath[1024];
@@ -1639,7 +1676,7 @@ sInt32 BSDPlugin::SetNISServers( CFStringRef nisServersRef )
 		Boolean		canceled = false;
 		int			callTimedOut = 0;
 	
-		sprintf( serverFilePath, "/var/yp/binding/%s.ypservers", mLocalNodeString );
+		snprintf( serverFilePath, sizeof( serverFilePath ), "/var/yp/binding/%s.ypservers", oldDomainStr );
 		
 		DBGLOG( "BSDPlugin::SetNISServers going to delete file at %s\n", serverFilePath );
 		
@@ -1658,14 +1695,20 @@ sInt32 BSDPlugin::SetNISServers( CFStringRef nisServersRef )
 			free( resultPtr );
 			resultPtr = NULL;
 		}
-
-		if ( nisServersRef )
+	}
+	
+	if ( mLocalNodeString )
+	{
+		if ( nisServersRef && !CFStringHasPrefix( nisServersRef, CFSTR("\n") ) )	// ignore this if it starts with an newline
 		{
 			// need to create a file in location /var/yp/binding/<domainname>.ypservers with a list of servers
 			FILE*		fp = NULL;
 			char		name[1024] = {0};
+			char*		resultPtr = NULL;
+			const char*	argv[8] = {0};
+			Boolean		canceled = false;
 			
-			sprintf( name, "/var/yp/binding/%s.ypservers", mLocalNodeString );
+			snprintf( name, sizeof(name), "/var/yp/binding/%s.ypservers", mLocalNodeString );
 			fp = fopen(name,"w+");
 	
 			if (fp == NULL) 
@@ -1701,9 +1744,19 @@ sInt32 BSDPlugin::SetNISServers( CFStringRef nisServersRef )
 	
 				if ( serverList )
 				{
+					char*		listPtr = NULL;
+
 					CFStringGetCString( nisServersRef, serverList, len, kCFStringEncodingUTF8 );
 					
+					listPtr = serverList + strlen(serverList)-1;
+					
+					while ( listPtr > serverList && isspace(*listPtr) )		// we want to trim off any excess whitespace at the end
+					{
+						*listPtr = '\0';
+						listPtr--;
+					}	
 					fprintf( fp, "%s\n", serverList );
+					
 					DBGLOG( "BSDPlugin::SetNISServers saving: %s\n", serverList );
 					
 					free( serverList );
@@ -1785,7 +1838,7 @@ DBGLOG( "BSDPlugin::FillOutCurrentState: mLocalNodeString is %s\n", mLocalNodeSt
 }
 
 
-
+#pragma mark -
 CFStringRef BSDPlugin::CreateListOfServers( void )
 {
     CFMutableStringRef		listRef			= NULL;
@@ -1795,7 +1848,7 @@ CFStringRef BSDPlugin::CreateListOfServers( void )
 		FILE*		fp = NULL;
 		char		name[kMaxSizeOfParam] = {0};
 		
-		sprintf( name, "/var/yp/binding/%s.ypservers", mLocalNodeString );
+		snprintf( name, sizeof(name), "/var/yp/binding/%s.ypservers", mLocalNodeString );
 		fp = fopen(name,"r");
 	
 		if (fp == NULL) 
@@ -3026,7 +3079,7 @@ sInt32 BSDPlugin::DoAttributeValueSearch( sDoAttrValueSearch* inData )
 						{
 							DBGLOG( "BSDPlugin::DoAttributeValueSearch, looking up records of pNSLRecType: %s, matchType: 0x%x and pattern: \"%s\"\n", pNSLRecType, inData->fInPattMatchType, (inData->fInPatt2Match)?inData->fInPatt2Match->fBufferData:"NULL" );
 							
-							DoRecordsLookup( (CFMutableArrayRef)pContinue->fResultArrayRef, nodeDirRep->IsFFNode(), pNSLRecType, NULL, inData->fInPattMatchType, inData->fInPatt2Match );
+							DoRecordsLookup( (CFMutableArrayRef)pContinue->fResultArrayRef, nodeDirRep->IsFFNode(), pNSLRecType, NULL, inData->fInPattMatchType, inData->fInPatt2Match, inData->fInAttrType->fBufferData );
 						}
 						else
 							DBGLOG( "BSDPlugin::DoAttributeValueSearch, we don't have a mapping for type: %s, skipping\n", pNSLRecType );
@@ -3305,7 +3358,9 @@ Boolean BSDPlugin::ResultMatchesRequestRecordNameCriteria(	CFDictionaryRef		resu
 					}
 					else if ( valueResult && CFGetTypeID( valueResult ) == CFArrayGetTypeID() )		
 					{
-						for ( CFIndex i=0; i<CFArrayGetCount( (CFArrayRef)valueResult ) && !resultIsOK; i++ )
+						CFIndex		arrayCount = CFArrayGetCount( (CFArrayRef)valueResult );
+						
+						for ( CFIndex i=0; i<arrayCount && !resultIsOK; i++ )
 						{
 							CFStringRef		resultRecordAttributeRef = (CFStringRef)CFArrayGetValueAtIndex( (CFArrayRef)valueResult, i );
 							
@@ -3323,7 +3378,9 @@ Boolean BSDPlugin::ResultMatchesRequestRecordNameCriteria(	CFDictionaryRef		resu
 					}
 					else if ( valueResult && CFGetTypeID( valueResult ) == CFArrayGetTypeID() )		
 					{
-						for ( CFIndex i=0; i<CFArrayGetCount( (CFArrayRef)valueResult ) && !resultIsOK; i++ )
+						CFIndex		arrayCount = CFArrayGetCount( (CFArrayRef)valueResult );
+						
+						for ( CFIndex i=0; i<arrayCount && !resultIsOK; i++ )
 						{
 							CFStringRef		resultRecordAttributeRef = (CFStringRef)CFArrayGetValueAtIndex( (CFArrayRef)valueResult, i );
 							
@@ -3351,7 +3408,9 @@ Boolean BSDPlugin::ResultMatchesRequestRecordNameCriteria(	CFDictionaryRef		resu
 						}
 						else if ( CFGetTypeID( valueResult ) == CFArrayGetTypeID() )		
 						{
-							for ( CFIndex i=0; i<CFArrayGetCount( (CFArrayRef)valueResult ) && !resultIsOK; i++ )
+							CFIndex		arrayCount = CFArrayGetCount( (CFArrayRef)valueResult );
+							
+							for ( CFIndex i=0; i<arrayCount && !resultIsOK; i++ )
 							{
 								CFStringRef		resultRecordNameRef = (CFStringRef)CFArrayGetValueAtIndex( (CFArrayRef)valueResult, i );
 								
@@ -3369,7 +3428,9 @@ Boolean BSDPlugin::ResultMatchesRequestRecordNameCriteria(	CFDictionaryRef		resu
 							}
 							else if ( CFGetTypeID( valueRealNameResult ) == CFArrayGetTypeID() )		
 							{
-								for ( CFIndex i=0; i<CFArrayGetCount( (CFArrayRef)valueRealNameResult ) && !resultIsOK; i++ )
+								CFIndex		arrayCount = CFArrayGetCount( (CFArrayRef)valueRealNameResult );
+								
+								for ( CFIndex i=0; i<arrayCount && !resultIsOK; i++ )
 								{
 									CFStringRef		resultRecordNameRef = (CFStringRef)CFArrayGetValueAtIndex( (CFArrayRef)valueRealNameResult, i );
 									
@@ -3420,7 +3481,9 @@ sInt32 BSDPlugin::RetrieveResults(	tDirNodeReference	inNodeRef,
 		&&	inRecordNamePatternMatch != eDSiExact
 		&&	inRecordNamePatternMatch != eDSAnyMatch
 		&&	inRecordNamePatternMatch != eDSStartsWith 
+		&&	inRecordNamePatternMatch != eDSiStartsWith 
 		&&	inRecordNamePatternMatch != eDSEndsWith 
+		&&	inRecordNamePatternMatch != eDSiEndsWith 
 		&&	inRecordNamePatternMatch != eDSContains
 		&&	inRecordNamePatternMatch != eDSiContains )
 	{
@@ -3662,10 +3725,11 @@ sInt32 BSDPlugin::RetrieveResults(	tDirNodeReference	inNodeRef,
 							{	
 								char		valueTmpBuf[1024];
 								char*		value = NULL;
+								CFIndex		arrayCount = CFArrayGetCount(valueArrayRef);
 								
 								aTempData->AppendShort( (short)CFArrayGetCount(valueArrayRef) );	// attrValueCount
 								
-								for ( CFIndex i=0; i< CFArrayGetCount(valueArrayRef); i++ )
+								for ( CFIndex i=0; i<arrayCount; i++ )
 								{
 									valueRef = (CFStringRef)::CFArrayGetValueAtIndex( valueArrayRef, i );
 		
@@ -3944,155 +4008,279 @@ CFMutableDictionaryRef BSDPlugin::CopyRecordLookup( Boolean isFFRecord, const ch
 }
 
 #ifdef BUILDING_COMBO_PLUGIN
-CFMutableDictionaryRef BSDPlugin::CopyResultOfFFLookup( const char* recordTypeName )
+void BSDPlugin::SetLastModTimeOfFileRead( const char* recordTypeName, time_t modTimeOfFile )
+{
+	if ( !recordTypeName )
+	{
+		DBGLOG( "BSDPlugin::SetLastModTimeOfFileRead was passed a recordTypeName of NULL!" );
+		return;
+	}
+	
+	int		index = -1;
+	
+	if ( strcmp( recordTypeName, kFFRecordTypeUsers ) == 0 )
+		index = 0;
+	else if ( strcmp( recordTypeName, kFFRecordTypeGroups ) == 0 )
+		index = 1;
+	else if ( strcmp( recordTypeName, kFFRecordTypeAlias ) == 0 )
+		index = 2;
+	else if ( strcmp( recordTypeName, kFFRecordTypeBootp ) == 0 )
+		index = 3;
+	else if ( strcmp( recordTypeName, kFFRecordTypeEthernets ) == 0 )
+		index = 4;
+	else if ( strcmp( recordTypeName, kFFRecordTypeHosts ) == 0 )
+		index = 5;
+	else if ( strcmp( recordTypeName, kFFRecordTypeMounts ) == 0 )
+		index = 6;
+	else if ( strcmp( recordTypeName, kFFRecordTypeNetGroups ) == 0 )
+		index = 7;
+	else if ( strcmp( recordTypeName, kFFRecordTypeNetworks ) == 0 )
+		index = 8;
+	else if ( strcmp( recordTypeName, kFFRecordTypePrintService ) == 0 )
+		index = 9;
+	else if ( strcmp( recordTypeName, kFFRecordTypeProtocols ) == 0 )
+		index = 10;
+	else if ( strcmp( recordTypeName, kFFRecordTypeRPC ) == 0 )
+		index = 11;
+	else if ( strcmp( recordTypeName, kFFRecordTypeServices ) == 0 )
+		index = 12;
+	else if ( strcmp( recordTypeName, kFFRecordTypeBootParams ) == 0 )
+		index = 13;
+
+	if ( index > 0 )
+		mModTimes[index] = modTimeOfFile;
+	else
+		DBGLOG( "BSDPlugin::SetLastModTimeOfFileRead, unknown recordTypeName: %s\n", recordTypeName );
+}
+
+time_t BSDPlugin::GetLastModTimeOfFileRead( const char* recordTypeName )
+{
+	if ( !recordTypeName )
+		return 0;
+		
+	if ( strcmp( recordTypeName, kFFRecordTypeUsers ) == 0 )
+		return mModTimes[0];
+	else if ( strcmp( recordTypeName, kFFRecordTypeGroups ) == 0 )
+		return mModTimes[1];
+	else if ( strcmp( recordTypeName, kFFRecordTypeAlias ) == 0 )
+		return mModTimes[2];
+	else if ( strcmp( recordTypeName, kFFRecordTypeBootp ) == 0 )
+		return mModTimes[3];
+	else if ( strcmp( recordTypeName, kFFRecordTypeEthernets ) == 0 )
+		return mModTimes[4];
+	else if ( strcmp( recordTypeName, kFFRecordTypeHosts ) == 0 )
+		return mModTimes[5];
+	else if ( strcmp( recordTypeName, kFFRecordTypeMounts ) == 0 )
+		return mModTimes[6];
+	else if ( strcmp( recordTypeName, kFFRecordTypeNetGroups ) == 0 )
+		return mModTimes[7];
+	else if ( strcmp( recordTypeName, kFFRecordTypeNetworks ) == 0 )
+		return mModTimes[8];
+	else if ( strcmp( recordTypeName, kFFRecordTypePrintService ) == 0 )
+		return mModTimes[9];
+	else if ( strcmp( recordTypeName, kFFRecordTypeProtocols ) == 0 )
+		return mModTimes[10];
+	else if ( strcmp( recordTypeName, kFFRecordTypeRPC ) == 0 )
+		return mModTimes[11];
+	else if ( strcmp( recordTypeName, kFFRecordTypeServices ) == 0 )
+		return mModTimes[12];
+	else if ( strcmp( recordTypeName, kFFRecordTypeBootParams ) == 0 )
+		return mModTimes[13];
+	else	
+		return 0;
+
+}
+
+CFMutableDictionaryRef BSDPlugin::CopyResultOfFFLookup( const char* recordTypeName, CFStringRef recordTypeRef )
 {
 	// need to read contents of config file
-	size_t					curLen;
-	FILE*					fd;
 	char					filepath[1024] = {0,};
-	CFStringRef				recordTypeRef = CFStringCreateWithCString( NULL, recordTypeName, kCFStringEncodingASCII );
-	CFMutableStringRef		alternateRecordTypeRef = NULL;
-	CFMutableDictionaryRef	resultDictionaryRef = CFDictionaryCreateMutable( NULL, 0, &kCFCopyStringDictionaryKeyCallBacks, &kCFTypeDictionaryValueCallBacks );
-	CFMutableDictionaryRef	alternateDictionaryRef = CFDictionaryCreateMutable( NULL, 0, &kCFCopyStringDictionaryKeyCallBacks, &kCFTypeDictionaryValueCallBacks );
+	CFMutableDictionaryRef	resultDictionaryRef = NULL;
+	time_t					modTimeOfFile = 0;
 	
 	snprintf( filepath, sizeof(filepath), "%s%s", kFFConfDir, recordTypeName );
 	
-	fd = fopen(filepath, "r");
-	
-	if ( !fd )
+	struct stat				statResult;
+
+	// ok, let's stat the file		
+	if ( stat( filepath, &statResult ) == 0 )
 	{
-		syslog( LOG_ALERT, "CopyResultOfFFLookup returning NULL as we can't open the file at: (%s)!\n", filepath );
-		
-		if ( recordTypeRef )
-			CFRelease( recordTypeRef );
-		
-		if ( resultDictionaryRef )
-			CFRelease( resultDictionaryRef );
-			
-		if ( alternateDictionaryRef )
-			CFRelease( alternateDictionaryRef );
-			
-		return NULL;
-	}
-	
-	if ( recordTypeRef )
-	{
-		alternateRecordTypeRef = CFStringCreateMutableCopy( NULL, 0, recordTypeRef );
-		CFStringAppend( alternateRecordTypeRef, CFSTR(kAlternateTag) );
-	
-		char*	lnResult = NULL;
-		char*	continuationBuffer = NULL;
-		char	lnBuf[kMaxSizeOfParam] = {0,};
-		while ( lnResult = fgets( lnBuf, sizeof(lnBuf), fd ) )
+		DBGLOG( "%s, modtime is: %d, last checked modtime is: %d\n", filepath, statResult.st_mtimespec.tv_sec, GetLastModTimeOfFileRead( recordTypeName ) );
+		modTimeOfFile = statResult.st_mtimespec.tv_sec;
+		if ( modTimeOfFile > GetLastModTimeOfFileRead( recordTypeName ) )
 		{
-			char*	commentPtr = NULL;
+			DBGLOG( "%s has changed, re-read the file\n", filepath );
+		}
+		else
+		{
+			DBGLOG( "%s hasn't changed, go with cached results if applicable\n", filepath );
+			if ( mCachedFFRef )
+				resultDictionaryRef = (CFMutableDictionaryRef)CFDictionaryGetValue( mCachedFFRef, recordTypeRef );
 			
-			if ( lnResult && (lnResult[0] == '#' || lnResult[0] == '\n') )
-				continue;	// just skip past any comments or new lines
-				
-			curLen = strlen( lnResult );		
-			
-			if ( curLen )
-				lnResult[curLen-1] = '\0';
-			
-			commentPtr = strchr( lnResult, '#' );
-			
-			if ( commentPtr )
-			{
-				char*	trailingWSPtr = commentPtr;
-				commentPtr++;					// move beyond '#'
-				
-				trailingWSPtr--;				// move back and we'll blank out any whitespace
-				
-				while ( isspace( *trailingWSPtr ) )
-					trailingWSPtr--;
-	
-				*(++trailingWSPtr) = '\0';		// Null terminate good stuff			
-			}
-			
-			if ( continuationBuffer )
-			{
-				// we are combining lines from this file, we need to add the current line to this line
-				char*	tempBuf = NULL;
-				size_t	lnLen = strlen(lnResult);
-				size_t	conBufLen = strlen(continuationBuffer);
-				
-				tempBuf = (char*)malloc( lnLen + conBufLen + 1 );
-				memcpy( tempBuf, continuationBuffer, conBufLen );
-				memcpy( &tempBuf[conBufLen], lnResult, lnLen );
-				tempBuf[lnLen + conBufLen] = '\0';
-				
-				free( continuationBuffer );
-				continuationBuffer = tempBuf;
-				
-				lnResult = continuationBuffer;
-			}
-			
-			curLen = strlen(lnResult);
-			
-			if ( curLen > 0 && lnResult[curLen-1] == '\\' )	// is the last character a line continuation character?
-			{
-				char*		oldContBuffer = continuationBuffer;
-				
-				lnResult[curLen-1] = '\0';
-				
-				// we need to trim this and read the next line adding it to the end of this line
-				continuationBuffer = (char*)malloc(  curLen+1 );
-				strcpy( continuationBuffer, lnResult );
-				
-				if ( oldContBuffer )
-					free(oldContBuffer);
-					
-				continue;							// go to next line
-			}
-			
-			if ( lnResult[0] != '\0' )
-			{
-				CFMutableDictionaryRef		resultRef = CreateFFParseResult( lnResult, recordTypeName );
-		
-				if ( resultRef )
-				{
-					if ( commentPtr && commentPtr[0] != '\0' )
-					{
-						CFStringRef		commentRef = CFStringCreateWithCString( NULL, commentPtr, kCFStringEncodingUTF8 );
-						
-						if ( commentRef )
-						{
-							CFDictionaryAddValue( resultRef, CFSTR(kDS1AttrComment), commentRef );
-							CFRelease( commentRef );
-						}
-					}
-					
-					AddResultToDictionaries( resultDictionaryRef, alternateDictionaryRef, resultRef );
-					
-					CFRelease( resultRef );
-				}
-				else
-					DBGLOG( "BSDPlugin::CopyResultOfFFLookup no result\n" );
-			}
-			
-			if ( continuationBuffer )
-				free( continuationBuffer );
-			continuationBuffer = NULL;
+			if ( resultDictionaryRef )
+				CFRetain( resultDictionaryRef );
 		}
 	}
-	
-	if ( recordTypeRef )
+	else
+		DBGLOG( "Couldn't stat the file (%s) due to: %s!\n", filepath, strerror(errno) );
+
+	if ( resultDictionaryRef == NULL )
 	{
-		CFDictionarySetValue( mCachedFFRef, recordTypeRef, resultDictionaryRef );
-		CFDictionarySetValue( mCachedFFRef, alternateRecordTypeRef, alternateDictionaryRef );
-		CFRelease( recordTypeRef );
+		CFMutableStringRef		alternateRecordTypeRef = NULL;
+		CFMutableDictionaryRef	alternateDictionaryRef = CFDictionaryCreateMutable( NULL, 0, &kCFCopyStringDictionaryKeyCallBacks, &kCFTypeDictionaryValueCallBacks );
+		size_t					curLen;
+		FILE*					fd;
+		CFStringRef				recordTypeRef = CFStringCreateWithCString( NULL, recordTypeName, kCFStringEncodingASCII );
 		
-		if ( alternateRecordTypeRef )
-			CFRelease( alternateRecordTypeRef );
-		alternateRecordTypeRef = NULL;
+		resultDictionaryRef = CFDictionaryCreateMutable( NULL, 0, &kCFCopyStringDictionaryKeyCallBacks, &kCFTypeDictionaryValueCallBacks );
+
+		fd = fopen(filepath, "r");
+		
+		if ( !fd )
+		{
+			DBGLOG( "CopyResultOfFFLookup returning NULL as we can't open the file at: (%s)!\n", filepath );
+			
+			if ( recordTypeRef )
+				CFRelease( recordTypeRef );
+			
+			if ( resultDictionaryRef )
+				CFRelease( resultDictionaryRef );
+				
+			if ( alternateDictionaryRef )
+				CFRelease( alternateDictionaryRef );
+				
+			return NULL;
+		}
+		
+		if ( recordTypeRef )
+		{
+			alternateRecordTypeRef = CFStringCreateMutableCopy( NULL, 0, recordTypeRef );
+			CFStringAppend( alternateRecordTypeRef, CFSTR(kAlternateTag) );
+		
+			char*	lnResult = NULL;
+			char*	continuationBuffer = NULL;
+			char	lnBuf[kMaxSizeOfParam] = {0,};
+			while ( lnResult = fgets( lnBuf, sizeof(lnBuf), fd ) )
+			{
+				char*	commentPtr = NULL;
+				
+				if ( lnResult && (lnResult[0] == '#' || lnResult[0] == '\n') )
+					continue;	// just skip past any comments or new lines
+					
+				curLen = strlen( lnResult );		
+				
+				if ( curLen )
+					lnResult[curLen-1] = '\0';
+				
+				commentPtr = strchr( lnResult, '#' );
+				
+				if ( commentPtr )
+				{
+					char*	trailingWSPtr = commentPtr;
+					commentPtr++;					// move beyond '#'
+					
+					trailingWSPtr--;				// move back and we'll blank out any whitespace
+					
+					while ( isspace( *trailingWSPtr ) )
+						trailingWSPtr--;
+		
+					*(++trailingWSPtr) = '\0';		// Null terminate good stuff			
+				}
+				
+				if ( continuationBuffer )
+				{
+					// we are combining lines from this file, we need to add the current line to this line
+					char*	tempBuf = NULL;
+					size_t	lnLen = strlen(lnResult);
+					size_t	conBufLen = strlen(continuationBuffer);
+					
+					tempBuf = (char*)malloc( lnLen + conBufLen + 1 );
+					memcpy( tempBuf, continuationBuffer, conBufLen );
+					memcpy( &tempBuf[conBufLen], lnResult, lnLen );
+					tempBuf[lnLen + conBufLen] = '\0';
+					
+					free( continuationBuffer );
+					continuationBuffer = tempBuf;
+					
+					lnResult = continuationBuffer;
+				}
+				
+				curLen = strlen(lnResult);
+				
+				if ( curLen > 0 && lnResult[curLen-1] == '\\' )	// is the last character a line continuation character?
+				{
+					char*		oldContBuffer = continuationBuffer;
+					
+					lnResult[curLen-1] = '\0';
+					
+					// we need to trim this and read the next line adding it to the end of this line
+					continuationBuffer = (char*)malloc(  curLen+1 );
+					strcpy( continuationBuffer, lnResult );
+					
+					if ( oldContBuffer )
+						free(oldContBuffer);
+						
+					continue;							// go to next line
+				}
+				
+				if ( lnResult[0] != '\0' )
+				{
+					CFMutableDictionaryRef		resultRef = CreateFFParseResult( lnResult, recordTypeName );
+			
+					if ( resultRef )
+					{
+						if ( commentPtr && commentPtr[0] != '\0' )
+						{
+							CFStringRef		commentRef = CFStringCreateWithCString( NULL, commentPtr, kCFStringEncodingUTF8 );
+							
+							if ( commentRef )
+							{
+								CFDictionaryAddValue( resultRef, CFSTR(kDS1AttrComment), commentRef );
+								CFRelease( commentRef );
+							}
+						}
+						
+						AddResultToDictionaries( resultDictionaryRef, alternateDictionaryRef, resultRef );
+						
+						CFRelease( resultRef );
+					}
+					else
+						DBGLOG( "BSDPlugin::CopyResultOfFFLookup no result\n" );
+				}
+				
+				if ( continuationBuffer )
+					free( continuationBuffer );
+				continuationBuffer = NULL;
+			}
+		}
+		
+		if ( recordTypeRef )
+		{
+			if ( mCachedFFRef )
+			{
+				CFDictionarySetValue( mCachedFFRef, recordTypeRef, resultDictionaryRef );
+				CFDictionarySetValue( mCachedFFRef, alternateRecordTypeRef, alternateDictionaryRef );
+			}
+			
+			CFRelease( recordTypeRef );
+			
+			if ( alternateRecordTypeRef )
+				CFRelease( alternateRecordTypeRef );
+			alternateRecordTypeRef = NULL;
+		}
+		
+		if ( alternateDictionaryRef )
+			CFRelease( alternateDictionaryRef );
+		alternateDictionaryRef = NULL;
+		
+		fclose( fd );
+		
+		DBGLOG( "%s, setting last checked modtime to: %d\n", filepath, modTimeOfFile );
+		SetLastModTimeOfFileRead( recordTypeName, modTimeOfFile );
+
+		if ( modTimeOfFile != GetLastModTimeOfFileRead( recordTypeName ) )
+			DBGLOG( "setting mod time didn't take!\n" );
 	}
-	
-	if ( alternateDictionaryRef )
-		CFRelease( alternateDictionaryRef );
-	alternateDictionaryRef = NULL;
-	
-	fclose( fd );
 	
 	return resultDictionaryRef;
 }
@@ -4155,6 +4343,7 @@ char* BSDPlugin::CopyResultOfNISLookup( NISLookupType type, const char* recordTy
     Boolean		canceled = false;
 	int			callTimedOut = 0;
 	
+	DBGLOG( "BSDPlugin::CopyResultOfNISLookup started type: %d, recordTypeName: %s, keys: %s\n", type, (recordTypeName)?recordTypeName:"NULL", (keys)?keys:"NULL" );
 	// we can improve here by saving these results and caching them...
 	switch (type)
 	{
@@ -4230,7 +4419,13 @@ char* BSDPlugin::CopyResultOfNISLookup( NISLookupType type, const char* recordTy
 	{
 		DBGLOG( "BSDPlugin::CopyResultOfNISLookup failed\n" );
 	}
-	
+			
+	if ( type == kNISbind && callTimedOut )
+	{
+		syslog( LOG_ALERT, "ypbind failed to locate NIS Server, some services may be unavailable...\n" );
+	}
+
+	DBGLOG( "BSDPlugin::CopyResultOfNISLookup finished type: %d, recordTypeName: %s, keys: %s\n", type, (recordTypeName)?recordTypeName:"NULL", (keys)?keys:"NULL" );
 	return resultPtr;
 }
 
@@ -4239,7 +4434,8 @@ void BSDPlugin::DoRecordsLookup(	CFMutableArrayRef	resultArrayRef,
 									const char*			recordTypeName,
 									char*				recordName,
 									tDirPatternMatch	inAttributePatternMatch,
-									tDataNodePtr		inAttributePatt2Match )
+									tDataNodePtr		inAttributePatt2Match,
+									char*				attributeKeyToMatch )
 {
 	CFDictionaryRef		cachedResult = NULL;
 
@@ -4256,7 +4452,9 @@ void BSDPlugin::DoRecordsLookup(	CFMutableArrayRef	resultArrayRef,
 		&&	inAttributePatternMatch != eDSiExact
 		&&	inAttributePatternMatch != eDSAnyMatch
 		&&	inAttributePatternMatch != eDSStartsWith 
+		&&	inAttributePatternMatch != eDSiStartsWith 
 		&&	inAttributePatternMatch != eDSEndsWith 
+		&&	inAttributePatternMatch != eDSiEndsWith 
 		&&	inAttributePatternMatch != eDSContains
 		&&	inAttributePatternMatch != eDSiContains )
 	{
@@ -4270,7 +4468,7 @@ void BSDPlugin::DoRecordsLookup(	CFMutableArrayRef	resultArrayRef,
 		
 		if ( cachedResult )
 		{
-			if ( RecordIsAMatch( cachedResult, inAttributePatternMatch, inAttributePatt2Match ) )
+			if ( RecordIsAMatch( cachedResult, inAttributePatternMatch, inAttributePatt2Match, attributeKeyToMatch ) )
 				CFArrayAppendValue( resultArrayRef, cachedResult );
 			else
 				DBGLOG( "BSDPlugin::DoRecordsLookup RecordIsAMatch returned false\n" );
@@ -4287,11 +4485,19 @@ void BSDPlugin::DoRecordsLookup(	CFMutableArrayRef	resultArrayRef,
 		if ( cachedResult && ( (inAttributePatt2Match && inAttributePatt2Match->fBufferData) || inAttributePatternMatch == eDSAnyMatch ) )
 		{
 			CFStringRef			patternRef = NULL;
+			CFStringRef			attributeNameToMatchRef = NULL;
 			
 			if ( inAttributePatt2Match && inAttributePatt2Match->fBufferData )
 				patternRef = CFStringCreateWithCString( NULL, inAttributePatt2Match->fBufferData, kCFStringEncodingUTF8 );
 			
-			ResultMatchContext	context = { inAttributePatternMatch, patternRef, resultArrayRef };
+			if ( attributeKeyToMatch )
+			{
+				DBGLOG( "BSDPlugin::DoRecordsLookup looking for records with keys (%s) matching (%s)\n", attributeKeyToMatch, ( inAttributePatt2Match && inAttributePatt2Match->fBufferData )?inAttributePatt2Match->fBufferData:"null" );
+				
+				attributeNameToMatchRef = CFStringCreateWithCString( NULL, attributeKeyToMatch, kCFStringEncodingUTF8 );
+			}
+			
+			ResultMatchContext	context = { inAttributePatternMatch, patternRef, attributeNameToMatchRef, resultArrayRef };
 		
 			CFDictionaryApplyFunction( cachedResult, FindAllAttributeMatches, &context );
 
@@ -4299,6 +4505,9 @@ void BSDPlugin::DoRecordsLookup(	CFMutableArrayRef	resultArrayRef,
 		
 			if ( patternRef )
 				CFRelease( patternRef );
+		
+			if ( attributeNameToMatchRef )
+				CFRelease( attributeNameToMatchRef );
 		}
 		else
 			DBGLOG( "BSDPlugin::DoRecordsLookup couldn't find any matching results\n" );
@@ -4328,19 +4537,8 @@ CFDictionaryRef BSDPlugin::CopyMapResults( Boolean isFFRecord, const char* recor
 		if ( isFFRecord )
 		{
 			LockFFCache();
-			results = (CFDictionaryRef)CFDictionaryGetValue( mCachedFFRef, recordTypeRef );
-	
-			if ( results )
-			{
-				CFRetain( results );
-	
-				DBGLOG( "BSDPlugin::CopyMapResults returning FF cached result\n" );
-			}
-			else
-			{
-				DBGLOG( "BSDPlugin::CopyMapResults creating new FF cached result\n" );
-				results = CopyResultOfFFLookup( recordTypeName );
-			}
+
+			results = CopyResultOfFFLookup( recordTypeName, recordTypeRef );
 			
 			UnlockFFCache();
 		}
@@ -4549,7 +4747,10 @@ CFDictionaryRef BSDPlugin::CopyMapResults( Boolean isFFRecord, const char* recor
 	return results;
 }
 
-Boolean BSDPlugin::RecordIsAMatch( CFDictionaryRef recordRef, tDirPatternMatch inAttributePatternMatch, tDataNodePtr inAttributePatt2Match )
+Boolean BSDPlugin::RecordIsAMatch(	CFDictionaryRef		recordRef,
+									tDirPatternMatch	inAttributePatternMatch,
+									tDataNodePtr		inAttributePatt2Match,
+									char*				attributeKeyToMatch )
 {
 	Boolean		isAMatch = false;
 	
@@ -4558,10 +4759,14 @@ Boolean BSDPlugin::RecordIsAMatch( CFDictionaryRef recordRef, tDirPatternMatch i
 	else if ( inAttributePatt2Match )
 	{
 		CFStringRef attrPatternRef = CFStringCreateWithCString( NULL, inAttributePatt2Match->fBufferData, kCFStringEncodingUTF8 );
-
+		CFStringRef	attrKeyToMatchRef = NULL;
+		
 		if ( attrPatternRef )
 		{
-			AttrDataMatchContext		context = { inAttributePatternMatch, attrPatternRef, false };
+			if ( attributeKeyToMatch )
+				attrKeyToMatchRef = CFStringCreateWithCString( NULL, attributeKeyToMatch, kCFStringEncodingUTF8 );
+				
+			AttrDataMatchContext		context = { inAttributePatternMatch, attrPatternRef, attrKeyToMatchRef, false };
 			
 			CFDictionaryApplyFunction( recordRef, FindAttributeMatch, &context );
 			
@@ -4573,6 +4778,9 @@ Boolean BSDPlugin::RecordIsAMatch( CFDictionaryRef recordRef, tDirPatternMatch i
 				DBGLOG( "BSDPlugin::RecordIsAMatch result didn't have the attribute: %s\n", inAttributePatt2Match->fBufferData );
 
 			CFRelease( attrPatternRef );
+			
+			if ( attrKeyToMatchRef )
+				CFRelease( attrKeyToMatchRef );
 		}
 		else
 			DBGLOG( "BSDPlugin::RecordIsAMatch couldn't make a UTF8 string out of: %s!\n", inAttributePatt2Match->fBufferData );
@@ -4615,18 +4823,7 @@ CFDictionaryRef BSDPlugin::CopyRecordResult( Boolean isFFRecord, const char* rec
 	{
 		LockFFCache();
 	
-		CFDictionaryRef		cachedFFRef = (CFDictionaryRef)CFDictionaryGetValue( mCachedFFRef, recordTypeRef );
-		
-		if ( !cachedFFRef )
-		{
-			DBGLOG( "BSDPlugin::CopyRecordResult creating new FF cached result\n" );
-			cachedFFRef = CopyResultOfFFLookup( recordTypeName );
-		}
-		else	
-		{
-			DBGLOG( "BSDPlugin::CopyRecordResult grabbed FF cached result\n" );
-			CFRetain( cachedFFRef );
-		}
+		CFDictionaryRef			cachedFFRef = CopyResultOfFFLookup( recordTypeName, recordTypeRef );
 			
 		if ( cachedFFRef )
 		{
@@ -4863,31 +5060,31 @@ CFMutableDictionaryRef BSDPlugin::CreateFFParseResult(char *data, const char* re
 
 	CFMutableDictionaryRef	returnResult = NULL;
 	
-	if ( strcmp( recordTypeName, "master.passwd" ) == 0 )
+	if ( strcmp( recordTypeName, kFFRecordTypeUsers ) == 0 )
 		returnResult = ff_parse_user_A(data);
-	else if ( strcmp( recordTypeName, "group" ) == 0 )
+	else if ( strcmp( recordTypeName, kFFRecordTypeGroups ) == 0 )
 		returnResult = ff_parse_group(data);
-	else if ( strcmp( recordTypeName, "hosts" ) == 0 )
+	else if ( strcmp( recordTypeName, kFFRecordTypeHosts ) == 0 )
 		returnResult = ff_parse_host(data);
-	else if ( strcmp( recordTypeName, "networks" ) == 0 )
+	else if ( strcmp( recordTypeName, kFFRecordTypeNetworks ) == 0 )
 		returnResult = ff_parse_network(data);
-	else if ( strcmp( recordTypeName, "services" ) == 0 )
+	else if ( strcmp( recordTypeName, kFFRecordTypeServices ) == 0 )
 		returnResult = ff_parse_service(data);
-	else if ( strcmp( recordTypeName, "protocols" ) == 0 )
+	else if ( strcmp( recordTypeName, kFFRecordTypeProtocols ) == 0 )
 		returnResult = ff_parse_protocol(data);
-	else if ( strcmp( recordTypeName, "rpc" ) == 0 )
+	else if ( strcmp( recordTypeName, kFFRecordTypeRPC ) == 0 )
 		returnResult = ff_parse_rpc(data);
-	else if ( strcmp( recordTypeName, "mounts" ) == 0 )
+	else if ( strcmp( recordTypeName, kFFRecordTypeMounts ) == 0 )
 		returnResult = ff_parse_mount(data);
-	else if ( strcmp( recordTypeName, "printcap" ) == 0 )
+	else if ( strcmp( recordTypeName, kFFRecordTypePrintService ) == 0 )
 		returnResult = ff_parse_printer(data);
-	else if ( strcmp( recordTypeName, "bootparams" ) == 0 )
+	else if ( strcmp( recordTypeName, kFFRecordTypeBootParams ) == 0 )
 		returnResult = ff_parse_bootparam(data);
-	else if ( strcmp( recordTypeName, "bootptab" ) == 0 )
+	else if ( strcmp( recordTypeName, kFFRecordTypeBootp ) == 0 )
 		returnResult = ff_parse_bootp(data);
-	else if ( strcmp( recordTypeName, "aliases" ) == 0 )
+	else if ( strcmp( recordTypeName, kFFRecordTypeAlias ) == 0 )
 		ff_parse_alias(data);
-	else if ( strcmp( recordTypeName, "ethers" ) == 0 )
+	else if ( strcmp( recordTypeName, kFFRecordTypeEthernets ) == 0 )
 		returnResult = ff_parse_ethernet(data);
 	else if ( strcmp( recordTypeName, "netgroup" ) == 0 )
 		returnResult = ff_parse_netgroup(data);
@@ -4908,31 +5105,31 @@ CFMutableDictionaryRef BSDPlugin::CreateNISParseResult(char *data, const char* r
 
 	CFMutableDictionaryRef	returnResult = NULL;
 	
-	if ( strcmp( recordTypeName, "passwd.byname" ) == 0 )
+	if ( strcmp( recordTypeName, kNISRecordTypeUsers ) == 0 )
 		returnResult = ff_parse_user(data);
-	else if ( strcmp( recordTypeName, "group.byname" ) == 0 )
+	else if ( strcmp( recordTypeName, kNISRecordTypeGroups ) == 0 )
 		returnResult = ff_parse_group(data);
-	else if ( strcmp( recordTypeName, "hosts.byname" ) == 0 )
+	else if ( strcmp( recordTypeName, kNISRecordTypeHosts ) == 0 )
 		returnResult = ff_parse_host(data);
-	else if ( strcmp( recordTypeName, "networks.byname" ) == 0 )
+	else if ( strcmp( recordTypeName, kNISRecordTypeNetworks ) == 0 )
 		returnResult = ff_parse_network(data);
-	else if ( strcmp( recordTypeName, "services.byname" ) == 0 )
+	else if ( strcmp( recordTypeName, kNISRecordTypeServices ) == 0 )
 		returnResult = ff_parse_service(data);
-	else if ( strcmp( recordTypeName, "protocols.byname" ) == 0 )
+	else if ( strcmp( recordTypeName, kNISRecordTypeProtocols ) == 0 )
 		returnResult = ff_parse_protocol(data);
-	else if ( strcmp( recordTypeName, "rpc.byname" ) == 0 )
+	else if ( strcmp( recordTypeName, kNISRecordTypeRPC ) == 0 )
 		returnResult = ff_parse_rpc(data);
-	else if ( strcmp( recordTypeName, "mounts.byname" ) == 0 )
+	else if ( strcmp( recordTypeName, kNISRecordTypeMounts ) == 0 )
 		returnResult = ff_parse_mount(data);
-	else if ( strcmp( recordTypeName, "printcap.byname" ) == 0 )
+	else if ( strcmp( recordTypeName, kNISRecordTypePrintService ) == 0 )
 		returnResult = ff_parse_printer(data);
-	else if ( strcmp( recordTypeName, "bootparams.byname" ) == 0 )
+	else if ( strcmp( recordTypeName, kNISRecordTypeBootParams ) == 0 )
 		returnResult = ff_parse_bootparam(data);
-	else if ( strcmp( recordTypeName, "bootptab.byaddr" ) == 0 )
+	else if ( strcmp( recordTypeName, kNISRecordTypeBootp ) == 0 )
 		returnResult = ff_parse_bootp(data);
-	else if ( strcmp( recordTypeName, "mail.aliases" ) == 0 )
+	else if ( strcmp( recordTypeName, kNISRecordTypeAlias ) == 0 )
 		ff_parse_alias(data);
-	else if ( strcmp( recordTypeName, "ethers.byname" ) == 0 )
+	else if ( strcmp( recordTypeName, kNISRecordTypeEthernets ) == 0 )
 		returnResult = ff_parse_ethernet(data);
 	else if ( strcmp( recordTypeName, "netgroup" ) == 0 )
 		returnResult = ff_parse_netgroup(data);
@@ -5246,19 +5443,46 @@ sInt32 BSDPlugin::DoUnixCryptAuth ( BSDDirNodeRep *nodeDirRep, tDataBuffer *inAu
 		//account for the case where nisPwd == "" such that we will auth if pwdLen is 0
 		if (::strcmp(nisPwd,"") != 0)
 		{
-			salt[ 0 ] = nisPwd[0];
-			salt[ 1 ] = nisPwd[1];
-			salt[ 2 ] = '\0';
-
-			::memset( hashPwd, 0, 32 );
-			::strcpy( hashPwd, ::crypt( pwd, salt ) );
-
 			siResult = eDSAuthFailed;
-			if ( ::strcmp( hashPwd, nisPwd ) == 0 )
-			{
-				siResult = eDSNoErr;
-			}
 			
+			// is it MD5?
+			// Note: "$ ypcat passwd" can be used to dump the hashes for viewing
+			// format: $1$<8 chars of whatever>$<22 chars base64 md5 hash>
+			// example: $1$vHKd8.CI$GdL2nEXv61Pp14BJ9JJ0A0
+			// example taken from CCSF Springfield NIS Cluster
+			if ( strlen(nisPwd) == 34 && strncmp(nisPwd, "$1$", 3) == 0 )
+			{
+				MD5_CTX ctx;
+				unsigned char md5Hash[MD5_DIGEST_LENGTH];
+				char md5HashBase64[MD5_DIGEST_LENGTH * 4 / 3 + 5];
+				unsigned encodedLen;
+				
+				MD5_Init( &ctx );
+				MD5_Update( &ctx, pwd, pwdLen );
+				MD5_Final( md5Hash, &ctx );
+				if ( sasl_encode64( (char *)md5Hash, MD5_DIGEST_LENGTH, md5HashBase64, sizeof(md5HashBase64), &encodedLen ) == SASL_OK )
+				{
+					if ( strncmp( md5HashBase64, nisPwd + 13, sizeof(md5HashBase64) ) == 0 )
+					{
+						siResult = eDSNoErr;
+					}
+				}
+			}
+			else
+			{
+				// crypt
+				salt[ 0 ] = nisPwd[0];
+				salt[ 1 ] = nisPwd[1];
+				salt[ 2 ] = '\0';
+	
+				::memset( hashPwd, 0, 32 );
+				::strcpy( hashPwd, ::crypt( pwd, salt ) );
+	
+				if ( ::strcmp( hashPwd, nisPwd ) == 0 )
+				{
+					siResult = eDSNoErr;
+				}
+			}
 		}
 		else // nisPwd is == ""
 		{
@@ -5297,6 +5521,7 @@ sInt32 BSDPlugin::DoUnixCryptAuth ( BSDDirNodeRep *nodeDirRep, tDataBuffer *inAu
 	return( siResult );
 
 } // DoUnixCryptAuth
+
 
 // ---------------------------------------------------------------------------
 //	* GetAuthMethod
@@ -5427,8 +5652,8 @@ sInt32 BSDPlugin::VerifyPatternMatch ( const tDirPatternMatch inPatternMatch )
 		//case eDSWildCardPattern:
 		//case eDSRegularExpression:
 		case eDSiExact:
-		//case eDSiStartsWith:
-		//case eDSiEndsWith:
+		case eDSiStartsWith:
+		case eDSiEndsWith:
 		case eDSiContains:
 		//case eDSiLessThan:
 		//case eDSiGreaterThan:
@@ -5561,12 +5786,25 @@ Boolean IsResultOK( tDirPatternMatch patternMatch, CFStringRef resultRecordNameR
 		if ( result.length > 0 )
 			resultIsOK = true;
 	}
-	else if ( patternMatch == eDSiContains )
+	else if ( patternMatch == eDSiContains || patternMatch == eDSiStartsWith || patternMatch == eDSiEndsWith )
 	{
 		CFRange 	result = CFStringFind( resultRecordNameRef, recNameMatchRef, kCFCompareCaseInsensitive );
 		
 		if ( result.length > 0 )
-			resultIsOK = true;
+		{
+			if ( patternMatch == eDSiContains )
+			{
+				resultIsOK = true;
+			}
+			else if ( patternMatch == eDSiStartsWith && result.location == 0 )
+			{
+				resultIsOK = true;
+			}
+			else if ( patternMatch == eDSiEndsWith && result.location == CFStringGetLength(resultRecordNameRef) - result.length )
+			{
+				resultIsOK = true;
+			}
+		}
 	}
 	
 	return resultIsOK;
@@ -5633,6 +5871,7 @@ void AddDictionaryDataToAttrData(const void *key, const void *value, void *conte
 		if ( valueArrayRef && ::CFStringGetCString( keyRef, keyBuf, sizeof(keyBuf), kCFStringEncodingUTF8 ) )
 		{
 			char		valueTmpBuf[1024];
+			CFIndex		arrayCount = CFArrayGetCount(valueArrayRef);
 			
 			aTmpData->AppendShort( ::strlen( keyBuf ) );		// attrTypeLen
 			aTmpData->AppendString( keyBuf );					// attrType
@@ -5640,9 +5879,9 @@ void AddDictionaryDataToAttrData(const void *key, const void *value, void *conte
 			DBGLOG( "AddDictionaryDataToAttrData, adding keyBuf: %s\n", keyBuf );
 
 			// Append the attribute value count
-			aTmpData->AppendShort( CFArrayGetCount(valueArrayRef) );	// attrValueCnt
+			aTmpData->AppendShort( arrayCount );	// attrValueCnt
 
-			for ( CFIndex i=0; i< CFArrayGetCount(valueArrayRef); i++ )
+			for ( CFIndex i=0; i< arrayCount; i++ )
 			{
 				valueRef = (CFStringRef)::CFArrayGetValueAtIndex( valueArrayRef, i );
 
@@ -5694,13 +5933,23 @@ void AddDictionaryDataToAttrData(const void *key, const void *value, void *conte
 
 void FindAttributeMatch(const void *key, const void *value, void *context)
 {
-    CFTypeRef				valueRef		= (CFTypeRef)value;
+    CFStringRef				keyRef			= (CFStringRef)key;
+	CFTypeRef				valueRef		= (CFTypeRef)value;
 	CFArrayRef				valueArrayRef	= NULL;
 	AttrDataMatchContext*	info			= (AttrDataMatchContext*)context;
 	
 	if ( info->foundAMatch )
 		return;
+	
+	if ( !valueRef )
+		return;
 		
+	if ( info->fAttributeNameToMatchRef && CFStringCompare( keyRef, info->fAttributeNameToMatchRef, kCFCompareCaseInsensitive ) != kCFCompareEqualTo )
+	{
+		// we aren't matching against all values, but against a specific key and this isn't it
+		return;
+	}
+	
 	if ( CFGetTypeID(valueRef) == CFArrayGetTypeID() )
 	{
 		// just point our valueArrayRef at this
@@ -5718,7 +5967,9 @@ void FindAttributeMatch(const void *key, const void *value, void *context)
 		CFShow( valueRef );
 	}
 	
-	for ( CFIndex i=0; valueArrayRef && i< CFArrayGetCount(valueArrayRef) && !info->foundAMatch; i++ )
+	CFIndex		arrayCount = CFArrayGetCount(valueArrayRef);
+	
+	for ( CFIndex i=0; valueArrayRef && i< arrayCount && !info->foundAMatch; i++ )
 	{
 		CFStringRef valueStringRef = (CFStringRef)::CFArrayGetValueAtIndex( valueArrayRef, i );
 
@@ -5734,7 +5985,7 @@ void FindAttributeMatch(const void *key, const void *value, void *context)
 
 void FindAllAttributeMatches(const void *key, const void *value, void *context)
 {
-    CFTypeRef				valueRef		= (CFTypeRef)value;
+    CFTypeRef				valueRef		= NULL;
 	CFDictionaryRef			resultRef		= (CFDictionaryRef)value;
 	ResultMatchContext*		info			= (ResultMatchContext*)context;
 	Boolean					recordMatches	= false;
@@ -5743,14 +5994,61 @@ void FindAllAttributeMatches(const void *key, const void *value, void *context)
 	{
 		recordMatches = true;
 	}
-	else if ( CFGetTypeID(resultRef) == CFDictionaryGetTypeID() )
+	else if ( resultRef && CFGetTypeID(resultRef) == CFDictionaryGetTypeID() )
 	{
-		AttrDataMatchContext		context = { info->fInPattMatchType, info->fInPatt2MatchRef, false };
+		if ( info->fAttributeNameToMatchRef )
+		{
+			CFArrayRef		valueArrayRef = NULL;
+			
+			valueRef = CFDictionaryGetValue( resultRef, info->fAttributeNameToMatchRef );
+			
+			if (!valueRef)
+				return;
+				
+			if ( CFGetTypeID(valueRef) == CFArrayGetTypeID() )
+			{
+				// just point our valueArrayRef at this
+				valueArrayRef = (CFArrayRef)valueRef;
+				CFRetain( valueArrayRef );					// so we can release this
+			}
+			else if ( CFGetTypeID(valueRef) == CFStringGetTypeID() )
+			{
+				valueArrayRef = CFArrayCreateMutable( NULL, 1, &kCFTypeArrayCallBacks );
+				CFArrayAppendValue( (CFMutableArrayRef)valueArrayRef, valueRef );
+			}
+			else
+			{
+				DBGLOG( "FindAllAttributeMatches, got unknown value type (%ld), ignore\n", CFGetTypeID(valueRef) );
+				CFShow( valueRef );
+			}
+			
+			CFIndex		arrayCount = CFArrayGetCount(valueArrayRef);
+			
+			for ( CFIndex i=0; valueArrayRef && i< arrayCount; i++ )
+			{
+				CFStringRef valueStringRef = (CFStringRef)::CFArrayGetValueAtIndex( valueArrayRef, i );
 		
-		CFDictionaryApplyFunction( resultRef, FindAttributeMatch, &context );
-		
-		if ( context.foundAMatch )
-			recordMatches = true;
+				if ( IsResultOK( info->fInPattMatchType, valueStringRef, info->fInPatt2MatchRef ) )
+				{
+					recordMatches = true;
+					break;
+				}
+			}
+			
+			if ( valueArrayRef )
+			{
+				CFRelease( valueArrayRef );
+			}
+		}
+		else
+		{
+			AttrDataMatchContext		context = { info->fInPattMatchType, info->fInPatt2MatchRef, info->fAttributeNameToMatchRef, false };
+			
+			CFDictionaryApplyFunction( resultRef, FindAttributeMatch, &context );
+			
+			if ( context.foundAMatch )
+				recordMatches = true;
+		}
 	}
 	else
 		DBGLOG( "FindAllAttributeMatches, got unknown value type (%ld), ignore\n", CFGetTypeID(valueRef) );

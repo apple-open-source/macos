@@ -1,5 +1,3 @@
-/*	$NetBSD: tr.c,v 1.6 1997/10/20 00:56:06 lukem Exp $	*/
-
 /*
  * Copyright (c) 1988, 1993
  *	The Regents of the University of California.  All rights reserved.
@@ -34,27 +32,36 @@
  */
 
 #include <sys/cdefs.h>
-#ifndef lint
-__COPYRIGHT("@(#) Copyright (c) 1988, 1993\n\
-	The Regents of the University of California.  All rights reserved.\n");
-#endif /* not lint */
+
+__RCSID("$FreeBSD: src/usr.bin/tr/tr.c,v 1.16 2002/09/04 23:29:07 dwmalone Exp $");
 
 #ifndef lint
-#if 0
-static char sccsid[] = "@(#)tr.c	8.2 (Berkeley) 5/4/95";
+static const char copyright[] =
+"@(#) Copyright (c) 1988, 1993\n\
+	The Regents of the University of California.  All rights reserved.\n";
 #endif
-__RCSID("$NetBSD: tr.c,v 1.6 1997/10/20 00:56:06 lukem Exp $");
-#endif /* not lint */
+
+#ifndef lint
+static const char sccsid[] = "@(#)tr.c	8.2 (Berkeley) 5/4/95";
+#endif
 
 #include <sys/types.h>
 
+#include <ctype.h>
 #include <err.h>
+#include <locale.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
 
 #include "extern.h"
+
+/*
+ * For -C option: determine whether a byte is a valid character in the
+ * current character set (as defined by LC_CTYPE).
+ */
+#define ISCHAR(c) (iscntrl(c) || isprint(c))
 
 static int string1[NCHARS] = {
 	0x00, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07,		/* ASCII */
@@ -94,29 +101,38 @@ static int string1[NCHARS] = {
 STR s1 = { STRING1, NORMAL, 0, OOBCH, { 0, OOBCH }, NULL, NULL };
 STR s2 = { STRING2, NORMAL, 0, OOBCH, { 0, OOBCH }, NULL, NULL };
 
-int	main __P((int, char **));
-static void setup __P((int *, char *, STR *, int));
-static void usage __P((void));
+static int charcoll(const void *, const void *);
+static void setup(int *, char *, STR *, int, int);
+static void usage(void);
 
 int
-main(argc, argv)
-	int argc;
-	char **argv;
+main(int argc, char **argv)
 {
+	static int collorder[NCHARS], tmpmap[NCHARS];
 	int ch, cnt, lastch, *p;
-	int cflag, dflag, sflag, isstring2;
+	int Cflag, cflag, dflag, sflag, isstring2;
 
-	cflag = dflag = sflag = 0;
-	while ((ch = getopt(argc, argv, "cds")) != -1)
+	(void)setlocale(LC_ALL, "");
+
+	Cflag = cflag = dflag = sflag = 0;
+	while ((ch = getopt(argc, argv, "Ccdsu")) != -1)
 		switch((char)ch) {
+		case 'C':
+			Cflag = 1;
+			cflag = 0;
+			break;
 		case 'c':
 			cflag = 1;
+			Cflag = 0;
 			break;
 		case 'd':
 			dflag = 1;
 			break;
 		case 's':
 			sflag = 1;
+			break;
+		case 'u':
+			setbuf(stdout, (char *)NULL);
 			break;
 		case '?':
 		default:
@@ -139,7 +155,7 @@ main(argc, argv)
 	}
 
 	/*
-	 * tr -ds [-c] string1 string2
+	 * tr -ds [-Cc] string1 string2
 	 * Delete all characters (or complemented characters) in string1.
 	 * Squeeze all characters in string2.
 	 */
@@ -147,9 +163,9 @@ main(argc, argv)
 		if (!isstring2)
 			usage();
 
-		setup(string1, argv[0], &s1, cflag);
-		setup(string2, argv[1], &s2, 0);
-		
+		setup(string1, argv[0], &s1, cflag, Cflag);
+		setup(string2, argv[1], &s2, 0, 0);
+
 		for (lastch = OOBCH; (ch = getchar()) != EOF;)
 			if (!string1[ch] && (!string2[ch] || lastch != ch)) {
 				lastch = ch;
@@ -159,14 +175,14 @@ main(argc, argv)
 	}
 
 	/*
-	 * tr -d [-c] string1
+	 * tr -d [-Cc] string1
 	 * Delete all characters (or complemented characters) in string1.
 	 */
 	if (dflag) {
 		if (isstring2)
 			usage();
 
-		setup(string1, argv[0], &s1, cflag);
+		setup(string1, argv[0], &s1, cflag, Cflag);
 
 		while ((ch = getchar()) != EOF)
 			if (!string1[ch])
@@ -175,11 +191,11 @@ main(argc, argv)
 	}
 
 	/*
-	 * tr -s [-c] string1
+	 * tr -s [-Cc] string1
 	 * Squeeze all characters (or complemented characters) in string1.
 	 */
 	if (sflag && !isstring2) {
-		setup(string1, argv[0], &s1, cflag);
+		setup(string1, argv[0], &s1, cflag, Cflag);
 
 		for (lastch = OOBCH; (ch = getchar()) != EOF;)
 			if (!string1[ch] || lastch != ch) {
@@ -190,7 +206,7 @@ main(argc, argv)
 	}
 
 	/*
-	 * tr [-cs] string1 string2
+	 * tr [-Ccs] string1 string2
 	 * Replace all characters (or complemented characters) in string1 with
 	 * the character in the same position in string2.  If the -s option is
 	 * specified, squeeze all the characters in string2.
@@ -201,13 +217,14 @@ main(argc, argv)
 	s1.str = argv[0];
 	s2.str = argv[1];
 
-	if (cflag)
+	if (cflag || Cflag)
 		for (cnt = NCHARS, p = string1; cnt--;)
 			*p++ = OOBCH;
 
 	if (!next(&s2))
 		errx(1, "empty string2");
 
+	ch = s2.lastch;
 	/* If string2 runs out of characters, use the last one specified. */
 	if (sflag)
 		while (next(&s1)) {
@@ -221,9 +238,30 @@ main(argc, argv)
 			(void)next(&s2);
 		}
 
-	if (cflag)
-		for (cnt = 0, p = string1; cnt < NCHARS; ++p, ++cnt)
-			*p = *p == OOBCH ? ch : cnt;
+	if (cflag || Cflag) {
+		s2.str = argv[1];
+		s2.state = NORMAL;
+		for (cnt = 0, p = string1; cnt < NCHARS; ++p, ++cnt) {
+			if (*p == OOBCH && (!Cflag || ISCHAR(cnt))) {
+				(void)next(&s2);
+				*p = s2.lastch;
+			} else
+				*p = cnt;
+		}
+	}
+	if (Cflag) {
+		/*
+		 * Generate a table for locale single-byte collating element
+		 * ordering and use it to reorder string1 as required by
+		 * IEEE Std. 1003.1-2001.
+		 */
+		for (ch = 0; ch < NCHARS; ch++)
+			collorder[ch] = ch;
+		mergesort(collorder, NCHARS, sizeof(*collorder), charcoll);
+		for (ch = 0; ch < NCHARS; ch++)
+			tmpmap[ch] = string1[collorder[ch]];
+		memcpy(string1, tmpmap, sizeof(tmpmap));
+	}
 
 	if (sflag)
 		for (lastch = OOBCH; (ch = getchar()) != EOF;) {
@@ -240,29 +278,40 @@ main(argc, argv)
 }
 
 static void
-setup(string, arg, str, cflag)
-	int *string;
-	char *arg;
-	STR *str;
-	int cflag;
+setup(int *string, char *arg, STR *str, int cflag, int Cflag)
 {
 	int cnt, *p;
 
 	str->str = arg;
-	memset(string, 0, NCHARS * sizeof(int));
+	bzero(string, NCHARS * sizeof(int));
 	while (next(str))
 		string[str->lastch] = 1;
 	if (cflag)
 		for (p = string, cnt = NCHARS; cnt--; ++p)
 			*p = !*p;
+	else if (Cflag)
+		for (cnt = 0; cnt < NCHARS; cnt++)
+			string[cnt] = !string[cnt] && ISCHAR(cnt);
+}
+
+static int
+charcoll(const void *a, const void *b)
+{
+	char sa[2], sb[2];
+
+	sa[0] = *(const int *)a;
+	sb[0] = *(const int *)b;
+	sa[1] = sb[1] = '\0';
+	return (strcoll(sa, sb));
 }
 
 static void
-usage()
+usage(void)
 {
-	(void)fprintf(stderr, "usage: tr [-cs] string1 string2\n");
-	(void)fprintf(stderr, "       tr [-c] -d string1\n");
-	(void)fprintf(stderr, "       tr [-c] -s string1\n");
-	(void)fprintf(stderr, "       tr [-c] -ds string1 string2\n");
+	(void)fprintf(stderr, "%s\n%s\n%s\n%s\n",
+		"usage: tr [-Ccsu] string1 string2",
+		"       tr [-Ccu] -d string1",
+		"       tr [-Ccu] -s string1",
+		"       tr [-Ccu] -ds string1 string2");
 	exit(1);
 }

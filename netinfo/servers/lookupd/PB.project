@@ -58,7 +58,8 @@
             Makefile, 
             Makefile.postamble, 
             lookup.defs, 
-            lookupd.8, 
+            lookupd.8,
+			lookupd.plist,
             _lu_types.x
         ); 
         SUBPROJECTS = (); 

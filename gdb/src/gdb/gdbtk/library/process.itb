@@ -18,7 +18,7 @@
 #
 # ----------------------------------------------------------------------
 
-body ProcessWin::constructor {args} {
+itcl::body ProcessWin::constructor {args} {
 
   window_name "Processes"
   gdbtk_busy
@@ -33,7 +33,7 @@ body ProcessWin::constructor {args} {
 # ------------------------------------------------------------------
 #  METHOD:  build_win - build the main process window
 # ------------------------------------------------------------------
-body ProcessWin::build_win {} {
+itcl::body ProcessWin::build_win {} {
   global tcl_platform
 
   if {$tcl_platform(platform) == "windows"} {
@@ -48,15 +48,14 @@ body ProcessWin::build_win {} {
 
   itk_component add slbox {
     iwidgets::scrolledlistbox $itk_interior.slbox \
-      -background [pref get gdb/font/normal_bg] \
-      -selectbackground green \
-      -selectforeground black \
+      -background $::Colors(bg) \
+      -selectbackground $::Colors(sbg) -selectforeground $::Colors(sfg) \
       -textfont global/fixed \
       -exportselection false \
       -selectioncommand [code $this change_context]
   } {}
   [$itk_component(slbox) component listbox] configure \
-    -bg [pref get gdb/font/normal_bg]
+    -bg $::Colors(textbg) -fg $::Colors(textfg)
   update dummy
 
   pack $itk_component(slbox) -side left -expand yes -fill both
@@ -66,7 +65,7 @@ body ProcessWin::build_win {} {
 # ------------------------------------------------------------------
 #  METHOD:  update - update widget when something changes
 # ------------------------------------------------------------------
-body ProcessWin::update {event} {
+itcl::body ProcessWin::update {event} {
   if {!$protect_me} {
 
     $itk_component(slbox) delete 0 end
@@ -112,7 +111,7 @@ body ProcessWin::update {event} {
 #  METHOD:  change_context - change the current context (active thread)
 #        This method is currently ONLY called from the mouse binding
 # ------------------------------------------------------------------
-body ProcessWin::change_context {} {
+itcl::body ProcessWin::change_context {} {
   if {!$Running && [$itk_component(slbox) size] != 0} {
     gdbtk_busy
     set sel [$itk_component(slbox) curselection]
@@ -130,14 +129,14 @@ body ProcessWin::change_context {} {
 # ------------------------------------------------------------------
 #  DESTRUCTOR - destroy window containing widget
 # ------------------------------------------------------------------
-body ProcessWin::destructor {} {
+itcl::body ProcessWin::destructor {} {
   remove_hook gdb_no_inferior_hook [code $this no_inferior]
 }
 
 # ------------------------------------------------------------------
 #  METHOD:  reconfig - used when preferences change
 # ------------------------------------------------------------------
-body ProcessWin::reconfig {} {
+itcl::body ProcessWin::reconfig {} {
   destroy $itk_interior.s
   if {[winfo exists $itk_interior.sbox]} { destroy $itk_interior.sbox }
   if {[winfo exists $itk_interior.slbox]} { destroy $itk_interior.slbox }
@@ -151,7 +150,7 @@ body ProcessWin::reconfig {} {
 #        - clicks in the window
 #        - change mouse pointer
 # ------------------------------------------------------------------
-body ProcessWin::busy {event} {
+itcl::body ProcessWin::busy {event} {
   set Running 1
   cursor watch
 }
@@ -159,7 +158,7 @@ body ProcessWin::busy {event} {
 # ------------------------------------------------------------------
 #  METHOD:  idle - handle IdleEvent
 # ------------------------------------------------------------------
-body ProcessWin::idle {event} {
+itcl::body ProcessWin::idle {event} {
   set Running 0
   cursor {}
 }
@@ -169,6 +168,6 @@ body ProcessWin::idle {event} {
 #        This is a convenience method which simply sets the mouse
 #        pointer to the given glyph.
 # ------------------------------------------------------------------
-body ProcessWin::cursor {glyph} {
+itcl::body ProcessWin::cursor {glyph} {
   $_top configure -cursor $glyph
 }

@@ -1,0 +1,128 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<!-- ===================================================================== -->
+<!--                                                                       -->
+<!--  Sample Clustering Service Configuration                              -->
+<!--                                                                       -->
+<!-- ===================================================================== -->
+
+<server>
+
+  <classpath codebase="lib" archives="jbossha.jar"/>
+
+  <!-- ==================================================================== -->
+  <!-- Cluster Partition: defines cluster                                   -->
+  <!-- ==================================================================== -->
+
+  <mbean code="org.jboss.ha.framework.server.ClusterPartition"
+         name="jboss:service=DefaultPartition">
+         
+    <!-- Name of the partition being built -->
+    <attribute name="PartitionName">DefaultPartition</attribute>
+    <!-- Determine if deadlock detection is enabled -->
+    <attribute name="DeadlockDetection">False</attribute>
+    <!-- The JavaGroups protocol configuration -->
+    <attribute name="PartitionConfig">
+      <Config>
+        <!-- UDP: if you have a multihomed machine, 
+             set the bind_addr attribute to the appropriate NIC IP address -->
+        <!-- UDP: On Windows machines, because of the media sense feature
+             being broken with multicast (even after disabling media sense)
+             set the loopback attribute to true -->
+        <UDP mcast_addr="228.1.2.3" mcast_port="45566" 
+             ip_ttl="64" ip_mcast="true"
+             mcast_send_buf_size="150000" mcast_recv_buf_size="80000" 
+             ucast_send_buf_size="150000" ucast_recv_buf_size="80000" 
+             loopback="false" />
+        <PING timeout="2000" num_initial_members="3" 
+              up_thread="true" down_thread="true" />
+        <MERGE2 min_interval="5000" max_interval="10000" />
+        <FD shun="true" up_thread="true" down_thread="true" 
+            timeout="2500" max_tries="5" />
+        <VERIFY_SUSPECT timeout="3000" num_msgs="3"
+                        up_thread="true" down_thread="true" />
+        <pbcast.STABLE desired_avg_gossip="20000"
+                       up_thread="true" down_thread="true" />
+        <pbcast.NAKACK gc_lag="50" retransmit_timeout="300,600,1200,2400,4800"
+                       up_thread="true" down_thread="true" />
+        <UNICAST timeout="5000" window_size="100" min_threshold="10"
+                 down_thread="true" />
+        <FRAG frag_size="8192"
+              down_thread="true" up_thread="true" />
+        <pbcast.GMS join_timeout="5000" join_retry_timeout="2000"
+                    shun="true" print_local_addr="true" />
+        <pbcast.STATE_TRANSFER up_thread="true" down_thread="true" />
+      </Config>
+    </attribute>
+  </mbean>
+
+  <!-- ==================================================================== -->
+  <!-- HA Session State Service for SFSB                                    -->
+  <!-- ==================================================================== -->
+
+  <mbean code="org.jboss.ha.hasessionstate.server.HASessionStateService"
+         name="jboss:service=HASessionState">
+     <depends>jboss:service=DefaultPartition</depends>
+    <!-- Name of the partition to which the service is linked -->
+    <attribute name="PartitionName">DefaultPartition</attribute>
+    <!-- JNDI name under which the service is bound -->
+    <attribute name="JndiName">/HASessionState/Default</attribute>
+    <!-- Max delay before cleaning unreclaimed state.
+         Defaults to 30*60*1000 => 30 minutes -->
+    <attribute name="BeanCleaningDelay">0</attribute>    
+  </mbean>
+
+  <!-- ==================================================================== -->
+  <!-- HA JNDI                                                              -->
+  <!-- ==================================================================== -->
+
+  <mbean code="org.jboss.ha.jndi.HANamingService" 
+         name="jboss:service=HAJNDI">
+     <depends>jboss:service=DefaultPartition</depends>
+    <!-- Name of the partition to which the service is linked -->
+    <attribute name="PartitionName">DefaultPartition</attribute>
+    <!-- RmiPort to be used by the HA-JNDI service 
+         once bound. 0 => auto. -->
+    <attribute name="RmiPort">0</attribute>
+    <!-- Port on which the HA-JNDI stub is made available -->
+    <attribute name="Port">1100</attribute>
+    <!-- Backlog to be used for client-server RMI 
+         invocations during JNDI queries -->
+    <attribute name="Backlog">50</attribute>
+    
+    <!-- Multicast Address and Group used for auto-discovery -->
+    <attribute name="AutoDiscoveryAddress">230.0.0.4</attribute>
+    <attribute name="AutoDiscoveryGroup">1102</attribute>
+    
+    <!-- Client socket factory to be used for client-server 
+         RMI invocations during JNDI queries -->
+    <!--attribute name="ClientSocketFactory">custom</attribute-->
+    <!-- Server socket factory to be used for client-server
+         RMI invocations during JNDI queries -->
+    <!--attribute name="ServerSocketFactory">custom</attribute-->
+  </mbean>
+
+  <mbean code="org.jboss.invocation.jrmp.server.JRMPInvokerHA"
+         name="jboss:service=invoker,type=jrmpha">
+    <!--
+    <attribute name="RMIObjectPort">0</attribute>
+    <attribute name="RMIClientSocketFactory">custom</attribute>
+    <attribute name="RMIServerSocketFactory">custom</attribute>
+    <attribute name="RMIServerSocketAddr">custom</attribute>
+    -->
+  </mbean>
+
+  <!-- ==================================================================== -->
+  <!-- Distributed cache invalidation                                       -->
+  <!-- ==================================================================== -->
+
+  <mbean code="org.jboss.cache.invalidation.bridges.JGCacheInvalidationBridge" 
+         name="jboss.cache:service=InvalidationBridge,type=JavaGroups">
+     <depends>jboss:service=DefaultPartition</depends>
+     <depends>jboss.cache:service=InvalidationManager</depends>
+     <attribute name="InvalidationManager">jboss.cache:service=InvalidationManager</attribute>
+     <attribute name="PartitionName">DefaultPartition</attribute>
+     <attribute name="BridgeName">DefaultJGBridge</attribute>
+  </mbean>
+
+</server>

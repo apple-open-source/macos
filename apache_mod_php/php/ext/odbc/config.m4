@@ -1,4 +1,6 @@
-dnl $Id: config.m4,v 1.4 2002/03/21 09:17:11 zarzycki Exp $
+dnl
+dnl $Id: config.m4,v 1.6 2003/07/22 19:56:27 zarzycki Exp $
+dnl
 
 dnl
 dnl Figure out which library file to link with for the Solid support.
@@ -10,22 +12,25 @@ AC_DEFUN(AC_FIND_SOLID_LIBS,[
   case $ac_solid_uname_s in
     AIX) ac_solid_os=a3x;;   # a4x for AIX4/ Solid 2.3/3.0 only
     HP-UX) ac_solid_os=h9x;; # h1x for hpux11, h0x for hpux10
-    IRIX) ac_solid_os=irx;;	 # Solid 2.3(?)/ 3.0 only
-    Linux) if ldd -v /bin/sh | grep GLIBC > /dev/null; then
-		AC_DEFINE(SS_LINUX,1,[Needed in sqlunix.h ])
-		ac_solid_os=l2x
-	else
-		AC_DEFINE(SS_LINUX,1,[Needed in sqlunix.h ])
-		ac_solid_os=lux
-	fi;; 
-    SunOS) ac_solid_os=ssx;; # should we deal with SunOS 4?
-    FreeBSD) if test `expr $ac_solid_uname_r : '\(.\)'` -gt "2"; then
-		AC_DEFINE(SS_FBX,1,[Needed in sqlunix.h for wchar defs ])
-		ac_solid_os=fex
-   else 
-		AC_DEFINE(SS_FBX,1,[Needed in sqlunix.h for wchar defs ])
-		ac_solid_os=fbx
-   fi	
+    IRIX) ac_solid_os=irx;;  # Solid 2.3(?)/ 3.0 only
+    Linux) 
+      if ldd -v /bin/sh | grep GLIBC > /dev/null; then
+        AC_DEFINE(SS_LINUX,1,[Needed in sqlunix.h ])
+        ac_solid_os=l2x
+	  else
+        AC_DEFINE(SS_LINUX,1,[Needed in sqlunix.h ])
+        ac_solid_os=lux
+      fi;; 
+    SunOS) 
+      ac_solid_os=ssx;; # should we deal with SunOS 4?
+    FreeBSD) 
+      if test `expr $ac_solid_uname_r : '\(.\)'` -gt "2"; then
+        AC_DEFINE(SS_FBX,1,[Needed in sqlunix.h for wchar defs ])
+        ac_solid_os=fex
+      else 
+        AC_DEFINE(SS_FBX,1,[Needed in sqlunix.h for wchar defs ])
+        ac_solid_os=fbx
+      fi;;
   esac
 
   if test -f $1/soc${ac_solid_os}35.a; then
@@ -44,26 +49,23 @@ AC_DEFUN(AC_FIND_SOLID_LIBS,[
 #
 if test ! -f $1/lib${ac_solid_prefix}${ac_solid_os}${ac_solid_version}.so -a \
 	! -f $1/lib${ac_solid_prefix}${ac_solid_os}${ac_solid_version}.a; then
-	#
-	# we have an error and should bail out, as we can't find the libs!
-	#
-	echo ""
-	echo "*********************************************************************"
-	echo "* Unable to locate $1/lib${ac_solid_prefix}${ac_solid_os}${ac_solid_version}.so or $1/lib${ac_solid_prefix}${ac_solid_os}${ac_solid_version}.a"
-	echo "* Please correct this by creating the following links and reconfiguring:"
-	echo "* $1/lib${ac_solid_prefix}${ac_solid_os}${ac_solid_version}.a -> $1/lib${ac_solid_prefix}${ac_solid_os}${ac_solid_version}.a"
-	echo "* $1/${ac_solid_prefix}${ac_solid_os}${ac_solid_version}.so -> $1/lib${ac_solid_prefix}${ac_solid_os}${ac_solid_version}.so"
-	echo "*********************************************************************"
+  #
+  # we have an error and should bail out, as we can't find the libs!
+  #
+  echo ""
+  echo "*********************************************************************"
+  echo "* Unable to locate $1/lib${ac_solid_prefix}${ac_solid_os}${ac_solid_version}.so or $1/lib${ac_solid_prefix}${ac_solid_os}${ac_solid_version}.a"
+  echo "* Please correct this by creating the following links and reconfiguring:"
+  echo "* $1/lib${ac_solid_prefix}${ac_solid_os}${ac_solid_version}.a -> $1/lib${ac_solid_prefix}${ac_solid_os}${ac_solid_version}.a"
+  echo "* $1/${ac_solid_prefix}${ac_solid_os}${ac_solid_version}.so -> $1/lib${ac_solid_prefix}${ac_solid_os}${ac_solid_version}.so"
+  echo "*********************************************************************"
 else
-	ODBC_LFLAGS=-L$1
-	ODBC_LIBS=-l${ac_solid_prefix}${ac_solid_os}${ac_solid_version}
+  ODBC_LFLAGS=-L$1
+  ODBC_LIBS=-l${ac_solid_prefix}${ac_solid_os}${ac_solid_version}
 fi
-
 
   AC_MSG_RESULT(`echo $ODBC_LIBS | sed -e 's!.*/!!'`)
 ])
-
-
 
 
 dnl
@@ -105,8 +107,8 @@ AC_ARG_WITH(adabas,
     $srcdir/build/shtool mkdir -f -p ext/odbc
     rm -f "$ODBC_LIB"
     cp "$ODBC_OBJS" "$ODBC_LIB"
-	PHP_ADD_LIBRARY(sqlptc)
-	PHP_ADD_LIBRARY(sqlrte)
+    PHP_ADD_LIBRARY(sqlptc)
+    PHP_ADD_LIBRARY(sqlrte)
     PHP_ADD_LIBRARY_WITH_PATH(odbc_adabas, $abs_builddir/ext/odbc)
     ODBC_TYPE=adabas
     AC_DEFINE(HAVE_ADABAS,1,[ ])
@@ -131,9 +133,8 @@ AC_ARG_WITH(sapdb,
   fi
   if test "$withval" != "no"; then
     PHP_ADD_INCLUDE($withval/incl)
-	PHP_ADD_LIBPATH($withval/lib)
-	PHP_ADD_LIBRARY(sqlod)
-	PHP_ADD_LIBRARY(sqlrte)
+    PHP_ADD_LIBPATH($withval/lib)
+    PHP_ADD_LIBRARY(sqlod)
     ODBC_TYPE=sapdb
     AC_DEFINE(HAVE_SAPDB,1,[ ])
     AC_MSG_RESULT(yes)
@@ -163,9 +164,9 @@ AC_ARG_WITH(solid,
     ODBC_TYPE=solid
     if test -f $ODBC_LIBDIR/soc*35.a; then
       AC_DEFINE(HAVE_SOLID_35,1,[ ])
-	elif test -f $ODBC_LIBDIR/scl*30.a; then
-	  AC_DEFINE(HAVE_SOLID_30,1,[ ])
-	elif test -f $ODBC_LIBDIR/scl*23.a; then
+    elif test -f $ODBC_LIBDIR/scl*30.a; then
+      AC_DEFINE(HAVE_SOLID_30,1,[ ])
+    elif test -f $ODBC_LIBDIR/scl*23.a; then
       AC_DEFINE(HAVE_SOLID,1,[ ])
     fi
     AC_MSG_RESULT(yes)
@@ -187,16 +188,16 @@ AC_ARG_WITH(ibm-db2,
   PHP_WITH_SHARED
   if test "$withval" != "no"; then
     if test "$withval" = "yes"; then
-        ODBC_INCDIR=/home/db2inst1/sqllib/include
-        ODBC_LIBDIR=/home/db2inst1/sqllib/lib
+      ODBC_INCDIR=/home/db2inst1/sqllib/include
+      ODBC_LIBDIR=/home/db2inst1/sqllib/lib
     else
-        ODBC_INCDIR=$withval/include
-        ODBC_LIBDIR=$withval/lib
+      ODBC_INCDIR=$withval/include
+      ODBC_LIBDIR=$withval/lib
     fi
     ODBC_INCLUDE=-I$ODBC_INCDIR
     ODBC_LFLAGS=-L$ODBC_LIBDIR
     ODBC_TYPE=db2
-    ODBC_LIBS="-ldb2"
+    ODBC_LIBS=-ldb2
     AC_DEFINE(HAVE_IBMDB2,1,[ ])
 
     AC_MSG_RESULT(yes)
@@ -288,26 +289,26 @@ AC_ARG_WITH(empress-bcs,
 fi
 
 if test -z "$ODBC_TYPE"; then
-AC_MSG_CHECKING(for Velocis support)
-AC_ARG_WITH(velocis,
-[  --with-velocis[=DIR]    Include Velocis support.  DIR is the Velocis base
-                          install directory, defaults to /usr/local/velocis.],
+AC_MSG_CHECKING(for Birdstep support)
+AC_ARG_WITH(birdstep,
+[  --with-birdstep[=DIR]   Include Birdstep support.  DIR is the Birdstep base
+                          install directory, defaults to /usr/local/birdstep.],
 [
   PHP_WITH_SHARED
 
   if test "$withval" != "no"; then
     if test "$withval" = "yes"; then
-        ODBC_INCDIR=/usr/local/velocis/include
-        ODBC_LIBDIR=/usr/local/velocis/lib
+        ODBC_INCDIR=/usr/local/birdstep/include
+        ODBC_LIBDIR=/usr/local/birdstep/lib
     else
         ODBC_INCDIR=$withval/include
         ODBC_LIBDIR=$withval/lib
     fi
     ODBC_INCLUDE=-I$ODBC_INCDIR
-    ODBC_TYPE=velocis
+    ODBC_TYPE=birdstep
     ODBC_LFLAGS=-L$ODBC_LIBDIR
     ODBC_LIBS="-lCadm -lCdict -lCenc -lCrdm -lCrpc -lCrdbc -lCrm -lCuapi -lutil"
-    AC_DEFINE(HAVE_VELOCIS,1,[ ])
+    AC_DEFINE(HAVE_BIRDSTEP,1,[ ])
 
     AC_MSG_RESULT(yes)
   else
@@ -448,18 +449,18 @@ AC_ARG_WITH(openlink,
     withval=/usr/local
   fi
   if test "$withval" != "no"; then
-	PHP_ADD_LIBRARY_WITH_PATH(iodbc, $withval/lib)
-	PHP_ADD_INCLUDE($withval/include, 1)
+    PHP_ADD_LIBRARY_WITH_PATH(iodbc, $withval/lib)
+    PHP_ADD_INCLUDE($withval/include, 1)
     ODBC_TYPE=iodbc
     ODBC_INCLUDE=-I$withval/include
     ODBC_LFLAGS=-L$withval/lib
     ODBC_LIBS=-liodbc
     AC_DEFINE(HAVE_IODBC,1,[ ])
     AC_MSG_RESULT(yes)
-	echo "****************************************************************"
-	echo "  --with-openlink will not be valid in future releases.  Please "
-	echo " update your configure script to use --with-iodbc instead.      "
-	echo "****************************************************************"
+    echo "****************************************************************"
+    echo "  --with-openlink will not be valid in future releases.  Please "
+    echo " update your configure script to use --with-iodbc instead.      "
+    echo "****************************************************************"
   else
     AC_MSG_RESULT(no)
   fi
@@ -534,18 +535,20 @@ AC_ARG_WITH(dbmaker,
 fi
 
 if test -n "$ODBC_TYPE"; then
-  INCLUDES="$INCLUDES $ODBC_INCLUDE"
   if test "$ODBC_TYPE" != "dbmaker"; then
-    if test $shared != "yes"; then
-      EXTRA_LIBS="$EXTRA_LIBS $ODBC_LFLAGS $ODBC_LIBS"
-    fi
+    ext_shared=$shared
+    PHP_EVAL_LIBLINE([$ODBC_LFLAGS $ODBC_LIBS], ODBC_SHARED_LIBADD)
+    AC_DEFINE(HAVE_SQLDATASOURCES,1,[ ])
   fi
+
   AC_DEFINE(HAVE_UODBC,1,[ ])
+  PHP_SUBST(ODBC_SHARED_LIBADD)
   PHP_SUBST(ODBC_INCDIR)
   PHP_SUBST(ODBC_LIBDIR)
   PHP_SUBST_OLD(ODBC_INCLUDE)
   PHP_SUBST_OLD(ODBC_LIBS)
   PHP_SUBST_OLD(ODBC_LFLAGS)
   PHP_SUBST_OLD(ODBC_TYPE)
-  PHP_EXTENSION(odbc, $shared)
+
+  PHP_NEW_EXTENSION(odbc, php_odbc.c, $ext_shared,, $ODBC_INCLUDE)
 fi

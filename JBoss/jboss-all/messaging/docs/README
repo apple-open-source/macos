@@ -1,0 +1,31 @@
+JBossMQ 0.8 README
+
+TABLE OF CONTENTS
+
+    Build Sequence
+    Required Components
+    Running JBossMQ
+    Questions
+
+BUILD SEQUENCE
+
+Read the build/INSTALL file for a generic set of instructions on
+how to operate the Ant installation process.
+
+REQUIRED COMPONENTS
+
+All required components are shipped as jars in the lib directory.  
+
+RUNNING JBOSSMQ
+
+Each distribution has it's own directory under bin, once compiled.
+Refer to the README in that directory for specific instructions on testing and running the server.  
+
+QUESTIONS?
+
+All the questions about the building/installation process are to be directed
+to the mailing list at ejboss@list.working-dogs.com, where we'll try to answer
+any questions you have.
+
+Thanks,
+the jBoss team

@@ -1,4 +1,4 @@
-/* Copyright (c) 1993-2000
+/* Copyright (c) 1993-2002
  *      Juergen Weigert (jnweiger@immd4.informatik.uni-erlangen.de)
  *      Michael Schroeder (mlschroe@immd4.informatik.uni-erlangen.de)
  * Copyright (c) 1987 Oliver Laumann
@@ -22,7 +22,7 @@
  */
 
 #include "rcs.h"
-RCS_ID("$Id: teln.c,v 1.1.1.1 2001/12/14 22:08:29 bbraun Exp $ FAU")
+RCS_ID("$Id: teln.c,v 1.1.1.2 2003/03/19 21:16:19 landonf Exp $ FAU")
 
 #include <sys/types.h>
 #include <sys/socket.h>
@@ -144,11 +144,16 @@ struct win *p;
 	  Msg(0, "unknown host: %s", *args);
 	  return -1;
         }
+      if (hp->h_length != sizeof(p->w_telsa.sin_addr.s_addr) || hp->h_addrtype != AF_INET)
+	{
+	  Msg(0, "Bad address type for %s", hp->h_name);
+	  return -1;
+	}
       bcopy((char *)hp->h_addr,(char *)&p->w_telsa.sin_addr.s_addr, hp->h_length);
       p->w_telsa.sin_family = hp->h_addrtype;
     }
   p->w_telsa.sin_port = htons(port);
-    if (port != TEL_DEFPORT)
+  if (port != TEL_DEFPORT)
     sprintf(buf, "Trying %s %d...", inet_ntoa(p->w_telsa.sin_addr), port);
   else
     sprintf(buf, "Trying %s...", inet_ntoa(p->w_telsa.sin_addr));

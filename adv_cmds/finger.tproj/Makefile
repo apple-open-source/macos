@@ -12,11 +12,11 @@ NAME = finger
 PROJECTVERSION = 2.8
 PROJECT_TYPE = Tool
 
-HFILES = extern.h finger.h
+HFILES = extern.h finger.h pathnames.h
 
 CFILES = finger.c lprint.c net.c sprint.c util.c
 
-OTHERSRCS = Makefile.preamble Makefile finger.1
+OTHERSRCS = Makefile.preamble Makefile Makefile.postamble finger.1
 
 
 MAKEFILEDIR = $(MAKEFILEPATH)/pb_makefiles

@@ -1,5 +1,3 @@
-.\"	$NetBSD: df.1,v 1.14 1997/10/20 08:51:31 enami Exp $
-.\"
 .\" Copyright (c) 1989, 1990, 1993
 .\"	The Regents of the University of California.  All rights reserved.
 .\"
@@ -31,86 +29,134 @@
 .\" OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
 .\" SUCH DAMAGE.
 .\"
-.\"	@(#)df.1	8.2 (Berkeley) 1/13/92
+.\"     @(#)df.1	8.3 (Berkeley) 5/8/95
+.\" $FreeBSD: src/bin/df/df.1,v 1.18.2.7 2002/04/22 22:17:36 keramida Exp $
 .\"
-.Dd January 13, 1994
+.Dd May 8, 1995
 .Dt DF 1
-.Os BSD 4
+.Os
 .Sh NAME
 .Nm df
 .Nd display free disk space
 .Sh SYNOPSIS
 .Nm
-.Op Fl ikln
+.Oo
+.Fl b | h | H | k |
+.Fl m | P
+.Oc
+.Op Fl ailn
 .Op Fl t Ar type
-.Op Ar file | Ar file_system ...
+.Op Ar file | filesystem ...
 .Sh DESCRIPTION
+The
 .Nm
+utility
 displays statistics about the amount of free disk space on the specified
-.Ar file_system
-or on the file system of which
+.Ar filesystem
+or on the filesystem of which
 .Ar file
 is a part.
-Values are displayed in 512-byte per block block counts.
-If neither a file or a
-.Ar file_system
-operand is specified,
-statistics for all mounted file systems are displayed
+Values are displayed in 512-byte per block counts.
+If neither a file or a filesystem operand is specified,
+statistics for all mounted filesystems are displayed
 (subject to the
-.Fl l
-and
 .Fl t
-options below).
+option below).
 .Pp
 The following options are available:
 .Bl -tag -width Ds
+.It Fl a
+Show all mount points, including those that were mounted with the MNT_IGNORE
+flag.
+.It Fl b
+Use 512-byte blocks rather than the default.  Note that
+this overrides the
+.Ev BLOCKSIZE
+specification from the environment.
+.It Fl g
+Use 1073741824-byte (1-Gbyte) blocks rather than the default.  Note that
+this overrides the
+.Ev BLOCKSIZE
+specification from the environment.
+.It Fl H
+"Human-readable" output.  Use unit suffixes: Byte, Kilobyte, Megabyte,
+Gigabyte, Terabyte and Petabyte in order to reduce the number of
+digits to three or less using base 10 for sizes.
+.It Fl h
+"Human-readable" output.  Use unit suffixes: Byte, Kilobyte, Megabyte,
+Gigabyte, Terabyte and Petabyte in order to reduce the number of
+digits to three or less using base 2 for sizes.
 .It Fl i
 Include statistics on the number of free inodes.
 .It Fl k
-By default, all sizes are reported in 512-byte block counts.
-The
-.Fl k
-option causes the numbers to be reported in kilobyte counts.
+Use 1024-byte (1-Kbyte) blocks rather than the default.  Note that
+this overrides the
+.Ev BLOCKSIZE
+specification from the environment.
 .It Fl l
-Display statistics only about mounted file systems with the MNT_LOCAL
-flag set.  If a non-local file system is given as an argument, a
-warning is issued and no information is given on that file system.
+Only display information about locally-mounted filesystems.
+.It Fl m
+Use 1048576-byte (1-Mbyte) blocks rather than the default.  Note that
+this overrides the
+.Ev BLOCKSIZE
+specification from the environment.
 .It Fl n
-Print out the previously obtained statistics from the file systems.
+Print out the previously obtained statistics from the filesystems.
 This option should be used if it is possible that one or more
-file systems are in a state such that they will not be able to provide
+filesystems are in a state such that they will not be able to provide
 statistics without a long delay.
 When this option is specified,
 .Nm
-will not request new statistics from the file systems, but will respond
+will not request new statistics from the filesystems, but will respond
 with the possibly stale statistics that were previously obtained.
-.It Fl t Ar type
-Is used to indicate the actions should only be taken on
-filesystems of the specified type.
+.It Fl P
+Use POSIX compliant output of 512-byte blocks rather than the default.
+Note that this overrides the
+.Ev BLOCKSIZE
+specification from the environment.
+.It Fl t
+Only print out statistics for filesystems of the specified types.
 More than one type may be specified in a comma separated list.
 The list of filesystem types can be prefixed with
 .Dq no
 to specify the filesystem types for which action should
 .Em not
-be taken.  If a file system is given on the command line that is not of
-the specified type, a warning is issued and no information is given on
-that file system.
+be taken.
+For example, the
+.Nm
+command:
+.Bd -literal -offset indent
+df -t nonfs,mfs
+.Ed
+.Pp
+lists all filesystems except those of type
+.Tn NFS
+and
+.Tn MFS .
+The
+.Xr lsvfs 1
+command can be used to find out the types of filesystems
+that are available on the system.
 .El
-.Sh ENVIRONMENT VARIABLES
+.Sh ENVIRONMENT
 .Bl -tag -width BLOCKSIZE
 .It Ev BLOCKSIZE
 If the environment variable
 .Ev BLOCKSIZE
-is set, and the
-.Fl k
-option is not specified, the block counts will be displayed in units of that
-size block.
+is set, the block counts will be displayed in units of that size block.
 .El
+.Sh BUGS
+The
+.Fl n
+and
+.Fl t
+flags are ignored if a file or filesystem is specified.
 .Sh SEE ALSO
+.Xr lsvfs 1 ,
 .Xr quota 1 ,
-.Xr statfs 2 ,
 .Xr fstatfs 2 ,
 .Xr getfsstat 2 ,
+.Xr statfs 2 ,
 .Xr getmntinfo 3 ,
 .Xr fstab 5 ,
 .Xr mount 8 ,
@@ -118,5 +164,5 @@ size block.
 .Sh HISTORY
 A
 .Nm
-utility appeared in
-.At v6 .
+command appeared in
+.At v1 .

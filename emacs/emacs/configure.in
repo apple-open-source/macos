@@ -95,9 +95,9 @@ AC_ARG_WITH(png,
 [  --with-png              use -lpng for displaying PNG images])
 AC_ARG_WITH(toolkit-scroll-bars,
 [  --without-toolkit-scroll-bars
-                           don't use Motif or Xaw3d scroll bars])
+                          don't use Motif or Xaw3d scroll bars])
 AC_ARG_WITH(xim,
-[  --without-xim	   don't use X11 XIM])
+[  --without-xim           don't use X11 XIM])
 
 #### Make srcdir absolute, if it isn't already.  It's important to
 #### avoid running the path through pwd unnecessarily, since pwd can
@@ -236,7 +236,7 @@ case "${canonical}" in
       *-*-bsdi2.0* )		opsys=bsdos2 ;;
       *-*-bsdi2* )		opsys=bsdos2-1 ;;
       *-*-bsdi3* )		opsys=bsdos3 ;;
-      *-*-bsdi4* )		opsys=bsdos4 ;;
+      *-*-bsdi[45]* )		opsys=bsdos4 ;;
     esac
   ;;
 
@@ -524,8 +524,12 @@ case "${canonical}" in
   hppa*-hp-hpux9* )
     machine=hp800 opsys=hpux9
   ;;
-  hppa*-hp-hpux1[0-9]* )
+
+  hppa*-hp-hpux10* )
     machine=hp800 opsys=hpux10
+  ;;
+  hppa*-hp-hpux1[1-9]* )
+    machine=hp800 opsys=hpux11
   ;;
 
   ## HP 9000 series 700 and 800, running HP/UX
@@ -590,6 +594,9 @@ case "${canonical}" in
     machine=ibmrs6000 opsys=aix4-1
   ;;
   rs6000-ibm-aix4.2* | powerpc-ibm-aix4.2*  )
+    machine=ibmrs6000 opsys=aix4-2
+  ;;
+  rs6000-ibm-aix5.1* | powerpc-ibm-aix5.1*  )
     machine=ibmrs6000 opsys=aix4-2
   ;;
   rs6000-ibm-aix4.0* | powerpc-ibm-aix4.0*  )
@@ -2308,7 +2315,7 @@ sed -e 's/[^a-zA-Z0-9_]/ /g' -e 's/^/ /' -e 's/  *$//' \
 changequote([, ])dnl
 
 echo creating src/epaths.h
-make epaths-force
+${MAKE-make} epaths-force
 
 # As of 2000-11-19, newest development versions of GNU cpp preprocess
 # `..' to `. .'  unless invoked with -traditional

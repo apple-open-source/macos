@@ -1,6 +1,6 @@
-/* $OpenLDAP: pkg/ldap/servers/slapd/nt_svc.c,v 1.20 2002/01/04 20:17:47 kurt Exp $ */
+/* $OpenLDAP: pkg/ldap/servers/slapd/nt_svc.c,v 1.20.2.2 2003/03/03 17:10:07 kurt Exp $ */
 /*
- * Copyright 1998-2002 The OpenLDAP Foundation, All Rights Reserved.
+ * Copyright 1998-2003 The OpenLDAP Foundation, All Rights Reserved.
  * COPYING RESTRICTIONS APPLY, see COPYRIGHT file
  */
 
@@ -16,12 +16,6 @@
 void WINAPI ServiceMain( DWORD argc, LPTSTR *argv );
 
 /* in ntservice.c */
-int srv_install( char* service, char * displayName, char* filename,
-		 BOOL auto_start );
-int srv_remove ( char* service, char* filename );
-DWORD svc_installed (LPTSTR lpszServiceName, LPTSTR lpszBinaryPathName);
-DWORD svc_running (LPTSTR lpszServiceName);
-
 int main( int argc, LPTSTR *argv )
 {
 	int		length;
@@ -30,10 +24,7 @@ int main( int argc, LPTSTR *argv )
 	/*
 	 * Because the service was registered as SERVICE_WIN32_OWN_PROCESS,
 	 * the lpServiceName element of the SERVICE_TABLE_ENTRY will be
-	 * ignored. Since we don't even know the name of the service at
-	 * this point (since it could have been installed under a name
-	 * different than SERVICE_NAME), we might as well just provide
-	 * the parameter as "".
+	 * ignored.
 	 */
 
 	SERVICE_TABLE_ENTRY		DispatchTable[] = {
@@ -42,13 +33,12 @@ int main( int argc, LPTSTR *argv )
 	};
 
 	/*
-	// set the service's current directory to being the installation directory for the service.
-	// this way we don't have to write absolute paths in the configuration files
-	*/
+	 * set the service's current directory to the installation directory
+	 * for the service. this way we don't have to write absolute paths
+	 * in the configuration files
+	 */
 	GetModuleFileName( NULL, filename, sizeof( filename ) );
 	fname_start = strrchr( filename, *LDAP_DIRSEP );
-	*fname_start = '\0';
-	SetCurrentDirectory( filename );
 
 	if ( argc > 1 ) {
 		if ( _stricmp( "install", argv[1] ) == 0 ) 
@@ -66,12 +56,8 @@ int main( int argc, LPTSTR *argv )
 			if ( argc > 4 && stricmp(argv[4], "auto") == 0)
 				auto_start = TRUE;
 
-			if ( (length = GetModuleFileName(NULL, filename, sizeof( filename ))) == 0 ) 
-			{
-				fputs( "unable to retrieve file name for the service.\n", stderr  );
-				return EXIT_FAILURE;
-			}
-			if ( !srv_install(svcName, displayName, filename, auto_start) ) 
+			strcat(filename, " service");
+			if ( !lutil_srv_install(svcName, displayName, filename, auto_start) ) 
 			{
 				fputs( "service failed installation ...\n", stderr  );
 				return EXIT_FAILURE;
@@ -85,12 +71,7 @@ int main( int argc, LPTSTR *argv )
 			char *svcName = SERVICE_NAME;
 			if ( (argc > 2) && (argv[2] != NULL) )
 				svcName = argv[2];
-			if ( (length = GetModuleFileName(NULL, filename, sizeof( filename ))) == 0 ) 
-			{
-				fputs( "unable to retrieve file name for the service.\n", stderr  );
-				return EXIT_FAILURE;
-			}
-			if ( !srv_remove(svcName, filename) ) 
+			if ( !lutil_srv_remove(svcName, filename) ) 
 			{
 				fputs( "failed to remove the service ...\n", stderr  );
 				return EXIT_FAILURE;
@@ -98,14 +79,19 @@ int main( int argc, LPTSTR *argv )
 			fputs( "service has been removed ...\n", stderr );
 			return EXIT_SUCCESS;
 		}
+		if ( _stricmp( "service", argv[1] ) == 0 )
+		{
+			is_NT_Service = 1;
+			*fname_start = '\0';
+			SetCurrentDirectory( filename );
+		}
 	}
 
-	puts( "starting slapd..." );
-	if (svc_installed(SERVICE_NAME, NULL) != 0
-		|| svc_running(SERVICE_NAME) == 1
-		|| StartServiceCtrlDispatcher(DispatchTable) == 0 )
+	if (is_NT_Service)
 	{
-		is_NT_Service = 0;
+		StartServiceCtrlDispatcher(DispatchTable);
+	} else
+	{
 		ServiceMain( argc, argv );
 	}
 

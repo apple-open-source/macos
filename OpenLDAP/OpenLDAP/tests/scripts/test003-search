@@ -1,5 +1,5 @@
 #! /bin/sh
-# $OpenLDAP: pkg/ldap/tests/scripts/test003-search,v 1.34 2002/02/09 22:04:18 kurt Exp $
+# $OpenLDAP: pkg/ldap/tests/scripts/test003-search,v 1.34.2.10 2003/03/24 03:10:14 kurt Exp $
 
 SRCDIR="."
 if test $# -ge 1 ; then
@@ -8,6 +8,10 @@ fi
 BACKEND=bdb
 if test $# -ge 1 ; then
 	BACKEND=$1; shift
+fi
+MONITORDB=no
+if test $# -ge 1 ; then
+	MONITORDB=$1; shift
 fi
 WAIT=0
 if test $# -ge 1 ; then
@@ -22,7 +26,7 @@ echo "Cleaning up in $DBDIR..."
 rm -f $DBDIR/[!C]*
 
 echo "Running slapadd to build slapd database..."
-. $CONFFILTER $BACKEND < $MCONF > $ADDCONF
+. $CONFFILTER $BACKEND $MONITORDB < $MCONF > $ADDCONF
 $SLAPADD -f $ADDCONF -l $LDIFORDERED
 RC=$?
 if test $RC != 0 ; then
@@ -31,7 +35,7 @@ if test $RC != 0 ; then
 fi
 
 echo "Running slapindex to index slapd database..."
-. $CONFFILTER $BACKEND < $CONF > $DBCONF
+. $CONFFILTER $BACKEND $MONITORDB < $CONF > $DBCONF
 $SLAPINDEX -f $DBCONF
 RC=$?
 if test $RC != 0 ; then
@@ -50,12 +54,13 @@ fi
 echo "Testing slapd searching..."
 for i in 0 1 2 3 4 5; do
 	$LDAPSEARCH -s base -b "$MONITOR" -h $LOCALHOST -p $PORT \
-		'objectclass=*' > /dev/null 2>&1
+		'(objectclass=*)' > /dev/null 2>&1
 	RC=$?
-	if test $RC = 1 ; then
-		echo "Waiting 5 seconds for slapd to start..."
-		sleep 5
+	if test $RC = 0 ; then
+		break
 	fi
+	echo "Waiting 5 seconds for slapd to start..."
+	sleep 5
 done
 
 if test $RC != 0 ; then
@@ -68,7 +73,8 @@ cat /dev/null > $SEARCHOUT
 
 echo "Testing exact searching..."
 $LDAPSEARCH -S "" -b "$BASEDN" -h $LOCALHOST -p $PORT \
-	'sn=jensen' >> $SEARCHOUT 2>&1
+	'(sn=jENSEN)' >> $SEARCHOUT 2>&1
+RC=$?
 if test $RC != 0 ; then
 	echo "ldapsearch failed ($RC)!"
 	kill -HUP $PID
@@ -77,7 +83,8 @@ fi
 
 echo "Testing OR searching..."
 $LDAPSEARCH -S "" -b "$BASEDN" -h $LOCALHOST -p $PORT \
-	'(|(undefined=fubar)(objectclass=groupofnames)(sn=jones))' >> $SEARCHOUT 2>&1
+	'(|(givenname=Xx*yY*Z)(cn=)(undef=*)(objectclass=groupofnames)(sn=jones)(member=cn=Manager,o=University of Michigan,c=US))' >> $SEARCHOUT 2>&1
+RC=$?
 if test $RC != 0 ; then
 	echo "ldapsearch failed ($RC)!"
 	kill -HUP $PID
@@ -85,8 +92,9 @@ if test $RC != 0 ; then
 fi
 
 echo "Testing AND matching and ends-with searching..."
-$LDAPSEARCH -S "" -b "$BASEDN" -h $LOCALHOST -p $PORT \
-	'(&(objectclass=groupofnames)(cn=A*))' >> $SEARCHOUT 2>&1
+$LDAPSEARCH -S "" -b "ou=groups,$BASEDN" -s one -h $LOCALHOST -p $PORT \
+	'(&(objectclass=groupofnames)(cn=A*)(member=cn=Mark Elliot,ou=Alumni Association,ou=People,o=University of Michigan,c=US))' >> $SEARCHOUT 2>&1
+RC=$?
 if test $RC != 0 ; then
 	echo "ldapsearch failed ($RC)!"
 	kill -HUP $PID
@@ -96,14 +104,26 @@ fi
 echo "Testing NOT searching..."
 $LDAPSEARCH -S "" -b "$BASEDN" -h $LOCALHOST -p $PORT \
 	'(!(objectclass=pilotPerson))' >> $SEARCHOUT 2>&1
+RC=$?
 if test $RC != 0 ; then
 	echo "ldapsearch failed ($RC)!"
 	kill -HUP $PID
 	exit $RC
 fi
 
-kill -HUP $PID
+echo "Testing objectClass/attributeType inheritance ..."
+$LDAPSEARCH -M -a never -S "" -b "$BASEDN" -h $LOCALHOST -p $PORT \
+	'(&(objectClass=inetorgperson)(userid=uham))' \
+	"2.5.4.0" "userid" >> $SEARCHOUT 2>&1
+RC=$?
+if test $RC != 0 ; then
+	echo "ldapsearch failed ($RC)!"
+	kill -HUP $PID
+	exit $RC
+fi
 
+
+kill -HUP $PID
 LDIF=$SEARCHOUTMASTER
 
 echo "Filtering ldapsearch results..."

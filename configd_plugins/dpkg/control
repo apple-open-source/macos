@@ -1,0 +1,7 @@
+Package: configdplugins
+Maintainer: Darwin Developers <darwin-development@public.lists.apple.com>
+Vendor: Apple Computer Inc.
+Version: 73
+URL: http://www.opensource.apple.com/
+Build-Depends: build-base, corefoundation, appletalk, configd, carbonheaders, iokituser, project-makefiles
+Description: configd plugins

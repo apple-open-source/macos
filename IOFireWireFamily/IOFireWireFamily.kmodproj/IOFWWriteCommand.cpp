@@ -234,19 +234,21 @@ IOReturn IOFWWriteCommand::execute()
 	{
         // Update nodeID and generation
         fDevice->getNodeIDGeneration( fGeneration, fNodeID );
-		fSpeed = fControl->FWSpeed( fNodeID );
+		fSpeed = fControl->FWSpeed( fNodeID );    
     }
 
     fPackSize = fSize;
     if( fPackSize > fMaxPack )
+	{
 		fPackSize = fMaxPack;
-
+	}
+	
 	int maxPack = (1 << fControl->maxPackLog(fWrite, fNodeID));
 	if( maxPack < fPackSize )
 	{
 		fPackSize = maxPack;
 	}
-	
+
     // Do this when we're in execute, not before,
     // so that Reset handling knows which commands are waiting a response.
     fTrans = fControl->allocTrans( this );

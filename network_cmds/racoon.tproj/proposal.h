@@ -1,4 +1,4 @@
-/*	$KAME: proposal.h,v 1.15 2001/04/06 14:23:48 sakane Exp $	*/
+/*	$KAME: proposal.h,v 1.16 2001/08/16 05:02:13 itojun Exp $	*/
 
 /*
  * Copyright (C) 1995, 1996, 1997, and 1998 WIDE Project.

@@ -856,7 +856,7 @@ int ssl_hook_Access(request_rec *r)
         SSL_set_verify(ssl, nVerify, ssl_callback_SSLVerify);
         SSL_set_verify_result(ssl, X509_V_OK);
         /* determine whether we've to force a renegotiation */
-        if (nVerify != nVerifyOld) {
+        if (!renegotiate && nVerify != nVerifyOld) {
             if (   (   (nVerifyOld == SSL_VERIFY_NONE)
                     && (nVerify    != SSL_VERIFY_NONE))
                 || (  !(nVerifyOld &  SSL_VERIFY_PEER)
@@ -1048,13 +1048,15 @@ int ssl_hook_Access(request_rec *r)
                         "Re-negotiation handshake failed: Client verification failed");
                 return FORBIDDEN;
             }
+            cert = SSL_get_peer_certificate(ssl);
             if (   dc->nVerifyClient == SSL_CVERIFY_REQUIRE
-                && (cert = SSL_get_peer_certificate(ssl)) == NULL) {
+                && cert == NULL) {
                 ssl_log(r->server, SSL_LOG_ERROR,
                         "Re-negotiation handshake failed: Client certificate missing");
-                X509_free(cert);
                 return FORBIDDEN;
             }
+            if (cert != NULL)
+                X509_free(cert);
         }
     }
 

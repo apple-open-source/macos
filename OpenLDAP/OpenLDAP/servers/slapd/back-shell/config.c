@@ -1,7 +1,7 @@
 /* config.c - shell backend configuration file routine */
-/* $OpenLDAP: pkg/ldap/servers/slapd/back-shell/config.c,v 1.9 2002/01/04 20:17:54 kurt Exp $ */
+/* $OpenLDAP: pkg/ldap/servers/slapd/back-shell/config.c,v 1.9.2.3 2003/03/03 17:10:10 kurt Exp $ */
 /*
- * Copyright 1998-2002 The OpenLDAP Foundation, All Rights Reserved.
+ * Copyright 1998-2003 The OpenLDAP Foundation, All Rights Reserved.
  * COPYING RESTRICTIONS APPLY, see COPYRIGHT file
  */
 
@@ -40,7 +40,7 @@ shell_back_db_config(
 			    fname, lineno );
 			return( 1 );
 		}
-		si->si_bind = charray_dup( &argv[1] );
+		si->si_bind = ldap_charray_dup( &argv[1] );
 
 	/* command + args to exec for unbinds */
 	} else if ( strcasecmp( argv[0], "unbind" ) == 0 ) {
@@ -50,7 +50,7 @@ shell_back_db_config(
 			    fname, lineno );
 			return( 1 );
 		}
-		si->si_unbind = charray_dup( &argv[1] );
+		si->si_unbind = ldap_charray_dup( &argv[1] );
 
 	/* command + args to exec for searches */
 	} else if ( strcasecmp( argv[0], "search" ) == 0 ) {
@@ -60,7 +60,7 @@ shell_back_db_config(
 			    fname, lineno );
 			return( 1 );
 		}
-		si->si_search = charray_dup( &argv[1] );
+		si->si_search = ldap_charray_dup( &argv[1] );
 
 	/* command + args to exec for compares */
 	} else if ( strcasecmp( argv[0], "compare" ) == 0 ) {
@@ -70,7 +70,7 @@ shell_back_db_config(
 			    fname, lineno );
 			return( 1 );
 		}
-		si->si_compare = charray_dup( &argv[1] );
+		si->si_compare = ldap_charray_dup( &argv[1] );
 
 	/* command + args to exec for modifies */
 	} else if ( strcasecmp( argv[0], "modify" ) == 0 ) {
@@ -80,7 +80,7 @@ shell_back_db_config(
 			    fname, lineno );
 			return( 1 );
 		}
-		si->si_modify = charray_dup( &argv[1] );
+		si->si_modify = ldap_charray_dup( &argv[1] );
 
 	/* command + args to exec for modrdn */
 	} else if ( strcasecmp( argv[0], "modrdn" ) == 0 ) {
@@ -90,7 +90,7 @@ shell_back_db_config(
 			    fname, lineno );
 			return( 1 );
 		}
-		si->si_modrdn = charray_dup( &argv[1] );
+		si->si_modrdn = ldap_charray_dup( &argv[1] );
 
 	/* command + args to exec for add */
 	} else if ( strcasecmp( argv[0], "add" ) == 0 ) {
@@ -100,7 +100,7 @@ shell_back_db_config(
 			    fname, lineno );
 			return( 1 );
 		}
-		si->si_add = charray_dup( &argv[1] );
+		si->si_add = ldap_charray_dup( &argv[1] );
 
 	/* command + args to exec for delete */
 	} else if ( strcasecmp( argv[0], "delete" ) == 0 ) {
@@ -110,7 +110,7 @@ shell_back_db_config(
 			    fname, lineno );
 			return( 1 );
 		}
-		si->si_delete = charray_dup( &argv[1] );
+		si->si_delete = ldap_charray_dup( &argv[1] );
 
 	/* command + args to exec for abandon */
 	} else if ( strcasecmp( argv[0], "abandon" ) == 0 ) {
@@ -120,7 +120,7 @@ shell_back_db_config(
 			    fname, lineno );
 			return( 1 );
 		}
-		si->si_abandon = charray_dup( &argv[1] );
+		si->si_abandon = ldap_charray_dup( &argv[1] );
 
 	/* anything else */
 	} else {

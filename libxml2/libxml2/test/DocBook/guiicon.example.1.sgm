@@ -1,0 +1,10 @@
+<!DOCTYPE para PUBLIC "-//OASIS//DTD DocBook V3.1//EN">
+<para>
+The exact text of the <guilabel>Legend</> and other labels on the
+graph is dependent upon the language of the current locale.  Likewise,
+the text of the <guibutton>OK</> button and other buttons may vary.
+The <guiicon><inlinegraphic fileref="figures/legend"></inlinegraphic></guiicon>
+icon and the other icons on the left side of the display may be
+configured by the local administrator, but they are not
+generally expected to vary from locale to locale.
+</para>

@@ -16,6 +16,8 @@
  */
 
 #include <Security/SecIdentitySearch.h>
+#include <Security/IdentityCursor.h>
+#include <Security/Identity.h>
 
 #include "SecBridge.h"
 
@@ -25,7 +27,7 @@ SecIdentitySearchGetTypeID(void)
 {
 	BEGIN_SECAPI
 
-	return gTypes().identityCursor.typeId;
+	return gTypes().IdentityCursor.typeID;
 
 	END_SECAPI1(_kCFRuntimeNotATypeID)
 }
@@ -43,8 +45,8 @@ SecIdentitySearchCreate(
 
 	StorageManager::KeychainList keychains;
 	globals().storageManager.optionalSearchList(keychainOrArray, keychains);
-	RefPointer<IdentityCursor> identityCursor(new IdentityCursor (keychains, keyUsage));
-	*searchRef = gTypes().identityCursor.handle(*identityCursor);
+	SecPointer<IdentityCursor> identityCursor(new IdentityCursor (keychains, keyUsage));
+	*searchRef = identityCursor->handle();
 
 	END_SECAPI
 }
@@ -58,11 +60,11 @@ SecIdentitySearchCopyNext(
     BEGIN_SECAPI
 
 	RequiredParam(identityRef);
-	RefPointer<Identity> identityPtr;
-	if (!gTypes().identityCursor.required(searchRef)->next(identityPtr))
+	SecPointer<Identity> identityPtr;
+	if (!IdentityCursor::required(searchRef)->next(identityPtr))
 		return errSecItemNotFound;
 
-	*identityRef = gTypes().identity.handle(*identityPtr);
+	*identityRef = identityPtr->handle();
 
     END_SECAPI
 }

@@ -79,6 +79,7 @@ char   *catopt __P((char *, const char *));
 struct statfs
        *getmntpt __P((const char *));
 int	hasopt __P((const char *, const char *));
+int	ismounted __P((const char *, const char *));
 const char
       **makevfslist __P((char *));
 void	mangle __P((char *, int *, const char **));
@@ -185,9 +186,13 @@ main(argc, argv)
 					continue;
 				if (hasopt(fs->fs_mntops, "noauto"))
 					continue;
-				if ((!strcmp(fs->fs_vfstype, "nfs")) &&
-					hasopt(fs->fs_mntops, "net"))
-					continue;
+				if (!strcmp(fs->fs_vfstype, "nfs")) {
+					if (hasopt(fs->fs_mntops, "net"))
+						continue;
+					/* check if already mounted */
+					if (ismounted(fs->fs_spec, fs->fs_file))
+						continue;
+				}
 				if (mountfs(fs->fs_vfstype, fs->fs_spec,
 				    fs->fs_file, init_flags, options,
 				    fs->fs_mntops))
@@ -227,7 +232,6 @@ main(argc, argv)
 			 */
 			if (!rval && (!strcmp(mntbuf->f_fstypename, "ufs") ||
 				      !strcmp(mntbuf->f_fstypename, "hfs") ||
-				      !strcmp(mntbuf->f_fstypename, "mfs") ||
 				      !strcmp(mntbuf->f_fstypename, "cd9660")))
 				hup = 1;
 			break;
@@ -239,14 +243,17 @@ main(argc, argv)
 		if (BADTYPE(fs->fs_type))
 			errx(1, "%s has unknown file system type.",
 			    *argv);
-		if ((!strcmp(fs->fs_vfstype, "nfs")) && hasopt(fs->fs_mntops, "net"))
-			errx(1, "%s is owned by the automounter.",
-			    *argv);
+		if (!strcmp(fs->fs_vfstype, "nfs")) {
+			if (hasopt(fs->fs_mntops, "net"))
+				errx(1, "%s is owned by the automounter.", *argv);
+			if (ismounted(fs->fs_spec, fs->fs_file))
+				errx(1, "%s is already mounted at %s.",
+					fs->fs_spec, fs->fs_file);
+		}
 		rval = mountfs(fs->fs_vfstype, fs->fs_spec, fs->fs_file,
 		    init_flags, options, fs->fs_mntops);
 		if (!rval && (!strcmp(fs->fs_vfstype, "ufs") ||
                               !strcmp(fs->fs_vfstype, "hfs") ||
-			      !strcmp(fs->fs_vfstype, "mfs") ||
 			      !strcmp(fs->fs_vfstype, "cd9660")))
 			hup = 1;
 		break;
@@ -256,13 +263,17 @@ main(argc, argv)
 		 * a ':' or a '@' then assume that an NFS filesystem is being
 		 * specified ala Sun.
 		 */
-		if (vfslist == NULL && strpbrk(argv[0], ":@") != NULL)
+		if (vfslist == NULL && strpbrk(argv[0], ":@") != NULL) {
 			vfstype = "nfs";
+			/* check if already mounted */
+			if (ismounted(argv[0], argv[1]))
+				errx(1, "%s is already mounted at %s.",
+					argv[0], argv[1]);
+		}
 		rval = mountfs(vfstype,
 		    argv[0], argv[1], init_flags, options, NULL);
 		if (!rval && (!strcmp(vfstype, "ufs") ||
                               !strcmp(vfstype, "hfs") ||
-			      !strcmp(vfstype, "mfs") ||
 			      !strcmp(vfstype, "cd9660")))
 			hup = 1;
 		break;
@@ -273,7 +284,7 @@ main(argc, argv)
 
 	/*
 	 * If the mount was successfull, done by root, and mountd supports
-	 * the fs type (ufs, hfs, mfs, cd9660), then tell mountd the
+	 * the fs type (ufs, hfs, cd9660), then tell mountd the
 	 * good news.  Pid checks are probably unnecessary, but don't hurt.
 	 */
 	if (rval == 0 && getuid() == 0 && hup &&
@@ -310,6 +321,25 @@ hasopt(mntopts, option)
 	}
 	free(optbuf);
 	return (found);
+}
+
+int
+ismounted(fs_spec, fs_file)
+	const char *fs_spec, *fs_file;
+{
+	int i, mntsize;
+	struct statfs *mntbuf;
+
+	if ((mntsize = getmntinfo(&mntbuf, MNT_NOWAIT)) == 0)
+		err(1, "getmntinfo");
+	for (i = 0; i < mntsize; i++) {
+		if (strcmp(mntbuf[i].f_mntfromname, fs_spec))
+			continue;
+		if (strcmp(mntbuf[i].f_mntonname, fs_file))
+			continue;
+		return 1;
+	}
+	return 0;
 }
 
 int
@@ -378,9 +408,9 @@ mountfs(vfstype, spec, name, flags, options, mntopts)
 		return (0);
 	}
 
-	switch (pid = vfork()) {
+	switch (pid = fork()) {
 	case -1:				/* Error. */
-		warn("vfork");
+		warn("fork");
 		free(optbuf);
 		return (1);
 	case 0:					/* Child. */

@@ -1529,11 +1529,16 @@ completions?
 #       squeeze-slashes,
 __ci_do_file_styles() {
   local key files cursor expand speciald ignorep squeezes select
+  local prefon suffon lssuffixes preserve
 
   __ci_get_this_style file-sort files
   __ci_get_this_style ignore-parents ignorep
   __ci_get_this_style special-dirs speciald
   __ci_get_this_style squeeze-slashes squeezes
+  __ci_get_this_style expand expand
+  __ci_get_this_style list-suffixes lssuffixes
+  __ci_get_this_style preserve-prefix preserve
+  [[ -n $preserve ]] && preserve=${(Q)preserve}
 
   while true; do
     clear
@@ -1547,6 +1552,11 @@ __ci_do_file_styles() {
 3.  Allow completion of . and .. for the bone idle.
 
 4.  When expanding paths, \`foo//bar' is treated as \`foo/bar'.
+
+5.  Configure how multiple paths are expanded and displayed, 
+    e.g. /f/b -> /foo/bar
+
+6.  Keep certain prefixes unchanged, such as \`//resource/'.
 
 q.  Return without saving.
 0.  Done setting options for filename completion.
@@ -1655,6 +1665,89 @@ one ([y]es, [n]o, [k]eep current setting)?
 	    ([nN]) squeezes=;;
 	  esac
           ;;
+      (5) if [[ $expand = *prefix* ]]; then
+             prefon=prefix
+	  else
+	     prefon=
+	  fi
+	  if [[ $expand = *suffix* ]]; then
+	     suffon=suffix
+	  else
+	     suffon=
+	  fi
+          print "
+When expanding /f/b, the shell will attempt to match /f*/b* (e.g. /foo/bar), 
+and so on to any depth.  If the first part of the expansion fails, by default
+the shell will not expand the remainder.  However, you can force it always
+to expand the first part.  Currently this feature is ${${prefon:+on}:-off}.
+Do you want it on ([y]es, [n]o, [k]eep current setting)?
+"
+	  while true; do
+	    read -k key'?--- Hit selection --- '
+	    [[ $key = [yYnNkK] ]] && break
+	    print "Type one of y, n or k."
+	  done
+	  case $key in
+	    ([yY]) prefon=prefix;;
+	    ([nN]) prefon=prefix;;
+	  esac
+	  print "
+Further, if /f*/b* is ambiguous, the shell will usually only expand
+as far as the part that is unambiguous; for example, if /foo/bar and
+/food/basket exist, it will wait for you to choose either /foo or /food,
+and not attempt to expand the rest of the match.  However, you can force
+it to add all possible completions for you to resolve conflicts in the
+normal way.  Currently this feature is ${${suffon:+on}:-off}.
+Do you want it on ([y]es, [n]o, [k]eep current setting)?
+"
+	  while true; do
+	    read -k key'?--- Hit selection --- '
+	    [[ $key = [yYnNkK] ]] && break
+	    print "Type one of y, n or k."
+	  done
+	  case $key in
+	    ([yY]) suffon=suffix;;
+	    ([nN]) suffon=suffix;;
+	  esac
+	  expand=${prefon:+$prefon${suffon:+ }}${suffon}
+
+	  if [[ $lssuffixes = (1|[tT]|[yY]|[oO])* ]]; then
+	     lssuffixes=true
+	  else
+	     lssuffixes=
+	  fi
+	  print "
+When listing expansions of /f/b such as /foo/bar, /foo/bad, /failed/bag,
+the shell will usually only show the first part of the path if it is
+ambiguous, hence /foo will appear twice.  It is possible to show the
+full path in this case.  Currently this feature is ${${lssuffixes:+on}:-off}.
+Do you want this behaviour ([y]es, [n]o, [k]eep current setting)?
+"
+	  while true; do
+	    read -k key'?--- Hit selection --- '
+	    [[ $key = [yYnNkK] ]] && break
+	    print "Type one of y, n or k."
+	  done
+	  case $key in
+	    ([yY]) lssuffixes=true;;
+	    ([nN]) lssuffixes=;;
+	  esac
+	  ;;
+      (6) print "\
+On some systems, there are special forms for the start of a filename
+which should be left alone by the completion system.  For example, Cygwin
+uses a double slash to indicate a network resource, hence a prefix of
+the form \`//resource/' should be left alone.  This style gives a pattern
+to match any such prefixes; alternatives separated by \`|' are therefore
+possible.  Edit the pattern as you like.  If this is empty, the shell will not
+handle any prefixes specially."
+          if [[ -z $preserve ]]; then
+	      preserve="//[^/]##/"
+	      print "
+Accept the default to handle network resources as just described."
+	  fi
+	  vared -eh -p "pattern> " preserve
+	  ;;
       (q) return 1
 	 ;;
     esac
@@ -1665,6 +1758,11 @@ one ([y]es, [n]o, [k]eep current setting)?
   __ci_set_this_style ignore-parents ignorep
   __ci_set_this_style special-dirs speciald
   __ci_set_this_style squeeze-slashes squeezes
+  __ci_set_this_style expand expand
+  __ci_set_this_style list-suffixes lssuffixes
+  # pattern, always quote
+  [[ -n $preserve ]] && preserve=${(qq)preserve}
+  __ci_set_this_style preserve-prefix preserve
 
   return 0
 }
@@ -1765,7 +1863,7 @@ zstyle ${(qq)stylevals[1]} $style $stylevals[2]"
 fi
 
 if [[ -z $ifile || -d $ifile ]] ||
-  ! read -q key"?Save new settings to $ifile? "; then
+  ! read -q key"?Save new settings to $ifile ([y]es, [n]o)? "; then
    print "Enter file to save in (~ will be expanded), or return to abort:"
    ifile=
    vared -ch -p 'file> ' ifile
@@ -1823,12 +1921,12 @@ future use."
     print "\nFailure adding lines to $ifile.  Lines left in \`$tmpout'"
   fi
   rm -f ${tmpout}2
-elif read -q key'?Print them to stdout instead? '; then
+elif read -q key'?Print them to stdout instead ([y]es, [n]o)? '; then
   cat $tmpout
   rm -f $tmpout
 fi
 
-if read -q key'?Set new styles for immediate use? '; then
+if read -q key'?Set new styles for immediate use ([y]es, [n]o)? '; then
   eval $output
   print "The new settings are now in effect.  Note this will not remove old
 styles you have deleted until you restart the shell."

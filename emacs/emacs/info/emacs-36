@@ -1,7 +1,8 @@
-This is ../info/emacs, produced by makeinfo version 4.0 from emacs.texi.
+This is ../info/emacs, produced by makeinfo version 4.0f from
+emacs.texi.
 
    This is the Fourteenth edition of the `GNU Emacs Manual', updated
-for Emacs version 21.1.
+for Emacs version 21.2.
 
 INFO-DIR-SECTION Emacs
 START-INFO-DIR-ENTRY
@@ -11,9 +12,9 @@ END-INFO-DIR-ENTRY
    Published by the Free Software Foundation 59 Temple Place, Suite 330
 Boston, MA  02111-1307 USA
 
-   Copyright (C) 1985,
-1986,1987,1993,1994,1995,1996,1997,1998,1999,2000,2001    Free Software
-Foundation, Inc.
+   Copyright (C)
+1985,1986,1987,1993,1994,1995,1996,1997,1998,1999,2000,2001,2002
+Free Software Foundation, Inc.
 
    Permission is granted to copy, distribute and/or modify this document
 under the terms of the GNU Free Documentation License, Version 1.1 or
@@ -81,7 +82,6 @@ Concept Index
 * astronomical day numbers:              Calendar Systems.
 * attribute (Rmail):                     Rmail Labels.
 * attributes of mode line, changing:     Optional Mode Line.
-* AUTHORS file:                          Authors.
 * Auto Compression mode:                 Compressed Files.
 * Auto Fill mode:                        Auto Fill.
 * Auto Save mode:                        Auto Save.
@@ -105,8 +105,8 @@ Concept Index
 * backup, and user-id:                   Backup Copying.
 * backups for remote files:              Remote Files.
 * balanced expression:                   Expressions.
-* balloon help <1>:                      Help Echo.
-* balloon help:                          Tooltips.
+* balloon help <1>:                      Tooltips.
+* balloon help:                          Help Echo.
 * base buffer:                           Indirect Buffers.
 * batch mode:                            Initial Options.
 * binary files, on MS-DOS/MS-Windows:    Text and Binary.
@@ -139,8 +139,8 @@ Concept Index
 * bypassing init and site-start file:    Initial Options.
 * byte code:                             Lisp Libraries.
 * byte-compiling several files (in Dired): Operating on Files.
-* C editing <1>:                         Programs.
-* C editing:                             Maintaining.
+* C editing <1>:                         Maintaining.
+* C editing:                             Programs.
 * C mode:                                C Modes.
 * C++ class browser, tags:               Tags.
 * C++ mode:                              C Modes.
@@ -233,6 +233,7 @@ Concept Index
 * CRiSP mode:                            Emulation.
 * cryptanalysis:                         Amusements.
 * current buffer:                        Buffers.
+* current function name in mode line:    Which Function.
 * cursor:                                Point.
 * cursor color, command-line argument:   Colors X.
 * cursor in non-selected windows:        Cursor Display.
@@ -268,6 +269,7 @@ Concept Index
 * debugging Emacs, tricks and techniques: Checklist.
 * debugging X problems:                  Resources X.
 * decoding mail messages (Rmail):        Rmail Coding.
+* decoding non-ASCII keyboard input on X: Specify Coding.
 * default argument:                      Minibuffer.
 * default-frame-alist:                   Creating Frames.
 * default.el file, not loading:          Initial Options.
@@ -917,6 +919,8 @@ Concept Index
 * rebinding non-ASCII keys:              Non-ASCII Rebinding.
 * rectangle:                             Rectangles.
 * rectangles and Picture mode:           Rectangles in Picture.
+* recursive copying:                     Operating on Files.
+* recursive deletion:                    Dired Deletion.
 * recursive editing level:               Recursive Edit.
 * redefining keys, this session:         Rebinding.
 * references, LaTeX:                     TeX Misc.
@@ -966,9 +970,15 @@ Concept Index
 * saved echo area messages:              Echo Area.
 * Saveplace:                             Saving Emacs Sessions.
 * saving files:                          Visiting.
+* saving fuile name in a register:       RegFiles.
 * saving keyboard macros:                Save Kbd Macro.
+* saving number in a register:           RegNumbers.
 * saving option value:                   Changing an Option.
+* saving position in a register:         RegPos.
+* saving rectangle in a register:        RegRect.
 * saving sessions:                       Saving Emacs Sessions.
+* saving text in a register:             RegText.
+* saving window configuration in a register: RegConfig.
 * SCCS:                                  Version Systems.
 * screen:                                Screen.
 * Scroll Bar mode:                       Scroll Bars.

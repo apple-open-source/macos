@@ -14,7 +14,7 @@
             netboot.h 
         ); 
         M_FILES = (); 
-        OTHER_LINKED = (main.c, macho.c, device_tree.c, display.c, elf.c, drivers.c); 
+        OTHER_LINKED = (main.c, macho.c, device_tree.c, display.c, elf.c, drivers.c, lzss.c); 
         OTHER_SOURCES = (Makefile.preamble, Makefile, Makefile.postamble); 
         SUBPROJECTS = (); 
         TOOLS = (); 

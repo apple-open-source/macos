@@ -1,13 +1,14 @@
-This is screen.info, produced by makeinfo version 4.0 from
+This is screen.info, produced by makeinfo version 4.2 from
 ./screen.texinfo.
 
+INFO-DIR-SECTION General Commands
 START-INFO-DIR-ENTRY
 * Screen: (screen).             Full-screen window manager.
 END-INFO-DIR-ENTRY
 
    This file documents the `Screen' virtual terminal manager.
 
-   Copyright (c) 1993-1995 Free Software Foundation, Inc.
+   Copyright (c) 1993-2003 Free Software Foundation, Inc.
 
    Permission is granted to make and distribute verbatim copies of this
 manual provided the copyright notice and this permission notice are
@@ -22,6 +23,205 @@ permission notice identical to this one.
 manual into another language, under the above conditions for modified
 versions, except that this permission notice may be stated in a
 translation approved by the Foundation.
+
+
+File: screen.info,  Node: Termcap Examples,  Next: Special Capabilities,  Prev: Termcap Syntax,  Up: Termcap
+
+Termcap Examples
+================
+
+   Some examples:
+
+     termcap xterm*  xn:hs@
+
+Informs `screen' that all terminals that begin with `xterm' have firm
+auto-margins that allow the last position on the screen to be updated
+(xn), but they don't really have a status line (no 'hs' - append `@' to
+turn entries off).  Note that we assume `xn' for all terminal names
+that start with `vt', but only if you don't specify a termcap command
+for that terminal.
+
+     termcap vt*  xn
+     termcap vt102|vt220  Z0=\E[?3h:Z1=\E[?3l
+
+Specifies the firm-margined `xn' capability for all terminals that
+begin with `vt', and the second line will also add the escape-sequences
+to switch into (Z0) and back out of (Z1) 132-character-per-line mode if
+this is a VT102 or VT220.  (You must specify Z0 and Z1 in your termcap
+to use the width-changing commands.)
+
+     termcap vt100  ""  l0=PF1:l1=PF2:l2=PF3:l3=PF4
+
+This leaves your vt100 termcap alone and adds the function key labels to
+each window's termcap entry.
+
+     termcap h19|z19  am@:im=\E@:ei=\EO  dc=\E[P
+
+Takes a h19 or z19 termcap and turns off auto-margins (am@) and enables
+the insert mode (im) and end-insert (ei) capabilities (the `@' in the
+`im' string is after the `=', so it is part of the string).  Having the
+`im' and `ei' definitions put into your terminal's termcap will cause
+screen to automatically advertise the character-insert capability in
+each window's termcap.  Each window will also get the delete-character
+capability (dc) added to its termcap, which screen will translate into
+a line-update for the terminal (we're pretending it doesn't support
+character deletion).
+
+   If you would like to fully specify each window's termcap entry, you
+should instead set the `$SCREENCAP' variable prior to running `screen'.
+*Note Virtual Terminal::, for the details of the `screen' terminal
+emulation.  *Note Termcap: (termcap)Top, for more information on
+termcap definitions.
+
+
+File: screen.info,  Node: Special Capabilities,  Next: Autonuke,  Prev: Termcap Examples,  Up: Termcap
+
+Special Terminal Capabilities
+=============================
+
+   The following table describes all terminal capabilities that are
+recognized by `screen' and are not in the termcap manual (*note
+Termcap: (termcap)Top.).  You can place these capabilities in your
+termcap entries (in `/etc/termcap') or use them with the commands
+`termcap', `terminfo' and `termcapinfo' in your `screenrc' files. It is
+often not possible to place these capabilities in the terminfo database.
+`LP'
+     (bool)
+     Terminal has VT100 style margins (`magic margins'). Note that this
+     capability is obsolete -- `screen' now uses the standard `xn'
+     instead.
+
+`Z0'
+     (str)
+     Change width to 132 columns.
+
+`Z1'
+     (str)
+     Change width to 80 columns.
+
+`WS'
+     (str)
+     Resize display. This capability has the desired width and height as
+     arguments.  SunView(tm) example: `\E[8;%d;%dt'.
+
+`NF'
+     (bool)
+     Terminal doesn't need flow control. Send ^S and ^Q direct to the
+     application. Same as `flow off'. The opposite of this capability
+     is `nx'.
+
+`G0'
+     (bool)
+     Terminal can deal with ISO 2022 font selection sequences.
+
+`S0'
+     (str)
+     Switch charset `G0' to the specified charset. Default is `\E(%.'.
+
+`E0'
+     (str)
+     Switch charset `G0' back to standard charset. Default is `\E(B'.
+
+`C0'
+     (str)
+     Use the string as a conversion table for font 0. See the `ac'
+     capability for more details.
+
+`CS'
+     (str)
+     Switch cursor-keys to application mode.
+
+`CE'
+     (str)
+     Switch cursor-keys to cursor mode.
+
+`AN'
+     (bool)
+     Enable autonuke for displays of this terminal type.  (*note
+     Autonuke::).
+
+`OL'
+     (num)
+     Set the output buffer limit. See the `obuflimit' command (*note
+     Obuflimit::) for more details.
+
+`KJ'
+     (str)
+     Set the encoding of the terminal. See the `encoding' command
+     (*note Character Processing::) for valid encodings.
+
+`AF'
+     (str)
+     Change character foreground color in an ANSI conform way. This
+     capability will almost always be set to `\E[3%dm' (`\E[3%p1%dm' on
+     terminfo machines).
+
+`AB'
+     (str)
+     Same as `AF', but change background color.
+
+`AX'
+     (bool)
+     Does understand ANSI set default fg/bg color (`\E[39m / \E[49m').
+
+`XC'
+     (str)
+     Describe a translation of characters to strings depending on the
+     current font.  (*note Character Translation::).
+
+`XT'
+     (bool)
+     Terminal understands special xterm sequences (OSC, mouse tracking).
+
+`C8'
+     (bool)
+     Terminal needs bold to display high-intensity colors (e.g. Eterm).
+
+`TF'
+     (bool)
+     Add missing capabilities to the termcap/info entry. (Set by
+     default).
+
+
+File: screen.info,  Node: Autonuke,  Next: Obuflimit,  Prev: Special Capabilities,  Up: Termcap
+
+Autonuke
+========
+
+ - Command: autonuke STATE
+     (none)
+     Sets whether a clear screen sequence should nuke all the output
+     that has not been written to the terminal. *Note Obuflimit::.
+     This property is set per display, not per window.
+
+ - Command: defautonuke STATE
+     (none)
+     Same as the `autonuke' command except that the default setting for
+     new displays is also changed. Initial setting is `off'.  Note that
+     you can use the special `AN' terminal capability if you want to
+     have a terminal type dependent setting.
+
+
+File: screen.info,  Node: Obuflimit,  Next: Character Translation,  Prev: Autonuke,  Up: Termcap
+
+Obuflimit
+=========
+
+ - Command: obuflimit [LIMIT]
+     (none)
+     If the output buffer contains more bytes than the specified limit,
+     no more data will be read from the windows. The default value is
+     256. If you have a fast display (like `xterm'), you can set it to
+     some higher value. If no argument is specified, the current
+     setting is displayed.  This property is set per display, not per
+     window.
+
+ - Command: defobuflimit LIMIT
+     (none)
+     Same as the `obuflimit' command except that the default setting
+     for new displays is also changed. Initial setting is 256 bytes.
+     Note that you can use the special `OL' terminal capability if you
+     want to have a terminal type dependent limit.
 
 
 File: screen.info,  Node: Character Translation,  Prev: Obuflimit,  Up: Termcap
@@ -139,8 +339,9 @@ Hardware Status Line
      used, screen will reserve the last line of the display for the
      hardstatus. `message' uses `screen''s message mechanism and
      `ignore' tells `screen' never to display the hardstatus.  If you
-     prepend the word `always' to the type, `screen' will use the type
-     even if the terminal supports a hardstatus line.
+     prepend the word `always' to the type (e.g., `alwayslastline'),
+     `screen' will use the type even if the terminal supports a
+     hardstatus line.
 
      The third form specifies the contents of the hardstatus line.
      `%h' is used as default string, i.e. the stored hardstatus of the
@@ -201,12 +402,14 @@ File: screen.info,  Node: Hardcopy,  Next: Log,  Up: Logging
 hardcopy
 ========
 
- - Command: hardcopy
+ - Command: hardcopy [-h] [FILE]
      (`C-a h', `C-a C-h')
-     Writes out the current display contents to the file `hardcopy.N'
-     in the window's default directory, where N is the number of the
-     current window.  This either appends or overwrites the file if it
-     exists, as determined by the `hardcopy_append' command.
+     Writes out the currently displayed image to the file FILE, or, if
+     no filename is specified, to `hardcopy.N' in the default
+     directory, where N is the number of the current window.  This
+     either appends or overwrites the file if it exists, as determined
+     by the `hardcopy_append' command.  If the option `-h' is
+     specified, dump also the contents of the scrollback buffer.
 
  - Command: hardcopy_append state
      (none)
@@ -224,6 +427,11 @@ File: screen.info,  Node: Log,  Prev: Hardcopy,  Up: Logging
 
 log
 ===
+
+ - Command: deflog state
+     (none)
+     Same as the `log' command except that the default setting for new
+     windows is changed.  Initial setting is `off'.
 
  - Command: log [state]
      (`C-a H')
@@ -335,6 +543,10 @@ categories.
 * Printcmd::                    Set command for VT100 printer port emulation.
 * Sorendition::			Change the text highlighting method.
 * Attrcolor::			Map attributes to colors.
+* Setsid::			Change process group management
+* Eval::			Parse and execute arguments
+* Maxwin::			Set the maximum window number
+* Backtick::			Program a command for a backtick string escape.
 
 
 File: screen.info,  Node: At,  Next: Break,  Up: Miscellaneous
@@ -368,10 +580,9 @@ At
      internal arrangement of windows (like `other') may be called
      again. In shared windows the command will be repeated for each
      attached display. Beware, when issuing toggle commands like
-     `login'!  Some commands (e.g. `stuff', `\*Qprocess' or `paste')
-     require that a display is associated with the target windows.
-     These commands may not work correctly under `at' looping over
-     windows.
+     `login'!  Some commands (e.g. `\*Qprocess') require that a display
+     is associated with the target windows.  These commands may not
+     work correctly under `at' looping over windows.
 
 
 File: screen.info,  Node: Break,  Next: Debug,  Prev: At,  Up: Miscellaneous
@@ -513,12 +724,15 @@ File: screen.info,  Node: Time,  Next: Verbose,  Prev: Silence,  Up: Miscellaneo
 Time
 ====
 
- - Command: time
+ - Command: time [STRING]
      (`C-a t', `C-a C-t')
      Uses the message line to display the time of day, the host name,
      and the load averages over 1, 5, and 15 minutes (if this is
      available on your system).  For window-specific information use
-     `info' (*note Info::).
+     `info' (*note Info::).  If a STRING is specified, it changes the
+     format of the time report like it is described in the string
+     escapes chapter (*note String Escapes::). Screen uses a default of
+     `%c:%s %M %d %H%? %l%?'.
 
 
 File: screen.info,  Node: Verbose,  Next: Version,  Prev: Time,  Up: Miscellaneous
@@ -599,7 +813,7 @@ Sorendition
      currently `=s dd' (standout, default colors).
 
 
-File: screen.info,  Node: Attrcolor,  Prev: Sorendition,  Up: Miscellaneous
+File: screen.info,  Node: Attrcolor,  Next: Setsid,  Prev: Sorendition,  Up: Miscellaneous
 
 Attrcolor
 =========
@@ -611,17 +825,88 @@ Attrcolor
      specified attribute/color modifier is also applied. If no modifier
      is given, the current one is deleted. See the chapter about string
      escapes (*note String Escapes::) for the syntax of the modifier.
+     Screen understands two pseudo-attributes, `i' stands for
+     high-intensity foreground color and `I' for high-intensity
+     background color.
 
      Examples:
     `attrcolor b "R"'
-          Change the color to bright red if bold text is to be printed
+          Change the color to bright red if bold text is to be printed.
 
     `attrcolor u "-u b"'
-          Use blue text instead of underline
+          Use blue text instead of underline.
 
-    `attrcolor b "I"'
+    `attrcolor b ".I"'
           Use bright colors for bold text. Most terminal emulators do
-          this already
+          this already.
+
+    `attrcolor i "+b"'
+          Make bright colored text also bold.
+
+
+File: screen.info,  Node: Setsid,  Next: Eval,  Prev: Attrcolor,  Up: Miscellaneous
+
+Setsid
+======
+
+ - Command: setsid state
+     (none)
+     Normally screen uses different sessions and process groups for the
+     windows. If setsid is turned `off', this is not done anymore and
+     all windows will be in the same process group as the screen
+     backend process. This also breaks job-control, so be careful.  The
+     default is `on', of course. This command is probably useful only
+     in rare circumstances.
+
+
+File: screen.info,  Node: Eval,  Next: Maxwin,  Prev: Setsid,  Up: Miscellaneous
+
+Eval
+====
+
+ - Command: eval COMMAND1 [COMMAND2 ...]
+     (none)
+     Parses and executes each argument as separate command.
+
+
+File: screen.info,  Node: Maxwin,  Next: Backtick,  Prev: Eval,  Up: Miscellaneous
+
+Maxwin
+======
+
+ - Command: maxwin N
+     (none)
+     Set the maximum window number screen will create. Doesn't affect
+     already existing windows. The number may only be decreased.
+
+
+File: screen.info,  Node: Backtick,  Prev: Maxwin,  Up: Miscellaneous
+
+Backtick
+========
+
+ - Command: backtick ID LIFESPAN AUTOREFRESH COMMAND [ARGS]
+ - Command: backtick ID
+     (none)
+     Program the backtick command with the numerical id ID.  The output
+     of such a command is used for substitution of the `%`' string
+     escape (*note String Escapes::).  The specified LIFESPAN is the
+     number of seconds the output is considered valid. After this time,
+     the command is run again if a corresponding string escape is
+     encountered.  The AUTOREFRESH parameter triggers an automatic
+     refresh for caption and hardstatus strings after the specified
+     number of seconds. Only the last line of output is used for
+     substitution.
+
+     If both the LIFESPAN and the AUTOREFRESH parameters are zero, the
+     backtick program is expected to stay in the background and
+     generate output once in a while.  In this case, the command is
+     executed right away and screen stores the last line of output. If
+     a new line gets printed screen will automatically refresh the
+     hardstatus or the captions.
+
+     The second form of the command deletes the backtick command with
+     the numerical id ID.
 
 
 File: screen.info,  Node: String Escapes,  Next: Environment,  Prev: Miscellaneous,  Up: Top
@@ -657,8 +942,17 @@ instead.
 `D'
      weekday name
 
+`f'
+     flags of the window
+
+`F'
+     sets %? to true if the window has the focus
+
 `h'
      hardstatus of the window
+
+`H'
+     hostname of the system
 
 `l'
      current load of the system
@@ -682,7 +976,9 @@ instead.
      all other users on this window
 
 `w'
-     all window numbers and names
+     all window numbers and names. With `-' quailifier: up to the
+     current window; with `+' qualifier: starting with the window after
+     the current one.
 
 `W'
      all window numbers and names except the current one
@@ -694,17 +990,45 @@ instead.
      full year number
 
 `?'
-     the part to the next `%?' is displayed only if an escape expands
-     to an nonempty string
+     the part to the next `%?' is displayed only if a `%' escape inside
+     the part expands to a non-empty string
 
 `:'
      else part of `%?'
 
+`='
+     pad the string to the display's width (like TeX's hfill). If a
+     number is specified, pad to the percentage of the window's width.
+     A `0' qualifier tells screen to treat the number as absolute
+     position.  You can specify to pad relative to the last absolute
+     pad position by adding a `+' qualifier or to pad relative to the
+     right margin by using `-'. The padding truncates the string if the
+     specified position lies before the current position. Add the `L'
+     qualifier to change this.
+
+`<'
+     same as `%=' but just do truncation, do not fill with spaces
+
+`>'
+     mark the current text position for the next truncation. When
+     screen needs to do truncation, it tries to do it in a way that the
+     marked position gets moved to the specified percentage of the
+     output area. (The area starts from the last absolute pad position
+     and ends with the position specified by the truncation operator.)
+     The `L' qualifier tells screen to mark the truncated parts with
+     `...'.
+
 `{'
-     attribute/color modifier string terminated by the next `}' The `c'
-and `C' escape may be qualified with a `0' to make screen use zero
-instead of space as fill character. The `n' escape understands a length
-qualifier (e.g. `%3n').
+     attribute/color modifier string terminated by the next `}'
+
+``'
+     Substitute with the output of a `backtick' command. The length
+     qualifier is misused to identify one of the commands. *Note
+     Backtick::.  The `c' and `C' escape may be qualified with a `0' to
+make screen use zero instead of space as fill character.  The `n' and
+`=' escapes understand a length qualifier (e.g. `%3n'), `D' and `M' can
+be prefixed with `L' to generate long names, `w' and `W' also show the
+window flags if `L' is given.
 
    An attribute/color modifier is is used to change the attributes or
 the color settings. Its format is `[attribute modifier] [color
@@ -724,6 +1048,9 @@ change types are known:
      change the current attributes to the specified set The attribute
 set can either be specified as a hexadecimal number or a combination of
 the following letters:
+`d'
+     dim
+
 `u'
      underline
 
@@ -779,6 +1106,10 @@ If you don't like this, prefix the color with a `.'. If you want the
 same behaviour for two-letter color descriptions, also prefix them with
 a `.'.
 
+   As a special case, `%{-}' restores the attributes and colors that
+were set before the last change was made (i.e. pops one level of the
+color-change stack).
+
 Examples:
 `G'
      set color to bright green
@@ -788,6 +1119,16 @@ Examples:
 
 `= yd'
      clear all attributes, write in default color on yellow background.
+
+`%-Lw%{= BW}%50>%n%f* %t%{-}%+Lw%<'
+     The available windows centered at the current win dow and
+     truncated to the available width. The current window is displayed
+     white on blue.  This can be used with `hardstatus alwayslastline'.
+
+`%?%F%{.R.}%?%3n %t%? [%h]%?'
+     The window number and title and the window's hardstatus, if one is
+     set.  Also use a red background if this is the active focus.
+     Useful for `caption string'.
 
 
 File: screen.info,  Node: Environment,  Next: Files,  Prev: String Escapes,  Up: Top
@@ -838,6 +1179,9 @@ Environment Variables
 
 `TERMCAP'
      Terminal description.
+
+`WINDOW'
+     Window number of a window (at creation time).
 
 
 File: screen.info,  Node: Files,  Next: Credits,  Prev: Environment,  Up: Top
@@ -926,16 +1270,18 @@ Contributors
           Martin Schweikert (schweik@cpp.ob.open.de),
           David Vrona (dave@sashimi.lcu.com),
           E. Tye McQueen (tye%spillman.UUCP@uunet.uu.net),
-          Matthew Green (mrg@mame.mu.oz.au),
-          Christopher Williams (cgw@unt.edu),
+          Matthew Green (mrg@eterna.com.au),
+          Christopher Williams (cgw@pobox.com),
           Matt Mosley (mattm@access.digex.net),
           Gregory Neil Shapiro (gshapiro@wpi.WPI.EDU),
-          Jason Merrill (jason@jarthur.Claremont.EDU).
+          Jason Merrill (jason@jarthur.Claremont.EDU),
+          Johannes Zellner (johannes@zellner.org),
+          Pablo Averbuj (pablo@averbuj.com).
 
 Version
 =======
 
-   This manual describes version 3.9.9 of the `screen' program. Its
+   This manual describes version 3.9.15 of the `screen' program. Its
 roots are a merge of a custom version 2.3PR7 by Wayne Davison and
 several enhancements to Oliver Laumann's version 2.0.  Note that all
 versions numbered 2.x are copyright by Oliver Laumann.
@@ -1083,12 +1429,11 @@ Compiling Screen
 script. Before you compile the package run
 
                            `sh ./configure'
-
-   This will create a `config.h' and `Makefile' for your machine.  If
-`configure' fails for some reason, then look at the examples and
-comments found in the `Makefile.in' and `config.h.in' templates.
-Rename `config.status' to `config.status.MACHINE' when you want to keep
-configuration data for multiple architectures. Running `sh
+ This will create a `config.h' and `Makefile' for your
+machine.  If `configure' fails for some reason, then look at the
+examples and comments found in the `Makefile.in' and `config.h.in'
+templates.  Rename `config.status' to `config.status.MACHINE' when you
+want to keep configuration data for multiple architectures. Running `sh
 ./config.status.MACHINE' recreates your configuration significantly
 faster than rerunning `configure'.
 Read through the "User Configuration" section of `config.h', and verify
@@ -1099,9 +1444,8 @@ Check the compiler used in `Makefile', the prefix path where to install
 `screen'. Then run
 
                                 `make'
-
-   If `make' fails to produce one of the files `term.h', `comm.h' or
-`tty.c', then use `FILENAME.X.dist' instead.  For additional
+ If `make' fails to produce one of the files `term.h', `comm.h'
+or `tty.c', then use `FILENAME.X.dist' instead.  For additional
 information about installation of `screen' refer to the file
 `INSTALLATION', coming with this package.
 
@@ -1148,176 +1492,4 @@ Concept Index
 * terminal capabilities:                 Special Capabilities.
 * title:                                 Naming Windows.
 * window types:                          Window Types.
-
-
-File: screen.info,  Node: Command Index,  Next: Keystroke Index,  Prev: Concept Index,  Up: Top
-
-Command Index
-*************
-
-   This is a list of all the commands supported by `screen'.
-
-* Menu:
-
-* acladd:                                Acladd.
-* aclchg:                                Aclchg.
-* acldel:                                Acldel.
-* aclgrp:                                Aclgrp.
-* aclumask:                              Umask.
-* activity:                              Monitor.
-* addacl:                                Acladd.
-* allpartial:                            Redisplay.
-* at:                                    At.
-* attrcolor:                             Attrcolor.
-* autodetach:                            Detach.
-* autonuke:                              Autonuke.
-* bce:                                   Character Processing.
-* bell_msg:                              Bell.
-* bind:                                  Bind.
-* bindkey:                               Bindkey.
-* break:                                 Break.
-* breaktype:                             Break.
-* bufferfile:                            Screen-Exchange.
-* c1:                                    Character Processing.
-* caption:                               Caption.
-* chacl:                                 Aclchg.
-* charset:                               Character Processing.
-* chdir:                                 Chdir.
-* clear:                                 Clear.
-* colon:                                 Colon.
-* command:                               Command Character.
-* compacthist:                           Scrollback.
-* console:                               Console.
-* copy:                                  Copy.
-* copy_reg:                              Registers.
-* crlf:                                  Line Termination.
-* debug:                                 Debug.
-* defautonuke:                           Autonuke.
-* defbce:                                Character Processing.
-* defbreaktype:                          Break.
-* defc1:                                 Character Processing.
-* defcharset:                            Character Processing.
-* defescape:                             Command Character.
-* defflow:                               Flow.
-* defgr:                                 Character Processing.
-* defhstatus:                            Hardstatus.
-* defkanji:                              Character Processing.
-* deflogin:                              Login.
-* defmode:                               Mode.
-* defmonitor:                            Monitor.
-* defobuflimit:                          Obuflimit.
-* defscrollback:                         Scrollback.
-* defshell:                              Shell.
-* defsilence:                            Silence.
-* defslowpaste:                          Paste.
-* defutf8:                               Character Processing.
-* defwrap:                               Wrap.
-* defwritelock:                          Writelock.
-* defzombie:                             Zombie.
-* detach:                                Detach.
-* digraph:                               Digraph.
-* dinfo:                                 Info.
-* displays:                              Displays.
-* dumptermcap:                           Dump Termcap.
-* echo:                                  echo.
-* escape:                                Command Character.
-* exec:                                  Exec.
-* fit:                                   Fit.
-* flow:                                  Flow.
-* focus:                                 Focus.
-* gr:                                    Character Processing.
-* hardcopy:                              Hardcopy.
-* hardcopy_append:                       Hardcopy.
-* hardcopydir:                           Hardcopy.
-* hardstatus:                            Hardware Status Line.
-* height:                                Window Size.
-* help:                                  Help.
-* history:                               History.
-* hstatus:                               Hardstatus.
-* info:                                  Info.
-* ins_reg:                               Registers.
-* kanji:                                 Character Processing.
-* kill:                                  Kill.
-* lastmsg:                               Last Message.
-* license:                               License.
-* lockscreen:                            Lock.
-* log:                                   Log.
-* logfile:                               Log.
-* login:                                 Login.
-* logtstamp:                             Log.
-* mapdefault:                            Bindkey Control.
-* mapnotnext:                            Bindkey Control.
-* maptimeout:                            Bindkey Control.
-* markkeys:                              Copy Mode Keys.
-* meta:                                  Command Character.
-* monitor:                               Monitor.
-* msgminwait:                            Message Wait.
-* msgwait:                               Message Wait.
-* multiuser:                             Multiuser.
-* nethack:                               Nethack.
-* next:                                  Next and Previous.
-* nonblock:                              Nonblock.
-* number:                                Number.
-* obuflimit:                             Obuflimit.
-* only:                                  Only.
-* other:                                 Other Window.
-* partial:                               Redisplay.
-* password:                              Detach.
-* paste:                                 Paste.
-* pastefont:                             Paste.
-* pow_break:                             Break.
-* pow_detach:                            Power Detach.
-* pow_detach_msg:                        Power Detach.
-* prev:                                  Next and Previous.
-* printcmd:                              Printcmd.
-* process:                               Registers.
-* quit:                                  Quit.
-* readbuf:                               Screen-Exchange.
-* readreg:                               Paste.
-* redisplay:                             Redisplay.
-* register:                              Registers.
-* remove:                                Remove.
-* removebuf:                             Screen-Exchange.
-* reset:                                 Reset.
-* resize:                                Resize.
-* screen:                                Screen Command.
-* scrollback:                            Scrollback.
-* select:                                Select.
-* sessionname:                           Session Name.
-* setenv:                                Setenv.
-* shell:                                 Shell.
-* shelltitle:                            Shell.
-* silence:                               Silence.
-* silencewait:                           Silence.
-* sleep:                                 sleep.
-* slowpaste:                             Paste.
-* sorendition:                           Sorendition.
-* split:                                 Split.
-* startup_message:                       Startup Message.
-* stuff:                                 Registers.
-* su:                                    Su.
-* suspend:                               Suspend.
-* term:                                  Term.
-* termcap:                               Termcap Syntax.
-* termcapinfo:                           Termcap Syntax.
-* terminfo:                              Termcap Syntax.
-* time:                                  Time.
-* title:                                 Title Command.
-* umask:                                 Umask.
-* unsetenv:                              Setenv.
-* utf8:                                  Character Processing.
-* vbell:                                 Bell.
-* vbell_msg:                             Bell.
-* vbellwait:                             Bell.
-* verbose:                               Verbose.
-* version:                               Version.
-* wall:                                  Wall.
-* width:                                 Window Size.
-* windows:                               Windows.
-* wrap:                                  Wrap.
-* writebuf:                              Screen-Exchange.
-* writelock:                             Writelock.
-* xoff:                                  XON/XOFF.
-* xon:                                   XON/XOFF.
-* zombie:                                Zombie.
 

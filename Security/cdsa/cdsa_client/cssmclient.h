@@ -148,6 +148,7 @@ public:
     
     bool isActive() const				{ return mImpl && mImpl->isActive(); }
     CssmAllocator &allocator() const	{ return mImpl->allocator(); }
+	void release()						{ mImpl = NULL; }
 
 	bool operator <(const Object &other) const
 	{ return mImpl && other.mImpl ? *mImpl < *other.mImpl : mImpl < other.mImpl; }

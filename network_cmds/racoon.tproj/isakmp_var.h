@@ -1,4 +1,4 @@
-/*	$KAME: isakmp_var.h,v 1.19 2000/10/04 17:41:01 itojun Exp $	*/
+/*	$KAME: isakmp_var.h,v 1.20 2001/12/12 15:29:14 sakane Exp $	*/
 
 /*
  * Copyright (C) 1995, 1996, 1997, and 1998 WIDE Project.
@@ -30,6 +30,7 @@
  */
 
 #define PORT_ISAKMP 500
+#define PORT_ISAKMP_NATT	4500
 
 #define DEFAULT_NONCE_SIZE	16
 
@@ -54,6 +55,7 @@ struct isakmp_pl_ke;	/* XXX */
 struct isakmp_pl_nonce;	/* XXX */
 
 extern int isakmp_handler __P((int));
+extern int isakmp_natt_handler __P((int));
 extern int isakmp_ph1begin_i __P((struct remoteconf *, struct sockaddr *));
 
 extern vchar_t *isakmp_parsewoh __P((int, struct isakmp_gen *, int));

@@ -1,8 +1,8 @@
 /*
    +----------------------------------------------------------------------+
-   | PHP version 4.0                                                      |
+   | PHP Version 4                                                        |
    +----------------------------------------------------------------------+
-   | Copyright (c) 1997-2001 The PHP Group                                |
+   | Copyright (c) 1997-2003 The PHP Group                                |
    +----------------------------------------------------------------------+
    | This source file is subject to version 2.02 of the PHP license,      |
    | that is bundled with this package in the file LICENSE, and is        |
@@ -12,11 +12,11 @@
    | obtain it through the world-wide-web, please send a note to          |
    | license@php.net so we can mail you a copy immediately.               |
    +----------------------------------------------------------------------+
-   | Authors: Andi Gutmans <andi@zend.com>                                |
+   | Author: Andi Gutmans <andi@zend.com>                                 |
    +----------------------------------------------------------------------+
 */
 
-/* $Id: bcmath.c,v 1.1.1.5 2001/12/14 22:11:56 zarzycki Exp $ */
+/* $Id: bcmath.c,v 1.1.1.8 2003/07/18 18:07:29 zarzycki Exp $ */
 
 #ifdef HAVE_CONFIG_H
 #include "config.h"
@@ -28,7 +28,9 @@
 
 #include "ext/standard/info.h"
 #include "php_bcmath.h"
-#include "ext/bcmath/libbcmath/src/bcmath.h"
+#include "libbcmath/src/bcmath.h"
+
+ZEND_DECLARE_MODULE_GLOBALS(bcmath);
 
 function_entry bcmath_functions[] = {
 	PHP_FE(bcadd,									NULL)
@@ -46,11 +48,15 @@ function_entry bcmath_functions[] = {
 zend_module_entry bcmath_module_entry = {
 	STANDARD_MODULE_HEADER,
 	"bcmath",
-    bcmath_functions,
-	PHP_MINIT(bcmath),
-	PHP_MSHUTDOWN(bcmath),
-	PHP_RINIT(bcmath),
+	bcmath_functions,
+#if ZTS
+	PHP_MODULE_STARTUP_N(bcmath),
+#else
 	NULL,
+#endif
+	NULL,
+	PHP_RINIT(bcmath),
+	PHP_RSHUTDOWN(bcmath),
 	PHP_MINFO(bcmath),
 	NO_VERSION_YET,
 	STANDARD_MODULE_PROPERTIES
@@ -64,55 +70,23 @@ ZEND_GET_MODULE(bcmath)
 static long bc_precision;
 #endif
 
-/* Storage used for special numbers. */
-bc_num _zero_;
-bc_num _one_;
-bc_num _two_;
-
-
-/* Make a copy of a number!  Just increments the reference count! */
-bc_num copy_num (bc_num num)
+#if ZTS
+PHP_MODULE_STARTUP_D(bcmath)
 {
-  num->n_refs++;
-  return num;
-}
+	zend_bcmath_globals *bcmath_globals;
 
-
-/* Initialize a number NUM by making it a copy of zero. */
-void init_num (bc_num *num)
-{
-	*num = copy_num (_zero_);
-}
-
-
-PHP_MINIT_FUNCTION(bcmath)
-{
-	extern bc_num _zero_;
-	extern bc_num _one_;
-	extern bc_num _two_;
-
-	_zero_ = bc_new_num (1, 0);
-	_one_  = bc_new_num (1, 0);
-	_one_->n_value[0] = 1;
-	_two_  = bc_new_num (1, 0);
-	_two_->n_value[0] = 2;
-	persist_alloc(_zero_);
-	persist_alloc(_one_);
-	persist_alloc(_two_);
-	persist_alloc(_zero_->n_ptr);
-	persist_alloc(_one_->n_ptr);
-	persist_alloc(_two_->n_ptr);
-
+	ts_allocate_id(&bcmath_globals_id, sizeof(zend_bcmath_globals), NULL, NULL);
+	bcmath_globals = ts_resource(bcmath_globals_id);
 	return SUCCESS;
 }
+#endif
 
-
-
-PHP_MSHUTDOWN_FUNCTION(bcmath)
+PHP_RSHUTDOWN_FUNCTION(bcmath)
 {
-	bc_free_num(&_zero_);
-	bc_free_num(&_one_);
-	bc_free_num(&_two_);
+	bc_free_num(&BCG(_zero_));
+	bc_free_num(&BCG(_one_));
+	bc_free_num(&BCG(_two_));
+
 	return SUCCESS;
 }
 
@@ -122,6 +96,9 @@ PHP_RINIT_FUNCTION(bcmath)
 	if (cfg_get_long("bcmath.scale", &bc_precision)==FAILURE) {
 		bc_precision=0;
 	}
+	if(bc_precision<0) bc_precision=0;
+	bc_init_numbers(TSRMLS_C);
+	
 	return SUCCESS;
 }
 
@@ -132,6 +109,21 @@ PHP_MINFO_FUNCTION(bcmath)
 	php_info_print_table_row(2, "BCMath support", "enabled");
 	php_info_print_table_end();
 }
+
+/* {{{ php_str2num
+   Convert to bc_num detecting scale */
+static void php_str2num(bc_num *num, char *str TSRMLS_DC) 
+{
+	char *p;
+
+	if (!(p = strchr(str, '.'))) {
+		bc_str2num(num, str, 0 TSRMLS_CC);
+		return;
+	}
+
+	bc_str2num(num, str, strlen(p+1) TSRMLS_CC);
+}
+/* }}} */
 
 /* {{{ proto string bcadd(string left_operand, string right_operand [, int scale])
    Returns the sum of two arbitrary precision numbers */
@@ -152,7 +144,7 @@ PHP_FUNCTION(bcadd)
 		        	WRONG_PARAM_COUNT;
     			}
 				convert_to_long_ex(scale_param);
-				scale = (int) (*scale_param)->value.lval;
+				scale = (int) (Z_LVAL_PP(scale_param)<0) ? 0:Z_LVAL_PP(scale_param);
 				break;
 		default:
 				WRONG_PARAM_COUNT;
@@ -160,15 +152,17 @@ PHP_FUNCTION(bcadd)
 	}
 	convert_to_string_ex(left);
 	convert_to_string_ex(right);
-	bc_init_num(&first);
-	bc_init_num(&second);
-	bc_init_num(&result);
-	bc_str2num(&first, (*left)->value.str.val, scale);
-	bc_str2num(&second, (*right)->value.str.val, scale);
+	bc_init_num(&first TSRMLS_CC);
+	bc_init_num(&second TSRMLS_CC);
+	bc_init_num(&result TSRMLS_CC);
+	php_str2num(&first, Z_STRVAL_PP(left) TSRMLS_CC);
+	php_str2num(&second, Z_STRVAL_PP(right) TSRMLS_CC);
 	bc_add (first, second, &result, scale);
-	return_value->value.str.val = bc_num2str(result);
-	return_value->value.str.len = strlen(return_value->value.str.val);
-	return_value->type = IS_STRING;
+	if (result->n_scale > scale)
+		result->n_scale = scale;
+	Z_STRVAL_P(return_value) = bc_num2str(result);
+	Z_STRLEN_P(return_value) = strlen(Z_STRVAL_P(return_value));
+	Z_TYPE_P(return_value) = IS_STRING;
 	bc_free_num(&first);
 	bc_free_num(&second);
 	bc_free_num(&result);
@@ -195,7 +189,7 @@ PHP_FUNCTION(bcsub)
 		        	WRONG_PARAM_COUNT;
     			}
 				convert_to_long_ex(scale_param);
-				scale = (int) (*scale_param)->value.lval;
+				scale = (int) (Z_LVAL_PP(scale_param)<0) ? 0:Z_LVAL_PP(scale_param);
 				break;
 		default:
 				WRONG_PARAM_COUNT;
@@ -203,15 +197,17 @@ PHP_FUNCTION(bcsub)
 	}
 	convert_to_string_ex(left);
 	convert_to_string_ex(right);
-	bc_init_num(&first);
-	bc_init_num(&second);
-	bc_init_num(&result);
-	bc_str2num(&first, (*left)->value.str.val, scale);
-	bc_str2num(&second, (*right)->value.str.val, scale);
+	bc_init_num(&first TSRMLS_CC);
+	bc_init_num(&second TSRMLS_CC);
+	bc_init_num(&result TSRMLS_CC);
+	php_str2num(&first, Z_STRVAL_PP(left) TSRMLS_CC);
+	php_str2num(&second, Z_STRVAL_PP(right) TSRMLS_CC);
 	bc_sub (first, second, &result, scale);
-	return_value->value.str.val = bc_num2str(result);
-	return_value->value.str.len = strlen(return_value->value.str.val);
-	return_value->type = IS_STRING;
+	if (result->n_scale > scale)
+		result->n_scale = scale;
+	Z_STRVAL_P(return_value) = bc_num2str(result);
+	Z_STRLEN_P(return_value) = strlen(Z_STRVAL_P(return_value));
+	Z_TYPE_P(return_value) = IS_STRING;
 	bc_free_num(&first);
 	bc_free_num(&second);
 	bc_free_num(&result);
@@ -238,7 +234,7 @@ PHP_FUNCTION(bcmul)
 		        	WRONG_PARAM_COUNT;
     			}
 				convert_to_long_ex(scale_param);
-				scale = (int) (*scale_param)->value.lval;
+				scale = (int) (Z_LVAL_PP(scale_param)<0) ? 0:Z_LVAL_PP(scale_param);
 				break;
 		default:
 				WRONG_PARAM_COUNT;
@@ -246,15 +242,17 @@ PHP_FUNCTION(bcmul)
 	}
 	convert_to_string_ex(left);
 	convert_to_string_ex(right);
-	bc_init_num(&first);
-	bc_init_num(&second);
-	bc_init_num(&result);
-	bc_str2num(&first, (*left)->value.str.val, scale);
-	bc_str2num(&second, (*right)->value.str.val, scale);
-	bc_multiply (first, second, &result, scale);
-	return_value->value.str.val = bc_num2str(result);
-	return_value->value.str.len = strlen(return_value->value.str.val);
-	return_value->type = IS_STRING;
+	bc_init_num(&first TSRMLS_CC);
+	bc_init_num(&second TSRMLS_CC);
+	bc_init_num(&result TSRMLS_CC);
+	php_str2num(&first, Z_STRVAL_PP(left) TSRMLS_CC);
+	php_str2num(&second, Z_STRVAL_PP(right) TSRMLS_CC);
+	bc_multiply (first, second, &result, scale TSRMLS_CC);
+	if (result->n_scale > scale)
+		result->n_scale = scale;
+	Z_STRVAL_P(return_value) = bc_num2str(result);
+	Z_STRLEN_P(return_value) = strlen(Z_STRVAL_P(return_value));
+	Z_TYPE_P(return_value) = IS_STRING;
 	bc_free_num(&first);
 	bc_free_num(&second);
 	bc_free_num(&result);
@@ -281,7 +279,7 @@ PHP_FUNCTION(bcdiv)
 		        	WRONG_PARAM_COUNT;
     			}
 				convert_to_long_ex(scale_param);
-				scale = (int) (*scale_param)->value.lval;
+				scale = (int) (Z_LVAL_PP(scale_param)<0) ? 0:Z_LVAL_PP(scale_param);
 				break;
 		default:
 				WRONG_PARAM_COUNT;
@@ -289,19 +287,21 @@ PHP_FUNCTION(bcdiv)
 	}
 	convert_to_string_ex(left);
 	convert_to_string_ex(right);
-	bc_init_num(&first);
-	bc_init_num(&second);
-	bc_init_num(&result);
-	bc_str2num(&first, (*left)->value.str.val, scale);
-	bc_str2num(&second, (*right)->value.str.val, scale);
-	switch (bc_divide (first, second, &result, scale)) {
+	bc_init_num(&first TSRMLS_CC);
+	bc_init_num(&second TSRMLS_CC);
+	bc_init_num(&result TSRMLS_CC);
+	php_str2num(&first, Z_STRVAL_PP(left) TSRMLS_CC);
+	php_str2num(&second, Z_STRVAL_PP(right) TSRMLS_CC);
+	switch (bc_divide (first, second, &result, scale TSRMLS_CC)) {
 		case 0: /* OK */
-			return_value->value.str.val = bc_num2str(result);
-			return_value->value.str.len = strlen(return_value->value.str.val);
-			return_value->type = IS_STRING;
+			if (result->n_scale > scale)
+				result->n_scale = scale;
+			Z_STRVAL_P(return_value) = bc_num2str(result);
+			Z_STRLEN_P(return_value) = strlen(Z_STRVAL_P(return_value));
+			Z_TYPE_P(return_value) = IS_STRING;
 			break;
 		case -1: /* division by zero */
-			php_error(E_WARNING, "Division by zero");
+			php_error_docref(NULL TSRMLS_CC, E_WARNING, "Division by zero");
 			break;
 	}
 	bc_free_num(&first);
@@ -330,19 +330,19 @@ PHP_FUNCTION(bcmod)
 	}
 	convert_to_string_ex(left);
 	convert_to_string_ex(right);
-	bc_init_num(&first);
-	bc_init_num(&second);
-	bc_init_num(&result);
-	bc_str2num(&first, (*left)->value.str.val, 0);
-	bc_str2num(&second, (*right)->value.str.val, 0);
-	switch (bc_modulo(first, second, &result, 0)) {
+	bc_init_num(&first TSRMLS_CC);
+	bc_init_num(&second TSRMLS_CC);
+	bc_init_num(&result TSRMLS_CC);
+	bc_str2num(&first, Z_STRVAL_PP(left), 0 TSRMLS_CC);
+	bc_str2num(&second, Z_STRVAL_PP(right), 0 TSRMLS_CC);
+	switch (bc_modulo(first, second, &result, 0 TSRMLS_CC)) {
 		case 0:
-			return_value->value.str.val = bc_num2str(result);
-			return_value->value.str.len = strlen(return_value->value.str.val);
-			return_value->type = IS_STRING;
+			Z_STRVAL_P(return_value) = bc_num2str(result);
+			Z_STRLEN_P(return_value) = strlen(Z_STRVAL_P(return_value));
+			Z_TYPE_P(return_value) = IS_STRING;
 			break;
 		case -1:
-			php_error(E_WARNING, "Division by zero");
+			php_error_docref(NULL TSRMLS_CC, E_WARNING, "Division by zero");
 			break;
 	}
 	bc_free_num(&first);
@@ -371,7 +371,7 @@ PHP_FUNCTION(bcpow)
 		        	WRONG_PARAM_COUNT;
     			}
 				convert_to_long_ex(scale_param);
-				scale = (int) (*scale_param)->value.lval;
+				scale = (int) (Z_LVAL_PP(scale_param)<0) ? 0:Z_LVAL_PP(scale_param);
 				break;
 		default:
 				WRONG_PARAM_COUNT;
@@ -379,15 +379,17 @@ PHP_FUNCTION(bcpow)
 	}
 	convert_to_string_ex(left);
 	convert_to_string_ex(right);
-	bc_init_num(&first);
-	bc_init_num(&second);
-	bc_init_num(&result);
-	bc_str2num(&first, (*left)->value.str.val, scale);
-	bc_str2num(&second, (*right)->value.str.val, scale);
-	bc_raise (first, second, &result, scale); 
-	return_value->value.str.val = bc_num2str(result);
-	return_value->value.str.len = strlen(return_value->value.str.val);
-	return_value->type = IS_STRING;
+	bc_init_num(&first TSRMLS_CC);
+	bc_init_num(&second TSRMLS_CC);
+	bc_init_num(&result TSRMLS_CC);
+	php_str2num(&first, Z_STRVAL_PP(left) TSRMLS_CC);
+	php_str2num(&second, Z_STRVAL_PP(right) TSRMLS_CC);
+	bc_raise (first, second, &result, scale TSRMLS_CC);
+	if (result->n_scale > scale)
+		result->n_scale = scale;
+	Z_STRVAL_P(return_value) = bc_num2str(result);
+	Z_STRLEN_P(return_value) = strlen(Z_STRVAL_P(return_value));
+	Z_TYPE_P(return_value) = IS_STRING;
 	bc_free_num(&first);
 	bc_free_num(&second);
 	bc_free_num(&result);
@@ -414,21 +416,23 @@ PHP_FUNCTION(bcsqrt)
 		        	WRONG_PARAM_COUNT;
     			}
 				convert_to_long_ex(scale_param);
-				scale = (int) (*scale_param)->value.lval;
+				scale = (int) (Z_LVAL_PP(scale_param)<0) ? 0:Z_LVAL_PP(scale_param);
 				break;
 		default:
 				WRONG_PARAM_COUNT;
 				break;
 	}
 	convert_to_string_ex(left);
-	bc_init_num(&result);
-	bc_str2num(&result, (*left)->value.str.val, scale);
-	if (bc_sqrt (&result, scale) != 0) {
-		return_value->value.str.val = bc_num2str(result);
-		return_value->value.str.len = strlen(return_value->value.str.val);
-		return_value->type = IS_STRING;
+	bc_init_num(&result TSRMLS_CC);
+	php_str2num(&result, Z_STRVAL_PP(left) TSRMLS_CC);
+	if (bc_sqrt (&result, scale TSRMLS_CC) != 0) {
+		if (result->n_scale > scale)
+			result->n_scale = scale;
+		Z_STRVAL_P(return_value) = bc_num2str(result);
+		Z_STRLEN_P(return_value) = strlen(Z_STRVAL_P(return_value));
+		Z_TYPE_P(return_value) = IS_STRING;
 	} else {
-		php_error(E_WARNING, "Square root of negative number");
+		php_error_docref(NULL TSRMLS_CC, E_WARNING, "Square root of negative number");
 	}
 	bc_free_num(&result);
 	return;
@@ -454,7 +458,7 @@ PHP_FUNCTION(bccomp)
 		        	WRONG_PARAM_COUNT;
     			}
 				convert_to_long_ex(scale_param);
-				scale = (int) (*scale_param)->value.lval;
+				scale = (int) (Z_LVAL_PP(scale_param)<0) ? 0:Z_LVAL_PP(scale_param);
 				break;
 		default:
 				WRONG_PARAM_COUNT;
@@ -463,13 +467,13 @@ PHP_FUNCTION(bccomp)
 
 	convert_to_string_ex(left);
 	convert_to_string_ex(right);
-	bc_init_num(&first);
-	bc_init_num(&second);
+	bc_init_num(&first TSRMLS_CC);
+	bc_init_num(&second TSRMLS_CC);
 
-	bc_str2num(&first, (*left)->value.str.val, scale);
-	bc_str2num(&second, (*right)->value.str.val, scale);
-	return_value->value.lval = bc_compare(first, second);
-	return_value->type = IS_LONG;
+	bc_str2num(&first, Z_STRVAL_PP(left), scale TSRMLS_CC);
+	bc_str2num(&second, Z_STRVAL_PP(right), scale TSRMLS_CC);
+	Z_LVAL_P(return_value) = bc_compare(first, second);
+	Z_TYPE_P(return_value) = IS_LONG;
 
 	bc_free_num(&first);
 	bc_free_num(&second);
@@ -488,7 +492,8 @@ PHP_FUNCTION(bcscale)
 	}
 	
 	convert_to_long_ex(new_scale);
-	bc_precision = (*new_scale)->value.lval;
+	bc_precision = (Z_LVAL_PP(new_scale)<0) ? 0 : Z_LVAL_PP(new_scale);
+
 	RETURN_TRUE;
 }
 /* }}} */
@@ -501,6 +506,6 @@ PHP_FUNCTION(bcscale)
  * tab-width: 4
  * c-basic-offset: 4
  * End:
- * vim600: sw=4 ts=4 tw=78 fdm=marker
- * vim<600: sw=4 ts=4 tw=78
+ * vim600: sw=4 ts=4 fdm=marker
+ * vim<600: sw=4 ts=4
  */

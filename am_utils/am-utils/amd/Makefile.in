@@ -81,7 +81,6 @@ LIBTOOL = @LIBTOOL@
 LIBTOOL_DEPS = @LIBTOOL_DEPS@
 LIBTOOL_LDFLAGS = @LIBTOOL_LDFLAGS@
 LN_S = @LN_S@
-LTALLOCA = @LTALLOCA@
 LTLIBOBJS = @LTLIBOBJS@
 OBJDUMP = @OBJDUMP@
 OBJEXT = @OBJEXT@
@@ -106,7 +105,7 @@ sbin_PROGRAMS = amd
 man_MANS = amd.8
 
 # test scripts
-TESTS = #test1.sh
+TESTS = test1.sh
 
 # headers this depends on, not to be installed
 noinst_HEADERS = amd.h

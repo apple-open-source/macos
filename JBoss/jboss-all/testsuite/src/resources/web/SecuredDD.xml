@@ -1,0 +1,14 @@
+<?xml version="1.0"?>
+<isd:service xmlns:isd="http://xml.apache.org/xml-soap/deployment"
+             id="urn:jbosstest/ejbs/SecuredEJB">
+  <isd:provider type="org.apache.soap.providers.StatelessEJBProvider"
+                scope="Application"
+                methods="create,echo,forward,remove">
+    <isd:option key="JNDIName" value="jbosstest/ejbs/SecuredEJB"/>
+    <isd:option key="FullHomeInterfaceName" value="org.jboss.test.web.interfaces.StatelessSessionHome" />
+    <isd:option key="ContextProviderURL" value="jnp://localhost:1099" />
+    <isd:option key="FullContextFactoryName" value="org.jnp.interfaces.NamingContextFactory" />
+  </isd:provider>
+  <isd:faultListener>org.apache.soap.server.DOMFaultListener</isd:faultListener>
+</isd:service>
+

@@ -7,7 +7,7 @@ JAVAC_SOURCE_FILE_ENCODING default = MacRoman ;
 export deferred DEVELOPMENT_LANGUAGE = English ;
 export deferred PROJECT = $(PROJECT_NAME) ;
 export deferred PROJECT_NAME = AppleADBDisplay ;
-export deferred SRCROOT = /Network/Servers/abel/homes/gimli/adam.w/projects/displaybundle/AppleADBDisplay ;
+export deferred SRCROOT = /Volumes/OS9-7gig/FromYosemite/sources/projects/local-obsolete/AppleADBDisplay ;
 
 # User-defined project-wide settings for project
 
@@ -31,7 +31,7 @@ export deferred KERNEL_MODULE = YES ;
 export deferred LIBRARY_SEARCH_PATHS =  ;
 export deferred MODULE_IOKIT = YES ;
 export deferred MODULE_NAME = com.apple.driver.AppleADBDisplay ;
-export deferred MODULE_VERSION = 1.0.2d2 ;
+export deferred MODULE_VERSION = 1.0.3d1 ;
 export deferred OTHER_CFLAGS =  ;
 export deferred OTHER_LDFLAGS =  ;
 export deferred OTHER_REZFLAGS =  ;

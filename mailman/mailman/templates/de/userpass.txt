@@ -1,0 +1,24 @@
+Sie oder jemand, der sich auch Sie ausgibt, hat die Zusendung einer
+Passwort-Erinnerungsmail fuer Ihre Mitgliedschaft auf der Liste
+%(fqdn_lname)s angefordert. Sie benoetigen dieses Passwort, um Ihre
+persoenlichen Einstellungen zu aendern, bzw. um das Abonnement zu beenden.
+
+e-mails von dieser Liste werden an Ihre Adresse: %(user)s geschickt.
+
+Ihr Passwort fuer die Liste %(listname)s ist: %(password)s
+
+Um Ihre persoenlichen Einstellungen zu aendern, loggen Sie sich bitte ein
+und besuchen die Seite:
+
+    %(options_url)s
+
+Sie koennen allerdings auch Aenderunge via e-mail machen, indem Sie eine
+e-mail an die Adresse:
+
+    %(requestaddr)s
+
+schicken, die das Wort "help" im Subject/Betreff oder im Text der Nachricht
+enthaelt. Die automatische Antwort enthaelt dann detaillierte Instruktionen.
+
+Fragen oder Kommentare? Bitte senden Sie diese an den Listen-Administrator
+der Liste %(listname)s unter der Adresse %(owneraddr)s.

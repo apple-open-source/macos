@@ -2,8 +2,8 @@
 
   util.h -
 
-  $Author: jkh $
-  $Date: 2002/05/27 17:59:44 $
+  $Author: melville $
+  $Date: 2003/05/14 13:58:45 $
   created at: Thu Mar  9 11:55:53 JST 1995
 
   Copyright (C) 1993-2000 Yukihiro Matsumoto
@@ -57,5 +57,8 @@ void ruby_unsetenv _((const char*));
 char *ruby_strdup _((const char*));
 #undef strdup
 #define strdup(s) ruby_strdup((s))
+
+double ruby_strtod _((const char*, char **));
+#define strtod(s,e) ruby_strtod((s),(e))
 
 #endif /* UTIL_H */

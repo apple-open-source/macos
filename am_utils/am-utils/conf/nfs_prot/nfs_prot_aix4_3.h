@@ -37,7 +37,7 @@
  * SUCH DAMAGE.
  *
  *
- * $Id: nfs_prot_aix4_3.h,v 1.1.1.1 2002/05/15 01:22:09 jkh Exp $
+ * $Id: nfs_prot_aix4_3.h,v 1.1.1.2 2002/07/15 19:42:53 zarzycki Exp $
  *
  */
 
@@ -242,6 +242,35 @@ struct aix42_nfs_args {
   char *hostname;		/* pointer to hostname? */
   char *netname;		/* pointer to netname? */
   caddr_t fh;			/* pointer to NFS v3 fh? */
+  unsigned long flags;		/* flags */
+  unsigned long wsize;		/* wsize */
+  unsigned long rsize;		/* rsize */
+  unsigned long timeo;		/* timeo */
+  unsigned long retrans;	/* retrans */
+  unsigned long acregmin;	/* acregmin */
+  unsigned long acregmax;	/* acregmax */
+  unsigned long acdirmin;	/* acdirmin */
+  unsigned long acdirmax;	/* acdirmax */
+  unsigned long u14;		/* ??? UNKNOWN ??? */
+  struct pathcnf *pathconf;	/* pathconf */
+};
+
+/*
+ * IBM is in dire need of taking a soft-eng class.
+ * They changed the API/ABI (namely the nfs3_args structure)
+ * in a service pack...
+ *
+ * All the following *_bis junk is here to try and deal with this idiocy.
+ */
+#define MOUNT_TYPE_NFS3_BIS 0x12344321
+struct aix42_nfs_args_bis {
+  struct sockaddr_in addr;	/* server address and port */
+  caddr_t u0;			/* ??? UNKNOWN ??? */
+  unsigned long proto;		/* IPPROTO_TCP/IPPROTO_UDP */
+  char *hostname;		/* pointer to hostname? */
+  char *netname;		/* pointer to netname? */
+  caddr_t fh;			/* pointer to NFS v3 fh? */
+  unsigned long junk;		/* IBM sux, IBM sux, IBM sux... */
   unsigned long flags;		/* flags */
   unsigned long wsize;		/* wsize */
   unsigned long rsize;		/* rsize */

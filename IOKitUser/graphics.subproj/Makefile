@@ -12,12 +12,12 @@ NAME = graphics
 PROJECTVERSION = 2.8
 PROJECT_TYPE = Component
 
-HFILES = IOGraphicsLibPrivate.h IOGraphicsLib.h\
-         IOAccelSurfaceControl.h
+HFILES = IOGraphicsLibPrivate.h IOGraphicsLibInternal.h IOGraphicsLib.h\
+         IOAccelSurfaceControl.h GetSymbolFromPEF.h
 
-CFILES = IOAccelSurfaceControl.c IOGraphicsLib.c IODisplayLib.c
+CFILES = PEFSupport.c IOAccelSurfaceControl.c IOGraphicsLib.c IODisplayLib.c
 
-OTHERSRCS = Makefile.preamble Makefile
+OTHERSRCS = Makefile.preamble Makefile IOGraphicsProperties.plist
 
 
 MAKEFILEDIR = $(MAKEFILEPATH)/pb_makefiles
@@ -29,10 +29,11 @@ DEBUG_LIBS = $(LIBS)
 PROF_LIBS = $(LIBS)
 
 
-PUBLIC_HEADERS = IOGraphicsLib.h\
-                 IOAccelSurfaceControl.h
+PUBLIC_HEADERS = IOGraphicsLib.h
 
-PROJECT_HEADERS = IOGraphicsLib.h
+PRIVATE_HEADERS = IOGraphicsLibPrivate.h IOAccelSurfaceControl.h
+
+PROJECT_HEADERS = IOGraphicsLib.h IOGraphicsLibPrivate.h IOAccelSurfaceControl.h
 
 
 

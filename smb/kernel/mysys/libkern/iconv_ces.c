@@ -62,21 +62,24 @@ iconv_unregister_ces(struct iconv_ces_class *cesd)
 	return 0;
 }
 
-int
+PRIVSYM int
 iconv_ces_initstub(struct iconv_ces_class *cesd)
 {
+	#pragma unused(cesd)
 	return 0;
 }
 
-int
+PRIVSYM int
 iconv_ces_donestub(struct iconv_ces_class *cesd)
 {
+	#pragma unused(cesd)
 	return 0;
 }
 
-int
+PRIVSYM int
 iconv_cesmod_handler(module_t mod, int type, void *data)
 {
+	#pragma unused(mod)
 	struct iconv_ces_class *cesd = data;
 	int error;
 
@@ -99,7 +102,7 @@ iconv_cesmod_handler(module_t mod, int type, void *data)
 	return error;
 }
 
-int
+PRIVSYM int
 iconv_ces_open(const char *cesname, struct iconv_ces **cespp)
 {
 	struct iconv_ces_class *cesd;
@@ -124,7 +127,7 @@ iconv_ces_open(const char *cesname, struct iconv_ces **cespp)
 	return 0;
 }
 
-int
+PRIVSYM int
 iconv_ces_close(struct iconv_ces *ces)
 {
 	if (ces == NULL)
@@ -144,32 +147,37 @@ iconv_ces_reset_func(struct iconv_ces *ces)
 #endif
 
 /*ARGSUSED*/
-void
+PRIVSYM void
 iconv_ces_noreset(struct iconv_ces *ces)
 {
+	#pragma unused(ces)
 }
 
-int
+PRIVSYM int
 iconv_ces_nbits7(struct iconv_ces *ces)
 {
+	#pragma unused(ces)
 	return 7;
 }
 
-int
+PRIVSYM int
 iconv_ces_nbits8(struct iconv_ces *ces)
 {
+	#pragma unused(ces)
 	return 8;
 }
 
-int
+PRIVSYM int
 iconv_ces_nbytes0(struct iconv_ces *ces)
 {
+	#pragma unused(ces)
 	return 0;
 }
 
 static int
 iconv_ces_handler(module_t mod, int type, void *data)
 {
+	#pragma unused(mod, data)
 	int error = 0;
 
 	switch (type) {

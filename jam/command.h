@@ -17,6 +17,11 @@
  *	ACTIONS must have current sources omitted for 'actions updated'.
  */
 
+#ifdef APPLE_EXTENSIONS
+#include "timingdata.h"
+#endif
+
+
 /*
  * CMD - an action, ready to be formatted into a buffer and executed
  */
@@ -32,6 +37,10 @@ struct _cmd
 	int	exportvars;	/* nonzero to export variables using setenv */
 	LOL	args;		/* LISTs for $(<), $(>) */
 	char	buf[ CMDBUF ];	/* actual commands */
+	int     slot;           /* slot in which this command was executed */
+#ifdef APPLE_EXTENSIONS
+	TIMING_ENTRY *timing_entry;     /* store timing data until command finishes */
+#endif
 } ;
 
 CMD 	*cmd_new();

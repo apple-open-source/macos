@@ -3,8 +3,7 @@
 #	@(#)daily	8.2 (Berkeley) 1/25/94
 #
 PATH=/bin:/usr/bin:/sbin:/usr/sbin:/usr/local/bin
-host=`hostname`
-echo "Subject: $host daily run output"
+host=`hostname -s`
 bak=/var/backups
 
 echo ""
@@ -29,14 +28,7 @@ fi
 if [ -d /tmp ]; then
     cd /tmp && {
     find . -fstype local -type f -atime +3 -ctime +3 -exec rm -f -- {} \;
-    find -fstype local -d . ! -name . -type d -mtime +1 -exec rmdir -- {} \; \
-	>/dev/null 2>&1; }
-fi
-
-if [ -d /var/tmp ]; then
-    cd /var/tmp && {
-    find . -fstype local ! -name . -atime +7 -ctime +3 -exec rm -f -- {} \;
-    find -fstype local -d . ! -name . -type d -mtime +1 -exec rmdir -- {} \; \
+    find -d . -fstype local ! -name . -type d -mtime +1 -exec rmdir -- {} \; \
 	>/dev/null 2>&1; }
 fi
 
@@ -62,7 +54,8 @@ if [ -d /var/db/netinfo ]; then
     cd /var/db/netinfo
     for domain in *.nidb; do
 	domain=$(basename $domain .nidb)
-	nidump -r / -t localhost/$domain > $bak/$domain.nidump;
+	server=`nicl -t localhost/$domain -statistics | grep tag | awk '{print $3}'`
+	if [ $server = master ] ; then nidump -r / -t localhost/$domain > $bak/$domain.nidump; fi
     done
 fi
 
@@ -115,7 +108,7 @@ if [ -d /var/log/httpd ]; then
     echo ""
     echo -n "Cleaning web server log files:"
     cd /var/log/httpd && \
-	find . -type f -name '*_log.*' -mtime +7 -exec rm -f -- {} \; >/dev/null 2>&1;
+	find . -type f -name '*_log*' -mtime +7 -exec rm -f -- {} \; >/dev/null 2>&1;
 fi
 
 if [ -f /etc/daily.local ]; then

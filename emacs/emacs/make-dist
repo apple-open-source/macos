@@ -150,7 +150,7 @@ echo Version numbers are $version and $shortversion
 
 if [ $update = yes ];
 then
-  if grep -s "GNU Emacs version ${shortversion}" ./man/emacs.texi > /dev/null; then
+  if grep -s "@set EMACSVER  *${shortversion}" ./man/emacs.texi > /dev/null; then
     true
   else
     echo "You must update the version number in \`./man/emacs.texi'"
@@ -231,7 +231,7 @@ then
 fi
 
 ### Make sure configure is newer than configure.in.
-if [ "x`ls -t configure configure.in | head -1`" != "xconfigure" ]; then
+if [ "x`ls -t configure configure.in | sed q`" != "xconfigure" ]; then
   echo "\`./configure.in' is newer than \`./configure'" >&2
   echo "Running autoconf" >&2
   autoconf || { x=$?; echo Autoconf FAILED! >&2; exit $x; }
@@ -266,7 +266,9 @@ echo "Making lisp/MANIFEST"
     files="$files $thisdir"
   fi
  done
- head -1 $files | grep '^;' | sed -e 's/;;; //' | sort > MANIFEST)
+ for file in $files
+ do sed -n 's/^;;; //p; q' $file
+ done | sort > MANIFEST)
 
 echo "Creating staging directory: \`${tempparent}'"
 
@@ -287,7 +289,7 @@ mkdir ${tempdir}
 ### tar file; this means that people can start reading the INSTALL and
 ### README while the rest of the tar file is still unpacking.  Whoopee.
 echo "Making links to top-level files"
-ln FTP INSTALL README BUGS move-if-change ${tempdir}
+ln AUTHORS FTP INSTALL README BUGS move-if-change ${tempdir}
 ln ChangeLog Makefile.in configure configure.in aclocal.m4 ${tempdir}
 ln config.bat make-dist update-subdirs vpath.sed ${tempdir}
 ### Copy these files; they're cross-filesystem symlinks.
@@ -382,6 +384,12 @@ echo "Making links to \`lisp' and its subdirectories"
      done
    fi
  done )
+
+### Don't distribute an empty calc directory, present due to CVS
+### misfeatures.
+ (cd ./${tempdir}/lisp
+  rm -rf calc
+ )
 
 echo "Making links to \`leim' and its subdirectories for the LEIM distribution"
 ### Don't distribute TAGS, or =*.el files.

@@ -1,6 +1,6 @@
-/* $OpenLDAP: pkg/ldap/include/lber.h,v 1.78 2002/02/14 12:32:40 hyc Exp $ */
+/* $OpenLDAP: pkg/ldap/include/lber.h,v 1.78.2.2 2003/02/09 17:02:17 kurt Exp $ */
 /*
- * Copyright 1998-2002 The OpenLDAP Foundation, Redwood City, California, USA
+ * Copyright 1998-2003 The OpenLDAP Foundation, Redwood City, California, USA
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -154,6 +154,7 @@ typedef struct lber_memory_fns {
 #define LBER_OPT_SUCCESS	(0)
 #define LBER_OPT_ERROR		(-1)
 
+#define LBER_ELEMENT_SIZEOF (256) /* must be >= sizeof(BerElement) */
 typedef struct berelement BerElement;
 typedef struct sockbuf Sockbuf;
 typedef struct seqorset Seqorset;
@@ -467,6 +468,12 @@ LBER_F( int )
 ber_flatten LDAP_P((
 	BerElement *ber,
 	struct berval **bvPtr ));
+
+LBER_F( int )
+ber_flatten2 LDAP_P((
+	BerElement *ber,
+	struct berval *bv,
+	int alloc ));
 
 /*
  * LBER ber accessor functions

@@ -33,6 +33,7 @@
 #include "event-top.h"
 #include "inferior.h" /* for sync_execution */
 #include "gdb_assert.h"
+#include "mi/mi-console.h"
 
 struct ui_out_data
   {
@@ -399,6 +400,17 @@ cli_out_new (struct ui_file *stream)
   return ui_out_new (&cli_ui_out_impl, data, flags);
 }
 
+struct ui_out *
+cli_quoted_out_new (struct ui_file *raw)
+{
+  int flags = ui_source_list;
+
+  struct ui_out_data *data = XMALLOC (struct ui_out_data);
+  data->stream = mi_console_file_new (raw, "~");
+  data->suppress_output = 0;
+  return ui_out_new (&cli_ui_out_impl, data, flags);
+}
+
 /* These implement the cli out interpreter: */
 
 int 
@@ -411,7 +423,32 @@ int
 cli_interpreter_resume (void *data)
 {
   sync_execution = 1;
+  print_frame_more_info_hook = 0;
   gdb_setup_readline ();
+  return 1;
+}
+
+int 
+cli_quoted_interpreter_resume (void *data)
+{
+  static struct ui_file *quoted_stdout = NULL;
+  static struct ui_file *quoted_stderr = NULL;
+
+  sync_execution = 1;
+  print_frame_more_info_hook = 0;
+  gdb_setup_readline ();
+  if (quoted_stdout == NULL)
+    {
+      struct ui_file *raw_stdout;
+      raw_stdout = stdio_fileopen (stdout);
+      quoted_stdout = mi_console_file_new (raw_stdout, "~");  
+
+      quoted_stderr = mi_console_file_new (raw_stdout, "&");  
+    }
+  gdb_stdout = quoted_stdout;
+  gdb_stderr = quoted_stderr;
+  gdb_stdlog = gdb_stderr;
+
   return 1;
 }
 
@@ -457,11 +494,15 @@ cli_interpreter_exec (void *data, char *command_str)
 void
 _initialize_cli_out (void)
 {
-  g_cliout = cli_out_new (gdb_stdout);
-  cli_interp 
+  struct ui_out *tmp_ui_out;
+  struct gdb_interpreter *tmp_interp;
+  struct ui_file *raw_stdout;
+  
+  tmp_ui_out = cli_out_new (gdb_stdout);
+  tmp_interp 
     = gdb_new_interpreter ("console",
 			   NULL,
-			   g_cliout,
+			   tmp_ui_out,
 			   cli_interpreter_init,
 			   cli_interpreter_resume,
 			   cli_interpreter_do_one_event,
@@ -470,6 +511,23 @@ _initialize_cli_out (void)
 			   cli_interpreter_exec,
 			   cli_interpreter_display_prompt);
 
-  gdb_add_interpreter (cli_interp);
+  gdb_add_interpreter (tmp_interp);
+
+  raw_stdout = stdio_fileopen (stdout);
+  
+  tmp_ui_out = cli_quoted_out_new (raw_stdout);
+  tmp_interp 
+    = gdb_new_interpreter ("console-quoted",
+			   NULL,
+			   tmp_ui_out,
+			   cli_interpreter_init,
+			   cli_quoted_interpreter_resume,
+			   cli_interpreter_do_one_event,
+			   cli_interpreter_suspend,
+			   cli_interpreter_delete,
+			   cli_interpreter_exec,
+			   cli_interpreter_display_prompt);
+
+  gdb_add_interpreter (tmp_interp);
 				 
 }

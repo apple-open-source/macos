@@ -21,6 +21,7 @@
 #include <Security/TrustStore.h>
 #include <Security/Globals.h>
 #include <Security/Certificate.h>
+#include <Security/KCCursor.h>
 #include <Security/SecCFTypes.h>
 #include <Security/schema.h>
 
@@ -69,14 +70,19 @@ void TrustStore::assign(Certificate *cert, Policy *policy, SecTrustUserSetting t
 	TrustData trustData = { UserTrustItem::currentVersion, trust };
 	if (Item item = findItem(cert, policy)) {
 		// user has a trust setting in a keychain - modify that
-		item->modifyContent(NULL, sizeof(trustData), &trustData);
+		if (trust == kSecTrustResultUnspecified)
+			item->keychain()->deleteItem(item);
+		else
+			item->modifyContent(NULL, sizeof(trustData), &trustData);
 	} else {
 		// no trust entry: make one
-		Item item = new UserTrustItem(cert, policy, trustData);
-		if (Keychain location = cert->keychain())
-			location->add(item);					// in the cert's keychain
-		else
-			Keychain::optional(NULL)->add(item);	// in the default keychain
+		if (trust != kSecTrustResultUnspecified) {
+			Item item = new UserTrustItem(cert, policy, trustData);
+			if (Keychain location = cert->keychain())
+				location->add(item);					// in the cert's keychain
+			else
+				Keychain::optional(NULL)->add(item);	// in the default keychain
+		}
 	}
 }
 
@@ -90,10 +96,11 @@ Item TrustStore::findItem(Certificate *cert, Policy *policy)
 {
 	try {
 		SecKeychainAttribute attrs[2];
-		const CssmData &data = cert->data();
+		CssmAutoData certIndex(CssmAllocator::standard());
+		UserTrustItem::makeCertIndex(cert, certIndex);
 		attrs[0].tag = kSecTrustCertAttr;
-		attrs[0].length = data.length();
-		attrs[0].data = data.data();
+		attrs[0].length = certIndex.length();
+		attrs[0].data = certIndex.data();
 		const CssmOid &policyOid = policy->oid();
 		attrs[1].tag = kSecTrustPolicyAttr;
 		attrs[1].length = policyOid.length();
@@ -105,7 +112,7 @@ Item TrustStore::findItem(Certificate *cert, Policy *policy)
 			return item;
 		else
 			return NULL;
-	} catch (const CssmError &error) {
+	} catch (const CssmCommonError &error) {
 		if (error.cssmError() == CSSMERR_DL_INVALID_RECORDTYPE)
 			return NULL;	// no trust schema, no records, no error
 		throw;
@@ -125,12 +132,12 @@ CFArrayRef TrustStore::copyRootCertificates()
 	}
 	if (!mCFRoots) {
 		uint32 count = mRoots.size();
-		debug("anchors", "building %ld CF-style anchor certificates", count);
+		secdebug("anchors", "building %ld CF-style anchor certificates", count);
 		vector<SecCertificateRef> roots(count);
         for (uint32 n = 0; n < count; n++) {
-            RefPointer<Certificate> cert = new Certificate(mRoots[n],
+            SecPointer<Certificate> cert = new Certificate(mRoots[n],
                 CSSM_CERT_X_509v3, CSSM_CERT_ENCODING_BER);
-            roots[n] = gTypes().certificate.handle(*cert);
+            roots[n] = cert->handle();
         }
         mCFRoots = CFArrayCreate(NULL, (const void **)&roots[0], count,
             &kCFTypeArrayCallBacks);
@@ -153,7 +160,7 @@ void TrustStore::getCssmRootCertificates(CertGroup &rootCerts)
 void TrustStore::refreshRootCertificates()
 {
 	if (mRootsValid) {
-		debug("anchors", "clearing %ld cached anchor certificates", mRoots.size());
+		secdebug("anchors", "clearing %ld cached anchor certificates", mRoots.size());
 		
 		// throw out the CF version
 		if (mCFRoots) {
@@ -185,7 +192,7 @@ void TrustStore::loadRootCertificates()
 	static const char anchorLibrary[] = "/System/Library/Keychains/X509Anchors";
 
 	// open anchor database and formulate query (x509v3 certs)
-	debug("anchors", "Loading anchors from %s", anchorLibrary);
+	secdebug("anchors", "Loading anchors from %s", anchorLibrary);
 	DL dl(gGuidAppleFileDL);
 	Db db(dl, anchorLibrary);
 	DbCursor search(db);
@@ -203,7 +210,7 @@ void TrustStore::loadRootCertificates()
 	ContainerList certs;
 	for (;;) {
 		DbUniqueRecord id;
-		last = certs.insert(certs.end());
+		last = certs.insert(certs.end(), CssmDataContainer());
 		if (!search->next(NULL, &*last, id))
 			break;
 	}
@@ -222,7 +229,7 @@ void TrustStore::loadRootCertificates()
 		mRoots.push_back(CssmData(base, it->length()));
 		base += it->length();
 	}
-	debug("anchors", "%ld anchors loaded", mRoots.size());
+	secdebug("anchors", "%ld anchors loaded", mRoots.size());
 
 	mRootsValid = true;			// ready to roll
 }

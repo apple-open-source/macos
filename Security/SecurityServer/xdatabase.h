@@ -30,7 +30,8 @@
 #include <Security/handleobject.h>
 #include <Security/cssmdb.h>
 #include <Security/machserver.h>
-#include <time.h>
+#include "SecurityAgentClient.h"
+#include <Security/timeflow.h>
 #include <string>
 #include <map>
 
@@ -85,6 +86,10 @@ public:
         DLDbIdentifier mIdent;
         Signature mSig;
     };
+    
+public:
+	class CommonMap : public map<DbIdentifier, Common *>, public Mutex {
+	};
 
 public:
 	//
@@ -96,41 +101,39 @@ public:
 	//
     class Common : public DatabaseCryptoCore, public MachServer::Timer, public Mutex {
     public:
-        Common(const DbIdentifier &id);
+        Common(const DbIdentifier &id, CommonMap &pool);
         ~Common();
         
-        bool unlock(DbBlob *blob, const CssmData &passphrase,
-            void **privateAclBlob = NULL);
-        bool unlock(const CssmData &passphrase);
-        void lock(bool holdingCommonLock = false, bool forSleep = false); // versatile lock primitive
+        bool unlock(DbBlob *blob, void **privateAclBlob = NULL);
+        void lock(bool holdingCommonLock, bool forSleep = false); // versatile lock primitive
         bool isLocked() const { return mIsLocked; } // lock status
         void activity();			// reset lock timeout
         
+		void makeNewSecrets();
+
         const DbIdentifier &identifier() const {return mIdentifier; }
         const DLDbIdentifier &dlDbIdent() const { return identifier(); }
         const char *dbName() const { return dlDbIdent().dbName(); }
         
         DbBlob *encode(Database &db);
-        void setupKeys(const AccessCredentials *cred);
-        
-        void notify(Listener::Event event);
 		
 	protected:
 		void action();				// timer queue action to lock keychain
 
     public:
+		CommonMap &pool;			// the CommonMap we belong to
+
         DbIdentifier mIdentifier;	// database external identifier [const]
 		// all following data locked with object lock
         uint32 sequence;			// change sequence number
         DBParameters mParams;		// database parameters (arbitrated copy)
-
-        CssmAutoData passphrase;	// passphrase if available, or NULL data
         
         uint32 useCount;			// database sessions we belong to
         uint32 version;				// version stamp for change tracking
         
     private:
         bool mIsLocked;				// database is LOGICALLY locked
+		bool mValidParams;			// mParams has been set
     };
     
     const DbIdentifier &identifier() const { return common->identifier(); }
@@ -138,27 +141,34 @@ public:
 	
 public:
 	// encoding/decoding databases
-	DbBlob *encode();
+	DbBlob *blob();
 	Database(const DLDbIdentifier &id, const DbBlob *blob, Process &proc,
         const AccessCredentials *cred);
     void authenticate(const AccessCredentials *cred);
     void changePassphrase(const AccessCredentials *cred);
+	Key *extractMasterKey(Database *db,
+		const AccessCredentials *cred, const AclEntryPrototype *owner,
+		uint32 usage, uint32 attrs);
+	void getDbIndex(CssmData &indexData);
 	
 	// lock/unlock processing
 	void lock();											// unconditional lock
 	void unlock();											// full-feature unlock
 	void unlock(const CssmData &passphrase);				// unlock with passphrase
-	bool decode(const CssmData &passphrase);				// try unlock/don't fail
-	bool validatePassphrase(const CssmData &passphrase) const; // validate passphrase (no status change)
+
+	bool decode();											// unlock given established master key
+	bool decode(const CssmData &passphrase);				// set master key from PP, try unlock
+
+	bool validatePassphrase(const CssmData &passphrase) const; // nonthrowing validation
 	bool isLocked() const { return common->isLocked(); }	// lock status
     
     void activity() const { common->activity(); }			// reset timeout clock
-    static void lockAllDatabases(bool forSleep = false);	// lock them all
+    static void lockAllDatabases(CommonMap &commons, bool forSleep = false); // lock all in session
 	
 	// encoding/decoding keys
     void decodeKey(KeyBlob *blob, CssmKey &key, void * &pubAcl, void * &privAcl);
 	KeyBlob *encodeKey(const CssmKey &key, const CssmData &pubAcl, const CssmData &privAcl);
-
+	
     bool validBlob() const	{ return mBlob && version == common->version; }
 
 	// manage database parameters
@@ -167,19 +177,25 @@ public:
     
     // ACL state management hooks
 	void instantiateAcl();
-	void noticeAclChange();
+	void changedAcl();
 	const Database *relatedDatabase() const; // "self", for SecurityServerAcl's sake
-    
-    // notifications
-    void notify(Listener::Event event) { common->notify(event); }
 
     // debugging
     IFDUMP(void debugDump(const char *msg));
 
 protected:
 	void makeUnlocked();							// interior version of unlock()
+	void makeUnlocked(const AccessCredentials *cred); // like () with explicit cred
 	void makeUnlocked(const CssmData &passphrase);	// interior version of unlock(CssmData)
-    static void discard(Common *common);
+	
+	void establishOldSecrets(const AccessCredentials *creds);
+	void establishNewSecrets(const AccessCredentials *creds, SecurityAgent::Reason reason);
+	
+	static CssmClient::Key keyFromCreds(const TypedList &sample);
+	
+	void encode();									// (re)generate mBlob if needed
+
+    static void discard(Common *common); 			// safely kill a Common
 		
 private:
     Common *common;					// shared features of all instances of this database [const]
@@ -191,14 +207,33 @@ private:
     DbBlob *mBlob;					// database blob (encoded)
     
     AccessCredentials *mCred;		// local access credentials (always valid)
-    
-private:
-    // @@@ Arguably, this should be a member of the Server or Session.
-    // @@@ If we do this, encapsulate it as a DatabaseMap object of sorts.
-	static Mutex commonLock;		// lock for commons map (only)
-    typedef map<DbIdentifier, Common *> CommonMap;
-    static CommonMap commons;		// map of extant database objects
 };
 
+
+//
+// This class implements a "system keychaiin unlock record" store
+//
+class SystemKeychainKey {
+public:
+	SystemKeychainKey(const char *path);
+	~SystemKeychainKey();
+	
+	bool matches(const DbBlob::Signature &signature);
+	CssmKey &key()		{ return mKey; }
+
+private:
+	std::string mPath;					// path to file
+	CssmKey mKey;						// proper CssmKey with data in mBlob
+
+	bool mValid;						// mBlob was validly read from mPath
+	UnlockBlob mBlob;					// contents of mPath as last read
+	
+	Time::Absolute mCachedDate;			// modify date of file when last read
+	Time::Absolute mUpdateThreshold;	// cutoff threshold for checking again
+	
+	static const int checkDelay = 1;	// seconds minimum delay between update checks
+	
+	bool update();
+};
 
 #endif //_H_DATABASE

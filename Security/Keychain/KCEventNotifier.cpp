@@ -30,10 +30,10 @@
 	To Do:
 */
 
+#include "ssclient.h"
 #include "KCEventNotifier.h"
 #include "KCExceptions.h"
 #include "Keychains.h"
-#include <Security/cfutilities.h>
 
 using namespace KeychainCore;
 
@@ -56,39 +56,31 @@ void KCEventNotifier::PostKeychainEvent(SecKeychainEvent whichEvent,
 										const DLDbIdentifier &dlDbIdentifier, 
 										const PrimaryKey &primaryKey)
 {
-	CFRef<CFMutableDictionaryRef> mutableDict(::CFDictionaryCreateMutable(kCFAllocatorDefault,0,
-			&kCFTypeDictionaryKeyCallBacks, &kCFTypeDictionaryValueCallBacks));
-    KCThrowIfMemFail_(CFMutableDictionaryRef(mutableDict));
-
-	SInt32 theEvent = SInt32(whichEvent);
-    CFRef<CFNumberRef> theEventData(CFNumberCreate(kCFAllocatorDefault, kCFNumberSInt32Type, &theEvent));
-    KCThrowIfMemFail_(CFNumberRef(theEventData));
-    CFDictionarySetValue(mutableDict, kSecEventTypeKey, theEventData);
+	NameValueDictionary nvd;
 
 	pid_t thePid = getpid();
-    CFRef<CFNumberRef> thePidData(CFNumberCreate(kCFAllocatorDefault, kCFNumberSInt32Type, &thePid));
-    KCThrowIfMemFail_(CFNumberRef(thePidData));
-    CFDictionarySetValue(mutableDict, kSecEventPidKey, thePidData);
+	nvd.Insert (new NameValuePair (PID_KEY, CssmData (reinterpret_cast<void*>(&thePid), sizeof (pid_t))));
 
 	if (dlDbIdentifier)
 	{
-		CFRef<CFDictionaryRef> dict(DLDbListCFPref::dlDbIdentifierToCFDictionaryRef(dlDbIdentifier));
-		KCThrowIfMemFail_(CFDictionaryRef(dict));
-		CFDictionarySetValue(mutableDict, kSecEventKeychainKey, dict);
+		NameValueDictionary::MakeNameValueDictionaryFromDLDbIdentifier (dlDbIdentifier, nvd);
 	}
 
+	CssmData* pKey = primaryKey;
+	
     if (primaryKey)
     {
-		CFRef<CFDataRef> data(CFDataCreate(kCFAllocatorDefault, primaryKey->Data, primaryKey->Length));
-		KCThrowIfMemFail_(CFDataRef(data));
-		CFDictionarySetValue(mutableDict, kSecEventItemKey, data);
+		nvd.Insert (new NameValuePair (ITEM_KEY, *pKey));
     }
 
+	// flatten the dictionary
+	CssmData data;
+	nvd.Export (data);
+	
+	SecurityServer::ClientSession cs (CssmAllocator::standard(), CssmAllocator::standard());
+	cs.postNotification (Listener::databaseNotifications, whichEvent, data);
+	
+    secdebug("kcnotify", "KCEventNotifier::PostKeychainEvent posted event %u", (unsigned int) whichEvent);
 
-    // 'name' has to be globally unique (could be KCLockEvent, etc.)
-    // 'object' is just information or a context that can be used.
-    // 'userInfo' has info on event (i.e. which DL/DB(kc - see John's Dict), the event, 
-    //								 item(cssmdbuniqueRec))
-    CFNotificationCenterPostNotification(CFNotificationCenterGetDistributedCenter(), 
-										 kSecEventNotificationName, NULL, mutableDict, false);
+	free (data.data ());
 }

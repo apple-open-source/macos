@@ -16,7 +16,7 @@
 ## (e.g. change -O to -O2), see Makefile.postamble.
 
 # Flags passed to compiler (in addition to -g, -O, etc)
-OTHER_CFLAGS = 
+OTHER_CFLAGS =  -DINET6 -Dsocklen_t=int
 # Flags passed to ld (in addition to -ObjC, etc.)
 OTHER_LDFLAGS =
 
@@ -110,6 +110,9 @@ OTHER_HELP_DIRS =
 
 OTHER_GENERATED_OFILES = $(VERS_OFILE)
 
-OTHER_OFILES = ttymsg.o
+#OTHER_OFILES = ttymsg.o
+
+# to allow installing man page after main install
+AFTER_INSTALL += install-man-page
 
 -include ../Makefile.include

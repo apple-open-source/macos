@@ -76,20 +76,54 @@ SNMP_SNMPTRAPD_LOG_FILE="$SNMP_TMPDIR/snmptrapd.log"
 SNMP_SNMPTRAPD_PID_FILE="$SNMP_TMPDIR/snmptrapd.pid"
 SNMP_SNMPD_PID_FILE="$SNMP_TMPDIR/snmpd.pid"
 SNMP_SNMPD_LOG_FILE="$SNMP_TMPDIR/snmpd.log"
-SNMP_SNMPD_PORT="-p 8765"
-SNMP_SNMPTRAPD_PORT="-p 8764"
 SNMP_PERSISTENT_FILE="$SNMP_TMPDIR/persistent-store.conf"
 export SNMP_PERSISTENT_FILE
 
-## Setup flags iff not done
+## Setup default flags and ports iff not done
 if [ "x$SNMP_FLAGS" = "x" ]; then
     SNMP_FLAGS="-d"
 fi
-echo $SNMP_FLAGS | egrep "\-p" > /dev/null
-if [ $? != 0 ]; then
-    SNMP_FLAGS="$SNMP_FLAGS $SNMP_SNMPD_PORT"
+
+BASE_PORT=8765
+MAX_RETRIES=3
+if test -x /bin/netstat ; then
+    NETSTAT=/bin/netstat
+elif test -x /usr/bin/netstat ; then
+    NETSTAT=/usr/bin/netstat
+else
+    NETSTAT=""
 fi
-export SNMP_FLAGS
+if test -x $NETSTAT ; then
+    if test -z "$RANDOM"; then
+        RANDOM=2
+    fi
+    while :
+    do
+        IN_USE=`$NETSTAT -a 2>/dev/null | grep "[\.:]$BASE_PORT "`
+        if [ $? -eq 0 ]; then
+            #echo "Port $BASE_PORT in use:"
+            #echo "->$IN_USE"
+            BASE_PORT=`expr $BASE_PORT + \( $RANDOM % 100 \)`
+        else
+            #echo "Using port $BASE_PORT"
+            break
+        fi
+        MAX_RETRIES=`expr $MAX_RETRIES - 1`
+        if [ $MAX_RETRIES -eq 0 ]; then
+            echo "ERROR: Could not find available port."
+            exit 255
+        fi
+    done
+fi
+
+if [ "x$SNMP_SNMPD_PORT" = "x" ]; then
+    SNMP_SNMPD_PORT=$BASE_PORT
+fi
+
+if [ "x$SNMP_SNMPTRAPD_PORT" = "x" ]; then
+    SNMP_SNMPTRAPD_PORT=`expr $BASE_PORT - 1`
+fi
+export SNMP_FLAGS SNMP_SNMPD_PORT SNMP_SNMPTRAPD_PORT
 
 # Make sure the agent doesn't parse any config file but what we give it.  
 # this is mainly to protect against a broken agent that doesn't

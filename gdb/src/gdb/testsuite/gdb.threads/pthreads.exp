@@ -1,4 +1,4 @@
-# Copyright (C) 1996, 1997 Free Software Foundation, Inc.
+# Copyright (C) 1996, 1997, 2003 Free Software Foundation, Inc.
 
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -39,43 +39,16 @@ set binfile ${objdir}/${subdir}/${testfile}
 # carriage return)
 set horiz "\[^\n\r\]*"
 
-set built_binfile 0
 if [istarget "*-*-linux"] then {
     set target_cflags "-D_MIT_POSIX_THREADS"
 } else {
     set target_cflags ""
 }
-set why_msg "unrecognized error"
 
-foreach lib {{-framework System} -lpthreads -lpthread -lthread} {
-    set options "debug"
-    lappend options "incdir=${objdir}/${subdir}"
-    lappend options "libs=$lib"
-    set ccout [gdb_compile "${srcdir}/${subdir}/${srcfile}" "${binfile}" executable $options]
-    switch -regexp -- $ccout {
-	".*no posix threads support.*" {
-	    set why_msg "missing threads include file"
-	    break
-	}
-	".*cannot open -lpthread.*" {
-	    set why_msg "missing runtime threads library"
-	}
-	".*Can't find library for -lpthread.*" {
-	    set why_msg "missing runtime threads library"
-	}
-	{^$} {
-	    pass "successfully compiled posix threads test case"
-	    set built_binfile 1
-	    break
-	}
-    }
-}
-if {$built_binfile == "0"} {
-    unsupported "Couldn't compile ${srcfile}, ${why_msg}"
+if {[gdb_compile_pthreads "${srcdir}/${subdir}/${srcfile}" "${binfile}" executable [list debug "incdir=${objdir}"]] != "" } {
     return -1
 }
 
-# Now we can proceed with the real testing.
 
 # Start with a fresh gdb.
 
@@ -198,7 +171,7 @@ proc test_startup {} {
     # We should be able to do an info threads before starting any others.
     send_gdb "info threads\n"
     gdb_expect {
-	-re ".*Thread.*main.*$gdb_prompt $" {
+	-re ".*thread.*main.*$gdb_prompt $" {
 	    pass "info threads"
 	}
 	-re "\r\n$gdb_prompt $" {
@@ -209,7 +182,7 @@ proc test_startup {} {
 
     # Extract the thread id number of main thread from "info threads" output.
     send_gdb "info threads\n"
-    gdb_expect -re "(\[0-9\]+)(${horiz}Thread${horiz}main.*)($gdb_prompt $)"
+    gdb_expect -re "(\[0-9\]+)(${horiz}process${horiz}\[0-9\]+)(${horiz}thread${horiz}\[0-9a-fx\]${horiz}main.*)($gdb_prompt $)"
     set main_id $expect_out(1,string)
 
     # Check that we can continue and create the first thread.
@@ -221,7 +194,7 @@ proc test_startup {} {
 
     # Extract the thread id number of thread 1 from "info threads" output.
     send_gdb "info threads\n"
-    gdb_expect -re "(\[0-9\]+)(${horiz}Thread${horiz}thread1.*)($gdb_prompt $)"
+    gdb_expect -re "(\[0-9\]+)(${horiz}process${horiz}\[0-9\]+)(${horiz}thread${horiz}\[0-9a-fx\]${horiz}thread1.*)($gdb_prompt $)"
     set thread1_id $expect_out(1,string)
 
     # Check that we can continue and create the second thread,
@@ -233,7 +206,7 @@ proc test_startup {} {
 
     # Extract the thread id number of thread 2 from "info threads" output.
     send_gdb "info threads\n"
-    gdb_expect -re "(\[0-9\]+)(${horiz}Thread${horiz}thread2.*)($gdb_prompt $)"
+    gdb_expect -re "(\[0-9\]+)(${horiz}process${horiz}\[0-9\]+)(${horiz}thread${horiz}\[0-9a-fx\]${horiz}thread2.*)($gdb_prompt $)"
     set thread2_id $expect_out(1,string)
 
     return 1
@@ -306,7 +279,12 @@ proc check_backtraces {} {
     # Check that we can do thread specific backtraces
     # This also tests that we can do thread specific breakpoints.
 
-    gdb_test "break common_routine thread $thread2_id" \
+# APPLE LOCAL: Some changes to decode_line_1 which allow someone to type
+#  b -[MyClass myfunc:]
+# to work break cmds of the format "b main thread 2" due to the clipping
+# of skip_quoted in d_l_1.  So use an alternate way to apply the bp.
+
+    gdb_test "thread apply $thread2_id break common_routine" \
 	    "Breakpoint .* at 0x.* file .* line .*" \
 	    "set break at common_routine in thread 2"
 

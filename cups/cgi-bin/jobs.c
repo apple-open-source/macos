@@ -1,9 +1,9 @@
 /*
- * "$Id: jobs.c,v 1.1.1.3 2002/06/06 22:12:33 jlovell Exp $"
+ * "$Id: jobs.c,v 1.1.1.10 2003/07/23 02:33:32 jlovell Exp $"
  *
  *   Job status CGI for the Common UNIX Printing System (CUPS).
  *
- *   Copyright 1997-2002 by Easy Software Products.
+ *   Copyright 1997-2003 by Easy Software Products.
  *
  *   These coded instructions, statements, and computer programs are the
  *   property of Easy Software Products and are protected by Federal
@@ -45,16 +45,16 @@ static void	do_job_op(http_t *http, cups_lang_t *language, ipp_op_t op);
  * 'main()' - Main entry for CGI.
  */
 
-int				/* O - Exit status */
-main(int  argc,			/* I - Number of command-line arguments */
-     char *argv[])		/* I - Command-line arguments */
+int					/* O - Exit status */
+main(int  argc,				/* I - Number of command-line arguments */
+     char *argv[])			/* I - Command-line arguments */
 {
-  cups_lang_t	*language;	/* Language information */
-  http_t	*http;		/* Connection to the server */
-  const char	*which_jobs;	/* Which jobs to show */
-  ipp_t		*request,	/* IPP request */
-		*response;	/* IPP response */
-   const char	*op;		/* Operation name */
+  cups_lang_t	*language;		/* Language information */
+  http_t	*http;			/* Connection to the server */
+  const char	*which_jobs;		/* Which jobs to show */
+  ipp_t		*request,		/* IPP request */
+		*response;		/* IPP response */
+   const char	*op;			/* Operation name */
 
 
  /*
@@ -139,13 +139,15 @@ main(int  argc,			/* I - Number of command-line arguments */
       ippAddString(request, IPP_TAG_OPERATION, IPP_TAG_KEYWORD, "which-jobs",
                    NULL, which_jobs);
 
+    ippGetAttributes(request, TEMPLATES, "jobs.tmpl", getenv("LANG"));
+
    /*
     * Do the request and get back a response...
     */
 
     if ((response = cupsDoRequest(http, request, "/")) != NULL)
     {
-      ippSetCGIVars(response, NULL, NULL);
+      ippSetCGIVars(response, NULL, NULL, NULL, 0);
       ippDelete(response);
 
       cgiCopyTemplateLang(stdout, TEMPLATES, "jobs.tmpl", getenv("LANG"));
@@ -182,7 +184,6 @@ do_job_op(http_t      *http,		/* I - HTTP connection */
 		*response;		/* IPP response */
   char		uri[HTTP_MAX_URI];	/* Job URI */
   const char	*job;			/* Job ID */
-  const char	*printer;		/* Printer name (purge-jobs) */
   ipp_status_t	status;			/* Operation status... */
 
 
@@ -237,7 +238,7 @@ do_job_op(http_t      *http,		/* I - HTTP connection */
     ippDelete(response);
   }
   else
-    status = IPP_GONE;
+    status = cupsLastError();
 
   if (status > IPP_OK_CONFLICT)
   {
@@ -256,5 +257,5 @@ do_job_op(http_t      *http,		/* I - HTTP connection */
 
 
 /*
- * End of "$Id: jobs.c,v 1.1.1.3 2002/06/06 22:12:33 jlovell Exp $".
+ * End of "$Id: jobs.c,v 1.1.1.10 2003/07/23 02:33:32 jlovell Exp $".
  */

@@ -3,8 +3,6 @@
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
- * Copyright (c) 1999-2003 Apple Computer, Inc.  All Rights Reserved.
- * 
  * This file contains Original Code and/or Modifications of Original Code
  * as defined in and that are subject to the Apple Public Source License
  * Version 2.0 (the 'License'). You may not use this file except in
@@ -25,7 +23,7 @@
 #ifdef SHLIB
 #include "shlib.h"
 #undef moninitrld
-#endif SHLIB
+#endif /* SHLIB */
 #ifdef RLD
 /*
  * This file contains the functions of the RLD package.
@@ -104,6 +102,9 @@ extern const struct section *getsectbynamefromheader(
 __private_extern__
 unsigned long (*address_func)(unsigned long size, unsigned long headers_size) =
 									   NULL;
+
+static
+enum strip_levels kld_requested_strip_level = STRIP_ALL;
 
 #if !defined(SA_RLD) && !(defined(KLD) && defined(__STATIC__))
 /*
@@ -199,12 +200,12 @@ static long internal_rld_load_basefile(
     long base_size);
 #endif /* !defined(SA_RLD) && !defined(KLD) */
 
-#if defined(KLD) && !defined(__STATIC__)
+#if defined(KLD)
 static long internal_kld_load_basefile(
     const char *base_filename,
     char *base_addr,
     long base_size);
-#endif /* defined(KLD) && !defined(__STATIC__) */
+#endif /* defined(KLD) */
 
 #if !defined(SA_RLD) && !defined(KLD)
 /*
@@ -414,7 +415,7 @@ long obj_size)
 	if(output_filename != NULL)
 	    strip_level = STRIP_NONE;
 	else
-	    strip_level = STRIP_ALL;
+	    strip_level = kld_requested_strip_level;
 
 	/* This must be cleared for each call to rld() */
 	errors = 0;
@@ -523,7 +524,8 @@ long obj_size)
 #if !defined(SA_RLD) && !(defined(KLD) && defined(__STATIC__))
 	if(file_name == NULL){
 	    for(i = 0; object_filenames[i] != NULL; i++)
-		pass1((char *)object_filenames[i], FALSE, FALSE, FALSE, FALSE);
+		pass1((char *)object_filenames[i], FALSE, FALSE, FALSE, FALSE,
+		      FALSE);
 	}
 	else
 #endif /* !defined(SA_RLD) && !(defined(KLD) && defined(__STATIC__)) */
@@ -534,7 +536,7 @@ long obj_size)
 	    cur_obj->user_obj_addr = TRUE;
 	    cur_obj->obj_addr = (char *)obj_addr;
 	    cur_obj->obj_size = obj_size;
-	    merge(FALSE, FALSE);
+	    merge(FALSE, FALSE, FALSE);
 	}
 
 	if(errors){
@@ -613,7 +615,7 @@ long obj_size)
 		 * Write the entire output file.
 		 */
 		if(write(fd, output_addr, output_size + symbol_size) !=
-		   output_size + symbol_size){
+		   (int)(output_size + symbol_size)){
 		    system_error("can't write output file: %s",output_filename);
 #ifdef KLD
 		    internal_kld_unload(TRUE);
@@ -636,8 +638,14 @@ long obj_size)
 	     * Deallocate the pages of memory for the symbol table if there are
 	     * any whole pages.
 	     */
-	    deallocate_size = round(output_size + symbol_size, host_pagesize) -
-			      round(output_size, host_pagesize);
+	    if (strip_level == STRIP_ALL)
+		deallocate_size = round(output_size + symbol_size, host_pagesize) -
+				round(output_size, host_pagesize);
+	    else {
+		deallocate_size = 0;
+		sets[cur_set].output_size += symbol_size;
+	    }
+
 	    if(deallocate_size > 0){
 		if((r = vm_deallocate(mach_task_self(),
 				      (vm_address_t)(output_addr +
@@ -778,18 +786,20 @@ long obj_size)
 	return(1);
 }
 
-#if !defined(SA_RLD) && !(defined(KLD) && defined(__STATIC__))
+#if !defined(SA_RLD)
 /*
  * rld_load_basefile() loads a base file from an object file rather than just
  * picking up the link edit segment from this program.
  */
 #if defined(KLD)
+#if !defined(__STATIC__)
 long
 kld_load_basefile(
 const char *base_filename)
 {
 	return(internal_kld_load_basefile(base_filename, NULL, 0));
 }
+#endif /* !defined(__STATIC__) */
 
 long
 kld_load_basefile_from_memory(
@@ -825,7 +835,8 @@ const char *base_filename,
 char *base_addr,
 long base_size)
 {
-    long size;
+#if !(defined(KLD) && defined(__STATIC__))
+    unsigned long size;
     char *addr;
     int fd;
     struct stat stat_buf;
@@ -835,13 +846,14 @@ long base_size)
     struct fat_header struct_fat_header;
 #endif /* __LITTLE_ENDIAN__ */
     struct fat_arch *fat_archs, *best_fat_arch;
-#if !(defined(KLD) && defined(__STATIC__))
     struct arch_flag host_arch_flag;
-#endif /* !(defined(KLD) && defined(__STATIC__)) */
     enum bool from_fat_file;
 
 	size = 0;
 	from_fat_file = FALSE;
+
+#endif /* !(defined(KLD) && defined(__STATIC__)) */
+
 #ifndef KLD
 	error_stream = stream;
 #endif /* !defined(KLD) */
@@ -898,6 +910,8 @@ long base_size)
 	force_cpusubtype_ALL = TRUE;
 	base_name = allocate(strlen(base_filename) + 1);
 	strcpy(base_name, base_filename);
+
+#if !(defined(KLD) && defined(__STATIC__))
 
 	/*
 	 * If there is to be an output file then save the symbols.  Only the
@@ -977,7 +991,7 @@ long base_size)
 #endif /* __LITTLE_ENDIAN__ */
     
 		if(sizeof(struct fat_header) + fat_header->nfat_arch *
-		sizeof(struct fat_arch) > size){
+		   sizeof(struct fat_arch) > (unsigned long)size){
 		    error("fat file: %s truncated or malformed (fat_arch "
 			"structs would extend past the end of the file)",
 			base_name);
@@ -1043,7 +1057,9 @@ long base_size)
 		base_obj = cur_obj;
 	    }
 	}
-	else{
+	else
+#endif /* !(defined(KLD) && defined(__STATIC__)) */
+	{
 	    cur_obj = new_object_file();
 	    cur_obj->file_name = base_name;
 	    cur_obj->obj_addr = base_addr;
@@ -1055,7 +1071,7 @@ long base_size)
 	/*
 	 * Now that the file is mapped in merge it as the base file.
 	 */
-	merge(FALSE, FALSE);
+	merge(FALSE, FALSE, FALSE);
 
 	if(errors){
 #ifdef KLD
@@ -1072,6 +1088,7 @@ long base_size)
 	 */
 	clean_objects();
 	clean_archives_and_fats();
+#if !(defined(KLD) && defined(__STATIC__))
 	if(from_fat_file == TRUE){
 	    if((r = vm_deallocate(mach_task_self(), (vm_address_t)addr,
 				  (vm_size_t)size)) != KERN_SUCCESS)
@@ -1089,8 +1106,11 @@ long base_size)
 	 */
 	rld_maintain_states = FALSE;
 
+#endif /* !(defined(KLD) && defined(__STATIC__)) */
+
 	return(1);
 
+#if !(defined(KLD) && defined(__STATIC__))
 rld_load_basefile_error_return:
 	if((r = vm_deallocate(mach_task_self(), (vm_address_t)addr,
 			      (vm_size_t)size)) != KERN_SUCCESS)
@@ -1107,6 +1127,7 @@ rld_load_basefile_error_return:
 	    free(fat_archs);
 #endif /* __LITTLE_ENDIAN__ */
 	return(0);
+#endif /* !(defined(KLD) && defined(__STATIC__)) */
 }
 
 #ifndef KLD
@@ -1639,7 +1660,7 @@ const char *output_filename)
 	     * Write the entire output file.
 	     */
 	    if(write(fd, output_addr, output_size + symbol_size) !=
-	       output_size + symbol_size){
+	       (int)(output_size + symbol_size)){
 		system_error("can't write output file: %s",output_filename);
 		(void)unlink(output_filename);
 		return_value = 0;
@@ -1698,7 +1719,7 @@ void)
 	    for(j = 0; j < rld_loaded_state[i].nobject_filenames; j++)
 		print("\t\t%s\n", rld_loaded_state[i].object_filenames[j]);
 	}
-#endif RLD_TEST
+#endif /* RLD_TEST */
 }
 #endif /* !(defined(KLD) && defined(__STATIC__)) */
 
@@ -1769,6 +1790,23 @@ unsigned long (*func)(unsigned long size, unsigned long headers_size))
 {
 	address_func = func;
 }
+
+/*
+ * kld_set_link_options() .
+ */
+void
+#ifdef KLD
+kld_set_link_options(
+#else /* !defined(KLD) */
+rld_set_link_options(
+#endif /* KLD */
+unsigned long link_options)
+{
+	if(KLD_STRIP_NONE & link_options)
+	    kld_requested_strip_level = STRIP_NONE;
+	else
+	    kld_requested_strip_level = STRIP_ALL;
+}
 #endif /* !defined(SA_RLD) */
 
 /*
@@ -1794,6 +1832,7 @@ va_list ap)
 {
 	if(error_stream != NULL)
 	    NXVPrintf(error_stream, format, ap);
+NXVPrintf(error_stream, format, ap);
 }
 #endif /* !defined(SA_RLD) && !defined(KLD) */
 
@@ -2164,4 +2203,4 @@ _NSGetMachExecuteHeader(void)
 }
 #endif /* defined(KLD) && defined(__STATIC__) */
 
-#endif RLD
+#endif /* RLD */

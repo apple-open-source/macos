@@ -1,4 +1,4 @@
-/* Copyright (c) 1993-2000
+/* Copyright (c) 1993-2002
  *      Juergen Weigert (jnweiger@immd4.informatik.uni-erlangen.de)
  *      Michael Schroeder (mlschroe@immd4.informatik.uni-erlangen.de)
  * Copyright (c) 1987 Oliver Laumann
@@ -22,7 +22,7 @@
  */
 
 #include "rcs.h"
-RCS_ID("$Id: ansi.c,v 1.1.1.1 2001/12/14 22:08:28 bbraun Exp $ FAU")
+RCS_ID("$Id: ansi.c,v 1.1.1.2 2003/03/19 21:16:18 landonf Exp $ FAU")
 
 #include <sys/types.h>
 #include <fcntl.h>
@@ -44,6 +44,7 @@ extern int  log_flush, logtstamp_on, logtstamp_after;
 extern char *logtstamp_string;
 extern char *captionstring;
 extern char *hstatusstring;
+extern char *wliststr;
 #ifdef COPY_PASTE
 extern int compacthist;
 #endif
@@ -60,9 +61,10 @@ static int rows, cols;		/* window size of the curr window */
 int visual_bell = 0;
 int use_hardstatus = 1;		/* display status line in hs */
 char *printcmd = 0;
+int use_altscreen = 0;		/* enable alternate screen support? */
 
-char *blank;			/* line filled with spaces */
-char *null;			/* line filled with '\0' */
+unsigned char *blank;		/* line filled with spaces */
+unsigned char *null;		/* line filled with '\0' */
 
 struct mline mline_old;
 struct mline mline_blank;
@@ -161,7 +163,7 @@ static void MBceLine __P((struct win *, int, int, int, int));
 #endif
 
 #ifdef COLOR
-# define CURR_BCE (curr->w_bce ? (curr->w_rend.color >> 4 & 0xf) : 0)
+# define CURR_BCE (curr->w_bce ? rend_getbg(&curr->w_rend) : 0)
 #else
 # define CURR_BCE 0
 #endif
@@ -238,14 +240,6 @@ char *buf;
 
 #ifdef FONT
 
-# ifdef KANJI
-static char *kanjicharsets[3] = {
-  "BBBB02", 	/* jis */
-  "B\002IB01",	/* euc  */
-  "BIBB01"	/* sjis  */
-};
-# endif
-
 void
 ResetCharsets(p)
 struct win *p;
@@ -255,15 +249,9 @@ struct win *p;
   SetCharsets(p, "BBBB02");
   if (nwin_default.charset)
     SetCharsets(p, nwin_default.charset);
-# ifdef KANJI
-  if (p->w_kanji)
-    {
-      p->w_gr = 1;
-      if (p->w_kanji == SJIS)
-        p->w_c1 = 0;
-      SetCharsets(p, kanjicharsets[p->w_kanji]);
-    }
-# endif
+#ifdef ENCODINGS
+  ResetEncoding(p);
+#endif
 }
 
 void
@@ -353,16 +341,22 @@ register int len;
     {
       c = (unsigned char)*buf++;
 #ifdef FONT
-      curr->w_rend.font = curr->w_FontL;	/* Default: GL */
+# ifdef DW_CHARS
+      if (!curr->w_mbcs)
+# endif
+        curr->w_rend.font = curr->w_FontL;	/* Default: GL */
 #endif
 
       /* The next part is only for speedup */
       if (curr->w_state == LIT &&
 #ifdef UTF8
-          !curr->w_utf8 &&
+          curr->w_encoding != UTF8 &&
 #endif
-#ifdef KANJI
-          curr->w_FontL != KANJI && curr->w_FontL != KANA && !curr->w_mbcs &&
+#ifdef DW_CHARS
+          !is_dw_font(curr->w_rend.font) &&
+# ifdef ENCODINGS
+          curr->w_rend.font != KANA && !curr->w_mbcs &&
+# endif
 #endif
 #ifdef FONT
 	  curr->w_rend.font != '<' &&
@@ -396,9 +390,9 @@ register int len;
       /* end of speedup code */
 
 #ifdef UTF8
-      if (curr->w_utf8)
+      if (curr->w_encoding == UTF8)
 	{
-	  c = FromUtf8(c, &curr->w_utf8char);
+	  c = FromUtf8(c, &curr->w_decodestate);
 	  if (c == -1)
 	    continue;
 	  if (c == -2)
@@ -561,7 +555,7 @@ register int len;
 		{
 		  if (curr->w_intermediate)
 		    {
-#ifdef KANJI
+#ifdef DW_CHARS
 		      if (curr->w_intermediate == '$')
 			c |= '$' << 8;
 		      else
@@ -619,9 +613,10 @@ register int len;
 	  break;
 	case LIT:
 	default:
-#ifdef KANJI
-	  if (c <= ' ' || c == 0x7f || (c >= 0x80 && c < 0xa0 && curr->w_c1))
-	    curr->w_mbcs = 0;
+#ifdef DW_CHARS
+	  if (curr->w_mbcs)
+	    if (c <= ' ' || c == 0x7f || (c >= 0x80 && c < 0xa0 && curr->w_c1))
+	      curr->w_mbcs = 0;
 #endif
 	  if (c < ' ')
 	    {
@@ -637,6 +632,13 @@ register int len;
 	      break;
 	    }
 	  if (c >= 0x80 && c < 0xa0 && curr->w_c1)
+#ifdef FONT
+	    if ((curr->w_FontR & 0xf0) != 0x20
+# ifdef UTF8
+		   || curr->w_encoding == UTF8
+# endif
+	       )
+#endif
 	    {
 	      switch (c)
 		{
@@ -666,13 +668,81 @@ register int len;
 	    }
 
 #ifdef FONT
-	  font = curr->w_rend.font = (c >= 0x80 ? curr->w_FontR : curr->w_FontL);
-# ifdef UTF8
-	  if (curr->w_utf8)
-	    font = 0;
+# ifdef DW_CHARS
+	  if (!curr->w_mbcs)
+	    {
 # endif
-# ifdef KANJI
-	  if (font == KANA && curr->w_kanji == SJIS && curr->w_mbcs == 0)
+	      if (c < 0x80 || curr->w_gr == 0)
+	        curr->w_rend.font = curr->w_FontL;
+# ifdef ENCODINGS
+	      else if (curr->w_gr == 2 && !curr->w_ss)
+	        curr->w_rend.font = curr->w_FontE;
+# endif
+	      else
+	        curr->w_rend.font = curr->w_FontR;
+# ifdef DW_CHARS
+	    }
+# endif
+# ifdef UTF8
+	  if (curr->w_encoding == UTF8)
+	    {
+	      if (curr->w_rend.font == '0')
+		{
+		  struct mchar mc, *mcp;
+
+		  debug1("SPECIAL %x\n", c);
+		  mc.image = c;
+		  mc.mbcs = 0;
+		  mc.font = '0';
+		  mcp = recode_mchar(&mc, 0, UTF8);
+		  debug2("%02x %02x\n", mcp->image, mcp->font);
+		  c = mcp->image | mcp->font << 8;
+		}
+	      curr->w_rend.font = 0;
+	    }
+#  ifdef DW_CHARS
+	  if (curr->w_encoding == UTF8 && c >= 0x1100 && utf8_isdouble(c))
+	    curr->w_mbcs = 0xff;
+#  endif
+	  if (curr->w_encoding == UTF8 && c >= 0x0300 && utf8_iscomb(c))
+	    {
+	      int ox, oy;
+	      struct mchar omc;
+
+	      ox = curr->w_x - 1;
+	      oy = curr->w_y;
+	      if (ox < 0)
+		{
+		  ox = curr->w_width - 1;
+	          oy--;
+		}
+	      if (oy < 0)
+		oy = 0;
+	      copy_mline2mchar(&omc, &curr->w_mlines[oy], ox);
+	      if (omc.image == 0xff && omc.font == 0xff)
+		{
+		  ox--;
+		  if (ox >= 0)
+		    {
+	              copy_mline2mchar(&omc, &curr->w_mlines[oy], ox);
+		      omc.mbcs = 0xff;
+		    }
+		}
+	      if (ox >= 0)
+		{
+		  utf8_handle_comb(c, &omc);
+		  MFixLine(curr, oy, &omc);
+		  copy_mchar2mline(&omc, &curr->w_mlines[oy], ox);
+		  LPutChar(&curr->w_layer, &omc, ox, oy);
+		  LGotoPos(&curr->w_layer, curr->w_x, curr->w_y);
+		}
+	      break;
+	    }
+	  font = curr->w_rend.font;
+# endif
+# ifdef DW_CHARS
+#  ifdef ENCODINGS
+	  if (font == KANA && curr->w_encoding == SJIS && curr->w_mbcs == 0)
 	    {
 	      /* Lets see if it is the first byte of a kanji */
 	      debug1("%x may be first of SJIS\n", c);
@@ -683,9 +753,12 @@ register int len;
 		  break;
 		}
 	    }
-	  if (font == KANJI && c == ' ')
+#  endif
+	  if (font == 031 && c == 0x80)
 	    font = curr->w_rend.font = 0;
-	  if (font == KANJI || curr->w_mbcs)
+	  if (is_dw_font(font) && c == ' ')
+	    font = curr->w_rend.font = 0;
+	  if (is_dw_font(font) || curr->w_mbcs)
 	    {
 	      int t = c;
 	      if (curr->w_mbcs == 0)
@@ -698,60 +771,72 @@ register int len;
 		  curr->w_x += curr->w_wrap ? 1 : -1;
 		  debug1("Patched w_x to %d\n", curr->w_x);
 		}
-	      c = curr->w_mbcs;
-	      if (font != KANJI)
+#  ifdef UTF8
+	      if (curr->w_encoding != UTF8)
+#  endif
 		{
-		  debug2("SJIS !! %x %x\n", c, t);
-		  /*
-		   * SJIS -> EUC mapping:
-		   *   First byte:
-		   *     81,82...9f -> 21,23...5d
-		   *     e0,e1...ef -> 5f,61...7d
-		   *   Second byte:
-		   *     40-7e -> 21-5f
-		   *     80-9e -> 60-7e
-		   *     9f-fc -> 21-7e (increment first byte!)
-		   */
-		  if (0x40 <= t && t <= 0xfc && t != 0x7f)
+		  c = curr->w_mbcs;
+#  ifdef ENCODINGS
+		  if (font == KANA && curr->w_encoding == SJIS)
 		    {
-		      if (c <= 0x9f) c = (c - 0x81) * 2 + 0x21;
-		      else c = (c - 0xc1) * 2 + 0x21;
-		      if (t <= 0x7e) t -= 0x1f;
-		      else if (t <= 0x9e) t -= 0x20;
-		      else t -= 0x7e, c++;
-		      curr->w_rend.font = KANJI;
+		      debug2("SJIS !! %x %x\n", c, t);
+		      /*
+		       * SJIS -> EUC mapping:
+		       *   First byte:
+		       *     81,82...9f -> 21,23...5d
+		       *     e0,e1...ef -> 5f,61...7d
+		       *   Second byte:
+		       *     40-7e -> 21-5f
+		       *     80-9e -> 60-7e
+		       *     9f-fc -> 21-7e (increment first byte!)
+		       */
+		      if (0x40 <= t && t <= 0xfc && t != 0x7f)
+			{
+			  if (c <= 0x9f) c = (c - 0x81) * 2 + 0x21;
+			  else c = (c - 0xc1) * 2 + 0x21;
+			  if (t <= 0x7e) t -= 0x1f;
+			  else if (t <= 0x9e) t -= 0x20;
+			  else t -= 0x7e, c++;
+			  curr->w_rend.font = KANJI;
+			}
+		      else
+			{
+			  /* Incomplete shift-jis - skip first byte */
+			  c = t;
+			  t = 0;
+			}
+		      debug2("SJIS after %x %x\n", c, t);
 		    }
-		  else
+#  endif
+		  if (t && curr->w_gr && font != 030 && font != 031)
 		    {
-		      /* Incomplete shift-jis - skip first byte */
-		      c = t;
-		      t = 0;
+		      t &= 0x7f;
+		      if (t < ' ')
+			goto tryagain;
 		    }
-		  debug2("SJIS after %x %x\n", c, t);
+		  if (t == '\177')
+		    break;
+		  curr->w_mbcs = t;
 		}
-	      if (t && curr->w_gr)
-		{
-	          t &= 0x7f;
-		  if (t < ' ')
-		    goto tryagain;
-		}
-	      if (t == '\177')
-		break;
-	      curr->w_mbcs = t;
 	    }
-# endif
+# endif	/* DW_CHARS */
 	  if (font == '<' && c >= ' ')
 	    {
 	      font = curr->w_rend.font = 0;
 	      c |= 0x80;
 	    }
-#ifdef UTF8
-	  else if (curr->w_gr && !curr->w_utf8)
-#else
+# ifdef UTF8
+	  else if (curr->w_gr && curr->w_encoding != UTF8)
+# else
 	  else if (curr->w_gr)
-#endif
+# endif
 	    {
-	      c &= 0x7f;
+#ifdef ENCODINGS
+	      if (c == 0x80 && font == 0 && curr->w_encoding == GBK)
+		c = 0xa4;
+	      else
+#endif
+	        c &= 0x7f;
 	      if (c < ' ')	/* this is ugly but kanji support */
 		goto tryagain;	/* prevents nicer programming */
 	    }
@@ -760,10 +845,10 @@ register int len;
 	    break;
 	  curr->w_rend.image = c;
 #ifdef UTF8
-	  if (curr->w_utf8)
+	  if (curr->w_encoding == UTF8)
 	    curr->w_rend.font = c >> 8;
 #endif
-#ifdef KANJI
+#ifdef DW_CHARS
 	  curr->w_rend.mbcs = curr->w_mbcs;
 #endif
 	  if (curr->w_x < cols - 1)
@@ -798,7 +883,7 @@ register int len;
 	      curr->w_x = 1;
 	    }
 #ifdef FONT
-# ifdef KANJI
+# ifdef DW_CHARS
 	  if (curr->w_mbcs)
 	    {
 	      curr->w_rend.mbcs = curr->w_mbcs = 0;
@@ -997,7 +1082,7 @@ int c, intermediate;
     case '+':
       DesignateCharset(c, G3);
       break;
-# ifdef KANJI
+# ifdef DW_CHARS
 /*
  * ESC $ ( Fn: invoke multi-byte charset, Fn, to G0
  * ESC $ Fn: same as above.  (old sequence)
@@ -1254,8 +1339,8 @@ int c, intermediate;
 	      if (i)
 		{
 #ifdef FONT
-# ifdef KANJI
-		  if (curr->w_kanji)
+# ifdef ENCODINGS
+		  if (curr->w_encoding)
 		    break;
 # endif
 		  curr->w_charsets[0] = curr->w_charsets[1] =
@@ -1316,10 +1401,28 @@ int c, intermediate;
 	 /* case 40:	         132 col enable */
 	 /* case 42:	   NRCM: 7bit NRC character mode */
 	 /* case 44:	         margin bell enable */
+	    case 47:    /*       xterm-like alternate screen */
+	    case 1047:  /*       xterm-like alternate screen */
+	    case 1049:  /*       xterm-like alternate screen */
+	      if (use_altscreen)
+		{
+		  if (i)
+		    EnterAltScreen(curr);
+		  else
+		    LeaveAltScreen(curr);
+		  if (a1 == 47 && !i)
+		    curr->w_saved = 0;
+		  LRefreshAll(&curr->w_layer, 0);
+		  LGotoPos(&curr->w_layer, curr->w_x, curr->w_y);
+		}
+	      break;
 	 /* case 66:	   NKM:  Numeric keypad appl mode */
 	 /* case 68:	   KBUM: Keyboard usage mode (data process) */
 	    case 1000:	/* VT200 mouse tracking */
-	      curr->w_mouse = i ? 1000 : 0;
+	    case 1001:	/* VT200 highlight mouse */
+	    case 1002:	/* button event mouse*/
+	    case 1003:	/* any event mouse*/
+	      curr->w_mouse = i ? a1 : 0;
 	      LMouseMode(&curr->w_layer, curr->w_mouse);
 	      break;
 	    }
@@ -1569,11 +1672,11 @@ DesignateCharset(c, n)
 int c, n;
 {
   curr->w_ss = 0;
-# ifdef KANJI
-  if (c == ('@' & 037))
+# ifdef ENCODINGS
+  if (c == ('@' & 037))		/* map JIS 6226 to 0208 */
     c = KANJI;
 # endif
-  if (c == 'B' || c == 'J')
+  if (c == 'B')
     c = ASCII;
   if (curr->w_charsets[n] != c)
     {
@@ -1952,6 +2055,9 @@ SelectRendition()
 {
 #ifdef COLOR
   register int j, i = 0, a = curr->w_rend.attr, c = curr->w_rend.color;
+# ifdef COLORS256
+  int cx = curr->w_rend.colorx;
+# endif
 #else
   register int j, i = 0, a = curr->w_rend.attr;
 #endif
@@ -1960,10 +2066,48 @@ SelectRendition()
     {
       j = curr->w_args[i];
 #ifdef COLOR
+      if ((j == 38 || j == 48) && i + 2 < curr->w_NumArgs && curr->w_args[i + 1] == 5)
+	{
+	  int jj;
+
+	  i += 2;
+	  jj = curr->w_args[i];
+	  if (jj < 0 || jj > 255)
+	    continue;
+# ifdef COLORS256
+	  if (j == 38)
+	    {
+	      c = (c & 0xf0) | ((jj & 0x0f) ^ 9);
+	      a |= A_BFG;
+	      if (jj >= 8 && jj < 16)
+		c |= 0x08;
+	      else
+		a ^= A_BFG;
+	      a = (a & 0xbf) | (jj & 8 ? 0x40 : 0);
+	      cx = (cx & 0xf0) | (jj >> 4 & 0x0f);
+	    }
+	  else
+	    {
+	      c = (c & 0x0f) | ((jj & 0x0f) ^ 9) << 4;
+	      a |= A_BBG;
+	      if (jj >= 8 && jj < 16)
+		c |= 0x80;
+	      else
+		a ^= A_BBG;
+	      cx = (cx & 0x0f) | (jj & 0xf0);
+	    }
+	  continue;
+# else
+	  jj = color256to16(jj) + 30;
+	  if (jj >= 38)
+	    jj += 60 - 8;
+	  j = j == 38 ? jj : jj + 10;
+# endif
+	}
 # ifdef COLORS16
-      if (j == 0 || (j >= 30 && j <= 39))
+      if (j == 0 || (j >= 30 && j <= 39 && j != 38))
 	a &= 0xbf;
-      if (j == 0 || (j >= 40 && j <= 49))
+      if (j == 0 || (j >= 40 && j <= 49 && j != 48))
 	a &= 0x7f;
       if (j >= 90 && j <= 97)
 	a |= 0x40;
@@ -1974,12 +2118,18 @@ SelectRendition()
 	j -= 60;
       if (j >= 100 && j <= 107)
 	j -= 60;
-      if (j >= 30 && j <= 39)
-	c = (c & 0xf0) | (39 - j);
-      else if (j >= 40 && j <= 49)
-	c = (c & 0x0f) | ((49 - j) << 4);
+      if (j >= 30 && j <= 39 && j != 38)
+	c = (c & 0xf0) | ((j - 30) ^ 9);
+      else if (j >= 40 && j <= 49 && j != 48)
+	c = (c & 0x0f) | (((j - 40) ^ 9) << 4);
       if (j == 0)
 	c = 0;
+# ifdef COLORS256
+      if (j == 0 || (j >= 30 && j <= 39 && j != 38))
+	cx &= 0xf0;
+      if (j == 0 || (j >= 40 && j <= 49 && j != 48))
+	cx &= 0x0f;
+# endif
 #endif
       if (j < 0 || j >= (sizeof(rendlist)/sizeof(*rendlist)))
 	continue;
@@ -1993,6 +2143,9 @@ SelectRendition()
   curr->w_rend.attr = a;
 #ifdef COLOR
   curr->w_rend.color = c;
+# ifdef COLORS256
+  curr->w_rend.colorx = cx;
+# endif
 #endif
   LSetRendition(&curr->w_layer, &curr->w_rend);
 }
@@ -2001,7 +2154,7 @@ static void
 FillWithEs()
 {
   register int i;
-  register char *p, *ep;
+  register unsigned char *p, *ep;
 
   LClearAll(&curr->w_layer, 1);
   curr->w_y = curr->w_x = 0;
@@ -2029,10 +2182,18 @@ struct win *p;
 char *s;
 int l;
 {
-  if (l > 20)
-    l = 20;
-  strncpy(p->w_akachange, s, l);
-  p->w_akachange[l] = 0;
+  int i, c;
+
+  for (i = 0; i < 20 && l > 0; l--)
+    {
+      c = (unsigned char)*s++;
+      if (c == 0)
+	break;
+      if (c < 32 || c == 127 || (c >= 128 && c < 160 && p->w_c1))
+	continue;
+      p->w_akachange[i++] = c;
+    }
+  p->w_akachange[i] = 0;
   p->w_title = p->w_akachange;
   if (p->w_akachange != p->w_akabuf)
     if (p->w_akachange[0] == 0 || p->w_akachange[-1] == ':')
@@ -2045,7 +2206,7 @@ int l;
 static void
 FindAKA()
 {
-  register char *cp, *line;
+  register unsigned char *cp, *line;
   register struct win *wp = curr;
   register int len = strlen(wp->w_akabuf);
   int y;
@@ -2064,7 +2225,7 @@ FindAKA()
 		goto try_line;
 	      return;
 	    }
-	  if (strncmp(cp, wp->w_akabuf, len) == 0)
+	  if (strncmp((char *)cp, wp->w_akabuf, len) == 0)
 	    break;
 	  cp++;
 	}
@@ -2085,7 +2246,7 @@ FindAKA()
 	    line = cp;
 	  len--;
 	}
-      ChangeAKA(wp, line, cp - line);
+      ChangeAKA(wp, (char *)line, cp - line);
     }
   else
     wp->w_autoaka = 0;
@@ -2139,18 +2300,18 @@ struct mchar *mc;
   struct mline *ml = &p->w_mlines[y];
   if (mc->attr && ml->attr == null)
     {
-      if ((ml->attr = (char *)malloc(p->w_width + 1)) == 0)
+      if ((ml->attr = (unsigned char *)malloc(p->w_width + 1)) == 0)
 	{
 	  ml->attr = null;
 	  mc->attr = p->w_rend.attr = 0;
 	  WMsg(p, 0, "Warning: no space for attr - turned off");
 	}
-      bzero(ml->attr, p->w_width + 1);
+      bzero((char *)ml->attr, p->w_width + 1);
     }
 #ifdef FONT
   if (mc->font && ml->font == null)
     {
-      if ((ml->font = (char *)malloc(p->w_width + 1)) == 0)
+      if ((ml->font = (unsigned char *)malloc(p->w_width + 1)) == 0)
 	{
 	  ml->font = null;
 	  p->w_FontL = p->w_charsets[p->w_ss ? p->w_ss : p->w_Charset] = 0;
@@ -2158,24 +2319,56 @@ struct mchar *mc;
 	  mc->font = p->w_rend.font  = 0;
 	  WMsg(p, 0, "Warning: no space for font - turned off");
 	}
-      bzero(ml->font, p->w_width + 1);
+      bzero((char *)ml->font, p->w_width + 1);
     }
 #endif
 #ifdef COLOR
   if (mc->color && ml->color == null)
     {
-      if ((ml->color = (char *)malloc(p->w_width + 1)) == 0)
+      if ((ml->color = (unsigned char *)malloc(p->w_width + 1)) == 0)
 	{
 	  ml->color = null;
 	  mc->color = p->w_rend.color = 0;
 	  WMsg(p, 0, "Warning: no space for color - turned off");
 	}
-      bzero(ml->color, p->w_width + 1);
+      bzero((char *)ml->color, p->w_width + 1);
     }
+# ifdef COLORS256
+  if (mc->colorx && ml->colorx == null)
+    {
+      if ((ml->colorx = (unsigned char *)malloc(p->w_width + 1)) == 0)
+	{
+	  ml->colorx = null;
+	  mc->colorx = p->w_rend.colorx = 0;
+	  WMsg(p, 0, "Warning: no space for extended colors - turned off");
+	}
+      bzero((char *)ml->colorx, p->w_width + 1);
+    }
+# endif
 #endif
 }
 
 /*****************************************************************/
+
+#ifdef DW_CHARS
+# define MKillDwRight(p, ml, x)					\
+  if (dw_right(ml, x, p->w_encoding))				\
+    {								\
+      if (x > 0)						\
+	copy_mchar2mline(&mchar_blank, ml, x - 1);		\
+      copy_mchar2mline(&mchar_blank, ml, x);			\
+    }
+
+# define MKillDwLeft(p, ml, x)					\
+  if (dw_left(ml, x, p->w_encoding))				\
+    {								\
+      copy_mchar2mline(&mchar_blank, ml, x);			\
+      copy_mchar2mline(&mchar_blank, ml, x + 1);		\
+    }
+#else
+# define MKillDwRight(p, ml, x) ;
+# define MKillDwLeft(p, ml, x) ;
+#endif
 
 static void
 MScrollH(p, n, y, xs, xe, bce)
@@ -2187,10 +2380,15 @@ int n, y, xs, xe, bce;
   if (n == 0)
     return;
   ml = &p->w_mlines[y];
+  MKillDwRight(p, ml, xs);
+  MKillDwLeft(p, ml, xe);
   if (n > 0)
     {
       if (xe - xs + 1 > n)
-	bcopy_mline(ml, xs + n, xs, xe + 1 - xs - n);
+	{
+	  MKillDwRight(p, ml, xs + n);
+	  bcopy_mline(ml, xs + n, xs, xe + 1 - xs - n);
+	}
       else
 	n = xe - xs + 1;
       clear_mline(ml, xe + 1 - n, n);
@@ -2203,7 +2401,10 @@ int n, y, xs, xe, bce;
     {
       n = -n;
       if (xe - xs + 1 > n)
-	bcopy_mline(ml, xs, xs + n, xe + 1 - xs - n);
+	{
+	  MKillDwLeft(p, ml, xe - n);
+	  bcopy_mline(ml, xs, xs + n, xe + 1 - xs - n);
+	}
       else
 	n = xe - xs + 1;
       clear_mline(ml, xs, n);
@@ -2264,8 +2465,13 @@ int n, ys, ye, bce;
 	  if (ml->color != null)
 	    free(ml->color);
 	  ml->color = null;
+# ifdef COLORS256
+	  if (ml->colorx != null)
+	    free(ml->colorx);
+	  ml->colorx = null;
+# endif
 #endif
-	  bclear(ml->image, p->w_width + 1);
+	  bclear((char *)ml->image, p->w_width + 1);
 #ifdef COLOR
 	  if (bce)
 	    MBceLine(p, i, 0, p->w_width, bce);
@@ -2304,8 +2510,13 @@ int n, ys, ye, bce;
 	  if (ml->color != null)
 	    free(ml->color);
 	  ml->color = null;
+# ifdef COLORS256
+	  if (ml->colorx != null)
+	    free(ml->colorx);
+	  ml->colorx = null;
+# endif
 #endif
-	  bclear(ml->image, p->w_width + 1);
+	  bclear((char *)ml->image, p->w_width + 1);
 #ifdef COLOR
 	  if (bce)
 	    MBceLine(p, i, 0, p->w_width, bce);
@@ -2354,6 +2565,9 @@ int xs, ys, xe, ye, bce;
   if (xe >= p->w_width)
     xe = p->w_width - 1;
 
+  MKillDwRight(p, p->w_mlines + ys, xs);
+  MKillDwLeft(p, p->w_mlines + ye, xe);
+
   ml = p->w_mlines + ys;
   for (y = ys; y <= ye; y++, ml++)
     {
@@ -2382,16 +2596,31 @@ int x, y;
   MFixLine(p, y, c);
   ml = p->w_mlines + y;
   n = p->w_width - x - 1;
+  MKillDwRight(p, ml, x);
   if (n > 0)
-    bcopy_mline(ml, x, x + 1, n);
+    {
+      MKillDwRight(p, ml, p->w_width - 1);
+      bcopy_mline(ml, x, x + 1, n);
+    }
   copy_mchar2mline(c, ml, x);
-#ifdef KANJI
+#ifdef DW_CHARS
   if (c->mbcs)
     {
       if (--n > 0)
-	bcopy_mline(ml, x + 1, x + 2, n);
+        {
+          MKillDwRight(p, ml, p->w_width - 1);
+	  bcopy_mline(ml, x + 1, x + 2, n);
+	}
       copy_mchar2mline(c, ml, x + 1);
       ml->image[x + 1] = c->mbcs;
+# ifdef UTF8
+      if (p->w_encoding != UTF8)
+	ml->font[x + 1] |= 0x80;
+      else if (p->w_encoding == UTF8 && c->mbcs)
+	ml->font[x + 1] = c->mbcs;
+# else
+      ml->font[x + 1] |= 0x80;
+# endif
     }
 #endif
 }
@@ -2406,12 +2635,22 @@ int x, y;
 
   MFixLine(p, y, c);
   ml = &p->w_mlines[y];
+  MKillDwRight(p, ml, x);
   copy_mchar2mline(c, ml, x);
-#ifdef KANJI
+#ifdef DW_CHARS
   if (c->mbcs)
     {
+      MKillDwLeft(p, ml, x + 1);
       copy_mchar2mline(c, ml, x + 1);
       ml->image[x + 1] = c->mbcs;
+# ifdef UTF8
+      if (p->w_encoding != UTF8)
+	ml->font[x + 1] |= 0x80;
+      else if (p->w_encoding == UTF8 && c->mbcs)
+	ml->font[x + 1] = c->mbcs;
+# else
+      ml->font[x + 1] |= 0x80;
+# endif
     }
 #endif
 }
@@ -2428,7 +2667,7 @@ int ins;
   int bce;
 
 #ifdef COLOR
-  bce = c->color >> 4 & 0xf;
+  bce = rend_getbg(c);
 #else
   bce = 0;
 #endif
@@ -2455,13 +2694,15 @@ int x, y;
 {
   struct mline *ml;
   int i;
-  char *b;
+  unsigned char *b;
 
   if (n <= 0)
     return;
   MFixLine(p, y, r);
   ml = &p->w_mlines[y];
-  bcopy(s, ml->image + x, n);
+  MKillDwRight(p, ml, x);
+  MKillDwLeft(p, ml, x + n - 1);
+  bcopy(s, (char *)ml->image + x, n);
   b = ml->attr + x;
   for (i = n; i-- > 0;)
     *b++ = r->attr;
@@ -2474,6 +2715,11 @@ int x, y;
   b = ml->color + x;
   for (i = n; i-- > 0;)
     *b++ = r->color;
+# ifdef COLORS256
+  b = ml->colorx + x;
+  for (i = n; i-- > 0;)
+    *b++ = r->colorx;
+# endif
 #endif
 }
 
@@ -2488,13 +2734,22 @@ int y, xs, xe, bce;
   int x;
 
   mc = mchar_null;
-  mc.color = bce;
+  rend_setbg(&mc, bce);
   MFixLine(p, y, &mc);
   ml = p->w_mlines + y;
-  if (!mc.color)
-    return;
-  for (x = xs; x <= xe; x++)
-    ml->color[x] = bce << 4;
+# ifdef COLORS16
+  if (mc.attr)
+    for (x = xs; x <= xe; x++)
+      ml->attr[x] = mc.attr;
+# endif
+  if (mc.color)
+    for (x = xs; x <= xe; x++)
+      ml->color[x] = mc.color;
+# ifdef COLORS256
+  if (mc.colorx)
+    for (x = xs; x <= xe; x++)
+      ml->colorx[x] = mc.colorx;
+# endif
 }
 #endif
 
@@ -2505,7 +2760,7 @@ WAddLineToHist(wp, ml)
 struct win *wp;
 struct mline *ml;
 {
-  register char *q, *o;
+  register unsigned char *q, *o;
   struct mline *hml;
 
   if (wp->w_histheight == 0)
@@ -2527,6 +2782,11 @@ struct mline *ml;
   q = ml->color; o = hml->color; hml->color = q; ml->color = null;
   if (o != null)
     free(o);
+# ifdef COLORS256
+  q = ml->colorx; o = hml->colorx; hml->colorx = q; ml->colorx = null;
+  if (o != null)
+    free(o);
+# endif
 #endif
 
   if (++wp->w_histidx >= wp->w_histheight)
@@ -2552,6 +2812,10 @@ int ys, ye;
 #ifdef COLOR
       if (ml->color != null && bcmp((char*)ml->color, null, p->w_width))
 	break;
+# ifdef COLORS256
+      if (ml->colorx != null && bcmp((char*)ml->colorx, null, p->w_width))
+	break;
+# endif
 #endif
     }
   debug1("MFindUsedLine returning  %d\n", y);
@@ -2685,15 +2949,22 @@ int what;
 int *hp;
 {
   int h = 0;
+  int l;
   while(*s)
     {
       if (*s++ != (hp ? '%' : '\005'))
 	continue;
+      l = 0;
       while (*s >= '0' && *s <= '9')
 	s++;
+      if (*s == 'L')
+	{
+	  s++;
+	  l = 0x100;
+	}
       if (*s == 'h')
 	h = 1;
-      if (*s == what || what == 'd')
+      if (*s == what || ((*s | l) == what) || what == 'd')
 	break;
       if (*s)
 	s++;
@@ -2708,16 +2979,31 @@ WindowChanged(p, what)
 struct win *p;
 int what;
 {
-  int inwstr, inhstr;
-  int inwstrh, inhstrh;
+  int inwstr, inhstr, inlstr;
+  int inwstrh = 0, inhstrh = 0, inlstrh = 0;
   int got, ox, oy;
   struct display *olddisplay = display;
   struct canvas *cv;
 
   inwstr = inhstr = 0;
 
-  inwstr = WindowChangedCheck(captionstring, what, &inwstrh);
-  inhstr = WindowChangedCheck(hstatusstring, what, &inhstrh);
+  if (what == 'f')
+    {
+      WindowChanged((struct win *)0, 'w'|0x100);
+      WindowChanged((struct win *)0, 'W'|0x100);
+    }
+
+  if (what)
+    {
+      inwstr = WindowChangedCheck(captionstring, what, &inwstrh);
+      inhstr = WindowChangedCheck(hstatusstring, what, &inhstrh);
+      inlstr = WindowChangedCheck(wliststr, what, &inlstrh);
+    }
+  else
+    {
+      inwstr = inhstr = 0;
+      inlstr = 1;
+    }
 
   if (p == 0)
     {
@@ -2727,6 +3013,8 @@ int what;
 	  oy = D_y;
 	  for (cv = D_cvlist; cv; cv = cv->c_next)
 	    {
+	      if (inlstr || (inlstrh && p && p->w_hstatus && *p->w_hstatus && WindowChangedCheck(p->w_hstatus, what, (int *)0)))
+		WListUpdatecv(cv, (struct win *)0);
 	      p = Layer2Window(cv->c_layer);
 	      if (inwstr || (inwstrh && p && p->w_hstatus && *p->w_hstatus && WindowChangedCheck(p->w_hstatus, what, (int *)0)))
 	        if (cv->c_ye + 1 < D_height)
@@ -2742,12 +3030,13 @@ int what;
       return;
     }
 
-  if (p->w_hstatus && *p->w_hstatus && (inwstrh || inhstrh) && WindowChangedCheck(p->w_hstatus, what, (int *)0))
+  if (p->w_hstatus && *p->w_hstatus && (inwstrh || inhstrh || inlstrh) && WindowChangedCheck(p->w_hstatus, what, (int *)0))
     {
       inwstr |= inwstrh;
       inhstr |= inhstrh;
+      inlstr |= inlstrh;
     }
-  if (!inwstr && !inhstr)
+  if (!inwstr && !inhstr && !inlstr)
     return;
   for (display = displays; display; display = display->d_next)
     {
@@ -2756,6 +3045,8 @@ int what;
       oy = D_y;
       for (cv = D_cvlist; cv; cv = cv->c_next)
 	{
+	  if (inlstr)
+	    WListUpdatecv(cv, p);
 	  if (Layer2Window(cv->c_layer) != p)
 	    continue;
 	  got = 1;

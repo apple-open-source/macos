@@ -2,12 +2,12 @@
    +----------------------------------------------------------------------+
    | Zend Engine                                                          |
    +----------------------------------------------------------------------+
-   | Copyright (c) 1998-2001 Zend Technologies Ltd. (http://www.zend.com) |
+   | Copyright (c) 1998-2003 Zend Technologies Ltd. (http://www.zend.com) |
    +----------------------------------------------------------------------+
-   | This source file is subject to version 0.92 of the Zend license,     |
+   | This source file is subject to version 2.00 of the Zend license,     |
    | that is bundled with this package in the file LICENSE, and is        | 
    | available at through the world-wide-web at                           |
-   | http://www.zend.com/license/0_92.txt.                                |
+   | http://www.zend.com/license/2_00.txt.                                |
    | If you did not receive a copy of the Zend license and are unable to  |
    | obtain it through the world-wide-web, please send a note to          |
    | license@zend.com so we can mail you a copy immediately.              |
@@ -42,8 +42,8 @@ ZEND_API int mul_function(zval *result, zval *op1, zval *op2 TSRMLS_DC);
 ZEND_API int div_function(zval *result, zval *op1, zval *op2 TSRMLS_DC);
 ZEND_API int mod_function(zval *result, zval *op1, zval *op2 TSRMLS_DC);
 ZEND_API int boolean_xor_function(zval *result, zval *op1, zval *op2 TSRMLS_DC);
-ZEND_API int boolean_not_function(zval *result, zval *op1 TSRMLS_DC);
-ZEND_API int bitwise_not_function(zval *result, zval *op1 TSRMLS_DC);
+ZEND_API int boolean_not_function(zval *result, zval *op1);
+ZEND_API int bitwise_not_function(zval *result, zval *op1);
 ZEND_API int bitwise_or_function(zval *result, zval *op1, zval *op2 TSRMLS_DC);
 ZEND_API int bitwise_and_function(zval *result, zval *op1, zval *op2 TSRMLS_DC);
 ZEND_API int bitwise_xor_function(zval *result, zval *op1, zval *op2 TSRMLS_DC);
@@ -185,6 +185,8 @@ ZEND_API void zend_compare_objects(zval *result, zval *o1, zval *o2 TSRMLS_DC);
 
 ZEND_API int zend_atoi(const char *str, int str_len);
 
+ZEND_API void zend_locale_sprintf_double(zval *op ZEND_FILE_LINE_DC);
+
 #define convert_to_ex_master(ppzv, lower_type, upper_type)	\
 	if ((*ppzv)->type!=IS_##upper_type) {					\
 		if (!(*ppzv)->is_ref) {								\
@@ -233,7 +235,7 @@ ZEND_API int zend_atoi(const char *str, int str_len);
 #define Z_STRVAL(zval)		(zval).value.str.val
 #define Z_STRLEN(zval)		(zval).value.str.len
 #define Z_ARRVAL(zval)		(zval).value.ht
-#define Z_OBJ(zval)			&(zval).value.obj
+#define Z_OBJ(zval)			(&(zval).value.obj)
 #define Z_OBJPROP(zval)		(zval).value.obj.properties
 #define Z_OBJCE(zval)		(zval).value.obj.ce
 #define Z_RESVAL(zval)		(zval).value.lval

@@ -1,0 +1,2 @@
+%(member)s 명이 %(listname)s 에서 제거되었습니다.
+

@@ -1,0 +1,22 @@
+The following people have contributed to srm:
+
+Gael Roualland - Fixed 0.9 build problems on Solaris 2.7.
+	       - Found a missing pass in 0.8.2.
+	       - Fixed some embarassing bugs in 0.8.1.
+
+Mathias Weidner - Fixed a problem with the spec file and recent versions
+		  of rpm. (Fixed in 1.2.0)
+
+Martynas Tarvydas - Noticed that deleting write-protected files asked for
+		    permission then failed. (Fixed in 1.2.1)
+
+Xander Soldaat - Pointed out that -f didn't actually ignore
+		 nonexistant files. (Fixed in 1.2.2)
+
+Eric Severance - Fixed a file descriptor leak in 1.2.2.
+
+Klaus Alexander Seistrup - Fixed a rare deadlock in 1.2.4.
+
+Alec Edworthy - Noticed that -v and -f didn't work together in 1.2.5
+
+Ken McLeod - Misc bugfixes in 1.2.6

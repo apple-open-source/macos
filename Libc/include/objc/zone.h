@@ -23,7 +23,10 @@
  * @APPLE_LICENSE_HEADER_END@
  */
 
-#import <objc/malloc.h>
+#ifndef _OBJC_ZONE_H_
+#define _OBJC_ZONE_H_
+
+#import <malloc/malloc.h>
 
 typedef malloc_zone_t NXZone;
 
@@ -31,6 +34,9 @@ typedef malloc_zone_t NXZone;
 
 /*********	Interface to zone based malloc	************/
 
+#include <sys/cdefs.h>
+
+__BEGIN_DECLS
 extern NXZone *NXDefaultMallocZone(void);
     // Returns the default zone used by the malloc(3) calls
 
@@ -55,4 +61,6 @@ extern void NXDestroyZone(malloc_zone_t *zone);
 extern NXZone *NXZoneFromPtr(void *ptr);
     // Returns the zone for a pointer, or NX_NOZONE if not in any zone.
     // The ptr must have been returned from a malloc or realloc call.
+__END_DECLS
 
+#endif /* _OBJC_ZONE_H_ */

@@ -1,8 +1,8 @@
 /* 
    +----------------------------------------------------------------------+
-   | PHP version 4.0                                                      |
+   | PHP Version 4                                                        |
    +----------------------------------------------------------------------+
-   | Copyright (c) 1997-2001 The PHP Group                                |
+   | Copyright (c) 1997-2003 The PHP Group                                |
    +----------------------------------------------------------------------+
    | This source file is subject to version 2.02 of the PHP license,      |
    | that is bundled with this package in the file LICENSE, and is        |
@@ -12,25 +12,30 @@
    | obtain it through the world-wide-web, please send a note to          |
    | license@php.net so we can mail you a copy immediately.               |
    +----------------------------------------------------------------------+
-   | Authors: Rasmus Lerdorf <rasmus@lerdorf.on.ca>                       |
+   | Author: Rasmus Lerdorf <rasmus@lerdorf.on.ca>                        |
    +----------------------------------------------------------------------+
 */
 
-/* $Id: html.h,v 1.1.1.5 2001/12/14 22:13:22 zarzycki Exp $ */
+/* $Id: html.h,v 1.1.1.8 2003/07/18 18:07:43 zarzycki Exp $ */
 
 #ifndef HTML_H
 #define HTML_H
 
-#define ENT_COMPAT    1
-#define ENT_QUOTES    2
-#define ENT_NOQUOTES  4
+#define ENT_HTML_QUOTE_NONE		0
+#define ENT_HTML_QUOTE_SINGLE	1
+#define ENT_HTML_QUOTE_DOUBLE	2
+
+#define ENT_COMPAT    ENT_HTML_QUOTE_DOUBLE
+#define ENT_QUOTES    (ENT_HTML_QUOTE_DOUBLE | ENT_HTML_QUOTE_SINGLE)
+#define ENT_NOQUOTES  ENT_HTML_QUOTE_NONE
 
 void register_html_constants(INIT_FUNC_ARGS);
 
 PHP_FUNCTION(htmlspecialchars);
 PHP_FUNCTION(htmlentities);
+PHP_FUNCTION(html_entity_decode);
 PHP_FUNCTION(get_html_translation_table);
 
-PHPAPI char *php_escape_html_entities(unsigned char *old, int oldlen, int *newlen, int all, int quote_style, char * hint_charset);
+PHPAPI char *php_escape_html_entities(unsigned char *old, int oldlen, int *newlen, int all, int quote_style, char *hint_charset TSRMLS_DC);
 
 #endif /* HTML_H */

@@ -9,7 +9,7 @@
  * See the file "license.terms" for information on usage and redistribution
  * of this file, and for a DISCLAIMER OF ALL WARRANTIES.
  *
- * RCS: @(#) $Id: tclMacTime.c,v 1.1.1.4 2002/04/05 16:13:47 jevans Exp $
+ * RCS: @(#) $Id: tclMacTime.c,v 1.1.1.5 2003/03/06 00:12:27 landonf Exp $
  */
 
 #include "tclInt.h"
@@ -20,7 +20,7 @@
 #include <time.h>
 
 /*
- * Static variables used by the TclpGetTime function.
+ * Static variables used by the Tcl_GetTime function.
  */
  
 static int initalized = false;
@@ -251,7 +251,7 @@ TclpGetTimeZone (
 /*
  *----------------------------------------------------------------------
  *
- * TclpGetTime --
+ * Tcl_GetTime --
  *
  *	Gets the current system time in seconds and microseconds
  *	since the beginning of the epoch: 00:00 UCT, January 1, 1970.
@@ -266,7 +266,7 @@ TclpGetTimeZone (
  */
 
 void
-TclpGetTime(
+Tcl_GetTime(
     Tcl_Time *timePtr)		/* Location to store time information. */
 {
     UnsignedWide micro;
@@ -340,12 +340,12 @@ TclpGetDate(
     static struct tm statictime;
     static const short monthday[12] =
         {0, 31, 59, 90, 120, 151, 181, 212, 243, 273, 304, 334};
-
+	    
 	if(useGMT)
 		SecondsToDate(*tp - tcl_mac_epoch_offset, &dtr);
 	else
 		SecondsToDate(*tp + TclpGetGMTOffset() - tcl_mac_epoch_offset, &dtr);
-
+	
     statictime.tm_sec = dtr.second;
     statictime.tm_min = dtr.minute;
     statictime.tm_hour = dtr.hour;
@@ -388,6 +388,9 @@ TclpGetTZName(int dst)
     register TABLE *tp;
 	long zonevalue=-TclpGetGMTOffset();
 		
+    if (gmt_isdst)
+        zonevalue += HOUR(1);
+
 	if(gmt_lastGetDateUseGMT) /* hack: if last TclpGetDate was called */
 		zonevalue=0;          /* with useGMT==1 then we're using GMT  */
 

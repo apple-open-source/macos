@@ -3,8 +3,6 @@
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
- * Copyright (c) 1999-2003 Apple Computer, Inc.  All Rights Reserved.
- * 
  * This file contains Original Code and/or Modifications of Original Code
  * as defined in and that are subject to the Apple Public Source License
  * Version 2.0 (the 'License'). You may not use this file except in
@@ -35,7 +33,7 @@ unsigned long addr,
 unsigned long *word,
 void *get_word_data /* struct mach_object_file *ofile */ )
 {
-    int i, j;
+    unsigned long i, j;
     struct load_command *lc;
     struct segment_command *sg;
     struct section *s;

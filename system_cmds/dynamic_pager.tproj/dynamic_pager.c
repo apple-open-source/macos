@@ -14,6 +14,7 @@
 #include <mach/mach_syscalls.h>
 #include <mach/mig_errors.h>
 #include <sys/param.h>
+#include <sys/mount.h>
 #include <sys/file.h>
 #include <sys/mman.h>
 #include <sys/stat.h>
@@ -35,22 +36,41 @@
 #include <backing_store_alerts.h>
 #include <backing_store_triggers_server.h>
 
+
+/*
+ * HI_WATER_DEFAULT set to this funny value to 
+ * match the size that the low space application
+ * is asking for... need to keep MINIMUM_SIZE
+ * above this value.
+ */
+#define HI_WATER_DEFAULT 40000000
+#define MINIMUM_SIZE (1024 * 1024 * 64)
+#define MAXIMUM_SIZE  (1024 * 1024 * 1024)
+
+#define MAX_LIMITS 8
+
+
+struct limit {
+        unsigned int size;
+        unsigned int low_water;
+} limits[MAX_LIMITS];
+
+
 int	debug = 0;
+int     max_valid  = 0;
 int	file_count = 0;
-int 	low_water = 0;
-int	hi_water = 0;
-int	local_hi_water = 0;
-int	size  = 20000000;
+unsigned int	hi_water;
+unsigned int	local_hi_water;
 int	priority = 0;
-int	options = 0;
+int	options  = 0;
 char	fileroot[512];
 
 
 /* global parameters for application notification option */
-mach_port_t	trigger_port = NULL;
-mach_port_t	notify_port = NULL;
-int		notify_high = 0;
-int		bs_recovery;
+mach_port_t	trigger_port = MACH_PORT_NULL;
+mach_port_t	notify_port = MACH_PORT_NULL;
+unsigned int	notify_high = 0;
+unsigned int	bs_recovery;
 
 /*
 void	setprof __P((struct kvmvars *kvp, int state));
@@ -152,8 +172,22 @@ backing_store_triggers(dynamic_pager, hi_wat, flags, port)
 		int		flags;
 		mach_port_t 	port;
 {
-	if((hi_wat + size) > low_water) 
+        int cur_limits;
+	
+	if (file_count > max_valid)
+	        cur_limits = max_valid;
+	else
+	        cur_limits = file_count;
+
+	if((hi_wat + limits[cur_limits].size) > limits[cur_limits].low_water) 
 		return KERN_FAILURE; /* let ipc system clean up port */
+
+	/* If there was a previous registration, throw it away */
+	if (notify_port != MACH_PORT_NULL) {
+		mach_port_deallocate(mach_task_self(), notify_port);
+		notify_port = MACH_PORT_NULL;
+	}
+
 	notify_port = port;
 	notify_high = hi_wat;
 	if(hi_water < notify_high) {
@@ -175,35 +209,74 @@ default_pager_space_alert(alert_port, flags)
 {
 	char subfile[512];
 	FILE *file_ptr;
-	off_t	filesize = size;
+	off_t	filesize;
 	int	error;
+	kern_return_t	ret;
+        int cur_limits;
+	unsigned int cur_size;
+	unsigned int notifications;
 
+	
 	if(flags & HI_WAT_ALERT) {
-/* printf("HI WAT ALERT!!\n"); */
+
 		file_count++;
+
+		if (file_count > max_valid)
+		        cur_limits = max_valid;
+		else
+		        cur_limits = file_count;
+
+		cur_size = limits[cur_limits].size;
+		filesize = cur_size;
+
+		/*
+		 * because the LO_WAT threshold changes relative to
+		 * the size of the swap file we're creating
+		 * we need to reset the LO_WAT_ALERT threshold each
+		 * time we create a new swap file
+		 */
+		if (limits[cur_limits].low_water)
+		        notifications = HI_WAT_ALERT | LO_WAT_ALERT;
+		else
+		        notifications = HI_WAT_ALERT;
+
 		sprintf(subfile, "%s%d", fileroot, file_count);
 		file_ptr = fopen(subfile, "w+");
 		fchmod(fileno(file_ptr), (mode_t)01600);
 		error = fcntl(fileno(file_ptr), F_SETSIZE, &filesize);
+		if(error) {
+			error = ftruncate(fileno(file_ptr), filesize);
+		}
 		fclose(file_ptr);
+
 		if(error == -1) {
 			unlink(subfile);
 			file_count--;
+
+			if (file_count > max_valid)
+			        cur_limits = max_valid;
+			else
+			        cur_limits = file_count;
+
+			if (limits[cur_limits].low_water)
+			        notifications = HI_WAT_ALERT | LO_WAT_ALERT;
+			else
+			        notifications = HI_WAT_ALERT;
+
 			local_hi_water = local_hi_water>>2;
 			if(notify_high >= (local_hi_water)) {
-				if(notify_port) {
+				if(notify_port != MACH_PORT_NULL) {
 					/* notify monitoring app of */
 					/* backing store shortage  */
 					backing_store_alert(notify_port,
 								HI_WAT_ALERT);
 					mach_port_deallocate(mach_task_self(), 
 								notify_port);
+					notify_port = MACH_PORT_NULL;
 					notify_high = 0;
-					notify_port = 0;
 				}
 			}
-			macx_triggers(local_hi_water, 
-				low_water, HI_WAT_ALERT, alert_port);
+			macx_triggers(local_hi_water, limits[cur_limits].low_water, notifications, alert_port);
 		} else {
 			if(hi_water < notify_high) {
 				if(local_hi_water < notify_high) {
@@ -216,46 +289,87 @@ default_pager_space_alert(alert_port, flags)
 				}
 				local_hi_water = hi_water;
 			}
-			macx_swapon(subfile, flags, size, priority);
-			if(bs_recovery <= size) {
+			ret = macx_swapon(subfile, flags, cur_size, priority);
+
+			if(ret) {
+				unlink(subfile);
+				file_count--;
+
+				if (file_count > max_valid)
+				        cur_limits = max_valid;
+				else
+				        cur_limits = file_count;
+
+				if (limits[cur_limits].low_water)
+				        notifications = HI_WAT_ALERT | LO_WAT_ALERT;
+				else
+				        notifications = HI_WAT_ALERT;
+
+				local_hi_water = local_hi_water>>2;
+				if(notify_high >= (local_hi_water)) {
+					if(notify_port != MACH_PORT_NULL) {
+						/* notify monitoring app of */
+						/* backing store shortage  */
+						backing_store_alert(
+							notify_port,
+							HI_WAT_ALERT);
+						mach_port_deallocate(
+							mach_task_self(), 
+							notify_port);
+						notify_port = MACH_PORT_NULL;
+						notify_high = 0;
+					}
+				}
+				macx_triggers(local_hi_water, limits[cur_limits].low_water, notifications, alert_port);
+			} else if(bs_recovery <= cur_size) {
 				if((bs_recovery != 0) && (notify_port)) {
 					backing_store_alert(notify_port,
 								LO_WAT_ALERT);
 					mach_port_deallocate(mach_task_self(), 
 								notify_port);
+					notify_port = MACH_PORT_NULL;
 					notify_high = 0;
-					notify_port = NULL;
-					
 					bs_recovery = 0;
 				}
 			} else 
-				bs_recovery = bs_recovery-size;
+				bs_recovery = bs_recovery-cur_size;
 		}
-	
-		macx_triggers(local_hi_water, 
-			low_water, HI_WAT_ALERT, alert_port);
+		macx_triggers(local_hi_water, limits[cur_limits].low_water, notifications, alert_port);
 	}
 	if(flags & LO_WAT_ALERT) {
-/* Turn into a logged message printf("LO WAT ALERT!!\n"); */
 		sprintf(subfile, "%s%d", fileroot, file_count);
 		if(hi_water < notify_high) {
 			local_hi_water = notify_high;
 		} else {
 			local_hi_water = hi_water;
 		}
-		if((bs_recovery != 0) && (notify_port)) {
+		if((bs_recovery != 0) && (notify_port != MACH_PORT_NULL)) {
 			backing_store_alert(notify_port, LO_WAT_ALERT);
 			mach_port_deallocate(mach_task_self(), notify_port);
+			notify_port = MACH_PORT_NULL;
 			notify_high = 0;
-			notify_port = NULL;
-					
 			bs_recovery = 0;
 		}
-		if(macx_swapoff(subfile, flags) == 0) {
+		if((error = macx_swapoff(subfile, flags)) == 0) {
+
 			unlink(subfile);
 			file_count--;
+
+			if (file_count > max_valid)
+			        cur_limits = max_valid;
+			else
+			        cur_limits = file_count;
+		} else {
+			if (file_count > max_valid)
+			        cur_limits = max_valid;
+			else
+			        cur_limits = file_count;
 		}
-		macx_triggers(local_hi_water, low_water, LO_WAT_ALERT, alert_port);
+		/*
+		 * only need to reset the LO_WAT_ALERT... the HI_WAT size is fixed,
+		 * it doesn't change even if the swap file size shrinks or grows
+		 */
+		macx_triggers(local_hi_water, limits[cur_limits].low_water, LO_WAT_ALERT, alert_port);
 	}
 	return KERN_SUCCESS;
 }
@@ -284,15 +398,20 @@ paging_setup(flags, size, priority, low, high)
 	off_t		filesize = size;
 	char 		subfile[512];
 	FILE 		*file_ptr;
+	int		error;
 
 	file_count = 0;
 	sprintf(subfile, "%s%d", fileroot, file_count);
 	file_ptr = fopen(subfile, "w+");
 	fchmod(fileno(file_ptr), (mode_t)01600);
-	fcntl(fileno(file_ptr), F_SETSIZE, &filesize);
+	error = fcntl(fileno(file_ptr), F_SETSIZE, &filesize);
+	if(error) {
+	error = ftruncate(fileno(file_ptr), filesize);
+	}
 	fclose(file_ptr);
         
 	macx_swapon(subfile, flags, size, priority);
+
 	if(hi_water) {
 		mach_msg_type_name_t    poly;
 
@@ -308,9 +427,9 @@ paging_setup(flags, size, priority, low, high)
 		mach_port_extract_right(mach_task_self(), trigger_port,
 			MACH_MSG_TYPE_MAKE_SEND, &trigger_port, &poly);
 		macx_triggers(high, low, HI_WAT_ALERT, trigger_port);
+
 		if(low) {
-			macx_triggers(high, 
-				low, LO_WAT_ALERT, trigger_port);
+			macx_triggers(high, low, LO_WAT_ALERT, trigger_port);
 		}
 		/* register control port for applications wishing to */
 		/* get backing store notifications or change dynamic */
@@ -318,7 +437,7 @@ paging_setup(flags, size, priority, low, high)
 		set_dp_control_port(mach_host_self(), trigger_port);
 		wait_on_paging_trigger(trigger_port); 
 	}
-	 exit(0);
+	exit(0);
 }
 int
 main(int argc, char **argv)
@@ -327,9 +446,17 @@ main(int argc, char **argv)
 	extern int optind;
 	char default_filename[] = "/private/var/vm/swapfile";
 	int ch;
+	int variable_sized = 1;
 
 	seteuid(getuid());
 	strcpy(fileroot, default_filename);
+
+	limits[0].size = 20000000;
+	limits[0].low_water = 0;
+
+	hi_water = 0;
+	local_hi_water = 0;
+
 
 	while ((ch = getopt(argc, argv, "F:L:H:S:P:O:")) != EOF) {
 		switch((char)ch) {
@@ -339,13 +466,16 @@ main(int argc, char **argv)
 			break;
 
 		case 'L':
-			low_water = atoi(optarg);
+		        variable_sized = 0;
+			limits[0].low_water = atoi(optarg);
 			break;
 		case 'H':
+		        variable_sized = 0;
 			hi_water = atoi(optarg);
 			break;
 		case 'S':
-			size = atoi(optarg);
+		        variable_sized = 0;
+			limits[0].size = atoi(optarg);
 			break;
 		case 'P':
 			priority = atoi(optarg);
@@ -357,13 +487,127 @@ main(int argc, char **argv)
 			exit(1);
 		}
 	}
+
+	if (variable_sized) {
+	        static char tmp[1024];
+		struct statfs sfs;
+		char *q;
+		int  i;
+		int  mib[4];
+		size_t len;
+		unsigned int size;
+		u_int64_t  memsize;
+		u_int64_t  fs_limit;
+
+		/*
+		 * if we get here, then none of the following options were specified... -L, H, or -S
+		 * drop into a new mode that scales the size of the swap file based on how much free
+		 * space is left on the volume being used for swap and the amount of physical ram 
+		 * installed on the system...
+		 * basically, we'll pick a maximum size that doesn't exceed the following limits...
+		 *   1/4 the remaining free space of the swap volume 
+		 *   the size of phsyical ram
+		 *   MAXIMUM_SIZE - currently set to 1 Gbyte... 
+		 * once we have the maximum, we'll create a list of sizes and low_water limits
+		 * we'll start with 2 files of MINIMUM_SIZE - currently 64 Mbytes...
+		 * subsequent entries will double in size up to the calculated maximum... the low_water
+		 * limit will be the sum of the current file size and the previous file size for each entry...
+		 * as we add or delete files, we'll use the current file_count as an index into this 
+		 * table... if it's beyond the table size, we'll use the last entry
+		 * the table entry will determine the size of the file to be created and the new low_water mark...
+		 * the high_water mark is set to HI_WATER_DEFAULT which  must be smaller than MINIMUM_SIZE...
+		 * currently it is set to 40,000,000 to match the size being requested by the application 
+		 * monitoring low space conditions... having it set to the same size keeps us from creating
+		 * an additional swap file when it really isn't necessary
+		 */
+
+		/*
+		 * get rid of the filename at the end of the swap file specification
+		 * we only want the portion of the pathname that should already exist
+		 */
+	        strcpy(tmp, fileroot);
+		if (q = strrchr(tmp, '/'))
+		        *q = 0;
+
+	        if (statfs(tmp, &sfs) != -1) {
+		        /*
+			 * limit the maximum size of a swap file to 1/4 the free
+			 * space available on the filesystem where the swap files
+			 * are to reside
+			 */
+		        fs_limit = ((u_int64_t)sfs.f_bfree * (u_int64_t)sfs.f_bsize) / 4;
+
+		} else {
+		        (void)fprintf(stderr, "usage: swap directory must exist\n"); 
+			exit(1);
+		}
+		mib[0] = CTL_HW;
+		mib[1] = HW_MEMSIZE;
+		len = sizeof(u_int64_t);
+
+		if (sysctl(mib, 2, &memsize, &len, NULL, 0) < 0) {
+		        /*
+			 * if the sysctl fails for some reason
+			 * use the starting size as the default
+			 */
+		        memsize = MINIMUM_SIZE;
+		}
+		if (memsize > fs_limit)
+		        /*
+			 * clip based on filesystem space available
+			 */
+		        memsize = fs_limit;
+
+		/*
+		 * further limit the maximum size of a swap file
+		 */
+		if (memsize > MAXIMUM_SIZE)
+		        memsize = MAXIMUM_SIZE;
+		
+		size = MINIMUM_SIZE;
+
+		/*
+		 * start small and work our way up to the maximum
+		 * sized allowed... this way, we don't tie up too
+		 * much disk space if we never do any real paging
+		 */
+		for (max_valid = 0, i = 0; i < MAX_LIMITS; i++) {
+		        limits[i].size = size;
+
+			if (i == 0)
+			        limits[i].low_water = size * 2;
+			else {
+			        if ((limits[i - 1].size / 2) > HI_WATER_DEFAULT)
+				        limits[i].low_water = size + (limits[i - 1].size / 2);
+				else
+				        limits[i].low_water = size + limits[i - 1].size;
+			}
+			if (size >= memsize)
+			        break;
+			
+			if (i) {
+			        /*
+				 * make the first 2 files the same size
+				 */
+			        size = size * 2;
+			}
+			max_valid++;
+		}
+		if (max_valid >= MAX_LIMITS)
+		        max_valid = MAX_LIMITS - 1;
+
+		hi_water = HI_WATER_DEFAULT;
+	}
 	local_hi_water = hi_water;
-	if((low_water != 0) && (low_water <= (size + hi_water))) {
+
+	if((limits[0].low_water != 0) && (limits[0].low_water <= (limits[0].size + hi_water))) {
 		(void)fprintf(stderr,  "usage: low water trigger must be larger than size + hi_water\n"); 
 		exit(1);
 	}
 	argc -= optind;
 	argv += optind;
-	paging_setup(0, size, priority, low_water, hi_water);
+
+	paging_setup(0, limits[0].size, priority, limits[0].low_water, hi_water);
+
 	return (0);
 }

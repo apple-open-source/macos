@@ -1,0 +1,77 @@
+<HTML>
+<HEAD>
+<!-- This HTML file has been created by texi2html 1.51
+     from .././gimpprint.texi on 22 January 2003 -->
+
+<TITLE>GIMP-Print - Weaving algorithms</TITLE>
+</HEAD>
+<BODY>
+Go to the <A HREF="gimpprint_1.html">first</A>, <A HREF="gimpprint_27.html">previous</A>, <A HREF="gimpprint_29.html">next</A>, <A HREF="gimpprint_47.html">last</A> section, <A HREF="gimpprint_toc.html">table of contents</A>.
+<P><HR><P>
+
+
+<H2><A NAME="SEC43" HREF="gimpprint_toc.html#TOC43">B.2  Weaving algorithms</A></H2>
+<P>
+<A NAME="IDX184"></A>
+
+</P>
+<P>
+I considered a few algorithms to perform the weave.  The first one I
+devised let me use only @math{(jets-distance_between_jets+1)}
+nozzles, or 25.  This is OK in principle, but it's slower than using all
+nozzles.  By playing around with it some more, I came up with an
+algorithm that lets me use all of the nozzles, except near the top and
+bottom of the page.
+
+</P>
+<P>
+This still produces some banding, though.  Even better quality can be
+achieved by using multiple nozzles on the same line.  How do we do
+this?  In 1440x720 mode, we're printing two output lines at the same
+vertical position.  However, if we want four passes, we have to
+effectively print each line twice.  Actually doing this would increase
+the density, so what we do is print half the dots on each pass.  This
+produces near-perfect output, and it's far faster than using (pseudo)
+"MicroWeave".
+
+</P>
+<P>
+Yet another complication is how to get near the top and bottom of the
+page.  This algorithm lets us print to within one head width of the
+top of the page, and a bit more than one head width from the bottom.
+That leaves a lot of blank space.  Doing the weave properly outside of
+this region is increasingly difficult as we get closer to the edge of
+the paper; in the interior region, any nozzle can print any line, but
+near the top and bottom edges, only some nozzles can print.  We
+originally handled this by using the naive way mentioned above near
+the borders, and switching over to the high quality method in the
+interior.  Unfortunately, this meant that the quality is quite visibly
+degraded near the top and bottom of the page.  We have since devised
+better algorithms that allow printing to the extreme top and bottom of
+the region that can physically be printed, with only minimal loss of
+quality.
+
+</P>
+<P>
+Epson does not advertise that the printers can print at the very top
+of the page, although in practice most of them can.  The quality is
+degraded to some degree, and we have observed that in some cases not
+all of the dots get printed.  Epson may have decided that the
+degradation in quality is sufficient that printing in that region
+should not be allowed.  That is a valid decision, although we have
+taken another approach.
+
+</P>
+
+<UL>
+<LI><A HREF="gimpprint_29.html#SEC44">Simple weaving algorithms</A>: Starting to weave.
+<LI><A HREF="gimpprint_30.html#SEC45">Perfect weaving</A>: Improving the weave.
+<LI><A HREF="gimpprint_31.html#SEC46">Weaving collisions</A>: Bang!
+<LI><A HREF="gimpprint_32.html#SEC47">What is perfect weaving?</A>: What makes a "perfect" weave?
+<LI><A HREF="gimpprint_33.html#SEC48">Oversampling</A>: Increasing resolution, reducing banding
+</UL>
+
+<P><HR><P>
+Go to the <A HREF="gimpprint_1.html">first</A>, <A HREF="gimpprint_27.html">previous</A>, <A HREF="gimpprint_29.html">next</A>, <A HREF="gimpprint_47.html">last</A> section, <A HREF="gimpprint_toc.html">table of contents</A>.
+</BODY>
+</HTML>

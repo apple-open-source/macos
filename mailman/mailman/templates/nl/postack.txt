@@ -1,0 +1,7 @@
+Uw bericht getiteld
+
+    %(subject)s
+
+is goed ontvangen door de %(listname)s mailing lijst.
+
+Lijst info pagina: %(listinfo_url)s

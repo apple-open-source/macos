@@ -38,6 +38,24 @@
 
 #include "SystemStarter.h"
 
+#define kProvidesKey        CFSTR("Provides")
+#define kRequiresKey        CFSTR("Requires")
+#define kDescriptionKey     CFSTR("Description")
+#define kUsesKey            CFSTR("Uses")
+#define kErrorKey           CFSTR("Error")
+#define kPriorityKey        CFSTR("OrderPreference")
+#define kBundlePathKey      CFSTR("PathToBundle")
+#define kPIDKey             CFSTR("ProcessID")
+#define kDomainKey          CFSTR("Domain")
+#define kLoginService       CFSTR("Multiuser Login Prompt")
+
+
+#define kErrorPermissions   CFSTR("incorrect permissions")
+#define kErrorInternal      CFSTR("SystemStarter internal error")
+#define kErrorReturnNonZero CFSTR("execution of Startup script failed")
+#define kErrorFork          CFSTR("could not fork() StartupItem")
+
+
 /*
  * Find all available startup items in NSDomains specified by aMask.
  */
@@ -84,10 +102,17 @@ CFArrayRef StartupItemListGetRunning(CFArrayRef anItemList);
  */
 CFIndex StartupItemListCountServices (CFArrayRef anItemList);
 
+
+/*
+ * Utility functions
+ */
+void RemoveItemFromWaitingList(StartupContext aStartupContext, CFMutableDictionaryRef anItem); 
+void AddItemToFailedList(StartupContext aStartupContext, CFMutableDictionaryRef anItem);
+
 /*
  * Run the startup item.
  */
-void StartupItemRun  (CFMutableDictionaryRef aStatusDict, CFMutableDictionaryRef anItem, Action  anAction);
+int StartupItemRun   (CFMutableDictionaryRef aStatusDict, CFMutableDictionaryRef anItem, Action  anAction);
 void StartupItemExit (CFMutableDictionaryRef aStatusDict, CFMutableDictionaryRef anItem, Boolean aSuccess);		     
 void StartupItemSetStatus(CFMutableDictionaryRef aStatusDict, CFMutableDictionaryRef anItem, CFStringRef aServiceName, Boolean aSuccess, Boolean aReplaceFlag);
 

@@ -1,0 +1,57 @@
+.Dd July 25, 2003
+.Dt GLIBTOOL 1
+.Os GNU
+.Sh NAME
+.Nm glibtool
+.Nd generic library support script
+.Sh SYNOPSIS
+.Nm
+.Op arguments
+.Sh DESCRIPTION
+.Nm
+is a script that allows package
+developers to provide generic shared library support.
+It is actual the GNU
+.Nm libtool
+script, renamed to avoid conflict with the Apple-provided
+.Xr libtool 1 .
+.Pp
+This manual page describes the additional features added to
+.Nm glibtool
+for Mac OS X.
+More general documentation is listed below.
+.Sh ADDITIONS
+.Nm
+uses the tilde ``~'' character to separate command sequences.
+Obviously, pathnames containing tildes can cause problems.
+So an environment variable, LIBTOOL_CMD_SEP, was added to specify an
+alternate separator character.
+Note that same control characters are ignored by the shell; CTRL-B and CTRL-Z
+seem to work fine, while CTRL-A and DELETE do not.
+.Pp
+Multi-architecture support is improved.
+Projects can build fat, and fat binaries can now be extracted from fat archives
+(an
+.Xr ar 1
+archive containing fat binaries is converted by
+.Xr ranlib 1
+to a fat file containing multiple archives, which
+.Xr ar 1
+can no longer process).
+.Pp
+Bundles can be built with the new
+.Fl "-undefined dynamic_lookup"
+link option, if:
+.Bl -enum -offset indent -compact
+.It
+The MACOSX_DEPLOYMENT_TARGET environment variable is set to
+.Li 10.3 ,
+.It
+The LD_TWOLEVEL_NAMESPACE environment variable is non-empty.
+.El
+.Sh SEE ALSO
+.Xr ar 1 ,
+.Xr libtool 1 ,
+.Xr ranlib 1
+.Pp
+.Pa /Developer/Documentation/DeveloperTools/glibtool

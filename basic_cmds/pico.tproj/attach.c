@@ -1,5 +1,5 @@
 #if	!defined(lint) && !defined(DOS)
-static char rcsid[] = "$Id: attach.c,v 1.2 2002/01/03 22:16:38 jevans Exp $";
+static char rcsid[] = "$Id: attach.c,v 1.3 2003/01/12 01:48:04 bbraun Exp $";
 #endif
 /*
  * Program:	Routines to support attachments in the Pine composer 

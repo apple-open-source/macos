@@ -3,62 +3,62 @@
 !  ----------------------
 !
 !  Some easy cases:
-3O	d	1m1	0	OK	-1
-3O	d	1	0	OK	0
-3O	d	2	0	OK	1
-3O	d	4	0	OK	2
-3O	d	8	0	OK	3
-3O	d	1p8	0	OK	8
-3O	d	1m8	0	OK	-8
-3O	d	4p6	0	OK	8
-3O	d	4m6	0	OK	-4
-3O	d	8p5	0	OK	8
-3O	d	8m7	0	OK	-4
-3O	d	4p9p9	0	OK	5p2
-3O	d	4m9m9	0	OK	-1p4
+3O	=d	1m1	0	OK	-1
+3O	=d	1	0	OK	0
+3O	=d	2	0	OK	1
+3O	=d	4	0	OK	2
+3O	=d	8	0	OK	3
+3O	=d	1p8	0	OK	8
+3O	=d	1m8	0	OK	-8
+3O	=d	4p6	0	OK	8
+3O	=d	4m6	0	OK	-4
+3O	=d	8p5	0	OK	8
+3O	=d	8m7	0	OK	-4
+3O	=d	4p9p9	0	OK	5p2
+3O	=d	4m9m9	0	OK	-1p4
 !  Zero:
-3O	d	+0	0	z	-H
-3O	d	-0	0	z	-H
+3O	=d	+0	0	z	-H
+3O	=d	-0	0	z	-H
 !  Infinity:
-3O	d	+H	0	OK	+H
-3O	d	-H	0	i	Q
+3O	=d	+H	0	OK	+H
+3O	=d	-H	0	i	Q
 !  Large numbers:
-3O	    d	  Hm1	  0		  OK	  1023
-3O	    d	  Hm2	  0		  OK	  1022
-3O	    d	  Hm3	  0		  OK	  1021
+3O	    =d	  Hm1	  0		  OK	  1023
+3O	    =d	  Hm2	  0		  OK	  1022
+3O	    =d	  Hm3	  0		  OK	  1021
 !  Small numbers:
-3O	    d	    E	    0	    OK	    -1022
-3O	    d	    0i1	    0	    OK	    -1074
-3O	    d	    0i2	    0	    OK	    -1073
-3O	    d	    1u1	    0	    OK	    -52
-3O	    d	    Ep1	    0	    OK	    -1021
-3O	    d	    Ep5	    0	    OK	    -1017
-3O	    d	    Em1	    0	    OK	    -1023
-3O	    d	    Em2	    0	    OK	    -1024
+3O	    =d	    E	    0	    OK	    -1022
+3O	    =d	    0i1	    0	    OK	    -1074
+3O	    =d	    0i2	    0	    OK	    -1073
+3O	    =d	    1u1	    0	    OK	    -52
+3O	    =d	    Ep1	    0	    OK	    -1021
+3O	    =d	    Ep5	    0	    OK	    -1017
+3O	    =d	    Em1	    0	    OK	    -1023
+3O	    =d	    Em2	    0	    OK	    -1024
 !  Negative cases:
-3O	d	-1	0	i	Q
-3O	d	-2	0	i	Q
-3O	d	-2i2	0	i	Q
-3O	d	-4d5	0	i	Q
-3O	d	-1u1	0	i	Q
-3O	d	-1u4	0	i	Q
-3O	d	-Hd1	0	i	Q
-3O	d	-Hm1i2	0	i	Q
-3O	d	-Hm2i2	0	i	Q
-3O	d	-Hm2i4	0	i	Q
-3O	d	-E	0	i	Q
-3O	d	-Ei1	0	i	Q
-3O	d	-Ed1	0	i	Q
-3O	d	-Ep1	0	i	Q
-3O	d	-Em1	0	i	Q
-3O	d	-0i1	0	i	Q
-3O	d	-0i2	0	i	Q
-3O	d	-0i7	0	i	Q
+3O	=d	-1	0	i	Q
+3O	=d	-2	0	i	Q
+3O	=d	-2i2	0	i	Q
+3O	=d	-4d5	0	i	Q
+3O	=d	-1u1	0	i	Q
+3O	=d	-1u4	0	i	Q
+3O	=d	-Hd1	0	i	Q
+3O	=d	-Hm1i2	0	i	Q
+3O	=d	-Hm2i2	0	i	Q
+3O	=d	-Hm2i4	0	i	Q
+3O	=d	-E	0	i	Q
+3O	=d	-Ei1	0	i	Q
+3O	=d	-Ed1	0	i	Q
+3O	=d	-Ep1	0	i	Q
+3O	=d	-Em1	0	i	Q
+3O	=d	-0i1	0	i	Q
+3O	=d	-0i2	0	i	Q
+3O	=d	-0i7	0	i	Q
 !  NaN cases:
 !  Signaling NaN cases commented out <JPO, 5/13/93>
-3O	d	Q	0	OK	Q
+3O	=d	Q	0	OK	Q
 !3O	    e	  S		  0		  i		  Q
-3O	d	-Q	0	OK	-Q
+3O	=d	-Q	0	OK	-Q
 !3O	    e	  -S	  0		  i		  -Q
 !2O	    e	  $3FFEB504F333F9DE6484   0   x   -1m1		; sqrt(0.5)
 !
@@ -69,49 +69,49 @@
 !  ----------------------
 !
 !  The easy case:
-3P	d	1	0	OK	0
+3P	=d	1	0	OK	0
 !  Numbers close to 1.  ln(1+x) = x - (x^2)/2 + (x^3)/3 - (x^4)/4 + ...
 !  For values of x within a few ulps of 1, only the first two terms show
 !  up in the machine representation of ln(1+x).	 The remaining terms
 !  affect rounding.
-3P	    d	    1i1	    0	    x	    1d1m52
-3P	    d	    1i2	    0	    x	    1d2m51
-3P	    d	    1i3	    0	    x	    3d2m52
-3P	    d	    1i4	    0	    x	    1d4m50
-3P	    d    	1d1	    0	    x	    -1m53
-3P	    d	    1d2	    0	    x	    -1i1m52
-3P	    d	    1d3	    0	    x	    -3i1m53
-3P	    d    	1d4	    0	    x	    -1i1m51
+3P	    =d	    1i1	    0	    x	    1d1m52
+3P	    =d	    1i2	    0	    x	    1d2m51
+3P	    =d	    1i3	    0	    x	    3d2m52
+3P	    =d	    1i4	    0	    x	    1d4m50
+3P	    =d    	1d1	    0	    x	    -1m53
+3P	    =d	    1d2	    0	    x	    -1i1m52
+3P	    =d	    1d3	    0	    x	    -3i1m53
+3P	    =d    	1d4	    0	    x	    -1i1m51
 !  Zero:
-3P	d	+0	0	z	-H
-3P	d	-0	0	z	-H
+3P	=d	+0	0	z	-H
+3P	=d	-0	0	z	-H
 !  Infinity:
-3P	d	+H	0	OK	+H
-3P	d	-H	0	i	Q
+3P	=d	+H	0	OK	+H
+3P	=d	-H	0	i	Q
 !  Negative cases:
-3P	d	-1	0	i	Q
-3P	d	-2	0	i	Q
-3P	d	-2i2	0	i	Q
-3P	d	-4d5	0	i	Q
-3P	d	-1u1	0	i	Q
-3P	d	-1u4	0	i	Q
-3P	d	-Hd1	0	i	Q
-3P	d	-Hm1i2	0	i	Q
-3P	d	-Hm2i2	0	i	Q
-3P	d	-Hm2i4	0	i	Q
-3P	d	-E	0	i	Q
-3P	d	-Ei1	0	i	Q
-3P	d	-Ed1	0	i	Q
-3P	d	-Ep1	0	i	Q
-3P	d	-Em1	0	i	Q
-3P	d	-0i1	0	i	Q
-3P	d	-0i2	0	i	Q
-3P	d	-0i7	0	i	Q
+3P	=d	-1	0	i	Q
+3P	=d	-2	0	i	Q
+3P	=d	-2i2	0	i	Q
+3P	=d	-4d5	0	i	Q
+3P	=d	-1u1	0	i	Q
+3P	=d	-1u4	0	i	Q
+3P	=d	-Hd1	0	i	Q
+3P	=d	-Hm1i2	0	i	Q
+3P	=d	-Hm2i2	0	i	Q
+3P	=d	-Hm2i4	0	i	Q
+3P	=d	-E	0	i	Q
+3P	=d	-Ei1	0	i	Q
+3P	=d	-Ed1	0	i	Q
+3P	=d	-Ep1	0	i	Q
+3P	=d	-Em1	0	i	Q
+3P	=d	-0i1	0	i	Q
+3P	=d	-0i2	0	i	Q
+3P	=d	-0i7	0	i	Q
 !  NaN cases:
 !  Signaling NaN cases commented out <JPO, 5/13/93>
-3P	d	Q	0	OK	Q
+3P	=d	Q	0	OK	Q
 !3P	    e	  S		  0		  i		  Q
-3P	d	-Q	0	OK	-Q
+3P	=d	-Q	0	OK	-Q
 !3P	    e	  -S	  0		  i		  -Q
 !
 ! End of LnX cases
@@ -121,47 +121,47 @@
 !  ----------------------
 !
 !  The easy case:
-3Q	d	0	0	OK	0
-3Q	d	-0	0	OK	-0
+3Q	=d	0	0	OK	0
+3Q	=d	-0	0	OK	-0
 !  Numbers close to 0.  ln(1+x) = x - (x^2)/2 + (x^3)/3 - (x^4)/4 + ...
 !  For values of x close to 0, only the first two terms show
 !  up in the machine representation of ln(1+x).	 The remaining terms
 !  affect rounding.
-3Q	d	0i1	0	ux	0i1
-3Q	d	0i2	0	ux	0i2
-3Q	d	0i5	0	ux	0i5
-3Q	d	0i31	0	ux	0i31
-3Q	d	Em41	0	ux	Em41
-3Q	d	Em7	0	ux	Em7
-3Q	d	Ed3	0	ux	Ed3
-3Q	d	E	0	x	E
-3Q	d	Ei2	0	x	Ei2
-3Q	d	Ep3	0	x	Ep3
-3Q	    d	    1u1	    0	    x	    1d1m52
-3Q	    d	    1u2	    0	    x	    1d2m51
-3Q	    d	    1u3	    0	    x	    3d2m52
-3Q	    d	    1u4	    0	    x	    1d4m50
-3Q	    d    	-1m1u1  0	    x	    -1m53
-3Q	    d	    -1u1    0	    x	    -1i1m52
-3Q	    d	    -1m1u3  0	    x	    -3i1m53
-3Q	    d    	-1u2    0	    x	    -1i1m51
+3Q	=d	0i1	0	ux	0i1
+3Q	=d	0i2	0	ux	0i2
+3Q	=d	0i5	0	ux	0i5
+3Q	=d	0i31	0	ux	0i31
+3Q	=d	Em41	0	ux	Em41
+3Q	=d	Em7	0	ux	Em7
+3Q	=d	Ed3	0	ux	Ed3
+3Q	=d	E	0	x	E
+3Q	=d	Ei2	0	x	Ei2
+3Q	=d	Ep3	0	x	Ep3
+3Q	    =d	    1u1	    0	    x	    1d1m52
+3Q	    =d	    1u2	    0	    x	    1d2m51
+3Q	    =d	    1u3	    0	    x	    3d2m52
+3Q	    =d	    1u4	    0	    x	    1d4m50
+3Q	    =d    	-1m1u1  0	    x	    -1m53
+3Q	    =d	    -1u1    0	    x	    -1i1m52
+3Q	    =d	    -1m1u3  0	    x	    -3i1m53
+3Q	    =d    	-1u2    0	    x	    -1i1m51
 !  Minus One:
-3Q	d	-1	0	z	-H
+3Q	=d	-1	0	z	-H
 !  Infinity:
-3Q	d	+H	0	OK	+H
-3Q	d	-H	0	i	Q
+3Q	=d	+H	0	OK	+H
+3Q	=d	-H	0	i	Q
 !  Negative cases:
-3Q	d	-2	0	i	Q
-3Q	d	-2i2	0	i	Q
-3Q	d	-4d5	0	i	Q
-3Q	d	-Hd1	0	i	Q
-3Q	d	-Hm1i2	0	i	Q
-3Q	d	-Hm2i2	0	i	Q
-3Q	d	-Hm2i4	0	i	Q
+3Q	=d	-2	0	i	Q
+3Q	=d	-2i2	0	i	Q
+3Q	=d	-4d5	0	i	Q
+3Q	=d	-Hd1	0	i	Q
+3Q	=d	-Hm1i2	0	i	Q
+3Q	=d	-Hm2i2	0	i	Q
+3Q	=d	-Hm2i4	0	i	Q
 !  NaN cases:
 !  Signaling NaN cases commented out <JPO, 5/13/93>
-3Q	d	Q	0	OK	Q
+3Q	=d	Q	0	OK	Q
 !3Q	    e	  S		  0		  i		  Q
-3Q	d	-Q	0	OK	-Q
+3Q	=d	-Q	0	OK	-Q
 !3Q	    e	  -S	  0		  i		  -Q
 

@@ -71,7 +71,7 @@ CCallbackMgr *CCallbackMgr::mCCallbackMgr;
 
 CCallbackMgr::CCallbackMgr() :
     // register for receiving Keychain events via CF
-    Observer(kSecEventNotificationName, NULL, CFNotificationSuspensionBehaviorDeliverImmediately)
+    Observer(Listener::databaseNotifications, Listener::allEvents)
 {
 }
 
@@ -135,15 +135,11 @@ void CCallbackMgr::AlertClients(SecKeychainEvent inEvent,
                                 const Keychain &inKeychain,
                                 const Item &inItem)
 {
-    debug("kcnotify", "dispatch event %d pid %d keychain %p item %p",
+    secdebug("kcnotify", "dispatch event %ld pid %d keychain %p item %p",
         inEvent, inPid, &inKeychain, !!inItem ? &*inItem : NULL);
 
     // Deal with events that we care about ourselves first.
-    if (inEvent == kSecDefaultChangedEvent)
-        globals().defaultKeychain.reload(true);
-    else if (inEvent == kSecKeychainListChangedEvent)
-        globals().storageManager.reload(true);
-    else if (inEvent == kSecDeleteEvent && inKeychain.get() && inItem.get())
+    if (inEvent == kSecDeleteEvent && inKeychain.get() && inItem.get())
         inKeychain->didDeleteItem(inItem.get());
 
 	// Iterate through callbacks, looking for those registered for inEvent
@@ -157,11 +153,13 @@ void CCallbackMgr::AlertClients(SecKeychainEvent inEvent,
 
 		SecKeychainCallbackInfo	cbInfo;
 		cbInfo.version = 0; // @@@ kKeychainAPIVersion;
-		cbInfo.item = inItem ? gTypes().item.handle(*inItem) : 0;
-		cbInfo.keychain = inKeychain ? gTypes().keychain.handle(*inKeychain) : 0;
+		cbInfo.item = inItem ? inItem->handle() : 0;
+		cbInfo.keychain = inKeychain ? inKeychain->handle() : 0;
 		cbInfo.pid = inPid;
 
 		ix->mCallback(inEvent, &cbInfo, ix->mContext);
+		if (cbInfo.item) CFRelease(cbInfo.item);
+		if (cbInfo.keychain) CFRelease(cbInfo.keychain);
 	}
 }
 
@@ -177,43 +175,37 @@ void CCallbackMgr::AlertClients(SecKeychainEvent inEvent,
 * 			If it wasn't 'us', we should remove our cached reference to the item that was deleted.
 *
 ***********************************************************************************/
-void CCallbackMgr::Event(CFNotificationCenterRef center, 
-                         CFStringRef name, 
-                         const void *object, 
-                         CFDictionaryRef userInfo)
+void CCallbackMgr::Event (Listener::Domain domain, Listener::Event whichEvent, NameValueDictionary &dictionary)
 {
     // Decode from userInfo the event type, 'keychain' CFDict, and 'item' CFDict
-    CCFValue event(CFDictionaryGetValue( userInfo, kSecEventTypeKey ));
-	SecKeychainEvent	thisEvent = 0;
-    if (!event.hasValue())
-		return;
+	SecKeychainEvent	thisEvent = whichEvent;
 
-	thisEvent = sint32( event );
-
-    CFNumberRef pid = reinterpret_cast<CFNumberRef>
-                            (CFDictionaryGetValue(userInfo, kSecEventPidKey));
     pid_t thisPid;
-    if (!pid || !CFNumberGetValue(pid, kCFNumberSInt32Type, &thisPid))
+	const NameValuePair* pidRef = dictionary.FindByName (PID_KEY);
+	if (pidRef == 0)
 	{
 		thisPid = 0;
-    }
+	}
+	else
+	{
+		thisPid = *reinterpret_cast<pid_t*>(pidRef->Value ().data ());
+	}
 
-    CFDictionaryRef kc = reinterpret_cast<CFDictionaryRef>
-                            (CFDictionaryGetValue(userInfo, kSecEventKeychainKey));
-    Keychain thisKeychain;
-    if (kc)
-    {
-        thisKeychain = globals().storageManager.keychain	
-                            (DLDbListCFPref::cfDictionaryRefToDLDbIdentifier(kc));
-    }
-
-    CFDataRef item = reinterpret_cast<CFDataRef>
-                            (CFDictionaryGetValue(userInfo, kSecEventItemKey));
+	Keychain thisKeychain = 0;
+	
+	// make sure we have a database identifier
+	if (dictionary.FindByName (SSUID_KEY) != 0)
+	{
+		DLDbIdentifier dbid = NameValueDictionary::MakeDLDbIdentifierFromNameValueDictionary (dictionary);
+		thisKeychain = globals().storageManager.keychain (dbid);
+	}
+	
+    const NameValuePair* item = dictionary.FindByName (ITEM_KEY);
     Item thisItem;
+
     if (item && thisKeychain)
     {
-        const CssmData pkData(const_cast<UInt8*>(CFDataGetBytePtr(item)), CFDataGetLength(item));
-        PrimaryKey pk(pkData);
+        PrimaryKey pk(item->Value ());
 		thisItem = thisKeychain->item(pk);
     }
 

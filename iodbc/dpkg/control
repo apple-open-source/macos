@@ -1,0 +1,8 @@
+Package: iodbc
+Maintainer: Darwin Developers <darwin-development@public.lists.apple.com>
+Vendor: OpenLink
+Version: 3.0.6
+URL: http://www.iodbc.org
+Build-Depends: build-base
+Description: iODBC
+

@@ -1,7 +1,7 @@
 /* id2entry.c - routines to deal with the id2entry database */
-/* $OpenLDAP: pkg/ldap/servers/slapd/back-bdb/id2entry.c,v 1.24 2002/01/28 23:02:27 kurt Exp $ */
+/* $OpenLDAP: pkg/ldap/servers/slapd/back-bdb/id2entry.c,v 1.24.2.9 2003/03/24 03:54:12 kurt Exp $ */
 /*
- * Copyright 1998-2002 The OpenLDAP Foundation, All Rights Reserved.
+ * Copyright 1998-2003 The OpenLDAP Foundation, All Rights Reserved.
  * COPYING RESTRICTIONS APPLY, see COPYRIGHT file
  */
 
@@ -24,13 +24,14 @@ int bdb_id2entry_put(
 	struct berval bv;
 	int rc;
 #ifdef BDB_HIER
-	char *odn, *ondn;
+	struct berval odn, ondn;
 
 	/* We only store rdns, and they go in the id2parent database. */
 
-	odn = e->e_dn; ondn = e->e_ndn;
+	odn = e->e_name; ondn = e->e_nname;
 
-	e->e_dn = ""; e->e_ndn = "";
+	e->e_name = slap_empty_bv;
+	e->e_nname = slap_empty_bv;
 #endif
 	DBTzero( &key );
 	key.data = (char *) &e->e_id;
@@ -38,7 +39,7 @@ int bdb_id2entry_put(
 
 	rc = entry_encode( e, &bv );
 #ifdef BDB_HIER
-	e->e_dn = odn; e->e_ndn = ondn;
+	e->e_name = odn; e->e_nname = ondn;
 #endif
 	if( rc != LDAP_SUCCESS ) {
 		return -1;
@@ -80,13 +81,15 @@ int bdb_id2entry_rw(
 	DB_TXN *tid,
 	ID id,
 	Entry **e,
-	int rw )
+	int rw,
+	u_int32_t locker,
+	DB_LOCK *lock )
 {
 	struct bdb_info *bdb = (struct bdb_info *) be->be_private;
 	DB *db = bdb->bi_id2entry->bdi_db;
 	DBT key, data;
 	struct berval bv;
-	int rc = 0;
+	int rc = 0, ret = 0;
 
 	*e = NULL;
 
@@ -97,12 +100,12 @@ int bdb_id2entry_rw(
 	DBTzero( &data );
 	data.flags = DB_DBT_MALLOC;
 
-	if ((*e = bdb_cache_find_entry_id(&bdb->bi_cache, id, rw)) != NULL) {
+	if ((*e = bdb_cache_find_entry_id(bdb->bi_dbenv, &bdb->bi_cache, id, rw, locker, lock)) != NULL) {
 		return 0;
 	}
 
 	/* fetch it */
-	rc = db->get( db, tid, &key, &data, bdb->bi_db_opflags );
+	rc = db->get( db, tid, &key, &data, bdb->bi_db_opflags | ( rw ? DB_RMW : 0 ));
 
 	if( rc != 0 ) {
 		return rc;
@@ -121,19 +124,39 @@ int bdb_id2entry_rw(
 		ch_free( data.data );
 	}
 
-	if (rc == 0 && bdb_cache_add_entry_rw(&bdb->bi_cache, *e, rw) != 0) {
-		if ((*e)->e_private != NULL)
-			free ((*e)->e_private);
-		(*e)->e_private = NULL;
-		bdb_entry_return (*e);
-		if ((*e=bdb_cache_find_entry_id(&bdb->bi_cache,id,rw)) != NULL) {
-			return 0;
-		}
-	}
-
+	if ( rc == 0 ) {
 #ifdef BDB_HIER
-	bdb_fix_dn(be, id, *e);
+		bdb_fix_dn(be, id, *e);
 #endif
+		ret = bdb_cache_add_entry_rw( bdb->bi_dbenv,
+				&bdb->bi_cache, *e, rw, locker, lock);
+		while ( ret == 1 || ret == -1 ) {
+			Entry *ee;
+			int add_loop_cnt = 0;
+			if ( (*e)->e_private != NULL ) {
+				free ((*e)->e_private);
+			}
+			(*e)->e_private = NULL;
+			if ( (ee = bdb_cache_find_entry_id
+					(bdb->bi_dbenv, &bdb->bi_cache, id, rw, locker, lock) ) != NULL) {
+				bdb_entry_return ( *e );
+				*e = ee;
+				return 0;
+			}
+			if ( ++add_loop_cnt == BDB_MAX_ADD_LOOP ) {
+				bdb_entry_return ( *e );
+				*e = NULL;
+				return LDAP_BUSY;
+			}
+		}
+		if ( ret != 0 ) {
+			if ( (*e)->e_private != NULL )
+				free ( (*e)->e_private );
+			bdb_entry_return( *e );
+			*e = NULL;
+		}
+		rc = ret;
+	}
 
 	if (rc == 0) {
 		bdb_cache_entry_commit(*e);
@@ -183,6 +206,7 @@ int bdb_entry_return(
 		attrs_free( e->e_attrs );
 	}
 
+#ifndef BDB_HIER
 	/* See if the DNs were changed by modrdn */
 	if( e->e_nname.bv_val < e->e_bv.bv_val || e->e_nname.bv_val >
 		e->e_bv.bv_val + e->e_bv.bv_len ) {
@@ -191,7 +215,7 @@ int bdb_entry_return(
 		e->e_name.bv_val = NULL;
 		e->e_nname.bv_val = NULL;
 	}
-#ifdef BDB_HIER
+#else
 	/* We had to construct the dn and ndn as well, in a single block */
 	if( e->e_name.bv_val ) {
 		free( e->e_name.bv_val );
@@ -221,7 +245,7 @@ int bdb_entry_release(
  
 	if ( slapMode == SLAP_SERVER_MODE ) {
 		/* free entry and reader or writer lock */
-		bdb_cache_return_entry_rw( &bdb->bi_cache, e, rw );
+		bdb_unlocked_cache_return_entry_rw( &bdb->bi_cache, e, rw );
 	} else {
 		if (e->e_private != NULL)
 			free (e->e_private);

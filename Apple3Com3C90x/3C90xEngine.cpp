@@ -3,19 +3,22 @@
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
- * The contents of this file constitute Original Code as defined in and
- * are subject to the Apple Public Source License Version 1.1 (the
- * "License").  You may not use this file except in compliance with the
- * License.  Please obtain a copy of the License at
- * http://www.apple.com/publicsource and read it before using this file.
+ * Copyright (c) 1999-2003 Apple Computer, Inc.  All Rights Reserved.
  * 
- * This Original Code and all software distributed under the License are
- * distributed on an "AS IS" basis, WITHOUT WARRANTY OF ANY KIND, EITHER
+ * This file contains Original Code and/or Modifications of Original Code
+ * as defined in and that are subject to the Apple Public Source License
+ * Version 2.0 (the 'License'). You may not use this file except in
+ * compliance with the License. Please obtain a copy of the License at
+ * http://www.opensource.apple.com/apsl/ and read it before using this
+ * file.
+ * 
+ * The Original Code and all software distributed under the License are
+ * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
  * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
  * INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY,
- * FITNESS FOR A PARTICULAR PURPOSE OR NON-INFRINGEMENT.  Please see the
- * License for the specific language governing rights and limitations
- * under the License.
+ * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
+ * Please see the License for the specific language governing rights and
+ * limitations under the License.
  * 
  * @APPLE_LICENSE_HEADER_END@
  */
@@ -26,10 +29,16 @@
 //---------------------------------------------------------------------------
 // GetPhysicalFromVirtual
 
-static inline bool
-GetPhysicalFromVirtual( IOVirtualAddress vaddr, IOPhysicalAddress * paddr )
+static bool
+GetPhysicalFromVirtual( IOBufferMemoryDescriptor * mem,
+                        IOVirtualAddress vaddr, IOPhysicalAddress * paddr )
 {
-	*paddr = pmap_extract( kernel_pmap, vaddr );
+    IOByteCount segLength;
+
+    *paddr = mem->getPhysicalSegment(
+                     vaddr - (IOVirtualAddress) mem->getBytesNoCopy(),
+                     &segLength);
+
 	return ( *paddr != 0 );
 }
 
@@ -39,27 +48,24 @@ GetPhysicalFromVirtual( IOVirtualAddress vaddr, IOPhysicalAddress * paddr )
 // Allocate memory for descriptors. Returns true on success.
 
 bool
-Apple3Com3C90x::allocateDescMemory( MemoryRange * mem, IOByteCount size )
+Apple3Com3C90x::allocateDescMemory( IOBufferMemoryDescriptor ** mem,
+                                    IOByteCount                 size )
 {
     LOG_DEBUG("%s::%s %ld\n", getName(), __FUNCTION__, size);
 
-    if ( (size == 0) || (size > PAGE_SIZE) )
+    if ( (size == 0) || (size > PAGE_SIZE) || *mem )
     {
-        IOLog("%s: descriptor memory exceeded page size\n", getName());
+        IOLog("%s: unable to allocate descriptor memory\n", getName());
         return false;
     }
+    
+    *mem = IOBufferMemoryDescriptor::withOptions( kIOMemoryUnshared,
+                                                  size, PAGE_SIZE );
 
-    mem->size = size;
-    mem->ptr  = IOMallocAligned( size, PAGE_SIZE );
+    if ( *mem == 0 )
+        IOLog("%s: can't allocate %ld bytes of memory\n", getName(), size);
 
-    if ( mem->ptr == NULL )
-    {
-        IOLog("%s: can't allocate %ld bytes of memory\n", getName(),
-              mem->size);
-        return false;
-    }
-
-    return true;
+    return (*mem != 0);
 }
 
 //---------------------------------------------------------------------------
@@ -68,12 +74,12 @@ Apple3Com3C90x::allocateDescMemory( MemoryRange * mem, IOByteCount size )
 // Free descriptor memory allocated through allocateDescMemory().
 
 void
-Apple3Com3C90x::freeDescMemory( MemoryRange * mem )
+Apple3Com3C90x::freeDescMemory( IOBufferMemoryDescriptor ** mem )
 {
-    if ( mem->ptr )
+    if ( *mem )
     {
-        IOFreeAligned( mem->ptr, mem->size );
-        mem->ptr = NULL;
+        (*mem)->release();
+        *mem = 0;
     }
 }
 
@@ -103,7 +109,7 @@ bool Apple3Com3C90x::allocateMemory()
     if ( allocateDescMemory( &_txRingMem, bytes ) == false )
         return false;
 
-    _txRing = (TxDescriptor *) _txRingMem.ptr;
+    _txRing = (TxDescriptor *) _txRingMem->getBytesNoCopy();
     bzero( (void *) _txRing, bytes );
 
     // Allocate memory for RX ring and initialize it.
@@ -112,7 +118,7 @@ bool Apple3Com3C90x::allocateMemory()
     if ( allocateDescMemory( &_rxRingMem, bytes ) == false )
         return false;
 
-    _rxRing = (RxDescriptor *) _rxRingMem.ptr;
+    _rxRing = (RxDescriptor *) _rxRingMem->getBytesNoCopy();
 	bzero( (void *) _rxRing, bytes );
 
     _rxRingInited = false;
@@ -223,7 +229,8 @@ bool Apple3Com3C90x::initRxRing()
 
         if ( i < (_rxRingSize - 1) )
         {
-            if ( GetPhysicalFromVirtual( (IOVirtualAddress) &_rxRing[i+1],
+            if ( GetPhysicalFromVirtual( _rxRingMem,
+                                         (IOVirtualAddress) &_rxRing[i+1],
                                          &_rxRing[i].nextPtr ) != true )
             {
                 return false;
@@ -256,7 +263,8 @@ bool Apple3Com3C90x::initRxRing()
 
     // Wrap the ring by linking the tail to the head.
 
-    if ( GetPhysicalFromVirtual( (IOVirtualAddress) &_rxRing[0],
+    if ( GetPhysicalFromVirtual( _rxRingMem,
+                                 (IOVirtualAddress) &_rxRing[0],
                                  &_rxRing[i-1].nextPtr ) != true )
     {
         return false;
@@ -312,7 +320,8 @@ bool Apple3Com3C90x::initTxRing()
     {
         // Cache the physical address of the descriptor.
     
-        if ( GetPhysicalFromVirtual( (IOVirtualAddress) &_txRing[i],
+        if ( GetPhysicalFromVirtual( _txRingMem,
+                                     (IOVirtualAddress) &_txRing[i],
                                      &_txRing[i].drvPhysAddr ) != true )
         {
             return false;

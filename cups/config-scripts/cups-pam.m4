@@ -1,9 +1,9 @@
 dnl
-dnl "$Id: cups-pam.m4,v 1.3 2002/06/10 23:47:27 jlovell Exp $"
+dnl "$Id: cups-pam.m4,v 1.1.1.8 2002/12/24 00:05:02 jlovell Exp $"
 dnl
 dnl   PAM stuff for the Common UNIX Printing System (CUPS).
 dnl
-dnl   Copyright 1997-2002 by Easy Software Products, all rights reserved.
+dnl   Copyright 1997-2003 by Easy Software Products, all rights reserved.
 dnl
 dnl   These coded instructions, statements, and computer programs are the
 dnl   property of Easy Software Products and are protected by Federal
@@ -31,6 +31,7 @@ fi
 
 PAMDIR=""
 PAMLIBS=""
+PAMMOD="pam_unknown.so"
 
 if test x$enable_pam != xno; then
 	SAVELIBS="$LIBS"
@@ -51,11 +52,20 @@ if test x$enable_pam != xno; then
 	fi
 
 	LIBS="$SAVELIBS"
+
+	# This test might need to be updated as Linux distributors move
+	# things around...
+	for mod in pam_unix2.so pam_unix.so pam_pwdb.so; do
+		if test -f /lib/security/$mod; then
+			PAMMOD="$mod"
+		fi
+	done
 fi
 
 AC_SUBST(PAMDIR)
 AC_SUBST(PAMLIBS)
+AC_SUBST(PAMMOD)
 
 dnl
-dnl End of "$Id: cups-pam.m4,v 1.3 2002/06/10 23:47:27 jlovell Exp $".
+dnl End of "$Id: cups-pam.m4,v 1.1.1.8 2002/12/24 00:05:02 jlovell Exp $".
 dnl

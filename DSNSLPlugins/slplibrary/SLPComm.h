@@ -1,43 +1,48 @@
 /*
-	File:		SLPComm.h
-
-	Contains:	IPC calling conventions for communication with slpd
-
-	Written by:	Kevin Arnold
-
-	Copyright:	© 2000 by Apple Computer, Inc., all rights reserved.
-
-	Change History (most recent first):
-
-
-*/
-
-/*
-      0                   1                   2                   3
-      0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1
-     +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
-     |            Code               |            Length             |
-     +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
-     |           Status              |                Data           /
-     +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
-
-
+ * Copyright (c) 2002 Apple Computer, Inc. All rights reserved.
+ *
+ * @APPLE_LICENSE_HEADER_START@
+ * 
+ * Copyright (c) 1999-2003 Apple Computer, Inc.  All Rights Reserved.
+ * 
+ * This file contains Original Code and/or Modifications of Original Code
+ * as defined in and that are subject to the Apple Public Source License
+ * Version 2.0 (the 'License'). You may not use this file except in
+ * compliance with the License. Please obtain a copy of the License at
+ * http://www.opensource.apple.com/apsl/ and read it before using this
+ * file.
+ * 
+ * The Original Code and all software distributed under the License are
+ * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
+ * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
+ * INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY,
+ * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
+ * Please see the License for the specific language governing rights and
+ * limitations under the License.
+ * 
+ * @APPLE_LICENSE_HEADER_END@
+ */
+ 
+/*!
+ *  @header SLPComm
+ *  IPC calling conventions for communication with slpd
+ *   0                   1                   2                   3
+ *   0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1
+ *  +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+ *  |            Code               |            Length             |
+ *  +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+ *  |           Status              |                Data           /
+ *  +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
 */
 
 #ifndef _SLPComm_
 #define _SLPComm_
 #pragma once
 
-#if __cplusplus
-//extern "C" {
-#endif
-
-#include <Carbon/Carbon.h>
-
-#define kSLPLoadToolPath	"/System/Library/Frameworks/CoreServices.framework/Frameworks/NSLCore.framework/Resources/NSLPlugins/slpdLoad"
-#define kSLPLoadToolCmd		"slpdLoad"
 #define kTCPBufferSize		1400
 #define kRAdminIPCPath		"/tmp/slpRAdmin_ipc"
+
+const CFStringRef	kSLPRAdminNotificationSAFE_CFSTR = CFSTR("SLP RAdmin Notification");
 
 enum {
 	kSLPWrongMessageTypeErr		= -27,		// we want to make this append to the SLPInternalError types
@@ -64,6 +69,8 @@ enum SLPdMessageType {
     kSLPTurnOnRAdminNotifications	= 15,
     kSLPTurnOffRAdminNotifications	= 16,
     kSLPScopeDeleted				= 17,
+    kSLPStartUp						= 18,
+    kSLPShutDown					= 19,
 
     kSLPLastMessageType
 };
@@ -136,6 +143,9 @@ char* _MakeSLPScopeListDataBuffer( 	SLPdMessageType messageType,
 									char* scopeListPtr, 
 									UInt32 scopeListLen, 
                                     UInt32* dataBufferLen );
+
+char* MakeSLPIOCallBuffer		(	Boolean	turnOnSLPd,
+									UInt32* dataBufferLen );
                                     
 OSStatus MakeSLPSimpleRequestDataBuffer( SLPdMessageType messageType, UInt32* dataBufferLen, char** dataBuffer );
 
@@ -188,10 +198,5 @@ OSStatus GetSLPDALoggingLevelFromBuffer( 	char* dataBuffer,
                                             UInt32* loggingLevel );
 
 OSStatus GetSLPDAStatusFromBuffer( char* dataBufer, SLPDAStatus* daStatus );
-#if __cplusplus
-//}
-#endif
 
 #endif
-
-

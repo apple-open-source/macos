@@ -8,23 +8,24 @@
  * Copyright (c) 1999 Apple Computer, Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
- *
- * "Portions Copyright (c) 1999 Apple Computer, Inc.  All Rights
- * Reserved.  This file contains Original Code and/or Modifications of
- * Original Code as defined in and that are subject to the Apple Public
- * Source License Version 1.0 (the 'License').	You may not use this file
- * except in compliance with the License.  Please obtain a copy of the
- * License at http://www.apple.com/publicsource and read it before using
- * this file.
- *
+ * 
+ * Copyright (c) 1999-2003 Apple Computer, Inc.  All Rights Reserved.
+ * 
+ * This file contains Original Code and/or Modifications of Original Code
+ * as defined in and that are subject to the Apple Public Source License
+ * Version 2.0 (the 'License'). You may not use this file except in
+ * compliance with the License. Please obtain a copy of the License at
+ * http://www.opensource.apple.com/apsl/ and read it before using this
+ * file.
+ * 
  * The Original Code and all software distributed under the License are
  * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
  * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
  * INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY,
- * FITNESS FOR A PARTICULAR PURPOSE OR NON-INFRINGEMENT.  Please see the
- * License for the specific language governing rights and limitations
- * under the License."
- *
+ * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
+ * Please see the License for the specific language governing rights and
+ * limitations under the License.
+ * 
  * @APPLE_LICENSE_HEADER_END@
  */
 /*		@(#)webdav_memchache.h		*
@@ -57,7 +58,8 @@ typedef struct webdav_memcache_element_tag
 	char *uri;
 	int uri_length;
 	time_t time_received;
-	struct vattr *vap;
+	struct vattr vap;
+	char *appledoubleheader;	/* NULL if no appledoubleheader data */
 } webdav_memcache_element_t;
 
 typedef struct
@@ -77,10 +79,12 @@ typedef struct
 /* functions */
 
 extern int webdav_memcache_init(webdav_memcache_header_t *cache_header);
-extern int webdav_memcache_insert(uid_t uid, char *uri, webdav_memcache_header_t *cache_header,
-	struct vattr *vap);
+extern int webdav_memcache_insert(uid_t uid, const char *uri, webdav_memcache_header_t *cache_header,
+	struct vattr *vap, char *appledoubleheader);
 extern int webdav_memcache_remove(uid_t uid, char *uri, webdav_memcache_header_t *cache_header);
 extern int webdav_memcache_retrieve(uid_t uid, char *uri,
-	webdav_memcache_header_t *cache_header, struct vattr *vap);
+	webdav_memcache_header_t *cache_header, struct vattr *vap, char *appledoubleheader,
+	int32_t *lastvalidtime);
+extern int webdav_memcache_invalidate(webdav_memcache_header_t *cache_header);
 
 #endif

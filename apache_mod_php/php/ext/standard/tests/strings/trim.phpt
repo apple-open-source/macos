@@ -1,5 +1,5 @@
 --TEST--
-trim() function
+trim(), rtrim() and ltrim() functions
 --POST--
 --GET--
 --FILE--
@@ -23,7 +23,7 @@ $tests = <<<TESTS
 "ABC" === trim("ABC\\x50\\xC1\\x60\\x90","\\x50..\\xC1")
 TESTS;
 
-include('../../../../tests/quicktester.inc');
+include('tests/quicktester.inc');
 
 --EXPECT--
 OK

@@ -1,0 +1,9 @@
+
+# this fails
+#load_lib lib.exp
+
+# this works
+#load_lib helloworld.test3/lib/lib.exp
+
+puts "DEBUG: helloworld.test3/non_compliant_dir_name/non_compliant.exp is being executed"
+

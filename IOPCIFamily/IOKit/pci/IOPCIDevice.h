@@ -23,7 +23,7 @@
  * @APPLE_LICENSE_HEADER_END@
  */
 /*
- * Copyright (c) 1998 Apple Computer, Inc.  All rights reserved. 
+ * Copyright (c) 1998-2003 Apple Computer, Inc.  All rights reserved. 
  *
  * HISTORY
  *
@@ -68,8 +68,23 @@ enum {
 enum {
     kIOPCICapabilityIDOffset		= 0x00,
     kIOPCINextCapabilityOffset		= 0x01,
+
     kIOPCIPowerManagementCapability	= 0x01,
-    kIOPCIAGPCapability        		= 0x02
+    kIOPCIAGPCapability        		= 0x02,
+    kIOPCIVitalProductDataCapability    = 0x03,
+    kIOPCISlotIDCapability       	= 0x04,
+    kIOPCIMSICapability       		= 0x05,
+    kIOPCICPCIHotswapCapability       	= 0x06,
+    kIOPCIPCIXCapability       		= 0x07,
+    kIOPCILDTCapability       		= 0x08,
+    kIOPCIVendorSpecificCapability      = 0x09,
+    kIOPCIDebugPortCapability       	= 0x0a,
+    kIOPCICPCIResourceControlCapability = 0x0b,
+    kIOPCIHotplugCapability       	= 0x0c,
+    kIOPCIAGP8Capability       		= 0x0e,
+    kIOPCISecureCapability       	= 0x0f,
+    kIOPCIPCIExpressCapability       	= 0x10,
+    kIOPCIMSIXCapability       		= 0x11
 };
 
 /* Space definitions */
@@ -115,13 +130,15 @@ enum {
 enum
 {
     // capabilities bits in the 16 bit capabilities register
-    kPCIPMCPMESupportFromD3Cold		= 0x8000,
-    kPCIPMCPMESupportFromD3Hot		= 0x4000,
+    kPCIPMCPMESupportFromD3Cold	= 0x8000,
+    kPCIPMCPMESupportFromD3Hot	= 0x4000,
     kPCIPMCPMESupportFromD2		= 0x2000,
     kPCIPMCPMESupportFromD1		= 0x1000,
     kPCIPMCPMESupportFromD0		= 0x0800,
     kPCIPMCD2Support			= 0x0400,
-    kPCIPMCD1Support			= 0x0200
+    kPCIPMCD1Support			= 0x0200,
+ 
+    kPCIPMCD3Support			= 0x0001
 };
 
 enum

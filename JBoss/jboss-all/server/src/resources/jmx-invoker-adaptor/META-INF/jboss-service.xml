@@ -1,0 +1,35 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE server>
+
+<!-- $Id: jboss-service.xml,v 1.1.2.4 2003/06/16 23:30:40 sreich Exp $ -->
+<server>
+
+   <!-- The JRMP invoker proxy configuration for the InvokerAdaptorService -->
+   <mbean code="org.jboss.invocation.jrmp.server.JRMPProxyFactory"
+      name="jboss.jmx:type=adaptor,name=Invoker,protocol=jrmp,service=proxyFactory">
+      <!-- Use the standard JRMPInvoker from conf/jboss-service.xxml -->
+      <attribute name="InvokerName">jboss:service=invoker,type=jrmp</attribute>
+      <!-- The target MBean is the InvokerAdaptorService configured below -->
+      <attribute name="TargetName">jboss.jmx:type=adaptor,name=Invoker</attribute>
+      <!-- Where to bind the RMIAdaptor proxy -->
+      <attribute name="JndiName">jmx/invoker/RMIAdaptor</attribute>
+      <!-- The RMI compabitle MBeanServer interface -->
+      <attribute name="ExportedInterface">org.jboss.jmx.adaptor.rmi.RMIAdaptor</attribute>
+      <attribute name="ClientInterceptors">
+          <interceptors>
+             <interceptor>org.jboss.proxy.ClientMethodInterceptor</interceptor>
+             <interceptor>org.jboss.jmx.connector.invoker.client.InvokerAdaptorClientInterceptor</interceptor>
+             <interceptor>org.jboss.invocation.InvokerInterceptor</interceptor>
+          </interceptors>
+      </attribute>
+      <depends>jboss:service=invoker,type=jrmp</depends>
+   </mbean>
+
+   <!-- This is the service that handles the RMIAdaptor invocations by routing
+   them to the MBeanServer the service is deployed under.  -->
+   <mbean code="org.jboss.jmx.connector.invoker.InvokerAdaptorService"
+          name="jboss.jmx:type=adaptor,name=Invoker">
+      <attribute name="ExportedInterface">org.jboss.jmx.adaptor.rmi.RMIAdaptor</attribute>
+   </mbean>
+
+</server>

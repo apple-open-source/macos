@@ -2,8 +2,8 @@
 
   hash.c -
 
-  $Author: jkh $
-  $Date: 2002/05/27 17:59:43 $
+  $Author: melville $
+  $Date: 2003/05/14 14:09:13 $
   created at: Mon Nov 22 18:51:18 JST 1993
 
   Copyright (C) 1993-2000 Yukihiro Matsumoto
@@ -16,6 +16,10 @@
 #include "st.h"
 #include "util.h"
 #include "rubysig.h"
+
+#ifdef __APPLE__
+#include <crt_externs.h>
+#endif
 
 #define HASH_DELETED  FL_USER1
 
@@ -96,7 +100,7 @@ rb_any_hash(a)
 	DEFER_INTS;
 	hval = rb_funcall(a, hash, 0);
 	if (!FIXNUM_P(hval)) {
-	    hval = rb_funcall(hval, '%', 1, INT2FIX(65439));
+	    hval = rb_funcall(hval, '%', 1, INT2FIX(536870923));
 	}
 	ENABLE_INTS;
 	return (int)FIX2LONG(hval);
@@ -240,7 +244,7 @@ rb_hash_s_create(argc, argv, klass)
     hash = rb_hash_new2(klass);
 
     for (i=0; i<argc; i+=2) {
-	st_insert(RHASH(hash)->tbl, argv[i], argv[i+1]);
+        rb_hash_aset(hash, argv[i], argv[i + 1]);
     }
 
     return hash;
@@ -315,7 +319,7 @@ rb_hash_fetch(argc, argv, hash)
     if (!st_lookup(RHASH(hash)->tbl, key, &val)) {
 	if (rb_block_given_p()) {
 	    if (argc > 1) {
-		rb_raise(rb_eArgError, "wrong # of arguments", argc);
+		rb_raise(rb_eArgError, "wrong # of arguments");
 	    }
 	    return rb_yield(key);
 	}
@@ -805,6 +809,8 @@ rb_hash_equal(hash1, hash2)
     if (TYPE(hash2) != T_HASH) return Qfalse;
     if (RHASH(hash1)->tbl->num_entries != RHASH(hash2)->tbl->num_entries)
 	return Qfalse;
+    if (!rb_equal(RHASH(hash1)->ifnone, RHASH(hash2)->ifnone))
+	return Qfalse;
 
     data.tbl = RHASH(hash2)->tbl;
     data.result = Qtrue;
@@ -861,6 +867,11 @@ static char **origenviron;
 static char **my_environ;
 #undef environ
 #define environ my_environ
+#elif defined(__APPLE__)
+#undef environ
+#define environ (*_NSGetEnviron())
+#define GET_ENVIRON(e) (e)
+#define FREE_ENVIRON(e)
 #else
 extern char **environ;
 #define GET_ENVIRON(e) (e)

@@ -25,5 +25,4 @@
 #include "SYS.h"
 
 SYSCALL(shmctl, 3)
-	blr
 

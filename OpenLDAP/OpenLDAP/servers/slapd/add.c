@@ -1,6 +1,6 @@
-/* $OpenLDAP: pkg/ldap/servers/slapd/add.c,v 1.109 2002/01/25 06:07:55 hyc Exp $ */
+/* $OpenLDAP: pkg/ldap/servers/slapd/add.c,v 1.109.2.11 2003/04/17 22:49:05 ando Exp $ */
 /*
- * Copyright 1998-2002 The OpenLDAP Foundation, All Rights Reserved.
+ * Copyright 1998-2003 The OpenLDAP Foundation, All Rights Reserved.
  * COPYING RESTRICTIONS APPLY, see COPYRIGHT file
  */
 /*
@@ -25,12 +25,13 @@
 #include "ldap_pvt.h"
 #include "slap.h"
 
-static int slap_mods2entry(
-	Modifications *mods,
-	Entry **e,
-	int repl_user,
-	const char **text,
-	char *textbuf, size_t textlen );
+#ifdef LDAP_SLAPI
+#include "slapi.h"
+static Slapi_PBlock *initAddPlugin( Backend *be, Connection *conn, Operation *op,
+	struct berval *dn, Entry *e, int manageDSAit );
+static int doPreAddPluginFNs( Backend *be, Slapi_PBlock *pb );
+static void doPostAddPluginFNs( Backend *be, Slapi_PBlock *pb );
+#endif /* LDAP_SLAPI */
 
 int
 do_add( Connection *conn, Operation *op )
@@ -48,10 +49,12 @@ do_add( Connection *conn, Operation *op )
 	const char *text;
 	int			rc = LDAP_SUCCESS;
 	int	manageDSAit;
+#ifdef LDAP_SLAPI
+	Slapi_PBlock	*pb = NULL;
+#endif /* LDAP_SLAPI */
 
 #ifdef NEW_LOGGING
-	LDAP_LOG(( "operation", LDAP_LEVEL_ENTRY,
-		   "do_add: conn %d enter\n", conn->c_connid ));
+	LDAP_LOG( OPERATION, ENTRY, "do_add: conn %d enter\n", conn->c_connid,0,0 );
 #else
 	Debug( LDAP_DEBUG_TRACE, "do_add\n", 0, 0, 0 );
 #endif
@@ -70,8 +73,8 @@ do_add( Connection *conn, Operation *op )
 	/* get the name */
 	if ( ber_scanf( ber, "{m", /*}*/ &dn ) == LBER_ERROR ) {
 #ifdef NEW_LOGGING
-		LDAP_LOG(( "operation", LDAP_LEVEL_ERR,
-			"do_add: conn %d ber_scanf failed\n", conn->c_connid ));
+		LDAP_LOG( OPERATION, ERR, 
+			"do_add: conn %d ber_scanf failed\n", conn->c_connid,0,0 );
 #else
 		Debug( LDAP_DEBUG_ANY, "do_add: ber_scanf failed\n", 0, 0, 0 );
 #endif
@@ -86,9 +89,8 @@ do_add( Connection *conn, Operation *op )
 
 	if( rc != LDAP_SUCCESS ) {
 #ifdef NEW_LOGGING
-		LDAP_LOG(( "operation", LDAP_LEVEL_ERR,
-			"do_add: conn %d invalid dn (%s)\n", conn->c_connid,
-				dn.bv_val ));
+		LDAP_LOG( OPERATION, ERR, 
+			"do_add: conn %d invalid dn (%s)\n", conn->c_connid, dn.bv_val, 0 );
 #else
 		Debug( LDAP_DEBUG_ANY, "do_add: invalid dn (%s)\n", dn.bv_val, 0, 0 );
 #endif
@@ -98,8 +100,8 @@ do_add( Connection *conn, Operation *op )
 	}
 
 #ifdef NEW_LOGGING
-	LDAP_LOG(( "operation", LDAP_LEVEL_ARGS,
-		"do_add: conn %d  dn (%s)\n", conn->c_connid, e->e_dn ));
+	LDAP_LOG( OPERATION, ARGS, 
+		"do_add: conn %d  dn (%s)\n", conn->c_connid, e->e_dn, 0 );
 #else
 	Debug( LDAP_DEBUG_ARGS, "do_add: dn (%s)\n", e->e_dn, 0, 0 );
 #endif
@@ -109,13 +111,14 @@ do_add( Connection *conn, Operation *op )
 	    tag = ber_next_element( ber, &len, last ) )
 	{
 		Modifications *mod;
+		ber_tag_t rtag;
 
-		rc = ber_scanf( ber, "{m{W}}", &tmp.sml_type, &tmp.sml_bvalues );
+		rtag = ber_scanf( ber, "{m{W}}", &tmp.sml_type, &tmp.sml_bvalues );
 
-		if ( rc == LBER_ERROR ) {
+		if ( rtag == LBER_ERROR ) {
 #ifdef NEW_LOGGING
-			LDAP_LOG(( "operation", LDAP_LEVEL_ERR,
-				   "do_add: conn %d	 decoding error \n", conn->c_connid ));
+			LDAP_LOG( OPERATION, ERR, 
+				   "do_add: conn %d	 decoding error \n", conn->c_connid, 0, 0 );
 #else
 			Debug( LDAP_DEBUG_ANY, "do_add: decoding error\n", 0, 0, 0 );
 #endif
@@ -127,16 +130,15 @@ do_add( Connection *conn, Operation *op )
 
 		if ( tmp.sml_bvalues == NULL ) {
 #ifdef NEW_LOGGING
-			LDAP_LOG(( "operation", LDAP_LEVEL_INFO,
+			LDAP_LOG( OPERATION, INFO, 
 				"do_add: conn %d	 no values for type %s\n",
-				conn->c_connid, tmp.sml_type.bv_val ));
+				conn->c_connid, tmp.sml_type.bv_val, 0 );
 #else
 			Debug( LDAP_DEBUG_ANY, "no values for type %s\n",
 				tmp.sml_type.bv_val, 0, 0 );
 #endif
 			send_ldap_result( conn, op, rc = LDAP_PROTOCOL_ERROR,
 				NULL, "no values for attribute type", NULL, NULL );
-			free( tmp.sml_type.bv_val );
 			goto done;
 		}
 		mod  = (Modifications *) ch_malloc( sizeof(Modifications) );
@@ -153,8 +155,8 @@ do_add( Connection *conn, Operation *op )
 
 	if ( ber_scanf( ber, /*{*/ "}") == LBER_ERROR ) {
 #ifdef NEW_LOGGING
-		LDAP_LOG(( "operation", LDAP_LEVEL_ERR,
-			"do_add: conn %d ber_scanf failed\n", conn->c_connid ));
+		LDAP_LOG( OPERATION, ERR, 
+			"do_add: conn %d ber_scanf failed\n", conn->c_connid, 0, 0 );
 #else
 		Debug( LDAP_DEBUG_ANY, "do_add: ber_scanf failed\n", 0, 0, 0 );
 #endif
@@ -166,8 +168,8 @@ do_add( Connection *conn, Operation *op )
 
 	if( (rc = get_ctrls( conn, op, 1 )) != LDAP_SUCCESS ) {
 #ifdef NEW_LOGGING
-		LDAP_LOG(( "operation", LDAP_LEVEL_INFO,
-			"do_add: conn %d get_ctrls failed\n", conn->c_connid ));
+		LDAP_LOG( OPERATION, INFO, 
+			"do_add: conn %d get_ctrls failed\n", conn->c_connid, 0, 0 );
 #else
 		Debug( LDAP_DEBUG_ANY, "do_add: get_ctrls failed\n", 0, 0, 0 );
 #endif
@@ -180,7 +182,7 @@ do_add( Connection *conn, Operation *op )
 		goto done;
 	}
 
-	Statslog( LDAP_DEBUG_STATS, "conn=%ld op=%d ADD dn=\"%s\"\n",
+	Statslog( LDAP_DEBUG_STATS, "conn=%lu op=%lu ADD dn=\"%s\"\n",
 	    op->o_connid, op->o_opid, e->e_dn, 0, 0 );
 
 	if( e->e_nname.bv_len == 0 ) {
@@ -190,13 +192,11 @@ do_add( Connection *conn, Operation *op )
 			NULL, NULL );
 		goto done;
 
-#if defined( SLAPD_SCHEMA_DN )
-	} else if ( strcasecmp( e->e_ndn, SLAPD_SCHEMA_DN ) == 0 ) {
+	} else if ( bvmatch( &e->e_nname, &global_schemandn ) ) {
 		send_ldap_result( conn, op, rc = LDAP_ALREADY_EXISTS,
 			NULL, "subschema subentry already exists",
 			NULL, NULL );
 		goto done;
-#endif
 	}
 
 	manageDSAit = get_manageDSAit( op );
@@ -210,11 +210,17 @@ do_add( Connection *conn, Operation *op )
 	if ( be == NULL ) {
 		BerVarray ref = referral_rewrite( default_referral,
 			NULL, &e->e_name, LDAP_SCOPE_DEFAULT );
+		if ( ref == NULL ) ref = default_referral;
+		if ( ref != NULL ) {
+			send_ldap_result( conn, op, rc = LDAP_REFERRAL,
+				NULL, NULL, ref, NULL );
 
-		send_ldap_result( conn, op, rc = LDAP_REFERRAL,
-			NULL, NULL, ref ? ref : default_referral, NULL );
-
-		if ( ref ) ber_bvarray_free( ref );
+			if ( ref != default_referral ) ber_bvarray_free( ref );
+		} else {
+			send_ldap_result( conn, op,
+					rc = LDAP_UNWILLING_TO_PERFORM,
+					NULL, "referral missing", NULL, NULL );
+		}
 		goto done;
 	}
 
@@ -231,6 +237,10 @@ do_add( Connection *conn, Operation *op )
 	if ( rc != LDAP_SUCCESS ) {
 		goto done;
 	}
+
+#ifdef LDAP_SLAPI
+	pb = initAddPlugin( be, conn, op, &dn, e, manageDSAit );
+#endif /* LDAP_SLAPI */
 
 	/*
 	 * do the add if 1 && (2 || 3)
@@ -258,7 +268,7 @@ do_add( Connection *conn, Operation *op )
 				goto done;
 			}
 
-			if ( SLAP_LASTMOD(be) && !repl_user ) {
+			if ( !repl_user ) {
 				for( modtail = &modlist;
 					*modtail != NULL;
 					modtail = &(*modtail)->sml_next )
@@ -266,7 +276,7 @@ do_add( Connection *conn, Operation *op )
 					assert( (*modtail)->sml_op == LDAP_MOD_ADD );
 					assert( (*modtail)->sml_desc != NULL );
 				}
-				rc = slap_mods_opattrs( op, modlist, modtail, &text,
+				rc = slap_mods_opattrs( be, op, modlist, modtail, &text,
 					textbuf, textlen );
 				if( rc != LDAP_SUCCESS ) {
 					send_ldap_result( conn, op, rc,
@@ -283,6 +293,18 @@ do_add( Connection *conn, Operation *op )
 				goto done;
 			}
 
+#ifdef LDAP_SLAPI
+			/*
+			 * Call the preoperation plugin here, because the entry
+			 * will actually contain something.
+			 */
+			rc = doPreAddPluginFNs( be, pb );
+			if ( rc != LDAP_SUCCESS ) {
+				/* plugin will have sent result */
+				goto done;
+			}
+#endif /* LDAP_SLAPI */
+
 			if ( (*be->be_add)( be, conn, op, e ) == 0 ) {
 #ifdef SLAPD_MULTIMASTER
 				if ( !repl_user )
@@ -296,27 +318,61 @@ do_add( Connection *conn, Operation *op )
 
 #ifndef SLAPD_MULTIMASTER
 		} else {
-			BerVarray defref = be->be_update_refs
+			BerVarray defref;
+			BerVarray ref;
+#ifdef LDAP_SLAPI
+			/*
+			 * SLAPI_ADD_ENTRY will be empty, but this may be acceptable
+			 * on replicas (for now, it involves the minimum code intrusion).
+			 */
+			rc = doPreAddPluginFNs( be, pb );
+			if ( rc != LDAP_SUCCESS ) {
+				/* plugin will have sent result */
+				goto done;
+			}
+#endif /* LDAP_SLAPI */
+
+			defref = be->be_update_refs
 				? be->be_update_refs : default_referral;
-			BerVarray ref = referral_rewrite( defref,
-				NULL, &e->e_name, LDAP_SCOPE_DEFAULT );
 
-			send_ldap_result( conn, op, rc = LDAP_REFERRAL, NULL, NULL,
-				ref ? ref : defref, NULL );
+			if ( defref ) {
+				ref = referral_rewrite( defref,
+					NULL, &e->e_name, LDAP_SCOPE_DEFAULT );
 
-			if ( ref ) ber_bvarray_free( ref );
-#endif
+				send_ldap_result( conn, op, rc = LDAP_REFERRAL,
+						NULL, NULL,
+						ref ? ref : defref, NULL );
+
+				if ( ref ) ber_bvarray_free( ref );
+			} else {
+				send_ldap_result( conn, op,
+						rc = LDAP_UNWILLING_TO_PERFORM,
+						NULL, "referral missing",
+						NULL, NULL );
+			}
+#endif /* SLAPD_MULTIMASTER */
 		}
 	} else {
+#ifdef LDAP_SLAPI
+	    rc = doPreAddPluginFNs( be, pb );
+	    if ( rc != LDAP_SUCCESS ) {
+		/* plugin will have sent result */
+		goto done;
+	    }
+#endif
 #ifdef NEW_LOGGING
-	    LDAP_LOG(( "operation", LDAP_LEVEL_INFO,
-		       "do_add: conn %d	 no backend support\n", conn->c_connid ));
+	    LDAP_LOG( OPERATION, INFO, 
+		       "do_add: conn %d	 no backend support\n", conn->c_connid, 0, 0 );
 #else
 	    Debug( LDAP_DEBUG_ARGS, "	 do_add: no backend support\n", 0, 0, 0 );
 #endif
 	    send_ldap_result( conn, op, rc = LDAP_UNWILLING_TO_PERFORM,
 			      NULL, "operation not supported within namingContext", NULL, NULL );
 	}
+
+#ifdef LDAP_SLAPI
+	doPostAddPluginFNs( be, pb );
+#endif /* LDAP_SLAPI */
 
 done:
 	if( modlist != NULL ) {
@@ -329,7 +385,8 @@ done:
 	return rc;
 }
 
-static int slap_mods2entry(
+int
+slap_mods2entry(
 	Modifications *mods,
 	Entry **e,
 	int repl_user,
@@ -400,10 +457,8 @@ static int slap_mods2entry(
 				for ( i = 0; mods->sml_bvalues[i].bv_val != NULL; i++ ) {
 					/* test asserted values against themselves */
 					for( j = 0; j < i; j++ ) {
-						int rc = ber_bvcmp( &mods->sml_bvalues[i],
-							&mods->sml_bvalues[j] );
-
-						if( rc == 0 ) {
+						if ( bvmatch( &mods->sml_bvalues[i],
+							&mods->sml_bvalues[j] ) ) {
 							/* value exists already */
 							snprintf( textbuf, textlen,
 								"%s: value #%d provided more than once",
@@ -414,34 +469,12 @@ static int slap_mods2entry(
 				}
 
 			} else {
-				for ( i = 0; mods->sml_bvalues[i].bv_val != NULL; i++ ) {
-					int rc, match;
-					const char *text = NULL;
-					struct berval asserted;
-
-					rc = value_normalize( mods->sml_desc,
-						SLAP_MR_EQUALITY,
-						&mods->sml_bvalues[i],
-						&asserted,
-						&text );
-
-					if( rc != LDAP_SUCCESS ) return rc;
-
-					for ( j = 0; j < i; j++ ) {
-						int rc = value_match( &match, mods->sml_desc, mr,
-							SLAP_MR_VALUE_SYNTAX_MATCH,
-							&mods->sml_bvalues[j], &asserted, &text );
-
-						if( rc == LDAP_SUCCESS && match == 0 ) {
-							free( asserted.bv_val );
-							snprintf( textbuf, textlen,
-								"%s: value #%d provided more than once",
-								mods->sml_desc->ad_cname.bv_val, j );
-							return LDAP_TYPE_OR_VALUE_EXISTS;
-						}
-					}
-
-					free( asserted.bv_val );
+				int		rc;
+				rc = modify_check_duplicates( mods->sml_desc, mr,
+						NULL, mods->sml_bvalues, 0,
+						text, textbuf, textlen );
+				if ( rc != LDAP_SUCCESS ) {
+					return rc;
 				}
 			}
 		}
@@ -463,3 +496,65 @@ static int slap_mods2entry(
 
 	return LDAP_SUCCESS;
 }
+
+#ifdef LDAP_SLAPI
+static Slapi_PBlock *initAddPlugin( Backend *be, Connection *conn, Operation *op,
+	struct berval *dn, Entry *e, int manageDSAit )
+{
+	Slapi_PBlock *pb;
+
+	pb = op->o_pb;
+
+	slapi_x_backend_set_pb( pb, be );
+	slapi_x_connection_set_pb( pb, conn );
+	slapi_x_operation_set_pb( pb, op );
+
+	slapi_pblock_set( pb, SLAPI_ADD_TARGET, (void *)dn->bv_val );
+	slapi_pblock_set( pb, SLAPI_ADD_ENTRY, (void *)e );
+	slapi_pblock_set( pb, SLAPI_MANAGEDSAIT, (void *)manageDSAit );
+
+	return pb;
+}
+
+static int doPreAddPluginFNs( Backend *be, Slapi_PBlock *pb )
+{
+	int rc;
+
+	rc = doPluginFNs( be, SLAPI_PLUGIN_PRE_ADD_FN, pb );
+	if ( rc != 0 ) {
+		/*
+		 * A preoperation plugin failure will abort the
+		 * entire operation.
+		 */
+#ifdef NEW_LOGGING
+		LDAP_LOG( OPERATION, INFO, "do_add: add preoperation plugin failed\n",
+				0, 0, 0);
+#else
+		Debug(LDAP_DEBUG_TRACE, "do_add: add preoperation plugin failed.\n",
+				0, 0, 0);
+		if ( slapi_pblock_get( pb, SLAPI_RESULT_CODE, (void *)&rc ) != 0 )
+			rc = LDAP_OTHER;
+#endif
+	} else {
+		rc = LDAP_SUCCESS;
+	}
+
+	return rc;
+}
+
+static void doPostAddPluginFNs( Backend *be, Slapi_PBlock *pb )
+{
+	int rc;
+
+	rc = doPluginFNs( be, SLAPI_PLUGIN_POST_ADD_FN, pb );
+	if ( rc != 0 ) {
+#ifdef NEW_LOGGING
+		LDAP_LOG( OPERATION, INFO, "do_add: add postoperation plugin failed\n",
+				0, 0, 0);
+#else
+		Debug(LDAP_DEBUG_TRACE, "do_add: add preoperation plugin failed.\n",
+				0, 0, 0);
+#endif
+	}
+}
+#endif /* LDAP_SLAPI */

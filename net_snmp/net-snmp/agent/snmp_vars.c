@@ -32,8 +32,12 @@ PERFORMANCE OF THIS SOFTWARE.
  * (jbray@origin-at.co.uk) 1997
  */
 
+/*
+ * XXXWWW merge todo: incl/excl range changes in differences between
+ * 1.194 and 1.199 
+ */
 
-#include <config.h>
+#include <net-snmp/net-snmp-config.h>
 #if HAVE_STRING_H
 #include <string.h>
 #endif
@@ -109,48 +113,37 @@ PERFORMANCE OF THIS SOFTWARE.
 #include <dmalloc.h>
 #endif
 
-#include "mibincl.h"
-#include "snmpv3.h"
-#include "snmpusm.h"
-#include "system.h"
+#include <net-snmp/net-snmp-includes.h>
+#include <net-snmp/agent/net-snmp-agent-includes.h>
 #include "kernel.h"
-#include "snmp_vars.h"
-#include "default_store.h"
-#include "ds_agent.h"
 
 #include "mibgroup/struct.h"
-#include "read_config.h"
-#include "snmp_vars.h"
-#include "agent_read_config.h"
-#include "agent_registry.h"
-#include "transform_oids.h"
-#include "callback.h"
-#include "snmp_alarm.h"
 #include "snmpd.h"
+#include "net-snmp/agent/all_helpers.h"
 #include "mib_module_includes.h"
+#include "net-snmp/library/container.h"
 
 #ifndef  MIN
-#define  MIN(a,b)                     (((a) < (b)) ? (a) : (b)) 
+#define  MIN(a,b)                     (((a) < (b)) ? (a) : (b))
 #endif
 
-/* mib clients are passed a pointer to a oid buffer.  Some mib clients
- * (namely, those first noticed in mibII/vacm.c) modify this oid buffer
- * before they determine if they really need to send results back out
- * using it.  If the master agent determined that the client was not the
- * right one to talk with, it will use the same oid buffer to pass to the
- * rest of the clients, which may not longer be valid.  This should be
- * fixed in all clients rather than the master.  However, its not a
- * particularily easy bug to track down so this saves debugging time at
- * the expense of a few memcpy's.
+/*
+ * mib clients are passed a pointer to a oid buffer.  Some mib clients
+ * * (namely, those first noticed in mibII/vacm.c) modify this oid buffer
+ * * before they determine if they really need to send results back out
+ * * using it.  If the master agent determined that the client was not the
+ * * right one to talk with, it will use the same oid buffer to pass to the
+ * * rest of the clients, which may not longer be valid.  This should be
+ * * fixed in all clients rather than the master.  However, its not a
+ * * particularily easy bug to track down so this saves debugging time at
+ * * the expense of a few memcpy's.
  */
 #define MIB_CLIENTS_ARE_EVIL 1
- 
-extern struct subtree *subtrees;
-int subtree_size;
-int subtree_malloc_size;
+
+extern netsnmp_subtree *subtrees;
 
 /*
- *	Each variable name is placed in the variable table, without the
+ *      Each variable name is placed in the variable table, without the
  * terminating substring that determines the instance of the variable.  When
  * a string is found that is lexicographicly preceded by the input string,
  * the function for that entry is called to find the method of access of the
@@ -162,11 +155,11 @@ int subtree_malloc_size;
  *
  * u_char *
  * findVar(name, length, exact, var_len, write_method)
- * oid	    *name;	    IN/OUT - input name requested, output name found
- * int	    length;	    IN/OUT - number of sub-ids in the in and out oid's
- * int	    exact;	    IN - TRUE if an exact match was requested.
- * int	    len;	    OUT - length of variable or 0 if function returned.
- * int	    write_method;   OUT - pointer to function to set variable,
+ * oid      *name;          IN/OUT - input name requested, output name found
+ * int      length;         IN/OUT - number of sub-ids in the in and out oid's
+ * int      exact;          IN - TRUE if an exact match was requested.
+ * int      len;            OUT - length of variable or 0 if function returned.
+ * int      write_method;   OUT - pointer to function to set variable,
  *                                otherwise 0
  *
  *     The writeVar function is returned to handle row addition or complex
@@ -190,285 +183,107 @@ int subtree_malloc_size;
  * is thus provided to free those resources reserved in the first two passes.
  * 
  * writeVar(action, var_val, var_val_type, var_val_len, statP, name, name_len)
- * int	    action;	    IN - RESERVE1, RESERVE2, COMMIT, or FREE
- * u_char   *var_val;	    IN - input or output buffer space
+ * int      action;         IN - RESERVE1, RESERVE2, COMMIT, or FREE
+ * u_char   *var_val;       IN - input or output buffer space
  * u_char   var_val_type;   IN - type of input buffer
- * int	    var_val_len;    IN - input and output buffer len
- * u_char   *statP;	    IN - pointer to local statistic
+ * int      var_val_len;    IN - input and output buffer len
+ * u_char   *statP;         IN - pointer to local statistic
  * oid      *name           IN - pointer to name requested
  * int      name_len        IN - number of sub-ids in the name
  */
 
-long		long_return;
+long            long_return;
 #ifndef ibm032
-u_char		return_buf[258];  
+u_char          return_buf[258];
 #else
-u_char		return_buf[256]; /* nee 64 */
+u_char          return_buf[256];        /* nee 64 */
 #endif
 
-struct timeval	starttime;
-
-/* init_agent() returns non-zero on error */
-int
-init_agent (const char *app)
-{
-  int r = 0;
-
-  /* get current time (ie, the time the agent started) */
-  gettimeofday(&starttime, NULL);
-  starttime.tv_sec--;
-  starttime.tv_usec += 1000000L;
-
-  /* we handle alarm signals ourselves in the select loop */
-  ds_set_boolean(DS_LIBRARY_ID, DS_LIB_ALARM_DONT_USE_SIG, 1);
-
-#ifdef CAN_USE_NLIST
-  init_kmem("/dev/kmem");
-#endif
-
-  setup_tree();
-
-  init_agent_read_config(app);
-
-#ifdef TESTING
-  auto_nlist_print_tree(-2, 0);
-#endif
-
-  /* initialize agentx subagent if necessary. */
-#ifdef USING_AGENTX_SUBAGENT_MODULE
-  if(ds_get_boolean(DS_APPLICATION_ID, DS_AGENT_ROLE) == SUB_AGENT)
-    r = subagent_pre_init();
-#endif
-
-  return r;
-}  /* end init_agent() */
-
-
-
-oid nullOid[] = {0,0};
-int nullOidLen = sizeof(nullOid);
+struct timeval  starttime;
+netsnmp_session *callback_master_sess;
+int             callback_master_num;
 
 /*
- * getStatPtr - return a pointer to the named variable, as well as it's
- * type, length, and access control list.
- * Now uses 'search_subtree' (recursively) and 'search_subtree_vars'
- * to do most of the work
- *
- * If an exact match for the variable name exists, it is returned.  If not,
- * and exact is false, the next variable lexicographically after the
- * requested one is returned.
- *
- * If no appropriate variable can be found, NULL is returned.
+ * init_agent() returns non-zero on error 
  */
-static  int 		found;
-
-static u_char *
-search_subtree_vars(struct subtree *tp,
-		    oid *name,    /* IN - name of var, OUT - name matched */
-		    size_t *namelen, /* IN -number of sub-ids in name,
-                                     OUT - subid-is in matched name */
-		    u_char *type, /* OUT - type of matched variable */
-		    size_t *len,  /* OUT - length of matched variable */
-		    u_short *acl, /* OUT - access control list */
-		    int exact,    /* IN - TRUE if exact match wanted */
-		    WriteMethod **write_method,
-		    struct snmp_pdu *pdu, /* IN - relevant auth info re PDU */
-		    int *noSuchObject)
+int
+init_agent(const char *app)
 {
-    register struct variable *vp;
-    struct variable	compat_var, *cvp = &compat_var;
-    register int	x;
-    u_char		*access = NULL;
-    int			result;
-    oid 		*suffix;
-    size_t		suffixlen;
-#if MIB_CLIENTS_ARE_EVIL
-    oid			save[MAX_OID_LEN];
-    size_t		savelen = 0;
+    int             r = 0;
+
+    /*
+     * get current time (ie, the time the agent started) 
+     */
+    gettimeofday(&starttime, NULL);
+    starttime.tv_sec--;
+    starttime.tv_usec += 1000000L;
+
+    /*
+     * we handle alarm signals ourselves in the select loop 
+     */
+    netsnmp_ds_set_boolean(NETSNMP_DS_LIBRARY_ID, 
+			   NETSNMP_DS_LIB_ALARM_DONT_USE_SIG, 1);
+
+#ifdef CAN_USE_NLIST
+    init_kmem("/dev/kmem");
 #endif
 
-	    if ( tp->variables == NULL )
-		return NULL;
+    setup_tree();
 
-	    result = compare_tree(name, *namelen, tp->start, tp->start_len);
-	    suffixlen = *namelen - tp->namelen;
-	    suffix = name + tp->namelen;
-	    /* the following is part of the setup for the compatability
-	       structure below that has been moved out of the main loop.
-	     */
-	    memcpy(cvp->name, tp->name, tp->namelen * sizeof(oid));
+    init_agent_read_config(app);
 
-	    *noSuchObject = TRUE;	/* In case of null variables_len */
-	    for(x = 0, vp = tp->variables; x < tp->variables_len;
-		vp =(struct variable *)((char *)vp +tp->variables_width), x++){
-		/* if exact and ALWAYS
-		   if next  and result >= 0 */
-                /* and if vp->namelen != 0   -- Wes */
-		if (vp->namelen && (exact || result >= 0)){
-		    result = compare_tree(suffix, suffixlen, vp->name,
-				     vp->namelen);
-		}
-		/* if exact and result == 0
-		   if next  and result <= 0 */
-                /* or if vp->namelen == 0    -- Wes */
-		if ((!exact && (result <= 0)) || (exact && (result == 0)) ||
-                  vp->namelen == 0) {
-		    /* builds an old (long) style variable structure to retain
-		       compatability with var_* functions written previously.
-		     */
-                  if (vp->namelen)
-                    memcpy((cvp->name + tp->namelen),
-			  vp->name, vp->namelen * sizeof(oid));
-		    cvp->namelen = tp->namelen + vp->namelen;
-		    cvp->type = vp->type;
-		    cvp->magic = vp->magic;
-		    cvp->acl = vp->acl;
-		    cvp->findVar = vp->findVar;
-                    *write_method = NULL;
-#if MIB_CLIENTS_ARE_EVIL
-                    memcpy(save, name, *namelen*sizeof(oid));
-                    savelen = *namelen;
+#ifdef TESTING
+    auto_nlist_print_tree(-2, 0);
 #endif
-		    DEBUGMSGTL(("snmp_vars", "Trying variable: "));
-		    DEBUGMSGOID(("snmp_vars", cvp->name, cvp->namelen));
-		    DEBUGMSG(("snmp_vars"," ...\n"));
 
-		gaga:
-		    access = (*(vp->findVar))(cvp, name, namelen, exact,
-						  len, write_method);
-	    	    DEBUGMSGTL(("snmp_vars", "Returned %s\n",
-				(access==NULL) ? "(null)" : "something" ));
-
-			/*
-			 * Check that the answer is acceptable.
-			 *  i.e. lies within the current subtree chunk
-			 *
-			 * It might be worth saving this answer just in
-			 *  case it turns out to be valid, but for now
-			 *  we'll simply discard it.
-			 */
-		    if ( access && snmp_oid_compare(name, *namelen,
-						    tp->end, tp->end_len) > 0) {
-			memcpy(name, tp->end, tp->end_len);
-			access = 0;
-		    }
-#if MIB_CLIENTS_ARE_EVIL
-                    if (access == NULL) {
-		      if (snmp_oid_compare(name, *namelen, save, savelen) != 0) {
-			DEBUGMSGTL(("snmp_vars", "evil_client: "));
-			DEBUGMSGOID(("snmp_vars", save, savelen));
-			DEBUGMSG(("snmp_vars"," =>"));
-			DEBUGMSGOID(("snmp_vars", name, *namelen));
-			DEBUGMSG(("snmp_vars","\n"));
-                        memcpy(name, save, savelen*sizeof(oid));
-                        *namelen = savelen;
-                      }
-                    }
+#ifndef WIN32
+	/*
+	 * the pipe call creates fds that select chokes on, so
+	 * disable callbacks on WIN32 until a fix can be found
+	 */
+    /*
+     * always register a callback transport for internal use 
+     */
+    callback_master_sess = netsnmp_callback_open(0, handle_snmp_packet,
+                                                 netsnmp_agent_check_packet,
+                                                 netsnmp_agent_check_parse);
+    if (callback_master_sess)
+        callback_master_num = callback_master_sess->local_port;
+    else
 #endif
-		    if (*write_method)
-			*acl = cvp->acl;
-                    /* check for permission to view this part of the OID tree */
-		    if ((access != NULL || (*write_method != NULL && exact)) &&
-                        in_a_view(name, namelen, pdu, cvp->type)) {
-			if ( access && !exact ) {
-				/*
-				 * We've got an answer, but shouldn't use it.
-				 * But we *might* be able to use a later
-				 *  instance of the same object, so we can't
-				 *  legitimately move on to the next variable
-				 *  in the variable structure just yet.
-				 * Let's try re-calling the findVar routine
-				 *  with the returned name, and see whether
-				 *  the next answer is acceptable
-				 */
-			   *write_method = NULL;
-			   goto gaga;
-			}
-                        access = NULL;
-			*write_method = NULL;
-		    } else if (exact){
-			found = TRUE;
-		    }
-		    if (access != NULL || (*write_method != NULL && exact))
-			break;
-		}
-		/* if exact and result <= 0 */
-		if (exact && (result  <= 0)){
-	            *type = cvp->type;
-		    *acl = cvp->acl;
-		    if (found)
-                      *noSuchObject = FALSE;
-		    else
-                      *noSuchObject = TRUE;
-		    return NULL;
-		}
-	    }
-	    if (access != NULL || (exact && *write_method != NULL)) {
-	        *type = cvp->type;
-		*acl = cvp->acl;
-		return access;
-	    }
-	    return NULL;
-}
+        callback_master_num = -1;
 
-u_char *
-getStatPtr(
-    oid		*name,	    /* IN - name of var, OUT - name matched */
-    size_t	*namelen,   /* IN -number of sub-ids in name,
-                               OUT - subid-is in matched name */
-    u_char	*type,	    /* OUT - type of matched variable */
-    size_t	*len,	    /* OUT - length of matched variable */
-    u_short	*acl,	    /* OUT - access control list */
-    int		exact,	    /* IN - TRUE if exact match wanted */
-    WriteMethod **write_method,
-    struct snmp_pdu *pdu,   /* IN - relevant auth info re PDU */
-    int		*noSuchObject)
-{
-    struct subtree	*tp;
-    oid			save[MAX_OID_LEN];
-    size_t		savelen = 0;
-    u_char              result_type;
-    u_short             result_acl;
-    u_char        	*search_return=NULL;
+    netsnmp_init_helpers();
+    init_traps();
+    netsnmp_container_init_list();
 
-    found = FALSE;
-
-    if (!exact){
-	memcpy(save, name, *namelen * sizeof(oid));
-	savelen = *namelen;
+    /*
+     * initialize agentx subagent if necessary. 
+     */
+#ifdef USING_AGENTX_SUBAGENT_MODULE
+    if (netsnmp_ds_get_boolean(NETSNMP_DS_APPLICATION_ID, 
+			       NETSNMP_DS_AGENT_ROLE) == SUB_AGENT) {
+        r = subagent_pre_init();
+        init_subagent();
     }
-    *write_method = NULL;
+#endif
 
-    DEBUGMSGTL(("snmp_vars", "Looking for: "));
-    DEBUGMSGOID(("snmp_vars", name, *namelen));
-    DEBUGMSG(("snmp_vars"," ...\n"));
+    /*
+     * Register configuration tokens from transport modules.  
+     */
+#ifdef SNMP_TRANSPORT_UDP_DOMAIN
+    netsnmp_udp_agent_config_tokens_register();
+#endif
+#ifdef SNMP_TRANSPORT_UDPIPV6_DOMAIN
+    netsnmp_udp6_agent_config_tokens_register();
+#endif
 
-    tp = find_subtree(name, *namelen, NULL);
-    
-    while ( search_return == NULL && tp != NULL ) {
-	DEBUGMSGTL(("snmp_vars", "Trying tree: "));
-	DEBUGMSGOID(("snmp_vars", tp->name, tp->namelen));
-	DEBUGMSG(("snmp_vars"," ...\n"));
-	search_return = search_subtree_vars( tp, name, namelen, &result_type,
-                                        len, &result_acl, exact, write_method,
-                                        pdu, noSuchObject);
-	if ( search_return != NULL || exact )
-	    break;
-	tp = tp->next;
-    }
-    if ( tp == NULL ) {
-	if (!search_return && !exact){
-	    memcpy(name, save, savelen * sizeof(oid));
-	    *namelen = savelen;
-	}
-	if (found)
-	    *noSuchObject = FALSE;
-	else
-	    *noSuchObject = TRUE;
-        return NULL;
-    }
-    *type = result_type;
-    *acl =  result_acl;
-    return search_return;
-}
+#ifdef NETSNMP_EMBEDDED_PERL
+    init_perl();
+#endif
 
+    return r;
+}                               /* end init_agent() */
+
+oid             nullOid[] = { 0, 0 };
+int             nullOidLen = sizeof(nullOid);

@@ -1,8 +1,8 @@
 /*
    +----------------------------------------------------------------------+
-   | PHP version 4.0                                                      |
+   | PHP Version 4                                                        |
    +----------------------------------------------------------------------+
-   | Copyright (c) 1997-2001 The PHP Group                                |
+   | Copyright (c) 1997-2003 The PHP Group                                |
    +----------------------------------------------------------------------+
    | This source file is subject to version 2.02 of the PHP license,      |
    | that is bundled with this package in the file LICENSE, and is        |
@@ -12,21 +12,27 @@
    | obtain it through the world-wide-web, please send a note to          |
    | license@php.net so we can mail you a copy immediately.               |
    +----------------------------------------------------------------------+
-   | Authors: Sascha Schumann <sascha@schumann.cx>                        |
+   | Author: Sascha Schumann <sascha@schumann.cx>                         |
    +----------------------------------------------------------------------+
 */
 
-/* $Id: flock_compat.h,v 1.1.1.4 2001/12/14 22:13:21 zarzycki Exp $ */
+/* $Id: flock_compat.h,v 1.1.1.7 2003/07/18 18:07:43 zarzycki Exp $ */
 
 #ifndef FLOCK_COMPAT_H
 #define FLOCK_COMPAT_H
+
+/* php_flock internally uses fcntl whther or not flock is available
+ * This way our php_flock even works on NFS files.
+ * More info: /usr/src/linux/Documentation
+ */
+PHPAPI int php_flock(int fd, int operation);
 
 #ifndef HAVE_FLOCK
 #	define LOCK_SH 1
 #	define LOCK_EX 2
 #	define LOCK_NB 4
 #	define LOCK_UN 8
-int flock(int fd, int operation);
+PHPAPI int flock(int fd, int operation);
 #endif
 
 #ifdef PHP_WIN32

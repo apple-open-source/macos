@@ -16,7 +16,7 @@
   print -- $(( rnd = there * 10000 ))
 # save rounding problems by converting to integer
 0:basic floating point arithmetic
->31415
+>31415.
 
   print $(( 0x10 + 0X01 + 2#1010 ))
 0:base input
@@ -53,11 +53,11 @@
 
   print $(( 3 ? 2 ))
 1:parsing ternary (1)
-?ZTST_execchunk:2: ':' expected
+?(eval):1: ':' expected
 
   print $(( 3 ? 2 : 1 : 4 ))
 1:parsing ternary (2)
-?ZTST_execchunk:2: ':' without '?'
+?(eval):1: ':' without '?'
 
   print $(( 0, 4 ? 3 : 1, 5 ))
 0:comma operator
@@ -88,3 +88,17 @@
   print ${(t)newarray} ${#newarray} ${newarray[1]}
 0:setting array elements in math context
 >array 1 2
+
+  print $(( 13 = 42 ))
+1:bad lvalue
+?(eval):1: lvalue required
+
+  x=/bar
+  (( x = 32 ))
+  print $x
+0:assigning to scalar which contains non-math string
+>32
+
+  print $(( ))
+0:empty math parse e.g. $(( )) acts like a zero
+>0

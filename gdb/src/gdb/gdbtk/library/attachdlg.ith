@@ -6,7 +6,7 @@
 # ----------------------------------------------------------------------
 #   Copyright (C) 1999 Cygnus Solutions
 #
-class AttachDlg {
+itcl::class AttachDlg {
   inherit ModalDialog ManagedWin
 
   public {

@@ -1,8 +1,8 @@
 /*
    +----------------------------------------------------------------------+
-   | PHP version 4.0                                                      |
+   | PHP Version 4                                                        |
    +----------------------------------------------------------------------+
-   | Copyright (c) 1997-2001 The PHP Group                                |
+   | Copyright (c) 1997-2003 The PHP Group                                |
    +----------------------------------------------------------------------+
    | This source file is subject to version 2.02 of the PHP license,      |
    | that is bundled with this package in the file LICENSE, and is        |
@@ -12,11 +12,11 @@
    | obtain it through the world-wide-web, please send a note to          |
    | license@php.net so we can mail you a copy immediately.               |
    +----------------------------------------------------------------------+
-   | Authors: Paul Panotzki - Bunyip Information Systems                  |
+   | Author: Paul Panotzki - Bunyip Information Systems                   |
    +----------------------------------------------------------------------+
  */
 
-/* $Id: microtime.c,v 1.1.1.3 2001/12/14 22:13:24 zarzycki Exp $ */
+/* $Id: microtime.c,v 1.1.1.6 2003/07/18 18:07:43 zarzycki Exp $ */
 
 #include "php.h"
 
@@ -25,6 +25,12 @@
 #endif
 #ifdef PHP_WIN32
 #include "win32/time.h"
+#elif defined(NETWARE)
+#ifdef NEW_LIBC
+#include <sys/timeval.h>
+#else
+#include "netware/time_nw.h"
+#endif
 #else
 #include <sys/time.h>
 #endif
@@ -43,12 +49,13 @@
 
 #define NUL  '\0'
 #define MICRO_IN_SEC 1000000.00
+#define SEC_IN_MIN 60
 
 /* {{{ proto string microtime(void)
    Returns a string containing the current time in seconds and microseconds */
+#ifdef HAVE_GETTIMEOFDAY
 PHP_FUNCTION(microtime)
 {
-#ifdef HAVE_GETTIMEOFDAY
 	struct timeval tp;
 	long sec = 0L;
 	double msec = 0.0;
@@ -61,17 +68,18 @@ PHP_FUNCTION(microtime)
 		if (msec >= 1.0) msec -= (long) msec;
 		snprintf(ret, 100, "%.8f %ld", msec, sec);
 		RETVAL_STRING(ret,1);
-	} else
-#endif
+	} else {
 		RETURN_FALSE;
+	}
 }
+#endif
 /* }}} */
 
 /* {{{ proto array gettimeofday(void)
    Returns the current time as array */
+#ifdef HAVE_GETTIMEOFDAY
 PHP_FUNCTION(gettimeofday)
 {
-#ifdef HAVE_GETTIMEOFDAY
 	struct timeval tp;
 	struct timezone tz;
 	
@@ -81,13 +89,18 @@ PHP_FUNCTION(gettimeofday)
 		array_init(return_value);
 		add_assoc_long(return_value, "sec", tp.tv_sec);
 		add_assoc_long(return_value, "usec", tp.tv_usec);
+#ifdef PHP_WIN32
+		add_assoc_long(return_value, "minuteswest", tz.tz_minuteswest/SEC_IN_MIN);
+#else
 		add_assoc_long(return_value, "minuteswest", tz.tz_minuteswest);
+#endif			
 		add_assoc_long(return_value, "dsttime", tz.tz_dsttime);
 		return;
-	} else
-#endif
-	RETURN_FALSE;
+	} else {
+		RETURN_FALSE;
+	}
 }
+#endif
 /* }}} */
 
 #ifdef HAVE_GETRUSAGE
@@ -103,7 +116,7 @@ PHP_FUNCTION(getrusage)
 	if(ac == 1 &&
 		zend_get_parameters_ex(ac, &pwho) != FAILURE) {
 		convert_to_long_ex(pwho);
-		if((*pwho)->value.lval == 1)
+		if(Z_LVAL_PP(pwho) == 1)
 			who = RUSAGE_CHILDREN;
 	}
 
@@ -144,6 +157,6 @@ PHP_FUNCTION(getrusage)
  * tab-width: 4
  * c-basic-offset: 4
  * End:
- * vim600: sw=4 ts=4 tw=78 fdm=marker
- * vim<600: sw=4 ts=4 tw=78
+ * vim600: sw=4 ts=4 fdm=marker
+ * vim<600: sw=4 ts=4
  */

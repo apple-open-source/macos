@@ -1,0 +1,7 @@
+<!DOCTYPE para PUBLIC "-//OASIS//DTD DocBook V3.1//EN">
+<para>
+The <option>-a</option> option on the <acronym>UNIX</acronym>
+<command>ls</command> command or the <option>/r</option> option on the
+<acronym>DOS</acronym> <command>attrib</command>
+command, for example.
+</para>

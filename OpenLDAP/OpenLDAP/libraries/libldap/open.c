@@ -1,6 +1,6 @@
-/* $OpenLDAP: pkg/ldap/libraries/libldap/open.c,v 1.85.2.1 2002/02/23 22:10:19 kurt Exp $ */
+/* $OpenLDAP: pkg/ldap/libraries/libldap/open.c,v 1.85.2.9 2003/04/28 23:41:55 kurt Exp $ */
 /*
- * Copyright 1998-2002 The OpenLDAP Foundation, All Rights Reserved.
+ * Copyright 1998-2003 The OpenLDAP Foundation, All Rights Reserved.
  * COPYING RESTRICTIONS APPLY, see COPYRIGHT file
  */
 /*  Portions
@@ -22,7 +22,10 @@
 #include <ac/string.h>
 #include <ac/time.h>
 
+#include <ac/unistd.h>
+
 #include "ldap-int.h"
+#include "ldap_log.h"
 
 int ldap_open_defconn( LDAP *ld )
 {
@@ -54,8 +57,12 @@ ldap_open( LDAP_CONST char *host, int port )
 	int rc;
 	LDAP		*ld;
 
+#ifdef NEW_LOGGING
+	LDAP_LOG ( CONNECTION, ARGS, "ldap_open(%s, %d)\n", host, port, 0 );
+#else
 	Debug( LDAP_DEBUG_TRACE, "ldap_open(%s, %d)\n",
 		host, port, 0 );
+#endif
 
 	ld = ldap_init( host, port );
 	if ( ld == NULL ) {
@@ -69,8 +76,13 @@ ldap_open( LDAP_CONST char *host, int port )
 		ld = NULL;
 	}
 
+#ifdef NEW_LOGGING
+	LDAP_LOG ( CONNECTION, RESULTS, "ldap_open: %s\n",
+		ld == NULL ? "succeeded" : "failed", 0, 0 );
+#else
 	Debug( LDAP_DEBUG_TRACE, "ldap_open: %s\n",
 		ld == NULL ? "succeeded" : "failed", 0, 0 );
+#endif
 
 	return ld;
 }
@@ -96,7 +108,11 @@ ldap_create( LDAP **ldp )
 			return LDAP_LOCAL_ERROR;
 	}
 
+#ifdef NEW_LOGGING
+	LDAP_LOG ( CONNECTION, ENTRY, "ldap_create\n", 0, 0, 0 );
+#else
 	Debug( LDAP_DEBUG_TRACE, "ldap_create\n", 0, 0, 0 );
+#endif
 
 	if ( (ld = (LDAP *) LDAP_CALLOC( 1, sizeof(LDAP) )) == NULL ) {
 		return( LDAP_NO_MEMORY );
@@ -219,22 +235,22 @@ ldap_int_open_connection(
 	int rc = -1;
 #ifdef HAVE_CYRUS_SASL
 	char *sasl_host = NULL;
-	int sasl_ssf = 0;
 #endif
-	char *host;
+	char *host = NULL;
 	int port, proto;
-	long addr;
 
+#ifdef NEW_LOGGING
+	LDAP_LOG ( CONNECTION, ENTRY, "ldap_int_open_connection\n", 0, 0, 0 );
+#else
 	Debug( LDAP_DEBUG_TRACE, "ldap_int_open_connection\n", 0, 0, 0 );
+#endif
 
 	switch ( proto = ldap_pvt_url_scheme2proto( srv->lud_scheme ) ) {
 		case LDAP_PROTO_TCP:
 			port = srv->lud_port;
 
-			addr = 0;
 			if ( srv->lud_host == NULL || *srv->lud_host == 0 ) {
 				host = NULL;
-				addr = htonl( INADDR_LOOPBACK );
 			} else {
 				host = srv->lud_host;
 			}
@@ -248,7 +264,7 @@ ldap_int_open_connection(
 			}
 
 			rc = ldap_connect_to_host( ld, conn->lconn_sb,
-				proto, host, addr, port, async );
+				proto, host, port, async );
 
 			if ( rc == -1 ) return rc;
 
@@ -263,15 +279,13 @@ ldap_int_open_connection(
 			sasl_host = ldap_host_connected_to( conn->lconn_sb );
 #endif
 			break;
-#ifdef LDAP_CONNECTIONLESS
 
+#ifdef LDAP_CONNECTIONLESS
 		case LDAP_PROTO_UDP:
 			port = srv->lud_port;
 
-			addr = 0;
 			if ( srv->lud_host == NULL || *srv->lud_host == 0 ) {
 				host = NULL;
-				addr = htonl( INADDR_LOOPBACK );
 			} else {
 				host = srv->lud_host;
 			}
@@ -280,7 +294,7 @@ ldap_int_open_connection(
 
 			LDAP_IS_UDP(ld) = 1;
 			rc = ldap_connect_to_host( ld, conn->lconn_sb,
-				proto, host, addr, port, async );
+				proto, host, port, async );
 
 			if ( rc == -1 ) return rc;
 #ifdef LDAP_DEBUG
@@ -289,6 +303,10 @@ ldap_int_open_connection(
 #endif
 			ber_sockbuf_add_io( conn->lconn_sb, &ber_sockbuf_io_udp,
 				LBER_SBIOD_LEVEL_PROVIDER, NULL );
+
+			ber_sockbuf_add_io( conn->lconn_sb, &ber_sockbuf_io_readahead,
+				LBER_SBIOD_LEVEL_PROVIDER, NULL );
+
 			break;
 #endif
 		case LDAP_PROTO_IPC:
@@ -306,7 +324,6 @@ ldap_int_open_connection(
 
 #ifdef HAVE_CYRUS_SASL
 			sasl_host = ldap_host_connected_to( conn->lconn_sb );
-			sasl_ssf = LDAP_PVT_SASL_LOCAL_SSF;
 #endif
 			break;
 #endif /* LDAP_PF_LOCAL */
@@ -315,26 +332,34 @@ ldap_int_open_connection(
 			break;
 	}
 
-	ber_sockbuf_add_io( conn->lconn_sb, &ber_sockbuf_io_readahead,
-		LBER_SBIOD_LEVEL_PROVIDER, NULL );
-
 #ifdef LDAP_DEBUG
 	ber_sockbuf_add_io( conn->lconn_sb, &ber_sockbuf_io_debug,
 		INT_MAX, (void *)"ldap_" );
 #endif
 
 #ifdef LDAP_CONNECTIONLESS
-	if( proto == LDAP_PROTO_UDP )
-		return 0;
+	if( proto == LDAP_PROTO_UDP ) return 0;
 #endif
 
 #ifdef HAVE_CYRUS_SASL
 	/* establish Cyrus SASL context prior to starting TLS so
 		that SASL EXTERNAL might be used */
 	if( sasl_host != NULL ) {
-		ldap_int_sasl_open( ld, conn, sasl_host, sasl_ssf );
+		ldap_int_sasl_open( ld, conn, sasl_host );
 		LDAP_FREE( sasl_host );
+	} else if ( host != NULL) {
+		ldap_int_sasl_open( ld, conn, host );		
 	}
+#ifdef LDAP_PF_LOCAL
+	if( proto == LDAP_PROTO_IPC ) {
+		char authid[sizeof("uidNumber=4294967295+gidNumber=4294967295,"
+			"cn=peercred,cn=external,cn=auth")];
+		sprintf( authid, "uidNumber=%d+gidNumber=%d,"
+			"cn=peercred,cn=external,cn=auth",
+			(int) geteuid(), (int) getegid() );
+		ldap_int_sasl_external( ld, conn, authid, LDAP_PVT_SASL_LOCAL_SSF );
+	}
+#endif
 #endif
 
 #ifdef HAVE_TLS

@@ -1,8 +1,8 @@
 /*
    +----------------------------------------------------------------------+
-   | PHP version 4.0                                                      |
+   | PHP Version 4                                                        |
    +----------------------------------------------------------------------+
-   | Copyright (c) 1997-2001 The PHP Group                                |
+   | Copyright (c) 1997-2003 The PHP Group                                |
    +----------------------------------------------------------------------+
    | dbx module version 1.0                                               |
    +----------------------------------------------------------------------+
@@ -20,7 +20,7 @@
    +----------------------------------------------------------------------+
 */
 
-/* $Id: dbx.h,v 1.1.1.2 2001/12/14 22:12:13 zarzycki Exp $ */
+/* $Id: dbx.h,v 1.1.1.5 2003/07/18 18:07:31 zarzycki Exp $ */
 
 #ifndef ZEND_DBX_H
 #define ZEND_DBX_H
@@ -30,24 +30,28 @@
 #endif
 
 #include "php.h"
+#include "ext/standard/php_string.h"
 
-#define DBX_PERSISTENT        (1<<0)
+#define DBX_PERSISTENT         (1<<0)
 
-#define DBX_RESULT_INFO      (1<<0)
-#define DBX_RESULT_INDEX    (1<<1)
-#define DBX_RESULT_ASSOC   (1<<2)
+#define DBX_RESULT_INFO        (1<<0)
+#define DBX_RESULT_INDEX       (1<<1)
+#define DBX_RESULT_ASSOC       (1<<2)
+#define DBX_COLNAMES_UNCHANGED (1<<3)
+#define DBX_COLNAMES_UPPERCASE (1<<4)
+#define DBX_COLNAMES_LOWERCASE (1<<5)
 
-#define DBX_CMP_NATIVE      (1<<0)
-#define DBX_CMP_TEXT          (1<<1)
-#define DBX_CMP_NUMBER      (1<<2)
-#define DBX_CMP_ASC           (1<<3)
-#define DBX_CMP_DESC          (1<<4)
+#define DBX_CMP_NATIVE         (1<<0)
+#define DBX_CMP_TEXT           (1<<1)
+#define DBX_CMP_NUMBER         (1<<2)
+#define DBX_CMP_ASC            (1<<3)
+#define DBX_CMP_DESC           (1<<4)
 
 #define MOVE_RETURNED_TO_RV(rv, returned_zval) { **rv = *returned_zval; zval_copy_ctor(*rv); zval_ptr_dtor(&returned_zval); }
 
-void dbx_call_any_function(INTERNAL_FUNCTION_PARAMETERS, char * function_name, zval ** returnvalue, int number_of_arguments, zval *** params);
+void dbx_call_any_function(INTERNAL_FUNCTION_PARAMETERS, char *function_name, zval **returnvalue, int number_of_arguments, zval ***params);
 
-#endif	/* ZEND_DBX_H */
+#endif /* ZEND_DBX_H */
 
 
 /*

@@ -59,7 +59,7 @@
  */
 
 #include "includes.h"
-RCSID("$OpenBSD: clientloop.c,v 1.102 2002/06/24 14:33:27 markus Exp $");
+RCSID("$OpenBSD: clientloop.c,v 1.107 2003/04/01 10:22:21 markus Exp $");
 
 #include "ssh.h"
 #include "ssh1.h"
@@ -635,16 +635,18 @@ process_escapes(Buffer *bin, Buffer *bout, Buffer *berr, char *buf, int len)
 				snprintf(string, sizeof string,
 "%c?\r\n\
 Supported escape sequences:\r\n\
-~.  - terminate connection\r\n\
-~C  - open a command line\r\n\
-~R  - Request rekey (SSH protocol 2 only)\r\n\
-~^Z - suspend ssh\r\n\
-~#  - list forwarded connections\r\n\
-~&  - background ssh (when waiting for connections to terminate)\r\n\
-~?  - this message\r\n\
-~~  - send the escape character by typing it twice\r\n\
+%c.  - terminate connection\r\n\
+%cC  - open a command line\r\n\
+%cR  - Request rekey (SSH protocol 2 only)\r\n\
+%c^Z - suspend ssh\r\n\
+%c#  - list forwarded connections\r\n\
+%c&  - background ssh (when waiting for connections to terminate)\r\n\
+%c?  - this message\r\n\
+%c%c  - send the escape character by typing it twice\r\n\
 (Note that escapes are only recognized immediately after newline.)\r\n",
-					 escape_char);
+				    escape_char, escape_char, escape_char, escape_char,
+				    escape_char, escape_char, escape_char, escape_char,
+				    escape_char, escape_char);
 				buffer_append(berr, string, strlen(string));
 				continue;
 
@@ -886,10 +888,16 @@ client_loop(int have_pty, int escape_char_arg, int ssh2_chan_id)
 
 	client_init_dispatch();
 
-	/* Set signal handlers to restore non-blocking mode.  */
-	signal(SIGINT, signal_handler);
-	signal(SIGQUIT, signal_handler);
-	signal(SIGTERM, signal_handler);
+	/*
+	 * Set signal handlers, (e.g. to restore non-blocking mode)
+	 * but don't overwrite SIG_IGN, matches behaviour from rsh(1)
+	 */
+	if (signal(SIGINT, SIG_IGN) != SIG_IGN)
+		signal(SIGINT, signal_handler);
+	if (signal(SIGQUIT, SIG_IGN) != SIG_IGN)
+		signal(SIGQUIT, signal_handler);
+	if (signal(SIGTERM, SIG_IGN) != SIG_IGN)
+		signal(SIGTERM, signal_handler);
 	if (have_pty)
 		signal(SIGWINCH, window_change_handler);
 
@@ -1114,7 +1122,7 @@ client_input_exit_status(int type, u_int32_t seq, void *ctxt)
 static Channel *
 client_request_forwarded_tcpip(const char *request_type, int rchan)
 {
-	Channel* c = NULL;
+	Channel *c = NULL;
 	char *listen_address, *originator_address;
 	int listen_port, originator_port;
 	int sock;
@@ -1144,7 +1152,7 @@ client_request_forwarded_tcpip(const char *request_type, int rchan)
 	return c;
 }
 
-static Channel*
+static Channel *
 client_request_x11(const char *request_type, int rchan)
 {
 	Channel *c = NULL;
@@ -1180,7 +1188,7 @@ client_request_x11(const char *request_type, int rchan)
 	return c;
 }
 
-static Channel*
+static Channel *
 client_request_agent(const char *request_type, int rchan)
 {
 	Channel *c = NULL;

@@ -1,0 +1,2 @@
+%(member)s byl odhlá¹en z konference %(listname)s.
+

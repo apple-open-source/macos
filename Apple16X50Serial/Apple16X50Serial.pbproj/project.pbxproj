@@ -74,6 +74,7 @@
 			targets = (
 				089C1673FE841209C02AAC07,
 				F5269A9A023ECEC202CA28B1,
+				B9FBA17F04601FF708D5663B,
 			);
 		};
 		089C166AFE841209C02AAC07 = {
@@ -107,7 +108,7 @@
 				LIBRARY_SEARCH_PATHS = "";
 				MODULE_IOKIT = YES;
 				MODULE_NAME = com.apple.driver.Apple16X50Serial;
-				MODULE_VERSION = 1.0.6;
+				MODULE_VERSION = 1.3;
 				OTHER_CFLAGS = "";
 				OTHER_LDFLAGS = "";
 				OTHER_REZFLAGS = "";
@@ -118,6 +119,7 @@
 			};
 			dependencies = (
 				F5D3DB74025E1CA802A80102,
+				B94C462504604F8E08D5663B,
 			);
 			isa = PBXBundleTarget;
 			name = Apple16X50Serial;
@@ -132,8 +134,6 @@
 	<string>English</string>
 	<key>CFBundleExecutable</key>
 	<string>Apple16X50Serial</string>
-	<key>CFBundleGetInfoString</key>
-	<string>Apple16X50Serial 1.0.6, Copyright 2003 Apple Computer, Inc.</string>
 	<key>CFBundleIconFile</key>
 	<string></string>
 	<key>CFBundleIdentifier</key>
@@ -145,13 +145,31 @@
 	<key>CFBundlePackageType</key>
 	<string>KEXT</string>
 	<key>CFBundleShortVersionString</key>
-	<string>1.0.6</string>
+	<string>1.3</string>
 	<key>CFBundleSignature</key>
 	<string>????</string>
 	<key>CFBundleVersion</key>
-	<string>1.0.6</string>
+	<string>1.3</string>
+	<key>IOKitPersonalities</key>
+	<dict>
+		<key>PCI 16X50 Serial Port</key>
+		<dict>
+			<key>CFBundleIdentifier</key>
+			<string>com.apple.driver.Apple16X50Serial</string>
+			<key>IOClass</key>
+			<string>com_apple_driver_16X50PCI</string>
+			<key>IOKitDebug</key>
+			<integer>0</integer>
+			<key>IOPCIClassMatch</key>
+			<string>0x07000000&amp;0xFFFF0000</string>
+			<key>IOProbeScore</key>
+			<integer>900</integer>
+			<key>IOProviderClass</key>
+			<string>IOPCIDevice</string>
+		</dict>
+	</dict>
 	<key>OSBundleCompatibleVersion</key>
-	<string>1.0.5</string>
+	<string>1.3</string>
 	<key>OSBundleLibraries</key>
 	<dict>
 		<key>com.apple.iokit.IOPCIFamily</key>
@@ -174,6 +192,7 @@
 				F52B9DBA023C40A102A80164,
 				F59AC380024F078702A80102,
 				F52F27BA0265806C02A80102,
+				F50A9F990344E89602CA2C99,
 			);
 			isa = PBXHeadersBuildPhase;
 			runOnlyForDeploymentPostprocessing = 0;
@@ -192,6 +211,7 @@
 				F51EE7300231EF5502A80164,
 				F57720B502375BFA02A80164,
 				F52F27BB0265806C02A80102,
+				F50A9F9A0344E89702CA2C99,
 			);
 			isa = PBXSourcesBuildPhase;
 			runOnlyForDeploymentPostprocessing = 0;
@@ -239,6 +259,7 @@
 			children = (
 				0B81C263FFB7832611CA28AA,
 				F5269A99023ECEC202CA28B1,
+				B9FBA18004601FF708D5663B,
 			);
 			isa = PBXGroup;
 			name = Products;
@@ -306,6 +327,8 @@
 				F52F27B90265806C02A80102,
 				1A224C3EFF42367911CA2CB7,
 				1A224C3FFF42367911CA2CB7,
+				B9FBA1810460213D08D5663B,
+				B9FBA1820460213D08D5663B,
 			);
 			isa = PBXGroup;
 			name = Source;
@@ -317,11 +340,211 @@
 //242
 //243
 //244
+//B90
+//B91
+//B92
+//B93
+//B94
+		B94C462504604F8E08D5663B = {
+			isa = PBXTargetDependency;
+			target = B9FBA17F04601FF708D5663B;
+		};
+		B9FBA17904601FF708D5663B = {
+			buildActionMask = 2147483647;
+			files = (
+			);
+			generatedFileNames = (
+			);
+			isa = PBXShellScriptBuildPhase;
+			neededFileNames = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/sh;
+			shellScript = "script=\"${SYSTEM_DEVELOPER_DIR}/ProjectBuilder Extras/Kernel Extension Support/KEXTPreprocess\";\nif [ -x \"$script\" ]; then\n    . \"$script\"\nfi";
+		};
+		B9FBA17A04601FF708D5663B = {
+			buildActionMask = 2147483647;
+			files = (
+				B9FBA1840460213D08D5663B,
+			);
+			isa = PBXHeadersBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		B9FBA17B04601FF708D5663B = {
+			buildActionMask = 2147483647;
+			files = (
+				B9FBA1830460213D08D5663B,
+			);
+			isa = PBXSourcesBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		B9FBA17C04601FF708D5663B = {
+			buildActionMask = 2147483647;
+			files = (
+			);
+			isa = PBXResourcesBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		B9FBA17D04601FF708D5663B = {
+			buildActionMask = 2147483647;
+			files = (
+			);
+			isa = PBXFrameworksBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		B9FBA17E04601FF708D5663B = {
+			buildActionMask = 2147483647;
+			files = (
+			);
+			generatedFileNames = (
+			);
+			isa = PBXShellScriptBuildPhase;
+			neededFileNames = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/sh;
+			shellScript = "script=\"${SYSTEM_DEVELOPER_DIR}/ProjectBuilder Extras/Kernel Extension Support/KEXTPostprocess\";\nif [ -x \"$script\" ]; then\n    . \"$script\"\nfi";
+		};
+		B9FBA17F04601FF708D5663B = {
+			buildPhases = (
+				B9FBA17904601FF708D5663B,
+				B9FBA17A04601FF708D5663B,
+				B9FBA17B04601FF708D5663B,
+				B9FBA17C04601FF708D5663B,
+				B9FBA17D04601FF708D5663B,
+				B9FBA17E04601FF708D5663B,
+			);
+			buildSettings = {
+				FRAMEWORK_SEARCH_PATHS = "";
+				HEADER_SEARCH_PATHS = "";
+				INSTALL_PATH = "$(SYSTEM_LIBRARY_DIR)/Extensions/Apple16X50Serial.kext/Contents/PlugIns";
+				KERNEL_MODULE = YES;
+				LIBRARY_SEARCH_PATHS = "";
+				MODULE_IOKIT = YES;
+				MODULE_NAME = com.apple.driver.Apple16X50ACPI;
+				MODULE_VERSION = 1.3;
+				OTHER_CFLAGS = "";
+				OTHER_LDFLAGS = "";
+				OTHER_REZFLAGS = "";
+				PRODUCT_NAME = Apple16X50ACPI;
+				SECTORDER_FLAGS = "";
+				WARNING_CFLAGS = "-Wmost -Wno-four-char-constants -Wno-unknown-pragmas";
+				WRAPPER_EXTENSION = kext;
+			};
+			dependencies = (
+			);
+			isa = PBXBundleTarget;
+			name = Apple16X50ACPI;
+			productInstallPath = "$(SYSTEM_LIBRARY_DIR)/Extensions/Apple16X50Serial.kext/Contents/PlugIns";
+			productName = Apple16X50ACPI;
+			productReference = B9FBA18004601FF708D5663B;
+			productSettingsXML = "<?xml version=\"1.0\" encoding=\"UTF-8\"?>
+<!DOCTYPE plist PUBLIC \"-//Apple Computer//DTD PLIST 1.0//EN\" \"http://www.apple.com/DTDs/PropertyList-1.0.dtd\">
+<plist version=\"1.0\">
+<dict>
+	<key>CFBundleDevelopmentRegion</key>
+	<string>English</string>
+	<key>CFBundleExecutable</key>
+	<string>Apple16X50ACPI</string>
+	<key>CFBundleGetInfoString</key>
+	<string></string>
+	<key>CFBundleIconFile</key>
+	<string></string>
+	<key>CFBundleIdentifier</key>
+	<string>com.apple.driver.Apple16X50ACPI</string>
+	<key>CFBundleInfoDictionaryVersion</key>
+	<string>6.0</string>
+	<key>CFBundleName</key>
+	<string>Apple16X50ACPI</string>
+	<key>CFBundlePackageType</key>
+	<string>KEXT</string>
+	<key>CFBundleShortVersionString</key>
+	<string>1.3</string>
+	<key>CFBundleSignature</key>
+	<string>????</string>
+	<key>CFBundleVersion</key>
+	<string>1.3</string>
+	<key>IOKitPersonalities</key>
+	<dict>
+		<key>ACPI 16X50 Serial Port</key>
+		<dict>
+			<key>CFBundleIdentifier</key>
+			<string>com.apple.driver.Apple16X50ACPI</string>
+			<key>IOClass</key>
+			<string>com_apple_driver_16X50ACPI</string>
+			<key>IOKitDebug</key>
+			<integer>0</integer>
+			<key>IONameMatch</key>
+			<string>PNP0501</string>
+			<key>IOProbeScore</key>
+			<string>1000</string>
+			<key>IOProviderClass</key>
+			<string>IOACPIPlatformDevice</string>
+		</dict>
+	</dict>
+	<key>OSBundleLibraries</key>
+	<dict>
+		<key>com.apple.driver.Apple16X50Serial</key>
+		<string>1.3</string>
+		<key>com.apple.iokit.IOACPIFamily</key>
+		<string>1.0.0d1</string>
+		<key>com.apple.kernel.iokit</key>
+		<string>1.1</string>
+	</dict>
+</dict>
+</plist>
+";
+			shouldUseHeadermap = 0;
+		};
+		B9FBA18004601FF708D5663B = {
+			isa = PBXBundleReference;
+			path = Apple16X50ACPI.kext;
+			refType = 3;
+		};
+		B9FBA1810460213D08D5663B = {
+			isa = PBXFileReference;
+			path = Apple16X50ACPI.cpp;
+			refType = 4;
+		};
+		B9FBA1820460213D08D5663B = {
+			isa = PBXFileReference;
+			path = Apple16X50ACPI.h;
+			refType = 4;
+		};
+		B9FBA1830460213D08D5663B = {
+			fileRef = B9FBA1810460213D08D5663B;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		B9FBA1840460213D08D5663B = {
+			fileRef = B9FBA1820460213D08D5663B;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+//B90
+//B91
+//B92
+//B93
+//B94
 //F50
 //F51
 //F52
 //F53
 //F54
+		F50A9F990344E89602CA2C99 = {
+			fileRef = F557DFFF022B7E1402A80164;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		F50A9F9A0344E89702CA2C99 = {
+			fileRef = F557E000022B7E1402A80164;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
 		F51EE72D0231EF5402A80164 = {
 			isa = PBXFileReference;
 			path = Apple16X50BusInterface.h;
@@ -360,7 +583,7 @@
 				LIBRARY_SEARCH_PATHS = "";
 				MODULE_IOKIT = YES;
 				MODULE_NAME = com.apple.driver.Apple16X50PCCard;
-				MODULE_VERSION = 1.0.6;
+				MODULE_VERSION = 1.3;
 				OTHER_CFLAGS = "";
 				OTHER_LDFLAGS = "";
 				OTHER_REZFLAGS = "";
@@ -385,7 +608,7 @@
 	<key>CFBundleExecutable</key>
 	<string>Apple16X50PCCard</string>
 	<key>CFBundleGetInfoString</key>
-	<string>Apple16X50PCCard 1.0.6, Copyright 2003 Apple Computer, Inc.</string>
+	<string></string>
 	<key>CFBundleIconFile</key>
 	<string></string>
 	<key>CFBundleIdentifier</key>
@@ -397,11 +620,11 @@
 	<key>CFBundlePackageType</key>
 	<string>KEXT</string>
 	<key>CFBundleShortVersionString</key>
-	<string>1.0.6</string>
+	<string>1.3</string>
 	<key>CFBundleSignature</key>
 	<string>????</string>
 	<key>CFBundleVersion</key>
-	<string>1.0.6</string>
+	<string>1.3</string>
 	<key>IOKitPersonalities</key>
 	<dict>
 		<key>PCCard 16X50 Serial Port</key>
@@ -425,7 +648,7 @@
 	<key>OSBundleLibraries</key>
 	<dict>
 		<key>com.apple.driver.Apple16X50Serial</key>
-		<string>1.0.6</string>
+		<string>1.3</string>
 		<key>com.apple.iokit.IOPCCardFamily</key>
 		<string>1.1.0</string>
 		<key>com.apple.kernel.iokit</key>

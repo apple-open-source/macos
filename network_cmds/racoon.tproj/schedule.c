@@ -1,4 +1,4 @@
-/*	$KAME: schedule.c,v 1.18 2001/10/08 23:58:22 sakane Exp $	*/
+/*	$KAME: schedule.c,v 1.19 2001/11/05 10:53:19 sakane Exp $	*/
 
 /*
  * Copyright (C) 1995, 1996, 1997, and 1998 WIDE Project.

@@ -11,6 +11,8 @@ extern "C" {
 * framework.
 *******************************************************************************/
 
+#include <IOKit/IOTypes.h>
+
 #include "KXKextManager.h"
 #include "KXKextRepository_private.h"
 #include "KXKext_private.h"
@@ -34,11 +36,34 @@ KXKextManagerUserVetoFunction _KXKextManagerGetUserVetoFunction(
 KXKextManagerUserInputFunction _KXKextManagerGetUserInputFunction(
     KXKextManagerRef aKextManager);
 
-#define _KMLog     _KXKextManagerGetLogFunction
-#define _KMErrLog  _KXKextManagerGetErrorLogFunction
 #define _KMApprove _KXKextManagerGetUserApproveFunction
 #define _KMVeto    _KXKextManagerGetUserVetoFunction
 #define _KMInput   _KXKextManagerGetUserInputFunction
+
+void _KXKextManagerLogMessageAtLevel(KXKextManagerRef aKextManager,
+    KXKextManagerLogLevel logLevel,
+    KXKextRef aKext,  // may be NULL, in which case kextLogLevel is irrelevant
+    KXKextLogLevel kextLogLevel,
+    const char * format, ...);
+void _KXKextManagerLogMessage(KXKextManagerRef aKextManager, const char * format, ...);
+void _KXKextManagerLogError(KXKextManagerRef aKextManager, const char * format, ...);
+
+Boolean _KXKextManagerCheckLogLevel(KXKextManagerRef aKextManager,
+    KXKextManagerLogLevel logLevel,
+    KXKextRef aKext, // may be NULL
+    KXKextManagerLogLevel kextLogLevel);
+
+KXKextManagerError _KXKextManagerAddRepositoryFromCacheFile(
+    KXKextManagerRef aKextManager,
+    CFURLRef fileURL,
+    CFURLRef repositoryURL,
+    KXKextRepositoryRef * theRepository);
+
+KXKextManagerError _KXKextManagerAddRepositoryFromCacheDictionary(
+    KXKextManagerRef aKextManager,
+    CFDictionaryRef aRepositoryCache,
+    CFURLRef repositoryURL,
+    KXKextRepositoryRef * theRepository);  // out param
 
 void _KXKextManagerClearLoadFailures(KXKextManagerRef aKextManager);
 
@@ -56,7 +81,7 @@ KXKextManagerError _KXKextManagerLoadKextUsingOptions(
     const char * kernel_file,
     const char * patch_dir,
     const char * symbol_dir,
-    Boolean do_load,
+    IOOptionBits load_options,
     Boolean do_start_kext,
     int     interactive_level,
     Boolean ask_overwrite_symbols,
@@ -64,6 +89,15 @@ KXKextManagerError _KXKextManagerLoadKextUsingOptions(
     Boolean get_addrs_from_kernel,
     unsigned int num_addresses,
     char ** addresses);
+
+// load_options
+enum 
+{
+    kKXKextManagerLoadNone	= false,
+    kKXKextManagerLoadKernel	= true,
+    kKXKextManagerLoadPrelink	= 2,
+    kKXKextManagerLoadKextd	= 3
+};
 
 void _KXKextManagerRemoveRepository(
     KXKextManagerRef aKextManager,

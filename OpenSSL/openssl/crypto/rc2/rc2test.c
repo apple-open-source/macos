@@ -65,7 +65,7 @@
 
 #include "../e_os.h"
 
-#ifdef NO_RC2
+#ifdef OPENSSL_NO_RC2
 int main(int argc, char *argv[])
 {
     printf("No RC2 support\n");

@@ -1,6 +1,6 @@
-/* $OpenLDAP: pkg/ldap/libraries/liblber/bprint.c,v 1.44 2002/01/04 20:17:36 kurt Exp $ */
+/* $OpenLDAP: pkg/ldap/libraries/liblber/bprint.c,v 1.44.2.4 2003/03/03 17:10:04 kurt Exp $ */
 /*
- * Copyright 1998-2002 The OpenLDAP Foundation, All Rights Reserved.
+ * Copyright 1998-2003 The OpenLDAP Foundation, All Rights Reserved.
  * COPYING RESTRICTIONS APPLY, see COPYRIGHT file
  */
 
@@ -87,15 +87,8 @@ int ber_pvt_log_output(
 	{
             int level;
             ber_get_option( NULL, LBER_OPT_BER_DEBUG, &level );
-#ifdef HAVE_VSNPRINTF
             buf[sizeof(buf) - 1] = '\0';
             vsnprintf( buf, sizeof(buf)-1, fmt, vl );
-#elif HAVE_VSPRINTF
-            vsprintf( buf, fmt, vl ); /* hope it's not too long */
-#else
-                /* use doprnt() */
-#error "vsprintf() required.";
-#endif
             if ( ber_log_check( LDAP_DEBUG_BER, level ) )
                 (*ber_pvt_log_print)( buf );
         }
@@ -117,15 +110,8 @@ int ber_pvt_log_printf( int errlvl, int loglvl, const char *fmt, ... )
 
 	va_start( ap, fmt );
 
-#ifdef HAVE_VSNPRINTF
 	buf[sizeof(buf) - 1] = '\0';
 	vsnprintf( buf, sizeof(buf)-1, fmt, ap );
-#elif HAVE_VSPRINTF
-	vsprintf( buf, fmt, ap ); /* hope it's not too long */
-#else
-	/* use doprnt() */
-#error "vsprintf() required."
-#endif
 
 	va_end(ap);
 
@@ -210,7 +196,7 @@ ber_bprint(
 		
 		off = BP_GRAPH + n + ((n >= 8)?1:0);
 
-		if ( isprint( data[i] )) {
+		if ( isprint( (unsigned char) data[i] )) {
 			line[ BP_GRAPH + n ] = data[i];
 		} else {
 			line[ BP_GRAPH + n ] = '.';
@@ -285,7 +271,7 @@ int ber_output_dump(
         
         off = BP_GRAPH + n + ((n >= 8)?1:0);
         
-        if ( isprint( data[i] )) {
+        if ( isprint( (unsigned char) data[i] )) {
             line[ BP_GRAPH + n ] = data[i];
         } else {
             line[ BP_GRAPH + n ] = '.';

@@ -1,0 +1,21 @@
+--- setprogname.c.orig	Mon Apr 28 15:05:02 2003
++++ setprogname.c	Fri May 16 14:13:59 2003
+@@ -3,6 +3,8 @@
+ 
+ #include <stdlib.h>
+ #include <string.h>
++#include <crt_externs.h>
++#define	__progname	(*_NSGetProgname())
+ 
+ #include "libc_private.h"
+ 
+@@ -13,7 +15,7 @@
+ 
+ 	p = strrchr(progname, '/');
+ 	if (p != NULL)
+-		__progname = p + 1;
++		__progname = (char *)(p + 1);
+ 	else
+-		__progname = progname;
++		__progname = (char *)progname;
+ }

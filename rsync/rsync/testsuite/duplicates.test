@@ -21,8 +21,7 @@
 
 . $srcdir/testsuite/rsync.fns
 
-echo "SKIP THIS FOR NOW; It's a known bug"
-exit 77
+test_skipped "Known minor bug in this code"
 
 set -x
 
@@ -39,7 +38,7 @@ ln -s "$name1" "$name2" || fail "can't create symlink"
 
 outfile="$scratchdir/rsync.out"
 
-checkit "rsync -avv \"$fromdir/\" \"$fromdir/\" \"$fromdir/\" \"$fromdir/\" \"$fromdir/\" \"$fromdir/\" \"$fromdir/\" \"$fromdir/\" \"$fromdir/\" \"$fromdir/\" \"$todir/\"" "$fromdir" "$todir" \
+checkit "$RSYNC -avv \"$fromdir/\" \"$fromdir/\" \"$fromdir/\" \"$fromdir/\" \"$fromdir/\" \"$fromdir/\" \"$fromdir/\" \"$fromdir/\" \"$fromdir/\" \"$fromdir/\" \"$todir/\"" "$fromdir" "$todir" \
     | tee "$outfile"
 
 # Make sure each file was only copied once...

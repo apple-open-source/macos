@@ -1,0 +1,118 @@
+<?xml version="1.0" encoding="utf-8"?>
+
+<!DOCTYPE ejb-jar PUBLIC 
+      "-//Sun Microsystems, Inc.//DTD Enterprise JavaBeans 1.1//EN" 
+      "http://java.sun.com/j2ee/dtds/ejb-jar_1_1.dtd">
+
+<ejb-jar>
+  <enterprise-beans>
+    <session>
+      <ejb-name>StatefulSession</ejb-name>
+      <home>org.jboss.test.bench.interfaces.MySessionHome</home>
+      <remote>org.jboss.test.bench.interfaces.MySession</remote>
+      <ejb-class>org.jboss.test.bench.ejb.MySessionBean</ejb-class>
+      <session-type>Stateful</session-type>
+      <transaction-type>Container</transaction-type>
+    </session>
+
+    <session>
+      <ejb-name>StatelessSession</ejb-name>
+      <home>org.jboss.test.bench.interfaces.MySessionHome</home>
+      <remote>org.jboss.test.bench.interfaces.MySession</remote>
+      <ejb-class>org.jboss.test.bench.ejb.MySessionBean</ejb-class>
+      <session-type>Stateless</session-type>
+      <transaction-type>Container</transaction-type>
+    </session>
+
+    <entity>
+      <ejb-name>SimpleEntity</ejb-name>
+      <home>org.jboss.test.bench.interfaces.SimpleEntityHome</home>
+      <remote>org.jboss.test.bench.interfaces.SimpleEntity</remote>
+      <ejb-class>org.jboss.test.bench.ejb.SimpleEntityBean</ejb-class>
+      <persistence-type>Container</persistence-type>
+      <prim-key-class>java.lang.Integer</prim-key-class>
+      <reentrant>True</reentrant>
+      <cmp-field>
+        <field-name>pk</field-name>
+      </cmp-field>
+      <cmp-field>
+        <field-name>field</field-name>
+      </cmp-field>
+      <primkey-field>pk</primkey-field>
+    </entity>
+
+    <entity>
+      <ejb-name>NonOptSimpleEntity</ejb-name>
+      <home>org.jboss.test.bench.interfaces.SimpleEntityHome</home>
+      <remote>org.jboss.test.bench.interfaces.SimpleEntity</remote>
+      <ejb-class>org.jboss.test.bench.ejb.SimpleEntityBean</ejb-class>
+      <persistence-type>Container</persistence-type>
+      <prim-key-class>java.lang.Integer</prim-key-class>
+      <reentrant>True</reentrant>
+      <cmp-field>
+        <field-name>pk</field-name>
+      </cmp-field>
+      <cmp-field>
+        <field-name>field</field-name>
+      </cmp-field>
+      <primkey-field>pk</primkey-field>
+    </entity>
+
+    <entity>
+      <ejb-name>ComplexEntity</ejb-name>
+      <home>org.jboss.test.bench.interfaces.ComplexEntityHome</home>
+      <remote>org.jboss.test.bench.interfaces.ComplexEntity</remote>
+      <ejb-class>org.jboss.test.bench.ejb.ComplexEntityBean</ejb-class>
+      <persistence-type>Container</persistence-type>
+      <prim-key-class>org.jboss.test.bench.interfaces.AComplexPK</prim-key-class>
+      <reentrant>True</reentrant>
+      <cmp-field>
+        <field-name>aBoolean</field-name>
+      </cmp-field>
+      <cmp-field>
+        <field-name>anInt</field-name>
+      </cmp-field>
+      <cmp-field>
+        <field-name>aLong</field-name>
+      </cmp-field>
+      <cmp-field>
+        <field-name>aDouble</field-name>
+      </cmp-field>
+      <cmp-field>
+        <field-name>aString</field-name>
+      </cmp-field>
+      <cmp-field>
+        <field-name>otherField</field-name>
+      </cmp-field>
+    </entity>
+
+    <entity>
+      <ejb-name>NonOptComplexEntity</ejb-name>
+      <home>org.jboss.test.bench.interfaces.ComplexEntityHome</home>
+      <remote>org.jboss.test.bench.interfaces.ComplexEntity</remote>
+      <ejb-class>org.jboss.test.bench.ejb.ComplexEntityBean</ejb-class>
+      <persistence-type>Container</persistence-type>
+      <prim-key-class>org.jboss.test.bench.interfaces.AComplexPK</prim-key-class>
+      <reentrant>True</reentrant>
+      <cmp-field>
+        <field-name>aBoolean</field-name>
+      </cmp-field>
+      <cmp-field>
+        <field-name>anInt</field-name>
+      </cmp-field>
+      <cmp-field>
+        <field-name>aLong</field-name>
+      </cmp-field>
+      <cmp-field>
+        <field-name>aDouble</field-name>
+      </cmp-field>
+      <cmp-field>
+        <field-name>aString</field-name>
+      </cmp-field>
+      <cmp-field>
+        <field-name>otherField</field-name>
+      </cmp-field>
+    </entity>
+
+  </enterprise-beans>
+</ejb-jar>

@@ -1,0 +1,9 @@
+<!DOCTYPE para PUBLIC "-//OASIS//DTD DocBook V3.1//EN">
+<para>
+To move a highlighted region, use 
+<keycombo action=simul>
+  <keycap>Shift</keycap>
+  <mousebutton>Button1</mousebutton>
+</keycombo>
+and drag the text to the new location.
+</para>

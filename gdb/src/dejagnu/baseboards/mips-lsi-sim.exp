@@ -1,0 +1,8 @@
+# We need mips16.
+add_multilib_option "-mips16"
+
+# And we use the lsi linker script.
+set_board_info ldscript "-Wl,-Tlsi.ld"
+
+# Otherwise we're the same as the standard MIPS simulator.
+load_base_board_description "mips-sim";

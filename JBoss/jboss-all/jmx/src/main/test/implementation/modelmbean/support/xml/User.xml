@@ -1,0 +1,125 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mbean SYSTEM "file:./src/main/test/implementation/modelmbean/support/xml/jboss_xmbean_1_0.dtd">
+
+<mbean>
+  <description><![CDATA[sample for jboss xmbean.dtd]]></description>
+  <descriptors>
+    <persistence persistPolicy="NEVER"
+                 persistPeriod="10"
+                 persistLocation="pl1"
+                 persistName="JBossXMLExample1"/>
+    <state-action-on-update value="RESTART"/>
+    <descriptor name="testdescriptor" value="testvalue"/>
+  </descriptors>
+  <class>test.implementation.modelmbean.support.User</class>
+
+  <constructor>
+    <description><![CDATA[Creates a new <code>User</code> instance using constructor with one argument.]]></description>
+    <name>test.implementation.modelmbean.support.User</name>
+    <parameter>
+      <description><![CDATA[a <code>long</code> value]]></description>
+      <name>id</name>
+      <type>long</type>
+    </parameter>
+  </constructor>
+  <constructor>
+    <description><![CDATA[Creates a new <code>User</code> using constructor with no argument]]></description>
+    <name>test.implementation.modelmbean.support.User</name>
+  </constructor>
+
+  <!--attributes-->
+  <attribute access="READ_WRITE" getMethod="getID">
+    <description><![CDATA[Describe <code>getID</code> method here.
+ read-only attribute]]></description>
+    <name>ID</name>
+    <type>long</type>
+    <descriptors>
+      <persistence persistPolicy="NEVER"
+                   persistPeriod="30"/>
+    </descriptors>
+  </attribute>
+  <attribute access="READ_WRITE" getMethod="getName" setMethod="setName">
+    <description><![CDATA[Describe <code>getName</code> method here.
+ read-write attribute]]></description>
+    <name>Name</name>
+    <type>java.lang.String</type>
+    <descriptors>
+      <persistence persistPolicy="NEVER"
+                   persistPeriod="30"/>
+    </descriptors>
+  </attribute>
+  <attribute access="READ_WRITE" getMethod="getAddress" setMethod="setAddress">
+    <description><![CDATA[Describe <code>getAddress</code> method here.
+ read-write attribute]]></description>
+    <name>Address</name>
+    <type>java.lang.String</type>
+    <descriptors>
+      <persistence persistPolicy="NEVER"
+                   persistPeriod="30"/>
+    </descriptors>
+  </attribute>
+  <attribute access="READ_WRITE"  getMethod="getPhoneNumbers" setMethod="setPhoneNumbers">
+    <description><![CDATA[Describe <code>getPhoneNumbers</code> method here.
+ read-write attribute]]></description>
+    <name>PhoneNumbers</name>
+    <type>[Ljava.lang.String;</type>
+    <descriptors>
+      <persistence persistPolicy="NEVER"
+                   persistPeriod="30"/>
+    </descriptors>
+  </attribute>
+  <attribute access="READ_WRITE" setMethod="setPassword">
+    <description><![CDATA[Describe <code>setPassword</code> method here.
+ write only attribute]]></description>
+    <name>Password</name>
+    <type>java.lang.String</type>
+    <descriptors>
+      <persistence persistPolicy="NEVER"
+                   persistPeriod="30"/>
+    </descriptors>
+  </attribute>
+
+<!--operations -->
+  <operation>
+    <description><![CDATA[Describe <code>printInfo</code> method here.
+ prints info]]></description>
+    <name>printInfo</name>
+    <return-type>java.lang.String</return-type>
+  </operation>
+  <operation>
+    <description><![CDATA[Describe <code>addPhoneNumber</code> method here.]]></description>
+    <name>addPhoneNumber</name>
+    <parameter>
+      <description><![CDATA[a <code>String</code> value, the  phone number to add]]></description>
+      <name>number</name>
+      <type>java.lang.String</type>
+    </parameter>
+    <return-type>void</return-type>
+  </operation>
+  <operation>
+    <description><![CDATA[Describe <code>removePhoneNumber</code> method here.]]></description>
+    <name>removePhoneNumber</name>
+    <parameter>
+      <description><![CDATA[an <code>int</code> value, the index of phone number to remove]]></description>
+      <name>index</name>
+      <type>int</type>
+    </parameter>
+    <return-type>void</return-type>
+  </operation>
+
+<!--notifications -->
+  <notification>
+    <description><![CDATA[first notification]]></description>
+    <name>javax.management.SomeEvent</name>
+    <notification-type>xd.example.first</notification-type>
+    <notification-type>xd.example.second</notification-type>
+    <descriptors>
+      <persistence persistPolicy="NEVER"
+                   persistPeriod="20"
+                   persistLocation="pl2"
+                   persistName="JBossXMLExample2"
+/>
+    </descriptors>
+  </notification>
+
+</mbean>

@@ -1,0 +1,3 @@
+%(member)s se ha subscrito satisfactoriamente a %(listname)s.
+
+

@@ -190,8 +190,8 @@ public:
 
 	virtual void setDeviceTransportType(const UInt32 transportType);
 
-    /*
-     * @function start
+    /*!
+	 * @function setIdleAudioSleepTime
      * @abstract This function is to be called by a driver that doesn't want to be told about the audio
 	 * going idle immediately, but at some point in the future.
 	 * @discussion This is useful if the device will want to power down its hardware into an idle sleep
@@ -204,13 +204,22 @@ public:
      */
 	virtual void setIdleAudioSleepTime(unsigned long long sleepDelay);
 	virtual void scheduleIdleAudioSleep(void);
+    /*!
+	 * @function setConfigurationApplicationBundle
+     * @abstract This function is to be called if an external configuration application is available to set
+	 * which application to launch.
+	 * @discussion This is useful for device drivers that are too complex to be represented by the Sound Preferences
+	 * panel.  The bundle ID is a more flexible way of specifying where the application is than a hard coded path.
+     * @param bundleID The bundle ID of the application to be launched by the HAL for configuration of the device and its engine(s).
+     */
+	virtual void setConfigurationApplicationBundle(const char *bundleID);
 
 private:
     OSMetaClassDeclareReservedUsed(IOAudioDevice, 0);
     OSMetaClassDeclareReservedUsed(IOAudioDevice, 1);
     OSMetaClassDeclareReservedUsed(IOAudioDevice, 2);
+    OSMetaClassDeclareReservedUsed(IOAudioDevice, 3);
 
-    OSMetaClassDeclareReservedUnused(IOAudioDevice, 3);
     OSMetaClassDeclareReservedUnused(IOAudioDevice, 4);
     OSMetaClassDeclareReservedUnused(IOAudioDevice, 5);
     OSMetaClassDeclareReservedUnused(IOAudioDevice, 6);
@@ -269,7 +278,7 @@ public:
      
     virtual void free();
 
-    /*
+    /*!
      * @function start
      * @abstract This function is called automatically by the system to tell the driver to start vending
      *  services to the rest of the system.
@@ -296,7 +305,8 @@ public:
      * @param The service provider nub for the device.
      */
     virtual void stop(IOService *provider);
-    
+    virtual bool willTerminate(IOService *provider, IOOptionBits options);
+
     /*!
      * @function initHardware
      * @abstract This function is called by start() to provide a convenient place for the subclass to 

@@ -3,19 +3,22 @@
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
- * The contents of this file constitute Original Code as defined in and
- * are subject to the Apple Public Source License Version 1.1 (the
- * "License").  You may not use this file except in compliance with the
- * License.  Please obtain a copy of the License at
- * http://www.apple.com/publicsource and read it before using this file.
+ * Copyright (c) 1999-2003 Apple Computer, Inc.  All Rights Reserved.
  * 
- * This Original Code and all software distributed under the License are
- * distributed on an "AS IS" basis, WITHOUT WARRANTY OF ANY KIND, EITHER
+ * This file contains Original Code and/or Modifications of Original Code
+ * as defined in and that are subject to the Apple Public Source License
+ * Version 2.0 (the 'License'). You may not use this file except in
+ * compliance with the License. Please obtain a copy of the License at
+ * http://www.opensource.apple.com/apsl/ and read it before using this
+ * file.
+ * 
+ * The Original Code and all software distributed under the License are
+ * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
  * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
  * INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY,
- * FITNESS FOR A PARTICULAR PURPOSE OR NON-INFRINGEMENT.  Please see the
- * License for the specific language governing rights and limitations
- * under the License.
+ * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
+ * Please see the License for the specific language governing rights and
+ * limitations under the License.
  * 
  * @APPLE_LICENSE_HEADER_END@
  */
@@ -45,26 +48,26 @@ class CDSRefTable;
 extern DSMutexSemaphore		*gFWTableMutex;
 extern CDSRefTable			*gFWRefTable;
 
-#define		kMaxTableItems	512
-#define		kMaxTables		0x0F
+#define		kMaxFWTableItems	512
+#define		kMaxFWTables		0x0F
 
-typedef struct sListInfo *sListInfoPtr;
+typedef struct sListFWInfo *sListFWInfoPtr;
 
 //note fPID defined everywhere as sInt32 to remove warnings of comparing -1 to uInt32 since failed PID is -1
 
 //struct to contain reference to the actual ref entry of the child ref
-typedef struct sListInfo {
+typedef struct sListFWInfo {
 	uInt32			fRefNum;
 	uInt32			fType;
 	sInt32			fPID;
-	sListInfoPtr	fNext;
-} sListInfo;
+	sListFWInfoPtr	fNext;
+} sListFWInfo;
 
 //struct to contain PID of the child client process granted access to a ref from the parent client process
-typedef struct sPIDInfo {
+typedef struct sPIDFWInfo {
 	sInt32			fPID;
-	sPIDInfo	   *fNext;
-} sPIDInfo;
+	sPIDFWInfo	   *fNext;
+} sPIDFWInfo;
 
 //struct of the main ref entry
 typedef struct sFWRefEntry {
@@ -74,30 +77,22 @@ typedef struct sFWRefEntry {
 	uInt32			fBufTag;
 	uInt32			fParentID;
 	sInt32			fPID;
-	sListInfo	   *fChildren;
-	sPIDInfo	   *fChildPID;
+	sListFWInfo	   *fChildren;
+	sPIDFWInfo	   *fChildPID;
 } sFWRefEntry;
 
-typedef sInt32 RefDeallocateProc ( uInt32 inRefNum, sFWRefEntry *entry );
+typedef sInt32 RefFWDeallocateProc ( uInt32 inRefNum, sFWRefEntry *entry );
 
 // -------------------------------------------
 
-typedef struct sRefTable *sRefTablePtr;
+typedef struct sRefFWTable *sRefFWTablePtr;
 
-typedef struct sRefTable {
+typedef struct sRefFWTable {
 	uInt32			fTableNum;
 	uInt32			fCurRefNum;
 	uInt32			fItemCnt;
-	sFWRefEntry		*fTableData[ kMaxTableItems ];
-} sRefTable;
-
-typedef enum {
-	eDirectoryRefType		=	'Dire',
-	eNodeRefType			=	'Node',
-	eRecordRefType			=	'Reco',
-	eAttrListRefType		=	'AtLi',
-	eAttrValueListRefType  	=	'AtVa'
-} eRefTypes;
+	sFWRefEntry		*fTableData[ kMaxFWTableItems ];
+} sRefFWTable;
 
 //------------------------------------------------------------------------------------
 //	* CDSRefTable
@@ -105,7 +100,7 @@ typedef enum {
 
 class CDSRefTable {
 public:
-					CDSRefTable			( RefDeallocateProc *deallocProc );
+					CDSRefTable			( RefFWDeallocateProc *deallocProc );
 	virtual		   ~CDSRefTable			( void );
 
 	static tDirStatus	VerifyDirRef		( tDirReference inDirRef, sInt32 inPID );
@@ -145,10 +140,10 @@ private:
 	tDirStatus	LinkToParent		( uInt32 inRefNum, uInt32 inType, uInt32 inParentID, sInt32 inPID );
 	tDirStatus	UnlinkFromParent	( uInt32 inRefNum );
 
-	void		RemoveChildren		( sListInfo *inChildList, sInt32 inPID );
+	void		RemoveChildren		( sListFWInfo *inChildList, sInt32 inPID );
 
-	sRefTable*	GetNextTable		( sRefTable *inCurTable );
-	sRefTable*	GetThisTable		( uInt32 inTableNum );
+	sRefFWTable*	GetNextTable		( sRefFWTable *inCurTable );
+	sRefFWTable*	GetThisTable		( uInt32 inTableNum );
 
 	sFWRefEntry*	GetTableRef			( uInt32 inRefNum );
 
@@ -158,9 +153,9 @@ private:
 	void		DoCheckClientPIDs	( bool inUseTimeOuts );
 
 	uInt32		fTableCount;
-	sRefTable	*fRefTables[ kMaxTables + 1 ];	//added 1 since table is 1-based and code depends upon having that last
-												//index in as kMaxTables ie. note array is 0-based
-	RefDeallocateProc *fDeallocProc;
+	sRefFWTable	*fRefTables[ kMaxFWTables + 1 ];	//added 1 since table is 1-based and code depends upon having that last
+													//index in as kMaxFWTables ie. note array is 0-based
+	RefFWDeallocateProc *fDeallocProc;
 	
 //RCF	CFMutableDictionaryRef	fClientPIDList;
 //RCF	DSMutexSemaphore	   *fClientPIDListLock;		//mutex on the client PID list tracking references per PID

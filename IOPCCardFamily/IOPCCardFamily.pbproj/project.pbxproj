@@ -25,35 +25,38 @@
 		};
 		01228F15FF71C46AC0A8010A = {
 			children = (
-				01228F16FF71C46AC0A8010A,
-				01228F17FF71C46AC0A8010A,
-				01228F18FF71C46AC0A8010A,
-				01228F19FF71C46AC0A8010A,
+				5977FF740471D39600A80164,
+				592688880470900A00A80164,
 			);
 			isa = PBXGroup;
+			name = Examples;
 			path = doc;
 			refType = 4;
 		};
 		01228F16FF71C46AC0A8010A = {
 			fileEncoding = 30;
 			isa = PBXFileReference;
-			path = "PCMCIA-HOWTO";
+			name = "PCMCIA-HOWTO";
+			path = "doc/PCMCIA-HOWTO";
 			refType = 4;
 		};
 		01228F17FF71C46AC0A8010A = {
 			isa = PBXFileReference;
-			path = "PCMCIA-HOWTO.ps";
+			name = "PCMCIA-HOWTO.ps";
+			path = "doc/PCMCIA-HOWTO.ps";
 			refType = 4;
 		};
 		01228F18FF71C46AC0A8010A = {
 			fileEncoding = 30;
 			isa = PBXFileReference;
-			path = "PCMCIA-PROG";
+			name = "PCMCIA-PROG";
+			path = "doc/PCMCIA-PROG";
 			refType = 4;
 		};
 		01228F19FF71C46AC0A8010A = {
 			isa = PBXFileReference;
-			path = "PCMCIA-PROG.ps";
+			name = "PCMCIA-PROG.ps";
+			path = "doc/PCMCIA-PROG.ps";
 			refType = 4;
 		};
 		01228F1AFF71C46AC0A8010A = {
@@ -141,10 +144,6 @@
 			isa = PBXBundleReference;
 			path = ApplePMUPCCardEject.kext;
 			refType = 3;
-		};
-		052E693A017CF4D202CA299A = {
-			isa = PBXTargetDependency;
-			target = 052E693B017CF4D202CA299A;
 		};
 		052E693B017CF4D202CA299A = {
 			buildPhases = (
@@ -336,6 +335,7 @@
 				052E6954017CFE6202CA299A,
 			);
 			isa = PBXGroup;
+			name = PMUEject;
 			path = pmueject;
 			refType = 4;
 		};
@@ -447,15 +447,21 @@
 			targets = (
 				089C1673FE841209C02AAC07,
 				2D9C1A5FFFE6DFA911CA299A,
+				592376E104706B6E00A80164,
 				052E693B017CF4D202CA299A,
+				595839BE0471C05E00A80164,
 			);
 		};
 		089C166AFE841209C02AAC07 = {
 			children = (
+				01D330D9FF7FF22211CA299A,
+				01D330D8FF7FF22211CA299A,
+				01228F1AFF71C46AC0A8010A,
 				0DA3259CFF6DAEDC11CA299A,
 				0DA3259BFF6DAE0A11CA299A,
 				052E6944017CF55B02CA299A,
-				089C167CFE841241C02AAC07,
+				5926887F04707FB500A80164,
+				01228F15FF71C46AC0A8010A,
 				19C28FB6FE9D52B211CA2CBB,
 			);
 			isa = PBXGroup;
@@ -480,7 +486,7 @@
 				LIBRARY_SEARCH_PATHS = "";
 				MODULE_IOKIT = YES;
 				MODULE_NAME = com.apple.iokit.IOPCCardFamily;
-				MODULE_VERSION = 1.4.0;
+				MODULE_VERSION = 1.5.0;
 				OTHER_CFLAGS = " -no-cpp-precomp";
 				OTHER_LDFLAGS = "";
 				OTHER_REZFLAGS = "";
@@ -491,7 +497,7 @@
 			};
 			dependencies = (
 				2D9C1A5EFFE6DFA911CA299A,
-				052E693A017CF4D202CA299A,
+				592376E504706BA400A80164,
 			);
 			isa = PBXBundleTarget;
 			name = IOPCCardFamily;
@@ -507,7 +513,7 @@
 	<key>CFBundleExecutable</key>
 	<string>IOPCCardFamily</string>
 	<key>CFBundleGetInfoString</key>
-	<string>IOPCCardFamily 1.4.0, Copyright 2000-2003 Apple Computer, Inc.</string>
+	<string>IOPCCardFamily 1.5.0, Copyright 2000-2003 Apple Computer, Inc.</string>
 	<key>CFBundleIconFile</key>
 	<string></string>
 	<key>CFBundleIdentifier</key>
@@ -519,11 +525,11 @@
 	<key>CFBundlePackageType</key>
 	<string>KEXT</string>
 	<key>CFBundleShortVersionString</key>
-	<string>1.4.0</string>
+	<string>1.5.0</string>
 	<key>CFBundleSignature</key>
 	<string>????</string>
 	<key>CFBundleVersion</key>
-	<string>1.4.0</string>
+	<string>1.5.0</string>
 	<key>IOKitPersonalities</key>
 	<dict>
 		<key>IOPCCardFamily</key>
@@ -688,7 +694,7 @@
 						</data>
 					</array>
 				</dict>
-				<key>X86PC</key>
+				<key>Test X86PC</key>
 				<dict>
 					<key>I/O Port Ranges</key>
 					<array>
@@ -830,22 +836,6 @@
 			isa = PBXRezBuildPhase;
 			runOnlyForDeploymentPostprocessing = 0;
 		};
-		089C167CFE841241C02AAC07 = {
-			children = (
-				01D330D8FF7FF22211CA299A,
-				01D330D9FF7FF22211CA299A,
-				01228F1DFF71C46AC0A8010A,
-				01228F11FF71C3DEC0A8010A,
-				01228F13FF71C46AC0A8010A,
-				01228F14FF71C46AC0A8010A,
-				01228F15FF71C46AC0A8010A,
-				01228F1AFF71C46AC0A8010A,
-				01228F1BFF71C46AC0A8010A,
-			);
-			isa = PBXGroup;
-			name = README;
-			refType = 4;
-		};
 //080
 //081
 //082
@@ -892,6 +882,7 @@
 				0DA325D6FF6DB16F11CA299A,
 			);
 			isa = PBXGroup;
+			name = Headers;
 			path = pccard;
 			refType = 4;
 		};
@@ -922,6 +913,7 @@
 				2D9C1A76FFE6FEC111CA299A,
 			);
 			isa = PBXGroup;
+			name = Family;
 			path = modules;
 			refType = 4;
 		};
@@ -1390,6 +1382,8 @@
 				0243829CFFCA1D9011CA299A,
 				2D9C1A5DFFE6DFA911CA299A,
 				052E6939017CF4D202CA299A,
+				592376E204706B6E00A80164,
+				595839BF0471C05E00A80164,
 			);
 			isa = PBXGroup;
 			name = Products;
@@ -1605,6 +1599,200 @@
 		};
 		2D9C1A77FFE6FEC111CA299A = {
 			fileRef = 2D9C1A76FFE6FEC111CA299A;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+//2D0
+//2D1
+//2D2
+//2D3
+//2D4
+//590
+//591
+//592
+//593
+//594
+		592376DD04706B6E00A80164 = {
+			buildActionMask = 2147483647;
+			files = (
+			);
+			isa = PBXHeadersBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		592376DE04706B6E00A80164 = {
+			buildActionMask = 2147483647;
+			files = (
+			);
+			isa = PBXSourcesBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		592376DF04706B6E00A80164 = {
+			buildActionMask = 2147483647;
+			files = (
+			);
+			isa = PBXFrameworksBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		592376E004706B6E00A80164 = {
+			buildActionMask = 2147483647;
+			files = (
+			);
+			isa = PBXRezBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		592376E104706B6E00A80164 = {
+			buildPhases = (
+				592376DD04706B6E00A80164,
+				592376DE04706B6E00A80164,
+				592376DF04706B6E00A80164,
+				592376E004706B6E00A80164,
+				592376E404706B8800A80164,
+			);
+			buildSettings = {
+				OTHER_CFLAGS = "";
+				OTHER_LDFLAGS = "";
+				OTHER_REZFLAGS = "";
+				PRODUCT_NAME = InstallExamples;
+				REZ_EXECUTABLE = YES;
+				SECTORDER_FLAGS = "";
+				WARNING_CFLAGS = "-Wmost -Wno-four-char-constants -Wno-unknown-pragmas";
+			};
+			dependencies = (
+			);
+			isa = PBXToolTarget;
+			name = InstallExamples;
+			productInstallPath = /usr/local/bin;
+			productName = InstallExamples;
+			productReference = 592376E204706B6E00A80164;
+		};
+		592376E204706B6E00A80164 = {
+			isa = PBXExecutableFileReference;
+			path = InstallExamples;
+			refType = 3;
+		};
+		592376E404706B8800A80164 = {
+			buildActionMask = 8;
+			dstPath = "$(SYSTEM_DEVELOPER_DIR)/Examples/Kernel/IOKit/pccard";
+			dstSubfolderSpec = 0;
+			files = (
+				5931D76004709A4C00A80164,
+				5977FF750471D39600A80164,
+			);
+			isa = PBXCopyFilesBuildPhase;
+			runOnlyForDeploymentPostprocessing = 1;
+		};
+		592376E504706BA400A80164 = {
+			isa = PBXTargetDependency;
+			target = 592376E104706B6E00A80164;
+		};
+		5926887F04707FB500A80164 = {
+			children = (
+				01228F1DFF71C46AC0A8010A,
+				01228F1BFF71C46AC0A8010A,
+				01228F11FF71C3DEC0A8010A,
+				01228F13FF71C46AC0A8010A,
+				01228F14FF71C46AC0A8010A,
+				01228F16FF71C46AC0A8010A,
+				01228F17FF71C46AC0A8010A,
+				01228F18FF71C46AC0A8010A,
+				01228F19FF71C46AC0A8010A,
+			);
+			isa = PBXGroup;
+			name = Documentation;
+			path = "";
+			refType = 2;
+		};
+		592688880470900A00A80164 = {
+			includeInIndex = 1;
+			isa = PBXFolderReference;
+			path = ApplePCCardSample;
+			refType = 4;
+		};
+		5931D76004709A4C00A80164 = {
+			fileRef = 592688880470900A00A80164;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		595839BA0471C05E00A80164 = {
+			buildActionMask = 2147483647;
+			files = (
+			);
+			isa = PBXHeadersBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		595839BB0471C05E00A80164 = {
+			buildActionMask = 2147483647;
+			files = (
+			);
+			isa = PBXSourcesBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		595839BC0471C05E00A80164 = {
+			buildActionMask = 2147483647;
+			files = (
+			);
+			isa = PBXFrameworksBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		595839BD0471C05E00A80164 = {
+			buildActionMask = 2147483647;
+			files = (
+			);
+			isa = PBXRezBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		595839BE0471C05E00A80164 = {
+			buildPhases = (
+				595839BA0471C05E00A80164,
+				595839BB0471C05E00A80164,
+				595839BC0471C05E00A80164,
+				595839BD0471C05E00A80164,
+				595839C10471C07E00A80164,
+			);
+			buildSettings = {
+				OTHER_CFLAGS = "";
+				OTHER_LDFLAGS = "";
+				OTHER_REZFLAGS = "";
+				PRODUCT_NAME = BuildHeaderDoc;
+				REZ_EXECUTABLE = YES;
+				SECTORDER_FLAGS = "";
+				WARNING_CFLAGS = "-Wmost -Wno-four-char-constants -Wno-unknown-pragmas";
+			};
+			dependencies = (
+			);
+			isa = PBXToolTarget;
+			name = BuildHeaderDoc;
+			productInstallPath = /usr/local/bin;
+			productName = BuildHeaderDoc;
+			productReference = 595839BF0471C05E00A80164;
+		};
+		595839BF0471C05E00A80164 = {
+			isa = PBXExecutableFileReference;
+			path = BuildHeaderDoc;
+			refType = 3;
+		};
+		595839C10471C07E00A80164 = {
+			buildActionMask = 2147483647;
+			files = (
+			);
+			generatedFileNames = (
+			);
+			isa = PBXShellScriptBuildPhase;
+			neededFileNames = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/sh;
+			shellScript = "headerdoc2html -o /tmp pccard/*.h\ngatherHeaderDoc /tmp\nopen /tmp/MasterTOC.html";
+		};
+		5977FF740471D39600A80164 = {
+			isa = PBXFileReference;
+			path = "About PC Card Examples.rtf";
+			refType = 4;
+		};
+		5977FF750471D39600A80164 = {
+			fileRef = 5977FF740471D39600A80164;
 			isa = PBXBuildFile;
 			settings = {
 			};

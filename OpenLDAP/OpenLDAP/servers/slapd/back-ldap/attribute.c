@@ -1,7 +1,7 @@
 /* group.c - ldap backend acl group routine */
-/* $OpenLDAP: pkg/ldap/servers/slapd/back-ldap/attribute.c,v 1.12 2002/01/14 00:43:21 hyc Exp $ */
+/* $OpenLDAP: pkg/ldap/servers/slapd/back-ldap/attribute.c,v 1.12.2.1 2003/02/09 16:31:38 kurt Exp $ */
 /*
- * Copyright 1998-2002 The OpenLDAP Foundation, All Rights Reserved.
+ * Copyright 1998-2003 The OpenLDAP Foundation, All Rights Reserved.
  * COPYING RESTRICTIONS APPLY, see COPYRIGHT file
  */
 
@@ -63,8 +63,8 @@ ldap_back_attribute(
 		}
 
 	}
-	ldap_back_map(&li->at_map, &entry_at->ad_cname, &mapped, 0);
-	if (mapped.bv_val == NULL) {
+	ldap_back_map(&li->at_map, &entry_at->ad_cname, &mapped, BACKLDAP_MAP);
+	if (mapped.bv_val == NULL || mapped.bv_val[0] == '\0') {
 		return 1;
 	}
 
@@ -109,8 +109,9 @@ ldap_back_attribute(
 			else
 				j++;
 		} else {
-			ldap_back_map(&li->oc_map, &v[j], &mapped, 1);
-			if (mapped.bv_val) {
+			ldap_back_map(&li->oc_map, &v[j], &mapped,
+					BACKLDAP_REMAP);
+			if (mapped.bv_val && mapped.bv_val[0] != '\0') {
 				ber_dupbv( &v[j], &mapped );
 				if (v[j].bv_val)
 					j++;

@@ -21,11 +21,15 @@
    Foundation, Inc., 59 Temple Place - Suite 330,
    Boston, MA 02111-1307, USA.  */
 
+#include <ctype.h>
+#include <sys/time.h>
+#include <sys/types.h>
+#include <sys/resource.h>
+
 #include "defs.h"
 #include "mi-cmds.h"
 #include "mi-parse.h"
 
-#include <ctype.h>
 #include "gdb_string.h"
 
 static void
@@ -142,6 +146,8 @@ mi_parse_free (struct mi_parse *parse)
     xfree (parse->args);
   if (parse->argv != NULL)
     freeargv (parse->argv);
+  if (parse->cmd_start != NULL)
+    xfree (parse->cmd_start);
   xfree (parse);
 }
 

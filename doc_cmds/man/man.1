@@ -12,7 +12,7 @@
 .\" The University of Texas at Austin
 .\" Austin, Texas  78712
 .\"
-.\" $FreeBSD: src/gnu/usr.bin/man/man/man.man,v 1.20 2002/01/11 15:11:59 ru Exp $
+.\" $FreeBSD: src/gnu/usr.bin/man/man/man.man,v 1.21 2002/06/24 20:57:44 eric Exp $
 .\"
 .Dd January 5, 1991
 .Dt MAN 1
@@ -45,7 +45,7 @@ only looks in that section of the manual.  You may also specify the
 order to search the sections for entries and which preprocessors to
 run on the source files via command line options or environment
 variables.  If enabled by the system administrator, formatted man
-pages will also be compressed with the `%compress%' command to save
+pages will also be compressed with the `/usr/bin/gzip -c' command to save
 space.
 .Pp
 The options are as follows:
@@ -67,7 +67,7 @@ Specify which pager to use.
 By default,
 .Nm
 uses
-.Nm %pager% .
+.Nm less -Rse .
 This option overrides the
 .Ev PAGER
 environment variable.
@@ -93,7 +93,7 @@ information.
 Equivalent to
 .Nm whatis .
 .It Fl h
-Print a one line help message and exit.
+Print a help message and exit.
 .It Fl k
 Equivalent to
 .Nm apropos .
@@ -111,63 +111,6 @@ to the name of a specific architecture.
 This option overrides the
 .Ev MACHINE
 environment variable.
-.It Fl o
-Look for original, non-localized manpages only.
-.Pp
-By default,
-.Nm
-searches for a localized manpage
-in a set of locale subdirectories of each
-.Xr manpath 1
-component.
-.Pp
-Locale name is taken from the first of three environment variables
-with a nonempty value:
-.Ev LC_ALL , LC_CTYPE ,
-or
-.Ev LANG ,
-in the specified order.
-.Pp
-If the value could not be determined, or is not a valid locale name,
-then only non-localized manpage will be looked up.
-.Pp
-Otherwise,
-.Nm
-will search in the following subdirectories, in the order of precedence:
-.Pp
-.Bl -item -offset indent -compact
-.Sm off
-.It
-.Pa <lang> _ <country> . <charset>
-.It
-.Pa <lang> . <charset>
-.It
-.Pa en . <charset>
-.Sm on
-.El
-.Pp
-For example, for
-.Dq de_DE.ISO8859-1
-locale,
-.Nm
-will search in the following subdirectories of the
-.Pa /usr/share/man
-manpath component:
-.Pp
-.Bl -item -offset indent -compact
-.It
-.Pa /usr/share/man/de_DE.ISO8859-1
-.It
-.Pa /usr/share/man/de.ISO8859-1
-.It
-.Pa /usr/share/man/en.ISO8859-1
-.El
-.Pp
-Finally,
-if the search of localized manpage fails,
-it will be looked up in the default
-.Pa /usr/share/man
-directory.
 .It Fl p Ar string
 Specify the sequence of preprocessors to run before nroff or troff.
 Not all installations will have a full set of preprocessors.
@@ -178,10 +121,10 @@ This option overrides the
 environment variable.
 .It Fl t
 Use
-.Nm %troff%
+.Nm /usr/bin/groff -S -mandoc
 to format the manual page, passing the output to stdout.
 The output from
-.Nm %troff%
+.Nm /usr/bin/groff -S -mandoc
 may need to be passed through some filter or another before being
 printed.
 .It Fl w
@@ -219,8 +162,19 @@ If
 .Ev PAGER
 is set, its value is used as the name of the program to use to display
 the man page.  By default,
-.Nm %pager%
+.Nm less -Rse
 is used.
+The
+.Nm -R
+flag to
+.Nm less
+is critical to the correct display of the output, so the
+.Nm -R
+flag is appended to the value specified by
+.Ev PAGER
+if it looks like
+.Nm less
+is being used.
 .El
 .Sh EXAMPLES
 .Pp
@@ -238,8 +192,8 @@ one would use:
 .Sh SEE ALSO
 .Xr apropos 1 ,
 .Xr groff 1 ,
+.Xr less 1 ,
 .Xr manpath 1 ,
-.Xr more 1 ,
 .Xr whatis 1 ,
 .Xr man 7 ,
 .Xr mdoc 7

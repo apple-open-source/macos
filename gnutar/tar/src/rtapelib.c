@@ -1,5 +1,7 @@
 /* Functions for communicating with a remote tape drive.
-   Copyright (C) 1988, 1992, 1994, 1996 Free Software Foundation, Inc.
+
+   Copyright 1988, 1992, 1994, 1996, 1997, 1999, 2000, 2001 Free Software
+   Foundation, Inc.
 
    This program is free software; you can redistribute it and/or modify
    it under the terms of the GNU General Public License as published by
@@ -32,8 +34,8 @@
 
 #include "system.h"
 
-#include "basename.h"
-#include "safe-read.h"
+#include <safe-read.h>
+#include <full-write.h>
 
 /* Try hard to get EOPNOTSUPP defined.  486/ISC has it in net/errno.h,
    3B2/SVR3 has it in sys/inet.h.  Otherwise, like on MSDOS, use EINVAL.  */
@@ -57,9 +59,6 @@
 #endif
 
 #include "rmt.h"
-
-/* FIXME: Just to shut up -Wall.  */
-int rexec ();
 
 /* Exit status if exec errors.  */
 #define EXIT_ON_EXEC_ERROR 128
@@ -93,10 +92,7 @@ static int to_remote[MAXUNIT][2] = {{-1, -1}, {-1, -1}, {-1, -1}, {-1, -1}};
 char *rmt_path__;
 
 
-/*----------------------------------------------------------------------.
-| Close remote tape connection HANDLE, and reset errno to ERRNO_VALUE.  |
-`----------------------------------------------------------------------*/
-
+/* Close remote tape connection HANDLE, and reset errno to ERRNO_VALUE.  */
 static void
 _rmt_shutdown (int handle, int errno_value)
 {
@@ -104,33 +100,27 @@ _rmt_shutdown (int handle, int errno_value)
   close (WRITE_SIDE (handle));
   READ_SIDE (handle) = -1;
   WRITE_SIDE (handle) = -1;
-  errno = errno_value;		/* FIXME: errno should be read-only */
+  errno = errno_value;
 }
 
-/*-------------------------------------------------------------------------.
-| Attempt to perform the remote tape command specified in BUFFER on remote |
-| tape connection HANDLE.  Return 0 if successful, -1 on error.		   |
-`-------------------------------------------------------------------------*/
-
+/* Attempt to perform the remote tape command specified in BUFFER on
+   remote tape connection HANDLE.  Return 0 if successful, -1 on
+   error.  */
 static int
 do_command (int handle, const char *buffer)
 {
-  size_t length;
-  RETSIGTYPE (*pipe_handler) ();
-
   /* Save the current pipe handler and try to make the request.  */
 
-  pipe_handler = signal (SIGPIPE, SIG_IGN);
-  length = strlen (buffer);
-  if (full_write (WRITE_SIDE (handle), buffer, length) == length)
-    {
-      signal (SIGPIPE, pipe_handler);
-      return 0;
-    }
+  size_t length = strlen (buffer);
+  RETSIGTYPE (*pipe_handler) () = signal (SIGPIPE, SIG_IGN);
+  ssize_t written = full_write (WRITE_SIDE (handle), buffer, length);
+  signal (SIGPIPE, pipe_handler);
+
+  if (written == length)
+    return 0;
 
   /* Something went wrong.  Close down and go home.  */
 
-  signal (SIGPIPE, pipe_handler);
   _rmt_shutdown (handle, EIO);
   return -1;
 }
@@ -173,7 +163,7 @@ get_status_string (int handle, char *command_buffer)
 
   if (*cursor == 'E' || *cursor == 'F')
     {
-      errno = atoi (cursor + 1); /* FIXME: errno should be read-only */
+      errno = atoi (cursor + 1);
 
       /* Skip the error message line.  */
 
@@ -207,11 +197,8 @@ get_status_string (int handle, char *command_buffer)
   return cursor + 1;
 }
 
-/*----------------------------------------------------------------------.
-| Read and return the status from remote tape connection HANDLE.  If an |
-| error occurred, return -1 and set errno.			        |
-`----------------------------------------------------------------------*/
-
+/* Read and return the status from remote tape connection HANDLE.  If
+   an error occurred, return -1 and set errno.  */
 static long
 get_status (int handle)
 {
@@ -264,18 +251,15 @@ get_status_off (int handle)
 
 #if WITH_REXEC
 
-/*-------------------------------------------------------------------------.
-| Execute /etc/rmt as user USER on remote system HOST using rexec.  Return |
-| a file descriptor of a bidirectional socket for stdin and stdout.  If	   |
-| USER is NULL, use the current username.				   |
-| 									   |
-| By default, this code is not used, since it requires that the user have  |
-| a .netrc file in his/her home directory, or that the application	   |
-| designer be willing to have rexec prompt for login and password info.	   |
-| This may be unacceptable, and .rhosts files for use with rsh are much	   |
-| more common on BSD systems.						   |
-`-------------------------------------------------------------------------*/
+/* Execute /etc/rmt as user USER on remote system HOST using rexec.
+   Return a file descriptor of a bidirectional socket for stdin and
+   stdout.  If USER is zero, use the current username.
 
+   By default, this code is not used, since it requires that the user
+   have a .netrc file in his/her home directory, or that the
+   application designer be willing to have rexec prompt for login and
+   password info.  This may be unacceptable, and .rhosts files for use
+   with rsh are much more common on BSD systems.  */
 static int
 _rmt_rexec (char *host, char *user)
 {
@@ -290,16 +274,15 @@ _rmt_rexec (char *host, char *user)
      /dev/tty before the rexec and give them back their original value
      after.  */
 
-  if (freopen ("/dev/tty", "r", stdin) == NULL)
+  if (! freopen ("/dev/tty", "r", stdin))
     freopen ("/dev/null", "r", stdin);
-  if (freopen ("/dev/tty", "w", stdout) == NULL)
+  if (! freopen ("/dev/tty", "w", stdout))
     freopen ("/dev/null", "w", stdout);
 
   if (rexecserv = getservbyname ("exec", "tcp"), !rexecserv)
     error (EXIT_ON_EXEC_ERROR, 0, _("exec/tcp: Service not available"));
 
-  result = rexec (&host, rexecserv->s_port, user, NULL,
-		   "/etc/rmt", (int *) NULL);
+  result = rexec (&host, rexecserv->s_port, user, 0, "/etc/rmt", 0);
   if (fclose (stdin) == EOF)
     error (0, errno, _("stdin"));
   fdopen (saved_stdin, "r");
@@ -312,13 +295,54 @@ _rmt_rexec (char *host, char *user)
 
 #endif /* WITH_REXEC */
 
-/*------------------------------------------------------------------------.
-| Open a file (a magnetic tape device?) on the system specified in PATH,  |
-| as the given user.  PATH has the form `[USER@]HOST:FILE'.  OPEN_MODE is |
-| O_RDONLY, O_WRONLY, etc.  If successful, return the remote pipe number  |
-| plus BIAS.  REMOTE_SHELL may be overriden.  On error, return -1.	  |
-`------------------------------------------------------------------------*/
+/* Place into BUF a string representing OFLAG, which must be suitable
+   as argument 2 of `open'.  BUF must be large enough to hold the
+   result.  This function should generate a string that decode_oflag
+   can parse.  */
+static void
+encode_oflag (char *buf, int oflag)
+{
+  sprintf (buf, "%d ", oflag);
 
+  switch (oflag & O_ACCMODE)
+    {
+    case O_RDONLY: strcat (buf, "O_RDONLY"); break;
+    case O_RDWR: strcat (buf, "O_RDWR"); break;
+    case O_WRONLY: strcat (buf, "O_WRONLY"); break;
+    default: abort ();
+    }
+
+#ifdef O_APPEND
+  if (oflag & O_APPEND) strcat (buf, "|O_APPEND");
+#endif
+  if (oflag & O_CREAT) strcat (buf, "|O_CREAT");
+#ifdef O_DSYNC
+  if (oflag & O_DSYNC) strcat (buf, "|O_DSYNC");
+#endif
+  if (oflag & O_EXCL) strcat (buf, "|O_EXCL");
+#ifdef O_LARGEFILE
+  if (oflag & O_LARGEFILE) strcat (buf, "|O_LARGEFILE");
+#endif
+#ifdef O_NOCTTY
+  if (oflag & O_NOCTTY) strcat (buf, "|O_NOCTTY");
+#endif
+#ifdef O_NONBLOCK
+  if (oflag & O_NONBLOCK) strcat (buf, "|O_NONBLOCK");
+#endif
+#ifdef O_RSYNC
+  if (oflag & O_RSYNC) strcat (buf, "|O_RSYNC");
+#endif
+#ifdef O_SYNC
+  if (oflag & O_SYNC) strcat (buf, "|O_SYNC");
+#endif
+  if (oflag & O_TRUNC) strcat (buf, "|O_TRUNC");
+}
+
+/* Open a file (a magnetic tape device?) on the system specified in
+   PATH, as the given user.  PATH has the form `[USER@]HOST:FILE'.
+   OPEN_MODE is O_RDONLY, O_WRONLY, etc.  If successful, return the
+   remote pipe number plus BIAS.  REMOTE_SHELL may be overridden.  On
+   error, return -1.  */
 int
 rmt_open__ (const char *path, int open_mode, int bias, const char *remote_shell)
 {
@@ -339,7 +363,7 @@ rmt_open__ (const char *path, int open_mode, int bias, const char *remote_shell)
 
   if (remote_pipe_number == MAXUNIT)
     {
-      errno = EMFILE;		/* FIXME: errno should be read-only */
+      errno = EMFILE;
       return -1;
     }
 
@@ -350,14 +374,21 @@ rmt_open__ (const char *path, int open_mode, int bias, const char *remote_shell)
 
     path_copy = xstrdup (path);
     remote_host = path_copy;
-    remote_user = NULL;
-    remote_file = NULL;
+    remote_user = 0;
+    remote_file = 0;
 
     for (cursor = path_copy; *cursor; cursor++)
       switch (*cursor)
 	{
 	default:
 	  break;
+
+	case '\n':
+	  /* Do not allow newlines in the path, since the protocol
+	     uses newline delimiters.  */
+	  free (path_copy);
+	  errno = ENOENT;
+	  return -1;
 
 	case '@':
 	  if (!remote_user)
@@ -381,7 +412,7 @@ rmt_open__ (const char *path, int open_mode, int bias, const char *remote_shell)
   /* FIXME: Should somewhat validate the decoding, here.  */
 
   if (remote_user && *remote_user == '\0')
-    remote_user = NULL;
+    remote_user = 0;
 
 #if WITH_REXEC
 
@@ -390,7 +421,9 @@ rmt_open__ (const char *path, int open_mode, int bias, const char *remote_shell)
   READ_SIDE (remote_pipe_number) = _rmt_rexec (remote_host, remote_user);
   if (READ_SIDE (remote_pipe_number) < 0)
     {
+      int e = errno;
       free (path_copy);
+      errno = e;
       return -1;
     }
 
@@ -408,30 +441,30 @@ rmt_open__ (const char *path, int open_mode, int bias, const char *remote_shell)
 #ifdef REMOTE_SHELL
 	remote_shell = REMOTE_SHELL;
 #else
-	errno = EIO;		/* FIXME: errno should be read-only */
 	free (path_copy);
+	errno = EIO;
 	return -1;
 #endif
       }
     remote_shell_basename = base_name (remote_shell);
-    if (remote_shell_basename)
-      remote_shell_basename++;
-    else
-      remote_shell_basename = remote_shell;
 
     /* Set up the pipes for the `rsh' command, and fork.  */
 
     if (pipe (to_remote[remote_pipe_number]) == -1
 	|| pipe (from_remote[remote_pipe_number]) == -1)
       {
+	int e = errno;
 	free (path_copy);
+	errno = e;
 	return -1;
       }
 
     status = fork ();
     if (status == -1)
       {
+	int e = errno;
 	free (path_copy);
+	errno = e;
 	return -1;
       }
 
@@ -477,27 +510,29 @@ rmt_open__ (const char *path, int open_mode, int bias, const char *remote_shell)
   /* Attempt to open the tape device.  */
 
   {
-    char command_buffer[COMMAND_BUFFER_SIZE];
-
-    sprintf (command_buffer, "O%s\n%d\n", remote_file, open_mode);
+    size_t remote_file_len = strlen (remote_file);
+    char *command_buffer = xmalloc (remote_file_len + 1000);
+    sprintf (command_buffer, "O%s\n", remote_file);
+    encode_oflag (command_buffer + remote_file_len + 2, open_mode);
+    strcat (command_buffer, "\n");
     if (do_command (remote_pipe_number, command_buffer) == -1
 	|| get_status (remote_pipe_number) == -1)
       {
-	_rmt_shutdown (remote_pipe_number, errno);
+	int e = errno;
+	free (command_buffer);
 	free (path_copy);
+	_rmt_shutdown (remote_pipe_number, e);
 	return -1;
       }
+    free (command_buffer);
   }
 
   free (path_copy);
   return remote_pipe_number + bias;
 }
 
-/*----------------------------------------------------------------.
-| Close remote tape connection HANDLE and shut down.  Return 0 if |
-| successful, -1 on error.					  |
-`----------------------------------------------------------------*/
-
+/* Close remote tape connection HANDLE and shut down.  Return 0 if
+   successful, -1 on error.  */
 int
 rmt_close__ (int handle)
 {
@@ -511,11 +546,8 @@ rmt_close__ (int handle)
   return status;
 }
 
-/*-------------------------------------------------------------------------.
-| Read up to LENGTH bytes into BUFFER from remote tape connection HANDLE.  |
-| Return the number of bytes read on success, -1 on error.		   |
-`-------------------------------------------------------------------------*/
-
+/* Read up to LENGTH bytes into BUFFER from remote tape connection HANDLE.
+   Return the number of bytes read on success, -1 on error.  */
 ssize_t
 rmt_read__ (int handle, char *buffer, size_t length)
 {
@@ -541,40 +573,33 @@ rmt_read__ (int handle, char *buffer, size_t length)
   return status;
 }
 
-/*-------------------------------------------------------------------------.
-| Write LENGTH bytes from BUFFER to remote tape connection HANDLE.  Return |
-| the number of bytes written on success, -1 on error.			   |
-`-------------------------------------------------------------------------*/
-
+/* Write LENGTH bytes from BUFFER to remote tape connection HANDLE.
+   Return the number of bytes written on success, -1 on error.  */
 ssize_t
 rmt_write__ (int handle, char *buffer, size_t length)
 {
   char command_buffer[COMMAND_BUFFER_SIZE];
   RETSIGTYPE (*pipe_handler) ();
+  size_t written;
 
   sprintf (command_buffer, "W%lu\n", (unsigned long) length);
   if (do_command (handle, command_buffer) == -1)
     return -1;
 
   pipe_handler = signal (SIGPIPE, SIG_IGN);
-  if (full_write (WRITE_SIDE (handle), buffer, length) == length)
-    {
-      signal (SIGPIPE, pipe_handler);
-      return get_status (handle);
-    }
+  written = full_write (WRITE_SIDE (handle), buffer, length);
+  signal (SIGPIPE, pipe_handler);
+  if (written == length)
+    return get_status (handle);
 
   /* Write error.  */
 
-  signal (SIGPIPE, pipe_handler);
   _rmt_shutdown (handle, EIO);
   return -1;
 }
 
-/*------------------------------------------------------------------------.
-| Perform an imitation lseek operation on remote tape connection HANDLE.  |
-| Return the new file offset if successful, -1 if on error.		  |
-`------------------------------------------------------------------------*/
-
+/* Perform an imitation lseek operation on remote tape connection
+   HANDLE.  Return the new file offset if successful, -1 if on error.  */
 off_t
 rmt_lseek__ (int handle, off_t offset, int whence)
 {
@@ -605,18 +630,15 @@ rmt_lseek__ (int handle, off_t offset, int whence)
   return get_status_off (handle);
 }
 
-/*-----------------------------------------------------------------------.
-| Perform a raw tape operation on remote tape connection HANDLE.  Return |
-| the results of the ioctl, or -1 on error.				 |
-`-----------------------------------------------------------------------*/
-
+/* Perform a raw tape operation on remote tape connection HANDLE.
+   Return the results of the ioctl, or -1 on error.  */
 int
 rmt_ioctl__ (int handle, int operation, char *argument)
 {
   switch (operation)
     {
     default:
-      errno = EOPNOTSUPP;	/* FIXME: errno should be read-only */
+      errno = EOPNOTSUPP;
       return -1;
 
 #ifdef MTIOCTOP
@@ -635,7 +657,7 @@ rmt_ioctl__ (int handle, int operation, char *argument)
 	if (((struct mtop *) argument)->mt_count < 0)
 	  *--p = '-';
 
-	/* MTIOCTOP is the easy one.  Nothing is transfered in binary.  */
+	/* MTIOCTOP is the easy one.  Nothing is transferred in binary.  */
 
 	sprintf (command_buffer, "I%d\n%s\n",
 		 ((struct mtop *) argument)->mt_op, p);
@@ -664,8 +686,7 @@ rmt_ioctl__ (int handle, int operation, char *argument)
 
 	for (; status > 0; status -= counter, argument += counter)
 	  {
-	    counter = safe_read (READ_SIDE (handle),
-				 argument, (size_t) status);
+	    counter = safe_read (READ_SIDE (handle), argument, status);
 	    if (counter <= 0)
 	      {
 		_rmt_shutdown (handle, EIO);

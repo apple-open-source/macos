@@ -158,8 +158,12 @@ private:
 //
 // Global C++ allocation hooks to use CssmAllocators
 //
-inline void *operator new (size_t size, CssmAllocator &allocator) throw(std::bad_alloc)
+inline void *operator new (size_t size, CssmAllocator &allocator) throw (std::bad_alloc)
 { return allocator.malloc(size); }
+
+inline void *operator new[] (size_t size, CssmAllocator &allocator) throw (std::bad_alloc)
+{ return allocator.malloc(size); }
+
 
 //
 // You'd think that this is operator delete(const T *, CssmAllocator &), but you'd

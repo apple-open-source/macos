@@ -1,13 +1,9 @@
-/* $Id: php_mcal.h,v 1.1.1.3 2001/12/14 22:12:34 zarzycki Exp $ */
+/* $Id: php_mcal.h,v 1.1.1.4 2003/03/11 01:09:25 zarzycki Exp $ */
 
 #ifndef PHP_MCAL_H
 #define PHP_MCAL_H
 
 #if HAVE_MCAL
-
-#ifndef PHP_WIN32
-#include "build-defs.h"
-#endif
 
 /* Functions accessable to PHP */
 extern zend_module_entry php_mcal_module_entry;

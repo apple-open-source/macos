@@ -1,7 +1,7 @@
 /* Generic bytes.h */
-/* $OpenLDAP: pkg/ldap/include/ac/bytes.h,v 1.13 2002/01/04 19:40:30 kurt Exp $ */
+/* $OpenLDAP: pkg/ldap/include/ac/bytes.h,v 1.13.2.1 2003/02/09 17:02:17 kurt Exp $ */
 /*
- * Copyright 1998-2002 The OpenLDAP Foundation, Redwood City, California, USA
+ * Copyright 1998-2003 The OpenLDAP Foundation, Redwood City, California, USA
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -25,8 +25,7 @@
 #	elif SIZEOF_SHORT == 4
 #		define AC_INT4_TYPE short
 #	else
-/* used by SHA-1, but commented out */
-/* #	error "AC_INT2_TYPE?" */
+#	error "AC_INT4_TYPE?"
 #	endif
 #endif
 
@@ -42,8 +41,7 @@ typedef unsigned AC_INT4_TYPE ac_uint4;
 #	elif SIZEOF_LONG == 2
 #		define AC_INT2_TYPE long
 #	else
-/* not used, no error */
-/* #	error "AC_INT2_TYPE?" */
+#	error "AC_INT2_TYPE?"
 #	endif
 #endif
  

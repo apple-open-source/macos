@@ -1,0 +1,463 @@
+###
+### List of failing tests with Radar bug numbers
+### <radarNum>: <test name>
+### test name should be exactly as it appears html summary reports    
+### including any trailing #<number>
+###
+### When the bug is fixed and the test passes, it will be a
+### analyzed non-fail. You should then comment out the test in this
+### file and make sure the Radar bug is closed.
+###
+###------------------------------------------------------------------
+#3239469: gcc.dg/cpp/uchar-3.c (test for excess errors)
+3245850: gcc.dg/cpp/skipping2.c tokens after #endif (test for warnings, line 13)
+#3245850: gcc.dg/cpp/skipping2.c tokens after #endif (test for warnings, line 16)
+#3248763: gcc.apple/asm-function-2.c execution test
+#3256731: gcc.dg/cast-ptr-1.c (test for excess errors)
+#3240896: gcc.dg/struct-by-value-1.c (test for excess errors)
+#3247367: gcc.apple/Wextra-tokens.c bad warning (test for bogus messages, line 13)
+#3247367: gcc.apple/Wextra-tokens.c bad warning (test for bogus messages, line 14)
+#3247367: gcc.apple/Wextra-tokens.c bad warning (test for warnings, line 13)
+#3247367: gcc.apple/Wextra-tokens.c bad warning (test for warnings, line 14)
+3239367: gcc.dg/cpp/extratokens.c tokens after #assert (test for errors, line 26)
+3239367: gcc.dg/cpp/extratokens.c tokens after #else (test for warnings, line 20)
+3239367: gcc.dg/cpp/extratokens.c tokens after #endif (test for warnings, line 21)
+3239367: gcc.dg/cpp/extratokens.c tokens after #ident (test for errors, line 32)
+3239367: gcc.dg/cpp/extratokens.c tokens after #ifdef (test for errors, line 12)
+3239367: gcc.dg/cpp/extratokens.c tokens after #ifndef (test for errors, line 15)
+3239367: gcc.dg/cpp/extratokens.c tokens after #include (test for errors, line 30)
+3239367: gcc.dg/cpp/extratokens.c tokens after #unassert (test for errors, line 28)
+3239367: gcc.dg/cpp/extratokens.c tokens after #undef (test for errors, line 24)
+#3239367: gcc.dg/cpp/extratokens.c tokens after #ifdef (test for errors, line 13)
+#3239367: gcc.dg/cpp/extratokens.c tokens after #ifndef (test for errors, line 16)
+#3239367: gcc.dg/cpp/extratokens.c tokens after #else (test for warnings, line 21)
+#3239367: gcc.dg/cpp/extratokens.c tokens after #endif (test for warnings, line 22)
+#3239367: gcc.dg/cpp/extratokens.c tokens after #undef (test for errors, line 25)
+#3239367: gcc.dg/cpp/extratokens.c tokens after #assert (test for errors, line 27)
+#3239367: gcc.dg/cpp/extratokens.c tokens after #unassert (test for errors, line 29)
+#3239367: gcc.dg/cpp/extratokens.c tokens after #include (test for errors, line 31)
+#3239367: gcc.dg/cpp/extratokens.c tokens after #ident (test for errors, line 33)
+#3239367: gcc.dg/cpp/extratokens.c bad warning (test for bogus messages, line 39)
+#3233588: gcc.c-torture/compile/simd-4.c,  -O0  
+#3233588: gcc.c-torture/execute/simd-1.c compilation,  -O0 
+#3233588: gcc.c-torture/execute/simd-2.c compilation,  -O0 
+#3239413: gcc.dg/cpp/if-2.c multi-character charconst (test for warnings, line 20)
+#3239435: gcc.dg/cpp/include2.c  (test for warnings, line 10)
+#3239435: gcc.dg/cpp/include2.c  (test for warnings, line 11)
+#3239367: gcc.dg/cpp/endif-pedantic2.c tokens after #else (test for errors, line 14)
+#3239367: gcc.dg/cpp/endif-pedantic2.c tokens after #endif (test for errors, line 15)
+#3219341: gcc.dg/builtin-inf-1.c (test for excess errors)
+#3219341: gcc.dg/builtins-1.c (test for excess errors)
+###------------------------------------------------------------------
+2863546: gcc.dg/cpp/cxxcom2.c #line extension (test for warnings, line 5)
+#3191171: gcc.apple/preprocess.s (test for excess errors)
+#3191171: gcc.apple/preprocess.s spurious warning (test for bogus messages, line 9)
+#3191351: gcc.c-torture/compile/20000518-1.c,  -O1  
+#3191351: gcc.c-torture/compile/20000518-1.c,  -O2  
+#3191351: gcc.c-torture/compile/20000518-1.c,  -O3 -fomit-frame-pointer  
+#3191351: gcc.c-torture/compile/20000518-1.c,  -O3 -g  
+#3191351: gcc.c-torture/compile/20000518-1.c,  -Os  
+3191500: gcc.dg/c99-func-3.c execution test
+3219341: gcc.dg/format/c99-printf-1.c   (test for excess errors)
+3219341: gcc.dg/format/c99-printf-1.c  -DWIDE  (test for excess errors)
+3219341: gcc.dg/format/c99-scanf-1.c   (test for excess errors)
+3219341: gcc.dg/format/c99-scanf-1.c  -DWIDE  (test for excess errors)
+3233476: gcc.c-torture/compile/simd-1.c,  -O0
+3233476: gcc.c-torture/compile/simd-1.c,  -O1
+3233476: gcc.c-torture/compile/simd-1.c,  -O2
+3233476: gcc.c-torture/compile/simd-1.c,  -O3 -fomit-frame-pointer
+3233476: gcc.c-torture/compile/simd-1.c,  -O3 -g
+3233476: gcc.c-torture/compile/simd-1.c,  -Os
+3233476: gcc.c-torture/compile/simd-5.c,  -O0  
+3233476: gcc.c-torture/compile/simd-5.c,  -O1  
+3233476: gcc.c-torture/compile/simd-5.c,  -O2  
+3233476: gcc.c-torture/compile/simd-5.c,  -O3 -fomit-frame-pointer  
+3233476: gcc.c-torture/compile/simd-5.c,  -O3 -g  
+3233476: gcc.c-torture/compile/simd-5.c,  -Os  
+3233562: gcc.c-torture/compile/simd-2.c,  -O0  
+3233562: gcc.c-torture/compile/simd-2.c,  -O1  
+3233562: gcc.c-torture/compile/simd-2.c,  -O2  
+3233562: gcc.c-torture/compile/simd-2.c,  -O3 -fomit-frame-pointer  
+3233562: gcc.c-torture/compile/simd-2.c,  -O3 -g  
+3233562: gcc.c-torture/compile/simd-2.c,  -Os  
+3233562: gcc.c-torture/compile/simd-3.c,  -O0  
+3233562: gcc.c-torture/compile/simd-3.c,  -O1  
+3233562: gcc.c-torture/compile/simd-3.c,  -O2  
+3233562: gcc.c-torture/compile/simd-3.c,  -O3 -fomit-frame-pointer  
+3233562: gcc.c-torture/compile/simd-3.c,  -O3 -g  
+3233562: gcc.c-torture/compile/simd-3.c,  -Os  
+3233562: gcc.c-torture/compile/simd-4.c,  -O1  
+3233562: gcc.c-torture/compile/simd-4.c,  -O2  
+3233562: gcc.c-torture/compile/simd-4.c,  -O3 -fomit-frame-pointer  
+3233562: gcc.c-torture/compile/simd-4.c,  -O3 -g  
+3233562: gcc.c-torture/compile/simd-4.c,  -Os  
+3233562: gcc.c-torture/execute/simd-1.c compilation,  -O1 
+3233562: gcc.c-torture/execute/simd-1.c compilation,  -O2 
+3233562: gcc.c-torture/execute/simd-1.c compilation,  -O3 -fomit-frame-pointer 
+3233562: gcc.c-torture/execute/simd-1.c compilation,  -O3 -g 
+3233562: gcc.c-torture/execute/simd-1.c compilation,  -Os 
+3233562: gcc.c-torture/execute/simd-2.c compilation,  -O1 
+3233562: gcc.c-torture/execute/simd-2.c compilation,  -O2 
+3233562: gcc.c-torture/execute/simd-2.c compilation,  -O3 -fomit-frame-pointer 
+3233562: gcc.c-torture/execute/simd-2.c compilation,  -O3 -g 
+3233562: gcc.c-torture/execute/simd-2.c compilation,  -Os 
+3233613: gcc.c-torture/execute/20020412-1.c execution,  -O0 
+3233613: gcc.c-torture/execute/20020412-1.c execution,  -O1 
+3233613: gcc.c-torture/execute/20020412-1.c execution,  -O2 
+3233613: gcc.c-torture/execute/20020412-1.c execution,  -O3 -fomit-frame-pointer 
+3233613: gcc.c-torture/execute/20020412-1.c execution,  -O3 -fomit-frame-pointer -funroll-all-loops -finline-functions 
+3233613: gcc.c-torture/execute/20020412-1.c execution,  -O3 -fomit-frame-pointer -funroll-loops 
+3233613: gcc.c-torture/execute/20020412-1.c execution,  -O3 -g 
+3233613: gcc.c-torture/execute/20020412-1.c execution,  -Os 
+#3233626: gcc.c-torture/execute/pure-1.c compilation,  -O1 
+#3233626: gcc.c-torture/execute/pure-1.c compilation,  -O2 
+#3233626: gcc.c-torture/execute/pure-1.c compilation,  -Os 
+3239546: gcc.dg/debug/20020220-1.c -gdwarf-2 (test for excess errors)
+3239546: gcc.dg/debug/20020220-1.c -gdwarf-2 -O (test for excess errors)
+3239546: gcc.dg/debug/20020220-1.c -gdwarf-2 -O3 (test for excess errors)
+3239546: gcc.dg/debug/20020220-1.c -gdwarf-21 (test for excess errors)
+3239546: gcc.dg/debug/20020220-1.c -gdwarf-21 -O (test for excess errors)
+3239546: gcc.dg/debug/20020220-1.c -gdwarf-21 -O3 (test for excess errors)
+3239546: gcc.dg/debug/20020220-1.c -gdwarf-23 (test for excess errors)
+3239546: gcc.dg/debug/20020220-1.c -gdwarf-23 -O (test for excess errors)
+3239546: gcc.dg/debug/20020220-1.c -gdwarf-23 -O3 (test for excess errors)
+3239546: gcc.dg/debug/20020327-1.c -gdwarf-2 (test for excess errors)
+3239546: gcc.dg/debug/20020327-1.c -gdwarf-2 -O (test for excess errors)
+3239546: gcc.dg/debug/20020327-1.c -gdwarf-2 -O3 (test for excess errors)
+3239546: gcc.dg/debug/20020327-1.c -gdwarf-21 (test for excess errors)
+3239546: gcc.dg/debug/20020327-1.c -gdwarf-21 -O (test for excess errors)
+3239546: gcc.dg/debug/20020327-1.c -gdwarf-21 -O3 (test for excess errors)
+3239546: gcc.dg/debug/20020327-1.c -gdwarf-23 (test for excess errors)
+3239546: gcc.dg/debug/20020327-1.c -gdwarf-23 -O (test for excess errors)
+3239546: gcc.dg/debug/20020327-1.c -gdwarf-23 -O3 (test for excess errors)
+3239546: gcc.dg/debug/trivial.c -gdwarf-2 (test for excess errors)
+3239546: gcc.dg/debug/trivial.c -gdwarf-2 -O (test for excess errors)
+3239546: gcc.dg/debug/trivial.c -gdwarf-2 -O3 (test for excess errors)
+3239546: gcc.dg/debug/trivial.c -gdwarf-21 (test for excess errors)
+3239546: gcc.dg/debug/trivial.c -gdwarf-21 -O (test for excess errors)
+3239546: gcc.dg/debug/trivial.c -gdwarf-21 -O3 (test for excess errors)
+3239546: gcc.dg/debug/trivial.c -gdwarf-23 (test for excess errors)
+3239546: gcc.dg/debug/trivial.c -gdwarf-23 -O (test for excess errors)
+3239546: gcc.dg/debug/trivial.c -gdwarf-23 -O3 (test for excess errors)
+3239592: gcc.dg/altivec-4.c (test for excess errors)
+3239685: gcc.dg/debug/debug-1.c -gstabs -O3 scan-assembler xyzzy
+3239685: gcc.dg/debug/debug-1.c -gstabs+ -O3 scan-assembler xyzzy
+3239685: gcc.dg/debug/debug-1.c -gstabs+3 -O3 scan-assembler xyzzy
+3239685: gcc.dg/debug/debug-1.c -gstabs3 -O3 scan-assembler xyzzy
+3239685: gcc.dg/debug/debug-2.c -gstabs -O3 scan-assembler xyzzy
+3239685: gcc.dg/debug/debug-2.c -gstabs+ -O3 scan-assembler xyzzy
+3239685: gcc.dg/debug/debug-2.c -gstabs+3 -O3 scan-assembler xyzzy
+3239685: gcc.dg/debug/debug-2.c -gstabs3 -O3 scan-assembler xyzzy
+3240498: gcc.dg/altivec-7.c (test for excess errors)
+3240498: gcc.dg/altivec-8.c (test for excess errors)
+3240568: gcc.dg/uninit-C.c (test for excess errors)
+3240749: gcc.dg/duff-2.c (test for excess errors)
+3240754: gcc.dg/simd-1.c  (test for errors, line 57)
+3240754: gcc.dg/simd-1.c  (test for errors, line 58)
+3240754: gcc.dg/simd-1.c  (test for errors, line 59)
+3240754: gcc.dg/simd-1.c  (test for errors, line 60)
+3240754: gcc.dg/simd-1.c (test for excess errors)
+3132068: gcc.dg/wchar_t-1.c (test for excess errors)
+3132068: gcc.dg/wint_t-1.c (test for excess errors)
+3056057: gcc.dg/format/c99-scanf-3.c   vfscanf (test for warnings, line 21)
+3056057: gcc.dg/format/c99-scanf-3.c  -DWIDE  vfscanf (test for warnings, line 21)
+3056057: gcc.dg/format/ext-6.c   vfscanf (test for warnings, line 42)
+3056057: gcc.dg/format/ext-6.c  -DWIDE  vfscanf (test for warnings, line 42)
+3266222: gcc.dg/pch/apple-altivec-1.c -O0 -g assembly comparison       
+3266222: gcc.dg/pch/apple-altivec-1.c  -O3 -g  assembly comparison
+3366572: gcc.apple/align-test-1.c execution test
+3359381: gcc.c-torture/execute/920612-2.c compilation,  -O1
+3359381: gcc.c-torture/execute/920612-2.c compilation,  -O2
+3359381: gcc.c-torture/execute/920612-2.c compilation,  -O3 -fomit-frame-pointer
+3359381: gcc.c-torture/execute/920612-2.c compilation,  -O3 -fomit-frame-pointer -funroll-loops
+3359381: gcc.c-torture/execute/920612-2.c compilation,  -O3 -fomit-frame-pointer -funroll-all-loops -finline-functions
+3359381: gcc.c-torture/execute/920612-2.c compilation,  -O3 -g
+3359381: gcc.c-torture/execute/920612-2.c compilation,  -Os
+3359381: gcc.c-torture/execute/921017-1.c compilation,  -O1
+3359381: gcc.c-torture/execute/921017-1.c compilation,  -O2
+3359381: gcc.c-torture/execute/921017-1.c compilation,  -O3 -fomit-frame-pointer
+3359381: gcc.c-torture/execute/921017-1.c compilation,  -O3 -g
+3359381: gcc.c-torture/execute/921017-1.c compilation,  -Os
+3359388: gcc.c-torture/execute/20000822-1.c compilation,  -O1
+3359388: gcc.c-torture/execute/20000822-1.c compilation,  -O2
+3359388: gcc.c-torture/execute/20000822-1.c compilation,  -O3 -fomit-frame-pointer
+3359388: gcc.c-torture/execute/20000822-1.c compilation,  -O3 -g
+3359388: gcc.c-torture/execute/20000822-1.c compilation,  -Os
+3359388: gcc.c-torture/execute/931002-1.c compilation,  -O1
+3359388: gcc.c-torture/execute/931002-1.c compilation,  -O2
+3359388: gcc.c-torture/execute/931002-1.c compilation,  -O3 -fomit-frame-pointer
+3359388: gcc.c-torture/execute/931002-1.c compilation,  -O3 -g
+3359388: gcc.c-torture/execute/931002-1.c compilation,  -Os
+3359388: gcc.c-torture/execute/nestfunc-1.c compilation,  -O1
+3359388: gcc.c-torture/execute/nestfunc-1.c compilation,  -O2
+3359388: gcc.c-torture/execute/nestfunc-1.c compilation,  -O3 -fomit-frame-pointer
+3359388: gcc.c-torture/execute/nestfunc-1.c compilation,  -O3 -g
+3359388: gcc.c-torture/execute/nestfunc-1.c compilation,  -Os
+3359388: gcc.c-torture/execute/nestfunc-2.c compilation,  -O1
+3359388: gcc.c-torture/execute/nestfunc-2.c compilation,  -O2
+3359388: gcc.c-torture/execute/nestfunc-2.c compilation,  -O3 -fomit-frame-pointer
+3359388: gcc.c-torture/execute/nestfunc-2.c compilation,  -O3 -fomit-frame-pointer -funroll-loops
+3359388: gcc.c-torture/execute/nestfunc-2.c compilation,  -O3 -fomit-frame-pointer -funroll-all-loops -finline-functions
+3359388: gcc.c-torture/execute/nestfunc-2.c compilation,  -O3 -g
+3359388: gcc.c-torture/execute/nestfunc-2.c compilation,  -Os
+3359388: gcc.c-torture/execute/nestfunc-3.c compilation,  -O1
+3359388: gcc.c-torture/execute/nestfunc-3.c compilation,  -O2
+3359388: gcc.c-torture/execute/nestfunc-3.c compilation,  -O3 -fomit-frame-pointer
+3359388: gcc.c-torture/execute/nestfunc-3.c compilation,  -O3 -fomit-frame-pointer -funroll-loops
+3359388: gcc.c-torture/execute/nestfunc-3.c compilation,  -O3 -fomit-frame-pointer -funroll-all-loops -finline-functions
+3359388: gcc.c-torture/execute/nestfunc-3.c compilation,  -O3 -g
+3359388: gcc.c-torture/execute/nestfunc-3.c compilation,  -Os
+3359390: gcc.c-torture/execute/970217-1.c execution,  -O1
+3359390: gcc.c-torture/execute/970217-1.c execution,  -O2
+3359390: gcc.c-torture/execute/970217-1.c execution,  -O3 -fomit-frame-pointer
+3359390: gcc.c-torture/execute/970217-1.c execution,  -O3 -g
+3359390: gcc.c-torture/execute/970217-1.c execution,  -Os
+3378732: gcc.c-torture/execute/20001024-1.c execution,  -O2 
+3378732: gcc.c-torture/execute/20001024-1.c execution,  -O3 -fomit-frame-pointer
+3378732: gcc.c-torture/execute/20001024-1.c execution,  -O3 -g
+3378732: gcc.c-torture/execute/20001024-1.c execution,  -Os
+3378757: gcc.c-torture/execute/20010122-1.c execution,  -O1    
+3378757: gcc.c-torture/execute/20010122-1.c execution,  -O2 
+3378757: gcc.c-torture/execute/20010122-1.c execution,  -O3 -g
+3378757: gcc.c-torture/execute/20010122-1.c execution,  -Os
+3378739: gcc.c-torture/execute/eeprof-1.c execution,  -O1
+3378739: gcc.c-torture/execute/eeprof-1.c execution,  -O2
+3378739: gcc.c-torture/execute/eeprof-1.c execution,  -O3 -fomit-frame-pointer
+3378739: gcc.c-torture/execute/eeprof-1.c execution,  -O3 -g
+3378739: gcc.c-torture/execute/eeprof-1.c execution,  -Os
+3378721: gcc.c-torture/execute/strlen-1.c execution,  -O1
+3378704: gcc.c-torture/execute/ieee/fp-cmp-1.c execution,  -O0
+3378704: gcc.c-torture/execute/ieee/fp-cmp-1.c execution,  -O1      
+3378704: gcc.c-torture/execute/ieee/fp-cmp-1.c execution,  -O2      
+3378704: gcc.c-torture/execute/ieee/fp-cmp-1.c execution,  -O3 -fomit-frame-pointer
+3378704: gcc.c-torture/execute/ieee/fp-cmp-1.c execution,  -O3 -fomit-frame-pointer -funroll-loops
+3378704: gcc.c-torture/execute/ieee/fp-cmp-1.c execution,  -O3 -fomit-frame-pointer -funroll-all-loops -finline-functions
+3378704: gcc.c-torture/execute/ieee/fp-cmp-1.c execution,  -O3 -g
+3378704: gcc.c-torture/execute/ieee/fp-cmp-1.c execution,  -Os
+3378704: gcc.c-torture/execute/ieee/fp-cmp-2.c execution,  -O0
+3378704: gcc.c-torture/execute/ieee/fp-cmp-2.c execution,  -O1
+3378704: gcc.c-torture/execute/ieee/fp-cmp-2.c execution,  -O2
+3378704: gcc.c-torture/execute/ieee/fp-cmp-2.c execution,  -O3 -fomit-frame-pointer
+3378704: gcc.c-torture/execute/ieee/fp-cmp-2.c execution,  -O3 -fomit-frame-pointer -funroll-loops
+3378704: gcc.c-torture/execute/ieee/fp-cmp-2.c execution,  -O3 -fomit-frame-pointer -funroll-all-loops -finline-functions
+3378704: gcc.c-torture/execute/ieee/fp-cmp-2.c execution,  -O3 -g
+3378704: gcc.c-torture/execute/ieee/fp-cmp-2.c execution,  -Os
+3378704: gcc.c-torture/execute/ieee/fp-cmp-3.c execution,  -O0
+3378704: gcc.c-torture/execute/ieee/fp-cmp-3.c execution,  -O1
+3378704: gcc.c-torture/execute/ieee/fp-cmp-3.c execution,  -O2
+3378704: gcc.c-torture/execute/ieee/fp-cmp-3.c execution,  -O3 -fomit-frame-pointer
+3378704: gcc.c-torture/execute/ieee/fp-cmp-3.c execution,  -O3 -fomit-frame-pointer -funroll-loops
+3378704: gcc.c-torture/execute/ieee/fp-cmp-3.c execution,  -O3 -fomit-frame-pointer -funroll-all-loops -finline-functions
+3378704: gcc.c-torture/execute/ieee/fp-cmp-3.c execution,  -O3 -g
+3378704: gcc.c-torture/execute/ieee/fp-cmp-3.c execution,  -Os
+3378704: gcc.c-torture/execute/ieee/fp-cmp-4.c execution,  -O0
+3378704: gcc.c-torture/execute/ieee/fp-cmp-4.c execution,  -O1
+3378704: gcc.c-torture/execute/ieee/fp-cmp-4.c execution,  -O2
+3378704: gcc.c-torture/execute/ieee/fp-cmp-4.c execution,  -O3 -fomit-frame-pointer
+3378704: gcc.c-torture/execute/ieee/fp-cmp-4.c execution,  -O3 -fomit-frame-pointer -funroll-loops
+3378704: gcc.c-torture/execute/ieee/fp-cmp-4.c execution,  -O3 -fomit-frame-pointer -funroll-all-loops -finline-functions
+3378704: gcc.c-torture/execute/ieee/fp-cmp-4.c execution,  -O3 -g
+3378704: gcc.c-torture/execute/ieee/fp-cmp-4.c execution,  -Os
+3378704: gcc.c-torture/execute/ieee/fp-cmp-5.c execution,  -O0
+3378704: gcc.c-torture/execute/ieee/fp-cmp-5.c execution,  -O1
+3378704: gcc.c-torture/execute/ieee/fp-cmp-5.c execution,  -O2
+3378704: gcc.c-torture/execute/ieee/fp-cmp-5.c execution,  -O3 -fomit-frame-pointer
+3378704: gcc.c-torture/execute/ieee/fp-cmp-5.c execution,  -O3 -fomit-frame-pointer -funroll-loops
+3378704: gcc.c-torture/execute/ieee/fp-cmp-5.c execution,  -O3 -fomit-frame-pointer -funroll-all-loops -finline-functions
+3378704: gcc.c-torture/execute/ieee/fp-cmp-5.c execution,  -O3 -g
+3378704: gcc.c-torture/execute/ieee/fp-cmp-5.c execution,  -Os
+3378704: gcc.c-torture/execute/ieee/mzero2.c execution,  -O0
+3378704: gcc.c-torture/execute/ieee/mzero2.c execution,  -O1
+3378704: gcc.c-torture/execute/ieee/mzero2.c execution,  -O2
+3378704: gcc.c-torture/execute/ieee/mzero2.c execution,  -O3 -fomit-frame-pointer
+3378704: gcc.c-torture/execute/ieee/mzero2.c execution,  -O3 -g
+3378704: gcc.c-torture/execute/ieee/mzero2.c execution,  -Os
+3378704: gcc.c-torture/execute/ieee/mzero2.c execution,  -O0
+3378704: gcc.c-torture/execute/ieee/mzero2.c execution,  -O1
+3378704: gcc.c-torture/execute/ieee/mzero2.c execution,  -O2
+3378704: gcc.c-torture/execute/ieee/mzero2.c execution,  -O3 -fomit-frame-pointer
+3378704: gcc.c-torture/execute/ieee/mzero2.c execution,  -O3 -g
+3378704: gcc.c-torture/execute/ieee/mzero2.c execution,  -Os
+3367376: 155: expected branch percentages not found: 50
+3367376: 165: expected branch percentages not found: 9 10
+3367376: 16: expected branch percentages not found: 20
+3367376: 18:is 2:should be 1
+3367376: 20: expected branch percentages not found: 33
+3367376: 21:is 2:should be 1
+3367376: 24: expected branch percentages not found: 25
+3367376: 30: expected return percentages not found: 100
+3367376: 34: expected return percentages not found: 75
+3367376: 35: expected branch percentages not found: 30
+3367376: 37: expected branch percentages not found: 32
+3367376: 39: expected branch percentages not found: 27
+3367376: 39: expected return percentages not found: 50
+3367376: 41: expected return percentages not found: 100
+3367376: 79: expected branch percentages not found: 7
+3367376: 79: expected return percentages not found: 33
+3367376: 81: expected return percentages not found: 0
+3367376: gcc.apple/align-test-2.c execution test
+3367376: gcc.apple/align-test-5b.c execution test
+3367376: gcc.apple/asm-function-1.c (test for excess errors)
+3367376: gcc.apple/asm-function-2.c execution test
+3367376: gcc.apple/asm-function-3.c execution test
+3367376: gcc.apple/asm-function-4.c (test for excess errors)
+3367376: gcc.apple/asm-function-5.c (test for excess errors)
+3367376: gcc.c-torture/execute/simd-2.c execution,  -O0
+3367376: gcc.dg/attr-alwaysinline.c scan-assembler-not sabrina
+3367376: gcc.dg/attr-used.c scan-assembler function_declaration_after
+3367376: gcc.dg/attr-used.c scan-assembler function_declaration_before
+3367376: gcc.dg/c99-fordecl-2.c (test for excess errors)
+3367376: gcc.dg/cpp/direct2s.c # from macro (test for errors, line 22)
+3367376: gcc.dg/cpp/direct2s.c #define from macro (test for errors, line 23)
+3367376: gcc.dg/cpp/direct2s.c (test for excess errors)
+3367376: gcc.dg/cpp/direct2s.c no macro X (test for errors, line 31)
+3367376: gcc.dg/cpp/direct2s.c no macro Y (test for errors, line 32)
+3367376: gcc.dg/cpp/direct2s.c non-include (test for errors, line 15)
+3367376: gcc.dg/cpp/direct2s.c non-include 2 (test for errors, line 17)
+3367376: gcc.dg/cpp/paste4.c  (test for errors, line 14)
+3367376: gcc.dg/cpp/paste4.c (test for excess errors)
+3367376: gcc.dg/cpp/trad/builtins.c (test for excess errors)
+3367376: gcc.dg/cpp/trad/funlike-4.c (test for excess errors)
+3367376: gcc.dg/cpp/trad/literals-1.c (test for excess errors)
+3367376: gcc.dg/cpp/trad/macroargs.c (test for excess errors)
+3367376: gcc.dg/cpp/trad/strify.c (test for excess errors)
+3367376: gcc.dg/debug/debug-5.c -gstabs (test for excess errors)
+3367376: gcc.dg/debug/debug-5.c -gstabs -O (test for excess errors)
+3367376: gcc.dg/debug/debug-5.c -gstabs -O3 (test for excess errors)
+3367376: gcc.dg/debug/debug-5.c -gstabs+ (test for excess errors)
+3367376: gcc.dg/debug/debug-5.c -gstabs+ -O (test for excess errors)
+3367376: gcc.dg/debug/debug-5.c -gstabs+ -O3 (test for excess errors)
+3367376: gcc.dg/debug/debug-5.c -gstabs+1 (test for excess errors)
+3367376: gcc.dg/debug/debug-5.c -gstabs+1 -O (test for excess errors)
+3367376: gcc.dg/debug/debug-5.c -gstabs+1 -O3 (test for excess errors)
+3367376: gcc.dg/debug/debug-5.c -gstabs+3 (test for excess errors)
+3367376: gcc.dg/debug/debug-5.c -gstabs+3 -O (test for excess errors)
+3367376: gcc.dg/debug/debug-5.c -gstabs+3 -O3 (test for excess errors)
+3367376: gcc.dg/debug/debug-5.c -gstabs1 (test for excess errors)
+3367376: gcc.dg/debug/debug-5.c -gstabs1 -O (test for excess errors)
+3367376: gcc.dg/debug/debug-5.c -gstabs1 -O3 (test for excess errors)
+3367376: gcc.dg/debug/debug-5.c -gstabs3 (test for excess errors)
+3367376: gcc.dg/debug/debug-5.c -gstabs3 -O (test for excess errors)
+3367376: gcc.dg/debug/debug-5.c -gstabs3 -O3 (test for excess errors)
+3367376: gcc.dg/inline-1.c scan-assembler-not xyzzy
+3367376: gcc.dg/noncompile/930622-2.c  -O0  (test for excess errors)
+3367376: gcc.dg/noncompile/930622-2.c  -O1  (test for excess errors)
+3367376: gcc.dg/noncompile/930622-2.c  -O2  (test for excess errors)
+3367376: gcc.dg/noncompile/930622-2.c  -O3 -fomit-frame-pointer  (test for excess errors)
+3367376: gcc.dg/noncompile/930622-2.c  -O3 -fomit-frame-pointer -funroll-all-loops -finline-functions  (test for excess errors)
+3367376: gcc.dg/noncompile/930622-2.c  -O3 -fomit-frame-pointer -funroll-loops  (test for excess errors)
+3367376: gcc.dg/noncompile/930622-2.c  -O3 -g  (test for excess errors)
+3367376: gcc.dg/noncompile/930622-2.c  -Os  (test for excess errors)
+3367376: gcc.dg/noreturn-1.c (test for excess errors)
+3367376: gcc.dg/noreturn-1.c detect falling off end of noreturn (test for warnings, line 11)
+3367376: gcc.dg/pch/inline-3.c  -O0  assembly comparison
+3367376: gcc.dg/pch/inline-3.c  -O1  assembly comparison
+3367376: gcc.dg/pch/inline-3.c  -O2  assembly comparison
+3367376: gcc.dg/pch/inline-3.c  -O3 -fomit-frame-pointer  assembly comparison
+3367376: gcc.dg/pch/inline-3.c  -O3 -g  assembly comparison
+3367376: gcc.dg/pch/inline-3.c  -Os  assembly comparison
+3367376: gcc.dg/pch/inline-3.c -O0 -g assembly comparison
+3367376: gcc.dg/pch/inline-4.c  -O0  assembly comparison
+3367376: gcc.dg/pch/inline-4.c  -O1  assembly comparison
+3367376: gcc.dg/pch/inline-4.c  -O2  assembly comparison
+3367376: gcc.dg/pch/inline-4.c  -O3 -fomit-frame-pointer  assembly comparison
+3367376: gcc.dg/pch/inline-4.c  -O3 -g  assembly comparison
+3367376: gcc.dg/pch/inline-4.c  -Os  assembly comparison
+3367376: gcc.dg/pch/inline-4.c -O0 -g assembly comparison
+3367376: gcc.dg/return-type-1.c (test for excess errors)
+3367376: gcc.dg/return-type-1.c warning for falling off end of non-void function (test for warnings, line 9)
+3367376: gcc.dg/sibcall-1.c execution test
+3367376: gcc.dg/sibcall-2.c execution test
+3367376: gcc.dg/sibcall-3.c execution test
+3367376: gcc.dg/sibcall-4.c execution test
+3367376: gcc.dg/stabs-bincl-1.c scan-assembler .stabs-bincl-1.h.,130,0,0,0
+3367376: gcc.dg/stabs-bincl-1.c scan-assembler .stabs-bincl-2.h.,130,0,0,0
+3367376: gcc.dg/uninit-A.c uninitialized variable warning (test for bogus messages, line 52)
+3367376: gcc.dg/uninit-A.c uninitialized variable warning (test for bogus messages, line 53)
+3367376: gcc.dg/warn-1.c  (test for warnings, line 15)
+3367376: gcc.dg/warn-1.c  (test for warnings, line 8)
+3367376: gcc.misc-tests/gcov-4b.c gcov: 0 failures in line counts, 7 in branch percentages, 0 in return percentages
+3367376: gcc.misc-tests/gcov-6.c gcov: 1 failures in line counts, 1 in branch percentages, 2 in return percentages
+3367376: gcc.misc-tests/gcov-7.c gcov: 1 failures in line counts, 1 in branch percentages, 4 in return percentages
+#3370725: gcc.apple/bigdata.c execution test
+3372057: gcc.apple/altivec-1.c execution test
+3372259: gcc.dg/20020919-1.c  (test for errors, line 105)
+3372259: gcc.dg/20020919-1.c  (test for errors, line 123)
+3372259: gcc.dg/20020919-1.c  (test for errors, line 132)
+3372259: gcc.dg/20020919-1.c  (test for errors, line 159)
+3372259: gcc.dg/20020919-1.c  (test for errors, line 177)
+3372259: gcc.dg/20020919-1.c  (test for errors, line 231)
+3327054: gcc.dg/doloop-1.c scan-assembler bdnz
+3327054: gcc.dg/doloop-1.c scan-assembler-not blt
+3382077: gcc.c-torture/execute/950915-1.c execution,  -O2
+3382077: gcc.c-torture/execute/950915-1.c execution,  -Os
+3384330: gcc.c-torture/compile/20011029-1.c,  -O0
+3384330: gcc.c-torture/compile/20011029-1.c,  -O1
+3384330: gcc.c-torture/compile/20011029-1.c,  -O2
+3384330: gcc.c-torture/compile/20011029-1.c,  -O3 -fomit-frame-pointer
+3384330: gcc.c-torture/compile/20011029-1.c,  -O3 -g
+3384330: gcc.c-torture/compile/20011029-1.c,  -Os
+3384323: gcc.c-torture/compile/920710-2.c,  -O1
+3384323: gcc.c-torture/compile/920710-2.c,  -O2
+3384323: gcc.c-torture/compile/920710-2.c,  -O3 -fomit-frame-pointer
+3384323: gcc.c-torture/compile/920710-2.c,  -O3 -fomit-frame-pointer -funroll-loops
+3384323: gcc.c-torture/compile/920710-2.c,  -O3 -fomit-frame-pointer -funroll-all-loops -finline-functions
+3384323: gcc.c-torture/compile/920710-2.c,  -O3 -g
+3384323: gcc.c-torture/compile/920710-2.c,  -Os
+3384330: gcc.c-torture/compile/930118-1.c,  -O0
+3384330: gcc.c-torture/compile/930118-1.c,  -O1
+3384330: gcc.c-torture/compile/930118-1.c,  -O2
+3384330: gcc.c-torture/compile/930118-1.c,  -O3 -fomit-frame-pointer
+3384330: gcc.c-torture/compile/930118-1.c,  -O3 -g
+3384330: gcc.c-torture/compile/930118-1.c,  -Os
+3384330: gcc.c-torture/compile/930623-1.c,  -O0
+3384330: gcc.c-torture/compile/930623-1.c,  -O1
+3384330: gcc.c-torture/compile/930623-1.c,  -O2
+3384330: gcc.c-torture/compile/930623-1.c,  -O3 -fomit-frame-pointer
+3384330: gcc.c-torture/compile/930623-1.c,  -O3 -g
+3384330: gcc.c-torture/compile/930623-1.c,  -Os
+3384330: gcc.c-torture/compile/981006-1.c,  -O0
+3384330: gcc.c-torture/compile/981006-1.c,  -O1
+3384330: gcc.c-torture/compile/981006-1.c,  -O2
+3384330: gcc.c-torture/compile/981006-1.c,  -O3 -fomit-frame-pointer
+3384330: gcc.c-torture/compile/981006-1.c,  -O3 -g
+3384330: gcc.c-torture/compile/981006-1.c,  -Os
+3384330: gcc.c-torture/execute/930406-1.c compilation,  -O0
+3384330: gcc.c-torture/execute/930406-1.c compilation,  -O1
+3384330: gcc.c-torture/execute/930406-1.c compilation,  -O2
+3384330: gcc.c-torture/execute/930406-1.c compilation,  -O3 -fomit-frame-pointer
+3384330: gcc.c-torture/execute/930406-1.c compilation,  -O3 -g
+3384330: gcc.c-torture/execute/930406-1.c compilation,  -Os
+3384372: gcc.c-torture/execute/950704-1.c execution,  -O3 -fomit-frame-pointer
+3384372: gcc.c-torture/execute/950704-1.c execution,  -O3 -g
+3384356: gcc.c-torture/execute/991118-1.c compilation,  -O0
+3384356: gcc.c-torture/execute/991118-1.c compilation,  -O1
+3384356: gcc.c-torture/execute/991118-1.c compilation,  -O2
+3384356: gcc.c-torture/execute/991118-1.c compilation,  -O3 -fomit-frame-pointer
+3384356: gcc.c-torture/execute/991118-1.c compilation,  -O3 -g
+3384356: gcc.c-torture/execute/991118-1.c compilation,  -Os
+3384356: gcc.c-torture/execute/bf64-1.c compilation,  -O0
+3384330: gcc.c-torture/execute/built-in-setjmp.c compilation,  -O0
+3384330: gcc.c-torture/execute/built-in-setjmp.c compilation,  -O1
+3384330: gcc.c-torture/execute/built-in-setjmp.c compilation,  -O2
+3384330: gcc.c-torture/execute/built-in-setjmp.c compilation,  -O3 -fomit-frame-pointer
+3384330: gcc.c-torture/execute/built-in-setjmp.c compilation,  -O3 -fomit-frame-pointer -funroll-loops
+3384330: gcc.c-torture/execute/built-in-setjmp.c compilation,  -O3 -fomit-frame-pointer -funroll-all-loops -finline-functions
+3384330: gcc.c-torture/execute/built-in-setjmp.c compilation,  -O3 -g
+3384330: gcc.c-torture/execute/built-in-setjmp.c compilation,  -Os
+3384372: gcc.c-torture/execute/conversion.c execution,  -O0
+3384372: gcc.c-torture/execute/conversion.c execution,  -O1
+3384372: gcc.c-torture/execute/conversion.c execution,  -O2
+3384372: gcc.c-torture/execute/conversion.c execution,  -O3 -fomit-frame-pointer
+3384372: gcc.c-torture/execute/conversion.c execution,  -O3 -g
+3384372: gcc.c-torture/execute/conversion.c execution,  -Os
+3384362: gcc.c-torture/execute/strct-pack-1.c compilation,  -O0
+3384372: gcc.c-torture/execute/tstdi-1.c execution,  -O1
+3384372: gcc.c-torture/execute/tstdi-1.c execution,  -O2
+3384372: gcc.c-torture/execute/tstdi-1.c execution,  -Os
+3384372: gcc.c-torture/execute/ieee/rbug.c execution,  -O0
+3384372: gcc.c-torture/execute/ieee/rbug.c execution,  -O1
+3384372: gcc.c-torture/execute/ieee/rbug.c execution,  -O2
+3384372: gcc.c-torture/execute/ieee/rbug.c execution,  -O3 -fomit-frame-pointer
+3384372: gcc.c-torture/execute/ieee/rbug.c execution,  -O3 -g
+3384372: gcc.c-torture/execute/ieee/rbug.c execution,  -Os

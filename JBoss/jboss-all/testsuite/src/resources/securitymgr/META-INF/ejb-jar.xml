@@ -1,0 +1,35 @@
+<?xml version="1.0"?>
+<!DOCTYPE ejb-jar PUBLIC
+   "-//Sun Microsystems, Inc.//DTD Enterprise JavaBeans 2.0//EN"
+   "http://java.sun.com/dtd/ejb-jar_2_0.dtd">
+
+<ejb-jar>
+   <display-name>Security Manager Permission Tests</display-name>
+   <enterprise-beans>
+      <session>
+         <description>An trival echo session bean that tries to perform ops
+         that are not allowed according to the EJB2.0 spec programming
+         restrictions
+         </description>
+         <ejb-name>secmgr.IOSessionHome</ejb-name>
+         <home>org.jboss.test.securitymgr.interfaces.IOSessionHome</home>
+         <remote>org.jboss.test.securitymgr.interfaces.IOSession</remote>
+         <ejb-class>org.jboss.test.securitymgr.ejb.IOStatelessSessionBean</ejb-class>
+         <session-type>Stateless</session-type>
+         <transaction-type>Container</transaction-type>
+      </session>
+
+      <session>
+         <description>A session bean that tries to perform other restricted
+         operations
+         </description>
+         <ejb-name>secmgr.BadHome</ejb-name>
+         <home>org.jboss.test.securitymgr.interfaces.BadHome</home>
+         <remote>org.jboss.test.securitymgr.interfaces.Bad</remote>
+         <ejb-class>org.jboss.test.securitymgr.ejb.BadBean</ejb-class>
+         <session-type>Stateless</session-type>
+         <transaction-type>Container</transaction-type>
+      </session>
+
+   </enterprise-beans>
+</ejb-jar>

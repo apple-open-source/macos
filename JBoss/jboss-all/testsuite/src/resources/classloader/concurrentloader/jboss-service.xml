@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<server>
+  <mbean code="org.jboss.test.classloader.concurrentload.ConcurrentLoader"
+	 name="jboss.test:name=ConcurrentLoader"/>
+</server>

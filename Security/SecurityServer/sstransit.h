@@ -80,6 +80,19 @@ private:
 
 
 //
+// Bundle up an AccessCredentials meant for a database, parsing it for
+// "special" samples that need extra evidence to be passed along.
+//
+class DatabaseAccessCredentials : public Copier<AccessCredentials> {
+public:
+	DatabaseAccessCredentials(const AccessCredentials *creds, CssmAllocator &alloc);
+
+private:
+	void mapKeySample(CSSM_CSP_HANDLE &cspHandle, CssmKey &key);
+};
+
+
+//
 // Bundle up a Context for IPC transmission
 //
 class SendContext {

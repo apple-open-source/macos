@@ -169,11 +169,9 @@ void QPainter::drawRect(int x, int y, int w, int h)
     if (data->state.paintingDisabled)
         return;
         
-    if (data->state.brush.style() != NoBrush) {
-        _setColorFromBrush();
-        
-        NSRectFillUsingOperation (NSMakeRect(x,y,w,h), NSCompositeSourceOver);
-    }
+    if (data->state.brush.style() != NoBrush)
+        _fillRect(x, y, w, h, data->state.brush.color());
+
     if (data->state.pen.style() != NoPen) {
         _setColorFromPen();
         NSFrameRect(NSMakeRect(x, y, w, h));
@@ -195,7 +193,7 @@ void QPainter::drawLine(int x1, int y1, int x2, int y2)
 {
     if (data->state.paintingDisabled)
         return;
-        
+
     PenStyle penStyle = data->state.pen.style();
     if (penStyle == NoPen)
         return;
@@ -251,6 +249,7 @@ void QPainter::drawLine(int x1, int y1, int x2, int y2)
     }
 
     _setColorFromPen();
+    
     NSGraphicsContext *graphicsContext = [NSGraphicsContext currentContext];
     BOOL flag = [graphicsContext shouldAntialias];
     [graphicsContext setShouldAntialias: NO];
@@ -259,12 +258,12 @@ void QPainter::drawLine(int x1, int y1, int x2, int y2)
         // Do a rect fill of our endpoints.  This ensures we always have the
         // appearance of being a border.  We then draw the actual dotted/dashed line.
         if (x1 == x2) {
-            NSRectFill(NSMakeRect(p1.x-width/2, p1.y-width, width, width));
-            NSRectFill(NSMakeRect(p2.x-width/2, p2.y, width, width));
+            _fillRect(p1.x-width/2, p1.y-width, width, width, data->state.pen.color());
+            _fillRect(p2.x-width/2, p2.y, width, width, data->state.pen.color());
         }
         else {
-            NSRectFill(NSMakeRect(p1.x-width, p1.y-width/2, width, width));
-            NSRectFill(NSMakeRect(p2.x, p2.y-width/2, width, width));
+            _fillRect(p1.x-width, p1.y-width/2, width, width, data->state.pen.color());
+            _fillRect(p2.x, p2.y-width/2, width, width, data->state.pen.color());
         }
         
         // Example: 80 pixels with a width of 30 pixels.
@@ -326,6 +325,7 @@ void QPainter::drawEllipse(int x, int y, int w, int h)
     }
     if (data->state.pen.style() != NoPen) {
         _setColorFromPen();
+        [path setLineWidth:data->state.pen.width()];
         [path stroke];
     }
 }
@@ -352,6 +352,7 @@ void QPainter::drawArc (int x, int y, int w, int h, int a, int alen)
                                       clockwise:YES];
     
         _setColorFromPen();
+        [path setLineWidth:data->state.pen.width()];
         [path stroke];
         [path release];
     }
@@ -405,6 +406,7 @@ void QPainter::_drawPoints (const QPointArray &_points, bool winding, int index,
 
     if (data->state.pen.style() != NoPen) {
         _setColorFromPen();
+        [path setLineWidth:data->state.pen.width()];
         [path stroke];
     }
     
@@ -469,23 +471,21 @@ void QPainter::drawText(int x, int y, int, int, int alignmentFlags, const QStrin
     CREATE_FAMILY_ARRAY(data->state.font, families);
 
     _updateRenderer(families);
-    
+
     const UniChar* str = (const UniChar*)qstring.unicode();
+
+    WebCoreTextRun run;
+    WebCoreInitializeTextRun(&run, str, qstring.length(), 0, qstring.length());
+    
+    WebCoreTextStyle style;
+    WebCoreInitializeEmptyTextStyle(&style);
+    style.textColor = data->state.pen.color().getNSColor();
+    style.families = families;
+    
     if (alignmentFlags & Qt::AlignRight)
-        x -= ROUND_TO_INT([data->textRenderer floatWidthForCharacters:(const UniChar *)str stringLength:qstring.length() fromCharacterPosition:0 numberOfCharacters:qstring.length() withPadding: 0 applyRounding:YES attemptFontSubstitution: YES widths: 0 letterSpacing: 0 wordSpacing: 0 smallCaps: false fontFamilies: families]);
+        x -= ROUND_TO_INT([data->textRenderer floatWidthForRun:&run style:&style widths:0]);
      
-    [data->textRenderer drawCharacters:str stringLength:qstring.length()
-        fromCharacterPosition:0 
-        toCharacterPosition:qstring.length() 
-        atPoint:NSMakePoint(x, y)
-        withPadding: 0
-        withTextColor:data->state.pen.color().getNSColor() 
-        backgroundColor:nil
-        rightToLeft: false
-        letterSpacing: 0
-        wordSpacing: 0
-        smallCaps: false
-        fontFamilies: families];
+    [data->textRenderer drawRun:&run style:&style atPoint:NSMakePoint(x, y)];
 }
 
 void QPainter::drawText(int x, int y, const QChar *str, int len, int from, int to, int toAdd, const QColor &backgroundColor, QPainter::TextDirection d, int letterSpacing, int wordSpacing, bool smallCaps)
@@ -499,19 +499,57 @@ void QPainter::drawText(int x, int y, const QChar *str, int len, int from, int t
     
     _updateRenderer(families);
 
-    [data->textRenderer
-    	drawCharacters:(const UniChar *)str stringLength:len
-        fromCharacterPosition:from 
-        toCharacterPosition:to 
-        atPoint:NSMakePoint(x, y)
-        withPadding: toAdd
-        withTextColor:data->state.pen.color().getNSColor() 
-        backgroundColor:backgroundColor.isValid() ? backgroundColor.getNSColor() : nil
-        rightToLeft: d == RTL ? true : false
-        letterSpacing: letterSpacing
-        wordSpacing: wordSpacing
-        smallCaps: smallCaps
-        fontFamilies: families];
+    if (from < 0)
+        from = 0;
+    if (to < 0)
+        to = len;
+        
+    WebCoreTextRun run;
+    WebCoreInitializeTextRun(&run, (const UniChar *)str, len, from, to);    
+    WebCoreTextStyle style;
+    WebCoreInitializeEmptyTextStyle(&style);
+    style.textColor = data->state.pen.color().getNSColor();
+    style.backgroundColor = backgroundColor.isValid() ? backgroundColor.getNSColor() : nil;
+    style.rtl = d == RTL ? true : false;
+    style.letterSpacing = letterSpacing;
+    style.wordSpacing = wordSpacing;
+    style.smallCaps = smallCaps;
+    style.families = families;
+    style.padding = toAdd;
+    
+    [data->textRenderer drawRun:&run style:&style atPoint:NSMakePoint(x, y)];
+}
+
+void QPainter::drawHighlightForText(int x, int y, const QChar *str, int len, int from, int to, int toAdd, const QColor &backgroundColor, QPainter::TextDirection d, int letterSpacing, int wordSpacing, bool smallCaps)
+{
+    if (data->state.paintingDisabled || len <= 0)
+        return;
+
+    // Avoid allocations, use stack array to pass font families.  Normally these
+    // css fallback lists are small <= 3.
+    CREATE_FAMILY_ARRAY(data->state.font, families);
+    
+    _updateRenderer(families);
+
+    if (from < 0)
+        from = 0;
+    if (to < 0)
+        to = len;
+        
+    WebCoreTextRun run;
+    WebCoreInitializeTextRun(&run, (const UniChar *)str, len, from, to);    
+    WebCoreTextStyle style;
+    WebCoreInitializeEmptyTextStyle(&style);
+    style.textColor = data->state.pen.color().getNSColor();
+    style.backgroundColor = backgroundColor.isValid() ? backgroundColor.getNSColor() : nil;
+    style.rtl = d == RTL ? true : false;
+    style.letterSpacing = letterSpacing;
+    style.wordSpacing = wordSpacing;
+    style.smallCaps = smallCaps;
+    style.families = families;
+    style.padding = toAdd;
+    
+    [data->textRenderer drawHighlightForRun:&run style:&style atPoint:NSMakePoint(x, y)];
 }
 
 void QPainter::drawLineForText(int x, int y, int yOffset, int width)
@@ -533,15 +571,19 @@ QColor QPainter::selectedTextBackgroundColor() const
     return QColor((int)(255 * [color redComponent]), (int)(255 * [color greenComponent]), (int)(255 * [color blueComponent]));
 }
 
+void QPainter::_fillRect(float x, float y, float w, float h, const QColor& col)
+{
+    [col.getNSColor() set];
+    NSRectFillUsingOperation(NSMakeRect(x,y,w,h), NSCompositeSourceOver);
+}
+
 void QPainter::fillRect(int x, int y, int w, int h, const QBrush &brush)
 {
     if (data->state.paintingDisabled)
         return;
-    
-    if (brush.style() == SolidPattern) {
-        [brush.color().getNSColor() set];
-        NSRectFill(NSMakeRect(x, y, w, h));
-    }
+
+    if (brush.style() == SolidPattern)
+        _fillRect(x, y, w, h, brush.color());
 }
 
 void QPainter::addClip(const QRect &rect)
@@ -567,3 +609,46 @@ bool QPainter::paintingDisabled() const
 {
     return data->state.paintingDisabled;
 }
+
+void QPainter::beginTransparencyLayer(float opacity)
+{
+    CGContextRef context = (CGContextRef)([[NSGraphicsContext currentContext] graphicsPort]);
+    CGContextSetAlpha(context, opacity);
+    CGContextBeginTransparencyLayer(context, 0);
+}
+
+void QPainter::endTransparencyLayer()
+{
+    CGContextRef context = (CGContextRef)([[NSGraphicsContext currentContext] graphicsPort]);
+    CGContextEndTransparencyLayer(context);
+}
+
+void QPainter::setShadow(int x, int y, int blur, const QColor& color)
+{
+    // Check for an invalid color, as this means that the color was not set for the shadow
+    // and we should therefore just use the default shadow color.
+    CGContextRef context = (CGContextRef)([[NSGraphicsContext currentContext] graphicsPort]);
+    if (!color.isValid())
+        CGContextSetShadow(context, CGSizeMake(x,-y), blur); // y is flipped.
+    else {
+        NSColor* deviceColor = [color.getNSColor() colorUsingColorSpaceName: @"NSDeviceRGBColorSpace"];
+        float red = [deviceColor redComponent];
+        float green = [deviceColor greenComponent];
+        float blue = [deviceColor blueComponent];
+        float alpha = [deviceColor alphaComponent];
+        const float components[] = { red, green, blue, alpha };
+        
+        CGContextSetShadowWithColor(context,
+                                    CGSizeMake(x,-y), // y is flipped.
+                                    blur, 
+                                    CGColorCreate(CGColorSpaceCreateDeviceRGB(),
+                                                  components));
+    }
+}
+
+void QPainter::clearShadow()
+{
+    CGContextRef context = (CGContextRef)([[NSGraphicsContext currentContext] graphicsPort]);
+    CGContextSetShadowWithColor(context, CGSizeZero, 0, NULL);
+}
+

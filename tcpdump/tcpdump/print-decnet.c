@@ -21,29 +21,25 @@
 
 #ifndef lint
 static const char rcsid[] =
-    "@(#) $Header: /cvs/Darwin/src/live/tcpdump/tcpdump/print-decnet.c,v 1.1.1.2 2002/05/29 00:05:35 landonf Exp $ (LBL)";
+    "@(#) $Header: /cvs/root/tcpdump/tcpdump/print-decnet.c,v 1.1.1.3 2003/03/17 18:42:16 rbraun Exp $ (LBL)";
 #endif
 
 #ifdef HAVE_CONFIG_H
 #include "config.h"
 #endif
 
-#include <sys/param.h>
-#include <sys/time.h>
-#include <sys/socket.h>
+#include <tcpdump-stdinc.h>
 
 struct mbuf;
 struct rtentry;
 
-#ifdef	HAVE_LIBDNET
+#ifdef HAVE_NETDNET_DNETDB_H
 #include <netdnet/dnetdb.h>
 #endif
 
-#include <ctype.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <unistd.h>
 
 #include "decnet.h"
 #include "extract.h"
@@ -63,7 +59,7 @@ static void print_reason(int);
 static void pdata(u_char *, int);
 #endif
 
-#ifdef	HAVE_LIBDNET
+#ifndef HAVE_NETDNET_DNETDB_H_DNET_HTOA
 extern char *dnet_htoa(struct dn_naddr *);
 #endif
 
@@ -344,13 +340,13 @@ print_i_info(int info)
 }
 
 static void
-print_elist(const char *elp, u_int len)
+print_elist(const char *elp _U_, u_int len _U_)
 {
 	/* Not enough examples available for me to debug this */
 }
 
 static void
-print_nsp(const u_char *nspp, u_int nsplen)
+print_nsp(const u_char *nspp, u_int nsplen _U_)
 {
 	const struct nsphdr *nsphp = (struct nsphdr *)nspp;
 	int dst, src, flags;
@@ -748,7 +744,7 @@ dnnum_string(u_short dnaddr)
 const char *
 dnname_string(u_short dnaddr)
 {
-#ifdef	HAVE_LIBDNET
+#ifdef HAVE_DNET_HTOA
 	struct dn_naddr dna;
 
 	dna.a_len = sizeof(short);

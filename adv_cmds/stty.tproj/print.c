@@ -1,15 +1,43 @@
-/* 
- * Copyright (c) 1995 NeXT Computer, Inc. All Rights Reserved
- *
+/*-
  * Copyright (c) 1991, 1993, 1994
  *	The Regents of the University of California.  All rights reserved.
  *
- * The NEXTSTEP Software License Agreement specifies the terms
- * and conditions for redistribution.
+ * Redistribution and use in source and binary forms, with or without
+ * modification, are permitted provided that the following conditions
+ * are met:
+ * 1. Redistributions of source code must retain the above copyright
+ *    notice, this list of conditions and the following disclaimer.
+ * 2. Redistributions in binary form must reproduce the above copyright
+ *    notice, this list of conditions and the following disclaimer in the
+ *    documentation and/or other materials provided with the distribution.
+ * 3. All advertising materials mentioning features or use of this software
+ *    must display the following acknowledgement:
+ *	This product includes software developed by the University of
+ *	California, Berkeley and its contributors.
+ * 4. Neither the name of the University nor the names of its contributors
+ *    may be used to endorse or promote products derived from this software
+ *    without specific prior written permission.
  *
- *	@(#)print.c	8.6 (Berkeley) 4/16/94
+ * THIS SOFTWARE IS PROVIDED BY THE REGENTS AND CONTRIBUTORS ``AS IS'' AND
+ * ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+ * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
+ * ARE DISCLAIMED.  IN NO EVENT SHALL THE REGENTS OR CONTRIBUTORS BE LIABLE
+ * FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
+ * DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS
+ * OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION)
+ * HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT
+ * LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY
+ * OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
+ * SUCH DAMAGE.
  */
 
+#ifndef lint
+#if 0
+static char sccsid[] = "@(#)print.c	8.6 (Berkeley) 4/16/94";
+#endif
+#endif /* not lint */
+#include <sys/cdefs.h>
+__RCSID("$FreeBSD: src/bin/stty/print.c,v 1.18 2002/06/30 05:15:04 obrien Exp $");
 
 #include <sys/types.h>
 
@@ -20,16 +48,14 @@
 #include "stty.h"
 #include "extern.h"
 
-static void  binit __P((char *));
-static void  bput __P((char *));
-static char *ccval __P((struct cchar *, int));
+#include <sys/ioctl_compat.h>	/* XXX NTTYDISC is too well hidden */
+
+static void  binit(const char *);
+static void  bput(const char *);
+static const char *ccval(struct cchar *, int);
 
 void
-print(tp, wp, ldisc, fmt)
-	struct termios *tp;
-	struct winsize *wp;
-	int ldisc;
-	enum FMT fmt;
+print(struct termios *tp, struct winsize *wp, int ldisc, enum FMT fmt)
 {
 	struct cchar *p;
 	long tmp;
@@ -42,13 +68,21 @@ print(tp, wp, ldisc, fmt)
 	/* Line discipline. */
 	if (ldisc != TTYDISC) {
 		switch(ldisc) {
+		case NTTYDISC:
+			cnt += printf("new tty disc; ");
+			break;
+#ifdef __APPLE__
 		case TABLDISC:	
 			cnt += printf("tablet disc; ");
 			break;
-		case SLIPDISC:	
+#endif
+		case SLIPDISC:
 			cnt += printf("slip disc; ");
 			break;
-		default:	
+		case PPPDISC:
+			cnt += printf("ppp disc; ");
+			break;
+		default:
 			cnt += printf("#%d disc; ", ldisc);
 			break;
 		}
@@ -67,10 +101,10 @@ print(tp, wp, ldisc, fmt)
 	if (cnt)
 		(void)printf("\n");
 
-#define	on(f)	((tmp&f) != 0)
+#define	on(f)	((tmp & (f)) != 0)
 #define put(n, f, d) \
-	if (fmt >= BSD || on(f) != d) \
-		bput(n + on(f));
+	if (fmt >= BSD || on(f) != (d)) \
+		bput((n) + on(f));
 
 	/* "local" flags */
 	tmp = tp->c_lflag;
@@ -115,7 +149,12 @@ print(tp, wp, ldisc, fmt)
 	binit("oflags");
 	put("-opost", OPOST, 1);
 	put("-onlcr", ONLCR, 1);
+#ifndef __APPLE__
+	put("-ocrnl", OCRNL, 0);
+#endif
 	put("-oxtabs", OXTABS, 1);
+	put("-onocr", OXTABS, 0);
+	put("-onlret", OXTABS, 0);
 
 	/* control flags (hardware state) */
 	tmp = tp->c_cflag;
@@ -140,8 +179,20 @@ print(tp, wp, ldisc, fmt)
 	put("-hupcl", HUPCL, 1);
 	put("-clocal", CLOCAL, 0);
 	put("-cstopb", CSTOPB, 0);
-	put("-crtscts", CRTSCTS, 0);
-	put("-mdmbuf", MDMBUF, 0);
+	switch(tmp & (CCTS_OFLOW | CRTS_IFLOW)) {
+	case CCTS_OFLOW:
+		bput("ctsflow");
+		break;
+	case CRTS_IFLOW:
+		bput("rtsflow");
+		break;
+	default:
+		put("-crtscts", CCTS_OFLOW | CRTS_IFLOW, 0);
+		break;
+	}
+	put("-dsrflow", CDSR_OFLOW, 0);
+	put("-dtrflow", CDTR_IFLOW, 0);
+	put("-mdmbuf", MDMBUF, 0);	/* XXX mdmbuf ==  dtrflow */
 
 	/* special control characters */
 	cc = tp->c_cc;
@@ -159,8 +210,10 @@ print(tp, wp, ldisc, fmt)
 			if (fmt != BSD && cc[p->sub] == p->def)
 				continue;
 #define	WD	"%-8s"
-			(void)sprintf(buf1 + cnt * 8, WD, p->name);
-			(void)sprintf(buf2 + cnt * 8, WD, ccval(p, cc[p->sub]));
+			(void)snprintf(buf1 + cnt * 8, sizeof(buf1) - cnt * 8,
+			    WD, p->name);
+			(void)snprintf(buf2 + cnt * 8, sizeof(buf2) - cnt * 8,
+			    WD, ccval(p, cc[p->sub]));
 			if (++cnt == LINELENGTH / 8) {
 				cnt = 0;
 				(void)printf("%s\n", buf1);
@@ -175,11 +228,10 @@ print(tp, wp, ldisc, fmt)
 }
 
 static int col;
-static char *label;
+static const char *label;
 
 static void
-binit(lb)
-	char *lb;
+binit(const char *lb)
 {
 
 	if (col) {
@@ -190,8 +242,7 @@ binit(lb)
 }
 
 static void
-bput(s)
-	char *s;
+bput(const char *s)
 {
 
 	if (col == 0) {
@@ -206,21 +257,18 @@ bput(s)
 	col += printf(" %s", s);
 }
 
-static char *
-ccval(p, c)
-	struct cchar *p;
-	int c;
+static const char *
+ccval(struct cchar *p, int c)
 {
 	static char buf[5];
 	char *bp;
-
-	if (c == _POSIX_VDISABLE)
-		return ("<undef>");
 
 	if (p->sub == VMIN || p->sub == VTIME) {
 		(void)snprintf(buf, sizeof(buf), "%d", c);
 		return (buf);
 	}
+	if (c == _POSIX_VDISABLE)
+		return ("<undef>");
 	bp = buf;
 	if (c & 0200) {
 		*bp++ = 'M';

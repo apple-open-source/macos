@@ -1,0 +1,36 @@
+<html>
+<head>
+  <title>%(listname)s %(who)s autentimine</title>
+</head>
+<body bgcolor="#ffffff">
+<FORM METHOD=POST ACTION="%(path)s">
+%(message)s
+  <TABLE WIDTH="100%%" BORDER="0" CELLSPACING="4" CELLPADDING="5">
+    <TR>
+      <TD COLSPAN="2" WIDTH="100%%" BGCOLOR="#99CCFF" ALIGN="CENTER">
+	<B><FONT COLOR="#000000" SIZE="+1">%(listname)s %(who)s
+	    autentimine</FONT></B>
+      </TD>
+    </TR>
+    <tr>
+      <TD><div ALIGN="Right">Listi %(who)s parool:</div></TD>
+      <TD><INPUT TYPE="password" NAME="adminpw" SIZE="30"></TD>
+    </tr>
+    <tr>
+      <td colspan=2 align=middle><INPUT type="SUBMIT"
+                                        name="admlogin"
+					value="Logi sisse">
+      </td>
+    </tr>
+  </TABLE>
+      <p><strong><em>NB:</em></strong> Selle veebiliidese kasutamiseks
+      peate oma brauseril lubama küpsiste vastuvõtmise sellest saidist,
+      vastasel korral ei saa muudatusi salvestada.
+
+      <p>Küpsised on kasutusel selleks, et te ei peaks igal lehel uuesti
+      parooli sisestama. Küpsis kustutatakse, kui oma brauseri sulgete või
+      veebiliidesest välja logite (klikkides linki <em>Logi välja</em>,
+      mis asub lingi <em>teised administratiivsed toimingud</em> all)
+</FORM>
+</body>
+</html>

@@ -1,0 +1,18 @@
+<!DOCTYPE index PUBLIC "-//OASIS//DTD DocBook V3.1//EN">
+<index>
+<indexentry>
+  <primaryie>Example</primaryie>
+  <secondaryie>Chapter</secondaryie>
+  <seeie>Example Chapter</seeie>
+</indexentry>
+
+<indexentry>
+  <primaryie>Example Chapter, 35-48</primaryie>
+  <seealsoie>Examples</seealsoie>
+</indexentry>
+
+<indexentry>
+  <primaryie>Examples, 18, 36, 72-133</primaryie>
+</indexentry>
+
+</index>

@@ -117,6 +117,8 @@ getpermtext(Eprog prog, Wordcode c)
     if (!c)
 	c = prog->prog;
 
+    useeprog(prog);		/* mark as used */
+
     s.prog = prog;
     s.pc = c;
     s.strs = prog->strs;
@@ -130,6 +132,7 @@ getpermtext(Eprog prog, Wordcode c)
     if (prog->len)
 	gettext2(&s);
     *tptr = '\0';
+    freeeprog(prog);		/* mark as unused */
     untokenize(tbuf);
     return tbuf;
 }
@@ -147,6 +150,7 @@ getjobtext(Eprog prog, Wordcode c)
     if (!c)
 	c = prog->prog;
 
+    useeprog(prog);		/* mark as used */
     s.prog = prog;
     s.pc = c;
     s.strs = prog->strs;
@@ -159,6 +163,7 @@ getjobtext(Eprog prog, Wordcode c)
     tjob = 1;
     gettext2(&s);
     *tptr = '\0';
+    freeeprog(prog);		/* mark as unused */
     untokenize(jbuf);
     return jbuf;
 }
@@ -323,6 +328,7 @@ gettext2(Estate state)
 	    break;
 	case WC_ASSIGN:
 	    taddstr(ecgetstr(state, EC_NODUP, NULL));
+	    if (WC_ASSIGN_TYPE2(code) == WC_ASSIGN_INC) taddchr('+');
 	    taddchr('=');
 	    if (WC_ASSIGN_TYPE(code) == WC_ASSIGN_ARRAY) {
 		taddchr('(');
@@ -339,27 +345,31 @@ gettext2(Estate state)
 	    break;
 	case WC_SUBSH:
 	    if (!s) {
-		taddstr("( ");
+		taddstr("(");
 		tindent++;
+		taddnl();
 		n = tpush(code, 1);
 		n->u._subsh.end = state->pc + WC_SUBSH_SKIP(code);
 	    } else {
 		state->pc = s->u._subsh.end;
 		tindent--;
-		taddstr(" )");
+		taddnl();
+		taddstr(")");
 		stack = 1;
 	    }
 	    break;
 	case WC_CURSH:
 	    if (!s) {
-		taddstr("{ ");
+		taddstr("{");
 		tindent++;
+		taddnl();
 		n = tpush(code, 1);
 		n->u._subsh.end = state->pc + WC_CURSH_SKIP(code);
 	    } else {
 		state->pc = s->u._subsh.end;
 		tindent--;
-		taddstr(" }");
+		taddnl();
+		taddstr("}");
 		stack = 1;
 	    }
 	    break;
@@ -418,7 +428,7 @@ gettext2(Estate state)
 		    taddstr(ecgetstr(state, EC_NODUP, NULL));
 		    taddstr(")) do");
 		} else {
-		    taddstr(ecgetstr(state, EC_NODUP, NULL));
+		    taddlist(state, *state->pc++);
 		    if (WC_FOR_TYPE(code) == WC_FOR_LIST) {
 			taddstr(" in ");
 			taddlist(state, *state->pc++);
@@ -511,6 +521,7 @@ gettext2(Estate state)
 			taddnl();
 		    else
 			taddchr(' ');
+		    taddstr("(");
 		    code = *state->pc++;
 		    taddstr(ecgetstr(state, EC_NODUP, NULL));
 		    state->pc++;
@@ -527,6 +538,7 @@ gettext2(Estate state)
 		    taddnl();
 		else
 		    taddchr(' ');
+		taddstr("(");
 		code = *state->pc++;
 		taddstr(ecgetstr(state, EC_NODUP, NULL));
 		state->pc++;

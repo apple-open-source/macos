@@ -1,6 +1,28 @@
 # -*-Makefile-*-
 # This Makefile fragment is shared between fileutils, sh-utils, textutils,
-# and Autoconf.
+# CPPI, Bison, and Autoconf.
+
+## Copyright (C) 2001, 2002 Free Software Foundation, Inc.
+##
+## This program is free software; you can redistribute it and/or modify
+## it under the terms of the GNU General Public License as published by
+## the Free Software Foundation; either version 2, or (at your option)
+## any later version.
+##
+## This program is distributed in the hope that it will be useful,
+## but WITHOUT ANY WARRANTY; without even the implied warranty of
+## MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+## GNU General Public License for more details.
+##
+## You should have received a copy of the GNU General Public License
+## along with this program; if not, write to the Free Software
+## Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA
+## 02111-1307, USA.
+
+# Do not save the original name or timestamp in the .tar.gz file.
+GZIP_ENV = '--no-name --best'
+
+CVS = cvs
 
 prev_version_file ?= .prev-version
 
@@ -26,7 +48,37 @@ release_archive_dir ?= ../release
 ## --------------- ##
 
 # Checks that don't require cvs.
-local-check: changelog-check po-check writable-files copyright-check
+# Run `changelog-check' last, as previous test may reveal problems requiring
+# new ChangeLog entries.
+local-check = \
+  po-check copyright-check writable-files m4-check author_mark_check \
+  changelog-check strftime-check header-check
+.PHONY: $(local-check)
+
+# Make sure C source files in src/ don't include xalloc.h directly,
+# since they all already include it via sys2.h.
+# It's not a big deal -- just aesthetics.
+header-check:
+	if test -f $(srcdir)/src/sys2.h; then				\
+	  if grep 'xalloc\.h' $(srcdir)/src/*.c; then			\
+	    exit 1;							\
+	  fi;								\
+	fi
+
+# Ensure that date's --help output stays in sync with the info
+# documentation for GNU strftime.  The only exception is %N,
+# which date accepts but GNU strftime does not.
+extract_char = sed 's/^[^%][^%]*%\(.\).*/\1/'
+strftime-check:
+	if test -f $(srcdir)/src/date.c; then				\
+	  grep '^  %.  ' $(srcdir)/src/date.c | sort			\
+	    | $(extract_char) > $@-src;					\
+	  { echo N;							\
+	    info libc date calendar format | grep '^    `%.'\'		\
+	      | $(extract_char); } | sort > $@-info;			\
+	  diff -u $@-src $@-info || exit 1;				\
+	  rm -f $@-src $@-info;						\
+	fi
 
 changelog-check:
 	if head ChangeLog | grep 'Version $(VERSION)' >/dev/null; then \
@@ -36,14 +88,36 @@ changelog-check:
 	  exit 1; \
 	fi
 
+m4-check:
+	@grep 'AC_DEFUN([^[]' m4/*.m4 \
+	  && { echo 'Makefile.maint: quote the first arg to AC_DEFUN' 1>&2; \
+	       exit 1; } || :
+
 # Verify that all source files using _() are listed in po/POTFILES.in.
 po-check:
 	if test -f po/POTFILES.in; then \
 	  grep -E -v '^(#|$$)' po/POTFILES.in | sort > $@-1; \
-	  grep -E -l '\b_\(' lib/*.c src/*.c | sort > $@-2; \
+	  files=; \
+	  for file in lib/*.[chly] src/*.[chly]; do \
+	    case $$file in \
+	    *.[ch]) \
+	      base=`expr " $$file" : ' \(.*\)\..'`; \
+	      { test -f $$base.l || test -f $$base.y; } && continue;; \
+	    esac; \
+	    files="$$files $$file"; \
+	  done; \
+	  grep -E -l '\bN?_\([^)"]*("|$$)' $$files | sort > $@-2; \
 	  diff -u $@-1 $@-2 || exit 1; \
 	  rm -f $@-1 $@-2; \
 	fi
+
+# In a definition of #define AUTHORS "... and ..." where the RHS contains
+# the English word `and', the string must be marked with `N_ (...)' so that
+# gettext recognizes it as a string requiring translation.
+author_mark_check:
+	@grep '^# *define AUTHORS "[^"]* and ' src/*.c |grep -v ' N_ (' && \
+	  { echo 'Makefile.maint: enclose the above strings in N_ (...)' 1>&2; \
+	    exit 1; } || :
 
 # Check that `make alpha' will not fail at the end of the process.
 writable-files:
@@ -59,25 +133,27 @@ writable-files:
 	done;								\
 	test "$$fail" && exit 1 || :
 
-# Make sure that the copyright date in lib/version-etc.c is up to date.
+v_etc_file = lib/version-etc.c
+# Make sure that the copyright date in $(v_etc_file) is up to date.
 copyright-check:
-	@if test -f lib/version-etc.c; then \
-	  grep 'N_("Copyright (C) $(shell date +%Y) Free' lib/version-etc.c \
+	@if test -f $(v_etc_file); then \
+	  grep '"Copyright (C) $(shell date +%Y) Free' $(v_etc_file) \
 	    >/dev/null \
-	  || { echo 'out of date copyright in $<; update it' 1>&2; exit 1; }; \
+	  || { echo 'out of date copyright in $(v_etc_file); update it' 1>&2; \
+	       exit 1; }; \
 	fi
 
 
 # Sanity checks with the CVS repository.
 cvs-tag-check:
 	echo $(this-cvs-tag); \
-	if cvs -n log -h README | grep -e $(this-cvs-tag): >/dev/null; then \
+	if $(CVS) -n log -h README | grep -e $(this-cvs-tag): >/dev/null; then \
 	  echo "$(this-cvs-tag) as already been used; not tagging" 1>&2; \
 	  exit 1; \
 	else :; fi
 
 cvs-diff-check:
-	if cvs diff >cvs-diffs; then			  	\
+	if $(CVS) diff >cvs-diffs; then			  	\
 	  rm cvs-diffs;					  	\
 	else						  	\
 	  echo "Some files are locally modified:" 1>&2;  	\
@@ -92,18 +168,12 @@ maintainer-distcheck: changelog-check
 	$(MAKE) my-distcheck
 
 
-# Do not save the original name or timestamp in the .tar.gz file.
-GZIP_ENV = '--no-name --best'
-
-# Automake 1.4 does not define AMTAR.
-AMTAR ?= $(TAR)
-
 # Tag before making distribution.  Also, don't make a distribution if
 # checks fail.  Also, make sure the NEWS file is up-to-date.
 # FIXME: use dist-hook/my-dist like distcheck-hook/my-distcheck.
-cvs-dist: cvs-check maintainer-distcheck
-	cvs update po
-	cvs tag -c $(this-cvs-tag)
+cvs-dist: $(local-check) cvs-check maintainer-distcheck
+	$(CVS) update po
+	$(CVS) tag -c $(this-cvs-tag)
 	$(MAKE) dist
 
 # Use this to make sure we don't run these programs when building
@@ -120,7 +190,7 @@ null_AM_MAKEFLAGS = \
 # and building with CFLAGS='-Wformat -Werror' causes any format warning to be
 # treated as a failure.
 t=./=test
-my-distcheck: writable-files po-check
+my-distcheck: $(local-check)
 	-rm -rf $(t)
 	mkdir $(t)
 	GZIP=$(GZIP_ENV) $(AMTAR) -C $(t) -zxf $(distdir).tar.gz
@@ -139,19 +209,15 @@ my-distcheck: writable-files po-check
 	echo "$(distdir).tar.gz is ready for distribution"; \
 	echo "========================"
 
-# This must be the same name on both hosts.
-# Make it a symlink that points to the right place.
-real_dir = fetish-ftp
-
-url_dir_list = $(foreach x,$(hosts),ftp://$($(x)_host)/$($(x)_url_dir))
-
 tgz-md5 = $(shell md5sum < $(my_distdir).tar.gz|sed 's/  -//')
 tgz-sha1 = $(shell sha1sum < $(my_distdir).tar.gz|sed 's/  -//')
 bz2-md5 = $(shell md5sum < $(my_distdir).tar.bz2|sed 's/  -//')
 bz2-sha1 = $(shell sha1sum < $(my_distdir).tar.bz2|sed 's/  -//')
-tgz-size = $(shell du --human $(my_distdir).tar.gz|sed 's/\([Mk]\).*/ \1B/')
-bz2-size = $(shell du --human $(my_distdir).tar.bz2|sed 's/\([Mk]\).*/ \1B/')
-xd-size = $(shell du --human $(xd-delta)|sed 's/\([Mk]\).*/ \1B/')
+xdelta-md5 = $(shell md5sum < $(xd-delta)|sed 's/  -//')
+xdelta-sha1 = $(shell sha1sum < $(xd-delta)|sed 's/  -//')
+tgz-size = $(shell du --human $(my_distdir).tar.gz|sed 's/\([MkK]\).*/ \1B/')
+bz2-size = $(shell du --human $(my_distdir).tar.bz2|sed 's/\([MkK]\).*/ \1B/')
+xd-size = $(shell du --human $(xd-delta)|sed 's/\([MkK]\).*/ \1B/')
 
 rel-check:
 	tarz=/tmp/rel-check-tarz-$$$$; \
@@ -165,12 +231,8 @@ rel-check:
 prev-tgz = $(PACKAGE)-$(PREV_VERSION).tar.gz
 xd-delta = $(PACKAGE)-$(PREV_VERSION)-$(VERSION).xdelta
 
-GZIP = gzip
-BZIP2 = bzip2
-$(my_distdir).tar.bz2: $(my_distdir).tar.gz
-	$(GZIP) -dc $< > $(my_distdir).tar
-	rm -f $@
-	$(BZIP2) -9 $(my_distdir).tar
+news-r1 = /^[^ ].*$(THIS_VERSION_REGEXP)[]:]/
+news-r2 = /^[^ ].*$(PREV_VERSION_REGEXP)[]:]/
 
 rel-files = $(xd-delta) $(distdir).tar.bz2 $(distdir).tar.gz
 announcement: NEWS ChangeLog $(rel-files)
@@ -190,37 +252,80 @@ announcement: NEWS ChangeLog $(rel-files)
 	    echo "  $$url/$(xd-delta)   ($(xd-size))"; \
 	  done; \
 	  echo; \
-	  echo "Here are the MD5 and SHA1 signatures for the compressed tar files:"; \
+	  echo "Here are the MD5 and SHA1 signatures:"; \
 	  echo; \
 	  echo "$(tgz-md5)  $(my_distdir).tar.gz"; \
 	  echo "$(bz2-md5)  $(my_distdir).tar.bz2"; \
+	  echo "$(xdelta-md5)  $(xd-delta)"; \
 	  echo "$(tgz-sha1)  $(my_distdir).tar.gz"; \
 	  echo "$(bz2-sha1)  $(my_distdir).tar.bz2"; \
+	  echo "$(xdelta-sha1)  $(xd-delta)"; \
 	  echo; \
 	  echo NEWS:; \
-	  sed -n "/$(THIS_VERSION_REGEXP)[]:]/,/$(PREV_VERSION_REGEXP)[]:]/p" NEWS \
+	  sed -n "$(news-r1),$(news-r2)p" NEWS \
 	    | grep -v '^\['; \
 	  echo; \
 	  echo ChangeLog entries:; \
 	  find . -name ChangeLog -maxdepth 2 \
-	    | xargs cvs diff -up -r$(prev-cvs-tag) -rHEAD \
+	    | xargs $(CVS) diff -up -r$(prev-cvs-tag) -rHEAD \
 	    | sed -n 's/^+//p' \
 	    | perl -ne 'm!^\+\+ (\./)?! or print,next;' \
 	      -e 'print "\n"."*"x70 ."\n"; s///; print; print "*"x70 ."\n"'; \
 	)
 
+
+## ---------------- ##
+## Updating files.  ##
+## ---------------- ##
+
 WGET = wget
 ftp-gnu = ftp://ftp.gnu.org/gnu
+www-gnu = http://www.gnu.org
 
 # Use mv, if you don't have/want move-if-change.
 move_if_change ?= move-if-change
 
+
+# --------------------- #
+# Updating everything.  #
+# --------------------- #
+
+.PHONY: update
+local_updates ?= wget-update cvs-update po-update
+update: $(local_updates)
+
+
+# ------------------- #
+# Updating PO files.  #
+# ------------------- #
+
+po_repo = http://www.iro.umontreal.ca/contrib/po/maint/$(PACKAGE)
+.PHONY: do-po-update po-update
+do-po-update:
+	tmppo=/tmp/$(PACKAGE)-$(VERSION)-po &&\
+	rm -rf $$tmppo && \
+	mkdir $$tmppo && \
+	(cd $$tmppo && $(WGET) -r -l1 -nd --no-parent -A '*.po' $(po_repo)) &&\
+	cp $$tmppo/*.po po
+	cd po && $(MAKE) update-po
+	$(MAKE) po-check
+
+po-update:
+	if test -d "po"; then \
+	  $(MAKE) do-po-update; \
+	fi
+
+# -------------------------- #
+# Updating GNU build tools.  #
+# -------------------------- #
+
 # The following pseudo table associates a local directory and a URL
 # with each of the files that belongs to some other package and is
 # regularly updated from the specified URL.
-wget_files ?= $(srcdir)/config.guess $(srcdir)/config.sub \
+wget_files ?= $(srcdir)/config/config.guess \
+              $(srcdir)/config/config.sub \
               $(srcdir)/src/ansi2knr.c \
-	      $(srcdir)/doc/texinfo.tex
+	      $(srcdir)/config/texinfo.tex
 get-targets = $(patsubst %, get-%, $(wget_files))
 
 config.guess-url_prefix = $(ftp-gnu)/config/
@@ -230,8 +335,8 @@ ansi2knr.c-url_prefix = ftp://ftp.cs.wisc.edu/ghost/
 
 texinfo.tex-url_prefix = $(ftp-gnu)/texinfo/
 
-standards.texi-url_prefix = $(ftp-gnu)/GNUinfo/
-make-stds.texi-url_prefix = $(ftp-gnu)/GNUinfo/
+standards.texi-url_prefix = $(www-gnu)/prep/
+make-stds.texi-url_prefix = $(standards.texi-url_prefix)
 
 target = $(patsubst get-%, %, $@)
 url = $($(notdir $(target))-url_prefix)$(notdir $(target))
@@ -241,22 +346,26 @@ $(get-targets):
 	$(WGET) $(url) -O $(target).t \
 	  && $(move_if_change) $(target).t $(target)
 
-automake_repo=:pserver:anoncvs@anoncvs.cygnus.com:/cvs/automake
+cvs_files ?= $(srcdir)/config/depcomp $(srcdir)/config/missing $(srcdir)/config/mkinstalldirs \
+             $(srcdir)/config/install-sh $(srcdir)/src/ansi2knr.c
+automake_repo=:pserver:anoncvs:anoncvs@sources.redhat.com:/cvs/automake
 .PHONY: wget-update
 wget-update: $(get-targets)
-	for f in depcomp missing; do                                    \
-	  test -f $$f || continue;					\
-	  echo checking out $$f...;                                     \
-	  cvs -d $(automake_repo) co -p automake/lib/$$f > $$f.t        \
-	    && $(move_if_change) $$f.t $$f;                             \
+
+.PHONY: cvs-update
+cvs-update:
+	for f in $(cvs_files); do				      \
+	  test -f $$f || { echo "*** skipping $$f" 1>&2; continue; }; \
+	  file=$$(basename $$f);				      \
+	  echo checking out $$file...;				      \
+	  $(CVS) -d $(automake_repo) co -p automake/lib/$$file> $$f.t \
+	    && $(move_if_change) $$f.t $$f;			      \
 	done
 
-define emit-rsync-commands
+define emit-upload-commands
 	echo =====================================
 	echo =====================================
-	echo 'for host in $(a_host) $(b_host); do \'
-	echo '  rsync -e ssh --pro -av $(xd-delta) $(my_distdir).tar.bz2 \'
-	echo '    $(my_distdir).tar.gz $$host:$(real_dir); done'
+	echo upload $(PACKAGE) $(PREV_VERSION) $(VERSION)
 	echo '# send the /tmp/announcement e-mail'
 	echo =====================================
 	echo =====================================
@@ -265,12 +374,12 @@ endef
 $(xd-delta): $(release_archive_dir)/$(prev-tgz) $(distdir).tar.gz
 	xdelta delta -9 $^ $@ || :
 
-alpha: local-check
+alpha: $(local-check)
 	$(MAKE) cvs-dist
 	$(MAKE) $(xd-delta)
 	$(MAKE) -s announcement > /tmp/announce-$(my_distdir)
 	ln $(rel-files) $(release_archive_dir)
 	chmod a-w $(rel-files)
 	echo $(VERSION) > $(prev_version_file)
-	cvs ci -m. $(prev_version_file)
-	@$(emit-rsync-commands)
+	$(CVS) ci -m. $(prev_version_file)
+	@$(emit-upload-commands)

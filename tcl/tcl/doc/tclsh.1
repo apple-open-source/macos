@@ -5,7 +5,7 @@
 '\" See the file "license.terms" for information on usage and redistribution
 '\" of this file, and for a DISCLAIMER OF ALL WARRANTIES.
 '\" 
-'\" RCS: @(#) $Id: tclsh.1,v 1.1.1.4 2002/04/05 16:13:09 jevans Exp $
+'\" RCS: @(#) $Id: tclsh.1,v 1.1.1.5 2003/03/06 00:09:42 landonf Exp $
 '\" 
 .so man.macros
 .TH tclsh 1 "" Tcl "Tcl Applications"
@@ -39,8 +39,18 @@ are made available to the script as variables (see below).
 Instead of reading commands from standard input \fBtclsh\fR will
 read Tcl commands from the named file;  \fBtclsh\fR will exit
 when it reaches the end of the file.
-There is no automatic evaluation of \fB.tclshrc\fR in this
-case, but the script file can always \fBsource\fR it if desired.
+.VS 8.4
+The end of the file may be marked either by the physical end of
+the medium, or by the character, '\\032' ('\\u001a', control-Z).
+If this character is present in the file, the \fBtclsh\fR application
+will read text up to but not including the character.  An application
+that requires this character in the file may safely encode it as
+``\\032'', ``\\x1a'', or ``\\u001a''; or may generate it by use of commands 
+such as \fBformat\fR or \fBbinary\fR.
+.VE
+There is no automatic evaluation of \fB.tclshrc\fR when the name
+of a script file is presented on the \fBtclsh\fR command
+line, but the script file can always \fBsource\fR it if desired.
 .PP
 If you create a Tcl script in a file whose first line is
 .CS
@@ -122,6 +132,13 @@ The variable \fBtcl_prompt2\fR is used in a similar way when
 a newline is typed but the current command isn't yet complete;
 if \fBtcl_prompt2\fR isn't set then no prompt is output for
 incomplete commands.
+
+.SH "STANDARD CHANNELS"
+.PP
+See \fBTcl_StandardChannels\fR for more explanations.
+
+.SH "SEE ALSO"
+fconfigure(n), tclvars(n)
 
 .SH KEYWORDS
 argument, interpreter, prompt, script file, shell

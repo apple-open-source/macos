@@ -1,9 +1,11 @@
-dnl ## $Id: config.m4,v 1.3 2001/07/19 00:47:53 zarzycki Exp $ -*- sh -*-
+dnl
+dnl $Id: config.m4,v 1.4 2003/03/11 17:04:45 zarzycki Exp $
+dnl 
 
 RESULT=no
 AC_MSG_CHECKING(for PHTTPD support)
 AC_ARG_WITH(phttpd,
-[  --with-phttpd=DIR],
+[  --with-phttpd=DIR       Build PHP as phttpd module],
 [
 	if test ! -d $withval ; then
 		AC_MSG_ERROR(You did not specify a directory)
@@ -12,8 +14,7 @@ AC_ARG_WITH(phttpd,
 	PHTTPD_DIR=$withval
 	PHP_ADD_INCLUDE($PHTTPD_DIR/include)
 	AC_DEFINE(HAVE_PHTTPD,1,[Whether you have phttpd])
-	PHP_SAPI=phttpd
-	PHP_BUILD_SHARED
+	PHP_SELECT_SAPI(phttpd, shared, phttpd.c)
 	INSTALL_IT="\$(INSTALL) -m 0755 $SAPI_SHARED \$(INSTALL_ROOT)$PHTTPD_DIR/modules/"
 	RESULT=yes
 ])

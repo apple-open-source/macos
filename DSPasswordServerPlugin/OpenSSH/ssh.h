@@ -13,6 +13,10 @@
  *
  */
 
+/*
+ * Portions Copyright (c) 2002 Apple Computer, Inc.
+ */
+
 /* RCSID("$OpenBSD: ssh.h,v 1.48 2000/07/13 22:53:21 provos Exp $"); */
 
 #ifndef SSH_H
@@ -461,7 +465,7 @@ LogLevel log_level_number(char *name);
 /* Output a message to syslog or stderr */
 void    fatal(const char *fmt,...) __attribute__((format(printf, 1, 2)));
 void    error(const char *fmt,...) __attribute__((format(printf, 1, 2)));
-void    log(const char *fmt,...) __attribute__((format(printf, 1, 2)));
+void    ssh_log(const char *fmt,...) __attribute__((format(printf, 1, 2)));
 void    verbose(const char *fmt,...) __attribute__((format(printf, 1, 2)));
 void    debug(const char *fmt,...) __attribute__((format(printf, 1, 2)));
 

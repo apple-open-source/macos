@@ -1,4 +1,4 @@
-/*	$KAME: ipsec_doi.h,v 1.33 2001/08/14 12:26:06 sakane Exp $	*/
+/*	$KAME: ipsec_doi.h,v 1.34 2001/08/16 06:20:35 itojun Exp $	*/
 
 /*
  * Copyright (C) 1995, 1996, 1997, and 1998 WIDE Project.
@@ -100,6 +100,8 @@
 #define   IPSECDOI_ATTR_ENC_MODE_ANY            0	/* NOTE:internal use */
 #define   IPSECDOI_ATTR_ENC_MODE_TUNNEL         1
 #define   IPSECDOI_ATTR_ENC_MODE_TRNS           2
+#define   IPSECDOI_ATTR_ENC_MODE_UDP_TUNNEL		3	/* UDP Encapsulated IPSec, NAT-T */
+#define   IPSECDOI_ATTR_ENC_MODE_UDP_TRNS		4	/* UDP Encapsulated IPSec, NAT-T */
 #define IPSECDOI_ATTR_AUTH                    5 /* B */
 	/* 0 means not to use authentication. */
 #define   IPSECDOI_ATTR_AUTH_HMAC_MD5           1
@@ -167,6 +169,11 @@ struct ipsecdoi_pl_id {
 #define IDTYPE_KEYID		2
 #define IDTYPE_ADDRESS		3
 #define IDTYPE_ASN1DN		4
+
+/* shared secret type, it's internal use. */
+#define SECRETTYPE_USE		0
+#define SECRETTYPE_KEY		1
+#define SECRETTYPE_KEYCHAIN	2
 
 /* The use for checking proposal payload. This is not exchange type. */
 #define IPSECDOI_TYPE_PH1	0

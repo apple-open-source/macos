@@ -97,15 +97,20 @@ mount_ufs(argc, argv)
 {
 	extern int optreset;
 	struct ufs_args args;
-	int ch, mntflags;
+	int ch, mntflags, noasync;
 	char *fs_name;
 
 	mntflags = 0;
+	noasync = 0;
 	optind = optreset = 1;		/* Reset for parse of new argv. */
 	while ((ch = getopt(argc, argv, "o:")) != EOF)
 		switch (ch) {
 		case 'o':
+			if (strstr(optarg, "noasync") != NULL)
+				noasync = 1;
 			getmntopts(optarg, mopts, &mntflags, 0);
+			if (mntflags & MNT_SYNCHRONOUS)
+				noasync = 1;
 			break;
 		case '?':
 		default:
@@ -127,7 +132,9 @@ mount_ufs(argc, argv)
 	else
 		args.export.ex_flags = 0;
 
-	if (mount("ufs", fs_name, mntflags, &args) < 0) {
+	/* default to async by setting the flag unless noasync was specified */
+	if (mount("ufs", fs_name, (mntflags | (noasync ? 0 : MNT_ASYNC)), &args)
+	    < 0) {
 		(void)fprintf(stderr, "%s on %s: ", args.fspec, fs_name);
 		switch (errno) {
 		case EMFILE:

@@ -1,0 +1,11 @@
+<?xml version="1.0"?>
+
+<!-- The jboss.xml descriptor for the remote-naming.jar ejb unit -->
+<jboss>
+    <enterprise-beans>
+        <session>
+            <ejb-name>RemoteENCBean</ejb-name>
+            <jndi-name>ENCTests/ejbs/RemoteENCBean</jndi-name>
+        </session>
+    </enterprise-beans>
+</jboss>

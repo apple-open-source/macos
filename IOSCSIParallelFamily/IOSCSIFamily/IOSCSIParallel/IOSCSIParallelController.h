@@ -31,15 +31,19 @@
 #ifndef _IOSCSIPARALLELCONTROLLER_H
 #define _IOSCSIPARALLELCONTROLLER_H
 
+#include <IOKit/IOService.h>
 #include <IOKit/IOWorkLoop.h>
 #include <IOKit/IOCommandGate.h>
 #include <IOKit/IOInterruptEventSource.h>
 #include <IOKit/IOTimerEventSource.h>
 #include <libkern/OSByteOrder.h>
 #include <IOKit/IOMemoryCursor.h>
+#include "SCSIDevice.h"
+#include "SCSIParallelController.h"
 
-class IOSCSIParallelDevice;
+class SCSITarget;
 class IOSCSIParallelCommand;
+class IOSCSIParallelDevice;
 
 class IOSCSIParallelController : public IOService
 {
@@ -47,7 +51,7 @@ class IOSCSIParallelController : public IOService
 
     friend class IOSCSIParallelCommand;
     friend class IOSCSIParallelDevice;
-
+	
 /*------------------Methods provided by IOSCSIParallelController---------------------------------*/
 public:
     bool			probeTarget( SCSITargetLun targetLun );
@@ -147,9 +151,9 @@ private:
     bool 			configureController();
 
     IOSCSIParallelCommand 	*allocCommand( UInt32 clientDataSize );
-
+	
 private:
-    
+		
     UInt32			sequenceNumber;
 
     UInt32			commandCount;
@@ -178,6 +182,8 @@ private:
     IOCommandGate		*controllerGate;
 
     IOService			*provider;
+	static SInt32	sDomainCount;
+
 };
 
 #endif

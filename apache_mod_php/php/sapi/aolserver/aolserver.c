@@ -1,8 +1,8 @@
 /*
    +----------------------------------------------------------------------+
-   | PHP version 4.0                                                      |
+   | PHP Version 4                                                        |
    +----------------------------------------------------------------------+
-   | Copyright (c) 1997-2001 The PHP Group                                |
+   | Copyright (c) 1997-2003 The PHP Group                                |
    +----------------------------------------------------------------------+
    | This source file is subject to version 2.02 of the PHP license,      |
    | that is bundled with this package in the file LICENSE, and is        |
@@ -22,7 +22,7 @@
  * - CGI/1.1 conformance
  */
 
-/* $Id: aolserver.c,v 1.1.1.5 2001/12/14 22:15:12 zarzycki Exp $ */
+/* $Id: aolserver.c,v 1.1.1.8 2003/07/18 18:07:50 zarzycki Exp $ */
 
 /* conflict between PHP and AOLserver headers */
 #define Debug php_Debug
@@ -36,7 +36,7 @@
 #endif
 
 #include "ext/standard/info.h"
-#define SECTION(name)  PUTS("<H2 align=\"center\">" name "</H2>\n")
+#define SECTION(name)  PUTS("<h2>" name "</h2>\n")
 
 #define NS_BUF_SIZE 511
 
@@ -205,7 +205,7 @@ static void php_info_aolserver(ZEND_MODULE_INFO_FUNC_ARGS)
 	int i;
 	
 	php_info_print_table_start();
-	php_info_print_table_row(2, "SAPI module version", "$Id: aolserver.c,v 1.1.1.5 2001/12/14 22:15:12 zarzycki Exp $");
+	php_info_print_table_row(2, "SAPI module version", "$Id: aolserver.c,v 1.1.1.8 2003/07/18 18:07:50 zarzycki Exp $");
 	php_info_print_table_row(2, "Build date", Ns_InfoBuildDate());
 	php_info_print_table_row(2, "Config file path", Ns_InfoConfigFile());
 	php_info_print_table_row(2, "Error Log path", Ns_InfoErrorLog());
@@ -242,7 +242,7 @@ PHP_FUNCTION(getallheaders);
 
 static function_entry aolserver_functions[] = {
 	PHP_FE(getallheaders, NULL)
-	{0}
+	{NULL, NULL, NULL}
 };
 
 static zend_module_entry php_aolserver_module = {
@@ -277,8 +277,7 @@ PHP_FUNCTION(getallheaders)
 static int
 php_ns_startup(sapi_module_struct *sapi_module)
 {
-	if(php_module_startup(sapi_module) == FAILURE
-			|| zend_startup_module(&php_aolserver_module) == FAILURE) {
+	if (php_module_startup(sapi_module, &php_aolserver_module, 1) == FAILURE) {
 		return FAILURE;
 	} else {
 		return SUCCESS;
@@ -310,9 +309,9 @@ php_ns_sapi_register_variables(zval *track_vars_array TSRMLS_DC)
 		char *value = Ns_SetValue(NSG(conn->headers), i);
 		char *p;
 		char c;
-		int buf_len;
 
-		buf_len = snprintf(buf, NS_BUF_SIZE, "HTTP_%s", key);
+		snprintf(buf, NS_BUF_SIZE, "HTTP_%s", key);
+		
 		for(p = buf + 5; (c = *p); p++) {
 			c = toupper(c);
 			if(c < 'A' || c > 'Z') {
@@ -388,6 +387,8 @@ static sapi_module_struct aolserver_sapi_module = {
 
 	php_ns_sapi_register_variables,
 	NULL,									/* Log message */
+
+	NULL,									/* php.ini path override */
 
 	NULL,									/* Block interruptions */
 	NULL,									/* Unblock interruptions */

@@ -176,7 +176,9 @@ get_token(tokp)
 				if (commenting) {
 					break;
 				} else
-					if (cppline(curline)) {
+					/* skip lines beginning with #pragma */
+					if (!strncmp(curline, "#pragma", 7)) *curline = 0;
+					else if (cppline(curline)) {
 						docppline(curline, &linenum,
 						    &infilename);
 					} else

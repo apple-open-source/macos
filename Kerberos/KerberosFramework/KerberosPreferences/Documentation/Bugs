@@ -1,0 +1,25 @@
+==============================================================================
+Kerberos Preferences shared library bug list
+==============================================================================
+Current version: 1.3fc1
+Date           : July 16, 2003
+Author         : mjv@mit.edu, meeroh@mit.edu, lxs@mit.edu
+==============================================================================
+
+========================================================================
+Bug #		Bug description										Fixed in
+========================================================================
+
+[RT 1378]   KerberosPreferences should use same paths as krb5   1.3a1
+[BZ 674]	Calling KPPrefsFileIs* resets the idle sleep timer	1.2b2
+[BZ 365]	Move strings into code section						1.0fc2
+[BZ 333]	Fails to create library config in existing prefs	1.0b3
+[BZ 326]	znol in MacZephyr too slow							1.0b2
+[BZ 305]	Fails to detect locked files						1.0b1
+[BZ 306]	Need a function to create an empty prefs file		1.0b1
+[BZ 307]	Initialize should not put in KM and KLL prefs		1.0b1
+[BZ 308]	Rename KPGetListOfFiles to KPGetListOfPreferencesFiles
+																1.0b1
+[BZ 318]	Initializing fails because default data is missing	1.0b1
+[BZ 319]	Use creator and type search							1.0b1
+[BZ 299]	Change name of generated binaries					1.0b1

@@ -35,47 +35,46 @@
  */
 
 #include <sys/cdefs.h>
-#ifndef lint
-__COPYRIGHT("@(#) Copyright (c) 1991, 1993\n\
-	The Regents of the University of California.  All rights reserved.\n");
-#endif /* not lint */
+
 
 #ifndef lint
-#if 0
-static char sccsid[] = "@(#)tail.c	8.1 (Berkeley) 6/6/93";
+static const char copyright[] =
+"@(#) Copyright (c) 1991, 1993\n\
+	The Regents of the University of California.  All rights reserved.\n";
 #endif
-__RCSID("$NetBSD: tail.c,v 1.7 1998/08/25 20:59:41 ross Exp $");
-#endif /* not lint */
+
+#ifndef lint
+static const char sccsid[] = "@(#)tail.c	8.1 (Berkeley) 6/6/93";
+#endif
 
 #include <sys/types.h>
 #include <sys/stat.h>
+
+#include <err.h>
 #include <errno.h>
-#include <unistd.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <unistd.h>
+
 #include "extern.h"
 
-int fflag, rflag, rval;
-char *fname;
+int Fflag, fflag, rflag, rval;
+const char *fname;
 
-int	main __P((int, char **));
-static void obsolete __P((char **));
-static void usage __P((void));
+static void obsolete(char **);
+static void usage(void);
 
 int
-main(argc, argv)
-	int argc;
-	char *argv[];
+main(int argc, char *argv[])
 {
 	struct stat sb;
 	FILE *fp;
-	long off;
+	off_t off;
 	enum STYLE style;
 	int ch, first;
 	char *p;
 
-	off = 0;
 	/*
 	 * Tail's options are weird.  First, -n10 is the same as -n-10, not
 	 * -n+10.  Second, the number options are 1 based and not offsets,
@@ -91,9 +90,9 @@ main(argc, argv)
 #define	ARG(units, forward, backward) {					\
 	if (style)							\
 		usage();						\
-	off = strtol(optarg, &p, 10) * (units);				\
+	off = strtoll(optarg, &p, 10) * (units);                        \
 	if (*p)								\
-		err(1, "illegal offset -- %s", optarg);			\
+		errx(1, "illegal offset -- %s", optarg);		\
 	switch(optarg[0]) {						\
 	case '+':							\
 		if (off)						\
@@ -113,8 +112,8 @@ main(argc, argv)
 	style = NOTSET;
 	while ((ch = getopt(argc, argv, "Fb:c:fn:r")) != -1)
 		switch(ch) {
-		case 'F':
-			fflag = 2;
+		case 'F':	/* -F is superset of (and implies) -f */
+			Fflag = fflag = 1;
 			break;
 		case 'b':
 			ARG(512, FBYTES, RBYTES);
@@ -139,7 +138,7 @@ main(argc, argv)
 	argv += optind;
 
 	if (fflag && argc > 1)
-		err(1, "-f and -F options only appropriate for a single file");
+		errx(1, "-f option only appropriate for a single file");
 
 	/*
 	 * If displaying in reverse, don't permit follow option, and convert
@@ -167,8 +166,9 @@ main(argc, argv)
 			style = RLINES;
 		}
 	}
+
 	if (*argv)
-		for (first = 1; (fname = *argv++) != NULL;) {
+		for (first = 1; (fname = *argv++);) {
 			if ((fp = fopen(fname, "r")) == NULL ||
 			    fstat(fileno(fp), &sb)) {
 				ierr();
@@ -215,18 +215,17 @@ main(argc, argv)
 
 /*
  * Convert the obsolete argument form into something that getopt can handle.
- * This means that anything of the form [+-][0-9][0-9]*[lbc][fr] that isn't
+ * This means that anything of the form [+-][0-9][0-9]*[lbc][Ffr] that isn't
  * the option argument for a -b, -c or -n option gets converted.
  */
 static void
-obsolete(argv)
-	char *argv[];
+obsolete(char *argv[])
 {
 	char *ap, *p, *t;
-	int len;
+	size_t len;
 	char *start;
 
-	while ((ap = *++argv) != NULL) {
+	while ((ap = *++argv)) {
 		/* Return if "--" or not an option of any form. */
 		if (ap[0] != '-') {
 			if (ap[0] != '+')
@@ -242,7 +241,7 @@ obsolete(argv)
 			/* Malloc space for dash, new option and argument. */
 			len = strlen(*argv);
 			if ((start = p = malloc(len + 3)) == NULL)
-				err(1, "%s", strerror(errno));
+				err(1, "malloc");
 			*p++ = '-';
 
 			/*
@@ -251,7 +250,7 @@ obsolete(argv)
 			 * output style characters.
 			 */
 			t = *argv + len - 1;
-			if (*t == 'f' || *t == 'r') {
+			if (*t == 'F' || *t == 'f' || *t == 'r') {
 				*p++ = *t;
 				*t-- = '\0';
 			}
@@ -272,7 +271,7 @@ obsolete(argv)
 				*p++ = 'n';
 				break;
 			default:
-				err(1, "illegal option -- %s", *argv);
+				errx(1, "illegal option -- %s", *argv);
 			}
 			*p++ = *argv[0];
 			(void)strcpy(p, ap);
@@ -290,6 +289,7 @@ obsolete(argv)
 				++argv;
 			/* FALLTHROUGH */
 		/* Options w/o arguments, continue with the next option. */
+		case 'F':
 		case 'f':
 		case 'r':
 			continue;
@@ -302,9 +302,9 @@ obsolete(argv)
 }
 
 static void
-usage()
+usage(void)
 {
 	(void)fprintf(stderr,
-	    "usage: tail [-f | -r] [-b # | -c # | -n #] [file ...]\n");
+	    "usage: tail [-F | -f | -r] [-b # | -c # | -n #] [file ...]\n");
 	exit(1);
 }

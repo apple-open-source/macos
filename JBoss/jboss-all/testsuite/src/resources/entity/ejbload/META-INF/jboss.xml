@@ -1,0 +1,26 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE jboss PUBLIC "-//JBoss//DTD JBOSS 3.0//EN" "http://www.jboss.org/j2ee/dtd/jboss_3_0.dtd">
+
+<jboss>
+   <enterprise-beans>
+      <entity>
+         <ejb-name>EJBLoadB</ejb-name>
+         <configuration-name>BMP B</configuration-name>
+      </entity>
+      <entity>
+         <ejb-name>EJBLoadC</ejb-name>
+         <configuration-name>BMP C</configuration-name>
+      </entity>
+   </enterprise-beans>
+
+   <container-configurations>
+      <container-configuration extends="Standard BMP EntityBean">
+         <container-name>BMP B</container-name>
+         <commit-option>B</commit-option>
+      </container-configuration>
+      <container-configuration extends="Standard BMP EntityBean">
+         <container-name>BMP C</container-name>
+         <commit-option>C</commit-option>
+      </container-configuration>
+   </container-configurations>
+</jboss>

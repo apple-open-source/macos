@@ -1,4 +1,4 @@
-/* $Header: /cvs/Darwin/src/live/tcsh/tcsh/sh.char.h,v 1.1.1.3 2001/06/28 23:10:50 bbraun Exp $ */
+/* $Header: /cvs/root/tcsh/tcsh/sh.char.h,v 1.1.1.4 2003/01/17 03:41:12 nicolai Exp $ */
 /*
  * sh.char.h: Table for spotting special characters quickly
  * 	      Makes for very obscure but efficient coding.
@@ -15,11 +15,7 @@
  * 2. Redistributions in binary form must reproduce the above copyright
  *    notice, this list of conditions and the following disclaimer in the
  *    documentation and/or other materials provided with the distribution.
- * 3. All advertising materials mentioning features or use of this software
- *    must display the following acknowledgement:
- *	This product includes software developed by the University of
- *	California, Berkeley and its contributors.
- * 4. Neither the name of the University nor the names of its contributors
+ * 3. Neither the name of the University nor the names of its contributors
  *    may be used to endorse or promote products derived from this software
  *    without specific prior written permission.
  *
@@ -58,6 +54,8 @@ extern short _enable_mbdisp;
 extern unsigned short _mbmap[];
 extern unsigned short _mbmap_euc[];
 extern unsigned short _mbmap_sjis[];
+extern unsigned short _mbmap_big5[];
+extern unsigned short _mbmap_utf8[];
 /* VARIABLE Check str */
 /* same compiler require #define even not define DSPMBYTE */
 #define _MB1	0x0001

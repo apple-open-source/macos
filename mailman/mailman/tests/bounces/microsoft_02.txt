@@ -1,0 +1,119 @@
+Precedence: bulk
+List-Help: <mailto:mailman-users-request@python.org?subject=help>
+List-Post: <mailto:mailman-users@python.org>
+List-Subscribe: <http://mail.python.org/mailman/listinfo/mailman-users>,
+	<mailto:mailman-users-request@python.org?subject=subscribe>
+List-Id: Mailman mailing list management users <mailman-users.python.org>
+List-Unsubscribe: <http://mail.python.org/mailman/listinfo/mailman-users>,
+	<mailto:mailman-users-request@python.org?subject=unsubscribe>
+List-Archive: <http://mail.python.org/pipermail/mailman-users/>
+From: System Administrator <postmaster@ball.com>
+Sender: mailman-users-owner@python.org
+To: mailman-users-admin@python.org
+Subject: Undeliverable: [Mailman-Users] Virus in ma mail ... these are the
+	 headers....
+Date: Fri, 18 Oct 2002 09:13:31 -0600
+X-Mailer: Internet Mail Service (5.5.2653.19)
+X-MS-Embedded-Report: 
+X-Spam-Status: No, hits=-5.0 required=5.0 tests=FROM_MAILER_DAEMON,MIME_NULL_BLOCK,ATTACH_RFC822
+X-Spam-Level: 
+X-BeenThere: mailman-users@python.org
+X-Mailman-Version: 2.0.13 (101270)
+
+This message is in MIME format. Since your mail reader does not understand
+this format, some or all of this message may not be legible.
+
+------_=_NextPart_000_01C276B8.EB5EB90E
+Content-Type: text/plain;
+	charset="iso-8859-1"
+
+Your message
+
+  To:      K12
+  Cc:      Mailman; RedHat Mail List
+  Subject: [Mailman-Users] Virus in ma mail ... these are the headers....
+  Sent:    Fri, 18 Oct 2002 09:25:07 -0600
+
+did not reach the following recipient(s):
+
+MDMOORE@BALL.COM on Fri, 18 Oct 2002 09:13:24 -0600
+    The recipient name is not recognized
+	The MTS-ID of the original message is: c=us;a=
+;p=ball;l=AEROMSG2021018151347W14KQ9
+    MSEXCH:IMS:BALL:AEROSPACE:AEROMSG2 0 (000C05A6) Unknown Recipient
+
+
+
+
+------_=_NextPart_000_01C276B8.EB5EB90E
+Content-Type: message/rfc822
+
+Message-ID: <NGBBLKFIDENNFHKFMGAIGEMNCJAA.badmangabriel@lycos.co.uk>
+From: Angel Gabriel <badmangabriel@lycos.co.uk>
+To: K12 <k12osn@redhat.com>
+Cc: Mailman <mailman-users@python.org>, RedHat Mail List
+	 <redhat-install-list@redhat.com>
+Subject: [Mailman-Users] Virus in ma mail ... these are the headers....
+Date: Fri, 18 Oct 2002 09:25:07 -0600
+MIME-Version: 1.0
+X-Mailer: Internet Mail Service (5.5.2653.19)
+X-MS-Embedded-Report: 
+List-Help: <mailto:mailman-users-request@python.org?subject=help>
+List-Subscribe: <http://mail.python.org/mailman/listinfo/mailman-users>,<mailto:mailman-users-request@python.org?subject=subscribe>
+List-Unsubscribe: <http://mail.python.org/mailman/listinfo/mailman-users>,<mailto:mailman-users-request@python.org?subject=unsubscribe>
+Content-Type: text/plain;
+	charset="iso-8859-1"
+
+This is a continuation of my viral problem.... I'm guessing that this person
+was either infected by my, or infected me.... but how do I notify them??
+These are the headers of one of the problem mails. Is there anything I can
+do?
+
+Return-Path: <friends@shakeit.net> 
+Received: from smtp.lycos.co.uk (croy-gw1.homechoice.co.uk [212.187.250.18])
+
+        by mailbox-8.st1.spray.net (Postfix) with SMTP id 7E1E3252DF 
+        for <badmangabriel@lycos.co.uk>; Fri, 18 Oct 2002 17:01:29 +0200
+(DST) 
+From: werfriends <friends@shakeit.net> 
+To: badmangabriel@lycos.co.uk 
+Subject: Bullshit Screensaver to ur friends !! 
+Date: Fri,18 Oct 2002 16:03:06 PM 
+X-Mailer: Microsoft Outlook Express 5.50.4133.2400 
+MIME-Version: 1.0 
+Content-Type: multipart/mixed; 
+        boundary=simqlgr 
+Message-Id: <20021018150129.7E1E3252DF@mailbox-8.st1.spray.net> 
+
+  
+
+***
+
+Not everyone is touched by an Angel......and those that are, never forget
+the experience.
+
+***
+
+If you want guest list for bare club nights.....
+http://raw-talent.hopto.org/mailman/clubnights
+<http://raw-talent.hopto.org/mailman/clubnights> 
+
+***
+
+Can you sing, dance, MC, DJ, do you have talent? Send an email to
+sign-me@raw-talent.hopto.org
+
+***
+
+
+---
+Outgoing mail is certified Virus Free.
+Checked by AVG anti-virus system ( http://www.grisoft.com
+<http://www.grisoft.com> ).
+Version: 6.0.394 / Virus Database: 224 - Release Date: 10/3/02
+  
+
+
+------_=_NextPart_000_01C276B8.EB5EB90E--
+
+

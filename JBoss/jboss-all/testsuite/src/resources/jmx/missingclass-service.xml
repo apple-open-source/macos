@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<!-- 
+   | missingclass-service.xml file, deploying an mbean whose class is missing.
+ -->
+
+<server>
+  
+  <mbean code="org.jboss.test.jmx.missingclass.MissingClassTest" name="jboss.test:name=missingclasstest">
+  </mbean>
+
+</server>

@@ -25,5 +25,4 @@
 #include "SYS.h"
 
 SYSCALL(sem_wait, 1)
-	blr
 

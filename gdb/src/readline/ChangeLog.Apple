@@ -1,0 +1,25 @@
+2002-12-14  Klee Dienes  <kdienes@apple.com>
+
+	* support/shobj-conf: Update Darwin settings (link against
+	ncurses, use cc instead of /usr/bin/libtool).
+
+2002-11-18  Klee Dienes  <kdienes@apple.com>
+
+	* Makefile.in (SHOBJ_CFLAGS): Add (provided by Autoconf).
+	(LOCAL_CFLAGS): Revert to FSF definition.
+	(CCFLAGS): Add SHOBJ_CFLAGS.
+	(all): Remove extra 'stamp-framework'.
+	* macro.c: Remove malloc/xmalloc diffs.
+	* nls.c: Ditto.
+	* tilde.c: Ditto.
+	* tilde.h: Ditto.
+	* terminal.c: Conditionalize shutoff of PC, *BC, *UP on __APPLE__,
+	instead of hard-coding to zero.
+	* doc/texi2html: Revert to FSF sources.
+	* support/shobj-conf: Add Darwin shlib support.
+	
+2002-10-17  Klee Dienes  <kdienes@apple.com>
+
+	* rltty.c (prepare_terminal_settings): Disable the terminal
+	setting for VDISABLE, as it prevents GDB from seeing 'C-o', which
+	it wants to bind to gdb_rl_operate_and_get_next.

@@ -83,10 +83,23 @@ endif %?TOPDIR_P%
 ## Makefile depends on config.status.
 
 if %?TOPDIR_P%
+am__CONFIG_DISTCLEAN_FILES = config.status config.cache config.log \
+ configure.lineno
 distclean:
-	-rm -f config.status config.cache config.log
+	-rm -f $(am__CONFIG_DISTCLEAN_FILES)
 
 ## Note: you might think we should remove Makefile.in, configure, or
 ## aclocal.m4 here in a maintainer-clean rule.  However, the GNU
 ## Coding Standards explicitly prohibit this.
+
+maintainer-clean:
+	-rm -f $(am__CONFIG_DISTCLEAN_FILES)
+## autom4te.cache is created by Autoconf; the only valid target to
+## remove it is maintainer-clean, not distclean.
+## If you have an autom4te.cache that cause distcheck to fail, then
+## it is good news: you finally discovered that autoconf and/or
+## autoheader is needed to use your tarball, which is wrong.
+	-rm -rf autom4te.cache
+
+
 endif %?TOPDIR_P%

@@ -32,6 +32,12 @@
 #include <netdb.h>
 #endif
 
+#ifdef HAVE_SESSIONCREATE
+#include <Security/Authorization.h>
+#include <Security/AuthorizationTags.h>
+#include <Security/AuthSession.h>
+#endif
+
 #include "str.h"
 #include "child.h"
 #include "sconf.h"
@@ -89,8 +95,8 @@ void exec_server( const struct server *serp )
 
 
 #ifdef RLIMIT_NOFILE
-   rl.rlim_cur = ps.ros.orig_max_descriptors ;
-   rl.rlim_max = ps.ros.max_descriptors ;
+   rl.rlim_max = ps.ros.orig_max_descriptors ;
+   rl.rlim_cur = ps.ros.max_descriptors ;
    (void) setrlimit( RLIMIT_NOFILE, &rl ) ;
 #endif
 #ifdef RLIMIT_AS
@@ -134,7 +140,7 @@ void exec_server( const struct server *serp )
    }
 #endif
 
-   (void) close( descriptor ) ;
+   (void) Sclose( descriptor ) ;
 
 #ifndef solaris
    no_control_tty() ;
@@ -190,7 +196,7 @@ static void set_credentials( const struct service_config *scp )
    if ( SC_SPECIFIED( scp, A_GROUP ) || SC_SPECIFIED( scp, A_USER ) ) {
       if ( ps.ros.is_superuser )
       {
-         int gid = SC_GETGID( scp ) ;
+         gid_t gid = SC_GETGID( scp ) ;
 
          if ( setgid( gid ) == -1 )
          {
@@ -223,6 +229,7 @@ static void set_credentials( const struct service_config *scp )
                   SC_UID( scp ), SC_ID( scp ) ) ;
                _exit( 1 ) ;
             }
+            str_fill( pwd->pw_passwd, ' ' );
 
             if ( initgroups( pwd->pw_name, pwd->pw_gid ) == -1 )
             {
@@ -270,12 +277,11 @@ void child_process( struct server *serp )
    connection_s            *cp  = SERVER_CONNECTION( serp ) ;
    struct service_config   *scp = SVC_CONF( sp ) ;
    const char              *func = "child_process" ;
-   int                      i;
 
    signal_default_state();
 
-   if ((signals_pending[0] >= 0 && close(signals_pending[0])) ||
-       (signals_pending[1] >= 0 && close(signals_pending[1])))
+   if ((signals_pending[0] >= 0 && Sclose(signals_pending[0])) ||
+       (signals_pending[1] >= 0 && Sclose(signals_pending[1])))
    {
       msg(LOG_ERR, func, "Failed to close the signal pipe: %m");
       _exit(1);
@@ -283,15 +289,9 @@ void child_process( struct server *serp )
    signals_pending[0] = -1;
    signals_pending[1] = -1;
 
-   for( i = 0; i < pset_count( SERVICES( ps ) ); i++ ) {
-      struct service *tmpser = pset_pointer( SERVICES( ps ), i );
-      if( SVC_FD( tmpser ) != SVC_FD( sp ) ) {
-          svc_release( tmpser );
-      }
-   }
-   close(0);
-   close(1);
-   close(2);
+   Sclose(0);
+   Sclose(1);
+   Sclose(2);
 
 
 #ifdef DEBUG_SERVER
@@ -333,6 +333,13 @@ void child_process( struct server *serp )
       }
    }
 
+#ifdef HAVE_SESSIONCREATE
+   if ( scp->sc_sessioncreate == YES ) 
+   {
+      if ( SessionCreate(0, sessionHasTTY|sessionIsRemote) != noErr )
+         svc_logprint( sp, "SessionCreate", "SessionCreate() failed!" );
+   }
+#endif
 
    /* this is where the server gets executed  -bbraun */
    if ( ! SC_IS_INTERNAL( scp ) )

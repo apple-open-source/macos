@@ -1,0 +1,26 @@
+/System/Library/CoreServices/Finder.app
+/Applications/iChat.app
+/Applications/iSync.app
+/Applications/Mail.app
+/Applications/Safari.app
+/Applications/Utilities/AirPort Admin Utility.app
+/Applications/Utilities/Keychain Access.app
+/Applications/Utilities/Keychain Access.app/Contents/Resources/Keychain Agent
+/System/Library/CoreServices/loginwindow.app
+/System/Library/CoreServices/MirrorAgent.app
+/System/Library/CoreServices/SecurityAgent.app
+/System/Library/Filesystems/ftp.fs/mount_ftp
+/System/Library/Frameworks/ApplicationServices.framework/Versions/A/Frameworks/AE.framework/Versions/A/Support/AEServer
+/System/Library/PrivateFrameworks/Admin.framework/Versions/A/Resources/writeconfig
+/System/Library/PrivateFrameworks/InstantMessage.framework/iChatAgent.app
+/System/Library/ScriptingAdditions/Keychain Scripting.app
+/sbin/mount_smbfs
+/sbin/mount_webdav
+/usr/bin/certtool
+/usr/bin/crlrefresh
+/usr/bin/security
+/usr/bin/smbutil
+/usr/local/bin/cmsutil
+/usr/sbin/pppd
+/usr/sbin/racoon
+/usr/sbin/systemkeychain

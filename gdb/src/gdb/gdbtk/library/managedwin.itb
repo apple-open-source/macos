@@ -15,7 +15,7 @@
 # ------------------------------------------------------------
 #  PUBLIC METHOD:  constructor
 # ------------------------------------------------------------
-body ManagedWin::constructor {args} {
+itcl::body ManagedWin::constructor {args} {
   #debug "$this args=$args"
   set _top [winfo toplevel $itk_interior]
 }
@@ -23,7 +23,7 @@ body ManagedWin::constructor {args} {
 # ------------------------------------------------------------
 #  PUBLIC METHOD: destructor
 # ------------------------------------------------------------
-body ManagedWin::destructor {} {
+itcl::body ManagedWin::destructor {} {
   # If no toplevels remain, quit.  However, check the quit_if_last
   # flag since we might be doing something like displaying a 
   # splash screen at startup...
@@ -39,7 +39,7 @@ body ManagedWin::destructor {} {
 #  PUBLIC METHOD:  window_name - Set the name of the window
 #   (and optionally its icon's name).
 # ------------------------------------------------------------
-body ManagedWin::window_name {wname {iname ""}} {
+itcl::body ManagedWin::window_name {wname {iname ""}} {
   wm title $_top $wname
   if {$iname != ""} {
     wm iconname $_top $iname
@@ -53,14 +53,14 @@ body ManagedWin::window_name {wname {iname ""}} {
 #   method.  It returns a command that can be used to recreate
 #   this particular window.  
 # ------------------------------------------------------------
-body ManagedWin::pickle {} {
+itcl::body ManagedWin::pickle {} {
   return [list ManagedWin::open [namespace tail [info class]]]
 }
 
 # ------------------------------------------------------------
 #  PUBLIC METHOD:  reveal
 # ------------------------------------------------------------
-body ManagedWin::reveal {} {
+itcl::body ManagedWin::reveal {} {
   # Do this update to flush all changes before deiconifying the window.
   update idletasks
   
@@ -94,7 +94,7 @@ body ManagedWin::reveal {} {
 # ------------------------------------------------------------
 #  PUBLIC PROC:  restart
 # ------------------------------------------------------------
-body ManagedWin::restart {} {
+itcl::body ManagedWin::restart {} {
   # This is needed in case we've called "gdbtk_busy" before the restart.
   # This will configure the stop/run button as necessary
   after idle gdbtk_idle
@@ -112,11 +112,10 @@ body ManagedWin::restart {} {
 #   the preferences file, so they can be restored at startup.
 #   FIXME: Currently assumes only ONE window per type...
 # ------------------------------------------------------------------
-body ManagedWin::shutdown {} {
+itcl::body ManagedWin::shutdown {} {
   set activeWins {}
   foreach win [itcl_info objects -isa ManagedWin] {
-    if {![$win isa ModalDialog] && ![$win isa DebugWin] &&
-	![$win isa DebugWinDOpts] && ![$win isa PluginWindow]} {
+    if {![$win isa ModalDialog] && ![$win _ignore_on_save]} {
       set g [wm geometry [winfo toplevel [namespace tail $win]]]
       pref setd gdb/geometry/[namespace tail $win] $g
       lappend activeWins [$win pickle]
@@ -130,7 +129,7 @@ body ManagedWin::shutdown {} {
 #   opened at shutdown.
 #   FIXME: Currently assumes only ONE window per type...
 # ------------------------------------------------------------------
-body ManagedWin::startup {} {
+itcl::body ManagedWin::startup {} {
   debug "Got active list [pref get gdb/window/active]"
 
   foreach cmd [pref get gdb/window/active] {
@@ -151,7 +150,7 @@ body ManagedWin::startup {} {
 # ------------------------------------------------------------
 #  PUBLIC PROC:  open_dlg
 # ------------------------------------------------------------
-body ManagedWin::open_dlg {class args} {
+itcl::body ManagedWin::open_dlg {class args} {
   
   set newwin [eval _open $class $args]
   if {$newwin != ""} {
@@ -163,7 +162,7 @@ body ManagedWin::open_dlg {class args} {
 # ------------------------------------------------------------
 #  PUBLIC PROC:  open
 # ------------------------------------------------------------
-body ManagedWin::open {class args} {
+itcl::body ManagedWin::open {class args} {
   
   set newwin [eval _open $class $args]
   if {$newwin != ""} {
@@ -181,7 +180,7 @@ body ManagedWin::open {class args} {
 # ------------------------------------------------------------
 #  PRIVATE PROC:  _open
 # ------------------------------------------------------------
-body ManagedWin::_open { class args } {
+itcl::body ManagedWin::_open { class args } {
   debug "$class $args"
   
   parse_args force
@@ -203,7 +202,7 @@ body ManagedWin::_open { class args } {
 # ------------------------------------------------------------
 #  PRIVATE PROC:  _create
 # ------------------------------------------------------------
-body ManagedWin::_create { class args } {
+itcl::body ManagedWin::_create { class args } {
   
   set win [string tolower $class]
   debug "win=$win args=$args"
@@ -328,7 +327,7 @@ body ManagedWin::_create { class args } {
 # ------------------------------------------------------------
 #  PUBLIC PROC:  find
 # ------------------------------------------------------------
-body ManagedWin::find { win } {
+itcl::body ManagedWin::find { win } {
   debug "$win"
   set res ""
   foreach obj [itcl_info objects -isa ManagedWin] {
@@ -342,7 +341,7 @@ body ManagedWin::find { win } {
 # ------------------------------------------------------------
 #  PUBLIC PROC:  init
 # ------------------------------------------------------------
-body ManagedWin::init {} {
+itcl::body ManagedWin::init {} {
   wm withdraw .
   set _screenheight [winfo screenheight .]
   set _screenwidth [winfo screenwidth .]
@@ -351,14 +350,14 @@ body ManagedWin::init {} {
 # ------------------------------------------------------------
 #  PUBLIC METHOD:  destroy_toplevel
 # ------------------------------------------------------------
-body ManagedWin::destroy_toplevel {} {
+itcl::body ManagedWin::destroy_toplevel {} {
   after idle "update idletasks;destroy $_top"
 }
 
 # ------------------------------------------------------------
 #  PROTECTED METHOD:  _freeze_me
 # ------------------------------------------------------------
-body ManagedWin::_freeze_me {} {
+itcl::body ManagedWin::_freeze_me {} {
   $_top configure -cursor watch
   ::update idletasks
 }
@@ -366,7 +365,7 @@ body ManagedWin::_freeze_me {} {
 # ------------------------------------------------------------
 #  PROTECTED METHOD: _thaw_me
 # ------------------------------------------------------------
-body ManagedWin::_thaw_me {} {
+itcl::body ManagedWin::_thaw_me {} {
 
   $_top configure -cursor {}
   ::update idletasks
@@ -376,7 +375,7 @@ body ManagedWin::_thaw_me {} {
 #  PRIVATE PROC: _make_icon_window - create a small window with an
 #   icon in it for use by certain Unix window managers.
 # ------------------------------------------------------------------
-body ManagedWin::_make_icon_window {name {file "gdbtk_icon"}} {
+itcl::body ManagedWin::_make_icon_window {name {file "gdbtk_icon"}} {
   if {![winfo exists $name]} {
     toplevel $name
     label $name.im -image \

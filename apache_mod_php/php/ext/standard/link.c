@@ -1,8 +1,8 @@
 /*
    +----------------------------------------------------------------------+
-   | PHP version 4.0                                                      |
+   | PHP Version 4                                                        |
    +----------------------------------------------------------------------+
-   | Copyright (c) 1997-2001 The PHP Group                                |
+   | Copyright (c) 1997-2003 The PHP Group                                |
    +----------------------------------------------------------------------+
    | This source file is subject to version 2.02 of the PHP license,      |
    | that is bundled with this package in the file LICENSE, and is        |
@@ -12,11 +12,11 @@
    | obtain it through the world-wide-web, please send a note to          |
    | license@php.net so we can mail you a copy immediately.               |
    +----------------------------------------------------------------------+
-   | Authors:                                                             |
+   | Author:                                                              |
    +----------------------------------------------------------------------+
  */
 
-/* $Id: link.c,v 1.1.1.5 2001/12/14 22:13:23 zarzycki Exp $ */
+/* $Id: link.c,v 1.1.1.8 2003/07/18 18:07:43 zarzycki Exp $ */
 
 #include "php.h"
 #include "php_filestat.h"
@@ -33,6 +33,8 @@
 #if HAVE_PWD_H
 #ifdef PHP_WIN32
 #include "win32/pwd.h"
+#elif defined(NETWARE)
+#include "netware/pwd.h"
 #else
 #include <pwd.h>
 #endif
@@ -54,8 +56,8 @@
    Return the target of a symbolic link */
 PHP_FUNCTION(readlink)
 {
-	pval **filename;
-	char buff[256];
+	zval **filename;
+	char buff[MAXPATHLEN];
 	int ret;
 
 	if (ZEND_NUM_ARGS() != 1 || zend_get_parameters_ex(1, &filename) == FAILURE) {
@@ -63,13 +65,15 @@ PHP_FUNCTION(readlink)
 	}
 	convert_to_string_ex(filename);
 
-	ret = readlink((*filename)->value.str.val, buff, 255);
+	ret = readlink(Z_STRVAL_PP(filename), buff, MAXPATHLEN-1);
+
 	if (ret == -1) {
-		php_error(E_WARNING, "readlink failed (%s)", strerror(errno));
+		php_error_docref(NULL TSRMLS_CC, E_WARNING, "%s", strerror(errno));
 		RETURN_FALSE;
 	}
 	/* Append NULL to the end of the string */
 	buff[ret] = '\0';
+
 	RETURN_STRING(buff, 1);
 }
 /* }}} */
@@ -78,8 +82,12 @@ PHP_FUNCTION(readlink)
    Returns the st_dev field of the UNIX C stat structure describing the link */
 PHP_FUNCTION(linkinfo)
 {
-	pval **filename;
+	zval **filename;
+#if defined(NETWARE) && defined(CLIB_STAT_PATCH)
+	struct stat_libc sb;
+#else
 	struct stat sb;
+#endif
 	int ret;
 
 	if (ZEND_NUM_ARGS() != 1 || zend_get_parameters_ex(1, &filename) == FAILURE) {
@@ -87,11 +95,12 @@ PHP_FUNCTION(linkinfo)
 	}
 	convert_to_string_ex(filename);
 
-	ret = VCWD_LSTAT((*filename)->value.str.val, &sb);
+	ret = VCWD_LSTAT(Z_STRVAL_PP(filename), &sb);
 	if (ret == -1) {
-		php_error(E_WARNING, "LinkInfo failed (%s)", strerror(errno));
+		php_error_docref(NULL TSRMLS_CC, E_WARNING, "%s", strerror(errno));
 		RETURN_LONG(-1L);
 	}
+
 	RETURN_LONG((long) sb.st_dev);
 }
 /* }}} */
@@ -100,8 +109,10 @@ PHP_FUNCTION(linkinfo)
    Create a symbolic link */
 PHP_FUNCTION(symlink)
 {
-	pval **topath, **frompath;
+	zval **topath, **frompath;
 	int ret;
+	char source_p[MAXPATHLEN];
+	char dest_p[MAXPATHLEN];
 
 	if (ZEND_NUM_ARGS() != 2 || zend_get_parameters_ex(2, &topath, &frompath) == FAILURE) {
 		WRONG_PARAM_COUNT;
@@ -109,19 +120,42 @@ PHP_FUNCTION(symlink)
 	convert_to_string_ex(topath);
 	convert_to_string_ex(frompath);
 
-	if (PG(safe_mode) && !php_checkuid((*topath)->value.str.val, NULL, CHECKUID_CHECK_FILE_AND_DIR)) {
-		RETURN_FALSE;
+	expand_filepath(Z_STRVAL_PP(frompath), source_p TSRMLS_CC);
+	expand_filepath(Z_STRVAL_PP(topath), dest_p TSRMLS_CC);
+
+	if (php_stream_locate_url_wrapper(source_p, NULL, STREAM_LOCATE_WRAPPERS_ONLY TSRMLS_CC) ||
+		php_stream_locate_url_wrapper(dest_p, NULL, STREAM_LOCATE_WRAPPERS_ONLY TSRMLS_CC) ) 
+	{
+		php_error_docref(NULL TSRMLS_CC, E_WARNING, "Unable to symlink to a URL");
+		RETURN_FALSE;	
 	}
-	if (!strncasecmp((*topath)->value.str.val, "http://", 7) || !strncasecmp((*topath)->value.str.val, "ftp://", 6)) {
-		php_error(E_WARNING, "Unable to symlink to a URL");
+
+	if (PG(safe_mode) && !php_checkuid(dest_p, NULL, CHECKUID_CHECK_FILE_AND_DIR)) {
 		RETURN_FALSE;
 	}
 
-	ret = symlink((*topath)->value.str.val, (*frompath)->value.str.val);
-	if (ret == -1) {
-		php_error(E_WARNING, "SymLink failed (%s)", strerror(errno));
+	if (PG(safe_mode) && !php_checkuid(source_p, NULL, CHECKUID_CHECK_FILE_AND_DIR)) {
 		RETURN_FALSE;
 	}
+
+	if (php_check_open_basedir(dest_p TSRMLS_CC)) {
+		RETURN_FALSE;
+	}
+
+	if (php_check_open_basedir(source_p TSRMLS_CC)) {
+		RETURN_FALSE;
+	}
+
+#ifndef ZTS
+	ret = symlink(Z_STRVAL_PP(topath), Z_STRVAL_PP(frompath));
+#else 
+	ret = symlink(dest_p, source_p);
+#endif	
+	if (ret == -1) {
+		php_error_docref(NULL TSRMLS_CC, E_WARNING, "%s", strerror(errno));
+		RETURN_FALSE;
+	}
+
 	RETURN_TRUE;
 }
 /* }}} */
@@ -130,8 +164,10 @@ PHP_FUNCTION(symlink)
    Create a hard link */
 PHP_FUNCTION(link)
 {
-	pval **topath, **frompath;
+	zval **topath, **frompath;
 	int ret;
+	char source_p[MAXPATHLEN];
+	char dest_p[MAXPATHLEN];
 
 	if (ZEND_NUM_ARGS() != 2 || zend_get_parameters_ex(2, &topath, &frompath) == FAILURE) {
 		WRONG_PARAM_COUNT;
@@ -139,19 +175,42 @@ PHP_FUNCTION(link)
 	convert_to_string_ex(topath);
 	convert_to_string_ex(frompath);
 
-	if (PG(safe_mode) && !php_checkuid((*topath)->value.str.val, NULL, CHECKUID_CHECK_FILE_AND_DIR)) {
-		RETURN_FALSE;
+	expand_filepath(Z_STRVAL_PP(frompath), source_p TSRMLS_CC);
+	expand_filepath(Z_STRVAL_PP(topath), dest_p TSRMLS_CC);
+
+	if (php_stream_locate_url_wrapper(source_p, NULL, STREAM_LOCATE_WRAPPERS_ONLY TSRMLS_CC) ||
+		php_stream_locate_url_wrapper(dest_p, NULL, STREAM_LOCATE_WRAPPERS_ONLY TSRMLS_CC) ) 
+	{
+		php_error_docref(NULL TSRMLS_CC, E_WARNING, "Unable to link to a URL");
+		RETURN_FALSE;	
 	}
-	if (!strncasecmp((*topath)->value.str.val, "http://", 7) || !strncasecmp((*topath)->value.str.val, "ftp://", 6)) {
-		php_error(E_WARNING, "Unable to link to a URL");
+
+	if (PG(safe_mode) && !php_checkuid(dest_p, NULL, CHECKUID_CHECK_FILE_AND_DIR)) {
 		RETURN_FALSE;
 	}
 
-	ret = link((*topath)->value.str.val, (*frompath)->value.str.val);
-	if (ret == -1) {
-		php_error(E_WARNING, "Link failed (%s)", strerror(errno));
+	if (PG(safe_mode) && !php_checkuid(source_p, NULL, CHECKUID_CHECK_FILE_AND_DIR)) {
 		RETURN_FALSE;
 	}
+
+	if (php_check_open_basedir(dest_p TSRMLS_CC)) {
+		RETURN_FALSE;
+	}
+
+	if (php_check_open_basedir(source_p TSRMLS_CC)) {
+		RETURN_FALSE;
+	}
+
+#ifndef ZTS
+	ret = link(Z_STRVAL_PP(topath), Z_STRVAL_PP(frompath));
+#else 
+	ret = link(dest_p, source_p);	
+#endif	
+	if (ret == -1) {
+		php_error_docref(NULL TSRMLS_CC, E_WARNING, "%s", strerror(errno));
+		RETURN_FALSE;
+	}
+
 	RETURN_TRUE;
 }
 /* }}} */
@@ -163,6 +222,6 @@ PHP_FUNCTION(link)
  * tab-width: 4
  * c-basic-offset: 4
  * End:
- * vim600: sw=4 ts=4 tw=78 fdm=marker
- * vim<600: sw=4 ts=4 tw=78
+ * vim600: noet sw=4 ts=4 fdm=marker
+ * vim<600: noet sw=4 ts=4
  */

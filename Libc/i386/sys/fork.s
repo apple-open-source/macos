@@ -118,7 +118,8 @@ LC0:
 	addl	$4,%esp		// deallocate the space for the address param
 	call	*%eax		// call __dyld_fork_child indirectly
 #endif
-	CALL_EXTERN(_fork_mach_init)
+	xorl	%eax, %eax
+	REG_TO_EXTERN(%eax, __current_pid)
 	CALL_EXTERN(__cthread_fork_child)
 #if	defined(__DYNAMIC__)
 .cstring

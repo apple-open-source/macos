@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="ISO-8859-1"?>
+
+<application>
+  <display-name>Web Service Store</display-name>
+
+  <module>
+    <ejb>store.jar</ejb>
+  </module>
+
+  <module>
+    <java>store.wsr</java>
+  </module>
+
+</application>
+

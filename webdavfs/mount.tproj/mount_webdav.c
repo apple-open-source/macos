@@ -57,6 +57,7 @@ static char sccsid[] = "@(#)mount_webdav.c	8.6 (Berkeley) 4/26/95";
 #include <sys/mount.h>
 #include <sys/sysctl.h>
 #include <sys/resource.h>
+#include <sys/mount.h>
 
 #include <err.h>
 #include <errno.h>
@@ -93,18 +94,13 @@ static char sccsid[] = "@(#)mount_webdav.c	8.6 (Berkeley) 4/26/95";
 #include "webdav_inode.h"
 #include "../webdav_fs.kextproj/webdav_fs.kmodproj/webdav.h"
 
-/* to keep builds working with older errno.h where ECANCELED wasn't defined */
-#ifndef ECANCELED
-	#define	ECANCELED	89		/* Operation canceled */
-#endif
-
 /*****************************************************************************/
 
 /* Local Definitions */
 
 struct mntopt mopts[] = {
 	MOPT_STDOPTS,
-	{ NULL }
+	{ NULL, 0, 0, 0 }
 };
 
 struct file_array_element gfile_array[WEBDAV_MAX_OPEN_FILES];
@@ -121,7 +117,7 @@ FILE * logfile = 0;
 pthread_mutex_t garray_lock;
 pthread_mutex_t ginode_lock;
 
-int gtimeout_val;
+unsigned int gtimeout_val;
 char * gtimeout_string;
 webdav_memcache_header_t gmemcache_header;
 webdav_file_record_t * ginode_hashtbl[WEBDAV_FILE_RECORD_HASH_BUCKETS];
@@ -142,32 +138,43 @@ char *dest_server = NULL,
 	*proxy_server = NULL,
 	*http_hostname = NULL; 		/* name of the host we're sending packets to;
 									will be set to dest_server or proxy_server */
+char dest_path[MAXPATHLEN + 1];
+
 struct sockaddr_in http_sin;	/* corresponds to http_hostname */
 int dest_port = HTTP_PORT, proxy_port = HTTP_PORT, http_port = HTTP_PORT;
 
 char *append_to_file = NULL;  /* IANA character set string to append to file 
 								 names, e.g. "?charset=x-mac-japanese" */
 
-int mygetvfsbyname __P((const char *, struct vfsconf *));
-
 mach_port_t diskArbitrationPort;
+int diskarb_inited = 0;
 
-int webdav_first_read_len;	/* bytes.  Amount to download at open so first read at offset 0 doesn't stall */
+char mntfromname[MNAMELEN];
+
+off_t webdav_first_read_len;	/* bytes.  Amount to download at open so first read at offset 0 doesn't stall */
 
 char *gUserAgentHeader = NULL;	/* The User-Agent request-header field */
 
+int gWakeupFDs[2] = { -1, -1 };
+
+int webdavfs_debug = 0;
+
+uid_t process_uid = -1;
+
+int gSuppressAllUI = 0;
+
 /*****************************************************************************/
 
-static void usage()
+static void usage(void)
 {
 	(void)fprintf(stderr,
 		"usage: mount_webdav [-o options] dav-enabled-uri mount-point\n");
-	exit(1);
+	exit(EXIT_FAILURE);
 }
 
 /*****************************************************************************/
 
-static void stop_proxy_update()
+static void stop_proxy_update(void)
 {
 	/* *** close socket on which webdav received 
 		proxy configuration update notifications *** */
@@ -175,11 +182,18 @@ static void stop_proxy_update()
 
 /*****************************************************************************/
 
-static int webdav_unmount(mntpt)
-	char *mntpt;
+/*
+ * webdav_force_unmount
+ *
+ * webdav_force_unmount is called from our select loop when the mount_webdav
+ * process receives a signal, or hits some unrecoverable condition which
+ * requires a force unmount.
+ */
+static void webdav_force_unmount(char *mntpt)
 {
-	int pid;
+	int pid, terminated_pid;
 	int result = -1;
+	union wait status;
 
 	pid = fork();
 	if (pid == 0)
@@ -192,80 +206,71 @@ static int webdav_unmount(mntpt)
 
 	if (pid == -1)
 	{
-		result = errno;
 		goto Return;
 	}
 
-	/* assume success.  We can't wait for the child process because waiting
-	 * will suspend us making us unable to handle the few system calls the
-	 * unmount process will do, thus causing a hang.
-	 */
-	result = 0;
+	/* wait for completion here */
+	while ( (terminated_pid = wait4(pid, (int *)&status, 0, NULL)) < 0 )
+	{
+		/* retry if EINTR, else break out with error */
+		if ( errno != EINTR )
+		{
+			break;
+		}
+	}
 
 Return:
+	
+	/* execution will not reach this point unless umount fails */
+	
+	if (errno != 0 )
+	{
+		syslog(LOG_ERR, "webdav_force_unmount: %s", strerror(errno));
+	}
 
 	stop_proxy_update();
 
-	return result;
+	if (diskarb_inited)
+	{
+		/* Tell AutoDiskMount to send notifications if it needs to */
+		(void) DiskArbRefresh_auto();
+	}
+	
+	exit(EXIT_FAILURE);
 }
 
 /*****************************************************************************/
 
-static void sighdlr(sig)
-	int sig;
+/*
+ * webdav_kill lets the select loop know to call webdav_force_unmount by feeding
+ * the gWakeupFDs pipe. This is the signal handler for signals that should
+ * terminate us.
+ */
+void webdav_kill(int message)
 {
-	if (sig == SIGHUP)
+	/* if there's a read end of the pipe*/
+	if (gWakeupFDs[0] != -1)
 	{
-		if (logfile == 0)
+		/* if there's a write end of the  pipe */
+		if (gWakeupFDs[1] != -1)
 		{
-			logfile = fopen("/tmp/webdavlog", "a");
+			/* write the message */
+			(void)write(gWakeupFDs[1], &message, sizeof(int));
 		}
-		else
-		{
-			(void)fclose(logfile);
-			(void)fflush(logfile);
-			logfile = 0;
-		}
+		/* else we are already in the process of force unmounting */
 	}
 	else
 	{
-		/* disable all other signals so that more signals don't try to unmount */
-
-		signal(SIGUSR1, SIG_IGN);
-		signal(SIGUSR2, SIG_IGN);
-		signal(SIGHUP, SIG_IGN);
-		signal(SIGINT, SIG_IGN);
-		signal(SIGQUIT, SIG_IGN);
-		signal(SIGILL, SIG_IGN);
-		signal(SIGTRAP, SIG_IGN);
-		signal(SIGABRT, SIG_IGN);
-		signal(SIGEMT, SIG_IGN);
-		signal(SIGFPE, SIG_IGN);
-		signal(SIGBUS, SIG_IGN);
-		signal(SIGSEGV, SIG_IGN);
-		signal(SIGSYS, SIG_IGN);
-		signal(SIGALRM, SIG_IGN);
-		signal(SIGTERM, SIG_IGN);
-		signal(SIGTSTP, SIG_IGN);
-		signal(SIGTTIN, SIG_IGN);
-		signal(SIGTTOU, SIG_IGN);
-		signal(SIGXCPU, SIG_IGN);
-		signal(SIGXFSZ, SIG_IGN);
-		signal(SIGVTALRM, SIG_IGN);
-		signal(SIGPROF, SIG_IGN);
-
-		syslog(LOG_CRIT, "mount_webdav recieved signal: %d. Unmounting %s", sig, gmountpt);
-		(void *)webdav_unmount(gmountpt);
+		/* there's no read end so just exit */
+		exit(EXIT_FAILURE);
 	}
-
-	return;
 }
 
 /*****************************************************************************/
 
-static int attempt_webdav_load()
+static int attempt_webdav_load(void)
 {
-	int pid;
+	int pid, terminated_pid;
 	int result = -1;
 	union wait status;
 
@@ -273,6 +278,7 @@ static int attempt_webdav_load()
 	if (pid == 0)
 	{
 		result = execl(PRIVATE_LOAD_COMMAND, PRIVATE_LOAD_COMMAND, NULL);
+		
 		/* We can only get here if the exec failed */
 		goto Return;
 	}
@@ -284,53 +290,144 @@ static int attempt_webdav_load()
 	}
 
 	/* Success! */
-	if ((wait4(pid, (int *) & status, 0, NULL) == pid) && (WIFEXITED(status)))
+	while ( (terminated_pid = wait4(pid, (int *)&status, 0, NULL)) < 0 )
 	{
-		result = status.w_retcode;
+		/* retry if EINTR, else break out with error */
+		if ( errno != EINTR )
+		{
+			break;
+		}
+    }
+
+    if ( (terminated_pid == pid) && (WIFEXITED(status)) )
+	{
+		result = WEXITSTATUS(status);
 	}
 	else
 	{
 		result = -1;
-	}
+    }
 
 Return:
+	
+	if ( result != 0 )
+	{
+		syslog(LOG_ERR, "attempt_webdav_load: %s", strerror(errno));
+	}
 	
 	return result;
 }
 
 /*****************************************************************************/
 
-int resolve_http_hostaddr()
+/* XXX This should really just be using getaddrinfo() since it knows how to
+ * deal with hostnames and address strings. In addition, it knows how to deal
+ * with IPv6 addresses.
+ */
+int resolve_http_hostaddr(void)
 {
-	memset(&http_sin, 0, sizeof sin);
+	memset(&http_sin, 0, sizeof(http_sin));
 	http_sin.sin_family = AF_INET;
-	http_sin.sin_len = sizeof sin;
+	http_sin.sin_len = sizeof(http_sin);
 	http_sin.sin_port = htons(http_port);
-
-	if (inet_aton(http_hostname, &http_sin.sin_addr) == 0)
+	int result;
+	
+	result = inet_aton(http_hostname, &http_sin.sin_addr);
+	if (result == 1)
 	{
+		/* the hostname was a IPv4 presentation format address - use it */
+		result = 0;
+	}
+	else
+	{
+		/* the hostname was not a IPv4 presentation format address - try to resolve the name */
 		struct hostent *hp;
 
 		/* XXX - do timeouts for name resolution? */
 		hp = gethostbyname(http_hostname);
 		if (hp == 0)
 		{
-#if (defined(DEBUG) || defined(WEBDAV_TRACE) || defined(WEBDAV_ERROR))
-			fprintf(stderr, "resolve_http_hostaddr resolving %s\n", http_hostname);
-#endif
-			warnx("`%s': cannot resolve: %s", http_hostname, hstrerror(h_errno));
-			return ENOENT;
+			syslog(LOG_ERR, "resolve_http_hostaddr: cannot resolve the hostname '%s': %s", http_hostname, hstrerror(h_errno));
+			result = ENOENT;
 		}
-		memcpy(&http_sin.sin_addr, hp->h_addr_list[0], sizeof http_sin.sin_addr);
+		else
+		{
+			memcpy(&http_sin.sin_addr, hp->h_addr_list[0], sizeof http_sin.sin_addr);
+			result = 0;
+		}
 	}
-	return (0);
+	return (result);
+}
+
+/*****************************************************************************/
+
+/* get_dest_server gets the official name of the host, puts it into a newly
+ * allocated buffer pointed to by the global dest_server.
+ *
+ * XXX This should really just be using getaddrinfo() since it knows how to
+ * deal with hostnames and address strings. In addition, it knows how to deal
+ * with IPv6 addresses.
+ */
+static int get_dest_server(char *server, int len)
+{
+	char *tempname;
+	struct hostent *hp;
+	struct in_addr pin;
+	int result;
+	
+	tempname = malloc(len + 1);
+	if ( tempname != NULL )
+	{
+		(void)strncpy(tempname, server, len);
+		tempname[len] = '\0';
+		
+		/* is the name a IPv4 presentation format address? */
+		if (inet_aton(tempname, &pin) == 1)
+		{
+			/* the hostname was a IPv4 presentation format address - use gethostbyaddr */
+			hp = gethostbyaddr((const char *)&pin, sizeof(pin), AF_INET);
+		}
+		else
+		{
+			/* the hostname was not a IPv4 presentation format address - use gethostbyname */
+			hp = gethostbyname(tempname);
+		}
+		
+		if ( hp != NULL )
+		{
+			dest_server = malloc(strlen(hp->h_name) + 1);
+			if ( dest_server != NULL )
+			{
+				strcpy(dest_server, hp->h_name);
+				result = 0;
+			}
+			else
+			{
+				syslog(LOG_ERR, "get_dest_server: error allocating dest_server");
+				result = ENOMEM;
+			}
+		}
+		else
+		{
+			syslog(LOG_ERR, "get_dest_server: cannot resolve the hostname '%s': %s", tempname, hstrerror(h_errno));
+			result = ENOENT;
+		}
+		
+		free(tempname);
+	}
+	else
+	{
+		syslog(LOG_ERR, "get_dest_server: error allocating tempname");
+		result = ENOMEM;
+	}
+	return ( result );
 }
 
 /*****************************************************************************/
 
 #define ENCODING_KEY "?charset="
 
-static int update_text_encoding()
+static int update_text_encoding(void)
 {
 	CFStringRef cf_encoding = NULL;
 	char encoding[100];
@@ -343,8 +440,7 @@ static int update_text_encoding()
 	}
 
 	str_encoding = CFStringGetSystemEncoding();
-	if (str_encoding != kCFStringEncodingMacRoman)
-		/* the default encoding */
+	if (str_encoding != kCFStringEncodingMacRoman) /* the default encoding */
 	{
 		cf_encoding = CFStringConvertEncodingToIANACharSetName(str_encoding);
 		if (cf_encoding)
@@ -365,7 +461,7 @@ static int update_text_encoding()
 
 /*****************************************************************************/
 
-static int proxy_update()
+static int proxy_update(void)
 {
 	int rv = 0;
 	char host[MAXHOSTNAMELEN], ehost[MAXHOSTNAMELEN];
@@ -379,84 +475,90 @@ static int proxy_update()
 
 	host[0] = '\0';
 
-	/* Get the dictionary for the proxy information */
+	/* Create a new session used to interact with the dynamic store maintained by the SystemConfiguration server */
 	store = SCDynamicStoreCreate(NULL, CFSTR("WebDAV"), NULL, NULL);
 	if (!store)
 	{
 #ifdef DEBUG
-		syslog(LOG_INFO, "proxy_update SCDynamicStoreCreate failed: %s", SCErrorString(SCError()));
+		syslog(LOG_INFO, "proxy_update: SCDynamicStoreCreate(): %s", SCErrorString(SCError()));
 #endif
-
-		return (ENODEV);
+		rv = ENODEV;
+		goto done;
 	}
+	
+	/* Gets the current internet proxy settings */
 	dict = SCDynamicStoreCopyProxies(store);
 	if (!dict)
 	{
 #ifdef DEBUG
-		syslog(LOG_INFO, "proxy_update No proxy information");
+		syslog(LOG_INFO, "proxy_update: No proxy information: %s", SCErrorString(SCError()));
 #endif
-
 		goto free_data;
 	}
+	
+	/* get the value of kSCPropNetProxiesHTTPEnable */
 	cf_enabled = CFDictionaryGetValue(dict, kSCPropNetProxiesHTTPEnable);
 	if (cf_enabled == NULL)
 	{
 #ifdef DEBUG
-		syslog(LOG_INFO, "proxy_update CFDictionaryGetValue cf_enabled failed");
+		syslog(LOG_INFO, "proxy_update: CFDictionaryGetValue cf_enabled failed");
 #endif
-
 		goto free_data;
 	}
+	
+	/* and convert it to a number */
 	if (!CFNumberGetValue(cf_enabled, kCFNumberIntType, &enabled))
 	{
 #ifdef DEBUG
-		syslog(LOG_INFO, "proxy_update CFNumberGetValue cf_enabled failed");
+		syslog(LOG_INFO, "proxy_update: CFNumberGetValue cf_enabled failed");
 #endif
-
 		goto free_data;
 	}
+	
+	/* are HTTP proxies enabled? */
 	if (enabled)
 	{
+		/* get the HTTP proxy */
 		cf_host = CFDictionaryGetValue(dict, kSCPropNetProxiesHTTPProxy);
 		if (cf_host == NULL)
 		{
 #ifdef DEBUG
-			syslog(LOG_INFO, "proxy_update CFDictionaryGetValue cf_host failed");
+			syslog(LOG_INFO, "proxy_update: CFDictionaryGetValue cf_host failed");
 #endif
-
 			goto free_data;
 		}
+		
 		if (!CFStringGetCString(cf_host, host, sizeof(host), kCFStringEncodingMacRoman))
 		{
 #ifdef DEBUG
-			syslog(LOG_INFO, "proxy_update CFStringGetCString cf_host failed");
+			syslog(LOG_INFO, "proxy_update: CFStringGetCString cf_host failed");
 #endif
-
 			goto free_data;
 		}
+
 #ifdef DEBUG
-		syslog(LOG_INFO, "proxy_update read host %s", host);
+		syslog(LOG_INFO, "proxy_update: read host %s", host);
 #endif
 
 		cf_port = CFDictionaryGetValue(dict, kSCPropNetProxiesHTTPPort);
 		if (cf_port == NULL)
 		{
 #ifdef DEBUG
-			syslog(LOG_INFO, "proxy_update CFDictionaryGetValue cf_port failed");
+			syslog(LOG_INFO, "proxy_update: CFDictionaryGetValue cf_port failed");
 #endif
-
 			goto free_data;
 		}
+		
 		if (!CFNumberGetValue(cf_port, kCFNumberIntType, &port))
 		{
 #ifdef DEBUG
-			syslog(LOG_INFO, "proxy_update CFNumberGetValue cf_port failed");
+			syslog(LOG_INFO, "proxy_update: CFNumberGetValue cf_port failed");
 #endif
-
 			goto free_data;
 		}
+		
 #ifdef DEBUG
-		syslog(LOG_INFO, "proxy_update read port %d", port);
+		syslog(LOG_INFO, "proxy_update: read port %d", port);
 #endif
 
 		/* Read the proxy exceptions list */
@@ -477,13 +579,13 @@ static int proxy_update()
 					if (!CFStringGetCString(cf_ehost, ehost, sizeof(ehost), kCFStringEncodingMacRoman))
 					{
 #ifdef DEBUG
-						syslog(LOG_INFO, "proxy_update CFStringGetCString cf_ehost failed");
+						syslog(LOG_INFO, "proxy_update: CFStringGetCString cf_ehost failed");
 #endif
-
 						goto free_data;
 					}
+
 #ifdef DEBUG
-					syslog(LOG_INFO, "proxy_update read ehost %s", ehost);
+					syslog(LOG_INFO, "proxy_update: read ehost %s", ehost);
 #endif
 
 					start = strlen(dest_server) - strlen(ehost);
@@ -532,7 +634,8 @@ free_data:
 		}
 		else
 		{
-			return (ENOMEM);
+			rv = ENOMEM;
+			goto done;
 		}
 	}
 
@@ -547,18 +650,27 @@ free_data:
 		http_hostname = proxy_server;
 		http_port = proxy_port;
 #ifdef DEBUG
-		syslog(LOG_INFO, "proxy_update set http_hostname %s http_port %d", http_hostname, http_port);
+		syslog(LOG_INFO, "proxy_update: set http_hostname %s http_port %d", http_hostname, http_port);
 #endif
-
 	}
-	rv = resolve_http_hostaddr();
+	
+done:
+
+	if ( rv == 0 )
+	{
+		rv = resolve_http_hostaddr();
+	}
+	else
+	{
+		syslog(LOG_ERR, "proxy_update: %s", strerror(rv));
+	}
 	
 	return (rv);
 }												/* proxy_update */
 
 /*****************************************************************************/
 
-static int reg_proxy_update()
+static int reg_proxy_update(void)
 {
 
 	/* *** register for proxy configuration update notifications *** */
@@ -628,14 +740,18 @@ static int InitUserAgentHeader(void)
 		len = sizeof ostype;
 		if (sysctl(mib, 2, ostype, &len, 0, 0) < 0)
 		{
-			warn("sysctl");
+#ifdef DEBUG
+			syslog(LOG_INFO, "InitUserAgentHeader: sysctl CTL_KERN, KERN_OSTYPE: %s", strerror(errno));
+#endif
 			ostype[0] = '\0';
 		}
 		mib[1] = KERN_OSRELEASE;
 		len = sizeof osrelease;
 		if (sysctl(mib, 2, osrelease, &len, 0, 0) < 0)
 		{
-			warn("sysctl");
+#ifdef DEBUG
+			syslog(LOG_INFO, "InitUserAgentHeader: sysctl CTL_KERN, KERN_OSRELEASE: %s", strerror(errno));
+#endif
 			osrelease[0] = '\0';
 		}
 		mib[0] = CTL_HW;
@@ -643,7 +759,9 @@ static int InitUserAgentHeader(void)
 		len = sizeof machine;
 		if (sysctl(mib, 2, machine, &len, 0, 0) < 0)
 		{
-			warn("sysctl");
+#ifdef DEBUG
+			syslog(LOG_INFO, "InitUserAgentHeader: sysctl CTL_HW, HW_MACHINE: %s", strerror(errno));
+#endif
 			machine[0] = '\0';
 		}
 		
@@ -654,7 +772,7 @@ static int InitUserAgentHeader(void)
 		/* Create the CFURLRef to the webdavfs.bundle's version.plist */
 		url = CFURLCreateWithFileSystemPath(kCFAllocatorDefault,
 			CFSTR("/System/Library/CoreServices/webdavfs.bundle"),
-			kCFURLPOSIXPathStyle, true );
+			kCFURLPOSIXPathStyle, true);
 		if ( url != NULL )
 		{
 			/* Create the bundle */
@@ -674,7 +792,7 @@ static int InitUserAgentHeader(void)
 					{
 						/* Get the bundleVersionStr */
 						shortVersionLen = CFStringGetLength(shortVersion) + 1;
-						webdavfsVersionStr = malloc(shortVersionLen);
+						webdavfsVersionStr = malloc((size_t)shortVersionLen);
 						if ( webdavfsVersionStr != NULL )
 						{
 							/* Convert it to a C string */
@@ -720,6 +838,11 @@ static int InitUserAgentHeader(void)
 		}
 	}
 	
+	if ( result != 0 )
+	{
+		syslog(LOG_ERR, "InitUserAgentHeader: %s", strerror(result));
+	}
+	
 	return ( result );
 }
 
@@ -736,25 +859,30 @@ static void get_webdav_first_read_len(void)
 	int		mib[2];
 	size_t	len;
 	int		result;
+	int		pagesize;
 	
 	/* get the hardware page size */
 	mib[0] = CTL_HW;
 	mib[1] = HW_PAGESIZE;
 	len = sizeof(int);
-	result = sysctl(mib, 2, &webdav_first_read_len, &len, 0, 0);
+	result = sysctl(mib, 2, &pagesize, &len, 0, 0);
 	if ( 0 > result )
 	{
-		warn("sysctl");
+#ifdef DEBUG
+		syslog(LOG_INFO, "get_webdav_first_read_len: sysctl CTL_HW, HW_PAGESIZE: %s", strerror(errno));
+#endif
 		/* set webdav_first_read_len to PowerPC page size */
 		webdav_first_read_len = 4096;
+	}
+	else
+	{
+		webdav_first_read_len = pagesize;
 	}
 }
 
 /*****************************************************************************/
 
-int main(argc, argv)
-	int argc;
-	char *argv[];
+int main(int argc, char *argv[])
 {
 	struct webdav_args args;
 	struct sockaddr_un un;
@@ -762,13 +890,12 @@ int main(argc, argv)
 	int servermntflags = 0;
 	char arguri[MAXPATHLEN + 1];
 	char *uri;
-	int urilen;
+	unsigned int urilen;
 	struct vfsconf vfc;
 	mode_t um;
 	char *colon,  *slash,  *ep;					/* used to parse uri */
-	int len;
+	unsigned int len;
 	unsigned long ul;
-	DiskArbDiskIdentifier diskIdentifier;
 
 	int rc;
 	int so;
@@ -789,6 +916,17 @@ int main(argc, argv)
 
 	struct rlimit rlp;
 	
+	process_uid = getuid();
+	
+	/* is WEBDAVFS_DEBUG environment variable set? */
+	if ((webdavfs_debug = getenv("WEBDAVFS_DEBUG") != NULL))
+	{
+		syslog(LOG_INFO, "WEBDAVFS_DEBUG environment variable set");
+	}
+	
+	/* Start logging (and change name) */
+	openlog("webdavd", LOG_CONS | LOG_PID, LOG_DAEMON);
+	
 	/* initialize webdav_first_read_len variable */
 	get_webdav_first_read_len();
 	
@@ -797,7 +935,7 @@ int main(argc, argv)
 	if ( error )
 	{
 		/* not likely to fail, but just in case */
-		errx(error, "InitUserAgentHeader: %s", strerror(error));
+		exit(error);
 	}
 	
 	user[0] = '\0';
@@ -811,20 +949,28 @@ int main(argc, argv)
 	  but not much else. *** */
 
 	/* zero out the global stuff */
-
 	bzero(&gfile_array, sizeof(gfile_array));
+	for (i = 0; i < WEBDAV_MAX_OPEN_FILES; ++i)
+	{
+		/* invalidate all of the gfile_array entries */
+		gfile_array[i].fd = -1;
+	}
 
-	/* initialize the memory cache, authcache & thread queues
-	  XXX initialization has been delayed until after
-	  daemonization.  The authcache could not be moved without
-	  changing webdav mount. Chances of contention are low so
-	  we'll hopefully get a fix for the problem of pthread mutex's
-	  not working accross daemon before we need to address that*/
-
+	/* The authcache is initialized here. pthread mutexs don't work
+	 * across daemon(), but that is not a problem because the code
+	 * executed before daemon() is not multi-threaded.
+	 */
 	error = webdav_authcache_init();
 	if (error)
 	{
-		errx(error, "webdav_authcache_init: %s", strerror(error));
+		exit(error);
+	}
+	
+	/* same with gconnectionstate */
+	error = gconnectionstate_init();
+	if (error)
+	{
+		exit(error);
 	}
 
 	/*
@@ -833,16 +979,14 @@ int main(argc, argv)
 	gtimeout_string = WEBDAV_PULSE_TIMEOUT;
 	gtimeout_val = atoi(gtimeout_string);
 
-	/* Set up the stafs timeout & buffer */
-
+	/* Set up the statfs timeout & buffer */
 	bzero(&gstatfsbuf, sizeof(gstatfsbuf));
 	gstatfstime = 0;
 
 	/*
 	 * Crack command line args
 	 */
-
-	while ((ch = getopt(argc, argv, "a:o:")) != -1)
+	while ((ch = getopt(argc, argv, "Sa:o:")) != -1)
 	{
 		switch (ch)
 		{
@@ -855,25 +999,25 @@ int main(argc, argv)
 					  length, and the password */
 					if (fd >= 0)
 					{
-						(void)lseek(fd, 0, SEEK_SET);
+						(void)lseek(fd, 0LL, SEEK_SET);
 						if (read(fd, &len1,
 							sizeof(int)) > 0 && len1 > 0 && len1 < WEBDAV_MAX_USERNAME_LEN)
 						{
-							if (read(fd, user, len1) > 0)
+							if (read(fd, user, (size_t)len1) > 0)
 							{
 								user[len1] = '\0';
 								if (read(fd, &len2,
 									sizeof(int)) > 0 && len2 > 0 && len2 < WEBDAV_MAX_PASSWORD_LEN)
 								{
-									if (read(fd, pass, len2) > 0)
+									if (read(fd, pass, (size_t)len2) > 0)
 										pass[len2] = '\0';
 								}
 							}
 						}
 
 						/* zero the contents of the file */
-						(void)lseek(fd, 0, SEEK_SET);
-						for (i = 0; i < (((len1 + len2) / sizeof(int)) + 3); i++)
+						(void)lseek(fd, 0LL, SEEK_SET);
+						for (i = 0; i < (((len1 + len2) / (int)sizeof(int)) + 3); i++)
 						{
 							if (write(fd, (char *) & zero, sizeof(int)) < 0)
 							{
@@ -885,16 +1029,21 @@ int main(argc, argv)
 					}
 					break;
 				}
-
+			
+			case 'S':	/* Suppress ALL dialogs and notifications */
+				gSuppressAllUI = 1;
+				break;
+			
 			case 'o':
 				error = getmntopts(optarg, mopts, &mntflags, 0);
 				break;
+			
 			default:
 				error = 1;
 				break;
 		}
 	}
-
+	
 	if (!error)
 	{
 		if (optind != (argc - 2) || strlen(argv[optind]) > MAXPATHLEN)
@@ -907,33 +1056,32 @@ int main(argc, argv)
 	{
 		usage();
 	}
-
+	
 	/* cache the username and password from the tmp-file who's fd was
 	  passed from URLMount on the command line */
 	if (strlen(user))
 	{
-		int uid = getuid();
 		WebdavAuthcacheInsertRec auth_insert =
 		{
-			uid, NULL, 0, FALSE, user, pass
+			process_uid, NULL, 0, FALSE, user, pass, kAuthNone
 		};
 		/* Challenge string will be filled in when OPTIONS
 		  request is challenged.  */
 
-		(void)webdav_authcache_insert(&auth_insert);
+		(void)webdav_authcache_insert(&auth_insert, TRUE);
 
 		/* if not "root", make an entry for root (uid 0) as well */
-		if (uid != 0)
+		if (process_uid != 0)
 		{
 			auth_insert.uid = 0;
-			(void)webdav_authcache_insert(&auth_insert);
+			(void)webdav_authcache_insert(&auth_insert, TRUE);
 		}
 
 		/* if not "daemon", make an entry for daemon (uid 1) as well */
-		if (uid != 1)
+		if (process_uid != 1)
 		{
 			auth_insert.uid = 1;
-			(void)webdav_authcache_insert(&auth_insert);
+			(void)webdav_authcache_insert(&auth_insert, TRUE);
 		}
 	}
 	bzero(user, sizeof(user));
@@ -943,7 +1091,8 @@ int main(argc, argv)
 	error = getrlimit(RLIMIT_NOFILE, &rlp);
 	if (error)
 	{
-		err(ENODEV, "getrlimit");
+		syslog(LOG_ERR, "main: getrlimit(): %s", strerror(errno));
+		exit(ENODEV);
 	}
 
 	/* Close any open file descriptors we may have inherited from our
@@ -964,7 +1113,8 @@ int main(argc, argv)
 		error = setrlimit(RLIMIT_NOFILE, &rlp);
 		if (error)
 		{
-			err(ENODEV, "setrlimit");
+			syslog(LOG_ERR, "main: setrlimit(): %s", strerror(errno));
+			exit(ENODEV);
 		}
 	}
 
@@ -974,11 +1124,11 @@ int main(argc, argv)
 	/*
 	 * Get uri and mount point
 	 */
-
 	(void)strncpy(arguri, argv[optind], sizeof(arguri) - 1);
 	if ( realpath(argv[optind + 1], gmountpt) == NULL )
 	{
-		err(ENOENT, "realpath");
+		syslog(LOG_ERR, "main: realpath(): %s", strerror(errno));
+		exit(ENOENT);
 	}
 
 	/* If they gave us a full uri, blow off the scheme */
@@ -1009,16 +1159,17 @@ int main(argc, argv)
 		uri[urilen] = '\0';
 	}
 	
-	/* cache the destination host name and port */
+	/* cache the destination host name, port and path */
 	colon = strchr(uri, ':');
 	slash = strchr(uri, '/');
-	if (colon != 0)
+	if (colon != NULL)
 	{
 		errno = 0;
 		ul = strtoul(colon + 1, &ep, 10);
 		if (errno != 0 || ep != slash || colon[1] == '\0' || ul < 1 || ul > 65534)
 		{
-			err(ENODEV, "`%s': invalid port number", colon + 1);
+			syslog(LOG_ERR, "main: `%s': invalid port number", colon + 1);
+			exit(ENODEV);
 		}
 		len = colon - uri;
 		dest_port = (int)ul;
@@ -1028,19 +1179,43 @@ int main(argc, argv)
 		len = slash - uri;
 		dest_port = HTTP_PORT;
 	}
-	dest_server = malloc(len + 1);
-	if (dest_server)
+	
+	/* get the official name of the host */
+	error = get_dest_server(uri, len);
+	if ( error )
 	{
-		(void)strncpy(dest_server, uri, len);
-		dest_server[len] = '\0';
+		exit(error);
 	}
-	else
+	
+	/* get dest_path */
+	if (colon != NULL)
 	{
-		err(ENOMEM, "error allocating dest_server");
+		slash = strchr(colon, '/');
 	}
+	strcpy(dest_path, slash);
 
+	/* now that we have the official name of the host, change the uri and urilen
+	 * to use the official name so that proxy connections will work.
+	 */
+	{
+		char *tempuri;
+		
+		tempuri = malloc(strlen(dest_server) + strlen(uri + len) + 1);
+		if ( tempuri != NULL )
+		{
+			strcpy(tempuri, dest_server);
+			strcat(tempuri, uri + len);
+			uri = tempuri;
+			urilen = strlen(uri);
+		}
+		else
+		{
+			syslog(LOG_ERR, "main: error allocating tempuri");
+			exit(ENOMEM);
+		}
+	}
+	
 	/* Set global signal handling to protect us from SIGPIPE */
-
 	signal(SIGPIPE, SIG_IGN);
 
 	/* get the default text encoding */
@@ -1050,53 +1225,42 @@ int main(argc, argv)
 	rc = reg_proxy_update();
 	if (rc)
 	{
-		if (rc == ENOMEM)
-		{
-			err(ENOMEM, "reading proxy from configuration database");
-		}
-		else
-		{
-			warn("error reading proxy from configuration database");
-			/* *** Would it be better to exit at this point? *** */
-		}
+		exit(rc);
 	}
 	
-	/* Create a DiskArbDiskIdentifier from the uri. Because the
-	 * DiskArbDiskIdentifier is also returned as f_mntfromname by
-	 * statfs(), because f_mntfromname must match the DiskArbDiskIdentifier,
-	 * and because f_mntfromname and DiskArbDiskIdentifier are currently
-	 * different lengths, make sure the string is no longer than the
-	 * smaller of the two.
-	 */
-	strncpy(diskIdentifier, uri, MIN(MNAMELEN, sizeof(DiskArbDiskIdentifier)));
-	diskIdentifier[MIN(MNAMELEN, sizeof(DiskArbDiskIdentifier))] = '\0';
+	/* Create a mntfromname from the uri. Make sure the string is no longer than MNAMELEN */
+	strncpy(mntfromname, uri, MNAMELEN);
+	mntfromname[MNAMELEN] = '\0';
 	
-	/* Check to see if this DiskArbDiskIdentifier is already used by a mount point.
-	 * The DiskArbDiskIdentifier must be unique. Sure, someone could mount using
-	 * the DNS name one time and the IP address the next, or they could
-	 * munge the path with escaped characters, but at least the DiskArbDiskIdentifier
-	 * will still be unique.
+	/* if this is going to be a volume on the desktop (the MNT_DONTBROWSE is not set)
+	 * then check to see if this mntfromname is already used by a mount point by the
+	 * current user. Sure, someone could mount using the DNS name one time and
+	 * the IP address the next, or they could  munge the path with escaped characters,
+	 * but this check will catch the obvious duplicates.
 	 */
+	if ( !(mntflags & MNT_DONTBROWSE) )
 	{
 		struct statfs *	buffer;
 		SInt32			count = getmntinfo(&buffer, MNT_NOWAIT);
 		SInt32          i;
-		int				identifierLength;
+		unsigned int	mntfromnameLength;
 		
-		identifierLength = strlen(diskIdentifier);
+		mntfromnameLength = strlen(mntfromname);
 		for (i = 0; i < count; i++)
 		{
-			/* Is diskIdentifier already being used as a DiskArbDiskIdentifier?
-			 * Note: DiskArbDiskIdentifiers are case-insensitive.
+			/* Is mntfromname already being used as a mntfromname for a webdav mount
+			 * owned by this user?
 			 */
-			if ( (strcmp("webdav", buffer[i].f_fstypename) == 0) &&
-				 (strlen(buffer[i].f_mntfromname) == identifierLength) &&
-				 (strncasecmp(buffer[i].f_mntfromname, diskIdentifier, identifierLength) == 0) )
+			if ( (buffer[i].f_owner == process_uid) &&
+				 (strcmp("webdav", buffer[i].f_fstypename) == 0) &&
+				 (strlen(buffer[i].f_mntfromname) == mntfromnameLength) &&
+				 (strncasecmp(buffer[i].f_mntfromname, mntfromname, mntfromnameLength) == 0) )
 			{
-				/* Yes, this DiskArbDiskIdentifier is in use - return EBUSY
+				/* Yes, this mntfromname is in use - return EBUSY
 				 * (the same error that you'd get if you tried mount a disk device twice).
 				 */
-				errx(EBUSY, "%s is already mounted: %s", diskIdentifier, strerror(EBUSY));
+				syslog(LOG_ERR, "%s is already mounted: %s", mntfromname, strerror(EBUSY));
+				exit(EBUSY);
 			}
 		}
 	}
@@ -1105,18 +1269,15 @@ int main(argc, argv)
 	  We need to do this now so that the webdav_mount call
 	  (which will do a lookup) will suceed.  It may need
 	  to cache some data in a file */
-
-	um = umask(0);
+	um = umask((mode_t)0);
 	error = mkdir(_PATH_TMPWEBDAVDIR, 0777);
 	if (error)
 	{
 		if (errno != EEXIST)
 		{
-
-			/* we got an error and it wasn't the one we 	 */
-			/* could take so barf  				 */
-
-			err(errno, "making cache directory in tmp");
+			/* we got an error and it wasn't EEXIST so exit */
+			syslog(LOG_ERR, "main: could not create webdavcache directory");
+			exit(errno);
 		}
 	}
 	(void)umask(um);
@@ -1138,15 +1299,15 @@ int main(argc, argv)
 		 */
 		if ( EACCES == error )
 		{
+			syslog(LOG_ERR, "main: webdav_mount of %s was cancelled by user", uri);
 			error = ECANCELED;
 		}
-		errx(error, "checking server URL: %s", strerror(error));
+		exit(error);
 	}
 
 	/*
-	 * Or in the mnt flags forced on us by the server
+	 * OR in the mnt flags forced on us by the server
 	 */
-
 	mntflags |= servermntflags;
 
 	/*
@@ -1155,7 +1316,8 @@ int main(argc, argv)
 	un.sun_family = AF_UNIX;
 	if (sizeof(_PATH_TMPWEBDAV) >= sizeof(un.sun_path))
 	{
-		errx(EINVAL, "webdav socket name too long");
+		syslog(LOG_ERR, "main: webdav socket name too long");
+		exit(EINVAL);
 	}
 	strcpy(un.sun_path, _PATH_TMPWEBDAV);
 	mktemp(un.sun_path);
@@ -1164,14 +1326,16 @@ int main(argc, argv)
 	so = socket(AF_UNIX, SOCK_STREAM, 0);
 	if (so < 0)
 	{
-		err(errno, "socket");
+		syslog(LOG_ERR, "main: socket() for kext communication: %s", strerror(errno));
+		exit(errno);
 	}
 
 	um = umask(077);
 	(void)unlink(un.sun_path);
 	if (bind(so, (struct sockaddr *) & un, sizeof(un)) < 0)
 	{
-		err(errno, "bind");
+		syslog(LOG_ERR, "main: bind() for kext communication: %s", strerror(errno));
+		exit(errno);
 	}
 
 	(void)unlink(un.sun_path);
@@ -1180,100 +1344,88 @@ int main(argc, argv)
 	(void)listen(so, 5);
 
 	args.pa_socket = so;
-	args.pa_config = diskIdentifier;
+	args.pa_config = mntfromname;
 	args.pa_uri = uri;
 
-	error = mygetvfsbyname("webdav", &vfc);
+	error = getvfsbyname("webdav", &vfc);
 	if (error)
 	{
 		error = attempt_webdav_load();
 		if (!error)
 		{
-			error = mygetvfsbyname("webdav", &vfc);
+			error = getvfsbyname("webdav", &vfc);
 		}
 	}
 
 	if (error)
 	{
-		errx(errno, "webdav filesystem is not available");
+		syslog(LOG_ERR, "main: getvfsbyname(): %s", strerror(errno));
+		exit(errno);
 	}
-
-#if 0
-	/* The old way of loading, now superseeded */
-
-	if (error && vfsisloadable("webdav"))
-	{
-		if (vfsload("webdav"))
-		{
-			err(errno, "vfsload(webdav)");
-		}
-		endvfsent();
-		error = getvfsbyname("webdav", &vfc);
-	}
-
-#endif
 
 	/*
-	 * Ok, we are about to set up the mount point so stop
-	 * the signals and set up our mach exception task
+	 * Ok, we are about to set up the mount point so set the signal handlers
 	 * so that we know if someone is trying to kill us.
 	 */
-
-	signal(SIGUSR1, sighdlr);
-	signal(SIGUSR2, sighdlr);
-	signal(SIGHUP, sighdlr);
-	signal(SIGINT, sighdlr);
-	signal(SIGQUIT, sighdlr);
-	signal(SIGILL, sighdlr);
-	signal(SIGTRAP, sighdlr);
-	signal(SIGABRT, sighdlr);
-	signal(SIGEMT, sighdlr);
-	signal(SIGFPE, sighdlr);
-	signal(SIGBUS, sighdlr);
-	signal(SIGSEGV, sighdlr);
-	signal(SIGSYS, sighdlr);
-	signal(SIGALRM, sighdlr);
-	signal(SIGTERM, sighdlr);
-	signal(SIGTSTP, sighdlr);
-	signal(SIGTTIN, sighdlr);
-	signal(SIGTTOU, sighdlr);
-	signal(SIGXCPU, sighdlr);
-	signal(SIGXFSZ, sighdlr);
-	signal(SIGVTALRM, sighdlr);
-	signal(SIGPROF, sighdlr);
-
+	 
+	/* open the gWakeupFDs pipe */
+	if ( pipe(gWakeupFDs) != 0 )
+	{
+		gWakeupFDs[0] = -1;
+		gWakeupFDs[1] = -1;
+		syslog(LOG_ERR, "main: pipe(): %s", strerror(errno));
+		exit(errno);
+	};
+	
+	/* set the signal handler to webdav_kill for the signals that aren't ignored by default */
+	signal(SIGHUP, webdav_kill);
+	signal(SIGINT, webdav_kill);
+	signal(SIGQUIT, webdav_kill);
+	signal(SIGILL, webdav_kill);
+	signal(SIGTRAP, webdav_kill);
+	signal(SIGABRT, webdav_kill);
+	signal(SIGEMT, webdav_kill);
+	signal(SIGFPE, webdav_kill);
+	signal(SIGBUS, webdav_kill);
+	signal(SIGSEGV, webdav_kill);
+	signal(SIGSYS, webdav_kill);
+	signal(SIGALRM, webdav_kill);
+	signal(SIGTERM, webdav_kill);
+	signal(SIGTSTP, webdav_kill);
+	signal(SIGTTIN, webdav_kill);
+	signal(SIGTTOU, webdav_kill);
+	signal(SIGXCPU, webdav_kill);
+	signal(SIGXFSZ, webdav_kill);
+	signal(SIGVTALRM, webdav_kill);
+	signal(SIGPROF, webdav_kill);
+	signal(SIGUSR1, webdav_kill);
+	signal(SIGUSR2, webdav_kill);
 
 	rc = mount(vfc.vfc_name, gmountpt, mntflags, &args);
 	if (rc < 0)
 	{
-		err(errno, "mount");
+		syslog(LOG_ERR, "main: mount(): %s", strerror(errno));
+		exit(errno);
 	}
-
-#ifndef DEBUG       
-	/* Connect to the AutoDiskMount server */
-	daconnect_status = DiskArbStart(&diskArbitrationPort);
-	if (daconnect_status != KERN_SUCCESS)
-	{
-#if 0
-		err(errno, "Couldn't connect to DiskArbitration server\n");
-#endif
-
-	}
-	else
-	{
-		daconnect_status = DiskArbDiskAppearedWithMountpointPing_auto(diskIdentifier,
-			kDiskArbDiskAppearedNetworkDiskMask | kDiskArbDiskAppearedEjectableMask, gmountpt);
-	}
-
+		
 	/*
 	 * Everything is ready to go - now is a good time to fork
 	 * Note, forking seems to kill all the threads so make sure we
 	 * daemonize before creating our threads.
 	 */
-	daemon(0, 0);
-#endif
+	daemon(0, webdavfs_debug);
+	
+	/* Connect to the AutoDiskMount server after daemonizing so we
+	 * don't lose our connection to the diskArbitrationPort
+	 */
+	daconnect_status = DiskArbStart(&diskArbitrationPort);
+	diskarb_inited = (daconnect_status == KERN_SUCCESS);
+	if (!diskarb_inited)
+	{
+		syslog(LOG_ERR, "main: DiskArbStart(): %s", strerror(daconnect_status));
+	}
 
-	/* Until pthread can handle locks accrss deamonization
+	/* Until pthread can handle locks across deamonization
 	 * we need to delay mutex initialization to here.
 	 */
 
@@ -1282,61 +1434,69 @@ int main(argc, argv)
 	error = pthread_mutexattr_init(&mutexattr);
 	if (error)
 	{
-		errx(error, "mutex atrribute init: %s", strerror(error));
+		syslog(LOG_ERR, "main: pthread_mutexattr_init(): %s", strerror(error));
+		exit(error);
 	}
 
 	error = pthread_mutex_init(&garray_lock, &mutexattr);
 	if (error)
 	{
-		errx(error, "garray mutex lock: %s", strerror(error));
+		syslog(LOG_ERR, "main: pthread_mutex_init(): %s", strerror(error));
+		exit(error);
 	}
 
 	/* Init the stat cache */
 	error = webdav_memcache_init(&gmemcache_header);
 	if (error)
 	{
-		errx(error, "webdav_memcache_init: %s", strerror(error));
+		exit(error);
 	}
 
 	/* Init the inode hash table */
 	error = webdav_inode_init(uri, urilen);
 	if (error)
 	{
-		errx(error, "webdav_inode_init: %s", strerror(error));
+		exit(error);
+	}
+
+	/* Init the webdav cachefile mutex and variable */
+	error = webdav_cachefile_init();
+	if (error)
+	{
+		exit(error);
 	}
 
 	/* Start up the request threads */
-
-	webdav_requestqueue_init();
-
+	error = webdav_requestqueue_init();
+	if (error)
+	{
+		exit(error);
+	}
+	
 	for (i = 0; i < WEBDAV_REQUEST_THREADS; ++i)
 	{
 		error = pthread_attr_init(&request_thread_attr);
 		if (error)
 		{
-			errx(error, "pthread_attr_init: %s", strerror(error));
+			syslog(LOG_ERR, "main: pthread_attr_init() request thread: %s", strerror(error));
+			exit(error);
 		}
 
 		error = pthread_attr_setdetachstate(&request_thread_attr, PTHREAD_CREATE_DETACHED);
 		if (error)
 		{
-			errx(error, "pthread_attr_setdetachstate: %s", strerror(error));
+			syslog(LOG_ERR, "main: pthread_attr_setdetachstate() request thread: %s", strerror(error));
+			exit(error);
 		}
 
 		error = pthread_create(&request_thread, &request_thread_attr,
 			(void *)webdav_request_thread, (void *)NULL);
 		if (error)
 		{
-			errx(error, "pthread_create request thread: %s", strerror(error));
+			syslog(LOG_ERR, "main: pthread_create() request thread: %s", strerror(error));
+			exit(error);
 		}
-
 	}
-
-
-	/*
-	 * Start logging (and change name)
-	 */
-	openlog("webdavd", LOG_CONS | LOG_PID, LOG_DAEMON);
 
 	/*
 	 * Start the pulse thread
@@ -1344,23 +1504,28 @@ int main(argc, argv)
 	error = pthread_attr_init(&pulse_thread_attr);
 	if (error)
 	{
-		errx(error, "pthread_attr_init: %s", strerror(error));
+		syslog(LOG_ERR, "main: pthread_attr_init() pulse thread: %s", strerror(error));
+		exit(error);
 	}
 
 	error = pthread_attr_setdetachstate(&pulse_thread_attr, PTHREAD_CREATE_DETACHED);
 	if (error)
 	{
-		errx(error, "pthread_attr_setdetachstate: %s", strerror(error));
+		syslog(LOG_ERR, "main: pthread_attr_setdetachstate() pulse thread: %s", strerror(error));
+		exit(error);
 	}
 
 	error = pthread_create(&pulse_thread, &pulse_thread_attr, (void *)webdav_pulse_thread,
 		(void *) & proxy_ok);
 	if (error)
 	{
-		errx(error, "pthread_create: %s", strerror(error));
+		syslog(LOG_ERR, "main: pthread_create() pulse thread: %s", strerror(error));
+		exit(error);
 	}
 
 
+	syslog(LOG_INFO, "%s mounted", gmountpt);
+	
 	/*
 	 * Just loop waiting for new connections and activating them
 	 */
@@ -1371,6 +1536,7 @@ int main(argc, argv)
 		int so2;
 		fd_set fdset;
 		int rc;
+		
 		/*
 		 * Accept a new connection
 		 * Will get EINTR if a signal has arrived, so just
@@ -1378,106 +1544,137 @@ int main(argc, argv)
 		 */
 		FD_ZERO(&fdset);
 		FD_SET(so, &fdset);
-		rc = select(so + 1, &fdset, (fd_set *)0, (fd_set *)0, (struct timeval *)0);
+		if (gWakeupFDs[0] != -1)
+		{
+			/* This allows writing to gWakeupFDs[1] to wake up the select() */
+			FD_SET(gWakeupFDs[0], &fdset);
+		}
+		rc = select(((gWakeupFDs[0] != -1) ? (MAX(so, gWakeupFDs[0])) : (so)) + 1,
+			&fdset, (fd_set *)0, (fd_set *)0, (struct timeval *)0);
 		if (rc < 0)
 		{
 			if (errno == EINTR)
 			{
 				continue;
 			}
-			syslog(LOG_ERR, "select: %s", strerror(errno));
-			err(errno, "select");
+			/* if select isn't working, then exit here */
+			syslog(LOG_ERR, "main: select() < 0: %s", strerror(errno));
+			exit(errno);
 		}
 		if (rc == 0)
 		{
-			break;
+			/* if select isn't working, then exit here */
+			syslog(LOG_ERR, "main: select() == 0: %s", strerror(errno));
+			exit(errno);
 		}
-		so2 = accept(so, (struct sockaddr *) & un2, &len2);
-		if (so2 < 0)
+		
+		/* was a signal received? */
+		if ( (gWakeupFDs[0] != -1) && FD_ISSET(gWakeupFDs[0], &fdset) )
 		{
+			int message;
+			
+			/* read the message number out of the pipe */
+			(void)read(gWakeupFDs[0], &message, sizeof(int));
+			
+			if (message == SIGHUP)
+			{
+				if (logfile == 0)
+				{
+					logfile = fopen("/tmp/webdavlog", "a");
+				}
+				else
+				{
+					(void)fclose(logfile);
+					(void)fflush(logfile);
+					logfile = 0;
+				}
+			}
+			else
+			{
+				/* time to force an unmount */
+				gWakeupFDs[0] = -1; /* don't look for anything else from the pipe */
+				
+				if ( message >= 0 )
+				{
+					/* positive messages are signal numbers */
+					syslog(LOG_ERR, "mount_webdav received signal: %d. Unmounting %s", message, gmountpt);
+				}
+				else
+				{
+					syslog(LOG_ERR, "force unmounting %s", gmountpt);
+				}
+				
+				/* start up a new thread to call webdav_force_unmount() */
+				error = pthread_attr_init(&request_thread_attr);
+				if (error)
+				{
+					syslog(LOG_ERR, "main: pthread_attr_init() unmount thread: %s", strerror(error));
+					exit(error);
+				}
+		
+				error = pthread_attr_setdetachstate(&request_thread_attr, PTHREAD_CREATE_DETACHED);
+				if (error)
+				{
+					syslog(LOG_ERR, "main: pthread_attr_setdetachstate() unmount thread: %s", strerror(error));
+					exit(error);
+				}
+				
+				error = pthread_create(&request_thread, &request_thread_attr,
+					(void *)webdav_force_unmount, (void *)gmountpt);
+				if (error)
+				{
+					syslog(LOG_ERR, "main: pthread_create() unmount thread: %s", strerror(error));
+					exit(error);
+				}
+			}
+		}
+		
+		/* was a message from the webdav kext received? */
+		if ( FD_ISSET(so, &fdset) )
+		{
+			so2 = accept(so, (struct sockaddr *) & un2, &len2);
+			if (so2 < 0)
+			{
+				/*
+				 * The webdav_unmount (in webdav_vfsops.c) calls soshutdown()
+				 * on the socket which generates ECONNABORTED on the accept.
+				 */
+				if ( errno == ECONNABORTED )
+				{
+					/* this is the normal way out of the select loop */
+					break;
+				}
+				else if (errno != EINTR)
+				{
+					syslog(LOG_ERR, "main: accept(): %s", strerror(errno));
+					exit(errno);
+				}
+				continue;
+			}
+	
 			/*
-			 * The unmount function does a shutdown on the socket
-			 * which will generated ECONNABORTED on the accept.
+			 * Now put a new element on the thread queue so that a thread
+			 *  will handle this.
 			 */
-#ifdef DEBUG
-			printf(" Got error from accept %d/n", errno);
-#endif
-
-			if (errno == ECONNABORTED)
+			error = webdav_requestqueue_enqueue_request(proxy_ok, so2);
+			if (error)
 			{
-				break;
+				exit(error);
 			}
-			if (errno != EINTR)
-			{
-				syslog(LOG_ERR, "accept: %s", strerror(errno));
-				err(errno, "accept");
-			}
-			continue;
-		}
-
-		/*
-		 * Now put a new element on the thread queue so that a thread
-		 *  will handle this.
-		 */
-		error = webdav_requestqueue_enqueue_request(proxy_ok, so2);
-		if (error)
-		{
-			errx(error, "webdav_requestqueue_enqueue: %s", strerror(error));
 		}
 	}
+	
+	stop_proxy_update();
 
 	syslog(LOG_INFO, "%s unmounted", gmountpt);
-#ifndef DEBUG
-	/* Notify AutoDiskMount of the disappearance of this volume: */
-	DiskArbDiskDisappearedPing_auto(diskIdentifier, 0);
-#endif
-
-	exit(0);
-}
-
-/*****************************************************************************/
-
-/*
- * Given a filesystem name, determine if it is resident in the kernel,
- * and if it is resident, return its vfsconf structure.
- *
- * Returns 0 on success; returns -1 on error and sets errno.
- */
-int mygetvfsbyname(fsname, vfcp) const
-	char *fsname;
-	struct vfsconf *vfcp;
-{
-	int name[4], maxtypenum, cnt;
-	size_t buflen;
-
-	name[0] = CTL_VFS;
-	name[1] = VFS_GENERIC;
-	name[2] = VFS_MAXTYPENUM;
-	buflen = 4;
-	if (sysctl(name, 3, &maxtypenum, &buflen, (void *)0, (size_t)0) < 0)
+	
+	if (diskarb_inited)
 	{
-		return (-1);
+		/* Tell AutoDiskMount to send notifications if it needs to */
+		(void) DiskArbRefresh_auto();
 	}
-	name[2] = VFS_CONF;
-	buflen = sizeof * vfcp;
-	for (cnt = 0; cnt < maxtypenum; cnt++)
-	{
-		name[3] = cnt;
-		if (sysctl(name, 4, vfcp, &buflen, (void *)0, (size_t)0) < 0)
-		{
-			if (errno != EOPNOTSUPP && errno != ENOENT)
-			{
-				return (-1);
-			}
-			continue;
-		}
-		if (!strcmp(fsname, vfcp->vfc_name))
-		{
-			return (0);
-		}
-	}
-	errno = ENOENT;
-	return (-1);
+        
+	exit(EXIT_SUCCESS);
 }
 
 /*****************************************************************************/

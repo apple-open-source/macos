@@ -2,7 +2,7 @@
 
   ruby.h -
 
-  $Author: jkh $
+  $Author: melville $
   created at: Thu Jun 10 14:26:32 JST 1993
 
   Copyright (C) 1993-2000 Yukihiro Matsumoto
@@ -124,12 +124,15 @@ typedef unsigned long ID;
 
 #define FIXNUM_FLAG 0x01
 #define INT2FIX(i) ((VALUE)(((long)(i))<<1 | FIXNUM_FLAG))
+#define LONG2FIX(i) INT2FIX(i)
 #define rb_fix_new(v) INT2FIX(v)
 VALUE rb_int2inum _((long));
 #define INT2NUM(v) rb_int2inum(v)
+#define LONG2NUM(v) INT2NUM(v)
 #define rb_int_new(v) rb_int2inum(v)
 VALUE rb_uint2inum _((unsigned long));
 #define UINT2NUM(v) rb_uint2inum(v)
+#define ULONG2NUM(v) UINT2NUM(v)
 #define rb_uint_new(v) rb_uint2inum(v)
 
 #define FIX2LONG(x) RSHIFT((long)x,1)

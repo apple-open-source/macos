@@ -31,7 +31,7 @@
 */
 
 
-static const char rcsid[] = "#(@) $Id: xml_element.c,v 1.1.1.1 2001/12/14 22:13:40 zarzycki Exp $";
+static const char rcsid[] = "#(@) $Id: xml_element.c,v 1.1.1.3 2003/03/11 01:09:35 zarzycki Exp $";
 
 
 
@@ -43,6 +43,31 @@ static const char rcsid[] = "#(@) $Id: xml_element.c,v 1.1.1.1 2001/12/14 22:13:
  * CREATION DATE
  *   06/2000
  * HISTORY
+ *   $Log: xml_element.c,v $
+ *   Revision 1.1.1.3  2003/03/11 01:09:35  zarzycki
+ *   Import of php-4.3.1
+ *
+ *   Revision 1.3.4.1  2002/11/27 04:07:00  fmk
+ *   MFH
+ *
+ *   Revision 1.3  2002/07/05 04:43:53  danda
+ *   merged in updates from SF project.  bring php repository up to date with xmlrpc-epi version 0.51
+ *
+ *   Revision 1.9  2002/07/03 20:54:30  danda
+ *   root element should not have a parent. patch from anon SF user
+ *
+ *   Revision 1.8  2002/05/23 17:46:51  danda
+ *   patch from mukund - fix non utf-8 encoding conversions
+ *
+ *   Revision 1.7  2002/02/13 20:58:50  danda
+ *   patch to make source more windows friendly, contributed by Jeff Lawson
+ *
+ *   Revision 1.6  2002/01/08 01:06:55  danda
+ *   enable <?xml version="1.0"?> format for parsers that are very picky.
+ *
+ *   Revision 1.5  2001/09/29 21:58:05  danda
+ *   adding cvs log to history section
+ *
  *   10/15/2000 -- danda -- adding robodoc documentation
  * TODO
  *   Nicer external API. Get rid of macros.  Make opaque types, etc.
@@ -71,7 +96,9 @@ static const char rcsid[] = "#(@) $Id: xml_element.c,v 1.1.1.1 2001/12/14 22:13:
  *   there must be some.
  ******/
  
-
+#ifdef _WIN32
+#include "xmlrpc_win32.h"
+#endif
 #include <stdlib.h>
 #include <string.h>
 
@@ -84,7 +111,7 @@ static const char rcsid[] = "#(@) $Id: xml_element.c,v 1.1.1.1 2001/12/14 22:13:
 
 #define XML_DECL_START                 "<?xml"
 #define XML_DECL_START_LEN             sizeof(XML_DECL_START) - 1
-#define XML_DECL_VERSION               "version='1.0'"
+#define XML_DECL_VERSION               "version=\"1.0\""
 #define XML_DECL_VERSION_LEN           sizeof(XML_DECL_VERSION) - 1
 #define XML_DECL_ENCODING_ATTR         "encoding"
 #define XML_DECL_ENCODING_ATTR_LEN     sizeof(XML_DECL_ENCODING_ATTR) - 1
@@ -351,7 +378,6 @@ static void xml_element_serialize(xml_element *el, int (*fptr)(void *data, const
           xml_elem_writefunc(fptr, options->encoding, data, 0);
           xml_elem_writefunc(fptr, ATTR_DELIMITER, data, ATTR_DELIMITER_LEN);
       }
-      xml_elem_writefunc(fptr, WHITESPACE, data, WHITESPACE_LEN);
       xml_elem_writefunc(fptr, XML_DECL_END, data, XML_DECL_END_LEN);
       if(options->verbosity != xml_elem_no_white_space) {
          xml_elem_writefunc(fptr, NEWLINE, data, NEWLINE_LEN);
@@ -541,7 +567,6 @@ typedef struct _xml_elem_data {
 /* expat start of element handler */
 static void startElement(void *userData, const char *name, const char **attrs)
 {
-   int i;
    xml_element *c;
    xml_elem_data* mydata = (xml_elem_data*)userData;
    const char** p = attrs;
@@ -589,8 +614,10 @@ static void charHandler(void *userData,
 
       /* Check if we need to decode utf-8 parser output to another encoding */
       if(mydata->needs_enc_conversion && mydata->input_options->encoding) {
-         char* add_text = utf8_decode(s, len, &len, mydata->input_options->encoding);
+         int new_len = 0;
+         char* add_text = utf8_decode(s, len, &new_len, mydata->input_options->encoding);
          if(add_text) {
+            len = new_len;
             simplestring_addn(&mydata->current->text, add_text, len);
             free(add_text);
             return;
@@ -698,6 +725,7 @@ xml_element* xml_elem_parse_buf(const char* in_buf, int len, XML_ELEM_INPUT_OPTI
       }
       else {
          xReturn = (xml_element*)Q_Head(&mydata.root->children);
+         xReturn->parent = NULL;
       }
 
       XML_ParserFree(parser);

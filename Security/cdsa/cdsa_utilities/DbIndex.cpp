@@ -149,11 +149,11 @@ DbConstIndex::DbConstIndex(const Table &table, const ReadSection &indexSection)
 	uint32 numRecords = indexSection.at(offset);
 	offset += AtomSize;
 	mKeyOffsetVector.overlay(numRecords,
-		reinterpret_cast<const uint32 *>(indexSection.range(Range(offset, numRecords * AtomSize))));
+		reinterpret_cast<const Atom *>(indexSection.range(Range(offset, numRecords * AtomSize))));
 
 	offset += numRecords * AtomSize;
 	mRecordNumberVector.overlay(numRecords,
-		reinterpret_cast<const uint32 *>(indexSection.range(Range(offset, numRecords * AtomSize))));
+		reinterpret_cast<const Atom *>(indexSection.range(Range(offset, numRecords * AtomSize))));
 }
 
 // Check to see if this index can be used to perform a given query, based on
@@ -413,7 +413,7 @@ DbMutableIndex::insertRecordMulti(uint32 recordNumber, const ReadSection &packed
 		uint32 newKeySize = keySize;
 		metaAttribute.copyValueBytes(i, packedRecord, keyData, newKeySize);
 		
-		if (attributeIndex == mAttributes.size()) {
+		if (attributeIndex + 1 == mAttributes.size()) {
 			uint32 offset = mIndexDataSize;
 			mIndexDataSize = mIndexData.put(mIndexDataSize, newKeySize, keyData.address());
 			mIndexData.size(mIndexDataSize);

@@ -42,17 +42,15 @@
 
 #ifndef lint
 static const char rcsid[] =
-    "@(#) $Header: /cvs/Darwin/src/live/tcpdump/tcpdump/parsenfsfh.c,v 1.1.1.2 2002/05/29 00:05:33 landonf Exp $ (LBL)";
+    "@(#) $Header: /cvs/root/tcpdump/tcpdump/parsenfsfh.c,v 1.1.1.3 2003/03/17 18:42:16 rbraun Exp $ (LBL)";
 #endif
 
 #ifdef HAVE_CONFIG_H
 #include "config.h"
 #endif
 
-#include <sys/types.h>
-#include <sys/time.h>
+#include <tcpdump-stdinc.h>
 
-#include <ctype.h>
 #include <stdio.h>
 #include <string.h>
 
@@ -108,11 +106,11 @@ static const char rcsid[] =
 	((lsb) + ((e)<<8) + ((d)<<16) + ((c)<<24))
 #endif
 
-static int is_UCX(unsigned char *);
+static int is_UCX(const unsigned char *);
 
 void
 Parse_fh(fh, len, fsidp, inop, osnamep, fsnamep, ourself)
-register caddr_t *fh;
+register const unsigned char *fh;
 int len;
 my_fsid *fsidp;
 ino_t *inop;
@@ -120,7 +118,7 @@ const char **osnamep;		/* if non-NULL, return OS name here */
 const char **fsnamep;		/* if non-NULL, return server fs name here (for VMS) */
 int ourself;		/* true if file handle was generated on this host */
 {
-	register unsigned char *fhp = (unsigned char *)fh;
+	register const unsigned char *fhp = fh;
 	u_int32_t temp;
 	int fhtype = FHT_UNKNOWN;
 	int i;
@@ -436,7 +434,7 @@ int ourself;		/* true if file handle was generated on this host */
  */
 static int
 is_UCX(fhp)
-unsigned char *fhp;
+const unsigned char *fhp;
 {
 	register int i;
 	int seen_null = 0;

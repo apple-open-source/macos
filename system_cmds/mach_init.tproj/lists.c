@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1999-2002 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 1999-2003 Apple Computer, Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -65,6 +65,7 @@ init_lists(void)
 {
 	bootstraps.ref_count = 2; /* make sure we never deallocate this one */
 	bootstraps.next = bootstraps.prev = &bootstraps;
+	bootstraps.parent = &bootstraps;
 	servers.next = servers.prev = &servers;
 	services.next = services.prev = &services;
 	nservices = 0;
@@ -208,20 +209,20 @@ lookup_service_by_name(bootstrap_info_t *bootstrap, name_t name)
 {
 	service_t *servicep;
 
-	while (bootstrap) {
-		for (  servicep = FIRST(services)
-		     ; !IS_END(servicep, services)
-		     ; servicep = NEXT(servicep))
-		{
-			if (!STREQ(name, servicep->name))
-				continue;
-			if (bootstrap && servicep->bootstrap != bootstrap)
-				continue;
-			return servicep;
-		}
-		bootstrap = bootstrap->parent;
-	}
-
+	if (bootstrap)
+		do {
+			for (  servicep = FIRST(services)
+			     ; !IS_END(servicep, services)
+			     ; servicep = NEXT(servicep))
+			{
+				if (!STREQ(name, servicep->name))
+					continue;
+				if (bootstrap && servicep->bootstrap != bootstrap)
+					continue;
+				return servicep;
+			}
+		} while (bootstrap != &bootstraps &&
+			(bootstrap = bootstrap->parent));
 	return NULL;
 }
 
@@ -249,9 +250,6 @@ delete_service(service_t *servicep)
 		mach_port_deallocate(mach_task_self(), servicep->port);
 		mach_port_mod_refs(mach_task_self(), servicep->port,
 				   MACH_PORT_RIGHT_RECEIVE, -1);
-		break;
-	case SELF:
-		error("Self service %s now unavailable", servicep->name);
 		break;
 	default:
 		error("unknown service type %d\n", servicep->servicetype);
@@ -372,11 +370,9 @@ delete_server(server_t *serverp)
 
 	deallocate_bootstrap(serverp->bootstrap);
 
-#ifndef DELAYED_BOOTSTRAP_DESTROY
 	if (serverp->port)
 		mach_port_mod_refs(mach_task_self(), serverp->port,
 				   MACH_PORT_RIGHT_RECEIVE, -1);
-#endif	
 
 	free(serverp);
 }	
@@ -441,7 +437,6 @@ deactivate_bootstrap(bootstrap_info_t *bootstrap)
 		
 		mach_port_deallocate(mach_task_self(), bootstrap->bootstrap_port);
 
-#ifdef DELAYED_BOOTSTRAP_DESTROY
 		{
 			mach_port_t previous;
 			mach_port_request_notification(
@@ -453,16 +448,6 @@ deactivate_bootstrap(bootstrap_info_t *bootstrap)
 					MACH_MSG_TYPE_MAKE_SEND_ONCE,
 					&previous);
 		}
-#else
-		mach_port_mod_refs(
-					mach_task_self(),
-					bootstrap->bootstrap_port,
-					MACH_PORT_RIGHT_RECEIVE,
-					-1);
-		bootstrap->bootstrap_port = MACH_PORT_NULL;
-		deallocate_bootstrap(bootstrap);
-#endif
-
 	} while (deactivating_bootstraps != NULL);
 }
 

@@ -25,5 +25,4 @@
 #include "SYS.h"
 
 SYSCALL(swapon, 1)
-	blr
 

@@ -1,5 +1,5 @@
 /*
- * "$Id: translate.c,v 1.1.1.1 2001/10/18 22:50:39 jlovell Exp $"
+ * "$Id: translate.c,v 1.1.1.4 2002/12/23 19:00:16 jlovell Exp $"
  *
  *   HTTP-based translation program for the Common UNIX Printing System (CUPS).
  *
@@ -255,5 +255,5 @@ main(int  argc,			/* I - Number of command-line arguments */
 
 
 /*
- * End of "$Id: translate.c,v 1.1.1.1 2001/10/18 22:50:39 jlovell Exp $".
+ * End of "$Id: translate.c,v 1.1.1.4 2002/12/23 19:00:16 jlovell Exp $".
  */

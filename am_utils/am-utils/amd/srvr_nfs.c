@@ -37,7 +37,7 @@
  * SUCH DAMAGE.
  *
  *
- * $Id: srvr_nfs.c,v 1.1.1.1 2002/05/15 01:21:56 jkh Exp $
+ * $Id: srvr_nfs.c,v 1.1.1.2 2002/07/15 19:42:40 zarzycki Exp $
  *
  */
 
@@ -325,10 +325,8 @@ nfs_pinged(voidp pkt, int len, struct sockaddr_in *sp, struct sockaddr_in *tsp, 
 	} else {
 	  if (np->np_ping > 1)
 	    srvrlog(fs, "ok");
-#ifdef DEBUG
 	  else
 	    srvrlog(fs, "starts up");
-#endif /* DEBUG */
 	  fs->fs_flags |= FSF_VALID;
 	}
 
@@ -426,10 +424,8 @@ nfs_timed_out(voidp v)
       /*
        * Known to be down
        */
-#ifdef DEBUG
       if ((fs->fs_flags & FSF_VALID) == 0)
 	srvrlog(fs, "starts down");
-#endif /* DEBUG */
       fs->fs_flags |= FSF_VALID;
     }
     if (oflags != fs->fs_flags && (fs->fs_flags & FSF_WANT))

@@ -1,0 +1,118 @@
+# Copyright (c) 2002 Jorge Acereda  <jacereda@users.sourceforge.net> &
+#                    Peter O'Gorman <ogorman@users.sourceforge.net>
+#                   
+# Portions may be copyright others, see the AUTHORS file included with this
+# distribution.    
+# Maintained by Peter O'Gorman <ogorman@users.sourceforge.net>
+#
+# Bug Reports and other queries should go to <ogorman@users.sourceforge.net>
+#
+#
+# 
+# Permission is hereby granted, free of charge, to any person obtaining
+# a copy of this software and associated documentation files (the
+# "Software"), to deal in the Software without restriction, including
+# without limitation the rights to use, copy, modify, merge, publish,
+# distribute, sublicense, and/or sell copies of the Software, and to
+# permit persons to whom the Software is furnished to do so, subject to
+# the following conditions:
+# 
+# The above copyright notice and this permission notice shall be
+# included in all copies or substantial portions of the Software.
+# 
+# THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
+# EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
+# MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND
+# NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE
+# LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION
+# OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION
+# WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+
+prefix=@prefix@
+exec_prefix = @exec_prefix@
+mandir = @mandir@
+includedir = @includedir@
+libdir = @libdir@
+DEBUG=0
+CC=@CC@
+OPT=@OPT@
+DEBUGOPT=-g -O0
+CFLAGS=-Wall -Wstrict-prototypes -Wmissing-prototypes $(OPT)
+AR=ar cru
+RANLIB=@RANLIB@
+INSTALL=/usr/bin/install
+VERSTRING=@VERSTRING@
+LIBVER=@LIBVER@
+
+DEFINES=@DEBUGDEF@ @FINKDEF@
+VERSION=@VERSION@
+NOTPREPEND=@NOTPREPEND@
+
+DESTDIR=
+
+DISTFILES= README \
+	configure \
+	configure.in \
+	dlfcn.c \
+	dlfcn_simple.c \
+	dlfcn.h \
+	ChangeLog \
+	Makefile.in \
+	TODO \
+	AUTHORS \
+	LICENSE \
+	install-sh \
+	dlopen.3.in \
+	dladdr.3 \
+	test/Makefile test/dltest.c test/dlmodule.c test/dladdr.c
+		
+OBJS = dlfcn.o
+
+all: libdl.a libdl.dylib dlopen.3
+
+configure: configure.in
+	autoconf
+
+dist: $(DISTFILES)
+	tar -cvf dlcompat-$(VERSION).tar $(DISTFILES)
+	if test -d dlcompat-$(VERSION); then  rm -rf dlcompat-$(VERSION); fi;
+	mkdir dlcompat-$(VERSION)
+	tar -C dlcompat-$(VERSION) -xvf dlcompat-$(VERSION).tar
+	rm dlcompat-$(VERSION).tar
+	tar -cvzf dlcompat-$(VERSION).tar.gz dlcompat-$(VERSION)
+	rm -rf dlcompat-$(VERSION)
+
+install: all man
+	$(INSTALL) -d -m 755 $(DESTDIR)/$(libdir)/
+	$(INSTALL) -m 644 libdl.a $(DESTDIR)/$(libdir)/
+	$(INSTALL) -m 644 libdl.$(LIBVER).dylib $(DESTDIR)/$(libdir)/
+	ln -fs libdl.$(LIBVER).dylib $(DESTDIR)/$(libdir)/libdl.dylib
+	$(INSTALL) -d -m 755 $(DESTDIR)/$(includedir)/
+	$(INSTALL) -m 644 dlfcn.h $(DESTDIR)/$(includedir)/
+
+dlopen.3: dlopen.3.in
+	sed -e "s/%%NOTPREPEND%%/$(NOTPREPEND)/" < dlopen.3.in > dlopen.3
+
+man: dlopen.3
+	$(INSTALL) -d -m 755 $(DESTDIR)/$(mandir)/man3/
+	$(INSTALL) -m 644 dlopen.3 $(DESTDIR)/$(mandir)/man3/dlopen.3
+	$(INSTALL) -m 644 dladdr.3 $(DESTDIR)/$(mandir)/man3/dladdr.3	
+	ln -fs dlopen.3 $(DESTDIR)/$(mandir)/man3/dlsym.3
+	ln -fs dlopen.3 $(DESTDIR)/$(mandir)/man3/dlclose.3
+	ln -fs dlopen.3 $(DESTDIR)/$(mandir)/man3/dlerror.3
+		
+.c.o:
+	$(CC) $(CFLAGS) $(DEFINES) -o $@ -c $<
+
+libdl.a: $(OBJS)
+	$(AR) libdl.a $(OBJS)
+	$(RANLIB) libdl.a
+
+libdl.dylib: libdl.$(LIBVER).dylib
+	ln -sf libdl.$(LIBVER).dylib $@
+
+libdl.$(LIBVER).dylib: $(OBJS)
+	$(CC) -dynamiclib -o $@ $(OBJS) -install_name $(prefix)/lib/$@ $(VERSTRING)
+
+clean:
+	rm -f $(OBJS) libdl.* *~ *.o dlopen.3

@@ -61,7 +61,7 @@ endif %?TOPDIR_P%
 ?DISTDIRS?	$(mkinstalldirs) %DISTDIRS%
 ##
 ##
-	@for file in $(DISTFILES); do \
+	@list='$(DISTFILES)'; for file in $$list; do \
 ##
 ## Always look for the file in the build directory first.  That way
 ## for something like yacc output we will correctly pick up the latest

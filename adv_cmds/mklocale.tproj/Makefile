@@ -12,11 +12,11 @@ NAME = mklocale
 PROJECTVERSION = 2.8
 PROJECT_TYPE = Tool
 
-HFILES = ldef.h
+HFILES = extern.h fbsdcompat.h ldef.h
 
 OTHERLINKED = yacc.y lex.l
 
-OTHERSRCS = Makefile.preamble Makefile.postamble Makefile Japanese mklocale.1 POSIX share
+OTHERSRCS = Makefile.preamble Makefile Makefile.postamble mklocale.1
 
 OTHERLINKEDOFILES = yacc.o lex.o
 

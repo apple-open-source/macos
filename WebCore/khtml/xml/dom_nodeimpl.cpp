@@ -283,9 +283,13 @@ QString NodeImpl::recursive_toHTML(bool start) const
                 me += " " + attrs.item(j).nodeName().string() + "=\"" + attrs.item(j).nodeValue().string() + "\"";
         }
         // print ending bracket of start tag
-        if( firstChild() == 0 )     // if element has no endtag
-                me += " />\n";
-        else                        // if element has endtag
+        if( firstChild() == 0 ) {    // if element has no endtag
+	    if (isHTMLElement()) {
+		me +=">";
+	    } else {
+                me +="/>";
+	    }
+	} else                        // if element has endtag
         {
                 NodeImpl* temp = nextSibling();
                 if(temp)
@@ -472,6 +476,8 @@ bool NodeImpl::dispatchEvent(EventImpl *evt, int &exceptioncode, bool tempEvent)
 
     // Since event handling code could cause this object to be deleted, grab a reference to the view now
     KHTMLView *view = document->document()->view();
+    if (view)
+        view->ref();
 
     bool ret = dispatchGenericEvent( evt, exceptioncode );
 
@@ -485,6 +491,9 @@ bool NodeImpl::dispatchEvent(EventImpl *evt, int &exceptioncode, bool tempEvent)
     if (tempEvent && view && view->part()->jScript())
         view->part()->jScript()->finishedWithEvent(evt);
 #endif
+
+    if (view)
+        view->deref();
 
     return ret;
 }
@@ -558,15 +567,11 @@ bool NodeImpl::dispatchGenericEvent( EventImpl *evt, int &/*exceptioncode */)
     // In the case of a mouse click, also send a DOMActivate event, which causes things like form submissions
     // to occur. Note that this only happens for _real_ mouse clicks (for which we get a KHTML_CLICK_EVENT or
     // KHTML_DBLCLICK_EVENT), not the standard DOM "click" event that could be sent from js code.
-    if (!evt->defaultPrevented())
+    if (!evt->defaultPrevented() && !disabled())
         if (evt->id() == EventImpl::KHTML_CLICK_EVENT)
             dispatchUIEvent(EventImpl::DOMACTIVATE_EVENT, 1);
         else if (evt->id() == EventImpl::KHTML_DBLCLICK_EVENT)
             dispatchUIEvent(EventImpl::DOMACTIVATE_EVENT, 2);
-
-    // copy this over into a local variable, as the following deref() calls might cause this to be deleted.
-    DocumentPtr *doc = document;
-    doc->ref();
 
     // deref all nodes in chain
     it.toFirst();
@@ -574,7 +579,6 @@ bool NodeImpl::dispatchGenericEvent( EventImpl *evt, int &/*exceptioncode */)
         it.current()->deref(); // this may delete us
 
     DocumentImpl::updateDocumentsRendering();
-    doc->deref();
 
     return !evt->defaultPrevented(); // ### what if defaultPrevented was called before dispatchEvent?
 }
@@ -598,10 +602,34 @@ bool NodeImpl::dispatchWindowEvent(int _id, bool canBubbleArg, bool cancelableAr
     DocumentPtr *doc = document;
     doc->ref();
     bool r = dispatchGenericEvent( evt, exceptioncode );
-    if (!evt->defaultPrevented())
+    if (!evt->defaultPrevented() && doc->document())
 	doc->document()->defaultEventHandler(evt);
+    
+    if (_id == EventImpl::LOAD_EVENT && !evt->propagationStopped()) {
+        // For onload events, send them to the enclosing frame only.
+        // This is a DOM extension and is independent of bubbling/capturing rules of
+        // the DOM.  You send the event only to the enclosing frame.  It does not
+        // bubble through the parent document.
+        DOM::ElementImpl* elt = doc->document()->ownerElement();
+        if (elt && (elt->getDocument()->domain().isNull() ||
+                    elt->getDocument()->domain() == doc->document()->domain())) {
+            // We also do a security check, since we don't want to allow the enclosing
+            // iframe to see loads of child documents in other domains.
+            evt->setCurrentTarget(elt);
+
+            // Capturing first.
+            elt->handleLocalEvents(evt,true);
+
+            // Bubbling second.
+            if (!evt->propagationStopped())
+                elt->handleLocalEvents(evt,false);
+            r = !evt->defaultPrevented();
+        }
+    }
+
     doc->deref();
     evt->deref();
+
     return r;
 }
 
@@ -723,6 +751,9 @@ bool NodeImpl::dispatchKeyEvent(QKeyEvent *key)
 void NodeImpl::handleLocalEvents(EventImpl *evt, bool useCapture)
 {
     if (!m_regdListeners)
+        return;
+
+    if (disabled() && evt->isMouseEvent())
         return;
 
     QPtrList<RegisteredEventListener> listenersCopy = *m_regdListeners;
@@ -885,6 +916,9 @@ bool NodeImpl::childAllowed( NodeImpl *newChild )
 
 NodeImpl::StyleChange NodeImpl::diff( khtml::RenderStyle *s1, khtml::RenderStyle *s2 ) const
 {
+    // FIXME: The behavior of this function is just totally wrong.  It doesn't handle
+    // explicit inheritance of non-inherited properties and so you end up not re-resolving
+    // style in cases where you need to.
     StyleChange ch = NoInherit;
     if ( !s1 || !s2 )
 	ch = Inherit;
@@ -986,6 +1020,11 @@ void NodeImpl::removedFromDocument()
 
 void NodeImpl::childrenChanged()
 {
+}
+
+bool NodeImpl::disabled() const
+{
+    return false;
 }
 
 bool NodeImpl::isReadOnly()
@@ -1568,8 +1607,15 @@ NodeListImpl* NodeBaseImpl::getElementsByTagNameNS ( DOMStringImpl* namespaceURI
     if (namespaceURI && namespaceURI->l && namespaceURI->s[0] == '*')
         idMask &= ~NodeImpl::IdNSMask;
 
-    return new TagNodeListImpl( this,
-                                getDocument()->tagId(namespaceURI, localName, true), idMask);
+    Id id = 0; // 0 means "all items"
+    if ( (idMask & NodeImpl::IdLocalMask) || namespaceURI ) // not getElementsByTagName("*")
+    {
+        id = getDocument()->tagId( namespaceURI, localName, true);
+        if ( !id ) // not found -> we want to return an empty list, not "all items"
+            id = (Id)-1; // HACK. HEAD has a cleaner implementation of TagNodeListImpl it seems.
+    }
+
+    return new TagNodeListImpl( this, id, idMask );
 }
 
 // I don't like this way of implementing the method, but I didn't find any
@@ -1889,7 +1935,7 @@ NodeImpl *TagNodeListImpl::item ( unsigned long index ) const
 
 bool TagNodeListImpl::nodeMatches( NodeImpl *testNode ) const
 {
-    return ( testNode->isElementNode() && m_id &&
+    return ( testNode->isElementNode() &&
              (testNode->id() & m_idMask) == m_id);
 }
 

@@ -1,0 +1,7 @@
+De %(real_name)s@%(host_name)s mailinglijst heeft %(count)d verzoek(en)
+die wachten op uw goedkeuring op:
+
+	%(adminDB)s
+
+Kunt u hier aub zo spoedig mogelijk naar kijken? Dit overzicht van wachtende verzoeken,
+als die er zijn, zal dagelijks naar u toegezonden worden.

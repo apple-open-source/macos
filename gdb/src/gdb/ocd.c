@@ -42,7 +42,7 @@
 
 static int ocd_read_bytes (CORE_ADDR memaddr, char *myaddr, int len);
 
-static int ocd_start_remote (PTR dummy);
+static int ocd_start_remote (void *dummy);
 
 static int readchar (int timeout);
 
@@ -171,7 +171,7 @@ ocd_close (int quitting)
 /* Stub for catch_errors.  */
 
 static int
-ocd_start_remote (PTR dummy)
+ocd_start_remote (void *dummy)
 {
   unsigned char buf[10], *p;
   int pktlen;
@@ -254,9 +254,7 @@ ocd_start_remote (PTR dummy)
   flush_cached_frames ();
   registers_changed ();
   stop_pc = read_pc ();
-  set_current_frame (create_new_frame (read_fp (), stop_pc));
-  select_frame (get_current_frame (), 0);
-  print_stack_frame (selected_frame, -1, 1);
+  print_stack_frame (get_selected_frame (), -1, 1);
 
   buf[0] = OCD_LOG_FILE;
   buf[1] = 3;			/* close existing WIGGLERS.LOG */

@@ -1,7 +1,8 @@
-This is ../info/emacs, produced by makeinfo version 4.0 from emacs.texi.
+This is ../info/emacs, produced by makeinfo version 4.0f from
+emacs.texi.
 
    This is the Fourteenth edition of the `GNU Emacs Manual', updated
-for Emacs version 21.1.
+for Emacs version 21.2.
 
 INFO-DIR-SECTION Emacs
 START-INFO-DIR-ENTRY
@@ -11,9 +12,9 @@ END-INFO-DIR-ENTRY
    Published by the Free Software Foundation 59 Temple Place, Suite 330
 Boston, MA  02111-1307 USA
 
-   Copyright (C) 1985,
-1986,1987,1993,1994,1995,1996,1997,1998,1999,2000,2001    Free Software
-Foundation, Inc.
+   Copyright (C)
+1985,1986,1987,1993,1994,1995,1996,1997,1998,1999,2000,2001,2002
+Free Software Foundation, Inc.
 
    Permission is granted to copy, distribute and/or modify this document
 under the terms of the GNU Free Documentation License, Version 1.1 or
@@ -493,7 +494,9 @@ all the related activities:
      keyboard coding system (*note Specify Coding::), and Emacs will
      accept those characters.  Latin-1 characters can also be input by
      using the `C-x 8' prefix, see *Note C-x 8: Single-Byte Character
-     Support.
+     Support.  On X Window systems, your locale should be set to an
+     appropriate value to make sure Emacs interprets keyboard input
+     correctly, see *Note locales: Language Environments.
 
    The rest of this chapter describes these issues in detail.
 
@@ -663,8 +666,9 @@ its canonical name against entries in the value of the variables
 `locale-charset-language-names' and `locale-language-names', and
 selects the corresponding language environment if a match is found.
 (The former variable overrides the latter.)  It also adjusts the display
-table and terminal coding system, the locale coding system, and the
-preferred coding system as needed for the locale.
+table and terminal coding system, the locale coding system, the
+preferred coding system as needed for the locale, and--last but not
+least--the way Emacs decodes non-ASCII characters sent by your keyboard.
 
    If you modify the `LC_ALL', `LC_CTYPE', or `LANG' environment
 variables while running Emacs, you may want to invoke the

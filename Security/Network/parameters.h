@@ -60,10 +60,10 @@ public:
         TypedValue<T> value;
         if (getParams(key, value)) {
             result = value;
-            debug("paramsource", "%p key=0x%lx retrieved", this, key);
+            secdebug("paramsource", "%p key=0x%lx retrieved", this, key);
             return true;
         } else {
-            debug("paramsource", "%p key=0x%lx not found", this, key);
+            secdebug("paramsource", "%p key=0x%lx not found", this, key);
             return false;
         }
     }

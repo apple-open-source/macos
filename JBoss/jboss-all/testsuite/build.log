@@ -1,0 +1,1274 @@
+
+configure:
+     [echo] 
+junit.timeout:              180000
+jbosstest.iterationcount:   10
+jbosstest.threadcount:      5
+jbosstest.beancount:        5
+marathon.timeout:           3900000
+marathon.duration:          3600000
+marathon.threadcount:       100
+
+    [mkdir] Created dir: /home/starksm/JBoss/Releases/3.2.2RC2/jboss-3.2/testsuite/output/gen-src/org/jboss/test/cts/interfaces
+     [copy] Copying 1 file to /home/starksm/JBoss/Releases/3.2.2RC2/jboss-3.2/testsuite/output/gen-src/org/jboss/test/cts/interfaces
+    [mkdir] Created dir: /home/starksm/JBoss/Releases/3.2.2RC2/jboss-3.2/testsuite/output/gen-src/org/jboss/test/classloader/scoping/singleton
+     [copy] Copying 1 file to /home/starksm/JBoss/Releases/3.2.2RC2/jboss-3.2/testsuite/output/gen-src/org/jboss/test/classloader/scoping/singleton
+
+init:
+     [echo] Set timestamp to: 2003-07-23.22-37
+
+maybejars:
+
+_buildmagic:init:
+
+init:
+     [echo] Set timestamp to: 2003-07-23.22-37
+
+compile-bean-sources:
+    [mkdir] Created dir: /home/starksm/JBoss/Releases/3.2.2RC2/jboss-3.2/testsuite/output/resources/ejb-conf/readonly/META-INF
+[ejbdoclet] Generating Remote interface for 'org.jboss.test.ejbconf.beans.ejb.ReadOnlyHelperSessionBean'.
+[ejbdoclet] Generating Remote interface for 'org.jboss.test.ejbconf.beans.ejb.ReadOnlyBean'.
+[ejbdoclet] Generating Local interface for 'org.jboss.test.ejbconf.beans.ejb.ReadOnlyBean'.
+[ejbdoclet] Generating Home interface for 'org.jboss.test.ejbconf.beans.ejb.ReadOnlyHelperSessionBean'.
+[ejbdoclet] Generating Home interface for 'org.jboss.test.ejbconf.beans.ejb.ReadOnlyBean'.
+[ejbdoclet] Generating Local Home interface for 'org.jboss.test.ejbconf.beans.ejb.ReadOnlyBean'.
+[ejbdoclet] Generating EJB deployment descriptor (ejb-jar.xml).
+[ejbdoclet] Generating jboss.xml.
+[ejbdoclet] Generating jbosscmp-jdbc.xml.
+    [mkdir] Created dir: /home/starksm/JBoss/Releases/3.2.2RC2/jboss-3.2/testsuite/output/resources/jmx/eardeployment/a/META-INF
+[ejbdoclet] Generating Remote interface for 'org.jboss.test.jmx.eardeployment.a.ejb.SessionABean'.
+[ejbdoclet] Generating Local interface for 'org.jboss.test.jmx.eardeployment.a.ejb.SessionABean'.
+[ejbdoclet] Generating Home interface for 'org.jboss.test.jmx.eardeployment.a.ejb.SessionABean'.
+[ejbdoclet] Generating Local Home interface for 'org.jboss.test.jmx.eardeployment.a.ejb.SessionABean'.
+[ejbdoclet] Generating EJB deployment descriptor (ejb-jar.xml).
+[ejbdoclet] Generating jboss.xml.
+    [mkdir] Created dir: /home/starksm/JBoss/Releases/3.2.2RC2/jboss-3.2/testsuite/output/resources/jmx/eardeployment/b/META-INF
+[ejbdoclet] Generating Remote interface for 'org.jboss.test.jmx.eardeployment.b.ejb.SessionBBean'.
+[ejbdoclet] Generating Local interface for 'org.jboss.test.jmx.eardeployment.b.ejb.SessionBBean'.
+[ejbdoclet] Generating Home interface for 'org.jboss.test.jmx.eardeployment.b.ejb.SessionBBean'.
+[ejbdoclet] Generating Local Home interface for 'org.jboss.test.jmx.eardeployment.b.ejb.SessionBBean'.
+[ejbdoclet] Generating EJB deployment descriptor (ejb-jar.xml).
+[ejbdoclet] Generating jboss.xml.
+    [mkdir] Created dir: /home/starksm/JBoss/Releases/3.2.2RC2/jboss-3.2/testsuite/output/resources/cmp2/cmr/META-INF
+[ejbdoclet] Generating Remote interface for 'org.jboss.test.cmp2.cmr.ejb.CMRBugManagerBean'.
+[ejbdoclet] Generating Local interface for 'org.jboss.test.cmp2.cmr.ejb.CMRBugBean'.
+[ejbdoclet] Generating Local interface for 'org.jboss.test.cmp2.cmr.ejb.CMRBugManagerBean'.
+[ejbdoclet] Generating Home interface for 'org.jboss.test.cmp2.cmr.ejb.CMRBugManagerBean'.
+[ejbdoclet] Generating Local Home interface for 'org.jboss.test.cmp2.cmr.ejb.CMRBugBean'.
+[ejbdoclet] Generating Local Home interface for 'org.jboss.test.cmp2.cmr.ejb.CMRBugManagerBean'.
+[ejbdoclet] Generating EJB deployment descriptor (ejb-jar.xml).
+[ejbdoclet] Generating jboss.xml.
+[ejbdoclet] Generating jbosscmp-jdbc.xml.
+    [mkdir] Created dir: /home/starksm/JBoss/Releases/3.2.2RC2/jboss-3.2/testsuite/output/resources/cmp2/passivation/META-INF
+[ejbdoclet] Generating Remote interface for 'org.jboss.test.cmp2.passivation.ejb.RapidlyPassivatedEntityBean'.
+[ejbdoclet] Generating Local interface for 'org.jboss.test.cmp2.passivation.ejb.RapidlyPassivatedEntityBean'.
+[ejbdoclet] Generating Home interface for 'org.jboss.test.cmp2.passivation.ejb.RapidlyPassivatedEntityBean'.
+[ejbdoclet] Generating Local Home interface for 'org.jboss.test.cmp2.passivation.ejb.RapidlyPassivatedEntityBean'.
+[ejbdoclet] Generating EJB deployment descriptor (ejb-jar.xml).
+[ejbdoclet] Generating jboss.xml.
+[ejbdoclet] Generating jbosscmp-jdbc.xml.
+    [mkdir] Created dir: /home/starksm/JBoss/Releases/3.2.2RC2/jboss-3.2/testsuite/output/resources/cmp2/optimisticlock/META-INF
+[ejbdoclet] Generating Remote interface for 'org.jboss.test.cmp2.optimisticlock.ejb.FacadeBean'.
+[ejbdoclet] Generating Local interface for 'org.jboss.test.cmp2.optimisticlock.ejb.CmpEntityBean'.
+[ejbdoclet] Generating Home interface for 'org.jboss.test.cmp2.optimisticlock.ejb.FacadeBean'.
+[ejbdoclet] Generating Local Home interface for 'org.jboss.test.cmp2.optimisticlock.ejb.CmpEntityBean'.
+    [mkdir] Created dir: /home/starksm/JBoss/Releases/3.2.2RC2/jboss-3.2/testsuite/output/resources/cmp2/fkmapping/META-INF
+[ejbdoclet] Generating Remote interface for 'org.jboss.test.cmp2.fkmapping.ejb.ManagerSessionBean'.
+[ejbdoclet] Generating Local interface for 'org.jboss.test.cmp2.fkmapping.ejb.StudentEntityBean'.
+[ejbdoclet] Generating Local interface for 'org.jboss.test.cmp2.fkmapping.ejb.InstituteEntityBean'.
+[ejbdoclet] Generating Local interface for 'org.jboss.test.cmp2.fkmapping.ejb.ExamenationEntityBean'.
+[ejbdoclet] Generating Local interface for 'org.jboss.test.cmp2.fkmapping.ejb.DepartmentEntityBean'.
+[ejbdoclet] Generating Local interface for 'org.jboss.test.cmp2.fkmapping.ejb.GroupEntityBean'.
+[ejbdoclet] Generating Home interface for 'org.jboss.test.cmp2.fkmapping.ejb.ManagerSessionBean'.
+[ejbdoclet] Generating Local Home interface for 'org.jboss.test.cmp2.fkmapping.ejb.StudentEntityBean'.
+[ejbdoclet] Generating Local Home interface for 'org.jboss.test.cmp2.fkmapping.ejb.InstituteEntityBean'.
+[ejbdoclet] Generating Local Home interface for 'org.jboss.test.cmp2.fkmapping.ejb.ExamenationEntityBean'.
+[ejbdoclet] Generating Local Home interface for 'org.jboss.test.cmp2.fkmapping.ejb.DepartmentEntityBean'.
+[ejbdoclet] Generating Local Home interface for 'org.jboss.test.cmp2.fkmapping.ejb.GroupEntityBean'.
+[ejbdoclet] Generating PK class for 'org.jboss.test.cmp2.fkmapping.ejb.StudentEntityBean'.
+[ejbdoclet] Generating PK class for 'org.jboss.test.cmp2.fkmapping.ejb.InstituteEntityBean'.
+[ejbdoclet] Generating PK class for 'org.jboss.test.cmp2.fkmapping.ejb.ExamenationEntityBean'.
+[ejbdoclet] Generating PK class for 'org.jboss.test.cmp2.fkmapping.ejb.DepartmentEntityBean'.
+[ejbdoclet] Generating PK class for 'org.jboss.test.cmp2.fkmapping.ejb.GroupEntityBean'.
+[ejbdoclet] Generating Util class for 'org.jboss.test.cmp2.fkmapping.ejb.StudentEntityBean'.
+[ejbdoclet] Generating Util class for 'org.jboss.test.cmp2.fkmapping.ejb.InstituteEntityBean'.
+[ejbdoclet] Generating Util class for 'org.jboss.test.cmp2.fkmapping.ejb.ExamenationEntityBean'.
+[ejbdoclet] Generating Util class for 'org.jboss.test.cmp2.fkmapping.ejb.ManagerSessionBean'.
+[ejbdoclet] Generating Util class for 'org.jboss.test.cmp2.fkmapping.ejb.DepartmentEntityBean'.
+[ejbdoclet] Generating Util class for 'org.jboss.test.cmp2.fkmapping.ejb.GroupEntityBean'.
+[ejbdoclet] Generating CMP class for 'org.jboss.test.cmp2.fkmapping.ejb.StudentEntityBean'.
+[ejbdoclet] Generating CMP class for 'org.jboss.test.cmp2.fkmapping.ejb.InstituteEntityBean'.
+[ejbdoclet] Generating CMP class for 'org.jboss.test.cmp2.fkmapping.ejb.ExamenationEntityBean'.
+[ejbdoclet] Generating CMP class for 'org.jboss.test.cmp2.fkmapping.ejb.DepartmentEntityBean'.
+[ejbdoclet] Generating CMP class for 'org.jboss.test.cmp2.fkmapping.ejb.GroupEntityBean'.
+[ejbdoclet] Generating Session class for 'org.jboss.test.cmp2.fkmapping.ejb.ManagerSessionBean'.
+[ejbdoclet] Generating EJB deployment descriptor (ejb-jar.xml).
+[ejbdoclet] Generating jboss.xml.
+[ejbdoclet] Generating jbosscmp-jdbc.xml.
+[ejbdoclet] INFO:    Some classes refer to other classes that were not found among the sources or on the classpath.
+[ejbdoclet]          (Perhaps the referred class doesn't exist? Hasn't been generated yet?)
+[ejbdoclet]          The referring classes do not import any fully qualified classes matching these classes.
+[ejbdoclet]          However, since no packages are imported, xjavadoc has assumed that the referred classes
+[ejbdoclet]          belong to the same package as the referring class. The classes are:
+[ejbdoclet] /home/starksm/JBoss/Releases/3.2.2RC2/jboss-3.2/testsuite/src/main/org/jboss/test/cmp2/fkmapping/ejb/StudentEntityBean.java --> DepartmentLocal qualified to org.jboss.test.cmp2.fkmapping.ejb.DepartmentLocal
+[ejbdoclet] /home/starksm/JBoss/Releases/3.2.2RC2/jboss-3.2/testsuite/src/main/org/jboss/test/cmp2/fkmapping/ejb/StudentEntityBean.java --> GroupLocal qualified to org.jboss.test.cmp2.fkmapping.ejb.GroupLocal
+[ejbdoclet] /home/starksm/JBoss/Releases/3.2.2RC2/jboss-3.2/testsuite/src/main/org/jboss/test/cmp2/fkmapping/ejb/ExamenationEntityBean.java --> GroupLocal qualified to org.jboss.test.cmp2.fkmapping.ejb.GroupLocal
+[ejbdoclet] /home/starksm/JBoss/Releases/3.2.2RC2/jboss-3.2/testsuite/src/main/org/jboss/test/cmp2/fkmapping/ejb/DepartmentEntityBean.java --> InstituteLocal qualified to org.jboss.test.cmp2.fkmapping.ejb.InstituteLocal
+[ejbdoclet] /home/starksm/JBoss/Releases/3.2.2RC2/jboss-3.2/testsuite/src/main/org/jboss/test/cmp2/fkmapping/ejb/GroupEntityBean.java --> DepartmentLocal qualified to org.jboss.test.cmp2.fkmapping.ejb.DepartmentLocal
+    [mkdir] Created dir: /home/starksm/JBoss/Releases/3.2.2RC2/jboss-3.2/testsuite/output/resources/cmp2/fkstackoverflow/META-INF
+[ejbdoclet] Generating Remote interface for 'org.jboss.test.cmp2.fkstackoverflow.ejb.FacadeSessionBean'.
+[ejbdoclet] Generating Local interface for 'org.jboss.test.cmp2.fkstackoverflow.ejb.SimpleParentBean'.
+[ejbdoclet] Generating Local interface for 'org.jboss.test.cmp2.fkstackoverflow.ejb.ChildEntityBean'.
+[ejbdoclet] Generating Local interface for 'org.jboss.test.cmp2.fkstackoverflow.ejb.ComplexParentBean'.
+[ejbdoclet] Generating Home interface for 'org.jboss.test.cmp2.fkstackoverflow.ejb.FacadeSessionBean'.
+[ejbdoclet] Generating Local Home interface for 'org.jboss.test.cmp2.fkstackoverflow.ejb.SimpleParentBean'.
+[ejbdoclet] Generating Local Home interface for 'org.jboss.test.cmp2.fkstackoverflow.ejb.ChildEntityBean'.
+[ejbdoclet] Generating Local Home interface for 'org.jboss.test.cmp2.fkstackoverflow.ejb.ComplexParentBean'.
+[ejbdoclet] Generating PK class for 'org.jboss.test.cmp2.fkstackoverflow.ejb.ComplexParentBean'.
+[ejbdoclet] Generating Util class for 'org.jboss.test.cmp2.fkstackoverflow.ejb.SimpleParentBean'.
+[ejbdoclet] Generating Util class for 'org.jboss.test.cmp2.fkstackoverflow.ejb.ChildEntityBean'.
+[ejbdoclet] Generating Util class for 'org.jboss.test.cmp2.fkstackoverflow.ejb.FacadeSessionBean'.
+[ejbdoclet] Generating Util class for 'org.jboss.test.cmp2.fkstackoverflow.ejb.ComplexParentBean'.
+[ejbdoclet] Generating CMP class for 'org.jboss.test.cmp2.fkstackoverflow.ejb.SimpleParentBean'.
+[ejbdoclet] Generating CMP class for 'org.jboss.test.cmp2.fkstackoverflow.ejb.ChildEntityBean'.
+[ejbdoclet] Generating CMP class for 'org.jboss.test.cmp2.fkstackoverflow.ejb.ComplexParentBean'.
+[ejbdoclet] Generating Session class for 'org.jboss.test.cmp2.fkstackoverflow.ejb.FacadeSessionBean'.
+[ejbdoclet] Generating EJB deployment descriptor (ejb-jar.xml).
+[ejbdoclet] Generating jboss.xml.
+[ejbdoclet] Generating jbosscmp-jdbc.xml.
+[ejbdoclet] INFO:    Some classes refer to other classes that were not found among the sources or on the classpath.
+[ejbdoclet]          (Perhaps the referred class doesn't exist? Hasn't been generated yet?)
+[ejbdoclet]          The referring classes do not import any fully qualified classes matching these classes.
+[ejbdoclet]          However, since no packages are imported, xjavadoc has assumed that the referred classes
+[ejbdoclet]          belong to the same package as the referring class. The classes are:
+[ejbdoclet] /home/starksm/JBoss/Releases/3.2.2RC2/jboss-3.2/testsuite/src/main/org/jboss/test/cmp2/fkstackoverflow/ejb/ChildEntityBean.java --> SimpleParentLocal qualified to org.jboss.test.cmp2.fkstackoverflow.ejb.SimpleParentLocal
+[ejbdoclet] /home/starksm/JBoss/Releases/3.2.2RC2/jboss-3.2/testsuite/src/main/org/jboss/test/cmp2/fkstackoverflow/ejb/ChildEntityBean.java --> ComplexParentLocal qualified to org.jboss.test.cmp2.fkstackoverflow.ejb.ComplexParentLocal
+    [mkdir] Created dir: /home/starksm/JBoss/Releases/3.2.2RC2/jboss-3.2/testsuite/output/resources/cmp2/fkupdates/META-INF
+[ejbdoclet] Generating Remote interface for 'org.jboss.test.cmp2.fkupdates.ejb.ListFacadeSessionBean'.
+[ejbdoclet] Generating Local interface for 'org.jboss.test.cmp2.fkupdates.ejb.ListItemEntityBean'.
+[ejbdoclet] Generating Local interface for 'org.jboss.test.cmp2.fkupdates.ejb.ListEntityBean'.
+[ejbdoclet] Generating Home interface for 'org.jboss.test.cmp2.fkupdates.ejb.ListFacadeSessionBean'.
+[ejbdoclet] Generating Local Home interface for 'org.jboss.test.cmp2.fkupdates.ejb.ListItemEntityBean'.
+[ejbdoclet] Generating Local Home interface for 'org.jboss.test.cmp2.fkupdates.ejb.ListEntityBean'.
+[ejbdoclet] Generating PK class for 'org.jboss.test.cmp2.fkupdates.ejb.ListEntityBean'.
+[ejbdoclet] Generating Util class for 'org.jboss.test.cmp2.fkupdates.ejb.ListItemEntityBean'.
+[ejbdoclet] Generating Util class for 'org.jboss.test.cmp2.fkupdates.ejb.ListFacadeSessionBean'.
+[ejbdoclet] Generating Util class for 'org.jboss.test.cmp2.fkupdates.ejb.ListEntityBean'.
+[ejbdoclet] Generating CMP class for 'org.jboss.test.cmp2.fkupdates.ejb.ListItemEntityBean'.
+[ejbdoclet] Generating CMP class for 'org.jboss.test.cmp2.fkupdates.ejb.ListEntityBean'.
+[ejbdoclet] Generating Session class for 'org.jboss.test.cmp2.fkupdates.ejb.ListFacadeSessionBean'.
+[ejbdoclet] Generating EJB deployment descriptor (ejb-jar.xml).
+[ejbdoclet] Generating jboss.xml.
+[ejbdoclet] Generating jbosscmp-jdbc.xml.
+[ejbdoclet] INFO:    Some classes refer to other classes that were not found among the sources or on the classpath.
+[ejbdoclet]          (Perhaps the referred class doesn't exist? Hasn't been generated yet?)
+[ejbdoclet]          The referring classes do not import any fully qualified classes matching these classes.
+[ejbdoclet]          However, since no packages are imported, xjavadoc has assumed that the referred classes
+[ejbdoclet]          belong to the same package as the referring class. The classes are:
+[ejbdoclet] /home/starksm/JBoss/Releases/3.2.2RC2/jboss-3.2/testsuite/src/main/org/jboss/test/cmp2/fkupdates/ejb/ListFacadeSessionBean.java --> ListEntityPK qualified to org.jboss.test.cmp2.fkupdates.ejb.ListEntityPK
+[ejbdoclet] /home/starksm/JBoss/Releases/3.2.2RC2/jboss-3.2/testsuite/src/main/org/jboss/test/cmp2/fkupdates/ejb/ListItemEntityBean.java --> ListEntityLocal qualified to org.jboss.test.cmp2.fkupdates.ejb.ListEntityLocal
+    [mkdir] Created dir: /home/starksm/JBoss/Releases/3.2.2RC2/jboss-3.2/testsuite/output/resources/cmp2/cmrstress/META-INF
+[ejbdoclet] Generating Remote interface for 'org.jboss.test.cmp2.cmrstress.ejb.ParentBean'.
+[ejbdoclet] Generating Local interface for 'org.jboss.test.cmp2.cmrstress.ejb.ChildBean'.
+[ejbdoclet] Generating Home interface for 'org.jboss.test.cmp2.cmrstress.ejb.ParentBean'.
+[ejbdoclet] Generating Local Home interface for 'org.jboss.test.cmp2.cmrstress.ejb.ChildBean'.
+[ejbdoclet] Generating Util class for 'org.jboss.test.cmp2.cmrstress.ejb.ChildBean'.
+[ejbdoclet] Generating Util class for 'org.jboss.test.cmp2.cmrstress.ejb.ParentBean'.
+[ejbdoclet] Generating EJB deployment descriptor (ejb-jar.xml).
+[ejbdoclet] Generating jboss.xml.
+[ejbdoclet] Generating jbosscmp-jdbc.xml.
+    [mkdir] Created dir: /home/starksm/JBoss/Releases/3.2.2RC2/jboss-3.2/testsuite/output/resources/jmx/undeploy/META-INF
+[ejbdoclet] Generating Remote interface for 'org.jboss.test.jmx.ejb.EntityBBean'.
+[ejbdoclet] Generating Remote interface for 'org.jboss.test.jmx.ejb.EntityABean'.
+[ejbdoclet] Generating Home interface for 'org.jboss.test.jmx.ejb.EntityBBean'.
+[ejbdoclet] Generating Home interface for 'org.jboss.test.jmx.ejb.EntityABean'.
+[ejbdoclet] Generating EJB deployment descriptor (ejb-jar.xml).
+[ejbdoclet] Generating jboss.xml.
+[ejbdoclet] Generating jbosscmp-jdbc.xml.
+    [mkdir] Created dir: /home/starksm/JBoss/Releases/3.2.2RC2/jboss-3.2/testsuite/output/resources/jca/META-INF
+[ejbdoclet] Generating Remote interface for 'org.jboss.test.jca.ejb.LocalWrapperCleanupTestSessionBean'.
+[ejbdoclet] Generating Remote interface for 'org.jboss.test.jca.ejb.ConnectionFactorySerializationTestSessionBean'.
+[ejbdoclet] Generating Remote interface for 'org.jboss.test.jca.ejb.ReentrantBean'.
+[ejbdoclet] Generating Remote interface for 'org.jboss.test.jca.ejb.CachedConnectionSessionBean'.
+[ejbdoclet] Generating Remote interface for 'org.jboss.test.jca.ejb.UserTxSessionBean'.
+[ejbdoclet] Generating Remote interface for 'org.jboss.test.jca.ejb.JDBCStatementTestsConnectionSessionBean'.
+[ejbdoclet] Generating Remote interface for 'org.jboss.test.jca.ejb.XAExceptionTestSessionBean'.
+[ejbdoclet] Generating Remote interface for 'org.jboss.test.jca.ejb.XAExceptionSessionBean'.
+[ejbdoclet] Generating Local interface for 'org.jboss.test.jca.ejb.CachedConnectionSessionBean'.
+[ejbdoclet] Generating Local interface for 'org.jboss.test.jca.ejb.UserTxSessionBean'.
+[ejbdoclet] Generating Local interface for 'org.jboss.test.jca.ejb.JDBCStatementTestsConnectionSessionBean'.
+[ejbdoclet] Generating Local interface for 'org.jboss.test.jca.ejb.XAExceptionSessionBean'.
+[ejbdoclet] Generating Home interface for 'org.jboss.test.jca.ejb.LocalWrapperCleanupTestSessionBean'.
+[ejbdoclet] Generating Home interface for 'org.jboss.test.jca.ejb.ConnectionFactorySerializationTestSessionBean'.
+[ejbdoclet] Generating Home interface for 'org.jboss.test.jca.ejb.ReentrantBean'.
+[ejbdoclet] Generating Home interface for 'org.jboss.test.jca.ejb.CachedConnectionSessionBean'.
+[ejbdoclet] Generating Home interface for 'org.jboss.test.jca.ejb.UserTxSessionBean'.
+[ejbdoclet] Generating Home interface for 'org.jboss.test.jca.ejb.JDBCStatementTestsConnectionSessionBean'.
+[ejbdoclet] Generating Home interface for 'org.jboss.test.jca.ejb.XAExceptionTestSessionBean'.
+[ejbdoclet] Generating Home interface for 'org.jboss.test.jca.ejb.XAExceptionSessionBean'.
+[ejbdoclet] Generating Local Home interface for 'org.jboss.test.jca.ejb.CachedConnectionSessionBean'.
+[ejbdoclet] Generating Local Home interface for 'org.jboss.test.jca.ejb.UserTxSessionBean'.
+[ejbdoclet] Generating Local Home interface for 'org.jboss.test.jca.ejb.JDBCStatementTestsConnectionSessionBean'.
+[ejbdoclet] Generating Local Home interface for 'org.jboss.test.jca.ejb.XAExceptionSessionBean'.
+[ejbdoclet] Generating EJB deployment descriptor (ejb-jar.xml).
+[ejbdoclet] Generating jboss.xml.
+    [mkdir] Created dir: /home/starksm/JBoss/Releases/3.2.2RC2/jboss-3.2/testsuite/output/resources/jca/bank/META-INF
+[ejbdoclet] Generating Remote interface for 'org.jboss.test.jca.bank.ejb.TellerBean'.
+[ejbdoclet] Generating Remote interface for 'org.jboss.test.jca.bank.ejb.AccountBean'.
+[ejbdoclet] Generating Local interface for 'org.jboss.test.jca.bank.ejb.CustomerBean'.
+[ejbdoclet] Generating Local interface for 'org.jboss.test.jca.bank.ejb.TellerBean'.
+[ejbdoclet] Generating Local interface for 'org.jboss.test.jca.bank.ejb.AccountBean'.
+[ejbdoclet] Generating Home interface for 'org.jboss.test.jca.bank.ejb.TellerBean'.
+[ejbdoclet] Generating Home interface for 'org.jboss.test.jca.bank.ejb.AccountBean'.
+[ejbdoclet] Generating Local Home interface for 'org.jboss.test.jca.bank.ejb.CustomerBean'.
+[ejbdoclet] Generating Local Home interface for 'org.jboss.test.jca.bank.ejb.TellerBean'.
+[ejbdoclet] Generating Local Home interface for 'org.jboss.test.jca.bank.ejb.AccountBean'.
+[ejbdoclet] Generating EJB deployment descriptor (ejb-jar.xml).
+[ejbdoclet] Generating jboss.xml.
+    [mkdir] Created dir: /home/starksm/JBoss/Releases/3.2.2RC2/jboss-3.2/testsuite/output/resources/banknew/META-INF
+[ejbdoclet] Generating CMP class for 'org.jboss.test.banknew.ejb.BankBean'.
+[ejbdoclet] Generating CMP class for 'org.jboss.test.banknew.ejb.AccountBean'.
+[ejbdoclet] Generating CMP class for 'org.jboss.test.banknew.ejb.CustomerBean'.
+[ejbdoclet] Generating CMP class for 'org.jboss.test.banknew.ejb.TransactionBean'.
+[ejbdoclet] Generating Session class for 'org.jboss.test.banknew.ejb.TellerSessionBean'.
+[ejbdoclet] Generating Session class for 'org.jboss.test.banknew.ejb.BankSessionBean'.
+[ejbdoclet] Generating Session class for 'org.jboss.test.banknew.ejb.AccountSessionBean'.
+[ejbdoclet] Generating Session class for 'org.jboss.test.banknew.ejb.CustomerSessionBean'.
+[ejbdoclet] Generating Remote interface for 'org.jboss.test.banknew.ejb.TellerSessionBean'.
+[ejbdoclet] Generating Remote interface for 'org.jboss.test.banknew.ejb.BankBean'.
+[ejbdoclet] Generating Remote interface for 'org.jboss.test.banknew.ejb.AccountBean'.
+[ejbdoclet] Generating Remote interface for 'org.jboss.test.banknew.ejb.CustomerBean'.
+[ejbdoclet] Generating Remote interface for 'org.jboss.test.banknew.ejb.BankSessionBean'.
+[ejbdoclet] Generating Remote interface for 'org.jboss.test.banknew.ejb.TransactionBean'.
+[ejbdoclet] Generating Remote interface for 'org.jboss.test.banknew.ejb.AccountSessionBean'.
+[ejbdoclet] Generating Remote interface for 'org.jboss.test.banknew.ejb.CustomerSessionBean'.
+[ejbdoclet] Generating Home interface for 'org.jboss.test.banknew.ejb.TellerSessionBean'.
+[ejbdoclet] Generating Home interface for 'org.jboss.test.banknew.ejb.BankBean'.
+[ejbdoclet] Generating Home interface for 'org.jboss.test.banknew.ejb.AccountBean'.
+[ejbdoclet] Generating Home interface for 'org.jboss.test.banknew.ejb.CustomerBean'.
+[ejbdoclet] Generating Home interface for 'org.jboss.test.banknew.ejb.BankSessionBean'.
+[ejbdoclet] Generating Home interface for 'org.jboss.test.banknew.ejb.TransactionBean'.
+[ejbdoclet] Generating Home interface for 'org.jboss.test.banknew.ejb.AccountSessionBean'.
+[ejbdoclet] Generating Home interface for 'org.jboss.test.banknew.ejb.CustomerSessionBean'.
+[ejbdoclet] Generating Data Object class for 'org.jboss.test.banknew.ejb.BankBean'.
+[ejbdoclet] Generating Data Object class for 'org.jboss.test.banknew.ejb.AccountBean'.
+[ejbdoclet] Generating Data Object class for 'org.jboss.test.banknew.ejb.CustomerBean'.
+[ejbdoclet] Generating Data Object class for 'org.jboss.test.banknew.ejb.TransactionBean'.
+[ejbdoclet] Generating PK class for 'org.jboss.test.banknew.ejb.BankBean'.
+[ejbdoclet] Generating PK class for 'org.jboss.test.banknew.ejb.AccountBean'.
+[ejbdoclet] Generating PK class for 'org.jboss.test.banknew.ejb.CustomerBean'.
+[ejbdoclet] Generating PK class for 'org.jboss.test.banknew.ejb.TransactionBean'.
+[ejbdoclet] Generating EJB deployment descriptor (ejb-jar.xml).
+[ejbdoclet] Generating jboss.xml.
+[ejbdoclet] Generating jbosscmp-jdbc.xml.
+    [mkdir] Created dir: /home/starksm/JBoss/Releases/3.2.2RC2/jboss-3.2/testsuite/output/resources/foedeployer/simple/META-INF
+[ejbdoclet] Generating Remote interface for 'org.jboss.test.foedeployer.ejb.simple.SecretManagerSessionBean'.
+[ejbdoclet] Generating Remote interface for 'org.jboss.test.foedeployer.ejb.simple.SecretBean'.
+[ejbdoclet] Generating Local interface for 'org.jboss.test.foedeployer.ejb.simple.SecretBean'.
+[ejbdoclet] Generating Home interface for 'org.jboss.test.foedeployer.ejb.simple.SecretManagerSessionBean'.
+[ejbdoclet] Generating Home interface for 'org.jboss.test.foedeployer.ejb.simple.SecretBean'.
+[ejbdoclet] Generating Local Home interface for 'org.jboss.test.foedeployer.ejb.simple.SecretBean'.
+[ejbdoclet] Generating EJB deployment descriptor (ejb-jar.xml).
+[ejbdoclet] Generating weblogic-ejb-jar.xml.
+[ejbdoclet] Generating weblogic-cmp-rdbms-jar.xml.
+    [mkdir] Created dir: /home/starksm/JBoss/Releases/3.2.2RC2/jboss-3.2/testsuite/output/resources/foedeployer/message/META-INF
+[ejbdoclet] Generating EJB deployment descriptor (ejb-jar.xml).
+[ejbdoclet] Generating weblogic-ejb-jar.xml.
+    [mkdir] Created dir: /home/starksm/JBoss/Releases/3.2.2RC2/jboss-3.2/testsuite/output/resources/foedeployer/o2mb/META-INF
+[ejbdoclet] Generating Remote interface for 'org.jboss.test.foedeployer.ejb.o2mb.O2MBManagerBean'.
+[ejbdoclet] Generating Local interface for 'org.jboss.test.foedeployer.ejb.o2mb.CompanyBean'.
+[ejbdoclet] Generating Local interface for 'org.jboss.test.foedeployer.ejb.o2mb.EmployeeBean'.
+[ejbdoclet] Generating Home interface for 'org.jboss.test.foedeployer.ejb.o2mb.O2MBManagerBean'.
+[ejbdoclet] Generating Local Home interface for 'org.jboss.test.foedeployer.ejb.o2mb.CompanyBean'.
+[ejbdoclet] Generating Local Home interface for 'org.jboss.test.foedeployer.ejb.o2mb.EmployeeBean'.
+[ejbdoclet] Generating EJB deployment descriptor (ejb-jar.xml).
+[ejbdoclet] Generating weblogic-ejb-jar.xml.
+[ejbdoclet] Generating weblogic-cmp-rdbms-jar.xml.
+[ejbdoclet] INFO:    Some classes refer to other classes that were not found among the sources or on the classpath.
+[ejbdoclet]          (Perhaps the referred class doesn't exist? Hasn't been generated yet?)
+[ejbdoclet]          The referring classes do not import any fully qualified classes matching these classes.
+[ejbdoclet]          However, since no packages are imported, xjavadoc has assumed that the referred classes
+[ejbdoclet]          belong to the same package as the referring class. The classes are:
+[ejbdoclet] /home/starksm/JBoss/Releases/3.2.2RC2/jboss-3.2/testsuite/src/main/org/jboss/test/foedeployer/ejb/o2mb/EmployeeBean.java --> CompanyLocal qualified to org.jboss.test.foedeployer.ejb.o2mb.CompanyLocal
+    [mkdir] Created dir: /home/starksm/JBoss/Releases/3.2.2RC2/jboss-3.2/testsuite/output/resources/foedeployer/m2mb/META-INF
+[ejbdoclet] Generating Remote interface for 'org.jboss.test.foedeployer.ejb.m2mb.M2MBManagerBean'.
+[ejbdoclet] Generating Local interface for 'org.jboss.test.foedeployer.ejb.m2mb.ProjectBean'.
+[ejbdoclet] Generating Local interface for 'org.jboss.test.foedeployer.ejb.m2mb.DeveloperBean'.
+[ejbdoclet] Generating Home interface for 'org.jboss.test.foedeployer.ejb.m2mb.M2MBManagerBean'.
+[ejbdoclet] Generating Local Home interface for 'org.jboss.test.foedeployer.ejb.m2mb.ProjectBean'.
+[ejbdoclet] Generating Local Home interface for 'org.jboss.test.foedeployer.ejb.m2mb.DeveloperBean'.
+[ejbdoclet] Generating EJB deployment descriptor (ejb-jar.xml).
+[ejbdoclet] Generating weblogic-ejb-jar.xml.
+[ejbdoclet] Generating weblogic-cmp-rdbms-jar.xml.
+    [mkdir] Created dir: /home/starksm/JBoss/Releases/3.2.2RC2/jboss-3.2/testsuite/output/resources/foedeployer/ql/META-INF
+[ejbdoclet] Generating Remote interface for 'org.jboss.test.foedeployer.ejb.ql.CarCatalogBean'.
+[ejbdoclet] Generating Local interface for 'org.jboss.test.foedeployer.ejb.ql.CarBean'.
+[ejbdoclet] Generating Local interface for 'org.jboss.test.foedeployer.ejb.ql.CarCatalogBean'.
+[ejbdoclet] Generating Home interface for 'org.jboss.test.foedeployer.ejb.ql.CarCatalogBean'.
+[ejbdoclet] Generating Local Home interface for 'org.jboss.test.foedeployer.ejb.ql.CarBean'.
+[ejbdoclet] Generating Local Home interface for 'org.jboss.test.foedeployer.ejb.ql.CarCatalogBean'.
+[ejbdoclet] Generating EJB deployment descriptor (ejb-jar.xml).
+[ejbdoclet] Generating weblogic-ejb-jar.xml.
+[ejbdoclet] Generating weblogic-cmp-rdbms-jar.xml.
+    [mkdir] Created dir: /home/starksm/JBoss/Releases/3.2.2RC2/jboss-3.2/testsuite/output/resources/jmx/loading/cpmanifest/META-INF
+[ejbdoclet] Generating Remote interface for 'org.jboss.test.jmx.loading.ConcreteBean'.
+[ejbdoclet] Generating Home interface for 'org.jboss.test.jmx.loading.ConcreteBean'.
+[ejbdoclet] Generating EJB deployment descriptor (ejb-jar.xml).
+    [mkdir] Created dir: /home/starksm/JBoss/Releases/3.2.2RC2/jboss-3.2/testsuite/output/resources/entity/entity/META-INF
+[ejbdoclet] Generating Value Object class: 'org.jboss.test.entity.beans.TestEntityBean--> org.jboss.test.entity.interfaces.TestEntityValue'.
+[ejbdoclet] Generating Remote interface for 'org.jboss.test.entity.beans.TestEntityBean'.
+[ejbdoclet] Generating Local interface for 'org.jboss.test.entity.beans.TestEntityBean'.
+[ejbdoclet] Generating Home interface for 'org.jboss.test.entity.beans.TestEntityBean'.
+[ejbdoclet] Generating Local Home interface for 'org.jboss.test.entity.beans.TestEntityBean'.
+[ejbdoclet] Generating CMP class for 'org.jboss.test.entity.beans.TestEntityBean'.
+[ejbdoclet] Generating Util class for 'org.jboss.test.entity.beans.TestEntityBean'.
+[ejbdoclet] Generating EJB deployment descriptor (ejb-jar.xml).
+[ejbdoclet] Generating jboss.xml.
+[ejbdoclet] Generating jbosscmp-jdbc.xml.
+
+compile-mbean-sources:
+[jmxdoclet] INFO:    Some classes refer to other classes that were not found among the sources or on the classpath.
+[jmxdoclet]          (Perhaps the referred class doesn't exist? Hasn't been generated yet?)
+[jmxdoclet]          The referring classes do not import any fully qualified classes matching these classes.
+[jmxdoclet]          However, since no packages are imported, xjavadoc has assumed that the referred classes
+[jmxdoclet]          belong to the same package as the referring class. The classes are:
+[jmxdoclet] /home/starksm/JBoss/Releases/3.2.2RC2/jboss-3.2/testsuite/src/main/org/jboss/test/jmx/deployer/BrokenDeployer.java --> BrokenDeployerMBean qualified to org.jboss.test.jmx.deployer.BrokenDeployerMBean
+[jmxdoclet] /home/starksm/JBoss/Releases/3.2.2RC2/jboss-3.2/testsuite/src/main/org/jboss/test/jmx/invoker/InvokerTest.java --> InvokerTestMBean qualified to org.jboss.test.jmx.invoker.InvokerTestMBean
+[jmxdoclet] /home/starksm/JBoss/Releases/3.2.2RC2/jboss-3.2/testsuite/src/main/org/jboss/test/jmx/mbean/TestMBClassLoader.java --> TestMBClassLoaderMBean qualified to org.jboss.test.jmx.mbean.TestMBClassLoaderMBean
+[jmxdoclet] /home/starksm/JBoss/Releases/3.2.2RC2/jboss-3.2/testsuite/src/main/org/jboss/test/jmx/missingclass/MissingClassTest.java --> MissingClassTestMBean qualified to org.jboss.test.jmx.missingclass.MissingClassTestMBean
+
+compile-proxycompiler-bean-sources:
+    [mkdir] Created dir: /home/starksm/JBoss/Releases/3.2.2RC2/jboss-3.2/testsuite/output/resources/proxycompiler/META-INF
+[ejbdoclet] Generating Remote interface for 'org.jboss.test.proxycompiler.beans.ejb.ProxyCompilerTestBean'.
+[ejbdoclet] Generating Local interface for 'org.jboss.test.proxycompiler.beans.ejb.ProxyCompilerTestBean'.
+[ejbdoclet] Generating Home interface for 'org.jboss.test.proxycompiler.beans.ejb.ProxyCompilerTestBean'.
+[ejbdoclet] Generating Local Home interface for 'org.jboss.test.proxycompiler.beans.ejb.ProxyCompilerTestBean'.
+[ejbdoclet] Generating EJB deployment descriptor (ejb-jar.xml).
+[ejbdoclet] Generating jboss.xml.
+[ejbdoclet] Generating jbosscmp-jdbc.xml.
+
+compile-classes-only:
+    [mkdir] Created dir: /home/starksm/JBoss/Releases/3.2.2RC2/jboss-3.2/testsuite/output/classes
+    [javac] Compiling 1219 source files to /home/starksm/JBoss/Releases/3.2.2RC2/jboss-3.2/testsuite/output/classes
+    [javac] /home/starksm/JBoss/Releases/3.2.2RC2/jboss-3.2/testsuite/src/main/org/jboss/test/classloader/circularity/test/CircularityErrorTests.java:12: warning: org.jboss.mx.loading.UnifiedLoaderRepository2 in org.jboss.mx.loading has been deprecated
+    [javac] import org.jboss.mx.loading.UnifiedLoaderRepository2;
+    [javac]                             ^
+    [javac] /home/starksm/JBoss/Releases/3.2.2RC2/jboss-3.2/testsuite/src/main/org/jboss/test/security/service/HttpsClient.java:24: warning: com.sun.net.ssl.HostnameVerifier in com.sun.net.ssl has been deprecated
+    [javac] import com.sun.net.ssl.HostnameVerifier;
+    [javac]                        ^
+    [javac] /home/starksm/JBoss/Releases/3.2.2RC2/jboss-3.2/testsuite/src/main/org/jboss/test/security/service/HttpsClient.java:25: warning: com.sun.net.ssl.HttpsURLConnection in com.sun.net.ssl has been deprecated
+    [javac] import com.sun.net.ssl.HttpsURLConnection;
+    [javac]                        ^
+    [javac] /home/starksm/JBoss/Releases/3.2.2RC2/jboss-3.2/testsuite/src/main/org/jboss/test/security/service/HttpsClient.java:38: warning: com.sun.net.ssl.HostnameVerifier in com.sun.net.ssl has been deprecated
+    [javac]    implements HttpsClientMBean, HostnameVerifier
+    [javac]                                 ^
+    [javac] /home/starksm/JBoss/Releases/3.2.2RC2/jboss-3.2/testsuite/src/main/org/jboss/test/security/test/HttpsUnitTestCase.java:11: warning: com.sun.net.ssl.KeyManager in com.sun.net.ssl has been deprecated
+    [javac] import com.sun.net.ssl.KeyManager;
+    [javac]                        ^
+    [javac] /home/starksm/JBoss/Releases/3.2.2RC2/jboss-3.2/testsuite/src/main/org/jboss/test/security/test/HttpsUnitTestCase.java:12: warning: com.sun.net.ssl.KeyManagerFactory in com.sun.net.ssl has been deprecated
+    [javac] import com.sun.net.ssl.KeyManagerFactory;
+    [javac]                        ^
+    [javac] /home/starksm/JBoss/Releases/3.2.2RC2/jboss-3.2/testsuite/src/main/org/jboss/test/security/test/HttpsUnitTestCase.java:13: warning: com.sun.net.ssl.SSLContext in com.sun.net.ssl has been deprecated
+    [javac] import com.sun.net.ssl.SSLContext;
+    [javac]                        ^
+    [javac] /home/starksm/JBoss/Releases/3.2.2RC2/jboss-3.2/testsuite/src/main/org/jboss/test/security/test/HttpsUnitTestCase.java:14: warning: com.sun.net.ssl.TrustManager in com.sun.net.ssl has been deprecated
+    [javac] import com.sun.net.ssl.TrustManager;
+    [javac]                        ^
+    [javac] /home/starksm/JBoss/Releases/3.2.2RC2/jboss-3.2/testsuite/src/main/org/jboss/test/security/test/HttpsUnitTestCase.java:15: warning: com.sun.net.ssl.TrustManagerFactory in com.sun.net.ssl has been deprecated
+    [javac] import com.sun.net.ssl.TrustManagerFactory;
+    [javac]                        ^
+    [javac] /home/starksm/JBoss/Releases/3.2.2RC2/jboss-3.2/testsuite/src/main/org/jboss/test/classloader/circularity/test/CircularityErrorTests.java:40: warning: org.jboss.mx.loading.UnifiedLoaderRepository2 in org.jboss.mx.loading has been deprecated
+    [javac]       UnifiedLoaderRepository2 repository = new UnifiedLoaderRepository2();
+    [javac]       ^
+    [javac] /home/starksm/JBoss/Releases/3.2.2RC2/jboss-3.2/testsuite/src/main/org/jboss/test/classloader/circularity/test/CircularityErrorTests.java:40: warning: org.jboss.mx.loading.UnifiedLoaderRepository2 in org.jboss.mx.loading has been deprecated
+    [javac]       UnifiedLoaderRepository2 repository = new UnifiedLoaderRepository2();
+    [javac]                                                 ^
+    [javac] /home/starksm/JBoss/Releases/3.2.2RC2/jboss-3.2/testsuite/src/main/org/jboss/test/jbossmq/test/SecurityUnitTestCase.java:606: warning: stop() in java.lang.Thread has been deprecated
+    [javac]          t1.stop();
+    [javac]            ^
+    [javac] /home/starksm/JBoss/Releases/3.2.2RC2/jboss-3.2/testsuite/src/main/org/jboss/test/jbossmq/test/SecurityUnitTestCase.java:641: warning: stop() in java.lang.Thread has been deprecated
+    [javac]          t1.stop();
+    [javac]            ^
+    [javac] /home/starksm/JBoss/Releases/3.2.2RC2/jboss-3.2/testsuite/src/main/org/jboss/test/jbossmq/test/SecurityUnitTestCase.java:921: warning: stop() in java.lang.Thread has been deprecated
+    [javac]          t1.stop();
+    [javac]            ^
+    [javac] /home/starksm/JBoss/Releases/3.2.2RC2/jboss-3.2/testsuite/src/main/org/jboss/test/jbossmq/test/SecurityUnitTestCase.java:970: warning: stop() in java.lang.Thread has been deprecated
+    [javac]          t1.stop();
+    [javac]            ^
+    [javac] /home/starksm/JBoss/Releases/3.2.2RC2/jboss-3.2/testsuite/src/main/org/jboss/test/jbossmq/test/SecurityUnitTestCase.java:1035: warning: stop() in java.lang.Thread has been deprecated
+    [javac]          t1.stop();
+    [javac]            ^
+    [javac] /home/starksm/JBoss/Releases/3.2.2RC2/jboss-3.2/testsuite/src/main/org/jboss/test/jbossmq/test/SecurityUnitTestCase.java:1085: warning: stop() in java.lang.Thread has been deprecated
+    [javac]          t1.stop();
+    [javac]            ^
+    [javac] /home/starksm/JBoss/Releases/3.2.2RC2/jboss-3.2/testsuite/src/main/org/jboss/test/jbossmq/stress/ClientFailTest.java:113: warning: stop() in java.lang.Thread has been deprecated
+    [javac]          t.stop();
+    [javac]           ^
+    [javac] /home/starksm/JBoss/Releases/3.2.2RC2/jboss-3.2/testsuite/src/main/org/jboss/test/jbossmq/stress/DurableSubscriberTest.java:77: warning: stop() in java.lang.Thread has been deprecated
+    [javac]          t1.stop();
+    [javac]            ^
+    [javac] /home/starksm/JBoss/Releases/3.2.2RC2/jboss-3.2/testsuite/src/main/org/jboss/test/jbossmq/stress/DurableSubscriberTest.java:121: warning: stop() in java.lang.Thread has been deprecated
+    [javac]          t2.stop();
+    [javac]            ^
+    [javac] /home/starksm/JBoss/Releases/3.2.2RC2/jboss-3.2/testsuite/src/main/org/jboss/test/jbossmq/stress/DurableSubscriberTest.java:143: warning: stop() in java.lang.Thread has been deprecated
+    [javac]       t1.stop();
+    [javac]         ^
+    [javac] /home/starksm/JBoss/Releases/3.2.2RC2/jboss-3.2/testsuite/src/main/org/jboss/test/jbossmq/stress/DurableSubscriberTest.java:161: warning: stop() in java.lang.Thread has been deprecated
+    [javac]       t1.stop();
+    [javac]         ^
+    [javac] /home/starksm/JBoss/Releases/3.2.2RC2/jboss-3.2/testsuite/src/main/org/jboss/test/jbossmq/stress/ExceptionListenerTest.java:63: warning: stop() in java.lang.Thread has been deprecated
+    [javac]       t1.stop();
+    [javac]         ^
+    [javac] /home/starksm/JBoss/Releases/3.2.2RC2/jboss-3.2/testsuite/src/main/org/jboss/test/jbossmq/stress/MultipleDurableSubscribers.java:111: warning: stop() in java.lang.Thread has been deprecated
+    [javac]          t1.stop();
+    [javac]            ^
+    [javac] /home/starksm/JBoss/Releases/3.2.2RC2/jboss-3.2/testsuite/src/main/org/jboss/test/jbossmq/stress/MultipleDurableSubscribers.java:113: warning: stop() in java.lang.Thread has been deprecated
+    [javac]          t2.stop();
+    [javac]            ^
+    [javac] /home/starksm/JBoss/Releases/3.2.2RC2/jboss-3.2/testsuite/src/main/org/jboss/test/jbossmq/stress/MultipleDurableSubscribers.java:168: warning: stop() in java.lang.Thread has been deprecated
+    [javac]          t1.stop();
+    [javac]            ^
+    [javac] /home/starksm/JBoss/Releases/3.2.2RC2/jboss-3.2/testsuite/src/main/org/jboss/test/jbossmq/stress/MultipleDurableSubscribers.java:170: warning: stop() in java.lang.Thread has been deprecated
+    [javac]          t2.stop();
+    [javac]            ^
+    [javac] /home/starksm/JBoss/Releases/3.2.2RC2/jboss-3.2/testsuite/src/main/org/jboss/test/jbossmq/stress/MassiveTest.java:75: warning: stop() in java.lang.Thread has been deprecated
+    [javac]          t1.stop();
+    [javac]            ^
+    [javac] /home/starksm/JBoss/Releases/3.2.2RC2/jboss-3.2/testsuite/src/main/org/jboss/test/jbossmq/stress/MassiveTest.java:129: warning: stop() in java.lang.Thread has been deprecated
+    [javac]          t1.stop();
+    [javac]            ^
+    [javac] /home/starksm/JBoss/Releases/3.2.2RC2/jboss-3.2/testsuite/src/main/org/jboss/test/jbossmq/stress/MassiveTest.java:133: warning: stop() in java.lang.Thread has been deprecated
+    [javac]          tf.stop();
+    [javac]            ^
+    [javac] /home/starksm/JBoss/Releases/3.2.2RC2/jboss-3.2/testsuite/src/main/org/jboss/test/jbossmq/stress/QueueTest.java:74: warning: stop() in java.lang.Thread has been deprecated
+    [javac]          t1.stop();
+    [javac]            ^
+    [javac] /home/starksm/JBoss/Releases/3.2.2RC2/jboss-3.2/testsuite/src/main/org/jboss/test/jbossmq/stress/QueueTest.java:116: warning: stop() in java.lang.Thread has been deprecated
+    [javac]          t2.stop();
+    [javac]            ^
+    [javac] /home/starksm/JBoss/Releases/3.2.2RC2/jboss-3.2/testsuite/src/main/org/jboss/test/security/service/HttpsClient.java:86: warning: com.sun.net.ssl.HttpsURLConnection in com.sun.net.ssl has been deprecated
+    [javac]       if( conn instanceof HttpsURLConnection )
+    [javac]                           ^
+    [javac] /home/starksm/JBoss/Releases/3.2.2RC2/jboss-3.2/testsuite/src/main/org/jboss/test/security/service/HttpsClient.java:91: warning: com.sun.net.ssl.HttpsURLConnection in com.sun.net.ssl has been deprecated
+    [javac]          HttpsURLConnection httpsConn = (HttpsURLConnection) conn;
+    [javac]          ^
+    [javac] /home/starksm/JBoss/Releases/3.2.2RC2/jboss-3.2/testsuite/src/main/org/jboss/test/security/service/HttpsClient.java:91: warning: com.sun.net.ssl.HttpsURLConnection in com.sun.net.ssl has been deprecated
+    [javac]          HttpsURLConnection httpsConn = (HttpsURLConnection) conn;
+    [javac]                                          ^
+    [javac] /home/starksm/JBoss/Releases/3.2.2RC2/jboss-3.2/testsuite/src/main/org/jboss/test/security/test/HttpsUnitTestCase.java:100: warning: com.sun.net.ssl.SSLContext in com.sun.net.ssl has been deprecated
+    [javac]       SSLContext sslCtx = null;
+    [javac]       ^
+    [javac] /home/starksm/JBoss/Releases/3.2.2RC2/jboss-3.2/testsuite/src/main/org/jboss/test/security/test/HttpsUnitTestCase.java:103: warning: com.sun.net.ssl.SSLContext in com.sun.net.ssl has been deprecated
+    [javac]          sslCtx = SSLContext.getInstance("TLS");
+    [javac]                   ^
+    [javac] /home/starksm/JBoss/Releases/3.2.2RC2/jboss-3.2/testsuite/src/main/org/jboss/test/security/test/HttpsUnitTestCase.java:112: warning: com.sun.net.ssl.KeyManagerFactory in com.sun.net.ssl has been deprecated
+    [javac]          String algorithm = KeyManagerFactory.getDefaultAlgorithm();
+    [javac]                             ^
+    [javac] /home/starksm/JBoss/Releases/3.2.2RC2/jboss-3.2/testsuite/src/main/org/jboss/test/security/test/HttpsUnitTestCase.java:113: warning: com.sun.net.ssl.KeyManagerFactory in com.sun.net.ssl has been deprecated
+    [javac]          KeyManagerFactory keyMgr = KeyManagerFactory.getInstance(algorithm);
+    [javac]          ^
+    [javac] /home/starksm/JBoss/Releases/3.2.2RC2/jboss-3.2/testsuite/src/main/org/jboss/test/security/test/HttpsUnitTestCase.java:113: warning: com.sun.net.ssl.KeyManagerFactory in com.sun.net.ssl has been deprecated
+    [javac]          KeyManagerFactory keyMgr = KeyManagerFactory.getInstance(algorithm);
+    [javac]                                     ^
+    [javac] /home/starksm/JBoss/Releases/3.2.2RC2/jboss-3.2/testsuite/src/main/org/jboss/test/security/test/HttpsUnitTestCase.java:115: warning: com.sun.net.ssl.TrustManagerFactory in com.sun.net.ssl has been deprecated
+    [javac]          algorithm = TrustManagerFactory.getDefaultAlgorithm();
+    [javac]                      ^
+    [javac] /home/starksm/JBoss/Releases/3.2.2RC2/jboss-3.2/testsuite/src/main/org/jboss/test/security/test/HttpsUnitTestCase.java:116: warning: com.sun.net.ssl.TrustManagerFactory in com.sun.net.ssl has been deprecated
+    [javac]          TrustManagerFactory trustMgr = TrustManagerFactory.getInstance(algorithm);
+    [javac]          ^
+    [javac] /home/starksm/JBoss/Releases/3.2.2RC2/jboss-3.2/testsuite/src/main/org/jboss/test/security/test/HttpsUnitTestCase.java:116: warning: com.sun.net.ssl.TrustManagerFactory in com.sun.net.ssl has been deprecated
+    [javac]          TrustManagerFactory trustMgr = TrustManagerFactory.getInstance(algorithm);
+    [javac]                                         ^
+    [javac] /home/starksm/JBoss/Releases/3.2.2RC2/jboss-3.2/testsuite/src/main/org/jboss/test/security/test/HttpsUnitTestCase.java:118: warning: com.sun.net.ssl.TrustManager in com.sun.net.ssl has been deprecated
+    [javac]          TrustManager[] trustMgrs = trustMgr.getTrustManagers();
+    [javac]          ^
+    [javac] 44 warnings
+
+compile-classes:
+
+compile-xmbean-dds:
+     [echo] xdoclet.mergedir: /home/starksm/JBoss/Releases/3.2.2RC2/jboss-3.2/tools/etc/xdoclet/templates}
+    [mkdir] Created dir: /home/starksm/JBoss/Releases/3.2.2RC2/jboss-3.2/testsuite/output/resources/jmx/xmbean
+
+compile-etc:
+    [mkdir] Created dir: /home/starksm/JBoss/Releases/3.2.2RC2/jboss-3.2/testsuite/output/etc
+     [copy] Copying 10 files to /home/starksm/JBoss/Releases/3.2.2RC2/jboss-3.2/testsuite/output/etc
+
+compile-stylesheets:
+    [mkdir] Created dir: /home/starksm/JBoss/Releases/3.2.2RC2/jboss-3.2/testsuite/output/stylesheets
+     [copy] Copying 6 files to /home/starksm/JBoss/Releases/3.2.2RC2/jboss-3.2/testsuite/output/stylesheets
+
+compile-resources:
+     [copy] Copying 333 files to /home/starksm/JBoss/Releases/3.2.2RC2/jboss-3.2/testsuite/output/resources
+
+compile:
+
+_jars-bank:
+    [mkdir] Created dir: /home/starksm/JBoss/Releases/3.2.2RC2/jboss-3.2/testsuite/output/lib
+      [jar] Building jar: /home/starksm/JBoss/Releases/3.2.2RC2/jboss-3.2/testsuite/output/lib/banktest.jar
+      [jar] Building jar: /home/starksm/JBoss/Releases/3.2.2RC2/jboss-3.2/testsuite/output/lib/bank.jar
+      [jar] Building jar: /home/starksm/JBoss/Releases/3.2.2RC2/jboss-3.2/testsuite/output/lib/bank-ejb20.jar
+
+_jars-bank-new:
+      [jar] Building jar: /home/starksm/JBoss/Releases/3.2.2RC2/jboss-3.2/testsuite/output/lib/banknewtest.jar
+      [jar] Building jar: /home/starksm/JBoss/Releases/3.2.2RC2/jboss-3.2/testsuite/output/lib/banknew.jar
+
+_jars-bmp:
+      [jar] Building jar: /home/starksm/JBoss/Releases/3.2.2RC2/jboss-3.2/testsuite/output/lib/bmptest.jar
+      [jar] Building jar: /home/starksm/JBoss/Releases/3.2.2RC2/jboss-3.2/testsuite/output/lib/bmp.jar
+
+_jars-cts:
+     [rmic] RMI Compiling 1 class to /home/starksm/JBoss/Releases/3.2.2RC2/jboss-3.2/testsuite/output/classes
+      [jar] Building jar: /home/starksm/JBoss/Releases/3.2.2RC2/jboss-3.2/testsuite/output/lib/ctstest.jar
+      [jar] Building jar: /home/starksm/JBoss/Releases/3.2.2RC2/jboss-3.2/testsuite/output/lib/cts.jar
+      [jar] Building jar: /home/starksm/JBoss/Releases/3.2.2RC2/jboss-3.2/testsuite/output/lib/cts2.jar
+   [delete] Deleting directory /home/starksm/JBoss/Releases/3.2.2RC2/jboss-3.2/testsuite/output/gen-src/org/jboss/test/cts
+    [mkdir] Created dir: /home/starksm/JBoss/Releases/3.2.2RC2/jboss-3.2/testsuite/output/gen-src/org/jboss/test/cts/ejb
+    [mkdir] Created dir: /home/starksm/JBoss/Releases/3.2.2RC2/jboss-3.2/testsuite/output/gen-src/org/jboss/test/cts/interfaces
+     [copy] Copying 1 file to /home/starksm/JBoss/Releases/3.2.2RC2/jboss-3.2/testsuite/output/gen-src/org/jboss/test/cts/interfaces
+     [copy] Copying 1 file to /home/starksm/JBoss/Releases/3.2.2RC2/jboss-3.2/testsuite/output/gen-src/org/jboss/test/cts/ejb
+     [copy] Copying 1 file to /home/starksm/JBoss/Releases/3.2.2RC2/jboss-3.2/testsuite/output/gen-src/org/jboss/test/cts/service
+    [javac] Compiling 3 source files to /home/starksm/JBoss/Releases/3.2.2RC2/jboss-3.2/testsuite/output/classes
+      [jar] Building jar: /home/starksm/JBoss/Releases/3.2.2RC2/jboss-3.2/testsuite/output/lib/cts-v1cmp.sar
+      [jar] Building jar: /home/starksm/JBoss/Releases/3.2.2RC2/jboss-3.2/testsuite/output/lib/cts-v1cmp.jar
+      [ear] Building ear: /home/starksm/JBoss/Releases/3.2.2RC2/jboss-3.2/testsuite/output/lib/cts-v1cmp.ear
+      [ear] Building ear: /home/starksm/JBoss/Releases/3.2.2RC2/jboss-3.2/testsuite/output/lib/cts-v1cmp-sar.ear
+   [delete] DEPRECATED - Use of the implicit FileSet is deprecated.  Use a nested fileset element instead.
+   [delete] Deleting 4 files from /home/starksm/JBoss/Releases/3.2.2RC2/jboss-3.2/testsuite/output/classes/org/jboss/test/cts
+   [delete] Deleting directory /home/starksm/JBoss/Releases/3.2.2RC2/jboss-3.2/testsuite/output/gen-src/org/jboss/test/cts
+     [copy] Copying 1 file to /home/starksm/JBoss/Releases/3.2.2RC2/jboss-3.2/testsuite/output/gen-src/org/jboss/test/cts/interfaces
+     [copy] Copying 1 file to /home/starksm/JBoss/Releases/3.2.2RC2/jboss-3.2/testsuite/output/gen-src/org/jboss/test/cts/ejb
+     [copy] Copying 1 file to /home/starksm/JBoss/Releases/3.2.2RC2/jboss-3.2/testsuite/output/gen-src/org/jboss/test/cts/service
+    [javac] Compiling 4 source files to /home/starksm/JBoss/Releases/3.2.2RC2/jboss-3.2/testsuite/output/classes
+      [jar] Building jar: /home/starksm/JBoss/Releases/3.2.2RC2/jboss-3.2/testsuite/output/lib/cts-v2cmp.sar
+      [jar] Building jar: /home/starksm/JBoss/Releases/3.2.2RC2/jboss-3.2/testsuite/output/lib/cts-v2cmp.jar
+      [ear] Building ear: /home/starksm/JBoss/Releases/3.2.2RC2/jboss-3.2/testsuite/output/lib/cts-v2cmp.ear
+      [ear] Building ear: /home/starksm/JBoss/Releases/3.2.2RC2/jboss-3.2/testsuite/output/lib/cts-v2cmp-sar.ear
+
+_jars-entityexc:
+      [jar] Building jar: /home/starksm/JBoss/Releases/3.2.2RC2/jboss-3.2/testsuite/output/lib/entityexctest.jar
+      [jar] Building jar: /home/starksm/JBoss/Releases/3.2.2RC2/jboss-3.2/testsuite/output/lib/entityexc.jar
+
+_jars-hello:
+      [jar] Building jar: /home/starksm/JBoss/Releases/3.2.2RC2/jboss-3.2/testsuite/output/lib/hellotest.jar
+      [jar] Building jar: /home/starksm/JBoss/Releases/3.2.2RC2/jboss-3.2/testsuite/output/lib/hello.jar
+
+_jars-idgen:
+      [jar] Building jar: /home/starksm/JBoss/Releases/3.2.2RC2/jboss-3.2/testsuite/output/lib/idgentest.jar
+      [jar] Building jar: /home/starksm/JBoss/Releases/3.2.2RC2/jboss-3.2/testsuite/output/lib/idgen.jar
+
+_jars-dbtest:
+      [jar] Building jar: /home/starksm/JBoss/Releases/3.2.2RC2/jboss-3.2/testsuite/output/lib/dbtestclient.jar
+      [jar] Building jar: /home/starksm/JBoss/Releases/3.2.2RC2/jboss-3.2/testsuite/output/lib/dbtest.jar
+
+_jars-jmsra:
+      [jar] Building jar: /home/starksm/JBoss/Releases/3.2.2RC2/jboss-3.2/testsuite/output/lib/jmsratest.jar
+      [jar] Building jar: /home/starksm/JBoss/Releases/3.2.2RC2/jboss-3.2/testsuite/output/lib/jmsra.jar
+
+_jars-mdb:
+      [jar] Building jar: /home/starksm/JBoss/Releases/3.2.2RC2/jboss-3.2/testsuite/output/lib/mdbtest.jar
+      [jar] Building jar: /home/starksm/JBoss/Releases/3.2.2RC2/jboss-3.2/testsuite/output/lib/mdb.jar
+
+_jars-lock:
+      [jar] Building jar: /home/starksm/JBoss/Releases/3.2.2RC2/jboss-3.2/testsuite/output/lib/locktestclient.jar
+      [jar] Building jar: /home/starksm/JBoss/Releases/3.2.2RC2/jboss-3.2/testsuite/output/lib/locktest.jar
+
+_jars-readahead:
+      [jar] Building jar: /home/starksm/JBoss/Releases/3.2.2RC2/jboss-3.2/testsuite/output/lib/readaheadtest.jar
+      [jar] Building jar: /home/starksm/JBoss/Releases/3.2.2RC2/jboss-3.2/testsuite/output/lib/readahead.jar
+
+_jars-xa:
+      [jar] Building jar: /home/starksm/JBoss/Releases/3.2.2RC2/jboss-3.2/testsuite/output/lib/xatestclient.jar
+      [jar] Building jar: /home/starksm/JBoss/Releases/3.2.2RC2/jboss-3.2/testsuite/output/lib/xatest.jar
+
+_jars-jca:
+      [jar] Building jar: /home/starksm/JBoss/Releases/3.2.2RC2/jboss-3.2/testsuite/output/lib/jbosstestdriver.jar
+      [jar] Building jar: /home/starksm/JBoss/Releases/3.2.2RC2/jboss-3.2/testsuite/output/lib/jbosstestadapter.jar
+      [jar] Building jar: /home/starksm/JBoss/Releases/3.2.2RC2/jboss-3.2/testsuite/output/lib/jbosstestadapter.rar
+     [copy] Copying 2 files to /home/starksm/JBoss/Releases/3.2.2RC2/jboss-3.2/testsuite/output/lib
+      [jar] Building jar: /home/starksm/JBoss/Releases/3.2.2RC2/jboss-3.2/testsuite/output/lib/jcatest.jar
+      [jar] Building jar: /home/starksm/JBoss/Releases/3.2.2RC2/jboss-3.2/testsuite/output/lib/jcabanktest.jar
+     [copy] Copying 1 file to /home/starksm/JBoss/Releases/3.2.2RC2/jboss-3.2/testsuite/output/lib
+
+_jars-jmx:
+      [jar] Building jar: /home/starksm/JBoss/Releases/3.2.2RC2/jboss-3.2/testsuite/output/lib/jmxtest.jar
+      [jar] Building jar: /home/starksm/JBoss/Releases/3.2.2RC2/jboss-3.2/testsuite/output/lib/testdeploy.sar
+      [jar] Building jar: /home/starksm/JBoss/Releases/3.2.2RC2/jboss-3.2/testsuite/output/lib/defaultpkg.sar
+      [jar] Building jar: /home/starksm/JBoss/Releases/3.2.2RC2/jboss-3.2/testsuite/output/lib/testdeploya.sar
+      [jar] Building jar: /home/starksm/JBoss/Releases/3.2.2RC2/jboss-3.2/testsuite/output/lib/testdeployb.sar
+      [jar] Building jar: /home/starksm/JBoss/Releases/3.2.2RC2/jboss-3.2/testsuite/output/lib/testdeployc.sar
+      [jar] Building jar: /home/starksm/JBoss/Releases/3.2.2RC2/jboss-3.2/testsuite/output/lib/testdeployd.sar
+      [jar] Building jar: /home/starksm/JBoss/Releases/3.2.2RC2/jboss-3.2/testsuite/output/lib/testdeploye-util.jar
+      [jar] Building jar: /home/starksm/JBoss/Releases/3.2.2RC2/jboss-3.2/testsuite/output/lib/testdeploye.sar
+      [jar] Building jar: /home/starksm/JBoss/Releases/3.2.2RC2/jboss-3.2/testsuite/output/lib/external.sar
+      [jar] Building jar: /home/starksm/JBoss/Releases/3.2.2RC2/jboss-3.2/testsuite/output/lib/external-util.jar
+      [ear] Building ear: /home/starksm/JBoss/Releases/3.2.2RC2/jboss-3.2/testsuite/output/lib/external.ear
+      [jar] Building jar: /home/starksm/JBoss/Releases/3.2.2RC2/jboss-3.2/testsuite/output/lib/rsrc1.sar
+      [jar] Building jar: /home/starksm/JBoss/Releases/3.2.2RC2/jboss-3.2/testsuite/output/lib/rsrcsvc.jar
+      [jar] Building jar: /home/starksm/JBoss/Releases/3.2.2RC2/jboss-3.2/testsuite/output/lib/rsrc2.sar
+      [jar] Building jar: /home/starksm/JBoss/Releases/3.2.2RC2/jboss-3.2/testsuite/output/lib/rsrc31.sar
+      [jar] Building jar: /home/starksm/JBoss/Releases/3.2.2RC2/jboss-3.2/testsuite/output/lib/rsrc32.sar
+      [jar] Building jar: /home/starksm/JBoss/Releases/3.2.2RC2/jboss-3.2/testsuite/output/lib/rsrc3.jar
+      [jar] Building jar: /home/starksm/JBoss/Releases/3.2.2RC2/jboss-3.2/testsuite/output/lib/rsrc4.sar
+      [jar] Building jar: /home/starksm/JBoss/Releases/3.2.2RC2/jboss-3.2/testsuite/output/lib/entityref.sar
+      [jar] Building jar: /home/starksm/JBoss/Releases/3.2.2RC2/jboss-3.2/testsuite/output/lib/testcopylocaldir.sar
+     [copy] Copying 7 files to /home/starksm/JBoss/Releases/3.2.2RC2/jboss-3.2/testsuite/output/lib
+      [jar] Building jar: /home/starksm/JBoss/Releases/3.2.2RC2/jboss-3.2/testsuite/output/lib/testcrashinstart.sar
+      [jar] Building jar: /home/starksm/JBoss/Releases/3.2.2RC2/jboss-3.2/testsuite/output/lib/testnullinfo.sar
+      [jar] Building jar: /home/starksm/JBoss/Releases/3.2.2RC2/jboss-3.2/testsuite/output/lib/brokendeployer.sar
+      [jar] Building jar: /home/starksm/JBoss/Releases/3.2.2RC2/jboss-3.2/testsuite/output/lib/testmbeanclassloader.jar
+      [jar] Building jar: /home/starksm/JBoss/Releases/3.2.2RC2/jboss-3.2/testsuite/output/lib/sessiona.jar
+      [jar] Building jar: /home/starksm/JBoss/Releases/3.2.2RC2/jboss-3.2/testsuite/output/lib/sessionb.jar
+      [jar] Building jar: /home/starksm/JBoss/Releases/3.2.2RC2/jboss-3.2/testsuite/output/lib/eardeployment.ear
+    [mkdir] Created dir: /home/starksm/JBoss/Releases/3.2.2RC2/jboss-3.2/testsuite/output/lib/unpacked/eardeployment.ear/META-INF
+     [copy] Copying 1 file to /home/starksm/JBoss/Releases/3.2.2RC2/jboss-3.2/testsuite/output/lib/unpacked/eardeployment.ear/META-INF
+    [unjar] Expanding: /home/starksm/JBoss/Releases/3.2.2RC2/jboss-3.2/testsuite/output/lib/sessiona.jar into /home/starksm/JBoss/Releases/3.2.2RC2/jboss-3.2/testsuite/output/lib/unpacked/eardeployment.ear/sessiona.jar
+    [unjar] Expanding: /home/starksm/JBoss/Releases/3.2.2RC2/jboss-3.2/testsuite/output/lib/sessionb.jar into /home/starksm/JBoss/Releases/3.2.2RC2/jboss-3.2/testsuite/output/lib/unpacked/eardeployment.ear/sessionb.jar
+      [jar] Building jar: /home/starksm/JBoss/Releases/3.2.2RC2/jboss-3.2/testsuite/output/lib/abstract.jar
+      [jar] Building jar: /home/starksm/JBoss/Releases/3.2.2RC2/jboss-3.2/testsuite/output/lib/concrete.jar
+      [ear] Building ear: /home/starksm/JBoss/Releases/3.2.2RC2/jboss-3.2/testsuite/output/lib/cpmanifest.ear
+      [jar] Building jar: /home/starksm/JBoss/Releases/3.2.2RC2/jboss-3.2/testsuite/output/lib/abstract2.jar
+      [jar] Building jar: /home/starksm/JBoss/Releases/3.2.2RC2/jboss-3.2/testsuite/output/lib/concrete2.jar
+      [ear] Building ear: /home/starksm/JBoss/Releases/3.2.2RC2/jboss-3.2/testsuite/output/lib/cpcircular-manifest.ear
+      [jar] Building jar: /home/starksm/JBoss/Releases/3.2.2RC2/jboss-3.2/testsuite/output/lib/ejbjar1.jar
+      [jar] Building jar: /home/starksm/JBoss/Releases/3.2.2RC2/jboss-3.2/testsuite/output/lib/ejbjar2.jar
+      [ear] Building ear: /home/starksm/JBoss/Releases/3.2.2RC2/jboss-3.2/testsuite/output/lib/cpejbs-manifest.ear
+      [jar] Building jar: /home/starksm/JBoss/Releases/3.2.2RC2/jboss-3.2/testsuite/output/lib/jarinsar.jar
+      [jar] Building jar: /home/starksm/JBoss/Releases/3.2.2RC2/jboss-3.2/testsuite/output/lib/jarinsar.sar
+      [jar] Building jar: /home/starksm/JBoss/Releases/3.2.2RC2/jboss-3.2/testsuite/output/lib/undeploybroken.jar
+      [jar] Building jar: /home/starksm/JBoss/Releases/3.2.2RC2/jboss-3.2/testsuite/output/lib/ejbredeploy-bad.jar
+      [jar] Building jar: /home/starksm/JBoss/Releases/3.2.2RC2/jboss-3.2/testsuite/output/lib/ejbredeploy-good.jar
+      [jar] Building jar: /home/starksm/JBoss/Releases/3.2.2RC2/jboss-3.2/testsuite/output/lib/user-xmbean.sar
+      [jar] Building jar: /home/starksm/JBoss/Releases/3.2.2RC2/jboss-3.2/testsuite/output/lib/user2-xmbean-embedded.sar
+      [jar] Building jar: /home/starksm/JBoss/Releases/3.2.2RC2/jboss-3.2/testsuite/output/lib/user2-xmbean.sar
+     [copy] Copying 1 file to /home/starksm/JBoss/Releases/3.2.2RC2/jboss-3.2/testsuite/output/lib
+      [jar] Building jar: /home/starksm/JBoss/Releases/3.2.2RC2/jboss-3.2/testsuite/output/lib/interceptors-xmbean.sar
+      [jar] Building jar: /home/starksm/JBoss/Releases/3.2.2RC2/jboss-3.2/testsuite/output/lib/missingclassmbean.jar
+      [jar] Building jar: /home/starksm/JBoss/Releases/3.2.2RC2/jboss-3.2/testsuite/output/lib/invoker-adaptor-test.sar
+      [jar] Building jar: /home/starksm/JBoss/Releases/3.2.2RC2/jboss-3.2/testsuite/output/lib/invoker-adaptor-test.ear
+
+_jars-naming:
+    [mkdir] Created dir: /home/starksm/JBoss/Releases/3.2.2RC2/jboss-3.2/testsuite/output/lib/subdir
+      [jar] Building jar: /home/starksm/JBoss/Releases/3.2.2RC2/jboss-3.2/testsuite/output/lib/naming.jar
+      [jar] Building jar: /home/starksm/JBoss/Releases/3.2.2RC2/jboss-3.2/testsuite/output/lib/remote-naming.jar
+      [jar] Building jar: /home/starksm/JBoss/Releases/3.2.2RC2/jboss-3.2/testsuite/output/lib/subdir/naminga.jar
+      [jar] Building jar: /home/starksm/JBoss/Releases/3.2.2RC2/jboss-3.2/testsuite/output/lib/namingb.jar
+      [jar] Building jar: /home/starksm/JBoss/Releases/3.2.2RC2/jboss-3.2/testsuite/output/lib/naming.ear
+      [jar] Building jar: /home/starksm/JBoss/Releases/3.2.2RC2/jboss-3.2/testsuite/output/lib/naming-readonly.sar
+
+_jars-jbossmq:
+      [jar] Building jar: /home/starksm/JBoss/Releases/3.2.2RC2/jboss-3.2/testsuite/output/lib/jbossmqtest.jar
+
+_jars-load:
+      [jar] Building jar: /home/starksm/JBoss/Releases/3.2.2RC2/jboss-3.2/testsuite/output/lib/load.jar
+
+_jars-jrmp:
+      [jar] Building jar: /home/starksm/JBoss/Releases/3.2.2RC2/jboss-3.2/testsuite/output/lib/jrmp-comp-client.jar
+      [jar] Building jar: /home/starksm/JBoss/Releases/3.2.2RC2/jboss-3.2/testsuite/output/lib/comp-client.jar
+      [jar] Building jar: /home/starksm/JBoss/Releases/3.2.2RC2/jboss-3.2/testsuite/output/lib/jrmp-comp.sar
+      [jar] Building jar: /home/starksm/JBoss/Releases/3.2.2RC2/jboss-3.2/testsuite/output/lib/jrmp-comp.jar
+      [jar] Building jar: /home/starksm/JBoss/Releases/3.2.2RC2/jboss-3.2/testsuite/output/lib/jrmp-dl-client.jar
+      [jar] Building jar: /home/starksm/JBoss/Releases/3.2.2RC2/jboss-3.2/testsuite/output/lib/jrmp-dl.jar
+
+_jars-invokers:
+      [jar] Building jar: /home/starksm/JBoss/Releases/3.2.2RC2/jboss-3.2/testsuite/output/lib/invokers-client.jar
+      [jar] Building jar: /home/starksm/JBoss/Releases/3.2.2RC2/jboss-3.2/testsuite/output/lib/invokers.sar
+      [jar] Building jar: /home/starksm/JBoss/Releases/3.2.2RC2/jboss-3.2/testsuite/output/lib/invokers.jar
+
+_jars-threading:
+      [jar] Building jar: /home/starksm/JBoss/Releases/3.2.2RC2/jboss-3.2/testsuite/output/lib/threadingMBean.jar
+      [jar] Building jar: /home/starksm/JBoss/Releases/3.2.2RC2/jboss-3.2/testsuite/output/lib/threadingBean.jar
+
+_jars-deadlock:
+      [jar] Building jar: /home/starksm/JBoss/Releases/3.2.2RC2/jboss-3.2/testsuite/output/lib/deadlocktest.jar
+      [jar] Building jar: /home/starksm/JBoss/Releases/3.2.2RC2/jboss-3.2/testsuite/output/lib/deadlock.jar
+
+_jars-pooled:
+      [jar] Building jar: /home/starksm/JBoss/Releases/3.2.2RC2/jboss-3.2/testsuite/output/lib/pooledtest.jar
+      [jar] Building jar: /home/starksm/JBoss/Releases/3.2.2RC2/jboss-3.2/testsuite/output/lib/pooled.jar
+
+_jars-testbean:
+      [jar] Building jar: /home/starksm/JBoss/Releases/3.2.2RC2/jboss-3.2/testsuite/output/lib/testbeantest.jar
+      [jar] Building jar: /home/starksm/JBoss/Releases/3.2.2RC2/jboss-3.2/testsuite/output/lib/testbean.jar
+      [jar] Building jar: /home/starksm/JBoss/Releases/3.2.2RC2/jboss-3.2/testsuite/output/lib/testbean2.jar
+
+_jars-testbeancluster:
+      [jar] Building jar: /home/starksm/JBoss/Releases/3.2.2RC2/jboss-3.2/testsuite/output/lib/testbeancluster.jar
+
+_jars-perf:
+      [jar] Building jar: /home/starksm/JBoss/Releases/3.2.2RC2/jboss-3.2/testsuite/output/lib/perftest.jar
+      [jar] Building jar: /home/starksm/JBoss/Releases/3.2.2RC2/jboss-3.2/testsuite/output/lib/perf.jar
+      [jar] Building jar: /home/starksm/JBoss/Releases/3.2.2RC2/jboss-3.2/testsuite/output/lib/probe.jar
+      [jar] Building jar: /home/starksm/JBoss/Releases/3.2.2RC2/jboss-3.2/testsuite/output/lib/secure-perf.jar
+      [jar] Building jar: /home/starksm/JBoss/Releases/3.2.2RC2/jboss-3.2/testsuite/output/lib/perf-service.sar
+      [jar] Building jar: /home/starksm/JBoss/Releases/3.2.2RC2/jboss-3.2/testsuite/output/lib/perf-service2.sar
+      [ear] Building ear: /home/starksm/JBoss/Releases/3.2.2RC2/jboss-3.2/testsuite/output/lib/perf-service.ear
+
+_jars-web:
+      [jar] Building jar: /home/starksm/JBoss/Releases/3.2.2RC2/jboss-3.2/testsuite/output/lib/jbosstest-web-ejbs.jar
+      [jar] Building jar: /home/starksm/JBoss/Releases/3.2.2RC2/jboss-3.2/testsuite/output/lib/jbosstest-web-util.jar
+    [mkdir] Created dir: /home/starksm/JBoss/Releases/3.2.2RC2/jboss-3.2/testsuite/output/lib/lib
+      [jar] Building jar: /home/starksm/JBoss/Releases/3.2.2RC2/jboss-3.2/testsuite/output/lib/lib/util.jar
+    [mkdir] Created dir: /home/starksm/JBoss/Releases/3.2.2RC2/jboss-3.2/testsuite/output/lib/websubdir
+      [jar] Building jar: /home/starksm/JBoss/Releases/3.2.2RC2/jboss-3.2/testsuite/output/lib/websubdir/relative.jar
+      [war] Building war: /home/starksm/JBoss/Releases/3.2.2RC2/jboss-3.2/testsuite/output/lib/root-web.war
+    [mkdir] Created dir: /home/starksm/JBoss/Releases/3.2.2RC2/jboss-3.2/testsuite/output/lib/wars
+      [war] Building war: /home/starksm/JBoss/Releases/3.2.2RC2/jboss-3.2/testsuite/output/lib/wars/notjbosstest-web.war
+      [jar] Building jar: /home/starksm/JBoss/Releases/3.2.2RC2/jboss-3.2/testsuite/output/lib/resources.jar
+      [war] Building war: /home/starksm/JBoss/Releases/3.2.2RC2/jboss-3.2/testsuite/output/lib/jbosstest-web.war
+      [war] Building war: /home/starksm/JBoss/Releases/3.2.2RC2/jboss-3.2/testsuite/output/lib/bad-web.war
+      [war] Building war: /home/starksm/JBoss/Releases/3.2.2RC2/jboss-3.2/testsuite/output/lib/good-web.war
+      [ear] Building ear: /home/starksm/JBoss/Releases/3.2.2RC2/jboss-3.2/testsuite/output/lib/jbosstest-web.ear
+      [ear] Building ear: /home/starksm/JBoss/Releases/3.2.2RC2/jboss-3.2/testsuite/output/lib/jbosstest-web2.ear
+      [ear] Building ear: /home/starksm/JBoss/Releases/3.2.2RC2/jboss-3.2/testsuite/output/lib/jbosstest-bad.ear
+      [ear] Building ear: /home/starksm/JBoss/Releases/3.2.2RC2/jboss-3.2/testsuite/output/lib/jbosstest-good.ear
+
+_jars-bench:
+      [jar] Building jar: /home/starksm/JBoss/Releases/3.2.2RC2/jboss-3.2/testsuite/output/lib/bench.jar
+      [war] Building war: /home/starksm/JBoss/Releases/3.2.2RC2/jboss-3.2/testsuite/output/lib/bench.war
+      [ear] Building ear: /home/starksm/JBoss/Releases/3.2.2RC2/jboss-3.2/testsuite/output/lib/bench.ear
+
+_jars-security:
+      [jar] Building jar: /home/starksm/JBoss/Releases/3.2.2RC2/jboss-3.2/testsuite/output/lib/security-client.jar
+      [jar] Building jar: /home/starksm/JBoss/Releases/3.2.2RC2/jboss-3.2/testsuite/output/lib/security.jar
+      [jar] Building jar: /home/starksm/JBoss/Releases/3.2.2RC2/jboss-3.2/testsuite/output/lib/security-spec.sar
+      [jar] Building jar: /home/starksm/JBoss/Releases/3.2.2RC2/jboss-3.2/testsuite/output/lib/security-spec.jar
+      [jar] Building jar: /home/starksm/JBoss/Releases/3.2.2RC2/jboss-3.2/testsuite/output/lib/security-srp.sar
+      [jar] Building jar: /home/starksm/JBoss/Releases/3.2.2RC2/jboss-3.2/testsuite/output/lib/security-srp.jar
+      [jar] Building jar: /home/starksm/JBoss/Releases/3.2.2RC2/jboss-3.2/testsuite/output/lib/https-service.sar
+      [jar] Building jar: /home/starksm/JBoss/Releases/3.2.2RC2/jboss-3.2/testsuite/output/lib/security-proxy.jar
+      [jar] Building jar: /home/starksm/JBoss/Releases/3.2.2RC2/jboss-3.2/testsuite/output/lib/securitymgr-ejb.jar
+      [jar] Building jar: /home/starksm/JBoss/Releases/3.2.2RC2/jboss-3.2/testsuite/output/lib/securitymgr-tests.jar
+
+_jars-exception:
+      [jar] Building jar: /home/starksm/JBoss/Releases/3.2.2RC2/jboss-3.2/testsuite/output/lib/exception.jar
+
+_jars-cmp2:
+      [jar] Building jar: /home/starksm/JBoss/Releases/3.2.2RC2/jboss-3.2/testsuite/output/lib/cmp2-relationship.jar
+      [jar] Building jar: /home/starksm/JBoss/Releases/3.2.2RC2/jboss-3.2/testsuite/output/lib/cmp2-readonly.jar
+      [jar] Building jar: /home/starksm/JBoss/Releases/3.2.2RC2/jboss-3.2/testsuite/output/lib/cmp2-ejbselect.jar
+      [jar] Building jar: /home/starksm/JBoss/Releases/3.2.2RC2/jboss-3.2/testsuite/output/lib/cmr-postcreateswritten.jar
+      [jar] Building jar: /home/starksm/JBoss/Releases/3.2.2RC2/jboss-3.2/testsuite/output/lib/cmp2-simple.jar
+      [jar] Building jar: /home/starksm/JBoss/Releases/3.2.2RC2/jboss-3.2/testsuite/output/lib/cmp2-commerce.jar
+      [jar] Building jar: /home/starksm/JBoss/Releases/3.2.2RC2/jboss-3.2/testsuite/output/lib/cmp2-lob.jar
+      [jar] Building jar: /home/starksm/JBoss/Releases/3.2.2RC2/jboss-3.2/testsuite/output/lib/cmp2-optimisticlock.jar
+      [jar] Building jar: /home/starksm/JBoss/Releases/3.2.2RC2/jboss-3.2/testsuite/output/lib/cmp2-passivation.jar
+      [jar] Building jar: /home/starksm/JBoss/Releases/3.2.2RC2/jboss-3.2/testsuite/output/lib/cmp2-fkmapping.jar
+      [jar] Building jar: /home/starksm/JBoss/Releases/3.2.2RC2/jboss-3.2/testsuite/output/lib/cmp2-fkstackoverflow.jar
+      [jar] Building jar: /home/starksm/JBoss/Releases/3.2.2RC2/jboss-3.2/testsuite/output/lib/cmp2-fkupdates.jar
+      [jar] Building jar: /home/starksm/JBoss/Releases/3.2.2RC2/jboss-3.2/testsuite/output/lib/cmp2-audit.jar
+      [jar] Building jar: /home/starksm/JBoss/Releases/3.2.2RC2/jboss-3.2/testsuite/output/lib/cmp2-cmrstress.jar
+      [jar] Building jar: /home/starksm/JBoss/Releases/3.2.2RC2/jboss-3.2/testsuite/output/lib/cmp2-keygen.jar
+      [jar] Building jar: /home/starksm/JBoss/Releases/3.2.2RC2/jboss-3.2/testsuite/output/lib/cmp2-perf.jar
+      [jar] Building jar: /home/starksm/JBoss/Releases/3.2.2RC2/jboss-3.2/testsuite/output/lib/cmp2-dbschema.jar
+
+_jars-jsr77:
+      [jar] Building jar: /home/starksm/JBoss/Releases/3.2.2RC2/jboss-3.2/testsuite/output/lib/jsr77-test.jar
+
+_jars-foedeployer:
+     [echo] /home/starksm/JBoss/Releases/3.2.2RC2/jboss-3.2
+     [copy] Copying 1 file to /home/starksm/JBoss/Releases/3.2.2RC2/jboss-3.2/testsuite/output/lib
+      [jar] Building jar: /home/starksm/JBoss/Releases/3.2.2RC2/jboss-3.2/testsuite/output/lib/foe-deployer-simple-test.wlar
+      [jar] Building jar: /home/starksm/JBoss/Releases/3.2.2RC2/jboss-3.2/testsuite/output/lib/foe-deployer-message-test.wlar
+      [jar] Building jar: /home/starksm/JBoss/Releases/3.2.2RC2/jboss-3.2/testsuite/output/lib/foe-deployer-o2mb-test.wlar
+      [jar] Building jar: /home/starksm/JBoss/Releases/3.2.2RC2/jboss-3.2/testsuite/output/lib/foe-deployer-m2mb-test.wlar
+      [jar] Building jar: /home/starksm/JBoss/Releases/3.2.2RC2/jboss-3.2/testsuite/output/lib/foe-deployer-ql-test.wlar
+
+_jars-jbossmx:
+      [jar] Building jar: /home/starksm/JBoss/Releases/3.2.2RC2/jboss-3.2/testsuite/output/lib/jbossmx-compliance.jar
+      [jar] Building jar: /home/starksm/JBoss/Releases/3.2.2RC2/jboss-3.2/testsuite/output/lib/jbossmx-implementation.jar
+      [jar] Building jar: /home/starksm/JBoss/Releases/3.2.2RC2/jboss-3.2/testsuite/output/lib/jbossmx-performance.jar
+
+_jars-ejbconf:
+      [jar] Building jar: /home/starksm/JBoss/Releases/3.2.2RC2/jboss-3.2/testsuite/output/lib/ejbconf-test.jar
+
+_jars-proxycompiler:
+      [jar] Building jar: /home/starksm/JBoss/Releases/3.2.2RC2/jboss-3.2/testsuite/output/lib/proxycompiler-test.jar
+
+_jars-helloiiop:
+      [jar] Building jar: /home/starksm/JBoss/Releases/3.2.2RC2/jboss-3.2/testsuite/output/lib/helloiioptest.jar
+      [jar] Building jar: /home/starksm/JBoss/Releases/3.2.2RC2/jboss-3.2/testsuite/output/lib/helloiiop.jar
+
+_jars-bankiiop:
+      [jar] Building jar: /home/starksm/JBoss/Releases/3.2.2RC2/jboss-3.2/testsuite/output/lib/bankiioptest.jar
+      [jar] Building jar: /home/starksm/JBoss/Releases/3.2.2RC2/jboss-3.2/testsuite/output/lib/bankiiop.jar
+
+_jars-hellojrmpiiop:
+      [jar] Building jar: /home/starksm/JBoss/Releases/3.2.2RC2/jboss-3.2/testsuite/output/lib/hellojrmpiioptest.jar
+      [jar] Building jar: /home/starksm/JBoss/Releases/3.2.2RC2/jboss-3.2/testsuite/output/lib/hellojrmpiiop.jar
+
+_jars-excepiiop:
+      [jar] Building jar: /home/starksm/JBoss/Releases/3.2.2RC2/jboss-3.2/testsuite/output/lib/excepiioptest.jar
+      [jar] Building jar: /home/starksm/JBoss/Releases/3.2.2RC2/jboss-3.2/testsuite/output/lib/excepiiop.jar
+
+_jars-marathon:
+      [jar] Building jar: /home/starksm/JBoss/Releases/3.2.2RC2/jboss-3.2/testsuite/output/lib/marathon.jar
+
+_jars-entity:
+      [jar] Building jar: /home/starksm/JBoss/Releases/3.2.2RC2/jboss-3.2/testsuite/output/lib/jboss-test-entity.jar
+      [jar] Building jar: /home/starksm/JBoss/Releases/3.2.2RC2/jboss-3.2/testsuite/output/lib/jboss-test-pathological-entity.jar
+      [jar] Building jar: /home/starksm/JBoss/Releases/3.2.2RC2/jboss-3.2/testsuite/output/lib/jboss-test-ejbload.jar
+
+_jars-classloader:
+      [jar] Building jar: /home/starksm/JBoss/Releases/3.2.2RC2/jboss-3.2/testsuite/output/lib/concurrentloader.sar
+      [ear] Building ear: /home/starksm/JBoss/Releases/3.2.2RC2/jboss-3.2/testsuite/output/lib/concurrentloader.ear
+      [jar] Building jar: /home/starksm/JBoss/Releases/3.2.2RC2/jboss-3.2/testsuite/output/lib/j0.jar
+      [jar] Building jar: /home/starksm/JBoss/Releases/3.2.2RC2/jboss-3.2/testsuite/output/lib/j1.jar
+      [jar] Building jar: /home/starksm/JBoss/Releases/3.2.2RC2/jboss-3.2/testsuite/output/lib/j2.jar
+      [jar] Building jar: /home/starksm/JBoss/Releases/3.2.2RC2/jboss-3.2/testsuite/output/lib/j3.jar
+      [jar] Building jar: /home/starksm/JBoss/Releases/3.2.2RC2/jboss-3.2/testsuite/output/lib/any0.jar
+      [jar] Building jar: /home/starksm/JBoss/Releases/3.2.2RC2/jboss-3.2/testsuite/output/lib/any1.jar
+      [jar] Building jar: /home/starksm/JBoss/Releases/3.2.2RC2/jboss-3.2/testsuite/output/lib/login.jar
+      [jar] Building jar: /home/starksm/JBoss/Releases/3.2.2RC2/jboss-3.2/testsuite/output/lib/usrmgr.jar
+      [jar] Building jar: /home/starksm/JBoss/Releases/3.2.2RC2/jboss-3.2/testsuite/output/lib/cl-util.jar
+      [jar] Building jar: /home/starksm/JBoss/Releases/3.2.2RC2/jboss-3.2/testsuite/output/lib/le0.jar
+      [jar] Building jar: /home/starksm/JBoss/Releases/3.2.2RC2/jboss-3.2/testsuite/output/lib/le1.jar
+      [jar] Building jar: /home/starksm/JBoss/Releases/3.2.2RC2/jboss-3.2/testsuite/output/lib/dl10.jar
+      [jar] Building jar: /home/starksm/JBoss/Releases/3.2.2RC2/jboss-3.2/testsuite/output/lib/dl11.jar
+      [jar] Building jar: /home/starksm/JBoss/Releases/3.2.2RC2/jboss-3.2/testsuite/output/lib/circularity.sar
+      [jar] Building jar: /home/starksm/JBoss/Releases/3.2.2RC2/jboss-3.2/testsuite/output/lib/interrupt.sar
+      [jar] Building jar: /home/starksm/JBoss/Releases/3.2.2RC2/jboss-3.2/testsuite/output/lib/loadingresource.sar
+      [ear] Building ear: /home/starksm/JBoss/Releases/3.2.2RC2/jboss-3.2/testsuite/output/lib/loadingresource.ear
+     [copy] Copying 1 file to /home/starksm/JBoss/Releases/3.2.2RC2/jboss-3.2/testsuite/output/gen-src/org/jboss/test/classloader/scoping/singleton
+ [checksum] Calculating MD5 checksum for /home/starksm/JBoss/Releases/3.2.2RC2/jboss-3.2/testsuite/output/gen-src/org/jboss/test/classloader/scoping/singleton/MySingleton.java
+     [echo] V1 MySingleton.java cksum: 242a07ea6f6e097fd45e7b6010756e61
+     [copy] Copying 1 file to /home/starksm/JBoss/Releases/3.2.2RC2/jboss-3.2/testsuite/output/classes/org/jboss/test/classloader/scoping/singleton
+    [javac] Compiling 1 source file to /home/starksm/JBoss/Releases/3.2.2RC2/jboss-3.2/testsuite/output/classes
+      [jar] Building jar: /home/starksm/JBoss/Releases/3.2.2RC2/jboss-3.2/testsuite/output/lib/singleton1.sar
+   [delete] Deleting directory /home/starksm/JBoss/Releases/3.2.2RC2/jboss-3.2/testsuite/output/classes/org/jboss/test/classloader/scoping/singleton
+     [copy] Copying 1 file to /home/starksm/JBoss/Releases/3.2.2RC2/jboss-3.2/testsuite/output/gen-src/org/jboss/test/classloader/scoping/singleton
+ [checksum] Calculating MD5 checksum for /home/starksm/JBoss/Releases/3.2.2RC2/jboss-3.2/testsuite/output/gen-src/org/jboss/test/classloader/scoping/singleton/MySingleton.java
+     [echo] V2 MySingleton.java cksum: f02ab46bb92856eaae596518d0a0914f
+     [copy] Copying 1 file to /home/starksm/JBoss/Releases/3.2.2RC2/jboss-3.2/testsuite/output/classes/org/jboss/test/classloader/scoping/singleton
+    [javac] Compiling 3 source files to /home/starksm/JBoss/Releases/3.2.2RC2/jboss-3.2/testsuite/output/classes
+      [jar] Building jar: /home/starksm/JBoss/Releases/3.2.2RC2/jboss-3.2/testsuite/output/lib/singleton2.sar
+      [jar] Building jar: /home/starksm/JBoss/Releases/3.2.2RC2/jboss-3.2/testsuite/output/lib/log4j113-ejb.jar
+      [war] Building war: /home/starksm/JBoss/Releases/3.2.2RC2/jboss-3.2/testsuite/output/lib/log4j113.war
+      [jar] Building jar: /home/starksm/JBoss/Releases/3.2.2RC2/jboss-3.2/testsuite/output/lib/classpath.sar
+
+_jars-tm:
+      [jar] Building jar: /home/starksm/JBoss/Releases/3.2.2RC2/jboss-3.2/testsuite/output/lib/tmtest.sar
+
+_jars-util:
+      [jar] Building jar: /home/starksm/JBoss/Releases/3.2.2RC2/jboss-3.2/testsuite/output/lib/scheduler.jar
+      [jar] Building jar: /home/starksm/JBoss/Releases/3.2.2RC2/jboss-3.2/testsuite/output/lib/scheduler.sar
+      [ear] Building ear: /home/starksm/JBoss/Releases/3.2.2RC2/jboss-3.2/testsuite/output/lib/scheduler.ear
+
+jars:
+
+tests-standard-unit:
+    [mkdir] Created dir: /home/starksm/JBoss/Releases/3.2.2RC2/jboss-3.2/testsuite/output/reports
+    [mkdir] Created dir: /home/starksm/JBoss/Releases/3.2.2RC2/jboss-3.2/testsuite/output/log
+    [junit] Running org.jboss.test.util.test.PropertyEditorsUnitTestCase
+    [junit] Tests run: 4, Failures: 0, Errors: 0, Time elapsed: 0.359 sec
+    [junit] Running org.jboss.test.util.test.PropertyPatternUnitTestCase
+    [junit] Tests run: 15, Failures: 0, Errors: 0, Time elapsed: 0.082 sec
+    [junit] Running org.jboss.test.util.test.ProtocolHandlerUnitTestCase
+    [junit] Tests run: 2, Failures: 0, Errors: 0, Time elapsed: 0.082 sec
+    [junit] Running org.jboss.test.util.test.SchedulerUnitTestCase
+    [junit] Tests run: 3, Failures: 0, Errors: 0, Time elapsed: 0.917 sec
+    [junit] Running org.jboss.test.bmp.test.BmpUnitTestCase
+    [junit] Tests run: 2, Failures: 0, Errors: 0, Time elapsed: 3.775 sec
+    [junit] Running org.jboss.test.classloader.test.CircularityUnitTestCase
+    [junit] Tests run: 7, Failures: 0, Errors: 0, Time elapsed: 0.307 sec
+    [junit] Running org.jboss.test.classloader.test.ClasspathExtensionUnitTestCase
+    [junit] Tests run: 2, Failures: 0, Errors: 0, Time elapsed: 0.656 sec
+    [junit] Running org.jboss.test.classloader.test.ScopingUnitTestCase
+    [junit] Tests run: 4, Failures: 0, Errors: 0, Time elapsed: 2.967 sec
+    [junit] Running org.jboss.test.classloader.test.UnifiedLoaderUnitTestCase
+    [junit] Tests run: 4, Failures: 0, Errors: 0, Time elapsed: 9.71 sec
+    [junit] Running org.jboss.test.cmp2.audit.test.AuditUnitTestCase
+    [junit] Tests run: 7, Failures: 0, Errors: 0, Time elapsed: 3.131 sec
+    [junit] Running org.jboss.test.cmp2.cmr.test.CMRPostCreatesWrittenUnitTestCase
+    [junit] Tests run: 2, Failures: 0, Errors: 0, Time elapsed: 2.097 sec
+    [junit] Running org.jboss.test.cmp2.commerce.CompleteUnitTestCase
+    [junit] Tests run: 27, Failures: 0, Errors: 0, Time elapsed: 12.995 sec
+    [junit] Running org.jboss.test.cmp2.dbschema.relationship.RelationshipSchemaUnitTestCase
+    [junit] Tests run: 12, Failures: 0, Errors: 0, Time elapsed: 4.227 sec
+    [junit] Running org.jboss.test.cmp2.ejbselect.EJBSelectUnitTestCase
+    [junit] Tests run: 6, Failures: 0, Errors: 0, Time elapsed: 2.315 sec
+    [junit] Running org.jboss.test.cmp2.fkmapping.test.FKMappingUnitTestCase
+    [junit] Tests run: 5, Failures: 0, Errors: 0, Time elapsed: 2.875 sec
+    [junit] Running org.jboss.test.cmp2.fkstackoverflow.test.FKStackOverflowUnitTestCase
+    [junit] Tests run: 3, Failures: 0, Errors: 0, Time elapsed: 1.997 sec
+    [junit] Running org.jboss.test.cmp2.fkupdates.test.FKUpdatesUnitTestCase
+    [junit] Tests run: 1, Failures: 0, Errors: 0, Time elapsed: 2.131 sec
+    [junit] Running org.jboss.test.cmp2.keygen.test.KeyGenerationUnitTestCase
+    [junit] Tests run: 6, Failures: 0, Errors: 0, Time elapsed: 2.335 sec
+    [junit] Running org.jboss.test.cmp2.lob.LOBUnitTestCase
+    [junit] Tests run: 12, Failures: 0, Errors: 0, Time elapsed: 3.372 sec
+    [junit] Running org.jboss.test.cmp2.optimisticlock.test.OptimisticLockUnitTestCase
+    [junit] Tests run: 7, Failures: 0, Errors: 0, Time elapsed: 13.906 sec
+    [junit] Running org.jboss.test.cmp2.passivation.test.EntityPassivationUnitTestCase
+    [junit] Tests run: 3, Failures: 0, Errors: 0, Time elapsed: 36.362 sec
+    [junit] Running org.jboss.test.cmp2.perf.test.PerfUnitTestCase
+    [junit] Tests run: 2, Failures: 0, Errors: 0, Time elapsed: 10.634 sec
+    [junit] Running org.jboss.test.cmp2.readonly.ReadonlyUnitTestCase
+    [junit] Tests run: 8, Failures: 0, Errors: 0, Time elapsed: 1.993 sec
+    [junit] Running org.jboss.test.cmp2.relationship.RelationshipUnitTestCase
+    [junit] Tests run: 21, Failures: 0, Errors: 0, Time elapsed: 6.57 sec
+    [junit] Running org.jboss.test.cmp2.simple.PageSizeUnitTestCase
+    [junit] Tests run: 1, Failures: 0, Errors: 0, Time elapsed: 1.618 sec
+    [junit] Running org.jboss.test.cmp2.simple.SimpleUnitTestCase
+    [junit] Tests run: 43, Failures: 0, Errors: 0, Time elapsed: 4.722 sec
+    [junit] Running org.jboss.test.cts.test.BmpUnitTestCase
+    [junit] Tests run: 12, Failures: 0, Errors: 0, Time elapsed: 12.032 sec
+    [junit] Running org.jboss.test.cts.test.CtsCmp2UnitTestCase
+    [junit] Tests run: 4, Failures: 0, Errors: 0, Time elapsed: 7.895 sec
+    [junit] Running org.jboss.test.cts.test.IndependentJarsUnitTestCase
+    [junit] Tests run: 3, Failures: 0, Errors: 0, Time elapsed: 3.888 sec
+    [junit] Running org.jboss.test.cts.test.MDBUnitTestCase
+    [junit] Tests run: 2, Failures: 0, Errors: 0, Time elapsed: 11.678 sec
+    [junit] Running org.jboss.test.cts.test.StatefulSessionUnitTestCase
+    [junit] Tests run: 18, Failures: 0, Errors: 0, Time elapsed: 142.367 sec
+    [junit] Running org.jboss.test.cts.test.StatelessSessionUnitTestCase
+    [junit] Tests run: 7, Failures: 0, Errors: 0, Time elapsed: 6.729 sec
+    [junit] Running org.jboss.test.dbtest.test.DbTypesUnitTestCase
+    [junit] Tests run: 2, Failures: 0, Errors: 0, Time elapsed: 2.05 sec
+    [junit] Running org.jboss.test.ejbconf.test.MetaDataUnitTestCase
+    [junit] Tests run: 1, Failures: 0, Errors: 0, Time elapsed: 1.139 sec
+    [junit] Running org.jboss.test.ejbconf.test.ReadOnlyUnitTestCase
+    [junit] Tests run: 2, Failures: 0, Errors: 0, Time elapsed: 1.895 sec
+    [junit] Running org.jboss.test.entity.test.EJBLoadUnitTestCase
+    [junit] Tests run: 3, Failures: 0, Errors: 0, Time elapsed: 1.298 sec
+    [junit] Running org.jboss.test.entity.test.EntityUnitTestCase
+    [junit] Tests run: 4, Failures: 0, Errors: 0, Time elapsed: 1.568 sec
+    [junit] Running org.jboss.test.entity.test.PathologicalUnitTestCase
+    [junit] Tests run: 7, Failures: 0, Errors: 0, Time elapsed: 1.579 sec
+    [junit] Running org.jboss.test.entityexc.test.EntityExcUnitTestCase
+    [junit] Tests run: 2, Failures: 0, Errors: 0, Time elapsed: 1.546 sec
+    [junit] Running org.jboss.test.exception.EntityExceptionUnitTestCase
+    [junit] Tests run: 62, Failures: 0, Errors: 4, Time elapsed: 3.52 sec
+    [junit] TEST org.jboss.test.exception.EntityExceptionUnitTestCase FAILED
+    [junit] Running org.jboss.test.exception.ExceptionUnitTestCase
+    [junit] Tests run: 27, Failures: 0, Errors: 0, Time elapsed: 2.181 sec
+    [junit] Running org.jboss.test.ha.jmx.test.HAServiceMBeanSupportUnitTestCase
+    [junit] Tests run: 2, Failures: 0, Errors: 0, Time elapsed: 1.003 sec
+    [junit] Running org.jboss.test.ha.singleton.test.HASingletonControllerUnitTestCase
+    [junit] Tests run: 8, Failures: 0, Errors: 0, Time elapsed: 1.036 sec
+    [junit] Running org.jboss.test.ha.singleton.test.HASingletonSupportUnitTestCase
+    [junit] Tests run: 5, Failures: 0, Errors: 0, Time elapsed: 1.095 sec
+    [junit] Running org.jboss.test.hello.test.HelloCachedUnitTestCase
+    [junit] Tests run: 2, Failures: 0, Errors: 0, Time elapsed: 1.932 sec
+    [junit] Running org.jboss.test.idgen.test.IdGenUnitTestCase
+    [junit] Tests run: 2, Failures: 0, Errors: 0, Time elapsed: 1.333 sec
+    [junit] Running org.jboss.test.invokers.test.MultiInvokersUnitTestCase
+    [junit] Tests run: 2, Failures: 0, Errors: 0, Time elapsed: 2.047 sec
+    [junit] Running org.jboss.test.jbossmq.test.ConnectionUnitTestCase
+    [junit] Tests run: 19, Failures: 0, Errors: 0, Time elapsed: 6.17 sec
+    [junit] Running org.jboss.test.jbossmq.test.HTTPJBossMQUnitTestCase
+    [junit] Tests run: 19, Failures: 0, Errors: 0, Time elapsed: 27.099 sec
+    [junit] Running org.jboss.test.jbossmq.test.JBossSessionRecoverUnitTestCase
+    [junit] Tests run: 6, Failures: 0, Errors: 0, Time elapsed: 11.106 sec
+    [junit] Running org.jboss.test.jbossmq.test.LargeMessageUnitTestCase
+    [junit] Tests run: 3, Failures: 0, Errors: 0, Time elapsed: 7.896 sec
+    [junit] Running org.jboss.test.jbossmq.test.MessageBodyUnitTestCase
+    [junit] Tests run: 3, Failures: 0, Errors: 0, Time elapsed: 7.009 sec
+    [junit] Running org.jboss.test.jbossmq.test.OIL2JBossMQUnitTestCase
+    [junit] Tests run: 19, Failures: 0, Errors: 0, Time elapsed: 23.223 sec
+    [junit] Running org.jboss.test.jbossmq.test.OILJBossMQUnitTestCase
+    [junit] Tests run: 19, Failures: 0, Errors: 0, Time elapsed: 23.037 sec
+    [junit] Running org.jboss.test.jbossmq.test.RMIJBossMQUnitTestCase
+    [junit] Tests run: 19, Failures: 0, Errors: 0, Time elapsed: 23.833 sec
+    [junit] Running org.jboss.test.jbossmq.test.RollBackUnitTestCase
+    [junit] Tests run: 7, Failures: 0, Errors: 0, Time elapsed: 4.587 sec
+    [junit] Running org.jboss.test.jbossmq.test.ScheduledDeliveryUnitTestCase
+    [junit] Tests run: 1, Failures: 0, Errors: 0, Time elapsed: 6.689 sec
+    [junit] Running org.jboss.test.jbossmq.test.SecurityUnitTestCase
+    [junit] Tests run: 25, Failures: 0, Errors: 0, Time elapsed: 13.406 sec
+    [junit] Running org.jboss.test.jbossmq.test.SelectorParserUnitTestCase
+    [junit] Tests run: 18, Failures: 0, Errors: 0, Time elapsed: 0.125 sec
+    [junit] Running org.jboss.test.jbossmq.test.SelectorSyntaxUnitTestCase
+    [junit] Tests run: 7, Failures: 0, Errors: 0, Time elapsed: 1.15 sec
+    [junit] Running org.jboss.test.jbossmq.test.UIL2JBossMQUnitTestCase
+    [junit] Tests run: 19, Failures: 0, Errors: 0, Time elapsed: 23.448 sec
+    [junit] Running org.jboss.test.jbossmq.test.UILJBossMQUnitTestCase
+    [junit] Tests run: 19, Failures: 0, Errors: 0, Time elapsed: 39.929 sec
+    [junit] Running org.jboss.test.jbossmq.test.UnackedUnitTestCase
+    [junit] Tests run: 7, Failures: 0, Errors: 0, Time elapsed: 3.209 sec
+    [junit] Running org.jboss.test.jbossmq.test.XAResourceUnitTestCase
+    [junit] Tests run: 2, Failures: 0, Errors: 0, Time elapsed: 0.773 sec
+    [junit] Running org.jboss.test.jca.test.BaseConnectionManagerUnitTestCase
+    [junit] Tests run: 3, Failures: 0, Errors: 0, Time elapsed: 0.41 sec
+    [junit] Running org.jboss.test.jca.test.CachedConnectionSessionUnitTestCase
+    [junit] Tests run: 2, Failures: 0, Errors: 0, Time elapsed: 2.47 sec
+    [junit] Running org.jboss.test.jca.test.ConnectionFactorySerializationUnitTestCase
+    [junit] Tests run: 2, Failures: 0, Errors: 0, Time elapsed: 1.915 sec
+    [junit] Running org.jboss.test.jca.test.DeploymentUnitTestCase
+    [junit] Tests run: 2, Failures: 0, Errors: 0, Time elapsed: 1.039 sec
+    [junit] Running org.jboss.test.jca.test.JDBCDriverRedeployUnitTestCase
+    [junit] Tests run: 2, Failures: 0, Errors: 0, Time elapsed: 0.46 sec
+    [junit] Running org.jboss.test.jca.test.JDBCStatementTestsConnectionUnitTestCase
+    [junit] Tests run: 2, Failures: 0, Errors: 0, Time elapsed: 2.17 sec
+    [junit] Running org.jboss.test.jca.test.LocalWrapperCleanupUnitTestCase
+    [junit] Tests run: 6, Failures: 0, Errors: 0, Time elapsed: 2.697 sec
+    [junit] Running org.jboss.test.jca.test.ReentrantUnitTestCase
+    [junit] Tests run: 2, Failures: 0, Errors: 0, Time elapsed: 1.951 sec
+    [junit] Running org.jboss.test.jca.test.UserTxUnitTestCase
+    [junit] Tests run: 3, Failures: 0, Errors: 0, Time elapsed: 2.333 sec
+    [junit] Running org.jboss.test.jca.test.XAExceptionUnitTestCase
+    [junit] Tests run: 15, Failures: 0, Errors: 0, Time elapsed: 4.357 sec
+    [junit] Running org.jboss.test.jca.test.XATxConnectionManagerUnitTestCase
+    [junit] Tests run: 5, Failures: 0, Errors: 0, Time elapsed: 0.666 sec
+    [junit] Running org.jboss.test.jmsra.test.RaJMSSessionUnitTestCase
+    [junit] Tests run: 2, Failures: 0, Errors: 0, Time elapsed: 1.429 sec
+    [junit] Running org.jboss.test.jmsra.test.RaQueueUnitTestCase
+    [junit] Tests run: 5, Failures: 0, Errors: 0, Time elapsed: 6.38 sec
+    [junit] Running org.jboss.test.jmsra.test.RaSyncRecUnitTestCase
+    [junit] Tests run: 2, Failures: 0, Errors: 0, Time elapsed: 1.974 sec
+    [junit] Running org.jboss.test.jmsra.test.RaTopicUnitTestCase
+    [junit] Tests run: 5, Failures: 0, Errors: 0, Time elapsed: 5.702 sec
+    [junit] Running org.jboss.test.jmx.test.CPManifestUnitTestCase
+    [junit] Tests run: 5, Failures: 0, Errors: 0, Time elapsed: 2.773 sec
+    [junit] Running org.jboss.test.jmx.test.DeployConnectionManagerUnitTestCase
+    [junit] Tests run: 2, Failures: 0, Errors: 0, Time elapsed: 1.472 sec
+    [junit] Running org.jboss.test.jmx.test.DeployServiceUnitTestCase
+    [junit] Tests run: 11, Failures: 0, Errors: 0, Time elapsed: 2.115 sec
+    [junit] Running org.jboss.test.jmx.test.DeployXMBeanUnitTestCase
+    [junit] Tests run: 9, Failures: 0, Errors: 0, Time elapsed: 4.58 sec
+    [junit] Running org.jboss.test.jmx.test.EarDeploymentUnitTestCase
+    [junit] Tests run: 2, Failures: 0, Errors: 0, Time elapsed: 2.075 sec
+    [junit] Running org.jboss.test.jmx.test.JMXInvokerUnitTestCase
+    [junit] Tests run: 4, Failures: 0, Errors: 0, Time elapsed: 0.674 sec
+    [junit] Running org.jboss.test.jmx.test.JarInSarJSR77UnitTestCase
+    [junit] Tests run: 2, Failures: 0, Errors: 0, Time elapsed: 1.013 sec
+    [junit] Running org.jboss.test.jmx.test.MBeanDependsOnConnectionManagerUnitTestCase
+    [junit] Tests run: 2, Failures: 0, Errors: 0, Time elapsed: 0.756 sec
+    [junit] Running org.jboss.test.jmx.test.MBeanDependsOnEJBUnitTestCase
+    [junit] Tests run: 2, Failures: 0, Errors: 0, Time elapsed: 1.151 sec
+    [junit] Running org.jboss.test.jmx.test.MissingClassUnitTestCase
+    [junit] Tests run: 2, Failures: 0, Errors: 1, Time elapsed: 0.61 sec
+    [junit] TEST org.jboss.test.jmx.test.MissingClassUnitTestCase FAILED
+    [junit] Running org.jboss.test.jmx.test.ServiceRsrcsUnitTestCase
+    [junit] Tests run: 2, Failures: 0, Errors: 0, Time elapsed: 0.937 sec
+    [junit] Running org.jboss.test.jmx.test.UndeployBrokenPackageUnitTestCase
+    [junit] Tests run: 4, Failures: 0, Errors: 0, Time elapsed: 3.952 sec
+    [junit] Running org.jboss.test.jmx.test.UnpackedDeploymentUnitTestCase
+    [junit] Tests run: 2, Failures: 0, Errors: 0, Time elapsed: 2.329 sec
+    [junit] Running org.jboss.test.jrmp.test.CustomSocketsUnitTestCase
+    [junit] Tests run: 3, Failures: 0, Errors: 0, Time elapsed: 1.665 sec
+    [junit] Running org.jboss.test.lock.test.SpinUnitTestCase
+    [junit] Tests run: 2, Failures: 0, Errors: 0, Time elapsed: 16.678 sec
+    [junit] Running org.jboss.test.mdb.test.MDBUnitTestCase
+    [junit] Tests run: 11, Failures: 0, Errors: 0, Time elapsed: 32.999 sec
+    [junit] Running org.jboss.test.naming.test.ENCUnitTestCase
+    [junit] Tests run: 3, Failures: 0, Errors: 0, Time elapsed: 1.247 sec
+    [junit] Running org.jboss.test.naming.test.EjbLinkUnitTestCase
+    [junit] Tests run: 7, Failures: 0, Errors: 0, Time elapsed: 1.753 sec
+    [junit] Running org.jboss.test.naming.test.ExternalContextUnitTestCase
+    [junit] Tests run: 2, Failures: 0, Errors: 0, Time elapsed: 0.505 sec
+    [junit] Running org.jboss.test.naming.test.InternalNamingClassReplacementUnitTestCase
+    [junit] Tests run: 7, Failures: 0, Errors: 0, Time elapsed: 11.331 sec
+    [junit] Running org.jboss.test.naming.test.SimpleUnitTestCase
+    [junit] Tests run: 9, Failures: 0, Errors: 0, Time elapsed: 5.84 sec
+    [junit] Running org.jboss.test.perf.test.PerfUnitTestCase
+    [junit] Tests run: 3, Failures: 0, Errors: 0, Time elapsed: 1.724 sec
+    [junit] Running org.jboss.test.proxycompiler.test.BeanProxyUnitTestCase
+    [junit] Tests run: 6, Failures: 0, Errors: 0, Time elapsed: 1.942 sec
+    [junit] Running org.jboss.test.proxycompiler.test.ProxyCompilerUnitTestCase
+    [junit] Tests run: 6, Failures: 0, Errors: 0, Time elapsed: 0.82 sec
+    [junit] Running org.jboss.test.readahead.test.ReadAheadUnitTestCase
+    [junit] Tests run: 4, Failures: 0, Errors: 0, Time elapsed: 4.762 sec
+    [junit] Running org.jboss.test.testbean.test.BeanUnitTestCase
+    [junit] Tests run: 10, Failures: 0, Errors: 0, Time elapsed: 6.429 sec
+    [junit] Running org.jboss.test.testbeancluster.test.BeanUnitTestCase
+    [junit] Tests run: 10, Failures: 0, Errors: 0, Time elapsed: 7.364 sec
+    [junit] Running org.jboss.test.tm.test.TransactionManagerUnitTestCase
+    [junit] Tests run: 12, Failures: 0, Errors: 0, Time elapsed: 0.816 sec
+    [junit] Running org.jboss.test.web.test.WebIntegrationUnitTestCase
+    [junit] Tests run: 25, Failures: 0, Errors: 0, Time elapsed: 22.542 sec
+    [junit] Running org.objectweb.jtests.jms.conform.connection.ConnectionTest
+    [junit] Tests run: 7, Failures: 0, Errors: 0, Time elapsed: 3.311 sec
+    [junit] Running org.objectweb.jtests.jms.conform.connection.TopicConnectionTest
+    [junit] Tests run: 3, Failures: 0, Errors: 0, Time elapsed: 1.743 sec
+    [junit] Running org.objectweb.jtests.jms.conform.message.headers.MessageHeaderTest
+    [junit] Tests run: 9, Failures: 0, Errors: 0, Time elapsed: 2.334 sec
+    [junit] Running org.objectweb.jtests.jms.conform.message.MessageBodyTest
+    [junit] Tests run: 3, Failures: 0, Errors: 0, Time elapsed: 1.747 sec
+    [junit] Running org.objectweb.jtests.jms.conform.message.MessageDefaultTest
+    [junit] Tests run: 2, Failures: 0, Errors: 0, Time elapsed: 0.496 sec
+    [junit] Running org.objectweb.jtests.jms.conform.message.MessageTypeTest
+    [junit] Tests run: 12, Failures: 0, Errors: 0, Time elapsed: 2.514 sec
+    [junit] Running org.objectweb.jtests.jms.conform.message.properties.MessagePropertyConversionTest
+    [junit] Tests run: 71, Failures: 0, Errors: 0, Time elapsed: 6.1 sec
+    [junit] Running org.objectweb.jtests.jms.conform.message.properties.MessagePropertyTest
+    [junit] Tests run: 15, Failures: 0, Errors: 0, Time elapsed: 2.681 sec
+    [junit] Running org.objectweb.jtests.jms.conform.queue.QueueBrowserTest
+    [junit] Tests run: 2, Failures: 0, Errors: 0, Time elapsed: 1.829 sec
+    [junit] Running org.objectweb.jtests.jms.conform.queue.TemporaryQueueTest
+    [junit] Tests run: 1, Failures: 0, Errors: 0, Time elapsed: 1.646 sec
+    [junit] Running org.objectweb.jtests.jms.conform.selector.SelectorSyntaxTest
+    [junit] Tests run: 8, Failures: 0, Errors: 0, Time elapsed: 2.115 sec
+    [junit] Running org.objectweb.jtests.jms.conform.selector.SelectorTest
+    [junit] Tests run: 9, Failures: 0, Errors: 0, Time elapsed: 2.377 sec
+    [junit] Running org.objectweb.jtests.jms.conform.session.QueueSessionTest
+    [junit] Tests run: 5, Failures: 0, Errors: 0, Time elapsed: 1.975 sec
+    [junit] Running org.objectweb.jtests.jms.conform.session.SessionTest
+    [junit] Tests run: 10, Failures: 0, Errors: 0, Time elapsed: 2.358 sec
+    [junit] Running org.objectweb.jtests.jms.conform.session.TopicSessionTest
+    [junit] Tests run: 7, Failures: 0, Errors: 0, Time elapsed: 2.123 sec
+    [junit] Running org.objectweb.jtests.jms.conform.topic.TemporaryTopicTest
+    [junit] Tests run: 1, Failures: 0, Errors: 0, Time elapsed: 1.668 sec
+
+tests-client-unit:
+    [junit] Running org.jboss.test.jrmp.test.DynLoadingUnitTestCase
+    [junit] Tests run: 2, Failures: 0, Errors: 0, Time elapsed: 1.723 sec
+
+tests-security-basic-unit:
+    [junit] Running org.jboss.test.naming.test.SecurityUnitTestCase
+    [junit] Tests run: 6, Failures: 1, Errors: 0, Time elapsed: 1.578 sec
+    [junit] TEST org.jboss.test.naming.test.SecurityUnitTestCase FAILED
+    [junit] Running org.jboss.test.security.test.EJBSpecUnitTestCase
+    [junit] Tests run: 17, Failures: 0, Errors: 0, Time elapsed: 4.023 sec
+    [junit] Running org.jboss.test.security.test.HttpsUnitTestCase
+    [junit] Tests run: 3, Failures: 0, Errors: 0, Time elapsed: 2.61 sec
+    [junit] Running org.jboss.test.security.test.LoginContextUnitTestCase
+    [junit] Tests run: 2, Failures: 0, Errors: 0, Time elapsed: 1.536 sec
+    [junit] Running org.jboss.test.security.test.LoginModulesUnitTestCase
+    [junit] Tests run: 13, Failures: 0, Errors: 0, Time elapsed: 1.352 sec
+    [junit] Running org.jboss.test.security.test.NamespacePermissionsUnitTestCase
+    [junit] Tests run: 2, Failures: 0, Errors: 0, Time elapsed: 0.755 sec
+    [junit] Running org.jboss.test.security.test.PermissionNameUnitTestCase
+    [junit] Tests run: 1, Failures: 0, Errors: 0, Time elapsed: 0.763 sec
+    [junit] Running org.jboss.test.security.test.SRPLoginModuleUnitTestCase
+    [junit] Tests run: 6, Failures: 0, Errors: 0, Time elapsed: 3.155 sec
+    [junit] Running org.jboss.test.security.test.SRPUnitTestCase
+    [junit] Tests run: 2, Failures: 0, Errors: 0, Time elapsed: 2.718 sec
+    [junit] Running org.jboss.test.security.test.SecurityProxyUnitTestCase
+    [junit] Tests run: 2, Failures: 0, Errors: 0, Time elapsed: 1.975 sec
+    [junit] Running org.jboss.test.security.test.XMLLoginModulesUnitTestCase
+    [junit] Tests run: 13, Failures: 0, Errors: 0, Time elapsed: 1.967 sec
+
+tests-standard-stress:
+    [junit] Running org.jboss.test.bank.test.BankEJB20StressTestCase
+    [junit] Tests run: 10, Failures: 0, Errors: 0, Time elapsed: 8.561 sec
+    [junit] Running org.jboss.test.bank.test.BankStressTestCase
+    [junit] Tests run: 10, Failures: 0, Errors: 0, Time elapsed: 8.166 sec
+    [junit] Running org.jboss.test.cmp2.cmrstress.CMRStressTestCase
+    [junit] Tests run: 2, Failures: 0, Errors: 0, Time elapsed: 2.224 sec
+    [junit] Running org.jboss.test.cts.test.StatelessSessionStressTestCase
+    [junit] Tests run: 4, Failures: 0, Errors: 0, Time elapsed: 2.032 sec
+    [junit] Running org.jboss.test.deadlock.test.BeanStressTestCase
+    [junit] Tests run: 4, Failures: 1, Errors: 0, Time elapsed: 9.801 sec
+    [junit] TEST org.jboss.test.deadlock.test.BeanStressTestCase FAILED
+    [junit] Running org.jboss.test.hello.test.HelloClusteredHttpStressTestCase
+    [junit] Tests run: 13, Failures: 0, Errors: 0, Time elapsed: 13 sec
+    [junit] Running org.jboss.test.hello.test.HelloHttpStressTestCase
+    [junit] Tests run: 8, Failures: 0, Errors: 0, Time elapsed: 2.486 sec
+    [junit] Running org.jboss.test.hello.test.HelloTimingStressTestCase
+    [junit] Tests run: 7, Failures: 0, Errors: 0, Time elapsed: 1.956 sec
+    [junit] Running org.jboss.test.jbossmq.perf.InvocationLayerStressTestCase
+    [junit] Tests run: 6, Failures: 0, Errors: 0, Time elapsed: 4.739 sec
+    [junit] Running org.jboss.test.jbossmq.perf.JBossMQPerfStressTestCase
+    [junit] Tests run: 5, Failures: 0, Errors: 0, Time elapsed: 14.618 sec
+    [junit] Running org.jboss.test.jbossmq.perf.SendReplyPerfStressTestCase
+    [junit] Tests run: 3, Failures: 0, Errors: 0, Time elapsed: 1.174 sec
+    [junit] Running org.jboss.test.jca.test.BaseConnectionManagerStressTestCase
+    [junit] Tests run: 1, Failures: 0, Errors: 0, Time elapsed: 75.129 sec
+    [junit] Running org.jboss.test.jca.test.CachedConnectionBankStressTestCase
+    [junit] Tests run: 2, Failures: 0, Errors: 0, Time elapsed: 2.171 sec
+    [junit] Running org.jboss.test.lock.test.EnterpriseEntityStressTestCase
+    [junit] Tests run: 15, Failures: 0, Errors: 0, Time elapsed: 3.551 sec
+    [junit] Running org.jboss.test.perf.test.PerfStressTestCase
+    [junit] Tests run: 7, Failures: 0, Errors: 0, Time elapsed: 3.021 sec
+    [junit] Running org.jboss.test.pooled.test.BeanStressTestCase
+    [junit] Tests run: 3, Failures: 0, Errors: 0, Time elapsed: 54.422 sec
+
+tests-client-stress:
+
+tests-security-basic-stress:
+    [junit] Running org.jboss.test.perf.test.SecurePerfStressTestCase
+    [junit] Tests run: 7, Failures: 0, Errors: 0, Time elapsed: 3.262 sec
+
+tests-jsr77-unit:
+    [junit] Running org.jboss.test.management.test.JSR77SpecUnitTestCase
+    [junit] Tests run: 16, Failures: 0, Errors: 1, Time elapsed: 12.263 sec
+    [junit] TEST org.jboss.test.management.test.JSR77SpecUnitTestCase FAILED
+
+tests-util-unit:
+    [junit] Running org.jboss.test.util.test.PropertyEditorsUnitTestCase
+    [junit] Tests run: 4, Failures: 0, Errors: 0, Time elapsed: 0.548 sec
+    [junit] Running org.jboss.test.util.test.PropertyPatternUnitTestCase
+    [junit] Tests run: 15, Failures: 0, Errors: 0, Time elapsed: 0.152 sec
+    [junit] Running org.jboss.test.util.test.ProtocolHandlerUnitTestCase
+    [junit] Tests run: 2, Failures: 0, Errors: 0, Time elapsed: 0.131 sec
+    [junit] Running org.jboss.test.util.test.SchedulerUnitTestCase
+    [junit] Tests run: 3, Failures: 0, Errors: 0, Time elapsed: 0.833 sec
+
+tests-jbossmx-compliance:
+    [junit] Running org.jboss.test.jbossmx.compliance.modelmbean.ModelMBeanTestCase
+    [junit] Tests run: 5, Failures: 0, Errors: 0, Time elapsed: 0.264 sec
+    [junit] Running org.jboss.test.jbossmx.compliance.monitor.BasicTestCase
+    [junit] Tests run: 9, Failures: 0, Errors: 0, Time elapsed: 4.997 sec
+    [junit] Running org.jboss.test.jbossmx.compliance.notcompliant.NCMBeanTestCase
+    [junit] Tests run: 6, Failures: 0, Errors: 0, Time elapsed: 0.308 sec
+    [junit] Running org.jboss.test.jbossmx.compliance.objectname.BasicTestCase
+    [junit] Tests run: 8, Failures: 0, Errors: 0, Time elapsed: 0.042 sec
+    [junit] Running org.jboss.test.jbossmx.compliance.objectname.CanonicalTestCase
+    [junit] Tests run: 4, Failures: 0, Errors: 0, Time elapsed: 0.046 sec
+    [junit] Running org.jboss.test.jbossmx.compliance.objectname.MalformedTestCase
+    [junit] Tests run: 62, Failures: 0, Errors: 0, Time elapsed: 0.077 sec
+    [junit] Running org.jboss.test.jbossmx.compliance.objectname.PatternTestCase
+    [junit] Tests run: 12, Failures: 0, Errors: 0, Time elapsed: 0.044 sec
+    [junit] Running org.jboss.test.jbossmx.compliance.registration.RegistrationTestCase
+    [junit] Tests run: 3, Failures: 0, Errors: 0, Time elapsed: 0.287 sec
+    [junit] Running org.jboss.test.jbossmx.compliance.relation.BasicTestCase
+    [junit] Tests run: 2, Failures: 0, Errors: 0, Time elapsed: 0.028 sec
+    [junit] Running org.jboss.test.jbossmx.compliance.server.MBeanServerFactoryTestCase
+    [junit] Tests run: 7, Failures: 0, Errors: 0, Time elapsed: 0.294 sec
+    [junit] Running org.jboss.test.jbossmx.compliance.server.MBeanServerTestCase
+    [junit] Tests run: 13, Failures: 0, Errors: 0, Time elapsed: 0.415 sec
+    [junit] Running org.jboss.test.jbossmx.compliance.standard.InfoTortureTestCase
+    [junit] Tests run: 38, Failures: 0, Errors: 0, Time elapsed: 0.05 sec
+    [junit] Running org.jboss.test.jbossmx.compliance.standard.InheritanceTestCase
+    [junit] Tests run: 21, Failures: 0, Errors: 0, Time elapsed: 0.04 sec
+    [junit] Running org.jboss.test.jbossmx.compliance.standard.TrivialTestCase
+    [junit] Tests run: 6, Failures: 0, Errors: 0, Time elapsed: 0.302 sec
+    [junit] Running org.jboss.test.jbossmx.compliance.timer.BasicTestCase
+    [junit] Tests run: 5, Failures: 0, Errors: 0, Time elapsed: 29.873 sec
+
+tests-jbossmx-implementation:
+    [junit] Running org.jboss.test.jbossmx.implementation.persistence.OnTimerPersistenceTestCase
+    [junit] Tests run: 2, Failures: 0, Errors: 0, Time elapsed: 5.267 sec
+    [junit] Running org.jboss.test.jbossmx.implementation.server.ContextCLTestCase
+    [junit] Tests run: 2, Failures: 0, Errors: 0, Time elapsed: 0.37 sec
+    [junit] Running org.jboss.test.jbossmx.implementation.util.AgentIDTestCase
+    [junit] Tests run: 3, Failures: 0, Errors: 0, Time elapsed: 0.265 sec
+    [junit] Running org.jboss.test.jbossmx.implementation.util.MBeanProxyTestCase
+    [junit] Tests run: 3, Failures: 0, Errors: 0, Time elapsed: 0.317 sec
+
+tests-jbossmx-performance:
+    [junit] Running org.jboss.test.jbossmx.performance.dynamic.InvocationTestCase
+    [junit] Tests run: 5, Failures: 0, Errors: 0, Time elapsed: 2.949 sec
+    [junit] Running org.jboss.test.jbossmx.performance.standard.InvocationTestCase
+    [junit] Tests run: 5, Failures: 0, Errors: 0, Time elapsed: 5.105 sec
+
+tests-iiop-stress:
+    [junit] Running org.jboss.test.bankiiop.test.BankStressTestCase
+    [junit] Tests run: 9, Failures: 0, Errors: 0, Time elapsed: 8.958 sec
+    [junit] Running org.jboss.test.excepiiop.test.ExceptionTimingStressTestCase
+    [junit] Tests run: 7, Failures: 0, Errors: 0, Time elapsed: 2.194 sec
+    [junit] Running org.jboss.test.helloiiop.test.HelloTimingStressTestCase
+    [junit] Tests run: 7, Failures: 0, Errors: 0, Time elapsed: 2.31 sec
+    [junit] Running org.jboss.test.hellojrmpiiop.test.HelloTimingStressTestCase
+    [junit] Tests run: 8, Failures: 0, Errors: 0, Time elapsed: 4.865 sec
+
+compile-stylesheets:
+
+tests-report-html:
+    [mkdir] Created dir: /home/starksm/JBoss/Releases/3.2.2RC2/jboss-3.2/testsuite/output/reports/html
+[junitreport] Using Xalan version: Xalan Java 2.2.D11
+[junitreport] Transform time: 29516ms
+
+tests-report-text:
+    [mkdir] Created dir: /home/starksm/JBoss/Releases/3.2.2RC2/jboss-3.2/testsuite/output/reports/text
+    [style] Transforming into /home/starksm/JBoss/Releases/3.2.2RC2/jboss-3.2/testsuite/output/reports/text
+    [style] Processing /home/starksm/JBoss/Releases/3.2.2RC2/jboss-3.2/testsuite/output/reports/TESTS-TestSuites.xml to /home/starksm/JBoss/Releases/3.2.2RC2/jboss-3.2/testsuite/output/reports/text/TESTS-TestSuites.txt
+    [style] Loading stylesheet /home/starksm/JBoss/Releases/3.2.2RC2/jboss-3.2/testsuite/output/stylesheets/summary1b.xsl
+
+tests-report:
+      [tar] Building tar: /home/starksm/JBoss/Releases/3.2.2RC2/jboss-3.2/testsuite/output/2003-07-23.22-37.tgz
+
+tests:
+
+BUILD SUCCESSFUL

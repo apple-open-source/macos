@@ -87,7 +87,6 @@ LC3:
 #endif
 	li	r3,0x0			// clear cached pid in child
 	REG_TO_EXTERN(r3,__current_pid)
-	CALL_EXTERN(_fork_mach_init)
 	CALL_EXTERN(__cthread_fork_child)
 #if defined(__DYNAMIC__)
 .cstring

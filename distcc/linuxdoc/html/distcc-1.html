@@ -1,0 +1,205 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML>
+<HEAD>
+ <META NAME="GENERATOR" CONTENT="LinuxDoc-Tools 0.9.21">
+ <TITLE>distcc User Manual: Introduction</TITLE>
+ <LINK HREF="distcc-2.html" REL=next>
+
+ <LINK HREF="distcc.html#toc1" REL=contents>
+</HEAD>
+<BODY>
+<A HREF="distcc-2.html">Next</A>
+Previous
+<A HREF="distcc.html#toc1">Contents</A>
+<HR>
+<H2><A NAME="s1">1.</A> <A HREF="distcc.html#toc1">Introduction</A></H2>
+
+<P><EM>"Speed, it seems to me, provides the one genuinely modern pleasure."</EM>
+--- Aldous Huxley</P>
+<H2><A NAME="ss1.1">1.1</A> <A HREF="distcc.html#toc1.1">Overview</A>
+</H2>
+
+<P>
+<A HREF="http://distcc.samba.org/">distcc</A> is a program
+to distribute compilation of C or C++ code across several machines on a
+network.  distcc should always generate the same results as a
+local compile, is simple to install and use, and is often
+significantly faster than a local compile.</P>
+<P>Unlike other distributed build systems, distcc does not
+require all machines to share a filesystem, have
+synchronized clocks, or to have the same libraries or header
+files installed.</P>
+<P>Compilation is centrally controlled by a client machine, which
+is typically the developer's workstation or laptop.  The
+distcc client runs on this machine, as does <EM>make</EM>, the
+preprocessor, the linker, and other stages of the build
+process.  Any number of "volunteer" machines help the client
+to build the program, by running the compiler and assembler
+as required.  The volunteer machines run the <CODE>distccd</CODE>
+daemon which listens on a network socket for requests.</P>
+<P>distcc sends the complete preprocessed source code across the
+network for each job, so all it requires of the volunteer
+machines is that they be running the <CODE>distccd</CODE> daemon,
+and that they have an appropriate compiler installed.</P>
+<P>distcc is designed to be used with GNU make's parallel-build
+feature (<CODE>-j</CODE>).  Shipping files across the network takes
+time, but few cycles on the client machine.  Any files that can
+be built remotely are essentially "for free" in terms of client
+CPU.</P>
+<P>distcc was written by Martin Pool.  </P>
+<P>distcc was inspired by Andrew Tridgell's 
+<A HREF="http://ccache.samba.org/">ccache</A> program.</P>
+<P>If you find distcc useful, please try to complete the survey
+form in the distribution, or just send an email.</P>
+<H2><A NAME="ss1.2">1.2</A> <A HREF="distcc.html#toc1.2">Licence</A>
+</H2>
+
+<P>distcc and the <EM>distcc User Manual</EM> are copyright (C)
+2002, 2003 by Martin Pool.</P>
+<P>distcc is free software; you can redistribute it and/or modify
+it under the terms of the GNU General Public License as published by
+the Free Software Foundation; either version 2 of the License, or
+(at your option) any later version.</P>
+<P>Permission is granted to copy, distribute and/or modify the
+<EM>distcc User Manual</EM> under the terms of the GNU Free
+Documentation License, Version 1.1 or any later version
+published by the Free Software Foundation; with no Invariant
+Sections, no Front-Cover Texts, and no Back-Cover Texts.</P>
+<P>distcc is distributed in the hope that it will be useful,
+but WITHOUT ANY WARRANTY; without even the implied warranty
+of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See
+the GNU General Public License for more details.</P>
+<P>You should have received a copy of the GNU General Public
+License and GNU Free Documentation License along with
+distcc.  If not, write to the Free Software Foundation,
+Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA,
+or see 
+<A HREF="http://www.gnu.org/licenses/">http://www.gnu.org/licenses/</A>.</P>
+<P>The author understands the GNU GPL to apply to distcc in the
+following way: you are allowed to use distcc to compile a
+non-free program, or to call it from a non-free Make, or to
+call a non-free compiler.  However, you may not distribute a
+modified version of distcc unless you comply with the terms
+of the GPL: in particular, giving your users access to the
+source code and the right to redistribute it, and clearly
+identifying your changes.</P>
+<H2><A NAME="ss1.3">1.3</A> <A HREF="distcc.html#toc1.3">Security Considerations</A>
+</H2>
+
+<P><B>distcc should only be used on networks where all machines
+and all users are trusted.</B></P>
+<P>The distcc daemon, <CODE>distccd</CODE>, allows other machines
+on the network to run arbitrary commands on the volunteer
+machine.  Anyone that can make a connection to the volunteer
+machine can run essentially any command as the user running
+<CODE>distccd</CODE>. </P>
+<P>distcc is suitable for use on a small to medium network of
+friendly developers.  It's certainly not suitable for use on
+a machine connected to the Internet or a large
+(e.g. university campus) network without firewalling in
+place.</P>
+<P><CODE>inetd</CODE> or <CODE>tcpwrappers</CODE> can be used to impose
+access control rules, but this should be done with an eye to
+the possibility of address spoofing.</P>
+<P>In summary, the security level is similar to that of
+old-style network protocols like X11-over-TCP, NFS or RSH.</P>
+<H2><A NAME="ss1.4">1.4</A> <A HREF="distcc.html#toc1.4">Getting Started</A>
+</H2>
+
+<P>Four straightforward steps are required to install and use
+distcc:</P>
+<P>
+<OL>
+<LI>Compile and install the <CODE>distcc</CODE> package on the
+client and volunteer machines.
+              </LI>
+<LI>Start the <CODE>distccd</CODE> daemon on all volunteer
+machines.  
+              </LI>
+<LI>On the client, set the <CODE>DISTCC_HOSTS</CODE> environment
+variable to indicate which volunteer machines to use.
+For example:
+<BLOCKQUOTE><CODE>
+<PRE>
+DISTCC_HOSTS='angry toey:4202 localhost'
+</PRE>
+</CODE></BLOCKQUOTE>
+
+              </LI>
+<LI>Set the <CODE>CC</CODE> variable or edit Makefiles to prefix
+distcc to calls to the C/C++ compiler.  For example:
+<BLOCKQUOTE><CODE>
+<PRE>
+distcc gcc -o hello.o -c hello.c
+</PRE>
+</CODE></BLOCKQUOTE>
+</LI>
+</OL>
+</P>
+<H2><A NAME="ss1.5">1.5</A> <A HREF="distcc.html#toc1.5">Reporting Bugs</A>
+</H2>
+
+<P>If you think you have found a bug, please check the manual
+and the <CODE>TODO</CODE> file to see if it is a known
+restriction.  If not, please send a clear and detailed
+report to the mailing list <CODE>distcc@lists.samba.org</CODE>.
+(For a clear
+and detailed description of "clear and detailed", see Simon
+Tatham's advice on reporting bugs, 
+<A HREF="http://www.chiark.greenend.org.uk/~sgtatham/bugs.html">http://www.chiark.greenend.org.uk/~sgtatham/bugs.html</A>.)</P>
+<P>A good bug report for distcc should include:</P>
+
+<P>
+<OL>
+<LI>What you're trying to do.  For example: "compile KDE",
+"use gcc's <CODE>-MD</CODE> option".</LI>
+<LI>What actually happens.  For example: "distcc fails with
+error 104", "the compilation never completes", "I get
+error message XXX".</LI>
+<LI>The version of distcc you're using (the output of
+<CODE>-</CODE><CODE>-version</CODE> on both client and server.
+If you got it from a distribution rather than building
+it yourself, then mention that.</LI>
+<LI>What other software you're using, in particular  the
+operating system and compiler.  For the operating system
+it's normally enough to give the overall version
+(FreeBSD CURRENT, RedHat Linux 7.2, ...).  For the
+compiler, use "<CODE>gcc -version</CODE>".</LI>
+<LI>The exact command you're using to run the compilation.
+If you're using make, then include the line from its
+output that runs the compiler.</LI>
+<LI>The debug logs from the client and server.  On the
+client, you should set <CODE>DISTCC_VERBOSE</CODE> and
+<CODE>DISTCC_LOG</CODE>.  On the server, use
+<CODE>-</CODE><CODE>-verbose</CODE> and
+<CODE>-</CODE><CODE>-log-file</CODE>.  If you can, trim the log
+files to just the invocation that causes trouble.
+Grepping for a process id can help with this.  If the
+problem is intermittent, then please leave logging
+running until it recurs and then pull out a smaller
+section of logs to send.</LI>
+</OL>
+</P>
+<P>Please do not obfuscate your logs.  The name of a single
+source file or machine is probably not confidential
+information, but the confusion introduced by editing logs
+can be significant.</P>
+<P>Please send a problem description to the <CODE>distcc</CODE>
+mailing list, on <CODE>lists.samba.org</CODE>.  Please don't
+send mail direct to the author: if you use the list, other
+people may be able to help you, and the answers are publicly
+archived.</P>
+<H2><A NAME="ss1.6">1.6</A> <A HREF="distcc.html#toc1.6">          Test Suite</A>
+        </H2>
+
+<P>distcc has a test suite written in Python using the
+<EM>ComfyChair</EM> framework.  It does not yet exercise all
+functionality, but is improving.</P>
+<P>To run the test suite, run <CODE>make check</CODE> from the distcc
+source directoy.</P>
+<HR>
+<A HREF="distcc-2.html">Next</A>
+Previous
+<A HREF="distcc.html#toc1">Contents</A>
+</BODY>
+</HTML>

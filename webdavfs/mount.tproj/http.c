@@ -1,4 +1,4 @@
-/*-
+/*
  * Copyright 1997 Massachusetts Institute of Technology
  *
  * Permission to use, copy, modify, and distribute this software and
@@ -61,7 +61,6 @@
 #include "webdavd.h"
 #include "webdav_parse.h"
 #include "webdav_authcache.h"
-#include "webdav_authentication.h"
 #include "webdav_requestqueue.h"
 
 /*****************************************************************************/
@@ -70,40 +69,88 @@ static void http_state_free(struct http_state *https);
 static int http_close(struct fetch_state *fs);
 static int http_retrieve(struct fetch_state *fs,int * download_status);
 
-extern int resolve_http_hostaddr();
+extern int resolve_http_hostaddr(void);
 
 /* We are only concerned with headers we might receive. */
-enum http_header { 
-	ht_accept_ranges, ht_age, ht_allow, ht_cache_control, ht_connection,
-	ht_content_base, ht_content_encoding, ht_content_language,
-	ht_content_length, ht_content_location, ht_content_md5, 
-	ht_content_range, ht_content_type, ht_date, ht_dav, ht_etag, ht_expires,
-	ht_last_modified, ht_location, ht_pragma, ht_proxy_authenticate,
-	ht_public, ht_retry_after, ht_server, ht_transfer_encoding,
-	ht_upgrade, ht_vary, ht_via, ht_www_authenticate, ht_warning,
+
+/* Note that parts of this list are commented out. The same entries are
+ * commented out in http_parse_header(). This makes http_parse_header()
+ * faster since it doesn't have to compare against entries the rest of code
+ * does not use.
+ */
+enum http_header {
+	/* general-header fields */
+#if 0
+	ht_cache_control,
+#endif
+	ht_connection,
+#if 0
+	ht_date,
+	ht_pragma,
+	ht_trailer,
+#endif
+	ht_transfer_encoding,
+#if 0
+	ht_upgrade,
+	ht_via,
+	ht_warning,
+#endif
+	/* response-header fields */
+#if 0
+	ht_accept_ranges,
+	ht_age,
+	ht_etag,
+#endif
+	ht_location,
+	ht_proxy_authenticate,
+	ht_retry_after,
+#if 0
+	ht_server,
+	ht_vary,
+#endif
+	ht_www_authenticate,
+	/* entity-header fields */
+#if 0
+	ht_allow,
+	ht_content_encoding,
+	ht_content_language,
+#endif
+	ht_content_length,
+#if 0
+	ht_content_location,
+#endif
+	ht_content_md5,
+	ht_content_range,
+#if 0
+	ht_content_type,
+	ht_expires,
+#endif
+	ht_last_modified,
+	/* WebDAV extension-header fields */
+	ht_dav,
+#if 0
+	ht_status_uri,
+#endif
 	/* unusual cases */
-	ht_syntax_error, ht_unknown, ht_end_of_header
+	ht_syntax_error,	/* malformed header line */
+	ht_unknown,			/* unknown header line */
+	ht_end_of_header	/* no more headers */
 };
 
 static void format_http_date(time_t when, char *buf);
 static enum http_header http_parse_header(char *line, char **valuep);
 static int check_md5(int fd, char *base64ofmd5);  /* *** currently stubbed out *** */
-static int http_first_line(char *line);
+static int http_first_line(char *linebuf, int *isHTTP1_0, int continue_received);
 static int http_background_load(int *remote, int local, off_t total_length,
-	int chunked, int * download_status);
+	int chunked, int * download_status, int connection_close);
 static int parse_http_content_range(char *orig, off_t *first, off_t *total);
+static int http_get_body(struct fetch_state *fs, struct iovec *iov, int iovlen,
+	off_t *body_length, caddr_t *xml_addr, unsigned long cache_generation,
+	AuthFlagsType authflags);
 static void parse_ht_dav(char *field_value, int *dav_level);
-static int http_parse_response_header(struct fetch_state *fs,
-	size_t *total_length, int * dav_status, 
-	int* chunked);
-
-extern char *dest_server, *http_hostname, *proxy_server, *append_to_file;
-extern struct sockaddr_in http_sin;
-extern int proxy_ok, proxy_exception, dest_port, host_port;
-extern int reconnect_min;
-extern int webdav_first_read_len;
-extern char *gUserAgentHeader;
-
+static int http_parse_response_header(struct fetch_state *fs, off_t *total_length,
+	int *dav_status, int *chunked, unsigned long cache_generation,
+	AuthFlagsType authflags);
 time_t parse_http_date(char *datestring);
 
 #define NIOV	24	/* max is currently 24 */
@@ -115,7 +162,7 @@ time_t parse_http_date(char *datestring);
 			Iov[N].iov_base = (void *)Str; \
 			Iov[N].iov_len = strlen(Iov[n].iov_base); \
 			if (N >= NIOV) \
-			fprintf(stderr,"ERROR: addstr is over iov[%d]: %s\n", NIOV, Str); \
+				syslog(LOG_ERR, "addstr is over iov[%d]: %s", NIOV, Str); \
 			N++; \
 		} while(0)
 #else
@@ -134,7 +181,7 @@ time_t parse_http_date(char *datestring);
  *	check_connection determines if http_socket_reconnect needs to be called
  *	before sendmsg is used.
  */
-int needs_reconnect_before_write(int fd)
+static int needs_reconnect_before_write(int fd)
 {
 	fd_set			readset;
 	struct timeval	timeout;
@@ -148,7 +195,7 @@ int needs_reconnect_before_write(int fd)
 	/* If select returns non-zero result, then http_socket_reconnect needs
 	 * to be called. A negative result is an error from select; a positive
 	 * result means that the fd is ready for reading. Since the socket should
-	 * never be ready for reading before write to it, this always means we
+	 * never be ready for reading before we write to it, this always means we
 	 * need to reconnect.
 	 */
 	return ( select(fd + 1, &readset, NULL, NULL, &timeout) != 0 );
@@ -156,24 +203,25 @@ int needs_reconnect_before_write(int fd)
 
 /*****************************************************************************/
 
-int http_socket_reconnect(int *a_socket, int use_connect, int hangup)
+static int http_socket_reconnect(int *a_socket, int use_connect, int hangup)
 {
+	int error = 0;
+	
 #ifdef NOT_YET
-	int ret = 0;
-
 	/* *** since gethostbyname is not thread safe, this operation should
 	   only be done at the time the volume is mounted
 	   *** */
 	/* if the previous connection ended badly re-resolve http_hostname */
 	if (hangup)
 	{
-		ret = resolve_http_hostaddr();
-		if (ret)
+		error = resolve_http_hostaddr();
+		if (error)
 		{
-			warn("hostname resolution");
-			return (ret);
+			return (error);
 		}
 	}
+#else
+	#pragma unused(hangup)
 #endif
 
 #ifdef DEBUG
@@ -188,13 +236,22 @@ int http_socket_reconnect(int *a_socket, int use_connect, int hangup)
 	{
 		/* close the socket */
 		(void)close(*a_socket);
+		*a_socket = -1;
 	}
+	
 	*a_socket = socket(PF_INET, SOCK_STREAM, 0);
-
 	if (*a_socket < 0)
 	{
-		warn("socket");
-		return EIO;
+		syslog(LOG_ERR, "http_socket_reconnect: socket(): %s", strerror(errno));
+		error = EIO;
+		goto exit;
+	}
+	else
+	{
+		int	flag = 1;
+		
+		/* set SO_NOADDRERR to detect network changes faster */
+		(void)setsockopt(*a_socket, SOL_SOCKET, SO_NOADDRERR, &flag, sizeof(flag));
 	}
 	
 #ifdef DEBUG
@@ -213,15 +270,25 @@ int http_socket_reconnect(int *a_socket, int use_connect, int hangup)
 	if (use_connect &&
 		connect(*a_socket, (struct sockaddr *) & http_sin, sizeof(struct sockaddr_in)) < 0)
 	{
-		warn("connect");
-		return EIO;
+		/* if the connection is up, log this before setting it to WEBDAV_CONNECTION_DOWN */
+		if ( get_gconnectionstate() == WEBDAV_CONNECTION_UP )
+		{
+			syslog(LOG_ERR, "http_socket_reconnect: connect(): %s", strerror(errno));
+		}
+		error = EIO;
+		goto exit;
 	}
 	
 #ifdef DEBUG
 	fprintf(stderr, "Reconnected sucessfully \n");
 #endif
 
-	return (0);
+exit:
+
+	/* set the connection state for replies back to the kernel */
+	set_gconnectionstate((error == 0) ? WEBDAV_CONNECTION_UP : WEBDAV_CONNECTION_DOWN);
+
+	return (error);
 }
 
 /*****************************************************************************/
@@ -262,7 +329,7 @@ int http_parse(struct fetch_state *fs, const char *key, int use_proxy)
 	if (!slash)
 	{
 		/* the end of the host name */
-		warnx("`%s': malformed `http' URL", key);
+		syslog(LOG_ERR, "http_parse: `%s': malformed `http' URL", key);
 		return (EINVAL);
 	}
 	file = slash;
@@ -270,6 +337,7 @@ int http_parse(struct fetch_state *fs, const char *key, int use_proxy)
 	https = malloc(sizeof * https);
 	if (!https)
 	{
+		syslog(LOG_ERR, "http_parse: https could not be allocated");
 		return (ENOMEM);
 	}
 	bzero(https, sizeof(*https));
@@ -283,6 +351,7 @@ int http_parse(struct fetch_state *fs, const char *key, int use_proxy)
 		https->http_remote_request = malloc(strlen(file) + 1);
 		if (!https->http_remote_request)
 		{
+			syslog(LOG_ERR, "http_parse: https->http_remote_request could not be allocated");
 			rv = ENOMEM;
 			goto out;
 		}
@@ -294,6 +363,7 @@ int http_parse(struct fetch_state *fs, const char *key, int use_proxy)
 		https->http_remote_request = malloc(strlen(_WEBDAVPREFIX) + strlen(key) + 1);
 		if (!https->http_remote_request)
 		{
+			syslog(LOG_ERR, "http_parse: https->http_remote_request could not be allocated");
 			rv = ENOMEM;
 			goto out;
 		}
@@ -305,6 +375,7 @@ int http_parse(struct fetch_state *fs, const char *key, int use_proxy)
 	if (!https->http_host_header)
 	{
 		/* 5 for the port + 1 for the null termination */
+		syslog(LOG_ERR, "http_parse: https->http_host_header could not be allocated");
 		rv = ENOMEM;
 		goto out;
 	}
@@ -314,6 +385,7 @@ int http_parse(struct fetch_state *fs, const char *key, int use_proxy)
 	https->http_decoded_file = malloc(strlen(file) + 1);
 	if (!https->http_decoded_file)
 	{
+		syslog(LOG_ERR, "http_parse: https->http_decoded_file could not be allocated");
 		rv = ENOMEM;
 		goto out;
 	}
@@ -392,6 +464,7 @@ static int http_close(struct fetch_state *fs)
 
 static int nullclose(struct fetch_state *fs)
 {
+	#pragma unused(fs)
 	return 0;
 }
 
@@ -408,11 +481,7 @@ static int http_redirect(struct fetch_state *fs, char *new, int permanent, int *
 
 	if (num_redirects > 5)
 	{
-
-#ifdef DEBUG
-		warnx("%s: HTTP redirection limit exceeded", fs->fs_outputfile);
-#endif
-
+		syslog(LOG_ERR, "http_redirect: %s: HTTP redirection limit exceeded", fs->fs_outputfile);
 		return (ENOENT);
 	}
 	
@@ -420,8 +489,10 @@ static int http_redirect(struct fetch_state *fs, char *new, int permanent, int *
 	fs->fs_proto = NULL; /* set fs->fs_proto (https) to NULL so we'll know it's gone */
 	
 #ifdef DEBUG
-	warnx("%s: resource has moved %s to `%s'", fs->fs_outputfile,
+	syslog(LOG_ERR, "%s: resource has moved %s to `%s'", fs->fs_outputfile,
 		permanent ? "permanently" : "temporarily", new);
+#else
+	#pragma unused(permanent)
 #endif
 
 	rv = http_parse(fs, new, proxy_ok);
@@ -479,21 +550,25 @@ static int http_retrieve(struct fetch_state *fs, int *download_status)
 		reconnected = 0,
 		object_unmodified = 0,
 		autherror = 0,
-		best_auth_level = 0,
 		auth_updated = FALSE,
 		no_ui_needed = FALSE,
 		last_chunk;
+	unsigned int best_auth_level = 0;
 	char *http_auth = NULL,
 		*best_auth_challenge = NULL,
 		*best_auth_realm = NULL;
 	char rangebuf[sizeof("Range: bytes=18446744073709551616-\r\n")];
 	char datebuf[30];
 	int socket_ours = 1;
+	int isHTTP1_0 = 0;
+	unsigned long cache_generation;
+	AuthFlagsType	 authflags;
 
 	/* allocate the line buffer */
 	line = malloc(MAX_HTTP_LINELEN);
 	if ( line == NULL )
 	{
+		syslog(LOG_ERR, "http_retrieve: line could not be allocated");
 		myreturn = EIO;
 		goto out;
 	}
@@ -523,10 +598,19 @@ retry:
 	{
 		WebdavAuthcacheRetrieveRec http_auth_struct =
 		{
-			fs->fs_uid, https ->http_remote_request, append_to_file, "GET", NULL
+			fs->fs_uid, https->http_remote_request, append_to_file, "GET", NULL, 0, 0
 		};
 		if (!webdav_authcache_retrieve(&http_auth_struct))
+		{
+			cache_generation = http_auth_struct.generation;
+			authflags = http_auth_struct.authflags;
 			http_auth = http_auth_struct.authorization;
+		}
+		else
+		{
+			cache_generation = 0;
+			authflags = kAuthNone;
+		}
 	}
 
 	addstr(iov, n, "GET ");
@@ -585,14 +669,14 @@ retry:
 		{
 			if (errno != 0)
 			{
-				warn("%s", fs->fs_outputfile);
+				syslog(LOG_ERR, "http_retrieve: fstat(): %s", strerror(errno));
 			}
 			else
 			{
-				warnx("%s: not a regular file", fs->fs_outputfile);
+				syslog(LOG_ERR, "http_retrieve: %s: not a regular file", fs->fs_outputfile);
 			}
 			restarting = 0;
-			warnx("cannot restart; will retrieve anew");
+			syslog(LOG_ERR, "http_retrieve: cannot restart; will retrieve anew");
 		}
 	}
 
@@ -603,7 +687,8 @@ retry:
 	{
 		if (http_socket_reconnect(fs->fs_socketptr, fs->fs_use_connect, 0))
 		{
-			myreturn = EIO;
+			/* the server cannot be reached */
+			myreturn = ENXIO;
 			goto out;
 		}
 	}
@@ -614,6 +699,7 @@ reconnect:
 
 	if (n >= NIOV)
 	{
+		syslog(LOG_ERR, "http_retrieve: n >= NIOV");
 		myreturn = EIO;
 		goto out;
 	}
@@ -640,10 +726,10 @@ reconnect:
 #ifdef DEBUG
 			fprintf(stderr, "sendmsg errno was %d\n", errno);
 #endif
-
 			if (http_socket_reconnect(fs->fs_socketptr, fs->fs_use_connect, 1))
 			{
-				myreturn = EIO;
+				/* the server cannot be reached */
+				myreturn = ENXIO;
 				goto out;
 			}
 			reconnected = 1;
@@ -651,7 +737,7 @@ reconnect:
 		}
 		else
 		{
-			warnx("sendmsg (http_retrieve): error after reconnect to %s", http_hostname);
+			syslog(LOG_ERR, "http_retrieve: sendmsg(): error after reconnect to %s", http_hostname);
 			myreturn = EIO;
 			goto out;
 		}
@@ -674,10 +760,10 @@ got100reply:
 #ifdef DEBUG
 			fprintf(stderr, "errno was %d\n", errno);
 #endif
-
 			if (http_socket_reconnect(fs->fs_socketptr, fs->fs_use_connect, 1))
 			{
-				myreturn = EIO;
+				/* the server cannot be reached */
+				myreturn = ENXIO;
 				goto out;
 			}
 			reconnected = 1;
@@ -685,7 +771,7 @@ got100reply:
 		}
 		else
 		{
-			warnx("empty reply from %s", http_hostname);
+			syslog(LOG_ERR, "http_retrieve: empty reply from %s", http_hostname);
 			myreturn = EIO;
 			goto out;
 		}
@@ -697,8 +783,13 @@ got100reply:
 	 */
 
 	autherror = 0;
-	status = http_first_line(line);
-
+	status = http_first_line(line, &isHTTP1_0, continue_received);
+	if ( isHTTP1_0 )
+	{
+		/* with HTTP/1.0, we have to close the connection after every transaction */
+		https->connection_close = 1;
+	}
+	
 	if (logfile)
 	{
 		fprintf(logfile, "%s  On Socket %d\n", line, *(fs->fs_socketptr));
@@ -722,49 +813,26 @@ got100reply:
 	total_length = -1;							/* -1 means ``don't know' */
 	object_unmodified = 0;
 
-	/* handle all informational 1xx status codes the same */
-	if ( (status > 100) && (status <= 199) )
+	/* determine how to handle the status codes returned by the server */
+determine_status:
+
+	switch ( status )
 	{
-		status = 100;
-	}
-	
-	switch (status)
-	{
-		case 100:								/* Continue */
+		case 100:								/* Informational 1xx */
 			/* read until we get a legal first line */
 			continue_received = 1;
 			goto got100reply;
-
-		case 200:								/* Here come results */
-		case 203:								/* Non-Authoritative Information */
 			break;
-
-		case 206:								/* Here come partial results */
-			/* can only happen when restarting */
+		
+		case 200:								/* Successful 2xx */
+			/* do nothing */
 			break;
-
-		case 301:								/* Resource has moved permanently */
-		case 302:								/* Resource has moved temporarily */
-			/*
-			 * We formerly didn't test fs->fs_auto_retry here,
-			 * so that this sort of redirection would be transparent
-			 * to the user.  Unfortunately, there are a lot of idiots
-			 * out there running Web sites, and some of them have
-			 * decided to implement the following stupidity: rather
-			 * than returning the correct `404 Not Found' error
-			 * when something is not found, they instead return
-			 * a 302 redirect, giving the erroneous impression that
-			 * the requested resource actually exists.  This
-			 * breaks any client which expects a non-existent resource
-			 * to elicit a 40x response.  Grrr.
-			 */
+		
+		case 300:								/* Redirection 3xx */
 			if (!fs->fs_auto_retry)
 			{
-				/* -A flag */
-#ifdef DEBUG
-				fprintf(stderr, "Resource moved %d: %s\n", status, line);
-#endif
-
+				/* no redirection support yet */
+				syslog(LOG_ERR, "http_retrieve: redirection not supported: %s", line);
 				myreturn = ENOENT;
 			}
 			else
@@ -772,76 +840,87 @@ got100reply:
 				redirection = status;
 			}
 			break;
-		case 304:								/* Object is unmodified */
+		
+		case 304:								/* 304 Not Modified */
 			if (mirror)
 			{
 				/* Good news, there is nothing to get so 
-				 * indicate no length and proceed to get rid
-				 * of the rest of the http header
-				 */
-
+				* indicate no length and proceed to get rid
+				* of the rest of the http header
+				*/
 				total_length = 0;
 				object_unmodified = 1;
 			}
 			else
 			{
+				/* unexpected since no If-Modified-Since header was sent */
+				syslog(LOG_ERR, "http_retrieve: unexpected response: %s", line);
 				myreturn = EIO;
 			}
 			break;
-
-		case 400:
+		
+		case 400:								/* Client Error 4xx */
+			syslog(LOG_ERR, "http_retrieve: unexpected response: %s", line);
 			myreturn = EINVAL;
 			break;
 
-		case 401:								/* Unauthorized */
-		case 407:								/* Proxy Authentication Required */
-			autherror = status;
+		case 401:								/* 401 Unauthorized */
+		case 407:								/* 407 Proxy Authentication Required */
+			if ( (fs->fs_uid == process_uid) || (fs->fs_uid == 0) || (fs->fs_uid == 1) )
+			{
+				autherror = status;
+			}
+			else
+			{
+				myreturn = EACCES;
+			}
 			break;
-
-		case 403:
+		
+		case 403:								/* 403 Forbidden */
 			myreturn = EPERM;
 			break;
-
-		case 404:
+		
+		case 404:								/* 404 Not Found */
 			myreturn = ENOENT;
 			break;
 
-		case 501:								/* Not Implemented */
-#ifdef DEBUG
-			fprintf(stderr, "Not Implemented %d: %s\n", status, line);
-#endif
-
+		case 500:								/* Server Error 5xx */
+			syslog(LOG_ERR, "http_retrieve: unexpected response: %s", line);
 			myreturn = ENOENT;
 			break;
-
-		case 503:								/* Service Unavailable */
-#ifdef DEBUG
-			fprintf(stderr, "Service Unavailable %d: %s\n", status, line);
-#endif
-
+		
+		case 503:								/* 503 Service Unavailable */
+			syslog(LOG_ERR, "http_retrieve: unexpected response: %s", line);
 			if (!fs->fs_auto_retry)
 			{
 				myreturn = ENOENT;
 			}
 			else
 			{
-				retrying = 503;
+				retrying = status;
 			}
 			break;
-
-		case 507:
+		
+		case 507:								/* 507 Insufficient Storage (WebDAV) */
 			myreturn = ENOSPC;
 			break;
-
+	
 		default:
-#ifdef DEBUG
-			fprintf(stderr, "Unknown error %d: %s\n", status, line);
-#endif
-
-			myreturn = ENOENT;
+			if ( (status < 100) || (status > 599) )
+			{
+				/* only the 1xx through 5xx ranges are defined */
+				syslog(LOG_ERR, "http_retrieve: unknown status code: %s", line);
+				myreturn = ENOENT;
+			}
+			else
+			{
+				/* change Nxx to N00 and retry */
+				status = status - (status % 100);
+				goto determine_status;
+			}
 			break;
 	}
-
+	
 	last_modified = when_to_retry = -1;
 	restart_from = 0;
 	chunked = 0;
@@ -870,27 +949,24 @@ got100reply:
 				break;
 				
 			case ht_content_length:
-				errno = 0;
-				ul = strtoul(value, &ep, 10);
-				if (errno != 0 || *ep)
-				{
-					warnx("invalid Content-Length: `%s'", value);
-				}
 				if (!object_unmodified)
 				{
-					total_length = (off_t)ul;
+					errno = 0;
+					total_length = strtoq(value, &ep, 10);
+					if (errno != 0 || *ep)
+					{
+						total_length = -1;
+						syslog(LOG_ERR, "http_retrieve: invalid Content-Length: `%s'", value);
+					}
 				}
 				break;
 
 			case ht_last_modified:
 				last_modified = parse_http_date(value);
-#ifdef DEBUG
 				if (last_modified == -1)
 				{
-					warnx("invalid Last-Modified: `%s'", value);
+					syslog(LOG_ERR, "http_retrieve: invalid Last-Modified: `%s'", value);
 				}
-#endif
-
 				break;
 
 			case ht_content_md5:
@@ -901,6 +977,7 @@ got100reply:
 				base64ofmd5 = malloc(strlen(value) + 1);
 				if (!base64ofmd5)
 				{
+					syslog(LOG_ERR, "http_retrieve: base64ofmd5 could not be allocated");
 					if (!myreturn)
 					{
 						myreturn = ENOMEM;
@@ -933,7 +1010,7 @@ got100reply:
 			case ht_location:
 				if (redirection)
 				{
-					int len;
+					unsigned int len;
 					char *s = value + strlen(_WEBDAVPREFIX);
 					/* assuming there is an "http://" in value */
 					while (*s && !isspace(*s))
@@ -948,6 +1025,7 @@ got100reply:
 					new_location = malloc(len + 1);
 					if (!new_location)
 					{
+						syslog(LOG_ERR, "http_retrieve: new_location could not be allocated");
 						if (!myreturn)
 						{
 							myreturn = ENOMEM;
@@ -967,9 +1045,10 @@ got100reply:
 					chunked = 1;
 					break;
 				}
-				warnx("%s: %s specified Transfer-Encoding `%s'", fs->fs_outputfile,
-					http_hostname, value);
-				warnx("%s: output file may be uninterpretable", fs->fs_outputfile);
+				else
+				{
+					syslog(LOG_ERR, "http_retrieve: unknown encoding: '%s'", value);
+				}
 				break;
 
 			case ht_retry_after:
@@ -1040,6 +1119,7 @@ got100reply:
 								best_auth_challenge = malloc(strlen(value) + 1);
 								if (!best_auth_challenge)
 								{
+									syslog(LOG_ERR, "http_retrieve: best_auth_challenge could not be allocated");
 									if (!myreturn)
 									{
 										myreturn = ENOMEM;
@@ -1086,108 +1166,15 @@ got100reply:
 		status = 0;
 		if (!auth_updated)
 		{
-			/* If it's not been updated, an alert/insert may be needed. */
-			if (best_auth_level == 0)
+			WebdavAuthcacheUpdateRec auth_update =
 			{
-				status = EACCES;
-			}
-			else
-			{
-				char user[WEBDAV_MAX_USERNAME_LEN];
-				char pass[WEBDAV_MAX_PASSWORD_LEN];
-
-				bzero(user, sizeof(user));
-				bzero(pass, sizeof(pass));
-				if (!no_ui_needed)
-				{
-					char *allocatedURL = NULL;
-					char *displayURL;
-					
-					if ( autherror == 401 )
-					{
-						/* 401 Unauthorized error */
-						if ( reconstruct_url(http_hostname, https->http_remote_request, &allocatedURL) == 0 )
-						{
-							/* use allocatedURL for displayURL */
-							displayURL = allocatedURL;
-						}
-						else
-						{
-							/* this shouldn't happen, but if it does, use http_remote_request */
-							allocatedURL = NULL;
-							displayURL = https->http_remote_request;
-						}
-					}
-					else
-					{
-						/* must be 407 Proxy Authentication Required error */
-						/* use proxy_server for displayURL */
-						displayURL = proxy_server;
-					}
-					/* put up prompt for best_auth_level */
-					status = webdav_get_authentication(user, sizeof(user), pass, sizeof(pass),
-						(const char *)displayURL, (const char *)best_auth_realm, best_auth_level);
-					/* for any error response, set status to EACCES */
-					if (status)
-					{
-						status = EACCES;
-					}
-					/* free allocatedURL if allocated */
-					if ( allocatedURL != NULL )
-					{
-						free(allocatedURL);
-					}
-				}
-				if (!status)
-				{
-					/* insert authcache entry for best_auth_sofar */
-
-					WebdavAuthcacheRemoveRec auth_rem =
-					{
-						fs->fs_uid, (autherror ==407), best_auth_realm
-					};
-					WebdavAuthcacheInsertRec auth_insert =
-					{
-						fs->fs_uid, best_auth_challenge, best_auth_level, (autherror == 407),
-							user, pass
-					};
-
-					/* Whatever authorization we had before is no longer 
-					  valid so remove it from the cache.  If geting
-					  rid of it doesn't work, ignore it. */
-					(void)webdav_authcache_remove(&auth_rem);
-					if (fs->fs_uid != 0)
-					{
-						auth_rem.uid = 0;
-						(void)webdav_authcache_remove(&auth_rem);
-					}
-					if (fs->fs_uid != 1)
-					{
-						auth_rem.uid = 1;
-						(void)webdav_authcache_remove(&auth_rem);
-					}
-
-					status = webdav_authcache_insert(&auth_insert);
-					if (!status)
-					{
-						/* if not "root", make an entry for root */
-						if (fs->fs_uid != 0)
-						{
-							auth_insert.uid = 0;
-							(void)webdav_authcache_insert(&auth_insert);
-						}
-						/* if not "daemon", make an entry for daemon */
-						if (fs->fs_uid != 1)
-						{
-							auth_insert.uid = 1;
-							(void)webdav_authcache_insert(&auth_insert);
-						}
-					}
-				}
-				bzero(user, sizeof(user));
-				bzero(pass, sizeof(pass));
-			}
+				fs->fs_uid, cache_generation, authflags, best_auth_level,
+				no_ui_needed, best_auth_challenge, https->http_remote_request, 
+				(autherror == 407), best_auth_realm
+			};
+			status = webdav_authcache_update(&auth_update);
 		}
+
 		if (!myreturn)
 		{
 			myreturn = (status) ? status : EAUTH;
@@ -1225,15 +1212,10 @@ got100reply:
 
 	if (retrying)
 	{
-		int howlong;
+		unsigned int howlong;
 
 		if (when_to_retry == -1)
 		{
-#ifdef DEBUG
-			fprintf(stderr, "%s: HTTP server returned HTTP/1.1 503 Service Unavailable\n",
-				fs->fs_outputfile);
-#endif
-
 			myreturn = ENOENT;
 			goto out;
 		}
@@ -1244,7 +1226,7 @@ got100reply:
 			howlong = 30;
 		}
 #ifdef DEBUG
-		warnx("%s: service unavailable; retrying in %d seconds", http_hostname, howlong);
+		syslog(LOG_ERR, "%s: service unavailable; retrying in %d seconds", http_hostname, howlong);
 #endif
 
 		fs->fs_status = "waiting to retry";
@@ -1268,10 +1250,7 @@ got100reply:
 		}
 		else
 		{
-#ifdef DEBUG
-			warnx("%s: redirection but no new location", fs->fs_outputfile);
-#endif
-
+			syslog(LOG_ERR, "http_retrieve: redirection but no new location: %s", fs->fs_outputfile);
 			myreturn = ENOENT;
 		}
 		goto out;
@@ -1303,6 +1282,7 @@ got100reply:
 	local = fs->fs_fd;
 	if (local == -1)
 	{
+		syslog(LOG_ERR, "http_retrieve: local == -1");
 		myreturn = EIO;
 		goto out;
 	}
@@ -1335,11 +1315,12 @@ got100reply:
 
 		if (ftruncate(local, restart_from))
 		{
+			syslog(LOG_ERR, "http_retrieve: ftruncate(): %s", strerror(errno));
 			myreturn = EIO;
 			goto free_local;
 		}
 	}
-	(void)lseek(local, restart_from, SEEK_SET);
+	(void)lseek(local, restart_from, SEEK_SET);	/* XXX check for errors? */
 
 	/* According to the spec, if content is chunked, content-length must be
 	  ignored. */
@@ -1357,7 +1338,7 @@ got100reply:
 		/* Initialize the download status. */
 		*download_status = WEBDAV_DOWNLOAD_IN_PROGRESS;
 
-		if (total_length == -1 || total_length > MAX(WEBDAV_DOWNLOAD_LIMIT, webdav_first_read_len))
+		if ((total_length == -1) || (total_length > webdav_first_read_len))
 		{
 
 			/* If we're going to need to do a background download, read the
@@ -1395,7 +1376,7 @@ got100reply:
 				}
 				
 				status = http_background_load(fs->fs_socketptr, local, total_length, chunked,
-					download_status);
+					download_status, https->connection_close);
 				if (status)
 				{
 					*download_status = WEBDAV_DOWNLOAD_ABORTED;
@@ -1413,10 +1394,7 @@ got100reply:
 				/* so that we won't close the socket we gave away, in 
 				http_socket_reconnect() */
 				socket_ours = 0;
-				
-				/* and so we won't attempt to use this socket on another thread */
-				*(fs->fs_socketptr) = -1;
-				
+								
 				goto keep_local;
 			}
 		}
@@ -1558,7 +1536,7 @@ int http_read(int *remote, int local, off_t total_length, int *download_status)
 	/* set up remaining_bytes */
 	if (total_length == -1)
 	{
-		remaining_bytes = sizeof(buffer);
+		remaining_bytes = BUFFER_SIZE;
 	}
 	else
 	{
@@ -1575,7 +1553,7 @@ int http_read(int *remote, int local, off_t total_length, int *download_status)
 			goto error_exit;
 		}
 		
-		read_result = socket_read_bytes(*remote, buffer, MIN(sizeof(buffer), remaining_bytes));
+		read_result = socket_read_bytes(*remote, buffer, (size_t)MIN(BUFFER_SIZE, remaining_bytes));
 		if ( read_result > 0 )
 		{
 			/* if we know the total_length */
@@ -1603,7 +1581,7 @@ int http_read(int *remote, int local, off_t total_length, int *download_status)
 				 * the server before we received all of the data.
 				 * Exit with error.
 				 */
-				warnx("server closed connection before all data was received");
+				syslog(LOG_ERR, "http_read: server closed connection before all data was received");
 				goto error_exit;
 			}
 		}
@@ -1617,7 +1595,7 @@ int http_read(int *remote, int local, off_t total_length, int *download_status)
 		if ( local != -1 )
 		{
 			/* writing the data */
-			write_result = write(local, buffer, read_result);
+			write_result = write(local, buffer, (size_t)read_result);
 		}
 		else
 		{
@@ -1681,6 +1659,7 @@ int http_read_chunked(int *remote, int local, off_t total_length,
 	line = malloc(MAX_HTTP_LINELEN);
 	if ( line == NULL )
 	{
+		syslog(LOG_ERR, "http_read_chunked: line could not be allocated");
 		goto error_exit;
 	}
 
@@ -1713,6 +1692,7 @@ int http_read_chunked(int *remote, int local, off_t total_length,
 		chunk_size = strtoul(line, &ep, 16);
 		if ( errno || (*line == 0) || (*ep && !isspace(*ep) && *ep != ';') )
 		{
+			syslog(LOG_ERR, "http_read_chunked: chunk_size could not be determined: %s", line);
 			goto error_exit;
 		}
 		
@@ -1737,7 +1717,7 @@ int http_read_chunked(int *remote, int local, off_t total_length,
 			}
 			
 			/* read the chunk */
-			read_result = socket_read_bytes(*remote, buffer, MIN(sizeof(buffer), chunk_size));
+			read_result = socket_read_bytes(*remote, buffer, MIN(BUFFER_SIZE, chunk_size));
 			if ( read_result <= 0 )
 			{
 				goto error_exit;
@@ -1748,9 +1728,10 @@ int http_read_chunked(int *remote, int local, off_t total_length,
 			if ( local != -1 )
 			{
 				/* writing it */
-				write_result = write(local, buffer, read_result);
+				write_result = write(local, buffer, (size_t)read_result);
 				if (write_result != read_result)
 				{
+					syslog(LOG_ERR, "http_read_chunked: write(): %s", strerror(write_result));
 					goto error_exit;
 				}
 			}
@@ -1828,7 +1809,7 @@ error_exit:
  *		0				No errors.
  *		EIO				Error. The socket is closed on errors
  */
-static int http_read_body(int *remote, char **body, size_t *total_length)
+static int http_read_body(int *remote, char **body, off_t *total_length)
 {
 	size_t	buffer_size;
 	size_t	malloc_size;
@@ -1843,6 +1824,7 @@ static int http_read_body(int *remote, char **body, size_t *total_length)
 	buffer = malloc(buffer_size);
 	if ( buffer == NULL )
 	{
+		syslog(LOG_ERR, "http_read_body: buffer could not be allocated");
 		goto error_exit;
 	}
 	
@@ -1864,13 +1846,14 @@ static int http_read_body(int *remote, char **body, size_t *total_length)
 			total_read += read_result;
 			
 			/* was buffer completely filled? */
-			if ( read_result == bytes_to_read )
+			if ( (size_t)read_result == bytes_to_read )
 			{
 				/* yes, so malloc a larger buffer for next read */
 				previous_buffer = buffer;
 				buffer = malloc(malloc_size);
 				if ( buffer == NULL )
 				{
+					syslog(LOG_ERR, "http_read_body: buffer could not be reallocated");
 					buffer = previous_buffer;
 					goto error_exit;
 				}
@@ -1940,7 +1923,7 @@ error_exit:
  *		0				No errors.
  *		EIO				Error. The socket is closed on errors
  */
-static int http_read_body_chunked(int *remote, char **body, size_t *total_length)
+static int http_read_body_chunked(int *remote, char **body, off_t *total_length)
 {
 	size_t	buffer_size;
 	size_t	malloc_size;
@@ -1961,6 +1944,7 @@ static int http_read_body_chunked(int *remote, char **body, size_t *total_length
 	line = malloc(MAX_HTTP_LINELEN);
 	if ( line == NULL )
 	{
+		syslog(LOG_ERR, "http_read_body_chunked: line could not be allocated");
 		goto error_exit;
 	}
 
@@ -1969,6 +1953,7 @@ static int http_read_body_chunked(int *remote, char **body, size_t *total_length
 	buffer = malloc(buffer_size);
 	if ( buffer == NULL )
 	{
+		syslog(LOG_ERR, "http_read_body_chunked: buffer could not be allocated");
 		goto error_exit;
 	}
 	
@@ -1989,6 +1974,7 @@ static int http_read_body_chunked(int *remote, char **body, size_t *total_length
 		chunk_size = strtoul(line, &ep, 16);
 		if ( errno || (*line == 0) || (*ep && !isspace(*ep) && *ep != ';') )
 		{
+			syslog(LOG_ERR, "http_read_body_chunked: chunk_size could not be determined: %s", line);
 			goto error_exit;
 		}
 		
@@ -2012,18 +1998,16 @@ static int http_read_body_chunked(int *remote, char **body, size_t *total_length
 			}
 			malloc_size = buffer_size + amount_to_add;
 			
-			/* malloc a larger buffer */
+			/* realloc a larger buffer */
 			previous_buffer = buffer;
-			buffer = malloc(malloc_size);
+			buffer = realloc(previous_buffer, malloc_size);
 			if ( buffer == NULL )
 			{
+				syslog(LOG_ERR, "http_read_body_chunked: buffer could not be reallocated");
 				buffer = previous_buffer;
 				goto error_exit;
 			}
-			
-			/* copy previous_buffer to buffer */
-			memcpy(buffer, previous_buffer, total_read);
-			
+						
 			/* save new buffer size */
 			buffer_size = malloc_size;
 		}
@@ -2115,35 +2099,42 @@ error_exit:
  */
 
 int http_background_load(int *remote, int local, off_t total_length, int chunked,
-	int *download_status)
+	int *download_status, int connection_close)
 {
 	int error = 0;
-
+	int remotesocket = *remote;
+	
+	remotesocket = *remote;
+	/* and so we won't attempt to use this socket on another thread */
+	*remote = -1;
+	
 	/* As a hack, set the NODUMP bit so that the kernel
 	 * knows that we are in the process of filling up the file */
 	error = fchflags(local, UF_NODUMP);
 	if (error)
 	{
+		syslog(LOG_ERR, "http_background_load: fchflags(): %s", strerror(error));
 		return (error);
 	}
 
 	*download_status = WEBDAV_DOWNLOAD_IN_PROGRESS;
 
-	error = webdav_requestqueue_enqueue_download(remote, local, total_length, chunked,
-		download_status);
+	error = webdav_requestqueue_enqueue_download(remotesocket, local, total_length, chunked,
+		download_status, connection_close);
 	return (error);
 }
 
 /*****************************************************************************/
 
-int http_get_body(struct fetch_state *fs, struct iovec *iov, int iovlen,
-	off_t *body_length, caddr_t *xml_addr)
+static int http_get_body(struct fetch_state *fs, struct iovec *iov, int iovlen,
+	off_t *body_length, caddr_t *xml_addr, unsigned long cache_generation,
+	AuthFlagsType authflags)
 {
 	struct http_state    *https = fs->fs_proto;
 	struct msghdr msg;
 	int status = 0;
 	int myreturn = 0;
-	size_t total_length;
+	off_t total_length;
 	ssize_t readresult, count;
 	int redirection, retrying, chunked, reconnected;
 	int dav_status;
@@ -2171,7 +2162,8 @@ int http_get_body(struct fetch_state *fs, struct iovec *iov, int iovlen,
 	{
 		if (http_socket_reconnect(fs->fs_socketptr, fs->fs_use_connect, 0))
 		{
-			return (EIO);
+			/* the server cannot be reached */
+			return ( ENXIO );
 		}
 	}
 
@@ -2199,23 +2191,23 @@ retry:
 #ifdef DEBUG
 			fprintf(stderr, "sendmsg errno was %d\n", errno);
 #endif
-
 			if (http_socket_reconnect(fs->fs_socketptr, fs->fs_use_connect, 1))
 			{
-				return (EIO);
+				/* the server cannot be reached */
+				return ( ENXIO );
 			}
 			reconnected = 1;
 			goto retry;
 		}
 		else
 		{
-			warnx("sendmsg (http_get_body): error after reconnect to %s", http_hostname);
-			return EIO;
+			syslog(LOG_ERR, "http_get_body: sendmsg() after reconnect to %s: %s", http_hostname, strerror(errno));
+			return ( EIO );
 		}
 
 	}
 
-	myreturn = http_parse_response_header(fs, &total_length, &dav_status, &chunked);
+	myreturn = http_parse_response_header(fs, &total_length, &dav_status, &chunked, cache_generation, authflags);
 
 	switch (myreturn)
 	{
@@ -2226,9 +2218,10 @@ retry:
 #endif
 			if (!reconnected)
 			{
-				myreturn = http_socket_reconnect(fs->fs_socketptr, fs->fs_use_connect, 1);
-				if (myreturn)
+				if (http_socket_reconnect(fs->fs_socketptr, fs->fs_use_connect, 1))
 				{
+					/* the server cannot be reached */
+					myreturn = ENXIO;
 					goto out;
 				}
 				reconnected = 1;
@@ -2236,7 +2229,7 @@ retry:
 			}
 			else
 			{
-				warnx("empty reply from %s", http_hostname);
+				syslog(LOG_ERR, "http_get_body: empty reply from %s", http_hostname);
 				myreturn = EIO;
 				goto out;
 			}
@@ -2261,7 +2254,6 @@ retry:
 			 * so that we will get the rest of the data off of the
 			 * socket.	myreturn will make it back to the caller.
 			 */
-
 			break;
 	}
 	
@@ -2278,7 +2270,7 @@ retry:
 	 * error that may come back from parse_header because we still
 	 * need to get the body out.
 	 */
-
+	
 	*body_length = (off_t)total_length;			/* set in http_parse_response_header */
 	if (!total_length)
 	{
@@ -2290,10 +2282,19 @@ retry:
 		/* if we know the length, just suck everything down in
 		  one fell swoop. Otherwise, will put it into a file
 		  and then read it out */
-
-		*xml_addr = malloc(total_length);
+		if ( total_length > 0xffffffffLL )
+		{
+			syslog(LOG_ERR, "http_get_body: total_length too big");
+			if (!myreturn)
+			{
+				myreturn = ENOMEM;
+			}
+			goto out;
+		}
+		*xml_addr = malloc((size_t)total_length);
 		if (*xml_addr == NULL)
 		{
+			syslog(LOG_ERR, "http_get_body: *xml_addr could not be allocated");
 			if (!myreturn)
 			{
 				myreturn = ENOMEM;
@@ -2309,7 +2310,7 @@ retry:
 		for (count = 0, readresult = 0; (readresult != total_length); readresult += count)
 		{
 			count = socket_read_bytes(*(fs->fs_socketptr),
-				((char *)(*xml_addr) + readresult), (total_length - readresult));
+				((char *)(*xml_addr) + readresult), (size_t)(total_length - readresult));
 			if (!count)
 			{
 				if (!myreturn)
@@ -2495,8 +2496,9 @@ static void parse_ht_dav(char *field_value, int *dav_level)
 
 /*****************************************************************************/
 
-int http_parse_response_header(struct fetch_state *fs, size_t *total_length,
-	int *dav_status, int *chunked)
+int http_parse_response_header(struct fetch_state *fs, off_t *total_length,
+	int *dav_status, int *chunked, unsigned long cache_generation,
+	AuthFlagsType authflags)
 {
 	struct http_state    *https = fs->fs_proto;
 	int remote = *(fs->fs_socketptr);
@@ -2509,24 +2511,26 @@ int http_parse_response_header(struct fetch_state *fs, size_t *total_length,
 		*best_auth_challenge = NULL,
 		*best_auth_realm = NULL;
 
-	time_t last_modified, 						/* *** may not be needed *** */
+	time_t last_modified = -1,
 	when_to_retry;
 	int redirection = 0,
 		continue_received = 0,
 		retrying = 0,
 		autherror = 0,
-		best_auth_level = 0,
 		auth_updated = FALSE,
 		no_ui_needed = FALSE;
-
+	unsigned int best_auth_level = 0;
+	
 	*dav_status = 0;
 	*chunked = 0;
 	*total_length = -1;							/* -1 means don't know */
+	int isHTTP1_0 = 0;
 
 	/* allocate the line buffer */
 	line = malloc(MAX_HTTP_LINELEN);
 	if ( line == NULL )
 	{
+		syslog(LOG_ERR, "http_parse_response_header: line could not be allocated");
 		myreturn = EIO;
 		goto out;
 	}
@@ -2550,8 +2554,12 @@ got100reply:
 	 * The other end needs to be doing HTTP 1.0 at the very least,
 	 * which is checked in http_first_line().
 	 */
-
-	status = http_first_line(line);
+	status = http_first_line(line, &isHTTP1_0, continue_received);
+	if ( isHTTP1_0 )
+	{
+		/* with HTTP/1.0, we have to close the connection after every transaction */
+		https->connection_close = 1;
+	}
 
 	if (logfile)
 	{
@@ -2573,109 +2581,115 @@ got100reply:
 	}
 	continue_received = 0;
 
-	/* handle all informational 1xx status codes the same */
-	if ( (status > 100) && (status <= 199) )
+	/* determine how to handle the status codes returned by the server */
+determine_status:
+
+	switch ( status )
 	{
-		status = 100;
-	}
-	
-	switch (status)
-	{
-		case 100:								/* Continue */
+		case 100:								/* Informational 1xx */
 			/* read until we get a legal first line */
 			continue_received = 1;
 			goto got100reply;
-
-		case 200:
-		case 201:
-		case 207:								/* Here come results */
-		case 203:								/* Non-Authoritative Information */
-		case 206:								/* Partial results (happens when we specified a
-												 * range header) */
+			break;
+		
+		case 200:								/* Successful 2xx */
 			status = 0;
 			break;
-
-		case 204:
+		
+		case 204:								/* 204 No Content */
 			myreturn = status;
-			break;								/* no body */
-
-		case 301:
-		case 302:								/* Resource has moved
-												 * spec says don't redirect without user
-												 * confirmation except on GET OR HEAD
-												 * let caller decide. */
+			break;
+		
+		case 300:								/* Redirection 3xx */
+			/* no redirection support yet */
+			syslog(LOG_ERR, "http_parse_response_header: redirection not supported: %s", line);
 			myreturn = ENOENT;
 			break;
-
-		case 304:								/* Object is unmodified */
+		
+		case 304:								/* 304 Not Modified */
 #ifdef DEBUG
-			fprintf(stderr, "Object unmodified %d: %s\n", status, line);
+			fprintf(stderr, "Not Modified 304: %s\n", line);
 #endif
+			syslog(LOG_ERR, "http_parse_response_header: unexpected response: %s", line);
 			myreturn = ENOENT;
 			break;
-
-		case 400:
+		
+		case 400:								/* Client Error 4xx */
+#ifdef DEBUG
+			fprintf(stderr, "Client Error 4xx: %s\n", line);
+#endif
+			syslog(LOG_ERR, "http_parse_response_header: unexpected response: %s", line);
 			myreturn = EINVAL;
 			break;
 
-		case 401:								/* Unauthorized */
-		case 407:								/* Proxy Authentication Required */
-			autherror = status;
+		case 401:								/* 401 Unauthorized */
+		case 407:								/* 407 Proxy Authentication Required */
+			if ( (fs->fs_uid == process_uid) || (fs->fs_uid == 0) || (fs->fs_uid == 1) )
+			{
+				autherror = status;
+			}
+			else
+			{
+				myreturn = EACCES;
+			}
 			break;
-
-		case 403:
+		
+		case 403:								/* 403 Forbidden */
 			myreturn = EPERM;
 			break;
-
-		case 404:
+		
+		case 404:								/* 404 Not Found */
 			myreturn = ENOENT;
 			break;
 
-		case 423:								/* Locked, we translate this to EBUSY */
+		case 423:								/* 423 Locked (WebDAV) */
+			/* We translate this to EBUSY */
 			myreturn = EBUSY;
 			break;
 
-		case 500:
-			/* Internal server error.  It's been known to
-			 * happen on zope when target wasn't there, so
-			 * return ENOENT
-			 */
+		case 500:								/* Server Error 5xx */
+#ifdef DEBUG
+			fprintf(stderr, "Server Error 5xx: %s\n", line);
+#endif
+			syslog(LOG_ERR, "http_parse_response_header: unexpected response: %s", line);
 			myreturn = ENOENT;
 			break;
-
-		case 501:								/* Not Implemented */
+		
+		case 503:								/* 503 Service Unavailable */
 #ifdef DEBUG
-			fprintf(stderr, "Not Implemented %d: %s\n", status, line);
+			fprintf(stderr, "Service Unavailable 503: %s\n", line);
 #endif
-			myreturn = EINVAL;
-			break;
-
-		case 503:								/* Service Unavailable */
-#ifdef DEBUG
-			fprintf(stderr, "Service Unavailable %d: %s\n", status, line);
-#endif
+			syslog(LOG_ERR, "http_parse_response_header: unexpected response: %s", line);
 			if (!fs->fs_auto_retry)
 			{
 				myreturn = ENOENT;
 			}
 			else
 			{
-				retrying = 503;
+				retrying = status;
 			}
 			break;
-
-		case 507:
+		
+		case 507:								/* 507 Insufficient Storage (WebDAV) */
 			myreturn = ENOSPC;
 			break;
-
+	
 		default:
-#ifdef DEBUG
-			fprintf(stderr, "Unknown error %d: %s\n", status, line);
-#endif
-			myreturn = status;
+			if ( (status < 100) || (status > 599) )
+			{
+				/* only the 1xx through 5xx ranges are defined */
+				syslog(LOG_ERR, "http_parse_response_header: unknown status code: %s", line);
+				myreturn = ENOENT;
+			}
+			else
+			{
+				/* change Nxx to N00 and retry */
+				status = status - (status % 100);
+				goto determine_status;
+			}
 			break;
 	}
-
+	
 	last_modified = when_to_retry = -1;
 	*chunked = 0;
 	fs->fs_status = "parsing reply headers";
@@ -2704,12 +2718,12 @@ got100reply:
 				
 			case ht_content_length:
 				errno = 0;
-				ul = strtoul(value, &ep, 10);
+				*total_length = strtoq(value, &ep, 10);
 				if (errno != 0 || *ep)
 				{
-					warnx("invalid Content-Length: `%s'", value);
+					syslog(LOG_ERR, "http_parse_response_header: invalid Content-Length: `%s'", value);
+					*total_length = -1;
 				}
-				*total_length = (size_t)ul;
 				break;
 
 			case ht_dav:
@@ -2721,7 +2735,7 @@ got100reply:
 #ifdef DEBUG
 				if (last_modified == -1)
 				{
-					warnx("invalid Last-Modified: `%s'", value);
+					syslog(LOG_ERR, "invalid Last-Modified: `%s'", value);
 				}
 #endif
 
@@ -2737,9 +2751,13 @@ got100reply:
 				{
 					strcpy(base64ofmd5, value);
 				}
-				else if (!myreturn)
+				else
 				{
-					myreturn = ENOMEM;
+					syslog(LOG_ERR, "http_parse_response_header: base64ofmd5 could not be allocated");
+					if (!myreturn)
+					{
+						myreturn = ENOMEM;
+					}
 				}
 				break;
 
@@ -2764,7 +2782,7 @@ got100reply:
 			case ht_location:
 				if (redirection)
 				{
-					int len;
+					unsigned int len;
 					char *s = value;
 					while (*s && !isspace(*s))
 					{
@@ -2778,6 +2796,7 @@ got100reply:
 					new_location = malloc(len + 1);
 					if (!new_location)
 					{
+						syslog(LOG_ERR, "http_parse_response_header: new_location could not be allocated");
 						if (!myreturn)
 						{
 							myreturn = ENOMEM;
@@ -2797,9 +2816,7 @@ got100reply:
 					*chunked = 1;
 					break;
 				}
-				warnx("%s: %s specified Transfer-Encoding `%s'", fs->fs_outputfile,
-					http_hostname, value);
-				warnx("%s: output file may be uninterpretable", fs->fs_outputfile);
+				syslog(LOG_ERR, "http_parse_response_header: unknown encoding: '%s'", value);
 				break;
 
 			case ht_retry_after:
@@ -2870,6 +2887,7 @@ got100reply:
 								best_auth_challenge = malloc(strlen(value) + 1);
 								if (!best_auth_challenge)
 								{
+									syslog(LOG_ERR, "http_parse_response_header: best_auth_challenge could not be allocated");
 									error = ENOMEM;
 								}
 								else
@@ -2898,113 +2916,21 @@ got100reply:
 				break;
 		}
 	}
+	
 	if (autherror)
 	{
 		status = 0;
 		if (!auth_updated)
 		{
-			/* If it's not been updated, an alert/insert may be needed. */
-			if (best_auth_level == 0)
+			WebdavAuthcacheUpdateRec auth_update =
 			{
-				status = EACCES;
-			}
-			else
-			{
-				char user[WEBDAV_MAX_USERNAME_LEN];
-				char pass[WEBDAV_MAX_PASSWORD_LEN];
-
-				bzero(user, sizeof(user));
-				bzero(pass, sizeof(pass));
-				if (!no_ui_needed)
-				{
-					char *allocatedURL = NULL;
-					char *displayURL;
-					
-					if ( autherror == 401 )
-					{
-						/* 401 Unauthorized error */
-						if ( reconstruct_url(http_hostname, https->http_remote_request, &allocatedURL) == 0 )
-						{
-							/* use allocatedURL for displayURL */
-							displayURL = allocatedURL;
-						}
-						else
-						{
-							/* this shouldn't happen, but if it does, use http_remote_request */
-							allocatedURL = NULL;
-							displayURL = https->http_remote_request;
-						}
-					}
-					else
-					{
-						/* must be 407 Proxy Authentication Required error */
-						/* use proxy_server for displayURL */
-						displayURL = proxy_server;
-					}
-					/* put up prompt for best_auth_level */
-					status = webdav_get_authentication(user, sizeof(user), pass, sizeof(pass),
-						(const char *)displayURL, (const char *)best_auth_realm, best_auth_level);
-					/* for any error response, set status to EACCES */
-					if (status)
-					{
-						status = EACCES;
-					}
-					/* free allocatedURL if allocated */
-					if ( allocatedURL != NULL )
-					{
-						free(allocatedURL);
-					}
-				}
-				if (!status)
-				{
-					/* insert authcache entry for best_auth_sofar */
-
-					WebdavAuthcacheRemoveRec auth_rem =
-					{
-						fs->fs_uid, (autherror ==407), best_auth_realm
-					};
-					WebdavAuthcacheInsertRec auth_insert =
-					{
-						fs->fs_uid, best_auth_challenge, best_auth_level, (autherror == 407),
-						user, pass
-					};
-
-					/* Whatever authorization we had before is no longer 
-					  valid so remove it from the cache.  If geting
-					  rid of it doesn't work, ignore it. */
-					(void)webdav_authcache_remove(&auth_rem);
-					if (fs->fs_uid != 0)
-					{
-						auth_rem.uid = 0;
-						(void)webdav_authcache_remove(&auth_rem);
-					}
-					if (fs->fs_uid != 1)
-					{
-						auth_rem.uid = 1;
-						(void)webdav_authcache_remove(&auth_rem);
-					}
-
-					status = webdav_authcache_insert(&auth_insert);
-					if (!status)
-					{
-						/* if not "root", make an entry for root */
-						if (fs->fs_uid != 0)
-						{
-							auth_insert.uid = 0;
-							(void)webdav_authcache_insert(&auth_insert);
-						}
-						/* if not "daemon", make an entry for daemon */
-						if (fs->fs_uid != 1)
-						{
-							auth_insert.uid = 1;
-							(void)webdav_authcache_insert(&auth_insert);
-						}
-					}
-				}
-				bzero(user, sizeof(user));
-				bzero(pass, sizeof(pass));
-			}
+				fs->fs_uid, cache_generation, authflags, best_auth_level,
+				no_ui_needed, best_auth_challenge, https->http_remote_request, 
+				(autherror == 407), best_auth_realm
+			};
+			status = webdav_authcache_update(&auth_update);
 		}
+		
 		if (!myreturn)
 		{
 			myreturn = (status) ? status : EAUTH;
@@ -3014,7 +2940,7 @@ got100reply:
 
 	if (retrying)
 	{
-		int howlong;
+		unsigned int howlong;
 
 		if (when_to_retry == -1)
 		{
@@ -3031,7 +2957,7 @@ got100reply:
 			howlong = 30;
 		}
 #ifdef DEBUG
-		warnx("%s: service unavailable; retrying in %d seconds", http_hostname, howlong);
+		syslog(LOG_ERR, "%s: service unavailable; retrying in %d seconds", http_hostname, howlong);
 #endif
 
 		fs->fs_status = "waiting to retry";
@@ -3070,6 +2996,11 @@ out:
 	{
 		*total_length = -1;
 	}
+	
+	if (last_modified != -1)
+	{
+		fs->fs_st_mtime = last_modified;
+	}
 
 	return (myreturn);
 }												/* http_parse_response_header */
@@ -3085,6 +3016,7 @@ int http_stat(struct fetch_state *fs, void *statstruct)
 	struct iovec iov[NIOV];
 	struct http_state *https = fs->fs_proto;
 	struct vattr *statbuf = ((struct webdav_stat_struct *)statstruct)->statbuf;
+	uid_t uid = ((struct webdav_stat_struct *)statstruct)->uid;
 	char *xml_addr;								/* memory address of xml data (mapped in) */
 	off_t xml_length;							/* length of the xml string */
 	off_t xml_size;
@@ -3092,6 +3024,8 @@ int http_stat(struct fetch_state *fs, void *statstruct)
 	int error = 0;
 	char lengthline[SHORT_HTTP_LINELEN];
 	char *http_auth = NULL;
+	unsigned long cache_generation;
+	AuthFlagsType authflags;
 
 retry:
 	n = 0;
@@ -3105,11 +3039,18 @@ retry:
 	{
 		WebdavAuthcacheRetrieveRec http_auth_struct =
 		{
-			fs->fs_uid, https ->http_remote_request, append_to_file, "PROPFIND", NULL
+			fs->fs_uid, https->http_remote_request, append_to_file, "PROPFIND", NULL, 0, 0
 		};
 		if (!webdav_authcache_retrieve(&http_auth_struct))
 		{
+			cache_generation = http_auth_struct.generation;
+			authflags = http_auth_struct.authflags;
 			http_auth = http_auth_struct.authorization;
+		}
+		else
+		{
+			cache_generation = 0;
+			authflags = kAuthNone;
 		}
 	}
 
@@ -3161,11 +3102,12 @@ retry:
 
 	if (n >= NIOV)
 	{
+		syslog(LOG_ERR, "http_stat: n >= NIOV");
 		error = EIO;
 		goto out;
 	}
 
-	error = http_get_body(fs, iov, n, &xml_length, &xml_addr);
+	error = http_get_body(fs, iov, n, &xml_length, &xml_addr, cache_generation, authflags);
 	if (error)
 	{
 		if (error == EAUTH)
@@ -3177,10 +3119,21 @@ retry:
 			goto out;
 		}
 	}
+	else
+	{
+		if ( authflags & (kAuthAddToKeychain | kAuthProvisional) )
+		{
+			WebdavAuthcacheKeychainRec keychain_struct =
+			{
+				fs->fs_uid, https->http_remote_request, cache_generation
+			};
+			(void) webdav_authcache_keychain(&keychain_struct);
+		}
+	}
 
 	/* parse it to get the info */
 	error = parse_stat((char *)xml_addr, (int)xml_length,
-		((struct webdav_stat_struct *)statstruct)->orig_uri, statbuf);
+		((struct webdav_stat_struct *)statstruct)->orig_uri, statbuf, uid);
 	
 	/* fall through */
 
@@ -3217,7 +3170,9 @@ int http_statfs(struct fetch_state *fs, void *arg)
 	int error = 0;
 	char *http_auth = NULL;
 	char lengthline[SHORT_HTTP_LINELEN];
-
+	unsigned long cache_generation;
+	AuthFlagsType authflags;
+	
 retry:
 
 	n = 0;
@@ -3229,11 +3184,18 @@ retry:
 	{
 		WebdavAuthcacheRetrieveRec http_auth_struct =
 		{
-			fs->fs_uid, https ->http_remote_request, append_to_file, "PROPFIND", NULL
+			fs->fs_uid, https->http_remote_request, append_to_file, "PROPFIND", NULL, 0, 0
 		};
 		if (!webdav_authcache_retrieve(&http_auth_struct))
 		{
+			cache_generation = http_auth_struct.generation;
+			authflags = http_auth_struct.authflags;
 			http_auth = http_auth_struct.authorization;
+		}
+		else
+		{
+			cache_generation = 0;
+			authflags = kAuthNone;
 		}
 	}
 
@@ -3283,11 +3245,12 @@ retry:
 
 	if (n >= NIOV)
 	{
+		syslog(LOG_ERR, "http_statfs: n >= NIOV");
 		error = EIO;
 		goto out;
 	}
 
-	error = http_get_body(fs, iov, n, &xml_length, &xml_addr);
+	error = http_get_body(fs, iov, n, &xml_length, &xml_addr, cache_generation, authflags);
 	if (error)
 	{
 		if (error == EAUTH)
@@ -3297,6 +3260,17 @@ retry:
 		else
 		{
 			goto out;
+		}
+	}
+	else
+	{
+		if ( authflags & (kAuthAddToKeychain | kAuthProvisional) )
+		{
+			WebdavAuthcacheKeychainRec keychain_struct =
+			{
+				fs->fs_uid, https->http_remote_request, cache_generation
+			};
+			(void) webdav_authcache_keychain(&keychain_struct);
 		}
 	}
 
@@ -3328,6 +3302,7 @@ out:
 
 int http_delete(struct fetch_state *fs, void *unused_arg)
 {
+	#pragma unused(unused_arg)
 	struct iovec iov[NIOV];
 	struct http_state *https = fs->fs_proto;
 	char *http_auth = NULL;
@@ -3335,6 +3310,8 @@ int http_delete(struct fetch_state *fs, void *unused_arg)
 	off_t xml_length;							/* length of the xml string */
 	int n = 0;
 	int error = 0;
+	unsigned long cache_generation;
+	AuthFlagsType authflags;
 
 retry:
 
@@ -3349,11 +3326,18 @@ retry:
 	{
 		WebdavAuthcacheRetrieveRec http_auth_struct =
 		{
-			fs->fs_uid, https ->http_remote_request, append_to_file, "DELETE", NULL
+			fs->fs_uid, https->http_remote_request, append_to_file, "DELETE", NULL, 0, 0
 		};
 		if (!webdav_authcache_retrieve(&http_auth_struct))
 		{
+			cache_generation = http_auth_struct.generation;
+			authflags = http_auth_struct.authflags;
 			http_auth = http_auth_struct.authorization;
+		}
+		else
+		{
+			cache_generation = 0;
+			authflags = kAuthNone;
 		}
 	}
 
@@ -3379,21 +3363,38 @@ retry:
 
 	if (n >= NIOV)
 	{
+		syslog(LOG_ERR, "http_delete: n >= NIOV");
 		error = EIO;
 		goto out;
 	}
 
-	error = http_get_body(fs, iov, n, &xml_length, &xml_addr);
+	error = http_get_body(fs, iov, n, &xml_length, &xml_addr, cache_generation, authflags);
 
 	if (error == 204)
 	{
 		error = 0;								/* no body is a perfectly good response for delete */
 	}
-	else
+	
+	if (error)
 	{
 		if (error == EAUTH)
 		{
 			goto retry;
+		}
+		else
+		{
+			goto out;
+		}
+	}
+	else
+	{
+		if ( authflags & (kAuthAddToKeychain | kAuthProvisional) )
+		{
+			WebdavAuthcacheKeychainRec keychain_struct =
+			{
+				fs->fs_uid, https->http_remote_request, cache_generation
+			};
+			(void) webdav_authcache_keychain(&keychain_struct);
 		}
 	}
 
@@ -3430,6 +3431,8 @@ int http_lock(struct fetch_state *fs, void *lockarg)
 	int error = 0;
 	char *http_auth = NULL;
 	char lengthline[SHORT_HTTP_LINELEN], locktoken[SHORT_HTTP_LINELEN];
+	unsigned long cache_generation;
+	AuthFlagsType authflags;
 
 retry:
 	
@@ -3444,11 +3447,18 @@ retry:
 	{
 		WebdavAuthcacheRetrieveRec http_auth_struct =
 		{
-			fs->fs_uid, https ->http_remote_request, append_to_file, "LOCK", NULL
+			fs->fs_uid, https->http_remote_request, append_to_file, "LOCK", NULL, 0, 0
 		};
 		if (!webdav_authcache_retrieve(&http_auth_struct))
 		{
+			cache_generation = http_auth_struct.generation;
+			authflags = http_auth_struct.authflags;
 			http_auth = http_auth_struct.authorization;
+		}
+		else
+		{
+			cache_generation = 0;
+			authflags = kAuthNone;
 		}
 	}
 
@@ -3515,11 +3525,12 @@ retry:
 
 	if (n >= NIOV)
 	{
+		syslog(LOG_ERR, "http_lock: n >= NIOV");
 		error = EIO;
 		goto out;
 	}
 
-	error = http_get_body(fs, iov, n, &xml_length, &xml_addr);
+	error = http_get_body(fs, iov, n, &xml_length, &xml_addr, cache_generation, authflags);
 	if (error)
 	{
 		if (error == 423)
@@ -3537,6 +3548,17 @@ retry:
 			{
 				goto out;
 			}
+		}
+	}
+	else
+	{
+		if ( authflags & (kAuthAddToKeychain | kAuthProvisional) )
+		{
+			WebdavAuthcacheKeychainRec keychain_struct =
+			{
+				fs->fs_uid, https->http_remote_request, cache_generation
+			};
+			(void) webdav_authcache_keychain(&keychain_struct);
 		}
 	}
 
@@ -3572,6 +3594,8 @@ int http_unlock(struct fetch_state *fs, void *lockarg)
 	off_t xml_length;							/* length of the xml string */
 	int n = 0;
 	int error = 0;
+	unsigned long cache_generation;
+	AuthFlagsType authflags;
 
 retry:
 	
@@ -3586,11 +3610,18 @@ retry:
 	{
 		WebdavAuthcacheRetrieveRec http_auth_struct =
 		{
-			fs->fs_uid, https ->http_remote_request, append_to_file, "UNLOCK", NULL
+			fs->fs_uid, https->http_remote_request, append_to_file, "UNLOCK", NULL, 0, 0
 		};
 		if (!webdav_authcache_retrieve(&http_auth_struct))
 		{
+			cache_generation = http_auth_struct.generation;
+			authflags = http_auth_struct.authflags;
 			http_auth = http_auth_struct.authorization;
+		}
+		else
+		{
+			cache_generation = 0;
+			authflags = kAuthNone;
 		}
 	}
 
@@ -3619,20 +3650,38 @@ retry:
 
 	if (n >= NIOV)
 	{
+		syslog(LOG_ERR, "http_unlock: n >= NIOV");
 		error = EIO;
 		goto out;
 	}
 
-	error = http_get_body(fs, iov, n, &xml_length, &xml_addr);
+	error = http_get_body(fs, iov, n, &xml_length, &xml_addr, cache_generation, authflags);
+
+	if (error == 204)						/* success */
+	{
+		error = 0;
+	}
+
 	if (error)
 	{
-		if (error == 204)						/* success */
-		{
-			error = 0;
-		}
-		else if (error == EAUTH)
+		if (error == EAUTH)
 		{
 			goto retry;
+		}
+		else
+		{
+			goto out;
+		}
+	}
+	else
+	{
+		if ( authflags & (kAuthAddToKeychain | kAuthProvisional) )
+		{
+			WebdavAuthcacheKeychainRec keychain_struct =
+			{
+				fs->fs_uid, https->http_remote_request, cache_generation
+			};
+			(void) webdav_authcache_keychain(&keychain_struct);
 		}
 	}
 
@@ -3667,6 +3716,8 @@ int http_delete_dir(struct fetch_state *fs, void *unused_arg)
 	int num_entries = 0;
 	off_t xml_size;
 	char lengthline[MAX_HTTP_LINELEN];
+	unsigned long cache_generation;
+	AuthFlagsType authflags;
 
 retry:
 	
@@ -3680,11 +3731,18 @@ retry:
 	{
 		WebdavAuthcacheRetrieveRec http_auth_struct =
 		{
-			fs->fs_uid, https ->http_remote_request, append_to_file, "PROPFIND", NULL
+			fs->fs_uid, https->http_remote_request, append_to_file, "PROPFIND", NULL, 0, 0
 		};
 		if (!webdav_authcache_retrieve(&http_auth_struct))
 		{
+			cache_generation = http_auth_struct.generation;
+			authflags = http_auth_struct.authflags;
 			http_auth = http_auth_struct.authorization;
+		}
+		else
+		{
+			cache_generation = 0;
+			authflags = kAuthNone;
 		}
 	}
 
@@ -3737,11 +3795,12 @@ retry:
 
 	if (n >= NIOV)
 	{
+		syslog(LOG_ERR, "http_delete_dir: n >= NIOV");
 		error = EIO;
 		goto out;
 	}
 
-	error = http_get_body(fs, iov, n, &xml_length, &xml_addr);
+	error = http_get_body(fs, iov, n, &xml_length, &xml_addr, cache_generation, authflags);
 	if (error)
 	{
 		if (error == EAUTH)
@@ -3751,6 +3810,17 @@ retry:
 		else
 		{
 			goto out;
+		}
+	}
+	else
+	{
+		if ( authflags & (kAuthAddToKeychain | kAuthProvisional) )
+		{
+			WebdavAuthcacheKeychainRec keychain_struct =
+			{
+				fs->fs_uid, https->http_remote_request, cache_generation
+			};
+			(void) webdav_authcache_keychain(&keychain_struct);
 		}
 	}
 
@@ -3798,6 +3868,7 @@ out:
 
 int http_mkcol(struct fetch_state *fs, void *unused_arg)
 {
+	#pragma unused(unused_arg)
 	struct iovec iov[NIOV];
 	struct http_state *https = fs->fs_proto;
 	char *http_auth = NULL;
@@ -3805,6 +3876,8 @@ int http_mkcol(struct fetch_state *fs, void *unused_arg)
 	off_t xml_length;							/* length of the xml string */
 	int n = 0;
 	int error = 0;
+	unsigned long cache_generation;
+	AuthFlagsType authflags;
 
 retry:
 
@@ -3817,11 +3890,19 @@ retry:
 	{
 		WebdavAuthcacheRetrieveRec http_auth_struct =
 		{
-			fs->fs_uid, https ->http_remote_request, append_to_file, "MKCOL", NULL
-		}
-		;
+			fs->fs_uid, https->http_remote_request, append_to_file, "MKCOL", NULL, 0, 0
+		};
 		if (!webdav_authcache_retrieve(&http_auth_struct))
+		{
+			cache_generation = http_auth_struct.generation;
+			authflags = http_auth_struct.authflags;
 			http_auth = http_auth_struct.authorization;
+		}
+		else
+		{
+			cache_generation = 0;
+			authflags = kAuthNone;
+		}
 	}
 
 	addstr(iov, n, "MKCOL ");
@@ -3846,21 +3927,38 @@ retry:
 
 	if (n >= NIOV)
 	{
+		syslog(LOG_ERR, "http_mkcol: n >= NIOV");
 		error = EIO;
 		goto out;
 	}
 
-	error = http_get_body(fs, iov, n, &xml_length, &xml_addr);
+	error = http_get_body(fs, iov, n, &xml_length, &xml_addr, cache_generation, authflags);
 
 	if (error == 204)
 	{
 		error = 0;	/* no body is a perfectly good response for make collection */
 	}
-	else
+
+	if (error)
 	{
 		if (error == EAUTH)
 		{
 			goto retry;
+		}
+		else
+		{
+			goto out;
+		}
+	}
+	else
+	{
+		if ( authflags & (kAuthAddToKeychain | kAuthProvisional) )
+		{
+			WebdavAuthcacheKeychainRec keychain_struct =
+			{
+				fs->fs_uid, https->http_remote_request, cache_generation
+			};
+			(void) webdav_authcache_keychain(&keychain_struct);
 		}
 	}
 
@@ -3894,6 +3992,8 @@ int http_move(struct fetch_state *fs, void *dest_file)
 	off_t xml_length;							/* length of the xml string */
 	int n = 0;
 	int error = 0;
+	unsigned long cache_generation;
+	AuthFlagsType authflags;
 
 retry:
 
@@ -3906,11 +4006,18 @@ retry:
 	{
 		WebdavAuthcacheRetrieveRec http_auth_struct =
 		{
-			fs->fs_uid, https ->http_remote_request, append_to_file, "MOVE", NULL
+			fs->fs_uid, https->http_remote_request, append_to_file, "MOVE", NULL, 0, 0
 		};
 		if (!webdav_authcache_retrieve(&http_auth_struct))
 		{
+			cache_generation = http_auth_struct.generation;
+			authflags = http_auth_struct.authflags;
 			http_auth = http_auth_struct.authorization;
+		}
+		else
+		{
+			cache_generation = 0;
+			authflags = kAuthNone;
 		}
 	}
 
@@ -3940,19 +4047,39 @@ retry:
 
 	if (n >= NIOV)
 	{
+		syslog(LOG_ERR, "http_move: n >= NIOV");
 		error = EIO;
 		goto out;
 	}
 
-	error = http_get_body(fs, iov, n, &xml_length, &xml_addr);
+	error = http_get_body(fs, iov, n, &xml_length, &xml_addr, cache_generation, authflags);
 
 	if (error == 204)
 	{
 		error = 0;	/* no body is a perfectly good response for move */
 	}
-	else if (error == EAUTH)
+
+	if (error)
 	{
-		goto retry;
+		if (error == EAUTH)
+		{
+			goto retry;
+		}
+		else
+		{
+			goto out;
+		}
+	}
+	else
+	{
+		if ( authflags & (kAuthAddToKeychain | kAuthProvisional) )
+		{
+			WebdavAuthcacheKeychainRec keychain_struct =
+			{
+				fs->fs_uid, https->http_remote_request, cache_generation
+			};
+			(void) webdav_authcache_keychain(&keychain_struct);
+		}
 	}
 
 out:
@@ -3981,6 +4108,8 @@ int http_read_bytes(struct fetch_state *fs, void *arg)
 	int error = 0;
 	char *http_auth = NULL;
 	char byteline[SHORT_HTTP_LINELEN];
+	unsigned long cache_generation;
+	AuthFlagsType authflags;
 
 	/* do a check to make sure we actually have bytes to read 
 	 * note that num_read_bytes is unsigned (off_t) */
@@ -4001,11 +4130,18 @@ retry:
 	{
 		WebdavAuthcacheRetrieveRec http_auth_struct =
 		{
-			fs->fs_uid, https ->http_remote_request, NULL, "GET", NULL
+			fs->fs_uid, https->http_remote_request, NULL, "GET", NULL, 0, 0
 		};
 		if (!webdav_authcache_retrieve(&http_auth_struct))
 		{
+			cache_generation = http_auth_struct.generation;
+			authflags = http_auth_struct.authflags;
 			http_auth = http_auth_struct.authorization;
+		}
+		else
+		{
+			cache_generation = 0;
+			authflags = kAuthNone;
 		}
 	}
 
@@ -4031,15 +4167,33 @@ retry:
 
 	if (n >= NIOV)
 	{
+		syslog(LOG_ERR, "http_read_bytes: n >= NIOV");
 		error = EIO;
 		goto done;
 	}
 
-	error = http_get_body(fs, iov, n, &byte_info->num_read_bytes, &byte_info->byte_addr);
-
-	if (error == EAUTH)
+	error = http_get_body(fs, iov, n, &byte_info->num_read_bytes, &byte_info->byte_addr, cache_generation, authflags);
+	if (error)
 	{
-		goto retry;
+		if (error == EAUTH)
+		{
+			goto retry;
+		}
+		else
+		{
+			goto done;
+		}
+	}
+	else
+	{
+		if ( authflags & (kAuthAddToKeychain | kAuthProvisional) )
+		{
+			WebdavAuthcacheKeychainRec keychain_struct =
+			{
+				fs->fs_uid, https->http_remote_request, cache_generation
+			};
+			(void) webdav_authcache_keychain(&keychain_struct);
+		}
 	}
 
 done:
@@ -4066,6 +4220,8 @@ int http_lookup(struct fetch_state *fs, void *a_file_type)
 	int error = 0;
 	off_t xml_size;
 	char lengthline[MAX_HTTP_LINELEN];
+	unsigned long cache_generation;
+	AuthFlagsType authflags;
 
 retry:
 
@@ -4080,11 +4236,18 @@ retry:
 	{
 		WebdavAuthcacheRetrieveRec http_auth_struct =
 		{
-			fs->fs_uid, https ->http_remote_request, append_to_file, "PROPFIND", NULL
+			fs->fs_uid, https->http_remote_request, append_to_file, "PROPFIND", NULL, 0, 0
 		};
 		if (!webdav_authcache_retrieve(&http_auth_struct))
 		{
+			cache_generation = http_auth_struct.generation;
+			authflags = http_auth_struct.authflags;
 			http_auth = http_auth_struct.authorization;
+		}
+		else
+		{
+			cache_generation = 0;
+			authflags = kAuthNone;
 		}
 	}
 
@@ -4133,11 +4296,12 @@ retry:
 
 	if (n >= NIOV)
 	{
+		syslog(LOG_ERR, "http_lookup: n >= NIOV");
 		error = EIO;
 		goto out;
 	}
 
-	error = http_get_body(fs, iov, n, &xml_length, &xml_addr);
+	error = http_get_body(fs, iov, n, &xml_length, &xml_addr, cache_generation, authflags);
 	if (error)
 	{
 		if (error == EAUTH)
@@ -4147,6 +4311,17 @@ retry:
 		else
 		{
 			goto out;
+		}
+	}
+	else
+	{
+		if ( authflags & (kAuthAddToKeychain | kAuthProvisional) )
+		{
+			WebdavAuthcacheKeychainRec keychain_struct =
+			{
+				fs->fs_uid, https->http_remote_request, cache_generation
+			};
+			(void) webdav_authcache_keychain(&keychain_struct);
 		}
 	}
 
@@ -4179,11 +4354,14 @@ out:
  * text files (with a special type) that contain dir entries.
  */
 
-int http_refreshdir(struct fetch_state *fs, void *array_elem)
+int http_refreshdir(struct fetch_state *fs, void *refreshdirstruct)
 {
 	struct iovec iov[NIOV];
 	struct http_state *https = fs->fs_proto;
-	struct file_array_element *file_array_elem = (struct file_array_element *)array_elem;
+	struct file_array_element *file_array_elem =
+		((struct webdav_refreshdir_struct *)refreshdirstruct)->file_array_elem;
+	int cache_appledoubleheader = 
+		((struct webdav_refreshdir_struct *)refreshdirstruct)->cache_appledoubleheader;
 	int file_desc = 0;
 	char *http_auth = NULL;
 	char *xml_addr;								/* memory address of xml data */
@@ -4192,6 +4370,8 @@ int http_refreshdir(struct fetch_state *fs, void *array_elem)
 	int size_index, n;
 	int error = 0;
 	char lengthline[SHORT_HTTP_LINELEN];
+	unsigned long cache_generation;
+	AuthFlagsType authflags;
 
 retry:
 	
@@ -4206,11 +4386,18 @@ retry:
 	{
 		WebdavAuthcacheRetrieveRec http_auth_struct =
 		{
-			fs->fs_uid, https ->http_remote_request, append_to_file, "PROPFIND", NULL
+			fs->fs_uid, https->http_remote_request, append_to_file, "PROPFIND", NULL, 0, 0
 		};
 		if (!webdav_authcache_retrieve(&http_auth_struct))
 		{
+			cache_generation = http_auth_struct.generation;
+			authflags = http_auth_struct.authflags;
 			http_auth = http_auth_struct.authorization;
+		}
+		else
+		{
+			cache_generation = 0;
+			authflags = kAuthNone;
 		}
 	}
 
@@ -4242,7 +4429,14 @@ retry:
 	xml_size += iov[n - 1].iov_len;
 	addstr(iov, n, "<D:propfind xmlns:D=\"DAV:\">\n");
 	xml_size += iov[n - 1].iov_len;
-	addstr(iov, n, "<D:prop>\n");
+	if (cache_appledoubleheader)
+	{
+		addstr(iov, n, "<D:prop xmlns:A=\"http://www.apple.com/webdav_fs/props/\">\n");
+	}
+	else
+	{
+		addstr(iov, n, "<D:prop>\n");
+	}
 	xml_size += iov[n - 1].iov_len;
 	addstr(iov, n, "<D:getlastmodified/>\n");
 	xml_size += iov[n - 1].iov_len;
@@ -4250,6 +4444,11 @@ retry:
 	xml_size += iov[n - 1].iov_len;
 	addstr(iov, n, "<D:resourcetype/>\n");
 	xml_size += iov[n - 1].iov_len;
+	if (cache_appledoubleheader)
+	{
+		addstr(iov, n, "<A:appledoubleheader/>\n");
+		xml_size += iov[n - 1].iov_len;
+	}
 	addstr(iov, n, "</D:prop>\n");
 	xml_size += iov[n - 1].iov_len;
 	addstr(iov, n, "</D:propfind>\n");
@@ -4262,11 +4461,12 @@ retry:
 
 	if (n >= NIOV)
 	{
+		syslog(LOG_ERR, "http_refreshdir: n >= NIOV");
 		error = EIO;
 		goto out;
 	}
 
-	error = http_get_body(fs, iov, n, &xml_length, &xml_addr);
+	error = http_get_body(fs, iov, n, &xml_length, &xml_addr, cache_generation, authflags);
 	if (error)
 	{
 		if (error == EAUTH)
@@ -4278,10 +4478,22 @@ retry:
 			goto out;
 		}
 	}
+	else
+	{
+		if ( authflags & (kAuthAddToKeychain | kAuthProvisional) )
+		{
+			WebdavAuthcacheKeychainRec keychain_struct =
+			{
+				fs->fs_uid, https->http_remote_request, cache_generation
+			};
+			(void) webdav_authcache_keychain(&keychain_struct);
+		}
+	}
 
 	file_desc = file_array_elem->fd;
 	if (ftruncate(file_desc, (off_t)0))
 	{
+		syslog(LOG_ERR, "http_refreshdir: ftruncate(): %s", strerror(errno));
 		error = EIO;
 		goto out;
 	}
@@ -4293,6 +4505,7 @@ retry:
 
 	if (lseek(file_desc, (off_t)0, SEEK_SET))
 	{
+		syslog(LOG_ERR, "http_refreshdir: lseek(): %s", strerror(errno));
 		error = EIO;
 		goto out;
 	}
@@ -4319,6 +4532,156 @@ out:
 /*****************************************************************************/
 
 /*
+ * Retrieve the getlastmodified property of a file
+ */
+
+int http_getlastmodified(struct fetch_state *fs, void *unused_arg)
+{
+	#pragma unused(unused_arg)
+	struct iovec iov[NIOV];
+	struct http_state *https = fs->fs_proto;
+	char *xml_addr;								/* memory address of xml data (mapped in) */
+	off_t xml_length;							/* length of the xml string */
+	off_t xml_size;
+	int size_index, n;
+	int error = 0;
+	char lengthline[SHORT_HTTP_LINELEN];
+	char *http_auth = NULL;
+	unsigned long cache_generation;
+	AuthFlagsType authflags;
+	time_t last_modified = -1;
+
+retry:
+	n = 0;
+	xml_size = 0;
+
+	if (http_auth)
+	{
+		free(http_auth);
+	}
+	http_auth = NULL;
+	{
+		WebdavAuthcacheRetrieveRec http_auth_struct =
+		{
+			fs->fs_uid, https->http_remote_request, append_to_file, "PROPFIND", NULL, 0, 0
+		};
+		if (!webdav_authcache_retrieve(&http_auth_struct))
+		{
+			cache_generation = http_auth_struct.generation;
+			authflags = http_auth_struct.authflags;
+			http_auth = http_auth_struct.authorization;
+		}
+		else
+		{
+			cache_generation = 0;
+			authflags = kAuthNone;
+		}
+	}
+
+	addstr(iov, n, "PROPFIND ");
+	addstr(iov, n, https->http_remote_request);
+	if (append_to_file)
+	{
+		addstr(iov, n, append_to_file);
+	}
+	addstr(iov, n, " HTTP/1.1\r\n");
+	addstr(iov, n, gUserAgentHeader);
+
+	/* do content negotiation here */
+	addstr(iov, n, "Accept: */*\r\n");
+	addstr(iov, n, https->http_host_header);
+	addstr(iov, n, "Content-Type: text/xml\r\n");
+	addstr(iov, n, "Depth: 0\r\n");
+
+	size_index = n;
+	++n;
+
+	if (http_auth)
+	{
+		addstr(iov, n, http_auth);
+	}
+	addstr(iov, n, "\r\n");
+
+	addstr(iov, n, "<?xml version=\"1.0\" encoding=\"utf-8\" ?>\n");
+	xml_size += iov[n - 1].iov_len;
+	addstr(iov, n, "<D:propfind xmlns:D=\"DAV:\">\n");
+	xml_size += iov[n - 1].iov_len;
+	addstr(iov, n, "<D:prop>\n");
+	xml_size += iov[n - 1].iov_len;
+	addstr(iov, n, "<D:getlastmodified/>\n");
+	xml_size += iov[n - 1].iov_len;
+	addstr(iov, n, "</D:prop>\n");
+	xml_size += iov[n - 1].iov_len;
+	addstr(iov, n, "</D:propfind>\n");
+	xml_size += iov[n - 1].iov_len;
+	addstr(iov, n, "\r\n");
+	xml_size += iov[n - 1].iov_len;
+	snprintf(lengthline, SHORT_HTTP_LINELEN, "Content-Length: %qd\r\n", xml_size);
+	iov[size_index].iov_base = lengthline;
+	iov[size_index].iov_len = strlen(lengthline);
+
+	if (n >= NIOV)
+	{
+		syslog(LOG_ERR, "http_getlastmodified: n >= NIOV");
+		error = EIO;
+		goto out;
+	}
+
+	error = http_get_body(fs, iov, n, &xml_length, &xml_addr, cache_generation, authflags);
+	if (error)
+	{
+		if (error == EAUTH)
+		{
+			goto retry;
+		}
+		else
+		{
+			goto out;
+		}
+	}
+	else
+	{
+		if ( authflags & (kAuthAddToKeychain | kAuthProvisional) )
+		{
+			WebdavAuthcacheKeychainRec keychain_struct =
+			{
+				fs->fs_uid, https->http_remote_request, cache_generation
+			};
+			(void) webdav_authcache_keychain(&keychain_struct);
+		}
+	}
+
+	/* parse it to get the info */
+	error = parse_getlastmodified(xml_addr, (int)xml_length, &last_modified);
+	if ( error == 0 )
+	{
+		if (last_modified != -1)
+		{
+			/* parse_getlastmodified was able to parse the getlastmodified property */
+			fs->fs_st_mtime = last_modified;
+		}
+	}
+	
+	/* fall through */
+
+out:
+
+	if (xml_addr)
+	{
+		free(xml_addr);
+	}
+
+	if (http_auth)
+	{
+		free(http_auth);
+	}
+
+	return (error);
+}
+
+/*****************************************************************************/
+
+/*
   http_fsync: copy (presumably modified) file contents from local cache
   file up to the webdav server
 */
@@ -4332,16 +4695,18 @@ int http_put(struct fetch_state *fs, void *arg)
 	struct webdav_put_struct *putinfo = (struct webdav_put_struct *)arg;
 	struct msghdr msg;
 	int myreturn = 0;
-	size_t total_length;
+	off_t total_length;
 	off_t local_len = 0;
 	size_t readresult = 0;
-	size_t writeresult = 0;
+	ssize_t writeresult = 0;
 	off_t bytes_written = 0;
 	int redirection, retrying, chunked, reconnected;
 	int dav_status;
 	char *http_auth = NULL;
 	char buf[BUFFER_SIZE];
 	char lengthline[SHORT_HTTP_LINELEN];
+	unsigned long cache_generation;
+	AuthFlagsType authflags;
 
 	https = fs->fs_proto;
 
@@ -4352,14 +4717,14 @@ int http_put(struct fetch_state *fs, void *arg)
 		local = putinfo->fd;			/* originally opened in webdav_open() */
 
 		/* Find out the file's length */
-		local_len = lseek(local, 0, SEEK_END);
+		local_len = lseek(local, 0LL, SEEK_END);
 		if (local_len == -1)
 		{
-			warn("lseek");
+			syslog(LOG_ERR, "http_put: lseek(): %s", strerror(errno));
 			myreturn = EIO;
 			goto out;
 		}
-		(void)lseek(local, 0, SEEK_SET);
+		(void)lseek(local, 0LL, SEEK_SET);
 	}
 	else
 	{
@@ -4378,11 +4743,18 @@ retry:
 	{
 		WebdavAuthcacheRetrieveRec http_auth_struct =
 		{
-			fs->fs_uid, https ->http_remote_request, append_to_file, "PUT", NULL
+			fs->fs_uid, https->http_remote_request, append_to_file, "PUT", NULL, 0, 0
 		};
 		if (!webdav_authcache_retrieve(&http_auth_struct))
 		{
+			cache_generation = http_auth_struct.generation;
+			authflags = http_auth_struct.authflags;
 			http_auth = http_auth_struct.authorization;
+		}
+		else
+		{
+			cache_generation = 0;
+			authflags = kAuthNone;
 		}
 	}
 
@@ -4416,6 +4788,7 @@ retry:
 
 	if (n >= NIOV)
 	{
+		syslog(LOG_ERR, "http_put: n >= NIOV");
 		myreturn = EIO;
 		goto out;
 	}
@@ -4437,7 +4810,8 @@ retry:
 	 */
 	if (http_socket_reconnect(fs->fs_socketptr, fs->fs_use_connect, 0))
 	{
-		myreturn = EIO;
+		/* the server cannot be reached */
+		myreturn = ENXIO;
 		goto out;
 	}
 
@@ -4461,7 +4835,8 @@ reconnect:
 		{
 			if (http_socket_reconnect(fs->fs_socketptr, fs->fs_use_connect, 1))
 			{
-				myreturn = EIO;
+				/* the server cannot be reached */
+				myreturn = ENXIO;
 				goto out;
 			}
 			reconnected = 1;
@@ -4469,7 +4844,7 @@ reconnect:
 		}
 		else
 		{
-			warnx("sendmsg (http_put): error after reconnect to %s", http_hostname);
+			syslog(LOG_ERR, "http_put: sendmsg(): error after reconnect to %s", http_hostname);
 			myreturn = EIO;
 			goto out;
 		}
@@ -4496,7 +4871,8 @@ reconnect:
 					{
 						if (http_socket_reconnect(fs->fs_socketptr, fs->fs_use_connect, 1))
 						{
-							myreturn = EIO;
+							/* the server cannot be reached */
+							myreturn = ENXIO;
 							goto out;
 						}
 						reconnected = 1;
@@ -4505,18 +4881,23 @@ reconnect:
 						* retrying */
 						if (local != -1)
 						{
-							(void)lseek(local, 0, SEEK_SET);
+							(void)lseek(local, 0LL, SEEK_SET);
 						}
 			
 						bytes_written = 0;
 						goto reconnect;
 					}
+					else
+					{
+						myreturn = EIO;
+						goto out;
+					}
 				}
 			}
-		} while (readresult != 0 && bytes_written < local_len && writeresult != -1);
+		} while ((readresult != 0) && (bytes_written < local_len) && (writeresult >= 0));
 	}
 
-	myreturn = http_parse_response_header(fs, &total_length, &dav_status, &chunked);
+	myreturn = http_parse_response_header(fs, &total_length, &dav_status, &chunked, cache_generation, authflags);
 
 	if (myreturn == EAGAIN)
 	{
@@ -4524,12 +4905,12 @@ reconnect:
 		fprintf(stderr, "http_put: Got error %d from parse response header\n", myreturn);
 #endif
 
-
 		if (!reconnected)
 		{
 			if (http_socket_reconnect(fs->fs_socketptr, fs->fs_use_connect, 1))
 			{
-				myreturn = EIO;
+				/* the server cannot be reached */
+				myreturn = ENXIO;
 				goto out;
 			}
 			reconnected = 1;
@@ -4538,7 +4919,7 @@ reconnect:
 			 * retrying */
 			if (local != -1)
 			{
-				(void)lseek(local, 0, SEEK_SET);
+				(void)lseek(local, 0LL, SEEK_SET);
 			}
 
 			bytes_written = 0;
@@ -4546,7 +4927,7 @@ reconnect:
 		}
 		else
 		{
-			warnx("empty reply from %s", http_hostname);
+			syslog(LOG_ERR, "http_put: empty reply from %s", http_hostname);
 			myreturn = EIO;
 			goto out;
 		}
@@ -4577,7 +4958,7 @@ reconnect:
 				* retrying */
 				if (local != -1)
 				{
-					(void)lseek(local, 0, SEEK_SET);
+					(void)lseek(local, 0LL, SEEK_SET);
 				}
 				bytes_written = 0;
 				
@@ -4623,11 +5004,13 @@ int http_mount(struct fetch_state *fs, void *arg)
 	int n = 0;
 	struct msghdr msg;
 	int status;
-	size_t total_length;
+	off_t total_length;
 	int redirection, chunked;
 	int dav_status;
 	int reconnected = 0;
 	char *http_auth = NULL;
+	unsigned long cache_generation;
+	AuthFlagsType authflags;
 
 	header = 0;
 	redirection = 0;
@@ -4647,11 +5030,18 @@ retry:
 	{
 		WebdavAuthcacheRetrieveRec http_auth_struct =
 		{
-			fs->fs_uid, https ->http_remote_request, append_to_file, "OPTIONS", NULL
+			fs->fs_uid, https->http_remote_request, append_to_file, "OPTIONS", NULL, 0, 0
 		};
 		if (!webdav_authcache_retrieve(&http_auth_struct))
 		{
+			cache_generation = http_auth_struct.generation;
+			authflags = http_auth_struct.authflags;
 			http_auth = http_auth_struct.authorization;
+		}
+		else
+		{
+			cache_generation = 0;
+			authflags = kAuthNone;
 		}
 	}
 
@@ -4678,6 +5068,7 @@ retry:
 
 	if (n >= NIOV)
 	{
+		syslog(LOG_ERR, "http_mount: n >= NIOV");
 		status = EIO;
 		goto out;
 	}
@@ -4721,13 +5112,13 @@ reconnect:
 		}
 		else
 		{
-			warnx("sendmsg (http_mount): error after reconnect to %s", http_hostname);
+			syslog(LOG_ERR, "http_mount: sendmsg(): error after reconnect to %s", http_hostname);
 			status = ENODEV;
 			goto out;
 		}
 	}
 
-	status = http_parse_response_header(fs, &total_length, &dav_status, &chunked);
+	status = http_parse_response_header(fs, &total_length, &dav_status, &chunked, cache_generation, authflags);
 	if (status)
 	{
 		if (status == EAUTH)
@@ -4743,6 +5134,15 @@ reconnect:
 		else if (status != EACCES)
 		{
 			/* authentication failed */
+			if ( status == EPERM )
+			{
+				/* EPERM means 403 Forbidden */
+				syslog(LOG_ERR, "http_mount: server refused request (check your URL)");
+			}
+			else
+			{
+				syslog(LOG_ERR, "http_mount: http_parse_response_header(): %s", strerror(errno));
+			}
 			status = ENODEV;
 		}
 	}
@@ -4758,6 +5158,7 @@ reconnect:
 				break;
 				
 			default:
+				syslog(LOG_ERR, "http_mount: WebDAV protocol not supported");
 				status = ENODEV;
 				break;
 		}
@@ -4784,6 +5185,31 @@ out:
 	}
 #endif
 
+	if ( status != 0 )
+	{
+		char *allocatedURL = NULL;
+		char *displayURL;
+		
+		if ( reconstruct_url(http_hostname, https->http_remote_request, &allocatedURL) == 0 )
+		{
+			/* use allocatedURL for displayURL */
+			displayURL = allocatedURL;
+		}
+		else
+		{
+			/* this shouldn't happen, but if it does, use http_remote_request */
+			allocatedURL = NULL;
+			displayURL = https->http_remote_request;
+		}
+		
+		syslog(LOG_ERR, "%s could not be mounted", displayURL);
+		
+		/* free allocatedURL if allocated */
+		if ( allocatedURL != NULL )
+		{
+			free(allocatedURL);
+		}
+	}
 	return (status);
 }
 
@@ -4791,29 +5217,46 @@ out:
 
 /*
  * The format of the response line for an HTTP request is:
- *	HTTP/V.vv{WS}999{WS}Explanatory text for humans to read\r\n
- * Old pre-HTTP/1.0 servers can return
- *	HTTP{WS}999{WS}Explanatory text for humans to read\r\n
+ *   HTTP/V.vv{WS}999{WS}Explanatory text for humans to read\r\n
+ * or from rfc2616, the BNF is:
+ *   Status-Line = HTTP-Version SP Status-Code SP Reason-Phrase CRLF
+ *   HTTP-Version   = "HTTP" "/" 1*DIGIT "." 1*DIGIT*
+ * Old pre-HTTP/1.0 servers can return:
+ *   HTTP{WS}999{WS}Explanatory text for humans to read\r\n
  * Where {WS} represents whitespace (spaces and/or tabs) and 999
  * is a machine-interprable result code.  We return the integer value
  * of that result code, or the impossible value `0' if we are unable to
  * parse the result.
  */
-static int http_first_line(char *linebuf)
+static int http_first_line(char *linebuf, int *isHTTP1_0, int continue_received)
 {
 	char *ep,  *line = linebuf;
 	unsigned long ul;
 
 	zero_trailing_spaces(line);
 
-	/* make sure that this is not HTTP .9 */
-	if (strlen(line) < 5 || strncasecmp(line, "http", 4) != 0)
+	/* make sure that this is not HTTP 1.0 or later. That means we must
+	 * have at least 8 characters that start with "HTTP/"
+	 */
+	if ( (strlen(line) < 8) || (strncasecmp(line, "HTTP/", 5) != 0) )
 	{
+		/* if we aren't burning off the headers after retrieving a 1xx continue
+		 * then log the error.
+		 */
+		if (!continue_received)
+		{
+			syslog(LOG_ERR, "http_first_line: bad response header: %s", linebuf);
+		}
 		return -1;
 	}
-
+	
+	/* return isHTTP1_0 to caller so it persistant connections won't be used
+	 * on servers that don't support them.
+	 */
+	*isHTTP1_0 = (strncasecmp(line, "HTTP/1.0", 8) == 0);
+	
 	/* get past the HTTP identifier, e.g. "HTTP/1.1 " */
-	line += 4;
+	line += 8;
 	while (*line && !isspace(*line))
 	{
 		/* skip non-whitespace */
@@ -4857,6 +5300,7 @@ static enum http_header http_parse_header(char *line, char **valuep)
 	colon = strchr(line, ':');
 	if (colon == 0)
 	{
+		syslog(LOG_ERR, "http_parse_header: syntax error: %s", line);
 		return ht_syntax_error;
 	}
 
@@ -4871,36 +5315,63 @@ static enum http_header http_parse_header(char *line, char **valuep)
 	*valuep = value;
 
 #define cmp(name, num) do { if (!strcasecmp(line, name)) return num; } while(0)
+
+	/* general-header fields */
+#if 0
+	cmp("Cache-Control", ht_cache_control);
+#endif
+	cmp("Connection", ht_connection);
+#if 0
+	cmp("Date", ht_date);
+	cmp("Pragma", ht_pragma);
+	cmp("Trailer", ht_trailer);
+#endif
+	cmp("Transfer-Encoding", ht_transfer_encoding);
+#if 0
+	cmp("Upgrade", ht_upgrade);
+	cmp("Via", ht_via);
+	cmp("Warning", ht_warning);
+#endif
+	
+	/* response-header fields */
+#if 0
 	cmp("Accept-Ranges", ht_accept_ranges);
 	cmp("Age", ht_age);
+	cmp("ETag", ht_etag);
+#endif
+	cmp("Location", ht_location);
+	cmp("Proxy-Authenticate", ht_proxy_authenticate);
+	cmp("Retry-After", ht_retry_after);
+#if 0
+	cmp("Server", ht_server);
+	cmp("Vary", ht_vary);
+#endif
+	cmp("WWW-Authenticate", ht_www_authenticate);
+	
+	/* entity-header fields */
+#if 0
 	cmp("Allow", ht_allow);
-	cmp("Cache-Control", ht_cache_control);
-	cmp("Connection", ht_connection);
-	cmp("Content-Base", ht_content_base);
 	cmp("Content-Encoding", ht_content_encoding);
 	cmp("Content-Language", ht_content_language);
+#endif
 	cmp("Content-Length", ht_content_length);
+#if 0
 	cmp("Content-Location", ht_content_location);
+#endif
 	cmp("Content-MD5", ht_content_md5);
 	cmp("Content-Range", ht_content_range);
+#if 0
 	cmp("Content-Type", ht_content_type);
-	cmp("Date", ht_date);
-	cmp("DAV", ht_dav);
-	cmp("ETag", ht_etag);
 	cmp("Expires", ht_expires);
+#endif
 	cmp("Last-Modified", ht_last_modified);
-	cmp("Location", ht_location);
-	cmp("Pragma", ht_pragma);
-	cmp("Proxy-Authenticate", ht_proxy_authenticate);
-	cmp("Public", ht_public);
-	cmp("Retry-After", ht_retry_after);
-	cmp("Server", ht_server);
-	cmp("Transfer-Encoding", ht_transfer_encoding);
-	cmp("Upgrade", ht_upgrade);
-	cmp("Vary", ht_vary);
-	cmp("Via", ht_via);
-	cmp("WWW-Authenticate", ht_www_authenticate);
-	cmp("Warning", ht_warning);
+	
+	/* WebDAV extension-header fields */
+	cmp("DAV", ht_dav);
+#if 0
+	cmp("Status-URI", ht_status_uri);
+#endif
+	
 #undef cmp
 	return ht_unknown;
 }
@@ -4914,6 +5385,7 @@ static enum http_header http_parse_header(char *line, char **valuep)
  */
 static int check_md5(int fd, char *base64ofmd5)
 {
+	#pragma unused(fd, base64ofmd5)
 	return 0;
 }
 
@@ -4949,7 +5421,7 @@ time_t parse_http_date(char *string)
 	/* 8601 has the shortest minimum length */
 	if (strlen(string) < 15)
 	{
-		return -1;
+		goto error;
 	}
 
 	if (isdigit(*string))
@@ -4964,7 +5436,7 @@ time_t parse_http_date(char *string)
 		}
 		if (i < 15)
 		{
-			return -1;
+			goto error;
 		}
 #define digit(x) (string[x] - '0')
 		tm.tm_year = (digit(0) * 1000 + digit(1) * 100 + digit(2) * 10 + digit(3)) - 1900;
@@ -4972,7 +5444,7 @@ time_t parse_http_date(char *string)
 		tm.tm_mday = digit(6) * 10 + digit(7);
 		if (string[8] != 'T' && string[8] != 't' && string[8] != ' ')
 		{
-			return -1;
+			goto error;
 		}
 		tm.tm_hour = digit(9) * 10 + digit(10);
 		tm.tm_min = digit(11) * 10 + digit(12);
@@ -4984,12 +5456,12 @@ time_t parse_http_date(char *string)
 		/* Mon, 27 Jan 1997 14:24:35 stuffwedon'tcareabout */
 		if (strlen(string) < 25)
 		{
-			return -1;
+			goto error;
 		}
 		string += 5;							/* skip over day-of-week */
 		if (!(isdigit(string[0]) && isdigit(string[1])))
 		{
-			return -1;
+			goto error;
 		}
 		tm.tm_mday = digit(0) * 10 + digit(1);
 		for (i = 0; i < 12; i++)
@@ -5001,7 +5473,7 @@ time_t parse_http_date(char *string)
 		}
 		if (i >= 12)
 		{
-			return -1;
+			goto error;
 		}
 		tm.tm_mon = i;
 
@@ -5011,7 +5483,7 @@ time_t parse_http_date(char *string)
 			/* let's try that before giving up */
 			if (sscanf(&string[7], "%d:%d:%d %d", &tm.tm_hour, &tm.tm_min, &tm.tm_sec, &i) != 4)
 			{
-				return -1;
+				goto error;
 			}
 		}
 		tm.tm_year = i - 1900;
@@ -5022,7 +5494,7 @@ time_t parse_http_date(char *string)
 		/* Mon Jan 27 14:25:20 1997 */
 		if (strlen(string) < 24)
 		{
-			return -1;
+			goto error;
 		}
 		string += 4;
 		for (i = 0; i < 12; i++)
@@ -5034,13 +5506,13 @@ time_t parse_http_date(char *string)
 		}
 		if (i >= 12)
 		{
-			return -1;
+			goto error;
 		}
 		tm.tm_mon = i;
 		if (sscanf(&string[4], "%d %d:%d:%d %u", &tm.tm_mday, &tm.tm_hour, &tm.tm_min,
 			&tm.tm_sec, &i) != 5)
 		{
-			return -1;
+			goto error;
 		}
 		tm.tm_year = i - 1900;
 	}
@@ -5060,19 +5532,19 @@ time_t parse_http_date(char *string)
 
 		if (comma == 0)
 		{
-			return -1;
+			goto error;
 		}
 		string = comma + 1;
 		if (strlen(string) < 19)
 		{
-			return -1;
+			goto error;
 		}
 		string++;
 		mname[4] = '\0';
 		if (sscanf(string, "%d-%c%c%c-%d %d:%d:%d", &tm.tm_mday, mname, mname + 1,
 			mname + 2, &tm.tm_year, &tm.tm_hour, &tm.tm_min, &tm.tm_sec) != 8)
 		{
-			return -1;
+			goto error;
 		}
 		for (i = 0; i < 12; i++)
 		{
@@ -5083,7 +5555,7 @@ time_t parse_http_date(char *string)
 		}
 		if (i >= 12)
 		{
-			return -1;
+			goto error;
 		}
 		tm.tm_mon = i;
 		/*
@@ -5102,17 +5574,22 @@ time_t parse_http_date(char *string)
 
 	if (tm.tm_sec > 60 || tm.tm_min > 59 || tm.tm_hour > 23 || tm.tm_mday > 31 || tm.tm_mon > 11)
 	{
-		return -1;
+		goto error;
 	}
 	if (tm.tm_sec < 0 || tm.tm_min < 0 || tm.tm_hour < 0 || tm.tm_mday < 0 ||
 		tm.tm_mon < 0 || tm.tm_year < 0)
 	{
-		return -1;
+		goto error;
 	}
 
 	rv = mktime(&tm);
 
 	return rv;
+
+error:
+
+	syslog(LOG_ERR, "parse_http_date: invalid date: %s", string);
+	return -1;
 }
 
 /*****************************************************************************/
@@ -5147,12 +5624,12 @@ static void format_http_date(time_t when, char *buf)
  */
 static int parse_http_content_range(char *orig, off_t *restart_from, off_t *total_length)
 {
-	u_quad_t first, last, total;
+	off_t first, last, total;
 	char *ep;
 
 	if (strncasecmp(orig, "bytes", 5) != 0)
 	{
-		warnx("unknown Content-Range unit: `%s'", orig);
+		syslog(LOG_ERR, "parse_http_content_range: unknown Content-Range unit: `%s'", orig);
 		return EIO;
 	}
 
@@ -5163,22 +5640,22 @@ static int parse_http_content_range(char *orig, off_t *restart_from, off_t *tota
 	}
 
 	errno = 0;
-	first = strtouq(orig, &ep, 10);
+	first = strtoq(orig, &ep, 10);
 	if (errno != 0 || *ep != '-')
 	{
-		warnx("invalid Content-Range: `%s'", orig);
+		syslog(LOG_ERR, "parse_http_content_range: invalid Content-Range: `%s'", orig);
 		return EIO;
 	}
-	last = strtouq(ep + 1, &ep, 10);
+	last = strtoq(ep + 1, &ep, 10);
 	if (errno != 0 || *ep != '/' || last < first)
 	{
-		warnx("invalid Content-Range: `%s'", orig);
+		syslog(LOG_ERR, "parse_http_content_range: invalid Content-Range: `%s'", orig);
 		return EIO;
 	}
-	total = strtouq(ep + 1, &ep, 10);
+	total = strtoq(ep + 1, &ep, 10);
 	if (errno != 0 || !(*ep == '\0' || isspace(*ep)))
 	{
-		warnx("invalid Content-Range: `%s'", orig);
+		syslog(LOG_ERR, "parse_http_content_range: invalid Content-Range: `%s'", orig);
 		return EIO;
 	}
 

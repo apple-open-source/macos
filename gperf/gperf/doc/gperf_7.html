@@ -1,0 +1,66 @@
+<HTML>
+<HEAD>
+<!-- This HTML file has been created by texi2html 1.51
+     from gperf.texi on 26 September 2000 -->
+
+<TITLE>Perfect Hash Function Generator - 5  Known Bugs and Limitations with gperf</TITLE>
+</HEAD>
+<BODY>
+Go to the <A HREF="gperf_1.html">first</A>, <A HREF="gperf_6.html">previous</A>, <A HREF="gperf_8.html">next</A>, <A HREF="gperf_11.html">last</A> section, <A HREF="gperf_toc.html">table of contents</A>.
+<P><HR><P>
+
+
+<H1><A NAME="SEC20" HREF="gperf_toc.html#TOC20">5  Known Bugs and Limitations with <CODE>gperf</CODE></A></H1>
+
+<P>
+The following are some limitations with the current release of
+<CODE>gperf</CODE>:
+
+</P>
+
+<UL>
+<LI>
+
+The <CODE>gperf</CODE> utility is tuned to execute quickly, and works quickly
+for small to medium size data sets (around 1000 keywords).  It is
+extremely useful for maintaining perfect hash functions for compiler
+keyword sets.  Several recent enhancements now enable <CODE>gperf</CODE> to
+work efficiently on much larger keyword sets (over 15,000 keywords).
+When processing large keyword sets it helps greatly to have over 8 megs
+of RAM.
+
+However, since <CODE>gperf</CODE> does not backtrack no guaranteed solution
+occurs on every run.  On the other hand, it is usually easy to obtain a
+solution by varying the option parameters.  In particular, try the
+<SAMP>`-r'</SAMP> option, and also try changing the default arguments to the
+<SAMP>`-s'</SAMP> and <SAMP>`-j'</SAMP> options.  To <EM>guarantee</EM> a solution, use
+the <SAMP>`-D'</SAMP> and <SAMP>`-S'</SAMP> options, although the final results are not
+likely to be a <EM>perfect</EM> hash function anymore!  Finally, use the
+<SAMP>`-f'</SAMP> option if you want <CODE>gperf</CODE> to generate the perfect hash
+function <EM>fast</EM>, with less emphasis on making it minimal.
+
+<LI>
+
+The size of the generate static keyword array can get <EM>extremely</EM>
+large if the input keyword file is large or if the keywords are quite
+similar.  This tends to slow down the compilation of the generated C
+code, and <EM>greatly</EM> inflates the object code size.  If this
+situation occurs, consider using the <SAMP>`-S'</SAMP> option to reduce data
+size, potentially increasing keyword recognition time a negligible
+amount.  Since many C compilers cannot correctly generated code for
+large switch statements it is important to qualify the <VAR>-S</VAR> option
+with an appropriate numerical argument that controls the number of
+switch statements generated.
+
+<LI>
+
+The maximum number of key positions selected for a given key has an
+arbitrary limit of 126.  This restriction should be removed, and if
+anyone considers this a problem write me and let me know so I can remove
+the constraint.
+</UL>
+
+<P><HR><P>
+Go to the <A HREF="gperf_1.html">first</A>, <A HREF="gperf_6.html">previous</A>, <A HREF="gperf_8.html">next</A>, <A HREF="gperf_11.html">last</A> section, <A HREF="gperf_toc.html">table of contents</A>.
+</BODY>
+</HTML>

@@ -1,7 +1,7 @@
 .\"
-.\" $Id: mmroff.man,v 1.1.1.1 2001/10/30 01:46:40 bbraun Exp $
+.\" $Id: mmroff.man,v 1.1.1.2 2002/11/06 23:21:40 jevans Exp $
 .\"
-.TH MMROFF @MAN7EXT@ "@MDATE@" "Groff Version @VERSION@"
+.TH MMROFF @MAN1EXT@ "@MDATE@" "Groff Version @VERSION@"
 .SH NAME
 mmroff \- reference preprocessor
 .SH SYNOPSIS
@@ -43,9 +43,6 @@ Jörgen Hägg, Lund, Sweden <jh@axis.se>.
 .BR @g@tbl (@MAN1EXT@),
 .BR @g@pic (@MAN1EXT@),
 .BR @g@eqn (@MAN1EXT@)
-.br
-.BR mm (@MAN7EXT@)
-.BR m@TMAC_M_PREFIX@mse (@MAN7EXT@)
 .
 .\" Local Variables:
 .\" mode: nroff

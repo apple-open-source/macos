@@ -1,0 +1,37 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist SYSTEM "file://localhost/System/Library/DTDs/PropertyList.dtd">
+<plist version="0.9">
+<dict>
+	<key>CFBundleIdentifier</key>
+	<string>com.apple.cacplugin</string>
+	<key>CFBundleName</key>
+	<string>CACPLUGIN</string>
+	<key>CFBundleShortVersionString</key>
+	<string>4.0</string>
+	<key>CFBundleDevelopmentRegion</key>
+	<string>English</string>
+	<key>CFBundleExecutable</key>
+	<string>commonAccessCard</string>
+	<key>CFBundleInfoDictionaryVersion</key>
+	<string>6.0</string>
+	<key>CFBundlePackageType</key>
+	<string>BNDL</string>
+	<key>CFBundleSignature</key>
+	<string>????</string>
+	<key>CFBundleVersion</key>
+	<string>0.0.1d1</string>
+	<key>spAtrValue</key>
+	<array>
+        <string>3B6500009C02020102</string>
+        <string>3B7D110000003180718E6486D60100819000</string>
+	<string>3B7F1100000031C053CAC4016452D90400829000</string>
+	<string>3B6500009C02020702</string>
+	</array>
+	<key>spDefaultApplication</key>
+	<string>A0000000790101</string>
+	<key>spProductName</key>
+	<string>Common Access Card</string>
+	<key>spVendorName</key>
+	<string>Department of Defense</string>
+</dict>
+</plist>

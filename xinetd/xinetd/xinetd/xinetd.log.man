@@ -3,7 +3,7 @@
 .\"All rights reserved.  The file named COPYRIGHT specifies the terms 
 .\"and conditions for redistribution.
 .\"
-.\" $Id: xinetd.log.man,v 1.1.1.1 2002/01/31 07:09:06 zarzycki Exp $
+.\" $Id: xinetd.log.man,v 1.1.1.2 2003/05/22 01:16:36 rbraun Exp $
 .TH XINETD.LOG 5 "28 April 1993"
 .SH NAME
 xinetd.log \- xinetd service log format
@@ -24,23 +24,19 @@ The \fIdata\fP depends on the \fIentry\fP.
 Possible \fIentry\fP types include:
 .RS
 .TP 12
-.SB START
+.B START
 generated when a server is started
 .TP
-.SB EXIT
+.B EXIT
 generated when a server exits
 .TP
-.SB FAIL
+.B FAIL
 generated when it is not possible to start a server
 .TP
-.SB DATA
-generated when an attempt to start a server fails and the service supports
-the \fIRECORD\fP log option.
-.TP
-.SB USERID
+.B USERID
 generated if the \fIUSERID\fP log option is used.
 .TP
-.SB NOID
+.B NOID
 generated if the 
 .I USERID
 log option is used,
@@ -67,9 +63,9 @@ EXIT: \fIservice-id\fP [\fItype\fP=%d] [pid=%d] [duration=%d(sec)]
 .sp 1
 .I type
 can be either
-.SB status
+.B status
 or
-.SB signal.
+.B signal.
 The number is either the exit status or the signal that caused process
 termination.
 .LP
@@ -82,20 +78,20 @@ FAIL: \fIservice-id\fP \fIreason\fP [from=%d.%d.%d.%d]
 Possible \fIreasons\fP are:
 .RS
 .TP 15
-.SB fork
+.B fork
 a certain number of consecutive fork attempts failed (this number is
 a configurable parameter)
 .TP
-.SB time
+.B time
 the time check failed
 .TP
-.SB address
+.B address
 the address check failed
 .TP
-.SB service_limit
+.B service_limit
 the allowed number of server instances for this service would be exceeded
 .TP
-.SB process_limit
+.B process_limit
 a limit on the number of forked processes was specified and it would 
 be exceeded
 .RE
@@ -109,10 +105,10 @@ DATA: \fIservice-id\fP \fIdata\fP
 The \fIdata\fP logged depends on the service.
 .RS
 .TP 12
-.SB login
+.B login
 remote_user=%s local_user=%s tty=%s
 .TP
-.SB exec
+.B exec
 remote_user=%s verify=\fIstatus\fP command=%s
 .br
 Possible
@@ -130,10 +126,10 @@ the password was incorrect
 no such user
 .RE
 .TP
-.SB shell
+.B shell
 remote_user=%s local_user=%s command=%s
 .TP
-.SB finger
+.B finger
 \fIreceived string\fP or
 .I EMPTY-LINE
 .RE
@@ -154,6 +150,4 @@ NOID: \fIservice-id\fP \fIIP-address\fP \fIreason\fP
 .RE
 .\" *********************** SEE ALSO ****************************
 .SH "SEE ALSO"
-.I "xinetd(1L),"
-.LP
-.I "xinetd.conf(5)"
+.BR xinetd "(1L), " xinetd.conf (5)

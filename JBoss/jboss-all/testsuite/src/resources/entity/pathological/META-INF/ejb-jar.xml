@@ -1,0 +1,41 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE ejb-jar PUBLIC "-//Sun Microsystems, Inc.//DTD Enterprise JavaBeans 2.0//EN" "http://java.sun.com/dtd/ejb-jar_2_0.dtd">
+
+<ejb-jar >
+   <enterprise-beans>
+     <session>
+        <ejb-name>EntitySessionEJB</ejb-name>
+        <home>org.jboss.test.entity.interfaces.EntitySessionHome</home>
+        <remote>org.jboss.test.entity.interfaces.EntitySession</remote>
+        <ejb-class>org.jboss.test.entity.ejb.EntitySessionBean</ejb-class>
+        <session-type>Stateless</session-type>
+        <transaction-type>Bean</transaction-type>
+        <ejb-local-ref>
+           <ejb-ref-name>ejb/PathologicalEJB</ejb-ref-name>
+           <ejb-ref-type>Entity</ejb-ref-type>
+           <local-home>org.jboss.test.entity.interfaces.PathologicalEntityHome</local-home>
+           <local>org.jboss.test.entity.interfaces.PathologicalEntity</local>
+           <ejb-link>PathologicalEJB</ejb-link>
+        </ejb-local-ref>
+     </session>
+     <entity>
+        <ejb-name>PathologicalEJB</ejb-name>
+        <local-home>org.jboss.test.entity.interfaces.PathologicalEntityHome</local-home>
+        <local>org.jboss.test.entity.interfaces.PathologicalEntity</local>
+        <ejb-class>org.jboss.test.entity.ejb.PathologicalEntityBean</ejb-class>
+        <persistence-type>Bean</persistence-type>
+        <prim-key-class>java.lang.String</prim-key-class>
+        <reentrant>False</reentrant>
+     </entity>
+   </enterprise-beans>
+
+   <assembly-descriptor>
+      <container-transaction >
+         <method>
+            <ejb-name>PathologicalEJB</ejb-name>
+            <method-name>*</method-name>
+         </method>
+         <trans-attribute>Required</trans-attribute>
+      </container-transaction>
+   </assembly-descriptor>
+</ejb-jar>

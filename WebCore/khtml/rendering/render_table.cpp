@@ -103,24 +103,6 @@ void RenderTable::setStyle(RenderStyle *_style)
     }
 }
 
-short RenderTable::lineHeight(bool b) const
-{
-    // Inline tables are replaced elements. Otherwise, just pass off to
-    // the base class.
-    if (isReplaced())
-        return height()+marginTop()+marginBottom();
-    return RenderBlock::lineHeight(b);
-}
-
-short RenderTable::baselinePosition(bool b) const
-{
-    // Inline tables are replaced elements. Otherwise, just pass off to
-    // the base class.
-    if (isReplaced())
-        return height()+marginTop()+marginBottom();
-    return RenderBlock::baselinePosition(b);
-}
-
 void RenderTable::addChild(RenderObject *child, RenderObject *beforeChild)
 {
 #ifdef DEBUG_LAYOUT
@@ -213,7 +195,7 @@ void RenderTable::calcWidth()
     }
 
     // restrict width to what we really have in case we flow around floats
-    if (style()->flowAroundFloats()) {
+    if (style()->width().isVariable() && style()->flowAroundFloats()) {
 	availableWidth = cb->lineWidth( m_y );
 	m_width = QMIN( availableWidth, m_width );
     }
@@ -1030,7 +1012,7 @@ int RenderTableSection::layoutRows( int toAdd )
 	int totalHeight = rowPos[totalRows] + toAdd;
 // 	qDebug("layoutRows: totalHeight = %d",  totalHeight );
 
-        int dh = totalHeight-rowPos[totalRows];
+        int dh = toAdd;
 	int totalPercent = 0;
 	int numVariable = 0;
 	for ( int r = 0; r < totalRows; r++ ) {
@@ -1048,7 +1030,10 @@ int RenderTableSection::layoutRows( int toAdd )
 	    int rh = rowPos[1]-rowPos[0];
 	    for ( int r = 0; r < totalRows; r++ ) {
 		if ( totalPercent > 0 && grid[r].height.type == Percent ) {
-		    int toAdd = QMIN( dh, (totalHeight * grid[r].height.value / 100)-rh );
+		    int toAdd = QMIN(dh, (totalHeight * grid[r].height.value / 100)-rh);
+                    // If toAdd is negative, then we don't want to shrink the row (this bug
+                    // affected Outlook Web Access).
+                    toAdd = QMAX(0, toAdd);
 		    add += toAdd;
 		    dh -= toAdd;
 		    totalPercent -= grid[r].height.value;
@@ -1532,7 +1517,7 @@ void RenderTableCell::setStyle( RenderStyle *style )
     RenderBlock::setStyle( style );
     setShouldPaintBackgroundOrBorder(true);
 
-    if (style->whiteSpace() == KONQ_NOWRAP) {
+    if (style->whiteSpace() == KHTML_NOWRAP) {
         // Figure out if we are really nowrapping or if we should just
         // use normal instead.  If the width of the cell is fixed, then
         // we don't actually use NOWRAP. 
@@ -1670,6 +1655,13 @@ void RenderTableCol::updateFromElement()
       _span = tc->span();
   } else
       _span = ! ( style() && style()->display() == TABLE_COLUMN_GROUP );
+}
+
+bool RenderTableCol::canHaveChildren() const
+{
+    // cols cannot have children.  This is actually necessary to fix a bug
+    // with libraries.uc.edu, which makes a <p> be a table-column.
+    return style()->display() == TABLE_COLUMN_GROUP;
 }
 
 void RenderTableCol::addChild(RenderObject *child, RenderObject *beforeChild)

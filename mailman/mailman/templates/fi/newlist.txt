@@ -1,0 +1,42 @@
+Pyytämäsi postituslista `%(listname)s' on luotu.
+Seuraavassa perustietoa postituslistastasi.
+
+Postituslistasi ylläpitosalasana on:
+
+    %(password)s
+
+Tarvitset tätä salasanaa postituslistan konfigurointiin.
+Sinä tarvitset tätä salasanaa myös ylläpitokomentoihin,
+kuten esimerkiksi postituslistalle tulevien viestien
+hyväksymiseen, jos käytössä on toimitettu postituslista.
+
+Voit konfiguroida postituslistaasi www-sivulla:
+
+    %(admin_url)s
+
+Postituslistasi www-sivu käyttäjille on: 
+
+    %(listinfo_url)s
+
+Sinä voit tarvittaessa muuttaa näitä sivuja postituslistan
+konfigurointisivulta. Sivujen muuttaminen edellyttää sinulta
+HTML taitoja.
+
+Listan käyttäjien on myös mahdollista ohjata listaa sähköpostikomennoilla. 
+Listan ylläpitotoimia ei voi tehdä sähköpostikomennoilla.
+
+Lisätietoja komennoista saat lähettämällä sähköpostiviestin 
+`help' joko viestin otsikoksi tai viestikenttään. Lähetä
+help-pyyntö sähköpostiosoitteeseen:
+
+    %(requestaddr)s
+
+Poistaaksesi käyttäjä postituslista, mene listan 'listinfo' 
+www-sivulle. Anna poistettavan käyttäjän sähköpostiosoite
+aivan kuten olisit ko. käyttäjä.
+Kirjoita salasanakenttää salasanan tilalle listan ylläpidon salasana.
+
+Vastaavalla tavalla voit muuttaa myös muita käyttäjän asetuksia.
+
+Lisätietoja ja opastusta voit kysyä postituslistapalvelimen 
+ylläpidolta %(siteowner)s.

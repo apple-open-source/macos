@@ -31,6 +31,10 @@
 #ifndef _SCSIPARALLELTARGET_H
 #define _SCSIPARALLELTARGET_H
 
+#include <IOKit/IOTypes.h>
+#include <libkern/c++/OSNumber.h>
+#include <IOKit/IOLocks.h>
+
 typedef struct SCSINegotiationResults
 {
     IOReturn		returnCode;

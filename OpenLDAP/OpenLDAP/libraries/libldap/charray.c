@@ -1,6 +1,6 @@
-/* $OpenLDAP: pkg/ldap/libraries/libldap/charray.c,v 1.9 2002/01/04 20:17:38 kurt Exp $ */
+/* $OpenLDAP: pkg/ldap/libraries/libldap/charray.c,v 1.9.2.2 2003/03/03 17:10:04 kurt Exp $ */
 /*
- * Copyright 1998-2002 The OpenLDAP Foundation, All Rights Reserved.
+ * Copyright 1998-2003 The OpenLDAP Foundation, All Rights Reserved.
  * COPYING RESTRICTIONS APPLY, see COPYRIGHT file
  */
 /* charray.c - routines for dealing with char * arrays */
@@ -125,13 +125,15 @@ ldap_charray_inlist(
 {
 	int	i;
 
-	for ( i = 0; a[i] != NULL; i++ ) {
+	if( a == NULL ) return 0;
+
+	for ( i=0; a[i] != NULL; i++ ) {
 		if ( strcasecmp( s, a[i] ) == 0 ) {
-			return( 1 );
+			return 1;
 		}
 	}
 
-	return( 0 );
+	return 0;
 }
 
 char **

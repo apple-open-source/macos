@@ -1,5 +1,5 @@
 /* search.c - /etc/passwd backend search function */
-/* $OpenLDAP: pkg/ldap/servers/slapd/back-passwd/search.c,v 1.48 2002/02/13 10:46:35 ando Exp $ */
+/* $OpenLDAP: pkg/ldap/servers/slapd/back-passwd/search.c,v 1.48.2.5 2002/08/29 01:53:25 kurt Exp $ */
 
 #include "portable.h"
 
@@ -13,8 +13,10 @@
 #include <pwd.h>
 
 #include "slap.h"
-#include "external.h"
+#include "back-passwd.h"
 #include <ldap_pvt.h>
+
+static void pw_start( Backend *be );
 
 static Entry *pw2entry(
 	Backend *be,
@@ -58,14 +60,6 @@ passwd_back_search(
 	stoptime = op->o_time + tlimit;
 	slimit = (slimit > be->be_sizelimit || slimit < 1) ? be->be_sizelimit
 	    : slimit;
-
-	endpwent();
-
-#ifdef HAVE_SETPWFILE
-	if ( be->be_private != NULL ) {
-		(void) setpwfile( (char *) be->be_private );
-	}
-#endif /* HAVE_SETPWFILE */
 
 	/* Handle a query for the base of this backend */
 	if ( be_issuffix( be, nbase ) ) {
@@ -130,27 +124,29 @@ passwd_back_search(
 		if ( scope != LDAP_SCOPE_BASE ) {
 			/* check all our "children" */
 
+			ldap_pvt_thread_mutex_lock( &passwd_mutex );
+			pw_start( be );
 			for ( pw = getpwent(); pw != NULL; pw = getpwent() ) {
 				/* check for abandon */
-				ldap_pvt_thread_mutex_lock( &op->o_abandonmutex );
 				if ( op->o_abandon ) {
-					ldap_pvt_thread_mutex_unlock( &op->o_abandonmutex );
 					endpwent();
+					ldap_pvt_thread_mutex_unlock( &passwd_mutex );
 					return( -1 );
 				}
-				ldap_pvt_thread_mutex_unlock( &op->o_abandonmutex );
 
 				/* check time limit */
 				if ( slap_get_time() > stoptime ) {
 					send_ldap_result( conn, op, LDAP_TIMELIMIT_EXCEEDED,
 			    		NULL, NULL, NULL, NULL );
 					endpwent();
+					ldap_pvt_thread_mutex_unlock( &passwd_mutex );
 					return( 0 );
 				}
 
 				if ( !(e = pw2entry( be, pw, &text )) ) {
-					err = LDAP_OPERATIONS_ERROR;
+					err = LDAP_OTHER;
 					endpwent();
+					ldap_pvt_thread_mutex_unlock( &passwd_mutex );
 					goto done;
 				}
 
@@ -160,6 +156,7 @@ passwd_back_search(
 						send_ldap_result( conn, op, LDAP_SIZELIMIT_EXCEEDED,
 				    		NULL, NULL, NULL, NULL );
 						endpwent();
+						ldap_pvt_thread_mutex_unlock( &passwd_mutex );
 						return( 0 );
 					}
 
@@ -171,6 +168,7 @@ passwd_back_search(
 				entry_free( e );
 			}
 			endpwent();
+			ldap_pvt_thread_mutex_unlock( &passwd_mutex );
 		}
 
 	} else {
@@ -183,9 +181,9 @@ passwd_back_search(
 		 */
 		if( !be_issuffix( be, &parent ) ) {
 			int i;
-			for( i=0; be->be_nsuffix[i] != NULL; i++ ) {
-				if( dnIsSuffix( nbase, be->be_nsuffix[i] ) ) {
-					matched = be->be_suffix[i]->bv_val;
+			for( i=0; be->be_nsuffix[i].bv_val != NULL; i++ ) {
+				if( dnIsSuffix( nbase, &be->be_nsuffix[i] ) ) {
+					matched = be->be_suffix[i].bv_val;
 					break;
 				}
 			}
@@ -200,18 +198,23 @@ passwd_back_search(
 		if ( ldap_bv2rdn( base, &rdn, (char **)&text,
 			LDAP_DN_FORMAT_LDAP ))
 		{ 
-			err = LDAP_OPERATIONS_ERROR;
+			err = LDAP_OTHER;
 			goto done;
 		}
 
+		ldap_pvt_thread_mutex_lock( &passwd_mutex );
+		pw_start( be );
 		if ( (pw = getpwnam( rdn[0][0]->la_value.bv_val )) == NULL ) {
 			matched = parent.bv_val;
 			err = LDAP_NO_SUCH_OBJECT;
+			ldap_pvt_thread_mutex_unlock( &passwd_mutex );
 			goto done;
 		}
 
-		if ( !(e = pw2entry( be, pw, &text )) ) {
-			err = LDAP_OPERATIONS_ERROR;
+		e = pw2entry( be, pw, &text );
+		ldap_pvt_thread_mutex_unlock( &passwd_mutex );
+		if ( !e ) {
+			err = LDAP_OTHER;
 			goto done;
 		}
 
@@ -232,6 +235,20 @@ done:
 	if( rdn != NULL ) ldap_rdnfree( rdn );
 
 	return( 0 );
+}
+
+static void
+pw_start(
+	Backend *be
+)
+{
+	endpwent();
+
+#ifdef HAVE_SETPWFILE
+	if ( be->be_private != NULL ) {
+		(void) setpwfile( (char *) be->be_private );
+	}
+#endif /* HAVE_SETPWFILE */
 }
 
 static Entry *
@@ -265,12 +282,12 @@ pw2entry( Backend *be, struct passwd *pw, const char **text )
 	 */
 
 	pwlen = strlen( pw->pw_name );
-	vals[0].bv_len = (sizeof("uid=,")-1) + ( pwlen + be->be_suffix[0]->bv_len );
+	vals[0].bv_len = (sizeof("uid=,")-1) + ( pwlen + be->be_suffix[0].bv_len );
 	vals[0].bv_val = ch_malloc( vals[0].bv_len + 1 );
 
 	/* rdn attribute type should be a configuratable item */
 	sprintf( vals[0].bv_val, "uid=%s,%s",
-		pw->pw_name, be->be_suffix[0]->bv_val );
+		pw->pw_name, be->be_suffix[0].bv_val );
 
 	rc = dnNormalize2( NULL, vals, &bv );
 	if( rc != LDAP_SUCCESS ) {
@@ -323,18 +340,24 @@ pw2entry( Backend *be, struct passwd *pw, const char **text )
 
 		s = strchr(vals[0].bv_val, '&');
 		if (s) {
-			char buf[256];
-			int i = s - vals[0].bv_val;
-			strncpy(buf, vals[0].bv_val, i);
-			s = buf+i;
-			strcpy(s, pw->pw_name);
-			*s = TOUPPER(*s);
-			strcat(s, vals[0].bv_val+i+1);
-			vals[0].bv_val = buf;
+			char buf[1024];
+
+			if( vals[0].bv_len + pwlen < sizeof(buf) ) {
+				int i = s - vals[0].bv_val;
+				strncpy(buf, vals[0].bv_val, i);
+				s = buf+i;
+				strcpy(s, pw->pw_name);
+				*s = TOUPPER((unsigned char)*s);
+				strcat(s, vals[0].bv_val+i+1);
+				vals[0].bv_val = buf;
+			}
 		}
 		vals[0].bv_len = strlen(vals[0].bv_val);
-		if ( strcmp( vals[0].bv_val, pw->pw_name ))
+
+		if ( vals[0].bv_len && strcasecmp( vals[0].bv_val, pw->pw_name )) {
 			attr_merge( e, ad_cn, vals );
+		}
+
 		if ( (s=strrchr(vals[0].bv_val, ' '))) {
 			vals[0].bv_val = s + 1;
 			vals[0].bv_len = strlen(vals[0].bv_val);

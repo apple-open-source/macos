@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<!-- ===================================================================== -->
+<!--                                                                       -->
+<!--  JBoss Server Configuration                                           -->
+<!--                                                                       -->
+<!-- ===================================================================== -->
+
+<!-- $Id: postgres-ds.xml,v 1.1 2002/07/22 22:57:24 d_jencks Exp $ -->
+<!-- ==================================================================== -->
+<!--  Datasource config for Postgres                                      -->
+<!-- ==================================================================== -->
+
+
+<datasources>
+  <local-tx-datasource>
+    <jndi-name>PostgresDS</jndi-name>
+    <connection-url>jdbc:postgresql://[servername]:[port]/[database name]</connection-url>
+    <driver-class>org.postgresql.Driver</driver-class>
+    <user-name>x</user-name>
+    <password>y</password>
+  </local-tx-datasource>
+
+</datasources>

@@ -1,0 +1,19 @@
+Tämä on sinulle kuukausittain lähetettävä muistutus %(hostname)s
+-postituslistojen jäsenyydestä. Se sisältää sisäänkirjautumistietosi 
+sekä ohjeet siitä,  miten voit muuttaa niitä tai irtisanoutua listalta.
+
+Voit käydä URL-osoitteessa muuttamassa jäsenyysasetuksiasi. Esim. voit 
+irtisanoutua listalta, muuttaa koostelähetyksen asetusta 
+tai kieltää kaikkien postien vastaanoton (esim. loman ajaksi) jne. 
+
+URL-osoitteessa sijaitsevien toimintojen sijasta voit käyttää myös
+sähköpostiasi yllälueteltujen toimintojen suorittamiseen. Lisätietoja 
+saadaksesi, lähetä viesti listan "-pyyntö" -osoitteeseen (esim. %(exreq)s)
+siten, että laitat viestikenttään ainoastaan sanan 'help'. Sinulle lähetetään 
+viesti tarkemmista ohjeista.
+
+Jos sinulla on kysymyksiä, ongelmia, kommentteja jne. lähetä ne
+%(owner)s. Kiitos!
+
+Salasana %(useraddr)s:
+

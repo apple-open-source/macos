@@ -39,11 +39,12 @@
 .Nd modify a user's password
 .Sh SYNOPSIS
 .Nm passwd
-.Op Fl l
-.Op Ar user
+.Op Fl i Ar infosystem
+.Op Fl l Ar location
+.Op Ar name
 .Sh DESCRIPTION
 .Nm Passwd
-changes the user's Kerberos password.  First, the user is prompted for their
+changes the user's password.  First, the user is prompted for their
 current password.
 If the current password is correctly typed, a new password is
 requested.
@@ -51,31 +52,50 @@ The new password must be entered twice to avoid typing errors.
 .Pp
 The new password should be at least six characters long and not
 purely alphabetic.
-Its total length must be less than
+Its total length should be less than
 .Dv _PASSWORD_LEN
-(currently 128 characters).
+(currently 128 characters) although some infosystems allow longer passwords.
 Numbers, upper case letters and meta characters
 are encouraged.
 .Pp
 Once the password has been verified,
 .Nm passwd
 communicates the new password information to
-the Kerberos authenticating host.
+the authenticating host.
 .Bl -tag -width flag
-.It Fl l
-This option causes the password to be updated only in the local
-password file, and not with the Kerberos database.
+.It Fl i Ar infosystem
+This option specifies where the password update should be applied.
+Under Mac OS X 10.3, supported infosystems are:
+.Bl -tag -width flag
+.It Ar netinfo
+(default)
+The netinfo database containing the user's password.
+If no -l option is specified, the local netinfo database is assumed.
+.It Ar file
+The local flat-files (included for legacy configurations).
+.It Ar nis
+A remote NIS server containing the user's password.
+.It Ar opendirectory
+A system conforming to opendirectory APIs and supporting updates (including LDAP, netinfo, etc).
+.El
+.It Fl l Ar location
+This option causes the password to be updated in the given location of the choosen infosystem.
 When changing only the local password,
 .Xr pwd_mkdb  8
 is used to update the password databases.
+.Bl -tag -width flag
+.It for netinfo,
+location may be a domain name or server/tag
+.It for file,
+location may be a file name (/etc/master.passwd is the default)
+.It for nis,
+location may be a NIS domainname
+.It for opendirectory,
+location may be a directory node name
+.Bl
 .El
 .Pp
-To change another user's Kerberos password, one must first
-run
-.Xr kinit 1
-followed by
-.Xr passwd 1 .
-The super-user is not required to provide a user's current password
+The super-user privilages are not required change a user's current password
 if only the local password is modified.
 .Sh FILES
 .Bl -tag -width /etc/master.passwd -compact
@@ -88,13 +108,11 @@ Temporary copy of the password file
 .El
 .Sh SEE ALSO
 .Xr chpass 1 ,
-.Xr kerberos 1 ,
-.Xr kinit 1 ,
 .Xr login 1 ,
 .Xr passwd 5 ,
-.Xr kpasswdd 8 ,
 .Xr pwd_mkdb 8 ,
-.Xr vipw 8
+.Xr vipw 8,
+.Xr nicl 1
 .Rs
 .%A Robert Morris
 .%A Ken Thompson

@@ -1,0 +1,11 @@
+A következõ feliratkozási kérelem megerõsítéséhez szükséges az 
+engedélyed:
+
+    Feladó:	%(username)s
+    Lista:	%(listname)s@%(hostname)s
+
+A kérelemrõl a(z) 
+
+	%(admindb_url)s
+	
+címen tudsz állást foglalni.

@@ -29,7 +29,7 @@
  * OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
  * SUCH DAMAGE.
  *
- * $Id: smbfs_subr.c,v 1.7 2002/06/24 01:31:23 lindak Exp $
+ * $Id: smbfs_subr.c,v 1.9 2003/05/06 21:54:38 lindak Exp $
  */
 #include <sys/param.h>
 #include <sys/systm.h>
@@ -113,8 +113,8 @@ static u_short lastddate;
 static u_short lastdtime;
 
 #ifdef APPLE
-int wall_cmos_clock = 0;	/* XXX */
-int adjkerntz = 0;	/* XXX */
+PRIVSYM int wall_cmos_clock = 0;	/* XXX */
+PRIVSYM int adjkerntz = 0;	/* XXX */
 #endif
 
 void
@@ -134,7 +134,7 @@ smb_time_server2local(u_long seconds, int tzoff, struct timespec *tsp)
 /*
  * Number of seconds between 1970 and 1601 year
  */
-int64_t DIFF1970TO1601 = 11644473600ULL;
+PRIVSYM int64_t DIFF1970TO1601 = 11644473600ULL;
 
 /*
  * Time from server comes as UTC, so no need to use tz
@@ -142,12 +142,14 @@ int64_t DIFF1970TO1601 = 11644473600ULL;
 void
 smb_time_NT2local(int64_t nsec, int tzoff, struct timespec *tsp)
 {
+	#pragma unused(tzoff)
 	smb_time_server2local(nsec / 10000000 - DIFF1970TO1601, 0, tsp);
 }
 
 void
 smb_time_local2NT(struct timespec *tsp, int tzoff, int64_t *nsec)
 {
+	#pragma unused(tzoff)
 	u_long seconds;
 
 	smb_time_local2server(tsp, 0, &seconds);
@@ -358,7 +360,8 @@ smbfs_fname_tolocal(struct smbfs_fctx *ctx)
 {
 	int length;
 	struct smb_vc *vcp = SSTOVC(ctx->f_ssp);
-	char *src, *dst, *odst;
+	char *dst, *odst;
+	const char *src;
 	size_t inlen, outlen;
 
 	if (ctx->f_nmlen == 0)

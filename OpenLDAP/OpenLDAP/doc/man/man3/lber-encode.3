@@ -1,9 +1,11 @@
-.TH LBER_ENCODE 3 "25 January 2002" "OpenLDAP LDVERSION"
-.\" $OpenLDAP: pkg/ldap/doc/man/man3/lber-encode.3,v 1.11 2002/01/25 11:34:57 hyc Exp $
-.\" Copyright 1998-2002 The OpenLDAP Foundation All Rights Reserved.
+.TH LBER_ENCODE 3 "RELEASEDATE" "OpenLDAP LDVERSION"
+.\" $OpenLDAP: pkg/ldap/doc/man/man3/lber-encode.3,v 1.11.2.5 2003/03/03 17:10:02 kurt Exp $
+.\" Copyright 1998-2003 The OpenLDAP Foundation All Rights Reserved.
 .\" Copying restrictions apply.  See COPYRIGHT/LICENSE.
 .SH NAME
 ber_alloc_t, ber_flush, ber_printf, ber_put_int, ber_put_enum, ber_put_ostring, ber_put_string, ber_put_null, ber_put_boolean, ber_put_bitstring, ber_start_seq, ber_start_set, ber_put_seq, ber_put_set \- LBER simplified Basic Encoding Rules library routines for encoding
+.SH LIBRARY
+OpenLDAP LBER (liblber, -llber)
 .SH SYNOPSIS
 .B #include <lber.h>
 .LP
@@ -60,7 +62,7 @@ applications that need more control than
 .BR ber_printf ()
 provides.  In
 general, these routines return the length of the element encoded, or
-LBER_ERROR if an error occurred.
+-1 if an error occurred.
 .LP
 The
 .BR ber_alloc_t ()
@@ -73,7 +75,7 @@ routine is used to actually write the element to a socket
 (or file) descriptor, once it has been fully encoded (using
 .BR ber_printf ()
 and friends).  See
-.BR lber-sockbuf(3)
+.BR lber-sockbuf (3)
 for more details on the Sockbuf implementation of the \fIsb\fP parameter.
 If the \fIfreeit\fP parameter is non-zero, the supplied \fIber\fP will
 be freed after its contents have been flushed.
@@ -248,23 +250,23 @@ can be achieved like so:
       rc = ber_printf( ber, "{siiiib{v}}", dn, scope, ali,
           size, time, attrsonly, attrs );
 
-      if( rc == LBER_ERROR ) {
+      if( rc == -1 ) {
               /* error */
       } else {
               /* success */
       }
 .fi
 .SH ERRORS
-If an error occurs during encoding, generally these routines return LBER_ERROR.
+If an error occurs during encoding, generally these routines return -1.
 .LP
 .SH NOTES
 .LP
 The return values for all of these functions are declared in the
 <lber.h> header file.
 .SH SEE ALSO
-.BR lber-decode (3)
-.BR lber-memory (3)
-.BR lber-sockbuf (3)
+.BR lber-decode (3),
+.BR lber-memory (3),
+.BR lber-sockbuf (3),
 .BR lber-types (3)
 .SH ACKNOWLEDGEMENTS
 .B	OpenLDAP

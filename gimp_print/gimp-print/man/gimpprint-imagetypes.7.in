@@ -1,0 +1,82 @@
+.\" t
+.\" $Id: gimpprint-imagetypes.7.in,v 1.1.1.1 2003/01/27 19:05:32 jlovell Exp $
+.\" Copyright (C) 2000 Roger Leigh <roger@whinlatter.uklinux.net>
+.\"
+.\" This program is free software; you can redistribute it and/or modify
+.\" it under the terms of the GNU General Public License as published by
+.\" the Free Software Foundation; either version 2, or (at your option)
+.\" any later version.
+.\"
+.\" This program is distributed in the hope that it will be useful,
+.\" but WITHOUT ANY WARRANTY; without even the implied warranty of
+.\" MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+.\" GNU General Public License for more details.
+.\"
+.\" You should have received a copy of the GNU General Public License
+.\" along with this program; if not, write to the Free Software
+.\" Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
+.TH GIMPPRINT-IMAGETYPES 7 "@RELEASE_DATE@" "Version @GIMPPRINT_VERSION@" "Gimp-Print Manual Pages"
+.SH NAME
+gimpprint-imagetypes \- Gimp-Print image types
+.SH DESCRIPTION
+Gimp-Print includes several image types which can be used to optimise
+the dither, depending on the type of image you wish to print.
+.SH IMAGE TYPE
+Possible values are:
+.PP
+.TS
+li li
+lb lw(4i).
+Value	Description
+_
+1	T{
+.na
+Line art (color or gray scale)
+T}
+2	T{
+Primarily solid colors or smooth gradients (color or gray scale)
+T}
+3	T{
+Continuous-tone photographs (color or gray scale)
+T}
+.TE
+.PP
+Option \fI0\fP is the fastest.  It generates strong, but not particularly
+accurate, colors.  There may be some fairly sharp color transitions in this
+mode.
+.PP
+Option \fI1\fP generates more accurate colors, but is slower.
+.PP
+Option \fI2\fP generates the most accurate colors, but is considerably slower.
+.PP
+Note that any of the modes may be used with either color or black & white
+output.  If black and white output is requested, but a color mode used,
+composite color will be printed.  This generally offers smoother tone, but less
+purity of gray or black, than pure black ink.  Furthermore, it is possible to
+tune the color of the gray (to achieve warmer or cooler effects) using the
+color controls in this fashion.
+.SH COPYRIGHT
+Copyright \(co 2001 Michael Sweet (mike@easysw.com) and Robert Krawitz
+(rlk@alum.mit.edu)
+.PP
+This program is free software; you can redistribute it and/or modify it under
+the terms of the GNU General Public License as published by the Free Software
+Foundation; either version 2 of the License, or (at your option) any later
+version.
+.PP
+This manual page was written by Roger Leigh (roger@whinlatter.uklinux.net)
+.SH SEE ALSO
+.BR gimpprint-color (7),
+.BR gimpprint-dithers (7),
+.BR gimpprint-inktypes (7),
+.BR gimpprint-mediasizes (7),
+.BR gimpprint-mediasources (7),
+.BR gimpprint-mediatypes (7),
+.BR gimpprint-models (7),
+.BR gimpprint-resolutions (7).
+.\"#
+.\"# The following sets edit modes for GNU EMACS
+.\"# Local Variables:
+.\"# mode:nroff
+.\"# fill-column:79
+.\"# End:

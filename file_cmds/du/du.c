@@ -1,5 +1,3 @@
-/*	$NetBSD: du.c,v 1.14 1998/02/15 17:08:18 kleink Exp $	*/
-
 /*
  * Copyright (c) 1989, 1993, 1994
  *	The Regents of the University of California.  All rights reserved.
@@ -36,88 +34,153 @@
  * SUCH DAMAGE.
  */
 
-#include <sys/cdefs.h>
 #ifndef lint
-__COPYRIGHT("@(#) Copyright (c) 1989, 1993, 1994\n\
-	The Regents of the University of California.  All rights reserved.\n");
+static const char copyright[] =
+"@(#) Copyright (c) 1989, 1993, 1994\n\
+	The Regents of the University of California.  All rights reserved.\n";
 #endif /* not lint */
 
 #ifndef lint
 #if 0
-static char sccsid[] = "@(#)du.c	8.5 (Berkeley) 5/4/95";
-#else
-__RCSID("$NetBSD: du.c,v 1.14 1998/02/15 17:08:18 kleink Exp $");
+static const char sccsid[] = "@(#)du.c	8.5 (Berkeley) 5/4/95";
 #endif
 #endif /* not lint */
+#include <sys/cdefs.h>
+__RCSID("$FreeBSD: src/usr.bin/du/du.c,v 1.28 2002/12/30 18:13:07 mike Exp $");
 
-#include <sys/types.h>
+#include <sys/param.h>
+#include <sys/queue.h>
 #include <sys/stat.h>
 
-#include <dirent.h>
 #include <err.h>
 #include <errno.h>
+#include <fnmatch.h>
 #include <fts.h>
+#include <math.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <sysexits.h>
 #include <unistd.h>
 
-int	linkchk __P((FTSENT *));
-int	main __P((int, char **));
-void	usage __P((void));
+#define	KILO_SZ(n) (n)
+#define	MEGA_SZ(n) ((n) * (n))
+#define	GIGA_SZ(n) ((n) * (n) * (n))
+#define	TERA_SZ(n) ((n) * (n) * (n) * (n))
+#define	PETA_SZ(n) ((n) * (n) * (n) * (n) * (n))
+
+#define	KILO_2_SZ (KILO_SZ(1024ULL))
+#define	MEGA_2_SZ (MEGA_SZ(1024ULL))
+#define	GIGA_2_SZ (GIGA_SZ(1024ULL))
+#define	TERA_2_SZ (TERA_SZ(1024ULL))
+#define	PETA_2_SZ (PETA_SZ(1024ULL))
+
+#define	KILO_SI_SZ (KILO_SZ(1000ULL))
+#define	MEGA_SI_SZ (MEGA_SZ(1000ULL))
+#define	GIGA_SI_SZ (GIGA_SZ(1000ULL))
+#define	TERA_SI_SZ (TERA_SZ(1000ULL))
+#define	PETA_SI_SZ (PETA_SZ(1000ULL))
+
+#define TWO_TB  (2LL * 1024LL * 1024LL * 1024LL * 1024LL)
+
+unsigned long long vals_si [] = {1, KILO_SI_SZ, MEGA_SI_SZ, GIGA_SI_SZ, TERA_SI_SZ, PETA_SI_SZ};
+unsigned long long vals_base2[] = {1, KILO_2_SZ, MEGA_2_SZ, GIGA_2_SZ, TERA_2_SZ, PETA_2_SZ};
+unsigned long long *valp;
+
+typedef enum { NONE, KILO, MEGA, GIGA, TERA, PETA, UNIT_MAX } unit_t;
+
+int unitp [] = { NONE, KILO, MEGA, GIGA, TERA, PETA };
+
+SLIST_HEAD(ignhead, ignentry) ignores;
+struct ignentry {
+	char			*mask;
+	SLIST_ENTRY(ignentry)	next;
+};
+
+int		linkchk(FTSENT *);
+static void	usage(void);
+void		prthumanval(double);
+unit_t		unit_adjust(double *);
+void		ignoreadd(const char *);
+void		ignoreclean(void);
+int		ignorep(FTSENT *);
 
 int
-main(argc, argv)
-	int argc;
-	char *argv[];
+main(int argc, char *argv[])
 {
-	FTS *fts;
-	FTSENT *p;
-	long blocksize, totalblocks;
-	int ftsoptions, listdirs, listfiles;
-	int Hflag, Lflag, Pflag, aflag, ch, cflag, kflag, notused, rval, sflag;
-	char **save;
+	FTS		*fts;
+	FTSENT		*p;
+	long		blocksize;
+	int		ftsoptions;
+	int		listall;
+	int		depth;
+	int		Hflag, Lflag, Pflag, aflag, sflag, dflag, cflag, hflag, ch, notused, rval;
+	char 		**save;
+	static char	dot[] = ".";
+	off_t           *ftsnum, *ftsparnum, savednumber = 0;
 
+	Hflag = Lflag = Pflag = aflag = sflag = dflag = cflag = hflag = 0;
+	
 	save = argv;
-	Hflag = Lflag = Pflag = aflag = cflag = kflag = sflag = 0;
-	totalblocks = 0;
-	ftsoptions = FTS_PHYSICAL;
-	while ((ch = getopt(argc, argv, "HLPackrsx")) != -1)
+	ftsoptions = 0;
+	depth = INT_MAX;
+	SLIST_INIT(&ignores);
+	
+	while ((ch = getopt(argc, argv, "HI:LPasd:chkrx")) != -1)
 		switch (ch) {
-		case 'H':
-			Hflag = 1;
-			Lflag = Pflag = 0;
-			break;
-		case 'L':
-			Lflag = 1;
-			Hflag = Pflag = 0;
-			break;
-		case 'P':
-			Pflag = 1;
-			Hflag = Lflag = 0;
-			break;
-		case 'a':
-			aflag = 1;
-			break;
-		case 'c':
-			cflag = 1;
-			break;
-		case 'k':
-			blocksize = 1024;
-			kflag = 1;
-			break;
-		case 'r':
-			break;
-		case 's':
-			sflag = 1;
-			break;
-		case 'x':
-			ftsoptions |= FTS_XDEV;
-			break;
-		case '?':
-		default:
-			usage();
+			case 'H':
+				Hflag = 1;
+				break;
+			case 'I':
+				ignoreadd(optarg);
+				break;
+			case 'L':
+				if (Pflag)
+					usage();
+				Lflag = 1;
+				break;
+			case 'P':
+				if (Lflag)
+					usage();
+				Pflag = 1;
+				break;
+			case 'a':
+				aflag = 1;
+				break;
+			case 's':
+				sflag = 1;
+				break;
+			case 'd':
+				dflag = 1;
+				errno = 0;
+				depth = atoi(optarg);
+				if (errno == ERANGE || depth < 0) {
+					warnx("invalid argument to option d: %s", optarg);
+					usage();
+				}
+				break;
+			case 'c':
+				cflag = 1;
+				break;
+			case 'h':
+				putenv("BLOCKSIZE=512");
+				hflag = 1;
+				valp = vals_base2;
+				break;
+			case 'k':
+				if (!hflag)
+					putenv("BLOCKSIZE=1024");
+				break;
+			case 'r':		 /* Compatibility. */
+				break;
+			case 'x':
+				ftsoptions |= FTS_XDEV;
+				break;
+			case '?':
+			default:
+				usage();
 		}
+
 	argc -= optind;
 	argv += optind;
 
@@ -133,95 +196,150 @@ main(argc, argv)
 	 * very nasty, very fast.  The bottom line is that it's documented in
 	 * the man page, so it's a feature.
 	 */
+
+	if (Hflag + Lflag + Pflag > 1)
+		usage();
+
+	if (Hflag + Lflag + Pflag == 0)
+		Pflag = 1;			/* -P (physical) is default */
+
 	if (Hflag)
 		ftsoptions |= FTS_COMFOLLOW;
-	if (Lflag) {
-		ftsoptions &= ~FTS_PHYSICAL;
+
+	if (Lflag)
 		ftsoptions |= FTS_LOGICAL;
-	}
+
+	if (Pflag)
+		ftsoptions |= FTS_PHYSICAL;
+
+	listall = 0;
 
 	if (aflag) {
-		if (sflag)
+		if (sflag || dflag)
 			usage();
-		listdirs = listfiles = 1;
-	} else if (sflag)
-		listdirs = listfiles = 0;
-	else {
-		listfiles = 0;
-		listdirs = 1;
+		listall = 1;
+	} else if (sflag) {
+		if (dflag)
+			usage();
+		depth = 0;
 	}
 
 	if (!*argv) {
 		argv = save;
-		argv[0] = ".";
+		argv[0] = dot;
 		argv[1] = NULL;
 	}
 
-	if (!kflag)
-		(void)getbsize(&notused, &blocksize);
+	(void) getbsize(&notused, &blocksize);
 	blocksize /= 512;
 
+	rval = 0;
+	
 	if ((fts = fts_open(argv, ftsoptions, NULL)) == NULL)
-		err(1, "fts_open `%s'", *argv);
+		err(1, "fts_open");
 
-	for (rval = 0; (p = fts_read(fts)) != NULL;)
+	while ((p = fts_read(fts)) != NULL) {
 		switch (p->fts_info) {
-		case FTS_D:			/* Ignore. */
-			break;
-		case FTS_DP:
-			p->fts_parent->fts_number += 
-			    p->fts_number += p->fts_statp->st_blocks;
-			if (cflag)
-				totalblocks += p->fts_statp->st_blocks;
-			/*
-			 * If listing each directory, or not listing files
-			 * or directories and this is post-order of the
-			 * root of a traversal, display the total.
-			 */
-			if (listdirs || (!listfiles && !p->fts_level))
-				(void)printf("%ld\t%s\n",
-				    howmany(p->fts_number, blocksize),
-				    p->fts_path);
-			break;
-		case FTS_DC:			/* Ignore. */
-			break;
-		case FTS_DNR:			/* Warn, continue. */
-		case FTS_ERR:
-		case FTS_NS:
-			warnx("%s: %s", p->fts_path, strerror(p->fts_errno));
-			rval = 1;
-			break;
-		default:
-			if (p->fts_statp->st_nlink > 1 && linkchk(p))
+			case FTS_D:			/* Ignore. */
+				if (ignorep(p))
+					fts_set(fts, p, FTS_SKIP);
 				break;
-			/*
-			 * If listing each file, or a non-directory file was
-			 * the root of a traversal, display the total.
-			 */
-			if (listfiles || !p->fts_level)
-				(void)printf("%qd\t%s\n", (long long)
-				    howmany(p->fts_statp->st_blocks, blocksize),
-				    p->fts_path);
-			p->fts_parent->fts_number += p->fts_statp->st_blocks;
-			if (cflag)
-				totalblocks += p->fts_statp->st_blocks;
+			case FTS_DP:
+				if (ignorep(p))
+					break;
+
+				ftsparnum = (off_t *)&p->fts_parent->fts_number;
+				ftsnum = (off_t *)&p->fts_number;
+				if (p->fts_statp->st_size < TWO_TB) {
+				    ftsparnum[0] += ftsnum[0] += p->fts_statp->st_blocks;
+				} else {
+				    ftsparnum[0] += ftsnum[0] += howmany(p->fts_statp->st_size, 512LL);
+				}
+				
+				if (p->fts_level <= depth) {
+					if (hflag) {
+						(void) prthumanval(howmany(*ftsnum, blocksize));
+						(void) printf("\t%s\n", p->fts_path);
+					} else {
+					(void) printf("%lld\t%s\n",
+					    howmany(*ftsnum, blocksize),
+					    p->fts_path);
+					}
+				}
+				break;
+			case FTS_DC:			/* Ignore. */
+				break;
+			case FTS_DNR:			/* Warn, continue. */
+			case FTS_ERR:
+			case FTS_NS:
+				warnx("%s: %s", p->fts_path, strerror(p->fts_errno));
+				rval = 1;
+				break;
+			default:
+				if (ignorep(p))
+					break;
+
+				if (p->fts_statp->st_nlink > 1 && linkchk(p))
+					break;
+				
+				if (listall || p->fts_level == 0) {
+					if (hflag) {
+					    if (p->fts_statp->st_size < TWO_TB) {
+						(void) prthumanval(howmany(p->fts_statp->st_blocks,
+							blocksize));
+					    } else {
+						(void) prthumanval(howmany(howmany(p->fts_statp->st_size, 512LL),
+							blocksize));
+					    }
+						(void) printf("\t%s\n", p->fts_path);
+					} else {
+					    if (p->fts_statp->st_size < TWO_TB) {
+						(void) printf("%qd\t%s\n",
+							(long long)howmany(p->fts_statp->st_blocks, blocksize),
+							p->fts_path);
+					    } else {
+						(void) printf("%qd\t%s\n",
+							(long long)howmany(howmany(p->fts_statp->st_size, 512LL), blocksize),
+							p->fts_path);
+					    }
+					}
+				}
+
+				ftsparnum = (off_t *)&p->fts_parent->fts_number;
+				if (p->fts_statp->st_size < TWO_TB) {
+				    ftsparnum[0] += p->fts_statp->st_blocks;
+				} else {
+				    ftsparnum[0] += p->fts_statp->st_size / 512LL;
+				}
 		}
+		savednumber = ((off_t *)&p->fts_parent->fts_number)[0];
+	}
+
 	if (errno)
 		err(1, "fts_read");
-	if (cflag)
-		(void)printf("%ld\ttotal\n",
-		    howmany(totalblocks, blocksize));
-	exit(0);
+
+	if (cflag) {
+		if (hflag) {
+			(void) prthumanval(howmany(savednumber, blocksize));
+			(void) printf("\ttotal\n");
+		} else {
+			(void) printf("%lld\ttotal\n", howmany(savednumber, blocksize));
+		}
+	}
+
+	ignoreclean();
+	exit(rval);
 }
+
 
 typedef struct _ID {
 	dev_t	dev;
 	ino_t	inode;
 } ID;
 
+
 int
-linkchk(p)
-	FTSENT *p;
+linkchk(FTSENT *p)
 {
 	static ID *files;
 	static int maxfiles, nfiles;
@@ -238,18 +356,98 @@ linkchk(p)
 
 	if (nfiles == maxfiles && (files = realloc((char *)files,
 	    (u_int)(sizeof(ID) * (maxfiles += 128)))) == NULL)
-		err(1, "realloc");
+		errx(1, "can't allocate memory");
 	files[nfiles].inode = ino;
 	files[nfiles].dev = dev;
 	++nfiles;
 	return (0);
 }
 
-void
-usage()
+/*
+ * Output in "human-readable" format.  Uses 3 digits max and puts
+ * unit suffixes at the end.  Makes output compact and easy to read,
+ * especially on huge disks.
+ *
+ */
+unit_t
+unit_adjust(double *val)
 {
+	double abval;
+	unit_t unit;
+	unsigned int unit_sz;
 
+	abval = fabs(*val);
+
+	unit_sz = abval ? ilogb(abval) / 10 : 0;
+
+	if (unit_sz >= UNIT_MAX) {
+		unit = NONE;
+	} else {
+		unit = unitp[unit_sz];
+		*val /= (double)valp[unit_sz];
+	}
+
+	return (unit);
+}
+
+void
+prthumanval(double bytes)
+{
+	unit_t unit;
+
+	bytes *= 512;
+	unit = unit_adjust(&bytes);
+
+	if (bytes == 0)
+		(void)printf("  0B");
+	else if (bytes > 10)
+		(void)printf("%3.0f%c", bytes, "BKMGTPE"[unit]);
+	else
+		(void)printf("%3.1f%c", bytes, "BKMGTPE"[unit]);
+}
+
+static void
+usage(void)
+{
 	(void)fprintf(stderr,
-		"usage: du [-H | -L | -P] [-a | -s] [-ckx] [file ...]\n");
-	exit(1);
+		"usage: du [-H | -L | -P] [-a | -s | -d depth] [-c] [-h | -k] [-x] [-I mask] [file ...]\n");
+	exit(EX_USAGE);
+}
+
+void
+ignoreadd(const char *mask)
+{
+	struct ignentry *ign;
+
+	ign = calloc(1, sizeof(*ign));
+	if (ign == NULL)
+		errx(1, "cannot allocate memory");
+	ign->mask = strdup(mask);
+	if (ign->mask == NULL)
+		errx(1, "cannot allocate memory");
+	SLIST_INSERT_HEAD(&ignores, ign, next);
+}
+
+void
+ignoreclean(void)
+{
+	struct ignentry *ign;
+	
+	while (!SLIST_EMPTY(&ignores)) {
+		ign = SLIST_FIRST(&ignores);
+		SLIST_REMOVE_HEAD(&ignores, next);
+		free(ign->mask);
+		free(ign);
+	}
+}
+
+int
+ignorep(FTSENT *ent)
+{
+	struct ignentry *ign;
+
+	SLIST_FOREACH(ign, &ignores, next)
+		if (fnmatch(ign->mask, ent->fts_name, 0) != FNM_NOMATCH)
+			return 1;
+	return 0;
 }

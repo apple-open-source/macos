@@ -1,0 +1,696 @@
+@node New Printer, ,ESC/P2, Appendices
+@appendix Adding a new printer
+@cindex adding a printer
+@cindex printer, adding
+@cindex new printer
+
+
+This appendix covers adding a new ESCP/2, PCL, or Canon printer.
+Writing a new driver module is not covered.
+
+The three steps to adding a printer are:
+
+@enumerate
+@item Add an entry to @file{printers.xml}
+@item Add the appropriate code and data to the appropriate driver module
+@item Tune the printer
+@end enumerate
+
+Printer information is stored in two places: in @file{printers.xml}
+(which contains the list of printer models available to the the
+upper-level application), and in the appropriate driver file
+(@file{print-escp2.c}, @file{print-pcl.c}, or @file{print-canon.c}).
+
+@menu
+* printers.xml::                File format description.
+* Driver file::                 Data structures to use.
+* Epson inkjet printers::       Adding an Epson printer.
+* Tuning Epson printers::       Tweaking settings.
+* Canon inkjet printers::       Adding a Canon printer.
+@end menu
+
+@node printers.xml, Driver file, , New Printer
+@appendixsection @file{printers.xml}
+
+@file{printers.xml} is an XML-like file (there's no formal DTD) that
+contains very simple printer definitions.  A typical definition follows:
+
+@example
+<printer name="EPSON Stylus Color 1500" driver="escp2-1500">
+<color>
+<model value=2>
+<gamma value=0.597>
+<density value=1.0>
+<language value=escp2>
+</printer>
+@end example
+
+There are other tags that may be present.  The only ones that are
+mandatory are @samp{<printer>}, @samp{<color>}, @samp{<model>}, and
+@samp{<language>}.  The other optional parameters (gamma and density in
+this case) can be used to adjust control settings.  This is probably not
+the right place for them; the printer drivers themselves should contain
+this information.  There's probably no good reason for anything but
+gamma and density to be in here.  Gamma refers to the printer's gamma
+factor; density is the desired base ink density for the printer.  The
+Epson driver contains the density information for each printer at each
+resolution internally.  An even better driver would adjust density and
+possibly even gamma for paper type.  All the more reason not to have
+that information here.
+
+If you really are curious about what tags are permitted, please see
+@file{printdefl.l}.  I deliberately want to make this obscure.
+
+Anyway, here's the definition of the tags that do matter:
+
+@deffn {@file{printers.xml} tag} @code{<printer name="@var{longname}" driver="@var{drivername}">}
+This starts the definition of a printer.  The @var{longname} should be
+something human readable; the @var{drivername} should consist of
+alphanumerics and hyphens, and be fairly short.  The @var{longname} is
+what will appear in the GUI listing of printers; the @var{drivername} is
+what is actually used to key into the list of printers.  It is legal to
+have multiple printers with the same driver name.
+@end deffn
+
+@deffn {@file{printers.xml} tag} @code{<color>}
+@deffnx {@file{printers.xml} tag} @code{<nocolor>}
+Indicates that this printer is capable of color, or is not capable of
+color respectively
+@end deffn
+
+@deffn {@file{printers.xml} tag} @code{<model value=@var{int}>}
+This defines a model number.  This is passed into the driver, which may
+do whatever it cares to with it---index into a table, compute on, or
+whatever.  This need not be unique.
+@end deffn
+
+@deffn {@file{printers.xml} tag} @code{<language value=@var{type}>}
+This defines what driver module this printer uses.  @var{type} should be
+@samp{escp2}, @samp{pcl}, @samp{canon}, or @samp{ps}.
+@end deffn
+
+@deffn {@file{printers.xml} tag} @code{</printer>}
+This, of course, closes off a printer definition.
+@end deffn
+
+This is handled very ad-hoc.  It's ugly.  But it's reasonably easy to
+extend, and it's buzzword-compliant.
+
+
+@node Driver file, Epson inkjet printers, printers.xml, New Printer
+@appendixsection The driver file
+@cindex driver file
+
+Adding a new printer to a driver module (@file{print-escp2.c},
+@file{print-pcl.c}, or @file{print-canon.c}---@file{print-ps.c} is
+really ad hoc) requires a bit more planning.  Each driver is somewhat
+different, but they all generally have a vector of printer definitions,
+and the code does some special casing based on particular printer
+capabilities.  The PCL and Canon drivers are quite similar; the Canon
+driver was actually cribbed from the PCL driver, but it then returned
+the favor.
+
+The Epson driver is a little bit different.  Canon and PCL printers
+have some amount of intelligence; a lot of them have specific ink
+options, and know about specific paper sizes and types, and must be
+told the right thing.  Epson printers have somewhat less intelligence
+and will more or less do exactly what the host tells it to do in a
+fairly regular fashion.  I actually prefer this; it isn't materially
+more work for the host to compute things like exact paper sizes and
+such, it allows a lot more tweaking, and it may be why Epson has been
+more open with information -- the communication protocol doesn't
+really contain very much IP, so they have less reason to keep it
+secret.
+
+Someone else will have to fill in the sections about PCL and Canon
+printers.
+
+
+@node Epson inkjet printers, Tuning Epson printers, Driver file, New Printer
+@appendixsection Epson inkjet printers
+@cindex Epson inkjet printers
+
+The @samp{model_capabilities} vector in @file{print-escp2.c} contains
+one entry for each defined printer model.  The @samp{model} parameter in
+@file{printers.xml} is an index into this table.
+
+In general, the new printers have fewer eccentricities than the older
+printers.  That doesn't mean they're simpler, just that they're more
+consistent.
+
+An @code{escp2_printer_t} is a C struct defined as follows:
+
+@deftypevr {Data type} {} escp2_printer_t
+@example
+typedef struct escp2_printer
+@{
+  model_cap_t	flags;		/* Bitmask of flags, see below */
+/*****************************************************************************/
+  int		nozzles;	/* Number of nozzles per color */
+  int		min_nozzles;	/* Minimum number of nozzles per color */
+  int		nozzle_separation; /* Separation between rows, in 1/360" */
+  int		black_nozzles;	/* Number of black nozzles (may be extra) */
+  int		min_black_nozzles;	/* # of black nozzles (may be extra) */
+  int		black_nozzle_separation; /* Separation between rows */
+/*****************************************************************************/
+  int		xres;		/* Normal distance between dots in */
+				/* softweave mode (inverse inches) */
+  int		enhanced_xres;	/* Distance between dots in highest */
+				/* quality modes */
+  int		base_separation; /* Basic unit of row separation */
+  int		base_resolution; /* Base hardware spacing (above this */
+				/* always requires multiple passes) */
+  int		enhanced_resolution;/* Above this we use the */
+				    /* enhanced_xres rather than xres */
+  int		resolution_scale;   /* Scaling factor for ESC(D command */
+  int		max_black_resolution; /* Above this resolution, we */
+				      /* must use color parameters */
+				      /* rather than (faster) black */
+				      /* only parameters*/
+  int		max_hres;
+  int		max_vres;
+  int		min_hres;
+  int		min_vres;
+/*****************************************************************************/
+  int		max_paper_width; /* Maximum paper width, in points */
+  int		max_paper_height; /* Maximum paper height, in points */
+  int		min_paper_width; /* Maximum paper width, in points */
+  int		min_paper_height; /* Maximum paper height, in points */
+				/* Softweave: */
+  int		left_margin;	/* Left margin, points */
+  int		right_margin;	/* Right margin, points */
+  int		top_margin;	/* Absolute top margin, points */
+  int		bottom_margin;	/* Absolute bottom margin, points */
+				/* "Micro"weave: */
+  int		m_left_margin;	/* Left margin, points */
+  int		m_right_margin;	/* Right margin, points */
+  int		m_top_margin;	/* Absolute top margin, points */
+  int		m_bottom_margin;	/* Absolute bottom margin, points */
+/*****************************************************************************/
+  int		extra_feed;	/* Extra distance the paper can be spaced */
+				/* beyond the bottom margin, in 1/360". */
+				/* (maximum useful value is */
+				/* nozzles * nozzle_separation) */
+  int		separation_rows; /* Some printers require funky spacing */
+				/* arguments in microweave mode. */
+  int		pseudo_separation_rows;/* Some printers require funky */
+				/* spacing arguments in softweave mode */
+
+  int           zero_margin_offset;   /* Offset to use to achieve */
+				      /* zero-margin printing */
+/*****************************************************************************/
+		 /* The stylus 480 and 580 have an unusual arrangement of
+				  color jets that need special handling */
+  const int *head_offset;
+  int		initial_vertical_offset;
+  int		black_initial_vertical_offset;
+
+/*****************************************************************************/
+  const int *dot_sizes;		/* Vector of dot sizes for resolutions */
+  const double *densities;	/* List of densities for each printer */
+  const escp2_variable_inklist_t *inks; /* Choices of inks for this printer */
+/*****************************************************************************/
+  const double *lum_adjustment;
+  const double *hue_adjustment;
+  const double *sat_adjustment;
+  const paperlist_t *paperlist;
+@} escp2_printer_t;
+@end example
+@end deftypevr
+
+The printer definition block is divided into 8 sections.  The first
+section is a set of miscellaneous printer options.  These are
+described in the code, and will not be discussed further here.
+
+
+The second section describes the number of nozzles and the separation
+between nozzles in base units.  The base unit is 1/360" for all
+currently supported printers, but future printers may support a
+smaller base unit.
+
+Many printers have more black nozzles than nozzles of other colors,
+and when used in black and white mode, it's possible to use these
+extra nozzles, which speeds up printing.  As an example, a printer
+that is specified to have 48 cyan, magenta, and yellow nozzles, and
+144 black nozzles, can use all 144 black nozzles when printing black
+ink only.  When printing in color, only 48 nozzles of each color
+(including black) can be used.
+
+Most printers can print using either the number of nozzles available
+or any smaller number.  Some printers require that all of the nozzles
+be used.  Those printers will set @code{min_nozzles} and/or
+@code{min_black_nozzles} to the same value as @code{nozzles} and/or
+@code{black_nozzles}.
+
+
+The third section defines basic units of measure for the printer,
+including the standard separation between dots, the base nozzle
+separation, and the minimum and maximum printing resolutions the
+printer supports.  Most of these are fairly self-explanatory, but some
+are not obvious.
+
+Most Epson printers, other than the high-end Stylus Pro models, cannot
+print dots spaced more closely than 1/360" or 1/720" apart (this is
+the setting for @code{xres}.  This is true even for printers that
+support resolutions of 1440 or 2880 DPI.  In these cases, the data
+must be printed in 2, 4, or 8 passes.  While the printer can position
+the head to a resolution of 1/1440" or 1/2880", the head cannot
+deposit ink that frequently.
+
+Some printers can only print in their very best quality (using the
+smallest dots available) printing at a lower resolution.  For example,
+the Stylus Photo EX can normally print with a dot spacing of 1/720".
+The smallest dot size cannot be printed with a dot spacing of less
+than 1/360", however.  In this case, we use @code{enhanced_xres}
+to specify the resolution to be used in this enhanced mode, and
+@code{enhanced_resolution} to specify the printing resolution above
+which we use the @code{enhanced_xres}.
+
+The @code{resolution_scale} command is used to specify scaling factors
+for the dot separation on newer printers.  It should always be 14400
+with current printers.
+
+
+The fourth section specifies the minimum and maximum paper sizes, and
+the margins.  Some printers allow use of narrower margins when
+softweave is used; both sets of margins are specified.
+
+There is a convenient @samp{INCH} macro defined to make specification of
+the @code{max_paper_width} and @code{max_paper_height} more legible.  It
+multiplies 72 by the provided expression to get the appropriate number
+of points.  For example, to specify 8.5", @samp{INCH(17/2)} expands to
+@samp{(72 * 17/2)}, which is evaluated left to right, and hence
+generates the correct value.
+
+
+The fifth section specifies some miscellaneous values that are
+required for certain printers.  For most printers, the correct values
+are 1 for @code{separation_rows} and 0 for the others.  Very, very few
+printers require (or allow) @code{separation_rows} to be anything but
+1 and @code{pseudo_separation_rows} other than zero.  The Stylus Color
+1520, Stylus Color 800, Stylus Color 850, and (strangely enough to my
+mind, since it's a new printer) Stylus Color 660 seem to be the only
+exceptions.
+
+The @code{zero_margin_offset} is used to specify an additional
+negative horizontal offset required to print to the edges of the paper
+on newer Stylus Photo printers.  These must be determined empirically;
+good starting values are 100 for 1440 DPI and 50 for 2880 DPI
+printers.  The goal is to print to the edge of the page, but not over
+it.
+
+
+The sixth section specifies head offsets for printers that do not have
+the color jets aligned.  Certain printers, such as the Stylus Color
+480, have an unusual head arrangement whereby instead of all of the
+colors being aligned vertically, the nozzles are configured in
+groups.  These printers are easy to determine; if the normal head
+offset of zero for each color is used, the printing will be vertically
+out of alignment.  Most of these printers require specification of a
+negative offset for printing to the top edge of the paper; typically
+these printers do not require such an offset when printing black only.
+
+The seventh section specifies the most difficult values to tune, the
+dot sizes, printing densities, and ink values (for variable dot size
+enabled printers).  These will be described in detail below.
+
+
+The last section specifies luminosity, hue, and saturation adjustment
+vectors for the printer, and the paper definitions.  These are used to
+adjust the color in Photograph and Solid Colors output modes.  These are
+each vectors of 48 (actually 49, as the first value must be duplicated)
+doubles that remap the luminosity, hue, and saturation respectively.
+The hue is calculated, and the value used to interpolate between the two
+closest points in each vector.
+
+The paper definitions is a set of paper definitions.  The paper
+definition contains the name of the paper type, special settings that
+are required for printers to process the paper correctly, and a set of
+adjustment values.  These are not currently discussed here.
+
+
+The lists of dot sizes and densities contain values for 13 printing
+modes: 120/180 DPI using printer weaving (single row; incorrectly
+referred to as ``microweave'') and ``soft'' weaving (the driver
+determines the exact pattern of dot layout), 360 DPI microweave and
+softweave, 720x360 DPI microweave and softweave, 720 DPI microweave
+and softweave, 1440x720 microweave and softweave, 2880x720 microweave
+and softweave, and 2880x1440 softweave only.  Printer weaving is
+referred to as ``microweave'' for historical reasons.
+
+For the dot sizes, the value for each element in the vector selects
+the dot size to be used when printing at this (or similar)
+resolution.  The dot sizes are determined by consulting the
+programming manual for the printer and experimenting as described
+below.  Current Epson printers always use dot sizes less than
+@samp{16}, or @samp{0x10}, to indicate single dot size (each dot is
+represented by 1 bit, and it's either printed or not), and dot sizes
+of @samp{16} or greater to indicate variable dot size (each dot is
+represented by 2 bits, and it can either be not printed or take on 2
+or 3 values, representing the relative size of the printed dot).
+Variable dot sizes permit the use of very small dots (which would be
+too small to fill the page and produce solid black) in light areas,
+while allowing the page to be filled with larger dots in darker areas.
+
+Even single dot size printers can usually produce dots of different
+sizes; it's just illegal to actually try to switch dot size during a
+page.  These dots are also much bigger than those used in true
+variable dot size printing.
+
+A dot size of @samp{-1} indicates that this resolution is illegal for
+the printer in question.  Any resolutions that would use this dot size
+will not be presented to the user.  A dot size of @samp{-2} indicates
+that this resolution is legal, but that the driver is not to attempt
+to set any dot size.  Some very old printers do not support the
+command to set the dot size.
+
+Most printers support a dot size of @samp{0} as a mode-specific default,
+but it's often a bigger dot than necessary.  Printers usually also
+support some dot sizes between @samp{1} and @samp{3}.  Usually @samp{1}
+is the right dot size for 720 and 1440 dpi printing, and @samp{3} works
+best at 360 dpi.
+
+Variable dot size printers usually support 2 or 3 sets of variable dot
+sizes.  Older printers based on a 6 picolitre drop (the 480, 720, 740,
+750, 900, and 1200) support two: mode 16 (0x10 in hexadecimal) for
+normal variable dots at 1440 or 720 dpi, and mode 17 (0x10) for
+special larger dots at 360 dpi.  Newer printers based on 4 picolitre
+drops normally support three sizes: @samp{0x10} for 4 pl base drops,
+@samp{0x11} for 6 pl base drops, and @samp{0x12} for special large
+drops.  On these printers, @samp{0x10} usually works best at 1440x720
+and @samp{0x11} works best at 720x720.  Unfortunately, @samp{0x10}
+doesn't seem to generate quite enough density at 720x720, because if
+it did the output would be very smooth.  Perhaps it's possible to
+tweak things@enddots{}
+
+
+The list of densities is a list of base density values for all of the
+above listed modes.  ``Density'' refers to the amount of ink deposited
+when a solid color (or solid black) is printed.  So if the density is
+@samp{.5}, solid black actually prints only half the possible dots.
+``Base density'' refers to the fact that the density value can be
+scaled in the GUI or on the Ghostscript command line.  The density
+value specified (which is not made visible to the user) is multiplied
+by the base density to obtain the effective density value.  All other
+things (such as ink drop size) remaining the same, doubling the
+resolution requires halving the base density.  The base density in the
+density vector may exceed @samp{1}, as many paper types require lower
+density than the base driver.  The driver ensures that the actual
+density never exceeds 1.
+
+Tuning the density should be done on high quality paper (usually
+glossy photo paper).  The goal is to find the lowest density value
+that results in solid black (no visible gaps under a fairly high power
+magnifying glass or loupe).  If an appropriate density value is found
+for 720 DPI, it could be divided by 2 for 1440x720, by 4 for 2880x720,
+and by 8 for 2880x1440.
+
+However, for printers that offer a choice of dot size, this may not be
+the best strategy.  The best choice for dot size is the smallest dot
+size that allows choosing a density value not greater than 1 that
+gives full coverage.  This dot size may be different for different
+resolutions.  Tuning variable dot size printers is more complicated;
+the process is described below.
+
+The last member is a pointer to a structure containing a list of ink
+values for variable dot size (or 6 color) inks.  We model variable dot
+size inks as producing a certain "value" of ink for each available dot
+size, where the largest dot size has a value of 1.  6-color inks are
+handled similarly; the light cyan and light magenta inks are treated
+as a fractional ink value.  The combination of variable dot size and 6
+color inks, of course, just creates that many more different ink
+choices.
+
+This structure is actually rather complicated; it contains entries for
+each combination of physical printer resolution (180, 360, 720, and
+1440 dpi), ink colors (4, 6, and 7), and single and variable dot sizes
+(since some printer modes can't handle variable dot size inks).  Since
+there's so much data, it's actually a somewhat deeply nested
+structure:
+
+An @code{escp2_printer_t} contains a pointer (essentially, a reference
+rather than a copy) to an @code{escp2_variable_inklist_t}.
+
+An @code{escp2_variable_inklist_t} contains pointers to
+@code{escp2_variable_inkset_t} structures.  There is one such pointer
+for each combination of resolution, dot type, and ink colors as
+described above.  Yes, this is rather inflexible.
+
+An @code{escp2_variable_inkset_t} contains pointers to
+@code{escp2_variable_ink_t} structures.  There is one such pointer for
+each of the four colors (C, M, Y, and K).
+
+An @code{escp2_variable_ink_t} contains a pointer to the actual list of
+ink values (@code{simple_dither_range_t}), the number of ink values, and
+a density value to be used for computing the transitions.  This density
+value is actually a scaling value; it is multiplied by the effective
+density to compute the density to be used for computing the transitions.
+Normally, this value is @samp{1}, but in some cases it may be possible
+to get smoother results with a different value (in particular, the
+single dot size 6-color inks work best with the effective density scaled
+to @samp{.75} for this purpose).  A lower density lowers the transition
+points, which results in more ink being deposited.
+
+A @code{simple_dither_range_t} is a structure containing four values:
+
+@enumerate
+@item The value of the particular ink
+@item The bit pattern used to represent the ink
+@item Whether the ink is light (0) or dark (1), for inks with light and dark variants
+@item The relative amount of ink actually deposited by this dot (not
+currently used for much; it can be used for ink reduction purposes, to
+reduce the amount of ink deposited on the paper).
+@end enumerate
+
+These things are interesting as arrays.  From an array of
+@code{simple_dither_range_t}'s, the dither code computes transition
+values that it looks up at run time to decide what ink to print, as well
+as whether to print at all.
+
+@strong{Really} confused now?  Yup.  You'll probably find it easier to
+simply read the code.
+
+
+@node Tuning Epson printers, Canon inkjet printers, Epson inkjet printers, New Printer
+@appendixsection Tuning the printer
+@cindex tuning the printer
+@cindex printer, tuning
+
+Now, how do you use all this to tune a printer?  There are a number of
+ways to do it; this one is my personal favorite.
+
+There's a file named @file{cyan-sweep.tif}.  This consists of a thin bar
+of cyan sweeping from white to almost pure cyan, and from pure cyan to
+black.  The first thing to do is to pick the appropriate
+@code{simple_dither_range_t} (or create a whole new
+@code{escp2_variable_inklist_t}) and comment out all but the darkest ink
+(this means you'll be using the largest dots of dark ink).  At 8.5"
+width (the width of a letter-size piece of paper), the bar will be 1/8"
+high.  Printing it on wider or narrower paper will change the height
+accordingly.  Print it width-wise across a piece of photo quality paper
+in line art mode using ordered or adaptive hybrid dither.  Do not use
+photographic mode; the colors in photographic mode vary non-linearly
+depending upon the presence of the three color components, while in line
+art mode the colors are much purer.  Make sure that all the color
+adjustments are set to defaults (1.0).  Use the highest quality version
+of the print mode you're testing to reduce banding and other artifacts.
+This is much easier to do with the Gimp than with Ghostscript.
+
+At this stage, you want to look for four things:
+
+@enumerate
+@item
+The black near the center of the line is solid, but not more so than
+that.
+
+@item
+The cyan immediately to the left of the black is @emph{almost} solid.
+
+@item
+The dark cyan at the far right of the page is solid, but not more so.
+You can try tuning the density so that it isn't quite solid, then
+nudging up the density until it is.
+
+@item
+Both sweeps sweep smoothly from light to dark.  In particular, the dark
+half of the bar shouldn't visibly change color; it should go smoothly
+from cyan to black.
+@end enumerate
+
+Repeat this stage until you have everything just right.  Use the
+positioning entry boxes in the dialog to position each bar exactly
+1/8" further down the page.  Adjacent bars will be touching.
+
+The next step is to uncomment out the second darkest dot size.  If
+you're using variable dots, use the second largest dot size of the
+dark ink rather than the largest dot size of the light ink.  This will
+give you two inks.
+
+When you recompile the plugin, you simply need to copy the new
+executable into the correct place.  You do not need to exit and
+restart the Gimp.
+
+Print another bar adjacent to the first one.  Your goal is to match
+the bar using a single dot size as closely as possible.  You'll find
+that the dark region of the bar shouldn't change to any great degree,
+but the light half probably will.  If the lighter part of the light
+half is too dark, you need to increase the value of the smaller dot;
+if it's too light, you need to decrease the value.  The reasoning is
+that if the value is too low, the ink isn't being given enough credit
+for its contribution to the darkness of the ink, and vice versa.
+Repeat until you have a good match.  Make sure you let the ink dry
+fully, which will take a few minutes.  Wet ink will look too dark.
+Don't look at the paper too closely; hold it at a distance.  The extra
+graininess of the largest dot size will probably make it look lighter
+than it should; if you hold it far enough away so that you can't see
+the dots, you'll get a more accurate picture of what's going on.
+
+After you have what looks like a good match, print another bar using
+only the largest dot size (or dark ink, for single dot size 6-color
+printers).  You want to ensure that the bars touching each other look
+identical, or as close as possible to it; your eye won't give you a
+good reading if the bars are separated from each other.  You'll
+probably have to repeat the procedure.
+
+The next step is to comment out all but the largest and third-largest
+dot size, and repeat the procedure.  When they match, use all three
+dot sizes of dark ink.  Again, the goal is to match the single dot
+size.
+
+You'll probably find the match is imperfect.  Now you have to figure
+out what region isn't right, which takes some experimentation.  Even
+small adjustments can make a noticeable difference in what you see.
+At this stage, it's very important to hold the page far enough from
+your eye; when you use all three dot sizes, the texture will be much
+more even, which sometimes makes it look darker and sometimes lighter.
+
+After this is calibrated, it's time to calibrate the light ink against
+the dark ink.  To do this, comment out all but the large dot version
+of the two inks, and repeat the procedure.  This is trickier, because
+the hues of the inks might not be quite identical.  Look at the dark
+half of the bar as well as the light half to see that the hue really
+doesn't change as you sweep from cyan to black.  Sometimes it's easier
+to judge that way.  You may find that it looks blotchy, in which case
+you should switch from ordered dither to adaptive hybrid.
+
+After you have the light and dark inks calibrated against each other,
+it's time to add everything back in.  Usually you don't want to use
+the largest dot size of light ink.  These dots will be much larger
+than the small dots of dark ink, but they'll still be lighter.  This
+will cause problems when printing mixed colors, since you'll be
+depositing more ink on lighter regions of the page, and you'll
+probably get strange color casts that you can't get rid of in neutral
+tones.  I normally use only the smallest one or two dot sizes of light
+ink.
+
+After you've tweaked everything, print the color bar with saturation
+set to zero.  This will print neutral tones using color inks.  Your
+goal here is to look for neutral tonality.  If you're using a 6-color
+printer and get a yellow cast, it means that the values for your light
+inks are too high (remember, that means they're getting too much
+credit, so you're not depositing enough cyan and magenta ink, and the
+yellow dominates).  If you get a bluish or bluish-purple cast, your
+light inks are too low (you're not giving them enough credit, so too
+much cyan and magenta is deposited, which overwhelms the yellow).
+Make sure you do this on very white, very high grade inkjet paper
+that's designed for 1440x720 dpi or higher; otherwise the ink will
+spread on contact and you'll get values that aren't really true for
+high grade paper.  You can, of course, calibrate for low grade paper
+if that's what you're going to use, but that shouldn't be put into the
+distribution.
+
+You can also fully desaturate this bar inside the Gimp and print it as
+monochrome (don't print the cyan as monochrome; the driver does funny
+things with luminance), for comparison.  You'll find it very hard to
+get rid of all color casts.
+
+There are other ways of tuning printers, but this one works pretty
+well for me.
+
+
+@node Canon inkjet printers, , Tuning Epson printers, New Printer
+@appendixsection Canon inkjet printers
+
+Basically, a new Canon printer can be added to @file{print-canon.c} in a
+similar way as described above for the epson inkjet printers. The main
+differences are noted here:
+
+In general, Canon printers have more ``built-in intelligence'' than Epson
+printers which results in the fact that the driver only has to tell the
+printing conditions like resolutions, dot sizes, etc. to the printer and
+afterwards transfer the raster data line by line for each color used.
+
+@code{canon_cap_t} is a C struct defined as follows:
+
+@deftypevr {Data type} {} canon_cap_t
+@example
+typedef struct canon_caps @{
+  int model;          /* model number as used in printers.xml */
+  int max_width;      /* maximum printable paper size */
+  int max_height;
+  int base_res;       /* base resolution - shall be 150 or 180 */
+  int max_xdpi;       /* maximum horizontal resolution */
+  int max_ydpi;       /* maximum vertical resolution */
+  int max_quality;
+  int border_left;    /* left margin, points */
+  int border_right;   /* right margin, points */
+  int border_top;     /* absolute top margin, points */
+  int border_bottom;  /* absolute bottom margin, points */
+  int inks;           /* installable cartridges (CANON_INK_*) */
+  int slots;          /* available paperslots */
+  int features;       /* special bjl settings */
+  canon_dot_size_t dot_sizes;	/* Vector of dot sizes for resolutions */
+  canon_densities_t densities;	/* List of densities for each printer */
+  canon_variable_inklist_t *inxs; /* Choices of inks for this printer */
+@} canon_cap_t;
+@end example
+@end deftypevr
+
+Since there are Canon printers which print in resolutions of
+@math{2^n*150} dpi (e.g. 300, 600, 1200) and others which support
+resolutions of @math{2^n*180} dpi (e.g. 360, 720, 1440), there's a base
+resolution (150 or 180, respectively) given in the
+@code{canon_cap_t}. The structs @code{canon_dot_size_t},
+@code{canon_densities_t} and @code{canon_variable_inklist_t} refer to
+resolutions being multiples of the base resolution.
+
+For the Canon driver, the struct @code{canon_dot_size_t} holds values
+for a model's capabilities at a given resolution: @samp{-1} if the
+resolution is not supported.  @samp{0} if it can be used and @samp{1} if
+the resolution can be used for variable dot size printing.
+
+In @code{canon_densities_t} the base densities for each resolution can
+be specified like for an epson printer, the same holds true for
+@code{canon_variable_inklist_t}.  See the descriptions above to learn
+about how to adjust your model's output to yield nice results.
+
+There's a slight difference though in the way the Canon driver and the escp2
+driver define their variable inklists: In the Canon driver, you need to define
+an inklist like this:
+
+@example
+static const canon_variable_inklist_t canon_ink_myinks[] =
+@{
+  @{
+    1,4, /* 1bit/pixel, 4 colors */
+    &ci_CMYK_1, &ci_CMYK_1, &ci_CMYK_1,
+    &ci_CMYK_1, &ci_CMYK_1, &ci_CMYK_1,
+  @},
+  @{
+    3,4, /* 3bit/pixel, 4 colors */
+    &ci_CMYK_3, &ci_CMYK_3, &ci_CMYK_3,
+    &ci_CMYK_3, &ci_CMYK_3, &ci_CMYK_3,
+  @},
+@};
+@end example
+
+@noindent
+where the @samp{&ci_CMYK_1} and @samp{&ci_CMYK_3} entries are references
+to a previously defined const of type @code{canon_variable_inkset_t}.
+
+
+
+
+
+
+

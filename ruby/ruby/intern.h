@@ -2,8 +2,8 @@
 
   intern.h -
 
-  $Author: jkh $
-  $Date: 2002/05/27 17:59:44 $
+  $Author: melville $
+  $Date: 2003/05/14 13:58:43 $
   created at: Thu Jun 10 14:22:17 JST 1993
 
   Copyright (C) 1993-2000 Yukihiro Matsumoto
@@ -189,10 +189,11 @@ VALUE rb_find_file _((VALUE));
 void rb_gc_mark_locations _((VALUE*, VALUE*));
 void rb_mark_tbl _((struct st_table*));
 void rb_mark_hash _((struct st_table*));
-void rb_gc_mark_maybe();
-void rb_gc_mark();
+void rb_gc_mark_maybe _((VALUE));
+void rb_gc_mark _((VALUE));
 void rb_gc_force_recycle _((VALUE));
 void rb_gc _((void));
+char *rb_source_filename _((const char *));
 void rb_gc_call_finalizer_at_exit _((void));
 /* hash.c */
 VALUE rb_hash _((VALUE));
@@ -265,6 +266,8 @@ int yyparse _((void));
 ID rb_id_attrset _((ID));
 void rb_parser_append_print _((void));
 void rb_parser_while_loop _((int, int));
+int ruby_parser_stack_on_heap _((void));
+void rb_gc_mark_parser _((void));
 int rb_is_const_id _((ID));
 int rb_is_instance_id _((ID));
 int rb_is_class_id _((ID));

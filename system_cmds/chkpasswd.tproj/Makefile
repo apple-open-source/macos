@@ -14,7 +14,7 @@ PROJECT_TYPE = Tool
 
 HFILES = stringops.h
 
-CFILES = nis_passwd.c file_passwd.c netinfo_passwd.c passwd.c\
+CFILES = ds_passwd.c nis_passwd.c file_passwd.c netinfo_passwd.c passwd.c\
          stringops.c
 
 OTHERSRCS = Makefile.preamble Makefile Makefile.postamble
@@ -26,7 +26,7 @@ MAKEFILE = tool.make
 NEXTSTEP_INSTALLDIR = /usr/libexec
 WINDOWS_INSTALLDIR = /usr/bin
 PDO_UNIX_INSTALLDIR = /usr/bin
-LIBS = 
+LIBS = /System/Library/Frameworks/DirectoryService.framework/Versions/A/DirectoryService
 DEBUG_LIBS = $(LIBS)
 PROF_LIBS = $(LIBS)
 

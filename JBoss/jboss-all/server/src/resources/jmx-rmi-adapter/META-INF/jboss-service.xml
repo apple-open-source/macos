@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<server>
+
+  <mbean code="org.jboss.jmx.adaptor.rmi.RMIAdaptorService" 
+	 name="jboss.jmx:type=Connector,name=RMI">
+
+    <!-- Bind the RMIAdaptor to JNDI name jmx/rmi/RMIAdaptor -->
+    <attribute name="JndiName">jmx/rmi/RMIAdaptor</attribute>
+    <!-- Use an anonymous listening port -->
+    <attribute name="RMIObjectPort">0</attribute>
+    <!-- Bind on every available interface -->
+    <attribute name="ServerAddress"></attribute>
+  </mbean>
+
+</server>

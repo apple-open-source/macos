@@ -39,10 +39,10 @@
 //ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
 
 // SCSI Architecture Model Family includes
-#include <IOKit/scsi-commands/IOSCSIProtocolServices.h>
+#include <IOKit/scsi/IOSCSIProtocolServices.h>
 
 // SCSI Parallel Family Headers
-#include <IOKit/scsi-parallel/IOSCSIParallelInterfaceController.h>
+#include <IOKit/scsi/spi/IOSCSIParallelInterfaceController.h>
 #include "SCSIParallelTask.h"
 
 

@@ -1,5 +1,4 @@
 /*
- * Copyright (c) 2003 Apple Computer, Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -22,6 +21,7 @@
  * 
  * @APPLE_LICENSE_HEADER_END@
  */
+
 #include <IOKit/IOBufferMemoryDescriptor.h>
 
 #include "AppleUSBEHCI.h"
@@ -46,4 +46,3 @@ public:
     UInt32				NumEDs(void);
     IOPhysicalAddress			GetPhysicalPtr(UInt32 index);
     EHCIQueueHeadSharedPtr		GetLogicalPtr(UInt32 index);
-};

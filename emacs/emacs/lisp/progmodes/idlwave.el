@@ -2,9 +2,9 @@
 ;; Copyright (c) 1999, 2000 Free Software Foundation
 
 ;; Author: Chris Chase <chase@att.com>
-;; Maintainer: Carsten Dominik <dominik@strw.leidenuniv.nl>
+;; Maintainer: John-David Smith <jdsmith@astro.cornell.edu>
 ;; Version: 4.7
-;; Date: $Date: 2001/10/31 17:56:58 $
+;; Date: $Date: 2002/09/10 23:34:05 $
 ;; Keywords: languages
 
 ;; This file is part of GNU Emacs.

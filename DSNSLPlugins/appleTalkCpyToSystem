@@ -1,0 +1,3 @@
+sudo rm -rf /System/Library/Frameworks/DirectoryService.framework/Resources/Plugins/AppleTalk.dsplug
+sudo cp -r ./build/AppleTalk.dsplug /System/Library/Frameworks/DirectoryService.framework/Resources/Plugins/
+

@@ -1,0 +1,172 @@
+load_generic_config "unix";
+
+set_board_info compiler "cc"
+set_board_info c++compiler "c++"
+set_board_info cflags "-no-cpp-precomp"
+set_board_info cxxflags "-no-cpp-precomp"
+
+#set_board_info debug_flags "-gused"
+set_board_info debug_flags "-gfull"
+
+set_board_info mathlib ""
+
+# 3096429 - -data-evaluate-expression stomps on unwindonsignal setting.  - This has been fixed.
+#setup_site_fail "gdb.apple/inf-call-interrupt.exp" "*" "MI evaluate bar() with unwindonsignal set" "3096429"
+#setup_site_fail "gdb.apple/inf-call-interrupt.exp" "*" "MI verify back at main after calling bar with unwindonsignal set" "3096429"
+#setup_site_fail "gdb.apple/inf-call-interrupt.exp" "*" "MI verify back at main after calling bar with data-evaluate-expression -u" "3096429"
+
+# 3094426 - gdb future-break on selector doesn't work with hand-loaded shlib
+#         - gdb doesn't pre-load libraries without a specified offset
+setup_site_fail "gdb.apple/ivars.exp" "*" "continue to obj bp: Program exited (dylib no addr specified) (dynamic prog)" "3094426"
+setup_site_fail "gdb.apple/ivars.exp" "*" "continue to obj bp: Program exited (dylib slide from 0x0) (dynamic prog)" "3094426"
+setup_site_fail "gdb.apple/ivars.exp" "*" "continue to obj bp: Program exited (dylib slide from 0x90000000) (dynamic prog)" "3094426"
+setup_site_fail "gdb.apple/ivars.exp" "*" "continue to obj bp: Program exited (dylib maybe without a slide) (dynamic prog)" "3094426"
+
+# 3067257 - backtrace incorrect when breakpoint on shlib func from main. - This is fixed in Tachyon.  But it fails again in Panther - to investigate.
+#setup_site_fail "gdb.base/annota1.exp" "powerpc-apple-darwin*" "backtrace from shlibrary" "3067257"
+
+# 3061801 - gdb doesn't deliver signals to inferior proccess
+setup_site_fail "gdb.base/annota1.exp" "*" "send SIGUSR1" "3061801"
+setup_site_fail "gdb.base/annota1.exp" "*" "signal sent" "3061801"
+setup_site_fail "gdb.base/signals.exp" "*" "signal SIGUSR1" "3061801"
+
+# 3067308 - Unable to fetch XMM registers or set float registers.
+setup_site_fail "gdb.base/call-rt-st.exp" "i386-apple-darwin*" "print print_one_double(*d1)" "3067308"
+setup_site_fail "gdb.base/return.exp" "i386-apple-darwin*" "correct value returned double test (known problem with sparc solaris)" "3067308"
+setup_site_fail "gdb.base/return2.exp" "i386-apple-darwin*" "float value returned successfully" "3067308"
+setup_site_fail "gdb.base/return2.exp" "i386-apple-darwin*" "double value returned successfully" "3067308"
+setup_site_fail "gdb.apple/po.exp" "i386-apple-darwin*" "po \[NSNumber numberWithFloat:83.2090\]" "3067308"
+
+# 3082119 - gcc emits bogus stab on i386
+setup_site_fail "gdb.c++/classes.exp" "i386-apple-darwin*" "ptype class vB" "3082119"
+setup_site_fail "gdb.c++/classes.exp" "i386-apple-darwin*" "ptype class vC" "3082119"
+setup_site_fail "gdb.c++/classes.exp" "i386-apple-darwin*" "ptype class vD" "3082119"
+setup_site_fail "gdb.c++/classes.exp" "i386-apple-darwin*" "ptype class vE" "3082119"
+
+# 3085329 - gcc doesn't emit const qualifier for struct members in stabs data
+setup_site_fail "gdb.base/constvars.exp" "*" "ptype crass" "3085329"
+
+## 3061579 - gdb should get the exectuable proc name from corefile
+setup_site_fail "gdb.base/corefile.exp" "*" "args: -core=corefile" "3061579"
+setup_site_fail "gdb.base/corefile.exp" "*" "args: execfile -core=corefile" "3061579"
+setup_site_fail "gdb.base/corefile.exp" "*" "core-file command" "3061579"
+
+# 3223691 - gdb TOT stopped supporting corefiles altogether.
+# With gcc-1425 and later this bug doesn't manifestate any more.
+#setup_site_fail "gdb.base/corefile.exp" "*" "args: -core=corefile" "3223691"
+#setup_site_fail "gdb.base/corefile.exp" "*" "args: execfile -core=corefile" "3223691"
+#setup_site_fail "gdb.base/corefile.exp" "*" "core-file command" "3223691"
+#setup_site_fail "gdb.base/corefile.exp" "*" "print coremaker_data" "3223691"
+#setup_site_fail "gdb.base/corefile.exp" "*" "print coremaker_bss" "3223691"
+#setup_site_fail "gdb.base/corefile.exp" "*" "print func2::coremaker_local" "3223691"
+#setup_site_fail "gdb.base/corefile.exp" "*" "backtrace in corefile.exp" "3223691"
+#setup_site_fail "gdb.base/corefile.exp" "*" "up in corefile.exp" "3223691"
+#setup_site_fail "gdb.base/corefile.exp" "*" "accessing original mmap data in core file" "3223691"
+#setup_site_fail "gdb.base/corefile.exp" "*" "accessing mmapped data (mapping address not found in core file)" "3223691"
+#setup_site_fail "gdb.base/corefile.exp" "*" "core" "3223691"
+
+# 3056074 - expression parser misunderstands array typedef
+setup_site_fail "gdb.base/printcmds.exp" "*" "p a1\[0\]" "3056074"
+setup_site_fail "gdb.base/printcmds.exp" "*" "p a1\[9\]" "3056074"
+setup_site_fail "gdb.base/printcmds.exp" "*" "p a2\[0\]" "3056074"
+setup_site_fail "gdb.base/printcmds.exp" "*" "p a2\[3\]" "3056074"
+
+# these fail when GDB is optimized; they're just the result of code moving in a way the test-case doesn't expect
+setup_site_fail "gdb.base/selftest.exp" "*" "next over dirsize initialization ended up at odd location" ""
+setup_site_fail "gdb.base/selftest.exp" "*" "next over symarg initialization ended up at odd location" ""
+
+# 3054660 - maint info sections CODE/DATA don't list the correct info
+setup_site_fail "gdb.base/maint.exp" "*" "maint info sections CODE" "3054660"
+setup_site_fail "gdb.base/maint.exp" "*" "maint info sections DATA" "3054660"
+
+# not yet analyzed
+setup_site_fail "gdb.base/constvars.exp" "i386-apple-darwin*" "ptype qux1" ""
+setup_site_fail "gdb.base/signals.exp" "i386-apple-darwin*" "next to 2nd alarm (1) (probably kernel bug)" ""
+setup_site_fail "gdb.base/signals.exp" "i386-apple-darwin*" "bt in signals.exp" ""
+
+# 3105493 - 'file' command should clear convenience variables
+setup_site_fail "gdb.base/default.exp" "*" "show convenience (APPLE LOCAL)" "3105493"
+setup_site_fail "gdb.base/default.exp" "*" "show convenience" "3105493"
+
+# gdb doesn't call user-defined break commands when the function was called directly from gdb
+setup_site_fail "gdb.base/break.exp" "*" "called user-defined function on breakpoint in called function" ""
+
+# 3061878 - gdb gets confused by signal and breakpoint happening simultaneously
+setup_site_fail "gdb.base/signals.exp" "*" "continue to func1 (probably kernel bug)" "3061878"
+
+# 3052470 - clear command clears too aggressively
+setup_site_fail "gdb.base/ending-run.exp" "*" "Only cleared 1 by line" "3052470"
+
+# 2844245 - expect doesn't get output from spawned command.  - This is fixed in Tachyon.
+#setup_site_fail "gdb.base/ending-run.exp" "*" "ls: core (Core dumped on quit)" "2844245"
+
+# fails in FSF version as well
+setup_site_fail "gdb.base/printcmds.exp" "*" "ptype &*\"foo\"" ""
+
+# not yet analyzed
+setup_site_fail "gdb.c++/annota2.exp" "i386-apple-darwin*" "watch triggered on a.x" ""
+
+# fails in FSF version as well.  Radar 3169193  tracks this - it's a compiler problem.
+setup_site_fail "gdb.c++/namespace.exp" "*" "print 'AAA::c'" "3169193"
+
+# not yet analyzed
+setup_site_fail "gdb.c++/templates.exp" "*" "constructor breakpoint" ""
+# constructor breakpoint fails just due to "canceled" against "cancelled" issue.
+setup_site_fail "gdb.c++/templates.exp" "*" "print Foo<volatile char *>::foo" ""
+setup_site_fail "gdb.c++/templates.exp" "*" "print Garply<Garply<char> >::garply" ""
+
+# not yet analyzed
+setup_site_fail "gdb.mi/mi1-var-block.exp" "*" "update foo2 should be out of scope" ""
+
+# not yet analyzed
+setup_site_fail "gdb.threads/pthreads.exp" "*" "continue to bkpt at common_routine in thread 2 (arg=0)" ""
+setup_site_fail "gdb.threads/pthreads.exp" "*" "continue to bkpt at common_routine in thread 2" ""
+setup_site_fail "gdb.threads/pthreads.exp" "*" "stopped before calling common_routine 15 times" ""
+
+# 3121250 - gcc should emit vector qualifiers in debug infomation
+setup_site_fail "gdb.arch/altivec-abi.exp" "powerpc-apple-darwin*" "vector value returned correctly" "3121250"
+setup_site_fail "gdb.arch/altivec-regs.exp" "powerpc-apple-darwin*" "finish returned correct value" "3121250"
+setup_site_fail "gdb.arch/altivec-abi.exp" "powerpc-apple-darwin*" "call inferior function with vectors (1)" "3121250"
+setup_site_fail "gdb.arch/altivec-abi.exp" "powerpc-apple-darwin*" "call inferior function with vectors (2)" "3121250"
+setup_site_fail "gdb.arch/altivec-abi.exp" "powerpc-apple-darwin*" "step into vec_fun" "3121250"
+
+# 3124396 - gcc generates bogus debug offsets for char locals
+setup_site_fail "gdb.base/store.exp" "powerpc-apple-darwin*" "print old char" "3124396"
+setup_site_fail "gdb.base/store.exp" "powerpc-apple-darwin*" "print add char" "3124396"
+setup_site_fail "gdb.base/store.exp" "powerpc-apple-darwin*" "print old short" "3124396"
+setup_site_fail "gdb.base/store.exp" "powerpc-apple-darwin*" "print add short" "3124396"
+setup_site_fail "gdb.base/store.exp" "powerpc-apple-darwin*" "print old up char" "3124396"
+setup_site_fail "gdb.base/store.exp" "powerpc-apple-darwin*" "print old up short" "3124396"
+
+# 3126806 - gcc generates incorrect line number information on i386
+setup_site_fail "gdb.base/store.exp" "i386-apple-darwin*" "next field 1" "3126806"
+setup_site_fail "gdb.base/store.exp" "i386-apple-darwin*" "next field 2" "3126806"
+setup_site_fail "gdb.base/store.exp" "i386-apple-darwin*" "next field 3" "3126806"
+setup_site_fail "gdb.base/store.exp" "i386-apple-darwin*" "next field 4" "3126806"
+
+# looks like a bogus test, not converted to new output for non intel
+setup_site_fail "gdb.base/float.exp" "powerpc-apple-darwin*" "info float" ""
+
+# new 'advance' command and recent changes to 'until'; will wait for them to settle out a bit
+setup_site_fail "gdb.base/until.exp" "*" "until func, not called by current frame" ""
+#3311730 - advance works as tbreak
+setup_site_fail "gdb.base/advance.exp" "powerpc-apple-darwin*" "advance function not called by current frame" "3311730"
+setup_site_fail "gdb.base/advance.exp" "powerpc-apple-darwin*" "continue to call to func3 in main" "3311730"
+setup_site_fail "gdb.base/advance.exp" "powerpc-apple-darwin*" "advance function called as param" "3311730"
+setup_site_fail "gdb.base/advance.exp" "powerpc-apple-darwin*" "advance with no argument" "3311730"
+
+
+#3310715 - wrong info on weak library
+setup_site_fail "gdb.apple/weak.exp" "powerpc-apple-darwin*" "load with missing weak lib, hope for no warnings" "3310715"
+setup_site_fail "gdb.apple/weak.exp" "powerpc-apple-darwin*" "check sharedlibrary entry for missing weak library pre-run" "3310715"
+
+#3313204  - Breakpoint doesn't invoke breakpoint commands if the function is called from gdb
+setup_site_fail "gdb.base/break.exp" "powerpc-apple-darwin*" "called user-defined function on breakpoint in called function" "3313204"
+
+#3313491 - If function consists of only one statement, gdb stops after that statement.
+setup_site_fail "gdb.base/funcargs.exp" "powerpc-apple-darwin*" "print *stp" "3313491"
+setup_site_fail "gdb.base/funcargs.exp" "powerpc-apple-darwin*" "run to call5a" "3313491"
+setup_site_fail "gdb.base/funcargs.exp" "powerpc-apple-darwin*" "print st" "3313491"
+setup_site_fail "gdb.base/funcargs.exp" "powerpc-apple-darwin*" "continue to call5b (sizeof long == sizeof int)" "3313491"
+setup_site_fail "gdb.base/funcargs.exp" "powerpc-apple-darwin*" "print un (sizeof long == sizeof int)" "3313491"
+

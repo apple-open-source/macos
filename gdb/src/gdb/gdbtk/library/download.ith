@@ -12,7 +12,7 @@
 # GNU General Public License for more details.
 
 
-class Download {
+itcl::class Download {
   inherit ManagedWin
   
   protected {
@@ -22,6 +22,7 @@ class Download {
     common num_sections
     common num_steps 100
 
+    method _ignore_on_save {} { return 1 }
     proc dont_remember_size {} { return 1}
   }
   public {

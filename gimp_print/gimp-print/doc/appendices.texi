@@ -1,0 +1,15 @@
+@node Appendices, Data Type and Variable Index, Problems, Top
+@chapter Appendices
+@cindex Appendices
+
+@menu
+* Dithering::                   Dither algorithms.
+* Weaving::                     Weaving algorithms.
+* ESC/P2::                      Epson ESC/P2 printer control language.
+* New Printer::                 Adding a new printer to libgimpprint.
+@end menu
+
+@include dither.texi
+@include weave.texi
+@include escp2.texi
+@include new-printer.texi

@@ -35,7 +35,7 @@ include $(CoreOSMakefiles)/ReleaseControl/Common.make
 # My variables
 ##
 
-CC_Debug += -Wall -Werror
+CC_Debug += -Wall
 
 Extra_CC_Flags += -no-cpp-precomp
 

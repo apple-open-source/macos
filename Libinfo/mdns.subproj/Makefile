@@ -12,14 +12,14 @@ NAME = mdns
 PROJECTVERSION = 2.8
 PROJECT_TYPE = Component
 
-HFILES = DNSServiceDiscoveryDefines.h DNSServiceDiscovery.h
+HFILES = DNSServiceDiscoveryDefines.h DNSServiceDiscovery.h dns_sd.h dnssd_ipc.h
 
-CFILES = DNSServiceDiscovery.c
+CFILES = DNSServiceDiscovery.c dnssd_clientstub.c dnssd_ipc.c
 
 OTHERSRCS = Makefile.preamble Makefile Makefile.postamble\
             DNSServiceDiscoveryReply.defs DNSServiceDiscoveryRequest.defs
 
-
+ 
 MAKEFILEDIR = $(MAKEFILEPATH)/pb_makefiles
 CODE_GEN_STYLE = DYNAMIC
 MAKEFILE = subproj.make
@@ -28,6 +28,7 @@ LIBS =
 DEBUG_LIBS = $(LIBS)
 PROF_LIBS = $(LIBS)
 
+PUBLIC_HEADERS = dns_sd.h
 
 
 

@@ -1,29 +1,35 @@
 /*
- *  SLPDAAdvertiser.cpp
- *  NSLPlugins
+ * Copyright (c) 2002 Apple Computer, Inc. All rights reserved.
  *
- *  Created by root on Fri Sep 29 2000.
- *  Copyright (c) 2000 Apple Computer. All rights reserved.
- *
+ * @APPLE_LICENSE_HEADER_START@
+ * 
+ * Copyright (c) 1999-2003 Apple Computer, Inc.  All Rights Reserved.
+ * 
+ * This file contains Original Code and/or Modifications of Original Code
+ * as defined in and that are subject to the Apple Public Source License
+ * Version 2.0 (the 'License'). You may not use this file except in
+ * compliance with the License. Please obtain a copy of the License at
+ * http://www.opensource.apple.com/apsl/ and read it before using this
+ * file.
+ * 
+ * The Original Code and all software distributed under the License are
+ * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
+ * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
+ * INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY,
+ * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
+ * Please see the License for the specific language governing rights and
+ * limitations under the License.
+ * 
+ * @APPLE_LICENSE_HEADER_END@
+ */
+ 
+/*!
+ *  @header SLPDAAdvertiser
  */
 
-/*
-	File:		SLPDAAdvertiser.cp
-
-	Contains:	A thread that will actively advertise the DA's presence
-    
-	Written by:	Kevin Arnold
-
-	Copyright:	© 2000 by Apple Computer, Inc., all rights reserved.
-
-	Change History (most recent first):
-
-
-*/
 #include <stdio.h>
 #include <string.h>
 #include <sys/un.h>
-//#include <Carbon/Carbon.h>
 
 #include "mslp_sd.h"
 #include "slp.h"
@@ -34,8 +40,8 @@
 #include "SLPDefines.h"
 
 #include "slpipc.h"
-//#include "URLUtilities.h"
 #include "SLPDAAdvertiser.h"
+#include "CNSLTimingUtils.h"
 
 static SLPDAAdvertiser* gDAAdvertiser = NULL;
 
@@ -79,11 +85,10 @@ void StopSLPDAAdvertiser( void )
     
     if ( curDAAdvertiser )
         curDAAdvertiser->SetRunForever( false );				// if it is asleep, it will go away eventually
-//        curDAAdvertiser->DeleteThread();
 }
 
 SLPDAAdvertiser::SLPDAAdvertiser( SAState* psa, Boolean isMainAdvertiser )
-	: LThread(threadOption_Default)
+	: DSLThread()
 {
 	mServerState = psa;
     mRunForever = isMainAdvertiser;
@@ -198,7 +203,7 @@ void* SLPDAAdvertiser::Run()
                 else
                     SLP_LOG( SLP_LOG_DA, "Unsolicited DA Advertisement Sent" );
                 
-                ::sleep( 3 );	// just wait a couple of seconds between advertisements
+                SmartSleep( 3*USEC_PER_SEC );	// just wait a few of seconds between advertisements
             }
         
             SLPFree(advertMessage);
@@ -212,7 +217,7 @@ void* SLPDAAdvertiser::Run()
 
 bailTillNextTime:
         
-        ::sleep ( 5 );		// we are just going to sleep and poll every 5 seconds to see if we need
+        SmartSleep ( 5*USEC_PER_SEC );		// we are just going to sleep and poll every 5 seconds to see if we need
                             // to start up again (DA state could have changed and instead of creating new
                             // threads, we'll do all our adverts here
                 

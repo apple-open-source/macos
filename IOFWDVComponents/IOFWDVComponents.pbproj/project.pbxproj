@@ -325,7 +325,7 @@
 	<key>CFBundleExecutable</key>
 	<string></string>
 	<key>CFBundleGetInfoString</key>
-	<string>IOFWDVComponents version 1.2.4, Copyright 2003 Apple Computer, Inc.</string>
+	<string>IOFWDVComponents version 1.5.3, Copyright 2003 Apple Computer, Inc.</string>
 	<key>CFBundleIconFile</key>
 	<string></string>
 	<key>CFBundleIdentifier</key>
@@ -337,11 +337,11 @@
 	<key>CFBundlePackageType</key>
 	<string>FMWK</string>
 	<key>CFBundleShortVersionString</key>
-	<string>1.2.4</string>
+	<string>1.5.3</string>
 	<key>CFBundleSignature</key>
 	<string>????</string>
 	<key>CFBundleVersion</key>
-	<string>1.2.4</string>
+	<string>1.5.3</string>
 	<key>CarbonLazyValues</key>
 	<dict>
 		<key>CodeFragmentManager</key>
@@ -385,9 +385,7 @@
 		01CE0ABBFFF92E6711CE206D = {
 			buildActionMask = 2147483647;
 			files = (
-				01CE0AC1FFF92F3E11CE206D,
-				01CE0AC2FFF92F4F11CE206D,
-				8CE01425023ECDD704CE206E,
+				8CBFAEEA045EFA3704CE206E,
 			);
 			isa = PBXFrameworksBuildPhase;
 			runOnlyForDeploymentPostprocessing = 0;
@@ -405,18 +403,6 @@
 			settings = {
 				ATTRIBUTES = (
 				);
-			};
-		};
-		01CE0AC1FFF92F3E11CE206D = {
-			fileRef = 02C3D63CFF659AF211CA29CE;
-			isa = PBXBuildFile;
-			settings = {
-			};
-		};
-		01CE0AC2FFF92F4F11CE206D = {
-			fileRef = 08EA7FFBFE8413EDC02AAC07;
-			isa = PBXBuildFile;
-			settings = {
 			};
 		};
 		01CED3830003BB8C11CE206E = {
@@ -968,11 +954,11 @@
 	<key>CFBundlePackageType</key>
 	<string>thng</string>
 	<key>CFBundleShortVersionString</key>
-	<string>1.2.4</string>
+	<string>1.5.3</string>
 	<key>CFBundleSignature</key>
 	<string>appl</string>
 	<key>CFBundleVersion</key>
-	<string>1.2.4</string>
+	<string>1.5.3</string>
 	<key>CSResourcesFileMapped</key>
 	<true/>
 </dict>
@@ -1220,7 +1206,7 @@
 	<key>CFBundleExecutable</key>
 	<string>DVFamily</string>
 	<key>CFBundleGetInfoString</key>
-	<string>IOFWDVComponents version 1.2.4, Copyright 2003 Apple Computer, Inc.</string>
+	<string>IOFWDVComponents version 1.5.3, Copyright 2003 Apple Computer, Inc.</string>
 	<key>CFBundleIconFile</key>
 	<string></string>
 	<key>CFBundleIdentifier</key>
@@ -1232,11 +1218,11 @@
 	<key>CFBundlePackageType</key>
 	<string>BNDL</string>
 	<key>CFBundleShortVersionString</key>
-	<string>1.2.4</string>
+	<string>1.5.3</string>
 	<key>CFBundleSignature</key>
 	<string>????</string>
 	<key>CFBundleVersion</key>
-	<string>1.2.4</string>
+	<string>1.5.3</string>
 </dict>
 </plist>
 ";
@@ -1513,6 +1499,12 @@
 			settings = {
 			};
 		};
+		8CBFAEEA045EFA3704CE206E = {
+			fileRef = 08EA7FFBFE8413EDC02AAC07;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
 		8CD463AA010E321C04CE206D = {
 			fileEncoding = 30;
 			isa = PBXFileReference;
@@ -1568,12 +1560,6 @@
 		};
 		8CE0140C023EB34604CE206E = {
 			fileRef = 08EA7FFBFE8413EDC02AAC07;
-			isa = PBXBuildFile;
-			settings = {
-			};
-		};
-		8CE01425023ECDD704CE206E = {
-			fileRef = 02C3D64FFF65A66F11CA29CE;
 			isa = PBXBuildFile;
 			settings = {
 			};

@@ -1,0 +1,6 @@
+
+<MLET CODE="test.implementation.loading.support.Target"
+      NAME=":name=Target"
+      ARCHIVE="Target.jar"
+>
+</MLET>

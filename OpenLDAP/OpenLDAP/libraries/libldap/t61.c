@@ -1,6 +1,6 @@
-/* $OpenLDAP: pkg/ldap/libraries/libldap/t61.c,v 1.2 2002/02/01 02:13:04 hyc Exp $ */
+/* $OpenLDAP: pkg/ldap/libraries/libldap/t61.c,v 1.2.2.2 2003/03/24 03:08:22 kurt Exp $ */
 /*
- * Copyright 2002 The OpenLDAP Foundation, All Rights Reserved.
+ * Copyright 2002-2003 The OpenLDAP Foundation, All Rights Reserved.
  * COPYING RESTRICTIONS APPLY, see COPYRIGHT file
  */
 
@@ -332,7 +332,7 @@ int ldap_t61s_to_utf8s( struct berval *src, struct berval *dst )
 		/* Invalid T.61 characters? */
 		if (!t61_tab[*c]) 
 			return LDAP_INVALID_SYNTAX;
-		if (*c & 0xf0 == 0xc0) {
+		if ((*c & 0xf0) == 0xc0) {
 			int j = *c & 0x0f;
 			/* If this is the end of the string, or if the base
 			 * character is just a space, treat this as a regular
@@ -368,7 +368,7 @@ int ldap_t61s_to_utf8s( struct berval *src, struct berval *dst )
 		return LDAP_NO_MEMORY;
 
 	for (i=0,c=(unsigned char *)src->bv_val; i < src->bv_len; c++,i++) {
-		if (*c & 0xf0 == 0xc0) {
+		if ((*c & 0xf0) == 0xc0) {
 			int j = *c & 0x0f;
 			/* If this is the end of the string, or if the base
 			 * character is just a space, treat this as a regular

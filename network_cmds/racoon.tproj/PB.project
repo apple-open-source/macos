@@ -50,7 +50,8 @@
             "netdb_dnssec.h", 
             "rijndael_local.h", 
             "rijndael.h", 
-            "var.h"
+            "var.h",
+            "isakmp_natd.h"
         ); 
         "OTHER_LIBS" = (crypto, ipsec, ssl); 
         "OTHER_LINKED" = (
@@ -97,7 +98,8 @@
             "str2val.c", 
             "strnames.c", 
             "vendorid.c", 
-            "vmbuf.c"
+            "vmbuf.c",
+            "isakmp_natd.c"
         ); 
         "OTHER_SOURCES" = (
             "Makefile.preamble", 
@@ -107,6 +109,7 @@
             "psk.txt", 
             "racoon.8", 
             "racoon.conf", 
+            "anonymous.conf",
             "racoon.conf.5"
         ); 
     }; 

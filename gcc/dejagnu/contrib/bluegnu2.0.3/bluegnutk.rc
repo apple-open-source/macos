@@ -1,0 +1,29 @@
+!
+! This is the resource file for MAIA Tk
+!
+
+*background: 		#d9d9d9
+*foreground: 		black
+*activeBackground: 	#ececec
+*run.activeBackground: 	red
+*activeForeground: 	blue
+*run.activeForeground: 	yellow
+*selectColor: 		#b03060
+*selectBackground: 	#c3c3c3
+*troughColor: 		#c3c3c3
+*disabledForeground: 	#a3a3a3
+
+*expect.menu.choices: /home/jann/tools/MAIA/bin/botester \
+	/home/jann/tools/MAIA/bin/ibotester \
+	/home/jann/tools/MAIA/bin/pqltester \
+	/home/jann/tools/MAIA/bin/cpqltester \
+	/home/jann/tools/MAIA/bin/tester \
+	/home/jann/tools/bin/iexpect
+
+*target.menu.choices: BusObj BusObj=Atlas BusObj=Corba \
+	BusObj=TTX/Atlas TTX=Atlas \
+	BusObj=ICR/Atlas ICR=Corba ICR=Atlas \
+	BusObj=PQL/Atlas BusObj=PQL/Corba PQL=Corba PQL=Atlas
+
+*view.menu.choices: testB_spr1 testB_spr2
+*xipc.menu.choices: atsqa1 atsqa2 atsqa3 atsqa4 atsqa5 atsqa6

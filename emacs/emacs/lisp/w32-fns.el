@@ -296,8 +296,9 @@ CODING-SYSTEM, use \\[list-coding-systems]."
             default))))
   (check-coding-system coding-system)
   (setq w32-system-coding-system coding-system))
-;; Set system coding system initially to iso-latin-1
-(set-w32-system-coding-system 'iso-latin-1)
+;; Set system coding system initially from locale-coding-system.
+;; In future, when defvaralias is available, this will become an alias.
+(set-w32-system-coding-system locale-coding-system)
 
 ;;; Set to a system sound if you want a fancy bell.
 (set-message-beep nil)
@@ -402,9 +403,11 @@ bit output with no translation."
       (w32-add-charset-info "mac" 'w32-charset-mac nil)))
 (if (boundp 'w32-unicode-charset-defined)
     (progn
-      (w32-add-charset-info "iso10646" 'w32-charset-unicode t)
-      (w32-add-charset-info "unicode" 'w32-charset-unicode t)))
-
+      (w32-add-charset-info "iso10646-1" 'w32-charset-unicode t)
+      (w32-add-charset-info "unicode" 'w32-charset-unicode t))
+  ;; Most Windows fonts cover a large part of the Unicode range,
+  ;; so use ansi fonts if unicode is not an option.
+  (w32-add-charset-info "iso10646-1" 'w32-charset-ansi t))
 
 (make-obsolete-variable 'w32-enable-italics
                         'w32-enable-synthesized-fonts "21.1")

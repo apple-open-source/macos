@@ -57,8 +57,7 @@ struct bootstrap {
 /* Service types */
 typedef enum {
 	DECLARED,	/* Declared in config file */
-	REGISTERED,	/* Registered dynamically */
-	SELF		/* Name bound bootstrap service itself */
+	REGISTERED	/* Registered dynamically */
 } servicetype_t;
 
 struct service {

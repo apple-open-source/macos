@@ -1,9 +1,9 @@
 /*
- * "$Id: lpinfo.c,v 1.1.1.2 2002/02/10 04:51:45 jlovell Exp $"
+ * "$Id: lpinfo.c,v 1.1.1.7 2003/02/10 21:59:10 jlovell Exp $"
  *
  *   "lpinfo" command for the Common UNIX Printing System (CUPS).
  *
- *   Copyright 1997-2002 by Easy Software Products.
+ *   Copyright 1997-2003 by Easy Software Products.
  *
  *   These coded instructions, statements, and computer programs are the
  *   property of Easy Software Products and are protected by Federal
@@ -60,27 +60,25 @@ main(int  argc,			/* I - Number of command-line arguments */
   int		i;		/* Looping var */
   http_t	*http;		/* Connection to server */
   int		long_status;	/* Long listing? */
-  http_encryption_t encryption;	/* Encryption? */
 
 
   http        = NULL;
   long_status = 0;
-  encryption  = cupsEncryption();
 
   for (i = 1; i < argc; i ++)
     if (argv[i][0] == '-')
       switch (argv[i][1])
       {
         case 'E' : /* Encrypt */
-#ifdef HAVE_LIBSSL
-	    encryption = HTTP_ENCRYPT_REQUIRED;
+#ifdef HAVE_SSL
+	    cupsSetEncryption(HTTP_ENCRYPT_REQUIRED);
 
 	    if (http)
-	      httpEncryption(http, encryption);
+	      httpEncryption(http, HTTP_ENCRYPT_REQUIRED);
 #else
             fprintf(stderr, "%s: Sorry, no encryption support compiled in!\n",
 	            argv[0]);
-#endif /* HAVE_LIBSSL */
+#endif /* HAVE_SSL */
 	    break;
 
         case 'l' : /* Show long listing */
@@ -90,7 +88,8 @@ main(int  argc,			/* I - Number of command-line arguments */
         case 'm' : /* Show models */
 	    if (!http)
 	    {
-              http = httpConnectEncrypt(cupsServer(), ippPort(), encryption);
+              http = httpConnectEncrypt(cupsServer(), ippPort(),
+	                                cupsEncryption());
 
 	      if (http == NULL)
 	      {
@@ -106,7 +105,8 @@ main(int  argc,			/* I - Number of command-line arguments */
         case 'v' : /* Show available devices */
 	    if (!http)
 	    {
-              http = httpConnectEncrypt(cupsServer(), ippPort(), encryption);
+              http = httpConnectEncrypt(cupsServer(), ippPort(),
+	                                cupsEncryption());
 
 	      if (http == NULL)
 	      {
@@ -121,10 +121,13 @@ main(int  argc,			/* I - Number of command-line arguments */
 
         case 'h' : /* Connect to host */
 	    if (http)
+	    {
 	      httpClose(http);
+	      http = NULL;
+	    }
 
 	    if (argv[i][2] != '\0')
-	      http = httpConnectEncrypt(argv[i] + 2, ippPort(), encryption);
+	      cupsSetServer(argv[i] + 2);
 	    else
 	    {
 	      i ++;
@@ -135,13 +138,7 @@ main(int  argc,			/* I - Number of command-line arguments */
 		return (1);
               }
 
-	      http = httpConnectEncrypt(argv[i], ippPort(), encryption);
-	    }
-
-	    if (http == NULL)
-	    {
-	      perror("lpinfo: Unable to connect to server");
-	      return (1);
+	      cupsSetServer(argv[i]);
 	    }
 	    break;
 
@@ -453,5 +450,5 @@ show_models(http_t *http,	/* I - HTTP connection to server */
 
 
 /*
- * End of "$Id: lpinfo.c,v 1.1.1.2 2002/02/10 04:51:45 jlovell Exp $".
+ * End of "$Id: lpinfo.c,v 1.1.1.7 2003/02/10 21:59:10 jlovell Exp $".
  */

@@ -1,6 +1,6 @@
 \input texinfo  @c -*-texinfo-*-
 
-@c "@(#)$Name: emacs-51 $:$Id: eshell.texi,v 1.1.1.1 2001/10/31 18:01:11 jevans Exp $"
+@c "@(#)$Name: emacs-56 $:$Id: eshell.texi,v 1.1.1.2 2002/09/10 23:34:27 jevans Exp $"
 
 @c Documentation for Eshell: The Emacs Shell.
 @c Copyright (C) 1999, 2000  Free Software Foundation, Inc.
@@ -657,8 +657,8 @@ find this package useful!
 @cindex known bugs
 @cindex bugs, known
 
-Below is complete list of known problems with Eshell version 2.4.1,
-which is the version included with Emacs 21.1.
+Below is complete list of known problems with Eshell version 2.4.2,
+which is the version included with Emacs 21.2.
 
 @table @asis
 @item Differentiate between aliases and functions

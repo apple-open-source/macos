@@ -31,7 +31,7 @@
 
 
 /*
- * $Id: machine.h,v 1.5 2001/06/06 17:40:08 abe Exp $
+ * $Id: machine.h,v 1.7 2002/12/03 18:23:08 abe Exp $
  */
 
 
@@ -371,6 +371,15 @@
 
 
 /*
+ * If HASSECURITY is defined, define HASNOSOCKSECURITY to allow users
+ * restricted by HASSECURITY to list any open socket files, provide their
+ * listing is selected by the "-i" option.
+ */
+
+/* #define	HASNOSOCKSECURITY	1	*/
+
+
+/*
  * HASSETLOCALE is defined for those dialects that have <locale.h> and
  * setlocale().
  */
@@ -475,7 +484,7 @@
 #define	USE_LIB_FIND_CH_INO			1	/* fino.c */
 #define	USE_LIB_IS_FILE_NAMED			1	/* isfn.c */
 #define	USE_LIB_LKUPDEV				1	/* lkud.c */
-#define	USE_LIB_PRINTCHDEVNAME			1	/* pdvn.c */
+#define	USE_LIB_PRINTDEVNAME			1	/* pdvn.c */
 #define	USE_LIB_PROCESS_FILE			1	/* prfp.c */
 #define	USE_LIB_PRINT_TCPTPI			1	/* ptti.c */
 /* #define	USE_LIB_READDEV			1	   rdev.c */

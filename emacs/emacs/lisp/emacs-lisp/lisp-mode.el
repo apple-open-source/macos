@@ -420,17 +420,18 @@ With argument, print output into current buffer."
 	    (print-level eval-expression-print-level)
 	    (beg (point))
 	    end)
-	(prin1 value)
-	(setq end (point))
-	(when (and (bufferp standard-output)
-		   (or (not (null print-length))
-		       (not (null print-level)))
-		   (not (string= unabbreviated
-				 (buffer-substring-no-properties beg end))))
-	  (last-sexp-setup-props beg end value 
-				 unabbreviated
-				 (buffer-substring-no-properties beg end))
-	  )))))
+	(prog1
+	    (prin1 value)
+	  (setq end (point))
+	  (when (and (bufferp standard-output)
+		     (or (not (null print-length))
+			 (not (null print-level)))
+		     (not (string= unabbreviated
+				   (buffer-substring-no-properties beg end))))
+	    (last-sexp-setup-props beg end value 
+				   unabbreviated
+				   (buffer-substring-no-properties beg end))
+	    ))))))
 
 
 (defun eval-last-sexp (eval-last-sexp-arg-internal)
@@ -452,7 +453,9 @@ Interactively, with prefix argument, print output into current buffer."
 Likewise for other constructs as necessary."
   ;; The code in edebug-defun should be consistent with this, but not
   ;; the same, since this gets a macroexpended form.
-  (cond ((and (eq (car form) 'defvar)
+  (cond ((not (listp form))
+	 form)
+	((and (eq (car form) 'defvar)
 	      (cdr-safe (cdr-safe form)))
 	 ;; Force variable to be bound.
 	 (cons 'defconst (cdr form)))
@@ -512,10 +515,11 @@ Return the result of evaluation."
 (defun eval-defun (edebug-it)
   "Evaluate the top-level form containing point, or after point.
 
-If the current defun is actually a call to `defvar', then reset the
-variable using its initial value expression even if the variable
-already has some other value.  (Normally `defvar' does not change the
-variable's value if it already has a value.)
+If the current defun is actually a call to `defvar' or `defcustom',
+evaluating it this way resets the variable using its initial value
+expression even if the variable already has some other value.
+\(Normally `defvar' and `defcustom' do not alter the value if there
+already is one.)
 
 With a prefix argument, instrument the code for Edebug.
 

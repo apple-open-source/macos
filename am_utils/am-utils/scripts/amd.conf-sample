@@ -20,6 +20,7 @@ cache_duration =		300
 local_domain =			cs.columbia.edu
 # (amd -k)
 karch =				sun4m
+# (amd -A)
 arch =				sun4
 # if you don't like autoconf picking up "sunos5" as the os-type, override it
 # (amd -O)

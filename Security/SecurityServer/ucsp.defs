@@ -17,6 +17,9 @@ import "ucsp_types.h";
 //
 type Data = array [] of char;
 
+type Pointer = unsigned32;
+type BasePointer = unsigned32;
+
 type KeyHandle = unsigned32;
 type KeyBlob = Data
 	ctype: Pointer;
@@ -27,56 +30,63 @@ type DbBlob = Data
 
 type AclEntryPrototypeBlob = Data
 	ctype: AclEntryPrototypePtr;
-type AclEntryPrototypePtr = unsigned32;
+type AclEntryPrototypePtr = BasePointer;
 
 type AclEntryInfoBlob = Data
 	ctype: AclEntryInfoPtr;
-type AclEntryInfoPtr = unsigned32;
+type AclEntryInfoPtr = BasePointer;
 
 type AclEntryInputBlob = Data
 	ctype: AclEntryInputPtr;
-type AclEntryInputPtr = unsigned32;
+type AclEntryInputPtr = BasePointer;
 
 type AclOwnerPrototypeBlob = Data
 	ctype: AclOwnerPrototypePtr;
-type AclOwnerPrototypePtr = unsigned32;
+type AclOwnerPrototypePtr = BasePointer;
 
 type AccessCredentialsBlob = Data
 	ctype: AccessCredentialsPtr;
-type AccessCredentialsPtr = unsigned32;
+type AccessCredentialsPtr = BasePointer;
 
 type DLDbIdentBlob = Data
     ctype: DLDbIdentPtr;
-type DLDbIdentPtr = unsigned32;
+type DLDbIdentPtr = BasePointer;
+
+type ParamInputBlob = Data
+	ctype: ParamInputPtr;
+type ParamInputPtr = BasePointer;
 
 type VoidBlob = Data
     ctype: VoidPtr;
 type VoidPtr = unsigned32;
 
-type Context = struct [9] of unsigned32
+type SetupInfo = struct[4] of uint8_t
+	ctype: ClientSetupInfo;
+
+type Context = struct [9*4] of uint8_t
 	ctype: CSSM_CONTEXT
 	intran: Context inTrans(CSSM_CONTEXT);
 type ContextAttributes = array [] of char
 	cservertype: ContextAttributesPointer;
 	
-type CssmKeyHeader = struct [23] of unsigned32;
+type CssmKeyHeader = struct [23*4] of uint8_t;
 
-type CssmKey = struct [23+2] of unsigned32
+type CssmKey = struct [(23+2)*4] of uint8_t
 	ctype: CSSM_KEY
 	intran: CssmKey inTrans(CSSM_KEY)
 	outtran: CSSM_KEY outTrans(CssmKey);
     
-type CSSM_KEY_SIZE = struct [2] of unsigned32
+type CSSM_KEY_SIZE = struct [2*4] of uint32_t
     ctype: CSSM_KEY_SIZE;
 
-type DBParameters = struct [1] of unsigned32;
+type DBParameters = struct [1*4] of uint32_t;
 
 type AuthorizationItemSetBlob = Data
 	ctype: AuthorizationItemSetPtr;
-type AuthorizationItemSetPtr = unsigned32;
+type AuthorizationItemSetPtr = BasePointer;
 
-type AuthorizationBlob = struct [2] of unsigned32;				// 8 opaque bytes
-type AuthorizationExternalForm = struct [8] of unsigned32;		// 32 opaque bytes
+type AuthorizationBlob = struct [8] of uint8_t;					// 8 opaque bytes
+type AuthorizationExternalForm = struct [32] of uint8_t;		// 32 opaque bytes
 
 type CssmString = c_string[*:64+4];
 type AuthorizationString = c_string[*:1024];
@@ -90,8 +100,6 @@ type SecuritySessionId = unsigned32;
 type SessionAttributeBits = unsigned32;
 type SessionCreationFlags = unsigned32;
 
-type Pointer = unsigned32;
-
 type ExecutablePath = c_string[*:2048];
 
 
@@ -102,7 +110,7 @@ type ExecutablePath = c_string[*:2048];
 					replyport rport: mach_port_make_send_t; \
                     serversectoken sourceSecurity: security_token_t; \
 					out rcode: CSSM_RETURN
-#define IN_CONTEXT	in context: Context; in contextBase: Pointer; in attrs: ContextAttributes
+#define IN_CONTEXT	in context: Context; in contextBase: BasePointer; in attrs: ContextAttributes
 #define IN_BLOB(name,type)	in name: type##Blob; in name##Base: type##Ptr
 #define OUT_BLOB(name,type)	out name: type##Blob; out name##Base: type##Ptr
 
@@ -110,9 +118,10 @@ type ExecutablePath = c_string[*:2048];
 //
 // Management and administrative functions
 //
-routine setup(UCSP_PORTS; in tport: mach_port_t; in executablePath: ExecutablePath);
-routine setupNew(UCSP_PORTS; in tport: mach_port_t; in executablePath: ExecutablePath;
+routine setup(UCSP_PORTS; in tport: mach_port_t; in info: SetupInfo; in executablePath: ExecutablePath);
+routine setupNew(UCSP_PORTS; in tport: mach_port_t; in info: SetupInfo; in executablePath: ExecutablePath;
 	out newServicePort: mach_port_make_send_t);
+routine setupThread(UCSP_PORTS; in tport: mach_port_t);
 routine teardown(UCSP_PORTS);
 
 
@@ -132,6 +141,7 @@ routine getDbParameters(UCSP_PORTS; in db: DbHandle; out params: DBParameters);
 routine changePassphrase(UCSP_PORTS; in db: DbHandle; 
 	IN_BLOB(accessCredentials,AccessCredentials));
 routine lockDb(UCSP_PORTS; in db: DbHandle);
+routine lockAll(UCSP_PORTS; in forSleep: boolean_t);
 routine unlockDb(UCSP_PORTS; in db: DbHandle);
 routine unlockDbWithPassphrase(UCSP_PORTS; in db: DbHandle; in passPhrase: Data);
 routine isLocked(UCSP_PORTS; in db: DbHandle; out locked: boolean_t);
@@ -149,6 +159,8 @@ routine releaseKey(UCSP_PORTS; in key: KeyHandle);
 routine queryKeySizeInBits(UCSP_PORTS; in key: KeyHandle; out length: CSSM_KEY_SIZE);
 routine getOutputSize(UCSP_PORTS; IN_CONTEXT; in key: KeyHandle;
     in inputSize: uint32; in encrypt: boolean_t; out outputSize: uint32);
+
+routine getKeyDigest(UCSP_PORTS; in key: KeyHandle; out digest: Data);
 
 //
 // Random numbers
@@ -181,7 +193,7 @@ routine generateKeyPair(UCSP_PORTS; in db: DbHandle; IN_CONTEXT;
     out privKey: KeyHandle; out privHeader: CssmKeyHeader);
 routine deriveKey(UCSP_PORTS; in db: DbHandle; IN_CONTEXT; in baseKey: KeyHandle;
 	IN_BLOB(accessCredentials,AccessCredentials); IN_BLOB(aclEntryPrototype,AclEntryPrototype);
-    IN_BLOB(paramInput,Void); out paramOutput: Data;
+    IN_BLOB(paramInput,ParamInput); out paramOutput: Data;
 	in keyUsage: uint32; in keyAttrs: uint32; out key: KeyHandle; out header: CssmKeyHeader);
 
 routine wrapKey(UCSP_PORTS; IN_CONTEXT; in key: KeyHandle;
@@ -252,3 +264,30 @@ routine setupSession(UCSP_PORTS; in flags: SessionCreationFlags; in attrs: Sessi
 routine requestNotification(UCSP_PORTS; in receiver: mach_port_t; in domain: uint32; in events: uint32);
 routine stopNotification(UCSP_PORTS; in receiver: mach_port_t);
 routine postNotification(UCSP_PORTS; in domain: uint32; in event: uint32; in data: Data);
+
+
+//
+// Database key management
+//
+routine extractMasterKey(UCSP_PORTS; in db: DbHandle; IN_CONTEXT; in sourceDb: DbHandle;
+	IN_BLOB(accessCredentials,AccessCredentials); IN_BLOB(aclEntryPrototype,AclEntryPrototype);
+	in keyUsage: uint32; in keyAttrs: uint32; out key: KeyHandle; out header: CssmKeyHeader);
+
+routine getDbIndex(UCSP_PORTS; in db: DbHandle; out index: Data);
+
+//
+// AuthorizationDB operations
+//
+routine authorizationdbGet(UCSP_PORTS; in rightname: AuthorizationString; out rightdefinition: Data);
+routine authorizationdbSet(UCSP_PORTS; in authorization: AuthorizationBlob; in rightname: AuthorizationString; in rightDefinition: Data);
+routine authorizationdbRemove(UCSP_PORTS; in authorization: AuthorizationBlob; in rightname: AuthorizationString);
+
+
+//
+// Miscellaneous administrative calls
+//
+routine addCodeEquivalence(UCSP_PORTS; in oldCode: Data; in newCode: Data; in name: ExecutablePath;
+	in forSystem: boolean_t);
+routine removeCodeEquivalence(UCSP_PORTS; in code: Data; in name: ExecutablePath;
+	in forSystem: boolean_t);
+routine setAlternateSystemRoot(UCSP_PORTS; in path: ExecutablePath);

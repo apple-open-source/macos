@@ -16,13 +16,24 @@ build_symlinks || test_fail "failed to build symlinks"
 
 # Copy recursively, but without -l or -L or -a, and all the symlinks
 # should be missing.
-"$rsync_bin" -r "$fromdir/" "$todir" || test_fail "rsync returned $?"
+$RSYNC -r "$fromdir/" "$todir" || test_fail "$RSYNC returned $?"
 
 [ -f "${todir}/referent" ] || test_fail "referent was not copied"
 [ -d "${todir}/from" ] && test_fail "extra level of directories"
-[ -L "${todir}/dangling" ] && test_fail "dangling symlink was copied"
-[ -L "${todir}/relative" ] && test_fail "relative symlink was copied" 
-[ -L "${todir}/absolute" ] && test_fail "absolute symlink was copied"
+if is_a_link "${todir}/dangling" 
+then 
+    test_fail "dangling symlink was copied"
+fi
+
+if is_a_link "${todir}/relative" 
+then
+    test_fail "relative symlink was copied" 
+fi
+
+if is_a_link "${todir}/absolute" 
+then
+    test_fail "absolute symlink was copied"
+fi
 
 exit 0
 # last [] may have failed but if we get here then we've one

@@ -27,4 +27,3 @@
 #include "SYS.h"
 
 SYSCALL(searchfs, 0)
-	blr

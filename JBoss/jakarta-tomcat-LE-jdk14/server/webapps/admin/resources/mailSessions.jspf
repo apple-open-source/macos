@@ -1,0 +1,50 @@
+<%-- MailSessions List --%>
+
+<table class="back-table" border="0" cellspacing="0" cellpadding="1"
+       width="100%"><tr><td> 
+
+  <table class="front-table" border="1"
+   cellspacing="0" cellpadding="0" width="100%">
+    <tr class="header-row">
+      <logic:present name="checkboxes">
+        <td width="5%"><div align="left" class="table-header-text">
+          &nbsp;
+        </td>
+      </logic:present>
+      <td width="20%"><div align="left" class="table-header-text">
+        <bean:message key="resources.mailsession.name"/>
+      </div></td>
+      <td><div align="left" class="table-header-text">
+        <bean:message key="resources.mailsession.mailhost"/>
+      </div></td>
+    </tr>
+
+    <logic:iterate name="mailSessionsForm" property="mailSessions"
+                     id="mailSession" type="java.lang.String">
+      <tr class="line-row">
+        <logic:present name="checkboxes">
+          <td><div align="center" class="table-normal-text">
+            <label for="mailSessions"></label>
+            <input type="checkbox" name="mailSessions"
+                  value="<%= mailSession %>" styleId="mailSessions">
+          </td>
+        </logic:present>
+        <td><div align="left" class="table-normal-text">
+          <html:link page='<%= "/resources/setUpMailSession.do?objectName=" + 
+                               URLEncoder.encode(mailSession) + "&resourcetype=" +
+                               URLEncoder.encode(resourcetypeInfo) + "&path="+
+                               URLEncoder.encode(pathInfo) + "&host="+
+                               URLEncoder.encode(hostInfo) + "&service="+
+                               URLEncoder.encode(serviceInfo) %>'>
+            <controls:attribute name="mailSession" attribute="name"/>
+          </html:link>
+        </div></td>
+        <td><div align="left" class="table-normal-text">&nbsp;
+          <controls:attribute name="mailSession" attribute="mail.smtp.host"/>
+        </div></td>
+      </tr>
+    </logic:iterate>
+
+  </table>
+
+</td></tr></table>

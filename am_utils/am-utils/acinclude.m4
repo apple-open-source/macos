@@ -52,9 +52,9 @@ define(AMU_CACHE_CHECK_DYNAMIC,
 ac_tmp=`echo $2`
 if eval "test \"`echo '$''{'$ac_tmp'+set}'`\" = set"; then
   AC_MSG_CHECKING([$1])
-  echo $ECHO_N "(cached) $ECHO_C" 1>&AC_FD_MSG
+  echo $ECHO_N "(cached) $ECHO_C" 1>&AS_MESSAGE_FD([])
 dnl XXX: for older autoconf versions
-dnl  echo $ac_n "(cached) $ac_c" 1>&AC_FD_MSG
+dnl  echo $ac_n "(cached) $ac_c" 1>&AS_MESSAGE_FD([])
 else
   $3
   AC_MSG_CHECKING([$1])
@@ -116,11 +116,13 @@ ac_cv_autofs_style,
 [
 # select the correct style to mount(2) a filesystem
 case "${host_os}" in
+       solaris1* | solaris2.[[0-4]] )
+	       ac_cv_autofs_style=default ;;
        solaris2.5* )
                ac_cv_autofs_style=solaris_v1 ;;
-       # Solaris 8 uses the AutoFS V3 protocol, but it's very similar to V2,
+       # Solaris 8+ uses the AutoFS V3 protocol, but it's very similar to V2,
        # so use one style for both.
-       solaris2.6* | solaris2.7* | solaris2.8* )
+       solaris* )
                ac_cv_autofs_style=solaris_v2_v3 ;;
 #       irix* )
 #	       ac_cv_autofs_style=solaris_v1 ;;
@@ -1860,8 +1862,10 @@ case "${host_os}" in
 			ac_cv_nfs_prot_headers=aix4 ;;
 	aix4.2* )
 			ac_cv_nfs_prot_headers=aix4_2 ;;
-	aix* )
+	aix4.3* )
 			ac_cv_nfs_prot_headers=aix4_3 ;;
+	aix* )
+			ac_cv_nfs_prot_headers=aix5_1 ;;
 	osf[[1-3]]* )
 			ac_cv_nfs_prot_headers=osf2 ;;
 	osf4* )
@@ -3888,6 +3892,14 @@ AC_TRY_COMPILE_NFS(
 ], ac_cv_have_struct_nfs_args="struct irix5_nfs_args", ac_cv_have_struct_nfs_args=notfound)
 fi
 
+# look for "struct aix51_nfs_args" (specially set in conf/nfs_prot/)
+if test "$ac_cv_have_struct_nfs_args" = notfound
+then
+AC_TRY_COMPILE_NFS(
+[ struct aix51_nfs_args na;
+], ac_cv_have_struct_nfs_args="struct aix51_nfs_args", ac_cv_have_struct_nfs_args=notfound)
+fi
+
 # look for "struct aix42_nfs_args" (specially set in conf/nfs_prot/)
 if test "$ac_cv_have_struct_nfs_args" = notfound
 then
@@ -4797,9 +4809,9 @@ dnl ======================================================================
 dnl ######################################################################
 dnl Do we want to compile with "ADDON" support? (hesiod, ldap, etc.)
 AC_DEFUN(AMU_WITH_ADDON,
-AC_MSG_CHECKING([if $1 is wanted])
+[AC_MSG_CHECKING([if $1 is wanted])
 ac_upcase=`echo $1|tr 'abcdefghijklmnopqrstuvwxyz' 'ABCDEFGHIJKLMNOPQRSTUVWXYZ'`
-[AC_ARG_WITH($1,
+AC_ARG_WITH($1,
  AC_HELP_STRING([--with-$1],
 		[enable $2 support (default=yes if found)]
 ),[
@@ -4820,7 +4832,6 @@ else
   AC_MSG_RESULT([no])
 fi
 ])
-
 
 
 dnl ######################################################################

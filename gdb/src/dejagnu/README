@@ -1,0 +1,74 @@
+  DejaGnu is a framework for testing other programs. Its purpose is to
+provide a single front end for all tests.  Beyond this, DejaGnu offers
+several advantages for testing:
+
+        - The flexibility and consistency of the DejaGnu framework
+          make it easy to write tests for any program.
+
+        - DejaGnu provides a layer of abstraction which makes all
+          tests (if correctly written) portable to any host or target
+          where a program must be tested.  For instance, a test for
+          GDB can run (from any Unix based host) on any target
+          architecture supported by DejaGnu. Currently DejaGnu runs
+          tests on several single board computers, whose operating
+          software ranges from just a boot monitor to a full-fledged,
+          Unix-like realtime OS.
+
+        - DejaGnu is written in expect, which in turn uses Tcl
+          (Tool command language).  The framework comprises two parts:
+          the testing framework and the testsuites themselves. Tests
+          are usually written in expect using Tcl.
+
+  Bugs can be reported to bug-dejagnu@gnu.org.
+
+ 		      How To Configure and Build
+
+ To build DejaGnu, run the ``configure'' script here, e.g.:
+
+        ./configure MYHOSTTYPE
+
+followed by running ``make''.  (MYHOSTTYPE is a name for your host computer,
+for instance "sun4".  You can use the script ``config.sub'' to test whether
+a name is recognized; if it is, config.sub translates it to a triplet 
+specifying CPU, vendor, and OS.) This is used when you plan to
+configure and build in the source tree.
+
+  If you use a separate tree for object files, (the recommended way),
+then the --srcdir option must also be specified. This would also
+require that the configure script be run from the top level directory.
+
+	PATH/configure MYHOSTYPE
+
+where PATH is is the directory that the contains the sources.
+
+  To configure it so it gets installed somewhere other than the
+default of /usr/local, use the --prefix option.
+	
+	configure MYHOSTYPE --prefix [PATH]
+
+where PATH is the prefix used to install the programs. 
+
+  The configure testing and building will use the native compiler "cc"
+on your host machine. To change which compiler gets used (like gcc)
+set a the variable "CC" in your environment to point to it. 
+	
+	For csh users:		"setenv CC gcc"
+	For bourne shell users:	"CC=gcc;export CC"
+
+  Then when you compile, use "make CC=$CC". 
+
+See /usr/doc/dejagnu-$version/overview/book1.html or
+/usr/doc/dejagnu-$version/overview.ps for  for more details. 
+
+ As DejaGnu is a Tcl program, there is little to build. However, the
+documentation is not built by default. Use these targets:
+"make overview.html" - Generate the html formatted documentation from
+		  the SGML source.
+"make overview.ps" - Generate the Postscript formatted documentation from
+		  the SGML source.
+"make overview.pdf" - Generate the PDF formatted documentation from
+		  the SGML source.
+"make install"	- This installs DejaGnu based on the --prefix option
+		  when configuring. Otherwise it defaults to
+		  /usr/local. See the DejaGnu manual for more
+		  information on installation.

@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<!-- test META-INF/jboss-service.xml file for the anonymous depends	-->
+
+<server>
+
+  <mbean code="org.jboss.test.jmx.mbeand.TestDeployerD"
+	 name="test:name=TestDeployerD">
+    <depends-list>
+      <depends-list-element>test:name=TestDeployerA</depends-list-element>
+      <depends-list-element>test:name=TestDeployerC</depends-list-element>
+    </depends-list>
+  </mbean>
+
+</server>

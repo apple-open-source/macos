@@ -38,6 +38,10 @@ install :
 	strip -x $(DSTROOT)/usr/bin/bzcat; \
 	strip -x $(DSTROOT)/usr/bin/bzip2recover; \
 	install -d $(DSTROOT)/usr/share; \
-	mv $(DSTROOT)/usr/man $(DSTROOT)/usr/share'
+	mv $(DSTROOT)/usr/man $(DSTROOT)/usr/share; \
+	ln $(DSTROOT)/usr/share/man/man1/bzip2.1 $(DSTROOT)/usr/share/man/man1/bunzip2.1; \
+	ln $(DSTROOT)/usr/share/man/man1/bzip2.1 $(DSTROOT)/usr/share/man/man1/bzcat.1; \
+	ln $(DSTROOT)/usr/share/man/man1/bzip2.1 $(DSTROOT)/usr/share/man/man1/bzip2recover.1'
+	ranlib $(DSTROOT)/usr/lib/libbz2.a
 
 clean:

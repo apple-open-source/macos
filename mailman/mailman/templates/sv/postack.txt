@@ -1,0 +1,7 @@
+Ditt e-postbrev med ämne:
+
+    %(subject)s
+
+blev utan problem distribuerat till alla på listan %(listname)s.
+
+Listans informationssida: %(listinfo_url)s

@@ -14,7 +14,7 @@ PROJECT_TYPE = Aggregate
 
 TOOLS = chflags chmod chown compress cp dd df du install ln ls\
         mkdir mkfifo mknod mtree mv pax rm rmdir rmt shar tcopy\
-        touch file
+        touch
 
 OTHERSRCS = PROJECT Makefile.preamble Makefile Makefile.postamble
 

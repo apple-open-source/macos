@@ -56,23 +56,6 @@ _IOGetTimestamp(ns_time_t *nsp)
 	*nsp = ((ns_time_t)now.tv_sec * NSEC_PER_SEC) + now.tv_nsec;
 }
 
-/*
- * Find a physical address (if any) for the specified virtual address.
- *
- * Note: what about vm_offset_t kvtophys(vm_offset_t va) 
- */
-static IOReturn _IOPhysicalFromVirtual(
-	vm_address_t virtualAddress,
-	unsigned *physicalAddress)
-{
-	*physicalAddress = pmap_extract(kernel_pmap, virtualAddress);
-	if(*physicalAddress == 0) {
-		return kIOReturnBadArgument;
-	}
-	else {
-		return kIOReturnSuccess;
-	}
-}
 
 /****************************************************************************/
 
@@ -100,94 +83,54 @@ static u_int8_t reverseBitOrder(u_int8_t data )
 	return( val );
 }
 
-/*
- * Function: IOMallocPage
- *
- * Purpose:
- *   Returns a pointer to a page-aligned memory block of size >= PAGE_SIZE
- *
- * Return:
- *   Actual pointer and size of block returned in actual_ptr and actual_size.
- *   Use these as arguments to kfree: kfree(*actual_ptr, *actual_size);
- */
-static void *
-IOMallocPage(int request_size, void ** actual_ptr, u_int * actual_size)
-{
-    void * mem_ptr;
-    
-	*actual_size = round_page(request_size) + PAGE_SIZE;
-	mem_ptr = IOMalloc(*actual_size);
-	if (mem_ptr == NULL)
-		return NULL;
-	*actual_ptr = mem_ptr;
-	return ((void *)round_page(mem_ptr));
-}
 
-/*
- * Private functions
- */
 bool BMacEnet::_allocateMemory()
 {
-    u_int32_t			i, n;
-    unsigned char *		virtAddr;
-    u_int32_t			physBase;
-    u_int32_t	 		physAddr;
-	u_int32_t			dbdmaSize;
- 
-    /* 
-     * Calculate total space for DMA channel commands
-     */
-    dbdmaSize = round_page(
-		RX_RING_LENGTH * sizeof(enet_dma_cmd_t) + 
-		TX_RING_LENGTH * sizeof(enet_txdma_cmd_t) +
-		2 * sizeof(IODBDMADescriptor) );
+	IOReturn	ior;
 
-    /*
-     * Allocate required memory
-     */
-	dmaMemory.size = dbdmaSize;
-	dmaMemory.ptr = (void *)IOMallocPage(
-                                dmaMemory.size,
-                                &dmaMemory.ptrReal,
-                                &dmaMemory.sizeReal
-                                );
 
-	dmaCommands = (unsigned char *) dmaMemory.ptr;
-	if (dmaCommands == NULL) {
-		IOLog( "Ethernet(BMac): Cant allocate channel DBDMA commands\n\r" );
+		/* Calculate total space for DMA channel commands:	*/
+
+    dmaCommandsSize	= round_page(
+					  RX_RING_LENGTH * sizeof( enet_dma_cmd_t )
+					+ TX_RING_LENGTH * sizeof (enet_txdma_cmd_t )
+					+ 2 * sizeof( IODBDMADescriptor ) );
+
+	dmaCommands	= (UInt8*)IOMallocContiguous( dmaCommandsSize, PAGE_SIZE, 0 );
+
+	if ( dmaCommands == NULL )
+	{
+		IOLog( "BMacEnet::_allocateMemory: Cannot allocate channel DBDMA commands\n" );
 		return false;
 	}
 
-    /*
-     * If we needed more than one page, then make sure we received
-	 * contiguous memory.
-     */
-    n = (dbdmaSize - PAGE_SIZE) / PAGE_SIZE;
-    _IOPhysicalFromVirtual( (vm_address_t) dmaCommands, &physBase );
-
-    virtAddr = (unsigned char *) dmaCommands;
-    for( i=0; i < n; i++, virtAddr += PAGE_SIZE )
+	dmaCommandsDesc = IOMemoryDescriptor::withAddress(	(vm_address_t)dmaCommands,
+														dmaCommandsSize,
+														kIODirectionOutIn,
+														kernel_task );
+	dmaCommandsPhys = dmaCommandsDesc->getPhysicalAddress();
+    if ( dmaCommandsPhys == 0 )
 	{
-		_IOPhysicalFromVirtual( (vm_address_t) virtAddr, &physAddr );
-		if (physAddr != (physBase + i * PAGE_SIZE) )
-		{
-			IOLog( "Ethernet(BMac): Cannot allocate contiguous memory"
-				" for DBDMA commands\n\r" );
-			return false;
-		}
-	}           
+        IOLog( "BMacEnet::_allocateMemory - Cannot get DBDMA commands physical address.\n" );
+		return false;
+	}
+	ior = dmaCommandsDesc->prepare( kIODirectionOutIn );
 
     /* 
      * Setup the receive ring pointers
      */
-    rxDMACommands = (enet_dma_cmd_t *)dmaCommands;
-    rxMaxCommand  = RX_RING_LENGTH;
+    rxDMACommands		= (enet_dma_cmd_t *)dmaCommands;
+	rxDMACommandsPhys	= dmaCommandsPhys;
+    rxMaxCommand		= RX_RING_LENGTH;
 
     /*
      * Setup the transmit ring pointers
      */
     txDMACommands = (enet_txdma_cmd_t *)(dmaCommands +
 		RX_RING_LENGTH * sizeof(enet_dma_cmd_t) + sizeof(IODBDMADescriptor));
+	txDMACommandsPhys	= dmaCommandsPhys
+						+ RX_RING_LENGTH * sizeof( enet_dma_cmd_t )
+						+ sizeof( IODBDMADescriptor );
     txMaxCommand  = TX_RING_LENGTH;
 
     /*
@@ -250,7 +193,8 @@ bool BMacEnet::_allocateMemory()
                             0);
 
     return true;
-}
+}/* end _allocateMemory */
+
 
 /*-------------------------------------------------------------------------
  *
@@ -266,7 +210,6 @@ bool BMacEnet::_allocateMemory()
 
 bool BMacEnet::_initTxRing()
 {
-    bool		kr;
 	u_int32_t	i;
 	IODBDMADescriptor	dbdmaCmd, dbdmaCmdInt;
 
@@ -309,13 +252,6 @@ bool BMacEnet::_initTxRing()
      */
     txDMACommands[txMaxCommand].desc_seg[0] = dbdmaCmd_Branch; 
 
-    kr = _IOPhysicalFromVirtual( (vm_address_t) txDMACommands,
-		(u_int32_t *)&txDMACommandsPhys );
-	if ( kr != kIOReturnSuccess )
-	{
-		IOLog( "Ethernet(BMac): Bad DBDMA command buf - %08x\n\r", 
-			(u_int32_t)txDMACommands );
-    }
 	IOSetCCCmdDep( &txDMACommands[txMaxCommand].desc_seg[0],
 		txDMACommandsPhys );
  
@@ -344,21 +280,11 @@ bool BMacEnet::_initRxRing()
 {
     u_int32_t 		i;
     bool			status;
-    IOReturn    	kr;
     
     /*
      * Clear the receive DMA command memory
      */
     bzero((void *)rxDMACommands, sizeof(enet_dma_cmd_t) * rxMaxCommand);
-
-    kr = _IOPhysicalFromVirtual( (vm_address_t) rxDMACommands,
-		(u_int32_t *)&rxDMACommandsPhys );
-    if ( kr != kIOReturnSuccess )
-    {
-		IOLog( "Ethernet(BMac): Bad DBDMA command buf - %08x\n\r",
-			(u_int32_t)rxDMACommands );
-		return false;
-    }
 
     /*
      * Allocate a receive buffer for each entry in the Receive ring
@@ -370,7 +296,7 @@ bool BMacEnet::_initRxRing()
 			rxMbuf[i] = allocatePacket(NETWORK_BUFSIZE);
 			if (!rxMbuf[i])
 			{
-				IOLog("Ethernet(BMac): allocatePacket failed\n");
+				IOLog( "BMacEnet::_initRxRing: allocatePacket failed\n" );
 				return false;
 			}
 		}
@@ -382,8 +308,8 @@ bool BMacEnet::_initRxRing()
 		status = _updateDescriptorFromMbuf(rxMbuf[i], &rxDMACommands[i], true);
 		if (status == false)
 		{    
-			IOLog("Ethernet(BMac): cannot map mbuf to physical memory in"
-				" _initRxRing\n\r");
+			IOLog( "BMacEnet::_initRxRing: cannot map mbuf to physical memory in"
+				" _initRxRing\n" );
 			return false;
 		}
 	}
@@ -499,7 +425,7 @@ void BMacEnet::_resetChip()
                 phyMIIDelay = MII_DP83843_DELAY;
             }
 
-            kprintf("Ethernet(BMac): PHY id = %d\n", phyId);
+            kprintf( "BMacEnet::_resetChip: PHY id = %d\n", phyId );
         }
     }
 
@@ -798,7 +724,7 @@ bool BMacEnet::_transmitPacket(struct mbuf *packet)
 	if ( (i == txCommandHead) ||
 		!_updateDescriptorFromMbuf(packet, &tmpCommand, false) )
     {
-		IOLog("Ethernet(BMac): Freeing transmit packet eh?\n\r");
+		IOLog( "BMacEnet::_transmitPacket: Freeing transmit packet eh?\n" );
 		if (packet != txDebuggerPkt)
 			freePacket(packet);
 		return false;
@@ -919,18 +845,13 @@ void BMacEnet::_sendPacket(void *pkt, unsigned int pkt_len)
 	
 	if ( txCommandHead != txCommandTail )
 	{
-		IOLog( "Ethernet(BMac): Polled tranmit timeout - 1\n\r");
+		IOLog( "BMacEnet::_sendPacket: Polled tranmit timeout - 1\n" );
 		return;
     }
 
-    /*
-     * Allocate a NetBuf and copy the debugger transmit data into it.
-	 *
-	 * jliu - no allocation, just recycle the same buffer dedicated to
-	 * KDB transmit.
-     */
-	txDebuggerPkt->m_next = 0;
-	txDebuggerPkt->m_data = (caddr_t) pkt;
+		/* Recycle the same buffer dedicated to KDB transmit.	*/
+
+	bcopy( pkt, txDebuggerPkt->m_data, pkt_len );
 	txDebuggerPkt->m_pkthdr.len = txDebuggerPkt->m_len = pkt_len;
 
     /*
@@ -953,7 +874,7 @@ void BMacEnet::_sendPacket(void *pkt, unsigned int pkt_len)
 
     if ( txCommandHead != txCommandTail )
     {
-		IOLog( "Ethernet(BMac): Polled tranmit timeout - 2\n\r");
+		IOLog( "BMacEnet::_sendPacket: Polled tranmit timeout - 2\n" );
     }
 
     return;
@@ -1065,7 +986,7 @@ bool BMacEnet::_receivePackets(bool fDebugger)
 		}
 
 #if 0
-      IOLog("Ethernet(BMac): Rx NetBuf[%2d] = %08x Resid[0] = %04x Status[0] = %04x Resid[1] = %04x Status[1] = %04x\n\r",
+      IOLog( "BMacEnet::_receivePackets: Rx NetBuf[%2d] = %08x Resid[0] = %04x Status[0] = %04x Resid[1] = %04x Status[1] = %04x\n",
                 i, (int)nb_map(rxNetbuf[i]), dmaResid[0], dmaStatus[0], dmaResid[1], dmaStatus[1] );      
 #endif 
 
@@ -1156,7 +1077,7 @@ bool BMacEnet::_receivePackets(bool fDebugger)
 					freePacket(rxMbuf[i]);	// release new packet.
 					rxMbuf[i] = packet;		// get the old packet back.
 					packet = 0;				// pass up nothing.
-					IOLog("Ethernet(BMac): _updateDescriptorFromMbuf error\n");
+					IOLog( "BMacEnet::_receivePackets: _updateDescriptorFromMbuf error\n" );
 				}
 			}
 			
@@ -1218,7 +1139,8 @@ bool BMacEnet::_receivePackets(bool fDebugger)
      */
 
 #if 0
-	IOLog( "Ethernet(BMac): Prev - Rx Head = %2d Rx Tail = %2d Rx Last = %2d\n\r", rxCommandHead, rxCommandTail, last );
+	IOLog( "BMacEnet::_receivePackets: Prev - Rx Head = %2d Rx Tail = %2d Rx Last = %2d\n",
+				rxCommandHead, rxCommandTail, last );
 #endif
 
 	if ( last != lastResetValue )
@@ -1295,7 +1217,7 @@ bool BMacEnet::_receivePackets(bool fDebugger)
     if ( dmaChnlStatus & kdbdmaDead )
 	{
 		if (useNetif) netStats->inputErrors++;
-		IOLog( "Ethernet(BMac): Rx DMA Error - Status = %04x\n\r", 
+		IOLog( "BMacEnet::_receivePackets: Rx DMA Error - Status = %04x\n",
 			dmaChnlStatus );
 		_restartReceiver();
 	}
@@ -1308,7 +1230,8 @@ bool BMacEnet::_receivePackets(bool fDebugger)
     }
 
 #if 0
-    IOLog( "Ethernet(BMac): New  - Rx Head = %2d Rx Tail = %2d\n\r", rxCommandHead, rxCommandTail );
+    IOLog( "BMacEnet::_receivePackets: New  - Rx Head = %2d Rx Tail = %2d\n",
+				rxCommandHead, rxCommandTail );
 #endif
 
     return doFlushQueue;
@@ -1391,7 +1314,7 @@ bool BMacEnet::_transmitInterruptOccurred()
     if ( dmaStatus & kdbdmaDead )
     {
 		if (netifEnabled) netStats->outputErrors++;
-		IOLog( "Ethernet(BMac): Tx DMA Error - Status = %04x\n\r", dmaStatus );
+		IOLog( "BMacEnet::_transmitInterruptOccurred: Tx DMA Error - Status = %04x\n", dmaStatus );
 		_restartTransmitter();
 		fServiced = true;
     }
@@ -1479,7 +1402,7 @@ bool BMacEnet::_debugTransmitInterruptOccurred()
  
     if ( dmaStatus & kdbdmaDead )
     {
-		IOLog( "Ethernet(BMac): Tx DMA Error - Status = %04x\n\r", dmaStatus );
+		IOLog( "BMacEnet::_debugTransmitInterruptOccurred: Tx DMA Error - Status = %04x\n", dmaStatus );
 		_restartTransmitter();
 		fServiced = true;
     }
@@ -1505,7 +1428,7 @@ BMacEnet::_updateDescriptorFromMbuf(struct mbuf * m,  enet_dma_cmd_t *desc,
 	segments = mbufCursor->getPhysicalSegmentsWithCoalesce(m, segVector);
 	
 	if ((!segments) || (segments > 2)) {
-		IOLog("BMac: _updateDescriptorFromMbuf error, %d segments\n", 
+		IOLog( "BMac:_updateDescriptorFromMbuf error, %d segments\n", 
 			segments);
 		return false;
 	}
@@ -1579,217 +1502,218 @@ void BMacEnet::_dump_srom()
     {
 		reset_and_select_srom(ioBaseEnet);
 		data = read_srom(ioBaseEnet, i, sromAddressBits);
-		IOLog("Ethernet(BMac): %x = %x ", i, data);
+		IOLog( "BMacEnet::_dump_srom: %x = %x ", i, data );
 		if (i % 10 == 0) IOLog("\n");
     }
 }
 
-void BMacEnet::_dumpDesc(void * addr, u_int32_t size)
+
+void BMacEnet::_dumpDesc( void* addr, UInt32 physAddr, UInt32 size )
 {
     u_int32_t		i;
     unsigned long	*p;
-    vm_offset_t		paddr;
 
-    _IOPhysicalFromVirtual( (vm_offset_t) addr, (vm_offset_t *)&paddr );
 
-    p = (unsigned long *)addr;
+    p = (UInt32*)addr;
 
-    for ( i=0; i < size/sizeof(IODBDMADescriptor); i++, p+=4, 
-		paddr+=sizeof(IODBDMADescriptor) )
+    for ( i = 0; i < size/sizeof( IODBDMADescriptor ); i++, p+=4, physAddr+=sizeof( IODBDMADescriptor ) )
     {
-        IOLog("Ethernet(BMac): %08x(v) %08x(p):  %08x %08x %08x %08x\n\r",
+        IOLog( "BMacEnet::_dumpDesc: %08x(v) %08x(p):  %08x %08x %08x %08x\n",
               (int)p,
-              (int)paddr,
+              (int)physAddr,
               (int)OSReadSwapInt32(p, 0),   (int)OSReadSwapInt32(p, 4),
               (int)OSReadSwapInt32(p, 8),   (int)OSReadSwapInt32(p, 12) );
     }
-}
+	return;
+}/* end _dumpDesc */
+
 
 void BMacEnet::_dumpRegisters()
 {
     u_int16_t	dataValue;
 
-    IOLog("\nEthernet(BMac): IO Address = %08x", (int)ioBaseEnet );
+    IOLog( "\nBMacEnet::_dumpRegisters: IO Address = %08x", (int)ioBaseEnet );
 
     dataValue = ReadBigMacRegister(ioBaseEnet, kXIFC);
-    IOLog("\nEthernet(BMac): Read Register %04x Transceiver I/F = %04x", kXIFC, dataValue );
+    IOLog( "\nBMacEnet::_dumpRegisters: Read Register %04x Transceiver I/F = %04x", kXIFC, dataValue );
 
     dataValue = ReadBigMacRegister(ioBaseEnet, kSTAT);
-    IOLog("\nEthernet(BMac): Read Register %04x Int Events      = %04x", kSTAT, dataValue );
+    IOLog( "\nBMacEnet::_dumpRegisters: Read Register %04x Int Events      = %04x", kSTAT, dataValue );
 
     dataValue = ReadBigMacRegister(ioBaseEnet, kINTDISABLE);
-    IOLog("\nEthernet(BMac): Read Register %04x Int Disable     = %04x", kINTDISABLE, dataValue );
+    IOLog( "\nBMacEnet::_dumpRegisters: Read Register %04x Int Disable     = %04x", kINTDISABLE, dataValue );
 
     dataValue = ReadBigMacRegister(ioBaseEnet, kTXRST);
-    IOLog("\nEthernet(BMac): Read Register %04x Tx Reset        = %04x", kTXRST, dataValue );
+    IOLog( "\nBMacEnet::_dumpRegisters: Read Register %04x Tx Reset        = %04x", kTXRST, dataValue );
 
     dataValue = ReadBigMacRegister(ioBaseEnet, kTXCFG);
-    IOLog("\nEthernet(BMac): Read Register %04x Tx Config       = %04x", kTXCFG, dataValue );
-    IOLog("\nEthernet(BMac): -------------------------------------------------------" );
+    IOLog( "\nBMacEnet::_dumpRegisters: Read Register %04x Tx Config       = %04x", kTXCFG, dataValue );
+    IOLog( "\nBMacEnet::_dumpRegisters: -------------------------------------------------------" );
 
     dataValue = ReadBigMacRegister(ioBaseEnet, kIPG1);
-    IOLog("\nEthernet(BMac): Read Register %04x IPG1            = %04x", kIPG1, dataValue );
+    IOLog( "\nBMacEnet::_dumpRegisters: Read Register %04x IPG1            = %04x", kIPG1, dataValue );
 
     dataValue = ReadBigMacRegister(ioBaseEnet, kIPG2);
-    IOLog("\nEthernet(BMac): Read Register %04x IPG2            = %04x", kIPG2, dataValue );
+    IOLog( "\nBMacEnet::_dumpRegisters: Read Register %04x IPG2            = %04x", kIPG2, dataValue );
 
     dataValue = ReadBigMacRegister(ioBaseEnet, kALIMIT);
-    IOLog("\nEthernet(BMac): Read Register %04x Attempt Limit   = %04x", kALIMIT, dataValue );
+    IOLog( "\nBMacEnet::_dumpRegisters: Read Register %04x Attempt Limit   = %04x", kALIMIT, dataValue );
 
     dataValue = ReadBigMacRegister(ioBaseEnet, kSLOT);
-    IOLog("\nEthernet(BMac): Read Register %04x Slot Time       = %04x", kSLOT, dataValue );
+    IOLog( "\nBMacEnet::_dumpRegisters: Read Register %04x Slot Time       = %04x", kSLOT, dataValue );
 
     dataValue = ReadBigMacRegister(ioBaseEnet, kPALEN);
-    IOLog("\nEthernet(BMac): Read Register %04x Preamble Length = %04x", kPALEN, dataValue );
+    IOLog( "\nBMacEnet::_dumpRegisters: Read Register %04x Preamble Length = %04x", kPALEN, dataValue );
 
-    IOLog("\nEthernet(BMac): -------------------------------------------------------" );
+    IOLog( "\nBMacEnet::_dumpRegisters: -------------------------------------------------------" );
     dataValue = ReadBigMacRegister(ioBaseEnet, kPAPAT);
-    IOLog("\nEthernet(BMac): Read Register %04x Preamble Pattern         = %04x", kPAPAT, dataValue );
+    IOLog( "\nBMacEnet::_dumpRegisters: Read Register %04x Preamble Pattern         = %04x", kPAPAT, dataValue );
 
     dataValue = ReadBigMacRegister(ioBaseEnet, kTXSFD);
-    IOLog("\nEthernet(BMac): Read Register %04x Tx Start Frame Delimeter = %04x", kTXSFD, dataValue );
+    IOLog( "\nBMacEnet::_dumpRegisters: Read Register %04x Tx Start Frame Delimeter = %04x", kTXSFD, dataValue );
 
     dataValue = ReadBigMacRegister(ioBaseEnet, kJAM);
-    IOLog("\nEthernet(BMac): Read Register %04x Jam Size                 = %04x", kJAM, dataValue );
+    IOLog( "\nBMacEnet::_dumpRegisters: Read Register %04x Jam Size                 = %04x", kJAM, dataValue );
 
     dataValue = ReadBigMacRegister(ioBaseEnet, kTXMAX);
-    IOLog("\nEthernet(BMac): Read Register %04x Tx Max Size              = %04x", kTXMAX, dataValue );
+    IOLog( "\nBMacEnet::_dumpRegisters: Read Register %04x Tx Max Size              = %04x", kTXMAX, dataValue );
 
     dataValue = ReadBigMacRegister(ioBaseEnet, kTXMIN);
-    IOLog("\nEthernet(BMac): Read Register %04x Tx Min Size              = %04x", kTXMIN, dataValue );
-    IOLog("\nEthernet(BMac): -------------------------------------------------------" );
+    IOLog( "\nBMacEnet::_dumpRegisters: Read Register %04x Tx Min Size              = %04x", kTXMIN, dataValue );
+    IOLog( "\nBMacEnet::_dumpRegisters: -------------------------------------------------------" );
 
     dataValue = ReadBigMacRegister(ioBaseEnet, kPAREG);
-    IOLog("\nEthernet(BMac): Read Register %04x Peak Attempts           = %04x", kPAREG, dataValue );
+    IOLog( "\nBMacEnet::_dumpRegisters: Read Register %04x Peak Attempts           = %04x", kPAREG, dataValue );
 
     dataValue = ReadBigMacRegister(ioBaseEnet, kDCNT);
-    IOLog("\nEthernet(BMac): Read Register %04x Defer Timer             = %04x", kDCNT, dataValue );
+    IOLog( "\nBMacEnet::_dumpRegisters: Read Register %04x Defer Timer             = %04x", kDCNT, dataValue );
 
     dataValue = ReadBigMacRegister(ioBaseEnet, kNCCNT);
-    IOLog("\nEthernet(BMac): Read Register %04x Normal Collision Count  = %04x", kNCCNT, dataValue );
+    IOLog( "\nBMacEnet::_dumpRegisters: Read Register %04x Normal Collision Count  = %04x", kNCCNT, dataValue );
 
     dataValue = ReadBigMacRegister(ioBaseEnet, kNTCNT);
-    IOLog("\nEthernet(BMac): Read Register %04x Network Collision Count = %04x", kNTCNT, dataValue );
+    IOLog( "\nBMacEnet::_dumpRegisters: Read Register %04x Network Collision Count = %04x", kNTCNT, dataValue );
 
     dataValue = ReadBigMacRegister(ioBaseEnet, kEXCNT);
-    IOLog("\nEthernet(BMac): Read Register %04x Excessive Coll Count    = %04x", kEXCNT, dataValue );
-    IOLog("\nEthernet(BMac): -------------------------------------------------------" );
+    IOLog( "\nBMacEnet::_dumpRegisters: Read Register %04x Excessive Coll Count    = %04x", kEXCNT, dataValue );
+    IOLog( "\nBMacEnet::_dumpRegisters: -------------------------------------------------------" );
 
     dataValue = ReadBigMacRegister(ioBaseEnet, kLTCNT);
-    IOLog("\nEthernet(BMac): Read Register %04x Late Collision Count = %04x", kLTCNT, dataValue );
+    IOLog( "\nBMacEnet::_dumpRegisters: Read Register %04x Late Collision Count = %04x", kLTCNT, dataValue );
 
     dataValue = ReadBigMacRegister(ioBaseEnet, kRSEED);
-    IOLog("\nEthernet(BMac): Read Register %04x Random Seed          = %04x", kRSEED, dataValue );
+    IOLog( "\nBMacEnet::_dumpRegisters: Read Register %04x Random Seed          = %04x", kRSEED, dataValue );
 
     dataValue = ReadBigMacRegister(ioBaseEnet, kTXSM);
-    IOLog("\nEthernet(BMac): Read Register %04x Tx State Machine     = %04x", kTXSM, dataValue );
+    IOLog( "\nBMacEnet::_dumpRegisters: Read Register %04x Tx State Machine     = %04x", kTXSM, dataValue );
 
     dataValue = ReadBigMacRegister(ioBaseEnet, kRXRST);
-    IOLog("\nEthernet(BMac): Read Register %04x Rx Reset             = %04x", kRXRST, dataValue );
+    IOLog( "\nBMacEnet::_dumpRegisters: Read Register %04x Rx Reset             = %04x", kRXRST, dataValue );
 
     dataValue = ReadBigMacRegister(ioBaseEnet, kRXCFG);
-    IOLog("\nEthernet(BMac): Read Register %04x Rx Config            = %04x", kRXCFG, dataValue );
-    IOLog("\nEthernet(BMac): -------------------------------------------------------" );
+    IOLog( "\nBMacEnet::_dumpRegisters: Read Register %04x Rx Config            = %04x", kRXCFG, dataValue );
+    IOLog( "\nBMacEnet::_dumpRegisters: -------------------------------------------------------" );
 
     dataValue = ReadBigMacRegister(ioBaseEnet, kRXMAX);
-    IOLog("\nEthernet(BMac): Read Register %04x Rx Max Size         = %04x", kRXMAX, dataValue );
+    IOLog( "\nBMacEnet::_dumpRegisters: Read Register %04x Rx Max Size         = %04x", kRXMAX, dataValue );
 
     dataValue = ReadBigMacRegister(ioBaseEnet, kRXMIN);
-    IOLog("\nEthernet(BMac): Read Register %04x Rx Min Size         = %04x", kRXMIN, dataValue );
+    IOLog( "\nBMacEnet::_dumpRegisters: Read Register %04x Rx Min Size         = %04x", kRXMIN, dataValue );
 
     dataValue = ReadBigMacRegister(ioBaseEnet, kMADD2);
-    IOLog("\nEthernet(BMac): Read Register %04x Mac Address 2       = %04x", kMADD2, dataValue );
+    IOLog( "\nBMacEnet::_dumpRegisters: Read Register %04x Mac Address 2       = %04x", kMADD2, dataValue );
 
     dataValue = ReadBigMacRegister(ioBaseEnet, kMADD1);
-    IOLog("\nEthernet(BMac): Read Register %04x Mac Address 1       = %04x", kMADD1, dataValue );
+    IOLog( "\nBMacEnet::_dumpRegisters: Read Register %04x Mac Address 1       = %04x", kMADD1, dataValue );
 
     dataValue = ReadBigMacRegister(ioBaseEnet, kMADD0);
-    IOLog("\nEthernet(BMac): Read Register %04x Mac Address 0       = %04x", kMADD0, dataValue );
-    IOLog("\nEthernet(BMac): -------------------------------------------------------" );
+    IOLog( "\nBMacEnet::_dumpRegisters: Read Register %04x Mac Address 0       = %04x", kMADD0, dataValue );
+    IOLog( "\nBMacEnet::_dumpRegisters: -------------------------------------------------------" );
 
     dataValue = ReadBigMacRegister(ioBaseEnet, kFRCNT);
-    IOLog("\nEthernet(BMac): Read Register %04x Rx Frame Counter    = %04x", kFRCNT, dataValue );
+    IOLog( "\nBMacEnet::_dumpRegisters: Read Register %04x Rx Frame Counter    = %04x", kFRCNT, dataValue );
 
     dataValue = ReadBigMacRegister(ioBaseEnet, kLECNT);
-    IOLog("\nEthernet(BMac): Read Register %04x Rx Length Error Cnt = %04x", kLECNT, dataValue );
+    IOLog( "\nBMacEnet::_dumpRegisters: Read Register %04x Rx Length Error Cnt = %04x", kLECNT, dataValue );
 
     dataValue = ReadBigMacRegister(ioBaseEnet, kAECNT);
-    IOLog("\nEthernet(BMac): Read Register %04x Alignment Error Cnt = %04x", kAECNT, dataValue );
+    IOLog( "\nBMacEnet::_dumpRegisters: Read Register %04x Alignment Error Cnt = %04x", kAECNT, dataValue );
 
     dataValue = ReadBigMacRegister(ioBaseEnet, kFECNT);
-    IOLog("\nEthernet(BMac): Read Register %04x FCS Error Cnt       = %04x", kFECNT, dataValue );
+    IOLog( "\nBMacEnet::_dumpRegisters: Read Register %04x FCS Error Cnt       = %04x", kFECNT, dataValue );
 
     dataValue = ReadBigMacRegister(ioBaseEnet, kRXSM);
-    IOLog("\nEthernet(BMac): Read Register %04x Rx State Machine    = %04x", kRXSM, dataValue );
-    IOLog("\nEthernet(BMac): -------------------------------------------------------" );
+    IOLog( "\nBMacEnet::_dumpRegisters: Read Register %04x Rx State Machine    = %04x", kRXSM, dataValue );
+    IOLog( "\nBMacEnet::_dumpRegisters: -------------------------------------------------------" );
 
     dataValue = ReadBigMacRegister(ioBaseEnet, kRXCV);
-    IOLog("\nEthernet(BMac): Read Register %04x Rx Code Violation = %04x", kRXCV, dataValue );
+    IOLog( "\nBMacEnet::_dumpRegisters: Read Register %04x Rx Code Violation = %04x", kRXCV, dataValue );
 
     dataValue = ReadBigMacRegister(ioBaseEnet, kHASH3);
-    IOLog("\nEthernet(BMac): Read Register %04x Hash 3            = %04x", kHASH3, dataValue );
+    IOLog( "\nBMacEnet::_dumpRegisters: Read Register %04x Hash 3            = %04x", kHASH3, dataValue );
 
     dataValue = ReadBigMacRegister(ioBaseEnet, kHASH2);
-    IOLog("\nEthernet(BMac): Read Register %04x Hash 2            = %04x", kHASH2, dataValue );
+    IOLog( "\nBMacEnet::_dumpRegisters: Read Register %04x Hash 2            = %04x", kHASH2, dataValue );
 
     dataValue = ReadBigMacRegister(ioBaseEnet, kHASH1);
-    IOLog("\nEthernet(BMac): Read Register %04x Hash 1            = %04x", kHASH1, dataValue );
+    IOLog( "\nBMacEnet::_dumpRegisters: Read Register %04x Hash 1            = %04x", kHASH1, dataValue );
 
     dataValue = ReadBigMacRegister(ioBaseEnet, kHASH0);
-    IOLog("\nEthernet(BMac): Read Register %04x Hash 0            = %04x", kHASH0, dataValue );
-    IOLog("\n-------------------------------------------------------" );
+    IOLog( "\nBMacEnet::_dumpRegisters: Read Register %04x Hash 0            = %04x", kHASH0, dataValue );
+    IOLog( "\n-------------------------------------------------------" );
 
     dataValue = ReadBigMacRegister(ioBaseEnet, kAFR2);
-    IOLog("\nEthernet(BMac): Read Register %04x Address Filter 2   = %04x", kAFR2, dataValue );
+    IOLog( "\nBMacEnet::_dumpRegisters: Read Register %04x Address Filter 2   = %04x", kAFR2, dataValue );
 
     dataValue = ReadBigMacRegister(ioBaseEnet, kAFR1);
-    IOLog("\nEthernet(BMac): Read Register %04x Address Filter 1   = %04x", kAFR1, dataValue );
+    IOLog( "\nBMacEnet::_dumpRegisters: Read Register %04x Address Filter 1   = %04x", kAFR1, dataValue );
 
     dataValue = ReadBigMacRegister(ioBaseEnet, kAFR0);
-    IOLog("\nEthernet(BMac): Read Register %04x Address Filter 0   = %04x", kAFR0, dataValue );
+    IOLog( "\nBMacEnet::_dumpRegisters: Read Register %04x Address Filter 0   = %04x", kAFR0, dataValue );
 
     dataValue = ReadBigMacRegister(ioBaseEnet, kAFCR);
-    IOLog("\nEthernet(BMac): Read Register %04x Adress Filter Mask = %04x", kAFCR, dataValue );
+    IOLog( "\nBMacEnet::_dumpRegisters: Read Register %04x Adress Filter Mask = %04x", kAFCR, dataValue );
 
     dataValue = ReadBigMacRegister(ioBaseEnet, kTXFIFOCSR);
-    IOLog("\nEthernet(BMac): Read Register %04x Tx FIFO CSR        = %04x", kTXFIFOCSR, dataValue );
-    IOLog("\n-------------------------------------------------------" );
+    IOLog( "\nBMacEnet::_dumpRegisters: Read Register %04x Tx FIFO CSR        = %04x", kTXFIFOCSR, dataValue );
+    IOLog( "\n-------------------------------------------------------" );
 
     dataValue = ReadBigMacRegister(ioBaseEnet, kTXTH);
-    IOLog("\nEthernet(BMac): Read Register %04x Tx Threshold  = %04x", kTXTH, dataValue );
+    IOLog( "\nBMacEnet::_dumpRegisters: Read Register %04x Tx Threshold  = %04x", kTXTH, dataValue );
 
     dataValue = ReadBigMacRegister(ioBaseEnet, kRXFIFOCSR);
-    IOLog("\nEthernet(BMac): Read Register %04x Rx FIFO CSR   = %04x", kRXFIFOCSR, dataValue );
+    IOLog( "\nBMacEnet::_dumpRegisters: Read Register %04x Rx FIFO CSR   = %04x", kRXFIFOCSR, dataValue );
 
     dataValue = ReadBigMacRegister(ioBaseEnet, kMEMADD);
-    IOLog("\nEthernet(BMac): Read Register %04x Mem Addr      = %04x", kMEMADD, dataValue );
+    IOLog( "\nBMacEnet::_dumpRegisters: Read Register %04x Mem Addr      = %04x", kMEMADD, dataValue );
 
     dataValue = ReadBigMacRegister(ioBaseEnet, kMEMDATAHI);
-    IOLog("\nEthernet(BMac): Read Register %04x Mem Data High = %04x", kMEMDATAHI, dataValue );
+    IOLog( "\nBMacEnet::_dumpRegisters: Read Register %04x Mem Data High = %04x", kMEMDATAHI, dataValue );
 
     dataValue = ReadBigMacRegister(ioBaseEnet, kMEMDATALO);
-    IOLog("\nEthernet(BMac): Read Register %04x Mem Data Low  = %04x", kMEMDATALO, dataValue );
-    IOLog("\n-------------------------------------------------------" );
+    IOLog( "\nBMacEnet::_dumpRegisters: Read Register %04x Mem Data Low  = %04x", kMEMDATALO, dataValue );
+    IOLog( "\n-------------------------------------------------------" );
 
     dataValue = ReadBigMacRegister(ioBaseEnet, kXCVRIF);
-    IOLog("\nEthernet(BMac): Read Register %04x Transceiver IF Control = %04x", kXCVRIF, dataValue );
+    IOLog( "\nBMacEnet::_dumpRegisters: Read Register %04x Transceiver IF Control = %04x", kXCVRIF, dataValue );
 
     dataValue = ReadBigMacRegister(ioBaseEnet, kCHIPID);
-    IOLog("\nEthernet(BMac): Read Register %04x Chip ID                = %04x", kCHIPID, dataValue );
+    IOLog( "\nBMacEnet::_dumpRegisters: Read Register %04x Chip ID                = %04x", kCHIPID, dataValue );
 
     dataValue = ReadBigMacRegister(ioBaseEnet, kMIFCSR);
-    IOLog("\nEthernet(BMac): Read Register %04x MII CSR                = %04x", kMIFCSR, dataValue );
+    IOLog( "\nBMacEnet::_dumpRegisters: Read Register %04x MII CSR                = %04x", kMIFCSR, dataValue );
 
     dataValue = ReadBigMacRegister(ioBaseEnet, kSROMCSR);
-    IOLog("\nEthernet(BMac): Read Register %04x SROM CSR               = %04x", kSROMCSR, dataValue );
+    IOLog( "\nBMacEnet::_dumpRegisters: Read Register %04x SROM CSR               = %04x", kSROMCSR, dataValue );
 
     dataValue = ReadBigMacRegister(ioBaseEnet, kTXPNTR);
-    IOLog("\nEthernet(BMac): Read Register %04x Tx Pointer             = %04x", kTXPNTR, dataValue );
+    IOLog( "\nBMacEnet::_dumpRegisters: Read Register %04x Tx Pointer             = %04x", kTXPNTR, dataValue );
 
     dataValue = ReadBigMacRegister(ioBaseEnet, kRXPNTR);
-    IOLog("\nEthernet(BMac): Read Register %04x Rx Pointer             = %04x", kRXPNTR, dataValue );
-    IOLog("\nEthernet(BMac): -------------------------------------------------------\n" );
-}
+    IOLog( "\nBMacEnet::_dumpRegisters: Read Register %04x Rx Pointer             = %04x", kRXPNTR, dataValue );
+    IOLog( "\nBMacEnet::_dumpRegisters: -------------------------------------------------------\n" );
+	return;
+}/* end _dumpRegisters */
 #endif DEBUG
 
 

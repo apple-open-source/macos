@@ -1,0 +1,39 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE server>
+
+<server>
+  <mbean code="org.jboss.mq.server.jmx.Queue"
+	 name="jboss.mq.destination:service=Queue,name=myMDBQueue">
+    <depends optional-attribute-name="DestinationManager">jboss.mq:service=DestinationManager</depends>
+    <depends optional-attribute-name="SecurityManager">jboss.mq:service=SecurityManager</depends>
+    <attribute name="SecurityConf">
+      <security>
+        <role name="guest" read="true" write="true"/>
+        <role name="publisher" read="true" write="true" create="false"/>
+        <role name="noacc" read="false" write="false" create="false"/>
+      </security>
+    </attribute>
+  </mbean>
+  <mbean code="org.jboss.mq.server.jmx.Topic"
+	 name="jboss.mq.destination:service=Topic,name=myMDBTopic">
+    <depends optional-attribute-name="DestinationManager">jboss.mq:service=DestinationManager</depends>
+    <depends optional-attribute-name="SecurityManager">jboss.mq:service=SecurityManager</depends>
+    <attribute name="SecurityConf">
+      <security>
+        <role name="guest" read="true" write="true"/>
+        <role name="publisher" read="true" write="true" create="false"/>
+        <role name="durpublisher" read="true" write="true" create="true"/>
+      </security>
+    </attribute>
+  </mbean>
+  <mbean code="org.jboss.naming.NamingAlias" 
+         name="jboss.test:test=mdb,alias=anotherContext/QueueInADifferentContext">
+     <attribute name="FromName">anotherContext/QueueInADifferentContext</attribute>
+     <attribute name="ToName">queue/myMDBQueue</attribute>
+  </mbean>
+  <mbean code="org.jboss.naming.NamingAlias" 
+         name="jboss.test:test=mdb,alias=anotherContext/TopicInADifferentContext">
+     <attribute name="FromName">anotherContext/TopicInADifferentContext</attribute>
+     <attribute name="ToName">topic/myMDBTopic</attribute>
+  </mbean>
+</server>

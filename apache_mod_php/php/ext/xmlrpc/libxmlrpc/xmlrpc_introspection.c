@@ -35,12 +35,25 @@
  * AUTHOR
  *   Dan Libby, aka danda  (dan@libby.com)
  * HISTORY
+ *   $Log: xmlrpc_introspection.c,v $
+ *   Revision 1.1.1.3  2003/03/11 01:09:35  zarzycki
+ *   Import of php-4.3.1
+ *
+ *   Revision 1.3  2002/07/05 04:43:53  danda
+ *   merged in updates from SF project.  bring php repository up to date with xmlrpc-epi version 0.51
+ *
+ *   Revision 1.9  2001/09/29 21:58:05  danda
+ *   adding cvs log to history section
+ *
  *   4/10/2001 -- danda -- initial introspection support
  * TODO
  * NOTES
  *******/
 
 
+#ifdef _WIN32
+#include "xmlrpc_win32.h"
+#endif
 #include "queue.h"
 #include "xmlrpc.h"
 #include "xmlrpc_private.h"

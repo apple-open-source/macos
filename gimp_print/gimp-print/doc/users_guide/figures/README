@@ -1,0 +1,24 @@
+
+Here's how I created the screen dumps shown in the documentation
+================================================================
+
+0) Bring up the interesting window to be dumped
+
+1) Bring up the GIMP
+
+2) In the GIMP, select File...Acquire...ScreenShot
+
+3) Click on the interesting window to be dumped
+
+4) Select File...SaveAs, PNG, and the file name
+
+The encapsulated postscript files are needed for generating the
+final .ps file.  These are created from the PNG files using the
+convert utility.  The PNG file is needed for the HTML output.
+
+The image scaling is done in the DocBook source code contained in
+users-guide.sgml
+
+AMS 3-oct-2001
+
+

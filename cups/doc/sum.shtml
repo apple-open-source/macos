@@ -1,8 +1,8 @@
 <HTML>
 <HEAD>
 	<META NAME="Description" CONTENT="Common UNIX Printing System Software Users Manual">
-	<META NAME="COPYRIGHT" CONTENT="Copyright 1997-2002, All Rights Reserved">
-	<META NAME="DOCNUMBER" CONTENT="CUPS-SUM-1.1.15">
+	<META NAME="COPYRIGHT" CONTENT="Copyright 1997-2003, All Rights Reserved">
+	<META NAME="DOCNUMBER" CONTENT="CUPS-SUM-1.1.19">
 	<META NAME="Author" CONTENT="Easy Software Products">
 	<TITLE>CUPS Software Users Manual</TITLE>
 </HEAD>
@@ -11,7 +11,7 @@
 <H1 ALIGN="RIGHT">Preface</H1>
 
 <P>This software users manual describes how to use the Common UNIX Printing
-System<SUP>TM</SUP> ("CUPS<SUP>TM</SUP>") Version 1.1.15.
+System<SUP>TM</SUP> ("CUPS<SUP>TM</SUP>") Version 1.1.19.
 
 <EMBED SRC="system-overview.shtml">
 
@@ -73,7 +73,7 @@ their meanings and uses are explained below:
 
 	<TD>&nbsp;&nbsp;&nbsp;</TD>
 
-	<TD>Literal user input; special keys like <KBD>ENTER</B></KBD> are
+	<TD>Literal user input; special keys like <KBD>ENTER</KBD> are
 	in ALL CAPS.</TD>
 </TR>
 <TR><TD>&nbsp;</TD></TR>
@@ -165,9 +165,9 @@ port, or available over the network.
 <B>lpstat -p -d ENTER</B>
 </PRE></UL>
 
-<P>The <CODE>-p</CODE> option specifies that you want to see a list of
-printers, and the <CODE>-d</CODE> option reports the current system
-default printer or class.
+<P>The <CODE>-p</CODE> option specifies that you want to see a
+list of printers, and the <CODE>-d</CODE> option reports the
+current default printer or class.
 
 <P>Use the <CODE>-d</CODE> option with the <CODE>lp</CODE> command to
 print to a specific printer:
@@ -446,6 +446,17 @@ of the order of the pages in the <CODE>page-ranges</CODE> option.
 
 <P>The default is to print all pages.
 
+<H3>Setting the Output Order</H3>
+
+<P>The the <CODE>-o outputorder=order</CODE> option to set the output
+order of all pages:
+
+<UL><PRE>
+<B>lp -o outputorder=normal filename ENTER</B>
+<B>lp -o outputorder=reverse filename ENTER</B>
+<B>lpr -o outputorder=reverse filename ENTER</B>
+</PRE></UL>
+
 <H3>N-Up Printing</H3>
 
 <P>The <CODE>-o number-up=value</CODE> option selects N-Up printing. 
@@ -484,6 +495,18 @@ of the pages on each output page:
 	<LI><CODE>-o number-up-layout=tblr</CODE>; Top to bottom, left to right</LI>
 	<LI><CODE>-o number-up-layout=tbrl</CODE>; Top to bottom, right to left</LI>
 </UL>
+
+<H3>Mirroring Prints</H3>
+
+<P>You can mirror a print using the <CODE>-o mirror</CODE> option:
+
+<UL><PRE>
+<B>lp -o mirror filename ENTER</B>
+<B>lpr -o mirror filename ENTER</B>
+</PRE></UL>
+
+<P>This is useful for printing mirrored pages on transfer paper, for
+T shirts, mugs, etc.
 
 <H3>Setting the Brightness</H3>
 
@@ -831,6 +854,19 @@ options using the <CODE>-o</CODE> argument:
 <P>Once saved, any <CODE>lp</CODE> or <CODE>lpr</CODE> command will
 use them when you print.
 
+<CENTER><TABLE WIDTH="80%" BORDER="1" BGCOLOR="#cccccc" CELLPADDING="5" CELLSPACING="0">
+<TR>
+	<TD><B>Note:</B>
+
+	<P>Running the <CODE>lpoptions</CODE> command as the
+	root user (or any user with a UID of 0) will set the
+	default options for all users. The root account does not
+	have its own set of default options.</P>
+
+	</TD>
+</TR>
+</TABLE></CENTER>
+
 <H2>Setting Options for a Specific Printer</H2>
 
 <P>The previous example shows how to set the options for the default
@@ -873,7 +909,7 @@ command with the <CODE>-l</CODE> option, as follows:
 
 <UL><PRE>
 <B>lpoptions -p laserjet -l ENTER</B>
-</UL></PRE>
+</PRE></UL>
 
 <H2>Setting the Default Printer</H2>
 
@@ -900,7 +936,7 @@ the slash (<CODE>/</CODE>) character:
 <B>lpoptions -p laserjet/legal -o media=Legal ENTER</B>
 </PRE></UL>
 
-<P>The <CODE>lp</CODE> and </CODE>lpr</CODE> commands also understand
+<P>The <CODE>lp</CODE> and <CODE>lpr</CODE> commands also understand
 this notation:
 
 <UL><PRE>

@@ -1,16 +1,13 @@
 --TEST--
 InterBase: misc sql types (may take a while)
 --SKIPIF--
-<?php if (!extension_loaded("interbase")) print "skip"; ?>
+<?php include("skipif.inc"); ?>
 --POST--
 --GET--
 --FILE--
-<?
-/* $Id: 003.phpt,v 1.1.1.1 2000/09/07 00:05:33 wsanchez Exp $ */
+<?php
 
-    require("interbase/interbase.inc");
-    
-	$test_base = "ibase_test.tmp";
+    require("interbase.inc");
     
     ibase_connect($test_base);
     
@@ -18,7 +15,7 @@ InterBase: misc sql types (may take a while)
     	"create table test3 (
             iter		integer,
             v_char		char(1000),
-            v_date      date,
+            v_date      timestamp,
             v_decimal   decimal(12,3),
             v_double  	double precision,
             v_float     float,
@@ -29,7 +26,7 @@ InterBase: misc sql types (may take a while)
             )");
     ibase_commit();
 
-    /* if timefmt is not supported, suppress error here*/
+    /* if timefmt is not supported, suppress error here */
     @ibase_timefmt("%m/%d/%Y %H:%M:%S");
 
     for($iter = 0; $iter < 10; $iter++){
@@ -37,7 +34,7 @@ InterBase: misc sql types (may take a while)
     	$v_char = rand_str(1000);
     	$v_date = rand_datetime();
     	$v_decimal = rand_number(12,3);
-    	$v_double  = rand_number(20);
+    	$v_double  = rand_number(18);
     	$v_float   = rand_number(7);
     	$v_integer = rand_number(9,0);
     	$v_numeric = rand_number(4,2);
@@ -48,7 +45,7 @@ InterBase: misc sql types (may take a while)
     	"insert into test3 (iter, v_char,v_date,v_decimal,v_double,v_float,v_integer,v_numeric,v_smallint,v_varchar)
     	values ($iter, '$v_char','$v_date',$v_decimal,$v_double,$v_float,$v_integer,$v_numeric,$v_smallint,'$v_varchar')");
     	$sel = ibase_query("select * from test3 where iter = $iter");
-
+    	$sel = ibase_query("select * from test3 where iter = $iter");
     	$row = ibase_fetch_object($sel);
     	if(substr($row->V_CHAR,0,strlen($v_char)) != $v_char){
         	echo " CHAR fail:\n";
@@ -81,13 +78,10 @@ InterBase: misc sql types (may take a while)
             echo " out: $row->V_INTEGER\n";
         }
         ibase_free_result($sel);
-    }/* for($iter)*/
+    } /* for($iter) */
 
     ibase_close();
     echo "end of test\n";
 ?>
 --EXPECT--
-
 end of test
-
-

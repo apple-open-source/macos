@@ -1,8 +1,8 @@
 /*
    +----------------------------------------------------------------------+
-   | PHP version 4.0                                                      |
+   | PHP Version 4                                                        |
    +----------------------------------------------------------------------+
-   | Copyright (c) 1997-2001 The PHP Group                                |
+   | Copyright (c) 1997-2003 The PHP Group                                |
    +----------------------------------------------------------------------+
    | This source file is subject to version 2.02 of the PHP license,      |
    | that is bundled with this package in the file LICENSE, and is        |
@@ -17,7 +17,7 @@
    +----------------------------------------------------------------------+
 */
 
-/* $Id: php_variables.h,v 1.1.1.5 2001/12/14 22:13:51 zarzycki Exp $ */
+/* $Id: php_variables.h,v 1.1.1.8 2003/07/18 18:07:49 zarzycki Exp $ */
 
 #ifndef PHP_VARIABLES_H
 #define PHP_VARIABLES_H
@@ -31,7 +31,7 @@
 #define PARSE_STRING 3
 
 void php_treat_data(int arg, char *str, zval* destArray TSRMLS_DC);
-PHPAPI void php_import_environment_variables(zval *array_ptr TSRMLS_DC);
+extern PHPAPI void (*php_import_environment_variables)(zval *array_ptr TSRMLS_DC);
 PHPAPI void php_register_variable(char *var, char *val, pval *track_vars_array TSRMLS_DC);
 /* binary-safe version */
 PHPAPI void php_register_variable_safe(char *var, char *val, int val_len, pval *track_vars_array TSRMLS_DC);

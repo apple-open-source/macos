@@ -2,21 +2,24 @@
  * Copyright (c) 2000 Apple Computer, Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
- *
- * The contents of this file constitute Original Code as defined in and
- * are subject to the Apple Public Source License Version 1.1 (the
- * "License").  You may not use this file except in compliance with the
- * License.  Please obtain a copy of the License at
- * http://www.apple.com/publicsource and read it before using this file.
- *
- * This Original Code and all software distributed under the License are
- * distributed on an "AS IS" basis, WITHOUT WARRANTY OF ANY KIND, EITHER
+ * 
+ * Copyright (c) 1999-2003 Apple Computer, Inc.  All Rights Reserved.
+ * 
+ * This file contains Original Code and/or Modifications of Original Code
+ * as defined in and that are subject to the Apple Public Source License
+ * Version 2.0 (the 'License'). You may not use this file except in
+ * compliance with the License. Please obtain a copy of the License at
+ * http://www.opensource.apple.com/apsl/ and read it before using this
+ * file.
+ * 
+ * The Original Code and all software distributed under the License are
+ * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
  * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
  * INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY,
- * FITNESS FOR A PARTICULAR PURPOSE OR NON-INFRINGEMENT.  Please see the
- * License for the specific language governing rights and limitations
- * under the License.
- *
+ * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
+ * Please see the License for the specific language governing rights and
+ * limitations under the License.
+ * 
  * @APPLE_LICENSE_HEADER_END@
  */
 
@@ -166,7 +169,7 @@ int ppp_comp_dispose()
 
     while (comp = TAILQ_FIRST(&ppp_comp_head)) {
         TAILQ_REMOVE(&ppp_comp_head, comp, next);
-    	FREE(comp, M_DEVBUF);
+    	FREE(comp, M_TEMP);
     }
     
     return 0;
@@ -274,8 +277,8 @@ int ppp_comp_setcompressor(struct ppp_if *wan, struct ppp_option_data *odp)
 
     cp = ppp_comp_find(ccp_option[0]);
     if (cp == 0) {
-        LOGDBG(&wan->net, (LOGVAL, "ppp%d: no compressor for [%x %x %x], %x\n",
-                wan->net.if_unit, ccp_option[0], ccp_option[1],
+        LOGDBG(wan->net, (LOGVAL, "ppp%d: no compressor for [%x %x %x], %x\n",
+                wan->net->if_unit, ccp_option[0], ccp_option[1],
                 ccp_option[2], nb));
 
         return EINVAL;	/* no handler found */
@@ -287,8 +290,8 @@ int ppp_comp_setcompressor(struct ppp_if *wan, struct ppp_option_data *odp)
         wan->xcomp = cp;
         wan->xc_state = cp->comp_alloc(ccp_option, nb);
         if (!wan->xc_state) {
-            error = ENOBUFS;
-            LOGDBG(&wan->net, (LOGVAL, "ppp%d: comp_alloc failed\n", wan->net.if_unit));
+            error = ENOMEM;
+            LOGDBG(wan->net, (LOGVAL, "ppp%d: comp_alloc failed\n", wan->net->if_unit));
         }
         wan->sc_flags &= ~SC_COMP_RUN;
     }
@@ -298,8 +301,8 @@ int ppp_comp_setcompressor(struct ppp_if *wan, struct ppp_option_data *odp)
         wan->rcomp = cp;
         wan->rc_state = cp->decomp_alloc(ccp_option, nb);
         if (!wan->rc_state) {
-            error = ENOBUFS;
-            LOGDBG(&wan->net, (LOGVAL, "ppp%d: decomp_alloc failed\n", wan->net.if_unit));
+            error = ENOMEM;
+            LOGDBG(wan->net, (LOGVAL, "ppp%d: decomp_alloc failed\n", wan->net->if_unit));
         }
         wan->sc_flags &= ~SC_DECOMP_RUN;
     }
@@ -332,7 +335,7 @@ void ppp_comp_ccp(struct ppp_if *wan, struct mbuf *m, int rcvd)
     
     slen = CCP_LENGTH(p);
     if (slen > m->m_pkthdr.len) {
-        LOGDBG(&wan->net, (LOGVAL, "ppp_comp_ccp: not enough data in mbuf (expected = %d, got = %d)\n",
+        LOGDBG(wan->net, (LOGVAL, "ppp_comp_ccp: not enough data in mbuf (expected = %d, got = %d)\n",
 		   slen, m->m_pkthdr.len));
 	return;
     }
@@ -354,7 +357,7 @@ void ppp_comp_ccp(struct ppp_if *wan, struct mbuf *m, int rcvd)
 		if (wan->rc_state
 		    && (*wan->rcomp->decomp_init)
 			(wan->rc_state, p + CCP_HDRLEN, slen - CCP_HDRLEN,
-			 wan->net.if_unit, 0, wan->mru, wan->net.if_flags & IFF_DEBUG)) {
+			 wan->net->if_unit, 0, wan->mru, wan->net->if_flags & IFF_DEBUG)) {
 		    wan->sc_flags |= SC_DECOMP_RUN;
 		    wan->sc_flags &= ~(SC_DC_ERROR | SC_DC_FERROR);
 		}
@@ -363,7 +366,7 @@ void ppp_comp_ccp(struct ppp_if *wan, struct mbuf *m, int rcvd)
 		if (wan->xc_state
 		    && (*wan->xcomp->comp_init)
 			(wan->xc_state, p + CCP_HDRLEN, slen - CCP_HDRLEN,
-			 wan->net.if_unit, 0, wan->net.if_mtu, wan->net.if_flags & IFF_DEBUG)) {
+			 wan->net->if_unit, 0, wan->net->if_mtu, wan->net->if_flags & IFF_DEBUG)) {
 		    wan->sc_flags |= SC_COMP_RUN;
 		}
 	    }
@@ -490,7 +493,7 @@ int ppp_comp_decompress(struct ppp_if *wan, struct mbuf **m)
         if (err == DECOMP_FATALERROR)
             wan->sc_flags |= SC_DC_FERROR;
         wan->sc_flags |= SC_DC_ERROR;
-        ppp_if_error(&wan->net);
+        ppp_if_error(wan->net);
     }
 
     return err;	

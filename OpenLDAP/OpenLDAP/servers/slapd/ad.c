@@ -1,6 +1,6 @@
-/* $OpenLDAP: pkg/ldap/servers/slapd/ad.c,v 1.41 2002/02/15 13:48:01 hyc Exp $ */
+/* $OpenLDAP: pkg/ldap/servers/slapd/ad.c,v 1.41.2.10 2003/05/22 22:22:42 kurt Exp $ */
 /*
- * Copyright 1998-2002 The OpenLDAP Foundation, All Rights Reserved.
+ * Copyright 1998-2003 The OpenLDAP Foundation, All Rights Reserved.
  * COPYING RESTRICTIONS APPLY, see COPYRIGHT file
  */
 /* ad.c - routines for dealing with attribute descriptions */
@@ -17,6 +17,19 @@
 
 #include "ldap_pvt.h"
 #include "slap.h"
+
+typedef struct Attr_option {
+	struct berval name;	/* option name or prefix */
+	int           prefix;	/* NAME is a tag and range prefix */
+} Attr_option;
+
+static Attr_option lang_option = { { sizeof("lang-")-1, "lang-" }, 1 };
+
+/* Options sorted by name, and number of options */
+static Attr_option *options = &lang_option;
+static int option_count = 1;
+
+static Attr_option *ad_find_option_definition( const char *opt, int optlen );
 
 static int ad_keystring(
 	struct berval *bv )
@@ -45,18 +58,18 @@ void ad_destroy( AttributeDescription *ad )
 	}
 }
 
-/* Is there an AttributeDescription for this type that uses this language? */
-AttributeDescription * ad_find_lang(
+/* Is there an AttributeDescription for this type that uses these tags? */
+AttributeDescription * ad_find_tags(
 	AttributeType *type,
-	struct berval *lang )
+	struct berval *tags )
 {
 	AttributeDescription *ad;
 
 	ldap_pvt_thread_mutex_lock( &type->sat_ad_mutex );
 	for (ad = type->sat_ad; ad; ad=ad->ad_next)
 	{
-		if (ad->ad_lang.bv_len == lang->bv_len &&
-			!strcasecmp(ad->ad_lang.bv_val, lang->bv_val))
+		if (ad->ad_tags.bv_len == tags->bv_len &&
+			!strcasecmp(ad->ad_tags.bv_val, tags->bv_val))
 			break;
 	}
 	ldap_pvt_thread_mutex_unlock( &type->sat_ad_mutex );
@@ -102,14 +115,14 @@ int slap_bv2ad(
 	AttributeDescription desc, *d2;
 	char *name, *options;
 	char *opt, *next;
-	int nlang;
-	int langlen;
+	int ntags;
+	int tagslen;
 
 	/* hardcoded limits for speed */
-#define MAX_LANG_OPTIONS 128
-	struct berval langs[MAX_LANG_OPTIONS+1];
-#define MAX_LANG_LEN 1024
-	char langbuf[MAX_LANG_LEN];
+#define MAX_TAGGING_OPTIONS 128
+	struct berval tags[MAX_TAGGING_OPTIONS+1];
+#define MAX_TAGS_LEN 1024
+	char tagbuf[MAX_TAGS_LEN];
 
 	assert( ad != NULL );
 	assert( *ad == NULL ); /* temporary */
@@ -147,9 +160,9 @@ int slap_bv2ad(
 	/*
 	 * parse options in place
 	 */
-	nlang = 0;
-	memset( langs, 0, sizeof( langs ));
-	langlen = 0;
+	ntags = 0;
+	memset( tags, 0, sizeof( tags ));
+	tagslen = 0;
 
 	for( opt=options; opt != NULL; opt=next ) {
 		int optlen;
@@ -178,17 +191,16 @@ int slap_bv2ad(
 			desc.ad_flags |= SLAP_DESC_BINARY;
 			continue;
 
-		} else if ( optlen >= sizeof("lang-")-1 &&
-			strncasecmp( opt, "lang-", sizeof("lang-")-1 ) == 0 )
+		} else if ( ad_find_option_definition( opt, optlen ) )
 		{
 			int i;
 
 			if( opt[optlen-1] == '-' ) {
-				desc.ad_flags |= SLAP_DESC_LANG_RANGE;
+				desc.ad_flags |= SLAP_DESC_TAG_RANGE;
 			}
 
-			if( nlang >= MAX_LANG_OPTIONS ) {
-				*text = "too many language options";
+			if( ntags >= MAX_TAGGING_OPTIONS ) {
+				*text = "too many tagging options";
 				return rtn;
 			}
 
@@ -196,38 +208,38 @@ int slap_bv2ad(
 			 * tags should be presented in sorted order,
 			 * so run the array in reverse.
 			 */
-			for( i=nlang-1; i>=0; i-- ) {
+			for( i=ntags-1; i>=0; i-- ) {
 				int rc;
 
-				rc = strncasecmp( opt, langs[i].bv_val,
-					(unsigned) optlen < langs[i].bv_len
-						? optlen : langs[i].bv_len );
+				rc = strncasecmp( opt, tags[i].bv_val,
+					(unsigned) optlen < tags[i].bv_len
+						? optlen : tags[i].bv_len );
 
-				if( rc == 0 && (unsigned)optlen == langs[i].bv_len ) {
+				if( rc == 0 && (unsigned)optlen == tags[i].bv_len ) {
 					/* duplicate (ignore) */
 					goto done;
 
 				} else if ( rc > 0 ||
-					( rc == 0 && (unsigned)optlen > langs[i].bv_len ))
+					( rc == 0 && (unsigned)optlen > tags[i].bv_len ))
 				{
-					AC_MEMCPY( &langs[i+1], &langs[i],
-						(nlang-i)*sizeof(struct berval) );
-					langs[i].bv_val = opt;
-					langs[i].bv_len = optlen;
+					AC_MEMCPY( &tags[i+2], &tags[i+1],
+						(ntags-i-1)*sizeof(struct berval) );
+					tags[i+1].bv_val = opt;
+					tags[i+1].bv_len = optlen;
 					goto done;
 				}
 			}
 
-			if( nlang ) {
-				AC_MEMCPY( &langs[1], &langs[0],
-					nlang*sizeof(struct berval) );
+			if( ntags ) {
+				AC_MEMCPY( &tags[1], &tags[0],
+					ntags*sizeof(struct berval) );
 			}
-			langs[0].bv_val = opt;
-			langs[0].bv_len = optlen;
+			tags[0].bv_val = opt;
+			tags[0].bv_len = optlen;
 
 done:;
-			langlen += optlen + 1;
-			nlang++;
+			tagslen += optlen + 1;
+			ntags++;
 
 		} else {
 			*text = "unrecognized option";
@@ -235,27 +247,27 @@ done:;
 		}
 	}
 
-	if( nlang > 0 ) {
+	if( ntags > 0 ) {
 		int i;
 
-		if( langlen > MAX_LANG_LEN ) {
-			*text = "language options too long";
+		if( tagslen > MAX_TAGS_LEN ) {
+			*text = "tagging options too long";
 			return rtn;
 		}
 
-		desc.ad_lang.bv_val = langbuf;
-		langlen = 0;
+		desc.ad_tags.bv_val = tagbuf;
+		tagslen = 0;
 
-		for( i=0; i<nlang; i++ ) {
-			AC_MEMCPY( &desc.ad_lang.bv_val[langlen],
-				langs[i].bv_val, langs[i].bv_len );
+		for( i=0; i<ntags; i++ ) {
+			AC_MEMCPY( &desc.ad_tags.bv_val[tagslen],
+				tags[i].bv_val, tags[i].bv_len );
 
-			langlen += langs[i].bv_len;
-			desc.ad_lang.bv_val[langlen++] = ';';
+			tagslen += tags[i].bv_len;
+			desc.ad_tags.bv_val[tagslen++] = ';';
 		}
 
-		desc.ad_lang.bv_val[--langlen] = '\0';
-		desc.ad_lang.bv_len = langlen;
+		desc.ad_tags.bv_val[--tagslen] = '\0';
+		desc.ad_tags.bv_len = tagslen;
 	}
 
 	/* see if a matching description is already cached */
@@ -263,14 +275,14 @@ done:;
 		if( d2->ad_flags != desc.ad_flags ) {
 			continue;
 		}
-		if( d2->ad_lang.bv_len != desc.ad_lang.bv_len ) {
+		if( d2->ad_tags.bv_len != desc.ad_tags.bv_len ) {
 			continue;
 		}
-		if( d2->ad_lang.bv_len == 0 ) {
+		if( d2->ad_tags.bv_len == 0 ) {
 			break;
 		}
-		if( strncasecmp( d2->ad_lang.bv_val, desc.ad_lang.bv_val,
-			desc.ad_lang.bv_len ) == 0 )
+		if( strncasecmp( d2->ad_tags.bv_val, desc.ad_tags.bv_val,
+			desc.ad_tags.bv_len ) == 0 )
 		{
 			break;
 		}
@@ -284,12 +296,12 @@ done:;
 		for (d2 = desc.ad_type->sat_ad; d2; d2=d2->ad_next) {
 			if (d2->ad_flags != desc.ad_flags)
 				continue;
-			if (d2->ad_lang.bv_len != desc.ad_lang.bv_len)
+			if (d2->ad_tags.bv_len != desc.ad_tags.bv_len)
 				continue;
-			if (d2->ad_lang.bv_len == 0)
+			if (d2->ad_tags.bv_len == 0)
 				break;
-			if (strncasecmp(d2->ad_lang.bv_val, desc.ad_lang.bv_val,
-				desc.ad_lang.bv_len) == 0)
+			if (strncasecmp(d2->ad_tags.bv_val, desc.ad_tags.bv_val,
+				desc.ad_tags.bv_len) == 0)
 				break;
 		}
 		if (d2) {
@@ -300,44 +312,74 @@ done:;
 		/* Allocate a single contiguous block. If there are no
 		 * options, we just need space for the AttrDesc structure.
 		 * Otherwise, we need to tack on the full name length +
-		 * options length.
+		 * options length, + maybe tagging options length again.
 		 */
-		if (desc.ad_lang.bv_len || desc.ad_flags != SLAP_DESC_NONE) {
-			dlen = desc.ad_type->sat_cname.bv_len;
-			if (desc.ad_lang.bv_len) {
-				dlen += 1+desc.ad_lang.bv_len;
+		if (desc.ad_tags.bv_len || desc.ad_flags != SLAP_DESC_NONE) {
+			dlen = desc.ad_type->sat_cname.bv_len + 1;
+			if (desc.ad_tags.bv_len) {
+				dlen += 1+desc.ad_tags.bv_len;
 			}
 			if( slap_ad_is_binary( &desc ) ) {
-				dlen += sizeof(";binary")-1;
+				dlen += sizeof(";binary")+desc.ad_tags.bv_len;
 			}
 		}
 
-		d2 = ch_malloc(sizeof(AttributeDescription) + dlen + 1);
+		d2 = ch_malloc(sizeof(AttributeDescription) + dlen);
+		d2->ad_next = NULL;
 		d2->ad_type = desc.ad_type;
 		d2->ad_flags = desc.ad_flags;
-		d2->ad_cname.bv_len = desc.ad_cname.bv_len;
-		d2->ad_lang.bv_len = desc.ad_lang.bv_len;
+		d2->ad_cname.bv_len = desc.ad_type->sat_cname.bv_len;
+		d2->ad_tags.bv_len = desc.ad_tags.bv_len;
 
 		if (dlen == 0) {
 			d2->ad_cname.bv_val = d2->ad_type->sat_cname.bv_val;
-			d2->ad_lang.bv_val = NULL;
+			d2->ad_tags.bv_val = NULL;
 		} else {
+			char *cp, *op, *lp;
+			int j;
 			d2->ad_cname.bv_val = (char *)(d2+1);
 			strcpy(d2->ad_cname.bv_val, d2->ad_type->sat_cname.bv_val);
+			cp = d2->ad_cname.bv_val + d2->ad_cname.bv_len;
 			if( slap_ad_is_binary( &desc ) ) {
-				strcpy(d2->ad_cname.bv_val+d2->ad_cname.bv_len,
-					";binary");
-				d2->ad_cname.bv_len += sizeof(";binary")-1;
+				op = cp;
+				lp = NULL;
+				if( desc.ad_tags.bv_len ) {
+					lp = desc.ad_tags.bv_val;
+					while( strncasecmp(lp, "binary", sizeof("binary")-1) < 0
+					       && (lp = strchr( lp, ';' )) != NULL )
+						++lp;
+					if( lp != desc.ad_tags.bv_val ) {
+						*cp++ = ';';
+						j = (lp
+						     ? lp - desc.ad_tags.bv_val - 1
+						     : strlen( desc.ad_tags.bv_val ));
+						strncpy(cp, desc.ad_tags.bv_val, j);
+						cp += j;
+					}
+				}
+				strcpy(cp, ";binary");
+				cp += sizeof(";binary")-1;
+				if( lp != NULL ) {
+					*cp++ = ';';
+					strcpy(cp, lp);
+					cp += strlen( cp );
+				}
+				d2->ad_cname.bv_len = cp - d2->ad_cname.bv_val;
+				if( desc.ad_tags.bv_len )
+					ldap_pvt_str2lower(op);
+				j = 1;
+			} else {
+				j = 0;
 			}
-			if( d2->ad_lang.bv_len ) {
-				d2->ad_cname.bv_val[d2->ad_cname.bv_len++]=';';
-				d2->ad_lang.bv_val = d2->ad_cname.bv_val+
-					d2->ad_cname.bv_len;
-				strncpy(d2->ad_lang.bv_val,desc.ad_lang.bv_val,
-					d2->ad_lang.bv_len);
-				d2->ad_lang.bv_val[d2->ad_lang.bv_len] = '\0';
-				ldap_pvt_str2lower(d2->ad_lang.bv_val);
-				d2->ad_cname.bv_len += d2->ad_lang.bv_len;
+			if( desc.ad_tags.bv_len ) {
+				lp = d2->ad_cname.bv_val + d2->ad_cname.bv_len + j;
+				if ( j == 0 )
+					*lp++ = ';';
+				d2->ad_tags.bv_val = lp;
+				strcpy(lp, desc.ad_tags.bv_val);
+				ldap_pvt_str2lower(lp);
+				if( j == 0 )
+					d2->ad_cname.bv_len += 1 + desc.ad_tags.bv_len;
 			}
 		}
 		/* Add new desc to list. We always want the bare Desc with
@@ -363,27 +405,33 @@ done:;
 	return LDAP_SUCCESS;
 }
 
-static int is_ad_sublang(
-	const char *sublang, 
-	const char *suplang )
+static int is_ad_subtags(
+	struct berval *subtagsbv, 
+	struct berval *suptagsbv )
 {
-	const char *supp, *supdelimp;
-	const char *subp, *subdelimp;
+	const char *suptags, *supp, *supdelimp;
+	const char *subtags, *subp, *subdelimp;
 	int  suplen, sublen;
 
-	if( suplang == NULL ) return 1;
-	if( sublang == NULL ) return 0;
+	if( suptagsbv->bv_len == 0 ) return 1;
+	if( subtagsbv->bv_len == 0 ) return 0;
 
-	for( supp=suplang ; supp; supp=supdelimp ) {
+	subtags =subtagsbv->bv_val;
+	suptags =suptagsbv->bv_val;
+
+	for( supp=suptags ; supp; supp=supdelimp ) {
 		supdelimp = strchrlen( supp, ';', &suplen );
 		if( supdelimp ) supdelimp++;
 
-		for( subp=sublang ; subp; subp=subdelimp ) {
+		for( subp=subtags ; subp; subp=subdelimp ) {
 			subdelimp = strchrlen( subp, ';', &sublen );
 			if( subdelimp ) subdelimp++;
 
-			if ((( suplen < sublen && supp[suplen-1] == '-' ) ||
-				suplen == sublen ) && strncmp( supp, subp, suplen ) == 0 )
+			if ( suplen > sublen
+				 ? ( suplen-1 == sublen && supp[suplen-1] == '-'
+					 && strncmp( supp, subp, sublen ) == 0 )
+				 : ( ( suplen == sublen || supp[suplen-1] == '-' )
+					 && strncmp( supp, subp, suplen ) == 0 ) )
 			{
 				goto match;
 			}
@@ -407,13 +455,13 @@ int is_ad_subtype(
 	}
 
 	/* ensure sub does support all flags of super */
-	lr = sub->ad_lang.bv_len ? SLAP_DESC_LANG_RANGE : 0;
+	lr = sub->ad_tags.bv_len ? SLAP_DESC_TAG_RANGE : 0;
 	if(( super->ad_flags & ( sub->ad_flags | lr )) != super->ad_flags ) {
 		return 0;
 	}
 
-	/* check for language tags */
-	if ( !is_ad_sublang( sub->ad_lang.bv_val, super->ad_lang.bv_val )) {
+	/* check for tagging options */
+	if ( !is_ad_subtags( &sub->ad_tags, &super->ad_tags )) {
 		return 0;
 	}
 
@@ -431,18 +479,39 @@ int ad_inlist(
 		int rc;
 		
 		if ( attrs->an_desc ) {
-			if ( is_ad_subtype( desc, attrs->an_desc ))
+			if ( desc == attrs->an_desc ) {
 				return 1;
+			}
+
+			/*
+			 * EXTENSION: if requested description is preceeded by an
+			 * a '-' character, do not match on subtypes.
+			 */
+			if ( attrs->an_name.bv_val[0] != '-' &&
+				is_ad_subtype( desc, attrs->an_desc ))
+			{
+				return 1;
+			}
+
 			continue;
 		}
 
 		/*
-		 * EXTENSION: see if requested description is an object class
+		 * EXTENSION: see if requested description is +objectClass
 		 * if so, return attributes which the class requires/allows
 		 */
 		oc = attrs->an_oc;
-		if( oc == NULL ) {
-			oc = oc_bvfind( &attrs->an_name );
+		if( oc == NULL && attrs->an_name.bv_val ) {
+			switch( attrs->an_name.bv_val[0] ) {
+			case '+': { /* new way */
+					struct berval ocname;
+					ocname.bv_len = attrs->an_name.bv_len - 1;
+					ocname.bv_val = &attrs->an_name.bv_val[1];
+					oc = oc_bvfind( &ocname );
+				} break;
+			default: /* old (deprecated) way */
+				oc = oc_bvfind( &attrs->an_name );
+			}
 			attrs->an_oc = oc;
 		}
 		if( oc != NULL ) {
@@ -535,8 +604,8 @@ int slap_bv2undef_ad(
 			bv->bv_len);
 		
 		desc->ad_flags = SLAP_DESC_NONE;
-		desc->ad_lang.bv_val = NULL;
-		desc->ad_lang.bv_len = 0;
+		desc->ad_tags.bv_val = NULL;
+		desc->ad_tags.bv_len = 0;
 
 		desc->ad_cname.bv_len = bv->bv_len;
 		desc->ad_cname.bv_val = (char *)(desc+1);
@@ -577,8 +646,16 @@ an_find(
 	return( 0 );
 }
 
-/* Convert a delimited string into a list of AttributeNames; Add on
- * to an existing list if it was given.
+/*
+ * Convert a delimited string into a list of AttributeNames; 
+ * add on to an existing list if it was given.  If the string
+ * is not a valid attribute name, if a '-' is prepended it is 
+ * skipped and the remaining name is tried again; if a '+' is
+ * prepended, an objectclass name is searched instead.
+ * 
+ * NOTE: currently, if a valid attribute name is not found,
+ * the same string is also checked as valid objectclass name;
+ * however, this behavior is deprecated.
  */
 AttributeName *
 str2anlist( AttributeName *an, char *in, const char *brkstr )
@@ -615,19 +692,157 @@ str2anlist( AttributeName *an, char *in, const char *brkstr )
 		ber_str2bv(s, 0, 1, &anew->an_name);
 		slap_bv2ad(&anew->an_name, &anew->an_desc, &text);
 		if ( !anew->an_desc ) {
-			anew->an_oc = oc_bvfind( &anew->an_name );
-			if ( !anew->an_oc ) {
-				free( an );
-				/* overwrites input string on error! */
-				strcpy( in, s );
-				return NULL;
+			switch( anew->an_name.bv_val[0] ) {
+			case '-': {
+					struct berval adname;
+					adname.bv_len = anew->an_name.bv_len - 1;
+					adname.bv_val = &anew->an_name.bv_val[1];
+					slap_bv2ad(&adname, &anew->an_desc, &text);
+					if ( !anew->an_desc ) {
+						free( an );
+						/*
+						 * overwrites input string
+						 * on error!
+						 */
+						strcpy( in, s );
+						return NULL;
+					}
+				} break;
+
+			case '+': {
+					struct berval ocname;
+					ocname.bv_len = anew->an_name.bv_len - 1;
+					ocname.bv_val = &anew->an_name.bv_val[1];
+					anew->an_oc = oc_bvfind( &ocname );
+					if ( !anew->an_oc ) {
+						free( an );
+						/*
+						 * overwrites input string
+						 * on error!
+						 */
+						strcpy( in, s );
+						return NULL;
+					}
+				} break;
+
+			default:
+				/* old (deprecated) way */
+				anew->an_oc = oc_bvfind( &anew->an_name );
+				if ( !anew->an_oc ) {
+					free( an );
+					/* overwrites input string on error! */
+					strcpy( in, s );
+					return NULL;
+				}
 			}
 		}
 		anew++;
 	}
-	anew->an_name.bv_val = NULL;
 
+	anew->an_name.bv_val = NULL;
 	free( str );
 	return( an );
 }
 
+
+/* Define an attribute option. */
+int
+ad_define_option( const char *name, const char *fname, int lineno )
+{
+	int i;
+	unsigned int optlen;
+
+	if ( options == &lang_option ) {
+		options = NULL;
+		option_count = 0;
+	}
+	if ( name == NULL )
+		return 0;
+
+	optlen = 0;
+	do {
+		if ( !DESC_CHAR( name[optlen] ) ) {
+#ifdef NEW_LOGGING
+			LDAP_LOG( CONFIG, CRIT,
+			          "%s: line %d: illegal option name \"%s\"\n",
+			          fname, lineno, name );
+#else
+			Debug( LDAP_DEBUG_ANY,
+			       "%s: line %d: illegal option name \"%s\"\n",
+				    fname, lineno, name );
+#endif
+			return 1;
+		}
+	} while ( name[++optlen] );
+
+	options = ch_realloc( options,
+		(option_count+1) * sizeof(Attr_option) );
+
+	if ( strcasecmp( name, "binary" ) == 0
+	     || ad_find_option_definition( name, optlen ) ) {
+#ifdef NEW_LOGGING
+		LDAP_LOG( CONFIG, CRIT,
+		          "%s: line %d: option \"%s\" is already defined\n",
+		          fname, lineno, name );
+#else
+		Debug( LDAP_DEBUG_ANY,
+		       "%s: line %d: option \"%s\" is already defined\n",
+		       fname, lineno, name );
+#endif
+		return 1;
+	}
+
+	for ( i = option_count; i; --i ) {
+		if ( strcasecmp( name, options[i-1].name.bv_val ) >= 0 )
+			break;
+		options[i] = options[i-1];
+	}
+
+	options[i].name.bv_val = ch_strdup( name );
+	options[i].name.bv_len = optlen;
+	options[i].prefix = (name[optlen-1] == '-');
+
+	if ( i != option_count &&
+	     options[i].prefix &&
+	     optlen < options[i+1].name.bv_len &&
+	     strncasecmp( name, options[i+1].name.bv_val, optlen ) == 0 ) {
+#ifdef NEW_LOGGING
+			LDAP_LOG( CONFIG, CRIT,
+			          "%s: line %d: option \"%s\" overrides previous option\n",
+			          fname, lineno, name );
+#else
+			Debug( LDAP_DEBUG_ANY,
+			       "%s: line %d: option \"%s\" overrides previous option\n",
+				    fname, lineno, name );
+#endif
+			return 1;
+	}
+
+	option_count++;
+	return 0;
+}
+
+/* Find the definition of the option name or prefix matching the arguments */
+static Attr_option *
+ad_find_option_definition( const char *opt, int optlen )
+{
+	int top = 0, bot = option_count;
+	while ( top < bot ) {
+		int mid = (top + bot) / 2;
+		int mlen = options[mid].name.bv_len;
+		char *mname = options[mid].name.bv_val;
+		int j;
+		if ( optlen < mlen ) {
+			j = strncasecmp( opt, mname, optlen ) - 1;
+		} else {
+			j = strncasecmp( opt, mname, mlen );
+			if ( j==0 && (optlen==mlen || options[mid].prefix) )
+				return &options[mid];
+		}
+		if ( j < 0 )
+			bot = mid;
+		else
+			top = mid + 1;
+	}
+	return NULL;
+}

@@ -1,8 +1,8 @@
 /*
    +----------------------------------------------------------------------+
-   | PHP version 4.0                                                      |
+   | PHP Version 4                                                        |
    +----------------------------------------------------------------------+
-   | Copyright (c) 1997-2001 The PHP Group                                |
+   | Copyright (c) 1997-2003 The PHP Group                                |
    +----------------------------------------------------------------------+
    | This source file is subject to version 2.02 of the PHP license,      |
    | that is bundled with this package in the file LICENSE, and is        |
@@ -29,8 +29,6 @@
 #include "win32/time.h"
 #include "win32/signal.h"
 #include <process.h>
-#else
-#include "build-defs.h"
 #endif
 #if HAVE_SYS_TIME_H
 #include <sys/time.h>
@@ -63,7 +61,7 @@
 #include "zend_indent.h"
 
 JNIEXPORT void JNICALL Java_net_php_reflect_setEnv
-  (JNIEnv *newJenv, jclass self);
+  (JNIEnv *newJenv, jclass self TSRMLS_DC);
 
 typedef struct {
 	JNIEnv *jenv;
@@ -73,11 +71,6 @@ typedef struct {
 
 extern zend_module_entry java_module_entry;
 
-static zend_module_entry *additional_php_extensions[] = {
-  &java_module_entry
-};
-
-#define EXTCOUNT (sizeof(additional_php_extensions)/sizeof(zend_module_entry *))
 
 /***************************************************************************/
 
@@ -117,7 +110,7 @@ void ThrowServletException (JNIEnv *jenv, char *msg) {
 static int sapi_servlet_ub_write(const char *str, uint str_length TSRMLS_DC)
 {
 	if (!SG(server_context)) {
-		fprintf(stderr, str);
+		fprintf(stderr, "%s", str);
 		return 0;
 	}
 
@@ -205,15 +198,25 @@ static char *sapi_servlet_read_cookies(TSRMLS_D)
 
 /***************************************************************************/
 
+
 /*
  * sapi maintenance
  */
+
+static int php_servlet_startup(sapi_module_struct *sapi_module)
+{
+	if (php_module_startup(sapi_module, NULL, 0)==FAILURE) {
+		return FAILURE;
+	} else {
+		return SUCCESS;
+	}
+}
 
 static sapi_module_struct servlet_sapi_module = {
 	"java_servlet",					/* name */
 	"Java Servlet",					/* pretty name */
 									
-	php_module_startup,				/* startup */
+	php_servlet_startup,				/* startup */
 	php_module_shutdown_wrapper,	/* shutdown */
 
 	NULL,							/* activate */
@@ -253,16 +256,10 @@ JNIEXPORT void JNICALL Java_net_php_servlet_startup
 
 	sapi_startup(&servlet_sapi_module);
 
-	if (php_module_startup(&servlet_sapi_module)==FAILURE) {
+	if (php_module_startup(&servlet_sapi_module, &java_module_entry, 1)==FAILURE) {
 		ThrowServletException(jenv,"module startup failure");
 		return;
 	}
-
-	if (php_startup_extensions(additional_php_extensions, EXTCOUNT)==FAILURE) {
-		ThrowServletException(jenv,"extension startup failure");
-		return;
-	}
-
 }
 
 
@@ -326,11 +323,10 @@ JNIEXPORT void JNICALL Java_net_php_servlet_send
 		((servlet_request*)SG(server_context))->servlet=self;
 		((servlet_request*)SG(server_context))->cookies=0;
 
-		CG(extended_info) = 0;
-
 		/*
 		 * Initialize the request
 		 */
+
 		SETSTRING( SG(request_info).auth_user, authUser );
 		SETSTRING( SG(request_info).request_method, requestMethod );
 		SETSTRING( SG(request_info).query_string, queryString );
@@ -371,7 +367,7 @@ JNIEXPORT void JNICALL Java_net_php_servlet_send
 		/*
 		 * Execute the request
 		 */
-		Java_net_php_reflect_setEnv(jenv, 0);
+		Java_net_php_reflect_setEnv(jenv, 0 TSRMLS_CC);
 
 		if (display_source_mode) {
 			zend_syntax_highlighter_ini syntax_highlighter_ini;
@@ -390,11 +386,9 @@ JNIEXPORT void JNICALL Java_net_php_servlet_send
 		 * Clean up
 		 */
 		
-		FREESTRING(SG(request_info).request_method);
 		FREESTRING(SG(request_info).query_string);
 		FREESTRING(SG(request_info).request_uri);
 		FREESTRING(SG(request_info).path_translated);
-		FREESTRING(SG(request_info).content_type);
 		FREESTRING(((servlet_request*)SG(server_context))->cookies);    
 		efree(SG(server_context));
 		SG(server_context)=0;

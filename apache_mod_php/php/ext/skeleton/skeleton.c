@@ -30,7 +30,9 @@ function_entry extname_functions[] = {
 /* {{{ extname_module_entry
  */
 zend_module_entry extname_module_entry = {
+#if ZEND_MODULE_API_NO >= 20010901
 	STANDARD_MODULE_HEADER,
+#endif
 	"extname",
 	extname_functions,
 	PHP_MINIT(extname),
@@ -38,7 +40,9 @@ zend_module_entry extname_module_entry = {
 	PHP_RINIT(extname),		/* Replace with NULL if there's nothing to do at request start */
 	PHP_RSHUTDOWN(extname),	/* Replace with NULL if there's nothing to do at request end */
 	PHP_MINFO(extname),
-    "0.1", /* Replace with version number for your extension */
+#if ZEND_MODULE_API_NO >= 20010901
+	"0.1", /* Replace with version number for your extension */
+#endif
 	STANDARD_MODULE_PROPERTIES
 };
 /* }}} */
@@ -51,8 +55,8 @@ ZEND_GET_MODULE(extname)
  */
 /* Remove comments and fill if you need to have entries in php.ini
 PHP_INI_BEGIN()
-    STD_PHP_INI_ENTRY("extname.value",      "42", PHP_INI_ALL, OnUpdateInt, global_value, zend_extname_globals, extname_globals)
-    STD_PHP_INI_ENTRY("extname.string", "foobar", PHP_INI_ALL, OnUpdateString, global_string, zend_extname_globals, extname_globals)
+    STD_PHP_INI_ENTRY("extname.global_value",      "42", PHP_INI_ALL, OnUpdateInt, global_value, zend_extname_globals, extname_globals)
+    STD_PHP_INI_ENTRY("extname.global_string", "foobar", PHP_INI_ALL, OnUpdateString, global_string, zend_extname_globals, extname_globals)
 PHP_INI_END()
 */
 /* }}} */
@@ -62,8 +66,8 @@ PHP_INI_END()
 /* Uncomment this function if you have INI entries
 static void php_extname_init_globals(zend_extname_globals *extname_globals)
 {
-	extname_globals->value = 0;
-	extname_globals->string = NULL;
+	extname_globals->global_value = 0;
+	extname_globals->global_string = NULL;
 }
 */
 /* }}} */
@@ -158,6 +162,6 @@ PHP_FUNCTION(confirm_extname_compiled)
  * tab-width: 4
  * c-basic-offset: 4
  * End:
- * vim600: sw=4 ts=4 tw=78 fdm=marker
- * vim<600: sw=4 ts=4 tw=78
+ * vim600: noet sw=4 ts=4 fdm=marker
+ * vim<600: noet sw=4 ts=4
  */

@@ -1,5 +1,5 @@
 /*
- * Copyright 1998-2002 The OpenLDAP Foundation, All Rights Reserved.
+ * Copyright 1998-2003 The OpenLDAP Foundation, All Rights Reserved.
  * COPYING RESTRICTIONS APPLY, see COPYRIGHT file
  *
  * Copyright 2001, Pierangelo Masarati, All rights reserved. <ando@sys-net.it>
@@ -87,7 +87,7 @@ meta_back_compare(
 {
 	struct metainfo	*li = ( struct metainfo * )be->be_private;
 	struct metaconn *lc;
-	struct metasingleconn **lsc;
+	struct metasingleconn *lsc;
 	char *match = NULL, *err = NULL, *mmatch = NULL;
 	int candidates = 0, last = 0, i, count, rc;
        	int cres = LDAP_SUCCESS, rres = LDAP_SUCCESS;
@@ -96,6 +96,8 @@ meta_back_compare(
 	lc = meta_back_getconn( li, conn, op, META_OP_ALLOW_MULTIPLE,
 			ndn, NULL );
 	if ( !lc || !meta_back_dobind( lc, op ) ) {
+ 		send_ldap_result( conn, op, LDAP_OTHER,
+ 				NULL, NULL, NULL, NULL );
 		return -1;
 	}
 
@@ -107,12 +109,13 @@ meta_back_compare(
 	/*
 	 * start an asynchronous compare for each candidate target
 	 */
-	for ( i = 0, lsc = lc->conns; lsc[ 0 ] != NULL; ++i, ++lsc ) {
+	for ( i = 0, lsc = lc->conns; !META_LAST(lsc); ++i, ++lsc ) {
 		char *mdn = NULL;
 		struct berval mapped_attr = ava->aa_desc->ad_cname;
 		struct berval mapped_value = ava->aa_value;
 
-		if ( lsc[ 0 ]->candidate != META_CANDIDATE ) {
+		if ( lsc->candidate != META_CANDIDATE ) {
+			msgid[ i ] = -1;
 			continue;
 		}
 
@@ -127,9 +130,8 @@ meta_back_compare(
 				mdn = ( char * )dn->bv_val;
 			}
 #ifdef NEW_LOGGING
-			LDAP_LOG(( "backend", LDAP_LEVEL_DETAIL1,
-					"[rw] compareDn: \"%s\" -> \"%s\"\n",
-					dn->bv_val, mdn ));
+			LDAP_LOG( BACK_META, DETAIL1,
+				"[rw] compareDn: \"%s\" -> \"%s\"\n", dn->bv_val, mdn, 0 );
 #else /* !NEW_LOGGING */
 			Debug( LDAP_DEBUG_ARGS,
 				     	"rw> compareDn: \"%s\" -> \"%s\"\n%s",
@@ -139,13 +141,13 @@ meta_back_compare(
 		
 		case REWRITE_REGEXEC_UNWILLING:
 			send_ldap_result( conn, op, LDAP_UNWILLING_TO_PERFORM,
-					NULL, "Unwilling to perform",
+					NULL, "Operation not allowed",
 					NULL, NULL );
 			return -1;
 			
 		case REWRITE_REGEXEC_ERR:
-			send_ldap_result( conn, op, LDAP_OPERATIONS_ERROR,
-					NULL, "Operations error",
+			send_ldap_result( conn, op,  LDAP_OTHER,
+					NULL, "Rewrite error",
 					NULL, NULL );
 			return -1;
 		}
@@ -153,13 +155,12 @@ meta_back_compare(
 		/*
 		 * if attr is objectClass, try to remap the value
 		 */
-		if ( ava->aa_desc->ad_type->sat_oid 
-			== slap_schema.si_ad_objectClass->ad_type->sat_oid ) {
+		if ( ava->aa_desc == slap_schema.si_ad_objectClass ) {
 			ldap_back_map( &li->targets[ i ]->oc_map,
-					&ava->aa_value, &mapped_value, 0 );
+					&ava->aa_value, &mapped_value,
+					BACKLDAP_MAP );
 
-			if ( mapped_value.bv_val == NULL ) {
-				lsc[ 0 ]->candidate = META_NOT_CANDIDATE;
+			if ( mapped_value.bv_val == NULL || mapped_value.bv_val[0] == '\0' ) {
 				continue;
 			}
 		/*
@@ -167,9 +168,9 @@ meta_back_compare(
 		 */
 		} else {
 			ldap_back_map( &li->targets[ i ]->at_map,
-				&ava->aa_desc->ad_cname, &mapped_attr, 0 );
-			if ( mapped_attr.bv_val == NULL ) {
-				lsc[ 0 ]->candidate = META_NOT_CANDIDATE;
+				&ava->aa_desc->ad_cname, &mapped_attr,
+				BACKLDAP_MAP );
+			if ( mapped_attr.bv_val == NULL || mapped_attr.bv_val[0] == '\0' ) {
 				continue;
 			}
 		}
@@ -179,13 +180,8 @@ meta_back_compare(
 		 * that returns determines the result; a constraint on unicity
 		 * of the result ought to be enforced
 		 */
-		msgid[ i ] = ldap_compare( lc->conns[ i ]->ld, mdn,
+		msgid[ i ] = ldap_compare( lc->conns[ i ].ld, mdn,
 				mapped_attr.bv_val, mapped_value.bv_val );
-		if ( msgid[ i ] == -1 ) {
-			lsc[ 0 ]->candidate = META_NOT_CANDIDATE;
-			continue;
-		}
-
 		if ( mdn != dn->bv_val ) {
 			free( mdn );
 		}
@@ -194,6 +190,10 @@ meta_back_compare(
 		}
 		if ( mapped_value.bv_val != ava->aa_value.bv_val ) {
 			free( mapped_value.bv_val );
+		}
+
+		if ( msgid[ i ] == -1 ) {
+			continue;
 		}
 
 		++candidates;
@@ -207,15 +207,15 @@ meta_back_compare(
 		/*
 		 * FIXME: should we check for abandon?
 		 */
-		for ( i = 0, lsc = lc->conns; lsc[ 0 ] != NULL; lsc++, i++ ) {
+		for ( i = 0, lsc = lc->conns; !META_LAST(lsc); lsc++, i++ ) {
 			int lrc;
 			LDAPMessage *res = NULL;
 
-			if ( lsc[ 0 ]->candidate != META_CANDIDATE ) {
+			if ( msgid[ i ] == -1 ) {
 				continue;
 			}
 
-			lrc = ldap_result( lsc[ 0 ]->ld, msgid[ i ],
+			lrc = ldap_result( lsc->ld, msgid[ i ],
 					0, NULL, &res );
 
 			if ( lrc == 0 ) {
@@ -228,13 +228,12 @@ meta_back_compare(
 				continue;
 			} else if ( lrc == LDAP_RES_COMPARE ) {
 				if ( count > 0 ) {
-					rres = LDAP_OPERATIONS_ERROR;
+					rres = LDAP_OTHER;
 					rc = -1;
 					goto finish;
 				}
 				
-				cres = ldap_result2error( lsc[ 0 ]->ld,
-						res, 1 );
+				cres = ldap_result2error( lsc->ld, res, 1 );
 				switch ( cres ) {
 				case LDAP_COMPARE_TRUE:
 				case LDAP_COMPARE_FALSE:
@@ -257,22 +256,23 @@ meta_back_compare(
 					if ( err != NULL ) {
 						free( err );
 					}
-					ldap_get_option( lsc[ 0 ]->ld,
+					ldap_get_option( lsc->ld,
 						LDAP_OPT_ERROR_STRING, &err );
 
 					if ( match != NULL ) {
 						free( match );
 					}
-					ldap_get_option( lsc[ 0 ]->ld,
+					ldap_get_option( lsc->ld,
 						LDAP_OPT_MATCHED_DN, &match );
 					
 					last = i;
 					break;
 				}
-				lsc[ 0 ]->candidate = META_NOT_CANDIDATE;
+				msgid[ i ] = -1;
 				--candidates;
+
 			} else {
-				lsc[ 0 ]->candidate = META_NOT_CANDIDATE;
+				msgid[ i ] = -1;
 				--candidates;
 				if ( res ) {
 					ldap_msgfree( res );
@@ -314,9 +314,8 @@ finish:;
 				mmatch = ( char * )match;
 			}
 #ifdef NEW_LOGGING
-			LDAP_LOG(( "backend", LDAP_LEVEL_DETAIL1,
-					"[rw] matchedDn: \"%s\" -> \"%s\"\n",
-					match, mmatch ));
+			LDAP_LOG( BACK_META, DETAIL1,
+				"[rw] matchedDn: \"%s\" -> \"%s\"\n", match, mmatch, 0 );
 #else /* !NEW_LOGGING */
 			Debug( LDAP_DEBUG_ARGS, "rw> matchedDn:"
 					" \"%s\" -> \"%s\"\n%s",
@@ -327,14 +326,14 @@ finish:;
 		
 		case REWRITE_REGEXEC_UNWILLING:
 			send_ldap_result( conn, op, LDAP_UNWILLING_TO_PERFORM,
-					NULL, "Unwilling to perform",
+					NULL, "Operation not allowed",
 					NULL, NULL );
 			rc = -1;
 			goto cleanup;
 			
 		case REWRITE_REGEXEC_ERR:
-			send_ldap_result( conn, op, LDAP_OPERATIONS_ERROR,
-					NULL, "Operations error",
+			send_ldap_result( conn, op, LDAP_OTHER,
+					NULL, "Rewrite error",
 					NULL, NULL );
 			rc = -1;
 			goto cleanup;

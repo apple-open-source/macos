@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1999-2001 Ion Badulescu
+ * Copyright (c) 1999-2002 Ion Badulescu
  * Copyright (c) 1997-2002 Erez Zadok
  * Copyright (c) 1990 Jan-Simon Pendry
  * Copyright (c) 1990 Imperial College of Science, Technology & Medicine
@@ -38,15 +38,9 @@
  * SUCH DAMAGE.
  *
  *
- * $Id: autofs_solaris_v1.c,v 1.1.1.1 2002/05/15 01:22:05 jkh Exp $
+ * $Id: autofs_solaris_v1.c,v 1.1.1.2 2002/07/15 19:42:49 zarzycki Exp $
  *
  */
-
-/****************************************************************
- ****************************************************************
- **************** THIS CODE IS NOT FUNCTIONAL!!!! ***************
- ****************************************************************
- ****************************************************************/
 
 /*
  * Automounter filesystem
@@ -57,14 +51,6 @@
 #endif /* HAVE_CONFIG_H */
 #include <am_defs.h>
 #include <amd.h>
-
-/*
- * KLUDGE: wrap whole file in HAVE_FS_AUTOFS, because
- * not all systems with an automounter file system are supported
- * by am-utils yet...
- */
-
-#ifdef HAVE_FS_AUTOFS
 
 /*
  * MACROS:
@@ -81,6 +67,8 @@
  * VARIABLES:
  */
 
+SVCXPRT *autofs_xprt = NULL;
+
 /* forward declarations */
 # ifndef HAVE_XDR_MNTREQUEST
 bool_t xdr_mntrequest(XDR *xdrs, mntrequest *objp);
@@ -94,9 +82,8 @@ bool_t xdr_umntrequest(XDR *xdrs, umntrequest *objp);
 # ifndef HAVE_XDR_UMNTRES
 bool_t xdr_umntres(XDR *xdrs, umntres *objp);
 # endif /* not HAVE_XDR_UMNTRES */
-static int mount_autofs(char *dir, char *opts);
-static int autofs_mount_1_svc(struct mntrequest *mr, struct mntres *result, struct authunix_parms *cred);
-static int autofs_unmount_1_svc(struct umntrequest *ur, struct umntres *result, struct authunix_parms *cred);
+static int autofs_mount_1_req(struct mntrequest *mr, struct mntres *result, struct authunix_parms *cred);
+static int autofs_unmount_1_req(struct umntrequest *ur, struct umntres *result, struct authunix_parms *cred);
 
 /****************************************************************************
  *** VARIABLES                                                            ***
@@ -109,7 +96,7 @@ static int autofs_unmount_1_svc(struct umntrequest *ur, struct umntres *result, 
 /*
  * AUTOFS XDR FUNCTIONS:
  */
-# ifndef HAVE_XDR_MNTREQUEST
+#ifndef HAVE_XDR_MNTREQUEST
 bool_t
 xdr_mntrequest(XDR *xdrs, mntrequest *objp)
 {
@@ -132,10 +119,10 @@ xdr_mntrequest(XDR *xdrs, mntrequest *objp)
 
   return (TRUE);
 }
-# endif /* not HAVE_XDR_MNTREQUEST */
+#endif /* not HAVE_XDR_MNTREQUEST */
 
 
-# ifndef HAVE_XDR_MNTRES
+#ifndef HAVE_XDR_MNTRES
 bool_t
 xdr_mntres(XDR *xdrs, mntres *objp)
 {
@@ -152,7 +139,7 @@ xdr_mntres(XDR *xdrs, mntres *objp)
 # endif /* not HAVE_XDR_MNTRES */
 
 
-# ifndef HAVE_XDR_UMNTREQUEST
+#ifndef HAVE_XDR_UMNTREQUEST
 bool_t
 xdr_umntrequest(XDR *xdrs, umntrequest *objp)
 {
@@ -177,10 +164,10 @@ xdr_umntrequest(XDR *xdrs, umntrequest *objp)
 
   return (TRUE);
 }
-# endif /* not HAVE_XDR_UMNTREQUEST */
+#endif /* not HAVE_XDR_UMNTREQUEST */
 
 
-# ifndef HAVE_XDR_UMNTRES
+#ifndef HAVE_XDR_UMNTRES
 bool_t
 xdr_umntres(XDR *xdrs, umntres *objp)
 {
@@ -194,94 +181,110 @@ xdr_umntres(XDR *xdrs, umntres *objp)
 
   return (TRUE);
 }
-# endif /* not HAVE_XDR_UMNTRES */
+#endif /* not HAVE_XDR_UMNTRES */
 
 
 /*
- * Mount an automounter directory.
- * The automounter is connected into the system
- * as a user-level NFS server.  mount_autofs constructs
- * the necessary NFS parameters to be given to the
- * kernel so that it will talk back to us.
+ * AUTOFS RPC methods
  */
+
 static int
-mount_autofs(char *dir, char *opts)
+autofs_mount_1_req(struct mntrequest *m,
+		   struct mntres *res,
+		   struct authunix_parms *cred)
 {
-  char fs_hostname[MAXHOSTNAMELEN + MAXPATHLEN + 1];
-  char *map_opt, buf[MAXHOSTNAMELEN];
-  int retry, error, flags;
-  struct utsname utsname;
-  mntent_t mnt;
-  autofs_args_t autofs_args;
-  MTYPE_TYPE type = MOUNT_TYPE_AUTOFS;
+  int err = 0;
+  int isdirect = 0;
+  am_node *mp, *ap;
+  mntfs *mf;
 
-  memset((voidp) &autofs_args, 0, sizeof(autofs_args)); /* Paranoid */
+  dlog("MOUNT REQUEST: name=%s map=%s opts=%s path=%s\n",
+       m->name, m->map, m->opts, m->path);
 
-  memset((voidp) &mnt, 0, sizeof(mnt));
-  mnt.mnt_dir = dir;
-  mnt.mnt_fsname = pid_fsname;
-  mnt.mnt_opts = opts;
-  mnt.mnt_type = type;
+  /* find the effective uid/gid from RPC request */
+  sprintf(opt_uid, "%d", (int) cred->aup_uid);
+  sprintf(opt_gid, "%d", (int) cred->aup_gid);
 
-  retry = hasmntval(&mnt, "retry");
-  if (retry <= 0)
-    retry = 2;			/* XXX */
-
-  /*
-   * SET MOUNT ARGS
-   */
-  if (uname(&utsname) < 0) {
-    strcpy(buf, "localhost.autofs");
-  } else {
-    strcpy(buf, utsname.nodename);
-    strcat(buf, ".autofs");
+  mp = find_ap(m->path);
+  if (!mp) {
+    plog(XLOG_ERROR, "map %s not found", m->path);
+    err = ENOENT;
+    goto out;
   }
-#ifdef HAVE_AUTOFS_ARGS_T_ADDR
-  autofs_args.addr.buf = buf;
-  autofs_args.addr.len = strlen(autofs_args.addr.buf);
-  autofs_args.addr.maxlen = autofs_args.addr.len;
-#endif /* HAVE_AUTOFS_ARGS_T_ADDR */
 
-  autofs_args.path = dir;
-  autofs_args.opts = opts;
+  mf = mp->am_mnt;
+  isdirect = (mf->mf_fsflags & FS_DIRECT) ? 1 : 0;
+  ap = mf->mf_ops->lookup_child(mp, m->name + isdirect, &err, VLOOK_CREATE);
+  if (ap && err < 0)
+    ap = mf->mf_ops->mount_child(ap, &err);
+  if (ap == NULL) {
+    if (err < 0) {
+      /* we're working on it */
+      amd_stats.d_drops++;
+      return 1;
+    }
+    err = ENOENT;
+    goto out;
+  }
 
-  map_opt = hasmntopt(&mnt, "map");
-  if (map_opt) {
-    map_opt += sizeof("map="); /* skip the "map=" */
-    if (map_opt == NULL) {
-      plog(XLOG_WARNING, "map= has a null map name. reset to amd.unknown");
-      map_opt = "amd.unknown";
+out:
+  if (err) {
+    if (isdirect) {
+      /* direct mount */
+      plog(XLOG_ERROR, "mount of %s failed", m->path);
+    } else {
+      /* indirect mount */
+      plog(XLOG_ERROR, "mount of %s/%s failed", m->path, m->name);
     }
   }
-  autofs_args.map = map_opt;
 
-  /* XXX: these I set arbitrarily... */
-  autofs_args.mount_to = 300;
-  autofs_args.rpc_to = 60;
-  autofs_args.direct = 0;
+  dlog("MOUNT REPLY: status=%d (%s)\n", err, strerror(err));
 
-  /*
-   * Make a ``hostname'' string for the kernel
-   */
-  sprintf(fs_hostname, "pid%ld@%s:%s",
-	  get_server_pid(), am_get_hostname(), dir);
+  res->status = err;
+  return 0;
+}
 
-  /*
-   * Most kernels have a name length restriction.
-   */
-  if (strlen(fs_hostname) >= MAXHOSTNAMELEN)
-    strcpy(fs_hostname + MAXHOSTNAMELEN - 3, "..");
 
-  /*
-   * Finally we can compute the mount flags set above.
-   */
-  flags = compute_mount_flags(&mnt);
+static int
+autofs_unmount_1_req(struct umntrequest *ul,
+		     struct umntres *res,
+		     struct authunix_parms *cred)
+{
+  int i, err;
 
-  /*
-   * This is it!  Here we try to mount amd on its mount points.
-   */
-  error = mount_fs(&mnt, flags, (caddr_t) &autofs_args, retry, type, 0, NULL, mnttab_file_name);
-  return error;
+  dlog("UNMOUNT REQUEST: dev=%lx rdev=%lx %s\n",
+       (u_long) ul->devid,
+       (u_long) ul->rdevid,
+       ul->isdirect ? "direct" : "indirect");
+
+  /* by default, and if not found, succeed */
+  res->status = 0;
+
+  for (i = 0; i <= last_used_map; i++) {
+    am_node *mp = exported_ap[i];
+    if (mp && mp->am_dev == ul->devid &&
+	(ul->rdevid == 0 || mp->am_rdev == ul->rdevid)) {
+
+      /* save RPC context */
+      if (!mp->am_transp && current_transp) {
+	mp->am_transp = (SVCXPRT *) xmalloc(sizeof(SVCXPRT));
+	*(mp->am_transp) = *current_transp;
+      }
+
+      err = unmount_mp(mp);
+
+      if (err)
+	/* backgrounded, don't reply yet */
+	return 1;
+
+      if (exported_ap[i])
+	/* unmounting failed, tell the kernel */
+	res->status = 1;
+    }
+  }
+
+  dlog("UNMOUNT REPLY: status=%d\n", res->status);
+  return 0;
 }
 
 
@@ -290,7 +293,6 @@ mount_autofs(char *dir, char *opts)
 static void
 autofs_program_1(struct svc_req *rqstp, SVCXPRT *transp)
 {
-  int ret;
   union {
     mntrequest autofs_mount_1_arg;
     umntrequest autofs_umount_1_arg;
@@ -299,9 +301,13 @@ autofs_program_1(struct svc_req *rqstp, SVCXPRT *transp)
     mntres mount_res;
     umntres umount_res;
   } result;
+  int ret;
 
-  bool_t (*xdr_argument)(), (*xdr_result)();
+  bool_t (*xdr_argument)();
+  bool_t (*xdr_result)();
   int (*local)();
+
+  current_transp = transp;
 
   switch (rqstp->rq_proc) {
 
@@ -314,13 +320,13 @@ autofs_program_1(struct svc_req *rqstp, SVCXPRT *transp)
   case AUTOFS_MOUNT:
     xdr_argument = xdr_mntrequest;
     xdr_result = xdr_mntres;
-    local = (int (*)()) autofs_mount_1_svc;
+    local = autofs_mount_1_req;
     break;
 
   case AUTOFS_UNMOUNT:
     xdr_argument = xdr_umntrequest;
     xdr_result = xdr_umntres;
-    local = (int (*)()) autofs_unmount_1_svc;
+    local = autofs_unmount_1_req;
     break;
 
   default:
@@ -339,89 +345,379 @@ autofs_program_1(struct svc_req *rqstp, SVCXPRT *transp)
     return;
   }
 
+  memset((char *)&result, 0, sizeof (result));
   ret = (*local) (&argument, &result, rqstp);
-  if (!svc_sendreply(transp,
-		     (XDRPROC_T_TYPE) xdr_result,
-		     (SVC_IN_ARG_TYPE) &result)) {
-    svcerr_systemerr(transp);
+
+  current_transp = NULL;
+
+  /* send reply only if the RPC method returned 0 */
+  if (!ret) {
+    if (!svc_sendreply(transp,
+		       (XDRPROC_T_TYPE) xdr_result,
+		       (SVC_IN_ARG_TYPE) &result)) {
+      svcerr_systemerr(transp);
+    }
   }
 
   if (!svc_freeargs(transp,
 		    (XDRPROC_T_TYPE) xdr_argument,
 		    (SVC_IN_ARG_TYPE) &argument)) {
     plog(XLOG_FATAL, "unable to free rpc arguments in autofs_program_1");
-    going_down(1);
   }
 }
 
 
-static int
-autofs_mount_1_svc(struct mntrequest *mr, struct mntres *result, struct authunix_parms *cred)
+autofs_fh_t *
+autofs_get_fh(am_node *mp)
 {
-  int err = 0;
-  am_node *anp, *anp2;
+  autofs_fh_t *fh;
+  char buf[MAXHOSTNAMELEN];
+  mntfs *mf = mp->am_mnt;
+  struct utsname utsname;
 
-  /* XXX: needs to be fixed? */
-  plog(XLOG_INFO, "autofs_mount_1_svc: %s:%s:%s:%s",
-       mr->map, mr->name, mr->opts, mr->path);
+  plog(XLOG_DEBUG, "autofs_get_fh for %s", mp->am_path);
+  fh = ALLOC(autofs_fh_t);
+  memset((voidp) fh, 0, sizeof(autofs_fh_t)); /* Paranoid */
 
-  /* look for map (eg. "/home") */
-  anp = find_ap(mr->path);
-  if (!anp) {
-    plog(XLOG_ERROR, "map %s not found", mr->path);
-    err = ENOENT;
-    goto out;
+  /*
+   * SET MOUNT ARGS
+   */
+  if (uname(&utsname) < 0) {
+    strcpy(buf, "localhost.autofs");
+  } else {
+    strcpy(buf, utsname.nodename);
+    strcat(buf, ".autofs");
   }
-  /* turn on autofs in map flags */
-  if (!(anp->am_flags & AMF_AUTOFS)) {
-    plog(XLOG_INFO, "turning on AMF_AUTOFS for node %s", mr->path);
-    anp->am_flags |= AMF_AUTOFS;
+#ifdef HAVE_AUTOFS_ARGS_T_ADDR
+  fh->addr.buf = strdup(buf);
+  fh->addr.len = fh->addr.maxlen = strlen(buf);
+#endif /* HAVE_AUTOFS_ARGS_T_ADDR */
+
+  fh->direct = (mf->mf_fsflags & FS_DIRECT) ? 1 : 0;
+  fh->rpc_to = 1;		/* XXX: arbitrary */
+  fh->mount_to = mp->am_timeo;
+  fh->path = mp->am_path;
+  fh->opts = "";		/* XXX: arbitrary */
+  fh->map = mp->am_path;	/* this is what we get back in readdir */
+
+  return fh;
+}
+
+
+void
+autofs_mounted(am_node *mp)
+{
+  /* We don't want any timeouts on autofs nodes */
+  mp->am_ttl = NEVER;
+}
+
+
+void
+autofs_release_fh(autofs_fh_t *fh)
+{
+  if (fh) {
+#ifdef HAVE_AUTOFS_ARGS_T_ADDR
+    free(fh->addr.buf);
+#endif /* HAVE_AUTOFS_ARGS_T_ADDR */
+    XFREE(fh);
+  }
+}
+
+
+void
+autofs_add_fdset(fd_set *readfds)
+{
+  /* nothing to do */
+}
+
+int
+autofs_handle_fdset(fd_set *readfds, int nsel)
+{
+  /* nothing to do */
+  return nsel;
+}
+
+
+/*
+ * find the IP address that can be used to connect autofs service to.
+ */
+static int
+get_autofs_address(struct netconfig *ncp, struct t_bind *tbp)
+{
+  int ret;
+  struct nd_addrlist *addrs = (struct nd_addrlist *) NULL;
+  struct nd_hostserv service;
+
+  service.h_host = HOST_SELF_CONNECT;
+  service.h_serv = "autofs";
+
+  ret = netdir_getbyname(ncp, &service, &addrs);
+
+  if (ret) {
+    plog(XLOG_FATAL, "get_autofs_address: cannot get local host address: %s", netdir_sperror());
+    goto out;
   }
 
   /*
-   * Look for (and create if needed) the new node.
-   *
-   * If an error occurred, return it.  If a -1 was returned, that indicates
-   * that a mount is in progress, so sleep a while (while the backgrounded
-   * mount is happening), and then signal the autofs to retry the mount.
-   *
-   * There's something I don't understand.  I was thinking that this code
-   * here is the one which will succeed eventually and will send an RPC
-   * reply to the kernel, but apparently that happens somewhere else, not
-   * here.  It works though, just that I don't know how.  Arg. -Erez.
-   * */
+   * XXX: there may be more more than one address for this local
+   * host.  Maybe something can be done with those.
+   */
+  tbp->addr.len = addrs->n_addrs->len;
+  tbp->addr.maxlen = addrs->n_addrs->len;
+  memcpy(tbp->addr.buf, addrs->n_addrs->buf, addrs->n_addrs->len);
+  tbp->qlen = 8;		/* arbitrary? who cares really */
+
+  /* all OK */
+  netdir_free((voidp) addrs, ND_ADDRLIST);
+
+out:
+  return ret;
+}
+
+
+#include <rpc/nettype.h>
+static char *autofs_conftype = "ticlts";
+static struct netconfig *autofs_ncp;
+/*
+ * Create the autofs service for amd
+ */
+int
+create_autofs_service(void)
+{
+  struct t_bind *tbp = 0;
+  int fd = -1, err = 1;		/* assume failed */
+
+  plog(XLOG_INFO, "creating autofs service listener");
+  autofs_ncp = getnetconfigent(autofs_conftype);
+  if (autofs_ncp == NULL) {
+    plog(XLOG_ERROR, "create_autofs_service: cannot getnetconfigent for %s", autofs_conftype);
+    goto out;
+  }
+
+  fd = t_open(autofs_ncp->nc_device, O_RDWR, NULL);
+  if (fd < 0) {
+    plog(XLOG_ERROR, "create_autofs_service: t_open failed (%s)",
+	 t_errlist[t_errno]);
+    goto out;
+  }
+
+  tbp = (struct t_bind *) t_alloc(fd, T_BIND, T_ADDR);
+  if (!tbp) {
+    plog(XLOG_ERROR, "create_autofs_service: t_alloca failed");
+    goto out;
+  }
+
+  if (get_autofs_address(autofs_ncp, tbp) != 0) {
+    plog(XLOG_ERROR, "create_autofs_service: get_autofs_address failed");
+    goto out;
+  }
+
+  autofs_xprt = svc_tli_create(fd, autofs_ncp, tbp, 0, 0);
+  if (autofs_xprt == NULL) {
+    plog(XLOG_ERROR, "cannot create autofs tli service for amd");
+    goto out;
+  }
+
+  rpcb_unset(AUTOFS_PROG, AUTOFS_VERS, autofs_ncp);
+  if (svc_reg(autofs_xprt, AUTOFS_PROG, AUTOFS_VERS, autofs_program_1, autofs_ncp) == FALSE) {
+    plog(XLOG_ERROR, "could not register amd AUTOFS service");
+    goto out;
+  }
   err = 0;
-  anp2 = autofs_lookuppn(anp, mr->name, &err, VLOOK_CREATE);
-  if (!anp2) {
-    if (err == -1) {		/* then tell autofs to retry */
-      sleep(1);
-      err = EAGAIN;
-    }
+  goto really_out;
+
+out:
+  if (autofs_ncp)
+    freenetconfigent(autofs_ncp);
+  if (autofs_xprt)
+    SVC_DESTROY(autofs_xprt);
+  else {
+    if (fd > 0)
+      t_close(fd);
+  }
+
+really_out:
+  if (tbp)
+    t_free((char *) tbp, T_BIND);
+
+  dlog("create_autofs_service: returning %d\n", err);
+  return err;
+}
+
+
+int
+destroy_autofs_service(void)
+{
+  //struct netconfig *autofs_ncp;
+  int err = 1;
+
+  plog(XLOG_INFO, "destroying autofs service listener");
+#if 0
+  autofs_ncp = getnetconfigent(autofs_conftype);
+  if (autofs_ncp == NULL) {
+    plog(XLOG_ERROR, "create_autofs_service: cannot getnetconfigent for %s", autofs_conftype);
     goto out;
   }
 
 out:
-  result->status = err;
+#endif
+  rpcb_unset(AUTOFS_PROG, AUTOFS_VERS, autofs_ncp);
   return err;
 }
 
 
-static int
-autofs_unmount_1_svc(struct umntrequest *ur, struct umntres *result, struct authunix_parms *cred)
+int
+autofs_link_mount(am_node *mp)
 {
-  int err = 0;
+  int err;
+  mntfs *mf = mp->am_mnt;
 
-  /* XXX: needs to be fixed? */
-  plog(XLOG_INFO, "autofs_unmount_1_svc: %d:%lu:%lu:0x%lx",
-       ur->isdirect, (unsigned long) ur->devid, (unsigned long) ur->rdevid,
-       (unsigned long) ur->next);
-
-  err = EINVAL;			/* XXX: not implemented yet */
-  goto out;
+  plog(XLOG_INFO, "autofs: converting from link to lofs (%s -> %s)", mp->am_path, mp->am_link);
+  if ((err = mkdirs(mf->mf_real_mount, 0555)))
+    goto out;
+  err = lofs_ops.mount_fs(mp, mf);
 
 out:
-  result->status = err;
-  return err;
+  if (err)
+    return errno;
+  return 0;
 }
 
-#endif /* HAVE_FS_AUTOFS */
+
+int
+autofs_link_umount(am_node *mp)
+{
+  mntfs *mf = mp->am_mnt;
+  return lofs_ops.umount_fs(mp, mf);
+}
+
+
+int
+autofs_umount_succeeded(am_node *mp)
+{
+  umntres res;
+  SVCXPRT *transp = mp->am_transp;
+
+  if (transp) {
+    res.status = 0;
+
+    if (!svc_sendreply(transp,
+		       (XDRPROC_T_TYPE) xdr_umntres,
+		       (SVC_IN_ARG_TYPE) &res))
+      svcerr_systemerr(transp);
+
+    dlog("Quick reply sent for %s", mp->am_mnt->mf_mount);
+    XFREE(transp);
+    mp->am_transp = NULL;
+  }
+
+  plog(XLOG_INFO, "autofs: unmounting %s succeeded", mp->am_path);
+  return 0;
+}
+
+int
+autofs_umount_failed(am_node *mp)
+{
+  umntres res;
+  SVCXPRT *transp = mp->am_transp;
+
+  if (transp) {
+    res.status = 1;
+
+    if (!svc_sendreply(transp,
+		       (XDRPROC_T_TYPE) xdr_umntres,
+		       (SVC_IN_ARG_TYPE) &res))
+      svcerr_systemerr(transp);
+
+    dlog("Quick reply sent for %s", mp->am_mnt->mf_mount);
+    XFREE(transp);
+    mp->am_transp = NULL;
+  }
+
+  plog(XLOG_INFO, "autofs: unmounting %s failed", mp->am_path);
+  return 0;
+}
+
+
+void
+autofs_mount_succeeded(am_node *mp)
+{
+  SVCXPRT *transp = mp->am_transp;
+  struct stat stb;
+
+  if (transp) {
+    /* this was a mount request */
+    mntres res;
+    res.status = 0;
+
+    if (!svc_sendreply(transp,
+		       (XDRPROC_T_TYPE) xdr_mntres,
+		       (SVC_IN_ARG_TYPE) &res))
+      svcerr_systemerr(transp);
+
+    dlog("Quick reply sent for %s", mp->am_mnt->mf_mount);
+    XFREE(transp);
+    mp->am_transp = NULL;
+  }
+
+  /*
+   * Store dev and rdev -- but not for symlinks
+   */
+  if (!mp->am_link) {
+    if (!lstat(mp->am_mnt->mf_real_mount, &stb)) {
+      mp->am_dev = stb.st_dev;
+      mp->am_rdev = stb.st_rdev;
+    }
+    /* don't expire the entries -- the kernel will do it for us */
+    mp->am_flags |= AMF_NOTIMEOUT;
+  }
+
+  plog(XLOG_INFO, "autofs: mounting %s succeeded", mp->am_path);
+}
+
+
+void
+autofs_mount_failed(am_node *mp)
+{
+  SVCXPRT *transp = mp->am_transp;
+
+  if (transp) {
+    /* this was a mount request */
+    mntres res;
+    res.status = ENOENT;
+
+    if (!svc_sendreply(transp,
+		       (XDRPROC_T_TYPE) xdr_mntres,
+		       (SVC_IN_ARG_TYPE) &res))
+      svcerr_systemerr(transp);
+
+    dlog("Quick reply sent for %s", mp->am_mnt->mf_mount);
+    XFREE(transp);
+    mp->am_transp = NULL;
+  }
+
+  plog(XLOG_INFO, "autofs: mounting %s failed", mp->am_path);
+}
+
+
+void
+autofs_get_opts(char *opts, autofs_fh_t *fh)
+{
+  sprintf(opts, "%sdirect",
+	  fh->direct ? "" : "in");
+}
+
+
+int
+autofs_compute_mount_flags(mntent_t *mntp)
+{
+  /* Must use overlay mounts */
+  return MNT2_GEN_OPT_OVERLAY;
+}
+
+
+void autofs_timeout_mp(am_node *mp)
+{
+  /* We don't want any timeouts on autofs nodes */
+  mp->am_ttl = NEVER;
+}

@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+$Id: jboss-service.xml,v 1.1.2.1 2003/05/18 00:59:37 starksm Exp $
+-->
+
+<server>
+   <mbean code="org.jboss.varia.scheduler.Scheduler" name="test:service=TestScheduler">
+      <attribute name="StartAtStartup">true</attribute>
+      <attribute name="SchedulableClass">org.jboss.test.util.scheduler.TestSchedulable</attribute>
+      <attribute name="SchedulableArguments">TestSchedulable,12345</attribute>
+      <attribute name="SchedulableArgumentTypes">java.lang.String,int</attribute>
+      <attribute name="InitialStartDate">0</attribute>
+      <attribute name="SchedulePeriod">10000</attribute>
+      <attribute name="InitialRepetitions">-1</attribute>
+   </mbean>
+</server>

@@ -3,19 +3,22 @@
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
- * The contents of this file constitute Original Code as defined in and
- * are subject to the Apple Public Source License Version 1.1 (the
- * "License").  You may not use this file except in compliance with the
- * License.  Please obtain a copy of the License at
- * http://www.apple.com/publicsource and read it before using this file.
+ * Copyright (c) 1999-2003 Apple Computer, Inc.  All Rights Reserved.
  * 
- * This Original Code and all software distributed under the License are
- * distributed on an "AS IS" basis, WITHOUT WARRANTY OF ANY KIND, EITHER
+ * This file contains Original Code and/or Modifications of Original Code
+ * as defined in and that are subject to the Apple Public Source License
+ * Version 2.0 (the 'License'). You may not use this file except in
+ * compliance with the License. Please obtain a copy of the License at
+ * http://www.opensource.apple.com/apsl/ and read it before using this
+ * file.
+ * 
+ * The Original Code and all software distributed under the License are
+ * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
  * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
  * INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY,
- * FITNESS FOR A PARTICULAR PURPOSE OR NON-INFRINGEMENT.  Please see the
- * License for the specific language governing rights and limitations
- * under the License.
+ * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
+ * Please see the License for the specific language governing rights and
+ * limitations under the License.
  * 
  * @APPLE_LICENSE_HEADER_END@
  */
@@ -31,35 +34,47 @@
  * July 31, 2000	Dieter Siegmund (dieter@apple.com)
  * - changed to add set, and new implementation of waitall
  * - removed waitif
+ * February 24, 2003	Dieter Siegmund (dieter@apple.com)
+ * - added support to retrieve information about the netboot (bsdp)
+ *   packet stored in the device tree
  */
-#import <stdio.h>
-#import <unistd.h>
-#import <stdlib.h>
-#import <mach/mach.h>
-#import <mach/mach_error.h>
-#import <servers/bootstrap.h>
-#import <ctype.h>
-#import <string.h>
+#include <stdio.h>
+#include <unistd.h>
+#include <stdlib.h>
+#include <mach/mach.h>
+#include <mach/mach_error.h>
+#include <servers/bootstrap.h>
+#include <ctype.h>
+#include <string.h>
+#include <sysexits.h>
 
-#import "machcompat.h"
-#import <netinet/in.h>
-#import <netinet/udp.h>
-#import <netinet/in_systm.h>
-#import <netinet/ip.h>
-#import <netinet/bootp.h>
-#import <arpa/inet.h>
+#include "machcompat.h"
+#include <netinet/in.h>
+#include <netinet/udp.h>
+#include <netinet/in_systm.h>
+#include <netinet/ip.h>
+#include <netinet/bootp.h>
+#include <arpa/inet.h>
 
-#import "ipconfig_ext.h"
-#import "ipconfig.h"
-#import "dhcp_options.h"
-#import "dhcplib.h"
-#import <SystemConfiguration/SystemConfiguration.h>
+#include "ipconfig_ext.h"
+#include "ipconfig.h"
+#include "dhcp_options.h"
+#include "dhcplib.h"
+#include "bsdp.h"
+#include "bsdplib.h"
+#include "ioregpath.h"
+#include <SystemConfiguration/SystemConfiguration.h>
+#include <SystemConfiguration/SCValidation.h>
 
 typedef int func_t(port_t server, int argc, char * argv[]);
 typedef func_t * funcptr_t;
 char * progname = NULL;
 
 #define STARTUP_KEY	CFSTR("Plugin:IPConfiguration")
+
+#define SHADOW_MOUNT_PATH_COMMAND	"shadow_mount_path"
+#define SHADOW_FILE_PATH_COMMAND	"shadow_file_path"
+#define MACHINE_NAME_COMMAND		"machine_name"
 
 static void
 on_alarm(int sigraised)
@@ -143,6 +158,126 @@ S_wait_if(port_t server, int argc, char * argv[])
     return (1);
 }
 #endif 0
+
+static int
+S_bsdp_get_packet(port_t server, int argc, char * argv[])
+{
+    CFDictionaryRef	chosen = NULL;
+    struct dhcp *	dhcp;
+    int			length;
+    CFDataRef		response = NULL;
+    int			ret = 1;
+
+    if (getuid() != 0) {
+	return (EX_NOPERM);
+    }
+
+    chosen = myIORegistryEntryCopyValue("IODeviceTree:/chosen");
+    if (chosen == NULL) {
+	goto done;
+    }
+    response = CFDictionaryGetValue(chosen, CFSTR("bsdp-response"));
+    if (isA_CFData(response) == NULL) {
+	response = CFDictionaryGetValue(chosen, CFSTR("bootp-response"));
+	if (isA_CFData(response) == NULL) {
+	    goto done;
+	}
+    }
+    dhcp = (struct dhcp *)CFDataGetBytePtr(response);
+    length = CFDataGetLength(response);
+    bsdp_print_packet(dhcp, length, 0);
+    ret = 0;
+ done:
+    return (ret);
+}
+
+static int
+S_bsdp_option(port_t server, int argc, char * argv[])
+{
+    CFDictionaryRef	chosen = NULL;
+    void *		data = NULL;
+    int			data_len;
+    struct dhcp *	dhcp;
+    char		err[256];
+    int			length;
+    dhcpol_t		options;
+    CFDataRef		response = NULL;
+    int			ret = 1;
+    int			tag = 0;
+    dhcpol_t		vendor_options;
+    int			vendor_tag = 0;
+
+    if (getuid() != 0) {
+	return (EX_NOPERM);
+    }
+
+    chosen = myIORegistryEntryCopyValue("IODeviceTree:/chosen");
+    if (chosen == NULL) {
+	goto done;
+    }
+    response = CFDictionaryGetValue(chosen, CFSTR("bsdp-response"));
+    if (isA_CFData(response) == NULL) {
+	response = CFDictionaryGetValue(chosen, CFSTR("bootp-response"));
+	if (isA_CFData(response) == NULL) {
+	    goto done;
+	}
+    }
+    dhcp = (struct dhcp *)CFDataGetBytePtr(response);
+    length = CFDataGetLength(response);
+    if (dhcpol_parse_packet(&options, dhcp, length, err) == FALSE) {
+	goto done;
+    }
+    if (strcmp(argv[0], SHADOW_MOUNT_PATH_COMMAND) == 0) {
+	tag = dhcptag_vendor_specific_e;
+	vendor_tag = bsdptag_shadow_mount_path_e;
+    }
+    else if (strcmp(argv[0], SHADOW_FILE_PATH_COMMAND) == 0) {
+	tag = dhcptag_vendor_specific_e;
+	vendor_tag = bsdptag_shadow_file_path_e;
+    }
+    else if (strcmp(argv[0], MACHINE_NAME_COMMAND) == 0) {
+	tag = dhcptag_vendor_specific_e;
+	vendor_tag = bsdptag_machine_name_e;
+    }
+    else {
+	tag = atoi(argv[0]);
+	if (argc == 2) {
+	    vendor_tag = atoi(argv[1]);
+	}
+    }
+    if (tag == dhcptag_vendor_specific_e && vendor_tag != 0) {
+	if (dhcpol_parse_vendor(&vendor_options, &options, err) == FALSE) {
+	    goto done;
+	}
+	data = dhcpol_get(&vendor_options, vendor_tag, &data_len);
+	if (data != NULL) {
+	    dhcptype_print(bsdptag_type(vendor_tag), data, data_len);
+	    ret = 0;
+	}
+	dhcpol_free(&vendor_options);
+    }
+    else {
+	dhcptag_info_t * entry;
+
+	entry = dhcptag_info(tag);
+	if (entry == NULL) {
+	    goto done;
+	}
+	data = dhcpol_get(&options, tag, &data_len);
+	if (data != NULL) {
+	    dhcptype_print(entry->type, data, data_len);
+	    ret = 0;
+	}
+    }
+ done:
+    if (data != NULL) {
+	free(data);
+    }
+    if (chosen != NULL) {
+	CFRelease(chosen);
+    }
+    return (ret);
+}
 
 static int
 S_if_addr(port_t server, int argc, char * argv[])
@@ -319,23 +454,29 @@ S_set(port_t server, int argc, char * argv[])
     return (1);
 }
 
-static struct {
+static struct command_info {
     char *	command;
     funcptr_t	func;
     int		argc;
     char *	usage;
+    int		display;
+    int		no_server;
 } commands[] = {
-    { "waitall", S_wait_all, 0, "[ timeout secs ]" },
-    { "getifaddr", S_if_addr, 1, "<interface name>" },
+    { "waitall", S_wait_all, 0, "[ timeout secs ]", 1, 1 },
+    { "getifaddr", S_if_addr, 1, "<interface name>", 1, 0 },
 #if 0
-    { "waitif", S_wait_if, 1, " <interface name>" },
+    { "waitif", S_wait_if, 1, " <interface name>", 1, 0 },
 #endif 0
-    { "ifcount", S_if_count, 0, "" },
+    { "ifcount", S_if_count, 0, "", 1, 0 },
     { "getoption", S_get_option, 2, 
-      " <interface name | \"\" > <option name> | <option code>" },
-    { "getpacket", S_get_packet, 1, " <interface name>" },
+      " <interface name | \"\" > <option name> | <option code>", 1, 0 },
+    { "getpacket", S_get_packet, 1, " <interface name>", 1, 0 },
     { "set", S_set, 2, 
-      " <interface name> < BOOTP | MANUAL | DHCP | INFORM | NONE > <method args>" },
+      " <interface name> < BOOTP | MANUAL | DHCP | INFORM | NONE > <method args>", 1, 0 },
+    { "netbootoption", S_bsdp_option, 1, "<option> [<vendor option>] | " 
+      SHADOW_MOUNT_PATH_COMMAND " | " SHADOW_FILE_PATH_COMMAND
+      " | " MACHINE_NAME_COMMAND, 0, 1 },
+    { "netbootpacket", S_bsdp_get_packet, 0, "", 0, 1 },
     { NULL, NULL, NULL },
 };
 
@@ -346,26 +487,30 @@ usage()
     fprintf(stderr, "usage: %s <command> <args>\n", progname);
     fprintf(stderr, "where <command> is one of ");
     for (i = 0; commands[i].command; i++) {
-	fprintf(stderr, "%s%s",  i == 0 ? "" : ", ",
-		commands[i].command);
+	if (commands[i].display) {
+	    fprintf(stderr, "%s%s",  i == 0 ? "" : ", ",
+		    commands[i].command);
+	}
     }
     fprintf(stderr, "\n");
     exit(1);
 }
 
-static funcptr_t
-S_lookup_func(char * cmd, int argc)
+static struct command_info *
+S_lookup_command(char * cmd, int argc)
 {
     int i;
 
     for (i = 0; commands[i].command; i++) {
 	if (strcmp(cmd, commands[i].command) == 0) {
 	    if (argc < commands[i].argc) {
-		fprintf(stderr, "usage: %s %s\n", commands[i].command,
-			commands[i].usage ? commands[i].usage : "");
+		if (commands[i].display) {
+		    fprintf(stderr, "usage: %s %s\n", commands[i].command,
+			    commands[i].usage ? commands[i].usage : "");
+		}
 		exit(1);
 	    }
-	    return commands[i].func;
+	    return commands + i;
 	}
     }
     return (NULL);
@@ -374,25 +519,14 @@ S_lookup_func(char * cmd, int argc)
 int
 main(int argc, char * argv[])
 {
-    boolean_t		active = FALSE;
-    funcptr_t		func;
-    port_t		server;
-    kern_return_t	status;
+    boolean_t			active = FALSE;
+    struct command_info *	command;
+    port_t			server;
+    kern_return_t		status;
 
     progname = argv[0];
     if (argc < 2)
 	usage();
-
-    status = ipconfig_server_port(&server, &active);
-    if (active == FALSE) {
-	fprintf(stderr, "ipconfig server not active\n");
-	/* start it maybe??? */
-	exit(1);
-    }
-    if (status != BOOTSTRAP_SUCCESS) {
-	mach_error("ipconfig_server_port failed", status);
-	exit(1);
-    }
 
     argv++; argc--;
 
@@ -425,9 +559,21 @@ main(int argc, char * argv[])
 	
     }
 #endif 0
-    func = S_lookup_func(argv[0], argc - 1);
-    if (func == NULL)
+    command = S_lookup_command(argv[0], argc - 1);
+    if (command == NULL)
 	usage();
     argv++; argc--;
-    exit ((*func)(server, argc, argv));
+    if (command->no_server == 0) {
+	status = ipconfig_server_port(&server, &active);
+	if (active == FALSE) {
+	    fprintf(stderr, "ipconfig server not active\n");
+	    /* start it maybe??? */
+	    exit(1);
+	}
+	if (status != BOOTSTRAP_SUCCESS) {
+	    mach_error("ipconfig_server_port failed", status);
+	    exit(1);
+	}
+    }
+    exit ((*command->func)(server, argc, argv));
 }

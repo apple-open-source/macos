@@ -32,28 +32,30 @@
 
 #include "../machine.h"
 
-#if	defined(HASBLKDEV) || defined(USE_LIB_PRINTCHDEVNAME)
+#if	defined(USE_LIB_PRINTDEVNAME)
 
 # if	!defined(lint)
 static char copyright[] =
 "@(#) Copyright 1997 Purdue Research Foundation.\nAll rights reserved.\n";
-static char *rcsid = "$Id: pdvn.c,v 1.6 2001/08/14 12:25:05 abe Exp $";
+static char *rcsid = "$Id: pdvn.c,v 1.7 2002/02/26 15:16:41 abe Exp $";
 # endif	/* !defined(lint) */
 
 #include "../lsof.h"
 
-#else	/* !defined(HASBLKDEV) && !defined(USE_LIB_PRINTCHDEVNAME) */
+#else	/* !defined(USE_LIB_PRINTDEVNAME) */
 static char d1[] = "d"; static char *d2 = d1;
-#endif	/* defined(HASBLKDEV) || defined(USE_LIB_PRINTCHDEVNAME) */
+#endif	/* defined(USE_LIB_PRINTDEVNAME) */
 
 
 /*
  * To use this source file:
  *
- * 1.  Define HASBLKDEV, or USE_LIB_PRINCHDEVNAME, or both.
+ * 1. Define USE_LIB_PRINTDEVNAME, or both.
  *
- * 2.  Define HAS_STD_CLONE to enable standard clone searches in
- *     printchdevname().
+ * 2. Define HAS_STD_CLONE to enable standard clone searches in
+ *    printdevname().
+ *
+ * 3. Define HASBLDKDEV to enable block device processing.
  */
 
 
@@ -61,61 +63,42 @@ static char d1[] = "d"; static char *d2 = d1;
  * Local definitions
  */
 
-#define	LIKE_NODE_TTL	"like device special "
+#define	LIKE_BLK_SPEC	"like block special"
+#define	LIKE_CHR_SPEC	"like character special"
 
 
-#if	defined(HASBLKDEV)
+# if	defined(USE_LIB_PRINTDEVNAME)
 /*
- * printbdevname() - print block device name
+ * printdevname() - print block or character device name
  */
 
 int
-printbdevname(dev, rdev, f)
-	dev_t *dev;			/* device */
-	dev_t *rdev;			/* raw device */
-	int f;				/* 1 = follow with '\n' */
-{
-	struct l_dev *dp;
-
-	if ((dp = lkupbdev(dev, rdev, 1, 1))) {
-	    safestrprt(dp->name, stdout, f);
-	    return(1);
-	}
-	return(0);
-}
-#endif	/* defined(HASBLKDEV) */
-
-
-#if	defined(USE_LIB_PRINTCHDEVNAME)
-/*
- * printchdevname() - print character device name
- */
-
-int
-printchdevname(dev, rdev, f)
+printdevname(dev, rdev, f, nty)
 	dev_t *dev;			/* device */
 	dev_t *rdev;			/* raw device */
 	int f;				/* 1 = print trailing '\n' */
+	int nty;			/* node type: N_BLK or N_CHR */
 {
 
-# if	defined(HAS_STD_CLONE)
+#  if	defined(HAS_STD_CLONE)
 	struct clone *c;
-# endif	/* defined(HAS_STD_CLONE) */
+#  endif	/* defined(HAS_STD_CLONE) */
 
 	struct l_dev *dp;
 	int r = 1;
 
-# if	defined(HASDCACHE)
+#  if	defined(HASDCACHE)
 
-printchdevname_again:
+printdevname_again:
 
-# endif	/* defined(HASDCACHE) */
+#  endif	/* defined(HASDCACHE) */
 
-#if	defined(HAS_STD_CLONE)
+# if	defined(HAS_STD_CLONE)
 /*
- * Search for clone.
+ * Search for clone if this is a character device on the same device as
+ * /dev (or /devices).
  */
-	if (Lf->is_stream && Clone && (*dev == DevDev)) {
+	if ((nty == N_CHR) && Lf->is_stream && Clone && (*dev == DevDev)) {
 	    r = 0;	/* Don't let lkupdev() rebuild the device cache,
 			 * because when it has been rebuilt we want to
 			 * search again for clones. */
@@ -123,61 +106,77 @@ printchdevname_again:
 	    for (c = Clone; c; c = c->next) {
 		if (GET_MAJ_DEV(*rdev) == GET_MIN_DEV(Devtp[c->dx].rdev)) {
 
-# if	defined(HASDCACHE)
+#  if	defined(HASDCACHE)
 		    if (DCunsafe && !Devtp[c->dx].v && !vfy_dev(&Devtp[c->dx]))
-			goto printchdevname_again;
-# endif	/* defined(HASDCACHE) */
+			goto printdevname_again;
+#  endif	/* defined(HASDCACHE) */
 
 		    safestrprt(Devtp[c->dx].name, stdout, f);
 		    return(1);
 		}
 	    }
 	}
-#endif	/* defined(HAS_STD_CLONE) */
+# endif	/* defined(HAS_STD_CLONE) */
 
 /*
- * Search device table for a full match.
+ * Search appropriate device table for a full match.
  */
-	if ((dp = lkupdev(dev, rdev, 1, r))) {
+
+# if	defined(HASBLKDEV)
+	if (nty == N_BLK)
+	    dp = lkupbdev(dev, rdev, 1, r);
+	else
+# endif	/* defined(HASBLKDEV) */
+
+	dp = lkupdev(dev, rdev, 1, r);
+	if (dp) {
 	    safestrprt(dp->name, stdout, f);
 	    return(1);
 	}
 /*
  * Search device table for a match without inode number and dev.
  */
-	if ((dp = lkupdev(&DevDev, rdev, 0, r))) {
 
+# if	defined(HASBLKDEV)
+	if (nty == N_BLK)
+	    dp = lkupbdev(&DevDev, rdev, 0, r);
+	else
+# endif	/* defined(HASBLKDEV) */
+
+	dp = lkupdev(&DevDev, rdev, 0, r);
+	if (dp) {
 	/*
-	 * A raw device match was found.  Record it as a name column addition.
+	 * A match was found.  Record it as a name column addition.
 	 */
-	    char *cp;
+	    char *cp, *ttl;
 	    int len;
 
-	    len = (int)(1 + strlen(LIKE_NODE_TTL) + strlen(dp->name) + 1);
+	    ttl = (nty == N_BLK) ? LIKE_BLK_SPEC : LIKE_CHR_SPEC;
+	    len = (int)(1 + strlen(ttl) + 1 + strlen(dp->name) + 1);
 	    if (!(cp = (char *)malloc((MALLOC_S)(len + 1)))) {
-		(void) fprintf(stderr, "%s: no nma space for: (%s%s)\n",
-		    Pn, LIKE_NODE_TTL, dp->name);
+		(void) fprintf(stderr, "%s: no nma space for: (%s %s)\n",
+		    Pn, ttl, dp->name);
 		Exit(1);
 	    }
-	    (void) snpf(cp, len + 1, "(%s%s)", LIKE_NODE_TTL, dp->name);
+	    (void) snpf(cp, len + 1, "(%s %s)", ttl, dp->name);
 	    (void) add_nma(cp, len);
 	    (void) free((MALLOC_P *)cp);
 	    return(0);
 	}
 
-#if	defined(HASDCACHE)
+# if	defined(HASDCACHE)
 /*
  * We haven't found a match.
  *
- * If lkupdev()'s rebuilding the device cache was suppressed
- * and the device cache is "unsafe," rebuild it.
+ * If rebuilding the device cache was suppressed and the device cache is
+ * "unsafe," rebuild it.
  */
 	if (!r && DCunsafe) {
 	    (void) rereaddev();
-	    goto printchdevname_again;
+	    goto printdevname_again;
 	}
-#endif	/* defined(HASDCACHE) */
+# endif	/* defined(HASDCACHE) */
 
 	return(0);
 }
-#endif	/* defined(USE_LIB_PRINTCHDEVNAME) */
+#endif	/* defined(USE_LIB_PRINTDEVNAME) */

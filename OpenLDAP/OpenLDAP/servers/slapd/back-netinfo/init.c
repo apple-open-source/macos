@@ -43,6 +43,8 @@ static ldap_pvt_thread_mutex_t rpc_lock;
 static int32_t utf8_compare_cb LDAP_P((dsdata *, dsdata *, u_int32_t));
 static dsdata *utf8_normalize_cb LDAP_P((dsdata *, u_int32_t));
 
+static int get_boolForKey LDAP_P((dsengine *, const dsdata *, int));
+
 const dsdata netinfo_back_name_name = { DataTypeCStr, sizeof("name"), "name", 1 };
 const dsdata netinfo_back_name_passwd = { DataTypeCStr, sizeof("passwd"), "passwd", 1 };
 const dsdata netinfo_back_name_address = { DataTypeCStr, sizeof("address"), "address", 1 };
@@ -108,6 +110,52 @@ static dsdata *utf8_normalize_cb(dsdata *d, u_int32_t casefold)
 	ldap_memfree(bvp->bv_val);
 
 	return x;
+}
+
+static int get_boolForKey(dsengine *e, const dsdata *name, int def)
+{
+	int ret;
+	dsrecord *r;
+	dsattribute *a;
+
+	ret = def;
+
+	if (dsengine_fetch(e, 0, &r) != DSStatusOK)
+	{
+		return ret;
+	}
+
+	a = dsrecord_attribute(r, (dsdata *)name, SELECT_ATTRIBUTE);
+	if (a == NULL)
+	{
+		dsrecord_release(r);
+		return ret;
+	}
+
+	dsrecord_release(r);
+
+	if (a->count == 0 || (IsStringDataType(a->value[0]->type) == 0))
+	{
+		dsattribute_release(a);
+		return ret;
+	}
+
+	if (!strcmp(a->value[0]->data, "YES")) ret = TRUE;
+	else if (!strcmp(a->value[0]->data, "yes")) ret = TRUE;
+	else if (!strcmp(a->value[0]->data, "Yes")) ret = TRUE;
+	else if (!strcmp(a->value[0]->data, "1")) ret = TRUE;
+	else if (!strcmp(a->value[0]->data, "Y")) ret = TRUE;
+	else if (!strcmp(a->value[0]->data, "y")) ret = TRUE;
+	else if (!strcmp(a->value[0]->data, "NO")) ret = FALSE;
+	else if (!strcmp(a->value[0]->data, "no")) ret = FALSE;
+	else if (!strcmp(a->value[0]->data, "No")) ret = FALSE;
+	else if (!strcmp(a->value[0]->data, "0")) ret = FALSE;
+	else if (!strcmp(a->value[0]->data, "N")) ret = FALSE;
+	else if (!strcmp(a->value[0]->data, "n")) ret = FALSE;
+
+	dsattribute_release(a);
+
+	return ret; 
 }
 
 int netinfo_back_open(BackendInfo *bi)
@@ -282,7 +330,7 @@ int netinfo_back_db_init(BackendDB *be)
 	struct dsinfo *di;
 
 #ifdef NEW_LOGGING
-	LDAP_LOG(("backend", LDAP_LEVEL_ENTRY, "netinfo_back_db_init: enter\n"));
+	LDAP_LOG((BACK_NETINFO, ENTRY, "netinfo_back_db_init: enter\n"));
 #else
 	Debug(LDAP_DEBUG_TRACE, "==> netinfo_back_db_init\n", 0, 0, 0);
 #endif
@@ -299,7 +347,7 @@ int netinfo_back_db_init(BackendDB *be)
 	di->flags = 0;
 	di->engine = NULL;
 	di->lock = NULL;
-	di->promote_admins = 0;
+	di->promote_admins = TRUE;
 
 	be->be_private = di;
 
@@ -307,7 +355,7 @@ int netinfo_back_db_init(BackendDB *be)
 	assert(di->map != NULL);
 
 #ifdef NEW_LOGGING
-	LDAP_LOG(("backend", LDAP_LEVEL_INFO, "netinfo_back_db_init: done\n"));
+	LDAP_LOG((BACK_NETINFO, INFO, "netinfo_back_db_init: done\n"));
 #else
 	Debug(LDAP_DEBUG_TRACE, "<== netinfo_back_db_init\n", 0, 0, 0);
 #endif
@@ -320,13 +368,12 @@ int netinfo_back_db_open(BackendDB *be)
 	struct dsinfo *di = (struct dsinfo *)be->be_private;
 	dsstatus status;
 	int i;
-	dsrecord *r;
 	struct netinfo_referral **q;
 
 	assert(di != NULL);
 
 #ifdef NEW_LOGGING
-	LDAP_LOG(("backend", LDAP_LEVEL_ENTRY, "netinfo_back_db_open: enter\n"));
+	LDAP_LOG((BACK_NETINFO, ENTRY, "netinfo_back_db_open: enter\n"));
 #else
 	Debug(LDAP_DEBUG_TRACE, "==> netinfo_back_db_open\n", 0, 0, 0);
 #endif
@@ -334,7 +381,7 @@ int netinfo_back_db_open(BackendDB *be)
 	if (di->engine == NULL)
 	{
 #ifdef NEW_LOGGING
-		LDAP_LOG(("backend", LDAP_LEVEL_INFO, "netinfo_back_db_open: "
+		LDAP_LOG((BACK_NETINFO, INFO, "netinfo_back_db_open: "
 			"could not open engine\n"));
 #else
 		Debug(LDAP_DEBUG_TRACE, "<== netinfo_back_db_open\n", 0, 0, 0);
@@ -352,7 +399,7 @@ int netinfo_back_db_open(BackendDB *be)
 		{
 			dsengine_close(di->engine);
 #ifdef NEW_LOGGING
-			LDAP_LOG(("backend", LDAP_LEVEL_INFO, "netinfo_back_db_open: "
+			LDAP_LOG((BACK_NETINFO, INFO, "netinfo_back_db_open: "
 				"authentication failed\n"));
 #else
 			Debug(LDAP_DEBUG_TRACE, "<== netinfo_back_db_open\n", 0, 0, 0);
@@ -373,7 +420,7 @@ int netinfo_back_db_open(BackendDB *be)
 	}
 
 #ifdef NEW_LOGGING
-	LDAP_LOG(("backend", LDAP_LEVEL_INFO, "(Canonical suffix %s)\n", di->suffix.bv_val));
+	LDAP_LOG((BACK_NETINFO, INFO, "(Canonical suffix %s)\n", di->suffix.bv_val));
 #else
 	Debug(LDAP_DEBUG_TRACE, "(Canonical suffix %s)\n", di->suffix.bv_val, 0, 0);
 #endif
@@ -383,7 +430,7 @@ int netinfo_back_db_open(BackendDB *be)
 		for (i = 0; i < di->parent->count; i++)
 		{
 #ifdef NEW_LOGGING
-			LDAP_LOG(("backend", LDAP_LEVEL_INFO, "(Parent naming context %s "
+			LDAP_LOG((BACK_NETINFO, INFO, "(Parent naming context %s "
 				"referred to %s)\n",
 				di->parent->nc.bv_val, di->parent->refs[i].bv_val, 0));
 #else
@@ -400,7 +447,7 @@ int netinfo_back_db_open(BackendDB *be)
 			for (i = 0; i < (*q)->count; i++)
 			{
 #ifdef NEW_LOGGING
-				LDAP_LOG(("backend", LDAP_LEVEL_INFO, "(Child naming context %s "
+				LDAP_LOG((BACK_NETINFO, INFO, "(Child naming context %s "
 					"referred to %s)\n",
 					(*q)->nc.bv_val, (*q)->refs[i].bv_val, 0));
 #else
@@ -423,19 +470,10 @@ int netinfo_back_db_open(BackendDB *be)
 	}
 
 	/* check whether members of the admin group should be promoted */
-	status = dsengine_fetch(di->engine, 0, &r);
-	if (status == DSStatusOK)
-	{
-		if (dsrecord_attribute_index(r, (dsdata *)&netinfo_back_name_promote_admins,
-			SELECT_ATTRIBUTE) != IndexNull)
-		{
-			di->promote_admins = 1;
-		}
-		dsrecord_release(r);
-	}
+	di->promote_admins = get_boolForKey(di->engine, &netinfo_back_name_promote_admins, TRUE);
 
 #ifdef NEW_LOGGING
-	LDAP_LOG(("backend", LDAP_LEVEL_INFO, "netinfo_back_db_open: done\n"));
+	LDAP_LOG((BACK_NETINFO, INFO, "netinfo_back_db_open: done\n"));
 #else
 	Debug(LDAP_DEBUG_TRACE, "<== netinfo_back_db_open\n", 0, 0, 0);
 #endif
@@ -550,7 +588,7 @@ dsstatus netinfo_back_get_ditinfo(
 
 
 #ifdef NEW_LOGGING
-	LDAP_LOG(("backend", LDAP_LEVEL_ENTRY, "netinfo_back_get_ditinfo: enter\n"));
+	LDAP_LOG((BACK_NETINFO, ENTRY, "netinfo_back_get_ditinfo: enter\n"));
 #else
 	Debug(LDAP_DEBUG_TRACE, "==> netinfo_back_get_ditinfo\n", 0, 0, 0);
 #endif
@@ -559,7 +597,7 @@ dsstatus netinfo_back_get_ditinfo(
 	if (info == NULL)
 	{
 #ifdef NEW_LOGGING
-		LDAP_LOG(("backend", LDAP_LEVEL_INFO, "netinfo_back_get_ditinfo: could not retrieve DIT info\n"));
+		LDAP_LOG((BACK_NETINFO, INFO, "netinfo_back_get_ditinfo: could not retrieve DIT info\n"));
 #else
 		Debug(LDAP_DEBUG_TRACE, "<== netinfo_back_get_ditinfo\n", 0, 0, 0);
 #endif
@@ -639,7 +677,7 @@ dsstatus netinfo_back_get_ditinfo(
 	dsx500dit_release(info);
 
 #ifdef NEW_LOGGING
-	LDAP_LOG(("backend", LDAP_LEVEL_INFO, "netinfo_back_get_ditinfo: done\n"));
+	LDAP_LOG((BACK_NETINFO, INFO, "netinfo_back_get_ditinfo: done\n"));
 #else
 	Debug(LDAP_DEBUG_TRACE, "<== netinfo_back_get_ditinfo\n", 0, 0, 0);
 #endif

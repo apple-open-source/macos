@@ -74,12 +74,12 @@ if (( long )); then
     # Remove options also described by user-defined specs.
 
     tmp=()
-    for opt in "${(@)lopts:#--}"; do
+    for opt in "${(@)${(@)lopts:#--}%%\=*}"; do
 
       # Using (( ... )) gives a parse error.
 
-      let "$tmpargv[(I)(|\([^\)]#\))(|\*)${opt}(|[-+=])(|\[*\])(|:*)]" ||
-          tmp=( "$tmp[@]" "$opt" )
+      let "$tmpargv[(I)(|\([^\)]#\))(|\*)${opt}(|[-+]|=(|-))(|\[*\])(|:*)]" ||
+          tmp=( "$tmp[@]" "$lopts[(r)$opt(|=*)]" )
     done
     lopts=( "$tmp[@]" )
 
@@ -102,7 +102,7 @@ if (( long )); then
     # makes those options be completed without an argument description.
 
     set -- "$@" '*=FILE*:file:_files' \
-           '*=(DIR|PATH)*:directory:_files -/' '*: :  '
+           '*=(DIR|PATH)*:directory:_files -/' '*=*:=: ' '*: :  '
 
     while (( $# )); do
 
@@ -136,12 +136,19 @@ if (( long )); then
       tmpo=("${(@M)tmp:#*\[\=*}")
       if (( $#tmpo )); then
         tmp=("${(@)tmp:#*\[\=*}")
-        tmpo=("${(@)${(@)tmpo%%\=*}//[^a-z0-9-]}")
 
-        if [[ "$descr" = ::* ]]; then
-	  cache=( "$cache[@]" "${(@)^tmpo}=${dir}${descr}" )
+        if [[ "$descr" = :\=* ]]; then
+          for opt in "$tmpo[@]"; do
+            cache=( "$cache[@]"
+                    "${${opt%%\=*}//[^a-zA-Z0-9-]}=::${(L)${opt%\]}#*\=}: " )
+          done
         else
-	  cache=( "$cache[@]" "${(@)^tmpo}=${dir}:${descr}" )
+          tmpo=("${(@)${(@)tmpo%%\=*}//[^a-zA-Z0-9-]}")
+          if [[ "$descr" = ::* ]]; then
+	    cache=( "$cache[@]" "${(@)^tmpo}=${dir}${descr}" )
+          else
+	    cache=( "$cache[@]" "${(@)^tmpo}=${dir}:${descr}" )
+          fi
         fi
       fi
 
@@ -150,9 +157,17 @@ if (( long )); then
       tmpo=("${(@M)tmp:#*\=*}")
       if (( $#tmpo )); then
         tmp=("${(@)tmp:#*\=*}")
-        tmpo=("${(@)${(@)tmpo%%\=*}//[^a-z0-9-]}")
 
-	cache=( "$cache[@]" "${(@)^tmpo}=${dir}${descr}" )
+        if [[ "$descr" = :\=* ]]; then
+          for opt in "$tmpo[@]"; do
+            cache=( "$cache[@]"
+                    "${${opt%%\=*}//[^a-zA-Z0-9-]}=:${(L)${opt%\]}#*\=}: " )
+          done
+        else
+          tmpo=("${(@)${(@)tmpo%%\=*}//[^a-z0-9-]}")
+
+	  cache=( "$cache[@]" "${(@)^tmpo}=${dir}${descr}" )
+        fi
       fi
 
       # Everything else is just added as an option without arguments or
@@ -274,7 +289,7 @@ if (( $# )) && comparguments -i "$autod" "$singopt[@]" "$@"; then
 
                 # An empty action means that we should just display a message.
 
-	        _message "$descr"
+	        _message -e "$subc" "$descr"
 	        mesg=yes
 	        tried=yes
                 alwopt=${alwopt:-yes}
@@ -331,14 +346,15 @@ if (( $# )) && comparguments -i "$autod" "$singopt[@]" "$@"; then
           fi
         done
       fi
-      if [[ -z "$hasopts" &&
+      if _requested options &&
+         [[ -z "$hasopts" &&
             -z "$matched" &&
-            ( -z "$tried" || -n "$alwopt" ) &&
             ( -z "$aret" || "$PREFIX" = "$origpre" ) ]] &&
-          _requested options &&
-          { ! zstyle -T ":completion:${curcontext}:options" prefix-needed ||
+          { ! zstyle -T ":completion:${oldcontext%:*}:options" prefix-needed ||
             [[ "$origpre" = [-+]* || -z "$aret$mesg$tried" ]] } ; then
-	local prevpre="$PREFIX" previpre="$IPREFIX"
+	local prevpre="$PREFIX" previpre="$IPREFIX" prevcontext="$curcontext"
+
+        curcontext="${oldcontext%:*}:options"
 
 	hasopts=yes
 
@@ -371,7 +387,7 @@ if (( $# )) && comparguments -i "$autod" "$singopt[@]" "$@"; then
 	    tmp1=( "${(M@)tmp1:#[-+]?(|:*)}" )
 	    tmp2=( "${PREFIX}${(@M)^${(@)${(@)tmp1%%:*}#[-+]}:#?}" )
 
-            _describe -o option \
+            _describe -O option \
                       tmp1 tmp2 -Q -S '' -- \
 		      tmp3 -Q
 
@@ -383,13 +399,14 @@ if (( $# )) && comparguments -i "$autod" "$singopt[@]" "$@"; then
           single=yes
         else
           next=( "$next[@]" "$odirect[@]" )
-          _describe -o option \
+          _describe -O option \
                     next -Q -M "$matcher" -- \
                     direct -QS '' -M "$matcher" -- \
                     equal -QqS= -M "$matcher"
         fi
 	PREFIX="$prevpre"
 	IPREFIX="$previpre"
+        curcontext="$prevcontext"
       fi
       [[ -n "$tried" && "${${alwopt:+$origpre}:-$PREFIX}" != [-+]* ]] && break
     done
@@ -428,6 +445,14 @@ if (( $# )) && comparguments -i "$autod" "$singopt[@]" "$@"; then
 
   if [[ -n "$aret" ]]; then
     [[ -n $rawret ]] && return 300
+
+### Returning non-zero would allow the calling function to add its own
+### completions if we generated only options and have to use a ->state
+### action.  But if that then doesn't generate matches, the calling
+### function's return value would be wrong unless it compares
+### $compstate[nmatches] to its previous value.  Ugly.
+###
+###    return 1
   else
     [[ -n "$noargs" && nm -eq "$compstate[nmatches]" ]] && _message "$noargs"
   fi

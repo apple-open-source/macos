@@ -1,0 +1,26 @@
+Sinä tai joku sinuksi tekeytyvä, on pyytänyt jäsentunnuksesi 
+salasanan muistutusviestiä postituslistalta %(fqdn_lname)s. 
+Tarvitset tätä salasanaa muuttaaksesi jäsenasetuksiasi 
+(esim. haluatko säännöllisen postin vastaanoton
+vai koontilähetyksen). Lisäksi tämä salasana helpottaa 
+listalta eroamista.
+
+Olet jäsenenä osoitteella: %(user)s
+
+Salasanasi listalle %(listname)s on: %(password)s
+
+Tehdäksesi muutoksia jäsenyytesi asetuksiin, kirjaudu sisään 
+ja käväise listan jäsensivulla, osoitteessa:
+
+    %(options_url)s
+
+Voit tehdä samat muutokset myös sähköpostitse lähettämällä 
+viestin osoitteeseen:
+
+   %(requestaddr)s 
+
+ja laittamalla tekstin "help" otsikko- tai viestikenttään. 
+Automaattinen vastaus viestiisi sisältää lisätietoja.
+
+Kysymyksiä tai kommentteja? Lähetä ne postituslistan 
+%(listname)s ylläpitäjälle %(owneraddr)s.

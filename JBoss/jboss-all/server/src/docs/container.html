@@ -1,0 +1,159 @@
+<HTML>
+<HEAD>
+<TITLE>
+jBoss 2.0 EJB container Documentation
+</TITLE>
+<LINK REL ="stylesheet" TYPE="text/css" HREF="styles.css" TITLE="Style">
+</HEAD>
+<BODY BGCOLOR="white">
+<H1>jBoss 2.0 EJB container</H1>
+<H2 >Description</H2>
+<P>jBoss 2.0 contains an implementation of EJB 1.1. The container is internally componentized, by using interfaces to allow plugins of various implementations allowing different strategies to be used. This document describes these interfaces, and how to develop plugins for jBoss 2.0.<P/>
+
+<P>All interfaces and classes that are mentioned below are located in the org.jboss.ejb and org.jboss.ejb.plugins packages.
+</P>
+
+<H2 >Documentation</H2>
+<H3 >The container factory</H3>
+<P>
+The center class of the EJB implementation is the ContainerFactory. Given an EJB-jar that is ready for deployment, it will create and initialize the necessary EJB-containers, one for each deployed EJB. The factory contains two central methods, deploy and undeploy. The deploy method takes an URL, which either points to a EJB-jar, or to a directory whose structure is the same as a valid EJB-jar (this is convenient for development purposes). Once a deployment has been made, you can undeploy it by calling undeploy on the same URL. A call to deploy with an already deployed URL will cause an undeploy followed by deployment of the URL, i.e. a re-deploy. jBoss has support for full re-deployment of both implementation and interface classes, and will reload any changed classes. This will allow you to develop and update EJB's without ever stopping a running server.
+</P>
+
+<H3 >Automatic deployment</H3>
+<P>
+The container factory can be invoked manually from a management console, or automatically by using the AutoDeployer. The AutoDeployer (which is an MBean) is a component that periodically checks EJB-jars for modification timestamps. If an update has been made the EJB-jar is re-deployed. When the server is started and an EJB-jar is found it will be deployed automatically.
+</P>
+<P>
+The deployer is given an URL to watch. The URL can point to one of three things:
+<P>
+<UL>
+<LI>A EJB-jar</LI>
+<LI>A directory whose contents is structured like an EJB-jar. Timestamp checks will be done on the META-INF/ejb-jar.xml file.</LI>
+<LI>A directory into which EJB-jar files or directories containing valid EJB-jar contents is placed. This may only be a file URL, since it is not possible to do file listing checks on HTTP URL's.</LI>
+</UL>
+<P>
+The last variant is very powerful. The default configuration of jBoss starts an AutoDeployer that checks the /deploy directory. Here you can place any EJB-jars that you want to be deployed on startup. If you want to add deployments at runtime you simply drop them in there.
+</P>
+<H3 >Containers</H3>
+<P>
+A Container is the component that runs a particular EJB. When an EJB-jar is deployed, typically a number of containers are created which are connected internally into Application's. The Application lets Containers handle references between beans, for example for JNDI EJB-references as specified in the EJB 1.1 specification.
+</P>
+<P>
+The Container is mainly a framework into which one can plug in implementations of various parts. The Container itself does not perform any significant work other than connecting the various plugins. There are three subclasses of Container, each one implementing a particular bean-type:
+</P>
+<UL>
+<LI>EntityContainer handles EntityBeans</LI>
+<LI>StatelessSessionContainer handles Stateless SessionBeans</LI>
+<LI>StatefulSessionContainer handles Stateful SessionBeans</LI>
+</UL>
+<P>
+They are very similar, but are different in some respects. The stateless session container does not have an instance cache (since all instances have no identity), and the entity container has a EntityPersistenceManager to help it with persisting entity beans into various storages.
+</P>
+<P>
+The plugins can be added by implementing various interfaces, and by selecting them in the jBoss-specific deployment XML file (which can be edited in a GUI-tool). The interfaces are:
+</P>
+<UL>
+<LI>InstanceCache</LI>
+<LI>InstancePool</LI>
+<LI>ContainerInvoker</LI>
+<LI>EntityPersistenceManager</LI>
+<LI>StatefulSessionPersistenceManager</LI>
+<LI>Interceptor</LI>
+</UL>
+<P>
+InstancePool, ContainerInvoker and Interceptors are used for all different types of containers. InstanceCache is only used for entity beans and stateful session beans. EntityPersistenceManager is only used for entity beans. StatefulSessionPersistenceManager is only used for stateful session beans.
+</P>
+<P>
+These interfaces are described in detail below. All plugins have a callback to the container through which they can access all other plugins or configuration information. The containers main responsibility is hence to manage the plugins, and see to that the plugins have all the information they need in order to implement some functionality.
+</P>
+<H4 >InstanceCache</H4>
+<P>
+The InstanceCache handles all EJB-instances that are in a active state, i.e. bean instances that have an  identity attached to them. This is valid for EntityBeans (where the primary key represents the identity), and Stateful SessionBeans (where the session id is the identity). It handles the list of active instances, and is also responsible for activating and passivating these instances. If an instance with a given identity is requested, and it is not currently active, the InstanceCache must use the InstancePool to acquire a free instance, and the persistencemanager to activate the instance. Similarly, if it decides to passivate a certain active instance then it must call the persistence manager to passivate it, and release the instance to the InstancePool.
+</P>
+<H4 >InstancePool</H4>
+<P>
+The InstanceCache is used to manage the EJB-bean instances that are not associated with any identity. It may choose to have a pool of free instances, or it may choose to instantiate and initialize instance on demand. The pool is used by the InstanceCache to acquire free instances for activation, and it is used by Interceptors to acquire instances to be used for Home-interface methods (create and finder calls).
+</P>
+<H4 >ContainerInvoker</H4>
+<P>
+The ContainerInvoker is responsible for accepting remote calls to the container, by implementing the EJBObject part of the containers. The Container, or any of its plugins, can use the ContainerInvoker to acquire EJB-objects to the home of the EJB, or to any instance. For example, an EntityBean finder may results in a set of primary keys whose EJB-objects should be returned to the client. The ContainerInvoker is then responsible for creating EJBObject instances that can be used by the client, as specified in the EJB 1.1 specification. The client must then be able to remotely access the container through these EJBObjects.
+</P>
+<P>
+The ContainerInvoker is free to choose which distribution protocol to use to access the container. Valid options would be JRMP, IIOP, or SOAP. The default plugin uses the standard RMI protocol JRMP to allow client access to the container. This is however optimized so that only one physical RMI-object is used for all instances. Also, some calls are handled locally in the EJBObject that the client receives, in order to minimize the load on the server. In addition, the EJBObject will detect if the call is being made within the same JVM, and will bypass the network layer of the call, and, optionally, not perform copying of method parameters and result.
+</P>
+<H4 >EntityPersistenceManager</H4>
+<P>
+The EntityPersistenceManager is responsible for the persistence of EntityBeans. This includes:
+</P>
+<UL>
+<LI>Creating EntityBeans in a storage</LI>
+<LI>Loading state of a given primary key into an EJB-instance</LI>
+<LI>Storing state of a given EJB-instance</LI>
+<LI>Removing state from a storage</LI>
+<LI>Activating an EJB-instance</LI>
+<LI>Passivating an EJB-instance</LI>
+</UL>
+<P>
+The default CMP (Container Managed Persistence) plugin is called JAWS (Just Another Web Store), which performs basic O/R functionality against a JDBC-store. More information about JAWS can be found <a href="jaws.html">here</a>.
+</P>
+<H4 >StatefulSessionPersistenceManager</H4>
+<P>
+The StatefulSessionPersistenceManager is responsible for the persistence of Stateful SessionBeans. This includes:
+</P>
+<UL>
+<LI>Creating stateful sessions in a storage</LI>
+<LI>Activating stateful sessions from a storage</LI>
+<LI>Passivating stateful sessions to a storage</LI>
+<LI>Removing stateful sessions from a storage</LI>
+</UL>
+</P>
+<H3 >Example of container and plugins</H3>
+<P>
+Here is an example of an EntityContainer and various plugins needed to perform its operation. Below is a figure showing the structure and composition of the container, and an example call which shows the flow between the various components.
+</P>
+<P>
+Here is an example of an EntityContainer and various plugins needed to perform its operation. Below is a figure showing the structure and composition of the container, and an example call which shows the flow between the various components.
+</P>
+<IMG SRC="images/Entity_container_call.gif">
+<P>
+The first thing that happens is that the JRMP container invoker receives a call. It then delegates to the container, which forwards the call to the interceptor chain.
+</P>
+<P>
+The call is first logged. Then the TxInterceptor decides how to manage transactions for this call. The information needed for this decision comes from the standard XML descriptor. Then, the SecurityInterceptor checks if the caller is allowed to perform this call, again by using information from the XML descriptor. Up until this point no instance has been acquired. After all interceptors have been passed the container will invoke the business method on the EJB instance, so now we acquire this instance. The interceptor calls the InstanceCache with the given primary key to perform this. Since the cache does not yet have an instance associated with the given primary key, it first gets a free instance from the instance pool which it associated with the primary key. It then calls the persistence manager which will activate the instance. This usually only involves calling ejbActivate. After instance acquisition the next interceptor deals with how this instance is synchronized with the database. There are a number of options (load on transaction start, load on each call, load on activate, etc.) and the interceptor has been configured to perform one of these options. In this example it will load on activate, so it calls the persistence manager to perform this. This will cause an ejbLoad call to be made on the instance. Next, the last interceptor is invoked, which is the container itself. The container always adds itself as the last interceptor at the end of the chain. The call is now delegated to the EJB instance. The instance performs some work, and returns a result. The interceptor chain is now followed in reverse by having each interceptor return from the invoke-operation. The instance synchronization interceptor chooses to store the current state into the database and hence calls storeEntity on the persistence manager. Another valid option would be to wait until transaction commit. Next, the instance is returned to the cache. If the transaction does not end with this call it will first lock the instance to this transaction, so that no other transaction may use it for the duration of this current transaction. This is the same as pessimistic locking. The transaction interceptor handles the method return according to the transaction settings, possibly commiting or rollbacking the current transaction. Finally, the container invoker returns the result to the client. This completes the call.
+</P>
+<P>
+As you can see all implementation decisions are performed by various plugins. These decisions are fairly loosely coupled, which allows the deployer of the EJB-application to tweak the behaviour of the container to a great degree. This also allows for a number of independent plugins to co-exist, each one allowing for slightly, or radically, different behaviour.
+</P>
+<P>
+For example, some persistence manager could use an XML-file as the backing store instead of an RDBMS, and some security interceptor could use ACL's from a database instead of the XML descriptor to perform security checks. Or multiple security checks could be done by configuring the container to have several security interceptors of different types. All of these options are available by this componentized container architecture.
+</P>
+
+<H3 >Creating a plugin</H3>
+<P>
+In order to create a plugin you need to do the following.
+</P>
+<OL>
+<LI>Implement the interface for which you wish to provide an implementation</LI>
+<LI>Add your implementation to the jBoss server, possibly by placing a JAR-file with your plugin in the /lib/ext directory</LI>
+<LI>Create a GUI-configuration plugin for the EJX editor. This will be used to configure your jBoss plugin.</LI>
+</OL>
+<P>
+Create your GUI plugin by doing the following.
+</P>
+<OL>
+<LI>Create a class whose name is the same as your plugin followed by "Configuration" and place it in the org.jboss.ejb.deployment package.</LI>
+<LI>The class must implement the XmlExternalizable interface from EJX. This allows it to add its configuration information to the jboss.xml deployment descriptor.</LI>
+<LI>The class must implement the java.beans.beancontext.BeanContextChildComponentProxy interface. It should return a GUI component that can be used to configure your plugin. It is recommended that an instance of GenericCustomizer is used, which would give your configuration plugin the same look and feel as the default plugins. See the provided plugins for examples of how to use this class. It is provided in the awt.jar, and implements the java.beans.Customizer interface.</LI>
+<LI>Edit the GUI editor properties file that corresponds to your interface, and add your implementation to the list of possible plugins. For example, if you have implemented a ContainerInvoker you should edit the file /src/resources/org/jboss/ejb/deployment/editors/containerinvoker.properties.</LI>
+<LI>Add this class, and the updated properties file, to the ejxjboss.jar EJX plugin jar. This is done automatically by the build scripts of jBoss if you place your class in the jBoss source tree.</LI>
+<LI>Add the new ejxjboss.jar EJX plugin to EJX by placing it in the /lib/ext directory of EJX.</LI>
+</OL>
+<P>
+You will now be able to choose your plugin when creating container configurations. The ContainerFactory will create instances of your plugin at deployment time, which may use the metadata information by using the container callback that it receives on initialization.
+</P>
+<P>
+For more information on how to do plugins it is recommended to read the source of the available plugins, which are located in the org.jboss.ejb.plugins package. These provide a good base from which you can start creating your own plugins.
+</P>
+
+</BODY>
+</HTML>

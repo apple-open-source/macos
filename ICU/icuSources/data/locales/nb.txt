@@ -1,0 +1,437 @@
+// ***************************************************************************
+// *
+// *   Copyright (C) 1997-2003, International Business Machines
+// *   Corporation and others.  All Rights Reserved.
+// *
+// ***************************************************************************
+
+nb {
+    Version{"2.0"}
+    "%%PREEURO" { "F\u00f8r-eruropeisk" }
+    "%%EURO"  { "Europeisk" }
+
+    //"%%POSIX" { "POSIX" }
+
+    "%%TRADITIONAL" { "Tradisjonell" }
+    
+    "%%REVISED" { "Revidert" }
+
+    CollationElements {
+	    Version { "1.0" }
+		Sequence { "& Z < \u00E6<<< \u00C6  < a\u0308<<< A\u0308< \u00F8<<< \u00D8"
+        " < o\u0308<<< O\u0308< o\u030B<<< O\u030B < a\u030A<<< A\u030A<<< aa <<< aA <<< Aa <<< AA  & "
+        "V<<< w<<< W" }
+	}
+    Countries {
+        //AD { "Andorra" }
+        AE { "De forente arabiske emirater" }
+        //AF { "Afghanistan" }
+        AG { "Antigua og Barbuda" }
+        //AI { "Anguilla" }
+        //AL { "Albania" }
+        //AM { "Armenia" }
+        AN { "De nederlandske antiller" }
+        //AO { "Angola" }
+        AQ { "Antarktis" }
+        //AR { "Argentina" }
+        AS { "Amerikansk Samoa" }
+        AT { "\u00d8sterrike" }
+        //AU { "Australia" }
+        //AW { "Aruba" }
+        AZ { "Aserbajdsjan" }
+        BA { "Bosnia og Hercegovina" }
+        //BB { "Barbados" }
+        //BD { "Bangladesh" }
+        BE { "Belgia" }
+        //BF { "Burkina Faso" }
+        //BG { "Bulgaria" }
+        //BH { "Bahrain" }
+        //BI { "Burundi" }
+        //BJ { "Benin" }
+        //BM { "Bermuda" }
+        BN { "Brunei Darussalam" }
+        //BO { "Bolivia" }
+        BR { "Brasil" }
+        //BS { "Bahamas" }
+        //BT { "Bhutan" }
+        BV { "Bouvet\u00f8ya" }
+        //BW { "Botswana" }
+        BY { "Hviterussland" }
+        //BZ { "Belize" }
+        //CA { "Canada" }
+        CC { "Kokos\u00f8yene (Keeling\u00f8yene)" }
+        CD { "Kongo, Den demokratiske republikken" }
+        CF { "Den sentralafrikanske republikk" }
+        CG { "Kongo" }
+        CH { "Sveits" }
+        CI { "Elfenbenskysten" }
+        CK { "Cook\u00f8yene" }
+        //CL { "Chile" }
+        CM { "Kamerun" }
+        CN { "Kina" }
+        //CO { "Colombia" }
+        //CR { "Costa Rica" }
+        CV { "Kapp Verde" }
+        CX { "Christmas\u00f8ya" }
+        CY { "Kypros" }
+        CZ { "Tsjekkia" }
+        DE { "Tyskland" }
+        //DJ { "Djibouti" }
+        DK { "Danmark" }
+        //DM { "Dominica" }
+        DO { "Den dominikanske republikk" }
+        DZ { "Algerie" }
+        //EC { "Ecuador" }
+        EE { "Estland" }
+        //EG { "Egypt" }
+        EH { "Vest-Sahara" }
+        //ER { "Eritrea" }
+        ES { "Spania" }
+        ET { "Etiopia" }
+        //FI { "Finland" }
+        //FJ { "Fiji" }
+        FK { "Falklands\u00f8yene" }
+        FM { "Mikronesiaf\u00f8derasjonen" }
+        FO { "F\u00e6r\u00f8yene" }
+        FR { "Frankrike" }
+        //GA { "Gabon" }
+        GB { "Storbritannia" }
+        //GD { "Grenada" }
+        //GE { "Georgia" }
+        GF { "Fransk Guyana" }
+        //GH { "Ghana" }
+        //GI { "Gibraltar" }
+        GL { "Gr\u00f8nland" }
+        //GM { "Gambia" }
+        //GN { "Guinea" }
+        //GP { "Guadeloupe" }
+        GQ { "Ekvatorial-Guinea" }
+        GR { "Hellas" }
+        GS { "S\u00f8r-Georgia og S\u00f8r-Sandwich-\u00f8yene" }
+        //GT { "Guatemala" }
+        //GU { "Guam" }
+        //GW { "Guinea-Bissau" }
+        //GY { "Guyana" }
+        HK { "Hong Kong S.A.R. (Kina)" }
+        HM { "Heard- og McDonalds\u00f8yene" }
+        //HN { "Honduras" }
+        HR { "Kroatia" }
+        //HT { "Haiti" }
+        HU { "Ungarn" }
+        //ID { "Indonesia" }
+        IE { "Irland" }
+        //IL { "Israel" }
+        //IN { "India" }
+        IO { "Britiske omr\u00e5der i det indiske hav" }
+        IQ { "Irak" }
+        //IR { "Iran" }
+        IS { "Island" }
+        IT { "Italia" }
+        //JM { "Jamaica" }
+        //JO { "Jordan" }
+        //JP { "Japan" }
+        //KE { "Kenya" }
+        KG { "Kirgisistan" }
+        KH { "Kambodsja" }
+        //KI { "Kiribati" }
+        KM { "Komorene" }
+        KN { "St. Christopher og Nevis" }
+        KR { "Korea, Republikken" }
+        //KW { "Kuwait" }
+        KY { "Cayman\u00f8yene" }
+        KZ { "Kasakhstan" }
+        LA { "Laos, Den folkedemokratiske republikken" }
+        LB { "Libanon" }
+        LC { "St. Lucia" }
+        //LI { "Liechtenstein" }
+        //LK { "Sri Lanka" }
+        //LR { "Liberia" }
+        //LS { "Lesotho" }
+        LT { "Litauen" }
+        //LU { "Luxembourg" }
+        //LV { "Latvia" }
+        //LY { "Libya" }
+        MA { "Marokko" }
+        //MC { "Monaco" }
+        //MD { "Moldova" }
+        MG { "Madagaskar" }
+        MH { "Marshall\u00f8yene" }
+        MK { "Makedonia, Republikken" }
+        //ML { "Mali" }
+        //MM { "Myanmar" }
+        //MN { "Mongolia" }
+        MO { "Macao S.A.R. (Kina)" }
+        MP { "Nord-Marianene" }
+        //MQ { "Martinique" }
+        //MR { "Mauritania" }
+        //MS { "Montserrat" }
+        //MT { "Malta" }
+        //MU { "Mauritius" }
+        MV { "Maldivene" }
+        //MW { "Malawi" }
+        //MX { "Mexico" }
+        //MY { "Malaysia" }
+        MZ { "Mosambik" }
+        //NA { "Namibia" }
+        NC { "Ny-Caledonia" }
+        //NE { "Niger" }
+        NF { "Norfolk\u00f8yene" }
+        //NG { "Nigeria" }
+        //NI { "Nicaragua" }
+        NL { "Nederland" }
+        NO { "Norge" }
+        //NP { "Nepal" }
+        //NR { "Nauru" }
+        //NU { "Niue" }
+        //NZ { "New Zealand" }
+        //OM { "Oman" }
+        //PA { "Panama" }
+        //PE { "Peru" }
+        PF { "Fransk Polynesia" }
+        PG { "Papua Ny-Guinea" }
+        PH { "Filippinene" }
+        //PK { "Pakistan" }
+        PL { "Polen" }
+        PM { "St. Pierre og Miquelon" }
+        //PN { "Pitcairn" }
+        //PR { "Puerto Rico" }
+        PS { "Palestinsk territorium" }
+        //PT { "Portugal" }
+        //PW { "Palau" }
+        //PY { "Paraguay" }
+        //QA { "Qatar" }
+        RE { "Reunion" }
+        //RO { "Romania" }
+        RU { "Den russiske f\u00f8derasjon" }
+        //RW { "Rwanda" }
+        SA { "Saudi-Arabia" }
+        SB { "Salomon\u00f8yene" }
+        SC { "Seychellene" }
+        //SD { "Sudan" }
+        SE { "Sverige" }
+        //SG { "Singapore" }
+        //SH { "St. Helena" }
+        //SI { "Slovenia" }
+        SJ { "Svalbard og Jan Mayen" }
+        //SK { "Slovakia" }
+        //SL { "Sierra Leone" }
+        //SM { "San Marino" }
+        //SN { "Senegal" }
+        //SO { "Somalia" }
+        SR { "Surinam" }
+        ST { "Sao Tome og Principe" }
+        //SV { "El Salvador" }
+        //SY { "Syria" }
+        //SZ { "Swaziland" }
+        TC { "Turks- og Caicos\u00f8yene" }
+        TD { "Tchad" }
+        TF { "Franske s\u00f8romr\u00e5der" }
+        //TG { "Togo" }
+        //TH { "Thailand" }
+        TJ { "Tadsjikistan" }
+        //TK { "Tokelau" }
+        TL { "\u00d8st-Timor" }
+        //TM { "Turkmenistan" }
+        //TN { "Tunisia" }
+        //TO { "Tonga" }
+        TR { "Tyrkia" }
+        TT { "Trinidad og Tobago" }
+        //TV { "Tuvalu" }
+        //TW { "Taiwan" }
+        //TZ { "Tanzania" }
+        UA { "Ukraina" }
+        //UG { "Uganda" }
+        UM { "USAs mindre \u00f8yer" }
+        US { "USA" }
+        //UY { "Uruguay" }
+        UZ { "Usbekistan" }
+        VA { "Vatikanstaten" }
+        VC { "St. Vincent og Grenadinene" }
+        //VE { "Venezuela" }
+        VG { "Jomfru\u00f8yene (britisk)" }
+        VI { "Jomfru\u00f8yene (amerikansk)" }
+        //VN { "Vietnam" }
+        //VU { "Vanuatu" }
+        WF { "Wallis og Futuna" }
+        //WS { "Samoa" }
+        //YE { "Yemen" }
+        //YT { "Mayotte" }
+        YU { "Jugoslavia" }
+        ZA { "S\u00f8r-Afrika" }
+        //ZM { "Zambia" }
+        //ZW { "Zimbabwe" }
+    }
+    DateTimeElements:intvector {
+        2,
+        4,
+    }
+    DateTimePatterns {
+        "'kl. 'HH.mm.ss z",
+        "HH.mm.ss z",
+        "HH.mm.ss",
+        "HH.mm",
+        "EEEE d. MMMM yyyy",
+        "d. MMMM yyyy",
+        "d. MMM. yyyy",
+	    "dd.MM.yy",
+	    "{1} {0}",
+    }
+    DayAbbreviations {
+	    "s\u00F8",
+	    "ma",
+	    "ti",
+	    "on",
+	    "to",
+	    "fr",
+	    "l\u00F8",
+    }
+    DayNames {
+	    "s\u00F8ndag",
+	    "mandag",
+	    "tirsdag",
+	    "onsdag",
+	    "torsdag",
+	    "fredag",
+	    "l\u00F8rdag",
+    }
+    Languages {
+        af  { "afrikaans" }
+        am  { "amharisk" }
+        ar { "arabisk" }
+        be  { "hviterussisk" }
+        bg { "bulgarsk" }
+        bn  { "bengali" }
+        ca  { "katalansk" }
+        cs { "tsjekkisk" }
+        da { "dansk" }
+        de { "tysk" }
+        el { "gresk" }
+        en { "engelsk" }
+        eo  { "esperanto" }
+        es { "spansk" }
+        et { "estisk" }
+        eu  { "baskisk" }
+        fa { "persisk" }
+        fi { "finsk" }
+        fo  { "f\u00e6r\u00f8ysk" }
+        fr { "fransk" }
+        ga  { "irsk" }
+        gl  { "galicisk" }
+        gu  { "gujarati" }
+        gv  { "manx" }
+        haw { "hawaiisk" }
+        he { "hebraisk" }
+        hi  { "hindi" }
+        hr { "kroatisk" }
+        hu { "ungarsk" }
+        hy  { "armensk" }
+        id  { "indonesisk" }
+        is  { "islandsk" }
+        it { "italiensk" }
+        iu  { "inuktitut" }
+        ja { "japansk" }
+        kl  { "kalaallisut" }
+        kn  { "kannada" }
+        ko { "koreansk" }
+        kw { "kornisk" }
+        lt { "litauisk" }
+        lv { "latvisk" }
+        mk  { "makedonsk" }
+        mr  { "marathi" }
+        mt  { "maltesisk" }
+        nb { "norsk bokm\u00e5l" }
+        nl { "nederlandsk" }
+        nn { "norsk nynorsk" }
+        no { "norsk" }
+        om  { "oromo" }
+        pl { "polsk" }
+        pt { "portugisisk" }
+        ro { "rumensk" }
+        ru { "russisk" }
+        sh { "serbokroatisk" }
+        sk { "slovakisk" }
+        sl { "slovensk" }
+        so  { "somalisk" }
+        sq  { "albansk" }
+        sr  { "serbisk" }
+        sv { "svensk" }
+        sw  { "swahili" }
+        ta  { "tamil" }
+        th  { "thai" }
+        ti  { "tigrinya" }
+        tr { "tyrkisk" }
+        uk  { "ukrainsk" }
+        vi  { "vietnamesisk" }
+        zh { "kinesisk" }
+    }
+    LocaleID:int { 0x14 }
+//    LocaleString { "nb" }
+    MonthAbbreviations {
+	    "jan",
+	    "feb",
+	    "mar",
+	    "apr",
+	    "mai",
+	    "jun",
+	    "jul",
+	    "aug",
+	    "sep",
+	    "okt",
+	    "nov",
+	    "des",
+    }
+    MonthNames {
+	    "januar",
+	    "februar",
+	    "mars",
+	    "april",
+	    "mai",
+	    "juni",
+	    "juli",
+	    "august",
+	    "september",
+	    "oktober",
+	    "november",
+	    "desember",
+    }
+    NumberElements {
+        ",",
+        "\u00A0",
+        ";",
+        "%",
+        "0",
+        "#",
+        "-",
+        "E",
+        "\u2030",
+        "\u221E",
+        "\uFFFD",
+        ",",
+    }
+//    ShortLanguage { "nor" }
+    Eras {
+	    "f.Kr.",
+	    "e.Kr.",
+    }
+
+    zoneStrings {
+        {
+	        "Europe/Oslo",
+	        "Central European Time",
+	        "MET",
+	        "Central European Time (DST)",
+	        "MET",
+	        "Oslo"
+        }
+    }
+//    LocaleScript{  
+//        "Latn",  // ISO 15924 Name 
+//    }
+    ExemplarCharacters { "[a-z \u00e6 \u00e5 \u00f8 \u00e9 \u00f3 \u00f4 \u00e0 \u00fc \u01ce]" }
+
+
+    // Currency display names
+    Currencies {
+        NOK { "kr", "NOK" }
+    }
+}

@@ -158,7 +158,7 @@ IOReturn IOConfigDirectory::createIterator(UInt32 testVal, UInt32 testMask, OSIt
 IOReturn IOConfigDirectory::getKeyType(int key, IOConfigKeyType &type)
 {
 	IOReturn status = kIOReturnSuccess;
-    int index;
+    int index = 0;
     
 	status = checkROMState();
 	
@@ -187,7 +187,7 @@ IOReturn IOConfigDirectory::getKeyType(int key, IOConfigKeyType &type)
 IOReturn IOConfigDirectory::getKeyValue(int key, UInt32 &value, OSString** text)
 {
 	IOReturn status = kIOReturnSuccess;
-    int index;
+    int index = 0;
  
 	status = checkROMState();
 	
@@ -225,7 +225,7 @@ IOReturn IOConfigDirectory::getKeyValue(int key, UInt32 &value, OSString** text)
 IOReturn IOConfigDirectory::getKeyValue(int key, OSData *&value, OSString** text)
 {
 	IOReturn status = kIOReturnSuccess;
-    int index;
+    int index = 0;
 
 	status = checkROMState();
 
@@ -266,7 +266,7 @@ IOReturn IOConfigDirectory::getKeyValue(int key, IOConfigDirectory *&value,
                                                         OSString** text)
 {
 	IOReturn status = kIOReturnSuccess;
-    int index;
+    int index = 0;
     
 	status = checkROMState();
 	
@@ -306,7 +306,7 @@ IOReturn IOConfigDirectory::getKeyValue(int key, IOConfigDirectory *&value,
 IOReturn IOConfigDirectory::getKeyOffset(int key, FWAddress &value, OSString** text)
 {
 	IOReturn status = kIOReturnSuccess;
-    int index;
+    int index = 0;
     
 	status = checkROMState();
 	
@@ -527,10 +527,10 @@ IOReturn IOConfigDirectory::getIndexValue(int index, OSData *&value)
 IOReturn IOConfigDirectory::getIndexValue(int index, OSString *&value)
 {
 	IOReturn status = kIOReturnSuccess;
-    UInt32 entry;
+    UInt32 entry = 0;
     const UInt32 *data;
     UInt32 offset;
-    int len;
+    int len = 0;
     
 	status = checkROMState();
 	
@@ -622,7 +622,7 @@ IOReturn IOConfigDirectory::getIndexValue(int index, OSString *&value)
 IOReturn IOConfigDirectory::getIndexValue(int index, IOConfigDirectory *&value)
 {
 	IOReturn status = kIOReturnSuccess;
-    UInt32 entry;
+    UInt32 entry = 0;
     UInt32 offset;
 
 	status = checkROMState();
@@ -665,7 +665,7 @@ IOReturn IOConfigDirectory::getIndexValue(int index, IOConfigDirectory *&value)
 IOReturn IOConfigDirectory::getIndexOffset(int index, FWAddress &value)
 {
 	IOReturn status = kIOReturnSuccess;
-    UInt32 entry;
+    UInt32 entry = 0;
     UInt32 offset;
 
 	status = checkROMState();
@@ -711,7 +711,7 @@ IOReturn IOConfigDirectory::getIndexOffset(int index, FWAddress &value)
 IOReturn IOConfigDirectory::getIndexOffset(int index, UInt32 &value)
 {
 	IOReturn status = kIOReturnSuccess;
-    UInt32 entry;
+    UInt32 entry = 0;
 
 	status = checkROMState();
 	

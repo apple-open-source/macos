@@ -49,17 +49,21 @@ process to update it when /dev (or /devices) changed, lsof set its
 modes to 0666, thus allowing anyone to read or write it.
 
 The writing of a world-readable and world-writable device cache
-file to any place has a security weakness.  A clever intruder who
+file to any place has security weaknesses.  A clever intruder who
 carefully preserves the integrity of the file might be able to
 remove devices that would prevent lsof from observing the intruder's
-files.
+files.  A clever intruder might also be able to put a symbolic link
+in place and trick lsof into writing to the link's destination with
+its effective permissions, thus bypassing the real user's (possibly
+weaker) permissions.
 
 Later the location of the device cache file was changed.  It was
 converted to a personal file, located in the home directory of each
 real UID that executed lsof, and owned by that UID.  Thus it was
 no longer possible for one user to affect lsof's access to the
-device cache file, but the result was that each lsof user had a
-private copy of the device cache file.
+device cache file, nor was it possible for a user to mount a symbolic
+link attack on a restricted file, but the result was that each lsof
+user had a private copy of the device cache file.
 
 The device cache file feature has undergone some further refinements
 in path name formation to reach its present state.  This documentation
@@ -710,7 +714,7 @@ Appendix B.1 Setuid-root Lsof Dialects
 These dialect versions of lsof need root permission.  For general
 use they may have to be installed setuid-root.
 
-    AIX 5L and 5.1 for full use of the -X option on ia64 systems
+    AIX 5L and 5.[12] for full use of the -X option on ia64 systems
     pstat-based HP-UX
     /proc-based Linux (no device cache file support needed or used)
 
@@ -722,20 +726,21 @@ Lsof versions for these dialects have WILLDROPGID defined in their
 machine.h header files.
 
     AIX 4.3.[23]
-    Apple Darwin 1.[23] and 1.4 for Power Macintosh systems
-    BSDI BSD/OS 4.1 for Intel-based systems
+    Apple Darwin 1.[2-5], 5.x and 6.x for Power Macintosh systems
+    BSDI BSD/OS 4.3.1 for x86-based systems
     DEC OSF/1, Digital UNIX, Tru64 UNIX 4.0, and 5.[01]
-    FreeBSD 4.[234] and 5.0 for Intel-based systems
+    FreeBSD 4.[2345678] and 5.[01] for x86-based systems
+    FreeBSD 5.[01] for Alpha and Sparc64 based systems
     HP-UX 11.00 and 11.11
-    NetBSD 1.5 for Alpha, Intel, and SPARC-based systems
+    NetBSD 1.[456] for Alpha, x86, and SPARC-based systems
     NEXTSTEP 3.[13]
-    OpenBSD 2.[89] and 3.0 for Intel-based systems
+    OpenBSD 2.[89] and 3.[0123] for x86-based systems
     OPENSTEP 4.x
     Caldera OpenUNIX 8
-    SCO OpenServer Release 5.0.[46] for Intel-based systems
-    SCO UnixWare 7.1.1 for Intel-based systems
-    Solaris 2.6, 7, 8, and 9 BETA
+    SCO OpenServer Release 5.0.[46] for x86-based systems
+    SCO|Caldera UnixWare 7.1.[13] for x86-based systems
+    Solaris 2.6, 7, 8, and 9
 
 
 Vic Abell <abe@purdue.edu>
-November 1, 2001
+June 11, 2003

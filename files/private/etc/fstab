@@ -1,0 +1,5 @@
+# fs_spec                                    fs_file  fs_vfstype  fs_mntops
+#
+# UUID=DF000C7E-AE0C-3B15-B730-DFD2EF15CB91  /export  ufs         ro
+# UUID=FAB060E9-79F7-33FF-BE85-E1D3ABD3EDEA  none     hfs         rw,noauto
+# LABEL=This\040Is\040The\040Volume\040Name  none     msdos        ro

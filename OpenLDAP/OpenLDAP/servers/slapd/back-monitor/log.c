@@ -1,6 +1,6 @@
 /* log.c - deal with log subsystem */
 /*
- * Copyright 1998-2002 The OpenLDAP Foundation, All Rights Reserved.
+ * Copyright 1998-2003 The OpenLDAP Foundation, All Rights Reserved.
  * COPYING RESTRICTIONS APPLY, see COPYRIGHT file
  */
 /*
@@ -95,10 +95,10 @@ monitor_subsys_log_init(
 	if ( monitor_cache_get( mi, &monitor_subsys[SLAPD_MONITOR_LOG].mss_ndn, 
 				&e ) ) {
 #ifdef NEW_LOGGING
-		LDAP_LOG(( "operation", LDAP_LEVEL_CRIT,
+		LDAP_LOG( OPERATION, CRIT,
 			"monitor_subsys_log_init: "
 			"unable to get entry '%s'\n",
-			monitor_subsys[SLAPD_MONITOR_LOG].mss_ndn.bv_val ));
+			monitor_subsys[SLAPD_MONITOR_LOG].mss_ndn.bv_val, 0, 0 );
 #else
 		Debug( LDAP_DEBUG_ANY,
 			"monitor_subsys_log_init: "
@@ -180,7 +180,7 @@ monitor_subsys_log_modify(
 			break;
 
 		default:
-			rc = LDAP_OPERATIONS_ERROR;
+			rc = LDAP_OTHER;
 			break;
 		}
 
@@ -196,9 +196,7 @@ monitor_subsys_log_modify(
 
 #if 0 	/* need op */
 		/* check for abandon */
-		ldap_pvt_thread_mutex_lock( &op->o_abandonmutex );
 		if ( op->o_abandon ) {
-			ldap_pvt_thread_mutex_unlock( &op->o_abandonmutex );
 			rc = SLAPD_ABANDON;
 
 			goto cleanup;
@@ -212,6 +210,9 @@ monitor_subsys_log_modify(
 			goto cleanup;
 		}
 
+		/*
+		 * Do we need to protect this with a mutex?
+		 */
 		ldap_syslog = newlevel;
 
 #if 0	/* debug rather than log */

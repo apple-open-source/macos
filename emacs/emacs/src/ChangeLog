@@ -1,3 +1,698 @@
+2002-03-16  Eli Zaretskii  <eliz@is.elta.co.il>
+
+	* Version 21.2 released.
+
+2002-03-15  Stefan Monnier  <monnier@cs.yale.edu>
+
+	* xterm.c (x_set_toolkit_scroll_bar_thumb, xm_scroll_callback)
+	(XTread_socket): Undo last change: too late for this release.
+
+2002-03-13  Stefan Monnier  <monnier@cs.yale.edu>
+
+	* xterm.c (x_set_toolkit_scroll_bar_thumb) <USE_MOTIF>:
+	Use a fixed-size thumb (based on an ad-hoc estimate of 30 chars per
+	line) to avoid annoying flicker.
+	(xm_scroll_callback): Get rid of the now unnecessary kludge.
+	(XTread_socket): Mark it static.
+
+2002-03-12  Juanma Barranquero  <lektu@terra.es>
+
+	* editfns.c (syms_of_editfns): Fix typo.
+
+2002-03-09  Jason Rumney  <jasonr@gnu.org>
+
+	* fileio.c (Fcopy_file) [WINDOWS_NT]: Ensure file is not
+	read-only when setting modified time.
+
+2002-03-08  Juanma Barranquero  <lektu@terra.es>
+
+	* w32fns.c (Fx_display_color_cells): Force 24+ bit color depths to
+	24-bit.
+
+2002-03-08  Gerd Moellmann  <gerd@gnu.org>
+
+	* xdisp.c (move_it_vertically_backward): At the end of the
+	function, when moving forward by lines, treat terminal frames
+	specially.
+
+2002-02-23  Eli Zaretskii  <eliz@is.elta.co.il>
+
+	* coding.h (run_pre_post_conversion_on_str): Add prototype.
+
+	* xselect.c (selection_data_to_lisp_data): Fix last change.
+
+2002-02-22  Eli Zaretskii  <eliz@gnu.org>
+
+	* puresize.h (BASE_PURESIZE): Increase to 710000.
+
+2002-02-22  Eli Zaretskii  <eliz@is.elta.co.il>
+
+	Support for ICCCM  Extended Segments in X selections:
+
+	* xselect.c <Qcompound_text_with_extensions>: New variable.
+	(syms_of_xselect): Intern and staticpro it.
+	(selection_data_to_lisp_data): Run post-read-conversion on decoded
+	selection text.
+	(lisp_data_to_selection_data): If next-selection-coding-system is
+	compound-text-with-extensions, set the type of selection to be
+	compound-text.
+
+	* xterm.h (x_encode_text): Update prototype.
+
+	* xfns.c (x_encode_text): Accept additional arg SELECTIONP; all
+	callers changed.  If SELECTIONP is non-zero, run the
+	pre-write-conversion function before encoding the selection text.
+
+2002-02-20  Pavel Jan,Bm(Bk  <Pavel@Janik.cz>
+
+	* xfns.c (gif_load): Use correct width and height for GIF images.
+
+2002-02-18  Jason Rumney  <jasonr@gnu.org>
+
+	* w32term.c (glyph_rect): Determine the row and glyph more precisely.
+
+2002-02-11  Jason Rumney  <jasonr@gnu.org>
+
+	* w32term.c (show_mouse_face): Fix bug setting a row's
+	mouse_face_p flag unconditionally.
+	(x_scroll_run): Revert to BitBlt.
+
+2002-02-09  Jason Rumney  <jasonr@gnu.org>
+
+	* w32fns.c (enum_font_cb2): Don't let charsets unknown to Windows
+	match each other.
+	(w32_load_system_font): Prevent Cleartype fonts from loading.
+
+2002-02-08  Eli Zaretskii  <eliz@is.elta.co.il>
+
+	* floatfns.c (Fround): Doc fix.
+
+2002-02-07  Stefan Monnier  <monnier@cs.yale.edu>
+
+	* lisp.h (Fx_file_dialog): Export (for Motif code in fileio.c).
+
+2002-02-06  Jason Rumney  <jasonr@gnu.org>
+
+	* w32term.c (w32_native_per_char_metric):  Disable 2002-01-20 change.
+
+2002-02-06  Eli Zaretskii  <eliz@is.elta.co.il>
+
+	* charset.c (get_charset_id): Use if-else instead of ?:.
+
+2001-02-06  Richard M. Stallman  <rms@gnu.org>
+
+	* coding.c (code_convert_region): Update coding->cmp_data->char_offset
+	before calling decode_coding.
+
+	* charset.c (Fdefine_charset): Call Fupdate_coding_systems_internal.
+
+2002-02-05  Stefan Monnier  <monnier@cs.yale.edu>
+
+	* keymap.c (current_minor_maps): `override' only shadows its
+	correspondent in minor-mode-map-alist, not the whole tail.
+
+2002-02-02  Richard M. Stallman  <rms@gnu.org>
+
+	* window.c (enlarge_window): Fix last change.
+
+2002-02-01  Kim F. Storm  <storm@cua.dk>
+
+	* xterm.c (x_erase_phys_cursor): Don't erase cursor if cursor row
+	is invisible.  This can happen if cursor is on top line of a
+	window, and we switch to a buffer with a header line.
+
+	* w32term.c (x_erase_phys_cursor): Ditto.
+
+2002-02-01  Eli Zaretskii  <eliz@is.elta.co.il>
+
+	* coding.c (decode_composition_emacs_mule): Give up if NCOMPONENT
+	gets too large to index `component'.
+
+2002-01-28  Richard M. Stallman  <rms@gnu.org>
+
+	* buffer.c (syms_of_buffer): Doc fixes for scroll-...-aggressively.
+
+	* xdisp.c (try_scrolling): Exchange uses of scroll_down_aggressively
+	and scroll_up_aggressively.
+
+2002-01-26  Jason Rumney  <jasonr@gnu.org>
+
+	* w32term.c (note_mouse_highlight): Reset help_echo.
+
+2002-01-24  Jason Rumney  <jasonr@gnu.org>
+
+	* w32term.c (x_scroll_run): Use ScrollWindowEx in place of BitBlt.
+	If region left to draw is not what was expected, mark the frame as
+	garbaged.
+
+	* w32fns.c (w32_wnd_proc) <WM_PAINT>: Initialize update_rect.
+	Combine the regions returned by BeginPaint and GetUpdateRect.
+
+2002-01-20  Eli Zaretskii  <eliz@is.elta.co.il>
+
+	* unexelf.c (unexec) [__sgi]: Support the .got sections.
+
+2002-01-20  Jason Rumney  <jasonr@gnu.org>
+
+	* w32term.c (w32_native_per_char_metric): Don't trust the metrics
+	that Windows returns.  If a double check fails, try to guess how
+	ExtTextOut is going to act.
+
+	* w32fns.c (w32_load_system_font, w32_to_x_charset): Use strnicmp
+	in place of stricmp.
+	(w32_list_synthesized_fonts): Removed.
+	(w32_to_all_x_charsets, enum_font_maybe_add_to_list): New functions.
+	(struct enumfont_t): New element; list.
+	(enum_font_cb2): List all style and charset variations of a font.
+	(Fw32_select_font): Exclude vertical fonts.
+	(w32_enable_synthesized_fonts): Change to a boolean.
+	(Fw32_send_sys_command): Doc fix.
+
+2002-01-19  Jason Rumney  <jasonr@gnu.org>
+
+	* w32fns.c (Fx_create_frame): Bind redisplay-dont-pause around
+	call to face-set-after-frame-default.
+
+2002-01-17  Richard M. Stallman  <rms@gnu.org>
+
+	* window.c (enlarge_window): When exceeding size of parent,
+	directly delete all the siblings instead of trying to resize it.
+
+2002-01-15  Eli Zaretskii  <eliz@is.elta.co.il>
+
+	* xdisp.c (display_mode_element): When computing charpos, depend
+	on multibyteness of elt, not the text in field.
+
+2002-01-14  Andreas Schwab  <schwab@suse.de>
+
+	* unexelf.c [!defined MAP_ANON]: Define MAP_ANON to MAP_ANONYMOUS
+	if defined, 0 otherwise.
+	(MAP_FAILED): Define if not defined and use it to test mmap failure.
+	(unexec) [!MAP_ANON]: Use /dev/zero as file to map.
+
+2002-01-14  Pavel Jan,Bm(Bk  <Pavel@Janik.cz>
+
+	* sound.c (Fplay_sound): Initialize header_size also for :data case.
+
+2002-01-13  Andreas Schwab  <schwab@suse.de>
+
+	* xterm.c (x_load_font): Never set fonts_changed_p to zero.
+
+2002-01-07  Eli Zaretskii  <eliz@is.elta.co.il>
+
+	* process.c (send_process): Set src_multibyte to 1 after the call
+	top setup_coding_system, not before the call.
+
+2002-01-05  Jason Rumney  <jasonr@gnu.org>
+
+	* w32term.c (x_draw_glyphs): Don't call notice_overwritten_cursor
+	if OVERLAPS_P.
+
+2001-12-30  Richard M. Stallman  <rms@gnu.org>
+
+	* s/sco5.h (sigprocmask_set): Conditionalize decl on ! NOT_C_CODE.
+
+2001-12-30  Eli Zaretskii  <eliz@is.elta.co.il>
+
+	* s/sco5.h (sigprocmask_set): Declare as extern SIGMASKTYPE.
+	(SIGMASKTYPE): Define.
+
+	* syssignal.h (sigunblock): Don't define if already defined.
+
+2001-12-29  Richard M. Stallman  <rms@gnu.org>
+
+	* s/sco5.h (LIBX11_SYSTEM) [MOTIF]: Add -lgen.
+
+2001-12-28  Gerd Moellmann  <gerd@gnu.org>
+
+	* xdisp.c (try_scrolling) <PT below scroll margin>: Add the
+	height of the cursor line to the amount to scroll.
+
+2001-12-21  Eli Zaretskii  <eliz@is.elta.co.il>
+
+	* coding.c (DECODE_COMPOSITION_END): Fix last change.
+
+2001-12-17  Richard M. Stallman  <rms@gnu.org>
+
+	* coding.c (DECODE_COMPOSITION_END): Check for ! COMPOSING (coding)
+	instead of only for COMPOSITION_DISABLED.
+
+	* Makefile.in (xmenu.o, xterm.o, fontset.o): Depend on buffer.h.
+
+2001-12-12  Gerd Moellmann  <gerd@gnu.org>
+
+	* xdisp.c (move_it_vertically_backward): Change heuristic
+	for the case that we didn't move far enough initially.
+
+	* window.c (Frecenter): Simplify computation in the case of window
+	system frames and ARG < 0; use window_box_height.
+
+2001-12-09  Eli Zaretskii  <eliz@is.elta.co.il>
+
+	* s/hpux10.h (random): Undefine.
+	(srand48): Don't undefine.
+
+2001-12-09  Andreas Schwab  <schwab@suse.de>
+
+	* xdisp.c (display_mode_element): Don't read past end of string if
+	it ends with '%'.
+
+2001-12-06  Eli Zaretskii  <eliz@is.elta.co.il>
+
+	* xterm.c (x_free_frame_resources) [USE_X_TOOLKIT]: Remove all the
+	scroll bars of the frame before deleting the frame itself.
+
+2001-12-05  Eli Zaretskii  <eliz@is.elta.co.il>
+
+	* s/sol2-5.h (HAVE_VFORK): Define if undefined.
+
+2001-11-29  Dave Love  <fx@gnu.org>
+
+	* coding.c (syms_of_coding) <Qchar_coding_system>: Give it an
+	extra extra slot.
+
+2001-11-28  Gerd Moellmann  <gerd@gnu.org>
+
+	* xterm.c (x_draw_glyphs): Don't call notice_overwritten_cursor if
+	OVERLAPS_P.
+
+2001-11-25  Richard M. Stallman  <rms@gnu.org>
+
+	* unexelf.c (unexec): Index by n, not nn, when checking for ".sbss".
+
+2001-11-25  Richard M. Stallman  <rms@gnu.org>
+
+	* callproc.c (Fcall_process): When we make a bigger buffer for bufptr,
+	don't lose the data in it.
+
+2001-11-25  Eli Zaretskii  <eliz@is.elta.co.il>
+
+	* window.c (Fset_window_vscroll): Doc fix.  From Kalle Olavi
+	Niemitalo <kon@iki.fi>.
+
+2001-11-23  Eli Zaretskii  <eliz@is.elta.co.il>
+
+	* msdos.c (IT_clear_screen): If the frame's faces are not yet
+	realized, use the initial screen colors to clear the screen.
+
+2001-11-19  Richard M. Stallman  <rms@gnu.org>
+
+	* sysdep.c (child_setup_tty): Don't clear ICRNL or INLCR.
+
+2001-11-18  Jason Rumney  <jasonr@gnu.org>
+
+	* w32term.c (x_draw_bar_cursor): Get glyph's face.
+	(note_mouse_highlight): Fix type of variable `ignore'.
+
+2001-11-17  Andreas Schwab  <schwab@suse.de>
+
+	* xterm.c (note_mouse_highlight): Fix type of variable `ignore'.
+
+2001-11-17  Jason Rumney  <jasonr@gnu.org>
+
+	* xterm.c (notice_overwritten_cursor): Take care of end < 0 case.
+
+	* w32fns.c (x_set_internal_border_width): Set frame garbaged
+	when X window doesn't exist yet.
+
+	* w32term.c (x_draw_bar_cursor): If the background color of the
+	glyph under the cursor equals the frame's cursor color, use
+	the glyph's foreground color for drawing the bar cursor.
+	(x_after_update_window_line): Clear internal border
+	in different circumstances.
+	(w32_set_vertical_scroll_bar): Check for width and height > 0.
+	(w32_draw_relief_rect): Correct relief by 1 pixel.
+	(x_set_glyph_string_background_width): Set
+	extends_to_end_of_line_p if the row's fill_line_p is set and
+	drawing the last glyph with DRAW_IMAGE_{RAISED,SUNKEN}.
+	(x_display_and_set_cursor): If cursor_in_echo_area,
+	use NO_CURSOR if cursor_in_non_selected_windows is false.
+	(show_mouse_face): Clean up.  Recognize overwritten
+	cursor differently.
+	(x_draw_glyphs): Remove parameters READ_START and
+	REAL_END.  Notice if cursor gets overwritten.
+	(notice_overwritten_cursor): Renamed from
+	note_overwritten_text_cursor.  Rewritten to take glyph widths
+	into account, and to take X positions as parameters.
+	(x_draw_phys_cursor_glyph): Save state of w->phys_cursor_on_p
+	around call to x_draw_glyphs.
+
+2001-11-17  Gerd Moellmann  <gerd@gnu.org>
+
+	* xdisp.c (tool_bar_item_info): Avoid calling Fget_text_property
+	with invalid position.
+
+2001-11-16  Eli Zaretskii  <eliz@is.elta.co.il>
+
+	* syswait.h (HAVE_SYS_WAIT_H): Undef for ISC 4.1.  Reported by
+	Andrew Wiseman <a.wiseman@btclick.com>.
+
+	* unexec.c (coff.h): Don't include on ISC 4.1.
+
+2001-11-15  Jason Rumney  <jasonr@gnu.org>
+
+	* w32menu.c (add_menu_item): Make help_echo and radio buttons
+	work for most menu items.  From David Ponce
+	<david.ponce@wanadoo.fr>.
+
+2001-11-15  Gerd Moellmann  <gerd@gnu.org>
+
+	* xterm.c (x_draw_bar_cursor): If the background color of the
+	glyph under the cursor equals the frame's cursor color, use
+	the glyph's foreground color for drawing the bar cursor.
+
+	* dispnew.c (direct_output_forward_char): Fix character/byte
+	position comparison.
+
+2001-11-12  Jason Rumney  <jasonr@gnu.org>
+
+	* w32fns.c (Fx_open_connection): Only execute once.
+
+2001-11-12  Richard M. Stallman  <rms@gnu.org>
+
+	* xterm.c (XTread_socket): Don't update focus for EnterNotify or
+	LeaveNotify events.  Only FocusIn and FocusOut do that now.
+	(x_display_and_set_cursor): Do display hollow cursors in active
+	minibuffer windows when they are not selected.
+
+2001-11-10  Jason Rumney  <jasonr@gnu.org>
+
+	* w32fns.c (Fx_file_dialog): Pass a filter to GetOpenFileName.
+	(enum_font_cb2): Ignore fonts starting with @, unless explicitly
+	specified.
+
+	* w32term.c (remember_mouse_glyph): New function.
+	(w32_mouse_position): Use it.
+	(note_mouse_movement): If the mouse moved off the glyph, remember
+	its new position.
+
+	* w32term.h (struct w32_output): Correct spelling of x_compatible.
+	(w32_display_info): Add mouse_face_overlay.
+
+	* w32term.c (x_y_to_hpos_vpos): Add parameter BUFFER_ONLY_P.
+	(fast_find_string_pos): New function.
+	(fast_find_position): Return the correct vpos.  Add parameter
+	STOP.  In the final row, stop before glyphs having STOP as object.
+	Don't consider glyphs that are not from a buffer.
+	(expose_window_tree, expose_frame): Don't compute intersections here.
+	(expose_window): Do it here instead.
+	(expose_window_tree, expose_window, expose_line): Return 1 when
+	overwriting mouse-face.
+	(expose_window): If W is the window currently being updated, mark
+	the frame garbaged.
+	(expose_frame): If mouse-face was overwritten, redo it.
+	(x_draw_glyph_string): Restore clipping after drawing box.
+	Fix a computation of the underline position.
+	(w32_get_glyph_string_clip_rect): Minor cleanup.
+	(x_fill_stretch_glyph_string): Remove an assertion.
+	(x_produce_glyphs): Don't convert multibyte characters
+	to unibyte characters in unibyte buffers.
+	(cursor_in_mouse_face_p): New function.
+	(x_draw_stretch_glyph_string): Use it to choose a different GC
+	when drawing a cursor within highlighted text.  Don't draw
+	background again if it has already been drawn.
+	(x_draw_glyph_string_box): Don't draw a full-width
+	box just because the glyph row's full_width_p flag is set.
+	(x_draw_glyphs): Fix computation of rightmost x for
+	full-width rows.
+	(w32_draw_relief_rect): Extend left shadow to the bottom and left;
+	change bottom shadow accordingly. Some cleanup.
+	(x_update_window_end): Handle overwritten mouse face
+	also for tool bar windows.
+	(show_mouse_face): Set the glyph row's mouse_face_p flag also when
+	DRAW is DRAW_IMAGE_RAISED.
+	(clear_mouse_face): Return 1 if text with mouse face was
+	actually redrawn.  Make the function static.  Reset
+	dpyinfo->mouse_face_overlay otherwise note_mouse_highlight might
+	optimize away highlighting if we pass over that same overlay again.
+	(note_mouse_highlight): Call mouse_face_overlay_overlaps
+	to detect a case where we have to highlight a different region
+	despite not having left the currently highlighted region.
+	Set mouse_face_overlay in the x_display_info.  Avoid changing the
+	mouse pointer shape when show_mouse_face has already done it, or
+	there is no need.  Handle mouse-face and help-echo in strings.
+	(glyph_rect): New function.
+	(w32_mouse_position): Use it to raise the threshold for mouse
+	movement event generation.
+	(w32_initialize_display_info): Initialize the x_display_info's
+	mouse_face_overlay.
+	(w32_set_vertical_scroll_bar): Don't clear a zero height
+	or width area.
+	(w32_set_vertical_scroll_bar, x_scroll_bar_create): Don't configure
+	a widget to zero height.
+
+	* w32fns.c (x_set_foreground_color): Set frame's cursor_pixel.
+	(x_set_font): Handle case of x_new_fontset returning the same name
+	as before, although there was a change in fontsets.
+
+	* w32menu.c (single_submenu, w32_menu_show) [!HAVE_MULTILINGUAL_MENU]:
+	Protect unibyte strings created by replacing their multibyte
+	equivalents in menu_items.
+	(w32_menu_show): Don't overwrite an item's name with its key
+	description in case the description is a multibyte string.
+	(single_submenu): Some cleanup.
+
+2001-11-10  Gerd Moellmann  <gerd@gnu.org>
+
+	* unexelf.c (unexec): Use mmap/munmap to allocate buffers 
+	instead of malloc/free.
+
+2001-11-05  Richard M. Stallman  <rms@gnu.org>
+
+	* m/news-risc.h (BROKEN_PROTOTYPES): Defined.
+
+	* buffer.c (Fkill_buffer): Don't delete auto save file
+	if buffer is modified.
+
+2001-11-05  Andreas Schwab  <schwab@suse.de>
+
+	* sound.c (sound_perror): Save errno from being clobbered.
+
+2001-11-05  Dale Hagglund  <rdh@yottayotta.com>
+
+	* unexelf.c (unexec): Don't use `mmap'.  Instead, read and write
+	the program image directly.
+
+2001-11-04  Richard M. Stallman  <rms@gnu.org>
+
+	* gmalloc.c: Test BROKEN_PROTOTYPES.
+
+	* xfns.c: Include unistd.h, if it exists.
+
+	* editfns.c: Move the include of ctype.h after unistd.h.
+
+2001-11-03  Richard M. Stallman  <rms@gnu.org>
+
+	* data.c (Fmake_local_variable): Doc fix.
+
+	* eval.c (Frun_hooks, Frun_hook_with_args_until_failure): Doc fix.
+	(Frun_hook_with_args_until_success, Frun_hook_with_args): Doc fix.
+
+2001-11-02  Stefan Monnier  <monnier@cs.yale.edu>
+
+	* regex.c (regcomp, regexec): Don't forget the __restrict.
+
+2001-11-01  Gerd Moellmann  <gerd@gnu.org>
+
+	* xterm.c (x_scroll_bar_create): Check for width and height > 0.
+	(XTset_vertical_scroll_bar): Likewise.
+
+	* buffer.c (Fset_buffer_major_mode): Use initial-major-mode for
+	*scratch*.
+
+	* xfaces.c (Finternal_set_lisp_face_attribute_from_resource):
+	Handle :box so that it is possible to specify sexprs.
+
+2001-10-31  Eli Zaretskii  <eliz@is.elta.co.il>
+
+	* s/hpux11.h: New file.
+
+2001-10-31  Gerd Moellmann  <gerd@gnu.org>
+
+	* xfaces.c (realize_x_face): If C is not a single-byte character,
+	set the face's colors_copied_bitwise_p instead of the defaulted_p
+	members which have a different meaning.
+	(free_face_colors): Do nothing for a face whose colors have been
+	copied bitwise.
+
+	* dispextern.h (struct face) <colors_copied_bitwise_p>: New member.
+
+	* window.c (grow_mini_window): Handle case that the root
+	window is already smaller than the nominal mininum height.
+
+2001-10-31  Pavel Jan,Bm(Bk  <Pavel@Janik.cz>
+
+	* keyboard.c (Freset_this_command_lengths): Doc fix.
+	(timer-list): Doc fix.
+	(timer-idle-list): Doc fix.
+	(disable-point-adjustment): Doc fix.
+
+2001-10-30  Jason Rumney  <jasonr@gnu.org>
+
+	* w32fns.c (w32_to_x_charset): Increase size of XLFD charset buffer.
+	(enum_font_cb2): Ignore fonts with vertical orientation.
+
+2001-10-30  Gerd Moellmann  <gerd@gnu.org>
+
+	* xterm.c (x_after_update_window_line): Don't run the code
+	clearing in borders for rows whose visible height is 0.
+
+	* xdisp.c (clear_garbaged_frames): Redraw the frame only if its
+	resized_p flag is set.  If not set, use the much less flickering
+	method previously used.
+
+	* dispnew.c (change_frame_size_1): Set frame's resized_p.
+
+	* frame.h (struct frame) <resized_p>: New member.
+
+	* lread.c (to_multibyte): Ensure read_buffer is at least twice
+	as large as the number of bytes to convert.
+	
+	* lread.c (to_multibyte): New function.
+	(read1): Use it.
+
+	* xterm.c (x_draw_relief_rect): Correct bottom relief by 1 pixel.
+	(x_set_glyph_string_background_width): Set
+	extends_to_end_of_line_p if the row's fill_line_p is set and
+	drawing the last glyph with DRAW_IMAGE_{RAISED,SUNKEN}.
+
+	* xdisp.c (clear_garbaged_frames): Call Fredraw_frame.
+
+2001-10-29  Eli Zaretskii  <eliz@is.elta.co.il>
+
+	* coding.c (syms_of_coding): Document that locale-coding-system is
+	used for decoding input on X.
+
+	* window.c (Fscroll_left, Fscroll_right): Doc fix.
+
+2001-10-29  Gerd Moellmann  <gerd@gnu.org>
+
+	* xterm.c (x_display_and_set_cursor): If cursor_in_echo_area,
+	use NO_CURSOR if cursor_in_non_selected_windows is false.
+
+	* xfaces.c (Fface_font): Use UNSPECIFIEDP instead of NILP for
+	the slant attribute if FRAME is t.
+	
+2001-10-29  Eli Zaretskii  <eliz@is.elta.co.il>
+
+	* emacs.c (Finvocation_directory): Doc fix.
+	(USAGE2): Fix typos; from Pavel Janik <Pavel@Janik.cz>.
+
+2001-10-29  Gerd Moellmann  <gerd@gnu.org>
+
+	* xfns.c (x_set_internal_border_width): Set frame garbaged
+	when X window doesn't exist yet.
+
+	* xterm.c (x_after_update_window_line): Clear internal border
+	in different circumstances.
+	
+	* xterm.c (XTread_socket) <KeyPress>: Don't use
+	STRING_CHAR_AND_LENGTH if nchars == nbytes.  From Kenichi Handa
+	<handa@etl.go.jp>.
+
+2001-10-28  Gerd Moellmann  <gerd@gnu.org>
+
+	* xfns.c (x_build_heuristic_mask): Use x_alloc_image_color.
+	
+	* xfns.c (x_build_heuristic_mask): Fix a bug not incrementing
+	a loop counter.
+
+2001-10-27  Gerd Moellmann  <gerd@gnu.org>
+
+	* xdisp.c (move_it_vertically_backward): Use 2/3 line_height
+	instead of 1/2 line_height in the heuristic for skipping 
+	farther backward when target_y was not reached.
+
+	* sound.c (sound_perror): Unblock SIGIO, turn on atimers.
+	Display errno only if non-zero.
+	(sound_warning): New function.
+	(vox_configure): Don't treat failing to set sample rate as error.
+	(various places): Improve error messages.
+
+2001-10-26  Eli Zaretskii  <eliz@is.elta.co.il>
+
+	* dispnew.c (syms_of_display) <visible-bell>: Add a reference to
+	ring-bell-function.  Suggested by Alf-Ivar Holm <alfh@ifi.uio.no>
+
+2001-10-26  Gerd Moellmann  <gerd@gnu.org>
+
+	* insdel.c (insert_1_both): Do nothing if NCHARS == 0.
+
+	* xterm.c (XTset_vertical_scroll_bar) [!USE_TOOLKIT_SCROLL_BARS]:
+	Fix clearing in the case of scroll bars on the right.
+	
+	* xfns.c (XScreenNumberOfScreen): Fix struct to pointer
+	comparison.
+
+2001-10-25  Eli Zaretskii  <eliz@is.elta.co.il>
+
+	* frame.c (Fframe_parameter): Fix last change.
+
+2001-10-25  Gerd Moellmann  <gerd@gnu.org>
+
+	* frame.c (Fframe_parameter): Fix a bug whereby some
+	``artificial'' frame parameters, like `minibuffer' were not
+	obtained by calling Fframe_parameters.
+
+	* xterm.c (show_mouse_face): Clean up.  Recognize overwritten
+	cursor differently.
+
+	* xdisp.c (move_it_vertically_backward): Compute line height
+	differently.  Add heuristic to try to be more compatible to 20.x.
+
+2001-10-24  Gerd Moellmann  <gerd@gnu.org>
+
+	* xterm.c (x_draw_glyphs): Don't check for cursor overwriting
+	in full-width rows.
+
+	* xterm.c (XTset_vertical_scroll_bar) [!USE_TOOLKIT_SCROLL_BARS]:
+	Fix clearing of area not covered by scroll bar.
+
+	* xdisp.c: Change #ifdef GLYPH_DEBUG to #if.
+
+	* xdisp.c (try_window_reusing_current_matrix): Use row_containing_pos.
+	(row_containing_pos): Take additional argument DY.  Treat rows ending
+	in middle of char differently.
+	(display_line): Handle tabs on window systems differently.
+
+	* xterm.c (fast_find_position): Call row_containing_pos
+	with additional argument.
+
+	* dispextern.h (row_containing_pos): Adjust prototype.
+
+	* xdisp.c (inhibit_try_window_id, inhibit_try_window_reusing)
+	(inhibit_try_cursor_movement) [GLYPH_DEBUG]: New variables.
+	(try_window_id, try_window_reusing_current_matrix)
+	(try_cursor_movement) [GLYPH_DEBUG]: Don't run if inhibited.
+	(syms_of_xdisp) [GLYPH_DEBUG]:  DEFVAR_BOOL the variables.
+
+2001-10-23  Gerd Moellmann  <gerd@gnu.org>
+
+	* dispnew.c (sync_window_with_frame_matrix_rows):
+	Fix handling of windows which aren't full-width, fix handling
+	of marginal areas.
+
+	* lread.c (syms_of_lread)<recursive-load-depth-limit>: Raise to 50.
+
+	* xterm.c (x_draw_glyphs): Remove parameters READ_START and
+	REAL_END.  Notice if cursor gets overwritten.
+	(notice_overwritten_cursor): Take X positions as parameters.
+	(x_draw_phys_cursor_glyph): Save state of w->phys_cursor_on_p
+	around call to x_draw_glyphs.
+
+	* xdisp.c (display_line): For a tab continued to the next line,
+	set row's ends_in_middle_of_char_p.
+
+2001-10-23  Andreas Schwab  <schwab@suse.de>
+
+	* m/macppc.h [LINUX]: Undef LD_SWITCH_SYSTEM_TEMACS and override
+	LD_SWITCH_MACHINE_TEMACS with "-Xlinker -znocombreloc".
+
+2001-10-22  Gerd Moellmann  <gerd@gnu.org>
+
+	* xdisp.c (display_line): Fix computation of continuation lines
+	width for TABs.
+
 2001-10-20  Gerd Moellmann  <gerd@gnu.org>
 
 	* Version 21.1 released.

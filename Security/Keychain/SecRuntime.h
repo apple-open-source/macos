@@ -22,8 +22,9 @@
 #define _SECURITY_SECRUNTIME_H_
 
 #include <CoreFoundation/CFRuntime.h>
-#include <Security/refcount.h>
+#include <new>
 
+#include <Security/SecCFTypes.h>
 
 namespace Security
 {
@@ -31,80 +32,158 @@ namespace Security
 namespace KeychainCore
 {
 
-class SecCFObject : public RefCount
+#define SECCFFUNCTIONS(OBJTYPE, APIPTR, ERRCODE) \
+\
+void *operator new(size_t size) throw(std::bad_alloc) \
+{ return SecCFObject::allocate(size, gTypes().OBJTYPE.typeID); } \
+\
+operator APIPTR() const \
+{ return (APIPTR)(this->operator CFTypeRef()); } \
+\
+APIPTR handle(bool retain = true) \
+{ return (APIPTR)SecCFObject::handle(retain); } \
+\
+static OBJTYPE *required(APIPTR ptr) \
+{ return static_cast<OBJTYPE *>(SecCFObject::required(ptr, ERRCODE)); } \
+\
+static OBJTYPE *optional(APIPTR ptr) \
+{ return static_cast<OBJTYPE *>(SecCFObject::optional(ptr)); }
+
+#define SECALIGNUP(SIZE, ALIGNMENT) (((SIZE - 1) & ~(ALIGNMENT - 1)) + ALIGNMENT)
+
+struct SecRuntimeBase: CFRuntimeBase
 {
+	bool isNew;
+};
+
+class SecCFObject
+{
+private:
+	void *operator new(size_t) throw(std::bad_alloc);
+
+	// Align up to a multiple of 16 bytes
+	static const size_t kAlignedRuntimeSize = SECALIGNUP(sizeof(SecRuntimeBase), 16);
+
 public:
-	virtual ~SecCFObject();
+	// For use by SecPointer only. Returns true once the first time it's called after the object has been created.
+	bool isNew()
+	{
+		SecRuntimeBase *base = reinterpret_cast<SecRuntimeBase *>(reinterpret_cast<uint8_t *>(this) - kAlignedRuntimeSize);
+		bool isNew = base->isNew;
+		base->isNew = false;
+		return isNew;
+	}
+
+	static SecCFObject *optional(CFTypeRef) throw();
+	static SecCFObject *required(CFTypeRef, OSStatus error);
+	static void *allocate(size_t size, CFTypeID typeID) throw(std::bad_alloc);
+
+	virtual ~SecCFObject() throw();
+
+	void operator delete(void *object) throw();
+	operator CFTypeRef() const throw()
+	{
+		return reinterpret_cast<CFTypeRef>(reinterpret_cast<const uint8_t *>(this) - kAlignedRuntimeSize);
+	}
+
+	// This bumps up the retainCount by 1, by calling CFRetain(), iff retain is true
+	CFTypeRef handle(bool retain = true) throw();
+
     virtual bool equal(SecCFObject &other);
     virtual CFHashCode hash();
+	virtual CFStringRef copyFormattingDesc(CFDictionaryRef dict);
+	virtual CFStringRef copyDebugDesc();
 };
 
-
-class SecCFType : public CFRuntimeBase
+//
+// A pointer type for SecCFObjects.
+// T must be derived from SecCFObject.
+//
+class SecPointerBase
 {
 public:
-	SecCFType(SecCFObject *obj);
-	~SecCFType();
+	SecPointerBase() : ptr(NULL)
+	{}
+	SecPointerBase(const SecPointerBase& p)
+	{
+		if (p.ptr)
+			CFRetain(p.ptr->operator CFTypeRef());
+		ptr = p.ptr;
+	}
+	SecPointerBase(SecCFObject *p)
+	{
+		if (p && !p->isNew())
+			CFRetain(p->operator CFTypeRef());
+		ptr = p;
+	}
+	~SecPointerBase()
+	{
+		if (ptr)
+			CFRelease(ptr->operator CFTypeRef());
+	}
+	SecPointerBase& operator = (const SecPointerBase& p)
+	{
+		if (p.ptr)
+			CFRetain(p.ptr->operator CFTypeRef());
+		if (ptr)
+			CFRelease(ptr->operator CFTypeRef());
+		ptr = p.ptr;
+		return *this;
+	}
 
-    RefPointer<SecCFObject> mObject;
-};
-
-
-class CFClassBase : protected CFRuntimeClass
-{
 protected:
-    CFClassBase(const char *name);
-    
-    const SecCFType *makeNew(SecCFObject *obj);
-    const SecCFType *handle(SecCFObject *obj);
-    SecCFObject *required(const SecCFType *type, OSStatus errorCode);
+ 	void assign(SecCFObject * p)
+	{
+		if (p && !p->isNew())
+			CFRetain(p->operator CFTypeRef());
+		if (ptr)
+			CFRelease(ptr->operator CFTypeRef());
+		ptr = p;
+	}
 
-private:
-    static void finalizeType(CFTypeRef cf);
-    static Boolean equalType(CFTypeRef cf1, CFTypeRef cf2);
-    static CFHashCode hashType(CFTypeRef cf);
-
-public:
-    CFTypeID typeId;
+	SecCFObject *ptr;
 };
 
-
-template <class Object, class APITypePtr, OSStatus ErrorCode>
-class CFClass : public CFClassBase
+template <class T>
+class SecPointer : public SecPointerBase
 {
 public:
-    CFClass(const char *name) : CFClassBase(name) {}
+	SecPointer() : SecPointerBase() {}
+	SecPointer(const SecPointer& p) : SecPointerBase(p) {}
+	SecPointer(T *p): SecPointerBase(p) {}
+	SecPointer &operator =(T *p) { this->assign(p); return *this; }
 
-    APITypePtr handle(Object &obj)
-    {
-        return APITypePtr(CFClassBase::handle(&obj));
-    }
-
-    Object *required(APITypePtr type)
-    {
-		Object *object = dynamic_cast<Object *>(CFClassBase::required
-			(reinterpret_cast<const SecCFType *>(type), ErrorCode));
-		if (!object)
-			MacOSError::throwMe(ErrorCode);
-
-		return object;
-    }
-	
-	// CF generator functions
-	APITypePtr operator () (Object *obj)
-	{ return handle(*obj); }
-
-	APITypePtr operator () (const RefPointer<Object> &obj)
-	{ return handle(*obj); }
-	
-	Object * operator () (APITypePtr ref)
-	{ return required(ref); }
+	// dereference operations
+    T* get () const				{ return static_cast<T*>(ptr); }	// mimic auto_ptr
+	operator T * () const		{ return static_cast<T*>(ptr); }
+	T * operator -> () const	{ return static_cast<T*>(ptr); }
+	T & operator * () const		{ return *static_cast<T*>(ptr); }
 };
+
+template <class T>
+bool operator <(const SecPointer<T> &r1, const SecPointer<T> &r2)
+{
+	T *p1 = r1.get(), *p2 = r2.get();
+	return p1 && p2 ? *p1 < *p2 : p1 < p2;
+}
+
+template <class T>
+bool operator ==(const SecPointer<T> &r1, const SecPointer<T> &r2)
+{
+	T *p1 = r1.get(), *p2 = r2.get();
+	return p1 && p2 ? *p1 == *p2 : p1 == p2;
+}
+
+template <class T>
+bool operator !=(const SecPointer<T> &r1, const SecPointer<T> &r2)
+{
+	T *p1 = r1.get(), *p2 = r2.get();
+	return p1 && p2 ? *p1 != *p2 : p1 != p2;
+}
 
 
 } // end namespace KeychainCore
 
 } // end namespace Security
-
 
 #endif // !_SECURITY_SECRUNTIME_H_

@@ -26,7 +26,7 @@
  * OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
  * SUCH DAMAGE.
  *
- *	$Id: util.c,v 1.7 2002/06/16 23:47:19 lutherj Exp $
+ *	$Id: util.c,v 1.12 2003/08/23 01:26:57 lutherj Exp $
  */
 
 /* FD_SETSIZE has to be defined here before sys/types.h is brought in
@@ -38,6 +38,7 @@
 #define FD_SETSIZE 2500
 
 #include <sys/types.h>
+#include <sys/syslog.h>
 
 #include <ctype.h>
 #include <err.h>
@@ -153,6 +154,7 @@ char *utf8_encode(const unsigned char *orig)
 	new_string = malloc((size_t)(strlen(orig) * UTF8_TO_ASCII_MAX_SCALE));
 	if (!new_string)
 	{
+		syslog(LOG_ERR, "utf8_encode: new_string could not be allocated");
 		return (NULL);
 	}
 
@@ -162,7 +164,7 @@ char *utf8_encode(const unsigned char *orig)
 	while (orig[orig_index] != '\0')
 	{
 		charval = (int)orig[orig_index];
-		if (((char *) & orig[orig_index] > slash) &&
+		if (((const char *) & orig[orig_index] > slash) &&
 			(charval <= 32 || charval == 34 || charval == 35 || charval == 37 ||
 			 charval == 38 || (charval >= 58 && charval <= 64) ||
 			 (charval >= 91 && charval <= 94) || charval == 96 || charval >= 123))
@@ -206,29 +208,45 @@ int reconstruct_url(const char *hostheader, const char *remotefile, char **url)
 
 	const char *colon;
 	unsigned long length;
+	unsigned long webdavprefixlength;
 
-	length = strlen(hostheader) + strlen(remotefile) + strlen(_WEBDAVPREFIX) + 1;
-	(void *) * url = malloc(length);
-
-	if (!*url)
+	webdavprefixlength = strlen(_WEBDAVPREFIX);
+	if (strncmp(remotefile, _WEBDAVPREFIX, webdavprefixlength) == 0)
 	{
-		return (ENOMEM);
-	}
-
-	(void)strcpy(*url, _WEBDAVPREFIX);
-	colon = strchr(hostheader, ':');
-
-	if (colon != 0)
-	{
-		errno = 0;
-		(void)strncat(*url, hostheader, colon - hostheader);
+		/* remotefile is full url */
+		(void *) * url = malloc(strlen(remotefile) + 1);
+		if (!*url)
+		{
+			syslog(LOG_ERR, "reconstruct_url: *url could not be allocated");
+			return (ENOMEM);
+		}
+		(void)strcpy(*url, remotefile);
 	}
 	else
 	{
-		(void)strcat(*url, hostheader);
-	}
-
-	(void)strcat(*url, remotefile);
+		length = strlen(hostheader) + strlen(remotefile) + webdavprefixlength + 1;
+		(void *) * url = malloc(length);
+			if (!*url)
+		{
+			syslog(LOG_ERR, "reconstruct_url: *url could not be allocated");
+			return (ENOMEM);
+		}
+	
+		(void)strcpy(*url, _WEBDAVPREFIX);
+		colon = strchr(hostheader, ':');
+	
+		if (colon != NULL)
+		{
+			errno = 0;
+			(void)strncat(*url, hostheader, (size_t)(colon - hostheader));
+		}
+		else
+		{
+			(void)strcat(*url, hostheader);
+		}
+	
+		(void)strcat(*url, remotefile);
+	}	
 
 	return 0;
 }
@@ -248,7 +266,7 @@ char *to_base64(const unsigned char *buf, size_t len)
 	char *s,  *rv;
 	unsigned tmp;
 
-	s = malloc((4 * (len + 1)) / 3 + 1);
+	s = malloc((((len + 2) / 3) * 4) + 1);
 	if (!s)
 	{
 		return (0);
@@ -297,84 +315,165 @@ char *to_base64(const unsigned char *buf, size_t len)
 
 /*****************************************************************************/
 
-int from_base64(const char *orig, unsigned char *buf, size_t *lenp)/* *** not used? *** */
+/* The from_base64 function decodes a base64 encoded c-string into outBuffer.
+ * The outBuffer's size is *lengthptr. The actual number of bytes decoded into
+ * outBuffer is also returned in *lengthptr. If outBuffer is large enough to
+ * decode the base64 string and if the base64 encoding is valid, from_base64()
+ * returns 0; otherwise -1 is returned. Note that outBuffer is just an array of
+ * bytes... it is not a c-string.
+ */
+int from_base64(const char *base64str, unsigned char *outBuffer, size_t *lengthptr)
 {
-	int len, len2;
-	const char *equals;
-	unsigned tmp;
-
-	len = strlen(orig);
-	while (isspace(orig[len - 1]))
+	char			decodedChar;
+	unsigned long	base64Length;
+	unsigned char	*eightBitByte;
+	unsigned char	sixBitEncoding[4];
+	unsigned short	encodingIndex;
+	int				endOfData;
+	const char		*equalPtr;
+	const char		*base64CharPtr;
+	const char		*base64EndPtr;
+	
+	/* Determine the length of the base64 input string.
+	 * This also catches illegal '=' characters within a base64 string.
+	 */
+	
+	base64Length = 0;
+	
+	/* is there an '=' character? */
+	equalPtr = strchr(base64str, '=');
+	if ( equalPtr != NULL )
 	{
-		len--;
-	}
-
-	if (len % 4)
-	{
-		return -1;
-	}
-
-	len2 = 3 * (len / 4);
-	equals = strchr(orig, '=');
-	if (equals != 0)
-	{
-		if (equals[1] == '=')
+		/* yes -- then it must be the last character of an octet, or
+		 * it must be the next to last character of an octet followed
+		 * by another '=' character */
+		switch ( (equalPtr - base64str) % 4 )
 		{
-			len2 -= 2;
+			case 0:
+			case 1:
+				/* invalid encoding */
+				goto error_exit;
+				break;
+				
+			case 2:
+				if ( equalPtr[1] != '=' ) 
+				{
+					/* invalid encoding */
+					goto error_exit;
+				}
+				base64Length = (equalPtr - base64str) + 2;
+				*lengthptr += 2;	/* adjust for padding */
+				break;
+				
+			case 3:
+				base64Length = (equalPtr - base64str) + 1;
+				*lengthptr += 1;	/* adjust for padding */
+				break;
+		}
+	}
+	else
+	{
+		base64Length = strlen(base64str);
+	}
+	
+	/* Make sure outBuffer is big enough */
+	if ( *lengthptr < ((base64Length / 4) * 3) )
+	{
+		/* outBuffer is too small */
+		goto error_exit;
+	}
+	
+	/* Make sure length is a multiple of 4 */
+	if ( (base64Length % 4) != 0 )
+	{
+		/* invalid encoding */
+		goto error_exit;
+	}
+	
+	/* OK -- */
+	eightBitByte = outBuffer;
+	encodingIndex = 0;
+	endOfData = FALSE;
+	base64EndPtr = (char *)((unsigned long)base64str + base64Length);
+	base64CharPtr = base64str;
+	while ( base64CharPtr < base64EndPtr )
+	{
+		decodedChar = *base64CharPtr++;
+		
+		if ( (decodedChar >= 'A') && (decodedChar <= 'Z') )
+		{
+			decodedChar = decodedChar - 'A';
+		}
+		else if ( (decodedChar >= 'a') && (decodedChar <= 'z') )
+		{
+			decodedChar = decodedChar - 'a' + 26;
+		}
+		else if ( (decodedChar >= '0') && (decodedChar <= '9') )
+		{
+			decodedChar = decodedChar - '0' + 52;
+		}
+		else if ( decodedChar == '+' )
+		{
+			decodedChar = 62;
+		}
+		else if ( decodedChar == '/' )
+		{
+			decodedChar = 63;
+		}
+		else if ( decodedChar == '=' ) /* end of base64 encoding */
+		{
+			endOfData = TRUE;
 		}
 		else
 		{
-			len2 -= 1;
+			/* invalid character */
+			goto error_exit;
+		}
+		
+		if ( endOfData )
+		{
+			/* make sure there's no more looping */
+			base64CharPtr = base64EndPtr;
+		}
+		else
+		{
+			sixBitEncoding[encodingIndex] = (unsigned char)decodedChar;
+			++encodingIndex;
+		}
+		
+		if ( (encodingIndex == 4) || endOfData)
+		{
+			/* convert four 6-bit characters into three 8-bit bytes */
+			
+			/* always get first byte */
+			*eightBitByte++ =
+				(sixBitEncoding[0] << 2) | ((sixBitEncoding[1] & 0x30) >> 4);
+			if ( encodingIndex >= 3 )
+			{
+				/* get second byte only if encodingIndex is 3 or 4 */
+				*eightBitByte++ =
+					((sixBitEncoding[1] & 0x0F) << 4) | ((sixBitEncoding[2] & 0x3C) >> 2);
+				if ( encodingIndex == 4 )
+				{
+					/* get third byte only if encodingIndex is 4 */
+					*eightBitByte++ =
+						((sixBitEncoding[2] & 0x03) << 6) | (sixBitEncoding[3] & 0x3F);
+				}
+			}
+			
+			/* reset encodingIndex */
+			encodingIndex = 0;
 		}
 	}
+	
+	/* return the number of bytes in outBuffer and no error */
+	*lengthptr = eightBitByte - outBuffer;
+	return ( 0 );
 
-	/* Now the length is len2 is the actual length of the original. */
-	if (len2 > *lenp)
-	{
-		return -1;
-	}
-	*lenp = len2;
-
-	while (len > 0)
-	{
-		int i;
-		const char *off;
-		int forget;
-
-		tmp = 0;
-		forget = 0;
-		for (i = 0; i < 4; i++)
-		{
-			if (orig[i] == '=')
-			{
-				off = base64;
-				forget++;
-			}
-			else
-			{
-				off = strchr(base64, orig[i]);
-			}
-			if (off == 0)
-			{
-				return -1;
-			}
-			tmp = (tmp << 6) | (off - base64);
-		}
-
-		buf[0] = (tmp >> 16) & 0xff;
-		if (forget < 2)
-		{
-			buf[1] = (tmp >> 8) & 0xff;
-		}
-		if (forget < 1)
-		{
-			buf[2] = (tmp >> 8) & 0xff;
-		}
-		len -= 4;
-		orig += 4;
-		buf += 3 - forget;
-	}
-	return 0;
+error_exit:
+	/* return 0 bytes in outBuffer and an error */
+	*lengthptr = 0;
+	return ( -1 );
 }
 
 /*****************************************************************************/
@@ -399,7 +498,6 @@ ssize_t socket_read_bytes(int fd, char *buf, size_t n)
 
 	/* If select returns a postive number, our socket is ready for reading */
 	/* Otherwise it timed out or generated an errror, so return EIO */
-
 	if (ret > 0)
 	{
 		ssize_t len = recv(fd, buf, n, 0);
@@ -407,25 +505,29 @@ ssize_t socket_read_bytes(int fd, char *buf, size_t n)
 		{
 			return len;
 		}
-		/* fall through, for now */
+		else
+		{
+			syslog(LOG_ERR, "socket_read_bytes: recv(): %s", strerror(errno));
+		}
 	}
-
-	/* there was an error */
-#ifdef DEBUG
-	if (ret == 0)
+	else if (ret < 0)
 	{
-		fprintf(stderr, "read timed out\n");
+		/* there was an error */
+		syslog(LOG_ERR, "socket_read_bytes: select(): %s", strerror(errno));
 	}
-#endif
+	else
+	{
+		/* select timed out */
+		syslog(LOG_ERR, "socket_read_bytes: select(): timed out");
+	}
 
 	errno = EIO;
 	return 0;
-
 }
 
 /*****************************************************************************/
 
-#define USUAL_LINE_LEN 48
+#define USUAL_LINE_LEN 48	/* XXX what is this? */
 
 ssize_t socket_read_line(int fd, char *buf, size_t n)
 {
@@ -491,19 +593,43 @@ wait_for_data:
 						  we should try again. */
 						goto wait_for_data;
 					}
-					/* buffer is full and no LF was found; fall through */
+					else
+					{
+						/* buffer is full and no LF was found; fall through */
+						syslog(LOG_ERR, "socket_read_line: index >= max");
+					}
 				}
 			}
-			/* read failed unexpectedly; fall through */
+			else
+			{
+				/* recv (peek) failed unexpectedly; fall through */
+				if ( len < 0 )
+				{
+					/* log error message if this wasn't just a close from the server */
+					syslog(LOG_ERR, "socket_read_line: recv(): %s", strerror(errno));
+				}
+			}
 		}
-		/* read (peek) failed unexpectedly; fall through */
+		else
+		{
+			/* recv (peek) failed unexpectedly; fall through */
+			if ( len < 0 )
+			{
+				/* log error message if this wasn't just a close from the server */
+				syslog(LOG_ERR, "socket_read_line: recv() MSG_PEEK: %s", strerror(errno));
+			}
+		}
 	}
-#ifdef DEBUG
-	if (ret == 0)
+	else if (ret < 0)
 	{
-		fprintf(stderr, "read timed out\n");
+		/* there was an error */
+		syslog(LOG_ERR, "socket_read_line: select(): %s", strerror(errno));
 	}
-#endif
+	else
+	{
+		/* select timed out */
+		syslog(LOG_ERR, "socket_read_line: select(): timed out");
+	}
 
 	errno = EIO;
 	return 0;

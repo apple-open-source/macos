@@ -1,4 +1,28 @@
 /*
+ * Copyright (c) 2000-2003 Apple Computer, Inc. All rights reserved.
+ *
+ * @APPLE_LICENSE_HEADER_START@
+ * 
+ * Copyright (c) 1999-2003 Apple Computer, Inc.  All Rights Reserved.
+ * 
+ * This file contains Original Code and/or Modifications of Original Code
+ * as defined in and that are subject to the Apple Public Source License
+ * Version 2.0 (the 'License'). You may not use this file except in
+ * compliance with the License. Please obtain a copy of the License at
+ * http://www.opensource.apple.com/apsl/ and read it before using this
+ * file.
+ * 
+ * The Original Code and all software distributed under the License are
+ * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
+ * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
+ * INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY,
+ * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
+ * Please see the License for the specific language governing rights and
+ * limitations under the License.
+ * 
+ * @APPLE_LICENSE_HEADER_END@
+ */
+/*
  * Copyright 1996 1995 by Open Software Foundation, Inc. 1997 1996 1995 1994 1993 1992 1991
  *              All Rights Reserved
  *
@@ -36,49 +60,65 @@
 int
 pthread_mutex_destroy(pthread_mutex_t *mutex)
 {
-        if (mutex->sig != _PTHREAD_MUTEX_SIG)
-                return (EINVAL);
-        if ((mutex->owner != (pthread_t)NULL) ||
-            (mutex->busy != (pthread_cond_t *)NULL))
-                return (EBUSY);
-        mutex->sig = _PTHREAD_NO_SIG;
-	return (ESUCCESS);
+	int res;
+
+	LOCK(mutex->lock);
+	if (mutex->sig == _PTHREAD_MUTEX_SIG)
+	{
+		if (mutex->owner == (pthread_t)NULL &&
+		    mutex->busy == (pthread_cond_t *)NULL)
+		{
+			mutex->sig = _PTHREAD_NO_SIG;
+			res = ESUCCESS;
+		}
+		else
+			res = EBUSY;
+	}
+	else
+		res = EINVAL;
+	UNLOCK(mutex->lock);
+	return (res);
 }
 
 /*
  * Initialize a mutex variable, possibly with additional attributes.
  */
+static int
+_pthread_mutex_init(pthread_mutex_t *mutex, const pthread_mutexattr_t *attr)
+{
+	if (attr)
+	{
+		if (attr->sig != _PTHREAD_MUTEX_ATTR_SIG)
+			return (EINVAL);
+		mutex->prioceiling = attr->prioceiling;
+		mutex->protocol = attr->protocol;
+		mutex->type = attr->type;
+	} else {
+		mutex->prioceiling = _PTHREAD_DEFAULT_PRIOCEILING;
+		mutex->protocol = _PTHREAD_DEFAULT_PROTOCOL;
+		mutex->type = PTHREAD_MUTEX_DEFAULT;
+	}
+	mutex->lock_count = 0;
+	mutex->owner = (pthread_t)NULL;
+	mutex->next = (pthread_mutex_t *)NULL;
+	mutex->prev = (pthread_mutex_t *)NULL;
+	mutex->busy = (pthread_cond_t *)NULL;
+	mutex->waiters = 0;
+	mutex->sem = SEMAPHORE_NULL;
+	mutex->order = SEMAPHORE_NULL;
+	mutex->sig = _PTHREAD_MUTEX_SIG;
+	return (ESUCCESS);
+}
+
+/*
+ * Initialize a mutex variable, possibly with additional attributes.
+ * Public interface - so don't trust the lock - initialize it first.
+ */
 int
 pthread_mutex_init(pthread_mutex_t *mutex, const pthread_mutexattr_t *attr)
 {
-        LOCK_INIT(mutex->lock);
-        mutex->sig = _PTHREAD_MUTEX_SIG;
-        if (attr)
-        {
-                if (attr->sig != _PTHREAD_MUTEX_ATTR_SIG)
-                        return (EINVAL);
-                mutex->prioceiling = attr->prioceiling;
-                mutex->protocol = attr->protocol;
-                mutex->type = attr->type;
-		if ((mutex->type == PTHREAD_MUTEX_DEFAULT) || (mutex->type == PTHREAD_MUTEX_NORMAL)) 
-			mutex->def = 1;
-		else
-			mutex->def = 0;
-        } else {
-                mutex->prioceiling = _PTHREAD_DEFAULT_PRIOCEILING;
-                mutex->protocol = _PTHREAD_DEFAULT_PROTOCOL;
-                mutex->type = PTHREAD_MUTEX_DEFAULT;
-		mutex->def = 1;
-        }
-        mutex->lock_count = 0;
-        mutex->owner = (pthread_t)NULL;
-        mutex->next = (pthread_mutex_t *)NULL;
-        mutex->prev = (pthread_mutex_t *)NULL;
-        mutex->busy = (pthread_cond_t *)NULL;
-	mutex->waiters = 0;
-	mutex->cond_lock = 0;
-	mutex->sem = MACH_PORT_NULL;
-	return (ESUCCESS);
+	LOCK_INIT(mutex->lock);
+	return (_pthread_mutex_init(mutex, attr));
 }
 
 /*
@@ -89,18 +129,19 @@ static void
 _pthread_mutex_add(pthread_mutex_t *mutex, pthread_t self)
 {
         pthread_mutex_t *m;
-        if (self != (pthread_t)0) {
-            if ((m = self->mutexes) != (pthread_mutex_t *)NULL)
+	if (self != (pthread_t)0)
+	{
+		if ((m = self->mutexes) != (pthread_mutex_t *)NULL)
                 { /* Add to list */
-                	m->prev = mutex;
+			m->prev = mutex;
                 }
-            mutex->next = m;
-            mutex->prev = (pthread_mutex_t *)NULL;
-            self->mutexes = mutex;
+		mutex->next = m;
+		mutex->prev = (pthread_mutex_t *)NULL;
+		self->mutexes = mutex;
 	}
 }
 
-static void
+__private_extern__ void
 _pthread_mutex_remove(pthread_mutex_t *mutex, pthread_t self)
 {
         pthread_mutex_t *n, *prev;
@@ -113,9 +154,9 @@ _pthread_mutex_remove(pthread_mutex_t *mutex, pthread_t self)
                 prev->next = mutex->next;
         } else
         { /* This is the first in the list */
-            if (self != (pthread_t)0) {
-                self->mutexes = n;
-            }
+		if (self != (pthread_t)0) {
+			self->mutexes = n;
+		}
         }
 }
 #endif
@@ -127,74 +168,100 @@ _pthread_mutex_remove(pthread_mutex_t *mutex, pthread_t self)
 int
 pthread_mutex_lock(pthread_mutex_t *mutex)
 {
-        kern_return_t kern_res;
-        pthread_t self;
-	int slowpath;
+	kern_return_t kern_res;
+	pthread_t self;
+	int sig = mutex->sig; 
 
-        if (mutex->sig == _PTHREAD_MUTEX_SIG_init)
-        {
-                int res;
-                if (res = pthread_mutex_init(mutex, NULL))
-                        return (res);
-        }
-        if (mutex->sig != _PTHREAD_MUTEX_SIG)
-                return (EINVAL);        /* Not a mutex variable */
-
-#if !defined(DEBUG)
-	if (mutex->def) {
-		slowpath = 0;
-		self = (pthread_t)0x12141968;
-	} else 
-#endif /* DEBUG */
+	/* To provide backwards compat for apps using mutex incorrectly */
+	if ((sig != _PTHREAD_MUTEX_SIG) && (sig != _PTHREAD_MUTEX_SIG_init))
+		return(EINVAL);
+	LOCK(mutex->lock);
+	if (mutex->sig != _PTHREAD_MUTEX_SIG)
 	{
-		slowpath = 1;
+		if (mutex->sig != _PTHREAD_MUTEX_SIG_init)
+		{
+			UNLOCK(mutex->lock);
+			return (EINVAL);
+		}
+		_pthread_mutex_init(mutex, NULL);
+		self = _PTHREAD_MUTEX_OWNER_SELF;
+	} 
+	else if (mutex->type != PTHREAD_MUTEX_NORMAL)
+	{
 		self = pthread_self();
+		if (mutex->owner == self)
+		{
+			int res;
+
+			if (mutex->type == PTHREAD_MUTEX_RECURSIVE)
+			{
+				if (mutex->lock_count < USHRT_MAX)
+				{
+					mutex->lock_count++;
+					res = ESUCCESS;
+				} else
+					res = EAGAIN;
+			} else	/* PTHREAD_MUTEX_ERRORCHECK */
+				res = EDEADLK;
+			UNLOCK(mutex->lock);
+			return (res);
+		}
+	} else 
+		self = _PTHREAD_MUTEX_OWNER_SELF;
+
+	if (mutex->owner != (pthread_t)NULL) {
+		if (mutex->waiters || mutex->owner != _PTHREAD_MUTEX_OWNER_SWITCHING)
+		{
+			semaphore_t sem, order;
+
+			if (++mutex->waiters == 1)
+			{
+				mutex->sem = sem = new_sem_from_pool();
+				mutex->order = order = new_sem_from_pool();
+			}
+			else
+			{
+				sem = mutex->sem;
+				order = mutex->order;
+				do {
+					PTHREAD_MACH_CALL(semaphore_wait(order), kern_res);
+				} while (kern_res == KERN_ABORTED);
+			} 
+			UNLOCK(mutex->lock);
+
+			PTHREAD_MACH_CALL(semaphore_wait_signal(sem, order), kern_res);
+			while (kern_res == KERN_ABORTED)
+			{
+				PTHREAD_MACH_CALL(semaphore_wait(sem), kern_res);
+			} 
+
+			LOCK(mutex->lock);
+			if (--mutex->waiters == 0)
+			{
+				PTHREAD_MACH_CALL(semaphore_wait(order), kern_res);
+				mutex->sem = mutex->order = SEMAPHORE_NULL;
+				restore_sem_to_pool(order);
+				restore_sem_to_pool(sem);
+			}
+		} 
+		else if (mutex->owner == _PTHREAD_MUTEX_OWNER_SWITCHING)
+		{
+			semaphore_t sem = mutex->sem;
+			do {
+				PTHREAD_MACH_CALL(semaphore_wait(sem), kern_res);
+			} while (kern_res == KERN_ABORTED);
+			mutex->sem = SEMAPHORE_NULL;
+			restore_sem_to_pool(sem);
+		}
 	}
 
-        LOCK(mutex->lock);
-                
-	if (mutex->waiters || (mutex->owner != (pthread_t)NULL))
-	{
-        	if(slowpath && (mutex->owner == self)) {
-            		if(mutex->type == PTHREAD_MUTEX_ERRORCHECK ) {
-               			UNLOCK(mutex->lock);
-               			return(EDEADLK);
-            		} else if (mutex->type == PTHREAD_MUTEX_RECURSIVE ) {
-				if (mutex->lock_count >= USHRT_MAX){
-               				UNLOCK(mutex->lock);
-					return(EAGAIN);
-				}
-                		mutex->lock_count++;
-               			UNLOCK(mutex->lock);
-               			return(ESUCCESS);
-            		}
-        	} 
-                mutex->waiters++;
-                if (mutex->sem == MACH_PORT_NULL) {
-			mutex->sem = new_sem_from_pool();
-		}
-                UNLOCK(mutex->lock);
-		do {
-			PTHREAD_MACH_CALL(semaphore_wait(mutex->sem), kern_res);
-		} while (kern_res == KERN_ABORTED);
-                LOCK(mutex->lock);
-		mutex->waiters--;
-		if (mutex->waiters == 0) {
-			restore_sem_to_pool(mutex->sem);
-			mutex->sem = MACH_PORT_NULL;
-		}
-                if (mutex->cond_lock) {
-                    mutex->cond_lock = 0;
-                }
-        }
-#if  defined(DEBUG) 
-        _pthread_mutex_add(mutex, self);
+	mutex->lock_count = 1;
+	mutex->owner = self;
+#if defined(DEBUG)
+	_pthread_mutex_add(mutex, self);
 #endif
-        mutex->owner = self;
-        if (slowpath && (mutex->type == PTHREAD_MUTEX_RECURSIVE))
-                mutex->lock_count = 1;
-        UNLOCK(mutex->lock);
-        return (ESUCCESS);
+	UNLOCK(mutex->lock);
+	return (ESUCCESS);
 }
 
 /*
@@ -203,65 +270,68 @@ pthread_mutex_lock(pthread_mutex_t *mutex)
 int
 pthread_mutex_trylock(pthread_mutex_t *mutex)
 {
-        kern_return_t kern_res;
-        pthread_t self;
-	int slowpath;
-	
-	if (mutex->sig == _PTHREAD_MUTEX_SIG_init)
-        {
-                int res;
-                if (res = pthread_mutex_init(mutex, NULL))
-                        return (res);
-        }
-        if (mutex->sig != _PTHREAD_MUTEX_SIG)
-                return (EINVAL);        /* Not a mutex variable */
-        
-#if !defined(DEBUG)
-	if (mutex->def) {
-		slowpath = 0;
-		self = (pthread_t)0x12141968;
-	} else 
-#endif /* DEBUG */
+	kern_return_t kern_res;
+	pthread_t self;
+
+	LOCK(mutex->lock);
+	if (mutex->sig != _PTHREAD_MUTEX_SIG)
 	{
-		slowpath = 1;
+		if (mutex->sig != _PTHREAD_MUTEX_SIG_init)
+		{
+			UNLOCK(mutex->lock);
+			return (EINVAL);
+		}
+		_pthread_mutex_init(mutex, NULL);
+		self = _PTHREAD_MUTEX_OWNER_SELF;
+	}
+	else if (mutex->type != PTHREAD_MUTEX_NORMAL)
+	{
 		self = pthread_self();
+		if (mutex->type == PTHREAD_MUTEX_RECURSIVE)
+		{
+			if (mutex->owner == self)
+			{
+				int res;
+
+				if (mutex->lock_count < USHRT_MAX)
+				{
+					mutex->lock_count++;
+					res = ESUCCESS;
+				} else
+					res = EAGAIN;
+				UNLOCK(mutex->lock);
+				return (res);
+			}
+		}
+	} else
+		self = _PTHREAD_MUTEX_OWNER_SELF;
+
+	if (mutex->owner != (pthread_t)NULL)
+	{
+		if (mutex->waiters || mutex->owner != _PTHREAD_MUTEX_OWNER_SWITCHING)
+		{
+			UNLOCK(mutex->lock);
+			return (EBUSY);
+		}
+		else if (mutex->owner == _PTHREAD_MUTEX_OWNER_SWITCHING)
+		{
+			semaphore_t sem = mutex->sem;
+
+			do {
+				PTHREAD_MACH_CALL(semaphore_wait(sem), kern_res);
+			} while (kern_res == KERN_ABORTED);
+			restore_sem_to_pool(sem);
+			mutex->sem = SEMAPHORE_NULL;
+		}
 	}
 
-        if (!TRY_LOCK(mutex->lock)) {
-            return (EBUSY);
-        }
-
-        if(slowpath && (mutex->owner == self) && (mutex->type == PTHREAD_MUTEX_RECURSIVE )) {
-		if (mutex->lock_count >= USHRT_MAX) {
-               		UNLOCK(mutex->lock);
-			return(EAGAIN);
-		}
-               mutex->lock_count++;
-               UNLOCK(mutex->lock);
-               return(ESUCCESS);
-        } 
-        
-        if (mutex->waiters ||
-		((mutex->owner != (pthread_t)NULL) && (mutex->cond_lock == 0)))
-        {
-                UNLOCK(mutex->lock);
-                return (EBUSY);
-        } else {
+	mutex->lock_count = 1;
+	mutex->owner = self;
 #if defined(DEBUG)
-                _pthread_mutex_add(mutex, self);
+	_pthread_mutex_add(mutex, self);
 #endif
-                mutex->owner = (pthread_t)self;
-		if (mutex->cond_lock) {
-                    PTHREAD_MACH_CALL(semaphore_wait(mutex->sem), kern_res);
-                    mutex->cond_lock = 0;
-                    restore_sem_to_pool(mutex->sem);
-                    mutex->sem = MACH_PORT_NULL;
-		}
-                if (slowpath && (mutex->type == PTHREAD_MUTEX_RECURSIVE))
-                    mutex->lock_count = 1;
-                UNLOCK(mutex->lock);
-                return (ESUCCESS);
-        }
+	UNLOCK(mutex->lock);
+	return (ESUCCESS);
 }
 
 /*
@@ -271,67 +341,63 @@ pthread_mutex_trylock(pthread_mutex_t *mutex)
 int
 pthread_mutex_unlock(pthread_mutex_t *mutex)
 {
-        kern_return_t kern_res;
-        int waiters;
-        pthread_t self;
-	int slowpath;
-        
-        if (mutex->sig == _PTHREAD_MUTEX_SIG_init)
-        {
-                int res;
-                if (res = pthread_mutex_init(mutex, NULL))
-                        return (res);
-        }
-        if (mutex->sig != _PTHREAD_MUTEX_SIG)
-                return (EINVAL);        /* Not a mutex variable */
+	kern_return_t kern_res;
+	int waiters;
+	int sig = mutex->sig; 
+
+	/* To provide backwards compat for apps using mutex incorrectly */
+	
+	if ((sig != _PTHREAD_MUTEX_SIG) && (sig != _PTHREAD_MUTEX_SIG_init))
+		return(EINVAL);
+	LOCK(mutex->lock);
+	if (mutex->sig != _PTHREAD_MUTEX_SIG)
+	{
+		if (mutex->sig != _PTHREAD_MUTEX_SIG_init)
+		{
+			UNLOCK(mutex->lock);
+			return (EINVAL);        /* Not a mutex variable */
+		}
+		_pthread_mutex_init(mutex, NULL);
+	} else
 
 #if !defined(DEBUG)
-	if (mutex->def) {
-		slowpath = 0;
-		self = (pthread_t)0x12141968;
-	} else 
-#endif /* DEBUG */
+	if (mutex->type != PTHREAD_MUTEX_NORMAL)
+#endif
 	{
-		slowpath = 1;
-		self = pthread_self();
+		pthread_t self = pthread_self();
+		if (mutex->owner != self)
+		{
+#if defined(DEBUG)
+			abort();
+#endif
+			UNLOCK(mutex->lock);
+			return EPERM;
+		} else if (mutex->type == PTHREAD_MUTEX_RECURSIVE &&
+		    --mutex->lock_count)
+		{
+			UNLOCK(mutex->lock);
+			return ESUCCESS;
+		}
 	}
 
-        LOCK(mutex->lock);
+	mutex->lock_count = 0;
+#if defined(DEBUG)
+	_pthread_mutex_remove(mutex, mutex->owner);
+#endif /* DEBUG */
 
-#if defined(DEBUG)
-	if (mutex->owner != self)
-#else
-        if (slowpath 
-		&& ((mutex->type == PTHREAD_MUTEX_ERRORCHECK ) 
-             		|| (mutex->type == PTHREAD_MUTEX_RECURSIVE )) 
-             	&& (mutex->owner != self)) 
-#endif /* DEBUG */
+	waiters = mutex->waiters;
+	if (waiters)
 	{
-               UNLOCK(mutex->lock);
-#if defined(DEBUG)
-		abort();
-#endif
-               return(EPERM);
-        }
-        
-        if (slowpath && (mutex->type == PTHREAD_MUTEX_RECURSIVE)  && --mutex->lock_count) {
-                UNLOCK(mutex->lock);
-		return (ESUCCESS);
-            
-        } else {
-#if defined(DEBUG)
-                _pthread_mutex_remove(mutex, mutex->owner);
-#endif /* DEBUG */
-                waiters = mutex->waiters;
-                mutex->owner = (pthread_t)NULL;
+		mutex->owner = _PTHREAD_MUTEX_OWNER_SWITCHING;
 		UNLOCK(mutex->lock);
-                if (waiters)
-                {
-		    PTHREAD_MACH_CALL(semaphore_signal(mutex->sem), kern_res);
-                }
-                return (ESUCCESS);
-        
-        }
+		PTHREAD_MACH_CALL(semaphore_signal(mutex->sem), kern_res);
+	}
+	else
+	{
+		mutex->owner = (pthread_t)NULL;
+		UNLOCK(mutex->lock);
+	}
+	return (ESUCCESS);
 }
 
 /*
@@ -342,14 +408,17 @@ int
 pthread_mutex_getprioceiling(const pthread_mutex_t *mutex,
                              int *prioceiling)
 {
+	int res;
+
+	LOCK(mutex->lock);
         if (mutex->sig == _PTHREAD_MUTEX_SIG)
         {
                 *prioceiling = mutex->prioceiling;
-                return (ESUCCESS);
+                res = ESUCCESS;
         } else
-        {
-                return (EINVAL); /* Not an initialized 'attribute' structure */
-        }
+                res = EINVAL; /* Not an initialized 'attribute' structure */
+	UNLOCK(mutex->lock);
+	return (res);
 }
 
 /*
@@ -361,6 +430,9 @@ pthread_mutex_setprioceiling(pthread_mutex_t *mutex,
                              int prioceiling,
                              int *old_prioceiling)
 {
+	int res;
+
+	LOCK(mutex->lock);
         if (mutex->sig == _PTHREAD_MUTEX_SIG)
         {
                 if ((prioceiling >= -999) ||
@@ -368,15 +440,13 @@ pthread_mutex_setprioceiling(pthread_mutex_t *mutex,
                 {
                         *old_prioceiling = mutex->prioceiling;
                         mutex->prioceiling = prioceiling;
-                        return (ESUCCESS);
+                        res = ESUCCESS;
                 } else
-                {
-                        return (EINVAL); /* Invalid parameter */
-                }
+                        res = EINVAL; /* Invalid parameter */
         } else
-        {
-                return (EINVAL); /* Not an initialized 'attribute' structure */
-        }
+                res = EINVAL; /* Not an initialized 'attribute' structure */
+	UNLOCK(mutex->lock);
+	return (res);
 }
 
 /*

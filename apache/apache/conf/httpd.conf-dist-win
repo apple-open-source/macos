@@ -143,7 +143,7 @@ ThreadsPerChild 50
 
 #
 # Listen: Allows you to bind Apache to specific IP addresses and/or
-# ports, in addition to the default. See also the <VirtualHost>
+# ports, instead of the default. See also the <VirtualHost>
 # directive.
 #
 #Listen 3000
@@ -702,11 +702,6 @@ ServerSignature On
     # HeaderName is the name of a file which should be prepended to
     # directory indexes. 
     #
-    # If MultiViews are amongst the Options in effect, the server will
-    # first look for name.html and include it if found.  If name.html
-    # doesn't exist, the server will then look for name.txt and include
-    # it as plaintext if found.
-    #
     ReadmeName README
     HeaderName HEADER
 
@@ -725,13 +720,26 @@ ServerSignature On
 <IfModule mod_mime.c>
 
     #
-    # AddEncoding allows you to have certain browsers (Mosaic/X 2.1+) uncompress
+    # AddType allows you to tweak mime.types without actually editing it, or to
+    # make certain files to be certain types.
+    #
+    AddType application/x-tar .tgz
+
+    #
+    # AddEncoding allows you to have certain browsers uncompress
     # information on the fly. Note: Not all browsers support this.
     # Despite the name similarity, the following Add* directives have nothing
     # to do with the FancyIndexing customization directives above.
     #
-    AddEncoding x-compress Z
-    AddEncoding x-gzip gz tgz
+    AddEncoding x-compress .Z
+    AddEncoding x-gzip .gz .tgz
+    #
+    # If the AddEncoding directives above are commented-out, then you
+    # probably should define those extensions to indicate media types:
+    #
+    #AddType application/x-compress .Z
+    #AddType application/x-gzip .gz .tgz
+
     #
     # AddLanguage allows you to specify the language of a document. You can
     # then use content negotiation to give a browser a file in a language
@@ -755,7 +763,7 @@ ServerSignature On
     # French (fr) - German (de) - Greek-Modern (el)
     # Italian (it) - Korean (kr) - Norwegian (no) - Norwegian Nynorsk (nn)
     # Portugese (pt) - Luxembourgeois* (ltz)
-    # Spanish (es) - Swedish (sv) - Catalan (ca) - Czech(cz)
+    # Spanish (es) - Swedish (sv) - Catalan (ca) - Czech(cs)
     # Polish (pl) - Brazilian Portuguese (pt-br) - Japanese (ja)
     # Russian (ru)
     #
@@ -783,10 +791,9 @@ ServerSignature On
     AddLanguage ca .ca
     AddLanguage es .es
     AddLanguage sv .sv
-    AddLanguage cz .cz
+    AddLanguage cs .cz .cs
     AddLanguage ru .ru
-    AddLanguage tw .tw
-    AddLanguage zh-tw .tw
+    AddLanguage zh-TW .zh-tw
     AddCharset Big5         .Big5    .big5
     AddCharset WINDOWS-1251 .cp-1251
     AddCharset CP866        .cp866
@@ -805,13 +812,6 @@ ServerSignature On
     <IfModule mod_negotiation.c>
         LanguagePriority en da nl et fr de el it ja kr no pl pt pt-br ru ltz ca es sv tw
     </IfModule>
-
-    #
-    # AddType allows you to tweak mime.types without actually editing it, or to
-    # make certain files to be certain types.
-    #
-    AddType application/x-tar .tgz
-    AddType image/x-icon .ico
 
     #
     # AddHandler allows you to map certain file extensions to "handlers",
@@ -1004,7 +1004,7 @@ ServerSignature On
 #
 # Use name-based virtual hosting.
 #
-#NameVirtualHost *
+#NameVirtualHost *:80
 
 #
 # VirtualHost example:
@@ -1012,7 +1012,7 @@ ServerSignature On
 # The first VirtualHost section is used for requests without a known
 # server name.
 #
-#<VirtualHost *>
+#<VirtualHost *:80>
 #    ServerAdmin webmaster@dummy-host.example.com
 #    DocumentRoot /www/docs/dummy-host.example.com
 #    ServerName dummy-host.example.com

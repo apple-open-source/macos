@@ -5,7 +5,7 @@
 # "autoconf" program (constructs like "@foo@" will get replaced in the
 # actual Makefile.
 #
-# RCS: @(#) $Id: Makefile.in,v 1.1.1.3 2002/04/05 16:14:13 jevans Exp $
+# RCS: @(#) $Id: Makefile.in,v 1.1.1.5 2003/07/22 23:11:19 landonf Exp $
 
 VERSION = @TCL_VERSION@
 
@@ -85,7 +85,7 @@ CFLAGS_OPTIMIZE	= @CFLAGS_OPTIMIZE@
 #CFLAGS = 		$(CFLAGS_DEBUG)
 #CFLAGS = 		$(CFLAGS_OPTIMIZE)
 #CFLAGS = 		$(CFLAGS_DEBUG) $(CFLAGS_OPTIMIZE)
-CFLAGS =		@CFLAGS@ @CFLAGS_DEFAULT@
+CFLAGS = 		@CFLAGS@ @CFLAGS_DEFAULT@
 
 # To enable compilation debugging reverse the comment characters on
 # one of the following lines.
@@ -118,15 +118,22 @@ EXESUFFIX		= @EXESUFFIX@
 TCL_STUB_LIB_FILE	= @TCL_STUB_LIB_FILE@
 TCL_DLL_FILE		= @TCL_DLL_FILE@
 TCL_LIB_FILE		= @TCL_LIB_FILE@
-DDE_DLL_FILE		= tcldde$(VER)${DLLSUFFIX}
-DDE_LIB_FILE		= tcldde$(VER)${LIBSUFFIX}
-REG_DLL_FILE		= tclreg$(VER)${DLLSUFFIX}
-REG_LIB_FILE		= tclreg$(VER)${LIBSUFFIX}
+DDE_DLL_FILE		= tcldde$(DDEVER)${DLLSUFFIX}
+DDE_LIB_FILE		= tcldde$(DDEVER)${LIBSUFFIX}
+REG_DLL_FILE		= tclreg$(REGVER)${DLLSUFFIX}
+REG_LIB_FILE		= tclreg$(REGVER)${LIBSUFFIX}
 PIPE_DLL_FILE		= tclpip$(VER)${DLLSUFFIX}
 
 SHARED_LIBRARIES 	= $(TCL_DLL_FILE) $(TCL_STUB_LIB_FILE) \
 			  $(DDE_DLL_FILE) $(REG_DLL_FILE) $(PIPE_DLL_FILE)
 STATIC_LIBRARIES	= $(TCL_LIB_FILE) $(REG_LIB_FILE) $(DDE_LIB_FILE)
+
+# TCL_EXE is the name of a tclsh executable that is available *BEFORE*
+# running make for the first time. Certain build targets (make genstubs)
+# need it to be available on the PATH. This executable should *NOT* be
+# required just to do a normal build although it can be required to run
+# make dist.
+TCL_EXE			= tclsh
 
 TCLSH			= tclsh$(VER)${EXESUFFIX}
 TCLTEST			= tcltest${EXEEXT}
@@ -148,7 +155,7 @@ RC		= @RC@
 RES		= @RES@
 AC_FLAGS	= @EXTRA_CFLAGS@ @DEFS@
 CPPFLAGS	= @CPPFLAGS@
-LDFLAGS_DEBUG	= @LDFLAGS_DEBUG@
+LDFLAGS_DEBUG   = @LDFLAGS_DEBUG@
 LDFLAGS_OPTIMIZE = @LDFLAGS_OPTIMIZE@
 LDFLAGS		= @LDFLAGS@ @LDFLAGS_DEFAULT@
 LDFLAGS_CONSOLE	= @LDFLAGS_CONSOLE@
@@ -162,6 +169,10 @@ SHLIB_CFLAGS	= @SHLIB_CFLAGS@
 SHLIB_SUFFIX	= @SHLIB_SUFFIX@
 VER		= @TCL_MAJOR_VERSION@@TCL_MINOR_VERSION@
 DOTVER		= @TCL_MAJOR_VERSION@.@TCL_MINOR_VERSION@
+DDEVER		= @TCL_DDE_MAJOR_VERSION@@TCL_DDE_MINOR_VERSION@
+DDEDOTVER	= @TCL_DDE_MAJOR_VERSION@.@TCL_DDE_MINOR_VERSION@
+REGVER		= @TCL_REG_MAJOR_VERSION@@TCL_REG_MINOR_VERSION@
+REGDOTVER	= @TCL_REG_MAJOR_VERSION@.@TCL_REG_MINOR_VERSION@
 LIBS		= @LIBS@
 
 RMDIR		= rm -rf
@@ -247,6 +258,8 @@ GENERIC_OBJS = \
 	tclStubInit.$(OBJEXT) \
 	tclStubLib.$(OBJEXT) \
 	tclThread.$(OBJEXT) \
+	tclThreadAlloc.$(OBJEXT) \
+	tclThreadJoin.$(OBJEXT) \
 	tclTimer.$(OBJEXT) \
 	tclUtf.$(OBJEXT) \
 	tclUtil.$(OBJEXT) \
@@ -270,7 +283,7 @@ WIN_OBJS = \
 	tclWinTime.$(OBJEXT) 
 
 COMPAT_OBJS = \
-	strftime.$(OBJEXT)
+	strftime.$(OBJEXT) strtoll.$(OBJEXT) strtoull.$(OBJEXT)
 
 PIPE_OBJS = stub16.$(OBJEXT)
 
@@ -370,6 +383,10 @@ ${PIPE_DLL_FILE}: ${PIPE_OBJS}
 tclWinInit.${OBJEXT}: tclWinInit.c
 	$(CC) -c $(CC_SWITCHES) -DBUILD_tcl $(EXTFLAGS) @DEPARG@ $(CC_OBJNAME)
 
+tclWinPipe.${OBJEXT}: tclWinPipe.c
+	$(CC) -c $(CC_SWITCHES) -DBUILD_tcl -DTCL_PIPE_DLL=\"$(PIPE_DLL_FILE)\" \
+	    $(EXTFLAGS) @DEPARG@ $(CC_OBJNAME)
+
 testMain.${OBJEXT}: tclAppInit.c
 	$(CC) -c $(CC_SWITCHES) -DTCL_TEST @DEPARG@ $(CC_OBJNAME)
 
@@ -420,7 +437,7 @@ install-binaries: binaries
 		else true; \
 		fi; \
 	    done;
-	@for i in dde1.1 reg1.0; \
+	@for i in dde1.2 reg1.1; \
 	    do \
 	    if [ ! -d $(LIB_INSTALL_DIR)/$$i ] ; then \
 		echo "Making directory $(LIB_INSTALL_DIR)/$$i"; \
@@ -444,21 +461,23 @@ install-binaries: binaries
 	    done
 	@if [ -f $(DDE_DLL_FILE) ]; then \
 	    echo installing $(DDE_DLL_FILE); \
-	    $(COPY) $(DDE_DLL_FILE) $(LIB_INSTALL_DIR)/dde1.1; \
-	    $(COPY) $(ROOT_DIR)/library/dde1.1/pkgIndex.tcl $(LIB_INSTALL_DIR)/dde1.1; \
+	    $(COPY) $(DDE_DLL_FILE) $(LIB_INSTALL_DIR)/dde1.2; \
+	    $(COPY) $(ROOT_DIR)/library/dde/pkgIndex.tcl \
+		$(LIB_INSTALL_DIR)/dde1.2; \
 	    fi
 	@if [ -f $(DDE_LIB_FILE) ]; then \
 	    echo installing $(DDE_LIB_FILE); \
-	    $(COPY) $(DDE_LIB_FILE) $(LIB_INSTALL_DIR)/dde1.1; \
+	    $(COPY) $(DDE_LIB_FILE) $(LIB_INSTALL_DIR)/dde1.2; \
 	    fi
 	@if [ -f $(REG_DLL_FILE) ]; then \
 	    echo installing $(REG_DLL_FILE); \
-	    $(COPY) $(REG_DLL_FILE) $(LIB_INSTALL_DIR)/reg1.0; \
-	    $(COPY) $(ROOT_DIR)/library/reg1.0/pkgIndex.tcl $(LIB_INSTALL_DIR)/reg1.0; \
+	    $(COPY) $(REG_DLL_FILE) $(LIB_INSTALL_DIR)/reg1.1; \
+	    $(COPY) $(ROOT_DIR)/library/reg/pkgIndex.tcl \
+		$(LIB_INSTALL_DIR)/reg1.1; \
 	    fi
 	@if [ -f $(REG_LIB_FILE) ]; then \
 	    echo installing $(REG_LIB_FILE); \
-	    $(COPY) $(REG_LIB_FILE) $(LIB_INSTALL_DIR)/reg1.0; \
+	    $(COPY) $(REG_LIB_FILE) $(LIB_INSTALL_DIR)/reg1.1; \
 	    fi
 
 install-libraries: libraries
@@ -471,7 +490,7 @@ install-libraries: libraries
 		else true; \
 		fi; \
 	    done;
-	@for i in http1.0 http2.4 opt0.4 encoding msgcat1.1 tcltest1.0; \
+	@for i in http1.0 http2.4 opt0.4 encoding msgcat1.3 tcltest2.2; \
 	    do \
 	    if [ ! -d $(SCRIPT_INSTALL_DIR)/$$i ] ; then \
 		echo "Making directory $(SCRIPT_INSTALL_DIR)/$$i"; \
@@ -505,15 +524,15 @@ install-libraries: libraries
 	    do \
 	    $(COPY) "$$j" "$(SCRIPT_INSTALL_DIR)/opt0.4"; \
 	    done;
-	@echo "Installing library msgcat1.1 directory";
+	@echo "Installing library msgcat1.3 directory";
 	@for j in $(ROOT_DIR)/library/msgcat/*.tcl; \
 	    do \
-	    $(COPY) "$$j" "$(SCRIPT_INSTALL_DIR)/msgcat1.1"; \
+	    $(COPY) "$$j" "$(SCRIPT_INSTALL_DIR)/msgcat1.3"; \
 	    done;
-	@echo "Installing library tcltest1.0 directory";
-	@for j in $(ROOT_DIR)/library/tcltest1.0/*.tcl; \
+	@echo "Installing library tcltest2.2 directory";
+	@for j in $(ROOT_DIR)/library/tcltest/*.tcl; \
 	    do \
-	    $(COPY) "$$j" "$(SCRIPT_INSTALL_DIR)/tcltest1.0"; \
+	    $(COPY) "$$j" "$(SCRIPT_INSTALL_DIR)/tcltest2.2"; \
 	    done;
 	@echo "Installing encodings";
 	@for i in $(ROOT_DIR)/library/encoding/*.enc ; do \
@@ -532,9 +551,21 @@ test: binaries $(TCLTEST)
 	| ./$(CAT32)
 
 # Useful target to launch a built tcltest with the proper path,...
-runtest: tcltest
+runtest: binaries $(TCLTEST)
 	@TCL_LIBRARY="$(LIBRARY_DIR)"; export TCL_LIBRARY; \
-	    ./tcltest
+	./$(TCLTEST) $(TESTFLAGS) $(SCRIPT)
+
+# This target can be used to run tclsh from the build directory
+# via `make shell SCRIPT=foo.tcl`
+shell: binaries
+	@TCL_LIBRARY="$(LIBRARY_DIR)"; export TCL_LIBRARY; \
+	./$(TCLSH) $(SCRIPT)
+
+# This target can be used to run tclsh inside either gdb or insight
+gdb: binaries
+	@echo "set env TCL_LIBRARY=$(LIBRARY_DIR)" > gdb.run
+	gdb ./tclsh --command=gdb.run
+	rm gdb.run
 
 depend:
 
@@ -559,15 +590,12 @@ distclean: clean
 
 $(GENERIC_DIR)/tclStubInit.c: $(GENERIC_DIR)/tcl.decls \
 		$(GENERIC_DIR)/tclInt.decls
-	@TCL_LIBRARY="$(ROOT_DIR_NATIVE)/library"; export TCL_LIBRARY; \
-	$(TCLSH) "$(ROOT_DIR_NATIVE)\tools\genStubs.tcl" \
-	    "$(GENERIC_DIR_NATIVE)" \
-	    "$(GENERIC_DIR_NATIVE)\tcl.decls" \
-            "$(GENERIC_DIR_NATIVE)\tclInt.decls"
+	@echo "Warning: tclStubInit.c may be out of date."
+	@echo "Developers may want to run \"make genstubs\" to regenerate."
+	@echo "This warning can be safely ignored, do not report as a bug!"
 
 genstubs:
-	@TCL_LIBRARY="$(ROOT_DIR_NATIVE)/library"; export TCL_LIBRARY; \
-	$(TCLSH) "$(ROOT_DIR_NATIVE)\tools\genStubs.tcl" \
+	$(TCL_EXE) "$(ROOT_DIR_NATIVE)\tools\genStubs.tcl" \
 	    "$(GENERIC_DIR_NATIVE)" \
 	    "$(GENERIC_DIR_NATIVE)\tcl.decls" \
             "$(GENERIC_DIR_NATIVE)\tclInt.decls"

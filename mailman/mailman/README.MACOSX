@@ -1,0 +1,31 @@
+Mailman - The GNU Mailing List Management System
+Copyright (C) 2002 by the Free Software Foundation, Inc.
+59 Temple Place - Suite 330, Boston, MA 02111-1307, USA
+
+
+MacOSX ISSUES
+
+    Mailman should run on MacOSX, although I have not personally had
+    time to try it yet.  Here are some pointers we've collected on
+    getting Mailman to run on MacOSX.
+
+    - Jaguar (MacOSX 10.2) comes with Python 2.2.  While this isn't
+      the very latest stable version of Python, it ought to be
+      sufficient to run Mailman 2.1.
+
+    - David B. O'Donnell has a web page describing his configuration
+      of Mailman 2.0.13 and Postfix on MacOSX Server.
+
+      http://www.afp548.com/Articles/mail/python-mailman.html
+
+    - Kathleen Webb posted her experiences in getting Mailman running
+      on Jaguar using Sendmail.
+
+      http://mail.python.org/pipermail/mailman-users/2002-October/022947.html
+
+
+
+Local Variables:
+mode: text
+indent-tabs-mode: nil
+End:

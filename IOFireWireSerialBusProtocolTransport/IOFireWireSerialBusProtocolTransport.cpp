@@ -23,9 +23,9 @@
  * @APPLE_LICENSE_HEADER_END@
  */
 
-//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+//-----------------------------------------------------------------------------
 //	Includes
-//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+//-----------------------------------------------------------------------------
 
 #include "IOFireWireSerialBusProtocolTransport.h"
 
@@ -38,9 +38,9 @@
 #pragma mark -
 #endif
 
-//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+//-----------------------------------------------------------------------------
 //	Macros
-//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+//-----------------------------------------------------------------------------
 
 #define DEBUG 										0
 #define DEBUG_ASSERT_COMPONENT_NAME_STRING			"FireWire SBP Transport"
@@ -78,18 +78,20 @@ OSDefineMetaClassAndStructors (	IOFireWireSerialBusProtocolTransport, IOSCSIProt
 #pragma mark -
 #endif
 
-//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+//-----------------------------------------------------------------------------
 //	Constants
-//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+//-----------------------------------------------------------------------------
+
 
 #define kSBP2ReceiveBufferByteCountKey		"SBP2ReceiveBufferByteCount"
 #define kDefaultIOBlockCount				256
 #define kCRSModelInfo_ValidBitsMask			0x00FFFFFF
 #define kCRSModelInfo_TargetDiskMode		0x0054444D
 #define kIOFireWireMessageServiceIsRequestingClose kIOFWMessageServiceIsRequestingClose
+#define kDefaultTimeOutValue				30000
 
-//*** Temporary until collin add them to header
-enum {
+enum 
+{
 	kFireWireSBP2CommandTransferDataToTarget = 0L,
 	kFireWireSBP2CommandTransferDataFromTarget = kFWSBP2CommandTransferDataFromTarget
 };
@@ -100,17 +102,21 @@ enum {
 #pragma mark -
 #endif
 
-//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+//-----------------------------------------------------------------------------
 //	IOFireWireSerialBusProtocolTransportDebugAssert				   [STATIC]
-//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+//-----------------------------------------------------------------------------
 
-void IOFireWireSerialBusProtocolTransportDebugAssert ( const char * componentNameString,
-                                                       const char * assertionString, 
-                                                       const char * exceptionLabelString,
-                                                       const char * errorString,
-                                                       const char * fileName,
-                                                       long lineNumber,
-                                                       int errorCode )
+#if !DEBUG_ASSERT_PRODUCTION_CODE
+
+void
+	IOFireWireSerialBusProtocolTransportDebugAssert (
+		const char * 	componentNameString,
+		const char * 	assertionString, 
+		const char * 	exceptionLabelString,
+		const char * 	errorString,
+		const char * 	fileName,
+		long 			lineNumber,
+		int 			errorCode )
 {
 		
 	IOLog ( "%s Assert failed: %s ", componentNameString, assertionString );
@@ -129,15 +135,17 @@ void IOFireWireSerialBusProtocolTransportDebugAssert ( const char * componentNam
 	
 }
 
+#endif
+
 #if 0
 #pragma mark -
 #pragma mark == Public Methods ==
 #pragma mark -
 #endif
 
-//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+//-----------------------------------------------------------------------------
 //	¥ init - Called by IOKit to initialize us.						   [PUBLIC]
-//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+//-----------------------------------------------------------------------------
 
 bool IOFireWireSerialBusProtocolTransport::init ( OSDictionary * propTable )
 {
@@ -154,28 +162,77 @@ bool IOFireWireSerialBusProtocolTransport::init ( OSDictionary * propTable )
 	
 	if ( super::init ( propTable ) == false )
 	{
-		
 		return false;
-		
 	}
 	
 	return true;
 	
 }
 
-//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+//-----------------------------------------------------------------------------
 //	¥ start - Called by IOKit to start our services.				   [PUBLIC]
-//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+//-----------------------------------------------------------------------------
 
 bool IOFireWireSerialBusProtocolTransport::start ( IOService * provider )
 {
 	
-	IOReturn	status			= kIOReturnSuccess;
-	Boolean		returnValue		= false;
-	Boolean 	openSucceeded;
+	IOReturn				status;
+	Boolean					returnValue;
+	Boolean 				openSucceeded;
+	OSNumber * 				rto;
+	OSNumber * 				wto;
+	bool					sucess;
+
+	status				= kIOReturnSuccess;
+	returnValue			= false;
+	openSucceeded		= false;
+	rto					= NULL;
+	wto					= NULL;
+	sucess				= false;
 	
+	// See if there is a read time out duration passed in the property dictionary - if not
+	// set the default to 30 seconds.
+	
+	rto = OSDynamicCast ( OSNumber, getProperty ( kIOPropertyReadTimeOutDurationKey ) );
+	if ( rto == NULL )
+	{
+		rto = OSNumber::withNumber ( kDefaultTimeOutValue, 32 );
+		require ( rto, exit );
+		
+		sucess = setProperty ( kIOPropertyReadTimeOutDurationKey, rto );
+		check ( sucess );
+		rto->release();
+
+		rto = OSDynamicCast ( OSNumber, getProperty ( kIOPropertyReadTimeOutDurationKey ) );
+	}
+
+	STATUS_LOG ( ( "%s: start read time out = %ld\n", getName (), rto->unsigned32BitValue ( ) ) );
+	
+	// See if there is a write time out duration passed in the property dictionary - if not
+	// set the default to 30 seconds.
+	
+	wto = OSDynamicCast ( OSNumber,  getProperty ( kIOPropertyWriteTimeOutDurationKey ) );
+	if ( wto == NULL )
+	{
+		wto = OSNumber::withNumber ( kDefaultTimeOutValue, 32 );
+		require ( wto, exit );
+		
+		sucess = setProperty ( kIOPropertyWriteTimeOutDurationKey, wto );
+		check ( sucess );
+		wto->release();
+		
+		wto = OSDynamicCast ( OSNumber, getProperty ( kIOPropertyWriteTimeOutDurationKey ) );
+	}
+
+	STATUS_LOG ( ( "%s: start read time out = %ld\n", getName (), wto->unsigned32BitValue ( ) ) );
+
 	fSBPTarget = OSDynamicCast ( IOFireWireSBP2LUN, provider );
 	require ( fSBPTarget, exit );
+	
+	// Add a retain here so we can keep IOFireWireSBP2LUN from doing garbage
+	// collection on us when we are in the middle of our finalize method.
+	
+	fSBPTarget->retain ( );
 	
 	openSucceeded = super::start ( provider );
 	require ( openSucceeded, exit );
@@ -199,9 +256,7 @@ bool IOFireWireSerialBusProtocolTransport::start ( IOService * provider )
 	
 	if ( reserved->fLoginState == kLogginSucceededState )
 	{
-		
 		registerService ();
-		
 	}
 	
 	STATUS_LOG ( ( "%s: start complete\n", getName () ) );
@@ -211,7 +266,6 @@ bool IOFireWireSerialBusProtocolTransport::start ( IOService * provider )
 	InitializePowerManagement ( provider );
 	
 exit:
-	
 	
 	if ( returnValue == false )
 	{
@@ -236,9 +290,7 @@ void IOFireWireSerialBusProtocolTransport::cleanUp ( void )
 	STATUS_LOG ( ( "%s: cleanUp called\n", getName () ) );
 	
 	if ( fSBPTarget != NULL )
-	{		
-		DeallocateResources ();
-
+	{
 		// Close SBP2 if we have opened it.
 		
 		if ( fSBPTarget->isOpen ( this ) )
@@ -251,41 +303,97 @@ void IOFireWireSerialBusProtocolTransport::cleanUp ( void )
 	
 }
 
+//-----------------------------------------------------------------------------
+// ¥ finalize - Terminates all power management.					[PROTECTED]
+//-----------------------------------------------------------------------------
+
+bool
+	IOFireWireSerialBusProtocolTransport::finalize (
+		IOOptionBits options )
+{
+
+	DeallocateResources ();
+	
+	// Release the retain we took to keep IOFireWireSBP2LUN from doing garbage
+	// collection on us when we are in the middle of DeallocateResources.
+		
+	if ( fSBPTarget )
+	{
+		fSBPTarget->release ( );
+	}
+	
+	return super::finalize ( options );
+	
+}
+
+//-----------------------------------------------------------------------------
+//	¥ free - Called to deallocate ExpansionData.					   [PUBLIC]
+//-----------------------------------------------------------------------------
+
+void IOFireWireSerialBusProtocolTransport::free ( void )
+{
+	
+	if ( reserved != NULL )
+	{
+		
+		if ( reserved->fCommandPool != NULL )
+		{
+			
+			reserved->fCommandPool->release ();
+			reserved->fCommandPool = NULL;
+			
+		}
+		
+		IOFree ( reserved, sizeof ( ExpansionData ) );
+		reserved = NULL;
+		
+	}
+	
+	super::free ( );
+	
+}
+
 #if 0
 #pragma mark -
 #pragma mark == Protected Methods ==
 #pragma mark -
 #endif
 
-//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+//-----------------------------------------------------------------------------
 //	¥ CommandORBAccessor - Retrieves command orb.					[PROTECTED]
-//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+//-----------------------------------------------------------------------------
 
-IOFireWireSBP2ORB * IOFireWireSerialBusProtocolTransport::CommandORBAccessor ( void )
+IOFireWireSBP2ORB * 
+	IOFireWireSerialBusProtocolTransport::CommandORBAccessor ( 
+		void )
 {
 	
 	return fORB;
 	
 }
 
-//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+//-----------------------------------------------------------------------------
 //	¥ SBP2LoginAccessor - Retrieves login orb.						[PROTECTED]
-//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+//-----------------------------------------------------------------------------
 
-IOFireWireSBP2Login * IOFireWireSerialBusProtocolTransport::SBP2LoginAccessor ( void )
+IOFireWireSBP2Login * 
+	IOFireWireSerialBusProtocolTransport::SBP2LoginAccessor (
+		void )
 {
 
 	return fLogin;
 	
 }
 
-//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+//-----------------------------------------------------------------------------
 //	¥ message - Called by IOKit to deliver messages.				[PROTECTED]
-//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+//-----------------------------------------------------------------------------
 
-IOReturn IOFireWireSerialBusProtocolTransport::message ( UInt32 type,
-														 IOService * nub,
-														 void * arg )
+IOReturn
+	IOFireWireSerialBusProtocolTransport::message (
+		UInt32 		type,
+		IOService *	nub,
+		void * 		arg )
 {
 	
 	SBP2ClientOrbData *		clientData 	= NULL;
@@ -321,50 +429,61 @@ IOReturn IOFireWireSerialBusProtocolTransport::message ( UInt32 type,
 			break;
 			
 		case kIOMessageFWSBP2ReconnectComplete:
-			STATUS_LOG ( ( "%s: kIOMessageFWSBP2ReconnectComplete\n", getName () ) );
 			
-			fLoggedIn = true;
+			// As of this writing FireWireSBP2LUN will message all multi-LUN instances with this
+			// message. So we qualify this message with our instance variable fLogin and ignore others.
 			
-			clientData = ( SBP2ClientOrbData * ) fORB->getRefCon ();
-			if ( clientData != NULL )
+			if( ( ( FWSBP2ReconnectParams* ) arg )->login == fLogin )
 			{
+				STATUS_LOG ( ( "%s: kIOMessageFWSBP2ReconnectComplete\n", getName () ) );
+
+				fLoggedIn = true;
 				
-				if ( ( clientData->scsiTask != NULL ) && ( fReconnectCount < kMaxReconnectCount ) )
+				clientData = ( SBP2ClientOrbData * ) fORB->getRefCon ();
+				if ( clientData != NULL )
 				{
 					
-					STATUS_LOG ( ( "%s: resubmit orb \n", getName () ) );
-					fReconnectCount++;
-					fLogin->submitORB ( fORB );
+					if ( ( clientData->scsiTask != NULL ) && ( fReconnectCount < kMaxReconnectCount ) )
+					{
+						
+						STATUS_LOG ( ( "%s: resubmit orb \n", getName () ) );
+						fReconnectCount++;
+						fLogin->submitORB ( fORB );
+						
+					}
 					
+					else
+					{
+						// We are unable to recover from bus reset storm
+						// We have exhausted the fReconnectCount - punt...
+						
+						clientData->serviceResponse	= kSCSIServiceResponse_SERVICE_DELIVERY_OR_TARGET_FAILURE;
+						clientData->taskStatus		= kSCSITaskStatus_No_Status;
+						CompleteSCSITask ( fORB );
+					}
 				}
-				
-				else
-				{
-					
-					// We are unable to recover from bus reset storm
-					// We have exhausted the fReconnectCount - punt...
-					
-					clientData->serviceResponse	= kSCSIServiceResponse_SERVICE_DELIVERY_OR_TARGET_FAILURE;
-					clientData->taskStatus		= kSCSITaskStatus_No_Status;
-					
-					CompleteSCSITask ( fORB );
-					
-				}
-				
 			}
 			
 			break;
 			
 		case kIOMessageFWSBP2ReconnectFailed:
-			STATUS_LOG ( ( "%s: kIOMessageFWSBP2ReconnectFailed\n", getName () ) );
-			// Try to reestablish log in.
-			fLoginRetryCount = 0;
-			login ();
+
+			// As of this writing FireWireSBP2LUN will message all multi-LUN instances with this
+			// message. So we qualify this message with our instance variable fLogin and ignore others.
+			
+			if( ( ( FWSBP2ReconnectParams* ) arg )->login == fLogin )
+			{
+				STATUS_LOG ( ( "%s: kIOMessageFWSBP2ReconnectFailed\n", getName () ) );
+				
+				// Try to reestablish log in.
+				fLoginRetryCount = 0;
+				login ();
+			}
 			break;
 
 		case kIOFireWireMessageServiceIsRequestingClose:
 			STATUS_LOG ( ( "%s: kIOFireWireMessageServiceIsRequestingClose\n", getName () ) );
-
+	
 			// tell our super to message it's clients that the device is gone
 			SendNotification_DeviceRemoved ();
 			
@@ -413,13 +532,16 @@ IOReturn IOFireWireSerialBusProtocolTransport::message ( UInt32 type,
 	
 }
 
-//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
-//	¥ SendSCSICommand - Converts a SCSITask to an ORB.				[PROTECTED]
-//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
 
-bool IOFireWireSerialBusProtocolTransport::SendSCSICommand ( SCSITaskIdentifier request,
-															 SCSIServiceResponse * serviceResponse,
-															 SCSITaskStatus * taskStatus )
+//-----------------------------------------------------------------------------
+//	¥ SendSCSICommand - Converts a SCSITask to an ORB.				[PROTECTED]
+//-----------------------------------------------------------------------------
+
+bool 
+	IOFireWireSerialBusProtocolTransport::SendSCSICommand (
+		SCSITaskIdentifier 		request,
+		SCSIServiceResponse * 	serviceResponse,
+		SCSITaskStatus * 		taskStatus )
 {
 	
 	SBP2ClientOrbData *			clientData 			= NULL;
@@ -437,24 +559,20 @@ bool IOFireWireSerialBusProtocolTransport::SendSCSICommand ( SCSITaskIdentifier 
 	
 	if ( isInactive () )
 	{
-		
 		// device is disconnected - we can not service command request
 		*serviceResponse = kSCSIServiceResponse_SERVICE_DELIVERY_OR_TARGET_FAILURE;
-		commandProcessed = false;
+		commandProcessed = true;
 		goto exit;
-		
 	}
 	
-	// get an orb from our orb pool without blocking
-	orb = ( IOFireWireSBP2ORB * ) reserved->fCommandPool->getCommand ( false );
-	
-	if ( orb == NULL )
+	// get an orb from our orb pool and block until we get one
+	orb = ( IOFireWireSBP2ORB * ) reserved->fCommandPool->getCommand ( true );
+	if ( isInactive () )
 	{
-
-		// We're busy - return false - command will be resent next time CommandComplete is called
-		commandProcessed = false;
+		reserved->fCommandPool->returnCommand ( orb );
+		*serviceResponse = kSCSIServiceResponse_SERVICE_DELIVERY_OR_TARGET_FAILURE;
+		commandProcessed = true;
 		goto exit;
-		
 	}
 	
 	clientData = ( SBP2ClientOrbData * ) orb->getRefCon ();
@@ -489,7 +607,7 @@ bool IOFireWireSerialBusProtocolTransport::SendSCSICommand ( SCSITaskIdentifier 
 					cdb[9], cdb[10], cdb[11] ) );
 		
 	}
-#endif /* (FIREWIRE_SBP_TRANSPORT_DEBUGGING_LEVEL >= 3) */
+#endif // (FIREWIRE_SBP_TRANSPORT_DEBUGGING_LEVEL >= 3)
 	
 	fReconnectCount	= 0;
 	commandFlags	= ( GetDataTransferDirection ( request ) == kSCSIDataTransfer_FromTargetToInitiator ) ? 
@@ -502,8 +620,6 @@ bool IOFireWireSerialBusProtocolTransport::SendSCSICommand ( SCSITaskIdentifier 
 							kFWSBP2CommandNormalORB );
 	
 	
-	clientData->scsiTask = request;
-	
 	SetCommandBuffers ( orb, request );
 	
 	orb->setCommandBlock ( cdb, commandLength );
@@ -514,20 +630,16 @@ bool IOFireWireSerialBusProtocolTransport::SendSCSICommand ( SCSITaskIdentifier 
 	timeOut = GetTimeoutDuration ( request );
 	if ( timeOut == 0 )
 	{
-		
 		timeOut = 0xFFFFFFFF;
-		
 	}
 	
 	orb->setCommandTimeout ( timeOut );
 	
-	if ( fLoggedIn )
-	{
-		
-		fLogin->submitORB ( orb );
-		
-	}
+	//	Close the gate here to eliminate potenially rare double append of
+	//	orb. If on a DP machine and a bus reset occurs the login thread
+	//	can append the orb as well as here.
 	
+	fCommandGate->runAction ( CriticalOrbSubmissionStatic, orb, request );
 	
 exit:
 	
@@ -538,12 +650,14 @@ exit:
 	
 }
 
-//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+//-----------------------------------------------------------------------------
 //	¥ SetCommandBuffers - Sets the command buffers in the ORB.		[PROTECTED]
-//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+//-----------------------------------------------------------------------------
 
-IOReturn IOFireWireSerialBusProtocolTransport::SetCommandBuffers ( IOFireWireSBP2ORB * orb,
-																   SCSITaskIdentifier request )
+IOReturn
+	IOFireWireSerialBusProtocolTransport::SetCommandBuffers (
+		IOFireWireSBP2ORB *	orb,
+		SCSITaskIdentifier	request )
 {
 	
 	return orb->setCommandBuffers (	GetDataBuffer ( request ),
@@ -552,17 +666,19 @@ IOReturn IOFireWireSerialBusProtocolTransport::SetCommandBuffers ( IOFireWireSBP
 	
 }
 
-//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+//-----------------------------------------------------------------------------
 //	¥ CompleteSCSITask - Complets a task.							[PROTECTED]
-//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+//-----------------------------------------------------------------------------
 
-void IOFireWireSerialBusProtocolTransport::CompleteSCSITask ( IOFireWireSBP2ORB * orb )
+void
+	IOFireWireSerialBusProtocolTransport::CompleteSCSITask (
+		IOFireWireSBP2ORB * orb )
 {
 	
 	SBP2ClientOrbData *	clientData = NULL;
 	
 	STATUS_LOG ( ( "%s: CompleteSCSITask called\n", getName () ) );
-	
+
 	clientData = ( SBP2ClientOrbData * ) orb->getRefCon ();
 	if ( clientData != NULL )
 	{
@@ -575,12 +691,10 @@ void IOFireWireSerialBusProtocolTransport::CompleteSCSITask ( IOFireWireSBP2ORB 
 			SCSITaskStatus			taskStatus		= kSCSITaskStatus_No_Status;
 			IOByteCount				bytesTransfered = 0;
 			
-			/*
-			 	/!\ WARNING - because SBP-2 can send status information at different
-			 	stage of an orb's life ( or send none at all ) the caller of this routine
-			 	has determined that the orb is indeed done. So we need to explicitly tell
-				SBP-2 to left go of the buffer reference by calling releaseCommandBuffers.
-			*/
+			//	/!\ WARNING - because SBP-2 can send status information at different
+			//	stage of an orb's life ( or send none at all ) the caller of this routine
+			//	has determined that the orb is indeed done. So we need to explicitly tell
+			//	SBP-2 to left go of the buffer reference by calling releaseCommandBuffers.
 			
 			orb->releaseCommandBuffers ();
 			
@@ -601,7 +715,7 @@ void IOFireWireSerialBusProtocolTransport::CompleteSCSITask ( IOFireWireSBP2ORB 
 			clientData->scsiTask	= NULL;
 			
 			reserved->fCommandPool->returnCommand ( orb );
-			
+				
 			CommandCompleted ( scsiTask, serviceResponse, taskStatus );
 			
 		}
@@ -610,14 +724,16 @@ void IOFireWireSerialBusProtocolTransport::CompleteSCSITask ( IOFireWireSBP2ORB 
 	
 }
 
-//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+//-----------------------------------------------------------------------------
 //	¥ AbortSCSICommand - Aborts an outstanding I/O.					[PROTECTED]
-//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+//-----------------------------------------------------------------------------
 
-SCSIServiceResponse IOFireWireSerialBusProtocolTransport::AbortSCSICommand ( SCSITaskIdentifier request )
+SCSIServiceResponse
+	IOFireWireSerialBusProtocolTransport::AbortSCSICommand (
+		SCSITaskIdentifier request )
 {
 
-	DEUBUG_UNUSED ( request );
+	DEBUG_UNUSED ( request );
 	
 	SCSIServiceResponse		serviceResponse = kSCSIServiceResponse_FUNCTION_REJECTED;
 	
@@ -627,13 +743,15 @@ SCSIServiceResponse IOFireWireSerialBusProtocolTransport::AbortSCSICommand ( SCS
 	
 }
 
-//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+//-----------------------------------------------------------------------------
 //	¥ IsProtocolServiceSupported -	Checks for valid protocol services
 //									supported by this device.		[PROTECTED]
-//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+//-----------------------------------------------------------------------------
 
-bool IOFireWireSerialBusProtocolTransport::IsProtocolServiceSupported ( SCSIProtocolFeature feature,
-																		void * serviceValue )
+bool
+	IOFireWireSerialBusProtocolTransport::IsProtocolServiceSupported (
+		SCSIProtocolFeature	feature,
+		void *				serviceValue )
 {
 	
 	bool	isSupported = false;
@@ -695,27 +813,29 @@ bool IOFireWireSerialBusProtocolTransport::IsProtocolServiceSupported ( SCSIProt
 }
 
 
-//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+//-----------------------------------------------------------------------------
 //	¥ HandleProtocolServiceFeature - Handles protocol service features.
 //																	[PROTECTED]
-//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+//-----------------------------------------------------------------------------
 
-bool IOFireWireSerialBusProtocolTransport::HandleProtocolServiceFeature ( SCSIProtocolFeature feature, 
-																		  void * serviceValue )
+bool
+	IOFireWireSerialBusProtocolTransport::HandleProtocolServiceFeature (
+		SCSIProtocolFeature	feature, 
+		void *				serviceValue )
 {
 	
-	DEUBUG_UNUSED ( feature );
-	DEUBUG_UNUSED ( serviceValue );
+	DEBUG_UNUSED ( feature );
+	DEBUG_UNUSED ( serviceValue );
 	
 	return false;
 	
 }
 
 
-//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+//-----------------------------------------------------------------------------
 //	¥ IsDeviceCPUInDiskMode - 	Checks if the device is a CPU in
 //								FireWire Target Disk Mode.			[PROTECTED]
-//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+//-----------------------------------------------------------------------------
 
 bool IOFireWireSerialBusProtocolTransport::IsDeviceCPUInDiskMode ( void )
 {
@@ -769,23 +889,27 @@ exit:
 }
 
 
-//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+//-----------------------------------------------------------------------------
 //	¥ StatusNotifyStatic - 	C->C++ glue method.						[PROTECTED]
-//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+//-----------------------------------------------------------------------------
 
-void IOFireWireSerialBusProtocolTransport::StatusNotifyStatic ( void * refCon,
-																FWSBP2NotifyParams * params )
+void 
+	IOFireWireSerialBusProtocolTransport::StatusNotifyStatic (
+		void *					refCon,
+		FWSBP2NotifyParams *	params )
 {
 	
 	( ( IOFireWireSerialBusProtocolTransport * ) refCon )->StatusNotify ( params );
 	
 }
 
-//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+//-----------------------------------------------------------------------------
 //	¥ StatusNotify - Status notify handler.							[PROTECTED]
-//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+//-----------------------------------------------------------------------------
 
-void IOFireWireSerialBusProtocolTransport::StatusNotify ( FWSBP2NotifyParams * params )
+void
+	IOFireWireSerialBusProtocolTransport::StatusNotify (
+		FWSBP2NotifyParams * params )
 {
 
 	IOFireWireSBP2ORB *		orb				= NULL;
@@ -816,25 +940,20 @@ void IOFireWireSerialBusProtocolTransport::StatusNotify ( FWSBP2NotifyParams * p
 		
 		case kFWSBP2NormalCommandStatus:
 			
-			/*
-				read the status block detail bits see SBP-2 spec section 5.3
-				check the dead bit ( is 'd' field == 1 )
-			*/
+			//	Read the status block detail bits see SBP-2 spec section 5.3
+			//	check the dead bit ( is 'd' field == 1 ).
 			
 			if ( ( clientData != NULL ) && ( statusBlock->details & 0x08 ) ) 	
 			{
 				
 				SetValidAutoSenseData ( clientData, statusBlock, targetData );
 				
-				/*
-					wait for fetch agent to reset before calling CompleteSCSITask
-					which will be called in FetchAgentResetComplete
-				*/
+				//	Wait for fetch agent to reset before calling CompleteSCSITask
+				//	which will be called in FetchAgentResetComplete.
 				
 				fLogin->submitFetchAgentReset ();
 				
 			}
-			
 			else if ( clientData &&
 					( ( statusBlock->details & 0x30 ) == 0 ) &&		// ( is 'resp' field == 0 )
 					( ( statusBlock->details & 0x07 ) == 1 ) && 	// ( is 'len' field == 1 )
@@ -849,7 +968,6 @@ void IOFireWireSerialBusProtocolTransport::StatusNotify ( FWSBP2NotifyParams * p
 				STATUS_LOG ( ( "%s: StatusNotify normal complete \n", getName () ) );
 				
 			}
-			
 			else if ( clientData )
 			{
 				
@@ -889,11 +1007,9 @@ void IOFireWireSerialBusProtocolTransport::StatusNotify ( FWSBP2NotifyParams * p
 		case kFWSBP2NormalCommandReset:
 			STATUS_LOG ( ( "%s: kFWSBP2NormalCommandReset\n", getName () ) );
 			
-			/*
-				kFWSBP2NormalCommandReset - is a misleading definition
-				A pending command has failed so we need notify
-				the upper layers to complete failed command.
-			*/
+			//	kFWSBP2NormalCommandReset - is a misleading definition
+			//	A pending command has failed so we need notify
+			//	the upper layers to complete failed command.
 			
 			if ( clientData != NULL )
 			{
@@ -920,13 +1036,15 @@ void IOFireWireSerialBusProtocolTransport::StatusNotify ( FWSBP2NotifyParams * p
 	
 }
 
-//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+//-----------------------------------------------------------------------------
 //	¥ SetValidAutoSenseData - Sets any valid sense data.			[PROTECTED]
-//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+//-----------------------------------------------------------------------------
 
-void IOFireWireSerialBusProtocolTransport::SetValidAutoSenseData ( SBP2ClientOrbData * clientData,
-																   FWSBP2StatusBlock * statusBlock,
-																   SCSI_Sense_Data * targetData )
+void
+	IOFireWireSerialBusProtocolTransport::SetValidAutoSenseData (
+		SBP2ClientOrbData *	clientData,
+		FWSBP2StatusBlock *	statusBlock,
+		SCSI_Sense_Data *	targetData )
 {
 	
 	UInt8		quadletCount = 0;
@@ -959,13 +1077,15 @@ void IOFireWireSerialBusProtocolTransport::SetValidAutoSenseData ( SBP2ClientOrb
 	
 }
 
-//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+//-----------------------------------------------------------------------------
 //	¥ CoalesceSenseData - Sets sense data in the data buffer.		[PROTECTED]
-//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+//-----------------------------------------------------------------------------
 
-SCSITaskStatus IOFireWireSerialBusProtocolTransport::CoalesceSenseData ( FWSBP2StatusBlock * sourceData,
-																		 UInt8 quadletCount,
-																		 SCSI_Sense_Data * targetData )
+SCSITaskStatus
+	IOFireWireSerialBusProtocolTransport::CoalesceSenseData (
+		FWSBP2StatusBlock *	sourceData,
+		UInt8				quadletCount,
+		SCSI_Sense_Data *	targetData )
 {
 	
 	SCSITaskStatus	returnValue			= kSCSITaskStatus_GOOD;
@@ -986,7 +1106,6 @@ SCSITaskStatus IOFireWireSerialBusProtocolTransport::CoalesceSenseData ( FWSBP2S
 			targetData->VALID_RESPONSE_CODE = kSENSE_RESPONSE_CODE_Current_Errors;
 			
 		}
-		
 		else if ( statusBlockFormat == 1 )
 		{
 			
@@ -1002,8 +1121,7 @@ SCSITaskStatus IOFireWireSerialBusProtocolTransport::CoalesceSenseData ( FWSBP2S
 			targetData->ADDITIONAL_SENSE_CODE_QUALIFIER = sourceData->status[0] & 0xFF;
 			targetData->SENSE_KEY = ( sourceData->status[0] >> 16 ) & 0x0F;
 			
-			// Set the M, E, I
-			// M->FileMark, E->EOM, I->ILI
+			// Set the M, E, I bits: M->FileMark, E->EOM, I->ILI
 			targetData->SENSE_KEY |= ( ( sourceData->status[0] >> 16 ) & 0x70 ) << 1;
 			
 			if ( quadletCount > 1 )
@@ -1054,23 +1172,27 @@ SCSITaskStatus IOFireWireSerialBusProtocolTransport::CoalesceSenseData ( FWSBP2S
 	
 }
 
-//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+//-----------------------------------------------------------------------------
 //	¥ LoginCompletionStatic - 	C->C++ glue method.					[PROTECTED]
-//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+//-----------------------------------------------------------------------------
 
-void IOFireWireSerialBusProtocolTransport::LoginCompletionStatic ( void * refCon,
-																   FWSBP2LoginCompleteParams * params )
+void
+	IOFireWireSerialBusProtocolTransport::LoginCompletionStatic (
+		void *						refCon,
+		FWSBP2LoginCompleteParams *	params )
 {
 	
 	( ( IOFireWireSerialBusProtocolTransport * ) refCon )->LoginCompletion ( params );
 	
 }
 
-//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+//-----------------------------------------------------------------------------
 //	¥ LoginCompletion - Login completion handler.					[PROTECTED]
-//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+//-----------------------------------------------------------------------------
 
-void IOFireWireSerialBusProtocolTransport::LoginCompletion ( FWSBP2LoginCompleteParams * params )
+void 
+	IOFireWireSerialBusProtocolTransport::LoginCompletion ( 
+		FWSBP2LoginCompleteParams * params )
 {
 	
 	SBP2ClientOrbData *		clientData = NULL;
@@ -1134,14 +1256,11 @@ void IOFireWireSerialBusProtocolTransport::LoginCompletion ( FWSBP2LoginComplete
 				}
 			}
 		}
-		
 		else
 		{
-			/*
-				device can not be logged into after kMaxLoginRetryCount
-				attemptes let's reset the need login flag in case
-				the device was unplugged during login
-			*/
+			//	Device can not be logged into after kMaxLoginRetryCount
+			//	attemptes let's reset the need login flag in case
+			//	the device was unplugged during login
 			
 			fNeedLogin = true;
 	//		fLoggedIn = false;
@@ -1162,51 +1281,60 @@ void IOFireWireSerialBusProtocolTransport::LoginCompletion ( FWSBP2LoginComplete
 	
 }
 
-//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+//-----------------------------------------------------------------------------
 //	¥ LogoutCompletionStatic - C->C++ glue.							[PROTECTED]
-//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+//-----------------------------------------------------------------------------
 
-void IOFireWireSerialBusProtocolTransport::LogoutCompletionStatic ( void * refCon, FWSBP2LogoutCompleteParams *	params )
+void
+	IOFireWireSerialBusProtocolTransport::LogoutCompletionStatic (
+		void *							refCon,
+		FWSBP2LogoutCompleteParams *	params )
 {
 	
 	( ( IOFireWireSerialBusProtocolTransport * ) refCon )->LogoutCompletion ( params );
 	
 }
 
-//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+//-----------------------------------------------------------------------------
 //	¥ LogoutCompletion - Logout completion handler.					[PROTECTED]
-//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+//-----------------------------------------------------------------------------
 
-void IOFireWireSerialBusProtocolTransport::LogoutCompletion ( FWSBP2LogoutCompleteParams * params )
+void 
+	IOFireWireSerialBusProtocolTransport::LogoutCompletion ( 
+		FWSBP2LogoutCompleteParams * params )
 {
 
-	DEUBUG_UNUSED ( params );
+	DEBUG_UNUSED ( params );
 
 	STATUS_LOG ( ( "%s: LogoutCompletion complete \n", getName () ) );
 	
 }
 
 
-//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+//-----------------------------------------------------------------------------
 //	¥ UnsolicitedStatusNotifyStatic - C->C++ glue.					[PROTECTED]
-//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+//-----------------------------------------------------------------------------
 
-void IOFireWireSerialBusProtocolTransport::UnsolicitedStatusNotifyStatic ( void * refCon,
-																		   FWSBP2NotifyParams *	params )
+void
+	IOFireWireSerialBusProtocolTransport::UnsolicitedStatusNotifyStatic (
+		void * refCon,
+		FWSBP2NotifyParams * params )
 {
 		
 	( ( IOFireWireSerialBusProtocolTransport * ) refCon )->UnsolicitedStatusNotify ( params );
 	
 }
 
-//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+//-----------------------------------------------------------------------------
 //	¥ UnsolicitedStatusNotify - Unsolicited status handler.			[PROTECTED]
-//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+//-----------------------------------------------------------------------------
 
-void IOFireWireSerialBusProtocolTransport::UnsolicitedStatusNotify ( FWSBP2NotifyParams * params )
+void
+	IOFireWireSerialBusProtocolTransport::UnsolicitedStatusNotify (
+		FWSBP2NotifyParams * params )
 {
 	
-	DEUBUG_UNUSED ( params );
+	DEBUG_UNUSED ( params );
 	
 	STATUS_LOG ( ( "%s: UnsolicitedStatusNotify called\n", getName () ) );
 	
@@ -1216,26 +1344,30 @@ void IOFireWireSerialBusProtocolTransport::UnsolicitedStatusNotify ( FWSBP2Notif
 	
 }
 
-//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+//-----------------------------------------------------------------------------
 //	¥ FetchAgentResetCompleteStatic - C->C++ glue.					[PROTECTED]
-//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+//-----------------------------------------------------------------------------
 
-void IOFireWireSerialBusProtocolTransport::FetchAgentResetCompleteStatic ( void * refCon,
-																		   IOReturn status )
+void 
+	IOFireWireSerialBusProtocolTransport::FetchAgentResetCompleteStatic (
+		void *		refCon,
+		IOReturn	status )
 {
 	
 	( ( IOFireWireSerialBusProtocolTransport * ) refCon )->FetchAgentResetComplete ( status );
 	
 }
 
-//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+//-----------------------------------------------------------------------------
 //	¥ FetchAgentResetComplete - Fetch agent reset handler.			[PROTECTED]
-//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+//-----------------------------------------------------------------------------
 
-void IOFireWireSerialBusProtocolTransport::FetchAgentResetComplete ( IOReturn status )
+void
+	IOFireWireSerialBusProtocolTransport::FetchAgentResetComplete ( 
+		IOReturn status )
 {
 
-	DEUBUG_UNUSED ( status );
+	DEBUG_UNUSED ( status );
 	
 	SBP2ClientOrbData *		clientData = NULL;
 	
@@ -1250,37 +1382,40 @@ void IOFireWireSerialBusProtocolTransport::FetchAgentResetComplete ( IOReturn st
 		
 		if ( clientData->scsiTask != NULL )
 		{
-			
 			CompleteSCSITask ( fORB );
-			
 		}
 		
 	}
 	
 }
 
-//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+//-----------------------------------------------------------------------------
 //	¥ LunResetCompleteStatic - C->C++ glue.							[PROTECTED]
-//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+//-----------------------------------------------------------------------------
 
-void IOFireWireSerialBusProtocolTransport::LunResetCompleteStatic ( void * refCon,
-																	IOReturn status,
-																	IOFireWireSBP2ManagementORB * orb )
+void
+	IOFireWireSerialBusProtocolTransport::LunResetCompleteStatic (
+		void *							refCon,
+		IOReturn						status,
+		IOFireWireSBP2ManagementORB *	orb )
 {
 	
 	( ( IOFireWireSerialBusProtocolTransport * ) refCon )->LunResetComplete ( status, orb );
 	
 }
 
-//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+//-----------------------------------------------------------------------------
 //	¥ LunResetComplete - LUN reset completion handler.				[PROTECTED]
-//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+//-----------------------------------------------------------------------------
 
-void IOFireWireSerialBusProtocolTransport::LunResetComplete ( IOReturn status, IOFireWireSBP2ManagementORB * orb )
+void 
+	IOFireWireSerialBusProtocolTransport::LunResetComplete (
+		IOReturn						status,
+		IOFireWireSBP2ManagementORB *	orb )
 {
 
-	DEUBUG_UNUSED ( status );
-	DEUBUG_UNUSED ( orb );
+	DEBUG_UNUSED ( status );
+	DEBUG_UNUSED ( orb );
 
 	STATUS_LOG ( ( "%s: LunResetComplete called\n", getName () ) );
 	
@@ -1288,21 +1423,23 @@ void IOFireWireSerialBusProtocolTransport::LunResetComplete ( IOReturn status, I
 	
 }
 
-//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+//-----------------------------------------------------------------------------
 //	¥ ConnectToDeviceStatic - C->C++ glue.							[PROTECTED]
-//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+//-----------------------------------------------------------------------------
 
-IOReturn IOFireWireSerialBusProtocolTransport::ConnectToDeviceStatic ( OSObject * refCon, 
-																	   void * val1,
-																	   void * val2,
-																	   void * val3,
-																	   void * val4 )
+IOReturn 
+	IOFireWireSerialBusProtocolTransport::ConnectToDeviceStatic (
+		OSObject *	refCon, 
+		void *		val1,
+		void *		val2,
+		void *		val3,
+		void *		val4 )
 {
 	
-	DEUBUG_UNUSED ( val1 );
-	DEUBUG_UNUSED ( val2 );
-	DEUBUG_UNUSED ( val3 );
-	DEUBUG_UNUSED ( val4 );
+	DEBUG_UNUSED ( val1 );
+	DEBUG_UNUSED ( val2 );
+	DEBUG_UNUSED ( val3 );
+	DEBUG_UNUSED ( val4 );
 	
 	( ( IOFireWireSerialBusProtocolTransport * ) refCon )->ConnectToDevice ();
 	
@@ -1310,9 +1447,10 @@ IOReturn IOFireWireSerialBusProtocolTransport::ConnectToDeviceStatic ( OSObject 
 	
 }
 
-//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+//-----------------------------------------------------------------------------
 //	¥ ConnectToDevice - Connects to the device.						[PROTECTED]
-//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+//-----------------------------------------------------------------------------
+
 
 void IOFireWireSerialBusProtocolTransport::ConnectToDevice ( void )
 {
@@ -1334,9 +1472,9 @@ void IOFireWireSerialBusProtocolTransport::ConnectToDevice ( void )
 	}
 }
 
-//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+//-----------------------------------------------------------------------------
 //	¥ DisconnectFromDevice - Disconnects from device.				[PROTECTED]
-//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+//-----------------------------------------------------------------------------
 
 void IOFireWireSerialBusProtocolTransport::DisconnectFromDevice ( void )
 {
@@ -1352,9 +1490,60 @@ void IOFireWireSerialBusProtocolTransport::DisconnectFromDevice ( void )
 	
 }
 
-//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+//-----------------------------------------------------------------------------
+//	¥ CriticalOrbSubmissionStatic - C->C++ glue.					[PROTECTED]
+//-----------------------------------------------------------------------------
+
+IOReturn
+	IOFireWireSerialBusProtocolTransport::CriticalOrbSubmissionStatic ( 
+		OSObject *	refCon, 
+		void *		val1,
+		void *		val2,
+		void *		val3,
+		void *		val4 )
+{
+
+	DEBUG_UNUSED ( val3 );
+	DEBUG_UNUSED ( val4 );
+	
+	( ( IOFireWireSerialBusProtocolTransport * ) refCon )->CriticalOrbSubmission ( ( IOFireWireSBP2ORB * ) val1, 
+																				   ( SCSITaskIdentifier  ) val2 );
+	
+	return kIOReturnSuccess;
+	
+}
+
+//-----------------------------------------------------------------------------
+//	¥ CriticalOrbSubmission - submitORB on workloop.				[PROTECTED]
+//-----------------------------------------------------------------------------
+
+void
+	IOFireWireSerialBusProtocolTransport::CriticalOrbSubmission (
+		IOFireWireSBP2ORB *	orb,
+		SCSITaskIdentifier	request )
+{
+	
+	SBP2ClientOrbData *		clientData;
+
+	clientData = ( SBP2ClientOrbData * ) orb->getRefCon ();
+	require ( clientData, exit );
+	
+	clientData->scsiTask = request;
+	
+	if ( fLoggedIn )
+	{
+		fLogin->submitORB ( orb );
+	}
+
+exit:
+	
+	return;
+	
+}
+
+//-----------------------------------------------------------------------------
 //	¥ AllocateResources - Allocates resources.						[PROTECTED]
-//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+//-----------------------------------------------------------------------------
 
 IOReturn IOFireWireSerialBusProtocolTransport::AllocateResources ( void )
 {
@@ -1424,9 +1613,9 @@ exit:
 	
 }
 
-//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+//-----------------------------------------------------------------------------
 //	¥ DeallocateResources - Deallocates resources.					[PROTECTED]
-//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+//-----------------------------------------------------------------------------
 
 void IOFireWireSerialBusProtocolTransport::DeallocateResources ( void )
 {
@@ -1434,22 +1623,6 @@ void IOFireWireSerialBusProtocolTransport::DeallocateResources ( void )
 	SBP2ClientOrbData *		clientData = NULL;
 	
 	STATUS_LOG ( ( "%s: DeallocateResources called\n", getName () ) );
-	
-	if ( reserved != NULL )
-	{
-		
-		if ( reserved->fCommandPool != NULL )
-		{
-			
-			reserved->fCommandPool->release ();
-			reserved->fCommandPool = NULL;
-			
-		}
-		
-		IOFree ( reserved, sizeof ( ExpansionData ) );
-		reserved = NULL;
-		
-	}
 	
 	// /!\ WARNING - always release orb's before logins
 	
@@ -1487,9 +1660,9 @@ void IOFireWireSerialBusProtocolTransport::DeallocateResources ( void )
 	
 }
 
-//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+//-----------------------------------------------------------------------------
 //	¥ login - .					[PROTECTED]
-//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+//-----------------------------------------------------------------------------
 
 OSMetaClassDefineReservedUsed ( IOFireWireSerialBusProtocolTransport,  1 );
 
@@ -1530,9 +1703,9 @@ IOReturn IOFireWireSerialBusProtocolTransport::login ( void )
 	
 }
 
-//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+//-----------------------------------------------------------------------------
 //	¥ submitLogin - submitLogin	  bottleneck for subclass			[PROTECTED]
-//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+//-----------------------------------------------------------------------------
 
 OSMetaClassDefineReservedUsed ( IOFireWireSerialBusProtocolTransport,  2 );
 
@@ -1549,9 +1722,9 @@ IOReturn IOFireWireSerialBusProtocolTransport::submitLogin ( void )
 	
 }
 
-//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+//-----------------------------------------------------------------------------
 //	¥ loginLost - login lost bottleneck for subclass				[PROTECTED]
-//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+//-----------------------------------------------------------------------------
 
 OSMetaClassDefineReservedUsed ( IOFireWireSerialBusProtocolTransport,  3 );
 
@@ -1562,9 +1735,9 @@ void IOFireWireSerialBusProtocolTransport::loginLost ( void )
 	
 }
 
-//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+//-----------------------------------------------------------------------------
 //	¥ loginSuspended - login resumed bottleneck for subclass		[PROTECTED]
-//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+//-----------------------------------------------------------------------------
 
 OSMetaClassDefineReservedUsed ( IOFireWireSerialBusProtocolTransport,  4 );
 
@@ -1573,13 +1746,13 @@ void IOFireWireSerialBusProtocolTransport::loginSuspended ( void )
 	
 	STATUS_LOG ( ( "%s: login suspended.\n", getName () ) );
 	
-	// a reconnet sucessfull reconnt orb is required
+	// a successful reconnect orb is required.
 	
 }
 
-//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+//-----------------------------------------------------------------------------
 //	¥ loginResumed - login resumed bottleneck for subclass			[PROTECTED]
-//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+//-----------------------------------------------------------------------------
 
 OSMetaClassDefineReservedUsed ( IOFireWireSerialBusProtocolTransport,  5 );
 
@@ -1588,11 +1761,11 @@ void IOFireWireSerialBusProtocolTransport::loginResumed ( void )
 	
 	STATUS_LOG ( ( "%s: login resumed.\n", getName () ) );
 	
-	// a reconnet orb has suceeded 
+	// a reconnect orb has succeeded.
 	
 }
 
-//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+//-----------------------------------------------------------------------------
 
 #if 0
 #pragma mark -
@@ -1613,4 +1786,6 @@ OSMetaClassDefineReservedUnused ( IOFireWireSerialBusProtocolTransport, 13 );
 OSMetaClassDefineReservedUnused ( IOFireWireSerialBusProtocolTransport, 14 );
 OSMetaClassDefineReservedUnused ( IOFireWireSerialBusProtocolTransport, 15 );
 OSMetaClassDefineReservedUnused ( IOFireWireSerialBusProtocolTransport, 16 );
+
+//-----------------------------------------------------------------------------
 

@@ -201,6 +201,23 @@ terminal_init_inferior_with_pgrp (int pgrp)
     }
 }
 
+/* Save the terminal settings again.  This is necessary for the TUI
+   when it switches to TUI or non-TUI mode;  curses changes the terminal
+   and gdb must be able to restore it correctly.  */
+
+void
+terminal_save_ours (void)
+{
+  if (gdb_has_a_terminal ())
+    {
+      /* We could just as well copy our_ttystate (if we felt like adding
+         a new function serial_copy_tty_state).  */
+      if (our_ttystate)
+        xfree (our_ttystate);
+      our_ttystate = serial_get_tty_state (stdin_serial);
+    }
+}
+
 void
 terminal_init_inferior (void)
 {
@@ -613,15 +630,14 @@ kill_command (char *arg, int from_tty)
   if (target_has_stack)
     {
       printf_filtered ("In %s,\n", target_longname);
-      if (selected_frame == NULL)
+      if (deprecated_selected_frame == NULL)
 	fputs_filtered ("No selected stack frame.\n", gdb_stdout);
       else
-	print_stack_frame (selected_frame, selected_frame_level, 1);
+	print_stack_frame (deprecated_selected_frame,
+			   frame_relative_level (deprecated_selected_frame), 1);
     }
   if (state_change_hook)
-    {
-      state_change_hook (STATE_INFERIOR_LOADED);
-    }
+    state_change_hook (STATE_INFERIOR_LOADED);
 }
 
 /* Call set_sigint_trap when you need to pass a signal on to an attached

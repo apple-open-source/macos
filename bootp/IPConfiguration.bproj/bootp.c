@@ -3,19 +3,22 @@
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
- * The contents of this file constitute Original Code as defined in and
- * are subject to the Apple Public Source License Version 1.1 (the
- * "License").  You may not use this file except in compliance with the
- * License.  Please obtain a copy of the License at
- * http://www.apple.com/publicsource and read it before using this file.
+ * Copyright (c) 1999-2003 Apple Computer, Inc.  All Rights Reserved.
  * 
- * This Original Code and all software distributed under the License are
- * distributed on an "AS IS" basis, WITHOUT WARRANTY OF ANY KIND, EITHER
+ * This file contains Original Code and/or Modifications of Original Code
+ * as defined in and that are subject to the Apple Public Source License
+ * Version 2.0 (the 'License'). You may not use this file except in
+ * compliance with the License. Please obtain a copy of the License at
+ * http://www.opensource.apple.com/apsl/ and read it before using this
+ * file.
+ * 
+ * The Original Code and all software distributed under the License are
+ * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
  * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
  * INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY,
- * FITNESS FOR A PARTICULAR PURPOSE OR NON-INFRINGEMENT.  Please see the
- * License for the specific language governing rights and limitations
- * under the License.
+ * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
+ * Please see the License for the specific language governing rights and
+ * limitations under the License.
  * 
  * @APPLE_LICENSE_HEADER_END@
  */
@@ -145,7 +148,7 @@ static void
 bootp_success(Service_t * service_p)
 {
     Service_bootp_t *	bootp = (Service_bootp_t *)service_p->private;
-    int			len;
+    int			len = 0;
     struct in_addr	mask = {0};
     void *		option;
     struct bootp *	reply = (struct bootp *)bootp->saved.pkt;
@@ -153,7 +156,7 @@ bootp_success(Service_t * service_p)
     S_cancel_pending_events(service_p);
     option = dhcpol_find(&bootp->saved.options, dhcptag_subnet_mask_e,
 			 &len, NULL);
-    if (option)
+    if (option != NULL && len >= 4)
 	mask = *((struct in_addr *)option);
 
     if (bootp->saved.our_ip.s_addr
@@ -286,6 +289,7 @@ bootp_request(Service_t * service_p, IFEventID_t evid, void * event_data)
 			     if_link_arptype(if_p),
 			     if_link_length(if_p));
 	  bootp->try = 0;
+	  bootp->xid++;
 	  bootp_client_enable_receive(bootp->client,
 				      (bootp_receive_func_t *)bootp_request, 
 				      service_p, (void *)IFEventID_data_e);
@@ -310,7 +314,7 @@ bootp_request(Service_t * service_p, IFEventID_t evid, void * event_data)
 	  }
 	  bootp->request.bp_secs 
 	    = htons((u_short)(timer_current_secs() - bootp->start_secs));
-	  bootp->request.bp_xid = htonl(++bootp->xid);
+	  bootp->request.bp_xid = htonl(bootp->xid);
 	  /* send the packet */
 	  if (bootp_client_transmit(bootp->client, if_name(if_p),
 				    bootp->request.bp_htype, NULL, 0,

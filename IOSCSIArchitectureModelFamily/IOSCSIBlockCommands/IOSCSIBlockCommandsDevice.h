@@ -77,7 +77,7 @@ enum
 #include <IOKit/storage/IOStorage.h>
 
 // SCSI Architecture Model Family includes
-#include <IOKit/scsi-commands/IOSCSIPrimaryCommandsDevice.h>
+#include <IOKit/scsi/IOSCSIPrimaryCommandsDevice.h>
 
 
 // Forward declaration for the SCSIBlockCommands that is used internally by the
@@ -97,6 +97,8 @@ private:
 	
 	SCSIBlockCommands *		fSCSIBlockCommandObject;
 	SCSIBlockCommands *		GetSCSIBlockCommandObject ( void );
+	IOReturn				GetWriteCacheState ( IOMemoryDescriptor * 	buffer,
+												 UInt8					modePageControlValue );
 	
 	static void				AsyncReadWriteComplete ( SCSITaskIdentifier	completedTask );
 	
@@ -113,11 +115,14 @@ protected:
 	
 	#define fPowerDownNotifier	fIOSCSIBlockCommandsDeviceReserved->fPowerDownNotifier
 	#define fWriteCacheEnabled	fIOSCSIBlockCommandsDeviceReserved->fWriteCacheEnabled
-
+	
 	// The fDeviceIsShared is used to indicate whether this device exists on a Physical
 	// Interconnect that allows multiple initiators to access it.  This is used mainly
 	// by the power management code to not send power state related START_STOP_UNIT
 	// commands to the device.
+	// The fDeviceIsShared value is also used to prevent power state commands from being
+	// sent to manual eject device since these devices behave better when allowed to
+	// manage their own power.
 	#define fDeviceIsShared	fIOSCSIBlockCommandsDeviceReserved->fDeviceIsShared
 	
 	// ---- Device Characteristics ----
@@ -274,6 +279,9 @@ public:
 							UInt64					blockCount,
 							UInt64					blockSize,
 							void * 					clientData );
+
+	IOReturn	GetWriteCacheState ( bool * enabled );	
+	IOReturn	SetWriteCacheState ( bool enabled );
 	
 	// ---- Methods for controlling medium state ----
 	virtual IOReturn	EjectTheMedium ( void );
@@ -712,7 +720,6 @@ protected:
 	
 	virtual	void		SetMediumIcon ( void );
 	
-		
 private:
 	
 	// Space reserved for future expansion.

@@ -1,27 +1,33 @@
 /*
- * Copyright (c) 2000-2002 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 2000-2003 Apple Computer, Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
- *
- * The contents of this file constitute Original Code as defined in and
- * are subject to the Apple Public Source License Version 1.1 (the
- * "License").  You may not use this file except in compliance with the
- * License.  Please obtain a copy of the License at
- * http://www.apple.com/publicsource and read it before using this file.
- *
- * This Original Code and all software distributed under the License are
- * distributed on an "AS IS" basis, WITHOUT WARRANTY OF ANY KIND, EITHER
+ * 
+ * Copyright (c) 1999-2003 Apple Computer, Inc.  All Rights Reserved.
+ * 
+ * This file contains Original Code and/or Modifications of Original Code
+ * as defined in and that are subject to the Apple Public Source License
+ * Version 2.0 (the 'License'). You may not use this file except in
+ * compliance with the License. Please obtain a copy of the License at
+ * http://www.opensource.apple.com/apsl/ and read it before using this
+ * file.
+ * 
+ * The Original Code and all software distributed under the License are
+ * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
  * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
  * INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY,
- * FITNESS FOR A PARTICULAR PURPOSE OR NON-INFRINGEMENT.  Please see the
- * License for the specific language governing rights and limitations
- * under the License.
- *
+ * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
+ * Please see the License for the specific language governing rights and
+ * limitations under the License.
+ * 
  * @APPLE_LICENSE_HEADER_END@
  */
 
 /*
  * Modification History
+ *
+ * September 25, 2002		Allan Nathanson <ajn@apple.com>
+ * - added command line history & editing
  *
  * July 9, 2001			Allan Nathanson <ajn@apple.com>
  * - added "-r" option for checking network reachability
@@ -36,9 +42,11 @@
  */
 
 #include <ctype.h>
+#include <getopt.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <termios.h>
 #include <unistd.h>
 #include <sysexits.h>
 
@@ -51,8 +59,8 @@
 #include "commands.h"
 #include "dictionary.h"
 #include "tests.h"
+#include "prefs.h"
 
-#include <SystemConfiguration/SCPrivate.h>
 #include "SCDynamicStoreInternal.h"
 
 
@@ -60,29 +68,61 @@
 
 
 int			nesting		= 0;
+CFRunLoopRef		notifyRl	= NULL;
 CFRunLoopSourceRef	notifyRls	= NULL;
-CFMutableArrayRef	sources		= NULL;
 SCDynamicStoreRef	store		= NULL;
 CFPropertyListRef	value		= NULL;
+CFMutableArrayRef	watchedKeys	= NULL;
+CFMutableArrayRef	watchedPatterns	= NULL;
+
+static struct option longopts[] = {
+//	{ "debug",		no_argument,		NULL,	'd'	},
+//	{ "verbose",		no_argument,		NULL,	'v'	},
+//	{ "SPI",		no_argument,		NULL,	'p'	},
+//	{ "check-reachability",	required_argument,      NULL,	'r'	},
+//	{ "timeout",		required_argument,	NULL,	't'	},
+//	{ "wait-key",		required_argument,	NULL,	'w'	},
+	{ "get",		required_argument,	NULL,	0	},
+	{ "help",		no_argument,		NULL,	'?'	},
+	{ "set",		required_argument,	NULL,	0	},
+	{ NULL,			0,                      NULL,	0	}
+};
 
 
 static char *
-getLine(char *buf, int len, FILE *fp)
+getLine(char *buf, int len, InputRef src)
 {
-	int x;
+	int	n;
 
-	if (fgets(buf, len, fp) == NULL)
-		return NULL;
+	if (src->el) {
+		int		count;
+		const char	*line;
 
-	x = strlen(buf);
-	if (buf[x-1] == '\n') {
-		/* the entire line fit in the buffer, remove the newline */
-		buf[x-1] = '\0';
+		line = el_gets(src->el, &count);
+		if (line == NULL)
+			return NULL;
+
+		strncpy(buf, line, len);
 	} else {
+		if (fgets(buf, len, src->fp) == NULL)
+			return NULL;
+	}
+
+	n = strlen(buf);
+	if (buf[n-1] == '\n') {
+		/* the entire line fit in the buffer, remove the newline */
+		buf[n-1] = '\0';
+	} else if (!src->el) {
 		/* eat the remainder of the line */
 		do {
-			x = fgetc(fp);
-		} while ((x != '\n') && (x != EOF));
+			n = fgetc(src->fp);
+		} while ((n != '\n') && (n != EOF));
+	}
+
+	if (src->h) {
+		HistEvent	ev;
+
+		history(src->h, &ev, H_ENTER, buf);
 	}
 
 	return buf;
@@ -141,13 +181,13 @@ getString(char **line)
 
 
 Boolean
-process_line(FILE *fp)
+process_line(InputRef src)
 {
 	char	line[LINE_LENGTH], *s, *arg, **argv = NULL;
 	int	i, argc;
 
 	/* if end-of-file, exit */
-	if (getLine(line, sizeof(line), fp) == NULL)
+	if (getLine(line, sizeof(line), src) == NULL)
 		return FALSE;
 
 	if (nesting > 0) {
@@ -187,80 +227,56 @@ process_line(FILE *fp)
 
 
 void
-runLoopProcessInput(CFSocketRef s, CFSocketCallBackType type, CFDataRef address, const void *data, void *info)
-{
-	FILE	*fp = info;
-
-	if (process_line(fp) == FALSE) {
-		/* we don't want any more input from this stream, stop listening */
-		CFRunLoopRemoveSource(CFRunLoopGetCurrent(),
-				      (CFRunLoopSourceRef)CFArrayGetValueAtIndex(sources, 0),
-				      kCFRunLoopDefaultMode);
-
-		/* we no longer need the fd (socket) */
-		CFSocketInvalidate(s);
-
-		/* we no longer need to track this source */
-		CFArrayRemoveValueAtIndex(sources, 0);
-
-		if (CFArrayGetCount(sources) > 0) {
-			/* add the previous input source to the run loop */
-			CFRunLoopAddSource(CFRunLoopGetCurrent(),
-					   (CFRunLoopSourceRef)CFArrayGetValueAtIndex(sources, 0),
-					   kCFRunLoopDefaultMode);
-		} else {
-			/* no more input sources, we're done! */
-			exit (EX_OK);
-		}
-
-		/* decrement the nesting level */
-		nesting--;
-	}
-
-	/* debug information, diagnostics */
-	__showMachPortStatus();
-
-	/* if necessary, re-issue prompt */
-	if ((CFArrayGetCount(sources) == 1) && isatty(STDIN_FILENO)) {
-		printf("> ");
-		fflush(stdout);
-	}
-
-	return;
-}
-
-
-void
 usage(const char *command)
 {
 	SCPrint(TRUE, stderr, CFSTR("usage: %s\n"), command);
-	SCPrint(TRUE, stderr, CFSTR("   or: %s -r node-or-address\n"), command);
-	SCPrint(TRUE, stderr, CFSTR("\t-r\tcheck reachability of node/address\n"));
+	SCPrint(TRUE, stderr, CFSTR("\tinteractive access to the dynamic store.\n"));
+	SCPrint(TRUE, stderr, CFSTR("\n"));
+	SCPrint(TRUE, stderr, CFSTR("   or: %s -r nodename\n"), command);
+	SCPrint(TRUE, stderr, CFSTR("   or: %s -r address\n"), command);
+	SCPrint(TRUE, stderr, CFSTR("   or: %s -r local-address remote-address\n"), command);
+	SCPrint(TRUE, stderr, CFSTR("\tcheck reachability of node, address, or address pair.\n"));
+	SCPrint(TRUE, stderr, CFSTR("\n"));
 	SCPrint(TRUE, stderr, CFSTR("   or: %s -w dynamic-store-key [ -t timeout ]\n"), command);
 	SCPrint(TRUE, stderr, CFSTR("\t-w\twait for presense of dynamic store key\n"));
 	SCPrint(TRUE, stderr, CFSTR("\t-t\ttime to wait for key\n"));
 	SCPrint(TRUE, stderr, CFSTR("\n"));
-	SCPrint(TRUE, stderr, CFSTR("Note: you may only specify one of \"-r\" or \"-w\".\n"));
+	SCPrint(TRUE, stderr, CFSTR("   or: %s --get pref\n"), command);
+	SCPrint(TRUE, stderr, CFSTR("   or: %s --set pref [newval]\n"), command);
+	SCPrint(TRUE, stderr, CFSTR("\tpref\tdisplay (or set) the specified preference.  Valid preferences\n"));
+	SCPrint(TRUE, stderr, CFSTR("\t\tinclude:\n"));
+	SCPrint(TRUE, stderr, CFSTR("\t\t\tComputerName, LocalHostName\n"));
+	SCPrint(TRUE, stderr, CFSTR("\tnewval\tNew preference value to be set.  If not specified,\n"));
+	SCPrint(TRUE, stderr, CFSTR("\t\tthe new value will be read from standard input.\n"));
 	exit (EX_USAGE);
+}
+
+
+static char *
+prompt(EditLine *el)
+{
+	return "> ";
 }
 
 
 int
 main(int argc, char * const argv[])
 {
-	CFSocketContext		context	= { 0, stdin, NULL, NULL, NULL };
-	char			*dest	= NULL;
-	CFSocketRef		in;
+	char			*get	= NULL;
 	extern int		optind;
 	int			opt;
+	int			opti;
 	const char		*prog	= argv[0];
-	CFRunLoopSourceRef	rls;
+	Boolean			reach	= FALSE;
+	char			*set	= NULL;
+	InputRef		src;
 	int			timeout	= 15;	/* default timeout (in seconds) */
 	char			*wait	= NULL;
+	int			xStore	= 0;	/* non dynamic store command line options */
 
 	/* process any arguments */
 
-	while ((opt = getopt(argc, argv, "dvpr:t:w:")) != -1)
+	while ((opt = getopt_long(argc, argv, "dvprt:w:", longopts, &opti)) != -1)
 		switch(opt) {
 		case 'd':
 			_sc_debug = TRUE;
@@ -274,13 +290,24 @@ main(int argc, char * const argv[])
 			enablePrivateAPI = TRUE;
 			break;
 		case 'r':
-			dest = optarg;
+			reach = TRUE;
+			xStore++;
 			break;
 		case 't':
 			timeout = atoi(optarg);
 			break;
 		case 'w':
 			wait = optarg;
+			xStore++;
+			break;
+		case 0:
+			if        (strcmp(longopts[opti].name, "get") == 0) {
+				get = optarg;
+				xStore++;
+			} else if (strcmp(longopts[opti].name, "set") == 0) {
+				set = optarg;
+				xStore++;
+			}
 			break;
 		case '?':
 		default :
@@ -289,13 +316,17 @@ main(int argc, char * const argv[])
 	argc -= optind;
 	argv += optind;
 
-	if (dest && wait) {
+	if (xStore > 1) {
+		// if we are attempting to process more than one type of request
 		usage(prog);
 	}
 
 	/* are we checking the reachability of a host/address */
-	if (dest) {
-		do_checkReachability(dest);
+	if (reach) {
+		if ((argc < 1) || (argc > 2)) {
+			usage(prog);
+		}
+		do_checkReachability(argc, (char **)argv);
 		/* NOT REACHED */
 	}
 
@@ -305,38 +336,78 @@ main(int argc, char * const argv[])
 		/* NOT REACHED */
 	}
 
+	/* are we looking up a preference value */
+	if (get) {
+		if (findPref(get) < 0) {
+			usage(prog);
+		}
+		do_getPref(get, argc, (char **)argv);
+		/* NOT REACHED */
+	}
+
+	/* are we changing a preference value */
+	if (set) {
+		if (findPref(set) < 0) {
+			usage(prog);
+		}
+		do_setPref(set, argc, (char **)argv);
+		/* NOT REACHED */
+	}
+
 	/* start with an empty dictionary */
 	do_dictInit(0, NULL);
 
-	/* create a "socket" reference with the file descriptor associated with stdin */
-	in  = CFSocketCreateWithNative(NULL,
-				       STDIN_FILENO,
-				       kCFSocketReadCallBack,
-				       runLoopProcessInput,
-				       &context);
+	/* allocate command input stream */
+	src = (InputRef)CFAllocatorAllocate(NULL, sizeof(Input), 0);
+	src->fp = stdin;
+	src->el = NULL;
+	src->h  = NULL;
 
-	/* Create a run loop source for the (stdin) file descriptor */
-	rls = CFSocketCreateRunLoopSource(NULL, in, nesting);
+	if (isatty(fileno(src->fp))) {
+		int		editmode	= 1;
+		HistEvent	ev;
+		struct termios	t;
 
-	/* keep track of input file sources */
-	sources = CFArrayCreateMutable(NULL, 0, &kCFTypeArrayCallBacks);
-	CFArrayAppendValue(sources, rls);
+		if (tcgetattr(fileno(src->fp), &t) != -1) {
+			if ((t.c_lflag & ECHO) == 0) {
+				editmode = 0;
+			}
+		}
+		src->el = el_init(prog, src->fp, stdout, stderr);
+		src->h  = history_init();
 
-	/* add this source to the run loop */
-	CFRunLoopAddSource(CFRunLoopGetCurrent(), rls, kCFRunLoopDefaultMode);
-	CFRelease(rls);
-	CFRelease(in);
+		(void)history(src->h, &ev, H_SETSIZE, INT_MAX);
+		el_set(src->el, EL_HIST, history, src->h);
 
-	/* show (initial) debug information, diagnostics */
-	__showMachPortStatus();
+		if (!editmode) {
+			el_set(src->el, EL_EDITMODE, 0);
+		}
 
-	/* issue (initial) prompt */
-	if (isatty(STDIN_FILENO)) {
-		printf("> ");
-		fflush(stdout);
+		el_set(src->el, EL_EDITOR, "emacs");
+		el_set(src->el, EL_PROMPT, prompt);
+
+		el_source(src->el, NULL);
+
+		if ((el_get(src->el, EL_EDITMODE, &editmode) != -1) && editmode != 0) {
+			el_set(src->el, EL_SIGNAL, 1);
+		} else {
+			history_end(src->h);
+			src->h = NULL;
+			el_end(src->el);
+			src->el = NULL;
+		}
 	}
 
-	CFRunLoopRun();	/* process input, process events */
+	while (process_line(src) == TRUE) {
+	       /* debug information, diagnostics */
+		__showMachPortStatus();
+	}
+
+	/* close the socket, free resources */
+	if (src->h)	history_end(src->h);
+	if (src->el)	el_end(src->el);
+	(void)fclose(src->fp);
+	CFAllocatorDeallocate(NULL, src);
 
 	exit (EX_OK);	// insure the process exit status is 0
 	return 0;	// ...and make main fit the ANSI spec.

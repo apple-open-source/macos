@@ -1,9 +1,9 @@
 /*
- * "$Id: cupsd.h,v 1.1.1.3 2002/04/08 07:26:23 jlovell Exp $"
+ * "$Id: cupsd.h,v 1.1.1.12 2003/08/03 06:18:45 jlovell Exp $"
  *
  *   Main header file for the Common UNIX Printing System (CUPS) scheduler.
  *
- *   Copyright 1997-2002 by Easy Software Products, all rights reserved.
+ *   Copyright 1997-2003 by Easy Software Products, all rights reserved.
  *
  *   These coded instructions, statements, and computer programs are the
  *   property of Easy Software Products and are protected by Federal
@@ -22,18 +22,28 @@
  *         WWW: http://www.cups.org
  */
 
+#include <cups/string.h>
+#ifdef __sun
+/*
+ * Define FD_SETSIZE to CUPS_MAX_FDS on Solaris to get the correct version of
+ * select() for large numbers of file descriptors.
+ */
+
+#  define FD_SETSIZE	CUPS_MAX_FDS
+#endif /* __sun */
+
+
 /*
  * Include necessary headers.
  */
 
-#include <stdio.h>
 #include <stdlib.h>
-#include <ctype.h>
 #include <limits.h>
 #include <errno.h>
 #include <time.h>
 #include <signal.h>
 #include <fcntl.h>
+#include <math.h>
 #include <sys/types.h>
 #include <sys/time.h>
 #include <sys/stat.h>
@@ -46,12 +56,26 @@
 #endif /* WIN32 */
 
 #include <cups/cups.h>
-#include <cups/string.h>
 #include "mime.h"
 #include <cups/http.h>
 #include <cups/ipp.h>
 #include <cups/language.h>
 #include <cups/debug.h>
+
+#if defined(HAVE_CDSASSL)
+#  include <CoreFoundation/CoreFoundation.h>
+#endif /* HAVE_CDSASSL */
+
+
+/*
+ * Some OS's don't have hstrerror(), most notably Solaris...
+ */
+
+#ifndef HAVE_HSTRERROR
+#  define hstrerror cups_hstrerror
+
+extern const char *cups_hstrerror(int);
+#endif /* !HAVE_HSTRERROR */
 
 
 /*
@@ -68,8 +92,6 @@
  * Implementation limits...
  */
 
-#define MAX_BROWSERS		10	/* Maximum number of browse addresses */
-#define MAX_LISTENERS		10	/* Maximum number of listener sockets */
 #define MAX_USERPASS		33	/* Maximum size of username/password */
 #define MAX_FILTERS		20	/* Maximum number of filters */
 #define MAX_SYSTEM_GROUPS	32	/* Maximum number of system groups */
@@ -96,9 +118,11 @@
 #ifdef _MAIN_C_
 #  define VAR
 #  define VALUE(x) =x
+#  define VALUE2(x,y) ={x,y}
 #else
 #  define VAR      extern
 #  define VALUE(x)
+#  define VALUE2(x,y)
 #endif /* _MAIN_C */
 
 
@@ -142,16 +166,29 @@ typedef struct direct DIRENT;
 
 
 /*
+ * Reload types...
+ */
+
+#define RELOAD_NONE	0		/* No reload needed */
+#define RELOAD_ALL	1		/* Reload everything */
+#define RELOAD_CUPSD	2		/* Reload only cupsd.conf */
+
+
+/*
  * Globals...
  */
 
-VAR int			MaxFDs;		/* Maximum number of files */
-VAR fd_set		InputSet,	/* Input files for select() */
-			OutputSet;	/* Output files for select() */
+VAR int			MaxFDs,		/* Maximum number of files */
+			SetSize;	/* The size of the input/output sets */
+VAR fd_set		*InputSet,	/* Input files for select() */
+			*OutputSet;	/* Output files for select() */
 
-VAR int			NeedReload	VALUE(TRUE);
+VAR int			NeedReload	VALUE(RELOAD_ALL),
 					/* Need to load configuration? */
-VAR char		TZ[1024]	VALUE("TZ=GMT");
+			SignalCount	VALUE(0);
+					/* Signal handler level */
+
+VAR char		*TZ		VALUE(NULL);
 					/* Timezone configuration */
 
 VAR ipp_t		*Devices	VALUE(NULL),
@@ -165,13 +202,18 @@ VAR ipp_t		*Devices	VALUE(NULL),
  */
 
 extern void	CatchChildSignals(void);
+extern void	ClearString(char **s);
+extern void	HoldSignals(void);
 extern void	IgnoreChildSignals(void);
 extern void	LoadDevices(const char *d);
 extern void	LoadPPDs(const char *d);
+extern void	ReleaseSignals(void);
+extern void	SetString(char **s, const char *v);
+extern void	SetStringf(char **s, const char *f, ...);
 extern void	StartServer(void);
 extern void	StopServer(void);
 
 
 /*
- * End of "$Id: cupsd.h,v 1.1.1.3 2002/04/08 07:26:23 jlovell Exp $".
+ * End of "$Id: cupsd.h,v 1.1.1.12 2003/08/03 06:18:45 jlovell Exp $".
  */

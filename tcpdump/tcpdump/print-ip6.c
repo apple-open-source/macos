@@ -21,7 +21,7 @@
 
 #ifndef lint
 static const char rcsid[] =
-    "@(#) $Header: /cvs/Darwin/src/live/tcpdump/tcpdump/print-ip6.c,v 1.1.1.2 2002/05/29 00:05:37 landonf Exp $";
+    "@(#) $Header: /cvs/root/tcpdump/tcpdump/print-ip6.c,v 1.1.1.3 2003/03/17 18:42:17 rbraun Exp $";
 #endif
 
 #ifdef HAVE_CONFIG_H
@@ -30,20 +30,15 @@ static const char rcsid[] =
 
 #ifdef INET6
 
-#include <sys/param.h>
-#include <sys/time.h>
-#include <sys/types.h>
-#include <sys/socket.h>
-
-#include <netinet/in.h>
+#include <tcpdump-stdinc.h>
 
 #include <stdio.h>
 #include <stdlib.h>
-#include <unistd.h>
 #include <string.h>
 
 #include "interface.h"
 #include "addrtoname.h"
+#include "extract.h"
 
 #include "ip6.h"
 
@@ -60,28 +55,9 @@ ip6_print(register const u_char *bp, register u_int length)
 	int nh;
 	int fragmented = 0;
 	u_int flow;
-	
+
 	ip6 = (const struct ip6_hdr *)bp;
 
-#ifdef LBL_ALIGN
-	/*
-	 * The IP6 header is not 16-byte aligned, so copy into abuf.
-	 */
-	if ((u_long)ip6 & 15) {
-		static u_char *abuf;
-
-		if (abuf == NULL) {
-			abuf = malloc(snaplen);
-			if (abuf == NULL)
-				error("ip6_print: malloc");
-		}
-		memcpy(abuf, ip6, min(length, snaplen));
-		snapend += abuf - (u_char *)ip6;
-		packetp = abuf;
-		ip6 = (struct ip6_hdr *)abuf;
-		bp = abuf;
-	}
-#endif
 	TCHECK(*ip6);
 	if (length < sizeof (struct ip6_hdr)) {
 		(void)printf("truncated-ip6 %d", length);
@@ -89,7 +65,7 @@ ip6_print(register const u_char *bp, register u_int length)
 	}
 	advance = sizeof(struct ip6_hdr);
 
-	len = ntohs(ip6->ip6_plen);
+	len = EXTRACT_16BITS(&ip6->ip6_plen);
 	if (length < len + advance)
 		(void)printf("truncated-ip6 - %d bytes missing!",
 			len + advance - length);
@@ -121,6 +97,17 @@ ip6_print(register const u_char *bp, register u_int length)
 			nh = *cp;
 			fragmented = 1;
 			break;
+#ifndef IPPROTO_MOBILITY
+#define IPPROTO_MOBILITY 62
+#endif
+		case IPPROTO_MOBILITY:
+			/*
+			 * XXX - we don't use "advance"; is this
+			 * header always a final header?
+			 */
+			advance = mobility_print(cp, (const u_char *)ip6);
+			nh = *cp;
+			goto end;
 		case IPPROTO_ROUTING:
 			advance = rt6_print(cp, (const u_char *)ip6);
 			nh = *cp;
@@ -137,7 +124,7 @@ ip6_print(register const u_char *bp, register u_int length)
 			icmp6_print(cp, (const u_char *)ip6);
 			goto end;
 		case IPPROTO_AH:
-			advance = ah_print(cp, (const u_char *)ip6);
+			advance = ah_print(cp);
 			nh = *cp;
 			break;
 		case IPPROTO_ESP:
@@ -156,7 +143,7 @@ ip6_print(register const u_char *bp, register u_int length)
 		case IPPROTO_IPCOMP:
 		    {
 			int enh;
-			advance = ipcomp_print(cp, (const u_char *)ip6, &enh);
+			advance = ipcomp_print(cp, &enh);
 			if (enh < 0)
 				goto end;
 			nh = enh & 0xff;
@@ -195,8 +182,8 @@ ip6_print(register const u_char *bp, register u_int length)
 	}
 
  end:
-	
-	flow = ntohl(ip6->ip6_flow);
+
+	flow = EXTRACT_32BITS(&ip6->ip6_flow);
 #if 0
 	/* rfc1883 */
 	if (flow & 0x0f000000)

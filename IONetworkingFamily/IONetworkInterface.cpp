@@ -40,7 +40,6 @@ extern "C" {
 #include <sys/sockio.h>
 #include <net/bpf.h>
 #include <net/if.h>
-#include <netinet/if_ether.h>
 #include <net/if_media.h>
 #include <net/dlil.h>
 #include <sys/kern_event.h>
@@ -59,8 +58,6 @@ extern "C" {
 #define super IOService
 
 OSDefineMetaClassAndAbstractStructors( IONetworkInterface, IOService )
-OSMetaClassDefineReservedUnused( IONetworkInterface,  0);
-OSMetaClassDefineReservedUnused( IONetworkInterface,  1);
 OSMetaClassDefineReservedUnused( IONetworkInterface,  2);
 OSMetaClassDefineReservedUnused( IONetworkInterface,  3);
 OSMetaClassDefineReservedUnused( IONetworkInterface,  4);
@@ -543,7 +540,8 @@ bool IONetworkInterface::registerOutputHandler(OSObject *      target,
     return true;
 }
 
-//---------------------------------------------------------------------------Feed packets to the input/output BPF packet filter taps.
+//---------------------------------------------------------------------------
+// Feed packets to the input/output BPF packet filter taps.
 
 static inline void _feedPacketTap(struct ifnet * ifp,
                                   struct mbuf *  m,
@@ -640,9 +638,9 @@ UInt32 IONetworkInterface::inputPacket(struct mbuf * pkt,
     _feedPacketTap(_ifp, pkt, _inputFilterFunc, BPF_TAP_INPUT);
 
     pkt->m_pkthdr.header = pkt->m_data;
-    pkt->m_pkthdr.len -= sizeof(struct ether_header);
-    pkt->m_len  -= sizeof(struct ether_header);
-    pkt->m_data += sizeof(struct ether_header);
+    pkt->m_pkthdr.len -= _ifp->if_hdrlen;
+    pkt->m_len  -= _ifp->if_hdrlen;
+    pkt->m_data += _ifp->if_hdrlen;
 
     if ( options & kInputOptionQueuePacket )
     {
@@ -1774,3 +1772,24 @@ IONetworkData * IONetworkInterface::getParameter(const char * aKey) const
 
 bool IONetworkInterface::setExtendedFlags(UInt32 flags, UInt32 clear)
 { return true; }
+
+//---------------------------------------------------------------------------
+
+OSMetaClassDefineReservedUsed(IONetworkInterface, 0);
+
+IOReturn IONetworkInterface::attachToDataLinkLayer( IOOptionBits options,
+                                                    void *       parameter )
+{
+    dlil_if_attach( getIfnet() );
+    return kIOReturnSuccess;
+}
+
+//---------------------------------------------------------------------------
+
+OSMetaClassDefineReservedUsed(IONetworkInterface, 1);
+
+void IONetworkInterface::detachFromDataLinkLayer( IOOptionBits options,
+                                                  void *       parameter )
+{
+    dlil_if_detach( getIfnet() );
+}

@@ -1,22 +1,25 @@
 /*
- * Copyright(c) 2000 Apple Computer, Inc. All rights reserved.
+ * Copyright(c) 2000-2003 Apple Computer, Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
- *
- * The contents of this file constitute Original Code as defined in and
- * are subject to the Apple Public Source License Version 1.1(the
- * "License").  You may not use this file except in compliance with the
- * License.  Please obtain a copy of the License at
- * http://www.apple.com/publicsource and read it before using this file.
- *
- * This Original Code and all software distributed under the License are
- * distributed on an "AS IS" basis, WITHOUT WARRANTY OF ANY KIND, EITHER
+ * 
+ * Copyright (c) 1999-2003 Apple Computer, Inc.  All Rights Reserved.
+ * 
+ * This file contains Original Code and/or Modifications of Original Code
+ * as defined in and that are subject to the Apple Public Source License
+ * Version 2.0 (the 'License'). You may not use this file except in
+ * compliance with the License. Please obtain a copy of the License at
+ * http://www.opensource.apple.com/apsl/ and read it before using this
+ * file.
+ * 
+ * The Original Code and all software distributed under the License are
+ * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
  * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
  * INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY,
- * FITNESS FOR A PARTICULAR PURPOSE OR NON-INFRINGEMENT.  Please see the
- * License for the specific language governing rights and limitations
- * under the License.
- *
+ * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
+ * Please see the License for the specific language governing rights and
+ * limitations under the License.
+ * 
  * @APPLE_LICENSE_HEADER_END@
  */
 
@@ -37,6 +40,29 @@
 #include <fcntl.h>
 #include <unistd.h>
 #include <sys/errno.h>
+
+static ssize_t
+writen(int d, const void *buf, size_t nbytes)
+{
+	size_t		left	= nbytes;
+	const void	*p	= buf;
+
+	while (left > 0) {
+		ssize_t	n;
+
+		n = write(d, p, left);
+		if (n >= 0) {
+			left -= n;
+			p    +=	n;
+		} else {
+			if (errno != EINTR) {
+				return -1;
+			}
+		}
+	}
+	return nbytes;
+}
+
 
 Boolean
 SCPreferencesCommitChanges(SCPreferencesRef session)
@@ -62,11 +88,12 @@ SCPreferencesCommitChanges(SCPreferencesRef session)
 	 * if necessary, apply changes
 	 */
 	if (sessionPrivate->changed) {
-		struct stat	statBuf;
-		int		pathLen;
-		char		*newPath;
 		int		fd;
 		CFDataRef	newPrefs;
+		char *		path;
+		int		pathLen;
+		struct stat	statBuf;
+		char *		thePath;
 
 		if (stat(sessionPrivate->path, &statBuf) == -1) {
 			if (errno == ENOENT) {
@@ -81,24 +108,25 @@ SCPreferencesCommitChanges(SCPreferencesRef session)
 		}
 
 		/* create the (new) preferences file */
-		pathLen = strlen(sessionPrivate->path) + sizeof("-new");
-		newPath = CFAllocatorAllocate(NULL, pathLen, 0);
-		snprintf(newPath, pathLen, "%s-new", sessionPrivate->path);
+		path = sessionPrivate->newPath ? sessionPrivate->newPath : sessionPrivate->path;
+		pathLen = strlen(path) + sizeof("-new");
+		thePath = CFAllocatorAllocate(NULL, pathLen, 0);
+		snprintf(thePath, pathLen, "%s-new", path);
 
 		/* open the (new) preferences file */
 	    reopen :
-		fd = open(newPath, O_WRONLY|O_CREAT, statBuf.st_mode);
+		fd = open(thePath, O_WRONLY|O_CREAT, statBuf.st_mode);
 		if (fd == -1) {
 			if ((errno == ENOENT) &&
 			    ((sessionPrivate->prefsID == NULL) || !CFStringHasPrefix(sessionPrivate->prefsID, CFSTR("/")))) {
 				char	*ch;
 
-				ch = strrchr(newPath, '/');
+				ch = strrchr(thePath, '/');
 				if (ch != NULL) {
 					int	status;
 
 					*ch = '\0';
-					status = mkdir(newPath, 0755);
+					status = mkdir(thePath, 0755);
 					*ch = '/';
 					if (status == 0) {
 						goto reopen;
@@ -106,37 +134,55 @@ SCPreferencesCommitChanges(SCPreferencesRef session)
 				}
 			}
 			SCLog(_sc_verbose, LOG_ERR, CFSTR("SCPCommit open() failed: %s"), strerror(errno));
-			CFAllocatorDeallocate(NULL, newPath);
+			CFAllocatorDeallocate(NULL, thePath);
 			goto error;
 		}
 
 		/* preserve permissions */
 		(void) fchown(fd, statBuf.st_uid, statBuf.st_gid);
+		(void) fchmod(fd, statBuf.st_mode);
 
 		/* write the new preferences */
 		newPrefs = CFPropertyListCreateXMLData(NULL, sessionPrivate->prefs);
 		if (!newPrefs) {
 			_SCErrorSet(kSCStatusFailed);
 			SCLog(_sc_verbose, LOG_ERR, CFSTR("  CFPropertyListCreateXMLData() failed"));
-			CFAllocatorDeallocate(NULL, newPath);
+			CFAllocatorDeallocate(NULL, thePath);
 			(void) close(fd);
 			goto error;
 		}
-		(void) write(fd, CFDataGetBytePtr(newPrefs), CFDataGetLength(newPrefs));
+		if (writen(fd, (void *)CFDataGetBytePtr(newPrefs), CFDataGetLength(newPrefs)) == -1) {
+			_SCErrorSet(errno);
+			SCLog(_sc_verbose, LOG_ERR, CFSTR("write() failed: %s"), strerror(errno));
+			(void) unlink(thePath);
+			CFAllocatorDeallocate(NULL, thePath);
+			(void) close(fd);
+			CFRelease(newPrefs);
+			goto error;
+		}
 		(void) close(fd);
 		CFRelease(newPrefs);
 
 		/* rename new->old */
-		if (rename(newPath, sessionPrivate->path) == -1) {
+		if (rename(thePath, path) == -1) {
 			_SCErrorSet(errno);
 			SCLog(_sc_verbose, LOG_ERR, CFSTR("rename() failed: %s"), strerror(errno));
-			CFAllocatorDeallocate(NULL, newPath);
+			CFAllocatorDeallocate(NULL, thePath);
 			goto error;
 		}
-		CFAllocatorDeallocate(NULL, newPath);
+		CFAllocatorDeallocate(NULL, thePath);
+
+		if (sessionPrivate->newPath) {
+			/* prefs file saved in "new" directory */
+			(void) unlink(sessionPrivate->path);
+			(void) symlink(sessionPrivate->newPath, sessionPrivate->path);
+			CFAllocatorDeallocate(NULL, sessionPrivate->path);
+			sessionPrivate->path = path;
+			sessionPrivate->newPath = NULL;
+		}
 
 		/* update signature */
-		if (stat(sessionPrivate->path, &statBuf) == -1) {
+		if (stat(path, &statBuf) == -1) {
 			_SCErrorSet(errno);
 			SCLog(_sc_verbose, LOG_ERR, CFSTR("stat() failed: %s"), strerror(errno));
 			goto error;

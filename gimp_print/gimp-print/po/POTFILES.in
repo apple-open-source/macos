@@ -1,0 +1,48 @@
+# List of source files containing translatable strings.
+# Copyright (C) 2000 Roger Leigh
+
+# Library files
+lib/alloca.c
+lib/getopt.c
+lib/getopt1.c
+lib/strcspn.c
+lib/vasprintf.c
+lib/xgetcwd.c
+lib/xmalloc.c
+
+# Main shared object sources
+src/main/print-canon.c
+src/main/print-color.c
+src/main/print-dither.c
+src/main/print-dither-matrices.c
+src/main/print-escp2.c
+src/main/print-escp2-data.c
+src/main/print-lexmark.c
+src/main/print-pcl.c
+src/main/print-ps.c
+src/main/print-util.c
+src/main/print-weave.c
+#src/main/print-version.c
+
+## @-@-@-@-@ NO-GIMP @-@-@-@-@
+# CUPS sources
+src/cups/genppd.c
+## @-@-@-@-@ YES-GIMP @-@-@-@-@
+
+# escputil sources
+src/escputil/escputil.c
+
+# GIMP sources
+src/gimp/gimp_color_window.c
+src/gimp/gimp_main_window.c
+src/gimp/print-image-gimp.c
+src/gimp/print.c
+
+## @-@-@-@-@ NO-GIMP @-@-@-@-@
+# Foomatic-related sources
+src/foomatic/printer_options.c
+
+# Ghostscript IJS driver
+src/ghost/ijsgimpprint.c
+## @-@-@-@-@ YES-GIMP @-@-@-@-@
+

@@ -1,0 +1,147 @@
+Legend:
+* No changes merged into egcs code base
++ NT/PDO changes not merged into egcs code base
+- All changes merged into egcs code base, but file has not been inspected
+(unmarked) All changes merged into egcs code base
+
+Unexamined files:
+- c-decl.c
+* gcc.c (fat, PB-interface, frameworks, no cc1, static/dynamic, cpp-precomp, specs, other)
+- Makefile.in
+
+- cp/call.c
+- cp/class.c
+- cp/config-lang.in
+- cp/cp-tree.h
+- cp/decl.c
+- cp/decl2.c
+- cp/error.c
+- cp/except.c
+* cp/g++.c
+* cp/gxx.gperf-winntpdo
+* cp/hash-winntpdo.h
+- cp/hash.h
+- cp/lex.c
+- cp/lex.h
+- cp/Make-lang.in
+- cp/Makefile.in
+* cp/parse.c
+* cp/parse.h
+* cp/parse.in
+* cp/parse.y
+- cp/search.c
+- cp/spew.c
+- cp/tree.c
+- cp/typeck.c
+- cp/typeck2.c
+
+* config/i386/i386.c
+* config/i386/i386.h
+* config/i386/i386.md
+* config/i386/next.c
+* config/i386/next.h
+- config/i386/t-winnt
+- config/i386/win-nt.h
+- config/i386/xm-i386.h
+- config/i386/xm-next.h
+
+* config/rs6000/apple.c
+* config/rs6000/apple.h
+* config/rs6000/xm-apple.h
+
+* config/sparc/next-pdo-sol2.h
+* config/sparc/next-pdo.h
+* config/sparc/next.c
+* config/sparc/next.h
+* config/sparc/sol2-nextpdo-c1.asm
+* config/sparc/sparc.c
+- config/sparc/sparc.h
+- config/sparc/sparc.md
+* config/sparc/t-sol2-nextpdo
+* config/sparc/t-sunos4-nextpdo
+* config/sparc/xm-next.h
+* config/sparc/xm-nextpdo-sol2.h
+* config/sparc/xm-nextpdo-sunos4.h
+
+- config/pa/lib2funcs.asm
+* config/pa/next-pdo.h
+* config/pa/next.c
+* config/pa/next.h
+* config/pa/pa.c
+* config/pa/pa.h
+* config/pa/pa.md
+* config/pa/t-nextpdo
+* config/pa/x-pa-hpux
+* config/pa/xm-next.h
+
+- ginclude/stddef.h
+
+
+Extensive changes related to Mach-O and/or OPENSTEP/Rhapsody
+* cccp.c (cpp server-related, framework searching)
+- c-parse.in (20 objc, 13 modern-syntax, 6 NT-changes)
+- libgcc2.c (private_extern, various NeXT-, NT-, and PDO-isms)
+* objc-act.[ch]
+- optabs.c (NEXT_LIBGCC_NAMES - 1 fewer underscore - may no longer be needed)
++ toplev.c (PB interface, -fppc, fat, switches, objc-error-msg, NT, 5 bug-fix?, gdb-workaround)
+* config/nextstep.[ch]
+- config/rs6000/rs6000.c (MkLinux-back-end, Rhapsody-ABI, MachO)
+- config/rs6000/rs6000.h (MkLinux-back-end, Rhapsody-ABI)
+- config/rs6000/rs6000.md (MkLinux-back-end, Rhapsody-ABI, long-branch)
+
+Moderate changes related to Mach-O and/or OPENSTEP/Rhapsody
+- c-common.c (6 pascal-strings, 1 modern-syntax?)
+- c-lex.c (8 pascal-strings, 1 four-char, new keywords, NT changes)
+- c-typeck.c (several bug-fix?, NeXT-specific changes)
+- configure (modifies Makefile.in; has NT changes as well)
+- expr.c (several bug-fix?, NT changes, PPC-specific changes)
+- function.c (1 MachO, 1 MkLinux, 3 bug-fix?, 1 ObjC?, 2 NT)
+- varasm.c (5 MachO, 3 private-extern, 1 bug-fix?, 1 MkLinux, 5 NeXT-specific, 2 PDO)
+
+Few changes related to Mach-O and/or OPENSTEP/Rhapsody
+- c-lang.c (2 ObjC)
+- c-lex.h (new keywords)
+- c-parse.gperf (new keyword)
+- c-tree.h (2 pascal-strings, 1 four-char)
+- config.sub
+- cse.c (2 MachOPIC, 1 bug-fix?)
+- explow.c (2 MachOPIC)
+- final.c (3 hppa?-assembler, 2 long-branch, 1 profile)
+  flags.h (1 -fppc)
+- fold-const.c (1 bug-fix)
+- function.h (1 ObjC)
+- integrate.c (1 opt-tweak, 2 MachOPIC)
+* objc-tree.def (1 modern-syntax)
+- recog.c (1 MachOPIC, 1 bug-fix?)
+- regclass.c (3 MachOPIC, 2 PDO)
+- reload.c (2 MachOPIC)
+- reload1.c (2 MachOPIC)
+- tree.c (1 objc-bug-fix, 1 MachOPIC?, 1 objc)
+- tree.h (2 new-keyword, 4 NT)
+
+Added files
+* c-parse.gperf-next (new keywords)
+* c-gperf-next.h
+
+Deleted files
+* c-parse.[chy] (derived files)
+* objc-parse.[cy] (derived files)
+* config/i386/[xt]-next (moved to a different location)
+
+Changes related exclusively to NT and PDO
+* calls.c
+* cccp-winnt.c (added file - no longer needed)
+* collect2.c
+* c-gperf.h (used only for PDO)
+* c-gperf-winntpdo.h (added file)
+* c-parse.gperf-winntpdo (added file - new keywords)
+- fixinc.svr4 (4 byte-order deletions)
+* fixincludes
+* winnt-pdo.h (added file - should probably get rid of this)
+* config/i386/next-pdo.h (added file)
+- config/winnt/ld.c
+- config/winnt/spawnv.c
+- config/winnt/x-winnt
+  config/winnt/xm-winnt.h
+* ginclude/va-pa.h
+* ginclude/va-sparc.h

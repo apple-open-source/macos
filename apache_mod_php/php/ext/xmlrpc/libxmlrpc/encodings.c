@@ -30,11 +30,27 @@
 
 */
 
+#ifdef HAVE_CONFIG_H
+#include "config.h"
+#endif
 
-static const char rcsid[] = "#(@) $Id: encodings.c,v 1.1.1.1 2001/12/14 22:13:40 zarzycki Exp $";
+#ifndef PHP_WIN32
+#include <php_config.h>
+#else
+#include <config.w32.h>
+#include <stdlib.h>
+#endif
+
+static const char rcsid[] = "#(@) $Id: encodings.c,v 1.1.1.3 2003/03/11 01:09:35 zarzycki Exp $";
 
 #include <errno.h>
+
+#ifdef HAVE_GICONV_H
+#include <giconv.h>
+#else
 #include <iconv.h>
+#endif
+
 #include "encodings.h"
 
 static char* convert(const char* src, int src_len, int *new_len, const char* from_enc, const char* to_enc) {

@@ -1,0 +1,131 @@
+<?xml version="1.0"?>
+<!DOCTYPE ejb-jar PUBLIC
+      "-//Sun Microsystems, Inc.//DTD Enterprise JavaBeans 2.0//EN"
+      "http://java.sun.com/dtd/ejb-jar_2_0.dtd">
+
+<ejb-jar>
+    <display-name>SecurityTests</display-name>
+    <enterprise-beans>
+        <session>
+            <description>A secured trival echo session bean</description>
+            <ejb-name>StatelessSession</ejb-name>
+            <home>org.jboss.test.security.interfaces.StatelessSessionHome</home>
+            <remote>org.jboss.test.security.interfaces.StatelessSession</remote>
+            <local-home>org.jboss.test.security.interfaces.StatelessSessionLocalHome</local-home>
+            <local>org.jboss.test.security.interfaces.StatelessSessionLocal</local>
+            <ejb-class>org.jboss.test.security.ejb.StatelessSessionBean</ejb-class>
+            <session-type>Stateless</session-type>
+            <transaction-type>Container</transaction-type>
+            <security-role-ref>
+                <role-name>EchoCaller</role-name>
+                <role-link>Echo</role-link>
+            </security-role-ref>
+        </session>
+        <session>
+            <description>A secured trival echo session bean</description>
+            <ejb-name>StatelessSession2</ejb-name>
+            <home>org.jboss.test.security.interfaces.StatelessSessionHome</home>
+            <remote>org.jboss.test.security.interfaces.StatelessSession</remote>
+            <local-home>org.jboss.test.security.interfaces.StatelessSessionLocalHome</local-home>
+            <local>org.jboss.test.security.interfaces.StatelessSessionLocal</local>
+            <ejb-class>org.jboss.test.security.ejb.StatelessSessionBean</ejb-class>
+            <session-type>Stateless</session-type>
+            <transaction-type>Container</transaction-type>
+        </session>
+    </enterprise-beans>
+
+    <assembly-descriptor>
+        <security-role>
+            <description>The role required to invoke the echo method</description>
+            <role-name>Echo</role-name>
+        </security-role>
+        <security-role>
+            <description>The role required to invoke the echo method using the
+            StatelessSessionLocal interface</description>
+            <role-name>EchoLocal</role-name>
+        </security-role>
+        <security-role>
+            <description>The role used to prevent access to the PrivateEntity
+                bean from external users.
+            </description>
+            <role-name>InternalRole</role-name>
+        </security-role>
+
+        <!-- The methods the Echo role can access -->
+        <method-permission>
+            <role-name>Echo</role-name>
+
+            <method>
+                <ejb-name>StatelessSession</ejb-name>
+                <method-name>create</method-name>
+            </method>
+            <method>
+                <ejb-name>StatelessSession</ejb-name>
+                <method-name>remove</method-name>
+            </method>  
+            <method>
+                <ejb-name>StatelessSession</ejb-name>
+                <method-name>echo</method-name>
+            </method>
+            <method>
+                <ejb-name>StatelessSession</ejb-name>
+                <method-name>npeError</method-name>
+            </method>
+
+            <method>
+               <ejb-name>StatelessSession2</ejb-name>
+                <method-name>*</method-name>
+            </method>
+
+        </method-permission>
+
+        <!-- The methods the EchoLocal role can access -->
+        <method-permission>
+            <role-name>EchoLocal</role-name>
+
+            <method>
+                <ejb-name>StatelessSession</ejb-name>
+                <method-intf>LocalHome</method-intf>
+                <method-name>create</method-name>
+            </method>
+            <method>
+                <ejb-name>StatelessSession</ejb-name>
+                <method-intf>Local</method-intf>
+                <method-name>echo</method-name>
+            </method>
+        </method-permission>
+
+        <!-- The methods the InternalRole role can access -->
+        <method-permission>
+            <role-name>InternalRole</role-name>
+
+            <method>
+                <ejb-name>StatelessSession2</ejb-name>
+                <method-name>*</method-name>
+            </method>
+
+        </method-permission>
+
+        <!-- Anyone can access the unchecked() method of the StatelessSession bean -->
+        <method-permission>
+            <unchecked/>
+            <method>
+                <ejb-name>StatelessSession</ejb-name>
+                <method-name>unchecked</method-name>
+            </method>
+        </method-permission>
+
+        <!-- No one can access the excluded() method of the
+            StatelessSession and StatelessSession2 beans -->
+        <exclude-list>
+            <description>A method that no one can access in this deployment</description>
+            <method>
+                <ejb-name>StatelessSession</ejb-name>
+                <method-name>excluded</method-name>
+            </method>
+        </exclude-list>
+
+    </assembly-descriptor>
+
+</ejb-jar>
+

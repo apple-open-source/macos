@@ -1,0 +1,4 @@
+config.cc
+config.cflags
+config.ldflags
+config.xobj

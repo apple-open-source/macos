@@ -1,4 +1,4 @@
-/* Copyright (C) 1991, 1992, 1993, 1996, 1997 Free Software Foundation, Inc.
+/* Copyright 1991, 1992, 1993, 1996, 1997, 2000 Free Software Foundation, Inc.
 
    This program is free software; you can redistribute it and/or modify
    it under the terms of the GNU General Public License as published by
@@ -27,30 +27,18 @@
 #include <fnmatch.h>
 #include <ctype.h>
 
+#if defined STDC_HEADERS || !defined isascii
+# define IN_CTYPE_DOMAIN(c) 1
+#else
+# define IN_CTYPE_DOMAIN(c) isascii (c)
+#endif
 
-/* Comment out all this code if we are using the GNU C Library, and are not
-   actually compiling the library itself.  This code is part of the GNU C
-   Library, but also included in many other GNU distributions.  Compiling
-   and linking in this code is a waste when using the GNU C library
-   (especially if it is a shared library).  Rather than having every GNU
-   program understand `configure --with-gnu-libc' and omit the object files,
-   it is simpler to just do this in the source for each such file.  */
-
-#if defined _LIBC || !defined __GNU_LIBRARY__
+#define ISUPPER(c) (IN_CTYPE_DOMAIN (c) && isupper (c))
 
 
-# if defined STDC_HEADERS || !defined isascii
-#  define ISASCII(c) 1
-# else
-#  define ISASCII(c) isascii(c)
-# endif
-
-# define ISUPPER(c) (ISASCII (c) && isupper (c))
-
-
-# ifndef errno
+#ifndef errno
 extern int errno;
-# endif
+#endif
 
 /* Match STRING against the filename pattern PATTERN, returning zero if
    it matches, nonzero if not.  */
@@ -61,7 +49,9 @@ fnmatch (const char *pattern, const char *string, int flags)
   register char c;
 
 /* Note that this evaluates C many times.  */
-# define FOLD(c) ((flags & FNM_CASEFOLD) && ISUPPER (c) ? tolower (c) : (c))
+#define FOLD(c) ((flags & FNM_CASEFOLD) && ISUPPER ((unsigned char) (c)) \
+                 ? tolower ((unsigned char) (c)) \
+                 : (c))
 
   while ((c = *p++) != '\0')
     {
@@ -99,13 +89,10 @@ fnmatch (const char *pattern, const char *string, int flags)
 
 	  for (c = *p++; c == '?' || c == '*'; c = *p++)
 	    {
-	      if ((flags & FNM_FILE_NAME) && *n == '/')
-		/* A slash does not match a wildcard under FNM_FILE_NAME.  */
-		return FNM_NOMATCH;
-	      else if (c == '?')
+	      if (c == '?')
 		{
 		  /* A ? needs to match one character.  */
-		  if (*n == '\0')
+		  if (*n == '\0' || (*n == '/' && (flags & FNM_FILE_NAME)))
 		    /* There isn't another character; no match.  */
 		    return FNM_NOMATCH;
 		  else
@@ -117,7 +104,13 @@ fnmatch (const char *pattern, const char *string, int flags)
 	    }
 
 	  if (c == '\0')
-	    return 0;
+	    {
+	      if ((flags & (FNM_FILE_NAME | FNM_LEADING_DIR)) == FNM_FILE_NAME)
+		for (; *n != '\0'; n++)
+		  if (*n == '/')
+		    return FNM_NOMATCH;
+	      return 0;
+	    }
 
 	  {
 	    char c1 = (!(flags & FNM_NOESCAPE) && c == '\\') ? *p : c;
@@ -126,6 +119,8 @@ fnmatch (const char *pattern, const char *string, int flags)
 	      if ((c == '[' || FOLD (*n) == c1) &&
 		  fnmatch (p, n, flags & ~FNM_PERIOD) == 0)
 		return 0;
+	      else if (*n == '/' && (flags & FNM_FILE_NAME))
+		break;
 	    return FNM_NOMATCH;
 	  }
 
@@ -231,7 +226,5 @@ fnmatch (const char *pattern, const char *string, int flags)
 
   return FNM_NOMATCH;
 
-# undef FOLD
+#undef FOLD
 }
-
-#endif	/* _LIBC or not __GNU_LIBRARY__.  */

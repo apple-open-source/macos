@@ -1,8 +1,8 @@
 /*
    +----------------------------------------------------------------------+
-   | PHP version 4.0                                                      |
+   | PHP Version 4                                                        |
    +----------------------------------------------------------------------+
-   | Copyright (c) 1997-2001 The PHP Group                                |
+   | Copyright (c) 1997-2003 The PHP Group                                |
    +----------------------------------------------------------------------+
    | This source file is subject to version 2.02 of the PHP license,      |
    | that is bundled with this package in the file LICENSE, and is        |
@@ -14,11 +14,11 @@
    +----------------------------------------------------------------------+
    | Authors: Stig Bakken <ssb@gaurdian.no>                               |
    |          Zeev Suraski <zeev@zend.com>                                |
-   |          Rasmus Lerdorf <rasmus@lerdorf.on.ca>                       |
+   |          Rasmus Lerdorf <rasmus@php.net>                             |
    +----------------------------------------------------------------------+
 */
 
-/* $Id: php_crypt.h,v 1.1.1.4 2001/12/14 22:13:25 zarzycki Exp $ */
+/* $Id: php_crypt.h,v 1.1.1.6 2003/07/18 18:07:43 zarzycki Exp $ */
 
 #ifndef PHP_CRYPT_H
 #define PHP_CRYPT_H

@@ -23,6 +23,4 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.  */
 
 #include "nm-macosx.h"
 
-#define TARGET_NATIVE
-
 #endif /* _NM_PPC_MACOSX_H_ */

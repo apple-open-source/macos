@@ -2,8 +2,8 @@
 
   dir.c -
 
-  $Author: jkh $
-  $Date: 2002/05/27 17:59:43 $
+  $Author: melville $
+  $Date: 2003/05/14 13:58:42 $
   created at: Wed Jan  5 09:51:01 JST 1994
 
   Copyright (C) 1993-2000 Yukihiro Matsumoto
@@ -169,8 +169,10 @@ fnmatch(pat, string, flags)
 	    }
 	    else if (ISDIRSEP(c)) {
 		s = find_dirsep(s);
-		if (s)
+		if (s) {
+                    s++;
 		    break;
+                }
 		return FNM_NOMATCH;
 	    }
 
@@ -371,7 +373,7 @@ dir_set_pos(dir, pos)
     VALUE dir, pos;
 {
     dir_seek(dir, pos);
-    return dir;
+    return pos;
 }
 
 static VALUE
@@ -434,7 +436,7 @@ my_getcwd()
     char *buf = xmalloc(size);
 
     while (!getcwd(buf, size)) {
-	if (errno != ERANGE) rb_sys_fail(buf);
+	if (errno != ERANGE) rb_sys_fail(NULL);
 	size *= 2;
 	buf = xrealloc(buf, size);
     }
@@ -599,7 +601,7 @@ rb_glob_helper(path, sub, flags, func, arg)
 
     p = sub ? sub : path;
     if (!has_magic(p, 0, flags)) {
-	if (rb_sys_stat(path, &st) == 0) {
+	if (lstat(path, &st) == 0) {
 	    (*func)(path, arg);
 	}
 	return;
@@ -713,7 +715,7 @@ rb_glob_helper(path, sub, flags, func, arg)
 void
 rb_glob(path, func, arg)
     char *path;
-    void (*func)();
+    void (*func) _((const char*, VALUE));
     VALUE arg;
 {
     rb_glob_helper(path, 0, FNM_PERIOD, func, arg);
@@ -728,9 +730,11 @@ rb_iglob(path, func, arg)
     rb_glob_helper(path, 0, FNM_PERIOD|FNM_NOCASE, func, arg);
 }
 
+static void push_pattern _((const char *, VALUE));
+
 static void
 push_pattern(path, ary)
-    char *path;
+    const char *path;
     VALUE ary;
 {
     VALUE str = rb_tainted_str_new2(path);

@@ -2,8 +2,8 @@
 
   marshal.c -
 
-  $Author: jkh $
-  $Date: 2002/05/27 17:59:44 $
+  $Author: melville $
+  $Date: 2003/05/14 13:58:43 $
   created at: Thu Apr 27 16:30:01 JST 1995
 
   Copyright (C) 1993-2000 Yukihiro Matsumoto
@@ -246,7 +246,7 @@ w_uclass(obj, klass, arg)
     VALUE obj, klass;
     struct dump_arg *arg;
 {
-    if (CLASS_OF(obj) != klass) {
+    if (rb_obj_class(obj) != klass) {
 	w_byte(TYPE_UCLASS, arg);
 	w_unique(rb_class2name(CLASS_OF(obj)), arg);
     }
@@ -471,11 +471,12 @@ w_object(obj, arg, limit)
 		VALUE klass = CLASS_OF(obj);
 		char *path;
 
-		if (FL_TEST(klass, FL_SINGLETON)) {
+		while (FL_TEST(klass, FL_SINGLETON) || BUILTIN_TYPE(klass) == T_ICLASS) {
 		    if (RCLASS(klass)->m_tbl->num_entries > 0 ||
 			RCLASS(klass)->iv_tbl->num_entries > 1) {
 			rb_raise(rb_eTypeError, "singleton can't be dumped");
 		    }
+		    klass = RCLASS(klass)->super;
 		}
 		path = rb_class2name(klass);
 		w_unique(path, arg);
@@ -798,6 +799,9 @@ r_object(arg)
 	{
 	    VALUE c = rb_path2class(r_unique(arg));
 
+	    if (FL_TEST(c, FL_SINGLETON)) {
+		rb_raise(rb_eTypeError, "singleton can't be loaded");
+	    }
 	    v = r_object(arg);
 	    if (rb_special_const_p(v) || TYPE(v) == T_OBJECT || TYPE(v) == T_CLASS) {
 	      format_error:
@@ -994,6 +998,9 @@ r_object(arg)
 	    VALUE klass;
 
 	    klass = rb_path2class(r_unique(arg));
+	    if (TYPE(klass) != T_CLASS) {
+		rb_raise(rb_eArgError, "dump format error");
+	    }
 	    v = rb_obj_alloc(klass);
 	    if (TYPE(v) != T_OBJECT) {
 		rb_raise(rb_eArgError, "dump format error");
@@ -1047,7 +1054,7 @@ r_object(arg)
 	break;
     }
     if (arg->proc) {
-	rb_funcall(arg->proc, rb_intern("yield"), 1, v);
+	rb_funcall(arg->proc, rb_intern("call"), 1, v);
     }
     return v;
 }

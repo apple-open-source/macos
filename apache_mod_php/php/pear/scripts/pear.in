@@ -1,10 +1,34 @@
-#!@prefix@/bin/php -Cq
-<?php // -*- PHP -*-
+#!/bin/sh
+
+# first find which PHP binary to use
+if test "x$PHP_PEAR_PHP_BIN" != "x"; then
+  PHP="$PHP_PEAR_PHP_BIN"
+else
+  if test "@php_bin@" = '@'php_bin'@'; then
+    PHP=php
+  else
+    PHP="@php_bin@"
+  fi
+fi
+
+# then look for the right pear include dir
+if test "x$PHP_PEAR_INSTALL_DIR" != "x"; then
+  INC="-d include_path=$PHP_PEAR_INSTALL_DIR"
+else
+  if test "@php_dir@" = '@'php_dir'@'; then
+    INC=""
+  else
+    INC="-d include_path=@php_dir@"
+  fi
+fi
+
+exec $PHP -C -q $INC -d output_buffering=1 $0 $@
+<?php
 //
 // +----------------------------------------------------------------------+
-// | PHP version 4.0                                                      |
+// | PHP Version 4                                                        |
 // +----------------------------------------------------------------------+
-// | Copyright (c) 1997-2001 The PHP Group                                |
+// | Copyright (c) 1997-2002 The PHP Group                                |
 // +----------------------------------------------------------------------+
 // | This source file is subject to version 2.02 of the PHP license,      |
 // | that is bundled with this package in the file LICENSE, and is        |
@@ -16,59 +40,65 @@
 // +----------------------------------------------------------------------+
 // | Authors: Stig Bakken <ssb@fast.no>                                   |
 // |          Tomas V.V.Cox <cox@idecnet.com>                             |
+// |                                                                      |
 // +----------------------------------------------------------------------+
 //
+// $Id: pear.in,v 1.1.1.5 2003/07/18 18:07:50 zarzycki Exp $
 
-
-/*
-
-command structure:
-
-* remote queries:
-** list available packages
-** list not-installed packages
-** list upgrades
-
-** list packages by author
-** list packages by category
-** list packages by state
-
-* operations on package files:
-
-* installation commands:
-
-* package generation commands:
-
-
-
+ob_end_clean();
+/**
+ * @nodep Gtk
  */
+if ('@include_path@' != '@'.'include_path'.'@') {
+    ini_set('include_path', '@include_path@');
+}
+ini_set('allow_url_fopen', true);
+set_time_limit(0);
+ob_implicit_flush(true);
+ini_set('track_errors', true);
+ini_set('html_errors', false);
+ini_set('magic_quotes_runtime', false);
+error_reporting(E_ALL & ~E_NOTICE);
+set_error_handler('error_handler');
+
+$pear_package_version = "@pear_version@";
+
 require_once 'PEAR.php';
-require_once 'PEAR/Common.php';
 require_once 'PEAR/Config.php';
-require_once 'PEAR/Remote.php';
-require_once 'PEAR/Registry.php';
+require_once 'PEAR/Command.php';
 require_once 'Console/Getopt.php';
 
-error_reporting(E_ALL);
+PEAR_Command::setFrontendType('CLI');
+$all_commands = PEAR_Command::getCommands();
 
-PEAR::setErrorHandling(PEAR_ERROR_PRINT, "pear: %s\n");
-
-// {{{ config file and option parsing
-
-$options = Console_Getopt::getopt($argv, "c:C:d:D:h?sSqu:v");
+$argv = Console_Getopt::readPHPArgv();
+$progname = basename($argv[0]);
+$options = Console_Getopt::getopt($argv, "c:C:d:D:Gh?sSqu:vV");
 if (PEAR::isError($options)) {
     usage($options);
 }
 
-if (OS_WINDOWS) {
-    $pear_default_config = PHP_SYSCONFDIR.DIRECTORY_SEPARATOR.'pearsys.ini';
-    $pear_user_config = PHP_SYSCONFDIR.DIRECTORY_SEPARATOR.'pear.ini';
-} else {
-    $pear_default_config = PHP_SYSCONFDIR.DIRECTORY_SEPARATOR.'pear.conf';
-    $pear_user_config = $HTTP_ENV_VARS['HOME'].DIRECTORY_SEPARATOR.'.pearrc';
-}
-
 $opts = $options[0];
+
+$fetype = 'CLI';
+if ($progname == 'gpear' || $progname == 'pear-gtk') {
+    $fetype = 'Gtk';
+} else {
+    foreach ($opts as $opt) {
+        if ($opt[0] == 'G') {
+            $fetype = 'Gtk';
+        }
+    }
+}
+PEAR_Command::setFrontendType($fetype);
+$ui = &PEAR_Command::getFrontendObject();
+PEAR::setErrorHandling(PEAR_ERROR_CALLBACK, array($ui, "displayFatalError"));
+
+$pear_user_config = '';
+$pear_system_config = '';
+$store_user_config = false;
+$store_system_config = false;
+$verbose = 1;
 
 foreach ($opts as $opt) {
     switch ($opt[0]) {
@@ -76,276 +106,205 @@ foreach ($opts as $opt) {
             $pear_user_config = $opt[1];
             break;
         case 'C':
-            $pear_default_config = $opt[1];
+            $pear_system_config = $opt[1];
             break;
     }
 }
 
-$config = new PEAR_Config($pear_user_config, $pear_default_config);
-$store_user_config = false;
-$store_default_config = false;
-$verbose = 0;
+$config = &PEAR_Config::singleton($pear_user_config, $pear_system_config);
+$verbose = $config->get("verbose");
+$cmdopts = array();
 
 foreach ($opts as $opt) {
-    $param = $opt[1];
+    $param = !empty($opt[1]) ? $opt[1] : true;
     switch ($opt[0]) {
         case 'd':
             list($key, $value) = explode('=', $param);
-            $config->set($key, $value);
+            $config->set($key, $value, 'user');
             break;
         case 'D':
             list($key, $value) = explode('=', $param);
-            $config->set($key, $value, true);
+            $config->set($key, $value, 'system');
             break;
         case 's':
             $store_user_config = true;
             break;
         case 'S':
-            $store_default_config = true;
+            $store_system_config = true;
             break;
         case 'u':
-            $config->toDefault($param);
+            $config->remove($param, 'user');
             break;
         case 'v':
-            $verbose++;
+            $config->set('verbose', $config->get('verbose') + 1);
             break;
         case 'q':
-            $verbose--;
+            $config->set('verbose', $config->get('verbose') - 1);
+            break;
+        case 'V':
+            usage(null, 'version');
+        default:
+            // all non pear params goes to the command
+            $cmdopts[$opt[0]] = $param;
             break;
     }
 }
 
-if ($store_default_config) {
-    if (@is_writeable($pear_default_config)) {
-        $config->writeConfigFile($pear_default_config, 'default');
-    } else {
-        die("You don't have write access to $pear_default_config, exiting!\n");
-    }
+if ($store_system_config) {
+    $config->store('system');
 }
 
 if ($store_user_config) {
-    $config->writeConfigFile($pear_user_config, 'userdefined');
+    $config->store('user');
 }
 
-$fallback_config = array(
-    'master_server' => 'pear.php.net',
-    'php_dir'       => PEAR_INSTALL_DIR,
-    'ext_dir'       => PEAR_EXTENSION_DIR,
-    'doc_dir'       => '',
-    'verbose'       => true,
-);
-$fallback_done = array();
+$command = (isset($options[1][0])) ? $options[1][0] : null;
 
-foreach ($fallback_config as $key => $value) {
-    if (!$config->isDefined($key)) {
-        $config->set($key, $value);
-        $fallback_done[$key] = true;
+if (empty($command) && ($store_user_config || $store_system_config)) {
+    exit;
+}
+
+if ($fetype == 'Gtk') {
+    Gtk::main();
+} else do {
+    if ($command == 'help') {
+        usage(null, @$options[1][1]);
     }
-}
 
-//$verbose    = $config->get("verbose");
-$script_dir = $config->get("php_dir");
-$ext_dir    = $config->get("ext_dir");
-$doc_dir    = $config->get("doc_dir");
-
-$command = (isset($options[1][1])) ? $options[1][1] : null;
-$rest = array_slice($options[1], 2);
-
-$command_options = array(
-    "list" => "v",
-);
-
-if (isset($command_options[$command])) {
-    $tmp = Console_Getopt::getopt($rest, $command_options[$command]);
-    if (PEAR::isError($tmp)) {
-        usage($tmp);
+    PEAR::pushErrorHandling(PEAR_ERROR_RETURN);
+    $cmd = PEAR_Command::factory($command, $config);
+    PEAR::popErrorHandling();
+    if (PEAR::isError($cmd)) {
+        usage(null, @$options[1][1]);
     }
-    $cmdopt = $tmp[0];
-    $cmdargs = $tmp[1];
-} else {
-    $cmdopt = array();
-    $cmdargs = $rest;
-}
 
-
-// }}}
-
-switch ($command) {
-    // {{{ install
-
-    case 'install': {
-        include_once 'PEAR/Installer.php';
-        $pkgfile = $options[1][2];
-        $installer =& new PEAR_Installer($script_dir, $ext_dir, $doc_dir);
-        $installer->setErrorHandling(PEAR_ERROR_DIE,
-                                     basename($pkgfile) . ": %s\n");
-        $installer->debug = $verbose;
-        $installer->install($pkgfile);
-        print "install ok\n";
+    $short_args = $long_args = null;
+    PEAR_Command::getGetoptArgs($command, $short_args, $long_args);
+    if (PEAR::isError($tmp = Console_Getopt::getopt($options[1], $short_args, $long_args))) {
         break;
     }
-
-    // }}}
-    // {{{ package
-
-    case 'package': {
-        include_once 'PEAR/Packager.php';
-        $pkginfofile = isset($options[1][2]) ? $options[1][2] : null;
-        $packager =& new PEAR_Packager($script_dir, $ext_dir, $doc_dir);
-        $packager->setErrorHandling(PEAR_ERROR_DIE, "pear page: %s\n");
-        $packager->debug = $verbose;
-        if (PEAR::isError($packager->Package($pkginfofile))) {
-            print "\npackage failed\n";
+    list($tmpopt, $params) = $tmp;
+    $opts = array();
+    foreach ($tmpopt as $foo => $tmp2) {
+        list($opt, $value) = $tmp2;
+        if ($value === null) {
+            $value = true; // options without args
+        }
+        if (strlen($opt) == 1) {
+            $cmdoptions = $cmd->getOptions($command);
+            foreach ($cmdoptions as $o => $d) {
+                if (@$d['shortopt'] == $opt) {
+                    $opts[$o] = $value;
+                }
+            }
         } else {
-            print "package ok\n";
-        }
-        break;
-    }
-
-    // }}}
-    // {{{ info
-
-    case 'info': {
-        $parser = new PEAR_Common;
-        $parser->setErrorHandling(PEAR_ERROR_DIE, "pear info: %s\n");
-        $info = $parser->infoFromTgzFile($options[1][2]);
-        unset($info['filelist']);
-        present_array($info);
-        break;
-    }
-
-    // }}}
-    // {{{ list-installed
-
-    case 'list-installed': {
-        $reg = new PEAR_Registry;
-        $installed = $reg->packageInfo();
-        $i = $j = 0;
-        print "Installed packages:\n===================\n";
-        foreach ($installed as $package) {
-            if ($i++ % 20 == 0) {
-                if ($j++ > 0) {
-                    print "\n";
-                }
-                printf("%-20s %-10s %s\n",
-                       "Package", "Version", "State");
-                print str_repeat("-", 75)."\n";
+            if (substr($opt, 0, 2) == '--') {
+                $opts[substr($opt, 2)] = $value;
             }
-            printf("%-20s %-10s %s\n", $package['package'],
-                   $package['version'], $package['release_state']);
         }
-        break;
     }
-
-    // }}}
-    // {{{ list-available
-
-    case 'list-available': {
-        $remote = new PEAR_Remote($config);
-        $result = $remote->call('package.listAll');
-        $i = $j = 0;
-        print "Available packages:\n===================\n";
-        foreach ($result as $package) {
-            if ($i++ % 20 == 0) {
-                if ($j++ > 0) {
-                    print "\n";
-                }
-                printf("%-20s %-10s %-15s %s\n",
-                       "Package", "Stable", "Lead", "Category");
-                print str_repeat("-", 75)."\n";
-            }
-            $stable = $package['stable'];
-            printf("%-20s %-10s %-15s %s\n", $package['name'],
-                   $stable ? $stable : "???",
-                   $package['lead'], $package['category']);
-        }
-        break;
+    $ok = $cmd->run($command, $opts, $params);
+    if ($ok === false) {
+        PEAR::raiseError("unknown command `$command'");
     }
-
-    // }}}
-    // {{{ show-config
-
-    case 'show-config': {
-        $keys = $config->getKeys();
-        foreach ($keys as $key) {
-            $value = $config->get($key);
-            $xi = "";
-            if ($config->isDefaulted($key)) {
-                $xi .= " (default)";
-            }
-            if ($fallback_done[$key]) {
-                $xi .= " (fallback)";
-            }
-            printf("%s = %s%s\n", $key, $value, $xi);
-        }
-        break;
-    }
-
-    // }}}
-    default: {
-        if (!$store_default_config && !$store_user_config) {
-            usage();
-        }
-        break;
-    }
-}
+} while (false);
 
 // {{{ usage()
 
-function usage($error = null)
+function usage($error = null, $helpsubject = null)
 {
+    global $progname, $all_commands;
     $stderr = fopen('php://stderr', 'w');
     if (PEAR::isError($error)) {
-        fputs($stderr, $error->getMessage());
+        fputs($stderr, $error->getMessage() . "\n");
     } elseif ($error !== null) {
-        fputs($stderr, $error);
+        fputs($stderr, "$error\n");
     }
-    fputs($stderr,
-          "Usage: pear [options] command <parameters>\n".
-          "Options:\n".
-          "     -v         increase verbosity level (default 1)\n".
-          "     -q         be quiet, decrease verbosity level\n".
-          "     -c file    find user configuration in `file'\n".
-          "     -C file    find system configuration in `file'\n".
-          "     -d foo=bar set user config variable `foo' to `bar'\n".
-          "     -D foo=bar set system config variable `foo' to `bar'\n".
-          "     -s         store user configuration\n".
-          "     -s         store system configuration\n".
-          "     -u foo     unset `foo' in the user configuration\n".
-          "     -h, -?     display help/usage (this message)\n".
-          "Commands:\n".
-          "   install <package file>\n".
-          "   package [package info file]\n".
-          "   list-installed\n".
-          "   list-available\n".
-          "   info\n".
-          "   show-config\n".
-          "\n");
+    if ($helpsubject != null) {
+        $put = cmdHelp($helpsubject);
+    } else {
+        $put =
+            "Usage: $progname [options] command [command-options] <parameters>\n".
+            "Type \"$progname help options\" to list all options.\n".
+            "Type \"$progname help <command>\" to get the help for the specified command.\n".
+            "Commands:\n";
+        $maxlen = max(array_map("strlen", $all_commands));
+        $formatstr = "%-{$maxlen}s  %s\n";
+        ksort($all_commands);
+        foreach ($all_commands as $cmd => $class) {
+            $put .= sprintf($formatstr, $cmd, PEAR_Command::getDescription($cmd));
+        }
+    }
+    fputs($stderr, "$put\n");
     fclose($stderr);
     exit;
 }
 
-// }}}
-// {{{ present_array()
-
-function present_array(&$arr, $keys = null)
+function cmdHelp($command)
 {
-    if ($keys === null) {
-        $keys = array_keys($arr);
-    }
-    $longest_key = max(array_map("strlen", array_keys($arr)));
-    $format_string = "%{$longest_key}s : %s\n";
-    foreach ($keys as $k) {
-        if (is_array($arr[$k])) {
-            $v = implode(", ", $arr[$k]);
-        } else {
-            $v = $arr[$k];
+    global $progname, $all_commands, $config;
+    if ($command == "options") {
+        return
+        "Options:\n".
+        "     -v         increase verbosity level (default 1)\n".
+        "     -q         be quiet, decrease verbosity level\n".
+        "     -c file    find user configuration in `file'\n".
+        "     -C file    find system configuration in `file'\n".
+        "     -d foo=bar set user config variable `foo' to `bar'\n".
+        "     -D foo=bar set system config variable `foo' to `bar'\n".
+        "     -G         start in graphical (Gtk) mode\n".
+        "     -s         store user configuration\n".
+        "     -S         store system configuration\n".
+        "     -u foo     unset `foo' in the user configuration\n".
+        "     -h, -?     display help/usage (this message)\n".
+        "     -V         version information\n";
+    } elseif ($command == "shortcuts") {
+        $sc = PEAR_Command::getShortcuts();
+        $ret = "Shortcuts:\n";
+        foreach ($sc as $s => $c) {
+            $ret .= sprintf("     %-8s %s\n", $s, $c);
         }
-        printf($format_string, $k, $v);
+        return $ret;
+
+    } elseif ($command == "version") {
+        return "PEAR Version: ".$GLOBALS['pear_package_version']."\nPHP Version: ".phpversion()."\nZend Engine Version: ".zend_version();
+
+    } elseif ($help = PEAR_Command::getHelp($command)) {
+        if (is_string($help)) {
+            return "$progname $command [options] $help\n";
+        }
+        if ($help[1] === null) {
+            return "$progname $command $help[0]";
+        } else {
+            return "$progname $command [options] $help[0]\n$help[1]";
+        }
     }
+    return "No such command";
 }
 
 // }}}
+
+function error_handler($errno, $errmsg, $file, $line, $vars) {
+    if (error_reporting() == 0) {
+        return; // @silenced error
+    }
+    $errortype = array (
+        1   =>  "Error",
+        2   =>  "Warning",
+        4   =>  "Parsing Error",
+        8   =>  "Notice",
+        16  =>  "Core Error",
+        32  =>  "Core Warning",
+        64  =>  "Compile Error",
+        128 =>  "Compile Warning",
+        256 =>  "User Error",
+        512 =>  "User Warning",
+        1024=>  "User Notice"
+    );
+    $prefix = $errortype[$errno];
+    $file = basename($file);
+    print "\n$prefix: $errmsg in $file on line $line\n";
+}
 
 
 /*
@@ -353,6 +312,9 @@ function present_array(&$arr, $keys = null)
  * tab-width: 4
  * c-basic-offset: 4
  * indent-tabs-mode: nil
+ * mode: php
  * End:
  */
+// vim600:syn=php
+
 ?>

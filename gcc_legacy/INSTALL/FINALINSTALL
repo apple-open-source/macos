@@ -1,0 +1,29 @@
+
+                             Final install egcs
+                                      
+   Now that egcs has been built and tested, you can install it with `cd
+   _objdir_; make install' for a native compiler or `cd _objdir_; make
+   install LANGUAGES="c c++"' for a cross compiler (note installing cross
+   compilers will be easier in the next release!).
+   
+   That step completes the installation of egcs; user level binaries can
+   be found in _prefix_/bin where _prefix_ is the value you specified
+   with the --prefix to configure (or /usr/local by default).
+   
+   If you don't mind, please quickly review the [1]build status page. If
+   your system is not listed, send a note to [2]egcs@egcs.cygnus.com
+   indicating that you successfully built and installed egcs. Include the
+   output from running _srcdir_/config.guess. (Do not send us the
+   config.guess file itself, just the output from running it!)
+   
+   If you find a bug in egcs, please report it to
+   [3]egcs-bugs@egcs.cygnus.com.
+     _________________________________________________________________
+   
+   _Last modified on March 9, 1999._
+
+References
+
+   1. http://egcs.cygnus.com/egcs-1.1/buildstat.html
+   2. mailto:egcs@egcs.cygnus.com
+   3. mailto:egcs-bugs@egcs.cygnus.com

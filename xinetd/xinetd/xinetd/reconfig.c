@@ -40,7 +40,8 @@
 #include "options.h"
 
 
-static status_e readjust(struct service *sp, struct service_config **new_conf_ptr) ;
+static status_e readjust(struct service *sp, 
+		struct service_config **new_conf_ptr) ;
 static void swap_defaults(struct configuration *confp) ;
 
 #define SWAP( x, y, temp )         (temp) = (x), (x) = (y), (y) = (temp)
@@ -96,9 +97,6 @@ void hard_reconfig( void )
    {
       char *sid = SVC_ID( osp ) ;
       boolean_e drop_service ;
-
-      if ( ! SVC_IS_AVAILABLE( osp ) )
-         continue ;
 
       /*
        * Check if this service is in the new Lconf
@@ -245,6 +243,12 @@ static void sendsig( struct server *serp, int sig )
          if (!killed)
             msg( LOG_WARNING, func, "Server %d did not exit after SIGKILL", 
 	          pid ) ;
+         else {
+            struct server *serp;
+            if( (serp = server_lookup(pid)) != NULL ) {
+               server_end(serp);
+            }
+         }
       }
    } 
    else if ( pid != 0 )
@@ -286,6 +290,19 @@ static void stop_interception( struct service *sp )
    deliver_signal( sp, INTERCEPT_SIG ) ;
 }
 
+/*
+ * Stop logging. svc_activate starts logging and will leak a file
+ * descriptor and memory if this is not called prior.
+ */
+static void stop_log( struct service *sp, 
+                              struct service_config *old_conf )
+{
+   struct log *lp = SC_LOG( old_conf ) ;
+
+   if ( LOG_GET_TYPE( lp ) != L_NONE && SVC_IS_LOGGING( sp ) )
+      log_end( lp, SVC_LOG( sp ) ) ;
+   SVC_LOG( sp ) = NULL ;
+}
 
 /*
  * Stop any logging and restart if necessary.
@@ -295,12 +312,7 @@ static void stop_interception( struct service *sp )
 static status_e restart_log( struct service *sp, 
                               struct service_config *old_conf )
 {
-   struct log *lp = SC_LOG( old_conf ) ;
-
-   if ( LOG_GET_TYPE( lp ) != L_NONE && SVC_IS_LOGGING( sp ) )
-      log_end( lp, SVC_LOG( sp ) ) ;
-   SVC_LOG( sp ) = NULL ;
-   
+   stop_log( sp, old_conf ); 
    return( log_start( sp, &SVC_LOG( sp ) ) ) ;
 }
 
@@ -414,17 +426,36 @@ static status_e readjust( struct service *sp,
       }
    }
 
-   /* See if the bind address was specified in both the old and new config,
-    * then if it changed, readjust the service.
+   /* 
+    * See if the bind address was specified in both the old and new config,
+    * then if it changed, readjust the service. The algorithm is check to 
+    * see if they are in the same address family, if so start a simple 
+    * comparison based on the address family. If IPv4, the addresses can be 
+    * compared directly, otherwise use the IPv6 macro. If they are not the 
+    * same, terminate & restart the service. 
     */
    if( (old_conf->sc_bind_addr != NULL) && (new_conf->sc_bind_addr != NULL) ) {
-      if( memcmp( old_conf->sc_bind_addr, new_conf->sc_bind_addr, 
-            sizeof(union xsockaddr)) != 0) {
+      int same = 0;
 
+      if ( SA(old_conf->sc_bind_addr)->sa_family == 
+           SA(new_conf->sc_bind_addr)->sa_family ) {
+         if ( SA(old_conf->sc_bind_addr)->sa_family == AF_INET ) {
+            if ( SAIN(old_conf->sc_bind_addr)->sin_addr.s_addr == 
+                 SAIN(new_conf->sc_bind_addr)->sin_addr.s_addr)
+               same = 1;
+         }
+         else if ( IN6_ARE_ADDR_EQUAL(
+                  &SAIN6(old_conf->sc_bind_addr)->sin6_addr, 
+                  &SAIN6(new_conf->sc_bind_addr)->sin6_addr) )
+            same = 1;
+      }
+      
+      if ( !same ) {
          terminate_servers( sp );
-         svc_deactivate(sp);
-         svc_activate(sp);
-         return( restart_log( sp, old_conf ) ) ;
+         svc_deactivate( sp );
+         stop_log( sp, old_conf ); /* svc_activate re-starts logging */
+         svc_activate( sp );
+         return OK;
       }
    }
 
@@ -434,16 +465,18 @@ static status_e readjust( struct service *sp,
    if( (old_conf->sc_bind_addr == NULL) && (new_conf->sc_bind_addr != NULL) ) {
       terminate_servers( sp );
       svc_deactivate(sp);
+      stop_log( sp, old_conf ); /* svc_activate re-starts logging */
       svc_activate(sp);
-      return( restart_log( sp, old_conf ) ) ;
+      return OK;
    }
 
    if( (SC_IPV4(old_conf) && SC_IPV6(new_conf)) || 
          (SC_IPV6(old_conf) && SC_IPV4(new_conf)) ) {
       terminate_servers( sp );
       svc_deactivate(sp);
+      stop_log( sp, old_conf ); /* svc_activate re-starts logging */
       svc_activate(sp);
-      return( restart_log( sp, old_conf ) ) ;
+      return OK;
    }
 
    return( restart_log( sp, old_conf ) ) ;

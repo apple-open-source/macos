@@ -1,4 +1,6 @@
-dnl $Id: config.m4,v 1.1.1.3 2001/07/19 00:19:22 zarzycki Exp $
+dnl
+dnl $Id: config.m4,v 1.1.1.5 2003/03/11 01:09:25 zarzycki Exp $
+dnl
 
 PHP_ARG_WITH(mcal,for MCAL support,
 [  --with-mcal[=DIR]       Include MCAL support.])
@@ -23,26 +25,21 @@ if test "$PHP_MCAL" != "no"; then
     fi
   done
 
-  if test ! -f "$MCAL_INCLUDE/mcal.h"; then
-    AC_MSG_ERROR(Unable to locate your libmcal header files - mcal.h should be in the directory you specify or in the include/ subdirectory below it - default search location is $MCAL_DEFAULT_SEARCH)
-  fi
-
-  if test ! -f "$MCAL_INCLUDE/cal_misc.h"; then
-    AC_MSG_ERROR(Unable to locate your libmcal header files - cal_misc.h should be in the directory you specify or in the include/ subdirectory below it - default search location is $MCAL_DEFAULT_SEARCH)
-  fi
-
-  if test ! -f "$MCAL_INCLUDE/icalroutines.h"; then
-    AC_MSG_ERROR(Unable to locate your libmcal header files - icalroutines.h should be in the directory you specify or in the include/ subdirectory below it - default search location is $MCAL_DEFAULT_SEARCH)
-  fi
+  for i in mcal cal_misc icalroutines; do
+    if test ! -f "$MCAL_INCLUDE/$i.h"; then
+      AC_MSG_ERROR(Unable to locate your libmcal header files - $i.h should be in the directory you specify or in the include/ subdirectory below it - default search location is $MCAL_DEFAULT_SEARCH)
+    fi
+  done
 
   if test ! -f "$MCAL_LIBRARY/libmcal.a"; then
     AC_MSG_ERROR(Unable to locate your libmcal library files - libmcal.a should be in the directory you specify or in the lib/ subdirectory below it - default search location is $MCAL_DEFAULT_SEARCH)
   fi
 
   PHP_ADD_INCLUDE($MCAL_INCLUDE)
-  PHP_ADD_LIBRARY_WITH_PATH(mcal, $MCAL_LIBRARY, MCAL_SHARED_LIBADD)
+  PHP_ADD_LIBPATH($MCAL_LIBRARY,MCAL_SHARED_LIBADD)
+  PHP_ADD_LIBRARY_DEFER(mcal,[],MCAL_SHARED_LIBADD)
   PHP_SUBST(MCAL_SHARED_LIBADD)
   AC_DEFINE(HAVE_MCAL,1,[ ])
-  PHP_EXTENSION(mcal,$ext_shared)
+  PHP_NEW_EXTENSION(mcal, php_mcal.c, $ext_shared)
 fi
 

@@ -1,0 +1,186 @@
+JBoss-2.4.1_Jetty-3.1.RC9
+
+-----------------------------------------------------------------------
+
+Release Candidate 1. (10/09/2001)
+
+Jetty3          - Jetty-3.1.RC9
+Jetty3Extra/jmx - Jetty3Extra-0.0.7
+JBoss           - JBoss-2.4.1
+JBoss-Jetty     - JBoss/contrib/jetty (cvs update -d -D 'September 10, 2001 11:55pm BST')
+
+- upgrade JBoss and Jetty components
+- adapt to Jetty's com->org repackaging
+- adapt to buildmagic/RabbitHole changes
+- relocate jboss-web.dtd
+- for Jetty changes see jetty/VERSION.TXT
+
+-----------------------------------------------------------------------
+
+JBoss-2.4.0_Jetty-3.1.RC8
+
+-----------------------------------------------------------------------
+
+Release Candidate 1. (22/08/2001)
+
+Jetty3          - Jetty-3.1.RC8
+Jetty3Extra/jmx - Jetty3Extra-0.0.6
+JBoss           - JBoss-2.4.0
+JBoss-Jetty     - JBoss/contrib/jetty (cvs update -d -D 'August 22, 2001 10:30pm BST')
+
+- move SetupHandler onto latest Jetty API
+- upgrade to latest JBoss and Jetty
+
+- for Jetty changes see jetty/VERSION.TXT
+
+-----------------------------------------------------------------------
+
+JBoss-2.4.0.26_BETA-Jetty-3.1.RC7
+
+-----------------------------------------------------------------------
+
+Release Candidate 1. (12/08/2001)
+
+Jetty3          - Jetty-3.1.RC7 (cvs update -d -D 'August 9, 2001 10:20pm BST')
+Jetty3Extra/jmx - Jetty3Extra-0.0.5
+JBoss           - JBoss-2.4.0.26_BETA
+JBoss-Jetty     - JBoss/contrib/jetty (cvs update -d -D 'August 9, 2001 10:20pm BST')
+
+- Fix '/' context deployment problems
+- Choose a more integrated MBean Domain name
+- Move logging and JBossLogSink directly onto Log4J
+- General code tidy up
+
+- for Jetty changes see jetty/VERSION.TXT
+
+-----------------------------------------------------------------------
+
+JBoss-2.4.0.23_BETA-Jetty-3.1.RC6
+
+-----------------------------------------------------------------------
+
+Release Candidate 1. (24/07/2001)
+
+Jetty3          - Jetty-3.1.RC6
+Jetty3Extra/jmx - Jetty3Extra-0.0.5
+JBoss           - JBoss-2.4.0.23_BETA
+JBoss-Jetty     - CVS of 25/07/2001
+
+- upgrade to latest versions of JBoss and Jetty
+- only ship relevant JMX module from Jetty3Extra
+- for Jetty changes see jetty/VERSION.TXT
+
+-----------------------------------------------------------------------
+
+JBoss-2.4.0BETA_Jetty-3.1.RC5
+
+-----------------------------------------------------------------------
+
+Release Candidate 3. (05/07/2001)
+
+Jetty3      - CVS of 07/07/2001 12:00 BST
+Jetty3Extra - CVS of 07/07/2001 12:00 BST
+JBoss       - 2.4.0BETA (downloaded from jboss.org)
+JBoss-Jetty - CVS of 07/07/2001
+
+Changes
+-------
+
+Brett has fixed:
+
+- null null null, again !
+- some Jive issues
+
+-----------------------------------------------------------------------
+
+Release Candidate 2. (05/07/2001)
+
+Jetty3      - CVS of 30/06/2001 12:00 BST
+Jetty3Extra - CVS of 30/06/2001 12:00 BST
+JBoss       - 2.4.0BETA (downloaded from jboss.org)
+JBoss-Jetty - CVS of 06/07/2001
+
+Changes
+-------
+
+- in JBoss-2.2.2-Jetty-3.1.RC5 I broke webdefault config - now fixed
+- I've added the Admin Servlet to the demo config file - /Admin/*
+
+-----------------------------------------------------------------------
+
+Release Candidate 1. (30/06/2001)
+
+Jetty3      - CVS of 30/06/2001 12:00 BST
+Jetty3Extra - CVS of 30/06/2001 12:00 BST
+JBoss       - 2.4.0BETA (downloaded from jboss.org)
+JBoss-Jetty - CVS of 30/06/2001
+
+Changes
+-------
+
+- JBossUserRealm fixed to work with 2.4
+- multiple Jetty configs no longer supported - would not have worked anyway
+- jetty.home now configured, instead of worked out at runtime.
+
+-----------------------------------------------------------------------
+
+JBoss-2.2.2-Jetty-3.1.RC5
+
+-----------------------------------------------------------------------
+
+And now number 5
+
+This will hopefully fix a problem that (4) introduced, where
+JettyService does not start Jetty because it thinks Jetty has already
+been started.
+
+All other details are the same.(except contrib/jetty (cvs of 23/6/2001 12:00BST))
+
+-----------------------------------------------------------------------
+
+Yet another 2.2.2 based release ! - number 4.
+
+JBoss-2.2.2
+Jetty-3.1.RC5 (+ a few changes - actually CVS of 21/6/2001)
+Jetty3Extra-0.0.5 (ditto)
+contrib/jetty (cvs of 22/6/2001 01:00BST)
+
+This one does not attempt to externalise internal Jetty MBeans, as
+this is resulting in a tussle for their lifecycle management with
+JBoss. (I have added a means of configuring whether to PublishMBeans
+or not).
+
+As soon as a JBoss release with the necessary support comes out, I
+shall put this back in.
+
+Thanks to :
+
+David Castro-Diephouse
+Scott Stark
+Matt Tilchen (who reported a problem that I am hoping this will fix...)
+
+For their help in finding this problem.
+
+
+Jules
+
+-----------------------------------------------------------------------
+
+This is third shot at this release, hopefully fixing the following
+problems with the first release:
+
+- The dreaded "null null null"
+- Preliminary JAAS integration now included - Thanks Scott
+- The need to get the tools.jar into you CLASSPATH for JSPs
+- The lack of Jetty javadoc
+- A missing DTD resolution
+- NullPointerException on JBoss shutdown
+
+-----------------------------------------------------------------------
+
+This release comprises:
+
+JBoss-2.2.2
+Jetty-3.1.RC5 (+ a few changes - actually CVS of 27/5/2001)
+Jetty3Extra-0.0.5 (ditto)
+contrib/jetty (cvs of 15/6/2001 02:00BST)

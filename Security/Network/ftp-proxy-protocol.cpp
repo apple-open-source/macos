@@ -32,7 +32,7 @@ namespace Network {
 FTPProxyProtocol::FTPProxyProtocol(Manager &mgr, const HostTarget &proxy)
     : FTPProtocol(mgr), host(proxy.defaultPort(defaultFtpPort))
 {
-    debug("uaproxy", "%p ftp proxy for %s", this, host.urlForm().c_str());
+    secdebug("uaproxy", "%p ftp proxy for %s", this, host.urlForm().c_str());
 }
 
 

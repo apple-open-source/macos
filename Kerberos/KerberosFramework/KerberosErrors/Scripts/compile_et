@@ -1,0 +1,276 @@
+#!/usr/bin/perl
+#
+# Copyright 2002 by the Massachusetts Institute of Technology
+#
+# All rights reserved.
+#
+# Permission to use, copy, modify, and distribute this software and its
+# documentation for any purpose and without fee is hereby granted,
+# provided that the above copyright notice appear in all copies and that
+# both that copyright notice and this permission notice appear in
+# supporting documentation, and that the name of the Massachusetts
+# Institute of Technology (M.I.T.) not be used in advertising or publicity
+# pertaining to distribution of the software without specific, written
+# prior permission.
+#
+# M.I.T. DISCLAIMS ALL WARRANTIES WITH REGARD TO THIS SOFTWARE, INCLUDING
+# ALL IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS, IN NO EVENT SHALL
+# M.I.T. BE LIABLE FOR ANY SPECIAL, INDIRECT OR CONSEQUENTIAL DAMAGES OR
+# ANY DAMAGES WHATSOEVER RESULTING FROM LOSS OF USE, DATA OR PROFITS,
+# WHETHER IN AN ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION,
+# ARISING OUT OF OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS
+# SOFTWARE.
+
+use strict;
+use integer;
+
+#
+# Tables and constants used to calculate the base error code from the name
+#
+my $errorCodeRange = 8;
+my $charShift = 6;
+my %charToNumber = (
+	'A' =>  1, 'B' =>  2, 'C' =>  3, 'D' =>  4, 'E' =>  5, 'F' =>  6, 'G' =>  7, 
+	'H' =>  8, 'I' =>  9, 'J' => 10, 'K' => 11, 'L' => 12, 'M' => 13, 'N' => 14, 
+	'O' => 15, 'P' => 16, 'Q' => 17, 'R' => 18, 'S' => 19, 'T' => 20, 'U' => 21, 
+	'V' => 22, 'W' => 23, 'X' => 24, 'Y' => 25, 'Z' => 26, 
+
+	'a' => 27, 'b' => 28, 'c' => 29, 'd' => 30, 'e' => 31, 'f' => 32, 'g' => 33, 
+	'h' => 34, 'i' => 35, 'j' => 36, 'k' => 37, 'l' => 38, 'm' => 39, 'n' => 40,
+	'o' => 41, 'p' => 42, 'q' => 43, 'r' => 44, 's' => 45, 't' => 46, 'u' => 47, 
+	'v' => 48, 'w' => 49, 'x' => 50, 'y' => 51, 'z' => 52, 
+	
+	'0' => 53, '1' => 54, '2' => 55, '3' => 56, '4' => 57, '5' => 58, '6' => 59, 
+	'7' => 60, '8' => 61, '9' => 62, '_' => 63,
+);
+
+#
+# Local variables:
+#
+my $etOutDir;
+my $stringsOutDir;
+my $etManager;
+my $etBase;
+my $etFile;
+my $etName;
+my $etBuffer;
+
+#
+# Argument parsing:
+#
+while (my $arg = shift @ARGV) {
+	$_ = $arg;
+	if    (/^--etout$/)      { $etOutDir = shift @ARGV; }
+	elsif (/^--stringsout$/) { $stringsOutDir = shift @ARGV; }
+	elsif (/^--manager$/)    { $etManager = shift @ARGV; }
+	elsif (/^--base$/)       { $etBase = shift @ARGV; }
+    elsif (/^--help$/)       { print "$0: Usage: [--etout outputDirectory] ";
+                               print "[--stringsout outputStringsDirectory] ";
+                               print "[--base errorBase] [-manager managerName] ";
+                               print "errorTable\n";
+                               exit 0; }
+    else                    { $etFile = $arg; }
+}
+if ($etFile eq "") {
+    die "No error table specified\n";
+}
+
+#
+# Pull out the base name of error table file:
+#
+$etFile =~ /([^\/]+)\.et$/ or die "Invalid error table: '$etFile'\n";
+my $outFilePrefix = $1;
+
+#
+# If the output directories were not specified, use the working directory:
+#
+if ($etOutDir eq "") {
+    $etOutDir = `pwd`;
+    chomp $etOutDir;
+}
+if ($etOutDir =~ /[^\/]+$/) {
+    $etOutDir .= "/";  # Add the tailing '/'
+}
+if ($stringsOutDir eq "") {
+    $stringsOutDir = $etOutDir;
+}
+if ($stringsOutDir =~ /[^\/]+$/) {
+    $stringsOutDir .= "/";  # Add the tailing '/'
+}
+
+
+#
+# The output files:
+#
+my $outHeader = "${etOutDir}${outFilePrefix}.h";
+my $outSource = "${etOutDir}${outFilePrefix}.c";
+my $outStrings = "${stringsOutDir}${outFilePrefix}.strings";
+
+
+#
+# Read in the error table:
+#
+open ETFILE, "${etFile}" or die "Unable to open '${etFile}': $!\n";
+{
+    undef $/; # Ignore end-of-line delimiters in the file    
+    $etBuffer = " " . <ETFILE> . " ";
+}
+close ETFILE;
+
+# Get rid of comments
+$etBuffer =~ s@\#.*?\n@\n@xg;
+
+# Surround with newlines so we can search using newlines as delimiters
+# for the commands which must be on a line by themselves.
+$etBuffer = "\n" . $etBuffer . "\n";
+
+# Pull out the header information:
+# We also support "error_table_base" for the base code and
+# "error_table_manager" for the manager name in the .strings file
+$_ = $etBuffer;
+if (/\n\s*(error_table|et)\s+(\w+)\s*\n/)                     { $etName = $2; } 
+if (/\n\s*(error_table_base|et_base)\s+(-?[0-9]+)\s*\n/)      { $etBase ||= $2; }
+if (/\n\s*(error_table_manager|et_manager)\s+"([^"]+)"\s*\n/) { $etManager ||= $2; }
+
+#
+# Make sure we got a valid error table name:
+#
+$etName || die "Error table '$etFile' missing error_table statement.\n";
+$etManager ||= $etName;
+
+$etName =~ /^[A-Za-z]\w*/ or die "Error table name must being with a letter\n";
+if (length($etName) > 4) {
+      print "Error table name '$etName' must be 4 characers or less; truncating...\n";
+      $etName = substr($etName, 0, 4);
+}
+
+#
+# Calculate the base error code from the error table name
+# if we do not already have a base error code.
+#
+if (!$etBase) {
+    $etBase = 0;
+    for (my $i = 0; $i < length($etName); $i++) {
+        $etBase <<= $charShift;
+        $etBase += $charToNumber{ substr($etName, $i, 1) };
+    }
+    $etBase <<= $errorCodeRange;
+    printf "Error Table \"%s\" has base $etBase\n", $etName, $etBase;
+}
+
+#
+# Remove the last "error_table <name>" and everything before it.
+#
+my @errorTableSplit = split /\n\s*(error_table|et\s+\w+)\s*\n/, $etBuffer;
+$etBuffer = pop @errorTableSplit or die "$0: Expected error_table in '$etFile'\n";  
+
+#
+# Remove the first "end" and everything after it.
+#
+my @endSplit = split /\n\s*(end)\s*\n/, $etBuffer;
+$etBuffer = shift @endSplit or die "$0: Unexpected end of file '$etFile'\n";
+
+# Convert runs of white space (including newlines) into single spaces
+$etBuffer = " " . $etBuffer . " ";  # prepare for \s+ in split below
+$etBuffer =~ tr! \t\n\r! !s;
+
+#
+# Get the error codes:  
+#
+my @errorCodes = split /\s+(error_code|ec|index)\s+/, $etBuffer;
+
+#
+# Create the output files:
+#
+open OUTHEADER, ">${outHeader}" or 
+    die "Unable to open '${outHeader}' for writing: $!\n";
+open OUTSOURCE, ">${outSource}" or 
+    die "Unable to open '${outSource}' for writing: $!\n";
+open OUTSTRINGS, ">${outStrings}" or
+    die "Unable to open '${outStrings}' for writing: $!\n";
+
+#
+# Created the "auto-generated" preludes:
+#
+print OUTHEADER "/*\n";
+print OUTHEADER " * ${outFilePrefix}.h:\n";
+print OUTHEADER " * This file is automatically generated; please do not edit it.\n";
+print OUTHEADER " */\n\n";
+print OUTHEADER "#ifndef __ERROR_TABLE_${etName}_H__\n";
+print OUTHEADER "#define __ERROR_TABLE_${etName}_H__\n\n";
+print OUTHEADER "#include <com_err.h>\n\n";
+print OUTHEADER "#ifdef __cplusplus\n";
+print OUTHEADER "extern \"C\" {\n";
+print OUTHEADER "#endif\n\n";
+print OUTHEADER "extern const struct error_table et_${etName}_error_table;\n\n";
+print OUTHEADER "#define initialize_${etName}_error_table()\n\n";
+
+print OUTSOURCE "/*\n";
+print OUTSOURCE " * ${outFilePrefix}.c:\n";
+print OUTSOURCE " * This file is automatically generated; please do not edit it.\n";
+print OUTSOURCE " */\n\n";
+print OUTSOURCE "#include <sys/types.h>\n";
+print OUTSOURCE "#include \"${outFilePrefix}.h\"\n\n";
+print OUTSOURCE "static const char * const text[] = {\n";
+
+#
+# Loop over the error codes, generating the lines for the output files:
+#
+my $errorCount = 0;
+my $i;
+
+for ($i = 0; $i < scalar(@errorCodes); $i++) {
+    my $errorCode = $errorCodes[$i];
+    if ($errorCode eq "error_code" || $errorCode eq "ec") {
+        my $arguments = $errorCodes[$i+1];
+        if ($arguments =~ /^\s*(\w+)\s*,\s*"([^"]*)"\s*$/) {
+            my $errorNameString = $1;
+            my $messageString = $2;
+            my $code = $etBase + $errorCount;
+
+            # Add the error to the strings file:
+            printf OUTSTRINGS "\"KEManager %ld\" = \"%s\";\n", $code, $etManager;
+            printf OUTSTRINGS "\"KEMessage %ld\" = \"%s\";\n\n", $code, $messageString;
+    
+            # Add the error to the header file:
+            printf OUTHEADER "#define %-40s (%ldL)\n", $errorNameString, $code;
+            
+            # Add the error to the source file:
+            print OUTSOURCE "    \"${messageString}\",\n";
+            
+            $errorCount++;
+        } else {
+            print "Unknown syntax 'error_code $arguments'.\n";
+        }
+    } elsif ($errorCode eq "index") {
+        my $arguments = $errorCodes[$i+1];
+        if ($arguments =~ /^\s*([0-9]+)\s*$/) {
+            while ($errorCount < $1) {
+                # Skip these offsets in text structure:
+                print OUTSOURCE "    \"\",\n";
+                $errorCount++;
+            }
+        } else {
+            print "Unknown syntax 'index $arguments'.\n";
+        }
+    }
+}
+
+#
+# Complete the output files:
+#
+printf OUTHEADER "#define ERROR_TABLE_BASE_%-23s (%ldL)\n\n", $etName, $etBase;
+print OUTHEADER "#ifdef __cplusplus\n";
+print OUTHEADER "}\n";
+print OUTHEADER "#endif\n\n";
+print OUTHEADER "#endif /* __ERROR_TABLE_${etName}_H__ */\n";
+
+print OUTSOURCE "    \"${etManager}\",\n";
+print OUTSOURCE "    0\n";
+print OUTSOURCE "};\n\n";
+print OUTSOURCE "const struct error_table et_${etName}_error_table = ";
+printf OUTSOURCE "{ text, %dL, %d };\n", $etBase, $errorCount;
+
+close OUTHEADER;
+close OUTSOURCE;
+close OUTSTRINGS;

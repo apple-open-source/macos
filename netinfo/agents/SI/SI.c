@@ -3,21 +3,22 @@
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
- * "Portions Copyright (c) 1999 Apple Computer, Inc.  All Rights
- * Reserved.  This file contains Original Code and/or Modifications of
- * Original Code as defined in and that are subject to the Apple Public
- * Source License Version 1.0 (the 'License').  You may not use this file
- * except in compliance with the License.  Please obtain a copy of the
- * License at http://www.apple.com/publicsource and read it before using
- * this file.
+ * Copyright (c) 1999-2003 Apple Computer, Inc.  All Rights Reserved.
+ * 
+ * This file contains Original Code and/or Modifications of Original Code
+ * as defined in and that are subject to the Apple Public Source License
+ * Version 2.0 (the 'License'). You may not use this file except in
+ * compliance with the License. Please obtain a copy of the License at
+ * http://www.opensource.apple.com/apsl/ and read it before using this
+ * file.
  * 
  * The Original Code and all software distributed under the License are
  * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
  * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
  * INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY,
- * FITNESS FOR A PARTICULAR PURPOSE OR NON-INFRINGEMENT.  Please see the
- * License for the specific language governing rights and limitations
- * under the License."
+ * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
+ * Please see the License for the specific language governing rights and
+ * limitations under the License.
  * 
  * @APPLE_LICENSE_HEADER_END@
  */
@@ -182,19 +183,21 @@ SI_query(void *c, dsrecord *pattern, dsrecord **list)
 {
 	dsstatus status;
 	agent_private *ap;
-	char *path;
+	char *path, *str, *catname;
 	u_int32_t pdsid;
 	u_int32_t *match, count, i, cat;
 	dsattribute *a;
 	dsdata *k;
 	dsrecord **lp;
-	int single_item = 0;
+	int single_item, stamp;
 
 	if (c == NULL) return 1;
 	if (pattern == NULL) return 1;
 	if (list == NULL) return 1;
 
 	*list = NULL;
+	single_item = 0;
+	stamp = 0;
 
 	ap = (agent_private *)c;
 
@@ -206,11 +209,47 @@ SI_query(void *c, dsrecord *pattern, dsrecord **list)
 	if (a->count == 0) return 1;
 	dsrecord_remove_attribute(pattern, a, SELECT_META_ATTRIBUTE);
 
-	cat = atoi(dsdata_to_cstring(a->value[0]));
+	catname = dsdata_to_cstring(a->value[0]);
+	if (catname == NULL) return 1;
+
+	str = NULL;
+	if (catname[0] == '/')
+	{
+		cat = -1;
+		str = catname;
+	}
+	else
+	{
+		cat = atoi(catname);
+
+		str = pathForCategory[cat];
+		if (str == NULL)
+		{
+			dsattribute_release(a);
+			return 1;
+		}
+	}
+
+	path = strdup(str);
 	dsattribute_release(a);
 
-	path = pathForCategory[cat];
-	if (path == NULL) return 1;
+	k = cstring_to_dsdata(STAMP_KEY);
+	a = dsrecord_attribute(pattern, k, SELECT_META_ATTRIBUTE);
+	dsdata_release(k);
+	if (a != NULL)
+	{
+		dsrecord_remove_attribute(pattern, a, SELECT_META_ATTRIBUTE);
+		stamp = 1;
+	}
+	dsattribute_release(a);
+
+	if (stamp == 1)
+	{
+		*list = dsrecord_new();
+		add_validation(*list);
+		free(path);
+		return 0;
+	}
 
 	k = cstring_to_dsdata(SINGLE_KEY);
 	a = dsrecord_attribute(pattern, k, SELECT_META_ATTRIBUTE);
@@ -223,6 +262,7 @@ SI_query(void *c, dsrecord *pattern, dsrecord **list)
 	}
 
 	status = dsengine_netinfo_string_pathmatch(ap->engine, 0, path, &pdsid);
+	free(path);
 	if (status != DSStatusOK) return 1;
 
 	match = NULL;

@@ -1,7 +1,8 @@
-This is ../info/emacs, produced by makeinfo version 4.0 from emacs.texi.
+This is ../info/emacs, produced by makeinfo version 4.0f from
+emacs.texi.
 
    This is the Fourteenth edition of the `GNU Emacs Manual', updated
-for Emacs version 21.1.
+for Emacs version 21.2.
 
 INFO-DIR-SECTION Emacs
 START-INFO-DIR-ENTRY
@@ -11,9 +12,9 @@ END-INFO-DIR-ENTRY
    Published by the Free Software Foundation 59 Temple Place, Suite 330
 Boston, MA  02111-1307 USA
 
-   Copyright (C) 1985,
-1986,1987,1993,1994,1995,1996,1997,1998,1999,2000,2001    Free Software
-Foundation, Inc.
+   Copyright (C)
+1985,1986,1987,1993,1994,1995,1996,1997,1998,1999,2000,2001,2002
+Free Software Foundation, Inc.
 
    Permission is granted to copy, distribute and/or modify this document
 under the terms of the GNU Free Documentation License, Version 1.1 or
@@ -269,7 +270,7 @@ suitable header string.
 `C-x v h'
      Insert headers in a file for use with your version-control system.
 
-   The default header string is `$Id: emacs-10,v 1.1.1.4 2001/10/31 18:00:31 jevans Exp $' for RCS and `%W%' for SCCS.  You
+   The default header string is `$Id: emacs-10,v 1.1.1.5 2002/09/10 23:32:17 jevans Exp $' for RCS and `%W%' for SCCS.  You
 can specify other headers to insert by setting the variable
 `vc-header-alist'.  Its value is a list of elements of the form
 `(PROGRAM . STRING)' where PROGRAM is `RCS' or `SCCS' and STRING is the
@@ -281,7 +282,7 @@ its own.
 
    It is often necessary to use "superfluous" backslashes when writing
 the strings that you put in this variable.  For instance, you might
-write `"$Id\$"' rather than `"$Id: emacs-10,v 1.1.1.4 2001/10/31 18:00:31 jevans Exp $"'.  The extra backslash prevents the
+write `"$Id\$"' rather than `"$Id: emacs-10,v 1.1.1.5 2002/09/10 23:32:17 jevans Exp $"'.  The extra backslash prevents the
 string constant from being interpreted as a header, if the Emacs Lisp
 file containing it is maintained with version control.
 

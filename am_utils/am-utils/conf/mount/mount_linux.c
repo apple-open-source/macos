@@ -37,7 +37,7 @@
  * SUCH DAMAGE.
  *
  *
- * $Id: mount_linux.c,v 1.1.1.1 2002/05/15 01:22:08 jkh Exp $
+ * $Id: mount_linux.c,v 1.1.1.2 2002/07/15 19:42:52 zarzycki Exp $
  */
 
 /*
@@ -253,18 +253,12 @@ do_mount_linux(MTYPE_TYPE type, mntent_t *mnt, int flags, caddr_t data)
 
 #ifdef DEBUG
   amuDebug(D_FULL) {
-    plog(XLOG_DEBUG, "linux mount: fsname %s\n", fs_name);
-    plog(XLOG_DEBUG, "linux mount: type (mntent) %s\n", mnt->mnt_type);
-    plog(XLOG_DEBUG, "linux mount: opts %s\n", mnt->mnt_opts);
-    plog(XLOG_DEBUG, "linux mount: dir %s\n", mnt->mnt_dir);
+    plog(XLOG_DEBUG, "do_mount_linux: fsname %s\n", fs_name);
+    plog(XLOG_DEBUG, "do_mount_linux: type (mntent) %s\n", mnt->mnt_type);
+    plog(XLOG_DEBUG, "do_mount_linux: opts %s\n", mnt->mnt_opts);
+    plog(XLOG_DEBUG, "do_mount_linux: dir %s\n", mnt->mnt_dir);
   }
 #endif /* DEBUG */
-
-#ifdef HAVE_LOOP_DEVICE
-  if (STREQ(type, MOUNT_TYPE_CDFS) && hasmntopt(mnt, MNTTAB_OPT_LOOP)) {
-    fs_name = ((cdfs_args_t *) data)->fspec;
-  }
-#endif /* HAVE_LOOP_DEVICE */
 
   /*
    * If we have an nfs mount, the 5th argument to system mount() must be the
@@ -304,7 +298,7 @@ mount_linux(MTYPE_TYPE type, mntent_t *mnt, int flags, caddr_t data)
 #ifdef MNT2_NFS_OPT_TCP
       if (mnt_data->flags & MNT2_NFS_OPT_TCP)
 	mnt_data->timeo = 600;
-#endif
+#endif /* MNT2_NFS_OPT_TCP */
     }
     if (!mnt_data->retrans)
       mnt_data->retrans = 3;
@@ -373,17 +367,17 @@ mount_linux(MTYPE_TYPE type, mntent_t *mnt, int flags, caddr_t data)
     }
 #ifdef DEBUG
     amuDebug(D_FULL) {
-      plog(XLOG_DEBUG, "linux mount: type %s\n",type);
-      plog(XLOG_DEBUG, "linux mount: version %d\n",mnt_data->version);
-      plog(XLOG_DEBUG, "linux mount: fd %d\n",mnt_data->fd);
-      plog(XLOG_DEBUG, "linux mount: hostname %s\n",
+      plog(XLOG_DEBUG, "mount_linux: type %s\n", type);
+      plog(XLOG_DEBUG, "mount_linux: version %d\n", mnt_data->version);
+      plog(XLOG_DEBUG, "mount_linux: fd %d\n", mnt_data->fd);
+      plog(XLOG_DEBUG, "mount_linux: hostname %s\n",
 	   inet_ntoa(mnt_data->addr.sin_addr));
-      plog(XLOG_DEBUG, "linux mount: port %d\n",
+      plog(XLOG_DEBUG, "mount_linux: port %d\n",
 	   htons(mnt_data->addr.sin_port));
     }
     amuDebug(D_TRACE) {
-      plog(XLOG_DEBUG, "linux mount: Generic mount flags 0x%x", MS_MGC_VAL | flags);
-      plog(XLOG_DEBUG, "linux mount: updated nfs_args...");
+      plog(XLOG_DEBUG, "mount_linux: Generic mount flags 0x%x", MS_MGC_VAL | flags);
+      plog(XLOG_DEBUG, "mount_linux: updated nfs_args...");
       print_nfs_args(mnt_data, 0);
     }
 #endif /* DEBUG */
@@ -400,7 +394,9 @@ mount_linux(MTYPE_TYPE type, mntent_t *mnt, int flags, caddr_t data)
       close(mnt_data->fd);
       errno = save_errno;
     }
+
   } else {			/* non-NFS mounts */
+
     sub_type = hasmnteq(mnt, "type");
     if (sub_type) {
       sub_type = strdup(sub_type);
@@ -420,8 +416,9 @@ mount_linux(MTYPE_TYPE type, mntent_t *mnt, int flags, caddr_t data)
     if (!hasmntopt(mnt, "type"))
       mnt->mnt_type = type;
 
-    /* We only parse opts if non-NFS drive */
+    /* We only parse opts if non-NFS mount */
     tmp_opts = parse_opts(type, mnt->mnt_opts, &flags, &extra_opts, &noauto);
+
 #if defined(MOUNT_TYPE_LOFS)
     if (STREQ(type, MOUNT_TYPE_LOFS)) {
 # if defined(MNT2_GEN_OPT_BIND)
@@ -438,7 +435,38 @@ mount_linux(MTYPE_TYPE type, mntent_t *mnt, int flags, caddr_t data)
     } /* end of "if type is LOFS" */
 #endif /* MOUNT_TYPE_LOFS */
 
-    /* if we get here, then it's not an NFS or LOFS mount */
+#ifdef HAVE_LOOP_DEVICE
+    /*
+     * Yet another hack to support loop mounts of ISO images.
+     * XXX: this file desperately needs to be rewritten!
+     */
+    if (STREQ(type, MOUNT_TYPE_CDFS)) {
+      mntent_t lomnt;		/* temp for loop mounts */
+      char *lodev;
+
+      memcpy(&lomnt, mnt, sizeof(mntent_t));
+      /* extra opts may contain "loop=/dev/loopN" */
+      lomnt.mnt_opts = extra_opts;
+      lodev = hasmnteq(&lomnt, MNTTAB_OPT_LOOP);
+      if (lodev) {
+	char *newopts;
+	lomnt.mnt_fsname = lodev;
+	/* fix mnt->mnt_opts so caller can update /etc/mtab correctly */
+	newopts = (char *) xmalloc(strlen(mnt->mnt_opts) + strlen(extra_opts) + 1);
+	sprintf(newopts, "%s,%s", mnt->mnt_opts, extra_opts);
+	XFREE(mnt->mnt_opts);
+	mnt->mnt_opts = newopts;
+	plog(XLOG_DEBUG, "mount_linux (loop): lodev %s, opts %s",
+	     lodev, mnt->mnt_opts);
+	errorcode = do_mount_linux(type, &lomnt, flags, extra_opts);
+      } else {
+	errorcode = do_mount_linux(type, mnt, flags, extra_opts);
+      }
+      goto fail;
+    }
+#endif /* HAVE_LOOP_DEVICE */
+
+    /* if we get here, then it's not an NFS, LOFS, or CDFS mount */
     errorcode = do_mount_linux(type, mnt, flags, extra_opts);
   } /* non-NFS mounts */
 

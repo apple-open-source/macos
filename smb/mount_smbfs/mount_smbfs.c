@@ -29,7 +29,7 @@
  * OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
  * SUCH DAMAGE.
  *
- * $Id: mount_smbfs.c,v 1.12 2002/05/03 17:20:39 lindak Exp $
+ * $Id: mount_smbfs.c,v 1.23 2003/09/08 23:45:26 lindak Exp $
  */
 #include <sys/param.h>
 #include <sys/stat.h>
@@ -61,7 +61,7 @@ static void usage(void);
 
 static struct mntopt mopts[] = {
 	MOPT_STDOPTS,
-	{ NULL }
+	{ NULL, 0, 0, 0 }
 };
 
 
@@ -74,13 +74,12 @@ main(int argc, char *argv[])
 #ifdef APPLE
 	extern void dropsuid();
 	extern int loadsmbvfs();
-#else
-	struct vfsconf vfc;
 #endif /* APPLE */
+	struct vfsconf vfc;
 	char *next;
 	int opt, error, mntflags, caseopt;
 
-
+        
 #ifdef APPLE
 	dropsuid();
 #endif /* APPLE */
@@ -96,10 +95,13 @@ main(int argc, char *argv[])
 	if (argc < 3)
 		usage();
 
-#ifdef APPLE
-	error = loadsmbvfs();
-#else
 	error = getvfsbyname(SMBFS_VFSNAME, &vfc);
+#ifdef APPLE
+	if (error) {
+		error = loadsmbvfs();
+		error = getvfsbyname(SMBFS_VFSNAME, &vfc);
+	}
+#else
 	if (error && vfsisloadable(SMBFS_VFSNAME)) {
 		if(vfsload(SMBFS_VFSNAME))
 			err(EX_OSERR, "vfsload("SMBFS_VFSNAME")");
@@ -226,6 +228,10 @@ main(int argc, char *argv[])
 			ctx->ct_flags |= SMBCF_XXX;
 			ctx->ct_minlevel = SMBL_VC;
 			ctx->ct_maxlevel = SMBL_VC;
+			if (mdata.file_mode == 0)
+				mdata.file_mode = S_IRWXU;
+			if (mdata.dir_mode == 0)
+				mdata.dir_mode = S_IRWXU;
 			break;
 #endif /* APPLE */
 		    default:
@@ -250,9 +256,9 @@ main(int argc, char *argv[])
 	if (smb_getextattr(mount_point, &einfo) == 0)
 		errx(EX_OSERR, "can't mount on %s twice", mount_point);
 */
-	if (mdata.uid == -1)
+	if (mdata.uid == (uid_t)-1)
 		mdata.uid = st.st_uid;
-	if (mdata.gid == -1)
+	if (mdata.gid == (gid_t)-1)
 		mdata.gid = st.st_gid;
 	if (mdata.file_mode == 0 )
 		mdata.file_mode = st.st_mode & (S_IRWXU | S_IRWXG | S_IRWXO);
@@ -269,7 +275,7 @@ main(int argc, char *argv[])
 	 * For now, let connection be private for this mount
 	 */
 	ctx->ct_ssn.ioc_opt |= SMBVOPT_PRIVATE;
-	ctx->ct_ssn.ioc_owner = ctx->ct_sh.ioc_owner = 0; /* root */
+	ctx->ct_ssn.ioc_owner = ctx->ct_sh.ioc_owner = st.st_uid;
 	ctx->ct_ssn.ioc_group = ctx->ct_sh.ioc_group = mdata.gid;
 	opt = 0;
 	if (mdata.dir_mode & S_IXGRP)
@@ -291,18 +297,25 @@ reauth:
 		exit(error);
 #ifdef APPLE
 	if (!(ctx->ct_flags & SMBCF_XXX)) {
-		error = smb_ctx_lookup(ctx, SMBL_SHARE, SMBLK_CREATE);
-		if (ctx->ct_flags & SMBCF_KCFOUND && smb_autherr(error)) {
-			ctx->ct_ssn.ioc_password[0] = '\0';
-			goto reauth;
-		}
-	}
+again:
+                error = smb_ctx_lookup(ctx, SMBL_SHARE, SMBLK_CREATE);
+                if (error == ENOENT && ctx->ct_origshare) {
+                        strcpy(ctx->ct_sh.ioc_share, ctx->ct_origshare);
+                        free(ctx->ct_origshare);
+                        ctx->ct_origshare = NULL;
+                        goto again; /* try again using share name as given */
+                }
+
+                if (ctx->ct_flags & SMBCF_KCFOUND && smb_autherr(error)) {
+                        ctx->ct_ssn.ioc_password[0] = '\0';
+                        goto reauth;
+                }
+        }
 #else
 	error = smb_ctx_lookup(ctx, SMBL_SHARE, SMBLK_CREATE);
 #endif
-	if (error) {
+	if (error)
 		exit(error);
-	}
 	strcpy(mdata.mount_point, mount_point);
 	mdata.version = SMBFS_VERSION;
 	mdata.dev = ctx->ct_fd;
@@ -321,7 +334,7 @@ reauth:
 		 * Authentication and other errors are expected & ignored
 		 */
 		for ( ; *cpp; cpp++) {
-			if (snprintf(mdata.mount_point,
+			if ((unsigned int)snprintf(mdata.mount_point,
 				     sizeof mdata.mount_point, "%s/%s",
 				     mount_point, *cpp) >=
 			    sizeof mdata.mount_point) {
@@ -335,38 +348,53 @@ reauth:
 					  error, mdata.mount_point);
 				continue;
 			}
+lookup:
 			error = smb_ctx_lookup(ctx, SMBL_SHARE, SMBLK_CREATE);
 			if (error) {
-				smb_error("x lookup error: %s", error,
+                                smb_error("x lookup error: %s", error,
 					  mdata.mount_point);
+                                if (error == ENOENT && ctx->ct_origshare) {
+					strcpy(ctx->ct_sh.ioc_share, ctx->ct_origshare);
+                                        free(ctx->ct_origshare);
+                                        ctx->ct_origshare = NULL;
+                                       
+					goto lookup; /* retry with share name as given */
+				}
+
 				continue;
 			}
+			mdata.dev = ctx->ct_fd;
 			(void)rmdir(mdata.mount_point);
-			error = mkdir(mdata.mount_point, 0755);
+			error = mkdir(mdata.mount_point, mdata.dir_mode);
 			if (error) {
 				smb_error("x mkdir error: %s", error,
 					  mdata.mount_point);
 				/*
-				 * Most errors here will recur.  For those
+				 * Most mkdir errors will recur.  For those
 				 * we could break rather than continue.
 				 */
+				error = smb_ctx_tdis(ctx);
+				if (error)	/* unable to clean up?! */
+					exit(error);
 				continue;
 			}
 			error = mount(SMBFS_VFSNAME, mdata.mount_point,
 				      mntflags, (void*)&mdata);
-#define NOISY 1 /* XXX */
-#ifdef NOISY
-			if (error)
+			if (error) {
 				smb_error("mount mount error: %s", error,
 					  mdata.mount_point);
-#endif
+				error = smb_ctx_tdis(ctx);
+				if (error)	/* unable to clean up?! */
+					exit(error);
+				continue;
+			}
 		}
 		cpp++;
 		free(*cpp);
 		free(ctx->ct_xxx);
 		ctx->ct_xxx = NULL;
 		smb_ctx_done(ctx);
-		return 0;
+		return error;
 	}
 #endif
 	error = mount(SMBFS_VFSNAME, mdata.mount_point, mntflags,

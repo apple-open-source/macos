@@ -32,7 +32,7 @@
 #ifndef lint
 static char copyright[] =
 "@(#) Copyright 1994 Purdue Research Foundation.\nAll rights reserved.\n";
-static char *rcsid = "$Id: dmnt.c,v 1.1 2000/11/27 18:24:58 abe Exp $";
+static char *rcsid = "$Id: dmnt.c,v 1.2 2002/06/17 01:41:42 abe Exp $";
 #endif
 
 
@@ -103,6 +103,8 @@ no_space_for_mount:
 		(void) free((FREE_P *)dn);
 		dn = ln;
 	    }
+	    if (*dn != '/')
+		continue;
 	/*
 	 * Stat() the directory.
 	 */

@@ -1,8 +1,8 @@
 /*
    +----------------------------------------------------------------------+
-   | PHP version 4.0                                                      |
+   | PHP Version 4                                                        |
    +----------------------------------------------------------------------+
-   | Copyright (c) 1997-2001 The PHP Group                                |
+   | Copyright (c) 1997-2003 The PHP Group                                |
    +----------------------------------------------------------------------+
    | This source file is subject to version 2.02 of the PHP license,      |
    | that is bundled with this package in the file LICENSE, and is        |
@@ -14,10 +14,10 @@
    +----------------------------------------------------------------------+
    | Authors: Stig Bakken <ssb@gaurdian.no>                               |
    |          Zeev Suraski <zeev@zend.com>                                |
-   |          Rasmus Lerdorf <rasmus@lerdorf.on.ca>                       |
+   |          Rasmus Lerdorf <rasmus@php.net>                             |
    +----------------------------------------------------------------------+
  */
-/* $Id: crypt.c,v 1.1.1.5 2001/12/14 22:13:18 zarzycki Exp $ */
+/* $Id: crypt.c,v 1.1.1.7 2003/07/18 18:07:42 zarzycki Exp $ */
 #include <stdlib.h>
 
 #include "php.h"
@@ -87,7 +87,7 @@ extern char *crypt(char *__key, char *__salt);
 #endif
 
 
-#define PHP_CRYPT_RAND php_rand()
+#define PHP_CRYPT_RAND php_rand(TSRMLS_C)
 
 static int php_crypt_rand_seeded=0;
 
@@ -106,7 +106,7 @@ PHP_MINIT_FUNCTION(crypt)
 PHP_RINIT_FUNCTION(crypt)
 {
 	if(!php_crypt_rand_seeded) {
-		php_srand(time(0) * getpid() * (unsigned long) (php_combined_lcg(TSRMLS_C) * 10000.0));
+		php_srand(time(0) * getpid() * (unsigned long) (php_combined_lcg(TSRMLS_C) * 10000.0) TSRMLS_CC);
 		php_crypt_rand_seeded=1;
 	} 
 	return SUCCESS;
@@ -115,7 +115,8 @@ PHP_RINIT_FUNCTION(crypt)
 
 static unsigned char itoa64[] = "./0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz";
 
-static void php_to64(char *s, long v, int n)	{
+static void php_to64(char *s, long v, int n)
+{
 	while (--n >= 0) {
 		*s++ = itoa64[v&0x3f]; 		
 		v >>= 6;
@@ -127,31 +128,22 @@ static void php_to64(char *s, long v, int n)	{
 PHP_FUNCTION(crypt)
 {
 	char salt[PHP_MAX_SALT_LEN+1];
-	pval **arg1, **arg2;
+	char *str, *salt_in = NULL;
+	int str_len, salt_in_len;
 
 	salt[0]=salt[PHP_MAX_SALT_LEN]='\0';
 	/* This will produce suitable results if people depend on DES-encryption
 	   available (passing always 2-character salt). At least for glibc6.1 */
 	memset(&salt[1], '$', PHP_MAX_SALT_LEN-1);
 
-	switch (ZEND_NUM_ARGS()) {
-		case 1:
-			if (zend_get_parameters_ex(1, &arg1)==FAILURE) {
-				RETURN_FALSE;
-			}
-			break;
-		case 2:
-			if (zend_get_parameters_ex(2, &arg1, &arg2)==FAILURE) {
-				RETURN_FALSE;
-			}
-			convert_to_string_ex(arg2);
-			memcpy(salt, Z_STRVAL_PP(arg2), MIN(PHP_MAX_SALT_LEN, Z_STRLEN_PP(arg2)));
-			break;
-		default:
-			WRONG_PARAM_COUNT;
-			break;
+	if (zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "s|s", &str, &str_len,
+							  &salt_in, &salt_in_len) == FAILURE) {
+		return;
 	}
-	convert_to_string_ex(arg1);
+
+	if (salt_in) {
+		memcpy(salt, salt_in, MIN(PHP_MAX_SALT_LEN, salt_in_len));
+	}
 
 	/* The automatic salt generation only covers standard DES and md5-crypt */
 	if(!*salt) {
@@ -166,7 +158,7 @@ PHP_FUNCTION(crypt)
 #endif
 	}
 
-	RETVAL_STRING(crypt(Z_STRVAL_PP(arg1), salt), 1);
+	RETVAL_STRING(crypt(str, salt), 1);
 }
 /* }}} */
 #endif
@@ -176,6 +168,6 @@ PHP_FUNCTION(crypt)
  * tab-width: 4
  * c-basic-offset: 4
  * End:
- * vim600: sw=4 ts=4 tw=78 fdm=marker
- * vim<600: sw=4 ts=4 tw=78
+ * vim600: sw=4 ts=4 fdm=marker
+ * vim<600: sw=4 ts=4
  */

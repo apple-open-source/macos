@@ -1,5 +1,4 @@
 /*
- * Copyright (c) 1998-2002 Apple Computer, Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -22,18 +21,22 @@
  * 
  * @APPLE_LICENSE_HEADER_END@
  */
+
 #include <libkern/OSByteOrder.h>
 
 #include <IOKit/IOService.h>
 #include <IOKit/IOSyncer.h>
 #include <IOKit/usb/IOUSBController.h>
+#include <IOKit/usb/USBHub.h>
 
+#include <IOKit/usb/IOUSBDevice.h>
 #include <IOKit/usb/IOUSBPipe.h>
 #include <IOKit/usb/IOUSBNub.h>
 #include <IOKit/usb/IOUSBLog.h>
 
 #define super OSObject
 
+#define	_device	_expansionData->_device
 
 /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
 
@@ -90,17 +93,33 @@ IOUSBPipe::InitToEndpoint(const IOUSBEndpointDescriptor *ed, UInt8 speed, USBDev
 }
 
 
-
 IOUSBPipe *
 IOUSBPipe::ToEndpoint(const IOUSBEndpointDescriptor *ed, UInt8 speed, USBDeviceAddress address, IOUSBController *controller)
 {
     IOUSBPipe *me = new IOUSBPipe;
+    USBLog(1, "IOUSBPipe::ToEndpoint, obsolete method called");
 
     if ( me && !me->InitToEndpoint(ed, speed, address, controller) ) 
     {
         me->release();
         return NULL;
     }
+
+    return me;
+}
+
+IOUSBPipe *
+IOUSBPipe::ToEndpoint(const IOUSBEndpointDescriptor *ed, IOUSBDevice * device, IOUSBController *controller)
+{
+    IOUSBPipe *me = new IOUSBPipe;
+    USBLog(7, "IOUSBPipe::ToEndpoint, new method called for device %p", device);
+
+    if ( me && !me->InitToEndpoint(ed, device->_speed, device->_address, controller) ) 
+    {
+        me->release();
+        return NULL;
+    }
+    me->_device = device;
 
     return me;
 }
@@ -652,6 +671,56 @@ IOUSBPipe::ClearPipeStall(bool withDeviceRequest)
         USBLog(2, "IOUSBPipe[%p]::ClearPipeStall setting status to 0", this);
     _correctStatus = 0;
     err = _controller->ClearPipeStall(_address, &_endpoint);
+
+    if(!err && ( (_endpoint.transferType == kUSBBulk) || (_endpoint.transferType == kUSBControl) ) )
+    {
+	USBLog(5,"IOUSBPipe[%p]::ClearPipeStall Bulk or Control endpoint, clear TT",this);
+	// Now, we need to tell our parent to issue a port reset to our port.  Our parent is an IOUSBDevice
+	// that has a hub driver attached to it.  However, we don't know what kind of driver that is, so we
+	// just send a message to all the clients of our parent.  The hub driver will be the only one that
+	// should do anything with that message.
+	//
+	if( (_device != NULL) && (_device->_expansionData->_usbPlaneParent ) )
+	{
+	IOUSBHubPortClearTTParam params;
+	UInt8 	 deviceAddress;  //<<0
+	UInt8	 endpointNum;    //<<8
+	UInt8 	 endpointType;	 //<<16 // As split transaction. 00 Control, 10 Bulk
+	UInt8 	 in;		 //<<24 // Direction, 1 = IN, 0 = OUT};
+	
+	    params.portNumber = _device->_expansionData->_portNumber;
+	    deviceAddress = _device->_address;
+	    endpointNum = _endpoint.number;
+	    if(_endpoint.transferType == kUSBControl)
+	    {
+		endpointType = 0;	// As split transaction. 00 Control, 10 Bulk
+		in = 0;			// Direction, 1 = IN, 0 = OUT, not used for control
+	    }
+	    else
+	    {
+		endpointType = 2;	// As split transaction. 00 Control, 10 Bulk
+		if(_endpoint.direction == kUSBIn)
+		{
+		    in = 1;			// Direction, 1 = IN, 0 = OUT, not used for control
+		}
+		else
+		{
+		    in = 0;
+		}
+	    }
+	    params.options = deviceAddress + (endpointNum <<8) + (endpointType << 16) + (in << 24);
+	    
+	    USBLog(5, "[%p] ClearPipeStall, calling device messageClients (kIOUSBMessageHubPortClearTT) with options: %X", this, params.options);
+	    _device->_expansionData->_usbPlaneParent->retain();
+	    (void) _device->_expansionData->_usbPlaneParent->messageClients(kIOUSBMessageHubPortClearTT, &params, sizeof(params));
+	    _device->_expansionData->_usbPlaneParent->release();
+	}
+    }
+    else
+    {
+	USBLog(5,"IOUSBPipe[%p]::ClearPipeStall Int or Isoc endpoint, don't clear TT (or err:%lx)",this, err);
+    }
+    
     if (!err && withDeviceRequest)
     {
 	IOUSBDevRequest	request;
@@ -699,7 +768,7 @@ IOUSBPipe::SetPipePolicy(UInt16 maxPacketSize, UInt8 maxInterval)
 	    if (maxPacketSize <= USBToHostWord(_descriptor->wMaxPacketSize))
 	    {
 		UInt16 oldsize = _endpoint.maxPacketSize;
-		USBLog(2, "IOUSBPipe[%p]::SetPipePolicy - trying to change isoch pipe from %d to %d bytes", this, oldsize, maxPacketSize);
+		USBLog(6, "IOUSBPipe[%p]::SetPipePolicy - trying to change isoch pipe from %d to %d bytes", this, oldsize, maxPacketSize);
 		_endpoint.maxPacketSize = maxPacketSize;
 		// OpenPipe with Isoch pipes which already exist will try to change the maxpacketSize in the pipe.
 		// the speed param below is actually unused for Isoc pipes

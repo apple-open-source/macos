@@ -23,9 +23,14 @@
 #define _SECURITY_STORAGEMANAGER_H_
 
 #include <list>
+#include <set>
 #include <Security/multidldb.h>
 #include <Security/DLDBListCFPref.h>
 #include <Security/Keychains.h>
+#include <Security/KeyItem.h>
+#include <Security/Authorization.h>
+
+#define kKeychainRenamedSuffix "_renamed"
 
 namespace Security
 {
@@ -38,6 +43,7 @@ class StorageManager
     NOCOPY(StorageManager)
 public:
     typedef vector<Keychain> KeychainList;
+	typedef vector<DLDbIdentifier> DLDbList;
 
 	StorageManager();
     ~StorageManager() {}
@@ -45,7 +51,9 @@ public:
     //bool onlist(const Keychain & keychain);
 
     // These will call addAndNotify() if the specified keychain already exists
-    Keychain make(const char *fullPathName);
+	Keychain make(const char *fullPathName);
+    Keychain make(const char *fullPathName, bool add);
+    Keychain makeLoginAuthUI(Item &item);
     void created(const Keychain &keychain); // Be notified a Keychain just got created.
 
 	// Misc
@@ -68,7 +76,7 @@ public:
     Keychain _keychain(const DLDbIdentifier &dLDbIdentifier);
 
 	// Create KC if it doesn't exist, add it to the search list if it exists and is not already on it.
-    Keychain makeKeychain(const DLDbIdentifier &dLDbIdentifier);
+    Keychain makeKeychain(const DLDbIdentifier &dLDbIdentifier, bool add = true);
 
 
 	// Keychain list maintenance
@@ -78,6 +86,12 @@ public:
 
 	void getSearchList(KeychainList &keychainList);
 	void setSearchList(const KeychainList &keychainList);
+	
+	void getSearchList(SecPreferencesDomain domain, KeychainList &keychainList);
+	void setSearchList(SecPreferencesDomain domain, const KeychainList &keychainList);
+
+    void rename(Keychain keychain, const char* newName);
+    void renameUnique(Keychain keychain, CFStringRef newName);
 
 	// Iff keychainOrArray is NULL return the default KeychainList in keychainList otherwise
 	// if keychainOrArray is a CFArrayRef containing SecKeychainRef's convernt it to KeychainList,
@@ -91,35 +105,47 @@ public:
 	static CFArrayRef convertFromKeychainList(const KeychainList &keychainList);
 
 	// Login keychain support
+    void login(AuthorizationRef authRef, UInt32 nameLength, const char* name);
 	void login(ConstStringPtr name, ConstStringPtr password);
 	void login(UInt32 nameLength, const void *name, UInt32 passwordLength, const void *password);
 	void logout();
 	void changeLoginPassword(ConstStringPtr oldPassword, ConstStringPtr newPassword);
 	void changeLoginPassword(UInt32 oldPasswordLength, const void *oldPassword,  UInt32 newPasswordLength, const void *newPassword);
 
-	// Reload mSearchList from mList if the searchList on disk has changed.
-    void reload(bool force = false);
+    void resetKeychain(Boolean resetSearchList);
+
+	Keychain defaultKeychain();
+    Keychain defaultKeychainUI(Item &item);
+	void defaultKeychain(const Keychain &keychain);
+
+	Keychain loginKeychain();
+	void loginKeychain(Keychain keychain);
+	
+	Keychain defaultKeychain(SecPreferencesDomain domain);
+	void defaultKeychain(SecPreferencesDomain domain, const Keychain &keychain);
+	
+	SecPreferencesDomain domain() { return mDomain; }
+	void domain(SecPreferencesDomain newDomain);
+
+	// To be called by KeychainImpl destructor only.
+	void removeKeychain(const DLDbIdentifier &dLDbIdentifier, KeychainImpl *keychainImpl); 
 
 private:
-    typedef map<DLDbIdentifier, Keychain> KeychainMap;
-	typedef set<KeychainSchema> KeychainSchemaSet;
+    typedef map<DLDbIdentifier, KeychainImpl *> KeychainMap;
 
-	// Reload mSearchList from mList and add new keychains to mKeychains if not already there
-	// Assumes mLock is already locked.
-	void _doReload();
-
-	// Reload mSearchList from mList if the searchList on disk has changed.
-	// Assumes mLock is already locked.
-    void _reload(bool force = false);
+	static void convertList(DLDbList &ids, const KeychainList &kcs);
+	void convertList(KeychainList &kcs, const DLDbList &ids);
 
     // Only add if not there yet.  Writes out CFPref and broadcasts KCPrefListChanged notification
 	void addAndNotify(const Keychain& keychainToAdd);
-	KeychainSchema keychainSchemaFor(const CssmClient::Db &db);
+	
+	// set default credentials for opening a keychain
+	void setDefaultCredentials(const CssmClient::Db &db);
 
-    DLDbListCFPref mSavedList;
+	DLDbListCFPref mSavedList;
+	DLDbListCFPref mCommonList;
+	SecPreferencesDomain mDomain; // current domain (in mSavedList and cache fields)
     KeychainMap mKeychains;		// the cache of Keychains
-	KeychainList mSearchList;
-	KeychainSchemaSet mKeychainSchemaSet;
 	Mutex mLock;
 };
 

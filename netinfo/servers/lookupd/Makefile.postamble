@@ -114,3 +114,5 @@ _lu_types.h:
 after_install:
 	install -d $(DSTROOT)/usr/share/man/man8
 	install -c -m 444 lookupd.8 $(DSTROOT)/usr/share/man/man8
+	install -d $(DSTROOT)/private/etc/mach_init.d
+	install -c -m 444 lookupd.plist $(DSTROOT)/private/etc/mach_init.d

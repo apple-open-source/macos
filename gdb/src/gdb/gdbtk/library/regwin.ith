@@ -15,7 +15,7 @@
 # GNU General Public License for more details.
 
 
-class RegWin {
+itcl::class RegWin {
   inherit EmbeddedWin GDBWin
   
   private {
@@ -28,24 +28,33 @@ class RegWin {
     # Mapping of table cell index to register number
     variable _register
 
+    # the register group that is displayed
+    variable _group "all"
+
     # Mapping of register number to table cell index. "hidden" if
     # the register was "removed" from the display.
     variable _cell
 
-    # Display formats for the registers (indexed by regnum)
-    variable _format
-
     # Is REGNUM editable?
     variable _editable
 
-    # Is REGNUM typed?
-    variable _typed
+    # List of possible display types for the registers (indexed by regnum)
+    variable _types
+    # The display type to use for each register (indexed by regnum)
+    variable _type
+    # The display format to use for each register (indexed by regnum)
+    variable _format
 
     # The list of registers we're displaying
     variable _reg_display_list {}
 
     # Size of columns
     variable _col_size
+    variable _max_label_width
+
+    # Dimensions
+    variable _rows
+    variable _cols
 
     # Fencepost
     variable _running 0
@@ -53,8 +62,8 @@ class RegWin {
 
     # Table layout/display methods
     method _build_win {}
-    method _dimensions {}
     method _layout_table {}
+    method _load_prefs {}
     method _prefs_changed {pref value}
     method _size_cell_column {cell down}
     method _size_column {col down}
@@ -66,16 +75,15 @@ class RegWin {
     method _delete_from_display {rn} 
     method _display_all {} 
     method _edit {x y}
-    method _edit_menu {rn}
     method _move {direction}
-    method _post_menu {}
-    method _select {x y}
+    method _open_memory {rn}
+    method _select_group {}
     method _select_cell {cell}
     method _unedit {}
 
     # Register operations
     method _get_value {rn}
-    method _change_format {rn}
+    method _change_format {rn {t {}}}
     method _update_register {rn}
   }
 

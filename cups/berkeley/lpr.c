@@ -1,9 +1,9 @@
 /*
- * "$Id: lpr.c,v 1.1.1.3 2002/06/06 22:12:31 jlovell Exp $"
+ * "$Id: lpr.c,v 1.1.1.11 2003/05/14 05:23:46 jlovell Exp $"
  *
  *   "lpr" command for the Common UNIX Printing System (CUPS).
  *
- *   Copyright 1997-2002 by Easy Software Products.
+ *   Copyright 1997-2003 by Easy Software Products.
  *
  *   These coded instructions, statements, and computer programs are the
  *   property of Easy Software Products and are protected by Federal
@@ -33,12 +33,14 @@
 
 #include <stdio.h>
 #include <stdlib.h>
+#include <errno.h>
 
-#include <config.h>
+#include <cups/string.h>
 #include <cups/cups.h>
 
 
 #ifndef WIN32
+#  include <unistd.h>
 #  include <signal.h>
 
 
@@ -102,12 +104,12 @@ main(int  argc,		/* I - Number of command-line arguments */
       switch (ch = argv[i][1])
       {
         case 'E' : /* Encrypt */
-#ifdef HAVE_LIBSSL
+#ifdef HAVE_SSL
 	    cupsSetEncryption(HTTP_ENCRYPT_REQUIRED);
 #else
             fprintf(stderr, "%s: Sorry, no encryption support compiled in!\n",
 	            argv[0]);
-#endif /* HAVE_LIBSSL */
+#endif /* HAVE_SSL */
 	    break;
 
 	case '1' : /* TROFF font set 1 */
@@ -228,12 +230,6 @@ main(int  argc,		/* I - Number of command-line arguments */
 	      num_copies = atoi(argv[i]);
 	    }
 
-	    if (num_copies < 1 || num_copies > 100)
-	    {
-	      fputs("lpr: Number copies must be between 1 and 100.\n", stderr);
-	      return (1);
-	    }
-
             sprintf(buffer, "%d", num_copies);
             num_options = cupsAddOption("copies", buffer, num_options, &options);
 	    break;
@@ -282,6 +278,13 @@ main(int  argc,		/* I - Number of command-line arguments */
       * Print a file...
       */
 
+      if (access(argv[i], R_OK) != 0)
+      {
+        fprintf(stderr, "lpr: Unable to access \"%s\" - %s\n", argv[i],
+	        strerror(errno));
+        return (1);
+      }
+
       files[num_files] = argv[i];
       num_files ++;
 
@@ -304,23 +307,25 @@ main(int  argc,		/* I - Number of command-line arguments */
     if (num_dests == 0)
       num_dests = cupsGetDests(&dests);
 
-    for (j = 0, dest = dests; j < num_dests; j ++, dest ++)
-      if (dest->is_default)
-      {
-	printer = dests[j].name;
+    if ((dest = cupsGetDest(NULL, NULL, num_dests, dests)) != NULL)
+    {
+      printer = dest->name;
 
-	for (j = 0; j < dest->num_options; j ++)
-	  if (cupsGetOption(dest->options[j].name, num_options, options) == NULL)
-	    num_options = cupsAddOption(dest->options[j].name,
-		                        dest->options[j].value,
-					num_options, &options);
-        break;
-      }
+      for (j = 0; j < dest->num_options; j ++)
+	if (cupsGetOption(dest->options[j].name, num_options, options) == NULL)
+	  num_options = cupsAddOption(dest->options[j].name,
+		                      dest->options[j].value,
+				      num_options, &options);
+    }
   }
 
   if (printer == NULL)
   {
-    fputs("lpr: error - no default destination available.\n", stderr);
+    if (cupsLastError() >= IPP_BAD_REQUEST)
+      fputs("lpr: error - scheduler not responding!\n", stderr);
+    else
+      fputs("lpr: error - no default destination available.\n", stderr);
+
     return (1);
   }
 
@@ -426,5 +431,5 @@ sighandler(int s)	/* I - Signal number */
 
 
 /*
- * End of "$Id: lpr.c,v 1.1.1.3 2002/06/06 22:12:31 jlovell Exp $".
+ * End of "$Id: lpr.c,v 1.1.1.11 2003/05/14 05:23:46 jlovell Exp $".
  */

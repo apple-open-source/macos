@@ -5,31 +5,32 @@ NAME
      lsof - list open files
 
 SYNOPSIS
-     lsof [ -?abChlnNOPRstUvVX ] [ -A A ] [ -c c ] [ +|-d d ] [
-     +|-D D ] [ +|-f [cfgGn] ] [ -F [f] ] [ -g [s] ] [ -i [i] ] [
-     -k k ] [ +|-L [l] ] [ -m m ] [ +|-M ] [ -o [o] ] [ -p s ] [
-     +|-r [t] ] [ -S [t] ] [ -T [t] ] [ -u s ] [ +|-w ] [ -- ]
-     [names]
+     lsof [ -?abChlnNOPRstUvVX ] [ -A A ] [ -c c ] [ +c c ] [
+     +|-d d ] [ +|-D D ] [ +|-f [cfgGn] ] [ -F [f] ] [ -g [s] ] [
+     -i [i] ] [ -k k ] [ +|-L [l] ] [ -m m ] [ +|-M ] [ -o [o] ]
+     [ -p s ] [ +|-r [t] ] [ -S [t] ] [ -T [t] ] [ -u s ] [ +|-w
+     ] [ -- ] [names]
 
 DESCRIPTION
-     Lsof revision 4.60 lists information about files opened by
+     Lsof revision 4.68 lists information about files opened by
      processes for the following UNIX dialects:
 
-          AIX 4.3.[23], 5L, and 5.1
-          Apple Darwin 1.[23] and 1.4 for Power Macintosh systems
-          BSDI BSD/OS 4.1 for Intel-based systems
+          AIX 4.3.[23], 5L, and 5.[12]
+          Apple Darwin 1.[2-5], 5.x and 6.x for Power Macintosh systems
+          BSDI BSD/OS 4.3.1 for x86-based systems
           DEC OSF/1, Digital UNIX, Tru64 UNIX 4.0, and 5.[01]
-          FreeBSD 4.[234] and 5.0 for Intel-based systems
+          FreeBSD 4.[2345678] and 5.[01] for x86-based systems
+          FreeBSD 5.[01] for Alpha and Sparc64 based systems
           HP-UX 11.00 and 11.11
-          Linux 2.1.72 and above for Intel-based systems
-          NetBSD 1.5 for Alpha, Intel, and SPARC-based systems
+          Linux 2.1.72 and above for x86-based systems
+          NetBSD 1.[456] for Alpha, x86, and SPARC-based systems
           NEXTSTEP 3.[13] for NEXTSTEP architectures
-          OpenBSD 2.[89] and 3.0 for Intel-based systems
+          OpenBSD 2.[89] and 3.[0123] for x86-based systems
           OPENSTEP 4.x
           Caldera OpenUNIX 8
-          SCO OpenServer Release 5.0.[46] for Intel-based systems
-          SCO UnixWare 7.1.1 for Intel-based systems
-          Solaris 2.6, 7, 8, and 9 BETA
+          SCO OpenServer Release 5.0.[46] for x86-based systems
+          SCO|Caldera UnixWare 7.1.[13] for x86-based systems
+          Solaris 2.6, 7, 8, and 9
 
      (See the DISTRIBUTION section of this manual page for infor-
      mation on how to obtain the latest lsof revision.)
@@ -172,37 +173,61 @@ OPTIONS
               This may result in ``no command found for regex:''
               messages when lsof's -V option is specified.
 
+     +c w     This option defines the maximum number of initial
+              characters of the name of the UNIX command associ-
+              ated with a process to be printed in the COMMAND
+              column.  (The default is nine.)
+
+              If w is zero ('0'), all command characters will be
+              printed.
+
+              If w is less than the length of the column title,
+              ``COMMAND'', it will be raised to that length.
+
      -C       This option disables the reporting of any path name
               components from the kernel's name cache.  See the
               KERNEL NAME CACHE section for more information.
 
      +d s     This option causes lsof to search for all open
-              instances of directory s and the files and direc-
-              tories it contains at its top level.  This option
-              does NOT descend the directory tree, rooted at s,
-              nor does it follow symbolic links within it.  The
-              +D D option may be used to request a full-descent
-              directory tree search, rooted at directory D.
+              instances of directory s and the files and
+              directories it contains at its top level.  This
+              option does NOT descend the directory tree, rooted
+              at s, nor does it follow symbolic links within it.
+              The +D D option may be used to request a
+              full-descent directory tree search, rooted at
+              directory D.
 
               Note: the authority of the user of this option lim-
               its it to searching for files that the user has
               permission to examine with the system stat(2) func-
               tion.
 
-     -d s     This option selects the listing of files whose file
-              descriptors are in the comma-separated set s -
-              e.g., ``1,3'' or ``6,cwd,2''.  (There should be no
-              spaces in the set.)
+     -d s     This option specifies a list of file descriptors
+              (FDs) to exclude from or include in the output
+              listing.  The file descriptors are specified in the
+              comma-separated set s - e.g., ``cwd,1,3'',
+              ``^6,^2''.  (There should be no spaces in the set.)
 
-              A file descriptor number range may be included in
-              the set as long as neither member is empty, both
-              members are numbers, and the ending member is
-              larger than the starting one - e.g., ``0-7'' or
-              ``3-10''.
+              The list is an exclusion list if all entries of the
+              set begin with '^'.  It is an inclusion list if no
+              entry begins with '^'.  Mixed lists are not permit-
+              ted.
+
+              A file descriptor number range may be in the set as
+              long as neither member is empty, both members are
+              numbers, and the ending member is larger than the
+              starting one - e.g., ``0-7'' or ``3-10''.  Ranges
+              may be specified for exclusion if they have the '^'
+              prefix - e.g., ``^0-7'' excludes all file descri-
+              tors 0 through 7.
 
               Multiple file descriptor numbers are joined in a
               single ORed set before participating in AND option
               selection.
+
+              When there are exclusion and inclusion members in
+              the set, lsof reports them as errors and exits with
+              a non-zero return code.
 
               See the description of File Descriptor (FD) output
               values in the OUTPUT section for more information
@@ -230,9 +255,9 @@ OPTIONS
               option prudently.
 
      -D D     This option directs lsof's use of the device cache
-              file.  The use of this option is sometimes res-
-              tricted.  See the DEVICE CACHE FILE section and the
-              sections that follow it for more information on
+              file.  The use of this option is sometimes
+              restricted.  See the DEVICE CACHE FILE section and
+              the sections that follow it for more information on
               this option.
 
               -D must be followed by a function letter; the func-
@@ -297,8 +322,7 @@ OPTIONS
               the device cache file at the default or specified
               path, if possible, and to rebuild it, if necessary.
               This is the default device cache file function when
-              no -D option has been specified.  lsof repetitively
-              from a shell script, for example.
+              no -D option has been specified.
 
      +|-f [cfgGn]
               f by itself clarifies how path name arguments are
@@ -355,7 +379,7 @@ OPTIONS
               Lsof column output can be sorted by output columns
               holding the values and listed to identify identical
               file use, or lsof field output can be parsed by an
-              AWK or Perl post-filter script.
+              AWK or Perl post-filter script, or by a C program.
 
      -F f     This option specifies a character list, f, that
               selects the fields to be output for processing by
@@ -378,9 +402,9 @@ OPTIONS
               the NUL terminator character is used.
 
               Other combinations of fields and their associated
-              field terminator character must be set with
-              explicit entries in f, as described in the OUTPUT
-              FOR OTHER PROGRAMS section.
+              field terminator character must be set with expli-
+              cit entries in f, as described in the OUTPUT FOR
+              OTHER PROGRAMS section.
 
               When a field selection character identifies an item
               lsof does not normally list - e.g., PPID, selected
@@ -500,7 +524,7 @@ OPTIONS
                    @[3ffe:1ebc::1]:1234 - Internet IPv6 host address
                         3ffe:1ebc::1, port 1234
                    UDP:who - UDP who service port
-                   TCP@vic.cc:513 - TCP, port 513 and host name vic.cc
+                   TCP@lsof.itap:513 - TCP, port 513 and host name lsof.itap
                    tcp@foo:1-10,smtp,99 - TCP, ports 1 through 10,
                         service name smtp, port 99, host name foo
                    tcp@bar:smtp-nameserver - TCP, ports smtp through
@@ -517,9 +541,9 @@ OPTIONS
               login name lookup is working improperly or slowly.
 
      +|-L [l] This option enables (`+') or disables (`-') the
-              listing of file link counts, where they are
-              available - e.g., they aren't available for sock-
-              ets, or most FIFOs and pipes.
+              listing of file link counts, where they are avail-
+              able - e.g., they aren't available for sockets, or
+              most FIFOs and pipes.
 
               When +L is specified without a following number,
               all link counts will be listed.  When -L is speci-
@@ -534,7 +558,7 @@ OPTIONS
               files on the specified file system.
 
               For other link count comparisons, use field output
-              (-F) and a post-processing script.
+              (-F) and a post-processing script or program.
 
      -m m     This option specifies a kernel memory file, c, in
               place of /dev/kmem or /dev/mem - e.g., a crash dump
@@ -702,7 +726,7 @@ OPTIONS
 
               Repeat mode is useful when coupled with field out-
               put (see the -F, option description) and a
-              supervising awk or Perl script.
+              supervising awk or Perl script, or a C program.
 
      -R       This option directs lsof to list the Parent Process
               IDentification number in the PPID column.
@@ -817,14 +841,20 @@ OPTIONS
               names, file names, Internet addresses or files,
               login names, NFS files, PIDs, PGIDs, and UIDs.
 
-              When other options are ANDed to search options,
-              lsof may not report that it failed to find a search
-              item when an ANDed option prevents the listing of
-              the open file containing the located search item.
+              When other options are ANDed to search options, or
+              compile-time options restrict the listing of some
+              files, lsof may not report that it failed to find a
+              search item when an ANDed option or compile-time
+              option prevents the listing of the open file con-
+              taining the located search item.
+
               For example, ``lsof -V -iTCP@foobar -a -d 999'' may
               not report a failure to locate open files at
               ``TCP@foobar'' and may not list any, if none have a
-              file descriptor number of 999.
+              file descriptor number of 999.  A similar situta-
+              tion arises when HASSECURITY and HASNOSOCKSECURITY
+              are defined at compile time and they prevent the
+              listing of open files.
 
      +|-w     Enables (+) or disables (-) the suppression of
               warning messages.
@@ -999,20 +1029,27 @@ SECURITY
      name alternate kernel name list or memory files.
 
      Restricting the listing of all open files is controlled by
-     the compile-time HASSECURITY option.  When HASSECURITY is
-     defined, lsof will allow only the root user to list all open
-     files.  The non-root user may list only open files of
-     processes with the same user IDentification number as the
-     real user ID number of the lsof process (the one that its
-     user logged on with).  When HASSECURITY is not defined, any-
-     one may list all open files.
+     the compile-time HASSECURITY and HASNOSOCKSECURITY options.
+     When HASSECURITY is defined, lsof will allow only the root
+     user to list all open files.  The non-root user may list
+     only open files of processes with the same user IDentifica-
+     tion number as the real user ID number of the lsof process
+     (the one that its user logged on with).
+
+     However, if HASSECURITY and HASNOSOCKSECURITY are both
+     defined, anyone may list open socket files, provided they
+     are selected with the -i option.
+
+     When HASSECURITY is not defined, anyone may list all open
+     files.
 
      Help output, presented in response to the -h or -? option,
-     gives the HASSECURITY definition status.
+     gives the status of the HASSECURITY and HASNOSOCKSECURITY
+     definitions.
 
      See the Security section of the 0README file of the lsof
      distribution for information on building lsof with the
-     HASSECURITY option enabled.
+     HASSECURITY and HASNOSOCKSECURITY options enabled.
 
      Creation and use of a user-readable and user-writable device
      cache file is controlled by the compile-time HASDCACHE
@@ -1063,11 +1100,23 @@ OUTPUT
 
      Lsof dynamically sizes the output columns each time it runs,
      guaranteeing that each column is a minimum size.  It also
-     guarantees that each column is separated from its predeces-
-     sor by at least one space.
+     guarantees that each column is separated from its
+     predecessor by at least one space.
 
      COMMAND    contains the first nine characters of the name of
-                the UNIX command associated with the process.
+                the UNIX command associated with the process.  If
+                a non-zero w value is specified to the +c w
+                option, the column contains the first w charac-
+                ters of the name of the UNIX command associated
+                with the process.
+
+                If w is less than the length of the column title,
+                ``COMMAND'', it will be raised to that length.
+
+                If a zero w value is specified to the +c w
+                option, the column contains all the characters of
+                the name of the UNIX command associated with the
+                process.
 
                 All command name characters maintained by the
                 kernel in its structures are displayed in field
@@ -1110,6 +1159,7 @@ OUTPUT
                      mmap memory-mapped device;
                      pd   parent directory;
                      rtd  root directory;
+                     tr   kernel trace file (OpenBSD);
                      txt  program text (code and data);
                      v86  VP/ix mapped file;
 
@@ -1182,6 +1232,9 @@ OUTPUT
                 or ``DOOR'' for a VDOOR file;
 
                 or ``FIFO'' for a FIFO special file;
+
+                or ``KQUEUE'' for a BSD style kernel event queue
+                file;
 
                 or ``LINK'' for a symbolic link file;
 
@@ -1447,15 +1500,15 @@ OUTPUT
 
                 On some UNIX dialects lsof can't obtain accurate
                 or consistent file offset information from its
-                kernel data sources, sometimes just for particu-
-                lar kinds of files (e.g., socket files.) In other
-                cases, files don't have true sizes - e.g., sock-
-                ets, FIFOs, pipes - so lsof displays for their
-                sizes the content amounts it finds in their ker-
-                nel buffer descriptors (e.g., socket buffer size
-                counts or TCP/IP window sizes.) Consult the lsof
-                FAQ (The FAQ section gives its location.) for
-                more information.
+                kernel data sources, sometimes just for
+                particular kinds of files (e.g., socket files.)
+                In other cases, files don't have true sizes -
+                e.g., sockets, FIFOs, pipes - so lsof displays
+                for their sizes the content amounts it finds in
+                their kernel buffer descriptors (e.g., socket
+                buffer size counts or TCP/IP window sizes.) Con-
+                sult the lsof FAQ (The FAQ section gives its
+                location.) for more information.
 
                 The file size is displayed in decimal; the offset
                 is normally displayed in decimal with a leading
@@ -1587,9 +1640,9 @@ OUTPUT
                 clones of the /dev/event device, where n is the
                 minor device number of the file;
 
-                or ``(socketpair: n)'' for a Solaris 2.6, 7, 8
-                BETA, or 8 BETA-Refresh UNIX domain socket,
-                created by the socketpair(3N) network function;
+                or ``(socketpair: n)'' for a Solaris 2.6, 7, 8,
+                or 9 UNIX domain socket, created by the
+                socketpair(3N) network function;
 
                 or ``no PCB'' for socket files that do not have a
                 protocol block associated with them, optionally
@@ -1603,7 +1656,7 @@ OUTPUT
                 followed in parentheses by the transmit and
                 receive queue sizes, and the connection state;
 
-                or ``dgram'' or ``stream'' for the type  UnixWare
+                or ``dgram'' or ``stream'' for the type UnixWare
                 7.1.1 and above in-kernel UNIX domain sockets,
                 followed by a colon (':') and the local path name
                 when available, followed by ``->'' and the remote
@@ -1649,7 +1702,7 @@ LOCKS
 OUTPUT FOR OTHER PROGRAMS
      When the -F option is specified, lsof produces output that
      is suitable for processing by another program - e.g, an awk
-     or Perl script.
+     or Perl script, or a C program.
 
      Each unit of information is output in a field that is iden-
      tified with a leading character and terminated by a NL (012)
@@ -1765,11 +1818,11 @@ OUTPUT FOR OTHER PROGRAMS
      change the field terminator character to a NUL (000).  A NUL
      terminator may be easier to process with xargs (1), for
      example, or with programs whose quoting mechanisms may not
-     easily cope with the range of characters in the field
-     output.  When the NUL field terminator is in use, lsof ends
+     easily cope with the range of characters in the field out-
+     put.  When the NUL field terminator is in use, lsof ends
      each process and file set with a NL (012).
 
-     Two aids to producing programs that can process lsof field
+     Three aids to producing programs that can process lsof field
      output are included in the lsof distribution.  The first is
      a C header file, lsof fields.h, that contains symbols for
      the field identification characters, indexes for storing
@@ -1779,6 +1832,13 @@ OUTPUT FOR OTHER PROGRAMS
      The second aid is a set of sample scripts that process field
      output, written in awk, Perl 4, and Perl 5.  They're located
      in the scripts subdirectory of the lsof distribution.
+
+     The third aid is the C library used for the lsof test suite.
+     The test suite is written in C and uses field output to
+     validate the correct operation of lsof.  The library can be
+     found in the tests/LTlib.c file of the lsof distribution.
+     The library uses the first aid, the lsof fields.h header
+     file.
 
 BLOCKS AND TIMEOUTS
      Lsof can be blocked by some kernel functions that it uses -
@@ -1944,7 +2004,7 @@ KERNEL NAME CACHE
           Reliant UNIX
           Caldera OpenUNIX
           SCO OpenServer
-          SCO UnixWare
+          SCO|Caldera UnixWare
           Solaris
 
      Lsof can't report path name components for these dialects:
@@ -1956,7 +2016,6 @@ KERNEL NAME CACHE
      gives its location.)
 
 DEVICE CACHE FILE
-
      Examining all members of the /dev (or /devices) node tree
      with stat(2) functions can be time consuming.  What's more,
      the information that lsof needs - device number, inode
@@ -2041,19 +2100,21 @@ LSOF PERMISSIONS THAT AFFECT DEVICE CACHE FILE ACCESS
      recommends that versions for these dialects run setgid and
      be allowed to surrender setgid permission.
 
-          AIX 4.3.[23], 5L, and 5.1
-          Apple Darwin 1.[23] and 1.4 for Power Macintosh systems
-          BSDI BSD/OS 4.1 for Intel-based systems
+          AIX 4.3.[23], 5L, and 5.[12]
+          Apple Darwin 1.[2-5], 5.x and 6.x for Power Macintosh systems
+          BSDI BSD/OS 4.3.1 for x86-based systems
           DEC OSF/1, Digital UNIX, Tru64 UNIX 4.0, and 5.[01]
-          FreeBSD 4.[234] and 5.0 for Intel-based systems
+          FreeBSD 4.[2345678] and 5.[01] for x86-based systems
+          FreeBSD 5.[01] for Alpha and Sparc64 based systems
           HP-UX 11.00
-          NetBSD 1.5 for Alpha, Intel, and SPARC-based systems
+          NetBSD 1.[456] for Alpha, x86, and SPARC-based systems
           NEXTSTEP 3.[13] for NEXTSTEP architectures
-          OpenBSD 2.[89] and 3.0 for Intel-based systems
-          Caldera OpenUNIX
-          SCO OpenServer Release 5.0.[46] for Intel-based systems
-          SCO UnixWare 7.1.1 for Intel-based systems
-          Solaris 2.6, 7, 8, and 9 BETA
+          OpenBSD 2.[89] and 3.[0123] for x86-based systems
+          OpenStep 4.x
+          Caldera OpenUNIX 8
+          SCO OpenServer Release 5.0.[46] for x86-based systems
+          SCO|Caldera UnixWare 7.1.[13] for x86-based systems
+          Solaris 2.6, 7, 8, and 9
 
      (Note: lsof for AIX 5L and above needs setuid-root permis-
      sion if its -X option is used.)
@@ -2200,7 +2261,7 @@ MODIFIED PERSONAL DEVICE CACHE PATH
 
      Thus, for example, if LSOFPERSDCPATH contains ``LSOF'', the
      home directory is ``/Homes/abe'', the host name is
-     ``vic.cc.purdue.edu'', and the HASPERSDC format is the
+     ``lsof.itap.purdue.edu'', and the HASPERSDC format is the
      default (``%h/%p.lsof %L''), the modified personal device
      cache file path is:
 
@@ -2422,9 +2483,9 @@ BUGS
      descriptors are labeled mem descriptors.
 
      Lsof can't search for DEC OSF/1, Digital UNIX, and Tru64
-     UNIX named pipes by name, because their kernel
-     implementation of lstat(2) returns an improper device number
-     for a named pipe.
+     UNIX named pipes by name, because their kernel implementa-
+     tion of lstat(2) returns an improper device number for a
+     named pipe.
 
      Lsof can't report fully or correctly on HP-UX 9.01, 10.20,
      and 11.00 locks because of insufficient access to kernel
@@ -2459,9 +2520,9 @@ FAQ
      available in the 00FAQ file of the lsof distribution.
 
      That file is also available via anonymous ftp from
-     vic.cc.purdue.edu at pub/tools/unix/lsofFAQ.  The URL is:
+     lsof.itap.purdue.edu at pub/tools/unix/lsofFAQ.  The URL is:
 
-          ftp://vic.cc.purdue.edu/pub/tools/unix/lsof/FAQ
+          ftp://lsof.itap.purdue.edu/pub/tools/unix/lsof/FAQ
 
 FILES
      /dev/kmem         kernel virtual memory device
@@ -2482,22 +2543,22 @@ AUTHORS
 
 DISTRIBUTION
      The latest distribution of lsof is available via anonymous
-     ftp from the host vic.cc.purdue.edu.  You'll find the lsof
-     distribution in the pub/tools/unix/lsof directory.
+     ftp from the host lsof.itap.purdue.edu.  You'll find the
+     lsof distribution in the pub/tools/unix/lsof directory.
 
      You can also use this URL:
 
-          ftp://vic.cc.purdue.edu/pub/tools/unix/lsof
+          ftp://lsof.itap.purdue.edu/pub/tools/unix/lsof
 
      Lsof is also mirrored elsewhere.  When you access
-     vic.cc.purdue.edu and change to its pub/tools/unix/lsof
+     lsof.itap.purdue.edu and change to its pub/tools/unix/lsof
      directory, you'll be given a list of some mirror sites.  The
      pub/tools/unix/lsof directory also contains a more complete
      list in its mirrors file.  Use mirrors with caution - not
      all mirrors always have the latest lsof revision.
 
      Some pre-compiled Lsof executables are available on
-     vic.cc.purdue.edu, but their use is discouraged - it's
+     lsof.itap.purdue.edu, but their use is discouraged - it's
      better that you build your own from the sources.  If you
      feel you must use a pre-compiled executable, please read the
      cautions that appear in the README files of the
@@ -2513,7 +2574,8 @@ DISTRIBUTION
 SEE ALSO
      Lsof versions 2 and 3 have been tested under older UNIX
      dialects.  They are available via anonymous ftp from
-     vic.cc.purdue.edu in the pub/tools/unix/lsof/OLD directory.
+     lsof.itap.purdue.edu in the pub/tools/unix/lsof/OLD direc-
+     tory.
 
      access(2), awk(1), crash(1), fattach(3C), ff(1), fstat(8),
      fuser(1), gethostname(2), isprint(3), kill(1), lstat(2),

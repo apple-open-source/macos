@@ -1,0 +1,73 @@
+<?xml version="1.0"?>
+
+<!-- The jboss.xml descriptor for the security.jar ejb unit -->
+<jboss>
+    <security-domain>test-domain</security-domain>
+
+    <container-configurations>
+        <!-- Override the global security domain to have all standard stateless
+            session beans secured by the 'simple' domain.
+        -->
+        <container-configuration>
+            <container-name>Standard Stateless SessionBean</container-name>
+            <security-domain>java:/jaas/simple</security-domain>
+        </container-configuration>
+
+        <!-- Define an unsecured stateless session container config -->
+        <container-configuration>
+            <container-name>Unsecure Stateless SessionBean</container-name>
+            <call-logging>false</call-logging>
+            <container-interceptors>
+	        <interceptor>org.jboss.ejb.plugins.ProxyFactoryFinderInterceptor</interceptor>
+                <interceptor>org.jboss.ejb.plugins.LogInterceptor</interceptor>
+                <interceptor>org.jboss.ejb.plugins.SecurityInterceptor</interceptor>
+                <!-- CMT -->
+                <interceptor transaction="Container">org.jboss.ejb.plugins.TxInterceptorCMT</interceptor>
+                <interceptor transaction="Container" metricsEnabled="true">org.jboss.ejb.plugins.MetricsInterceptor</interceptor>
+                <interceptor transaction="Container">org.jboss.ejb.plugins.StatelessSessionInstanceInterceptor</interceptor>
+                <!-- BMT -->
+                <interceptor transaction="Bean">org.jboss.ejb.plugins.StatelessSessionInstanceInterceptor</interceptor>
+                <interceptor transaction="Bean">org.jboss.ejb.plugins.TxInterceptorBMT</interceptor>
+                <interceptor transaction="Bean" metricsEnabled="true">org.jboss.ejb.plugins.MetricsInterceptor</interceptor>
+            </container-interceptors>
+            <instance-pool>org.jboss.ejb.plugins.StatelessSessionInstancePool</instance-pool>
+            <instance-cache></instance-cache>
+            <persistence-manager></persistence-manager>
+            <transaction-manager>org.jboss.tm.TxManager</transaction-manager>
+            <container-pool-conf>
+            <MaximumSize>100</MaximumSize>
+            <MinimumSize>10</MinimumSize>
+            </container-pool-conf>
+        </container-configuration>
+
+    </container-configurations>
+
+   <enterprise-beans>
+      <session>
+         <ejb-name>ProjRepository</ejb-name>
+         <configuration-name>Standard Stateful SessionBean</configuration-name>
+         <security-proxy>org.jboss.test.security.proxy.ProjRepositorySecurityProxy2</security-proxy>
+      </session>
+      <session>
+         <ejb-name>StatelessSession</ejb-name>
+         <configuration-name>Standard Stateless SessionBean</configuration-name>
+      </session>
+      <session>
+         <ejb-name>StatelessSession2</ejb-name>
+         <configuration-name>Standard Stateless SessionBean</configuration-name>
+      </session>
+      <session>
+         <ejb-name>UnsecureStatelessSession</ejb-name>
+         <configuration-name>Unsecure Stateless SessionBean</configuration-name>
+      </session>
+      <entity>
+         <ejb-name>Entity</ejb-name>
+         <configuration-name>Standard BMP EntityBean</configuration-name>
+      </entity>
+      <message-driven>
+         <ejb-name>RunAsMDB</ejb-name>
+         <configuration-name>Standard Message Driven Bean</configuration-name>
+         <destination-jndi-name>queue/A</destination-jndi-name>
+      </message-driven>
+   </enterprise-beans>
+</jboss>

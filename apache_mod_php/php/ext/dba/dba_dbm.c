@@ -1,8 +1,8 @@
 /*
    +----------------------------------------------------------------------+
-   | PHP version 4.0                                                      |
+   | PHP Version 4                                                        |
    +----------------------------------------------------------------------+
-   | Copyright (c) 1997-2001 The PHP Group                                |
+   | Copyright (c) 1997-2003 The PHP Group                                |
    +----------------------------------------------------------------------+
    | This source file is subject to version 2.02 of the PHP license,      |
    | that is bundled with this package in the file LICENSE, and is        |
@@ -12,18 +12,27 @@
    | obtain it through the world-wide-web, please send a note to          |
    | license@php.net so we can mail you a copy immediately.               |
    +----------------------------------------------------------------------+
-   | Authors: Sascha Schumann <sascha@schumann.cx>                        |
+   | Author: Sascha Schumann <sascha@schumann.cx>                         |
    +----------------------------------------------------------------------+
  */
 
-/* $Id: dba_dbm.c,v 1.1.1.4 2001/12/14 22:12:10 zarzycki Exp $ */
+/* $Id: dba_dbm.c,v 1.1.1.7 2003/07/18 18:07:30 zarzycki Exp $ */
+
+#ifdef HAVE_CONFIG_H
+#include "config.h"
+#endif
 
 #include "php.h"
 
 #if DBA_DBM
 #include "php_dbm.h"
 
-#include <dbm.h>
+#ifdef DBM_INCLUDE_FILE
+#include DBM_INCLUDE_FILE
+#endif
+#if DBA_GDBM
+#include "php_gdbm.h"
+#endif
 
 #include <unistd.h>
 #include <sys/types.h>
@@ -52,7 +61,7 @@ DBA_OPEN_FUNC(dbm)
 
 	if(info->argc > 0) {
 		convert_to_long_ex(info->argv[0]);
-		filemode = (*info->argv[0])->value.lval;
+		filemode = Z_LVAL_PP(info->argv[0]);
 	}
 	
 	if(info->mode == DBA_TRUNC) {
@@ -74,13 +83,14 @@ DBA_OPEN_FUNC(dbm)
 		return FAILURE;
 	}
 
-	info->dbf = calloc(sizeof(dba_dbm_data), 1);
+	info->dbf = pemalloc(sizeof(dba_dbm_data), info->flags&DBA_PERSISTENT);
+	memset(info->dbf, 0, sizeof(dba_dbm_data));
 	return SUCCESS;
 }
 
 DBA_CLOSE_FUNC(dbm)
 {
-	free(info->dbf);
+	pefree(info->dbf, info->flags&DBA_PERSISTENT);
 	dbmclose();
 }
 
@@ -103,6 +113,14 @@ DBA_UPDATE_FUNC(dbm)
 	datum gval;
 
 	DBM_GKEY;
+
+	if (mode == 1) { /* insert */
+		gval = fetch(gkey);
+		if(gval.dptr) {
+			return FAILURE;
+		}
+	}
+
 	gval.dptr = (char *) val;
 	gval.dsize = vallen;
 	
@@ -172,6 +190,17 @@ DBA_SYNC_FUNC(dbm)
 	return SUCCESS;
 }
 
+DBA_INFO_FUNC(dbm)
+{
+#if DBA_GDBM
+	if (!strcmp(DBM_VERSION, "GDBM"))
+	{
+		return dba_info_gdbm(hnd, info TSRMLS_CC);
+	}
+#endif
+	return estrdup(DBM_VERSION);
+}
+
 #endif
 
 /*
@@ -179,6 +208,6 @@ DBA_SYNC_FUNC(dbm)
  * tab-width: 4
  * c-basic-offset: 4
  * End:
- * vim600: sw=4 ts=4 tw=78 fdm=marker
- * vim<600: sw=4 ts=4 tw=78
+ * vim600: sw=4 ts=4 fdm=marker
+ * vim<600: sw=4 ts=4
  */

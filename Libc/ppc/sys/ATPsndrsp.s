@@ -25,5 +25,4 @@
 #include "SYS.h"
 
 SYSCALL(ATPsndrsp, 3)
-	blr
 

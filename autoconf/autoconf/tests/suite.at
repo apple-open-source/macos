@@ -1,16 +1,36 @@
-# Validation suite for Autoconf                           -*- Autoconf -*-
-# Copyright 2000 Free Software Foundation, Inc.
+# Validation suite for Autoconf                           -*- Autotest -*-
+
+# Copyright 2000, 2001 Free Software Foundation, Inc.
+#
+# This program is free software; you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation; either version 2, or (at your option)
+# any later version.
+#
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with this program; if not, write to the Free Software
+# Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA
+# 02111-1307, USA.
+
+# We need a very up to date version of Autotest.
+m4_version_prereq([2.53])
+
+# Macros specialized for Autoconf testing.
+m4_include([atspecific.m4])
+
+AT_TESTED([autom4te autoconf autoheader autoupdate autoreconf ifnames])
 
 # Still many parts of `autoconf' are not exercised by the test suite.  A few
 # FIXME's, below, are used to list tests that we would need.  Do you feel
 # like contributing new tests?  If you do, you may tell your intent to
 # `autoconf@gnu.org', so no two people work at the same thing.
 
-AT_INIT([autoconf])
-
-AT_BANNER(
-[Some tests might be skipped if you don't have the software which the
-macros check (e.g., a Fortran compiler).])
+AT_INIT
 
 # Run the tests from the lowest level to the highest level, and from
 # the most selective to the easiest.
@@ -38,6 +58,13 @@ m4_include([torture.at])
 # Checking AC_PROG_CC, AC_COMPILE_IFELSE etc.
 m4_include([compile.at])
 
+# Language support.
+m4_include([aclang.at])
+m4_include([c.at])
+m4_include([acc.at])
+m4_include([fortran.at])
+m4_include([acfortran.at])
+
 # Checking that AC_CHECK_FOO macros work properly.
 m4_include([semantics.at])
 
@@ -45,11 +72,15 @@ m4_include([semantics.at])
 # Include them as is suggested for a `configure.ac', as looking for
 # for types requires looking for headers etc.
 m4_include([acgeneral.at])
+m4_include([acstatus.at])
+m4_include([acautoheader.at])
+m4_include([acautoupdate.at])
 m4_include([acspecific.at])
-m4_include([aclang.at])
+m4_include([acprograms.at])
 m4_include([acheaders.at])
 m4_include([actypes.at])
 m4_include([acfunctions.at])
+m4_include([aclibs.at])
 
 # Compatibility with foreign tools.
 m4_include([foreign.at])

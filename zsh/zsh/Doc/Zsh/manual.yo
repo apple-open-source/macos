@@ -1,10 +1,13 @@
-texiifinfo(\
+texiifnottex(\
 texinode(Top)(The Z Shell Manual)((dir))((dir))
 texitop(The Z Shell Manual)
+)\
+texiifinfo(\
 This Info file documents Zsh, a freely available UNIX command interpreter
 (shell), which of the standard shells most closely resembles the Korn shell
 (ksh), although it is not completely compatible.
 
+cindex(version)
 Version version(), last updated date().
 )\
 
@@ -30,6 +33,7 @@ menu(Completion Widgets)
 menu(Completion System)
 menu(Completion Using compctl)
 menu(Zsh Modules)
+menu(TCP Function System)
 menu(Zftp Function System)
 menu(User Contributions)
 
@@ -133,6 +137,13 @@ menu(Example)
 Zsh Modules
 
 includefile(Zsh/manmodmenu.yo)
+
+TCP Function System
+
+menu(TCP Functions)
+menu(TCP Parameters)
+menu(TCP Examples)
+menu(TCP Bugs)
 
 Zftp Function System
 

@@ -3,8 +3,6 @@
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
- * Copyright (c) 1999-2003 Apple Computer, Inc.  All Rights Reserved.
- * 
  * This file contains Original Code and/or Modifications of Original Code
  * as defined in and that are subject to the Apple Public Source License
  * Version 2.0 (the 'License'). You may not use this file except in
@@ -29,6 +27,8 @@
 /*
  * Global types, variables and routines declared in the file modinit_sections.c.
  */
+__private_extern__ unsigned long ninit;
+__private_extern__ unsigned long nterm;
 
 __private_extern__ void mod_section_merge(
     void *data, 

@@ -1,10 +1,7 @@
-/* signals.h -- Header to include system dependent signal definitions.
-   $Id: signals.h,v 1.1.1.1 2002/04/19 01:00:26 jkh Exp $
+/* signals.h -- header to include system dependent signal definitions.
+   $Id: signals.h,v 1.2 2003/07/25 18:37:07 jkh Exp $
 
-   This file is part of GNU Info, a program for reading online documentation
-   stored in Info format.
-
-   Copyright (C) 1993, 94, 95, 97 Free Software Foundation, Inc.
+   Copyright (C) 1993, 1994, 1995, 1997, 2002 Free Software Foundation, Inc.
 
    This program is free software; you can redistribute it and/or modify
    it under the terms of the GNU General Public License as published by

@@ -16,14 +16,13 @@ mandirman8 = ${mandir}/man8
 
 CC	= @CC@
 CFLAGS	= -I${srcdir} -I${srcdir}/.. -I. -I.. @INCLUDES@ @CFLAGS@
-LIBS	= @LIBS@
+LIBS	= @LIBS@ -lpam
 LDFLAGS	= @LDFLAGS@
 
 INSTALL	= @INSTALL@
 
 PROG	= ftpd
-OBJS	= cmds.o conf.o ftpd.o ftpcmd.o popen.o @LSOBJS@
-# removed: logutmp.o logwtmp.o
+OBJS	= cmds.o conf.o ftpd.o ftpcmd.o popen.o logutmp.o logwtmp.o @LSOBJS@
 
 all:	${PROG}
 

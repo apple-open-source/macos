@@ -1,0 +1,83 @@
+2002-12-15  Klee Dienes  <kdienes@apple.com>
+
+        * xmalloc.c: Add new hooks malloc_hook, calloc_hook,
+	realloc_hook, free_hook, defaulting to the system-provided versions
+	of the functions.
+	(xmalloc_set_malloc_hooks): New function.  Replace *_hook with the hooks
+	supplied by the user.  Add documentation.
+	(xmalloc): Use malloc_hook.
+	(xcalloc): Use calloc_hook.
+	(xrealloc): Use realloc_hook.
+	(xfree): Use free_hook.
+
+2002-12-14  Klee Dienes  <kdienes@apple.com>
+
+	* aclocal.m4: Use AC_LIBOBJ instead of setting LIBOBJS directly.
+	Use _AC_LANG_COMPILER_GNU and $ac_compiler_gnu instead of
+	AC_PROG_CC_GNU and $ac_cv_prog_gcc.  Call _AC_COMPILER_OBJEXT to
+	get the object file extension.  Use AC_PROG_CC_G instead of
+	_AC_PROG_CC_G.
+	* configure.in: Use AC_LIBOBJ instead of setting LIBOBJS directly.
+	* configure: Regenerate with autoconf-2.56.
+
+2002-11-18  Klee Dienes  <kdienes@apple.com>
+
+	* Makefile.in: Revert all but the framework portion to the FSF
+	sources.  Replace @ac_libibert_warn_cflags@ with -Wall ... the
+	libiberty autoconf setup is a living nightmare, and needs to be
+	upgraded to a real version of autoconf.
+	* argv.c: Revert to FSF sources (remove strdup/xstrdup diffs).
+	* config.in: Regenerate.
+	* configure.in: Revert to LIB_AC_PROG_CC from AC_PROG_CC (to match
+	FSF sources).  Revert to AC_PROG_CC_WORKS.  Remove --with-mmalloc
+	support.
+	* objalloc.c: Revert to FSF sources (remove malloc/xmalloc diffs).
+	* vasprintf.c: Revert to FSF sources (remove va_ptr hackage for win32).
+	* xmalloc.c: Revert to FSF sources (remove mmalloc support).
+	
+2002-11-18  Klee Dienes  <kdienes@apple.com>
+
+	* Makefile.in: Update the .c.o: rule to reflect that it
+	generates pic/%.o as well as %.o.
+	(FRAMEWORK_OFILES): Use pic/*.o instead of *.o.
+	* alloca.c: Remove initializers for variables that can go in
+	BSS (revert to FSF sources).
+	* concat.c: Ditto.
+	* obstack.c: Ditto.
+	* regex.c: Ditto.
+	* xexit.c: Ditto.
+	* xmalloc.c: Ditto.
+	* config.table: Add *-*-*darwin*.
+
+2002-11-15  Klee Dienes  <kdienes@apple.com>
+
+	* configure.in: Revert change from 2002-10-24; xmalloc.c has
+	been fixed to no longer require it.
+
+2002-11-08  Klee Dienes  <kdienes@apple.com>
+
+	* xmalloc.c (xmrealloc): Don't call xmalloc_failed if we are
+	returning NULL because of a zero-size realloc.
+
+2002-11-06  Klee Dienes  <kdienes@apple.com>
+
+	* testsuite/demangle-expected: Add test-case for const
+	pointer-to-member as argument to function (_Z1xM1sKFvvE).
+	* cp-demangle.c (demangle_type_ptr): Add a recognizer for
+	CV-qualifiers in the special-case code for pointer-to-member.
+
+2002-10-28  Klee Dienes  <kdienes@apple.com>
+
+	* configure.in: Add *-apple-macos10* to the check for Mac OS X system.
+	* configure: Regenerate.
+
+2002-10-24  Jason Molenda  (jmolenda@apple.com)
+
+	* configure.in: Check if configuring on a Mac OS X system.
+	* xmalloc.c: Conditionalize Mac OS X specific hack on target system.
+
+2002-07-09  Jim Ingham <jingham@apple.com>
+
+	* cp-demangle.c (demangle_ctor_dtor_name): Add the new "internal"
+	constructor & destructor flavor.
+	

@@ -37,7 +37,7 @@
  * SUCH DAMAGE.
  *
  *
- * $Id: opts.c,v 1.1.1.1 2002/05/15 01:21:56 jkh Exp $
+ * $Id: opts.c,v 1.1.1.2 2002/07/15 19:42:40 zarzycki Exp $
  *
  */
 
@@ -824,10 +824,7 @@ f_in_network(char *arg)
     return FALSE;
 
   status = is_network_member(arg);
-#ifdef DEBUG
-    plog(XLOG_USER, "%s is %son a local network",
-	 arg, (status ? "" : "not "));
-#endif /* DEBUG */
+  dlog("%s is %son a local network", arg, (status ? "" : "not "));
   return status;
 }
 
@@ -839,9 +836,7 @@ f_netgrp(char *arg)
   int status;
 
   status = innetgr(arg, opt_host, NULL, NULL);
-#ifdef DEBUG
-  plog(XLOG_USER, "netgrp = %s status = %d host = %s", arg, status, opt_host);
-#endif /* DEBUG */
+  dlog("netgrp = %s status = %d host = %s", arg, status, opt_host);
   return status;
 }
 
@@ -853,9 +848,7 @@ f_netgrpd(char *arg)
   int status;
 
   status = innetgr(arg, opt_hostd, NULL, NULL);
-#ifdef DEBUG
-  plog(XLOG_USER, "netgrp = %s status = %d hostd = %s", arg, status, opt_hostd);
-#endif /* DEBUG */
+  dlog("netgrp = %s status = %d hostd = %s", arg, status, opt_hostd);
   return status;
 }
 

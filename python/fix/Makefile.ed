@@ -1,0 +1,10 @@
+/^BUILDEXE/c
+BUILDEXE = .exe
+.
+/^OTHER_LIBTOOL_OPT/c
+OTHER_LIBTOOL_OPT =
+.
+/setup\.py -q/s//setup.py/
+s/$(CC)/& $(RC_CFLAGS)/
+g/builddir=\. DESTDIR=$(DESTDIR)$/s//& prefix=$(prefix)/
+w

@@ -28,7 +28,7 @@
 
 ModuleNexus<Mutex> desInitMutex;
 
-#define DESDebug(args...)	debug("desContext", ## args)
+#define DESDebug(args...)	secdebug("desContext", ## args)
 
 /*
  * DES encrypt/decrypt.
@@ -61,7 +61,7 @@ void DESContext::init(
 	/* init the low-level state */
 	{
 		StLock<Mutex> _(desInitMutex());
-		if(int irtn = desinit(&DesInst, DES_MODE_STD)) {
+		if(IFDEBUG(int irtn =) desinit(&DesInst, DES_MODE_STD)) {
 			DESDebug("desinit returned %d\n", irtn);
 			CssmError::throwMe(CSSMERR_CSP_MEMORY_ERROR);
 		}

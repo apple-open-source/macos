@@ -1,7 +1,7 @@
 /* dn2id.c - routines to deal with the dn2id index */
-/* $OpenLDAP: pkg/ldap/servers/slapd/back-ldbm/dn2id.c,v 1.63 2002/01/26 07:45:00 hyc Exp $ */
+/* $OpenLDAP: pkg/ldap/servers/slapd/back-ldbm/dn2id.c,v 1.63.2.3 2003/03/03 17:10:09 kurt Exp $ */
 /*
- * Copyright 1998-2002 The OpenLDAP Foundation, All Rights Reserved.
+ * Copyright 1998-2003 The OpenLDAP Foundation, All Rights Reserved.
  * COPYING RESTRICTIONS APPLY, see COPYRIGHT file
  */
 
@@ -30,19 +30,18 @@ dn2id_add(
 	struct berval	ptr, pdn;
 
 #ifdef NEW_LOGGING
-	LDAP_LOG(( "backend", LDAP_LEVEL_ENTRY,
-		   "dn2id_add: (%s):%ld\n", dn->bv_val, id ));
+	LDAP_LOG( BACK_LDBM, ENTRY, "dn2id_add: (%s):%ld\n", dn->bv_val, id, 0 );
 #else
 	Debug( LDAP_DEBUG_TRACE, "=> dn2id_add( \"%s\", %ld )\n", dn->bv_val, id, 0 );
 #endif
 
 	assert( id != NOID );
 
-	if ( (db = ldbm_cache_open( be, "dn2id", LDBM_SUFFIX, LDBM_WRCREAT ))
-	    == NULL ) {
+	db = ldbm_cache_open( be, "dn2id", LDBM_SUFFIX, LDBM_WRCREAT );
+	if ( db == NULL ) {
 #ifdef NEW_LOGGING
-		LDAP_LOG(( "backend", LDAP_LEVEL_ERR,
-			   "dn2id_add: couldn't open/create dn2id%s\n", LDBM_SUFFIX ));
+		LDAP_LOG( BACK_LDBM, ERR, 
+			"dn2id_add: couldn't open/create dn2id%s\n", LDBM_SUFFIX, 0, 0 );
 #else
 		Debug( LDAP_DEBUG_ANY, "Could not open/create dn2id%s\n",
 		    LDBM_SUFFIX, 0, 0 );
@@ -58,7 +57,8 @@ dn2id_add(
 	buf[0] = DN_BASE_PREFIX;
 	ptr.bv_val = buf + 1;
 	ptr.bv_len = dn->bv_len;
-	strcpy( ptr.bv_val, dn->bv_val );
+	AC_MEMCPY( ptr.bv_val, dn->bv_val, dn->bv_len );
+	ptr.bv_val[ dn->bv_len ] = '\0';
 
 	ldbm_datum_init( data );
 	data.dptr = (char *) &id;
@@ -104,8 +104,7 @@ dn2id_add(
 	ldbm_cache_close( be, db );
 
 #ifdef NEW_LOGGING
-	LDAP_LOG(( "backend", LDAP_LEVEL_ENTRY,
-		   "dn2id_add: return %d\n", rc ));
+	LDAP_LOG( BACK_LDBM, ENTRY, "dn2id_add: return %d\n", rc, 0, 0 );
 #else
 	Debug( LDAP_DEBUG_TRACE, "<= dn2id_add %d\n", rc, 0, 0 );
 #endif
@@ -123,10 +122,10 @@ dn2id(
 	struct ldbminfo	*li = (struct ldbminfo *) be->be_private;
 	DBCache	*db;
 	Datum		key, data;
+	unsigned char	*tmp;
 
 #ifdef NEW_LOGGING
-	LDAP_LOG(( "backend", LDAP_LEVEL_ENTRY,
-		   "dn2id: (%s)\n", dn->bv_val ));
+	LDAP_LOG( BACK_LDBM, ENTRY, "dn2id: (%s)\n", dn->bv_val, 0, 0 );
 #else
 	Debug( LDAP_DEBUG_TRACE, "=> dn2id( \"%s\" )\n", dn->bv_val, 0, 0 );
 #endif
@@ -134,10 +133,10 @@ dn2id(
 	assert( idp );
 
 	/* first check the cache */
-	if ( (*idp = cache_find_entry_ndn2id( be, &li->li_cache, dn )) != NOID ) {
+	*idp = cache_find_entry_ndn2id( be, &li->li_cache, dn );
+	if ( *idp != NOID ) {
 #ifdef NEW_LOGGING
-		LDAP_LOG(( "backend", LDAP_LEVEL_DETAIL1,
-			   "dn2id: (%s)%ld in cache.\n", dn, *idp ));
+		LDAP_LOG( BACK_LDBM, DETAIL1, "dn2id: (%s)%ld in cache.\n", dn, *idp, 0 );
 #else
 		Debug( LDAP_DEBUG_TRACE, "<= dn2id %ld (in cache)\n", *idp,
 			0, 0 );
@@ -146,11 +145,11 @@ dn2id(
 		return( 0 );
 	}
 
-	if ( (db = ldbm_cache_open( be, "dn2id", LDBM_SUFFIX, LDBM_WRCREAT ))
-		== NULL ) {
+	db = ldbm_cache_open( be, "dn2id", LDBM_SUFFIX, LDBM_WRCREAT );
+	if ( db == NULL ) {
 #ifdef NEW_LOGGING
-		LDAP_LOG(( "backend", LDAP_LEVEL_ERR,
-			   "dn2id: couldn't open dn2id%s\n", LDBM_SUFFIX ));
+		LDAP_LOG( BACK_LDBM, ERR, 
+			   "dn2id: couldn't open dn2id%s\n", LDBM_SUFFIX, 0, 0 );
 #else
 		Debug( LDAP_DEBUG_ANY, "<= dn2id could not open dn2id%s\n",
 			LDBM_SUFFIX, 0, 0 );
@@ -167,7 +166,11 @@ dn2id(
 
 	key.dsize = dn->bv_len + 2;
 	key.dptr = ch_malloc( key.dsize );
-	sprintf( key.dptr, "%c%s", DN_BASE_PREFIX, dn->bv_val );
+	tmp = (unsigned char *)key.dptr;
+	tmp[0] = DN_BASE_PREFIX;
+	tmp++;
+	AC_MEMCPY( tmp, dn->bv_val, dn->bv_len );
+	tmp[dn->bv_len] = '\0';
 
 	data = ldbm_cache_fetch( db, key );
 
@@ -177,8 +180,7 @@ dn2id(
 
 	if ( data.dptr == NULL ) {
 #ifdef NEW_LOGGING
-		LDAP_LOG(( "backend", LDAP_LEVEL_INFO,
-			   "dn2id: (%s) NOID\n", dn ));
+		LDAP_LOG( BACK_LDBM, INFO, "dn2id: (%s) NOID\n", dn, 0, 0 );
 #else
 		Debug( LDAP_DEBUG_TRACE, "<= dn2id NOID\n", 0, 0, 0 );
 #endif
@@ -194,8 +196,7 @@ dn2id(
 	ldbm_datum_free( db->dbc_db, data );
 
 #ifdef NEW_LOGGING
-	LDAP_LOG(( "backend", LDAP_LEVEL_ENTRY,
-		   "dn2id: %ld\n", *idp ));
+	LDAP_LOG( BACK_LDBM, ENTRY, "dn2id: %ld\n", *idp, 0, 0 );
 #else
 	Debug( LDAP_DEBUG_TRACE, "<= dn2id %ld\n", *idp, 0, 0 );
 #endif
@@ -213,10 +214,10 @@ dn2idl(
 {
 	DBCache	*db;
 	Datum		key;
+	unsigned char	*tmp;
 
 #ifdef NEW_LOGGING
-	LDAP_LOG(( "backend", LDAP_LEVEL_ENTRY,
-		   "dn2idl: \"%c%s\"\n", prefix, dn->bv_val ));
+	LDAP_LOG( BACK_LDBM, ENTRY, "dn2idl: \"%c%s\"\n", prefix, dn->bv_val, 0 );
 #else
 	Debug( LDAP_DEBUG_TRACE, "=> dn2idl( \"%c%s\" )\n", prefix, dn->bv_val, 0 );
 #endif
@@ -229,11 +230,11 @@ dn2idl(
 		return 0;
 	}
 
-	if ( (db = ldbm_cache_open( be, "dn2id", LDBM_SUFFIX, LDBM_WRCREAT ))
-		== NULL ) {
+	db = ldbm_cache_open( be, "dn2id", LDBM_SUFFIX, LDBM_WRCREAT );
+	if ( db == NULL ) {
 #ifdef NEW_LOGGING
-		LDAP_LOG(( "backend", LDAP_LEVEL_ERR,
-			   "dn2idl: could not open dn2id%s\n", LDBM_SUFFIX ));
+		LDAP_LOG( BACK_LDBM, ERR, 
+			   "dn2idl: could not open dn2id%s\n", LDBM_SUFFIX, 0, 0 );
 #else
 		Debug( LDAP_DEBUG_ANY, "<= dn2idl could not open dn2id%s\n",
 			LDBM_SUFFIX, 0, 0 );
@@ -246,7 +247,11 @@ dn2idl(
 
 	key.dsize = dn->bv_len + 2;
 	key.dptr = ch_malloc( key.dsize );
-	sprintf( key.dptr, "%c%s", prefix, dn->bv_val );
+	tmp = (unsigned char *)key.dptr;
+	tmp[0] = prefix;
+	tmp++;
+	AC_MEMCPY( tmp, dn->bv_val, dn->bv_len );
+	tmp[dn->bv_len] = '\0';
 
 	*idlp = idl_fetch( be, db, key );
 
@@ -272,8 +277,8 @@ dn2id_delete(
 	struct berval	ptr, pdn;
 
 #ifdef NEW_LOGGING
-	LDAP_LOG(( "backend", LDAP_LEVEL_ENTRY,
-		   "dn2id_delete: (%s)%ld\n", dn->bv_val, id ));
+	LDAP_LOG( BACK_LDBM, ENTRY, 
+		   "dn2id_delete: (%s)%ld\n", dn->bv_val, id, 0 );
 #else
 	Debug( LDAP_DEBUG_TRACE, "=> dn2id_delete( \"%s\", %ld )\n", dn->bv_val, id, 0 );
 #endif
@@ -281,11 +286,11 @@ dn2id_delete(
 
 	assert( id != NOID );
 
-	if ( (db = ldbm_cache_open( be, "dn2id", LDBM_SUFFIX, LDBM_WRCREAT ))
-	    == NULL ) {
+	db = ldbm_cache_open( be, "dn2id", LDBM_SUFFIX, LDBM_WRCREAT );
+	if ( db == NULL ) {
 #ifdef NEW_LOGGING
-		LDAP_LOG(( "backend", LDAP_LEVEL_ERR,
-			   "dn2id_delete: couldn't open db2id%s\n", LDBM_SUFFIX ));
+		LDAP_LOG( BACK_LDBM, ERR, 
+			   "dn2id_delete: couldn't open db2id%s\n", LDBM_SUFFIX, 0, 0 );
 #else
 		Debug( LDAP_DEBUG_ANY,
 		    "<= dn2id_delete could not open dn2id%s\n", LDBM_SUFFIX,
@@ -302,7 +307,8 @@ dn2id_delete(
 	buf[0] = DN_BASE_PREFIX;
 	ptr.bv_val = buf + 1;
 	ptr.bv_len = dn->bv_len;
-	strcpy( ptr.bv_val, dn->bv_val );
+	AC_MEMCPY( ptr.bv_val, dn->bv_val, dn->bv_len );
+	ptr.bv_val[dn->bv_len] = '\0';
 
 	rc = ldbm_cache_delete( db, key );
 	
@@ -342,8 +348,7 @@ dn2id_delete(
 	ldbm_cache_close( be, db );
 
 #ifdef NEW_LOGGING
-	LDAP_LOG(( "backend", LDAP_LEVEL_ENTRY,
-		   "dn2id_delete: return %d\n", rc ));
+	LDAP_LOG( BACK_LDBM, ENTRY, "dn2id_delete: return %d\n", rc, 0, 0 );
 #else
 	Debug( LDAP_DEBUG_TRACE, "<= dn2id_delete %d\n", rc, 0, 0 );
 #endif
@@ -369,9 +374,8 @@ dn2entry_rw(
 	struct berval	pdn;
 
 #ifdef NEW_LOGGING
-	LDAP_LOG(( "backend", LDAP_LEVEL_ENTRY,
-		   "dn2entry_rw: %s entry %s\n", rw ? "w" : "r",
-		   dn->bv_val ));
+	LDAP_LOG( BACK_LDBM, ENTRY, 
+		   "dn2entry_rw: %s entry %s\n", rw ? "w" : "r", dn->bv_val, 0 );
 #else
 	Debug(LDAP_DEBUG_TRACE, "dn2entry_%s: dn: \"%s\"\n",
 		rw ? "w" : "r", dn->bv_val, 0);
@@ -387,16 +391,18 @@ dn2entry_rw(
 		/* something bad happened to ldbm cache */
 		return( NULL );
 
-	} else if ( id != NOID ) {
+	}
+	
+	if ( id != NOID ) {
 		/* try to return the entry */
 		if ((e = id2entry_rw( be, id, rw )) != NULL ) {
 			return( e );
 		}
 
 #ifdef NEW_LOGGING
-		LDAP_LOG(( "backend", LDAP_LEVEL_ERR,
-			   "dn2entry_rw: no entry for valid id (%ld), dn (%s)\n",
-			   id, dn->bv_val ));
+		LDAP_LOG( BACK_LDBM, ERR, 
+			"dn2entry_rw: no entry for valid id (%ld), dn (%s)\n", 
+			id, dn->bv_val, 0 );
 #else
 		Debug(LDAP_DEBUG_ANY,
 			"dn2entry_%s: no entry for valid id (%ld), dn \"%s\"\n",

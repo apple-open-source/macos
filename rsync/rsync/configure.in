@@ -5,7 +5,7 @@ AC_CONFIG_SRCDIR([byteorder.h])
 AC_CONFIG_HEADER(config.h)
 AC_PREREQ(2.52)
 
-RSYNC_VERSION=2.5.2
+RSYNC_VERSION=2.5.6
 AC_SUBST(RSYNC_VERSION)
 AC_MSG_NOTICE([Configuring rsync $RSYNC_VERSION])
 
@@ -25,7 +25,7 @@ AC_SUBST(SHELL)
 AC_DEFINE([_GNU_SOURCE], 1,
           [Define _GNU_SOURCE so that we get all necessary prototypes])
 
-if test "$xac_cv_prog_cc_stdc" = xno
+if test "x$ac_cv_prog_cc_stdc" = xno
 then
 	AC_MSG_WARN([rsync requires an ANSI C compiler and you don't seem to have one])
 fi
@@ -65,6 +65,17 @@ then
 fi
 
 
+# Specifically, this turns on panic_action handling.
+AC_ARG_ENABLE(maintainer-mode,
+	AC_HELP_STRING([--enable-maintainer-mode],	
+		[turn on extra debug features],
+		[], []))
+if test x"$enable_maintainer_mode" = xyes
+then
+	CFLAGS="$CFLAGS -DMAINTAINER_MODE"
+fi
+
+
 # This is needed for our included version of popt.  Kind of silly, but
 # I don't want our version too far out of sync.
 CFLAGS="$CFLAGS -DHAVE_CONFIG_H"
@@ -82,11 +93,26 @@ AC_ARG_WITH(rsync-path,
 	[  --with-rsync-path=PATH  set default --rsync-path to PATH (default: \"rsync\")],
 	[ RSYNC_PATH="$with_rsync_path" ],
 	[ RSYNC_PATH="rsync" ])
-AC_DEFINE_UNQUOTED(RSYNC_PATH, "$RSYNC_PATH", [ ])
+
+AC_DEFINE_UNQUOTED(RSYNC_PATH, "$RSYNC_PATH", [location of rsync on remote machine])
+
+AC_ARG_WITH(rsh,
+	AC_HELP_STRING([--with-rsh=CMD], [set rsh command to CMD (default: \"remsh\" or \"rsh\")]))
 
 AC_CHECK_PROG(HAVE_REMSH, remsh, 1, 0)
-AC_DEFINE_UNQUOTED(HAVE_REMSH, $HAVE_REMSH, [ ])
+AC_DEFINE_UNQUOTED(HAVE_REMSH, $HAVE_REMSH, [remote shell is remsh not rsh])
 
+if test x"$with_rsh" != x
+then
+	RSYNC_RSH="$with_rsh"
+elif test x"$HAVE_REMSH" = x1
+then 
+	RSYNC_RSH="remsh"
+else
+	RSYNC_RSH="rsh"
+fi
+
+AC_DEFINE_UNQUOTED(RSYNC_RSH, "$RSYNC_RSH", [default -e command])
 
 # arrgh. libc in the current debian stable screws up the largefile
 # stuff, getting byte range locking wrong
@@ -221,16 +247,26 @@ yes
 	AC_SEARCH_LIBS(getaddrinfo, inet6)
 fi
 
+AC_MSG_CHECKING([whether to call shutdown on all sockets])
+case $host_os in
+	*cygwin* ) AC_MSG_RESULT(yes)
+                   AC_DEFINE(SHUTDOWN_ALL_SOCKETS, 1, 
+			    [Define if sockets need to be shutdown])
+		   ;;
+	       * ) AC_MSG_RESULT(no);;
+esac
+
 AC_C_BIGENDIAN
 AC_HEADER_DIRENT
 AC_HEADER_TIME
 AC_HEADER_SYS_WAIT
 AC_CHECK_HEADERS(sys/fcntl.h sys/select.h fcntl.h sys/time.h sys/unistd.h unistd.h utime.h grp.h)
 AC_CHECK_HEADERS(compat.h sys/param.h ctype.h sys/wait.h sys/ioctl.h)
-AC_CHECK_HEADERS(sys/filio.h string.h stdlib.h sys/socket.h sys/mode.h)
-AC_CHECK_HEADERS(glob.h alloca.h mcheck.h sys/sysctl.h arpa/inet.h arpa/nameser.h)
+AC_CHECK_HEADERS(sys/filio.h string.h stdlib.h sys/socket.h sys/mode.h sys/un.h)
+AC_CHECK_HEADERS(glob.h mcheck.h sys/sysctl.h arpa/inet.h arpa/nameser.h)
 AC_CHECK_HEADERS(netdb.h)
 AC_CHECK_HEADERS(malloc.h)
+AC_CHECK_HEADERS(float.h)
 
 AC_CHECK_SIZEOF(int)
 AC_CHECK_SIZEOF(long)
@@ -300,8 +336,39 @@ dnl AC_MSG_NOTICE([Looking in libraries: $LIBS])
 AC_CHECK_FUNCS(inet_ntop, , AC_LIBOBJ(lib/inet_ntop)) 
 AC_CHECK_FUNCS(inet_pton, , AC_LIBOBJ(lib/inet_pton))
 
-AC_CHECK_FUNCS(getaddrinfo, , AC_LIBOBJ(lib/getaddrinfo)) 
-AC_CHECK_FUNCS(getnameinfo, , AC_LIBOBJ(lib/getnameinfo))
+# Irix 6.5 has getaddrinfo but not the corresponding defines, so use
+#   builtin getaddrinfo if one of the defines don't exist
+AC_CACHE_CHECK([whether defines needed by getaddrinfo exist],
+               rsync_cv_HAVE_GETADDR_DEFINES,[
+			AC_EGREP_CPP(yes, [
+			#include <sys/types.h>
+			#include <sys/socket.h>
+			#include <netdb.h>
+			#ifdef AI_PASSIVE
+			yes
+			#endif], 
+			rsync_cv_HAVE_GETADDR_DEFINES=yes,
+			rsync_cv_HAVE_GETADDR_DEFINES=no)])
+if test x"$rsync_cv_HAVE_GETADDR_DEFINES" = x"yes"; then
+	# Tru64 UNIX has getaddrinfo() but has it renamed in libc as
+	# something else so we must include <netdb.h> to get the
+	# redefinition.
+	AC_CHECK_FUNCS(getaddrinfo, ,
+		[AC_MSG_CHECKING([for getaddrinfo by including <netdb.h>])
+		AC_TRY_LINK([#include <sys/types.h>
+		#include <sys/socket.h>
+		#include <netdb.h>],[getaddrinfo(NULL, NULL, NULL, NULL);],
+			[AC_MSG_RESULT([yes])
+			AC_DEFINE(HAVE_GETADDRINFO, 1,
+				[Define if you have the `getaddrinfo' function.])],
+			[AC_MSG_RESULT([no])
+			AC_LIBOBJ(lib/getaddrinfo)])])
+	AC_CHECK_FUNCS(getnameinfo, , AC_LIBOBJ(lib/getnameinfo))
+else
+	AC_LIBOBJ(lib/getaddrinfo)
+	AC_LIBOBJ(lib/getnameinfo)
+fi
+
 
 AC_CHECK_MEMBER([struct sockaddr.sa_len], 
 		[ AC_DEFINE(HAVE_SOCKADDR_LEN) ],
@@ -320,6 +387,15 @@ AC_TRY_COMPILE([#include <sys/types.h>
 		[Define if you have strct sockaddr_storage.] ),
 	AC_MSG_RESULT(no))
 
+AC_CHECK_MEMBER([struct sockaddr_in6.sin6_scope_id],
+		[ AC_DEFINE(HAVE_SOCKADDR_IN6_SCOPE_ID) ],
+		[],
+		[
+#include <sys/types.h>
+#include <sys/socket.h>
+#include <netinet/in.h>
+])
+
 # if we can't find strcasecmp, look in -lresolv (for Unixware at least)
 #
 AC_CHECK_FUNCS(strcasecmp)
@@ -333,10 +409,11 @@ dnl every platform has a memcmp that can do at least that.
 dnl AC_FUNC_MEMCMP
 
 AC_FUNC_UTIME_NULL
-AC_CHECK_FUNCS(waitpid wait4 getcwd strdup strerror chown chmod mknod)
+AC_FUNC_ALLOCA
+AC_CHECK_FUNCS(waitpid wait4 getcwd strdup strerror chown chmod mknod mkfifo)
 AC_CHECK_FUNCS(fchmod fstat strchr readlink link utime utimes strftime)
 AC_CHECK_FUNCS(memmove lchown vsnprintf snprintf asprintf setsid glob strpbrk)
-AC_CHECK_FUNCS(strlcat strlcpy mtrace mallinfo)
+AC_CHECK_FUNCS(strlcat strlcpy strtol mtrace mallinfo setgroups)
 
 AC_CACHE_CHECK([for working socketpair],rsync_cv_HAVE_SOCKETPAIR,[
 AC_TRY_RUN([
@@ -372,6 +449,12 @@ then
     AC_MSG_RESULT($srcdir/popt)
     BUILD_POPT='$(popt_OBJS)'
     CFLAGS="$CFLAGS -I$srcdir/popt"
+    if test x"$ALLOCA" != x
+    then
+	# this can be removed when/if we add an included alloca.c;
+	#  see autoconf documentation on AC_FUNC_ALLOCA
+	AC_MSG_WARN([included libpopt will use malloc, not alloca (which wastes a small amount of memory)])
+    fi
 else
     AC_MSG_RESULT(no)
 fi

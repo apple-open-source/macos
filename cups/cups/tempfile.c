@@ -1,9 +1,9 @@
 /*
- * "$Id: tempfile.c,v 1.1.1.4.2.1 2002/08/23 19:59:35 jlovell Exp $"
+ * "$Id: tempfile.c,v 1.1.1.9 2003/02/10 21:57:24 jlovell Exp $"
  *
  *   Temp file utilities for the Common UNIX Printing System (CUPS).
  *
- *   Copyright 1997-2002 by Easy Software Products.
+ *   Copyright 1997-2003 by Easy Software Products.
  *
  *   These coded instructions, statements, and computer programs are the
  *   property of Easy Software Products and are protected by Federal
@@ -58,14 +58,14 @@ cupsTempFd(char *filename,		/* I - Pointer to buffer */
 {
   int		fd;			/* File descriptor for temp file */
   int		tries;			/* Number of tries */
+  const char	*tmpdir;		/* TMPDIR environment var */
 #ifdef WIN32
-  char		tmpdir[1024];		/* Windows temporary directory */
+  char		tmppath[1024];		/* Windows temporary directory */
   DWORD		curtime;		/* Current time */
 #else
-  char		*tmpdir;		/* TMPDIR environment var */
   struct timeval curtime;		/* Current time */
 #endif /* WIN32 */
-  static char	buf[1024] = "";		/* Buffer if you pass in NULL and 0 */
+  static char	*buf = NULL;		/* Buffer if you pass in NULL and 0 */
 
 
  /*
@@ -74,8 +74,14 @@ cupsTempFd(char *filename,		/* I - Pointer to buffer */
 
   if (filename == NULL)
   {
+    if (buf == NULL)
+      buf = calloc(1024, sizeof(char));
+
+    if (buf == NULL)
+      return (-1);
+
     filename = buf;
-    len      = sizeof(buf);
+    len      = 1024;
   }
 
  /*
@@ -83,7 +89,11 @@ cupsTempFd(char *filename,		/* I - Pointer to buffer */
   */
 
 #ifdef WIN32
-  GetTempPath(sizeof(tmpdir), tmpdir);
+  if ((tmpdir = getenv("TEMP")) == NULL)
+  {
+    GetTempPath(sizeof(tmppath), tmppath);
+    tmpdir = tmppath;
+  }
 #else
   if ((tmpdir = getenv("TMPDIR")) == NULL)
   {
@@ -111,13 +121,14 @@ cupsTempFd(char *filename,		/* I - Pointer to buffer */
     * Get the current time of day...
     */
 
-    curtime = GetTickCount();
+    curtime =  GetTickCount() + tries;
 
    /*
     * Format a string using the hex time values...
     */
 
-    snprintf(filename, len - 1, "%s/%08lx", tmpdir, curtime);
+    snprintf(filename, len - 1, "%s/%05lx%08lx", tmpdir,
+             GetCurrentProcessId(), curtime);
 #else
    /*
     * Get the current time of day...
@@ -138,11 +149,14 @@ cupsTempFd(char *filename,		/* I - Pointer to buffer */
     * stomp on an existing file or someone's symlink crack...
     */
 
-#ifdef O_NOFOLLOW
+#ifdef WIN32
+    fd = open(filename, _O_CREAT | _O_RDWR | _O_TRUNC | _O_BINARY,
+              _S_IREAD | _S_IWRITE);
+#elif defined(O_NOFOLLOW)
     fd = open(filename, O_RDWR | O_CREAT | O_EXCL | O_NOFOLLOW, 0600);
 #else
     fd = open(filename, O_RDWR | O_CREAT | O_EXCL, 0600);
-#endif /* O_NOFOLLOW */
+#endif /* WIN32 */
 
     if (fd < 0 && errno != EEXIST)
       break;
@@ -203,5 +217,5 @@ cupsTempFile(char *filename,		/* I - Pointer to buffer */
 
 
 /*
- * End of "$Id: tempfile.c,v 1.1.1.4.2.1 2002/08/23 19:59:35 jlovell Exp $".
+ * End of "$Id: tempfile.c,v 1.1.1.9 2003/02/10 21:57:24 jlovell Exp $".
  */

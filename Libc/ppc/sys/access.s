@@ -25,5 +25,4 @@
 #include "SYS.h"
 
 SYSCALL(access, 2)
-	blr
 

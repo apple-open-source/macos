@@ -1,8 +1,8 @@
 /* 
    +----------------------------------------------------------------------+
-   | PHP version 4.0                                                      |
+   | PHP Version 4                                                        |
    +----------------------------------------------------------------------+
-   | Copyright (c) 1997-2001 The PHP Group                                |
+   | Copyright (c) 1997-2003 The PHP Group                                |
    +----------------------------------------------------------------------+
    | This source file is subject to version 2.02 of the PHP license,      |
    | that is bundled with this package in the file LICENSE, and is        |
@@ -12,7 +12,7 @@
    | obtain it through the world-wide-web, please send a note to          |
    | license@php.net so we can mail you a copy immediately.               |
    +----------------------------------------------------------------------+
-   | Authors: Sascha Schumann <sascha@schumann.cx>                        |
+   | Author: Sascha Schumann <sascha@schumann.cx>                         |
    +----------------------------------------------------------------------+
  */
 
@@ -23,19 +23,13 @@
 
 #include "php_session.h"
 
+PHP_MINIT_FUNCTION(ps_mm);
+PHP_MSHUTDOWN_FUNCTION(ps_mm);
+
 extern ps_module ps_mod_mm;
 #define ps_mm_ptr &ps_mod_mm
 
-extern zend_module_entry php_session_mm_module;
-#define phpext_ps_mm_ptr &php_session_mm_module
-
 PS_FUNCS(mm);
 
-#else
-
-#define ps_mm_ptr NULL
-#define phpext_ps_mm_ptr NULL
-
 #endif
-
 #endif

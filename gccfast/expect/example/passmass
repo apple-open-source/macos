@@ -1,0 +1,189 @@
+#!../expect --
+# passmass: change password on many machines
+# Synopsis: passmass host1 host2 host3 ....
+# Don Libes - March 11, 1991
+
+# Description: Change passwords on the named machines.
+#
+# You are prompted for old/new passwords.  (If you are changing root
+# passwords and have equivalencing, the old password is not used and may be
+# omitted.)
+# 
+# Additional arguments may be used for fine tuning.  They affect all hosts
+# which follow until another argument overrides.
+#
+#   -user	User whose password will be changed.  By default, the current
+#		user is used.
+#   -rlogin	Use rlogin to access host.  (default)
+#   -telnet	Use telnet to access host.
+#   -program	Next argument is taken as program to run to set password.
+#		Default is "passwd".  Other common choices are "yppasswd" and
+#		"set passwd" (e.g., VMS hosts).
+#   -prompt	Next argument is taken as a prompt suffix pattern.  This allows
+#		the script to know when the shell is prompting.  The default is
+#		"# " for root and "% " for non-root accounts.
+#   -timeout	Next argument is number of seconds to wait for responses.
+#		Default is 30 but some systems can be much slower logging in.
+
+# The best way to run this is to put the command in a one-line shell script
+# or alias. (Presumably, the set of hosts and parameters will rarely change.)
+# Then run it whenever you want to change your passwords on all the hosts.
+
+exp_version -exit 5.0
+
+if $argc==0 {
+	send_user "usage: $argv0 host1 host2 host3 . . .\n"
+	exit
+}
+
+expect_before -i $user_spawn_id \003 exit
+
+proc badhost {host emsg} {
+	global badhosts
+
+	send_user "\r\n\007password not changed on $host - $emsg\n\n"
+	if 0==[llength $badhosts] {
+		set badhosts $host
+	} else {
+		set badhosts [concat $badhosts $host]
+	}
+}
+
+# set defaults
+set login "rlogin"
+set program "passwd"
+set user [exec whoami]
+
+set timeout 1000000
+stty -echo
+send_user "old password: "
+expect_user -re "(.*)\n"
+send_user "\n"
+set oldpassword $expect_out(1,string)
+send_user "new password: "
+expect_user -re "(.*)\n"
+send_user "\n"
+set newpassword $expect_out(1,string)
+send_user "retype new password: "
+expect_user -re "(.*)\n"
+set newpassword2 $expect_out(1,string)
+send_user "\n"
+stty echo
+trap exit SIGINT
+
+if ![string match $newpassword $newpassword2] {
+	send_user "mismatch - password unchanged\n"
+	exit
+}
+
+
+#send_user "want to see new password you just typed? (y|n) "
+#expect_user "*\n"
+#
+#if [string match "y" [lindex $expect_match 0 c]] {
+#	send_user "password is <$newpassword>\nproceed? (y|n) "
+#	expect_user "*\n"
+#	if ![string match "y" [lindex $expect_match 0 c]] exit
+#}
+
+set timeout 30
+set badhosts {}
+for {set i 0} {$i<$argc} {incr i} {
+
+	set arg [lindex $argv $i]
+	switch -- $arg \
+		"-user" {
+			incr i
+			set user [lindex $argv $i]
+			continue
+		} "-prompt" {
+			incr i
+			set prompt [lindex $argv $i]
+			continue
+		} "-rlogin" {
+			set login "rlogin"
+			continue
+		} "-telnet" {
+			set login "telnet"
+			continue
+		} "-program" {
+			incr i
+			set program [lindex $argv $i]
+			continue
+		} "-timeout" {
+			incr i
+			set timeout [lindex $argv $i]
+			continue
+		}
+
+	set host $arg
+	if [string match $login "rlogin"] {
+		set pid [spawn rlogin $host -l $user]
+	} else {
+		set pid [spawn telnet $host]
+		expect -re "(login|Username):.*" {
+			send "$user\r"
+		}
+	}
+
+	if ![info exists prompt] {
+		if [string match $user "root"] {
+			set prompt "# "
+		} else {
+			set prompt "(%|\\\$) "
+		}
+	}
+
+	set logged_in 0
+	for {} 1 {} {
+		expect "Password*" {
+			send "$oldpassword\r"
+		} eof {
+			badhost $host "spawn failed"
+			break
+		} timeout {
+			badhost $host "could not log in (or unrecognized prompt)"
+			exec kill $pid
+			expect eof
+			break
+		} -re "incorrect|invalid" {
+			badhost $host "bad password or login"
+			exec kill $pid
+			expect eof
+			break
+		} -re $prompt {
+			set logged_in 1
+			break
+		}
+	}
+
+	if (!$logged_in) {
+		wait
+		continue
+	}
+
+	send "$program\r"
+	expect "Old password*" {
+		send "$oldpassword\r"
+		expect "Sorry*" {
+			badhost $host "old password is bad?"
+			continue
+		} "password:"
+	} -re "(n|N)ew password:"
+	send "$newpassword\r"
+	expect -re "not changed|unchanged" {
+		badhost $host "new password is bad?"
+		continue
+	} -re "(password|Verification|Verify|again):.*"
+	send "$newpassword\r"
+	expect -re "(not changed|incorrect|choose new).*" {
+		badhost $host "password is bad?"
+		continue
+	} -re "$prompt"
+	send_user "\n"
+
+	close
+	wait
+}
+
+if [llength $badhosts] {send_user "\nfailed to set password on $badhosts\n"}

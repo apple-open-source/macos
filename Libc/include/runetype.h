@@ -42,19 +42,35 @@
 #include <sys/cdefs.h>
 #include <machine/ansi.h>
 
-#ifndef	_BSD_RUNE_T_DEFINED_
-#define _BSD_RUNE_T_DEFINED_
-typedef	_BSD_RUNE_T_	rune_t;
-#endif
-
 #ifndef	_BSD_SIZE_T_DEFINED_
 #define _BSD_SIZE_T_DEFINED_
 typedef	_BSD_SIZE_T_	size_t;
 #endif
 
+#ifndef	_BSD_CT_RUNE_T_DEFINED_
+#define _BSD_CT_RUNE_T_DEFINED_
+typedef	_BSD_CT_RUNE_T_	ct_rune_t;
+#endif
+
+#ifndef	_BSD_RUNE_T_DEFINED_
+#define _BSD_RUNE_T_DEFINED_
+typedef	_BSD_RUNE_T_	rune_t;
+#endif
+
+#ifndef	__cplusplus
 #ifndef	_BSD_WCHAR_T_DEFINED_
-#define _BSD_WCHAR_T_DEFINED_
+#define	_BSD_WCHAR_T_DEFINED_
+#ifdef	__WCHAR_TYPE__
+typedef	__WCHAR_TYPE__	wchar_t;
+#else	/* ! __WCHAR_TYPE__ */
 typedef	_BSD_WCHAR_T_	wchar_t;
+#endif	/* __WCHAR_TYPE__ */
+#endif	/* _BSD_WCHAR_T_DEFINED_ */
+#endif	/* __cplusplus */
+
+#ifndef	_BSD_WINT_T_DEFINED_
+#define _BSD_WINT_T_DEFINED_
+typedef	_BSD_WINT_T_	wint_t;
 #endif
 
 #define	_CACHED_RUNES	(1 <<8 )	/* Must be a power of 2 */
@@ -80,9 +96,9 @@ typedef struct {
 	char		encoding[32];	/* ASCII name of this encoding */
 
 	rune_t		(*sgetrune)
-	    __P((const char *, size_t, char const **));
+	   (const char *, size_t, char const **);
 	int		(*sputrune)
-	    __P((rune_t, char *, size_t, char **));
+	   (rune_t, char *, size_t, char **);
 	rune_t		invalid_rune;
 
 	unsigned long	runetype[_CACHED_RUNES];
@@ -104,7 +120,9 @@ typedef struct {
 
 #define	_RUNE_MAGIC_1	"RuneMagi"	/* Indicates version 0 of RuneLocale */
 
+__BEGIN_DECLS
 extern _RuneLocale _DefaultRuneLocale;
 extern _RuneLocale *_CurrentRuneLocale;
+__END_DECLS
 
 #endif	/* !_RUNETYPE_H_ */

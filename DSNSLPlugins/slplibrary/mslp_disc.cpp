@@ -1,3 +1,27 @@
+/*
+ * Copyright (c) 2003 Apple Computer, Inc. All rights reserved.
+ *
+ * @APPLE_LICENSE_HEADER_START@
+ * 
+ * Copyright (c) 1999-2003 Apple Computer, Inc.  All Rights Reserved.
+ * 
+ * This file contains Original Code and/or Modifications of Original Code
+ * as defined in and that are subject to the Apple Public Source License
+ * Version 2.0 (the 'License'). You may not use this file except in
+ * compliance with the License. Please obtain a copy of the License at
+ * http://www.opensource.apple.com/apsl/ and read it before using this
+ * file.
+ * 
+ * The Original Code and all software distributed under the License are
+ * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
+ * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
+ * INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY,
+ * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
+ * Please see the License for the specific language governing rights and
+ * limitations under the License.
+ * 
+ * @APPLE_LICENSE_HEADER_END@
+ */
 
 /*
  * mslp_disc.c : Minimal SLP v2 Active DADiscovery.
@@ -24,6 +48,9 @@
  *
  * (c) Sun Microsystems, 1998, All Rights Reserved.
  * Author: Erik Guttman
+ */
+ /*
+	Portions Copyright (c) 2002 Apple Computer, Inc. All rights reserved.
  */
 
 #include <stdio.h>
@@ -63,8 +90,10 @@ SLPInternalError active_da_discovery(SLPHandle hSLP, time_t tWait, SOCKET sd, in
         }
         
         SETFLAGS(pcSendBuf,(unsigned char) MCASTFLAG);
-    
-        err = get_converge_result(tWait,sd,pcSendBuf,iMTU,pcRecvBuf,RECVMTU,sin, (unsigned char) strtol(SLPGetProperty("net.slp.multicastTTL"), &endPtr, 10), pvUser,hSLP,pvCallback,cbt);
+		
+		const char* multicastTTL = SLPGetProperty("net.slp.multicastTTL");
+		
+        err = get_converge_result(tWait,sd,pcSendBuf,iMTU,pcRecvBuf,RECVMTU,sin, (multicastTTL)?(unsigned char) strtol(multicastTTL, &endPtr, 10):255, pvUser,hSLP,pvCallback,cbt);
     
         if (iNoSA) 
         {
@@ -97,7 +126,6 @@ SLPInternalError handle_daadvert_in(const char *pcSendBuf, /* for testing vs rqs
     int      iTemp = 0;
     int      iErrorCode = 0;
     char    *pcURL = NULL, *pcScopes = NULL;
-//    DATable *pdat = (DATable *) pvUser;
     DATable *pdat = GetGlobalDATable();
     SLPInternalError err = SLP_OK;
     struct sockaddr_in sinDA;
@@ -108,7 +136,7 @@ SLPInternalError handle_daadvert_in(const char *pcSendBuf, /* for testing vs rqs
     if ( !pdat )
         return SLP_OK;		// don't handle this advertisement until we have a pdat set up
     
-    assert(pdat && pcRecvBuf && pvCallback && cbCallbackType == SLPDAADVERT_CALLBACK);
+    if(!pdat || !pcRecvBuf || !pvCallback || !(cbCallbackType == SLPDAADVERT_CALLBACK)) return SLP_PARSE_ERROR;
 
     if ((err= get_header(pcSendBuf, pcRecvBuf, iRecvSz, &slph, &offset)) !=SLP_OK) 
     {
@@ -144,7 +172,7 @@ SLPInternalError handle_daadvert_in(const char *pcSendBuf, /* for testing vs rqs
                 extLength -= 2;		// subtract length of extension ID
                 
                 scopeToUse = safe_malloc( extLength+1, pcRecvBuf+extOffset, extLength );
-                assert( scopeToUse );
+                if( !scopeToUse ) return SLP_PARSE_ERROR;
                     
                 SLP_LOG( SLP_LOG_DA, "Received manditory scope to use for registration: %s", scopeToUse );
             }
@@ -236,16 +264,12 @@ SLPInternalError active_sa_discovery(SLPHandle hSLP, const char *pcTypeHint)
     SLPInternalError    err;
     int         iNoSA = 0;
     char*	endPtr = NULL;
-//    int         iWait = atoi(SLPGetProperty("net.slp.multicastMaximumWait"));
     int         iWait = strtol(SLPGetProperty("net.slp.multicastMaximumWait"), &endPtr, 10);
-//    int         iMTU = atoi(SLPGetProperty("net.slp.MTU"));
     int         iMTU = strtol(SLPGetProperty("net.slp.MTU"), &endPtr, 10);
     char       *pcSendBuf = safe_malloc(iMTU,0,0);
     char       *pcRecvBuf = safe_malloc(RECVMTU,0,0);
     char        pcRqst[120];
     struct sockaddr_in sin;
-//    UA_State   *puas = (UA_State*) hSLP;
-//    DATable    *pdat = puas->pdat;
     DATable    *pdat = GetGlobalDATable();
     SOCKET      sd = socket(AF_INET, SOCK_DGRAM, 0);
     const char *pcIsBCast = SLPGetProperty("net.slp.isBroadcastOnly");
@@ -268,7 +292,6 @@ SLPInternalError active_sa_discovery(SLPHandle hSLP, const char *pcTypeHint)
         {
             CLOSESOCKET(sd);
             mslplog(SLP_LOG_FAIL, "mslpd_init_network: set broadcast option",strerror(errno));
-            //LOG_SLP_ERROR_AND_RETURN(SLP_LOG_FAIL,"mslpd_init_network: set broadcast option", SLP_NETWORK_INIT_FAILED);
         }
         sin.sin_addr.s_addr = BROADCAST;
     } 
@@ -337,15 +360,12 @@ SLPInternalError active_sa_async_discovery(SLPHandle hSLP, SLPScopeCallback call
     SLPInternalError		err = SLP_OK;
     int				iNoSA = 0;
     char*			endPtr = NULL;
-//    int				iWait = atoi(SLPGetProperty("net.slp.multicastMaximumWait"));
-    int				iWait = strtol(SLPGetProperty("net.slp.multicastMaximumWait"), &endPtr, 10);
-//    int				iMTU = atoi(SLPGetProperty("net.slp.MTU"));
-    int				iMTU = strtol(SLPGetProperty("net.slp.MTU"), &endPtr, 10);
+    int				iWait = (SLPGetProperty("net.slp.multicastMaximumWait"))?strtol(SLPGetProperty("net.slp.multicastMaximumWait"), &endPtr, 10):15000;
+    int				iMTU = (SLPGetProperty("net.slp.MTU"))?strtol(SLPGetProperty("net.slp.MTU"), &endPtr, 10):1400;
     char			*pcSendBuf = safe_malloc(iMTU,0,0);
     char			*pcRecvBuf = safe_malloc(RECVMTU,0,0);
     char			pcRqst[120];
     struct sockaddr_in sin;
-    //  UA_State   *puas = (UA_State*) hSLP;
     SOCKET			sd = socket(AF_INET, SOCK_DGRAM, 0);
     const char		*pcIsBCast = SLPGetProperty("net.slp.isBroadcastOnly");
     const char		*pcIsNoSA  = SLPGetProperty("com.sun.slp.noSA");
@@ -440,8 +460,8 @@ SLPInternalError handle_saadvert_in(const char *pcSendBuf, /* for testing vs rqs
   hSLP = hSLP;               /* we don't need this but the callback has it */
   
 #ifdef MAC_OS_X
-  assert(pdat && pcRecvBuf && pcSendBuf && pvCallback &&
-	 (cbCallbackType == SLPSAADVERT_CALLBACK || cbCallbackType == SLPSAADVERT_ASYNC_CALLBACK ) );
+  if(!pdat || !pcRecvBuf || !pcSendBuf || !pvCallback ||
+	 !(cbCallbackType == SLPSAADVERT_CALLBACK || cbCallbackType == SLPSAADVERT_ASYNC_CALLBACK ) ) return SLP_PARSE_ERROR;
 #else
     assert(pdat && pcRecvBuf && pcSendBuf && pvCallback &&
 	 cbCallbackType == SLPSAADVERT_CALLBACK);

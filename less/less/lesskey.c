@@ -1,27 +1,11 @@
 /*
- * Copyright (c) 1984,1985,1989,1994,1995,1996,1999  Mark Nudelman
- * All rights reserved.
+ * Copyright (C) 1984-2002  Mark Nudelman
  *
- * Redistribution and use in source and binary forms, with or without
- * modification, are permitted provided that the following conditions
- * are met:
- * 1. Redistributions of source code must retain the above copyright
- *    notice, this list of conditions and the following disclaimer.
- * 2. Redistributions in binary form must reproduce the above copyright
- *    notice in the documentation and/or other materials provided with 
- *    the distribution.
+ * You may distribute under the terms of either the GNU General Public
+ * License or the Less License, as specified in the README file.
  *
- * THIS SOFTWARE IS PROVIDED BY THE AUTHOR ``AS IS'' AND ANY
- * EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
- * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR 
- * PURPOSE ARE DISCLAIMED.  IN NO EVENT SHALL THE AUTHOR BE LIABLE
- * FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR 
- * CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT 
- * OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR 
- * BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, 
- * WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE 
- * OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN 
- * IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+ * For more information about less, or for information on how to 
+ * contact the author, see the README file.
  */
 
 
@@ -109,83 +93,87 @@ struct cmdname
 
 struct cmdname cmdnames[] = 
 {
-	"back-bracket",		A_B_BRACKET,
-	"back-line",		A_B_LINE,
-	"back-line-force",	A_BF_LINE,
-	"back-screen",		A_B_SCREEN,
-	"back-scroll",		A_B_SCROLL,
-	"back-search",		A_B_SEARCH,
-	"back-window",		A_B_WINDOW,
-	"debug",		A_DEBUG,
-	"display-flag",		A_DISP_OPTION,
-	"display-option",	A_DISP_OPTION,
-	"end",			A_GOEND,
-	"examine",		A_EXAMINE,
-	"first-cmd",		A_FIRSTCMD,
-	"firstcmd",		A_FIRSTCMD,
-	"flush-repaint",	A_FREPAINT,
-	"forw-bracket",		A_F_BRACKET,
-	"forw-forever",		A_F_FOREVER,
-	"forw-line",		A_F_LINE,
-	"forw-line-force",	A_FF_LINE,
-	"forw-screen",		A_F_SCREEN,
-	"forw-screen-force",	A_FF_SCREEN,
-	"forw-scroll",		A_F_SCROLL,
-	"forw-search",		A_F_SEARCH,
-	"forw-window",		A_F_WINDOW,
-	"goto-end",		A_GOEND,
-	"goto-line",		A_GOLINE,
-	"goto-mark",		A_GOMARK,
-	"help",			A_HELP,
-	"index-file",		A_INDEX_FILE,
-	"invalid",		A_UINVALID,
-	"left-scroll",		A_LSHIFT,
-	"next-file",		A_NEXT_FILE,
-	"noaction",		A_NOACTION,
-	"percent",		A_PERCENT,
-	"pipe",			A_PIPE,
-	"prev-file",		A_PREV_FILE,
-	"quit",			A_QUIT,
-	"repaint",		A_REPAINT,
-	"repaint-flush",	A_FREPAINT,
-	"repeat-search",	A_AGAIN_SEARCH,
-	"repeat-search-all",	A_T_AGAIN_SEARCH,
-	"reverse-search",	A_REVERSE_SEARCH,
-	"reverse-search-all",	A_T_REVERSE_SEARCH,
-	"right-scroll",		A_RSHIFT,
-	"set-mark",		A_SETMARK,
-	"shell",		A_SHELL,
-	"status",		A_STAT,
-	"toggle-flag",		A_OPT_TOGGLE,
-	"toggle-option",	A_OPT_TOGGLE,
-	"undo-hilite",		A_UNDO_SEARCH,
-	"version",		A_VERSION,
-	"visual",		A_VISUAL,
-	NULL,			0
+	{ "back-bracket",	A_B_BRACKET },
+	{ "back-line",		A_B_LINE },
+	{ "back-line-force",	A_BF_LINE },
+	{ "back-screen",	A_B_SCREEN },
+	{ "back-scroll",	A_B_SCROLL },
+	{ "back-search",	A_B_SEARCH },
+	{ "back-window",	A_B_WINDOW },
+	{ "debug",		A_DEBUG },
+	{ "digit",		A_DIGIT },
+	{ "display-flag",	A_DISP_OPTION },
+	{ "display-option",	A_DISP_OPTION },
+	{ "end",		A_GOEND },
+	{ "examine",		A_EXAMINE },
+	{ "first-cmd",		A_FIRSTCMD },
+	{ "firstcmd",		A_FIRSTCMD },
+	{ "flush-repaint",	A_FREPAINT },
+	{ "forw-bracket",	A_F_BRACKET },
+	{ "forw-forever",	A_F_FOREVER },
+	{ "forw-line",		A_F_LINE },
+	{ "forw-line-force",	A_FF_LINE },
+	{ "forw-screen",	A_F_SCREEN },
+	{ "forw-screen-force",	A_FF_SCREEN },
+	{ "forw-scroll",	A_F_SCROLL },
+	{ "forw-search",	A_F_SEARCH },
+	{ "forw-window",	A_F_WINDOW },
+	{ "goto-end",		A_GOEND },
+	{ "goto-line",		A_GOLINE },
+	{ "goto-mark",		A_GOMARK },
+	{ "help",		A_HELP },
+	{ "index-file",		A_INDEX_FILE },
+	{ "invalid",		A_UINVALID },
+	{ "left-scroll",	A_LSHIFT },
+	{ "next-file",		A_NEXT_FILE },
+	{ "next-tag",		A_NEXT_TAG },
+	{ "noaction",		A_NOACTION },
+	{ "percent",		A_PERCENT },
+	{ "pipe",		A_PIPE },
+	{ "prev-file",		A_PREV_FILE },
+	{ "prev-tag",		A_PREV_TAG },
+	{ "quit",		A_QUIT },
+	{ "remove-file",	A_REMOVE_FILE },
+	{ "repaint",		A_REPAINT },
+	{ "repaint-flush",	A_FREPAINT },
+	{ "repeat-search",	A_AGAIN_SEARCH },
+	{ "repeat-search-all",	A_T_AGAIN_SEARCH },
+	{ "reverse-search",	A_REVERSE_SEARCH },
+	{ "reverse-search-all",	A_T_REVERSE_SEARCH },
+	{ "right-scroll",	A_RSHIFT },
+	{ "set-mark",		A_SETMARK },
+	{ "shell",		A_SHELL },
+	{ "status",		A_STAT },
+	{ "toggle-flag",	A_OPT_TOGGLE },
+	{ "toggle-option",	A_OPT_TOGGLE },
+	{ "undo-hilite",	A_UNDO_SEARCH },
+	{ "version",		A_VERSION },
+	{ "visual",		A_VISUAL },
+	{ NULL, 0 }
 };
 
 struct cmdname editnames[] = 
 {
-	"back-complete",	EC_B_COMPLETE,
-	"backspace",		EC_BACKSPACE,
-	"delete",		EC_DELETE,
-	"down",			EC_DOWN,
-	"end",			EC_END,
-	"expand",		EC_EXPAND,
-	"forw-complete",	EC_F_COMPLETE,
-	"home",			EC_HOME,
-	"insert",		EC_INSERT,
-	"invalid",		EC_UINVALID,
-	"kill-line",		EC_LINEKILL,
-	"left",			EC_LEFT,
-	"literal",		EC_LITERAL,
-	"right",		EC_RIGHT,
-	"up",			EC_UP,
-	"word-backspace",	EC_W_BACKSPACE,
-	"word-delete",		EC_W_DELETE,
-	"word-left",		EC_W_LEFT,
-	"word-right",		EC_W_RIGHT,
-	NULL,			0
+	{ "back-complete",	EC_B_COMPLETE },
+	{ "backspace",		EC_BACKSPACE },
+	{ "delete",		EC_DELETE },
+	{ "down",		EC_DOWN },
+	{ "end",		EC_END },
+	{ "expand",		EC_EXPAND },
+	{ "forw-complete",	EC_F_COMPLETE },
+	{ "home",		EC_HOME },
+	{ "insert",		EC_INSERT },
+	{ "invalid",		EC_UINVALID },
+	{ "kill-line",		EC_LINEKILL },
+	{ "left",		EC_LEFT },
+	{ "literal",		EC_LITERAL },
+	{ "right",		EC_RIGHT },
+	{ "up",			EC_UP },
+	{ "word-backspace",	EC_W_BACKSPACE },
+	{ "word-delete",	EC_W_DELETE },
+	{ "word-left",		EC_W_LEFT },
+	{ "word-right",		EC_W_RIGHT },
+	{ NULL, 0 }
 };
 
 struct table
@@ -426,6 +414,10 @@ tstr(pp)
 			case 'h': ch = SK_HOME; break;
 			case 'e': ch = SK_END; break;
 			case 'x': ch = SK_DELETE; break;
+			default:
+				error("illegal char after \\k");
+				*pp = p+1;
+				return ("");
 			}
 			*pp = p+1;
 			buf[0] = SK_SPECIAL_KEY;
@@ -502,7 +494,7 @@ clean_line(s)
 	register int i;
 
 	s = skipsp(s);
-	for (i = 0;  s[i] != '\n' && s[i] != '\0';  i++)
+	for (i = 0;  s[i] != '\n' && s[i] != '\r' && s[i] != '\0';  i++)
 		if (s[i] == '#' && (i == 0 || s[i-1] != '\\'))
 			break;
 	s[i] = '\0';

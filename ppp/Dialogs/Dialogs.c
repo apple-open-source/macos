@@ -2,21 +2,24 @@
  * Copyright (c) 2000 Apple Computer, Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
- *
- * The contents of this file constitute Original Code as defined in and
- * are subject to the Apple Public Source License Version 1.1 (the
- * "License").  You may not use this file except in compliance with the
- * License.  Please obtain a copy of the License at
- * http://www.apple.com/publicsource and read it before using this file.
- *
- * This Original Code and all software distributed under the License are
- * distributed on an "AS IS" basis, WITHOUT WARRANTY OF ANY KIND, EITHER
+ * 
+ * Copyright (c) 1999-2003 Apple Computer, Inc.  All Rights Reserved.
+ * 
+ * This file contains Original Code and/or Modifications of Original Code
+ * as defined in and that are subject to the Apple Public Source License
+ * Version 2.0 (the 'License'). You may not use this file except in
+ * compliance with the License. Please obtain a copy of the License at
+ * http://www.opensource.apple.com/apsl/ and read it before using this
+ * file.
+ * 
+ * The Original Code and all software distributed under the License are
+ * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
  * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
  * INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY,
- * FITNESS FOR A PARTICULAR PURPOSE OR NON-INFRINGEMENT.  Please see the
- * License for the specific language governing rights and limitations
- * under the License.
- *
+ * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
+ * Please see the License for the specific language governing rights and
+ * limitations under the License.
+ * 
  * @APPLE_LICENSE_HEADER_END@
  */
 
@@ -84,6 +87,7 @@
 
 static int dialog_idle(struct ppp_idle *idle);
 static int dialog_start_link();
+static int dialog_link_up();
 static int dialog_ask(CFStringRef message, CFStringRef ok, CFStringRef cancel, int timeout);
 static void dialog_reminder(void *arg);
 static void dialog_phasechange(void *arg, int p);
@@ -99,6 +103,7 @@ static pthread_t   	reminderthread = 0;
 static int	   	reminderresult = 0;
 
 /* option variables */
+static bool 	askpasswordafter = 0;	/* Ask password after physical connection is established */
 static bool 	noaskpassword = 0;	/* Don't ask for a password before to connect */
 static bool 	noidleprompt = 0;	/* Don't ask user before to disconnect on idle */
 static int 	reminder = 0;		/* Ask user to stay connected after reminder period */
@@ -106,6 +111,8 @@ static int 	reminder = 0;		/* Ask user to stay connected after reminder period *
 /* option descriptors */
 option_t dialogs_options[] = {
     { "noaskpassword", o_bool, &noaskpassword,
+      "Don't ask for a password at all", 1 },
+    { "askpasswordafter", o_bool, &askpasswordafter,
       "Don't ask for a password before to connect", 1 },
     { "noidleprompt", o_bool, &noidleprompt,
       "Don't ask user before to disconnect on idle", 1 },
@@ -132,6 +139,7 @@ int start(CFBundleRef ref)
     add_notifier(&phasechange, dialog_phasechange, 0);
 
     start_link_hook = dialog_start_link;
+    link_up_hook = dialog_link_up;
     //idle_time_hook = dialog_idle;
         
     return 0;
@@ -286,7 +294,19 @@ Returns 1 if continue, 0 if cancel.
 int dialog_start_link()
 {
 
-    if (noaskpassword || *passwd) 
+    if (noaskpassword || *passwd || askpasswordafter) 
+        return 1;
+   
+    return dialog_password(user, MAXNAMELEN, passwd, MAXSECRETLEN);
+}
+
+/* -----------------------------------------------------------------------------
+Returns 1 if continue, 0 if cancel.
+----------------------------------------------------------------------------- */
+int dialog_link_up()
+{
+
+    if (noaskpassword || *passwd || !askpasswordafter) 
         return 1;
    
     return dialog_password(user, MAXNAMELEN, passwd, MAXSECRETLEN);

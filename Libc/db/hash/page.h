@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1999 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 2003 Apple Computer, Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -22,8 +22,8 @@
  * 
  * @APPLE_LICENSE_HEADER_END@
  */
-/*
- * Copyright (c) 1990, 1993
+/*-
+ * Copyright (c) 1990, 1993, 1994
  *	The Regents of the University of California.  All rights reserved.
  *
  * This code is derived from software contributed to Berkeley by
@@ -56,6 +56,9 @@
  * LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY
  * OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
  * SUCH DAMAGE.
+ *
+ *	@(#)page.h	8.2 (Berkeley) 5/31/94
+ * $FreeBSD: src/lib/libc/db/hash/page.h,v 1.2 2002/03/22 23:41:40 obrien Exp $
  */
 
 /*
@@ -95,20 +98,20 @@
  * You might as well do this up front.
  */
 
-#define	PAIRSIZE(K,D)	(2*sizeof(u_short) + (K)->size + (D)->size)
-#define BIGOVERHEAD	(4*sizeof(u_short))
-#define KEYSIZE(K)	(4*sizeof(u_short) + (K)->size);
-#define OVFLSIZE	(2*sizeof(u_short))
+#define	PAIRSIZE(K,D)	(2*sizeof(u_int16_t) + (K)->size + (D)->size)
+#define BIGOVERHEAD	(4*sizeof(u_int16_t))
+#define KEYSIZE(K)	(4*sizeof(u_int16_t) + (K)->size);
+#define OVFLSIZE	(2*sizeof(u_int16_t))
 #define FREESPACE(P)	((P)[(P)[0]+1])
 #define	OFFSET(P)	((P)[(P)[0]+2])
 #define PAIRFITS(P,K,D) \
 	(((P)[2] >= REAL_KEY) && \
 	    (PAIRSIZE((K),(D)) + OVFLSIZE) <= FREESPACE((P)))
-#define PAGE_META(N)	(((N)+3) * sizeof(u_short))
+#define PAGE_META(N)	(((N)+3) * sizeof(u_int16_t))
 
 typedef struct {
 	BUFHEAD *newp;
 	BUFHEAD *oldp;
 	BUFHEAD *nextp;
-	u_short next_addr;
+	u_int16_t next_addr;
 }       SPLIT_RETURN;

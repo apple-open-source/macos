@@ -31,7 +31,7 @@
 
 
 /*
- * $Id: lsof.h,v 1.44 2001/10/17 19:24:37 abe Exp $
+ * $Id: lsof.h,v 1.49 2003/06/11 11:36:27 abe Exp $
  */
 
 
@@ -228,11 +228,13 @@ extern int optind;
 					 * addresses in 0x... format */
 # endif	/* !defined(KA_T_FMT_X) */
 
+#if	!defined(LOGINML)
 static struct utmp dummy_utmp;		/* to get login name length */
 #define	LOGINML		sizeof(dummy_utmp.ut_name)
+#endif	/* !defined(LOGINML) */
 					/* login name length */
 #define	LPROCINCR	128		/* Lproc[] allocation increment */
-#define	LSOF_URL	"ftp://vic.cc.purdue.edu/pub/tools/unix/lsof/"
+#define	LSOF_URL	"ftp://lsof.itap.purdue.edu/pub/tools/unix/lsof/"
 #define	MIN_AF_ADDR	sizeof(struct in_addr)
 					/* minimum AF_* address length */
 
@@ -262,26 +264,29 @@ static struct utmp dummy_utmp;		/* to get login name length */
 #define	N_CHR		9		/* character device node */
 #define	N_COM		10		/* streams common device node */
 #define	N_DOOR		11		/* DOOR node */
-#define	N_FIFO		12		/* FIFO node */
-#define	N_HSFS		13		/* High Sierra node */
+#define	N_FD		12		/* FD node */
+#define	N_FIFO		13		/* FIFO node */
+#define	N_HSFS		14		/* High Sierra node */
 #define	N_KERN		15		/* BSD /kern node */
-#define	N_LOFS		15		/* loopback node */
-#define	N_MNT		16		/* mount file system device node */
-#define	N_MPC		17		/* multiplexed device node */
-#define	N_MVFS		18		/* multi-volume file system node (?) */
-#define	N_NFS		19		/* NFS node */
-#define	N_NM		20		/* named file system node */
-#define	N_OBJF		21		/* objfs file system node */
-#define	N_PCFS		22		/* PC file system node */
-#define	N_PIPE		23		/* pipe device node */
-#define	N_PROC		24		/* /proc node */
-#define	N_SOCK		25		/* sock_vnodeops node */
-#define	N_SPEC		26		/* spec_vnodeops node */
-#define	N_STREAM	27		/* stream node */
-#define	N_TMP		28		/* tmpfs node */
-#define	N_UFS		29		/* Unix file system node */
-#define	N_VXFS		30		/* Veritas file system node */
-#define	N_XFS		31		/* XFS node */
+#define	N_LOFS		16		/* loopback node */
+#define	N_MNT		17		/* mount file system device node */
+#define	N_MPC		18		/* multiplexed device node */
+#define	N_MVFS		19		/* multi-volume file system node (?) */
+#define	N_NFS		20		/* NFS node */
+#define	N_NM		21		/* named file system node */
+#define	N_OBJF		22		/* objfs file system node */
+#define	N_PCFS		23		/* PC file system node */
+#define	N_PIPE		24		/* pipe device node */
+#define	N_PROC		25		/* /proc node */
+#define	N_PSEU		26		/* pseudofs node */
+#define	N_SAMFS		27		/* Solaris SAM-FS */
+#define	N_SOCK		28		/* sock_vnodeops node */
+#define	N_SPEC		29		/* spec_vnodeops node */
+#define	N_STREAM	30		/* stream node */
+#define	N_TMP		31		/* tmpfs node */
+#define	N_UFS		32		/* Unix file system node */
+#define	N_VXFS		33		/* Veritas file system node */
+#define	N_XFS		34		/* XFS node */
 
 # if	!defined(OFFDECDIG)
 #define	OFFDECDIG	8		/* maximum number of digits in the
@@ -471,6 +476,7 @@ struct str_lst {
 	struct str_lst *next;		/* next list entry */
 };
 extern struct str_lst *Cmdl;
+extern int CmdLim;
 
 # if	defined(HASDCACHE)
 extern unsigned DCcksum;
@@ -535,6 +541,9 @@ struct fd_lst {
 	struct fd_lst *next;
 };
 extern struct fd_lst *Fdl;
+extern int FdlTy;			/* Fdl[] type: -1 == none
+					 *		0 == include
+					 *		1 == exclude */
 
 struct fieldsel {
 	char id;			/* field ID character */

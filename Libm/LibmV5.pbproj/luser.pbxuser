@@ -2,118 +2,875 @@
 {
 	08FB7793FE84155DC02AAC07 = {
 		activeBuildStyle = 014CEA530018CE5811CA2923;
-		activeTarget = F568AEB201B0B89F01CA2DA8;
+		activeExecutable = F5713AA3025D4C3B01CA2DA0;
+		activeTarget = 705B205B0200F56F05CA29A8;
 		addToTargets = (
-			F568AEB201B0B89F01CA2DA8,
+			D20C4BC804E867B400E7607B,
+			D20C4BDF04E867BC00E7607B,
+			D20C4BF604E867CD00E7607B,
 		);
 		breakpoints = (
 		);
+		executables = (
+			F50BFF6F01A3443101CA2DA8,
+			F568AEB801B0B8EC01CA2DA8,
+			F5713AA3025D4C3B01CA2DA0,
+			D2F9F1F804DEC3370044026F,
+		);
 		perUserDictionary = {
-			PBXWorkspaceConfiguration = {
-				ContentSize = "{1101, 673}";
+			PBXPerProjectTemplateStateSaveDate = 83544899;
+			"PBXTemplateGeometry-F5CA7ECB015C094F0DCA290F" = {
+				ContentSize = "{668, 621}";
 				LeftSlideOut = {
-					ActiveTab = 0;
-					Frame = "{{0, 23}, {1101, 650}}";
+					Collapsed = NO;
+					Frame = "{{0, 0}, {668, 621}}";
 					Split0 = {
-						Frame = "{{272, 0}, {829, 650}}";
+						Collapsed = NO;
+						Frame = "{{0, 0}, {668, 621}}";
 						Split0 = {
-							Frame = "{{0, 24}, {829, 626}}";
+							Frame = "{{0, 0}, {668, 621}}";
 						};
 						SplitCount = 1;
 						Tab0 = {
+							Frame = "{{0, 0}, {484, 208}}";
+						};
+						Tab1 = {
 							Debugger = {
-								ActiveTab = 1;
-								Frame = "{{0, 0}, {880, 432}}";
+								Collapsed = NO;
+								Frame = "{{0, 0}, {664, 208}}";
 								Split0 = {
-									Frame = "{{0, 252}, {880, 180}}";
+									Frame = "{{0, 24}, {664, 184}}";
 									Split0 = {
-										Frame = "{{0, 0}, {415, 180}}";
+										Frame = "{{0, 0}, {325, 184}}";
 									};
 									Split1 = {
-										Frame = "{{424, 0}, {456, 180}}";
+										DebugVariablesTableConfiguration = (
+											Name,
+											123,
+											Value,
+											85,
+											Summary,
+											96.123,
+										);
+										Frame = "{{334, 0}, {330, 184}}";
 									};
 									SplitCount = 2;
 								};
 								SplitCount = 1;
 								Tab0 = {
-									Frame = "{{0, 0}, {880, 127}}";
+									Frame = "{{0, 0}, {100, 50}}";
 								};
 								Tab1 = {
-									Frame = "{{0, 0}, {880, 228}}";
+									Frame = "{{0, 0}, {100, 50}}";
 								};
 								TabCount = 2;
+								TabsVisible = YES;
 							};
-							Frame = "{{0, 0}, {880, 432}}";
-							LauncherConfigVersion = 4;
-						};
-						Tab1 = {
-							Frame = "{{0, 0}, {829, 91}}";
-							LauncherConfigVersion = 3;
-							Runner = {
-								Frame = "{{0, 0}, {829, 91}}";
-							};
+							Frame = "{{0, 0}, {664, 208}}";
+							LauncherConfigVersion = 7;
 						};
 						Tab2 = {
-							BuildMessageFrame = "{{0, 0}, {831, 0}}";
-							BuildTranscriptFrame = "{{0, 9}, {831, 185}}";
-							Frame = "{{0, 0}, {829, 192}}";
+							Frame = "{{0, 0}, {664, 50}}";
+							LauncherConfigVersion = 3;
+							Runner = {
+								Frame = "{{0, 0}, {664, 50}}";
+							};
 						};
 						Tab3 = {
-							Frame = "{{0, 0}, {829, 286}}";
+							BuildMessageFrame = "{{0, 0}, {614, 262}}";
+							BuildTranscriptFrame = "{{0, 271}, {614, 2}}";
+							BuildTranscriptFrameExpanded = YES;
+							Frame = "{{0, 0}, {612, 295}}";
 						};
-						TabCount = 4;
+						Tab4 = {
+							Frame = "{{0, 0}, {612, 295}}";
+						};
+						TabCount = 5;
+						TabsVisible = NO;
 					};
 					SplitCount = 1;
 					Tab0 = {
-						Frame = "{{0, 0}, {248, 650}}";
+						Frame = "{{0, 0}, {313, 531}}";
+						GroupTreeTableConfiguration = (
+							TargetStatusColumn,
+							18,
+							MainColumn,
+							280,
+						);
 					};
 					Tab1 = {
-						ClassesFrame = "{{0, 0}, {202, 351}}";
-						Frame = "{{0, 0}, {200, 581}}";
-						MembersFrame = "{{0, 360}, {202, 221}}";
-						OptionsSetName = "Hierarchy, all classes";
+						ClassesFrame = "{{0, 0}, {280, 398}}";
+						ClassesTreeTableConfiguration = (
+							PBXBookColumnIdentifier,
+							20,
+							PBXClassColumnIdentifier,
+							237,
+						);
+						Frame = "{{0, 0}, {278, 659}}";
+						MembersFrame = "{{0, 407}, {280, 252}}";
+						MembersTreeTableConfiguration = (
+							PBXBookColumnIdentifier,
+							20,
+							PBXMethodColumnIdentifier,
+							236,
+						);
 					};
 					Tab2 = {
-						Frame = "{{0, 0}, {200, 500}}";
+						Frame = "{{0, 0}, {200, 100}}";
 					};
 					Tab3 = {
-						Frame = "{{0, 0}, {200, 649}}";
-						Split0 = {
-							Frame = "{{0, 0}, {200, 299}}";
-						};
-						Split1 = {
-							Frame = "{{0, 308}, {200, 341}}";
-						};
-						SplitCount = 2;
+						Frame = "{{0, 0}, {200, 557}}";
+						TargetTableConfiguration = (
+							ActiveObject,
+							16,
+							ObjectNames,
+							202.296,
+						);
 					};
 					Tab4 = {
-						Frame = "{{0, 0}, {250, 650}}";
+						BreakpointsTreeTableConfiguration = (
+							breakpointColumn,
+							197,
+							enabledColumn,
+							31,
+						);
+						Frame = "{{0, 0}, {250, 100}}";
 					};
 					TabCount = 5;
+					TabsVisible = NO;
 				};
+				NavBarShownByDefault = YES;
+				StatusViewVisible = NO;
+				Template = F5CA7ECB015C094F0DCA290F;
+				ToolbarVisible = NO;
+				WindowLocation = "{595, 103}";
 			};
+			PBXWorkspaceContents = (
+				{
+					LeftSlideOut = {
+						Split0 = {
+							Split0 = {
+								NavContent0 = {
+									bookmark = D268CAA404FACCDA00C0E094;
+									history = (
+										D268CA8C04FACCDA00C0E094,
+										D268CA8D04FACCDA00C0E094,
+										D268CA8E04FACCDA00C0E094,
+										D268CA8F04FACCDA00C0E094,
+										D268CA9004FACCDA00C0E094,
+										D268CA9104FACCDA00C0E094,
+										D268CA9204FACCDA00C0E094,
+										D268CA9304FACCDA00C0E094,
+										D268CA9404FACCDA00C0E094,
+									);
+									prevStack = (
+										D268CA9504FACCDA00C0E094,
+										D268CA9604FACCDA00C0E094,
+										D268CA9704FACCDA00C0E094,
+										D268CA9804FACCDA00C0E094,
+										D268CA9904FACCDA00C0E094,
+										D268CA9A04FACCDA00C0E094,
+										D268CA9B04FACCDA00C0E094,
+										D268CA9C04FACCDA00C0E094,
+										D268CA9D04FACCDA00C0E094,
+										D268CA9E04FACCDA00C0E094,
+										D268CA9F04FACCDA00C0E094,
+										D268CAA004FACCDA00C0E094,
+										D268CAA104FACCDA00C0E094,
+										D268CAA204FACCDA00C0E094,
+										D268CAA304FACCDA00C0E094,
+									);
+								};
+								NavCount = 1;
+								NavGeometry0 = {
+									Frame = "{{0, 0}, {950, 353}}";
+									NavBarVisible = YES;
+								};
+								NavSplitVertical = NO;
+							};
+							SplitCount = 1;
+							Tab1 = {
+								Debugger = {
+									Split0 = {
+										SplitCount = 2;
+									};
+									SplitCount = 1;
+									TabCount = 2;
+								};
+								LauncherConfigVersion = 7;
+							};
+							Tab2 = {
+								LauncherConfigVersion = 3;
+								Runner = {
+								};
+							};
+							TabCount = 5;
+						};
+						SplitCount = 1;
+						Tab1 = {
+							OptionsSetName = "Hierarchy, all classes";
+						};
+						TabCount = 5;
+					};
+				},
+			);
+			PBXWorkspaceGeometries = (
+				{
+					ContentSize = "{974, 597}";
+					LeftSlideOut = {
+						Collapsed = NO;
+						Frame = "{{0, 23}, {974, 574}}";
+						Split0 = {
+							ActiveTab = 2;
+							ActiveTabName = PBXBuildResultsModule;
+							Collapsed = NO;
+							Frame = "{{24, 0}, {950, 574}}";
+							Split0 = {
+								Frame = "{{0, 221}, {950, 353}}";
+							};
+							SplitCount = 1;
+							Tab0 = {
+								Frame = "{{0, 0}, {572, 214}}";
+							};
+							Tab1 = {
+								Debugger = {
+									Collapsed = NO;
+									Frame = "{{0, 0}, {817, 150}}";
+									Split0 = {
+										Frame = "{{0, 24}, {817, 126}}";
+										Split0 = {
+											Frame = "{{0, 0}, {401, 126}}";
+										};
+										Split1 = {
+											DebugVariablesTableConfiguration = (
+												Name,
+												123,
+												Value,
+												85,
+												Summary,
+												173.123,
+											);
+											Frame = "{{410, 0}, {407, 126}}";
+										};
+										SplitCount = 2;
+									};
+									SplitCount = 1;
+									Tab0 = {
+										Frame = "{{0, 0}, {100, 50}}";
+									};
+									Tab1 = {
+										Frame = "{{0, 0}, {100, 50}}";
+									};
+									TabCount = 2;
+									TabsVisible = YES;
+								};
+								Frame = "{{0, 0}, {817, 125}}";
+								LauncherConfigVersion = 7;
+							};
+							Tab2 = {
+								Frame = "{{0, 0}, {662, 212}}";
+								LauncherConfigVersion = 3;
+								Runner = {
+									Frame = "{{0, 0}, {662, 212}}";
+								};
+							};
+							Tab3 = {
+								BuildMessageFrame = "{{0, 0}, {952, 165}}";
+								BuildTranscriptFrame = "{{0, 174}, {952, 1}}";
+								BuildTranscriptFrameExpanded = YES;
+								Frame = "{{0, 0}, {950, 197}}";
+							};
+							Tab4 = {
+								Frame = "{{0, 0}, {801, 295}}";
+							};
+							TabCount = 5;
+							TabsVisible = YES;
+						};
+						SplitCount = 1;
+						Tab0 = {
+							Frame = "{{0, 0}, {316, 574}}";
+							GroupTreeTableConfiguration = (
+								SCMStatusColumn,
+								22,
+								TargetStatusColumn,
+								18,
+								MainColumn,
+								261,
+							);
+						};
+						Tab1 = {
+							ClassesFrame = "{{0, 0}, {247, 330}}";
+							ClassesTreeTableConfiguration = (
+								PBXBookColumnIdentifier,
+								20,
+								PBXClassColumnIdentifier,
+								204,
+							);
+							Frame = "{{0, 0}, {245, 549}}";
+							MembersFrame = "{{0, 339}, {247, 210}}";
+							MembersTreeTableConfiguration = (
+								PBXBookColumnIdentifier,
+								20,
+								PBXMethodColumnIdentifier,
+								203,
+							);
+						};
+						Tab2 = {
+							Frame = "{{0, 0}, {226, 549}}";
+						};
+						Tab3 = {
+							Frame = "{{0, 0}, {288, 574}}";
+							TargetTableConfiguration = (
+								ActiveObject,
+								16,
+								ObjectNames,
+								255.296,
+							);
+						};
+						Tab4 = {
+							BreakpointsTreeTableConfiguration = (
+								breakpointColumn,
+								138,
+								enabledColumn,
+								31,
+							);
+							Frame = "{{0, 0}, {191, 549}}";
+						};
+						TabCount = 5;
+						TabsVisible = YES;
+					};
+					NavBarShownByDefault = YES;
+					StatusViewVisible = YES;
+					Template = F5F68CF101725D4C0D7A8F4C;
+					ToolbarVisible = YES;
+					WindowLocation = "{17, 87}";
+				},
+			);
+			PBXWorkspaceStateSaveDate = 83544899;
+		};
+		perUserProjectItems = {
+			D268CA8C04FACCDA00C0E094 = D268CA8C04FACCDA00C0E094;
+			D268CA8D04FACCDA00C0E094 = D268CA8D04FACCDA00C0E094;
+			D268CA8E04FACCDA00C0E094 = D268CA8E04FACCDA00C0E094;
+			D268CA8F04FACCDA00C0E094 = D268CA8F04FACCDA00C0E094;
+			D268CA9004FACCDA00C0E094 = D268CA9004FACCDA00C0E094;
+			D268CA9104FACCDA00C0E094 = D268CA9104FACCDA00C0E094;
+			D268CA9204FACCDA00C0E094 = D268CA9204FACCDA00C0E094;
+			D268CA9304FACCDA00C0E094 = D268CA9304FACCDA00C0E094;
+			D268CA9404FACCDA00C0E094 = D268CA9404FACCDA00C0E094;
+			D268CA9504FACCDA00C0E094 = D268CA9504FACCDA00C0E094;
+			D268CA9604FACCDA00C0E094 = D268CA9604FACCDA00C0E094;
+			D268CA9704FACCDA00C0E094 = D268CA9704FACCDA00C0E094;
+			D268CA9804FACCDA00C0E094 = D268CA9804FACCDA00C0E094;
+			D268CA9904FACCDA00C0E094 = D268CA9904FACCDA00C0E094;
+			D268CA9A04FACCDA00C0E094 = D268CA9A04FACCDA00C0E094;
+			D268CA9B04FACCDA00C0E094 = D268CA9B04FACCDA00C0E094;
+			D268CA9C04FACCDA00C0E094 = D268CA9C04FACCDA00C0E094;
+			D268CA9D04FACCDA00C0E094 = D268CA9D04FACCDA00C0E094;
+			D268CA9E04FACCDA00C0E094 = D268CA9E04FACCDA00C0E094;
+			D268CA9F04FACCDA00C0E094 = D268CA9F04FACCDA00C0E094;
+			D268CAA004FACCDA00C0E094 = D268CAA004FACCDA00C0E094;
+			D268CAA104FACCDA00C0E094 = D268CAA104FACCDA00C0E094;
+			D268CAA204FACCDA00C0E094 = D268CAA204FACCDA00C0E094;
+			D268CAA304FACCDA00C0E094 = D268CAA304FACCDA00C0E094;
+			D268CAA404FACCDA00C0E094 = D268CAA404FACCDA00C0E094;
+		};
+		projectwideBuildSettings = {
 		};
 		wantsIndex = 1;
 		wantsSCM = -1;
 	};
 	08FB779FFE84155DC02AAC07 = {
 		activeExec = 0;
-		targetExecs = {
-			macosx = (
-				F50BFF6F01A3443101CA2DA8,
+		executables = (
+			F50BFF6F01A3443101CA2DA8,
+		);
+	};
+	7019EDCD0336551305CA29A8 = {
+		activeExec = 0;
+		executables = (
+			D2F9F1F804DEC3370044026F,
+		);
+	};
+	7031F35802427B9205CA29A8 = {
+		activeExec = 0;
+	};
+	705B205B0200F56F05CA29A8 = {
+		activeExec = 0;
+		executables = (
+			F5713AA3025D4C3B01CA2DA0,
+		);
+	};
+	70CAC259022DC69805CA29A8 = {
+		activeExec = 0;
+	};
+	70CAC2A0022DC79405CA29A8 = {
+		activeExec = 0;
+	};
+	70CAC2DA022DC7C805CA29A8 = {
+		activeExec = 0;
+	};
+	70CAC2F1022DC80405CA29A8 = {
+		activeExec = 0;
+	};
+	70CAC32B022DC83C05CA29A8 = {
+		activeExec = 0;
+	};
+	70CAC3AA022DC90305CA29A8 = {
+		activeExec = 0;
+	};
+	70CAC42A022DC9B905CA29A8 = {
+		activeExec = 0;
+	};
+	70CAC4A2022DC9EA05CA29A8 = {
+		activeExec = 0;
+	};
+	70CAC4B7022DCA1905CA29A8 = {
+		activeExec = 0;
+	};
+	70CAC52F022DCA3605CA29A8 = {
+		activeExec = 0;
+	};
+	D20C4BC804E867B400E7607B = {
+		activeExec = 0;
+	};
+	D20C4BDF04E867BC00E7607B = {
+		activeExec = 0;
+	};
+	D20C4BF604E867CD00E7607B = {
+		activeExec = 0;
+	};
+	D20C4C0D04E8680E00E7607B = {
+		activeExec = 0;
+	};
+	D20C4C2504E8681300E7607B = {
+		activeExec = 0;
+	};
+	D20C4C3D04E8681500E7607B = {
+		activeExec = 0;
+	};
+	D268CA8C04FACCDA00C0E094 = {
+		isa = PBXTargetBookmark;
+		trg = 70CAC259022DC69805CA29A8;
+		uiCtxt = {
+			TOCViewDetailVisibleRect = "{{0, 0}, {638, 334}}";
+			TOCViewExpandedItems = (
+				"com.apple.target-editor-pane.settings",
+				"com.apple.target-editor-pane.settings.simple",
+				"com.apple.target-editor-pane.buildphases",
+			);
+			TOCViewMasterVisibleRect = "{{0, 0}, {0, 0}}";
+			TOCViewSelectedItems = (
+				PBXBSExpertAspectModule,
 			);
 		};
 	};
-	F50BFF6F01A3443101CA2DA8 = {
+	D268CA8D04FACCDA00C0E094 = {
+		isa = PBXTargetBookmark;
+		trg = D20C4BC804E867B400E7607B;
+		uiCtxt = {
+			TOCViewDetailVisibleRect = "{{0, 0}, {447, 334}}";
+			TOCViewExpandedItems = (
+				"com.apple.target-editor-pane.settings",
+				"com.apple.target-editor-pane.settings.simple",
+				"com.apple.target-editor-pane.buildphases",
+			);
+			TOCViewMasterVisibleRect = "{{0, 0}, {176, 496}}";
+			TOCViewSelectedItems = (
+				PBXBSExpertAspectModule,
+			);
+		};
+	};
+	D268CA8E04FACCDA00C0E094 = {
+		isa = PBXTargetBookmark;
+		trg = 70CAC32B022DC83C05CA29A8;
+		uiCtxt = {
+			TOCViewDetailVisibleRect = "{{0, 0}, {447, 351}}";
+			TOCViewExpandedItems = (
+				"com.apple.target-editor-pane.settings",
+				"com.apple.target-editor-pane.settings.simple",
+				"com.apple.target-editor-pane.buildphases",
+			);
+			TOCViewMasterVisibleRect = "{{0, 0}, {176, 496}}";
+			TOCViewSelectedItems = (
+				PBXBSExpertAspectModule,
+			);
+		};
+	};
+	D268CA8F04FACCDA00C0E094 = {
+		isa = PBXTargetBookmark;
+		trg = D20C4BF604E867CD00E7607B;
+		uiCtxt = {
+			TOCViewDetailVisibleRect = "{{0, 0}, {447, 351}}";
+			TOCViewExpandedItems = (
+				"com.apple.target-editor-pane.settings",
+				"com.apple.target-editor-pane.settings.simple",
+				"com.apple.target-editor-pane.buildphases",
+			);
+			TOCViewMasterVisibleRect = "{{0, 0}, {176, 496}}";
+			TOCViewSelectedItems = (
+				PBXBSExpertAspectModule,
+			);
+		};
+	};
+	D268CA9004FACCDA00C0E094 = {
+		isa = PBXTargetBookmark;
+		trg = D20C4C0D04E8680E00E7607B;
+		uiCtxt = {
+			TOCViewDetailVisibleRect = "{{0, 0}, {447, 334}}";
+			TOCViewExpandedItems = (
+				"com.apple.target-editor-pane.settings",
+				"com.apple.target-editor-pane.settings.simple",
+				"com.apple.target-editor-pane.buildphases",
+			);
+			TOCViewMasterVisibleRect = "{{0, 0}, {176, 496}}";
+			TOCViewSelectedItems = (
+				PBXBSExpertAspectModule,
+			);
+		};
+	};
+	D268CA9104FACCDA00C0E094 = {
+		isa = PBXTargetBookmark;
+		trg = 70CAC2DA022DC7C805CA29A8;
+		uiCtxt = {
+			TOCViewDetailVisibleRect = "{{0, 0}, {447, 317}}";
+			TOCViewExpandedItems = (
+				"com.apple.target-editor-pane.settings",
+				"com.apple.target-editor-pane.settings.simple",
+				"com.apple.target-editor-pane.buildphases",
+			);
+			TOCViewMasterVisibleRect = "{{0, 0}, {176, 496}}";
+			TOCViewSelectedItems = (
+				PBXBSExpertAspectModule,
+			);
+		};
+	};
+	D268CA9204FACCDA00C0E094 = {
+		isa = PBXTargetBookmark;
+		trg = D20C4BDF04E867BC00E7607B;
+		uiCtxt = {
+			TOCViewDetailVisibleRect = "{{0, 0}, {447, 317}}";
+			TOCViewExpandedItems = (
+				"com.apple.target-editor-pane.settings",
+				"com.apple.target-editor-pane.settings.simple",
+				"com.apple.target-editor-pane.buildphases",
+			);
+			TOCViewMasterVisibleRect = "{{0, 0}, {176, 496}}";
+			TOCViewSelectedItems = (
+				PBXBSExpertAspectModule,
+			);
+		};
+	};
+	D268CA9304FACCDA00C0E094 = {
+		isa = PBXTargetBookmark;
+		trg = D20C4C2504E8681300E7607B;
+		uiCtxt = {
+			TOCViewDetailVisibleRect = "{{0, 0}, {447, 317}}";
+			TOCViewExpandedItems = (
+				"com.apple.target-editor-pane.settings",
+				"com.apple.target-editor-pane.settings.simple",
+				"com.apple.target-editor-pane.buildphases",
+			);
+			TOCViewMasterVisibleRect = "{{0, 0}, {176, 496}}";
+			TOCViewSelectedItems = (
+				PBXBSExpertAspectModule,
+			);
+		};
+	};
+	D268CA9404FACCDA00C0E094 = {
+		isa = PBXTargetBookmark;
+		trg = D20C4C3D04E8681500E7607B;
+	};
+	D268CA9504FACCDA00C0E094 = {
+		isa = PBXTargetBookmark;
+		trg = D20C4BC804E867B400E7607B;
+		uiCtxt = {
+			TOCViewDetailVisibleRect = "{{0, 0}, {447, 68}}";
+			TOCViewExpandedItems = (
+				"com.apple.target-editor-pane.settings",
+				"com.apple.target-editor-pane.settings.simple",
+				"com.apple.target-editor-pane.buildphases",
+			);
+			TOCViewMasterVisibleRect = "{{0, 0}, {176, 496}}";
+			TOCViewSelectedItems = (
+				D20C4BDD04E867B400E7607B,
+			);
+		};
+	};
+	D268CA9604FACCDA00C0E094 = {
+		isa = PBXTargetBookmark;
+		trg = D20C4BDF04E867BC00E7607B;
+		uiCtxt = {
+			TOCViewDetailVisibleRect = "{{0, 0}, {447, 68}}";
+			TOCViewExpandedItems = (
+				"com.apple.target-editor-pane.settings",
+				"com.apple.target-editor-pane.settings.simple",
+				"com.apple.target-editor-pane.buildphases",
+			);
+			TOCViewMasterVisibleRect = "{{0, 0}, {176, 496}}";
+			TOCViewSelectedItems = (
+				D20C4BF404E867BC00E7607B,
+			);
+		};
+	};
+	D268CA9704FACCDA00C0E094 = {
+		isa = PBXTargetBookmark;
+		trg = D20C4BF604E867CD00E7607B;
+		uiCtxt = {
+			TOCViewDetailVisibleRect = "{{0, 0}, {447, 68}}";
+			TOCViewExpandedItems = (
+				"com.apple.target-editor-pane.settings",
+				"com.apple.target-editor-pane.settings.simple",
+				"com.apple.target-editor-pane.buildphases",
+			);
+			TOCViewMasterVisibleRect = "{{0, 0}, {176, 496}}";
+			TOCViewSelectedItems = (
+				D20C4C0B04E867CD00E7607B,
+			);
+		};
+	};
+	D268CA9804FACCDA00C0E094 = {
+		isa = PBXTargetBookmark;
+		trg = D20C4BC804E867B400E7607B;
+		uiCtxt = {
+			TOCViewDetailVisibleRect = "{{0, 0}, {447, 334}}";
+			TOCViewExpandedItems = (
+				"com.apple.target-editor-pane.settings",
+				"com.apple.target-editor-pane.settings.simple",
+				"com.apple.target-editor-pane.buildphases",
+			);
+			TOCViewMasterVisibleRect = "{{0, 0}, {176, 496}}";
+			TOCViewSelectedItems = (
+				PBXBSExpertAspectModule,
+			);
+		};
+	};
+	D268CA9904FACCDA00C0E094 = {
+		isa = PBXTargetBookmark;
+		trg = 70CAC259022DC69805CA29A8;
+		uiCtxt = {
+			TOCViewDetailVisibleRect = "{{0, 0}, {638, 334}}";
+			TOCViewExpandedItems = (
+				"com.apple.target-editor-pane.settings",
+				"com.apple.target-editor-pane.settings.simple",
+				"com.apple.target-editor-pane.buildphases",
+			);
+			TOCViewMasterVisibleRect = "{{0, 0}, {0, 0}}";
+			TOCViewSelectedItems = (
+				PBXBSExpertAspectModule,
+			);
+		};
+	};
+	D268CA9A04FACCDA00C0E094 = {
+		isa = PBXTargetBookmark;
+		trg = D20C4BC804E867B400E7607B;
+		uiCtxt = {
+			TOCViewDetailVisibleRect = "{{0, 0}, {447, 334}}";
+			TOCViewExpandedItems = (
+				"com.apple.target-editor-pane.settings",
+				"com.apple.target-editor-pane.settings.simple",
+				"com.apple.target-editor-pane.buildphases",
+			);
+			TOCViewMasterVisibleRect = "{{0, 0}, {176, 496}}";
+			TOCViewSelectedItems = (
+				PBXBSExpertAspectModule,
+			);
+		};
+	};
+	D268CA9B04FACCDA00C0E094 = {
+		isa = PBXTargetBookmark;
+		trg = D20C4BDF04E867BC00E7607B;
+		uiCtxt = {
+			TOCViewDetailVisibleRect = "{{0, 0}, {447, 317}}";
+			TOCViewExpandedItems = (
+				"com.apple.target-editor-pane.settings",
+				"com.apple.target-editor-pane.settings.simple",
+				"com.apple.target-editor-pane.buildphases",
+			);
+			TOCViewMasterVisibleRect = "{{0, 0}, {176, 496}}";
+			TOCViewSelectedItems = (
+				PBXBSExpertAspectModule,
+			);
+		};
+	};
+	D268CA9C04FACCDA00C0E094 = {
+		isa = PBXTargetBookmark;
+		trg = D20C4BF604E867CD00E7607B;
+		uiCtxt = {
+			TOCViewDetailVisibleRect = "{{0, 0}, {447, 351}}";
+			TOCViewExpandedItems = (
+				"com.apple.target-editor-pane.settings",
+				"com.apple.target-editor-pane.settings.simple",
+				"com.apple.target-editor-pane.buildphases",
+			);
+			TOCViewMasterVisibleRect = "{{0, 0}, {176, 496}}";
+			TOCViewSelectedItems = (
+				PBXBSExpertAspectModule,
+			);
+		};
+	};
+	D268CA9D04FACCDA00C0E094 = {
+		isa = PBXTargetBookmark;
+		trg = 70CAC32B022DC83C05CA29A8;
+		uiCtxt = {
+			TOCViewDetailVisibleRect = "{{0, 0}, {447, 351}}";
+			TOCViewExpandedItems = (
+				"com.apple.target-editor-pane.settings",
+				"com.apple.target-editor-pane.settings.simple",
+				"com.apple.target-editor-pane.buildphases",
+			);
+			TOCViewMasterVisibleRect = "{{0, 0}, {176, 496}}";
+			TOCViewSelectedItems = (
+				PBXBSExpertAspectModule,
+			);
+		};
+	};
+	D268CA9E04FACCDA00C0E094 = {
+		isa = PBXTargetBookmark;
+		trg = D20C4BF604E867CD00E7607B;
+		uiCtxt = {
+			TOCViewDetailVisibleRect = "{{0, 0}, {447, 351}}";
+			TOCViewExpandedItems = (
+				"com.apple.target-editor-pane.settings",
+				"com.apple.target-editor-pane.settings.simple",
+				"com.apple.target-editor-pane.buildphases",
+			);
+			TOCViewMasterVisibleRect = "{{0, 0}, {176, 496}}";
+			TOCViewSelectedItems = (
+				PBXBSExpertAspectModule,
+			);
+		};
+	};
+	D268CA9F04FACCDA00C0E094 = {
+		isa = PBXTargetBookmark;
+		trg = D20C4C0D04E8680E00E7607B;
+		uiCtxt = {
+			TOCViewDetailVisibleRect = "{{0, 0}, {447, 334}}";
+			TOCViewExpandedItems = (
+				"com.apple.target-editor-pane.settings",
+				"com.apple.target-editor-pane.settings.simple",
+				"com.apple.target-editor-pane.buildphases",
+			);
+			TOCViewMasterVisibleRect = "{{0, 0}, {176, 496}}";
+			TOCViewSelectedItems = (
+				PBXBSExpertAspectModule,
+			);
+		};
+	};
+	D268CAA004FACCDA00C0E094 = {
+		isa = PBXTargetBookmark;
+		trg = D20C4C2504E8681300E7607B;
+		uiCtxt = {
+			TOCViewDetailVisibleRect = "{{0, 0}, {447, 317}}";
+			TOCViewExpandedItems = (
+				"com.apple.target-editor-pane.settings",
+				"com.apple.target-editor-pane.settings.simple",
+				"com.apple.target-editor-pane.buildphases",
+			);
+			TOCViewMasterVisibleRect = "{{0, 0}, {176, 496}}";
+			TOCViewSelectedItems = (
+				PBXBSExpertAspectModule,
+			);
+		};
+	};
+	D268CAA104FACCDA00C0E094 = {
+		isa = PBXTargetBookmark;
+		trg = 70CAC2DA022DC7C805CA29A8;
+		uiCtxt = {
+			TOCViewDetailVisibleRect = "{{0, 0}, {447, 317}}";
+			TOCViewExpandedItems = (
+				"com.apple.target-editor-pane.settings",
+				"com.apple.target-editor-pane.settings.simple",
+				"com.apple.target-editor-pane.buildphases",
+			);
+			TOCViewMasterVisibleRect = "{{0, 0}, {176, 496}}";
+			TOCViewSelectedItems = (
+				PBXBSExpertAspectModule,
+			);
+		};
+	};
+	D268CAA204FACCDA00C0E094 = {
+		isa = PBXTargetBookmark;
+		trg = D20C4BDF04E867BC00E7607B;
+		uiCtxt = {
+			TOCViewDetailVisibleRect = "{{0, 0}, {447, 317}}";
+			TOCViewExpandedItems = (
+				"com.apple.target-editor-pane.settings",
+				"com.apple.target-editor-pane.settings.simple",
+				"com.apple.target-editor-pane.buildphases",
+			);
+			TOCViewMasterVisibleRect = "{{0, 0}, {176, 496}}";
+			TOCViewSelectedItems = (
+				PBXBSExpertAspectModule,
+			);
+		};
+	};
+	D268CAA304FACCDA00C0E094 = {
+		isa = PBXTargetBookmark;
+		trg = D20C4C2504E8681300E7607B;
+		uiCtxt = {
+			TOCViewDetailVisibleRect = "{{0, 0}, {447, 317}}";
+			TOCViewExpandedItems = (
+				"com.apple.target-editor-pane.settings",
+				"com.apple.target-editor-pane.settings.simple",
+				"com.apple.target-editor-pane.buildphases",
+			);
+			TOCViewMasterVisibleRect = "{{0, 0}, {176, 496}}";
+			TOCViewSelectedItems = (
+				PBXBSExpertAspectModule,
+			);
+		};
+	};
+	D268CAA404FACCDA00C0E094 = {
+		isa = PBXTargetBookmark;
+		trg = D20C4C3D04E8681500E7607B;
+		uiCtxt = {
+			TOCViewDetailVisibleRect = "{{0, 0}, {651, 299}}";
+			TOCViewExpandedItems = (
+				"com.apple.target-editor-pane.settings",
+				"com.apple.target-editor-pane.settings.simple",
+				"com.apple.target-editor-pane.buildphases",
+			);
+			TOCViewMasterVisibleRect = "{{0, 0}, {260, 299}}";
+			TOCViewSelectedItems = (
+				PBXBSExpertAspectModule,
+			);
+		};
+	};
+	D2F9F1F804DEC3370044026F = {
 		activeArgIndex = 2147483647;
+		activeArgIndices = (
+		);
 		argumentStrings = (
 		);
+		configStateDict = {
+		};
+		debuggerPlugin = GDBDebugging;
+		enableDebugStr = 1;
+		environmentEntries = (
+		);
+		isa = PBXExecutable;
+		name = "VectorTest x86";
+		shlibInfoDictList = (
+		);
+		sourceDirectories = (
+		);
+	};
+	F50BFF6F01A3443101CA2DA8 = {
+		activeArgIndex = 2147483647;
+		activeArgIndices = (
+		);
+		argumentStrings = (
+		);
+		configStateDict = {
+		};
 		debuggerPlugin = GDBDebugging;
 		dylibVariantSuffix = "";
 		enableDebugStr = 1;
 		environmentEntries = (
 		);
 		isa = PBXExecutable;
+		name = LibmTestHarness;
 		shlibInfoDictList = (
 		);
 		sourceDirectories = (
@@ -121,8 +878,6 @@
 	};
 	F50BFF7101A344D401CA2DA8 = {
 		activeExec = 0;
-		customExecs = {
-		};
 	};
 	F50BFF7701A3471A01CA2DA8 = {
 		uiCtxt = {
@@ -231,8 +986,6 @@
 	};
 	F50FFDE301C4658A014D9427 = {
 		activeExec = 0;
-		customExecs = {
-		};
 	};
 	F50FFE0301C46D2A014D9427 = {
 		uiCtxt = {
@@ -441,24 +1194,25 @@
 	};
 	F568AEB201B0B89F01CA2DA8 = {
 		activeExec = 0;
-		customExecs = {
-		};
-		targetExecs = {
-			macosx = (
-				F568AEB801B0B8EC01CA2DA8,
-			);
-		};
+		executables = (
+			F568AEB801B0B8EC01CA2DA8,
+		);
 	};
 	F568AEB801B0B8EC01CA2DA8 = {
 		activeArgIndex = 2147483647;
+		activeArgIndices = (
+		);
 		argumentStrings = (
 		);
+		configStateDict = {
+		};
 		debuggerPlugin = GDBDebugging;
 		dylibVariantSuffix = "";
 		enableDebugStr = 1;
 		environmentEntries = (
 		);
 		isa = PBXExecutable;
+		name = VectorTest;
 		shlibInfoDictList = (
 		);
 		sourceDirectories = (
@@ -538,6 +1292,25 @@
 		uiCtxt = {
 			sepNavWindowFrame = "{{107, 155}, {750, 502}}";
 		};
+	};
+	F5713AA3025D4C3B01CA2DA0 = {
+		activeArgIndex = 2147483647;
+		activeArgIndices = (
+		);
+		argumentStrings = (
+		);
+		configStateDict = {
+		};
+		debuggerPlugin = GDBDebugging;
+		enableDebugStr = 1;
+		environmentEntries = (
+		);
+		isa = PBXExecutable;
+		name = libm;
+		shlibInfoDictList = (
+		);
+		sourceDirectories = (
+		);
 	};
 	F571C68B01CDAD8A01CAAF8D = {
 		uiCtxt = {

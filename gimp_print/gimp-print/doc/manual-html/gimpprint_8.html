@@ -1,0 +1,66 @@
+<HTML>
+<HEAD>
+<!-- This HTML file has been created by texi2html 1.51
+     from .././gimpprint.texi on 22 January 2003 -->
+
+<TITLE>GIMP-Print - autoconf</TITLE>
+</HEAD>
+<BODY>
+Go to the <A HREF="gimpprint_1.html">first</A>, <A HREF="gimpprint_7.html">previous</A>, <A HREF="gimpprint_9.html">next</A>, <A HREF="gimpprint_47.html">last</A> section, <A HREF="gimpprint_toc.html">table of contents</A>.
+<P><HR><P>
+
+
+<H2><A NAME="SEC13" HREF="gimpprint_toc.html#TOC13">3.3  @command{autoconf}</A></H2>
+<P>
+<A NAME="IDX9"></A>
+<A NAME="IDX10"></A>
+
+</P>
+<P>
+The @command{autoconf} program produces a Bourne shell script called
+<TT>`configure'</TT> from a template file called <TT>`configure.in'</TT>.
+<TT>`configure.in'</TT> contains both Bourne shell script, and @command{m4} macros.
+@command{autoconf} expands the @command{m4} macros into `real' shell script.
+The resulting <TT>`configure'</TT> script performs various checks for installed
+programs, compiler characteristics and other system information such as
+available headers and libraries. See Info file `autoconf', node `Top', for
+more information.
+
+</P>
+<P>
+GIMP-Print provides an @command{m4} macro, <CODE>AM_PATH_GIMPPRINT</CODE>, suitable for
+use in a <TT>`configure.in'</TT>. It defines the environment variables
+@env{GIMPPRINT_CFLAGS}, @env{GIMPPRINT_LIBS} and @env{GIMPPRINT_CONFIG}. You can
+optionally specify a minimum version of the library to use, and shell script to
+run if the test suceeds or fails.
+
+</P>
+<P>
+<DL>
+<DT><U>Macro:</U> <B>AM_PATH_GIMPPRINT</B> <I>([<VAR>minimum-version</VAR> [, <VAR>action-if-found</VAR> [, <VAR>action-if-not-found</VAR>]]])</I>
+<DD><A NAME="IDX11"></A>
+Check for an installed version of GIMP-Print greater than or equal to
+<VAR>minimum-version</VAR>.
+
+</P>
+<P>
+<VAR>action-if-found</VAR> is a list of shell commands to run if the check
+for the library succeeds; <VAR>action-if-not-found</VAR> is a list of
+shell commands to run if the check fails.
+
+</P>
+<P>
+The macro sets the following environment variables: @env{GIMPPRINT_CFLAGS},
+@env{GIMPPRINT_LIBS} and @env{GIMPPRINT_CONFIG}. It also will substitute them
+into any <TT>`Makefile.in'</TT> you specify in <CODE>AC_OUTPUT</CODE> because it calls
+<CODE>AC_SUBST</CODE> for each of them. However, you will probably be using
+@command{automake} to generate your <TT>`Makefile.in'</TT> files
+(see section <A HREF="gimpprint_9.html#SEC14">3.4  @command{automake}</A>).
+
+</P>
+</DL>
+
+<P><HR><P>
+Go to the <A HREF="gimpprint_1.html">first</A>, <A HREF="gimpprint_7.html">previous</A>, <A HREF="gimpprint_9.html">next</A>, <A HREF="gimpprint_47.html">last</A> section, <A HREF="gimpprint_toc.html">table of contents</A>.
+</BODY>
+</HTML>

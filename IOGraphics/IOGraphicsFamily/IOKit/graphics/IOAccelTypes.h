@@ -28,7 +28,7 @@
 
 #include <IOKit/IOTypes.h>
 
-#define IOACCEL_TYPES_REV	6
+#define IOACCEL_TYPES_REV	8
 
 /* Integer rectangle in device coordinates */
 typedef struct

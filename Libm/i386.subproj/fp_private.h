@@ -41,8 +41,8 @@ double	 fabs ( double x );
 double   nan   ( const char *string );
 
 /* gcc 2.95 inlines fabs() and fabsf() of its own accord (as single instructions!) */ 
-#define      __fabs(x)	fabs(x)
-#define      __fabsf(x)	fabsf(x)
+#define      __FABS(x)	fabs(x)
+#define      __FABSF(x)	fabsf(x)
 
 /******************************************************************************
 *       Single precision                                                      *

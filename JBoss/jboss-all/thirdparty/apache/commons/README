@@ -1,0 +1,8 @@
+This is a list of the files and versions in this directory.  Please keep it up
+to date:
+
+commons-collections.jar: The 2,1 release of commons-collections obtained from
+http://jakarta.apache.org/builds/jakarta-commons/release/commons-collections/v2.1/
+
+commons-logging.jar: The 1.0.2 release of the commons logging wrapper from
+http://jakarta.apache.org/builds/jakarta-commons/release/commons-logging/v1.0.2/

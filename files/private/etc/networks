@@ -1,9 +1,4 @@
 ##
 # Networks Database
-# 
-# Note that this file is consulted when the system is running in single-user
-# mode.  At other times this information is handled by lookupd.  By default,
-# lookupd gets information from NetInfo, so this file will not be consulted
-# unless you have changed lookupd's configuration.
 ##
 loopback	127		loopback-net

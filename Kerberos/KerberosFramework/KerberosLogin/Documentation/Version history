@@ -1,0 +1,750 @@
+==============================================================================
+Kerberos Login Library Version History
+==============================================================================
+Current version: 1.7fc11
+Date           : September 18, 2003
+Author         : meeroh@mit.edu, smcguire@mit.edu, lxs@mit.edu
+========================================================================
+
+
+	Kerberos Login 1.7fc11
+	September 18, 2003
+	
+	[RT 1867] KLVerifyInitialTicket*() should not fail if hostname doesn't resolve
+
+	========================================================================
+	Kerberos Login 1.7fc10
+	September 12, 2003
+	
+	[RT 1838] KLL should not always prompt on v4 only realms
+	[RT 1839] KLS has UI glitches when caller provides principal
+	[RT 1840] KLL stores tickets with bogus string to key type
+
+	========================================================================
+	Kerberos Login 1.7fc9
+	September 11, 2003
+	
+	[RT 1834] KLL must handle MIG using MACH_SEND_TIMEOUT
+	[RT 1835] GUI prompter should handle NULL banner or title
+	[RT 1837] Password change question should use strcasecmp, not strcmp
+	
+	========================================================================
+	Kerberos Login 1.7fc8
+	September 2, 2003
+	
+	[RT 1628] Stanford "v4_realm" tag broken
+	
+	========================================================================
+	Kerberos Login 1.7fc7
+	August 22, 2003
+	
+	[RT 1762] KLL needs a way to store credentials
+	[RT 1763] KLL shouldn't mangle principals (host/host.domain.com@realm)
+	[RT 1764] Framework should use CFStringGetMaximumSizeForEncoding()
+	
+	========================================================================
+	Kerberos Login 1.7fc6
+	August 20, 2003
+	
+	[RT 1761] KLL can't create v4 principals without default realm
+	
+	========================================================================
+	Kerberos Login 1.7fc5
+	August 19, 2003
+	
+	[RT 1741] KLH should set LSVisibleInClassic=1
+
+	========================================================================
+	Kerberos Login 1.7fc4
+	August 10, 2003
+	
+	[RT 1723] KLL does not honor dns_fallback = no
+	
+	========================================================================
+	Kerberos Login 1.7fc3
+	August 8, 2003
+	
+	[RT 1705] loginLogout plugins should not reenter prompting code
+	[RT 1719] KLL should handle long v5 principals with no instances
+	
+	========================================================================
+	Kerberos Login 1.7fc2
+	August 4, 2003
+	
+	[RT 1694] Don't do krb524 on realms using the "v4_realm" tag
+	[RT 1698] KLAcquireNewInitialTickets violates API spec in terminal case
+	[RT 1699] Do not use NSMatrix with NSSecureTextFieldCell for the prompter
+	[RT 1705] loginLogout plugins should not reenter prompting code
+	[RT 1710] KLL shouldn't require krb524 for sites with v4 and v5
+	
+	========================================================================
+	Kerberos Login 1.7fc1
+	July 16, 2003
+	
+	[RT 1659] Don't prompt if there is no configuration at all
+	[RT 1660] KLL should support an environment variable to supress prompting
+	[RT 1669] Icon badging doesn't work when dialog starts out expanded
+	
+	========================================================================
+	Kerberos Login 1.7a7
+	June 6, 2003
+	
+	[RT 1534] Specifying nonexistent loginLogout plugin results in a crash
+	[RT 1564] KLL should free profiles from krb5_get_profile and krb_get_profile
+	[RT 1565] KLL leaks krb5_context when prompting to the terminal
+	[RT 1566] KLL lock files leak strings
+	[RT 1574] KLL should look up krb5 and krb4 realms in DNS
+
+	========================================================================
+	Kerberos Login 1.7a6
+	May 21, 2003
+	
+	[RT 1508] Login-logout plugins crash on login	
+	[RT 1466] KLL should support DNS kdc lookups
+	[RT 1475] KLL documentation has wrong KLRenewInitialTickets prototype
+	[RT 1489] Remap KRB5KDC_ERR_PREAUTH_FAILED to better error
+	[RT 1498] Ticket lifetime defaults to 0
+	[RT 1499] Dialog should remember the state of the options button
+
+	========================================================================
+	Kerberos Login 1.7a5
+	May 7, 2003
+	
+	[RT 1458] KLL needs an API to block home directory access
+	[RT 1460] KLL lock files broken for login
+
+	========================================================================
+	Kerberos Login 1.7a4
+	May 1, 2003
+	
+	New C implementation
+	Redesign of the Kerberos Login Dialog
+
+	[RT 1394] Lifetime and renewable life sliders behave stupidly
+	[RT 1399] Renewable checkbox broken
+
+	========================================================================
+	Kerberos Login 1.7a3
+	March 20, 2003
+	
+	[RT 1322] Renewable slider doesn't use libdefaults to determine the max time
+	[RT 1382] KLVerifyInitialTicketCredentials fails with RC/IO error
+
+	========================================================================
+	Kerberos Login 1.7a2
+	March 11, 2003
+	
+	[RT 1317] Getting tickets is slow at sites with krb524 port blocked
+	[RT 1318] KLS dialogs are minimizable and/or resizable
+	[RT 1319] Renewable ticket lifetime has no preference file entry
+	[RT 1320] Addressless ticket option has no preference file entry
+	[RT 1358] KLChangePassword assumes result_code_string and result_string are non-NULL
+	[RT 1375] KLL should krb524init when applicable
+	[RT 1376] StLoginOptions wasn't checking return value of krb5_init_context
+
+	========================================================================
+	Kerberos Login 1.7a1
+	January 14, 2003
+	
+	[RT 1297] KLS should be a Cocoa nib-based application
+	[RT 1296] KLL should verify credentials with a secure context
+	[RT 1295] Kerberos framework initializer causes performance problems
+
+	========================================================================
+
+Kerberos Login 1.6
+June 19, 2002
+
+========================================================================
+
+	Kerberos Login 1.6
+	June 19, 2002
+	
+	Moved to GM.
+	[BZ 780]	options dialog lifetime caption initially blank on Jaguar
+
+	========================================================================
+	Kerberos Login 1.6fc2
+	June 18, 2002
+	
+	[BZ 778]	krb4 tickets gotten with krb524 don't give clock skew error
+
+	========================================================================
+	Kerberos Login 1.6fc1
+	June 17, 2002
+	
+	[BZ 774]	KLS leaks IconRefs on Jaguar
+
+	========================================================================
+	Kerberos Login 1.6a2
+	June 14, 2002
+	
+	[BZ 770]	KLAcquireNewInitialTickets misbehaves with non-nil principal
+	[BZ 771]	Login Dialog ignores lifetime slider Options setting
+
+	========================================================================
+	Kerberos Login 1.6a1
+	June 10, 2002
+	
+	[BZ 659]	Dock animation still slow when launching LoginServer
+	[BZ 683]	Still getting a prebinding error
+	[BZ 715]	KLL should use CFBundle's InfoPlist.strings for localization
+	[BZ 716]	KLL should be able to aquire postdated tickets and validate
+	[BZ 717]	KLL should be able to renew tickets
+	[BZ 718]	KLL should be able to get initial tickets from a keytab
+	[BZ 719]	KLL should be able to get tickets without storing them
+	[BZ 720]	KLL should be able to get addressless tickets
+	[BZ 721]	KLL should be able to get tickets of a different service princ
+	[BZ 723]	KLS should link against KLL
+	[BZ 724]	KLS should use Core Foundation to read version number
+	[BZ 732]	v4 long lifetimes for TGTs are wrong - investigate krb524
+	[BZ 733]	Login dialog does not properly display/remember ticket life
+	[BZ 737]	Defer reading resource prefs until needed
+	[BZ 743]	Remove annoying "Kerberos Login:" banner for Terminal login
+	[BZ 745]	KLL should remember BundleID not Bundles
+	[BZ 748]	KLL shouldn't constantly init contexts for apis
+	[BZ 749]	KLL Vulnerable to Zanarotti Attack
+	[BZ 761]	KLL should renew tickets rather than prompting
+	[BZ 765]	Dialog OK buttons don't hilite on paste into fields
+	[BZ 750]	KLConfirmInitialTicketsWithPassword is a confusing name
+
+	========================================================================
+
+Kerberos Login 1.5
+Feb 19, 2002
+
+========================================================================
+
+	Kerberos Login 1.5fc3
+	Feb 18, 2002
+	
+	Bugs fixed in this release
+		- [BZ 708]	Classic compatibility check fixed
+
+	========================================================================
+
+	Kerberos Login 1.5fc2
+	Feb 14, 2002
+
+	Added a check for classic compatibility
+	
+	Bugs fixed in this release
+		- [BZ 706]	MachIPC UID checking added
+
+	========================================================================
+
+	Kerberos Login 1.5fc1
+	Feb 7, 2002
+
+	Moved to final canidate
+
+	========================================================================
+
+	Kerberos Login 1.5b9
+	Jan 31, 2002
+
+	Bugs fixed in this release	
+		- [BZ 687]	Launching KLH from Classic has no UI (needs spinning cursor)
+		- [BZ 688]	Slider and lifetimes > 99 hours and ranges > 1000 hours
+		- [BZ 691]	KLL does not wait for TK under Classic
+
+	========================================================================
+
+	Kerberos Login 1.5b8
+	Jan 14, 2002
+
+	Bugs fixed in this release	
+		[BZ 663]	Hang when sending zephyr with no tix from Classic
+
+	========================================================================
+
+	Kerberos Login 1.5b7
+	Dec 19, 2001
+
+	Bugs fixed in this release	
+		[BZ 671]	Calling KLLastChangedTime starves the classic login dialog
+
+	========================================================================
+
+	Kerberos Login 1.5b6
+	Dec 18, 2001
+
+	Bugs fixed in this release	
+		[BZ 679]	Login Help is too slow
+		[BZ 680]	Login Helper won't launch more than once per reboot
+
+	========================================================================
+
+	Kerberos Login 1.5b5
+	Dec 13, 2001
+
+	Removed version strings from the Mac OS X project
+
+	Bugs fixed in this release	
+		[BZ 665]
+		[BZ 641]	Preference sharing doesn't work in Mac OS X
+
+	========================================================================
+
+	Kerberos Login 1.5b4
+	Dec 3, 2001
+	
+	Fixed prebinding on Mac OS X
+
+	========================================================================
+
+	Kerberos Login 1.5b3
+	Nov 20, 2001
+	
+	Sync with Yellow ccache after displaying the dialog from Classic
+
+	========================================================================
+
+	Kerberos Login 1.5b2
+	Nov 15, 2001
+	
+	Separated public and private API
+	Launch Yellow dialog when called from Classic
+
+	========================================================================
+
+	Kerberos Login 1.5b1
+	Nov 7, 2001
+	
+	Moved to beta
+	
+	Bugs fixed in this release:
+	 [BZ 639]	Doesn't read default prefs from resource
+	 [BZ 640]	Login window positions not honored on X
+	 [BZ 650]	Doesn't call idle proc on X
+	 [BZ 645]	Control panel icon in X login dialog
+
+	========================================================================
+
+	Kerberos Login 1.5a2
+	Sep 27, 2001
+	
+	Terminal and login session support
+
+	========================================================================
+
+	Kerberos Login 1.5a1
+	Aug 7, 2001
+	
+	Separation of server on Mac OS X
+	Fixed to work from authenticator
+
+	========================================================================
+
+Kerberos Login 1.4
+June 25, 2001
+
+Carbon, CWP 6
+
+========================================================================
+
+	Kerberos Login 1.4fc1
+	June 13, 2001
+	
+	FInal candidate for 3.5
+	
+	Build fixes for B&I
+	
+	Bugs fixed in this revision:
+		- [BZ 607]	Skip confirmation on policy failure
+		- [BZ 489]	Better behavior when min lifetime greater than max
+		- [BZ 487]	TYping in login dialog very slow on 8.6
+		- [BZ 476]	KLAcquireTickets crashes if login server is missing
+
+	========================================================================
+
+	Kerberos Login 1.4b2
+	April 30, 2001
+	
+	Updated ShlibResourcesLib header paths
+	
+	Bugs fixed in this revision:
+		- [BZ 596] Fixed problems unmounting after server launches
+
+	========================================================================
+
+	Kerberos Login 1.4b1
+	April 2, 2001
+	
+	Moved to beta
+
+	========================================================================
+
+	Kerberos Login 1.4a7
+	March 21, 2001
+	
+	Updated headers for new header layout
+	
+	Bugs fixed in this revision:
+	 - [BZ 587]	Assertion every time a progress dialog comes up
+
+	========================================================================
+
+	Kerberos Login 1.4a6
+	March 16, 2001
+	
+	Documentation update
+	Updated headers for new header layout
+	Put the sheet code back in
+	Added KLGetDisplayStringFromPrincipal
+	
+	Bugs fixed in this revision:
+	 - [BZ 477]	No user notificaation on change password success
+	 - [BZ 490]	Slider misbehaves is default lifetime out of range
+	 - [BZ 576]	Banner stretched in change password dialog
+
+	========================================================================
+
+	Kerberos Login 1.4a5
+	February 1, 2001
+
+	Bugs fixed in this revision:
+	 - [BZ 533] Editing realms corrupts the global realm state
+	 - [BZ 537] Change password on a hw preauth principal crashes
+	 - [BZ 541] Error alert movable
+	 - [BZ 545] KLTicketExpirationTime, PPP & expiration
+	 - [BZ 552] Remove "MIT" from the banner
+	 - [BZ 556] No way to distinguish expired and IP-invalid tickets
+
+	========================================================================
+
+	Kerberos Login 1.4a4
+	December 28, 2000
+
+	Make strings read-only
+
+	========================================================================
+
+	Kerberos Login 1.4a3
+	December 9, 2000
+
+	Bugs fixed in this release:
+		[BZ 526] Crashes if launching server fails
+
+	========================================================================
+
+	Kerberos Login 1.4a2
+	December 9, 2000
+
+	New features in this release:
+		[BZ 498] Added KLTicketStartTime
+		
+	Bugs fixed in this release:
+		[BZ 437] LoginHelper loses AppleEvent replies
+
+	========================================================================
+
+	Kerberos Login 1.4a1
+	December 9, 2000
+
+	Bugs fixed in this release:
+		[BZ 506] Tries to load MenusLib under Mac OS 8.1
+
+	========================================================================
+
+	Kerberos Login 1.4d6
+	November 30, 2000
+
+	Use precompiled headers
+	Long v4 lifetime support
+	Preliminary support for dynamically loading Carbon on X
+
+	========================================================================
+
+	Kerberos Login 1.4d5
+	November 3, 2000
+
+	Bugs fixed in this release:
+	 - [BZ 449]	Error writing prefs when prefs file has no res fork
+	 - [BZ 469]	KLGetDefaultLoginOption returns klContextServerErr
+	 - [BZ 470]	KLGetDefaultLoginOption returns bad values for lifetime
+
+	========================================================================
+
+	Kerberos Login 1.4d4
+	October 27, 2000
+
+	First Mach-O release
+
+	Bugs fixed in this release:
+	 - [BZ 433]	Carbon version crashes on initialization
+
+	========================================================================
+
+	Kerberos Login 1.4d3
+	October 16, 2000
+
+	Conditionalized for Mach-O builds and merged changes from 3.1 branch
+
+	========================================================================
+
+	Kerberos Login 1.3d2
+	September 28, 2000
+
+	rebuilt with fixed CWP 6 fcntl.h
+
+	========================================================================
+
+	Kerberos Login 1.3d1
+	September 26, 2000
+
+	Carbonized, moved to CWP 6
+	(Note the unfortunate version number collision with the 1.3d1 version
+	which was supposed to go into MITKL 3.1)
+
+	========================================================================
+
+Kerberos Login 1.3
+Will not be released
+
+Addition of Login Helper and the ability to be called from FBAs
+
+========================================================================
+
+	Kerberos Login 1.3d1
+	September 1, 2000
+
+	First revision of Login Helper
+	
+	Bugs fixed in this release:
+		[BZ 396] KLCacheHasValidTickets doesn't return false correctly
+
+	========================================================================
+
+Kerberos Login 1.2
+June 30, 2000
+
+First public release.
+Bugs fixed in this release:
+	[BZ 381]	Errors from change password not reported
+	[BZ 382]	Improper setting of std::strings
+========================================================================
+
+	Kerberos Login 1.2fc3
+	June 28, 2000
+
+	Bugs fixed in this release:
+		[BZ 365]	Moved strings into code section
+		[BZ 368]	KLSetKerberosDefaultRealmByName() doesn't return klRealmDoesNotExistErr
+		[BZ 369]	KLSetKerberosDefaultRealmByName() raises signal in non-debug
+
+	========================================================================
+
+	Kerberos Login 1.2fc2
+	June 19, 2000
+
+	Bugs fixed in this release:
+		[BZ 362]	Icons in realm menu wrong when v4 and v5 realm names
+			differ
+
+	========================================================================
+
+	Kerberos Login 1.2fc1
+	June 16, 2000
+
+	Changed password dialog layout.	
+	Bugs fixed in this release:
+		[BZ 348]	Change change password dialog layout
+		[BZ 344]	Change copyright string
+		[BZ 334]	Resource file changed in KLGlobalOptions::WriteOptions
+
+	========================================================================
+
+	Kerberos Login 1.2b2
+	June 13, 2000
+	
+	KLCacheHasValidTickets now returns KLPrincipal [BZ 329]
+
+	Bugs fixed in this release:
+		[BZ 324]	Extra resources in the shlib file
+		[BZ 325]	Version caption too small
+		[BZ 328]	Leak in UKLEnvironment::RealmShouldHaveKerberosv4
+
+	========================================================================
+
+	Kerberos Login 1.2b1
+	June 10, 2000
+	
+	Bugs fixed in this release:
+		[BZ 317]	Need to add KLCancelAllDialogs to allow clients to cancel
+		[BZ 309]	Need to use PreferencesLib
+		[BZ 316]	No error handling for ShlibResBegin
+		[BZ 315]	Icon flashed in progress dialog when cmd-period is hit
+
+	========================================================================
+
+	Kerberos Login 1.2a2
+	June 3, 2000
+	
+	Bugs fixed in this release:
+		[BZ 271]	AcquireTickets returns no error with assymtric tickets
+		[BZ 286]	Realm conf API asserts when prefs locked
+		[BZ 287]	KLSetDefaultLoginOption asserts when prefs locked
+		[BZ 278]	Low level API
+		[BZ 280]	Eats suspend-resume events
+		[BZ 281]	CCacheHasValidTickets/ExpirationTime don't handle assymetric caches
+		[BZ 295]	Docs missing for klDialogAlreadyExists
+		[BZ 296]	Scrapping update events while dialog is up
+		[    11]	Can put up dialog in background app & two apps can put up dialog
+					at the same time
+		[     8]	Edit text not disabled in background
+		[     7]	Repositioning offscreen doesn't bring window back in view
+
+	========================================================================
+
+	Kerberos Login 1.2a1
+	May 22, 2000
+	
+	Add icons to favorite realms menu 		[BZ 263]
+
+	Bugs fixed in this release:
+		[     3]	Re-enable menus when login dialog put in the background
+		[BZ 232]	AcquireTickets trips an uncaught exception if prefs file
+					missing
+		[BZ 262]	Disable favorite realms not in the preferences file 
+		[BZ 264]	Fix address verification code for no addresses 
+
+	========================================================================
+
+	Kerberos Login 1.2d8
+	May 6, 2000
+	
+	LoginLib needs a special function to pop up dialog for cache [BZ 133]
+	
+	Bugs fixed	
+		[BZ 201]	Saving more than 4 favorite realms in prefs doesn't work 			1.2d8
+		[BZ 212]	Does not invalidate window regions on close of dialogs. 			1.2d8
+		[BZ 219]	Globals lib was not global 											1.2d8
+
+	========================================================================
+
+	Kerberos Login 1.2d7
+	April 29, 2000
+	
+	LoginLib needs a special function to pop up dialog for cache [BZ 133]
+	
+	Bugs fixed	
+		[BZ  22] 	Need error specifications in API spec
+		[BZ 112]	Mismatch between ticket lifetime set by API and displayed in dialog
+		[BZ 138]	Application menu won't flash notification when Login dialog
+		[BZ 159]	Mouse cursor doesn't disappear when I type in an edit field
+		[BZ 160]	Mouse cursor doesn't change to an I-beam over an edit field
+		[BZ 166]	Forwardable displayed for v4-only realms
+		[BZ 168]	Login dialog comes up for service ticket requests in v4-only
+		[BZ 184]	Better error string for "realm not in configuration file" 	
+		[BZ 201]	Saving more than 4 favorite realms in prefs doesn't work
+
+	========================================================================
+
+	Kerberos Login 1.2d6
+	April 20, 2000
+	
+	LoginLib needs a special function to pop up dialog for cache [BZ 133]
+	
+	Bugs fixed	
+		[BZ 106]	Version number clipped
+		[BZ 134]	Need a banner in the login dialog
+		[BZ 105]	Dialog remembers last principal when loginOption_RememberPrincipal is off
+		[BZ 109]	Wrong balloon help for password field
+
+	========================================================================
+
+	Kerberos Login 1.2d5
+	April 9, 2000
+	
+	Bugs fixed	
+		[BZ  82]	Cancelling the login dialog leaves sys menus disabled
+		[BZ  83]	Menubar tracking doesn't work in login dialog
+		[BZ  91]	Removing default realm w/out specifying new one causes
+					KLAcquireTickets to fail
+		[BZ  92]	Problems with tracking of default realm
+		[BZ  74]	MacCVS Pro dies even when tickets for the correct user are default
+		[BZ  84]	Using Login dialog too many times causes crash in SpinCursor
+		[BZ  96]	Missing loginOption_DefaultForwardableTicket handlers
+
+	========================================================================
+
+	Kerberos Login 1.2d4
+	March 24, 2000
+	
+	Bugs fixed	
+		[BZ  33]	KLCreatePrincipalFromString needs a return value for invalid version
+		[BZ  23]	Need status display and watch cursor when logging in
+
+	========================================================================
+
+	Kerberos Login 1.2d3
+	March 13, 2000
+	
+	Bugs fixed	
+		[BZ  43]
+		[BZ  44]	Crash in krb5_free_principal when canceling login dialog or
+					getting service tickets
+
+	========================================================================
+
+	Kerberos Login 1.2d2
+	March 11, 2000
+	
+	Bugs fixed
+		[BZ  32]	Exceptions thrown from LoginLib calls to WrappersLib
+					terminate the current process
+		[BZ   7]    Login button disabled when pricipal passed in
+		[BZ  15]	KLAcquireNewTickets leaks a KLPrincipal for nil argument
+
+	========================================================================
+
+	Kerberos Login 1.2d1
+	February 27, 2000
+	
+	API v2 implementation	
+
+	========================================================================
+
+Kerberos Login 1.0
+Never released
+
+Development dropped and replaced with 1.2, which is a major rework for
+CCache API v3 and Login Lib API v2
+========================================================================
+
+	Kerberos Login 1.0d3
+	Release date: February 10, 2000
+	
+	New features in this release:
+	 - Punted non-appearance implementation
+	 - Redid the settings loading/saving code
+	 - Added Kerberos v5 support
+	 - Updated API to version 2 (not the implementation)
+	
+	Bugs fixed in this release:
+	 - [    14] Added change password functionality
+	 - [    12] Solved classic dialog problem by punting
+	
+	========================================================================
+
+	Kerberos Login 1.0d2
+	Release date: June 8, 1999
+	
+	New features in this release:
+	 - Code (mostly) up to date for API v1.1
+	 - Kerberos v5 tickets acquired
+	 - IP checking for v4
+	
+	Bugs fixed in this release:
+	 - [     5] Button locations corrected
+	 - [     6] Saving disclosure state
+	 
+	
+	========================================================================
+
+	Kerberos Login 1.0d1
+	Release date: March 1, 1999
+	
+	First internal testing release
+	========================================================================

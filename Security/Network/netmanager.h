@@ -141,4 +141,4 @@ private:
 }	// end namespace Security
 
 
-#endif _H_NETMANAGER
+#endif /* _H_NETMANAGER */

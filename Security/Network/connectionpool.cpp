@@ -39,7 +39,7 @@ Connection *ConnectionPool::get(const HostTarget &host)
         // take it and use it
         Connection *connection = it->second;
         mConnections.erase(it);
-        debug("connpool", "Connection %p retrieved from pool", connection);
+        secdebug("connpool", "Connection %p retrieved from pool", connection);
         return connection;
     }
     // none available
@@ -53,7 +53,7 @@ Connection *ConnectionPool::get(const HostTarget &host)
 void ConnectionPool::retain(Connection *connection)
 {
     //@@@ threading, of course :-)
-    debug("connpool", "Connection %p retained in connection pool", connection);
+    secdebug("connpool", "Connection %p retained in connection pool", connection);
     mConnections.insert(ConnectionMap::value_type(connection->hostTarget, connection));
     //mConnections[connection->hostTarget] = connection;
 }
@@ -71,7 +71,7 @@ bool ConnectionPool::remove(Connection *connection)
     for (Iter it = range.first; it != range.second; it++)
         if (it->second == connection) {
             mConnections.erase(it);
-            debug("connpool", "Connection %p removed from connection pool", connection);
+            secdebug("connpool", "Connection %p removed from connection pool", connection);
             return true;
         }
     return false;
@@ -83,7 +83,7 @@ bool ConnectionPool::remove(Connection *connection)
 //
 void ConnectionPool::purge()
 {
-    IFDEBUG(debug("connpool", "Connection pool purging %ld connections", mConnections.size()));
+    secdebug("connpool", "Connection pool purging %ld connections", mConnections.size());
     for (ConnectionMap::iterator it = mConnections.begin(); it != mConnections.end(); it++)
         delete it->second;
     mConnections.erase(mConnections.begin(), mConnections.end());

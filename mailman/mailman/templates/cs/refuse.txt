@@ -1,0 +1,12 @@
+Vá¹ po¾adavek pro konferenci  %(listname)s
+
+    %(request)s
+
+byl zamítnut správcem konference. Správce uvedl následující dùvod zamítnutí
+po¾adavku:
+
+"%(reason)s"
+
+Jakékoliv dotazy nebo pøipomínky zasílejte laskavì na adresu:
+
+    %(adminaddr)s

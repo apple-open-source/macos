@@ -1,8 +1,8 @@
 /*
    +----------------------------------------------------------------------+
-   | PHP version 4.0                                                      |
+   | PHP Version 4                                                        |
    +----------------------------------------------------------------------+
-   | Copyright (c) 1997-2001 The PHP Group                                |
+   | Copyright (c) 1997-2003 The PHP Group                                |
    +----------------------------------------------------------------------+
    | This source file is subject to version 2.02 of the PHP license,      |
    | that is bundled with this package in the file LICENSE, and is        |
@@ -13,10 +13,11 @@
    | license@php.net so we can mail you a copy immediately.               |
    +----------------------------------------------------------------------+
    | Author: Sterling Hughes <sterling@php.net>                           |
+   | Wez Furlong <wez@thebrainroom.com>                                   |
    +----------------------------------------------------------------------+
 */
 
-/* $Id: php_curl.h,v 1.1.1.4 2001/12/14 22:12:05 zarzycki Exp $ */
+/* $Id: php_curl.h,v 1.1.1.7 2003/07/18 18:07:30 zarzycki Exp $ */
 
 #ifndef _PHP_CURL_H
 #define _PHP_CURL_H
@@ -91,8 +92,39 @@ typedef struct {
 	struct _php_curl_error   err;
 	struct _php_curl_free    to_free;
 	long                     id;
-    int                      performed;
+	unsigned int             uses;
 } php_curl;
+
+/* streams support */
+
+PHPAPI extern php_stream_ops php_curl_stream_ops;
+#define PHP_STREAM_IS_CURL	&php_curl_stream_ops
+
+PHPAPI php_stream *php_curl_stream_opener(php_stream_wrapper *wrapper, char *filename, char *mode,
+		int options, char **opened_path, php_stream_context *context STREAMS_DC TSRMLS_DC);
+
+extern php_stream_wrapper php_curl_wrapper;
+
+struct php_curl_buffer {
+	off_t readpos, writepos;
+	php_stream *buf;
+};
+
+typedef struct {
+	CURL	*curl;
+	CURLM	*multi;
+	char *url;
+	struct php_curl_buffer readbuffer; /* holds downloaded data */
+	struct php_curl_buffer writebuffer; /* holds data to upload */
+
+	fd_set readfds, writefds, excfds;
+	int maxfd;
+	
+	char errstr[CURL_ERROR_SIZE + 1];
+	CURLMcode mcode;
+	int pending;
+	zval *headers;
+} php_curl_stream;
 
 
 #else

@@ -1,9 +1,9 @@
 /*
- * "$Id: serial.c,v 1.6 2002/06/10 23:47:25 jlovell Exp $"
+ * "$Id: serial.c,v 1.1.1.9 2002/12/24 00:04:42 jlovell Exp $"
  *
  *   Serial port backend for the Common UNIX Printing System (CUPS).
  *
- *   Copyright 1997-2002 by Easy Software Products, all rights reserved.
+ *   Copyright 1997-2003 by Easy Software Products, all rights reserved.
  *
  *   These coded instructions, statements, and computer programs are the
  *   property of Easy Software Products and are protected by Federal
@@ -74,6 +74,13 @@
 #  endif /* CNEW_RTSCTS */
 #endif /* !CRTSCTS */
 
+#if defined(__APPLE__)
+#  include <CoreFoundation/CoreFoundation.h>
+#  include <IOKit/IOKitLib.h>
+#  include <IOKit/serial/IOSerialKeys.h>
+#  include <IOKit/IOBSD.h>
+#endif /* __APPLE__ */
+
 
 /*
  * Local functions...
@@ -125,6 +132,20 @@ main(int  argc,		/* I - Number of command-line arguments (6 or 7) */
   */
 
   setbuf(stderr, NULL);
+
+ /*
+  * Ignore SIGPIPE signals...
+  */
+
+#ifdef HAVE_SIGSET
+  sigset(SIGPIPE, SIG_IGN);
+#elif defined(HAVE_SIGACTION)
+  memset(&action, 0, sizeof(action));
+  action.sa_handler = SIG_IGN;
+  sigaction(SIGPIPE, &action, NULL);
+#else
+  signal(SIGPIPE, SIG_IGN);
+#endif /* HAVE_SIGSET */
 
  /*
   * Check command-line...
@@ -539,7 +560,7 @@ list_devices(void)
 #  else
       printf("serial serial:%s?baud=115200 \"Unknown\" \"Serial Port #%d\"\n",
              device, i + 1);
-#  endif // _ARCH_PPC || powerpc || __powerpc
+#  endif /* _ARCH_PPC || powerpc || __powerpc */
     }
   }
 
@@ -884,11 +905,87 @@ list_devices(void)
 	       device, i, j + 1);
       }
     }
+#elif defined(__APPLE__)
+ /*
+  * Standard serial ports on MacOS X...
+  */
 
+  kern_return_t			kernResult;
+  mach_port_t			masterPort;
+  io_iterator_t			serialPortIterator;
+  CFMutableDictionaryRef	classesToMatch;
+  io_object_t			serialService;
+
+  printf("serial serial \"Unknown\" \"Serial Printer (serial)\"\n");
+
+  kernResult = IOMasterPort(MACH_PORT_NULL, &masterPort);
+  if (KERN_SUCCESS != kernResult)
+    return;
+
+ /*
+  * Serial devices are instances of class IOSerialBSDClient.
+  */
+
+  classesToMatch = IOServiceMatching(kIOSerialBSDServiceValue);
+  if (classesToMatch != NULL)
+  {
+    CFDictionarySetValue(classesToMatch, CFSTR(kIOSerialBSDTypeKey),
+                         CFSTR(kIOSerialBSDRS232Type));
+
+    kernResult = IOServiceGetMatchingServices(masterPort, classesToMatch,
+                                              &serialPortIterator);
+    if (kernResult == KERN_SUCCESS)
+    {
+      while ((serialService = IOIteratorNext(serialPortIterator)))
+      {
+	CFTypeRef	serialNameAsCFString;
+	CFTypeRef	bsdPathAsCFString;
+	char		serialName[128];
+	char		bsdPath[1024];
+	Boolean		result;
+
+
+	serialNameAsCFString =
+	    IORegistryEntryCreateCFProperty(serialService,
+	                                    CFSTR(kIOTTYDeviceKey),
+					    kCFAllocatorDefault, 0);
+	if (serialNameAsCFString)
+	{
+	  result = CFStringGetCString(serialNameAsCFString, serialName,
+	                              sizeof(serialName),
+				      kCFStringEncodingASCII);
+	  CFRelease(serialNameAsCFString);
+
+	  if (result)
+	  {
+	    bsdPathAsCFString =
+	        IORegistryEntryCreateCFProperty(serialService,
+		                                CFSTR(kIOCalloutDeviceKey),
+						kCFAllocatorDefault, 0);
+	    if (bsdPathAsCFString)
+	    {
+	      result = CFStringGetCString(bsdPathAsCFString, bsdPath,
+	                                  sizeof(bsdPath),
+					  kCFStringEncodingASCII);
+	      CFRelease(bsdPathAsCFString);
+
+	      if (result)
+		printf("serial serial:%s?baud=115200 \"Unknown\" \"%s\"\n", bsdPath,
+		       serialName);
+	    }
+	  }
+	}
+
+	IOObjectRelease(serialService);
+      }
+
+      IOObjectRelease(serialPortIterator);    /* Release the iterator. */
+    }
+  }
 #endif
 }
 
 
 /*
- * End of "$Id: serial.c,v 1.6 2002/06/10 23:47:25 jlovell Exp $".
+ * End of "$Id: serial.c,v 1.1.1.9 2002/12/24 00:04:42 jlovell Exp $".
  */

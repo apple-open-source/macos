@@ -45,7 +45,7 @@
  * [including the GNU Public Licence.]
  */
 
-#warning XXX build xnu/bsd/crypto and delete our sys5/crypto
+/* XXX build xnu/bsd/crypto and delete our sys5/crypto */
 
 /* set_key.c v 1.4 eay 24/9/91
  * 1.4 Speed up by 400% :-)

@@ -2,6 +2,7 @@
 
 # Like the ctags/etags example from the manual,
 # with one extra indirection in the sources.
+# PR 315.
 
 . $srcdir/defs || exit 1
 

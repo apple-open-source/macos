@@ -25,4 +25,3 @@
 #include "SYS.h"
 
 SYSCALL(undelete, 1)
-	blr

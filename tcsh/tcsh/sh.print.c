@@ -1,4 +1,4 @@
-/* $Header: /cvs/Darwin/src/live/tcsh/tcsh/sh.print.c,v 1.1.1.2 2001/06/28 23:10:52 bbraun Exp $ */
+/* $Header: /cvs/root/tcsh/tcsh/sh.print.c,v 1.1.1.3 2003/01/17 03:41:15 nicolai Exp $ */
 /*
  * sh.print.c: Primitive Output routines.
  */
@@ -14,11 +14,7 @@
  * 2. Redistributions in binary form must reproduce the above copyright
  *    notice, this list of conditions and the following disclaimer in the
  *    documentation and/or other materials provided with the distribution.
- * 3. All advertising materials mentioning features or use of this software
- *    must display the following acknowledgement:
- *	This product includes software developed by the University of
- *	California, Berkeley and its contributors.
- * 4. Neither the name of the University nor the names of its contributors
+ * 3. Neither the name of the University nor the names of its contributors
  *    may be used to endorse or promote products derived from this software
  *    without specific prior written permission.
  *
@@ -36,7 +32,7 @@
  */
 #include "sh.h"
 
-RCSID("$Id: sh.print.c,v 1.1.1.2 2001/06/28 23:10:52 bbraun Exp $")
+RCSID("$Id: sh.print.c,v 1.1.1.3 2003/01/17 03:41:15 nicolai Exp $")
 
 #include "ed.h"
 

@@ -1665,6 +1665,9 @@ free_face_colors (f, face)
      struct face *face;
 {
 #ifdef HAVE_X_WINDOWS
+  if (face->colors_copied_bitwise_p)
+    return;
+
   BLOCK_INPUT;
 
   if (!face->foreground_defaulted_p)
@@ -4388,8 +4391,7 @@ DEFUN ("internal-set-lisp-face-attribute-from-resource",
     value = face_boolean_x_resource_value (value, 1);
   else if (EQ (attr, QCunderline)
 	   || EQ (attr, QCoverline)
-	   || EQ (attr, QCstrike_through)
-	   || EQ (attr, QCbox))
+	   || EQ (attr, QCstrike_through))
     {
       Lisp_Object boolean_value;
 
@@ -4399,6 +4401,8 @@ DEFUN ("internal-set-lisp-face-attribute-from-resource",
       if (SYMBOLP (boolean_value))
 	value = boolean_value;
     }
+  else if (EQ (attr, QCbox))
+    value = Fcar (Fread_from_string (value, Qnil, Qnil));
 
   return Finternal_set_lisp_face_attribute (face, attr, value, frame);
 }
@@ -4664,7 +4668,7 @@ If FRAME is omitted or nil, use the selected frame.")
 	  && !EQ (LFACE_WEIGHT (lface), Qnormal))
 	result = Fcons (Qbold, result);
 
-      if (!NILP (LFACE_SLANT (lface))
+      if (!UNSPECIFIEDP (LFACE_SLANT (lface))
 	  && !EQ (LFACE_SLANT (lface), Qnormal))
 	result = Fcons (Qitalic, result);
 
@@ -6312,12 +6316,7 @@ realize_x_face (cache, attrs, c, base_face)
       face->gc = 0;
 
       /* Don't try to free the colors copied bitwise from BASE_FACE.  */
-      face->foreground_defaulted_p = 1;
-      face->background_defaulted_p = 1;
-      face->underline_defaulted_p = 1;
-      face->overline_color_defaulted_p = 1;
-      face->strike_through_color_defaulted_p = 1;
-      face->box_color_defaulted_p = 1;
+      face->colors_copied_bitwise_p = 1;
 
       /* to force realize_face to load font */
       face->font = NULL;

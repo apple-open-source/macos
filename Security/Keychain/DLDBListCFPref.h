@@ -22,6 +22,7 @@
 #ifndef _SECURITY_DLDBLISTCFPREF_H_
 #define _SECURITY_DLDBLISTCFPREF_H_
 
+#include <Security/SecKeychain.h>
 #include <Security/cfutilities.h>
 #include <CoreFoundation/CFDictionary.h>
 #include <CoreFoundation/CFPreferences.h>
@@ -31,38 +32,87 @@
 #include <CoreFoundation/CFNumber.h>
 #include <CoreFoundation/CFDate.h>
 
-
 namespace Security
 {
 
-class DLDbListCFPref : public CssmClient::DLDbList
+class PasswordDBLookup
+{
+protected:
+    string mDirectory;
+    string mName;
+    bool mValid;
+    uid_t mCurrent;
+    time_t mTime;
+
+public:
+    PasswordDBLookup ();
+    
+    void lookupInfoOnUID (uid_t uid);
+    const string& getDirectory () {return mDirectory;}
+    const string& getName () {return mName;}
+};
+
+class DLDbListCFPref
 {
 public:
-    DLDbListCFPref(CFStringRef theDLDbListKey=NULL,CFStringRef prefsDomain=NULL);
+    DLDbListCFPref(SecPreferencesDomain domain = kSecPreferencesDomainUser);
     ~DLDbListCFPref();
+	
+	void set(SecPreferencesDomain domain);
     
     void save();
-    CssmClient::DLDbList& list() { return *this; }	// eventually, it should check mod dates of CFPrefs file, etc.
-    
+    vector<DLDbIdentifier>& list() { return mSearchList; }
+
     static DLDbIdentifier cfDictionaryRefToDLDbIdentifier(CFDictionaryRef theDict);
     static CFDictionaryRef dlDbIdentifierToCFDictionaryRef(const DLDbIdentifier& dldbIdentifier);
 	bool revert(bool force);
-	void clearDefaultKeychain();
-    
+
+	void add(const DLDbIdentifier &);
+	void remove(const DLDbIdentifier &);
+	const vector<DLDbIdentifier> &searchList();
+	void searchList(const vector<DLDbIdentifier> &);
+	void defaultDLDbIdentifier(const DLDbIdentifier &);
+	const DLDbIdentifier &defaultDLDbIdentifier();
+	void loginDLDbIdentifier(const DLDbIdentifier &);
+	const DLDbIdentifier &loginDLDbIdentifier();
+
+    DLDbIdentifier LoginDLDbIdentifier();
+    DLDbIdentifier JaguarLoginDLDbIdentifier();
+
     static string ExpandTildesInPath(const string &inPath);
 	static string StripPathStuff(const string &inPath);
     static string AbbreviatedPath(const string &inPath);
-    static string HomeDir();
+
+protected:
+	SecPreferencesDomain mDomain;
+    bool hasChanged() const { return mChanged; }
+    void changed(bool hasChanged) { mChanged = hasChanged; }
+
+	enum PwInfoType
+	{
+		kHomeDir,
+		kUsername
+	};
+    
+    static PasswordDBLookup *mPdbLookup;
+	static string getPwInfo(PwInfoType type);
+    static void clearPWInfo ();
+
+    void resetCachedValues();
+	bool loadPropertyList(bool force);
+	void writePropertyList();
+
 
 private:
-    // Private member variables
-    CFStringRef mPrefsDomain;
-    CFStringRef mDLDbListKey;
-
-    // Private member functions
-    void loadOrCreate();
-
 	CFAbsoluteTime mPrefsTimeStamp;
+	struct timespec mTimespec;
+	CFMutableDictionaryRef mPropertyList;
+
+	string mPrefsPath, mHomeDir, mUserName;
+	vector<DLDbIdentifier> mSearchList;
+	DLDbIdentifier mDefaultDLDbIdentifier;
+	DLDbIdentifier mLoginDLDbIdentifier;
+    bool mChanged, mSearchListSet, mDefaultDLDbIdentifierSet, mLoginDLDbIdentifierSet;
 };
 
 class CCFValue

@@ -20,6 +20,14 @@ AC_TRY_COMPILE_NFS(
 ], ac_cv_have_struct_nfs_args="struct irix5_nfs_args", ac_cv_have_struct_nfs_args=notfound)
 fi
 
+# look for "struct aix51_nfs_args" (specially set in conf/nfs_prot/)
+if test "$ac_cv_have_struct_nfs_args" = notfound
+then
+AC_TRY_COMPILE_NFS(
+[ struct aix51_nfs_args na;
+], ac_cv_have_struct_nfs_args="struct aix51_nfs_args", ac_cv_have_struct_nfs_args=notfound)
+fi
+
 # look for "struct aix42_nfs_args" (specially set in conf/nfs_prot/)
 if test "$ac_cv_have_struct_nfs_args" = notfound
 then

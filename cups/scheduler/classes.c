@@ -1,9 +1,9 @@
 /*
- * "$Id: classes.c,v 1.1.1.3 2002/06/06 22:13:14 jlovell Exp $"
+ * "$Id: classes.c,v 1.4 2003/08/09 20:48:23 jlovell Exp $"
  *
  *   Printer class routines for the Common UNIX Printing System (CUPS).
  *
- *   Copyright 1997-2002 by Easy Software Products, all rights reserved.
+ *   Copyright 1997-2003 by Easy Software Products, all rights reserved.
  *
  *   These coded instructions, statements, and computer programs are the
  *   property of Easy Software Products and are protected by Federal
@@ -62,14 +62,8 @@ AddClass(const char *name)	/* I - Name of class */
     */
 
     c->type = CUPS_PRINTER_CLASS;
-    snprintf(c->uri, sizeof(c->uri), "ipp://%s:%d/classes/%s", ServerName,
-             ntohs(Listeners[0].address.sin_port), name);
-
-   /*
-    * Set the printer attributes to make this a class.
-    */
-
-    SetPrinterAttrs(c);
+    SetStringf(&c->uri, "ipp://%s:%d/classes/%s", ServerName,
+               ntohs(Listeners[0].address.sin_port), name);
   }
 
   return (c);
@@ -223,7 +217,7 @@ DeletePrinterFromClasses(printer_t *p)	/* I - Printer to delete */
 
     if ((c->type & (CUPS_PRINTER_CLASS | CUPS_PRINTER_IMPLICIT)) &&
         c->num_printers == 0)
-      DeletePrinter(c);
+      DeletePrinter(c, 1);
   }
 }
 
@@ -244,7 +238,7 @@ DeleteAllClasses(void)
     next = c->next;
 
     if (c->type & CUPS_PRINTER_CLASS)
-      DeletePrinter(c);
+      DeletePrinter(c, 0);
   }
 }
 
@@ -307,19 +301,15 @@ printer_t *			/* O - Matching class or NULL */
 FindClass(const char *name)	/* I - Name of class */
 {
   printer_t	*c;		/* Current class/printer */
+  int		diff;		/* Difference */
 
 
   for (c = Printers; c != NULL; c = c->next)
-    switch (strcasecmp(name, c->name))
-    {
-      case 0 : /* name == c->name */
-          if (c->type & (CUPS_PRINTER_CLASS | CUPS_PRINTER_IMPLICIT))
-	    return (c);
-      case 1 : /* name > c->name */
-          break;
-      case -1 : /* name < c->name */
-          return (NULL);
-    }
+    if ((diff = strcasecmp(name, c->name)) == 0 &&
+        (c->type & (CUPS_PRINTER_CLASS | CUPS_PRINTER_IMPLICIT)))
+      return (c);				/* name == c->name */
+    else if (diff < 0)				/* name < c->name */
+      return (NULL);
 
   return (NULL);
 }
@@ -332,7 +322,7 @@ FindClass(const char *name)	/* I - Name of class */
 void
 LoadAllClasses(void)
 {
-  FILE		*fp;			/* classes.conf file */
+  cups_file_t	*fp;			/* classes.conf file */
   int		linenum;		/* Current line number */
   int		len;			/* Length of line */
   char		line[1024],		/* Line from file */
@@ -349,8 +339,12 @@ LoadAllClasses(void)
   */
 
   snprintf(line, sizeof(line), "%s/classes.conf", ServerRoot);
-  if ((fp = fopen(line, "r")) == NULL)
+  if ((fp = cupsFileOpen(line, "r")) == NULL)
+  {
+    LogMessage(L_ERROR, "LoadAllClasses: Unable to open %s - %s", line,
+               strerror(errno));
     return;
+  }
 
  /*
   * Read class configurations until we hit EOF...
@@ -359,7 +353,7 @@ LoadAllClasses(void)
   linenum = 0;
   p       = NULL;
 
-  while (fgets(line, sizeof(line), fp) != NULL)
+  while (cupsFileGets(fp, line, sizeof(line)) != NULL)
   {
     linenum ++;
 
@@ -414,6 +408,8 @@ LoadAllClasses(void)
       {
         line[len - 1] = '\0';
 
+        LogMessage(L_DEBUG, "LoadAllClasses: Loading class %s...", value);
+
         p = AddClass(value);
 	p->accepting = 1;
 	p->state     = IPP_PRINTER_IDLE;
@@ -450,9 +446,9 @@ LoadAllClasses(void)
     }
     
     else if (strcmp(name, "Info") == 0)
-      strlcpy(p->info, value, sizeof(p->info));
+      SetString(&p->info, value);
     else if (strcmp(name, "Location") == 0)
-      strlcpy(p->location, value, sizeof(p->location));
+      SetString(&p->location, value);
     else if (strcmp(name, "Printer") == 0)
     {
       if ((temp = FindPrinter(value)) == NULL)
@@ -464,18 +460,20 @@ LoadAllClasses(void)
 	* Add the missing remote printer...
 	*/
 
-	temp = AddPrinter(value);
-	strcpy(temp->make_model, "Remote Printer on unknown");
+	if ((temp = AddPrinter(value)) != NULL)
+	{
+	  SetString(&temp->make_model, "Remote Printer on unknown");
 
-        temp->state       = IPP_PRINTER_STOPPED;
-	temp->type        |= CUPS_PRINTER_REMOTE;
-	temp->browse_time = 2147483647;
+          temp->state       = IPP_PRINTER_STOPPED;
+	  temp->type        |= CUPS_PRINTER_REMOTE;
+	  temp->browse_time = 2147483647;
 
-	strcpy(temp->location, "Location Unknown");
-	strcpy(temp->info, "No Information Available");
-	temp->hostname[0] = '\0';
+	  SetString(&temp->location, "Location Unknown");
+	  SetString(&temp->info, "No Information Available");
+	  temp->hostname[0] = '\0';
 
-	SetPrinterAttrs(temp);
+	  SetPrinterAttrs(temp);
+	}
       }
 
       if (temp)
@@ -525,7 +523,7 @@ LoadAllClasses(void)
       if (*valueptr)
         *valueptr++ = '\0';
 
-      strlcpy(p->job_sheets[0], value, sizeof(p->job_sheets[0]));
+      SetString(&p->job_sheets[0], value);
 
       while (isspace(*valueptr))
         valueptr ++;
@@ -537,7 +535,7 @@ LoadAllClasses(void)
 	if (*valueptr)
           *valueptr++ = '\0';
 
-	strlcpy(p->job_sheets[1], value, sizeof(p->job_sheets[1]));
+	SetString(&p->job_sheets[1], value);
       }
     }
     else if (strcmp(name, "AllowUser") == 0)
@@ -567,7 +565,7 @@ LoadAllClasses(void)
     }
   }
 
-  fclose(fp);
+  cupsFileClose(fp);
 }
 
 
@@ -578,7 +576,7 @@ LoadAllClasses(void)
 void
 SaveAllClasses(void)
 {
-  FILE		*fp;			/* classes.conf file */
+  cups_file_t	*fp;			/* classes.conf file */
   char		temp[1024];		/* Temporary string */
   char		backup[1024];		/* classes.conf.O file */
   printer_t	*pclass;		/* Current printer class */
@@ -597,7 +595,7 @@ SaveAllClasses(void)
   if (rename(temp, backup))
     LogMessage(L_ERROR, "Unable to backup classes.conf - %s", strerror(errno));
 
-  if ((fp = fopen(temp, "w")) == NULL)
+  if ((fp = cupsFileOpen(temp, "w")) == NULL)
   {
     LogMessage(L_ERROR, "Unable to save classes.conf - %s", strerror(errno));
 
@@ -612,19 +610,23 @@ SaveAllClasses(void)
   * Restrict access to the file...
   */
 
-  fchown(fileno(fp), User, Group);
-  fchmod(fileno(fp), 0600);
+  fchown(cupsFileNumber(fp), User, Group);
+#ifdef __APPLE__
+  fchmod(cupsFileNumber(fp), 0600);
+#else
+  fchmod(cupsFileNumber(fp), ConfigFilePerm);
+#endif /* __APPLE__ */
 
  /*
   * Write a small header to the file...
   */
 
   curtime = time(NULL);
-  curdate = gmtime(&curtime);
+  curdate = localtime(&curtime);
   strftime(temp, sizeof(temp) - 1, CUPS_STRFTIME_FORMAT, curdate);
 
-  fputs("# Class configuration file for " CUPS_SVERSION "\n", fp);
-  fprintf(fp, "# Written by cupsd on %s\n", temp);
+  cupsFilePuts(fp, "# Class configuration file for " CUPS_SVERSION "\n");
+  cupsFilePrintf(fp, "# Written by cupsd on %s\n", temp);
 
  /*
   * Write each local class known to the system...
@@ -646,50 +648,50 @@ SaveAllClasses(void)
     */
 
     if (pclass == DefaultPrinter)
-      fprintf(fp, "<DefaultClass %s>\n", pclass->name);
+      cupsFilePrintf(fp, "<DefaultClass %s>\n", pclass->name);
     else
-      fprintf(fp, "<Class %s>\n", pclass->name);
+      cupsFilePrintf(fp, "<Class %s>\n", pclass->name);
 
-    if (pclass->info[0])
-      fprintf(fp, "Info %s\n", pclass->info);
+    if (pclass->info)
+      cupsFilePrintf(fp, "Info %s\n", pclass->info);
 
-    if (pclass->location[0])
-      fprintf(fp, "Location %s\n", pclass->location);
+    if (pclass->location)
+      cupsFilePrintf(fp, "Location %s\n", pclass->location);
 
     if (pclass->state == IPP_PRINTER_STOPPED)
     {
-      fputs("State Stopped\n", fp);
-      fprintf(fp, "StateMessage %s\n", pclass->state_message);
+      cupsFilePuts(fp, "State Stopped\n");
+      cupsFilePrintf(fp, "StateMessage %s\n", pclass->state_message);
     }
     else
-      fputs("State Idle\n", fp);
+      cupsFilePuts(fp, "State Idle\n");
 
     if (pclass->accepting)
-      fputs("Accepting Yes\n", fp);
+      cupsFilePuts(fp, "Accepting Yes\n");
     else
-      fputs("Accepting No\n", fp);
+      cupsFilePuts(fp, "Accepting No\n");
 
-    fprintf(fp, "JobSheets %s %s\n", pclass->job_sheets[0],
-            pclass->job_sheets[1]);
+    cupsFilePrintf(fp, "JobSheets %s %s\n", pclass->job_sheets[0],
+                   pclass->job_sheets[1]);
 
     for (i = 0; i < pclass->num_printers; i ++)
-      fprintf(fp, "Printer %s\n", pclass->printers[i]->name);
+      cupsFilePrintf(fp, "Printer %s\n", pclass->printers[i]->name);
 
-    fprintf(fp, "QuotaPeriod %d\n", pclass->quota_period);
-    fprintf(fp, "PageLimit %d\n", pclass->page_limit);
-    fprintf(fp, "KLimit %d\n", pclass->k_limit);
+    cupsFilePrintf(fp, "QuotaPeriod %d\n", pclass->quota_period);
+    cupsFilePrintf(fp, "PageLimit %d\n", pclass->page_limit);
+    cupsFilePrintf(fp, "KLimit %d\n", pclass->k_limit);
 
     for (i = 0; i < pclass->num_users; i ++)
-      fprintf(fp, "%sUser %s\n", pclass->deny_users ? "Deny" : "Allow",
-              pclass->users[i]);
+      cupsFilePrintf(fp, "%sUser %s\n", pclass->deny_users ? "Deny" : "Allow",
+                     pclass->users[i]);
 
-    fputs("</Class>\n", fp);
+    cupsFilePuts(fp, "</Class>\n");
   }
 
-  fclose(fp);
+  cupsFileClose(fp);
 }
 
 
 /*
- * End of "$Id: classes.c,v 1.1.1.3 2002/06/06 22:13:14 jlovell Exp $".
+ * End of "$Id: classes.c,v 1.4 2003/08/09 20:48:23 jlovell Exp $".
  */

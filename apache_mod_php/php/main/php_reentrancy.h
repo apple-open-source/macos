@@ -1,8 +1,8 @@
 /*
    +----------------------------------------------------------------------+
-   | PHP version 4.0                                                      |
+   | PHP Version 4                                                        |
    +----------------------------------------------------------------------+
-   | Copyright (c) 1997-2001 The PHP Group                                |
+   | Copyright (c) 1997-2003 The PHP Group                                |
    +----------------------------------------------------------------------+
    | This source file is subject to version 2.02 of the PHP license,      |
    | that is bundled with this package in the file LICENSE, and is        |
@@ -12,7 +12,7 @@
    | obtain it through the world-wide-web, please send a note to          |
    | license@php.net so we can mail you a copy immediately.               |
    +----------------------------------------------------------------------+
-   | Authors: Sascha Schumann <sascha@schumann.cx>                        |
+   | Author: Sascha Schumann <sascha@schumann.cx>                         |
    +----------------------------------------------------------------------+
  */
 
@@ -88,7 +88,7 @@ char *asctime_r(const struct tm *tm, char *buf);
 #endif
 
 
-#if !defined(HAVE_GMTIME_R) && defined(HAVE_GMTIME)
+#if !defined(HAVE_GMTIME_R) && defined(HAVE_GMTIME) || defined(__BEOS__)
 #define PHP_NEED_REENTRANCY 1
 PHPAPI struct tm *php_gmtime_r(const time_t *const timep, struct tm *p_tm);
 #else

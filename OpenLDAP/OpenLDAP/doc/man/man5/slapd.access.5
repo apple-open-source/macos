@@ -1,10 +1,10 @@
-.TH SLAPD.ACCESS 5 "28 Oct 2001" "OpenLDAP LDVERSION"
-.\" Copyright 1998-2002 The OpenLDAP Foundation All Rights Reserved.
+.TH SLAPD.ACCESS 5 "RELEASEDATE" "OpenLDAP LDVERSION"
+.\" Copyright 1998-2003 The OpenLDAP Foundation All Rights Reserved.
 .\" Copying restrictions apply.  See COPYRIGHT/LICENSE.
 .SH NAME
 slapd.access \- access configuration for slapd, the stand-alone LDAP daemon
 .SH SYNOPSIS
-ETCDIR/slapd.conf
+/etc/openldap/slapd.conf
 .SH DESCRIPTION
 The 
 .BR slapd.conf (5)
@@ -40,18 +40,22 @@ is as follows:
     ...
 .fi
 .LP
-Both the global configuration and each backend-specific section can contain
-access information.
-Backend-specific access control directives are used for those entries
-that belong to the backend, according to their naming context.
-In case no access control directives are defined for a backend, 
-the appropriate directives from the global configuration section
-are used.
+Both the global configuration and each backend-specific section can
+contain access information.  Backend-specific access control
+directives are used for those entries that belong to the backend,
+according to their naming context.  In case no access control
+directives are defined for a backend or those which are defined are
+not applicable, the directives from the global configuration section
+are then used.
 .LP
-Arguments that should be replaced by actual text are shown in brackets <>.
-The structure of the access control directives is
+For entries not held in any backend (such as a root DSE), the
+directives of the first backend (and any global directives) are
+used.
+.LP
+Arguments that should be replaced by actual text are shown in
+brackets <>.  The structure of the access control directives is
 .TP
-.B access to <what> [ by <who> <access> [ <control> ] ]+
+.B access to <what> "[ by <who> <access> [ <control> ] ]+"
 Grant access (specified by 
 .BR <access> ) 
 to a set of entries and/or attributes (specified by 
@@ -78,31 +82,36 @@ stands for all the entries.
 The statement
 .B dn=<pattern>
 selects the entries based on their naming context.
-The optional style qualificator
+The optional style qualifier
 .B <dnstyle>
 can be 
-.BR regex ,
-which implies a regular expression pattern, as detailed in
+.B regex
+(the default) implies that
+.B pattern
+is a regular expression, as detailed in
 .BR regex (7),
-will be used (the default),
+matching a normalized string representation of the entry's DN.
+The regex form of the pattern does not support UTF-8 yet.
+.LP
+For all other qualifiers, the pattern is a string representation of
+the entry's DN.
 .B base
 or
 .B exact 
 (an alias of 
 .BR base )
-for an exact match of the entry,
+indicates the entry whose DN is equal to the pattern.
 .B one
 to indicate all the entries immediately below the
 .BR pattern ,
-.B sub
-to indicate all the subentries of an entry including the entry itself,
+.B subtree
+to indicate all entries in the subtree at the pattern,
 .B children
-to indicate all the subentries of an entry not including the entry itself.
+to indicate all entries below (subordinate) to the pattern.
 Note that 
 .B dn=".*"
 is equivalent to
 .BR * .
-The regex form of the pattern does not support UTF-8 (7) yet.
 .LP
 The statement
 .B filter=<ldapfilter>
@@ -139,13 +148,13 @@ It can have the forms
 	users
 	self
 
-	dn[.<dnstyle>]=<pattern>
+	dn[.<dnstyle>[,<modifier>]]=<pattern>
 	dnattr=<attrname>
 	group[/<objectclass>[/<attrname>]]
 		[.<style>]=<pattern>
 	peername[.<style>]=<pattern>
 	sockname[.<style>]=<pattern>
-	domain[.<style>]=<pattern>
+	domain[.<domainstyle>[,<modifier>]]=<pattern>
 	sockurl[.<style>]=<pattern>
 	set[.<style>]=<pattern>
 
@@ -184,19 +193,18 @@ being accessed and the requesting entry must be the same).
 .LP
 The statement
 .B dn=<pattern>
-means that access is granted to the matching dn.
-The optional style qualificator
+means that access is granted to the matching DN.
+The optional style qualifier
 .B dnstyle
 allows the same choices of the dn form of the
 .B <what>
-field.
-In detail, the
+field.  In addition, the
 .B regex
 form of
 .B pattern
 can exploit substring substitution of submatches in the
 .B <what>
-dn by using the form
+dn.regex clause by using the form
 .BR $<digit> ,
 with 
 .B digit
@@ -204,22 +212,22 @@ ranging from 1 to 9.
 .LP
 The statement
 .B dnattr=<attrname>
-means that access is granted to requests whose dn is listed in the
+means that access is granted to requests whose DN is listed in the
 entry being accessed under the 
 .B attrname
 attribute.
 .LP
 The statement
 .B group=<pattern>
-means that access is granted to requests whose dn is listed
-in the group entry whose dn is given by
+means that access is granted to requests whose DN is listed
+in the group entry whose DN is given by
 .BR pattern .
 The optional parameters
 .B objectclass
 and
 .B attrname
 define the objectClass and the member attributeType of the group entry.
-The optional style qualificator
+The optional style qualifier
 .B style
 can be
 .BR regex ,
@@ -231,7 +239,7 @@ or
 .B exact
 (an alias of
 .BR base ),
-which means that an exact match will be used.
+which means that exact match will be used.
 .LP
 The statements
 .BR peername=<pattern> ,
@@ -254,7 +262,24 @@ The same
 .B style
 rules for pattern match described for the
 .B group
-case apply.
+case apply. 
+The
+.BR domain 
+clause also allows the
+.B subtree
+style, which succeeds when a fully qualified name exactly matches the
+.BR domain
+pattern, or its trailing part, after a 
+.BR dot ,
+exactly matches the 
+.BR domain
+pattern.
+The
+.B domain
+of the contacting host is determined by performing a DNS reverse lookup.
+As this lookup can easily be spoofed, use of the
+.B domain
+statement is strongly discouraged.  By default, reverse lookups are disabled.
 .LP
 The statement
 .B set=<pattern>
@@ -388,7 +413,7 @@ Consider the (silly) example
 .fi
 .LP
 which allows search and compare privileges to everybody under
-the "dc=example,dc=com" tree, with the seconf rule allowing
+the "dc=example,dc=com" tree, with the second rule allowing
 also read in the "ou=People" subtree,
 or the (even more silly) example
 .LP
@@ -399,9 +424,47 @@ or the (even more silly) example
 .fi
 .LP
 which grants everybody search and compare privileges, and adds read
-privileges to authenticated users.
+privileges to authenticated clients.
+.SH CAVEATS
+It is strongly recommended to explicitly use the most appropriate
+DN 
+.BR style ,
+to avoid possible 
+incorrect specifications of the access rules as well
+as for performance (avoid unrequired regex matching when
+an exact match suffices) reasons.
+.LP
+An adminisistrator might create a rule of the form:
+.LP
+.nf
+	access to dn="dc=example,dc=com"
+		by ...
+.fi
+.LP
+expecting it to match all entries in the subtree "dc=example,dc=com".
+However, this rule actually matches any DN which contains anywhere
+the substring "dc=example,dc=com".  That is, the rule matches both
+"uid=joe,dc=example,dc=com" and "dc=example,dc=com,uid=joe".
+.LP
+To match the desired subtree, the rule would be more precisely
+written:
+.LP
+.nf
+	access to dn.regex="^(.+,)?dc=example,dc=com$$"
+		by ...
+.fi
+.LP
+For performance reasons, it would be better to use the subtree style.
+.LP
+.nf
+access to dn.subtree="dc=example,dc=com"
+	by ...
+.fi
+.LP
 .SH FILES
-ETCDIR/slapd.conf
+.TP
+/etc/openldap/slapd.conf
+default slapd configuration file
 .SH SEE ALSO
 .BR slapd (8),
 .LP

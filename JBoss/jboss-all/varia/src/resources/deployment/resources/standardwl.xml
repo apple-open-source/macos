@@ -1,0 +1,492 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE jboss>
+
+<!-- ===================================================================== -->
+<!--                                                                       -->
+<!--  Standard Container Configurations for WebLogic EJBs                  -->
+<!--                                                                       -->
+<!-- @author <a href="mailto:loubyansky@ukr.net">Alex Loubyansky</a>       -->
+<!-- ===================================================================== -->
+
+<!-- $Id: standardwl.xml,v 1.1 2002/06/17 15:34:26 loubyansky Exp $ -->
+
+<jboss>
+   <invoker-proxy-bindings>
+     <invoker-proxy-binding>
+       <name>entity-rmi-invoker</name>
+       <invoker-mbean>jboss:service=invoker,type=jrmp</invoker-mbean>
+       <proxy-factory>org.jboss.proxy.ejb.ProxyFactory</proxy-factory>
+       <proxy-factory-config>
+	 <client-interceptors>
+           <home>
+             <interceptor>org.jboss.proxy.ejb.HomeInterceptor</interceptor>
+             <interceptor>org.jboss.proxy.SecurityInterceptor</interceptor>
+             <interceptor>org.jboss.proxy.TransactionInterceptor</interceptor>
+             <interceptor>org.jboss.invocation.InvokerInterceptor</interceptor>
+           </home>
+           <bean>
+             <interceptor>org.jboss.proxy.ejb.EntityInterceptor</interceptor>
+             <interceptor>org.jboss.proxy.SecurityInterceptor</interceptor>
+             <interceptor>org.jboss.proxy.TransactionInterceptor</interceptor>
+             <interceptor>org.jboss.invocation.InvokerInterceptor</interceptor>
+           </bean>
+           <list-entity>
+             <interceptor>org.jboss.proxy.ejb.ListEntityInterceptor</interceptor>
+             <interceptor>org.jboss.proxy.SecurityInterceptor</interceptor>
+             <interceptor>org.jboss.proxy.TransactionInterceptor</interceptor>
+             <interceptor>org.jboss.invocation.InvokerInterceptor</interceptor>
+           </list-entity>
+	 </client-interceptors>
+       </proxy-factory-config>
+     </invoker-proxy-binding>
+     <invoker-proxy-binding>
+       <name>clustered-entity-rmi-invoker</name>
+       <invoker-mbean>jboss:service=invoker,type=jrmpha</invoker-mbean>
+       <proxy-factory>org.jboss.proxy.ejb.ProxyFactoryHA</proxy-factory>
+       <proxy-factory-config>
+	 <client-interceptors>
+           <home>
+             <interceptor>org.jboss.proxy.ejb.HomeInterceptor</interceptor>
+             <interceptor>org.jboss.proxy.SecurityInterceptor</interceptor>
+             <interceptor>org.jboss.proxy.TransactionInterceptor</interceptor>
+             <interceptor>org.jboss.invocation.InvokerInterceptor</interceptor>
+           </home>
+           <bean>
+             <interceptor>org.jboss.proxy.ejb.EntityInterceptor</interceptor>
+             <interceptor>org.jboss.proxy.SecurityInterceptor</interceptor>
+             <interceptor>org.jboss.proxy.TransactionInterceptor</interceptor>
+             <interceptor>org.jboss.invocation.InvokerInterceptor</interceptor>
+           </bean>
+           <list-entity>
+             <interceptor>org.jboss.proxy.ejb.ListEntityInterceptor</interceptor>
+             <interceptor>org.jboss.proxy.SecurityInterceptor</interceptor>
+             <interceptor>org.jboss.proxy.TransactionInterceptor</interceptor>
+             <interceptor>org.jboss.invocation.InvokerInterceptor</interceptor>
+           </list-entity>
+	 </client-interceptors>
+       </proxy-factory-config>
+     </invoker-proxy-binding>
+     <invoker-proxy-binding>
+       <name>stateless-rmi-invoker</name>
+       <invoker-mbean>jboss:service=invoker,type=jrmp</invoker-mbean>
+       <proxy-factory>org.jboss.proxy.ejb.ProxyFactory</proxy-factory>
+       <proxy-factory-config>
+	 <client-interceptors>
+           <home>
+             <interceptor>org.jboss.proxy.ejb.HomeInterceptor</interceptor>
+             <interceptor>org.jboss.proxy.SecurityInterceptor</interceptor>
+             <interceptor>org.jboss.proxy.TransactionInterceptor</interceptor>
+             <interceptor>org.jboss.invocation.InvokerInterceptor</interceptor>
+           </home>
+           <bean>
+             <interceptor>org.jboss.proxy.ejb.StatelessSessionInterceptor</interceptor>
+             <interceptor>org.jboss.proxy.SecurityInterceptor</interceptor>
+             <interceptor>org.jboss.proxy.TransactionInterceptor</interceptor>
+             <interceptor>org.jboss.invocation.InvokerInterceptor</interceptor>
+           </bean>
+	 </client-interceptors>
+       </proxy-factory-config>
+     </invoker-proxy-binding>
+     <invoker-proxy-binding>
+       <name>clustered-stateless-rmi-invoker</name>
+       <invoker-mbean>jboss:service=invoker,type=jrmpha</invoker-mbean>
+       <proxy-factory>org.jboss.proxy.ejb.ProxyFactoryHA</proxy-factory>
+       <proxy-factory-config>
+	 <client-interceptors>
+           <home>
+             <interceptor>org.jboss.proxy.ejb.HomeInterceptor</interceptor>
+             <interceptor>org.jboss.proxy.SecurityInterceptor</interceptor>
+             <interceptor>org.jboss.proxy.TransactionInterceptor</interceptor>
+             <interceptor>org.jboss.invocation.InvokerInterceptor</interceptor>
+           </home>
+           <bean>
+             <interceptor>org.jboss.proxy.ejb.StatelessSessionInterceptor</interceptor>
+             <interceptor>org.jboss.proxy.SecurityInterceptor</interceptor>
+             <interceptor>org.jboss.proxy.TransactionInterceptor</interceptor>
+             <interceptor>org.jboss.invocation.InvokerInterceptor</interceptor>
+           </bean>
+	 </client-interceptors>
+       </proxy-factory-config>
+     </invoker-proxy-binding>
+     <invoker-proxy-binding>
+       <name>stateful-rmi-invoker</name>
+       <invoker-mbean>jboss:service=invoker,type=jrmp</invoker-mbean>
+       <proxy-factory>org.jboss.proxy.ejb.ProxyFactory</proxy-factory>
+       <proxy-factory-config>
+	 <client-interceptors>
+           <home>
+             <interceptor>org.jboss.proxy.ejb.HomeInterceptor</interceptor>
+             <interceptor>org.jboss.proxy.SecurityInterceptor</interceptor>
+             <interceptor>org.jboss.proxy.TransactionInterceptor</interceptor>
+             <interceptor>org.jboss.invocation.InvokerInterceptor</interceptor>
+           </home>
+           <bean>
+             <interceptor>org.jboss.proxy.ejb.StatefulSessionInterceptor</interceptor>
+             <interceptor>org.jboss.proxy.SecurityInterceptor</interceptor>
+             <interceptor>org.jboss.proxy.TransactionInterceptor</interceptor>
+             <interceptor>org.jboss.invocation.InvokerInterceptor</interceptor>
+           </bean>
+	 </client-interceptors>
+       </proxy-factory-config>
+     </invoker-proxy-binding>
+     <invoker-proxy-binding>
+       <name>clustered-stateful-rmi-invoker</name>
+       <invoker-mbean>jboss:service=invoker,type=jrmpha</invoker-mbean>
+       <proxy-factory>org.jboss.proxy.ejb.ProxyFactoryHA</proxy-factory>
+       <proxy-factory-config>
+	 <client-interceptors>
+           <home>
+             <interceptor>org.jboss.proxy.ejb.HomeInterceptor</interceptor>
+             <interceptor>org.jboss.proxy.SecurityInterceptor</interceptor>
+             <interceptor>org.jboss.proxy.TransactionInterceptor</interceptor>
+             <interceptor>org.jboss.invocation.InvokerInterceptor</interceptor>
+           </home>
+           <bean>
+             <interceptor>org.jboss.proxy.ejb.StatefulSessionInterceptor</interceptor>
+             <interceptor>org.jboss.proxy.SecurityInterceptor</interceptor>
+             <interceptor>org.jboss.proxy.TransactionInterceptor</interceptor>
+             <interceptor>org.jboss.invocation.InvokerInterceptor</interceptor>
+           </bean>
+	 </client-interceptors>
+       </proxy-factory-config>
+     </invoker-proxy-binding>
+     <invoker-proxy-binding>
+       <name>message-driven-bean</name>
+       <invoker-mbean>default</invoker-mbean>
+       <proxy-factory>org.jboss.ejb.plugins.jms.JMSContainerInvoker</proxy-factory>
+       <proxy-factory-config>
+	    <JMSProviderAdapterJNDI>DefaultJMSProvider</JMSProviderAdapterJNDI>
+	    <ServerSessionPoolFactoryJNDI>StdJMSPool</ServerSessionPoolFactoryJNDI>
+	    <MaximumSize>15</MaximumSize>
+	    <MaxMessages>1</MaxMessages>
+	    <Optimized>True</Optimized>
+            <MDBConfig>
+                <ReconnectIntervalSec>10</ReconnectIntervalSec>
+                <DLQConfig>
+                  <DestinationQueue>queue/DLQ</DestinationQueue>
+                  <MaxTimesRedelivered>10</MaxTimesRedelivered>
+                  <TimeToLive>0</TimeToLive>
+                </DLQConfig>
+            </MDBConfig>
+       </proxy-factory-config>
+     </invoker-proxy-binding>
+     <invoker-proxy-binding>
+       <name>iiop</name>
+       <invoker-mbean>jboss:service=invoker,type=iiop</invoker-mbean>
+       <proxy-factory>org.jboss.proxy.ejb.IORFactory</proxy-factory>
+       <proxy-factory-config>
+	    <web-class-loader>org.jboss.iiop.WebCL</web-class-loader>
+            <poa>per-servant</poa>
+            <register-ejbs-in-jnp-context>true</register-ejbs-in-jnp-context>
+            <jnp-context>iiop</jnp-context>
+	    <JMSProviderAdapterJNDI>DefaultJMSProvider</JMSProviderAdapterJNDI>
+	    <ServerSessionPoolFactoryJNDI>StdJMSPool</ServerSessionPoolFactoryJNDI>
+	    <MaximumSize>15</MaximumSize>
+	    <MaxMessages>1</MaxMessages>
+	    <Optimized>True</Optimized>
+            <MDBConfig>
+                <ReconnectIntervalSec>10</ReconnectIntervalSec>
+                <DLQConfig>
+                  <DestinationQueue>queue/DLQ</DestinationQueue>
+                  <MaxTimesRedelivered>10</MaxTimesRedelivered>
+                  <TimeToLive>0</TimeToLive>
+                </DLQConfig>
+            </MDBConfig>
+       </proxy-factory-config>
+     </invoker-proxy-binding>
+   </invoker-proxy-bindings>
+
+   <enforce-ejb-restrictions>false</enforce-ejb-restrictions>
+   
+   <container-configurations>
+
+      <container-configuration>
+	 <container-name>Standard CMP 2.x EntityBean</container-name>
+	 <call-logging>false</call-logging>
+	 <container-interceptors>
+	    <interceptor>org.jboss.ejb.plugins.ProxyFactoryFinderInterceptor</interceptor>
+	    <interceptor>org.jboss.ejb.plugins.LogInterceptor</interceptor>
+	    <interceptor>org.jboss.ejb.plugins.SecurityInterceptor</interceptor>
+	    <interceptor>org.jboss.ejb.plugins.TxInterceptorCMT</interceptor>
+	    <interceptor metricsEnabled="true">org.jboss.ejb.plugins.MetricsInterceptor</interceptor>
+	    <interceptor>org.jboss.ejb.plugins.EntityCreationInterceptor</interceptor>
+	    <interceptor>org.jboss.ejb.plugins.EntityLockInterceptor</interceptor>
+	    <interceptor>org.jboss.ejb.plugins.EntityInstanceInterceptor</interceptor>
+	    <interceptor>org.jboss.resource.connectionmanager.CachedConnectionInterceptor</interceptor>
+	    <interceptor>org.jboss.ejb.plugins.EntitySynchronizationInterceptor</interceptor>
+	    <interceptor>org.jboss.ejb.plugins.cmp.jdbc.JDBCRelationInterceptor</interceptor>
+	 </container-interceptors>
+	 <instance-pool>org.jboss.ejb.plugins.EntityInstancePool</instance-pool>
+	 <instance-cache>org.jboss.ejb.plugins.EntityInstanceCache</instance-cache>
+	 <persistence-manager>org.jboss.ejb.plugins.cmp.jdbc.JDBCStoreManager</persistence-manager>
+	 <transaction-manager>org.jboss.tm.TxManager</transaction-manager>
+    <locking-policy>org.jboss.ejb.plugins.lock.QueuedPessimisticEJBLock</locking-policy>
+	 <container-cache-conf>
+	    <cache-policy>org.jboss.ejb.plugins.LRUEnterpriseContextCachePolicy</cache-policy>
+	    <cache-policy-conf>
+	       <min-capacity>50</min-capacity>
+	       <max-capacity>1000000</max-capacity>
+	       <overager-period>300</overager-period>
+	       <max-bean-age>600</max-bean-age>
+	       <resizer-period>400</resizer-period>
+	       <max-cache-miss-period>60</max-cache-miss-period>
+	       <min-cache-miss-period>1</min-cache-miss-period>
+	       <cache-load-factor>0.75</cache-load-factor>
+	    </cache-policy-conf>
+	 </container-cache-conf>
+     <container-pool-conf>
+        <MaximumSize>100</MaximumSize>
+        <feeder-policy>org.jboss.ejb.plugins.TimedInstancePoolFeeder</feeder-policy>
+            <feeder-policy-conf>
+                <increment>10</increment>
+                <period>500</period>
+            </feeder-policy-conf>
+     </container-pool-conf>
+	 <commit-option>C</commit-option>
+      </container-configuration>
+
+      <container-configuration>
+	 <container-name>Standard CMP EntityBean</container-name>
+	 <call-logging>false</call-logging>
+	 <container-interceptors>
+	    <interceptor>org.jboss.ejb.plugins.ProxyFactoryFinderInterceptor</interceptor>
+	    <interceptor>org.jboss.ejb.plugins.LogInterceptor</interceptor>
+	    <interceptor>org.jboss.ejb.plugins.SecurityInterceptor</interceptor>
+	    <interceptor>org.jboss.ejb.plugins.TxInterceptorCMT</interceptor>
+	    <interceptor metricsEnabled="true">org.jboss.ejb.plugins.MetricsInterceptor</interceptor>
+	    <interceptor>org.jboss.ejb.plugins.EntityCreationInterceptor</interceptor>
+	    <interceptor>org.jboss.ejb.plugins.EntityLockInterceptor</interceptor>
+	    <interceptor>org.jboss.ejb.plugins.EntityInstanceInterceptor</interceptor>
+	    <interceptor>org.jboss.resource.connectionmanager.CachedConnectionInterceptor</interceptor>
+	    <interceptor>org.jboss.ejb.plugins.EntitySynchronizationInterceptor</interceptor>
+	 </container-interceptors>
+	 <instance-pool>org.jboss.ejb.plugins.EntityInstancePool</instance-pool>
+	 <instance-cache>org.jboss.ejb.plugins.EntityInstanceCache</instance-cache>
+	 <persistence-manager>org.jboss.ejb.plugins.jaws.JAWSPersistenceManager</persistence-manager>
+	 <transaction-manager>org.jboss.tm.TxManager</transaction-manager>
+	 <locking-policy>org.jboss.ejb.plugins.lock.QueuedPessimisticEJBLock</locking-policy>
+	 <container-cache-conf>
+	    <cache-policy>org.jboss.ejb.plugins.LRUEnterpriseContextCachePolicy</cache-policy>
+	    <cache-policy-conf>
+	       <min-capacity>50</min-capacity>
+	       <max-capacity>1000000</max-capacity>
+	       <overager-period>300</overager-period>
+	       <max-bean-age>600</max-bean-age>
+	       <resizer-period>400</resizer-period>
+	       <max-cache-miss-period>60</max-cache-miss-period>
+	       <min-cache-miss-period>1</min-cache-miss-period>
+	       <cache-load-factor>0.75</cache-load-factor>
+	    </cache-policy-conf>
+	 </container-cache-conf>
+     <container-pool-conf>
+        <MaximumSize>100</MaximumSize>
+        <feeder-policy>org.jboss.ejb.plugins.TimedInstancePoolFeeder</feeder-policy>
+            <feeder-policy-conf>
+                <increment>10</increment>
+                <period>500</period>
+            </feeder-policy-conf>
+     </container-pool-conf>
+	 <commit-option>A</commit-option>
+      </container-configuration>
+
+      <container-configuration>
+	 <container-name>Standard Stateless SessionBean</container-name>
+	 <call-logging>false</call-logging>
+	 <container-interceptors>
+	    <interceptor>org.jboss.ejb.plugins.ProxyFactoryFinderInterceptor</interceptor>
+	    <interceptor>org.jboss.ejb.plugins.LogInterceptor</interceptor>
+	    <interceptor>org.jboss.ejb.plugins.SecurityInterceptor</interceptor>
+	    <!-- CMT -->
+	    <interceptor transaction="Container">org.jboss.ejb.plugins.TxInterceptorCMT</interceptor>
+	    <interceptor transaction="Container" metricsEnabled="true">org.jboss.ejb.plugins.MetricsInterceptor</interceptor>
+	    <interceptor transaction="Container">org.jboss.ejb.plugins.StatelessSessionInstanceInterceptor</interceptor>
+	    <!-- BMT -->
+	    <interceptor transaction="Bean">org.jboss.ejb.plugins.StatelessSessionInstanceInterceptor</interceptor>
+	    <interceptor transaction="Bean">org.jboss.ejb.plugins.TxInterceptorBMT</interceptor>
+	    <interceptor transaction="Bean" metricsEnabled="true">org.jboss.ejb.plugins.MetricsInterceptor</interceptor>
+	    <interceptor>org.jboss.resource.connectionmanager.CachedConnectionInterceptor</interceptor>
+	 </container-interceptors>
+	 <instance-pool>org.jboss.ejb.plugins.StatelessSessionInstancePool</instance-pool>
+	 <instance-cache></instance-cache>
+	 <persistence-manager></persistence-manager>
+	 <transaction-manager>org.jboss.tm.TxManager</transaction-manager>
+     <container-pool-conf>
+        <MaximumSize>100</MaximumSize>
+        <feeder-policy>org.jboss.ejb.plugins.TimedInstancePoolFeeder</feeder-policy>
+            <feeder-policy-conf>
+                <increment>10</increment>
+                <period>500</period>
+            </feeder-policy-conf>
+     </container-pool-conf>
+      </container-configuration>
+
+
+      <container-configuration>
+	 <container-name>Standard Stateful SessionBean</container-name>
+	 <call-logging>false</call-logging>
+	 <container-interceptors>
+	    <interceptor>org.jboss.ejb.plugins.ProxyFactoryFinderInterceptor</interceptor>
+	    <interceptor>org.jboss.ejb.plugins.LogInterceptor</interceptor>
+	    <!-- CMT -->
+	    <interceptor transaction="Container">org.jboss.ejb.plugins.TxInterceptorCMT</interceptor>
+	    <interceptor transaction="Container" metricsEnabled="true">org.jboss.ejb.plugins.MetricsInterceptor</interceptor>
+	    <interceptor transaction="Container">org.jboss.ejb.plugins.StatefulSessionInstanceInterceptor</interceptor>
+	    <!-- BMT -->
+	    <interceptor transaction="Bean">org.jboss.ejb.plugins.StatefulSessionInstanceInterceptor</interceptor>
+	    <interceptor transaction="Bean">org.jboss.ejb.plugins.TxInterceptorBMT</interceptor>
+	    <interceptor transaction="Bean" metricsEnabled="true">org.jboss.ejb.plugins.MetricsInterceptor</interceptor>
+	    <interceptor>org.jboss.resource.connectionmanager.CachedConnectionInterceptor</interceptor>
+	    <interceptor>org.jboss.ejb.plugins.SecurityInterceptor</interceptor>
+	 </container-interceptors>
+	 <instance-cache>org.jboss.ejb.plugins.StatefulSessionInstanceCache</instance-cache>
+	 <persistence-manager>org.jboss.ejb.plugins.StatefulSessionFilePersistenceManager</persistence-manager>
+	 <transaction-manager>org.jboss.tm.TxManager</transaction-manager>
+	 <container-cache-conf>
+	    <cache-policy>org.jboss.ejb.plugins.LRUStatefulContextCachePolicy</cache-policy>
+	    <cache-policy-conf>
+	       <min-capacity>50</min-capacity>
+	       <max-capacity>1000000</max-capacity>
+	       <remover-period>1800</remover-period>
+	       <max-bean-life>1800</max-bean-life>
+	       <overager-period>300</overager-period>
+	       <max-bean-age>600</max-bean-age>
+	       <resizer-period>400</resizer-period>
+	       <max-cache-miss-period>60</max-cache-miss-period>
+	       <min-cache-miss-period>1</min-cache-miss-period>
+	       <cache-load-factor>0.75</cache-load-factor>
+	    </cache-policy-conf>
+	 </container-cache-conf>
+     <container-pool-conf>
+        <MaximumSize>100</MaximumSize>
+        <feeder-policy>org.jboss.ejb.plugins.TimedInstancePoolFeeder</feeder-policy>
+            <feeder-policy-conf>
+                <increment>10</increment>
+                <period>500</period>
+            </feeder-policy-conf>
+     </container-pool-conf>
+      </container-configuration>
+
+      <container-configuration>
+	 <container-name>Clustered Stateful SessionBean</container-name>
+	 <call-logging>false</call-logging>
+	 <container-interceptors>
+	    <interceptor>org.jboss.ejb.plugins.ProxyFactoryFinderInterceptor</interceptor>
+	    <interceptor>org.jboss.ejb.plugins.LogInterceptor</interceptor>
+	    <!-- CMT -->
+	    <interceptor transaction="Container">org.jboss.ejb.plugins.TxInterceptorCMT</interceptor>
+	    <interceptor transaction="Container" metricsEnabled="true">org.jboss.ejb.plugins.MetricsInterceptor</interceptor>
+	    <interceptor transaction="Container">org.jboss.ejb.plugins.StatefulSessionInstanceInterceptor</interceptor>
+	    <!-- BMT -->
+	    <interceptor transaction="Bean">org.jboss.ejb.plugins.StatefulSessionInstanceInterceptor</interceptor>
+	    <interceptor transaction="Bean">org.jboss.ejb.plugins.TxInterceptorBMT</interceptor>
+	    <interceptor transaction="Bean" metricsEnabled="true">org.jboss.ejb.plugins.MetricsInterceptor</interceptor>
+	    <interceptor>org.jboss.ejb.plugins.SecurityInterceptor</interceptor>
+	    <interceptor>org.jboss.resource.connectionmanager.CachedConnectionInterceptor</interceptor>
+	    <interceptor>org.jboss.ejb.plugins.StatefulHASessionSynchronisationInterceptor</interceptor>
+	 </container-interceptors>
+	 <instance-cache>org.jboss.ejb.plugins.StatefulSessionInstanceCache</instance-cache>
+	 <persistence-manager>org.jboss.ejb.plugins.StatefulHASessionPersistenceManager</persistence-manager>
+	 <transaction-manager>org.jboss.tm.TxManager</transaction-manager>
+	 <container-cache-conf>
+	    <cache-policy>org.jboss.ejb.plugins.LRUStatefulContextCachePolicy</cache-policy>
+	    <cache-policy-conf>
+	       <min-capacity>50</min-capacity>
+	       <max-capacity>1000000</max-capacity>
+	       <remover-period>1800</remover-period>
+	       <max-bean-life>1800</max-bean-life>
+	       <overager-period>300</overager-period>
+	       <max-bean-age>600</max-bean-age>
+	       <resizer-period>400</resizer-period>
+	       <max-cache-miss-period>60</max-cache-miss-period>
+	       <min-cache-miss-period>1</min-cache-miss-period>
+	       <cache-load-factor>0.75</cache-load-factor>
+	    </cache-policy-conf>
+	 </container-cache-conf>
+     <container-pool-conf>
+        <MaximumSize>100</MaximumSize>
+        <feeder-policy>org.jboss.ejb.plugins.TimedInstancePoolFeeder</feeder-policy>
+            <feeder-policy-conf>
+                <increment>10</increment>
+                <period>500</period>
+            </feeder-policy-conf>
+     </container-pool-conf>
+      </container-configuration>
+
+      <container-configuration>
+	 <container-name>Standard BMP EntityBean</container-name>
+	 <call-logging>false</call-logging>
+	 <container-interceptors>
+	    <interceptor>org.jboss.ejb.plugins.ProxyFactoryFinderInterceptor</interceptor>
+	    <interceptor>org.jboss.ejb.plugins.LogInterceptor</interceptor>
+	    <interceptor>org.jboss.ejb.plugins.SecurityInterceptor</interceptor>
+	    <interceptor>org.jboss.ejb.plugins.TxInterceptorCMT</interceptor>
+	    <interceptor metricsEnabled="true">org.jboss.ejb.plugins.MetricsInterceptor</interceptor>
+	    <interceptor>org.jboss.ejb.plugins.EntityCreationInterceptor</interceptor>
+	    <interceptor>org.jboss.ejb.plugins.EntityLockInterceptor</interceptor>
+	    <interceptor>org.jboss.ejb.plugins.EntityInstanceInterceptor</interceptor>
+	    <interceptor>org.jboss.resource.connectionmanager.CachedConnectionInterceptor</interceptor>
+	    <interceptor>org.jboss.ejb.plugins.EntitySynchronizationInterceptor</interceptor>
+	 </container-interceptors>
+	 <instance-pool>org.jboss.ejb.plugins.EntityInstancePool</instance-pool>
+	 <instance-cache>org.jboss.ejb.plugins.EntityInstanceCache</instance-cache>
+	 <persistence-manager>org.jboss.ejb.plugins.BMPPersistenceManager</persistence-manager>
+	 <transaction-manager>org.jboss.tm.TxManager</transaction-manager>
+	 <locking-policy>org.jboss.ejb.plugins.lock.QueuedPessimisticEJBLock</locking-policy>
+	 <container-cache-conf>
+	    <cache-policy>org.jboss.ejb.plugins.LRUEnterpriseContextCachePolicy</cache-policy>
+	    <cache-policy-conf>
+	       <min-capacity>50</min-capacity>
+	       <max-capacity>1000000</max-capacity>
+	       <overager-period>300</overager-period>
+	       <max-bean-age>600</max-bean-age>
+	       <resizer-period>400</resizer-period>
+	       <max-cache-miss-period>60</max-cache-miss-period>
+	       <min-cache-miss-period>1</min-cache-miss-period>
+	       <cache-load-factor>0.75</cache-load-factor>
+	    </cache-policy-conf>
+	 </container-cache-conf>
+     <container-pool-conf>
+        <MaximumSize>100</MaximumSize>
+        <feeder-policy>org.jboss.ejb.plugins.TimedInstancePoolFeeder</feeder-policy>
+            <feeder-policy-conf>
+                <increment>10</increment>
+                <period>500</period>
+            </feeder-policy-conf>
+     </container-pool-conf>
+	 <commit-option>A</commit-option>
+      </container-configuration>
+
+      <container-configuration>
+	 <container-name>Standard Message Driven Bean</container-name>
+	 <call-logging>false</call-logging>
+	 <container-interceptors>
+	    <interceptor>org.jboss.ejb.plugins.ProxyFactoryFinderInterceptor</interceptor>
+	    <interceptor>org.jboss.ejb.plugins.LogInterceptor</interceptor>
+	    <interceptor>org.jboss.ejb.plugins.SecurityInterceptor</interceptor>
+	    <!-- CMT -->
+	    <interceptor transaction="Container">org.jboss.ejb.plugins.TxInterceptorCMT</interceptor>
+	    <interceptor transaction="Container" metricsEnabled="true">org.jboss.ejb.plugins.MetricsInterceptor</interceptor>
+	    <interceptor transaction="Container">org.jboss.ejb.plugins.MessageDrivenInstanceInterceptor</interceptor>
+	    <!-- BMT -->
+	    <interceptor transaction="Bean">org.jboss.ejb.plugins.MessageDrivenInstanceInterceptor</interceptor>
+	    <interceptor transaction="Bean">org.jboss.ejb.plugins.MessageDrivenTxInterceptorBMT</interceptor>
+	    <interceptor transaction="Bean" metricsEnabled="true">org.jboss.ejb.plugins.MetricsInterceptor</interceptor>
+	    <interceptor>org.jboss.resource.connectionmanager.CachedConnectionInterceptor</interceptor>
+	 </container-interceptors>
+	 <instance-pool>org.jboss.ejb.plugins.MessageDrivenInstancePool</instance-pool>
+	 <instance-cache></instance-cache>
+	 <persistence-manager></persistence-manager>
+	 <transaction-manager>org.jboss.tm.TxManager</transaction-manager>
+     <container-pool-conf>
+        <MaximumSize>100</MaximumSize>
+        <feeder-policy>org.jboss.ejb.plugins.TimedInstancePoolFeeder</feeder-policy>
+            <feeder-policy-conf>
+                <increment>10</increment>
+                <period>500</period>
+            </feeder-policy-conf>
+     </container-pool-conf>
+      </container-configuration>
+
+   </container-configurations>
+
+</jboss>

@@ -124,3 +124,6 @@
 %_xdr.c: %.x
 	$(RPCGEN) $(ALL_RPCFLAGS) -c -o $(SYM_DIR)/$*_xdr.c $*.x
 
+after_install:
+	install -o root -g wheel -m 755 -d $(DSTROOT)/usr/share/man/man8
+	install -o root -g wheel -m 644 -c spray.8 $(DSTROOT)/usr/share/man/man8

@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<server>
+  <mbean code="org.jboss.test.jmx.loading.ResourceTsts"
+	 name="test:name=ResourceTsts1">
+    <attribute name="Namespace">rsrc1:</attribute>
+  </mbean>
+  <mbean code="org.jboss.test.jmx.loading.ResourceTsts"
+	 name="test:name=ResourceTsts2">
+    <attribute name="Namespace">rsrc2:</attribute>
+  </mbean>
+</server>
+

@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE server
+   [
+      <!ENTITY noop SYSTEM "noop.xml"> 
+   ] 
+> 
+
+<server>
+   <!-- The noop entity ref below just imports a fragment like:
+   <mbean code="org.jboss.test.jmx.loading.NoopService"
+	 name="test:name=EntityRefTest"/>
+    -->
+    &noop;
+</server>

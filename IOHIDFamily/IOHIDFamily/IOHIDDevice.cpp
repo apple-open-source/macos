@@ -1,27 +1,32 @@
 /*
- * Copyright (c) 2000 Apple Computer, Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
- * The contents of this file constitute Original Code as defined in and
- * are subject to the Apple Public Source License Version 1.1 (the
- * "License").  You may not use this file except in compliance with the
- * License.  Please obtain a copy of the License at
- * http://www.apple.com/publicsource and read it before using this file.
+ * Copyright (c) 1999-2003 Apple Computer, Inc.  All Rights Reserved.
  * 
- * This Original Code and all software distributed under the License are
- * distributed on an "AS IS" basis, WITHOUT WARRANTY OF ANY KIND, EITHER
+ * This file contains Original Code and/or Modifications of Original Code
+ * as defined in and that are subject to the Apple Public Source License
+ * Version 2.0 (the 'License'). You may not use this file except in
+ * compliance with the License. Please obtain a copy of the License at
+ * http://www.opensource.apple.com/apsl/ and read it before using this
+ * file.
+ * 
+ * The Original Code and all software distributed under the License are
+ * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
  * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
  * INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY,
- * FITNESS FOR A PARTICULAR PURPOSE OR NON-INFRINGEMENT.  Please see the
- * License for the specific language governing rights and limitations
- * under the License.
+ * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
+ * Please see the License for the specific language governing rights and
+ * limitations under the License.
  * 
  * @APPLE_LICENSE_HEADER_END@
  */
 
 #include <IOKit/IOLib.h>    // IOMalloc/IOFree
 #include <IOKit/IOBufferMemoryDescriptor.h>
+#include <IOKit/hidsystem/IOHIDSystem.h>
+#include "IOHIKeyboard.h"
+#include "IOHIPointing.h"
 #include "IOHIDDevice.h"
 #include "IOHIDElement.h"
 #include "IOHIDParserPriv.h"
@@ -37,9 +42,23 @@
 
 OSDefineMetaClassAndAbstractStructors( IOHIDDevice, IOService )
 
+// RESERVED IOHIDDevice CLASS VARIABLES
+// Defined here to avoid conflicts from within header file
+#define _clientSet			_reserved->clientSet
+#define _seizedClient			_reserved->seizedClient
+#define _pointingNub			_reserved->pointingNub
+#define _keyboardNub			_reserved->keyboardNub
+#define _consumerNub			_reserved->consumerNub
+#define _hidSystem			_reserved->hidSystem
+#define _eventDeadline			_reserved->eventDeadline
+#define _publishNotify			_reserved->publishNotify
+#define _inputInterruptElementArray	_reserved->inputInterruptElementArray
+
+#define kIOHIDEventThreshold	10
+
 // Number of slots in the report handler dispatch table.
 //
-#define kReportHandlerSlots         8
+#define kReportHandlerSlots	8
 
 // Convert from a report ID to a dispatch table slot index.
 //
@@ -69,7 +88,7 @@ struct IOHIDReportHandler
 #else
 #define DLOG(fmt, args...)
 #endif
-                        
+            
 // *** GAME DEVICE HACK ***
 static SInt32 g3DGameControllerCount = 0;
 // *** END GAME DEVICE HACK ***
@@ -79,105 +98,47 @@ static SInt32 g3DGameControllerCount = 0;
 // on the type of HID device.
 static void CreateIOHIDevices(
                                 IOService * owner, 
-                                IOService * provider, 
                                 OSArray *elements, 
                                 IOHIDPointing ** pointingNub, 
                                 IOHIDKeyboard ** keyboardNub, 
                                 IOHIDConsumer ** consumerNub)
 {
     OSString 	*defaultBehavior;
+    IOService	*provider = owner;
     
-    if (owner == NULL || 
-        OSDynamicCast(IOHIPointing, provider) || 
-        OSDynamicCast(IOHIKeyboard, provider))
-        return  0;
+    if (!owner)
+        return 0;
+    
+    while (provider = provider->getProvider())
+    {
+	if(OSDynamicCast(IOHIDevice, provider) || OSDynamicCast(IOHIDDevice, provider))
+            return  0;
+    }
     
     defaultBehavior = OSDynamicCast(OSString, 
                             owner->getProperty("HIDDefaultBehavior"));
          
-    if (defaultBehavior) {
-    
-        OSNumber *primaryUsage = OSDynamicCast(OSNumber, ((provider) ? owner->getProperty(kIOHIDPrimaryUsageKey) : 0));
-        OSNumber *primaryUsagePage = OSDynamicCast(OSNumber, ((provider) ? owner->getProperty(kIOHIDPrimaryUsagePageKey) : 0));
-        OSNumber *interfaceSubClass = OSDynamicCast(OSNumber, ((provider) ? provider->getProperty("bInterfaceSubClass") : 0));
-        OSNumber *interfaceProtocol = OSDynamicCast(OSNumber, ((provider) ? provider->getProperty("bInterfaceProtocol") : 0));
-        
-        bool pointing = false;
-        bool keyboard = false;
-        
-        if (!(primaryUsagePage && primaryUsage))
-            return;
-                            
-        switch (primaryUsagePage->unsigned32BitValue())
+    if (defaultBehavior && elements) {
+
+        *pointingNub = IOHIDPointing::Pointing(elements, owner);
+        if (*pointingNub &&
+            (!(*pointingNub)->attach(owner) || 
+                !(*pointingNub)->start(owner))) 
         {
-            case kHIDPage_GenericDesktop:
-                switch (primaryUsage->unsigned32BitValue())
-                {
-                    case kHIDUsage_GD_Pointer:
-                    case kHIDUsage_GD_Mouse:
-                        pointing = true;
-                        break;
-                    
-                    case kHIDUsage_GD_Keyboard:
-                    case kHIDUsage_GD_Keypad:
-                        keyboard = true;
-                        break;
-                        
-                    default:
-                        break;
-                }
-                break;
-            case kHIDPage_Digitizer:
-                pointing = true;
-                break;
-            
-            case kHIDPage_KeyboardOrKeypad:
-                keyboard = true;
-                break;
-                
-            default:
-                break;
+            (*pointingNub)->release();
+            *pointingNub = 0;
         }
         
-        if (interfaceSubClass && interfaceProtocol)
+        *keyboardNub = IOHIDKeyboard::Keyboard(elements);
+        if (*keyboardNub &&
+            (!(*keyboardNub)->attach(owner) || 
+                !(*keyboardNub)->start(owner))) 
         {
-            keyboard = (keyboard) ? keyboard : 
-                        ((interfaceSubClass->unsigned32BitValue() == 1) && 
-                        (interfaceProtocol->unsigned32BitValue() == 1));
-            
-            pointing = (pointing) ? pointing : 
-                        ((interfaceSubClass->unsigned32BitValue() == 1) && 
-                        (interfaceProtocol->unsigned32BitValue() == 2));
-        }
-         
-        if (pointing)
-        {
-            *pointingNub = IOHIDPointing::Pointing();
-            
-            if (*pointingNub &&
-                (!(*pointingNub)->attach(owner) || 
-                    !(*pointingNub)->start(owner))) 
-            {
-                (*pointingNub)->release();
-                *pointingNub = 0;
-            }
-        }
-        
-        if (keyboard)
-        {
-            *keyboardNub = IOHIDKeyboard::Keyboard(elements);
-                    
-            if (*keyboardNub &&
-                (!(*keyboardNub)->attach(owner) || 
-                    !(*keyboardNub)->start(owner))) 
-            {
-                (*keyboardNub)->release();
-                *keyboardNub = 0;
-            }
+            (*keyboardNub)->release();
+            *keyboardNub = 0;
         }
                 
         *consumerNub = IOHIDConsumer::Consumer(elements);
-        
         if (*consumerNub &&
             (!(*consumerNub)->attach(owner) || 
                 !(*consumerNub)->start(owner))) 
@@ -186,17 +147,10 @@ static void CreateIOHIDevices(
             *consumerNub = 0;
         }
     }
-    
-}
-
-static void ActvityTickle_funct(IOService *displayManager)
-{
-    if (displayManager != NULL)
-        displayManager->activityTickle(0,0);
 }
 
 //---------------------------------------------------------------------------
-// Notification handler to grab an instance of the Display Manager
+// Notification handler to grab an instance of the IOHIDSystem
 bool IOHIDDevice::_publishNotificationHandler(
 			void * target,
 			void * /* ref */,
@@ -204,13 +158,10 @@ bool IOHIDDevice::_publishNotificationHandler(
 {
     IOHIDDevice * self = (IOHIDDevice *) target;
 
-    // avoiding OSDynamicCast & dependency on graphics family
-    if( newService->metaCast("IODisplayWrangler")) {
-        if( !self->_displayManager) {
-            self->_displayManager = newService;
-            self->_displayManager->retain();
-
-            self->_activityTickleCall = thread_call_allocate(ActvityTickle_funct, newService);
+    if( newService->metaCast("IOHIDSystem")) {
+        if( !self->_hidSystem) {
+            self->_hidSystem = newService;
+            self->_hidSystem->retain();
         }
     }
 
@@ -231,10 +182,12 @@ bool IOHIDDevice::init( OSDictionary * dict )
     _pointingNub = 0;
     _keyboardNub = 0;
     _consumerNub = 0;
-    _displayManager = 0;
+    _hidSystem = 0;
+    _seizedClient = 0;
     _publishNotify = 0;
-    _activityTickleCall = 0;
-
+    _inputInterruptElementArray = 0;
+    AbsoluteTime_to_scalar(&_eventDeadline) = 0;
+    
     // Create an OSSet to store client objects. Initial capacity
     // (which can grow) is set at 2 clients.
 
@@ -290,16 +243,16 @@ void IOHIDDevice::free()
         _publishNotify = 0;
     }
     
-    if (_displayManager)
+    if (_hidSystem)
     {
-        _displayManager->release();
-        _displayManager = 0;
+        _hidSystem->release();
+        _hidSystem = 0;
     }
-
-    if (_activityTickleCall) 
+    
+    if (_inputInterruptElementArray)
     {
-        thread_call_free(_activityTickleCall);
-        _activityTickleCall = 0;
+        _inputInterruptElementArray->release();
+        _inputInterruptElementArray = 0;
     }
     
     if ( _reserved )
@@ -370,7 +323,6 @@ bool IOHIDDevice::start( IOService * provider )
     // *** IOHIDSYSTEM DEVICE SUPPORT ***
     // RY: Create an IOHIDevice nub
     CreateIOHIDevices(this, 
-                    provider, 
                     _elementArray,
                     &_pointingNub,
                     &_keyboardNub,
@@ -384,15 +336,13 @@ bool IOHIDDevice::start( IOService * provider )
                                     getProperty(kIOHIDPrimaryUsagePageKey));
     OSNumber *primaryUsage = OSDynamicCast(OSNumber,
                                     getProperty(kIOHIDPrimaryUsageKey));
-    if (!_pointingNub  &&
-        !_keyboardNub  &&
-        !_consumerNub  &&
-        !OSDynamicCast(IOHIDevice, provider) &&
+                                    
+    if (!(_pointingNub || _keyboardNub || _consumerNub) &&
         primaryUsagePage && 
-        (primaryUsagePage->unsigned32BitValue() == kHIDPage_GenericDesktop)) 
+       (primaryUsagePage->unsigned32BitValue() == kHIDPage_GenericDesktop)) 
     {
         _publishNotify = addNotification( gIOPublishNotification, 
-                            serviceMatching("IODisplayWrangler"),
+                            serviceMatching("IOHIDSystem"),
                             &IOHIDDevice::_publishNotificationHandler,
                             this, 0 );
     }
@@ -489,6 +439,78 @@ static bool CompareProperty( IOService * owner, OSDictionary * matching, const c
     return matches;
 }
 
+static bool CompareDeviceUsage( IOService * owner, OSDictionary * matching)
+{
+    // We return success if we match the key in the dictionary with the key in
+    // the property table, or if the prop isn't present
+    //
+    OSObject * 		usage;
+    OSObject *		usagePage;
+    OSArray *		functions;
+    OSDictionary * 	pair;
+    bool		matches = true;
+    int			count;
+    
+    usage = matching->getObject( kIOHIDDeviceUsageKey );
+    usagePage = matching->getObject( kIOHIDDeviceUsagePageKey );
+    functions = OSDynamicCast(OSArray, owner->getProperty( kIOHIDDeviceUsagePairsKey ));
+    
+    if (functions && ( usagePage || usage ))
+    {
+        count = functions->getCount();
+        
+        for (int i=0; i<count; i++)
+        {
+            if ( !(pair = functions->getObject(i)) )
+                continue;
+        
+            if ( usagePage && 
+                !(matches = usagePage->isEqualTo(pair->getObject(kIOHIDDeviceUsagePageKey))) )
+                continue;
+                
+            if ( usage && 
+                !(matches = usage->isEqualTo(pair->getObject(kIOHIDDeviceUsageKey))) )            
+                continue;
+    
+            break;
+        }
+    }
+    
+    return matches;
+}
+
+static bool CompareDeviceUsagePairs( IOService * owner, OSDictionary * matching)
+{
+    // We return success if we match the key in the dictionary with the key in
+    // the property table, or if the prop isn't present
+    //
+    OSArray *		pairArray;
+    OSDictionary * 	pair;
+    bool		matches = true;
+    int			count;
+    
+    pairArray = OSDynamicCast(OSArray, matching->getObject( kIOHIDDeviceUsagePairsKey ));
+    
+    if (pairArray)
+    {
+        count = pairArray->getCount();
+        
+        for (int i=0; i<count; i++)
+        {
+            if ( !(pair = OSDynamicCast(OSDictionary,pairArray->getObject(i))) )
+                continue;
+        
+            if ( !CompareDeviceUsage(owner, pair) )
+            {
+                matches = false;
+                break;
+            }
+        }
+    }
+    
+    return matches;
+}
+
 bool IOHIDDevice::matchPropertyTable(OSDictionary * table, SInt32 * score)
 {
     bool match = true;
@@ -505,7 +527,9 @@ bool IOHIDDevice::matchPropertyTable(OSDictionary * table, SInt32 * score)
         !CompareProperty(this, table, kIOHIDSerialNumberKey) 	||
         !CompareProperty(this, table, kIOHIDLocationIDKey) 	||
         !CompareProperty(this, table, kIOHIDPrimaryUsageKey) 	||
-        !CompareProperty(this, table, kIOHIDPrimaryUsagePageKey))
+        !CompareProperty(this, table, kIOHIDPrimaryUsagePageKey)||
+        !CompareDeviceUsagePairs(this, table)			||
+        !CompareDeviceUsage(this, table))
         match = false;
 
     // *** HACK ***
@@ -586,9 +610,12 @@ bool IOHIDDevice::handleOpen(IOService *  client,
                                     IOOptionBits options,
                                     void *       argument)
 {
-    bool  accept         = false;
+    bool  		accept = false;
 
     do {
+        if ( _seizedClient )
+            break;
+            
         // Was this object already registered as our client?
 
         if ( _clientSet->containsObject(client) )
@@ -602,8 +629,22 @@ bool IOHIDDevice::handleOpen(IOService *  client,
         // Add the new client object to our client set.
 
         if ( _clientSet->setObject(client) == false )
-        {
             break;
+        
+        if (options & kIOServiceSeize)
+        {
+            messageClients( kIOMessageServiceIsRequestingClose, (void *) options);
+            //if (kIOReturnSuccess != retval)
+            //    break;
+                    
+            _seizedClient = client;
+            
+            IOHIKeyboard * keyboard = 0;
+            IOHIPointing * pointing = 0;
+            if ( keyboard = OSDynamicCast(IOHIKeyboard, getProvider()) )
+                keyboard->IOHIKeyboard::message(kIOHIDSystemDeviceSeizeRequestMessage, this, (void *)true);
+            else if ( pointing = OSDynamicCast(IOHIPointing, getProvider()) )
+                pointing->IOHIPointing::message(kIOHIDSystemDeviceSeizeRequestMessage, this, (void *)true);
         }
 
         accept = true;
@@ -625,6 +666,18 @@ void IOHIDDevice::handleClose(IOService * client, IOOptionBits options)
     {
         // Remove the client from our OSSet.
         _clientSet->removeObject(client);
+        
+        if (client == _seizedClient)
+        {
+            _seizedClient = 0;
+            
+            IOHIKeyboard * keyboard = 0;
+            IOHIPointing * pointing = 0;
+            if ( keyboard = OSDynamicCast(IOHIKeyboard, getProvider()) )
+                keyboard->IOHIKeyboard::message(kIOHIDSystemDeviceSeizeRequestMessage, this, (void *)false);
+            else if ( pointing = OSDynamicCast(IOHIPointing, getProvider()) )
+                pointing->IOHIPointing::message(kIOHIDSystemDeviceSeizeRequestMessage, this, (void *)false);
+        }
     }
 }
 
@@ -789,6 +842,17 @@ IOReturn IOHIDDevice::handleReport( IOMemoryDescriptor * report,
                                     &currentTime,
                                     &element );
         }
+        
+        // Next process the interrupt report handler element
+        if ( ( reportType == kIOHIDReportTypeInput ) &&
+             ( ( options & kIOHIDReportOptionNotInterrupt ) == 0 ) &&
+             ( element = _inputInterruptElementArray->getObject(reportID) ) )
+        {
+            element->processReport( reportID,
+                                    reportData,
+                                    reportLength << 3,
+                                    &currentTime);        
+        }
 
         ret = kIOReturnSuccess;
     }
@@ -816,26 +880,41 @@ IOReturn IOHIDDevice::handleReport( IOMemoryDescriptor * report,
 }
 #endif
 
-    // Tickle the displayManager if any value changed and the
-    // the device is open
-    if ( changed && _displayManager && 
-        _activityTickleCall && _clientSet->getCount()) 
+    // RY: If this is a non-system HID device, post a null hid
+    // event to prevent the system from sleeping.
+    if (changed && _hidSystem && _clientSet->getCount() && 
+        !_pointingNub && !_keyboardNub && !_consumerNub)
     {
-        thread_call_enter(_activityTickleCall);
-    }
+        if (CMP_ABSOLUTETIME(&currentTime, &_eventDeadline) > 0)
+        {
+            AbsoluteTime ts;
+            
+            nanoseconds_to_absolutetime(kIOHIDEventThreshold, &ts);
 
+            _eventDeadline = currentTime;
+            
+            ADD_ABSOLUTETIME(&_eventDeadline, &ts);
+            
+            // create a NULL event and post it
+            struct evioLLEvent	event;
+            bzero(&event, sizeof(event));
+                    
+            _hidSystem->extPostEvent(&event, 0, 0, 0, 0, 0);
+        }
+    }
+    
     // pass the report to the IOHIDPointing nub
-    if ( _pointingNub )
+    if ( _pointingNub && !_seizedClient )
     {
         _pointingNub->handleReport(report, options );
     }
     
-    if ( _keyboardNub )
+    if ( _keyboardNub && !_seizedClient )
     {
         _keyboardNub->handleReport();
     }
     
-    if ( _consumerNub )
+    if ( _consumerNub && !_seizedClient )
     {
         _consumerNub->handleReport();
     }
@@ -927,10 +1006,9 @@ IOReturn IOHIDDevice::parseReportDescriptor( IOMemoryDescriptor * report,
 IOReturn
 IOHIDDevice::createElementHierarchy( HIDPreparsedDataRef parseData )
 {
-	OSStatus   status;
-    HIDCapabilities    caps;
-    IOReturn   ret = kIOReturnNoMemory;
-    bool       success;
+    OSStatus   		status;
+    HIDCapabilities	caps;
+    IOReturn		ret = kIOReturnNoMemory;
 
     do {    
         // Get a summary of device capabilities.
@@ -985,12 +1063,10 @@ IOHIDDevice::createElementHierarchy( HIDPreparsedDataRef parseData )
 
         // Add collections to the element array.
 
-        success = createCollectionElements(
+        if ( !createCollectionElements(
                                   parseData,
                                   _elementArray,
-                                  caps.numberCollectionNodes );
-        if ( success != true )
-            break;
+                                  caps.numberCollectionNodes ) ) break;
 
         // Everything added to the element array from this point on
         // are "data" elements. We cache the starting index.
@@ -1044,6 +1120,10 @@ IOHIDDevice::createElementHierarchy( HIDPreparsedDataRef parseData )
                                    kHIDFeatureReport,
                                    kIOHIDElementTypeFeature,
                                    caps.numberFeatureValueCaps ) ) break;
+                                   
+        // Add the input report handler to the element array.
+        if ( !createReportHandlerElements(parseData) ) break;
+
 
         // Create a memory to store current element values.
 
@@ -1058,13 +1138,76 @@ IOHIDDevice::createElementHierarchy( HIDPreparsedDataRef parseData )
         {
             setProperty( kIOHIDElementKey, root->getChildArray() );
         }
-
+        
+        // Add the interrupt report handlers to the property table as well.
+        setProperty("InputReportElements", 
+                        _inputInterruptElementArray);
+                        
+        // Add possible device functions to the property table too.
+        // Pretty much this will contain all application collections
+        OSArray * deviceUsagePairsArray = newDeviceUsagePairs();
+        if (deviceUsagePairsArray) 
+        {
+            setProperty(kIOHIDDeviceUsagePairsKey, deviceUsagePairsArray);
+            deviceUsagePairsArray->release();
+        }
+        
         ret = kIOReturnSuccess;
     }
     while ( false );
 
     return ret;
 }
+
+//---------------------------------------------------------------------------
+// Fetch the all the possible functions of the device
+
+OSArray * IOHIDDevice::newDeviceUsagePairs()
+{
+    IOHIDElement *	element = 0;
+    OSArray *		functions = 0;
+    OSDictionary *	pair = 0;
+    OSNumber *		usage = 0;
+    OSNumber *		usagePage = 0;;
+    UInt32 		elementCount = _elementArray->getCount();    
+    
+    for (int i=0; i<elementCount; i++)
+    {
+        element = _elementArray->getObject(i);
+
+        if ((element->getElementType() == kIOHIDElementTypeCollection) &&
+            (element->getElementCollectionType() == kIOHIDElementCollectionTypeApplication))
+        {
+            if(!functions) functions = OSArray::withCapacity(2);
+            
+            pair 	= OSDictionary::withCapacity(2);
+            usage	= OSNumber::withNumber(element->getUsage(), 32);
+            usagePage	= OSNumber::withNumber(element->getUsagePage(), 32);
+            
+            pair->setObject(kIOHIDDeviceUsageKey, usage);
+            pair->setObject(kIOHIDDeviceUsagePageKey, usagePage);
+            
+            UInt32 	pairCount = functions->getCount();
+            bool 	found = false;
+            for(int i=0; i<pairCount; i++)
+            {
+                OSDictionary *tempPair = (OSDictionary *)functions->getObject(i);
+                
+                if (found = tempPair->isEqualTo(pair))
+                    break;
+            }
+            
+            if (!found) functions->setObject(functions->getCount(), pair);
+            
+            pair->release();
+            usage->release();
+            usagePage->release();
+        }
+    }
+
+    return functions;
+}
+
 
 //---------------------------------------------------------------------------
 // Fetch the total number of reports and the size of each report.
@@ -1136,21 +1279,21 @@ IOHIDDevice::createCollectionElements( HIDPreparsedDataRef parseData,
                                        OSArray *           array,
                                        UInt32              maxCount )
 {
-    OSStatus              status;
-    HIDCollectionNodePtr  collections;
-    UInt32                count = maxCount;
-    bool                  ret   = false;
-    UInt32                index;
+    OSStatus              	  status;
+    HIDCollectionExtendedNodePtr  collections;
+    UInt32                        count = maxCount;
+    bool                  	  ret   = false;
+    UInt32                        index;
 
     do {
         // Allocate memory to fetch all collections from the parseData.
 
-        collections = (HIDCollectionNodePtr)
-                      IOMalloc( maxCount * sizeof(HIDCollectionNode) );
+        collections = (HIDCollectionExtendedNodePtr)
+                      IOMalloc( maxCount * sizeof(HIDCollectionExtendedNode) );
 
         if ( collections == 0 ) break;
 
-        status = HIDGetCollectionNodes(
+        status = HIDGetCollectionExtendedNodes(
                     collections,    /* collectionNodes     */
                     &count,         /* collectionNodesSize */
                     parseData );    /* preparsedDataRef    */
@@ -1188,7 +1331,7 @@ IOHIDDevice::createCollectionElements( HIDPreparsedDataRef parseData,
     while ( false );
 
     if ( collections )
-        IOFree( collections, maxCount * sizeof(HIDCollectionNode) );
+        IOFree( collections, maxCount * sizeof(HIDCollectionExtendedNode) );
 
     return ret;
 }
@@ -1342,6 +1485,37 @@ bool IOHIDDevice::createValueElements( HIDPreparsedDataRef parseData,
 }
 
 //---------------------------------------------------------------------------
+// Add report handler elements.
+
+bool IOHIDDevice::createReportHandlerElements( HIDPreparsedDataRef parseData)
+{
+    HIDPreparsedDataPtr data   = (HIDPreparsedDataPtr) parseData;
+    HIDReportSizes *    report = data->reports;
+    IOHIDElement * 	element = 0;
+
+    if ( !(_inputInterruptElementArray = OSArray::withCapacity(data->reportCount)))
+        return false;
+    
+    for ( UInt32 num = 0; num < data->reportCount; num++, report++ )
+    {
+        element = IOHIDElement::reportHandlerElement(
+                                    this, 
+                                    kIOHIDElementTypeInput_Misc, 
+                                    report->reportID, 
+                                    report->inputBitCount);
+        
+        if ( element == 0 )
+            continue;
+            
+        _inputInterruptElementArray->setObject(element);
+        
+        element->release();
+    }
+
+    return true;
+}
+
+//---------------------------------------------------------------------------
 // Called by an IOHIDElement to register itself.
 
 bool IOHIDDevice::registerElement( IOHIDElement *       element,
@@ -1359,7 +1533,6 @@ bool IOHIDDevice::registerElement( IOHIDElement *       element,
 
     // If the element can contribute to an Input, Output, or Feature
     // report, then add it to the chain of report handlers.
-
     if ( element->getReportType( &reportType ) )
     {
         IOHIDReportHandler * reportHandler;
@@ -1412,6 +1585,16 @@ IOBufferMemoryDescriptor * IOHIDDevice::createMemoryForElementValues()
         }
     }
 
+    // RY: Take care of interrupt report handlers
+    for ( UInt32 report = 0; report < _inputInterruptElementArray->getCount(); report++ )
+    {
+        if ( element = _inputInterruptElementArray->getObject(report) )
+        {
+            capacity += element->getElementValueSize();
+            element   = element->getNextReportHandler();
+        }
+    }
+
     // Allocate an IOBufferMemoryDescriptor object.
 
 	DLOG("Element value capacity %ld\n", capacity);
@@ -1445,6 +1628,20 @@ IOBufferMemoryDescriptor * IOHIDDevice::createMemoryForElementValues()
                 buffer += element->getElementValueSize();
                 element = element->getNextReportHandler();
             }
+        }
+    }
+
+    // RY: Now assign the update memory area for each interrupt report element.
+    for ( UInt32 report = 0; report < _inputInterruptElementArray->getCount(); report++ )
+    {
+        if ( element = _inputInterruptElementArray->getObject(report) )
+        {
+            assert ( buffer < (start + capacity) );
+        
+            element->setMemoryForElementValue( (IOVirtualAddress) buffer,
+                                            (void *) (buffer - start) );
+
+            buffer += element->getElementValueSize();
         }
     }
 
@@ -1582,7 +1779,7 @@ IOReturn IOHIDDevice::updateElementValues(IOHIDElementCookie *cookies, UInt32 co
     // Allocate a mem descriptor with the maxReportLength.
     // This way, we only have to allocate one mem discriptor
     report = IOBufferMemoryDescriptor::withCapacity(
-                            maxReportLength, kIODirectionIn);
+                            maxReportLength, kIODirectionNone);
         
     if (report == NULL) {
         ret = kIOReturnNoMemory;
@@ -1612,7 +1809,7 @@ IOReturn IOHIDDevice::updateElementValues(IOHIDElementCookie *cookies, UInt32 co
             break;
             
         // If we have a valid report, go ahead and process it.
-        ret = handleReport(report, reportType);
+        ret = handleReport(report, reportType, kIOHIDReportOptionNotInterrupt);
         
         if (ret != kIOReturnSuccess)
             break;
@@ -1627,7 +1824,7 @@ UPDATE_ELEMENT_CLEANUP:
     // If needed, set the transaction state for the 
     // remaining elements to idle.
     SetCookiesTransactionState(element, cookies, 
-            cookieCount, kIOHIDTransactionStateIdle, index, index);
+            cookieCount, kIOHIDTransactionStateIdle, index, 0);
     ELEMENT_UNLOCK;
         
     return ret;
@@ -1693,7 +1890,7 @@ IOReturn IOHIDDevice::postElementValues(IOHIDElementCookie * cookies, UInt32 coo
         
         // Allocate a contiguous mem descriptor with the maxReportLength.
         // This way, we only have to allocate one mem buffer.
-        report = IOBufferMemoryDescriptor::withCapacity(maxReportLength, kIODirectionOutIn, true);
+        report = IOBufferMemoryDescriptor::withCapacity(maxReportLength, kIODirectionNone, true);
         
         if ( report == NULL ) {
             ret = kIOReturnNoMemory;
@@ -1738,7 +1935,7 @@ POST_ELEMENT_CLEANUP:
     // If needed, set the transaction state for the 
     // remaining elements to idle.
     SetCookiesTransactionState(cookieElement, cookies, 
-            cookieCount, kIOHIDTransactionStateIdle, index, index);
+            cookieCount, kIOHIDTransactionStateIdle, index, 0);
     
     ELEMENT_UNLOCK;
     

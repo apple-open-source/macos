@@ -68,8 +68,8 @@ char  **argv;
     int     ch;
     char   *inetcf = 0;
     int     count;
-    struct sockaddr_in server_sin;
-    struct sockaddr_in client_sin;
+    struct sockaddr_gen server_sin;
+    struct sockaddr_gen client_sin;
     struct stat st;
 
     /*
@@ -173,12 +173,11 @@ char  **argv;
 	if ((hp = find_inet_addr(server)) == 0)
 	    exit(1);
 	memset((char *) &server_sin, 0, sizeof(server_sin));
-	server_sin.sin_family = AF_INET;
+	server_sin.sg_family = hp->h_addrtype;
 	request_set(&request, RQ_SERVER_SIN, &server_sin, 0);
 
 	for (count = 0; (addr = hp->h_addr_list[count]) != 0; count++) {
-	    memcpy((char *) &server_sin.sin_addr, addr,
-		   sizeof(server_sin.sin_addr));
+	    memcpy((char *) SGADDRP(&server_sin), addr, hp->h_length);
 
 	    /*
 	     * Force evaluation of server host name and address. Host name
@@ -203,7 +202,7 @@ char  **argv;
      * If a client address is specified, we simulate the effect of client
      * hostname lookup failure.
      */
-    if (dot_quad_addr(client) != INADDR_NONE) {
+    if (numeric_addr(client, NULL, NULL, NULL) == 0) {
 	request_set(&request, RQ_CLIENT_ADDR, client, 0);
 	tcpdmatch(&request);
 	exit(0);
@@ -230,12 +229,11 @@ char  **argv;
     if ((hp = find_inet_addr(client)) == 0)
 	exit(1);
     memset((char *) &client_sin, 0, sizeof(client_sin));
-    client_sin.sin_family = AF_INET;
+    client_sin.sg_family = hp->h_addrtype;
     request_set(&request, RQ_CLIENT_SIN, &client_sin, 0);
 
     for (count = 0; (addr = hp->h_addr_list[count]) != 0; count++) {
-	memcpy((char *) &client_sin.sin_addr, addr,
-	       sizeof(client_sin.sin_addr));
+	memcpy((char *) SGADDRP(&client_sin), addr, hp->h_length);
 
 	/*
 	 * Force evaluation of client host name and address. Host name
@@ -303,8 +301,8 @@ struct request_info *request;
      * address.
      */
     rfc931_timeout = RFC931_TIMEOUT;
-    allow_severity = ALLOW_SEVERITY;
-    deny_severity = DENY_SEVERITY;
+    allow_severity = SEVERITY;
+    deny_severity = LOG_WARNING;
     dry_run = 1;
 
     /*

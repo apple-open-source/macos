@@ -1,6 +1,6 @@
 #!/bin/sh
 #
-# $Id: reconf,v 1.1.1.1 2001/02/15 19:52:28 wsanchez Exp $
+# $Id: reconf,v 1.1.1.2 2002/11/26 19:07:40 zarzycki Exp $
 #
 # re autoconf/automake shell script
 #
@@ -9,7 +9,7 @@ die(){
 	echo "$@" ; exit
 }
 
-aclocal -I .	|| die "ahhhhh"
-autoheader	|| die "ahhhhh"
-automake	|| die "ahhhhh"
-autoconf	|| die "ahhhhh"
+aclocal -I . || die "The command 'aclocal -I .' failed"
+autoheader   || die "The command 'autoheader' failed"
+automake     || die "The command 'automake' failed"
+autoconf     || die "The command 'autoconf' failed"

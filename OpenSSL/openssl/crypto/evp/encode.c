@@ -85,7 +85,7 @@
 #define CHUNKS_PER_LINE (64/4)
 #define CHAR_PER_LINE   (64+1)
 
-static const unsigned char data_bin2ascii[65]="ABCDEFGHIJKLMNOPQRSTUVWXYZ\
+static unsigned char data_bin2ascii[65]="ABCDEFGHIJKLMNOPQRSTUVWXYZ\
 abcdefghijklmnopqrstuvwxyz0123456789+/";
 
 /* 0xF0 is a EOLN
@@ -102,7 +102,7 @@ abcdefghijklmnopqrstuvwxyz0123456789+/";
 #define B64_ERROR       	0xFF
 #define B64_NOT_BASE64(a)	(((a)|0x13) == 0xF3)
 
-static unsigned const char data_ascii2bin[128]={
+static unsigned char data_ascii2bin[128]={
 	0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,
 	0xFF,0xE0,0xF0,0xFF,0xFF,0xF1,0xFF,0xFF,
 	0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,
@@ -136,6 +136,7 @@ void EVP_EncodeUpdate(EVP_ENCODE_CTX *ctx, unsigned char *out, int *outl,
 
 	*outl=0;
 	if (inl == 0) return;
+	OPENSSL_assert(ctx->length <= sizeof ctx->enc_data);
 	if ((ctx->num+inl) < ctx->length)
 		{
 		memcpy(&(ctx->enc_data[ctx->num]),in,inl);
@@ -258,6 +259,7 @@ int EVP_DecodeUpdate(EVP_ENCODE_CTX *ctx, unsigned char *out, int *outl,
 		/* only save the good data :-) */
 		if (!B64_NOT_BASE64(v))
 			{
+			OPENSSL_assert(n < sizeof ctx->enc_data);
 			d[n++]=tmp;
 			ln++;
 			}

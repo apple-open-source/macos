@@ -1,5 +1,4 @@
 /*
- * Copyright (c) 1998-2002 Apple Computer, Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -22,6 +21,7 @@
  * 
  * @APPLE_LICENSE_HEADER_END@
  */
+
 #include <libkern/OSByteOrder.h>
 
 extern "C" {
@@ -166,23 +166,23 @@ AppleUSBOHCI::UIMInitialize(IOService * provider)
         if ( !_filterInterruptSource )
         {
              USBError(1,"%s[%p]: unable to get filterInterruptEventSource", getName(), this);
-             continue;
+             break;
         }
-
+        
         err = _workLoop->addEventSource(_filterInterruptSource);
         if ( err != kIOReturnSuccess )
         {
              USBError(1,"%s[%p]: unable to add filter event source: 0x%x", getName(), this, err);
-             continue;
+             break;
         }
 
         _genCursor = IONaturalMemoryCursor::withSpecification(PAGE_SIZE, PAGE_SIZE);
         if(!_genCursor)
-            continue;
+            break;
 
         _isoCursor = IONaturalMemoryCursor::withSpecification(kUSBMaxIsocFrameReqCount,  kUSBMaxIsocFrameReqCount);
         if(!_isoCursor)
-            continue;
+            break;
 
         /*
          * Initialize my data and the hardware
@@ -232,10 +232,9 @@ AppleUSBOHCI::UIMInitialize(IOService * provider)
             _pOHCIRegisters->hcCommandStatus = USBToHostLong(kOHCIHcCommandStatus_HCR);  // Reset OHCI
             IOSleep(3);
         }
-
+        
         _pOHCIRegisters->hcControlCurrentED = 0;
         _pOHCIRegisters->hcControlHeadED = 0;
-        _pOHCIRegisters->hcDoneHead = 0;
         IOSync();
 
         // Set up HCCA.
@@ -244,7 +243,7 @@ AppleUSBOHCI::UIMInitialize(IOService * provider)
         {
             USBError(1,"%s[%p]: Unable to allocate memory (2)", getName(), this);
             err = kIOReturnNoMemory;
-            continue;
+            break;
         }
 
         OSWriteLittleInt32(&_pOHCIRegisters->hcHCCA, 0, _hccaPhysAddr);
@@ -260,10 +259,10 @@ AppleUSBOHCI::UIMInitialize(IOService * provider)
         _rootHubFuncAddress = 1;
 
         // set up Interrupt transfer tree
-        if ((err = IsochronousInitialize()))	continue;
-        if ((err = InterruptInitialize()))	continue;
-       if ((err = BulkInitialize()))		continue;
-        if ((err = ControlInitialize()))		continue;
+        if ((err = IsochronousInitialize()))	break;
+        if ((err = InterruptInitialize()))	break;
+	if ((err = BulkInitialize()))		break;
+        if ((err = ControlInitialize()))	break;
 
         // Set up hcFmInterval.
         UInt32	hcFSMPS;				// in register hcFmInterval
@@ -285,7 +284,6 @@ AppleUSBOHCI::UIMInitialize(IOService * provider)
         {
             USBError(1, "%s[%p]::UIMInitialize error, turning off power to ports to clear", getName(), this);
             OHCIRootHubPower(0 /* kOff */);
-
             // No need to turn the power back on here, the reset does that anyway.
         }
         
@@ -303,8 +301,9 @@ AppleUSBOHCI::UIMInitialize(IOService * provider)
 	if (_errataBits & kErrataDisableOvercurrent)
 	    _pOHCIRegisters->hcRhDescriptorA |= USBToHostLong(kOHCIHcRhDescriptorA_NOCP);
 	_pOHCIRegisters->hcRhStatus = HostToUSBLong(kOHCIHcRhStatus_OCIC | kOHCIHcRhStatus_DRWE); // should be SRWE which should be identical to DRWE
-        OHCIRootHubPower(1 /* kOn */);
         IOSync();
+
+        OHCIRootHubPower(1 /* kOn */);
 	
 	// enable interrupts
         _pOHCIRegisters->hcInterruptEnable = HostToUSBLong (kOHCIHcInterrupt_MIE | kOHCIDefaultInterrupts);
@@ -323,7 +322,10 @@ AppleUSBOHCI::UIMInitialize(IOService * provider)
     UIMFinalize();
 
     if (_filterInterruptSource) 
+    {
         _filterInterruptSource->release();
+        _filterInterruptSource = NULL;
+    }
 
     return(err);
 }
@@ -362,18 +364,20 @@ AppleUSBOHCI::UIMFinalize(void)
     
         // Clear all Processing Registers
         _pOHCIRegisters->hcHCCA = 0;
-        _pOHCIRegisters->hcPeriodCurrentED = 0;
         _pOHCIRegisters->hcControlHeadED = 0;
         _pOHCIRegisters->hcControlCurrentED = 0;
         _pOHCIRegisters->hcBulkHeadED = 0;
         _pOHCIRegisters->hcBulkCurrentED = 0;
-        _pOHCIRegisters->hcDoneHead = 0;
         IOSync();
     
         // turn off the global power
         // FIXME check for per-port vs. Global power control
         OHCIRootHubPower(0 /* kOff */);
-        IOSync();
+	
+	// go ahead and reset the controller
+	_pOHCIRegisters->hcCommandStatus = HostToUSBLong(kOHCIHcCommandStatus_HCR);  	// Reset OHCI
+	IOSync();
+	IOSleep(1);			// the spec says 10 microseconds
     }
 
     _pFreeITD = NULL;
@@ -1825,7 +1829,7 @@ AppleUSBOHCI::finalize(IOOptionBits options)
 IOReturn 
 AppleUSBOHCI::UIMInitializeForPowerUp(void)
 {
-    UInt32		commandRegister;
+    UInt32		commandRegister; 
     IOPhysicalAddress 	hcDoneHead;
 
     USBLog(5, "%s[%p]: initializing UIM for PowerUp @ %lx (%lx)", getName(), this,
@@ -1853,11 +1857,10 @@ AppleUSBOHCI::UIMInitializeForPowerUp(void)
         _pOHCIRegisters->hcCommandStatus = USBToHostLong(kOHCIHcCommandStatus_HCR);  // Reset OHCI
         IOSleep(3);
     }
-
+    
     // Restore the Control and Bulk head pointers
     //
     _pOHCIRegisters->hcControlCurrentED = 0;
-    _pOHCIRegisters->hcDoneHead = 0;
     _pOHCIRegisters->hcControlHeadED = HostToUSBLong ((UInt32) _pControlHead->pPhysical);
     _pOHCIRegisters->hcBulkHeadED = HostToUSBLong ((UInt32) _pBulkHead->pPhysical);
     IOSync();
@@ -1905,7 +1908,6 @@ AppleUSBOHCI::UIMInitializeForPowerUp(void)
     _pOHCIRegisters->hcRhStatus = HostToUSBLong(kOHCIHcRhStatus_OCIC | kOHCIHcRhStatus_DRWE); // should be SRWE which should be identical to DRWE
     
     OHCIRootHubPower(1 /* kOn */);
-    IOSync();
 
     // Enable interrupts
     //
@@ -1964,20 +1966,21 @@ AppleUSBOHCI::UIMFinalizeForPowerDown(void)
 
     // Clear all Processing Registers
     _pOHCIRegisters->hcHCCA = 0;
-    _pOHCIRegisters->hcPeriodCurrentED = 0;
     _pOHCIRegisters->hcControlHeadED = 0;
     _pOHCIRegisters->hcControlCurrentED = 0;
     _pOHCIRegisters->hcBulkHeadED = 0;
     _pOHCIRegisters->hcBulkCurrentED = 0;
-    _pOHCIRegisters->hcDoneHead = 0;
     IOSync();
 
     // turn off the global power
     OHCIRootHubPower(0 /* kOff */);
-    
-    IOSync();
 
     _uimInitialized = false;
+    
+    // go ahead and reset the controller
+    _pOHCIRegisters->hcCommandStatus = HostToUSBLong(kOHCIHcCommandStatus_HCR);  	// Reset OHCI
+    IOSync();
+    IOSleep(1);			// the spec says 10 microseconds
     
     return kIOReturnSuccess;
 }

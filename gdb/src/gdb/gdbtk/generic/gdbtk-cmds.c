@@ -39,8 +39,9 @@
    but gdb uses stdarg.h, so make sure HAS_STDARG is defined.  */
 #define HAS_STDARG 1
 
-#include <tix.h>
 #include <itcl.h>
+#include <tcl.h>
+#include <tk.h>
 
 #include "guitcl.h"
 #include "gdbtk.h"
@@ -622,6 +623,7 @@ gdb_eval (ClientData clientData, Tcl_Interp *interp,
   value_ptr val;
   struct ui_file *stb;
   long dummy;
+  char *result;
 
   if (objc != 2 && objc != 3)
     {
@@ -638,10 +640,13 @@ gdb_eval (ClientData clientData, Tcl_Interp *interp,
 
   /* "Print" the result of the expression evaluation. */
   stb = mem_fileopen ();
+  make_cleanup_ui_file_delete (stb);
   val_print (VALUE_TYPE (val), VALUE_CONTENTS (val),
 	     VALUE_EMBEDDED_OFFSET (val), VALUE_ADDRESS (val),
 	     stb, format, 0, 0, 0);
-  Tcl_SetObjResult (interp, Tcl_NewStringObj (ui_file_xstrdup (stb, &dummy), -1));
+  result = ui_file_xstrdup (stb, &dummy);
+  Tcl_SetObjResult (interp, Tcl_NewStringObj (result, -1));
+  xfree (result);
   result_ptr->flags |= GDBTK_IN_TCL_RESULT;
 
   do_cleanups (old_chain);
@@ -2257,7 +2262,8 @@ gdb_loc (ClientData clientData, Tcl_Interp *interp, int objc, Tcl_Obj *CONST obj
 
   if (objc == 1)
     {
-      if (selected_frame && (selected_frame->pc != read_pc ()))
+      if (deprecated_selected_frame
+	  && (get_frame_pc (deprecated_selected_frame) != read_pc ()))
         {
           /* Note - this next line is not correct on all architectures.
 	     For a graphical debugger we really want to highlight the 
@@ -2265,11 +2271,8 @@ gdb_loc (ClientData clientData, Tcl_Interp *interp, int objc, Tcl_Obj *CONST obj
 	     Many architectures have the next instruction saved as the
 	     pc on the stack, so what happens is the next instruction 
 	     is highlighted. FIXME */
-	  pc = selected_frame->pc;
-	  sal = find_pc_line (selected_frame->pc,
-			      selected_frame->next != NULL
-			      && !selected_frame->next->signal_handler_caller
-			      && !frame_in_dummy (selected_frame->next));
+	  pc = get_frame_pc (deprecated_selected_frame);
+	  find_frame_sal (deprecated_selected_frame, &sal);
 	}
       else
         {
@@ -2622,7 +2625,7 @@ gdb_update_mem (ClientData clientData, Tcl_Interp *interp,
   for (i = 0; i < nbytes; i += bpr)
     {
       char s[130];
-      sprintf (s, "0x%s", core_addr_to_string (addr + i));
+      sprintf (s, "%s", core_addr_to_string (addr + i));
       INDEX ((int) i/bpr, -1);
       Tcl_SetVar2 (interp, "data", index, s, 0);
 
@@ -2699,12 +2702,9 @@ gdb_update_mem (ClientData clientData, Tcl_Interp *interp,
     }
 
   /* return max_*_len so that column widths can be set */
-  result = Tcl_NewListObj (0, NULL);
-  Tcl_ListObjAppendElement (interp, result, Tcl_NewIntObj (max_label_len + 1));
-  Tcl_ListObjAppendElement (interp, result, Tcl_NewIntObj (max_val_len + 1));
-  Tcl_ListObjAppendElement (interp, result, Tcl_NewIntObj (max_ascii_len + 1));
-  result_ptr->flags |= GDBTK_IN_TCL_RESULT;
-
+  Tcl_ListObjAppendElement (interp, result_ptr->obj_ptr, Tcl_NewIntObj (max_label_len + 1));
+  Tcl_ListObjAppendElement (interp, result_ptr->obj_ptr, Tcl_NewIntObj (max_val_len + 1));
+  Tcl_ListObjAppendElement (interp, result_ptr->obj_ptr, Tcl_NewIntObj (max_ascii_len + 1));
   do_cleanups (old_chain);
   xfree (mbuf);
   return TCL_OK;

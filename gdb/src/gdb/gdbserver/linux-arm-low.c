@@ -26,22 +26,70 @@
 #include <sys/reg.h>
 #endif
 
-int num_regs = 16;
+#define arm_num_regs 26
 
-int regmap[] = {
+static int arm_regmap[] = {
   0, 4, 8, 12, 16, 20, 24, 28,
   32, 36, 40, 44, 48, 52, 56, 60,
+  -1, -1, -1, -1, -1, -1, -1, -1, -1,
+  64
 };
 
-int
-cannot_store_register (int regno)
+static int
+arm_cannot_store_register (int regno)
 {
-  return (regno >= num_regs);
+  return (regno >= arm_num_regs);
 }
 
-int
-cannot_fetch_register (int regno)
+static int
+arm_cannot_fetch_register (int regno)
 {
-  return (regno >= num_regs);
+  return (regno >= arm_num_regs);
 }
 
+static CORE_ADDR
+arm_get_pc ()
+{
+  unsigned long pc;
+  collect_register_by_name ("pc", &pc);
+  return pc;
+}
+
+static void
+arm_set_pc (CORE_ADDR pc)
+{
+  unsigned long newpc = pc;
+  supply_register_by_name ("pc", &newpc);
+}
+
+/* Correct in either endianness.  We do not support Thumb yet.  */
+static const unsigned long arm_breakpoint = 0xef9f0001;
+#define arm_breakpoint_len 4
+
+static int
+arm_breakpoint_at (CORE_ADDR where)
+{
+  unsigned long insn;
+
+  (*the_target->read_memory) (where, (char *) &insn, 4);
+  if (insn == arm_breakpoint)
+    return 1;
+
+  /* If necessary, recognize more trap instructions here.  GDB only uses the
+     one.  */
+  return 0;
+}
+
+struct linux_target_ops the_low_target = {
+  arm_num_regs,
+  arm_regmap,
+  arm_cannot_fetch_register,
+  arm_cannot_store_register,
+  arm_get_pc,
+  arm_set_pc,
+  (const char *) &arm_breakpoint,
+  arm_breakpoint_len,
+  NULL,
+  0,
+  arm_breakpoint_at,
+};

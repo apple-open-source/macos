@@ -326,6 +326,10 @@ extern dsstatus netinfo_back_access_allowed LDAP_P((
 	struct berval *val,
 	slap_access_t access));
 
+extern dsstatus is_trusted_network LDAP_P((
+	BackendDB *be,
+	Connection *conn));
+
 /* in filter.c */
 
 

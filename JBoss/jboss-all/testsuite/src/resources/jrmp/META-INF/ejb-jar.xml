@@ -1,0 +1,31 @@
+<?xml version="1.0"?>
+<!DOCTYPE ejb-jar PUBLIC "-//Sun Microsystems, Inc.//DTD Enterprise JavaBeans 1.1//EN"
+    "http://java.sun.com/j2ee/dtds/ejb-jar_1_1.dtd">
+
+<ejb-jar>
+  <display-name>JRMP Custom Socket Tests</display-name>
+  <enterprise-beans>
+
+    <session>
+      <description>A trival echo stateless session bean</description>
+      <ejb-name>StatelessSession</ejb-name>
+      <home>org.jboss.test.jrmp.interfaces.StatelessSessionHome</home>
+      <remote>org.jboss.test.jrmp.interfaces.StatelessSession</remote>
+      <ejb-class>org.jboss.test.jrmp.ejb.StatelessSessionBean</ejb-class>
+      <session-type>Stateless</session-type>
+      <transaction-type>Container</transaction-type>
+    </session>
+
+    <session>
+      <description>A trival echo stateful session bean</description>
+      <ejb-name>StatefulSession</ejb-name>
+      <home>org.jboss.test.jrmp.interfaces.StatelessSessionHome</home>
+      <remote>org.jboss.test.jrmp.interfaces.StatelessSession</remote>
+      <ejb-class>org.jboss.test.jrmp.ejb.StatelessSessionBean</ejb-class>
+      <session-type>Stateful</session-type>
+      <transaction-type>Container</transaction-type>
+    </session>
+
+  </enterprise-beans>
+
+</ejb-jar>

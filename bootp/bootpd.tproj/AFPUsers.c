@@ -12,6 +12,7 @@
 #include <sys/types.h>
 #include <pwd.h>
 #include <grp.h>
+#include <stdarg.h>
 
 #include "netinfo.h"
 #include "NICache.h"
@@ -166,7 +167,7 @@ S_uid_taken(ni_entrylist * id_list, uid_t uid)
 	if (user_id == uid)
 	    return (TRUE);
     }
-    return (FALSE);
+    return (getpwuid(uid) != NULL);
 }
 
 boolean_t
@@ -257,16 +258,30 @@ main(int argc, char * argv[])
     AFPUsers_t 		users;
     NIDomain_t *	domain;
     struct group *	group_ent_p;
+    int			count;
+    int			start;
 
-    if (argc < 2)
-	exit(1);
-
-    group_ent_p = getgrnam(NETBOOT_GROUP);
-    if (group_ent_p == NULL) {
-	printf("Group '%s' missing", NETBOOT_GROUP);
+    if (argc < 4) {
+	printf("usage: AFPUsers domain user_count start\n");
 	exit(1);
     }
 
+    group_ent_p = getgrnam(NETBOOT_GROUP);
+    if (group_ent_p == NULL) {
+	printf("Group '%s' missing\n", NETBOOT_GROUP);
+	exit(1);
+    }
+
+    count = strtol(argv[2], NULL, 0);
+    if (count < 0 || count > 100) {
+	printf("invalid user_count\n");
+	exit(1);
+    }
+    start = strtol(argv[3], NULL, 0);
+    if (start <= 0) {
+	printf("invalid start\n");
+	exit(1);
+    }
     domain = NIDomain_init(argv[1]);
     if (domain == NULL) {
 	fprintf(stderr, "open %s failed\n", argv[1]);
@@ -274,12 +289,21 @@ main(int argc, char * argv[])
     }
     AFPUsers_init(&users, domain);
     AFPUsers_print(&users);
-    AFPUsers_create(&users, "netboot", 100, 50);
-    AFPUsers_print(&users);
-    AFPUsers_set_passwords(&users);
+    AFPUsers_create(&users, group_ent_p->gr_gid, start, count);
     AFPUsers_print(&users);
     AFPUsers_free(&users);
     exit(0);
     return (0);
 }
+
+void
+my_log(int priority, const char *message, ...)
+{
+    va_list 		ap;
+
+    va_start(ap, message);
+    vprintf(message, ap);
+    return;
+}
+
 #endif TEST_AFPUSERS

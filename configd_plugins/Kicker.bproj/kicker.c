@@ -1,22 +1,25 @@
 /*
- * Copyright (c) 2000-2002 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 2000-2003 Apple Computer, Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
- *
- * The contents of this file constitute Original Code as defined in and
- * are subject to the Apple Public Source License Version 1.1 (the
- * "License").  You may not use this file except in compliance with the
- * License.  Please obtain a copy of the License at
- * http://www.apple.com/publicsource and read it before using this file.
- *
- * This Original Code and all software distributed under the License are
- * distributed on an "AS IS" basis, WITHOUT WARRANTY OF ANY KIND, EITHER
+ * 
+ * Copyright (c) 1999-2003 Apple Computer, Inc.  All Rights Reserved.
+ * 
+ * This file contains Original Code and/or Modifications of Original Code
+ * as defined in and that are subject to the Apple Public Source License
+ * Version 2.0 (the 'License'). You may not use this file except in
+ * compliance with the License. Please obtain a copy of the License at
+ * http://www.opensource.apple.com/apsl/ and read it before using this
+ * file.
+ * 
+ * The Original Code and all software distributed under the License are
+ * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
  * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
  * INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY,
- * FITNESS FOR A PARTICULAR PURPOSE OR NON-INFRINGEMENT.  Please see the
- * License for the specific language governing rights and limitations
- * under the License.
- *
+ * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
+ * Please see the License for the specific language governing rights and
+ * limitations under the License.
+ * 
  * @APPLE_LICENSE_HEADER_END@
  */
 
@@ -44,6 +47,7 @@
 #include <sys/stat.h>
 #include <sys/types.h>
 #include <sys/wait.h>
+#include <notify.h>
 
 #include <SystemConfiguration/SystemConfiguration.h>
 #include <SystemConfiguration/SCPrivate.h>	// for SCLog()
@@ -72,11 +76,11 @@ typedef struct {
 static CFURLRef	myBundleURL	= NULL;
 static Boolean	_verbose	= FALSE;
 
-void	booter(kickeeRef target);
-void	booterExit(pid_t pid, int status, struct rusage *rusage, void *context);
+static void booter(kickeeRef target);
+static void booterExit(pid_t pid, int status, struct rusage *rusage, void *context);
 
 
-void
+static void
 cleanupKicker(kickeeRef target)
 {
 	CFStringRef		name	= CFDictionaryGetValue(target->dict, CFSTR("name"));
@@ -85,6 +89,7 @@ cleanupKicker(kickeeRef target)
 	      CFSTR("  target=%@: disabled"),
 	      name);
 	CFRunLoopRemoveSource(target->rl, target->rls, kCFRunLoopDefaultMode);
+	CFRelease(target->rls);
 	CFRelease(target->store);
 	if (target->dict)		CFRelease(target->dict);
 	if (target->changedKeys)	CFRelease(target->changedKeys);
@@ -92,66 +97,46 @@ cleanupKicker(kickeeRef target)
 }
 
 
-void
+static void
 booter(kickeeRef target)
 {
 	char			**argv		= NULL;
-	CFRange			bpr;
 	char			*cmd		= NULL;
 	CFStringRef		execCommand	= CFDictionaryGetValue(target->dict, CFSTR("execCommand"));
-	CFNumberRef		execGID		= CFDictionaryGetValue(target->dict, CFSTR("execGID"));
-	CFNumberRef		execUID		= CFDictionaryGetValue(target->dict, CFSTR("execUID"));
 	int			i;
 	CFArrayRef		keys		= NULL;
-	int			len;
 	CFStringRef		name		= CFDictionaryGetValue(target->dict, CFSTR("name"));
 	int			nKeys		= 0;
 	Boolean			ok		= FALSE;
-	CFBooleanRef		passKeys	= CFDictionaryGetValue(target->dict, CFSTR("changedKeysAsArguments"));
-	gid_t			reqGID		= 0;
-	uid_t			reqUID		= 0;
-	CFMutableStringRef	str;
+	CFStringRef		postName	= CFDictionaryGetValue(target->dict, CFSTR("postName"));
 
 	SCLog(_verbose, LOG_DEBUG, CFSTR("Kicker callback, target=%@"), name);
 
-	if (!isA_CFString(execCommand)) {
-		goto error;	/* if no command */
+	if (!isA_CFString(postName) && !isA_CFString(execCommand)) {
+		goto error;	/* if no notifications to post nor commands to execute */
 	}
 
-	/*
-	 * build the kickee command
-	 */
-	str = CFStringCreateMutableCopy(NULL, 0, execCommand);
-	bpr = CFStringFind(str, CFSTR("$BUNDLE"), 0);
-	if (bpr.location != kCFNotFound) {
-		CFStringRef	bundlePath;
+	if (isA_CFString(postName)) {
+		uint32_t	status;
 
-		bundlePath = CFURLCopyFileSystemPath(myBundleURL, kCFURLPOSIXPathStyle);
-		CFStringReplace(str, bpr, bundlePath);
-		CFRelease(bundlePath);
-	}
+		/*
+		 * post a notification
+		 */
+		cmd = _SC_cfstring_to_cstring(postName, NULL, 0, kCFStringEncodingASCII);
+		if (!cmd) {
+			SCLog(TRUE, LOG_DEBUG, CFSTR("  could not convert post name to C string"));
+			goto error;
+		}
 
-	len = CFStringGetLength(str) + 1;
-	cmd = CFAllocatorAllocate(NULL, len, 0);
-	ok = CFStringGetCString(str,
-				cmd,
-				len,
-				kCFStringEncodingMacRoman);
-	CFRelease(str);
-	if (!ok) {
-		SCLog(TRUE, LOG_DEBUG, CFSTR("  could not convert command to C string"));
-		goto error;
-	}
+		SCLog(TRUE, LOG_NOTICE, CFSTR("posting notification %s"), cmd);
+		status = notify_post(cmd);
+		if (status != NOTIFY_STATUS_OK) {
+			SCLog(TRUE, LOG_DEBUG, CFSTR("  notify_post() failed: error=%ld"), status);
+			goto error;
+		}
 
-	/*
-	 * get the UID/GID for the kickee
-	 */
-	if (isA_CFNumber(execUID)) {
-		CFNumberGetValue(execUID, kCFNumberIntType, &reqUID);
-	}
-
-	if (isA_CFNumber(execGID)) {
-		CFNumberGetValue(execGID, kCFNumberIntType, &reqGID);
+		CFAllocatorDeallocate(NULL, cmd);	/* clean up */
+		cmd = NULL;
 	}
 
 	/*
@@ -159,57 +144,101 @@ booter(kickeeRef target)
 	 */
 	keys = target->changedKeys;
 	target->changedKeys = NULL;
-	target->active      = TRUE;	/* this kicker is now "running" */
-	target->needsKick   = FALSE;	/* allow additional requests to be queued */
 
-	nKeys = CFArrayGetCount(keys);
-	argv  = CFAllocatorAllocate(NULL, (nKeys + 2) * sizeof(char *), 0);
-	for (i=0; i<(nKeys + 2); i++) {
-		argv[i] = NULL;
-	}
+	if (isA_CFString(execCommand)) {
+		CFRange			bpr;
+		CFNumberRef		execGID		= CFDictionaryGetValue(target->dict, CFSTR("execGID"));
+		CFNumberRef		execUID		= CFDictionaryGetValue(target->dict, CFSTR("execUID"));
+		CFBooleanRef		passKeys	= CFDictionaryGetValue(target->dict, CFSTR("changedKeysAsArguments"));
+		gid_t			reqGID		= 0;
+		uid_t			reqUID		= 0;
+		CFMutableStringRef	str;
 
-	/* create command name argument */
-	if ((argv[0] = rindex(cmd, '/')) != NULL) {
-		argv[0]++;
-	} else {
-		argv[0] = cmd;
-	}
+		/*
+		 * build the kickee command
+		 */
+		str = CFStringCreateMutableCopy(NULL, 0, execCommand);
+		bpr = CFStringFind(str, CFSTR("$BUNDLE"), 0);
+		if (bpr.location != kCFNotFound) {
+			CFStringRef	bundlePath;
 
-	/* create changed key arguments */
-	if (isA_CFBoolean(passKeys) && CFBooleanGetValue(passKeys)) {
-		for (i=0; i<nKeys; i++) {
-			CFStringRef	key = CFArrayGetValueAtIndex(keys, i);
+			bundlePath = CFURLCopyFileSystemPath(myBundleURL, kCFURLPOSIXPathStyle);
+			CFStringReplace(str, bpr, bundlePath);
+			CFRelease(bundlePath);
+		}
 
-			len = CFStringGetLength(key) + 1;
-			argv[i+1] = CFAllocatorAllocate(NULL, len, 0);
-			ok = CFStringGetCString(key,
-						argv[i+1],
-						len,
-						kCFStringEncodingMacRoman);
-			if (!ok) {
-				SCLog(TRUE, LOG_DEBUG,
-				      CFSTR("  could not convert argument to C string"));
-				goto error;
+		cmd = _SC_cfstring_to_cstring(str, NULL, 0, kCFStringEncodingASCII);
+		CFRelease(str);
+		if (!cmd) {
+			SCLog(TRUE, LOG_DEBUG, CFSTR("  could not convert command to C string"));
+			goto error;
+		}
+
+		/*
+		 * get the UID/GID for the kickee
+		 */
+		if (isA_CFNumber(execUID)) {
+			CFNumberGetValue(execUID, kCFNumberIntType, &reqUID);
+		}
+
+		if (isA_CFNumber(execGID)) {
+			CFNumberGetValue(execGID, kCFNumberIntType, &reqGID);
+		}
+
+		nKeys = CFArrayGetCount(keys);
+		argv  = CFAllocatorAllocate(NULL, (nKeys + 2) * sizeof(char *), 0);
+		for (i = 0; i < (nKeys + 2); i++) {
+			argv[i] = NULL;
+		}
+
+		/* create command name argument */
+		if ((argv[0] = rindex(cmd, '/')) != NULL) {
+			argv[0]++;
+		} else {
+			argv[0] = cmd;
+		}
+
+		/* create changed key arguments */
+		if (isA_CFBoolean(passKeys) && CFBooleanGetValue(passKeys)) {
+			for (i = 0; i < nKeys; i++) {
+				CFStringRef	key = CFArrayGetValueAtIndex(keys, i);
+
+				argv[i+1] = _SC_cfstring_to_cstring(key, NULL, 0, kCFStringEncodingASCII);
+				if (!argv[i+1]) {
+					SCLog(TRUE, LOG_DEBUG, CFSTR("  could not convert argument to C string"));
+					goto error;
+				}
 			}
 		}
+
+		SCLog(TRUE,     LOG_NOTICE, CFSTR("executing %s"), cmd);
+		SCLog(_verbose, LOG_DEBUG,  CFSTR("  current uid = %d, requested = %d"), geteuid(), reqUID);
+
+		/* this kicker is now "running" */
+		target->active = TRUE;
+
+		(void)_SCDPluginExecCommand(booterExit,
+			      target,
+			      reqUID,
+			      reqGID,
+			      cmd,
+			      argv);
+
+//		CFAllocatorDeallocate(NULL, cmd);	/* clean up */
+//		cmd = NULL;
+	} else {
+		target->active = FALSE;
 	}
 
-	SCLog(TRUE,     LOG_NOTICE, CFSTR("executing %s"), cmd);
-	SCLog(_verbose, LOG_DEBUG,  CFSTR("  current uid = %d, requested = %d"), geteuid(), reqUID);
-
-	(void)_SCDPluginExecCommand(booterExit,
-				   target,
-				   reqUID,
-				   reqGID,
-				   cmd,
-				   argv);
+	target->needsKick = FALSE;	/* allow additional requests to be queued */
+	ok = TRUE;
 
     error :
 
 	if (keys)	CFRelease(keys);
 	if (cmd)	CFAllocatorDeallocate(NULL, cmd);
 	if (argv) {
-		for (i=0; i<nKeys; i++) {
+		for (i = 0; i < nKeys; i++) {
 			if (argv[i+1]) {
 				CFAllocatorDeallocate(NULL, argv[i+1]);
 			}
@@ -230,7 +259,7 @@ booter(kickeeRef target)
 }
 
 
-void
+static void
 booterExit(pid_t pid, int status, struct rusage *rusage, void *context)
 {
 	Boolean		again	= FALSE;
@@ -271,12 +300,34 @@ booterExit(pid_t pid, int status, struct rusage *rusage, void *context)
 	}
 
 	if (!ok) {
-		/*
-		 * If the target action can't be performed this time then
-		 * there's not much point in trying again. As such, I close
-		 * the session and the kickee target released.
-		 */
-		cleanupKicker(target);
+		if (CFDictionaryContainsKey(target->dict, CFSTR("postName"))) {
+			CFDictionaryRef		oldDict	= target->dict;
+			CFMutableDictionaryRef	newDict	= CFDictionaryCreateMutableCopy(NULL, 0, oldDict);
+
+			/*
+			 * if this target specifies both a BSD notification and
+			 * a script to be executed then we want to continue to
+			 * post the BSD notifications (and not execute the
+			 * script).  As such, remove the script reference from
+			 * the dictionary.
+			 */
+			CFDictionaryRemoveValue(newDict, CFSTR("execCommand"));
+			CFDictionaryRemoveValue(newDict, CFSTR("execGID"));
+			CFDictionaryRemoveValue(newDict, CFSTR("execUID"));
+			CFDictionaryRemoveValue(newDict, CFSTR("changedKeysAsArguments"));
+			target->dict = newDict;
+			CFRelease(oldDict);
+
+			/* ... and allow BSD notifications */
+			target->active = FALSE;
+		} else {
+			/*
+			 * If the target action can't be performed this time then
+			 * there's not much point in trying again. As such, I close
+			 * the session and the kickee target released.
+			 */
+			cleanupKicker(target);
+		}
 	} else if (again) {
 		booter(target);
 	}
@@ -285,10 +336,11 @@ booterExit(pid_t pid, int status, struct rusage *rusage, void *context)
 }
 
 
-void
+static void
 kicker(SCDynamicStoreRef store, CFArrayRef changedKeys, void *arg)
 {
 	CFIndex		i;
+	CFIndex		n		= CFArrayGetCount(changedKeys);
 	kickeeRef	target		= (kickeeRef)arg;
 
 	/*
@@ -300,7 +352,7 @@ kicker(SCDynamicStoreRef store, CFArrayRef changedKeys, void *arg)
 	if (!target->changedKeys) {
 		target->changedKeys = CFArrayCreateMutable(NULL, 0, &kCFTypeArrayCallBacks);
 	}
-	for (i=0; i<CFArrayGetCount(changedKeys); i++) {
+	for (i = 0; i < n; i++) {
 		CFStringRef	key = CFArrayGetValueAtIndex(changedKeys, i);
 
 		if (!CFArrayContainsValue(target->changedKeys,
@@ -333,14 +385,14 @@ kicker(SCDynamicStoreRef store, CFArrayRef changedKeys, void *arg)
 
 
 /*
- * startkicker()
+ * startKicker()
  *
  * The first argument is a dictionary representing the keys
  * which need to be monitored for a given "target" and what
  * action should be taken if a change in one of those keys
  * is detected.
  */
-void
+static void
 startKicker(const void *value, void *context)
 {
 	CFMutableStringRef	name;
@@ -405,7 +457,7 @@ startKicker(const void *value, void *context)
 }
 
 
-CFArrayRef
+static CFArrayRef
 getTargets(CFBundleRef bundle)
 {
 	int			fd;
